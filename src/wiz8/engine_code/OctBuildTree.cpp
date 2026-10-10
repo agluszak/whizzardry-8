@@ -339,7 +339,7 @@ int W8OctBuildTree::CollectObjectsAlongSegment(W8GDSurface*** results,
     }
     g_oct_build_count = 0;
 
-    float length = delta->Length();
+    float length = glm::length(((*delta)).glmValue());
     if (length > extent) {
         extent = length;
     }

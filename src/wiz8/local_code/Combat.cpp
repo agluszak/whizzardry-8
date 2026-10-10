@@ -40,13 +40,10 @@
 #include "wiz8/local_code/CombatRange.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/sr_api.h"
-#include "wiz8/utility.h"
 #include "wiz8/local_code/Strings.h"
 #include "random.h"
-#include "wiz8/local_code/character_events.h"
 #include "wiz8/local_code/FormationAndFacing.h"
 #include "wiz8/local_code/LoadSaveGame.h"
-#include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterAI.h"
 #include "wiz8/engine_code/Cursor3d.h"
 #include "wiz8/engine_code/GameData.h"
@@ -89,6 +86,7 @@
 #include "wiz8/character_event_queue.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
 #include "wiz8/cursor.h"
+#include <glm/gtc/matrix_transform.hpp>
 
 #include <stdarg.h>
 #include <stdio.h>
@@ -2813,15 +2811,29 @@ bool CreateCharacterBreathEffect(int party_slot)
     GetCameraPosition(&camera);
     aim = target->point - camera;
     direction = aim;
-    aim.SetLength(1.0);
+    {
+        const auto direction_value = aim.glmValue();
+        if (glm::dot(direction_value, direction_value) != 0)
+            (aim) = glm::normalize(direction_value) * static_cast<float>(1.0);
+    }
     rotation.SetIdentity();
     yaw = atan2(aim.x, aim.z);
     if (yaw != g_double_zero) {
-        rotation.RotateAboutY(sin(yaw), cos(yaw));
+        {
+            rotation =
+                rotation.glmValue() * glm::mat3(glm::rotate(glm::dmat4(1), static_cast<double>(yaw),
+                                                            glm::dvec3(0, 1, 0)));
+        }
     }
-    aim = rotation.Transform(direction);
+    aim = srVector3T<float>{rotation.glmValue() * direction.glmValue()};
     pitch = -atan2(aim.y, aim.z);
-    rotation.RotateAboutX(pitch);
+    {
+        if (pitch != 0.0) {
+            rotation = rotation.glmValue() *
+                       glm::mat3(glm::rotate(glm::dmat4(1), static_cast<double>(pitch),
+                                             glm::dvec3(1, 0, 0)));
+        }
+    }
     g_combat_state->breath_visual = CreateAimedSpellEffect(
         g_spell_records[W8_SPELL_SPECIAL_ATTACK_CONE].resource_name, 1, &camera, &rotation, 0, 0);
     if (g_combat_state->breath_visual == 0) {

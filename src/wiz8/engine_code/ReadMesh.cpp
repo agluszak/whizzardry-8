@@ -15,8 +15,8 @@
 #include "wiz8/local_screens/PleaseWaitScreen.h"
 #include "wiz8/virtual_file.h"
 #include "wiz8/vector.h"
-
 #include "wiz8/filesystem.h"
+
 #include "surrender/srCore.h"
 #include "surrender/srNode.h"
 #include <algorithm>
@@ -27,9 +27,11 @@
 #include <span>
 #include <tuple>
 #include <stdlib.h>
+
 #include <math.h>
 #include <string.h>
 #include <stdio.h>
+#include <glm/gtc/matrix_transform.hpp>
 
 static int operator==(const srShader& left, const srShader& right)
 {
@@ -52,7 +54,21 @@ void ReadMeshTransform(wiz8::File* file, srVector3T<float>* location, srMatrix3T
     file->read_exact(&axis.z, sizeof(axis.z));
 
     rotation->SetIdentity();
-    rotation->RotateAroundAxis(angle, axis);
+    {
+        if (angle != 0.0) {
+            const auto rotation_axis = glm::dvec3(axis.glmValue());
+            const double rotation_sine = std::sin(angle);
+            const double rotation_cosine = std::cos(angle);
+            const auto axis_cross = glm::dmat3(glm::cross(rotation_axis, glm::dvec3(1, 0, 0)),
+                                               glm::cross(rotation_axis, glm::dvec3(0, 1, 0)),
+                                               glm::cross(rotation_axis, glm::dvec3(0, 0, 1)));
+            const auto axis_rotation = glm::mat3(
+                rotation_cosine * glm::dmat3(1) +
+                (1.0 - rotation_cosine) * glm::outerProduct(rotation_axis, rotation_axis) +
+                rotation_sine * axis_cross);
+            (*rotation) = ((*rotation)).glmValue() * axis_rotation;
+        }
+    }
 
     file->read_exact(&scale->x, sizeof(scale->x));
     file->read_exact(&scale->y, sizeof(scale->y));
@@ -1018,7 +1034,11 @@ try
         loaded_instance->setName("ReadSTMeshFromFile");
         if (version > 1 && loaded_instance != 0) {
             const double angle = 3.1415926;
-            rotation.RotateAboutX(sin(angle), cos(angle));
+            {
+                rotation = rotation.glmValue() *
+                           glm::mat3(glm::rotate(glm::dmat4(1), static_cast<double>(angle),
+                                                 glm::dvec3(1, 0, 0)));
+            }
             srVector3T<double> translated(location.x * 500.0, location.y * 500.0,
                                           location.z * 500.0);
             loaded_instance->setLocation(translated);

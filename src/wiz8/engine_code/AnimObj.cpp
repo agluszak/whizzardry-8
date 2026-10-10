@@ -504,9 +504,9 @@ unsigned char AnimObjGetBounds(W8AnimObj* animation, signed char list_index, uns
         }
         ((srNode*)instance)->getRotation(rotation);
         srVector3T<double> node_location = ((srNode*)instance)->getLocation();
-        translation.SetFromDouble(&node_location);
+        translation = glm::vec3((&node_location)->glmValue());
         srVector3T<double> node_scale = ((srNode*)instance)->getScale();
-        scale.SetFromDouble(&node_scale);
+        scale = glm::vec3((&node_scale)->glmValue());
         transformed_minimum = *minimum;
         transformed_maximum = *maximum;
         TransformBounds(&rotation, &translation, &scale, &transformed_minimum,
@@ -558,7 +558,8 @@ void TransformBounds(const srMatrix3T<float>* rotation, const srVector3T<float>*
         for (j = 0; j < 2; ++j) {
             for (k = 0; k < 2; ++k) {
                 srVector3T<float> point(corner[i].x, corner[j].y, corner[k].z);
-                srVector3T<float> transformed = rotation->Transform(point);
+                srVector3T<float> transformed =
+                    srVector3T<float>{((*rotation)).glmValue() * point.glmValue()};
                 float tx = (transformed.x + translation->x) * scale->x;
                 float ty = (transformed.y + translation->y) * scale->y;
                 float tz = (transformed.z + translation->z) * scale->z;

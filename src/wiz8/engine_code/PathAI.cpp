@@ -1,3 +1,4 @@
+#include <glm/gtc/quaternion.hpp>
 #include "wiz8/filesystem.h"
 #include "surrender/srMath.h"
 #include <cstdlib>
@@ -108,7 +109,20 @@ try
             handle->read_exact(&axis.z, 4);
             rotation.SetIdentity();
             if (angle != g_double_zero) {
-                rotation.RotateAroundAxis(sin(angle), cos(angle), axis);
+                {
+                    const auto rotation_axis = glm::dvec3(axis.glmValue());
+                    const double rotation_sine = sin(angle);
+                    const double rotation_cosine = cos(angle);
+                    const auto axis_cross =
+                        glm::dmat3(glm::cross(rotation_axis, glm::dvec3(1, 0, 0)),
+                                   glm::cross(rotation_axis, glm::dvec3(0, 1, 0)),
+                                   glm::cross(rotation_axis, glm::dvec3(0, 0, 1)));
+                    const auto axis_rotation = glm::mat3(
+                        rotation_cosine * glm::dmat3(1) +
+                        (1.0 - rotation_cosine) * glm::outerProduct(rotation_axis, rotation_axis) +
+                        rotation_sine * axis_cross);
+                    rotation = rotation.glmValue() * axis_rotation;
+                }
             }
             path->rotations[index] = rotation;
             if (path->version == 2) {
@@ -333,7 +347,7 @@ unsigned char PathAIAddPoint(W8PathAI* path, const srVector3T<float>* point)
     for (index = 0; index < path->nodes->GetCount() - 1; ++index) {
         const srVector3T<float>* first = *path->nodes->GetAt(index);
         const srVector3T<float>* second = *path->nodes->GetAt(index + 1);
-        total_length += (*first - *second).Length();
+        total_length += glm::length((((*first - *second))).glmValue());
     }
     path->total_length = total_length;
     if (path->position > g_float_zero && total_length > g_float_zero) {
@@ -465,7 +479,7 @@ void PathAIAdvanceByDistance(W8PathAI* path, float distance)
         PathAIPosition(path, &position);
         index = path->point_index + 1;
         next = *path->nodes->GetAt(index);
-        segment = (position - *next).Length();
+        segment = glm::length((((position - *next))).glmValue());
         if (remaining < segment) {
             break;
         }
@@ -482,7 +496,7 @@ void PathAIAdvanceByDistance(W8PathAI* path, float distance)
     index = path->point_index;
     next = *path->nodes->GetAt(index + 1);
     current = *path->nodes->GetAt(index);
-    segment = (*current - *next).Length();
+    segment = glm::length((((*current - *next))).glmValue());
     path->interpolation_fraction = (segment * path->interpolation_fraction + remaining) / segment;
 }
 
@@ -645,11 +659,11 @@ void PathAIApply(W8PathAI* path, srNode* target)
 
     node = target->first_child_;
     if (node == 0) {
-        location.SetFromFloat(&position);
+        location = glm::dvec3((&position)->glmValue());
         target->setLocation(location);
     } else {
         do {
-            location.SetFromFloat(&position);
+            location = glm::dvec3((&position)->glmValue());
             node->setLocation(location);
             node = node->next_sibling_;
         } while (node != 0);
@@ -672,7 +686,18 @@ void PathAIApply(W8PathAI* path, srNode* target)
         if (g_float_zero < blend) {
             next = path->rotations[index + 1];
             if (!(rotation == next)) {
-                W8Quaternion::InterpolateRotation(rotation, next, blend, &rotation);
+                const auto first_rotation = glm::dquat(glm::quat_cast(rotation.glmValue()));
+                auto next_rotation = glm::dquat(glm::quat_cast(next.glmValue()));
+                double rotation_dot = glm::dot(first_rotation, next_rotation);
+                if (rotation_dot < g_double_zero) {
+                    next_rotation = -next_rotation;
+                    rotation_dot = -rotation_dot;
+                }
+                const auto interpolated_rotation =
+                    g_double_one - rotation_dot <= g_slerp_epsilon
+                        ? first_rotation * (g_double_one - blend) + next_rotation * double(blend)
+                        : glm::slerp(first_rotation, next_rotation, double(blend));
+                rotation = glm::mat3(glm::mat3_cast(glm::normalize(interpolated_rotation)));
             }
         }
 
@@ -690,11 +715,11 @@ void PathAIApply(W8PathAI* path, srNode* target)
             scale_vector = &path->scales[index];
             node = target->first_child_;
             if (node == 0) {
-                location.SetFromFloat(scale_vector);
+                location = glm::dvec3((scale_vector)->glmValue());
                 target->setScale(location);
             } else {
                 do {
-                    location.SetFromFloat(scale_vector);
+                    location = glm::dvec3((scale_vector)->glmValue());
                     node->setScale(location);
                     node = node->next_sibling_;
                 } while (node != 0);

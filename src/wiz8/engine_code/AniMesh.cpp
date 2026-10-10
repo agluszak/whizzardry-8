@@ -198,7 +198,8 @@ float GetAniMeshFrameRadius(W8AniMesh* mesh, unsigned char frame)
                 model = model->next;
             } while (model != 0);
 
-            return static_cast<float>((minimum - maximum).Length() * g_double_half);
+            return static_cast<float>(glm::length((((minimum - maximum))).glmValue()) *
+                                      g_double_half);
         }
     }
     return g_float_zero;

@@ -3,10 +3,9 @@
 #include "surrender/srGERD.h"
 #include "surrender/srMaterialIFace.h"
 #include "surrender/srNode.h"
-#include "surrender/srVectorMath.h"
 #include "surrender/srVertexPipe.h"
-
 #include <array>
+
 #include <chrono>
 #include <cmath>
 #include <cstdio>
@@ -15,6 +14,7 @@
 #include <memory>
 #include <thread>
 #include <vector>
+#include "surrender/srMath.h"
 
 #define CHECK(expression)                                                      \
     do {                                                                       \

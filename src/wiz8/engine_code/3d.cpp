@@ -22,12 +22,13 @@
 #include "surrender/srIlluminator.h"
 #include "surrender/srMaterial.h"
 #include "surrender/srScene.h"
-#include "surrender/srVectorMath.h"
-
 #include <algorithm>
 #include <new>
 #include <stdlib.h>
+
 #include <string.h>
+#include "surrender/srMath.h"
+#include <cassert>
 
 #define THREE_D_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\3d.cpp"
 
@@ -198,18 +199,26 @@ unsigned char BakeInstanceVertexLighting(stModelInstance* instance, srNode* ligh
                 rotation.vectors[2].y == g_float_zero) {
                 if (count != 0 && (location.x != g_float_zero || location.y != g_float_zero ||
                                    location.z != g_float_zero)) {
-                    srMath::add(
-                        {world_vertices, static_cast<std::size_t>(static_cast<SRDWORD>(count))},
-                        location,
-                        {world_vertices, static_cast<std::size_t>(static_cast<SRDWORD>(count))});
+                    std::ranges::transform(
+                        std::span<const srVector3>{
+                            world_vertices, static_cast<std::size_t>(static_cast<SRDWORD>(count))},
+                        world_vertices,
+                        [&](const auto& v) { return location.glmValue() + v.glmValue(); });
                 }
             } else if (count != 0) {
                 srMatrix4T<float> transform;
                 transform.Set(rotation, location);
-                srMath::transform(
-                    {world_vertices, static_cast<std::size_t>(static_cast<SRDWORD>(count))},
-                    {world_vertices, static_cast<std::size_t>(static_cast<SRDWORD>(count))},
-                    transform);
+                {
+                    std::span<srVector3> input_destination{
+                        world_vertices, static_cast<std::size_t>(static_cast<SRDWORD>(count))};
+                    std::span<const srVector3> input_vectors{
+                        world_vertices, static_cast<std::size_t>(static_cast<SRDWORD>(count))};
+                    const srMatrix4& input_matrix = transform;
+                    const auto transform_matrix = input_matrix.glmValue();
+                    for (std::size_t i = 0; i < input_destination.size(); ++i)
+                        input_destination[i] = glm::vec3(
+                            transform_matrix * glm::vec4(input_vectors[i].glmValue(), 1.0f));
+                }
             }
         }
 
@@ -230,9 +239,17 @@ unsigned char BakeInstanceVertexLighting(stModelInstance* instance, srNode* ligh
             if (count != 0) {
                 srMatrix4T<float> transform;
                 transform.Set(rotation, origin);
-                srMath::transform(
-                    {world_normals, static_cast<std::size_t>(static_cast<SRDWORD>(count))},
-                    {normals, static_cast<std::size_t>(static_cast<SRDWORD>(count))}, transform);
+                {
+                    std::span<srVector3> input_destination{
+                        world_normals, static_cast<std::size_t>(static_cast<SRDWORD>(count))};
+                    std::span<const srVector3> input_vectors{
+                        normals, static_cast<std::size_t>(static_cast<SRDWORD>(count))};
+                    const srMatrix4& input_matrix = transform;
+                    const auto transform_matrix = input_matrix.glmValue();
+                    for (std::size_t i = 0; i < input_destination.size(); ++i)
+                        input_destination[i] = glm::vec3(
+                            transform_matrix * glm::vec4(input_vectors[i].glmValue(), 1.0f));
+                }
             }
         }
 
@@ -271,10 +288,15 @@ unsigned char BakeInstanceVertexLighting(stModelInstance* instance, srNode* ligh
                     float intensity = light->intensity;
                     for (w8_ulong index = 0; index < count; ++index) {
                         srVector3T<float> direction = directions[index];
-                        float distance = direction.Length();
+                        float distance = glm::length(direction.glmValue());
                         if (distance <= range) {
-                            direction.Normalize();
-                            float facing = DotProduct(direction, world_normals[index]);
+                            {
+                                const auto direction_value = direction.glmValue();
+                                if (glm::dot(direction_value, direction_value) != 0)
+                                    (direction) = glm::normalize(direction_value);
+                            }
+                            float facing =
+                                glm::dot(direction.glmValue(), world_normals[index].glmValue());
                             if (facing < g_double_zero) {
                                 double contribution =
                                     -facing * intensity * (g_double_one - distance / range);
@@ -1086,7 +1108,8 @@ bool SphereInsideFrustum(const srVector3T<float>* point, float radius, const W8P
     bool inside = true;
 
     for (short plane = 0; plane < 6 && inside; ++plane) {
-        if (DotProduct(*point, planes[plane].normal) + planes[plane].w < -radius) {
+        if (glm::dot((*point).glmValue(), planes[plane].normal.glmValue()) + planes[plane].w <
+            -radius) {
             inside = false;
         }
     }

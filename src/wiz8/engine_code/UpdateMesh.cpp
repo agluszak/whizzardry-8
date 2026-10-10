@@ -6,12 +6,13 @@
 #include "wiz8/3d_code/PList.h"
 #include "wiz8/3d_code/IList.h"
 #include "wiz8/sr_api.h"
-
 #include <math.h>
 
 #include "surrender/srMeshModel.h"
+
 #include "surrender/srModelInstance.h"
 #include "surrender/srCamera.h"
+#include <glm/gtc/matrix_transform.hpp>
 
 /* Convert the mesh view half-angle from degrees to radians. */
 // GLOBAL: WIZ8 0x005ED168
@@ -55,9 +56,13 @@ void CollectViewQuadCells(W8World* world, w8_long* x_list, w8_long* y_list, w8_l
     srMatrix3T<float> work = rotation;
     double angle = -g_mesh_view_half_angle_degrees * g_mesh_view_degrees_to_radians;
     if (angle != 0.0) {
-        work.RotateAboutY(sin(angle), cos(angle));
+        {
+            work =
+                work.glmValue() * glm::mat3(glm::rotate(glm::dmat4(1), static_cast<double>(angle),
+                                                        glm::dvec3(0, 1, 0)));
+        }
     }
-    direction = work.Transform(direction);
+    direction = srVector3T<float>{work.glmValue() * direction.glmValue()};
     w8_long edge1_x = cam_x + static_cast<w8_long>(direction.x / cell_size);
     w8_long edge1_y = cam_y + static_cast<w8_long>(direction.z / cell_size);
 
@@ -65,9 +70,13 @@ void CollectViewQuadCells(W8World* world, w8_long* x_list, w8_long* y_list, w8_l
     work = rotation;
     angle = g_mesh_view_half_angle_degrees * g_mesh_view_degrees_to_radians;
     if (angle != 0.0) {
-        work.RotateAboutY(sin(angle), cos(angle));
+        {
+            work =
+                work.glmValue() * glm::mat3(glm::rotate(glm::dmat4(1), static_cast<double>(angle),
+                                                        glm::dvec3(0, 1, 0)));
+        }
     }
-    direction = work.Transform(direction);
+    direction = srVector3T<float>{work.glmValue() * direction.glmValue()};
     w8_long edge2_x = cam_x + static_cast<w8_long>(direction.x / cell_size);
     w8_long edge2_y = cam_y + static_cast<w8_long>(direction.z / cell_size);
 

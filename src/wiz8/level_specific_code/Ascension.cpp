@@ -171,12 +171,14 @@ void AscensionAvalanche(bool command)
 
         position = GetWorld()->camera->getLocation();
         FindTriggerByName("ASC40")->GetPosition(&trigger_position);
-        if ((position - trigger_position).Length() < g_double_twenty_five_hundred) {
+        if (glm::length((((position - trigger_position))).glmValue()) <
+            g_double_twenty_five_hundred) {
             SetFact(W8_FACT_LANDSLIDE_RAPAX_SIDE, 1, false);
             SetFact(W8_FACT_LANDSLIDE_WILD_SIDE, 0, false);
         } else {
             FindTriggerByName("ASC30")->GetPosition(&trigger_position);
-            if ((position - trigger_position).Length() < g_double_twenty_five_hundred) {
+            if (glm::length((((position - trigger_position))).glmValue()) <
+                g_double_twenty_five_hundred) {
                 SetFact(W8_FACT_LANDSLIDE_RAPAX_SIDE, 0, false);
                 SetFact(W8_FACT_LANDSLIDE_WILD_SIDE, 1, false);
             }

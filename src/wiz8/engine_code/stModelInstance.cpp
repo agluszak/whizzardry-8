@@ -12,14 +12,15 @@
 #include "surrender/srMaterial.h"
 #include "surrender/srNode.h"
 #include "surrender/srTriMeshPipeline.h"
-#include "surrender/srVectorMath.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/sr_api.h"
-
 #include <math.h>
 #include <new>
+
 #include <string.h>
+#include "surrender/srMath.h"
+#include <cassert>
 
 #define ST_MODEL_INSTANCE_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\stModelInstance.cpp"
 
@@ -832,11 +833,11 @@ void stModelInstance::RenderMeshes(srGERD& renderer)
                             std::fill_n(g_vertex_scratch.data(), mesh.vertex_count,
                                         srVector3T<float>(0.0f, 0.0f, 0.0f));
                         } else {
-                            srMath::mul(
-                                {g_vertex_scratch.data(),
-                                 static_cast<std::size_t>(mesh.vertex_count)},
-                                offsets,
-                                {mesh.normals, static_cast<std::size_t>(mesh.vertex_count)});
+                            std::ranges::transform(
+                                std::span<const srVector3>{
+                                    mesh.normals, static_cast<std::size_t>(mesh.vertex_count)},
+                                g_vertex_scratch.data(),
+                                [&](const auto& v) { return offsets.glmValue() * v.glmValue(); });
                         }
                     }
                     std::transform(g_vertex_scratch.begin(), g_vertex_scratch.end(),

@@ -809,7 +809,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                                        ShowMonsterTargetMarker(monster_info) != 0) {
                                 srVector3T<float> delta;
                                 delta = own_position - g_startup_world->GetPosition();
-                                if (delta.Length() < 25000.0f &&
+                                if (glm::length(delta.glmValue()) < 25000.0f &&
                                     (npc->party_noticed = true, !gXStatus.fSurprisePossible) &&
                                     g_status.current_level != 4) {
                                     int party_slot = GetRandomCharacter(0, 0, -1, -1);

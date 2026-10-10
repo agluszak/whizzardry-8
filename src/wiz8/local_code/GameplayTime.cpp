@@ -928,7 +928,7 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
         }
         last_seen = monster->formation;
         delta = last_seen - location;
-        if (delta.Length() > 500.0f) {
+        if (glm::length(delta.glmValue()) > 500.0f) {
             srVector3T<float> probe = last_seen;
             srVector3T<float> camera;
 
@@ -980,7 +980,7 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
             if (static_cast<signed char>(cycle) < 4) {
                 bool cleared = false;
 
-                if (delta.Length() < 500.0f) {
+                if (glm::length(delta.glmValue()) < 500.0f) {
                     srVector3T<float> navigator_position = monster->GetPosition();
 
                     /* Retail resets the AI mode and pathing cooldown only once the
@@ -992,7 +992,8 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
                         srVector3T<float> next_position;
 
                         monster->movement.attachment->GetNextPosition(&next_position);
-                        if (next_position.Length() == static_cast<float>(g_double_zero)) {
+                        if (glm::length(next_position.glmValue()) ==
+                            static_cast<float>(g_double_zero)) {
                             next_position = monster->GetPosition();
                         }
                         {

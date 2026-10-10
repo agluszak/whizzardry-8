@@ -640,10 +640,10 @@ void UpdateWorldCameraAndPaths(W8World* world, unsigned int flags)
                                        camera_position.y - g_default_world_height,
                                        camera_position.z);
                 if (world->camera_light != 0) {
-                    render_position.SetFromFloat(&camera_position);
+                    render_position = glm::dvec3((&camera_position)->glmValue());
                     static_cast<srNode*>(world->camera_light)->setLocation(render_position);
                 }
-                render_position.SetFromFloat(&camera_position);
+                render_position = glm::dvec3((&camera_position)->glmValue());
                 static_cast<srNode*>(world->camera)->setLocation(render_position);
                 g_startup_world->SetPositionInternal(&navigator_position);
                 dx = camera_position.x - s_last_automap_refresh_position.x;
@@ -682,7 +682,7 @@ void UpdateWorldCameraAndPaths(W8World* world, unsigned int flags)
                 {
                     srVector3T<double> location = world->camera->getLocation();
                     srVector3T<float> party_point;
-                    party_point.SetFromDouble(&location);
+                    party_point = glm::vec3((&location)->glmValue());
                     PlacePartyAtPoint(&party_point);
                 }
                 world->camera->getRotation(path_rotation);
@@ -766,12 +766,12 @@ void SetWorldScenePosition(W8World* world, const srVector3T<float>* location)
 
     position = *location;
     if (world->camera != 0) {
-        render_position.SetFromFloat(&position);
+        render_position = glm::dvec3((&position)->glmValue());
         static_cast<srNode*>(world->camera)->setLocation(render_position);
         PlacePartyAtPoint(&position);
     }
     if (world->camera_light != 0) {
-        render_position.SetFromFloat(&position);
+        render_position = glm::dvec3((&position)->glmValue());
         static_cast<srNode*>(world->camera_light)->setLocation(render_position);
     }
 }
@@ -834,12 +834,12 @@ void WorldSetCameraLocation(W8World* world, const srVector3T<float>* location)
         srAssertFail("pWorld", THREE_D_API_CPP, 0x422, 0);
     }
     if (world->camera != 0) {
-        position.SetFromFloat(location);
+        position = glm::dvec3((location)->glmValue());
         world->camera->setLocation(position);
         PlacePartyAtPoint(location);
     }
     if (world->camera_light != 0) {
-        position.SetFromFloat(location);
+        position = glm::dvec3((location)->glmValue());
         world->camera_light->setLocation(position);
     }
 }
@@ -862,12 +862,12 @@ void SetWorldCameraState(W8World* world, W8World* source_world, W8WorldCameraSta
         }
         location = state->position;
         if (world->camera != 0) {
-            position.SetFromFloat(&location);
+            position = glm::dvec3((&location)->glmValue());
             ((srNode*)world->camera)->setLocation(position);
             PlacePartyAtPoint(&location);
         }
         if (world->camera_light != 0) {
-            position.SetFromFloat(&location);
+            position = glm::dvec3((&location)->glmValue());
             ((srNode*)world->camera_light)->setLocation(position);
         }
         world->camera->getRotation(rotation);
@@ -897,7 +897,7 @@ void RestoreWorldCameraState(W8World* world, W8World* source_world, W8WorldCamer
     }
     SetWorldCameraState(world, source_world, state);
     world->camera->getLocation(camera_location);
-    navigator_position.SetFromDouble(&camera_location);
+    navigator_position = glm::vec3((&camera_location)->glmValue());
     g_startup_world->SetAngles(GetCameraYawInDegrees());
     g_startup_world->SetPitch(GetCameraPitchInDegrees());
     navigator_position.y -= g_default_world_height;
@@ -1053,12 +1053,24 @@ unsigned char AdjustWorldCollisionPosition(float radius, srVector3T<float>* posi
 
     do {
         srVector3T<float> first(0.0f, 0.0f, radius);
-        first.RotateAboutY(sin(angle), cos(angle));
+        {
+            const double rotation_sine = sin(angle);
+            const double rotation_cosine = cos(angle);
+            const auto axis_rotation = glm::dmat3(rotation_cosine, 0, -rotation_sine, 0, 1, 0,
+                                                  rotation_sine, 0, rotation_cosine);
+            first = glm::vec3(axis_rotation * glm::dvec3(first.glmValue()));
+        }
         first += *position;
 
         double opposite_angle = angle + g_camera_pi;
         srVector3T<float> second(0.0f, 0.0f, radius);
-        second.RotateAboutY(sin(opposite_angle), cos(opposite_angle));
+        {
+            const double rotation_sine = sin(opposite_angle);
+            const double rotation_cosine = cos(opposite_angle);
+            const auto axis_rotation = glm::dmat3(rotation_cosine, 0, -rotation_sine, 0, 1, 0,
+                                                  rotation_sine, 0, rotation_cosine);
+            second = glm::vec3(axis_rotation * glm::dvec3(second.glmValue()));
+        }
         second += *position;
 
         g_octree->TraceLineOfSight(position, &first, true, -3, -3, true, 0);
@@ -1066,15 +1078,25 @@ unsigned char AdjustWorldCollisionPosition(float radius, srVector3T<float>* posi
 
         first -= *position;
         second -= *position;
-        float first_distance = first.Length();
-        if (first_distance < threshold && second.Length() < threshold) {
+        float first_distance = glm::length(first.glmValue());
+        if (first_distance < threshold && glm::length(second.glmValue()) < threshold) {
             return 0;
         }
         if (first_distance < threshold) {
-            first.SetLength(radius - first_distance);
+            {
+                const auto direction_value = first.glmValue();
+                if (glm::dot(direction_value, direction_value) != 0)
+                    (first) = glm::normalize(direction_value) *
+                              static_cast<float>(radius - first_distance);
+            }
             *position -= first;
         } else {
-            second.SetLength(radius - second.Length());
+            {
+                const auto direction_value = second.glmValue();
+                if (glm::dot(direction_value, direction_value) != 0)
+                    (second) = glm::normalize(direction_value) *
+                               static_cast<float>(radius - glm::length(second.glmValue()));
+            }
             *position -= second;
         }
         angle += 0.7853981256484985f;
@@ -1090,7 +1112,7 @@ unsigned char AdjustWorldCollisionPosition(float radius, srVector3T<float>* posi
                 owner->GetSearchPosition(&center);
                 owner->GetBoundsRadius(&other_radius);
                 srVector3T<float> delta = center - *position;
-                if (delta.Length() < other_radius + radius) {
+                if (glm::length(delta.glmValue()) < other_radius + radius) {
                     return 0;
                 }
             }
@@ -1108,7 +1130,7 @@ unsigned char AdjustWorldCollisionPosition(float radius, srVector3T<float>* posi
                 monster->GetAnimationCenter(&center);
                 monster->GetAnimationRadius(&other_radius);
                 srVector3T<float> delta = center - *position;
-                if (delta.Length() < other_radius + radius) {
+                if (glm::length(delta.glmValue()) < other_radius + radius) {
                     return 0;
                 }
             }
@@ -1134,7 +1156,13 @@ unsigned char FindNearbyFreePosition(float radius, srVector3T<float>* position, 
     float diameter = radius + radius;
     do {
         srVector3T<float> offset(0.0f, 0.0f, diameter);
-        offset.RotateAboutY(sin(angle), cos(angle));
+        {
+            const double rotation_sine = sin(angle);
+            const double rotation_cosine = cos(angle);
+            const auto axis_rotation = glm::dmat3(rotation_cosine, 0, -rotation_sine, 0, 1, 0,
+                                                  rotation_sine, 0, rotation_cosine);
+            offset = glm::vec3(axis_rotation * glm::dvec3(offset.glmValue()));
+        }
         candidate = offset + *position;
         srVector3T<float> unblocked = candidate;
 

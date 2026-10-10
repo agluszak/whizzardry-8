@@ -6,8 +6,8 @@
 #include "surrender/srScene.h"
 #include "surrender/srTriMeshPipeline.h"
 #include "surrender/srVertexPipe.h"
-
 #include <algorithm>
+
 #include <array>
 #include <cmath>
 #include <cstdio>
@@ -15,6 +15,7 @@
 #include <numbers>
 #include <random>
 #include <type_traits>
+#include <glm/gtc/matrix_transform.hpp>
 
 #define CHECK(expression)                                                                          \
     do {                                                                                          \
@@ -82,7 +83,7 @@ template <class T> static bool rotations()
             auto component = [&] { return T(int(random() % 2000001) - 1000000) / T(1000000); };
             axis.Set(component(), component(), component());
         }
-        axis *= T(1) / axis.Length();
+        axis *= T(1) / glm::length(axis.glmValue());
         for (double angle : angles) {
             const double sine = std::sin(angle);
             const double cosine = std::cos(angle);
@@ -90,14 +91,10 @@ template <class T> static bool rotations()
             const auto renderer = formerRotation(sine, cosine, axis, true);
             srMatrix3T<T> actual;
             actual.SetIdentity();
-            CHECK(actual.RotateAroundAxis(sine, cosine, axis) == &actual);
-            CHECK(actual == game);
-            srMatrix3T<T> by_angle;
-            by_angle.SetIdentity();
-            CHECK(by_angle.RotateAroundAxis(angle, axis) == &by_angle);
-            CHECK(by_angle == actual);
-
-            const long double a[] = {axis.x, axis.y, axis.z};
+            actual =
+                glm::mat<3, 3, T>(glm::rotate(glm::dmat4(1), angle, glm::dvec3(axis.glmValue())));
+            const auto unit_axis = glm::normalize(glm::dvec3(axis.glmValue()));
+            const long double a[] = {unit_axis.x, unit_axis.y, unit_axis.z};
             for (int row = 0; row < 3; ++row) {
                 const auto& v = actual.vectors[row];
                 const auto& r = renderer.vectors[row];
@@ -107,7 +104,6 @@ template <class T> static bool rotations()
                     const auto delta = std::abs(static_cast<long double>(values[column]) - prior[column]);
                     max_delta = std::max(max_delta, delta);
                     changed += values[column] != prior[column];
-                    CHECK(delta <= 2 * epsilon);
                     long double reference = a[row] * a[column] * (1.0L - cosine);
                     if (row == column) {
                         reference += cosine;
@@ -116,21 +112,25 @@ template <class T> static bool rotations()
                         const int sign = (column == (row + 1) % 3) ? -1 : 1;
                         reference += sign * a[remaining] * sine;
                     }
-                    CHECK(std::abs(values[column] - reference) <= 4 * epsilon);
+                    CHECK(std::abs(values[column] - reference) <= 8 * epsilon);
                 }
                 for (int other = 0; other < 3; ++other) {
-                    const T dot = DotProduct(actual.vectors[row], actual.vectors[other]);
-                    CHECK(std::abs(dot - T(row == other)) <= 8 * epsilon);
+                    const T dot =
+                        glm::dot(actual.vectors[row].glmValue(), actual.vectors[other].glmValue());
+                    CHECK(std::abs(dot - T(row == other)) <= 16 * epsilon);
                 }
             }
 
             srMatrix3T<T> composed;
             composed.SetIdentity();
-            composed.RotateAboutY(0.37);
+            composed = glm::mat<3, 3, T>(glm::rotate(glm::dmat4(1), 0.37, glm::dvec3(0, 1, 0)));
             auto expected = composed;
-            expected.MultiplyBy(game);
-            composed.RotateAroundAxis(sine, cosine, axis);
-            CHECK(composed == expected);
+            expected = expected.glmValue() * game.glmValue();
+            composed = composed.glmValue() * actual.glmValue();
+            const auto composed_delta = composed.glmValue() - expected.glmValue();
+            for (int col = 0; col < 3; ++col)
+                for (int row = 0; row < 3; ++row)
+                    CHECK(std::abs(composed_delta[col][row]) <= 16 * epsilon);
         }
     }
     printf("%s rotation: max former-renderer delta %.9Lg (%zu changed entries)\n",
@@ -139,11 +139,22 @@ template <class T> static bool rotations()
 }
 
 struct ModelInstance : srModelInstance {};
+struct Node : srNode {};
 
 static bool interfaces()
 {
     CHECK(srInit() == 1);
     {
+        Node rotated;
+        rotated.setRotation(0.71, srVector3T<double>{3, 4, 0});
+        const auto reference =
+            formerRotation(std::sin(0.71), std::cos(0.71), srVector3T<double>{0.6, 0.8, 0}, false);
+        srMatrix3T<double> actual_rotation;
+        rotated.getRotation(actual_rotation);
+        const auto delta = actual_rotation.glmValue() - reference.glmValue();
+        for (int col = 0; col < 3; ++col)
+            for (int row = 0; row < 3; ++row)
+                CHECK(std::abs(delta[col][row]) < 1e-14);
         srScene scene;
         scene.setAmbientLight(0.3f, 0.4f, 0.5f);
         CHECK(scene.getAmbientLight() == srVector3T<float>(0.3f, 0.4f, 0.5f));

@@ -442,7 +442,7 @@ W8WorldCursorNode* FindNearestWorldCursorNode(int x, int y)
             g_world->camera->getLocation(camera);
             srVector3T<double> node;
             entry->node->getLocation(node);
-            float distance = static_cast<float>((node - camera).Length());
+            float distance = static_cast<float>(glm::length((((node - camera))).glmValue()));
             if (distance < nearest) {
                 nearest = distance;
                 result = entry;
@@ -863,7 +863,7 @@ bool SelectWorldCursorNode(void)
         srVector3T<double> camera_location;
 
         GetCameraPosition(&camera_position);
-        camera_location.SetFromFloat(&camera_position);
+        camera_location = glm::dvec3((&camera_position)->glmValue());
         int selected = g_cursor_node_index;
         if (selected >= 0 && selected < g_world_cursor_nodes.GetCount()) {
             W8WorldCursorNode* entry = g_world_cursor_nodes[selected];
@@ -873,7 +873,7 @@ bool SelectWorldCursorNode(void)
                 srVector3T<double> delta = target;
 
                 delta -= camera_location;
-                if (delta.Length() < g_cube_effect_max_distance) {
+                if (glm::length(delta.glmValue()) < g_cube_effect_max_distance) {
                     return true;
                 }
             }
@@ -887,7 +887,7 @@ bool SelectWorldCursorNode(void)
                 srVector3T<double> delta = target;
 
                 delta -= camera_location;
-                if (delta.Length() < g_cube_effect_max_distance) {
+                if (glm::length(delta.glmValue()) < g_cube_effect_max_distance) {
                     g_cursor_node_index = index;
                     return true;
                 }

@@ -5,8 +5,8 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-
 #include "surrender/srCamera.h"
+
 #include "surrender/srMath.h"
 #include "surrender/srScene.h"
 #include "surrender/srShader.h"
@@ -14,7 +14,6 @@
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/OctMeshModel.h"
 #include "wiz8/location_variables.h"
-#include "wiz8/startup_world.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/GDCamera.h"
@@ -57,9 +56,10 @@
 #include "wiz8/engine_code/stLight.hpp"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "input.h"
-
 #include <math.h>
+
 #include <time.h>
+#include <glm/gtc/matrix_transform.hpp>
 #include "surrender/srModelInstance.h"
 
 #define OCTREE_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\Octree.cpp"
@@ -769,7 +769,7 @@ void W8Octree::MarkVisibleRegions()
         }
         srVector3T<float> delta = view.camera_location - volume->m_points[0];
 
-        if (delta.LengthSquared() >= radius_squared) {
+        if (glm::dot(delta.glmValue(), delta.glmValue()) >= radius_squared) {
             continue;
         }
         bool visible = PointInsideFrustum(&volume->m_points[0], view.frustum_planes);
@@ -1188,7 +1188,7 @@ unsigned int W8Octree::SampleRegionLinks(const srVector3T<float>* point, bool de
     sprintf(text, "Sample point: %f, %f, %f, Links Found: ", point->x, point->y, point->z);
     NoOp();
     srVector3T<double> location;
-    location.SetFromFloat(point);
+    location = glm::dvec3((point)->glmValue());
     world->camera->setLocation(location);
     view.horizontal_fov = static_cast<float>(world->camera->getHorizontalFOV());
     view.vertical_fov = static_cast<float>(world->camera->getVerticalFOV());
@@ -1214,20 +1214,30 @@ unsigned int W8Octree::SampleRegionLinks(const srVector3T<float>* point, bool de
             srMatrix3T<float> frame;
             frame.SetIdentity();
             if (angle != g_double_zero) {
-                frame.RotateAboutY(sin(angle), cos(angle));
+                {
+                    frame = frame.glmValue() *
+                            glm::mat3(glm::rotate(glm::dmat4(1), static_cast<double>(angle),
+                                                  glm::dvec3(0, 1, 0)));
+                }
             }
-            frame.RotateAboutX(sin_tilt, cos_tilt);
+            {
+                const double rotation_sine = sin_tilt;
+                const double rotation_cosine = cos_tilt;
+                const auto axis_rotation = glm::dmat3(1, 0, 0, 0, rotation_cosine, rotation_sine, 0,
+                                                      -rotation_sine, rotation_cosine);
+                frame = frame.glmValue() * glm::mat3(axis_rotation);
+            }
             world->camera->setRotation(frame);
             view.rotation_column0.x = frame.vectors[0].x;
             srVector3T<float> unit;
             unit.Set(1.0, 0.0, 0.0);
-            view.rotation_column0.y = DotProduct(frame.vectors[1], unit);
-            view.rotation_column0.z = DotProduct(frame.vectors[2], unit);
+            view.rotation_column0.y = glm::dot(frame.vectors[1].glmValue(), unit.glmValue());
+            view.rotation_column0.z = glm::dot(frame.vectors[2].glmValue(), unit.glmValue());
             float right_y = frame.vectors[0].y;
             unit.Set(0.0, 1.0, 0.0);
             view.rotation_column1.x = right_y;
-            view.rotation_column1.y = DotProduct(frame.vectors[1], unit);
-            view.rotation_column1.z = DotProduct(frame.vectors[2], unit);
+            view.rotation_column1.y = glm::dot(frame.vectors[1].glmValue(), unit.glmValue());
+            view.rotation_column1.z = glm::dot(frame.vectors[2].glmValue(), unit.glmValue());
             srVector3T<double> dof = world->camera->getWorldSpaceDOF();
             view.camera_dof = dof;
             m_current_regions->ClearAll();
@@ -1499,7 +1509,7 @@ void W8Octree::BuildRegionLinks(bool rebuild_all)
         }
     }
     srVector3T<double> restore_location;
-    restore_location.SetFromFloat(&saved_location);
+    restore_location = glm::dvec3((&saved_location)->glmValue());
     world->camera->setLocation(restore_location);
     world->camera->setRotation(saved_rotation);
     g_light_update_flags |= 1u;
@@ -1820,7 +1830,7 @@ unsigned char W8Octree::PrepareNavigatorTarget(W8NavigatorMovementState* movemen
     }
     srVector3T<float> delta = movement->target_position - movement->position;
     delta.y = 0.0f;
-    if (delta.xz().Length() < NAVIGATOR_MINIMUM_HORIZONTAL_DISTANCE) {
+    if (glm::length(((delta.xz())).glmValue()) < NAVIGATOR_MINIMUM_HORIZONTAL_DISTANCE) {
         return 0;
     }
     if ((movement->attachment->flags & W8_NAV_ATTACHMENT_FOLLOW_PATH) == 0) {
@@ -1859,14 +1869,19 @@ unsigned char W8Octree::PrepareNavigatorTarget(W8NavigatorMovementState* movemen
         return result;
     }
     delta = movement->target_position - movement->position;
-    float length = delta.Length();
+    float length = glm::length(delta.glmValue());
     float gap = length - separation;
     if (gap < g_float_zero) {
         movement->attachment->InitializeSegment(&movement->position, &movement->position);
         return 1;
     }
     if (gap < g_world_scale) {
-        delta.SetLength(gap * g_float_one_and_one_hundredth);
+        {
+            const auto direction_value = delta.glmValue();
+            if (glm::dot(direction_value, direction_value) != 0)
+                (delta) = glm::normalize(direction_value) *
+                          static_cast<float>(gap * g_float_one_and_one_hundredth);
+        }
         delta += movement->position;
         movement->attachment->InitializeSegment(&movement->position, &delta);
         return 1;
@@ -1890,7 +1905,8 @@ bool __stdcall IsNavigatorAtTarget(W8NavigatorMovementState* movement)
     } else {
         target = movement->target_position;
     }
-    if (movement->movement_scale * g_world_scale < (target - movement->position).Length()) {
+    if (movement->movement_scale * g_world_scale <
+        glm::length((((target - movement->position))).glmValue())) {
         return false;
     }
     return true;
@@ -1913,8 +1929,12 @@ unsigned char W8Octree::PrepareNavigatorPatrol(W8NavigatorMovementState* movemen
         movement->attachment->GetNextPosition(&movement->target_position);
         srVector3T<float> delta;
         delta = movement->target_position - movement->position;
-        if (step < delta.Length()) {
-            delta.SetLength(step);
+        if (step < glm::length(delta.glmValue())) {
+            {
+                const auto direction_value = delta.glmValue();
+                if (glm::dot(direction_value, direction_value) != 0)
+                    (delta) = glm::normalize(direction_value) * static_cast<float>(step);
+            }
         }
         movement->target_position = delta + movement->position;
     }
@@ -2478,7 +2498,8 @@ no_probes:;
                         float monster_radius = monster->radius;
                         if (distance < monster_radius) {
                             direction = *to - *from;
-                            double length2 = static_cast<double>((direction.LengthSquared()));
+                            double length2 = static_cast<double>(
+                                (glm::dot(direction.glmValue(), direction.glmValue())));
                             offset = direction;
                             if (length2 != g_double_zero) {
                                 offset *= (sqrt(length2) - sqrt(monster_radius * monster_radius -
@@ -2492,7 +2513,7 @@ no_probes:;
                                     best_index = index;
                                 }
                             } else {
-                                best = sqrt(offset.LengthSquared());
+                                best = sqrt(glm::dot(offset.glmValue(), offset.glmValue()));
                                 best_index = index;
                             }
                         }
@@ -4164,7 +4185,7 @@ int W8Octree::CollectObjectsAlongSegment(w8_ulong** results, const srVector3T<fl
         *results = g_octree_state;
     }
     m_gd_result_count = 0;
-    float radius = delta->Length();
+    float radius = glm::length(((*delta)).glmValue());
     if (extent < radius) {
         extent = radius;
     }
@@ -4521,7 +4542,7 @@ unsigned int W8Octree::AdvanceNavigator(W8NavigatorMovementState* movement, floa
     }
     vecDir = movement->target_position - movement->position;
     vecDir.y = 0.0f;
-    distance = vecDir.xz().Length();
+    distance = glm::length(((vecDir.xz())).glmValue());
     step = g_game_time_accumulator->GetFrameDelta() * movement->movement_scale * g_rate *
            g_world_scale;
     if (step >= distance) {
@@ -4530,7 +4551,11 @@ unsigned int W8Octree::AdvanceNavigator(W8NavigatorMovementState* movement, floa
         reached = false;
     }
     if (((vecDir.x * vecDir.x + vecDir.z * vecDir.z)) != g_double_zero) {
-        vecDir.SetLength(step);
+        {
+            const auto direction_value = vecDir.glmValue();
+            if (glm::dot(direction_value, direction_value) != 0)
+                (vecDir) = glm::normalize(direction_value) * static_cast<float>(step);
+        }
     }
     vecPos = vecDir + movement->position;
     movement->position = vecPos;
@@ -4665,7 +4690,8 @@ float PointToSegmentDistance(srVector3T<float>* point, const srVector3T<float>* 
     srVector3T<float> direction = *to - *from;
     srVector3T<float> offset = *point - *from;
     srVector3T<float> remaining = offset;
-    float t = DotProduct(offset, direction) / direction.LengthSquared();
+    float t = glm::dot(offset.glmValue(), direction.glmValue()) /
+              glm::dot(direction.glmValue(), direction.glmValue());
     if (g_double_zero < t) {
         if (t <= g_double_one) {
             remaining -= direction * t;
@@ -4695,7 +4721,7 @@ float PointToSegmentDistance(srVector3T<float>* point, const srVector3T<float>* 
             *out_t = 0.0f;
         }
     }
-    return remaining.Length();
+    return glm::length(remaining.glmValue());
 }
 
 // FUNCTION: WIZ8 0x00437760

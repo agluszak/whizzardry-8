@@ -13,7 +13,6 @@
 #include "surrender/srQuadWord.h"
 #include "surrender/srScene.h"
 #include "surrender/srTextureFile.h"
-#include "surrender/srVectorMath.h"
 #include <cfenv>
 #include <algorithm>
 #include <array>
@@ -24,6 +23,7 @@
 #include "wiz8/sr_api.h"
 #include <cstdio>
 #include <cstring>
+#include <cassert>
 
 #define CHECK(expression)                                                                          \
     do                                                                                             \
@@ -241,7 +241,27 @@ int main()
         vectors.values[0].Set(5, -2, 7);
         vectors.values[1].Set(-3, 9, 1);
         CHECK(reinterpret_cast<uintptr_t>(&vectors.values[0]) % alignof(float) != 0);
-        srMath::minMax(vectors.values, vectors.minimum, vectors.maximum);
+        {
+            std::span<const srVector3> input_source = vectors.values;
+            srVector3& input_minimum = vectors.minimum;
+            srVector3& input_maximum = vectors.maximum;
+            assert(!input_source.empty());
+            auto lower = input_source.front().glmValue();
+            auto upper = lower;
+            for (const auto& point : input_source.subspan(1)) {
+                const auto v = point.glmValue();
+                // Keep the comparison order for NaNs in recovered bounds.
+                for (int c = 0; c < 3; ++c) {
+                    if (v[c] >= lower[c]) {
+                        if (v[c] > upper[c])
+                            upper[c] = v[c];
+                    } else
+                        lower[c] = v[c];
+                }
+            }
+            input_minimum = lower;
+            input_maximum = upper;
+        }
         CHECK(vectors.minimum.x == -3 && vectors.minimum.y == -2 && vectors.minimum.z == 1);
         CHECK(vectors.maximum.x == 5 && vectors.maximum.y == 9 && vectors.maximum.z == 7);
         // File names own their text, including an aliased setter argument.

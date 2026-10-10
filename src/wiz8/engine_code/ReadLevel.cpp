@@ -7,8 +7,8 @@
 #include "wiz8/utility.h"
 #include "wiz8/geometry.h"
 #include "wiz8/3d_code/IList.h"
-
 #include "wiz8/engine_code/AnimObj.h"
+
 #include "wiz8/engine_code/PathAI.h"
 #include "surrender/srClipPlane.h"
 #include "wiz8/engine_code/Environment.h"
@@ -39,6 +39,7 @@
 #include "wiz8/engine_code/stMeshModel.h"
 #include "wiz8/engine_code/3dapi.h"
 #include "wiz8/local_screens/AutomapScreen.h"
+#include <glm/gtc/matrix_transform.hpp>
 
 #define READ_LEVEL_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\ReadLevel.cpp"
 
@@ -388,7 +389,19 @@ try
 
         rotation.SetIdentity();
         if (angle != 0.0f) {
-            rotation.RotateAroundAxis(sin(angle), cos(angle), axis);
+            {
+                const auto rotation_axis = glm::dvec3(axis.glmValue());
+                const double rotation_sine = sin(angle);
+                const double rotation_cosine = cos(angle);
+                const auto axis_cross = glm::dmat3(glm::cross(rotation_axis, glm::dvec3(1, 0, 0)),
+                                                   glm::cross(rotation_axis, glm::dvec3(0, 1, 0)),
+                                                   glm::cross(rotation_axis, glm::dvec3(0, 0, 1)));
+                const auto axis_rotation = glm::mat3(
+                    rotation_cosine * glm::dmat3(1) +
+                    (1.0 - rotation_cosine) * glm::outerProduct(rotation_axis, rotation_axis) +
+                    rotation_sine * axis_cross);
+                rotation = rotation.glmValue() * axis_rotation;
+            }
         }
         ApplyCameraRotation(&rotation);
     }
@@ -835,9 +848,9 @@ try
 
         _strupr(record.name);
         particle->setName(record.name);
-        axis.SetFromFloat(&record.rotation_axis);
+        axis = glm::dvec3((&record.rotation_axis)->glmValue());
         particle->rotate(record.rotation_angle, axis);
-        location.SetFromFloat(&record.location);
+        location = glm::dvec3((&record.location)->glmValue());
         location *= g_world_scale;
         particle->setLocation(location);
         particle->rotateX(1.5707963);
@@ -902,13 +915,33 @@ try
 
             rotation.SetIdentity();
             if (record.rotation_angle != 0.0f) {
-                rotation.RotateAroundAxis(sin(record.rotation_angle), cos(record.rotation_angle),
-                                          record.rotation_axis);
+                {
+                    const auto rotation_axis = glm::dvec3(record.rotation_axis.glmValue());
+                    const double rotation_sine = sin(record.rotation_angle);
+                    const double rotation_cosine = cos(record.rotation_angle);
+                    const auto axis_cross =
+                        glm::dmat3(glm::cross(rotation_axis, glm::dvec3(1, 0, 0)),
+                                   glm::cross(rotation_axis, glm::dvec3(0, 1, 0)),
+                                   glm::cross(rotation_axis, glm::dvec3(0, 0, 1)));
+                    const auto axis_rotation = glm::mat3(
+                        rotation_cosine * glm::dmat3(1) +
+                        (1.0 - rotation_cosine) * glm::outerProduct(rotation_axis, rotation_axis) +
+                        rotation_sine * axis_cross);
+                    rotation = rotation.glmValue() * axis_rotation;
+                }
             }
-            rotation.RotateAboutX(sin(angle), cos(angle));
+            {
+                rotation = rotation.glmValue() *
+                           glm::mat3(glm::rotate(glm::dmat4(1), static_cast<double>(angle),
+                                                 glm::dvec3(1, 0, 0)));
+            }
             direction.Set(0.0, 0.0, -1.0);
-            transformed = rotation.Transform(direction);
-            transformed.Unitize();
+            transformed = srVector3T<float>{rotation.glmValue() * direction.glmValue()};
+            {
+                const auto direction_value = transformed.glmValue();
+                if (glm::dot(direction_value, direction_value) != 0)
+                    (transformed) = glm::normalize(direction_value);
+            }
             particle->direction_mode = W8_PARTICLE_DIRECTION_FIXED;
             particle->direction = transformed;
         } else if (record.direction_mode == W8_PARTICLE_DIRECTION_NODE_FORWARD) {

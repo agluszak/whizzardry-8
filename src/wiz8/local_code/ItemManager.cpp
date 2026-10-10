@@ -880,7 +880,7 @@ void DropHeldItem(int)
 
     srMatrix3T<float> rotation;
     WorldGetCameraRotation(g_world, &rotation);
-    direction = rotation.Transform(direction);
+    direction = srVector3T<float>{rotation.glmValue() * direction.glmValue()};
 
     srVector3T<float> camera;
     GetCameraPosition(&camera);
@@ -888,7 +888,7 @@ void DropHeldItem(int)
     g_octree->TraceLineOfSight(&camera, &direction, true, -3, -3, true, 0);
 
     srVector3T<float> delta = direction - camera;
-    float distance_squared = delta.LengthSquared();
+    float distance_squared = glm::dot(delta.glmValue(), delta.glmValue());
     float distance = static_cast<float>(sqrt(distance_squared)) - g_float_one_hundred_twenty_five;
     if (distance < g_float_zero) {
         distance = g_float_zero;
@@ -1067,7 +1067,7 @@ bool IsWorldItemWithinReach(W8Item* owner, const srVector3T<float>* from, float 
     GetCameraPosition(&eye);
 
     srVector3T<float> delta = position - *from;
-    if (delta.Length() < radius) {
+    if (glm::length(delta.glmValue()) < radius) {
         owner->GetCachedLocalBounds(&lower, &upper);
         lower += position;
         upper += position;
@@ -1092,7 +1092,7 @@ static bool IsWorldItemMarkerVisible(W8WorldItem* item, const srVector3T<float>&
         item->p3D->m_pRep->GetLocation(&position);
         GetCameraPosition(&eye);
         srVector3T<float> delta = position - camera;
-        if (delta.Length() < static_cast<float>(g_double_twenty_five_hundred)) {
+        if (glm::length(delta.glmValue()) < static_cast<float>(g_double_twenty_five_hundred)) {
             item->p3D->GetCachedLocalBounds(&lower, &upper);
             lower += position;
             upper += position;

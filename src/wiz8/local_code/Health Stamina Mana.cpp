@@ -338,7 +338,7 @@ void DamageMonstersInRadius(const srVector3T<float>& center, float radius, const
             MonsterGetLocation(monster_info->p3D, &location);
             offset = srVector3T<float>(center.x - location.x, center.y - location.y,
                                        center.z - location.z);
-            if (offset.Length() <= radius) {
+            if (glm::length(offset.glmValue()) <= radius) {
                 damage = RollDice(dice);
                 ApplyDamageToMonster(monster_info, damage, source, false, 1, 0, result, false);
             }

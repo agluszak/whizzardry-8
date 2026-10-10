@@ -51,7 +51,7 @@ void srCamera::processPush(srGERD* renderer)
 
     /* The view transform reverses the inverse world matrix's Z row. */
     srMatrix4T<double> view;
-    view.Inverse(world);
+    view = glm::inverse(world.glmValue());
     view.vectors[2] = -view.vectors[2];
 
     renderer->matrixMode(srGERD::MATRIX_MODELVIEW);
@@ -380,7 +380,7 @@ srCamera::e_projectionResult srCamera::project(srVector3T<float>& output,
     getWorldSpaceRotation(rotation);
     srVector3T<double> location = getWorldSpaceLocation();
     srVector3T<double> delta = input - location;
-    srVector3T<double> point = rotation.Transform(delta);
+    srVector3T<double> point = srVector3T<double>{rotation.glmValue() * delta.glmValue()};
 
     double near_clip = this->near_clip < this->far_clip ? this->near_clip : this->far_clip;
     double far_clip = this->near_clip < this->far_clip ? this->far_clip : this->near_clip;
@@ -450,7 +450,8 @@ int srCamera::unproject(srVector3T<float>& output, const srVector3T<double>& inp
             point.x = x;
             point.y = y;
             point.z = depth;
-            srVector3T<double> world = rotation.TransformTransposed(point);
+            srVector3T<double> world =
+                srVector3T<double>{glm::transpose(rotation.glmValue()) * point.glmValue()};
             output.x = (float)(world.x + location.x);
             output.y = (float)(world.y + location.y);
             output.z = (float)(world.z + location.z);

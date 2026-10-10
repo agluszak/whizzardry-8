@@ -430,7 +430,8 @@ bool W8MonsterInfoDialog::PopulateText()
             L"Range (Combat/Ground)",
             FormatWideString(
                 L"%5.2f / %5.2f M", combat_range * g_float_one_five_hundredth,
-                (monster_info->p3D->GetPosition() - g_startup_world->GetPosition()).Length() *
+                glm::length((((monster_info->p3D->GetPosition() - g_startup_world->GetPosition())))
+                                .glmValue()) *
                     g_world_cursor_scale),
             5, 0xf, 0);
         leader_info = MonsterInfoFromID(0x1d6, MONSTER_INFO_DIALOG_CPP, leader_location_id, true);

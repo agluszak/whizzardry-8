@@ -100,7 +100,7 @@ W8SearchableView* CollectSearchablesInView(void)
         srVector3T<float> position;
         searchable->GetPosition(&position);
         srVector3T<float> delta = camera - position;
-        if (delta.Length() < g_search_radius) {
+        if (glm::length(delta.glmValue()) < g_search_radius) {
             if (searchable->world_item == 0 && searchable->trigger != 0) {
                 g_search_view.items.Add(searchable);
             } else {
@@ -368,7 +368,7 @@ int W8Searchable::PickBestSearcher()
     srVector3T<float> position;
     GetPosition(&position);
     srVector3T<float> delta = camera - position;
-    if (delta.Length() < range) {
+    if (glm::length(delta.glmValue()) < range) {
         if (earned) {
             PracticeCharacterSkill(&g_status.buffers.Char[best_slot], W8_SKILL_SCOUTING, 5, false);
         }

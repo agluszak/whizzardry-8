@@ -173,15 +173,16 @@ int AutoSmoother::isSmooth(w8_ulong first, w8_ulong second, double cosine, int s
             }
         }
     }
-    srVector3T<float> first_normal =
-        CrossProduct(first_triangle->vertices[0].position - first_triangle->vertices[1].position,
-                     first_triangle->vertices[2].position - first_triangle->vertices[1].position);
-    srVector3T<float> second_normal =
-        CrossProduct(second_triangle->vertices[0].position - second_triangle->vertices[1].position,
-                     second_triangle->vertices[2].position - second_triangle->vertices[1].position);
-    float magnitude = first_normal.Length() * second_normal.Length();
+    srVector3T<float> first_normal = srVector3T{glm::cross(
+        (first_triangle->vertices[0].position - first_triangle->vertices[1].position).glmValue(),
+        (first_triangle->vertices[2].position - first_triangle->vertices[1].position).glmValue())};
+    srVector3T<float> second_normal = srVector3T{glm::cross(
+        (second_triangle->vertices[0].position - second_triangle->vertices[1].position).glmValue(),
+        (second_triangle->vertices[2].position - second_triangle->vertices[1].position)
+            .glmValue())};
+    float magnitude = glm::length(first_normal.glmValue()) * glm::length(second_normal.glmValue());
     if (0.0 < magnitude) {
-        if (DotProduct(first_normal, second_normal) / magnitude <= cosine) {
+        if (glm::dot(first_normal.glmValue(), second_normal.glmValue()) / magnitude <= cosine) {
             return 0;
         }
         return 1;
@@ -703,13 +704,13 @@ void srModeler::findClosestVertex(const srVector3T<float>& position, w8_ulong& t
            and the best distance in a double; nothing is rounded to float. */
         const srVector3T<float>& first = current->vertices[0].position;
         srVector3T<double> delta(first.x - position.x, first.y - position.y, first.z - position.z);
-        double best = delta.LengthSquared();
+        double best = glm::dot(delta.glmValue(), delta.glmValue());
         for (w8_ulong index = 0; index < triangle_count; ++index) {
             for (w8_ulong slot = 0; slot < 3; ++slot) {
                 const srVector3T<float>& location = current->vertices[slot].position;
                 srVector3T<double> offset(location.x - position.x, location.y - position.y,
                                           location.z - position.z);
-                double distance = offset.LengthSquared();
+                double distance = glm::dot(offset.glmValue(), offset.glmValue());
                 if (distance < best) {
                     triangle = index;
                     vertex = slot;
@@ -732,7 +733,8 @@ double srModeler::getMaxVertexDist()
     for (w8_ulong index = 0; index < triangle_count; ++index) {
         for (int vertex = 0; vertex < 3; ++vertex) {
             /* Retail compares and keeps the unrounded register sum. */
-            double distance = triangle->vertices[vertex].position.LengthSquared();
+            double distance = glm::dot((triangle->vertices[vertex].position).glmValue(),
+                                       (triangle->vertices[vertex].position).glmValue());
             if (distance > maximum) {
                 maximum = distance;
             }

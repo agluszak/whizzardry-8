@@ -50,7 +50,6 @@
 #include "surrender/srModelInstance.h"
 #include "surrender/srScene.h"
 
-#include "wiz8/filesystem.h"
 #include "wiz8/local_screens/AutomapScreen.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
@@ -568,7 +567,21 @@ unsigned char LoadLevel(int requested_level, int entrance, bool restoring_game)
                 axis = trigger->direction;
                 rotation.SetIdentity();
                 if (trigger->angle != 0.0f) {
-                    rotation.RotateAroundAxis(sin(trigger->angle), cos(trigger->angle), axis);
+                    {
+                        const auto rotation_axis = glm::dvec3(axis.glmValue());
+                        const double rotation_sine = sin(trigger->angle);
+                        const double rotation_cosine = cos(trigger->angle);
+                        const auto axis_cross =
+                            glm::dmat3(glm::cross(rotation_axis, glm::dvec3(1, 0, 0)),
+                                       glm::cross(rotation_axis, glm::dvec3(0, 1, 0)),
+                                       glm::cross(rotation_axis, glm::dvec3(0, 0, 1)));
+                        const auto axis_rotation =
+                            glm::mat3(rotation_cosine * glm::dmat3(1) +
+                                      (1.0 - rotation_cosine) *
+                                          glm::outerProduct(rotation_axis, rotation_axis) +
+                                      rotation_sine * axis_cross);
+                        rotation = rotation.glmValue() * axis_rotation;
+                    }
                 }
                 ApplyCameraRotation(&rotation);
             }

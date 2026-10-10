@@ -1227,7 +1227,7 @@ static int BuildRegionPolygons(W8LevelFile* level, W8OctPreTreeGeometry* geometr
                     normal.z += (prev->m_original_position.y - next->m_original_position.y) *
                                 cur->m_original_position.x;
                 }
-                length = sqrt(normal.LengthSquared());
+                length = sqrt(glm::dot(normal.glmValue(), normal.glmValue()));
                 normal.x /= length;
                 normal.y /= length;
                 normal.z /= length;
@@ -1254,7 +1254,8 @@ static int BuildRegionPolygons(W8LevelFile* level, W8OctPreTreeGeometry* geometr
                 for (corner = 0; corner < 3; ++corner) {
                     current = vertices + vertex_index[corner];
                     if (current->m_normal_count != 0) {
-                        length = sqrt(current->m_normal.LengthSquared());
+                        length = sqrt(glm::dot((current->m_normal).glmValue(),
+                                               (current->m_normal).glmValue()));
                         if ((current->m_normal.z / length) * normal.z +
                                 (current->m_normal.y / length) * normal.y +
                                 (current->m_normal.x / length) * normal.x <
@@ -1494,7 +1495,7 @@ static int AccumulateVertexLight(OctPreTree* tree, W8OctPreTreeVertex* vertex, s
     do {
         if ((light->version < 2) || ((light->create == 0) && (light->visible != 0))) {
             delta = light->position - vertex->position;
-            distance = delta.Length();
+            distance = glm::length(delta.glmValue());
             if ((distance < light->range) || ((sun_map != 0) && (*sun != 0))) {
                 ++g_light_candidates;
                 dot = (delta.x / distance) * vertex->m_normal.x +

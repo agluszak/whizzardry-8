@@ -5,9 +5,11 @@
 
 #include "surrender/srCore.h"
 #include "surrender/srDebug.h"
-#include "surrender/srVectorMath.h"
-
 #include <ostream>
+#include "surrender/srMath.h"
+#include <algorithm>
+
+#include <cassert>
 
 /* Comma-separated operation names srMaterial::dump walks while printing the operations bits; never
    assigned. */
@@ -194,9 +196,11 @@ void srMaterial::postProcess(srVertexPipe& pipe)
                     }
                     color = pipe.vertex_array->specular + pipe.batch_base + pipe.sub_batch_offset;
                     if (vertex_count != 0) {
-                        srMath::mul(
-                            {color, vertex_count}, {color, vertex_count},
-                            {pipe.scratch.depth_cue + pipe.sub_batch_offset, vertex_count});
+                        std::ranges::transform(
+                            std::span<const srVector4>{color, vertex_count},
+                            std::span<const float>{pipe.scratch.depth_cue + pipe.sub_batch_offset,
+                                                   vertex_count},
+                            color, [&](const auto& a, const auto& b) { return a.glmValue() * b; });
                     }
                     blend = 0;
                 }
@@ -214,9 +218,11 @@ void srMaterial::postProcess(srVertexPipe& pipe)
                     }
                     color = pipe.vertex_array->diffuse + pipe.batch_base + pipe.sub_batch_offset;
                     if (vertex_count != 0) {
-                        srMath::mul(
-                            {color, vertex_count}, {color, vertex_count},
-                            {pipe.scratch.depth_cue + pipe.sub_batch_offset, vertex_count});
+                        std::ranges::transform(
+                            std::span<const srVector4>{color, vertex_count},
+                            std::span<const float>{pipe.scratch.depth_cue + pipe.sub_batch_offset,
+                                                   vertex_count},
+                            color, [&](const auto& a, const auto& b) { return a.glmValue() * b; });
                     }
                     blend = 0;
                 }
@@ -239,8 +245,11 @@ channels_done:
             }
             color = pipe.vertex_array->diffuse + pipe.batch_base + pipe.sub_batch_offset;
             if (vertex_count != 0) {
-                srMath::mul({color, vertex_count}, {color, vertex_count},
-                            {pipe.scratch.depth_cue + pipe.sub_batch_offset, vertex_count});
+                std::ranges::transform(
+                    std::span<const srVector4>{color, vertex_count},
+                    std::span<const float>{pipe.scratch.depth_cue + pipe.sub_batch_offset,
+                                           vertex_count},
+                    color, [&](const auto& a, const auto& b) { return a.glmValue() * b; });
             }
         }
         if ((pipe.channel_mask & (1UL << srVertexProcessor::CHANNEL_SPECULAR)) != 0) {
@@ -253,8 +262,11 @@ channels_done:
             }
             color = pipe.vertex_array->specular + pipe.batch_base + pipe.sub_batch_offset;
             if (vertex_count != 0) {
-                srMath::mul({color, vertex_count}, {color, vertex_count},
-                            {pipe.scratch.depth_cue + pipe.sub_batch_offset, vertex_count});
+                std::ranges::transform(
+                    std::span<const srVector4>{color, vertex_count},
+                    std::span<const float>{pipe.scratch.depth_cue + pipe.sub_batch_offset,
+                                           vertex_count},
+                    color, [&](const auto& a, const auto& b) { return a.glmValue() * b; });
             }
         }
     }
@@ -269,8 +281,11 @@ channels_done:
         }
         channel = pipe.scratch.alpha + pipe.sub_batch_offset;
         if (vertex_count != 0) {
-            srMath::mul({channel, vertex_count}, {channel, vertex_count},
-                        {pipe.scratch.depth_cue + pipe.sub_batch_offset, vertex_count});
+            std::ranges::transform(
+                std::span<const float>{channel, vertex_count},
+                std::span<const float>{pipe.scratch.depth_cue + pipe.sub_batch_offset,
+                                       vertex_count},
+                channel, [&](const auto& a, const auto& b) { return a * b; });
         }
     }
 }

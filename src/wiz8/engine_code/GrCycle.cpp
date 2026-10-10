@@ -916,12 +916,12 @@ void W8GrCycle::UpdateRepresentation(W8World* pWorld)
                 PathAIApply(path, psrMesh);
             }
             vecPos = movement.position;
-            location.SetFromFloat(&vecPos);
+            location = glm::dvec3((&vecPos)->glmValue());
             location.y += movement.vertical_offset;
             psrMesh->setLocation(location);
             pRep->GetRotation(&rotation);
             psrMesh->getRotation(current);
-            rotation.MultiplyBy(current);
+            rotation = rotation.glmValue() * current.glmValue();
             psrMesh->setRotation(rotation);
             current_model_instance = psrMesh;
         }
@@ -944,7 +944,7 @@ void W8GrCycle::UpdateRepresentation(W8World* pWorld)
             }
         }
         vecPos = movement.position;
-        location.SetFromFloat(&vecPos);
+        location = glm::dvec3((&vecPos)->glmValue());
         location.y += movement.vertical_offset;
         pRep->GetRotation(&rotation);
         child = psrMesh->first_child_;
@@ -967,7 +967,7 @@ void W8GrCycle::UpdateRepresentation(W8World* pWorld)
     if (m_ground_shadow != 0) {
         srVector3T<float> position = GetPosition();
 
-        location.SetFromFloat(&position);
+        location = glm::dvec3((&position)->glmValue());
         m_ground_shadow->setLocation(location);
         m_ground_shadow->angle = GetYaw();
         m_ground_shadow->clearFlag(srNode::FLAG_TERMINATE);
@@ -989,8 +989,9 @@ void W8GrCycle::UpdateRepresentation(W8World* pWorld)
             stLight* light = *m_plsLights->GetAt(index);
             srVector3T<float> offset = light->m_position;
 
-            srVector3T<float> placed = rotation.Transform(offset) + origin;
-            location.SetFromFloat(&placed);
+            srVector3T<float> placed =
+                srVector3T<float>{rotation.glmValue() * offset.glmValue()} + origin;
+            location = glm::dvec3((&placed)->glmValue());
             light->setLocation(location);
         }
     }
@@ -1144,25 +1145,25 @@ void W8GrCycle::UpdateParticleAttachments()
         offset.x *= scale_x;
         offset.y *= scale_y;
         offset.z *= scale_z;
-        placed = rotation.Transform(offset);
+        placed = srVector3T<float>{rotation.glmValue() * offset.glmValue()};
         location = current_model_instance->getLocation();
         srVector3T<float> anchor;
-        anchor.SetFromDouble(&location);
+        anchor = glm::vec3((&location)->glmValue());
         placed += anchor;
 
         if (aim_set && particle->direction_mode == W8_PARTICLE_DIRECTION_CONE) {
-            target.SetFromFloat(&placed);
-            axis.SetFromFloat(&m_axis);
+            target = glm::dvec3((&placed)->glmValue());
+            axis = glm::dvec3((&m_axis)->glmValue());
             particle->setRotation(axis, target, 0.0);
         } else if (particle->direction_mode != W8_PARTICLE_DIRECTION_RANDOM) {
             combined = rotation;
-            combined.MultiplyBy(attachment->rotation);
-            world.vectors[0].SetFromFloat(&combined.vectors[0]);
-            world.vectors[1].SetFromFloat(&combined.vectors[1]);
-            world.vectors[2].SetFromFloat(&combined.vectors[2]);
+            combined = combined.glmValue() * (attachment->rotation).glmValue();
+            (world.vectors[0]) = glm::dvec3((&combined.vectors[0])->glmValue());
+            (world.vectors[1]) = glm::dvec3((&combined.vectors[1])->glmValue());
+            (world.vectors[2]) = glm::dvec3((&combined.vectors[2])->glmValue());
             particle->setWorldSpaceRotation(world);
         }
-        location.SetFromFloat(&placed);
+        location = glm::dvec3((&placed)->glmValue());
         particle->setLocation(location);
     }
 }
@@ -1181,7 +1182,7 @@ void W8GrCycle::SelectLOD(const srVector3T<float>* position)
 {
     W8EmitterHost* pRep = GetRepresentation();
     srVector3T<float> delta = pRep->location - *position;
-    float distance = delta.Length();
+    float distance = glm::length(delta.glmValue());
     bool has_lod_2 = pRep->SetCycleFrameLod(pRep->current_cycle, 0, 2) != 0;
     bool has_lod_1 = pRep->SetCycleFrameLod(pRep->current_cycle, 0, 1) != 0;
     bool has_lod_0 = pRep->SetCycleFrameLod(pRep->current_cycle, 0, 0) != 0;

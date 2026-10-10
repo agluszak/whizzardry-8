@@ -1,10 +1,10 @@
 #include "surrender/srEnvironmentMapper.h"
 
 #include "surrender/srCore.h"
-#include "surrender/srVectorMath.h"
 #include "surrender/srVertexPipe.h"
-
 #include <math.h>
+
+#include "surrender/srMath.h"
 
 // FUNCTION: SURRENDER 0x100352e0
 int srEnvironmentMapper::isActive(srVertexPipe&)

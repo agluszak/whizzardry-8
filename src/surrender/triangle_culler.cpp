@@ -1,8 +1,10 @@
 #include "surrender/srTriangleCuller.h"
 #include <algorithm>
-
-#include "surrender/srVectorMath.h"
 #include "surrender/srRendererDefs.h"
+
+#include "surrender/srClip.h"
+#include "surrender/srMath.h"
+#include <cassert>
 
 /* Retail (0x10029740) rounds the object-space points, delta, cross and the
    transformed positive point to float, but keeps the transformed point and
@@ -86,7 +88,10 @@ int srTriangleCuller::setClipFlags(w8_ulong* clip_flags, float* distances,
                                    w8_ulong shift, w8_ulong count, int first)
 {
     w8_ulong collected = 0;
-    srMath::dot({distances, count}, plane, {vertices, count});
+    std::ranges::transform(
+        std::span<const srVector3>{vertices, count}, distances, [&](const auto& v) {
+            return glm::dot(v.glmValue(), glm::vec3(plane.glmValue())) + (plane).w;
+        });
     /* reinterpret-ok: the outside test reads the distances' IEEE sign bits. */
     const w8_ulong* bits = reinterpret_cast<const w8_ulong*>(distances);
     w8_ulong index = 0;
@@ -272,7 +277,7 @@ w8_ulong srTriangleCuller::collectNegative(w8_ulong* indices, const float* dista
 w8_ulong srTriangleCuller::cullNoClip(w8_ulong* indices, const srVector4* projected,
                                            const srVector4& constant, w8_ulong count)
 {
-    return srMath::srCullNoClip({indices, count}, constant, {projected, count});
+    return srRender::collectOutside({indices, count}, constant, {projected, count});
 }
 
 // FUNCTION: SURRENDER 0x1002A290
@@ -287,7 +292,9 @@ w8_ulong srTriangleCuller::cullNoClipAPT(w8_ulong* indices, const w8_ulong* acti
         if (0x100 < chunk) {
             chunk = 0x100;
         }
-        srMath::dotIndexed({distances, chunk}, constant, projected, {active + base, chunk});
+        std::ranges::transform(
+            std::span<const SRDWORD>{active + base, chunk}, distances,
+            [&](auto i) { return glm::dot((projected)[i].glmValue(), constant.glmValue()); });
         w8_ulong found = collectNegative(indices + collected, distances, base, chunk);
         if (found != 0) {
             w8_ulong* destination = indices + collected;
@@ -365,7 +372,7 @@ w8_ulong srTriangleCuller::cullClip(w8_ulong* indices, const w8_ulong* clip_flag
                                          const srVector4* projected, const srVector3i* triangles,
                                          const srVector4& constant, w8_ulong count)
 {
-    w8_ulong culled = srMath::srCullNoClip({indices, count}, constant, {projected, count});
+    w8_ulong culled = srRender::collectOutside({indices, count}, constant, {projected, count});
     return collectCF(indices, clip_flags, triangles, culled);
 }
 
@@ -411,11 +418,33 @@ w8_ulong srTriangleCuller::buildAVT(w8_ulong* avt, w8_ulong* vertex_scratch,
     std::fill_n(reinterpret_cast<SRBYTE*>(vertex_scratch), vertex_count, SRBYTE{});
     /* reinterpret-ok: the flag scratch holds one SRBYTE per vertex here and is reused as the dword
        inverse remap below. */
-    srMath::srSetIndexed(reinterpret_cast<SRBYTE*>(vertex_scratch), triangles,
-                         {indices, static_cast<std::size_t>(triangle_count)});
-    w8_ulong count = srMath::srCollectNonZero(
-        {avt, vertex_count}, {reinterpret_cast<const SRBYTE*>(vertex_scratch), vertex_count});
-    srMath::srRemapInverse(vertex_scratch, {avt, count});
+    {
+        SRBYTE* input_destination = reinterpret_cast<SRBYTE*>(vertex_scratch);
+        const srVector3i* input_source = triangles;
+        std::span<const SRDWORD> input_indices{indices, static_cast<std::size_t>(triangle_count)};
+        for (auto i : input_indices) {
+            input_destination[input_source[i].x] = 1;
+            input_destination[input_source[i].y] = 1;
+            input_destination[input_source[i].z] = 1;
+        }
+    }
+    w8_ulong count = [&]() {
+        auto destination = std::span<SRDWORD>{avt, vertex_count};
+        auto source =
+            std::span<const SRBYTE>{reinterpret_cast<const SRBYTE*>(vertex_scratch), vertex_count};
+        SRDWORD collected = 0;
+        for (std::size_t i = 0; i < destination.size(); ++i) {
+            if (source[i])
+                destination[collected++] = static_cast<SRDWORD>(i);
+        }
+        return collected;
+    }();
+    {
+        SRDWORD* input_destination = vertex_scratch;
+        std::span<const SRDWORD> input_map{avt, count};
+        for (std::size_t i = 0; i < input_map.size(); ++i)
+            input_destination[input_map[i]] = static_cast<SRDWORD>(i);
+    }
     return count;
 }
 
@@ -510,4 +539,18 @@ int srTriangleCuller::cull(Output& output, const Input& input)
         return 1;
     }
     return 0;
+}
+
+// FUNCTION: SURRENDER 0x10068DE0
+SRDWORD srRender::collectOutside(std::span<SRDWORD> destination, const srVector4& constant,
+                                 std::span<const srVector4> vectors)
+{
+    assert(vectors.size() >= destination.size());
+    const std::size_t count = destination.size();
+    SRDWORD collected = 0;
+    for (std::size_t i = 0; i < count; ++i) {
+        if (glm::dot(vectors[i].glmValue(), constant.glmValue()) < 0.0f)
+            destination[collected++] = static_cast<SRDWORD>(i);
+    }
+    return collected;
 }

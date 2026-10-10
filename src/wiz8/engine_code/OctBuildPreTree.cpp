@@ -286,7 +286,11 @@ unsigned char OctBuildPreTree::SortGeometry(W8OctPreTreeGeometry* geometry)
     }
     for (vertex = 1; vertex < geometry->vertex_count; ++vertex) {
         W8OctPreTreeVertex* vert = &geometry->m_vertices[vertex];
-        vert->m_normal.Normalize();
+        {
+            const auto direction_value = (vert->m_normal).glmValue();
+            if (glm::dot(direction_value, direction_value) != 0)
+                (vert->m_normal) = glm::normalize(direction_value);
+        }
         if ((vert->flags & W8OctPreTreeVertex::EXCLUDED) == 0) {
             if (vert->m_normal_count == 0) {
                 vert->flags |= W8OctPreTreeVertex::EXCLUDED;
@@ -1126,7 +1130,7 @@ void OctBuildPreTree::AssignInitialRegions(const W8OctSpatialState* arg_spatial)
                     for (int vertex_index = 0; vertex_index != 3; ++vertex_index) {
                         const srVector3T<float>& position =
                             polygon->vertices[vertex_index]->position;
-                        float distance = (center - position).Length();
+                        float distance = glm::length((((center - position))).glmValue());
                         if (this->spatial.m_max_region_radius < distance) {
                             this->spatial.m_max_region_radius = distance;
                         }
@@ -1266,7 +1270,7 @@ unsigned char OctBuildPreTree::MergeRegion(W8OctBuildNode* node, const int* cell
 
     srVector3T<float>& node_center = m_psrvRegCenters[node_region];
     srVector3T<float>& neighbor_center = m_psrvRegCenters[neighbor_region];
-    float distance = (node_center - neighbor_center).Length();
+    float distance = glm::length((((node_center - neighbor_center))).glmValue());
     if (!(distance < spatial.m_region_grid_cell * g_float_three)) {
         return 0;
     }

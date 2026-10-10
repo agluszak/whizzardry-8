@@ -4,23 +4,24 @@
 #include <array>
 #include <bit>
 #include <cstdint>
-
 #include "surrender/srGERD.h"
 
 #include "surrender/srColorSurface.h"
+
 #include "surrender/srCore.h"
 #include "surrender/srDebug.h"
 #include "surrender/srWindow.h"
 #include "surrender/srPalette.h"
-#include "surrender/srVectorMath.h"
-
 #include <ctype.h>
 #include <ostream>
+
 #include <memory>
 #include <vector>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "surrender/srClip.h"
+#include <cassert>
 
 // GLOBAL: SURRENDER 0x100A4780
 srGERD* srGERD::first;
@@ -477,7 +478,12 @@ w8_long srGERD::getPolygonOffset() const
 // FUNCTION: SURRENDER 0x1001CA30
 void srGERD::setClearColor(const srVector4T<float>& color)
 {
-    clear_state.clear_values.color.SetSaturated(color);
+    {
+        const auto color_value = color.glmValue();
+        (clear_state.clear_values.color) =
+            glm::mix(glm::clamp(color_value, float(0), float(1)), glm::vec4(0),
+                     glm::lessThanEqual(color_value, glm::vec4(0)));
+    }
 }
 
 // FUNCTION: SURRENDER 0x1001CB00
@@ -1471,7 +1477,7 @@ void srGERD::ortho(double left, double right, double bottom, double top, double 
 // FUNCTION: SURRENDER 0x100223A0
 void srGERD::rotate(double angle, const srVector3T<double>& axis)
 {
-    double length_sq = axis.LengthSquared();
+    double length_sq = glm::dot(axis.glmValue(), axis.glmValue());
     if (length_sq != 0.0) {
         srMatrix4T<double> rotation;
         srVector3T<double> unit_axis;
@@ -2237,7 +2243,7 @@ void srGERD::classifyMatrix(e_matrixMode mode)
         }
         state.modelview_scale_type = srMatrix4T<float>::SCALE_TYPE_NON_UNIFORM;
         state.max_modelview_scale = (float)sqrt(length0);
-        inverse->Inverse(*modelview);
+        (*inverse) = glm::inverse((*modelview).glmValue());
         srMatrix4T<float> normalized = *modelview;
         normalized.vectors[0].x *= inv0;
         normalized.vectors[0].y *= inv1;
@@ -2252,7 +2258,7 @@ void srGERD::classifyMatrix(e_matrixMode mode)
         normalized.vectors[3].y *= inv1;
         normalized.vectors[3].z *= inv2;
         srMatrix4T<float> adjugate;
-        adjugate.Inverse(normalized);
+        adjugate = glm::inverse(normalized.glmValue());
         state.normal_matrix.vectors[0].x = adjugate.vectors[0].x;
         state.normal_matrix.vectors[0].y = adjugate.vectors[1].x;
         state.normal_matrix.vectors[0].z = adjugate.vectors[2].x;
@@ -2420,7 +2426,7 @@ void srGERD::multMatrix(const srMatrix4T<double>& matrix)
 {
     assertContext();
     srMatrix4T<float>& current = state.matrix_current[state.matrix_mode];
-    current.MultiplyBy(matrix);
+    current = glm::mat4(glm::dmat4(current.glmValue()) * matrix.glmValue());
     setMatrixDirty();
 }
 
@@ -2774,7 +2780,11 @@ void srGERD::setFogColor(const srVector3T<float>& color)
 void srGERD::setFogColor(const srVector4T<float>& color)
 {
     srVector4T<float> clamped;
-    clamped.SetSaturated(color);
+    {
+        const auto color_value = color.glmValue();
+        clamped = glm::mix(glm::clamp(color_value, float(0), float(1)), glm::vec4(0),
+                           glm::lessThanEqual(color_value, glm::vec4(0)));
+    }
     if (clamped.x != fog_color.x || clamped.y != fog_color.y || clamped.z != fog_color.z ||
         clamped.w != fog_color.w) {
         flushImmediateRenderers();
@@ -2866,8 +2876,8 @@ srGERD::e_visibility srGERD::testBoundingBox(const srVector3T<float>& minimum,
     statistics.box_tests++;
     checkViewStateChanges();
     srMatrix4T<float> combined = state.matrix_current[MATRIX_PROJECTION];
-    combined.MultiplyBy(state.matrix_current[MATRIX_MODELVIEW]);
-    if (srMath::srTestBoundingBox(combined, minimum, maximum)) {
+    combined = combined.glmValue() * state.matrix_current[MATRIX_MODELVIEW].glmValue();
+    if (srRender::testBoundingBox(combined, minimum, maximum)) {
         statistics.box_visible++;
         return static_cast<e_visibility>(1);
     }
@@ -2878,7 +2888,8 @@ srGERD::e_visibility srGERD::testBoundingBox(const srVector3T<float>& minimum,
 srVector4T<float> srGERD::getEyeSpaceLocation(const srVector3T<float>& object_location)
 {
     checkViewStateChanges();
-    return state.matrix_current[MATRIX_MODELVIEW].Transform(object_location);
+    return srVector4T<float>{state.matrix_current[MATRIX_MODELVIEW].glmValue() *
+                             glm::vec4(object_location.glmValue(), 1)};
 }
 
 // FUNCTION: SURRENDER 0x1001DDF0
@@ -4824,4 +4835,55 @@ void srGERD::accumulate(e_accum operation, float scale)
     if (surface != 0) {
         unlockBuffer();
     }
+}
+
+// FUNCTION: SURRENDER 0x10068700
+bool srRender::testBoundingBox(const srMatrix4& matrix, const srVector3& minimum,
+                               const srVector3& maximum)
+{
+    const float* m = &matrix.vectors[0].x;
+    float z_min = minimum.z * m[14];
+    float y_min = m[13] * minimum.y;
+    float w_min = m[12] * minimum.x + m[15] + y_min + z_min;
+    if (w_min >= fabsf(m[0] * minimum.x + m[1] * minimum.y + m[2] * minimum.z + m[3]) &&
+        w_min >= fabsf(m[5] * minimum.y + m[6] * minimum.z + m[4] * minimum.x + m[7]) &&
+        w_min >= fabsf(m[9] * minimum.y + m[10] * minimum.z + m[8] * minimum.x + m[11])) {
+        return true;
+    }
+    float xy_min = m[12] * minimum.x + m[15];
+    float w_max = m[12] * maximum.x + m[15];
+    float y_max = m[13] * maximum.y;
+    float z_max = maximum.z * m[14];
+    float w_000 = z_min + y_min + xy_min;
+    float w_001 = z_max + y_min + xy_min;
+    float w_010 = y_max + z_min + xy_min;
+    float w_011 = z_max + y_max + xy_min;
+    float w_100 = w_max + z_min + y_min;
+    float w_101 = z_max + w_max + y_min;
+    float w_110 = y_max + w_max + z_min;
+    float w_111 = z_max + y_max + w_max;
+    const float* row = m + 9;
+    for (int plane = 2; plane >= 0; --plane, row -= 4) {
+        float base_min = minimum.x * row[-1] + row[2];
+        float ymin = row[0] * minimum.y;
+        float zmin = row[1] * minimum.z;
+        float base_max = row[-1] * maximum.x + row[2];
+        float ymax = row[0] * maximum.y;
+        float zmax = maximum.z * row[1];
+        float v = zmin + ymin + base_min;
+        if (-w_000 < v) {
+            if (w_000 <= v && w_001 <= zmax + ymin + base_min && w_010 <= ymax + zmin + base_min &&
+                w_011 <= zmax + ymax + base_min && w_100 <= base_max + zmin + ymin &&
+                w_101 <= zmax + base_max + ymin && w_110 <= ymax + base_max + zmin &&
+                w_111 <= zmax + ymax + base_max) {
+                return false;
+            }
+        } else if (zmax + ymin + base_min <= -w_001 && ymax + zmin + base_min <= -w_010 &&
+                   zmax + ymax + base_min <= -w_011 && base_max + zmin + ymin <= -w_100 &&
+                   zmax + base_max + ymin <= -w_101 && ymax + base_max + zmin <= -w_110 &&
+                   zmax + ymax + base_max <= -w_111) {
+            return false;
+        }
+    }
+    return true;
 }

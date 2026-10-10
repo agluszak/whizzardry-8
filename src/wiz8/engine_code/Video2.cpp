@@ -7,7 +7,6 @@
 #include "runtime_instrumentation.h"
 #endif
 #include "wiz8/engine_code/Video2.h"
-#include "wiz8/engine_code/Quality.h"
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_screens/Screens.h"
@@ -18,7 +17,6 @@
 #include "wiz8/engine_code/Prop.h"
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/engine_code/World.h"
-#include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/game_timer.h"
 #include "wiz8/engine_code/stModelInstance.h"
 #include "wiz8/engine_code/Level.h"
@@ -66,7 +64,6 @@
 #include "vobject_blitters.h"
 #include "vsurface.h"
 #include "wiz8/local_code/ControlsRect.h"
-
 #include "compat/video.h"
 #include <SDL3/SDL.h>
 #include <math.h>
@@ -902,7 +899,12 @@ void RenderFrame(void)
         if (!IsSkyEnabled()) {
             GetWorldLightValue(g_world, &clear_color);
         } else {
-            clear_color.SetSaturated(g_world->static_scene->getFogColor());
+            {
+                const auto color_value = (g_world->static_scene->getFogColor()).glmValue();
+                static_cast<srVector3T<float>&>(clear_color) =
+                    glm::mix(glm::clamp(color_value, float(0), float(1)), glm::vec3(0),
+                             glm::lessThanEqual(color_value, glm::vec3(0)));
+            }
         }
     }
 
@@ -1147,7 +1149,12 @@ void GetWorldColour(EnvironmentColour* colour)
 {
     if (g_world != 0) {
         const srVector3T<float> fog = g_world->static_scene->getFogColor();
-        colour->SetSaturated(fog);
+        {
+            const auto color_value = fog.glmValue();
+            static_cast<srVector3T<float>&>(*colour) =
+                glm::mix(glm::clamp(color_value, float(0), float(1)), glm::vec3(0),
+                         glm::lessThanEqual(color_value, glm::vec3(0)));
+        }
         return;
     }
     colour->SetZero();

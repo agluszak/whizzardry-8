@@ -153,8 +153,8 @@ void GDProp::Initialize(srModelInstance* instance, bool attach, unsigned short p
 
         srVector3T<float>* source_vertices = mesh->getVertexLoc();
         for (int vertex = 0; vertex < mesh->vertex_location_count; ++vertex) {
-            m_pVertices[vertex_base + vertex] =
-                world_matrix.TransformPoint(source_vertices[vertex]);
+            m_pVertices[vertex_base + vertex] = srVector3T<float>{glm::vec3(
+                world_matrix.glmValue() * glm::vec4(source_vertices[vertex].glmValue(), 1))};
         }
         vertex_base += mesh->vertex_location_count;
 
@@ -579,7 +579,19 @@ void GDProp::TransformMeshGeometry(const W8LevelFileScaledPathNode* node, W8Leve
 
     rotation.SetIdentity();
     if (node->path.angle != g_double_zero) {
-        rotation.RotateAroundAxis(sin(node->path.angle), cos(node->path.angle), axis);
+        {
+            const auto rotation_axis = glm::dvec3(axis.glmValue());
+            const double rotation_sine = sin(node->path.angle);
+            const double rotation_cosine = cos(node->path.angle);
+            const auto axis_cross = glm::dmat3(glm::cross(rotation_axis, glm::dvec3(1, 0, 0)),
+                                               glm::cross(rotation_axis, glm::dvec3(0, 1, 0)),
+                                               glm::cross(rotation_axis, glm::dvec3(0, 0, 1)));
+            const auto axis_rotation = glm::mat3(
+                rotation_cosine * glm::dmat3(1) +
+                (1.0 - rotation_cosine) * glm::outerProduct(rotation_axis, rotation_axis) +
+                rotation_sine * axis_cross);
+            rotation = rotation.glmValue() * axis_rotation;
+        }
     }
     translation.Set(node->path.position.x * g_double_five_hundred,
                     node->path.position.y * g_double_five_hundred,
@@ -603,16 +615,20 @@ void GDProp::TransformMeshGeometry(const W8LevelFileScaledPathNode* node, W8Leve
             if ((mesh->flags & W8_LEVEL_MESH_SHORT_LOD_VERTICES) != 0) {
                 short* vertices = mesh->lod_shorts[lod];
                 for (int vertex = 0; vertex < mesh->num_vertices; ++vertex) {
-                    m_pVertices[m_vertex_count] = matrix.TransformPoint(
-                        srVector3T<float>(static_cast<float>(vertices[vertex * 3]),
-                                          static_cast<float>(vertices[vertex * 3 + 1]),
-                                          static_cast<float>(vertices[vertex * 3 + 2])));
+                    m_pVertices[m_vertex_count] = srVector3T<float>{glm::vec3(
+                        matrix.glmValue() *
+                        glm::vec4((srVector3T<float>(static_cast<float>(vertices[vertex * 3]),
+                                                     static_cast<float>(vertices[vertex * 3 + 1]),
+                                                     static_cast<float>(vertices[vertex * 3 + 2])))
+                                      .glmValue(),
+                                  1))};
                     ++m_vertex_count;
                 }
             } else {
                 const srVector3T<float>* vertices = mesh->lods[lod];
                 for (int vertex = 0; vertex < mesh->num_vertices; ++vertex) {
-                    m_pVertices[m_vertex_count] = matrix.TransformPoint(vertices[vertex]);
+                    m_pVertices[m_vertex_count] = srVector3T<float>{
+                        glm::vec3(matrix.glmValue() * glm::vec4(vertices[vertex].glmValue(), 1))};
                     ++m_vertex_count;
                 }
             }
@@ -622,7 +638,8 @@ void GDProp::TransformMeshGeometry(const W8LevelFileScaledPathNode* node, W8Leve
         int vertex_base = m_vertex_count;
         const srVector3T<float>* vertices = mesh->pstVertices;
         for (int vertex = 0; vertex < mesh->num_vertices; ++vertex) {
-            m_pVertices[m_vertex_count] = matrix.TransformPoint(vertices[vertex]);
+            m_pVertices[m_vertex_count] = srVector3T<float>{
+                glm::vec3(matrix.glmValue() * glm::vec4(vertices[vertex].glmValue(), 1))};
             ++m_vertex_count;
         }
         AppendMeshFaces(mesh, vertex_base);

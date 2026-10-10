@@ -1347,7 +1347,7 @@ void CollectMonstersWithinRadius(const srVector3T<float>* centre, const srVector
         }
 
         position = monster->GetPosition();
-        if (radius < (*centre - position).Length() - monster->radius) {
+        if (radius < glm::length((((*centre - position))).glmValue()) - monster->radius) {
             if (highlighting != 0) {
                 srVector4T<float> block;
                 block.Set(0.0f, 0.0f, 0.0f, 0.0f);
@@ -2855,12 +2855,12 @@ bool IsMonsterVisibleWithinDistance(W8Monster* monster, const srVector3T<float>*
         projected = monster->GetPosition();
         minimum += projected;
         maximum += projected;
-        input.SetFromFloat(&center);
+        input = glm::dvec3((&center)->glmValue());
         if (g_world->camera->project(projected, input) != srCamera::PROJECTION_RESULT_ACCEPTED) {
-            input.SetFromFloat(&minimum);
+            input = glm::dvec3((&minimum)->glmValue());
             if (g_world->camera->project(projected, input) !=
                 srCamera::PROJECTION_RESULT_ACCEPTED) {
-                input.SetFromFloat(&maximum);
+                input = glm::dvec3((&maximum)->glmValue());
                 if (g_world->camera->project(projected, input) !=
                     srCamera::PROJECTION_RESULT_ACCEPTED) {
                     return false;

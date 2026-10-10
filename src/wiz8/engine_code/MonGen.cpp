@@ -4,7 +4,6 @@
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/Levels.h"
-#include "wiz8/engine_code/Item.h"
 #include "wiz8/engine_code/ReadLevel.h"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/local_code/MonsterGenerator.h"
@@ -470,7 +469,7 @@ bool MonGen::CanGenerateEncounter(bool force)
 
     GetCameraPosition(&camera);
     srVector3T<float> delta = spawn_position - camera;
-    distance = delta.Length();
+    distance = glm::length(delta.glmValue());
 
     if (!force && !g_status.world_suspended) {
         if (distance > 200000.0f || distance < 35000.0f) {
@@ -620,7 +619,8 @@ void CullExpiredEncounters(void)
             position = monster->GetPosition();
             srVector3T<float> delta = position - party;
 
-            if (g_encounter_culling_distance < delta.Length() || g_status.world_suspended) {
+            if (g_encounter_culling_distance < glm::length(delta.glmValue()) ||
+                g_status.world_suspended) {
                 DespawnMonsterGroup(group);
             }
         }

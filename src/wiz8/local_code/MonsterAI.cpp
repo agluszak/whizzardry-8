@@ -416,8 +416,8 @@ void DoMonsterRTAI(W8MonsterInfo* monster_info, bool engage)
         if (mode != W8_RT_AI_PATROL_AREA &&
             (!monster_info->p3D->face_party || monster_info->pathing_cooldown != 0 ||
              mode != W8_RT_AI_FACE_DIRECTION || !monster_info->player_visibility.line_of_sight ||
-             (monster_info->p3D->movement.position - g_startup_world->GetPosition()).Length() >=
-                 g_float_five_thousand)) {
+             glm::length((((monster_info->p3D->movement.position - g_startup_world->GetPosition())))
+                             .glmValue()) >= g_float_five_thousand)) {
             monster_info->ai_mode &= ~W8_MONSTER_AI_REAPPLY_MODE;
         }
         if (decision <= W8_RT_AI_LINK_TO_PARTY || decision == W8_RT_AI_FOLLOW_LURE) {
@@ -455,7 +455,7 @@ bool ChooseMonsterRTAIMode(W8MonsterInfo* monster_info, unsigned char* decision)
         srVector3T<float> delta;
 
         delta = monster->movement.position - g_startup_world->GetPosition();
-        if (delta.Length() < g_float_five_thousand) {
+        if (glm::length(delta.glmValue()) < g_float_five_thousand) {
             srVector3T<float> camera;
             srVector3T<float> position;
 
@@ -478,7 +478,7 @@ bool ChooseMonsterRTAIMode(W8MonsterInfo* monster_info, unsigned char* decision)
 
             monster->GetPatrolPoint(&patrol);
             delta = patrol - monster->GetPosition();
-            if (delta.Length() >= g_double_fifteen_hundred) {
+            if (glm::length(delta.glmValue()) >= g_double_fifteen_hundred) {
                 *decision = monster_info->ai_mode;
                 return true;
             }
@@ -504,7 +504,7 @@ bool ChooseMonsterRTAIMode(W8MonsterInfo* monster_info, unsigned char* decision)
             srVector3T<float> delta;
 
             delta = monster_info->heard_noise_position - monster->GetPosition();
-            if (delta.Length() < g_double_fifteen_hundred) {
+            if (glm::length(delta.glmValue()) < g_double_fifteen_hundred) {
                 monster_info->heard_noise_radius = 0;
             }
         }
@@ -555,7 +555,7 @@ bool ChooseMonsterRTAIMode(W8MonsterInfo* monster_info, unsigned char* decision)
 
                 monster->GetPatrolPoint(&patrol);
                 delta = patrol - monster->GetPosition();
-                if (delta.Length() < g_double_fifteen_hundred) {
+                if (glm::length(delta.glmValue()) < g_double_fifteen_hundred) {
                     mode = W8_RT_AI_IDLE;
                 } else {
                     mode = W8_RT_AI_MOVE_TO_PATROL_POINT;
@@ -578,7 +578,7 @@ bool ChooseMonsterRTAIMode(W8MonsterInfo* monster_info, unsigned char* decision)
                 mode = W8_RT_AI_MOVE_TO_PATROL_POINT;
                 monster->GetPatrolPoint(&patrol);
                 delta = patrol - monster->GetPosition();
-                if (delta.Length() >= g_double_fifteen_hundred) {
+                if (glm::length(delta.glmValue()) >= g_double_fifteen_hundred) {
                     break;
                 }
                 count = monster->vector.GetCount();
@@ -2717,7 +2717,7 @@ bool ShouldMonsterGroupEnterCombat(W8MonsterGroup* monster_group)
                     reach = minimum;
                 }
                 party = g_startup_world->GetPosition();
-                if ((leader->p3D->movement.position - party).Length() <= reach &&
+                if (glm::length((((leader->p3D->movement.position - party))).glmValue()) <= reach &&
                     leader->p3D->FindNavigatorPathDistance(750.0f, &path_distance) &&
                     path_distance <= reach) {
                     return true;

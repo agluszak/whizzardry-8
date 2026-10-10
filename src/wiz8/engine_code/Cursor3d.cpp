@@ -29,12 +29,13 @@
 #include "surrender/srShader.h"
 #include "surrender/srTexture.h"
 #include "wiz8/engine_code/3dapi.h"
-
 #include <math.h>
+
 #include <stdlib.h>
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/GrCycle.h"
 #include "wiz8/engine_code/materials.h"
+#include <glm/gtc/matrix_transform.hpp>
 
 #define CURSOR3D_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\Cursor3d.cpp"
 
@@ -225,7 +226,7 @@ void ReleaseWorldCursor(void)
     camera.y = 0.0f;
     cursor->position.y = 0.0f;
     delta = cursor->position - camera;
-    g_cursor_projection_distance = delta.Length();
+    g_cursor_projection_distance = glm::length(delta.glmValue());
 
     PListRemove(g_world->plsMonsters, cursor->monster);
     DetachMonsterRepresentation(cursor->monster, g_world);
@@ -355,15 +356,22 @@ void ApplyWorldCursorInput(void)
     }
     if (!gp3DCursor->detached) {
         lifted.Set(delta.x, delta.y + g_float_one_thousand, delta.z);
-        if (gp3DCursor->range > g_float_zero && gp3DCursor->range < lifted.Length()) {
-            delta.SetLength(gp3DCursor->range);
+        if (gp3DCursor->range > g_float_zero &&
+            gp3DCursor->range < glm::length(lifted.glmValue())) {
+            {
+                const auto direction_value = delta.glmValue();
+                if (glm::dot(direction_value, direction_value) != 0)
+                    (delta) =
+                        glm::normalize(direction_value) * static_cast<float>(gp3DCursor->range);
+            }
         }
         g_world->dynamic_scene->getRotation(rotation);
         gp3DCursor->cam_rel_offset += delta;
-        gp3DCursor->position = rotation.Transform(gp3DCursor->cam_rel_offset);
+        gp3DCursor->position =
+            srVector3T<float>{rotation.glmValue() * (gp3DCursor->cam_rel_offset).glmValue()};
         node_location = g_world->dynamic_scene->getLocation();
         srVector3T<float> scene_location;
-        scene_location.SetFromDouble(&node_location);
+        scene_location = glm::vec3((&node_location)->glmValue());
         gp3DCursor->position += scene_location;
         if (gp3DCursor->track_ground) {
             if (gp3DCursor->position.y < saved_y) {
@@ -377,18 +385,34 @@ void ApplyWorldCursorInput(void)
         camera.y -= g_default_world_height;
         rotation.SetIdentity();
         if (g_gd_camera->m_yaw != 0.0) {
-            rotation.RotateAboutY(sin(g_gd_camera->m_yaw), cos(g_gd_camera->m_yaw));
+            {
+                rotation =
+                    rotation.glmValue() *
+                    glm::mat3(glm::rotate(glm::dmat4(1), static_cast<double>(g_gd_camera->m_yaw),
+                                          glm::dvec3(0, 1, 0)));
+            }
         }
-        delta = rotation.Transform(delta);
+        delta = srVector3T<float>{rotation.glmValue() * delta.glmValue()};
         delta += gp3DCursor->position;
-        if (gp3DCursor->range > g_float_zero && gp3DCursor->range < (camera - delta).Length()) {
+        if (gp3DCursor->range > g_float_zero &&
+            gp3DCursor->range < glm::length((((camera - delta))).glmValue())) {
             clamped = delta - camera;
-            clamped.SetLength(gp3DCursor->range);
+            {
+                const auto direction_value = clamped.glmValue();
+                if (glm::dot(direction_value, direction_value) != 0)
+                    (clamped) =
+                        glm::normalize(direction_value) * static_cast<float>(gp3DCursor->range);
+            }
             delta = camera + clamped;
         }
-        if ((camera - delta).Length() < g_monster_poster_max_distance) {
+        if (glm::length((((camera - delta))).glmValue()) < g_monster_poster_max_distance) {
             clamped = delta - camera;
-            clamped.SetLength(g_monster_poster_max_distance);
+            {
+                const auto direction_value = clamped.glmValue();
+                if (glm::dot(direction_value, direction_value) != 0)
+                    (clamped) = glm::normalize(direction_value) *
+                                static_cast<float>(g_monster_poster_max_distance);
+            }
             delta = camera + clamped;
         }
         if (gp3DCursor->march_enabled) {
@@ -401,19 +425,19 @@ void ApplyWorldCursorInput(void)
         lifted = gp3DCursor->position;
         MonsterSetAdjustedPosition(gp3DCursor->monster, &lifted);
         if (g_cursor_node0 != 0) {
-            node_location.SetFromFloat(&gp3DCursor->position);
+            node_location = glm::dvec3((&gp3DCursor->position)->glmValue());
             g_cursor_node0->setLocation(node_location);
         }
         if (g_cursor_value != 0) {
-            node_location.SetFromFloat(&gp3DCursor->position);
+            node_location = glm::dvec3((&gp3DCursor->position)->glmValue());
             g_cursor_value->setLocation(node_location);
         }
         if (gp3DCursor->particle != 0) {
-            node_location.SetFromFloat(&gp3DCursor->position);
+            node_location = glm::dvec3((&gp3DCursor->position)->glmValue());
             gp3DCursor->particle->setLocation(node_location);
         }
         if (gp3DCursor->light != 0) {
-            node_location.SetFromFloat(&gp3DCursor->position);
+            node_location = glm::dvec3((&gp3DCursor->position)->glmValue());
             gp3DCursor->light->setLocation(node_location);
         }
         if (gp3DCursor->dragged_info != 0) {
@@ -656,7 +680,7 @@ char MarchWorldCursorTarget(srVector3T<float>* target)
 
     trace_from = *target + gp3DCursor->probe_center;
     origin = gp3DCursor->position;
-    dist = (*target - origin).Length();
+    dist = glm::length((((*target - origin))).glmValue());
     if (dist == g_double_zero) {
         return 0;
     }
@@ -674,7 +698,11 @@ char MarchWorldCursorTarget(srVector3T<float>* target)
             }
             dir = *target - origin;
             scaled = dir;
-            scaled.SetLength(step);
+            {
+                const auto direction_value = scaled.glmValue();
+                if (glm::dot(direction_value, direction_value) != 0)
+                    (scaled) = glm::normalize(direction_value) * static_cast<float>(step);
+            }
             step_pos = origin + scaled;
             end_pos = step_pos;
             for (i = 4; i < 8; i++) {
@@ -741,14 +769,20 @@ void UpdateWorldCursorPlacement(void)
     if (g_gd_camera->m_yaw != g_double_zero) {
         cosine = static_cast<float>(cos(g_gd_camera->m_yaw));
         sine = static_cast<float>(sin(g_gd_camera->m_yaw));
-        rotation.RotateAboutY(sine, cosine);
+        {
+            const double rotation_sine = sine;
+            const double rotation_cosine = cosine;
+            const auto axis_rotation = glm::dmat3(rotation_cosine, 0, -rotation_sine, 0, 1, 0,
+                                                  rotation_sine, 0, rotation_cosine);
+            rotation = rotation.glmValue() * glm::mat3(axis_rotation);
+        }
     }
     GetCameraPosition(&camera);
     camera.y -= g_default_world_height;
     cursor = gp3DCursor;
     cursor->last_published = -100000000.0f;
     forward.Set(0.0, 0.0, g_cursor_projection_distance);
-    target = camera + rotation.Transform(forward);
+    target = camera + srVector3T<float>{rotation.glmValue() * forward.glmValue()};
     cursor->position = camera;
     cursor->track_ground = true;
     if (MarchWorldCursorTarget(&target) == 0) {

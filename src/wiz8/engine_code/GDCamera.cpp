@@ -5,8 +5,8 @@
 #include "wiz8/startup_world.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/engine_code/quad.h"
-
 #include "surrender/srCamera.h"
+
 #include "surrender/srNode.h"
 #include "surrender/srScene.h"
 #include "wiz8/engine_code/GameData.h"
@@ -15,9 +15,10 @@
 #include "wiz8/float_constants.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/utility.h"
-
 #include <math.h>
+
 #include <float.h>
+#include <glm/gtc/matrix_transform.hpp>
 
 // GLOBAL: WIZ8 0x005ec300
 extern const double g_camera_view_factor0 = 0.005555555555555556;
@@ -130,14 +131,26 @@ void OffsetPositionByYawPitch(float distance, srVector3T<float>* position, float
     if (yaw != g_double_zero) {
         cosine = static_cast<float>(cos(yaw));
         sine = static_cast<float>(sin(yaw));
-        rotation.RotateAboutY(sine, cosine);
+        {
+            const double rotation_sine = sine;
+            const double rotation_cosine = cosine;
+            const auto axis_rotation = glm::dmat3(rotation_cosine, 0, -rotation_sine, 0, 1, 0,
+                                                  rotation_sine, 0, rotation_cosine);
+            rotation = rotation.glmValue() * glm::mat3(axis_rotation);
+        }
     }
     if (pitch != g_double_zero) {
         cosine = static_cast<float>(cos(pitch));
         sine = static_cast<float>(sin(pitch));
-        rotation.RotateAboutX(sine, cosine);
+        {
+            const double rotation_sine = sine;
+            const double rotation_cosine = cosine;
+            const auto axis_rotation = glm::dmat3(1, 0, 0, 0, rotation_cosine, rotation_sine, 0,
+                                                  -rotation_sine, rotation_cosine);
+            rotation = rotation.glmValue() * glm::mat3(axis_rotation);
+        }
     }
-    step = rotation.Transform(forward);
+    step = srVector3T<float>{rotation.glmValue() * forward.glmValue()};
     *position += step;
 }
 
@@ -169,7 +182,7 @@ GDCamera::GDCamera()
     m_manual_input_timer = new W8IntervalGate(1.0f, false, true);
 
     m_rotation = m_yaw_rotation;
-    m_rotation.MultiplyBy(m_pitch_rotation);
+    m_rotation = m_rotation.glmValue() * m_pitch_rotation.glmValue();
 }
 
 /* Creates the game camera when a parent is supplied, otherwise installs or
@@ -183,7 +196,7 @@ srCamera* GDCamera::CreateOrAttachCamera(srNode* parent, srCamera* camera)
 
         g_game_camera = new srCamera(parent);
         g_game_camera->setName("Sirtech Camera");
-        position.SetFromFloat(&m_position);
+        position = glm::dvec3((&m_position)->glmValue());
         g_game_camera->setLocation(position);
         g_game_camera->setClipRange(250.0, 75000.0);
         g_game_camera->setRotation(0.0, 0.0, 0.0);
@@ -200,7 +213,7 @@ srCamera* GDCamera::CreateOrAttachCamera(srNode* parent, srCamera* camera)
         } else {
             g_game_camera = camera;
         }
-        position.SetFromFloat(&m_position);
+        position = glm::dvec3((&m_position)->glmValue());
         g_game_camera->setLocation(position);
         g_game_camera->setRotation(0.0, 0.0, 0.0);
     }
@@ -239,7 +252,7 @@ void GDCamera::ApplyRotationMatrix(srMatrix3T<float>* rotation, W8LevelDataRecor
         pitch = static_cast<float>(acos(forward_y)) - g_camera_half_pi;
 
         srVector2T<float> horizontal(forward_x, forward_z);
-        horizontal *= g_float_one / horizontal.Length();
+        horizontal *= g_float_one / glm::length(horizontal.glmValue());
         forward_x = horizontal.x;
         forward_z = horizontal.y;
         if (forward_z > g_float_one) {
@@ -272,13 +285,17 @@ void GDCamera::SnapToTarget(const srVector3T<float>* target)
     }
 
     srVector3T<float> direction = *target - m_position;
-    if (direction.Length() < 1.0) {
+    if (glm::length(direction.glmValue()) < 1.0) {
         return;
     }
-    direction.Normalize();
+    {
+        const auto direction_value = direction.glmValue();
+        if (glm::dot(direction_value, direction_value) != 0)
+            (direction) = glm::normalize(direction_value);
+    }
 
     srVector2T<float> horizontal = direction.xz();
-    horizontal *= 1.0 / horizontal.Length();
+    horizontal *= 1.0 / glm::length(horizontal.glmValue());
     float x = horizontal.x;
     float y = direction.y;
     float z = horizontal.y;
@@ -338,13 +355,17 @@ unsigned char GDCamera::LookAt(const srVector3T<float>* target, bool preserve_pi
     }
 
     srVector3T<float> direction = *target - m_position;
-    if (direction.Length() < 1.0) {
+    if (glm::length(direction.glmValue()) < 1.0) {
         return 0;
     }
-    direction.Normalize();
+    {
+        const auto direction_value = direction.glmValue();
+        if (glm::dot(direction_value, direction_value) != 0)
+            (direction) = glm::normalize(direction_value);
+    }
 
     srVector2T<float> horizontal = direction.xz();
-    horizontal *= 1.0 / horizontal.Length();
+    horizontal *= 1.0 / glm::length(horizontal.glmValue());
     float x = horizontal.x;
     float y = direction.y;
     float z = horizontal.y;
@@ -758,7 +779,11 @@ void GDCamera::SetOrientation(float angle, float pitch)
     m_yaw = angle;
     m_yaw_rotation.SetIdentity();
     if (angle != g_double_zero) {
-        m_yaw_rotation.RotateAboutY(sin(angle), cos(angle));
+        {
+            m_yaw_rotation = m_yaw_rotation.glmValue() *
+                             glm::mat3(glm::rotate(glm::dmat4(1), static_cast<double>(angle),
+                                                   glm::dvec3(0, 1, 0)));
+        }
     }
 
     if (pitch > g_camera_pitch_upper) {
@@ -770,11 +795,15 @@ void GDCamera::SetOrientation(float angle, float pitch)
     m_pitch = pitch;
     m_pitch_rotation.SetIdentity();
     if (pitch != g_double_zero) {
-        m_pitch_rotation.RotateAboutX(sin(pitch), cos(pitch));
+        {
+            m_pitch_rotation = m_pitch_rotation.glmValue() *
+                               glm::mat3(glm::rotate(glm::dmat4(1), static_cast<double>(pitch),
+                                                     glm::dvec3(1, 0, 0)));
+        }
     }
 
     m_rotation = m_yaw_rotation;
-    m_rotation.MultiplyBy(m_pitch_rotation);
+    m_rotation = m_rotation.glmValue() * m_pitch_rotation.glmValue();
     MarkRendererReady();
 }
 
@@ -782,7 +811,7 @@ void GDCamera::SetOrientation(float angle, float pitch)
 void GDCamera::GetRotationMatrix(srMatrix3T<float>* output)
 {
     m_rotation = m_yaw_rotation;
-    m_rotation.MultiplyBy(m_pitch_rotation);
+    m_rotation = m_rotation.glmValue() * m_pitch_rotation.glmValue();
     *output = m_rotation;
 }
 
@@ -797,11 +826,15 @@ void GDCamera::BeginLeveling()
 void GDCamera::GetForwardPoint(float distance, srVector3T<float>* output)
 {
     m_rotation = m_yaw_rotation;
-    m_rotation.MultiplyBy(m_pitch_rotation);
+    m_rotation = m_rotation.glmValue() * m_pitch_rotation.glmValue();
     m_direction.Set(0.0f, 0.0f, 1.0f);
-    m_direction.Transform(m_rotation);
+    m_direction = m_rotation.glmValue() * m_direction.glmValue();
     *output = m_direction;
-    output->SetLength(distance);
+    {
+        const auto direction_value = ((*output)).glmValue();
+        if (glm::dot(direction_value, direction_value) != 0)
+            (*output) = glm::normalize(direction_value) * static_cast<float>(distance);
+    }
     *output += m_position;
 }
 

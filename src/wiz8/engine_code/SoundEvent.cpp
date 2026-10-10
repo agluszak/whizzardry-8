@@ -10,11 +10,12 @@
 #include "wiz8/vector.h"
 #include "random.h"
 #include "soundman.h"
-
 #include <math.h>
+
 #include <new>
 #include <string.h>
 #include "wiz8/engine_code/GameData.h"
+#include <glm/gtc/matrix_transform.hpp>
 
 #define SOUNDEVENT_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\SoundEvent.cpp"
 
@@ -158,7 +159,7 @@ unsigned char W8SoundEvent::Play(unsigned int mask, const srVector3T<float>* pos
 
     GetCameraPosition(&camera_position);
     srVector3T<float> camera_offset = camera_position - *position;
-    if (camera_offset.Length() < falloff) {
+    if (glm::length(camera_offset.glmValue()) < falloff) {
         if (kind == W8_SOUND_EVENT_FOOTSTEP || strstr(m_pacWaveName, "step") != 0 ||
             (location_id != 0 && cycle == 4)) {
             base_volume = footstep_volume;
@@ -182,11 +183,15 @@ unsigned char W8SoundEvent::Play(unsigned int mask, const srVector3T<float>* pos
 
         rotation.SetIdentity();
         if (angle != g_double_zero) {
-            rotation.RotateAboutY(sin(angle), cos(angle));
+            {
+                rotation = rotation.glmValue() *
+                           glm::mat3(glm::rotate(glm::dmat4(1), static_cast<double>(angle),
+                                                 glm::dvec3(0, 1, 0)));
+            }
         }
 
         srVector3T<float> offset = *position - camera_position;
-        srVector3T<float> transformed = rotation.Transform(offset);
+        srVector3T<float> transformed = srVector3T<float>{rotation.glmValue() * offset.glmValue()};
         float x = transformed.x;
         float y = transformed.y;
         float z = transformed.z;
@@ -194,7 +199,7 @@ unsigned char W8SoundEvent::Play(unsigned int mask, const srVector3T<float>* pos
 
         memset(&options, 0xff, sizeof(options));
         unsigned int event_volume = static_cast<unsigned int>(
-            (g_float_one - camera_offset.Length() / falloff) * base_volume);
+            (g_float_one - glm::length(camera_offset.glmValue()) / falloff) * base_volume);
         event_volume = (GetSoundEffectsVolume() * event_volume) / 0x7f;
         if (event_volume != 0) {
             options.uiVolume = event_volume;

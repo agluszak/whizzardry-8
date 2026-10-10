@@ -1,9 +1,10 @@
+#include "surrender/srMath.h"
 #pragma once
 
-#include "surrender/srMath.h"
 #include "wiz8/geometry.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/engine_code/World.h"
+#include <glm/gtc/matrix_transform.hpp>
 
 /* Orientation limits shared by the inline setters and GDCamera.cpp. */
 extern const float g_camera_angle_period0;
@@ -68,7 +69,11 @@ public:
 
         m_pitch_rotation.SetIdentity();
         if (pitch != g_double_zero) {
-            m_pitch_rotation.RotateAboutX(sin(pitch), cos(pitch));
+            {
+                m_pitch_rotation = m_pitch_rotation.glmValue() *
+                                   glm::mat3(glm::rotate(glm::dmat4(1), static_cast<double>(pitch),
+                                                         glm::dvec3(1, 0, 0)));
+            }
         }
         MarkRendererReady();
     }
@@ -85,7 +90,11 @@ public:
 
         m_yaw_rotation.SetIdentity();
         if (angle != g_double_zero) {
-            m_yaw_rotation.RotateAboutY(sin(angle), cos(angle));
+            {
+                m_yaw_rotation = m_yaw_rotation.glmValue() *
+                                 glm::mat3(glm::rotate(glm::dmat4(1), static_cast<double>(angle),
+                                                       glm::dvec3(0, 1, 0)));
+            }
         }
         MarkRendererReady();
     }

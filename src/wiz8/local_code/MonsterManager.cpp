@@ -8,7 +8,6 @@
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/GameplayMods.h"
 #include "wiz8/local_code/Sight.h"
-#include "wiz8/fact_state.h"
 #include "wiz8/engine_code/Quality.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/local_code/Targeting.h"
@@ -21,18 +20,14 @@
 #include "wiz8/local_code/CombatRange.h"
 #include "wiz8/local_code/MonsterAI.h"
 #include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/local_code/ThingEditorShared.h"
 #include "wiz8/music_playlist.h"
 #include "wiz8/local_code/CombatHostility.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/fact_state.h"
-#include "wiz8/3d_code/PList.h"
-#include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_screens/MGSButtons.h"
 #include "wiz8/local_screens/MGSPortraitCombat.h"
-#include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/engine_code/OctBuildPreTree.h"
 #include "wiz8/regions.h"
 #include "wiz8/local_code/GameplayDatabase.h"
@@ -50,7 +45,6 @@
 #include "wiz8/notices.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/utility.h"
-#include <math.h>
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/engine_code/Monster.h"
@@ -912,7 +906,7 @@ void MoveMonsterToLiveList(W8MonsterInfo* monster_info)
 static double DistanceBetweenPositions(const srVector3T<float>* first,
                                        const srVector3T<float>& second)
 {
-    return (*first - second).Length();
+    return glm::length((((*first - second))).glmValue());
 }
 
 // FUNCTION: WIZ8 0x004e61e0

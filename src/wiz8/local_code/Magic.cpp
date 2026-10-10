@@ -59,11 +59,12 @@
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/local_code/MonsterAI.h"
 #include "wiz8/engine_code/GameData.h"
-
 #include <cstdlib>
+
 #include <wchar.h>
 #include "wiz8/local_screens/OptionsScreen.h"
 #include "wiz8/local_screens/Screens.h"
+#include <glm/gtc/matrix_transform.hpp>
 
 // FUNCTION: WIZ8 0x004ff3b0
 int GetProfessionCasterLevel(const W8Character* character, W8Profession profession_id)
@@ -3013,13 +3014,33 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
                     } else {
                         origin = source->point;
                         direction = target->point - origin;
-                        direction.SetLength(1.0);
+                        {
+                            const auto direction_value = direction.glmValue();
+                            if (glm::dot(direction_value, direction_value) != 0)
+                                (direction) =
+                                    glm::normalize(direction_value) * static_cast<float>(1.0);
+                        }
                         local_90.SetIdentity();
                         yaw = atan2(direction.x, direction.z);
-                        local_90.RotateAboutY(yaw);
-                        direction = local_90.TransformTransposed(direction);
+                        {
+                            if (yaw != 0.0) {
+                                local_90 =
+                                    local_90.glmValue() *
+                                    glm::mat3(glm::rotate(glm::dmat4(1), static_cast<double>(yaw),
+                                                          glm::dvec3(0, 1, 0)));
+                            }
+                        }
+                        direction = srVector3T<float>{glm::transpose(local_90.glmValue()) *
+                                                      direction.glmValue()};
                         pitch = -atan2(direction.y, direction.z);
-                        local_90.RotateAboutX(pitch);
+                        {
+                            if (pitch != 0.0) {
+                                local_90 =
+                                    local_90.glmValue() *
+                                    glm::mat3(glm::rotate(glm::dmat4(1), static_cast<double>(pitch),
+                                                          glm::dvec3(1, 0, 0)));
+                            }
+                        }
                         visual = CreateAimedSpellEffect(g_spell_records[spell_id].resource_name,
                                                         power_level, &origin, &local_90, 0, 0);
                     }
@@ -3517,8 +3538,12 @@ void ScatterSpellPointTarget(int spell_id, W8TargetSource* source, W8CombatSlot*
         }
     }
     delta = origin - point;
-    if (range < delta.Length()) {
-        delta.SetLength(range);
+    if (range < glm::length(delta.glmValue())) {
+        {
+            const auto direction_value = delta.glmValue();
+            if (glm::dot(direction_value, direction_value) != 0)
+                (delta) = glm::normalize(direction_value) * static_cast<float>(range);
+        }
         point = delta + origin;
     }
     target->point = point;

@@ -1,8 +1,8 @@
 #include "wiz8/filesystem.h"
 #include <cstring>
 #include <math.h>
-
 #include "wiz8/engine_code/Environment.h"
+
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/Prop.h"
 #include "wiz8/engine_code/stLight.hpp"
@@ -27,6 +27,7 @@
 #include "wiz8/local_code/GameplayTime.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/engine_code/Monster.h"
+#include <glm/gtc/matrix_transform.hpp>
 
 #define ENVIRONMENT_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\Environment.cpp"
 
@@ -162,10 +163,15 @@ void AdvanceEnvironmentTime(int elapsed)
 
     angle -= 3.141592653589793 * (1.0f / 180.0f) * 40.0;
     if (angle != 0.0) {
-        rotation.RotateAboutZ(sin(angle), cos(angle));
+        {
+            rotation = rotation.glmValue() *
+                       glm::mat3(glm::rotate(glm::dmat4(1), static_cast<double>(angle),
+                                             glm::dvec3(0, 0, 1)));
+        }
     }
 
-    srVector3T<float> position = rotation.Transform(direction) + g_celestial_origin;
+    srVector3T<float> position =
+        srVector3T<float>{rotation.glmValue() * direction.glmValue()} + g_celestial_origin;
 
     W8Prop* moving = day ? g_sun_prop : g_moon_prop;
     W8Prop* opposite = day ? g_moon_prop : g_sun_prop;
@@ -932,7 +938,7 @@ void InitializeLevelEnvironment(void)
             g_moon_prop->m_pRep->GetLocation(&moon);
             srVector3T<float> delta = sun - moon;
             srVector3T<float> midpoint = (sun + moon) * 0.5;
-            g_celestial_orbit_radius = delta.Length() * 0.5f;
+            g_celestial_orbit_radius = glm::length(delta.glmValue()) * 0.5f;
             g_celestial_origin = midpoint;
             for (int index = 0; index < 3; ++index) {
                 const char* name = g_sky_gradient_names[index];

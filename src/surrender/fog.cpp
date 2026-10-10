@@ -5,10 +5,11 @@
 
 #include "surrender/srCore.h"
 #include "surrender/srDebug.h"
-#include "surrender/srVectorMath.h"
 #include "surrender/srVertexPipe.h"
-
 #include <ostream>
+#include "surrender/srMath.h"
+
+#include <cassert>
 
 // FUNCTION: SURRENDER 0x1004C0E0
 void srFog::setDensity(float density)
@@ -54,8 +55,8 @@ int srFog::isActive(srVertexPipe& pipe)
     }
     if (density > 0.0f) {
         pipe.getEyeSpaceBoundingSphere(center, radius);
-        if ((radius <= fog_start) &&
-            (center.LengthSquared() < (fog_start - radius) * (fog_start - radius))) {
+        if ((radius <= fog_start) && (glm::dot(center.glmValue(), center.glmValue()) <
+                                      (fog_start - radius) * (fog_start - radius))) {
             return 0;
         }
         return 1;
@@ -94,7 +95,7 @@ void srFog::process(srVertexPipe& pipe)
         pipe.getEyeSpaceBoundingSphere(center, radius);
         double limit = radius + fog_end;
         w8_long count = (w8_long)pipe.getVertexCount();
-        if (center.LengthSquared() <= limit * limit) {
+        if (glm::dot(center.glmValue(), center.glmValue()) <= limit * limit) {
             if (fog_end == fog_start) {
                 scale = 1e+08f;
             } else {
@@ -108,27 +109,31 @@ void srFog::process(srVertexPipe& pipe)
                         std::copy_n(distances, count, values);
                     }
                 } else {
-                    srMath::add({values, static_cast<std::size_t>(count)}, -start,
-                                {distances, static_cast<std::size_t>(count)});
+                    std::ranges::transform(
+                        std::span<const float>{distances, static_cast<std::size_t>(count)}, values,
+                        [&](const auto& v) { return (-start) + v; });
                 }
                 if (scale != 1.0f) {
                     if (scale == 0.0f) {
                         std::fill_n(values, count, 0.0f);
                     } else {
-                        srMath::mul({values, static_cast<std::size_t>(count)}, scale,
-                                    {values, static_cast<std::size_t>(count)});
+                        std::ranges::transform(
+                            std::span<const float>{values, static_cast<std::size_t>(count)}, values,
+                            [&](const auto& v) { return (scale)*v; });
                     }
                 }
-                srMath::clampUnit({values, static_cast<std::size_t>(count)},
-                                  {values, static_cast<std::size_t>(count)});
+                std::ranges::transform(
+                    std::span<const float>{values, static_cast<std::size_t>(count)}, values,
+                    [&](const auto& v) { return glm::clamp(v, 0.0f, 1.0f); });
             }
             density = this->density;
             if ((count != 0) && (density != 1.0f)) {
                 if (density == 0.0f) {
                     std::fill_n(values, count, 0.0f);
                 } else {
-                    srMath::mul({values, static_cast<std::size_t>(count)}, density,
-                                {values, static_cast<std::size_t>(count)});
+                    std::ranges::transform(
+                        std::span<const float>{values, static_cast<std::size_t>(count)}, values,
+                        [&](const auto& v) { return (density)*v; });
                 }
             }
             pipe.applyFog(values);
@@ -143,13 +148,14 @@ void srFog::process(srVertexPipe& pipe)
                 if (density == 0.0f) {
                     std::fill_n(fog, count, 0.0f);
                 } else {
-                    srMath::mul({fog, static_cast<std::size_t>(count)}, density,
-                                {fog, static_cast<std::size_t>(count)});
+                    std::ranges::transform(
+                        std::span<const float>{fog, static_cast<std::size_t>(count)}, fog,
+                        [&](const auto& v) { return (density)*v; });
                 }
             }
             if ((count != 0) && (this->density != 0.0f)) {
-                srMath::add({fog, static_cast<std::size_t>(count)}, this->density,
-                            {fog, static_cast<std::size_t>(count)});
+                std::ranges::transform(std::span<const float>{fog, static_cast<std::size_t>(count)},
+                                       fog, [&](const auto& v) { return (this->density) + v; });
             }
         }
     }

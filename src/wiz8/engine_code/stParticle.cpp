@@ -478,14 +478,26 @@ unsigned char stParticle::ActivateParticle(unsigned int* out_index, bool replace
 
         double angle =
             ((rand() & 0x7fff) * g_particle_random_unit_scale - g_float_half) * cone_pitch;
-        direction.RotateAboutX(sin(angle), cos(angle));
+        {
+            const double rotation_sine = sin(angle);
+            const double rotation_cosine = cos(angle);
+            const auto axis_rotation = glm::dmat3(1, 0, 0, 0, rotation_cosine, rotation_sine, 0,
+                                                  -rotation_sine, rotation_cosine);
+            direction = glm::vec3(axis_rotation * glm::dvec3(direction.glmValue()));
+        }
 
         angle = ((rand() & 0x7fff) * g_particle_random_unit_scale - g_float_half) * cone_yaw;
-        direction.RotateAboutY(sin(angle), cos(angle));
+        {
+            const double rotation_sine = sin(angle);
+            const double rotation_cosine = cos(angle);
+            const auto axis_rotation = glm::dmat3(rotation_cosine, 0, -rotation_sine, 0, 1, 0,
+                                                  rotation_sine, 0, rotation_cosine);
+            direction = glm::vec3(axis_rotation * glm::dvec3(direction.glmValue()));
+        }
 
         srMatrix3T<float> rotation;
         getWorldSpaceRotation(rotation);
-        velocity = rotation.Transform(direction);
+        velocity = srVector3T<float>{rotation.glmValue() * direction.glmValue()};
         break;
     }
 
@@ -495,7 +507,11 @@ unsigned char stParticle::ActivateParticle(unsigned int* out_index, bool replace
         direction.y = (rand() & 0x7fff) * g_particle_random_unit_scale - g_float_half;
         direction.z = (rand() & 0x7fff) * g_particle_random_unit_scale - g_float_half;
 
-        direction.Normalize();
+        {
+            const auto direction_value = direction.glmValue();
+            if (glm::dot(direction_value, direction_value) != 0)
+                (direction) = glm::normalize(direction_value);
+        }
 
         velocity = direction * magnitude;
         break;
@@ -563,7 +579,7 @@ void stParticle::Update()
                                  rotation.vectors[2].z, 0.0f);
         transform.vectors[3].Set(0.0f, 0.0f, 0.0f, 1.0f);
 
-        transform.Invert();
+        transform = glm::inverse(transform.glmValue());
 
         srVector3T<float> node_location;
         getLocation(node_location);
@@ -626,11 +642,13 @@ void stParticle::Update()
                 double distance;
                 if (bounds_origin.x == g_float_zero && bounds_origin.y == g_float_zero &&
                     bounds_origin.z == g_float_zero) {
-                    distance = (candidate - node_location).Length();
+                    distance = glm::length((((candidate - node_location))).glmValue());
                 } else {
-                    srVector3T<float> center = rotation.Transform(bounds_origin) + node_location;
+                    srVector3T<float> center =
+                        srVector3T<float>{rotation.glmValue() * bounds_origin.glmValue()} +
+                        node_location;
                     srVector3T<float> difference = candidate - center;
-                    distance = difference.Length();
+                    distance = glm::length(difference.glmValue());
                 }
 
                 if (size_scale * bounds_radius < distance) {
@@ -641,7 +659,8 @@ void stParticle::Update()
                 }
             } else if (bounds_mode == W8_PARTICLE_BOUNDS_BOX) {
                 srVector3T<float> local = candidate - node_location;
-                srVector4T<float> transformed = transform.Transform(local);
+                srVector4T<float> transformed =
+                    srVector4T<float>{transform.glmValue() * glm::vec4(local.glmValue(), 1)};
                 srVector3T<float> local_point;
                 local_point = transformed.xyz();
                 if (!PointInsideBounds(&local_point, &lifetime_minimum, &lifetime_maximum)) {
@@ -730,7 +749,7 @@ void stParticle::InitializeParticlePosition(srVector3T<float>* output)
 
     srMatrix3T<float> rotation;
     getRotation(rotation);
-    output->Transform(rotation);
+    (*output) = rotation.glmValue() * ((*output)).glmValue();
 
     srVector3T<double> location = getLocation();
     output->x += static_cast<float>(location.x);
@@ -795,13 +814,15 @@ void stParticle::PrepareRenderer(srMatrix4T<float>& view)
     view.vectors[1].w = 0.0f;
     view.vectors[2].w = 0.0f;
 
-    float normalization = static_cast<float>(g_double_one / view.vectors[0].Length());
+    float normalization =
+        static_cast<float>(g_double_one / glm::length(view.vectors[0].glmValue()));
     view.vectors[0] *= normalization;
     view.vectors[1] *= normalization;
     view.vectors[2] *= normalization;
 
     for (unsigned int index = 0; index < 4; ++index) {
-        srVector4T<float> transformed = view.Transform(corners[index]);
+        srVector4T<float> transformed =
+            srVector4T<float>{view.glmValue() * glm::vec4(corners[index].glmValue(), 1)};
 
         float scale = static_cast<float>(particle_size) * size_scale;
         offsets[index] = srVector3T<float>(transformed.x, transformed.y, transformed.z) *
@@ -845,7 +866,13 @@ void stParticle::PrepareRenderer(srMatrix4T<float>& view)
             }
 
             double angle = m_pflFlutterAngle[particle_index];
-            position.RotateAboutY(sin(angle), cos(angle));
+            {
+                const double rotation_sine = sin(angle);
+                const double rotation_cosine = cos(angle);
+                const auto axis_rotation = glm::dmat3(rotation_cosine, 0, -rotation_sine, 0, 1, 0,
+                                                      rotation_sine, 0, rotation_cosine);
+                position = glm::vec3(axis_rotation * glm::dvec3(position.glmValue()));
+            }
             position += particle_positions[particle_index];
         }
 
@@ -876,7 +903,7 @@ void stParticle::SubmitToRenderer(srGERD* renderer)
         position = camera_position + camera_offset;
 
         srVector3T<double> placed;
-        placed.SetFromFloat(&position);
+        placed = glm::dvec3((&position)->glmValue());
         setLocation(placed);
     } else {
         /* Bound rather than copied: the three conversions read through the
@@ -912,7 +939,8 @@ void stParticle::SubmitToRenderer(srGERD* renderer)
             visibility = renderer->testBoundingSphere(position, size_scale * bounds_radius);
         } else {
             getRotation(rotation);
-            srVector3T<float> center = rotation.Transform(extent) + position;
+            srVector3T<float> center =
+                srVector3T<float>{rotation.glmValue() * extent.glmValue()} + position;
             visibility = renderer->testBoundingSphere(center, size_scale * bounds_radius);
         }
         if (visibility == srGERD::VISIBILITY_OUTSIDE) {
@@ -922,8 +950,10 @@ void stParticle::SubmitToRenderer(srGERD* renderer)
 
     if (bounds_mode == W8_PARTICLE_BOUNDS_BOX) {
         getRotation(rotation);
-        srVector3T<float> minimum = rotation.Transform(lifetime_minimum) + position;
-        srVector3T<float> maximum = rotation.Transform(lifetime_maximum) + position;
+        srVector3T<float> minimum =
+            srVector3T<float>{rotation.glmValue() * lifetime_minimum.glmValue()} + position;
+        srVector3T<float> maximum =
+            srVector3T<float>{rotation.glmValue() * lifetime_maximum.glmValue()} + position;
 
         srGERD::e_visibility visibility = renderer->testBoundingBox(minimum, maximum);
         if (visibility == srGERD::VISIBILITY_OUTSIDE) {
@@ -949,7 +979,7 @@ void stParticle::SubmitToRenderer(srGERD* renderer)
 
     srMatrix4T<float> view;
     renderer->getMatrix(srGERD::MATRIX_MODELVIEW, view);
-    view.Invert();
+    view = glm::inverse(view.glmValue());
     PrepareRenderer(view);
 
     if (requires_sorted_renderer != 0 && !renderer->isEnabled(srGERD::ENABLE_SORTED_RENDERING)) {

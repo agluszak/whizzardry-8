@@ -54,14 +54,15 @@
 #include "vobject_blitters.h"
 #include "line.h"
 #include "surrender/srMeshModel.h"
-#include "surrender/srVectorMath.h"
-
 #include <algorithm>
 #include <vector>
 #include <stdlib.h>
+
 #include <wchar.h>
 #include <stdio.h>
 #include <string.h>
+#include "surrender/srMath.h"
+#include <cassert>
 #include <ctype.h>
 
 /* Lifecycle record 8; the automap screen. Its original screen-class name is
@@ -963,8 +964,8 @@ void AutomapScreenFrame(void)
                 point.y = 0.0f;
                 srVector3T<float> distance(point.x - g_automap_saved_camera.position.x, 0.0f,
                                            point.z - g_automap_saved_camera.position.z);
-                if (distance.Length() < g_automap_zoom * 0.05f && g_automap_tool == 0 &&
-                    g_automap_zoom_mode != 2) {
+                if (glm::length(distance.glmValue()) < g_automap_zoom * 0.05f &&
+                    g_automap_tool == 0 && g_automap_zoom_mode != 2) {
                     DisableCursorScene();
                     srVector3T<double> scale(0.44f, 0.44f, 0.44f);
                     g_automap_party_marker->setScale(scale);
@@ -1453,8 +1454,8 @@ void LightAutomapCell(const srVector3T<float>* position)
             model->getBoundingBox(minimum, maximum);
             minimum += location;
             maximum += location;
-            bool inside =
-                (minimum - *position).Length() <= range && (maximum - *position).Length() <= range;
+            bool inside = glm::length((((minimum - *position))).glmValue()) <= range &&
+                          glm::length((((maximum - *position))).glmValue()) <= range;
             while (model != 0) {
                 srVector3T<float>* lights = model->GetVertexLights(true, -1);
                 srVector3T<float>* source = model->getVertexLoc();
@@ -1472,9 +1473,13 @@ void LightAutomapCell(const srVector3T<float>* position)
                         OffsetVertices(transformed, source, &offset, count);
                     }
                     if (count != 0) {
-                        srMath::length({distances.data(),
-                                        static_cast<std::size_t>(static_cast<SRDWORD>(count))},
-                                       vertices);
+                        std::ranges::transform(
+                            std::span<const srVector3>{vertices}.first(std::span<float>{
+                                distances.data(),
+                                static_cast<std::size_t>(static_cast<SRDWORD>(count))}
+                                                                           .size()),
+                            distances.data(),
+                            [&](const auto& v) { return glm::length(v.glmValue()); });
                     }
                     float* distance = distances.data();
                     if (count != 0) {
