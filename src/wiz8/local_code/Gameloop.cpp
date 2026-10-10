@@ -162,7 +162,8 @@ void GameLoop(void)
                 return;
             }
             g_suspended_screen_id = g_current_screen_state.id;
-            g_screen_return_stack = Push(g_screen_return_stack, &g_current_screen_state);
+            if (auto stack = Push(g_screen_return_stack, &g_current_screen_state))
+                g_screen_return_stack = stack;
         }
         state = g_pending_screen_state.id;
         g_current_screen_state = g_pending_screen_state;

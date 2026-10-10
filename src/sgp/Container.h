@@ -38,6 +38,11 @@ typedef HCONTAINER HQUEUE;
 typedef HCONTAINER HLIST;
 typedef HCONTAINER HORDLIST;
 
+// Opaque, stable handles own copied bytes, never the pointers contained in those bytes.
+// Delete releases storage; initialization/shutdown only manage debug topics.
+// Operations on a live handle are serialized; Delete requires exclusive caller ownership.
+// Insert returns NULL on failure without changing the existing handle or its contents.
+
 //***********************************************
 //
 // Function Prototypes
@@ -74,8 +79,16 @@ extern BOOLEAN PeekStack(HSTACK hStack, void* data);
 // : returns handle to queue
 // RemfromQueue(handle to container returned from CreateQueue, variable where data is stored (must be void *))
 // : returns BOOLEAN
+
 // PeekQueue(handle to the queue, variable where peeked data is stored). Item is not deleted.
 // : returns BOOLEAN
+
+extern HQUEUE CreateQueue(UINT32 num_of_elem, UINT32 siz_of_each);
+extern HQUEUE AddtoQueue(HQUEUE hQueue, void* data);
+extern BOOLEAN RemfromQueue(HQUEUE hQueue, void* data);
+extern BOOLEAN PeekQueue(HQUEUE hQueue, void* data);
+extern UINT32 QueueSize(HQUEUE hQueue);
+extern BOOLEAN DeleteQueue(HQUEUE hQueue);
 // QueueSize(handle to the queue) returns the queue size
 // DeleteQueue(handle to container) Delete the queue container
 // : returns BOOLEAN
@@ -94,6 +107,7 @@ extern BOOLEAN PeekStack(HSTACK hStack, void* data);
 
 extern HLIST CreateList(UINT32 num_of_elem, UINT32 siz_of_each);
 extern HLIST AddtoList(HLIST hList, void* data, UINT32 position);
+extern BOOLEAN RemfromList(HLIST hList, void* data, UINT32 position);
 extern BOOLEAN PeekList(HLIST hList, void* data, UINT32 position);
 extern UINT32 ListSize(HLIST hList);
 extern BOOLEAN DeleteList(HLIST hList);
