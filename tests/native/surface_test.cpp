@@ -1,9 +1,12 @@
 #include "compat/surfaces.h"
+#include "vsurface.h"
 #include <algorithm>
 #include <array>
 #include <cstdio>
 #include <cstring>
 #include <stdexcept>
+
+BOOLEAN ClipReleatedSrcAndDestRectangles(HVSURFACE, HVSURFACE, SDL_Rect*, SDL_Rect*);
 
 #define CHECK(expression) do { if (!(expression)) throw std::runtime_error(#expression); } while (0)
 
@@ -162,6 +165,45 @@ void differential()
     }
 }
 
+void videoSurfaceClipping()
+{
+    auto source = CreateCpuSurface(8, 7, 16, 0x7c00, 0x3e0, 0x1f);
+    auto dest = CreateCpuSurface(8, 7, 16, 0x7c00, 0x3e0, 0x1f);
+    std::unique_ptr<SGPVSurface> sourceView(CreateVideoSurfaceFromCpuSurface(source.get()));
+    std::unique_ptr<SGPVSurface> destView(CreateVideoSurfaceFromCpuSurface(dest.get()));
+    SDL_Rect destination{-2, -1, 6, 5}, sample{1, 1, 6, 5};
+    CHECK(ClipReleatedSrcAndDestRectangles(destView.get(), sourceView.get(), &destination, &sample));
+    const SDL_Rect expectedDest{0, 0, 4, 4}, expectedSource{3, 2, 4, 4};
+    CHECK(SDL_RectsEqual(&destination, &expectedDest));
+    CHECK(SDL_RectsEqual(&sample, &expectedSource));
+    destination = {1, 1, 6, 5};
+    sample = {-2, -1, 6, 5};
+    CHECK(ClipReleatedSrcAndDestRectangles(destView.get(), sourceView.get(), &destination, &sample));
+    CHECK(SDL_RectsEqual(&destination, &expectedSource));
+    CHECK(SDL_RectsEqual(&sample, &expectedDest));
+    SDL_Rect clips[]{{2, 1, 3, 2}};
+    CHECK(SetClipList(destView.get(), clips, 1));
+    CHECK(dest->clipRegions->size() == 1);
+    CHECK(SDL_RectsEqual(&dest->clipRegions->front(), &clips[0]));
+    seed(*source, 5);
+    for (bool clipped : {false, true}) {
+        if (!clipped) dest->clipRegions.reset();
+        else CHECK(SetClipList(destView.get(), clips, 1));
+        for (int y : {-4, -1, 0, 3, 7})
+            for (int x : {-5, -1, 0, 4, 8}) {
+                seed(*dest, 17);
+                const SDL_Rect sample{1, 1, 6, 5}, mapping{x, y, 6, 5};
+                const auto expected = reference(*dest, mapping, *source, sample);
+                blt_vs_fx effects{};
+                effects.SrcRect = sample;
+                CHECK(BltVideoSurfaceToVideoSurface(destView.get(), sourceView.get(), 0,
+                                                    x, y, VS_BLT_SRCSUBRECT, &effects) ||
+                      x >= 8 || y >= 7);
+                CHECK(pixels(*dest) == expected);
+            }
+    }
+}
+
 void locksFillsAndKeys()
 {
     for (unsigned bits : {8, 16, 32})
@@ -215,6 +257,7 @@ int main()
     {
         differential();
         locksFillsAndKeys();
+        videoSurfaceClipping();
         puts("CPU surfaces: exact packed differential, palette, pitch, alpha, clips, keys and overlap passed");
         return 0;
     }

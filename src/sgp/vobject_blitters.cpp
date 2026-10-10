@@ -157,17 +157,11 @@ BOOLEAN Blt8BPPDataTo8BPPBufferMonoShadowClip(UINT8* pBuffer, UINT32 uiDestPitch
     iTempX = iX + pTrav->sOffsetX;
     iTempY = iY + pTrav->sOffsetY;
 
-    if (clipregion == nullptr) {
-        ClipX1 = ClippingRect.x;
-        ClipY1 = ClippingRect.y;
-        ClipX2 = (ClippingRect.x + ClippingRect.w);
-        ClipY2 = (ClippingRect.y + ClippingRect.h);
-    } else {
-        ClipX1 = clipregion->x;
-        ClipY1 = clipregion->y;
-        ClipX2 = (clipregion->x + clipregion->w);
-        ClipY2 = (clipregion->y + clipregion->h);
-    }
+    const SDL_Rect& clip = clipregion ? *clipregion : ClippingRect;
+    ClipX1 = clip.x;
+    ClipY1 = clip.y;
+    ClipX2 = clip.x + clip.w;
+    ClipY2 = clip.y + clip.h;
 
     // Calculate rows hanging off each side of the screen
     LeftSkip = std::min(ClipX1 - std::min(ClipX1, iTempX), (INT32)usWidth);
@@ -237,17 +231,11 @@ BOOLEAN Blt8BPPDataTo8BPPBufferTransparentClip(UINT16* pBuffer, UINT32 uiDestPit
     iTempX = iX + pTrav->sOffsetX;
     iTempY = iY + pTrav->sOffsetY;
 
-    if (clipregion == nullptr) {
-        ClipX1 = ClippingRect.x;
-        ClipY1 = ClippingRect.y;
-        ClipX2 = (ClippingRect.x + ClippingRect.w);
-        ClipY2 = (ClippingRect.y + ClippingRect.h);
-    } else {
-        ClipX1 = clipregion->x;
-        ClipY1 = clipregion->y;
-        ClipX2 = (clipregion->x + clipregion->w);
-        ClipY2 = (clipregion->y + clipregion->h);
-    }
+    const SDL_Rect& clip = clipregion ? *clipregion : ClippingRect;
+    ClipX1 = clip.x;
+    ClipY1 = clip.y;
+    ClipX2 = clip.x + clip.w;
+    ClipY2 = clip.y + clip.h;
 
     // Calculate rows hanging off each side of the screen
     LeftSkip = std::min(ClipX1 - std::min(ClipX1, iTempX), (INT32)usWidth);
@@ -410,17 +398,11 @@ BOOLEAN Blt8BPPDataTo8BPPBufferShadowClip(UINT16* pBuffer, UINT32 uiDestPitchBYT
     iTempX = iX + pTrav->sOffsetX;
     iTempY = iY + pTrav->sOffsetY;
 
-    if (clipregion == nullptr) {
-        ClipX1 = ClippingRect.x;
-        ClipY1 = ClippingRect.y;
-        ClipX2 = (ClippingRect.x + ClippingRect.w);
-        ClipY2 = (ClippingRect.y + ClippingRect.h);
-    } else {
-        ClipX1 = clipregion->x;
-        ClipY1 = clipregion->y;
-        ClipX2 = (clipregion->x + clipregion->w);
-        ClipY2 = (clipregion->y + clipregion->h);
-    }
+    const SDL_Rect& clip = clipregion ? *clipregion : ClippingRect;
+    ClipX1 = clip.x;
+    ClipY1 = clip.y;
+    ClipX2 = clip.x + clip.w;
+    ClipY2 = clip.y + clip.h;
 
     // Calculate rows hanging off each side of the screen
     LeftSkip = std::min(ClipX1 - std::min(ClipX1, iTempX), (INT32)usWidth);
@@ -497,17 +479,11 @@ BOOLEAN Blt8BPPDataTo16BPPBufferMonoShadowClip(UINT16* pBuffer, UINT32 uiDestPit
     iTempX = iX + pTrav->sOffsetX;
     iTempY = iY + pTrav->sOffsetY;
 
-    if (clipregion == nullptr) {
-        ClipX1 = ClippingRect.x;
-        ClipY1 = ClippingRect.y;
-        ClipX2 = (ClippingRect.x + ClippingRect.w);
-        ClipY2 = (ClippingRect.y + ClippingRect.h);
-    } else {
-        ClipX1 = clipregion->x;
-        ClipY1 = clipregion->y;
-        ClipX2 = (clipregion->x + clipregion->w);
-        ClipY2 = (clipregion->y + clipregion->h);
-    }
+    const SDL_Rect& clip = clipregion ? *clipregion : ClippingRect;
+    ClipX1 = clip.x;
+    ClipY1 = clip.y;
+    ClipX2 = clip.x + clip.w;
+    ClipY2 = clip.y + clip.h;
 
     // Calculate rows hanging off each side of the screen
     LeftSkip = std::min(ClipX1 - std::min(ClipX1, iTempX), (INT32)usWidth);
@@ -1118,17 +1094,11 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransparentClip(UINT16* pBuffer, UINT32 uiDestPi
     iTempX = iX + pTrav->sOffsetX;
     iTempY = iY + pTrav->sOffsetY;
 
-    if (clipregion == nullptr) {
-        ClipX1 = ClippingRect.x;
-        ClipY1 = ClippingRect.y;
-        ClipX2 = (ClippingRect.x + ClippingRect.w);
-        ClipY2 = (ClippingRect.y + ClippingRect.h);
-    } else {
-        ClipX1 = clipregion->x;
-        ClipY1 = clipregion->y;
-        ClipX2 = (clipregion->x + clipregion->w);
-        ClipY2 = (clipregion->y + clipregion->h);
-    }
+    const SDL_Rect& clip = clipregion ? *clipregion : ClippingRect;
+    ClipX1 = clip.x;
+    ClipY1 = clip.y;
+    ClipX2 = clip.x + clip.w;
+    ClipY2 = clip.y + clip.h;
 
     // Calculate rows hanging off each side of the screen
     LeftSkip = std::min(ClipX1 - std::min(ClipX1, iTempX), (INT32)usWidth);
@@ -1186,17 +1156,11 @@ BOOLEAN BltIsClipped(HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex, S
     iTempX = iX + pTrav->sOffsetX;
     iTempY = iY + pTrav->sOffsetY;
 
-    if (clipregion == nullptr) {
-        ClipX1 = ClippingRect.x;
-        ClipY1 = ClippingRect.y;
-        ClipX2 = (ClippingRect.x + ClippingRect.w);
-        ClipY2 = (ClippingRect.y + ClippingRect.h);
-    } else {
-        ClipX1 = clipregion->x;
-        ClipY1 = clipregion->y;
-        ClipX2 = (clipregion->x + clipregion->w);
-        ClipY2 = (clipregion->y + clipregion->h);
-    }
+    const SDL_Rect& clip = clipregion ? *clipregion : ClippingRect;
+    ClipX1 = clip.x;
+    ClipY1 = clip.y;
+    ClipX2 = clip.x + clip.w;
+    ClipY2 = clip.y + clip.h;
 
     // Calculate rows hanging off each side of the screen
     if (std::min(ClipX1 - std::min(ClipX1, iTempX), (INT32)usWidth))
@@ -1249,17 +1213,11 @@ BOOLEAN Blt8BPPDataTo16BPPBufferShadowClip(UINT16* pBuffer, UINT32 uiDestPitchBY
     iTempX = iX + pTrav->sOffsetX;
     iTempY = iY + pTrav->sOffsetY;
 
-    if (clipregion == nullptr) {
-        ClipX1 = ClippingRect.x;
-        ClipY1 = ClippingRect.y;
-        ClipX2 = (ClippingRect.x + ClippingRect.w);
-        ClipY2 = (ClippingRect.y + ClippingRect.h);
-    } else {
-        ClipX1 = clipregion->x;
-        ClipY1 = clipregion->y;
-        ClipX2 = (clipregion->x + clipregion->w);
-        ClipY2 = (clipregion->y + clipregion->h);
-    }
+    const SDL_Rect& clip = clipregion ? *clipregion : ClippingRect;
+    ClipX1 = clip.x;
+    ClipY1 = clip.y;
+    ClipX2 = clip.x + clip.w;
+    ClipY2 = clip.y + clip.h;
 
     // Calculate rows hanging off each side of the screen
     LeftSkip = std::min(ClipX1 - std::min(ClipX1, iTempX), (INT32)usWidth);

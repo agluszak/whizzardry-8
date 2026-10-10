@@ -609,12 +609,7 @@ BOOLEAN DeleteVideoSurface(HVSURFACE hVSurface)
 BOOLEAN SetClipList(HVSURFACE hVSurface, SDL_Rect* RegionData, UINT16 usNumRegions)
 {
     CHECKF(hVSurface && RegionData && usNumRegions);
-    std::vector<SDL_Rect> rectangles;
-    rectangles.reserve(usNumRegions);
-    for (UINT16 i = 0; i < usNumRegions; ++i)
-        rectangles.push_back({RegionData[i].x, RegionData[i].y,
-                              (RegionData[i].x + RegionData[i].w), (RegionData[i].y + RegionData[i].h)});
-    SetSurfaceClipRegions(*hVSurface->surface, rectangles);
+    SetSurfaceClipRegions(*hVSurface->surface, {RegionData, usNumRegions});
     return TRUE;
 }
 
@@ -701,13 +696,8 @@ BOOLEAN BltVideoSurfaceToVideoSurface(HVSURFACE hDestVSurface, HVSURFACE hSrcVSu
 
         // Use SUBRECT if specified
         if (fBltFlags & VS_BLT_SRCSUBRECT) {
-            SDL_Rect aSubRect;
-
             CHECKF(pBltFx != nullptr);
-
-            aSubRect = pBltFx->SrcRect;
-
-            SrcRect = aSubRect;
+            SrcRect = pBltFx->SrcRect;
 
             break;
         }
@@ -839,73 +829,26 @@ HVSURFACE CreateVideoSurfaceFromCpuSurface(CpuSurface* cpuSurface)
 
 // UTILITY FUNCTIONS FOR BLITTING
 
+// Clip an unscaled blit while keeping source and destination pixels aligned.
 BOOLEAN ClipReleatedSrcAndDestRectangles(HVSURFACE hDestVSurface, HVSURFACE hSrcVSurface,
                                          SDL_Rect* DestRect, SDL_Rect* SrcRect)
 {
-
     Assert(hDestVSurface != nullptr);
     Assert(hSrcVSurface != nullptr);
 
-    // Check for invalid start positions and clip by ignoring blit
-    if (DestRect->x >= hDestVSurface->usWidth || DestRect->y >= hDestVSurface->usHeight) {
-        return (FALSE);
-    }
-
-    if (SrcRect->x >= hSrcVSurface->usWidth || SrcRect->y >= hSrcVSurface->usHeight) {
-        return (FALSE);
-    }
-
-    // For overruns
-    // Clip destination rectangles
-    if ((DestRect->x + DestRect->w) > hDestVSurface->usWidth) {
-        // Both have to be modified or by default streching occurs
-        DestRect->w = (hDestVSurface->usWidth) - DestRect->x;
-        SrcRect->w = (SrcRect->x + (DestRect->w)) - SrcRect->x;
-    }
-    if ((DestRect->y + DestRect->h) > hDestVSurface->usHeight) {
-        // Both have to be modified or by default streching occurs
-        DestRect->h = (hDestVSurface->usHeight) - DestRect->y;
-        SrcRect->h = (SrcRect->y + (DestRect->h)) - SrcRect->y;
-    }
-
-    // Clip src rectangles
-    if ((SrcRect->x + SrcRect->w) > hSrcVSurface->usWidth) {
-        // Both have to be modified or by default streching occurs
-        SrcRect->w = (hSrcVSurface->usWidth) - SrcRect->x;
-        DestRect->w = (DestRect->x + (SrcRect->w)) - DestRect->x;
-    }
-    if ((SrcRect->y + SrcRect->h) > hSrcVSurface->usHeight) {
-        // Both have to be modified or by default streching occurs
-        SrcRect->h = (hSrcVSurface->usHeight) - SrcRect->y;
-        DestRect->h = (DestRect->y + (SrcRect->h)) - DestRect->y;
-    }
-
-    // For underruns
-    // Clip destination rectangles
-    if (DestRect->x < 0) {
-        // Both have to be modified or by default streching occurs
-        DestRect->w += DestRect->x - (0); DestRect->x = (0);
-        SrcRect->w += SrcRect->x - ((SrcRect->x + SrcRect->w) - (DestRect->w)); SrcRect->x = ((SrcRect->x + SrcRect->w) - (DestRect->w));
-    }
-    if (DestRect->y < 0) {
-        // Both have to be modified or by default streching occurs
-        DestRect->h += DestRect->y - (0); DestRect->y = (0);
-        SrcRect->h += SrcRect->y - ((SrcRect->y + SrcRect->h) - (DestRect->h)); SrcRect->y = ((SrcRect->y + SrcRect->h) - (DestRect->h));
-    }
-
-    // Clip src rectangles
-    if (SrcRect->x < 0) {
-        // Both have to be modified or by default streching occurs
-        SrcRect->w += SrcRect->x - (0); SrcRect->x = (0);
-        DestRect->w += DestRect->x - ((DestRect->x + DestRect->w) - (SrcRect->w)); DestRect->x = ((DestRect->x + DestRect->w) - (SrcRect->w));
-    }
-    if (SrcRect->y < 0) {
-        // Both have to be modified or by default streching occurs
-        SrcRect->h += SrcRect->y - (0); SrcRect->y = (0);
-        DestRect->h += DestRect->y - ((DestRect->y + DestRect->h) - (SrcRect->h)); DestRect->y = ((DestRect->y + DestRect->h) - (SrcRect->h));
-    }
-
-    return (TRUE);
+    const auto clip = [](SDL_Rect& rect, SDL_Rect& paired, const SDL_Rect& bounds) {
+        SDL_Rect intersection;
+        if (!SDL_GetRectIntersection(&rect, &bounds, &intersection))
+            return false;
+        paired.x += intersection.x - rect.x;
+        paired.y += intersection.y - rect.y;
+        paired.w = intersection.w;
+        paired.h = intersection.h;
+        rect = intersection;
+        return true;
+    };
+    return clip(*SrcRect, *DestRect, {0, 0, hSrcVSurface->usWidth, hSrcVSurface->usHeight}) &&
+           clip(*DestRect, *SrcRect, {0, 0, hDestVSurface->usWidth, hDestVSurface->usHeight});
 }
 
 BOOLEAN FillSurface(HVSURFACE hDestVSurface, blt_vs_fx* pBltFx)
@@ -918,8 +861,7 @@ BOOLEAN FillSurface(HVSURFACE hDestVSurface, blt_vs_fx* pBltFx)
 BOOLEAN FillSurfaceRect(HVSURFACE hDestVSurface, blt_vs_fx* pBltFx)
 {
     CHECKF(hDestVSurface && pBltFx);
-    const SDL_Rect rect = pBltFx->FillRect;
-    FillCpuSurface(*hDestVSurface->surface, pBltFx->ColorFill, &rect);
+    FillCpuSurface(*hDestVSurface->surface, pBltFx->ColorFill, &pBltFx->FillRect);
     return TRUE;
 }
 
