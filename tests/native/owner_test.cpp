@@ -713,7 +713,6 @@ void generic_button_images()
     // accidentally consuming the next glyph in the backing string.
     SetFont(0);
     FontDestRegion = {0, 0, 64, 32};
-    gbPixelDepth = 16;
     std::vector<UINT16> expected_pixels(64 * 32), view_pixels(64 * 32);
     DrawFontTextToBuffer(reinterpret_cast<UINT8*>(expected_pixels.data()), 64 * 2, 0, 0, 0, "é");
     const std::string backing = "é中";
