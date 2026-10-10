@@ -340,8 +340,7 @@ int main()
     const auto path = root / wiz8::path_from_utf8("npc-雪.bin");
     W8NpcDatabaseRecord database[3] = {};
     g_npc_records = database;
-    // Keep the missing-database-node backfill out of this isolated fixture.
-    gXStatus.uiNpcsInDatabase = 0;
+    gXStatus.uiNpcsInDatabase = 3;
     W8Character unrelated = {};
     W8_PTR32(W8Character) live;
     live = &unrelated;
