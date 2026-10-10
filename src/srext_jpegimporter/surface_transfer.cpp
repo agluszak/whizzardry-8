@@ -134,7 +134,7 @@ void srJPEGImporter::exportSurface(srBinOStream& stream, srColorSurfaceIFace& so
     srPixelConvert::PixelFormat format;
     source.getPixelFormat(format);
     if (!source.getWidth() || !source.getHeight() || source.getWidth() > 65535 ||
-        source.getHeight() > 65535 || !source.getDataPtr() ||
+        source.getHeight() > 65535 ||
         source.getPitch() <= 0 || Uint64(source.getPitch()) <
             Uint64(source.getWidth()) * (unsigned(format.pixel_size) + 1) ||
         Uint64(source.getWidth()) * source.getHeight() > 64 * 1024 * 1024)

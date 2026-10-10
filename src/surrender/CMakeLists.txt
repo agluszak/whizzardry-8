@@ -35,7 +35,6 @@ set(SURRENDER_SOURCES
     node.cpp
     scene.cpp
     stream.cpp
-    string_table.cpp
     system.cpp
     palette.cpp
     pixel_convert.cpp

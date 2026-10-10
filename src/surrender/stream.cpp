@@ -4,6 +4,9 @@
 #include "surrender/srIStreamOpener.h"
 
 #include <string.h>
+#include <algorithm>
+#include <string>
+#include <string_view>
 
 // FUNCTION: SURRENDER 0x100309C0
 srBinIMStream::srBinIMStream(const void* data, w8_ulong size)
@@ -668,24 +671,6 @@ w8_ulong srBinStream::getSize()
     return 0;
 }
 
-// FUNCTION: SURRENDER 0x100324C0
-void srIStreamOpener::parsePrefix(char** prefix, char** path, const char* source)
-{
-    for (int index = 0; source[index] != '\0'; ++index) {
-        if (source[index] == ':' && source[index + 1] == '/' && source[index + 2] == '/') {
-            *prefix = new char[index + 2];
-            *path = new char[strlen(source) - index];
-            strncpy(*prefix, source, index);
-            (*prefix)[index] = '\0';
-            strcpy(*path, source + index + 3);
-            return;
-        }
-    }
-    *prefix = 0;
-    *path = new char[strlen(source) + 1];
-    strcpy(*path, source);
-}
-
 // FUNCTION: SURRENDER 0x100325B0
 void srIStreamOpener::addStreamType(Opener* opener, const char* stream_type)
 {
@@ -729,32 +714,27 @@ srIStreamOpener::Opener& srIStreamOpener::Opener::operator=(const Opener& other)
 // FUNCTION: SURRENDER 0x100326E0
 srBinIStream* srIStreamOpener::open(const char* path)
 {
-    char* prefix = 0;
-    char* local_path = 0;
-    parsePrefix(&prefix, &local_path, path);
-    srBinIStream* stream = open(prefix, local_path);
-    delete[] local_path;
-    delete[] prefix;
-    return stream;
+    if (path == nullptr) {
+        return nullptr;
+    }
+    const std::string_view source(path);
+    const auto delimiter = source.find("://");
+    if (delimiter == std::string_view::npos) {
+        return open({}, std::string(source));
+    }
+    return open(std::string(source.substr(0, delimiter)), std::string(source.substr(delimiter + 3)));
 }
 
 // FUNCTION: SURRENDER 0x10032780
-srBinIStream* srIStreamOpener::open(const char* prefix, const char* path)
+srBinIStream* srIStreamOpener::open(const std::string& prefix, std::string local_path)
 {
-    srInlineString local_path;
-    if (path != 0) {
-        local_path = path;
-    }
-    srInlineString slash("/");
-    srInlineString backslash("\\");
-    while (local_path.replace(backslash, slash) != 0) {
-    }
-    if (prefix == 0 || *prefix == '\0') {
-        srBinIStream* stream = new srBinIFStream(local_path.data());
+    std::replace(local_path.begin(), local_path.end(), '\\', '/');
+    if (prefix.empty()) {
+        srBinIStream* stream = new srBinIFStream(local_path.c_str());
         if (!stream->good()) {
             delete stream;
             for (StreamType* node = first; node != end; node = node->next) {
-                stream = node->opener->open(local_path.data());
+                stream = node->opener->open(local_path.c_str());
                 if (stream != 0) {
                     return stream;
                 }
@@ -763,11 +743,11 @@ srBinIStream* srIStreamOpener::open(const char* prefix, const char* path)
         }
         return stream;
     }
-    Opener* opener = findOpener(prefix);
+    Opener* opener = findOpener(prefix.c_str());
     if (opener == 0) {
         return 0;
     }
-    srBinIStream* stream = opener->open(local_path.data());
+    srBinIStream* stream = opener->open(local_path.c_str());
     if (stream != 0 && !stream->good()) {
         delete stream;
         return 0;
@@ -796,36 +776,6 @@ srIStreamOpener::~srIStreamOpener()
         --count;
     }
     delete first;
-}
-
-// FUNCTION: SURRENDER 0x10032B00
-int srInlineString::replace(const srInlineString& needle, const srInlineString& replacement)
-{
-    w8_long position = find(needle, 0);
-    if (position == -1) {
-        return 0;
-    }
-    erase(position, position + needle.size_ - 1);
-    insert(replacement, position);
-    return 1;
-}
-
-// FUNCTION: SURRENDER 0x10032B80
-void srInlineString::insert(const srInlineString& text, w8_ulong position)
-{
-    srInlineString result;
-    if (position == 0) {
-        result = (text + *this).data();
-    } else if (position == size_ - 1) {
-        result = (*this + text).data();
-    } else {
-        srInlineString left(*this, 0, static_cast<w8_long>(position));
-        result = left.data();
-        result += text.data();
-        srInlineString right(*this, static_cast<w8_long>(position), static_cast<w8_long>(size_ - 1));
-        result += right.data();
-    }
-    *this = result;
 }
 
 // FUNCTION: SURRENDER 0x10032380

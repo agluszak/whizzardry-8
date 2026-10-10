@@ -1,4 +1,4 @@
-/* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
+/* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07, 2026-10-10.
    Distributed under the accompanying SFI Source Code license agreement. */
 //**************************************************************************
 //
@@ -90,7 +90,7 @@ extern void ShutdownFileManager(void);
 extern BOOLEAN FileExists(STR strFilename);
 extern BOOLEAN FileExistsNoDB(STR strFilename);
 extern BOOLEAN FileDelete(STR strFilename);
-extern HWFILE FileOpen(STR strFilename, UINT32 uiOptions, BOOLEAN fDeleteOnClose);
+extern HWFILE FileOpen(const char* strFilename, UINT32 uiOptions, BOOLEAN fDeleteOnClose);
 extern void FileClose(HWFILE);
 
 extern BOOLEAN FileRead(HWFILE hFile, PTR pDest, UINT32 uiBytesToRead, UINT32* puiBytesRead);

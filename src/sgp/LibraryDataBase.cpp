@@ -330,7 +330,7 @@ BOOLEAN CheckIfFileExistInLibrary(STR name)
     return GetLibraryIDFromFileName(name) != -1;
 }
 
-INT16 GetLibraryIDFromFileName(STR name)
+INT16 GetLibraryIDFromFileName(const char* name)
 {
     if (!name)
         return -1;
@@ -359,7 +359,7 @@ INT16 GetLibraryIDFromFileName(STR name)
     }
 }
 
-HWFILE OpenFileFromLibrary(STR name)
+HWFILE OpenFileFromLibrary(const char* name)
 {
     const auto id = GetLibraryIDFromFileName(name);
     if (id < 0)

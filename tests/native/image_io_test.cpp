@@ -94,10 +94,20 @@ static std::vector<unsigned char> PCX(bool indexed)
     return bytes;
 }
 
+class PixelOnlySurface : public srColorSurface {
+public:
+    PixelOnlySurface() : srColorSurface(srPixelConvert::SURFACE_RGB565, nullptr, 16, 16, 32) {}
+
+    void getPixelRow(w8_ulong* pixels, w8_long, w8_long begin, w8_long end) override
+    {
+        for (w8_long x = begin; x < end; ++x) pixels[x - begin] = 0xfff82010;
+    }
+};
+
 static void CheckJPEG()
 {
-    auto* source = new srColorSurface(srPixelConvert::SURFACE_RGB565, 16, 16);
-    source->fill(0xfff82010);
+    auto* source = new PixelOnlySurface;
+    CHECK(!source->getDataPtr());
     srBinOMStream output;
     srCore.getSurfaceIOManager()->exportSurface("screenshot.JPG", output, *source,
                                                {0, 0, "QUALITY=1.0"});

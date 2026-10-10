@@ -9,7 +9,6 @@
 #include "surrender/srHeap.h"
 #include "surrender/srIStreamOpener.h"
 #include "surrender/srImporter.h"
-#include "surrender/srString.h"
 
 // FUNCTION: SURRENDER 0x1002CB10
 const char* srIOManager::Error::getDescription()
