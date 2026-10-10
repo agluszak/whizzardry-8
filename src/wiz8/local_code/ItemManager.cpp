@@ -1,3 +1,4 @@
+#include <glm/gtx/rotate_vector.hpp>
 #include "wiz8/local_code/ItemManager.h"
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/layouts/game_status.h"
@@ -860,6 +861,15 @@ void UpdateNearbyWorldItems(void)
     }
 }
 
+glm::vec3 ItemThrowDirection(const glm::vec2& cursor, const glm::mat3& camera_rotation)
+{
+    const auto offset = (cursor - g_float_half) * g_float_nine_tenths;
+    const float yaw = glm::radians(offset.x * g_drop_item_yaw_scale);
+    const float pitch = glm::radians(g_float_five + offset.y * g_drop_item_pitch_scale);
+    const auto forward = glm::vec3(0, 0, g_double_twenty_five_hundred);
+    return camera_rotation * glm::rotateY(glm::rotateX(forward, pitch), yaw);
+}
+
 /* Toss the cursor-held item into the world. The tracked cursor position is
    turned into a 2500-unit direction through the camera rotation, traced to
    the first obstruction, shortened by the item radius, settled onto the
@@ -868,24 +878,9 @@ void UpdateNearbyWorldItems(void)
 // FUNCTION: WIZ8 0x004F7610
 void DropHeldItem(int)
 {
-    srVector3T<float> cursor;
-    GetCursorScaledPosition(&cursor);
-    cursor.y = (cursor.y - g_float_half) * g_float_nine_tenths;
-    cursor.z = (cursor.z - g_float_half) * g_float_nine_tenths;
-
-    double amplitude = g_throw_angle_amplitude * g_float_inverse_half_turn_degrees;
-    double pitch = amplitude * g_float_five + amplitude * cursor.z * g_drop_item_pitch_scale;
-    float base = static_cast<float>(cos(pitch) * g_double_twenty_five_hundred);
-    double yaw = amplitude * cursor.y * g_drop_item_yaw_scale;
-
-    srVector3T<float> direction;
-    direction.y = static_cast<float>(sin(pitch) * g_drop_item_vertical_scale);
-    direction.x = static_cast<float>(base * sin(yaw));
-    direction.z = static_cast<float>(base * cos(yaw));
-
     glm::mat3 rotation;
     WorldGetCameraRotation(g_world, &rotation);
-    direction = rotation * direction.glmValue();
+    srVector3 direction = ItemThrowDirection(GetCursorScaledPosition(), rotation);
 
     srVector3T<float> camera;
     GetCameraPosition(&camera);
@@ -893,15 +888,7 @@ void DropHeldItem(int)
     g_octree->TraceLineOfSight(&camera, &direction, true, -3, -3, true, 0);
 
     srVector3T<float> delta = direction - camera;
-    float distance_squared = delta.LengthSquared();
-    float distance = static_cast<float>(sqrt(distance_squared)) - g_float_one_hundred_twenty_five;
-    if (distance < g_float_zero) {
-        distance = g_float_zero;
-    }
-    if (distance_squared != static_cast<float>(g_double_zero)) {
-        distance /= static_cast<float>(sqrt(distance_squared));
-        delta *= distance;
-    }
+    delta.SetLength(glm::max(delta.Length() - g_float_one_hundred_twenty_five, g_float_zero));
 
     srVector3T<float> position = camera + delta;
     position.y =

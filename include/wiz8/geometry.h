@@ -97,58 +97,30 @@ struct W8GDSurface {
 
 W8_ABI_ASSERT(sizeof(W8GDSurface) == 0x4c, "W8GDSurface_must_be_0x4c");
 
-/* Newell cyclic normal plus centroid plane distance. Independent TUs:
-   GDFileIO BuildTrianglePlane 0x00449A40 and 3d BuildPlaneFromPoints
-   0x0046D660. Retail instruction streams match after register renaming in
-   the Newell and distance loops; the three-point copy lowers as unrolled
-   vector assignment in one TU and a component countdown in the other.
-   Counted fors are the authored form. No Wiz8 COMDAT. */
+/* Unit plane through three vertices. Degenerate triangles have a zero normal. */
 inline void SetPlaneFromThreePoints(W8Plane* plane, const srVector3T<float>* first,
                                     const srVector3T<float>* second, const srVector3T<float>* third)
 {
-    srVector3T<float> vertices[3];
-    vertices[0] = *first;
-    vertices[1] = *second;
-    vertices[2] = *third;
-
-    plane->normal.SetZero();
-    plane->w = 0.0f;
-
-    for (int index = 0; index < 3; ++index) {
-        const srVector3T<float>& current = vertices[index];
-        const srVector3T<float>& next = vertices[(index + 1) % 3];
-        const srVector3T<float>& previous = vertices[(index + 2) % 3];
-        plane->normal.x += current.y * (next.z - previous.z);
-        plane->normal.y += current.z * (next.x - previous.x);
-        plane->normal.z += current.x * (next.y - previous.y);
-    }
-
-    srVector3T<float> normal(plane->normal);
-    float scale = g_float_one / glm::length(normal.glmValue());
-    plane->normal.x *= scale;
-    plane->normal.y *= scale;
-    plane->normal.z *= scale;
-
-    float distances[3];
-    for (int vertex_index = 0; vertex_index < 3; ++vertex_index) {
-        distances[vertex_index] = plane->normal.x * vertices[vertex_index].x +
-                                  plane->normal.y * vertices[vertex_index].y +
-                                  plane->normal.z * vertices[vertex_index].z;
-    }
-    plane->w = (distances[0] + distances[1] + distances[2]) * g_float_negative_one_third;
+    const auto origin = first->glmValue();
+    const auto normal =
+        normalizedOrZero(glm::cross(second->glmValue() - origin, third->glmValue() - origin));
+    plane->normal = normal;
+    plane->w = -glm::dot(normal, origin);
 }
 
 /* Signed plane distance n·p + w. Independent TUs: 3d.cpp PointInsideFrustum
    0x0046D880 and stLight ContainsPoint 0x0049E460. No Wiz8 COMDAT. */
 inline float SignedPlaneDistance(const W8Plane& plane, const srVector3T<float>& point)
 {
-    return plane.normal.x * point.x + plane.normal.y * point.y + plane.normal.z * point.z + plane.w;
+    return glm::dot(plane.normal.glmValue(), point.glmValue()) + plane.w;
 }
 
-/* Rotation keyframes interpolate through a quaternion: the scalar term is
-   first and the imaginary part shares the srVector3T operators. Retail
-   callers share the out-of-line matrix conversion at 0x0044ECA0. */
 void ClassifySurfacePlane(const srVector3T<float>* vertices, W8GDSurface* surface);
 void BuildTrianglePlane(W8Plane* plane, const srVector3T<float>* first,
                         const srVector3T<float>* second, const srVector3T<float>* third);
+/* Segment intersection projected onto the plane perpendicular to axis. */
+bool SegmentCrossesEdge(const glm::vec3& seg_start, const glm::vec3& seg_end,
+                        const glm::vec3& edge_a, const glm::vec3& edge_b, unsigned int axis);
+
 #endif
+

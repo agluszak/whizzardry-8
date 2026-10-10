@@ -33,3 +33,6 @@ unsigned char AdvanceFallingWorldItem(W8WorldItem* item);
 bool IsWorldItemWithinReach(W8Item* owner, const srVector3T<float>* from, float radius);
 bool AnyWorldItemVisible(void);
 void DropMonsterLoot(W8MonsterInfo* monster_info, int value);
+
+/* World-space throw vector from normalized screen coordinates. */
+glm::vec3 ItemThrowDirection(const glm::vec2& cursor, const glm::mat3& camera_rotation);

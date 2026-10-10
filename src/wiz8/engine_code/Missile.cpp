@@ -1,3 +1,4 @@
+#include <glm/gtx/rotate_vector.hpp>
 #include "wiz8/engine_code/AnimRep.hpp"
 #include "wiz8/spell_ids.h"
 #include "wiz8/engine_code/AnimObj.h"
@@ -322,38 +323,15 @@ bool W8Missile::BlocksEndingCombat()
 // FUNCTION: WIZ8 0x004A57B0
 void GetCharacterProjectilePosition(unsigned int character_index, srVector3T<float>* position)
 {
-    srVector3T<float> camera;
-    glm::mat3 rotation;
-    float angle;
-    double cosine;
-    double sine;
-
+    srVector3 camera;
     GetCameraPosition(&camera);
-    position->SetZero();
-    if ((character_index & 1) == 0) {
-        position->x = 75.0f;
-    } else {
-        position->x = -75.0f;
-    }
-    rotation = glm::mat3(1);
-    position->y = g_character_projectile_height -
-                  character_index * g_float_half * g_character_projectile_height_step;
-    angle = GetCameraYawRadians() - g_monster_rotation_offset;
-    if (angle != 0.0) {
-        cosine = cos(angle);
-        sine = sin(angle);
-        rotation *=
-            glm::mat3_cast(glm::angleAxis(float(std::atan2(sine, cosine)), glm::vec3(0, 1, 0)));
-    }
-    angle = -GetCameraPitchRadians();
-    if (angle != 0.0) {
-        cosine = cos(angle);
-        sine = sin(angle);
-        rotation *=
-            glm::mat3_cast(glm::angleAxis(float(std::atan2(sine, cosine)), glm::vec3(1, 0, 0)));
-    }
-    *position = rotation * position->glmValue();
-    *position += camera;
+    const glm::vec3 offset((character_index & 1) ? -75.0f : 75.0f,
+                           g_character_projectile_height -
+                               character_index * g_float_half * g_character_projectile_height_step,
+                           0);
+    const auto yaw = GetCameraYawRadians() - g_monster_rotation_offset;
+    const auto pitch = -GetCameraPitchRadians();
+    *position = camera.glmValue() + glm::rotateY(glm::rotateX(offset, pitch), yaw);
 }
 
 // VTABLE: WIZ8 0x005ecde0 W8MissileRep

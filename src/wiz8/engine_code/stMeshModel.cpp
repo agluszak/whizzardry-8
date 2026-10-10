@@ -1,3 +1,4 @@
+#include "surrender/srBoundingBox.h"
 #include <algorithm>
 #include <cctype>
 #include <memory>
@@ -249,23 +250,9 @@ void stMeshModel::GetFrameBounds(int frame, srVector3T<float>* minimum, srVector
         DecompressFrame(frame, W8_MESH_FRAME_LOCATIONS, scratch.data());
         vertices = scratch.data();
     }
-    assert(vertex_location_count != 0);
-    auto lower = vertices[0].glmValue();
-    auto upper = lower;
-    for (std::size_t point_index = 1; point_index < vertex_location_count; ++point_index) {
-        const auto& point = vertices[point_index];
-        const auto v = point.glmValue();
-        // Keep the comparison order for NaNs in recovered bounds.
-        for (int c = 0; c < 3; ++c) {
-            if (v[c] >= lower[c]) {
-                if (v[c] > upper[c])
-                    upper[c] = v[c];
-            } else
-                lower[c] = v[c];
-        }
-    }
-    *minimum = lower;
-    *maximum = upper;
+    const auto bounds = boundingBox({vertices, vertex_location_count});
+    *minimum = bounds.minimum;
+    *maximum = bounds.maximum;
 }
 
 /* Apply pending vertex DIG lighting when flags bit 1 is set, then return
