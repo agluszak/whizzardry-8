@@ -13,7 +13,7 @@
 #include "surrender/srMaterial.h"
 #include "surrender/srTriMeshPipeline.h"
 #include "surrender/srTriangleCuller.h"
-#include "surrender/srVectorProcessor.h"
+#include "surrender/srVectorMath.h"
 #include "surrender/srVertexPipe.h"
 
 #include <float.h>
@@ -478,8 +478,8 @@ void srMeshModel::calculateBounds()
     if (vertex_location_count != 0) {
         srVector3T<float>* vertices = getVertexLoc();
         if (vertex_location_count != 0) {
-            srVectorProcessor::minMax(vertices, bounds_minimum, bounds_maximum,
-                                      vertex_location_count);
+            srMath::minMax({vertices, static_cast<std::size_t>(vertex_location_count)},
+                           bounds_minimum, bounds_maximum);
         }
         bounds_center.x = (bounds_minimum.x + bounds_maximum.x) * 0.5;
         bounds_center.y = (bounds_minimum.y + bounds_maximum.y) * 0.5;
@@ -574,12 +574,14 @@ void srMeshModel::calculateVertexNormals()
                 smooth[shade_indices[polygons[polygon].z]].z += equations[polygon].z;
             }
             if (vertex_location_count != 0) {
-                srVectorProcessor::copyIndexed(normals, smooth.data(), shade_indices,
-                                               vertex_location_count);
+                srMath::copyIndexed(
+                    {normals, static_cast<std::size_t>(vertex_location_count)}, smooth.data(),
+                    {shade_indices, static_cast<std::size_t>(vertex_location_count)});
             }
         }
         if (vertex_location_count != 0) {
-            srVectorProcessor::normalize(normals, normals, 1.0f, vertex_location_count);
+            srMath::normalize({normals, static_cast<std::size_t>(vertex_location_count)}, normals,
+                              1.0f);
         }
     }
 }
@@ -1650,7 +1652,8 @@ void srTriMeshPipeline::FlushSlots()
 
     if (bounds_source != srTriMeshPipeline::BOUNDS_SPHERE) {
         if (bounds_source == srTriMeshPipeline::BOUNDS_FROM_VERTICES && vertex_count != 0) {
-            srVectorProcessor::minMax(positions, bounds_minimum, bounds_maximum, vertex_count);
+            srMath::minMax({positions, static_cast<std::size_t>(vertex_count)}, bounds_minimum,
+                           bounds_maximum);
         }
 
         srVector3T<float> center;

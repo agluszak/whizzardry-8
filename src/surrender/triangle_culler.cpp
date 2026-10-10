@@ -1,7 +1,7 @@
 #include "surrender/srTriangleCuller.h"
 #include <algorithm>
 
-#include "surrender/srVectorProcessor.h"
+#include "surrender/srVectorMath.h"
 #include "surrender/srRendererDefs.h"
 
 /* Retail (0x10029740) rounds the object-space points, delta, cross and the
@@ -86,7 +86,7 @@ int srTriangleCuller::setClipFlags(w8_ulong* clip_flags, float* distances,
                                    w8_ulong shift, w8_ulong count, int first)
 {
     w8_ulong collected = 0;
-    srVectorProcessor::vp->_dot(distances, plane, vertices, count);
+    srMath::dot({distances, static_cast<std::size_t>(count)}, plane, vertices);
     /* reinterpret-ok: the outside test reads the distances' IEEE sign bits. */
     const w8_ulong* bits = reinterpret_cast<const w8_ulong*>(distances);
     w8_ulong index = 0;
@@ -272,7 +272,7 @@ w8_ulong srTriangleCuller::collectNegative(w8_ulong* indices, const float* dista
 w8_ulong srTriangleCuller::cullNoClip(w8_ulong* indices, const srVector4* projected,
                                            const srVector4& constant, w8_ulong count)
 {
-    return srVectorProcessor::vp->_srCullNoClip(indices, constant, projected, count);
+    return srMath::srCullNoClip({indices, static_cast<std::size_t>(count)}, constant, projected);
 }
 
 // FUNCTION: SURRENDER 0x1002A290
@@ -287,7 +287,8 @@ w8_ulong srTriangleCuller::cullNoClipAPT(w8_ulong* indices, const w8_ulong* acti
         if (0x100 < chunk) {
             chunk = 0x100;
         }
-        srVectorProcessor::vp->_dotIndexed(distances, constant, projected, active + base, chunk);
+        srMath::dotIndexed({distances, static_cast<std::size_t>(chunk)}, constant, projected,
+                           {active + base, static_cast<std::size_t>(chunk)});
         w8_ulong found = collectNegative(indices + collected, distances, base, chunk);
         if (found != 0) {
             w8_ulong* destination = indices + collected;
@@ -366,7 +367,7 @@ w8_ulong srTriangleCuller::cullClip(w8_ulong* indices, const w8_ulong* clip_flag
                                          const srVector4& constant, w8_ulong count)
 {
     w8_ulong culled =
-        srVectorProcessor::vp->_srCullNoClip(indices, constant, projected, count);
+        srMath::srCullNoClip({indices, static_cast<std::size_t>(count)}, constant, projected);
     return collectCF(indices, clip_flags, triangles, culled);
 }
 
@@ -409,15 +410,14 @@ w8_ulong srTriangleCuller::buildAVT(w8_ulong* avt, w8_ulong* vertex_scratch,
                                          const w8_ulong* indices, const srVector3i* triangles,
                                          w8_ulong triangle_count, w8_ulong vertex_count)
 {
-    srVP* processor = srVectorProcessor::vp;
     std::fill_n(reinterpret_cast<SRBYTE*>(vertex_scratch), vertex_count, SRBYTE{});
     /* reinterpret-ok: the flag scratch holds one SRBYTE per vertex here and is reused as the dword
        inverse remap below. */
-    processor->_srSetIndexed(reinterpret_cast<SRBYTE*>(vertex_scratch), triangles, indices,
-                             triangle_count);
-    w8_ulong count = processor->_srCollectNonZero(
-        avt, reinterpret_cast<const SRBYTE*>(vertex_scratch), vertex_count);
-    processor->_srRemapInverse(vertex_scratch, avt, count);
+    srMath::srSetIndexed(reinterpret_cast<SRBYTE*>(vertex_scratch), triangles,
+                         {indices, static_cast<std::size_t>(triangle_count)});
+    w8_ulong count = srMath::srCollectNonZero({avt, static_cast<std::size_t>(vertex_count)},
+                                              reinterpret_cast<const SRBYTE*>(vertex_scratch));
+    srMath::srRemapInverse(vertex_scratch, {avt, static_cast<std::size_t>(count)});
     return count;
 }
 

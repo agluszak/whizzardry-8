@@ -3,7 +3,6 @@
 #include "surrender/srColorSurface.h"
 #include "surrender/srCore.h"
 #include "surrender/srExporter.h"
-#include "surrender/srVectorProcessor.h"
 #include "wiz8/sr_api.h"
 
 #include <cstdio>
@@ -135,7 +134,6 @@ int main()
         CHECK(srInit() && srCore.isInitialized());
         auto* manager = srCore.getSurfaceIOManager();
         CHECK(srInit() && manager == srCore.getSurfaceIOManager());
-        CHECK(srVectorProcessor::getName());
         for (const char* extension : {"jpg", "jpeg", "tga", "bmp", "pcx"}) {
             char name[32];
             snprintf(name, sizeof(name), "test.%s", extension);
@@ -158,7 +156,6 @@ int main()
             CHECK(!manager->importSurface(name, stream, {}));
         }
         CHECK(srExit() && !srCore.isInitialized());
-        CHECK(!srVectorProcessor::getName());
         CHECK(srExit());
     }
     puts("ok: static image handlers, JPEG export and SurRender reinitialization");

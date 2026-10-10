@@ -5,7 +5,6 @@ set(SURRENDER_SOURCES
     core.cpp
     debug.cpp
     debug_dd.cpp
-    debug_vp.cpp
     environment_mapper.cpp
     exponent_table.cpp
     fog.cpp
@@ -13,7 +12,7 @@ set(SURRENDER_SOURCES
     file_stream.cpp
     filter.cpp
     color_surface.cpp
-    generic_vp.cpp
+    vector_math.cpp
     gerd.cpp
     gerd_filters.cpp
     huffman.cpp
@@ -47,7 +46,6 @@ set(SURRENDER_SOURCES
     ../srext_jpegimporter/surface_transfer.cpp
     window.cpp
     window_out.cpp
-    vector_processor.cpp
 )
 
 add_library(SURRENDER STATIC ${SURRENDER_SOURCES})
