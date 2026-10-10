@@ -78,6 +78,9 @@ static void keyword_file_contracts()
     write_keywords(english, "header\n01234567890partial/row/\n01234567890" + std::string("\0bad", 4));
     ReloadKeywordLists();
     CHECK(!g_keyword_lists_loaded && g_keyword_lists.GetCount() == 0);
+    write_keywords(english, "header\n01234567890" + std::string(1000, 'x'));
+    ReloadKeywordLists();
+    CHECK(!g_keyword_lists_loaded && g_keyword_lists.GetCount() == 0);
     CHECK(wiz8::remove_file(english));
     ReloadKeywordLists();
     CHECK(!g_keyword_lists_loaded && g_keyword_lists.GetCount() == 0);

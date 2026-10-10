@@ -1,7 +1,8 @@
 #include <wiz8/filesystem.h>
 #include <sstream>
 #include <memory>
-#include <cuchar>
+#include <bit>
+#include <SDL3/SDL_stdinc.h>
 #include "wiz8/wiz8_windows.h"
 #include "wiz8/spell_ids.h"
 #include "wiz8/conditions.h"
@@ -373,19 +374,21 @@ unsigned char LoadKeywordFile(const char* path, W8GrowableVector<W8GrowableVecto
         std::string bytes;
         if (!std::getline(stream, bytes)) return false;
         memset(line, 0, sizeof(line));
-        std::mbstate_t state{};
-        std::size_t offset = 0, count = 0;
-        while (offset <= bytes.size()) {
-            char16_t character;
-            const auto consumed = std::mbrtoc16(&character, bytes.data() + offset,
-                                                bytes.size() - offset, &state);
-            if (offset == bytes.size() && consumed == std::size_t(-2)) break;
-            if (consumed == std::size_t(-1) || consumed == std::size_t(-2) ||
-                consumed == 0 || count + 1 >= std::size(line))
-                throw std::runtime_error("invalid keyword text");
-            line[count++] = static_cast<wchar_t>(character);
-            if (consumed != std::size_t(-3)) offset += consumed;
-        }
+        if (bytes.find('\0') != std::string::npos)
+            throw std::runtime_error("invalid keyword text");
+        const auto encoding = std::endian::native == std::endian::little ? "UTF-16LE" : "UTF-16BE";
+        auto handle = SDL_iconv_open(encoding, "");
+        if (!handle || handle == reinterpret_cast<SDL_iconv_t>(SDL_ICONV_ERROR))
+            throw std::runtime_error("unsupported keyword encoding");
+        std::unique_ptr<SDL_iconv_data_t, decltype(&SDL_iconv_close)> conversion(handle, SDL_iconv_close);
+        const char* input = bytes.data();
+        auto input_size = bytes.size();
+        char* output = reinterpret_cast<char*>(line);
+        auto output_size = sizeof(line) - sizeof(line[0]);
+        const auto result = SDL_iconv(conversion.get(), &input, &input_size, &output, &output_size);
+        if (result == SDL_ICONV_ERROR || result == SDL_ICONV_E2BIG ||
+            result == SDL_ICONV_EILSEQ || result == SDL_ICONV_EINVAL || input_size)
+            throw std::runtime_error("invalid keyword text");
         return true;
     };
     try {
