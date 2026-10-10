@@ -128,5 +128,18 @@ POSIX ctime are not interchangeable persistent identities; no loader-side
 iron-man timestamp validator currently exists. Cross-host birth-time identity
 and a full iron-man save/load roundtrip remain unverified.
 
+SurRender keeps its scene graph, mesh/material data, rendering pipeline and game
+format identities. Its remaining `srRegistry` facade provides named object reuse
+and typed iteration used by the game; standard maps own class metadata and index
+each live object once. Names are case-sensitive and may be shared. Name lookup
+visits the most recently named object first, and instance iteration visits the
+most recently created object first, with optional exact-class filtering.
+Class IDs, class names and ancestry remain explicit format metadata; they are
+not derived from compiler RTTI. There are no configurable per-class instance
+indexes or client wrapper subclasses; game code constructs concrete SurRender
+types directly. The unused object update callback scheduler, device-call profiling
+wrapper and video importer manager have been removed; game movies use the
+existing FFmpeg decoder.
+
 Third-party source licenses, including the SGP license, remain with
 their respective sources.

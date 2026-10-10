@@ -21,7 +21,7 @@ srColorSurface* __stdcall LoadSurface(wiz8::File* handle, w8_long*);
    Slots 9/10/13 are inherited from srTexture; slot 14 from srTextureIFace.
    Do not invent stTextureFile overrides for those four. Fields at
    +0x54..+0x60 match SR; has_alpha is Wizardry-only (SR sizeof 0x64). */
-class stTextureFile : public srClassSupport<stTextureFile, srTexture, 0, 0x10001> {
+class stTextureFile : public srClassSupport<stTextureFile, srTexture, 0x10001> {
 public:
     static const char* sGetClassName()
     {

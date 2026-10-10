@@ -13,7 +13,7 @@ class W8MonsterShakeCallback;
 class srGERD;
 class stTextureAnim;
 
-class stParticle : public srClassSupport<stParticle, srNode, 0, 0x10009> {
+class stParticle : public srClassSupport<stParticle, srNode, 0x10009> {
 public:
     static const char* sGetClassName()
     {

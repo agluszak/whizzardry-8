@@ -480,7 +480,7 @@ W8Navigator::W8Navigator(const W8Navigator& other)
     movement_plan_failed = false;
     linked_update_time = 0;
     tracked_position.SetZero();
-    node = SR_NEW(srNode)(static_cast<srNode*>(0));
+    node = new srNode(static_cast<srNode*>(0));
     node->setLocation(other.node->getLocation());
     g_registered_navigators.Add(this);
 }

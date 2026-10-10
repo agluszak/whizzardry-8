@@ -7,11 +7,11 @@ class srGERD;
 class srModeler;
 
 // VTABLE: SURRENDER 0x10077264
-// class srClassSupport<srScene, srNode, 0, 4112>
+// class srClassSupport<srScene, srNode, 4112>
 
 // VTABLE: SURRENDER 0x10077230 srScene
 // class srScene
-class SR_DLL_IMPORT srScene : public srClassSupport<srScene, srNode, 0, 0x1010> {
+class SR_DLL_IMPORT srScene : public srClassSupport<srScene, srNode, 0x1010> {
 public:
     enum e_enable { ENABLE_NODE_PICK_KEYS = 0 };
 

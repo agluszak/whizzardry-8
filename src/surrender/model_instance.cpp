@@ -9,7 +9,7 @@
 
 // FUNCTION: SURRENDER 0x1004F920
 srModelInstance::srModelInstance(srNode* parent)
-    : srClassSupport<srModelInstance, srNode, 0, 0x1100>(static_cast<srNode*>(0))
+    : srClassSupport<srModelInstance, srNode, 0x1100>(static_cast<srNode*>(0))
 {
     alignment_flags.value = 0;
     align_angle = 0.0f;

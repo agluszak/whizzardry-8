@@ -122,7 +122,7 @@ stModelInstance2D* g_automap_text_marker;
 W8Vector<srClass*>* g_automap_markers;
 
 // GLOBAL: WIZ8 0x0068f220
-W8GrowableVector<srClipPlane::ClientType*> g_automap_created_layers;
+W8GrowableVector<srClipPlane*> g_automap_created_layers;
 // GLOBAL: WIZ8 0x0068f24c
 W8DialogButton** g_automap_buttons;
 struct W8AutomapState {
@@ -204,7 +204,7 @@ unsigned char g_automap_saved_render_flags[4];
 // GLOBAL: WIZ8 0x0068f19c
 int g_automap_saved_texture_policy;
 // GLOBAL: WIZ8 0x0068f1a8
-W8GrowableVector<srClipPlane::ClientType*> g_automap_layers;
+W8GrowableVector<srClipPlane*> g_automap_layers;
 // GLOBAL: WIZ8 0x0068f1b8
 srVector3T<float> g_automap_bounds_max;
 // GLOBAL: WIZ8 0x0068f1c8
@@ -683,14 +683,14 @@ unsigned char AutomapScreenEnter(void)
     g_automap_layers.Add(0);
     char layer_name[16];
     sprintf(layer_name, "LAYER %d", layer_number);
-    srClipPlane::ClientType* layer = static_cast<srClipPlane::ClientType*>(
-        srCore.getRegistry()->find(srClipPlane::ClientType::sGetClassNode(), layer_name, 0));
+    srClipPlane* layer = static_cast<srClipPlane*>(
+        srCore.getRegistry()->find(srClipPlane::sGetClassNode(), layer_name, 0));
     while (layer) {
         g_automap_layers.Add(layer);
         ++layer_number;
         sprintf(layer_name, "LAYER %d", layer_number);
-        layer = static_cast<srClipPlane::ClientType*>(
-            srCore.getRegistry()->find(srClipPlane::ClientType::sGetClassNode(), layer_name, 0));
+        layer = static_cast<srClipPlane*>(
+            srCore.getRegistry()->find(srClipPlane::sGetClassNode(), layer_name, 0));
     }
     unsigned int monster_count = PLLength(gXStatus.plsMonsterList);
     for (unsigned int index = 0; index < monster_count; ++index) {
@@ -715,7 +715,7 @@ unsigned char AutomapScreenEnter(void)
         g_monster_shadow_updates_enabled = 0;
         if (!g_automap_surface) {
             srColorSurface* surface =
-                SR_NEW(W8ColorSurface)(srPixelConvert::SURFACE_ARGB1555, 640, 480);
+                new srColorSurface(srPixelConvert::SURFACE_ARGB1555, 640, 480);
             g_automap_surface = surface;
             if (surface)
                 surface->setFilter(&srBoxFilter);
@@ -758,7 +758,7 @@ unsigned char AutomapScreenEnter(void)
                     excluded_textures.push_back(text);
                 } else {
                     float height = static_cast<float>(atof(text + 6));
-                    srClipPlane::ClientType* clip = SR_NEW(srClipPlane)(static_cast<srNode*>(0));
+                    srClipPlane* clip = new srClipPlane(static_cast<srNode*>(0));
                     if (clip) {
                         sprintf(layer_name, "LAYER %d", layer_number);
                         clip->setName(layer_name);
@@ -1038,7 +1038,7 @@ unsigned char AutomapScreenLeave(int)
     SetOverlayViewport(0);
     ResumeMainGameWorld();
     srClass* clipping_plane = static_cast<srClass*>(srCore.getRegistry()->find(
-        srClipPlane::ClientType::sGetClassNode(), "Clipping Plane 1", 0));
+        srClipPlane::sGetClassNode(), "Clipping Plane 1", 0));
     if (clipping_plane) {
         g_world->level->setParent(g_world->static_scene, 1);
         g_world->dynamic_scene->setParent(g_world->static_scene, 1);
@@ -1540,7 +1540,7 @@ void RenderAutomapFrame(void)
             }
             unsigned int pitch;
             void* pixels = LockPrimarySurface(&pitch);
-            srColorSurface* surface = SR_NEW(W8ColorSurface)(srPixelConvert::SURFACE_ARGB1555,
+            srColorSurface* surface = new srColorSurface(srPixelConvert::SURFACE_ARGB1555,
                                                              pixels, 0x280, 0x1e0, pitch);
             surface->setFilter(&srBoxFilter);
             surface->blit(0xc, 0x20, *g_automap_surface, 0xc, 0x20, 0x1d3, 0x1d3);
@@ -1581,7 +1581,7 @@ int RestoreAutomapRect(W8ScreenRect* rect)
         unsigned int pitch;
         void* pixels = LockPrimarySurface(&pitch);
         srColorSurface* surface =
-            SR_NEW(W8ColorSurface)(srPixelConvert::SURFACE_ARGB1555, pixels, 0x280, 0x1e0, pitch);
+            new srColorSurface(srPixelConvert::SURFACE_ARGB1555, pixels, 0x280, 0x1e0, pitch);
         surface->setFilter(&srBoxFilter);
         surface->blit(rect->left, rect->top, *g_automap_surface, rect->left, rect->top, rect->right,
                       rect->bottom);
@@ -2060,7 +2060,7 @@ stModelInstance2D* CreateAutomapItemMarker(int item_id)
     if (!GetVideoObjectETRLEPropertiesFromIndex(handle, &properties, region)) {
         return 0;
     }
-    srColorSurface* surface = SR_NEW(srColorSurface)(srPixelConvert::SURFACE_ARGB1555, 0x40, 0x40);
+    srColorSurface* surface = new srColorSurface(srPixelConvert::SURFACE_ARGB1555, 0x40, 0x40);
     surface->autoRelease();
     surface->fill(0);
     surface->setFilter(&srBSplineFilter);

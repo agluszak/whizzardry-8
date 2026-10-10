@@ -143,7 +143,7 @@ W8WorldCursorNode* CreateWorldCursorCube(void)
     vertices[3].position = nnn;
     modeller.addPolygon(polygon);
 
-    srMaterial* material = SR_NEW(srMaterial);
+    srMaterial* material = new srMaterial;
     material->setName("Cube Number Material");
     material->autoRelease();
 
@@ -165,8 +165,8 @@ W8WorldCursorNode* CreateWorldCursorCube(void)
     shader.value = 0x0100c5b3; /* packed srShader: LEQUAL, color write, dst 1-srcA, fog, modulate */
     modeller.setShader(shader, 0);
 
-    W8ColorSurface* surface =
-        SR_NEW(W8ColorSurface)(srPixelConvert::SURFACE_ARGB1555, 0x20UL, 0x20UL);
+    srColorSurface* surface =
+        new srColorSurface(srPixelConvert::SURFACE_ARGB1555, 0x20UL, 0x20UL);
     if (surface == 0) {
         srAssertFail("psrSurface", ST_CUBE_CPP, 0xac, 0);
     }
@@ -182,7 +182,7 @@ W8WorldCursorNode* CreateWorldCursorCube(void)
     surface->fill(pixel);
     surface->setFilter(&srBoxFilter);
 
-    srTextureMap* texture = SR_NEW(srTextureMap)(static_cast<srColorSurfaceIFace*>(0));
+    srTextureMap* texture = new srTextureMap(static_cast<srColorSurfaceIFace*>(0));
     texture->autoRelease();
     texture->setSurfacePtr(surface);
     texture->setMipmap(srTextureIFace::MIPMAP_NONE);

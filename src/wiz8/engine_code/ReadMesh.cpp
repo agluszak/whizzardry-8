@@ -819,10 +819,7 @@ unsigned char ReadSingleLevelMesh(W8ReadLevelInfo* info, srModelInstance** insta
 {
     if (name != 0) {
         srRegistry* registry = srCore.getRegistry();
-        srRegistry::ClassNode* node = registry->getClassNode(0x10003);
-        if (node == 0) {
-            node = registry->registerClass("stMeshModel", srMeshModel::sGetClassNode(), 0x10003, 0);
-        }
+        srRegistry::ClassNode* node = stMeshModel::sGetClassNode();
 
         stMeshModel* model = static_cast<stMeshModel*>(registry->find(node, name, 0));
         if (model != 0 && model->duplicate_on_reuse != 0) {

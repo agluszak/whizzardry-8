@@ -6,12 +6,12 @@
 #include <string>
 
 // VTABLE: SURRENDER 0x1007752C
-// class srClassSupport<srTextureFile, srTexture, 0, 8466>
+// class srClassSupport<srTextureFile, srTexture, 8466>
 
 /* File-backed texture. Wizardry does not use it; it owns a parallel stTextureFile with the same
    interface. */
 // VTABLE: SURRENDER 0x100774E8 srTextureFile
-class srTextureFile : public srClassSupport<srTextureFile, srTexture, 0, 0x2112> {
+class srTextureFile : public srClassSupport<srTextureFile, srTexture, 0x2112> {
 public:
     srTextureFile(std::string file_name = {}, int cached = 0);
 

@@ -202,7 +202,7 @@ int main()
     CHECK(surface_storage() == 0);
     {
         const int before_destruction = destroyed_nodes;
-        srScene* scene = new srClientSupport<srScene, 0x1010>;
+        srScene* scene = new srScene;
         auto child = new ClientNode;
         child->setParent(scene, 0);
         CHECK(scene->getChildCount() == 1);

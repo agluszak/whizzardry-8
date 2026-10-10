@@ -59,7 +59,7 @@ catch (const std::exception&) { *more = 0; return false; }
 // class stScript
 
 // VTABLE: WIZ8 0x005ED358
-// class srClassSupport<stScript,srClass,1,65549>
+// class srClassSupport<stScript,srClass,65549>
 
 // FUNCTION: WIZ8 0x004CF110
 srClass* stScript::vInstance()

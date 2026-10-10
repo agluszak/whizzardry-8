@@ -445,7 +445,7 @@ try
         bounds.top = 0;
         bounds.right = 0x280;
         bounds.bottom = 0x1e0;
-        surface = new W8ColorSurface(srPixelConvert::SURFACE_ARGB1555, screenshot->pixels, 0x50,
+        surface = new srColorSurface(srPixelConvert::SURFACE_ARGB1555, screenshot->pixels, 0x50,
                                      0x3c, 0xa0);
         SetRendererAutoFlipEnabled(false);
         screenshot->capture_result = RenderWorldToSurface(surface, &bounds, true);

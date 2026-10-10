@@ -16,9 +16,9 @@ class stTextureAnim;
 // VTABLE: WIZ8 0x005ec7d0 stModelInstance
 // VTABLE: WIZ8 0x005ec7c0 stModelInstance::srModel::Client
 /* The following are the construction-phase tables for the support base. */
-// VTABLE: WIZ8 0x005ec814 srClassSupport<stModelInstance,srModelInstance,0,65540>
-// VTABLE: WIZ8 0x005ec804 srClassSupport<stModelInstance,srModelInstance,0,65540>::srModel::Client
-class stModelInstance : public srClassSupport<stModelInstance, srModelInstance, false, 0x10004> {
+// VTABLE: WIZ8 0x005ec814 srClassSupport<stModelInstance,srModelInstance,65540>
+// VTABLE: WIZ8 0x005ec804 srClassSupport<stModelInstance,srModelInstance,65540>::srModel::Client
+class stModelInstance : public srClassSupport<stModelInstance, srModelInstance, 0x10004> {
 public:
     enum { RENDER_LIGHTING_BAKED = 0x02u, RENDER_SHADOW = 0x08u, RENDER_NO_PICK = 0x10u };
 
@@ -81,10 +81,10 @@ W8_ABI_ASSERT(sizeof(stModelInstance) == 0x1b0, "stModelInstance_size_must_be_0x
 /* Concrete 2D model instance. Slot 5 and the secondary slot-0 adjustor are
    SYNTHETIC compiler-generated deleting destructors; no source body owns
    either address. */
-// VTABLE: WIZ8 0x005ec858 srClassSupport<srModelInstance, class srNode, 0, 4352>
+// VTABLE: WIZ8 0x005ec858 srClassSupport<srModelInstance, class srNode, 4352>
 // VTABLE: WIZ8 0x005ec848 srModel::Client
 class stModelInstance2D
-    : public srClassSupport<stModelInstance2D, srModelInstance, false, 0x10005> {
+    : public srClassSupport<stModelInstance2D, srModelInstance, 0x10005> {
 public:
     static const char* sGetClassName()
     {
