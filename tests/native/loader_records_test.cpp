@@ -457,19 +457,53 @@ static void path_tables()
     REQUIRE((!path.ReadPathNodes(file.get()) && path.m_pPathValues == values));
 }
 
-TEST_CASE("loader_records_test")
+struct LoaderFixture
 {
     ScopedTemporaryDirectory directory{"wiz8-loader-records"};
-    const auto root = directory.path;
-    fixture_root = root / "assets";
-    std::filesystem::create_directory(fixture_root);
-    std::filesystem::create_directory(root / "user");
-    w8_native::configure_paths({wiz8::path_to_utf8(fixture_root), wiz8::path_to_utf8(root / "user"), {"", "", ""}});
+
+    LoaderFixture()
+    {
+        fixture_root = directory.path / "assets";
+        std::filesystem::create_directory(fixture_root);
+        std::filesystem::create_directory(directory.path / "user");
+        w8_native::configure_paths({wiz8::path_to_utf8(fixture_root),
+                                    wiz8::path_to_utf8(directory.path / "user"), {"", "", ""}});
+    }
+
+    ~LoaderFixture()
+    {
+        wiz8::clear_asset_archives();
+        fixture_root.clear();
+    }
+};
+
+TEST_CASE_METHOD(LoaderFixture, "Database record validation", "[loader][records]")
+{
     databases();
-    level_records();
-    geometry();
-    wgd_banks();
-    path_tables();
-    malformed_octrees();
-    std::puts("loader truncation, malformed counts, indices, strings and rollback pass");
 }
+
+TEST_CASE_METHOD(LoaderFixture, "Level mesh file records", "[loader][records]")
+{
+    level_records();
+}
+
+TEST_CASE_METHOD(LoaderFixture, "Processed geometry", "[loader][records]")
+{
+    geometry();
+}
+
+TEST_CASE_METHOD(LoaderFixture, "WGD geometry banks", "[loader][records]")
+{
+    wgd_banks();
+}
+
+TEST_CASE_METHOD(LoaderFixture, "Path tables", "[loader][records]")
+{
+    path_tables();
+}
+
+TEST_CASE_METHOD(LoaderFixture, "Malformed octree files", "[loader][records]")
+{
+    malformed_octrees();
+}
+

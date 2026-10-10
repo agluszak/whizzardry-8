@@ -1,4 +1,5 @@
 #include <catch2/catch_test_macros.hpp>
+#include "surrender_test_fixture.h"
 #include "wiz8/engine_code/stMeshModel.h"
 #include "wiz8/engine_code/ReadMesh.h"
 #include "wiz8/engine_code/materials.h"
@@ -362,16 +363,45 @@ static bool skins_and_automap()
     return true;
 }
 
-TEST_CASE("mesh_frames_test")
+TEST_CASE_METHOD(SurRenderTestFixture, "Mesh frame storage", "[mesh][ownership]")
 {
-    REQUIRE(srInit());
     REQUIRE(frame_storage());
+    REQUIRE(g_mesh_models.empty());
+    REQUIRE(g_decompressed_mesh_bytes == 0);
+}
+
+TEST_CASE_METHOD(SurRenderTestFixture, "Writable mesh cache", "[mesh][ownership]")
+{
     REQUIRE(writable_and_empty_caches());
+    REQUIRE(g_mesh_models.empty());
+    REQUIRE(g_decompressed_mesh_bytes == 0);
+}
+
+TEST_CASE_METHOD(SurRenderTestFixture, "Mesh eviction and borrowed outputs", "[mesh][ownership]")
+{
     REQUIRE(eviction_and_borrowed_outputs());
+    REQUIRE(g_mesh_models.empty());
+    REQUIRE(g_decompressed_mesh_bytes == 0);
+}
+
+TEST_CASE_METHOD(SurRenderTestFixture, "Mesh part ownership", "[mesh][ownership]")
+{
     REQUIRE(part_ownership());
+    REQUIRE(g_mesh_models.empty());
+    REQUIRE(g_decompressed_mesh_bytes == 0);
+}
+
+TEST_CASE_METHOD(SurRenderTestFixture, "Loaded model ownership", "[mesh][ownership]")
+{
     REQUIRE(loaded_model_ownership());
+    REQUIRE(g_mesh_models.empty());
+    REQUIRE(g_decompressed_mesh_bytes == 0);
+}
+
+TEST_CASE_METHOD(SurRenderTestFixture, "Mesh skins and automap", "[mesh][ownership]")
+{
     REQUIRE(skins_and_automap());
     REQUIRE(g_mesh_models.empty());
     REQUIRE(g_decompressed_mesh_bytes == 0);
-    REQUIRE(srExit());
 }
+
