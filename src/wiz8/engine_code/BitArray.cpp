@@ -144,9 +144,8 @@ try
 catch (const std::exception&) { return false; }
 
 /* Packed Huffman payload used by the octree alpha-bit and prop-sun-bit
-   arrays. Sampler is destroyed through its vector and srHashTable members
-   rather than the imported ~Sampler; codes are looked up through the
-   Compressor hash prefix and written with BitOStream::put. */
+   arrays. Symbol codes are looked up in the Compressor and written with
+   BitOStream::put. */
 // FUNCTION: WIZ8 0x0043b0e0
 unsigned char BitArray::Save(wiz8::File* handle)
 {

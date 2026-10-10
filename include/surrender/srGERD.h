@@ -8,7 +8,7 @@
 #include <thread>
 #include <vector>
 
-#include "srHash.h"
+#include <unordered_map>
 #include "srTexture.h"
 #include "srTypeRegistry.h"
 #include "srVertexPipe.h"
@@ -108,6 +108,14 @@ public:
                 return !(*this == other);
             }
         };
+        struct TextureSetHash {
+            size_t operator()(const TextureSetKey& key) const noexcept
+            {
+                return std::hash<srTextureIFace*>{}(key.texture0) ^
+                       (std::hash<srTextureIFace*>{}(key.texture1) << 1) ^
+                       (std::hash<w8_ulong>{}(key.shader.value) << 2);
+            }
+        };
         struct TextureSet {
             srTextureIFace* texture0;
             srTextureIFace* texture1;
@@ -116,12 +124,12 @@ public:
         };
         /* Texture-set interning cache; the map's value is the index into sets. */
         struct TextureSetCache {
-            srHashTable<TextureSetKey, w8_ulong> map;
+            std::unordered_map<TextureSetKey, w8_ulong, TextureSetHash> map;
             std::vector<TextureSet> sets;
 
             void clear()
             {
-                map.Clear();
+                map.clear();
                 sets.clear();
             }
             w8_ulong intern(const TextureSetKey& key);
@@ -1065,7 +1073,7 @@ private:
     /* Texture interfaces requested through setTexture for stages 0/1. */
     srPtr<srTextureIFace> texture_iface[2];
     /* Live textures keyed by the texture interface's frame handle. */
-    srHashTable<w8_ulong, Texture*> texture_lookup;
+    std::unordered_map<w8_ulong, Texture*> texture_lookup;
     TexturePool texture_pool;
     Texture* texture_deleted;
     Texture* texture_head;
@@ -1088,20 +1096,6 @@ private:
        cleared by closeWindow. */
     std::vector<srVector4T<float> > pick_vertices;
 };
-
-// FUNCTION: SURRENDER 0x10027BF0 SYMBOL
-// RECOMP: ?srHashValue@@YAIABUTextureSetKey@Renderer@srGERD@@@Z
-inline unsigned int srHashValue(const srGERD::Renderer::TextureSetKey& key)
-{
-    // reinterpret-ok: the hash mixes the stored interface addresses.
-    return ((key.shader.value >> 10 ^
-             static_cast<w8_ulong>(reinterpret_cast<w8_ulong_ptr>(key.texture1))) >>
-                1 ^
-            // reinterpret-ok: as above.
-            static_cast<w8_ulong>(reinterpret_cast<w8_ulong_ptr>(key.texture0))) >>
-               5 ^
-           key.shader.value;
-}
 
 W8_ABI_ASSERT(sizeof(srGERD) == 0x2238, "srGERD_must_be_0x2238");
 W8_ABI_ASSERT(sizeof(srGERD::ClipPlanes) == 0x208, "srGERD_ClipPlanes_must_be_0x208");

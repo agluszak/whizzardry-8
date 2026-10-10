@@ -1,7 +1,7 @@
 #pragma once
 
 /* The open-chained hash table used by the octree builders. Its layout and
-   operations agree with SurRender's srHashTable; the original shared template
+   operations match the original SurRender hash table; the shared template
    spelling remains unknown. Entries double as the free list: next_index
    links a bucket chain while live and the next unused slot while free. */
 inline unsigned int W8HashValue(unsigned int key)

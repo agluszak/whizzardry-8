@@ -192,12 +192,19 @@ void srHuffman::BitOStream::putBit(w8_ulong bit)
 // FUNCTION: SURRENDER 0x10001990
 void srHuffman::Sampler::insert(w8_ulong symbol)
 {
-    if (table.FindNextEntry(&symbol, -1) == -1) {
-        const auto count = static_cast<int>(symbols.size());
-        symbols.push_back({symbol, 1});
-        table.Insert(&symbol, &count);
-    } else {
-        ++symbols[table.Lookup(&symbol)].frequency;
+    const auto found = table.find(symbol);
+    if (found != table.end()) {
+        ++symbols[found->second].frequency;
+        return;
+    }
+    // The vector, not hash iteration, defines the format's first-seen order.
+    const auto index = symbols.size();
+    symbols.push_back({symbol, 1});
+    try {
+        table.emplace(symbol, index);
+    } catch (...) {
+        symbols.pop_back();
+        throw;
     }
 }
 
@@ -284,7 +291,7 @@ void srHuffman::Compressor::setupPath(Node* node, w8_ulong code, w8_ulong depth)
         }
         node->code = code;
         node->bits = depth;
-        table.Insert(&node->symbol, &node);
+        table.insert_or_assign(node->symbol, node);
         total += node->frequency * node->bits;
     }
 }
