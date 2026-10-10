@@ -12,9 +12,7 @@
 class W8StatInfoDialogBase : public W8DialogBase {
 public:
     W8StatInfoDialogBase();
-    virtual ~W8StatInfoDialogBase() override;
     virtual int CreateControls() override;
-    virtual void DestroyControls() override;
     virtual void Draw() override;
     virtual void OnRightButtonUp() override;
     virtual void OnMouseWheel(int delta) override;
@@ -35,7 +33,6 @@ protected:
 class W8AttributeInfoDialog : public W8StatInfoDialogBase {
 public:
     W8AttributeInfoDialog(W8Attribute uiIndex);
-    virtual ~W8AttributeInfoDialog() override;
 
 private:
     W8Attribute m_uiIndex;
@@ -45,7 +42,6 @@ private:
 class W8SecondaryAttributeInfoDialog : public W8StatInfoDialogBase {
 public:
     W8SecondaryAttributeInfoDialog(unsigned int uiIndex);
-    virtual ~W8SecondaryAttributeInfoDialog() override;
 
 private:
     unsigned int m_uiIndex;
@@ -55,7 +51,6 @@ private:
 class W8SkillInfoDialog : public W8StatInfoDialogBase {
 public:
     W8SkillInfoDialog(W8Skill skill, bool first, bool second, bool bonus);
-    virtual ~W8SkillInfoDialog() override;
 
 protected:
     virtual bool PopulateText() override;

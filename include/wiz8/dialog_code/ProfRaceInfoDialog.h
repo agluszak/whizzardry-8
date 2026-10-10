@@ -34,13 +34,7 @@ class W8ProfRaceInfoDialogBase : public W8DialogBase {
 public:
     W8ProfRaceInfoDialogBase();
     // FUNCTION: WIZ8 0x005DEBB0
-    virtual ~W8ProfRaceInfoDialogBase() override
-    {
-        m_scroll_bar.DestroyControls();
-        W8DialogBase::DestroyControls();
-    }
     virtual int CreateControls() override;
-    virtual void DestroyControls() override;
     virtual void Draw() override;
     virtual void OnRightButtonUp() override;
     virtual void OnMouseWheel(int delta) override;

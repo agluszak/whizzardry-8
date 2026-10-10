@@ -9,13 +9,14 @@
    0x005E0180) and before 3D Code\PList.cpp (lower 0x005E22C0). It is not
    stListBox.cpp. */
 
-/* The owning dialog performs DestroyControls separately. Its member teardown
-   (0x005DBCC4, also 0x005D5F00's teardown) calls the shared ret at 0x004023A0
-   with the scrollbar receiver; the scrollbar destructor itself is empty. */
-W8DialogScrollBar::~W8DialogScrollBar() {}
+// The scrollbar owns its SGP buttons and images; callers need no teardown call.
+W8DialogScrollBar::~W8DialogScrollBar()
+{
+    ResetHandles();
+}
 
 // FUNCTION: WIZ8 0x005e0e00
-void W8DialogScrollBar::DestroyControls()
+void W8DialogScrollBar::ResetHandles()
 {
     ReleaseDialogButtonHandle(m_up_button);
     ReleaseDialogButtonImage(m_up_image);
@@ -32,6 +33,7 @@ void W8DialogScrollBar::DestroyControls()
 // FUNCTION: WIZ8 0x005e0ca0
 bool W8DialogScrollBar::CreateControls(const Resources* resources)
 {
+    ResetHandles();
     m_up_image = LoadButtonImage(resources->arrows_path, 3, 0, 1, 2, 2);
     if (m_up_image != -1) {
         m_up_button =
@@ -69,7 +71,7 @@ bool W8DialogScrollBar::CreateControls(const Resources* resources)
         m_dirty = true;
         return true;
     }
-    DestroyControls();
+    ResetHandles();
     return false;
 }
 

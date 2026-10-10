@@ -98,13 +98,6 @@ int W8ProfRaceInfoDialogBase::CreateControls()
     return 0;
 }
 
-// FUNCTION: WIZ8 0x005DED40
-void W8ProfRaceInfoDialogBase::DestroyControls()
-{
-    m_scroll_bar.DestroyControls();
-    W8DialogBase::DestroyControls();
-}
-
 // FUNCTION: WIZ8 0x005DED60
 void W8ProfRaceInfoDialogBase::Draw()
 {
