@@ -129,10 +129,10 @@ public:
     SR_DLL_IMPORT void getRotation(glm::mat3& rotation) const;
     SR_DLL_IMPORT void getRotation(glm::dmat3& rotation) const;
     SR_DLL_IMPORT glm::dvec3 getScale() const;
-    SR_DLL_IMPORT void getWorldSpaceCoordinates(glm::mat3& rotation, srVector3T<float>& location,
-                                                srVector3T<float>& scale) const;
-    SR_DLL_IMPORT void getWorldSpaceCoordinates(glm::dmat3& rotation, srVector3T<double>& location,
-                                                srVector3T<double>& scale) const;
+    SR_DLL_IMPORT void getWorldSpaceCoordinates(glm::mat3& rotation, glm::vec3& location,
+                                                glm::vec3& scale) const;
+    SR_DLL_IMPORT void getWorldSpaceCoordinates(glm::dmat3& rotation, glm::dvec3& location,
+                                                glm::dvec3& scale) const;
     SR_DLL_IMPORT glm::dvec3 getWorldSpaceDOF() const;
     SR_DLL_IMPORT glm::dvec3 getWorldSpaceLocation() const;
     SR_DLL_IMPORT void getWorldSpaceMatrix(glm::mat4& matrix) const;
