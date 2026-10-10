@@ -745,7 +745,6 @@ unsigned char CharacterScreenLeave(int leaving)
             for (int index = 0; index < 4; ++index) {
                 delete screen->m_pages[index];
             }
-            screen->m_controls->DestroyAllControls();
             delete screen->m_controls;
             delete screen;
         }

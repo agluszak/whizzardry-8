@@ -50,12 +50,6 @@ W8MonsterInfoDialog::W8MonsterInfoDialog(int location_id) : m_location_id(locati
     SetBackground(g_info_dialog_background, 0);
 }
 
-// FUNCTION: WIZ8 0x005d5f00
-W8MonsterInfoDialog::~W8MonsterInfoDialog()
-{
-    W8MonsterInfoDialog::DestroyControls();
-}
-
 // FUNCTION: WIZ8 0x005d5f90
 int W8MonsterInfoDialog::CreateControls()
 {
@@ -468,12 +462,6 @@ void W8MonsterInfoDialog::ScrollCallback(W8DialogScrollBar* scroll_bar, int firs
     }
 }
 
-// FUNCTION: WIZ8 0x005dbde0
-void W8MonsterInfoDialog::DestroyControls()
-{
-    m_scroll_bar.DestroyControls();
-    W8DialogBase::DestroyControls();
-}
 
 // FUNCTION: WIZ8 0x005d6080
 void W8MonsterInfoDialog::Draw()

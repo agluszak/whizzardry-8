@@ -499,10 +499,7 @@ void RedrawRcsDismissPanel(void)
 void DestroyRcsLevelUpPanel(void)
 {
     DestroyControlPanel(g_level_up_panel);
-    if (g_level_up_button != 0) {
-        delete g_level_up_button;
-        g_level_up_button = 0;
-    }
+    g_level_up_button = nullptr;
 }
 
 // FUNCTION: WIZ8 0x005b65a0
@@ -604,10 +601,7 @@ unsigned char CampDismissButtonRegionEvent(const InputAtom* event, W8Region* reg
 void DestroyRcsDismissPanel(void)
 {
     DestroyControlPanel(g_dismiss_panel);
-    if (g_dismiss_button != 0) {
-        delete g_dismiss_button;
-        g_dismiss_button = 0;
-    }
+    g_dismiss_button = nullptr;
 }
 
 /* Bring the second panel up to date. Its widget is available only for the first
@@ -662,17 +656,9 @@ void ReleaseFormationBoard(void)
 void DestroyFormationPanel(void)
 {
     DestroyControlPanel(g_formation_panel);
-    for (unsigned int index = 0; index < 15; ++index) {
-        if (g_formation_cell_controls[index] != 0) {
-            delete g_formation_cell_controls[index];
-            g_formation_cell_controls[index] = 0;
-        }
-        if (g_formation_cell_overlays[index] != 0) {
-            delete g_formation_cell_overlays[index];
-            g_formation_cell_overlays[index] = 0;
-        }
-    }
-    DestroyTextControls(g_formation_action_buttons, 3);
+    for (auto& control : g_formation_cell_controls) control = nullptr;
+    for (auto& overlay : g_formation_cell_overlays) overlay = nullptr;
+    for (auto& button : g_formation_action_buttons) button = nullptr;
 }
 
 /* The upper-left character block. While an input mode is up it lists the
@@ -1149,8 +1135,8 @@ int CreateCampButtonPanel(void)
 void DestroyCampButtonPanel(void)
 {
     DestroyControlPanel(g_item_actions_panel);
-    DestroyTextControls(g_camp_page_buttons, 5);
-    DestroyTextControls(g_item_action_controls, 8);
+    for (auto& button : g_camp_page_buttons) button = nullptr;
+    for (auto& button : g_item_action_controls) button = nullptr;
     RegionSetDisable(0x2e);
     RegionSetDisable(0x2d);
 }

@@ -1306,7 +1306,7 @@ int CreateCampActionPanel(void)
 void ReleaseCampActionPanel(void)
 {
     DestroyControlPanel(g_camp_action_panel);
-    DestroyTextControls(g_camp_action_buttons, 2);
+    for (auto& button : g_camp_action_buttons) button = nullptr;
 }
 
 // FUNCTION: WIZ8 0x005b9270
@@ -1407,7 +1407,7 @@ int CreateItemsTabPanel(void)
 void ReleaseItemsTabPanel(void)
 {
     DestroyControlPanel(g_camp_item_filter_panel);
-    DestroyTextControls(g_camp_item_filter_buttons, 7);
+    for (auto& button : g_camp_item_filter_buttons) button = nullptr;
 }
 
 /* Item filter buttons keep their secondary state when the corresponding
@@ -1573,7 +1573,7 @@ int CreateCampSecondaryPanel(void)
 void ReleaseCampSecondaryPanel(void)
 {
     DestroyControlPanel(g_camp_secondary_panel);
-    DestroyTextControls(g_camp_page_tabs, 2);
+    for (auto& tab : g_camp_page_tabs) tab = nullptr;
 }
 
 // FUNCTION: WIZ8 0x005b9ef0

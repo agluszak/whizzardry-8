@@ -13,9 +13,7 @@
 class W8SpellInfoDialog : public W8DialogBase {
 public:
     W8SpellInfoDialog(unsigned int spell);
-    virtual ~W8SpellInfoDialog() override;
     virtual int CreateControls() override;
-    virtual void DestroyControls() override;
     virtual void Draw() override;
     virtual void OnRightButtonUp() override;
     virtual void OnMouseWheel(int delta) override;

@@ -13,6 +13,9 @@
 #include "wiz8/video_object_catalog.h"
 #include "wiz8/utility.h"
 #include "Button System.h"
+#include "wiz8/dialog_code/DialogButton.h"
+#include "wiz8/dialog_code/ButtonUserData.h"
+#include "wiz8/local_code/ButtonSound.h"
 #include "Font.h"
 #include "input.h"
 #include "mousesystem_macros.h"
@@ -34,10 +37,6 @@
 
 
 extern GUI_BUTTON* gpAnchoredButton;
-extern std::array<std::unique_ptr<SGPVObject>, 40> GenericButtonGrayed, GenericButtonOffNormal, GenericButtonOffHilite;
-extern std::array<std::unique_ptr<SGPVObject>, 40> GenericButtonOnNormal, GenericButtonOnHilite, GenericButtonBackground;
-extern UINT16 GenericButtonFillColors[], GenericButtonBackgroundIndex[];
-extern INT16 GenericButtonOffsetX[], GenericButtonOffsetY[];
 
 namespace {
 std::vector<int> screen_leaves;
@@ -222,17 +221,21 @@ int clicks, click_reason;
 MOUSE_REGION* clicked_region;
 void region_click(MOUSE_REGION* region, INT32) { clicked_region = region; }
 void click(GUI_BUTTON*, INT32 reason) { ++clicks; click_reason = reason; }
-int nested_outer, nested_inner;
+
+GUIButton nested_outer, nested_inner, removable_button;
 void nested_click(GUI_BUTTON* button, INT32 reason)
 {
-    if (button->IDNum == nested_inner) {
-        RemoveButton(nested_outer);
+    if (button == nested_inner.get()) {
+        // The outer handler must remain alive while a nested callback destroys
+        // the last external owner.
+        nested_outer.reset();
         return;
     }
-    QuickButtonCallbackMButn(&ButtonList[nested_inner]->Area, reason);
-    REQUIRE(ButtonList[nested_outer].get() == button);
-    REQUIRE(button->uiFlags & BUTTON_DELETION_PENDING);
-    RemoveButton(nested_inner);
+    REQUIRE(button == nested_outer.get());
+    QuickButtonCallbackMButn(&nested_inner->Area, reason);
+    REQUIRE(!nested_outer);
+    REQUIRE(button->ClickCallback == nested_click);
+    nested_inner.reset();
 }
 void remove_on_move(MOUSE_REGION* region, INT32 reason)
 {
@@ -241,8 +244,9 @@ void remove_on_move(MOUSE_REGION* region, INT32 reason)
 }
 void remove_button_on_callback(GUI_BUTTON* button, INT32)
 {
-    RemoveButton(button->IDNum);
-    REQUIRE(ButtonList[button->IDNum].get() == button);
+    removable_button.reset();
+    // QuickButtonCallback pins the object through the callback.
+    REQUIRE(button->ClickCallback == remove_button_on_callback);
 }
 
 void region_registration_and_callback_lifetimes()
@@ -269,28 +273,30 @@ void region_registration_and_callback_lifetimes()
     MSYS_SGP_Mouse_Handler_Hook(LEFT_BUTTON_UP, 11, 11, false, false);
     MSYS_RemoveRegion(&first);
 
-    char label[] = "nested";
-    nested_outer = CreateTextButton(label, 0, 0, 0, -1, 0, 0, 40, 20,
-                                   BUTTON_TOGGLE, MSYS_PRIORITY_NORMAL, nullptr, nested_click);
-    nested_inner = CreateTextButton(label, 0, 0, 0, -1, 0, 20, 40, 20,
-                                   BUTTON_TOGGLE, MSYS_PRIORITY_NORMAL, nullptr, nested_click);
-    REQUIRE((nested_outer >= 0 && nested_inner >= 0));
-    QuickButtonCallbackMButn(&ButtonList[nested_outer]->Area, MSYS_CALLBACK_REASON_LBUTTON_DWN);
-    REQUIRE((!ButtonList[nested_outer] && !ButtonList[nested_inner]));
-    for (const bool disabled : {false, true}) {
-        const auto id = CreateTextButton(label, 0, 0, 0, -1, 0, 0, 40, 20,
-                                        BUTTON_TOGGLE, MSYS_PRIORITY_NORMAL,
-                                        remove_button_on_callback, remove_button_on_callback);
-        REQUIRE(id >= 0);
+    nested_outer = CreateTextButton("nested", 0, 0, 0, {}, 0, 0, 40, 20,
+                                    BUTTON_TOGGLE, MSYS_PRIORITY_NORMAL, nullptr, nested_click);
+    nested_inner = CreateTextButton("nested", 0, 0, 0, {}, 0, 20, 40, 20,
+                                    BUTTON_TOGGLE, MSYS_PRIORITY_NORMAL, nullptr, nested_click);
+    REQUIRE((nested_outer && nested_inner));
+    QuickButtonCallbackMButn(&nested_outer->Area, MSYS_CALLBACK_REASON_LBUTTON_DWN);
+    REQUIRE((!nested_outer && !nested_inner));
+
+    for (bool disabled : {false, true}) {
+        removable_button = CreateTextButton("remove", 0, 0, 0, {}, 0, 0, 40, 20,
+                                            BUTTON_TOGGLE, MSYS_PRIORITY_NORMAL,
+                                            remove_button_on_callback, remove_button_on_callback);
+        REQUIRE(removable_button);
+        auto weak = std::weak_ptr<GUI_BUTTON>(removable_button);
         if (disabled) {
-            ButtonList[id]->uiFlags &= ~BUTTON_ENABLED;
-            ButtonList[id]->uiFlags |= BUTTON_ALLOW_DISABLED_CALLBACK;
-            QuickButtonCallbackMButn(&ButtonList[id]->Area, MSYS_CALLBACK_REASON_LBUTTON_DWN);
+            removable_button->uiFlags &= ~BUTTON_ENABLED;
+            removable_button->uiFlags |= BUTTON_ALLOW_DISABLED_CALLBACK;
+            QuickButtonCallbackMButn(&removable_button->Area, MSYS_CALLBACK_REASON_LBUTTON_DWN);
         } else {
-            QuickButtonCallbackMMove(&ButtonList[id]->Area, MSYS_CALLBACK_REASON_GAIN_MOUSE);
+            QuickButtonCallbackMMove(&removable_button->Area, MSYS_CALLBACK_REASON_GAIN_MOUSE);
         }
-        REQUIRE(!ButtonList[id]);
+        REQUIRE(weak.expired());
     }
+    REQUIRE(RegisteredButtonCount() == 0);
     MSYS_Shutdown();
     REQUIRE(MSYS_Init());
     MSYS_Shutdown();
@@ -312,9 +318,11 @@ void buttons_and_regions()
     REQUIRE(MSYS_GetRegionUserData(&low, 0) == 17);
     REQUIRE(MSYS_GrabMouse(&high) == MSYS_GRABBED_OK);
     MSYS_ReleaseMouse(&high);
-    ButtonList[0] = std::make_unique<GUI_BUTTON>();
-    auto& button = *ButtonList[0];
-    button.IDNum = 0;
+
+    auto owned_button = CreateTextButton("direct", 0, 0, 0, {}, 0, 0, 40, 20,
+                                         BUTTON_TOGGLE, MSYS_PRIORITY_NORMAL, nullptr, click);
+    REQUIRE(owned_button);
+    auto& button = *owned_button;
     button.ClickCallback = click;
     button.uiFlags = BUTTON_ENABLED | BUTTON_CLICK_CALLBACK;
     QuickButtonCallbackMButn(&button.Area, MSYS_CALLBACK_REASON_LBUTTON_DWN);
@@ -335,32 +343,35 @@ void buttons_and_regions()
     REQUIRE(button.uiFlags & BUTTON_CLICKED_ON);
     REQUIRE(gpAnchoredButton == &button);
     gpAnchoredButton = nullptr;
-    ButtonList[0] = nullptr;
+    owned_button.reset();
+
     for (unsigned repeat = 0; repeat < 32; ++repeat) {
         char label[] = "owned button";
-        const auto id = CreateTextButton(label, 0, 0, 0, -1, 0, 0, 40, 20,
-                                         BUTTON_TOGGLE, MSYS_PRIORITY_NORMAL, nullptr, click);
-        REQUIRE(id >= 0);
-        auto* owned = ButtonList[id].get();
-        REQUIRE((owned && owned->string[0] == 'o'));
+        auto object = CreateTextButton(label, 0, 0, 0, {}, 0, 0, 40, 20,
+                                       BUTTON_TOGGLE, MSYS_PRIORITY_NORMAL, nullptr, click);
+        REQUIRE(object);
+        auto* owned = object.get();
+        REQUIRE(owned->string[0] == 'o');
         label[0] = 'x';
         REQUIRE(owned->string[0] == 'o');
-        SpecifyButtonText(id, owned->string);
-        REQUIRE((ButtonList[id].get() == owned && owned->string[0] == 'o'));
+        SpecifyButtonText(object, owned->string);
+        REQUIRE((object.get() == owned && owned->string[0] == 'o'));
         char tooltip[] = "tooltip";
-        SetButtonFastHelpText(id, tooltip);
+        SetButtonFastHelpText(object, tooltip);
         tooltip[0] = 'x';
         REQUIRE(owned->Area.FastHelpText[0] == 't');
-        SetButtonFastHelpText(id, owned->Area.FastHelpText);
+        SetButtonFastHelpText(object, owned->Area.FastHelpText);
         REQUIRE(owned->Area.FastHelpText[0] == 't');
-        SetButtonFastHelpText(id, {});
+        SetButtonFastHelpText(object, {});
         REQUIRE(owned->Area.FastHelpText.empty());
-        SetButtonFastHelpText(id, label);
-        SpecifyButtonText(id, {});
+        SetButtonFastHelpText(object, label);
+        SpecifyButtonText(object, {});
         REQUIRE(owned->string.empty());
-        RemoveButton(id);
-        REQUIRE(!ButtonList[id]);
+        auto weak = std::weak_ptr<GUI_BUTTON>(object);
+        object.reset();
+        REQUIRE(weak.expired());
     }
+    REQUIRE(RegisteredButtonCount() == 0);
     MSYS_RemoveRegion(&high);
     MSYS_RemoveRegion(&low);
     MSYS_Shutdown();
@@ -657,40 +668,173 @@ void generic_button_images()
         REQUIRE(!CreateImage("bad-size.sti", IMAGE_ALLDATA));
         REQUIRE(CreateImage("bad-size.sti", IMAGE_PALETTE));
     }
-    REQUIRE(!InitializeButtonImageManager(-1, -1, -1));
-    REQUIRE((FindFreeGenericSlot() == 0 && GenericButtonOffNormal[0] == nullptr));
+    // A button retains its graphics after the loader's reference and the
+    // image manager are released; the last button releases the resource.
+    REQUIRE(MSYS_Init());
+    auto graphics = ButtonGraphics::Load("button.sti", 0, 1, 2, 3, 4);
+    REQUIRE(graphics);
+    REQUIRE((graphics->MaxWidth == 1 && graphics->MaxHeight == 1));
+    std::weak_ptr<const ButtonGraphics> lifetime = graphics;
+    auto first_button = QuickCreateButton(graphics, 0, 0, BUTTON_NO_TOGGLE,
+                                          MSYS_PRIORITY_NORMAL, nullptr, nullptr);
+    auto second_button = QuickCreateButton(graphics, 2, 0, BUTTON_NO_TOGGLE,
+                                           MSYS_PRIORITY_NORMAL, nullptr, nullptr);
+    REQUIRE((first_button && second_button));
+    // Give each frame a distinct color and verify actual blits for both
+    // button kinds, including checkbox-only mouse-down highlights.
+    auto* sprite = graphics->object();
+    for (unsigned frame = 0; frame < 5; ++frame) {
+        sprite->sprites[frame].pixels[0] = frame + 1;
+        sprite->p16BPPPalette[frame + 1] = 0x1000 + frame;
+    }
+    VSURFACE_DESC target_desc{};
+    target_desc.fCreateFlags = VSURFACE_CREATE_DEFAULT;
+    target_desc.usWidth = target_desc.usHeight = 8;
+    target_desc.ubBitDepth = 16;
+    UINT32 target;
+    REQUIRE(AddVideoSurface(&target_desc, &target));
+    const auto old_target = ButtonDestBuffer;
+    const auto old_hilights = gfRenderHilights;
+    const auto old_left_down = gfLeftButtonState;
+    ButtonDestBuffer = target;
+    gfRenderHilights = true;
+    for (bool checkbox : {false, true}) {
+        for (bool enabled : {false, true}) {
+            for (bool pressed : {false, true}) {
+                for (bool hover : {false, true}) {
+                    for (bool mouse_down : {false, true}) {
+                        first_button->uiFlags = (checkbox ? BUTTON_CHECKBOX : BUTTON_QUICK) |
+                            (enabled ? BUTTON_ENABLED : 0) | (pressed ? BUTTON_CLICKED_ON : 0);
+                        if (hover) first_button->Area.uiFlags |= MSYS_MOUSE_IN_AREA;
+                        else first_button->Area.uiFlags &= ~MSYS_MOUSE_IN_AREA;
+                        gfLeftButtonState = mouse_down;
+                        DrawButton(first_button);
+                        UINT32 pitch;
+                        auto* pixels = reinterpret_cast<UINT16*>(LockVideoSurface(target, &pitch));
+                        REQUIRE(pixels);
+                        const auto color = pixels[0];
+                        UnLockVideoSurface(target);
+                        const bool highlight = hover && (!checkbox || mouse_down);
+                        const unsigned expected_frame = !enabled ? 0 :
+                            pressed ? (highlight ? 4 : 3) : (highlight ? 2 : 1);
+                        REQUIRE(color == 0x1000 + expected_frame);
+                    }
+                }
+            }
+        }
+    }
+    ButtonDestBuffer = old_target;
+    gfRenderHilights = old_hilights;
+    gfLeftButtonState = old_left_down;
+    REQUIRE(DeleteVideoSurfaceFromIndex(target));
+    graphics.reset();
+    ShutdownButtonImageManager();
+    REQUIRE(!lifetime.expired());
+    first_button.reset();
+    REQUIRE(second_button->quick_image->object()->sprites[4].pixels[0] == 5);
+    second_button.reset();
+    REQUIRE(lifetime.expired());
+    REQUIRE(RegisteredButtonCount() == 0);
+    // Validate each of the five states, including invalid negative indices.
+    for (int bad : {-2, 9, 65536}) {
+        for (size_t state = 0; state < 5; ++state) {
+            std::array<int, 5> frames{0, 1, 2, 3, 4};
+            frames[state] = bad;
+            REQUIRE(!ButtonGraphics::Load("button.sti", frames[0], frames[1], frames[2],
+                                           frames[3], frames[4]));
+        }
+    }
+    REQUIRE(!ButtonGraphics::Load("missing.sti", 0, 1, 2, 3, 4));
+    REQUIRE(!ButtonGraphics::Load("button.sti", -1, -1, -1, -1, -1));
+    REQUIRE(ButtonGraphics::Load("button.sti", -1, 0, -1, 1, -1));
+    std::vector<ButtonImage> quick_images;
+    for (unsigned index = 0; index < 300; ++index)
+        quick_images.push_back(ButtonGraphics::Load("button.sti", 0, 1, 2, 3, 4));
+    REQUIRE(std::all_of(quick_images.begin(), quick_images.end(),
+                        [](const auto& item) { return item != nullptr; }));
+    quick_images.clear();
+    {
+        auto dialog = std::make_unique<W8DialogButton>();
+        REQUIRE(dialog->ConfigureIcon("button.sti", 0, 1, MSYS_PRIORITY_NORMAL,
+                                      W8_DIALOG_BUTTON_NO_TOOLTIP));
+        dialog->SetPosition(12, 13);
+        REQUIRE(!dialog->ConfigureIcon("missing.sti", 0, 1, MSYS_PRIORITY_NORMAL,
+                                       W8_DIALOG_BUTTON_NO_TOOLTIP));
+        REQUIRE((dialog->GetX() == 12 && dialog->GetY() == 13 && dialog->GetWidth() == 1));
+        REQUIRE(RegisteredButtonCount() == 1);
+    }
+    REQUIRE(RegisteredButtonCount() == 0);
+    // A dialog's click callback can close it. The dispatcher must not read
+    // the released dialog while completing the click (including its sound).
+    auto* closing_dialog = new W8DialogButton;
+    REQUIRE(closing_dialog->Configure("button.sti", 0, 1, 2, 3, 4,
+        [](W8DialogButton* dialog) { delete dialog; }, nullptr, false,
+        MSYS_PRIORITY_NORMAL, W8_DIALOG_BUTTON_NO_TOOLTIP, nullptr, nullptr));
+    auto dispatch_button = std::make_shared<GUI_BUTTON>();
+    SetButtonUserDataPointer(dispatch_button, closing_dialog);
+    dispatch_button->uiFlags = BUTTON_CLICKED_ON;
+    PushButtonSoundScheme(0, true);
+    DialogButtonCallback(dispatch_button.get(), MSYS_CALLBACK_REASON_LBUTTON_UP);
+    REQUIRE(RegisteredButtonCount() == 0);
+    MSYS_Shutdown();
+
+    REQUIRE(!InitializeButtonImageManager());
     button_image_fixture(assets, DEFAULT_GENERIC_BUTTON_ON);
-    REQUIRE(InitializeButtonImageManager(-1, -1, -1));
-    REQUIRE((FindFreeGenericSlot() == 1 && GenericButtonOnNormal[0]));
-    REQUIRE((!GenericButtonOffHilite[0] && !GenericButtonOnHilite[0]));
-    REQUIRE(UnloadGenericButtonImage(0));
-    std::string_view filename = "button.sti", missing = "missing.sti", short_image = "short.sti";
+    REQUIRE(InitializeButtonImageManager());
+    const std::string_view filename = "button.sti", missing = "missing.sti";
     const auto load = [](const std::array<std::string_view, 6>& names) {
-        return LoadGenericButtonImages(names[2], names[0], names[3], names[1], names[4], names[5], 3, 4, 5);
+        return LoadGenericButtonImages(names[2], names[0], names[3], names[1],
+                                       names[4], names[5], 3, 4, 5);
     };
     for (size_t index = 0; index < 6; ++index) {
         std::array<std::string_view, 6> names;
         names.fill(filename);
         names[index] = missing;
-        REQUIRE((load(names) == -1 && FindFreeGenericSlot() == 0));
-        REQUIRE((!GenericButtonOffNormal[0] && !GenericButtonOnNormal[0]));
+        REQUIRE(!load(names));
     }
-    REQUIRE(load({std::string_view{}, filename, {}, {}, {}, {}}) == -1);
-    REQUIRE(load({filename, {}, {}, {}, {}, {}}) == -1);
-    REQUIRE(load({short_image, filename, {}, {}, {}, {}}) == -1);
-    REQUIRE(FindFreeGenericSlot() == 0);
-    REQUIRE(load({filename, filename, filename, filename, filename, filename}) == 0);
-    REQUIRE((GenericButtonGrayed[0] && GenericButtonOffHilite[0] && GenericButtonOnHilite[0]));
-    REQUIRE((GenericButtonBackground[0] && GenericButtonBackgroundIndex[0] == 3));
-    REQUIRE((GenericButtonOffsetX[0] == 4 && GenericButtonOffsetY[0] == 5));
-    REQUIRE(GenericButtonFillColors[0] == GenericButtonOffNormal[0]->p16BPPPalette[1]);
-    REQUIRE(UnloadGenericButtonImage(0));
-    REQUIRE((!GenericButtonBackground[0] && GenericButtonOffsetX[0] == 0));
-    for (int slot = 0; slot < 40; ++slot) {
-        REQUIRE(load({filename, filename, {}, {}, {}, {}}) == slot);
-        REQUIRE((!GenericButtonGrayed[slot] && !GenericButtonBackground[slot]));
+    REQUIRE(!load({std::string_view{}, filename, {}, {}, {}, {}}));
+    REQUIRE(!load({filename, {}, {}, {}, {}, {}}));
+    REQUIRE(!load({"short.sti", filename, {}, {}, {}, {}}));
+    // Every border state needs all nine tiles, not only the off-normal state.
+    for (size_t state = 0; state < 5; ++state) {
+        std::array<std::string_view, 6> names;
+        names.fill(filename);
+        names[state] = "short.sti";
+        REQUIRE(!load(names));
     }
-    REQUIRE(load({filename, filename, {}, {}, {}, {}}) == -1);
+    REQUIRE(!LoadGenericButtonImages({}, filename, {}, filename, {}, filename, -1, 0, 0));
+    REQUIRE(!LoadGenericButtonImages({}, filename, {}, filename, {}, filename, 9, 0, 0));
+    // A zero-sized first tile would cause division by zero while drawing borders.
+    button_image_fixture(assets, "zero-tile.sti");
+    {
+        std::fstream file(assets / "zero-tile.sti", std::ios::in | std::ios::out | std::ios::binary);
+        STCISubImage frame{};
+        file.seekg(STCI_HEADER_SIZE + STCI_8BIT_PALETTE_SIZE);
+        file.read(reinterpret_cast<char*>(&frame), sizeof(frame));
+        frame.usWidth = 0;
+        file.seekp(STCI_HEADER_SIZE + STCI_8BIT_PALETTE_SIZE);
+        file.write(reinterpret_cast<const char*>(&frame), sizeof(frame));
+        REQUIRE(file.good());
+    }
+    REQUIRE(!load({filename, "zero-tile.sti", {}, {}, {}, {}}));
+    auto image = load({filename, filename, filename, filename, filename, filename});
+    REQUIRE(image);
+    REQUIRE((image->frames[2] && image->frames[3] && image->frames[4]));
+    REQUIRE((image->frames[5] && image->background_frame == 3));
+    REQUIRE((image->offset_x == 4 && image->offset_y == 5));
+    REQUIRE(image->fill_color == image->frames[0]->p16BPPPalette[1]);
+    auto another_owner = image;
+    image.reset();
+    REQUIRE(another_owner->frames[0]);
+    another_owner.reset();
+
+    // There is no fixed image slot limit. Lifetime is owned by the image.
+    std::vector<GenericButtonImage> images;
+    for (int index = 0; index < 45; ++index)
+        images.push_back(load({filename, filename, {}, {}, {}, {}}));
+    REQUIRE(std::all_of(images.begin(), images.end(), [](const auto& item) { return item != nullptr; }));
+    images.clear();
+
     for (unsigned repeat = 0; repeat < 32; ++repeat) {
         REQUIRE(InitializeFontManager(CreateEnglishTransTable()));
         REQUIRE(LoadFontFile(std::string(filename).c_str()) == 0);
@@ -800,7 +944,6 @@ void generic_button_images()
     MSYS_Shutdown();
     ShutdownFontManager();
     ShutdownButtonImageManager();
-    REQUIRE((FindFreeGenericSlot() == 0 && !GenericButtonOnNormal[39]));
 
     std::filesystem::remove_all(root);
 }
@@ -864,8 +1007,7 @@ TEST_CASE("assert-plain", "[.death]")
 
 TEST_CASE("assert-message", "[.death]")
 {
-    MOUSE_REGION region{};
-    region.UserData[0] = MAX_BUTTONS;
-    QuickButtonCallbackMButn(&region, MSYS_CALLBACK_REASON_LBUTTON_DWN);
-    FAIL("QuickButtonCallbackMButn did not abort");
+    CreateTextButton("invalid", 0, 0, 0, {}, -1, 0, 40, 20,
+                     BUTTON_TOGGLE, MSYS_PRIORITY_NORMAL, nullptr, nullptr);
+    FAIL("CreateTextButton did not abort");
 }

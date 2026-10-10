@@ -3,73 +3,66 @@
 #include "wiz8/dialog_code/ButtonUserData.h"
 #include "wiz8/cursor.h"
 #include "wiz8/utility.h"
+#include <utility>
 
 /* Reconstructed logical owner; original translation-unit identity is unproven.
    Live query: 0x005E0C40 sits in the gap after StatInfoDialogs.cpp (upper
    0x005E0180) and before 3D Code\PList.cpp (lower 0x005E22C0). It is not
    stListBox.cpp. */
 
-/* The owning dialog performs DestroyControls separately. Its member teardown
-   (0x005DBCC4, also 0x005D5F00's teardown) calls the shared ret at 0x004023A0
-   with the scrollbar receiver; the scrollbar destructor itself is empty. */
-W8DialogScrollBar::~W8DialogScrollBar() {}
-
-// FUNCTION: WIZ8 0x005e0e00
-void W8DialogScrollBar::DestroyControls()
-{
-    ReleaseDialogButtonHandle(m_up_button);
-    ReleaseDialogButtonImage(m_up_image);
-    ReleaseDialogButtonHandle(m_down_button);
-    ReleaseDialogButtonImage(m_down_image);
-    ReleaseDialogButtonHandle(m_thumb_button);
-    ReleaseDialogButtonImage(m_thumb_image);
-    ReleaseDialogButtonHandle(m_track_button);
-    ReleaseDialogButtonImage(m_track_image);
-    m_on_scroll = 0;
-    m_initialized = false;
-}
-
 // FUNCTION: WIZ8 0x005e0ca0
 bool W8DialogScrollBar::CreateControls(const Resources* resources)
 {
-    m_up_image = LoadButtonImage(resources->arrows_path, 3, 0, 1, 2, 2);
-    if (m_up_image != -1) {
-        m_up_button =
-            QuickCreateButton(m_up_image, 0, 0, BUTTON_NO_TOGGLE, MSYS_PRIORITY_HIGHEST - 1,
+    ButtonImage up_image;
+    GUIButton up_button;
+    ButtonImage down_image;
+    GUIButton down_button;
+    ButtonImage thumb_image;
+    GUIButton thumb_button;
+    ButtonImage track_image;
+    GUIButton track_button;
+    if (m_initialized) return true;
+    up_image = ButtonGraphics::Load(resources->arrows_path, 3, 0, 1, 2, 2);
+    if (up_image) {
+        up_button =
+            QuickCreateButton(up_image, 0, 0, BUTTON_NO_TOGGLE, MSYS_PRIORITY_HIGHEST - 1,
                               UpButtonCallback, UpButtonCallback);
     }
-    m_down_image = LoadButtonImage(resources->arrows_path, 11, 8, 9, 10, 10);
-    if (m_down_image != -1) {
-        m_down_button =
-            QuickCreateButton(m_down_image, 0, 0, BUTTON_NO_TOGGLE, MSYS_PRIORITY_HIGHEST - 1,
+    down_image = ButtonGraphics::Load(resources->arrows_path, 11, 8, 9, 10, 10);
+    if (down_image) {
+        down_button =
+            QuickCreateButton(down_image, 0, 0, BUTTON_NO_TOGGLE, MSYS_PRIORITY_HIGHEST - 1,
                               DownButtonCallback, DownButtonCallback);
     }
-    m_thumb_image = LoadButtonImage(resources->arrows_path, 7, 4, 5, 6, 6);
-    if (m_thumb_image != -1) {
-        m_thumb_button =
-            QuickCreateButton(m_thumb_image, 0, 0, BUTTON_NO_TOGGLE, MSYS_PRIORITY_HIGHEST - 2,
+    thumb_image = ButtonGraphics::Load(resources->arrows_path, 7, 4, 5, 6, 6);
+    if (thumb_image) {
+        thumb_button =
+            QuickCreateButton(thumb_image, 0, 0, BUTTON_NO_TOGGLE, MSYS_PRIORITY_HIGHEST - 2,
                               BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
     }
-    m_track_image = LoadButtonImage(resources->track_path, BUTTON_NO_IMAGE,
+    track_image = ButtonGraphics::Load(resources->track_path, BUTTON_NO_IMAGE,
                                     resources->track_frame, BUTTON_NO_IMAGE, resources->track_frame,
                                     BUTTON_NO_IMAGE);
-    if (m_track_image != -1) {
-        m_track_button =
-            QuickCreateButton(m_track_image, 0, 0, BUTTON_NO_TOGGLE, MSYS_PRIORITY_HIGHEST - 2,
+    if (track_image) {
+        track_button =
+            QuickCreateButton(track_image, 0, 0, BUTTON_NO_TOGGLE, MSYS_PRIORITY_HIGHEST - 2,
                               TrackButtonCallback, TrackButtonCallback);
     }
-    if (m_track_button != -1 && m_thumb_button != -1 && m_down_button != -1 && m_up_button != -1) {
-        SetButtonUserDataPointer(m_up_button, this);
-        SetButtonUserDataPointer(m_down_button, this);
-        SetButtonUserDataPointer(m_thumb_button, this);
-        SetButtonUserDataPointer(m_track_button, this);
+    if (track_button && thumb_button && down_button && up_button) {
+        SetButtonUserDataPointer(up_button, this);
+        SetButtonUserDataPointer(down_button, this);
+        SetButtonUserDataPointer(thumb_button, this);
+        SetButtonUserDataPointer(track_button, this);
+        m_up_button = std::move(up_button);
+        m_down_button = std::move(down_button);
+        m_thumb_button = std::move(thumb_button);
+        m_track_button = std::move(track_button);
         m_on_scroll = resources->on_scroll;
         m_initialized = true;
         m_visible = false;
         m_dirty = true;
         return true;
     }
-    DestroyControls();
     return false;
 }
 
@@ -97,11 +90,11 @@ void W8DialogScrollBar::SetLayout(int x, int y, int entry_count, int first_visib
         m_view_height = view_height;
         UpdateThumb();
         if (m_entry_count <= m_view_height / m_entry_height) {
-            GUI_BUTTON* button = GetButtonPtr(m_up_button);
+            GUI_BUTTON* button = m_up_button.get();
             if (button && (button->uiFlags & BUTTON_ENABLED)) {
                 button->uiFlags &= ~BUTTON_ENABLED;
             }
-            button = GetButtonPtr(m_down_button);
+            button = m_down_button.get();
             if (button && (button->uiFlags & BUTTON_ENABLED)) {
                 button->uiFlags &= ~BUTTON_ENABLED;
             }
@@ -259,13 +252,9 @@ W8DialogScrollBar::W8DialogScrollBar()
     m_track_bounds.top = 0;
     m_track_bounds.right = 0;
     m_track_bounds.bottom = 0;
-    m_up_image = -1;
-    m_up_button = -1;
-    m_down_image = -1;
-    m_down_button = -1;
-    m_thumb_image = -1;
-    m_thumb_button = -1;
-    m_track_image = -1;
-    m_track_button = -1;
+    m_up_button.reset();
+    m_down_button.reset();
+    m_thumb_button.reset();
+    m_track_button.reset();
     m_on_scroll = 0;
 }

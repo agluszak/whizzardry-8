@@ -1089,18 +1089,17 @@ void ReleasePortraitControls(void)
 {
     DisablePortraitControls();
     DestroyControlPanel(g_portrait_panel);
-    DestroyTextControls(g_portrait_controls, 8);
+    for (auto& control : g_portrait_controls) {
+        control = nullptr;
+    }
 }
 
 // FUNCTION: WIZ8 0x0059BF70
 void ReleaseConditionButtons(void)
 {
     DestroyControlPanel(g_condition_buttons_panel);
-    for (int slot = 0; slot < 8; ++slot) {
-        if (g_condition_buttons[slot] != 0) {
-            delete g_condition_buttons[slot];
-            g_condition_buttons[slot] = 0;
-        }
+    for (auto& button : g_condition_buttons) {
+        button = nullptr;
     }
 }
 

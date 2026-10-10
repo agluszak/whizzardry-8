@@ -57,6 +57,7 @@
 #include "wiz8/fonts.h"
 #include "wiz8/engine_code/Environment.h"
 #include "wiz8/text_input.h"
+#include <memory>
 #include <vector>
 #include <algorithm>
 #include "wiz8/video_object_catalog.h"
@@ -567,7 +568,7 @@ public:
     W8ControlSelection m_options;
     W8TextControl* m_toggle;
     W8TextControl* npc_interact_toggle;
-    std::vector<W8TextBuffer*> m_entries;
+    std::vector<std::unique_ptr<W8TextBuffer>> m_entries;
     int m_render_left;
     int m_render_top;
     short m_image_width;
@@ -1198,7 +1199,7 @@ unsigned char W8PartySelectionInputHandler::HandleInput(const InputAtom* input)
 void W8PartySelectionOptionPanel::SetOptionPanelMode(W8PartyCreationPage page)
 {
     m_page = page;
-    wiz8::remove_all_and_delete(m_entries);
+    m_entries.clear();
     for (int index = 0; index < static_cast<int>(m_controls.size()); ++index) {
         ControlAt(index)->SetActive(page == W8_PARTY_CREATION_OPTIONS);
     }
@@ -1207,22 +1208,22 @@ void W8PartySelectionOptionPanel::SetOptionPanelMode(W8PartyCreationPage page)
                              m_bounds.top + 0x171};
 
     if (page == W8_PARTY_CREATION_OPTIONS) {
-        m_entries.push_back(new W8TextBuffer(&bounds, g_localized_strings[0x7f7], g_options_detail_font,
+        m_entries.emplace_back(new W8TextBuffer(&bounds, g_localized_strings[0x7f7], g_options_detail_font,
                                        g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft, 4));
 
         bounds.right = m_bounds.left + 0x155;
-        m_entries.push_back(new W8TextBuffer(&bounds, g_localized_strings[0x7f8], g_options_detail_font,
+        m_entries.emplace_back(new W8TextBuffer(&bounds, g_localized_strings[0x7f8], g_options_detail_font,
                                        g_W8TextBufferAlignRight | g_W8TextBufferAlignTop, 4));
         bounds.top += 0x16;
-        m_entries.push_back(new W8TextBuffer(&bounds, g_localized_strings[0x7f9], g_options_detail_font,
+        m_entries.emplace_back(new W8TextBuffer(&bounds, g_localized_strings[0x7f9], g_options_detail_font,
                                        g_W8TextBufferAlignRight | g_W8TextBufferAlignTop, 4));
         bounds.top += 0x16;
-        m_entries.push_back(new W8TextBuffer(&bounds, g_localized_strings[0x7fa], g_options_detail_font,
+        m_entries.emplace_back(new W8TextBuffer(&bounds, g_localized_strings[0x7fa], g_options_detail_font,
                                        g_W8TextBufferAlignRight | g_W8TextBufferAlignTop, 4));
 
         bounds.right = m_bounds.left + 0x16e;
         bounds.top += 0x2c;
-        m_entries.push_back(new W8TextBuffer(&bounds, g_localized_strings[0x80b], g_options_detail_font,
+        m_entries.emplace_back(new W8TextBuffer(&bounds, g_localized_strings[0x80b], g_options_detail_font,
                                        g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft, 4));
 
         bounds.top += 0x2c;
@@ -1230,17 +1231,17 @@ void W8PartySelectionOptionPanel::SetOptionPanelMode(W8PartyCreationPage page)
             new W8TextBuffer(&bounds, g_localized_strings[0x6cd], g_options_detail_font,
                              g_W8TextBufferAlignCenter | g_W8TextBufferAlignTop, 4);
         text->SetLineHeight(0x16);
-        m_entries.push_back(text);
+        m_entries.emplace_back(text);
 
         bounds.top += 0x42;
-        m_entries.push_back(new W8TextBuffer(&bounds, g_localized_strings[0x6ce], g_options_detail_font,
+        m_entries.emplace_back(new W8TextBuffer(&bounds, g_localized_strings[0x6ce], g_options_detail_font,
                                        g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft, 4));
 
         bounds.top += 0x2c;
         text = new W8TextBuffer(&bounds, g_localized_strings[0x6cf], g_options_detail_font,
                                 g_W8TextBufferAlignCenter | g_W8TextBufferAlignTop, 4);
         text->SetLineHeight(0x16);
-        m_entries.push_back(text);
+        m_entries.emplace_back(text);
         return;
     }
 
@@ -1250,7 +1251,7 @@ void W8PartySelectionOptionPanel::SetOptionPanelMode(W8PartyCreationPage page)
             new W8TextBuffer(&bounds, g_localized_strings[0x6d0], g_options_detail_font,
                              g_W8TextBufferAlignCenter | g_W8TextBufferAlignTop, 4);
         text->SetLineHeight(0x16);
-        m_entries.push_back(text);
+        m_entries.emplace_back(text);
         return;
     }
 
@@ -1263,7 +1264,7 @@ void W8PartySelectionOptionPanel::SetOptionPanelMode(W8PartyCreationPage page)
     W8TextBuffer* text = new W8TextBuffer(&bounds, g_localized_strings[0x6d1], g_options_detail_font,
                                           g_W8TextBufferAlignCenter | g_W8TextBufferAlignTop, 4);
     text->SetLineHeight(0x16);
-    m_entries.push_back(text);
+    m_entries.emplace_back(text);
 
     W8PartySelectionController* controller = g_party_selection_controller;
     if (controller->m_input_handler) {
@@ -1356,7 +1357,7 @@ void W8PartySelectionController::Setup()
 W8PartySelectionOptionPanel::~W8PartySelectionOptionPanel()
 {
     DestroyAllControls();
-    wiz8::remove_all_and_delete(m_entries);
+    m_entries.clear();
 }
 
 // FUNCTION: WIZ8 0x005c1590

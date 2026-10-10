@@ -938,7 +938,6 @@ W8LockInteraction::~W8LockInteraction()
     delete m_tumbler_panel;
     delete m_info_panel;
     m_action_panel->EnableRegionSet(false);
-    m_action_panel->DestroyAllControls();
     delete m_action_panel;
 }
 
@@ -1928,7 +1927,6 @@ W8MainGameScreen::~W8MainGameScreen()
     delete m_text_panel;
     delete m_status_panel;
     m_action_panel->EnableRegionSet(false);
-    m_action_panel->DestroyAllControls();
     delete m_action_panel;
 }
 

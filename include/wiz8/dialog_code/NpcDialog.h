@@ -1,5 +1,7 @@
 #pragma once
 
+#include <array>
+#include <memory>
 #include <string>
 #include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/dialog_code/DialogButton.h"
@@ -25,7 +27,6 @@ public:
     W8NpcDialog(W8NpcQuoteEntry* message, int aux_data);
     virtual ~W8NpcDialog() override;
     virtual int CreateControls() override;
-    virtual void DestroyControls() override;
     virtual void Draw() override;
     virtual W8DialogKind GetDialogType() override; /* 7 */
     virtual bool ProcessInput() override;
@@ -35,8 +36,8 @@ private:
        closes the dialog. */
     static void OptionSelected(W8DialogButton* button);
 
-    W8TextBuffer* m_text_buffers[2];
-    W8DialogButton* m_buttons[3];
+    std::array<std::unique_ptr<W8TextBuffer>, 2> m_text_buffers;
+    std::array<std::unique_ptr<W8DialogButton>, 3> m_buttons;
     signed char m_selected_option;
     W8NpcQuoteEntry* m_message;
     int m_aux_data;

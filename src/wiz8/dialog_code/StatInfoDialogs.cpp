@@ -50,12 +50,6 @@ W8StatInfoDialogBase::W8StatInfoDialogBase()
     SetBackground(g_info_dialog_background, 0);
 }
 
-// FUNCTION: WIZ8 0x005DF940
-W8StatInfoDialogBase::~W8StatInfoDialogBase()
-{
-    W8StatInfoDialogBase::DestroyControls();
-}
-
 // FUNCTION: WIZ8 0x005df9d0
 int W8StatInfoDialogBase::CreateControls()
 {
@@ -77,13 +71,6 @@ int W8StatInfoDialogBase::CreateControls()
 
     CreateCloseButton(button, 0x11a, 0xe6);
     return 0;
-}
-
-// FUNCTION: WIZ8 0x005dfac0
-void W8StatInfoDialogBase::DestroyControls()
-{
-    scrollbar.DestroyControls();
-    W8DialogBase::DestroyControls();
 }
 
 // FUNCTION: WIZ8 0x005dfae0
@@ -170,12 +157,6 @@ W8AttributeInfoDialog::W8AttributeInfoDialog(W8Attribute uiIndex)
     m_detail_id = g_attr_table0[uiIndex];
 }
 
-// FUNCTION: WIZ8 0x005dfd20
-W8AttributeInfoDialog::~W8AttributeInfoDialog()
-{
-    W8StatInfoDialogBase::DestroyControls();
-}
-
 // FUNCTION: WIZ8 0x005dfe40
 W8SkillInfoDialog::W8SkillInfoDialog(W8Skill skill, bool first, bool second, bool bonus)
 {
@@ -188,12 +169,6 @@ W8SkillInfoDialog::W8SkillInfoDialog(W8Skill skill, bool first, bool second, boo
     m_first = first;
     m_second = second;
     m_bonus = bonus;
-}
-
-// FUNCTION: WIZ8 0x005dff10
-W8SkillInfoDialog::~W8SkillInfoDialog()
-{
-    W8StatInfoDialogBase::DestroyControls();
 }
 
 // FUNCTION: WIZ8 0x005dffa0
@@ -234,8 +209,3 @@ W8SecondaryAttributeInfoDialog::W8SecondaryAttributeInfoDialog(unsigned int uiIn
     m_detail_id = g_attr_table1[uiIndex];
 }
 
-// FUNCTION: WIZ8 0x005e0230
-W8SecondaryAttributeInfoDialog::~W8SecondaryAttributeInfoDialog()
-{
-    W8StatInfoDialogBase::DestroyControls();
-}

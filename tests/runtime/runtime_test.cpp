@@ -45,6 +45,8 @@
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_screens/MGSKeyboard.h"
 #include "wiz8/local_screens/OptionsScreen.h"
+#include "wiz8/local_screens/AutomapScreen.h"
+#include "wiz8/dialog_code/DialogButton.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/local_code/TextControl.h"
 #include "wiz8/local_screens/CharacterScreen.h"
@@ -396,7 +398,7 @@ void SpendPool(Game& game, const char* step, int page_index, const bool& complet
     W8CharacterPage* page = g_character_screen->m_pages[page_index];
     REQUIRE((page && !page->m_entries.empty()));
     for (int index = 0; index < static_cast<int>(page->m_entries.size()) && !complete; ++index) {
-        W8CharacterPageEntry* entry = page->m_entries[index];
+        W8CharacterPageEntry* entry = page->m_entries[index].get();
         if (!entry || !entry->m_enabled || !entry->m_second || !entry->m_third ||
             (page_index == 2 && !entry->m_increment_allowed))
             continue;
@@ -722,6 +724,23 @@ void ResourceLifecycleScenario()
 {
     Game game(false);
     StartPremadeGame(game);
+    // Automap buttons own their sprite sheets. Re-entering the screen must
+    // rebuild all sixteen controls after the previous owners are destroyed.
+    for (int visit = 0; visit != 2; ++visit) {
+        game.command(W8_MGS_COMMAND_AUTOMAP);
+        game.wait_screen("automap-buttons", W8_SCREEN_AUTOMAP);
+        REQUIRE(g_automap_buttons.size() == 16);
+        for (int index = 0; index != 16; ++index) {
+            REQUIRE(g_automap_buttons[index]);
+            REQUIRE(g_automap_buttons[index]->GetWidth() > 0);
+            REQUIRE(g_automap_buttons[index]->GetHeight() > 0);
+            g_automap_buttons[index]->m_dirty = true;
+            g_automap_buttons[index]->Draw();
+        }
+        game.key(SDLK_ESCAPE);
+        game.wait_screen("automap-buttons-released", W8_SCREEN_MAIN_GAME);
+        REQUIRE(g_automap_buttons.empty());
+    }
     const int level = g_status.current_level;
     const auto anchor = Walk(game, "settle-before-save", 2.0f);
     QuickSave(game);
@@ -837,7 +856,7 @@ void LoadGameScenario(const fs::path& fixture)
         if (!set || set->m_current < 0 ||
             static_cast<std::size_t>(set->m_current) >= set->m_panels.size())
             return false;
-        panel = static_cast<W8OptionsSaveLoadPanel*>(set->m_panels[set->m_current]);
+        panel = static_cast<W8OptionsSaveLoadPanel*>(set->m_panels[set->m_current].get());
         return panel->m_panel == 11 && !panel->m_rows.empty();
     });
     // The only save is the first row; select it, then press Load.

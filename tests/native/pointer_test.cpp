@@ -1,38 +1,30 @@
 #include <catch2/catch_test_macros.hpp>
 #include "wiz8/dialog_code/ButtonUserData.h"
+#include "compat/ptr32.h"
 
-#include <stdio.h>
-
-// Exercise the adapter against the same signed 32-bit slot SGP exposes.
-// The full button implementation also depends on the platform/video shell.
-static GUI_BUTTON button;
-void MSYS_SetBtnUserData(INT32 number, INT32 index, INT32 data)
-{
-    button.UserData[index] = data;
-}
-INT32 MSYS_GetBtnUserData(GUI_BUTTON* source, INT32 index)
-{
-    return source->UserData[index];
-}
+// This test links only the callback adapter, not the platform/video shell.
+GUI_BUTTON::~_GUI_BUTTON() = default;
 
 TEST_CASE("pointer_test")
-{    static_assert(sizeof(W8_PTR32(int)) == 4, "raw pointer slots retain their disk width");
-    int value = 42;
-    REQUIRE(reinterpret_cast<uintptr_t>(&value) > UINT32_MAX);
-    button.UserData[3] = -1;
-    SetButtonUserDataPointer(0, &value);
-    const INT32 handle = button.UserData[0];
-    REQUIRE(GetButtonUserDataPointer<int>(&button) == &value);
-    REQUIRE(button.UserData[3] == -1);
-    SetButtonUserDataPointer(0, &value);
-    REQUIRE(button.UserData[0] == handle);
+{
+    auto button = std::make_shared<GUI_BUTTON>();
+    int first = 42, second = 7;
+    button->UserData[0] = 123;
+    SetButtonUserDataPointer(button, &first);
+    REQUIRE(GetButtonUserDataPointer<int>(button.get()) == &first);
+    SetButtonUserDataPointer(button, &second);
+    REQUIRE(GetButtonUserDataPointer<int>(button.get()) == &second);
+    REQUIRE(button->UserData[0] == 123);
+    SetButtonUserDataPointer(button, nullptr);
+    REQUIRE(GetButtonUserDataPointer<int>(button.get()) == nullptr);
+    REQUIRE(GetButtonUserDataPointer<int>(nullptr) == nullptr);
+    SetButtonUserDataPointer({}, &first);
+
+    // Disk pointer representations remain independent of UI callback storage.
+    static_assert(sizeof(W8_PTR32(int)) == 4);
     W8_PTR32(int) slot;
-    slot = &value;
-    REQUIRE(static_cast<int*>(slot) == &value);
-    REQUIRE(*static_cast<int*>(slot) == 42);
-    SetButtonUserDataPointer(0, nullptr);
+    slot = &first;
+    REQUIRE(static_cast<int*>(slot) == &first);
     slot = nullptr;
-    REQUIRE(button.UserData[0] == 0);
-    REQUIRE(GetButtonUserDataPointer<int>(&button) == nullptr);
     REQUIRE(static_cast<int*>(slot) == nullptr);
 }

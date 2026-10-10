@@ -29,7 +29,7 @@ void W8ListBoxDialog::TextAreaButtonCallback(GUI_BUTTON* button, INT32 reason)
         /* Retail read this top edge uninitialized when the area button is
            absent (the leftover argument slot); natively it starts at zero. */
         int top = 0;
-        if (dialog->m_area_button != -1) {
+        if (dialog->m_area_button) {
             SDL_Rect area;
             GetButtonArea(dialog->m_area_button, &area);
             top = area.y;
@@ -129,7 +129,7 @@ void W8ListBoxDialog::SliderTrackButtonCallback(GUI_BUTTON* button, INT32 reason
            button is absent (the leftover argument slots); natively they start at zero. */
         int top = 0;
         int bottom = 0;
-        if (dialog->m_third_text_button != -1) {
+        if (dialog->m_third_text_button) {
             SDL_Rect area;
             GetButtonArea(dialog->m_third_text_button, &area);
             top = area.y + GetButtonHeight(dialog->m_up_button);

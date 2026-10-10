@@ -23,8 +23,8 @@ unsigned char DispatchButtonRegionEvent(const InputAtom* event, W8Region* region
                                                W8Widget* button);
 
 /* Panel/container, not a W8Widget base. Widgets register their pointers in
-   m_controls and retain a back-pointer in m_pPanel. DestroyAllControls performs
-   explicit child deletion; the vector itself only owns its pointer storage.
+   m_controls and retain a back-pointer in m_pPanel. The panel destructor owns
+   child deletion; DestroyAllControls also permits early release when rebuilding.
    The accumulated redraw rectangle uses left == -1 for an empty rectangle. */
 // VTABLE: WIZ8 0x005ed5a4
 struct Controls {

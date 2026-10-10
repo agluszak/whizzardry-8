@@ -14,9 +14,9 @@ public:
         void (*on_scroll)(W8DialogScrollBar*, int first_visible_entry);
     };
     W8DialogScrollBar();
-    ~W8DialogScrollBar();
+    W8DialogScrollBar(const W8DialogScrollBar&) = delete;
+    W8DialogScrollBar& operator=(const W8DialogScrollBar&) = delete;
     bool CreateControls(const Resources* resources);
-    void DestroyControls();
     void SetLayout(int x, int y, int entry_count, int first_visible_entry, int entry_height,
                    int view_height);
     void UpdateThumb();
@@ -47,14 +47,10 @@ public:
     W8DialogBase* m_owner;
 
 private:
-    int m_up_image;
-    int m_up_button;
-    int m_down_image;
-    int m_down_button;
-    int m_thumb_image;
-    int m_thumb_button;
-    int m_track_image;
-    int m_track_button;
+    GUIButton m_up_button;
+    GUIButton m_down_button;
+    GUIButton m_thumb_button;
+    GUIButton m_track_button;
     void (*m_on_scroll)(W8DialogScrollBar* scroll_bar, int first_visible_entry);
 };
 W8_ABI_ASSERT(sizeof(W8DialogScrollBar::Resources) == 0x10, "W8DialogScrollBar_Resources_size");

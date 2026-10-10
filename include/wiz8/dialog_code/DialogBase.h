@@ -3,6 +3,7 @@
 #pragma once
 
 #include "wiz8/local_code/Widget.h"
+#include "Button System.h"
 
 enum W8DialogKind {
     W8_DIALOG_BASIC = 0,
@@ -59,7 +60,7 @@ protected:
                         int width, int height);
 
     int m_error;
-    int m_resource;
+    GUIButton m_resource;
     std::string m_text;
     int m_font;
     unsigned char m_foreground;
@@ -67,7 +68,7 @@ protected:
     unsigned char padding_01a[2];
     char* m_background_path;
     int m_background_flags;
-    short m_border;
+    GenericButtonImage m_border;
     unsigned char padding_026[2];
     int m_x;
     int m_y;

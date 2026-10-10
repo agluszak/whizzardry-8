@@ -132,7 +132,10 @@ Controls::Controls(int left, int top, int right_bound, int bottom_bound, int cat
 }
 
 // FUNCTION: WIZ8 0x004f2d30
-Controls::~Controls() {}
+Controls::~Controls()
+{
+    DestroyAllControls();
+}
 
 /* 0x00562A50 takes the redraw-request mask the panel raises. */
 // GLOBAL: WIZ8 0x0060CC74
@@ -1406,16 +1409,8 @@ W8RangeControl::W8RangeControl(int left, int top, int right, int bottom,
 }
 #pragma clang diagnostic pop
 
-/* Child deletion order follows the three null-tested scalar-deleting virtual
-   calls in the retail body; the Controls destructor then releases the typed
-   embedded vector. */
-// FUNCTION: WIZ8 0x004f63c0
-W8RangeControl::~W8RangeControl()
-{
-    delete m_decrement;
-    delete m_increment;
-    delete m_thumb;
-}
+// The panel owns all three registered widgets. Its base destructor releases them.
+W8RangeControl::~W8RangeControl() = default;
 
 // FUNCTION: WIZ8 0x004f6440
 void W8RangeControl::SetRange(int first, int second)
