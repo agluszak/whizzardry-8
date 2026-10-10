@@ -712,6 +712,18 @@ void generic_button_images()
     CHECK(view_pixels == expected_pixels);
     CHECK(
         std::any_of(view_pixels.begin(), view_pixels.end(), [](auto pixel) { return pixel != 0; }));
+    // Explicit-buffer rendering must use its font argument, even when the
+    // current surface font has a different palette.
+    CHECK(LoadFontFile(std::string(filename).c_str()) == 1);
+    auto* alternate = GetFontObjectPalette16BPP(1);
+    std::fill(alternate, alternate + 256, UINT16{0x1234});
+    std::fill(expected_pixels.begin(), expected_pixels.end(), 0);
+    std::fill(view_pixels.begin(), view_pixels.end(), 0);
+    SetFont(1);
+    DrawFontTextToBuffer(reinterpret_cast<UINT8*>(expected_pixels.data()), 128, 1, 0, 0, "é中");
+    SetFont(0);
+    DrawFontTextToBuffer(reinterpret_cast<UINT8*>(view_pixels.data()), 128, 1, 0, 0, "é中");
+    CHECK(view_pixels == expected_pixels);
     g_font12point1 = 0;
     MSYS_Init();
     InitTextInputMode();

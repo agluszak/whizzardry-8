@@ -11,7 +11,7 @@ class Trigger;
 #include "wiz8/fonts.h"
 #include "wiz8/dialog_code/DialogBase.h"
 
-#include "wiz8/3d_code/PList.h"
+#include <vector>
 
 struct W8MonsterInfo;
 struct W8Region;
@@ -34,7 +34,6 @@ struct W8NoticeWord {
 void AdvanceNoticeLine(short text_box);
 
 struct W8MessageStorageRecord {
-    void ClearEntries();
     void RebuildEntries();
 
     std::string text;
@@ -50,9 +49,7 @@ struct W8MessageStorageRecord {
     /* Continuation link count of a wrapped entry; -1 when unlinked. */
     int link;
     int length; /* UTF-8 byte length, -1 when unset */
-    /* Live list pointer; save preserves its 32-bit representation and
-       load discards the serialized word instead of reconstructing a pointer. */
-    W8PList* entries;
+    std::vector<W8NoticeWord> entries;
     unsigned char unknown_1c[8];
 };
 

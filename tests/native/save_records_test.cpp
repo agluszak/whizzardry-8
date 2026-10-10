@@ -236,6 +236,7 @@ static void unicode_file_contracts()
     const std::string message = "é 中 😀";
     auto& line = g_message_storage[0][0];
     line.text = message;
+    line.entries.push_back({0, 1, 0, 5, W8_NOTICE_WORD_SELECTED, true});
     line.length = 6; // Prefix through 中, stored as three UTF-16 units.
     line.highlight_start = 3; // two UTF-16 units
     line.highlight_stop = 6; // three UTF-16 units
@@ -245,8 +246,16 @@ static void unicode_file_contracts()
     ReleaseMessageStorage();
     g_status.buffers.save_version = 9.0f;
     file = wiz8::open_file("Saves/text.bin");
+    // The fixed record starts after format and region count; its obsolete
+    // pointer word must never contain a live allocation address.
+    std::array<std::byte, 8 + 0x24> header{};
+    file->read_exact(header.data(), header.size());
+    for (std::size_t i = 8 + 0x18; i < 8 + 0x1c; ++i)
+        CHECK(header[i] == std::byte{});
+    file->seek(0, wiz8::SeekOrigin::begin);
     CHECK(LoadMessageStorage(file.get()));
     CHECK(std::string(g_message_storage[0][0].text) == message);
+    CHECK(g_message_storage[0][0].entries.empty());
     CHECK(g_message_storage[0][0].length == 6);
     CHECK(g_message_storage[0][0].highlight_start == 3 && g_message_storage[0][0].highlight_stop == 6);
     ReleaseMessageStorage();

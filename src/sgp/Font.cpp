@@ -433,48 +433,54 @@ BOOLEAN SetFontDestBuffer(UINT32 DestBuffer, INT32 x1, INT32 y1, INT32 x2, INT32
     return (TRUE);
 }
 
+// One bounded UTF-8 traversal for surface and buffer rendering.
+static void DrawTextToBuffer(UINT8* buffer, UINT32 pitch, UINT32 font_index, INT32 x, INT32 y,
+                             std::string_view text, bool mono)
+{
+    auto* font = FontObjs[font_index].get();
+    INT32 destx = x;
+    for (std::size_t offset = 0; offset < text.size();) {
+        const auto glyph = GetIndex(wiz8::text::next(text, offset));
+        if (FontDestWrap && BltIsClipped(font, destx, y, glyph, &FontDestRegion)) {
+            destx = x;
+            y += GetHeight(font, glyph);
+        }
+        if (mono) {
+            if (gbPixelDepth == 8)
+                Blt8BPPDataTo8BPPBufferMonoShadowClip(buffer, pitch, font, destx, y, glyph,
+                                                      &FontDestRegion, FontForeground8,
+                                                      FontBackground8);
+            else
+                Blt8BPPDataTo16BPPBufferMonoShadowClip(
+                    reinterpret_cast<UINT16*>(buffer), pitch, font, destx, y, glyph,
+                    &FontDestRegion, FontForeground16, FontBackground16, FontShadow16);
+        } else {
+            if (gbPixelDepth == 8)
+                Blt8BPPDataTo8BPPBufferTransparentClip(reinterpret_cast<UINT16*>(buffer), pitch,
+                                                       font, destx, y, glyph, &FontDestRegion);
+            else
+                Blt8BPPDataTo16BPPBufferTransparentClip(reinterpret_cast<UINT16*>(buffer), pitch,
+                                                        font, destx, y, glyph, &FontDestRegion);
+        }
+        destx += GetWidth(font, glyph);
+    }
+}
+
+static UINT32 DrawTextToSurface(INT32 x, INT32 y, std::string_view text, bool mono)
+{
+    UINT32 pitch;
+    auto* buffer = LockVideoSurface(FontDestBuffer, &pitch);
+    DrawTextToBuffer(buffer, pitch, FontDefault, x, y, text, mono);
+    UnLockVideoSurface(FontDestBuffer);
+    return 0;
+}
+
 // Draw UTF-8 text using the current font and destination.
 
 // FUNCTION: WIZ8 0x00407260
 UINT32 DrawMonoFontText(INT32 x, INT32 y, std::string_view string)
 {
-    INT32 destx, desty;
-    INT16 transletter;
-    UINT32 uiDestPitchBYTES;
-    UINT8* pDestBuf;
-
-    destx = x;
-    desty = y;
-
-    // Lock the dest buffer
-    pDestBuf = LockVideoSurface(FontDestBuffer, &uiDestPitchBYTES);
-
-    for (std::size_t offset = 0; offset < string.size();) {
-        transletter = GetIndex(wiz8::text::next(string, offset));
-
-        if (FontDestWrap &&
-            BltIsClipped(FontObjs[FontDefault].get(), destx, desty, transletter, &FontDestRegion)) {
-            destx = x;
-            desty += GetHeight(FontObjs[FontDefault].get(), transletter);
-        }
-
-        // Blit directly
-        if (gbPixelDepth == 8) {
-            Blt8BPPDataTo8BPPBufferMonoShadowClip(pDestBuf, uiDestPitchBYTES, FontObjs[FontDefault].get(),
-                                                  destx, desty, transletter, &FontDestRegion,
-                                                  FontForeground8, FontBackground8);
-        } else {
-            Blt8BPPDataTo16BPPBufferMonoShadowClip(
-                (UINT16*)pDestBuf, uiDestPitchBYTES, FontObjs[FontDefault].get(), destx, desty,
-                transletter, &FontDestRegion, FontForeground16, FontBackground16, FontShadow16);
-        }
-        destx += GetWidth(FontObjs[FontDefault].get(), transletter);
-    }
-
-    // Unlock buffer
-    UnLockVideoSurface(FontDestBuffer);
-
-    return (0);
+    return DrawTextToSurface(x, y, string, true);
 }
 
 // FUNCTION: WIZ8 0x00407420
@@ -510,43 +516,7 @@ void FindFontCenterCoordinates(INT16 sLeft, INT16 sTop, INT16 sWidth, INT16 sHei
 // FUNCTION: WIZ8 0x00407650
 UINT32 DrawFontText(INT32 x, INT32 y, std::string_view string)
 {
-    INT32 destx, desty;
-    INT16 transletter;
-    UINT32 uiDestPitchBYTES;
-    UINT8* pDestBuf;
-
-    destx = x;
-    desty = y;
-
-    // Lock the dest buffer
-    pDestBuf = LockVideoSurface(FontDestBuffer, &uiDestPitchBYTES);
-
-    for (std::size_t offset = 0; offset < string.size();) {
-        transletter = GetIndex(wiz8::text::next(string, offset));
-
-        if (FontDestWrap &&
-            BltIsClipped(FontObjs[FontDefault].get(), destx, desty, transletter, &FontDestRegion)) {
-            destx = x;
-            desty += GetHeight(FontObjs[FontDefault].get(), transletter);
-        }
-
-        // Blit directly
-        if (gbPixelDepth == 8) {
-            Blt8BPPDataTo8BPPBufferTransparentClip((UINT16*)pDestBuf, uiDestPitchBYTES,
-                                                   FontObjs[FontDefault].get(), destx, desty, transletter,
-                                                   &FontDestRegion);
-        } else {
-            Blt8BPPDataTo16BPPBufferTransparentClip((UINT16*)pDestBuf, uiDestPitchBYTES,
-                                                    FontObjs[FontDefault].get(), destx, desty,
-                                                    transletter, &FontDestRegion);
-        }
-        destx += GetWidth(FontObjs[FontDefault].get(), transletter);
-    }
-
-    // Unlock buffer
-    UnLockVideoSurface(FontDestBuffer);
-
-    return (0);
+    return DrawTextToSurface(x, y, string, false);
 }
 
 // FUNCTION: WIZ8 0x004077d0
@@ -564,71 +534,16 @@ UINT32 DrawFontTextDirty(INT32 x, INT32 y, std::string_view string)
 UINT32 DrawFontTextToBuffer(UINT8* pDestBuf, UINT32 uiDestPitchBYTES, UINT32 FontType, INT32 x,
                             INT32 y, std::string_view string)
 {
-    INT32 destx, desty;
-    INT16 transletter;
-
-    destx = x;
-    desty = y;
-
-    for (std::size_t offset = 0; offset < string.size();) {
-        transletter = GetIndex(wiz8::text::next(string, offset));
-
-        if (FontDestWrap &&
-            BltIsClipped(FontObjs[FontType].get(), destx, desty, transletter, &FontDestRegion)) {
-            destx = x;
-            desty += GetHeight(FontObjs[FontType].get(), transletter);
-        }
-
-        // Blit directly
-        if (gbPixelDepth == 8) {
-            Blt8BPPDataTo8BPPBufferTransparentClip((UINT16*)pDestBuf, uiDestPitchBYTES,
-                                                   FontObjs[FontDefault].get(), destx, desty, transletter,
-                                                   &FontDestRegion);
-        } else {
-            Blt8BPPDataTo16BPPBufferTransparentClip((UINT16*)pDestBuf, uiDestPitchBYTES,
-                                                    FontObjs[FontDefault].get(), destx, desty,
-                                                    transletter, &FontDestRegion);
-        }
-
-        destx += GetWidth(FontObjs[FontType].get(), transletter);
-    }
-
-    return (0);
+    DrawTextToBuffer(pDestBuf, uiDestPitchBYTES, FontType, x, y, string, false);
+    return 0;
 }
 
 // FUNCTION: WIZ8 0x00407b80
 UINT32 DrawMonoFontTextToBuffer(UINT8* pDestBuf, UINT32 uiDestPitchBYTES, UINT32 FontType, INT32 x,
                                 INT32 y, std::string_view string)
 {
-    INT32 destx, desty;
-    INT16 transletter;
-
-    destx = x;
-    desty = y;
-
-    for (std::size_t offset = 0; offset < string.size();) {
-        transletter = GetIndex(wiz8::text::next(string, offset));
-
-        if (FontDestWrap &&
-            BltIsClipped(FontObjs[FontDefault].get(), destx, desty, transletter, &FontDestRegion)) {
-            destx = x;
-            desty += GetHeight(FontObjs[FontDefault].get(), transletter);
-        }
-
-        // Blit directly
-        if (gbPixelDepth == 8) {
-            Blt8BPPDataTo8BPPBufferMonoShadowClip(pDestBuf, uiDestPitchBYTES, FontObjs[FontDefault].get(),
-                                                  destx, desty, transletter, &FontDestRegion,
-                                                  FontForeground8, FontBackground8);
-        } else {
-            Blt8BPPDataTo16BPPBufferMonoShadowClip(
-                (UINT16*)pDestBuf, uiDestPitchBYTES, FontObjs[FontDefault].get(), destx, desty,
-                transletter, &FontDestRegion, FontForeground16, FontBackground16, FontShadow16);
-        }
-        destx += GetWidth(FontObjs[FontDefault].get(), transletter);
-    }
-
-    return (0);
+    DrawTextToBuffer(pDestBuf, uiDestPitchBYTES, FontType, x, y, string, true);
+    return 0;
 }
 
 // InitializeFontManager
