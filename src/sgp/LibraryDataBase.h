@@ -7,6 +7,8 @@
 #include "compat/kernel32.h"
 #include "FileMan.h"
 
+namespace wiz8 { class File; }
+
 #define FILENAME_SIZE 256
 
 //#define	FILENAME_SIZE									40 + PATH_SIZE
@@ -51,7 +53,7 @@ extern CHAR8 gzCdDirectory[SGPFILENAME_LEN];
 
 typedef struct {
     UINT32 uiFileID;        // id of the file ( they start at 1 )
-    HANDLE hRealFileHandle; // if the file is a Real File, this its handle
+    wiz8::File* hRealFileHandle; // Owned by the slot; explicitly delete on close.
 } RealFileOpenStruct;
 
 typedef struct {
@@ -69,7 +71,7 @@ typedef struct {
 
 typedef struct {
     STR sLibraryPath;
-    HANDLE hLibraryHandle;
+    wiz8::File* hLibraryHandle; // Owned by the slot; explicitly delete on close.
     UINT16 usNumberOfEntries;
     BOOLEAN fLibraryOpen;
     BOOLEAN fPatchLibrary;
@@ -148,7 +150,8 @@ extern DatabaseManagerHeaderStruct gFileDataBase;
 //Function Prototypes
 
 BOOLEAN InitializeLibrary(STR pLibraryName, LibraryHeaderStruct* pLibheader, BOOLEAN fCanBeOnCDrom);
-HANDLE OpenLibraryStream(HWFILE file);
+// Independent owned stream; callers should immediately adopt into unique_ptr.
+wiz8::File* OpenLibraryStream(HWFILE file);
 
 BOOLEAN InitializeFileDatabase(void);
 INT32 LoadPatchSlfArchives(const CHAR8* directory);
