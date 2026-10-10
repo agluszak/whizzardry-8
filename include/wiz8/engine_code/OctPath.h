@@ -6,7 +6,8 @@
 
 #include "surrender/srMath.h"
 #include "wiz8/engine_code/BitArray.h"
-#include "wiz8/engine_code/path_open_set.h"
+#include <queue>
+#include <vector>
 #include "wiz8/index_algorithms.h"
 #include "wiz8/geometry.h"
 
@@ -266,6 +267,21 @@ struct W8PathSearchNode {
     float score;
     srVector3T<float> position;
 };
+
+struct W8PathHeapEntry {
+    unsigned int node;
+    unsigned int priority;
+};
+
+struct W8PathHeapCompare {
+    bool operator()(const W8PathHeapEntry& left, const W8PathHeapEntry& right) const
+    {
+        return left.priority > right.priority;
+    }
+};
+
+using W8PathOpenSet =
+    std::priority_queue<W8PathHeapEntry, std::vector<W8PathHeapEntry>, W8PathHeapCompare>;
 
 struct W8PathHeapHandle {
     W8PathOpenSet open;

@@ -156,13 +156,5 @@ types directly. The unused object update callback scheduler, device-call profili
 wrapper and video importer manager have been removed; game movies use the
 existing FFmpeg decoder.
 
-Gameplay and rendering indexes use standard unordered maps. Duplicate-key
-candidate indexes retain newest-first order across rehashes; growth no longer
-reverses mesh, region or path candidates. Their pointer values are borrowed,
-and the existing scene/game owners still manage object lifetimes. A* uses
-standard vector storage and `std::push_heap` for insertion, with a concrete
-extraction rule that preserves the original right-child tie choice and the
-stop-on-equality behavior. A FIFO or node-ID tie breaker changes chosen paths.
-
 Third-party source licenses, including the SGP license, remain with
 their respective sources.
