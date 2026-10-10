@@ -365,32 +365,33 @@ W8NativeVideo::Result W8NativeVideo::update_now()
     return update(std::chrono::duration<double>(now - state->began).count());
 }
 
-void W8NativeVideo::present(IDirectDrawSurface2* target)
+void W8NativeVideo::present(CpuSurface* target)
 {
     if (!g_gerd || !g_surface_node)
         return;
-    DDSURFACEDESC description{};
-    DDGetSurfaceDescription(target, &description);
+    SurfaceLock description{};
+    description.width = target->surface->w;
+    description.height = target->surface->h;
     if (!state->presentation_surface)
     {
         state->presentation_surface = new srColorSurface(srPixelConvert::SURFACE_RGB555,
-                                                         description.dwWidth, description.dwHeight);
+                                                         description.width, description.height);
         state->presentation_tiles = new stSurface2D(
-            state->presentation_surface, description.dwWidth, description.dwHeight, nullptr, 128);
+            state->presentation_surface, description.width, description.height, nullptr, 128);
         state->presentation_tiles->setAlphaTestEnabled(false);
     }
-    DDLockSurface(target, nullptr, &description, 0, nullptr);
-    if (!description.lpSurface)
+    description = LockCpuSurface(*target);
+    if (!description.pixels)
         throw std::runtime_error("Cannot lock movie presentation surface");
-    for (unsigned y = 0; y < description.dwHeight; ++y)
+    for (unsigned y = 0; y < description.height; ++y)
         state->presentation_surface->setPixelRowRaw(
-            static_cast<unsigned char*>(description.lpSurface) + y * description.lPitch, y, 0,
-            description.dwWidth);
+            static_cast<unsigned char*>(description.pixels) + y * description.pitch, y, 0,
+            description.width);
     // stSurface2D uploads from its source surface, not updateRectangle's ABI
     // pixel argument.
-    state->presentation_tiles->updateRectangle(g_gerd, description.lpSurface, description.lPitch, 0,
-                                               0, description.dwWidth, description.dwHeight);
-    DDUnlockSurface(target, nullptr);
+    state->presentation_tiles->updateRectangle(g_gerd, description.pixels, description.pitch, 0,
+                                               0, description.width, description.height);
+    UnlockCpuSurface(*target);
     if (g_gerd->beginFrame() != srGERD::ERROR_NONE)
         throw std::runtime_error("Cannot begin movie presentation");
     g_gerd->setClearColor(0, 0, 0, 1);

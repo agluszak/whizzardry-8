@@ -9,26 +9,27 @@
 
 namespace
 {
-bool copy(const W8NativeVideo::Frame& frame, IDirectDrawSurface2* target)
+bool copy(const W8NativeVideo::Frame& frame, CpuSurface* target)
 {
     if (!target || frame.pixels.empty())
         return false;
-    DDSURFACEDESC description{};
-    DDGetSurfaceDescription(target, &description);
-    if (description.dwWidth < unsigned(frame.width) ||
-        description.dwHeight < unsigned(frame.height) ||
-        description.ddpfPixelFormat.dwRGBBitCount != 16 ||
-        description.ddpfPixelFormat.dwRBitMask != 0x7c00 ||
-        description.ddpfPixelFormat.dwGBitMask != 0x3e0 ||
-        description.ddpfPixelFormat.dwBBitMask != 0x1f)
+    SurfaceLock description{};
+    description.width = target->surface->w;
+    description.height = target->surface->h;
+    if (description.width < unsigned(frame.width) ||
+        description.height < unsigned(frame.height) ||
+        SDL_BYTESPERPIXEL(target->surface->format) != 2 ||
+        target->redMask != 0x7c00 ||
+        target->greenMask != 0x3e0 ||
+        target->blueMask != 0x1f)
         return false;
-    DDLockSurface(target, nullptr, &description, 0, nullptr);
-    if (!description.lpSurface)
+    description = LockCpuSurface(*target);
+    if (!description.pixels)
         return false;
     for (int y = 0; y < frame.height; ++y)
-        memcpy(static_cast<unsigned char*>(description.lpSurface) + y * description.lPitch,
+        memcpy(static_cast<unsigned char*>(description.pixels) + y * description.pitch,
                frame.pixels.data() + y * frame.width, frame.width * 2);
-    DDUnlockSurface(target, nullptr);
+    UnlockCpuSurface(*target);
     return true;
 }
 
@@ -94,12 +95,10 @@ unsigned char W8BinkVideo::CopyFrameToTargetSurface()
 {
     return m_handle && copy(m_handle->frame(), m_target);
 }
-void W8BinkVideo::SetTarget(IDirectDrawSurface2* target)
+void W8BinkVideo::SetTarget(CpuSurface* target)
 {
     if (!target)
         return;
     m_target = target;
-    DDBLTFX effects{};
-    effects.dwSize = sizeof(effects);
-    DDBltSurface(target, nullptr, nullptr, nullptr, DDBLT_COLORFILL, &effects);
+    FillCpuSurface(*target, 0);
 }

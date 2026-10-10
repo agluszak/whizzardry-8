@@ -26,12 +26,11 @@ extern void GetClippingRect(SGPRect* clip);
 #define DEFAULT_VIDEO_SURFACE_LIST_SIZE 10
 // LOCAL functions
 
-BOOLEAN UpdateBackupSurface(HVSURFACE hVSurface);
 BOOLEAN ClipReleatedSrcAndDestRectangles(HVSURFACE hDestVSurface, HVSURFACE hSrcVSurface,
                                          RECT* DestRect, RECT* SrcRect);
 BOOLEAN FillSurface(HVSURFACE hDestVSurface, blt_vs_fx* pBltFx);
 BOOLEAN FillSurfaceRect(HVSURFACE hDestVSurface, blt_vs_fx* pBltFx);
-BOOLEAN BltVSurfaceUsingDD(HVSURFACE hDestVSurface, HVSURFACE hSrcVSurface, UINT32 fBltFlags,
+BOOLEAN BltVSurfaceUsingSDL(HVSURFACE hDestVSurface, HVSURFACE hSrcVSurface, UINT32 fBltFlags,
                            INT32 iDestX, INT32 iDestY, RECT* SrcRect);
 BOOLEAN GetVSurfaceRect(HVSURFACE hVSurface, RECT* pRect);
 
@@ -336,7 +335,7 @@ BOOLEAN GetVideoSurface(HVSURFACE* hVSurface, UINT32 uiIndex)
 // FUNCTION: WIZ8 0x00402e30
 BOOLEAN SetPrimaryVideoSurfaces()
 {
-    LPDIRECTDRAWSURFACE2 pSurface;
+    CpuSurface* pSurface;
 
     // Delete surfaces if they exist
     DeletePrimaryVideoSurfaces();
@@ -346,7 +345,7 @@ BOOLEAN SetPrimaryVideoSurfaces()
     pSurface = GetFrameBufferObject();
     CHECKF(pSurface != NULL);
 
-    ghFrameBuffer = CreateVideoSurfaceFromDDSurface(pSurface);
+    ghFrameBuffer = CreateVideoSurfaceFromCpuSurface(pSurface);
     CHECKF(ghFrameBuffer != NULL);
 
     return (TRUE);
@@ -571,270 +570,48 @@ BOOLEAN ImageFillVideoSurfaceArea(UINT32 uiDestVSurface, INT32 iDestX1, INT32 iD
 // FUNCTION: WIZ8 0x004033d0
 HVSURFACE CreateVideoSurface(VSURFACE_DESC* VSurfaceDesc)
 {
-    LPDIRECTDRAW2 lpDD2Object;
-    DDSURFACEDESC SurfaceDescription;
-    DDPIXELFORMAT PixelFormat;
-    LPDIRECTDRAWSURFACE lpDDS;
-    LPDIRECTDRAWSURFACE2 lpDDS2;
-    HVSURFACE hVSurface;
-    HIMAGE hImage;
-    SGPRect tempRect;
-    UINT16 usHeight;
-    UINT16 usWidth;
-    UINT8 ubBitDepth;
-    UINT32 fMemUsage;
-
-    //#ifdef JA2
-    UINT32 uiRBitMask;
-    UINT32 uiGBitMask;
-    UINT32 uiBBitMask;
-    //#endif
-
-    //Clear the memory
-    memset(&SurfaceDescription, 0, sizeof(DDSURFACEDESC));
-    // Get Direct Draw Object
-
-    lpDD2Object = GetDirectDraw2Object();
-    // The description structure contains memory usage flag
-    fMemUsage = VSURFACE_SYSTEM_MEM_USAGE;
-    // Check creation options
-
-    do {
-        // Check if creating from file
-
-        if (VSurfaceDesc->fCreateFlags & VSURFACE_CREATE_FROMFILE) {
-            // Create himage object from file
-
-            hImage = CreateImage(VSurfaceDesc->ImageFile, IMAGE_ALLIMAGEDATA);
-
-            if (hImage == NULL) {
-                DbgMessage(TOPIC_VIDEOSURFACE, DBG_LEVEL_2, "Invalid Image Filename given");
-                return (NULL);
-            }
-            // Set values from himage
-            usHeight = hImage->usHeight;
-            usWidth = hImage->usWidth;
-            ubBitDepth = hImage->ubBitDepth;
-            break;
-        }
-        // If here, no special options given,
-        // Set values from given description structure
-
-        usHeight = VSurfaceDesc->usHeight;
-        usWidth = VSurfaceDesc->usWidth;
-        ubBitDepth = VSurfaceDesc->ubBitDepth;
-
-    } while (FALSE);
-    // Assertions
-
-    Assert(usHeight > 0);
-    Assert(usWidth > 0);
-    // Setup Direct Draw Description
-    // First do Pixel Format
-
-    memset(&PixelFormat, 0, sizeof(PixelFormat));
-    PixelFormat.dwSize = sizeof(DDPIXELFORMAT);
-
-    switch (ubBitDepth) {
-
-    case 8:
-
-        PixelFormat.dwFlags = DDPF_RGB | DDPF_PALETTEINDEXED8;
-        PixelFormat.dwRGBBitCount = 8;
-        break;
-
-    case 16:
-
-        PixelFormat.dwFlags = DDPF_RGB;
-        PixelFormat.dwRGBBitCount = 16;
-        // Get current Pixel Format from DirectDraw
-
-        // We're using pixel formats too -- DB/Wiz
-
-        //#ifdef JA2
-        CHECKF(GetPrimaryRGBDistributionMasks(&uiRBitMask, &uiGBitMask, &uiBBitMask));
-        PixelFormat.dwRBitMask = uiRBitMask;
-        PixelFormat.dwGBitMask = uiGBitMask;
-        PixelFormat.dwBBitMask = uiBBitMask;
-        //#else
-        //			PixelFormat.dwRBitMask = 0xf800;
-        //			PixelFormat.dwGBitMask = 0x7e0;
-        //			PixelFormat.dwBBitMask = 0x1f;
-        //#endif
-        break;
-
-    default:
-        // If Here, an invalid format was given
-
-        DbgMessage(TOPIC_VIDEOSURFACE, DBG_LEVEL_2, "Invalid BPP value, can only be 8 or 16.");
-        return (FALSE);
-    }
-
-    SurfaceDescription.dwFlags = DDSD_CAPS | DDSD_HEIGHT | DDSD_WIDTH | DDSD_PIXELFORMAT;
-    // Do memory description, based on specified flags
-
-    do {
-        if (fMemUsage & VSURFACE_DEFAULT_MEM_USAGE) {
-            SurfaceDescription.ddsCaps.dwCaps = DDSCAPS_OFFSCREENPLAIN;
-            break;
-        }
-        if (fMemUsage & VSURFACE_VIDEO_MEM_USAGE) {
-            SurfaceDescription.ddsCaps.dwCaps = DDSCAPS_OFFSCREENPLAIN;
-            break;
-        }
-
-        if (fMemUsage & VSURFACE_SYSTEM_MEM_USAGE) {
-            SurfaceDescription.ddsCaps.dwCaps = DDSCAPS_OFFSCREENPLAIN | DDSCAPS_SYSTEMMEMORY;
-            break;
-        }
-        // Once here, no mem flags were given, use default
-
-        SurfaceDescription.ddsCaps.dwCaps = DDSCAPS_OFFSCREENPLAIN;
-
-    } while (FALSE);
-    // Set other, common structure elements
-
-    SurfaceDescription.dwSize = sizeof(DDSURFACEDESC);
-    SurfaceDescription.dwWidth = usWidth;
-    SurfaceDescription.dwHeight = usHeight;
-    SurfaceDescription.ddpfPixelFormat = PixelFormat;
-    // Create Surface
-
-    DDCreateSurface(lpDD2Object, &SurfaceDescription, &lpDDS, &lpDDS2);
-    // Allocate memory for Video Surface data and initialize
-
-    hVSurface = (HVSURFACE)MemAlloc(sizeof(SGPVSurface));
-    memset(hVSurface, 0, sizeof(SGPVSurface));
-    CHECKF(hVSurface != NULL);
-
-    hVSurface->usHeight = usHeight;
-    hVSurface->usWidth = usWidth;
-    hVSurface->ubBitDepth = ubBitDepth;
-    hVSurface->pSurfaceData1 = (PTR)lpDDS;
-    hVSurface->pSurfaceData = (PTR)lpDDS2;
-    hVSurface->pSavedSurfaceData1 = NULL;
-    hVSurface->pSavedSurfaceData = NULL;
-    hVSurface->pPalette = NULL;
-    hVSurface->p16BPPPalette = NULL;
-    hVSurface->TransparentColor = FROMRGB(0, 0, 0);
-    hVSurface->RegionList = CreateList(DEFAULT_NUM_REGIONS, sizeof(VSURFACE_REGION));
-    hVSurface->fFlags = 0;
-    hVSurface->pClipper = NULL;
-    // Determine memory and other attributes of newly created surface
-
-    DDGetSurfaceDescription(lpDDS2, &SurfaceDescription);
-    // Fail if create tried for video but it's in system
-
-    if (VSurfaceDesc->fCreateFlags & VSURFACE_VIDEO_MEM_USAGE &&
-        SurfaceDescription.ddsCaps.dwCaps & DDSCAPS_SYSTEMMEMORY) {
-        // Return failure due to not in video
-
-        DbgMessage(TOPIC_VIDEOSURFACE, DBG_LEVEL_2,
-                   String("Failed to create Video Surface in video memory"));
-        DDReleaseSurface(&lpDDS, &lpDDS2);
-        MemFree(hVSurface);
-        return (NULL);
-    }
-    // Look for system memory
-
-    if (SurfaceDescription.ddsCaps.dwCaps & DDSCAPS_SYSTEMMEMORY) {
-        hVSurface->fFlags |= VSURFACE_SYSTEM_MEM_USAGE;
-    }
-    // Look for video memory
-
-    if (SurfaceDescription.ddsCaps.dwCaps & DDSCAPS_VIDEOMEMORY) {
-        hVSurface->fFlags |= VSURFACE_VIDEO_MEM_USAGE;
-    }
-    // If in video memory, create backup surface
-
-    if (hVSurface->fFlags & VSURFACE_VIDEO_MEM_USAGE) {
-        SurfaceDescription.dwFlags = DDSD_CAPS | DDSD_HEIGHT | DDSD_WIDTH | DDSD_PIXELFORMAT;
-        SurfaceDescription.ddsCaps.dwCaps = DDSCAPS_OFFSCREENPLAIN | DDSCAPS_SYSTEMMEMORY;
-        SurfaceDescription.dwSize = sizeof(DDSURFACEDESC);
-        SurfaceDescription.dwWidth = usWidth;
-        SurfaceDescription.dwHeight = usHeight;
-        SurfaceDescription.ddpfPixelFormat = PixelFormat;
-        // Create Surface
-
-        DDCreateSurface(lpDD2Object, &SurfaceDescription, &lpDDS, &lpDDS2);
-        // Save surface to backup
-
-        hVSurface->pSavedSurfaceData1 = lpDDS;
-        hVSurface->pSavedSurfaceData = lpDDS2;
-    }
-    // Initialize surface with hImage , if given
-
+    CHECKF(VSurfaceDesc != NULL);
+    auto image = std::unique_ptr<image_type, decltype(&DestroyImage)>(nullptr, DestroyImage);
+    UINT16 width = VSurfaceDesc->usWidth;
+    UINT16 height = VSurfaceDesc->usHeight;
+    UINT8 bits = VSurfaceDesc->ubBitDepth;
     if (VSurfaceDesc->fCreateFlags & VSURFACE_CREATE_FROMFILE) {
-        tempRect.iLeft = 0;
-        tempRect.iTop = 0;
-        tempRect.iRight = hImage->usWidth - 1;
-        tempRect.iBottom = hImage->usHeight - 1;
-        SetVideoSurfaceDataFromHImage(hVSurface, hImage, 0, 0, &tempRect);
-        // Set palette from himage
-
-        if (hImage->ubBitDepth == 8) {
-            SetVideoSurfacePalette(hVSurface, hImage->pPalette);
-        }
-        // Delete himage object
-
-        DestroyImage(hImage);
+        image.reset(CreateImage(VSurfaceDesc->ImageFile, IMAGE_ALLIMAGEDATA));
+        CHECKF(image != nullptr);
+        width = image->usWidth;
+        height = image->usHeight;
+        bits = image->ubBitDepth;
     }
-    // All is well
-
-    hVSurface->usHeight = usHeight;
-    hVSurface->usWidth = usWidth;
-    hVSurface->ubBitDepth = ubBitDepth;
-
-    giMemUsedInSurfaces += (hVSurface->usHeight * hVSurface->usWidth * (hVSurface->ubBitDepth / 8));
-
-    DbgMessage(TOPIC_VIDEOSURFACE, DBG_LEVEL_3, String("Success in Creating Video Surface"));
-
-    return (hVSurface);
+    CHECKF(width && height && (bits == 8 || bits == 16));
+    UINT32 red = 0, green = 0, blue = 0;
+    if (bits == 16)
+        CHECKF(GetPrimaryRGBDistributionMasks(&red, &green, &blue));
+    auto result = std::make_unique<SGPVSurface>();
+    result->ownedSurface = CreateCpuSurface(width, height, bits, red, green, blue);
+    result->surface = result->ownedSurface.get();
+    result->usWidth = width;
+    result->usHeight = height;
+    result->ubBitDepth = bits;
+    result->fFlags = VSURFACE_SYSTEM_MEM_USAGE;
+    result->RegionList = CreateList(DEFAULT_NUM_REGIONS, sizeof(VSURFACE_REGION));
+    result->TransparentColor = FROMRGB(0, 0, 0);
+    if (image) {
+        if (image->fFlags & IMAGE_PALETTE)
+            SetVideoSurfacePalette(result.get(), image->pPalette);
+        SGPRect region{0, 0, width, height};
+        SetVideoSurfaceDataFromHImage(result.get(), image.get(), 0, 0, &region);
+    }
+    SetVideoSurfaceTransparencyColor(result.get(), result->TransparentColor);
+    giMemUsedInSurfaces += height * width * (bits / 8);
+    return result.release();
 }
 // Called when surface is lost, for the most part called by utility functions
 
 BOOLEAN RestoreVideoSurface(HVSURFACE hVSurface)
 {
-    LPDIRECTDRAWSURFACE2 lpDDSurface;
-    LPDIRECTDRAWSURFACE2 lpBackupDDSurface;
-    RECT aRect;
-
-    Assert(hVSurface != NULL);
-    // Restore is only for VIDEO MEMORY - should check if VIDEO and QUIT if not
-
-    if (!(hVSurface->fFlags & VSURFACE_VIDEO_MEM_USAGE)) {
-        // No second surfaace has been allocated, return failure
-
-        DbgMessage(TOPIC_VIDEOSURFACE, DBG_LEVEL_2,
-                   String("Failed to restore Video Surface surface"));
-        return (FALSE);
-    }
-    // Check for valid secondary surface
-
-    if (hVSurface->pSavedSurfaceData1 == NULL) {
-        // No secondary surface available
-
-        DbgMessage(TOPIC_VIDEOSURFACE, DBG_LEVEL_2,
-                   String("Failure in retoring- no secondary surface found"));
-        return (FALSE);
-    }
-
-    // Restore primary surface
-    lpDDSurface = (LPDIRECTDRAWSURFACE2)hVSurface->pSurfaceData;
-    DDRestoreSurface(lpDDSurface);
-
-    // Blit backup surface data into primary
-    lpBackupDDSurface = (LPDIRECTDRAWSURFACE2)hVSurface->pSavedSurfaceData;
-
-    aRect.top = (int)0;
-    aRect.left = (int)0;
-    aRect.bottom = (int)hVSurface->usHeight;
-    aRect.right = (int)hVSurface->usWidth;
-
-    DDBltFastSurface((LPDIRECTDRAWSURFACE2)hVSurface->pSavedSurfaceData, 0, 0,
-                     (LPDIRECTDRAWSURFACE2)hVSurface->pSurfaceData, &aRect, DDBLTFAST_NOCOLORKEY);
-
-    return (TRUE);
+    CHECKF(hVSurface != NULL);
+    // CPU storage persists across focus/display changes; it is never lost video memory.
+    return FALSE;
 }
 
 // Lock must be followed by release
@@ -842,43 +619,23 @@ BOOLEAN RestoreVideoSurface(HVSURFACE hVSurface)
 // The time between Locking and unlocking must be minimal
 BYTE* LockVideoSurfaceBuffer(HVSURFACE hVSurface, UINT32* pPitch)
 {
-    DDSURFACEDESC SurfaceDescription;
-
-    // Assertions
-    if (hVSurface == NULL) {
-        int i = 0;
-    }
-
     Assert(hVSurface != NULL);
     Assert(pPitch != NULL);
-
     if (hVSurface == ghFrameBuffer)
-        return ((BYTE*)LockPrimarySurface(pPitch));
-
-    DDLockSurface((LPDIRECTDRAWSURFACE2)hVSurface->pSurfaceData, NULL, &SurfaceDescription, 0,
-                  NULL);
-
-    *pPitch = SurfaceDescription.lPitch;
-
-    return (BYTE*)SurfaceDescription.lpSurface;
+        return static_cast<BYTE*>(LockPrimarySurface(pPitch));
+    const auto lock = LockCpuSurface(*hVSurface->surface);
+    *pPitch = lock.pitch;
+    return static_cast<BYTE*>(lock.pixels);
 }
 
 void UnLockVideoSurfaceBuffer(HVSURFACE hVSurface)
 {
     Assert(hVSurface != NULL);
-
     if (hVSurface == ghFrameBuffer) {
         UnlockPrimarySurface();
         return;
     }
-
-    DDUnlockSurface((LPDIRECTDRAWSURFACE2)hVSurface->pSurfaceData, NULL);
-
-    // Copy contents if surface is in video
-    if (hVSurface->fFlags & VSURFACE_VIDEO_MEM_USAGE &&
-        !hVSurface->fFlags & VSURFACE_RESERVED_SURFACE) {
-        UpdateBackupSurface(hVSurface);
-    }
+    UnlockCpuSurface(*hVSurface->surface);
 }
 
 // Given an HIMAGE object, blit imagery into existing Video Surface. Can be from 8->16 BPP
@@ -960,81 +717,34 @@ BOOLEAN SetVideoSurfaceDataFromHImage(HVSURFACE hVSurface, HIMAGE hImage, UINT16
     return (TRUE);
 }
 
-// Palette setting is expensive, need to set both DDPalette and create 16BPP palette
+// Indexed surfaces use SDL palettes; custom RGB555 blitters retain their table.
 BOOLEAN SetVideoSurfacePalette(HVSURFACE hVSurface, SGPPaletteEntry* pSrcPalette)
 {
-
-    Assert(hVSurface != NULL);
-
-    // Create palette object if not already done so
-    if (hVSurface->pPalette == NULL) {
-        DDCreatePalette(GetDirectDraw2Object(), (DDPCAPS_8BIT | DDPCAPS_ALLOW256),
-                        (LPPALETTEENTRY)(&pSrcPalette[0]),
-                        (LPDIRECTDRAWPALETTE*)&hVSurface->pPalette, NULL);
-
-        // Set into surface
-        //DDSetSurfacePalette( (LPDIRECTDRAWSURFACE2)hVSurface->pSurfaceData, (LPDIRECTDRAWPALETTE)hVSurface->pPalette );
-
-    } else {
-        // Just Change entries
-        DDSetPaletteEntries((LPDIRECTDRAWPALETTE)hVSurface->pPalette, 0, 0, 256,
-                            (PALETTEENTRY*)pSrcPalette);
+    CHECKF(hVSurface && pSrcPalette);
+    std::copy_n(pSrcPalette, 256, hVSurface->palette.begin());
+    hVSurface->hasPalette = true;
+    if (hVSurface->ubBitDepth == 8) {
+        SDL_Color colors[256];
+        for (unsigned i = 0; i < 256; ++i)
+            colors[i] = {pSrcPalette[i].peRed, pSrcPalette[i].peGreen, pSrcPalette[i].peBlue, 255};
+        CHECKF(SDL_SetPaletteColors(SDL_GetSurfacePalette(hVSurface->surface->surface.get()),
+                                   colors, 0, 256));
     }
-
-    // Delete 16BPP Palette if one exists
-    if (hVSurface->p16BPPPalette != NULL) {
+    if (hVSurface->p16BPPPalette)
         MemFree(hVSurface->p16BPPPalette);
-        hVSurface->p16BPPPalette = NULL;
-    }
-
-    // Create 16BPP Palette
     hVSurface->p16BPPPalette = Create16BPPPalette(pSrcPalette);
-
-    DbgMessage(TOPIC_VIDEOSURFACE, DBG_LEVEL_3, String("Video Surface Palette change successfull"));
-    return (TRUE);
+    return TRUE;
 }
 
-// Transparency needs to take RGB value and find best fit and place it into DD Surface
+// Transparency uses the game's packed source key.
 // colorkey value.
 BOOLEAN SetVideoSurfaceTransparencyColor(HVSURFACE hVSurface, COLORVAL TransColor)
 {
-    DDCOLORKEY ColorKey;
-    DWORD fFlags = CLR_INVALID;
-    LPDIRECTDRAWSURFACE2 lpDDSurface;
-
-    // Assertions
-    Assert(hVSurface != NULL);
-
-    //Set trans color into Video Surface
+    CHECKF(hVSurface && hVSurface->surface);
     hVSurface->TransparentColor = TransColor;
-
-    // Get surface pointer
-    lpDDSurface = (LPDIRECTDRAWSURFACE2)hVSurface->pSurfaceData;
-    CHECKF(lpDDSurface != NULL);
-
-    // Get right pixel format, based on bit depth
-
-    switch (hVSurface->ubBitDepth) {
-    case 8:
-
-        // Use color directly
-        ColorKey.dwColorSpaceLowValue = TransColor;
-        ColorKey.dwColorSpaceHighValue = TransColor;
-        break;
-
-    case 16:
-
-        fFlags = Get16BPPColor(TransColor);
-
-        //fFlags now contains our closest match
-        ColorKey.dwColorSpaceLowValue = fFlags;
-        ColorKey.dwColorSpaceHighValue = ColorKey.dwColorSpaceLowValue;
-        break;
-    }
-
-    DDSetSurfaceColorKey(lpDDSurface, DDCKEY_SRCBLT, &ColorKey);
-
-    return (TRUE);
+    const UINT32 key = hVSurface->ubBitDepth == 16 ? Get16BPPColor(TransColor) : TransColor;
+    hVSurface->surface->sourceKey = SurfaceColorKey{key, key};
+    return TRUE;
 }
 
 // FUNCTION: WIZ8 0x004039c0
@@ -1093,54 +803,14 @@ BOOLEAN DeleteVideoSurfaceFromIndex(UINT32 uiIndex)
 // FUNCTION: WIZ8 0x00403a50
 BOOLEAN DeleteVideoSurface(HVSURFACE hVSurface)
 {
-    LPDIRECTDRAWSURFACE2 lpDDSurface;
-
-    // Assertions
     CHECKF(hVSurface != NULL);
-
-    // Release palette
-    if (hVSurface->pPalette != NULL) {
-        DDReleasePalette((LPDIRECTDRAWPALETTE)hVSurface->pPalette);
-        hVSurface->pPalette = NULL;
-    }
-
-    //if ( hVSurface->pClipper != NULL )
-    //{
-    // Release Clipper
-    //	DDReleaseClipper( (LPDIRECTDRAWCLIPPER)hVSurface->pClipper );
-    //}
-
-    if (hVSurface->pClipper)
-        DDReleaseClipper((LPDIRECTDRAWCLIPPER)hVSurface->pClipper);
-    // Get surface pointer
-    lpDDSurface = (LPDIRECTDRAWSURFACE2)hVSurface->pSurfaceData;
-
-    // Release surface
-    if (hVSurface->pSurfaceData1 != NULL) {
-        DDReleaseSurface((LPDIRECTDRAWSURFACE*)&hVSurface->pSurfaceData1, &lpDDSurface);
-    }
-
-    // Release backup surface
-    if (hVSurface->pSavedSurfaceData != NULL) {
-        DDReleaseSurface((LPDIRECTDRAWSURFACE*)&hVSurface->pSavedSurfaceData1,
-                         (LPDIRECTDRAWSURFACE2*)&hVSurface->pSavedSurfaceData);
-    }
-
-    // Release region data
     DeleteList(hVSurface->RegionList);
-
-    //If there is a 16bpp palette, free it
-    if (hVSurface->p16BPPPalette != NULL) {
+    if (hVSurface->p16BPPPalette)
         MemFree(hVSurface->p16BPPPalette);
-        hVSurface->p16BPPPalette = NULL;
-    }
-
-    giMemUsedInSurfaces -= (hVSurface->usHeight * hVSurface->usWidth * (hVSurface->ubBitDepth / 8));
-
-    // Release object
-    MemFree(hVSurface);
-
-    return (TRUE);
+    if (hVSurface->ownedSurface)
+        giMemUsedInSurfaces -= hVSurface->usHeight * hVSurface->usWidth * (hVSurface->ubBitDepth / 8);
+    delete hVSurface;
+    return TRUE;
 }
 
 // ********************************************************
@@ -1149,65 +819,14 @@ BOOLEAN DeleteVideoSurface(HVSURFACE hVSurface)
 
 BOOLEAN SetClipList(HVSURFACE hVSurface, SGPRect* RegionData, UINT16 usNumRegions)
 {
-    RGNDATA* pRgnData;
-    UINT16 cnt;
-    RECT aRect;
-    LPDIRECTDRAW2 lpDD2Object;
-
-    // Get Direct Draw Object
-    lpDD2Object = GetDirectDraw2Object();
-
-    // Assertions
-    Assert(hVSurface != NULL);
-    Assert(RegionData != NULL);
-
-    // Varifications
-    CHECKF(usNumRegions > 0);
-
-    // If Clipper already created, release
-    if (hVSurface->pClipper != NULL) {
-        // Release Clipper
-        DDReleaseClipper((LPDIRECTDRAWCLIPPER)hVSurface->pClipper);
-    }
-
-    // Create Clipper Object
-    DDCreateClipper(lpDD2Object, 0, (LPDIRECTDRAWCLIPPER*)&hVSurface->pClipper);
-
-    // Allocate region data
-    pRgnData = (LPRGNDATA)MemAlloc(sizeof(RGNDATAHEADER) + (usNumRegions * sizeof(RECT)));
-    CHECKF(pRgnData);
-
-    // Setup header
-    pRgnData->rdh.dwSize = sizeof(RGNDATAHEADER);
-    pRgnData->rdh.iType = RDH_RECTANGLES;
-    pRgnData->rdh.nCount = usNumRegions;
-    pRgnData->rdh.nRgnSize = usNumRegions * sizeof(RECT);
-    pRgnData->rdh.rcBound.top = 0;
-    pRgnData->rdh.rcBound.left = 0;
-    pRgnData->rdh.rcBound.bottom = (int)hVSurface->usHeight;
-    pRgnData->rdh.rcBound.right = (int)hVSurface->usWidth;
-
-    // Copy rectangles into region
-    for (cnt = 0; cnt < usNumRegions; cnt++) {
-        aRect.top = (UINT32)RegionData[cnt].iTop;
-        aRect.left = (UINT32)RegionData[cnt].iLeft;
-        aRect.bottom = (UINT32)RegionData[cnt].iBottom;
-        aRect.right = (UINT32)RegionData[cnt].iRight;
-
-        memcpy(pRgnData->Buffer + cnt * sizeof(RECT), &aRect, sizeof(RECT));
-    }
-
-    // Set items into clipper
-    DDSetClipperList((LPDIRECTDRAWCLIPPER)hVSurface->pClipper, pRgnData, 0);
-
-    // Set Clipper into Surface
-    DDSetClipper((LPDIRECTDRAWSURFACE2)hVSurface->pSurfaceData,
-                 (LPDIRECTDRAWCLIPPER)hVSurface->pClipper);
-
-    // Delete region data
-    MemFree(pRgnData);
-
-    return (TRUE);
+    CHECKF(hVSurface && RegionData && usNumRegions);
+    std::vector<RECT> rectangles;
+    rectangles.reserve(usNumRegions);
+    for (UINT16 i = 0; i < usNumRegions; ++i)
+        rectangles.push_back({RegionData[i].iLeft, RegionData[i].iTop,
+                              RegionData[i].iRight, RegionData[i].iBottom});
+    SetSurfaceClipRegions(*hVSurface->surface, rectangles);
+    return TRUE;
 }
 
 // ********************************************************
@@ -1242,7 +861,7 @@ BOOLEAN GetVSurfaceRect(HVSURFACE hVSurface, RECT* pRect)
 // Blitting Functions
 // *******************************************************************
 
-// Blt  will use DD Blt or BltFast depending on flags.
+// Ordinary same-depth blits use SDL.
 // Will drop down into user-defined blitter if 8->16 BPP blitting is being done
 
 // FUNCTION: WIZ8 0x00403b10
@@ -1375,7 +994,7 @@ BOOLEAN BltVideoSurfaceToVideoSurface(HVSURFACE hDestVSurface, HVSURFACE hSrcVSu
         }
     }
 
-    // Send dest position, rectangle, etc to DD bltfast function
+    // Same-depth operations use the SDL surface path.
     // First check BPP values for compatibility
     if (hDestVSurface->ubBitDepth == 16 && hSrcVSurface->ubBitDepth == 16) {
         if (fBltFlags & VS_BLT_MIRROR_Y) {
@@ -1400,53 +1019,12 @@ BOOLEAN BltVideoSurfaceToVideoSurface(HVSURFACE hDestVSurface, HVSURFACE hSrcVSu
             UnLockVideoSurfaceBuffer(hDestVSurface);
             return (TRUE);
         }
-        // For testing with non-DDraw blitting, uncomment to test -- DB
-        else {
-            if ((pSrcSurface16 = (UINT16*)LockVideoSurfaceBuffer(hSrcVSurface, &uiSrcPitch)) ==
-                NULL) {
-                DbgMessage(TOPIC_VIDEOSURFACE, DBG_LEVEL_2,
-                           String("Failed on lock of 16BPP surface for blitting"));
-                return (FALSE);
-            }
-
-            if ((pDestSurface16 = (UINT16*)LockVideoSurfaceBuffer(hDestVSurface, &uiDestPitch)) ==
-                NULL) {
-                UnLockVideoSurfaceBuffer(hSrcVSurface);
-                DbgMessage(TOPIC_VIDEOSURFACE, DBG_LEVEL_2,
-                           String("Failed on lock of 16BPP dest surface for blitting"));
-                return (FALSE);
-            }
-
-            Blt16BPPTo16BPP(pDestSurface16, uiDestPitch, pSrcSurface16, uiSrcPitch, iDestX, iDestY,
-                            SrcRect.left, SrcRect.top, uiWidth, uiHeight);
-            UnLockVideoSurfaceBuffer(hSrcVSurface);
-            UnLockVideoSurfaceBuffer(hDestVSurface);
-            return (TRUE);
-        }
-
         CHECKF(
-            BltVSurfaceUsingDD(hDestVSurface, hSrcVSurface, fBltFlags, iDestX, iDestY, &SrcRect));
+            BltVSurfaceUsingSDL(hDestVSurface, hSrcVSurface, fBltFlags, iDestX, iDestY, &SrcRect));
 
     } else if (hDestVSurface->ubBitDepth == 8 && hSrcVSurface->ubBitDepth == 8) {
-        if ((pSrcSurface8 = (UINT8*)LockVideoSurfaceBuffer(hSrcVSurface, &uiSrcPitch)) == NULL) {
-            DbgMessage(TOPIC_VIDEOSURFACE, DBG_LEVEL_2,
-                       String("Failed on lock of 8BPP surface for blitting"));
-            return (FALSE);
-        }
-
-        if ((pDestSurface8 = (UINT8*)LockVideoSurfaceBuffer(hDestVSurface, &uiDestPitch)) == NULL) {
-            UnLockVideoSurfaceBuffer(hSrcVSurface);
-            DbgMessage(TOPIC_VIDEOSURFACE, DBG_LEVEL_2,
-                       String("Failed on lock of 8BPP dest surface for blitting"));
-            return (FALSE);
-        }
-
-        //Blt8BPPDataTo8BPPBuffer( UINT8 *pBuffer, UINT32 uiDestPitchBYTES, HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex );
-        Blt8BPPTo8BPP(pDestSurface8, uiDestPitch, pSrcSurface8, uiSrcPitch, iDestX, iDestY,
-                      SrcRect.left, SrcRect.top, uiWidth, uiHeight);
-        UnLockVideoSurfaceBuffer(hSrcVSurface);
-        UnLockVideoSurfaceBuffer(hDestVSurface);
-        return (TRUE);
+        return BltVSurfaceUsingSDL(hDestVSurface, hSrcVSurface, fBltFlags,
+                                  iDestX, iDestY, &SrcRect);
     } else {
         DbgMessage(TOPIC_VIDEOSURFACE, DBG_LEVEL_2,
                    String("Incompatible BPP values with src and dest Video Surfaces for blitting"));
@@ -1462,89 +1040,31 @@ BOOLEAN BltVideoSurfaceToVideoSurface(HVSURFACE hDestVSurface, HVSURFACE hSrcVSu
 
 // Blt to backup buffer
 // FUNCTION: WIZ8 0x00404470
-BOOLEAN UpdateBackupSurface(HVSURFACE hVSurface)
-{
-    RECT aRect;
-
-    // Assertions
-    Assert(hVSurface != NULL);
-
-    // Validations
-    CHECKF(hVSurface->pSavedSurfaceData != NULL);
-
-    aRect.top = (int)0;
-    aRect.left = (int)0;
-    aRect.bottom = (int)hVSurface->usHeight;
-    aRect.right = (int)hVSurface->usWidth;
-
-    // Copy all contents into backup buffer
-    DDBltFastSurface((LPDIRECTDRAWSURFACE2)hVSurface->pSurfaceData, 0, 0,
-                     (LPDIRECTDRAWSURFACE2)hVSurface->pSavedSurfaceData, &aRect,
-                     DDBLTFAST_NOCOLORKEY);
-
-    return (TRUE);
-}
 
 // *****************************************************************************
-// Private DirectDraw manipulation functions
+// Borrowed frame-buffer integration
 // *****************************************************************************
 
 // FUNCTION: WIZ8 0x004044c0
-HVSURFACE CreateVideoSurfaceFromDDSurface(LPDIRECTDRAWSURFACE2 lpDDSurface)
+HVSURFACE CreateVideoSurfaceFromCpuSurface(CpuSurface* cpuSurface)
 {
-    // Create Video Surface
-    DDPIXELFORMAT PixelFormat;
-    HVSURFACE hVSurface;
-    DDSURFACEDESC DDSurfaceDesc;
-    LPDIRECTDRAWPALETTE pDDPalette;
-    SGPPaletteEntry SGPPalette[256];
-    HRESULT ReturnCode;
-
-    // Allocate Video Surface struct
-    hVSurface = (HVSURFACE)MemAlloc(sizeof(SGPVSurface));
-
-    memset(hVSurface, 0, sizeof(SGPVSurface));
-    // Set values based on DD Surface given
-    DDGetSurfaceDescription(lpDDSurface, &DDSurfaceDesc);
-    PixelFormat = DDSurfaceDesc.ddpfPixelFormat;
-
-    hVSurface->usHeight = (UINT16)DDSurfaceDesc.dwHeight;
-    hVSurface->usWidth = (UINT16)DDSurfaceDesc.dwWidth;
-    hVSurface->ubBitDepth = (UINT8)PixelFormat.dwRGBBitCount;
-    hVSurface->pSurfaceData = (PTR)lpDDSurface;
-    hVSurface->pSurfaceData1 = NULL;
-    hVSurface->pSavedSurfaceData = NULL;
-    hVSurface->RegionList = CreateList(DEFAULT_NUM_REGIONS, sizeof(VSURFACE_REGION));
-    hVSurface->fFlags = 0;
-
-    // Get and Set palette, if attached, allow to fail
-    ReturnCode = IDirectDrawSurface2_GetPalette(lpDDSurface, &pDDPalette);
-
-    if (ReturnCode == DD_OK) {
-        // Set 8-bit Palette and 16 BPP palette
-        hVSurface->pPalette = pDDPalette;
-
-        // Create 16-BPP Palette
-        DDGetPaletteEntries(pDDPalette, 0, 0, 256, (LPPALETTEENTRY)SGPPalette);
-        hVSurface->p16BPPPalette = Create16BPPPalette(SGPPalette);
-    } else {
-        hVSurface->pPalette = NULL;
-        hVSurface->p16BPPPalette = NULL;
+    CHECKF(cpuSurface != NULL);
+    auto result = std::make_unique<SGPVSurface>();
+    const auto& surface = *cpuSurface->surface;
+    result->usWidth = surface.w;
+    result->usHeight = surface.h;
+    result->ubBitDepth = SDL_BYTESPERPIXEL(surface.format) * 8;
+    result->surface = cpuSurface;
+    result->fFlags = VSURFACE_SYSTEM_MEM_USAGE | VSURFACE_RESERVED_SURFACE;
+    result->RegionList = CreateList(DEFAULT_NUM_REGIONS, sizeof(VSURFACE_REGION));
+    if (const auto* palette = SDL_GetSurfacePalette(cpuSurface->surface.get())) {
+        for (int i = 0; i < std::min(256, palette->ncolors); ++i)
+            result->palette[i] = {palette->colors[i].r, palette->colors[i].g,
+                                  palette->colors[i].b, 0};
+        result->hasPalette = true;
+        result->p16BPPPalette = Create16BPPPalette(result->palette.data());
     }
-    // Set meory flags
-    if (DDSurfaceDesc.ddsCaps.dwCaps & DDSCAPS_SYSTEMMEMORY) {
-        hVSurface->fFlags |= VSURFACE_SYSTEM_MEM_USAGE;
-    }
-
-    if (DDSurfaceDesc.ddsCaps.dwCaps & DDSCAPS_VIDEOMEMORY) {
-        hVSurface->fFlags |= VSURFACE_VIDEO_MEM_USAGE;
-    }
-
-    // All is well
-    DbgMessage(TOPIC_VIDEOSURFACE, DBG_LEVEL_0,
-               String("Success in Creating Video Surface from DD Surface"));
-
-    return (hVSurface);
+    return result.release();
 }
 
 // UTILITY FUNCTIONS FOR BLITTING
@@ -1620,121 +1140,39 @@ BOOLEAN ClipReleatedSrcAndDestRectangles(HVSURFACE hDestVSurface, HVSURFACE hSrc
 
 BOOLEAN FillSurface(HVSURFACE hDestVSurface, blt_vs_fx* pBltFx)
 {
-    DDBLTFX BlitterFX;
-
-    Assert(hDestVSurface != NULL);
-    CHECKF(pBltFx != NULL);
-
-    BlitterFX.dwSize = sizeof(DDBLTFX);
-    BlitterFX.dwFillColor = pBltFx->ColorFill;
-
-    DDBltSurface((LPDIRECTDRAWSURFACE2)hDestVSurface->pSurfaceData, NULL, NULL, NULL,
-                 DDBLT_COLORFILL, &BlitterFX);
-
-    if (hDestVSurface->fFlags & VSURFACE_VIDEO_MEM_USAGE &&
-        !hDestVSurface->fFlags & VSURFACE_RESERVED_SURFACE) {
-        UpdateBackupSurface(hDestVSurface);
-    }
-
-    return (TRUE);
+    CHECKF(hDestVSurface && pBltFx);
+    FillCpuSurface(*hDestVSurface->surface, pBltFx->ColorFill);
+    return TRUE;
 }
 
 BOOLEAN FillSurfaceRect(HVSURFACE hDestVSurface, blt_vs_fx* pBltFx)
 {
-    DDBLTFX BlitterFX;
-
-    Assert(hDestVSurface != NULL);
-    CHECKF(pBltFx != NULL);
-
-    BlitterFX.dwSize = sizeof(DDBLTFX);
-    BlitterFX.dwFillColor = pBltFx->ColorFill;
-
-    DDBltSurface((LPDIRECTDRAWSURFACE2)hDestVSurface->pSurfaceData, (LPRECT) & (pBltFx->FillRect),
-                 NULL, NULL, DDBLT_COLORFILL, &BlitterFX);
-
-    if (hDestVSurface->fFlags & VSURFACE_VIDEO_MEM_USAGE &&
-        !hDestVSurface->fFlags & VSURFACE_RESERVED_SURFACE) {
-        UpdateBackupSurface(hDestVSurface);
-    }
-
-    return (TRUE);
+    CHECKF(hDestVSurface && pBltFx);
+    const RECT rect{pBltFx->FillRect.iLeft, pBltFx->FillRect.iTop,
+                    pBltFx->FillRect.iRight, pBltFx->FillRect.iBottom};
+    FillCpuSurface(*hDestVSurface->surface, pBltFx->ColorFill, &rect);
+    return TRUE;
 }
 
-BOOLEAN BltVSurfaceUsingDD(HVSURFACE hDestVSurface, HVSURFACE hSrcVSurface, UINT32 fBltFlags,
+BOOLEAN BltVSurfaceUsingSDL(HVSURFACE hDestVSurface, HVSURFACE hSrcVSurface, UINT32 fBltFlags,
                            INT32 iDestX, INT32 iDestY, RECT* SrcRect)
 {
-    UINT32 uiDDFlags;
-    RECT DestRect;
-
-    // Blit using the correct blitter
+    RECT destination{iDestX, iDestY, iDestX + SrcRect->right - SrcRect->left,
+                     iDestY + SrcRect->bottom - SrcRect->top};
     if (fBltFlags & VS_BLT_FAST) {
-
-        // Validations
-        CHECKF(iDestX >= 0);
-        CHECKF(iDestY >= 0);
-
-        // Default flags
-        uiDDFlags = 0;
-
-        // Convert flags into DD flags, ( for transparency use, etc )
-        if (fBltFlags & VS_BLT_USECOLORKEY) {
-            uiDDFlags |= DDBLTFAST_SRCCOLORKEY;
-        }
-
-        // Convert flags into DD flags, ( for transparency use, etc )
-        if (fBltFlags & VS_BLT_USEDESTCOLORKEY) {
-            uiDDFlags |= DDBLTFAST_DESTCOLORKEY;
-        }
-
-        if (uiDDFlags == 0) {
-            // Default here is no colorkey
-            uiDDFlags = DDBLTFAST_NOCOLORKEY;
-        }
-
-        DDBltFastSurface((LPDIRECTDRAWSURFACE2)hDestVSurface->pSurfaceData, iDestX, iDestY,
-                         (LPDIRECTDRAWSURFACE2)hSrcVSurface->pSurfaceData, SrcRect, uiDDFlags);
-
-    } else {
-        // Normal, specialized blit for clipping, etc
-
-        // Default flags
-        uiDDFlags = DDBLT_WAIT;
-
-        // Convert flags into DD flags, ( for transparency use, etc )
-        if (fBltFlags & VS_BLT_USECOLORKEY) {
-            uiDDFlags |= DDBLT_KEYSRC;
-        }
-
-        // Setup dest rectangle
-        DestRect.top = (int)iDestY;
-        DestRect.left = (int)iDestX;
-        DestRect.bottom = (int)iDestY + (SrcRect->bottom - SrcRect->top);
-        DestRect.right = (int)iDestX + (SrcRect->right - SrcRect->left);
-
-        // Do Clipping of rectangles
-        if (!ClipReleatedSrcAndDestRectangles(hDestVSurface, hSrcVSurface, &DestRect, SrcRect)) {
-            // Returns false because dest start is > dest size
-            return (TRUE);
-        }
-
-        // Check values for 0 size
-        if (DestRect.top == DestRect.bottom || DestRect.right == DestRect.left) {
-            return (TRUE);
-        }
-
-        // Check for -ve values
-
-        DDBltSurface((LPDIRECTDRAWSURFACE2)hDestVSurface->pSurfaceData, &DestRect,
-                     (LPDIRECTDRAWSURFACE2)hSrcVSurface->pSurfaceData, SrcRect, uiDDFlags, NULL);
+        CHECKF(iDestX >= 0 && iDestY >= 0);
+        CHECKF(!hDestVSurface->surface->clipRegions);
+        CHECKF(destination.right <= hDestVSurface->usWidth &&
+               destination.bottom <= hDestVSurface->usHeight);
+    } else if (!ClipReleatedSrcAndDestRectangles(hDestVSurface, hSrcVSurface,
+                                               &destination, SrcRect)) {
+        return TRUE;
     }
-
-    // Update backup surface with new data
-    if (hDestVSurface->fFlags & VSURFACE_VIDEO_MEM_USAGE &&
-        !hDestVSurface->fFlags & VSURFACE_RESERVED_SURFACE) {
-        UpdateBackupSurface(hDestVSurface);
-    }
-
-    return (TRUE);
+    if (destination.left == destination.right || destination.top == destination.bottom)
+        return TRUE;
+    BlitCpuSurface(*hDestVSurface->surface, &destination, *hSrcVSurface->surface, SrcRect,
+                   fBltFlags & VS_BLT_USECOLORKEY, fBltFlags & VS_BLT_USEDESTCOLORKEY);
+    return TRUE;
 }
 
 BOOLEAN Blt16BPPBufferShadowRectAlternateTable(UINT16* pBuffer, UINT32 uiDestPitchBYTES,
