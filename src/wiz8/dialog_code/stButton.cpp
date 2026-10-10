@@ -248,11 +248,11 @@ bool W8DialogButton::ConfigureTextButton(std::string_view text, unsigned int fon
                                          short height, W8DialogButtonCallback left_callback,
                                          int user_data)
 {
-    INT32 handle = CreateTextButton(text, font, fore_color, shadow_color, -1,
+    auto handle = CreateTextButton(text, font, fore_color, shadow_color, -1,
                                     x, y, width, height, BUTTON_NO_TOGGLE, MSYS_PRIORITY_HIGHEST,
                                     DialogButtonCallback, DialogButtonCallback);
     m_button_handle = handle;
-    if (handle != -1) {
+    if (handle) {
         SetButtonUserDataPointer(handle, this);
         MSYS_SetBtnUserData(m_button_handle, 1, user_data);
         m_left_callback = left_callback;
