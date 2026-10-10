@@ -7,8 +7,6 @@
 
 class srColorSurfaceIFace;
 class srFilter;
-class srFStreamOpener;
-class srIStreamOpener;
 class srMaterial;
 class srNode;
 class srPalette;
@@ -21,7 +19,6 @@ public:
 
     SR_DLL_IMPORT void dump(std::ostream& stream);
     SR_DLL_IMPORT const char* getBuildTime() const;
-    SR_DLL_IMPORT srIStreamOpener* getIStreamOpener() const;
     SR_DLL_IMPORT const char* getCopyright() const;
     SR_DLL_IMPORT const char* getVersion() const;
     SR_DLL_IMPORT unsigned char getDebugLevel() const;
@@ -75,8 +72,6 @@ private:
 
     srClock* timer;
     srColorSurfaceIFace* surface;
-    srIStreamOpener* stream_opener;
-    srFStreamOpener* file_stream_opener;
     srFilter* filter;
     srStatisticsManager* statistics_manager;
     srRegistry* registry_;

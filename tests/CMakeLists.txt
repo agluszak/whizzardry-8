@@ -60,6 +60,7 @@ target_link_libraries(native_jpeg_transfer_test PRIVATE SURRENDER wiz8_native_se
 add_test(NAME native_jpeg_transfer COMMAND native_jpeg_transfer_test)
 
 add_executable(native_virtual_image_transfer_test native/image_import/virtual_transfer_test.cpp)
+target_include_directories(native_virtual_image_transfer_test PRIVATE "${PROJECT_SOURCE_DIR}/src/surrender")
 target_compile_definitions(native_virtual_image_transfer_test PRIVATE WIZ8_IMAGE_IMPORT_FIXTURE_DIR="${PROJECT_SOURCE_DIR}/tests/native/image_import")
 target_link_libraries(native_virtual_image_transfer_test PRIVATE WIZ8_GAME_CORE SDL3_image::SDL3_image)
 if(APPLE)

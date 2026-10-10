@@ -1,5 +1,5 @@
 #include "surrender/srImageIO.h"
-#include "wiz8/virtual_file_stream.h"
+#include "image_stream.h"
 #include "wiz8/engine_code/stTextureFile.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/slf.h"
@@ -9,6 +9,7 @@
 #include <cstdio>
 #include <cstring>
 #include <fstream>
+#include <limits>
 #include <memory>
 #include <vector>
 
@@ -92,16 +93,15 @@ static void checkTga(const char* name, bool succeeds)
 }
 static void runtimeImages()
 {
-    InitializeVirtualFileImageImporters();
-    for (const char* name : {"C:/DATA/loose.jpeg", "jpg://Data/archive.jpg",
-                             "jpeg://D:/Data/disc.jpg", "E:/data/DISC.JPG", "F:/data/disc.jpg"}) {
+    for (const char* name : {"C:/DATA/loose.jpeg", "Data/archive.jpg", "Data/zażółć-雪.jpeg",
+                             "D:/Data/disc.jpg", "E:/data/DISC.JPG", "F:/data/disc.jpg"}) {
         auto surface = own(srImage::load(name));
         checkGray(surface.get());
         srColorSurfaceIFace::SurfaceDesc desc;
         srImage::describe(desc, name);
         CHECK(desc.width == 3 && desc.height == 2);
     }
-    for (const char* name : {"C:/data/LOOSE.tga", "tga://Data/ARCHIVE.TGA"}) {
+    for (const char* name : {"C:/data/LOOSE.tga", "Data/ARCHIVE.TGA"}) {
         auto surface = own(srImage::load(name));
         CHECK(surface && surface->getWidth() == 3 && surface->getHeight() == 2);
         srColorSurfaceIFace::SurfaceDesc desc;
@@ -112,20 +112,43 @@ static void runtimeImages()
             CHECK(memcmp(static_cast<const unsigned char*>(surface->getDataPtr()) + y * surface->getPitch(),
                          expected + y * 6, 6) == 0);
     }
-    for (const char* name : {"Data/Broken.jpg", "Data/Broken.tga", "Data/missing.jpeg"}) {
+    for (const char* name : {"Data/Broken.jpg", "Data/Broken.tga", "Data/missing.jpeg",
+                             "jpg://Data/archive.jpg", "tga://Data/archive.tga", "file://Data/archive.jpg"}) {
         bool rejected = false;
         try { auto surface = own(srImage::load(name)); }
-        catch (const std::runtime_error&) { rejected = true; }
+        catch (const std::exception&) { rejected = true; }
         CHECK(rejected);
         rejected = false;
         try { srColorSurfaceIFace::SurfaceDesc desc; srImage::describe(desc, name); }
-        catch (const std::runtime_error&) { rejected = true; }
+        catch (const std::exception&) { rejected = true; }
         CHECK(rejected);
     }
     auto surface = own(srImage::load("Data/archive.jpg"));
     srImage::save("C:/capture.jpeg", *surface, 35);
     auto capture = own(srImage::load("C:/capture.jpeg"));
     CHECK(capture && capture->getWidth() == 3 && capture->getHeight() == 2);
+    for (const char* name : {"capture.png", "capture.bmp"}) {
+        auto output = wiz8::open_file(name, wiz8::OpenMode::replace);
+        srImage::save(name, *output, *surface);
+        CHECK(output->is_open() && output->size() > 0);
+        output->close();
+        auto decoded = own(srImage::load(name));
+        CHECK(decoded && decoded->getWidth() == 3 && decoded->getHeight() == 2);
+        for (unsigned y = 0; y < 2; ++y)
+            for (unsigned x = 0; x < 3; ++x)
+                CHECK(decoded->getPixel(x, y) == surface->getPixel(x, y));
+    }
+}
+static void checkUninitialized()
+{
+    auto file = wiz8::open_file("Data/archive.jpg");
+    file->seek(9, wiz8::SeekOrigin::begin);
+    CHECK(!srImage::load("archive.jpg", *file) && file->tell() == 9);
+    CHECK(!srImage::loadTga(*file) && file->tell() == 9);
+    bool rejected = false;
+    try { auto surface = own(srImage::load("Data/archive.jpg")); }
+    catch (const std::runtime_error&) { rejected = true; }
+    CHECK(rejected);
 }
 int main() try
 {
@@ -134,11 +157,13 @@ int main() try
     const auto jpeg = grayFixture(), tga = tgaFixture();
     write(assets / "data" / "DATA.SLF", archive(jpeg, tga));
     write(assets / "data" / "Loose.JpEg", jpeg);
+    write(assets / "data" / "zażółć-雪.JpEg", jpeg);
     write(assets / "data" / "Loose.TGA", tga);
     write(disc / "data" / "Disc.JPG", jpeg);
     fs::create_directories(user);
     w8_native::configure_paths({assets.string(), user.string(), {disc.string(), disc.string(), disc.string()}});
     wiz8::mount_slf("Data\\Data.slf");
+    checkUninitialized();
     CHECK(srInit());
     for (unsigned cycle = 0; cycle < 3; ++cycle) {
         runtimeImages();
@@ -148,31 +173,60 @@ int main() try
     }
     {
         for (const char* name : {"C:/DATA/loose.jpeg", "D:/Data/disc.jpg", "E:/data/DISC.JPG", "F:/data/disc.jpg"}) {
-            W8VirtualFileBinIStream stream(name);
-            CHECK(stream.good());
-            auto surface = own(srImage::load(name, stream));
+            auto stream = wiz8::open_file(name);
+            auto surface = own(srImage::load(name, *stream));
             checkGray(surface.get());
-            stream.seek(0);
-            unsigned char byte = 0; stream.read(&byte, 1);
-            CHECK(stream.good() && byte == 0xff);
+            stream->seek(0, wiz8::SeekOrigin::begin);
+            unsigned char byte = 0; stream->read_exact(&byte, 1);
+            CHECK(stream->is_open() && byte == 0xff);
         }
-        W8VirtualFileBinIStream first("C:/DATA/archive.jpg"), second("Data\\ARCHIVE.JPG");
-        first.seek(9);
+        auto first = wiz8::open_file("C:/DATA/archive.jpg"), second = wiz8::open_file("Data\\ARCHIVE.JPG");
+        first->seek(9, wiz8::SeekOrigin::begin);
         srColorSurfaceIFace::SurfaceDesc desc;
-        CHECK(srImage::describe(desc, "archive.jpg", first) && first.tell() == 9);
-        auto surface = own(srImage::load("archive.jpg", second));
+        CHECK(srImage::describe(desc, "archive.jpg", *first) && first->tell() == 9);
+        auto surface = own(srImage::load("archive.jpg", *second));
         checkGray(surface.get());
-        CHECK(first.tell() == 9 && first.good());
-        W8VirtualFileBinIStream broken("Data/Broken.jpg");
-        CHECK(broken.good() && !srImage::load("broken.jpg", broken));
+        CHECK(first->tell() == 9 && first->is_open());
+        auto broken = wiz8::open_file("Data/Broken.jpg");
+        broken->seek(7, wiz8::SeekOrigin::begin);
+        CHECK(!srImage::describe(desc, "broken.jpg", *broken) && broken->tell() == 7);
+        CHECK(!srImage::load("broken.jpg", *broken) && broken->is_open());
+        {
+            srImage::Stream bridge{*first};
+            auto io = bridge.open();
+            CHECK(io && SDL_GetIOSize(io.get()) == Sint64(jpeg.size()));
+            CHECK(SDL_SeekIO(io.get(), -1, SDL_IO_SEEK_END) == Sint64(jpeg.size() - 1));
+            unsigned char bytes[8];
+            CHECK(SDL_ReadIO(io.get(), bytes, sizeof(bytes)) == 1 && bytes[0] == 0xd9);
+            CHECK(SDL_ReadIO(io.get(), bytes, sizeof(bytes)) == 0 && bridge.eof && !bridge.failed);
+        }
+        for (const auto offset : {std::numeric_limits<Sint64>::min(), std::numeric_limits<Sint64>::max()}) {
+            first->seek(9, wiz8::SeekOrigin::begin);
+            srImage::Stream bridge{*first};
+            auto io = bridge.open();
+            CHECK(SDL_SeekIO(io.get(), offset, SDL_IO_SEEK_CUR) == -1 && bridge.failed);
+            CHECK(first->tell() == 9);
+        }
+        first->close();
+        CHECK(!srImage::load("archive.jpg", *first));
+        CHECK(!srImage::describe(desc, "archive.jpg", *first));
+        for (auto* file : {first.get(), second.get()}) {
+            bool rejected = false;
+            try { srImage::save("capture.jpg", *file, *surface); }
+            catch (const std::exception&) { rejected = true; }
+            CHECK(rejected);
+        }
+        CHECK(LoadSurface(nullptr, nullptr) == nullptr);
         checkTga("C:/data/LOOSE.tga", true);
         checkTga("Data/ARCHIVE.TGA", true);
         checkTga("Data/Broken.tga", false);
         write(user / "data" / "Loose.jpeg", {0, 1, 2});
-        W8VirtualFileBinIStream overlay("Data/loose.jpeg");
-        CHECK(overlay.good() && !srImage::load("loose.jpeg", overlay));
+        auto overlay = wiz8::open_file("Data/loose.jpeg");
+        CHECK(!srImage::load("loose.jpeg", *overlay) && overlay->is_open());
+        checkTga("Data/Broken.tga", false);
     }
     srExit();
+    checkUninitialized();
     wiz8::clear_asset_archives(); (void)0;
     fs::remove_all(root);
     puts("Virtual image streams: direct load/save, reinit, C-F, retail case folding, overlays, SLF bounds, independent cursors and borrowed handles passed");

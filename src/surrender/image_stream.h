@@ -3,6 +3,7 @@
 #include "surrender/srBinIStream.h"
 #include "surrender/srBinOStream.h"
 #include "surrender/srColorSurface.h"
+#include "wiz8/filesystem.h"
 
 #include <SDL3/SDL.h>
 #include <algorithm>
@@ -15,16 +16,25 @@ using IO = std::unique_ptr<SDL_IOStream, decltype(&SDL_CloseIO)>;
 
 // The wrapper borrows its caller's stream only for the synchronous codec call.
 struct Stream {
-    srBinStream& source;
+    Stream(srBinStream& source, srBinIStream* input = nullptr, srBinOStream* output = nullptr)
+        : source(&source), input(input), output(output) {}
+    explicit Stream(wiz8::File& file, bool writing = false) : file(&file), writing(writing) {}
+
+    srBinStream* source = nullptr;
     srBinIStream* input = nullptr;
     srBinOStream* output = nullptr;
+    wiz8::File* file = nullptr;
+    bool writing = false;
     bool failed = false;
     bool eof = false;
+
+    Sint64 tell() { return file ? file->tell() : source->tell(); }
+    bool good() const { return file ? file->is_open() : source->good(); }
 
     Sint64 error() noexcept
     {
         failed = true;
-        SDL_SetError("SurRender image stream operation failed");
+        SDL_SetError("Image stream operation failed");
         return -1;
     }
 
@@ -32,8 +42,8 @@ struct Stream {
     {
         auto& self = *static_cast<Stream*>(cookie);
         try {
-            const auto result = self.source.getSize();
-            return self.source.good() ? result : self.error();
+            const Sint64 result = self.file ? self.file->size() : self.source->getSize();
+            return self.good() && result >= 0 ? result : self.error();
         } catch (...) { return self.error(); }
     }
 
@@ -42,16 +52,18 @@ struct Stream {
         auto& self = *static_cast<Stream*>(cookie);
         try {
             const Sint64 length = size(cookie);
-            const Sint64 current = self.source.tell();
+            const Sint64 current = self.tell();
             const Sint64 base = whence == SDL_IO_SEEK_SET ? 0 :
                                 whence == SDL_IO_SEEK_CUR ? current :
                                 whence == SDL_IO_SEEK_END ? length : -1;
-            const Sint64 limit = self.input ? length : std::numeric_limits<w8_ulong>::max();
+            const Sint64 limit = self.input || (self.file && !self.writing) ? length :
+                self.file ? std::numeric_limits<Sint64>::max() : std::numeric_limits<w8_ulong>::max();
             if (self.failed || base < 0 || offset < -base || offset > limit - base)
                 return self.error();
-            const auto position = static_cast<w8_ulong>(base + offset);
-            self.source.seek(position);
-            if (!self.source.good() || self.source.tell() != position)
+            const auto position = base + offset;
+            if (self.file) self.file->seek(position, wiz8::SeekOrigin::begin);
+            else self.source->seek(static_cast<w8_ulong>(position));
+            if (!self.good() || self.tell() != position)
                 return self.error();
             return position;
         } catch (...) { return self.error(); }
@@ -63,18 +75,20 @@ struct Stream {
         auto& self = *static_cast<Stream*>(cookie);
         try {
             const Sint64 length = size(cookie);
-            const Sint64 before = self.source.tell();
-            if (!self.input || self.failed || before > length || !self.source.good())
+            const Sint64 before = self.tell();
+            if ((!self.input && !self.file) || self.failed || before < 0 || before > length || !self.good())
                 throw 0;
-            const auto count = static_cast<w8_ulong>(std::min<Uint64>(bytes, length - before));
+            const auto count = static_cast<size_t>(std::min<Uint64>(bytes, length - before));
             if (count == 0) {
                 self.eof = true;
                 *status = SDL_IO_STATUS_EOF;
                 return 0;
             }
-            self.input->read(data, count);
-            const Sint64 after = self.source.tell();
-            if (!self.source.good() || after - before != count)
+            if (self.file) {
+                if (self.file->read(data, count).bytes != count) throw 0;
+            } else self.input->read(data, static_cast<w8_ulong>(count));
+            const Sint64 after = self.tell();
+            if (!self.good() || after - before != Sint64(count))
                 throw 0;
             if (count < bytes)
                 *status = SDL_IO_STATUS_EOF;
@@ -91,12 +105,15 @@ struct Stream {
     {
         auto& self = *static_cast<Stream*>(cookie);
         try {
-            const auto before = self.source.tell();
-            if (!self.output || self.failed || !self.source.good() ||
-                bytes > std::numeric_limits<w8_ulong>::max() - before)
+            const Sint64 before = self.tell();
+            const Sint64 limit = self.file ? std::numeric_limits<Sint64>::max() :
+                                            std::numeric_limits<w8_ulong>::max();
+            if ((!self.output && !self.file) || self.failed || !self.good() || before < 0 ||
+                before > limit || bytes > Uint64(limit - before))
                 throw 0;
-            self.output->write(data, static_cast<w8_ulong>(bytes));
-            if (!self.source.good() || self.source.tell() - before != bytes)
+            if (self.file) self.file->write(data, bytes);
+            else self.output->write(data, static_cast<w8_ulong>(bytes));
+            if (!self.good() || self.tell() - before != Sint64(bytes))
                 throw 0;
             return bytes;
         } catch (...) {
@@ -112,11 +129,13 @@ struct Stream {
         SDL_INIT_INTERFACE(&interface);
         interface.size = size;
         interface.seek = seek;
-        interface.read = input ? read : nullptr;
-        interface.write = output ? write : nullptr;
+        interface.read = input || (file && !writing) ? read : nullptr;
+        interface.write = output || (file && writing) ? write : nullptr;
         return IO(SDL_OpenIO(&interface, this), SDL_CloseIO);
     }
 };
+
+srColorSurface* loadTga(SDL_IOStream* source);
 
 inline bool copyRows(const SDL_Surface& source, srColorSurfaceIFace& destination,
                      unsigned bytes_per_pixel, bool mirror = false)
