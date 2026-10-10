@@ -2,7 +2,7 @@
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/string_database.h"
 #include "wiz8/virtual_file.h"
-#include "FileMan.h"
+#include "wiz8/filesystem.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -20,8 +20,9 @@ wchar_t** gppStringList;
 // FUNCTION: WIZ8 0x0052FF80
 unsigned char GetStringFromStringDatabase(const char* path, int index, wchar_t* output,
                                           unsigned int* metadata_00, unsigned int* metadata_04)
+try
 {
-    HWFILE handle;
+    std::unique_ptr<wiz8::File> handle;
     unsigned char header[5];
     wchar_t* destination;
     int count;
@@ -31,45 +32,48 @@ unsigned char GetStringFromStringDatabase(const char* path, int index, wchar_t* 
 
     destination = output;
     *output = 0;
-    handle = FileOpen(const_cast<char*>(path), 0x41, 0);
+    handle = [&]() { try { return wiz8::open_file(const_cast<char*>(path), wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
     if (!handle) {
         return 0;
     }
-    FileRead(handle, header, 5, 0);
-    FileSeek(handle, 8, FILE_SEEK_FROM_END);
-    FileRead(handle, &count, 4, 0);
+    handle->read_exact(header, 5);
+    handle->seek(-static_cast<std::int64_t>(8), wiz8::SeekOrigin::end);
+    handle->read_exact(&count, 4);
     if (index < count) {
-        FileSeek(handle, (count - index) * 4 + 8, FILE_SEEK_FROM_END);
-        FileRead(handle, &entry_offset, 4, 0);
-        FileSeek(handle, entry_offset, FILE_SEEK_FROM_START);
+        handle->seek(-static_cast<std::int64_t>((count - index) * 4 + 8), wiz8::SeekOrigin::end);
+        handle->read_exact(&entry_offset, 4);
+        handle->seek(entry_offset, wiz8::SeekOrigin::begin);
         if (metadata_00) {
-            FileRead(handle, metadata_00, 4, 0);
+            handle->read_exact(metadata_00, 4);
         } else {
-            FileSeek(handle, 4, FILE_SEEK_FROM_CURRENT);
+            handle->seek(4, wiz8::SeekOrigin::current);
         }
         if (metadata_04) {
-            FileRead(handle, metadata_04, 4, 0);
+            handle->read_exact(metadata_04, 4);
         } else {
-            FileSeek(handle, 4, FILE_SEEK_FROM_CURRENT);
+            handle->seek(4, wiz8::SeekOrigin::current);
         }
-        FileRead(handle, &length, 4, 0);
+        handle->read_exact(&length, 4);
         if (length <= 0x7d0) {
-            FileRead(handle, destination, length * 2, 0);
+            handle->read_exact(destination, length * 2);
             if (header[4] && length > 0) {
                 for (character = 0; character < length; ++character) {
                     destination[character] = static_cast<wchar_t>(~destination[character] + 0x9697);
                 }
             }
-            FileClose(handle);
+            if (handle) handle->close();
+            handle.reset();
             return 1;
         }
     }
-    FileClose(handle);
+    if (handle) handle->close();
+    handle.reset();
     return 0;
 }
+catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x005300e0
-void DecodeLocalizedText(CHAR16* text, int character_count)
+void DecodeLocalizedText(wchar_t* text, int character_count)
 {
     while (character_count-- > 0) {
         *text = static_cast<unsigned short>(~*text + 0x9697);
@@ -83,13 +87,13 @@ void DecodeLocalizedText(CHAR16* text, int character_count)
 // FUNCTION: WIZ8 0x00518360
 void LoadLocalizedStrings(const char* path)
 {
-    int handle = FileOpen(const_cast<char*>(path), 0x41, 0);
+    std::unique_ptr<wiz8::File> handle = [&]() { try { return wiz8::open_file(const_cast<char*>(path), wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
     int index;
 
     if (!handle) {
         srAssertFail("hFile", STRINGS_CPP, 74, "Failed to open localization string table.");
     }
-    FileRead(handle, &giStringListLen, 4, 0);
+    handle->read_exact(&giStringListLen, 4);
     if (!giStringListLen) {
         srAssertFail("giStringListLen", STRINGS_CPP, 79, 0);
     }
@@ -100,13 +104,14 @@ void LoadLocalizedStrings(const char* path)
     memset(gppStringList, 0, giStringListLen * sizeof(wchar_t*));
     for (index = 0; index < giStringListLen; ++index) {
         int byte_count;
-        FileRead(handle, &byte_count, 4, 0);
+        handle->read_exact(&byte_count, 4);
         gppStringList[index] = static_cast<wchar_t*>(malloc(byte_count));
         if (!gppStringList[index]) {
             srAssertFail("gppStringList[iCount]", STRINGS_CPP, 89, 0);
         }
-        FileRead(handle, gppStringList[index], byte_count, 0);
+        handle->read_exact(gppStringList[index], byte_count);
         DecodeLocalizedText(gppStringList[index], byte_count / 2);
     }
-    FileClose(handle);
+    if (handle) handle->close();
+    handle.reset();
 }

@@ -1,11 +1,13 @@
 #pragma once
 
+#include "wiz8/filesystem.h"
+
 #include "surrender/srColorSurface.h"
 #include "surrender/srTexture.h"
 
 class stTextureFile;
 
-srColorSurface* __stdcall LoadSurface(int handle, w8_long*);
+srColorSurface* __stdcall LoadSurface(wiz8::File* handle, w8_long*);
 
 /* Wizardry's virtual-file-backed texture. SR.DLL exports a parallel
    srTextureFile (id 0x2112) whose 17-slot vtable is:

@@ -25,7 +25,6 @@
 #include "wiz8/engine_code/Video2.h"
 #include "Button System.h"
 #include "input.h"
-#include "DEBUG.H"
 #include "random.h"
 
 #include <stdarg.h>
@@ -60,7 +59,8 @@ static unsigned int g_message_box_shade;
 // GLOBAL: WIZ8 0x0068c0b0
 static bool g_message_box_accepted;
 // GLOBAL: WIZ8 0x0068BFD0
-static char g_format_string_buffer[200];
+static thread_local char g_format_string_buffer[8][512];
+static thread_local unsigned int g_format_string_index;
 // GLOBAL: WIZ8 0x00689FD0
 static wchar_t g_wide_string_buffer[4096];
 
@@ -175,11 +175,12 @@ int CompareSignedDescending(const void* first, const void* second)
 // FUNCTION: WIZ8 0x00517a70
 char* FormatString(const char* format, ...)
 {
+    char* buffer = g_format_string_buffer[g_format_string_index++ % 8];
     va_list arguments;
-
     va_start(arguments, format);
-    vsprintf(g_format_string_buffer, format, arguments);
-    return g_format_string_buffer;
+    vsnprintf(buffer, sizeof(g_format_string_buffer[0]), format, arguments);
+    va_end(arguments);
+    return buffer;
 }
 
 // FUNCTION: WIZ8 0x00517a90

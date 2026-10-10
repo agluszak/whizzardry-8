@@ -1,6 +1,5 @@
 #include "himage.h"
-#include "FileMan.h"
-#include "LibraryDataBase.h"
+#include "wiz8/slf.h"
 #include "temporary_directory.h"
 #include <wiz8/asset_paths.h>
 #include <wiz8/filesystem.h>
@@ -125,18 +124,18 @@ static Bytes rgb_pcx(const UINT8* rgb)
 
 static Bytes slf(const std::vector<std::pair<std::string, Bytes>>& files)
 {
-    static_assert(sizeof(LIBHEADER) == 532 && sizeof(DIRENTRY) == 280);
-    LIBHEADER header{};
+    static_assert(sizeof(wiz8::SlfHeader) == 532 && sizeof(wiz8::SlfEntry) == 280);
+    wiz8::SlfHeader header{};
     strcpy(header.sLibName, "Data.slf");
     strcpy(header.sPathToLibrary, "Data\\");
     header.iEntries = header.iUsed = files.size();
     header.iVersion = 0x200;
     Bytes bytes(reinterpret_cast<const UINT8*>(&header),
                 reinterpret_cast<const UINT8*>(&header) + sizeof(header));
-    std::vector<DIRENTRY> entries;
+    std::vector<wiz8::SlfEntry> entries;
     for (const auto& [name, data] : files)
     {
-        DIRENTRY entry{};
+        wiz8::SlfEntry entry{};
         CHECK(name.size() < sizeof(entry.sFileName));
         memcpy(entry.sFileName, name.c_str(), name.size() + 1);
         entry.uiOffset = bytes.size();
@@ -145,7 +144,7 @@ static Bytes slf(const std::vector<std::pair<std::string, Bytes>>& files)
         bytes.insert(bytes.end(), data.begin(), data.end());
     }
     const auto* directory = reinterpret_cast<const UINT8*>(entries.data());
-    bytes.insert(bytes.end(), directory, directory + entries.size() * sizeof(DIRENTRY));
+    bytes.insert(bytes.end(), directory, directory + entries.size() * sizeof(wiz8::SlfEntry));
     return bytes;
 }
 
@@ -170,7 +169,7 @@ static void check_pcx(const image_type& image)
     CHECK(image.usWidth == 3 && image.usHeight == 2 && image.ubBitDepth == 8);
     CHECK(image.fFlags == IMAGE_ALLIMAGEDATA);
     const UINT8 expected[]{0, 1, 1, 2, 3, 0xc1};
-    CHECK(!memcmp(image.p8BPPData, expected, sizeof(expected)));
+    CHECK(!memcmp(image.pImageData.get(), expected, sizeof(expected)));
     for (unsigned i = 0; i < 256; ++i)
     {
         CHECK(image.pPalette[i].peRed == (i == 2 ? 255 : i));
@@ -204,9 +203,8 @@ int main() try
         {"Packed.tga", tga(24, false, true)}, {"Truncated.tga", truncated}}));
     w8_native::configure_paths({wiz8::path_to_utf8(assets), wiz8::path_to_utf8(user),
                                 {wiz8::path_to_utf8(disc), "", ""}});
-    CHECK(InitializeMemoryManager());
-    CHECK(InitializeFileManager(nullptr));
-    CHECK(InitializeFileDatabase());
+
+    wiz8::mount_slf("Data\\Data.slf");
     rgb555();
 
     {
@@ -248,7 +246,7 @@ int main() try
         fixture(assets / "rgb.pcx", rgb_pcx(rgb));
         auto image = load("rgb.pcx");
         CHECK(image && image->ubBitDepth == 24 && image->fFlags == IMAGE_BITMAPDATA);
-        CHECK(!memcmp(image->pImageData, rgb, sizeof(rgb)));
+        CHECK(!memcmp(image->pImageData.get(), rgb, sizeof(rgb)));
     }
     for (unsigned depth : {16u, 24u})
         for (bool top : {false, true})
@@ -259,7 +257,7 @@ int main() try
                 CHECK(image && image->usWidth == 3 && image->usHeight == 2);
                 CHECK(image->ubBitDepth == depth && image->fFlags == IMAGE_BITMAPDATA);
                 CHECK(!image->pPalette && !image->pui16BPPPalette);
-                CHECK(!memcmp(image->pImageData, depth == 16 ? static_cast<const void*>(packed) : rgb,
+                CHECK(!memcmp(image->pImageData.get(), depth == 16 ? static_cast<const void*>(packed) : rgb,
                               depth == 16 ? sizeof(packed) : sizeof(rgb)));
             }
     {
@@ -267,7 +265,7 @@ int main() try
         auto image = load("indexed.tga");
         CHECK(image && image->ubBitDepth == 8 && image->fFlags == IMAGE_ALLIMAGEDATA);
         const UINT8 indices[]{2, 2, 2, 2, 1, 0};
-        CHECK(!memcmp(image->p8BPPData, indices, sizeof(indices)));
+        CHECK(!memcmp(image->pImageData.get(), indices, sizeof(indices)));
         CHECK(image->pPalette[2].peRed == 255 && image->pPalette[2].peBlue == 0);
         CHECK(image->pPalette[3].peRed == 0 && image->pPalette[255].peFlags == 0);
         CHECK(image->pui16BPPPalette[0] == 0 && image->pui16BPPPalette[1] == 1);
@@ -279,27 +277,27 @@ int main() try
         fixture(assets / "offset.tga", offset_palette);
         auto offset = load("offset.tga");
         CHECK(offset && offset->pPalette[18].peRed == 255 && offset->pPalette[0].peRed == 0);
-        CHECK(offset->pPalette[17].peRed == 1 && offset->p8BPPData[0] == 18);
+        CHECK(offset->pPalette[17].peRed == 1 && offset->pImageData[0] == 18);
         auto override_image = load("override.pcx");
-        CHECK(override_image && !memcmp(override_image->p8BPPData, indices, sizeof(indices)));
+        CHECK(override_image && !memcmp(override_image->pImageData.get(), indices, sizeof(indices)));
     }
     {
         auto disc_image = load("D:\\DISC.TGA");
-        CHECK(disc_image && !memcmp(disc_image->pImageData, rgb, sizeof(rgb)));
+        CHECK(disc_image && !memcmp(disc_image->pImageData.get(), rgb, sizeof(rgb)));
         char entry[] = "Data\\Packed.pcx";
-        const auto first = FileOpen(entry, FILE_ACCESS_READ, FALSE);
-        const auto second = FileOpen(entry, FILE_ACCESS_READ, FALSE);
-        CHECK(first && second && FileSeek(first, 9, FILE_SEEK_FROM_START));
+        auto first = [&]() { try { return wiz8::open_file(entry, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
+        auto second = [&]() { try { return wiz8::open_file(entry, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
+        CHECK(first && second && (first->seek(9, wiz8::SeekOrigin::begin), true));
         auto image = load("C:\\data\\PACKED.PCX");
         CHECK(image);
         check_pcx(*image);
-        CHECK(FileGetPos(first) == 9 && FileGetPos(second) == 0);
+        CHECK(first->tell() == 9 && second->tell() == 0);
         auto tga_image = load("data\\packed.tga");
-        CHECK(tga_image && !memcmp(tga_image->pImageData, rgb, sizeof(rgb)));
+        CHECK(tga_image && !memcmp(tga_image->pImageData.get(), rgb, sizeof(rgb)));
         CHECK(!load("Data\\Truncated.tga")); // Must not read the next SLF record as image data.
-        CHECK(FileGetPos(first) == 9 && FileGetPos(second) == 0);
-        FileClose(first);
-        FileClose(second);
+        CHECK(first->tell() == 9 && second->tell() == 0);
+        first.reset();
+        second.reset();
     }
     {
         std::unique_ptr<SDL_Surface, decltype(&SDL_DestroySurface)> surface(
@@ -319,9 +317,9 @@ int main() try
         CHECK(image->iFileLoader == JPEG_FILE_READER && image->fFlags == IMAGE_BITMAPDATA);
         for (unsigned i = 0; i < 64; ++i)
         {
-            CHECK(abs(int(image->p8BPPData[i * 3]) - 240) < 4);
-            CHECK(abs(int(image->p8BPPData[i * 3 + 1]) - 20) < 4);
-            CHECK(abs(int(image->p8BPPData[i * 3 + 2]) - 40) < 4);
+            CHECK(abs(int(image->pImageData[i * 3]) - 240) < 4);
+            CHECK(abs(int(image->pImageData[i * 3 + 1]) - 20) < 4);
+            CHECK(abs(int(image->pImageData[i * 3 + 2]) - 40) < 4);
         }
     }
 
@@ -351,9 +349,9 @@ int main() try
     {
         auto image = load("Dotted.dir/default.PCX");
         CHECK(image);
-        auto* data = image->pImageData;
+        auto* data = image->pImageData.get();
         memcpy(image->ImageFile, "invalid.pcx", sizeof("invalid.pcx"));
-        CHECK(!LoadImageData(image.get(), IMAGE_ALLIMAGEDATA) && image->pImageData == data);
+        CHECK(!LoadImageData(image.get(), IMAGE_ALLIMAGEDATA) && image->pImageData.get() == data);
         check_pcx(*image);
     }
     fixture(assets / "invalid.jpg", {0xff, 0xd8, 0xff});
@@ -365,9 +363,8 @@ int main() try
     const std::string long_path(SGPFILENAME_LEN + 10, 'x');
     CHECK(!load(long_path.c_str()));
     CHECK(!CreateImage(nullptr, IMAGE_ALLDATA));
-    ShutdownFileManager();
-    CHECK(ShutDownFileDatabase());
-    ShutdownMemoryManager();
+
+    wiz8::clear_asset_archives();
     fs::remove_all(root);
     puts("ok: SDL_image PCX/TGA/JPEG, palette/packed-pixel policy, orientation, bounded SLF and failures");
 }

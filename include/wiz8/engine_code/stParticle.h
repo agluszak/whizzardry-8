@@ -1,5 +1,7 @@
 #pragma once
 
+#include "wiz8/filesystem.h"
+
 #include "wiz8/engine_code/particle_modes.h"
 
 #include "surrender/srMaterialIFace.h"
@@ -150,5 +152,5 @@ public:
 W8_ABI_ASSERT(sizeof(stParticle) == 0x280, "stParticle_size_must_be_0x280");
 
 stParticle* FindRegisteredParticle(const char* name);
-void SaveParticleStates(unsigned int handle);
-void LoadParticleStates(int handle);
+void SaveParticleStates(wiz8::File* handle);
+void LoadParticleStates(wiz8::File* handle);

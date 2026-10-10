@@ -1,3 +1,4 @@
+#include "wiz8/filesystem.h"
 #include "wiz8/compat/debug_heap.h"
 #include "wiz8/engine_code/AnimObj.h"
 #include "wiz8/engine_code/AniMesh.h"
@@ -36,6 +37,7 @@ W8AnimObj* CreateAnimObj()
 // FUNCTION: WIZ8 0x004a05c0
 unsigned char AnimObjReadFromFile(W8ReadLevelInfo* info, W8AnimObj* animation, int load_all,
                                   W8GrowableVector<stLight*>* light_list, int)
+try
 {
     /* Retail read `frames` uninitialised when its FileRead short-circuited; the recovery keeps
        that read. */
@@ -43,54 +45,54 @@ unsigned char AnimObjReadFromFile(W8ReadLevelInfo* info, W8AnimObj* animation, i
     unsigned char success;
     unsigned char discarded[50];
     unsigned char channel_bytes[8];
-    int handle;
+    wiz8::File* handle;
     int index;
 
     if (info == 0 || info->hFile == 0 || animation == 0) {
         srAssertFail("pInfo && pInfo->hFile && pao", ANIM_OBJ_CPP, 0xef, 0);
     }
     handle = info->hFile;
-    success = FileRead(handle, &version, 1, 0);
-    success = success && FileRead(handle, &animation->group_count, 1, 0);
-    success = success && FileRead(handle, &animation->animation_playing, 1, 0);
-    success = success && FileRead(handle, &animation->frame_method, 1, 0);
-    success = success && FileRead(handle, &animation->behaviour, 1, 0);
-    success = success && FileRead(handle, &animation->cycle, 1, 0);
-    success = success && FileRead(handle, &animation->path_lists, 1, 0);
+    success = (handle->read(&version, 1).bytes == static_cast<std::size_t>(1));
+    success = success && (handle->read(&animation->group_count, 1).bytes == static_cast<std::size_t>(1));
+    success = success && (handle->read(&animation->animation_playing, 1).bytes == static_cast<std::size_t>(1));
+    success = success && (handle->read(&animation->frame_method, 1).bytes == static_cast<std::size_t>(1));
+    success = success && (handle->read(&animation->behaviour, 1).bytes == static_cast<std::size_t>(1));
+    success = success && (handle->read(&animation->cycle, 1).bytes == static_cast<std::size_t>(1));
+    success = success && (handle->read(&animation->path_lists, 1).bytes == static_cast<std::size_t>(1));
 
     if (version < 3) {
         animation->playback_scale = 15.0f;
     } else {
-        success = success && FileRead(handle, &animation->playback_scale, 4, 0);
+        success = success && (handle->read(&animation->playback_scale, 4).bytes == static_cast<std::size_t>(4));
     }
     if (version < 5) {
         animation->start_frame = 0;
     } else {
-        success = success && FileRead(handle, &animation->start_frame, 1, 0);
+        success = success && (handle->read(&animation->start_frame, 1).bytes == static_cast<std::size_t>(1));
     }
     if (version < 11) {
         animation->end_frame = 0;
     } else {
-        success = success && FileRead(handle, &animation->end_frame, 1, 0);
+        success = success && (handle->read(&animation->end_frame, 1).bytes == static_cast<std::size_t>(1));
     }
     if (version < 6) {
         animation->random_play = 0;
         animation->play_chance = 1.0f;
     } else {
-        success = success && FileRead(handle, &animation->random_play, 1, 0);
-        success = success && FileRead(handle, &animation->play_chance, 4, 0);
+        success = success && (handle->read(&animation->random_play, 1).bytes == static_cast<std::size_t>(1));
+        success = success && (handle->read(&animation->play_chance, 4).bytes == static_cast<std::size_t>(4));
     }
-    success = success && FileRead(handle, discarded, sizeof(discarded), 0);
+    success = success && (handle->read(discarded, sizeof(discarded)).bytes == static_cast<std::size_t>(sizeof(discarded)));
     if (!success) {
         srAssertFail("fSuccess", ANIM_OBJ_CPP, 0x117, 0);
     }
     for (index = 0; index < static_cast<signed char>(animation->group_count); ++index) {
-        success = success && FileRead(handle, &channel_bytes[index], 1, 0);
+        success = success && (handle->read(&channel_bytes[index], 1).bytes == static_cast<std::size_t>(1));
     }
 
     if (version > 6) {
         unsigned char frames;
-        FileRead(handle, &frames, 1, 0);
+        handle->read_exact(&frames, 1);
         if (animation->pfKnownBBoxFrames == 0 && frames != 0) {
             animation->pfKnownBBoxFrames = static_cast<unsigned char*>(malloc(frames));
             animation->pvecBoundMin = new srVector3T<float>[frames];
@@ -103,8 +105,8 @@ unsigned char AnimObjReadFromFile(W8ReadLevelInfo* info, W8AnimObj* animation, i
             }
             memset(animation->pfKnownBBoxFrames, 1, frames);
             for (index = 0; index < frames; ++index) {
-                FileRead(handle, &animation->pvecBoundMin[index], sizeof(srVector3T<float>), 0);
-                FileRead(handle, &animation->pvecBoundMax[index], sizeof(srVector3T<float>), 0);
+                handle->read_exact(&animation->pvecBoundMin[index], sizeof(srVector3T<float>));
+                handle->read_exact(&animation->pvecBoundMax[index], sizeof(srVector3T<float>));
                 animation->pvecBoundMin[index] *= static_cast<float>(g_double_five_hundred);
                 animation->pvecBoundMax[index] *= static_cast<float>(g_double_five_hundred);
             }
@@ -114,7 +116,7 @@ unsigned char AnimObjReadFromFile(W8ReadLevelInfo* info, W8AnimObj* animation, i
     if (version > 7) {
         unsigned char light_count;
         srVector3T<float> color(1.0f, 1.0f, 1.0f);
-        FileRead(handle, &light_count, 1, 0);
+        handle->read_exact(&light_count, 1);
         for (index = 0; index < static_cast<signed char>(light_count); ++index) {
             unsigned char light_version;
             unsigned char definition_kind = 0;
@@ -124,50 +126,50 @@ unsigned char AnimObjReadFromFile(W8ReadLevelInfo* info, W8AnimObj* animation, i
             float intensity;
             stLightDefinition* definition = 0;
 
-            FileRead(handle, &light_version, 1, 0);
-            FileRead(handle, &position, sizeof(position), 0);
-            FileRead(handle, &color, sizeof(color), 0);
-            FileRead(handle, &intensity, 4, 0);
-            FileRead(handle, &range, 4, 0);
+            handle->read_exact(&light_version, 1);
+            handle->read_exact(&position, sizeof(position));
+            handle->read_exact(&color, sizeof(color));
+            handle->read_exact(&intensity, 4);
+            handle->read_exact(&range, 4);
             position *= static_cast<float>(g_double_five_hundred);
             if (light_version < 3) {
                 definition_kind = light_version == 2 ? 1 : 0;
             } else {
-                FileRead(handle, &definition_kind, 1, 0);
+                handle->read_exact(&definition_kind, 1);
             }
 
             if (definition_kind == 1) {
                 stParametricLightDefinition* typed = new stParametricLightDefinition;
-                FileRead(handle, &typed->flags, 4, 0);
-                FileRead(handle, &typed->flicker_chance, 4, 0);
-                FileRead(handle, &typed->color, 12, 0);
-                FileRead(handle, &typed->color_to.x, 4, 0);
-                FileRead(handle, &typed->color_to.y, 4, 0);
-                FileRead(handle, &typed->color_to.z, 4, 0);
-                FileRead(handle, &typed->intensity, 4, 0);
-                FileRead(handle, &typed->intensity_to, 4, 0);
-                FileRead(handle, &typed->period, 4, 0);
-                FileRead(handle, &typed->rate, 4, 0);
-                FileRead(handle, &typed->path_speed, 4, 0);
-                FileRead(handle, &typed->subcycle_min, 4, 0);
-                FileRead(handle, &typed->subcycle_max, 4, 0);
+                handle->read_exact(&typed->flags, 4);
+                handle->read_exact(&typed->flicker_chance, 4);
+                handle->read_exact(&typed->color, 12);
+                handle->read_exact(&typed->color_to.x, 4);
+                handle->read_exact(&typed->color_to.y, 4);
+                handle->read_exact(&typed->color_to.z, 4);
+                handle->read_exact(&typed->intensity, 4);
+                handle->read_exact(&typed->intensity_to, 4);
+                handle->read_exact(&typed->period, 4);
+                handle->read_exact(&typed->rate, 4);
+                handle->read_exact(&typed->path_speed, 4);
+                handle->read_exact(&typed->subcycle_min, 4);
+                handle->read_exact(&typed->subcycle_max, 4);
                 definition = typed;
             } else if (definition_kind == 2) {
                 stKeyframedLightDefinition* typed = new stKeyframedLightDefinition;
                 int previous = 0;
                 int key;
 
-                FileRead(handle, &ignored, 1, 0);
-                FileRead(handle, &typed->start_frame, 4, 0);
-                FileRead(handle, &typed->end_frame, 4, 0);
+                handle->read_exact(&ignored, 1);
+                handle->read_exact(&typed->start_frame, 4);
+                handle->read_exact(&typed->end_frame, 4);
                 for (key = 0; key < 6; ++key) {
                     int frame;
                     float value;
                     srVector3T<float> vector;
 
-                    FileRead(handle, &frame, 4, 0);
-                    FileRead(handle, &value, 4, 0);
-                    FileRead(handle, &vector, sizeof(vector), 0);
+                    handle->read_exact(&frame, 4);
+                    handle->read_exact(&value, 4);
+                    handle->read_exact(&vector, sizeof(vector));
                     if (frame < previous) {
                         frame = previous + 1;
                     }
@@ -208,7 +210,7 @@ unsigned char AnimObjReadFromFile(W8ReadLevelInfo* info, W8AnimObj* animation, i
 
     if (animation->path_lists == 0 && version > 8) {
         unsigned char has_path;
-        FileRead(handle, &has_path, 1, 0);
+        handle->read_exact(&has_path, 1);
         if (has_path != 0) {
             W8PathAI* path = 0;
             success = LoadPathAI(&path, handle);
@@ -224,7 +226,7 @@ unsigned char AnimObjReadFromFile(W8ReadLevelInfo* info, W8AnimObj* animation, i
     }
     if (version > 9) {
         unsigned char ignored;
-        success = success && FileRead(handle, &ignored, 1, 0);
+        success = success && (handle->read(&ignored, 1).bytes == static_cast<std::size_t>(1));
     }
 
     if (animation->path_lists == 0) {
@@ -234,7 +236,7 @@ unsigned char AnimObjReadFromFile(W8ReadLevelInfo* info, W8AnimObj* animation, i
             W8AniMesh* mesh = CreateAniMesh();
             signed char channel = 0;
 
-            success = success && FileRead(handle, &channel, 1, 0);
+            success = success && (handle->read(&channel, 1).bytes == static_cast<std::size_t>(1));
             mesh->list_index = channel;
             if (!LoadAniMeshFromInfo(info, mesh, load_all)) {
                 animation->entries[channel] = 0;
@@ -251,7 +253,7 @@ unsigned char AnimObjReadFromFile(W8ReadLevelInfo* info, W8AnimObj* animation, i
         for (group = 0; group < static_cast<signed char>(animation->group_count); ++group) {
             signed char entry_count;
             int entry;
-            success = FileRead(handle, &entry_count, 1, 0);
+            success = (handle->read(&entry_count, 1).bytes == static_cast<std::size_t>(1));
             if (!success) {
                 srAssertFail("fSuccess", ANIM_OBJ_CPP, 0x200, 0);
             }
@@ -261,7 +263,7 @@ unsigned char AnimObjReadFromFile(W8ReadLevelInfo* info, W8AnimObj* animation, i
                 signed char channel;
                 const char* saved_filename;
 
-                if (!FileRead(handle, &channel, 1, 0)) {
+                if (!(handle->read(&channel, 1).bytes == static_cast<std::size_t>(1))) {
                     srAssertFail("fSuccess", ANIM_OBJ_CPP, 0x208, 0);
                 }
                 mesh->list_index = channel;
@@ -304,6 +306,7 @@ unsigned char AnimObjReadFromFile(W8ReadLevelInfo* info, W8AnimObj* animation, i
     }
     return success;
 }
+catch (const std::exception&) { return false; }
 
 /* A deep copy of everything the record owns. Every mesh - the three entries and
    every entry of the first list group - is rebuilt through CopyAniMesh,

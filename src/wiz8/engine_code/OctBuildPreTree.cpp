@@ -656,6 +656,7 @@ unsigned short OctBuildPreTree::LoadRegionFile(const char* stem, srVector3T<floa
         SortFrustumCorners(&volume->m_points[1]);
         BuildFrustumPlanes(&volume->m_points[1], volume->m_planes);
     }
+    if (file) file->close();
     file.reset();
     ReportBuildStatus(6, path);
     spatial.m_region_volumes = volumes.release();

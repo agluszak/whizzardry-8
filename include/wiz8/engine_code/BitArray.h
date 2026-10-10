@@ -1,3 +1,4 @@
+#include "wiz8/filesystem.h"
 #ifndef WIZ8_ENGINE_CODE_BITARRAY_H
 #define WIZ8_ENGINE_CODE_BITARRAY_H
 
@@ -10,10 +11,10 @@ public:
        object immediately after, so this is the owning destructor. */
     ~BitArray();                    /* 0x0043AD90 */
     void CopyFrom(BitArray& other); /* 0x0043AE80 */
-    unsigned char Load(int handle); /* 0x0043AEC0 */
+    unsigned char Load(wiz8::File* handle); /* 0x0043AEC0 */
     /* Write the same Huffman payload Load reads. Octree assertions name
        m_pAlphaBits->Save(hOctFile) and m_pPropSunBits->Save(hOctFile). */
-    unsigned char Save(int handle); /* 0x0043B0E0 */
+    unsigned char Save(wiz8::File* handle); /* 0x0043B0E0 */
 
     bool Set(unsigned int bit);        /* 0x0043B390 */
     bool SetAndGrow(unsigned int bit); /* 0x0043B3D0 */

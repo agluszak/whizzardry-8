@@ -5,14 +5,12 @@
 
 #include "Types.h"
 #include "timer.h"
-#include "DEBUG.H"
 
 #include "Video2.h"
 
 #include "input.h"
-#include "MemMan.h"
-#include "FileMan.h"
-#include "DbMan.h"
+#include <string>
+#include "wiz8/filesystem.h"
 #include "soundman.h"
 #include "line.h"
 #include "Font.h"
@@ -27,13 +25,12 @@ extern "C" {
 #endif
 
 extern BOOLEAN gfProgramIsRunning; // Turn this to FALSE to exit program
-extern UINT32 giStartMem;
 extern CHAR8 gzCommandLine[100]; // Command line given
 extern UINT8 gbPixelDepth;       // GLOBAL RUN-TIME SETTINGS
 extern BOOLEAN gfDontUseDDBlits; // GLOBAL FOR USE OF DD BLITTING
 
 extern BOOLEAN gfLoadAtStartup;
-extern CHAR8* gzStringDataOverride;
+extern std::string gzStringDataOverride;
 extern BOOLEAN gfUsingBoundsChecker;
 extern BOOLEAN gfCapturingVideo;
 

@@ -12,7 +12,6 @@
 #include "vobject.h"
 #include "mousesystem.h"
 #include "soundman.h"
-#include "Button Sound Control.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -71,26 +70,6 @@ extern "C" {
 #define BUTTON_IGNORE_CLICKS 0x00008000 // Ignore any clicks on this button
 #define BUTTON_DISABLED_CALLBACK 0x80000000
 
-#define BUTTON_SOUND_NONE 0x00
-#define BUTTON_SOUND_CLICKED_ON 0x01
-#define BUTTON_SOUND_CLICKED_OFF 0x02
-#define BUTTON_SOUND_MOVED_ONTO 0x04
-#define BUTTON_SOUND_MOVED_OFF_OF 0x08
-#define BUTTON_SOUND_DISABLED_CLICK 0x10
-#define BUTTON_SOUND_DISABLED_MOVED_ONTO 0x20
-#define BUTTON_SOUND_DISABLED_MOVED_OFF_OF 0x40
-#define BUTTON_SOUND_ALREADY_PLAYED 0X80
-
-#define BUTTON_SOUND_ALL_EVENTS 0xff
-
-// Internal use!
-#define GUI_SND_CLK_ON BUTTON_SOUND_CLICKED_ON
-#define GUI_SND_CLK_OFF BUTTON_SOUND_CLICKED_OFF
-#define GUI_SND_MOV_ON BUTTON_SOUND_MOVED_ONTO
-#define GUI_SND_MOV_OFF BUTTON_SOUND_MOVED_OFF_OF
-#define GUI_SND_DCLK BUTTON_SOUND_DISABLED_CLICK
-#define GUI_SND_DMOV BUTTON_SOUND_DISABLED_MOVED_ONTO
-
 extern UINT32 ButtonDestBuffer;
 
 // GUI_BUTTON callback function type
@@ -114,7 +93,7 @@ typedef struct _GUI_BUTTON {
     //Button disabled style
     INT8 bDisabledStyle;
     //For buttons with text
-    CHAR16* string;      //the string
+    std::unique_ptr<CHAR16[]> string; //the string
     UINT16 usFont;       //font for text
     BOOLEAN fMultiColor; //font is a multi-color font
     INT16 sForeColor;    //text colors if there is text
@@ -137,11 +116,10 @@ typedef struct _GUI_BUTTON {
     INT8 bIconYOffset;   //-1 means vertically centered
     BOOLEAN fShiftImage; //if true, icon is shifted +1,+1 when button state is down.
 
-    UINT8 ubToggleButtonOldState; // Varibles for new toggle buttons that work
-    UINT8 ubToggleButtonActivated;
+    bool ubToggleButtonOldState; // Varibles for new toggle buttons that work
+    bool ubToggleButtonActivated;
 
     INT32 BackRect; // Handle to a Background Rectangle
-    UINT8 ubSoundSchemeID;
 } GUI_BUTTON;
 
 #define MAX_BUTTONS 400
@@ -230,8 +208,6 @@ void SpecifyButtonText(INT32 iButtonID, CHAR16* string);
 void SpecifyButtonMultiColorFont(INT32 iButtonID, BOOLEAN fMultiColor);
 void SpecifyButtonTextOffsets(INT32 iButtonID, INT8 bTextXOffset, INT8 bTextYOffset,
                               BOOLEAN fShiftText);
-void SpecifyButtonSoundScheme(INT32 iButtonID, INT8 bSoundScheme);
-void PlayButtonSound(INT32 iButtonID, INT32 iSoundType);
 
 enum {
     DEFAULT_STATUS_NONE,

@@ -75,7 +75,7 @@
 #include "wiz8/xstatus.h"
 #include "wiz8/sr_api.h"
 
-#include "FileMan.h"
+#include "wiz8/filesystem.h"
 
 #include "wiz8/wiz8_windows.h"
 #include <stdio.h>

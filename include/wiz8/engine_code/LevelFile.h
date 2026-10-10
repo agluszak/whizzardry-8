@@ -1,3 +1,4 @@
+#include "wiz8/filesystem.h"
 #ifndef WIZ8_ENGINE_CODE_LEVELFILE_H
 #define WIZ8_ENGINE_CODE_LEVELFILE_H
 
@@ -630,30 +631,30 @@ struct W8LevelFile {
 
 #pragma pack(pop)
 
-W8LevelFile* ReadLevelFile(int hFile);
-BOOLEAN WriteLevelFile(int hFile, int hFileIn, W8LevelFile* pLevel);
-BOOLEAN ReadMeshFile(int hFile, W8LevelFileMesh* pMesh);
-BOOLEAN WriteMeshFile(int hFile, W8LevelFileMesh* pMesh);
-BOOLEAN ReadLightFile(int hFile, W8LevelFileLight* pLight);
-BOOLEAN WriteLightFile(int hFile, W8LevelFileLight* pLight);
-BOOLEAN ReadAnimLightFile(int hFile, W8LevelFileAnimLight* pLight);
-BOOLEAN WriteAnimLightFile(int hFile, W8LevelFileAnimLight* pLight);
-BOOLEAN ReadTriggerFile(int hFile, W8LevelFileTrigger* pTrigger);
-BOOLEAN WriteTriggerFile(int hFile, W8LevelFileTrigger* pTrigger);
-BOOLEAN ReadSuperTriggerFile(int hFile, W8LevelFileTrigger* pTrigger);
-BOOLEAN WriteSuperTriggerFile(int hFile, W8LevelFileTrigger* pTrigger);
-BOOLEAN ReadDoorTriggerFile(int hFile, W8LevelFileDoorRef* pDoor);
-BOOLEAN WriteDoorTriggerFile(int hFile, W8LevelFileDoorRef* pDoor);
-BOOLEAN ReadPathAIFile(int hFile, W8LevelFilePathAI* pPathAI);
-BOOLEAN WritePathAIFile(int hFile, W8LevelFilePathAI* pPathAI);
-BOOLEAN ReadAnimObjFile(int hFile, W8LevelFileAnimObj* pAnimObj);
-BOOLEAN WriteAnimObjFile(int hFile, W8LevelFileAnimObj* pAnimObj);
-W8LevelFileProp* ReadPropsFile(int hFile, int count);
-BOOLEAN WritePropsFile(int hFile, int count, W8LevelFileProp* pProps);
-BOOLEAN ReadParticleSystemFile(int hFile, W8LevelFileParticleSystem* pSystem);
-BOOLEAN WriteParticleSystemFile(int hFile, W8LevelFileParticleSystem* pSystem);
-BOOLEAN ReadLevelFileBlock(int hFile, W8LevelFileBlock* pBlock);
-BOOLEAN WriteLevelFileBlock(int hFile, W8LevelFileBlock* pBlock);
+W8LevelFile* ReadLevelFile(wiz8::File* hFile);
+BOOLEAN WriteLevelFile(wiz8::File* hFile, wiz8::File* hFileIn, W8LevelFile* pLevel);
+BOOLEAN ReadMeshFile(wiz8::File* hFile, W8LevelFileMesh* pMesh);
+BOOLEAN WriteMeshFile(wiz8::File* hFile, W8LevelFileMesh* pMesh);
+BOOLEAN ReadLightFile(wiz8::File* hFile, W8LevelFileLight* pLight);
+BOOLEAN WriteLightFile(wiz8::File* hFile, W8LevelFileLight* pLight);
+BOOLEAN ReadAnimLightFile(wiz8::File* hFile, W8LevelFileAnimLight* pLight);
+BOOLEAN WriteAnimLightFile(wiz8::File* hFile, W8LevelFileAnimLight* pLight);
+BOOLEAN ReadTriggerFile(wiz8::File* hFile, W8LevelFileTrigger* pTrigger);
+BOOLEAN WriteTriggerFile(wiz8::File* hFile, W8LevelFileTrigger* pTrigger);
+BOOLEAN ReadSuperTriggerFile(wiz8::File* hFile, W8LevelFileTrigger* pTrigger);
+BOOLEAN WriteSuperTriggerFile(wiz8::File* hFile, W8LevelFileTrigger* pTrigger);
+BOOLEAN ReadDoorTriggerFile(wiz8::File* hFile, W8LevelFileDoorRef* pDoor);
+BOOLEAN WriteDoorTriggerFile(wiz8::File* hFile, W8LevelFileDoorRef* pDoor);
+BOOLEAN ReadPathAIFile(wiz8::File* hFile, W8LevelFilePathAI* pPathAI);
+BOOLEAN WritePathAIFile(wiz8::File* hFile, W8LevelFilePathAI* pPathAI);
+BOOLEAN ReadAnimObjFile(wiz8::File* hFile, W8LevelFileAnimObj* pAnimObj);
+BOOLEAN WriteAnimObjFile(wiz8::File* hFile, W8LevelFileAnimObj* pAnimObj);
+W8LevelFileProp* ReadPropsFile(wiz8::File* hFile, int count);
+BOOLEAN WritePropsFile(wiz8::File* hFile, int count, W8LevelFileProp* pProps);
+BOOLEAN ReadParticleSystemFile(wiz8::File* hFile, W8LevelFileParticleSystem* pSystem);
+BOOLEAN WriteParticleSystemFile(wiz8::File* hFile, W8LevelFileParticleSystem* pSystem);
+BOOLEAN ReadLevelFileBlock(wiz8::File* hFile, W8LevelFileBlock* pBlock);
+BOOLEAN WriteLevelFileBlock(wiz8::File* hFile, W8LevelFileBlock* pBlock);
 
 #include "wiz8/evidence/LevelFile_layout.inc"
 

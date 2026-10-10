@@ -1,8 +1,8 @@
 /* Native Bink replacement: bounded SGP file/SLF I/O, FFmpeg decoding and
    timed RGB555 frames. Recovered IntroScreen still owns transitions/input. */
 #include "movie.h"
-#include "FileMan.h"
-#include "LibraryDataBase.h"
+#include "wiz8/filesystem.h"
+#include "wiz8/slf.h"
 #include <wiz8/filesystem.h>
 #include "compat/surfaces.h"
 #include "native/movie_audio.h"
@@ -154,24 +154,8 @@ struct W8NativeVideo::State
     {
         if (!path)
             throw std::runtime_error("Movie path is null");
-        const auto status = wiz8::file_status(path);
-        if (status)
-        {
-            file = wiz8::open_file(path);
-            length = file->size();
-        }
-        else
-        {
-            struct LibraryEntry
-            {
-                HWFILE file;
-                ~LibraryEntry() { if (file) FileClose(file); }
-            } entry{FileOpen(const_cast<char*>(path), FILE_ACCESS_READ | FILE_OPEN_EXISTING, FALSE)};
-            if (!entry.file)
-                throw std::runtime_error(std::string("Cannot open movie: ") + path);
-            length = FileGetSize(entry.file);
-            file.reset(OpenLibraryStream(entry.file));
-        }
+        file = wiz8::open_file(path);
+        length = file->size();
         if (!file)
             throw std::runtime_error("Cannot open movie stream");
         start = file->tell();

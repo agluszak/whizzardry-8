@@ -2,7 +2,7 @@
 #include "wiz8/engine_code/ReadMesh.h"
 #include "wiz8/engine_code/stTextureFile.h"
 
-#include "FileMan.h"
+#include "wiz8/filesystem.h"
 #include "../../srext_jpegimporter/tga_import.h"
 
 #include <cstring>
@@ -10,12 +10,12 @@
 namespace {
 class TextureInput : public srBinIStream {
 public:
-    explicit TextureInput(int handle) : handle(handle) { setState(SR_STREAM_OK); }
-    w8_ulong getSize() override { return FileGetSize(handle); }
-    w8_ulong tell() override { return FileGetPos(handle); }
+    explicit TextureInput(wiz8::File* handle) : handle(handle) { setState(SR_STREAM_OK); }
+    w8_ulong getSize() override { return handle->size(); }
+    w8_ulong tell() override { return handle->tell(); }
     srBinStream& seek(w8_ulong position) override
     {
-        if (position > getSize() || !FileSeek(handle, position, FILE_SEEK_FROM_START))
+        if (position > getSize() || !(handle->seek(position, wiz8::SeekOrigin::begin), true))
             setState(SR_STREAM_ERROR);
         return *this;
     }
@@ -28,15 +28,15 @@ private:
     w8_ulong vread(void* data, w8_ulong bytes) override
     {
         UINT32 count = 0;
-        if (!FileRead(handle, data, bytes, &count))
+        if (!((count = handle->read(data, bytes).bytes) == static_cast<std::size_t>(bytes)))
             setState(SR_STREAM_ERROR);
         return count;
     }
-    int handle;
+    wiz8::File* handle;
 };
 } // namespace
 
-srColorSurface* __stdcall LoadSurface(int handle, w8_long*)
+srColorSurface* __stdcall LoadSurface(wiz8::File* handle, w8_long*)
 {
     TextureInput input(handle);
     return srImage::loadTga(input);
@@ -170,10 +170,11 @@ void stTextureFile::loadSurface()
     }
 
     surface = 0;
-    int handle = FileOpen(file_name, 0x41, 0);
+    std::unique_ptr<wiz8::File> handle = [&]() { try { return wiz8::open_file(file_name, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
     if (handle != 0) {
-        surface = LoadSurface(handle, &unused);
-        FileClose(handle);
+        surface = LoadSurface(handle.get(), &unused);
+        if (handle) handle->close();
+        handle.reset();
     }
 
     if (surface == 0) {

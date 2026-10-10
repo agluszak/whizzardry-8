@@ -16,7 +16,7 @@
 #include "wiz8/virtual_file.h"
 #include "wiz8/vector.h"
 
-#include "FileMan.h"
+#include "wiz8/filesystem.h"
 #include "surrender/srCore.h"
 #include "surrender/srNode.h"
 #include "surrender/srVectorProcessor.h"
@@ -32,26 +32,26 @@ static int operator==(const srShader& left, const srShader& right)
 }
 
 // FUNCTION: WIZ8 0x004896C0
-void ReadMeshTransform(int file, srVector3T<float>* location, srMatrix3T<float>* rotation,
+void ReadMeshTransform(wiz8::File* file, srVector3T<float>* location, srMatrix3T<float>* rotation,
                        srVector3T<float>* scale)
 {
     float angle;
     srVector3T<float> axis;
 
-    FileRead(file, &location->x, sizeof(location->x), 0);
-    FileRead(file, &location->y, sizeof(location->y), 0);
-    FileRead(file, &location->z, sizeof(location->z), 0);
-    FileRead(file, &angle, sizeof(angle), 0);
-    FileRead(file, &axis.x, sizeof(axis.x), 0);
-    FileRead(file, &axis.y, sizeof(axis.y), 0);
-    FileRead(file, &axis.z, sizeof(axis.z), 0);
+    file->read_exact(&location->x, sizeof(location->x));
+    file->read_exact(&location->y, sizeof(location->y));
+    file->read_exact(&location->z, sizeof(location->z));
+    file->read_exact(&angle, sizeof(angle));
+    file->read_exact(&axis.x, sizeof(axis.x));
+    file->read_exact(&axis.y, sizeof(axis.y));
+    file->read_exact(&axis.z, sizeof(axis.z));
 
     rotation->SetIdentity();
     rotation->RotateAroundAxis(angle, axis);
 
-    FileRead(file, &scale->x, sizeof(scale->x), 0);
-    FileRead(file, &scale->y, sizeof(scale->y), 0);
-    FileRead(file, &scale->z, sizeof(scale->z), 0);
+    file->read_exact(&scale->x, sizeof(scale->x));
+    file->read_exact(&scale->y, sizeof(scale->y));
+    file->read_exact(&scale->z, sizeof(scale->z));
 }
 
 /* The material reader retains its three parallel result tables together with
@@ -752,7 +752,7 @@ static int ReadMeshMaterials(W8ReadLevelInfo* info, srMaterialIFace*** materials
 
     short count;
     short index;
-    FileRead(info->hFile, &count, sizeof(count), 0);
+    (info->hFile->read(&count, sizeof(count)).bytes == static_cast<std::size_t>(sizeof(count)));
     if (count < 1) {
         return 0;
     }
@@ -760,15 +760,15 @@ static int ReadMeshMaterials(W8ReadLevelInfo* info, srMaterialIFace*** materials
     W8MaterialRecord* records =
         static_cast<W8MaterialRecord*>(malloc(count * sizeof(W8MaterialRecord)));
     memset(records, 0, count * sizeof(W8MaterialRecord));
-    FileRead(info->hFile, records, 0x11a, 0);
+    (info->hFile->read(records, 0x11a).bytes == static_cast<std::size_t>(0x11a));
     if (records[0].version < 4) {
         for (index = 1; index < count; ++index) {
-            FileRead(info->hFile, records + index, 0x11a, 0);
+            (info->hFile->read(records + index, 0x11a).bytes == static_cast<std::size_t>(0x11a));
         }
     } else {
-        FileRead(info->hFile, records[0].texture_modes, sizeof(records[0].texture_modes), 0);
+        (info->hFile->read(records[0].texture_modes, sizeof(records[0].texture_modes)).bytes == static_cast<std::size_t>(sizeof(records[0].texture_modes)));
         if (count > 1) {
-            FileRead(info->hFile, records + 1, (count - 1) * sizeof(W8MaterialRecord), 0);
+            (info->hFile->read(records + 1, (count - 1) * sizeof(W8MaterialRecord)).bytes == static_cast<std::size_t>((count - 1) * sizeof(W8MaterialRecord)));
         }
     }
 
@@ -839,6 +839,7 @@ unsigned char ReadSingleLevelMesh(W8ReadLevelInfo* info, srModelInstance** insta
 // FUNCTION: WIZ8 0x00485C10
 unsigned char ReadSingleLevelMeshBody(W8ReadLevelInfo* info, srModelInstance** instance, int, int,
                                       const char* name, bool load_materials)
+try
 {
     /* Retail read mapping_count/value/key/compression_type uninitialised when
        a FileRead short-circuited; the recovery keeps that read. */
@@ -862,14 +863,14 @@ unsigned char ReadSingleLevelMeshBody(W8ReadLevelInfo* info, srModelInstance** i
     if (info == 0) {
         srAssertFail("pInfo", "C:\\Projects\\Wizardry 8\\Engine Code\\ReadMesh.cpp", 0xd7, 0);
     }
-    int file = info->hFile;
+    wiz8::File* file = info->hFile;
     if (file == 0) {
         srAssertFail("hFile", "C:\\Projects\\Wizardry 8\\Engine Code\\ReadMesh.cpp", 0xd9, 0);
     }
 
-    FileRead(file, &version, sizeof(version), 0);
-    FileRead(file, &vertex_count, sizeof(vertex_count), 0);
-    unsigned char success = FileRead(file, &face_count, sizeof(face_count), 0);
+    file->read_exact(&version, sizeof(version));
+    file->read_exact(&vertex_count, sizeof(vertex_count));
+    unsigned char success = (file->read(&face_count, sizeof(face_count)).bytes == static_cast<std::size_t>(sizeof(face_count)));
     if (vertex_count < 1 || face_count < 1) {
         return 0;
     }
@@ -878,7 +879,7 @@ unsigned char ReadSingleLevelMeshBody(W8ReadLevelInfo* info, srModelInstance** i
     srVector3T<float> scale;
     srMatrix3T<float> rotation;
     if (version > 2) {
-        success = FileRead(file, &flags, sizeof(flags), 0);
+        success = (file->read(&flags, sizeof(flags)).bytes == static_cast<std::size_t>(sizeof(flags)));
     }
     if (version > 1) {
         ReadMeshTransform(file, &location, &rotation, &scale);
@@ -889,15 +890,15 @@ unsigned char ReadSingleLevelMeshBody(W8ReadLevelInfo* info, srModelInstance** i
 
     if (version > 3) {
         signed char mapping_count;
-        success = FileRead(file, &mapping_count, sizeof(mapping_count), 0);
+        success = (file->read(&mapping_count, sizeof(mapping_count)).bytes == static_cast<std::size_t>(sizeof(mapping_count)));
         for (short index = 0; index < mapping_count; ++index) {
             short value = 0;
             short key = 0;
             /* Retail 0x00485e06/0x00485e1b: the mapping key (the vertex
                marker id GetCycleMappedPosition asks for) comes first in the
                file, then the original vertex index. */
-            if (success == 0 || !FileRead(file, &key, sizeof(key), 0) ||
-                !FileRead(file, &value, sizeof(value), 0)) {
+            if (success == 0 || !(file->read(&key, sizeof(key)).bytes == static_cast<std::size_t>(sizeof(key))) ||
+                !(file->read(&value, sizeof(value)).bytes == static_cast<std::size_t>(sizeof(value)))) {
                 success = 0;
             }
             mapped_values.Add(value);
@@ -914,7 +915,7 @@ unsigned char ReadSingleLevelMeshBody(W8ReadLevelInfo* info, srModelInstance** i
             srAssertFail("pstVertices", "C:\\Projects\\Wizardry 8\\Engine Code\\ReadMesh.cpp",
                          0x139, 0);
         }
-        success = FileRead(file, vertices, vertex_count * sizeof(*vertices), &bytes_read);
+        success = ((bytes_read = file->read(vertices, vertex_count * sizeof(*vertices)).bytes) == static_cast<std::size_t>(vertex_count * sizeof(*vertices)));
         if (success == 0) {
             srAssertFail("fSuccess", "C:\\Projects\\Wizardry 8\\Engine Code\\ReadMesh.cpp", 0x13b,
                          0);
@@ -924,10 +925,10 @@ unsigned char ReadSingleLevelMeshBody(W8ReadLevelInfo* info, srModelInstance** i
         }
     } else {
         unsigned char compression_type;
-        FileRead(file, &compression_type, sizeof(compression_type), 0);
-        FileRead(file, &frame_count, sizeof(frame_count), 0);
+        file->read_exact(&compression_type, sizeof(compression_type));
+        file->read_exact(&frame_count, sizeof(frame_count));
         if (compression_type == 2) {
-            FileRead(file, &compression_scale, sizeof(compression_scale), 0);
+            file->read_exact(&compression_scale, sizeof(compression_scale));
         }
         if ((flags & W8_LEVEL_MESH_SHORT_LOD_VERTICES) == 0) {
             srAssertFail("FALSE", "C:\\Projects\\Wizardry 8\\Engine Code\\ReadMesh.cpp", 0x131,
@@ -945,8 +946,7 @@ unsigned char ReadSingleLevelMeshBody(W8ReadLevelInfo* info, srModelInstance** i
                     srAssertFail("ppCompVertices[i]",
                                  "C:\\Projects\\Wizardry 8\\Engine Code\\ReadMesh.cpp", 0x114, 0);
                 }
-                success = FileRead(file, compressed_vertices[frame],
-                                   vertex_count * 3 * sizeof(short), &bytes_read);
+                success = ((bytes_read = file->read(compressed_vertices[frame], vertex_count * 3 * sizeof(short)).bytes) == static_cast<std::size_t>(vertex_count * 3 * sizeof(short)));
                 if (success == 0) {
                     srAssertFail("fSuccess", "C:\\Projects\\Wizardry 8\\Engine Code\\ReadMesh.cpp",
                                  0x118, 0);
@@ -960,7 +960,7 @@ unsigned char ReadSingleLevelMeshBody(W8ReadLevelInfo* info, srModelInstance** i
         srAssertFail("pstFaces", "C:\\Projects\\Wizardry 8\\Engine Code\\ReadMesh.cpp", 0x148, 0);
     }
     if ((flags & W8_LEVEL_MESH_COMPRESSED_FACES) == 0) {
-        success = FileRead(file, faces, face_count * sizeof(*faces), &bytes_read);
+        success = ((bytes_read = file->read(faces, face_count * sizeof(*faces)).bytes) == static_cast<std::size_t>(face_count * sizeof(*faces)));
         if (success == 0) {
             srAssertFail("fSuccess", "C:\\Projects\\Wizardry 8\\Engine Code\\ReadMesh.cpp", 0x166,
                          0);
@@ -973,7 +973,7 @@ unsigned char ReadSingleLevelMeshBody(W8ReadLevelInfo* info, srModelInstance** i
                          0);
         }
         success =
-            FileRead(file, compressed_faces, face_count * sizeof(*compressed_faces), &bytes_read);
+            ((bytes_read = file->read(compressed_faces, face_count * sizeof(*compressed_faces)).bytes) == static_cast<std::size_t>(face_count * sizeof(*compressed_faces)));
         if (success == 0) {
             srAssertFail("fSuccess", "C:\\Projects\\Wizardry 8\\Engine Code\\ReadMesh.cpp", 0x152,
                          0);
@@ -1081,10 +1081,12 @@ unsigned char ReadSingleLevelMeshBody(W8ReadLevelInfo* info, srModelInstance** i
     }
     return 1;
 }
+catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x00488240
 unsigned char ReadMultipleLevelMeshes(W8ReadLevelInfo* info, srModelInstance** instances,
                                       w8_ulong count, const char* name)
+try
 {
     OctMeshModel reader;
     unsigned int mesh_count;
@@ -1102,9 +1104,9 @@ unsigned char ReadMultipleLevelMeshes(W8ReadLevelInfo* info, srModelInstance** i
         srAssertFail("hFile", "C:\\Projects\\Wizardry 8\\Engine Code\\ReadMesh.cpp", 0x323, 0);
     }
 
-    unsigned char success = FileRead(info->hFile, &mesh_count, sizeof(mesh_count), 0);
+    unsigned char success = (info->hFile->read(&mesh_count, sizeof(mesh_count)).bytes == static_cast<std::size_t>(sizeof(mesh_count)));
     if (success != 0) {
-        FileRead(info->hFile, &root_count, sizeof(root_count), 0);
+        (info->hFile->read(&root_count, sizeof(root_count)).bytes == static_cast<std::size_t>(sizeof(root_count)));
     }
 
     g_read_mesh_material_count = ReadMeshMaterials(
@@ -1113,7 +1115,7 @@ unsigned char ReadMultipleLevelMeshes(W8ReadLevelInfo* info, srModelInstance** i
         srAssertFail("uiMatCount", "C:\\Projects\\Wizardry 8\\Engine Code\\ReadMesh.cpp", 0x329, 0);
     }
 
-    FileRead(info->hFile, &terminator, sizeof(terminator), 0);
+    (info->hFile->read(&terminator, sizeof(terminator)).bytes == static_cast<std::size_t>(sizeof(terminator)));
     if (terminator != -1) {
         srAssertFail("(uiTerminator == 0xffffffff)",
                      "C:\\Projects\\Wizardry 8\\Engine Code\\ReadMesh.cpp", 0x32c,
@@ -1152,7 +1154,7 @@ unsigned char ReadMultipleLevelMeshes(W8ReadLevelInfo* info, srModelInstance** i
         }
     }
 
-    FileRead(info->hFile, &terminator, sizeof(terminator), 0);
+    (info->hFile->read(&terminator, sizeof(terminator)).bytes == static_cast<std::size_t>(sizeof(terminator)));
     if (terminator != -1) {
         srAssertFail("(uiTerminator == 0xffffffff)",
                      "C:\\Projects\\Wizardry 8\\Engine Code\\ReadMesh.cpp", 0x35b,
@@ -1172,6 +1174,7 @@ unsigned char ReadMultipleLevelMeshes(W8ReadLevelInfo* info, srModelInstance** i
     free(meshes);
     return 1;
 }
+catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x00489920
 void ReleaseRetainedMaterials()
@@ -1225,6 +1228,7 @@ void ReleaseReadMeshScratch()
 
 // FUNCTION: WIZ8 0x00487bd0
 unsigned char SkipSingleLevelMesh(W8ReadLevelInfo* info)
+try
 {
     /* Retail read count/group_count uninitialised when a FileRead
        short-circuited; natively count starts at zero. */
@@ -1240,26 +1244,25 @@ unsigned char SkipSingleLevelMesh(W8ReadLevelInfo* info)
     if (info == 0 || info->world == 0 || info->hFile == 0) {
         return 0;
     }
-    if (!FileRead(info->hFile, &version, 4, 0) || !FileRead(info->hFile, &vertex_count, 4, 0) ||
-        !FileRead(info->hFile, &face_count, 4, 0)) {
+    if (!(info->hFile->read(&version, 4).bytes == static_cast<std::size_t>(4)) || !(info->hFile->read(&vertex_count, 4).bytes == static_cast<std::size_t>(4)) ||
+        !(info->hFile->read(&face_count, 4).bytes == static_cast<std::size_t>(4))) {
         return 0;
     }
     if (vertex_count < 1 || face_count < 1) {
         return 0;
     }
     if (version > 2) {
-        success = FileRead(info->hFile, &flags, 1, 0);
+        success = (info->hFile->read(&flags, 1).bytes == static_cast<std::size_t>(1));
     }
     if (version > 1) {
-        FileSeek(info->hFile, 0x28, FILE_SEEK_FROM_CURRENT);
+        (info->hFile->seek(0x28, wiz8::SeekOrigin::current), true);
     }
     if (version > 3) {
-        if (success == 0 || !FileRead(info->hFile, &count, 1, 0)) {
+        if (success == 0 || !(info->hFile->read(&count, 1).bytes == static_cast<std::size_t>(1))) {
             success = 0;
         }
         if (count != 0) {
-            FileSeek(info->hFile, static_cast<int>(static_cast<signed char>(count)) * 4,
-                     FILE_SEEK_FROM_CURRENT);
+            (info->hFile->seek(static_cast<int>(static_cast<signed char>(count)) * 4, wiz8::SeekOrigin::current), true);
         }
     }
     if ((flags & W8_LEVEL_MESH_LOD_VERTICES) == 0) {
@@ -1268,27 +1271,27 @@ unsigned char SkipSingleLevelMesh(W8ReadLevelInfo* info)
         unsigned char ignored;
         short group_count;
 
-        FileRead(info->hFile, &ignored, 1, 0);
-        FileRead(info->hFile, &group_count, 2, 0);
+        (info->hFile->read(&ignored, 1).bytes == static_cast<std::size_t>(1));
+        (info->hFile->read(&group_count, 2).bytes == static_cast<std::size_t>(2));
         if ((flags & W8_LEVEL_MESH_SHORT_LOD_VERTICES) == 0) {
             vertex_count = group_count * vertex_count * 0xc;
         } else {
             vertex_count = group_count * vertex_count * 6;
         }
     }
-    FileSeek(info->hFile, vertex_count, FILE_SEEK_FROM_CURRENT);
+    (info->hFile->seek(vertex_count, wiz8::SeekOrigin::current), true);
     if ((flags & W8_LEVEL_MESH_COMPRESSED_FACES) == 0) {
         face_count *= 0x29;
     } else {
         face_count *= 0x21;
     }
-    FileSeek(info->hFile, face_count, FILE_SEEK_FROM_CURRENT);
-    if (FileRead(info->hFile, &item_count, 2, 0) && item_count > 0) {
+    (info->hFile->seek(face_count, wiz8::SeekOrigin::current), true);
+    if ((info->hFile->read(&item_count, 2).bytes == static_cast<std::size_t>(2)) && item_count > 0) {
         for (index = 0; index < item_count; ++index) {
-            FileRead(info->hFile, &count, 1, 0);
-            FileSeek(info->hFile, 0x119, FILE_SEEK_FROM_CURRENT);
+            (info->hFile->read(&count, 1).bytes == static_cast<std::size_t>(1));
+            (info->hFile->seek(0x119, wiz8::SeekOrigin::current), true);
             if (count > 3) {
-                FileSeek(info->hFile, 0x10, FILE_SEEK_FROM_CURRENT);
+                (info->hFile->seek(0x10, wiz8::SeekOrigin::current), true);
             }
         }
     }
@@ -1297,3 +1300,4 @@ unsigned char SkipSingleLevelMesh(W8ReadLevelInfo* info)
     }
     return success;
 }
+catch (const std::exception&) { return false; }

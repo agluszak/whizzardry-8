@@ -3,7 +3,7 @@
 #include "wiz8/sr_api.h"
 #include "wiz8/virtual_file.h"
 #include "surrender/srGERD.h"
-#include "FileMan.h"
+#include "wiz8/filesystem.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -156,17 +156,18 @@ unsigned char GetRenderOptionState(W8RenderOption option)
 }
 
 // FUNCTION: WIZ8 0x0047b890
-unsigned char LoadRenderOptions(int handle)
+unsigned char LoadRenderOptions(wiz8::File* handle)
+try
 {
     int version;
     unsigned int transferred;
     unsigned char options[0x14];
     int option;
 
-    if (FileRead(handle, &version, 4, &transferred) == 0 || version != 1) {
+    if (((transferred = handle->read(&version, 4).bytes) == static_cast<std::size_t>(4)) == 0 || version != 1) {
         return 0;
     }
-    if (FileRead(handle, options, W8_RENDER_OPTION_COUNT, &transferred) == 0) {
+    if (((transferred = handle->read(options, W8_RENDER_OPTION_COUNT).bytes) == static_cast<std::size_t>(W8_RENDER_OPTION_COUNT)) == 0) {
         return 0;
     }
     for (option = 0; option < W8_RENDER_OPTION_COUNT; ++option) {
@@ -174,16 +175,16 @@ unsigned char LoadRenderOptions(int handle)
     }
     return 1;
 }
+catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x0047b920
-bool SaveRenderOptions(int handle)
+bool SaveRenderOptions(wiz8::File* handle)
 {
     unsigned int transferred;
     int version = 1;
 
-    if (FileWrite(handle, &version, 4, &transferred) == 0) {
+    if ((handle->write(&version, 4), transferred = 4, true) == 0) {
         return false;
     }
-    return FileWrite(handle, g_render_options->option_states, W8_RENDER_OPTION_COUNT,
-                     &transferred) != 0;
+    return (handle->write(g_render_options->option_states, W8_RENDER_OPTION_COUNT), transferred = W8_RENDER_OPTION_COUNT, true) != 0;
 }

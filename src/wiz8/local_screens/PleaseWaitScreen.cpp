@@ -27,7 +27,7 @@
 #include "wiz8/utility.h"
 
 #include "Font.h"
-#include "FileMan.h"
+#include "wiz8/filesystem.h"
 #include "soundman.h"
 
 #include <stdlib.h>
@@ -35,7 +35,7 @@
 #include <wchar.h>
 #include "line.h"
 #include "wiz8/local_code/NPCManager.h"
-#include "LibraryDataBase.h"
+
 
 /* The screen's descriptor. The entry handler mallocs it, clears it and fills the
    tail from the screen-state record it was entered with; the frame handler reads
@@ -85,7 +85,7 @@ static int g_level_backdrops[W8_LEVEL_COUNT] = {
 // FUNCTION: WIZ8 0x00590db0
 unsigned char PleaseWaitScreenInitialize(void)
 {
-    if (FileExistsNoDB("CD.ROM")) {
+    if ([&]() { const auto status = wiz8::file_status("CD.ROM"); return status && !status->archived && status->info.type == SDL_PATHTYPE_FILE; }()) {
         g_cd_marker_present = true;
     }
     g_level_load_font =
@@ -116,7 +116,7 @@ unsigned char PleaseWaitScreenEnter(void)
             InitializeFactState();
             g_load_descriptor->parameter = SelectNewGameStartLevel();
             ReleaseMessageStorage();
-            FileDelete("Saves\\CurrentGame.SAV");
+            wiz8::remove_file("Saves\\CurrentGame.SAV");
             break;
         case 1:
             g_load_descriptor->parameter = g_current_screen_state.parameter;
@@ -156,7 +156,7 @@ unsigned char PleaseWaitScreenEnter(void)
 // FUNCTION: WIZ8 0x00591620
 static bool PleaseWaitScreenEnsureLevelArchive(int level)
 {
-    if (!FileExistsNoDB("Levels\\Levels.slf") && g_cd_marker_present) {
+    if (![&]() { const auto status = wiz8::file_status("Levels\\Levels.slf"); return status && !status->archived && status->info.type == SDL_PATHTYPE_FILE; }() && g_cd_marker_present) {
         if (IsLevelCdMissing(level)) {
             g_load_descriptor->waiting = true;
             g_load_descriptor->parameter = level;
@@ -173,7 +173,7 @@ static bool PleaseWaitScreenEnsureLevelArchive(int level)
             EnableCursorScene();
             return false;
         }
-        ReopenCDLibraries();
+        wiz8::refresh_asset_archives();
     }
     return true;
 }
@@ -221,7 +221,7 @@ void PleaseWaitScreenFrame(void)
         } else if (GetTickCount() - g_load_descriptor->entered_tick > 200) {
             if (!IsLevelCdMissing(g_load_descriptor->parameter)) {
                 g_load_descriptor->waiting = false;
-                ReopenCDLibraries();
+                wiz8::refresh_asset_archives();
                 g_swap_disc_dialog->is_open = false;
             } else if (!g_swap_disc_dialog->is_open && ++g_swap_disc_dialog_poll_count > 4) {
                 g_swap_disc_dialog->is_open = true;
