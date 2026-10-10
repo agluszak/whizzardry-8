@@ -1645,7 +1645,7 @@ bool W8Monster::EvaluateScriptCondition(const char* expression)
         if (parameters.GetCount() == 0) {
             srAssertFail("lsParmList.Length()", MONSTER_CPP, 7526,
                          FormatString("Monscr %s line %d: PARTYNEAR expects 1 parameter",
-                                      script->getName(), script_line));
+                                      script->getName().c_str(), script_line));
         }
 
         srVector3T<float> current_position = GetPosition();
@@ -1660,7 +1660,7 @@ bool W8Monster::EvaluateScriptCondition(const char* expression)
         if (parameters.GetCount() == 0) {
             srAssertFail("lsParmList.Length()", MONSTER_CPP, 7542,
                          FormatString("Monscr %s line %d: RANDOM expects 1 parameter",
-                                      script->getName(), script_line));
+                                      script->getName().c_str(), script_line));
         }
         if (Chance(static_cast<unsigned int>(*parameters.GetAt(0))) != 0) {
             return true;
@@ -1674,7 +1674,7 @@ bool W8Monster::EvaluateScriptCondition(const char* expression)
    is balanced the same way on both paths: a newly loaded script is marked for
    automatic release, then the Monster takes its own reference. */
 // FUNCTION: WIZ8 0x004C7F10
-bool W8Monster::SetScript(const char* script_name, bool reset_orders)
+bool W8Monster::SetScript(std::string script_name, bool reset_orders)
 {
     srRegistry* registry;
 
@@ -1690,12 +1690,11 @@ bool W8Monster::SetScript(const char* script_name, bool reset_orders)
     registry = srCore.getRegistry();
     script = static_cast<stScript*>(registry->find(stScript::sGetClassNode(), script_name, 0));
     if (script == 0) {
-        /* Retail builds the path only on a registry miss, in a MAX_PATH buffer. */
-        char path[MAX_PATH] = "Data\\Monsters\\Scripts\\";
-        strcat(path, script_name);
+        /* Retail builds the path only on a registry miss. */
+        const std::string path = "Data\\Monsters\\Scripts\\" + script_name;
         script = new stScript;
         if (script != 0) {
-            if (script->Load(path) != 0) {
+            if (script->Load(path.c_str()) != 0) {
                 script->setName(script_name);
                 script->autoRelease();
             } else {
@@ -1951,7 +1950,7 @@ void W8Monster::ProcessScript()
                 }
                 if (!ResolveScriptPosition(token, &position)) {
                     ShutdownWithErrorBox(
-                        FormatString("MonScript %s Line %d: Unknown location %s", script->getName(),
+                        FormatString("MonScript %s Line %d: Unknown location %s", script->getName().c_str(),
                                      script->GetSourceLine(script_line - 1), token));
                     break;
                 }
@@ -1976,7 +1975,7 @@ void W8Monster::ProcessScript()
                 }
                 if (!ResolveScriptPosition(token, &position)) {
                     ShutdownWithErrorBox(
-                        FormatString("MonScript %s Line %d: Unknown location %s", script->getName(),
+                        FormatString("MonScript %s Line %d: Unknown location %s", script->getName().c_str(),
                                      script->GetSourceLine(script_line - 1), token));
                     break;
                 }
@@ -2039,7 +2038,7 @@ void W8Monster::ProcessScript()
                         }
                     } else {
                         ShutdownWithErrorBox(FormatString(
-                            "MonScript %s Line %d: Unknown cycle %s", script->getName(),
+                            "MonScript %s Line %d: Unknown cycle %s", script->getName().c_str(),
                             script->GetSourceLine(script_line - 1), token));
                     }
                 }
@@ -2081,7 +2080,7 @@ void W8Monster::ProcessScript()
                 if (token != 0) {
                     if (!ResolveScriptPosition(token, &position)) {
                         ShutdownWithErrorBox(FormatString(
-                            "MonScript %s Line %d: Unknown location %s", script->getName(),
+                            "MonScript %s Line %d: Unknown location %s", script->getName().c_str(),
                             script->GetSourceLine(script_line - 1), token));
                         break;
                     }
@@ -2124,7 +2123,7 @@ void W8Monster::ProcessScript()
                 } else {
                     ShutdownWithErrorBox(
                         FormatString("MonScript %s Line %d: ELSE without matching IF",
-                                     script->getName(), script->GetSourceLine(script_line - 1)));
+                                     script->getName().c_str(), script->GetSourceLine(script_line - 1)));
                 }
                 break;
             case MONSCR_ENDIF:
@@ -2133,7 +2132,7 @@ void W8Monster::ProcessScript()
                 } else {
                     ShutdownWithErrorBox(
                         FormatString("MonScript %s Line %d: ENDIF without matching IF",
-                                     script->getName(), script->GetSourceLine(script_line - 1)));
+                                     script->getName().c_str(), script->GetSourceLine(script_line - 1)));
                 }
                 break;
             case MONSCR_DISPOSITION: {
@@ -2341,7 +2340,7 @@ void W8Monster::ProcessScript()
                         direction_z = static_cast<float>(sin(angle) * g_double_five_hundred);
                     } else {
                         ShutdownWithErrorBox(FormatString(
-                            "MonScript %s Line %d: Unknown direction %s", script->getName(),
+                            "MonScript %s Line %d: Unknown direction %s", script->getName().c_str(),
                             script->GetSourceLine(script_line - 1), token));
                     }
                 }
@@ -2375,7 +2374,7 @@ void W8Monster::ProcessScript()
                     srVector3T<float> position;
                     if (!ResolveScriptPosition(token, &position)) {
                         ShutdownWithErrorBox(FormatString(
-                            "MonScript %s Line %d: Unknown location %s", script->getName(),
+                            "MonScript %s Line %d: Unknown location %s", script->getName().c_str(),
                             script->GetSourceLine(script_line - 1), token));
                         break;
                     }
@@ -2390,7 +2389,7 @@ void W8Monster::ProcessScript()
                     srVector3T<float> position;
                     if (!ResolveScriptPosition(token, &position)) {
                         ShutdownWithErrorBox(FormatString(
-                            "MonScript %s Line %d: Unknown location %s", script->getName(),
+                            "MonScript %s Line %d: Unknown location %s", script->getName().c_str(),
                             script->GetSourceLine(script_line - 1), token));
                         continue;
                     }
@@ -2423,13 +2422,13 @@ void W8Monster::ProcessScript()
                         look_duration = atoi(token);
                     } else {
                         ShutdownWithErrorBox(FormatString(
-                            "MonScript %s Line %d: Missing lookabout duration", script->getName(),
+                            "MonScript %s Line %d: Missing lookabout duration", script->getName().c_str(),
                             script->GetSourceLine(script_line - 1)));
                     }
                 } else {
                     ShutdownWithErrorBox(
                         FormatString("MonScript %s Line %d: Missing lookabout frequency",
-                                     script->getName(), script->GetSourceLine(script_line - 1)));
+                                     script->getName().c_str(), script->GetSourceLine(script_line - 1)));
                 }
                 break;
             case MONSCR_STAYHOME:
@@ -3558,7 +3557,7 @@ void W8Monster::SetCycle(signed char cycle)
         m_pRep->highlight_colour = empty;
         instance = SelectCycleFrameLod(m_pRep->current_cycle, 0, m_pRep->m_bLOD);
         if (instance != 0 && instance->getModel() != 0 &&
-            strstr(instance->getModel()->getName(), "gib") != 0) {
+            strstr(instance->getModel()->getName().c_str(), "gib") != 0) {
             SetAngles(static_cast<float>(g_monster_death_rotation_pi *
                                          g_float_inverse_half_turn_degrees * Random(0x168)));
         }

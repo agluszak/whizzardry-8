@@ -793,7 +793,8 @@ void srVP_generic::_normalize(srVector3* destination, const srVector3* vectors, 
                               SRDWORD count)
 {
     for (SRDWORD index = 0; index < count; ++index) {
-        float scale = length / vectors[index].Length();
+        const float magnitude = vectors[index].Length();
+        const float scale = magnitude == 0.0f ? 0.0f : length / magnitude;
         destination[index] = vectors[index] * scale;
     }
 }
@@ -1130,7 +1131,8 @@ void srVP_generic::_normalize(srVector4* destination, const srVector4* vectors, 
                               SRDWORD count)
 {
     for (SRDWORD index = 0; index < count; ++index) {
-        float scale = length / vectors[index].Length();
+        const float magnitude = vectors[index].Length();
+        const float scale = magnitude == 0.0f ? 0.0f : length / magnitude;
         destination[index] = vectors[index] * scale;
     }
 }

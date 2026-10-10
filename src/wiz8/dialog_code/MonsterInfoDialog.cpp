@@ -436,7 +436,7 @@ bool W8MonsterInfoDialog::PopulateText()
         leader_info = MonsterInfoFromID(0x1d6, MONSTER_INFO_DIALOG_CPP, leader_location_id, true);
         script = leader_info->p3D->script;
         m_text_area.AddEntry(L"Leader's Current Script",
-                             FormatWideString(L"<%S>", script != 0 ? script->getName() : 0), 5, 0xf,
+                             FormatWideString(L"<%S>", script != 0 ? script->getName().c_str() : ""), 5, 0xf,
                              0);
         m_text_area.AddEntry(L"Leader's AI Mode",
                              FormatWideString(g_format_d, leader_info->ai_mode), 5, 0xf, 0);

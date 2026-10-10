@@ -220,7 +220,7 @@ void AssociateWorldLights(W8World* world)
             for (prop_index = 0; prop_index < prop_count; ++prop_index) {
                 W8Prop* prop = GetWorldProp(world, prop_index);
 
-                if (prop->m_name != 0 && _stricmp(prop->m_name, light->getName()) == 0) {
+                if (prop->m_name != 0 && _stricmp(prop->m_name, light->getName().c_str()) == 0) {
                     srModelInstance* instance = prop->ToggleRepAnimationDefault();
                     light->m_prop = prop;
                     GetModelAnimatedTexture(instance)->animation_mode = W8_TEXTURE_ANIM_MANUAL;
@@ -321,7 +321,7 @@ static unsigned char ReadWorldLights(W8World* world, int hFile)
         }
 
         if (light != 0) {
-            if (_strnicmp(light->getName(), "Sun", 3) == 0) {
+            if (_strnicmp(light->getName().c_str(), "Sun", 3) == 0) {
                 light->diffuse.SetZero();
                 light->ambient = record.colour;
                 light->setGroupMask(light->getGroupMask() | 4);

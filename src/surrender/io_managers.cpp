@@ -1,5 +1,5 @@
-#include <ctype.h>
-#include <string.h>
+#include <algorithm>
+#include <cctype>
 #include <memory>
 
 #include "surrender/srBinFStream.h"
@@ -9,91 +9,70 @@
 #include "surrender/srIStreamOpener.h"
 #include "surrender/srImporter.h"
 
+namespace {
+std::string upperExtension(std::string_view extension)
+{
+    std::string result(extension);
+    for (char& character : result) {
+        character = static_cast<char>(std::toupper(static_cast<unsigned char>(character)));
+    }
+    return result;
+}
+} // namespace
+
 // FUNCTION: SURRENDER 0x1002CB10
-const char* srIOManager::Error::getDescription()
+std::string_view srIOManager::Error::getDescription() const
 {
     return description;
 }
 
-// FUNCTION: SURRENDER 0x1002C890
-srIOManager::srIOManager() {}
-
-// FUNCTION: SURRENDER 0x1002C920
-srIOManager::~srIOManager() {}
-
 // FUNCTION: SURRENDER 0x1002D1C0
-const char* srIOManager::getExtension(const char* path)
+std::string_view srIOManager::getExtension(std::string_view path)
 {
-    for (w8_long index = (w8_long)strlen(path) - 1;
-         index >= 0 && path[index] != '/' && path[index] != '\\'; --index) {
-        if (path[index] == '.') {
-            return path + index + 1;
-        }
+    const auto delimiter = path.find_last_of("./\\");
+    if (delimiter != std::string_view::npos && path[delimiter] == '.') {
+        return path.substr(delimiter + 1);
     }
-    return 0;
+    return {};
 }
 
 // FUNCTION: SURRENDER 0x1002C9D0
-srIOManager::Importer* srIOManager::findImporter(const char* extension)
+srIOManager::Importer* srIOManager::findImporter(std::string_view extension)
 {
-    if (extension == 0 || *extension == '\0') {
-        return 0;
-    }
-    char* upper = new char[strlen(extension) + 1];
-    strcpy(upper, extension);
-    for (w8_ulong index = 0; index < strlen(extension); ++index) {
-        if (islower(upper[index]) != 0) {
-            upper[index] = (char)toupper(upper[index]);
+    if (!extension.empty()) {
+        const auto upper = upperExtension(extension);
+        for (const auto& [registered_extension, importer] : importers) {
+            if (registered_extension == upper) return importer;
         }
     }
-    Importer* result = importers.find(upper);
-    delete[] upper;
-    return result;
+    return nullptr;
 }
 
 // FUNCTION: SURRENDER 0x1002CB20
-srIOManager::Exporter* srIOManager::findExporter(const char* extension)
+srIOManager::Exporter* srIOManager::findExporter(std::string_view extension)
 {
-    if (extension == 0 || *extension == '\0') {
-        return 0;
-    }
-    char* upper = new char[strlen(extension) + 1];
-    strcpy(upper, extension);
-    for (w8_ulong index = 0; index < strlen(extension); ++index) {
-        if (islower(upper[index]) != 0) {
-            upper[index] = (char)toupper(upper[index]);
+    if (!extension.empty()) {
+        const auto upper = upperExtension(extension);
+        for (const auto& [registered_extension, exporter] : exporters) {
+            if (registered_extension == upper) return exporter;
         }
     }
-    Exporter* result = exporters.find(upper);
-    delete[] upper;
-    return result;
+    return nullptr;
 }
 
 // FUNCTION: SURRENDER 0x1002CCC0
-void srIOManager::addImporter(Importer* importer, const char* extension)
+void srIOManager::addImporter(Importer* importer, std::string_view extension)
 {
-    if (importer != 0 && extension != 0 && *extension != '\0') {
-        char* upper = new char[strlen(extension) + 1];
-        strcpy(upper, extension);
-        w8_long length = strlen(upper);
-        for (w8_long index = 0; index < length; ++index) {
-            upper[index] = (char)toupper(upper[index]);
-        }
-        importers.insert(importers.sentinel, upper, importer);
+    if (importer != nullptr && !extension.empty()) {
+        importers.emplace_back(upperExtension(extension), importer);
     }
 }
 
 // FUNCTION: SURRENDER 0x1002CE30
-void srIOManager::addExporter(Exporter* exporter, const char* extension)
+void srIOManager::addExporter(Exporter* exporter, std::string_view extension)
 {
-    if (exporter != 0 && extension != 0 && *extension != '\0') {
-        char* upper = new char[strlen(extension) + 1];
-        strcpy(upper, extension);
-        w8_long length = strlen(upper);
-        for (w8_long index = 0; index < length; ++index) {
-            upper[index] = (char)toupper(upper[index]);
-        }
-        exporters.insert(exporters.sentinel, upper, exporter);
+    if (exporter != nullptr && !extension.empty()) {
+        exporters.emplace_back(upperExtension(extension), exporter);
     }
 }
 
@@ -103,11 +82,9 @@ void srIOManager::removeImporter(Importer* importer)
     if (importer == 0) {
         return;
     }
-    ImporterRegistration* node;
-    while ((node = importers.find(importer)) != 0) {
-        delete[] node->extension;
-        importers.erase(node);
-    }
+    std::erase_if(importers, [importer](const auto& registration) {
+        return registration.second == importer;
+    });
 }
 
 // FUNCTION: SURRENDER 0x1002D090
@@ -116,11 +93,9 @@ void srIOManager::removeExporter(Exporter* exporter)
     if (exporter == 0) {
         return;
     }
-    ExporterRegistration* node;
-    while ((node = exporters.find(exporter)) != 0) {
-        delete[] node->extension;
-        exporters.erase(node);
-    }
+    std::erase_if(exporters, [exporter](const auto& registration) {
+        return registration.second == exporter;
+    });
 }
 
 // FUNCTION: SURRENDER 0x1002D100
@@ -128,47 +103,42 @@ void srIOManager::dump()
 {
     srPrintf("extension   importer\n");
     srPrintf("-----------------------------------------------------------------\n");
-    ImporterRegistration* node = importers.first;
-    while (node != importers.sentinel) {
-        srPrintf("%-8s    '%s'\n", node->extension, node->importer->getTypeName());
-        node = node->next;
+    for (const auto& [extension, importer] : importers) {
+        srPrintf("%-8s    '%s'\n", extension.c_str(), importer->getTypeName());
     }
     srPrintf("-----------------------------------------------------------------\n");
-    srPrintf("total %d instances\n", importers.count);
+    srPrintf("total %zu instances\n", importers.size());
     srPrintf("extension   exporter\n");
     srPrintf("-----------------------------------------------------------------\n");
-    ExporterRegistration* exporter_node = exporters.first;
-    while (exporter_node != exporters.sentinel) {
-        srPrintf("%-8s    '%s'\n", exporter_node->extension,
-                 exporter_node->exporter->getTypeName());
-        exporter_node = exporter_node->next;
+    for (const auto& [extension, exporter] : exporters) {
+        srPrintf("%-8s    '%s'\n", extension.c_str(), exporter->getTypeName());
     }
     srPrintf("-----------------------------------------------------------------\n");
-    srPrintf("total %d instances\n", exporters.count);
+    srPrintf("total %zu instances\n", exporters.size());
 }
 
 // FUNCTION: SURRENDER 0x1002D200
-void srIOManager::Importer::addToImporters(srIOManager* manager, const char* extension)
+void srIOManager::Importer::addToImporters(srIOManager* manager, std::string_view extension)
 {
     manager->addImporter(this, extension);
 }
 
 // FUNCTION: SURRENDER 0x1002D220
-void srIOManager::Exporter::addToExporters(srIOManager* manager, const char* extension)
+void srIOManager::Exporter::addToExporters(srIOManager* manager, std::string_view extension)
 {
     manager->addExporter(this, extension);
 }
 
 // FUNCTION: SURRENDER 0x1002D240
 void srIOManager::Importer::addToImporters(srIOManager* manager, srIOManager::Importer* importer,
-                                           const char* extension)
+                                           std::string_view extension)
 {
     manager->addImporter(importer, extension);
 }
 
 // FUNCTION: SURRENDER 0x1002D260
 void srIOManager::Exporter::addToExporters(srIOManager* manager, srIOManager::Exporter* exporter,
-                                           const char* extension)
+                                           std::string_view extension)
 {
     manager->addExporter(exporter, extension);
 }
@@ -185,46 +155,6 @@ void srIOManager::Exporter::removeFromExporters(srIOManager* manager)
     manager->removeExporter(this);
 }
 
-// FUNCTION: SURRENDER 0x1002D300
-void srIOManager::ImporterList::insert(ImporterRegistration* position, char* extension,
-                                       Importer* importer)
-{
-    ImporterRegistration* node = new ImporterRegistration();
-    node->extension = extension;
-    node->importer = importer;
-    node->next = position;
-    node->previous = position->previous;
-    if (node->previous != 0) {
-        node->previous->next = node;
-    } else {
-        first = node;
-    }
-    if (node->next != 0) {
-        node->next->previous = node;
-    }
-    ++count;
-}
-
-// FUNCTION: SURRENDER 0x1002D360
-void srIOManager::ExporterList::insert(ExporterRegistration* position, char* extension,
-                                       Exporter* exporter)
-{
-    ExporterRegistration* node = new ExporterRegistration();
-    node->extension = extension;
-    node->exporter = exporter;
-    node->next = position;
-    node->previous = position->previous;
-    if (node->previous != 0) {
-        node->previous->next = node;
-    } else {
-        first = node;
-    }
-    if (node->next != 0) {
-        node->next->previous = node;
-    }
-    ++count;
-}
-
 // FUNCTION: SURRENDER 0x1002D440
 void srHierarchyIOManager::importHierarchy(const char* path, const ImportInfo& options)
 {
@@ -234,10 +164,9 @@ void srHierarchyIOManager::importHierarchy(const char* path, const ImportInfo& o
         if (importer == 0) {
             throw Error("srHierarchyIOManager::importHierarchy: Importer could not be found");
         }
-        srBinIStream* stream = srCore.getIStreamOpener()->open(path);
+        std::unique_ptr<srBinIStream> stream(srCore.getIStreamOpener()->open(path));
         if (stream != 0 && stream->good()) {
             importer->importHierarchy(*stream, options);
-            delete static_cast<srBinStream*>(stream);
             return;
         }
         throw Error("srHierarchyIOManager::importHierarchy: File could not be opened");
@@ -271,11 +200,9 @@ srModel* srModelIOManager::importModel(const char* path, const ImportInfo& optio
         if (importer == 0) {
             throw Error("srModelIOManager::importModel: Importer could not be found");
         }
-        srBinIStream* stream = srCore.getIStreamOpener()->open(path);
+        std::unique_ptr<srBinIStream> stream(srCore.getIStreamOpener()->open(path));
         if (stream != 0 && stream->good()) {
-            srModel* model = importer->importModel(*stream, options);
-            delete static_cast<srBinStream*>(stream);
-            return model;
+            return importer->importModel(*stream, options);
         }
         throw Error("srModelIOManager::importModel: File could not be opened");
     }
@@ -378,8 +305,7 @@ srColorSurfaceIFace* srSurfaceIOManager::importSurface(const char* path, srBinIS
 srColorSurfaceIFace* srSurfaceIOManager::importSurface(const char* path, const ImportInfo& options)
 {
     if (path != 0 && *path != '\0') {
-        const char* extension = getExtension(path);
-        Importer* importer = findImporter(extension);
+        Importer* importer = findImporter(getExtension(path));
         if (importer == 0) {
             throw Error("srSurfaceIOManager::importSurface() - Importer for this file "
                         "extension not found");
@@ -404,8 +330,7 @@ void srSurfaceIOManager::exportSurface(const char* path, srColorSurfaceIFace& su
                                        const ExportInfo& options)
 {
     if (path != 0 && *path != '\0') {
-        const char* extension = getExtension(path);
-        Exporter* exporter = findExporter(extension);
+        Exporter* exporter = findExporter(getExtension(path));
         if (exporter == 0) {
             throw Error("srSurfaceIOManager::exportSurface() - Exporter not found");
         }

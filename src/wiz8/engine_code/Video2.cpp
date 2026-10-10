@@ -2293,7 +2293,7 @@ unsigned char InitializeRendererSceneObjects(void)
     if (!g_surface_node)
         return 0;
 
-    strncpy(renderer_name, g_gerd->getName(), 127);
+    strncpy(renderer_name, g_gerd->getName().c_str(), 127);
     renderer_name[127] = 0;
     _strupr(renderer_name);
     if (strstr(renderer_name, "GLIDE")) {
@@ -3210,7 +3210,7 @@ int GetRendererFamily(void)
     if (!g_gerd) {
         return -1;
     }
-    strncpy(name, g_gerd->getName(), sizeof(name) - 1);
+    strncpy(name, g_gerd->getName().c_str(), sizeof(name) - 1);
     name[sizeof(name) - 1] = '\0';
     _strupr(name);
     if (strstr(name, "OPENGL"))

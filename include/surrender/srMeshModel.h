@@ -1,8 +1,8 @@
 #pragma once
 
+#include <array>
 #include <iosfwd>
-
-#include <new>
+#include <vector>
 
 #include "srFlags.h"
 #include "srMaterial.h"
@@ -21,7 +21,7 @@ class srMeshModel : public srClassSupport<srMeshModel, srModel, 0, 0x2010> {
 public:
     /* Front/back table indices: dump labels materials[pass][0/1] and
        renderTriMesh uses the corresponding CONTROL_FRONT/BACK bits. */
-    enum e_side { SIDE_FRONT = 0, SIDE_BACK = 1 };
+    enum e_side : int { SIDE_FRONT = 0, SIDE_BACK = 1 };
     /* Bit indices into dirty_flags. calculateBounds, calculatePolygonNormals,
        calculateVertexNormals and updateTriMesh clear bits 0, 1, 2 and 3.
        Raising the bounds bit notifies model clients. */
@@ -45,40 +45,39 @@ public:
     };
     /* The four per-pass table slots cap t.passes, as verify() asserts. */
     enum { MAX_PASSES = 4 };
-    /* Detached triangle-mesh view: updateTriMesh fills it from the live tables, getTriMesh copies
-       or returns it and renderTriMesh feeds srTriMeshPipeline from it. */
+    /* Borrowed triangle-mesh view: updateTriMesh fills it from the live tables. Keep the model
+       and its table storage unchanged until renderTriMesh/FlushSlots finishes submission. */
     struct TriMesh {
-        TriMesh() : control_flags(0) {}
-
-        w8_long vertex_count;
-        w8_long polygon_count;
-        w8_long pass_count;
-        w8_ulong control_flags;
-        srVector3i* poly_vertices;
-        srVector4T<float>* poly_equations;
-        srVector2T<float>* texcoords[4][2];
-        srVector3T<float>* positions;
-        srVector3T<float>* normals;
-        srVector3T<float>* dig[4];
-        srVector4T<float>* dcg[4];
-        srVector4T<float>* scg[4];
-        srMaterial* materials[4][2];
-        srTextureIFace* textures[4][2];
+        w8_long vertex_count = 0;
+        w8_long polygon_count = 0;
+        w8_long pass_count = 0;
+        w8_ulong control_flags = 0;
+        srVector3i* poly_vertices = nullptr;
+        srVector4T<float>* poly_equations = nullptr;
+        srVector2T<float>* texcoords[4][2]{};
+        srVector3T<float>* positions = nullptr;
+        srVector3T<float>* normals = nullptr;
+        srVector3T<float>* dig[4]{};
+        srVector4T<float>* dcg[4]{};
+        srVector4T<float>* scg[4]{};
+        srMaterial* materials[4][2]{};
+        srTextureIFace* textures[4][2]{};
         srShader shaders[4];
-        srPtr<srMaterialIFace>* vertex_materials[4][2];
-        srPtr<srTextureIFace>* poly_textures[4][2];
-        srShader* poly_shaders[4];
-        srVector3i* poly_uv[4];
-        srVector3T<float> bounds_minimum;
-        srVector3T<float> bounds_maximum;
-        srVector3T<float> bounds_center;
-        float bounds_radius;
-        float sort_bias;
-        w8_ulong* active_polygons;
-        w8_long active_polygon_count;
+        srPtr<srMaterialIFace>* vertex_materials[4][2]{};
+        srPtr<srTextureIFace>* poly_textures[4][2]{};
+        srShader* poly_shaders[4]{};
+        srVector3i* poly_uv[4]{};
+        srVector3T<float> bounds_minimum{0.0f, 0.0f, 0.0f};
+        srVector3T<float> bounds_maximum{0.0f, 0.0f, 0.0f};
+        srVector3T<float> bounds_center{0.0f, 0.0f, 0.0f};
+        float bounds_radius = 0.0f;
+        float sort_bias = 0.0f;
+        w8_ulong* active_polygons = nullptr;
+        w8_long active_polygon_count = 0;
     };
 
     SR_DLL_IMPORT srMeshModel(w8_long polygons = 0, w8_long vertices = 0);
+    srMeshModel(const srMeshModel& other);
 
     SR_DLL_IMPORT void reset(w8_long polygons, w8_long vertices);
     SR_DLL_IMPORT void scale(const srVector3T<float>& scale);
@@ -195,8 +194,6 @@ public:
                                  const srVector3T<float>& center, float radius);
 
 protected:
-    SR_DLL_IMPORT virtual ~srMeshModel() override;
-    void freeAll();
     SR_DLL_IMPORT virtual void updateTriMesh();
     SR_DLL_IMPORT virtual void calculateBounds();
     SR_DLL_IMPORT virtual void calculatePolygonNormals();
@@ -204,94 +201,35 @@ protected:
 
 public:
     /* setMaterial indexes [pass][side]. */
-    srPtr<srMaterialIFace> materials[4][2];
-    srPtr<srTextureIFace> textures[4][2];
-    srShader shaders[4];
-    /* Lazily grown mesh table; every table accessor resizes it to its governing count on first use. */
-    template <class T> struct MeshTable {
-        MeshTable() : data(0), count(0) {}
-        MeshTable(const MeshTable& other) : data(0), count(0)
-        {
-            *this = other;
-        }
-        ~MeshTable()
-        {
-            Release();
-        }
-        MeshTable& operator=(const MeshTable& other)
-        {
-            if (this != &other) {
-                Release();
-                if (other.count != 0) {
-                    Resize(other.count, 1);
-                    Copy(data, other.data, count);
-                }
-            }
-            return *this;
-        }
-
-        /* Release each element, free the allocation, and zero the pair. */
-        void Release()
-        {
-            delete[] data;
-            data = 0;
-            count = 0;
-        }
-
-        /* Fresh storage, a min(old,new) prefix copy when preserve is set, then the old table's
-           Release(). */
-        void Resize(w8_ulong elements, int preserve)
-        {
-            if (count != elements) {
-                if (elements == 0) {
-                    Release();
-                    return;
-                }
-                T* replacement = new T[elements];
-                if (data != 0 && count != 0 && preserve != 0) {
-                    Copy(replacement, data, elements < count ? elements : count);
-                }
-                Release();
-                data = replacement;
-                count = elements;
-            }
-        }
-
-        static void Copy(T* destination, const T* source, w8_ulong count)
-        {
-            for (w8_ulong index = 0; index < count; ++index) {
-                destination[index] = source[index];
-            }
-        }
-
-        T* data;
-        w8_ulong count;
-    };
-
-    MeshTable<srPtr<srTextureIFace> > poly_textures[4][2];
-    MeshTable<srShader> poly_shaders[4];
-    MeshTable<srPtr<srMaterialIFace> > vertex_materials[4][2];
-    MeshTable<srVector3i> poly_vertices;
-    MeshTable<srVector3i> poly_uv_indices[4];
-    MeshTable<srVector4T<float> > poly_equations;
-    MeshTable<srVector2T<float> > texcoords[4][2];
-    MeshTable<srVector3T<float> > dig[4];
-    MeshTable<srVector4T<float> > dcg[4];
-    MeshTable<srVector4T<float> > scg[4];
-    MeshTable<srVector3T<float> > vertex_locations;
-    MeshTable<srVector3T<float> > vertex_normals;
-    MeshTable<w8_ulong> vertex_shade_indices;
-    MeshTable<w8_ulong> active_polygons;
-    w8_long active_polygon_count;
-    srVector3T<float> bounds_minimum;
-    srVector3T<float> bounds_maximum;
-    srVector3T<float> bounds_center;
-    float bounds_radius;
-    w8_long pass_count;
-    w8_long vertex_location_count;
-    w8_long polygon_count;
-    w8_long uv_count;
-    float sort_bias;
+    std::array<std::array<srPtr<srMaterialIFace>, 2>, MAX_PASSES> materials;
+    std::array<std::array<srPtr<srTextureIFace>, 2>, MAX_PASSES> textures;
+    std::array<srShader, MAX_PASSES> shaders;
+    /* Empty vectors are absent tables, even if a previous resize retained capacity. Accessors
+       allocate only on demand and return nullptr for absent tables, not vector::data(). */
+    std::array<std::array<std::vector<srPtr<srTextureIFace>>, 2>, MAX_PASSES> poly_textures;
+    std::array<std::vector<srShader>, MAX_PASSES> poly_shaders;
+    std::array<std::array<std::vector<srPtr<srMaterialIFace>>, 2>, MAX_PASSES> vertex_materials;
+    std::vector<srVector3i> poly_vertices;
+    std::array<std::vector<srVector3i>, MAX_PASSES> poly_uv_indices;
+    std::vector<srVector4T<float>> poly_equations;
+    std::array<std::array<std::vector<srVector2T<float>>, 2>, MAX_PASSES> texcoords;
+    std::array<std::vector<srVector3T<float>>, MAX_PASSES> dig;
+    std::array<std::vector<srVector4T<float>>, MAX_PASSES> dcg;
+    std::array<std::vector<srVector4T<float>>, MAX_PASSES> scg;
+    std::vector<srVector3T<float>> vertex_locations;
+    std::vector<srVector3T<float>> vertex_normals;
+    std::vector<w8_ulong> vertex_shade_indices;
+    std::vector<w8_ulong> active_polygons;
+    w8_long active_polygon_count = 0;
+    srVector3T<float> bounds_minimum{0.0f, 0.0f, 0.0f};
+    srVector3T<float> bounds_maximum{0.0f, 0.0f, 0.0f};
+    srVector3T<float> bounds_center{0.0f, 0.0f, 0.0f};
+    float bounds_radius = 0.0f;
+    w8_long pass_count = 1;
+    w8_long vertex_location_count = 0;
+    w8_long polygon_count = 0;
+    w8_long uv_count = 0;
+    float sort_bias = 0.0f;
     TriMesh tri_mesh;
     srFlags<e_flags> dirty_flags;
     srFlags<e_control> render_control;

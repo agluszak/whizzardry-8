@@ -16,14 +16,6 @@ public:
     /* Historical command ids retained for renderer-operation statistics. */
     enum e_command {
         COMMAND_DUMMY = 0,
-        COMMAND_MEMCMP = 1,
-        COMMAND_MEMCOPY_VOID_ARRAY_VOID_ARRAY = 2,
-        COMMAND_MEMCOPY_VOID_ARRAY_BYTE = 3,
-        COMMAND_PREFETCH = 4,
-        COMMAND_COPY_INTERLEAVED = 5,
-        COMMAND_SWAP = 6,
-        COMMAND_COPY_DWORD_ARRAY_DWORD = 7,
-        COMMAND_REVERSE = 8,
         COMMAND_AND_DWORD_ARRAY_DWORD_ARRAY_DWORD = 9,
         COMMAND_OR_DWORD_ARRAY_DWORD_ARRAY_DWORD = 10,
         COMMAND_XOR_DWORD_ARRAY_DWORD_ARRAY_DWORD = 11,
@@ -82,7 +74,6 @@ public:
         COMMAND_ABS = 64,
         COMMAND_NEG = 65,
         COMMAND_CUBIC = 66,
-        COMMAND_COPY_VEC3_ARRAY_VEC3_CONSTANT = 67,
         COMMAND_COPY_VEC3_ARRAY_VEC4_ARRAY = 68,
         COMMAND_ADD_VEC3_ARRAY_VEC3_CONSTANT_VEC3_ARRAY = 69,
         COMMAND_SUB_VEC3_ARRAY_VEC3_CONSTANT_VEC3_ARRAY = 70,
@@ -112,7 +103,6 @@ public:
         COMMAND_MUL_INDEXED_VEC3_ARRAY_VEC3_CONSTANT_VEC3_ARRAY_DWORD_ARRAY = 94,
         COMMAND_DIR_VEC3_ARRAY_FLOAT_ARRAY_VEC3_ARRAY = 95,
         COMMAND_DIR_VEC3_ARRAY_FLOAT_ARRAY_VEC4_ARRAY = 96,
-        COMMAND_COPY_VEC4_ARRAY_VEC4_CONSTANT = 97,
         COMMAND_COPY_VEC4_ARRAY_VEC3_ARRAY_FLOAT = 98,
         COMMAND_COPY_VEC4_ARRAY_VEC3_ARRAY_FLOAT_ARRAY = 99,
         COMMAND_COPY_W_VEC4_ARRAY_FLOAT = 100,
@@ -172,7 +162,6 @@ public:
         COMMAND_TRANSFORM_INDEXED_VEC4_ARRAY_VEC3_ARRAY_DWORD_ARRAY_MAT4_CONSTANT = 154,
         COMMAND_DOT_INDEXED = 155,
         COMMAND_DOT_FLOAT_ARRAY_VEC4_CONSTANT_VEC3_ARRAY = 156,
-        COMMAND_COPY_VEC2_ARRAY_VEC2_CONSTANT = 157,
         COMMAND_COPY_INDEXED_VEC2_ARRAY_VEC2_ARRAY_DWORD_ARRAY = 158,
         COMMAND_DIV_VEC2_ARRAY_VEC2_ARRAY_FLOAT_ARRAY = 159,
         COMMAND_SR_CULL_NO_CLIP = 160,
@@ -183,8 +172,6 @@ public:
     };
 
     srDebugVP(srVP* processor);
-    /* Destruction is consistent with base-only cleanup; the reconstruction
-       leaves the derived destructor implicit. */
 
     /* Every override below wraps the same-numbered call on processor in a ScopeTimer. The
        _max/_min(const SRDWORD*) bodies swap their command ids and targets. */

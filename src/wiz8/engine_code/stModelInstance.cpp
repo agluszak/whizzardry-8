@@ -51,7 +51,7 @@ stTextureAnim* stModelInstance::FindMouthTexture()
                     srTextureIFace* texture = textures[polygon].get();
 
                     if (texture != 0 && texture->getClassID() == stTextureAnim::CLASS_ID &&
-                        _strnicmp(texture->getName(), "mouth", 5) == 0) {
+                        _strnicmp(texture->getName().c_str(), "mouth", 5) == 0) {
                         return static_cast<stTextureAnim*>(texture);
                     }
                 }
@@ -68,7 +68,7 @@ stTextureAnim* stModelInstance::FindMouthTexture()
                     srTextureIFace* texture = textures[polygon].get();
 
                     if (texture != 0 && texture->getClassID() == stTextureAnim::CLASS_ID &&
-                        _strnicmp(texture->getName(), "mouth", 5) == 0) {
+                        _strnicmp(texture->getName().c_str(), "mouth", 5) == 0) {
                         return static_cast<stTextureAnim*>(texture);
                     }
                 }
@@ -174,7 +174,7 @@ unsigned char stModelInstance::ReplaceDamageStageTexture(int stage, const char* 
                 continue;
             }
 
-            if (_stricmp(texture->getName(), old_name) == 0) {
+            if (_stricmp(texture->getName().c_str(), old_name) == 0) {
                 replaced = true;
                 while (polygon < mesh->polygon_count && textures[polygon].get() == texture) {
                     textures[polygon] = replacement;
@@ -787,7 +787,7 @@ void stModelInstance::RenderMeshes(srGERD& renderer)
             if (((model->flags & W8_MESH_SORTED_RENDERING) == 0) || (model == first_model)) {
                 if (mesh.poly_textures[0][0] != 0 ||
                     ((mesh.textures[0][0] != 0) &&
-                     (_strnicmp("blank", mesh.textures[0][0]->getName(), 5) != 0))) {
+                     (_strnicmp("blank", mesh.textures[0][0]->getName().c_str(), 5) != 0))) {
                     g_vertex_scratch.resize(mesh.vertex_count);
 
                     const srVector3T<float>* poly_normals = 0;

@@ -838,7 +838,7 @@ static bool SaveMonsterRecord(W8Chunk* chunks, unsigned int index)
         has_script = 1;
         chunks->Write(&has_script, 1, 0);
         memset(script_name, 0, sizeof(script_name));
-        strcpy(script_name, info->p3D->script != 0 ? info->p3D->script->getName() : 0);
+        strcpy(script_name, info->p3D->script->getName().c_str());
         script_wait = info->p3D->script_wait;
         script_line = info->p3D->script_line;
         chunks->Write(script_name, 0x40, 0);

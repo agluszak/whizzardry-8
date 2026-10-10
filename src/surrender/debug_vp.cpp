@@ -7,31 +7,16 @@ const char* srDebugVP::command_names[COMMAND_COUNT];
 
 // FUNCTION: SURRENDER 0x10068FD0
 srDebugVP::srDebugVP(srVP* processor)
+    : check_misalignments(0), processor(processor), call_overhead(0), call_times{},
+      element_counts{}, call_counts{}, misaligned8{}, misaligned16{}
 {
     int iteration;
-
-    this->processor = processor;
-    call_times[0] = 0.0;
     for (iteration = 0; iteration < 0x2710; ++iteration) {
         ScopeTimer scope(this, 0, COMMAND_DUMMY, 0, 0, 0, 0);
     }
     call_overhead = call_times[0] * 0.0001;
     resetInternalStatistics();
     command_names[COMMAND_DUMMY] = "dummy command";
-    command_names[COMMAND_MEMCMP] =
-        "_memcmp  (const void* src0, const void* src1,  const SRDWORD bytes)";
-    command_names[COMMAND_MEMCOPY_VOID_ARRAY_VOID_ARRAY] =
-        "_memcopy (void* dest, const void* src,  const SRDWORD bytes)";
-    command_names[COMMAND_MEMCOPY_VOID_ARRAY_BYTE] =
-        "_memcopy (void* dest, const SRBYTE src,  const SRDWORD bytes)";
-    command_names[COMMAND_PREFETCH] = "_prefetch (const void* dest, const SRDWORD bytes)";
-    command_names[COMMAND_COPY_INTERLEAVED] =
-        "_copyInterleaved(void* dest, const void* src, SRDWORD dstPitch, SRDWORD "
-        "srcPitch, SRDWORD width, SRDWORD n)";
-    command_names[COMMAND_SWAP] = "_swap (void* d0, void* d1, const SRDWORD bytes)";
-    command_names[COMMAND_COPY_DWORD_ARRAY_DWORD] =
-        "_copy (SRDWORD* dest, const SRDWORD c, const SRDWORD n)";
-    command_names[COMMAND_REVERSE] = "_reverse (SRDWORD* dest, const SRDWORD* s, const SRDWORD n)";
     command_names[COMMAND_AND_DWORD_ARRAY_DWORD_ARRAY_DWORD] =
         "_and  (SRDWORD* dest, const SRDWORD* s,  const SRDWORD c, const SRDWORD n)";
     command_names[COMMAND_OR_DWORD_ARRAY_DWORD_ARRAY_DWORD] =
@@ -147,8 +132,6 @@ srDebugVP::srDebugVP(srVP* processor)
     command_names[COMMAND_NEG] = "_neg (float* dest, const float* source, const SRDWORD n)";
     command_names[COMMAND_CUBIC] =
         "_cubic (float* dest, const float* source, const SRDWORD count);";
-    command_names[COMMAND_COPY_VEC3_ARRAY_VEC3_CONSTANT] =
-        "_copy  (srVector3* dest, const srVector3& cv, const SRDWORD n)";
     command_names[COMMAND_COPY_VEC3_ARRAY_VEC4_ARRAY] =
         "_copy  (srVector3* dest, const srVector4* vs, const SRDWORD n)";
     command_names[COMMAND_ADD_VEC3_ARRAY_VEC3_CONSTANT_VEC3_ARRAY] =
@@ -210,8 +193,6 @@ srDebugVP::srDebugVP(srVP* processor)
         "_dir  (srVector3* dst, float* dst2,  const srVector3* src, const SRDWORD n)";
     command_names[COMMAND_DIR_VEC3_ARRAY_FLOAT_ARRAY_VEC4_ARRAY] =
         "_dir  (srVector3* dst, float* dst2,  const srVector4* src, const SRDWORD n)";
-    command_names[COMMAND_COPY_VEC4_ARRAY_VEC4_CONSTANT] =
-        "_copy  (srVector4* dest, const srVector4& constant, const SRDWORD n);";
     command_names[COMMAND_COPY_VEC4_ARRAY_VEC3_ARRAY_FLOAT] =
         "_copy  (srVector4* dest, const srVector3* s0, const float c, const SRDWORD n);";
     command_names[COMMAND_COPY_VEC4_ARRAY_VEC3_ARRAY_FLOAT_ARRAY] =
@@ -349,8 +330,6 @@ srDebugVP::srDebugVP(srVP* processor)
         "const SRDWORD* ixTable, const SRDWORD n)";
     command_names[COMMAND_DOT_FLOAT_ARRAY_VEC4_CONSTANT_VEC3_ARRAY] =
         "_dot  (float* dest, const srVector4& cv, const srVector3* vs, const SRDWORD n)";
-    command_names[COMMAND_COPY_VEC2_ARRAY_VEC2_CONSTANT] =
-        "_copy  (srVector2* dest, const srVector2& cv, const SRDWORD n)";
     command_names[COMMAND_COPY_INDEXED_VEC2_ARRAY_VEC2_ARRAY_DWORD_ARRAY] =
         "_copyIndexed (srVector2* dest, const srVector2* src, const SRDWORD* indices, SRDWORD n)";
     command_names[COMMAND_DIV_VEC2_ARRAY_VEC2_ARRAY_FLOAT_ARRAY] =
@@ -417,14 +396,6 @@ const char* srDebugVP::getName()
 {
     return "srDebugVP";
 }
-
-
-
-
-
-
-
-
 
 // FUNCTION: SURRENDER 0x1006A7E0
 void srDebugVP::_and(SRDWORD* destination, const SRDWORD* source, SRDWORD constant, SRDWORD count)

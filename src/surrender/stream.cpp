@@ -4,6 +4,8 @@
 
 #include <string.h>
 #include <algorithm>
+#include <cctype>
+#include <memory>
 #include <string>
 #include <string_view>
 
@@ -622,9 +624,9 @@ void srBinStream::byteSwap(unsigned char* data, int size)
 }
 
 // FUNCTION: SURRENDER 0x10032220
-srBinStream::operator void*() const
+srBinStream::operator bool() const
 {
-    return (void*)good();
+    return good();
 }
 
 // FUNCTION: SURRENDER 0x10032230
@@ -670,125 +672,67 @@ w8_ulong srBinStream::getSize()
 }
 
 // FUNCTION: SURRENDER 0x100325B0
-void srIStreamOpener::addStreamType(Opener* opener, const char* stream_type)
+void srIStreamOpener::addStreamType(Opener* opener, std::string_view stream_type)
 {
-    char* type_copy = new char[strlen(stream_type) + 1];
-    strcpy(type_copy, stream_type);
-    StreamType* node = new StreamType;
-    node->opener = opener;
-    node->extension = type_copy;
-    StreamType* first = this->first;
-    StreamType* previous = first->previous;
-    node->next = first;
-    node->previous = previous;
-    if (previous != 0) {
-        previous->next = node;
-    } else {
-        this->first = node;
-    }
-    if (node->next != 0) {
-        node->next->previous = node;
-    }
-    ++count;
+    stream_types.emplace_back(stream_type, opener);
 }
 
 // FUNCTION: SURRENDER 0x10032630
-srIStreamOpener::Opener* srIStreamOpener::findOpener(const char* stream_type)
+srIStreamOpener::Opener* srIStreamOpener::findOpener(std::string_view stream_type)
 {
-    for (StreamType* node = first; node != end; node = node->next) {
-        if (_stricmp(node->extension, stream_type) == 0) {
-            return node->opener;
+    for (auto registration = stream_types.rbegin(); registration != stream_types.rend();
+         ++registration) {
+        if (std::equal(registration->first.begin(), registration->first.end(),
+                       stream_type.begin(), stream_type.end(), [](unsigned char a, unsigned char b) {
+                           return std::tolower(a) == std::tolower(b);
+                       })) {
+            return registration->second;
         }
     }
-    return 0;
-}
-
-// FUNCTION: SURRENDER 0x100326A0
-srIStreamOpener::Opener& srIStreamOpener::Opener::operator=(const Opener& other)
-{
-    return *this;
+    return nullptr;
 }
 
 // FUNCTION: SURRENDER 0x100326E0
-srBinIStream* srIStreamOpener::open(const char* path)
+srBinIStream* srIStreamOpener::open(std::string_view path)
 {
-    if (path == nullptr) {
-        return nullptr;
-    }
-    const std::string_view source(path);
-    const auto delimiter = source.find("://");
+    const auto delimiter = path.find("://");
     if (delimiter == std::string_view::npos) {
-        return open({}, std::string(source));
+        return open({}, std::string(path));
     }
-    return open(std::string(source.substr(0, delimiter)), std::string(source.substr(delimiter + 3)));
+    return open(path.substr(0, delimiter), std::string(path.substr(delimiter + 3)));
 }
 
 // FUNCTION: SURRENDER 0x10032780
-srBinIStream* srIStreamOpener::open(const std::string& prefix, std::string local_path)
+srBinIStream* srIStreamOpener::open(std::string_view prefix, std::string local_path)
 {
     std::replace(local_path.begin(), local_path.end(), '\\', '/');
     if (prefix.empty()) {
-        srBinIStream* stream = new srBinIFStream(local_path.c_str());
-        if (!stream->good()) {
-            delete stream;
-            for (StreamType* node = first; node != end; node = node->next) {
-                stream = node->opener->open(local_path.c_str());
-                if (stream != 0) {
-                    return stream;
-                }
-            }
-            return 0;
+        auto stream = std::make_unique<srBinIFStream>(local_path);
+        if (stream->good()) return stream.release();
+        stream.reset();
+        for (auto registration = stream_types.rbegin(); registration != stream_types.rend();
+             ++registration) {
+            srBinIStream* fallback = registration->second->open(local_path);
+            if (fallback != nullptr) return fallback;
         }
-        return stream;
+        return nullptr;
     }
-    Opener* opener = findOpener(prefix.c_str());
-    if (opener == 0) {
-        return 0;
-    }
-    srBinIStream* stream = opener->open(local_path.c_str());
-    if (stream != 0 && !stream->good()) {
-        delete stream;
-        return 0;
-    }
-    return stream;
-}
-
-// FUNCTION: SURRENDER 0x10032A80
-srIStreamOpener::~srIStreamOpener()
-{
-    for (StreamType* node = first; node != end; node = node->next) {
-        delete[] node->extension;
-        node->extension = 0;
-    }
-    StreamType* entry = first;
-    while (entry != end) {
-        first = entry->next;
-        if (entry->previous != 0) {
-            entry->previous->next = entry->next;
-        }
-        if (entry->next != 0) {
-            entry->next->previous = entry->previous;
-        }
-        delete entry;
-        entry = first;
-        --count;
-    }
-    delete first;
+    Opener* opener = findOpener(prefix);
+    if (opener == nullptr) return nullptr;
+    std::unique_ptr<srBinIStream> stream(opener->open(local_path));
+    if (stream && stream->good()) return stream.release();
+    return nullptr;
 }
 
 // FUNCTION: SURRENDER 0x10032380
-const char* srFStreamOpener::getDescription() const
+std::string_view srFStreamOpener::getDescription() const
 {
     return "Standard file stream opener";
 }
 
 // FUNCTION: SURRENDER 0x10032390
-srBinIStream* srFStreamOpener::open(const char* path)
+srBinIStream* srFStreamOpener::open(std::string_view path)
 {
-    srBinIStream* stream = new srBinIFStream(path);
-    if (stream->good()) {
-        return stream;
-    }
-    delete stream;
-    return 0;
+    auto stream = std::make_unique<srBinIFStream>(path);
+    return stream->good() ? stream.release() : nullptr;
 }

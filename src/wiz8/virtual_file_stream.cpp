@@ -76,13 +76,14 @@ w8_ulong W8VirtualFileBinIStream::vread(void* buffer, w8_ulong size)
 }
 
 // FUNCTION: WIZ8 0x0047CB30
-srBinIStream* W8VirtualFileStreamOpener::open(const char* path)
+srBinIStream* W8VirtualFileStreamOpener::open(std::string_view path)
 {
-    return new W8VirtualFileBinIStream(path);
+    const std::string filename(path);
+    return new W8VirtualFileBinIStream(filename.c_str());
 }
 
 // FUNCTION: WIZ8 0x0047CBA0
-const char* W8VirtualFileStreamOpener::getDescription() const
+std::string_view W8VirtualFileStreamOpener::getDescription() const
 {
     return "stBinIStream";
 }

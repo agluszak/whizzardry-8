@@ -7,7 +7,6 @@ set(SURRENDER_SOURCES
     debug_dd.cpp
     debug_vp.cpp
     environment_mapper.cpp
-    exponent_table.cpp
     fog.cpp
     vertex_pipe.cpp
     file_stream.cpp

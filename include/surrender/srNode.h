@@ -1,9 +1,10 @@
 #pragma once
 
+#include <atomic>
+#include <mutex>
 #include <string>
 #include <string_view>
 #include <vector>
-#include "srCriticalSection.h"
 #include "srFlags.h"
 #include "srMath.h"
 #include "srTypeRegistry.h"
@@ -202,8 +203,8 @@ private:
     SR_DLL_IMPORT void unlink();
     SR_DLL_IMPORT void updateTransformation() const;
 
-    static SR_DLL_IMPORT srCriticalSection sceneGraphCSect;
-    static SR_DLL_IMPORT w8_long sceneGraphLockCount;
+    static SR_DLL_IMPORT std::recursive_mutex sceneGraphCSect;
+    static SR_DLL_IMPORT std::atomic<w8_long> sceneGraphLockCount;
 
     srMatrix3T<double> rotation; /* 0x018 */
     srVector3T<double> location; /* 0x060 */

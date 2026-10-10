@@ -15,6 +15,7 @@
 #include <cstring>
 #include <filesystem>
 #include <fstream>
+#include <memory>
 #include <set>
 #include <string>
 #include <vector>
@@ -311,19 +312,20 @@ int main() try
     {
         srBinIFStream input("DATA\\mixedcase.bin");
         CHECK(input.isOpen());
-        CHECK(std::string(input.getPath()) == "DATA\\mixedcase.bin");
+        CHECK(input.getPath() == "DATA\\mixedcase.bin");
         input.read(directory, 12);
         CHECK(!memcmp(directory, "retail bytes", 12));
         input.close();
-        CHECK(!input.isOpen() && std::string(input.getPath()).empty());
+        CHECK(!input.isOpen() && input.getPath().empty());
         input.close();
-        input.open("Data/MixedCase.BIN");
-        CHECK(input.isOpen() && std::string(input.getPath()) == "Data/MixedCase.BIN");
+        const std::string bounded_path = "Data/MixedCase.BINignored suffix";
+        input.open(std::string_view(bounded_path.data(), 18));
+        CHECK(input.isOpen() && input.getPath() == "Data/MixedCase.BIN");
         input.close();
-        input.open(nullptr);
-        CHECK(!input.isOpen() && std::string(input.getPath()).empty());
+        input.open({});
+        CHECK(!input.isOpen() && input.getPath().empty());
         input.open("Data/missing-renderer.bin");
-        CHECK(!input.isOpen() && !input.good() && std::string(input.getPath()).empty());
+        CHECK(!input.isOpen() && !input.good() && input.getPath().empty());
         input.open("");
         CHECK(!input.isOpen() && !input.good());
         srBinOFStream output("Saves\\Renderer.SAV");
@@ -331,6 +333,16 @@ int main() try
         output.write("renderer save", 13);
         output.close();
         CHECK(contents(user / "Saves" / "Renderer.SAV") == "renderer save");
+        {
+            // The File owner must close/flush on polymorphic destruction, even
+            // with stream exceptions enabled; destruction is not a state change.
+            std::unique_ptr<srBinOStream> scoped(
+                new srBinOFStream("Saves/RendererScoped.SAV"));
+            CHECK(scoped->good());
+            scoped->exceptions(true);
+            scoped->write("scoped save", 11);
+        }
+        CHECK(contents(user / "Saves" / "RendererScoped.SAV") == "scoped save");
 
         fixture(assets / "data" / "RendererUpdate.bin", "asset bytes");
         srBinIOFStream update("C:\\data\\rendererupdate.bin");

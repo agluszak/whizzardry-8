@@ -797,7 +797,7 @@ void RebindMonsterGroupScripts(void)
             MonsterInfoFromID(0x7f3, MONSTER_GROUP_CPP, group->leader_location_id, true);
         if (info->p3D->script != 0) {
             char script_name[256];
-            strcpy(script_name, info->p3D->script->getName());
+            strcpy(script_name, info->p3D->script->getName().c_str());
             info->p3D->SetScript(script_name, true);
         }
     }
@@ -1278,9 +1278,8 @@ done:
         MonsterInfoFromID(0x454, MONSTER_GROUP_CPP, monster_group->leader_location_id, true);
     stScript* script = old_monster->script;
     W8Monster* leader_monster = leader_info->p3D;
-    if (script != 0 && script->getName() != 0) {
-        script = old_monster->script;
-        leader_monster->SetScript(script != 0 ? script->getName() : 0, true);
+    if (script != 0) {
+        leader_monster->SetScript(script->getName(), true);
     }
     leader_info->heard_noise_radius = old_info->heard_noise_radius;
     leader_info->heard_noise_position = old_info->heard_noise_position;
@@ -1361,9 +1360,8 @@ void ElectAlliedLeaderGroup(W8MonsterGroup* monster_group, W8MonsterInfo* leader
     W8MonsterInfo* new_leader_info =
         MonsterInfoFromID(0x2e7, MONSTER_GROUP_CPP, leader->leader_location_id, true);
     stScript* script = leader_info->p3D->script;
-    if (script != 0 && script->getName() != 0) {
-        script = leader_info->p3D->script;
-        new_leader_info->p3D->SetScript(script != 0 ? script->getName() : 0, true);
+    if (script != 0) {
+        new_leader_info->p3D->SetScript(script->getName(), true);
     }
     new_leader_info->heard_noise_radius = leader_info->heard_noise_radius;
     new_leader_info->heard_noise_position = leader_info->heard_noise_position;

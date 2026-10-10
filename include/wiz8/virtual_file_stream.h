@@ -36,8 +36,8 @@ W8_ABI_ASSERT(sizeof(W8VirtualFileBinIStream) == 0x20, "W8VirtualFileBinIStream_
 
 class W8VirtualFileStreamOpener : public srIStreamOpener::Opener {
 public:
-    srBinIStream* open(const char* path) override;
-    const char* getDescription() const override;
+    srBinIStream* open(std::string_view path) override;
+    std::string_view getDescription() const override;
 };
 
 extern W8VirtualFileStreamOpener g_virtual_file_stream_opener;

@@ -445,5 +445,5 @@ void srTexture::getTextureParms(Parameters& parameters)
 // FUNCTION: SURRENDER 0x1005F140
 const char* srTextureIFace::getTextureName()
 {
-    return getName();
+    return getName().c_str();
 }

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <vector>
+
 #include "srCore.h"
 #include "srFlags.h"
 #include "srMath.h"
@@ -8,7 +10,6 @@
 class srMaterialIFace;
 class srVP;
 
-#pragma pack(push, 4)
 class srVertexPipe {
     friend class W8GroundShadowMapper;
 
@@ -37,7 +38,6 @@ public:
     };
 
     SR_DLL_IMPORT srVertexPipe();
-    SR_DLL_IMPORT ~srVertexPipe();
     srVertexPipe(const srVertexPipe&) = delete;
     srVertexPipe& operator=(const srVertexPipe&) = delete;
 
@@ -163,14 +163,16 @@ private:
         float depth_cue[0x40];
         float alpha[0x40];
         float fog[0x40];
-        w8_ulong flags;
+        w8_ulong flags = 0;
     };
 
     W8_ABI_ASSERT(sizeof(Scratch) == 0xb04, "Scratch_must_be_0xb04");
 
-    Scratch* scratch;                              /* 0x00 */
-    srVertexProcessor** processor_heap;            /* 0x04 */
-    w8_ulong processor_heap_capacity;         /* 0x08 */
+    /* Each lazy setup fills its batch range before use. Preserve the former heap's
+       16-byte base alignment without a separate allocation or pointer alias. */
+    alignas(16) Scratch scratch;
+    /* Borrowed processors selected for this invocation; the pipe owns only the list. */
+    std::vector<srVertexProcessor*> active_processors;
     w8_ulong channel_mask;                    /* 0x0c */
     w8_ulong lazy_setup_mask;                 /* 0x10 */
     srVertexProcessor::MaterialInfo material_info; /* 0x14 through 0x67 */
@@ -184,11 +186,8 @@ private:
     w8_ulong sub_batch_offset;                /* 0x84 */
     w8_ulong vertex_count;                    /* 0x88 */
     w8_ulong batch_count;                     /* 0x8c */
-    w8_ulong active_processor_count;          /* 0x90 */
-    srVertexProcessor** active_processors;         /* 0x94 */
     srVP* vector_processor;                        /* 0x98 */
 };
-#pragma pack(pop)
 
 W8_ABI_ASSERT(sizeof(srVertexPipe) == 0x9c, "srVertexPipe_must_be_0x9c");
 W8_ABI_ASSERT(sizeof(srVertexPipe::Record) == 0x5c, "srVertexPipe_Record_must_be_0x5c");
@@ -212,11 +211,10 @@ inline int srVertexPipe::isChannelAvailable(srVertexProcessor::e_channel channel
 // RECOMP: ?getEyeSpaceNormal@srVertexPipe@@QAEPBV?$srVector3T@M@@XZ
 inline const srVector3T<float>* srVertexPipe::getEyeSpaceNormal()
 {
-    Scratch* scratch = this->scratch;
-    if ((scratch->flags & srVertexPipe::Scratch::READY_EYE_NORMALS) == 0) {
+    if ((scratch.flags & srVertexPipe::Scratch::READY_EYE_NORMALS) == 0) {
         setupEyeSpaceNormal();
     }
-    return scratch->normals + sub_batch_offset;
+    return scratch.normals + sub_batch_offset;
 }
 
 // FUNCTION: SURRENDER 0x1002C780 SYMBOL

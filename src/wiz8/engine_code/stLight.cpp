@@ -432,7 +432,7 @@ void SaveLightStates(int handle)
         stLight::sGetClassNode(), static_cast<const srRuntimeClass*>(0)));
     while (light != 0) {
         if (light->m_save_marked) {
-            strcpy(name, light->getName());
+            strcpy(name, light->getName().c_str());
             FileWrite(handle, name, sizeof(name), 0);
             unsigned char enabled = light->testFlag(srNode::FLAG_DISABLE) == 0;
             FileWrite(handle, &enabled, sizeof(enabled), 0);

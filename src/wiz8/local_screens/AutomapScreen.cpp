@@ -741,7 +741,7 @@ unsigned char AutomapScreenEnter(void)
     SetAutomapScaledViewport(12, 32, 467, 467);
     UpdateAutomapBounds();
     if (script.Load("Data\\Automap\\MapFilters.txt")) {
-        W8Vector<char*> excluded_textures(5);
+        std::vector<std::string_view> excluded_textures;
         int line = 0;
         int section = -1;
         while (section < g_status.current_level && line < script.lines.GetCount()) {
@@ -755,7 +755,7 @@ unsigned char AutomapScreenEnter(void)
                 if (strchr(text, '['))
                     break;
                 if (!strstr(text, "LAYER=")) {
-                    excluded_textures.Add(text);
+                    excluded_textures.push_back(text);
                 } else {
                     float height = static_cast<float>(atof(text + 6));
                     srClipPlane::ClientType* clip = SR_NEW(srClipPlane)(static_cast<srNode*>(0));
@@ -780,7 +780,7 @@ unsigned char AutomapScreenEnter(void)
                 for (stMeshModel* model =
                          static_cast<stMeshModel*>(g_world->psrMeshes[mesh]->getModel());
                      model; model = model->next) {
-                    model->ApplyAutomapPolygonFilter(&excluded_textures);
+                    model->ApplyAutomapPolygonFilter(excluded_textures);
                 }
             }
         }

@@ -26,11 +26,11 @@ using IOStream = std::unique_ptr<SDL_IOStream, decltype(&SDL_CloseIO)>;
 class ImageHandler : public srSurfaceIOManager::SurfaceImporter,
                      public srSurfaceIOManager::SurfaceExporter {
 public:
-    explicit ImageHandler(const char* type) : type(type)
+    explicit ImageHandler(std::string_view type) : type(type)
     {
         auto* manager = srCore.getSurfaceIOManager();
         addToImporters(manager, type);
-        if (strcmp(type, "jpg") == 0) {
+        if (type == "jpg") {
             addToImporters(manager, "jpeg");
             addToExporters(manager, "jpg");
             addToExporters(manager, "jpeg");
@@ -44,7 +44,7 @@ public:
         removeFromExporters(manager);
     }
 
-    const char* getTypeName() const override { return type; }
+    const char* getTypeName() const override { return type.c_str(); }
 
     srColorSurfaceIFace* importSurface(srBinIStream& stream,
                                      const srSurfaceIOManager::ImportInfo&) override
@@ -57,7 +57,7 @@ public:
         if (!stream.good()) return nullptr;
         IOStream input(SDL_IOFromConstMem(data.data(), data.size()), SDL_CloseIO);
         if (!input) return nullptr;
-        Surface decoded(IMG_LoadTyped_IO(input.get(), false, type), SDL_DestroySurface);
+        Surface decoded(IMG_LoadTyped_IO(input.get(), false, type.c_str()), SDL_DestroySurface);
         if (!decoded) return nullptr;
         Surface converted(SDL_ConvertSurface(decoded.get(), SDL_PIXELFORMAT_BGRA32),
                           SDL_DestroySurface);
@@ -112,25 +112,24 @@ public:
     }
 
 private:
-    const char* type;
+    std::string type;
 };
 
-struct ImageHandlers {
-    srJPEGImporter jpeg;
-    srTGAImporter targa;
-    ImageHandler bmp{"bmp"};
-    ImageHandler pcx{"pcx"};
-};
-ImageHandlers* handlers = nullptr;
 } // namespace
 
 void srInitImageIO()
 {
-    if (!handlers) handlers = new ImageHandlers;
+    if (!srCore.image_handlers.empty()) return;
+    std::vector<std::unique_ptr<srIOManager::Importer>> handlers;
+    handlers.reserve(4);
+    handlers.push_back(std::make_unique<srJPEGImporter>());
+    handlers.push_back(std::make_unique<srTGAImporter>());
+    handlers.push_back(std::make_unique<ImageHandler>("bmp"));
+    handlers.push_back(std::make_unique<ImageHandler>("pcx"));
+    srCore.image_handlers = std::move(handlers);
 }
 
 void srExitImageIO()
 {
-    delete handlers;
-    handlers = nullptr;
+    while (!srCore.image_handlers.empty()) srCore.image_handlers.pop_back();
 }

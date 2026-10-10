@@ -256,7 +256,7 @@ unsigned char LoadAniMesh(int file, W8AniMesh* mesh, bool load_all)
     stModelInstance* instance = static_cast<stModelInstance*>(loaded_instance);
     stMeshModel* model = static_cast<stMeshModel*>(instance->getModel());
 
-    if (model->frame_count > 1) {
+    if (model->frames.size() > 1) {
         mesh->flags.single_instance = true;
         mesh->meshes = static_cast<stModelInstance**>(malloc(sizeof(*mesh->meshes)));
         if (mesh->meshes == 0) {

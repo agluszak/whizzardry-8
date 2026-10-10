@@ -1,101 +1,53 @@
 #include "surrender/srTriangulator.h"
 
-// FUNCTION: SURRENDER 0x1003c2d0
-srTriangulator::CircularList::ListIterator
-srTriangulator::CircularList::ListIterator::operator+(int distance) const
-{
-    ListIterator result = *this;
-    while (distance > 0) {
-        distance--;
-        result.node = result.node->next;
-    }
-    return result;
-}
-
-// FUNCTION: SURRENDER 0x1003c2b0
-srTriangulator::CircularList::ListIterator
-srTriangulator::CircularList::ListIterator::operator-(int distance) const
-{
-    ListIterator result = *this;
-    while (distance > 0) {
-        distance--;
-        result.node = result.node->prev;
-    }
-    return result;
-}
-
-// FUNCTION: SURRENDER 0x1003c270
-void srTriangulator::CircularList::erase(ListIterator position)
-{
-    ListIterator next = position + 1;
-    ListIterator previous = position - 1;
-    next.node->prev = previous.node;
-    previous.node->next = next.node;
-    count--;
-}
-
-// FUNCTION: SURRENDER 0x1003c1e0
-srTriangulator::CircularList::CircularList(int count)
-{
-    this->count = count;
-    nodes = static_cast<Node*>(operator new(count * sizeof(Node)));
-    nodes[0].prev = &nodes[count - 1];
-    nodes[0].next = &nodes[1];
-    nodes[count - 1].prev = &nodes[count - 2];
-    nodes[count - 1].next = nodes;
-    for (int i = 1; i < count - 1; i++) {
-        nodes[i].prev = &nodes[i - 1];
-        nodes[i].next = &nodes[i + 1];
-    }
-}
-
-// FUNCTION: SURRENDER 0x1003c260
-srTriangulator::CircularList::~CircularList()
-{
-    operator delete(nodes);
-}
+#include <algorithm>
 
 // FUNCTION: SURRENDER 0x1003bea0
-srTriangulator::srTriangulator(srVector2T<float>* points, int count) : list(count)
+srTriangulator::srTriangulator(srVector2T<float>* points, int count)
+    : nodes(std::max(count, 0)), remaining(count), points(points)
 {
-    this->points = points;
-    CircularList::Node* node = list.nodes;
-    for (int i = 0; i < count; i++) {
-        node->index = i;
-        node = node->next;
+    // Circular links from SURRENDER 0x1003c1e0. Storage never changes during clipping.
+    for (int i = 0; i < count; ++i) {
+        nodes[i].index = i;
+        nodes[i].prev = &nodes[(i + count - 1) % count];
+        nodes[i].next = &nodes[(i + 1) % count];
     }
-    current.node = list.nodes;
+    if (!nodes.empty()) current = nodes.data();
 }
 
 // FUNCTION: SURRENDER 0x1003c0e0
 srVector3i srTriangulator::next()
 {
     srVector3i result;
-    if (list.count > 3) {
-        CircularList::Node* start = current.node;
+    if (remaining > 3) {
+        Node* start = current;
         while (!satisfyConstraints(current)) {
-            current.node = current.node->next;
-            if (current.node == start) {
+            current = current->next;
+            if (current == start) {
                 result.x = -1;
                 result.y = 0;
                 result.z = 0;
                 return result;
             }
         }
-        CircularList::Node* next_node = (current + 1).node;
-        result.x = (current - 1).node->index;
-        result.y = current.node->index;
+        Node* previous = current->prev;
+        Node* next_node = current->next;
+        result.x = previous->index;
+        result.y = current->index;
         result.z = next_node->index;
-        list.erase(current);
-        current = current - 1;
+        // Unlink the ear (SURRENDER 0x1003c270), without erasing its storage.
+        next_node->prev = previous;
+        previous->next = next_node;
+        --remaining;
+        current = previous;
         return result;
     }
-    if (list.count == 3) {
-        CircularList::Node* next_node = current.node->next;
-        result.x = current.node->index;
+    if (remaining == 3) {
+        Node* next_node = current->next;
+        result.x = current->index;
         result.y = next_node->index;
         result.z = next_node->next->index;
-        list.count = 0;
+        remaining = 0;
         return result;
     }
     result.x = -1;
@@ -105,18 +57,18 @@ srVector3i srTriangulator::next()
 }
 
 // FUNCTION: SURRENDER 0x1003bfa0
-int srTriangulator::satisfyConstraints(CircularList::ListIterator iterator)
+int srTriangulator::satisfyConstraints(const Node* vertex)
 {
-    srVector2T<float> a = points[(iterator - 1).node->index];
-    srVector2T<float> b = points[iterator.node->index];
-    srVector2T<float> c = points[(iterator + 1).node->index];
+    srVector2T<float> a = points[vertex->prev->index];
+    srVector2T<float> b = points[vertex->index];
+    srVector2T<float> c = points[vertex->next->index];
     if ((c.y - b.y) * (a.x - b.x) - (a.y - b.y) * (c.x - b.x) <= 0.0) {
         return 0;
     }
-    CircularList::Node* node = (iterator + 2).node;
+    Node* node = vertex->next->next;
     while (!isInsideTriangle(points[node->index], a, b, c)) {
         node = node->next;
-        if (node == (iterator - 1).node) {
+        if (node == vertex->prev) {
             return 1;
         }
     }

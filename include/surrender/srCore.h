@@ -1,6 +1,11 @@
 #pragma once
 
 #include <iosfwd>
+#include <memory>
+#include <string_view>
+#include <vector>
+
+#include "srIOManager.h"
 
 #include "srStatisticsManager.h"
 #include "srVariableTimer.h"
@@ -22,13 +27,14 @@ class srVideoManager;
 class srCore {
 public:
     SR_DLL_IMPORT srCore();
+    ~srCore();
 
     SR_DLL_IMPORT void dump(std::ostream& stream);
-    SR_DLL_IMPORT const char* getBuildTime() const;
+    SR_DLL_IMPORT std::string_view getBuildTime() const;
     SR_DLL_IMPORT srSurfaceIOManager* getSurfaceIOManager() const;
     SR_DLL_IMPORT srIStreamOpener* getIStreamOpener() const;
-    SR_DLL_IMPORT const char* getCopyright() const;
-    SR_DLL_IMPORT const char* getVersion() const;
+    SR_DLL_IMPORT std::string_view getCopyright() const;
+    SR_DLL_IMPORT std::string_view getVersion() const;
     SR_DLL_IMPORT unsigned char getDebugLevel() const;
     SR_DLL_IMPORT srFilter* getFilter() const;
     SR_DLL_IMPORT srHierarchyIOManager* getHierarchyIOManager() const;
@@ -45,7 +51,7 @@ public:
     // RECOMP: ?getStatisticsManager@srCore@@QBEPAVsrStatisticsManager@@XZ
     srStatisticsManager* getStatisticsManager() const
     {
-        return statistics_manager;
+        return statistics_manager.get();
     }
     SR_DLL_IMPORT srColorSurfaceIFace* getSurface() const;
     SR_DLL_IMPORT srTexture* getTexture() const;
@@ -53,7 +59,7 @@ public:
     // RECOMP: ?getTimer@srCore@@QBEPAVsrVariableTimer@@XZ
     srVariableTimer* getTimer() const
     {
-        return timer;
+        return timer.get();
     }
     SR_DLL_IMPORT w8_ulong getUniqueID();
     SR_DLL_IMPORT srVideoManager* getVideoManager() const;
@@ -67,7 +73,7 @@ public:
     // RECOMP: ?getRegistry@srCore@@QBEPAVsrRegistry@@XZ
     srRegistry* getRegistry() const
     {
-        return registry_;
+        return registry_.get();
     }
 
 private:
@@ -76,31 +82,34 @@ private:
        block and run the private reset() directly. */
     friend SR_DLL_IMPORT int __cdecl srInit(void);
     friend SR_DLL_IMPORT int __cdecl srExit(void);
+    friend void srInitImageIO();
+    friend void srExitImageIO();
 
     SR_DLL_IMPORT void reset();
 
     static SR_DLL_IMPORT int initialized;
 
-    srVariableTimer* timer;
-    srColorSurfaceIFace* surface;
-    srSurfaceIOManager* surface_io_manager;
-    srIStreamOpener* stream_opener;
-    srFStreamOpener* file_stream_opener;
-    srFilter* filter;
-    srStatisticsManager* statistics_manager;
-    srRegistry* registry_;
-    srPalette* palette;
-    w8_ulong next_unique_id;
-    char version_[0x20];
-    char copyright_[0x100];
-    w8_ulong debug_level;
-    int multi_thread;
-    srNode* root_node;
-    srModelIOManager* model_io_manager;
-    srHierarchyIOManager* hierarchy_io_manager;
-    srMaterial* material;
-    srTexture* texture;
-    srVideoManager* video_manager;
+    // Declared first and reset last: registered resources need it during release.
+    std::unique_ptr<srRegistry> registry_;
+    std::unique_ptr<srVariableTimer> timer;
+    srColorSurfaceIFace* surface = nullptr;
+    std::unique_ptr<srSurfaceIOManager> surface_io_manager;
+    std::unique_ptr<srFStreamOpener> file_stream_opener;
+    std::unique_ptr<srIStreamOpener> stream_opener;
+    srFilter* filter = nullptr;
+    std::unique_ptr<srStatisticsManager> statistics_manager;
+    srPalette* palette = nullptr;
+    w8_ulong next_unique_id = 0;
+    w8_ulong debug_level = 1;
+    int multi_thread = 0;
+    srNode* root_node = nullptr;
+    std::unique_ptr<srModelIOManager> model_io_manager;
+    std::unique_ptr<srHierarchyIOManager> hierarchy_io_manager;
+    srMaterial* material = nullptr;
+    srTexture* texture = nullptr;
+    std::unique_ptr<srVideoManager> video_manager;
+    // Handler destructors unregister, so they must die before the IO managers.
+    std::vector<std::unique_ptr<srIOManager::Importer>> image_handlers;
 };
 
 W8_ABI_ASSERT(sizeof(srCore) == 0x17c, "srCore_must_be_0x17c");
