@@ -94,7 +94,7 @@ add_library(wiz8_compat STATIC
     src/compat/native_crt.cpp
 )
 target_compile_options(wiz8_compat PRIVATE ${WIZ8_COMPAT_OPTIONS})
-target_include_directories(wiz8_compat PRIVATE "${PROJECT_SOURCE_DIR}/include/wiz8")
+target_include_directories(wiz8_compat PRIVATE "${PROJECT_SOURCE_DIR}/include/wiz8" "${PROJECT_SOURCE_DIR}/include")
 target_link_libraries(wiz8_compat PUBLIC wiz8_filesystem)
 if(UNIX AND NOT APPLE)
     target_link_options(wiz8_compat PRIVATE -Wl,--no-undefined)

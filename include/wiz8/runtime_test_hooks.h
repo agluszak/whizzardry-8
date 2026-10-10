@@ -11,11 +11,10 @@ struct W8RuntimeTestHooks
 {
     /* Movie opens fail, so every caller takes its existing no-movie path. */
     bool skip_movies = false;
-    /* When positive, each movie update advances playback by this many seconds
-       instead of following the wall clock. */
-    double movie_step_seconds = 0;
-    double movie_clock = 0; /* reset by each open; one movie plays at a time */
     unsigned movie_frames_presented = 0;
+    /* When set, w8_clock_us returns clock_us, which the test advances per frame. */
+    bool virtual_clock = false;
+    unsigned long long clock_us = 0;
 };
 extern W8RuntimeTestHooks g_runtime_test_hooks;
 #define WIZ8_TEST_HOOK(...) __VA_ARGS__
