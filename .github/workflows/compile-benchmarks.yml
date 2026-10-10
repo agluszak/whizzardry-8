@@ -13,12 +13,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - variant: baseline
-            pch: "OFF"
-            unity: "OFF"
-          - variant: pch
-            pch: "ON"
-            unity: "OFF"
           - variant: unity
             pch: "OFF"
             unity: "ON"
