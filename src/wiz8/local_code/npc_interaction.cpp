@@ -57,7 +57,27 @@ void ClearNpcMessageQueue(void)
     int index;
 
     for (index = 0; index < g_npc_scripting.message_lines.GetCount(); ++index) {
-        delete *g_npc_scripting.message_lines.GetAt(index);
+        auto* line = *g_npc_scripting.message_lines.GetAt(index);
+        switch (line->type) {
+        case W8_NPC_MSG_SKILL_NOTICES:
+            delete line->extra.skill_notices;
+            delete[] line->payload.text;
+            break;
+        case W8_NPC_MSG_PORTRAIT_EXTRA:
+            delete line->extra.experience;
+            delete[] line->payload.text;
+            break;
+        case W8_NPC_MSG_LEVEL_UP:
+            delete line->extra.level_up_slot;
+            delete[] line->payload.text;
+            break;
+        case W8_NPC_MSG_PORTRAIT_MESSAGE:
+            delete[] line->payload.text;
+            break;
+        default:
+            break;
+        }
+        delete line;
     }
     g_npc_scripting = {};
 }

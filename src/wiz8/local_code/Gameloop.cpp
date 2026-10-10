@@ -25,6 +25,9 @@
 #include "wiz8/application.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/engine_code/ReadMesh.h"
+#include "wiz8/character_event_queue.h"
+#include "wiz8/npc_interaction.h"
+#include "wiz8/local_screens/MGSTextBox.h"
 #include "surrender/srTypeRegistry.h"
 
 #include <string.h>
@@ -93,6 +96,8 @@ void ShutdownGame(size_t initialized_screens, bool save_configuration)
 {
     int index;
 
+    if (gXStatus.character_event_queue)
+        gXStatus.character_event_queue->DestroyAllEvents();
     ReleaseHitSoundDatabase();
     ReleaseGenericItemNames();
     ReleaseNpcStates();
@@ -111,6 +116,8 @@ void ShutdownGame(size_t initialized_screens, bool save_configuration)
     for (index = 0; index < static_cast<int>(initialized_screens); ++index) {
         g_screen_handlers[index].finalize();
     }
+    ClearNpcMessageQueue();
+    ReleaseMessageStorage();
     ClearNpcDialogueTranscript();
     g_screen_return_stack.clear();
     ReleaseAllTriggers();

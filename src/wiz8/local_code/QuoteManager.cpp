@@ -494,11 +494,14 @@ W8CharacterEventQueue::W8CharacterEventQueue()
 // FUNCTION: WIZ8 0x0052d5b0
 W8CharacterEventQueue::~W8CharacterEventQueue()
 {
+    active_events.RemoveAllAndDelete();
+    npc_deferred_events.RemoveAllAndDelete();
+    pending_events.RemoveAllAndDelete();
+    vector0.RemoveAllAndDelete();
     delete[] event_character_masks;
 }
 
-/* Retail bulk teardown removes active events and calls Complete() without
-   deleting them here; the single-event completion paths delete after Complete(). */
+/* Complete and release active events before clearing the queued owners. */
 // FUNCTION: WIZ8 0x0052db80
 void W8CharacterEventQueue::DestroyAllEvents()
 {
@@ -549,7 +552,9 @@ void W8CharacterEventQueue::RemoveCharacterEvents(W8Character* character)
 void W8CharacterEventQueue::CompleteAllActiveEvents()
 {
     while (active_events.GetCount() > 0) {
-        active_events.RemoveAt(0)->Complete();
+        auto* entry = active_events.RemoveAt(0);
+        entry->Complete();
+        delete entry;
     }
 }
 

@@ -253,14 +253,17 @@ static void AppendNoticeLine(unsigned char font_palette, const wchar_t* text, sh
             }
         }
     }
-    unsigned int index = g_status.text_box_lines_used[text_box]++;
+    unsigned int index = g_status.text_box_lines_used[text_box];
     W8MessageStorageRecord* record = &g_message_storage[text_box][index];
-    record->wString = static_cast<wchar_t*>(malloc((wcslen(text) + 1) * sizeof(wchar_t)));
-    if (record->wString) {
-        wcscpy(record->wString, text);
-        record->entries = 0;
-        record->RebuildEntries();
-    }
+    auto* replacement = static_cast<wchar_t*>(malloc((wcslen(text) + 1) * sizeof(wchar_t)));
+    if (!replacement)
+        return;
+    wcscpy(replacement, text);
+    record->ClearEntries();
+    free(record->wString);
+    record->wString = replacement;
+    record->RebuildEntries();
+    ++g_status.text_box_lines_used[text_box];
     record->font_palette = font_palette;
     record->highlight_color = 0xff;
     record->link = wrapped_line;

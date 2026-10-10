@@ -5031,6 +5031,7 @@ void W8Monster::SpawnDamageNumber(unsigned int amount)
             material->setEmissive(colour);
             material->setDiffuse(colour);
             particle->SetMaterial(material);
+            material->release();
             particle->SetTexture(
                 LoadTextureFromFolder("Data\\Monsters\\Bitmaps\\", "BloodParticle.tga", true));
             shader.value = 0x100c4b3;
@@ -5061,6 +5062,7 @@ void W8Monster::SpawnDamageNumber(unsigned int amount)
             particle->rotate(world);
         }
     }
+    surface->release();
 }
 
 /* Resolve the database-controlled render gate after the Monster's transient
