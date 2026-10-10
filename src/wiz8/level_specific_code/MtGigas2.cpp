@@ -257,38 +257,33 @@ bool MtGigas2TopDoor1(Trigger* pTrigger)
     return false;
 }
 
+static bool ActivateMtGigasOfficer(int door_bit, const char* door_name, int npc_kind)
+{
+    if (gXStatus.fNpcDialogueMode) {
+        return false;
+    }
+    int doors = 0;
+    if (GetLocationVarIDByName("ObstacleDoors") != -1) {
+        doors = GetLocationVarValueByName("ObstacleDoors");
+    }
+    if ((doors & door_bit) != 0) {
+        Trigger* door = FindTriggerByName(door_name);
+        door->Run(-1);
+        SetTriggerVariableByName("ObstacleDoors", doors - door_bit);
+        return false;
+    }
+    QueueNpcHeldItemNotice(npc_kind);
+    g_trigger_feedback = true;
+    return false;
+}
+
 /* Activation callback on _VOC_EWAXXOFFICER1: while ObstacleDoors bit 0 is
    set, runs Door19 and clears the bit; otherwise queues the officer NPC
    notice with the held item. */
 // FUNCTION: WIZ8 0x004DB6D0
 bool MtGigas2Officer1(Trigger* pTrigger)
 {
-    int doors;
-    W8NpcState* npc;
-    W8ItemInstance* item;
-
-    if (gXStatus.fNpcDialogueMode) {
-        return false;
-    }
-    doors = 0;
-    if (GetLocationVarIDByName("ObstacleDoors") != -1) {
-        doors = GetLocationVarValueByName("ObstacleDoors");
-    }
-    if ((doors & 1) != 0) {
-        Trigger* door = FindTriggerByName("Door19");
-        door->Run(-1);
-        doors--;
-        SetTriggerVariableByName("ObstacleDoors", doors);
-        return false;
-    }
-    npc = GetNpcStateByKind(0x7c);
-    item = 0;
-    if (g_status.item_in_cursor) {
-        item = &g_status.item_in_hand;
-    }
-    QueueNpcScriptNotice(npc, item, -1, false, 0);
-    g_trigger_feedback = true;
-    return false;
+    return ActivateMtGigasOfficer(1, "Door19", 0x7c);
 }
 
 /* Activation callback on _VOC_EWAXXOFFICER2: while ObstacleDoors bit 1 is
@@ -297,32 +292,7 @@ bool MtGigas2Officer1(Trigger* pTrigger)
 // FUNCTION: WIZ8 0x004DB770
 bool MtGigas2Officer2(Trigger* pTrigger)
 {
-    int doors;
-    W8NpcState* npc;
-    W8ItemInstance* item;
-
-    if (gXStatus.fNpcDialogueMode) {
-        return false;
-    }
-    doors = 0;
-    if (GetLocationVarIDByName("ObstacleDoors") != -1) {
-        doors = GetLocationVarValueByName("ObstacleDoors");
-    }
-    if ((doors & 2) != 0) {
-        Trigger* door = FindTriggerByName("Door18");
-        door->Run(-1);
-        doors -= 2;
-        SetTriggerVariableByName("ObstacleDoors", doors);
-        return false;
-    }
-    npc = GetNpcStateByKind(0x7d);
-    item = 0;
-    if (g_status.item_in_cursor) {
-        item = &g_status.item_in_hand;
-    }
-    QueueNpcScriptNotice(npc, item, -1, false, 0);
-    g_trigger_feedback = true;
-    return false;
+    return ActivateMtGigasOfficer(2, "Door18", 0x7d);
 }
 
 /* Activation callback on triggerPlaneLaserAlarm/01: once per level (fact

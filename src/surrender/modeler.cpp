@@ -247,20 +247,24 @@ srModeler::Triangle::Triangle() : flags(0)
     reset();
 }
 
+static void ResetModelerFace(auto& face, int vertex_count)
+{
+    for (int vertex = 0; vertex < vertex_count; ++vertex) {
+        face.vertices[vertex].reset();
+    }
+    for (int pass = 0; pass < 4; ++pass) {
+        face.shaders[pass] = srShader();
+        face.textures[pass][0].reset();
+        face.textures[pass][1].reset();
+    }
+    face.flags = 1;
+    face.disabled = 0;
+}
+
 // FUNCTION: SURRENDER 0x10038AF0
 void srModeler::Triangle::reset()
 {
-    for (int vertex = 0; vertex < 3; ++vertex) {
-        vertices[vertex].reset();
-    }
-    for (int pass = 0; pass < 4; ++pass) {
-        shaders[pass] = srShader();
-        textures[pass][0] = 0;
-        textures[pass][1] = 0;
-    }
-    flags = 0;
-    flags |= 1;
-    disabled = 0;
+    ResetModelerFace(*this, 3);
 }
 
 // FUNCTION: SURRENDER 0x10038840
@@ -278,17 +282,7 @@ srModeler::Polygon::Polygon(int vertices) : vertices(vertices), vertex_count(ver
 // FUNCTION: SURRENDER 0x100389A0
 void srModeler::Polygon::reset()
 {
-    for (int vertex = 0; vertex < vertex_count; ++vertex) {
-        vertices[vertex].reset();
-    }
-    for (int pass = 0; pass < 4; ++pass) {
-        shaders[pass] = srShader();
-        textures[pass][0] = 0;
-        textures[pass][1] = 0;
-    }
-    flags = 0;
-    flags |= 1;
-    disabled = 0;
+    ResetModelerFace(*this, vertex_count);
 }
 
 // FUNCTION: SURRENDER 0x10038A00

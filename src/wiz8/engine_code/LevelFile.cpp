@@ -79,6 +79,15 @@ void ValidateRecordCount(std::int64_t count, std::size_t stride, std::int64_t re
     }
 }
 
+template<class T>
+void AllocateLevelRecords(T*& records, std::size_t count = 1)
+{
+    records = static_cast<T*>(calloc(count, sizeof(T)));
+    if (records == nullptr) {
+        throw std::bad_alloc();
+    }
+}
+
 void ReleaseLevelRecord(W8LevelFilePathAI& record)
 {
     free(record.pPaths);
@@ -307,10 +316,7 @@ try {
     std::unique_ptr<W8LevelFile, decltype(cleanup)> owner(pLevel, cleanup);
     g_level_file = pLevel;
 
-    pLevel->pMeshes = static_cast<W8LevelFileMesh*>(calloc(1, sizeof(W8LevelFileMesh)));
-    if (pLevel->pMeshes == 0) {
-        throw std::bad_alloc();
-    }
+    AllocateLevelRecords(pLevel->pMeshes);
 
     if (!ReadMeshFile(hFile, pLevel->pMeshes))
         return nullptr;
@@ -320,11 +326,7 @@ try {
     if (pLevel->nTextures == 0) {
         return 0;
     }
-    pLevel->pTextures =
-        static_cast<W8MaterialRecord*>(calloc(1, pLevel->nTextures * sizeof(W8MaterialRecord)));
-    if (pLevel->pTextures == 0) {
-        throw std::bad_alloc();
-    }
+    AllocateLevelRecords(pLevel->pTextures, pLevel->nTextures);
 
     int i;
     for (i = 0; i < pLevel->nTextures; ++i) {
@@ -336,11 +338,7 @@ try {
     hFile->read_exact(&pLevel->nLights, sizeof(pLevel->nLights));
     ValidateRecordCount(pLevel->nLights, sizeof(W8LevelFileLight), hFile->size() - hFile->tell());
     if (pLevel->nLights != 0) {
-        pLevel->pLights =
-            static_cast<W8LevelFileLight*>(calloc(1, pLevel->nLights * sizeof(W8LevelFileLight)));
-        if (pLevel->pLights == 0) {
-            throw std::bad_alloc();
-        }
+        AllocateLevelRecords(pLevel->pLights, pLevel->nLights);
 
         for (i = 0; i < pLevel->nLights; ++i) {
             if (ReadLightFile(hFile, pLevel->pLights + i) == 0) {
@@ -353,11 +351,7 @@ try {
     ValidateRecordCount(pLevel->nMonsters, sizeof(W8LevelFileMonster),
                         hFile->size() - hFile->tell());
     if (pLevel->nMonsters != 0) {
-        pLevel->pMonsters = static_cast<W8LevelFileMonster*>(
-            calloc(1, pLevel->nMonsters * sizeof(W8LevelFileMonster)));
-        if (pLevel->pMonsters == 0) {
-            throw std::bad_alloc();
-        }
+        AllocateLevelRecords(pLevel->pMonsters, pLevel->nMonsters);
 
         for (i = 0; i < pLevel->nMonsters; ++i) {
             W8LevelFileMonster* pMonster = pLevel->pMonsters + i;
@@ -366,12 +360,7 @@ try {
                                 hFile->size() - hFile->tell());
 
             if (pMonster->num_mon_path != 0) {
-                pMonster->MonPath = static_cast<W8LevelFilePathNode*>(
-                    calloc(1, pMonster->num_mon_path * sizeof(W8LevelFilePathNode)));
-                if (pMonster->MonPath == 0) {
-                    throw std::bad_alloc();
-                }
-                memset(pMonster->MonPath, 0, pMonster->num_mon_path * sizeof(W8LevelFilePathNode));
+                AllocateLevelRecords(pMonster->MonPath, pMonster->num_mon_path);
                 hFile->read_exact(pMonster->MonPath,
                                   pMonster->num_mon_path * sizeof(W8LevelFilePathNode));
             }
@@ -382,11 +371,7 @@ try {
     ValidateRecordCount(pLevel->nItems, sizeof(W8LevelFileItemRecord),
                         hFile->size() - hFile->tell());
     if (pLevel->nItems != 0) {
-        pLevel->pItems = static_cast<W8LevelFileItemRecord*>(
-            calloc(1, pLevel->nItems * sizeof(W8LevelFileItemRecord)));
-        if (pLevel->pItems == 0) {
-            throw std::bad_alloc();
-        }
+        AllocateLevelRecords(pLevel->pItems, pLevel->nItems);
 
         hFile->read_exact(pLevel->pItems, pLevel->nItems * sizeof(W8LevelFileItemRecord));
     }
@@ -414,11 +399,7 @@ try {
     ValidateRecordCount(pLevel->nCameras, sizeof(W8LevelFileCamera), hFile->size() - hFile->tell());
 
     if (pLevel->nCameras != 0) {
-        pLevel->pCameras = static_cast<W8LevelFileCamera*>(
-            calloc(1, pLevel->nCameras * sizeof(W8LevelFileCamera)));
-        if (pLevel->pCameras == 0) {
-            throw std::bad_alloc();
-        }
+        AllocateLevelRecords(pLevel->pCameras, pLevel->nCameras);
 
         for (i = 0; i < pLevel->nCameras; ++i) {
             W8LevelFileCamera* pCamera = pLevel->pCameras + i;
@@ -445,11 +426,7 @@ try {
     ValidateRecordCount(pLevel->nTriggers, sizeof(W8LevelFileTrigger),
                         hFile->size() - hFile->tell());
     if (pLevel->nTriggers != 0) {
-        pLevel->pTriggers = static_cast<W8LevelFileTrigger*>(
-            calloc(1, pLevel->nTriggers * sizeof(W8LevelFileTrigger)));
-        if (pLevel->pTriggers == 0) {
-            throw std::bad_alloc();
-        }
+        AllocateLevelRecords(pLevel->pTriggers, pLevel->nTriggers);
 
         for (i = 0; i < pLevel->nTriggers; ++i) {
             if (!ReadTriggerFile(hFile, pLevel->pTriggers + i))
@@ -464,11 +441,7 @@ try {
 
     if (pLevel->nClippingPlanes != 0) {
         hFile->read_exact(&pLevel->clipping_plane_version, 1);
-        pLevel->pClippingPlanes = static_cast<W8LevelFileClippingPlaneRecord*>(
-            calloc(1, pLevel->nClippingPlanes * sizeof(W8LevelFileClippingPlaneRecord)));
-        if (pLevel->pClippingPlanes == 0) {
-            throw std::bad_alloc();
-        }
+        AllocateLevelRecords(pLevel->pClippingPlanes, pLevel->nClippingPlanes);
         hFile->read_exact(pLevel->pClippingPlanes,
                           pLevel->nClippingPlanes * sizeof(W8LevelFileClippingPlaneRecord));
     }
@@ -478,11 +451,7 @@ try {
     ValidateRecordCount(pLevel->nParticleSystems, sizeof(W8LevelFileParticleSystem),
                         hFile->size() - hFile->tell());
     if (pLevel->nParticleSystems != 0) {
-        pLevel->pParticleSystems = static_cast<W8LevelFileParticleSystem*>(
-            calloc(1, pLevel->nParticleSystems * sizeof(W8LevelFileParticleSystem)));
-        if (pLevel->pParticleSystems == 0) {
-            throw std::bad_alloc();
-        }
+        AllocateLevelRecords(pLevel->pParticleSystems, pLevel->nParticleSystems);
         for (i = 0; i < pLevel->nParticleSystems; ++i) {
 
             if (!ReadParticleSystemFile(hFile, pLevel->pParticleSystems + i))
@@ -494,11 +463,7 @@ try {
     ValidateRecordCount(pLevel->nNamedPositions, sizeof(W8LevelFileNamedPosition),
                         hFile->size() - hFile->tell());
     if (pLevel->nNamedPositions != 0) {
-        pLevel->pNamedPositions = static_cast<W8LevelFileNamedPosition*>(
-            calloc(1, pLevel->nNamedPositions * sizeof(W8LevelFileNamedPosition)));
-        if (pLevel->pNamedPositions == 0) {
-            throw std::bad_alloc();
-        }
+        AllocateLevelRecords(pLevel->pNamedPositions, pLevel->nNamedPositions);
 
         for (i = 0; i < pLevel->nNamedPositions; ++i) {
             hFile->read_exact(pLevel->pNamedPositions + i, sizeof(W8LevelFileNamedPosition));
@@ -735,11 +700,7 @@ try {
     }
 
     if ((pMesh->flags & W8_LEVEL_MESH_LOD_VERTICES) == 0) {
-        pMesh->pstVertices = static_cast<srVector3T<float>*>(
-            calloc(1, pMesh->num_vertices * 2 * sizeof(*pMesh->pstVertices)));
-        if (pMesh->pstVertices == 0) {
-            throw std::bad_alloc();
-        }
+        AllocateLevelRecords(pMesh->pstVertices, pMesh->num_vertices * 2);
 
         hFile->read_exact(pMesh->pstVertices, pMesh->num_vertices * sizeof(*pMesh->pstVertices));
     } else {
@@ -784,11 +745,7 @@ try {
         }
     }
     if ((pMesh->flags & W8_LEVEL_MESH_COMPRESSED_FACES) != 0) {
-        pMesh->pstCompFaces = static_cast<W8LevelFileCompressedFace*>(
-            calloc(1, pMesh->num_faces * sizeof(W8LevelFileCompressedFace)));
-        if (pMesh->pstCompFaces == 0) {
-            throw std::bad_alloc();
-        }
+        AllocateLevelRecords(pMesh->pstCompFaces, pMesh->num_faces);
 
         hFile->read_exact(pMesh->pstCompFaces,
                           pMesh->num_faces * sizeof(W8LevelFileCompressedFace));
@@ -798,11 +755,7 @@ try {
             }
         }
     } else {
-        pMesh->pstFaces = static_cast<W8SerializedMeshFace*>(
-            calloc(1, pMesh->num_faces * 2 * sizeof(*pMesh->pstFaces)));
-        if (pMesh->pstFaces == 0) {
-            throw std::bad_alloc();
-        }
+        AllocateLevelRecords(pMesh->pstFaces, pMesh->num_faces * 2);
 
         hFile->read_exact(pMesh->pstFaces, pMesh->num_faces * sizeof(*pMesh->pstFaces));
         for (int face = 0; face < pMesh->num_faces; ++face) {
@@ -1108,10 +1061,7 @@ try {
                                           pInvis->recipients));
         if (pInvis->version > 1) {
             hFile->read_exact(&pInvis->plane_flag, 1);
-            pInvis->pPlane = static_cast<W8LevelFilePlane*>(calloc(1, sizeof(W8LevelFilePlane)));
-            if (pInvis->pPlane == 0) {
-                throw std::bad_alloc();
-            }
+            AllocateLevelRecords(pInvis->pPlane);
 
             hFile->read_exact(pInvis->pPlane, sizeof(W8LevelFilePlane));
         }
@@ -1680,20 +1630,12 @@ try {
                         hFile->size() - hFile->tell());
     if (pPathAI->scaled == 2) {
         if (pPathAI->path_count != 0) {
-            pPathAI->pScaledPaths = static_cast<W8LevelFileScaledPathNode*>(
-                calloc(1, pPathAI->path_count * sizeof(W8LevelFileScaledPathNode)));
-            if (pPathAI->pScaledPaths == 0) {
-                throw std::bad_alloc();
-            }
+            AllocateLevelRecords(pPathAI->pScaledPaths, pPathAI->path_count);
             hFile->read_exact(pPathAI->pScaledPaths,
                               pPathAI->path_count * sizeof(W8LevelFileScaledPathNode));
         }
     } else if (pPathAI->path_count != 0) {
-        pPathAI->pPaths = static_cast<W8LevelFilePathNode*>(
-            calloc(1, pPathAI->path_count * sizeof(W8LevelFilePathNode)));
-        if (pPathAI->pPaths == 0) {
-            throw std::bad_alloc();
-        }
+        AllocateLevelRecords(pPathAI->pPaths, pPathAI->path_count);
         hFile->read_exact(pPathAI->pPaths, pPathAI->path_count * sizeof(W8LevelFilePathNode));
     }
     static_cast<void>(owner.release());
@@ -1781,11 +1723,7 @@ try {
         ValidateRecordCount(pAnimObj->num_bound_box, sizeof(W8LevelFileBounds),
                             hFile->size() - hFile->tell());
         if (pAnimObj->num_bound_box != 0) {
-            pAnimObj->pBoundBox = static_cast<W8LevelFileBounds*>(
-                calloc(1, pAnimObj->num_bound_box * sizeof(W8LevelFileBounds)));
-            if (pAnimObj->pBoundBox == 0) {
-                throw std::bad_alloc();
-            }
+            AllocateLevelRecords(pAnimObj->pBoundBox, pAnimObj->num_bound_box);
             hFile->read_exact(pAnimObj->pBoundBox,
                               pAnimObj->num_bound_box * sizeof(W8LevelFileBounds));
         }
@@ -1824,11 +1762,7 @@ try {
                 return FALSE;
         }
         if (pAnimObj->num_anims != 0) {
-            pAnimObj->pMorphs = static_cast<W8LevelFileMorph*>(
-                calloc(1, pAnimObj->num_anims * sizeof(W8LevelFileMorph)));
-            if (pAnimObj->pMorphs == 0) {
-                throw std::bad_alloc();
-            }
+            AllocateLevelRecords(pAnimObj->pMorphs, pAnimObj->num_anims);
 
             for (i = 0; i < pAnimObj->num_anims; ++i) {
                 W8LevelFileMorph* pMorph = pAnimObj->pMorphs + i;
@@ -1856,13 +1790,7 @@ try {
                             ValidateRecordCount(pFrame->num_textures, sizeof(W8MaterialRecord),
                                                 hFile->size() - hFile->tell());
                             if (pFrame->num_textures != 0) {
-                                pFrame->pTextures = static_cast<W8MaterialRecord*>(
-                                    calloc(1, pFrame->num_textures * sizeof(W8MaterialRecord)));
-                                if (pFrame->pTextures == 0) {
-                                    throw std::bad_alloc();
-                                }
-                                memset(pFrame->pTextures, 0,
-                                       pFrame->num_textures * sizeof(W8MaterialRecord));
+                                AllocateLevelRecords(pFrame->pTextures, pFrame->num_textures);
                                 for (j = 0; j < pFrame->num_textures; ++j) {
                                     W8MaterialRecord* pTexture = pFrame->pTextures + j;
                                     if (!ReadMaterialRecord(hFile, pTexture))
@@ -1885,13 +1813,7 @@ try {
         ValidateRecordCount(pAnimObj->num_transforms, sizeof(W8LevelFileTransform),
                             hFile->size() - hFile->tell());
         if (pAnimObj->num_transforms != 0) {
-            pAnimObj->pTransforms = static_cast<W8LevelFileTransform*>(
-                calloc(1, pAnimObj->num_transforms * sizeof(W8LevelFileTransform)));
-            if (pAnimObj->pTransforms == 0) {
-                throw std::bad_alloc();
-            }
-            memset(pAnimObj->pTransforms, 0,
-                   pAnimObj->num_transforms * sizeof(W8LevelFileTransform));
+            AllocateLevelRecords(pAnimObj->pTransforms, pAnimObj->num_transforms);
             for (i = 0; i < pAnimObj->num_transforms; ++i) {
                 W8LevelFileTransform* pTransform = pAnimObj->pTransforms + i;
                 hFile->read_exact(&pTransform->channel, 1);
@@ -1924,13 +1846,7 @@ try {
                                 return FALSE;
                             }
                             if (pFrame->num_textures != 0) {
-                                pFrame->pTextures = static_cast<W8MaterialRecord*>(
-                                    calloc(1, pFrame->num_textures * sizeof(W8MaterialRecord)));
-                                if (pFrame->pTextures == 0) {
-                                    throw std::bad_alloc();
-                                }
-                                memset(pFrame->pTextures, 0,
-                                       pFrame->num_textures * sizeof(W8MaterialRecord));
+                                AllocateLevelRecords(pFrame->pTextures, pFrame->num_textures);
                                 for (j = 0; j < pFrame->num_textures; ++j) {
                                     W8MaterialRecord* pTexture = pFrame->pTextures + j;
                                     if (!ReadMaterialRecord(hFile, pTexture))
@@ -2134,11 +2050,7 @@ try {
             ValidateRecordCount(pProp->num_frame_pos, sizeof(W8LevelFileFramePosition),
                                 hFile->size() - hFile->tell());
             if (pProp->num_frame_pos != 0) {
-                pProp->usFrame_Pos = static_cast<W8LevelFileFramePosition*>(
-                    calloc(1, pProp->num_frame_pos * sizeof(W8LevelFileFramePosition)));
-                if (pProp->usFrame_Pos == 0) {
-                    throw std::bad_alloc();
-                }
+                AllocateLevelRecords(pProp->usFrame_Pos, pProp->num_frame_pos);
                 hFile->read_exact(pProp->usFrame_Pos, pProp->num_frame_pos << 2);
             }
         }
@@ -2146,11 +2058,7 @@ try {
             return nullptr;
         hFile->read_exact(&pProp->has_trigger, 1);
         if (pProp->has_trigger != 0) {
-            pProp->pTrigger = static_cast<W8LevelFileTrigger*>(calloc(1, sizeof(*pProp->pTrigger)));
-            if (pProp->pTrigger == 0) {
-                throw std::bad_alloc();
-            }
-            memset(pProp->pTrigger, 0, sizeof(W8LevelFileTrigger));
+            AllocateLevelRecords(pProp->pTrigger);
             if (!ReadTriggerFile(hFile, pProp->pTrigger))
                 return nullptr;
         }

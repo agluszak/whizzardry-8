@@ -299,42 +299,31 @@ void LineDraw(bool fClip, int XStart, int YStart, int XEnd, int YEnd, short Colo
     }
 }
 
+static void DrawPixelRun(char** screen, int length, int color, int pixel_step, int next_run_step)
+{
+    char* pixel = *screen;
+    const char high = color >> 8;
+    const char low = color & 0x00ff;
+    for (int i = 0; i < length; ++i) {
+        pixel[0] = low;
+        pixel[1] = high;
+        pixel += pixel_step;
+    }
+    *screen = pixel + next_run_step;
+}
+
 /* Draws a horizontal run of pixels, then advances the bitmap pointer to
    the first pixel of the next run. */
 void DrawHorizontalRun(char** ScreenPtr, int XAdvance, int RunLength, int Color, int ScreenWidth)
 {
-    int i;
-    char* WorkingScreenPtr = *ScreenPtr;
-    char col2 = Color >> 8;
-    char col1 = Color & 0x00FF;
-
-    for (i = 0; i < RunLength; i++) {
-        WorkingScreenPtr[0] = col1;
-        WorkingScreenPtr[1] = col2;
-        WorkingScreenPtr += XAdvance * 2;
-    }
-    /* Advance to the next scan line */
-    WorkingScreenPtr += giImageWidth;
-    *ScreenPtr = WorkingScreenPtr;
+    DrawPixelRun(ScreenPtr, RunLength, Color, XAdvance * 2, giImageWidth);
 }
 
 /* Draws a vertical run of pixels, then advances the bitmap pointer to
    the first pixel of the next run. */
 void DrawVerticalRun(char** ScreenPtr, int XAdvance, int RunLength, int Color, int ScreenWidth)
 {
-    int i;
-    char* WorkingScreenPtr = *ScreenPtr;
-    char col2 = Color >> 8;
-    char col1 = Color & 0x00FF;
-
-    for (i = 0; i < RunLength; i++) {
-        WorkingScreenPtr[0] = col1;
-        WorkingScreenPtr[1] = col2;
-        WorkingScreenPtr += giImageWidth;
-    }
-    /* Advance to the next column */
-    WorkingScreenPtr += XAdvance * 2;
-    *ScreenPtr = WorkingScreenPtr;
+    DrawPixelRun(ScreenPtr, RunLength, Color, giImageWidth, XAdvance * 2);
 }
 
 /* Draws a rectangle between the specified endpoints in color Color. */

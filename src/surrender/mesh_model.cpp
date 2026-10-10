@@ -233,18 +233,24 @@ srVector3i* srMeshModel::getPolyVertex()
     return poly_vertices.data();
 }
 
+template<class T>
+static T* GetLazyMeshTable(srMeshModel& mesh, std::vector<T>& slot, w8_long count,
+                           int create, const T& initial = T{})
+{
+    if (slot.empty() && create != 0 && count != 0) {
+        slot.resize(count, initial);
+        mesh.setDirty(srMeshModel::DIRTY_TRI_MESH);
+    }
+    return slot.empty() ? nullptr : slot.data();
+}
+
 // FUNCTION: SURRENDER 0x10040430
 std::shared_ptr<srMaterialIFace>* srMeshModel::getVertexMaterial(w8_long vertex, e_side side, int table)
 {
     if (vertex < 0 || vertex > 3 || (int)side < 0 || (int)side > 1) {
         return 0;
     }
-    auto& slot = vertex_materials[vertex][side];
-    if (slot.empty() && table != 0 && vertex_location_count != 0) {
-        slot.resize(vertex_location_count);
-        setDirty(DIRTY_TRI_MESH);
-    }
-    return slot.empty() ? nullptr : slot.data();
+    return GetLazyMeshTable(*this, vertex_materials[vertex][side], vertex_location_count, table);
 }
 
 // FUNCTION: SURRENDER 0x10040560
@@ -253,12 +259,7 @@ std::shared_ptr<srTextureIFace>* srMeshModel::getPolyTexture(w8_long polygon, w8
     if (polygon < 0 || polygon > 3 || layer < 0 || layer > 1) {
         return 0;
     }
-    auto& slot = poly_textures[polygon][layer];
-    if (slot.empty() && table != 0 && polygon_count != 0) {
-        slot.resize(polygon_count);
-        setDirty(DIRTY_TRI_MESH);
-    }
-    return slot.empty() ? nullptr : slot.data();
+    return GetLazyMeshTable(*this, poly_textures[polygon][layer], polygon_count, table);
 }
 
 // FUNCTION: SURRENDER 0x10040690
@@ -267,12 +268,7 @@ srShader* srMeshModel::getPolyShader(w8_long polygon, int layer)
     if (polygon < 0 || polygon > 3) {
         return 0;
     }
-    auto& slot = poly_shaders[polygon];
-    if (slot.empty() && layer != 0 && polygon_count != 0) {
-        slot.resize(polygon_count);
-        setDirty(DIRTY_TRI_MESH);
-    }
-    return slot.empty() ? nullptr : slot.data();
+    return GetLazyMeshTable(*this, poly_shaders[polygon], polygon_count, layer);
 }
 
 // FUNCTION: SURRENDER 0x10040720
@@ -296,12 +292,8 @@ srVector3T<float>* srMeshModel::getVertexDIG(w8_long vertex, int table)
     if (vertex < 0 || vertex > 3) {
         return 0;
     }
-    auto& slot = dig[vertex];
-    if (slot.empty() && table != 0 && vertex_location_count != 0) {
-        slot.resize(vertex_location_count, srVector3T<float>(0.0f, 0.0f, 0.0f));
-        setDirty(DIRTY_TRI_MESH);
-    }
-    return slot.empty() ? nullptr : slot.data();
+    return GetLazyMeshTable(*this, dig[vertex], vertex_location_count, table,
+                            srVector3T<float>(0.0f, 0.0f, 0.0f));
 }
 
 // FUNCTION: SURRENDER 0x10040A70
@@ -310,12 +302,7 @@ glm::vec2* srMeshModel::getVertexTexCoords(w8_long vertex, w8_long layer, int ta
     if (vertex < 0 || vertex > 3 || layer < 0 || layer > 1) {
         return 0;
     }
-    auto& slot = texcoords[vertex][layer];
-    if (slot.empty() && table != 0 && uv_count != 0) {
-        slot.resize(uv_count, glm::vec2(0.0f, 0.0f));
-        setDirty(DIRTY_TRI_MESH);
-    }
-    return slot.empty() ? nullptr : slot.data();
+    return GetLazyMeshTable(*this, texcoords[vertex][layer], uv_count, table, glm::vec2(0.0f));
 }
 
 // FUNCTION: SURRENDER 0x10040B80
@@ -647,36 +634,26 @@ int srMeshModel::getBoundingSphere(glm::vec3& center, float& radius)
     return 1;
 }
 
+static glm::vec4* GetVertexColorTable(srMeshModel& mesh,
+    std::array<std::vector<glm::vec4>, srMeshModel::MAX_PASSES>& colors,
+    w8_long pass, int create)
+{
+    if (pass < 0 || pass >= srMeshModel::MAX_PASSES) {
+        return nullptr;
+    }
+    return GetLazyMeshTable(mesh, colors[pass], mesh.vertex_location_count, create, glm::vec4(1));
+}
+
 // FUNCTION: SURRENDER 0x100408B0
 glm::vec4* srMeshModel::getVertexSCG(w8_long vertex, int table)
 {
-    if (vertex < 0 || vertex > 3) {
-        return 0;
-    }
-    auto& slot = scg[vertex];
-    if (slot.empty() && table != 0 && vertex_location_count != 0) {
-        glm::vec4 white;
-        white = glm::vec4(1);
-        slot.resize(vertex_location_count, white);
-        setDirty(DIRTY_TRI_MESH);
-    }
-    return slot.empty() ? nullptr : slot.data();
+    return GetVertexColorTable(*this, scg, vertex, table);
 }
 
 // FUNCTION: SURRENDER 0x10040990
 glm::vec4* srMeshModel::getVertexDCG(w8_long vertex, int table)
 {
-    if (vertex < 0 || vertex > 3) {
-        return 0;
-    }
-    auto& slot = dcg[vertex];
-    if (slot.empty() && table != 0 && vertex_location_count != 0) {
-        glm::vec4 white;
-        white = glm::vec4(1);
-        slot.resize(vertex_location_count, white);
-        setDirty(DIRTY_TRI_MESH);
-    }
-    return slot.empty() ? nullptr : slot.data();
+    return GetVertexColorTable(*this, dcg, vertex, table);
 }
 
 // FUNCTION: SURRENDER 0x1003CEA0

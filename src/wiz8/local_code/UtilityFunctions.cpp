@@ -583,7 +583,6 @@ static void ReleaseMessageBoxControls()
     }
     if (g_message_box_background_image) {
         g_message_box_background_image.reset();
-        g_message_box_background_image.reset();
     }
 }
 
@@ -600,50 +599,49 @@ void CloseMessageBox(void)
     }
 }
 
-// FUNCTION: WIZ8 0x005188c0
-void MessageBoxAcceptMoveCallback(GUI_BUTTON* button, INT32 reason)
+static void InvalidateMessageBoxButton(const GUIButton& button, INT32 reason)
 {
     if (reason & (MSYS_CALLBACK_REASON_GAIN_MOUSE | MSYS_CALLBACK_REASON_LOST_MOUSE)) {
         SDL_Rect rect;
-        GetButtonArea(g_message_box_accept_button, &rect);
+        GetButtonArea(button, &rect);
         InvalidateRegion(rect.x, rect.y, (rect.x + rect.w), (rect.y + rect.h), 1);
     }
+}
+
+static void ClickMessageBoxButton(GUI_BUTTON* button, INT32 reason, bool accepted)
+{
+    if (reason & MSYS_CALLBACK_REASON_LBUTTON_DWN) {
+        button->uiFlags |= BUTTON_CLICKED_ON;
+    } else if (reason & MSYS_CALLBACK_REASON_LBUTTON_UP) {
+        if (button->uiFlags & BUTTON_CLICKED_ON) {
+            g_message_box_state = 1;
+            g_message_box_accepted = accepted;
+        }
+    }
+}
+
+// FUNCTION: WIZ8 0x005188c0
+void MessageBoxAcceptMoveCallback(GUI_BUTTON* button, INT32 reason)
+{
+    InvalidateMessageBoxButton(g_message_box_accept_button, reason);
 }
 
 // FUNCTION: WIZ8 0x00518900
 void MessageBoxAcceptClickCallback(GUI_BUTTON* button, INT32 reason)
 {
-    if (reason & MSYS_CALLBACK_REASON_LBUTTON_DWN) {
-        button->uiFlags |= BUTTON_CLICKED_ON;
-    } else if (reason & MSYS_CALLBACK_REASON_LBUTTON_UP) {
-        if (button->uiFlags & BUTTON_CLICKED_ON) {
-            g_message_box_state = 1;
-            g_message_box_accepted = true;
-        }
-    }
+    ClickMessageBoxButton(button, reason, true);
 }
 
 // FUNCTION: WIZ8 0x00518930
 void MessageBoxCancelMoveCallback(GUI_BUTTON* button, INT32 reason)
 {
-    if (reason & (MSYS_CALLBACK_REASON_GAIN_MOUSE | MSYS_CALLBACK_REASON_LOST_MOUSE)) {
-        SDL_Rect rect;
-        GetButtonArea(g_message_box_cancel_button, &rect);
-        InvalidateRegion(rect.x, rect.y, (rect.x + rect.w), (rect.y + rect.h), 1);
-    }
+    InvalidateMessageBoxButton(g_message_box_cancel_button, reason);
 }
 
 // FUNCTION: WIZ8 0x00518970
 void MessageBoxCancelClickCallback(GUI_BUTTON* button, INT32 reason)
 {
-    if (reason & MSYS_CALLBACK_REASON_LBUTTON_DWN) {
-        button->uiFlags |= BUTTON_CLICKED_ON;
-    } else if (reason & MSYS_CALLBACK_REASON_LBUTTON_UP) {
-        if (button->uiFlags & BUTTON_CLICKED_ON) {
-            g_message_box_state = 1;
-            g_message_box_accepted = false;
-        }
-    }
+    ClickMessageBoxButton(button, reason, false);
 }
 
 // FUNCTION: WIZ8 0x00518b20
