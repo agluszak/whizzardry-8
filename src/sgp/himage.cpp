@@ -4,6 +4,7 @@
 #include <math.h>
 #include <stdlib.h>
 #include "Types.h"
+#include "compat/surfaces.h"
 #include "string.h"
 #include "wiz8/filesystem.h"
 #include "himage.h"
@@ -471,14 +472,30 @@ BOOLEAN Copy8BPPCompressedImageTo16BPPBuffer(HIMAGE hImage, BYTE* pDestBuf, UINT
     }
 
     SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "%s", "Actually Copying");
-    // now we start Copying
+    // Retail stops a scanline short; decode that many rows into one indexed
+    // block so SDL can do the palette blit.
+    std::vector<UINT8> decoded(uiLineSize * (uiNumLines - 1));
     for (uiLine = 0; uiLine < uiNumLines - 1; uiLine++) {
         // decompress a scanline
         Decompress(pDecompPtr, pScanLine, hImage->usWidth);
+        memcpy(decoded.data() + uiLine * uiLineSize, pScanLine + srcRect->iLeft, uiLineSize);
+    }
 
-        // set pointers and blit
+    // Every index writes its LUT word, so there is no color key here.
+    SDLSurfaceOwner source{
+        SDL_CreateSurfaceFrom(static_cast<int>(uiLineSize), static_cast<int>(uiNumLines - 1),
+                              SDL_PIXELFORMAT_INDEX8, decoded.data(),
+                              static_cast<int>(uiLineSize)),
+        SDL_DestroySurface};
+    if (source && SDL_CreateSurfacePalette(source.get()) &&
+        BlitIndexedTo16BPP(source.get(), p16BPPPalette, 0, 0, uiLineSize, uiNumLines - 1,
+                           reinterpret_cast<UINT8*>(pDest), usDestWidth * 2)) {
+        SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "End Copying at %p", pDest);
+        return (TRUE);
+    }
+    for (uiLine = 0; uiLine < uiNumLines - 1; uiLine++) {
         pDestTemp = pDest;
-        pScanLineTemp = pScanLine + srcRect->iLeft;
+        pScanLineTemp = decoded.data() + uiLine * uiLineSize;
         for (uiCol = 0; uiCol < uiLineSize; uiCol++) {
             *pDestTemp = p16BPPPalette[*pScanLineTemp];
             pDestTemp++;
@@ -628,6 +645,18 @@ BOOLEAN Copy8BPPImageTo16BPPBuffer(HIMAGE hImage, BYTE* pDestBuf, UINT16 usDestW
     pSrc = hImage->pImageData.data() + uiSrcStart;
     SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "Start Copying at %p", pDest);
 
+    // Retail stops a scanline short; every index writes its LUT word so the
+    // indexed view has no color key.
+    SDLSurfaceOwner source{
+        SDL_CreateSurfaceFrom(static_cast<int>(uiLineSize), static_cast<int>(uiNumLines - 1),
+                              SDL_PIXELFORMAT_INDEX8, pSrc, hImage->usWidth),
+        SDL_DestroySurface};
+    if (source && SDL_CreateSurfacePalette(source.get()) &&
+        BlitIndexedTo16BPP(source.get(), p16BPPPalette, 0, 0, uiLineSize, uiNumLines - 1,
+                           reinterpret_cast<UINT8*>(pDest), usDestWidth * 2)) {
+        SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "End Copying at %p", pDest);
+        return (TRUE);
+    }
     // For every entry, look up into 16BPP palette
     for (rows = 0; rows < uiNumLines - 1; rows++) {
         pDestTemp = pDest;

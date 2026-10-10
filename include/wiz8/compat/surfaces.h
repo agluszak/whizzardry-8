@@ -38,3 +38,11 @@ void SetSurfaceClipRegions(CpuSurface& surface, std::span<const RECT> rectangles
 void FillCpuSurface(CpuSurface& destination, UINT32 color, const RECT* rectangle = nullptr);
 void BlitCpuSurface(CpuSurface& destination, const RECT* destinationRect, CpuSurface& source,
     const RECT* sourceRect = nullptr, bool sourceKey = false, bool destinationKey = false);
+
+// Ordinary indexed-to-16bpp draw through SDL: the source is an INDEX8 surface
+// whose palette is loaded with the ARGB1555 decomposition of each LUT word —
+// bit 15 rides the alpha byte — and SDL copies it into an ARGB1555 view over
+// dest, so every LUT word round-trips byte-exactly. The source may carry a
+// color key. Returns false on any setup/SDL failure so callers can fall back.
+bool BlitIndexedTo16BPP(SDL_Surface* indexed, const UINT16* lut, int srcX, int srcY,
+                        int width, int height, UINT8* dest, int destPitch);

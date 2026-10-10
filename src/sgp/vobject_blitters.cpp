@@ -1,4 +1,6 @@
 #include <SDL3/SDL_log.h>
+#include <SDL3/SDL_pixels.h>
+#include <SDL3/SDL_surface.h>
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07, 2026-10-09.
    Distributed under the accompanying SFI Source Code license agreement. */
 #include <stdio.h>
@@ -100,17 +102,132 @@ void NativeBltETRLEClip(UINT8* src, UINT8* dest, int top_skip, int left_skip,
         dest += line_skip;
     }
 }
+
+// Walk a decoded INDEX8 sprite surface over the clipped destination span;
+// nonzero pixels are opaque.
+template <class Opaque, class Transparent>
+void NativeBltSprite(const UINT8* pixels, int pitch, UINT8* dest, int left, int top,
+                     int width, int height, int step, UINT32 line_skip,
+                     Opaque opaque, Transparent transparent)
+{
+    pixels += top * pitch + left;
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            if (pixels[x]) {
+                opaque(dest, pixels[x]);
+            } else {
+                transparent(dest);
+            }
+            dest += step;
+        }
+        pixels += pitch;
+        dest += line_skip;
+    }
+}
+
+// The decoded INDEX8 surface for a frame, or nullptr when the object was
+// not decoded (tests and objects built outside CreateVideoObject).
+SDL_Surface* SpriteSurface(const SGPVObject* object, UINT16 index)
+{
+    return index < object->sprites.size() ? object->sprites[index].get() : nullptr;
+}
+
+// Keyed draws may only use the decoded surface when no opaque run wrote a
+// literal index 0 — the color key cannot tell that pixel from a transparent
+// run. Everything else falls back to the streaming blitters.
+bool SpriteKeyed(const SGPVObject* object, UINT16 index)
+{
+    return SpriteSurface(object, index) != nullptr &&
+           !(index < object->spriteLiteralZero.size() && object->spriteLiteralZero[index]);
+}
+
+// The horizontally mirrored decoded surface, built on first use.
+SDL_Surface* MirroredSprite(SGPVObject* object, UINT16 index)
+{
+    if (!SpriteSurface(object, index))
+        return nullptr;
+    while (object->spritesMirrored.size() != object->sprites.size())
+        object->spritesMirrored.emplace_back(nullptr, SDL_DestroySurface);
+    if (!object->spritesMirrored[index]) {
+        object->spritesMirrored[index] =
+            SDLSurfaceOwner{SDL_DuplicateSurface(SpriteSurface(object, index)), SDL_DestroySurface};
+        if (!object->spritesMirrored[index])
+            return nullptr;
+        SDL_Surface* mirrored = object->spritesMirrored[index].get();
+        SDL_FlipSurface(mirrored, SDL_FLIP_HORIZONTAL);
+        SDL_SetSurfaceColorKey(mirrored, true, 0);
+    }
+    return object->spritesMirrored[index].get();
+}
+
 } // namespace
 
 
 // GLOBAL: WIZ8 0x00600078
 SGPRect ClippingRect = {0, 0, 640, 480};
-//555      565
-UINT32 guiTranslucentMask = 0x3def; //0x7bef;		// mask for halving 5,6,5
 
-// GLOBALS for pre-calculating skip values
-INT32 gLeftSkip, gRightSkip, gTopSkip, gBottomSkip;
-BOOLEAN gfUsePreCalcSkips = FALSE;
+// Decode every ETRLE frame into an INDEX8 SDL surface. Transparent runs
+// decode to index 0, which is also the color key the ordinary draws use.
+// Frames carrying a literal index 0 inside an opaque run set
+// spriteLiteralZero so keyed draws keep the streaming blitters. Failure
+// leaves the sprite list empty, which every blitter treats as undecoded.
+BOOLEAN DecodeVideoObjectSprites(HVOBJECT hVObject)
+{
+    hVObject->sprites.clear();
+    hVObject->spritesMirrored.clear();
+    hVObject->spriteLiteralZero.clear();
+    if (hVObject->pPixData.empty() || hVObject->pETRLEObject.empty()) {
+        return (FALSE);
+    }
+    hVObject->sprites.reserve(hVObject->pETRLEObject.size());
+    for (size_t index = 0; index < hVObject->pETRLEObject.size(); ++index)
+        hVObject->sprites.emplace_back(nullptr, SDL_DestroySurface);
+    hVObject->spriteLiteralZero.assign(hVObject->pETRLEObject.size(), 0);
+    const UINT8* const end = hVObject->pPixData.data() + hVObject->pPixData.size();
+    for (size_t index = 0; index < hVObject->pETRLEObject.size(); ++index) {
+        const ETRLEObject& frame = hVObject->pETRLEObject[index];
+        if (frame.usWidth == 0 || frame.usHeight == 0)
+            continue;
+        SDLSurfaceOwner sprite{
+            SDL_CreateSurface(frame.usWidth, frame.usHeight, SDL_PIXELFORMAT_INDEX8),
+            SDL_DestroySurface};
+        SDL_Palette* palette = SDL_CreatePalette(256);
+        if (!sprite || !palette || !SDL_SetSurfacePalette(sprite.get(), palette) ||
+            !SDL_SetSurfaceColorKey(sprite.get(), true, 0)) {
+            SDL_DestroyPalette(palette);
+            hVObject->sprites.clear();
+            hVObject->spriteLiteralZero.clear();
+            return (FALSE);
+        }
+        SDL_DestroyPalette(palette);
+        const UINT8* src = hVObject->pPixData.data() + frame.uiDataOffset;
+        UINT8* row = static_cast<UINT8*>(sprite->pixels);
+        for (UINT32 y = 0; y < frame.usHeight; ++y) {
+            UINT32 x = 0;
+            UINT8 control;
+            while (src < end && (control = *src++) != 0) {
+                const UINT32 count = control & 0x7f;
+                if (x + count > frame.usWidth || (!(control & 0x80) && src + count > end)) {
+                    hVObject->sprites.clear();
+                    hVObject->spriteLiteralZero.clear();
+                    return (FALSE);
+                }
+                if (control & 0x80) {
+                    x += count;
+                } else {
+                    for (UINT32 n = 0; n < count; ++n) {
+                        const UINT8 value = *src++;
+                        hVObject->spriteLiteralZero[index] |= (value == 0);
+                        row[x++] = value;
+                    }
+                }
+            }
+            row += sprite->pitch;
+        }
+        hVObject->sprites[index] = std::move(sprite);
+    }
+    return (TRUE);
+}
 
 //*Experimental**********************************************************************
 
@@ -190,13 +307,21 @@ BOOLEAN Blt8BPPDataTo8BPPBufferMonoShadowClip(UINT8* pBuffer, UINT32 uiDestPitch
     DestPtr = (UINT8*)pBuffer + (uiDestPitchBYTES * (iTempY + TopSkip)) + ((iTempX + LeftSkip));
     LineSkip = (uiDestPitchBYTES - (BlitLength));
 
-    NativeBltETRLEClip(SrcPtr, DestPtr, TopSkip, LeftSkip, BlitLength, BlitHeight, 1, LineSkip,
-        [&](UINT8* dest, UINT8 index) {
-            if (index == 1) { *dest = 0; }
-            else if (index != 0) { *dest = ubForeground; }
-            else if (ubBackground != 0) { *dest = ubBackground; }
-        },
-        [&](UINT8* dest) { if (ubBackground != 0) { *dest = ubBackground; } });
+    auto opaque = [&](UINT8* dest, UINT8 index) {
+        if (index == 1) { *dest = 0; }
+        else if (index != 0) { *dest = ubForeground; }
+        else if (ubBackground != 0) { *dest = ubBackground; }
+    };
+    auto transparent = [&](UINT8* dest) { if (ubBackground != 0) { *dest = ubBackground; } };
+    // Zero pixels mean background here, so even literal-zero frames decode
+    // to identical output.
+    if (SDL_Surface* sprite = SpriteSurface(hSrcVObject, usIndex)) {
+        NativeBltSprite(static_cast<const UINT8*>(sprite->pixels), sprite->pitch, DestPtr, LeftSkip,
+                        TopSkip, BlitLength, BlitHeight, 1, LineSkip, opaque, transparent);
+    } else {
+        NativeBltETRLEClip(SrcPtr, DestPtr, TopSkip, LeftSkip, BlitLength, BlitHeight, 1, LineSkip,
+                           opaque, transparent);
+    }
 
     return (TRUE);
 }
@@ -271,9 +396,16 @@ BOOLEAN Blt8BPPDataTo8BPPBufferTransparentClip(UINT16* pBuffer, UINT32 uiDestPit
     LineSkip = (uiDestPitchBYTES - (BlitLength));
     pPal8BPP = hSrcVObject->pShade8;
 
-    NativeBltETRLEClip(SrcPtr, DestPtr, TopSkip, LeftSkip, BlitLength, BlitHeight, 1, LineSkip,
-        [&](UINT8* dest, UINT8 index) { *dest = pPal8BPP[index]; },
-        [](UINT8*) {});
+    auto opaque = [&](UINT8* dest, UINT8 index) { *dest = pPal8BPP[index]; };
+    auto transparent = [](UINT8*) {};
+    if (SpriteKeyed(hSrcVObject, usIndex)) {
+        const SDL_Surface* sprite = SpriteSurface(hSrcVObject, usIndex);
+        NativeBltSprite(static_cast<const UINT8*>(sprite->pixels), sprite->pitch, DestPtr, LeftSkip,
+                        TopSkip, BlitLength, BlitHeight, 1, LineSkip, opaque, transparent);
+    } else {
+        NativeBltETRLEClip(SrcPtr, DestPtr, TopSkip, LeftSkip, BlitLength, BlitHeight, 1, LineSkip,
+                           opaque, transparent);
+    }
 
     return (TRUE);
 }
@@ -319,9 +451,15 @@ BOOLEAN Blt8BPPDataTo8BPPBufferTransparent(UINT16* pBuffer, UINT32 uiDestPitchBY
     LineSkip = (uiDestPitchBYTES - (usWidth));
     pPal8BPP = hSrcVObject->pShade8;
 
-    NativeBltETRLE(SrcPtr, DestPtr, usHeight, 1, LineSkip,
-        [&](UINT8* dest, UINT8 index) { *dest = pPal8BPP[index]; },
-        [](UINT8*) {});
+    auto opaque = [&](UINT8* dest, UINT8 index) { *dest = pPal8BPP[index]; };
+    auto transparent = [](UINT8*) {};
+    if (SpriteKeyed(hSrcVObject, usIndex)) {
+        const SDL_Surface* sprite = SpriteSurface(hSrcVObject, usIndex);
+        NativeBltSprite(static_cast<const UINT8*>(sprite->pixels), sprite->pitch, DestPtr, 0, 0,
+                        usWidth, usHeight, 1, LineSkip, opaque, transparent);
+    } else {
+        NativeBltETRLE(SrcPtr, DestPtr, usHeight, 1, LineSkip, opaque, transparent);
+    }
 
     return (TRUE);
 }
@@ -366,9 +504,15 @@ BOOLEAN Blt8BPPDataTo8BPPBufferShadow(UINT16* pBuffer, UINT32 uiDestPitchBYTES,
     DestPtr = (UINT8*)pBuffer + (uiDestPitchBYTES * iTempY) + (iTempX);
     LineSkip = (uiDestPitchBYTES - (usWidth));
 
-    NativeBltETRLE(SrcPtr, DestPtr, usHeight, 2, LineSkip,
-        [](UINT8* dest, UINT8) { NativeWriteWord(dest, ShadeTable[NativeReadWord(dest)]); },
-        [](UINT8*) {});
+    auto opaque = [](UINT8* dest, UINT8) { NativeWriteWord(dest, ShadeTable[NativeReadWord(dest)]); };
+    auto transparent = [](UINT8*) {};
+    if (SpriteKeyed(hSrcVObject, usIndex)) {
+        const SDL_Surface* sprite = SpriteSurface(hSrcVObject, usIndex);
+        NativeBltSprite(static_cast<const UINT8*>(sprite->pixels), sprite->pitch, DestPtr, 0, 0,
+                        usWidth, usHeight, 2, LineSkip, opaque, transparent);
+    } else {
+        NativeBltETRLE(SrcPtr, DestPtr, usHeight, 2, LineSkip, opaque, transparent);
+    }
 
     return (TRUE);
 }
@@ -444,13 +588,20 @@ BOOLEAN Blt8BPPDataTo8BPPBufferShadowClip(UINT16* pBuffer, UINT32 uiDestPitchBYT
     pPal8BPP = hSrcVObject->pShade8;
     LineSkip = (uiDestPitchBYTES - (BlitLength));
 
-    NativeBltETRLEClip(SrcPtr, DestPtr, TopSkip, LeftSkip, BlitLength, BlitHeight, 2, LineSkip,
-        [&](UINT8* dest, UINT8) {
-            // Retail reads a word at a byte offset into pShade8. Its caller
-            // must supply destination indices within that palette's storage.
-            NativeWriteWord(dest, NativeReadWord(pPal8BPP + NativeReadWord(dest)));
-        },
-        [](UINT8*) {});
+    auto opaque = [&](UINT8* dest, UINT8) {
+        // Retail reads a word at a byte offset into pShade8. Its caller
+        // must supply destination indices within that palette's storage.
+        NativeWriteWord(dest, NativeReadWord(pPal8BPP + NativeReadWord(dest)));
+    };
+    auto transparent = [](UINT8*) {};
+    if (SpriteKeyed(hSrcVObject, usIndex)) {
+        const SDL_Surface* sprite = SpriteSurface(hSrcVObject, usIndex);
+        NativeBltSprite(static_cast<const UINT8*>(sprite->pixels), sprite->pitch, DestPtr, LeftSkip,
+                        TopSkip, BlitLength, BlitHeight, 2, LineSkip, opaque, transparent);
+    } else {
+        NativeBltETRLEClip(SrcPtr, DestPtr, TopSkip, LeftSkip, BlitLength, BlitHeight, 2, LineSkip,
+                           opaque, transparent);
+    }
 
     return (TRUE);
 }
@@ -530,14 +681,24 @@ BOOLEAN Blt8BPPDataTo16BPPBufferMonoShadowClip(UINT16* pBuffer, UINT32 uiDestPit
     DestPtr = (UINT8*)pBuffer + (uiDestPitchBYTES * (iTempY + TopSkip)) + ((iTempX + LeftSkip) * 2);
     LineSkip = (uiDestPitchBYTES - (BlitLength * 2));
 
-    NativeBltETRLEClip(SrcPtr, DestPtr, TopSkip, LeftSkip, BlitLength, BlitHeight, 2, LineSkip,
-        [&](UINT8* dest, UINT8 index) {
-            if (index == 1) {
-                if (usShadow != 0) { NativeWriteWord(dest, usShadow); }
-            } else if (index != 0) { NativeWriteWord(dest, usForeground); }
-            else if (usBackground != 0) { NativeWriteWord(dest, usBackground); }
-        },
-        [&](UINT8* dest) { if (usBackground != 0) { NativeWriteWord(dest, usBackground); } });
+    auto opaque = [&](UINT8* dest, UINT8 index) {
+        if (index == 1) {
+            if (usShadow != 0) { NativeWriteWord(dest, usShadow); }
+        } else if (index != 0) { NativeWriteWord(dest, usForeground); }
+        else if (usBackground != 0) { NativeWriteWord(dest, usBackground); }
+    };
+    auto transparent = [&](UINT8* dest) {
+        if (usBackground != 0) { NativeWriteWord(dest, usBackground); }
+    };
+    // Zero pixels mean background here, so even literal-zero frames decode
+    // to identical output.
+    if (SDL_Surface* sprite = SpriteSurface(hSrcVObject, usIndex)) {
+        NativeBltSprite(static_cast<const UINT8*>(sprite->pixels), sprite->pitch, DestPtr, LeftSkip,
+                        TopSkip, BlitLength, BlitHeight, 2, LineSkip, opaque, transparent);
+    } else {
+        NativeBltETRLEClip(SrcPtr, DestPtr, TopSkip, LeftSkip, BlitLength, BlitHeight, 2, LineSkip,
+                           opaque, transparent);
+    }
 
     return (TRUE);
 }
@@ -828,6 +989,16 @@ BOOLEAN Blt8BPPDataSubTo16BPPBuffer(UINT16* pBuffer, UINT32 uiDestPitchBYTES,
     DestPtr = ((UINT8*)pBuffer + (uiDestPitchBYTES * iTempY) + (iTempX * 2));
     p16BPPPalette = hSrcVSurface->p16BPPPalette.get();
 
+    // Every index writes its LUT word, so there is no color key here.
+    SDLSurfaceOwner source{SDL_CreateSurfaceFrom(static_cast<int>(BlitLength),
+                                               static_cast<int>(BlitHeight), SDL_PIXELFORMAT_INDEX8,
+                                               SrcPtr, static_cast<int>(uiSrcPitch)),
+                           SDL_DestroySurface};
+    if (source && SDL_CreateSurfacePalette(source.get()) &&
+        BlitIndexedTo16BPP(source.get(), p16BPPPalette, 0, 0, BlitLength, BlitHeight, DestPtr,
+                           static_cast<int>(uiDestPitchBYTES))) {
+        return (TRUE);
+    }
     for (UINT32 y = 0; y < BlitHeight; ++y) {
         for (UINT32 x = 0; x < BlitLength; ++x) {
             NativeWriteWord(DestPtr + x * 2, p16BPPPalette[SrcPtr[x]]);
@@ -969,9 +1140,15 @@ BOOLEAN Blt8BPPDataTo16BPPBufferShadow(UINT16* pBuffer, UINT32 uiDestPitchBYTES,
     DestPtr = (UINT8*)pBuffer + (uiDestPitchBYTES * iTempY) + (iTempX * 2);
     LineSkip = (uiDestPitchBYTES - (usWidth * 2));
 
-    NativeBltETRLE(SrcPtr, DestPtr, usHeight, 2, LineSkip,
-        [](UINT8* dest, UINT8) { NativeWriteWord(dest, ShadeTable[NativeReadWord(dest)]); },
-        [](UINT8*) {});
+    auto opaque = [](UINT8* dest, UINT8) { NativeWriteWord(dest, ShadeTable[NativeReadWord(dest)]); };
+    auto transparent = [](UINT8*) {};
+    if (SpriteKeyed(hSrcVObject, usIndex)) {
+        const SDL_Surface* sprite = SpriteSurface(hSrcVObject, usIndex);
+        NativeBltSprite(static_cast<const UINT8*>(sprite->pixels), sprite->pitch, DestPtr, 0, 0,
+                        usWidth, usHeight, 2, LineSkip, opaque, transparent);
+    } else {
+        NativeBltETRLE(SrcPtr, DestPtr, usHeight, 2, LineSkip, opaque, transparent);
+    }
 
     return (TRUE);
 }
@@ -1020,6 +1197,11 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransparent(UINT16* pBuffer, UINT32 uiDestPitchB
     p16BPPPalette = hSrcVObject->pShadeCurrent;
     LineSkip = (uiDestPitchBYTES - (usWidth * 2));
 
+    if (SpriteKeyed(hSrcVObject, usIndex) &&
+        BlitIndexedTo16BPP(SpriteSurface(hSrcVObject, usIndex), p16BPPPalette, 0, 0, usWidth,
+                           usHeight, DestPtr, static_cast<int>(uiDestPitchBYTES))) {
+        return (TRUE);
+    }
     NativeBltETRLE(SrcPtr, DestPtr, usHeight, 2, LineSkip,
         [&](UINT8* dest, UINT8 index) { NativeWriteWord(dest, p16BPPPalette[index]); },
         [](UINT8*) {});
@@ -1075,6 +1257,17 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransMirror(UINT16* pBuffer, UINT32 uiDestPitchB
     p16BPPPalette = hSrcVObject->pShadeCurrent;
     uiDestSkip = (uiDestPitchBYTES + (usWidth * 2));
 
+    // The mirrored surface spans [iX - sOffsetX, iTempX]; keep the streaming
+    // path when that left edge leaves the buffer.
+    SDL_Surface* mirrored = iX - pTrav->sOffsetX >= 0 && SpriteKeyed(hSrcVObject, usIndex)
+                                ? MirroredSprite(hSrcVObject, usIndex)
+                                : nullptr;
+    if (mirrored != nullptr &&
+        BlitIndexedTo16BPP(mirrored, p16BPPPalette, 0, 0, usWidth, usHeight,
+                           (UINT8*)pBuffer + uiDestPitchBYTES * iTempY + (iX - pTrav->sOffsetX) * 2,
+                           static_cast<int>(uiDestPitchBYTES))) {
+        return (TRUE);
+    }
     NativeBltETRLE(SrcPtr, DestPtr, usHeight, -2, uiDestSkip,
         [&](UINT8* dest, UINT8 index) { NativeWriteWord(dest, p16BPPPalette[index]); },
         [](UINT8*) {});
@@ -1152,6 +1345,11 @@ BOOLEAN Blt8BPPDataTo16BPPBufferTransparentClip(UINT16* pBuffer, UINT32 uiDestPi
     p16BPPPalette = hSrcVObject->pShadeCurrent;
     LineSkip = (uiDestPitchBYTES - (BlitLength * 2));
 
+    if (SpriteKeyed(hSrcVObject, usIndex) &&
+        BlitIndexedTo16BPP(SpriteSurface(hSrcVObject, usIndex), p16BPPPalette, LeftSkip, TopSkip,
+                           BlitLength, BlitHeight, DestPtr, static_cast<int>(uiDestPitchBYTES))) {
+        return (TRUE);
+    }
     NativeBltETRLEClip(SrcPtr, DestPtr, TopSkip, LeftSkip, BlitLength, BlitHeight, 2, LineSkip,
         [&](UINT8* dest, UINT8 index) { NativeWriteWord(dest, p16BPPPalette[index]); },
         [](UINT8*) {});
@@ -1282,9 +1480,16 @@ BOOLEAN Blt8BPPDataTo16BPPBufferShadowClip(UINT16* pBuffer, UINT32 uiDestPitchBY
     DestPtr = (UINT8*)pBuffer + (uiDestPitchBYTES * (iTempY + TopSkip)) + ((iTempX + LeftSkip) * 2);
     LineSkip = (uiDestPitchBYTES - (BlitLength * 2));
 
-    NativeBltETRLEClip(SrcPtr, DestPtr, TopSkip, LeftSkip, BlitLength, BlitHeight, 2, LineSkip,
-        [](UINT8* dest, UINT8) { NativeWriteWord(dest, ShadeTable[NativeReadWord(dest)]); },
-        [](UINT8*) {});
+    auto opaque = [](UINT8* dest, UINT8) { NativeWriteWord(dest, ShadeTable[NativeReadWord(dest)]); };
+    auto transparent = [](UINT8*) {};
+    if (SpriteKeyed(hSrcVObject, usIndex)) {
+        const SDL_Surface* sprite = SpriteSurface(hSrcVObject, usIndex);
+        NativeBltSprite(static_cast<const UINT8*>(sprite->pixels), sprite->pitch, DestPtr, LeftSkip,
+                        TopSkip, BlitLength, BlitHeight, 2, LineSkip, opaque, transparent);
+    } else {
+        NativeBltETRLEClip(SrcPtr, DestPtr, TopSkip, LeftSkip, BlitLength, BlitHeight, 2, LineSkip,
+                           opaque, transparent);
+    }
 
     return (TRUE);
 }
