@@ -2,6 +2,7 @@
 
 #include <vector>
 #include <string>
+#include <string_view>
 
 struct stScriptLine {
     std::string text;
@@ -9,7 +10,7 @@ struct stScriptLine {
 };
 
 struct stScriptLabel {
-    char name[0x20];
+    std::string name;
     int line;
 };
 
@@ -25,7 +26,7 @@ public:
         this->name = std::move(name);
     }
 
-    int FindLabelLine(const char* label) const;
+    int FindLabelLine(std::string_view label) const;
     int GetSourceLine(int line) const;
     bool Load(const char* path);
     void Clear();

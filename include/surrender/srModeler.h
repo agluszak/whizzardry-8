@@ -41,15 +41,14 @@ public:
         Vertex();
         void reset();
         void interpolate(const Vertex& first, const Vertex& second, float fraction);
-        int operator==(const Vertex& other) const;
-        int operator!=(const Vertex& other) const;
+        bool operator==(const Vertex& other) const = default;
 
-        srVector3T<float> position;
+        glm::vec3 position;
         w8_ulong shade_index;
         std::shared_ptr<srMaterialIFace> materials[4][2];
-        srVector3T<float> dcg[4];
-        srVector3T<float> dig[4];
-        srVector3T<float> scg[4];
+        glm::vec3 dcg[4];
+        glm::vec3 dig[4];
+        glm::vec3 scg[4];
         glm::vec2 uv[8];
         float weights[4];
     };
@@ -104,16 +103,15 @@ public:
     void disableDegenerateTriangles();
     void addFromModeler(srModeler& other);
 
-    void scale(const srVector3T<float>& scale);
-    void scale(w8_ulong triangle, const srVector3T<float>& scale);
-    void move(const srVector3T<float>& delta);
-    void move(w8_ulong triangle, const srVector3T<float>& delta);
+    void scale(const glm::vec3& scale);
+    void scale(w8_ulong triangle, const glm::vec3& scale);
+    void move(const glm::vec3& delta);
+    void move(w8_ulong triangle, const glm::vec3& delta);
     void rotate(const glm::mat3& matrix);
     void rotate(w8_ulong triangle, const glm::mat3& matrix);
-    int findVertex(const srVector3T<float>& position, w8_ulong& triangle,
-                   w8_ulong& vertex, w8_ulong start_triangle);
-    void findClosestVertex(const srVector3T<float>& position, w8_ulong& triangle,
-                           w8_ulong& vertex);
+    int findVertex(const glm::vec3& position, w8_ulong& triangle, w8_ulong& vertex,
+                   w8_ulong start_triangle);
+    void findClosestVertex(const glm::vec3& position, w8_ulong& triangle, w8_ulong& vertex);
     double getMaxVertexDist();
     void getAxialBounds(e_axis axis, float& minimum, float& maximum);
 

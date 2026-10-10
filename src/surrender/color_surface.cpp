@@ -1942,59 +1942,8 @@ void srColorSurface::setHLine(w8_long y, w8_long x_start, w8_long x_end, w8_ulon
         if (x_start < x_hi) {
             setPixel(x_start, y, pixel);
             w8_ulong raw = getPixelRaw(x_start, y);
-            unsigned char* address = getAddress(x_start, y);
-            switch (pixel_format.pixel_size) {
-            case srPixelConvert::PIXEL_SIZE_8:
-                if (x_hi - x_start != 0) {
-                    std::fill_n(address, x_hi - x_start, static_cast<unsigned char>(raw));
-                }
-                break;
-                break;
-            case srPixelConvert::PIXEL_SIZE_16: {
-                w8_ulong count = x_hi - x_start;
-                w8_ulong half = count >> 1;
-                if (half != 0) {
-                    std::fill_n(reinterpret_cast<w8_ulong*>(address), half,
-                                (raw << 0x10) | (raw & 0xffff));
-                }
-                if ((count & 1) != 0) {
-                    *(unsigned short*)(address + count * 2 - 2) = (unsigned short)raw;
-                }
-                break;
-            }
-            case srPixelConvert::PIXEL_SIZE_24: {
-                w8_ulong count = x_hi - x_start;
-                w8_ulong i = 0;
-                w8_ulong bulk = count & ~3UL;
-                for (; i < bulk; i += 4) {
-                    unsigned char* out = address + i * 3;
-                    *(unsigned short*)out = (unsigned short)raw;
-                    out[2] = (unsigned char)(raw >> 0x10);
-                    *(unsigned short*)(out + 3) = (unsigned short)raw;
-                    out[5] = (unsigned char)(raw >> 0x10);
-                    *(unsigned short*)(out + 6) = (unsigned short)raw;
-                    out[8] = (unsigned char)(raw >> 0x10);
-                    *(unsigned short*)(out + 9) = (unsigned short)raw;
-                    out[11] = (unsigned char)(raw >> 0x10);
-                }
-                if (i < count) {
-                    unsigned char* out = address + i * 3;
-                    *(unsigned short*)out = (unsigned short)raw;
-                    out[2] = (unsigned char)(raw >> 0x10);
-                    unsigned char* dst = out + 3;
-                    for (w8_ulong n = (count - i) * 3 - 3; n != 0; --n) {
-                        *dst++ = *out++;
-                    }
-                }
-                break;
-            }
-            case srPixelConvert::PIXEL_SIZE_32:
-                if (x_hi - x_start != 0) {
-                    std::fill_n(reinterpret_cast<w8_ulong*>(address), x_hi - x_start, raw);
-                }
-                break;
-                break;
-            }
+            const SDL_Rect rect{x_start, y, x_hi - x_start, 1};
+            SDL_FillSurfaceRect(storage.get(), &rect, raw);
         }
     }
 }
@@ -2021,66 +1970,8 @@ void srColorSurface::setVLine(w8_long x, w8_long y_start, w8_long y_end, w8_ulon
         if (y_start < y_hi) {
             setPixel(x, y_start, pixel);
             w8_ulong raw = getPixelRaw(x, y_start);
-            unsigned char* address = getAddress(x, y_start);
-            w8_ulong count = y_hi - y_start;
-            switch (pixel_format.pixel_size) {
-            case srPixelConvert::PIXEL_SIZE_8: {
-                w8_ulong i = 0;
-                w8_ulong bulk = count & ~1UL;
-                for (; i < bulk; i += 2) {
-                    *address = (unsigned char)raw;
-                    address[pitch] = (unsigned char)raw;
-                    address += pitch * 2;
-                }
-                if (i < count) {
-                    *address = (unsigned char)raw;
-                }
-                break;
-            }
-            case srPixelConvert::PIXEL_SIZE_16: {
-                w8_ulong i = 0;
-                w8_ulong bulk = count & ~1UL;
-                for (; i < bulk; i += 2) {
-                    *(unsigned short*)address = (unsigned short)raw;
-                    *(unsigned short*)(address + pitch) = (unsigned short)raw;
-                    address += pitch * 2;
-                }
-                if (i < count) {
-                    *(unsigned short*)address = (unsigned short)raw;
-                }
-                break;
-            }
-            case srPixelConvert::PIXEL_SIZE_24: {
-                w8_ulong i = 0;
-                w8_ulong bulk = count & ~1UL;
-                for (; i < bulk; i += 2) {
-                    *(unsigned short*)address = (unsigned short)raw;
-                    address[2] = (unsigned char)(raw >> 0x10);
-                    address += pitch;
-                    *(unsigned short*)address = (unsigned short)raw;
-                    address[2] = (unsigned char)(raw >> 0x10);
-                    address += pitch;
-                }
-                if (i < count) {
-                    *(unsigned short*)address = (unsigned short)raw;
-                    address[2] = (unsigned char)(raw >> 0x10);
-                }
-                break;
-            }
-            case srPixelConvert::PIXEL_SIZE_32: {
-                w8_ulong i = 0;
-                w8_ulong bulk = count & ~1UL;
-                for (; i < bulk; i += 2) {
-                    *(w8_ulong*)address = raw;
-                    *(w8_ulong*)(address + pitch) = raw;
-                    address += pitch * 2;
-                }
-                if (i < count) {
-                    *(w8_ulong*)address = raw;
-                }
-                break;
-            }
-            }
+            const SDL_Rect rect{x, y_start, 1, y_hi - y_start};
+            SDL_FillSurfaceRect(storage.get(), &rect, raw);
         }
     }
 }
@@ -2094,128 +1985,7 @@ void srColorSurface::fill(w8_ulong pixel)
     }
     setPixel(0, 0, pixel);
     w8_ulong raw = getPixelRaw(0, 0);
-    unsigned char* data = (unsigned char*)getDataPtr();
-    w8_long pitch = this->pitch;
-    w8_ulong width = this->width;
-    w8_long height = this->height;
-    w8_ulong rows = static_cast<w8_ulong>(height);
-    int bpp = pixel_format.pixel_size;
-    if (pitch == (w8_long)((bpp + 1) * width)) {
-        w8_ulong count = height * width;
-        switch (bpp) {
-        case 0:
-            if (count != 0) {
-                std::fill_n(data, count, static_cast<unsigned char>(raw));
-            }
-            break;
-            break;
-        case 1: {
-            w8_ulong half = count >> 1;
-            if (half != 0) {
-                std::fill_n(reinterpret_cast<w8_ulong*>(data), half,
-                            (raw << 0x10) | (raw & 0xffff));
-            }
-            if ((count & 1) != 0) {
-                *(unsigned short*)(data + count * 2 - 2) = (unsigned short)raw;
-            }
-            break;
-        }
-        case 2: {
-            w8_ulong i = 0;
-            w8_ulong bulk = count & ~3UL;
-            for (; i < bulk; i += 4) {
-                unsigned char* out = data + i * 3;
-                *(unsigned short*)out = (unsigned short)raw;
-                out[2] = (unsigned char)(raw >> 0x10);
-                *(unsigned short*)(out + 3) = (unsigned short)raw;
-                out[5] = (unsigned char)(raw >> 0x10);
-                *(unsigned short*)(out + 6) = (unsigned short)raw;
-                out[8] = (unsigned char)(raw >> 0x10);
-                *(unsigned short*)(out + 9) = (unsigned short)raw;
-                out[11] = (unsigned char)(raw >> 0x10);
-            }
-            if (i < count) {
-                unsigned char* out = data + i * 3;
-                *(unsigned short*)out = (unsigned short)raw;
-                out[2] = (unsigned char)(raw >> 0x10);
-                unsigned char* dst = out + 3;
-                for (w8_ulong n = (count - i) * 3 - 3; n != 0; --n) {
-                    *dst++ = *out++;
-                }
-            }
-            break;
-        }
-        case 3:
-            if (count != 0) {
-                std::fill_n(reinterpret_cast<w8_ulong*>(data), count, raw);
-            }
-            break;
-            break;
-        }
-    } else {
-        switch (bpp) {
-        case 0: {
-            for (w8_ulong row = 0; row < rows; ++row) {
-                if (width != 0) {
-                    std::fill_n(data, width, static_cast<unsigned char>(raw));
-                }
-                data += pitch;
-            }
-            break;
-        }
-        case 1: {
-            for (w8_ulong row = 0; row < rows; ++row) {
-                w8_ulong half = width >> 1;
-                if (half != 0) {
-                    std::fill_n(reinterpret_cast<w8_ulong*>(data), half,
-                                (raw << 0x10) | (raw & 0xffff));
-                }
-                if ((width & 1) != 0) {
-                    *(unsigned short*)(data + width * 2 - 2) = (unsigned short)raw;
-                }
-                data += pitch;
-            }
-            break;
-        }
-        case 2: {
-            for (w8_ulong row = 0; row < rows; ++row) {
-                w8_ulong i = 0;
-                w8_ulong bulk = width & ~3UL;
-                for (; i < bulk; i += 4) {
-                    unsigned char* out = data + i * 3;
-                    *(unsigned short*)out = (unsigned short)raw;
-                    out[2] = (unsigned char)(raw >> 0x10);
-                    *(unsigned short*)(out + 3) = (unsigned short)raw;
-                    out[5] = (unsigned char)(raw >> 0x10);
-                    *(unsigned short*)(out + 6) = (unsigned short)raw;
-                    out[8] = (unsigned char)(raw >> 0x10);
-                    *(unsigned short*)(out + 9) = (unsigned short)raw;
-                    out[11] = (unsigned char)(raw >> 0x10);
-                }
-                if (i < width) {
-                    unsigned char* out = data + i * 3;
-                    *(unsigned short*)out = (unsigned short)raw;
-                    out[2] = (unsigned char)(raw >> 0x10);
-                    unsigned char* dst = out + 3;
-                    for (w8_ulong n = (width - i) * 3 - 3; n != 0; --n) {
-                        *dst++ = *out++;
-                    }
-                }
-                data += pitch;
-            }
-            break;
-        }
-        case 3: {
-            for (w8_ulong row = 0; row < rows; ++row) {
-                if (width != 0) {
-                    std::fill_n(reinterpret_cast<w8_ulong*>(data), width, raw);
-                }
-                data += pitch;
-            }
-            break;
-        }
-        }
-    }
+    SDL_FillSurfaceRect(storage.get(), nullptr, raw);
 }
 
 // FUNCTION: SURRENDER 0x1005D220
@@ -2258,6 +2028,23 @@ void srColorSurface::blit(w8_long x, w8_long y, srColorSurfaceIFace& source, w8_
                 y_end = height - y + source_y;
             }
             if (source_x < x_end && source_y < y_end) {
+                if (&source != this) {
+                    // Ordinary compatible copy between different surfaces.
+                    // Self-blits keep the retail overlap paths below.
+                    int bpp = pixel_format.pixel_size + 1;
+                    w8_ulong row_bytes = (x_end - source_x) * bpp;
+                    unsigned char* dest =
+                        (unsigned char*)getDataPtr() + pitch * y + bpp * x;
+                    const unsigned char* src =
+                        (const unsigned char*)source.getDataPtr() +
+                        source.pitch * source_y + bpp * source_x;
+                    for (w8_long row = source_y; row < y_end; ++row) {
+                        std::memcpy(dest, src, row_bytes);
+                        src += source.pitch;
+                        dest += pitch;
+                    }
+                    return;
+                }
                 w8_long dest_pitch = pitch;
                 w8_long source_pitch = source.pitch;
                 int bpp = pixel_format.pixel_size + 1;
@@ -2265,7 +2052,7 @@ void srColorSurface::blit(w8_long x, w8_long y, srColorSurfaceIFace& source, w8_
                 unsigned char* dest = (unsigned char*)getDataPtr() + dest_pitch * y + bpp * x;
                 unsigned char* src =
                     (unsigned char*)source.getDataPtr() + source_pitch * source_y + bpp * source_x;
-                if (&source == this && source_y <= y) {
+                if (source_y <= y) {
                     if (source_y != y || source_x != x) {
                         w8_long dest_right = (x - source_x) + x_end;
                         if (source_y == y && ((source_x <= x && x < x_end) ||
@@ -3236,9 +3023,7 @@ void srColorSurface::dump(std::ostream& stream)
     stream.setf(std::ios::left, std::ios::adjustfield);
     if (getPalette() != 0) {
         stream.width(0x20);
-        stream << "  Palette: ";
-        getPalette()->getUniqueName(stream);
-        stream << '\n';
+        stream << "  Palette: " << getPalette()->getName() << '\n';
     }
     stream.flags(static_cast<std::ios::fmtflags>(flags & 0x7fff));
 }

@@ -16,6 +16,7 @@ class stLight;
 #include "wiz8/environment_colour.h"
 #include <algorithm>
 #include "wiz8/named_position.h"
+#include "wiz8/engine_code/quad.h"
 
 class srCamera;
 class srModelInstance;
@@ -23,7 +24,6 @@ class srNode;
 class srScene;
 class stLevel;
 class W8Octree;
-struct W8Quad;
 class W8Missile;
 class W8SpellVisual;
 struct MonGen;
@@ -80,7 +80,7 @@ struct W8World {
     unsigned char m_padding_058[0x11];
     bool m_loaded;
     unsigned char m_padding_06a[2];
-    W8Quad* quads;
+    std::unique_ptr<W8Quad> quads;
     srModelInstance* update_mesh_source;
     float render_range0;
     float render_range;

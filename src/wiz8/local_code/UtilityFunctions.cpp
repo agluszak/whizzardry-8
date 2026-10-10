@@ -360,7 +360,7 @@ unsigned int GetRandomPartySlots(int require_primary, int require_secondary,
             }
             while (returned < count && found != 0) {
                 unsigned int pick = Random(found);
-                while (claimed[pick] != 0 && pick < 8) {
+                while (pick < 8 && claimed[pick] != 0) {
                     ++pick;
                 }
                 if (pick >= 8) {

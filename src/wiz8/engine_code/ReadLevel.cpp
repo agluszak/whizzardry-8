@@ -92,7 +92,7 @@ void stLevel::process(const ProcessInfo& info, e_processType)
         }
 
         if ((model->render_control.value & 0x20) == 0) {
-            srVector3T<float> center;
+            glm::vec3 center;
             float radius;
             model->getBoundingSphere(center, radius);
             if (renderer.testBoundingSphere(center, radius) == srGERD::VISIBILITY_OUTSIDE) {
@@ -100,8 +100,8 @@ void stLevel::process(const ProcessInfo& info, e_processType)
             }
         }
         if ((model->render_control.value & 0x10) == 0 && model->vertex_location_count >= 8) {
-            srVector3T<float> minimum;
-            srVector3T<float> maximum;
+            glm::vec3 minimum;
+            glm::vec3 maximum;
             model->getBoundingBox(minimum, maximum);
             if (renderer.testBoundingBox(minimum, maximum) == srGERD::VISIBILITY_OUTSIDE) {
                 continue;
@@ -1026,8 +1026,8 @@ try
 {
     W8ReadLevelInfo info;
     srModelInstance* level_mesh;
-    srVector3T<float> minimum;
-    srVector3T<float> maximum;
+    glm::vec3 minimum;
+    glm::vec3 maximum;
     srVector3T<float> environment_offset;
     char error_message[512];
     int section_end;
@@ -1154,8 +1154,7 @@ try
     if (use_octree) {
         srMeshModel* model = static_cast<srMeshModel*>(level_mesh->getModel());
         model->getBoundingBox(minimum, maximum);
-        world->quads = BuildWorldQuad(level_mesh, 0, minimum.x, minimum.y, minimum.z, maximum.x,
-                                      maximum.y, maximum.z, world->static_scene, 0);
+        world->quads = BuildWorldQuad(level_mesh, minimum, maximum);
     }
     RefreshEnvironment();
     FinalizeStaticScene(world->static_scene);

@@ -65,7 +65,7 @@ stMeshModel::~stMeshModel()
 }
 
 // FUNCTION: WIZ8 0x00471dd0
-int stMeshModel::getBoundingSphere(srVector3T<float>& center, float& radius)
+int stMeshModel::getBoundingSphere(glm::vec3& center, float& radius)
 {
     if ((dirty_flags.value & 1) != 0) {
         CalculateLinkedBounds();
@@ -76,7 +76,7 @@ int stMeshModel::getBoundingSphere(srVector3T<float>& center, float& radius)
 }
 
 // FUNCTION: WIZ8 0x00471d80
-int stMeshModel::getBoundingBox(srVector3T<float>& minimum, srVector3T<float>& maximum)
+int stMeshModel::getBoundingBox(glm::vec3& minimum, glm::vec3& maximum)
 {
     if ((dirty_flags.value & 1) != 0) {
         CalculateLinkedBounds();
@@ -102,12 +102,12 @@ void stMeshModel::CalculateLinkedBounds()
         if (model->vertex_location_count == 0)
             continue;
         for (std::size_t frame = 0; frame < std::max(size_t{1}, model->frames.size()); ++frame) {
-            srVector3 minimum, maximum;
+            glm::vec3 minimum, maximum;
             if (model->flags & W8_MESH_HAS_FRAME_STORAGE)
                 model->GetFrameBounds(frame, &minimum, &maximum);
             else
                 model->srMeshModel::getBoundingBox(minimum, maximum);
-            const srBoundingBox frame_box{minimum.glmValue(), maximum.glmValue()};
+            const srBoundingBox frame_box{minimum, maximum};
             if (has_vertices)
                 box.include(frame_box);
             else
@@ -138,10 +138,10 @@ void stMeshModel::RevealVerticesNear(const glm::vec3& position, float range, con
     }
 }
 // FUNCTION: WIZ8 0x00473190
-void stMeshModel::GetFrameBounds(int frame, srVector3T<float>* minimum, srVector3T<float>* maximum)
+void stMeshModel::GetFrameBounds(int frame, glm::vec3* minimum, glm::vec3* maximum)
 {
-    minimum->SetZero();
-    maximum->SetZero();
+    *minimum = glm::vec3(0);
+    *maximum = glm::vec3(0);
     if (static_cast<unsigned int>(frame) >= frames.size() || vertex_location_count == 0) {
         return;
     }

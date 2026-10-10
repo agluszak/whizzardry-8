@@ -1,6 +1,7 @@
+#include <array>
+#include <sstream>
 #include <fmt/format.h>
 #include "wiz8/unicode.h"
-#include "wiz8/virtual_file.h"
 #include "wiz8/local_code/CombatSound.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/MonsterManager.h"
@@ -24,27 +25,24 @@
 #define COMBAT_SOUND_CPP "C:\\Projects\\Wizardry 8\\Local Code\\Combat Sound.cpp"
 
 // GLOBAL: WIZ8 0x0068DD90
-static char* g_weapon_attack_sounds[38];
+static std::array<std::string, 38> g_weapon_attack_sounds;
 // GLOBAL: WIZ8 0x0068D850
-static char* g_material_impact_sounds[28][12];
+static std::array<std::array<std::string, 12>, 28> g_material_impact_sounds;
 
-/* Play one combat sound under Data\Sound\Combat\.  When the name carries more
-   than one recorded variant a random 1..n digit is appended onto the caller's
-   buffer before the .wav path is built; callers only reach that branch with
-   writable names.  A positive volume is scaled by the configured effects
-   level; zero and below play at the default.  With the flag set the handle is
-   registered on the combat state so the service can poll SoundIsPlaying. */
+/* Build the selected variant without modifying the borrowed sound name.
+   Positive volume is scaled by the effects setting; other values use the default. */
 // FUNCTION: WIZ8 0x005499D0
-void PlayCombatSound(char* sound_name, unsigned int variant_count, bool store_handle, int volume)
+void PlayCombatSound(std::string_view sound_name, unsigned int variant_count, bool store_handle,
+                     int volume)
 {
     SOUNDPARMS parms;
     std::string zSoundFileName;
     unsigned int handle;
 
-    if (variant_count > 1) {
-        strcat(sound_name, fmt::format("{:d}", Random(variant_count) + 1).c_str());
-    }
-    zSoundFileName = fmt::format("Data\\Sound\\Combat\\{}.wav", sound_name);
+    if (sound_name.empty())
+        return;
+    const auto variant = variant_count > 1 ? fmt::format("{}", Random(variant_count) + 1) : "";
+    zSoundFileName = fmt::format("Data\\Sound\\Combat\\{}{}.wav", sound_name, variant);
     if (![&]() { const auto status = wiz8::file_status(zSoundFileName); return status && status->info.type == SDL_PATHTYPE_FILE; }()) {
         srAssertFail("[&]() { const auto status = wiz8::file_status(zSoundFileName); return status "
                      "&& status->info.type == SDL_PATHTYPE_FILE; }()",
@@ -64,132 +62,66 @@ void PlayCombatSound(char* sound_name, unsigned int variant_count, bool store_ha
     }
 }
 
-static void TrimHitSoundLine(char* line)
-{
-    char* comment = strchr(line, '*');
-    size_t length;
-
-    if (comment) {
-        *comment = '\0';
-    }
-    length = strlen(line);
-    while (length && isspace(static_cast<unsigned char>(line[length - 1]))) {
-        line[--length] = '\0';
-    }
-}
-
-static char* DuplicateHitSound(const char* source)
-{
-    char* copy = static_cast<char*>(malloc(strlen(source) + 1));
-    if (copy) {
-        strcpy(copy, source);
-    }
-    return copy;
-}
-
-/* Local Code\\Combat Sound.cpp reads the attack list followed by twelve
-   material columns of up to twenty-eight impact sounds.  A hash line advances
-   the material column; an asterisk starts an inline comment. */
 // FUNCTION: WIZ8 0x00549b00
 unsigned char LoadHitSoundDatabase(void)
-{
-    char path[] = "Data\\Databases\\HitSounds.txt";
-    char line[256];
-    std::unique_ptr<wiz8::File> handle;
-    int row = 0;
-    int column = -1;
-    bool more = true;
-
-    memset(g_weapon_attack_sounds, 0, sizeof(g_weapon_attack_sounds));
-    memset(g_material_impact_sounds, 0, sizeof(g_material_impact_sounds));
-    handle = [&]() { try { return wiz8::open_file(path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
-    if (!handle) {
-        return 0;
+try {
+    std::istringstream input(wiz8::open_file("Data/Databases/HitSounds.txt")->read_text());
+    decltype(g_weapon_attack_sounds) attacks;
+    decltype(g_material_impact_sounds) impacts;
+    std::string line;
+    auto trim = [&] {
+        if (const auto comment = line.find('*'); comment != line.npos)
+            line.resize(comment);
+        line.resize(line.find_last_not_of(" \t\r\n\v\f") + 1);
+    };
+    std::size_t row = 0;
+    while (row < attacks.size() && std::getline(input, line)) {
+        trim();
+        if (const auto marker = line.find('#'); marker != line.npos)
+            line.resize(marker);
+        trim();
+        if (!line.empty())
+            attacks[row++] = line;
     }
-    while (row < 38 && more) {
-        char* marker;
-        ReadTextLine(handle.get(), line, sizeof(line), more);
-        TrimHitSoundLine(line);
-        marker = strchr(line, '#');
-        if (marker) {
-            *marker = '\0';
-            TrimHitSoundLine(line);
-        }
-        if (line[0]) {
-            g_weapon_attack_sounds[row++] = DuplicateHitSound(line);
-        }
-    }
-    if (row != 38) {
-        srAssertFail("(iRow == WPNSND_NUM_WEAPONS)", COMBAT_SOUND_CPP, 0xe3,
-                     "Error reading the Attack Sounds portion of HitSounds.txt!");
-    }
+    if (row != attacks.size())
+        return false;
     row = 0;
-    while (more) {
-        ReadTextLine(handle.get(), line, sizeof(line), more);
-        if (strchr(line, '#')) {
+    int column = -1;
+    while (std::getline(input, line)) {
+        if (line.find('#') != line.npos) {
             ++column;
             row = 0;
             continue;
         }
-        TrimHitSoundLine(line);
-        if (!line[0]) {
+        trim();
+        if (line.empty())
             continue;
-        }
-        if (row < 0 || row >= 28) {
-            srAssertFail("(iRow >= 0) && (iRow < WPNSND_NUM_IMPACTS)", COMBAT_SOUND_CPP, 0xfe,
-                         "Error in HITSOUNDS.TXT file, bad row counter value");
-        }
-        if (column < 0 || column >= 12) {
-            srAssertFail("(iColumn >= 0) && (iColumn < MATSND_NUM_SOUNDS)", COMBAT_SOUND_CPP, 0xff,
-                         "Error in HITSOUNDS.TXT file, bad column counter value");
-        }
-        g_material_impact_sounds[row++][column] = DuplicateHitSound(line);
+        if (row >= impacts.size() || column < 0 || column >= 12)
+            return false;
+        impacts[row++][column] = line;
     }
-    if (handle) handle->close();
-    handle.reset();
-    // Several impact materials intentionally provide one catch-all sound rather than one
-    // entry per weapon class.  The retail loader accepts EOF after any valid final entry.
-    return 1;
+    g_weapon_attack_sounds = std::move(attacks);
+    g_material_impact_sounds = std::move(impacts);
+    return true;
+} catch (const std::exception&) {
+    return false;
 }
 
-/* Free the two string tables populated by LoadHitSoundDatabase. */
 // FUNCTION: WIZ8 0x00549e50
 void ReleaseHitSoundDatabase(void)
 {
-    int row;
-    int column;
-
-    for (row = 0; row < 38; ++row) {
-        if (g_weapon_attack_sounds[row]) {
-            free(g_weapon_attack_sounds[row]);
-            g_weapon_attack_sounds[row] = 0;
-        }
-    }
-    for (column = 0; column < 12; ++column) {
-        for (row = 0; row < 28; ++row) {
-            if (g_material_impact_sounds[row][column]) {
-                free(g_material_impact_sounds[row][column]);
-                g_material_impact_sounds[row][column] = 0;
-            }
-        }
-    }
+    g_weapon_attack_sounds = {};
+    g_material_impact_sounds = {};
 }
 
-/* Look up a weapon-class/target-material impact sound. Missing
-   weapon-specific entries inherit weapon class zero; out-of-range indices use
-   the retail "HIT" fallback. The buffer comes back writable because
-   PlayCombatSound may append a variant digit. */
+// Missing weapon-specific entries inherit weapon class zero.
 // FUNCTION: WIZ8 0x00549EB0
-char* GetMaterialImpactSound(int weapon_class, int target_material)
+std::string_view GetMaterialImpactSound(int weapon_class, int target_material)
 {
-    if (weapon_class < 0 || weapon_class >= 28 || target_material < 0 || target_material >= 12) {
-        return const_cast<char*>("HIT");
-    }
-    char* sound = g_material_impact_sounds[weapon_class][target_material];
-    if (sound == 0) {
-        sound = g_material_impact_sounds[0][target_material];
-    }
-    return sound;
+    if (weapon_class < 0 || weapon_class >= 28 || target_material < 0 || target_material >= 12)
+        return "HIT";
+    const auto& sound = g_material_impact_sounds[weapon_class][target_material];
+    return sound.empty() ? g_material_impact_sounds[0][target_material] : sound;
 }
 
 /* The equipment slot covering one armour-class hit location, then the item

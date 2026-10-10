@@ -2264,44 +2264,17 @@ void srGERD::perspective(double fov_y, double aspect, double near_plane, double 
 // FUNCTION: SURRENDER 0x1001B820
 void srGERD::applyClipPlaneChanges()
 {
-    const glm::mat4& projection = state.matrix_current[MATRIX_PROJECTION];
-    float slope = (projection[3][2] + projection[3][3]) / (projection[2][2] + projection[2][3]);
-    float bottom = projection[3][0] + 1.0f;
-    float near_left = -((bottom * projection[3][3] + (projection[2][0] - 1.0f) * projection[2][3] * slope) /
-          projection[0][0]);
-    float top = projection[3][1] + 1.0f;
-    float near_top = -((top * projection[3][3] + (projection[2][1] - 1.0f) * projection[2][3] * slope) /
-          projection[1][1]);
-    state.clip_planes[0] = glm::vec4(slope, 0.0f, near_left, 0.0f);
-    state.clip_planes[1] =
-        glm::vec4(
-        -slope, 0.0f,
-        -(((projection[3][0] - 1.0f) * projection[3][3]) / bottom +
-                    ((projection[2][0] + 1.0f) * projection[2][3]) /
-              (1.0f - projection[2][0])) *
-            near_left,
-        0.0f);
-    state.clip_planes[2] =
-        glm::vec4(0.0f, -slope,
-                             -(((projection[3][1] - 1.0f) * projection[3][3]) / top +
-                    ((projection[2][1] + 1.0f) * projection[2][3]) /
-                                   (1.0f - projection[2][1])) *
-                                 near_top,
-                             0.0f);
-    state.clip_planes[3] = glm::vec4(0.0f, slope, near_top, 0.0f);
-    state.clip_planes[4] = glm::vec4(0.0f, 0.0f, -1.0f, slope);
-    state.clip_planes[5] =
-        glm::vec4(0.0f, 0.0f, 1.0f,
-                             (projection[3][2] - projection[3][3]) / (projection[2][2] - projection[2][3]));
-    for (int plane = 0; plane != 4; ++plane) {
-        float length = sqrt(state.clip_planes[plane].z * state.clip_planes[plane].z +
-                            state.clip_planes[plane].y * state.clip_planes[plane].y +
-                            state.clip_planes[plane].w * state.clip_planes[plane].w +
-                            state.clip_planes[plane].x * state.clip_planes[plane].x);
-        if (length != 0.0f) {
-            float inverse_length = 1.0f / length;
-            state.clip_planes[plane] *= inverse_length;
-        }
+    const auto rows = glm::transpose(state.matrix_current[MATRIX_PROJECTION]);
+    state.clip_planes[0] = rows[3] + rows[0];
+    state.clip_planes[1] = rows[3] - rows[0];
+    state.clip_planes[2] = rows[3] + rows[1];
+    state.clip_planes[3] = rows[3] - rows[1];
+    state.clip_planes[4] = rows[3] + rows[2];
+    state.clip_planes[5] = rows[3] - rows[2];
+    for (int i = 0; i < 6; ++i) {
+        const float length = glm::length(glm::vec3(state.clip_planes[i]));
+        if (length > 0)
+            state.clip_planes[i] /= length;
     }
     dirty &= ~DIRTY_CLIP_PLANES;
 }
@@ -2333,24 +2306,9 @@ void srGERD::pushClipPlane(const glm::vec4& plane, e_clipMode mode)
         checkClipPlaneChanges();
         checkViewStateChanges();
         w8_ulong bit = 1UL << (state.clip_plane_count + 6);
-        float inverse_length =
-            1.0 / sqrt(plane.z * plane.z + plane.x * plane.x + plane.y * plane.y);
-        float x = plane.x * inverse_length;
-        float y = plane.y * inverse_length;
-        float z = plane.z * inverse_length;
-        float w = inverse_length * plane.w;
-        glm::vec4& eye_plane = state.clip_planes[state.clip_plane_count + 6];
-        eye_plane.x =
-            x * state.inverse_modelview[0][0] + y * state.inverse_modelview[0][1] +
-                      z * state.inverse_modelview[0][2] + w * state.inverse_modelview[0][3];
-        eye_plane.y = x * state.inverse_modelview[1][0] + y * state.inverse_modelview[1][1] +
-                      z * state.inverse_modelview[1][2] + w * state.inverse_modelview[1][3];
-        eye_plane.z =
-            x * state.inverse_modelview[2][0] + y * state.inverse_modelview[2][1] +
-                      z * state.inverse_modelview[2][2] + w * state.inverse_modelview[2][3];
-        eye_plane.w =
-            x * state.inverse_modelview[3][0] + y * state.inverse_modelview[3][1] +
-                      z * state.inverse_modelview[3][2] + w * state.inverse_modelview[3][3];
+        const float length = glm::length(glm::vec3(plane));
+        state.clip_planes[state.clip_plane_count + 6] =
+            glm::transpose(state.inverse_modelview) * (length > 0 ? plane / length : plane);
         state.clip_modes[state.clip_plane_count] = static_cast<unsigned char>(mode);
         state.clip_mask |= bit;
         if (mode == 1) {
@@ -2491,61 +2449,22 @@ w8_ulong_ptr srGERD::getPickKey() const
 }
 
 // FUNCTION: SURRENDER 0x1001DB30
-srGERD::e_visibility srGERD::testBoundingSphere(const srVector3T<float>& center, float radius)
+srGERD::e_visibility srGERD::testBoundingSphere(const glm::vec3& center, float radius)
 {
     statistics.sphere_tests++;
     checkViewStateChanges();
     checkClipPlaneChanges();
-    const glm::mat4& modelview = state.matrix_current[MATRIX_MODELVIEW];
-    float eye_z = modelview[2][2] * center.z + modelview[1][2] * center.y +
-                  modelview[0][2] * center.x + modelview[3][2];
-    float negative_radius = -(radius * state.max_modelview_scale);
-    if (eye_z * state.clip_planes[4].z + state.clip_planes[4].w <= negative_radius) {
-        return VISIBILITY_OUTSIDE;
-    }
-    if (eye_z * state.clip_planes[5].z + state.clip_planes[5].w <= negative_radius) {
-        return VISIBILITY_OUTSIDE;
-    }
-    float eye_x = modelview[0][0] * center.x + modelview[2][0] * center.z +
-                  modelview[1][0] * center.y + modelview[3][0];
-    if (eye_x * state.clip_planes[0].x + eye_z * state.clip_planes[0].z <= negative_radius) {
-        return VISIBILITY_OUTSIDE;
-    }
-    if (eye_z * state.clip_planes[1].z + eye_x * state.clip_planes[1].x <= negative_radius) {
-        return VISIBILITY_OUTSIDE;
-    }
-    float eye_y = modelview[2][1] * center.z + modelview[1][1] * center.y +
-                  modelview[0][1] * center.x + modelview[3][1];
-    if (eye_z * state.clip_planes[2].z + eye_y * state.clip_planes[2].y <= negative_radius) {
-        return VISIBILITY_OUTSIDE;
-    }
-    if (eye_z * state.clip_planes[3].z + eye_y * state.clip_planes[3].y <= negative_radius) {
-        return VISIBILITY_OUTSIDE;
-    }
-    w8_ulong remaining = state.clip_mask & 0xffffffc0;
-    if (remaining != 0) {
-        for (w8_ulong index = 6; index < 0x20; ++index) {
-            if (remaining == 0) {
-                break;
-            }
-            w8_ulong bit = 1UL << index;
-            if ((remaining & bit) != 0) {
-                const glm::vec4& plane = state.clip_planes[index];
-                if (eye_z * plane.z + eye_x * plane.x + eye_y * plane.y + plane.w <=
-                    negative_radius) {
-                    return VISIBILITY_OUTSIDE;
-                }
-                remaining &= ~bit;
-            }
-        }
-    }
+    const glm::vec4 eye = state.matrix_current[MATRIX_MODELVIEW] * glm::vec4(center, 1);
+    const float negative_radius = -radius * state.max_modelview_scale;
+    for (unsigned i = 0; i < 32; ++i)
+        if ((state.clip_mask & (1u << i)) && glm::dot(eye, state.clip_planes[i]) <= negative_radius)
+            return VISIBILITY_OUTSIDE;
     statistics.sphere_visible++;
     return static_cast<e_visibility>(1);
 }
 
 // FUNCTION: SURRENDER 0x1001DD60
-srGERD::e_visibility srGERD::testBoundingBox(const srVector3T<float>& minimum,
-                                             const srVector3T<float>& maximum)
+srGERD::e_visibility srGERD::testBoundingBox(const glm::vec3& minimum, const glm::vec3& maximum)
 {
     statistics.box_tests++;
     checkViewStateChanges();
@@ -2559,25 +2478,17 @@ srGERD::e_visibility srGERD::testBoundingBox(const srVector3T<float>& minimum,
 }
 
 // FUNCTION: SURRENDER 0x100235F0
-glm::vec4 srGERD::getEyeSpaceLocation(const srVector3T<float>& object_location)
+glm::vec4 srGERD::getEyeSpaceLocation(const glm::vec3& object_location)
 {
     checkViewStateChanges();
-    return glm::vec4{state.matrix_current[MATRIX_MODELVIEW] *
-                             glm::vec4(object_location.glmValue(), 1)};
+    return state.matrix_current[MATRIX_MODELVIEW] * glm::vec4(object_location, 1);
 }
 
 // FUNCTION: SURRENDER 0x1001DDF0
-void srGERD::getEyeSpaceBounds(srVector3T<float>& center, float& radius,
-                               const srVector3T<float>& object_center, float object_radius)
+void srGERD::getEyeSpaceBounds(glm::vec3& center, float& radius, const glm::vec3& object_center,
+                               float object_radius)
 {
-    checkViewStateChanges();
-    const glm::mat4& modelview = state.matrix_current[MATRIX_MODELVIEW];
-    center.x = modelview[0][0] * object_center.x + modelview[1][0] * object_center.y +
-               modelview[2][0] * object_center.z + modelview[3][0];
-    center.z = modelview[1][2] * object_center.y + modelview[2][2] * object_center.z +
-               modelview[0][2] * object_center.x + modelview[3][2];
-    center.y = modelview[1][1] * object_center.y + modelview[2][1] * object_center.z +
-               modelview[0][1] * object_center.x + modelview[3][1];
+    center = glm::vec3(getEyeSpaceLocation(object_center));
     radius = object_radius * state.max_modelview_scale;
 }
 
@@ -4511,8 +4422,8 @@ void srGERD::accumulate(e_accum operation, float scale)
 }
 
 // FUNCTION: SURRENDER 0x10068700
-bool srRender::testBoundingBox(const glm::mat4& matrix, const srVector3& minimum,
-                               const srVector3& maximum)
+bool srRender::testBoundingBox(const glm::mat4& matrix, const glm::vec3& minimum,
+                               const glm::vec3& maximum)
 {
     std::array<glm::vec4, 8> corners;
     for (unsigned i = 0; i < corners.size(); ++i)

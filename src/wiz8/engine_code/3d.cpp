@@ -164,9 +164,9 @@ unsigned char BakeInstanceVertexLighting(stModelInstance* instance, srNode* ligh
                 vertex_materials ? static_cast<srMaterial*>(vertex_materials[i].get()) : nullptr;
             material_colors[i] = material ? glm::vec3(material->parms.diffuse) : base_color;
         }
-        srVector3 minimum, maximum;
+        glm::vec3 minimum, maximum;
         mesh->getBoundingBox(minimum, maximum);
-        const auto box = srBoundingBox{minimum.glmValue(), maximum.glmValue()}.transformed(world);
+        const auto box = srBoundingBox{minimum, maximum}.transformed(world);
         for (auto* node = lights; node; node = walk_chain ? node->next_sibling_ : nullptr) {
             const auto* light = sr_cast<stLight>(node);
             if (!light ||
@@ -404,18 +404,6 @@ bool HasLineOfSightToBounds(const srVector3T<float>* origin, srVector3T<float>* 
     return g_octree->HasLineOfSight(origin, &point, true);
 }
 
-// FUNCTION: WIZ8 0x0046F510
-void ExpandBounds(srVector3T<float>* minimum, srVector3T<float>* maximum,
-                  const srVector3T<float>* candidate_minimum,
-                  const srVector3T<float>* candidate_maximum)
-{
-    minimum->x = minimum->x < candidate_minimum->x ? minimum->x : candidate_minimum->x;
-    minimum->y = minimum->y < candidate_minimum->y ? minimum->y : candidate_minimum->y;
-    minimum->z = minimum->z < candidate_minimum->z ? minimum->z : candidate_minimum->z;
-    maximum->x = maximum->x > candidate_maximum->x ? maximum->x : candidate_maximum->x;
-    maximum->y = maximum->y > candidate_maximum->y ? maximum->y : candidate_maximum->y;
-    maximum->z = maximum->z > candidate_maximum->z ? maximum->z : candidate_maximum->z;
-}
 
 /* Build the concrete first-party instance used for an already-created mesh. */
 // FUNCTION: WIZ8 0x0046F5C0

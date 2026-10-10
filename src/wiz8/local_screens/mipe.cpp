@@ -1412,19 +1412,19 @@ void HandleMipePropEditKey(unsigned short key)
                     if (g_mipe_category_list != 0) {
                         g_mipe_category_list->clear();
                         for (index = 0; index < static_cast<int>(gXStatus.uiItemTablesInDatabase); ++index) {
-                            table = g_item_tables[index];
+                            table = &g_item_tables[index];
                             if (table->category_id == 0) {
                                 list->push_back(table);
                             }
                         }
                     }
                 } else {
-                    unsigned char category = g_item_tables[table_index]->category_id;
+                    unsigned char category = g_item_tables[table_index].category_id;
                     g_mipe_category = category;
                     if (g_mipe_category_list != 0) {
                         g_mipe_category_list->clear();
                         for (index = 0; index < static_cast<int>(gXStatus.uiItemTablesInDatabase); ++index) {
-                            table = g_item_tables[index];
+                            table = &g_item_tables[index];
                             if (table->category_id == static_cast<unsigned int>(category)) {
                                 list->push_back(table);
                             }
@@ -1435,7 +1435,7 @@ void HandleMipePropEditKey(unsigned short key)
                                      (g_mipe_category_list ? g_mipe_category_list->size() : 0));
                          ++index) {
                         table = MipeCategoryValue<W8ItemTableRecord>(g_mipe_category_list, index);
-                        if (table == g_item_tables[table_index]) {
+                        if (table == &g_item_tables[table_index]) {
                             break;
                         }
                     }
@@ -2209,7 +2209,7 @@ void HandleMipeItemTableKey(unsigned short key)
         if (g_mipe_state->prop != 0) {
             table_index =
                 FindCategoryItemTable(g_mipe_category & 0xff, g_mipe_table_base + g_mipe_table_row);
-            table = g_item_tables[table_index & 0xffff];
+            table = &g_item_tables[table_index & 0xffff];
             trigger = g_mipe_state->prop->GetTrigger();
             strcpy(trigger->inline_action_data, table->name);
             trigger->items_generated = 0;
@@ -2244,7 +2244,7 @@ void HandleMipeItemTableKey(unsigned short key)
             if (g_mipe_category_list != 0) {
                 g_mipe_category_list->clear();
                 for (index = 0; index < static_cast<int>(gXStatus.uiItemTablesInDatabase); ++index) {
-                    table = g_item_tables[index];
+                    table = &g_item_tables[index];
                     if (table->category_id == static_cast<unsigned int>(category - 1)) {
                         list->push_back(table);
                     }
@@ -2268,7 +2268,7 @@ void HandleMipeItemTableKey(unsigned short key)
             if (g_mipe_category_list != 0) {
                 g_mipe_category_list->clear();
                 for (index = 0; index < static_cast<int>(gXStatus.uiItemTablesInDatabase); ++index) {
-                    table = g_item_tables[index];
+                    table = &g_item_tables[index];
                     if (table->category_id == static_cast<unsigned int>(g_mipe_category & 0xff)) {
                         list->push_back(table);
                     }
@@ -2808,7 +2808,7 @@ int FindCategoryItemTable(unsigned int category, int ordinal)
     int index;
 
     for (index = 0; index < static_cast<int>(gXStatus.uiItemTablesInDatabase); ++index) {
-        if (g_item_tables[index]->category_id == (category & 0xff)) {
+        if (g_item_tables[index].category_id == (category & 0xff)) {
             if (found == ordinal) {
                 return index;
             }

@@ -28,8 +28,8 @@ struct W8AniMesh {
     State flags{};
     unsigned char frame_count{};
     std::vector<std::unique_ptr<stModelInstance>> meshes;
-    srVector3T<float> bounds_minimum{0, 0, 0};
-    srVector3T<float> bounds_maximum{0, 0, 0};
+    glm::vec3 bounds_minimum{0, 0, 0};
+    glm::vec3 bounds_maximum{0, 0, 0};
     float radius{};
     unsigned int loaded_bytes{};
     signed char list_index{};

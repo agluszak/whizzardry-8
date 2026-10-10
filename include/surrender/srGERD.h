@@ -445,9 +445,9 @@ public:
     void getMatrix(glm::dmat4& matrix);
     void getMatrix(e_matrixMode mode, glm::mat4& matrix);
     void getMatrix(e_matrixMode mode, glm::dmat4& matrix);
-    void getEyeSpaceBounds(srVector3T<float>& center, float& radius,
-                           const srVector3T<float>& object_center, float object_radius);
-    glm::vec4 getEyeSpaceLocation(const srVector3T<float>& object_location);
+    void getEyeSpaceBounds(glm::vec3& center, float& radius, const glm::vec3& object_center,
+                           float object_radius);
+    glm::vec4 getEyeSpaceLocation(const glm::vec3& object_location);
     void pushVertexProcessor(srVertexProcessor& processor);
     void popVertexProcessor();
     void getInverseModelViewMatrix(glm::mat4& matrix);
@@ -517,9 +517,8 @@ public:
     void translate(const srVector3T<float>& offset);
     void translate(const srVector3T<double>& offset);
     void translate(double x, double y, double z);
-    e_visibility testBoundingSphere(const srVector3T<float>& center, float radius);
-    e_visibility testBoundingBox(const srVector3T<float>& minimum,
-                                 const srVector3T<float>& maximum);
+    e_visibility testBoundingSphere(const glm::vec3& center, float radius);
+    e_visibility testBoundingBox(const glm::vec3& minimum, const glm::vec3& maximum);
     void setPickKey(w8_ulong_ptr key);
     w8_ulong_ptr getPickKey() const;
     void ortho(double left, double right, double bottom, double top, double near_plane,

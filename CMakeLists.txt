@@ -81,6 +81,13 @@ target_link_libraries(wiz8_filesystem PUBLIC SDL3::SDL3 Threads::Threads fmt::fm
 target_compile_features(wiz8_filesystem PUBLIC cxx_std_23)
 include(CTest)
 if(BUILD_TESTING)
+    # Tests run through Catch2; CTest retains the existing environment,
+    # timeout, runtime-asset and fixture relationships.
+    FetchContent_Declare(Catch2
+        GIT_REPOSITORY https://github.com/catchorg/Catch2.git
+        GIT_TAG 8b08d4d79514f45f7e4ce2a607ac9c94e920d1bb # v3.15.3
+        GIT_SHALLOW FALSE)
+    FetchContent_MakeAvailable(Catch2)
     add_subdirectory(tests/portable)
 endif()
 find_package(ZLIB REQUIRED)

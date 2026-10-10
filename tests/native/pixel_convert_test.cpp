@@ -1,4 +1,7 @@
+#include <catch2/catch_test_macros.hpp>
 #include "surrender/srPixelConvert.h"
+#include "surrender/srColorSurface.h"
+#include "wiz8/sr_api.h"
 #include <SDL3/SDL_surface.h>
 #include <algorithm>
 #include <cstdio>
@@ -16,15 +19,9 @@ void readRGB555(const srPixelConvert::ConversionInfo&);
 void writeBGRX(const srPixelConvert::ConversionInfo&);
 void readBGRX(const srPixelConvert::ConversionInfo&);
 
-#define CHECK(expression)                                                                          \
-    do {                                                                                           \
-        if (!(expression))                                                                         \
-            throw std::runtime_error(#expression);                                                 \
-    } while (0)
 
-int main()
+TEST_CASE("pixel conversions")
 {
-    try {
         constexpr unsigned count = 65539;
         std::vector<w8_ulong> input(count), rotated(count), output(count);
         for (unsigned i = 0; i < count; ++i)
@@ -32,40 +29,40 @@ int main()
         srPixelConvert::ConversionInfo info{rotated.data(), input.data(), count, nullptr, nullptr};
         writeABGR(info);
         for (unsigned i = 0; i < count; ++i)
-            CHECK(rotated[i] == (input[i] << 8 | input[i] >> 24));
+            REQUIRE(rotated[i] == (input[i] << 8 | input[i] >> 24));
         info.source = rotated.data();
         info.dest = output.data();
         readABGR(info);
-        CHECK(input == output);
+        REQUIRE(input == output);
         info.source = output.data();
         writeABGR(info);
-        CHECK(output == rotated);
+        REQUIRE(output == rotated);
         readABGR(info);
-        CHECK(input == output);
+        REQUIRE(input == output);
 
         std::vector<unsigned char> rgb(count * 3 + 2, 0xa5);
         info.source = input.data();
         info.dest = rgb.data() + 1;
         writeRGB24(info);
-        CHECK(rgb.front() == 0xa5 && rgb.back() == 0xa5);
+        REQUIRE((rgb.front() == 0xa5 && rgb.back() == 0xa5));
         for (unsigned i = 0; i < count; ++i) {
-            CHECK(rgb[1 + i * 3] == (input[i] >> 16 & 255));
-            CHECK(rgb[2 + i * 3] == (input[i] >> 8 & 255));
-            CHECK(rgb[3 + i * 3] == (input[i] & 255));
+            REQUIRE(rgb[1 + i * 3] == (input[i] >> 16 & 255));
+            REQUIRE(rgb[2 + i * 3] == (input[i] >> 8 & 255));
+            REQUIRE(rgb[3 + i * 3] == (input[i] & 255));
         }
         info.source = rgb.data() + 1;
         info.dest = output.data();
         readRGB24(info);
         for (unsigned i = 0; i < count; ++i)
-            CHECK(output[i] == (input[i] | 0xff000000));
+            REQUIRE(output[i] == (input[i] | 0xff000000));
         info = {output.data(), input.data(), count, nullptr, nullptr};
         writeBGRX(info);
         for (unsigned i = 0; i < count; ++i)
-            CHECK(output[i] == (input[i] & 0x00ffffff));
+            REQUIRE(output[i] == (input[i] & 0x00ffffff));
         info.source = output.data();
         readBGRX(info);
         for (unsigned i = 0; i < count; ++i)
-            CHECK(output[i] == (input[i] | 0xff000000));
+            REQUIRE(output[i] == (input[i] | 0xff000000));
         // BGRX records may start at odd addresses, including exact in-place conversion.
         std::vector<unsigned char> unaligned(count * sizeof(w8_ulong) + 2, 0xa5);
         std::vector<unsigned char> masked(unaligned.size(), 0xa5);
@@ -73,34 +70,34 @@ int main()
             std::memcpy(unaligned.data() + 1, input.data(), count * sizeof(w8_ulong));
         info = {masked.data() + 1, unaligned.data() + 1, count, nullptr, nullptr};
         writeBGRX(info);
-        CHECK(masked.front() == 0xa5 && masked.back() == 0xa5);
+        REQUIRE((masked.front() == 0xa5 && masked.back() == 0xa5));
         for (unsigned i = 0; i < count; ++i) {
             w8_ulong pixel;
             std::memcpy(&pixel, masked.data() + 1 + i * sizeof(pixel), sizeof(pixel));
-            CHECK(pixel == (input[i] & 0x00ffffff));
+            REQUIRE(pixel == (input[i] & 0x00ffffff));
         }
         info = {unaligned.data() + 1, unaligned.data() + 1, count, nullptr, nullptr};
         writeBGRX(info);
-        CHECK(std::memcmp(unaligned.data(), masked.data(), masked.size()) == 0);
+        REQUIRE(std::memcmp(unaligned.data(), masked.data(), masked.size()) == 0);
         readBGRX(info);
-        CHECK(unaligned.front() == 0xa5 && unaligned.back() == 0xa5);
+        REQUIRE((unaligned.front() == 0xa5 && unaligned.back() == 0xa5));
         for (unsigned i = 0; i < count; ++i) {
             w8_ulong pixel;
             std::memcpy(&pixel, unaligned.data() + 1 + i * sizeof(pixel), sizeof(pixel));
-            CHECK(pixel == (input[i] | 0xff000000));
+            REQUIRE(pixel == (input[i] | 0xff000000));
         }
         info.source = masked.data() + 1;
         readBGRX(info);
-        CHECK(count == 0 ||
-              std::memcmp(unaligned.data() + 1, output.data(), count * sizeof(w8_ulong)) == 0);
+        REQUIRE((count == 0 ||
+              std::memcmp(unaligned.data() + 1, output.data(), count * sizeof(w8_ulong)) == 0));
         output = input;
         info.source = output.data();
         info.dest = output.data();
         writeRGB24(info);
-        CHECK(memcmp(output.data(), rgb.data() + 1, count * 3) == 0);
+        REQUIRE(memcmp(output.data(), rgb.data() + 1, count * 3) == 0);
         readRGB24(info);
         for (unsigned i = 0; i < count; ++i)
-            CHECK(output[i] == (input[i] | 0xff000000));
+            REQUIRE(output[i] == (input[i] | 0xff000000));
         // Zero length must not inspect pointers or SDL formats.
         info = {nullptr, nullptr, 0, nullptr, nullptr};
         writeRGB24(info);
@@ -124,25 +121,39 @@ int main()
             const auto red = i < 32768 ? expand(i >> 10, 31) : expand((i >> 10) - 32, 63);
             const auto expected =
                 0xff000000u | red << 16 | expand(i >> 5 & 31, 31) << 8 | expand(i & 31, 31);
-            CHECK(output[i] == expected);
+            REQUIRE(output[i] == expected);
         }
         info = {packed.data(), input.data(), 65536, nullptr, nullptr};
         writeRGB555(info);
         const auto reduce = [](unsigned value) { return unsigned(value * (1. / 255.) * 31. + .5); };
         for (unsigned i = 0; i < packed.size(); ++i)
-            CHECK(packed[i] == (reduce(input[i] >> 16 & 255) << 10 |
+            REQUIRE(packed[i] == (reduce(input[i] >> 16 & 255) << 10 |
                                 reduce(input[i] >> 8 & 255) << 5 | reduce(input[i] & 255)));
         std::vector<w8_ulong> sdlOutput(65536);
         info = {output.data(), packed.data(), 65536, nullptr, nullptr};
         readRGB555(info);
-        CHECK(SDL_ConvertPixels(65536, 1, SDL_PIXELFORMAT_XRGB1555, packed.data(), 65536 * 2,
+        REQUIRE(SDL_ConvertPixels(65536, 1, SDL_PIXELFORMAT_XRGB1555, packed.data(), 65536 * 2,
                                 SDL_PIXELFORMAT_ARGB8888, sdlOutput.data(), 65536 * 4));
-        CHECK(output != sdlOutput); // Rounded channel expansion is not SDL's bit replication.
+        REQUIRE(output != sdlOutput); // Rounded channel expansion is not SDL's bit replication.
+        REQUIRE(srInit());
+        for (auto format : {srPixelConvert::SURFACE_RGB332, srPixelConvert::SURFACE_ARGB1555,
+                            srPixelConvert::SURFACE_RGB24, srPixelConvert::SURFACE_ARGB32}) {
+            srColorSurface actual(format, 7, 5), expected(format, 7, 5);
+            actual.fill(0xff123456);
+            for (int y = 0; y < 5; ++y)
+                for (int x = 0; x < 7; ++x)
+                    expected.setPixel(x, y, 0xff123456);
+            actual.setHLine(2, 9, -2, 0xffabcdef);
+            for (int x = 0; x < 7; ++x)
+                expected.setPixel(x, 2, 0xffabcdef);
+            actual.setVLine(3, 8, 1, 0xff765432);
+            for (int y = 1; y < 5; ++y)
+                expected.setPixel(3, y, 0xff765432);
+            for (int y = 0; y < 5; ++y)
+                for (int x = 0; x < 7; ++x)
+                    REQUIRE(actual.getPixelRaw(x, y) == expected.getPixelRaw(x, y));
+        }
+        REQUIRE(srExit());
         puts("Pixel conversions: exact SDL byte channels, alpha, in-place rotation and exhaustive "
              "custom RGB555 passed");
-        return 0;
-    } catch (const std::exception& failure) {
-        fprintf(stderr, "pixel conversion: %s\n", failure.what());
-        return 1;
-    }
-}
+        }

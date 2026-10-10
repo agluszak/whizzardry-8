@@ -16,44 +16,29 @@ srTriangulator::srTriangulator(glm::vec2* points, int count)
 }
 
 // FUNCTION: SURRENDER 0x1003c0e0
-srVector3i srTriangulator::next()
+glm::ivec3 srTriangulator::next()
 {
-    srVector3i result;
     if (remaining > 3) {
-        Node* start = current;
+        const auto* start = current;
         while (!satisfyConstraints(current)) {
             current = current->next;
-            if (current == start) {
-                result.x = -1;
-                result.y = 0;
-                result.z = 0;
-                return result;
-            }
+            if (current == start)
+                return {-1, 0, 0};
         }
-        Node* previous = current->prev;
-        Node* next_node = current->next;
-        result.x = previous->index;
-        result.y = current->index;
-        result.z = next_node->index;
-        // Unlink the ear (SURRENDER 0x1003c270), without erasing its storage.
-        next_node->prev = previous;
-        previous->next = next_node;
+        auto* previous = current->prev;
+        auto* next = current->next;
+        const glm::ivec3 result(previous->index, current->index, next->index);
+        next->prev = previous;
+        previous->next = next;
         --remaining;
         current = previous;
         return result;
     }
     if (remaining == 3) {
-        Node* next_node = current->next;
-        result.x = current->index;
-        result.y = next_node->index;
-        result.z = next_node->next->index;
         remaining = 0;
-        return result;
+        return {current->index, current->next->index, current->next->next->index};
     }
-    result.x = -1;
-    result.y = 0;
-    result.z = 0;
-    return result;
+    return {-1, 0, 0};
 }
 
 // FUNCTION: SURRENDER 0x1003bfa0
@@ -62,7 +47,7 @@ int srTriangulator::satisfyConstraints(const Node* vertex)
     glm::vec2 a = points[vertex->prev->index];
     glm::vec2 b = points[vertex->index];
     glm::vec2 c = points[vertex->next->index];
-    if ((c.y - b.y) * (a.x - b.x) - (a.y - b.y) * (c.x - b.x) <= 0.0) {
+    if ((c.y - b.y) * (a.x - b.x) - (a.y - b.y) * (c.x - b.x) >= 0.0) {
         return 0;
     }
     Node* node = vertex->next->next;
@@ -81,7 +66,7 @@ int srTriangulator::sameSide(const glm::vec2& first_point, const glm::vec2& seco
 {
     float first = (first_point.x - a.x) * (b.y - a.y) - (first_point.y - a.y) * (b.x - a.x);
     float second = (second_point.x - a.x) * (b.y - a.y) - (second_point.y - a.y) * (b.x - a.x);
-    return first * second > 0.0f;
+    return first * second >= 0.0f;
 }
 
 // FUNCTION: SURRENDER 0x1003bf40

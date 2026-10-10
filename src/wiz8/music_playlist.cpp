@@ -174,14 +174,10 @@ void ServiceMusicPlaylist(void)
             return;
         }
 
-        char track[260];
-        strcpy(track, g_music_playlist->lines[selected].text.c_str());
-        char* weight = strchr(track, '(');
-        if (weight != 0) {
-            *weight = 0;
-        }
+        const auto& line = g_music_playlist->lines[selected].text;
+        const auto track = line.substr(0, line.find('('));
 
-        if (StartMusicResource(track, g_music_fade, 1) == 0) {
+        if (StartMusicResource(track.c_str(), g_music_fade, 1) == 0) {
             ++failures;
         }
         if (failures > 4 || g_music_sample_handle != -1) {

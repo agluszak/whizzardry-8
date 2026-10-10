@@ -1,6 +1,7 @@
 #ifndef WIZ8_LAYOUTS_ITEM_TABLES_H
 #define WIZ8_LAYOUTS_ITEM_TABLES_H
 
+#include <array>
 #include <string>
 
 #include "wiz8/attack_modes.h"
@@ -117,7 +118,7 @@ struct W8ItemDatabaseRecord : wiz8::retail::ItemProperties, wiz8::retail::ItemEf
    Keeping their declarations beside the record layouts gives item consumers a
    direct owner beside the file-format types they index. */
 extern W8ItemDatabaseRecord* g_item_records;
-extern W8ItemTableRecord** g_item_tables;
-extern char** g_item_table_category_names;
+extern W8ItemTableRecord* g_item_tables;
+extern std::string* g_item_table_category_names;
 
 #endif

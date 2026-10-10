@@ -1,3 +1,4 @@
+#include <catch2/catch_test_macros.hpp>
 #include <wiz8/filesystem.h>
 #include <sstream>
 // The same inputs run against the legacy assembly and the native C++ paths.
@@ -20,13 +21,9 @@ static const unsigned rows = 20;
 static UINT16 destination[pitch * rows / 2];
 static UINT16 source[pitch * rows / 2];
 static UINT16 palette[256];
-// ShadowClip indexes pShade8 with destination words, so provide backing for
-// every offset rather than capturing undefined reads past a 256-byte table.
-static UINT8 palette8[65537];
 static UINT8 encoded[4096];
 static unsigned cases;
 static std::istringstream reference;
-static bool capture;
 
 static void reset()
 {
@@ -48,10 +45,6 @@ static bool check(const char* name, int variant, BOOLEAN result, const SDL_Rect&
             rect.x, rect.y, (rect.x + rect.w), (rect.y + rect.h),
             static_cast<unsigned>(hash >> 32), static_cast<unsigned>(hash));
     ++cases;
-    if (capture) {
-        fputs(actual, stdout);
-        return true;
-    }
     std::string expected_line;
     const bool has_line = bool(std::getline(reference, expected_line));
     if (!expected_line.empty() && expected_line.back() == '\r') expected_line.pop_back();
@@ -97,21 +90,12 @@ static void sprite_data(ETRLEObject& frame, int variant)
     frame.uiDataLength = out - frame.uiDataOffset;
 }
 
-int main(int argc, char** argv)
+TEST_CASE("blitter_test")
 {
-    capture = argc == 2 && strcmp(argv[1], "--capture") == 0;
-    if (!capture && argc != 2) {
-        fprintf(stderr, "usage: blitter_test --capture | REFERENCE\n");
-        return 1;
-    }
-    if (!capture) {
-        try {
-            auto file = wiz8::open_host_file(wiz8::path_from_utf8(argv[1]));
-            std::string text(static_cast<std::size_t>(file->size()), '\0');
-            if (file->read(text.data(), text.size()).bytes != text.size()) return 2;
-            reference.str(text);
-        } catch (const std::exception&) { return 2; }
-    }
+    auto file = wiz8::open_host_file(wiz8::path_from_utf8(WIZ8_BLITTER_EXPECTED));
+    std::string text(static_cast<std::size_t>(file->size()), '\0');
+    REQUIRE(file->read(text.data(), text.size()).bytes == text.size());
+    reference.str(text);
     for (unsigned i = 0; i < 65536; ++i) {
         ShadeTable[i] = static_cast<UINT16>((i * 37) ^ 0x1234);
         IntensityTable[i] = static_cast<UINT16>((i * 83) ^ 0x5678);
@@ -119,14 +103,8 @@ int main(int argc, char** argv)
     for (unsigned i = 0; i < 256; ++i) {
         palette[i] = static_cast<UINT16>((i * 257) ^ 0x57ab);
     }
-    for (unsigned i = 0; i < sizeof(palette8); ++i) {
-        palette8[i] = static_cast<UINT8>(i * 73 + 11);
-    }
     SGPVObject object = {};
-    object.pETRLEObject.resize(1);
-    auto& frame = object.pETRLEObject[0];
-    object.pPixData.resize(sizeof(encoded));
-    object.pShade8 = palette8;
+    ETRLEObject frame{};
     object.pShadeCurrent = palette;
     ClippingRect = {0, 0, 640, static_cast<INT32>(rows)};
     SDL_Rect full = ClippingRect;
@@ -134,7 +112,11 @@ int main(int argc, char** argv)
 
     for (int data = 0; data < 3; ++data) {
         sprite_data(frame, data);
-        std::copy_n(encoded, sizeof(encoded), object.pPixData.data());
+        // The single decoded representation must produce the legacy assembly
+        // bytes; data 1 carries literal index 0 in opaque runs and exercises
+        // the explicit opacity mask.
+        if (!DecodeVideoObjectSprites(&object, {&frame, 1}, {encoded, sizeof(encoded)}))
+            return 3;
         for (int variant = 0; variant < 8; ++variant) {
             // Whole, partial opaque/transparent runs, every clipped edge,
             // null/default clip rectangle and complete rejection.
@@ -146,26 +128,24 @@ int main(int argc, char** argv)
             int y = variant == 2 ? 1 : variant == 3 ? 6 : 4;
             SDL_Rect* selected = variant == 6 ? nullptr : &clip;
             unsigned id = data * 8 + variant;
+            const SpriteFrame& sprite = object.sprites[0];
 #define SPRITE(name, ...) \
-            reset(); ok = check(#name, id, name(destination, pitch, &object, x, y, 0, selected, ##__VA_ARGS__), clip) && ok
-            // The byte-output font path has a distinct buffer parameter.
-            reset(); ok = check("Blt8BPPDataTo8BPPBufferMonoShadowClip", id,
-                Blt8BPPDataTo8BPPBufferMonoShadowClip(reinterpret_cast<UINT8*>(destination), pitch,
-                    &object, x, y, 0, selected, 0xa3, variant % 2 ? 0 : 0x2f), clip) && ok;
-            SPRITE(Blt8BPPDataTo8BPPBufferTransparentClip);
-            SPRITE(Blt8BPPDataTo8BPPBufferShadowClip);
-            SPRITE(Blt8BPPDataTo16BPPBufferMonoShadowClip, 0xa351, variant % 2 ? 0 : 0x2f14, variant % 3 ? 0x1234 : 0);
-            SPRITE(Blt8BPPDataTo16BPPBufferTransparentClip);
-            SPRITE(Blt8BPPDataTo16BPPBufferShadowClip);
+            reset(); ok = check(#name, id, \
+                BltSpriteTo16BPPBuffer(destination, pitch, sprite, object.pShadeCurrent, \
+                                       x, y, selected, __VA_ARGS__), clip) && ok
+            SPRITE(Blt8BPPDataTo16BPPBufferMonoShadowClip, false, SpriteDrawOp::MonoShadow,
+                   0xa351, variant % 2 ? 0 : 0x2f14, variant % 3 ? 0x1234 : 0);
+            SPRITE(Blt8BPPDataTo16BPPBufferTransparentClip, false, SpriteDrawOp::Transparent);
+            SPRITE(Blt8BPPDataTo16BPPBufferShadowClip, false, SpriteDrawOp::Shadow);
 #undef SPRITE
         }
-#define UNCLIPPED(name) \
-        reset(); ok = check(#name, data, name(destination, pitch, &object, 4, 4, 0), full) && ok
-        UNCLIPPED(Blt8BPPDataTo8BPPBufferTransparent);
-        UNCLIPPED(Blt8BPPDataTo8BPPBufferShadow);
-        UNCLIPPED(Blt8BPPDataTo16BPPBufferShadow);
-        UNCLIPPED(Blt8BPPDataTo16BPPBufferTransparent);
-        UNCLIPPED(Blt8BPPDataTo16BPPBufferTransMirror);
+#define UNCLIPPED(name, ...) \
+            reset(); ok = check(#name, data, \
+                BltSpriteTo16BPPBuffer(destination, pitch, object.sprites[0], \
+                                       object.pShadeCurrent, 4, 4, nullptr, __VA_ARGS__), full) && ok
+        UNCLIPPED(Blt8BPPDataTo16BPPBufferShadow, false, SpriteDrawOp::Shadow);
+        UNCLIPPED(Blt8BPPDataTo16BPPBufferTransparent, false, SpriteDrawOp::Transparent);
+        UNCLIPPED(Blt8BPPDataTo16BPPBufferTransMirror, true, SpriteDrawOp::Transparent);
 #undef UNCLIPPED
     }
 
@@ -220,7 +200,78 @@ int main(int argc, char** argv)
         reset(); ok = check("FillRect16BPP", variant,
             FillRect16BPP(destination, pitch, -1, 1, 9 + variant, 12, 0x693d), area) && ok;
     }
-    if (!capture) {
+    // Functional checks for behavior the hash fixtures cannot express: a
+    // literal palette index 0 must draw its palette entry (not behave as
+    // transparency), and a mirrored sprite crossing the left edge must still
+    // draw its visible portion instead of being skipped entirely.
+    {
+        ClippingRect = full;
+        SGPVObject probe = {};
+        probe.pShadeCurrent = palette;
+        ETRLEObject probe_frame{};
+        probe_frame.usWidth = 3;
+        probe_frame.usHeight = 1;
+        probe_frame.uiDataOffset = 0;
+        // opaque literal 0, transparent run of 1, opaque literal 2
+        static const UINT8 probe_data[] = {1, 0, 0x81, 1, 2, 0};
+        probe_frame.uiDataLength = sizeof(probe_data);
+        if (!DecodeVideoObjectSprites(&probe, {&probe_frame, 1},
+                                      {probe_data, sizeof(probe_data)})) {
+            fprintf(stderr, "probe sprite failed to decode\n");
+            ok = false;
+        } else {
+            const SpriteFrame& sprite = probe.sprites[0];
+            reset();
+            BltSpriteTo16BPPBuffer(destination, pitch, sprite, probe.pShadeCurrent, 4, 4,
+                                   nullptr, false, SpriteDrawOp::Transparent);
+            auto untouched = [](unsigned i) {
+                return static_cast<UINT16>(i * 337 + 19);
+            };
+            const unsigned base = 4 * pitch / 2;
+            if (destination[base + 4] != palette[0] ||
+                destination[base + 5] != untouched(base + 5) ||
+                destination[base + 6] != palette[2]) {
+                fprintf(stderr, "functional mismatch: literal zero / transparency\n");
+                ok = false;
+            }
+            // Mirrored at x = -1: only source columns 1 and 0 are visible,
+            // reversed onto destination columns 0 and 1. The transparent
+            // source column leaves the destination, the literal zero draws.
+            reset();
+            BltSpriteTo16BPPBuffer(destination, pitch, sprite, probe.pShadeCurrent, -1, 4,
+                                   nullptr, true, SpriteDrawOp::Transparent);
+            if (destination[base] != untouched(base) ||
+                destination[base + 1] != palette[0] ||
+                destination[base + 2] != untouched(base + 2)) {
+                fprintf(stderr, "functional mismatch: clipped mirror\n");
+                ok = false;
+            }
+        }
+    }
+
+    // Malformed frames must fail without replacing previously decoded sprites.
+    {
+        SGPVObject object{};
+        object.sprites.emplace_back().usWidth = 7;
+        ETRLEObject frame{};
+        frame.usWidth = 1;
+        frame.usHeight = 1;
+        const UINT8 data[] = {0x80, 1, 2, 0};
+        frame.uiDataLength = sizeof(data);
+        auto rejected = [&] {
+            return !DecodeVideoObjectSprites(&object, {&frame, 1}, data) &&
+                   object.sprites.size() == 1 && object.sprites[0].usWidth == 7;
+        };
+        ok = rejected() && ok; // Zero-length encoded run.
+        frame.usWidth = frame.usHeight = 65535;
+        ok = rejected() && ok; // Reject before allocating gigabytes.
+        frame.usWidth = frame.usHeight = 0;
+        frame.uiDataOffset = sizeof(data) + 1;
+        ok = rejected() && ok; // Empty frames still need valid encoded ranges.
+        ok = !DecodeVideoObjectSprites(nullptr, {}, {}) && ok;
+    }
+
+    {
         if (reference.peek() != EOF) {
             fprintf(stderr, "unexpected trailing cases\n");
             ok = false;
@@ -228,5 +279,5 @@ int main(int argc, char** argv)
 
         printf("%u blitter cases checked against legacy assembly output\n", cases);
     }
-    return ok ? 0 : 1;
+    REQUIRE(ok);
 }

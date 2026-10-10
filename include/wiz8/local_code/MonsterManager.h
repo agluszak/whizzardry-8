@@ -48,7 +48,7 @@ struct W8PortraitQuoteState {
 
 /* One party-slot record; eight of these lead gXStatus. The reset clears a
    record wholesale despite its vector member. */
-#pragma pack(push, 1)
+// Runtime-only state: natural alignment is required for the embedded vector.
 struct W8MonsterManagerEntry {
     bool portrait_event_active;
     unsigned int voice_sound_handle;
@@ -138,7 +138,7 @@ struct W8MonsterManagerEntry {
     bool item_swap_in_progress;
     unsigned int pending_event_type; /* last queued portrait event type */
 };
-#pragma pack(pop)
+
 
 W8_ABI_ASSERT(sizeof(W8PortraitQuoteState) == 0x0c, "W8PortraitQuoteState_size");
 W8_ABI_ASSERT(offsetof(W8MonsterManagerEntry, mouth_gap) == 0x05,

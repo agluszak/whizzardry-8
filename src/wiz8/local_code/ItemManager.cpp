@@ -184,7 +184,7 @@ int FindItemTableByName(const char* name)
     int index;
 
     for (index = 0; index < static_cast<int>(gXStatus.uiItemTablesInDatabase); ++index) {
-        if (_stricmp(name, g_item_tables[index]->name) == 0) {
+        if (_stricmp(name, g_item_tables[index].name) == 0) {
             return index;
         }
     }
@@ -232,12 +232,12 @@ int GenerateItemsFromTable(std::vector<W8WorldItem*>& output_items, unsigned int
 
     table_id &= 0xffff;
     for (entry_index = 0; entry_index < 40; ++entry_index) {
-        table = g_item_tables[table_id];
+        table = &g_item_tables[table_id];
         if (table->entries[entry_index].selector != 0) {
             item_record = &g_item_records[table->entries[entry_index].item_id];
             if (table->entries[entry_index].weight == 0) {
                 output_items.push_back(CreateTableItem(
-                    g_item_tables[table_id]->entries[entry_index].item_id, &position));
+                    g_item_tables[table_id].entries[entry_index].item_id, &position));
             } else if (table->level_scaled == 0) {
                 candidates.push_back(entry_index);
             } else {
@@ -256,10 +256,10 @@ int GenerateItemsFromTable(std::vector<W8WorldItem*>& output_items, unsigned int
     }
 
     if (static_cast<int>(candidates.size()) < static_cast<int>(maximum_items) &&
-        g_item_tables[table_id]->level_scaled != 0) {
+        g_item_tables[table_id].level_scaled != 0) {
         candidates.clear();
         for (entry_index = 0; entry_index < 40; ++entry_index) {
-            if (g_item_tables[table_id]->entries[entry_index].selector != 0) {
+            if (g_item_tables[table_id].entries[entry_index].selector != 0) {
                 candidates.push_back(entry_index);
             }
         }
@@ -267,7 +267,7 @@ int GenerateItemsFromTable(std::vector<W8WorldItem*>& output_items, unsigned int
 
     total_weight = 0;
     for (entry_index = 0; entry_index < static_cast<int>(candidates.size()); ++entry_index) {
-        total_weight += g_item_tables[table_id]->entries[candidates[entry_index]].weight;
+        total_weight += g_item_tables[table_id].entries[candidates[entry_index]].weight;
     }
 
     selected_count = 0;
@@ -277,7 +277,7 @@ int GenerateItemsFromTable(std::vector<W8WorldItem*>& output_items, unsigned int
         }
         position_index = Random(static_cast<int>(candidates.size()));
         entry_index = candidates[position_index];
-        table = g_item_tables[table_id];
+        table = &g_item_tables[table_id];
         entry = &table->entries[entry_index];
         random_value = Random(total_weight);
         if (random_value <= entry->weight) {
@@ -650,7 +650,6 @@ void ActivateItem(W8WorldItem* item)
     std::string zItemName;
     std::string zItemFullPath;
     std::string name;
-    srRegistry::ClassNode* node;
     srNode* sun;
     stModelInstance* mesh;
 
@@ -708,8 +707,7 @@ void ActivateItem(W8WorldItem* item)
     item->fActive = true;
     ++gXStatus.item_manager_pending;
 
-    node = srNode::sGetClassNode();
-    sun = static_cast<srNode*>(srCore.getRegistry()->find(node, "SUN", 0));
+    sun = FindWorldNode<srNode>("SUN");
     if (sun != 0) {
         sun_position = glm::vec3(sun->getLocation());
         mesh = static_cast<stModelInstance*>(item->p3D->GetMesh());

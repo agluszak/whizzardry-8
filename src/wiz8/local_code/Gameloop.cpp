@@ -16,6 +16,7 @@
 #include "wiz8/local_screens/PartySelectionScreen.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
 #include "wiz8/local_screens/MainGameScreen.h"
+#include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/local_screens/AutomapScreen.h"
 #include "wiz8/local_screens/CreditsScreen.h"
 #include "wiz8/local_screens/OptionsScreen.h"
@@ -26,6 +27,10 @@
 #include "Font.h"
 #include "wiz8/application.h"
 #include "wiz8/engine_code/Video2.h"
+#include "wiz8/engine_code/ReadMesh.h"
+#include "wiz8/character_event_queue.h"
+#include "wiz8/npc_interaction.h"
+#include "wiz8/local_screens/MGSTextBox.h"
 #include "surrender/srTypeRegistry.h"
 
 #include <string.h>
@@ -94,6 +99,8 @@ void ShutdownGame(size_t initialized_screens, bool save_configuration)
 {
     int index;
 
+    if (gXStatus.character_event_queue)
+        gXStatus.character_event_queue->DestroyAllEvents();
     ReleaseHitSoundDatabase();
     ReleaseGenericItemNames();
     ReleaseNpcStates();
@@ -115,11 +122,12 @@ void ShutdownGame(size_t initialized_screens, bool save_configuration)
     g_screen_return_stack.clear();
     ReleaseAllTriggers();
     DestroyGameplayObjects();
+    ReleaseReadMeshScratch();
     ClearNpcMessageQueue();
     ClearNpcDialogueTranscript();
     ReleaseMessageStorage();
     FreeStringTable();
-    FreeStatusBuffers(&g_status.buffers);
+    g_status.buffers = {};
     if (save_configuration)
         SaveGameConfiguration();
 }

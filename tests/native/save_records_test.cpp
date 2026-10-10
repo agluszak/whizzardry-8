@@ -1,3 +1,4 @@
+#include <catch2/catch_test_macros.hpp>
 #include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/string_database.h"
@@ -43,24 +44,16 @@
 #include <fstream>
 #include <chrono>
 #include "temporary_directory.h"
+#include "file_faults.h"
 
 extern std::vector<W8NpcState*> g_npc_states;
 extern void SaveGlobalStatus(W8Chunk* chunks, W8GlobalStatus* status);
 
-#define CHECK(expression)                                                                          \
-    do                                                                                             \
-    {                                                                                              \
-        if (!(expression))                                                                         \
-        {                                                                                          \
-            fprintf(stderr, "line %d: %s\n", __LINE__, #expression);                               \
-            exit(1);                                                                               \
-        }                                                                                          \
-    } while (0)
 
 template <class T> static void write(std::ofstream& out, const T& value)
 {
     out.write(reinterpret_cast<const char*>(&value), sizeof(value));
-    CHECK(out.good());
+    REQUIRE(out.good());
 }
 
 static void character_file_contracts(const std::filesystem::path& assets,
@@ -73,20 +66,20 @@ static void character_file_contracts(const std::filesystem::path& assets,
         std::ifstream file(fixture, std::ios::binary);
         std::uint32_t extent;
         file.read(reinterpret_cast<char*>(&extent), sizeof(extent));
-        CHECK(file.good() && extent == wiz8::retail::kCharacterBytes);
+        REQUIRE((file.good() && extent == wiz8::retail::kCharacterBytes));
         std::array<std::byte, wiz8::retail::kCharacterBytes> bytes;
         file.read(reinterpret_cast<char*>(bytes.data()), bytes.size());
-        CHECK(file.good());
+        REQUIRE(file.good());
         W8Character character{};
         wiz8::retail::decode<W8Character>(bytes, character);
-        CHECK(character.name == "vi" && character.name_part_2 == "probe");
-        CHECK(wiz8::retail::encode(character) == bytes);
+        REQUIRE((character.name == "vi" && character.name_part_2 == "probe"));
+        REQUIRE(wiz8::retail::encode(character) == bytes);
         character.name = "改名";
         const auto edited = wiz8::retail::encode(character);
-        CHECK(std::equal(bytes.begin() + 0x25, bytes.begin() + 0x69, edited.begin() + 0x25));
+        REQUIRE(std::equal(bytes.begin() + 0x25, bytes.begin() + 0x69, edited.begin() + 0x25));
     }
     g_status.game_started = false;
-    CHECK(VerifyDataSubdirs());
+    REQUIRE(VerifyDataSubdirs());
     for (const char* name : {"A", "Vi", "Sir Bob", "Ninechars", "é中😀", "中文名字测试"})
     {
         W8Character character = {};
@@ -95,24 +88,33 @@ static void character_file_contracts(const std::filesystem::path& assets,
         std::string path;
         path = BuildCharacterPath(name, -1);
         const std::string filename = std::string(name) + ".CHR";
-        CHECK(path == std::string("Saves\\Characters\\") + filename);
-        CHECK(SaveCharacter(&character, -1, false, nullptr));
-        CHECK(character.record_version == 1);
+        REQUIRE(path == std::string("Saves\\Characters\\") + filename);
+        REQUIRE(SaveCharacter(&character, -1, false, nullptr));
+        REQUIRE(character.record_version == 1);
         const auto saved = user / "Saves" / "Characters" / filename;
-        CHECK(std::filesystem::file_size(saved) == 4 + wiz8::retail::kCharacterBytes);
-        CHECK(!std::filesystem::exists(assets / "Saves" / "Characters" / filename));
+        REQUIRE(std::filesystem::file_size(saved) == 4 + wiz8::retail::kCharacterBytes);
+        REQUIRE(!std::filesystem::exists(assets / "Saves" / "Characters" / filename));
         std::ifstream encoded(saved, std::ios::binary);
         unsigned int size = 0;
         encoded.read(reinterpret_cast<char*>(&size), sizeof(size));
-        CHECK(encoded.good() && size == wiz8::retail::kCharacterBytes);
+        REQUIRE((encoded.good() && size == wiz8::retail::kCharacterBytes));
         encoded.close();
         W8Character loaded = {};
-        CHECK(LoadCharacter(filename.c_str(), &loaded, -1, false));
-        CHECK(wiz8::retail::encode(loaded) == wiz8::retail::encode(character));
+        REQUIRE(LoadCharacter(filename.c_str(), &loaded, -1, false));
+        REQUIRE(wiz8::retail::encode(loaded) == wiz8::retail::encode(character));
+        std::size_t operations;
+        { FileFaults trace; REQUIRE(SaveCharacter(&character, -1, false, nullptr)); operations = trace.operations; }
+        W8Character replacement = character;
+        replacement.uiExpLevel = 99;
+        for (std::size_t operation = 1; operation <= operations; ++operation) {
+            { FileFaults fault(operation); REQUIRE(!SaveCharacter(&replacement, -1, false, nullptr)); REQUIRE(fault.fired); }
+            REQUIRE(LoadCharacter(filename.c_str(), &loaded, -1, false));
+            REQUIRE(wiz8::retail::encode(loaded) == wiz8::retail::encode(character));
+        }
         character.uiExpLevel = 8;
-        CHECK(SaveCharacter(&character, -1, false, nullptr));
-        CHECK(LoadCharacter(filename.c_str(), &loaded, -1, false));
-        CHECK(wiz8::retail::encode(loaded) == wiz8::retail::encode(character));
+        REQUIRE(SaveCharacter(&character, -1, false, nullptr));
+        REQUIRE(LoadCharacter(filename.c_str(), &loaded, -1, false));
+        REQUIRE(wiz8::retail::encode(loaded) == wiz8::retail::encode(character));
     }
 
     // I/O errors must reach the same failure continuation as an unsuccessful
@@ -121,28 +123,28 @@ static void character_file_contracts(const std::filesystem::path& assets,
     blocked.name = "Blocked";
     std::filesystem::create_directory(user / "Saves" / "Characters" / "Blocked.CHR");
     static unsigned failed_saves = 0;
-    CHECK(!SaveCharacter(&blocked, -1, false, [] { ++failed_saves; }));
-    CHECK(failed_saves == 1);
+    REQUIRE(!SaveCharacter(&blocked, -1, false, [] { ++failed_saves; }));
+    REQUIRE(failed_saves == 1);
 
     W8Character npc = {};
     npc.name = "Vi";
     std::string path;
     path = BuildCharacterPath(npc.name, 0);
-    CHECK(path == "Saves\\NPCs\\Vi.CHR");
-    CHECK(SaveCharacter(&npc, 0, false, nullptr));
+    REQUIRE(path == "Saves\\NPCs\\Vi.CHR");
+    REQUIRE(SaveCharacter(&npc, 0, false, nullptr));
     W8Character loaded = {};
-    CHECK(LoadCharacter("Vi.CHR", &loaded, 0, false));
-    CHECK(wiz8::retail::encode(loaded) == wiz8::retail::encode(npc));
+    REQUIRE(LoadCharacter("Vi.CHR", &loaded, 0, false));
+    REQUIRE(wiz8::retail::encode(loaded) == wiz8::retail::encode(npc));
 
     g_status.game_started = true;
     g_status.flags[0] = 0;
     path = BuildCharacterPath(npc.name, 0);
-    CHECK(path == "Saves\\NPCs\\Vi.CHR");
+    REQUIRE(path == "Saves\\NPCs\\Vi.CHR");
     g_status.flags[0] = 1;
     path = BuildCharacterPath(npc.name, 0);
-    CHECK(path == "Vi.CHR");
+    REQUIRE(path == "Vi.CHR");
     path = BuildCharacterPath(npc.name, -1);
-    CHECK(path == "Vi.CHR");
+    REQUIRE(path == "Vi.CHR");
     g_status.flags[0] = 0;
     g_status.game_started = false;
 }
@@ -161,10 +163,10 @@ static void unicode_database_contracts()
         items->write(image.data(), image.size());
     }
     items->close();
-    CHECK(InitializeItemDatabase());
-    CHECK(gXStatus.uiItemsInDatabase == 2);
-    CHECK(std::string(g_item_records[0].display_name) == "Épée");
-    CHECK(std::string(g_item_records[1].display_name) == "药水😀" && g_item_records[1].value == 101);
+    REQUIRE(InitializeItemDatabase());
+    REQUIRE(gXStatus.uiItemsInDatabase == 2);
+    REQUIRE(std::string(g_item_records[0].display_name) == "Épée");
+    REQUIRE((std::string(g_item_records[1].display_name) == "药水😀" && g_item_records[1].value == 101));
     DestroyItemDatabase();
     g_item_records = nullptr;
     auto monsters = wiz8::open_file("Data/Databases/Monsters.DBS", wiz8::OpenMode::replace);
@@ -178,15 +180,15 @@ static void unicode_database_contracts()
     }
     monsters->close();
     W8MonsterRecord* records = nullptr;
-    CHECK(LoadMonsterDatabase(&records));
-    CHECK(records && std::string(records[1].name0) == "怪物😀");
+    REQUIRE(LoadMonsterDatabase(&records));
+    REQUIRE((records && std::string(records[1].name0) == "怪物😀"));
     delete[] records;
     W8MonsterRecord single{};
-    CHECK(LoadMonsterDatabaseRecord(1, &single));
-    CHECK(std::string(single.name0) == "怪物😀");
+    REQUIRE(LoadMonsterDatabaseRecord(1, &single));
+    REQUIRE(std::string(single.name0) == "怪物😀");
     W8MonsterRecord range[2]{};
-    CHECK(LoadMonsterDatabaseRange(0, 1, range));
-    CHECK(std::string(range[0].name1) == "Élans" && std::string(range[1].name1) == "怪物们");
+    REQUIRE(LoadMonsterDatabaseRange(0, 1, range));
+    REQUIRE((std::string(range[0].name1) == "Élans" && std::string(range[1].name1) == "怪物们"));
 }
 
 static void unicode_file_contracts()
@@ -222,12 +224,12 @@ static void unicode_file_contracts()
         file->close();
         std::string output;
         unsigned metadata0 = 0, metadata1 = 0;
-        CHECK((!(output = GetStringFromStringDatabase("Data/Strings/unicode.msg", 0, &metadata0, &metadata1)).empty()));
-        CHECK(std::string(output) == name && metadata0 == 123 && metadata1 == 456);
-        CHECK(!(!(output = GetStringFromStringDatabase("Data/Strings/unicode.msg", -1, nullptr, nullptr)).empty()));
-        CHECK(output.empty());
+        REQUIRE((!(output = GetStringFromStringDatabase("Data/Strings/unicode.msg", 0, &metadata0, &metadata1)).empty()));
+        REQUIRE((std::string(output) == name && metadata0 == 123 && metadata1 == 456));
+        REQUIRE(!(!(output = GetStringFromStringDatabase("Data/Strings/unicode.msg", -1, nullptr, nullptr)).empty()));
+        REQUIRE(output.empty());
         std::string complete;
-        CHECK((complete = GetStringFromStringDatabase("Data/Strings/unicode.msg", 0, nullptr, nullptr)) == name);
+        REQUIRE((complete = GetStringFromStringDatabase("Data/Strings/unicode.msg", 0, nullptr, nullptr)) == name);
     }
     auto file = wiz8::open_file("Data/Strings/unicode.dat", wiz8::OpenMode::replace);
     const int count = 1;
@@ -236,9 +238,9 @@ static void unicode_file_contracts()
     file->write(&count, 4); file->write(&length, 4); file->write(bytes.data(), bytes.size());
     file->close();
     LoadLocalizedStrings("Data/Strings/unicode.dat");
-    CHECK(giStringListLen == 1 && std::string(g_localized_strings[0]) == "é中😀 %s %hs %s");
+    REQUIRE((giStringListLen == 1 && std::string(g_localized_strings[0]) == "é中😀 %s %hs %s"));
     ReleaseLocalizedStrings();
-    CHECK(g_localized_strings.empty() && !giStringListLen);
+    REQUIRE((g_localized_strings.empty() && !giStringListLen));
 
     ReleaseMessageStorage();
     memset(g_status.text_box_lines_used, 0, sizeof(g_status.text_box_lines_used));
@@ -251,7 +253,7 @@ static void unicode_file_contracts()
     line.highlight_start = 3; // two UTF-16 units
     line.highlight_stop = 6; // three UTF-16 units
     file = wiz8::open_file("Saves/text.bin", wiz8::OpenMode::replace);
-    CHECK(SaveMessageStorage(file.get()));
+    REQUIRE(SaveMessageStorage(file.get()));
     file->close();
     ReleaseMessageStorage();
     g_status.buffers.save_version = 9.0f;
@@ -261,13 +263,13 @@ static void unicode_file_contracts()
     std::array<std::byte, 8 + 0x24> header{};
     file->read_exact(header.data(), header.size());
     for (std::size_t i = 8 + 0x18; i < 8 + 0x1c; ++i)
-        CHECK(header[i] == std::byte{});
+        REQUIRE(header[i] == std::byte{});
     file->seek(0, wiz8::SeekOrigin::begin);
-    CHECK(LoadMessageStorage(file.get()));
-    CHECK(std::string(g_message_storage[0][0].text) == message);
-    CHECK(g_message_storage[0][0].entries.empty());
-    CHECK(g_message_storage[0][0].length == 6);
-    CHECK(g_message_storage[0][0].highlight_start == 3 && g_message_storage[0][0].highlight_stop == 6);
+    REQUIRE(LoadMessageStorage(file.get()));
+    REQUIRE(std::string(g_message_storage[0][0].text) == message);
+    REQUIRE(g_message_storage[0][0].entries.empty());
+    REQUIRE(g_message_storage[0][0].length == 6);
+    REQUIRE((g_message_storage[0][0].highlight_start == 3 && g_message_storage[0][0].highlight_stop == 6));
     ReleaseMessageStorage();
 }
 
@@ -283,21 +285,21 @@ static void transcript_contracts()
     state.dialogue_category_filter = 3;
     state.transcript_sorted = true;
     auto file = wiz8::open_file("Saves/transcript.bin", wiz8::OpenMode::replace);
-    CHECK(SaveNpcDialogueTranscript(file.get()));
+    REQUIRE(SaveNpcDialogueTranscript(file.get()));
     file->close();
     file = wiz8::open_file("Saves/transcript.bin");
     std::array<std::byte, 20> bytes{};
     file->read_exact(bytes.data(), bytes.size());
-    CHECK(bytes[0] == std::byte{2} && bytes[1] == std::byte{1});
-    CHECK(bytes[5] == std::byte{4}); // Four UTF-16 units, not nine UTF-8 bytes.
-    CHECK(bytes[9] == std::byte{0xe9} && bytes[10] == std::byte{0});
-    CHECK(bytes[13] == std::byte{0x3d} && bytes[14] == std::byte{0xd8});
+    REQUIRE((bytes[0] == std::byte{2} && bytes[1] == std::byte{1}));
+    REQUIRE(bytes[5] == std::byte{4}); // Four UTF-16 units, not nine UTF-8 bytes.
+    REQUIRE((bytes[9] == std::byte{0xe9} && bytes[10] == std::byte{0}));
+    REQUIRE((bytes[13] == std::byte{0x3d} && bytes[14] == std::byte{0xd8}));
     file->seek(0, wiz8::SeekOrigin::begin);
-    CHECK(LoadNpcDialogueTranscript(file.get()));
-    CHECK(state.dialogue_transcript.size() == 1);
-    CHECK(state.dialogue_transcript[0]->text == "é中😀");
-    CHECK(state.dialogue_transcript[0]->category == 2);
-    CHECK(state.dialogue_category_filter == 3 && state.transcript_sorted);
+    REQUIRE(LoadNpcDialogueTranscript(file.get()));
+    REQUIRE(state.dialogue_transcript.size() == 1);
+    REQUIRE(state.dialogue_transcript[0]->text == "é中😀");
+    REQUIRE(state.dialogue_transcript[0]->category == 2);
+    REQUIRE((state.dialogue_category_filter == 3 && state.transcript_sorted));
     ClearNpcDialogueTranscript();
     file->close();
     g_npc_interaction_state = previous;
@@ -315,32 +317,32 @@ static void keyword_file_contracts()
     const char* translated = "Data/Strings/translated_Keywords.txt";
     write_keywords(english, "header\r\n01234567890  hello / world /\r\n01234567890bye/last");
     ReloadKeywordLists();
-    CHECK(!g_keyword_lists_loaded && g_keyword_lists.size() == 0);
+    REQUIRE((!g_keyword_lists_loaded && g_keyword_lists.size() == 0));
     write_keywords(translated, "header\n01234567890bonjour/monde/\n01234567890au revoir/final");
     ReloadKeywordLists();
-    CHECK(g_keyword_lists_loaded && g_keyword_lists.size() == 2);
+    REQUIRE((g_keyword_lists_loaded && g_keyword_lists.size() == 2));
     const auto& first = g_keyword_lists[0];
-    CHECK(first.size() == 2);
-    CHECK(first[0] == std::vector<std::string>({"hello", "world"}));
-    CHECK(first[1] == std::vector<std::string>({"bye", "last"}));
-    CHECK(TranslateDialogueKeyword("BONJOUR") == "hello");
-    CHECK(TranslateDialogueKeyword("unknown") == "unknown");
+    REQUIRE(first.size() == 2);
+    REQUIRE(first[0] == std::vector<std::string>({"hello", "world"}));
+    REQUIRE(first[1] == std::vector<std::string>({"bye", "last"}));
+    REQUIRE(TranslateDialogueKeyword("BONJOUR") == "hello");
+    REQUIRE(TranslateDialogueKeyword("unknown") == "unknown");
     // Translated fields without an English counterpart remain unchanged.
     write_keywords(english, "header\n01234567890hello/");
     ReloadKeywordLists();
-    CHECK(TranslateDialogueKeyword("monde") == "monde");
-    CHECK(TranslateDialogueKeyword("final") == "final");
+    REQUIRE(TranslateDialogueKeyword("monde") == "monde");
+    REQUIRE(TranslateDialogueKeyword("final") == "final");
     ClearKeywordLists();
-    CHECK(!g_keyword_lists_loaded && g_keyword_lists.size() == 0);
+    REQUIRE((!g_keyword_lists_loaded && g_keyword_lists.size() == 0));
     write_keywords(english, "header\n01234567890partial/row/\n01234567890" + std::string("\0bad", 4));
     ReloadKeywordLists();
-    CHECK(!g_keyword_lists_loaded && g_keyword_lists.size() == 0);
+    REQUIRE((!g_keyword_lists_loaded && g_keyword_lists.size() == 0));
     write_keywords(english, "header\n01234567890" + std::string(1000, 'x'));
     ReloadKeywordLists();
-    CHECK(!g_keyword_lists_loaded && g_keyword_lists.size() == 0);
-    CHECK(wiz8::remove_file(english));
+    REQUIRE((!g_keyword_lists_loaded && g_keyword_lists.size() == 0));
+    REQUIRE(wiz8::remove_file(english));
     ReloadKeywordLists();
-    CHECK(!g_keyword_lists_loaded && g_keyword_lists.size() == 0);
+    REQUIRE((!g_keyword_lists_loaded && g_keyword_lists.size() == 0));
 }
 
 static void path_record_contracts()
@@ -601,22 +603,22 @@ static void encounter_table_contracts()
             file->write(scripts, sizeof(scripts));
             if (version == 2) file->write(&flags, sizeof(flags));
         }
-        CHECK(InitializeEncounterTables());
-        CHECK(g_encounter_names == std::vector<std::string>{"Wilderness"});
-        CHECK(g_encounter_tables.size() == 1);
+        REQUIRE(InitializeEncounterTables());
+        REQUIRE(g_encounter_names == std::vector<std::string>{"Wilderness"});
+        REQUIRE(g_encounter_tables.size() == 1);
         const auto* table = GetEncounterTable(0);
-        CHECK(table && !strcmp(table->name, "Forest") && table->category == 7);
-        CHECK(table->version_two_flags == (version == 1 ? 0 : 0x42));
-        CHECK(table->entries.size() == 2);
+        REQUIRE((table && !strcmp(table->name, "Forest") && table->category == 7));
+        REQUIRE((table->version_two_flags == (version == 1 ? 0 : 0x42)));
+        REQUIRE(table->entries.size() == 2);
         const auto& first = table->entries[0];
         const auto& second = table->entries[1];
-        CHECK(first.species == 12 && first.rarity_class == 3 &&
+        REQUIRE((first.species == 12 && first.rarity_class == 3 &&
               first.time_condition == W8_ENCOUNTER_DAY && first.challenge_level == 5 &&
-              !strcmp(first.script.value, "first.msf"));
-        CHECK(second.species == 34 && second.rarity_class == 70 &&
+              !strcmp(first.script.value, "first.msf")));
+        REQUIRE((second.species == 34 && second.rarity_class == 70 &&
               second.time_condition == W8_ENCOUNTER_ANY_TIME && second.challenge_level == 20 &&
-              !strcmp(second.script.value, "second.msf"));
-        CHECK(!GetEncounterTable(-1) && !GetEncounterTable(1));
+              !strcmp(second.script.value, "second.msf")));
+        REQUIRE((!GetEncounterTable(-1) && !GetEncounterTable(1)));
     }
     // Failed loads must not publish partially populated parallel data.
     {
@@ -624,37 +626,142 @@ static void encounter_table_contracts()
         const int count = 1;
         file->write(&count, sizeof(count));
     }
-    CHECK(!InitializeEncounterTables());
-    CHECK(g_encounter_tables.empty() && g_encounter_names.empty());
-    CHECK(g_encounter_tables_level == -1);
+    REQUIRE(!InitializeEncounterTables());
+    REQUIRE((g_encounter_tables.empty() && g_encounter_names.empty()));
+    REQUIRE(g_encounter_tables_level == -1);
     UnloadEncounterTables();
-    CHECK(wiz8::remove_file(path));
+    REQUIRE(wiz8::remove_file(path));
+}
+
+static void current_game_character_contracts()
+{
+    W8Chunk chunks;
+    REQUIRE(chunks.OpenWrite("Saves\\CurrentGame.SAV"));
+    chunks.Close();
+    W8Character first{}, second{}, loaded{};
+    first.name = "Vi";
+    first.uiExpLevel = 7;
+    second.name = "Bob";
+    second.uiExpLevel = 9;
+    REQUIRE(SaveCharacterToCurrentGame("Vi.CHR", 0, &first));
+    REQUIRE(SaveCharacterToCurrentGame("Bob.CHR", -1, &second));
+    REQUIRE(LoadCharacterFromCurrentGame("vi.chr", &loaded));
+    REQUIRE(wiz8::retail::encode(loaded) == wiz8::retail::encode(first));
+    first.uiExpLevel = 8;
+    REQUIRE(SaveCharacterToCurrentGame("Vi.CHR", 0, &first));
+    REQUIRE(LoadCharacterFromCurrentGame("Vi.CHR", &loaded));
+    REQUIRE(wiz8::retail::encode(loaded) == wiz8::retail::encode(first));
+    REQUIRE(LoadCharacterFromCurrentGame("Bob.CHR", &loaded));
+    REQUIRE(wiz8::retail::encode(loaded) == wiz8::retail::encode(second));
+    REQUIRE((chunks.OpenRead("Saves\\CurrentGame.SAV") && chunks.ChunkCount() == 2));
+    for (int index = 0; index < 2; ++index) {
+        REQUIRE((chunks.OpenChunk(0, 0) && chunks.CurrentChunkId() == 0x52414843));
+        REQUIRE(!chunks.CurrentChunkAtEnd());
+        REQUIRE(chunks.CurrentChunkExtent() == 64 + 4 + W8_CHARACTER_SERIALIZED_SIZE);
+        REQUIRE((chunks.SkipCurrentChunk() && chunks.ReleaseCurrentChunk()));
+    }
+    chunks.Close();
+    REQUIRE(!SaveCharacterToCurrentGame(std::string(64, 'x').c_str(), 0, &first));
+    REQUIRE((chunks.OpenRead("Saves\\CurrentGame.SAV") && chunks.ChunkCount() == 2));
+    chunks.Close();
+
+    // Fail every read, write, seek, flush, close and publication in turn.
+    // Even after chunk headers have been patched, the published save is unchanged.
+    std::size_t operations;
+    { FileFaults trace; REQUIRE(SaveCharacterToCurrentGame("Vi.CHR", 0, &first)); operations = trace.operations; }
+    W8Character replacement = first;
+    replacement.uiExpLevel = 99;
+    auto snapshot = [] {
+        auto file = wiz8::open_file("Saves\\CurrentGame.SAV");
+        std::string bytes(file->size(), '\0');
+        file->read_exact(bytes.data(), bytes.size());
+        return bytes;
+    };
+    const auto before = snapshot();
+    // Abandoning an unfinished RIFF must never publish over the old record.
+    {
+        wiz8::StagedFile staged("Saves\\CurrentGame.SAV");
+        W8Chunk unfinished;
+        REQUIRE(unfinished.OpenWrite(staged.file()));
+        unfinished.OpenChunk(0x52414843, 0);
+        bool rejected = false;
+        try { unfinished.Close(); } catch (const std::exception&) { rejected = true; }
+        REQUIRE(rejected);
+    }
+    REQUIRE(snapshot() == before);
+
+    for (std::size_t operation = 1; operation <= operations; ++operation) {
+        { FileFaults fault(operation); REQUIRE(!SaveCharacterToCurrentGame("Vi.CHR", 0, &replacement)); REQUIRE(fault.fired); }
+        REQUIRE(snapshot() == before);
+        REQUIRE(LoadCharacterFromCurrentGame("Vi.CHR", &loaded));
+        REQUIRE(wiz8::retail::encode(loaded) == wiz8::retail::encode(first));
+    }
+    for (unsigned level = 10; level < 20; ++level) {
+        first.uiExpLevel = level;
+        REQUIRE(SaveCharacterToCurrentGame("Vi.CHR", 0, &first));
+        REQUIRE(LoadCharacterFromCurrentGame("Vi.CHR", &loaded));
+        REQUIRE(wiz8::retail::encode(loaded) == wiz8::retail::encode(first));
+        REQUIRE((chunks.OpenRead("Saves\\CurrentGame.SAV") && chunks.ChunkCount() == 2));
+        chunks.Close();
+    }
+
+    // A payload that reaches into the next chunk must leave the destination intact.
+    REQUIRE(chunks.OpenWrite("Saves\\CurrentGame.SAV"));
+    REQUIRE(chunks.OpenChunk(0x52414843, 0));
+    char name[64] = "Vi.CHR";
+    unsigned size = W8_CHARACTER_SERIALIZED_SIZE;
+    chunks.Write(name, sizeof(name), nullptr);
+    chunks.Write(&size, sizeof(size), nullptr);
+    chunks.Write(&first, 1, nullptr);
+    chunks.ReleaseCurrentChunk();
+    chunks.OpenChunk(0x444150, 0);
+    wiz8::retail::write(chunks, second);
+    chunks.ReleaseCurrentChunk();
+    chunks.Close();
+    loaded = second;
+    REQUIRE(!LoadCharacterFromCurrentGame("Vi.CHR", &loaded));
+    REQUIRE(wiz8::retail::encode(loaded) == wiz8::retail::encode(second));
+    // A malformed newer payload does not hide the last complete character.
+    REQUIRE(chunks.OpenWrite("Saves\\CurrentGame.SAV"));
+    chunks.OpenChunk(0x52414843, 0);
+    chunks.Write(name, sizeof(name), nullptr); chunks.Write(&size, sizeof(size), nullptr);
+    wiz8::retail::write(chunks, first); chunks.ReleaseCurrentChunk();
+    chunks.OpenChunk(0x52414843, 0);
+    chunks.Write(name, sizeof(name), nullptr); chunks.Write(&size, sizeof(size), nullptr);
+    chunks.Write(&replacement, 1, nullptr); chunks.ReleaseCurrentChunk();
+    chunks.Close();
+    REQUIRE(LoadCharacterFromCurrentGame("Vi.CHR", &loaded));
+    REQUIRE(wiz8::retail::encode(loaded) == wiz8::retail::encode(first));
+    REQUIRE(SaveCharacterToCurrentGame("Vi.CHR", 0, &replacement));
+    REQUIRE(LoadCharacterFromCurrentGame("Vi.CHR", &loaded));
+    REQUIRE(wiz8::retail::encode(loaded) == wiz8::retail::encode(replacement));
+
 }
 
 static void save_file_contracts(const std::filesystem::path& user)
 {
     using namespace std::chrono;
     const auto epoch = wiz8::file_time_from_sdl(0);
-    CHECK(epoch.ticks() == 116444736000000000ULL);
+    REQUIRE(epoch.ticks() == 116444736000000000ULL);
     const auto utc = wiz8::file_time_to_utc(epoch);
-    CHECK(utc.year == 1970 && utc.month == 1 && utc.day == 1);
-    CHECK(wiz8::file_time_from_sdl(-1).ticks() == epoch.ticks() - 1);
-    CHECK(wiz8::file_time_from_utc({1601, 1, 1, 0, 0, 0, 0, 1}).ticks() == 0);
-    CHECK(wiz8::file_time_with_legacy_local_bias(epoch, 19800).ticks() ==
+    REQUIRE((utc.year == 1970 && utc.month == 1 && utc.day == 1));
+    REQUIRE(wiz8::file_time_from_sdl(-1).ticks() == epoch.ticks() - 1);
+    REQUIRE(wiz8::file_time_from_utc({1601, 1, 1, 0, 0, 0, 0, 1}).ticks() == 0);
+    REQUIRE(wiz8::file_time_with_legacy_local_bias(epoch, 19800).ticks() ==
           epoch.ticks() + 19800ULL * 10000000);
-    CHECK(wiz8::file_time_with_legacy_local_bias(epoch, -18000).ticks() ==
+    REQUIRE(wiz8::file_time_with_legacy_local_bias(epoch, -18000).ticks() ==
           epoch.ticks() - 18000ULL * 10000000);
-    CHECK(wiz8::file_time_to_utc(wiz8::file_time_with_legacy_local_bias(epoch, -18000)).year == 1969);
-    CHECK(wiz8::file_time_with_legacy_local_bias({}, -1).ticks() == UINT64_MAX - 9999999);
+    REQUIRE(wiz8::file_time_to_utc(wiz8::file_time_with_legacy_local_bias(epoch, -18000)).year == 1969);
+    REQUIRE(wiz8::file_time_with_legacy_local_bias({}, -1).ticks() == UINT64_MAX - 9999999);
 
     char path[] = "Saves\\Timestamp.SAV";
     auto file = wiz8::open_file(path, wiz8::OpenMode::replace);
-    CHECK(file);
+    REQUIRE(file);
     SDL_PathInfo info{};
-    CHECK(SDL_GetPathInfo(wiz8::path_to_utf8(user / "Saves" / "Timestamp.SAV").c_str(), &info));
+    REQUIRE(SDL_GetPathInfo(wiz8::path_to_utf8(user / "Saves" / "Timestamp.SAV").c_str(), &info));
     const int offset = wiz8::current_utc_offset_seconds();
     auto created = file->times().created;
-    CHECK(created.ticks() ==
+    REQUIRE(created.ticks() ==
           wiz8::file_time_with_legacy_local_bias(wiz8::file_time_from_sdl(info.create_time), offset).ticks());
 
     // SaveGame's unchanged masks apply independently to the packed dwords.
@@ -662,32 +769,32 @@ static void save_file_contracts(const std::filesystem::path& user)
     static_assert(sizeof(g_status.save_filetime_xor) == 8);
     unsigned words[] = {created.low ^ masks[0], created.high ^ masks[1]};
     file->write(words, sizeof(words));
-    CHECK(file->tell() == 8);
+    REQUIRE(file->tell() == 8);
     std::filesystem::last_write_time(user / "Saves" / "Timestamp.SAV",
                                      std::filesystem::file_time_type::clock::now() - hours(48));
     auto later = file->times().created;
-    CHECK(later.ticks() == created.ticks());
+    REQUIRE(later.ticks() == created.ticks());
     file.reset();
     std::ifstream encoded(user / "Saves" / "Timestamp.SAV", std::ios::binary);
     unsigned stored[2]{};
     encoded.read(reinterpret_cast<char*>(stored), sizeof(stored));
-    CHECK(encoded.gcount() == 8 && stored[0] == words[0] && stored[1] == words[1]);
+    REQUIRE((encoded.gcount() == 8 && stored[0] == words[0] && stored[1] == words[1]));
     encoded.close();
-    CHECK((stored[0] ^ masks[0]) == created.low &&
-          (stored[1] ^ masks[1]) == created.high);
+    REQUIRE(((stored[0] ^ masks[0]) == created.low &&
+          (stored[1] ^ masks[1]) == created.high));
     file = wiz8::open_file(path);
     const auto times = file->times();
     later = times.created;
-    CHECK(SDL_GetPathInfo(wiz8::path_to_utf8(user / "Saves" / "Timestamp.SAV").c_str(), &info));
+    REQUIRE(SDL_GetPathInfo(wiz8::path_to_utf8(user / "Saves" / "Timestamp.SAV").c_str(), &info));
     // Reader fallback is current SDL create_time (POSIX ctime, not birth).
-    CHECK(later.ticks() ==
+    REQUIRE(later.ticks() ==
           wiz8::file_time_with_legacy_local_bias(wiz8::file_time_from_sdl(info.create_time), offset).ticks());
-    CHECK(times.modified.ticks() ==
+    REQUIRE(times.modified.ticks() ==
           wiz8::file_time_with_legacy_local_bias(wiz8::file_time_from_sdl(info.modify_time), offset).ticks());
     file.reset();
     // Fixed epoch pair encodes the same eight bytes; no record layout changed.
     const unsigned epoch_masked[] = {epoch.low ^ masks[0], epoch.high ^ masks[1]};
-    CHECK(epoch_masked[0] == 0xbe1a69f0u && epoch_masked[1] == 0xe6e1991fu);
+    REQUIRE((epoch_masked[0] == 0xbe1a69f0u && epoch_masked[1] == 0xe6e1991fu));
 
     const auto now = std::filesystem::file_time_type::clock::now();
     for (int slot = 1; slot <= 3; ++slot)
@@ -699,55 +806,55 @@ static void save_file_contracts(const std::filesystem::path& user)
         std::filesystem::last_write_time(user / "Saves" / name,
                                         now - hours(slot == 1 ? 0 : slot == 2 ? 4 : 2));
     }
-    CHECK(SelectQuickSaveSlotForWrite() == "Quick 2");
-    CHECK(FindStartupQuickSave() == "Quick 1");
+    REQUIRE(SelectQuickSaveSlotForWrite() == "Quick 2");
+    REQUIRE(FindStartupQuickSave() == "Quick 1");
     char oldest[] = "Saves\\Quick 2.SAV", newest[] = "Saves\\Quick 1.SAV";
     const auto oldest_status = wiz8::file_status(oldest), newest_status = wiz8::file_status(newest);
-    CHECK(oldest_status && newest_status);
+    REQUIRE((oldest_status && newest_status));
     const auto oldest_time = wiz8::file_time_from_sdl(oldest_status->info.modify_time).ticks();
     const auto newest_time = wiz8::file_time_from_sdl(newest_status->info.modify_time).ticks();
-    CHECK(oldest_time < newest_time && (newest_time - oldest_time) / 10000000 >= 3600);
-    CHECK(!(newest_time < oldest_time));
-    CHECK((newest_time - oldest_time) / 10000000 < 20000);
+    REQUIRE((oldest_time < newest_time && (newest_time - oldest_time) / 10000000 >= 3600));
+    REQUIRE(!(newest_time < oldest_time));
+    REQUIRE((newest_time - oldest_time) / 10000000 < 20000);
     wiz8::DiskFileTime high{0, 2}, low{UINT32_MAX, 1};
-    CHECK(high.ticks() > low.ticks());
+    REQUIRE(high.ticks() > low.ticks());
     const wiz8::DiskFileTime same_low{UINT32_MAX, 1};
-    CHECK(low.ticks() < high.ticks() && low.ticks() == same_low.ticks());
-    CHECK(wiz8::remove_file(oldest));
-    CHECK(SelectQuickSaveSlotForWrite() == "Quick 2");
-    CHECK(wiz8::remove_file(newest));
+    REQUIRE((low.ticks() < high.ticks() && low.ticks() == same_low.ticks()));
+    REQUIRE(wiz8::remove_file(oldest));
+    REQUIRE(SelectQuickSaveSlotForWrite() == "Quick 2");
+    REQUIRE(wiz8::remove_file(newest));
     // Missing Quick 1 must not leave the candidate timestamp uninitialized.
-    CHECK(FindStartupQuickSave() == "Quick 3");
+    REQUIRE(FindStartupQuickSave() == "Quick 3");
     char third[] = "Saves\\Quick 3.SAV";
-    CHECK(wiz8::remove_file(third));
-    CHECK(!FindStartupQuickSave());
+    REQUIRE(wiz8::remove_file(third));
+    REQUIRE(!FindStartupQuickSave());
     std::ofstream fallback(user / "Saves" / "Quick.SAV", std::ios::binary);
     write(fallback, 7u);
     fallback.close();
-    CHECK(FindStartupQuickSave() == "Quick");
+    REQUIRE(FindStartupQuickSave() == "Quick");
     UINT32 count = 0;
 
     char riff[] = "Saves\\Riff.SAV";
     W8Chunk chunks;
-    CHECK(chunks.OpenWrite(riff));
-    CHECK(chunks.OpenChunk(0x454d4954u, 0)); // TIME
-    CHECK(chunks.Write(words, sizeof(words), &count) && count == 8);
-    CHECK(chunks.ReleaseCurrentChunk());
+    REQUIRE(chunks.OpenWrite(riff));
+    REQUIRE(chunks.OpenChunk(0x454d4954u, 0)); // TIME
+    REQUIRE((chunks.Write(words, sizeof(words), &count) && count == 8));
+    REQUIRE(chunks.ReleaseCurrentChunk());
     chunks.Close();
-    CHECK(chunks.OpenAppend(riff));
-    CHECK(chunks.OpenChunk(0x5458454eu, 0)); // NEXT
-    CHECK(chunks.Write("tail", 4, &count) && count == 4);
-    CHECK(chunks.ReleaseCurrentChunk());
+    REQUIRE(chunks.OpenAppend(riff));
+    REQUIRE(chunks.OpenChunk(0x5458454eu, 0)); // NEXT
+    REQUIRE((chunks.Write("tail", 4, &count) && count == 4));
+    REQUIRE(chunks.ReleaseCurrentChunk());
     chunks.Close();
-    CHECK(chunks.OpenRead(riff) && chunks.ChunkCount() == 2);
-    CHECK(chunks.OpenChunk(0, 0) && chunks.CurrentChunkId() == 0x454d4954u);
-    CHECK(chunks.Read(stored, sizeof(stored), &count) && count == 8);
-    CHECK(stored[0] == words[0] && stored[1] == words[1]);
-    CHECK(chunks.ReleaseCurrentChunk());
-    CHECK(chunks.OpenChunk(0, 0) && chunks.CurrentChunkId() == 0x5458454eu);
+    REQUIRE((chunks.OpenRead(riff) && chunks.ChunkCount() == 2));
+    REQUIRE((chunks.OpenChunk(0, 0) && chunks.CurrentChunkId() == 0x454d4954u));
+    REQUIRE((chunks.Read(stored, sizeof(stored), &count) && count == 8));
+    REQUIRE((stored[0] == words[0] && stored[1] == words[1]));
+    REQUIRE(chunks.ReleaseCurrentChunk());
+    REQUIRE((chunks.OpenChunk(0, 0) && chunks.CurrentChunkId() == 0x5458454eu));
     char tail[4]{};
-    CHECK(chunks.Read(tail, sizeof(tail), &count) && count == 4 && !memcmp(tail, "tail", 4));
-    CHECK(chunks.ReleaseCurrentChunk());
+    REQUIRE((chunks.Read(tail, sizeof(tail), &count) && count == 4 && !memcmp(tail, "tail", 4)));
+    REQUIRE(chunks.ReleaseCurrentChunk());
     chunks.Close();
 }
 
@@ -771,41 +878,41 @@ static void global_status_record()
     status.pending_move_location.position.Set(1, 2, 3);
     char path[] = "C:\\gsta.bin";
     W8Chunk chunks;
-    CHECK(chunks.OpenWrite(path));
+    REQUIRE(chunks.OpenWrite(path));
     SaveGlobalStatus(&chunks, &status);
     chunks.Close();
-    CHECK(chunks.OpenRead(path) && chunks.OpenChunk(0, 0));
-    CHECK(chunks.CurrentChunkId() == 0x41545347);
+    REQUIRE((chunks.OpenRead(path) && chunks.OpenChunk(0, 0)));
+    REQUIRE(chunks.CurrentChunkId() == 0x41545347);
     unsigned size = 0, count = 0;
-    CHECK(chunks.Read(&size, sizeof(size), &count) && count == sizeof(size) && size == 0x49c2);
+    REQUIRE((chunks.Read(&size, sizeof(size), &count) && count == sizeof(size) && size == 0x49c2));
     unsigned char bytes[0x49c2];
-    CHECK(chunks.Read(bytes, sizeof(bytes), &count) && count == sizeof(bytes));
+    REQUIRE((chunks.Read(bytes, sizeof(bytes), &count) && count == sizeof(bytes)));
     const auto status_image = wiz8::retail::encode(status);
-    CHECK(!memcmp(bytes, status_image.data(), sizeof(bytes)));
+    REQUIRE(!memcmp(bytes, status_image.data(), sizeof(bytes)));
     unsigned gold, turns;
     memcpy(&gold, bytes + 0x19, sizeof(gold));
     memcpy(&turns, bytes + 0x19d8, sizeof(turns));
-    CHECK(gold == 0x12345678 && turns == 0x87654321);
+    REQUIRE((gold == 0x12345678 && turns == 0x87654321));
     float position[3];
     memcpy(position, bytes + 0x22a7, sizeof(position));
-    CHECK(position[0] == 1 && position[1] == 2 && position[2] == 3);
+    REQUIRE((position[0] == 1 && position[1] == 2 && position[2] == 3));
     // Verify each record's prefix and stride independently of native sizeof.
     for (int slot = 0; slot < 8; ++slot) {
-        CHECK(chunks.Read(&size, 4, &count) && size == 0x1862);
+        REQUIRE((chunks.Read(&size, 4, &count) && size == 0x1862));
         std::array<std::byte, 0x1862> character_bytes;
-        CHECK(chunks.Read(character_bytes.data(), character_bytes.size(), &count));
+        REQUIRE(chunks.Read(character_bytes.data(), character_bytes.size(), &count));
     }
     for (int slot = 0; slot < 8; ++slot) {
-        CHECK(chunks.Read(&size, 4, &count) && size == 0x106);
+        REQUIRE((chunks.Read(&size, 4, &count) && size == 0x106));
         std::array<std::byte, 0x106> party_bytes;
-        CHECK(chunks.Read(party_bytes.data(), party_bytes.size(), &count));
+        REQUIRE(chunks.Read(party_bytes.data(), party_bytes.size(), &count));
         int attack_mode;
         float fatigue;
         std::memcpy(&attack_mode, party_bytes.data() + 5, 4);
         std::memcpy(&fatigue, party_bytes.data() + 0xf6, 4);
-        CHECK(party_bytes[0] == std::byte{1} && attack_mode == 100 + slot);
-        CHECK(fatigue == 1.25f + slot);
-        CHECK(party_bytes[0x105] == std::byte(slot % 2));
+        REQUIRE((party_bytes[0] == std::byte{1} && attack_mode == 100 + slot));
+        REQUIRE(fatigue == 1.25f + slot);
+        REQUIRE(party_bytes[0x105] == std::byte(slot % 2));
     }
     chunks.ReleaseCurrentChunk();
     chunks.Close();
@@ -814,14 +921,14 @@ static void global_status_record()
     W8GlobalStatus restored{};
     restored.buffers.Char = restored_characters;
     restored.buffers.XChar = restored_rows;
-    CHECK(chunks.OpenRead(path) && chunks.OpenChunk(0, 0));
+    REQUIRE((chunks.OpenRead(path) && chunks.OpenChunk(0, 0)));
     LoadGameStatus(&chunks, &restored);
-    CHECK(restored.party_gold == status.party_gold);
+    REQUIRE(restored.party_gold == status.party_gold);
     for (int slot = 0; slot < 8; ++slot) {
-        CHECK(restored_rows[slot].fOccupied);
-        CHECK(restored_rows[slot].attack_mode[0] == 100 + slot);
-        CHECK(restored_rows[slot].movement_fatigue == 1.25f + slot);
-        CHECK(restored_rows[slot].weapon_swap_pending == bool(slot % 2));
+        REQUIRE(restored_rows[slot].fOccupied);
+        REQUIRE(restored_rows[slot].attack_mode[0] == 100 + slot);
+        REQUIRE(restored_rows[slot].movement_fatigue == 1.25f + slot);
+        REQUIRE(restored_rows[slot].weapon_swap_pending == bool(slot % 2));
     }
     chunks.ReleaseCurrentChunk();
     chunks.Close();
@@ -836,12 +943,12 @@ static void packed_camera_angles()
         char padding;
         W8WorldCameraState state;
     } packed{};
-    CHECK(reinterpret_cast<uintptr_t>(&packed.state) % alignof(float) != 0);
+    REQUIRE(reinterpret_cast<uintptr_t>(&packed.state) % alignof(float) != 0);
     GetCameraOrientation(packed.state.yaw, packed.state.pitch);
     W8CameraAngleRecord yaw, pitch;
     memcpy(yaw, packed.state.yaw, sizeof(yaw));
     memcpy(pitch, packed.state.pitch, sizeof(pitch));
-    for (unsigned i = 0; i < 6; ++i) CHECK(yaw[i] == 0 && pitch[i] == 0);
+    for (unsigned i = 0; i < 6; ++i) REQUIRE((yaw[i] == 0 && pitch[i] == 0));
     yaw[0] = 0.5f;
     pitch[0] = 0.25f;
     yaw[5] = 123.0f;
@@ -849,15 +956,15 @@ static void packed_camera_angles()
     memcpy(packed.state.yaw, yaw, sizeof(yaw));
     memcpy(packed.state.pitch, pitch, sizeof(pitch));
     SetCameraOrientation(packed.state.yaw, packed.state.pitch, nullptr);
-    CHECK(camera.m_yaw == 0.5f && camera.m_pitch == 0.25f);
+    REQUIRE((camera.m_yaw == 0.5f && camera.m_pitch == 0.25f));
     memcpy(yaw, packed.state.yaw, sizeof(yaw));
     memcpy(pitch, packed.state.pitch, sizeof(pitch));
-    CHECK(yaw[0] == 0.5f && pitch[0] == 0.25f && yaw[5] == 123.0f && pitch[5] == 456.0f);
+    REQUIRE((yaw[0] == 0.5f && pitch[0] == 0.25f && yaw[5] == 123.0f && pitch[5] == 456.0f));
     g_gd_camera = previous;
     delete camera.m_manual_input_timer;
 }
 
-int main()
+TEST_CASE("save_records_test")
 {
     packed_camera_angles();
     const auto temporary = make_temporary_directory("wiz8-save-records");
@@ -869,9 +976,10 @@ int main()
     global_status_record();
     const auto path = root / wiz8::path_from_utf8("npc-雪.bin");
     W8NpcDatabaseRecord database[3] = {};
+    for (unsigned char index = 0; index < 3; ++index) database[index].kind = index;
     g_npc_records = database;
-    // Keep the missing-database-node backfill out of this isolated fixture.
-    gXStatus.uiNpcsInDatabase = 0;
+    // All three database nodes are supplied by the serialized states below.
+    gXStatus.uiNpcsInDatabase = 3;
     W8Character unrelated = {};
     W8_PTR32(W8Character) live;
     live = &unrelated;
@@ -901,7 +1009,7 @@ int main()
                 const auto image = wiz8::retail::encode(character);
                 out.write(reinterpret_cast<const char*>(image.data()),
                           version == 2 ? 0x185c : image.size());
-                CHECK(out.good());
+                REQUIRE(out.good());
             }
         }
         // Version >= 2 follows the states with an item count for each NPC.
@@ -913,44 +1021,92 @@ int main()
         out.close();
         W8Chunk chunk;
         chunk.m_hFile = wiz8::open_host_file(path);
-        CHECK(chunk.m_hFile != 0);
+        REQUIRE(chunk.m_hFile != 0);
         LoadNpcStates(&chunk);
-        CHECK(static_cast<int>(g_npc_states.size()) == 3);
+        REQUIRE(static_cast<int>(g_npc_states.size()) == 3);
         for (unsigned int i = 0; i < 3; ++i)
         {
             W8NpcState* npc = g_npc_states[i];
-            CHECK(npc->record == &database[i]);
-            CHECK(npc->items == 0 && npc->script_file == 0);
+            REQUIRE(npc->record == &database[i]);
+            REQUIRE((npc->items == 0 && npc->script_file == 0));
             if (i < 2)
             {
-                CHECK(npc->character != 0 && npc->character != &unrelated);
-                CHECK(npc->character->name[0] == static_cast<char>('A' + i));
+                REQUIRE((npc->character != 0 && npc->character != &unrelated));
+                REQUIRE(npc->character->name[0] == static_cast<char>('A' + i));
             }
             else
             {
-                CHECK(npc->character == 0);
+                REQUIRE(npc->character == 0);
             }
         }
         unsigned int trailer;
-        CHECK(chunk.Read(&trailer, sizeof(trailer), 0) && trailer == 0xdecafbadU);
+        REQUIRE((chunk.Read(&trailer, sizeof(trailer), 0) && trailer == 0xdecafbadU));
         chunk.m_hFile.reset();
         chunk.m_hFile = 0;
-        CHECK(!GetNpcState(-1) && !GetNpcState(3));
+        // A filesystem failure at any NPC read preserves the previous object graph.
+        chunk.m_hFile = wiz8::open_host_file(path);
+        std::size_t operations;
+        { FileFaults trace; LoadNpcStates(&chunk); operations = trace.operations; }
+        const auto stable_states = g_npc_states;
+        auto* stable_npc = stable_states[0];
+        for (std::size_t operation = 1; operation <= operations; ++operation) {
+            chunk.m_hFile = wiz8::open_host_file(path);
+            bool rejected = false;
+            { FileFaults fault(operation); try { LoadNpcStates(&chunk); } catch (const std::exception&) { rejected = true; } REQUIRE(fault.fired); }
+            REQUIRE((rejected && g_npc_states == stable_states && g_npc_states[0] == stable_npc));
+            REQUIRE(stable_npc->character->name[0] == L'A');
+        }
+        // Round-trip the supported NPCT version through its actual writer.
+        chunk.m_hFile = wiz8::open_host_file(root / "roundtrip.npct", wiz8::OpenMode::replace);
+        REQUIRE(SaveNpcStates(&chunk)); chunk.m_hFile->close();
+        chunk.m_hFile = wiz8::open_host_file(root / "roundtrip.npct");
+        LoadNpcStates(&chunk);
+        REQUIRE(g_npc_states.size() == 3);
+        for (int index = 0; index < 3; ++index) {
+            auto* npc = g_npc_states[index];
+            REQUIRE((npc->record == &database[index] && !npc->items));
+            if (index < 2) REQUIRE((npc->character && npc->character->name[0] == L'A' + index));
+            else REQUIRE(!npc->character);
+        }
+        chunk.m_hFile.reset();
+        const auto previous = g_npc_states;
+        auto* previous_npc = previous[0];
+        for (int malformed = 0; malformed < 4; ++malformed) {
+            std::ofstream bad(path, std::ios::binary | std::ios::trunc);
+            write(bad, static_cast<unsigned char>(3));
+            write(bad, malformed == 0 ? UINT32_MAX : 1u);
+            W8NpcState disk{};
+            disk.name_style = malformed == 1 ? 255 : 0;
+            if (malformed != 2) write(bad, disk);
+            if (malformed == 3) write(bad, UINT32_MAX); // Missing stock entries.
+            bad.close();
+            chunk.m_hFile = wiz8::open_host_file(path);
+            bool rejected = false;
+            try { LoadNpcStates(&chunk); }
+            catch (const std::exception&) { rejected = true; }
+            REQUIRE((rejected && g_npc_states == previous));
+            REQUIRE(g_npc_states[0] == previous_npc);
+            REQUIRE(previous_npc->character->name[0] == L'A');
+            chunk.m_hFile.reset();
+        }
+        REQUIRE((!GetNpcState(-1) && !GetNpcState(3)));
         ReleaseNpcBinding(3); // one past the end is not a live binding
         auto* kept = GetNpcState(1);
         auto* retired = g_npc_states[0];
         retired->binding_unavailable = true;
-        CHECK(!GetNpcState(0));
+        REQUIRE(!GetNpcState(0));
         auto* replacement = CreateNpcRuntimeNode(0);
-        CHECK(g_npc_states.size() == 3 && GetNpcState(0) == replacement);
-        CHECK(replacement->partner_index == 0 && GetNpcState(1) == kept);
-        CHECK(retired->binding_unavailable && retired->character->name[0] == L'A');
+        REQUIRE((g_npc_states.size() == 3 && GetNpcState(0) == replacement));
+        REQUIRE((replacement->partner_index == 0 && GetNpcState(1) == kept));
+        REQUIRE((retired->binding_unavailable && retired->character->name[0] == L'A'));
         ReleaseNpcStates();
         ReleaseNpcStates();
-        CHECK(g_npc_states.empty());
+        REQUIRE(g_npc_states.empty());
     }
     g_npc_records = nullptr;
+    gXStatus.uiNpcsInDatabase = 0;
     character_file_contracts(assets, user);
+    current_game_character_contracts();
     // NSF pointer words are presence markers too. Include empty strings and
     // zero-count arrays carrying a word that collides with a runtime handle.
     const auto script_path = user / "Saves" / "dialogue.nsf";
@@ -997,33 +1153,30 @@ int main()
         entry.operand0 = 0x1234;
         memcpy(&entry.sub_entries, &live_handle, sizeof(live_handle));
         write(out, entry);
-        CHECK(out.good());
+        REQUIRE(out.good());
         out.close();
         char filename[] = "Saves\\dialogue.nsf";
         W8NpcScriptFile* file = LoadNpcScriptFile(filename);
-        CHECK(file && file->quote_count == 3);
-        CHECK(marker ? file->name == "name" : file->name.empty());
+        REQUIRE((file && file->quote_count == 3));
+        REQUIRE((marker ? file->name == "name" : file->name.empty()));
         W8NpcScriptQuote* quotes = file->quotes.data();
-        CHECK(quotes[0].subquote_count == 2 && quotes[0].subquotes[0] == "é中😀");
-        CHECK(quotes[0].subquotes[1].empty());
+        REQUIRE((quotes[0].subquote_count == 2 && quotes[0].subquotes[0] == "é中😀"));
+        REQUIRE(quotes[0].subquotes[1].empty());
         W8NpcQuoteSubEntry* subs = quotes[0].entries[0].sub_entries.data();
-        CHECK(subs[0].operand == 11 && subs[0].text == "line");
-        CHECK(subs[1].operand == 22 && subs[1].text.empty());
-        CHECK(quotes[1].entries.empty() && quotes[1].subquotes.empty());
-        CHECK(quotes[2].entries[0].operand0 == 0x1234 && quotes[2].entries[0].sub_entries.empty());
+        REQUIRE((subs[0].operand == 11 && subs[0].text == "line"));
+        REQUIRE((subs[1].operand == 22 && subs[1].text.empty()));
+        REQUIRE((quotes[1].entries.empty() && quotes[1].subquotes.empty()));
+        REQUIRE((quotes[2].entries[0].operand0 == 0x1234 && quotes[2].entries[0].sub_entries.empty()));
         ReleaseNpcScriptFile(file);
-    }
-    {
-        auto file = wiz8::open_file("Saves/truncated.nsf", wiz8::OpenMode::replace);
-        wiz8::retail::nsf::Header disk{};
-        disk.quote_count = 1;
-        disk.name = 1;
-        file->write(&disk, sizeof(disk));
-        const std::uint16_t length = 4;
-        file->write(&length, sizeof(length));
-        file->write("bad", 3);
-        file->close();
-        CHECK(LoadNpcScriptFile("Saves/truncated.nsf") == nullptr);
+        std::ifstream encoded(script_path, std::ios::binary);
+        const std::string bytes((std::istreambuf_iterator<char>(encoded)), {});
+        encoded.close();
+        for (std::size_t end = 0; end < bytes.size(); ++end) {
+            std::ofstream truncated(script_path, std::ios::binary | std::ios::trunc);
+            truncated.write(bytes.data(), end);
+            truncated.close();
+            REQUIRE(LoadNpcScriptFile(filename) == nullptr);
+        }
     }
     // The AI used to decay the odd-offset condition array into unsigned int*.
     alignas(16) W8Character character = {};
@@ -1034,10 +1187,10 @@ int main()
     W8CombatSlot target = {};
     target.iType = W8_TARGET_KIND_CHARACTER;
     target.iChar = 0;
-    CHECK(reinterpret_cast<uintptr_t>(character.uiCondition) % alignof(unsigned int) == 0);
-    CHECK(MonsterSpellTargetOK(nullptr, W8_SPELL_SLEEP, &target));
+    REQUIRE(reinterpret_cast<uintptr_t>(character.uiCondition) % alignof(unsigned int) == 0);
+    REQUIRE(MonsterSpellTargetOK(nullptr, W8_SPELL_SLEEP, &target));
     character.uiCondition[W8_CONDITION_ASLEEP] = 1;
-    CHECK(!MonsterSpellTargetOK(nullptr, W8_SPELL_SLEEP, &target));
+    REQUIRE(!MonsterSpellTargetOK(nullptr, W8_SPELL_SLEEP, &target));
     g_status.buffers.Char = nullptr;
     g_spell_records = nullptr;
     struct alignas(16) PackedTriangle
@@ -1050,24 +1203,24 @@ int main()
     triangle.vertices[1].Set(0, 2, 0);
     triangle.vertices[2].Set(0, 0, 2);
     triangle.point.Set(0, 0.25f, 0.25f);
-    CHECK(PointInsideTriangle(triangle.vertices, 0, &triangle.point));
+    REQUIRE(PointInsideTriangle(triangle.vertices, 0, &triangle.point));
     triangle.point.Set(0, 3, 3);
-    CHECK(!PointInsideTriangle(triangle.vertices, 0, &triangle.point));
-    CHECK(BuildLevelStatusPath(56) == "Levels\\Test\\DefaultLevel.STS");
+    REQUIRE(!PointInsideTriangle(triangle.vertices, 0, &triangle.point));
+    REQUIRE(BuildLevelStatusPath(56) == "Levels\\Test\\DefaultLevel.STS");
     for (int index = 0; index < 10; ++index) {
         const auto name = index == 0 ? std::string("Ending") : "Ending" + std::to_string(index);
         auto file = wiz8::open_file("Saves/" + name + ".SAV", wiz8::OpenMode::replace);
         file->close();
     }
-    CHECK(FindFreeEndingSaveName() == std::optional<std::string>{"Ending10"});
+    REQUIRE(FindFreeEndingSaveName() == std::optional<std::string>{"Ending10"});
     for (int index = 10; index < 20; ++index) {
         auto file = wiz8::open_file("Saves/Ending" + std::to_string(index) + ".SAV", wiz8::OpenMode::replace);
         file->close();
     }
-    CHECK(FindFreeEndingSaveName() == std::optional<std::string>{"Ending20"});
+    REQUIRE(FindFreeEndingSaveName() == std::optional<std::string>{"Ending20"});
     auto ending = wiz8::open_file("Saves/Ending20.SAV", wiz8::OpenMode::replace);
     ending->close();
-    CHECK(!FindFreeEndingSaveName());
+    REQUIRE(!FindFreeEndingSaveName());
     save_file_contracts(user);
     transcript_contracts();
     keyword_file_contracts();

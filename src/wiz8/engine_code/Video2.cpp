@@ -1178,7 +1178,6 @@ srModelInstance* MakePolygonBrush(srNode* parent, std::shared_ptr<srColorSurface
 {
     std::shared_ptr<srMeshModel> model;
     stModelInstance2D* instance;
-    srVector3T<float> scale;
     srShader shader;
 
     model = std::make_shared<srMeshModel>(0L, 0L);
@@ -1188,8 +1187,7 @@ srModelInstance* MakePolygonBrush(srNode* parent, std::shared_ptr<srColorSurface
     srModeler::MappingInfo mapping(srModeler::AXIS_X, srModeler::AXIS_Y, mapping_width,
                                    mapping_height, mapping_x, mapping_y);
     g_modeler->planarMap(0, 0, mapping);
-    scale.Set(static_cast<float>(width), static_cast<float>(height), 1.0f);
-    g_modeler->scale(scale);
+    g_modeler->scale(glm::vec3(static_cast<float>(width), static_cast<float>(height), 1.0f));
     g_modeler->convert(*model, 1);
     g_modeler->discard();
 
@@ -1228,7 +1226,6 @@ stModelInstance2D* CreateSpriteFromTexture(std::shared_ptr<srTextureIFace> textu
                                            bool keep_aspect, bool overlay)
 {
     srShader shader;
-    srVector3T<float> scale;
     int w = static_cast<int>(width * 640.0);
     int h = static_cast<int>(height * 480.0);
 
@@ -1241,8 +1238,7 @@ stModelInstance2D* CreateSpriteFromTexture(std::shared_ptr<srTextureIFace> textu
                                    g_float_one - (step + step), g_float_one - (step + step), step,
                                    step);
     g_modeler->planarMap(0, 0, mapping);
-    scale.Set(static_cast<float>(width), static_cast<float>(height), 1.0f);
-    g_modeler->scale(scale);
+    g_modeler->scale(glm::vec3(static_cast<float>(width), static_cast<float>(height), 1.0f));
     g_modeler->convert(*model, 1);
     g_modeler->discard();
 
@@ -1273,12 +1269,11 @@ BOOLEAN BlitVideoObjectToColorSurface(UINT32 video_object, UINT16 region,
                                       srColorSurface* destination, UINT16 x, UINT16 y)
 {
     HVOBJECT object;
-    ETRLEObject properties;
 
     if (!GetVideoObject(&object, video_object)) {
         return FALSE;
     }
-    if (!GetVideoObjectETRLEProperties(object, &properties, region)) {
+    if (region >= object->sprites.size()) {
         return FALSE;
     }
     BltVideoObjectToBuffer(static_cast<UINT16*>(destination->getDataPtr()), destination->getPitch(),
@@ -1293,9 +1288,7 @@ BOOLEAN BlitVideoObjectToColorSurface(UINT32 video_object, UINT16 region,
 BOOLEAN BlitHVObjectToColorSurface(HVOBJECT object, UINT16 region, srColorSurface* destination,
                                    int x, int y)
 {
-    ETRLEObject properties;
-
-    if (!GetVideoObjectETRLEProperties(object, &properties, region)) {
+    if (region >= object->sprites.size()) {
         return FALSE;
     }
     BltVideoObjectToBuffer(static_cast<UINT16*>(destination->getDataPtr()), destination->getPitch(),
@@ -1373,16 +1366,17 @@ void SetMouseCursorHotspot(short hotspot_x, short hotspot_y)
 BOOLEAN SetMouseCursorFromVideoObject(UINT32 video_object, UINT16 region, INT16 offset_x,
                                       INT16 offset_y)
 {
-    ETRLEObject properties;
+    HVOBJECT object;
     int x;
     int y;
 
     if (!gfVideoObjectsInit) {
         return FALSE;
     }
-    if (!GetVideoObjectETRLEPropertiesFromIndex(video_object, &properties, region)) {
+    if (!GetVideoObject(&object, video_object) || region >= object->sprites.size()) {
         return FALSE;
     }
+    const SpriteFrame& properties = object->sprites[region];
     if (!ResizeMouseCursorSurface(properties.usWidth + 1, properties.usHeight + 1)) {
         return FALSE;
     }
@@ -2643,9 +2637,7 @@ stModelInstance2D* CreateColoredPolygonSprite(int width, int height, const glm::
     auto model = std::make_shared<srMeshModel>(0L, 0L);
 
     g_modeler->createGrid(1, 1);
-    srVector3T<float> scale;
-    scale.Set(static_cast<float>(scale_x), static_cast<float>(scale_y), 1.0f);
-    g_modeler->scale(scale);
+    g_modeler->scale(glm::vec3(static_cast<float>(scale_x), static_cast<float>(scale_y), 1.0f));
     g_modeler->convert(*model, 1);
     g_modeler->discard();
 
@@ -2947,7 +2939,6 @@ unsigned int GetTotalPhysicalMemory(void)
 std::shared_ptr<stTextureAnim> VideoVObjectToTextureAnim(HVOBJECT object, unsigned short start_frame,
                                          unsigned short frame_count, bool use_argb1555)
 {
-    ETRLEObject properties;
     unsigned short frame;
     unsigned short end_frame;
     w8_ulong extent;
@@ -2964,7 +2955,8 @@ std::shared_ptr<stTextureAnim> VideoVObjectToTextureAnim(HVOBJECT object, unsign
     frame = start_frame;
     end_frame = static_cast<unsigned short>(start_frame + frame_count);
     while (frame < end_frame) {
-        if (GetVideoObjectETRLEProperties(object, &properties, frame)) {
+        if (frame < object->sprites.size()) {
+            const SpriteFrame& properties = object->sprites[frame];
             largest = properties.usHeight;
             if (properties.usHeight < properties.usWidth) {
                 largest = properties.usWidth;
@@ -3180,9 +3172,7 @@ srNode* MakePosterQuad(std::shared_ptr<srTextureIFace> texture, float width, flo
     srModeler::MappingInfo mapping(srModeler::AXIS_X, srModeler::AXIS_Y, g_float_one - extent_w,
                                    g_float_one - extent_h, extent_w, extent_h);
     g_modeler->planarMap(0, 0, mapping);
-    srVector3T<float> scale;
-    scale.Set(width, height, 1.0f);
-    g_modeler->scale(scale);
+    g_modeler->scale(glm::vec3(width, height, 1.0f));
     g_modeler->convert(*model, 1);
     g_modeler->discard();
 

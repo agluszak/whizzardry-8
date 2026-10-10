@@ -535,7 +535,7 @@ void GDProp::AppendMeshFaces(W8LevelFileMesh* mesh, int vertex_base)
             surface->vertex_indices[2] = faces[face].vertex_indices[2] + vertex_base;
         }
     } else {
-        W8ReadMeshFace* faces = mesh->pstFaces;
+        W8SerializedMeshFace* faces = mesh->pstFaces;
         for (int face = 0; face < mesh->num_faces; ++face) {
             W8GDSurface* surface = &m_pGDSurfaces[m_surface_count];
             ++m_surface_count;

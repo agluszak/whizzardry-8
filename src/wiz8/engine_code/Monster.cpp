@@ -1,3 +1,5 @@
+#include <sstream>
+#include <optional>
 #include <fmt/format.h>
 #include <fmt/printf.h>
 #include <string_view>
@@ -1334,8 +1336,7 @@ void W8Monster::Update()
     if (g_monster_shadow_updates_enabled != 0 && (move_dirty || UpdateTrackedPosition())) {
         move_dirty = false;
         if (distance < WorldGetRenderRange(g_world)) {
-            srNode* sun = static_cast<srNode*>(
-                srCore.getRegistry()->find(g_world->dynamic_scene->getClassNode(), "SUN", 0));
+            srNode* sun = FindWorldNode<srNode>("SUN");
             if (sun != 0) {
                 srVector3T<float> mapped_position;
                 srVector3T<double> sun_location = sun->getLocation();
@@ -1606,57 +1607,46 @@ void W8Monster::Update()
    optional comma-separated float list. The retail interpreter supports the
    two predicates below and treats every other name as false. */
 // FUNCTION: WIZ8 0x004C9DC0
-bool W8Monster::EvaluateScriptCondition(const char* expression)
+bool W8Monster::EvaluateScriptCondition(std::string_view expression)
 {
-    std::vector<float> parameters;
-    char buffer[512] = {0};
-    char* argument_list;
-    char* argument;
-
-    if (expression == 0) {
-        srAssertFail("pEvalVar", MONSTER_CPP, 7503, 0);
-    }
-    if (strlen(expression) >= sizeof(buffer)) {
-        srAssertFail("strlen(pEvalVar) < 512", MONSTER_CPP, 7504, 0);
-    }
-    strcpy(buffer, expression);
-
-    argument_list = strchr(buffer, '(');
-    if (argument_list != 0) {
-        argument = strtok(argument_list + 1, ",)");
-        while (argument != 0) {
-            parameters.push_back(static_cast<float>(atof(argument)));
-            argument = strtok(0, ",)");
-        }
-        *argument_list = 0;
+    // Both supported conditions use only the first numeric argument.
+    const auto open = expression.find('(');
+    const auto name = expression.substr(0, open);
+    std::optional<float> parameter;
+    if (open != expression.npos) {
+        const auto start = expression.find_first_not_of(",)", open + 1);
+        if (start != expression.npos)
+            parameter = std::strtof(std::string(expression.substr(start)).c_str(), nullptr);
     }
 
-    if (_strnicmp(buffer, "PARTYNEAR", 9) == 0) {
+    if (CompareTextIgnoreAsciiCase(name.substr(0, 9), "PARTYNEAR") == 0) {
         srVector3T<float> party_position;
         srVector3T<float> monster_position;
 
         GetCameraPosition(&party_position);
-        if (parameters.empty()) {
+        if (!parameter) {
             srAssertFail("lsParmList.Length()", MONSTER_CPP, 7526,
                          fmt::format("Monscr {} line {:d}: PARTYNEAR expects 1 parameter",
                                      script->getName(), script_line));
+            return false;
         }
 
         srVector3T<float> current_position = GetPosition();
         monster_position = current_position;
         if (!g_status.world_suspended &&
-            (party_position - monster_position).Length() < parameters[0] * g_world_scale &&
+            (party_position - monster_position).Length() < *parameter * g_world_scale &&
             MonsterInfoFromID(7533, MONSTER_CPP, location_id, true)
                     ->player_visibility.line_of_sight != 0) {
             return true;
         }
-    } else if (_strnicmp(buffer, "RANDOM", 6) == 0) {
-        if (parameters.empty()) {
+    } else if (CompareTextIgnoreAsciiCase(name.substr(0, 6), "RANDOM") == 0) {
+        if (!parameter) {
             srAssertFail("lsParmList.Length()", MONSTER_CPP, 7542,
                          fmt::format("Monscr {} line {:d}: RANDOM expects 1 parameter",
                                      script->getName(), script_line));
+            return false;
         }
-        if (Chance(static_cast<unsigned int>(parameters[0])) != 0) {
+        if (Chance(static_cast<unsigned int>(*parameter)) != 0) {
             return true;
         }
     }
@@ -1878,23 +1868,17 @@ void W8Monster::ProcessScript()
     stop = false;
     command_count = 0;
     while (script != 0 && script_wait == MONSCR_NONE && !stop) {
-        char line[256];
-        char* token;
-        W8MonsterScriptCommand command;
-
-        if (script_line >= static_cast<int>(script->lines.size())) {
+        if (script_line >= static_cast<int>(script->lines.size()))
             break;
-        }
-        const auto& source_line = script->lines[script_line++];
-        strcpy(line, source_line.text.c_str());
-        token = strtok(line, " \t");
-        if (token == 0) {
+        std::istringstream tokens(script->lines[script_line++].text);
+        std::string token;
+        W8MonsterScriptCommand command;
+        if (!(tokens >> token))
             continue;
-        }
 
         command = MONSCR_NONE;
         for (int index = 0; index < MONSCR_COUNT; ++index) {
-            if (_stricmp(token, g_monster_script_commands[index]) == 0) {
+            if (_stricmp(token.c_str(), g_monster_script_commands[index]) == 0) {
                 command = static_cast<W8MonsterScriptCommand>(index);
                 break;
             }
@@ -1911,8 +1895,8 @@ void W8Monster::ProcessScript()
         if (!defining_orders) {
             switch (command) {
             case MONSCR_GOTO: {
-                token = strtok(0, " \t");
-                if (token != 0) {
+                tokens >> token;
+                if (tokens) {
                     int line_number = script->FindLabelLine(token);
                     if (line_number != -1) {
                         script_conditions.clear();
@@ -1924,23 +1908,23 @@ void W8Monster::ProcessScript()
             }
             case MONSCR_WALKTO: {
                 srVector3T<float> position;
-                token = strtok(0, " \t");
-                if (token == 0) {
+                tokens >> token;
+                if (!tokens) {
                     break;
                 }
-                if (!ResolveScriptPosition(token, &position)) {
+                if (!ResolveScriptPosition(token.c_str(), &position)) {
                     ShutdownWithErrorBox(fmt::format(
                         "MonScript {} Line {:d}: Unknown location {}", script->getName(),
                         script->GetSourceLine(script_line - 1), token));
                     break;
                 }
-                if (_stricmp(token, "PARTY") == 0) {
+                if (_stricmp(token.c_str(), "PARTY") == 0) {
                     SetMovementTargetToNavigator(g_startup_world, 5.0);
                 } else {
                     ConfigureMovementToPosition(&position);
                 }
-                token = strtok(0, " \t");
-                if (token == 0 || _stricmp(token, "NOBLOCK") != 0) {
+                tokens >> token;
+                if (!tokens || _stricmp(token.c_str(), "NOBLOCK") != 0) {
                     script_wait = MONSCR_WALKTO;
                 } else {
                     stop = true;
@@ -1949,19 +1933,19 @@ void W8Monster::ProcessScript()
             }
             case MONSCR_FACE: {
                 srVector3T<float> position;
-                token = strtok(0, " \t");
-                if (token == 0) {
+                tokens >> token;
+                if (!tokens) {
                     break;
                 }
-                if (!ResolveScriptPosition(token, &position)) {
+                if (!ResolveScriptPosition(token.c_str(), &position)) {
                     ShutdownWithErrorBox(fmt::format(
                         "MonScript {} Line {:d}: Unknown location {}", script->getName(),
                         script->GetSourceLine(script_line - 1), token));
                     break;
                 }
                 AimAtPosition(&position);
-                token = strtok(0, " \t");
-                if (token == 0 || _stricmp(token, "NOBLOCK") != 0) {
+                tokens >> token;
+                if (!tokens || _stricmp(token.c_str(), "NOBLOCK") != 0) {
                     script_wait = MONSCR_FACE;
                 } else {
                     stop = true;
@@ -1972,11 +1956,11 @@ void W8Monster::ProcessScript()
             case MONSCR_NPCINTERACTION: {
                 int line_number = -1;
                 bool suppress = false;
-                token = strtok(0, " \t");
-                if (token != 0) {
-                    line_number = atoi(token);
-                    token = strtok(0, " \t");
-                    if (token != 0 && _strnicmp(token, "SUPPRESS", 8) == 0) {
+                tokens >> token;
+                if (tokens) {
+                    line_number = atoi(token.c_str());
+                    tokens >> token;
+                    if (tokens && _strnicmp(token.c_str(), "SUPPRESS", 8) == 0) {
                         suppress = true;
                     }
                 }
@@ -1986,7 +1970,7 @@ void W8Monster::ProcessScript()
                     0, line_number, command == MONSCR_SAY ? 1 : suppress);
                 if (command == MONSCR_NPCINTERACTION) {
                     script_wait = MONSCR_NPCINTERACTION;
-                } else if (token == 0 || _stricmp(token, "NOBLOCK") != 0) {
+                } else if (!tokens || _stricmp(token.c_str(), "NOBLOCK") != 0) {
                     script_wait = MONSCR_SAY;
                 } else {
                     stop = true;
@@ -1995,9 +1979,9 @@ void W8Monster::ProcessScript()
             }
             case MONSCR_CYCLE: {
                 signed char subcycle;
-                token = strtok(0, " \t");
-                if (token != 0) {
-                    W8MonsterCycle cycle = ParseMonsterCycleName(token, &subcycle);
+                tokens >> token;
+                if (tokens) {
+                    W8MonsterCycle cycle = ParseMonsterCycleName(token.c_str(), &subcycle);
                     if (cycle != W8_MONSTER_CYCLE_NONE) {
                         m_pRep->pending_cycle = static_cast<signed char>(cycle);
                         m_pRep->animation_playing = 1;
@@ -2008,8 +1992,8 @@ void W8Monster::ProcessScript()
                             m_pRep->pending_cycle = m_pRep->current_cycle;
                         }
                         runtime_flags |= W8_MONSTER_KEEP_SUBCYCLE;
-                        token = strtok(0, " \t");
-                        if (token == 0 || _stricmp(token, "NOBLOCK") != 0) {
+                        tokens >> token;
+                        if (!tokens || _stricmp(token.c_str(), "NOBLOCK") != 0) {
                             m_pRep->pending_behaviour = W8_ANIMATION_PLAY_ONCE;
                             runtime_flags |= W8_MONSTER_SCRIPT_WAIT;
                             script_wait = MONSCR_CYCLE;
@@ -2027,16 +2011,16 @@ void W8Monster::ProcessScript()
             case MONSCR_SHOOT: {
                 srVector3T<float> source;
                 srVector3T<float> target;
-                token = strtok(0, " \t");
-                if (token == 0) {
+                tokens >> token;
+                if (!tokens) {
                     break;
                 }
-                unsigned int owner = static_cast<unsigned int>(atoi(token));
-                token = strtok(0, " \t");
-                if (token == 0) {
+                unsigned int owner = static_cast<unsigned int>(atoi(token.c_str()));
+                tokens >> token;
+                if (!tokens) {
                     break;
                 }
-                if (!ResolveScriptPosition(token, &target)) {
+                if (!ResolveScriptPosition(token.c_str(), &target)) {
                     break;
                 }
                 if (!GetProjectilePosition(&source)) {
@@ -2046,9 +2030,9 @@ void W8Monster::ProcessScript()
                 break;
             }
             case MONSCR_GIVE:
-                token = strtok(0, " \t");
-                if (token != 0) {
-                    int item = FindItemRecordByName(token);
+                tokens >> token;
+                if (tokens) {
+                    int item = FindItemRecordByName(token.c_str());
                     if (item != -1) {
                         CreateItemIntoHandOrPool(item, true);
                     }
@@ -2056,9 +2040,9 @@ void W8Monster::ProcessScript()
                 break;
             case MONSCR_TELEPORT: {
                 srVector3T<float> position;
-                token = strtok(0, " \t");
-                if (token != 0) {
-                    if (!ResolveScriptPosition(token, &position)) {
+                tokens >> token;
+                if (tokens) {
+                    if (!ResolveScriptPosition(token.c_str(), &position)) {
                         ShutdownWithErrorBox(fmt::format(
                             "MonScript {} Line {:d}: Unknown location {}", script->getName(),
                             script->GetSourceLine(script_line - 1), token));
@@ -2082,17 +2066,17 @@ void W8Monster::ProcessScript()
             case MONSCR_IF: {
                 bool invert = false;
                 bool value;
-                /* 0x004C8A52: a bare IF is skipped without pushing a condition.
-                   After NOT, a missing name is still passed through
-                   (0x004C8A86 keeps %edi = 0). */
-                token = strtok(0, " \t");
-                if (token == 0) {
+                // Incomplete IF and IF NOT statements do not push a condition.
+                tokens >> token;
+                if (!tokens) {
                     break;
                 }
-                if (_strnicmp(token, "NOT", 3) == 0) {
+                if (_strnicmp(token.c_str(), "NOT", 3) == 0) {
                     invert = true;
-                    token = strtok(0, " \t");
+                    tokens >> token;
                 }
+                if (!tokens)
+                    break;
                 value = EvaluateScriptCondition(token);
                 script_conditions.insert(script_conditions.begin(), invert ? !value : value);
                 break;
@@ -2117,13 +2101,13 @@ void W8Monster::ProcessScript()
                 break;
             case MONSCR_DISPOSITION: {
                 unsigned char disposition = 0xff;
-                token = strtok(0, " \t");
-                if (token != 0) {
-                    if (_stricmp(token, "DISP_NEUTRAL") == 0)
+                tokens >> token;
+                if (tokens) {
+                    if (_stricmp(token.c_str(), "DISP_NEUTRAL") == 0)
                         disposition = 0;
-                    else if (_stricmp(token, "DISP_HOSTILE") == 0)
+                    else if (_stricmp(token.c_str(), "DISP_HOSTILE") == 0)
                         disposition = 1;
-                    else if (_stricmp(token, "DISP_FRIENDLY") == 0)
+                    else if (_stricmp(token.c_str(), "DISP_FRIENDLY") == 0)
                         disposition = 2;
                     monster_info = MonsterGetScriptPartByLocationIndex(
                         MonsterGetIndexByLocationID(0x1b8b, MONSTER_CPP, location_id, true));
@@ -2148,8 +2132,8 @@ void W8Monster::ProcessScript()
                     MonsterGetScriptPartByLocationIndex(
                         MonsterGetIndexByLocationID(0x1ba0, MONSTER_CPP, location_id, true)),
                     true, true);
-                token = strtok(0, " \t");
-                if (token == 0 || _stricmp(token, "NOBLOCK") != 0) {
+                tokens >> token;
+                if (!tokens || _stricmp(token.c_str(), "NOBLOCK") != 0) {
                     script_wait = MONSCR_LOOKHERE;
                 } else {
                     stop = true;
@@ -2159,14 +2143,14 @@ void W8Monster::ProcessScript()
                 srVector3T<float> home;
                 float distance;
                 float variation;
-                token = strtok(0, " \t");
-                if (token == 0)
+                tokens >> token;
+                if (!tokens)
                     break;
-                distance = static_cast<float>(atof(token)) * g_world_scale;
-                token = strtok(0, " \t");
-                if (token == 0)
+                distance = static_cast<float>(atof(token.c_str())) * g_world_scale;
+                tokens >> token;
+                if (!tokens)
                     break;
-                variation = static_cast<float>(atof(token)) * g_world_scale;
+                variation = static_cast<float>(atof(token.c_str())) * g_world_scale;
                 home = formation;
                 if (IsZeroVector(&home) != 0) {
                     srVector3T<float> current = GetPosition();
@@ -2180,9 +2164,9 @@ void W8Monster::ProcessScript()
                 flags &= 0xdfffffff;
                 break;
             case MONSCR_TRIGGER:
-                token = strtok(0, " \t");
-                if (token != 0) {
-                    this->trigger = FindTriggerByName(token);
+                tokens >> token;
+                if (tokens) {
+                    this->trigger = FindTriggerByName(token.c_str());
                     if (this->trigger != 0) {
                         this->trigger->Run(-1);
                         script_wait = MONSCR_TRIGGER;
@@ -2190,9 +2174,9 @@ void W8Monster::ProcessScript()
                 }
                 break;
             case MONSCR_DELAY:
-                token = strtok(0, " \t");
-                if (token != 0 && static_cast<float>(atof(token)) != 0.0f) {
-                    script_delay_timer.SetDuration(static_cast<float>(atof(token)) *
+                tokens >> token;
+                if (tokens && static_cast<float>(atof(token.c_str())) != 0.0f) {
+                    script_delay_timer.SetDuration(static_cast<float>(atof(token.c_str())) *
                                                    g_float_one_thousandth);
                     script_delay_timer.Restart();
                     script_wait = MONSCR_DELAY;
@@ -2205,9 +2189,9 @@ void W8Monster::ProcessScript()
                 deaf = true;
                 break;
             case MONSCR_DOACTION:
-                token = strtok(0, " \t");
-                if (token != 0) {
-                    if (_stricmp(token, "STARTGOLEMATTACK") == 0) {
+                tokens >> token;
+                if (tokens) {
+                    if (_stricmp(token.c_str(), "STARTGOLEMATTACK") == 0) {
                         ClearMainGameTargetState();
                         W8MonsterGroup* group = FindFirstMonsterByID(0x68);
                         if (group != 0)
@@ -2217,18 +2201,18 @@ void W8Monster::ProcessScript()
                             SetMonsterGroupHostility(group, 1, false);
                             MonsterGroupEnterCombat(group);
                         }
-                    } else if (_stricmp(token, "ENDSAVANTWALK") == 0) {
+                    } else if (_stricmp(token.c_str(), "ENDSAVANTWALK") == 0) {
                         runtime_flags |= W8_MONSTER_PARKED;
                         Trigger* trigger = FindTriggerByName("Path3Trigger");
                         if (trigger != 0)
                             trigger->Run(-1);
-                    } else if (_stricmp(token, "UNLOCKUI") == 0 ||
-                               _stricmp(token, "ENDGARIWALK") == 0) {
+                    } else if (_stricmp(token.c_str(), "UNLOCKUI") == 0 ||
+                               _stricmp(token.c_str(), "ENDGARIWALK") == 0) {
                         ClearMainGameTargetState();
-                    } else if (_stricmp(token, "ENDHOGARWALK") == 0) {
+                    } else if (_stricmp(token.c_str(), "ENDHOGARWALK") == 0) {
                         ClearMainGameTargetState();
                         SetScript("ClosePatrol.msf", true);
-                    } else if (_stricmp(token, "ENDHOGARWALKANDPUTTOSLEEP") == 0) {
+                    } else if (_stricmp(token.c_str(), "ENDHOGARWALKANDPUTTOSLEEP") == 0) {
                         W8TargetSource source;
                         ClearMainGameTargetState();
                         SetScript("ClosePatrol.msf", true);
@@ -2237,10 +2221,10 @@ void W8Monster::ProcessScript()
                         ResetTargetSource(&source);
                         SetMonsterCondition(monster_info->location_id, W8_CONDITION_ASLEEP, 6, 0,
                                             &source, true);
-                    } else if (_stricmp(token, "ENDBELAWALK") == 0) {
+                    } else if (_stricmp(token.c_str(), "ENDBELAWALK") == 0) {
                         runtime_flags |= W8_MONSTER_PARKED;
                         ClearMainGameTargetState();
-                    } else if (_stricmp(token, "BELA_END_CC_WALK") == 0) {
+                    } else if (_stricmp(token.c_str(), "BELA_END_CC_WALK") == 0) {
                         W8NpcState* npc = GetNpcStateByKind(0x8d);
                         if (npc != 0)
                             QueueNpcScriptNotice(npc, 0, 6, false, 0);
@@ -2257,20 +2241,20 @@ void W8Monster::ProcessScript()
             case MONSCR_PLAY: {
                 int value = 0;
                 float distance = 0.0f;
-                token = strtok(0, " \t");
-                if (token == 0)
+                tokens >> token;
+                if (!tokens)
                     break;
-                value = atoi(token);
+                value = atoi(token.c_str());
                 if (value != 0)
-                    token = strtok(0, " \t");
-                if (token == 0)
+                    tokens >> token;
+                if (!tokens)
                     break;
-                distance = static_cast<float>(atof(token)) * g_world_scale;
+                distance = static_cast<float>(atof(token.c_str())) * g_world_scale;
                 if (distance != 0.0f)
-                    token = strtok(0, " \t");
-                if (token == 0)
+                    tokens >> token;
+                if (!tokens)
                     break;
-                sound = new stSound3D(token, 0);
+                sound = new stSound3D(token.c_str(), 0);
                 if (sound != 0) {
                     srVector3T<float> position = GetPosition();
                     sound->volume = value;
@@ -2301,13 +2285,13 @@ void W8Monster::ProcessScript()
         } else {
             switch (command) {
             case MONSCR_FACE:
-                token = strtok(0, " \t");
-                if (token != 0 && _stricmp(token, "PARTY") == 0) {
+                tokens >> token;
+                if (tokens && _stricmp(token.c_str(), "PARTY") == 0) {
                     face_party = true;
-                } else if (token != 0) {
+                } else if (tokens) {
                     int direction = -1;
                     for (int index = MONSCR_EAST; index <= MONSCR_SOUTHEAST; ++index) {
-                        if (_stricmp(token, g_monster_script_commands[index]) == 0) {
+                        if (_stricmp(token.c_str(), g_monster_script_commands[index]) == 0) {
                             direction = index;
                             break;
                         }
@@ -2328,12 +2312,12 @@ void W8Monster::ProcessScript()
             case MONSCR_PATROL:
                 /* 0x004C9463: both values are parsed first and stored together
                    (0x004C94B6/0x004C94BC) only when the second token exists. */
-                token = strtok(0, " \t");
-                if (token != 0) {
-                    float distance = static_cast<float>(atof(token)) * g_world_scale;
-                    token = strtok(0, " \t");
-                    if (token != 0) {
-                        patrol_variation = static_cast<float>(atof(token)) * g_world_scale;
+                tokens >> token;
+                if (tokens) {
+                    float distance = static_cast<float>(atof(token.c_str())) * g_world_scale;
+                    tokens >> token;
+                    if (tokens) {
+                        patrol_variation = static_cast<float>(atof(token.c_str())) * g_world_scale;
                         patrol_distance = distance;
                         order_mode = W8_MONSTER_ORDER_PATROL;
                     }
@@ -2349,10 +2333,10 @@ void W8Monster::ProcessScript()
                    added only after it resolves (0x004C9568), the mode is
                    written even if the Add fails (0x004C95D4/0x004C965E), and
                    orders_finished is left alone. No token: nothing changes. */
-                token = strtok(0, " \t");
-                if (token != 0) {
+                tokens >> token;
+                if (tokens) {
                     srVector3T<float> position;
-                    if (!ResolveScriptPosition(token, &position)) {
+                    if (!ResolveScriptPosition(token.c_str(), &position)) {
                         ShutdownWithErrorBox(fmt::format(
                             "MonScript {} Line {:d}: Unknown location {}", script->getName(),
                             script->GetSourceLine(script_line - 1), token));
@@ -2365,9 +2349,9 @@ void W8Monster::ProcessScript()
                 break;
             case MONSCR_POINTPATROL:
             case MONSCR_RANDOMPOINTPATROL: {
-                while ((token = strtok(0, " \t")) != 0) {
+                while (tokens >> token) {
                     srVector3T<float> position;
-                    if (!ResolveScriptPosition(token, &position)) {
+                    if (!ResolveScriptPosition(token.c_str(), &position)) {
                         ShutdownWithErrorBox(fmt::format(
                             "MonScript {} Line {:d}: Unknown location {}", script->getName(),
                             script->GetSourceLine(script_line - 1), token));
@@ -2393,13 +2377,13 @@ void W8Monster::ProcessScript()
                 face_party = true;
                 break;
             case MONSCR_LOOKABOUT:
-                token = strtok(0, " \t");
-                if (token != 0) {
-                    look_frequency = atoi(token);
+                tokens >> token;
+                if (tokens) {
+                    look_frequency = atoi(token.c_str());
                     monster_info->look_time = static_cast<unsigned char>(look_frequency);
-                    token = strtok(0, " \t");
-                    if (token != 0) {
-                        look_duration = atoi(token);
+                    tokens >> token;
+                    if (tokens) {
+                        look_duration = atoi(token.c_str());
                     } else {
                         ShutdownWithErrorBox(
                             fmt::format("MonScript {} Line {:d}: Missing lookabout duration",

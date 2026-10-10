@@ -1,6 +1,13 @@
+#include <sstream>
+#include "input.h"
+#include <string_view>
 #include "wiz8/engine_code/stScript.h"
 #include "wiz8/virtual_file.h"
-#include "wiz8/filesystem.h"
+
+#include <limits>
+#include <memory>
+#include <string>
+#include <vector>
 
 #include <stdlib.h>
 #include <string.h>
@@ -13,45 +20,27 @@
 bool ReadTextLine(wiz8::File* handle, char* destination, int capacity, bool& more)
 try
 {
-    bool result;
-    unsigned int transferred;
-    char character;
-    int length = 0;
-
+    more = 0;
+    if (capacity <= 0) return 0;
     destination[0] = 0;
-    more = true;
-
+    if (capacity == 1) return 0;
+    more = 1;
+    int length = 0;
     for (;;) {
-        result = ((transferred = handle->read(&character, 1).bytes) == static_cast<std::size_t>(1));
-        if (transferred == 0) {
-            result = length != 0;
-            more = false;
+        char character;
+        if (handle->read(&character, sizeof(character)).eof) {
+            more = 0;
             break;
         }
-        if (!result) {
-            more = false;
-        } else {
-            if (character == '\n') {
-                break;
-            }
-            destination[length++] = character;
-        }
-        if (length >= capacity - 1) {
-            result = false;
-            break;
-        }
-        if (!result) {
-            break;
-        }
+        if (character == '\n') break;
+        destination[length++] = character;
+        destination[length] = 0;
+        if (length == capacity - 1) return 0;
     }
-
-    destination[length] = 0;
-    if (length != 0 && destination[length - 1] == '\r') {
-        destination[length - 1] = 0;
-    }
-    return result;
+    if (length != 0 && destination[length - 1] == '\r') destination[length - 1] = 0;
+    return more != 0 || length != 0;
 }
-catch (const std::exception&) { more = false; return false; }
+catch (const std::exception&) { more = 0; return false; }
 
 // FUNCTION: WIZ8 0x004CF690
 void stScript::Clear()
@@ -62,74 +51,54 @@ void stScript::Clear()
 
 // FUNCTION: WIZ8 0x004CF3B0
 bool stScript::Load(const char* path)
-try
-{
-    bool more = true;
+try {
+    if (!path)
+        return false;
+    std::istringstream input(wiz8::open_file(path)->read_text());
+    std::string text;
+    stScript pending;
     int source_line = 0;
-    int script_line = 0;
-    char buffer[256];
-    if (!path) return false;
-    auto handle = wiz8::open_file(path);
-
-    for (;;) {
-        if (!more) {
-            return true;
-        }
-        while (!ReadTextLine(handle.get(), buffer, sizeof(buffer), more)) {
-            if (!more) {
-                return true;
-            }
-        }
-
+    while (std::getline(input, text)) {
+        if (source_line == std::numeric_limits<int>::max()) return false;
         ++source_line;
-        if (buffer[0] == 0) {
+        if (text.ends_with('\r'))
+            text.pop_back();
+        const auto start = text.find_first_not_of(" \t");
+        if (start == text.npos || text[start] == '*')
             continue;
+        const auto stop = text.find_first_of(" \t", start);
+        std::string_view token(text.data() + start,
+                               (stop == text.npos ? text.size() : stop) - start);
+        if (token.ends_with(':')) {
+            token.remove_suffix(1);
+            if (FindLabelLine(token) == -1 && pending.FindLabelLine(token) == -1)
+                pending.labels.push_back({std::string(token), static_cast<int>(lines.size() + pending.lines.size())});
+        } else {
+            if (lines.size() + pending.lines.size() >= static_cast<std::size_t>(std::numeric_limits<int>::max())) return false;
+            pending.lines.push_back({std::move(text), source_line});
         }
-
-        std::string text = buffer;
-        char* token = strtok(buffer, " \t");
-        if (token == 0 || token[0] == '*') {
-            continue;
-        }
-
-        int length = strlen(token);
-        if (token[length - 1] == ':') {
-            token[length - 1] = 0;
-            if (FindLabelLine(token) == -1) {
-                auto& label = labels.emplace_back();
-                strncpy(label.name, token, sizeof(label.name) - 1);
-                label.name[sizeof(label.name) - 1] = '\0';
-                label.line = script_line;
-            }
-            continue;
-        }
-
-        lines.push_back({std::move(text), source_line});
-        ++script_line;
     }
+    lines.reserve(lines.size() + pending.lines.size());
+    labels.reserve(labels.size() + pending.labels.size());
+    for (auto& line : pending.lines) lines.push_back(std::move(line));
+    for (auto& label : pending.labels) labels.push_back(std::move(label));
+    return true;
+} catch (const std::exception&) {
+    return false;
 }
 
-catch (const std::exception&) { return false; }
-
-/* The label table stores fixed 31-character, case-insensitive identifiers and
-   the script line to resume at. A null query or a miss has the source's -1
-   sentinel. */
 // FUNCTION: WIZ8 0x004CF730
-int stScript::FindLabelLine(const char* label) const
+int stScript::FindLabelLine(std::string_view label) const
 {
-    if (label) {
-        for (const auto& entry : labels) {
-            if (_strnicmp(entry.name, label, 0x1f) == 0) return entry.line;
-        }
-    }
+    for (const auto& entry : labels)
+        if (CompareTextIgnoreAsciiCase(entry.name, label) == 0)
+            return entry.line;
     return -1;
 }
 
-/* Diagnostics report the original file line carried by each parsed script
-   line. Invalid or empty entries use the same -1 sentinel as label lookup. */
 // FUNCTION: WIZ8 0x004CF790
 int stScript::GetSourceLine(int line) const
 {
-    return line >= 0 && static_cast<std::size_t>(line) < lines.size()
-               ? lines[line].source_line : -1;
+    return line >= 0 && static_cast<std::size_t>(line) < lines.size() ? lines[line].source_line
+                                                                      : -1;
 }

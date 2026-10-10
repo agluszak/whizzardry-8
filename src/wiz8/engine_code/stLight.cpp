@@ -9,6 +9,7 @@
 #include "wiz8/engine_code/materials.h"
 #include "wiz8/engine_code/GrCycle.h"
 #include "wiz8/engine_code/stModelInstance.h"
+#include "wiz8/engine_code/World.h"
 #include "wiz8/geometry.h"
 #include "surrender/srModelInstance.h"
 #include "surrender/srMeshModel.h"
@@ -374,45 +375,37 @@ void stLight::Reset()
     m_level_time = m_path_time;
 }
 
-/* Serialize the registered positional lights: a version byte and count
-   followed by each light's 0x80-byte name and its disable flag. */
+/* Serialize the trigger-toggled lights of the loaded worlds: a version byte and
+   count followed by each light's 0x80-byte name and its enable flag. */
 // FUNCTION: WIZ8 0x0049D120
 void SaveLightStates(wiz8::File* handle)
 {
     char name[0x80] = {0};
     memcpy(name, &g_empty_ambient_name, sizeof(g_empty_ambient_name));
     unsigned char version = 1;
-    int count = 0;
 
     handle->write(&version, sizeof(version));
 
-    stLight* light = static_cast<stLight*>(srCore.getRegistry()->find(
-        stLight::sGetClassNode(), static_cast<const srRuntimeClass*>(0)));
-    while (light != 0) {
+    std::vector<stLight*> marked;
+    ForEachWorldNode<stLight>([&](stLight* light) {
         if (light->m_save_marked) {
-            ++count;
+            marked.push_back(light);
         }
-        light = static_cast<stLight*>(srCore.getRegistry()->find(stLight::sGetClassNode(), light));
-    }
-
+    });
+    int count = static_cast<int>(marked.size());
     handle->write(&count, sizeof(count));
 
-    light = static_cast<stLight*>(srCore.getRegistry()->find(
-        stLight::sGetClassNode(), static_cast<const srRuntimeClass*>(0)));
-    while (light != 0) {
-        if (light->m_save_marked) {
-            strcpy(name, light->getName().c_str());
-            handle->write(name, sizeof(name));
-            unsigned char enabled = light->testFlag(srNode::FLAG_DISABLE) == 0;
-            handle->write(&enabled, sizeof(enabled));
-        }
-        light = static_cast<stLight*>(srCore.getRegistry()->find(stLight::sGetClassNode(), light));
+    for (stLight* light : marked) {
+        strcpy(name, light->getName().c_str());
+        handle->write(name, sizeof(name));
+        unsigned char enabled = light->testFlag(srNode::FLAG_DISABLE) == 0;
+        handle->write(&enabled, sizeof(enabled));
     }
 }
 
 /* Reload the serialized positional-light states: a version byte and count
    followed by each light's 0x80-byte name and its enable flag, applied to the
-   light found by name in the registry. */
+   light found by name in the loaded worlds. */
 // FUNCTION: WIZ8 0x0049D390
 void LoadLightStates(wiz8::File* handle)
 {
@@ -429,8 +422,7 @@ void LoadLightStates(wiz8::File* handle)
         handle->read_exact(name, sizeof(name));
         handle->read_exact(&enabled, sizeof(enabled));
 
-        stLight* light =
-            static_cast<stLight*>(srCore.getRegistry()->find(stLight::sGetClassNode(), name, 0));
+        stLight* light = FindWorldNode<stLight>(name);
         if (light != 0) {
             if (enabled != 0) {
                 light->clearFlag(srNode::FLAG_DISABLE);

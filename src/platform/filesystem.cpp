@@ -1,4 +1,10 @@
 #include "wiz8/filesystem.h"
+#ifdef WIZ8_FILE_FAULTS
+#include "file_operations.h"
+#define WIZ8_FILE_OPERATION(op) testing::before_operation(testing::FileOperation::op)
+#else
+#define WIZ8_FILE_OPERATION(op) ((void)0)
+#endif
 #include "path_resolver.h"
 #include "slf.h"
 
@@ -13,6 +19,17 @@
 #include <system_error>
 #include <utility>
 
+#ifdef WIZ8_FILE_FAULTS
+namespace wiz8::testing {
+namespace { thread_local FileOperationHook operation_hook = nullptr; }
+FileOperationHook set_file_operation_hook(FileOperationHook hook) {
+    return std::exchange(operation_hook, hook);
+}
+void before_operation(FileOperation operation) {
+    if (operation_hook) operation_hook(operation);
+}
+}
+#endif
 namespace fs = std::filesystem;
 namespace wiz8
 {
@@ -178,6 +195,11 @@ struct StagingDirectory
         fs::remove_all(path, ignored);
     }
 };
+void publish_staged_file(const fs::path& temporary, const fs::path& destination) {
+    WIZ8_FILE_OPERATION(publish);
+    if (!SDL_RenamePath(path_to_utf8(temporary).c_str(), path_to_utf8(destination).c_str()))
+        sdl_failure("replace file");
+}
 void copy_physical(const fs::path& source, const fs::path& destination, CopyMode mode)
 {
     if (fs::exists(destination) && fs::equivalent(source, destination))
@@ -200,8 +222,7 @@ void copy_physical(const fs::path& source, const fs::path& destination, CopyMode
     input->close();
     if (mode == CopyMode::fail_if_exists)
         fs::copy_file(temporary, destination, fs::copy_options::none);
-    else if (!SDL_RenamePath(path_to_utf8(temporary).c_str(), path_to_utf8(destination).c_str()))
-        sdl_failure("replace file");
+    else publish_staged_file(temporary, destination);
 }
 } // namespace
 
@@ -271,6 +292,7 @@ SDL_IOStream* File::require_stream() const
 }
 ReadResult File::read(void* data, std::size_t bytes)
 {
+    WIZ8_FILE_OPERATION(read);
     SDL_IOStream* stream = require_stream();
     if (!bytes)
         return {0, false};
@@ -294,8 +316,20 @@ void File::read_exact(void* data, std::size_t bytes)
     if (read(data, bytes).bytes != bytes)
         throw std::runtime_error("short file read");
 }
+
+std::string File::read_text()
+{
+    const auto remaining = size() - tell();
+    if (remaining < 0)
+        throw std::runtime_error("file cursor is beyond its end");
+    std::string text(static_cast<std::size_t>(remaining), '\0');
+    read_exact(text.data(), text.size());
+    return text;
+}
+
 void File::write(const void* data, std::size_t bytes)
 {
+    WIZ8_FILE_OPERATION(write);
     SDL_IOStream* stream = require_stream();
     if (!writable_)
         throw std::logic_error("file was opened for reading only");
@@ -312,6 +346,7 @@ void File::write(const void* data, std::size_t bytes)
 }
 std::int64_t File::seek(std::int64_t offset, SeekOrigin origin)
 {
+    WIZ8_FILE_OPERATION(seek);
     std::int64_t base = 0;
     switch (origin)
     {
@@ -347,11 +382,13 @@ std::int64_t File::size() const
 }
 void File::flush()
 {
+    WIZ8_FILE_OPERATION(flush);
     if (!SDL_FlushIO(require_stream()))
         sdl_failure("flush file");
 }
 void File::close()
 {
+    WIZ8_FILE_OPERATION(close);
     if (stream_ && !SDL_CloseIO(std::exchange(stream_, nullptr)))
         sdl_failure("close file");
 }
@@ -513,6 +550,30 @@ void copy_file(std::string_view source, std::string_view destination, CopyMode m
         throw std::system_error(std::make_error_code(std::errc::file_exists), "copy game file");
     prepare_write(to, false);
     copy_physical(from.readable, write_destination(to), mode);
+}
+struct StagedFile::Impl {
+    fs::path target;
+    StagingDirectory staging;
+    std::shared_ptr<File> stream;
+    bool committed = false;
+    explicit Impl(fs::path destination) : target(std::move(destination)), staging(target.parent_path()),
+        stream(open_host_file(staging.path / "content", OpenMode::replace)) {}
+};
+StagedFile::StagedFile(std::string_view destination) {
+    const auto to = w8_native::resolve_path(destination);
+    prepare_write(to, false);
+    impl_ = std::make_unique<Impl>(write_destination(to));
+}
+StagedFile::~StagedFile() {
+    // Close borrowed references too, before removing the staging directory.
+    try { if (impl_->stream->is_open()) impl_->stream->close(); } catch (...) {}
+}
+std::shared_ptr<File> StagedFile::file() const { return impl_->stream; }
+void StagedFile::commit() {
+    if (impl_->committed) throw std::logic_error("staged file already committed");
+    if (impl_->stream->is_open()) { impl_->stream->flush(); impl_->stream->close(); }
+    publish_staged_file(impl_->staging.path / "content", impl_->target);
+    impl_->committed = true;
 }
 void replace_file(File& destination, std::string_view source)
 {

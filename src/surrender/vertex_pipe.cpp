@@ -729,16 +729,11 @@ w8_ulong srVertexPipe::getExclusionMask() const
 }
 
 // FUNCTION: SURRENDER 0x1002C350
-int srVertexPipe::testEyeSpaceBounds(const srVector3T<float>& center, float radius) const
+int srVertexPipe::testEyeSpaceBounds(const glm::vec3& center, float radius) const
 {
-    float dx = center.x - input->eye_center.x;
-    float dy = center.y - input->eye_center.y;
-    float dz = center.z - input->eye_center.z;
-    float sum = radius + input->eye_radius;
-    if (dx * dx + dy * dy + dz * dz < sum * sum) {
-        return 1;
-    }
-    return 0;
+    const auto offset = center - input->eye_center;
+    const float sum = radius + input->eye_radius;
+    return glm::dot(offset, offset) < sum * sum;
 }
 
 // FUNCTION: SURRENDER 0x1002C3B0
@@ -766,7 +761,7 @@ void srVertexPipe::setupST(w8_ulong index)
 }
 
 // FUNCTION: SURRENDER 0x1002C480
-void srVertexPipe::getEyeSpaceBoundingSphere(srVector3T<float>& center, float& radius) const
+void srVertexPipe::getEyeSpaceBoundingSphere(glm::vec3& center, float& radius) const
 {
     center = input->eye_center;
     radius = input->eye_radius;

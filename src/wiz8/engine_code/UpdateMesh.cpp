@@ -43,11 +43,11 @@ static void RasterizeQuadTriangle(W8World* world, w8_long x1, w8_long y1, w8_lon
 // FUNCTION: WIZ8 0x004BA530
 void CollectViewQuadCells(W8World* world, w8_long* x_list, w8_long* y_list, w8_long* count)
 {
-    W8Quad* quad = world->quads;
-    float cell_size = quad->cell_size;
+    const W8Quad& quad = *world->quads;
+    float cell_size = quad.cell_size;
 
-    w8_long cam_x = static_cast<w8_long>((world->camera->getLocationX() - quad->origin.x) / cell_size);
-    w8_long cam_y = static_cast<w8_long>((world->camera->getLocationZ() - quad->origin.y) / cell_size);
+    w8_long cam_x = static_cast<w8_long>((world->camera->getLocationX() - quad.origin.x) / cell_size);
+    w8_long cam_y = static_cast<w8_long>((world->camera->getLocationZ() - quad.origin.y) / cell_size);
 
     glm::mat3 rotation;
     world->camera->getRotation(rotation);
@@ -275,7 +275,6 @@ static void RasterizeQuadTriangle(W8World* world, w8_long x1, w8_long y1, w8_lon
 // FUNCTION: WIZ8 0x004BAD40
 void UpdateWorldMeshFromQuads(W8World* world)
 {
-    w8_long polygon_count = 0;
     if (world == 0) {
         srAssertFail("pWorld", "C:\\Projects\\Wizardry 8\\Engine Code\\UpdateMesh.cpp", 0x21f, 0);
     }
@@ -284,51 +283,18 @@ void UpdateWorldMeshFromQuads(W8World* world)
                      0x220, 0);
     }
     srMeshModel* mesh = static_cast<srMeshModel*>(world->update_mesh_source->getModel());
-    W8Quad* quad = world->quads;
+    W8Quad& quad = *world->quads;
     g_visible_quad_count = 0;
     CollectViewQuadCells(world, g_visible_quad_rows, g_visible_quad_columns, &g_visible_quad_count);
-    w8_long index;
-    for (index = 0; index < g_visible_quad_count; ++index) {
-        W8QuadCell* cell =
-            &quad->rows[g_visible_quad_rows[index]].cells[g_visible_quad_columns[index]];
-        if (cell != 0 && cell->polygon_indices != 0) {
-            polygon_count += (cell->polygon_indices ? cell->polygon_indices->size() : 0);
-        }
+    w8_long polygon_count = 0;
+    for (w8_long index = 0; index < g_visible_quad_count; ++index) {
+        polygon_count += quad.Cell(g_visible_quad_rows[index], g_visible_quad_columns[index]).size();
     }
     mesh->setActivePolygonCount(polygon_count);
     w8_ulong* table = mesh->getActivePolygonTable(1);
-    w8_long offset = 0;
-    for (index = 0; index < g_visible_quad_count; ++index) {
-        W8QuadCell* cell =
-            &quad->rows[g_visible_quad_rows[index]].cells[g_visible_quad_columns[index]];
-        if (cell != 0 && (cell->polygon_indices != 0 || cell->objects != 0)) {
-            w8_long j;
-            if (cell->objects != 0 && cell->dirty_stamp < quad->dirty) {
-                cell->dirty_stamp = quad->dirty;
-                w8_long object_count =
-                    static_cast<w8_long>((cell->objects ? cell->objects->size() : 0));
-                for (j = 0; j < object_count; ++j) {
-                    char* item = reinterpret_cast<char*>((*cell->objects)[j]);
-                    if (item[0] == 1) {
-                        w8_long entry =
-                            *reinterpret_cast< // reinterpret-ok: quad-cell object producer/lifetime
-                                               // is unresolved; retail reads entry at +0x14
-                                w8_long*>(item + 0x14);
-                        void** nodes = *reinterpret_cast< // reinterpret-ok: embedded pair-table at
-                                                          // +0x1c resolved by retail offset
-                                void***>(item + entry * 8 + 0x1c);
-                        w8_long slot = *reinterpret_cast< // reinterpret-ok: slot index field at +0x30
-                            w8_long*>(item + 0x30);
-                        world->nodes_to_disable.push_back(static_cast<srNode*>(nodes[slot]));
-                    }
-                }
-            }
-            w8_long index_count =
-                static_cast<w8_long>((cell->polygon_indices ? cell->polygon_indices->size() : 0));
-            for (j = 0; j < index_count; ++j) {
-                table[offset] = (*cell->polygon_indices)[j];
-                ++offset;
-            }
+    for (w8_long index = 0; index < g_visible_quad_count; ++index) {
+        for (int polygon : quad.Cell(g_visible_quad_rows[index], g_visible_quad_columns[index])) {
+            *table++ = polygon;
         }
     }
     mesh->setDirty(srMeshModel::DIRTY_TRI_MESH);

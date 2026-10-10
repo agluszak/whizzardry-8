@@ -23,7 +23,7 @@ enum W8LevelLightFlag { W8_LEVEL_LIGHT_HAS_DEFINITION = 2 };
 
 #pragma pack(push, 1)
 
-struct W8ReadMeshFace;
+struct W8SerializedMeshFace;
 
 /* One serialized path keyframe: position, an axis/angle rotation. The scaled
    variant appended a per-frame scale vector. */
@@ -56,7 +56,7 @@ struct W8LevelFileFramePosition {
 /* Compressed mesh face; ReadMesh expands these into W8ReadMeshFace. */
 struct W8LevelFileCompressedFace { /* 0x21 */
     unsigned short vertex_indices[3];
-    glm::vec2 texture_coordinates[3];
+    float texture_coordinates[3][2];
     unsigned short material_index;
     unsigned char flags;
 };
@@ -83,7 +83,7 @@ struct W8LevelFileMesh {
     /* The reader reserves twice the serialized position count. */
     srVector3T<float>* pstVertices;          /* 0x4c: !(flags & 1) */
     W8LevelFileCompressedFace* pstCompFaces; /* 0x50: flags & 4: num_faces records */
-    W8ReadMeshFace* pstFaces;                /* 0x54: 0x52 allocated each, 0x29 read each */
+    W8SerializedMeshFace* pstFaces;                /* 0x54: 0x52 allocated each, 0x29 read each */
     float lod_scale;                         /* flags & 1 && lod_mode > 1 */
 };
 
