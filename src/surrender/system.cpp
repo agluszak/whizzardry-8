@@ -40,12 +40,6 @@ w8_long srSystem::chDir(const char* path)
     return w8_native::change_directory(path);
 }
 
-w8_long srSystem::scanLibraries(std::vector<std::string>&, const char*, const char*)
-{
-    /* Device drivers, vector processors and extensions are built in. */
-    return 0;
-}
-
 w8_long srSystem::scanFiles(std::vector<std::string>& files, const char* directory, const char* pattern)
 {
     if (pattern == 0) {

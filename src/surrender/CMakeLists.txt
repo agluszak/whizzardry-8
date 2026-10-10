@@ -7,10 +7,8 @@ set(SURRENDER_SOURCES
     debug.cpp
     debug_dd.cpp
     debug_vp.cpp
-    dynamic_library.cpp
     environment_mapper.cpp
     exponent_table.cpp
-    extension.cpp
     fog.cpp
     vertex_pipe.cpp
     file_stream.cpp
@@ -24,6 +22,7 @@ set(SURRENDER_SOURCES
     huffman.cpp
     illuminator.cpp
     io_managers.cpp
+    image_io.cpp
     light.cpp
     material.cpp
     memory_pool.cpp
@@ -57,11 +56,9 @@ set(SURRENDER_SOURCES
 )
 
 add_library(SURRENDER STATIC ${SURRENDER_SOURCES})
-target_compile_definitions(SURRENDER PRIVATE
-    SURRENDER_BUILD
-    SR_LIBRARY_EXTENSION="${CMAKE_SHARED_LIBRARY_SUFFIX}"
-)
-target_link_libraries(SURRENDER PRIVATE wiz8_native_settings SDL3::SDL3)
+target_compile_definitions(SURRENDER PRIVATE SURRENDER_BUILD)
+find_package(SDL3_image CONFIG REQUIRED)
+target_link_libraries(SURRENDER PRIVATE wiz8_native_settings SDL3::SDL3 SDL3_image::SDL3_image)
 if(UNIX AND NOT APPLE)
     target_link_options(SURRENDER PRIVATE -Wl,--no-undefined)
 endif()

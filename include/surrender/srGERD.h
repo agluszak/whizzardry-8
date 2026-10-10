@@ -2,8 +2,6 @@
 
 #include "srArray.h"
 #include "srHash.h"
-#include <string>
-#include <vector>
 #include "srTexture.h"
 #include "srTypeRegistry.h"
 #include "srVertexPipe.h"
@@ -341,7 +339,7 @@ public:
     static const char* sGetClassName();
     static srRegistry::ClassNode* sGetClassNode();
 
-    srGERD(srDD* device, void* module, const char* device_name);
+    srGERD(srDD* device, const char* device_name);
     virtual ~srGERD() override;
 
     virtual const char* getClassName() const override;
@@ -349,9 +347,6 @@ public:
     virtual srRegistry::ClassNode* getClassNode() const override;
     virtual void dump(std::ostream& stream) override;
     void dump(std::ostream& stream, const srFlags<e_info>& info);
-    static srGERD* loadDevice(const std::vector<std::string>& devices, w8_ulong index);
-    static srGERD* loadDevice(const char* name, const char* path, w8_ulong device);
-    static srGERD* loadDeviceWithFileName(const char* filename, w8_ulong device);
     static srGERD* getFirst();
     srGERD* getNext() const;
     /* Open-device list used by srTexture::invalidateFrameHandle. */
@@ -592,9 +587,6 @@ public:
     srGERD* getPrevOpen() const;
     static w8_long getGERDCount();
     static srGERD* getGERD(w8_ulong index);
-    /* Scan provider libraries for devices. */
-    static void loadDevices(const char* path);
-    static void scanDevices(const char* path, std::vector<std::string>& devices);
     /* Releases every GERD on the global list. */
     static void releaseAll();
     const char* getErrorString(e_error error);
@@ -920,9 +912,6 @@ private:
         srDD* dd;
         srDebugDD* debug_dd;
         srDD* real_dd;
-        /* Dynamic-library handle the constructor stores and ~srGERD passes
-           to srDynamicLibrary::free. */
-        void* module;
         srDD::Info info;
         /* getDriverInfo target; getDDAPIVersion/getDriverID/getDriverName
            (pre-context) and getApiVersion read its trailing fields. */

@@ -1,13 +1,11 @@
 #include "surrender/srConfig.h"
 #include "surrender/srBinOStream.h"
 #include "surrender/srCore.h"
-#include "surrender/srGERD.h"
 #include "surrender/srIStreamOpener.h"
 
 #include <cstdio>
 #include <memory>
 #include <string>
-#include <vector>
 
 #define CHECK(expression) do { if (!(expression)) { \
     fprintf(stderr, "line %d: %s\n", __LINE__, #expression); return 1; } } while (0)
@@ -77,8 +75,5 @@ int main()
     input->read(copied.data(), copied.size());
     CHECK(input->good() && copied == memory_text);
 
-    const std::vector<std::string> devices{"missing-driver(0)"};
-    CHECK(!srGERD::loadDevice(devices, 1));
-    CHECK(!srGERD::loadDevice(std::vector<std::string>{}, 0));
-    puts("ok: standard string config appends, stream paths and device-list bounds");
+    puts("ok: standard string config appends, stream paths and polymorphic stream lifecycles");
 }

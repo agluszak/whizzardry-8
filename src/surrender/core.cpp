@@ -10,7 +10,7 @@
 #include "surrender/srConfig.h"
 #include "surrender/srDebug.h"
 #include "surrender/srExponentTable.h"
-#include "surrender/srExtension.h"
+#include "image_io.h"
 #include "surrender/srFilter.h"
 #include "surrender/srGERD.h"
 #include "surrender/srHeap.h"
@@ -32,7 +32,9 @@
 // FUNCTION: SURRENDER 0x10014FE0
 void __cdecl _srLibraryInit(void)
 {
-    srAssertSetFunc(srDefaultAssertFailFunc);
+    if (srAssertGetFunc() == 0) {
+        srAssertSetFunc(srDefaultAssertFailFunc);
+    }
     initPixelTables();
 }
 
@@ -64,7 +66,6 @@ const char* srCore::getVersion() const
 int __cdecl srInit()
 {
     if (srCore.initialized == 0) {
-        const char* dll_path = srConfig.get("DLL_PATH");
         srCore.reset();
         if (srConfig.exists("DEBUG_LEVEL") != 0) {
             srCore.debug_level = atoi(srConfig.get("DEBUG_LEVEL"));
@@ -73,11 +74,9 @@ int __cdecl srInit()
         srCore.global_recycler = new srGlobalRecycler;
         srCore.registry_ = new srRegistry;
         srCore.timer = new srVariableTimer;
+        _srLibraryInit();
         srCore.multi_thread = srCore.timer->fastThreads();
-        if (srVectorProcessor::loadBest(dll_path) == 0) {
-            srVectorProcessor::initBaseVP();
-            srDebugPrintf(0, "srInit() -- no Vector Processor DLLs found (using base VP)\n");
-        }
+        srVectorProcessor::initBaseVP();
         srCore.memory_allocator = new srMemoryAllocator;
         srCore.file_manager = srCore.default_file_manager = new srFileManager;
         srCore.statistics_manager = new srStatisticsManager;
@@ -98,8 +97,8 @@ int __cdecl srInit()
         srCore.stream_opener = new srIStreamOpener;
         srCore.file_stream_opener = new srFStreamOpener;
         srCore.stream_opener->addStreamType(srCore.file_stream_opener, "file");
-        srDebugPrintf(0xfe, "srInit() -- loading default extension\n");
-        srExtension::load("Default", dll_path);
+        srDebugPrintf(0xfe, "srInit() -- initializing built-in image handlers\n");
+        srInitImageIO();
         srDebugPrintf(0xfe, "srInit() -- setting up default texture/surface\n");
         srCore.surface = new srColorSurface(srPixelConvert::SURFACE_L8, 0x40, 0x40);
         srCore.surface->setName("SurRender default surface");
@@ -180,7 +179,7 @@ int __cdecl srExit()
         srDebugPrintf(0xfe, "srExit() -- cleaning up class registry.\n");
         delete srCore.registry_;
         srCore.registry_ = 0;
-        srExtension::releaseAll();
+        srExitImageIO();
         srCore.initialized = 0;
         delete srCore.default_file_manager;
         srCore.default_file_manager = 0;
@@ -210,6 +209,7 @@ int __cdecl srExit()
         srConfig.removeAll();
         delete srTriMeshPipeline::pipe;
         srTriMeshPipeline::pipe = 0;
+        _srLibraryExit();
         srDebugPrintf(0xfe, "srExit() -- done\n");
     }
     return 1;

@@ -2,7 +2,6 @@
 
 #include "surrender/srCore.h"
 #include "surrender/srExporter.h"
-#include "surrender/srPlugin.h"
 
 #include "layout.h"
 
@@ -28,14 +27,4 @@ private:
     JpegExportOptions export_options_;
 };
 
-class srJPEGPlugin : public srPlugin {
-public:
-    virtual ~srJPEGPlugin();
-    virtual const char* getDescription() const;
-
-private:
-    srJPEGImporter jpeg_importer_;
-};
-
 W8_ABI_ASSERT((sizeof(srJPEGImporter) == 0x44), "srJPEGImporter_must_be_0x44");
-W8_ABI_ASSERT((sizeof(srJPEGPlugin) == 0x48), "srJPEGPlugin_must_be_0x48");

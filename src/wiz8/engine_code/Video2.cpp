@@ -40,7 +40,6 @@
 #include "surrender/srConfig.h"
 #include "surrender/srCore.h"
 #include "surrender/srFilter.h"
-#include "surrender/srExtension.h"
 #include "surrender/srGERD.h"
 #include "surrender/srImporter.h"
 #include "surrender/srMaterial.h"
@@ -410,9 +409,6 @@ unsigned char InitializeVideoManager(HINSTANCE instance, unsigned short show_com
     }
 done:
     SetViewport(0, 0, 0x280, 0x1e0);
-    if (g_video_inspector_enabled) {
-        srExtension::load("INSPECTOR", "DLL");
-    }
     if (!InitializeStartupNavigation()) {
         return 0;
     }
@@ -613,7 +609,7 @@ unsigned char InitializeVideoDevice(void)
                                 "DisableDetachedSecondaryDevices=1 DisableNonDisplayDevices=1");
     srConfig.set("DD_DIRECTX6", "DisablePrimaryHEL=1 DisableAttachedSecondaryDevices=1 "
                                 "DisableDetachedSecondaryDevices=1 DisableNonDisplayDevices=1");
-    g_gerd = new srGERD(W8CreateNativeRenderDevice(), 0, "SDLGPU");
+    g_gerd = new srGERD(W8CreateNativeRenderDevice(), "SDLGPU");
     if (!g_gerd) {
         ShutdownWithErrorBox("Video device cannot be started. Please re-run 3DSetup.");
         return 0;
@@ -2611,7 +2607,6 @@ int g_screenshot_page;
 void SaveJpegScreenshot(void)
 {
     srSurfaceIOManager* surface_io_manager = srCore.getSurfaceIOManager();
-    srExtension::load("JPEGImporter", 0);
 
     srColorSurfaceIFace* surface = g_gerd->lockBuffer();
     if (surface != 0) {

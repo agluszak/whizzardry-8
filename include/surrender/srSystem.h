@@ -15,8 +15,6 @@ public:
     static SR_SYSTEM_API w8_long scanFiles(std::vector<std::string>& files, const char* path);
     static SR_SYSTEM_API w8_long scanFiles(std::vector<std::string>& files, const char* directory,
                                         const char* pattern);
-    static SR_SYSTEM_API w8_long scanLibraries(std::vector<std::string>& libraries, const char* directory,
-                                            const char* extension);
     static SR_SYSTEM_API void splitPath(const char* path, char* drive, char* directory,
                                         char* filename, char* extension);
 };
