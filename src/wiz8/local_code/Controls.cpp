@@ -169,7 +169,7 @@ void Controls::EnableRegionSet(bool enable)
 
 bool W8Widget::OwnsRegion() const
 {
-    return m_region >= 0 && static_cast<unsigned int>(m_region) < g_region_count &&
+    return m_region >= 0 && static_cast<unsigned int>(m_region) < g_regions.size() &&
            g_regions[m_region].widget == this;
 }
 
@@ -205,7 +205,7 @@ void W8Widget::ReleaseRegion()
 W8Widget::~W8Widget()
 {
     ReleaseRegion();
-    if (m_pPanel) m_pPanel->RemoveControl(this);
+    if (m_pPanel) m_pPanel->TakeControl(this).release();
 }
 
 void W8Widget::UpdateRegionBounds(int left, int top, int right, int bottom)
@@ -225,19 +225,27 @@ void W8Widget::UpdateRegionBounds(int left, int top, int right, int bottom)
 /* Move a widget between panels, preserving its existing region when it has
    one and allocating a region from the new panel otherwise. */
 // FUNCTION: WIZ8 0x004f3f30
-void W8Widget::SetPanel(Controls* panel)
+void W8Widget::SetPanel(Controls& new_panel)
 {
+    auto* panel = &new_panel;
     if (panel == m_pPanel) return;
-    if (!panel) {
-        if (m_pPanel) m_pPanel->RemoveControl(this);
-        return;
-    }
     // Allocate before unlinking so failure leaves the old owner intact.
-    panel->m_controls.push_back(this);
-    if (m_pPanel) wiz8::erase_first(m_pPanel->m_controls, this);
+    if (panel->m_controls.size() == panel->m_controls.capacity())
+        panel->m_controls.reserve(std::max(size_t{8}, panel->m_controls.capacity() * 2));
+    const bool needs_region = m_region == -1 && panel->m_uiRegionSetId != 0;
+    const auto region = needs_region ? AddRegionToSet(panel->m_uiRegionSetId) : 0;
+    if (m_pPanel) {
+        // Reparent without releasing the live region binding.
+        auto& children = m_pPanel->m_controls;
+        const auto found = std::ranges::find(children, this, &std::unique_ptr<W8Widget>::get);
+        auto owned = std::move(*found);
+        children.erase(found);
+        panel->m_controls.push_back(std::move(owned));
+    } else {
+        panel->m_controls.emplace_back(this);
+    }
     m_pPanel = panel;
-    if (m_region == -1 && panel->m_uiRegionSetId != 0) {
-        const auto region = AddRegionToSet(panel->m_uiRegionSetId);
+    if (needs_region) {
         SetRegion(region);
         SetRegionCallback(region, DispatchControlRegionEvent, 0);
     } else if (m_region != -1) {
@@ -254,7 +262,7 @@ W8Widget::W8Widget(Controls* owner, unsigned int region, int left, int top, int 
     m_right = right;
     m_bottom = bottom;
     m_region = static_cast<int>(region);
-    SetPanel(owner);
+    if (owner) SetPanel(*owner);
 }
 
 // Dynamic regions bind directly to a widget. Removing or moving another
@@ -1900,19 +1908,33 @@ void Controls::SetEnabled(bool enable)
     }
 }
 
-// FUNCTION: WIZ8 0x004f2da0
-void Controls::RemoveControl(W8Widget* control)
+void Controls::AdoptControl(std::unique_ptr<W8Widget> control)
 {
-    if (wiz8::erase_first(m_controls, control) && control && control->m_pPanel == this) {
-        control->ReleaseRegion();
-        control->m_pPanel = nullptr;
-    }
+    if (!control) return;
+    control->SetPanel(*this);
+    control.release(); // SetPanel transferred ownership to this panel.
+}
+
+// FUNCTION: WIZ8 0x004f2da0
+std::unique_ptr<W8Widget> Controls::TakeControl(W8Widget* control)
+{
+    const auto found = std::ranges::find(m_controls, control, &std::unique_ptr<W8Widget>::get);
+    if (found == m_controls.end()) return {};
+    auto owned = std::move(*found);
+    m_controls.erase(found);
+    owned->ReleaseRegion();
+    owned->m_pPanel = nullptr;
+    return owned;
 }
 
 // FUNCTION: WIZ8 0x004f2df0
 void Controls::DestroyAllControls()
 {
-    wiz8::remove_all_and_delete(m_controls);
+    // Unlink before invoking destructors: they may destroy another child.
+    while (!m_controls.empty()) {
+        auto child = std::move(m_controls.back());
+        m_controls.pop_back();
+    }
 }
 
 /* Adds a rectangle to the panel's pending redraw. A null rectangle means the

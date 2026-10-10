@@ -103,18 +103,19 @@ const char* ScreenName(int id)
 
 bool RegionLive(unsigned region)
 {
-    if (region >= g_region_count || (g_regions[region].flags & W8_REGION_INPUT_DISABLED))
+    if (region >= g_regions.size() || (g_regions[region].flags & W8_REGION_INPUT_DISABLED))
         return false;
-    for (unsigned set = 0; set < g_region_set_count; ++set)
-        if (g_region_sets[set].enabled && g_region_sets[set].first_region <= region &&
-            region <= g_region_sets[set].last_region)
+    for (unsigned set = 0; set < g_region_sets.size(); ++set)
+        if (g_region_sets[set].enabled &&
+            std::ranges::find(g_region_sets[set].Regions(), region) !=
+                g_region_sets[set].Regions().end())
             return true;
     return false;
 }
 
 int RegionByCallback(W8RegionCallback callback)
 {
-    for (unsigned region = 0; region < g_region_count; ++region)
+    for (unsigned region = 0; region < g_regions.size(); ++region)
         if (g_regions[region].callback == callback && RegionLive(region))
             return int(region);
     return -1;
@@ -122,10 +123,9 @@ int RegionByCallback(W8RegionCallback callback)
 
 int RegionInSet(unsigned set, int help_text_id)
 {
-    if (!set || set >= g_region_set_count || !g_region_sets[set].enabled)
+    if (!set || set >= g_region_sets.size() || !g_region_sets[set].enabled)
         return -1;
-    for (unsigned region = g_region_sets[set].first_region;
-         region <= g_region_sets[set].last_region && region < g_region_count; ++region)
+    for (auto region : g_region_sets[set].Regions())
         if ((help_text_id < 0 || g_regions[region].help_text_id == help_text_id) &&
             RegionLive(region))
             return int(region);

@@ -744,7 +744,7 @@ void W8PartySelectionCharacterRow::OnLeftButtonDoubleClick(int event)
 
 void W8PartySelectionCharacterPanel::RefreshVisibleRows()
 {
-    for (int index = 0; index < static_cast<int>(m_controls.size()); ++index) {
+    for (int index = 0; index < static_cast<int>(ControlCount()); ++index) {
         W8PartySelectionCharacterRow* row =
             static_cast<W8PartySelectionCharacterRow*>(ControlAt(index));
         row->m_character_index = g_party_selection_character_collection->first_visible + row->m_row;
@@ -1200,7 +1200,7 @@ void W8PartySelectionOptionPanel::SetOptionPanelMode(W8PartyCreationPage page)
 {
     m_page = page;
     m_entries.clear();
-    for (int index = 0; index < static_cast<int>(m_controls.size()); ++index) {
+    for (int index = 0; index < static_cast<int>(ControlCount()); ++index) {
         ControlAt(index)->SetActive(page == W8_PARTY_CREATION_OPTIONS);
     }
 
@@ -1429,7 +1429,7 @@ void W8PartySelectionController::SetMode(W8PartySelectionMode mode)
         }
         m_character_panel->m_control.SetSelected(selected);
         m_character_panel->m_control.m_selectionListener = m_character_panel;
-        for (int index = 0; index < static_cast<int>(m_character_panel->m_controls.size());
+        for (int index = 0; index < static_cast<int>(m_character_panel->ControlCount());
              ++index) {
             W8PartySelectionCharacterRow* row =
                 static_cast<W8PartySelectionCharacterRow*>(m_character_panel->ControlAt(index));

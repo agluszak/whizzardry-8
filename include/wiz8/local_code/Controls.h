@@ -4,6 +4,7 @@
 #include "wiz8/local_code/Widget.h"
 #include "wiz8/regions.h"
 #include <vector>
+#include <memory>
 #include <algorithm>
 #include "input.h"
 
@@ -22,9 +23,9 @@ extern unsigned char DispatchControlRegionEvent(const InputAtom* event, struct W
 unsigned char DispatchButtonRegionEvent(const InputAtom* event, W8Region* region,
                                                W8Widget* button);
 
-/* Panel/container, not a W8Widget base. Widgets register their pointers in
-   m_controls and retain a back-pointer in m_pPanel. The panel destructor owns
-   child deletion; DestroyAllControls also permits early release when rebuilding.
+/* Panel/container, not a W8Widget base. Child ownership is held by unique_ptr;
+   widgets retain a non-owning back-pointer in m_pPanel. TakeControl transfers
+   ownership to the caller; DestroyAllControls permits early release when rebuilding.
    The accumulated redraw rectangle uses left == -1 for an empty rectangle. */
 // VTABLE: WIZ8 0x005ed5a4
 struct Controls {
@@ -48,18 +49,23 @@ struct Controls {
     int m_catalogImage;      /* subimage within the frame */
     W8ControlsRect m_dirtyRect;
     bool m_fWholeAreaDirty; /* set when a caller passes no rectangle */
-    std::vector<W8Widget*> m_controls;
     unsigned int m_uiRegionSetId;
 
     void EnableRegionSet(bool enable);
-    void RemoveControl(W8Widget* control);
+    void AdoptControl(std::unique_ptr<W8Widget> control);
+    [[nodiscard]] std::unique_ptr<W8Widget> TakeControl(W8Widget* control);
+    size_t ControlCount() const { return m_controls.size(); }
     void DestroyAllControls();
     void InvalidateLayout();
     void SetBounds(int left, int top, int right, int bottom);
     void AcquireRegionSet(unsigned int* shared_region_set);
 
     /* Non-owning view of a child; event dispatch does not use this index. */
-    inline W8Widget* ControlAt(int index) { return m_controls[index]; }
+    inline W8Widget* ControlAt(int index) { return m_controls[index].get(); }
+
+  private:
+    friend class W8Widget;
+    std::vector<std::unique_ptr<W8Widget>> m_controls;
 
   protected:
     void RedrawChildren(bool full_redraw)
