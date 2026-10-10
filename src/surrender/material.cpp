@@ -371,9 +371,6 @@ const char* srMaterial::sGetClassName()
     return "srMaterial";
 }
 
-// FUNCTION: SURRENDER 0x10016880
-srMaterial::~srMaterial() {}
-
 // FUNCTION: SURRENDER 0x100343C0
 srClass* srMaterial::vInstance()
 {

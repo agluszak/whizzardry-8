@@ -1,6 +1,8 @@
 #pragma once
 
-#include "srArray.h"
+#include <string>
+#include <string_view>
+#include <vector>
 #include "srCriticalSection.h"
 #include "srFlags.h"
 #include "srMath.h"
@@ -21,13 +23,11 @@ public:
             w8_ulong value;
         };
 
-        srArray<srNode*> nodes;   /* 0x00 */
-        srArray<Entry> entries;   /* 0x08 */
-        unsigned int entry_count; /* 0x10 */
-        unsigned int node_count;  /* 0x14 */
+        std::vector<srNode*> nodes;   /* 0x00 */
+        std::vector<Entry> entries;   /* 0x08 */
         /* srScene::process stores the active renderer here; srBounder::traverse
            reads it for the child volume tests. */
-        class srGERD* renderer; /* 0x18 */
+        class srGERD* renderer = nullptr; /* 0x18 */
     };
     struct ProcessInfo {
         class srGERD* renderer;
@@ -89,14 +89,13 @@ protected:
 public:
     SR_DLL_IMPORT srNode* cloneHierarchy(srNode* parent);
     SR_DLL_IMPORT void dumpHierarchy(std::ostream& stream, w8_long indent) const;
-    SR_DLL_IMPORT srNode* findChild(const char* name) const;
-    SR_DLL_IMPORT srNode* findChildByNameAndType(const char* name, w8_ulong class_id) const;
-    SR_DLL_IMPORT srNode* findParent(const char* name) const;
+    SR_DLL_IMPORT srNode* findChild(std::string_view name) const;
+    SR_DLL_IMPORT srNode* findChildByNameAndType(std::string_view name, w8_ulong class_id) const;
+    SR_DLL_IMPORT srNode* findParent(std::string_view name) const;
     SR_DLL_IMPORT srNode* findParentByType(w8_ulong class_id) const;
     SR_DLL_IMPORT srNode* getChild() const;
     SR_DLL_IMPORT w8_long getChildCount() const;
-    SR_DLL_IMPORT char* getFullPath(char* path) const;
-    SR_DLL_IMPORT w8_long getFullPathLength() const;
+    SR_DLL_IMPORT std::string getFullPath() const;
     SR_DLL_IMPORT w8_long getHierarchyLevel() const;
     SR_DLL_IMPORT srNode* getNext() const;
     // FUNCTION: SURRENDER 0x10051A40 SYMBOL
@@ -193,12 +192,11 @@ public:
 private:
     SR_DLL_IMPORT void checkTransformation() const;
     SR_DLL_IMPORT srNode* cloneHierarchyInternal(srNode* parent);
-    SR_DLL_IMPORT srNode* findChildByNameAndTypeInternal(const char* name, w8_ulong class_id);
-    SR_DLL_IMPORT srNode* findChildInternal(const char* name);
+    SR_DLL_IMPORT srNode* findChildByNameAndTypeInternal(std::string_view name, w8_ulong class_id);
+    SR_DLL_IMPORT srNode* findChildInternal(std::string_view name);
     SR_DLL_IMPORT srNode* findParentByTypeInternal(w8_ulong class_id);
-    SR_DLL_IMPORT srNode* findParentInternal(const char* name);
-    SR_DLL_IMPORT void getFullPathInternal(char* path) const;
-    SR_DLL_IMPORT w8_long getFullPathLengthInternal() const;
+    SR_DLL_IMPORT srNode* findParentInternal(std::string_view name);
+    SR_DLL_IMPORT void getFullPathInternal(std::string& path) const;
     SR_DLL_IMPORT void setWSDirty();
     SR_DLL_IMPORT void signalInternal(w8_ulong signal, void* value);
     SR_DLL_IMPORT void unlink();

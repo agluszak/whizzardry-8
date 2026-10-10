@@ -185,7 +185,7 @@ protected:
                                             const W8TgaHeader* header);
     friend class srColorSurface;
 
-    unsigned char unknown_18_[0x04];
+    unsigned char unknown_18_[0x04]{};
     w8_long width;
     w8_long height;
     w8_long pitch;

@@ -1,4 +1,4 @@
-#include <cstdlib>
+#include <algorithm>
 
 #include "wiz8/compat/unaligned.h"
 #include "surrender/srModeler.h"
@@ -7,7 +7,6 @@
 #include "surrender/srTriangulator.h"
 
 #include <math.h>
-#include <string.h>
 
 /* autoSmooth's worker: buckets triangle indices by deduplicated shade vertex, turns every triangle
    pair coincident at a vertex into a candidate edge weighted by the facing/material test, floods
@@ -19,7 +18,6 @@ class AutoSmoother {
 public:
     AutoSmoother(srModeler::Triangle* triangles, w8_ulong triangle_count,
                  srModeler::VertexHash* hash, double threshold, int smooth);
-    ~AutoSmoother();
     void smooth();
 
     /* Per shade-group vertex: the triangles sharing that vertex, filled by a
@@ -27,7 +25,7 @@ public:
     struct VertexEntry {
         w8_long count;
         w8_long fill;
-        w8_ulong* triangles;
+        std::vector<w8_ulong> triangles;
     };
 
     /* One triangle-pair coincidence at a shared vertex: smooth is the edge
@@ -45,7 +43,7 @@ public:
         TriangleEntry() : blocked(0), groups(0) {}
 
         w8_long count;
-        w8_ulong* edges;
+        std::vector<w8_ulong> edges;
         w8_long fill;
         w8_ulong blocked;
         w8_ulong groups;
@@ -60,9 +58,9 @@ public:
     srModeler::VertexHash* hash;
     w8_long vertex_count;
     w8_ulong edge_count;
-    VertexEntry* vertices;
-    Edge* edges;
-    TriangleEntry* entries;
+    std::vector<VertexEntry> vertices;
+    std::vector<Edge> edges;
+    std::vector<TriangleEntry> entries;
 };
 
 // FUNCTION: SURRENDER 0x100370B0
@@ -80,14 +78,14 @@ AutoSmoother::AutoSmoother(srModeler::Triangle* triangles, w8_ulong triangle_cou
         }
     }
     ++vertex_count;
-    vertices = new VertexEntry[vertex_count];
+    vertices.resize(vertex_count);
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wsign-compare"
     for (vertex = 0; vertex < vertex_count; ++vertex) {
         vertices[vertex].count = 0;
         vertices[vertex].fill = 0;
     }
-    srModeler::VertexHash::Entry** entries = this->hash->table;
+    srModeler::VertexHash::Entry** entries = this->hash->table.data();
     for (index = 0; index < this->triangle_count; ++index) {
         ++vertices[entries[0]->shade_index].count;
         ++vertices[entries[1]->shade_index].count;
@@ -95,9 +93,9 @@ AutoSmoother::AutoSmoother(srModeler::Triangle* triangles, w8_ulong triangle_cou
         entries += 3;
     }
     for (vertex = 0; vertex < vertex_count; ++vertex) {
-        vertices[vertex].triangles = new w8_ulong[vertices[vertex].count];
+        vertices[vertex].triangles.resize(vertices[vertex].count);
     }
-    entries = this->hash->table;
+    entries = this->hash->table.data();
     for (index = 0; index < this->triangle_count; ++index) {
         VertexEntry* group = &vertices[entries[0]->shade_index];
         group->triangles[group->fill++] = index;
@@ -111,7 +109,7 @@ AutoSmoother::AutoSmoother(srModeler::Triangle* triangles, w8_ulong triangle_cou
     for (vertex = 0; vertex < vertex_count; ++vertex) {
         edge_count += (vertices[vertex].count - 1) * vertices[vertex].count / 2;
     }
-    edges = new Edge[edge_count];
+    edges.resize(edge_count);
     double cosine = cos(threshold);
     w8_ulong edge = 0;
 #pragma clang diagnostic push
@@ -135,7 +133,7 @@ AutoSmoother::AutoSmoother(srModeler::Triangle* triangles, w8_ulong triangle_cou
         }
     }
 #pragma clang diagnostic pop
-    this->entries = new TriangleEntry[this->triangle_count];
+    this->entries.resize(this->triangle_count);
     for (index = 0; index < this->triangle_count; ++index) {
         this->entries[index].count = 0;
     }
@@ -146,7 +144,7 @@ AutoSmoother::AutoSmoother(srModeler::Triangle* triangles, w8_ulong triangle_cou
     for (index = 0; index < this->triangle_count; ++index) {
         this->entries[index].groups = 0;
         this->entries[index].blocked = 0;
-        this->entries[index].edges = new w8_ulong[this->entries[index].count];
+        this->entries[index].edges.resize(this->entries[index].count);
         this->entries[index].fill = 0;
     }
     for (edge = 0; edge < edge_count; ++edge) {
@@ -155,23 +153,6 @@ AutoSmoother::AutoSmoother(srModeler::Triangle* triangles, w8_ulong triangle_cou
         TriangleEntry* second = &this->entries[edges[edge].second];
         second->edges[second->fill++] = edge;
     }
-}
-
-// FUNCTION: SURRENDER 0x10037550
-AutoSmoother::~AutoSmoother()
-{
-    for (w8_ulong index = 0; index < triangle_count; ++index) {
-        delete[] entries[index].edges;
-    }
-    delete[] entries;
-    delete[] edges;
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wsign-compare"
-    for (w8_ulong vertex = 0; vertex < vertex_count; ++vertex) {
-        delete[] vertices[vertex].triangles;
-    }
-#pragma clang diagnostic pop
-    delete[] vertices;
 }
 
 // FUNCTION: SURRENDER 0x100375D0
@@ -433,19 +414,9 @@ void srModeler::Triangle::flipFacing()
 }
 
 // FUNCTION: SURRENDER 0x10038890
-srModeler::Polygon::Polygon(int vertices)
+srModeler::Polygon::Polygon(int vertices) : vertices(vertices), vertex_count(vertices), flags(0)
 {
-    vertex_count = vertices;
-    flags = 0;
-    this->vertices = new Vertex[vertices];
-    capacity = vertices;
     reset();
-}
-
-// FUNCTION: SURRENDER 0x10038990
-srModeler::Polygon::~Polygon()
-{
-    delete[] vertices;
 }
 
 // FUNCTION: SURRENDER 0x100389A0
@@ -467,10 +438,8 @@ void srModeler::Polygon::reset()
 // FUNCTION: SURRENDER 0x10038A00
 void srModeler::Polygon::reAllocate(int vertices)
 {
-    if (capacity < vertices) {
-        delete[] this->vertices;
-        this->vertices = new Vertex[vertices];
-        capacity = vertices;
+    if (this->vertices.size() < static_cast<std::size_t>(vertices)) {
+        this->vertices.assign(vertices, Vertex{});
         reset();
     }
     vertex_count = vertices;
@@ -482,9 +451,6 @@ srModeler::srModeler()
     triangle_count = 0;
     pass_count = 1;
 }
-
-// FUNCTION: SURRENDER 0x1003BC70
-srModeler::~srModeler() {}
 
 // FUNCTION: SURRENDER 0x10039A70
 void srModeler::discard()
@@ -502,14 +468,15 @@ w8_ulong srModeler::getTriangleCount() const
 // FUNCTION: SURRENDER 0x1003A460
 void srModeler::setTriangleCount(w8_ulong triangles)
 {
+    this->triangles.resize(triangles);
     triangle_count = triangles;
-    this->triangles.setCapacity(triangles);
 }
 
 // FUNCTION: SURRENDER 0x1003A480
 w8_ulong srModeler::addTriangle(const Triangle& triangle)
 {
-    setTriangle(++triangle_count - 1, triangle);
+    triangles.push_back(triangle);
+    triangle_count = static_cast<w8_ulong>(triangles.size());
     return triangle_count - 1;
 }
 
@@ -550,7 +517,7 @@ void srModeler::flipTriangle(w8_ulong triangle)
 // FUNCTION: SURRENDER 0x10039C40
 void srModeler::flipTriangles()
 {
-    Triangle* triangle = &triangles[0];
+    Triangle* triangle = triangles.data();
     for (w8_ulong index = 0; index < triangle_count; ++index) {
         triangle->flipFacing();
         ++triangle;
@@ -577,7 +544,7 @@ void srModeler::disableTriangle(w8_ulong triangle)
 w8_ulong srModeler::getEnabledTriangleCount()
 {
     w8_ulong enabled = 0;
-    Triangle* triangle = &triangles[0];
+    Triangle* triangle = triangles.data();
     for (w8_ulong index = triangle_count; index != 0; --index) {
         if (triangle->disabled == 0) {
             ++enabled;
@@ -590,25 +557,14 @@ w8_ulong srModeler::getEnabledTriangleCount()
 // FUNCTION: SURRENDER 0x1003A130
 void srModeler::removeDisabledTriangles()
 {
-    w8_ulong enabled = getEnabledTriangleCount();
-    if (enabled != triangle_count) {
-        w8_ulong destination_index = 0;
-        for (w8_ulong index = 0; index < triangle_count; ++index) {
-            if (triangles[index].disabled == 0) {
-                if (destination_index != index) {
-                    triangles[destination_index] = triangles[index];
-                }
-                ++destination_index;
-            }
-        }
-        triangle_count = enabled;
-    }
+    std::erase_if(triangles, [](const Triangle& triangle) { return triangle.disabled != 0; });
+    triangle_count = static_cast<w8_ulong>(triangles.size());
 }
 
 // FUNCTION: SURRENDER 0x1003A240
 void srModeler::disableDegenerateTriangles()
 {
-    Triangle* triangle = &triangles[0];
+    Triangle* triangle = triangles.data();
     for (w8_ulong index = 0; index < triangle_count; ++index) {
         if (triangle->vertices[0].position == triangle->vertices[1].position ||
             triangle->vertices[1].position == triangle->vertices[2].position ||
@@ -633,7 +589,7 @@ void srModeler::addFromModeler(srModeler& other)
 // FUNCTION: SURRENDER 0x10039E10
 void srModeler::scale(const srVector3T<float>& scale)
 {
-    Triangle* triangle = &triangles[0];
+    Triangle* triangle = triangles.data();
     for (w8_ulong index = 0; index < triangle_count; ++index) {
         for (int vertex = 0; vertex < 3; ++vertex) {
             triangle->vertices[vertex].position *= scale;
@@ -656,7 +612,7 @@ void srModeler::scale(w8_ulong triangle, const srVector3T<float>& scale)
 // FUNCTION: SURRENDER 0x10039E90
 void srModeler::move(const srVector3T<float>& delta)
 {
-    Triangle* triangle = &triangles[0];
+    Triangle* triangle = triangles.data();
     for (w8_ulong index = 0; index < triangle_count; ++index) {
         for (int vertex = 0; vertex < 3; ++vertex) {
             triangle->vertices[vertex].position += delta;
@@ -679,7 +635,7 @@ void srModeler::move(w8_ulong triangle, const srVector3T<float>& delta)
 // FUNCTION: SURRENDER 0x10039D20
 void srModeler::rotate(const srMatrix3T<float>& matrix)
 {
-    Triangle* triangle = &triangles[0];
+    Triangle* triangle = triangles.data();
     for (w8_ulong index = 0; index < triangle_count; ++index) {
         for (int vertex = 0; vertex < 3; ++vertex) {
             /* Retail's per-row summation order (0x10039D20). */
@@ -720,7 +676,7 @@ int srModeler::findVertex(const srVector3T<float>& position, w8_ulong& triangle,
                           w8_ulong& vertex, w8_ulong start_triangle)
 {
     if (start_triangle < triangle_count) {
-        Triangle* current = &triangles[0] + start_triangle;
+        Triangle* current = triangles.data() + start_triangle;
         for (w8_ulong index = start_triangle; index < triangle_count; ++index) {
             for (w8_ulong slot = 0; slot < 3; ++slot) {
                 if (current->vertices[slot].position == position) {
@@ -742,7 +698,7 @@ void srModeler::findClosestVertex(const srVector3T<float>& position, w8_ulong& t
     triangle = 0;
     vertex = 0;
     if (triangle_count != 0) {
-        Triangle* current = &triangles[0];
+        Triangle* current = triangles.data();
         /* Retail keeps the differences and squared lengths on the x87 stack
            and the best distance in a double; nothing is rounded to float. */
         const srVector3T<float>& first = current->vertices[0].position;
@@ -771,7 +727,7 @@ double srModeler::getMaxVertexDist()
     if (triangle_count == 0) {
         return 0.0;
     }
-    Triangle* triangle = &triangles[0];
+    Triangle* triangle = triangles.data();
     double maximum = 0.0;
     for (w8_ulong index = 0; index < triangle_count; ++index) {
         for (int vertex = 0; vertex < 3; ++vertex) {
@@ -836,20 +792,8 @@ w8_long srModeler::getPassCount() const
 
 // FUNCTION: SURRENDER 0x10038BF0
 srModeler::VertexHash::VertexHash(w8_ulong vertex_count)
+    : entries(vertex_count), table(vertex_count), unique_count(0)
 {
-    entries = new Entry[vertex_count];
-    table = new Entry*[vertex_count];
-    unique_count = 0;
-    memset(entries, 0, vertex_count * sizeof(Entry));
-    memset(buckets, 0, sizeof(buckets));
-    memset(table, 0, vertex_count * sizeof(Entry*));
-}
-
-// FUNCTION: SURRENDER 0x10038D40
-srModeler::VertexHash::~VertexHash()
-{
-    delete[] entries;
-    delete[] table;
 }
 
 // FUNCTION: SURRENDER 0x100390A0
@@ -859,13 +803,13 @@ w8_ulong srModeler::VertexHash::hash(double x, double y, double z)
 }
 
 // FUNCTION: SURRENDER 0x10038DB0
-srModeler::VertexHash* srModeler::getUniqueVertexList()
+std::unique_ptr<srModeler::VertexHash> srModeler::getUniqueVertexList()
 {
     if (triangle_count == 0) {
-        return 0;
+        return nullptr;
     }
-    VertexHash* hash = new VertexHash(triangle_count * 3);
-    Triangle* triangle = &triangles[0];
+    auto hash = std::make_unique<VertexHash>(triangle_count * 3);
+    Triangle* triangle = triangles.data();
     w8_ulong unique = 0;
     w8_ulong slot = 0;
     double scale = 1.0 / getMaxVertexDist();
@@ -891,7 +835,7 @@ srModeler::VertexHash* srModeler::getUniqueVertexList()
                 }
             }
             if (entry == 0) {
-                VertexHash::Entry* created = hash->entries + unique;
+                VertexHash::Entry* created = &hash->entries[unique];
                 hash->table[slot] = created;
                 created->flags = flags;
                 created->vertex = source;
@@ -916,10 +860,8 @@ srModeler::VertexHash* srModeler::getUniqueVertexList()
 // FUNCTION: SURRENDER 0x100390D0
 w8_ulong srModeler::getUniqueVertexCount()
 {
-    VertexHash* hash = getUniqueVertexList();
-    w8_ulong count = hash->unique_count;
-    delete hash;
-    return count;
+    auto hash = getUniqueVertexList();
+    return hash->unique_count;
 }
 
 // FUNCTION: SURRENDER 0x1003A4A0
@@ -985,9 +927,9 @@ void srModeler::addPolygon(const Polygon& polygon)
         float abs_y = 0.0f;
         float abs_z = 0.0f;
         for (int index = 1; index < count; ++index) {
-            Vertex* previous = &polygon.vertices[index - 1];
-            Vertex* current = &polygon.vertices[index];
-            Vertex* next = &polygon.vertices[(index + 1) % count];
+            const Vertex* previous = &polygon.vertices[index - 1];
+            const Vertex* current = &polygon.vertices[index];
+            const Vertex* next = &polygon.vertices[(index + 1) % count];
             float first_x = previous->position.x - current->position.x;
             float first_y = previous->position.y - current->position.y;
             float first_z = previous->position.z - current->position.z;
@@ -998,8 +940,7 @@ void srModeler::addPolygon(const Polygon& polygon)
             abs_y += (float)fabs(first_z * second_x - first_x * second_z);
             abs_z += (float)fabs(first_x * second_y - first_y * second_x);
         }
-        srVector2T<float>* points = static_cast<srVector2T<float>*>(
-            std::malloc(count * sizeof(*points)));
+        std::vector<srVector2T<float>> points(count);
         if (abs_x <= abs_y) {
             if (abs_y <= abs_z) {
                 for (int index = 0; index < count; ++index) {
@@ -1025,12 +966,12 @@ void srModeler::addPolygon(const Polygon& polygon)
                 }
             }
         }
-        if (isClockwise(points, count)) {
+        if (isClockwise(points.data(), count)) {
             for (int index = 0; index < count; ++index) {
                 points[index].y *= -1.0;
             }
         }
-        srTriangulator triangulator(points, count);
+        srTriangulator triangulator(points.data(), count);
         srVector3i indices = triangulator.next();
         while (indices.x != -1) {
             triangle.vertices[0] = polygon.vertices[indices.x];
@@ -1039,7 +980,6 @@ void srModeler::addPolygon(const Polygon& polygon)
             addTriangle(triangle);
             indices = triangulator.next();
         }
-        std::free(points);
     }
 }
 
@@ -1058,7 +998,7 @@ void srModeler::planarMap(w8_long pass, w8_long layer, const MappingInfo& mappin
         if (v_maximum - v_minimum != 0.0f) {
             v_scale = mapping.v_scale / (v_maximum - v_minimum);
         }
-        Triangle* triangle = &triangles[0];
+        Triangle* triangle = triangles.data();
         for (w8_ulong index = 0; index < triangle_count; ++index) {
             for (int vertex = 0; vertex < 3; ++vertex) {
                 w8_unaligned_float* position = &triangle->vertices[vertex].position.x;
@@ -1076,7 +1016,7 @@ void srModeler::planarMap(w8_long pass, w8_long layer, const MappingInfo& mappin
 void srModeler::planarMapAbsolute(w8_long pass, w8_long layer, const MappingInfo& mapping)
 {
     if (0 <= pass && pass < 4 && 0 <= layer && layer < 2 && triangle_count != 0) {
-        Triangle* triangle = &triangles[0];
+        Triangle* triangle = triangles.data();
         for (w8_ulong index = 0; index < triangle_count; ++index) {
             for (int vertex = 0; vertex < 3; ++vertex) {
                 w8_unaligned_float* position = &triangle->vertices[vertex].position.x;
@@ -1096,7 +1036,7 @@ void srModeler::planarMapAbsolute(w8_long pass, w8_long layer, const MappingInfo
 void srModeler::removeMapping(w8_long pass, w8_long layer)
 {
     if (0 <= pass && pass < 4 && 0 <= layer && layer < 2 && triangle_count != 0) {
-        Triangle* triangle = &triangles[0];
+        Triangle* triangle = triangles.data();
         for (w8_ulong index = 0; index < triangle_count; ++index) {
             for (int vertex = 0; vertex < 3; ++vertex) {
                 triangle->vertices[vertex].uv[pass * 2 + layer].SetZero();
@@ -1137,7 +1077,7 @@ void srModeler::cylinderMap(w8_long pass, w8_long layer, const MappingInfo& mapp
     } else {
         u_scale = mapping.u_scale / (u_maximum - u_minimum);
     }
-    Triangle* triangle = &triangles[0];
+    Triangle* triangle = triangles.data();
     int vertex;
     for (w8_ulong index = 0; index < triangle_count; ++index) {
         for (vertex = 0; vertex < 3; ++vertex) {
@@ -1372,12 +1312,9 @@ void srModeler::tesselateEdges(double threshold)
 // FUNCTION: SURRENDER 0x1003B940
 void srModeler::autoSmooth(double threshold, int smooth)
 {
-    VertexHash* hash = getUniqueVertexList();
-    AutoSmoother* smoother =
-        new AutoSmoother(&triangles[0], triangle_count, hash, threshold, smooth);
-    smoother->smooth();
-    delete hash;
-    delete smoother;
+    auto hash = getUniqueVertexList();
+    AutoSmoother smoother(triangles.data(), triangle_count, hash.get(), threshold, smooth);
+    smoother.smooth();
 }
 
 // FUNCTION: SURRENDER 0x1003BB40
@@ -1385,7 +1322,7 @@ void srModeler::setMaterial(srMaterialIFace* material, w8_long pass, srMeshModel
 {
     if (0 <= pass && pass < 4 &&
         (side == srMeshModel::SIDE_FRONT || side == srMeshModel::SIDE_BACK)) {
-        Triangle* triangle = &triangles[0];
+        Triangle* triangle = triangles.data();
         for (w8_long index = 0; index < (w8_long)triangle_count; ++index) {
             for (int vertex = 0; vertex < 3; ++vertex) {
                 triangle->vertices[vertex].materials[pass][side] = material;
@@ -1399,7 +1336,7 @@ void srModeler::setMaterial(srMaterialIFace* material, w8_long pass, srMeshModel
 void srModeler::setTexture(srTextureIFace* texture, w8_long pass, w8_long layer)
 {
     if (0 <= pass && pass < 4 && 0 <= layer && layer < 2) {
-        Triangle* triangle = &triangles[0];
+        Triangle* triangle = triangles.data();
         for (w8_long index = 0; index < (w8_long)triangle_count; ++index) {
             triangle->textures[pass][layer] = texture;
             ++triangle;
@@ -1411,7 +1348,7 @@ void srModeler::setTexture(srTextureIFace* texture, w8_long pass, w8_long layer)
 void srModeler::setShader(srShader shader, w8_long pass)
 {
     if (0 <= pass && pass < 4) {
-        Triangle* triangle = &triangles[0];
+        Triangle* triangle = triangles.data();
         for (w8_long index = 0; index < (w8_long)triangle_count; ++index) {
             triangle->shaders[pass] = shader;
             ++triangle;
@@ -1430,7 +1367,7 @@ void srModeler::convert(srMeshModel& model, int remove_degenerate)
         model.reset(0, 0);
         return;
     }
-    VertexHash* hash = getUniqueVertexList();
+    auto hash = getUniqueVertexList();
     model.reset(triangle_count, hash->unique_count);
     model.clearDirty(srMeshModel::DIRTY_POLYGON_NORMALS);
     model.clearDirty(srMeshModel::DIRTY_VERTEX_NORMALS);
@@ -1460,7 +1397,7 @@ void srModeler::convert(srMeshModel& model, int remove_degenerate)
         same_texture[0] = 1;
         same_texture[1] = 1;
         srShader shader;
-        Triangle* triangle = &triangles[0];
+        Triangle* triangle = triangles.data();
         shader = triangle->shaders[pass];
         srTextureIFace* texture[2];
         texture[0] = triangle->textures[pass][0];
@@ -1485,7 +1422,7 @@ void srModeler::convert(srMeshModel& model, int remove_degenerate)
         model.setShader(shader, pass);
         if (same_shader == 0) {
             srShader* table = model.getPolyShader(pass, 1);
-            triangle = &triangles[0];
+            triangle = triangles.data();
             for (index = count; index != 0; --index) {
                 *table = triangle->shaders[pass];
                 ++table;
@@ -1495,7 +1432,7 @@ void srModeler::convert(srMeshModel& model, int remove_degenerate)
         for (layer = 0; layer < 2; ++layer) {
             if (same_texture[layer] == 0) {
                 srPtr<srTextureIFace>* table = model.getPolyTexture(pass, layer, 1);
-                triangle = &triangles[0];
+                triangle = triangles.data();
                 for (index = count; index != 0; --index) {
                     *table = triangle->textures[pass][layer];
                     ++table;
@@ -1540,7 +1477,7 @@ void srModeler::convert(srMeshModel& model, int remove_degenerate)
         }
         if (!same_dcg) {
             srVector4T<float>* table = model.getVertexDCG(pass, 1);
-            entry = hash->entries;
+            entry = hash->entries.data();
             for (index = unique; index != 0; --index) {
                 vertex = entry->vertex;
                 table->x = vertex->dcg[pass].x;
@@ -1553,7 +1490,7 @@ void srModeler::convert(srMeshModel& model, int remove_degenerate)
         }
         if (!same_scg) {
             srVector4T<float>* table = model.getVertexSCG(pass, 1);
-            entry = hash->entries;
+            entry = hash->entries.data();
             for (index = unique; index != 0; --index) {
                 vertex = entry->vertex;
                 table->x = vertex->scg[pass].x;
@@ -1566,7 +1503,7 @@ void srModeler::convert(srMeshModel& model, int remove_degenerate)
         }
         if (!same_dig) {
             srVector3T<float>* table = model.getVertexDIG(pass, 1);
-            entry = hash->entries;
+            entry = hash->entries.data();
             for (index = unique; index != 0; --index) {
                 vertex = entry->vertex;
                 table->x = vertex->dig[pass].x;
@@ -1583,7 +1520,7 @@ void srModeler::convert(srMeshModel& model, int remove_degenerate)
                 srPtr<srMaterialIFace>* table =
                     model.getVertexMaterial(pass, static_cast<srMeshModel::e_side>(side), 1);
                 if (unique != 0) {
-                    entry = hash->entries;
+                    entry = hash->entries.data();
                     for (index = unique; index != 0; --index) {
                         *table = entry->vertex->materials[pass][side];
                         ++table;
@@ -1596,7 +1533,7 @@ void srModeler::convert(srMeshModel& model, int remove_degenerate)
             if (same_uv[layer] == 0) {
                 srVector2T<float>* table = model.getVertexTexCoords(pass, layer, 1);
                 if (unique != 0) {
-                    entry = hash->entries;
+                    entry = hash->entries.data();
                     for (index = unique; index != 0; --index) {
                         *table = entry->vertex->uv[pass * 2 + layer];
                         ++table;
@@ -1624,5 +1561,4 @@ void srModeler::convert(srMeshModel& model, int remove_degenerate)
     model.setDirty(srMeshModel::DIRTY_POLYGON_NORMALS);
     model.setDirty(srMeshModel::DIRTY_VERTEX_NORMALS);
     model.setDirty(srMeshModel::DIRTY_TRI_MESH);
-    delete hash;
 }

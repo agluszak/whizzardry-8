@@ -2,26 +2,8 @@
 
 #include <fenv.h>
 #include <float.h>
+#include <cmath>
 #include <math.h>
-#include <string.h>
-
-/* Zero fill that pre-aligns the destination to an 8-byte boundary. */
-inline void srZeroMemory(void* destination, w8_long size)
-{
-    if (size > 0) {
-        /* reinterpret-ok: raw address alignment is storage the type system
-           cannot express. */
-        w8_ulong misalign = reinterpret_cast<w8_ulong_ptr>(destination) & 7;
-        if (size >= 8 && misalign != 0) {
-            w8_ulong head = 8 - misalign;
-            memset(destination, 0, head);
-            /* reinterpret-ok: byte-granular advance past the head fill. */
-            memset(reinterpret_cast<unsigned char*>(destination) + head, 0, size - head);
-        } else {
-            memset(destination, 0, size);
-        }
-    }
-}
 
 /* Float-to-int through the FPU's current rounding mode (round to nearest, not truncation). */
 inline w8_long srFloatToInt(double value)
@@ -39,11 +21,6 @@ inline w8_long srFloatToInt(double value)
 inline w8_long srFloatToInt(float value)
 {
     return srFloatToInt(static_cast<double>(value));
-}
-
-inline int srFinite(double value)
-{
-    return _finite(value);
 }
 
 template <class T> class srMatrix3T;
@@ -73,7 +50,7 @@ public:
 
     int isValid() const
     {
-        return _finite(static_cast<double>(x)) && _finite(static_cast<double>(y));
+        return std::isfinite(static_cast<double>(x)) && std::isfinite(static_cast<double>(y));
     }
 
     srVector2T<T>& operator*=(double scalar)
@@ -164,8 +141,8 @@ public:
 
     int isValid() const
     {
-        return _finite(static_cast<double>(x)) && _finite(static_cast<double>(y)) &&
-               _finite(static_cast<double>(z));
+        return std::isfinite(static_cast<double>(x)) && std::isfinite(static_cast<double>(y)) &&
+               std::isfinite(static_cast<double>(z));
     }
 
     T x;
@@ -444,8 +421,8 @@ public:
 
     int isValid() const
     {
-        return _finite(static_cast<double>(x)) && _finite(static_cast<double>(y)) &&
-               _finite(static_cast<double>(z)) && _finite(static_cast<double>(w));
+        return std::isfinite(static_cast<double>(x)) && std::isfinite(static_cast<double>(y)) &&
+               std::isfinite(static_cast<double>(z)) && std::isfinite(static_cast<double>(w));
     }
 
     /* Four-channel saturation; both endpoints are written. */

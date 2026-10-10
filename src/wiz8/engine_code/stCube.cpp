@@ -91,7 +91,7 @@ W8WorldCursorNode* CreateWorldCursorCube(void)
        stack Vertices are constructed and unused, matching retail. */
     srModeler::Vertex unused[4];
     (void)unused;
-    srModeler::Vertex* vertices = polygon.vertices;
+    srModeler::Vertex* vertices = polygon.vertices.data();
 
     vertices[0].uv[0].Set(1.0f, 1.0f);
     vertices[1].uv[0].Set(0.0f, 1.0f);

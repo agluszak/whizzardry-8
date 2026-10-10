@@ -50,10 +50,7 @@ void srModelInstance::traverse(TraverseInfo& info)
         next_sibling_->traverse(info);
     }
     if (testFlag(FLAG_DISABLE) == 0 && getModel() != 0) {
-        TraverseInfo::Entry& entry = info.entries[info.entry_count];
-        entry.node = this;
-        entry.value = 0;
-        ++info.entry_count;
+        info.entries.push_back({this, 0});
     }
     if (testFlag(FLAG_TERMINATE) == 0 && first_child_ != 0) {
         first_child_->traverse(info);

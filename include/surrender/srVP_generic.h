@@ -9,18 +9,11 @@ class srVP_generic : public srVP {
 public:
     virtual const char* getName() override;
 
-    virtual int _memcmp(const void* source_0, const void* source_1, SRDWORD bytes) override;
 
-    virtual void _memcopy(void* destination, int source, SRDWORD bytes) override;
 
-    virtual void _memcopy(void* destination, const void* source, SRDWORD bytes) override;
 
-    virtual void _prefetch(const void* destination, SRDWORD bytes, SRDWORD unused) override;
 
-    virtual void _copyInterleaved(void* destination, const void* source, SRDWORD destination_pitch,
-                                  SRDWORD source_pitch, SRDWORD width, SRDWORD count) override;
 
-    virtual void _swap(void* first, void* second, SRDWORD bytes) override;
 
     virtual void _copy(srVector4* destination, const srVector3* source_0, const float* source_1,
                        SRDWORD count) override;
@@ -28,17 +21,12 @@ public:
     virtual void _copy(srVector4* destination, const srVector3* source, float constant,
                        SRDWORD count) override;
 
-    virtual void _copy(srVector4* destination, const srVector4& constant, SRDWORD count) override;
 
     virtual void _copy(srVector3* destination, const srVector4* source, SRDWORD count) override;
 
-    virtual void _copy(srVector3* destination, const srVector3& constant, SRDWORD count) override;
 
-    virtual void _copy(srVector2* destination, const srVector2& constant, SRDWORD count) override;
 
-    virtual void _copy(SRDWORD* destination, SRDWORD constant, SRDWORD count) override;
 
-    virtual void _reverse(SRDWORD* destination, const SRDWORD* source, SRDWORD count) override;
 
     virtual void _and(SRDWORD* destination, const SRDWORD* source_0, const SRDWORD* source_1,
                       SRDWORD count) override;

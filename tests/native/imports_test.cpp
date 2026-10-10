@@ -14,6 +14,9 @@
 #include "surrender/srTextureFile.h"
 #include "surrender/srVP_generic.h"
 #include <cfenv>
+#include <algorithm>
+#include <array>
+#include <string_view>
 #include <cmath>
 #include <initializer_list>
 #include <limits>
@@ -59,7 +62,7 @@ struct ClientMaterial : srMaterial
 };
 struct ClientTextureFile : srTextureFile
 {
-    ClientTextureFile() : srTextureFile(nullptr, 0)
+    ClientTextureFile() : srTextureFile({}, 0)
     {
     }
     ~ClientTextureFile() override
@@ -81,6 +84,66 @@ struct TrackedElement
     TrackedElement& operator=(const TrackedElement&) = default;
     ~TrackedElement() { --live; }
 };
+
+static int surface_storage()
+{
+    std::array<unsigned char, 40> pixels;
+    for (std::size_t index = 0; index < pixels.size(); ++index)
+        pixels[index] = static_cast<unsigned char>(index * 7);
+    const auto original = pixels;
+    srPtr<srPalette> palette;
+    palette = new srPalette;
+    const auto references = palette->getReferenceCount();
+    {
+        srColorSurface borrowed(srPixelConvert::SURFACE_BGRA32, pixels.data(), 3, 2, 20);
+        borrowed.setPalette(palette);
+        CHECK(borrowed.getDataPtr() == pixels.data() && borrowed.getDataSize() == 40);
+        CHECK(!borrowed.resize(4, 3) && !borrowed.rescale(4, 3));
+        srPixelConvert::PixelFormat format;
+        srPixelConvert::mapPixelFormat(srPixelConvert::SURFACE_RGB24, format);
+        CHECK(!borrowed.changePixelFormat(format, 1));
+
+        srColorSurface copied(borrowed);
+        CHECK(copied.getDataPtr() != pixels.data());
+        CHECK(copied.getPitch() == 20 && copied.getDataSize() == 40);
+        CHECK(std::memcmp(copied.getDataPtr(), pixels.data(), pixels.size()) == 0);
+        CHECK(palette->getReferenceCount() == references + 2);
+        copied.setPixelRaw(0, 0, 0x12345678);
+        CHECK(pixels == original && copied.getPixelRaw(0, 0) == 0x12345678);
+        copied = static_cast<const srColorSurface&>(copied);
+        CHECK(copied.getPixelRaw(0, 0) == 0x12345678);
+
+        srColorSurface assigned(srPixelConvert::SURFACE_BGRA32, 1, 1);
+        assigned = borrowed;
+        CHECK(assigned.getDataPtr() != pixels.data());
+        CHECK(std::memcmp(assigned.getDataPtr(), pixels.data(), pixels.size()) == 0);
+        CHECK(palette->getReferenceCount() == references + 3);
+        srColorSurface view(srPixelConvert::SURFACE_BGRA32, assigned.getDataPtr(), 3, 2, 20);
+        assigned = view;
+        CHECK(std::memcmp(assigned.getDataPtr(), pixels.data(), pixels.size()) == 0);
+        CHECK(palette->getReferenceCount() == references + 2);
+        CHECK(assigned.resize(7, 5));
+        auto* begin = static_cast<unsigned char*>(assigned.getDataPtr());
+        CHECK(std::all_of(begin, begin + assigned.getDataSize(), [](auto value) { return value == 0; }));
+        assigned.fill(0xff336699);
+        CHECK(assigned.rescale(3, 2));
+        for (int y = 0; y < 2; ++y)
+            for (int x = 0; x < 3; ++x)
+                CHECK(assigned.getPixelRaw(x, y) == 0xff336699);
+        CHECK(assigned.changePixelFormat(format, 1));
+        CHECK(assigned.getPitch() == 9 && assigned.getPixelRaw(0, 0) == 0x996633);
+        CHECK(assigned.getPixel(0, 0) == 0xff336699);
+
+        std::array<unsigned char, 4> other_pixels{1, 2, 3, 4};
+        srColorSurface other_borrowed(srPixelConvert::SURFACE_BGRA32, other_pixels.data(), 1, 1, 4);
+        other_borrowed = borrowed;
+        CHECK(other_pixels == (std::array<unsigned char, 4>{1, 2, 3, 4}));
+        CHECK(other_borrowed.getDataPtr() != pixels.data());
+        CHECK(other_borrowed.resize(2, 2));
+    }
+    CHECK(pixels == original && palette->getReferenceCount() == references);
+    return 0;
+}
 
 int main()
 {
@@ -172,6 +235,7 @@ int main()
     CHECK(srFloatToInt(std::numeric_limits<float>::quiet_NaN()) == (-2147483647 - 1));
     srAssertSetFunc(assertion);
     CHECK(srInit());
+    CHECK(surface_storage() == 0);
     {
         const int before_destruction = destroyed_nodes;
         srScene* scene = new srClientSupport<srScene, 0x1010>;
@@ -216,12 +280,15 @@ int main()
         processor._minMax(vectors.values, vectors.minimum, vectors.maximum, 2);
         CHECK(vectors.minimum.x == -3 && vectors.minimum.y == -2 && vectors.minimum.z == 1);
         CHECK(vectors.maximum.x == 5 && vectors.maximum.y == 9 && vectors.maximum.z == 7);
-        // A raw operator-new name buffer must use the same release family.
+        // File names own their text, including an aliased setter argument.
         ClientTextureFile texture;
         texture.setFileName("first.bmp");
         texture.setFileName("second.bmp");
-        CHECK(strcmp(texture.getFileName(), "second.bmp") == 0);
-        texture.setFileName(nullptr);
+        CHECK(texture.getFileName() == "second.bmp");
+        texture.setFileName(texture.getFileName());
+        CHECK(texture.getFileName() == "second.bmp");
+        texture.setFileName({});
+        CHECK(texture.getFileName().empty());
         srCamera source, copy;
         source.setViewPlane(2, 3);
         copy = source;

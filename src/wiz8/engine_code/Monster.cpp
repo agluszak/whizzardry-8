@@ -4961,7 +4961,7 @@ int W8Monster::GetDamageStageCount()
 
     CollectModelInstances(&instances);
     if (instances.GetCount() != 0) {
-        return (*instances.GetAt(0))->damage_stage_tables.capacity;
+        return static_cast<int>((*instances.GetAt(0))->damage_stage_tables.size());
     }
     return 0;
 }

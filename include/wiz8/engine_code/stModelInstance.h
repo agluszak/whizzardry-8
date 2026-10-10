@@ -1,6 +1,6 @@
 #pragma once
 
-#include "surrender/srArray.h"
+#include <vector>
 #include "surrender/srMeshModel.h"
 #include "surrender/srModelInstance.h"
 #include "wiz8/engine_code/AnimRep.hpp"
@@ -63,7 +63,7 @@ public:
     w8_long mesh_index;
     unsigned int frame_index;
     int damage_stage;
-    srHeapBuffer<int> damage_stage_tables;
+    std::vector<int> damage_stage_tables;
     int highlight_pass_mode;
     srVector3T<float> light_scale;
     bool diffuse_scale_enabled;

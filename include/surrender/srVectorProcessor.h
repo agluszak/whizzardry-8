@@ -21,32 +21,10 @@ public:
     static SR_DLL_IMPORT void initBaseVP();
     static SR_DLL_IMPORT void release();
 
-    static inline void memcopy(void* destination, const void* source, SRDWORD bytes)
-    {
-        vp->_memcopy(destination, source, bytes);
-    }
 
-    static inline void memcopy(void* destination, SRBYTE source, SRDWORD bytes)
-    {
-        vp->_memcopy(destination, source, bytes);
-    }
 
-    // FUNCTION: SURRENDER 0x10027BC0 SYMBOL
-    // RECOMP: ?copy@srVectorProcessor@@SAXPAKKK@Z
-    static inline void copy(SRDWORD* destination, SRDWORD constant, SRDWORD count)
-    {
-        vp->_copy(destination, constant, count);
-    }
 
-    static inline void copy(srVector2* destination, const srVector2& constant, SRDWORD count)
-    {
-        vp->_copy(destination, constant, count);
-    }
 
-    static inline void copy(srVector3* destination, const srVector3& constant, SRDWORD count)
-    {
-        vp->_copy(destination, constant, count);
-    }
 
     // FUNCTION: SURRENDER 0x1005CC60 SYMBOL
     // RECOMP: ?copyIndexed@srVectorProcessor@@SAXPAKPBK1K@Z
@@ -80,10 +58,6 @@ public:
         vp->_copyIndexed(destination, source, indices, count);
     }
 
-    static inline void copy(srVector4* destination, const srVector4& constant, SRDWORD count)
-    {
-        vp->_copy(destination, constant, count);
-    }
 
     static inline void copy(srVector4* destination, const srVector3* source, const float* w,
                             SRDWORD count)
@@ -265,15 +239,7 @@ public:
     }
 
     /* srVertexPipe's finish/setup bodies reach these slots through vp. */
-    static inline void swap(void* first, void* second, SRDWORD bytes)
-    {
-        vp->_swap(first, second, bytes);
-    }
 
-    static inline void reverse(SRDWORD* destination, const SRDWORD* source, SRDWORD count)
-    {
-        vp->_reverse(destination, source, count);
-    }
 
     static inline void bitwiseAnd(SRDWORD* destination, const SRDWORD* source, SRDWORD constant,
                                   SRDWORD count)

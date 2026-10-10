@@ -1,4 +1,6 @@
 #include "surrender/srPixelConvert.h"
+#include <algorithm>
+#include <cstring>
 #include <SDL3/SDL_surface.h>
 #include <limits>
 #include <stdexcept>
@@ -1279,7 +1281,7 @@ void __cdecl readRGB24(const srPixelConvert::ConversionInfo& info)
 void __cdecl writeBGRA(const srPixelConvert::ConversionInfo& info)
 {
     if (info.count != 0 && info.dest != info.source) {
-        srVectorProcessor::memcopy(info.dest, info.source, info.count * 4);
+        std::memmove(info.dest, info.source, info.count * sizeof(w8_ulong));
     }
 }
 
@@ -1287,7 +1289,7 @@ void __cdecl writeBGRA(const srPixelConvert::ConversionInfo& info)
 void __cdecl readBGRA(const srPixelConvert::ConversionInfo& info)
 {
     if (info.count != 0 && info.dest != info.source) {
-        srVectorProcessor::memcopy(info.dest, info.source, info.count * 4);
+        std::memmove(info.dest, info.source, info.count * sizeof(w8_ulong));
     }
 }
 

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "surrender/srArray.h"
+#include <vector>
 #include "surrender/srMeshModel.h"
 #include "wiz8/vector.h"
 #include "surrender/srTypeRegistry.h"
@@ -92,9 +92,9 @@ public:
     int vertex_light_table;
     /* m_pVertLights: per-vertex static lighting, zero-filled on demand; table
        -1 selects vertex_light_table. */
-    srHeapBuffer<srVector3T<float> > vertex_lights[2];
+    std::vector<srVector3T<float> > vertex_lights[2];
     /* Per-vertex sunlight intensity, filled with 1.0f on demand. */
-    srHeapBuffer<float> vertex_sunlight;
+    std::vector<float> vertex_sunlight;
     unsigned char duplicate_on_reuse;
     /* Set once both vertex lights and sunlight exist. */
     bool vertex_lighting_ready;
@@ -137,22 +137,11 @@ extern W8GrowableVector<stMeshModel*> g_mesh_models; /* 0x00659CB8 */
 extern int g_decompressed_mesh_bytes; /* 0x0065A0E8 */
 /* Scratch active-polygon indices filled by software backface cull in
    RenderTriMeshWithEquations when an equation table is supplied. */
-extern srHeapBuffer<w8_ulong> g_software_cull_active_polygons; /* 0x00659CE0 */
+extern std::vector<w8_ulong> g_software_cull_active_polygons; /* 0x00659CE0 */
 
 /* True when all three components of the vector are zero; the vertex-lighting
    code uses it to decide between a plain copy and a per-vertex offset. */
 int __fastcall IsZeroVector(const srVector3T<float>* vector);
-/* Copy `count` dwords when the buffers differ. Callers pass 3*n for vec3
-   arrays. */
-void CopyDwordBuffer(void* destination, const void* source, int count);
-/* Fill `count` dwords with `value`. stMeshModel::getTriMesh uses this when a vec3's
-   components are equal, passing vertex_count*3. */
-void FillDwordBuffer(void* destination, unsigned int value, int count);
-/* Plain dword walk used by RenderTriMeshWithEquations's active-poly
-   scratch resize and by stMeshModel clone's sunlight table copy. */
-void CopyUlongBuffer(w8_ulong* destination, const w8_ulong* source, w8_ulong count);
-/* dest[i] += source[i] for `count` floats. Callers pass vertex_count*3. */
-void AddFloatBuffer(float* destination, const float* source, int count);
 /* dest[i] = source[i] + offset for `count` vectors, or a plain copy when the
    offset is zero. */
 void OffsetVertices(srVector3T<float>* destination, const srVector3T<float>* source,
