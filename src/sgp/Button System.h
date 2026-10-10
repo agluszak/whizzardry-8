@@ -72,56 +72,67 @@ extern UINT32 ButtonDestBuffer;
 // GUI_BUTTON callback function type
 typedef void (*GUI_CALLBACK)(struct _GUI_BUTTON*, INT32);
 
+enum {
+    DEFAULT_STATUS_NONE,
+    DEFAULT_STATUS_DARKBORDER, //shades the borders 2 pixels deep
+    DEFAULT_STATUS_DOTTEDINTERIOR, //draws the familiar dotted line in the interior portion of the button.
+    DEFAULT_STATUS_WINDOWS95, //both DARKBORDER and DOTTEDINTERIOR
+};
+enum //for use with SpecifyDisabledButtonStyle
+{
+    DISABLED_STYLE_NONE,    //for dummy buttons, panels, etc.  Always displays normal state.
+    DISABLED_STYLE_DEFAULT, //if button has text then shade, else hatch
+    DISABLED_STYLE_HATCHED, //always hatches the disabled button
+    DISABLED_STYLE_SHADED   //always shades the disabled button 25% darker
+};
+
 // GUI_BUTTON structure definitions.
 struct ButtonGraphics;
 struct GenericButtonImages;
 using ButtonImage = std::shared_ptr<const ButtonGraphics>;
 using GenericButtonImage = std::shared_ptr<GenericButtonImages>;
 
-typedef struct _GUI_BUTTON : std::enable_shared_from_this<_GUI_BUTTON> {
+typedef struct _GUI_BUTTON {
     ~_GUI_BUTTON();
     _GUI_BUTTON() = default;
     _GUI_BUTTON(const _GUI_BUTTON&) = delete;
     _GUI_BUTTON& operator=(const _GUI_BUTTON&) = delete;
 
-    INT32 IDNum;                // ID Number, contains it's own button number
     ButtonImage quick_image;
     GenericButtonImage generic_image;
-    MOUSE_REGION Area;          // Mouse System's mouse region to use for this button
-    GUI_CALLBACK ClickCallback; // Button Callback when button is clicked
-    GUI_CALLBACK MoveCallback;  // Button Callback when mouse moved on this region
-    INT16 Cursor;               // Cursor to use for this button
-    UINT32 uiFlags;             // Button state flags etc.( 32-bit )
-    UINT32 uiOldFlags;          // Old flags from previous render loop
-    INT16 XLoc;                 // Coordinates where button is on the screen
-    INT16 YLoc;
-    INT32 UserData[4]; // Place holder for user data etc.
-    INT16 Group;       // Group this button belongs to (see DOCs)
-    INT8 bDefaultStatus;
+    MOUSE_REGION Area = {};          // Mouse System's mouse region to use for this button
+    GUI_CALLBACK ClickCallback = nullptr; // Button Callback when button is clicked
+    GUI_CALLBACK MoveCallback = nullptr;  // Button Callback when mouse moved on this region
+    UINT32 uiFlags = BUTTON_DIRTY;             // Button state flags etc.( 32-bit )
+    UINT32 uiOldFlags = 0;          // Old flags from previous render loop
+    INT16 XLoc = 0;                 // Coordinates where button is on the screen
+    INT16 YLoc = 0;
+    void* callback_context = nullptr; // Non-owning; the UI owner owns this button.
+    INT32 UserData[4] = {}; // Numeric callback payloads.
+    INT8 bDefaultStatus = DEFAULT_STATUS_NONE;
     //Button disabled style
-    INT8 bDisabledStyle;
+    INT8 bDisabledStyle = DISABLED_STYLE_DEFAULT;
     //For buttons with text
     std::string string; //the string
-    UINT16 usFont;       //font for text
-    BOOLEAN fMultiColor; //font is a multi-color font
-    INT16 sForeColor;    //text colors if there is text
-    INT16 sShadowColor;
-    INT16 sForeColorDown; //text colors when button is down (optional)
-    INT16 sShadowColorDown;
-    INT16 sForeColorHilited; //text colors when button is down (optional)
-    INT16 sShadowColorHilited;
-    INT8 bJustification; // BUTTON_TEXT_LEFT, BUTTON_TEXT_CENTER, BUTTON_TEXT_RIGHT
-    INT8 bTextXOffset;
-    INT8 bTextYOffset;
-    INT8 bTextXSubOffSet;
-    INT8 bTextYSubOffSet;
-    BOOLEAN fShiftText;
-    INT16 sWrappedWidth;
+    UINT16 usFont = 0;       //font for text
+    BOOLEAN fMultiColor = FALSE; //font is a multi-color font
+    INT16 sForeColor = 0;    //text colors if there is text
+    INT16 sShadowColor = -1;
+    INT16 sForeColorDown = -1; //text colors when button is down (optional)
+    INT16 sShadowColorDown = -1;
+    INT16 sForeColorHilited = -1; //text colors when button is down (optional)
+    INT16 sShadowColorHilited = -1;
+    INT8 bJustification = BUTTON_TEXT_CENTER; // BUTTON_TEXT_LEFT, BUTTON_TEXT_CENTER, BUTTON_TEXT_RIGHT
+    INT8 bTextXOffset = -1;
+    INT8 bTextYOffset = -1;
+    INT8 bTextXSubOffSet = 0;
+    INT8 bTextYSubOffSet = 0;
+    BOOLEAN fShiftText = TRUE;
+    INT16 sWrappedWidth = -1;
 
-    bool ubToggleButtonOldState; // Varibles for new toggle buttons that work
-    bool ubToggleButtonActivated;
+    bool ubToggleButtonOldState = false; // Varibles for new toggle buttons that work
+    bool ubToggleButtonActivated = false;
 
-    INT32 BackRect; // Handle to a Background Rectangle
 } GUI_BUTTON;
 
 
@@ -160,7 +171,7 @@ struct GenericButtonImages {
 };
 
 // Function protos for button system
-BOOLEAN InitializeButtonImageManager(INT32 DefaultBuffer, INT32 DefaultPitch, INT32 DefaultBPP);
+BOOLEAN InitializeButtonImageManager();
 void ShutdownButtonImageManager(void);
 BOOLEAN InitButtonSystem(void);
 void ShutdownButtonSystem(void);
@@ -182,8 +193,6 @@ BOOLEAN DrawButton(const GUIButton& button);
 void DrawButtonFromPtr(GUI_BUTTON* b);
 
 //Base button types
-void DrawGenericButton(GUI_BUTTON* b);
-void DrawQuickButton(GUI_BUTTON* b);
 // Text can be overlaid on generic and quick buttons.
 void DrawTextOnButton(GUI_BUTTON* b);
 
@@ -210,23 +219,6 @@ void SpecifyButtonMultiColorFont(const GUIButton& button, BOOLEAN fMultiColor);
 void SpecifyButtonTextOffsets(const GUIButton& button, INT8 bTextXOffset, INT8 bTextYOffset,
                               BOOLEAN fShiftText);
 
-enum {
-    DEFAULT_STATUS_NONE,
-    DEFAULT_STATUS_DARKBORDER, //shades the borders 2 pixels deep
-    DEFAULT_STATUS_DOTTEDINTERIOR, //draws the familiar dotted line in the interior portion of the button.
-    DEFAULT_STATUS_WINDOWS95, //both DARKBORDER and DOTTEDINTERIOR
-};
-enum //for use with SpecifyDisabledButtonStyle
-{
-    DISABLED_STYLE_NONE,    //for dummy buttons, panels, etc.  Always displays normal state.
-    DISABLED_STYLE_DEFAULT, //if button has text then shade, else hatch
-    DISABLED_STYLE_HATCHED, //always hatches the disabled button
-    DISABLED_STYLE_SHADED   //always shades the disabled button 25% darker
-};
-
-//Note:  Text is always on top
-//If fShiftImage is true, then the image will shift down one pixel and right one pixel
-//just like the text does.
 
 void SetButtonPosition(const GUIButton& button, INT16 x, INT16 y);
 void ResizeButton(const GUIButton& button, INT16 w, INT16 h);

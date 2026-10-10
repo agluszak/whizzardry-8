@@ -1,4 +1,5 @@
 #include <string_view>
+#include <fmt/format.h>
 #include <SDL3/SDL_log.h>
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
    Distributed under the accompanying SFI Source Code license agreement. */
@@ -9,8 +10,6 @@
 ***********************************************************************************************/
 
 #include "Types.h"
-#include <stdio.h>
-#include <memory.h>
 #include "input.h"
 #include <array>
 #include <memory>
@@ -24,30 +23,9 @@
 #include "Font.h"
 #include "wiz8/application.h"
 #include "line.h"
-#include <stdarg.h>
-#include <array>
-#include <memory>
 #include "Video2.h"
 
-// The following should be moved from here
-#define COLOR_RED 162                  // From "lighting.h" in JA2
-#define COLOR_BLUE 203
-#define COLOR_YELLOW 144
-#define COLOR_GREEN 184
-#define COLOR_LTGREY 134
-#define COLOR_BROWN 80
-#define COLOR_PURPLE 160
-#define COLOR_ORANGE 76
-#define COLOR_WHITE 208
-#define COLOR_BLACK 72
-// this doesn't exactly belong here either... (From "Font Control.h" in JA2)
 #define FONT_MCOLOR_BLACK 0
-#define COLOR_DKGREY 136
-
-
-
-// GLOBAL: WIZ8 0x006e1940
-CHAR8 str[128];
 
 //Kris:  December 2, 1997
 //Special internal debugging utilities that will ensure that you don't attempt to delete
@@ -56,10 +34,8 @@ CHAR8 str[128];
 //TO REMOVE ALL DEBUG FUNCTIONALITY:  simply comment out BUTTONSYSTEM_DEBUGGING definition
 
 static std::vector<std::weak_ptr<GUI_BUTTON>> active_buttons;
-static INT32 next_button_id = 1;
 
 #ifdef BUTTONSYSTEM_DEBUGGING
-BOOLEAN gfIgnoreShutdownAssertions;
 //Called immediately before assigning the button to the button list.
 void AssertFailIfIdenticalButtonAttributesFound(GUI_BUTTON* b)
 {
@@ -91,11 +67,7 @@ void AssertFailIfIdenticalButtonAttributesFound(GUI_BUTTON* b)
         //if we get this far, it is reasonably safe to assume that the newly created
         //button already exists.  Placing a break point on the following assert will
         //allow the coder to easily isolate the case!
-        sprintf(
-            str,
-            "Attempting to create a button that has already been created (existing buttonID %d).",
-            c->IDNum);
-        AssertMsg(0, str);
+        AssertMsg(0, "Attempting to create a button with identical attributes.");
     }
 }
 #endif
@@ -111,8 +83,6 @@ GUI_BUTTON* gpAnchoredButton;
 GUI_BUTTON* gpPrevAnchoredButton;
 // GLOBAL: WIZ8 0x006e1880
 BOOLEAN gfAnchoredState;
-// GLOBAL: WIZ8 0x006e1190
-INT8 gbDisabledButtonStyle;
 void DrawHatchOnButton(GUI_BUTTON* b);
 void DrawShadeOnButton(GUI_BUTTON* b);
 void DrawDefaultOnButton(GUI_BUTTON* b);
@@ -125,10 +95,6 @@ BOOLEAN gfRenderHilights = TRUE;
 
 // GLOBAL: WIZ8 0x005ff828
 UINT32 ButtonDestBuffer = BACKBUFFER;
-// GLOBAL: WIZ8 0x005ff82c
-UINT32 ButtonDestPitch = 640 * 2;
-// GLOBAL: WIZ8 0x005ff830
-UINT32 ButtonDestBPP = 16;
 
 // GLOBAL: WIZ8 0x006e1240
 // Buttons are owned by their C++ clients. Rendering and mouse dispatch only
@@ -151,13 +117,6 @@ _GUI_BUTTON::~_GUI_BUTTON()
 
 static GenericButtonImage default_generic_image;
 
-// flag to state we wish to render buttons on the one after the next pass through render buttons
-// GLOBAL: WIZ8 0x00650EA8
-BOOLEAN fPausedMarkButtonsDirtyFlag = FALSE;
-// GLOBAL: WIZ8 0x00650EA9
-BOOLEAN fDisableHelpTextRestoreFlag = FALSE;
-
-// GLOBAL: WIZ8 0x00650EAA
 // Mouse callbacks hold a strong reference until the current dispatch returns.
 static std::shared_ptr<GUI_BUTTON> ButtonFromRegion(MOUSE_REGION* region)
 {
@@ -226,107 +185,61 @@ BOOLEAN DisableButton(const GUIButton& button)
 }
 
 namespace {
-HVOBJECT LoadButtonVideoObject(const char* filename)
+GenericButtonImage LoadGenericGraphics(const std::array<std::string_view, 6>& filenames,
+                                       INT16 background_frame, INT16 offset_x, INT16 offset_y,
+                                       bool optional_highlights = false)
 {
-    VOBJECT_DESC desc{};
-    desc.fCreateFlags = VOBJECT_CREATE_FROMFILE;
-    desc.ImageFile = filename;
-    return CreateVideoObject(&desc);
-}
-}
-
-//	InitializeButtonImageManager
-//	Initializes the button image sub-system. This function is called by
-//	InitButtonSystem.
-// FUNCTION: WIZ8 0x0040c840
-BOOLEAN InitializeButtonImageManager(INT32 DefaultBuffer, INT32 DefaultPitch, INT32 DefaultBPP)
-{
-    UINT8 Pix;
-    // Set up the default settings
-    if (DefaultBuffer != BUTTON_USE_DEFAULT)
-        ButtonDestBuffer = (UINT32)DefaultBuffer;
-    else
-        ButtonDestBuffer = FRAME_BUFFER;
-
-    if (DefaultPitch != BUTTON_USE_DEFAULT)
-        ButtonDestPitch = (UINT32)DefaultPitch;
-    else
-        ButtonDestPitch = 640 * 2;
-
-    if (DefaultBPP != BUTTON_USE_DEFAULT)
-        ButtonDestBPP = (UINT32)DefaultBPP;
-    else
-        ButtonDestBPP = 16;
-
-    default_generic_image.reset();
+    if (filenames[0].empty() || filenames[1].empty()) return {};
     auto image = std::make_shared<GenericButtonImages>();
-
-    const std::array<const char*, 6> filenames{
-        DEFAULT_GENERIC_BUTTON_OFF, DEFAULT_GENERIC_BUTTON_ON, nullptr,
-        DEFAULT_GENERIC_BUTTON_OFF_HI, DEFAULT_GENERIC_BUTTON_ON_HI, nullptr};
     for (size_t index = 0; index < filenames.size(); ++index) {
-        if (!filenames[index])
-            continue;
-        image->frames[index].reset(LoadButtonVideoObject(filenames[index]));
-        // Default highlights are optional even when their files are missing.
-        if (!image->frames[index] && index < 2) {
-            SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Couldn't create VOBJECT for %s", std::string(filenames[index]).c_str());
-            return false;
-        }
-    }
-
-    Pix = 0;
-    if (!GetETRLEPixelValue(&Pix, image->frames[0].get(), 8, 0, 0)) {
-        SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "%s", "Couldn't get generic button's background pixel value");
-        return false;
-    }
-
-    image->fill_color = image->frames[0]->p16BPPPalette[Pix];
-
-    default_generic_image = std::move(image);
-    return TRUE;
-}
-
-
-
-
-
-//	LoadGenericButtonImages
-//	Loads the image files required for displaying a generic button.
-// FUNCTION: WIZ8 0x0040cb70
-GenericButtonImage LoadGenericButtonImages(std::string_view GrayName, std::string_view OffNormName, std::string_view OffHiliteName,
-                              std::string_view OnNormName, std::string_view OnHiliteName, std::string_view BkGrndName,
-                              INT16 Index, INT16 OffsetX, INT16 OffsetY)
-{
-    if (OffNormName.empty() || OnNormName.empty()) {
-        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "LoadGenericButtonImages: Missing normal-state filenames");
-        return {};
-    }
-    auto image = std::make_shared<GenericButtonImages>();
-    const std::array<std::string_view, 6> filenames{
-        OffNormName, OnNormName, GrayName, OffHiliteName, OnHiliteName, BkGrndName};
-    std::array<std::unique_ptr<SGPVObject>, 6> loaded;
-    for (size_t index = 0; index < filenames.size(); ++index) {
-        if (filenames[index].empty())
-            continue;
-        loaded[index].reset(LoadButtonVideoObject(std::string(filenames[index]).c_str()));
-        if (!loaded[index]) {
-            SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
-                         "LoadGenericButtonImages: Couldn't create VOBJECT for %s", std::string(filenames[index]).c_str());
+        if (filenames[index].empty()) continue;
+        VOBJECT_DESC desc{};
+        desc.fCreateFlags = VOBJECT_CREATE_FROMFILE;
+        desc.ImageFile = filenames[index];
+        auto& object = image->frames[index];
+        object.reset(CreateVideoObject(&desc));
+        const bool valid = object && (index == 5
+            ? background_frame >= 0 && static_cast<size_t>(background_frame) < object->sprites.size()
+            : object->sprites.size() >= 9 && object->sprites[0].usWidth > 0 &&
+              object->sprites[0].usHeight > 0);
+        if (!valid) {
+            if (optional_highlights && (index == 3 || index == 4)) {
+                object.reset();
+                continue;
+            }
+            SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Invalid generic button graphics: %s",
+                         desc.ImageFile.c_str());
             return {};
         }
     }
     UINT8 pixel = 0;
-    if (!GetETRLEPixelValue(&pixel, loaded[0].get(), 8, 0, 0)) {
-        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "LoadGenericButtonImages: Couldn't get background pixel value");
-        return {};
-    }
-    image->fill_color = loaded[0]->p16BPPPalette[pixel];
-    image->frames = std::move(loaded);
-    image->background_frame = Index;
-    image->offset_x = OffsetX;
-    image->offset_y = OffsetY;
+    if (!GetETRLEPixelValue(&pixel, image->frames[0].get(), 8, 0, 0)) return {};
+    image->fill_color = image->frames[0]->p16BPPPalette[pixel];
+    image->background_frame = background_frame;
+    image->offset_x = offset_x;
+    image->offset_y = offset_y;
     return image;
+}
+}
+
+// Default highlights may be absent. Explicitly requested custom states must load.
+BOOLEAN InitializeButtonImageManager()
+{
+    ButtonDestBuffer = FRAME_BUFFER;
+    default_generic_image = LoadGenericGraphics(
+        {DEFAULT_GENERIC_BUTTON_OFF, DEFAULT_GENERIC_BUTTON_ON, {},
+         DEFAULT_GENERIC_BUTTON_OFF_HI, DEFAULT_GENERIC_BUTTON_ON_HI, {}}, 0, 0, 0, true);
+    return default_generic_image != nullptr;
+}
+
+// FUNCTION: WIZ8 0x0040cb70
+GenericButtonImage LoadGenericButtonImages(std::string_view gray, std::string_view off_normal,
+                                          std::string_view off_hilite, std::string_view on_normal,
+                                          std::string_view on_hilite, std::string_view background,
+                                          INT16 index, INT16 offset_x, INT16 offset_y)
+{
+    return LoadGenericGraphics({off_normal, on_normal, gray, off_hilite, on_hilite, background},
+                                index, offset_x, offset_y);
 }
 
 //	ShutdownButtonImageManager
@@ -346,13 +259,10 @@ BOOLEAN InitButtonSystem(void)
 {
     ShutdownButtonSystem();
 
-#ifdef BUTTONSYSTEM_DEBUGGING
-    gfIgnoreShutdownAssertions = FALSE;
-#endif
 
 
     // Initialize the button image manager sub-system
-    if (InitializeButtonImageManager(-1, -1, -1) == FALSE) {
+    if (InitializeButtonImageManager() == FALSE) {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "%s", "Failed button image manager init\n");
         return (FALSE);
     }
@@ -440,211 +350,65 @@ void SetButtonPosition(const GUIButton& button, INT16 x, INT16 y)
     b->uiFlags |= BUTTON_DIRTY;
 }
 
-//Creates a generic button with text on it.
-// FUNCTION: WIZ8 0x0040d350
-GUIButton CreateTextButton(std::string_view string, UINT32 uiFont, INT16 sForeColor, INT16 sShadowColor,
-                       GenericButtonImage GenImg, INT16 xloc, INT16 yloc, INT16 w, INT16 h, INT32 Type,
-                       INT16 Priority, GUI_CALLBACK MoveCallback, GUI_CALLBACK ClickCallback)
+namespace {
+void RegisterButton(const GUIButton& button, INT16 x, INT16 y, INT16 width, INT16 height,
+                    INT32 type, INT16 priority, GUI_CALLBACK move, GUI_CALLBACK click)
 {
-    GUI_BUTTON* b;
-    INT32 BType, x;
-
-    if (xloc < 0 || yloc < 0) {
-        sprintf(str, "Attempting to CreateTextButton with invalid position of %d,%d", xloc, yloc);
-        AssertMsg(0, str);
-    }
-    // if button size is too small, adjust it.
-    if (w < 4)
-        w = 4;
-    if (h < 3)
-        h = 3;
-
-    // Strip off any extraneous bits from button type
-    BType = Type & (BUTTON_TYPE_MASK | BUTTON_NEWTOGGLE);
-
-    // Allocate memory for a GUI_BUTTON structure
-    auto owner = std::make_shared<GUI_BUTTON>();
-    b = owner.get();
-
-    // Allocate memory for the button's text string...
-    b->string = string;
-
-    // Init the button structure variables
-    b->uiFlags = BUTTON_DIRTY;
-    b->uiOldFlags = 0;
-    b->IDNum = next_button_id++;
-    b->XLoc = xloc;
-    b->YLoc = yloc;
-
-    b->generic_image = GenImg ? std::move(GenImg) : default_generic_image;
-
-    for (x = 0; x < 4; x++)
-        b->UserData[x] = 0;
-    b->Group = -1;
-    b->bDefaultStatus = DEFAULT_STATUS_NONE;
-    b->bDisabledStyle = DISABLED_STYLE_DEFAULT;
-    //Init string
-    b->usFont = (UINT16)uiFont;
-    b->fMultiColor = FALSE;
-    b->sForeColor = sForeColor;
-    b->sWrappedWidth = -1;
-    b->sShadowColor = sShadowColor;
-    b->sForeColorDown = -1;
-    b->sShadowColorDown = -1;
-    b->sForeColorHilited = -1;
-    b->sShadowColorHilited = -1;
-    b->bJustification = BUTTON_TEXT_CENTER;
-    b->bTextXOffset = -1;
-    b->bTextYOffset = -1;
-    b->bTextXSubOffSet = 0;
-    b->bTextYSubOffSet = 0;
-    b->fShiftText = TRUE;
-
-    // Set the button click callback function (if any)
-    if (ClickCallback != BUTTON_NO_CALLBACK) {
-        b->ClickCallback = ClickCallback;
-        BType |= BUTTON_CLICK_CALLBACK;
-    } else
-        b->ClickCallback = BUTTON_NO_CALLBACK;
-
-    // Set the button's mouse movement callback function (if any)
-    if (MoveCallback != BUTTON_NO_CALLBACK) {
-        b->MoveCallback = MoveCallback;
-        BType |= BUTTON_MOVE_CALLBACK;
-    } else
-        b->MoveCallback = BUTTON_NO_CALLBACK;
-
-    // Define a MOUSE_REGION for this button
-    MSYS_DefineRegion(&b->Area, (UINT16)xloc, (UINT16)yloc, (UINT16)(xloc + w), (UINT16)(yloc + h),
-                      (INT8)Priority,
-                      (MOUSE_CALLBACK)QuickButtonCallbackMMove,
-                      (MOUSE_CALLBACK)QuickButtonCallbackMButn);
-
-    // Link the MOUSE_REGION to this button
-
-    // Set the flags for this button
-    b->uiFlags |= (BUTTON_ENABLED | BType | BUTTON_GENERIC);
-
-    // Add this button to the button list
+    button->XLoc = x;
+    button->YLoc = y;
+    button->uiFlags |= BUTTON_ENABLED | type;
+    button->MoveCallback = move;
+    button->ClickCallback = click;
+    if (move) button->uiFlags |= BUTTON_MOVE_CALLBACK;
+    if (click) button->uiFlags |= BUTTON_CLICK_CALLBACK;
+    MSYS_DefineRegion(&button->Area, x, y, x + width, y + height,
+                      static_cast<INT8>(priority), QuickButtonCallbackMMove, QuickButtonCallbackMButn);
 #ifdef BUTTONSYSTEM_DEBUGGING
-    AssertFailIfIdenticalButtonAttributesFound(b);
+    AssertFailIfIdenticalButtonAttributesFound(button.get());
 #endif
-    b->Area.dispatch_owner = owner;
-    active_buttons.push_back(owner);
-
-
-    // Return the owned button.
-    return owner;
+    button->Area.dispatch_owner = button;
+    // Dialogs can be created and destroyed without RenderButtons being called.
+    std::erase_if(active_buttons, [](const auto& entry) { return entry.expired(); });
+    active_buttons.push_back(button);
+}
 }
 
-//	QuickCreateButton
-//	Creates a QuickButton. QuickButtons only have graphics associated with
-//	them. They cannot be re-sized, nor can the graphic be changed.
-// FUNCTION: WIZ8 0x0040d5e0
-GUIButton QuickCreateButton(ButtonImage Image, INT16 xloc, INT16 yloc, INT32 Type, INT16 Priority,
-                        GUI_CALLBACK MoveCallback, GUI_CALLBACK ClickCallback)
+// FUNCTION: WIZ8 0x0040d350
+GUIButton CreateTextButton(std::string_view text, UINT32 font, INT16 fore_color, INT16 shadow_color,
+                           GenericButtonImage image, INT16 x, INT16 y, INT16 width, INT16 height,
+                           INT32 type, INT16 priority, GUI_CALLBACK move, GUI_CALLBACK click)
 {
-    GUI_BUTTON* b;
-    INT32 BType, x;
-
-    if (xloc < 0 || yloc < 0) {
-        sprintf(str, "Attempting to QuickCreateButton with invalid position of %d,%d", xloc, yloc);
-        AssertMsg(0, str);
+    if (x < 0 || y < 0) {
+        const auto message = fmt::format("Attempting to CreateTextButton with invalid position of {},{}", x, y);
+        AssertMsg(0, message.c_str());
     }
+    auto button = std::make_shared<GUI_BUTTON>();
+    button->string = text;
+    button->usFont = static_cast<UINT16>(font);
+    button->sForeColor = fore_color;
+    button->sShadowColor = shadow_color;
+    button->generic_image = image ? std::move(image) : default_generic_image;
+    RegisterButton(button, x, y, std::max<INT16>(width, 4), std::max<INT16>(height, 3),
+                   (type & (BUTTON_TYPE_MASK | BUTTON_NEWTOGGLE)) | BUTTON_GENERIC,
+                   priority, move, click);
+    return button;
+}
 
-    // Strip off any extraneous bits from button type
-    BType = Type & (BUTTON_TYPE_MASK | BUTTON_NEWTOGGLE);
-
-    // Require a graphics resource before registering the button.
-    if (!Image || Image->object() == nullptr) {
-        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "%s", "QuickCreateButton: Missing button graphics");
-        return {};
+// FUNCTION: WIZ8 0x0040d5e0
+GUIButton QuickCreateButton(ButtonImage image, INT16 x, INT16 y, INT32 type, INT16 priority,
+                            GUI_CALLBACK move, GUI_CALLBACK click)
+{
+    if (x < 0 || y < 0) {
+        const auto message = fmt::format("Attempting to QuickCreateButton with invalid position of {},{}", x, y);
+        AssertMsg(0, message.c_str());
     }
-
-    // Allocate memory for a GUI_BUTTON structure
-    auto owner = std::make_shared<GUI_BUTTON>();
-    b = owner.get();
-
-    // Set the values for this buttn
-    b->uiFlags = BUTTON_DIRTY;
-    b->uiOldFlags = 0;
-
-    // Set someflags if of s certain type....
-    if (Type & BUTTON_NEWTOGGLE) {
-        b->uiFlags |= BUTTON_NEWTOGGLE;
-    }
-
-    // shadow style
-    b->bDefaultStatus = DEFAULT_STATUS_NONE;
-    b->bDisabledStyle = DISABLED_STYLE_DEFAULT;
-
-    b->Group = -1;
-    //Init string
-    b->string.clear();
-    b->usFont = 0;
-    b->fMultiColor = FALSE;
-    b->sForeColor = 0;
-    b->sWrappedWidth = -1;
-    b->sShadowColor = -1;
-    b->sForeColorDown = -1;
-    b->sShadowColorDown = -1;
-    b->sForeColorHilited = -1;
-    b->sShadowColorHilited = -1;
-    b->bJustification = BUTTON_TEXT_CENTER;
-    b->bTextXOffset = -1;
-    b->bTextYOffset = -1;
-    b->bTextXSubOffSet = 0;
-    b->bTextYSubOffSet = 0;
-    b->fShiftText = TRUE;
-    //Init quickbutton
-    b->IDNum = next_button_id++;
-    b->quick_image = Image;
-    for (x = 0; x < 4; x++)
-        b->UserData[x] = 0;
-
-    b->XLoc = xloc;
-    b->YLoc = yloc;
-
-    b->ubToggleButtonOldState = 0;
-    b->ubToggleButtonActivated = FALSE;
-
-    // Set the button click callback function (if any)
-    if (ClickCallback != BUTTON_NO_CALLBACK) {
-        b->ClickCallback = ClickCallback;
-        BType |= BUTTON_CLICK_CALLBACK;
-    } else
-        b->ClickCallback = BUTTON_NO_CALLBACK;
-
-    // Set the button's mouse movement callback function (if any)
-    if (MoveCallback != BUTTON_NO_CALLBACK) {
-        b->MoveCallback = MoveCallback;
-        BType |= BUTTON_MOVE_CALLBACK;
-    } else
-        b->MoveCallback = BUTTON_NO_CALLBACK;
-
-    b->Area = {};
-    // Define a MOUSE_REGION for this QuickButton
-    MSYS_DefineRegion(&b->Area, (UINT16)xloc, (UINT16)yloc,
-                      (UINT16)(xloc + (INT16)Image->MaxWidth),
-                      (UINT16)(yloc + (INT16)Image->MaxHeight), (INT8)Priority,
-                      (MOUSE_CALLBACK)QuickButtonCallbackMMove,
-                      (MOUSE_CALLBACK)QuickButtonCallbackMButn);
-
-    // Link the MOUSE_REGION with this QuickButton
-
-    // Set the flags for this button
-    b->uiFlags |= BUTTON_ENABLED | BType | BUTTON_QUICK;
-
-    // Add this QuickButton to the button list
-#ifdef BUTTONSYSTEM_DEBUGGING
-    AssertFailIfIdenticalButtonAttributesFound(b);
-#endif
-    b->Area.dispatch_owner = owner;
-    active_buttons.push_back(owner);
-
-
-    // Return the owned button.
-    return owner;
+    if (!image || !image->object()) return {};
+    auto button = std::make_shared<GUI_BUTTON>();
+    button->quick_image = std::move(image);
+    RegisterButton(button, x, y, static_cast<INT16>(button->quick_image->MaxWidth),
+                   static_cast<INT16>(button->quick_image->MaxHeight),
+                   type & (BUTTON_TYPE_MASK | BUTTON_NEWTOGGLE), priority, move, click);
+    return button;
 }
 
 //New functions
@@ -808,60 +572,23 @@ void QuickButtonCallbackMButn(MOUSE_REGION* reg, INT32 reason)
 // FUNCTION: WIZ8 0x0040dc80
 void RenderButtons(void)
 {
-    BOOLEAN fOldButtonDown, fOldEnabled;
-    GUI_BUTTON* b;
-
     SaveFontSettings();
-    for (auto it = active_buttons.begin(); it != active_buttons.end();) {
-        auto retained = it->lock();
-        if (!retained) { it = active_buttons.erase(it); continue; }
-        ++it;
-        b = retained.get();
-        if (b && b->Area.uiFlags & MSYS_REGION_ENABLED) {
-            // Check for buttonchanged status
-            fOldButtonDown = (BOOLEAN)(b->uiFlags & BUTTON_CLICKED_ON);
-
-            if (fOldButtonDown != (b->uiOldFlags & BUTTON_CLICKED_ON)) {
-                //Something is different, set dirty!
-                b->uiFlags |= BUTTON_DIRTY;
-            }
-
-            // Check for button dirty flags
-            fOldEnabled = (BOOLEAN)(b->uiFlags & BUTTON_ENABLED);
-
-            if (fOldEnabled != (b->uiOldFlags & BUTTON_ENABLED)) {
-                //Something is different, set dirty!
-                b->uiFlags |= BUTTON_DIRTY;
-            }
-
-            // If we ABSOLUTELY want to render every frame....
-            if (b->uiFlags & BUTTON_SAVEBACKGROUND) {
-                b->uiFlags |= BUTTON_DIRTY;
-            }
-
-            // Set old flags
-            b->uiOldFlags = b->uiFlags;
-
-            if (b->uiFlags & BUTTON_FORCE_UNDIRTY) {
-                b->uiFlags &= ~(BUTTON_DIRTY);
-                b->uiFlags &= ~(BUTTON_FORCE_UNDIRTY);
-            }
-
-            // Check if we need to update!
-            if (b->uiFlags & BUTTON_DIRTY) {
-                // Turn off dirty flag
-                b->uiFlags &= (~BUTTON_DIRTY);
-                DrawButtonFromPtr(b);
-            }
+    std::erase_if(active_buttons, [](const auto& entry) { return entry.expired(); });
+    for (const auto& weak : active_buttons) {
+        auto button = weak.lock();
+        if (!button || !(button->Area.uiFlags & MSYS_REGION_ENABLED)) continue;
+        auto& flags = button->uiFlags;
+        if (((flags ^ button->uiOldFlags) & (BUTTON_CLICKED_ON | BUTTON_ENABLED)) ||
+            (flags & BUTTON_SAVEBACKGROUND))
+            flags |= BUTTON_DIRTY;
+        button->uiOldFlags = flags;
+        if (flags & BUTTON_FORCE_UNDIRTY)
+            flags &= ~(BUTTON_DIRTY | BUTTON_FORCE_UNDIRTY);
+        if (flags & BUTTON_DIRTY) {
+            flags &= ~BUTTON_DIRTY;
+            DrawButtonFromPtr(button.get());
         }
     }
-
-    // check if we want to render 1 frame later?
-    if ((fPausedMarkButtonsDirtyFlag == TRUE) && (fDisableHelpTextRestoreFlag == FALSE)) {
-        fPausedMarkButtonsDirtyFlag = FALSE;
-        MarkButtonsDirty();
-    }
-
     RestoreFontSettings();
 }
 
@@ -887,6 +614,17 @@ BOOLEAN DrawButton(const GUIButton& button)
     return TRUE;
 }
 
+static INT8 DisabledOverlayStyle(const GUI_BUTTON& button)
+{
+    if (button.bDisabledStyle == DISABLED_STYLE_DEFAULT)
+        return !(button.uiFlags & BUTTON_CHECKBOX) && !button.string.empty()
+            ? DISABLED_STYLE_SHADED : DISABLED_STYLE_HATCHED;
+    return button.bDisabledStyle;
+}
+
+static INT8 DrawQuickButton(GUI_BUTTON* button);
+static INT8 DrawGenericButton(GUI_BUTTON* button);
+
 //	DrawButtonFromPtr
 //	Given a pointer to a GUI_BUTTON structure, draws the button on the
 //	screen.
@@ -894,20 +632,20 @@ void DrawButtonFromPtr(GUI_BUTTON* b)
 {
     Assert(b);
     // Draw the appropriate button according to button type
-    gbDisabledButtonStyle = DISABLED_STYLE_NONE;
+    INT8 disabled_style = DISABLED_STYLE_NONE;
     switch (b->uiFlags & BUTTON_TYPES) {
     case BUTTON_QUICK:
-        DrawQuickButton(b);
+        disabled_style = DrawQuickButton(b);
         break;
     case BUTTON_GENERIC:
-        DrawGenericButton(b);
+        disabled_style = DrawGenericButton(b);
         break;
     case BUTTON_HOT_SPOT:
         if (b->uiFlags & BUTTON_NO_TOGGLE)
             b->uiFlags &= (~BUTTON_CLICKED_ON);
         return; //hotspots don't have text, but if you want to, change this to a break!
     case BUTTON_CHECKBOX:
-        DrawQuickButton(b);
+        disabled_style = DrawQuickButton(b);
         break;
     }
     //If button has text, draw it now
@@ -915,7 +653,7 @@ void DrawButtonFromPtr(GUI_BUTTON* b)
         DrawTextOnButton(b);
     //If the button is disabled, and a style has been calculated, then
     //draw the style last.
-    switch (gbDisabledButtonStyle) {
+    switch (disabled_style) {
     case DISABLED_STYLE_HATCHED:
         DrawHatchOnButton(b);
         break;
@@ -931,9 +669,10 @@ void DrawButtonFromPtr(GUI_BUTTON* b)
 //	DrawQuickButton
 //	Draws a QuickButton type button on the screen.
 // FUNCTION: WIZ8 0x0040e060
-void DrawQuickButton(GUI_BUTTON* b)
+static INT8 DrawQuickButton(GUI_BUTTON* b)
 {
-    if (!b->quick_image) return;
+    INT8 disabled_style = DISABLED_STYLE_NONE;
+    if (!b->quick_image) return disabled_style;
     const auto& image = *b->quick_image;
     const bool checkbox = (b->uiFlags & BUTTON_CHECKBOX) != 0;
     const bool pressed = (b->uiFlags & BUTTON_CLICKED_ON) != 0;
@@ -949,20 +688,12 @@ void DrawQuickButton(GUI_BUTTON* b)
         frame = image.Grayed;
     } else {
         frame = checkbox ? (pressed ? image.OnHilite : image.OffHilite) : image.OffNormal;
-        switch (b->bDisabledStyle) {
-        case DISABLED_STYLE_DEFAULT:
-            gbDisabledButtonStyle = !checkbox && !b->string.empty()
-                ? DISABLED_STYLE_SHADED : DISABLED_STYLE_HATCHED;
-            break;
-        case DISABLED_STYLE_HATCHED:
-        case DISABLED_STYLE_SHADED:
-            gbDisabledButtonStyle = b->bDisabledStyle;
-            break;
-        }
+        disabled_style = DisabledOverlayStyle(*b);
     }
     if (frame != BUTTON_NO_IMAGE)
         BltVideoObject(ButtonDestBuffer, image.object(), static_cast<UINT16>(frame),
                        b->XLoc, b->YLoc, VO_BLT_SRCTRANSPARENCY, nullptr);
+    return disabled_style;
 }
 
 void DrawHatchOnButton(GUI_BUTTON* b)
@@ -1112,8 +843,10 @@ void DrawTextOnButton(GUI_BUTTON* b)
 //	This function is called by the DrawIconicButton and DrawTextButton
 //	routines to draw the borders and background of the buttons.
 // FUNCTION: WIZ8 0x0040e890
-void DrawGenericButton(GUI_BUTTON* b)
+static INT8 DrawGenericButton(GUI_BUTTON* b)
 {
+    INT8 disabled_style = DISABLED_STYLE_NONE;
+    if (!b->generic_image) return disabled_style;
     INT32 NumChunksWide, NumChunksHigh, cx, cy, width, height, hremain, wremain;
     INT32 q, ImgNum, ox, oy;
     INT32 iBorderHeight, iBorderWidth;
@@ -1125,9 +858,7 @@ void DrawGenericButton(GUI_BUTTON* b)
 
     // Select the graphics to use depending on the current state of the button
     if (b->uiFlags & BUTTON_ENABLED) {
-        if (!(b->uiFlags & BUTTON_ENABLED) && (b->generic_image->frames[2] == nullptr))
-            BPic = b->generic_image->frames[0].get();
-        else if (b->uiFlags & BUTTON_CLICKED_ON) {
+        if (b->uiFlags & BUTTON_CLICKED_ON) {
             if ((b->Area.uiFlags & MSYS_MOUSE_IN_AREA) &&
                 (b->generic_image->frames[4] != nullptr) && gfRenderHilights)
                 BPic = b->generic_image->frames[4].get();
@@ -1144,15 +875,7 @@ void DrawGenericButton(GUI_BUTTON* b)
         BPic = b->generic_image->frames[2].get();
     else {
         BPic = b->generic_image->frames[0].get();
-        switch (b->bDisabledStyle) {
-        case DISABLED_STYLE_DEFAULT:
-            gbDisabledButtonStyle = !b->string.empty() ? DISABLED_STYLE_SHADED : DISABLED_STYLE_HATCHED;
-            break;
-        case DISABLED_STYLE_HATCHED:
-        case DISABLED_STYLE_SHADED:
-            gbDisabledButtonStyle = b->bDisabledStyle;
-            break;
-        }
+        disabled_style = DisabledOverlayStyle(*b);
     }
 
     iBorderWidth = 3;
@@ -1266,95 +989,8 @@ void DrawGenericButton(GUI_BUTTON* b)
 
     // Unlock buffer
     UnLockVideoSurface(ButtonDestBuffer);
+    return disabled_style;
 }
-
-// Dialog box code
-//	Very preliminary stuff follows
-
-typedef struct _CreateDlgInfo {
-    INT32 iFlags; // Holds the creation flags
-
-    INT32 iPosX; // Screen position of dialog box
-    INT32 iPosY;
-    INT32 iWidth; // Dimensions of dialog box (if needed)
-    INT32 iHeight;
-
-    INT32 iAreaWidth;   // Dimensions of area the dialog box will be
-    INT32 iAreaHeight;  // placed (for auto-sizing and auto-placement
-    INT32 iAreaOffsetX; // only)
-    INT32 iAreaOffsetY;
-
-    UINT16* zDlgText;  // Text to be displayed (if any)
-    INT32 iTextFont;   // Font to be used for text (if any)
-    UINT16 usTextCols; // Font colors (for mono fonts only)
-
-    INT32 iTextAreaX; // Area in dialog box where text is to be
-    INT32 iTextAreaY; // put (for non-auto placed text)
-    INT32 iTextAreaWidth;
-    INT32 iTextAreaHeight;
-
-    HVOBJECT hBackImg;   // Background pic for dialog box (if any)
-    INT32 iBackImgIndex; // Sub-image index to use for image
-    INT32 iBackOffsetX;  // Offset on dialog box where to put image
-    INT32 iBackOffsetY;
-
-    HVOBJECT hIconImg; // Icon image pic and index.
-    INT32 iIconImgIndex;
-    INT32 iIconPosX;
-    INT32 iIconPosY;
-
-    INT32 iBtnTypes;
-
-    INT32 iOkPosX; // Ok button info
-    INT32 iOkPosY;
-    INT32 iOkWidth;
-    INT32 iOkHeight;
-    INT32 iOkImg;
-
-    INT32 iCnclPosX; // Cancel button info
-    INT32 iCnclPosY;
-    INT32 iCnclWidth;
-    INT32 iCnclHeight;
-    INT32 iCnclImg;
-} CreateDlgInfo;
-
-#define DLG_RESTRICT_MOUSE 1
-#define DLG_OK_BUTTON 2
-#define DLG_CANCEL_BUTTON 4
-#define DLG_AUTOSIZE 8
-#define DLG_RECREATE 16
-#define DLG_AUTOPOSITION 32
-#define DLG_TEXT_IN_AREA 64
-#define DLG_USE_BKGRND_IMAGE 128
-#define DLG_USE_BORDERS 256
-#define DLG_USE_BTN_HOTSPOTS 512
-#define DLG_USE_MONO_FONTS 1024
-#define DLG_IS_ACTIVE 2048
-
-#define DLG_MANUAL_RENDER 0
-#define DLG_START_RENDER 1
-#define DLG_STOP_RENDER 2
-#define DLG_AUTO_RENDER 3
-
-#define DLG_GET_STATUS 0
-#define DLG_WAIT_FOR_RESPONSE 1
-
-#define DLG_STATUS_NONE 0
-#define DLG_STATUS_OK 1
-#define DLG_STATUS_CANCEL 2
-#define DLG_STATUS_PENDING 3
-
-#define DLG_CLEARALL 0
-#define DLG_POSITION 1
-#define DLG_AREA 2
-#define DLG_TEXT 3
-#define DLG_TEXTAREA 4
-#define DLG_BACKPIC 5
-#define DLG_ICON 6
-#define DLG_OKBUTTON 7
-#define DLG_CANCELBUTTON 8
-#define DLG_OPTIONS 9
-#define DLG_SIZE 10
 
 // Added Oct17, 97 Carter - kind of mindless, but might as well have it
 // FUNCTION: WIZ8 0x0040edc0

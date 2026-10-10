@@ -130,7 +130,7 @@ std::vector<srClass*>* g_automap_markers;
 // GLOBAL: WIZ8 0x0068f220
 std::vector<std::unique_ptr<srClipPlane>> g_automap_created_layers;
 // GLOBAL: WIZ8 0x0068f24c
-W8DialogButton** g_automap_buttons;
+std::vector<std::unique_ptr<W8DialogButton>> g_automap_buttons;
 struct W8AutomapState {
     unsigned char unknown_000[0xf4];
     uint64_t blink_time;
@@ -473,31 +473,24 @@ void RestoreAutomapCameraPosition(void)
 // FUNCTION: WIZ8 0x00583BC0
 void CreateAutomapButtons(void)
 {
-    int index;
-    g_automap_buttons = new W8DialogButton*[16]{};
-    if (g_automap_buttons == 0) {
-        srAssertFail("gpstAutomapButtons",
-                     "C:\\Projects\\Wizardry 8\\Local Screens\\AutomapScreen.cpp", 0xd05, 0);
-    }
-    for (index = 0; index < 16; ++index) {
+    std::vector<std::unique_ptr<W8DialogButton>> buttons(16);
+    for (size_t index = 0; index < buttons.size(); ++index) {
         const auto& slot = g_video_slots[g_automap_button_catalogs[index]];
         const auto& frame = g_video_frames[slot.first_frame];
         const int base_frame = slot.y_offset;
-        if (frame.storage_kind == W8_VIDEO_STORAGE_OBJECT) {
-            g_automap_buttons[index] = new W8DialogButton;
-            if (g_automap_buttons[index] != 0) {
-                W8DialogButtonCallback callback = reinterpret_cast<W8DialogButtonCallback>(
-                    g_automap_button_callbacks[index]); // reinterpret-ok: void() vs button*
-                if (g_automap_buttons[index]->Configure(
-                        frame.path.c_str(), base_frame + 3, base_frame, base_frame + 1,
-                        base_frame + 2, base_frame + 2, callback, nullptr, false,
-                        MSYS_PRIORITY_HIGHEST, g_automap_button_tooltips[index], nullptr, nullptr)) {
-                    g_automap_buttons[index]->SetPosition(g_automap_button_positions[index].x,
-                                                          g_automap_button_positions[index].y);
-                }
-            }
+        if (frame.storage_kind != W8_VIDEO_STORAGE_OBJECT) continue;
+        auto button = std::make_unique<W8DialogButton>();
+        auto callback = reinterpret_cast<W8DialogButtonCallback>(
+            g_automap_button_callbacks[index]); // reinterpret-ok: void() vs button*
+        if (button->Configure(frame.path.c_str(), base_frame + 3, base_frame, base_frame + 1,
+                              base_frame + 2, base_frame + 2, callback, nullptr, false,
+                              MSYS_PRIORITY_HIGHEST, g_automap_button_tooltips[index], nullptr, nullptr)) {
+            button->SetPosition(g_automap_button_positions[index].x,
+                                g_automap_button_positions[index].y);
         }
+        buttons[index] = std::move(button);
     }
+    g_automap_buttons = std::move(buttons);
 }
 
 // FUNCTION: WIZ8 0x00583CE0
@@ -529,7 +522,7 @@ void AutomapZoomOutButton(void)
             float height = g_automap_top_y - (g_automap_top_y - ground_y) * g_float_half;
             if (g_automap_position.y <= height) {
                 g_automap_position.y = height;
-                if (g_automap_buttons != 0) {
+                if (!g_automap_buttons.empty()) {
                     g_automap_buttons[0]->SetEnabled(true);
                     g_automap_buttons[1]->SetEnabled(true);
                     g_automap_buttons[0]->m_dirty = true;
@@ -1037,11 +1030,7 @@ unsigned char AutomapScreenLeave(int)
     g_automap_surface.reset();
     ClearAutomapMarkers();
     g_automap_party_marker->setParent(0, 1);
-    for (int index = 0; index < 16; ++index) {
-        delete g_automap_buttons[index];
-    }
-    delete[] g_automap_buttons;
-    g_automap_buttons = 0;
+    g_automap_buttons.clear();
     MSYS_Shutdown();
     UpdateHeldItemCursor();
     EnableCursorScene();
@@ -1099,7 +1088,7 @@ unsigned char AutomapScreenFinalize(void)
 // FUNCTION: WIZ8 0x0057FD90
 void SetAutomapButtonMode(int update)
 {
-    if (g_automap_buttons == 0) {
+    if (g_automap_buttons.empty()) {
         g_automap_zoom_mode = update;
         return;
     }
@@ -1195,7 +1184,7 @@ void SetAutomapLayer(int layer)
     g_automap_layer = layer;
     g_automap_redraw = true;
     g_automap_overlay_redraw = true;
-    if (g_automap_buttons != 0) {
+    if (!g_automap_buttons.empty()) {
         if (g_automap_buttons[9] != 0) {
             g_automap_buttons[9]->SetEnabled(layer !=
                                              static_cast<int>(g_automap_layers.size()) - 1);

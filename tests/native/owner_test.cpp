@@ -778,9 +778,9 @@ void generic_button_images()
     REQUIRE(RegisteredButtonCount() == 0);
     MSYS_Shutdown();
 
-    REQUIRE(!InitializeButtonImageManager(-1, -1, -1));
+    REQUIRE(!InitializeButtonImageManager());
     button_image_fixture(assets, DEFAULT_GENERIC_BUTTON_ON);
-    REQUIRE(InitializeButtonImageManager(-1, -1, -1));
+    REQUIRE(InitializeButtonImageManager());
     const std::string_view filename = "button.sti", missing = "missing.sti";
     const auto load = [](const std::array<std::string_view, 6>& names) {
         return LoadGenericButtonImages(names[2], names[0], names[3], names[1],
@@ -795,6 +795,28 @@ void generic_button_images()
     REQUIRE(!load({std::string_view{}, filename, {}, {}, {}, {}}));
     REQUIRE(!load({filename, {}, {}, {}, {}, {}}));
     REQUIRE(!load({"short.sti", filename, {}, {}, {}, {}}));
+    // Every border state needs all nine tiles, not only the off-normal state.
+    for (size_t state = 0; state < 5; ++state) {
+        std::array<std::string_view, 6> names;
+        names.fill(filename);
+        names[state] = "short.sti";
+        REQUIRE(!load(names));
+    }
+    REQUIRE(!LoadGenericButtonImages({}, filename, {}, filename, {}, filename, -1, 0, 0));
+    REQUIRE(!LoadGenericButtonImages({}, filename, {}, filename, {}, filename, 9, 0, 0));
+    // A zero-sized first tile would cause division by zero while drawing borders.
+    button_image_fixture(assets, "zero-tile.sti");
+    {
+        std::fstream file(assets / "zero-tile.sti", std::ios::in | std::ios::out | std::ios::binary);
+        STCISubImage frame{};
+        file.seekg(STCI_HEADER_SIZE + STCI_8BIT_PALETTE_SIZE);
+        file.read(reinterpret_cast<char*>(&frame), sizeof(frame));
+        frame.usWidth = 0;
+        file.seekp(STCI_HEADER_SIZE + STCI_8BIT_PALETTE_SIZE);
+        file.write(reinterpret_cast<const char*>(&frame), sizeof(frame));
+        REQUIRE(file.good());
+    }
+    REQUIRE(!load({filename, "zero-tile.sti", {}, {}, {}, {}}));
     auto image = load({filename, filename, filename, filename, filename, filename});
     REQUIRE(image);
     REQUIRE((image->frames[2] && image->frames[3] && image->frames[4]));

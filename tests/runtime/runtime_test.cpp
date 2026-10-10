@@ -727,7 +727,7 @@ void ResourceLifecycleScenario()
     for (int visit = 0; visit != 2; ++visit) {
         game.command(W8_MGS_COMMAND_AUTOMAP);
         game.wait_screen("automap-buttons", W8_SCREEN_AUTOMAP);
-        REQUIRE(g_automap_buttons);
+        REQUIRE(g_automap_buttons.size() == 16);
         for (int index = 0; index != 16; ++index) {
             REQUIRE(g_automap_buttons[index]);
             REQUIRE(g_automap_buttons[index]->GetWidth() > 0);
@@ -737,7 +737,7 @@ void ResourceLifecycleScenario()
         }
         game.key(SDLK_ESCAPE);
         game.wait_screen("automap-buttons-released", W8_SCREEN_MAIN_GAME);
-        REQUIRE(!g_automap_buttons);
+        REQUIRE(g_automap_buttons.empty());
     }
     const int level = g_status.current_level;
     const auto anchor = Walk(game, "settle-before-save", 2.0f);
