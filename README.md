@@ -46,6 +46,23 @@ The native targets include `Wiz8Native` and statically linked SurRender and
 the SDL-backed filesystem and runtime, sharing one SDL state.
 A Vulkan-capable SDL3 GPU backend is required for graphics checks.
 
+## Include analysis
+
+Install [include-what-you-use](https://include-what-you-use.org/) built for the
+same Clang major version as the project compiler. With Homebrew:
+
+```sh
+brew install include-what-you-use
+cmake --preset linux
+./tools/run-iwyu.sh
+```
+
+The script analyzes `src/` and `tests/` using the preset's compile commands,
+excluding downloaded dependencies. It writes raw suggestions to
+`build/linux/iwyu-report.txt`; review them before applying changes.
+Pass a build directory and optional report path to analyze another preset.
+Set `IWYU_JOBS` to change the default four concurrent processes.
+
 ## Run
 
 Point the launcher to your installed game assets:
