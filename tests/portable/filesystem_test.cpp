@@ -13,12 +13,17 @@
 namespace fs = std::filesystem;
 using namespace wiz8;
 #define CHECK(test) do { if (!(test)) { std::fprintf(stderr, "line %d: %s\n", __LINE__, #test); std::exit(1); } } while (0)
-template <typename Function> void rejects(Function function)
+template <typename Function> void check_rejection(Function function, int line)
 {
     bool rejected = false;
     try { function(); } catch (const std::exception&) { rejected = true; }
-    CHECK(rejected);
+    if (!rejected)
+    {
+        std::fprintf(stderr, "line %d: expected exception\n", line);
+        std::exit(1);
+    }
 }
+#define rejects(...) check_rejection((__VA_ARGS__), __LINE__)
 struct TemporaryDirectory
 {
     fs::path path;

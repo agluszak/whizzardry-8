@@ -52,7 +52,9 @@ static bool check(const char* name, int variant, BOOLEAN result, const SGPRect& 
         return true;
     }
     std::string expected_line;
-    if (!std::getline(reference, expected_line) || expected_line + "\n" != actual) {
+    const bool has_line = bool(std::getline(reference, expected_line));
+    if (!expected_line.empty() && expected_line.back() == '\r') expected_line.pop_back();
+    if (!has_line || expected_line + "\n" != actual) {
         fprintf(stderr, "case %u mismatch: %s", cases, actual);
         return false;
     }

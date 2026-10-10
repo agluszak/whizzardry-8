@@ -24,7 +24,9 @@ jobs:
         with:
           path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
           key: Windows-vcpkg-${{ hashFiles('vcpkg.json', 'cmake/BootstrapVcpkg.cmake') }}-${{ github.run_id }}
-          restore-keys: Windows-vcpkg-${{ hashFiles('vcpkg.json') }}-
+          restore-keys: |
+            Windows-vcpkg-${{ hashFiles('vcpkg.json', 'cmake/BootstrapVcpkg.cmake') }}-
+            Windows-vcpkg-${{ hashFiles('vcpkg.json') }}-
       - name: Configure with pinned dependencies
         env:
           VCPKG_ROOT: ""

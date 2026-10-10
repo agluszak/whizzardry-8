@@ -114,8 +114,8 @@ int main()
     CHECK(SDL_setenv_unsafe("WIZ8_USER_ROOT", wiz8::path_to_utf8(user).c_str(), 1) == 0);
     CHECK(SDL_setenv_unsafe("WIZ8_CD1_ROOT", wiz8::path_to_utf8(disc).c_str(), 1) == 0);
     const auto configured = w8_native::path_roots();
-    CHECK(configured.assets == wiz8::path_to_utf8(fs::weakly_canonical(assets)));
-    CHECK(configured.user == wiz8::path_to_utf8(fs::weakly_canonical(user)));
+    CHECK(fs::equivalent(wiz8::path_from_utf8(configured.assets), assets));
+    CHECK(fs::equivalent(wiz8::path_from_utf8(configured.user), user));
     w8_native::configure_paths({wiz8::path_to_utf8(assets), wiz8::path_to_utf8(user),
                                 {wiz8::path_to_utf8(disc), "", ""}});
     CHECK(InitializeFileManager(nullptr));
