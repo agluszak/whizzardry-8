@@ -8,7 +8,6 @@
 #include "surrender/srLight.h"
 #include "surrender/srMaterial.h"
 #include "surrender/srMeshModel.h"
-#include "surrender/srMemoryAllocator.h"
 #include "surrender/srModeler.h"
 #include "surrender/srQuadWord.h"
 #include "surrender/srScene.h"
@@ -215,22 +214,6 @@ int main()
         processor._minMax(vectors.values, vectors.minimum, vectors.maximum, 2);
         CHECK(vectors.minimum.x == -3 && vectors.minimum.y == -2 && vectors.minimum.z == 1);
         CHECK(vectors.maximum.x == 5 && vectors.maximum.y == 9 && vectors.maximum.z == 7);
-        srMemoryAllocator allocator;
-        const unsigned sizes[] = {1u, 17u, 257u, 1025u};
-        for (unsigned size : sizes)
-        {
-            void* first = allocator.allocate(3, size, "first allocation");
-            void* second = allocator.allocate(size + 1, "second allocation");
-            CHECK(reinterpret_cast<w8_ulong_ptr>(first) % 32 == 0);
-            CHECK(reinterpret_cast<w8_ulong_ptr>(second) % 32 == 0);
-            CHECK(allocator.getSize(first) == 3 * size && allocator.getSize(second) == size + 1);
-            memset(first, 0xa5, 3 * size);
-            memset(second, 0x5a, size + 1);
-            CHECK(strcmp(allocator.getName(first), "first allocation") == 0);
-            CHECK(strcmp(allocator.getName(second), "second allocation") == 0);
-            allocator.free(first); // Unlink a non-head block, then the head.
-            allocator.free(second);
-        }
         // A raw operator-new name buffer must use the same release family.
         ClientTextureFile texture;
         texture.setFileName("first.bmp");

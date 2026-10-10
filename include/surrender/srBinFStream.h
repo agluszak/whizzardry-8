@@ -26,7 +26,7 @@ protected:
     srBinFStream();
     virtual ~srBinFStream() override;
 
-    void mopen(const char* path, e_mode mode, int search_paths);
+    void mopen(const char* path, e_mode mode);
     virtual srBinStream& pseek(w8_ulong position, srBinStream::e_seekDir direction);
     virtual srBinStream& pseek(w8_ulong position);
     virtual w8_ulong ptell();

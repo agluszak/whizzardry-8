@@ -2,7 +2,6 @@ set(SURRENDER_SOURCES
     bounder.cpp
     camera.cpp
     clipplane.cpp
-    config.cpp
     core.cpp
     debug.cpp
     debug_dd.cpp
@@ -17,7 +16,6 @@ set(SURRENDER_SOURCES
     generic_vp.cpp
     gerd.cpp
     gerd_filters.cpp
-    heap.cpp
     huffman.cpp
     illuminator.cpp
     io_managers.cpp

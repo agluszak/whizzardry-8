@@ -38,7 +38,6 @@
 #include "wiz8/virtual_file_stream.h"
 #include "wiz8/wiz8_windows.h"
 #include "surrender/srColorSurface.h"
-#include "surrender/srConfig.h"
 #include "surrender/srCore.h"
 #include "surrender/srFilter.h"
 #include "surrender/srGERD.h"
@@ -442,7 +441,6 @@ void ShutdownVideoManager(void)
         g_secondary_gerd->deleteContext();
         g_secondary_gerd = 0;
     }
-    srConfig.removeAll();
     srExit();
     W8DestroyGameWindow(native_window);
 }
@@ -595,10 +593,6 @@ unsigned char InitializeVideoDevice(void)
     }
 
     srInit();
-    srConfig.set("DD_DIRECTX7", "DisablePrimaryHEL=1 DisableAttachedSecondaryDevices=1 "
-                                "DisableDetachedSecondaryDevices=1 DisableNonDisplayDevices=1");
-    srConfig.set("DD_DIRECTX6", "DisablePrimaryHEL=1 DisableAttachedSecondaryDevices=1 "
-                                "DisableDetachedSecondaryDevices=1 DisableNonDisplayDevices=1");
     g_gerd = new srGERD(W8CreateNativeRenderDevice(), "SDLGPU");
     if (!g_gerd) {
         ShutdownWithErrorBox("Video device cannot be started. Please re-run 3DSetup.");
