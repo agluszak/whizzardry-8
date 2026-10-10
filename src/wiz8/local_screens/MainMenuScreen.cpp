@@ -26,7 +26,7 @@
 #include "english.h"
 #include "Font.h"
 #include "himage.h"
-#include "sgp.h"
+#include "wiz8/application.h"
 #include "Types.h"
 #include "mousesystem.h"
 #include "vsurface.h"

@@ -1,3 +1,4 @@
+#include "random.h"
 #include "wiz8/spell_ids.h"
 #include "wiz8/sgp_text.h"
 #include "wiz8/local_screens/MGSPortraits.h"

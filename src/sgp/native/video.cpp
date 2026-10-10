@@ -14,8 +14,6 @@ SDL_Window* native(HWND window) { return reinterpret_cast<SDL_Window*>(window); 
 } // namespace
 HWND W8CreateGameWindow(int width, int height, bool fullscreen)
 {
-    if (!SDL_Init(SDL_INIT_VIDEO))
-        return nullptr;
     SDL_Window* window = SDL_CreateWindow("Whizzardry 8", std::max(width, 640),
                                           std::max(height, 480), SDL_WINDOW_RESIZABLE);
     if (!window)

@@ -1,6 +1,6 @@
 #include <wiz8/filesystem.h>
 /* Installed character and level assets through the recovered game loop. */
-#include "sgp.h"
+#include "wiz8/application.h"
 #include <wiz8/asset_paths.h>
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_code/GameplayCode.h"
@@ -73,6 +73,7 @@ static void SaveFrame(const char* path, const std::vector<unsigned int>& pixels)
 
 int main(int argc, char** argv)
 {
+    std::unique_ptr<wiz8::Application> application;
     std::string temporary;
     bool have_overlay = false;
     int result = 1;
@@ -88,13 +89,9 @@ int main(int argc, char** argv)
         const std::string settings = "SDLGPU\n640\n480\n16\nSDL mixer spatial\n";
         config->write(settings.data(), settings.size());
         config->close();
-        CHECK(SDL_Init(SDL_INIT_VIDEO));
-        char command[] = "/WINDOW";
-        ProcessCommandLine(command);
-        fprintf(stderr, "world: initialize real SGP/game\n");
-        CHECK(InitializeStandardGamingPlatform(nullptr, 9));
-        gfApplicationActive = TRUE;
-        gfProgramIsRunning = TRUE;
+        const std::array<std::string_view, 1> arguments{"/WINDOW"};
+        fprintf(stderr, "world: initialize native application/game\n");
+        application = std::make_unique<wiz8::Application>(arguments);
         ResetForNewGame();
         W8Character character{};
         CHECK(LoadCharacter(argv[1], &character, -1, false));
@@ -218,8 +215,7 @@ int main(int argc, char** argv)
     {
         fprintf(stderr, "world: %s\n", failure.what());
     }
-    SGPExit();
-    SDL_Quit();
+    application.reset();
     if (have_overlay)
         std::filesystem::remove_all(temporary);
     return result;

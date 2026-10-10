@@ -60,11 +60,9 @@ wchar_t g_journal_alternate_page[] = L"1 / 1";
 // GLOBAL: WIZ8 0x0064df3c
 int g_journal_page_count = -1;
 // GLOBAL: WIZ8 0x0069C4CC
-int g_journal_font;
+int g_journal_font = -1;
 // GLOBAL: WIZ8 0x0069C4D0
 std::unique_ptr<UINT16[]> g_journal_font_palette;
-// GLOBAL: WIZ8 0x0069C4D8
-unsigned short* g_journal_font_original_palette;
 // GLOBAL: WIZ8 0x0069C4D4
 W8JournalPanel* g_journal_panel;
 // GLOBAL: WIZ8 0x0069C4E4
@@ -209,7 +207,7 @@ void DrawJournalLine(const wchar_t* text, int column, int y, int palette, bool c
     SetFont(g_journal_font);
     SetFontDestBuffer(FRAME_BUFFER, left, y, left + right, y + 0x1e, 0);
     if (palette == 0) {
-        SetFontObjectPalette16BPP(g_journal_font, g_journal_font_original_palette);
+        SetFontObjectPalette16BPP(g_journal_font, GetFontObject(g_journal_font)->ownedPalette.get());
     } else if (palette == 1) {
         SetFontObjectPalette16BPP(g_journal_font, g_journal_font_palette.get());
     }
@@ -404,15 +402,17 @@ void W8JournalPanel::OnPrimary(W8TextControl* control)
 unsigned char JournalScreenInitialize(void)
 {
     g_journal_font = LoadFontFile("Data\\Journal\\journal_font.sti");
-    g_journal_font_original_palette = GetFontObjectPalette16BPP(g_journal_font);
+    if (g_journal_font < 0)
+        return 0;
     g_journal_font_palette = CopyCatalogImagePalette16BPP(0x1b9, 0);
-    return 1;
+    return bool(g_journal_font_palette);
 }
 
 // FUNCTION: WIZ8 0x005bde10
 unsigned char JournalScreenFinalize(void)
 {
-    SetFontObjectPalette16BPP(g_journal_font, g_journal_font_original_palette);
+    if (g_journal_font >= 0)
+        SetFontObjectPalette16BPP(g_journal_font, GetFontObject(g_journal_font)->ownedPalette.get());
     g_journal_font_palette.reset();
     return 1;
 }

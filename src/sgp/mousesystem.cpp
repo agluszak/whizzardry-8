@@ -16,6 +16,7 @@
 #include <algorithm>
 #include <vector>
 #include "input.h"
+#include "timer.h"
 #include "line.h"
 #include "Video2.h"
 #define BASE_REGION_FLAGS MSYS_REGION_ENABLED

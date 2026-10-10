@@ -1,3 +1,4 @@
+#include "random.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/layouts/character.h"

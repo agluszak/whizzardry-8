@@ -1,3 +1,4 @@
+#include "random.h"
 #include "wiz8/fonts.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/local_code/Sight.h"

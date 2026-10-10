@@ -9,7 +9,7 @@
 #include <stdarg.h>
 #include <wchar.h>
 #include <algorithm>
-#include "sgp.h"
+#include "wiz8/application.h"
 #include "wiz8/filesystem.h"
 #include "Font.h"
 

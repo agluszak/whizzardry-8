@@ -102,11 +102,10 @@ endif()
 target_link_libraries(wiz8_native_settings INTERFACE wiz8_compat)
 
 add_subdirectory(src/surrender)
-add_subdirectory(src/sgp)
 add_subdirectory(src/wiz8)
 
 add_executable(Wiz8Native src/sgp/native/main.cpp)
-target_link_libraries(Wiz8Native PRIVATE WIZ8_GAME_CORE WIZ8_SGP WIZ8_GAME_CORE SDL3::SDL3)
+target_link_libraries(Wiz8Native PRIVATE WIZ8_GAME_CORE SDL3::SDL3)
 
 if(BUILD_TESTING)
     add_subdirectory(tests)

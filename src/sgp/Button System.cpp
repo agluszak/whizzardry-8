@@ -19,6 +19,8 @@
 #include "vobject_blitters.h"
 #include "soundman.h"
 #include "Button System.h"
+#include "Font.h"
+#include "wiz8/application.h"
 #include "line.h"
 #include <stdarg.h>
 #include <array>

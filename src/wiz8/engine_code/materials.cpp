@@ -36,7 +36,7 @@
 
 #include "Font.h"
 #include "input.h"
-#include "sgp.h"
+#include "wiz8/application.h"
 #include "wiz8/local_code/Gameloop.h"
 
 #include <cstdio>

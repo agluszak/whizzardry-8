@@ -1,3 +1,4 @@
+#include "random.h"
 #include "wiz8/compat/unaligned.h"
 #include "wiz8/3d_code/PList.h"
 #include "wiz8/3d_code/IList.h"

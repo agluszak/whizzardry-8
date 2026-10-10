@@ -10,7 +10,7 @@
 #include "vobject_private.h"
 #include "WCheck.h"
 #include "vobject_blitters.h"
-#include "sgp.h"
+#include "wiz8/application.h"
 
 // ******************************************************************************
 // Video Object SGP Module

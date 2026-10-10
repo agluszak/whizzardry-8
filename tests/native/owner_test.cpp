@@ -7,6 +7,7 @@
 #include "wiz8/video_object_catalog.h"
 #include "wiz8/utility.h"
 #include "Button System.h"
+#include "Font.h"
 #include "input.h"
 #include "mousesystem_macros.h"
 #include "vsurface_private.h"

@@ -21,7 +21,8 @@
 #include "wiz8/fonts.h"
 #include "wiz8/sr_api.h"
 #include "Font.h"
-#include "sgp.h"
+#include "wiz8/application.h"
+#include "wiz8/engine_code/Video2.h"
 #include "surrender/srTypeRegistry.h"
 
 #include <string.h>
@@ -86,7 +87,7 @@ W8ScreenId g_previous_screen_id = W8_SCREEN_NONE;
 W8ScreenId g_suspended_screen_id = W8_SCREEN_NONE;
 
 // FUNCTION: WIZ8 0x004e3290
-void ShutdownGame(void)
+void ShutdownGame(size_t initialized_screens, bool save_configuration)
 {
     int index;
 
@@ -105,16 +106,15 @@ void ShutdownGame(void)
     for (auto& palette : g_font_state_palettes)
         palette.reset();
     ReleaseDefaultHelpText();
-    ShutdownButtonSystem();
-    for (index = 0; index < W8_SCREEN_COUNT; ++index) {
+    for (index = 0; index < static_cast<int>(initialized_screens); ++index) {
         g_screen_handlers[index].finalize();
     }
     g_screen_return_stack.clear();
-    SaveGameConfiguration();
     ReleaseAllTriggers();
     FreeStringTable();
-    (wiz8::clear_asset_archives(), true);
     DestroyGameplayObjects();
+    if (save_configuration)
+        SaveGameConfiguration();
 }
 
 // FUNCTION: WIZ8 0x004e3340

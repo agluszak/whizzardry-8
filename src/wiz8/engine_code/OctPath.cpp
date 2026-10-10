@@ -48,7 +48,7 @@
 
 #include "Font.h"
 #include "input.h"
-#include "sgp.h"
+#include "wiz8/application.h"
 
 #include <ctype.h>
 #include <math.h>

@@ -5,7 +5,8 @@
 #include "compat/video.h"
 #include "native/input_events.h"
 #include <wiz8/asset_paths.h>
-#include "sgp.h"
+#include "wiz8/application.h"
+#include "input.h"
 #include "surrender/srGERD.h"
 #include "surrender/srImporter.h"
 #include "surrender/srTriMeshPipeline.h"
@@ -223,7 +224,7 @@ int main(int argc, char** argv)
         srExit();
         ReleasePrimaryCpuSurface();
         W8DestroyGameWindow(window);
-        ShutdownInputManager();
+
         wiz8::clear_asset_archives();
 
         SDL_Quit();
