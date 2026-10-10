@@ -103,23 +103,23 @@ public:
     float m_field_080; /* 0.9 */
     float m_field_084; /* 0.75 */
     int m_fill_colour; /* highlight fill colour */
-    int m_text_button;
-    int m_second_text_button;
+    GUIButton m_text_button;
+    GUIButton m_second_text_button;
     short area_inlay;  /* DialogInlay inlay for m_area_button */
-    int m_area_button; /* scrolling text area */
-    int m_up_button;
+    GUIButton m_area_button; /* scrolling text area */
+    GUIButton m_up_button;
     int m_up_image;
-    int m_down_button;
+    GUIButton m_down_button;
     int m_down_image;
-    int m_slider_button;
+    GUIButton m_slider_button;
     int m_slider_image;
     short third_btn_inlay; /* DialogInlay inlay for m_third_text_button */
-    int m_third_text_button;
-    int m_ok_button;
+    GUIButton m_third_text_button;
+    GUIButton m_ok_button;
     int m_ok_image;
     /* Click rectangles read by ProcessInput; nothing writes them. */
     W8ControlsRect m_ok_rect;
-    int m_cancel_button;
+    GUIButton m_cancel_button;
     int m_cancel_image;
     W8ControlsRect m_cancel_rect;
     bool m_scrollable; /* scrolling area is scrollable */

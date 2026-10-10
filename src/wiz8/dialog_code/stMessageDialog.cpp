@@ -30,8 +30,8 @@
 
 // FUNCTION: WIZ8 0x005d25b0
 W8MessageDialogBase::W8MessageDialogBase()
-    : accepted(false), is_open(true), m_edge_image(-1), m_message_button(-1), m_confirm_button(-1),
-      m_confirm_image(-1), m_cancel_button(-1), m_cancel_image(-1), m_line_count(0)
+    : accepted(false), is_open(true), m_edge_image(-1), m_message_button(), m_confirm_button(),
+      m_confirm_image(-1), m_cancel_button(), m_cancel_image(-1), m_line_count(0)
 {
 }
 
@@ -72,10 +72,10 @@ void W8MessageDialogBase::Draw()
         RestoreFontSettings();
     }
     if (m_show_confirm) {
-        if (m_confirm_button != -1) {
+        if (m_confirm_button) {
             DrawButton(m_confirm_button);
         }
-        if (allow_cancel && m_cancel_button != -1) {
+        if (allow_cancel && m_cancel_button) {
             DrawButton(m_cancel_button);
         }
     }
@@ -200,7 +200,7 @@ int W8MessageDialogBase::CreateControls()
             QuickCreateButton(m_cancel_image, 0, 0, BUTTON_NO_TOGGLE, MSYS_PRIORITY_HIGHEST,
                               MessageDialogCancelCallback, MessageDialogCancelCallback);
     }
-    if (m_confirm_button != -1 && m_cancel_button != -1) {
+    if (m_confirm_button && m_cancel_button) {
         int button_width;
         int button_y;
         int button_x;
@@ -230,9 +230,9 @@ void W8MessageDialogBase::DestroyControls()
 
     W8DialogBase::DestroyControls();
     ReleaseDialogBorderImage(m_edge_image);
-    ReleaseDialogButtonHandle(m_message_button);
-    ReleaseDialogButtonHandle(m_confirm_button);
-    ReleaseDialogButtonHandle(m_cancel_button);
+    m_message_button.reset();
+    m_confirm_button.reset();
+    m_cancel_button.reset();
     ReleaseDialogButtonImage(m_confirm_image);
     ReleaseDialogButtonImage(m_cancel_image);
     m_lines.clear();

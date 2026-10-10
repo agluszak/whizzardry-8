@@ -222,17 +222,21 @@ int clicks, click_reason;
 MOUSE_REGION* clicked_region;
 void region_click(MOUSE_REGION* region, INT32) { clicked_region = region; }
 void click(GUI_BUTTON*, INT32 reason) { ++clicks; click_reason = reason; }
-int nested_outer, nested_inner;
+
+GUIButton nested_outer, nested_inner, removable_button;
 void nested_click(GUI_BUTTON* button, INT32 reason)
 {
-    if (button->IDNum == nested_inner) {
-        RemoveButton(nested_outer);
+    if (button == nested_inner.get()) {
+        // The outer handler must remain alive while a nested callback destroys
+        // the last external owner.
+        nested_outer.reset();
         return;
     }
-    QuickButtonCallbackMButn(&ButtonList[nested_inner]->Area, reason);
-    REQUIRE(ButtonList[nested_outer].get() == button);
-    REQUIRE(button->uiFlags & BUTTON_DELETION_PENDING);
-    RemoveButton(nested_inner);
+    REQUIRE(button == nested_outer.get());
+    QuickButtonCallbackMButn(&nested_inner->Area, reason);
+    REQUIRE(!nested_outer);
+    REQUIRE(button->ClickCallback == nested_click);
+    nested_inner.reset();
 }
 void remove_on_move(MOUSE_REGION* region, INT32 reason)
 {
@@ -241,8 +245,9 @@ void remove_on_move(MOUSE_REGION* region, INT32 reason)
 }
 void remove_button_on_callback(GUI_BUTTON* button, INT32)
 {
-    RemoveButton(button->IDNum);
-    REQUIRE(ButtonList[button->IDNum].get() == button);
+    removable_button.reset();
+    // QuickButtonCallback pins the object through the callback.
+    REQUIRE(button->ClickCallback == remove_button_on_callback);
 }
 
 void region_registration_and_callback_lifetimes()
@@ -269,28 +274,30 @@ void region_registration_and_callback_lifetimes()
     MSYS_SGP_Mouse_Handler_Hook(LEFT_BUTTON_UP, 11, 11, false, false);
     MSYS_RemoveRegion(&first);
 
-    char label[] = "nested";
-    nested_outer = CreateTextButton(label, 0, 0, 0, -1, 0, 0, 40, 20,
-                                   BUTTON_TOGGLE, MSYS_PRIORITY_NORMAL, nullptr, nested_click);
-    nested_inner = CreateTextButton(label, 0, 0, 0, -1, 0, 20, 40, 20,
-                                   BUTTON_TOGGLE, MSYS_PRIORITY_NORMAL, nullptr, nested_click);
-    REQUIRE((nested_outer >= 0 && nested_inner >= 0));
-    QuickButtonCallbackMButn(&ButtonList[nested_outer]->Area, MSYS_CALLBACK_REASON_LBUTTON_DWN);
-    REQUIRE((!ButtonList[nested_outer] && !ButtonList[nested_inner]));
-    for (const bool disabled : {false, true}) {
-        const auto id = CreateTextButton(label, 0, 0, 0, -1, 0, 0, 40, 20,
-                                        BUTTON_TOGGLE, MSYS_PRIORITY_NORMAL,
-                                        remove_button_on_callback, remove_button_on_callback);
-        REQUIRE(id >= 0);
+    nested_outer = CreateTextButton("nested", 0, 0, 0, -1, 0, 0, 40, 20,
+                                    BUTTON_TOGGLE, MSYS_PRIORITY_NORMAL, nullptr, nested_click);
+    nested_inner = CreateTextButton("nested", 0, 0, 0, -1, 0, 20, 40, 20,
+                                    BUTTON_TOGGLE, MSYS_PRIORITY_NORMAL, nullptr, nested_click);
+    REQUIRE((nested_outer && nested_inner));
+    QuickButtonCallbackMButn(&nested_outer->Area, MSYS_CALLBACK_REASON_LBUTTON_DWN);
+    REQUIRE((!nested_outer && !nested_inner));
+
+    for (bool disabled : {false, true}) {
+        removable_button = CreateTextButton("remove", 0, 0, 0, -1, 0, 0, 40, 20,
+                                            BUTTON_TOGGLE, MSYS_PRIORITY_NORMAL,
+                                            remove_button_on_callback, remove_button_on_callback);
+        REQUIRE(removable_button);
+        auto weak = std::weak_ptr<GUI_BUTTON>(removable_button);
         if (disabled) {
-            ButtonList[id]->uiFlags &= ~BUTTON_ENABLED;
-            ButtonList[id]->uiFlags |= BUTTON_ALLOW_DISABLED_CALLBACK;
-            QuickButtonCallbackMButn(&ButtonList[id]->Area, MSYS_CALLBACK_REASON_LBUTTON_DWN);
+            removable_button->uiFlags &= ~BUTTON_ENABLED;
+            removable_button->uiFlags |= BUTTON_ALLOW_DISABLED_CALLBACK;
+            QuickButtonCallbackMButn(&removable_button->Area, MSYS_CALLBACK_REASON_LBUTTON_DWN);
         } else {
-            QuickButtonCallbackMMove(&ButtonList[id]->Area, MSYS_CALLBACK_REASON_GAIN_MOUSE);
+            QuickButtonCallbackMMove(&removable_button->Area, MSYS_CALLBACK_REASON_GAIN_MOUSE);
         }
-        REQUIRE(!ButtonList[id]);
+        REQUIRE(weak.expired());
     }
+    REQUIRE(RegisteredButtonCount() == 0);
     MSYS_Shutdown();
     REQUIRE(MSYS_Init());
     MSYS_Shutdown();
@@ -312,9 +319,11 @@ void buttons_and_regions()
     REQUIRE(MSYS_GetRegionUserData(&low, 0) == 17);
     REQUIRE(MSYS_GrabMouse(&high) == MSYS_GRABBED_OK);
     MSYS_ReleaseMouse(&high);
-    ButtonList[0] = std::make_unique<GUI_BUTTON>();
-    auto& button = *ButtonList[0];
-    button.IDNum = 0;
+
+    auto owned_button = CreateTextButton("direct", 0, 0, 0, -1, 0, 0, 40, 20,
+                                         BUTTON_TOGGLE, MSYS_PRIORITY_NORMAL, nullptr, click);
+    REQUIRE(owned_button);
+    auto& button = *owned_button;
     button.ClickCallback = click;
     button.uiFlags = BUTTON_ENABLED | BUTTON_CLICK_CALLBACK;
     QuickButtonCallbackMButn(&button.Area, MSYS_CALLBACK_REASON_LBUTTON_DWN);
@@ -335,32 +344,35 @@ void buttons_and_regions()
     REQUIRE(button.uiFlags & BUTTON_CLICKED_ON);
     REQUIRE(gpAnchoredButton == &button);
     gpAnchoredButton = nullptr;
-    ButtonList[0] = nullptr;
+    owned_button.reset();
+
     for (unsigned repeat = 0; repeat < 32; ++repeat) {
         char label[] = "owned button";
-        const auto id = CreateTextButton(label, 0, 0, 0, -1, 0, 0, 40, 20,
-                                         BUTTON_TOGGLE, MSYS_PRIORITY_NORMAL, nullptr, click);
-        REQUIRE(id >= 0);
-        auto* owned = ButtonList[id].get();
-        REQUIRE((owned && owned->string[0] == 'o'));
+        auto object = CreateTextButton(label, 0, 0, 0, -1, 0, 0, 40, 20,
+                                       BUTTON_TOGGLE, MSYS_PRIORITY_NORMAL, nullptr, click);
+        REQUIRE(object);
+        auto* owned = object.get();
+        REQUIRE(owned->string[0] == 'o');
         label[0] = 'x';
         REQUIRE(owned->string[0] == 'o');
-        SpecifyButtonText(id, owned->string);
-        REQUIRE((ButtonList[id].get() == owned && owned->string[0] == 'o'));
+        SpecifyButtonText(object, owned->string);
+        REQUIRE((object.get() == owned && owned->string[0] == 'o'));
         char tooltip[] = "tooltip";
-        SetButtonFastHelpText(id, tooltip);
+        SetButtonFastHelpText(object, tooltip);
         tooltip[0] = 'x';
         REQUIRE(owned->Area.FastHelpText[0] == 't');
-        SetButtonFastHelpText(id, owned->Area.FastHelpText);
+        SetButtonFastHelpText(object, owned->Area.FastHelpText);
         REQUIRE(owned->Area.FastHelpText[0] == 't');
-        SetButtonFastHelpText(id, {});
+        SetButtonFastHelpText(object, {});
         REQUIRE(owned->Area.FastHelpText.empty());
-        SetButtonFastHelpText(id, label);
-        SpecifyButtonText(id, {});
+        SetButtonFastHelpText(object, label);
+        SpecifyButtonText(object, {});
         REQUIRE(owned->string.empty());
-        RemoveButton(id);
-        REQUIRE(!ButtonList[id]);
+        auto weak = std::weak_ptr<GUI_BUTTON>(object);
+        object.reset();
+        REQUIRE(weak.expired());
     }
+    REQUIRE(RegisteredButtonCount() == 0);
     MSYS_RemoveRegion(&high);
     MSYS_RemoveRegion(&low);
     MSYS_Shutdown();
@@ -828,8 +840,7 @@ TEST_CASE("assert-plain", "[.death]")
 
 TEST_CASE("assert-message", "[.death]")
 {
-    MOUSE_REGION region{};
-    region.UserData[0] = MAX_BUTTONS;
-    QuickButtonCallbackMButn(&region, MSYS_CALLBACK_REASON_LBUTTON_DWN);
-    FAIL("QuickButtonCallbackMButn did not abort");
+    CreateTextButton("invalid", 0, 0, 0, -1, -1, 0, 40, 20,
+                     BUTTON_TOGGLE, MSYS_PRIORITY_NORMAL, nullptr, nullptr);
+    FAIL("CreateTextButton did not abort");
 }

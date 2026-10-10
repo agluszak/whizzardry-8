@@ -14,10 +14,8 @@
 #include "vobject.h"
 #include "mousesystem.h"
 #include "soundman.h"
+#include <memory>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 // Moved here from Button System.c by DB 99/01/07
 // Names of the default generic button image files.
@@ -61,7 +59,6 @@ extern "C" {
 #define BUTTON_GENERIC 0x00000020
 #define BUTTON_HOT_SPOT 0x00000040
 #define BUTTON_SELFDELETE_IMAGE 0x00000080
-#define BUTTON_DELETION_PENDING 0x00000100
 #define BUTTON_ALLOW_DISABLED_CALLBACK 0x00000200
 #define BUTTON_DIRTY 0x00000400
 #define BUTTON_SAVEBACKGROUND 0x00000800
@@ -78,7 +75,12 @@ extern UINT32 ButtonDestBuffer;
 typedef void (*GUI_CALLBACK)(struct _GUI_BUTTON*, INT32);
 
 // GUI_BUTTON structure definitions.
-typedef struct _GUI_BUTTON {
+typedef struct _GUI_BUTTON : std::enable_shared_from_this<_GUI_BUTTON> {
+    ~_GUI_BUTTON();
+    _GUI_BUTTON() = default;
+    _GUI_BUTTON(const _GUI_BUTTON&) = delete;
+    _GUI_BUTTON& operator=(const _GUI_BUTTON&) = delete;
+
     INT32 IDNum;                // ID Number, contains it's own button number
     UINT32 ImageNum;            // Image number to use (see DOCs for details)
     MOUSE_REGION Area;          // Mouse System's mouse region to use for this button
@@ -124,11 +126,12 @@ typedef struct _GUI_BUTTON {
     INT32 BackRect; // Handle to a Background Rectangle
 } GUI_BUTTON;
 
-#define MAX_BUTTONS 400
 
-extern std::array<std::unique_ptr<GUI_BUTTON>, MAX_BUTTONS> ButtonList; // Button System's Main Button List
+using GUIButton = std::shared_ptr<GUI_BUTTON>;
 
-#define GetButtonPtr(x) (((x >= 0) && (x < MAX_BUTTONS)) ? ButtonList[x].get() : nullptr)
+// The interface and screen own their buttons; only weak references are kept
+// by the renderer and mouse dispatcher.
+size_t RegisteredButtonCount();
 
 // Struct definition for the QuickButton pictures.
 struct BUTTON_PICS {
@@ -156,10 +159,9 @@ void ShutdownButtonSystem(void);
 
 INT32 FindFreeButtonSlot(void);
 INT16 FindFreeGenericSlot(void);
-INT32 GetNextButtonNumber(void);
 
 // Now used by Wizardry -- DB
-void SetButtonFastHelpText(INT32 iButton, std::string_view Text);
+void SetButtonFastHelpText(const GUIButton& button, std::string_view Text);
 
 INT32 LoadButtonImage(std::string_view filename, INT32 Grayed, INT32 OffNormal, INT32 OffHilite,
                       INT32 OnNormal, INT32 OnHilite);
@@ -171,13 +173,12 @@ INT16 LoadGenericButtonImages(std::string_view GrayName, std::string_view OffNor
                               INT16 Index, INT16 OffsetX, INT16 OffsetY);
 BOOLEAN UnloadGenericButtonImage(INT16 GenImg);
 
-BOOLEAN DisableButton(INT32 iButtonID);
-void RemoveButton(INT32 iButtonID);
-void HideButton(INT32 iButtonID);
-void ShowButton(INT32 iButton);
+BOOLEAN DisableButton(const GUIButton& button);
+void HideButton(const GUIButton& button);
+void ShowButton(const GUIButton& button);
 
 void RenderButtons(void);
-BOOLEAN DrawButton(INT32 iButtonID);
+BOOLEAN DrawButton(const GUIButton& button);
 void DrawButtonFromPtr(GUI_BUTTON* b);
 
 //Base button types
@@ -194,7 +195,7 @@ extern BOOLEAN gfRenderHilights;
 #define DisableHilightsAndHelpText() gfRenderHilights = FALSE;
 
 //Providing you have allocated your own image, this is a somewhat simplified function.
-INT32 QuickCreateButton(UINT32 Image, INT16 xloc, INT16 yloc, INT32 Type, INT16 Priority,
+GUIButton QuickCreateButton(UINT32 Image, INT16 xloc, INT16 yloc, INT32 Type, INT16 Priority,
                         GUI_CALLBACK MoveCallback, GUI_CALLBACK ClickCallback);
 
 //A hybrid of QuickCreateButton.  Takes a lot less parameters, but makes more assumptions.  It self manages the
@@ -203,13 +204,13 @@ INT32 QuickCreateButton(UINT32 Image, INT16 xloc, INT16 yloc, INT32 Type, INT16 
 //choose also determines the type of button (toggle, notoggle, or newtoggle)
 //Same as above, but accepts specify toggle type
 //Same as above, but accepts priority specification.
-INT32 CreateTextButton(std::string_view string, UINT32 uiFont, INT16 sForeColor, INT16 sShadowColor,
+GUIButton CreateTextButton(std::string_view string, UINT32 uiFont, INT16 sForeColor, INT16 sShadowColor,
                        INT16 GenImg, INT16 xloc, INT16 yloc, INT16 w, INT16 h, INT32 Type,
                        INT16 Priority, GUI_CALLBACK MoveCallback, GUI_CALLBACK ClickCallback);
 //New functions
-void SpecifyButtonText(INT32 iButtonID, std::string_view string);
-void SpecifyButtonMultiColorFont(INT32 iButtonID, BOOLEAN fMultiColor);
-void SpecifyButtonTextOffsets(INT32 iButtonID, INT8 bTextXOffset, INT8 bTextYOffset,
+void SpecifyButtonText(const GUIButton& button, std::string_view string);
+void SpecifyButtonMultiColorFont(const GUIButton& button, BOOLEAN fMultiColor);
+void SpecifyButtonTextOffsets(const GUIButton& button, INT8 bTextXOffset, INT8 bTextYOffset,
                               BOOLEAN fShiftText);
 
 enum {
@@ -230,31 +231,27 @@ enum //for use with SpecifyDisabledButtonStyle
 //If fShiftImage is true, then the image will shift down one pixel and right one pixel
 //just like the text does.
 
-void SetButtonPosition(INT32 iButtonID, INT16 x, INT16 y);
-void ResizeButton(INT32 iButtonID, INT16 w, INT16 h);
+void SetButtonPosition(const GUIButton& button, INT16 x, INT16 y);
+void ResizeButton(const GUIButton& button, INT16 w, INT16 h);
 
 void QuickButtonCallbackMMove(MOUSE_REGION* reg, INT32 reason);
 void QuickButtonCallbackMButn(MOUSE_REGION* reg, INT32 reason);
 
-void MSYS_SetBtnUserData(INT32 iButtonNum, INT32 index, INT32 userdata);
+void MSYS_SetBtnUserData(const GUIButton& button, INT32 index, INT32 userdata);
 INT32 MSYS_GetBtnUserData(GUI_BUTTON* b, INT32 index);
 void MarkButtonsDirty(
     void); // Function to mark buttons dirty ( all will redraw at next RenderButtons )
 // DB 98-05-05
-BOOLEAN GetButtonArea(INT32 iButtonID, SDL_Rect* pRect);
+BOOLEAN GetButtonArea(const GUIButton& button, SDL_Rect* pRect);
 // DB 99-01-13
-INT32 GetButtonWidth(INT32 iButtonID);
-INT32 GetButtonHeight(INT32 iButtonID);
+INT32 GetButtonWidth(const GUIButton& button);
+INT32 GetButtonHeight(const GUIButton& button);
 
 // DB 99-08-27
-INT32 GetButtonX(INT32 iButtonID);
-INT32 GetButtonY(INT32 iButtonID);
+INT32 GetButtonX(const GUIButton& button);
+INT32 GetButtonY(const GUIButton& button);
 
 void BtnGenericMouseMoveButtonCallback(GUI_BUTTON* btn, INT32 reason);
 #define DEFAULT_MOVE_CALLBACK BtnGenericMouseMoveButtonCallback
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif

@@ -42,11 +42,11 @@ static int g_message_box_state;
 // GLOBAL: WIZ8 0x0061a548
 static short g_message_box_background_image = -1;
 // GLOBAL: WIZ8 0x0061a54c
-static int g_message_box_background_button = -1;
+static GUIButton g_message_box_background_button;
 // GLOBAL: WIZ8 0x0061a550
-static int g_message_box_accept_button = -1;
+static GUIButton g_message_box_accept_button;
 // GLOBAL: WIZ8 0x0061a554
-static int g_message_box_cancel_button = -1;
+static GUIButton g_message_box_cancel_button;
 // GLOBAL: WIZ8 0x0061a558
 static int g_message_box_accept_image = -1;
 // GLOBAL: WIZ8 0x0061a55c
@@ -527,7 +527,7 @@ bool CreateMessageBox(std::string_view text, int font, unsigned int shade, bool 
     g_message_box_background_button = CreateTextButton(
         text, static_cast<unsigned short>(font), 0xff, 0, g_message_box_background_image,
         (0x280 - width) / 2, yloc, width, height, 4, 0x7d, 0, MessageBoxAcceptClickCallback);
-    if (g_message_box_background_button < 0) {
+    if (!g_message_box_background_button) {
         return false;
     }
     SpecifyButtonMultiColorFont(g_message_box_background_button, 1);
@@ -540,11 +540,11 @@ bool CreateMessageBox(std::string_view text, int font, unsigned int shade, bool 
         g_message_box_accept_button = QuickCreateButton(
             g_message_box_accept_image, 0x131 - (has_cancel ? 0x1e : 0), yloc + 0x46, 4, 0x7e,
             MessageBoxAcceptMoveCallback, MessageBoxAcceptClickCallback);
-        if (g_message_box_accept_button < 0) {
+        if (!g_message_box_accept_button) {
             return false;
         }
     } else {
-        g_message_box_accept_button = -1;
+        g_message_box_accept_button.reset();
     }
     if (has_cancel) {
         strcpy(filename, "Data\\Message Box\\Cancel.sti");
@@ -555,11 +555,11 @@ bool CreateMessageBox(std::string_view text, int font, unsigned int shade, bool 
         g_message_box_cancel_button = QuickCreateButton(
             g_message_box_cancel_image, 0x131 + (has_accept ? 0x1e : 0), yloc + 0x46, 4, 0x7e,
             MessageBoxCancelMoveCallback, MessageBoxCancelClickCallback);
-        if (g_message_box_cancel_button < 0) {
+        if (!g_message_box_cancel_button) {
             return false;
         }
     } else {
-        g_message_box_cancel_button = -1;
+        g_message_box_cancel_button.reset();
     }
     if (has_accept || has_cancel) {
         DisableButton(g_message_box_background_button);
@@ -576,19 +576,19 @@ bool CreateMessageBox(std::string_view text, int font, unsigned int shade, bool 
 static void ReleaseMessageBoxControls()
 {
     SDL_Rect rect;
-    if (g_message_box_accept_button != -1) {
-        RemoveButton(g_message_box_accept_button);
+    if (g_message_box_accept_button) {
+        g_message_box_accept_button.reset();
         UnloadButtonImage(g_message_box_accept_image);
     }
-    if (g_message_box_cancel_button != -1) {
-        RemoveButton(g_message_box_cancel_button);
+    if (g_message_box_cancel_button) {
+        g_message_box_cancel_button.reset();
         UnloadButtonImage(g_message_box_cancel_image);
     }
-    if (g_message_box_background_button != -1) {
+    if (g_message_box_background_button) {
         GetButtonArea(g_message_box_background_button, &rect);
         ClearSurfaceRect(rect.x, rect.y, (rect.x + rect.w), (rect.y + rect.h));
         InvalidateRegion(rect.x, rect.y, (rect.x + rect.w), (rect.y + rect.h), 1);
-        RemoveButton(g_message_box_background_button);
+        g_message_box_background_button.reset();
     }
     if (g_message_box_background_image != -1) {
         UnloadGenericButtonImage(g_message_box_background_image);
@@ -719,7 +719,7 @@ void ProcessMessageBoxInput(void)
                 break;
             case 27:
             case 'N':
-                g_message_box_accepted = g_message_box_cancel_button == -1;
+                g_message_box_accepted = !g_message_box_cancel_button;
                 g_message_box_state = 1;
                 break;
             }

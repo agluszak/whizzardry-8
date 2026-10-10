@@ -14,6 +14,9 @@
 #include "input.h"
 #include <array>
 #include <memory>
+#include <vector>
+#include <unordered_map>
+#include <algorithm>
 #include "english.h"
 #include "vobject.h"
 #include "vobject_blitters.h"
@@ -60,13 +63,10 @@ BOOLEAN gfIgnoreShutdownAssertions;
 //Called immediately before assigning the button to the button list.
 void AssertFailIfIdenticalButtonAttributesFound(GUI_BUTTON* b)
 {
-    INT32 x;
-    GUI_BUTTON* c;
-    for (x = 0; x < MAX_BUTTONS; x++) {
-        c = ButtonList[x].get();
+    for (const auto& weak : active_buttons) {
+        auto retained = weak.lock();
+        GUI_BUTTON* c = retained.get();
         if (!c)
-            continue;
-        if (c->uiFlags & BUTTON_DELETION_PENDING)
             continue;
         if (c->UserData[3] == 0xffffffff)
             continue;
@@ -133,10 +133,28 @@ UINT32 ButtonDestPitch = 640 * 2;
 UINT32 ButtonDestBPP = 16;
 
 // GLOBAL: WIZ8 0x006e1240
-std::array<std::unique_ptr<GUI_BUTTON>, MAX_BUTTONS> ButtonList;
+// Buttons are owned by their C++ clients. Rendering and mouse dispatch only
+// retain weak references, so a button does not require a global numeric slot.
+static std::vector<std::weak_ptr<GUI_BUTTON>> active_buttons;
+static std::unordered_map<MOUSE_REGION*, std::weak_ptr<GUI_BUTTON>> region_buttons;
+static INT32 next_button_id = 1;
+
+size_t RegisteredButtonCount()
+{
+    return std::count_if(active_buttons.begin(), active_buttons.end(),
+                         [](const auto& button) { return !button.expired(); });
+}
+
+_GUI_BUTTON::~_GUI_BUTTON()
+{
+    region_buttons.erase(&Area);
+    if (Area.uiFlags & MSYS_REGION_EXISTS) MSYS_RemoveRegion(&Area);
+    if (gpAnchoredButton == this) gpAnchoredButton = nullptr;
+    if (gpPrevAnchoredButton == this) gpPrevAnchoredButton = nullptr;
+    if (uiFlags & BUTTON_SELFDELETE_IMAGE) UnloadButtonImage(ImageNum);
+}
 
 // GLOBAL: WIZ8 0x00650ea4
-INT32 ButtonsInList = 0;
 
 // GLOBAL: WIZ8 0x006e4060
 std::array<std::unique_ptr<SGPVObject>, MAX_GENERIC_PICS> GenericButtonGrayed;
@@ -169,23 +187,12 @@ BOOLEAN fPausedMarkButtonsDirtyFlag = FALSE;
 BOOLEAN fDisableHelpTextRestoreFlag = FALSE;
 
 // GLOBAL: WIZ8 0x00650EAA
-static UINT32 g_button_dispatch_depth = 0;
-// GLOBAL: WIZ8 0x00650EAB
-BOOLEAN gfPendingButtonDeletion = FALSE;
-void RemoveButtonsMarkedForDeletion();
-
-namespace {
-struct ButtonDispatch {
-    ButtonDispatch() { ++g_button_dispatch_depth; }
-    ~ButtonDispatch() {
-        if (--g_button_dispatch_depth == 0 && gfPendingButtonDeletion) {
-            gfPendingButtonDeletion = FALSE;
-            RemoveButtonsMarkedForDeletion();
-        }
-    }
-};
+// Mouse callbacks hold a strong reference until the current dispatch returns.
+static std::shared_ptr<GUI_BUTTON> ButtonFromRegion(MOUSE_REGION* region)
+{
+    auto it = region_buttons.find(region);
+    return it == region_buttons.end() ? std::shared_ptr<GUI_BUTTON>{} : it->second.lock();
 }
-
 
 extern MOUSE_REGION* MSYS_PrevRegion;
 extern MOUSE_REGION* MSYS_CurrRegion;
@@ -446,28 +453,13 @@ void UnloadButtonImage(INT32 Index)
 //	Diabled buttons will appear "grayed out" on the screen (unless the
 //	graphics for such are not available).
 // FUNCTION: WIZ8 0x0040c7e0
-BOOLEAN DisableButton(INT32 iButtonID)
+BOOLEAN DisableButton(const GUIButton& button)
 {
-    GUI_BUTTON* b;
-    UINT32 OldState;
-
-    if (iButtonID < 0 || iButtonID >= MAX_BUTTONS) {
-        sprintf(str, "Attempting to DisableButton with out of range buttonID %d.", iButtonID);
-        AssertMsg(0, str);
-    }
-
-    b = ButtonList[iButtonID].get();
-
-    // If button exists, reset the ENABLED flag
-    if (b) {
-        OldState = b->uiFlags & BUTTON_ENABLED;
-        b->uiFlags &= (~BUTTON_ENABLED);
-        b->uiFlags |= BUTTON_DIRTY;
-    } else
-        OldState = 0;
-
-    // Return previous ENABLED state of button
-    return ((OldState == BUTTON_ENABLED) ? TRUE : FALSE);
+    if (!button) return FALSE;
+    bool was_enabled = (button->uiFlags & BUTTON_ENABLED) != 0;
+    button->uiFlags &= ~BUTTON_ENABLED;
+    button->uiFlags |= BUTTON_DIRTY;
+    return was_enabled ? TRUE : FALSE;
 }
 
 namespace {
@@ -695,107 +687,23 @@ BOOLEAN InitButtonSystem(void)
         return (FALSE);
     }
 
-    ButtonsInList = 0;
 
     return (TRUE);
 }
 
-//	ShutdownButtonSystem
-//	Shuts down and cleans up the GUI button system. Must be called before
-//	exiting the program. Button functions should not be used after calling
-//	this function.
+// Stop receiving events before the surrounding screens release their buttons.
 // FUNCTION: WIZ8 0x0040cf90
 void ShutdownButtonSystem(void)
 {
-    int x;
-
-    // Kill off all buttons in the system
-    for (x = 0; x < MAX_BUTTONS; x++) {
-        if (ButtonList[x] != nullptr)
-            RemoveButton(x);
-    }
-    // Shutdown the button image manager sub-system
-    ShutdownButtonImageManager();
-
-}
-
-// FUNCTION: WIZ8 0x0040d070
-void RemoveButtonsMarkedForDeletion()
-{
-    INT32 i;
-    for (i = 0; i < MAX_BUTTONS; i++) {
-        if (ButtonList[i] && ButtonList[i]->uiFlags & BUTTON_DELETION_PENDING) {
-            RemoveButton(i);
+    for (auto& weak : active_buttons) {
+        if (auto button = weak.lock()) {
+            if (button->Area.uiFlags & MSYS_REGION_EXISTS)
+                MSYS_RemoveRegion(&button->Area);
         }
     }
-}
-
-//	RemoveButton
-//	Removes a button from the system's list. All memory associated with the
-//	button is released.
-// FUNCTION: WIZ8 0x0040d150
-void RemoveButton(INT32 iButtonID)
-{
-    GUI_BUTTON* b;
-
-    if (iButtonID < 0 || iButtonID >= MAX_BUTTONS) {
-        sprintf(str, "Attempting to RemoveButton with out of range buttonID %d.", iButtonID);
-        AssertMsg(0, str);
-    }
-
-    b = ButtonList[iButtonID].get();
-
-    // If button exists...
-    if (!b) {
-#ifdef BUTTONSYSTEM_DEBUGGING
-        if (gfIgnoreShutdownAssertions)
-#endif
-            return;
-        AssertMsg(0, "Attempting to remove a button that has already been deleted.");
-    }
-
-    //If we happen to be in the middle of a callback, and attempt to delete a button,
-    //like deleting a node during list processing, then we delay it till after the callback
-    //is completed.
-    if (g_button_dispatch_depth) {
-        b->uiFlags |= BUTTON_DELETION_PENDING;
-        gfPendingButtonDeletion = TRUE;
-        return;
-    }
-
-    //Kris:
-    if (b->uiFlags &
-        BUTTON_SELFDELETE_IMAGE) { //checkboxes and simple create buttons have their own graphics associated with them,
-        //and it is handled internally.  We delete it here.  This provides the advantage of less
-        //micromanagement, but with the disadvantage of wasting more memory if you have lots of
-        //buttons using the same graphics.
-        UnloadButtonImage(b->ImageNum);
-    }
-
-    // ...kill it!!!
-    MSYS_RemoveRegion(&b->Area);
-
-
-    if (b == gpAnchoredButton)
-        gpAnchoredButton = nullptr;
-    if (b == gpPrevAnchoredButton)
-        gpPrevAnchoredButton = nullptr;
-
-    ButtonList[iButtonID].reset();
-}
-
-//	GetNextButtonNumber
-//	Finds the next available button slot.
-INT32 GetNextButtonNumber(void)
-{
-    INT32 x;
-
-    for (x = 0; x < MAX_BUTTONS; x++) {
-        if (ButtonList[x] == nullptr)
-            return (x);
-    }
-
-    return (BUTTON_NO_SLOT);
+    active_buttons.clear();
+    region_buttons.clear();
+    ShutdownButtonImageManager();
 }
 
 //	ResizeButton
@@ -803,15 +711,10 @@ INT32 GetNextButtonNumber(void)
 //	QuickButtons cannot be resized, therefore this function ignores the
 //	call if a QuickButton is given.
 // FUNCTION: WIZ8 0x0040d210
-void ResizeButton(INT32 iButtonID, INT16 w, INT16 h)
+void ResizeButton(const GUIButton& button, INT16 w, INT16 h)
 {
     GUI_BUTTON* b;
     INT32 xloc, yloc;
-
-    if (iButtonID < 0 || iButtonID >= MAX_BUTTONS) {
-        sprintf(str, "Attempting to resize button with out of range buttonID %d.", iButtonID);
-        AssertMsg(0, str);
-    }
 
     // if button size is too small, adjust it.
     if (w < 4)
@@ -819,12 +722,8 @@ void ResizeButton(INT32 iButtonID, INT16 w, INT16 h)
     if (h < 3)
         h = 3;
 
-    b = ButtonList[iButtonID].get();
-
-    if (!b) {
-        sprintf(str, "Attempting to resize deleted button with buttonID %d", iButtonID);
-        AssertMsg(0, str);
-    }
+    b = button.get();
+    if (!b) return;
 
     // If this is a QuickButton, ignore this call
     if ((b->uiFlags & BUTTON_TYPES) == BUTTON_QUICK)
@@ -846,22 +745,13 @@ void ResizeButton(INT32 iButtonID, INT16 w, INT16 h)
 //	Sets the position of a button on the screen. The position is relative
 //	to the top left corner of the button.
 // FUNCTION: WIZ8 0x0040d2b0
-void SetButtonPosition(INT32 iButtonID, INT16 x, INT16 y)
+void SetButtonPosition(const GUIButton& button, INT16 x, INT16 y)
 {
     GUI_BUTTON* b;
     INT32 xloc, yloc, w, h;
 
-    if (iButtonID < 0 || iButtonID >= MAX_BUTTONS) {
-        sprintf(str, "Attempting to set button position with out of range buttonID %d.", iButtonID);
-        AssertMsg(0, str);
-    }
-
-    b = ButtonList[iButtonID].get();
-
-    if (!b) {
-        sprintf(str, "Attempting to set button position with buttonID %d", iButtonID);
-        AssertMsg(0, str);
-    }
+    b = button.get();
+    if (!b) return;
 
     // Get new screen position
     xloc = (INT16)x;
@@ -883,12 +773,11 @@ void SetButtonPosition(INT32 iButtonID, INT16 x, INT16 y)
 
 //Creates a generic button with text on it.
 // FUNCTION: WIZ8 0x0040d350
-INT32 CreateTextButton(std::string_view string, UINT32 uiFont, INT16 sForeColor, INT16 sShadowColor,
+GUIButton CreateTextButton(std::string_view string, UINT32 uiFont, INT16 sForeColor, INT16 sShadowColor,
                        INT16 GenImg, INT16 xloc, INT16 yloc, INT16 w, INT16 h, INT32 Type,
                        INT16 Priority, GUI_CALLBACK MoveCallback, GUI_CALLBACK ClickCallback)
 {
     GUI_BUTTON* b;
-    INT32 ButtonNum;
     INT32 BType, x;
 
     if (xloc < 0 || yloc < 0) {
@@ -909,14 +798,8 @@ INT32 CreateTextButton(std::string_view string, UINT32 uiFont, INT16 sForeColor,
     // Strip off any extraneous bits from button type
     BType = Type & (BUTTON_TYPE_MASK | BUTTON_NEWTOGGLE);
 
-    // Get a button number for this new button
-    if ((ButtonNum = GetNextButtonNumber()) == BUTTON_NO_SLOT) {
-        SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "%s", "CreateTextButton: No more button slots");
-        return (-1);
-    }
-
     // Allocate memory for a GUI_BUTTON structure
-    auto owner = std::make_unique<GUI_BUTTON>();
+    auto owner = std::make_shared<GUI_BUTTON>();
     b = owner.get();
 
     // Allocate memory for the button's text string...
@@ -925,7 +808,7 @@ INT32 CreateTextButton(std::string_view string, UINT32 uiFont, INT16 sForeColor,
     // Init the button structure variables
     b->uiFlags = BUTTON_DIRTY;
     b->uiOldFlags = 0;
-    b->IDNum = ButtonNum;
+    b->IDNum = next_button_id++;
     b->XLoc = xloc;
     b->YLoc = yloc;
 
@@ -983,7 +866,6 @@ INT32 CreateTextButton(std::string_view string, UINT32 uiFont, INT16 sForeColor,
                       (MOUSE_CALLBACK)QuickButtonCallbackMButn);
 
     // Link the MOUSE_REGION to this button
-    MSYS_SetRegionUserData(&b->Area, 0, ButtonNum);
 
     // Set the flags for this button
     b->uiFlags |= (BUTTON_ENABLED | BType | BUTTON_GENERIC);
@@ -992,22 +874,22 @@ INT32 CreateTextButton(std::string_view string, UINT32 uiFont, INT16 sForeColor,
 #ifdef BUTTONSYSTEM_DEBUGGING
     AssertFailIfIdenticalButtonAttributesFound(b);
 #endif
-    ButtonList[ButtonNum] = std::move(owner);
+    region_buttons[&b->Area] = owner;
+    active_buttons.push_back(owner);
 
 
     // return the slot number
-    return (ButtonNum);
+    return owner;
 }
 
 //	QuickCreateButton
 //	Creates a QuickButton. QuickButtons only have graphics associated with
 //	them. They cannot be re-sized, nor can the graphic be changed.
 // FUNCTION: WIZ8 0x0040d5e0
-INT32 QuickCreateButton(UINT32 Image, INT16 xloc, INT16 yloc, INT32 Type, INT16 Priority,
+GUIButton QuickCreateButton(UINT32 Image, INT16 xloc, INT16 yloc, INT32 Type, INT16 Priority,
                         GUI_CALLBACK MoveCallback, GUI_CALLBACK ClickCallback)
 {
     GUI_BUTTON* b;
-    INT32 ButtonNum;
     INT32 BType, x;
 
     if (xloc < 0 || yloc < 0) {
@@ -1025,17 +907,11 @@ INT32 QuickCreateButton(UINT32 Image, INT16 xloc, INT16 yloc, INT32 Type, INT16 
     // Is there a QuickButton image in the given image slot?
     if (ButtonPictures[Image].object() == nullptr) {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "%s", "QuickCreateButton: Invalid button image number");
-        return (-1);
-    }
-
-    // Get a new button number
-    if ((ButtonNum = GetNextButtonNumber()) == BUTTON_NO_SLOT) {
-        SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "%s", "QuickCreateButton: No more button slots");
-        return (-1);
+        return {};
     }
 
     // Allocate memory for a GUI_BUTTON structure
-    auto owner = std::make_unique<GUI_BUTTON>();
+    auto owner = std::make_shared<GUI_BUTTON>();
     b = owner.get();
 
     // Set the values for this buttn
@@ -1076,7 +952,7 @@ INT32 QuickCreateButton(UINT32 Image, INT16 xloc, INT16 yloc, INT32 Type, INT16 
     b->bIconYOffset = -1;
     b->fShiftImage = TRUE;
     //Init quickbutton
-    b->IDNum = ButtonNum;
+    b->IDNum = next_button_id++;
     b->ImageNum = Image;
     for (x = 0; x < 4; x++)
         b->UserData[x] = 0;
@@ -1110,7 +986,6 @@ INT32 QuickCreateButton(UINT32 Image, INT16 xloc, INT16 yloc, INT32 Type, INT16 
                       (MOUSE_CALLBACK)QuickButtonCallbackMButn);
 
     // Link the MOUSE_REGION with this QuickButton
-    MSYS_SetRegionUserData(&b->Area, 0, ButtonNum);
 
     // Set the flags for this button
     b->uiFlags |= BUTTON_ENABLED | BType | BUTTON_QUICK;
@@ -1119,61 +994,46 @@ INT32 QuickCreateButton(UINT32 Image, INT16 xloc, INT16 yloc, INT32 Type, INT16 
 #ifdef BUTTONSYSTEM_DEBUGGING
     AssertFailIfIdenticalButtonAttributesFound(b);
 #endif
-    ButtonList[ButtonNum] = std::move(owner);
+    region_buttons[&b->Area] = owner;
+    active_buttons.push_back(owner);
 
 
     // return the button number (slot)
-    return (ButtonNum);
+    return owner;
 }
 
 //New functions
 // FUNCTION: WIZ8 0x0040d850
-void SpecifyButtonText(INT32 iButtonID, std::string_view string)
+void SpecifyButtonText(const GUIButton& button, std::string_view string)
 {
-    Assert(iButtonID >= 0 && iButtonID < MAX_BUTTONS);
-    auto* button = ButtonList[iButtonID].get();
+    if (!button) return;
     button->string = string;
     button->uiFlags |= BUTTON_DIRTY;
 }
 
 // FUNCTION: WIZ8 0x0040d8c0
-void SpecifyButtonMultiColorFont(INT32 iButtonID, BOOLEAN fMultiColor)
+void SpecifyButtonMultiColorFont(const GUIButton& button, BOOLEAN enabled)
 {
-    GUI_BUTTON* b;
-    Assert(iButtonID >= 0);
-    Assert(iButtonID < MAX_BUTTONS);
-    b = ButtonList[iButtonID].get();
-    Assert(b);
-    b->fMultiColor = fMultiColor;
-    b->uiFlags |= BUTTON_DIRTY;
+    if (!button) return;
+    button->fMultiColor = enabled;
+    button->uiFlags |= BUTTON_DIRTY;
 }
 
 // FUNCTION: WIZ8 0x0040d8e0
-void SpecifyButtonTextOffsets(INT32 iButtonID, INT8 bTextXOffset, INT8 bTextYOffset,
-                              BOOLEAN fShiftText)
+void SpecifyButtonTextOffsets(const GUIButton& button, INT8 x, INT8 y, BOOLEAN shift)
 {
-    GUI_BUTTON* b;
-    Assert(iButtonID >= 0);
-    Assert(iButtonID < MAX_BUTTONS);
-    b = ButtonList[iButtonID].get();
-    Assert(b);
-    //Copy over information
-    b->bTextXOffset = bTextXOffset;
-    b->bTextYOffset = bTextYOffset;
-    b->fShiftText = fShiftText;
+    if (!button) return;
+    button->bTextXOffset = x;
+    button->bTextYOffset = y;
+    button->fShiftText = shift;
 }
 
 //	SetButtonFastHelpText
 //	Set the text that will be displayed as the FastHelp
 // FUNCTION: WIZ8 0x0040d910
-void SetButtonFastHelpText(INT32 iButton, std::string_view Text)
+void SetButtonFastHelpText(const GUIButton& button, std::string_view text)
 {
-    GUI_BUTTON* b;
-    if (iButton < 0 || iButton > MAX_BUTTONS)
-        return;
-    b = ButtonList[iButton].get();
-    AssertMsg(b, "Called SetButtonFastHelpText() with a non-existant button.");
-    SetRegionFastHelpText(&b->Area, Text);
+    if (button) SetRegionFastHelpText(&button->Area, text);
 }
 
 //	QuickButtonCallbackMMove
@@ -1182,27 +1042,9 @@ void SetButtonFastHelpText(INT32 iButton, std::string_view Text)
 // FUNCTION: WIZ8 0x0040d940
 void QuickButtonCallbackMMove(MOUSE_REGION* reg, INT32 reason)
 {
-    GUI_BUTTON* b;
-    INT32 iButtonID;
-
-    Assert(reg != nullptr);
-
-    iButtonID = MSYS_GetRegionUserData(reg, 0);
-
-    sprintf(str,
-            "QuickButtonCallbackMMove: Mouse Region #%d (%d,%d to %d,%d) has invalid buttonID %d",
-            reg->IDNumber, reg->RegionTopLeftX, reg->RegionTopLeftY, reg->RegionBottomRightX,
-            reg->RegionBottomRightY, iButtonID);
-
-    AssertMsg(iButtonID >= 0, str);
-    AssertMsg(iButtonID < MAX_BUTTONS, str);
-
-    b = ButtonList[iButtonID].get();
-
-    AssertMsg(b != nullptr, str);
-
-    if (!b)
-        return; //This is getting called when Adding new regions...
+    auto keep_alive = ButtonFromRegion(reg);
+    GUI_BUTTON* b = keep_alive.get();
+    if (!b) return;
 
     if (b->uiFlags & BUTTON_ENABLED &&
         reason & (MSYS_CALLBACK_REASON_LOST_MOUSE | MSYS_CALLBACK_REASON_GAIN_MOUSE)) {
@@ -1227,8 +1069,7 @@ void QuickButtonCallbackMMove(MOUSE_REGION* reg, INT32 reason)
     // If this button is enabled and there is a callback function associated with it,
     // call the callback function.
     if ((b->uiFlags & BUTTON_ENABLED) && (b->uiFlags & BUTTON_MOVE_CALLBACK)) {
-        const ButtonDispatch dispatch;
-        (b->MoveCallback)(b, reason);
+                (b->MoveCallback)(b, reason);
     }
 }
 
@@ -1238,28 +1079,10 @@ void QuickButtonCallbackMMove(MOUSE_REGION* reg, INT32 reason)
 // FUNCTION: WIZ8 0x0040da50
 void QuickButtonCallbackMButn(MOUSE_REGION* reg, INT32 reason)
 {
-    GUI_BUTTON* b;
-    INT32 iButtonID;
+    auto keep_alive = ButtonFromRegion(reg);
+    GUI_BUTTON* b = keep_alive.get();
+    if (!b) return;
     bool StateBefore;
-
-    Assert(reg != nullptr);
-
-    iButtonID = MSYS_GetRegionUserData(reg, 0);
-
-    sprintf(str,
-            "QuickButtonCallbackMButn: Mouse Region #%d (%d,%d to %d,%d) has invalid buttonID %d",
-            reg->IDNumber, reg->RegionTopLeftX, reg->RegionTopLeftY, reg->RegionBottomRightX,
-            reg->RegionBottomRightY, iButtonID);
-
-    AssertMsg(iButtonID >= 0, str);
-    AssertMsg(iButtonID < MAX_BUTTONS, str);
-
-    b = ButtonList[iButtonID].get();
-
-    AssertMsg(b != nullptr, str);
-
-    if (!b)
-        return;
 
     StateBefore = (b->uiFlags & BUTTON_CLICKED_ON) ? (TRUE) : (FALSE);
 
@@ -1316,7 +1139,6 @@ void QuickButtonCallbackMButn(MOUSE_REGION* reg, INT32 reason)
     // Button not enabled but allowed to use callback, then do that!
     if (!(b->uiFlags & BUTTON_ENABLED) && (b->uiFlags & BUTTON_ALLOW_DISABLED_CALLBACK)) {
         if (b->uiFlags & BUTTON_CLICK_CALLBACK) {
-            const ButtonDispatch dispatch;
             (b->ClickCallback)(b, reason | BUTTON_DISABLED_CALLBACK);
         }
         return;
@@ -1327,7 +1149,6 @@ void QuickButtonCallbackMButn(MOUSE_REGION* reg, INT32 reason)
         //Kris:  January 6, 1998
         //Added these checks to avoid a case where it was possible to process a leftbuttonup message when
         //the button wasn't anchored, and should have been.
-        const ButtonDispatch dispatch;
         if (!(reason & MSYS_CALLBACK_REASON_LBUTTON_UP) ||
             b->MoveCallback != DEFAULT_MOVE_CALLBACK || gpPrevAnchoredButton == b)
             (b->ClickCallback)(b, reason);
@@ -1342,15 +1163,15 @@ void QuickButtonCallbackMButn(MOUSE_REGION* reg, INT32 reason)
 // FUNCTION: WIZ8 0x0040dc80
 void RenderButtons(void)
 {
-    INT32 iButtonID;
     BOOLEAN fOldButtonDown, fOldEnabled;
     GUI_BUTTON* b;
 
     SaveFontSettings();
-    for (iButtonID = 0; iButtonID < MAX_BUTTONS; iButtonID++) {
-        // If the button exists, and it's not owned by another object, draw it
-        //Kris:  and make sure that the button isn't hidden.
-        b = ButtonList[iButtonID].get();
+    for (auto it = active_buttons.begin(); it != active_buttons.end();) {
+        auto retained = it->lock();
+        if (!retained) { it = active_buttons.erase(it); continue; }
+        ++it;
+        b = retained.get();
         if (b && b->Area.uiFlags & MSYS_REGION_ENABLED) {
             // Check for buttonchanged status
             fOldButtonDown = (BOOLEAN)(b->uiFlags & BUTTON_CLICKED_ON);
@@ -1403,14 +1224,8 @@ void RenderButtons(void)
 // FUNCTION: WIZ8 0x0040de90
 void MarkButtonsDirty(void)
 {
-    INT32 x;
-    for (x = 0; x < MAX_BUTTONS; x++) {
-        // If the button exists, and it's not owned by another object, draw it
-        if (ButtonList[x]) {
-            // Turn on dirty flag
-            ButtonList[x]->uiFlags |= BUTTON_DIRTY;
-        }
-    }
+    for (const auto& weak : active_buttons)
+        if (auto button = weak.lock()) button->uiFlags |= BUTTON_DIRTY;
 }
 
 // PauseMarkButtonsDirty
@@ -1418,25 +1233,12 @@ void MarkButtonsDirty(void)
 //	DrawButton
 //	Draws a single button on the screen.
 // FUNCTION: WIZ8 0x0040deb0
-BOOLEAN DrawButton(INT32 iButtonID)
+BOOLEAN DrawButton(const GUIButton& button)
 {
-    // Fail if button handle out of range
-    if (iButtonID < 0 || iButtonID > MAX_BUTTONS)
-        return FALSE;
-
-    // Fail if button handle is invalid
-    if (!ButtonList[iButtonID])
-        return FALSE;
-
-    if (!ButtonList[iButtonID]->string.empty())
-        SaveFontSettings();
-    // Draw this button
-    if (ButtonList[iButtonID]->Area.uiFlags & MSYS_REGION_ENABLED) {
-        DrawButtonFromPtr(ButtonList[iButtonID].get());
-    }
-
-    if (!ButtonList[iButtonID]->string.empty())
-        RestoreFontSettings();
+    if (!button) return FALSE;
+    if (!button->string.empty()) SaveFontSettings();
+    if (button->Area.uiFlags & MSYS_REGION_ENABLED) DrawButtonFromPtr(button.get());
+    if (!button->string.empty()) RestoreFontSettings();
     return TRUE;
 }
 
@@ -2041,13 +1843,9 @@ typedef struct _CreateDlgInfo {
 
 // Added Oct17, 97 Carter - kind of mindless, but might as well have it
 // FUNCTION: WIZ8 0x0040edc0
-void MSYS_SetBtnUserData(INT32 iButtonNum, INT32 index, INT32 userdata)
+void MSYS_SetBtnUserData(const GUIButton& button, INT32 index, INT32 userdata)
 {
-    GUI_BUTTON* b;
-    b = ButtonList[iButtonNum].get();
-    if (index < 0 || index > 3)
-        return;
-    b->UserData[index] = userdata;
+    if (button && index >= 0 && index < 4) button->UserData[index] = userdata;
 }
 
 // FUNCTION: WIZ8 0x0040edf0
@@ -2080,123 +1878,51 @@ void BtnGenericMouseMoveButtonCallback(GUI_BUTTON* btn, INT32 reason)
 //Kris:
 //Yet new logical additions to the winbart library.
 // FUNCTION: WIZ8 0x0040ee80
-void HideButton(INT32 iButtonNum)
+void HideButton(const GUIButton& button)
 {
-    GUI_BUTTON* b;
-
-    Assert(iButtonNum >= 0);
-    Assert(iButtonNum < MAX_BUTTONS);
-
-    b = ButtonList[iButtonNum].get();
-
-    Assert(b);
-
-    b->Area.uiFlags &= (~MSYS_REGION_ENABLED);
-    b->uiFlags |= BUTTON_DIRTY;
+    if (!button) return;
+    button->Area.uiFlags &= ~MSYS_REGION_ENABLED;
+    button->uiFlags |= BUTTON_DIRTY;
 }
 
 // FUNCTION: WIZ8 0x0040eea0
-void ShowButton(INT32 iButtonNum)
+void ShowButton(const GUIButton& button)
 {
-    GUI_BUTTON* b;
-
-    Assert(iButtonNum >= 0);
-    Assert(iButtonNum < MAX_BUTTONS);
-
-    b = ButtonList[iButtonNum].get();
-
-    Assert(b);
-
-    b->Area.uiFlags |= MSYS_REGION_ENABLED;
-    b->uiFlags |= BUTTON_DIRTY;
+    if (!button) return;
+    button->Area.uiFlags |= MSYS_REGION_ENABLED;
+    button->uiFlags |= BUTTON_DIRTY;
 }
 
 // FUNCTION: WIZ8 0x0040eec0
-BOOLEAN GetButtonArea(INT32 iButtonID, SDL_Rect* pRect)
+BOOLEAN GetButtonArea(const GUIButton& button, SDL_Rect* rect)
 {
-    GUI_BUTTON* b;
-
-    Assert(iButtonID >= 0);
-    Assert(iButtonID < MAX_BUTTONS);
-    Assert(pRect);
-
-    b = ButtonList[iButtonID].get();
-    Assert(b);
-
-    if ((pRect == nullptr) || (b == nullptr))
-        return (FALSE);
-
-    *pRect = {b->Area.RegionTopLeftX, b->Area.RegionTopLeftY,
-              b->Area.RegionBottomRightX - b->Area.RegionTopLeftX,
-              b->Area.RegionBottomRightY - b->Area.RegionTopLeftY};
-
-    return (TRUE);
+    if (!button || !rect) return FALSE;
+    *rect = {button->Area.RegionTopLeftX, button->Area.RegionTopLeftY,
+             button->Area.RegionBottomRightX - button->Area.RegionTopLeftX,
+             button->Area.RegionBottomRightY - button->Area.RegionTopLeftY};
+    return TRUE;
 }
 
 // FUNCTION: WIZ8 0x0040ef00
-INT32 GetButtonWidth(INT32 iButtonID)
+INT32 GetButtonWidth(const GUIButton& button)
 {
-    GUI_BUTTON* b;
-
-    Assert(iButtonID >= 0);
-    Assert(iButtonID < MAX_BUTTONS);
-
-    b = ButtonList[iButtonID].get();
-    Assert(b);
-
-    if (b == nullptr)
-        return (-1);
-
-    return (b->Area.RegionBottomRightX - b->Area.RegionTopLeftX);
+    return button ? button->Area.RegionBottomRightX - button->Area.RegionTopLeftX : -1;
 }
 
 // FUNCTION: WIZ8 0x0040ef20
-INT32 GetButtonHeight(INT32 iButtonID)
+INT32 GetButtonHeight(const GUIButton& button)
 {
-    GUI_BUTTON* b;
-
-    Assert(iButtonID >= 0);
-    Assert(iButtonID < MAX_BUTTONS);
-
-    b = ButtonList[iButtonID].get();
-    Assert(b);
-
-    if (b == nullptr)
-        return (-1);
-
-    return (b->Area.RegionBottomRightY - b->Area.RegionTopLeftY);
+    return button ? button->Area.RegionBottomRightY - button->Area.RegionTopLeftY : -1;
 }
 
 // FUNCTION: WIZ8 0x0040ef40
-INT32 GetButtonX(INT32 iButtonID)
+INT32 GetButtonX(const GUIButton& button)
 {
-    GUI_BUTTON* b;
-
-    Assert(iButtonID >= 0);
-    Assert(iButtonID < MAX_BUTTONS);
-
-    b = ButtonList[iButtonID].get();
-    Assert(b);
-
-    if (b == nullptr)
-        return (0);
-
-    return (b->Area.RegionTopLeftX);
+    return button ? button->Area.RegionTopLeftX : 0;
 }
 
 // FUNCTION: WIZ8 0x0040ef60
-INT32 GetButtonY(INT32 iButtonID)
+INT32 GetButtonY(const GUIButton& button)
 {
-    GUI_BUTTON* b;
-
-    Assert(iButtonID >= 0);
-    Assert(iButtonID < MAX_BUTTONS);
-
-    b = ButtonList[iButtonID].get();
-    Assert(b);
-
-    if (b == nullptr)
-        return (0);
-
-    return (b->Area.RegionTopLeftY);
+    return button ? button->Area.RegionTopLeftY : 0;
 }

@@ -18,13 +18,13 @@ W8DialogScrollBar::~W8DialogScrollBar()
 // FUNCTION: WIZ8 0x005e0e00
 void W8DialogScrollBar::ResetHandles()
 {
-    ReleaseDialogButtonHandle(m_up_button);
+    m_up_button.reset();
     ReleaseDialogButtonImage(m_up_image);
-    ReleaseDialogButtonHandle(m_down_button);
+    m_down_button.reset();
     ReleaseDialogButtonImage(m_down_image);
-    ReleaseDialogButtonHandle(m_thumb_button);
+    m_thumb_button.reset();
     ReleaseDialogButtonImage(m_thumb_image);
-    ReleaseDialogButtonHandle(m_track_button);
+    m_track_button.reset();
     ReleaseDialogButtonImage(m_track_image);
     m_on_scroll = 0;
     m_initialized = false;
@@ -60,7 +60,7 @@ bool W8DialogScrollBar::CreateControls(const Resources* resources)
             QuickCreateButton(m_track_image, 0, 0, BUTTON_NO_TOGGLE, MSYS_PRIORITY_HIGHEST - 2,
                               TrackButtonCallback, TrackButtonCallback);
     }
-    if (m_track_button != -1 && m_thumb_button != -1 && m_down_button != -1 && m_up_button != -1) {
+    if (m_track_button && m_thumb_button && m_down_button && m_up_button) {
         SetButtonUserDataPointer(m_up_button, this);
         SetButtonUserDataPointer(m_down_button, this);
         SetButtonUserDataPointer(m_thumb_button, this);
@@ -99,11 +99,11 @@ void W8DialogScrollBar::SetLayout(int x, int y, int entry_count, int first_visib
         m_view_height = view_height;
         UpdateThumb();
         if (m_entry_count <= m_view_height / m_entry_height) {
-            GUI_BUTTON* button = GetButtonPtr(m_up_button);
+            GUI_BUTTON* button = m_up_button.get();
             if (button && (button->uiFlags & BUTTON_ENABLED)) {
                 button->uiFlags &= ~BUTTON_ENABLED;
             }
-            button = GetButtonPtr(m_down_button);
+            button = m_down_button.get();
             if (button && (button->uiFlags & BUTTON_ENABLED)) {
                 button->uiFlags &= ~BUTTON_ENABLED;
             }
@@ -262,12 +262,12 @@ W8DialogScrollBar::W8DialogScrollBar()
     m_track_bounds.right = 0;
     m_track_bounds.bottom = 0;
     m_up_image = -1;
-    m_up_button = -1;
+    m_up_button.reset();
     m_down_image = -1;
-    m_down_button = -1;
+    m_down_button.reset();
     m_thumb_image = -1;
-    m_thumb_button = -1;
+    m_thumb_button.reset();
     m_track_image = -1;
-    m_track_button = -1;
+    m_track_button.reset();
     m_on_scroll = 0;
 }
