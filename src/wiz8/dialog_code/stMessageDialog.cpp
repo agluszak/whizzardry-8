@@ -1,3 +1,4 @@
+#include <fmt/format.h>
 #include "wiz8/unicode.h"
 #include <algorithm>
 #include <string_view>
@@ -64,7 +65,7 @@ void W8MessageDialogBase::Draw()
         for (index = 0; index < m_line_count; ++index) {
             const auto& line = m_lines[index];
             short width = StringPixLength(line, g_dialog_interface_font);
-            gprintf(m_x + (m_width - width) / 2, y, "%s", line);
+            DrawFontText(m_x + (m_width - width) / 2, y, line);
             y += GetFontHeight(g_dialog_interface_font);
         }
         RestoreFontSettings();
@@ -150,7 +151,7 @@ unsigned int W8MessageDialogBase::WrapMessage(std::string_view message)
         const auto end = message.find_first_of(" \n", start);
         const auto stop = end == std::string_view::npos ? message.size() : end;
         const auto word = message.substr(start, stop - start);
-        auto candidate = line.empty() ? std::string(word) : FormatText("%s %s", line, word);
+        auto candidate = line.empty() ? std::string(word) : fmt::format("{} {}", line, word);
         if (!line.empty() && StringPixLength(candidate, g_dialog_interface_font) > maximum_width) {
             m_lines.push_back(std::move(line));
             line.assign(word);

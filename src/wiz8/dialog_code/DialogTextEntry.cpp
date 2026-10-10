@@ -1,3 +1,4 @@
+#include <fmt/format.h>
 #include "vsurface.h"
 #include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/local_code/TextBuffer.h"
@@ -34,7 +35,7 @@ W8DialogTextEntry::W8DialogTextEntry(std::string_view prefix, std::string_view t
     SetLayoutMode(layout_mode);
     m_shorten_mask = shorten;
     m_prefix_length = prefix.empty() ? 0 : prefix.size() + 2;
-    m_text = prefix.empty() ? std::string(text) : FormatText("%s: %s", prefix, text);
+    m_text = prefix.empty() ? std::string(text) : fmt::format("{}: {}", prefix, text);
     UpdateLayout();
 }
 
@@ -45,7 +46,7 @@ int W8DialogTextEntry::DrawLine(char* line, size_t span, int prefix_remaining, i
         if (prefix_remaining < static_cast<int>(span)) {
             char saved = line[prefix_remaining];
             line[prefix_remaining] = '\0';
-            gprintf(x, y, "%s", line);
+            DrawFontText(x, y, line);
             x += StringPixLength(line, m_font);
             line[prefix_remaining] = saved;
             if (!m_selected) {
@@ -58,7 +59,7 @@ int W8DialogTextEntry::DrawLine(char* line, size_t span, int prefix_remaining, i
         }
         prefix_remaining -= span;
     }
-    gprintf(x, y, "%s", line);
+    DrawFontText(x, y, line);
     return prefix_remaining;
 }
 

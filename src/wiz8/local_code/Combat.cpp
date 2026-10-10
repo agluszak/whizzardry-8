@@ -1,3 +1,5 @@
+#include <fmt/format.h>
+#include <fmt/printf.h>
 #include <new>
 
 #include <string_view>
@@ -105,12 +107,6 @@ W8CombatState* g_combat_state;
    0xd4 bytes apart; the state's leading 0x18 bytes are its own header. */
 // GLOBAL: WIZ8 0x0068d810
 static bool g_combat_log_enabled;
-// GLOBAL: WIZ8 0x00617664
-char g_combat_log_format[] = "%s";
-// GLOBAL: WIZ8 0x006175B0
-static char g_format_s_dash_dash[] = "%s -- ";
-// GLOBAL: WIZ8 0x006175C0
-char g_format_s_bang[] = "%s!";
 // GLOBAL: WIZ8 0x0061EC8C
 static int g_breath_notice_id = 0x65b;
 
@@ -403,8 +399,7 @@ bool QueueNpcCombatScript(void)
         }
         if (hostile_group_present && CanPlaceNpcNearParty(slot)) {
             BeginScriptedWorldAction();
-            ShowString(FormatText(g_format_s_space_s, npc->record->source_name,
-                                        g_localized_strings[0x272]));
+            ShowString(fmt::format("{} {}", npc->record->source_name, g_localized_strings[0x272]));
             QueueNpcMessageLine(W8_NPC_MSG_PARTY_SLOT_EVENT_18, slot);
             QueueNpcMessageLine(W8_NPC_MSG_CLEAR_NPC_COMBAT, slot);
             g_combat_state->npc_combat_script_pending[slot] = true;
@@ -551,8 +546,9 @@ void BeginCombatExecution(void)
     }
     g_combat_state->round_counter = GetPhaseStep();
     if (CombatMayAdvanceContinuously()) {
-        ShowNotice(W8_FONT_PALETTE_BEIGE, &g_empty_text);
-        ShowNoticef(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x227], g_combat_state->round_count);
+        ShowNotice(W8_FONT_PALETTE_BEIGE, "");
+        ShowNotice(W8_FONT_PALETTE_BEIGE,
+                   fmt::sprintf(g_localized_strings[0x227], g_combat_state->round_count));
     }
 
     for (slot = 0; slot < 8; ++slot) {
@@ -626,14 +622,17 @@ void BeginCombatExecution(void)
             }
             if (party->action == W8_ACTION_PROTECT) {
                 if (party->target_in_combat.iType == W8_TARGET_KIND_CHARACTER) {
-                    PostCharacterNotice(slot, g_localized_strings[0x229],
-                                        g_status.buffers.Char[party->target_in_combat.iChar].name);
+                    PostCharacterNotice(
+                        slot,
+                        fmt::sprintf(g_localized_strings[0x229],
+                                     g_status.buffers.Char[party->target_in_combat.iChar].name));
                 } else if (party->target_in_combat.iType == W8_TARGET_KIND_MONSTER) {
                     unsigned int index = MonsterGetIndexByLocationID(
                         0x5e2, "C:\\Projects\\Wizardry 8\\Local Code\\Combat.cpp",
                         party->target_in_combat.iMonsterID, true);
                     W8MonsterInfo* target = MonsterGetScriptPartByLocationIndex(index);
-                    PostCharacterNotice(slot, g_localized_strings[0x229], GetMonsterName(target, 0, 0));
+                    PostCharacterNotice(slot, fmt::sprintf(g_localized_strings[0x229],
+                                                           GetMonsterName(target, 0, 0)));
                 } else {
                     srAssertFail("FALSE", "C:\\Projects\\Wizardry 8\\Local Code\\Combat.cpp", 0x5e6,
                                  0);
@@ -656,10 +655,12 @@ void BeginCombatExecution(void)
                     0x601, "C:\\Projects\\Wizardry 8\\Local Code\\Combat.cpp",
                     monster->Target.iMonsterID, true);
                 W8MonsterInfo* target = MonsterGetScriptPartByLocationIndex(target_index);
-                PostMonsterNotice(monster, g_localized_strings[0x229], GetMonsterName(target, 0, 0));
+                PostMonsterNotice(monster, fmt::sprintf(g_localized_strings[0x229],
+                                                        GetMonsterName(target, 0, 0)));
             } else if (monster->Target.iType == W8_TARGET_KIND_CHARACTER) {
-                PostMonsterNotice(monster, g_localized_strings[0x229],
-                                  g_status.buffers.Char[monster->Target.iChar].name);
+                PostMonsterNotice(monster,
+                                  fmt::sprintf(g_localized_strings[0x229],
+                                               g_status.buffers.Char[monster->Target.iChar].name));
             } else {
                 srAssertFail("FALSE", "C:\\Projects\\Wizardry 8\\Local Code\\Combat.cpp", 0x60a, 0);
             }
@@ -725,9 +726,10 @@ void SetSlotAction(int party_slot, W8ActionKind action_kind, int action_detail)
 /* Post one line to the combat log, if the log is on. The whole line is
    formatted whether or not it will be shown. */
 // FUNCTION: WIZ8 0x004ed260
-void CombatLogText(std::string_view text)
+void CombatLog(std::string_view text)
 {
-    if (g_combat_log_enabled) ShowNoticef(W8_FONT_PALETTE_BROWN, g_combat_log_format, text);
+    if (g_combat_log_enabled)
+        ShowNotice(W8_FONT_PALETTE_BROWN, text);
 }
 
 /* Start a fresh round: lift the one action that does not survive it and clear
@@ -1844,7 +1846,8 @@ void AdvanceCombatRound(void)
     }
     ReconcilePartyFormation(&gXStatus.edited_formation, &g_status.formation);
     if (gXStatus.hostile_monster_count != 0) {
-        ShowNoticef(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x22b], g_combat_state->round_count);
+        ShowNotice(W8_FONT_PALETTE_BEIGE,
+                   fmt::sprintf(g_localized_strings[0x22b], g_combat_state->round_count));
         SoundPlay("Data\\Sound\\Misc\\EndTurnChime.wav", 0);
     }
     g_combat_state->party_surprised = false;
@@ -2004,9 +2007,10 @@ int CheckCombatEnd(unsigned int end_if_no_hostiles)
             unsigned int party_slot;
             W8CharacterEvent* event;
             ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x22c], 0);
-            FormatNotice(W8_FONT_PALETTE_BEIGE, 0, g_localized_strings[0x22d],
-                         g_combat_state->combat_result,
-                         g_combat_state->combat_result == 1 ? "kill" : "kills");
+            ShowNotice(W8_FONT_PALETTE_BEIGE,
+                       fmt::sprintf(g_localized_strings[0x22d], g_combat_state->combat_result,
+                                    g_combat_state->combat_result == 1 ? "kill" : "kills"),
+                       0);
             StartMusicResource("CombatWin.MPL", 0, 1);
             ServiceMusicPlaylist();
             StartLevelMusic(1, 0);
@@ -2212,8 +2216,9 @@ void ExecuteCharacterAction(int party_slot)
                 }
                 target = PickReachableSlotByDisposition(party_slot, relationship);
                 if (target == -1) {
-                    FormatDebugMessage(1, "ERROR: %s is attacking friends with nobody in range",
-                                       character->name);
+                    DebugMessage(1,
+                                 fmt::format("ERROR: {} is attacking friends with nobody in range",
+                                             character->name));
                     slot->pending_action = W8_ACTION_NONE;
                     action = W8_ACTION_NONE;
                 } else {
@@ -2297,8 +2302,9 @@ void ExecuteCharacterAction(int party_slot)
     case W8_ACTION_EQUIP:
         break;
     default:
-        FormatDebugMessage(1, "ERROR: Char %d executed %s as a character action for char %d",
-                           party_slot, g_localized_strings[g_action_kind_message_ids[action]]);
+        DebugMessage(1,
+                     fmt::format("ERROR: Char {:d} executed {} as a character action", party_slot,
+                                 g_localized_strings[g_action_kind_message_ids[action]]));
         break;
     }
     /* A failed action falls back to defending, unless a condition interrupted
@@ -2423,8 +2429,9 @@ void ExecuteMonsterAction(W8MonsterInfo* monster_info, W8MonsterRecord* record)
     SetTargetSourceToMonster(monster_info, &source);
     interrupt = GetConditionInterrupt(&source);
     if (interrupt != -1) {
-        ShowNoticef(W8_FONT_PALETTE_RUST, g_format_s_space_s, GetMonsterName(monster_info, nullptr, 0),
-                    g_localized_strings[g_condition_interrupt_notices[interrupt]]);
+        ShowNotice(W8_FONT_PALETTE_RUST,
+                   fmt::format("{} {}", GetMonsterName(monster_info, nullptr, 0),
+                               g_localized_strings[g_condition_interrupt_notices[interrupt]]));
         switch (interrupt) {
         case 0:
         case 1:
@@ -2457,9 +2464,10 @@ void ExecuteMonsterAction(W8MonsterInfo* monster_info, W8MonsterRecord* record)
             monster_info->action_kind = W8_MONSTER_ACTION_ATTACK;
             if (!ChooseRandomMonsterAction(monster_info, true, false, berserked)) {
                 if (interrupt == 8) {
-                    FormatDebugMessage(
-                        1, "ERROR: %s (ID %d) is attacking friends with nobody in range",
-                        record->name0, monster_info->location_id);
+                    DebugMessage(
+                        1,
+                        fmt::format("ERROR: {} (ID {:d}) is attacking friends with nobody in range",
+                                    record->name0, monster_info->location_id));
                 }
                 monster_info->action_kind = W8_MONSTER_ACTION_NONE;
             }
@@ -2518,15 +2526,19 @@ void ExecuteMonsterAction(W8MonsterInfo* monster_info, W8MonsterRecord* record)
                         if (monster_info->action_kind == W8_MONSTER_ACTION_APPROACH) {
                             if (g_settings.verbose_combat_messages != 0) {
                                 if (monster_info->Target.iType == W8_TARGET_KIND_MONSTER) {
-                                    PostMonsterNotice(monster_info, g_localized_strings[0x238],
-                                                      GetMonsterName(target_info, nullptr, 0));
+                                    PostMonsterNotice(
+                                        monster_info,
+                                        fmt::sprintf(g_localized_strings[0x238],
+                                                     GetMonsterName(target_info, nullptr, 0)));
                                 } else {
                                     PostMonsterNotice(monster_info, g_localized_strings[0x236]);
                                 }
                             }
                         } else if (monster_info->Target.iType == W8_TARGET_KIND_MONSTER) {
-                            PostMonsterNotice(monster_info, g_localized_strings[0x239],
-                                              GetMonsterName(target_info, nullptr, 0));
+                            PostMonsterNotice(
+                                monster_info,
+                                fmt::sprintf(g_localized_strings[0x239],
+                                             GetMonsterName(target_info, nullptr, 0)));
                         } else {
                             PostMonsterNotice(monster_info, g_localized_strings[0x237]);
                         }
@@ -2549,16 +2561,18 @@ void ExecuteMonsterAction(W8MonsterInfo* monster_info, W8MonsterRecord* record)
             if (monster_info->summoned != W8_MONSTER_SUMMON_NONE ||
                 (monster_info->ubDisposition == W8_DISPOSITION_FRIENDLY &&
                  gXStatus.hostile_monster_count == 0)) {
-                ShowNoticef(W8_FONT_PALETTE_RUST, g_localized_strings[0x23c],
-                            GetMonsterName(monster_info, nullptr, 0));
+                ShowNotice(W8_FONT_PALETTE_RUST,
+                           fmt::sprintf(g_localized_strings[0x23c],
+                                        GetMonsterName(monster_info, nullptr, 0)));
                 monster_info->action_kind = W8_MONSTER_ACTION_WAIT;
                 continue;
             }
             SetUpMonsterTurn(monster_info);
             result = MonsterLinkToStartupNavigator(monster_info->p3D) != 0;
             if (result != 0) {
-                ShowNoticef(W8_FONT_PALETTE_RUST, g_localized_strings[0x23a],
-                            GetMonsterName(monster_info, nullptr, 0));
+                ShowNotice(W8_FONT_PALETTE_RUST,
+                           fmt::sprintf(g_localized_strings[0x23a],
+                                        GetMonsterName(monster_info, nullptr, 0)));
             }
             break;
         case W8_MONSTER_ACTION_ADVANCE:
@@ -2567,8 +2581,11 @@ void ExecuteMonsterAction(W8MonsterInfo* monster_info, W8MonsterRecord* record)
             if (result != 0) {
                 monster_info->pCombat->advancing = true;
                 if (interrupt != 0xc) {
-                    ShowNoticef(9, g_localized_strings[0x23b], GetMonsterName(monster_info, nullptr, 0),
-                                g_localized_strings[g_gender_name_message_rows[record->name_group][2]]);
+                    ShowNotice(
+                        9, fmt::sprintf(
+                               g_localized_strings[0x23b], GetMonsterName(monster_info, nullptr, 0),
+                               g_localized_strings[g_gender_name_message_rows[record->name_group]
+                                                                             [2]]));
                 }
             }
             break;
@@ -2624,8 +2641,9 @@ void ExecuteMonsterAction(W8MonsterInfo* monster_info, W8MonsterRecord* record)
             monster_info->action_kind = W8_MONSTER_ACTION_WAIT;
         }
         if (monster_info->action_kind == W8_MONSTER_ACTION_WAIT) {
-            ShowNoticef(W8_FONT_PALETTE_RUST, g_localized_strings[0x23c],
-                        GetMonsterName(monster_info, nullptr, 0));
+            ShowNotice(
+                W8_FONT_PALETTE_RUST,
+                fmt::sprintf(g_localized_strings[0x23c], GetMonsterName(monster_info, nullptr, 0)));
             break;
         }
     }
@@ -2660,12 +2678,17 @@ bool MonsterFleeAction(W8MonsterInfo* monster_info, W8MonsterRecord* record)
     monster_info->pCombat->special_ready = false;
     StartMonsterCycle(monster_info, W8_MONSTER_CYCLE_ATTACK_SPECIAL, W8_ANIMATION_PLAY_ONCE);
     if (g_settings.verbose_combat_messages != 0) {
-        ShowNoticef(9, "%s %s!", GetMonsterName(monster_info, nullptr, 0),
-                    g_localized_strings[g_monster_special_attack_name_ids[record->special_attack_kind]]);
+        ShowNotice(
+            9, fmt::format("{} {}!", GetMonsterName(monster_info, nullptr, 0),
+                           g_localized_strings
+                               [g_monster_special_attack_name_ids[record->special_attack_kind]]));
         return true;
     }
-    ShowNoticef(W8_FONT_PALETTE_RUST, g_format_s_space_s, GetMonsterName(monster_info, nullptr, 0),
-                g_localized_strings[g_monster_special_attack_name_ids[record->special_attack_kind]]);
+    ShowNotice(
+        W8_FONT_PALETTE_RUST,
+        fmt::format(
+            "{} {}", GetMonsterName(monster_info, nullptr, 0),
+            g_localized_strings[g_monster_special_attack_name_ids[record->special_attack_kind]]));
     return true;
 }
 
@@ -2799,8 +2822,8 @@ bool CreateCharacterBreathEffect(int party_slot)
                                &char_targets, 0);
     if (monster_targets.GetCount() == 0) {
         PostCharacterNotice(party_slot,
-                            FormatText(g_localized_strings[0x1b7],
-                                             g_spell_records[W8_SPELL_DRACON_BREATH].display_name));
+                            fmt::sprintf(g_localized_strings[0x1b7],
+                                         g_spell_records[W8_SPELL_DRACON_BREATH].display_name));
         return false;
     }
     FaceCharacterTowardCombatTarget(party_slot, target);
@@ -2820,9 +2843,11 @@ bool CreateCharacterBreathEffect(int party_slot)
         return false;
     }
     if (g_settings.verbose_combat_messages != 0) {
-        PostCharacterNotice(party_slot, g_format_s_bang, g_localized_strings[g_breath_notice_id]);
+        PostCharacterNotice(party_slot,
+                            fmt::format("{}!", g_localized_strings[g_breath_notice_id]));
     } else {
-        PostCharacterNotice(party_slot, g_format_s_dash_dash, g_localized_strings[g_breath_notice_id]);
+        PostCharacterNotice(party_slot,
+                            fmt::format("{} -- ", g_localized_strings[g_breath_notice_id]));
     }
     g_combat_state->breath_visual->auto_release = false;
     PointCameraAtCombatTarget(&source, target);

@@ -1,3 +1,5 @@
+#include <fmt/format.h>
+#include <fmt/printf.h>
 #include "wiz8/utility.h"
 #include <string>
 #include "wiz8/dialog_code/DialogInterface.h"
@@ -22,16 +24,12 @@
    request-buffer layout. The option-list strings and the two price-check
    strings live in the g_localized_strings message table. */
 
-// GLOBAL: WIZ8 0x0061c4b4
-char g_format_S[] = "%s";
 
 /* The live popup; the constructor publishes it so the option callback and the
    Enter handling in ProcessInput can reach the active instance. */
 // GLOBAL: WIZ8 0x0069ca20
 static W8NpcDialog* g_npc_dialog;
 
-// GLOBAL: WIZ8 0x0064fc84
-static char g_format_s_dg[] = "%s %dg";
 
 // FUNCTION: WIZ8 0x005DA6B0
 W8NpcDialog::W8NpcDialog(W8NpcQuoteEntry* message, int aux_data)
@@ -61,7 +59,7 @@ W8NpcDialog::W8NpcDialog(W8NpcQuoteEntry* message, int aux_data)
             m_compact_options = true;
         }
         for (index = 0; index < message->sub_entry_count; ++index) {
-            line = FormatText(g_format_S, message->sub_entries[index].text.c_str());
+            line = message->sub_entries[index].text;
             short length = StringPixLength(line, g_wiz_text_mono_font);
             if (max_width < length) {
                 max_width = length;
@@ -106,7 +104,7 @@ int W8NpcDialog::CreateControls()
             (m_width - static_cast<short>((m_text_width + 10) * m_message->sub_entry_count - 10)) /
             2;
         for (index = 0; index < m_message->sub_entry_count; ++index) {
-            line = FormatText(g_format_S, m_message->sub_entries[index].text.c_str());
+            line = m_message->sub_entries[index].text;
             m_buttons[index] = new W8DialogButton;
             m_buttons[index]->ConfigureTextButton(
                 line, g_wiz_text_mono_font, 4, 5, static_cast<short>(m_x + x),
@@ -132,7 +130,7 @@ int W8NpcDialog::CreateControls()
                                           static_cast<short>(m_x + x + m_text_width + 10),
                                           static_cast<short>(m_y + 0x1e), m_text_width, 0x14,
                                           OptionSelected, 1);
-        line = FormatText(g_localized_strings[0x7e5], g_npc_interaction_state->pending_price);
+        line = fmt::sprintf(g_localized_strings[0x7e5], g_npc_interaction_state->pending_price);
         bounds.left = m_x + 10;
         bounds.top = m_y + 10;
         bounds.right = m_x + m_width - 10;
@@ -140,7 +138,7 @@ int W8NpcDialog::CreateControls()
         m_text_buffers[0] =
             new W8TextBuffer(&bounds, line, g_wiz_text_font_secondary,
                              g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
-        line = FormatText(g_format_s_dg, g_localized_strings[0x7e6], g_status.party_gold);
+        line = fmt::format("{} {:d}g", g_localized_strings[0x7e6], g_status.party_gold);
         bounds.left = m_x + 10;
         bounds.top = m_y + 0x37;
         bounds.right = m_x + m_width - 10;
@@ -151,7 +149,7 @@ int W8NpcDialog::CreateControls()
     } else if (m_message->kind == W8_NPC_ENTRY_KEYWORD_INPUT) {
         SetTextInputScheme(1);
         m_input_field = AddTextInputField(m_x + (m_width - 0x8c) / 2, m_y + 0x23, 0x8c, 0x10, 0x7f,
-                                          &g_empty_text, 0x28, 0xf, 1);
+                                          "", 0x28, 0xf, 1);
         SetActiveField(m_input_field);
         bounds.left = m_x + 10;
         bounds.top = m_y + 10;

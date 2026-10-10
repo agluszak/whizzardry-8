@@ -1,3 +1,4 @@
+#include <fmt/format.h>
 #include "wiz8/unicode.h"
 #include "wiz8/fonts.h"
 #include <stdio.h>
@@ -306,10 +307,11 @@ void DispatchMGSCommand(W8MGSCommand command)
                 delay += 0xfa - delay % 0xfa;
             }
             g_settings.combat_delay_ms = delay;
-            ShowNoticef(W8_FONT_PALETTE_BEIGE, "%s %d", g_localized_strings[0x7ba], 0x14 - delay / 0xfa);
+            ShowNotice(W8_FONT_PALETTE_BEIGE,
+                       fmt::format("{} {:d}", g_localized_strings[0x7ba], 0x14 - delay / 0xfa));
         } else {
-            ShowNoticef(W8_FONT_PALETTE_BEIGE, "%s (%d)", g_localized_strings[0x7bb],
-                        0x14 - delay / 0xfa);
+            ShowNotice(W8_FONT_PALETTE_BEIGE,
+                       fmt::format("{} ({:d})", g_localized_strings[0x7bb], 0x14 - delay / 0xfa));
         }
         break;
     }
@@ -322,10 +324,11 @@ void DispatchMGSCommand(W8MGSCommand command)
                 delay -= delay % 0xfa;
             }
             g_settings.combat_delay_ms = delay;
-            ShowNoticef(W8_FONT_PALETTE_BEIGE, "%s %d", g_localized_strings[0x7ba], 0x14 - delay / 0xfa);
+            ShowNotice(W8_FONT_PALETTE_BEIGE,
+                       fmt::format("{} {:d}", g_localized_strings[0x7ba], 0x14 - delay / 0xfa));
         } else {
-            ShowNoticef(W8_FONT_PALETTE_BEIGE, "%s (%d)", g_localized_strings[0x7bc],
-                        0x14 - delay / 0xfa);
+            ShowNotice(W8_FONT_PALETTE_BEIGE,
+                       fmt::format("{} ({:d})", g_localized_strings[0x7bc], 0x14 - delay / 0xfa));
         }
         break;
     }
@@ -338,10 +341,11 @@ void DispatchMGSCommand(W8MGSCommand command)
                 delay += 0xfa - delay % 0xfa;
             }
             g_settings.text_display_delay_ms = delay;
-            ShowNoticef(W8_FONT_PALETTE_BEIGE, "%s %d", g_localized_strings[0x7b7], 0x14 - delay / 0xfa);
+            ShowNotice(W8_FONT_PALETTE_BEIGE,
+                       fmt::format("{} {:d}", g_localized_strings[0x7b7], 0x14 - delay / 0xfa));
         } else {
-            ShowNoticef(W8_FONT_PALETTE_BEIGE, "%s (%d)", g_localized_strings[0x7b8],
-                        0x14 - delay / 0xfa);
+            ShowNotice(W8_FONT_PALETTE_BEIGE,
+                       fmt::format("{} ({:d})", g_localized_strings[0x7b8], 0x14 - delay / 0xfa));
         }
         break;
     }
@@ -354,10 +358,11 @@ void DispatchMGSCommand(W8MGSCommand command)
                 delay -= delay % 0xfa;
             }
             g_settings.text_display_delay_ms = delay;
-            ShowNoticef(W8_FONT_PALETTE_BEIGE, "%s %d", g_localized_strings[0x7b7], 0x14 - delay / 0xfa);
+            ShowNotice(W8_FONT_PALETTE_BEIGE,
+                       fmt::format("{} {:d}", g_localized_strings[0x7b7], 0x14 - delay / 0xfa));
         } else {
-            ShowNoticef(W8_FONT_PALETTE_BEIGE, "%s (%d)", g_localized_strings[0x7b9],
-                        0x14 - delay / 0xfa);
+            ShowNotice(W8_FONT_PALETTE_BEIGE,
+                       fmt::format("{} ({:d})", g_localized_strings[0x7b9], 0x14 - delay / 0xfa));
         }
         break;
     }
@@ -1092,8 +1097,7 @@ unsigned char KeyboardMenuRowRegionEvent(const InputAtom* event, W8Region* regio
             name = g_spell_records[g_status.buffers.XChar[g_selected_party_slot].spell_id]
                        .display_name;
             power = GetAffordableSpellPowerLevel(g_selected_party_slot);
-            SetRegionHelpText(
-                FormatText(g_format_s_colon_s_paren_d, g_localized_strings[0x5a], name, power));
+            SetRegionHelpText(fmt::format("{}: {} ({:d})", g_localized_strings[0x5a], name, power));
             return 1;
         }
         if (g_keyboard_menu_pages[row_id] != W8_SUBMENU_ITEMS) {
@@ -1111,7 +1115,7 @@ unsigned char KeyboardMenuRowRegionEvent(const InputAtom* event, W8Region* regio
         item = FindCharacterItemAt(g_selected_party_slot, party_row->item_origin,
                                    party_row->item_slot);
         name = FormatItemDisplayName(item, false);
-        SetRegionHelpText(FormatText(g_format_s_colon_s, g_localized_strings[0x5d], name));
+        SetRegionHelpText(fmt::format("{}: {}", g_localized_strings[0x5d], name));
         return 1;
     }
     return 0;

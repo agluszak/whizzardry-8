@@ -1,8 +1,6 @@
-#include <string>
 #pragma once
 
-extern char g_format_S[];
-
+#include <string>
 #include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/dialog_code/DialogButton.h"
 #include "wiz8/local_code/ControlsRect.h"

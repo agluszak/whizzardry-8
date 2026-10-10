@@ -98,13 +98,13 @@ static int DrawWrappedTextLine(std::string_view text, int x, int top, int width,
         draw_x = static_cast<short>(x);
         draw_y = static_cast<short>(top);
     } else if (flags & WRAPPED_TEXT_CENTER) {
-        VarFindFontCenterCoordinates(static_cast<short>(x), static_cast<short>(top),
-                                     static_cast<short>(width), GetFontHeight(font), font, &draw_x,
-                                     &draw_y, text);
+        FindFontCenterCoordinates(static_cast<short>(x), static_cast<short>(top),
+                                  static_cast<short>(width), GetFontHeight(font), text, font,
+                                  &draw_x, &draw_y);
     } else if (flags & WRAPPED_TEXT_RIGHT) {
-        VarFindFontRightCoordinates(static_cast<short>(x), static_cast<short>(top),
-                                    static_cast<short>(width), GetFontHeight(font), font, &draw_x,
-                                    &draw_y, text);
+        FindFontRightCoordinates(static_cast<short>(x), static_cast<short>(top),
+                                 static_cast<short>(width), GetFontHeight(font), text, font,
+                                 &draw_x, &draw_y);
     }
 
     SetFont(font);
@@ -118,9 +118,9 @@ static int DrawWrappedTextLine(std::string_view text, int x, int top, int width,
                                static_cast<unsigned short>(draw_y - 1) + GetFontHeight(font) + 1);
     }
     if (dirty) {
-        gprintfDirty(draw_x, draw_y, text);
+        DrawFontTextDirty(draw_x, draw_y, text);
     }
-    mprintf(draw_x, draw_y, text);
+    DrawMonoFontText(draw_x, draw_y, text);
     if (flags & WRAPPED_TEXT_MEASURE_ONLY) {
         SetFontShadow(2);
     }
@@ -264,7 +264,6 @@ int DrawWrappedText(int x, int y, unsigned int wrap_width, int line_spacing, int
         }
 
         if (ch == '\0') {
-            line += &g_empty_text;
             RenderWrappedTextLine(line, draw_x, draw_y, remaining_width, active_font, active_colour,
                                   static_cast<unsigned char>(background), section != 0, flags);
             return (GetFontHeight(font) + (line_spacing & 0xff)) * line_count;

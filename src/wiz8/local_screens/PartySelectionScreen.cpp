@@ -1,3 +1,5 @@
+#include <fmt/format.h>
+#include <fmt/printf.h>
 #include <string_view>
 #include "wiz8/unicode.h"
 #include <string>
@@ -201,7 +203,7 @@ void W8PartySelectionCharacterCollection::LoadExternalCharacters()
 {
     std::string search_path;
 
-    search_path = BuildCharacterFilePath(FormatText("*.%s", "CHR", -1), -1);
+    search_path = BuildCharacterFilePath(fmt::format("*.{}", "CHR"), -1);
     const std::string pattern(search_path);
     const auto separator = pattern.find_last_of("\\/");
     for (const auto& entry : wiz8::list_directory(pattern.substr(0, separator), "*.CHR")) {
@@ -367,8 +369,7 @@ void W8PartySelectionListControl::Redraw(bool full_redraw)
                 }
             }
             SetFontObjectPalette16BPP(g_wiz_text_font_secondary, colour);
-            gprintf(left + 2, top, "%s",
-                    *g_party_selection_character_collection->names.GetAt(row));
+            DrawFontText(left + 2, top, *g_party_selection_character_collection->names.GetAt(row));
             top += 0x0e;
         }
         SetFontObjectPalette16BPP(g_wiz_text_font_secondary, GetFontObject(g_wiz_text_font_secondary)->ownedPalette.get());
@@ -691,12 +692,15 @@ void W8PartySelectionCharacterRow::Redraw(bool full_redraw)
 
     left += 0x36;
     SetFont(g_wiz_text_font_secondary);
-    gprintf(left, top + 4, g_format_s, character->name);
-    gprintf(left, top + 0x0e, "%s %d %s", g_localized_strings[0x6b9], character->uiExpLevel,
-            g_localized_strings[g_profession_name_message_ids[character->iProfession]]);
-    gprintf(left, top + 0x18, g_format_s_space_s,
-            g_localized_strings[g_gender_name_message_rows[character->gender][0]],
-            g_localized_strings[g_race_name_message_ids[character->iRace]]);
+    DrawFontText(left, top + 4, character->name);
+    DrawFontText(
+        left, top + 0x0e,
+        fmt::format("{} {:d} {}", g_localized_strings[0x6b9], character->uiExpLevel,
+                    g_localized_strings[g_profession_name_message_ids[character->iProfession]]));
+    DrawFontText(left, top + 0x18,
+                 fmt::format("{} {}",
+                             g_localized_strings[g_gender_name_message_rows[character->gender][0]],
+                             g_localized_strings[g_race_name_message_ids[character->iRace]]));
     SetObjectShade(GetFontObject(g_wiz_text_font_secondary), 4);
 }
 
@@ -1014,7 +1018,7 @@ void W8PartySelectionCharacterSummaryPanel::Redraw()
     {
         W8ControlsRect name_bounds = {0x84, 0xc8, 0x139, 0xed};
         W8TextBuffer name(
-            &name_bounds, FormatText("%s (%s)", character->name_part_2, character->name),
+            &name_bounds, fmt::format("{} ({})", character->name_part_2, character->name),
             g_wiz_text_bold_font, g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
         name.RenderToTarget(0, false, FRAME_BUFFER);
     }
@@ -1026,44 +1030,48 @@ void W8PartySelectionCharacterSummaryPanel::Redraw()
     std::string profession =
         g_localized_strings[g_profession_name_message_ids[character->iProfession]];
     std::string level_line =
-        FormatText("%s %d %s", level_text, character->uiExpLevel, profession);
+        fmt::format("{} {:d} {}", level_text, character->uiExpLevel, profession);
     int width = StringPixLength(level_line, g_wiz_text_font_secondary);
-    gprintf((0xbf - width) / 2 + 0x78, 0xef, "%s %d %s", level_text, character->uiExpLevel,
-            profession);
+    DrawFontText((0xbf - width) / 2 + 0x78, 0xef,
+                 fmt::format("{} {:d} {}", level_text, character->uiExpLevel, profession));
 
     std::string gender = g_localized_strings[g_gender_name_message_rows[character->gender][0]];
     std::string race = g_localized_strings[g_race_name_message_ids[character->iRace]];
-    std::string race_line = FormatText(g_format_s_space_s, gender, race);
+    std::string race_line = fmt::format("{} {}", gender, race);
     width = StringPixLength(race_line, g_wiz_text_font_secondary);
-    gprintf((0xbf - width) / 2 + 0x7f, 0xfd, g_format_s_space_s, gender, race);
+    DrawFontText((0xbf - width) / 2 + 0x7f, 0xfd, fmt::format("{} {}", gender, race));
 
     std::string personality = g_localized_strings[g_personality_message_ids[character->personality]];
     width = StringPixLength(personality, g_wiz_text_font_secondary);
-    gprintf((0xbf - width) / 2 + 0x82, 0x10b, g_format_s, personality);
+    DrawFontText((0xbf - width) / 2 + 0x82, 0x10b, personality);
 
-    gprintf(0x96, 0x127, g_localized_strings[0x6ba]);
-    gprintf(0xbf, 0x127, g_format_d, character->attributes[W8_ATTRIBUTE_STRENGTH].base);
-    gprintf(0x96, 0x135, g_localized_strings[0x6bb]);
-    gprintf(0xbf, 0x135, g_format_d, character->attributes[W8_ATTRIBUTE_INTELLIGENCE].base);
-    gprintf(0x96, 0x143, g_localized_strings[0x6bc]);
-    gprintf(0xbf, 0x143, g_format_d, character->attributes[W8_ATTRIBUTE_PIETY].base);
-    gprintf(0x96, 0x151, g_localized_strings[0x6bd]);
-    gprintf(0xbf, 0x151, g_format_d, character->attributes[W8_ATTRIBUTE_VITALITY].base);
-    gprintf(0x96, 0x15f, g_localized_strings[0x6be]);
-    gprintf(0xbf, 0x15f, g_format_d, character->attributes[W8_ATTRIBUTE_DEXTERITY].base);
-    gprintf(0x96, 0x16d, g_localized_strings[0x6bf]);
-    gprintf(0xbf, 0x16d, g_format_d, character->attributes[W8_ATTRIBUTE_SPEED].base);
-    gprintf(0x96, 0x17b, g_localized_strings[0x6c0]);
-    gprintf(0xbf, 0x17b, g_format_d, character->attributes[W8_ATTRIBUTE_SENSES].base);
+    DrawFontText(0x96, 0x127, g_localized_strings[0x6ba]);
+    DrawFontText(0xbf, 0x127,
+                 fmt::format("{:d}", character->attributes[W8_ATTRIBUTE_STRENGTH].base));
+    DrawFontText(0x96, 0x135, g_localized_strings[0x6bb]);
+    DrawFontText(0xbf, 0x135,
+                 fmt::format("{:d}", character->attributes[W8_ATTRIBUTE_INTELLIGENCE].base));
+    DrawFontText(0x96, 0x143, g_localized_strings[0x6bc]);
+    DrawFontText(0xbf, 0x143, fmt::format("{:d}", character->attributes[W8_ATTRIBUTE_PIETY].base));
+    DrawFontText(0x96, 0x151, g_localized_strings[0x6bd]);
+    DrawFontText(0xbf, 0x151,
+                 fmt::format("{:d}", character->attributes[W8_ATTRIBUTE_VITALITY].base));
+    DrawFontText(0x96, 0x15f, g_localized_strings[0x6be]);
+    DrawFontText(0xbf, 0x15f,
+                 fmt::format("{:d}", character->attributes[W8_ATTRIBUTE_DEXTERITY].base));
+    DrawFontText(0x96, 0x16d, g_localized_strings[0x6bf]);
+    DrawFontText(0xbf, 0x16d, fmt::format("{:d}", character->attributes[W8_ATTRIBUTE_SPEED].base));
+    DrawFontText(0x96, 0x17b, g_localized_strings[0x6c0]);
+    DrawFontText(0xbf, 0x17b, fmt::format("{:d}", character->attributes[W8_ATTRIBUTE_SENSES].base));
 
-    gprintf(0xe3, 0x127, g_localized_strings[0x6c1]);
-    gprintf(0x115, 0x127, g_format_d, character->uiHPMax);
-    gprintf(0xe3, 0x135, g_localized_strings[0x6c2]);
-    gprintf(0x115, 0x135, g_format_d, SumCharacterSpellPoints(character));
-    gprintf(0xe3, 0x143, g_localized_strings[0x6c3]);
-    gprintf(0x115, 0x143, g_format_d, character->uiStaminaMax);
-    gprintf(0xe3, 0x151, g_localized_strings[0x6c4]);
-    gprintf(0x115, 0x151, g_format_d, character->carrying_capacity / 10);
+    DrawFontText(0xe3, 0x127, g_localized_strings[0x6c1]);
+    DrawFontText(0x115, 0x127, fmt::format("{:d}", character->uiHPMax));
+    DrawFontText(0xe3, 0x135, g_localized_strings[0x6c2]);
+    DrawFontText(0x115, 0x135, fmt::format("{:d}", SumCharacterSpellPoints(character)));
+    DrawFontText(0xe3, 0x143, g_localized_strings[0x6c3]);
+    DrawFontText(0x115, 0x143, fmt::format("{:d}", character->uiStaminaMax));
+    DrawFontText(0xe3, 0x151, g_localized_strings[0x6c4]);
+    DrawFontText(0x115, 0x151, fmt::format("{:d}", character->carrying_capacity / 10));
 }
 
 // GLOBAL: WIZ8 0x0069C4FC
@@ -1626,8 +1634,8 @@ void W8PartySelectionController::OnPrimary(W8TextControl* control)
         return;
     }
     if (control == m_delete_button) {
-        OpenNotification(FormatText("%s %s %s?", g_localized_strings[0x6d4], m_character->name,
-                                          g_localized_strings[0x6d5]),
+        OpenNotification(fmt::format("{} {} {}?", g_localized_strings[0x6d4], m_character->name,
+                                     g_localized_strings[0x6d5]),
                          true, W8_PARTY_CONFIRM_DELETE_CHARACTER);
         return;
     }
@@ -1655,7 +1663,7 @@ void W8PartySelectionController::OnPrimary(W8TextControl* control)
         switch (m_mode) {
         case W8_PARTY_SELECT_CHARACTERS:
             if (static_cast<unsigned int>(CountActiveCharacters()) < 6) {
-                OpenNotification(FormatText(g_localized_strings[0x6d9], CountActiveCharacters()),
+                OpenNotification(fmt::sprintf(g_localized_strings[0x6d9], CountActiveCharacters()),
                                  true, W8_PARTY_CONFIRM_PROCEED_TO_OPTIONS);
                 return;
             }
@@ -1923,7 +1931,7 @@ void W8PartySelectionController::LoadImportedPartyFile(int selection)
     W8PartySelectionCharacterCollection* collection = g_party_selection_character_collection;
     if (selection >= 0 && selection < collection->names.GetCount()) {
         std::string path;
-        path = FormatText("%s\\%s", "Saves\\Import", *collection->names.GetAt(selection));
+        path = fmt::format("{}\\{}", "Saves\\Import", *collection->names.GetAt(selection));
         int result = ImportWizardry7Party(path);
         if (result != 0) {
             ResetForNewGame();

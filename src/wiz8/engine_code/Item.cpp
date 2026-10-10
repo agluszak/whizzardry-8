@@ -1,3 +1,4 @@
+#include <fmt/format.h>
 #include "wiz8/unicode.h"
 #include "wiz8/engine_code/Item.h"
 
@@ -218,8 +219,7 @@ try
     sprintf(filename, "%s\\%s.itm", "Data\\Items3D", name);
     std::unique_ptr<wiz8::File> file = [&]() { try { return wiz8::open_file(filename, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
     if (file == 0) {
-        ShutdownWithErrorBox(
-            FormatText("Couldn't load %s", filename));
+        ShutdownWithErrorBox(fmt::format("Couldn't load {}", filename));
         return false;
     }
 

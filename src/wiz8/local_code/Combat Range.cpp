@@ -1,3 +1,4 @@
+#include <fmt/format.h>
 #include "wiz8/spell_ids.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/integer_constants.h"
@@ -484,9 +485,10 @@ W8RangeCategory GetCharAttackRange(const W8Character* character, unsigned int ha
         return best;
     }
     if (!character->Hand[hand].in_play) {
-        FormatDebugMessage(1,
-                           "ERROR: GetCharAttackRange for hand %d which can't attack, uiChar = %d",
-                           hand, CharacterPointerToPartySlot(character));
+        DebugMessage(
+            1,
+            fmt::format("ERROR: GetCharAttackRange for hand {:d} which can't attack, uiChar = {:d}",
+                        hand, CharacterPointerToPartySlot(character)));
         return W8_RANGE_NONE;
     }
     if (character->Hand[hand].uiHolds != 1 && character->Hand[hand].uiHolds != 3) {

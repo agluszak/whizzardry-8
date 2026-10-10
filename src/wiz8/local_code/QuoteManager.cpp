@@ -1,3 +1,5 @@
+#include <fmt/format.h>
+#include <fmt/printf.h>
 #include "wiz8/unicode.h"
 #include <string_view>
 #include <string>
@@ -447,7 +449,9 @@ bool FormatCharacterQuoteText(W8Character* character, unsigned int event_type,
     if (!has_npc) {
         char gender_code =
             static_cast<char>(((character->gender != W8_GENDER_MALE) - 1U & 7) + 0x66);
-        path = FormatText("Data\\Quotes\\PCs\\%c_%s%d0.MSG", gender_code, g_quote_personality_names[character->personality], (character->voice != 0) + 1);
+        path = fmt::format("Data\\Quotes\\PCs\\{:c}_{}{:d}0.MSG", gender_code,
+                           g_quote_personality_names[character->personality],
+                           (character->voice != 0) + 1);
         if (![&]() { const auto status = wiz8::file_status(path); return status && status->info.type == SDL_PATHTYPE_FILE; }()) {
             g_character_text.clear();
             return false;
@@ -467,7 +471,7 @@ bool FormatCharacterQuoteText(W8Character* character, unsigned int event_type,
     if (g_character_text.size() == 0) {
         return false;
     }
-    text = FormatText("\"%s\"", g_character_text);
+    text = fmt::format("\"{}\"", g_character_text);
     g_character_text = text;
     return true;
 }
@@ -588,7 +592,8 @@ void W8CharacterEvent::Complete()
             if (item.iItemNo == -1) {
                 PostCharacterNotice(party_slot, g_localized_strings[0x771]);
             } else {
-                PostCharacterNotice(party_slot, g_localized_strings[0x772], GetItemDisplayName(&item));
+                PostCharacterNotice(party_slot, fmt::sprintf(g_localized_strings[0x772],
+                                                             GetItemDisplayName(&item)));
             }
         }
     } else if (event_type == 51) {
@@ -718,13 +723,17 @@ unsigned char W8CharacterEvent::PlayEventSound()
         g_current_screen_state.id == W8_SCREEN_CHARACTER) {
         char gender_code =
             static_cast<char>(((character->gender != W8_GENDER_MALE) - 1U & 7) + 0x66);
-        voice_stem = FormatText("%c_%s%d0", gender_code, g_quote_personality_names[character->personality], character->voice + 1);
-        sound_path = FormatText("Data\\Sound\\PCs\\%s\\%s_%03d.wav", voice_stem, voice_stem, sound_event);
+        voice_stem =
+            fmt::format("{:c}_{}{:d}0", gender_code,
+                        g_quote_personality_names[character->personality], character->voice + 1);
+        sound_path =
+            fmt::format("Data\\Sound\\PCs\\{}\\{}_{:03d}.wav", voice_stem, voice_stem, sound_event);
     } else {
         npc = GetNpcState(npc_index);
         if (npc != 0) {
             npc_sound_name = FormatNpcVoiceSoundPath(npc);
-            sound_path = FormatText("Data\\Sound\\PCs\\%s\\%s_%03d.wav", npc_sound_name, npc_sound_name, sound_event);
+            sound_path = fmt::format("Data\\Sound\\PCs\\{}\\{}_{:03d}.wav", npc_sound_name,
+                                     npc_sound_name, sound_event);
         }
     }
     memset(&sound_parms, 0xff, sizeof(sound_parms));
@@ -904,7 +913,7 @@ void SetPartyPortraitEventState(unsigned int party_slot, bool active, unsigned i
         show_deactivate_quote:
             std::string formatted;
             std::string character_name = g_status.buffers.Char[party_slot].name;
-            formatted = FormatText("%s", character_name);
+            formatted = character_name;
             int scroll_range = GetTextBoxScrollRange();
             ShowNotice(W8_FONT_PALETTE_GREEN, formatted, 3, scroll_range);
             /* Retail 0x0052fc82..0x0052fc9b: the quote line follows the

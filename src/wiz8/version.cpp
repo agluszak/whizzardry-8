@@ -1,3 +1,4 @@
+#include <fmt/format.h>
 #include "wiz8/utility.h"
 #include "wiz8/version.h"
 
@@ -11,8 +12,9 @@
 std::string FormatVersionBanner(bool with_title, bool with_build, bool with_date)
 {
     std::string text = with_title ? "Wizardry 8 " : "";
-    text += FormatText("v%d.%d.%d", 1, 2, 4);
-    if (with_build) text += FormatText(" (build %d)", 0xdb);
+    text += fmt::format("v{:d}.{:d}.{:d}", 1, 2, 4);
+    if (with_build)
+        text += fmt::format(" (build {:d})", 0xdb);
     if (with_date) text += " 2001/12/24 15:36";
     return text;
 }

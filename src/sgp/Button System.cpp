@@ -1788,9 +1788,9 @@ void DrawTextOnButton(GUI_BUTTON* b)
             yp++;
         }
         if (b->fMultiColor)
-            gprintf(xp, yp, b->string);
+            DrawFontText(xp, yp, b->string);
         else
-            mprintf(xp, yp, b->string);
+            DrawMonoFontText(xp, yp, b->string);
         // Restore the old text printing settings
     }
 }

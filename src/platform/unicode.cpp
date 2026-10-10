@@ -72,13 +72,17 @@ std::size_t grapheme_count(std::string_view text)
     for (std::size_t offset = 0; offset < text.size(); ++count) offset = next_grapheme(text, offset);
     return count;
 }
-void copy(char* destination, std::size_t capacity, std::string_view text)
+void write_utf8_field(std::string_view text, std::span<char> field)
 {
-    if (!capacity) return;
-    const auto size = byte_prefix(text, capacity - 1);
-    std::memmove(destination, text.data(), size);
-    destination[size] = 0;
+    if (field.empty())
+        return;
+    const auto size = byte_prefix(text, field.size() - 1);
+    // Allow the source to overlap the field, then clear its unused tail.
+    if (size)
+        std::memmove(field.data(), text.data(), size);
+    std::fill(field.begin() + size, field.end(), '\0');
 }
+
 std::string from_utf16(std::u16string_view text)
 {
     std::string out;

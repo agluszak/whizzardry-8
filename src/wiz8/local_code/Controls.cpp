@@ -601,9 +601,9 @@ void W8TextBuffer::RenderText(unsigned char* buffer, unsigned int pitch, int x_o
         line[span] = '\0';
         int x = GetHorizontalPosition(StringPixLength(line, m_font));
         if (m_alternateRenderer == 0) {
-            gprintf_buffer(buffer, pitch, m_font, x + x_offset, y + y_offset, "%s", line);
+            DrawFontTextToBuffer(buffer, pitch, m_font, x + x_offset, y + y_offset, line);
         } else {
-            mprintf_buffer(buffer, pitch, m_font, x + x_offset, y + y_offset, "%s", line);
+            DrawMonoFontTextToBuffer(buffer, pitch, m_font, x + x_offset, y + y_offset, line);
         }
         y += GetLineHeight();
         line[span] = '\n';
@@ -617,9 +617,9 @@ void W8TextBuffer::RenderText(unsigned char* buffer, unsigned int pitch, int x_o
     {
         int x = GetHorizontalPosition(StringPixLength(line, m_font));
         if (m_alternateRenderer == 0) {
-            gprintf_buffer(buffer, pitch, m_font, x + x_offset, y + y_offset, "%s", line);
+            DrawFontTextToBuffer(buffer, pitch, m_font, x + x_offset, y + y_offset, line);
         } else {
-            mprintf_buffer(buffer, pitch, m_font, x + x_offset, y + y_offset, "%s", line);
+            DrawMonoFontTextToBuffer(buffer, pitch, m_font, x + x_offset, y + y_offset, line);
         }
     }
 
@@ -661,7 +661,7 @@ void W8TextBuffer::RenderToTarget(int offset, bool force, unsigned int target)
     while (line[span] != '\0') {
         line[span] = '\0';
         int x = GetHorizontalPosition(StringPixLength(line, m_font));
-        gprintf(x + offset, y + offset, "%s", line);
+        DrawFontText(x + offset, y + offset, line);
         y += GetLineHeight();
         line[span] = '\n';
         if (m_layoutBounds.bottom <= y) {
@@ -673,7 +673,7 @@ void W8TextBuffer::RenderToTarget(int offset, bool force, unsigned int target)
 
     {
         int x = GetHorizontalPosition(StringPixLength(line, m_font));
-        gprintf(x + offset, y + offset, "%s", line);
+        DrawFontText(x + offset, y + offset, line);
     }
 
 done:

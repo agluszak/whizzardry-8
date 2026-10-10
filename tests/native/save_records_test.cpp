@@ -105,6 +105,15 @@ static void character_file_contracts(const std::filesystem::path& assets,
         CHECK(wiz8::retail::encode(loaded) == wiz8::retail::encode(character));
     }
 
+    // I/O errors must reach the same failure continuation as an unsuccessful
+    // current-game save. A directory at the destination cannot be opened as a file.
+    W8Character blocked{};
+    blocked.name = "Blocked";
+    std::filesystem::create_directory(user / "Saves" / "Characters" / "Blocked.CHR");
+    static unsigned failed_saves = 0;
+    CHECK(!SaveCharacter(&blocked, -1, false, [] { ++failed_saves; }));
+    CHECK(failed_saves == 1);
+
     W8Character npc = {};
     npc.name = "Vi";
     std::string path;
@@ -376,9 +385,8 @@ static void save_file_contracts(const std::filesystem::path& user)
         std::filesystem::last_write_time(user / "Saves" / name,
                                         now - hours(slot == 1 ? 0 : slot == 2 ? 4 : 2));
     }
-    char selected[260];
-    CHECK([&]() { auto result = SelectQuickSaveSlotForWrite(); if (!result) return false; wiz8::text::copy(selected, *result); return true; }() && !strcmp(selected, "Quick 2"));
-    CHECK([&]() { auto result = FindStartupQuickSave(); if (!result) return false; wiz8::text::copy(selected, *result); return true; }() && !strcmp(selected, "Quick 1"));
+    CHECK(SelectQuickSaveSlotForWrite() == "Quick 2");
+    CHECK(FindStartupQuickSave() == "Quick 1");
     char oldest[] = "Saves\\Quick 2.SAV", newest[] = "Saves\\Quick 1.SAV";
     const auto oldest_status = wiz8::file_status(oldest), newest_status = wiz8::file_status(newest);
     CHECK(oldest_status && newest_status);
@@ -392,17 +400,17 @@ static void save_file_contracts(const std::filesystem::path& user)
     const wiz8::DiskFileTime same_low{UINT32_MAX, 1};
     CHECK(low.ticks() < high.ticks() && low.ticks() == same_low.ticks());
     CHECK(wiz8::remove_file(oldest));
-    CHECK([&]() { auto result = SelectQuickSaveSlotForWrite(); if (!result) return false; wiz8::text::copy(selected, *result); return true; }() && !strcmp(selected, "Quick 2"));
+    CHECK(SelectQuickSaveSlotForWrite() == "Quick 2");
     CHECK(wiz8::remove_file(newest));
     // Missing Quick 1 must not leave the candidate timestamp uninitialized.
-    CHECK([&]() { auto result = FindStartupQuickSave(); if (!result) return false; wiz8::text::copy(selected, *result); return true; }() && !strcmp(selected, "Quick 3"));
+    CHECK(FindStartupQuickSave() == "Quick 3");
     char third[] = "Saves\\Quick 3.SAV";
     CHECK(wiz8::remove_file(third));
-    CHECK(![&]() { auto result = FindStartupQuickSave(); if (!result) return false; wiz8::text::copy(selected, *result); return true; }());
+    CHECK(!FindStartupQuickSave());
     std::ofstream fallback(user / "Saves" / "Quick.SAV", std::ios::binary);
     write(fallback, 7u);
     fallback.close();
-    CHECK([&]() { auto result = FindStartupQuickSave(); if (!result) return false; wiz8::text::copy(selected, *result); return true; }() && !strcmp(selected, "Quick"));
+    CHECK(FindStartupQuickSave() == "Quick");
     UINT32 count = 0;
 
     char riff[] = "Saves\\Riff.SAV";

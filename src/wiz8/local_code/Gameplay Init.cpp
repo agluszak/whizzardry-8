@@ -1,3 +1,4 @@
+#include <fmt/format.h>
 #include "wiz8/unicode.h"
 #include "wiz8/retail_text_records.h"
 #include "wiz8/layouts/screen_state.h"
@@ -80,7 +81,7 @@ try
     std::unique_ptr<wiz8::File> handle;
     W8NpcItemStockRule* element;
 
-    path = FormatText("%s\\%s.%s", "Data\\Databases", "NPC", "DBS");
+    path = fmt::format("{}\\{}.{}", "Data\\Databases", "NPC", "DBS");
     handle = [&]() { try { return wiz8::open_file(path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
     if (!handle) {
         return 0;
@@ -150,7 +151,7 @@ try
     unsigned int transferred;
     std::unique_ptr<wiz8::File> handle;
 
-    path = FormatText("%s\\%s.%s", "Data\\Databases", "FACT", "DBS");
+    path = fmt::format("{}\\{}.{}", "Data\\Databases", "FACT", "DBS");
     handle = [&]() { try { return wiz8::open_file(path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
     if (!handle) {
         return 0;
@@ -193,7 +194,7 @@ try
     unsigned int transferred;
     std::unique_ptr<wiz8::File> handle;
 
-    path = FormatText("%s\\%s.%s", "Data\\Databases", "LEVELS", "DBS");
+    path = fmt::format("{}\\{}.{}", "Data\\Databases", "LEVELS", "DBS");
     handle = [&]() { try { return wiz8::open_file(path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
     if (!handle) {
         return 0;

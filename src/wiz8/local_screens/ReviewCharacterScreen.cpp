@@ -1,3 +1,5 @@
+#include <fmt/format.h>
+#include <fmt/printf.h>
 #include <string_view>
 #include <string>
 #include <new>
@@ -185,8 +187,6 @@ int g_race_portrait_images[0x30] = {
 int g_attribute_label_ids[7] = {0x924, 0x925, 0x926, 0x927, 0x928, 0x92a, 0x929};
 
 /* The help-line weight breakdown, "<personal>: n, <party>: n". */
-// GLOBAL: WIZ8 0x0064DD4C
-char g_format_s_colon_d_s_colon_d[] = "%s: %d, %s: %d";
 
 // GLOBAL: WIZ8 0x0064CBF0
 W8CampScreenRegion g_camp_screen_regions[12] = {
@@ -206,14 +206,6 @@ W8CampScreenRegion g_camp_screen_regions[12] = {
 /* 0x0064DD14, 0x0064DD20, 0x0064DD28, 0x00648164: the spell page's small
    formats - zero-padded cost, plain number, plain string and the realm label
    prefix. */
-// GLOBAL: WIZ8 0x0064DD14
-char g_format[] = "%3.3d";
-// GLOBAL: WIZ8 0x0064DD20
-char g_format_d0[] = "%3d";
-// GLOBAL: WIZ8 0x0064DD28
-char g_format_s0[] = "%s:";
-// GLOBAL: WIZ8 0x00648164
-char g_format_s_colon[] = "%s: ";
 
 /* Enable or disable the six spell-realm scrollbars together. While enabling, a
    realm whose learned spells fit the eight visible rows keeps its bar off. */
@@ -301,20 +293,25 @@ void DrawCampSpellPages(void)
                                           VO_BLT_SRCTRANSPARENCY, 0);
             SetFontObjectPalette16BPP(g_wiz_text_font_secondary,
                                       g_font_state_palettes[W8_FONT_PALETTE_GREEN].get());
-            gprintf(left + 0x1b, top + 8, g_format_s0, g_localized_strings[0x8c7]);
-            gprintf(left + 0x72, top + 8, g_localized_strings[0x8c9]);
+            DrawFontText(left + 0x1b, top + 8, fmt::format("{}:", g_localized_strings[0x8c7]));
+            DrawFontText(left + 0x72, top + 8, g_localized_strings[0x8c9]);
             SetFontObjectPalette16BPP(g_wiz_text_font_secondary, GetFontObject(g_wiz_text_font_secondary)->ownedPalette.get());
-            width = StringPixLength(FormatText(g_format_s_colon, g_localized_strings[0x8c7]),
+            width = StringPixLength(fmt::format("{}: ", g_localized_strings[0x8c7]),
                                     g_wiz_text_font_secondary);
-            gprintf(left + 0x1b + width, top + 8, g_format_d0,
-                    character->skills[W8_SKILL_FIRE_MAGIC + realm].level);
-            width = StringPixLengthArg(
-                g_wiz_text_font_secondary, 7, g_format_d_slash_d,
-                GetCharacterRealmSpellPoints(character, static_cast<W8SpellRealm>(realm)),
-                character->sp_max[realm]);
-            gprintf(left + 0xc8 - width, top + 8, g_format_d_slash_d,
+            DrawFontText(
+                left + 0x1b + width, top + 8,
+                fmt::format("{:3d}", character->skills[W8_SKILL_FIRE_MAGIC + realm].level));
+            width = StringCodepointPrefixPixelWidth(
+                g_wiz_text_font_secondary, 7,
+                fmt::format(
+                    "{:d}/{:d}",
                     GetCharacterRealmSpellPoints(character, static_cast<W8SpellRealm>(realm)),
-                    character->sp_max[realm]);
+                    character->sp_max[realm]));
+            DrawFontText(left + 0xc8 - width, top + 8,
+                         fmt::format("{:d}/{:d}",
+                                     GetCharacterRealmSpellPoints(character,
+                                                                  static_cast<W8SpellRealm>(realm)),
+                                     character->sp_max[realm]));
             visible = character->skill_unlocks[0x1c + realm];
             if (visible >= 8) {
                 visible = 8;
@@ -336,13 +333,12 @@ void DrawCampSpellPages(void)
                     palette = g_font_state_palettes[W8_FONT_PALETTE_RED].get();
                 }
                 SetFontObjectPalette16BPP(g_wiz_text_font_secondary, palette);
-                width =
-                    StringPixLengthArg(g_wiz_text_font_secondary, 3, g_format,
-                                       g_spell_records[spell_id].spell_point_cost);
-                gprintf(left + 0x1c, row_top, g_format_s,
-                        g_spell_records[spell_id].display_name);
-                gprintf(left + 0xb1 - width, row_top, g_format_d0,
-                        g_spell_records[spell_id].spell_point_cost);
+                width = StringCodepointPrefixPixelWidth(
+                    g_wiz_text_font_secondary, 3,
+                    fmt::format("{:03d}", g_spell_records[spell_id].spell_point_cost));
+                DrawFontText(left + 0x1c, row_top, g_spell_records[spell_id].display_name);
+                DrawFontText(left + 0xb1 - width, row_top,
+                             fmt::format("{:3d}", g_spell_records[spell_id].spell_point_cost));
                 row_top += 0xd;
             }
             SetFontObjectPalette16BPP(g_wiz_text_font_secondary, GetFontObject(g_wiz_text_font_secondary)->ownedPalette.get());
@@ -387,10 +383,8 @@ void DrawCampResistances(void)
 
     DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x140, 0, 0, 0x136, 0, VO_BLT_SRCTRANSPARENCY, 0);
     text = g_localized_strings[0x8ca];
-    width = StringPixLengthArg(
-        g_wiz_text_font_secondary, text.size(),
-        text);
-    gprintf((0x134 - width) / 2 + 0x144, 0x1e, text);
+    width = StringCodepointPrefixPixelWidth(g_wiz_text_font_secondary, text.size(), text);
+    DrawFontText((0x134 - width) / 2 + 0x144, 0x1e, text);
     for (index = 0; index < 6; ++index) {
         animation = &g_spell_realm_animations[index];
         left = (index & 1) * 156 + 0x144;
@@ -399,10 +393,10 @@ void DrawCampResistances(void)
                          VO_BLT_SRCTRANSPARENCY, 0);
         DrawCampValueBar(character->resistances[index].total, character->resistances[index].base,
                          left + 0x18, top + 4);
-        width = StringPixLengthArg(g_wiz_text_font_secondary, 5, g_format_d,
-                                   character->resistances[index].total);
-        gprintf(left + 0x93 - width, top + 3, g_format_d,
-                character->resistances[index].total);
+        width = StringCodepointPrefixPixelWidth(
+            g_wiz_text_font_secondary, 5, fmt::format("{:d}", character->resistances[index].total));
+        DrawFontText(left + 0x93 - width, top + 3,
+                     fmt::format("{:d}", character->resistances[index].total));
     }
 }
 
@@ -491,7 +485,7 @@ unsigned char SpellListRegionHandler(const InputAtom* event, W8Region* region)
 void OpenSpellInfoDialog(unsigned int spell_id)
 {
     W8SpellInfoDialog* dialog = new W8SpellInfoDialog(spell_id);
-    dialog->SetText(&g_empty_text);
+    dialog->SetText("");
     DisplayCampDialog(dialog);
 }
 
@@ -587,10 +581,10 @@ void DrawCampCharacterInfo(void)
                 g_W8TextBufferAlignLeft | g_W8TextBufferAlignMiddle);
     DrawRcsText(g_localized_strings[0x920], 0x144, 0x56, 0x45,
                 g_W8TextBufferAlignLeft | g_W8TextBufferAlignMiddle);
-    state->text_buffer = FormatText(g_format_d_slash_d, character->hp_current, character->uiHPMax);
+    state->text_buffer = fmt::format("{:d}/{:d}", character->hp_current, character->uiHPMax);
     DrawRcsText(state->text_buffer, 0x18d, 0x3a, 0x2c,
                 g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
-    state->text_buffer = FormatText(g_format_d_slash_d, character->stamina, character->uiStaminaMax);
+    state->text_buffer = fmt::format("{:d}/{:d}", character->stamina, character->uiStaminaMax);
     DrawRcsText(state->text_buffer, 0x18d, 0x48, 0x2c,
                 g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
     if (character->load_category != 0) {
@@ -598,10 +592,13 @@ void DrawCampCharacterInfo(void)
             g_wiz_text_font_secondary,
             g_font_state_palettes[g_load_category_palettes[character->load_category]].get());
     }
-    state->text_buffer = FormatText(g_format_d_slash_d, character->total_carried_weight / 10, character->carrying_capacity / 10);
+    state->text_buffer = fmt::format("{:d}/{:d}", character->total_carried_weight / 10,
+                                     character->carrying_capacity / 10);
     DrawRcsTextJustified(state->text_buffer, 0x18d, 0x56, 0x2c, 0xc,
                          g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
-    state->text_buffer = FormatText(g_format_s_colon_d_s_colon_d, g_localized_strings[0x8c0], character->inventory_weight / 10, g_localized_strings[0x8c1], character->party_weight_share / 10);
+    state->text_buffer = fmt::format("{}: {:d}, {}: {:d}", g_localized_strings[0x8c0],
+                                     character->inventory_weight / 10, g_localized_strings[0x8c1],
+                                     character->party_weight_share / 10);
     g_camp_help_text->SetRegionHelp(state->text_buffer);
     SetFontObjectPalette16BPP(g_wiz_text_font_secondary, GetFontObject(g_wiz_text_font_secondary)->ownedPalette.get());
     DrawRcsText(g_localized_strings[0x921], 0x144, 0x72, 0x75,
@@ -610,7 +607,7 @@ void DrawCampCharacterInfo(void)
     for (index = 0; index < 7; ++index) {
         DrawRcsText(g_localized_strings[g_attribute_label_ids[index]], 0x1c2, top, 0x4c,
                     g_W8TextBufferAlignLeft | g_W8TextBufferAlignMiddle);
-        state->text_buffer = FormatText(g_format_d, character->attributes[index].effective);
+        state->text_buffer = fmt::format("{:d}", character->attributes[index].effective);
         DrawRcsText(state->text_buffer, 0x212, top, 0x14,
                     g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
         top += 0xe;
@@ -621,7 +618,10 @@ void DrawCampCharacterInfo(void)
         if (character->sp_max[realm] == 0) {
             frame = g_spell_realm_animations[realm].frame_count;
         } else {
-            state->text_buffer = FormatText(g_format_d_slash_d, GetCharacterRealmSpellPoints(character, static_cast<W8SpellRealm>(realm)), character->sp_max[realm]);
+            state->text_buffer = fmt::format(
+                "{:d}/{:d}",
+                GetCharacterRealmSpellPoints(character, static_cast<W8SpellRealm>(realm)),
+                character->sp_max[realm]);
             DrawTallRcsText(state->text_buffer, 0x242, top, 0x32,
                             g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
             frame = g_spell_realm_animations[realm].initial_frame;
@@ -632,12 +632,12 @@ void DrawCampCharacterInfo(void)
     }
     DrawRcsText(g_localized_strings[0x922], 0x144, 0x80, 0x45,
                 g_W8TextBufferAlignLeft | g_W8TextBufferAlignMiddle);
-    state->text_buffer = FormatText(g_format_d, character->armor_class_total);
+    state->text_buffer = fmt::format("{:d}", character->armor_class_total);
     DrawRcsText(state->text_buffer, 0x18d, 0x80, 0x2c,
                 g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
     DrawRcsText(g_localized_strings[0x923], 0x144, 0x8e, 0x45,
                 g_W8TextBufferAlignLeft | g_W8TextBufferAlignMiddle);
-    state->text_buffer = FormatText(g_format_d, character->armor_class_average);
+    state->text_buffer = fmt::format("{:d}", character->armor_class_average);
     DrawRcsText(state->text_buffer, 0x18d, 0x8e, 0x2c,
                 g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
     InvalidateCampPanel();
@@ -770,7 +770,7 @@ void DrawCampEquipmentItems(void)
         default:
             goto no_armor_label;
         }
-        state->text_buffer = FormatText(g_format_d, character->armor_class_by_location[frame]);
+        state->text_buffer = fmt::format("{:d}", character->armor_class_by_location[frame]);
         DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x11c, 0, 0, region->x + 2, region->y + 1,
                                       VO_BLT_SRCTRANSPARENCY, 0);
         DrawRcsText(state->text_buffer, region->x + 2, region->y + 2, 0x11,
@@ -911,7 +911,7 @@ void DrawCampItemQuantity(W8ItemInstance* item, int left, int top, int width)
     switch (g_item_records[item->iItemNo].quantity_kind) {
     case W8_ITEM_QUANTITY_STACK:
         if (item->stack_count > 1) {
-            state->text_buffer = FormatText(g_format_d, item->stack_count);
+            state->text_buffer = fmt::format("{:d}", item->stack_count);
             DrawRcsText(state->text_buffer, left, top, width,
                         g_W8TextBufferAlignMiddle | g_W8TextBufferAlignRight);
         }
@@ -921,9 +921,9 @@ void DrawCampItemQuantity(W8ItemInstance* item, int left, int top, int width)
         SetFontObjectPalette16BPP(g_wiz_text_font_secondary,
                                   g_font_state_palettes[W8_FONT_PALETTE_BLUE].get());
         if (!item->identified) {
-            state->text_buffer = FormatText("?");
+            state->text_buffer = "?";
         } else {
-            state->text_buffer = FormatText(g_format_d, item->uses_or_charges);
+            state->text_buffer = fmt::format("{:d}", item->uses_or_charges);
         }
         height = GetFontHeight(g_wiz_text_font_secondary);
         DrawRcsTextJustified(state->text_buffer, left, top, width, height,
@@ -932,7 +932,7 @@ void DrawCampItemQuantity(W8ItemInstance* item, int left, int top, int width)
     case W8_ITEM_QUANTITY_SHOTS:
         SetFontObjectPalette16BPP(g_wiz_text_font_secondary,
                                   g_font_state_palettes[W8_FONT_PALETTE_YELLOW].get());
-        state->text_buffer = FormatText(g_format_d, item->uses_or_charges);
+        state->text_buffer = fmt::format("{:d}", item->uses_or_charges);
         height = GetFontHeight(g_wiz_text_font_secondary);
         DrawRcsTextJustified(state->text_buffer, left, top, width, height,
                              g_W8TextBufferAlignMiddle | g_W8TextBufferAlignRight);
@@ -1014,12 +1014,12 @@ void W8CampCharacterInfo::Redraw()
     InvalidateCampPanel();
     DrawRcsText(g_localized_strings[0x935], 0x15e, 0x84, 0x4e,
                 g_W8TextBufferAlignMiddle | g_W8TextBufferAlignLeft);
-    g_camp_screen->text_buffer = FormatText("%d", g_review_character->kill_count);
+    g_camp_screen->text_buffer = fmt::format("{:d}", g_review_character->kill_count);
     DrawRcsText(g_camp_screen->text_buffer, 0x1ae, 0x84, 0x20,
                 g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
     DrawRcsText(g_localized_strings[0x936], 0x15e, 0x92, 0x4e,
                 g_W8TextBufferAlignMiddle | g_W8TextBufferAlignLeft);
-    g_camp_screen->text_buffer = FormatText("%d", g_review_character->death_count);
+    g_camp_screen->text_buffer = fmt::format("{:d}", g_review_character->death_count);
     DrawRcsText(g_camp_screen->text_buffer, 0x1ae, 0x92, 0x20,
                 g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
     if (m_combat_view) {
@@ -1027,7 +1027,7 @@ void W8CampCharacterInfo::Redraw()
                     g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
         DrawRcsText(g_localized_strings[0x8b1], 0x15e, 0x30, 0x4e,
                     g_W8TextBufferAlignMiddle | g_W8TextBufferAlignLeft);
-        g_camp_screen->text_buffer = FormatText("%d", g_review_character->initiative);
+        g_camp_screen->text_buffer = fmt::format("{:d}", g_review_character->initiative);
         DrawRcsText(g_camp_screen->text_buffer, 0x1ae, 0x30, 0x20,
                     g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
         if (g_review_character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo == -1 &&
@@ -1101,40 +1101,42 @@ void W8CampCharacterInfo::Redraw()
             int skill_bonus =
                 (attack->attack_score < 0 ? attack->attack_score - 2 : attack->attack_score + 2) /
                 5;
-            g_camp_screen->text_buffer = FormatText("%+d", attack->damage_bonus + g_review_character->bonus.damage_bonus);
+            g_camp_screen->text_buffer =
+                fmt::format("{:+d}", attack->damage_bonus + g_review_character->bonus.damage_bonus);
             DrawRcsText(g_camp_screen->text_buffer, x, 0x30, 0x20,
                         g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
-            g_camp_screen->text_buffer = FormatText("%d-%d", minimum, maximum);
+            g_camp_screen->text_buffer = fmt::format("{:d}-{:d}", minimum, maximum);
             DrawRcsText(g_camp_screen->text_buffer, x, 0x3e, 0x20,
                         g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
             g_camp_screen->text_buffer = g_localized_strings[0x95c];
-            g_camp_screen->text_buffer += FormatText(" %d, ", dice.Minimum());
+            g_camp_screen->text_buffer += fmt::format(" {:d}, ", dice.Minimum());
             g_camp_screen->text_buffer += g_localized_strings[0x95b];
-            g_camp_screen->text_buffer += FormatText(" %d, ", dice.Maximum());
+            g_camp_screen->text_buffer += fmt::format(" {:d}, ", dice.Maximum());
             g_camp_screen->text_buffer += g_localized_strings[0x95a];
-            g_camp_screen->text_buffer += FormatText(" %+d%%", damage_bonus);
+            g_camp_screen->text_buffer += fmt::format(" {:+d}%", static_cast<int>(damage_bonus));
             m_values[hand + 2]->SetRegionHelp(g_camp_screen->text_buffer);
-            g_camp_screen->text_buffer = FormatText("%d", skill_bonus + hit_bonus);
+            g_camp_screen->text_buffer = fmt::format("{:d}", skill_bonus + hit_bonus);
             DrawRcsText(g_camp_screen->text_buffer, x, 0x4c, 0x20,
                         g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
             g_camp_screen->text_buffer = g_localized_strings[0x959];
-            g_camp_screen->text_buffer += FormatText(" %d, ", skill_bonus);
+            g_camp_screen->text_buffer += fmt::format(" {:d}, ", skill_bonus);
             g_camp_screen->text_buffer += g_localized_strings[0x95a];
-            g_camp_screen->text_buffer += FormatText(" %+d", hit_bonus);
+            g_camp_screen->text_buffer += fmt::format(" {:+d}", hit_bonus);
             m_values[hand]->SetRegionHelp(g_camp_screen->text_buffer);
-            g_camp_screen->text_buffer = FormatText("%d", attack->attacks);
+            g_camp_screen->text_buffer = fmt::format("{:d}", attack->attacks);
             DrawRcsText(g_camp_screen->text_buffer, x, 0x5a, 0x20,
                         g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
-            g_camp_screen->text_buffer = FormatText("%d", attack->swings);
+            g_camp_screen->text_buffer = fmt::format("{:d}", attack->swings);
             DrawRcsText(g_camp_screen->text_buffer, x, 0x68, 0x20,
                         g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
-            g_camp_screen->text_buffer = FormatText("%+d", hit_bonus);
+            g_camp_screen->text_buffer = fmt::format("{:+d}", hit_bonus);
             DrawRcsText(g_camp_screen->text_buffer, x, 0x76, 0x20,
                         g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
-            g_camp_screen->text_buffer = FormatText("%+d", attack->attack_bonus + g_review_character->bonus.attack_bonus);
+            g_camp_screen->text_buffer =
+                fmt::format("{:+d}", attack->attack_bonus + g_review_character->bonus.attack_bonus);
             DrawRcsText(g_camp_screen->text_buffer, x, 0x84, 0x20,
                         g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
-            g_camp_screen->text_buffer = FormatText("%+d%%", damage_bonus);
+            g_camp_screen->text_buffer = fmt::format("{:+d}%", static_cast<int>(damage_bonus));
             DrawRcsText(g_camp_screen->text_buffer, x, 0x92, 0x20,
                         g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
         }
@@ -1152,14 +1154,14 @@ void W8CampCharacterInfo::Redraw()
                         g_W8TextBufferAlignMiddle | g_W8TextBufferAlignLeft);
             int value = g_review_character->armor_class_components[component];
             if (value) {
-                g_camp_screen->text_buffer = FormatText("%+d", value);
+                g_camp_screen->text_buffer = fmt::format("{:+d}", value);
                 DrawRcsText(g_camp_screen->text_buffer, value_x, y, 0x20,
                             g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
             }
         }
         DrawRcsText(g_localized_strings[0x8bf], 0x1da, 0x84, 0x7c,
                     g_W8TextBufferAlignMiddle | g_W8TextBufferAlignLeft);
-        g_camp_screen->text_buffer = FormatText("%d%%", g_review_character->damage_reduction);
+        g_camp_screen->text_buffer = fmt::format("{:d}%", g_review_character->damage_reduction);
         DrawRcsText(g_camp_screen->text_buffer, 600, 0x84, 0x20,
                     g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
     }
@@ -1332,7 +1334,8 @@ unsigned char CampScreenEnter(void)
             for (int slot = 0; slot < 8; ++slot) {
                 if (g_status.buffers.XChar[slot].fOccupied && IsPartySlotEligible(slot) &&
                     g_status.buffers.XChar[slot].pending_action == W8_ACTION_EQUIP) {
-                    g_camp_screen->text_buffer = FormatText("%s %s", g_status.buffers.Char[slot].name, g_localized_strings[0x919]);
+                    g_camp_screen->text_buffer = fmt::format(
+                        "{} {}", g_status.buffers.Char[slot].name, g_localized_strings[0x919]);
                     goto show_equip_message;
                 }
             }
@@ -1343,12 +1346,13 @@ unsigned char CampScreenEnter(void)
                     g_status.buffers.XChar[slot].pending_action == W8_ACTION_EQUIP) {
                     ++count;
                     if (count == 1) {
-                        g_camp_screen->text_buffer = FormatText("%s", g_status.buffers.Char[slot].name);
+                        g_camp_screen->text_buffer =
+                            fmt::format("{}", g_status.buffers.Char[slot].name);
                     } else {
                         if (count == g_combat_state->equip_pending) {
                             g_camp_screen->text_buffer += " ";
-                            g_camp_screen->text_buffer += FormatText(g_localized_strings[0x918],
-                                                    g_status.buffers.Char[slot].name);
+                            g_camp_screen->text_buffer += fmt::sprintf(
+                                g_localized_strings[0x918], g_status.buffers.Char[slot].name);
                             goto show_equip_message;
                         }
                         g_camp_screen->text_buffer += ", ";
@@ -1411,7 +1415,7 @@ void CampScreenFrame(void)
                         SelectCampCharacter(CharacterPointerToPartySlot(g_camp_character));
                         if (!IsPartySlotEligible(giReviewCharSlot)) {
                             std::string text =
-                                FormatText(g_localized_strings[0x931], g_camp_character->name);
+                                fmt::sprintf(g_localized_strings[0x931], g_camp_character->name);
                             ShowCampNoticeLine(text, 0, true, false);
                         } else {
                             QueueCharacterEvent(g_camp_character, g_effect36, 0, g_effect_argument0,
@@ -1504,7 +1508,7 @@ void DismissSelectedPartyCharacter(void)
                                 g_character_event_full_volume);
             return;
         }
-        std::string text = FormatText(g_localized_strings[0x931], g_camp_character->name);
+        std::string text = fmt::sprintf(g_localized_strings[0x931], g_camp_character->name);
         ShowCampNoticeLine(text, 0, true, false);
         return;
     }
@@ -1743,19 +1747,20 @@ void DrawCampRegenStats(void)
     SetFont(g_calligraphy_font);
     SetObjectShade(GetFontObject(g_calligraphy_font), 4);
     SetObjectShade(GetFontObject(g_calligraphy_font), 0);
-    gprintfDirty(0x14a, 5, g_localized_strings[0x8ce]);
+    DrawFontTextDirty(0x14a, 5, g_localized_strings[0x8ce]);
     SetObjectShade(GetFontObject(g_calligraphy_font), 4);
-    gprintfDirty(0x221, 5, "%6.3f", g_review_character->health_regen_rate);
+    DrawFontTextDirty(0x221, 5, fmt::format("{:6.3f}", g_review_character->health_regen_rate));
     SetObjectShade(GetFontObject(g_calligraphy_font), 0);
-    gprintfDirty(0x14a, 0x14, g_localized_strings[0x8cd]);
+    DrawFontTextDirty(0x14a, 0x14, g_localized_strings[0x8cd]);
     SetObjectShade(GetFontObject(g_calligraphy_font), 4);
-    gprintfDirty(0x221, 0x14, "%6.3f", g_review_character->stamina_regen_rate);
+    DrawFontTextDirty(0x221, 0x14, fmt::format("{:6.3f}", g_review_character->stamina_regen_rate));
     SetObjectShade(GetFontObject(g_calligraphy_font), 0);
-    gprintfDirty(0x14a, 0x23, g_localized_strings[0x8d0]);
+    DrawFontTextDirty(0x14a, 0x23, g_localized_strings[0x8d0]);
     SetObjectShade(GetFontObject(g_calligraphy_font), 4);
     for (index = 0; index < 6; ++index) {
-        gprintfDirty(index * 0x14 + 0x1fe, 0x23, "%6.3f/",
-                     g_review_character->spell_regen_rates[index * 2]);
+        DrawFontTextDirty(
+            index * 0x14 + 0x1fe, 0x23,
+            fmt::format("{:6.3f}/", g_review_character->spell_regen_rates[index * 2]));
     }
 }
 
@@ -1863,7 +1868,7 @@ static void SelectPendingCampCharacter()
         QueueCharacterEvent(g_camp_character, g_effect36, 0, g_effect_argument0,
                             g_character_event_full_volume);
     } else {
-        std::string text = FormatText(g_localized_strings[0x931], g_camp_character->name);
+        std::string text = fmt::sprintf(g_localized_strings[0x931], g_camp_character->name);
         ShowCampNoticeLine(text, 0, true, false);
     }
 }
@@ -2353,7 +2358,7 @@ bool ResolvePendingCampCharacter(bool force)
                                 g_character_event_full_volume);
             return false;
         }
-        text = FormatText(g_localized_strings[0x931], g_camp_character->name);
+        text = fmt::sprintf(g_localized_strings[0x931], g_camp_character->name);
         ShowCampNoticeLine(text, 0, true, false);
         return false;
     }
@@ -2673,7 +2678,7 @@ void PumpReviewTransition(void)
         if (auto name = FindFreeEndingSaveName()) {
             SaveGame(name->c_str(), 0);
             SetMainMenuMessage(
-                FormatText("%s %s.%s", g_localized_strings[0x78b], *name, g_save_extension));
+                fmt::format("{} {}.{}", g_localized_strings[0x78b], *name, g_save_extension));
         }
         g_ending_autosave = false;
     }
@@ -2711,8 +2716,7 @@ void DrawPartyDeathScreen(void)
         text = g_localized_strings[0x778];
     }
     SetFont(g_level_load_font);
-    gprintf(0x276 - StringPixLength(text, g_level_load_font), 0x1c7,
-            text);
+    DrawFontText(0x276 - StringPixLength(text, g_level_load_font), 0x1c7, text);
     SetRadarMapVisible(false);
     SetFormationBoardVisible(false);
     VideoRemoveToolTip();

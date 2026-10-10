@@ -1,3 +1,5 @@
+#include <fmt/format.h>
+#include <fmt/printf.h>
 #include <string_view>
 #include "wiz8/unicode.h"
 #include <string>
@@ -257,8 +259,6 @@ const char* g_party_target_marker_bitmaps[8] = {"TriRed.tga",  "TriGreen.tga",  
                                                 "TriBlue.tga", "TriOrange.tga", "TriYellow.tga",
                                                 "TriPink.tga", "TriBrown.tga"};
 
-// GLOBAL: WIZ8 0x0060f510
-static char g_monster_bitmap_path_format[] = "Data\\Monsters\\Bitmaps\\%s";
 
 // GLOBAL: WIZ8 0x0060e958
 const char* g_monster_script_commands[MONSCR_COUNT] = {"GOTO",
@@ -382,11 +382,10 @@ unsigned char ReadOrCloneMonsterCycles(const W8GrCycleLoadContext* context,
     bool skins_started = false;
 
     std::string path;
-    path = FormatText("data\\Monsters\\%s.mls", monster_name);
+    path = fmt::format("data\\Monsters\\{}.mls", monster_name);
     std::unique_ptr<wiz8::File> handle = [&]() { try { return wiz8::open_file(path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
     if (handle == 0) {
-        srAssertFail("hFile", MONSTER_CPP, 0x50f,
-                     FormatText("Couldn't open %s", path));
+        srAssertFail("hFile", MONSTER_CPP, 0x50f, fmt::format("Couldn't open {}", path));
     }
     *monster = 0;
 
@@ -550,9 +549,8 @@ unsigned char ReadOrCloneMonsterCycles(const W8GrCycleLoadContext* context,
                 sscanf(line, "%s %s %s", command, old_name, new_name);
                 if (damage_stage != -1 &&
                     !(*monster)->ReplaceSkinTexture(damage_stage, old_name, new_name)) {
-                    ShutdownWithErrorBox(FormatText(
-                            "The skin texture %s not found in monster %s!", old_name,
-                            monster_name));
+                    ShutdownWithErrorBox(fmt::format("The skin texture {} not found in monster {}!",
+                                                     old_name, monster_name));
                 }
             } else {
                 /* 0x004C10FB: the length test is on the whole line, not the argument. */
@@ -591,9 +589,9 @@ unsigned char ReadOrCloneMonsterCycles(const W8GrCycleLoadContext* context,
                                 /* 0x004C128A: a missing subcycle is fatal, as in
                                    every other retail cycle lookup. */
                                 if (rep->animations[cycle].GetCount() <= current) {
-                                    ShutdownWithErrorBox(FormatText(
-                                            "Monster %s: Missing CYCLE_%s, sub-cycle %d", rep->name,
-                                            g_cycle_names[cycle].name, current));
+                                    ShutdownWithErrorBox(
+                                        fmt::format("Monster {}: Missing CYCLE_{}, sub-cycle {:d}",
+                                                    rep->name, g_cycle_names[cycle].name, current));
                                 }
                                 W8AnimObj* animation =
                                     *(*monster)->m_pRep->animations[cycle].GetAt(current);
@@ -667,9 +665,9 @@ unsigned char ReadOrCloneMonsterCycles(const W8GrCycleLoadContext* context,
                         }
                     } else {
                         srAssertFail("FALSE", MONSTER_CPP, 0x636,
-                                     FormatText("Monster::ReadAllCycles: ERROR - Unrecognized "
-                                                  "MLS string \"%s\" in %s",
-                                                  command, path));
+                                     fmt::format("Monster::ReadAllCycles: ERROR - Unrecognized MLS "
+                                                 "string \"{}\" in {}",
+                                                 command, path));
                     }
                 }
             }
@@ -725,10 +723,8 @@ unsigned char ReadOrCloneMonsterCycles(const W8GrCycleLoadContext* context,
         idle_fps_end = 3.0f;
     }
     if (representation->animations[1].GetCount() < 1) {
-        ShutdownWithErrorBox(
-            FormatText(
-                "Monster %s: Missing CYCLE_%s, sub-cycle %d", representation->name,
-                g_cycle_names[1].name, 0));
+        ShutdownWithErrorBox(fmt::format("Monster {}: Missing CYCLE_{}, sub-cycle {:d}",
+                                         representation->name, g_cycle_names[1].name, 0));
     }
     W8AnimObj* idle = *representation->animations[1].GetAt(0);
     if (idle != 0) {
@@ -897,9 +893,9 @@ void W8Monster::RandomizeAppearanceAndMotion()
                 animation_index = m_pRep->current_subcycle;
             }
             if (animation_index >= m_pRep->animations[1].GetCount()) {
-                ShutdownWithErrorBox(FormatText("Monster %s: Missing CYCLE_%s, sub-cycle %d",
-                                                  m_pRep->name, g_cycle_names[1].name,
-                                                  animation_index));
+                ShutdownWithErrorBox(fmt::format("Monster {}: Missing CYCLE_{}, sub-cycle {:d}",
+                                                 m_pRep->name, g_cycle_names[1].name,
+                                                 animation_index));
             }
             animation = *m_pRep->animations[1].GetAt(animation_index);
             if (scale < g_float_one) {
@@ -1644,8 +1640,8 @@ bool W8Monster::EvaluateScriptCondition(const char* expression)
         GetCameraPosition(&party_position);
         if (parameters.GetCount() == 0) {
             srAssertFail("lsParmList.Length()", MONSTER_CPP, 7526,
-                         FormatText("Monscr %s line %d: PARTYNEAR expects 1 parameter",
-                                      script->getName().c_str(), script_line));
+                         fmt::format("Monscr {} line {:d}: PARTYNEAR expects 1 parameter",
+                                     script->getName(), script_line));
         }
 
         srVector3T<float> current_position = GetPosition();
@@ -1659,8 +1655,8 @@ bool W8Monster::EvaluateScriptCondition(const char* expression)
     } else if (_strnicmp(buffer, "RANDOM", 6) == 0) {
         if (parameters.GetCount() == 0) {
             srAssertFail("lsParmList.Length()", MONSTER_CPP, 7542,
-                         FormatText("Monscr %s line %d: RANDOM expects 1 parameter",
-                                      script->getName().c_str(), script_line));
+                         fmt::format("Monscr {} line {:d}: RANDOM expects 1 parameter",
+                                     script->getName(), script_line));
         }
         if (Chance(static_cast<unsigned int>(*parameters.GetAt(0))) != 0) {
             return true;
@@ -1739,8 +1735,9 @@ bool W8Monster::GetProjectilePosition(srVector3T<float>* position)
         if (g_dev_mode) {
             W8MonsterInfo* info = MonsterGetScriptPartByLocationIndex(
                 MonsterGetIndexByLocationID(0x18c3, MONSTER_CPP, location_id, true));
-            FormatDebugMessage(0, "WARNING: %s does not have a MISSILE vertex marked --> Lee!",
-                               GetMonsterDataForInfo(info)->name0);
+            DebugMessage(0,
+                         fmt::format("WARNING: {} does not have a MISSILE vertex marked --> Lee!",
+                                     GetMonsterDataForInfo(info)->name0));
         }
         missile_point_warned = true;
     }
@@ -1763,7 +1760,7 @@ bool W8Monster::GetSpellPosition(srVector3T<float>* position)
             W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(
                 MonsterGetIndexByLocationID(0x18e4, MONSTER_CPP, location_id, true));
             W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
-            FormatDebugMessage(0, g_warning_missing_spell_vertex, record->name0);
+            DebugMessage(0, fmt::sprintf(g_warning_missing_spell_vertex, record->name0));
         }
         spell_vertex_warned = true;
     }
@@ -1788,9 +1785,8 @@ bool W8Monster::GetCycleMappedPosition(signed char cycle, int mapped_index,
     }
     animations = &m_pRep->animations[cycle];
     if (animations->GetCount() <= subcycle) {
-        ShutdownWithErrorBox(
-            FormatText("Monster %s: Missing CYCLE_%s, sub-cycle %d", m_pRep->name,
-                       g_cycle_names[cycle].name, subcycle));
+        ShutdownWithErrorBox(fmt::format("Monster {}: Missing CYCLE_{}, sub-cycle {:d}",
+                                         m_pRep->name, g_cycle_names[cycle].name, subcycle));
     }
     animation = *animations->GetAt(subcycle);
 
@@ -1948,9 +1944,9 @@ void W8Monster::ProcessScript()
                     break;
                 }
                 if (!ResolveScriptPosition(token, &position)) {
-                    ShutdownWithErrorBox(
-                        FormatText("MonScript %s Line %d: Unknown location %s", script->getName().c_str(),
-                                     script->GetSourceLine(script_line - 1), token));
+                    ShutdownWithErrorBox(fmt::format(
+                        "MonScript {} Line {:d}: Unknown location {}", script->getName(),
+                        script->GetSourceLine(script_line - 1), token));
                     break;
                 }
                 if (_stricmp(token, "PARTY") == 0) {
@@ -1973,9 +1969,9 @@ void W8Monster::ProcessScript()
                     break;
                 }
                 if (!ResolveScriptPosition(token, &position)) {
-                    ShutdownWithErrorBox(
-                        FormatText("MonScript %s Line %d: Unknown location %s", script->getName().c_str(),
-                                     script->GetSourceLine(script_line - 1), token));
+                    ShutdownWithErrorBox(fmt::format(
+                        "MonScript {} Line {:d}: Unknown location {}", script->getName(),
+                        script->GetSourceLine(script_line - 1), token));
                     break;
                 }
                 AimAtPosition(&position);
@@ -2036,8 +2032,8 @@ void W8Monster::ProcessScript()
                             stop = true;
                         }
                     } else {
-                        ShutdownWithErrorBox(FormatText(
-                            "MonScript %s Line %d: Unknown cycle %s", script->getName().c_str(),
+                        ShutdownWithErrorBox(fmt::format(
+                            "MonScript {} Line {:d}: Unknown cycle {}", script->getName(),
                             script->GetSourceLine(script_line - 1), token));
                     }
                 }
@@ -2078,8 +2074,8 @@ void W8Monster::ProcessScript()
                 token = strtok(0, " \t");
                 if (token != 0) {
                     if (!ResolveScriptPosition(token, &position)) {
-                        ShutdownWithErrorBox(FormatText(
-                            "MonScript %s Line %d: Unknown location %s", script->getName().c_str(),
+                        ShutdownWithErrorBox(fmt::format(
+                            "MonScript {} Line {:d}: Unknown location {}", script->getName(),
                             script->GetSourceLine(script_line - 1), token));
                         break;
                     }
@@ -2121,8 +2117,8 @@ void W8Monster::ProcessScript()
                     *script_conditions.GetAt(0) = !(*script_conditions.GetAt(0));
                 } else {
                     ShutdownWithErrorBox(
-                        FormatText("MonScript %s Line %d: ELSE without matching IF",
-                                     script->getName().c_str(), script->GetSourceLine(script_line - 1)));
+                        fmt::format("MonScript {} Line {:d}: ELSE without matching IF",
+                                    script->getName(), script->GetSourceLine(script_line - 1)));
                 }
                 break;
             case MONSCR_ENDIF:
@@ -2130,8 +2126,8 @@ void W8Monster::ProcessScript()
                     script_conditions.RemoveAt(0);
                 } else {
                     ShutdownWithErrorBox(
-                        FormatText("MonScript %s Line %d: ENDIF without matching IF",
-                                     script->getName().c_str(), script->GetSourceLine(script_line - 1)));
+                        fmt::format("MonScript {} Line {:d}: ENDIF without matching IF",
+                                    script->getName(), script->GetSourceLine(script_line - 1)));
                 }
                 break;
             case MONSCR_DISPOSITION: {
@@ -2338,8 +2334,8 @@ void W8Monster::ProcessScript()
                         direction_y = 0.0f;
                         direction_z = static_cast<float>(sin(angle) * g_double_five_hundred);
                     } else {
-                        ShutdownWithErrorBox(FormatText(
-                            "MonScript %s Line %d: Unknown direction %s", script->getName().c_str(),
+                        ShutdownWithErrorBox(fmt::format(
+                            "MonScript {} Line {:d}: Unknown direction {}", script->getName(),
                             script->GetSourceLine(script_line - 1), token));
                     }
                 }
@@ -2372,8 +2368,8 @@ void W8Monster::ProcessScript()
                 if (token != 0) {
                     srVector3T<float> position;
                     if (!ResolveScriptPosition(token, &position)) {
-                        ShutdownWithErrorBox(FormatText(
-                            "MonScript %s Line %d: Unknown location %s", script->getName().c_str(),
+                        ShutdownWithErrorBox(fmt::format(
+                            "MonScript {} Line {:d}: Unknown location {}", script->getName(),
                             script->GetSourceLine(script_line - 1), token));
                         break;
                     }
@@ -2387,8 +2383,8 @@ void W8Monster::ProcessScript()
                 while ((token = strtok(0, " \t")) != 0) {
                     srVector3T<float> position;
                     if (!ResolveScriptPosition(token, &position)) {
-                        ShutdownWithErrorBox(FormatText(
-                            "MonScript %s Line %d: Unknown location %s", script->getName().c_str(),
+                        ShutdownWithErrorBox(fmt::format(
+                            "MonScript {} Line {:d}: Unknown location {}", script->getName(),
                             script->GetSourceLine(script_line - 1), token));
                         continue;
                     }
@@ -2420,14 +2416,14 @@ void W8Monster::ProcessScript()
                     if (token != 0) {
                         look_duration = atoi(token);
                     } else {
-                        ShutdownWithErrorBox(FormatText(
-                            "MonScript %s Line %d: Missing lookabout duration", script->getName().c_str(),
-                            script->GetSourceLine(script_line - 1)));
+                        ShutdownWithErrorBox(
+                            fmt::format("MonScript {} Line {:d}: Missing lookabout duration",
+                                        script->getName(), script->GetSourceLine(script_line - 1)));
                     }
                 } else {
                     ShutdownWithErrorBox(
-                        FormatText("MonScript %s Line %d: Missing lookabout frequency",
-                                     script->getName().c_str(), script->GetSourceLine(script_line - 1)));
+                        fmt::format("MonScript {} Line {:d}: Missing lookabout frequency",
+                                    script->getName(), script->GetSourceLine(script_line - 1)));
                 }
                 break;
             case MONSCR_STAYHOME:
@@ -2761,8 +2757,9 @@ void SetMonsterPartySlotMarker(int party_slot, int location_id, char on)
         }
     } else {
         if (rep->objects[party_slot] == 0) {
-            path = FormatText(g_monster_bitmap_path_format, g_party_target_marker_bitmaps[g_status.buffers.XChar[party_slot]
-                                                      .party_order_index]);
+            path = fmt::format("Data\\Monsters\\Bitmaps\\{}",
+                               g_party_target_marker_bitmaps[g_status.buffers.XChar[party_slot]
+                                                                 .party_order_index]);
             rep->objects[party_slot] = CreateMonsterIconItem(g_world, path.c_str(), 1);
             ++rep->icon_count;
         }
@@ -3116,13 +3113,12 @@ bool W8Monster::IsCycleInterruptable(signed char cycle)
             } else {
                 requested_name = "";
             }
-            FormatDebugMessage(1,
-                               "Monster::CycleInterruptable (ID %d) - WARNING: Monster is "
-                               "not animating - Cycle %d(%s), current %d(%s), pending "
-                               "%d(%s)",
+            DebugMessage(
+                1, fmt::format("Monster::CycleInterruptable (ID {:d}) - WARNING: Monster is not "
+                               "animating - Cycle {:d}({}), current {:d}({}), pending {:d}({})",
                                location_id, static_cast<int>(cycle), requested_name,
                                static_cast<int>(current_cycle), current_name,
-                               static_cast<int>(pending_cycle), pending_name);
+                               static_cast<int>(pending_cycle), pending_name));
         }
         return true;
     }
@@ -3438,15 +3434,15 @@ void W8Monster::SetCycle(signed char cycle)
             W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(
                 MonsterGetIndexByLocationID(0xb26, MONSTER_CPP, location_id, true));
             srAssertFail("FALSE", MONSTER_CPP, 0xb26,
-                         FormatText("ERROR: Monster %s has no IDLE cycle!",
-                                      GetMonsterName(monster_info, 0, 0)));
+                         fmt::format("ERROR: Monster {} has no IDLE cycle!",
+                                     GetMonsterName(monster_info, 0, 0)));
             return;
         }
 
         W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(
             MonsterGetIndexByLocationID(0xb1d, MONSTER_CPP, location_id, true));
-        FormatDebugMessage(0, "WARNING: Monster %s is missing anim cycle %s",
-                           GetMonsterName(monster_info, 0, 0), g_cycle_names[cycle].name);
+        DebugMessage(0, fmt::format("WARNING: Monster {} is missing anim cycle {}",
+                                    GetMonsterName(monster_info, 0, 0), g_cycle_names[cycle].name));
         m_pRep->CopyCycle(cycle, m_pRep, 1);
         count = animations->GetCount();
         if (count == 0) {
@@ -3988,8 +3984,8 @@ prepare_attack:
     attack = &record->attacks[attack_index];
     missile_type = attack->missile_type;
     if (static_cast<unsigned int>(missile_type) >= g_missile_table_count) {
-        FormatDebugMessage(0, "WARNING: %s has invalid missile type %d for attack %d", record->name0,
-                           missile_type, attack_index);
+        DebugMessage(0, fmt::format("WARNING: {} has invalid missile type {:d} for attack {:d}",
+                                    record->name0, missile_type, attack_index));
         missile_type = 0;
     }
 
@@ -4004,7 +4000,7 @@ prepare_attack:
     if (selected_attack) {
         accuracy = GetMonsterAttackScore(monster_info, attack,
                                          static_cast<W8AttackMode>(monster_info->action_detail), 0);
-        CombatLog("TO HIT (MISSILE ACCURACY): Chance %d", accuracy);
+        CombatLog(fmt::format("TO HIT (MISSILE ACCURACY): Chance {:d}", accuracy));
     } else {
         accuracy = 50;
     }
@@ -4806,9 +4802,9 @@ void W8Monster::CollectModelInstances(W8GrowableVector<stModelInstance*>* instan
             W8AnimObj* animation;
 
             if (subcycle >= cycle_animations->GetCount()) {
-                ShutdownWithErrorBox(
-                    FormatText("Monster %s: Missing CYCLE_%s, sub-cycle %d", m_pRep->name,
-                               g_cycle_names[cycle].name, subcycle));
+                ShutdownWithErrorBox(fmt::format("Monster {}: Missing CYCLE_{}, sub-cycle {:d}",
+                                                 m_pRep->name, g_cycle_names[cycle].name,
+                                                 subcycle));
             }
             animation = *cycle_animations->GetAt(subcycle);
             if (animation == 0) {
@@ -4869,10 +4865,10 @@ bool W8Monster::ReplaceSkinTexture(int stage, const char* old_name, const char* 
     std::string path;
     bool replaced = false;
 
-    path = FormatText("Data\\Monsters\\Bitmaps\\%s", new_name);
+    path = fmt::format("Data\\Monsters\\Bitmaps\\{}", new_name);
     srTextureIFace* texture = LoadTextureFromPath(path.c_str(), 0, true);
     if (texture == 0) {
-        ShutdownWithErrorBox(FormatText("Missing skin texture: %s", new_name));
+        ShutdownWithErrorBox(fmt::format("Missing skin texture: {}", new_name));
         return false;
     }
 
@@ -5001,10 +4997,10 @@ void W8Monster::SpawnDamageNumber(unsigned int amount)
         SetFontDestBuffer(FontDestBuffer, 0, 0, surface->getWidth(), surface->getHeight(),
                           static_cast<unsigned char>(FontDestWrap));
         SetFont(g_monster_damage_font);
-        text = FormatText(g_format_d, amount);
-        gprintf_buffer(data, surface->getPitch(), g_monster_damage_font,
-                       0x80 - StringPixLength(text, g_monster_damage_font) / 2,
-                       0x80 - GetFontHeight(g_monster_damage_font) / 2, text);
+        text = fmt::format("{:d}", amount);
+        DrawFontTextToBuffer(data, surface->getPitch(), g_monster_damage_font,
+                             0x80 - StringPixLength(text, g_monster_damage_font) / 2,
+                             0x80 - GetFontHeight(g_monster_damage_font) / 2, text);
         RestoreFontSettings();
 
         GetMappedPosition(&position);

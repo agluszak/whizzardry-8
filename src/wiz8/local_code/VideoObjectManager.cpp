@@ -1,3 +1,4 @@
+#include <fmt/format.h>
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/video_object_catalog.h"
@@ -848,8 +849,8 @@ void EnsureCatalogFrameLoaded(int object, int frame)
                 srAssertFail("VideoObjectsInitialized()", VIDEO_OBJECT_MANAGER_CPP, 0xdd, 0);
             }
             srAssertFail("fReturnCode", VIDEO_OBJECT_MANAGER_CPP, 0x68,
-                         FormatText("LoadVideoObject: ERROR - Add %s failed, type %d",
-                                      record->path, record->storage_kind));
+                         fmt::format("LoadVideoObject: ERROR - Add {} failed, type {:d}",
+                                     record->path, fmt::underlying(record->storage_kind)));
         }
         record->handle = handle;
         record->loaded = true;

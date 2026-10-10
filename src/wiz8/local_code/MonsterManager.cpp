@@ -1,3 +1,5 @@
+#include <fmt/format.h>
+#include <fmt/printf.h>
 #include <string>
 #include "wiz8/engine_code/AnimRep.hpp"
 #include "timer.h"
@@ -380,8 +382,10 @@ void RecordMonsterKill(W8MonsterInfo* monster_info, bool announce)
     }
     if (announce && !monster_info->death_processed &&
         monster_info->party_threat.sight_state != W8_SIGHT_UNSEEN) {
-        ShowNoticef(notice_channel, "%s %s!", GetMonsterName(monster_info, 0, 0),
-                    g_localized_strings[g_condition_notices[W8_CONDITION_DEAD].singular]);
+        ShowNotice(
+            notice_channel,
+            fmt::format("{} {}!", GetMonsterName(monster_info, 0, 0),
+                        g_localized_strings[g_condition_notices[W8_CONDITION_DEAD].singular]));
     }
     ReleaseMonsterConditionBindings(monster_info);
     if (monster_info->summoned == W8_MONSTER_SUMMON_FRIENDLY) {
@@ -443,7 +447,7 @@ done:
         if (experience == 0) {
             experience = record->experience;
             if (experience == 0) {
-                FormatDebugMessage(0, "DATA ERROR: %s is worth 0 XPs", record->name0);
+                DebugMessage(0, fmt::format("DATA ERROR: {} is worth 0 XPs", record->name0));
             }
         }
         g_combat_state->experience_pool += experience;
@@ -476,8 +480,8 @@ unsigned int MonsterGetIndexByLocationID(int caller_line, const char* caller_fil
 
     if (assert_on_failure) {
         srAssertFail("FALSE", MONSTER_MANAGER_CPP, 0x5c1,
-                     FormatText("MonsterIndex: ID %d not found (%s line %d)", location_id,
-                                  caller_file, caller_line));
+                     fmt::format("MonsterIndex: ID {:d} not found ({} line {:d})", location_id,
+                                 caller_file, caller_line));
     }
     return 0xffffffff;
 }
@@ -498,8 +502,8 @@ W8MonsterInfo* MonsterGetScriptPartByLocationIndex(unsigned int monster_list_ind
         if (result != 0) {
             return result;
         }
-        detail = FormatText("MonsterInfo: ERROR - PLGet failed, index %d, pList %p",
-                              monster_list_index, static_cast<const void*>(gXStatus.plsMonsterList));
+        detail = fmt::format("MonsterInfo: ERROR - PLGet failed, index {:d}, pList {}",
+                             monster_list_index, static_cast<const void*>(gXStatus.plsMonsterList));
         line = 0x5de;
     } else {
         if (monster_list_index - 10000 >= PLLength(gXStatus.plsUnbornMonsterList)) {
@@ -511,8 +515,8 @@ W8MonsterInfo* MonsterGetScriptPartByLocationIndex(unsigned int monster_list_ind
         if (result != 0) {
             return result;
         }
-        detail = FormatText("MonsterInfo: ERROR - PLGet failed, index %d, pList %p",
-                              monster_list_index, static_cast<const void*>(gXStatus.plsMonsterList));
+        detail = fmt::format("MonsterInfo: ERROR - PLGet failed, index {:d}, pList {}",
+                             monster_list_index, static_cast<const void*>(gXStatus.plsMonsterList));
         line = 0x5d5;
     }
     srAssertFail("pMonsterInfo != NULL", MONSTER_MANAGER_CPP, line, detail);
@@ -564,8 +568,8 @@ W8MonsterInfo* MonsterInfoFromID(int caller_line, const char* caller_file, int l
     }
     if (monster == 0 && assert_on_failure) {
         srAssertFail("FALSE", MONSTER_MANAGER_CPP, 0x626,
-                     FormatText("MonsterInfoFromID: ID %d not found (%s line %d)", location_id,
-                                  caller_file, caller_line));
+                     fmt::format("MonsterInfoFromID: ID {:d} not found ({} line {:d})", location_id,
+                                 caller_file, caller_line));
     }
     return monster;
 }
@@ -695,8 +699,10 @@ void ProcessMonstersAtCombatEnd(bool forced_cleanup)
             monster_info->uiCondition[W8_CONDITION_DEAD] == 0 &&
             monster_info->summoned != W8_MONSTER_SUMMON_NONE) {
             if (!forced_cleanup) {
-                FormatNotice(W8_FONT_PALETTE_RUST, 0, g_localized_strings[W8_NOTICE_MONSTER_SLAIN],
-                             GetMonsterName(monster_info, 0, 0));
+                ShowNotice(W8_FONT_PALETTE_RUST,
+                           fmt::sprintf(g_localized_strings[W8_NOTICE_MONSTER_SLAIN],
+                                        GetMonsterName(monster_info, 0, 0)),
+                           0);
             }
             ReleaseMonsterConditionBindings(monster_info);
             if (!forced_cleanup) {
@@ -1438,8 +1444,8 @@ void StartMonsterCycle(W8MonsterInfo* monster_info, int cycle, int behavior)
             }
             srAssertFail(
                 "FALSE", MONSTER_MANAGER_CPP, 0x497,
-                FormatText(
-                    "%s starting new cycle (%s) with an uninterruptable cycle pending (%s)!",
+                fmt::format(
+                    "{} starting new cycle ({}) with an uninterruptable cycle pending ({})!",
                     GetMonsterName(monster_info, 0, 0),
                     g_cycle_names[static_cast<signed char>(cycle)].name,
                     g_cycle_names[static_cast<signed char>(pending)].name));
@@ -1558,12 +1564,14 @@ std::string GetMonsterName(W8MonsterInfo* monster_info, W8MonsterRecord* record,
         record = GetMonsterDataForInfo(monster_info);
     }
     if (record->record_id == W8_MONSTER_RECORD_ALTERNATE_NAME) {
-        g_status.monster_name_buffer = FormatText(g_format_al_s, g_status.buffers.Char[g_status.sedexus_party_slot].name);
+        g_status.monster_name_buffer =
+            fmt::format("Al-{}", g_status.buffers.Char[g_status.sedexus_party_slot].name);
         return g_status.monster_name_buffer;
     }
     if (monster_info->monster_group_id == 0) {
         if (!monster_info->p3D->IsDying()) {
-            FormatDebugMessage(1, "ERROR: Monster ID %d has no group", monster_info->location_id);
+            DebugMessage(
+                1, fmt::format("ERROR: Monster ID {:d} has no group", monster_info->location_id));
         }
     } else {
         monster_group = GetMonsterGroupByListIndex(GetMonsterGroupIndexByID(
@@ -1657,10 +1665,15 @@ std::string FormatMonsterHealth(W8MonsterInfo* monster_info)
         }
     }
 
-    if (g_dev_mode) return FormatText(g_format_d_slash_d, monster_info->hp_current, monster_info->uiHPMax);
-    const auto current = health_knowledge < 10 || suppress_exact_health ? "?" : FormatText(g_format_d, monster_info->hp_current);
-    const auto maximum = health_knowledge < 5 || suppress_exact_health ? "?" : FormatText(g_format_d, monster_info->uiHPMax);
-    return FormatText("%s/%s", current, maximum);
+    if (g_dev_mode)
+        return fmt::format("{:d}/{:d}", monster_info->hp_current, monster_info->uiHPMax);
+    const auto current = health_knowledge < 10 || suppress_exact_health
+                             ? "?"
+                             : fmt::format("{:d}", monster_info->hp_current);
+    const auto maximum = health_knowledge < 5 || suppress_exact_health
+                             ? "?"
+                             : fmt::format("{:d}", monster_info->uiHPMax);
+    return fmt::format("{}/{}", current, maximum);
 }
 
 // FUNCTION: WIZ8 0x004e4ab0
@@ -1706,7 +1719,8 @@ void DetectMonsterGroups(void)
                 }
             }
             if (best_slot != -1) {
-                PostCharacterNotice(best_slot, g_localized_strings[0x1ca], GetMonsterGroupName(group));
+                PostCharacterNotice(best_slot, fmt::sprintf(g_localized_strings[0x1ca],
+                                                            GetMonsterGroupName(group)));
                 group->alternate_name = true;
                 bool vowel;
                 switch (toupper(static_cast<unsigned char>(GetMonsterGroupName(group).front()))) {
@@ -1727,7 +1741,8 @@ void DetectMonsterGroups(void)
                 } else {
                     article = g_localized_strings[0x1cd];
                 }
-                ShowNoticef(W8_FONT_PALETTE_WHITE, "%s %s!", article, GetMonsterGroupName(group));
+                ShowNotice(W8_FONT_PALETTE_WHITE,
+                           fmt::format("{} {}!", article, GetMonsterGroupName(group)));
                 noticed = true;
             }
         }

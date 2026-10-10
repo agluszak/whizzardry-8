@@ -1,3 +1,4 @@
+#include <fmt/format.h>
 #include <string_view>
 #include <string>
 #include "wiz8/utility.h"
@@ -282,7 +283,8 @@ unsigned int CharacterPointerToPartySlot(const W8Character* character)
     }
 
     srAssertFail("FALSE", "C:\\Projects\\Wizardry 8\\Local Code\\UtilityFunctions.cpp", 0x1d1,
-                 FormatText("PCPtrToPCSlot: ERROR - no match on ptr %p", static_cast<const void*>(character)));
+                 fmt::format("PCPtrToPCSlot: ERROR - no match on ptr {}",
+                             static_cast<const void*>(character)));
     return 0;
 }
 
@@ -490,8 +492,9 @@ int RPCPtrToPCSlot(const W8MonsterManagerEntry* rpc)
         }
         ++slot;
     }
-    srAssertFail("FALSE", "C:\\Projects\\Wizardry 8\\Local Code\\UtilityFunctions.cpp", 0x385,
-                 FormatText("RPCPtrToPCSlot: ERROR - no match on ptr %p", static_cast<const void*>(rpc)));
+    srAssertFail(
+        "FALSE", "C:\\Projects\\Wizardry 8\\Local Code\\UtilityFunctions.cpp", 0x385,
+        fmt::format("RPCPtrToPCSlot: ERROR - no match on ptr {}", static_cast<const void*>(rpc)));
     return 0;
 }
 

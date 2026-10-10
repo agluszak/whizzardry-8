@@ -1,3 +1,4 @@
+#include <fmt/format.h>
 #include "wiz8/unicode.h"
 #include "wiz8/retail_text_records.h"
 #include "wiz8/layouts/screen_state.h"
@@ -97,7 +98,7 @@ try
     unsigned int transferred;
     std::unique_ptr<wiz8::File> handle;
 
-    path = FormatText("%s\\%s.%s", "Data\\Databases", "Items", "DBS");
+    path = fmt::format("{}\\{}.{}", "Data\\Databases", "Items", "DBS");
     handle = [&]() { try { return wiz8::open_file(path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
     if (!handle) {
         return false;
@@ -138,7 +139,7 @@ try
     unsigned int transferred;
     std::unique_ptr<wiz8::File> handle;
 
-    path = FormatText("%s\\%s.%s", "Data\\Databases", "ItemTables", "DBS");
+    path = fmt::format("{}\\{}.{}", "Data\\Databases", "ItemTables", "DBS");
     handle = [&]() { try { return wiz8::open_file(path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
     if (!handle) {
         return false;
@@ -207,7 +208,7 @@ try
         srAssertFail("uiMonsterIndex < gXStatus.uiMonstersInDatabase", GAMEPLAY_DATABASE_CPP, 0x140,
                      0);
     }
-    path = FormatText("%s\\%s.%s", "Data\\Databases", "Monsters", "DBS");
+    path = fmt::format("{}\\{}.{}", "Data\\Databases", "Monsters", "DBS");
     handle = [&]() { try { return wiz8::open_file(path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
     if (!handle) {
         return false;
@@ -289,7 +290,7 @@ try
     W8MonsterRecord* block;
     std::unique_ptr<wiz8::File> handle;
 
-    path = FormatText("%s\\%s.%s", "Data\\Databases", "Monsters", "DBS");
+    path = fmt::format("{}\\{}.{}", "Data\\Databases", "Monsters", "DBS");
     handle = [&]() { try { return wiz8::open_file(path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
     if (!handle) {
         return false;
@@ -339,7 +340,7 @@ try
     if (uiStartIndex > uiEndIndex) {
         srAssertFail("uiStartIndex <= uiEndIndex", GAMEPLAY_DATABASE_CPP, 0x17b, 0);
     }
-    path = FormatText("%s\\%s.%s", "Data\\Databases", "Monsters", "DBS");
+    path = fmt::format("{}\\{}.{}", "Data\\Databases", "Monsters", "DBS");
     handle = [&]() { try { return wiz8::open_file(path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
     if (!handle) {
         return false;

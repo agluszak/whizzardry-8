@@ -1,3 +1,5 @@
+#include <fmt/format.h>
+#include <fmt/printf.h>
 #include <string>
 #include "wiz8/compat/unaligned.h"
 #include "wiz8/engine_code/AnimRep.hpp"
@@ -181,8 +183,8 @@ bool MonsterOKToCastSpell(W8MonsterInfo* monster_info, int spell_id, int)
 
     if (g_spell_records[spell_id].monster_castable == 0) {
         srAssertFail("FALSE", MAGIC_CPP, 1132,
-                     FormatText("MonsterOKToCastSpell: ERROR - spell not monster castable: %s",
-                                  g_spell_records[spell_id].display_name));
+                     fmt::format("MonsterOKToCastSpell: ERROR - spell not monster castable: {}",
+                                 g_spell_records[spell_id].display_name));
         return false;
     }
 
@@ -318,8 +320,9 @@ W8TargetNeed GetTargetNeededForSpellFriendly(int spell_id, bool normalize,
         default:
             srAssertFail(
                 "FALSE", MAGIC_CPP, 4851,
-                FormatText("GetTargetNeededForSpellFriendly: ERROR - Invalid spell target for %d",
-                             spell_id));
+                fmt::format(
+                    "GetTargetNeededForSpellFriendly: ERROR - Invalid spell target for {:d}",
+                    spell_id));
             break;
         }
     }
@@ -350,8 +353,8 @@ W8TargetNeed GetTargetNeededForSpellHostile(int spell_id)
     default:
         srAssertFail(
             "FALSE", MAGIC_CPP, 4889,
-            FormatText("GetTargetNeededForSpellHostile: ERROR - Invalid spell target for %d",
-                         spell_id));
+            fmt::format("GetTargetNeededForSpellHostile: ERROR - Invalid spell target for {:d}",
+                        spell_id));
         break;
     }
     return W8_TARGET_NEED_NONE;
@@ -1126,10 +1129,10 @@ void LearnSpell(W8Character* character, int spell_id, bool announce)
     }
 
     realm_name = g_localized_strings[g_realm_message_offsets[realm]];
-    const std::string line = FormatText("%s: \"%s\" - %s",
-        FormatText(g_localized_strings[0x1b9], character->name),
-        g_spell_records[spell_id].display_name,
-        FormatText(g_localized_strings[0x1ba], realm_name, character->sp_max[realm]));
+    const std::string line =
+        fmt::format("{}: \"{}\" - {}", fmt::sprintf(g_localized_strings[0x1b9], character->name),
+                    g_spell_records[spell_id].display_name,
+                    fmt::sprintf(g_localized_strings[0x1ba], realm_name, character->sp_max[realm]));
     ShowNoticeLine(line, 0, true, false);
 }
 
@@ -1156,7 +1159,7 @@ void LearnSpellFromItem(W8Character* character, W8ItemInstance* item)
     spell_id = g_item_records[item->iItemNo].spell_id;
 
     if (!CanCharacterLearnSpell(character, spell_id)) {
-        ShowNoticeLine(FormatText(g_localized_strings[0x1bb], character->name), 0, true, false);
+        ShowNoticeLine(fmt::sprintf(g_localized_strings[0x1bb], character->name), 0, true, false);
         return;
     }
 
@@ -1357,8 +1360,8 @@ unsigned int ChooseMonsterSpellPowerLevel(W8MonsterInfo* monster_info, W8Monster
 
         budget = monster_info->spell_points + record->sp_budget;
         if (record->sp_budget == 0) {
-            FormatDebugMessage(0, "DATA ERROR: Monster %s casting spells with SP Budget of 0",
-                               GetMonsterName(monster_info, 0, 0));
+            DebugMessage(0, fmt::format("DATA ERROR: Monster {} casting spells with SP Budget of 0",
+                                        GetMonsterName(monster_info, 0, 0)));
         }
         if (static_cast<int>(budget) < 0) {
             budget = 0;
@@ -1460,8 +1463,9 @@ int PointCastSpell(srVector3T<float> position, int spell_id, unsigned int power_
         target.iType = W8_TARGET_KIND_PARTY;
         break;
     default:
-        srAssertFail("FALSE", MAGIC_CPP, 0x56d,
-                     FormatText("PointCastSpell: ERROR - Invalid spell target for %d", spell_id));
+        srAssertFail(
+            "FALSE", MAGIC_CPP, 0x56d,
+            fmt::format("PointCastSpell: ERROR - Invalid spell target for {:d}", spell_id));
         break;
     }
 
@@ -1540,7 +1544,7 @@ W8Skill GetBestSpellbookSkillForSpell(W8Character* character, int spell_id, bool
 
     if (best_skill == W8_SKILL_NONE) {
         srAssertFail("(iHighestSkill != SKILL_NONE)", MAGIC_CPP, 0xf29,
-                     FormatText("Failed on spell %d, usability byte %d", spell_id, book));
+                     fmt::format("Failed on spell {:d}, usability byte {:d}", spell_id, book));
     }
     return best_skill;
 }
@@ -1875,7 +1879,7 @@ std::string SpellTargetString(const W8TargetSource* source, const W8CombatSlot* 
     switch (target->iType) {
     case 0:
     case 6:
-        return &g_empty_text;
+        return "";
 
     case 1:
     case 9:
@@ -1884,8 +1888,8 @@ std::string SpellTargetString(const W8TargetSource* source, const W8CombatSlot* 
         }
         if (!TargetSourceIsCharacter(source, 0) || source->name_known != 0 ||
             source->iChar != target->iChar) {
-            return FormatText(g_localized_strings[W8_MESSAGE_TARGET_AT / 4],
-                                    g_status.buffers.Char[target->iChar].name);
+            return fmt::sprintf(g_localized_strings[W8_MESSAGE_TARGET_AT / 4],
+                                g_status.buffers.Char[target->iChar].name);
         }
         name_prefix = g_name_prefix_messages[g_status.buffers.Char[target->iChar].gender * 4];
         break;
@@ -1904,37 +1908,37 @@ std::string SpellTargetString(const W8TargetSource* source, const W8CombatSlot* 
             MonsterGetIndexByLocationID(0xc0, MAGIC_CPP, target->iMonsterID, true));
         record = GetMonsterDataForInfo(monster_info);
         if (!TargetSourceIsMonster(source, 0) || source->iMonsterID != target->iMonsterID) {
-            return FormatText(g_localized_strings[W8_MESSAGE_TARGET_AT / 4],
-                                    GetMonsterName(monster_info, record, 0));
+            return fmt::sprintf(g_localized_strings[W8_MESSAGE_TARGET_AT / 4],
+                                GetMonsterName(monster_info, record, 0));
         }
         name_prefix = g_name_prefix_messages[record->name_group * 4];
         break;
     }
 
     case 4:
-        return FormatText(
-            g_localized_strings[W8_MESSAGE_TARGET_AT / 4],
-            GetMonsterGroupName(GetMonsterGroupByListIndex(
-                GetMonsterGroupIndexByID(0xcf, MAGIC_CPP, target->iGroupID, true))));
+        return fmt::sprintf(g_localized_strings[W8_MESSAGE_TARGET_AT / 4],
+                            GetMonsterGroupName(GetMonsterGroupByListIndex(GetMonsterGroupIndexByID(
+                                0xcf, MAGIC_CPP, target->iGroupID, true))));
 
     case W8_TARGET_KIND_ALL_ENEMIES:
         return g_localized_strings[W8_MESSAGE_TARGET_PLACE / 4];
 
     case 7:
-        return FormatText(g_localized_strings[W8_MESSAGE_TARGET_ITEM / 4],
-                                FormatItemDisplayName(target->pPCItem, false));
+        return fmt::sprintf(g_localized_strings[W8_MESSAGE_TARGET_ITEM / 4],
+                            FormatItemDisplayName(target->pPCItem, false));
 
     case W8_TARGET_KIND_EIGHT:
         return g_localized_strings[W8_MESSAGE_TARGET_DIRECTION / 4];
 
     default:
-        srAssertFail(
-            "FALSE", MAGIC_CPP, 0xde,
-            FormatText("SpellTargetString: ERROR - Invalid target type %d", target->iType));
+        srAssertFail("FALSE", MAGIC_CPP, 0xde,
+                     fmt::format("SpellTargetString: ERROR - Invalid target type {:d}",
+                                 fmt::underlying(target->iType)));
         return g_localized_strings[W8_MESSAGE_TARGET_UNKNOWN / 4];
     }
 
-    return FormatText(g_localized_strings[W8_MESSAGE_TARGET_AT / 4], g_localized_strings[name_prefix]);
+    return fmt::sprintf(g_localized_strings[W8_MESSAGE_TARGET_AT / 4],
+                        g_localized_strings[name_prefix]);
 }
 
 /* The two log lines a monster's cast is announced with: one that names the
@@ -1961,21 +1965,25 @@ unsigned int MonsterCastsSpell(W8MonsterInfo* monster_info, int spell_id, unsign
     SetTargetSourceToMonster(monster_info, &source);
 
     if (g_settings.verbose_combat_messages == 0) {
-        ShowNoticef(W8_FONT_PALETTE_RUST, g_localized_strings[W8_MESSAGE_MONSTER_CAST / 4],
-                    GetMonsterName(monster_info, record, 0), g_spell_records[spell_id].display_name,
-                    SpellTargetString(&source, &monster_info->Target));
+        ShowNotice(W8_FONT_PALETTE_RUST,
+                   fmt::sprintf(g_localized_strings[W8_MESSAGE_MONSTER_CAST / 4],
+                                GetMonsterName(monster_info, record, 0),
+                                g_spell_records[spell_id].display_name,
+                                SpellTargetString(&source, &monster_info->Target)));
         SetTextBoxMode(1, 9);
     } else {
-        ShowNoticef(W8_FONT_PALETTE_RUST, g_localized_strings[W8_MESSAGE_MONSTER_CAST_VERBOSE / 4],
-                    GetMonsterName(monster_info, record, 0), g_spell_records[spell_id].display_name,
-                    power_level, SpellTargetString(&source, &monster_info->Target));
+        ShowNotice(W8_FONT_PALETTE_RUST,
+                   fmt::sprintf(g_localized_strings[W8_MESSAGE_MONSTER_CAST_VERBOSE / 4],
+                                GetMonsterName(monster_info, record, 0),
+                                g_spell_records[spell_id].display_name, power_level,
+                                SpellTargetString(&source, &monster_info->Target)));
     }
 
     record = GetMonsterDataForInfo(monster_info);
     budget = monster_info->spell_points + record->sp_budget;
     if (record->sp_budget == 0) {
-        FormatDebugMessage(0, "DATA ERROR: Monster %s casting spells with SP Budget of 0",
-                           GetMonsterName(monster_info, 0, 0));
+        DebugMessage(0, fmt::format("DATA ERROR: Monster {} casting spells with SP Budget of 0",
+                                    GetMonsterName(monster_info, 0, 0)));
     }
     if (static_cast<int>(budget) < 0) {
         budget = 0;
@@ -2040,10 +2048,11 @@ void ReportSpellResult(W8SpellEffectEntry* effect)
     }
     if (effect->result.amount != 0) {
         if (effect->result.count == 1) {
-            AppendToLastTextLine(FormatText(g_localized_strings[0x19a], effect->result.amount), -1);
+            AppendToLastTextLine(fmt::sprintf(g_localized_strings[0x19a], effect->result.amount),
+                                 -1);
         } else {
-            AppendToLastTextLine(FormatText(g_localized_strings[0x199], effect->result.count,
-                                                  effect->result.amount / effect->result.count, -1),
+            AppendToLastTextLine(fmt::sprintf(g_localized_strings[0x199], effect->result.count,
+                                              effect->result.amount / effect->result.count, -1),
                                  -1);
             SetTextBoxMode(1, -1);
         }
@@ -2059,24 +2068,24 @@ void ReportSpellResult(W8SpellEffectEntry* effect)
             if (effect->result.condition_counts[condition] == 1) {
                 if (effect->target.iType == W8_TARGET_KIND_CHARACTER) {
                     AppendToLastTextLine(
-                        FormatText("%s %s", g_status.buffers.Char[effect->target.iChar].name,
-                                         g_localized_strings[g_condition_notices[condition].singular]),
+                        fmt::format("{} {}", g_status.buffers.Char[effect->target.iChar].name,
+                                    g_localized_strings[g_condition_notices[condition].singular]),
                         -1);
                 } else if (effect->target.iType == W8_TARGET_KIND_MONSTER) {
                     W8MonsterInfo* monster_info =
                         MonsterInfoFromID(0x112a, MAGIC_CPP, effect->target.iMonsterID, true);
                     if (monster_info != 0) {
                         AppendToLastTextLine(
-                            FormatText(
-                                "%s %s", GetMonsterName(monster_info, 0, 0),
+                            fmt::format(
+                                "{} {}", GetMonsterName(monster_info, 0, 0),
                                 g_localized_strings[g_condition_notices[condition].singular]),
                             -1);
                     }
                 }
             } else {
                 AppendToLastTextLine(
-                    FormatText("%d %s", effect->result.condition_counts[condition],
-                                     g_localized_strings[g_condition_notices[condition].plural]),
+                    fmt::format("{:d} {}", effect->result.condition_counts[condition],
+                                g_localized_strings[g_condition_notices[condition].plural]),
                     -1);
             }
             SetTextBoxMode(1, -1);
@@ -2090,13 +2099,19 @@ void ReportSpellResult(W8SpellEffectEntry* effect)
         if (report != 0) {
             if (report->kind == 1) {
                 SetTextBoxMode(0, -1);
-                PostCharacterNotice(report->value, g_format_s_bang,
-                                    g_localized_strings[g_condition_notices[W8_CONDITION_DEAD].singular]);
+                PostCharacterNotice(
+                    report->value,
+                    fmt::format(
+                        "{}!",
+                        g_localized_strings[g_condition_notices[W8_CONDITION_DEAD].singular]));
                 effect->reported = true;
             } else if (report->kind == 3) {
                 SetTextBoxMode(0, -1);
-                ShowNoticef(W8_FONT_PALETTE_RUST, "%s %s!", report->text,
-                            g_localized_strings[g_condition_notices[W8_CONDITION_DEAD].singular]);
+                ShowNotice(
+                    W8_FONT_PALETTE_RUST,
+                    fmt::format(
+                        "{} {}!", report->text,
+                        g_localized_strings[g_condition_notices[W8_CONDITION_DEAD].singular]));
                 effect->reported = true;
             }
             free(report);
@@ -2129,11 +2144,10 @@ bool ValidateSpellTarget(int party_slot, int spell_id, unsigned int power, bool 
     }
     if (!has_targets) {
         if (!item_cast) {
-            PostCharacterNotice(
-                party_slot,
-                FormatText(g_localized_strings[0x1b7], g_spell_records[spell_id].display_name));
+            PostCharacterNotice(party_slot, fmt::sprintf(g_localized_strings[0x1b7],
+                                                         g_spell_records[spell_id].display_name));
         } else {
-            PostCharacterNotice(party_slot, FormatText(g_localized_strings[0x1b8]));
+            PostCharacterNotice(party_slot, g_localized_strings[0x1b8]);
         }
         valid = false;
     } else if (!skip_world_cursor && DispatchWorldCursorNodeCommand(0, 4, 1)) {
@@ -2541,11 +2555,13 @@ int ExecuteCharacterSpellCast(int party_slot, int spell_id, unsigned int power_l
             power_level = character->iSPLeft[realm] / sp_cost;
         }
     } else if (character->iSPLeft[realm] < static_cast<int>(sp_cost)) {
-        PostCharacterNotice(party_slot, g_localized_strings[0x18a], record->display_name);
+        PostCharacterNotice(party_slot,
+                            fmt::sprintf(g_localized_strings[0x18a], record->display_name));
         return 0;
     }
     if (power_level == 0) {
-        PostCharacterNotice(party_slot, g_localized_strings[0x18a], record->display_name);
+        PostCharacterNotice(party_slot,
+                            fmt::sprintf(g_localized_strings[0x18a], record->display_name));
         return 0;
     }
     if (!ValidateSpellTarget(party_slot, spell_id, power_level, false, false)) {
@@ -2574,16 +2590,18 @@ int ExecuteCharacterSpellCast(int party_slot, int spell_id, unsigned int power_l
     aim = &g_status.buffers.XChar[party_slot].target_out_of_combat;
     if (g_settings.verbose_combat_messages == 0) {
         if (!continue_cast) {
-            PostCharacterNotice(party_slot, g_localized_strings[0x18c], record->display_name,
-                                SpellTargetString(&source, aim));
+            PostCharacterNotice(party_slot,
+                                fmt::sprintf(g_localized_strings[0x18c], record->display_name,
+                                             SpellTargetString(&source, aim)));
             SetTextBoxMode(1, 8);
         } else {
             PostCharacterNotice(party_slot, g_localized_strings[0x18d]);
             SetTextBoxMode(1, 8);
         }
     } else {
-        PostCharacterNotice(party_slot, g_localized_strings[0x18b], record->display_name, power_level,
-                            SpellTargetString(&source, aim));
+        PostCharacterNotice(party_slot,
+                            fmt::sprintf(g_localized_strings[0x18b], record->display_name,
+                                         power_level, SpellTargetString(&source, aim)));
     }
     best_skill = GetBestSpellbookSkillForSpell(character, spell_id, true, true, power_level);
     realm_skill = static_cast<W8Skill>(realm + 0x1c);
@@ -2761,7 +2779,7 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
     if (quiet && !g_force_spell_failure) {
         failure_chance /= 2;
     }
-    CombatLog("Chance of FAILURE: %d", failure_chance);
+    CombatLog(fmt::format("Chance of FAILURE: {:d}", failure_chance));
     CombatLog("");
     if (failure_chance != 0 && (roll = Random(100)) < failure_chance) {
         backfire_chance = failure_chance;
@@ -2777,7 +2795,7 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
         if (!CanSpellBackfire(spell_id)) {
             backfire_chance = 0;
         }
-        CombatLog("Chance of BACKFIRE: %d (roll %d)", backfire_chance, roll);
+        CombatLog(fmt::format("Chance of BACKFIRE: {:d} (roll {:d})", backfire_chance, roll));
         CombatLog("");
         if (roll < backfire_chance) {
             PrepareSpellTarget(spell_id, source, target);
@@ -3140,9 +3158,9 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
             if (quiet) {
                 owner->reported = true;
             } else if (g_settings.verbose_combat_messages != 0) {
-                ShowNotice(W8_FONT_PALETTE_BEIGE, FormatText(g_localized_strings[0x197]));
+                ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x197]);
             } else {
-                AppendToLastTextLine(FormatText(" -- %s", g_localized_strings[0x197]), -1);
+                AppendToLastTextLine(fmt::format(" -- {}", g_localized_strings[0x197]), -1);
                 owner->reported = true;
             }
             if (caster_slot != -1) {
@@ -3172,16 +3190,16 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
                 message = 0x1ab;
             }
             if (g_settings.verbose_combat_messages != 0) {
-                PostCharacterNotice(source->iChar, FormatText(g_localized_strings[message]));
+                PostCharacterNotice(source->iChar, g_localized_strings[message]);
             } else {
-                AppendToLastTextLine(FormatText(" -- %s", g_localized_strings[message]), -1);
+                AppendToLastTextLine(fmt::format(" -- {}", g_localized_strings[message]), -1);
             }
             break;
         default:
             if (g_settings.verbose_combat_messages != 0) {
-                ShowNotice(W8_FONT_PALETTE_BEIGE, FormatText(g_localized_strings[0x196]));
+                ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x196]);
             } else {
-                AppendToLastTextLine(FormatText(" -- %s", g_localized_strings[0x196]), -1);
+                AppendToLastTextLine(fmt::format(" -- {}", g_localized_strings[0x196]), -1);
             }
             break;
         }
@@ -3377,8 +3395,8 @@ void PrepareSpellTarget(int spell_id, W8TargetSource* source, W8CombatSlot* targ
         break;
     default:
         srAssertFail("FALSE", MAGIC_CPP, 0xd04,
-                     FormatText("SpellBackfires: ERROR - Invalid spell target type for spell %d",
-                                  spell_id));
+                     fmt::format("SpellBackfires: ERROR - Invalid spell target type for spell {:d}",
+                                 spell_id));
         return;
     }
     saved = source->point;
@@ -3620,13 +3638,14 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
     GetCameraPosition(&camera);
     if (TargetSourceIsMonster(source, 1)) {
         if (source->iMonsterID == -1) {
-            FormatDebugMessage(
+            DebugMessage(
                 1,
-                "InvalidMagicSource: Spell %d(%s), Target Type %d(char %d, monster ID %d, group "
-                "ID %d), Source Type %d(char %d,ID %d)",
-                spell_id, g_spell_records[spell_id].display_name, target->iType, target->iChar,
-                target->iMonsterID, target->iGroupID, source->iType, source->iChar,
-                source->iMonsterID);
+                fmt::format("InvalidMagicSource: Spell {:d}({}), Target Type {:d}(char {:d}, "
+                            "monster ID {:d}, group ID {:d}), Source Type {:d}(char {:d},ID {:d})",
+                            spell_id, g_spell_records[spell_id].display_name,
+                            fmt::underlying(target->iType), target->iChar, target->iMonsterID,
+                            target->iGroupID, fmt::underlying(source->iType), source->iChar,
+                            source->iMonsterID));
             return;
         }
         monster_info = MonsterGetScriptPartByLocationIndex(
@@ -3668,12 +3687,14 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
         } else if (target->iType == W8_TARGET_KIND_MONSTER) {
             monster_markers->Add(target->iMonsterID);
         } else if (target_type == W8_TARGET_TYPE_ENEMY) {
-            FormatDebugMessage(1,
-                               "InvalidMagicTarget: Spell %d(%s), Target Type %d(char %d, monster "
-                               "ID %d, group ID %d), Source Type %d(char %d,ID %d)",
-                               spell_id, g_spell_records[spell_id].display_name, target->iType,
-                               target->iChar, target->iMonsterID, target->iGroupID, source->iType,
-                               source->iChar, source->iMonsterID);
+            DebugMessage(
+                1,
+                fmt::format("InvalidMagicTarget: Spell {:d}({}), Target Type {:d}(char {:d}, "
+                            "monster ID {:d}, group ID {:d}), Source Type {:d}(char {:d},ID {:d})",
+                            spell_id, g_spell_records[spell_id].display_name,
+                            fmt::underlying(target->iType), target->iChar, target->iMonsterID,
+                            target->iGroupID, fmt::underlying(source->iType), source->iChar,
+                            source->iMonsterID));
             return;
         }
         break;
@@ -3684,12 +3705,14 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
         } else if (target->iType == W8_TARGET_KIND_MONSTER) {
             monster_markers->Add(target->iMonsterID);
         } else {
-            FormatDebugMessage(1,
-                               "InvalidMagicTarget: Spell %d(%s), Target Type %d(char %d, monster "
-                               "ID %d, group ID %d), Source Type %d(char %d,ID %d)",
-                               spell_id, g_spell_records[spell_id].display_name, target->iType,
-                               target->iChar, target->iMonsterID, target->iGroupID, source->iType,
-                               source->iChar, source->iMonsterID);
+            DebugMessage(
+                1,
+                fmt::format("InvalidMagicTarget: Spell {:d}({}), Target Type {:d}(char {:d}, "
+                            "monster ID {:d}, group ID {:d}), Source Type {:d}(char {:d},ID {:d})",
+                            spell_id, g_spell_records[spell_id].display_name,
+                            fmt::underlying(target->iType), target->iChar, target->iMonsterID,
+                            target->iGroupID, fmt::underlying(source->iType), source->iChar,
+                            source->iMonsterID));
             return;
         }
         break;
@@ -3713,12 +3736,14 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
                     marked = true;
                 }
             } else if (monster_info->ubDisposition != W8_DISPOSITION_HOSTILE) {
-                FormatDebugMessage(1,
-                                   "InvalidMagicSource: Spell %d(%s), Target Type %d(char %d, "
-                                   "monster ID %d, group ID %d), Source Type %d(char %d,ID %d)",
-                                   spell_id, g_spell_records[spell_id].display_name, target->iType,
-                                   target->iChar, target->iMonsterID, target->iGroupID,
-                                   source->iType, source->iChar, source->iMonsterID);
+                DebugMessage(
+                    1, fmt::format(
+                           "InvalidMagicSource: Spell {:d}({}), Target Type {:d}(char {:d}, "
+                           "monster ID {:d}, group ID {:d}), Source Type {:d}(char {:d},ID {:d})",
+                           spell_id, g_spell_records[spell_id].display_name,
+                           fmt::underlying(target->iType), target->iChar, target->iMonsterID,
+                           target->iGroupID, fmt::underlying(source->iType), source->iChar,
+                           source->iMonsterID));
                 return;
             }
             side = monster_info->ubDisposition;
@@ -3741,12 +3766,14 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
             group = GetMonsterGroupByListIndex(
                 GetMonsterGroupIndexByID(0x99f, MAGIC_CPP, target->iGroupID, true));
             if (group == 0) {
-                FormatDebugMessage(1,
-                                   "InvalidMagicTarget: Spell %d(%s), Target Type %d(char %d, "
-                                   "monster ID %d, group ID %d), Source Type %d(char %d,ID %d)",
-                                   spell_id, g_spell_records[spell_id].display_name, target->iType,
-                                   target->iChar, target->iMonsterID, target->iGroupID,
-                                   source->iType, source->iChar, source->iMonsterID);
+                DebugMessage(
+                    1, fmt::format(
+                           "InvalidMagicTarget: Spell {:d}({}), Target Type {:d}(char {:d}, "
+                           "monster ID {:d}, group ID {:d}), Source Type {:d}(char {:d},ID {:d})",
+                           spell_id, g_spell_records[spell_id].display_name,
+                           fmt::underlying(target->iType), target->iChar, target->iMonsterID,
+                           target->iGroupID, fmt::underlying(source->iType), source->iChar,
+                           source->iMonsterID));
                 return;
             }
             index = 0;
@@ -3761,12 +3788,14 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
         } else if (target->iType == W8_TARGET_KIND_PARTY) {
             marked = true;
         } else {
-            FormatDebugMessage(1,
-                               "InvalidMagicTarget: Spell %d(%s), Target Type %d(char %d, monster "
-                               "ID %d, group ID %d), Source Type %d(char %d,ID %d)",
-                               spell_id, g_spell_records[spell_id].display_name, target->iType,
-                               target->iChar, target->iMonsterID, target->iGroupID, source->iType,
-                               source->iChar, source->iMonsterID);
+            DebugMessage(
+                1,
+                fmt::format("InvalidMagicTarget: Spell {:d}({}), Target Type {:d}(char {:d}, "
+                            "monster ID {:d}, group ID {:d}), Source Type {:d}(char {:d},ID {:d})",
+                            spell_id, g_spell_records[spell_id].display_name,
+                            fmt::underlying(target->iType), target->iChar, target->iMonsterID,
+                            target->iGroupID, fmt::underlying(source->iType), source->iChar,
+                            source->iMonsterID));
             return;
         }
         break;
@@ -3786,12 +3815,14 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
                     marked = true;
                 }
             } else {
-                FormatDebugMessage(1,
-                                   "InvalidMagicSource: Spell %d(%s), Target Type %d(char %d, "
-                                   "monster ID %d, group ID %d), Source Type %d(char %d,ID %d)",
-                                   spell_id, g_spell_records[spell_id].display_name, target->iType,
-                                   target->iChar, target->iMonsterID, target->iGroupID,
-                                   source->iType, source->iChar, source->iMonsterID);
+                DebugMessage(
+                    1, fmt::format(
+                           "InvalidMagicSource: Spell {:d}({}), Target Type {:d}(char {:d}, "
+                           "monster ID {:d}, group ID {:d}), Source Type {:d}(char {:d},ID {:d})",
+                           spell_id, g_spell_records[spell_id].display_name,
+                           fmt::underlying(target->iType), target->iChar, target->iMonsterID,
+                           target->iGroupID, fmt::underlying(source->iType), source->iChar,
+                           source->iMonsterID));
                 return;
             }
         } else {
@@ -3834,12 +3865,14 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
         } else if (TargetSourceIsMonster(source, 1)) {
             if (monster_info->ubDisposition != W8_DISPOSITION_FRIENDLY &&
                 monster_info->ubDisposition != W8_DISPOSITION_HOSTILE) {
-                FormatDebugMessage(1,
-                                   "InvalidMagicSource: Spell %d(%s), Target Type %d(char %d, "
-                                   "monster ID %d, group ID %d), Source Type %d(char %d,ID %d)",
-                                   spell_id, g_spell_records[spell_id].display_name, target->iType,
-                                   target->iChar, target->iMonsterID, target->iGroupID,
-                                   source->iType, source->iChar, source->iMonsterID);
+                DebugMessage(
+                    1, fmt::format(
+                           "InvalidMagicSource: Spell {:d}({}), Target Type {:d}(char {:d}, "
+                           "monster ID {:d}, group ID {:d}), Source Type {:d}(char {:d},ID {:d})",
+                           spell_id, g_spell_records[spell_id].display_name,
+                           fmt::underlying(target->iType), target->iChar, target->iMonsterID,
+                           target->iGroupID, fmt::underlying(source->iType), source->iChar,
+                           source->iMonsterID));
                 return;
             }
             side = (source->fBackfire || source->fReflection) ? 1 : 2;

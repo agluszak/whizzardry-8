@@ -1,3 +1,4 @@
+#include <fmt/format.h>
 #include <string_view>
 #include "wiz8/regions.h"
 #ifdef WIZ8_RUNTIME_TESTS
@@ -591,7 +592,7 @@ unsigned int UpdateRegionMousePosition(int x, int y)
         }
         if (previous_index != region_index) {
             region->flags |= W8_REGION_MOUSE_ENTER;
-            SetRegionHelpText(FormatText("Region %d", region_index));
+            SetRegionHelpText(fmt::format("Region {:d}", region_index));
         }
         region->callback(&event, region);
         if (g_current_region_index != previous_index) {

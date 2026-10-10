@@ -1,3 +1,4 @@
+#include <fmt/format.h>
 #include "wiz8/unicode.h"
 #include <string>
 #include "random.h"
@@ -1018,8 +1019,9 @@ unsigned char GetFact(W8FactId fact_id)
         } else {
             display_value = "FALSE";
         }
-        ShowNoticef(W8_FONT_PALETTE_YELLOW, "Checking fact %s which is %s",
-                    g_fact_records[fact_id].symbolic_name, display_value);
+        ShowNotice(W8_FONT_PALETTE_YELLOW,
+                   fmt::format("Checking fact {} which is {}",
+                               g_fact_records[fact_id].symbolic_name, display_value));
     }
     return value;
 }
@@ -1057,8 +1059,9 @@ void SetFact(W8FactId fact_id, unsigned char value, bool suppress_side_effects)
             } else {
                 display_value = "FALSE";
             }
-            ShowNoticef(W8_FONT_PALETTE_YELLOW, "%s set to %s",
-                        g_fact_records[fact_id].symbolic_name, display_value);
+            ShowNotice(
+                W8_FONT_PALETTE_YELLOW,
+                fmt::format("{} set to {}", g_fact_records[fact_id].symbolic_name, display_value));
         }
     }
 }

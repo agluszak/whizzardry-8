@@ -1,3 +1,4 @@
+#include <fmt/format.h>
 #include "wiz8/unicode.h"
 #include <string>
 #include "wiz8/fonts.h"
@@ -166,7 +167,7 @@ static bool PleaseWaitScreenEnsureLevelArchive(int level)
                 g_swap_disc_dialog->SetExtent(0xa0, 100);
             }
             std::string message =
-                FormatText("%s%d", g_localized_strings[0x6ee], GetLevelCdNumber(level));
+                fmt::format("{}{:d}", g_localized_strings[0x6ee], GetLevelCdNumber(level));
             SetDialogPrompt(g_swap_disc_dialog, message, 0, 0);
             EnableCursorScene();
             return false;
@@ -186,7 +187,7 @@ static void DrawPleaseWaitScreen()
     DrawCatalogImage(FRAME_BUFFER, backdrop, 0, 0, 0, 0, VO_BLT_SRCTRANSPARENCY, 0);
     DrawCatalogImage(FRAME_BUFFER, 0x1de, 0, 0, 0, 0x1be, VO_BLT_SRCTRANSPARENCY, 0);
     SetFont(g_level_load_font);
-    gprintf(0x6a, 0x1c7, g_format_s, g_load_descriptor->caption);
+    DrawFontText(0x6a, 0x1c7, g_load_descriptor->caption);
     DrawCatalogImage(FRAME_BUFFER, 0x1dd, 0, g_load_descriptor->caption_y, 0, 0x185,
                      VO_BLT_SRCTRANSPARENCY, 0);
     ResetTransientRenderScenes();
@@ -246,11 +247,14 @@ void PleaseWaitScreenFrame(void)
         break;
     case 3:
         if (static_cast<unsigned int>(g_load_descriptor->parameter) < W8_LEVEL_COUNT) {
-            g_load_descriptor->caption = FormatText("%s %s...", g_localized_strings[0x6f3], g_localized_strings[g_level_name_indices[g_load_descriptor->parameter]]);
+            g_load_descriptor->caption = fmt::format(
+                "{} {}...", g_localized_strings[0x6f3],
+                g_localized_strings[g_level_name_indices[g_load_descriptor->parameter]]);
         } else if (g_load_descriptor->parameter == 0x38) {
             g_load_descriptor->caption = "Entering default level...";
         } else {
-            g_load_descriptor->caption = FormatText("Entering test level %c...", g_load_descriptor->parameter + 2);
+            g_load_descriptor->caption =
+                fmt::format("Entering test level {:c}...", g_load_descriptor->parameter + 2);
         }
     }
 

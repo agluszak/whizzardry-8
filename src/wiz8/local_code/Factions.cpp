@@ -1,3 +1,4 @@
+#include <fmt/printf.h>
 #include "wiz8/utility.h"
 #include <string>
 #include "wiz8/local_code/Factions.h"
@@ -170,14 +171,14 @@ void SetFactionDispositionBand(signed char faction, signed char band)
     if (band != old_band) {
         g_factions[faction].band_changed_clock = g_status.world_clock;
         if (band < old_band) {
-            notice = FormatText(g_localized_strings[0x245]);
+            notice = g_localized_strings[0x245];
             palette = 0;
         } else {
-            notice = FormatText(g_localized_strings[0x246]);
+            notice = g_localized_strings[0x246];
             palette = 5;
         }
-        ShowNoticef(palette, g_localized_strings[0x247], g_localized_strings[g_faction_name_ids[faction]],
-                    notice);
+        ShowNotice(palette, fmt::sprintf(g_localized_strings[0x247],
+                                         g_localized_strings[g_faction_name_ids[faction]], notice));
     }
 }
 
@@ -301,15 +302,16 @@ void AdjustFactionDisposition(signed char faction, char delta)
         g_factions[faction].band_changed_clock = g_status.world_clock;
     }
     if (g_factions[faction].disposition_score < old_score) {
-        notice = FormatText(g_localized_strings[0x245]);
+        notice = g_localized_strings[0x245];
         palette = 0;
     } else if (g_factions[faction].disposition_score > old_score) {
-        notice = FormatText(g_localized_strings[0x246]);
+        notice = g_localized_strings[0x246];
         palette = 5;
     } else {
         return;
     }
-    ShowNoticef(palette, g_localized_strings[0x247], g_localized_strings[g_faction_name_ids[faction]], notice);
+    ShowNotice(palette, fmt::sprintf(g_localized_strings[0x247],
+                                     g_localized_strings[g_faction_name_ids[faction]], notice));
 }
 
 /* Write both faction tables into the open FATA chunk: the 21x21 relation

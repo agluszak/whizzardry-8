@@ -1,3 +1,5 @@
+#include <fmt/format.h>
+#include <fmt/printf.h>
 #include "wiz8/fonts.h"
 #include "wiz8/local_code/GroupAttacks.h"
 #include "wiz8/layouts/character.h"
@@ -406,28 +408,27 @@ void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
                     }
                     switch (g_special_attack_table[special_attack_kind][i]) {
                     case 1:
-                        text = FormatText(
-                            "%d %s", uiHits[i],
+                        text = fmt::format(
+                            "{:d} {}", uiHits[i],
                             g_localized_strings[g_condition_notices[g_special_attack_condition_table
-                                                                  [special_attack_kind][i]]
-                                              .plural],
-                            -1);
+                                                                        [special_attack_kind][i]]
+                                                    .plural]);
                         break;
                     case 2:
-                        text = FormatText(g_localized_strings[0x1c1], uiHits[i],
-                                                uiTotals[i] / uiHits[i], -1);
+                        text = fmt::sprintf(g_localized_strings[0x1c1], uiHits[i],
+                                            uiTotals[i] / uiHits[i], -1);
                         break;
                     case 3:
-                        text = FormatText(g_localized_strings[0x1c2], uiHits[i],
-                                                uiTotals[i] / uiHits[i], -1);
+                        text = fmt::sprintf(g_localized_strings[0x1c2], uiHits[i],
+                                            uiTotals[i] / uiHits[i], -1);
                         break;
                     case 4:
-                        text = FormatText(g_localized_strings[0x1c3], uiHits[i],
-                                                uiTotals[i] / uiHits[i], -1);
+                        text = fmt::sprintf(g_localized_strings[0x1c3], uiHits[i],
+                                            uiTotals[i] / uiHits[i], -1);
                         break;
                     case 5:
-                        text = FormatText(g_localized_strings[0x199], uiHits[i],
-                                                uiTotals[i] / uiHits[i], -1);
+                        text = fmt::sprintf(g_localized_strings[0x199], uiHits[i],
+                                            uiTotals[i] / uiHits[i], -1);
                         break;
                     default:
                         SetTextBoxMode(1, -1);

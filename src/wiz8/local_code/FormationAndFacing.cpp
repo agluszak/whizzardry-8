@@ -1,3 +1,4 @@
+#include <fmt/printf.h>
 #include "wiz8/fonts.h"
 #include "wiz8/local_code/FormationAndFacing.h"
 #include "wiz8/local_code/Configuration.h"
@@ -134,7 +135,8 @@ void ReconcilePartyFormation(W8PartyFormationState* edited, W8PartyFormationStat
             SetFormationPosition(&working, slot, row, column, false, false, false);
             working.positions[slot].facing = live_position->facing;
             if (edited_position->bQuadrant != row) {
-                PostCharacterNotice(slot, g_localized_strings[0x249], &g_formation_row_names[row][0]);
+                PostCharacterNotice(
+                    slot, fmt::sprintf(g_localized_strings[0x249], &g_formation_row_names[row][0]));
             }
         } else {
             signed char new_rows[3] = {4, 2, 3};
@@ -146,8 +148,8 @@ void ReconcilePartyFormation(W8PartyFormationState* edited, W8PartyFormationStat
                 for (column = 0; column < 3; ++column) {
                     if (working.bOccupantChar[new_row][column] == -1) {
                         SetFormationPosition(&working, slot, new_row, column, false, false, true);
-                        PostCharacterNotice(slot, g_localized_strings[0x24a],
-                                            &g_formation_row_names[new_row][0]);
+                        PostCharacterNotice(slot, fmt::sprintf(g_localized_strings[0x24a],
+                                                               &g_formation_row_names[new_row][0]));
                         placed = true;
                         break;
                     }
@@ -606,11 +608,13 @@ void SetFormationPosition(W8PartyFormationState* formation, int slot, signed cha
         }
         if (announce) {
             if (new_row != -1) {
-                PostCharacterNotice(slot, g_localized_strings[0x24c], &g_formation_row_names[new_row][0]);
+                PostCharacterNotice(slot, fmt::sprintf(g_localized_strings[0x24c],
+                                                       &g_formation_row_names[new_row][0]));
                 return;
             }
             if (old_row != -1) {
-                PostCharacterNotice(slot, g_localized_strings[0x24d], &g_formation_row_names[old_row][0]);
+                PostCharacterNotice(slot, fmt::sprintf(g_localized_strings[0x24d],
+                                                       &g_formation_row_names[old_row][0]));
             }
         }
     }
@@ -678,7 +682,8 @@ void SeatFormationSlotInRow(W8PartyFormationState* formation, int slot, int row)
         SetFormationPosition(formation, slot, row, seat, false, true, true);
         return;
     }
-    PostCharacterNotice(slot, g_localized_strings[0x24e], &g_formation_row_names[row][0]);
+    PostCharacterNotice(slot,
+                        fmt::sprintf(g_localized_strings[0x24e], &g_formation_row_names[row][0]));
 }
 
 /* Swap two party slots' formation positions: the second takes the first's
@@ -717,7 +722,8 @@ void SwapFormationSlots(W8PartyFormationState* formation, int slot_a, int slot_b
             SetFormationPosition(formation, slot_a, row, seat, false, true, true);
             return;
         }
-        PostCharacterNotice(slot_a, g_localized_strings[0x24e], &g_formation_row_names[row][0]);
+        PostCharacterNotice(
+            slot_a, fmt::sprintf(g_localized_strings[0x24e], &g_formation_row_names[row][0]));
     }
 }
 

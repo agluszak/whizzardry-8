@@ -1,3 +1,5 @@
+#include <fmt/format.h>
+#include <fmt/printf.h>
 #include <string_view>
 #include "wiz8/dialog_code/ProfRaceInfoDialog.h"
 #include "wiz8/engine_code/Video2.h"
@@ -129,8 +131,7 @@ void W8ProfRaceInfoDialogBase::Draw()
             if (m_minimums[attribute] == -1) {
                 minimum = "?";
             } else {
-                minimum =
-                    FormatText(g_format_d, m_minimums[attribute]);
+                minimum = fmt::format("{:d}", m_minimums[attribute]);
             }
             DrawTextLine(g_W8TextBufferAlignCenter, 0x85, top, 0x16, 0xc, minimum,
                          g_wiz_text_font_secondary);
@@ -218,8 +219,8 @@ bool W8ProfessionInfoDialog::PopulateText()
 {
     W8ProfRaceInfoDialogBase::PopulateText();
     m_text_area.AddEntry(g_localized_strings[0x153], g_localized_strings[m_uiDetailId], 10, 0xf, 0);
-    m_text_area.AddEntry({}, &g_empty_text, 10, 0xf, 0);
-    m_text_area.AddEntry(g_localized_strings[0x14d], &g_empty_text, 10, 0xf, 0);
+    m_text_area.AddEntry({}, "", 10, 0xf, 0);
+    m_text_area.AddEntry(g_localized_strings[0x14d], "", 10, 0xf, 0);
     unsigned int index;
     for (index = 0; index < 3; ++index) {
         W8Trait ability = g_profession_abilities[m_uiIndex].ability_ids[index];
@@ -228,13 +229,13 @@ bool W8ProfessionInfoDialog::PopulateText()
         }
         m_text_area.AddEntry({}, g_localized_strings[g_character_trait_name_ids[ability]], 10, 0xf, 0);
     }
-    m_text_area.AddEntry({}, &g_empty_text, 10, 0xf, 0);
-    m_text_area.AddEntry(g_localized_strings[0x14e], &g_empty_text, 10, 0xf, 0);
+    m_text_area.AddEntry({}, "", 10, 0xf, 0);
+    m_text_area.AddEntry(g_localized_strings[0x14e], "", 10, 0xf, 0);
     m_text_area.AddEntry(
         {}, g_localized_strings[g_character_skill_name_ids[g_profession_bonus_skills[m_uiIndex]]], 10, 0xf,
         0);
-    m_text_area.AddEntry({}, &g_empty_text, 10, 0xf, 0);
-    m_text_area.AddEntry(g_localized_strings[0x14f], &g_empty_text, 10, 0xf, 0);
+    m_text_area.AddEntry({}, "", 10, 0xf, 0);
+    m_text_area.AddEntry(g_localized_strings[0x14f], "", 10, 0xf, 0);
     for (index = 0; index < 4; ++index) {
         W8Skill skill = g_profession_skills[m_uiIndex][index];
         if (skill == W8_SKILL_NONE) {
@@ -242,8 +243,8 @@ bool W8ProfessionInfoDialog::PopulateText()
         }
         m_text_area.AddEntry({}, g_localized_strings[g_character_skill_name_ids[skill]], 10, 0xf, 0);
     }
-    m_text_area.AddEntry({}, &g_empty_text, 10, 0xf, 0);
-    m_text_area.AddEntry(g_localized_strings[0x150], &g_empty_text, 10, 0xf, 0);
+    m_text_area.AddEntry({}, "", 10, 0xf, 0);
+    m_text_area.AddEntry(g_localized_strings[0x150], "", 10, 0xf, 0);
     for (index = 0; index < 6; ++index) {
         int item = g_starting_equipment[m_uiIndex][index];
         if (item != -1) {
@@ -270,7 +271,7 @@ bool W8ProfessionInfoDialog::PopulateText()
     default:
         return true;
     }
-    m_text_area.AddEntry({}, FormatText(g_localized_strings[0x151], first, second), 10, 0xf, 0);
+    m_text_area.AddEntry({}, fmt::sprintf(g_localized_strings[0x151], first, second), 10, 0xf, 0);
     return true;
 }
 
@@ -303,8 +304,8 @@ bool W8RaceInfoDialog::PopulateText()
 {
     W8ProfRaceInfoDialogBase::PopulateText();
     m_text_area.AddEntry(g_localized_strings[0x153], g_localized_strings[m_uiDetailId], 10, 0xf, 0);
-    m_text_area.AddEntry({}, &g_empty_text, 10, 0xf, 0);
-    m_text_area.AddEntry(g_localized_strings[0x14d], &g_empty_text, 10, 0xf, 0);
+    m_text_area.AddEntry({}, "", 10, 0xf, 0);
+    m_text_area.AddEntry(g_localized_strings[0x14d], "", 10, 0xf, 0);
     bool listed = false;
     for (unsigned int index = 0; index < 5; ++index) {
         W8Trait ability = g_race_abilities[m_uiIndex].ability_ids[index];

@@ -1,3 +1,4 @@
+#include <fmt/format.h>
 #include <string>
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
 #include "wiz8/dialog_code/ButtonUserData.h"
@@ -428,10 +429,10 @@ void W8ListBoxDialog::Draw()
                     static_cast<unsigned int>(GetFontHeight(g_dialog_interface_font)) * index + dy,
                 Get16BPPColor(m_fill_colour));
         }
-        gprintf(m_x + 3 + dx,
-                static_cast<unsigned int>(GetFontHeight(g_dialog_interface_font)) * index + m_y +
-                    2 + dy,
-                text);
+        DrawFontText(m_x + 3 + dx,
+                     static_cast<unsigned int>(GetFontHeight(g_dialog_interface_font)) * index +
+                         m_y + 2 + dy,
+                     text);
     }
     RestoreFontSettings();
 }
@@ -716,7 +717,7 @@ void W8SplitAmountDialog::UpdateTextBuffers()
 {
     std::string text;
 
-    text = FormatText(g_format_d, m_remaining);
+    text = fmt::format("{:d}", m_remaining);
     m_text_buffers[2]->SetText(text, g_wiz_text_font_secondary);
     m_buttons[2]->m_dirty = true;
     m_text_buffers[2]->SetGeometryDirty();
@@ -1587,14 +1588,15 @@ void W8TriggerItemPickerDialog::Draw()
         SetFont(g_wiz_text_font);
         if (item->stack_count > 1) {
             auto name = GetItemDisplayName(item);
-            gprintf(button->GetX() + 0x3c, button->GetY() + 6, "%s(%d)", name, item->stack_count);
+            DrawFontText(button->GetX() + 0x3c, button->GetY() + 6,
+                         fmt::format("{}({:d})", name, item->stack_count));
         } else {
             auto name = GetItemDisplayName(item);
-            gprintf(button->GetX() + 0x3c, button->GetY() + 6, name);
+            DrawFontText(button->GetX() + 0x3c, button->GetY() + 6, name);
         }
         unsigned short weight = g_item_records[item->iItemNo].weight;
-        gprintf(button->GetX() + 0x3c, button->GetY() + GetFontHeight(g_wiz_text_font) + 6,
-                "%4.1f lbs", weight * 0.1f);
+        DrawFontText(button->GetX() + 0x3c, button->GetY() + GetFontHeight(g_wiz_text_font) + 6,
+                     fmt::format("{:4.1f} lbs", weight * 0.1f));
     }
 }
 

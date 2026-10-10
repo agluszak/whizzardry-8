@@ -1,3 +1,5 @@
+#include <fmt/format.h>
+#include <fmt/printf.h>
 #include "random.h"
 #include "wiz8/compat/unaligned.h"
 #include "wiz8/engine_code/AnimRep.hpp"
@@ -175,8 +177,9 @@ void RemoveCharacterCondition(int party_slot, W8Condition condition, bool announ
             }
         }
         if (announce) {
-            PostCharacterNotice(party_slot, g_localized_strings[0x243],
-                                g_localized_strings[g_condition_notices[condition].name]);
+            PostCharacterNotice(
+                party_slot, fmt::sprintf(g_localized_strings[0x243],
+                                         g_localized_strings[g_condition_notices[condition].name]));
         }
         character->uiCondition[condition] = 0;
         RecomputeCharacterHighestCondition(party_slot);
@@ -590,8 +593,9 @@ void SetMonsterCondition(int location_id, W8Condition condition, int duration, i
     }
     if (announce && (gXStatus.fCombatMode || monster_info->party_threat.visible_to_player)) {
         auto name = GetMonsterName(monster_info, 0, 0);
-        ShowNoticef(W8_FONT_PALETTE_RUST, "%s %s!", name,
-                    g_localized_strings[g_condition_notices[condition].singular]);
+        ShowNotice(W8_FONT_PALETTE_RUST,
+                   fmt::format("{} {}!", name,
+                               g_localized_strings[g_condition_notices[condition].singular]));
     }
     if (monster_info->p3D->IsCycleInterruptable(monster_info->p3D->m_pRep->pending_cycle)) {
         StartMonsterCycle(monster_info, W8_MONSTER_CYCLE_GET_HIT, W8_ANIMATION_PLAY_ONCE);
@@ -625,9 +629,9 @@ void ClearMonsterCondition(int location_id, W8Condition condition)
             SetMonsterHostility(monster_info, monster_group->ubDisposition);
         }
         if (gXStatus.fCombatMode || monster_info->party_threat.visible_to_player) {
-            ShowNoticef(W8_FONT_PALETTE_RUST, g_localized_strings[0x244],
-                        GetMonsterName(monster_info, 0, 0),
-                        g_localized_strings[g_condition_notices[condition].name]);
+            ShowNotice(W8_FONT_PALETTE_RUST,
+                       fmt::sprintf(g_localized_strings[0x244], GetMonsterName(monster_info, 0, 0),
+                                    g_localized_strings[g_condition_notices[condition].name]));
         }
         monster_info->uiCondition[condition] = 0;
         RefreshMonsterConditionState(monster_info);
@@ -735,8 +739,9 @@ unsigned char SetCharacterCondition(int party_slot, W8Condition condition, int d
         break;
     }
     if (g_status.world_suspended) {
-        PostCharacterNotice(party_slot, g_localized_strings[0x242],
-                            g_localized_strings[g_condition_notices[condition].name]);
+        PostCharacterNotice(party_slot,
+                            fmt::sprintf(g_localized_strings[0x242],
+                                         g_localized_strings[g_condition_notices[condition].name]));
         return 0;
     }
     switch (condition) {
@@ -806,8 +811,9 @@ unsigned char SetCharacterCondition(int party_slot, W8Condition condition, int d
         if (condition == W8_CONDITION_MISSING && alternate_missing_notice != 0) {
             PostCharacterNotice(party_slot, g_localized_strings[0x1d5]);
         } else {
-            PostCharacterNotice(party_slot, "%s!",
-                                g_localized_strings[g_condition_notices[condition].singular]);
+            PostCharacterNotice(
+                party_slot,
+                fmt::format("{}!", g_localized_strings[g_condition_notices[condition].singular]));
         }
     }
     if ((party_slot < 0 || party_slot > 7 || !row->fOccupied || character->hp_current == 0 ||

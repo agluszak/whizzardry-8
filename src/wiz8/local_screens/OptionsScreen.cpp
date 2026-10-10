@@ -1,3 +1,4 @@
+#include <fmt/format.h>
 #include <string_view>
 #include <string>
 #include "wiz8/unicode.h"
@@ -59,8 +60,6 @@ void MSYS_SGP_Mouse_Handler_Hook(unsigned short event, unsigned short x, unsigne
 
 /* Shared zero-initialized wide string: binary-wide DATA references read it as
    empty text and as a sprintf format argument. No recovered writer exists. */
-// GLOBAL: WIZ8 0x00689b34
-char g_empty_text;
 
 /* Suppress hover sounds on the registered options-row children. */
 // GLOBAL: WIZ8 0x005ed590
@@ -403,7 +402,7 @@ void W8OptionsSaveLoadPanel::OnDialogClosed(bool accepted, int value)
             return;
         case 3: {
             std::string path;
-            path = FormatText("%s\\%s.%s", "Saves", m_previous_name, g_save_extension);
+            path = fmt::format("{}\\{}.{}", "Saves", m_previous_name, g_save_extension);
             if (wiz8::remove_file(path) == 0) {
                 g_options_screen->ShowNotification(this, false, 0x82e, 0);
                 return;
@@ -500,7 +499,7 @@ void W8OptionsSaveLoadPanel::DeleteSelectedSave()
     int selected_slot = m_current * 5 + 1 + m_selection.m_selectedIndex;
     W8SaveSlot* slot = *g_options_screen->m_save_slots.GetAt(selected_slot);
     std::string path;
-    path = FormatText("%s\\%s.%s", "Saves", slot->name, g_save_extension);
+    path = fmt::format("{}\\{}.{}", "Saves", slot->name, g_save_extension);
     if (wiz8::remove_file(path) == 0) {
         g_options_screen->ShowNotification(this, false, 0x82f, 0);
         return;
@@ -561,7 +560,7 @@ void W8OptionsSaveLoadPanel::SaveSelectedSave()
     }
 
     std::string path;
-    path = FormatText("%s\\%s.%s", "Saves", slot->name, g_save_extension);
+    path = fmt::format("{}\\{}.{}", "Saves", slot->name, g_save_extension);
     if ([&]() { const auto status = wiz8::file_status(path); return status && status->info.type == SDL_PATHTYPE_FILE; }() != 0 && wiz8::remove_file(path) == 0) {
         g_options_screen->ShowNotification(this, false, 0x82e, 0);
         return;
@@ -585,8 +584,8 @@ W8OptionsButton::W8OptionsButton(Controls* owner, int left, int top, int right, 
 
 W8OptionsKeyButton::W8OptionsKeyButton(Controls* owner, int top, W8MGSCommand primary_binding,
                                        W8MGSCommand secondary_binding)
-    : W8OptionsButton(owner, 100, top, 0x15e, top + 22, &g_empty_text),
-      m_primary_binding(primary_binding), m_secondary_binding(secondary_binding)
+    : W8OptionsButton(owner, 100, top, 0x15e, top + 22, ""), m_primary_binding(primary_binding),
+      m_secondary_binding(secondary_binding)
 {
     AddLayoutFlags(g_W8TextControlLayoutLatchedImage | g_W8TextControlLayoutToggle);
     m_textBuffer.SetLayoutMode(g_W8TextBufferNoWrap | g_W8TextBufferAlignRight |
@@ -638,24 +637,27 @@ void W8OptionsSaveRow::Redraw(bool full_redraw)
                                     ? g_default_level
                                     : g_localized_strings[g_level_name_indices[m_save->level_id]];
     std::string timestamp;
-    timestamp = FormatText("%d-%2.2d-%2.2d %2d:%2.2d", m_save->timestamp.year, m_save->timestamp.month, m_save->timestamp.day, m_save->timestamp.hour, m_save->timestamp.minute);
+    timestamp = fmt::format("{:d}-{:02d}-{:02d} {:2d}:{:02d}", m_save->timestamp.year,
+                            m_save->timestamp.month, m_save->timestamp.day, m_save->timestamp.hour,
+                            m_save->timestamp.minute);
 
     SetFont(g_wiz_text_font_secondary);
     int text_x = x + 0x5e;
     if (m_save->version_major + m_save->version_minor * 0.1f + m_save->version_patch * 0.01f <=
         1.24f) {
-        gprintf(text_x, y + 9, "%s", level_name);
-        gprintf(text_x, y + 0x16, "%s %3d, %2d:%2.2d", g_localized_strings[0x826],
-                m_save->game_time_days, m_save->game_time_ms / 3600000,
-                (m_save->game_time_ms / 60000) % 60);
-        gprintf(text_x, y + 0x23, "%s", timestamp);
+        DrawFontText(text_x, y + 9, level_name);
+        DrawFontText(text_x, y + 0x16,
+                     fmt::format("{} {:3d}, {:2d}:{:02d}", g_localized_strings[0x826],
+                                 m_save->game_time_days, m_save->game_time_ms / 3600000,
+                                 (m_save->game_time_ms / 60000) % 60));
+        DrawFontText(text_x, y + 0x23, timestamp);
     } else {
-        gprintf(text_x, y + 9, "%s", g_localized_strings[0x830]);
-        gprintf(text_x, y + 0x16, "%s", g_localized_strings[0x831]);
+        DrawFontText(text_x, y + 9, g_localized_strings[0x830]);
+        DrawFontText(text_x, y + 0x16, g_localized_strings[0x831]);
     }
-    gprintf(text_x, y + 0x34, "%s", m_save->name);
+    DrawFontText(text_x, y + 0x34, m_save->name);
     if (m_save->iron_man) {
-        gprintf(x + 0x156, y + 9, "%s", g_localized_strings[0x827]);
+        DrawFontText(x + 0x156, y + 9, g_localized_strings[0x827]);
     }
 }
 
@@ -787,7 +789,7 @@ void W8OptionsKeyButton::SetKeyText(unsigned short key)
     }
 
     if (m_secondary_binding != W8_MGS_COMMAND_NONE && key != 0) {
-        text = FormatText("(%s) %s", g_localized_strings[0x89d], text);
+        text = fmt::format("({}) {}", g_localized_strings[0x89d], text);
     }
     m_textBuffer.SetText(text, g_options_detail_font);
 }
@@ -1828,7 +1830,7 @@ W8OptionsMenuSet::W8OptionsMenuSet(unsigned int* shared_region_set)
     m_next = new W8TextControl(this, 0xffffffff, 0x11f, 3, 0, 0, 0xf4, 0, 4, 6, 5, -1, 7);
     m_next->m_listener = this;
 
-    m_page_text = new W8TextBuffer(&m_bounds, &g_empty_text, g_options_detail_font,
+    m_page_text = new W8TextBuffer(&m_bounds, "", g_options_detail_font,
                                    g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle, 4);
 }
 
@@ -1929,7 +1931,7 @@ void W8OptionsMenuSet::UpdateMenuSet()
         m_previous->SetEnabled(current > 0);
         std::string text;
 
-        text = FormatText("%d / %d", current + 1, count);
+        text = fmt::format("{:d} / {:d}", current + 1, count);
         m_page_text->SetText(text, g_options_detail_font);
     }
     Invalidate(0);

@@ -1,3 +1,4 @@
+#include <fmt/format.h>
 #include <string>
 #include "wiz8/local_screens/MGSKeyboard.h"
 #include "input.h"
@@ -43,7 +44,7 @@ unsigned char MGSKeyboard::LoadDefaults(const char* path)
     std::unique_ptr<wiz8::File> handle = [&]() { try { return wiz8::open_file((char*)path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
     if (handle == 0) {
         srAssertFail("hFile", "C:\\Projects\\Wizardry 8\\Local Code\\InputMapper.cpp", 478,
-                     FormatText("Couldn't open keyboard init file %s", path));
+                     fmt::format("Couldn't open keyboard init file {}", path));
     }
 
     std::string line;

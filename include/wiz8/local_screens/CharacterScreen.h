@@ -1,5 +1,6 @@
-#include <string_view>
 #pragma once
+
+#include <string_view>
 #include "wiz8/layouts/screen_state.h"
 
 #include "wiz8/local_code/ControlsRect.h"
@@ -344,8 +345,6 @@ struct W8SpellRealmAnimation {
     unsigned int initial_frame;
 };
 extern W8SpellRealmAnimation g_spell_realm_animations[6];
-extern char g_format_s_space_s[];
-extern char g_format_s_colon[];
 
 /* The six realm-icon object ids; the definition is the GLOBAL in
    CGSStatsPage.cpp. The camp screen's character block reuses them. */
@@ -460,6 +459,3 @@ unsigned char CharacterScreenEnter(void);
 void CharacterScreenFrame(void);
 unsigned char CharacterScreenLeave(int leaving);
 extern char g_dash[];
-extern char g_format_d[];
-extern char g_format_d_slash_d[];
-extern char g_format_plus_d[];

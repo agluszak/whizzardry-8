@@ -1,3 +1,4 @@
+#include <fmt/format.h>
 #include <string>
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/integer_constants.h"
@@ -78,8 +79,6 @@ static int g_use_item_hover_row;
    effects cannot tear the view down mid-call. */
 // GLOBAL: WIZ8 0x0069BF38
 static bool g_use_item_commit_active;
-// GLOBAL: WIZ8 0x0064C7DC
-static char g_format_s_paren_question[] = "%s (?)";
 
 void UpdateUseItemScrollButtons(void);
 static void RebuildUseItemSelectList(int mode, W8ItemInstance* select);
@@ -519,7 +518,7 @@ static void RebuildUseItemSelectList(int mode, W8ItemInstance* select)
     g_use_item_selected = 0;
     g_use_item_detail_item = 0;
     g_use_item_select_controls[0]->ClearImage();
-    g_use_item_select_controls[0]->m_textBuffer.SetText(g_dialogue_empty_text, 0);
+    g_use_item_select_controls[0]->m_textBuffer.SetText("", 0);
     g_use_item_select_controls[0]->Invalidate(true);
     SelectSpellCastingPartySlot(g_status.selected_character);
     g_use_item_select_mode = mode;
@@ -631,9 +630,7 @@ static bool AppendUseItemListEntry(W8ItemInstance* item, W8ItemInstance* select,
     case W8_ITEM_QUANTITY_CHARGES:
     case W8_ITEM_QUANTITY_USES:
         if (!item->identified) {
-            ShowNotice(
-                0xf,
-                FormatText(g_format_s_paren_question, FormatItemDisplayName(item, false)), 2);
+            ShowNotice(0xf, fmt::format("{} (?)", FormatItemDisplayName(item, false)), 2);
             ++g_use_item_list_count;
             return true;
         }
@@ -650,9 +647,9 @@ static bool AppendUseItemListEntry(W8ItemInstance* item, W8ItemInstance* select,
         return true;
     }
     if (count == -1) {
-        text = FormatText(g_format_s_paren_question, FormatItemDisplayName(item, false));
+        text = fmt::format("{} (?)", FormatItemDisplayName(item, false));
     } else if (count > 1 || charged) {
-        text = FormatText(g_format_s_paren_d, FormatItemDisplayName(item, false), count);
+        text = fmt::format("{} ({:d})", FormatItemDisplayName(item, false), count);
     } else {
         text = FormatItemDisplayName(item, false);
     }
@@ -714,7 +711,7 @@ void OpenUseItemAssayDialog(W8ItemInstance* item)
 
     g_saved_target_cursor = gXStatus.iCurrentCursor;
     dialog = new W8AssayDialog(item, &g_status.buffers.Char[g_use_item_owner_index]);
-    dialog->SetText(&g_empty_text);
+    dialog->SetText("");
     dialog->SetOrigin(g_info_dialog_x, 0x48);
     dialog->m_destroy_callback = RestoreTargetCursor;
     OpenModal(dialog);
@@ -942,10 +939,10 @@ void UpdateUseItemDetailPanel(W8ItemInstance* item)
     if (count == -1) {
         value = "?";
     } else if (count > 1 || charges) {
-        text = FormatText(g_format_d, count);
+        text = fmt::format("{:d}", count);
         value = text;
     } else {
-        value = g_dialogue_empty_text;
+        value = "";
     }
     g_use_item_select_controls[0]->m_textBuffer.SetText(value, g_wiz_text_font_secondary);
     g_use_item_select_controls[0]->Invalidate(true);

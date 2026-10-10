@@ -1,3 +1,4 @@
+#include <fmt/format.h>
 #include <glm/gtc/quaternion.hpp>
 #include "wiz8/engine_code/AnimRep.hpp"
 #include "wiz8/engine_code/Video2.h"
@@ -1554,11 +1555,13 @@ try
                 slot->tag = static_cast<unsigned char>(tag_tmp);
                 if (frame_count <= frame_tmp) {
                     srAssertFail(
-                        "(usTemp < (UINT16)ubNumFrames)", /* c-style-cast-ok: verbatim assert text */
+                        "(usTemp < (UINT16)ubNumFrames)", /* c-style-cast-ok: verbatim assert text
+                                                           */
                         PROP_CPP, 0x11f,
-                        FormatText("%s Prop Error:Segment %d frame number is out of range (%d)",
-                                   prop->m_name, static_cast<unsigned int>(tag_tmp),
-                                   static_cast<unsigned int>(frame_tmp)));
+                        fmt::format(
+                            "{} Prop Error:Segment {:d} frame number is out of range ({:d})",
+                            prop->m_name, static_cast<unsigned int>(tag_tmp),
+                            static_cast<unsigned int>(frame_tmp)));
                 }
                 this->slots.Add(slot);
             }
@@ -1583,7 +1586,7 @@ try
             } else {
                 instance = AnimObjDispatchList(this->animation, 2, 0);
             }
-            named = FormatText("Prop: %s", prop->m_name);
+            named = fmt::format("Prop: {}", prop->m_name);
             instance->setName(named.c_str());
             mesh_model = static_cast<stMeshModel*>(instance->getModel());
             for (; mesh_model != 0; mesh_model = mesh_model->next) {

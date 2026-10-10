@@ -1,8 +1,6 @@
-#include <string_view>
 #pragma once
 
-extern char g_format_al_s[];
-
+#include <string_view>
 std::string GetNpcScriptRegionName(int region);
 void StripNpcKeywordPunctuation(std::string& text);
 

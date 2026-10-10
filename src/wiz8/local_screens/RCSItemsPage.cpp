@@ -1,3 +1,5 @@
+#include <fmt/format.h>
+#include <fmt/printf.h>
 #include "wiz8/spell_ids.h"
 #include "wiz8/local_screens/RCSItemsPage.h"
 #include "wiz8/integer_constants.h"
@@ -146,7 +148,7 @@ void OpenItemInfoDialog(W8ItemInstance* item, W8DialogDestroyCallback destroy_ca
     } else {
         dialog = new W8AssayDialog(item, g_review_character);
     }
-    dialog->SetText(&g_empty_text);
+    dialog->SetText("");
     dialog->SetOrigin(g_info_dialog_x, g_info_dialog_y);
     dialog->m_destroy_callback = destroy_callback;
     DisplayCampDialog(dialog);
@@ -269,7 +271,7 @@ void OpenSplitStackDialog(W8ItemInstance* item)
         g_item_records[item->iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK) {
         g_split_item_source = item;
         dialog = new W8SplitItemDialog(g_item_split_inventory_mode, item, -1);
-        dialog->SetText(&g_empty_text);
+        dialog->SetText("");
         dialog->SetOrigin(g_split_dialog_x, g_split_dialog_y);
         dialog->m_destroy_callback = SplitStackDialogResult;
         DisplayCampDialog(dialog);
@@ -331,15 +333,15 @@ void ReportCastResult(int party_slot)
     character = g_status.buffers.Char + party_slot;
     if (result == 0) {
         SoundPlay("Data\\Sound\\Misc\\Spell Fizzle 01.wav", 0);
-        text = FormatText(g_localized_strings[0x1be], character->name, 0, 1, 0);
+        text = fmt::sprintf(g_localized_strings[0x1be], character->name, 0, 1, 0);
         ShowCampNoticeLine(text, 0, true, false);
     } else if (result == 1) {
         SoundPlay("Data\\Sound\\Misc\\GeneralMagic.wav", 0);
-        text = FormatText(g_localized_strings[0x1bd], character->name, 0, 1, 0);
+        text = fmt::sprintf(g_localized_strings[0x1bd], character->name, 0, 1, 0);
         ShowCampNoticeLine(text, 0, true, false);
     } else if (result == 2) {
         SoundPlay("Data\\Sound\\Misc\\GeneralMagic.wav", 0);
-        text = FormatText(g_localized_strings[0x1bc], character->name, 0, 1, 0);
+        text = fmt::sprintf(g_localized_strings[0x1bc], character->name, 0, 1, 0);
         ShowCampNoticeLine(text, 0, true, false);
     }
     g_camp_screen->redraw_flags |= W8_CAMP_REDRAW_ALL;
@@ -904,11 +906,13 @@ unsigned char EquipSlotRegionHandler(const InputAtom* event, W8Region* region)
             EnableRegionHelpFlag(region);
             if (item->iItemNo != -1) {
                 name = FormatItemDisplayName(item, false);
-                g_camp_screen->text_buffer = FormatText("%s (%s)", name, g_localized_strings[g_equip_slot_label_ids[slot]]);
+                g_camp_screen->text_buffer =
+                    fmt::format("{} ({})", name, g_localized_strings[g_equip_slot_label_ids[slot]]);
                 SetRegionHelpText(g_camp_screen->text_buffer);
                 return 1;
             }
-            g_camp_screen->text_buffer = FormatText(g_format_s, g_localized_strings[g_equip_slot_label_ids[slot]]);
+            g_camp_screen->text_buffer =
+                fmt::format("{}", g_localized_strings[g_equip_slot_label_ids[slot]]);
             SetRegionHelpText(g_camp_screen->text_buffer);
             return 1;
         }
@@ -931,10 +935,12 @@ unsigned char EquipSlotRegionHandler(const InputAtom* event, W8Region* region)
                 SetRegionHelpDelay(delay);
                 SetRegionHelpForceEnabled(true);
                 if (item->iItemNo == -1) {
-                    g_camp_screen->text_buffer = FormatText(g_format_s, g_localized_strings[g_equip_slot_label_ids[slot]]);
+                    g_camp_screen->text_buffer =
+                        fmt::format("{}", g_localized_strings[g_equip_slot_label_ids[slot]]);
                 } else {
                     name = FormatItemDisplayName(item, false);
-                    g_camp_screen->text_buffer = FormatText("%s (%s)", name, g_localized_strings[g_equip_slot_label_ids[slot]]);
+                    g_camp_screen->text_buffer = fmt::format(
+                        "{} ({})", name, g_localized_strings[g_equip_slot_label_ids[slot]]);
                 }
                 SetRegionHelpText(g_camp_screen->text_buffer);
             }

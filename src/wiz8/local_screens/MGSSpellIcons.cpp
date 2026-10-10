@@ -1,3 +1,5 @@
+#include <fmt/format.h>
+#include <fmt/printf.h>
 #include "wiz8/local_screens/MGSSpellIcons.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/utility.h"
@@ -284,9 +286,10 @@ static void ShowEffectIconHelp(const W8EffectSlot* slot, bool show_duration, int
     unsigned int duration = slot->duration;
     int effect_id = slot->effect_id;
     g_effect_icon_help_duration = duration;
-    std::string text = FormatText(g_format_s_colon, records[effect_id].display_name);
-    text += show_duration ? FormatText(g_localized_strings[0x79c], amount, g_effect_icon_help_duration)
-                          : FormatText(g_localized_strings[0x79d], amount);
+    std::string text = fmt::format("{}: ", records[effect_id].display_name);
+    text += show_duration
+                ? fmt::sprintf(g_localized_strings[0x79c], amount, g_effect_icon_help_duration)
+                : fmt::sprintf(g_localized_strings[0x79d], amount);
     SetRegionHelpText(text);
 }
 

@@ -1,3 +1,4 @@
+#include <fmt/printf.h>
 #include <utf8.h>
 #include "wiz8/unicode.h"
 #include "wiz8/fonts.h"
@@ -268,7 +269,7 @@ void RefreshLevelUpReadyNotices(void)
                         text += " " + character->name + " ";
                         utf8::append(0xb5, std::back_inserter(text));
                         text += " ";
-                        text = FormatText(g_localized_strings[0x773], text);
+                        text = fmt::sprintf(g_localized_strings[0x773], text);
                         int* extra;
                         *ready_flag = 1;
                         extra = new int;
@@ -1211,7 +1212,7 @@ void AwardPartyExperience(int amount, int alternate_message)
             gXStatus.level_up_notice = true;
         }
     }
-    auto text = FormatText(g_localized_strings[alternate_message ? 0x231 : 0x232], amount);
+    auto text = fmt::sprintf(g_localized_strings[alternate_message ? 0x231 : 0x232], amount);
     W8ExperienceNoticePayload* payload = new W8ExperienceNoticePayload;
     payload->amount = amount;
     payload->alternate_message = static_cast<unsigned char>(alternate_message);

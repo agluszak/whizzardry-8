@@ -1,3 +1,4 @@
+#include <fmt/format.h>
 #include <string_view>
 #include <string>
 #include "wiz8/local_screens/MainGameScreen.h"
@@ -47,8 +48,6 @@ int g_journal_page = -1;
 bool g_journal_show_all;
 // GLOBAL: WIZ8 0x0064d7b8
 char g_default_level[] = "Default Level";
-// GLOBAL: WIZ8 0x0064d7f0
-char g_journal_page_format[] = "%d / %d";
 // GLOBAL: WIZ8 0x0064df40
 signed char g_journal_factions[12] = {4, 5, 6, 7, 8, 9, 12, 11, 13, 15, 16, 0};
 // GLOBAL: WIZ8 0x0064df4c
@@ -211,7 +210,7 @@ void DrawJournalLine(std::string_view text, int column, int y, int palette, bool
     } else if (palette == 1) {
         SetFontObjectPalette16BPP(g_journal_font, g_journal_font_palette.get());
     }
-    gprintf(left + x, y, g_format_s, text);
+    DrawFontText(left + x, y, text);
 }
 
 // FUNCTION: WIZ8 0x005bd860
@@ -229,7 +228,7 @@ void W8JournalPanel::Refresh()
         m_previous->SetEnabled(g_journal_page > 0);
 
         std::string page_text;
-        page_text = FormatText(g_journal_page_format, g_journal_page + 1, page_count);
+        page_text = fmt::format("{:d} / {:d}", g_journal_page + 1, page_count);
         m_page_text->SetText(page_text, g_options_detail_font);
         DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x1b8, 0, 0, 0, 0, VO_BLT_SRCTRANSPARENCY, 0);
         DrawJournalLine(g_localized_strings[0x6db], 0, 0x19, 0, true);
@@ -323,7 +322,7 @@ W8JournalPanel::W8JournalPanel(unsigned int* region_set)
     m_next->m_listener = this;
 
     W8ControlsRect bounds = {m_bounds.left, m_bounds.top, m_bounds.right, m_bounds.bottom};
-    m_page_text = new W8TextBuffer(&bounds, &g_empty_text, g_options_detail_font,
+    m_page_text = new W8TextBuffer(&bounds, "", g_options_detail_font,
                                    g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
 
     m_mode = new W8TextControl(this, 0xffffffff, 0x1b0, -2, 0, 0, 0x1bb, 0, 0, 2, 1, 2, 3);

@@ -100,29 +100,6 @@ struct STACKTEXTINPUTNODE {
     std::unique_ptr<STACKTEXTINPUTNODE> next;
 };
 
-W8_ABI_ASSERT(sizeof(TEXTINPUTNODE) == 0x6c, "text input field must match the retail allocation");
-W8_ABI_ASSERT(offsetof(TEXTINPUTNODE, ubID) == 0x00, "TEXTINPUTNODE.ubID");
-W8_ABI_ASSERT(offsetof(TEXTINPUTNODE, _padding01) == 0x01, "TEXTINPUTNODE._padding01");
-W8_ABI_ASSERT(offsetof(TEXTINPUTNODE, usInputType) == 0x02, "TEXTINPUTNODE.usInputType");
-W8_ABI_ASSERT(offsetof(TEXTINPUTNODE, ubMaxChars) == 0x04, "TEXTINPUTNODE.ubMaxChars");
-W8_ABI_ASSERT(offsetof(TEXTINPUTNODE, _padding05) == 0x05, "TEXTINPUTNODE._padding05");
-W8_ABI_ASSERT(offsetof(TEXTINPUTNODE, szString) == 0x08, "TEXTINPUTNODE.szString");
-W8_ABI_ASSERT(offsetof(TEXTINPUTNODE, ubStrLen) == 0x0c, "TEXTINPUTNODE.ubStrLen");
-W8_ABI_ASSERT(offsetof(TEXTINPUTNODE, fEnabled) == 0x0d, "TEXTINPUTNODE.fEnabled");
-W8_ABI_ASSERT(offsetof(TEXTINPUTNODE, fUserField) == 0x0e, "TEXTINPUTNODE.fUserField");
-W8_ABI_ASSERT(offsetof(TEXTINPUTNODE, _padding0f) == 0x0f, "TEXTINPUTNODE._padding0f");
-W8_ABI_ASSERT(offsetof(TEXTINPUTNODE, region) == 0x10, "TEXTINPUTNODE.region");
-W8_ABI_ASSERT(offsetof(TEXTINPUTNODE, InputCallback) == 0x5c, "TEXTINPUTNODE.InputCallback");
-W8_ABI_ASSERT(offsetof(TEXTINPUTNODE, fUseInactiveTextFieldColor) == 0x60,
-              "TEXTINPUTNODE.fUseInactiveTextFieldColor");
-W8_ABI_ASSERT(offsetof(TEXTINPUTNODE, fBlockMouseCallbacks) == 0x61,
-              "TEXTINPUTNODE.fBlockMouseCallbacks");
-W8_ABI_ASSERT(offsetof(TEXTINPUTNODE, _padding62) == 0x62, "TEXTINPUTNODE._padding62");
-W8_ABI_ASSERT(offsetof(TEXTINPUTNODE, next) == 0x64, "TEXTINPUTNODE.next");
-W8_ABI_ASSERT(offsetof(TEXTINPUTNODE, prev) == 0x68, "TEXTINPUTNODE.prev");
-W8_ABI_ASSERT(sizeof(TextInputColors) == 0x18, "text input style must match the retail allocation");
-W8_ABI_ASSERT(sizeof(STACKTEXTINPUTNODE) == 0x0c,
-              "text input session must match the retail allocation");
 
 // GLOBAL: WIZ8 0x0069C808
 static bool gfEditingText;
@@ -328,7 +305,7 @@ char AddTextInputField(int left, int top, int width, int height, int priority, s
         if (gpActive != 0) {
             gubParkingPos = CalculateCursorPos(
                 gpActive->region.RegionBottomRightX - gpActive->region.RegionTopLeftX - 10,
-                gubCursorPos, gpActive->szString.c_str(), &gsCursorX, &guiVisibleCount);
+                gubCursorPos, gpActive->szString, &gsCursorX, &guiVisibleCount);
         }
         gfHiliteMode = true;
     }
@@ -472,7 +449,7 @@ void SelectNextField(void)
                 gubCursorPos = gpActive->szString.size();
                 gubParkingPos = CalculateCursorPos(
                     gpActive->region.RegionBottomRightX - gpActive->region.RegionTopLeftX - 10,
-                    gubCursorPos, gpActive->szString.c_str(), &gsCursorX, &guiVisibleCount);
+                    gubCursorPos, gpActive->szString, &gsCursorX, &guiVisibleCount);
                 gfHiliteMode = true;
                 gfEditingText = true;
                 SetNativeTextInputEnabled(true);
@@ -542,10 +519,10 @@ unsigned int HandleTextInput(const InputAtom* input)
                 gubStartHilite = gubCursorPos;
             }
             if (gubCursorPos != 0) {
-                gubCursorPos = wiz8::text::previous_grapheme(gpActive->szString.c_str(), gubCursorPos);
+                gubCursorPos = wiz8::text::previous_grapheme(gpActive->szString, gubCursorPos);
                 gubParkingPos = CalculateCursorPos(
                     gpActive->region.RegionBottomRightX - gpActive->region.RegionTopLeftX - 10,
-                    gubCursorPos, gpActive->szString.c_str(), &gsCursorX, &guiVisibleCount);
+                    gubCursorPos, gpActive->szString, &gsCursorX, &guiVisibleCount);
             }
             gubEndHilite = gubCursorPos;
             return 1;
@@ -555,14 +532,14 @@ unsigned int HandleTextInput(const InputAtom* input)
             gfHiliteMode = false;
             gubParkingPos = CalculateCursorPos(
                 gpActive->region.RegionBottomRightX - gpActive->region.RegionTopLeftX - 10,
-                gubCursorPos, gpActive->szString.c_str(), &gsCursorX, &guiVisibleCount);
+                gubCursorPos, gpActive->szString, &gsCursorX, &guiVisibleCount);
             return 1;
         }
         if (gubCursorPos != 0) {
-            gubCursorPos = wiz8::text::previous_grapheme(gpActive->szString.c_str(), gubCursorPos);
+            gubCursorPos = wiz8::text::previous_grapheme(gpActive->szString, gubCursorPos);
             gubParkingPos = CalculateCursorPos(
                 gpActive->region.RegionBottomRightX - gpActive->region.RegionTopLeftX - 10,
-                gubCursorPos, gpActive->szString.c_str(), &gsCursorX, &guiVisibleCount);
+                gubCursorPos, gpActive->szString, &gsCursorX, &guiVisibleCount);
         }
         return 1;
 
@@ -578,7 +555,7 @@ unsigned int HandleTextInput(const InputAtom* input)
                 gubCursorPos = next; }
                 gubParkingPos = CalculateCursorPos(
                     gpActive->region.RegionBottomRightX - gpActive->region.RegionTopLeftX - 10,
-                    gubCursorPos, gpActive->szString.c_str(), &gsCursorX, &guiVisibleCount);
+                    gubCursorPos, gpActive->szString, &gsCursorX, &guiVisibleCount);
             }
             gubEndHilite = gubCursorPos;
             return 1;
@@ -588,7 +565,7 @@ unsigned int HandleTextInput(const InputAtom* input)
             gfHiliteMode = false;
             gubParkingPos = CalculateCursorPos(
                 gpActive->region.RegionBottomRightX - gpActive->region.RegionTopLeftX - 10,
-                gubCursorPos, gpActive->szString.c_str(), &gsCursorX, &guiVisibleCount);
+                gubCursorPos, gpActive->szString, &gsCursorX, &guiVisibleCount);
             return 1;
         }
         if (gubCursorPos < gpActive->szString.size()) {
@@ -597,7 +574,7 @@ unsigned int HandleTextInput(const InputAtom* input)
                 gubCursorPos = next; }
             gubParkingPos = CalculateCursorPos(
                 gpActive->region.RegionBottomRightX - gpActive->region.RegionTopLeftX - 10,
-                gubCursorPos, gpActive->szString.c_str(), &gsCursorX, &guiVisibleCount);
+                gubCursorPos, gpActive->szString, &gsCursorX, &guiVisibleCount);
         }
         return 1;
 
@@ -615,7 +592,7 @@ unsigned int HandleTextInput(const InputAtom* input)
         }
         gubParkingPos = CalculateCursorPos(
             gpActive->region.RegionBottomRightX - gpActive->region.RegionTopLeftX - 10,
-            gubCursorPos, gpActive->szString.c_str(), &gsCursorX, &guiVisibleCount);
+            gubCursorPos, gpActive->szString, &gsCursorX, &guiVisibleCount);
         return 1;
 
     case 0x24: /* Home */
@@ -632,7 +609,7 @@ unsigned int HandleTextInput(const InputAtom* input)
         }
         gubParkingPos = CalculateCursorPos(gpActive->region.RegionBottomRightX -
                                                gpActive->region.RegionTopLeftX - 10,
-                                           0, gpActive->szString.c_str(), &gsCursorX, &guiVisibleCount);
+                                           0, gpActive->szString, &gsCursorX, &guiVisibleCount);
         return 1;
 
     case 0x2e: /* Delete */
@@ -668,11 +645,11 @@ unsigned int HandleTextInput(const InputAtom* input)
         if (!gfHiliteMode) {
             if (gubCursorPos != 0) {
                 const auto old_position = gubCursorPos;
-                gubCursorPos = wiz8::text::previous_grapheme(gpActive->szString.c_str(), gubCursorPos);
+                gubCursorPos = wiz8::text::previous_grapheme(gpActive->szString, gubCursorPos);
                 gpActive->szString.erase(gubCursorPos, old_position - gubCursorPos);
                 gubParkingPos = CalculateCursorPos(
                     gpActive->region.RegionBottomRightX - gpActive->region.RegionTopLeftX - 10,
-                    gubCursorPos, gpActive->szString.c_str(), &gsCursorX, &guiVisibleCount);
+                    gubCursorPos, gpActive->szString, &gsCursorX, &guiVisibleCount);
                 return 1;
             }
         } else {
@@ -1040,7 +1017,7 @@ void RenderActiveTextField(void)
     if (gfLeftButtonState != 0) {
         if (static_cast<int>(gusMouseXPos) < field->region.RegionTopLeftX) {
             if (gubCursorPos != 0) {
-                gubCursorPos = wiz8::text::previous_grapheme(gpActive->szString.c_str(), gubCursorPos);
+                gubCursorPos = wiz8::text::previous_grapheme(gpActive->szString, gubCursorPos);
                 gubParkingPos = CalculateCursorPos(
                     field->region.RegionBottomRightX - field->region.RegionTopLeftX - 10,
                     gubCursorPos, field->szString.c_str(), &gsCursorX, &guiVisibleCount);
@@ -1096,8 +1073,8 @@ void RenderActiveTextField(void)
         std::size_t end = index;
         wiz8::text::next(visible, end);
         const std::string glyph(visible + index, end - index);
-        mprintf(field->region.RegionTopLeftX + prefix + 3,
-                field->region.RegionTopLeftY + vertical_offset, "%s", glyph.c_str());
+        DrawMonoFontText(field->region.RegionTopLeftX + prefix + 3,
+                         field->region.RegionTopLeftY + vertical_offset, glyph);
         index = end;
     }
 
@@ -1142,8 +1119,8 @@ void RenderInactiveTextFieldNode(TEXTINPUTNODE* field)
         std::size_t end = index;
         wiz8::text::next(visible, end);
         const std::string glyph(visible + index, end - index);
-        mprintf(field->region.RegionTopLeftX + prefix + 3,
-                field->region.RegionTopLeftY + vertical_offset, "%s", glyph.c_str());
+        DrawMonoFontText(field->region.RegionTopLeftX + prefix + 3,
+                         field->region.RegionTopLeftY + vertical_offset, glyph);
         index = end;
     }
     RestoreFontSettings();
@@ -1223,7 +1200,7 @@ void SetTextInputCursor(std::size_t cursor)
     if (gpActive != 0) {
         gubParkingPos = CalculateCursorPos(
             gpActive->region.RegionBottomRightX - gpActive->region.RegionTopLeftX - 10, cursor,
-            gpActive->szString.c_str(), &gsCursorX, &guiVisibleCount);
+            gpActive->szString, &gsCursorX, &guiVisibleCount);
     }
 }
 

@@ -1,3 +1,4 @@
+#include <fmt/format.h>
 #include "wiz8/unicode.h"
 #include "wiz8/utility.h"
 #include "wiz8/engine_code/3d.h"
@@ -222,8 +223,7 @@ try
         opened = [&]() { try { return wiz8::open_file(mesh->filename, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
         handle = opened.get();
         if (handle == 0) {
-            srAssertFail("0", ANI_MESH_CPP, 0x199,
-                         FormatText("Couldn't open %s", mesh->filename));
+            srAssertFail("0", ANI_MESH_CPP, 0x199, fmt::format("Couldn't open {}", mesh->filename));
             return 0;
         }
     }
@@ -404,7 +404,7 @@ try
         handle = opened.get();
         if (handle == 0) {
             srAssertFail("fi.hFile", ANI_MESH_CPP, 0x23f,
-                         FormatText("Couldn't open %s", mesh->filename));
+                         fmt::format("Couldn't open {}", mesh->filename));
             return 0;
         }
     }

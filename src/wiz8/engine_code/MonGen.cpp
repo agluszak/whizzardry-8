@@ -1,3 +1,4 @@
+#include <fmt/format.h>
 #include "wiz8/fonts.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_code/Sight.h"
@@ -361,13 +362,12 @@ unsigned char MonGen::GenerateEncounter(const srVector3T<float>* position)
     record = MonsterDBFromSpecies(species);
     if (record == 0) {
         srAssertFail("pMonsterDB", MON_GEN_CPP, 0x146,
-                     FormatText("MonsterDBFromSpecies failed for species %d", species));
+                     fmt::format("MonsterDBFromSpecies failed for species {:d}", species));
     }
     if (record->deleted != 0) {
-        FormatDebugMessage(1,
-                           "MonGen::GenerateEncounter: WARNING - DBS record for monster species %d "
-                           "has been DELETED!",
-                           species);
+        DebugMessage(1, fmt::format("MonGen::GenerateEncounter: WARNING - DBS record for monster "
+                                    "species {:d} has been DELETED!",
+                                    species));
         return 0;
     }
 
@@ -394,7 +394,7 @@ unsigned char MonGen::GenerateEncounter(const srVector3T<float>* position)
     int count = RollEncounterGroupSize(record);
     if (count == 0) {
         srAssertFail("ulNumMonsters", MON_GEN_CPP, 0x17b,
-                     FormatText("Error in Monster DB: zero group size (%s)", record->name0));
+                     fmt::format("Error in Monster DB: zero group size ({})", record->name0));
     }
 
     group = CreateGroup(species, count, &spawn_position, false, false, true);
@@ -420,14 +420,13 @@ unsigned char MonGen::GenerateEncounter(const srVector3T<float>* position)
         if (companion_record == 0) {
             srAssertFail(
                 "pMonsterDB", MON_GEN_CPP, 0x193,
-                FormatText("MonsterDBFromSpecies failed for species %d", companion_species));
+                fmt::format("MonsterDBFromSpecies failed for species {:d}", companion_species));
         }
         if (companion_record->deleted != 0) {
-            FormatDebugMessage(
-                1,
-                "MonGen::GenerateEncounter: WARNING - DBS record for monster species %d has been "
-                "DELETED, chum of species %d!",
-                companion_species, species);
+            DebugMessage(1,
+                         fmt::format("MonGen::GenerateEncounter: WARNING - DBS record for monster "
+                                     "species {:d} has been DELETED, chum of species {:d}!",
+                                     companion_species, species));
             return 0;
         }
 
@@ -445,9 +444,10 @@ unsigned char MonGen::GenerateEncounter(const srVector3T<float>* position)
         std::string group_name =
             group->member_count == 1 ? group_record->name0 : group_record->name1;
         const char* companion_word = companion_count == 1 ? "chum" : "chums";
-        ShowNoticef(W8_FONT_PALETTE_BROWN, "MonGen (%s): spawned %d %s & %d %s (lvl %d)", name,
-                    group->member_count, group_name, companion_count, companion_word,
-                    *table->challenge_level.GetAt(selected_index));
+        ShowNotice(W8_FONT_PALETTE_BROWN,
+                   fmt::format("MonGen ({}): spawned {:d} {} & {:d} {} (lvl {:d})", name,
+                               group->member_count, group_name, companion_count, companion_word,
+                               *table->challenge_level.GetAt(selected_index)));
     }
     return 1;
 }

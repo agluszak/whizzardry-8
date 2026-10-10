@@ -1,3 +1,4 @@
+#include <fmt/format.h>
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/local_code/Widget.h"
 #include "wiz8/local_code/Controls.h"
@@ -101,16 +102,8 @@ unsigned short g_character_trait_name_ids[0x20] = {
     0x333, 0x334, 0x335, 0x336, 0x337, 0x338, 0x339, 0x33a, 0x33b, 0x33c, 0x33d,
     0x33e, 0x33f, 0x340, 0x341, 0x342, 0x343, 0x344, 0x345, 0x346, 0x347,
 };
-// GLOBAL: WIZ8 0x0060aa20
-char g_format_d[] = "%d";
-// GLOBAL: WIZ8 0x00614b58
-char g_format_d_slash_d[] = "%d/%d";
-// GLOBAL: WIZ8 0x00617584
-char g_format_s_space_s[] = "%s %s";
 // GLOBAL: WIZ8 0x0064789c
 char g_dash[] = "-";
-// GLOBAL: WIZ8 0x0064dc24
-char g_format_plus_d[] = "%+d";
 // GLOBAL: WIZ8 0x0064f2c0
 static char g_zero_slash_zero[] = "0/0";
 
@@ -865,9 +858,8 @@ void W8CharacterStatsPage::Redraw()
             bounds.left = left + 0xf9;
             bounds.right = left + 0x10f;
             text.SetLayoutBounds(&bounds, true, true);
-            text.RenderString(
-                FormatText(g_format_d, m_creation_state->attribute_points_remaining),
-                g_wiz_text_font_secondary, false, FRAME_BUFFER);
+            text.RenderString(fmt::format("{:d}", m_creation_state->attribute_points_remaining),
+                              g_wiz_text_font_secondary, false, FRAME_BUFFER);
         }
 
         text.SetLayoutMode(g_W8TextBufferAlignLeft | g_W8TextBufferAlignMiddle);
@@ -907,11 +899,11 @@ void W8CharacterStatsPage::Redraw()
             if (m_character->iProfession != W8_PROFESSION_NONE) {
                 text.SetLayoutBounds(&bounds, true, true);
                 text.RenderString(
-                    FormatText(
-                        g_format_s_space_s,
-                        g_localized_strings[g_character_skill_name_ids
-                                          [g_profession_bonus_skills[m_character->iProfession]]],
-                        g_localized_strings[0xb2]),
+                    fmt::format("{} {}",
+                                g_localized_strings
+                                    [g_character_skill_name_ids
+                                         [g_profession_bonus_skills[m_character->iProfession]]],
+                                g_localized_strings[0xb2]),
                     g_wiz_text_font_secondary, false, FRAME_BUFFER);
                 bounds.top += line_height;
             }
@@ -942,8 +934,8 @@ void W8CharacterStatsPage::Redraw()
                           FRAME_BUFFER);
         if (m_character->iRace != W8_RACE_NONE) {
             text.SetLayoutMode(g_W8TextBufferAlignRight | g_W8TextBufferAlignMiddle);
-            text.RenderString(FormatText(g_format_d, m_character->uiHPMax),
-                              g_wiz_text_font_secondary, false, FRAME_BUFFER);
+            text.RenderString(fmt::format("{:d}", m_character->uiHPMax), g_wiz_text_font_secondary,
+                              false, FRAME_BUFFER);
         }
 
         bounds.top += 0xe;
@@ -953,7 +945,7 @@ void W8CharacterStatsPage::Redraw()
                           FRAME_BUFFER);
         if (m_character->iRace != W8_RACE_NONE) {
             text.SetLayoutMode(g_W8TextBufferAlignRight | g_W8TextBufferAlignMiddle);
-            text.RenderString(FormatText(g_format_d, m_character->uiStaminaMax),
+            text.RenderString(fmt::format("{:d}", m_character->uiStaminaMax),
                               g_wiz_text_font_secondary, false, FRAME_BUFFER);
         }
 
@@ -964,9 +956,9 @@ void W8CharacterStatsPage::Redraw()
                           FRAME_BUFFER);
         if (m_character->iRace != W8_RACE_NONE) {
             text.SetLayoutMode(g_W8TextBufferAlignRight | g_W8TextBufferAlignMiddle);
-            text.RenderString(FormatText(g_format_d, ComputeLevelUpSpellPointAward(
-                                                               m_character, m_creation_state)),
-                              g_wiz_text_font_secondary, false, FRAME_BUFFER);
+            text.RenderString(
+                fmt::format("{:d}", ComputeLevelUpSpellPointAward(m_character, m_creation_state)),
+                g_wiz_text_font_secondary, false, FRAME_BUFFER);
         }
 
         bounds.top += 0xe;
@@ -976,7 +968,7 @@ void W8CharacterStatsPage::Redraw()
                           FRAME_BUFFER);
         if (m_character->iRace != W8_RACE_NONE) {
             text.SetLayoutMode(g_W8TextBufferAlignRight | g_W8TextBufferAlignMiddle);
-            text.RenderString(FormatText(g_format_d, m_character->armor_class_average),
+            text.RenderString(fmt::format("{:d}", m_character->armor_class_average),
                               g_wiz_text_font_secondary, false, FRAME_BUFFER);
         }
 
@@ -987,7 +979,7 @@ void W8CharacterStatsPage::Redraw()
                           FRAME_BUFFER);
         if (m_character->iRace != W8_RACE_NONE) {
             text.SetLayoutMode(g_W8TextBufferAlignRight | g_W8TextBufferAlignMiddle);
-            text.RenderString(FormatText(g_format_d, m_character->carrying_capacity / 10),
+            text.RenderString(fmt::format("{:d}", m_character->carrying_capacity / 10),
                               g_wiz_text_font_secondary, false, FRAME_BUFFER);
         }
 
@@ -1007,8 +999,8 @@ void W8CharacterStatsPage::Redraw()
                 bounds.right = bounds.left + 0x21;
                 text.SetLayoutBounds(&bounds, true, true);
                 int value = m_character->resistances[realm].total - 0x19;
-                std::string value_text = value == 0 ? FormatText(g_dash)
-                                                       : FormatText(g_format_plus_d, value);
+                std::string value_text =
+                    value == 0 ? std::string(g_dash) : fmt::format("{:+d}", value);
                 text.RenderString(value_text, g_wiz_text_font_secondary, false, FRAME_BUFFER);
             }
         }
@@ -1056,7 +1048,7 @@ void W8CharacterStatsPage::Redraw()
             bounds.top = top + 0x179;
             bounds.bottom = top + 0x185;
             text.SetLayoutBounds(&bounds, true, true);
-            text.RenderString(FormatText(g_format_d, m_creation_state->skill_points_total),
+            text.RenderString(fmt::format("{:d}", m_creation_state->skill_points_total),
                               g_wiz_text_font_secondary, false, FRAME_BUFFER);
         }
         text.SetLayoutMode(g_W8TextBufferAlignLeft | g_W8TextBufferAlignMiddle);
@@ -1097,7 +1089,7 @@ void W8CharacterStatsPage::Redraw()
         W8ControlsRect bounds = {0x8f, 0x162, 0xbf, 0x179};
         DrawCatalogImage(FRAME_BUFFER, 0x107, 0, 5, 0x8f, 0x162, VO_BLT_SRCTRANSPARENCY, 0);
         text.SetLayoutBounds(&bounds, true, true);
-        text.RenderString(FormatText(g_format_d, m_creation_state->attribute_step_limit),
+        text.RenderString(fmt::format("{:d}", m_creation_state->attribute_step_limit),
                           g_options_detail_font, true, FRAME_BUFFER);
         bounds.top = 0x184;
         bounds.bottom = 0x19b;
@@ -1105,9 +1097,9 @@ void W8CharacterStatsPage::Redraw()
         text.SetLayoutBounds(&bounds, true, true);
         int total = m_creation_state->attribute_points_total;
         std::string points_text =
-            total < 1 ? g_zero_slash_zero
-                      : FormatText(g_format_d_slash_d,
-                                         m_creation_state->attribute_points_remaining, total);
+            total < 1
+                ? g_zero_slash_zero
+                : fmt::format("{:d}/{:d}", m_creation_state->attribute_points_remaining, total);
         text.RenderString(points_text, g_options_detail_font, true, FRAME_BUFFER);
         m_dirty = false;
     }

@@ -1,3 +1,4 @@
+#include <fmt/format.h>
 #include "wiz8/unicode.h"
 #include "wiz8/local_code/ItemManager.h"
 #include "wiz8/local_code/PC_Item.h"
@@ -446,8 +447,8 @@ W8WorldItem* ItemInfo(unsigned int item_list_index)
     item = GetWorldItemListEntry(item_list_index);
     if (item == 0) {
         srAssertFail("pItemInfo != NULL", ITEM_MANAGER_CPP, 965,
-                     FormatText("ItemInfo: ERROR - PLGet failed, index %d, pList %p",
-                                  item_list_index, static_cast<const void*>(gXStatus.plsItemList)));
+                     fmt::format("ItemInfo: ERROR - PLGet failed, index {:d}, pList {}",
+                                 item_list_index, static_cast<const void*>(gXStatus.plsItemList)));
     }
     return item;
 }
@@ -463,7 +464,7 @@ unsigned int ItemIndex(int runtime_id)
         }
     }
     srAssertFail("FALSE", ITEM_MANAGER_CPP, 992,
-                 FormatText("ItemIndex: ERROR - ItemID %d not found", runtime_id));
+                 fmt::format("ItemIndex: ERROR - ItemID {:d} not found", runtime_id));
     return 0;
 }
 
@@ -671,17 +672,19 @@ void ActivateItem(W8WorldItem* item)
     }
     zItemName = name;
     if (zItemName.find(".ITM") != std::string::npos) {
-        zItemFullPath = FormatText("%s\\%s", "Data\\Items3D", zItemName);
+        zItemFullPath = fmt::format("{}\\{}", "Data\\Items3D", zItemName);
     } else {
-        zItemFullPath = FormatText("%s\\%s.ITM", "Data\\Items3D", zItemName);
+        zItemFullPath = fmt::format("{}\\{}.ITM", "Data\\Items3D", zItemName);
     }
     if (![&]() { const auto status = wiz8::file_status(zItemFullPath); return status && status->info.type == SDL_PATHTYPE_FILE; }()) {
         zItemName = "questionmark";
-        zItemFullPath = FormatText("%s\\%s.ITM", "Data\\Items3D", zItemName);
+        zItemFullPath = fmt::format("{}\\{}.ITM", "Data\\Items3D", zItemName);
         if (![&]() { const auto status = wiz8::file_status(zItemFullPath); return status && status->info.type == SDL_PATHTYPE_FILE; }()) {
-            srAssertFail("[&]() { const auto status = wiz8::file_status(zItemFullPath); return status && status->info.type == SDL_PATHTYPE_FILE; }()", ITEM_MANAGER_CPP, 0x1ed,
-                         FormatText("ActivateItem: ERROR - missing ITM file %s, item %d",
-                                      zItemFullPath, item->item.iItemNo));
+            srAssertFail("[&]() { const auto status = wiz8::file_status(zItemFullPath); return "
+                         "status && status->info.type == SDL_PATHTYPE_FILE; }()",
+                         ITEM_MANAGER_CPP, 0x1ed,
+                         fmt::format("ActivateItem: ERROR - missing ITM file {}, item {:d}",
+                                     zItemFullPath, item->item.iItemNo));
         }
     }
 
@@ -690,7 +693,7 @@ void ActivateItem(W8WorldItem* item)
     item->p3D = entity;
     if (!loaded) {
         srAssertFail("fSuccess", ITEM_MANAGER_CPP, 0x1f2,
-                     FormatText("ActivateItem: ERROR - ItemRead %s failed", zItemName));
+                     fmt::format("ActivateItem: ERROR - ItemRead {} failed", zItemName));
     }
     if (ItemHasFlags(item, W8_WORLD_ITEM_RADAR_BLIP_LIT)) {
         item->p3D->LightRadarBlip();
@@ -1026,8 +1029,8 @@ unsigned char ReleaseItemLists(void)
         item = GetWorldItemListEntry(0);
         if (item == 0) {
             srAssertFail("pItemInfo != NULL", ITEM_MANAGER_CPP, 0x3c5,
-                         FormatText("ItemInfo: ERROR - PLGet failed, index %d, pList %p", 0,
-                                      static_cast<const void*>(gXStatus.plsItemList)));
+                         fmt::format("ItemInfo: ERROR - PLGet failed, index {:d}, pList {}", 0,
+                                     static_cast<const void*>(gXStatus.plsItemList)));
         }
         if (item->sector_id >= 0) {
             RemoveItemFromSector(item->sector_id, item);
@@ -1344,8 +1347,9 @@ void DropMonsterLoot(W8MonsterInfo* monster_info, int value)
         } else {
             W8NpcState* npc = GetNpcStateForMonsterInfo(monster_info, true);
             if (npc == 0) {
-                srAssertFail("pNPC", ITEM_MANAGER_CPP, 1459,
-                             FormatText("Monster %s marked as NPC with no NPC data", record->name0));
+                srAssertFail(
+                    "pNPC", ITEM_MANAGER_CPP, 1459,
+                    fmt::format("Monster {} marked as NPC with no NPC data", record->name0));
             }
             for (index = 0; index < 40; ++index) {
                 if (npc->item_ids[index] != -1 && npc->item_weights[index] == 0) {

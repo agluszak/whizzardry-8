@@ -1,3 +1,5 @@
+#include <fmt/format.h>
+#include <fmt/printf.h>
 #include "wiz8/fonts.h"
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_screens/Screens.h"
@@ -493,14 +495,14 @@ void text_input_ownership()
 
 void formatted_strings()
 {
-    const auto first = FormatText("%s %d", "first", 7);
-    const auto second = FormatText("%s %d", "second", 9);
+    const auto first = fmt::format("{} {:d}", "first", 7);
+    const auto second = fmt::format("{} {:d}", "second", 9);
     CHECK(first == "first 7" && second == "second 9");
     const std::string long_text(1024, 'x');
-    CHECK(FormatText("%s", long_text) == long_text);
-    CHECK(FormatText("%d", 42) == "42");
-    CHECK(FormatText("%ls %hs", "é", "中") == "é 中");
-    CHECK(FormatText("100% literal") == "100% literal");
+    CHECK(fmt::format("{}", long_text) == long_text);
+    CHECK(fmt::format("{:d}", 42) == "42");
+    CHECK(fmt::sprintf("%ls %hs", "é", "中") == "é 中");
+    CHECK(std::string("100% literal") == "100% literal");
 }
 
 void button_image_fixture(const std::filesystem::path& root, std::string name, unsigned count = 9,
@@ -695,8 +697,21 @@ void generic_button_images()
     CHECK(InitializeFontManager(std::vector<UINT16>{'?', 0x00e9, 0x4e2d, 'e', 0x0301, 'a', 'b', ' ', 'c'}));
     CHECK(LoadFontFile(std::string(filename).c_str()) == 0);
     CHECK(StringPixLength("é", 0) > 0);
-    CHECK(StringPixLengthArg(0, 1, "%s", "é中") == StringPixLength("é", 0));
-    CHECK(StringPixLengthArg(0, 2, "%s", "é中") == StringPixLength("é中", 0));
+    CHECK(StringCodepointPrefixPixelWidth(0, 1, "é中") == StringPixLength("é", 0));
+    CHECK(StringCodepointPrefixPixelWidth(0, 2, "é中") == StringPixLength("é中", 0));
+    // Render borrowed substrings without depending on a trailing NUL or
+    // accidentally consuming the next glyph in the backing string.
+    SetFont(0);
+    FontDestRegion = {0, 0, 64, 32};
+    gbPixelDepth = 16;
+    std::vector<UINT16> expected_pixels(64 * 32), view_pixels(64 * 32);
+    DrawFontTextToBuffer(reinterpret_cast<UINT8*>(expected_pixels.data()), 64 * 2, 0, 0, 0, "é");
+    const std::string backing = "é中";
+    DrawFontTextToBuffer(reinterpret_cast<UINT8*>(view_pixels.data()), 64 * 2, 0, 0, 0,
+                         std::string_view(backing).substr(0, 2));
+    CHECK(view_pixels == expected_pixels);
+    CHECK(
+        std::any_of(view_pixels.begin(), view_pixels.end(), [](auto pixel) { return pixel != 0; }));
     g_font12point1 = 0;
     MSYS_Init();
     InitTextInputMode();

@@ -1,3 +1,4 @@
+#include <fmt/format.h>
 #include "wiz8/retail_text_records.h"
 #include "wiz8/unicode.h"
 #include <string>
@@ -1237,7 +1238,7 @@ void W8Missile::AnnounceCollisionTarget()
     if (!gXStatus.fCombatMode) {
         return;
     }
-    text = FormatText("%s ", g_localized_strings[0x1bf]);
+    text = fmt::format("{} ", g_localized_strings[0x1bf]);
     target_start = text.size();
     if (combat_slot.iType == W8_TARGET_KIND_MONSTER) {
         unsigned int monster_list_index =

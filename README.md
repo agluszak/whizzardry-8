@@ -125,8 +125,11 @@ borrowed read-only text, and `std::filesystem::path` for native host paths.
 Pass `.c_str()` at C-string boundaries. Runtime game, UI and SGP text is UTF-8;
 retail text is UTF-16LE, decoded explicitly through `wiz8/unicode.h`. Host
 `wchar_t` keeps its native width; no short-wchar flags or wide CRT substitutions
-are used. Localized tables are `std::vector<std::string>` and runtime printf
-patterns are formatted with {fmt}. utf8cpp supplies conversion and traversal;
+are used. Localized tables are `std::vector<std::string>`. Format source literals
+with `fmt::format`; use `fmt::sprintf` only for the retail localization tables
+whose patterns use printf syntax. Drawing and notice APIs accept plain
+`std::string_view`, with formatting explicit at the call site.
+utf8cpp supplies conversion and traversal;
 utf8proc supplies grapheme boundaries and character classification. Editable
 controls own strings and use byte offsets at grapheme boundaries. Font rendering
 decodes UTF-8 at its boundary; retail fonts still limit the available glyphs.

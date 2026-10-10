@@ -1,3 +1,4 @@
+#include <fmt/format.h>
 #include "wiz8/fonts.h"
 #include "wiz8/local_code/Sight.h"
 #include "wiz8/integer_constants.h"
@@ -268,9 +269,9 @@ void ReleaseMonToMonVisibilityInfoAbout(int location_id)
                     PLRemoveAt(monster_info->plsVisMonToMon, index));
                 if (visibility == 0) {
                     srAssertFail("pVisibility != NULL", SIGHT_CPP, 968,
-                                 FormatText("ReleaseMonToMonVisibilityInfoAbout: ERROR - "
-                                              "PLRemoveAt failed, index %d",
-                                              index));
+                                 fmt::format("ReleaseMonToMonVisibilityInfoAbout: ERROR - "
+                                             "PLRemoveAt failed, index {:d}",
+                                             index));
                 }
                 free(visibility);
                 break;
@@ -290,7 +291,7 @@ void ReleaseMonToMonVisibilityList(W8MonsterInfo* monster_info)
         visibility = static_cast<W8VisibilityRecord*>(PLRemoveAt(monster_info->plsVisMonToMon, 0));
         if (visibility == 0) {
             srAssertFail("pVisibility != NULL", SIGHT_CPP, 990,
-                         FormatText("ReleaseMonToMonVisibilityList: ERROR - PLRemoveAt failed"));
+                         std::string("ReleaseMonToMonVisibilityList: ERROR - PLRemoveAt failed"));
         }
         free(visibility);
     }

@@ -1,3 +1,4 @@
+#include <fmt/format.h>
 #include <string_view>
 #include "wiz8/layouts/character.h"
 #include "wiz8/character_skills.h"
@@ -143,8 +144,8 @@ void W8CharacterPageEntry::Redraw()
             DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x108, 0, 2, m_x, m_y,
                                           VO_BLT_SRCTRANSPARENCY, 0);
         }
-        m_first_text->SetText(FormatText(g_format_d, *m_first), g_wiz_text_font_secondary);
-        m_second_text->SetText(FormatText(g_format_d, *m_second), g_wiz_text_font_secondary);
+        m_first_text->SetText(fmt::format("{:d}", *m_first), g_wiz_text_font_secondary);
+        m_second_text->SetText(fmt::format("{:d}", *m_second), g_wiz_text_font_secondary);
         m_first_text->FillBounds(0x8000);
         m_second_text->FillBounds(0x8000);
         m_label->RenderToTarget(0, true, FRAME_BUFFER);

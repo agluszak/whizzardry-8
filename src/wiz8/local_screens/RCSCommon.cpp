@@ -1,3 +1,5 @@
+#include <fmt/format.h>
+#include <fmt/printf.h>
 #include <string_view>
 #include <string>
 #include "wiz8/spell_ids.h"
@@ -81,8 +83,6 @@ Controls* g_item_actions_panel;
 
 /* The level-line format the header draws - name, level and the
    profession's level-band title. */
-// GLOBAL: WIZ8 0x0064DAD0
-static char g_format_s_d_paren_s[] = "%s %d (%s)";
 
 /* The page and item-action button callbacks CreateCampButtonPanel
    wires into m_primaryActivationCallback. */
@@ -245,7 +245,7 @@ void DrawRcsTextJustified(std::string_view text, int left, int top, int width, i
     }
     top += (height - GetFontHeight(g_wiz_text_font_secondary)) / 2;
     SetFont(g_wiz_text_font_secondary);
-    gprintfDirty(left, top, "%s", text);
+    DrawFontTextDirty(left, top, text);
 }
 
 // FUNCTION: WIZ8 0x005b6630
@@ -576,8 +576,8 @@ static void ShowDismissCharacterDialog(void)
     } else {
         format = g_localized_strings[0x92f];
     }
-    dialog->SetMessage(FormatText(format, character->name), 1, 0x32, true, true, true, true,
-                       0, 0x15e);
+    dialog->SetMessage(fmt::sprintf(format, character->name), 1, 0x32, true, true, true, true, 0,
+                       0x15e);
     SetDialogDestroyCallback(dialog, OnDismissCharacterDialogClosed);
     DisplayCampDialog(dialog);
 }
@@ -718,7 +718,8 @@ void DrawCampHeader(void)
                     y = (row & 7) * 0xe + 0x24;
                     DrawRcsText(g_localized_strings[g_profession_name_message_ids[profession]], name_x, y,
                                 0x68, g_W8TextBufferAlignLeft | g_W8TextBufferAlignMiddle);
-                    state->text_buffer = FormatText(g_format_d, character->profession_levels[profession]);
+                    state->text_buffer =
+                        fmt::format("{:d}", character->profession_levels[profession]);
                     DrawRcsText(state->text_buffer, level_x, y, 0x20,
                                 g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
                     ++row;
@@ -774,33 +775,36 @@ void DrawCampHeader(void)
                                       g_font_state_palettes[W8_FONT_PALETTE_GREEN].get());
         }
         state->text_buffer = character->name;
-        gprintfDirty((0xba - StringPixLength(state->text_buffer, g_wiz_text_bold_font)) / 2 + 0x74,
-                     0x60, g_format_s, state->text_buffer);
+        DrawFontTextDirty((0xba - StringPixLength(state->text_buffer, g_wiz_text_bold_font)) / 2 +
+                              0x74,
+                          0x60, state->text_buffer);
         SetFontObjectPalette16BPP(g_wiz_text_bold_font, GetFontObject(g_wiz_text_bold_font)->ownedPalette.get());
         SetFont(g_wiz_text_font_secondary);
         SetObjectShade(GetFontObject(g_wiz_text_font_secondary), 4);
         state->text_buffer = g_localized_strings[g_gender_name_message_rows[character->gender][0]];
         state->text_buffer += " ";
         state->text_buffer += g_localized_strings[g_race_name_message_ids[character->iRace]];
-        gprintfDirty((0xba - StringPixLength(state->text_buffer, g_wiz_text_font_secondary)) / 2 +
-                         0x74,
-                     0x6f, g_format_s, state->text_buffer);
+        DrawFontTextDirty(
+            (0xba - StringPixLength(state->text_buffer, g_wiz_text_font_secondary)) / 2 + 0x74,
+            0x6f, state->text_buffer);
         if (state->hover_region == 0xf3) {
             SetFontObjectPalette16BPP(g_wiz_text_font_secondary,
                                       g_font_state_palettes[W8_FONT_PALETTE_GREEN].get());
         }
         state->text_buffer = g_localized_strings[g_profession_name_message_ids[character->iProfession]];
-        gprintfDirty((0xba - StringPixLength(state->text_buffer, g_wiz_text_font_secondary)) / 2 +
-                         0x74,
-                     0x7c, g_format_s, state->text_buffer);
+        DrawFontTextDirty(
+            (0xba - StringPixLength(state->text_buffer, g_wiz_text_font_secondary)) / 2 + 0x74,
+            0x7c, state->text_buffer);
         SetFontObjectPalette16BPP(g_wiz_text_font_secondary, GetFontObject(g_wiz_text_font_secondary)->ownedPalette.get());
         SetFont(g_wiz_text_font_secondary);
         SetObjectShade(GetFontObject(g_wiz_text_font_secondary), 4);
-        state->text_buffer = FormatText(g_format_s_d_paren_s, g_localized_strings[0x91a], character->uiExpLevel, g_localized_strings[g_profession_level_name_message_ids[character->iProfession]
-                                                                  [character->level_band]]);
-        gprintfDirty((0xba - StringPixLength(state->text_buffer, g_wiz_text_font_secondary)) / 2 +
-                         0x74,
-                     0x89, g_format_s, state->text_buffer);
+        state->text_buffer = fmt::format(
+            "{} {:d} ({})", g_localized_strings[0x91a], character->uiExpLevel,
+            g_localized_strings[g_profession_level_name_message_ids[character->iProfession]
+                                                                   [character->level_band]]);
+        DrawFontTextDirty(
+            (0xba - StringPixLength(state->text_buffer, g_wiz_text_font_secondary)) / 2 + 0x74,
+            0x89, state->text_buffer);
     }
     for (slot = 0; slot < 8; ++slot) {
         if ((state->redraw_flags & (1 << (slot & 0x1f))) != 0) {
@@ -956,7 +960,7 @@ void DrawCampVitals(void)
         bounds.bottom = 0x51;
         text->SetLayoutBounds(&bounds, true, false);
         text->SetFontStateIndex(-1);
-        formatted = FormatText(g_format_d, g_review_character->hp_current);
+        formatted = fmt::format("{:d}", g_review_character->hp_current);
         text->RenderString(formatted, g_smfnt_font, false, FRAME_BUFFER);
     }
     InvalidateRegion(0x10c, bar_top, 0x124, frame_column + 0x38, 0);
@@ -979,11 +983,11 @@ static void DrawCampHand(W8EquipSlot slot, int hand_index, int top, int count_ce
         unsigned char count = g_review_character->EquippedItem[slot].stack_count;
         if (count != 0) {
             std::string text;
-            text = FormatText(g_format_d, count);
+            text = fmt::format("{:d}", count);
             SetFont(g_smfnt_font);
             SetFontObjectPalette16BPP(g_smfnt_font, GetFontObject(g_smfnt_font)->ownedPalette.get());
-            gprintf(count_center - (StringPixLength(text, g_smfnt_font) + 1) / 2, top + 0xf,
-                    g_format_s, text);
+            DrawFontText(count_center - (StringPixLength(text, g_smfnt_font) + 1) / 2, top + 0xf,
+                         text);
         }
     }
 }
@@ -1015,15 +1019,14 @@ void DrawCampHands(void)
         DrawCampHand(W8_EQUIP_SLOT_SECONDARY_WEAPON, 1, 0x3a, 0x8c);
     }
     SetFont(g_smfnt_font);
-    text = FormatText(g_format_d, g_review_character->armor_class_average);
+    text = fmt::format("{:d}", g_review_character->armor_class_average);
     palette = GetFontObject(g_smfnt_font)->ownedPalette.get();
     if (g_review_character->load_category != 0) {
         palette =
             g_font_state_palettes[g_load_category_palettes[g_review_character->load_category]].get();
     }
     SetFontObjectPalette16BPP(g_smfnt_font, palette);
-    gprintf((0xd - StringPixLength(text, g_smfnt_font)) / 2 + 0x84, 0xe,
-            g_format_s, text);
+    DrawFontText((0xd - StringPixLength(text, g_smfnt_font)) / 2 + 0x84, 0xe, text);
     InvalidateRegion(0x81, 0xb, 0x95, 0x53, 0);
 }
 

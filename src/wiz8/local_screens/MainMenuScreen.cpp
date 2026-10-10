@@ -178,7 +178,7 @@ unsigned char MainMenuScreenEnter(void)
     SetFontObjectPalette16BPP(g_wiz_text_font_secondary,
                               g_font_state_palettes[W8_FONT_PALETTE_WHITE].get());
     measured = StringPixLength(wide, g_wiz_text_font_secondary);
-    gprintf(0x27b - measured, 5, wide);
+    DrawFontText(0x27b - measured, 5, wide);
     SetFontObjectPalette16BPP(g_wiz_text_font_secondary, GetFontObject(g_wiz_text_font_secondary)->ownedPalette.get());
     ResetRegions();
     RegionSetEnable(1);
@@ -261,7 +261,7 @@ void MainMenuScreenFrame()
                         SetFont(g_wiz_text_font_secondary);
                         SetFontObjectPalette16BPP(g_wiz_text_font_secondary,
                                                   GetFontObject(g_wiz_text_font_secondary)->ownedPalette.get());
-                        gprintfDirty(5, 5, "Developer mode enabled.");
+                        DrawFontTextDirty(5, 5, "Developer mode enabled.");
                     }
                 } else {
                     switch (input.usParam) {

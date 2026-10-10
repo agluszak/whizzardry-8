@@ -1,3 +1,5 @@
+#include <fmt/format.h>
+#include <fmt/printf.h>
 #include "wiz8/unicode.h"
 #include <string_view>
 #include "wiz8/retail_text_records.h"
@@ -144,15 +146,16 @@ static unsigned int g_save_filetime_xor_high = 0xe77c28c1;
 std::string BuildCharacterFilePath(std::string_view filename, int slot)
 {
     if (!g_status.game_started)
-        return FormatText("%s\\%s", slot == -1 ? "Saves\\Characters" : "Saves\\NPCs", filename);
-    if (slot != -1 && !g_status.flags[slot]) return FormatText("Saves\\NPCs\\%s", filename);
+        return fmt::format("{}\\{}", slot == -1 ? "Saves\\Characters" : "Saves\\NPCs", filename);
+    if (slot != -1 && !g_status.flags[slot])
+        return fmt::format("Saves\\NPCs\\{}", filename);
     return std::string(filename);
 }
 
 // FUNCTION: WIZ8 0x00514ec0
 std::string BuildCharacterPath(std::string_view name, int slot)
 {
-    return BuildCharacterFilePath(FormatText("%s.CHR", name), slot);
+    return BuildCharacterFilePath(fmt::format("{}.CHR", name), slot);
 }
 
 /* Loads one character record, either from a loose file under Saves\Characters
@@ -176,13 +179,13 @@ try
 
     if (g_status.game_started) {
         if (slot != -1 && g_status.flags[slot] == 0) {
-            path = FormatText("%s\\%s", "Saves\\NPCs", name);
+            path = fmt::format("{}\\{}", "Saves\\NPCs", name);
         } else {
             path = name;
         }
     } else {
         directory = slot != -1 ? "Saves\\NPCs" : "Saves\\Characters";
-        path = FormatText("%s\\%s", directory, name);
+        path = fmt::format("{}\\{}", directory, name);
     }
 
     if (g_status.game_started && (slot == -1 || g_status.flags[slot] != 0)) {
@@ -209,7 +212,7 @@ try
         return true;
     }
     if (report_failure) {
-        CreateMessageBox(FormatText(g_localized_strings[W8_NOTICE_CHARACTER_LOAD_FAILED], name),
+        CreateMessageBox(fmt::sprintf(g_localized_strings[W8_NOTICE_CHARACTER_LOAD_FAILED], name),
                          g_small_font, 1, true, false, 0);
     }
     return false;
@@ -287,7 +290,7 @@ try
                 chunks.Close();
                 if (has_status && !status.flag && !status.endgame_started) {
                     const auto stem = name.substr(0, name.find_last_of('.'));
-                    slot->name = FormatText("%s", stem.c_str());
+                    slot->name = stem;
                     const auto local_time = wiz8::file_time_with_legacy_local_bias(
                         wiz8::file_time_from_sdl(metadata->info.modify_time), utc_offset);
                     slot->local_write_time = local_time;
@@ -327,7 +330,7 @@ int GetSaveGameLevel(std::string_view slot_name)
     int count;
     int index;
 
-    path = FormatText("%s\\%s.%s", "Saves", slot_name, g_save_extension);
+    path = fmt::format("{}\\{}.{}", "Saves", slot_name, g_save_extension);
     if (chunks.OpenRead(path)) {
         count = chunks.ChunkCount();
         for (index = 0; index < count; ++index) {
@@ -381,7 +384,7 @@ try
     int region;
     unsigned int index;
 
-    path = FormatText("%s\\%s.%s", "Saves", name, g_save_extension);
+    path = fmt::format("{}\\{}.{}", "Saves", name, g_save_extension);
     if (!chunks.OpenWrite(path)) {
         return false;
     }
@@ -499,9 +502,9 @@ std::string BuildLevelStatusPath(unsigned int level)
 {
     if (level == 56) return "Levels\\Test\\DefaultLevel.STS";
     if (level < 56)
-        return FormatText("Levels\\%s\\%s.STS", g_level_folders[level].folder_name,
-                          g_level_folders[level].level_name);
-    return FormatText("Levels\\Test\\Level%c.STS", static_cast<char>(level - 56));
+        return fmt::format("Levels\\{}\\{}.STS", g_level_folders[level].folder_name,
+                           g_level_folders[level].level_name);
+    return fmt::format("Levels\\Test\\Level{:c}.STS", static_cast<char>(level - 56));
 }
 
 /* Reads and validates the header, then publishes the four counts and the block
@@ -817,7 +820,7 @@ try
         has_script = 1;
         chunks->Write(&has_script, 1, 0);
         memset(script_name, 0, sizeof(script_name));
-        wiz8::text::copy(script_name, info->p3D->script->getName());
+        wiz8::text::write_utf8_field(info->p3D->script->getName(), script_name);
         script_wait = info->p3D->script_wait;
         script_line = info->p3D->script_line;
         chunks->Write(script_name, 0x40, 0);
@@ -1029,12 +1032,13 @@ try
     *strchr(info.level_file_name + 4, '.') = '\0';
     if (level < 0x39) {
         if (level == 0x38) {
-            path = FormatText("%s\\Test\\DefaultLevel.%s", "Levels", "STS");
+            path = fmt::format("{}\\Test\\DefaultLevel.{}", "Levels", "STS");
         } else {
-            path = FormatText("%s\\%s\\%s.%s", "Levels", g_level_folders[level].folder_name, g_level_folders[level].level_name, "STS");
+            path = fmt::format("{}\\{}\\{}.{}", "Levels", g_level_folders[level].folder_name,
+                               g_level_folders[level].level_name, "STS");
         }
     } else {
-        path = FormatText("%s\\Test\\Level%c.%s", "Levels", level - 0x38, "STS");
+        path = fmt::format("{}\\Test\\Level{:c}.{}", "Levels", level - 0x38, "STS");
     }
     if (chunk.OpenRead(path)) {
         chunk.OpenChunk(0, 0);
@@ -1176,7 +1180,7 @@ try
     bool script_flag;
     float patrol_value;
 
-    script_name = FormatText("");
+    script_name = "";
     chunk->Read(&record_version, 4, 0);
     monster_info = static_cast<W8MonsterInfo*>(malloc(sizeof(W8MonsterInfo)));
     if (monster_info == 0) {
@@ -1477,7 +1481,7 @@ bool SaveGameExists(void)
 }
 
 /* Writes one character record back to Saves\\Characters or Saves\\NPCs. The
-   file name is the character's own wide name with a CHR extension, and the
+   file name is the character's UTF-8 name with a CHR extension, and the
    record is written as a four-byte length followed by that many bytes, which is
    the pair LoadCharacter reads back.
 
@@ -1492,42 +1496,31 @@ bool SaveCharacter(W8Character* character, int slot, bool report_failure,
                    void (*continuation)(void))
 try
 {
-    std::string path;
-    bool saved = true;
-    unsigned int size;
-    unsigned int transferred;
-    std::unique_ptr<wiz8::File> handle;
-
     character->record_version = 1;
-    path = BuildCharacterPath(character->name, slot);
-
-    if (!g_status.game_started) {
-        if ([&]() { const auto status = wiz8::file_status(path); return status && status->read_only; }() &&
-            (wiz8::clear_read_only(path), true) == 0) {
-            saved = false;
+    const auto path = BuildCharacterPath(character->name, slot);
+    bool saved;
+    try {
+        if (g_status.game_started) {
+            saved = SaveCharacterToCurrentGame(path, slot, character);
         } else {
-            handle = [&]() { try { return wiz8::open_file(path, wiz8::OpenMode::replace); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
-            if (handle == 0) {
-                saved = false;
-            } else {
-                size = wiz8::retail::kCharacterBytes;
-                if ((handle->write(&size, 4), transferred = 4, true) == 0 ||
-                    (wiz8::retail::write(*handle, *character), transferred = wiz8::retail::kCharacterBytes, true) == 0) {
-                    saved = false;
-                }
-                if (handle) handle->close();
-                handle.reset();
-            }
+            if (const auto status = wiz8::file_status(path); status && status->read_only)
+                wiz8::clear_read_only(path);
+            auto file = wiz8::open_file(path, wiz8::OpenMode::replace);
+            const unsigned int size = wiz8::retail::kCharacterBytes;
+            file->write(&size, sizeof(size));
+            wiz8::retail::write(*file, *character);
+            file->close();
+            saved = true;
         }
-    } else {
-        saved = SaveCharacterToCurrentGame(path, slot, character);
+    } catch (const std::exception&) {
+        saved = false;
     }
     if (saved) {
         return true;
     }
     if (report_failure) {
         CreateMessageBox(
-            FormatText(g_localized_strings[W8_NOTICE_CHARACTER_SAVE_FAILED], character->name),
+            fmt::sprintf(g_localized_strings[W8_NOTICE_CHARACTER_SAVE_FAILED], character->name),
             g_small_font, 1, true, false, continuation);
         return false;
     }
@@ -1584,8 +1577,7 @@ try
     unsigned int size;
 
     MarkCurrentGameCharacterChunkConsumed(path);
-    wiz8::text::copy(name, path);
-    name[0x3f] = 0;
+    wiz8::text::write_utf8_field(path, name);
     if (chunk.OpenAppend(const_cast<char*>("Saves\\CurrentGame.SAV")) != 0) {
         chunk.Write(name, 0x40, 0);
         size = W8_CHARACTER_SERIALIZED_SIZE;
@@ -1678,7 +1670,7 @@ void DeleteCurrentSaveFiles(void)
 {
     std::string path;
 
-    path = FormatText("%s\\%s.%s", "Saves", GetLastSaveName(), g_save_extension);
+    path = fmt::format("{}\\{}.{}", "Saves", GetLastSaveName(), g_save_extension);
     wiz8::remove_file(path);
     wiz8::remove_file("Saves\\CurrentGame.SAV");
 }
@@ -1725,7 +1717,7 @@ unsigned char SaveSlotFileExists(std::string_view slot_name)
 {
     std::string path;
 
-    path = FormatText("%s\\%s.%s", "Saves", slot_name, g_save_extension);
+    path = fmt::format("{}\\{}.{}", "Saves", slot_name, g_save_extension);
     return [&]() { const auto status = wiz8::file_status(path); return status && status->info.type == SDL_PATHTYPE_FILE; }();
 }
 
@@ -1854,7 +1846,7 @@ try
     std::unique_ptr<wiz8::File> handle;
 
     for (slot = 1; slot <= 3; ++slot) {
-        slot_name = FormatText("%s\\%s %d.%s", "Saves", "Quick", slot, g_save_extension);
+        slot_name = fmt::format("{}\\{} {:d}.{}", "Saves", "Quick", slot, g_save_extension);
         handle = [&]() { try { return wiz8::open_file(slot_name, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
         if (!handle) {
             write_slot = slot;
@@ -1872,7 +1864,7 @@ try
             oldest_write_time = write_time;
         }
     }
-    slot_name = FormatText("%s %d", "Quick", write_slot);
+    slot_name = fmt::format("{} {:d}", "Quick", write_slot);
     return slot_name;
 }
 catch (const std::exception&) { return {}; }
@@ -1895,7 +1887,7 @@ try
     std::unique_ptr<wiz8::File> handle;
 
     for (slot = 1; slot <= 3; ++slot) {
-        slot_name = FormatText("%s\\%s %d.%s", "Saves", "Quick", slot, g_save_extension);
+        slot_name = fmt::format("{}\\{} {:d}.{}", "Saves", "Quick", slot, g_save_extension);
         handle = [&]() { try { return wiz8::open_file(slot_name, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
         if (handle) {
             [&]() { const auto times = handle->times(); *(&creation_time) = times.created; *(&access_time) = times.accessed; *(&write_time) = times.modified; return slot_name; }();
@@ -1913,10 +1905,10 @@ try
         }
     }
     if (newest_slot > 0) {
-        slot_name = FormatText("%s %d", "Quick", newest_slot);
+        slot_name = fmt::format("{} {:d}", "Quick", newest_slot);
         return slot_name;
     }
-    path = FormatText("%s\\%s.%s", "Saves", "Quick", g_save_extension);
+    path = fmt::format("{}\\{}.{}", "Saves", "Quick", g_save_extension);
     if ([&]() { const auto status = wiz8::file_status(path); return status && status->info.type == SDL_PATHTYPE_FILE; }()) {
         slot_name = "Quick";
         return slot_name;
@@ -2188,8 +2180,8 @@ catch (const std::exception&) { return false; }
 std::optional<std::string> FindFreeEndingSaveName()
 {
     for (int index = 0; index <= 20; ++index) {
-        auto name = index == 0 ? std::string("Ending") : FormatText("Ending%d", index);
-        const auto status = wiz8::file_status(FormatText("Saves\\%s.%s", name, g_save_extension));
+        auto name = index == 0 ? std::string("Ending") : fmt::format("Ending{:d}", index);
+        const auto status = wiz8::file_status(fmt::format("Saves\\{}.{}", name, g_save_extension));
         if (!status || status->info.type != SDL_PATHTYPE_FILE) return name;
     }
     return std::nullopt;
@@ -2220,7 +2212,7 @@ try
     int box;
 
     ResetLiveSessionForLoad();
-    path = FormatText("%s\\%s.%s", "Saves", slot_name, g_save_extension);
+    path = fmt::format("{}\\{}.{}", "Saves", slot_name, g_save_extension);
     wiz8::remove_file("Saves\\CurrentGame.SAV");
     (wiz8::copy_file(path, "Saves\\CurrentGame.SAV", wiz8::CopyMode::replace), true);
     if (chunks.OpenRead(const_cast<char*>("Saves\\CurrentGame.SAV")) == 0) {

@@ -1,7 +1,7 @@
-#include <string_view>
-#include <string>
 #pragma once
 
+#include <string_view>
+#include <string>
 #include "Types.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/item_instance.h"
@@ -291,7 +291,6 @@ bool IsEquippableItemClass(W8ItemInstance* item);
    finishes; `fade_to_black` selects the alpha ramp. */
 void BeginScreenFade(int fade_to_black, int fade_out, int duration, void (*callback)(void),
                      bool fullscreen_scene_last, char render_each_tick);
-extern char g_format_s0[];
 unsigned char UpdateScreenFade(void);
 void BeginPartyDeath(void);
 void PumpReviewTransition(void);

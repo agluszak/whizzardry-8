@@ -1,3 +1,4 @@
+#include <fmt/format.h>
 #include "wiz8/unicode.h"
 #include <string>
 #include "wiz8/fonts.h"
@@ -250,7 +251,7 @@ void RunSearchPulse(void)
                                         folder = "Test";
                                     }
                                     std::string path;
-                                    path = FormatText("Data\\Messages\\%s.msg", folder);
+                                    path = fmt::format("Data\\Messages\\{}.msg", folder);
                                     std::string text;
                                     if ((!(text = GetStringFromStringDatabase(path, message, 0, 0)).empty()) !=
                                         0) {

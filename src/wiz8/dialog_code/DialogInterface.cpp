@@ -29,7 +29,7 @@ unsigned char g_dialog_font_background = 255;
 W8DialogBase* CreateCharacterSummaryDialog(W8Character* character)
 {
     W8DialogBase* dialog = new W8CharacterSummaryDialog(character);
-    dialog->SetText(&g_empty_text);
+    dialog->SetText("");
     dialog->SetOrigin(0x87, 0xc0);
     return dialog;
 }
@@ -60,7 +60,7 @@ W8DialogBase* CreateDialogByKind(W8DialogKind kind)
         break;
     case W8_DIALOG_SPLIT_AMOUNT:
         dialog = new W8SplitAmountDialog;
-        dialog->SetText(&g_empty_text);
+        dialog->SetText("");
         dialog->SetOrigin(159, 184);
         return dialog;
     default:

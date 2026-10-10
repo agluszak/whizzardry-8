@@ -1,5 +1,5 @@
-#include "wiz8/text_format.h"
 #pragma once
+
 #include <cstddef>
 
 #include "Types.h"
@@ -67,12 +67,6 @@ int GetTextBoxFont(void);
 void RedrawDialogueTextInput(void);
 /* Clear one text_lines slot on the level block. */
 void ClearTextLineEntry(int index);
-void FormatNoticeText(int channel, short text_box, std::string text);
-template<class... Args>
-void FormatNotice(int channel, short text_box, std::string_view pattern, const Args&... args)
-{
-    FormatNoticeText(channel, text_box, wiz8::text::format(pattern, args...));
-}
 
 void ReleaseMessageStorage(void);
 /* The TEXT section pair - the four message-storage
@@ -124,19 +118,8 @@ void AppendToLastTextLine(std::string_view text, short text_box);
 extern int g_notice_line_count;
 /* The number of lines the notice pane can scroll. */
 int GetTextBoxScrollRange(void);
-/* The two variadic notice formatters. */
-void PostCharacterNoticeFormatted(int party_slot, std::string text);
-template<class... Args>
-void PostCharacterNotice(int party_slot, std::string_view pattern, const Args&... args)
-{
-    PostCharacterNoticeFormatted(party_slot, wiz8::text::format(pattern, args...));
-}
-void PostMonsterNoticeText(W8MonsterInfo* monster_info, std::string text);
-template<class... Args>
-void PostMonsterNotice(W8MonsterInfo* monster_info, std::string_view pattern, const Args&... args)
-{
-    PostMonsterNoticeText(monster_info, wiz8::text::format(pattern, args...));
-}
+void PostCharacterNotice(int party_slot, std::string_view text, int context = -1);
+void PostMonsterNotice(W8MonsterInfo* monster_info, std::string_view text);
 void ScrollTextBoxTo(int line);
 void ScrollDialogueTextBoxToLine(void);
 void ScrollTextBoxUp(int lines);
@@ -175,13 +158,5 @@ const unsigned int W8_NOTICE_WRAP_AUTOMATIC = ~0U;
 void ShowNotice(unsigned int font_palette, std::string_view text,
                 short text_box = W8_NOTICE_TEXT_BOX_AUTOMATIC,
                 unsigned int wrap_width = W8_NOTICE_WRAP_AUTOMATIC, bool force_dialog = false);
-/* Format an owned string and ShowNotice it,
-   choosing the text-box slot from the current dialogue/camp/combat mode. */
-void ShowNoticefText(unsigned int font_palette, std::string text);
-template<class... Args>
-void ShowNoticef(unsigned int font_palette, std::string_view pattern, const Args&... args)
-{
-    ShowNoticefText(font_palette, wiz8::text::format(pattern, args...));
-}
 
 void HighlightNoticeRow(int line);

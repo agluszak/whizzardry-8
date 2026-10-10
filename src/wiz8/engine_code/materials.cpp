@@ -1,3 +1,5 @@
+#include <fmt/format.h>
+#include <fmt/printf.h>
 #include "wiz8/unicode.h"
 #include <string_view>
 #include "surrender/srCore.h"
@@ -898,7 +900,7 @@ void ReportBuildStatus(short channel, std::string_view message)
         if (g_progress_mark + 10 <
             static_cast<unsigned int>((g_progress_done * 100.0f / g_progress_total))) {
             g_progress_mark += 10;
-            line = FormatText("  %d%% Complete \r", g_progress_mark);
+            line = fmt::format("  {:d}% Complete \r", g_progress_mark);
             ReportStartupMessage(line);
             return;
         }
@@ -909,10 +911,10 @@ void ReportBuildStatus(short channel, std::string_view message)
     case 3:
         if (g_log_file != 0) {
             log(message);
-            line = FormatText("Number of Nodes: %d             Number of Leaves: %d\n",
-                    g_oct_node_count, g_progress_total);
+            line = fmt::format("Number of Nodes: {:d}             Number of Leaves: {:d}\n",
+                               g_oct_node_count, g_progress_total);
             log(line);
-            line = FormatText("Most Objects in Any Node: %d\n\n", g_oct_max_objects);
+            line = fmt::format("Most Objects in Any Node: {:d}\n\n", g_oct_max_objects);
             log(line);
             return;
         }
@@ -992,7 +994,7 @@ void ReportStartupMessage(std::string_view message)
         ClearSurfaceRect(0, 400, 0x27f, 0x1df);
         index = 0x191;
         for (top = 0; top < 6; ++top) {
-            gprintfDirty(1, index, const_cast<char*>("%s"), g_status_lines[top]);
+            DrawFontTextDirty(1, index, fmt::sprintf(const_cast<char*>("%s"), g_status_lines[top]));
             index += 0xd;
         }
         InvalidateRegion(0, 400, 0x27f, 0x1df, 4);
@@ -1000,7 +1002,7 @@ void ReportStartupMessage(std::string_view message)
         index = (g_status_cursor - 1) * 0xd;
         top = index + 400;
         ClearSurfaceRect(0, top, 0x27f, g_status_cursor * 0xd + 400);
-        gprintfDirty(1, index + 0x191, "%s", *line);
+        DrawFontTextDirty(1, index + 0x191, *line);
         InvalidateRegion(0, top, 0x27f, g_status_cursor * 0xd + 400, 4);
     }
     g_status_scroll = scroll;
@@ -1632,7 +1634,7 @@ static unsigned char* ClassifyTextures(W8MaterialRecord* textures, int count, ch
             if (texture[0] == '\0') {
                 kind = 3;
             } else {
-                path = FormatText("%s%s", folder, texture);
+                path = fmt::format("{}{}", folder, texture);
                 file = [&]() { try { return wiz8::open_file(path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
                 if (file == 0) {
                     g_prop_sun_bits->Set(index);
@@ -1644,7 +1646,7 @@ static unsigned char* ClassifyTextures(W8MaterialRecord* textures, int count, ch
                         ReadTextLine(file.get(), texture, 0x3ff, &more);
                         if (file) file->close();
                         file.reset();
-                        path = FormatText("%s%s", folder, texture);
+                        path = fmt::format("{}{}", folder, texture);
                         file = [&]() { try { return wiz8::open_file(path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
                     }
                     if (file == 0) {
@@ -1864,26 +1866,29 @@ void W8Octree::OctBuildOptions(char* stem)
         edit_mode = 0;
         for (;;) {
             const char* prompt;
-            lines[0] = FormatText("OCTBUILD VERSION %d -- OPTIONS: ", 0x22);
-            lines[1] = FormatText("(L)og %s               ", log_state);
+            lines[0] = fmt::format("OCTBUILD VERSION {:d} -- OPTIONS: ", 0x22);
+            lines[1] = fmt::format("(L)og {}               ", log_state);
             if (!g_option_pathing) {
-                lines[2] = FormatText("(P)athing %s                                         ",
-                        pathing_state);
+                lines[2] = fmt::format("(P)athing {}                                         ",
+                                       pathing_state);
             } else {
-                lines[2] = FormatText("(P)athing %s    (N)ode Spacing: %5.2fm    (H)ead Room:   %5.2fm"
-                        "    (D)elete Percentage: %d",
-                        pathing_state, (g_option_path_node_spacing * g_float_one_five_hundredth),
-                        (g_option_path_head_room * g_float_one_five_hundredth),
-                        g_option_delete_percentage);
+                lines[2] = fmt::format("(P)athing {}    (N)ode Spacing: {:5.2f}m    (H)ead Room:   "
+                                       "{:5.2f}m    (D)elete Percentage: {:d}",
+                                       pathing_state,
+                                       (g_option_path_node_spacing * g_float_one_five_hundredth),
+                                       (g_option_path_head_room * g_float_one_five_hundredth),
+                                       g_option_delete_percentage);
             }
-            lines[3] = FormatText("(R)ename Alphas %s    (M)esh Linking %s", rename_state, mesh_state);
-            lines[4] = FormatText("Min. Leaf (S)ize %5.2fm    Max. Leaf (C)ount %d    (A)uto Region"
-                    " Size %5.2fm     ",
-                    (g_option_min_leaf_size * g_float_one_five_hundredth), g_option_max_leaf_count,
-                    (g_option_auto_region_size * g_float_one_five_hundredth));
-            lines[5] = FormatText("Hit ENTER to accept,  ESC to cancel and exit");
+            lines[3] =
+                fmt::format("(R)ename Alphas {}    (M)esh Linking {}", rename_state, mesh_state);
+            lines[4] = fmt::format("Min. Leaf (S)ize {:5.2f}m    Max. Leaf (C)ount {:d}    (A)uto "
+                                   "Region Size {:5.2f}m     ",
+                                   (g_option_min_leaf_size * g_float_one_five_hundredth),
+                                   g_option_max_leaf_count,
+                                   (g_option_auto_region_size * g_float_one_five_hundredth));
+            lines[5] = "Hit ENTER to accept,  ESC to cancel and exit";
             if (edit_mode == 0) {
-                lines[6] = FormatText("                                            ");
+                lines[6] = "                                            ";
             } else {
                 if (edit_mode == 1) {
                     prompt = " Path Node Spacing: %s"
@@ -1904,13 +1909,13 @@ void W8Octree::OctBuildOptions(char* stem)
                     prompt = " Delete path node groups less than this %% of the total: %s"
                              "       ";
                 }
-                lines[6] = FormatText(prompt, edit_buffer);
+                lines[6] = fmt::sprintf(prompt, edit_buffer);
             }
             ClearSurfaceRect(0, 0x183, 0x27f, 0x1df);
             for (line = 0; line < 7; ++line) {
                 auto display = lines[line].substr(0, wiz8::text::codepoint_prefix(lines[line], 90));
                 if (display.size() < 90) display.append(90 - display.size(), ' ');
-                gprintfDirty(1, 0x184 + line * 0xd, g_format_s, display);
+                DrawFontTextDirty(1, 0x184 + line * 0xd, display);
             }
             InvalidateRegion(0, 0x183, 0x27f, 0x1df, 4);
             while (gfProgramIsRunning && DequeueEvent(&atom) == 0) {
@@ -2023,10 +2028,10 @@ void W8Octree::OctBuildOptions(char* stem)
     }
 accepted:
     ClearSurfaceRect(0, 0x183, 0x27f, 0x1df);
-    lines[1] = FormatText("OCTBUILD VERSION %d -- Preprocessing %s: ", 0x22, stem);
+    lines[1] = fmt::format("OCTBUILD VERSION {:d} -- Preprocessing {}: ", 0x22, stem);
     auto display = lines[1].substr(0, wiz8::text::codepoint_prefix(lines[1], 90));
     if (display.size() < 90) display.append(90 - display.size(), ' ');
-    gprintfDirty(1, 0x184, g_format_s, display);
+    DrawFontTextDirty(1, 0x184, display);
     InvalidateRegion(0, 0x183, 0x27f, 0x1df, 4);
     RenderFrame();
     RenderFrame();
@@ -2307,16 +2312,14 @@ srTexture* LoadTextureFromFolder(const char* folder, const char* name, bool requ
                     g_gerd->setTexture(0, 0);
                 }
                 if (texture->getTextureFrameHandle() == 0) {
-                    ShutdownWithErrorBox(
-                        FormatText("Missing texture file: %s", path));
+                    ShutdownWithErrorBox(fmt::format("Missing texture file: {}", path));
                 }
             }
         } else {
             if (![&]() { const auto status = wiz8::file_status(path); return status && status->info.type == SDL_PATHTYPE_FILE; }()) {
                 path.replace(extension, std::string::npos, "jpg");
                 if (![&]() { const auto status = wiz8::file_status(path); return status && status->info.type == SDL_PATHTYPE_FILE; }()) {
-                    ShutdownWithErrorBox(
-                        FormatText("Missing texture file: %s", path));
+                    ShutdownWithErrorBox(fmt::format("Missing texture file: {}", path));
                 }
             }
             texture = new stTextureFile(path.c_str(), g_texture_cache_enabled);
@@ -2343,8 +2346,7 @@ stTextureAnim* LoadAnimatedTexture(const char* folder, const char* name,
     strcat(buffer, name);
     handle = [&]() { try { return wiz8::open_file(buffer, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
     if (handle == 0) {
-        ShutdownWithErrorBox(
-            FormatText("Cannot load/find material: %s", buffer));
+        ShutdownWithErrorBox(fmt::format("Cannot load/find material: {}", buffer));
     }
 
     animation = new stTextureAnim;

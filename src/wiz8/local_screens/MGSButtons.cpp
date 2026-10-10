@@ -1,3 +1,4 @@
+#include <fmt/format.h>
 #include <string>
 #include "wiz8/local_screens/MGSButtons.h"
 #include "wiz8/layouts/character.h"
@@ -916,7 +917,7 @@ unsigned char SubMenuRowRegionEvent(const InputAtom* event, W8Region* region)
                 party_row = &g_status.buffers.XChar[slot];
                 item = FindCharacterItemAt(slot, party_row->item_origin, party_row->item_slot);
                 name = FormatItemDisplayName(item, false);
-                SetRegionHelpText(FormatText(g_format_s_colon_s, g_localized_strings[0x5d], name));
+                SetRegionHelpText(fmt::format("{}: {}", g_localized_strings[0x5d], name));
             }
         }
         g_submenu_rows[region->callback_id]->OnMouseEnter(0);
@@ -951,26 +952,30 @@ void DrawSubMenuCharacterAction(void)
     DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x7e, 0, 6, 0x157, 0x1c2, VO_BLT_SRCTRANSPARENCY,
                                   0);
     character = &g_status.buffers.Char[slot];
-    text = FormatText("%s - %s", character->name, g_localized_strings[g_profession_name_message_ids[character->iProfession]]);
-    gprintfDirty((0xb9 - StringPixLength(text, g_smfnt_font)) / 2 + 0x157, 0x1c6,
-                 g_format_s, text);
+    text = fmt::format("{} - {}", character->name,
+                       g_localized_strings[g_profession_name_message_ids[character->iProfession]]);
+    DrawFontTextDirty((0xb9 - StringPixLength(text, g_smfnt_font)) / 2 + 0x157, 0x1c6, text);
     if (!gXStatus.fCombatMode) {
         if (character->highest_condition == W8_CONDITION_NONE) {
             return;
         }
-        text = FormatText("%s", g_localized_strings[g_condition_notices[character->highest_condition].name]);
+        text = g_localized_strings[g_condition_notices[character->highest_condition].name];
     } else {
         action = row->action;
         switch (action) {
         case W8_ACTION_CAST_SPELL:
-            text = FormatText("%s - %s (%d)", g_localized_strings[g_action_kind_message_ids[7]], g_spell_records[row->action_detail0].display_name, row->action_detail1.spell.power_level);
+            text = fmt::format("{} - {} ({:d})", g_localized_strings[g_action_kind_message_ids[7]],
+                               g_spell_records[row->action_detail0].display_name,
+                               row->action_detail1.spell.power_level);
             break;
         case W8_ACTION_USE_ITEM:
-            text = FormatText("%s - %s", g_localized_strings[g_action_kind_message_ids[8]], g_spell_records[g_item_records[row->action_detail1.item_use.item->iItemNo].spell_id]
+            text = fmt::format(
+                "{} - {}", g_localized_strings[g_action_kind_message_ids[8]],
+                g_spell_records[g_item_records[row->action_detail1.item_use.item->iItemNo].spell_id]
                     .display_name);
             break;
         case W8_ACTION_ATTACK:
-            text = FormatText("%s - ", g_localized_strings[g_action_kind_message_ids[0]]);
+            text = fmt::format("{} - ", g_localized_strings[g_action_kind_message_ids[0]]);
             if (character->Hand[0].in_play) {
                 if (character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo == -1) {
                     text += g_localized_strings[0x5b8];
@@ -985,10 +990,11 @@ void DrawSubMenuCharacterAction(void)
                 }
             } else {
                 if (character->EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON].iItemNo == -1) {
-                    second = FormatText("%s", g_localized_strings[0x5b8]);
+                    second = g_localized_strings[0x5b8];
                 } else {
-                    second = FormatText("%s", g_localized_strings[g_generic_item_name_notice[GetItemUnidentifiedNameIndex(
-                                 &character->EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON])]]);
+                    second =
+                        g_localized_strings[g_generic_item_name_notice[GetItemUnidentifiedNameIndex(
+                            &character->EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON])]];
                 }
                 if (!character->Hand[0].in_play) {
                     text += second;
@@ -1005,26 +1011,28 @@ void DrawSubMenuCharacterAction(void)
             break;
         case W8_ACTION_PROTECT:
             if (row->target_in_combat.iType == W8_TARGET_KIND_CHARACTER) {
-                text = FormatText("%s - %s", g_localized_strings[g_action_kind_message_ids[5]], g_status.buffers.Char[row->target_in_combat.iChar].name);
+                text = fmt::format("{} - {}", g_localized_strings[g_action_kind_message_ids[5]],
+                                   g_status.buffers.Char[row->target_in_combat.iChar].name);
             } else if (row->target_in_combat.iType == W8_TARGET_KIND_MONSTER) {
                 monster_index = MonsterGetIndexByLocationID(0x7ed, MGSBUTTONS_CPP,
                                                             row->target_in_combat.iMonsterID, true);
                 monster_info = MonsterGetScriptPartByLocationIndex(monster_index);
                 name = GetMonsterName(monster_info, 0, 0);
-                text = FormatText("%s - %s", g_localized_strings[g_action_kind_message_ids[5]], name);
+                text =
+                    fmt::format("{} - {}", g_localized_strings[g_action_kind_message_ids[5]], name);
             } else {
-                text = FormatText("%s ", g_localized_strings[g_action_kind_message_ids[5]]);
+                text = fmt::format("{} ", g_localized_strings[g_action_kind_message_ids[5]]);
             }
             break;
         case W8_ACTION_NONE:
             text = g_localized_strings[0x7e1];
             break;
         default:
-            text = FormatText("%s ", g_localized_strings[g_action_kind_message_ids[action]]);
+            text = fmt::format("{} ", g_localized_strings[g_action_kind_message_ids[action]]);
             break;
         }
     }
-    gprintfDirty((0xb9 - StringPixLength(text, g_smfnt_font)) / 2 + 0x157, 0x1d1, text);
+    DrawFontTextDirty((0xb9 - StringPixLength(text, g_smfnt_font)) / 2 + 0x157, 0x1d1, text);
 }
 
 /* Enable the fight/review panel buttons from combat engagement and mode

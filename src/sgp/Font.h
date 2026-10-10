@@ -1,4 +1,3 @@
-#include "wiz8/text_format.h"
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
    Distributed under the accompanying SFI Source Code license agreement. */
 #ifndef __FONT_H_
@@ -73,40 +72,13 @@ UINT16* SetFontObjectPalette16BPP(INT32 iFont, UINT16* pPal16);
 UINT16* GetFontObjectPalette16BPP(INT32 iFont);
 
 extern HVOBJECT GetFontObject(INT32 iFont);
-UINT32 gprintfText(INT32 x, INT32 y, std::string text);
-template<class... Args>
-UINT32 gprintf(INT32 x, INT32 y, std::string_view pattern, const Args&... args)
-{
-    return gprintfText(x, y, wiz8::text::format(pattern, args...));
-}
-UINT32 gprintfDirtyText(INT32 x, INT32 y, std::string text);
-template<class... Args>
-UINT32 gprintfDirty(INT32 x, INT32 y, std::string_view pattern, const Args&... args)
-{
-    return gprintfDirtyText(x, y, wiz8::text::format(pattern, args...));
-}
-UINT32 mprintfText(INT32 x, INT32 y, std::string text);
-template<class... Args>
-UINT32 mprintf(INT32 x, INT32 y, std::string_view pattern, const Args&... args)
-{
-    return mprintfText(x, y, wiz8::text::format(pattern, args...));
-}
-UINT32 gprintf_bufferText(UINT8* pDestBuf, UINT32 uiDestPitchBYTES, UINT32 FontType, INT32 x,
-                             INT32 y, std::string text);
-template<class... Args>
-UINT32 gprintf_buffer(UINT8* pDestBuf, UINT32 uiDestPitchBYTES, UINT32 FontType, INT32 x,
-                             INT32 y, std::string_view pattern, const Args&... args)
-{
-    return gprintf_bufferText(pDestBuf, uiDestPitchBYTES, FontType, x, y, wiz8::text::format(pattern, args...));
-}
-UINT32 mprintf_bufferText(UINT8* pDestBuf, UINT32 uiDestPitchBYTES, UINT32 FontType, INT32 x,
-                             INT32 y, std::string text);
-template<class... Args>
-UINT32 mprintf_buffer(UINT8* pDestBuf, UINT32 uiDestPitchBYTES, UINT32 FontType, INT32 x,
-                             INT32 y, std::string_view pattern, const Args&... args)
-{
-    return mprintf_bufferText(pDestBuf, uiDestPitchBYTES, FontType, x, y, wiz8::text::format(pattern, args...));
-}
+UINT32 DrawFontText(INT32 x, INT32 y, std::string_view text);
+UINT32 DrawFontTextDirty(INT32 x, INT32 y, std::string_view text);
+UINT32 DrawMonoFontText(INT32 x, INT32 y, std::string_view text);
+UINT32 DrawFontTextToBuffer(UINT8* pDestBuf, UINT32 uiDestPitchBYTES, UINT32 FontType, INT32 x,
+                            INT32 y, std::string_view text);
+UINT32 DrawMonoFontTextToBuffer(UINT8* pDestBuf, UINT32 uiDestPitchBYTES, UINT32 FontType, INT32 x,
+                                INT32 y, std::string_view text);
 
 // Function for displaying coded test. Since it's slower to do this, it's separate from  the normal fuctions
 #define FONT_CODE_BEGINCOLOR 180
@@ -127,37 +99,12 @@ extern std::vector<UINT16> CreateEnglishTransTable();
 extern INT16 GetIndex(char32_t siChar);
 extern UINT32 GetWidth(HVOBJECT hSrcVObject, INT16 ssIndex);
 
-INT16 StringPixLengthArgText(INT32 usUseFont, UINT32 uiCharCount, std::string text);
-template<class... Args>
-INT16 StringPixLengthArg(INT32 usUseFont, UINT32 uiCharCount, std::string_view pattern, const Args&... args)
-{
-    return StringPixLengthArgText(usUseFont, uiCharCount, wiz8::text::format(pattern, args...));
-}
+INT16 StringCodepointPrefixPixelWidth(INT32 usUseFont, UINT32 uiCharCount, std::string_view text);
 extern INT16 StringPixLength(std::string_view string, INT32 UseFont);
 extern INT16 StringPrefixPixelWidth(std::string_view string, std::size_t byte_end, INT32 UseFont);
 extern void SaveFontSettings(void);
 extern void RestoreFontSettings(void);
 
-void VarFindFontRightCoordinatesText(INT16 sLeft, INT16 sTop, INT16 sWidth, INT16 sHeight,
-                                 INT32 iFontIndex, INT16* psNewX, INT16* psNewY,
-                                 std::string text);
-template<class... Args>
-void VarFindFontRightCoordinates(INT16 sLeft, INT16 sTop, INT16 sWidth, INT16 sHeight,
-                                 INT32 iFontIndex, INT16* psNewX, INT16* psNewY,
-                                 std::string_view pattern, const Args&... args)
-{
-    return VarFindFontRightCoordinatesText(sLeft, sTop, sWidth, sHeight, iFontIndex, psNewX, psNewY, wiz8::text::format(pattern, args...));
-}
-void VarFindFontCenterCoordinatesText(INT16 sLeft, INT16 sTop, INT16 sWidth, INT16 sHeight,
-                                  INT32 iFontIndex, INT16* psNewX, INT16* psNewY,
-                                  std::string text);
-template<class... Args>
-void VarFindFontCenterCoordinates(INT16 sLeft, INT16 sTop, INT16 sWidth, INT16 sHeight,
-                                  INT32 iFontIndex, INT16* psNewX, INT16* psNewY,
-                                  std::string_view pattern, const Args&... args)
-{
-    return VarFindFontCenterCoordinatesText(sLeft, sTop, sWidth, sHeight, iFontIndex, psNewX, psNewY, wiz8::text::format(pattern, args...));
-}
 void FindFontRightCoordinates(INT16 sLeft, INT16 sTop, INT16 sWidth, INT16 sHeight, std::string_view pStr,
                               INT32 iFontIndex, INT16* psNewX, INT16* psNewY);
 void FindFontCenterCoordinates(INT16 sLeft, INT16 sTop, INT16 sWidth, INT16 sHeight, std::string_view pStr,

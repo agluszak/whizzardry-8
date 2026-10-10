@@ -1,3 +1,4 @@
+#include <fmt/format.h>
 #include "native/input_events.h"
 #include <utf8.h>
 #include "wiz8/unicode.h"
@@ -684,13 +685,13 @@ unsigned char AutomapScreenEnter(void)
     g_automap_layers.Clear();
     g_automap_layers.Add(0);
     std::string layer_name;
-    layer_name = FormatText("LAYER %d", layer_number);
+    layer_name = fmt::format("LAYER {:d}", layer_number);
     srClipPlane* layer = static_cast<srClipPlane*>(
         srCore.getRegistry()->find(srClipPlane::sGetClassNode(), layer_name.c_str(), 0));
     while (layer) {
         g_automap_layers.Add(layer);
         ++layer_number;
-        layer_name = FormatText("LAYER %d", layer_number);
+        layer_name = fmt::format("LAYER {:d}", layer_number);
         layer = static_cast<srClipPlane*>(
             srCore.getRegistry()->find(srClipPlane::sGetClassNode(), layer_name.c_str(), 0));
     }
@@ -762,7 +763,7 @@ unsigned char AutomapScreenEnter(void)
                     float height = static_cast<float>(atof(text + 6));
                     srClipPlane* clip = new srClipPlane(static_cast<srNode*>(0));
                     if (clip) {
-                        layer_name = FormatText("LAYER %d", layer_number);
+                        layer_name = fmt::format("LAYER {:d}", layer_number);
                         clip->setName(layer_name.c_str());
                         glm::vec4 plane(0.0f, 1.0f, 0.0f, 0.0f);
                         clip->setClipPlane(plane);
@@ -2019,7 +2020,7 @@ void RenderAutomapMarkers(void)
                     y += (height >> 1) - ((font_height & 0xffff) >> 1);
                     width = marker->GetScaledWidth();
                     x += width + 2;
-                    gprintfDirty(x, y, note->text);
+                    DrawFontTextDirty(x, y, note->text);
                     if (note == g_automap_editing_note) {
                         marker->setScale(srVector3T<double>(0.22f, 0.22f, 0.22f));
                         unsigned int pitch;

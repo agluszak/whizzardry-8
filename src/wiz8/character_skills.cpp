@@ -1,3 +1,5 @@
+#include <fmt/format.h>
+#include <fmt/printf.h>
 #include <utf8.h>
 #include "wiz8/unicode.h"
 #include "random.h"
@@ -37,8 +39,6 @@
 
 /* Original translation-unit ownership is unknown; surrounding anchors do not resolve it. */
 
-// GLOBAL: WIZ8 0x0061ec94
-static char g_format_s_possessive[] = "%s's";
 
 unsigned int GetCharacterSkillNoticeValue(W8Character* character, W8Skill skill_id)
 {
@@ -56,8 +56,9 @@ void PostSkillIncreaseNotices(const W8SkillNoticePayload* notices)
         W8Skill skill = static_cast<W8Skill>(notices->skills[index]);
         W8Character* character = &g_status.buffers.Char[slot];
         unsigned int value = GetCharacterSkillNoticeValue(character, skill);
-        PostCharacterNotice(slot, g_localized_strings[0x1d9],
-                            g_localized_strings[g_character_skill_name_ids[skill]], value);
+        PostCharacterNotice(
+            slot, fmt::sprintf(g_localized_strings[0x1d9],
+                               g_localized_strings[g_character_skill_name_ids[skill]], value));
     }
 }
 
@@ -68,9 +69,11 @@ std::string FormatSkillIncreaseNoticeText(int party_slot, bool continue_line, W8
     std::string text = continue_line ? " \n  " : " ";
     utf8::append(0xb4, std::back_inserter(text));
     utf8::append(GetPartyOrderTextColor(static_cast<signed char>(g_status.buffers.XChar[party_slot].party_order_index)), std::back_inserter(text));
-    text += " " + FormatText(g_format_s_possessive, character->name) + " ";
+    text += " " + fmt::format("{}'s", character->name) + " ";
     utf8::append(0xb5, std::back_inserter(text));
-    text += " " + FormatText(g_localized_strings[0x1db], g_localized_strings[g_character_skill_name_ids[skill_id]], GetCharacterSkillNoticeValue(character, skill_id));
+    text += " " + fmt::sprintf(g_localized_strings[0x1db],
+                               g_localized_strings[g_character_skill_name_ids[skill_id]],
+                               GetCharacterSkillNoticeValue(character, skill_id));
     return text;
 }
 
@@ -364,8 +367,8 @@ void BrewAlchemistPotion(W8Character* character)
         if (item.stack_count > 1) {
             item.stack_count = 1;
         }
-        ShowNoticef(slot, g_localized_strings[0x183], character->name,
-                    FormatItemDisplayName(&item, true));
+        ShowNotice(slot, fmt::sprintf(g_localized_strings[0x183], character->name,
+                                      FormatItemDisplayName(&item, true)));
         StoreItemWithCharacterOrParty(character, &item, false, false, false);
         made = 1;
     }
@@ -517,10 +520,10 @@ void ApplyAttributeChange(W8Character* character, W8Attribute attribute)
             }
             if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME) {
                 ShowMainGameNoticeLine(
-                    FormatText(g_localized_strings[0x1d6],
-                                     g_localized_strings[g_character_description_first_ids[attribute]],
-                                     character->name,
-                                     g_localized_strings[g_character_skill_name_ids[skill_id]]),
+                    fmt::sprintf(g_localized_strings[0x1d6],
+                                 g_localized_strings[g_character_description_first_ids[attribute]],
+                                 character->name,
+                                 g_localized_strings[g_character_skill_name_ids[skill_id]]),
                     0, true, false);
             }
         }

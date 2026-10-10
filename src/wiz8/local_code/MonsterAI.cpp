@@ -1,3 +1,4 @@
+#include <fmt/format.h>
 #include "wiz8/compat/unaligned.h"
 #include "wiz8/spell_ids.h"
 #include "wiz8/engine_code/stMeshModel.h"
@@ -625,16 +626,16 @@ static void HandleMonsterPatrolFailure(W8MonsterInfo* monster_info)
         GetMonsterGroupIndexByID(0x2de, MONSTER_AI_CPP, monster_info->monster_group_id, true));
     if (monster_group->encounter_registered) {
         if (g_dev_mode && gfCapturingVideo == 0) {
-            FormatDebugMessage(0,
-                               "Monster %d and associated monsters killed because it "
-                               "couldn't patrol",
-                               monster_info->location_id);
+            DebugMessage(
+                0, fmt::format(
+                       "Monster {:d} and associated monsters killed because it couldn't patrol",
+                       monster_info->location_id));
         }
         MarkMonsterGroupForRemoval(monster_info->monster_group_id);
     } else {
         if (g_dev_mode && gfCapturingVideo == 0) {
-            FormatDebugMessage(0, "%s %d can't path!", GetMonsterName(monster_info, 0, 0),
-                               monster_info->location_id);
+            DebugMessage(0, fmt::format("{} {:d} can't path!", GetMonsterName(monster_info, 0, 0),
+                                        monster_info->location_id));
         }
         monster_info->pathing_cooldown = 0x14;
         if (monster_info->movement_stall_ticks < 2) {
@@ -892,8 +893,8 @@ void UpdateMonsterAI(W8MonsterInfo* monster_info)
             if (record->spell_chance != 0) {
                 if (!MonsterIsCycleSupported(monster_info->p3D, W8_MONSTER_CYCLE_SPELL)) {
                     if (!g_spell_cycle_error_reported) {
-                        FormatDebugMessage(0, "ERROR: %ls is missing a SPELL animation cycle",
-                                           record->name0);
+                        DebugMessage(0, fmt::format("ERROR: {} is missing a SPELL animation cycle",
+                                                    record->name0));
                         g_spell_cycle_error_reported = true;
                     }
                 } else {
@@ -989,7 +990,8 @@ members:
         if (record->spell_chance != 0) {
             if (!MonsterIsCycleSupported(member->p3D, W8_MONSTER_CYCLE_SPELL)) {
                 if (!g_spell_cycle_error_reported) {
-                    FormatDebugMessage(0, "ERROR: %ls is missing a SPELL animation cycle", record->name0);
+                    DebugMessage(0, fmt::format("ERROR: {} is missing a SPELL animation cycle",
+                                                record->name0));
                     g_spell_cycle_error_reported = true;
                 }
             } else {
@@ -1610,8 +1612,9 @@ bool MonsterSpellTargetOK(W8MonsterInfo* monster_info, int spell_id, W8CombatSlo
                 if (record->spell_chance != 0) {
                     if (!MonsterIsCycleSupported(target->p3D, W8_MONSTER_CYCLE_SPELL)) {
                         if (!g_spell_cycle_error_reported) {
-                            FormatDebugMessage(0, "ERROR: %s is missing a SPELL animation cycle",
-                                               record->name0);
+                            DebugMessage(0,
+                                         fmt::format("ERROR: {} is missing a SPELL animation cycle",
+                                                     record->name0));
                             g_spell_cycle_error_reported = true;
                             return false;
                         }
@@ -1782,8 +1785,8 @@ bool MonsterSpellTargetOK(W8MonsterInfo* monster_info, int spell_id, W8CombatSlo
     case W8_SPELL_ROUT:
     case W8_SPELL_BOILING_BLOOD_EXPLOSION:
     default:
-        FormatDebugMessage(0, "WARNING: MonsterSpellTargetOK - unlisted spell %d(%ls)", spell_id,
-                           g_spell_records[spell_id].display_name);
+        DebugMessage(0, fmt::format("WARNING: MonsterSpellTargetOK - unlisted spell {:d}({})",
+                                    spell_id, g_spell_records[spell_id].display_name));
         break;
     }
     return true;
@@ -2291,7 +2294,8 @@ bool CanMonsterFlee(W8MonsterInfo* monster_info, W8MonsterRecord* record, bool e
     }
     if (!MonsterIsCycleSupported(monster_info->p3D, 0x12)) {
         if (!g_special_attack_cycle_error_reported) {
-            FormatDebugMessage(0, "ERROR: %ls is missing a SPECIAL ATTACK animation cycle", record->name0);
+            DebugMessage(0, fmt::format("ERROR: {} is missing a SPECIAL ATTACK animation cycle",
+                                        record->name0));
             g_special_attack_cycle_error_reported = true;
         }
         return false;
@@ -2693,8 +2697,8 @@ bool ShouldMonsterGroupEnterCombat(W8MonsterGroup* monster_group)
         (leader = MonsterInfoFromID(0xf53, MONSTER_AI_CPP, monster_group->leader_location_id,
                                     true)) == 0 ||
         leader->p3D == 0) {
-        FormatDebugMessage(1, "ERROR: Group %d is without an active leader",
-                           monster_group->group_id);
+        DebugMessage(1, fmt::format("ERROR: Group {:d} is without an active leader",
+                                    monster_group->group_id));
         return false;
     }
     if (!gXStatus.fCombatMode) {

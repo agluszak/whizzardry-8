@@ -435,4 +435,3 @@ unsigned char OptionsScreenEnter(void);
 void OptionsScreenFrame(void);
 unsigned char OptionsScreenLeave(int leaving);
 unsigned char OptionsScreenFinalize(void);
-extern char g_empty_text;

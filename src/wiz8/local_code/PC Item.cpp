@@ -1,3 +1,5 @@
+#include <fmt/format.h>
+#include <fmt/printf.h>
 #include "wiz8/unicode.h"
 #include <string>
 #include <string>
@@ -437,7 +439,7 @@ int W8ItemVideoObjectCache::GetOrCreateVideoObject(int item_id)
     if (name.empty()) {
         name = g_item_video_object_fallback_names[record->unidentified_name_index];
     }
-    g_video_frames[object].path = FormatText("%s\\%s", "Data\\Items", name);
+    g_video_frames[object].path = fmt::format("{}\\{}", "Data\\Items", name);
     if (g_video_frames[object].path.find(".sti") == std::string::npos) {
         g_video_frames[object].path += ".sti";
     }
@@ -470,17 +472,17 @@ std::string FormatItemDisplayName(const W8ItemInstance* item, bool include_quant
     } else {
         name_index = g_item_records[item->iItemNo].unidentified_name_index;
         if (g_generic_item_names[name_index].empty()) {
-            name = FormatText(g_localized_strings[0x1e7],
-                     g_localized_strings[g_generic_item_name_notice[name_index]]);
+            name = fmt::sprintf(g_localized_strings[0x1e7],
+                                g_localized_strings[g_generic_item_name_notice[name_index]]);
             g_generic_item_names[name_index] = name;
         }
         name = g_generic_item_names[name_index];
     }
 
     if (include_quantity && item->stack_count > 1) {
-        return FormatText("%s (%d)", name, static_cast<unsigned int>(item->stack_count));
+        return fmt::format("{} ({:d})", name, static_cast<unsigned int>(item->stack_count));
     } else {
-        return FormatText("%s", name);
+        return fmt::format("{}", name);
     }
 }
 
@@ -560,9 +562,9 @@ unsigned short GetItemEquipSlotMask(int item_id, bool primary_off_hand_free,
     case W8_ITEM_EQUIP_CLASS_THROWN_WEAPON:
     case W8_ITEM_EQUIP_CLASS_RANGED_WEAPON:
         if (g_item_records[item_id].weapon_skill == W8_WEAPON_SKILL_NONE) {
-            FormatDebugMessage(0,
-                               "ERROR - Item %s is a weapon without a skill specified -> Charles",
-                               g_item_records[item_id].display_name);
+            DebugMessage(
+                0, fmt::format("ERROR - Item {} is a weapon without a skill specified -> Charles",
+                               g_item_records[item_id].display_name));
             return 0;
         }
         if ((g_item_records[item_id].flags & W8_ITEM_FLAG_TWO_HANDED) != 0) {
@@ -682,13 +684,13 @@ bool CompatiblePartnerItems(int ranged_item_id, int other_item_id)
 {
     if (static_cast<unsigned int>(ranged_item_id) >= gXStatus.uiItemsInDatabase) {
         srAssertFail("uiRangedItem < gXStatus.uiItemsInDatabase", PC_ITEM_CPP, 0x3fd,
-                     FormatText("CompatiblePartnerItems: ERROR - Illegal RANGED item index %d",
-                                  ranged_item_id));
+                     fmt::format("CompatiblePartnerItems: ERROR - Illegal RANGED item index {:d}",
+                                 ranged_item_id));
     }
     if (static_cast<unsigned int>(other_item_id) >= gXStatus.uiItemsInDatabase) {
         srAssertFail("uiOtherItem < gXStatus.uiItemsInDatabase", PC_ITEM_CPP, 0x3fe,
-                     FormatText("CompatiblePartnerItems: ERROR - Illegal OTHER item index %d",
-                                  other_item_id));
+                     fmt::format("CompatiblePartnerItems: ERROR - Illegal OTHER item index {:d}",
+                                 other_item_id));
     }
 
     short ranged_name = static_cast<short>(g_item_records[ranged_item_id].unidentified_name_index);
@@ -1048,8 +1050,8 @@ std::string GetItemDisplayName(const W8ItemInstance* item)
 
     name_index = g_item_records[item->iItemNo].unidentified_name_index;
     if (g_generic_item_names[name_index].empty()) {
-        built = FormatText(g_localized_strings[0x1e7],
-                 g_localized_strings[g_generic_item_name_notice[name_index]]);
+        built = fmt::sprintf(g_localized_strings[0x1e7],
+                             g_localized_strings[g_generic_item_name_notice[name_index]]);
         g_generic_item_names[name_index] = built;
     }
     return g_generic_item_names[name_index];
@@ -1122,21 +1124,25 @@ unsigned char UseItem(W8Character* character, W8ItemInstance* item, int* out_use
     unsigned char used;
 
     if (!CanCharacterUseItem(character, item->iItemNo)) {
-        PostCharacterNotice(party_slot, g_localized_strings[0x164], GetItemDisplayName(item));
+        PostCharacterNotice(party_slot,
+                            fmt::sprintf(g_localized_strings[0x164], GetItemDisplayName(item)));
         *out_uses = -1;
         return 0;
     }
     if (!CanCharacterActivateItem(character, item)) {
-        PostCharacterNotice(party_slot, g_localized_strings[0x165], GetItemDisplayName(item));
+        PostCharacterNotice(party_slot,
+                            fmt::sprintf(g_localized_strings[0x165], GetItemDisplayName(item)));
         *out_uses = -1;
         return 0;
     }
 
     if (record->quantity_kind == W8_ITEM_QUANTITY_CHARGES && item->uses_or_charges == 0) {
-        PostCharacterNotice(party_slot, g_localized_strings[0x1f1], GetItemDisplayName(item));
+        PostCharacterNotice(party_slot,
+                            fmt::sprintf(g_localized_strings[0x1f1], GetItemDisplayName(item)));
         event_type = g_special_event13;
     } else if (record->quantity_kind == W8_ITEM_QUANTITY_SHOTS && item->uses_or_charges == 0) {
-        PostCharacterNotice(party_slot, g_localized_strings[0x1f2], GetItemDisplayName(item));
+        PostCharacterNotice(party_slot,
+                            fmt::sprintf(g_localized_strings[0x1f2], GetItemDisplayName(item)));
         event_type = g_effect26;
     } else {
         if (record->equip_class == W8_ITEM_EQUIP_CLASS_INSTRUMENT &&
@@ -1197,7 +1203,8 @@ unsigned char UseItem(W8Character* character, W8ItemInstance* item, int* out_use
             } while (power != 0);
 
             if (power == 0) {
-                PostCharacterNotice(party_slot, g_localized_strings[0x1f3], GetItemDisplayName(item));
+                PostCharacterNotice(
+                    party_slot, fmt::sprintf(g_localized_strings[0x1f3], GetItemDisplayName(item)));
                 PracticeCharacterSkill(character, skill, 1, false);
                 *out_uses = fatigue_cost;
                 return 0;
@@ -1242,16 +1249,19 @@ unsigned char UseItem(W8Character* character, W8ItemInstance* item, int* out_use
         }
 
         if (TargetSourceIsCharacter(&target, 0)) {
-            PostCharacterNotice(target.iChar, g_format_s_space_s,
-                                g_localized_strings[g_item_use_messages[record->category * 2]],
-                                GetItemDisplayName(item));
+            PostCharacterNotice(
+                target.iChar,
+                fmt::format("{} {}", g_localized_strings[g_item_use_messages[record->category * 2]],
+                            GetItemDisplayName(item)));
         } else if (TargetSourceIsMonster(&target, 0)) {
-            ShowNoticef(
-                9, "%s %s %s",
-                GetMonsterName(MonsterGetScriptPartByLocationIndex(MonsterGetIndexByLocationID(
-                                   0x91d, PC_ITEM_CPP, target.iMonsterID, true)),
-                               0, 0),
-                g_localized_strings[g_item_use_messages[record->category * 2]], GetItemDisplayName(item));
+            ShowNotice(
+                9, fmt::format("{} {} {}",
+                               GetMonsterName(
+                                   MonsterGetScriptPartByLocationIndex(MonsterGetIndexByLocationID(
+                                       0x91d, PC_ITEM_CPP, target.iMonsterID, true)),
+                                   0, 0),
+                               g_localized_strings[g_item_use_messages[record->category * 2]],
+                               GetItemDisplayName(item)));
         } else {
             srAssertFail("FALSE", PC_ITEM_CPP, 0x924, 0);
         }
@@ -1260,8 +1270,8 @@ unsigned char UseItem(W8Character* character, W8ItemInstance* item, int* out_use
             SetTextBoxMode(1, -1);
         }
         if (record->spell_id == W8_SPELL_NONE) {
-            std::string message =
-                FormatText("UseItem: ERROR - Usable item %d doesn't do anything!", item->iItemNo);
+            std::string message = fmt::format(
+                "UseItem: ERROR - Usable item {:d} doesn't do anything!", item->iItemNo);
             srAssertFail("FALSE", PC_ITEM_CPP, 0x934, message);
             used = 0;
             fatigue_cost = 0;
@@ -1430,7 +1440,7 @@ bool MergeItems(W8Character* character, W8ItemInstance* destination)
         if (!found) {
             ShowCampNoticeLine(g_localized_strings[0x161], 0, true, false);
         } else {
-            ShowCampNoticeLine(FormatText(g_localized_strings[0x162], character->name), 0, true,
+            ShowCampNoticeLine(fmt::sprintf(g_localized_strings[0x162], character->name), 0, true,
                                false);
         }
     }
@@ -1532,8 +1542,8 @@ bool AddItemToCharacter(W8Character* character, W8ItemInstance* item, bool equip
         g_camp_screen->item_redraw_flags |= W8_CAMP_ITEM_REDRAW_BACKPACK_CELL_FIRST << stored_index;
     }
     if (announce) {
-        PostCharacterNotice(CharacterPointerToPartySlot(character), g_localized_strings[0x1e8],
-                            display_name);
+        PostCharacterNotice(CharacterPointerToPartySlot(character),
+                            fmt::sprintf(g_localized_strings[0x1e8], display_name));
     }
     /* Retail always reports the backpack cell at the stored index, even when
        the stack was merged into the equipped slot with that index. */
@@ -1682,7 +1692,8 @@ void StashDepartingCharacterItems(W8Character* character)
              character->uiCondition[W8_CONDITION_DEAD] != 0) &&
             !AddItemToParty(item, false, false)) {
             DropUnstoredCharacterItem(item);
-            ShowNoticef(W8_FONT_PALETTE_RED, g_localized_strings[0x7d3], g_item_records[item_id].display_name);
+            ShowNotice(W8_FONT_PALETTE_RED, fmt::sprintf(g_localized_strings[0x7d3],
+                                                         g_item_records[item_id].display_name));
         }
     }
 
@@ -1691,7 +1702,8 @@ void StashDepartingCharacterItems(W8Character* character)
         item_id = character->EquippedItem[slot].iItemNo;
         if (item_id != -1 && !AddItemToParty(item, false, false)) {
             DropUnstoredCharacterItem(item);
-            ShowNoticef(W8_FONT_PALETTE_RED, g_localized_strings[0x7d3], g_item_records[item_id].display_name);
+            ShowNotice(W8_FONT_PALETTE_RED, fmt::sprintf(g_localized_strings[0x7d3],
+                                                         g_item_records[item_id].display_name));
         }
     }
 }
@@ -1944,8 +1956,8 @@ void AddPartyGold(int amount, bool announce)
     }
 
     if (announce) {
-        ShowNotice(
-            8, FormatText("%s %d %s.", g_localized_strings[0x15f], amount, g_localized_strings[0x160]));
+        ShowNotice(8, fmt::format("{} {:d} {}.", g_localized_strings[0x15f], amount,
+                                  g_localized_strings[0x160]));
         if (!SoundFileIsPlaying(sound_path)) {
             SoundPlay(sound_path, 0);
         }
@@ -1960,9 +1972,8 @@ void ReplaceOrCreateItem(W8ItemInstance* item, int item_id, bool maximum_quantit
                          bool force_identified, bool mark_special)
 {
     if (static_cast<unsigned int>(item_id) >= gXStatus.uiItemsInDatabase) {
-        srAssertFail(
-            "uiItemNo < gXStatus.uiItemsInDatabase", PC_ITEM_CPP, 564,
-            FormatText("InitNewItem: error, invalid item # %d specified", item_id));
+        srAssertFail("uiItemNo < gXStatus.uiItemsInDatabase", PC_ITEM_CPP, 564,
+                     fmt::format("InitNewItem: error, invalid item # {:d} specified", item_id));
     }
 
     EmptyItemRecord(item, 0, true);
@@ -2013,7 +2024,8 @@ void BindEquippedItem(W8Character* character, W8EquipSlot equip_slot)
     }
     if (g_equip_slot_icons[equip_slot] != -1 && !item->bound) {
         item->bound = true;
-        ShowNoticef(W8_FONT_PALETTE_WHITE, g_localized_strings[0x1ea], FormatItemDisplayName(item, true));
+        ShowNotice(W8_FONT_PALETTE_WHITE,
+                   fmt::sprintf(g_localized_strings[0x1ea], FormatItemDisplayName(item, true)));
     }
 }
 
@@ -2727,9 +2739,10 @@ bool MergeItemStacks(W8ItemInstance* destination, W8ItemInstance* source, bool* 
     if (destination->stack_count > record->maximum_quantity) {
         srAssertFail(
             "FALSE", PC_ITEM_CPP, 3371,
-            FormatText("StackItemsIfPossible: ERROR - slot holds %d when max is %d, item %d(%s)",
-                         destination->stack_count, record->maximum_quantity, destination->iItemNo,
-                         FormatItemDisplayName(destination, true)));
+            fmt::format(
+                "StackItemsIfPossible: ERROR - slot holds {:d} when max is {:d}, item {:d}({})",
+                destination->stack_count, record->maximum_quantity, destination->iItemNo,
+                FormatItemDisplayName(destination, true)));
         destination->stack_count = record->maximum_quantity;
     }
     if (destination->iItemNo != source->iItemNo || destination->identified != source->identified) {
@@ -2844,7 +2857,8 @@ void SetHandType(W8Character* character, W8EquipSlot slot)
     } else {
         if (slot != W8_EQUIP_SLOT_SECONDARY_WEAPON) {
             std::string message =
-                FormatText("SetHandType: ERROR: uiSlot %d is not a hand/weapon slot!", slot);
+                fmt::format("SetHandType: ERROR: uiSlot {:d} is not a hand/weapon slot!",
+                            fmt::underlying(slot));
             srAssertFail("FALSE", PC_ITEM_CPP, 3690, message);
             return;
         }
@@ -2877,8 +2891,9 @@ void SetHandType(W8Character* character, W8EquipSlot slot)
             wield_kind = 2;
             break;
         default: {
-            std::string message = FormatText("SetHandType: ERROR: invalid item %d type %d in hand %d!",
-                                         item_id, g_item_records[item_id].equip_class, hand);
+            std::string message =
+                fmt::format("SetHandType: ERROR: invalid item {:d} type {:d} in hand {:d}!",
+                            item_id, g_item_records[item_id].equip_class, hand);
             srAssertFail("FALSE", PC_ITEM_CPP, 3731, message);
             return;
         }
@@ -3343,7 +3358,7 @@ bool AddItemToParty(W8ItemInstance* item, bool announce, bool skip_stacking)
         g_camp_screen->item_redraw_flags |= W8_CAMP_ITEM_REDRAW_POOL;
     }
     if (announce) {
-        ShowNoticef(W8_FONT_PALETTE_WHITE, g_localized_strings[0x1e9], display_name);
+        ShowNotice(W8_FONT_PALETTE_WHITE, fmt::sprintf(g_localized_strings[0x1e9], display_name));
     }
     W8ItemInstance* stored_item = &g_status.party_item_pool[index];
     UpdateFactsAfterAcquiringItem(stored_item);
@@ -3405,15 +3420,19 @@ void UnequipUnusableItems(W8Character* character)
             }
         }
         if (unmet) {
-            PostCharacterNotice(party_slot, g_localized_strings[0x1ef],
-                                g_localized_strings[g_gender_name_message_rows[character->gender][2]],
-                                FormatItemDisplayName(item, true),
-                                g_localized_strings[g_gender_name_message_rows[character->gender][2]],
-                                g_localized_strings[message_id]);
+            PostCharacterNotice(
+                party_slot,
+                fmt::sprintf(g_localized_strings[0x1ef],
+                             g_localized_strings[g_gender_name_message_rows[character->gender][2]],
+                             FormatItemDisplayName(item, true),
+                             g_localized_strings[g_gender_name_message_rows[character->gender][2]],
+                             g_localized_strings[message_id]));
         } else {
-            PostCharacterNotice(party_slot, g_localized_strings[0x1f0],
-                                g_localized_strings[g_gender_name_message_rows[character->gender][2]],
-                                FormatItemDisplayName(item, true));
+            PostCharacterNotice(
+                party_slot,
+                fmt::sprintf(g_localized_strings[0x1f0],
+                             g_localized_strings[g_gender_name_message_rows[character->gender][2]],
+                             FormatItemDisplayName(item, true)));
         }
 
         destination.iItemNo = -1;
@@ -3752,7 +3771,7 @@ int CastItemSpell(W8Character* character, W8ItemInstance* item, unsigned int pow
 
     if (record->sound_name.size() != 0) {
 
-        SoundPlay(FormatText(s_spell_sound_format, record->sound_name), 0);
+        SoundPlay(fmt::format("Data\\Spells\\Sounds\\{}.wav", record->sound_name), 0);
     }
 
     {
@@ -3765,16 +3784,18 @@ int CastItemSpell(W8Character* character, W8ItemInstance* item, unsigned int pow
 
     if (effect == 1) {
         if (g_settings.verbose_combat_messages != 0 || !item->identified) {
-            FormatNotice(W8_FONT_PALETTE_WHITE, -1, g_localized_strings[0x1f4], GetItemDisplayName(item),
-                         g_spell_records[spell_id].display_name, power);
+            ShowNotice(W8_FONT_PALETTE_WHITE,
+                       fmt::sprintf(g_localized_strings[0x1f4], GetItemDisplayName(item),
+                                    g_spell_records[spell_id].display_name, power),
+                       -1);
             if (g_settings.verbose_combat_messages == 0) {
                 SetTextBoxMode(1, -1);
             }
         }
         item->spell_hint = true;
     } else if (effect == 3) {
-        PostCharacterNotice(
-            party_slot, FormatText(g_localized_strings[0x1a9], FormatItemDisplayName(item, false)));
+        PostCharacterNotice(party_slot, fmt::sprintf(g_localized_strings[0x1a9],
+                                                     FormatItemDisplayName(item, false)));
     }
 
     if (skill != W8_SKILL_NONE) {
@@ -3957,8 +3978,8 @@ void UpgradeProfessionClassItem(W8Character* character)
         }
         PostCharacterNotice(
             CharacterPointerToPartySlot(character),
-            FormatText(g_localized_strings[0x167],
-                             g_localized_strings[g_gender_name_message_rows[character->gender][3]]));
+            fmt::sprintf(g_localized_strings[0x167],
+                         g_localized_strings[g_gender_name_message_rows[character->gender][3]]));
         return;
     case 3:
     case 4:
@@ -4025,8 +4046,8 @@ void UpgradeProfessionClassItem(W8Character* character)
         found->iItemNo = item_id;
         PostCharacterNotice(
             CharacterPointerToPartySlot(character),
-            FormatText(g_localized_strings[message_id],
-                             g_localized_strings[g_gender_name_message_rows[character->gender][2]]));
+            fmt::sprintf(g_localized_strings[message_id],
+                         g_localized_strings[g_gender_name_message_rows[character->gender][2]]));
     }
 }
 
@@ -4101,7 +4122,7 @@ bool SwapWeaponSetSlots(int party_slot, bool announce, bool refresh)
         character->EquippedItem[W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON].iItemNo == -1 &&
         character->EquippedItem[W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON].iItemNo == -1) {
         if (announce) {
-            PostCharacterNoticeInContext(party_slot, notice_context, g_localized_strings[0x1eb]);
+            PostCharacterNotice(party_slot, g_localized_strings[0x1eb], notice_context);
         }
         return false;
     }
@@ -4111,7 +4132,7 @@ bool SwapWeaponSetSlots(int party_slot, bool announce, bool refresh)
     if (!CanUnequipSlotItem(character, W8_EQUIP_SLOT_PRIMARY_WEAPON) ||
         !CanUnequipSlotItem(character, W8_EQUIP_SLOT_SECONDARY_WEAPON)) {
         if (announce) {
-            PostCharacterNoticeInContext(party_slot, notice_context, g_localized_strings[0x1ee]);
+            PostCharacterNotice(party_slot, g_localized_strings[0x1ee], notice_context);
         }
         return false;
     }
@@ -4150,7 +4171,7 @@ bool SwapWeaponSetSlots(int party_slot, bool announce, bool refresh)
         RebuildEquipmentAndDerivedStatsForSlot(party_slot);
     }
     if (announce) {
-        PostCharacterNoticeInContext(party_slot, notice_context, g_localized_strings[0x1ec]);
+        PostCharacterNotice(party_slot, g_localized_strings[0x1ec], notice_context);
     }
     return true;
 }
@@ -4171,8 +4192,8 @@ void BindCharacterItems(int party_slot, bool announce)
         if (g_combat_state->iActionChar == party_slot && g_combat_state->eCombatActionStatus == 2 &&
             (g_status.buffers.XChar[party_slot].pending_action == W8_ACTION_ATTACK ||
              g_status.buffers.XChar[party_slot].pending_action == W8_ACTION_BERSERK)) {
-            ShowNoticef(W8_FONT_PALETTE_WHITE, g_localized_strings[0x1f7],
-                        g_status.buffers.Char[party_slot].name);
+            ShowNotice(W8_FONT_PALETTE_WHITE, fmt::sprintf(g_localized_strings[0x1f7],
+                                                           g_status.buffers.Char[party_slot].name));
             return;
         }
     }

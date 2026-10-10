@@ -1,3 +1,4 @@
+#include <fmt/format.h>
 #include <utf8.h>
 #include <string>
 #include "random.h"
@@ -109,9 +110,8 @@ static void AppendNoticeLine(unsigned char font_palette, std::string_view text, 
                              int wrapped_line);
 
 // FUNCTION: WIZ8 0x0058fdd0
-static int GetNextNoticeWord(int cursor, const char* text, W8NoticeWord* word)
+static int GetNextNoticeWord(int cursor, std::string_view value, W8NoticeWord* word)
 {
-    const std::string_view value(text);
     while (static_cast<std::size_t>(cursor) < value.size() && value[cursor] == ' ') {
         ++cursor;
     }
@@ -146,7 +146,7 @@ void W8MessageStorageRecord::RebuildEntries()
     }
     int cursor = 0;
     W8NoticeWord word;
-    while ((cursor = GetNextNoticeWord(cursor, text.c_str(), &word)) != -1) {
+    while ((cursor = GetNextNoticeWord(cursor, text, &word)) != -1) {
         W8NoticeWord* stored = static_cast<W8NoticeWord*>(malloc(sizeof(W8NoticeWord)));
         *stored = word;
         stored->keyword = W8_NOTICE_WORD_NORMAL;
@@ -304,11 +304,13 @@ void SetTextBoxRegionBounds(int left, int top, int right, int bottom)
 }
 
 // FUNCTION: WIZ8 0x0058ac00
+// FUNCTION: WIZ8 0x0058ab60
+// FUNCTION: WIZ8 0x0058aad0
 void ShowNotice(unsigned int font_palette, std::string_view text_view, short text_box,
                 unsigned int wrap_width, bool force_dialog)
 {
     const std::string owned_text(text_view);
-    const char* text = owned_text.c_str();
+    const std::string_view text = owned_text;
     IsMipeActive();
     if (g_level_block != 0 && (g_current_screen_state.id == W8_SCREEN_MAIN_GAME ||
                                (g_current_screen_state.id == W8_SCREEN_CAMP && !force_dialog) ||
@@ -326,11 +328,11 @@ void ShowNotice(unsigned int font_palette, std::string_view text_view, short tex
             g_status.long_quote = 0;
         }
         g_level_block->text_lines[8 + text_box] = 0;
-        if (static_cast<unsigned int>(StringPixLength(const_cast<char*>(text),
-                                                      g_level_block->text_box_font)) < wrap_width) {
+        if (static_cast<unsigned int>(StringPixLength(text, g_level_block->text_box_font)) <
+            wrap_width) {
             AppendNoticeLine(static_cast<unsigned char>(font_palette), text, text_box, 0);
         } else {
-            std::string_view remaining(text_view);
+            std::string_view remaining(text);
             int line_index = 0;
             while (!remaining.empty()) {
                 std::size_t end = 0, last_space = 0;
@@ -537,23 +539,6 @@ void RedrawTextBox(void)
     RequestRedraw(W8_MAIN_REDRAW_TEXT_BOX);
 }
 
-// FUNCTION: WIZ8 0x0058ab60
-void FormatNoticeText(int channel, short text_box, std::string text)
-{
-
-    text_box = ResolveNoticeTextBox(text_box);
-    ShowNotice(channel, text, text_box);
-}
-
-// FUNCTION: WIZ8 0x0058aad0
-void ShowNoticefText(unsigned int font_palette, std::string text)
-{
-    short text_box;
-
-
-    text_box = ResolveNoticeTextBox(-1);
-    ShowNotice(font_palette, text, text_box);
-}
 
 /* The font the main-game text box measures and draws with. */
 // FUNCTION: WIZ8 0x0058aa10
@@ -700,7 +685,7 @@ void AppendToLastTextLine(std::string_view text, short text_box)
         srAssertFail("gStatus.uiTextBoxLinesUsed[iTextBuffer] > 0", MGS_TEXT_BOX_CPP, 0xf92, 0);
     }
     W8MessageStorageRecord* line = &g_message_storage[text_box][*lines_used - 1];
-    const auto merged = FormatText("%s%s", line->text, text);
+    const auto merged = fmt::format("{}{}", line->text, text);
     unsigned char channel = line->font_palette;
     int link = line->link;
     unsigned char color = line->highlight_color;
@@ -773,12 +758,15 @@ int GetTextBoxVisibleLineCount(void)
     return 7;
 }
 
-static void PostCharacterNoticeText(int party_slot, int context, std::string_view text)
+// FUNCTION: WIZ8 0x00590950
+// FUNCTION: WIZ8 0x00590A40
+void PostCharacterNotice(int party_slot, std::string_view text, int context)
 {
     const std::string_view separator = (text.starts_with("'") || text.starts_with(":"))
                                           ? std::string_view{} : g_W8TextSeparator;
-    FormatNotice(W8_FONT_PALETTE_WHITE, context, "%s%s%s", g_status.buffers.Char[party_slot].name,
-                 separator, text);
+    ShowNotice(W8_FONT_PALETTE_WHITE,
+               fmt::format("{}{}{}", g_status.buffers.Char[party_slot].name, separator, text),
+               context);
     int stop = g_status.buffers.Char[party_slot].name.size();
     if (text.starts_with("'")) {
         ++stop;
@@ -789,21 +777,6 @@ static void PostCharacterNoticeText(int party_slot, int context, std::string_vie
     HighlightTextBoxRange(g_status.buffers.XChar[party_slot].party_order_index, 0, stop, context);
 }
 
-// FUNCTION: WIZ8 0x00590950
-void PostCharacterNoticeFormatted(int party_slot, std::string text)
-{
-    PostCharacterNoticeText(party_slot, -1, text);
-}
-
-/* PostCharacterNotice with an explicit context instead of the automatic -1
-   box; the weapon-set swap paths post it under the dialogue context. */
-// FUNCTION: WIZ8 0x00590A40
-void PostCharacterNoticeInContextText(int party_slot, int context, std::string text)
-{
-
-
-    PostCharacterNoticeText(party_slot, context, text);
-}
 
 /* Retail expands this calculation at its callers and has no separate emission. */
 static unsigned int GetTextBoxLineCount(short text_box)
@@ -1024,10 +997,10 @@ void DrawDialogueTextInputLines(int x, int y, unsigned int first_line)
         auto text = std::string_view(input->text).substr(start, end - start);
         int draw_x = x;
         if (line == 0 && !input->first_line_prefix.empty()) {
-            gprintf(draw_x, y, "%s", input->first_line_prefix);
+            DrawFontText(draw_x, y, input->first_line_prefix);
             draw_x += StringPixLength(input->first_line_prefix, g_level_block->text_box_font);
         }
-        gprintf(draw_x, y, "%s", text);
+        DrawFontText(draw_x, y, text);
         maximum_width = std::max(maximum_width, draw_x - x + StringPixLength(text, g_level_block->text_box_font));
         y += 11;
         if (y >= g_level_block->text_box_bottom) break;
@@ -1493,7 +1466,7 @@ static void DrawMessageLineText(const W8MessageStorageRecord* line, int x, int y
 {
     auto text = std::string_view(line->text);
     if (line->length >= 0) text = text.substr(0, wiz8::text::byte_prefix(text, line->length));
-    gprintfDirty(x, y, "%s", text);
+    DrawFontTextDirty(x, y, text);
 }
 
 /* Paint one message-storage line at (x, y). hovered_line / selected_line
@@ -1513,7 +1486,7 @@ static void DrawTextBoxLine(W8MessageStorageRecord* line, int x, int y, bool hov
     };
     auto draw = [&](std::string_view span, unsigned int palette) {
         set_palette(palette);
-        gprintfDirty(x, y, "%s", span);
+        DrawFontTextDirty(x, y, span);
         x += StringPixLength(span, g_level_block->text_box_font);
     };
     auto end = line->length < 0 ? text.size() : wiz8::text::byte_prefix(text, line->length);
@@ -1528,7 +1501,9 @@ static void DrawTextBoxLine(W8MessageStorageRecord* line, int x, int y, bool hov
     if (line->length >= 0) {
         const auto suffix = text.substr(end);
         set_palette(foreground);
-        gprintfDirty(g_level_block->text_box_right - StringPixLength(suffix, g_level_block->text_box_font), y, "%s", suffix);
+        DrawFontTextDirty(g_level_block->text_box_right -
+                              StringPixLength(suffix, g_level_block->text_box_font),
+                          y, suffix);
     }
     DrawNoticeWordOverlays(line, x, y);
 }
@@ -1890,7 +1865,7 @@ static void DrawNoticeWordOverlay(const W8MessageStorageRecord* line, W8NoticeWo
 {
     std::string word_text;
     word_text = line->text.substr(word->start, word->end - word->start + 1);
-    gprintfDirty(word->x_start + x, y, g_format_s, word_text);
+    DrawFontTextDirty(word->x_start + x, y, word_text);
     word->redraw = false;
 }
 
@@ -2035,12 +2010,12 @@ std::string CopyNoticeWordText(const W8NoticeWord* word, int text_box, int line)
 }
 
 // FUNCTION: WIZ8 0x00590b40
-void PostMonsterNoticeText(W8MonsterInfo* monster_info, std::string text)
+void PostMonsterNotice(W8MonsterInfo* monster_info, std::string_view text)
 {
     const std::string_view separator = (text.starts_with("'") || text.starts_with(":"))
                                           ? std::string_view{} : g_W8TextSeparator;
-    ShowNoticef(W8_FONT_PALETTE_RUST, "%s%s%s", GetMonsterName(monster_info, 0, 0), separator,
-                text);
+    ShowNotice(W8_FONT_PALETTE_RUST,
+               fmt::format("{}{}{}", GetMonsterName(monster_info, 0, 0), separator, text));
 }
 
 /* Re-show the last wrapped entry of `mode`'s message run as a notice line;

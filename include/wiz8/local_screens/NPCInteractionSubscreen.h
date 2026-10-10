@@ -91,7 +91,6 @@ struct W8PendingNotice {
     unsigned char force;
 };
 extern W8PendingNotice g_pending_notice;
-extern std::string g_dialogue_empty_text;
 
 /* W8NpcInteractionState::trade_mode - the active tab of the option/trade
    layouts. The StringData.DAT captions the tabs and headers load are

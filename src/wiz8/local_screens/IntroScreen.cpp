@@ -1,3 +1,4 @@
+#include <fmt/format.h>
 #include "wiz8/utility.h"
 #include "wiz8/unicode.h"
 #include "vsurface.h"
@@ -57,12 +58,13 @@ unsigned char IntroScreenEnter(void)
     if (g_intro_video_index == 0 && g_settings.intro_seen && !g_status.intro_shown) {
         return 1;
     }
-    path = FormatText("Data\\Flics\\Intro\\%s", g_intro_video_names[g_intro_video_index]);
+    path = fmt::format("Data\\Flics\\Intro\\{}", g_intro_video_names[g_intro_video_index]);
     if (![&]() { const auto status = wiz8::file_status(path); return status && status->info.type == SDL_PATHTYPE_FILE; }()) {
         if (!FindGameDataPath(gzCdDirectory, 3)) {
             return 1;
         }
-        path = FormatText("%sData\\Flics\\Intro\\%s", gzCdDirectory, g_intro_video_names[g_intro_video_index]);
+        path = fmt::format("{}Data\\Flics\\Intro\\{}", gzCdDirectory,
+                           g_intro_video_names[g_intro_video_index]);
         if (![&]() { const auto status = wiz8::file_status(path); return status && status->info.type == SDL_PATHTYPE_FILE; }()) {
             return 1;
         }
@@ -121,10 +123,11 @@ static void AdvanceIntroScreen(void)
 
     if (g_intro_video_index == 6 && !g_settings.intro_seen) {
         g_intro_video_index = 0;
-        path = FormatText("Data\\Flics\\Intro\\%s", g_intro_video_names[g_intro_video_index]);
+        path = fmt::format("Data\\Flics\\Intro\\{}", g_intro_video_names[g_intro_video_index]);
         first_video_available = [&]() { const auto status = wiz8::file_status(path); return status && status->info.type == SDL_PATHTYPE_FILE; }();
         if (!first_video_available && FindGameDataPath(gzCdDirectory, 3)) {
-            path = FormatText("%sData\\Flics\\Intro\\%s", gzCdDirectory, g_intro_video_names[g_intro_video_index]);
+            path = fmt::format("{}Data\\Flics\\Intro\\{}", gzCdDirectory,
+                               g_intro_video_names[g_intro_video_index]);
             first_video_available = [&]() { const auto status = wiz8::file_status(path); return status && status->info.type == SDL_PATHTYPE_FILE; }();
         }
         if (first_video_available && gpVideo != 0 && gpVideo->Open(path.c_str(), 0)) {

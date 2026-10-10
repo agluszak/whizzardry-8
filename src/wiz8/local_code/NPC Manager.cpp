@@ -1,3 +1,5 @@
+#include <fmt/format.h>
+#include <fmt/printf.h>
 #include <string_view>
 #include "wiz8/unicode.h"
 #include "wiz8/retail_text_records.h"
@@ -444,10 +446,12 @@ void ReturnDismissedNpcItems(W8NpcState* npc, W8Character* character)
         }
     }
     if (returned) {
-        ShowNoticef(W8_FONT_PALETTE_RED, g_localized_strings[0x1fd], npc->record->source_name);
+        ShowNotice(W8_FONT_PALETTE_RED,
+                   fmt::sprintf(g_localized_strings[0x1fd], npc->record->source_name));
     }
     if (dropped) {
-        ShowNoticef(W8_FONT_PALETTE_RED, g_localized_strings[0x1fe], npc->record->source_name);
+        ShowNotice(W8_FONT_PALETTE_RED,
+                   fmt::sprintf(g_localized_strings[0x1fe], npc->record->source_name));
     }
 }
 
@@ -531,7 +535,7 @@ void UpdateNpcPartyMember(int party_slot)
     srVector3T<float> position;
 
     if (character->highest_condition == W8_CONDITION_DEAD) {
-        ShowNoticef(W8_FONT_PALETTE_RED, g_localized_strings[0x7d4], character->name);
+        ShowNotice(W8_FONT_PALETTE_RED, fmt::sprintf(g_localized_strings[0x7d4], character->name));
         StashDepartingCharacterItems(character);
         RemoveCharacterFromParty(party_slot, false);
         return;
@@ -541,7 +545,7 @@ void UpdateNpcPartyMember(int party_slot)
         return;
     }
     if (!ProbeNpcPlacementNearParty(party_slot, 0, &position)) {
-        ShowNoticef(W8_FONT_PALETTE_RED, g_localized_strings[0x7d5]);
+        ShowNotice(W8_FONT_PALETTE_RED, g_localized_strings[0x7d5]);
         return;
     }
     if (NpcOffersService(npc, GetLevelBand(g_status.current_level))) {
@@ -2296,7 +2300,7 @@ void RestoreNamedNpcAtLevel(int kind, char level, std::string_view entity_name)
         return;
     }
     npc->pending_restore = true;
-    wiz8::text::copy(npc->restore_entity_name, entity_name);
+    wiz8::text::write_utf8_field(entity_name, npc->restore_entity_name);
     npc->pending_restore_level = level;
 }
 
@@ -2596,7 +2600,7 @@ void RebindNpcLevelTriggers(void)
         std::string trigger_name;
 
         if (npc->record->merchant != 0 || npc->record->voice_script != 0) {
-            trigger_name = FormatText("_%s", npc->record->source_name);
+            trigger_name = fmt::format("_{}", npc->record->source_name);
             Trigger* trigger = FindTriggerByName(trigger_name.c_str());
 
             if (trigger != 0) {

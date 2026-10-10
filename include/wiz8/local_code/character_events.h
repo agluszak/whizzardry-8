@@ -1,7 +1,6 @@
-#include <string_view>
-#include "wiz8/text_format.h"
 #pragma once
 
+#include <string_view>
 #include "wiz8/conditions.h"
 
 #include "input.h"
@@ -74,15 +73,6 @@ bool BlitPartyPortraitAnimation(int portrait, int left, int top, unsigned int fl
 
 void SetPartyPortraitEventState(unsigned int party_slot, bool active, unsigned int event_type,
                                 std::string_view quote_text, int show_quote);
-/* The notice the weapon-set swap paths post, between the two variadic
-   formatters. Its middle argument is the context the notices are posted under -
-   zero while the NPC dialogue owns the screens, -1 otherwise. */
-void PostCharacterNoticeInContextText(int party_slot, int context, std::string text);
-template<class... Args>
-void PostCharacterNoticeInContext(int party_slot, int context, std::string_view pattern, const Args&... args)
-{
-    PostCharacterNoticeInContextText(party_slot, context, wiz8::text::format(pattern, args...));
-}
 extern int g_special_event2;
 extern unsigned int g_event_range_max;
 extern int g_special_event18; /* One of the three melee

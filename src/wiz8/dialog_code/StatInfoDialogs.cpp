@@ -1,3 +1,4 @@
+#include <fmt/printf.h>
 #include "wiz8/dialog_code/StatInfoDialogs.h"
 #include "wiz8/dialog_code/MonsterInfoDialog.h"
 #include "Font.h"
@@ -110,7 +111,7 @@ void W8StatInfoDialogBase::DrawTitle()
     SetFontObjectPalette16BPP(g_wiz_text_font_secondary, GetFontObject(g_wiz_text_font_secondary)->ownedPalette.get());
     std::string title = g_localized_strings[m_title_id];
     INT16 width = StringPixLength(title, g_wiz_text_font_secondary);
-    gprintf(m_x + 0xe + (0x112 - width) / 2, m_y + 0x11, g_format_s, title);
+    DrawFontText(m_x + 0xe + (0x112 - width) / 2, m_y + 0x11, title);
 }
 
 void W8StatInfoDialogBase::OnRightButtonUp()
@@ -154,7 +155,7 @@ bool W8StatInfoDialogBase::PopulateText()
     textarea.Configure(&bounds, g_wiz_text_font_secondary, 0);
     textarea.SetEntrySpacing(0);
     textarea.AddEntry(g_localized_strings[0x155], g_localized_strings[m_detail_id], 10, 0xf, 0);
-    textarea.AddEntry({}, &g_empty_text, 10, 0xf, 0);
+    textarea.AddEntry({}, "", 10, 0xf, 0);
     return true;
 }
 
@@ -199,7 +200,7 @@ W8SkillInfoDialog::~W8SkillInfoDialog()
 bool W8SkillInfoDialog::PopulateText()
 {
     W8StatInfoDialogBase::PopulateText();
-    textarea.AddEntry(g_localized_strings[0x156], &g_empty_text, 10, 0xf, 0);
+    textarea.AddEntry(g_localized_strings[0x156], "", 10, 0xf, 0);
     W8SkillAttributes* skill = &g_skill_attributes[m_skill];
     textarea.AddEntry({}, g_localized_strings[g_character_description_first_ids[skill->attribute_1]], 10,
                       0xf, 0);
@@ -208,16 +209,16 @@ bool W8SkillInfoDialog::PopulateText()
                           10, 0xf, 0);
     }
     if (m_first) {
-        textarea.AddEntry({}, &g_empty_text, 10, 0xf, 0);
+        textarea.AddEntry({}, "", 10, 0xf, 0);
         textarea.AddEntry({}, g_localized_strings[0x157], 10, 5, 0);
     }
     if (m_second) {
-        textarea.AddEntry({}, &g_empty_text, 10, 0xf, 0);
+        textarea.AddEntry({}, "", 10, 0xf, 0);
         textarea.AddEntry({}, g_localized_strings[0x158], 10, 0xb, 0);
     }
     if (m_bonus) {
-        textarea.AddEntry({}, &g_empty_text, 10, 0xf, 0);
-        textarea.AddEntry({}, FormatText(g_localized_strings[0x159], 0x19), 10, 3, 0);
+        textarea.AddEntry({}, "", 10, 0xf, 0);
+        textarea.AddEntry({}, fmt::sprintf(g_localized_strings[0x159], 0x19), 10, 3, 0);
     }
     return true;
 }

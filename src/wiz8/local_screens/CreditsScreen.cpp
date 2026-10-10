@@ -167,11 +167,11 @@ void CreditsScreenFrame(void)
         if ((entry->flags & 4) == 0) {
             SetFont((entry->flags & 1) ? g_options_title_font : g_options_detail_font);
             if ((entry->flags & 2) == 0) {
-                gprintf((0x280 - entry->pixel_width) / 2, y, "%s", entry->primary);
+                DrawFontText((0x280 - entry->pixel_width) / 2, y, entry->primary);
             } else {
-                gprintf(0x136 - entry->pixel_width, y, "%s", entry->primary);
+                DrawFontText(0x136 - entry->pixel_width, y, entry->primary);
                 if (!entry->secondary.empty()) {
-                    gprintf(0x14a, y, "%s", entry->secondary);
+                    DrawFontText(0x14a, y, entry->secondary);
                 }
             }
         }

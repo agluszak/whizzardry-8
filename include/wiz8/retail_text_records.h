@@ -534,7 +534,9 @@ template<class T> auto encode(const T& runtime)
         [](const auto* source, auto bytes) { std::memcpy(bytes.data(), source, bytes.size()); },
         [](const std::string& source, auto bytes, Encoding encoding) {
             if (encoding == Encoding::utf16) text::to_utf16le(source, bytes);
-            else text::copy(reinterpret_cast<char*>(bytes.data()), bytes.size(), source);
+            else
+                text::write_utf8_field(
+                    source, std::span(reinterpret_cast<char*>(bytes.data()), bytes.size()));
         });
     return image;
 }

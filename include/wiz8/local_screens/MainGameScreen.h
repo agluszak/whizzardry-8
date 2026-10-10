@@ -1,6 +1,6 @@
-#include <string_view>
 #pragma once
 
+#include <string_view>
 class Trigger;
 class srClass;
 class stModelInstance2D;
@@ -23,12 +23,6 @@ void RefreshSelectedPartyPortrait(unsigned int party_slot);
 void ClearHighlightIfItIs(const int* item);
 
 #include "wiz8/layouts/main_game_screen.h"
-extern char g_format_s[];
-extern char g_format_d_percent[];
-extern char g_format_s_colon_s[];
-extern char g_format_s_colon_s_paren_d[];
-extern char g_format_s_spaced_colon[];
-extern char g_format_s_paren_d[];
 
 extern W8MainGameResourceSlot g_main_game_resource_slots[17];
 extern W8ScreenRect g_viewport_modes[];

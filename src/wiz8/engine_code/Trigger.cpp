@@ -1,3 +1,4 @@
+#include <fmt/format.h>
 #include "wiz8/unicode.h"
 #include <string>
 #include "wiz8/spell_ids.h"
@@ -1920,15 +1921,15 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, W8World* world)
                 trigger->m_lData1 >= static_cast<int>(g_missile_table_count)) {
                 srAssertFail("((pTrigger->m_lData1 >= 0) && (pTrigger->m_lData1 < "
                              "Missile::GetNumTypes()))",
-                    "C:\\Projects\\Wizardry 8\\Engine Code\\Trigger.cpp", 0xf14,
-                    FormatText(
-                        "Trigger %s: You must enter a valid missile number", trigger->name));
+                             "C:\\Projects\\Wizardry 8\\Engine Code\\Trigger.cpp", 0xf14,
+                             fmt::format("Trigger {}: You must enter a valid missile number",
+                                         trigger->name));
             }
             if (trigger->m_lData2 == -1) {
                 srAssertFail(
                     "(pTrigger->m_lData2!=(-1))",
                     "C:\\Projects\\Wizardry 8\\Engine Code\\Trigger.cpp", 0xf15,
-                    FormatText("Trigger %s: You must enter a time value in Data2", trigger->name));
+                    fmt::format("Trigger {}: You must enter a time value in Data2", trigger->name));
             }
             if (trigger->m_lData2 < 0) {
                 trigger->m_pEvent = new W8TriggerEvent;
@@ -2593,7 +2594,7 @@ void Trigger::Run(int source)
             }
             if (action_data != 0 && action_data->locked && action_data->item != -1) {
                 if (!FindItemOnParty(action_data->item, 0, 0, 2, 0)) {
-                    ShowNoticef(W8_FONT_PALETTE_BLUE, "Your party doesn't have required key.");
+                    ShowNotice(W8_FONT_PALETTE_BLUE, "Your party doesn't have required key.");
                     break;
                 }
                 action_data->locked = false;
@@ -2666,7 +2667,7 @@ void Trigger::Run(int source)
             }
             if (action_data != 0 && action_data->locked && action_data->item != -1) {
                 if (!FindItemOnParty(action_data->item, 0, 0, 2, 0)) {
-                    ShowNoticef(W8_FONT_PALETTE_BLUE, "Your party doesn't have required key.");
+                    ShowNotice(W8_FONT_PALETTE_BLUE, "Your party doesn't have required key.");
                     break;
                 }
                 action_data->locked = false;

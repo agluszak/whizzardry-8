@@ -1,3 +1,4 @@
+#include <fmt/format.h>
 #include "wiz8/unicode.h"
 #include "wiz8/utility.h"
 #include "wiz8/sr_api.h"
@@ -1597,8 +1598,8 @@ int OctPreTree::CreatePathProps(W8LevelFile* level, W8PreProp** preprops)
                             "(UINT16)(pLVL->pProps[i].bNumFrames))", /* c-style-cast-ok: verbatim
                                 retail assertion text, kept for .rdata match */
                             OCTPRETREE_CPP, 0x8b4,
-                            FormatText("%s Prop Error:Segment frame number %d is out of range",
-                                       prop->name, frame));
+                            fmt::format("{} Prop Error:Segment frame number {:d} is out of range",
+                                        prop->name, frame));
                     }
                     record->pStopMeshes[j].ApplyAnimFrame(frame, &prop->anim_obj);
                     record->pStopMeshes[j].ComputeBounds(&bounds.minimum, &bounds.maximum);

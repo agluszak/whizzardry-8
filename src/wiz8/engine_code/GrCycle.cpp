@@ -1,3 +1,4 @@
+#include <fmt/format.h>
 #include "input.h"
 #include <string_view>
 #include "wiz8/unicode.h"
@@ -284,7 +285,7 @@ try
 
     std::unique_ptr<wiz8::File> handle = [&]() { try { return wiz8::open_file(mon_path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
     if (handle == 0) {
-        ShutdownWithErrorBox(FormatText("Couldn't open %s", mon_path));
+        ShutdownWithErrorBox(fmt::format("Couldn't open {}", mon_path));
     }
 
     info.world = context->world;
@@ -304,7 +305,7 @@ try
     if (!success) {
         srAssertFail(
             "fSuccess", "C:\\Projects\\Wizardry 8\\Engine Code\\GrCycle.cpp", 0x198,
-            FormatText("GrCycle::Read: ERROR - Read %s in %s failed", mon_path, bitmap_path));
+            fmt::format("GrCycle::Read: ERROR - Read {} in {} failed", mon_path, bitmap_path));
     }
     return success;
 } catch (const std::exception&) {

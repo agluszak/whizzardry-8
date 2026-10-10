@@ -1,3 +1,4 @@
+#include <fmt/format.h>
 #include <charconv>
 #include "wiz8/utility.h"
 #include <string>
@@ -64,7 +65,7 @@ void W8DialogNumericInput::SetActive(bool active, const SDL_Point* point)
     if (!active) {
         return;
     }
-    g_numeric_input_text = FormatText(g_format_d, m_value);
+    g_numeric_input_text = fmt::format("{:d}", m_value);
     size_t length = g_numeric_input_text.size();
     unsigned int count = 0;
     m_caret = -1;
@@ -89,14 +90,14 @@ void W8DialogNumericInput::Draw(bool force)
     if (!force && !m_dirty) {
         return;
     }
-    g_numeric_input_text = FormatText(g_format_d, m_value);
+    g_numeric_input_text = fmt::format("{:d}", m_value);
     size_t length = g_numeric_input_text.size();
     SetFont(m_font);
     HVOBJECT font_object = GetFontObject(m_font);
     if (font_object == 0) {
         return;
     }
-    g_numeric_input_text = FormatText(g_format_d, m_value);
+    g_numeric_input_text = fmt::format("{:d}", m_value);
     SetObjectShade(font_object, 4);
     SetFontDestBuffer(FRAME_BUFFER, m_bounds.left, m_bounds.top, m_bounds.right, m_bounds.bottom,
                       0);
@@ -106,7 +107,7 @@ void W8DialogNumericInput::Draw(bool force)
     if (text_x <= m_bounds.left) {
         text_x = m_bounds.left;
     }
-    gprintfDirty(text_x, text_y, g_format_s, g_numeric_input_text);
+    DrawFontTextDirty(text_x, text_y, g_numeric_input_text);
     if (m_active && m_caret != -1) {
         int caret_x =
             m_bounds.right - StringPixLength(std::string_view(g_numeric_input_text).substr(length - m_caret), m_font) - 1;
@@ -136,7 +137,7 @@ void W8DialogNumericInput::NotifyValueChanged()
 void W8DialogNumericInput::TypeDigit(char digit)
 {
     if (m_active) {
-        g_numeric_input_text = FormatText(g_format_d, m_value);
+        g_numeric_input_text = fmt::format("{:d}", m_value);
         size_t length = g_numeric_input_text.size();
         if (length < 10) {
             unsigned int value;
@@ -163,7 +164,7 @@ static void RemoveNumericInputCharacter(unsigned int position, unsigned int leng
 void W8DialogNumericInput::DeleteForward()
 {
     if (m_active && m_caret != 0) {
-        g_numeric_input_text = FormatText(g_format_d, m_value);
+        g_numeric_input_text = fmt::format("{:d}", m_value);
         size_t length = g_numeric_input_text.size();
         unsigned int position = length - m_caret;
         RemoveNumericInputCharacter(position, length);
@@ -181,7 +182,7 @@ void W8DialogNumericInput::DeleteForward()
 void W8DialogNumericInput::Backspace()
 {
     if (m_active) {
-        g_numeric_input_text = FormatText(g_format_d, m_value);
+        g_numeric_input_text = fmt::format("{:d}", m_value);
         size_t length = g_numeric_input_text.size();
         if (length != 0 && m_caret != static_cast<int>(length)) {
             unsigned int position = (length - m_caret) - 1;
@@ -259,7 +260,7 @@ bool W8DialogNumericInput::HandleInput(const InputAtom* input)
         break;
     case 0x25:
         if (m_active && m_caret != -1) {
-            g_numeric_input_text = FormatText(g_format_d, m_value);
+            g_numeric_input_text = fmt::format("{:d}", m_value);
             size_t length = g_numeric_input_text.size();
             unsigned int next = m_caret + 1;
             if (next <= length) {

@@ -1,3 +1,4 @@
+#include <fmt/format.h>
 #include <string_view>
 #include "wiz8/unicode.h"
 #include "wiz8/retail_text_records.h"
@@ -593,8 +594,9 @@ bool LoadSpellVisualResource(const W8GrCycleLoadContext* context, const char* na
 
         handle.reset();
         if (*visual == 0) {
-            srAssertFail("*ppSpell", "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp", 0x365,
-                         FormatText("Spell %s missing cycle of type %d", name, group));
+            srAssertFail(
+                "*ppSpell", "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp", 0x365,
+                fmt::format("Spell {} missing cycle of type {:d}", name, fmt::underlying(group)));
         }
         (*visual)->host->billboard = false;
         (*visual)->host->pending_behaviour = W8_ANIMATION_PLAY_ONCE;

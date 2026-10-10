@@ -1,3 +1,4 @@
+#include <fmt/format.h>
 #include "wiz8/utility.h"
 #include "wiz8/unicode.h"
 #include "wiz8/layouts/combat_state.h"
@@ -202,7 +203,7 @@ unsigned char StartMusicResource(const char* resource, int fade, unsigned char r
         RequestExitScreen();
     }
 
-    path = FormatText("Data\\Music\\%s", resource);
+    path = fmt::format("Data\\Music\\{}", resource);
     _strupr(path.data());
     g_music_fade = static_cast<unsigned char>(fade);
 

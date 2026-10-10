@@ -1,3 +1,5 @@
+#include <fmt/format.h>
+#include <fmt/printf.h>
 #include <string_view>
 #include <string>
 #include "wiz8/unicode.h"
@@ -162,8 +164,6 @@ bool g_keyword_lists_loaded;
 // GLOBAL: WIZ8 0x0068F0F9
 bool g_pending_notice_queued;
 /* Empty wide string used to clear dialogue editor text. */
-// GLOBAL: WIZ8 0x0068EE58
-std::string g_dialogue_empty_text;
 /* The queued NPC script notice; see the type comment in the
    header. */
 // GLOBAL: WIZ8 0x0068EE60
@@ -205,7 +205,7 @@ void W8NpcTypedDialoguePanel::SetEnabled(bool enable)
         Controls::SetEnabled(enable);
         if (enable) {
             InitTextInputModeWithScheme(1);
-            AddTextInputField(0x1e5, 0x170, 0x7a, 0x12, 0x7f, &g_empty_text, 0xbe, 0xf, 1);
+            AddTextInputField(0x1e5, 0x170, 0x7a, 0x12, 0x7f, "", 0xbe, 0xf, 1);
         } else {
             RemoveTextInputField(0);
         }
@@ -698,7 +698,7 @@ unsigned char OpenNpcDialoguePanel(W8NpcState* npc, W8ItemInstance* item, bool f
     PauseMainGameWorld();
     RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
     g_npc_interaction_state->text_box_collapsed = true;
-    space = FormatText(" ");
+    space = " ";
     ShowNotice(W8_FONT_PALETTE_YELLOW, space, 3);
     return 1;
 }
@@ -1526,7 +1526,7 @@ static void SelectNpcDialogueKeyword(W8NoticeWord* word, int line)
     field_text = GetTextFromField(0);
     StripNpcKeywordPunctuation(word_text);
     if (field_text.size() != 0) {
-        combined = FormatText("%s %s", field_text, word_text);
+        combined = fmt::format("{} {}", field_text, word_text);
         SetInputFieldText(0, combined);
     } else {
         SetInputFieldText(0, word_text);
@@ -1596,7 +1596,7 @@ void NpcDialogueTextBoxRightUp(int x, int y)
             return;
         }
         dialog = new W8AssayDialog(item, &g_status.buffers.Char[g_status.selected_character]);
-        dialog->SetText(&g_empty_text);
+        dialog->SetText("");
         dialog->SetOrigin(g_info_dialog_x, 0x48);
         dialog->m_destroy_callback = OnNpcAssayDialogClosed;
         OpenModal(dialog);
@@ -1678,7 +1678,7 @@ static void ShowNpcTradeGold()
     g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_31]->SetEnabled(true);
     static_cast<W8TextControl*>(g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_36])
         ->m_textBuffer.SetText(g_localized_strings[0x72d], g_wiz_text_font_secondary);
-    text = FormatText("%dg", g_npc_interaction_state->trade_gold);
+    text = fmt::format("{:d}g", g_npc_interaction_state->trade_gold);
     static_cast<W8TextControl*>(g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_35])
         ->m_textBuffer.SetText(text, g_wiz_text_font_secondary);
     g_npc_interaction_state->dialogue_panels[5]->Invalidate(0);
@@ -1744,11 +1744,12 @@ void UpdateNpcTradeSelection(int index, int increment, int commit)
                     g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_37])
                     ->m_textBuffer.SetGeometryDirty();
             }
-            price_text = FormatText("%dg", CalculateNpcTradeStackPrice(g_npc_interaction_state->dialogue_npc,
-                                                 g_npc_interaction_state->trade_item->iItemNo,
-                                                 W8_TRADE_PRICE_PARTY_BUYS,
-                                                 g_npc_interaction_state->trade_quantity,
-                                                 g_npc_interaction_state->trade_item->identified));
+            price_text = fmt::format("{:d}g", CalculateNpcTradeStackPrice(
+                                                  g_npc_interaction_state->dialogue_npc,
+                                                  g_npc_interaction_state->trade_item->iItemNo,
+                                                  W8_TRADE_PRICE_PARTY_BUYS,
+                                                  g_npc_interaction_state->trade_quantity,
+                                                  g_npc_interaction_state->trade_item->identified));
             break;
         case W8_NPC_TRADE_SELL: {
             wants_item = NpcAcceptsTradeItem(g_npc_interaction_state->dialogue_npc,
@@ -1766,14 +1767,14 @@ void UpdateNpcTradeSelection(int index, int increment, int commit)
                 W8_TRADE_PRICE_PARTY_SELLS, g_npc_interaction_state->trade_quantity,
                 g_npc_interaction_state->trade_item->identified);
             if (wants_item) {
-                price_text = FormatText("%dg", price);
+                price_text = fmt::format("{:d}g", price);
             } else {
-                price_text = FormatText("---");
+                price_text = "---";
             }
             break;
         }
         case W8_NPC_TRADE_GIVE:
-            price_text = FormatText(" ");
+            price_text = " ";
             break;
         default:
             return;
@@ -1799,13 +1800,13 @@ void ResetNpcDialogueItemEditor(void)
     static_cast<W8TextControl*>(g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_24])
         ->ClearImage();
     static_cast<W8TextControl*>(g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_24])
-        ->m_textBuffer.SetText(g_dialogue_empty_text, 0);
+        ->m_textBuffer.SetText("", 0);
     static_cast<W8TextControl*>(g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_24])
         ->Invalidate(true);
     static_cast<W8TextControl*>(g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_35])
-        ->m_textBuffer.SetText(&g_empty_text, g_wiz_text_font_secondary);
+        ->m_textBuffer.SetText("", g_wiz_text_font_secondary);
     static_cast<W8TextControl*>(g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_36])
-        ->m_textBuffer.SetText(&g_empty_text, g_wiz_text_font_secondary);
+        ->m_textBuffer.SetText("", g_wiz_text_font_secondary);
     g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_31]->SetEnabled(false);
     g_npc_interaction_state->selected_trade_row = -1;
     g_npc_interaction_state->trade_quantity = 1;
@@ -1971,7 +1972,7 @@ void CloseNpcDialogueLayout(void)
     g_npc_interaction_state->dialogue_panels[4]->SetEnabled(false);
     g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_38]->SetActive(false);
     static_cast<W8TextControl*>(g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_38])
-        ->m_textBuffer.SetText(&g_empty_text, g_wiz_text_bold_font);
+        ->m_textBuffer.SetText("", g_wiz_text_bold_font);
     SetNpcDialogueLayoutMode(W8_DIALOGUE_LAYOUT_NONE);
 }
 
@@ -2071,11 +2072,12 @@ void OpenNpcDialogueTranscriptLayout(void)
     g_npc_interaction_state->dialogue_panels[6]->SetEnabled(true);
     g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_38]->SetActive(false);
     static_cast<W8TextControl*>(g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_38])
-        ->m_textBuffer.SetText(&g_empty_text, g_wiz_text_bold_font);
+        ->m_textBuffer.SetText("", g_wiz_text_bold_font);
     RegionSetEnable(0x18);
     RegionSetEnable(0x16);
     if (g_npc_interaction_state->dialogue_npc->name_style == 0x32) {
-        g_status.monster_name_buffer = FormatText("Al-%s", g_status.buffers.Char[g_status.sedexus_party_slot].name);
+        g_status.monster_name_buffer =
+            fmt::format("Al-{}", g_status.buffers.Char[g_status.sedexus_party_slot].name);
         static_cast<W8TextControl*>(
             g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_NPC_NAME])
             ->m_textBuffer.SetText(g_status.monster_name_buffer, g_wiz_text_bold_font);
@@ -2415,7 +2417,7 @@ void OpenNpcDialogueOptionLayout(void)
     }
     g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_38]->SetActive(false);
     static_cast<W8TextControl*>(g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_38])
-        ->m_textBuffer.SetText(&g_empty_text, g_wiz_text_bold_font);
+        ->m_textBuffer.SetText("", g_wiz_text_bold_font);
     g_npc_interaction_state->dialogue_panels[0]->SetEnabled(true);
     g_npc_interaction_state->dialogue_panels[1]->SetEnabled(true);
     g_npc_interaction_state->dialogue_panels[5]->SetEnabled(true);
@@ -2433,7 +2435,7 @@ void OpenNpcDialogueOptionLayout(void)
     g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_31]->SetEnabled(false);
     g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_31]
         ->m_primaryActivationCallback = ConfirmNpcTradeSlot;
-    buffer = FormatText("%dg", g_status.party_gold);
+    buffer = fmt::format("{:d}g", g_status.party_gold);
     static_cast<W8TextControl*>(g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_33])
         ->m_textBuffer.SetText(buffer, g_wiz_text_font_secondary);
     g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_37]->SetEnabled(false);
@@ -2648,7 +2650,7 @@ void OpenNpcItemAssay(void)
                 ->m_imageObject != 0x1ac) {
         dialog = new W8AssayDialog(g_npc_interaction_state->trade_item,
                                    &g_status.buffers.Char[g_status.selected_character]);
-        dialog->SetText(&g_empty_text);
+        dialog->SetText("");
         dialog->SetOrigin(g_info_dialog_x, 0x48);
         dialog->m_destroy_callback = OnNpcAssayDialogClosed;
         OpenModal(dialog);
@@ -2719,7 +2721,7 @@ void OpenNpcGoldAmountDialog(void)
     }
     g_npc_interaction_state->dialogue_panels[1]->Invalidate(0);
     dialog = new W8SplitAmountDialog(g_status.party_gold);
-    dialog->SetText(&g_empty_text);
+    dialog->SetText("");
     dialog->SetOrigin(g_split_dialog_origin_x, g_split_dialog_origin_y);
     dialog->m_destroy_callback = OnNpcTradeSplitDialogDestroy;
     OpenModal(dialog);
@@ -2767,9 +2769,9 @@ static void ShowSelectedNpcTradeItem(const W8ItemInstance* item)
     static_cast<W8TextControl*>(g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_24])
         ->SetImage(image);
     if (item->stack_count < 2) {
-        text = g_dialogue_empty_text;
+        text = "";
     } else {
-        count_text = FormatText("%d", g_npc_interaction_state->trade_quantity);
+        count_text = fmt::format("{:d}", g_npc_interaction_state->trade_quantity);
         text = count_text;
     }
     static_cast<W8TextControl*>(g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_24])
@@ -2822,7 +2824,7 @@ W8ItemInstance* ResolveNpcTradeRow(int index, bool pick, char decrement, char co
                     ->SetImage(0x1ac);
                 static_cast<W8TextControl*>(
                     g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_24])
-                    ->m_textBuffer.SetText(g_dialogue_empty_text, g_wiz_text_font_secondary);
+                    ->m_textBuffer.SetText("", g_wiz_text_font_secondary);
                 return 0;
             }
             --index;
@@ -3004,7 +3006,7 @@ void OpenNpcDialogueMode5Layout(void)
     g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_31]->SetEnabled(false);
     g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_31]
         ->m_primaryActivationCallback = ConfirmNpcTradeSlot;
-    buffer = FormatText("%dg", g_status.party_gold);
+    buffer = fmt::format("{:d}g", g_status.party_gold);
     static_cast<W8TextControl*>(g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_33])
         ->m_textBuffer.SetText(buffer, g_wiz_text_font_secondary);
     g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_37]->SetEnabled(false);
@@ -3202,7 +3204,7 @@ void OpenNpcDialogueMode1Layout(void)
     g_npc_interaction_state->dialogue_panels[4]->SetEnabled(true);
     g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_38]->SetActive(false);
     static_cast<W8TextControl*>(g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_38])
-        ->m_textBuffer.SetText(&g_empty_text, g_wiz_text_bold_font);
+        ->m_textBuffer.SetText("", g_wiz_text_bold_font);
     RegionSetEnable(0x18);
     static_cast<W8TextControl*>(g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_NPC_NAME])
         ->m_textBuffer.SetText(g_localized_strings[0x72f], g_wiz_text_bold_font);
@@ -3319,9 +3321,9 @@ W8ItemInstance* GetNpcTradeSlotItem(int index)
                     g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_24])
                     ->SetImage(image);
                 if (character->EquippedItem[slot].stack_count < 2) {
-                    text = g_dialogue_empty_text;
+                    text = "";
                 } else {
-                    count_text = FormatText("%d", character->EquippedItem[slot].stack_count);
+                    count_text = fmt::format("{:d}", character->EquippedItem[slot].stack_count);
                     text = count_text;
                 }
                 static_cast<W8TextControl*>(
@@ -3345,9 +3347,9 @@ W8ItemInstance* GetNpcTradeSlotItem(int index)
                     g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_24])
                     ->SetImage(image);
                 if (character->backpack[slot].stack_count < 2) {
-                    text = g_dialogue_empty_text;
+                    text = "";
                 } else {
-                    count_text = FormatText("%d", character->backpack[slot].stack_count);
+                    count_text = fmt::format("{:d}", character->backpack[slot].stack_count);
                     text = count_text;
                 }
                 static_cast<W8TextControl*>(
@@ -3397,7 +3399,7 @@ void HandleNpcDialogueReply(std::string_view text, bool echo)
             }
         }
         if (echo) {
-            notice = FormatText("%s...", text);
+            notice = fmt::format("{}...", text);
             ShowNotice(W8_FONT_PALETTE_BRONZE, notice, 3, GetTextBoxScrollRange());
         }
         g_npc_interaction_state->script_busy = 0;
@@ -3471,22 +3473,20 @@ void HandleNpcDialogueInput(void)
         return;
     }
     if (g_npc_interaction_state->where_is_query) {
-        std::string_view fmt;
         if (CompareTextIgnoreAsciiCase(std::string_view(field_text).substr(0, wiz8::text::codepoint_prefix(field_text, 9)), std::string_view(g_localized_strings[0x76d]).substr(0, wiz8::text::codepoint_prefix(g_localized_strings[0x76d], 9))) == 0 ||
             CompareTextIgnoreAsciiCase(std::string_view(field_text).substr(0, wiz8::text::codepoint_prefix(field_text, 0xa)), std::string_view(g_localized_strings[0x76e]).substr(0, wiz8::text::codepoint_prefix(g_localized_strings[0x76e], 0xa))) == 0 ||
             CompareTextIgnoreAsciiCase(std::string_view(field_text).substr(0, wiz8::text::codepoint_prefix(field_text, 8)), std::string_view(g_localized_strings[0x76f]).substr(0, wiz8::text::codepoint_prefix(g_localized_strings[0x76f], 8))) == 0) {
-            fmt = g_format_s;
+            buf = field_text;
         } else {
-            fmt = g_localized_strings[0x76a];
+            buf = fmt::sprintf(g_localized_strings[0x76a], field_text);
         }
-        buf = FormatText(fmt, field_text);
         quote = FindNpcScriptQuoteByKeyword(buf, 0, 0);
         if (quote != -1) {
             plain_text = false;
             quote_id = quote;
         }
     } else {
-        buf = FormatText(g_format_s, field_text);
+        buf = field_text;
         quote = FindNpcScriptQuoteByKeyword(buf, 0, 0);
         if (quote != -1) {
             quote_id = quote;
@@ -3536,7 +3536,7 @@ void HandleNpcDialogueInput(void)
             if (!has_word) {
                 break;
             }
-            buf = FormatText(g_format_s_space_s, word, word2);
+            buf = fmt::format("{} {}", word, word2);
             quote = FindNpcScriptQuoteByKeyword(buf, 0, 0);
             if (quote != -1) {
                 quote_id = quote;
@@ -3588,27 +3588,11 @@ void HandleNpcDialogueInput(void)
         echo = true;
     }
     if (!echo && show_fallback) {
-        unsigned int roll;
-        std::string_view fmt;
-        std::string_view text;
-        if (plain_text) {
-            roll = Random(5);
-            if (roll == 2 || roll == 3 || roll == 4) {
-                fmt = "%s %s?";
-            } else {
-                fmt = "%s %s.";
-            }
-            text = g_localized_strings[g_dialogue_fallback_ids0[roll]];
-        } else {
-            roll = Random(5);
-            if (roll == 3 || roll == 4) {
-                fmt = "%s %s?";
-            } else {
-                fmt = "%s %s.";
-            }
-            text = g_localized_strings[g_dialogue_fallback_ids1[roll]];
-        }
-        notice = FormatText(fmt, text, field_text);
+        const auto roll = Random(5);
+        const auto* replies = plain_text ? g_dialogue_fallback_ids0 : g_dialogue_fallback_ids1;
+        const char punctuation = roll >= (plain_text ? 2u : 3u) ? '?' : '.';
+        notice =
+            fmt::format("{} {}{}", g_localized_strings[replies[roll]], field_text, punctuation);
         ShowNotice(W8_FONT_PALETTE_BRONZE, notice, 3, GetTextBoxScrollRange());
     } else {
         ShowNotice(W8_FONT_PALETTE_BRONZE, field_text, 3, GetTextBoxScrollRange());
@@ -3667,7 +3651,7 @@ void HandleNpcDialogueKeyEvent(const InputAtom* event)
             return;
         }
         if (EditingText()) {
-            SetInputFieldText(0, &g_empty_text);
+            SetInputFieldText(0, "");
             ClearActiveField();
             return;
         }
@@ -3750,7 +3734,7 @@ void SetDialogueFieldKeyword(std::string keyword, bool append)
     field_text = GetTextFromField(0);
     StripNpcKeywordPunctuation(keyword);
     if (field_text.size() != 0 && append) {
-        combined = FormatText(g_format_s_space_s, field_text, keyword);
+        combined = fmt::format("{} {}", field_text, keyword);
         SetInputFieldText(0, combined);
     } else {
         SetInputFieldText(0, keyword);
@@ -3952,7 +3936,7 @@ unsigned char HandleNpcDialogueItem(W8ItemInstance* item)
         }
         dialog = static_cast<W8MessageDialogBase*>(CreateDialogByKind(W8_DIALOG_MESSAGE));
         dialog->SetClientExtent(0xfa, 200);
-        message = FormatText(g_localized_strings[0x7d6]);
+        message = g_localized_strings[0x7d6];
         dialog->SetMessage(message, 1, 0x32, true, true, true, true, 0, 0x15e);
         SetDialogDestroyCallback(dialog, OnNpcTradeDialogClosed);
         OpenModal(dialog);
@@ -4063,7 +4047,7 @@ void RefreshNpcTradePartyGold(void)
 {
     std::string text;
 
-    text = FormatText("%dg", g_status.party_gold);
+    text = fmt::format("{:d}g", g_status.party_gold);
     static_cast<W8TextControl*>(g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_33])
         ->m_textBuffer.SetText(text, g_wiz_text_font_secondary);
 }
@@ -4074,7 +4058,7 @@ void RefreshNpcTradePrice(void)
     std::string text;
 
     if (g_npc_interaction_state->trade_item != 0) {
-        text = FormatText(g_format_d, g_npc_interaction_state->trade_quantity);
+        text = fmt::format("{:d}", g_npc_interaction_state->trade_quantity);
         static_cast<W8TextControl*>(
             g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_24])
             ->m_textBuffer.SetText(text, g_wiz_text_font_secondary);
@@ -4161,7 +4145,7 @@ void OpenNpcDialog(W8NpcQuoteEntry* request, int aux_data)
         SetNpcDialoguePanelVisible(0);
     }
     dialog = new W8NpcDialog(request, aux_data);
-    dialog->SetText(&g_empty_text);
+    dialog->SetText("");
     dialog->m_destroy_callback = OnNpcDialogClosed;
     OpenModal(dialog);
     g_npc_interaction_state->script_busy = 1;
@@ -4229,9 +4213,11 @@ void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, W8NpcScriptQu
             -1, 0, 0, normalized, 280, 0, 0, 0, &width, &height, font_palette);
         if (g_npc_interaction_state->quote_bubble == -1) {
             if (g_npc_interaction_state->dialogue_npc != 0) {
-                error_text = FormatText("Error creating box - most likely text too large: NPC %s, quote %d", g_npc_interaction_state->dialogue_npc->record->source_name, quote_id);
+                error_text = fmt::format(
+                    "Error creating box - most likely text too large: NPC {}, quote {:d}",
+                    g_npc_interaction_state->dialogue_npc->record->source_name, quote_id);
             } else {
-                error_text = FormatText("Error creating box - most likely text too large");
+                error_text = "Error creating box - most likely text too large";
             }
             g_npc_interaction_state->quote_bubble =
                 LayoutPortraitQuoteBubble(-1, 0, 0, error_text, 300, 0, 0, 0, &width, &height, -1);
@@ -4269,9 +4255,10 @@ void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, W8NpcScriptQu
     case W8_QUOTE_NOTICE_EXPERIENCE: {
         W8ExperienceNoticePayload* experience =
             g_npc_interaction_state->quote_notice_payload.experience;
-        FormatNotice(W8_FONT_PALETTE_BEIGE, 0,
-                     g_localized_strings[experience->alternate_message ? 0x231 : 0x232],
-                     experience->amount);
+        ShowNotice(W8_FONT_PALETTE_BEIGE,
+                   fmt::sprintf(g_localized_strings[experience->alternate_message ? 0x231 : 0x232],
+                                experience->amount),
+                   0);
         delete experience;
         break;
     }
@@ -4363,7 +4350,7 @@ void FlushPendingNoticeLines(void)
             line->npc_kind != g_npc_interaction_state->last_notice_npc_kind) {
             W8NpcState* npc = GetNpcState(line->npc_kind);
             if (npc != 0) {
-                npc_name = FormatText("%s", npc->record->source_name);
+                npc_name = npc->record->source_name;
                 ShowNotice(W8_FONT_PALETTE_GREEN, npc_name, 3);
                 g_npc_interaction_state->last_notice_npc_kind = line->npc_kind;
             }
@@ -4473,7 +4460,7 @@ void ResolveNpcPickpocket(int party_slot)
 
     switch (AttemptNpcPickpocket(character, g_npc_interaction_state->dialogue_npc, &item, &gold)) {
     case W8_PICKPOCKET_ITEM_TAKEN:
-        text = FormatText(g_localized_strings[0x74d], character->name, GetItemDisplayName(&item));
+        text = fmt::sprintf(g_localized_strings[0x74d], character->name, GetItemDisplayName(&item));
         for (slot = 0; slot < 8; ++slot) {
             if (character->backpack[slot].iItemNo == -1) {
                 AddItemToCharacter(character, &item, false, false, false);
@@ -4485,12 +4472,12 @@ void ResolveNpcPickpocket(int party_slot)
         DisplayNpcQuote(text, true);
         return;
     case W8_PICKPOCKET_GOLD_TAKEN:
-        text = FormatText(g_localized_strings[0x74e], character->name, gold);
+        text = fmt::sprintf(g_localized_strings[0x74e], character->name, gold);
         AddPartyGold(gold, false);
         DisplayNpcQuote(text, true);
         return;
     case W8_PICKPOCKET_FAILED:
-        text = FormatText(g_localized_strings[0x74f], character->name);
+        text = fmt::sprintf(g_localized_strings[0x74f], character->name);
         DisplayNpcQuote(text, false);
         return;
     case W8_PICKPOCKET_CAUGHT:
@@ -4547,7 +4534,7 @@ void OnNpcDialogClosed(W8DialogBase* dialog)
     if (request->kind == W8_NPC_ENTRY_OPTIONS) {
         for (index = 0; index < request->sub_entry_count; ++index) {
             if (index == npc_dialog->m_selected_option) {
-                entry_text = std::string(request->sub_entries[index].text.c_str());
+                entry_text = request->sub_entries[index].text.c_str();
                 if (!gXStatus.fNpcDialogueMode || g_npc_interaction_state->scripted_dialogue) {
                     HandleNpcDialogueReply(entry_text, false);
                 } else {

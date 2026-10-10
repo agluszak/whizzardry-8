@@ -41,7 +41,6 @@ struct W8JournalEntry {
 extern W8GrowableVector<W8JournalEntry>* g_fact_journal_entries;
 /* The "%d / %d" current-over-max format shared by journal pages
    and debug stat readouts. */
-extern char g_journal_page_format[];
 void InitializeFactJournal(void);
 /* Append one changed fact to the journal and, unless notices are
    suppressed, post the fact's own journal entry. */

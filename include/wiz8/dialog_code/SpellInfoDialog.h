@@ -41,7 +41,6 @@ extern const char* g_spell_target_parentheticals[11];
 extern char g_comma_space[];
 
 /* The "%d %s" count-and-name notice format. */
-extern char g_format_d_s[];
 
 /* GppStringList indices naming each W8RangeCategory band. */
 extern unsigned short g_spell_range_name_ids[4];

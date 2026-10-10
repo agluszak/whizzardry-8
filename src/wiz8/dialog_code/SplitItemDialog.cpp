@@ -1,3 +1,4 @@
+#include <fmt/format.h>
 #include <string>
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
@@ -269,8 +270,8 @@ bool W8SplitItemDialog::CreateTextBuffers()
     }
     m_texts[3]->SetText(FormatItemDisplayName(m_item, false), g_wiz_text_font_secondary);
     m_texts[5]->SetText(
-        FormatText(
-            "%s (%s)", g_localized_strings[g_equip_class_name_ids[GetItemEquipClass(m_item)]],
+        fmt::format(
+            "{} ({})", g_localized_strings[g_equip_class_name_ids[GetItemEquipClass(m_item)]],
             g_localized_strings[g_generic_item_name_notice[GetItemUnidentifiedNameIndex(m_item)]]),
         g_wiz_text_font_secondary);
     return true;
@@ -403,11 +404,11 @@ void W8SplitItemDialog::UpdateCostLabels()
         remaining_price = GetItemStackValue(m_item);
         split_price = remaining_price;
     }
-    text = FormatText(g_format_d, remaining_price);
+    text = fmt::format("{:d}", remaining_price);
     m_texts[11]->SetText(text, g_wiz_text_font_secondary);
     m_buttons[8]->m_dirty = true;
     m_texts[11]->SetGeometryDirty();
-    text = FormatText(g_format_d, split_price);
+    text = fmt::format("{:d}", split_price);
     m_texts[13]->SetText(text, g_wiz_text_font_secondary);
     m_buttons[9]->m_dirty = true;
     m_texts[13]->SetGeometryDirty();
@@ -462,7 +463,7 @@ void W8SplitItemDialog::UpdateTotals()
 
     UpdateArrowStates();
     UpdateAcceptButton();
-    text = FormatText(g_format_d, m_remaining);
+    text = fmt::format("{:d}", m_remaining);
     m_texts[2]->SetText(text, g_wiz_text_font_secondary);
     m_buttons[2]->m_dirty = true;
     m_texts[2]->SetGeometryDirty();
@@ -470,13 +471,13 @@ void W8SplitItemDialog::UpdateTotals()
     m_buttons[3]->m_dirty = true;
     m_count_input->m_dirty = true;
     m_count_input->m_button->m_dirty = true;
-    text = FormatText(g_assay_format, static_cast<double>(GetItemUnitWeight(m_item) * m_remaining) *
-                 g_item_weight_display_scale);
+    text = fmt::format("{:.1f}", static_cast<double>(GetItemUnitWeight(m_item) * m_remaining) *
+                                     g_item_weight_display_scale);
     m_texts[7]->SetText(text, g_wiz_text_font_secondary);
     m_buttons[4]->m_dirty = true;
     m_texts[7]->SetGeometryDirty();
-    text = FormatText(g_assay_format, static_cast<double>(GetItemUnitWeight(m_item) * split_count) *
-                 g_item_weight_display_scale);
+    text = fmt::format("{:.1f}", static_cast<double>(GetItemUnitWeight(m_item) * split_count) *
+                                     g_item_weight_display_scale);
     m_texts[9]->SetText(text, g_wiz_text_font_secondary);
     m_buttons[5]->m_dirty = true;
     m_texts[9]->SetGeometryDirty();

@@ -1,3 +1,4 @@
+#include <fmt/format.h>
 #include "wiz8/unicode.h"
 #include "wiz8/utility.h"
 #include <cstdlib>
@@ -869,11 +870,12 @@ void W8GameData::ReadProcessedGameData(wiz8::File* handle)
                      "ReadProcessedGameData: Couldn't read GameData info.");
     }
     if (header.version != 1) {
-        srAssertFail("(FileGD.iVersion == GAMEDATA_VERSION)",
-                     "C:\\Projects\\Wizardry 8\\Engine Code\\GDFileIO.cpp", 0x46c,
-                     FormatText("ReadProcessedGameData: File version %d does not match program "
-                                "version %d.",
-                                header.version, 1));
+        srAssertFail(
+            "(FileGD.iVersion == GAMEDATA_VERSION)",
+            "C:\\Projects\\Wizardry 8\\Engine Code\\GDFileIO.cpp", 0x46c,
+            fmt::format(
+                "ReadProcessedGameData: File version {:d} does not match program version {:d}.",
+                header.version, 1));
     }
 
     minimum = header.minimum;
@@ -1267,16 +1269,16 @@ void W8GameData::CompileGameData()
         static_cast<W8OctPreTreeVertex*>(malloc(m_iNumVertices * sizeof(W8OctPreTreeVertex)));
     if (weld_records == 0) {
         ReportBuildStatus(
-            7, FormatText("CompileGameData: Couldn't allocate %d OctVerts (%dK).\n", m_iNumVertices,
-                          m_iNumVertices * sizeof(W8OctPreTreeVertex) / 1024));
+            7, fmt::format("CompileGameData: Couldn't allocate {:d} OctVerts ({:d}K).\n",
+                           m_iNumVertices, m_iNumVertices * sizeof(W8OctPreTreeVertex) / 1024));
     }
     memset(weld_records, 0, m_iNumVertices * sizeof(W8OctPreTreeVertex));
     g_gd_vertices =
         static_cast<W8OctPreTreeVertex*>(malloc(m_iNumVertices * sizeof(W8OctPreTreeVertex)));
     if (g_gd_vertices == 0) {
         ReportBuildStatus(
-            7, FormatText("CompileGameData: Couldn't allocate %d NewGDVerts (%dK)\n",
-                          m_iNumVertices, m_iNumVertices * sizeof(W8OctPreTreeVertex) / 1024));
+            7, fmt::format("CompileGameData: Couldn't allocate {:d} NewGDVerts ({:d}K)\n",
+                           m_iNumVertices, m_iNumVertices * sizeof(W8OctPreTreeVertex) / 1024));
     }
     memset(g_gd_vertices, 0, m_iNumVertices * sizeof(W8OctPreTreeVertex));
     int* cond_polys = 0;

@@ -58,8 +58,8 @@ unsigned int ApplyDamageToMonster(W8MonsterInfo* monster_info, unsigned int amou
    `quiet` marks non-provoking damage such as a poison tick: it picks the
    shield/notice strings and the poison suffix, and keeps a sleeping character
    asleep. `announce` gates the damage notice, `short_notice` selects the terse
-   ShowNoticef form over the verbose PostCharacterNotice one, and `detailed`
-   selects the named FormatText form. */
+   ShowNotice form over the verbose PostCharacterNotice one, and `detailed`
+   includes the character name in the message. */
 unsigned int ApplyDamageToCharacter(int party_slot, unsigned int amount, bool quiet, bool announce,
                                     bool short_notice, W8SpellEffectResult* result_stats,
                                     bool detailed);

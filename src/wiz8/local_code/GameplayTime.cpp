@@ -1,3 +1,4 @@
+#include <fmt/printf.h>
 #include "wiz8/conditions.h"
 #include "wiz8/fonts.h"
 #include "wiz8/layouts/character.h"
@@ -75,7 +76,7 @@ static void BeginPartyCamping()
         ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x794]);
     } else {
         gXStatus.surprise_unengaged = false;
-        ShowNoticef(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x790], 8);
+        ShowNotice(W8_FONT_PALETTE_BEIGE, fmt::sprintf(g_localized_strings[0x790], 8));
     }
     SetNpcQuoteBubbleVisible(false, {}, 0, -1, 0xffffffff);
     BeginSurprise();
@@ -385,8 +386,10 @@ void ResolveSurpriseWake(void)
                 static_cast<int>(Random(100)) - 0x14 -
                 static_cast<int>(character->attributes[W8_ATTRIBUTE_SENSES].effective * 0x46 / 100);
             if (roll < 1) {
-                PostCharacterNotice(slot, g_localized_strings[0x243],
-                                    g_localized_strings[g_condition_notices[W8_CONDITION_ASLEEP].name]);
+                PostCharacterNotice(
+                    slot, fmt::sprintf(
+                              g_localized_strings[0x243],
+                              g_localized_strings[g_condition_notices[W8_CONDITION_ASLEEP].name]));
             } else {
                 SetCharacterCondition(slot, W8_CONDITION_ASLEEP, roll / 0x1e + 1, 0, 0, 0);
             }
@@ -484,8 +487,8 @@ static bool AgePartyEffectSlot(W8EffectSlot* slot, unsigned int minutes)
         slot->duration -= minutes;
         return false;
     }
-    ShowNoticef(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x1b4],
-                g_spell_records[slot->effect_id].display_name);
+    ShowNotice(W8_FONT_PALETTE_BEIGE, fmt::sprintf(g_localized_strings[0x1b4],
+                                                   g_spell_records[slot->effect_id].display_name));
     if (GetViewDistance() != g_encounter_culling_rate) {
         SoundPlay("Data\\Sound\\Misc\\Spell Expiry.wav", 0);
     }
@@ -649,8 +652,10 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
                     ++character->attributes[attribute].change_counter;
                     ApplyAttributeChange(character, static_cast<W8Attribute>(attribute));
                     PostCharacterNotice(
-                        party_slot, g_localized_strings[0x270],
-                        g_localized_strings[g_character_description_first_ids[attribute]]);
+                        party_slot,
+                        fmt::sprintf(
+                            g_localized_strings[0x270],
+                            g_localized_strings[g_character_description_first_ids[attribute]]));
                 }
                 break;
             }
@@ -665,7 +670,8 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
                     if (loss == 1) {
                         PostCharacterNotice(party_slot, g_localized_strings[0x26e]);
                     } else {
-                        PostCharacterNotice(party_slot, g_localized_strings[0x26f], loss);
+                        PostCharacterNotice(party_slot,
+                                            fmt::sprintf(g_localized_strings[0x26f], loss));
                     }
                     unsigned int current = character->hp_current;
                     if (1 < current) {
@@ -685,7 +691,7 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
                     unsigned int loss = Random(4) + 1;
                     character->uiStaminaMax -= loss;
                     character->fatigue_penalty += loss;
-                    PostCharacterNotice(party_slot, g_localized_strings[0x271], loss);
+                    PostCharacterNotice(party_slot, fmt::sprintf(g_localized_strings[0x271], loss));
                     int stamina = character->stamina;
                     if (1 < stamina) {
                         if (loss >= stamina - 1U) {

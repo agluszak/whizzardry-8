@@ -1,3 +1,5 @@
+#include <fmt/format.h>
+#include <fmt/printf.h>
 #include "random.h"
 #include "wiz8/spell_ids.h"
 #include "wiz8/local_code/CombatHostility.h"
@@ -152,8 +154,9 @@ W8Disposition GetOppositeDisposition(W8TargetSource* source)
         unsigned int monster_list_index =
             MonsterGetIndexByLocationID(0xd3, COMBAT_HOSTILITY_CPP, source->iMonsterID, false);
         if (monster_list_index == 0xffffffff) {
-            FormatDebugMessage(1, "GetOppositeDisposition - ERROR: checking obsolete Monster ID %d",
-                               source->iMonsterID);
+            DebugMessage(
+                1, fmt::format("GetOppositeDisposition - ERROR: checking obsolete Monster ID {:d}",
+                               source->iMonsterID));
             return W8_DISPOSITION_NEUTRAL;
         }
         W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(monster_list_index);
@@ -395,10 +398,12 @@ void SetMonsterGroupHostility(W8MonsterGroup* group, unsigned int hostility, boo
     group->ubDisposition = static_cast<unsigned char>(hostility);
     group->forced_neutral = false;
     if (MonsterGroupHasVisibleThreat(group)) {
-        ShowNoticef(
-            9, "%s %s %s!", GetMonsterGroupName(group),
-            g_localized_strings[0x1d7 + (group->member_count != 1)],
-            g_localized_strings[g_group_hostility_notice_ids[static_cast<unsigned char>(hostility)]]);
+        ShowNotice(
+            9,
+            fmt::format("{} {} {}!", GetMonsterGroupName(group),
+                        g_localized_strings[0x1d7 + (group->member_count != 1)],
+                        g_localized_strings[g_group_hostility_notice_ids[static_cast<unsigned char>(
+                            hostility)]]));
     }
     group->hostility_set_at = g_status.world_clock;
     if (previous != 0) {
@@ -489,7 +494,8 @@ int TurnUndead(int party_slot, int* out_cost, bool check)
     W8GrowableVector<int> party;
     if (check) {
         if (!CanPartySlotTurnUndead(party_slot)) {
-            PostCharacterNotice(party_slot, g_localized_strings[0x1b7], g_localized_strings[0x512]);
+            PostCharacterNotice(
+                party_slot, fmt::sprintf(g_localized_strings[0x1b7], g_localized_strings[0x512]));
             return 0;
         }
         g_combat_state->characters[party_slot].turn_undead_used = true;
@@ -680,7 +686,7 @@ int CharacterPrayAction(int party_slot)
                         member->enchantments[W8_ENCHANTMENT_GUARDIAN_ANGEL].power == 0 &&
                         --pick == 0) {
                         AppendToLastTextLine(
-                            FormatText(g_localized_strings[0x17a], member->name, -1), -1);
+                            fmt::sprintf(g_localized_strings[0x17a], member->name, -1), -1);
                         target.iType = W8_TARGET_KIND_CHARACTER;
                         if (power_level > 6) {
                             power_level = 7;
@@ -868,9 +874,10 @@ int CharacterPrayAction(int party_slot)
                     monster->ubDisposition == W8_DISPOSITION_HOSTILE && monster->hp_current != 0 &&
                     monster->uiCondition[W8_CONDITION_AFRAID] == 0) {
                     AppendToLastTextLine(
-                        FormatText(
+                        fmt::sprintf(
                             g_localized_strings[0x17c],
-                            g_localized_strings[g_gender_name_message_rows[character->gender][2]], -1),
+                            g_localized_strings[g_gender_name_message_rows[character->gender][2]],
+                            -1),
                         -1);
                     target.iType = W8_TARGET_KIND_ALL_ENEMIES;
                     CastSpellFromSource(W8_SPELL_ROUT, &source, &target, power_level, 0, 0, false,

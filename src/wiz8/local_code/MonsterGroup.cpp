@@ -1,3 +1,5 @@
+#include <fmt/format.h>
+#include <fmt/printf.h>
 #include <string>
 #include "wiz8/fonts.h"
 #include "wiz8/local_code/GameplayCode.h"
@@ -210,9 +212,9 @@ static unsigned char MonsterGroupCalcDefaultDisposition(W8MonsterGroup* monster_
             0x75a, MONSTER_GROUP_CPP, IListGetAt(monster_group->monsters, 0), true));
         if (npc_record == 0) {
             srAssertFail("FALSE", MONSTER_GROUP_CPP, 0x75d,
-                         FormatText("MonsterGroupCalcDefaultDisposition: Monster species %d(%s) "
-                                      "NPC data not found",
-                                      monster_group->monster_id, record->name0));
+                         fmt::format("MonsterGroupCalcDefaultDisposition: Monster species {:d}({}) "
+                                     "NPC data not found",
+                                     monster_group->monster_id, record->name0));
         } else {
             switch (GetNpcDispositionBand(npc_record)) {
             case W8_NPC_BAND_FRIENDLY:
@@ -344,8 +346,9 @@ W8MonsterGroup* GetMonsterGroupByListIndex(unsigned int group_list_index)
         if (result != 0) {
             return result;
         }
-        detail = FormatText("GroupInfo: ERROR - PLGet failed, index %d, pList %p",
-                              group_list_index, static_cast<const void*>(gXStatus.plsMonsterGroupList));
+        detail =
+            fmt::format("GroupInfo: ERROR - PLGet failed, index {:d}, pList {}", group_list_index,
+                        static_cast<const void*>(gXStatus.plsMonsterGroupList));
         line = 0x3dc;
     } else {
         if (group_list_index - W8_ENCOUNTER_GROUP_INDEX_BIAS >=
@@ -356,8 +359,9 @@ W8MonsterGroup* GetMonsterGroupByListIndex(unsigned int group_list_index)
         if (result != 0) {
             return result;
         }
-        detail = FormatText("GroupInfo: ERROR - PLGet failed, index %d, pList %p",
-                              group_list_index, static_cast<const void*>(gXStatus.plsMonsterGroupList));
+        detail =
+            fmt::format("GroupInfo: ERROR - PLGet failed, index {:d}, pList {}", group_list_index,
+                        static_cast<const void*>(gXStatus.plsMonsterGroupList));
         line = 0x3d1;
     }
     srAssertFail("pMonsterGroup != NULL", MONSTER_GROUP_CPP, line, detail);
@@ -391,8 +395,8 @@ unsigned int GetMonsterGroupIndexByID(int caller_line, const char* caller_file, 
 
     if (assert_on_failure) {
         srAssertFail("FALSE", MONSTER_GROUP_CPP, 0x3b2,
-                     FormatText("GroupIndex: ID %d not found (%s line %d)", group_id, caller_file,
-                                  caller_line));
+                     fmt::format("GroupIndex: ID {:d} not found ({} line {:d})", group_id,
+                                 caller_file, caller_line));
     }
     return 0xffffffff;
 }
@@ -692,7 +696,8 @@ std::string GetMonsterGroupName(W8MonsterGroup* monster_group)
     record = MonsterGroupGetRecord(monster_group);
     name_form = monster_group->member_count != W8_MONSTER_GROUP_SINGULAR;
     if (record->record_id == W8_MONSTER_RECORD_ALTERNATE_NAME) {
-        g_status.monster_name_buffer = FormatText(g_format_al_s, g_status.buffers.Char[g_status.sedexus_party_slot].name);
+        g_status.monster_name_buffer =
+            fmt::format("Al-{}", g_status.buffers.Char[g_status.sedexus_party_slot].name);
         return g_status.monster_name_buffer;
     }
     if (monster_group->alternate_name) {
@@ -1094,8 +1099,8 @@ W8MonsterGroup* CreateGroup(unsigned int monster_id, unsigned int count,
 
     if (announce_spawn && g_dev_mode) {
         const char* verb = count == 1 ? "appears" : "appear";
-        ShowNoticef(W8_FONT_PALETTE_RUST, "%d %s %s nearby!", count,
-                    GetMonsterGroupName(group), verb);
+        ShowNotice(W8_FONT_PALETTE_RUST,
+                   fmt::format("{:d} {} {} nearby!", count, GetMonsterGroupName(group), verb));
     }
 
     return group;
@@ -1561,13 +1566,16 @@ void ShowMonsterGroupInfoNotice(int group_id)
         GetMonsterGroupIndexByID(0x801, MONSTER_GROUP_CPP, group_id, true));
     auto name = GetMonsterGroupName(group);
 
-    ShowNoticef(W8_FONT_PALETTE_BEIGE, g_format_d_s, group->member_count, name);
+    ShowNotice(W8_FONT_PALETTE_BEIGE, fmt::format("{:d} {}", group->member_count, name));
     if (!group->alternate_name) {
         ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x1c5]);
     }
-    ShowNoticef(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x1c6], group->active_member_count);
-    ShowNoticef(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x1c7], group->selectable_member_count);
-    ShowNoticef(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x1c8], group->visible_member_count);
+    ShowNotice(W8_FONT_PALETTE_BEIGE,
+               fmt::sprintf(g_localized_strings[0x1c6], group->active_member_count));
+    ShowNotice(W8_FONT_PALETTE_BEIGE,
+               fmt::sprintf(g_localized_strings[0x1c7], group->selectable_member_count));
+    ShowNotice(W8_FONT_PALETTE_BEIGE,
+               fmt::sprintf(g_localized_strings[0x1c8], group->visible_member_count));
 }
 
 /* Flags every live member of the group for removal, then recurses into each

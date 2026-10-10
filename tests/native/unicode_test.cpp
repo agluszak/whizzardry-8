@@ -56,9 +56,13 @@ static void conversion_contracts()
     std::array<std::byte, 6> small{};
     wiz8::text::to_utf16le("A😀", small);
     CHECK(wiz8::text::from_utf16le(small) == "A");
-    char truncated[4];
-    wiz8::text::copy(truncated, sizeof(truncated), "éé");
-    CHECK(std::string(truncated) == "é");
+    char truncated[6];
+    wiz8::text::write_utf8_field("ééé", truncated);
+    CHECK(std::string(truncated) == "éé");
+    CHECK(truncated[4] == '\0' && truncated[5] == '\0');
+    wiz8::text::write_utf8_field({}, truncated);
+    CHECK(
+        std::all_of(std::begin(truncated), std::end(truncated), [](char c) { return c == '\0'; }));
 }
 
 static void missile_record_contracts()

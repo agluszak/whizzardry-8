@@ -1,3 +1,5 @@
+#include <fmt/format.h>
+#include <fmt/printf.h>
 #include <string_view>
 #include "soundman.h"
 #include "wiz8/layouts/character.h"
@@ -137,7 +139,7 @@ W8CharacterScreen::W8CharacterScreen(int mode, W8Character* character)
     if (m_mode == 3) {
         m_mode = 2;
         SoundPlay("Data\\Sound\\Misc\\GainLevel.wav", 0);
-        ShowMessage(FormatText(g_localized_strings[0xd9], m_character.name, 0, 0), 0, 0);
+        ShowMessage(fmt::sprintf(g_localized_strings[0xd9], m_character.name, 0, 0), 0, 0);
     }
     m_page_enabled[0] = m_mode != 1;
     m_page_enabled[1] = m_mode != 1;
@@ -249,7 +251,7 @@ void W8CharacterScreen::ShowSpellInfo(int value)
 {
     m_dialog_response = 0;
     m_dialog = new W8SpellInfoDialog(value);
-    m_dialog->SetText(&g_empty_text);
+    m_dialog->SetText("");
     ActivateDialogRegion(0x138);
 }
 
@@ -258,7 +260,7 @@ void W8CharacterScreen::ShowProfessionInfo(W8Profession profession)
 {
     m_dialog_response = 0;
     m_dialog = new W8ProfessionInfoDialog(profession);
-    m_dialog->SetText(&g_empty_text);
+    m_dialog->SetText("");
     ActivateDialogRegion(0x138);
 }
 
@@ -267,7 +269,7 @@ void W8CharacterScreen::ShowRaceInfo(W8Race race)
 {
     m_dialog_response = 0;
     m_dialog = new W8RaceInfoDialog(race);
-    m_dialog->SetText(&g_empty_text);
+    m_dialog->SetText("");
     ActivateDialogRegion(0x138);
 }
 
@@ -276,7 +278,7 @@ void W8CharacterScreen::ShowPrimaryAttributeInfo(W8Attribute attribute)
 {
     m_dialog_response = 0;
     m_dialog = new W8AttributeInfoDialog(attribute);
-    m_dialog->SetText(&g_empty_text);
+    m_dialog->SetText("");
     ActivateDialogRegion(0x138);
 }
 
@@ -285,7 +287,7 @@ void W8CharacterScreen::ShowSecondaryAttributeInfo(unsigned int attribute)
 {
     m_dialog_response = 0;
     m_dialog = new W8SecondaryAttributeInfoDialog(attribute);
-    m_dialog->SetText(&g_empty_text);
+    m_dialog->SetText("");
     ActivateDialogRegion(0x138);
 }
 
@@ -298,7 +300,7 @@ void W8CharacterScreen::ShowSkillInfo(W8Skill value)
     } else {
         m_dialog = new W8SkillInfoDialog(value, false, false, false);
     }
-    m_dialog->SetText(&g_empty_text);
+    m_dialog->SetText("");
     ActivateDialogRegion(0x138);
 }
 
@@ -339,9 +341,10 @@ void W8CharacterScreen::OnSecondary(W8TextControl*) {}
 // FUNCTION: WIZ8 0x005b09b0
 void W8CharacterScreen::ShowDescription(int first, int second)
 {
-    ShowMessage(FormatText(
-                    g_localized_strings[0x1d6], g_localized_strings[g_character_description_first_ids[first]],
-                    m_character.name, g_localized_strings[g_character_skill_name_ids[second]]),
+    ShowMessage(fmt::sprintf(g_localized_strings[0x1d6],
+                             g_localized_strings[g_character_description_first_ids[first]],
+                             m_character.name,
+                             g_localized_strings[g_character_skill_name_ids[second]]),
                 0, 0);
 }
 
@@ -368,18 +371,20 @@ void W8CharacterScreen::AdvancePage(bool forward)
                 int value = ComputeRealmSkillDebt(m_original, &m_character);
                 if (value > 0) {
                     ShowMessage(
-                        FormatText(
-                            g_localized_strings[0xdb],
-                            g_localized_strings[g_profession_name_message_ids[m_original->iProfession]],
-                            g_localized_strings[g_profession_name_message_ids[m_character.iProfession]],
-                            value),
+                        fmt::sprintf(g_localized_strings[0xdb],
+                                     g_localized_strings
+                                         [g_profession_name_message_ids[m_original->iProfession]],
+                                     g_localized_strings
+                                         [g_profession_name_message_ids[m_character.iProfession]],
+                                     value),
                         1, 4);
                 } else {
                     ShowMessage(
-                        FormatText(
-                            g_localized_strings[0xda],
-                            g_localized_strings[g_profession_name_message_ids[m_original->iProfession]],
-                            g_localized_strings[g_profession_name_message_ids[m_character.iProfession]]),
+                        fmt::sprintf(g_localized_strings[0xda],
+                                     g_localized_strings
+                                         [g_profession_name_message_ids[m_original->iProfession]],
+                                     g_localized_strings
+                                         [g_profession_name_message_ids[m_character.iProfession]]),
                         1, 4);
                 }
                 return;
@@ -521,9 +526,9 @@ void W8CharacterScreen::DrawHeader()
         bounds.top += 0xe;
         text.SetLayoutBounds(&bounds, true, true);
         text.RenderString(
-            FormatText("%s %s",
-                             g_localized_strings[g_gender_name_message_rows[m_character.gender][0]],
-                             g_localized_strings[g_race_name_message_ids[m_character.iRace]]),
+            fmt::format("{} {}",
+                        g_localized_strings[g_gender_name_message_rows[m_character.gender][0]],
+                        g_localized_strings[g_race_name_message_ids[m_character.iRace]]),
             g_wiz_text_font_secondary, true, FRAME_BUFFER);
         bounds.top += 0xe;
         text.RenderString(&bounds,
@@ -532,10 +537,10 @@ void W8CharacterScreen::DrawHeader()
         bounds.top += 0xe;
         text.SetLayoutBounds(&bounds, true, true);
         text.RenderString(
-            FormatText(
-                "%s %d (%s)", g_localized_strings[0x6b9], m_character.uiExpLevel,
+            fmt::format(
+                "{} {:d} ({})", g_localized_strings[0x6b9], m_character.uiExpLevel,
                 g_localized_strings[g_profession_level_name_message_ids[m_character.iProfession]
-                                                                 [m_character.level_band]]),
+                                                                       [m_character.level_band]]),
             g_wiz_text_font_secondary, true, FRAME_BUFFER);
     }
     m_header_dirty = false;
@@ -646,7 +651,7 @@ void W8CharacterScreen::HandleDialogResult(int response, unsigned char accepted)
                 format = g_localized_strings[0xd8];
                 next_response = 7;
             }
-            ShowMessage(FormatText(format, value), 1, next_response);
+            ShowMessage(fmt::sprintf(format, value), 1, next_response);
             break;
         }
         case 6:

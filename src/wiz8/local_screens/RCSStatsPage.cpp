@@ -1,3 +1,4 @@
+#include <fmt/format.h>
 #include <string>
 #include "wiz8/conditions.h"
 
@@ -216,33 +217,35 @@ void DrawCampStatsPage(void)
         g_camp_stats_origin_y = 0xa5;
         int index;
         std::string text = g_localized_strings[0x937];
-        gprintf(g_camp_stats_origin_x + 10 +
-                    ((0x11f - StringPixLength(text, g_wiz_text_font_secondary)) >> 1),
-                g_camp_stats_origin_y + 10, g_format_s, text);
+        DrawFontText(g_camp_stats_origin_x + 10 +
+                         ((0x11f - StringPixLength(text, g_wiz_text_font_secondary)) >> 1),
+                     g_camp_stats_origin_y + 10, text);
         int row_y = 0xbf;
         for (index = 0; index < 7; ++index) {
             std::string label = g_localized_strings[g_attribute_label_ids[index]];
-            gprintf(g_camp_stats_origin_x + 10 +
-                        ((0x7b - StringPixLength(label, g_wiz_text_font_secondary)) >> 1),
-                    row_y - 0xa6 + g_camp_stats_origin_y, g_format_s, label);
+            DrawFontText(g_camp_stats_origin_x + 10 +
+                             ((0x7b - StringPixLength(label, g_wiz_text_font_secondary)) >> 1),
+                         row_y - 0xa6 + g_camp_stats_origin_y, label);
             unsigned int effective = g_review_character->attributes[index].effective;
             DrawCampValueBar(effective, g_review_character->attributes[index].base, 0x88, row_y);
-            g_camp_screen->text_buffer = FormatText(g_format_d, effective);
-            gprintf(g_camp_stats_origin_x + 0x108 +
-                        ((0x21 -
-                          StringPixLength(g_camp_screen->text_buffer, g_wiz_text_font_secondary)) >>
-                         1),
-                    row_y - 0xa6 + g_camp_stats_origin_y, g_format_s,
-                    g_camp_screen->text_buffer);
+            g_camp_screen->text_buffer = fmt::format("{:d}", effective);
+            DrawFontText(g_camp_stats_origin_x + 0x108 +
+                             ((0x21 - StringPixLength(g_camp_screen->text_buffer,
+                                                      g_wiz_text_font_secondary)) >>
+                              1),
+                         row_y - 0xa6 + g_camp_stats_origin_y, g_camp_screen->text_buffer);
             row_y += 0xe;
         }
         text = g_localized_strings[0x938];
-        gprintf(g_camp_stats_origin_x + 10 +
-                    ((0x11f - StringPixLength(text, g_wiz_text_font_secondary)) >> 1),
-                g_camp_stats_origin_y + 0x8d, g_format_s, text);
-        g_camp_screen->text_buffer = FormatText(g_format_s_space_s, g_localized_strings[g_character_skill_name_ids
-                                   [g_profession_bonus_skills[g_review_character->iProfession]]], g_localized_strings[0x8c5]);
-        gprintf(0x10, 0x142, g_format_s, g_camp_screen->text_buffer);
+        DrawFontText(g_camp_stats_origin_x + 10 +
+                         ((0x11f - StringPixLength(text, g_wiz_text_font_secondary)) >> 1),
+                     g_camp_stats_origin_y + 0x8d, text);
+        g_camp_screen->text_buffer = fmt::format(
+            "{} {}",
+            g_localized_strings[g_character_skill_name_ids
+                                    [g_profession_bonus_skills[g_review_character->iProfession]]],
+            g_localized_strings[0x8c5]);
+        DrawFontText(0x10, 0x142, g_camp_screen->text_buffer);
         int trait_count = 0;
         char traits[0x20];
         for (index = 0; index < 0x20; ++index) {
@@ -257,15 +260,14 @@ void DrawCampStatsPage(void)
         int trait_y = step + 0x14e;
         for (index = 0; index < 0x20; ++index) {
             if (traits[index] != 0) {
-                gprintf(0x10, trait_y, g_format_s,
-                        g_localized_strings[g_character_trait_name_ids[index]]);
+                DrawFontText(0x10, trait_y, g_localized_strings[g_character_trait_name_ids[index]]);
                 trait_y += step + 0xc;
             }
         }
         text = g_localized_strings[0x939];
-        gprintf(g_camp_stats_origin_x + 0x13b +
-                    ((0x13b - StringPixLength(text, g_wiz_text_font_secondary)) >> 1),
-                g_camp_stats_origin_y + 10, g_format_s, text);
+        DrawFontText(g_camp_stats_origin_x + 0x13b +
+                         ((0x13b - StringPixLength(text, g_wiz_text_font_secondary)) >> 1),
+                     g_camp_stats_origin_y + 10, text);
         g_camp_screen->stats_controls->Invalidate(0);
         g_camp_screen->stats_range->m_range->Invalidate(0);
     }
@@ -528,35 +530,40 @@ void DrawCampEffectEntry(W8CampEffectEntry* entry, int* line_out)
     if (entry->kind == 0) {
         SetFontObjectPalette16BPP(g_wiz_text_font_secondary,
                                   g_font_state_palettes[W8_FONT_PALETTE_GREEN].get());
-        gprintf(0x15e, line * 0xe + 0xbf, g_format_s_space_s,
-                g_localized_strings[0x8d1], g_localized_strings[g_condition_notices[entry->index].name]);
+        DrawFontText(0x15e, line * 0xe + 0xbf,
+                     fmt::format("{} {}", g_localized_strings[0x8d1],
+                                 g_localized_strings[g_condition_notices[entry->index].name]));
         SetFontObjectPalette16BPP(g_wiz_text_font_secondary, GetFontObject(g_wiz_text_font_secondary)->ownedPalette.get());
         int next = line + 1;
         if (entry->turns == W8_CONDITION_INDEFINITE) {
-            gprintf(0x15e, (line + 1) * 0xe + 0xbf, g_localized_strings[0x8d2]);
+            DrawFontText(0x15e, (line + 1) * 0xe + 0xbf, g_localized_strings[0x8d2]);
             next = line + 2;
         }
         line = next;
         if (entry->index == 1) {
             if (g_review_character->hp_adjustment != 0) {
-                gprintf(0x15e, line * 0xe + 0xbf, "%s: %+d", g_localized_strings[0x8da],
-                        g_review_character->hp_adjustment);
+                DrawFontText(0x15e, line * 0xe + 0xbf,
+                             fmt::format("{}: {:+d}", g_localized_strings[0x8da],
+                                         g_review_character->hp_adjustment));
                 ++line;
             }
             if (g_review_character->fatigue_penalty != 0) {
-                gprintf(0x15e, line * 0xe + 0xbf, "%s: %+d", g_localized_strings[0x8dc],
-                        -g_review_character->fatigue_penalty);
+                DrawFontText(0x15e, line * 0xe + 0xbf,
+                             fmt::format("{}: {:+d}", g_localized_strings[0x8dc],
+                                         -static_cast<int>(g_review_character->fatigue_penalty)));
                 ++line;
             }
         }
     } else if (entry->kind == 1) {
         SetFontObjectPalette16BPP(g_wiz_text_font_secondary,
                                   g_font_state_palettes[W8_FONT_PALETTE_GREEN].get());
-        gprintf(0x15e, line * 0xe + 0xbf, "%s %s (%d)", g_localized_strings[0x8d4],
-                g_localized_strings[g_enchantment_notices[entry->index]], entry->enchantment);
+        DrawFontText(0x15e, line * 0xe + 0xbf,
+                     fmt::format("{} {} ({:d})", g_localized_strings[0x8d4],
+                                 g_localized_strings[g_enchantment_notices[entry->index]],
+                                 entry->enchantment));
         SetFontObjectPalette16BPP(g_wiz_text_font_secondary, GetFontObject(g_wiz_text_font_secondary)->ownedPalette.get());
-        gprintf(0x15e, (line + 1) * 0xe + 0xbf, g_format_d_s, entry->turns,
-                g_localized_strings[0x8d3]);
+        DrawFontText(0x15e, (line + 1) * 0xe + 0xbf,
+                     fmt::format("{:d} {}", entry->turns, g_localized_strings[0x8d3]));
         *line_out = line + 3;
         return;
     } else if (entry->kind == 2) {
@@ -564,107 +571,125 @@ void DrawCampEffectEntry(W8CampEffectEntry* entry, int* line_out)
             &g_item_records[g_review_character->EquippedItem[entry->index].iItemNo];
         SetFontObjectPalette16BPP(g_wiz_text_font_secondary,
                                   g_font_state_palettes[W8_FONT_PALETTE_GREEN].get());
-        gprintf(0x15e, line * 0xe + 0xbf, g_format_s,
-                GetItemDisplayName(&g_review_character->EquippedItem[entry->index]));
+        DrawFontText(0x15e, line * 0xe + 0xbf,
+                     GetItemDisplayName(&g_review_character->EquippedItem[entry->index]));
         SetFontObjectPalette16BPP(g_wiz_text_font_secondary, GetFontObject(g_wiz_text_font_secondary)->ownedPalette.get());
         int next = line + 1;
         if (record->attack_damage_bonus != 0) {
-            gprintf(0x15e, (line + 1) * 0xe + 0xbf, "%s %+d", g_localized_strings[0x8b1],
-                    record->attack_damage_bonus);
+            DrawFontText(
+                0x15e, (line + 1) * 0xe + 0xbf,
+                fmt::format("{} {:+d}", g_localized_strings[0x8b1], record->attack_damage_bonus));
             next = line + 2;
         }
         line = next;
         std::string value_text;
         for (index = 0; index < 0x10; ++index) {
             if (record->missile_values[index] != 0) {
-                g_camp_screen->text_buffer = &g_empty_text;
+                g_camp_screen->text_buffer = "";
                 g_camp_screen->text_buffer += g_localized_strings[g_attack_effect_name_ids[index]];
                 g_camp_screen->text_buffer += " ";
-                value_text = FormatText(g_format_d_percent, record->missile_values[index]);
+                value_text = fmt::format("{:d}%", record->missile_values[index]);
                 g_camp_screen->text_buffer += value_text;
                 if (index == 2) {
                     g_camp_screen->text_buffer += " (";
                     g_camp_screen->text_buffer += g_localized_strings[0x8d5];
-                    value_text = FormatText(" %d)", record->missile_magnitude);
+                    value_text = fmt::format(" {:d})", record->missile_magnitude);
                     g_camp_screen->text_buffer += value_text;
                 }
-                gprintf(0x15e, line * 0xe + 0xbf, g_format_s_colon_s,
-                        g_localized_strings[0x8d6], g_camp_screen->text_buffer);
+                DrawFontText(
+                    0x15e, line * 0xe + 0xbf,
+                    fmt::format("{}: {}", g_localized_strings[0x8d6], g_camp_screen->text_buffer));
                 ++line;
             }
         }
         if (record->attack_hit_bonus != 0) {
-            gprintf(0x15e, line * 0xe + 0xbf, "%s %+d", g_localized_strings[0x8b7],
-                    record->attack_hit_bonus);
+            DrawFontText(
+                0x15e, line * 0xe + 0xbf,
+                fmt::format("{} {:+d}", g_localized_strings[0x8b7], record->attack_hit_bonus));
             ++line;
         }
         if (record->slays_kind != 0xff) {
-            gprintf(0x15e, line * 0xe + 0xbf, g_format_s_colon_s,
-                    g_localized_strings[0x8d8],
-                    g_localized_strings[g_special_category_name_ids[record->slays_kind]]);
+            DrawFontText(
+                0x15e, line * 0xe + 0xbf,
+                fmt::format("{}: {}", g_localized_strings[0x8d8],
+                            g_localized_strings[g_special_category_name_ids[record->slays_kind]]));
             ++line;
         }
         if (record->health_regen_bonus > 0) {
-            gprintf(0x15e, line * 0xe + 0xbf, "%s: %+d", g_localized_strings[0x8d9],
-                    record->health_regen_bonus);
+            DrawFontText(
+                0x15e, line * 0xe + 0xbf,
+                fmt::format("{}: {:+d}", g_localized_strings[0x8d9], record->health_regen_bonus));
             ++line;
         }
         if (record->health_regen_bonus < 0) {
-            gprintf(0x15e, line * 0xe + 0xbf, "%s: %+d", g_localized_strings[0x8da],
-                    record->health_regen_bonus);
+            DrawFontText(
+                0x15e, line * 0xe + 0xbf,
+                fmt::format("{}: {:+d}", g_localized_strings[0x8da], record->health_regen_bonus));
             ++line;
         }
         if (record->stamina_regen_bonus > 0) {
-            gprintf(0x15e, line * 0xe + 0xbf, "%s: %+d", g_localized_strings[0x8db],
-                    record->stamina_regen_bonus);
+            DrawFontText(
+                0x15e, line * 0xe + 0xbf,
+                fmt::format("{}: {:+d}", g_localized_strings[0x8db], record->stamina_regen_bonus));
             ++line;
         }
         if (record->stamina_regen_bonus < 0) {
-            gprintf(0x15e, line * 0xe + 0xbf, "%s: %+d", g_localized_strings[0x8dc],
-                    record->stamina_regen_bonus);
+            DrawFontText(
+                0x15e, line * 0xe + 0xbf,
+                fmt::format("{}: {:+d}", g_localized_strings[0x8dc], record->stamina_regen_bonus));
             ++line;
         }
         if (record->spell_regen_bonus > 0) {
-            gprintf(0x15e, line * 0xe + 0xbf, "%s: %+d", g_localized_strings[0x8dd],
-                    record->spell_regen_bonus);
+            DrawFontText(
+                0x15e, line * 0xe + 0xbf,
+                fmt::format("{}: {:+d}", g_localized_strings[0x8dd], record->spell_regen_bonus));
             ++line;
         }
         if (record->spell_regen_bonus < 0) {
-            gprintf(0x15e, line * 0xe + 0xbf, "%s: %+d", g_localized_strings[0x8de],
-                    record->spell_regen_bonus);
+            DrawFontText(
+                0x15e, line * 0xe + 0xbf,
+                fmt::format("{}: {:+d}", g_localized_strings[0x8de], record->spell_regen_bonus));
             ++line;
         }
         if (record->armor_class_bonus != 0 &&
             (record->armor_class_bonus < 0 ||
              (entry->index != 0 && entry->index != 4 && entry->index != 5 && entry->index != 10 &&
               entry->index != 0xb && record->equip_class != W8_ITEM_EQUIP_CLASS_SHIELD))) {
-            gprintf(0x15e, line * 0xe + 0xbf, "%s %+d", g_localized_strings[0x8df],
-                    record->armor_class_bonus);
+            DrawFontText(
+                0x15e, line * 0xe + 0xbf,
+                fmt::format("{} {:+d}", g_localized_strings[0x8df], record->armor_class_bonus));
             ++line;
         }
         if (record->modifier_0b3_index != -1) {
-            gprintf(0x15e, line * 0xe + 0xbf, "%s %+d",
-                    g_localized_strings[g_character_description_first_ids[record->modifier_0b3_index]],
-                    record->modifier_0b3_value);
+            DrawFontText(
+                0x15e, line * 0xe + 0xbf,
+                fmt::format("{} {:+d}",
+                            g_localized_strings
+                                [g_character_description_first_ids[record->modifier_0b3_index]],
+                            record->modifier_0b3_value));
             ++line;
         }
         if (record->modifier_0b1_index != -1) {
-            gprintf(0x15e, line * 0xe + 0xbf, "%s %+d",
+            DrawFontText(
+                0x15e, line * 0xe + 0xbf,
+                fmt::format(
+                    "{} {:+d}",
                     g_localized_strings[g_character_skill_name_ids[record->modifier_0b1_index]],
-                    record->modifier_0b1_value);
+                    record->modifier_0b1_value));
             ++line;
         }
         for (index = 0; index < 6; ++index) {
             if (record->resistance_bonus[index] != 0) {
-                gprintf(0x15e, line * 0xe + 0xbf, "%s %s %+d%%",
-                        g_localized_strings[g_attr_table1[6 + index]], g_localized_strings[0x8e0],
-                        record->resistance_bonus[index]);
+                DrawFontText(
+                    0x15e, line * 0xe + 0xbf,
+                    fmt::format("{} {} {:+d}%", g_localized_strings[g_attr_table1[6 + index]],
+                                g_localized_strings[0x8e0], record->resistance_bonus[index]));
                 ++line;
             }
         }
         if (record->binds_on_equip != 0 &&
             g_review_character->EquippedItem[entry->index].bound != 0) {
-            gprintf(0x15e, line * 0xe + 0xbf, g_localized_strings[0x8e1]);
+            DrawFontText(0x15e, line * 0xe + 0xbf, g_localized_strings[0x8e1]);
             *line_out = line + 2;
             return;
         }
@@ -843,17 +868,17 @@ void DrawCampSkillsPage(void)
                 SetFontObjectPalette16BPP(g_wiz_text_font_secondary, palette);
                 short width = StringPixLength(g_localized_strings[g_character_skill_name_ids[skill]],
                                               g_wiz_text_font_secondary);
-                gprintf((0x6b - width) / 2 + 2 + left, top + 1, g_format_s,
-                        g_localized_strings[g_character_skill_name_ids[skill]]);
+                DrawFontText((0x6b - width) / 2 + 2 + left, top + 1,
+                             g_localized_strings[g_character_skill_name_ids[skill]]);
                 palette = GetFontObject(g_wiz_text_font_secondary)->ownedPalette.get();
                 if (value->improved) {
                     palette = g_font_state_palettes[W8_FONT_PALETTE_GREEN].get();
                 }
                 SetFontObjectPalette16BPP(g_wiz_text_font_secondary, palette);
-                short value_width = StringPixLengthArg(g_wiz_text_font_secondary, 3,
-                                                       g_format_d, value->level);
-                gprintfDirty((0x24 - value_width) / 2 + 0xee + left, top + 1,
-                             g_format_d, value->level);
+                short value_width = StringCodepointPrefixPixelWidth(
+                    g_wiz_text_font_secondary, 3, fmt::format("{:d}", value->level));
+                DrawFontTextDirty((0x24 - value_width) / 2 + 0xee + left, top + 1,
+                                  fmt::format("{:d}", value->level));
                 SetFontObjectPalette16BPP(g_wiz_text_font_secondary,
                                           GetFontObject(g_wiz_text_font_secondary)->ownedPalette.get());
                 SetObjectShade(GetFontObject(g_wiz_text_font_secondary), 4);
@@ -1399,7 +1424,7 @@ void W8CharacterSkillsPage::Redraw()
         bounds.bottom = 0x179;
         DrawCatalogImage(FRAME_BUFFER, 0x107, 0, 5, 0x8f, 0x162, VO_BLT_SRCTRANSPARENCY, 0);
         text.SetLayoutBounds(&bounds, true, true);
-        text.RenderString(FormatText(g_format_d, m_creation_state->skill_step_limit),
+        text.RenderString(fmt::format("{:d}", m_creation_state->skill_step_limit),
                           g_options_detail_font, true, FRAME_BUFFER);
         m_prepared = false;
     }
@@ -1409,9 +1434,8 @@ void W8CharacterSkillsPage::Redraw()
         W8ControlsRect bounds = {0x8f, 0x184, 0xbf, 0x19b};
         DrawCatalogImage(FRAME_BUFFER, 0x107, 0, 5, 0x8f, 0x184, VO_BLT_SRCTRANSPARENCY, 0);
         text.SetLayoutBounds(&bounds, true, true);
-        text.RenderString(FormatText(g_format_d_slash_d,
-                                           m_creation_state->skill_points_remaining,
-                                           m_creation_state->skill_points_total),
+        text.RenderString(fmt::format("{:d}/{:d}", m_creation_state->skill_points_remaining,
+                                      m_creation_state->skill_points_total),
                           g_options_detail_font, true, FRAME_BUFFER);
         m_dirty = false;
     }

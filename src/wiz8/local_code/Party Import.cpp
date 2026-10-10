@@ -258,7 +258,7 @@ void ImportWizardry7Character(W8Character* character, W8Wiz7Character* imported)
     int status;
 
     *character = W8Character{};
-    character->name = FormatText(g_combat_log_format, TitleCaseString(imported->name));
+    character->name = TitleCaseString(imported->name);
     character->name_part_2 = character->name;
     character->iRace = static_cast<W8Race>(imported->race);
     character->gender = static_cast<W8Gender>(imported->gender);

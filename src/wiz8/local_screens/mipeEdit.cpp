@@ -1,3 +1,4 @@
+#include <fmt/format.h>
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
@@ -211,30 +212,32 @@ static void DrawMipeEditFieldRow(W8MipeEditField* field, unsigned int palette, c
 {
     if (field->type == 1) {
         if (g_mipe_edit_decimal == 0) {
-            ShowNoticef(palette, "%d) %s: %g.", static_cast<int>(row),
-                        g_mipe_prop_labels[field->label_index], field->float_value);
+            ShowNotice(palette,
+                       fmt::format("{:d}) {}: {:g}.", static_cast<int>(row),
+                                   g_mipe_prop_labels[field->label_index], field->float_value));
         } else {
-            ShowNoticef(palette, "%d) %s: %g", static_cast<int>(row),
-                        g_mipe_prop_labels[field->label_index], field->float_value);
+            ShowNotice(palette,
+                       fmt::format("{:d}) {}: {:g}", static_cast<int>(row),
+                                   g_mipe_prop_labels[field->label_index], field->float_value));
         }
     } else if (field->type == 2 || field->type == 4) {
-        ShowNoticef(palette, "%d) %s: %d", static_cast<int>(row),
-                    g_mipe_prop_labels[field->label_index], field->value);
+        ShowNotice(palette, fmt::format("{:d}) {}: {:d}", static_cast<int>(row),
+                                        g_mipe_prop_labels[field->label_index], field->value));
     } else if (field->type == 5) {
         if (field->value != 0) {
-            ShowNoticef(palette, "%d) %s: true", static_cast<int>(row),
-                        g_mipe_prop_labels[field->label_index]);
+            ShowNotice(palette, fmt::format("{:d}) {}: true", static_cast<int>(row),
+                                            g_mipe_prop_labels[field->label_index]));
         } else {
-            ShowNoticef(palette, "%d) %s: false", static_cast<int>(row),
-                        g_mipe_prop_labels[field->label_index]);
+            ShowNotice(palette, fmt::format("{:d}) {}: false", static_cast<int>(row),
+                                            g_mipe_prop_labels[field->label_index]));
         }
     } else if (field->type == 6) {
-        ShowNoticef(palette, "%d) %s: %s", static_cast<int>(row),
-                    g_mipe_prop_labels[field->label_index], field->text);
+        ShowNotice(palette, fmt::format("{:d}) {}: {}", static_cast<int>(row),
+                                        g_mipe_prop_labels[field->label_index], field->text));
     } else if (field->type == 7) {
-        ShowNoticef(palette, "%d) %s: %s", static_cast<int>(row),
-                    g_mipe_prop_labels[field->label_index],
-                    g_mipe_key_names[field->option_base + field->value]);
+        ShowNotice(palette, fmt::format("{:d}) {}: {}", static_cast<int>(row),
+                                        g_mipe_prop_labels[field->label_index],
+                                        g_mipe_key_names[field->option_base + field->value]));
     }
 }
 

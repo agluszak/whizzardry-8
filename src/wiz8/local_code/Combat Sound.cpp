@@ -1,3 +1,4 @@
+#include <fmt/format.h>
 #include "wiz8/unicode.h"
 #include "wiz8/virtual_file.h"
 #include "wiz8/local_code/CombatSound.h"
@@ -41,12 +42,14 @@ void PlayCombatSound(char* sound_name, unsigned int variant_count, bool store_ha
     unsigned int handle;
 
     if (variant_count > 1) {
-        strcat(sound_name, FormatText("%d", Random(variant_count) + 1).c_str());
+        strcat(sound_name, fmt::format("{:d}", Random(variant_count) + 1).c_str());
     }
-    zSoundFileName = FormatText("Data\\Sound\\Combat\\%s.wav", sound_name);
+    zSoundFileName = fmt::format("Data\\Sound\\Combat\\{}.wav", sound_name);
     if (![&]() { const auto status = wiz8::file_status(zSoundFileName); return status && status->info.type == SDL_PATHTYPE_FILE; }()) {
-        srAssertFail("[&]() { const auto status = wiz8::file_status(zSoundFileName); return status && status->info.type == SDL_PATHTYPE_FILE; }()", COMBAT_SOUND_CPP, 104,
-                     FormatText("CombatSound: ERROR - Sound file %s not found", zSoundFileName));
+        srAssertFail("[&]() { const auto status = wiz8::file_status(zSoundFileName); return status "
+                     "&& status->info.type == SDL_PATHTYPE_FILE; }()",
+                     COMBAT_SOUND_CPP, 104,
+                     fmt::format("CombatSound: ERROR - Sound file {} not found", zSoundFileName));
     }
     if (volume > 0) {
         memset(&parms, 0xff, sizeof(parms));
