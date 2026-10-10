@@ -26,7 +26,7 @@ srModelInstance& srModelInstance::operator=(const srModelInstance& other)
     if (this != &other) {
         srNode::operator=(other);
         alignment_flags = other.alignment_flags;
-        setModel(other.getModel());
+        setModel(other.getSharedModel());
         align_angle = other.align_angle;
         align_axis = other.align_axis;
         exclusion_mask = other.exclusion_mask;

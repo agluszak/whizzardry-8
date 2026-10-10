@@ -776,7 +776,7 @@ unsigned char AutomapScreenEnter(void)
             for (unsigned int mesh = 0; mesh < g_world->octree->m_meshCount; ++mesh) {
                 for (stMeshModel* model =
                          static_cast<stMeshModel*>(g_world->psrMeshes[mesh]->getModel());
-                     model; model = model->next) {
+                     model; model = model->next.get()) {
                     model->ApplyAutomapPolygonFilter(excluded_textures);
                 }
             }
@@ -1055,7 +1055,7 @@ unsigned char AutomapScreenLeave(int)
     EnableCursorScene();
     for (unsigned int mesh = 0; mesh < g_world->octree->m_meshCount; ++mesh) {
         for (stMeshModel* model = static_cast<stMeshModel*>(g_world->psrMeshes[mesh]->getModel());
-             model; model = model->next) {
+             model; model = model->next.get()) {
             model->ClearAutomapPolygonFilter();
         }
     }
@@ -1290,7 +1290,7 @@ void ResetAutomapLighting(void)
             srModelInstance* instance = g_world->psrMeshes[mesh];
             if (instance != 0) {
                 for (stMeshModel* model = static_cast<stMeshModel*>(instance->getModel());
-                     model != 0; model = model->next) {
+                     model != 0; model = model->next.get()) {
                     model->ClearVertexLights();
                 }
             }
@@ -1298,7 +1298,7 @@ void ResetAutomapLighting(void)
     } else {
         for (stMeshModel* model =
                  static_cast<stMeshModel*>(g_world->update_mesh_source->getModel());
-             model != 0; model = model->next) {
+             model != 0; model = model->next.get()) {
             model->ClearVertexLights();
         }
     }
@@ -1506,7 +1506,7 @@ void LightAutomapCell(const srVector3T<float>* position)
                         }
                     }
                 }
-                model = model->next;
+                model = model->next.get();
             }
         }
     }

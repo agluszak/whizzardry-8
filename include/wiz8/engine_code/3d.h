@@ -1,5 +1,7 @@
 #pragma once
 
+#include <memory>
+
 #include "wiz8/geometry.h"
 
 class W8Monster;
@@ -33,7 +35,7 @@ W8Prop* WorldGetPropAt(W8World*, int index); /* 0x0046E620 */
 void SetWorldSceneMeshShaderLowBits(W8World* owner, int argument);
 void SetWorldSceneMeshShaderBit3(W8World* owner, int argument);
 void FinalizeStaticScene(srScene* scene);
-stModelInstance* CreateModelInstance(stMeshModel* model);
+stModelInstance* CreateModelInstance(std::shared_ptr<stMeshModel> model);
 
 unsigned char FinalizeWorldScenes(srNode* node, srNode* dynamic_scene);
 /* Mark an instance lit and bake dynamic-scene lights once (render_flags bit 1). */

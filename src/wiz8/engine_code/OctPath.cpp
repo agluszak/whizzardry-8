@@ -5181,14 +5181,13 @@ stModelInstance* W8PathingService::EnsurePathVisualization()
 {
     const int polygon_count = 0x3138;
     const int vertex_count = 0x30d4;
-    stMeshModel* model = new stMeshModel(polygon_count, vertex_count);
+    auto model = std::make_shared<stMeshModel>(polygon_count, vertex_count);
     int index;
 
     if (model == 0) {
         srAssertFail("pstMeshModel", OCTPATH_CPP, 0x11e9,
                      "CreateWayPointMesh::Read -- Could not create pstMeshModel.\n");
     }
-    model->autoRelease();
     model->flags &= ~W8_MESH_SORTED_RENDERING;
     model->setShader(*g_oct_mesh_default_shader, 0);
     model->setName("WayPoint Mesh");

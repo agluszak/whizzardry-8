@@ -195,7 +195,7 @@ float GetAniMeshFrameRadius(W8AniMesh* mesh, unsigned char frame)
 
                 model->getBoundingBox(model_minimum, model_maximum);
                 ExpandBounds(&minimum, &maximum, &model_minimum, &model_maximum);
-                model = model->next;
+                model = model->next.get();
             } while (model != 0);
 
             return static_cast<float>((minimum - maximum).Length() * g_double_half);
@@ -333,7 +333,7 @@ try
 
                 frame_model->getBoundingBox(minimum, maximum);
                 ExpandBounds(&mesh->bounds_minimum, &mesh->bounds_maximum, &minimum, &maximum);
-                frame_model = frame_model->next;
+                frame_model = frame_model->next.get();
             }
         }
     }

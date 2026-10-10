@@ -56,7 +56,7 @@ stTextureAnim* stModelInstance::FindMouthTexture()
                     }
                 }
             }
-            mesh = mesh->next;
+            mesh = mesh->next.get();
         }
     } else {
         while (mesh != 0) {
@@ -73,7 +73,7 @@ stTextureAnim* stModelInstance::FindMouthTexture()
                     }
                 }
             }
-            mesh = mesh->next;
+            mesh = mesh->next.get();
         }
     }
     return 0;
@@ -126,7 +126,7 @@ int stModelInstance::AddDamageStage(const char* name)
     int stage = static_cast<int>(damage_stage_tables.size());
     int base_table = stage > 0 ? damage_stage_tables[0] : -1;
     damage_stage_tables.push_back(mesh->CreateSkinTable(name, base_table));
-    for (mesh = mesh->next; mesh != 0; mesh = mesh->next) {
+    for (mesh = mesh->next.get(); mesh != 0; mesh = mesh->next.get()) {
         mesh->CreateSkinTable(name, base_table);
     }
     return stage;
@@ -161,7 +161,7 @@ unsigned char stModelInstance::ReplaceDamageStageTexture(int stage, const char* 
         replacement->getClassID();
     }
 
-    for (; mesh != 0; mesh = mesh->next) {
+    for (; mesh != 0; mesh = mesh->next.get()) {
         srPtr<srTextureIFace>* textures = mesh->GetTextureTable(damage_stage_tables[stage]);
         if (textures == 0) {
             continue;
@@ -261,13 +261,13 @@ stModelInstance2D& stModelInstance2D::operator=(const stModelInstance2D& other)
 }
 
 // FUNCTION: WIZ8 0x0047F3A0
-void stModelInstance2D::SetModel(srModel* model)
+void stModelInstance2D::SetModel(std::shared_ptr<srModel> model)
 {
     setModel(model);
     if (model != 0) {
         /* Retail enables the auto-sphere and auto-box skip flags separately. */
-        static_cast<srMeshModel*>(model)->enable(srMeshModel::CONTROL_SKIP_AUTO_SPHERE);
-        static_cast<srMeshModel*>(model)->enable(srMeshModel::CONTROL_SKIP_AUTO_BOX);
+        static_cast<srMeshModel*>(model.get())->enable(srMeshModel::CONTROL_SKIP_AUTO_SPHERE);
+        static_cast<srMeshModel*>(model.get())->enable(srMeshModel::CONTROL_SKIP_AUTO_BOX);
     }
 }
 
@@ -578,7 +578,7 @@ stModelInstance& stModelInstance::operator=(const stModelInstance& other)
 /* Retail touches the incoming model's class id before delegating to the
    srModel::Client base setter. */
 // FUNCTION: WIZ8 0x0047F0C0
-void stModelInstance::setModel(srModel* model)
+void stModelInstance::setModel(std::shared_ptr<srModel> model)
 {
     if (model != 0) {
         model->getClassID();
@@ -761,7 +761,7 @@ void stModelInstance::RenderMeshes(srGERD& renderer)
         first_pass = false;
         srNode* previous = child;
         if (child == 0 || child->testFlag(FLAG_TERMINATE) == 0) {
-            model = model->next;
+            model = model->next.get();
             if (previous != 0) {
                 child = previous->first_child_;
             }
@@ -860,7 +860,7 @@ void stModelInstance::RenderMeshes(srGERD& renderer)
             if (child != 0 && child->testFlag(FLAG_TERMINATE) != 0) {
                 break;
             }
-            model = model->next;
+            model = model->next.get();
             if (previous != 0) {
                 child = previous->first_child_;
             }

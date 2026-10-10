@@ -1406,12 +1406,11 @@ void W8GameData::ProcessCrossedSurface(W8GDSurface* surface)
 stModelInstance* W8GameData::CreateTraceModel()
 {
     BitArray selected(m_iNumSurfaces * 3 + 10);
-    stMeshModel* mesh = new stMeshModel(m_iNumSurfaces, m_iNumSurfaces * 3);
+    auto mesh = std::make_shared<stMeshModel>(m_iNumSurfaces, m_iNumSurfaces * 3);
     if (mesh == 0) {
         srAssertFail("pstMeshModel", "C:\\Projects\\Wizardry 8\\Engine Code\\GameData.cpp", 0x56d,
                      "ModelGameData::Read -- Could not create pstMeshModel.\n");
     }
-    mesh->autoRelease();
     mesh->flags &= ~W8_MESH_SORTED_RENDERING;
     srVector3i* poly_vertices = mesh->getPolyVertex();
     srPtr<srTextureIFace>* poly_textures = mesh->getPolyTexture(0, 0, 1);

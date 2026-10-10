@@ -13,6 +13,19 @@ srModel::Client::Client()
     next = 0;
 }
 
+srModel::Client::Client(const Client& other) : Client()
+{
+    setModel(other.model);
+}
+
+srModel::Client& srModel::Client::operator=(const Client& other)
+{
+    if (this != &other) {
+        setModel(other.model);
+    }
+    return *this;
+}
+
 // FUNCTION: SURRENDER 0x1003C350
 srModel::Client::~Client()
 {
@@ -20,10 +33,10 @@ srModel::Client::~Client()
 }
 
 // FUNCTION: SURRENDER 0x1003C3B0
-void srModel::Client::setModel(srModel* model)
+void srModel::Client::setModel(std::shared_ptr<srModel> model)
 {
-    srModel* old = this->model;
-    if (old != model) {
+    srModel* old = this->model.get();
+    if (old != model.get()) {
         if (old != 0) {
             if (previous != 0) {
                 previous->next = next;
@@ -35,6 +48,8 @@ void srModel::Client::setModel(srModel* model)
                 old->first_client = next;
             }
         }
+        previous = nullptr;
+        next = nullptr;
         this->model = model;
         if (model != 0) {
             previous = 0;
@@ -52,6 +67,11 @@ void srModel::Client::updateClient(e_update update) {}
 
 // FUNCTION: SURRENDER 0x1003C6C0
 srModel* srModel::Client::getModel() const
+{
+    return model.get();
+}
+
+std::shared_ptr<srModel> srModel::Client::getSharedModel() const
 {
     return model;
 }

@@ -1119,7 +1119,7 @@ void W8GrCycle::UpdateParticleAttachments()
                     if (vertex != -1) {
                         break;
                     }
-                    scan = scan->next;
+                    scan = scan->next.get();
                 } while (scan != 0);
                 pMeshModel = scan;
             }
@@ -1535,7 +1535,7 @@ int FindMappedIndexInMeshChain(stMeshModel** mesh, int key)
         if (result != -1) {
             break;
         }
-        current = current->next;
+        current = current->next.get();
     }
 
     *mesh = current;

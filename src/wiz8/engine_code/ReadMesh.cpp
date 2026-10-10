@@ -1,6 +1,9 @@
 #include "wiz8/compat/unaligned.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/ReadMesh.h"
+
+#include <array>
+#include <stdexcept>
 #include "wiz8/engine_code/ReadLevel.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/LevelFile.h"
@@ -483,7 +486,7 @@ void OptimizeMeshOrder(srMeshModel* model, w8_ulong flags)
 }
 
 // FUNCTION: WIZ8 0x00488650
-stMeshModel*
+std::shared_ptr<stMeshModel>
 BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count, int material_count,
                      srMaterialIFace** materials, srTextureIFace** textures, srShader* render_flags,
                      unsigned int* mesh_count, int*** vertex_maps, unsigned int* vertex_map_count,
@@ -499,15 +502,14 @@ BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count, in
     int polygon_counts[8];
     int vertex_counts[8];
     int extra_uv_counts[8];
-    srPtr<srMaterialIFace>* vertex_materials[8];
-    srPtr<srTextureIFace>* polygon_textures[8];
+    std::array<std::vector<srPtr<srMaterialIFace>>, 8> vertex_materials;
+    std::array<std::vector<srPtr<srTextureIFace>>, 8> polygon_textures;
     srVector2T<float>* vertex_uvs[8];
     srVector2T<float>* extra_uvs[8];
     srVector3i* polygon_vertices[8];
     srVector3i* polygon_shades[8];
     w8_ulong* vertex_shades[8];
-    stMeshModel* models[8];
-    stMeshModel* first_model = 0;
+    std::shared_ptr<stMeshModel> first_model;
     stMeshModel* previous_model = 0;
     int type;
     int face_index;
@@ -549,8 +551,8 @@ BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count, in
         vertex_counts[type] = 0;
         extra_uv_counts[type] = 0;
         int capacity = capacities[type];
-        vertex_materials[type] = new srPtr<srMaterialIFace>[capacity * 3];
-        polygon_textures[type] = new srPtr<srTextureIFace>[capacity];
+        vertex_materials[type].resize(capacity * 3);
+        polygon_textures[type].resize(capacity);
         vertex_uvs[type] =
             static_cast<srVector2T<float>*>(malloc(capacity * 3 * sizeof(srVector2T<float>)));
         extra_uvs[type] =
@@ -636,8 +638,8 @@ BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count, in
         if (capacities[type] == 0) {
             continue;
         }
-        stMeshModel* model = new stMeshModel(polygon_counts[type], vertex_counts[type]);
-        models[type] = model;
+        auto owned_model = std::make_unique<stMeshModel>(polygon_counts[type], vertex_counts[type]);
+        stMeshModel* model = owned_model.get();
         if (model == 0) {
             srAssertFail("pstMeshModel[iCount]",
                          "C:\\Projects\\Wizardry 8\\Engine Code\\ReadMesh.cpp", 0x4e7, 0);
@@ -670,7 +672,6 @@ BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count, in
                 model->getVertexMaterial(0, srMeshModel::SIDE_FRONT, 1);
             for (int vertex = 0; vertex < vertex_counts[type]; ++vertex) {
                 model_materials[vertex] = vertex_materials[type][vertex];
-                model_materials[vertex]->addReference();
             }
         }
 
@@ -707,8 +708,6 @@ BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count, in
         free(polygon_vertices[type]);
         free(vertex_uvs[type]);
         free(extra_uvs[type]);
-        delete[] vertex_materials[type];
-        delete[] polygon_textures[type];
         free(vertex_shades[type]);
 
         model->setDirtyAll();
@@ -719,12 +718,12 @@ BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count, in
             model->flags &= ~W8_MESH_SORTED_RENDERING;
         }
         if (previous_model != 0) {
-            previous_model->LinkTo(model);
+            previous_model->LinkTo(std::move(owned_model));
             model->NotifyLinkedModel(previous_model);
         }
         previous_model = model;
         if (first_model == 0) {
-            first_model = model;
+            first_model = std::move(owned_model);
         }
     }
     first_model->setDirty(srMeshModel::DIRTY_BOUNDS);
@@ -822,8 +821,9 @@ unsigned char ReadSingleLevelMesh(W8ReadLevelInfo* info, srModelInstance** insta
         srRegistry::ClassNode* node = stMeshModel::sGetClassNode();
 
         stMeshModel* model = static_cast<stMeshModel*>(registry->find(node, name, 0));
-        if (model != 0 && model->duplicate_on_reuse != 0) {
-            stModelInstance* duplicate = CreateModelInstance(model);
+        auto owner = model ? model->weak_from_this().lock() : nullptr;
+        if (owner && model->duplicate_on_reuse != 0) {
+            stModelInstance* duplicate = CreateModelInstance(std::static_pointer_cast<stMeshModel>(owner));
             duplicate->setName("Read Mesh Duplicate Instance");
             *instance = duplicate;
             SkipSingleLevelMesh(info);
@@ -857,7 +857,7 @@ try
     int** vertex_maps = 0;
     unsigned int mesh_count = 0;
     unsigned int vertex_map_count = 0;
-    stMeshModel* first_model = 0;
+    std::shared_ptr<stMeshModel> first_model;
 
     if (info == 0) {
         srAssertFail("pInfo", "C:\\Projects\\Wizardry 8\\Engine Code\\ReadMesh.cpp", 0xd7, 0);
@@ -1005,7 +1005,6 @@ try
                                        textures, render_flags, &mesh_count, &vertex_maps,
                                        &vertex_map_count, &mapped_values, &mapped_keys);
     if (first_model != 0) {
-        first_model->autoRelease();
         first_model->setName(name ? name : "");
         stModelInstance* loaded_instance = CreateModelInstance(first_model);
         loaded_instance->setName("ReadSTMeshFromFile");
@@ -1018,12 +1017,12 @@ try
             loaded_instance->setRotation(rotation);
         }
         *instance = loaded_instance;
-        first_model->duplicate_on_reuse = MeshHasAnimatedTexture(first_model) ? 0 : 1;
+        first_model->duplicate_on_reuse = MeshHasAnimatedTexture(first_model.get()) ? 0 : 1;
     }
 
     if ((flags & W8_LEVEL_MESH_LOD_VERTICES) == 0) {
         int mesh_index = 0;
-        for (stMeshModel* model = first_model; model != 0; model = model->next, ++mesh_index) {
+        for (stMeshModel* model = first_model.get(); model != 0; model = model->next.get(), ++mesh_index) {
             srVector3T<float>* model_vertices = model->getVertexLoc();
             for (int index = 0; index < model->vertex_location_count; ++index) {
                 model_vertices[index] = vertices[vertex_maps[mesh_index][index]];
@@ -1033,7 +1032,7 @@ try
     } else {
         for (short frame = 0; frame < frame_count; ++frame) {
             int mesh_index = 0;
-            for (stMeshModel* model = first_model; model != 0; model = model->next, ++mesh_index) {
+            for (stMeshModel* model = first_model.get(); model != 0; model = model->next.get(), ++mesh_index) {
                 model->InitializeVertexFrames(frame_count);
                 model->vertex_compression_scale = 500.0f / compression_scale;
                 short* model_vertices = model->GetVertex(frame);
@@ -1126,16 +1125,28 @@ try
                      "NewReadMesh: Mismatch in mesh count between .oct and .pvl files.");
     }
 
-    stMeshModel** meshes = static_cast<stMeshModel**>(malloc(count * sizeof(*meshes)));
+    std::vector<stMeshModel*> meshes(count);
+    std::vector<std::shared_ptr<stMeshModel>> roots(count);
     srVector3T<float> minimum;
     srVector3T<float> maximum;
     for (g_read_mesh_index = 0; g_read_mesh_index < mesh_count; ++g_read_mesh_index) {
         if (g_current_screen_state.id == W8_SCREEN_PLEASE_WAIT) {
             UpdatePleaseWaitLoadFrame();
         }
-        stMeshModel* model =
+        auto owned_model =
             reader.Read(info->hFile, g_multi_mesh_materials, g_multi_mesh_textures,
-                        g_multi_mesh_render_flags, meshes, g_read_mesh_material_count);
+                        g_multi_mesh_render_flags, g_read_mesh_material_count);
+        stMeshModel* model = owned_model.get();
+        if (reader.m_link_index >= 0) {
+            if (static_cast<unsigned int>(reader.m_link_index) >= g_read_mesh_index) {
+                throw std::runtime_error("Invalid linked mesh predecessor");
+            }
+            auto* predecessor = meshes.at(reader.m_link_index);
+            predecessor->LinkTo(std::move(owned_model));
+            model->NotifyLinkedModel(predecessor);
+        } else {
+            roots[g_read_mesh_index] = std::move(owned_model);
+        }
         meshes[g_read_mesh_index] = model;
         model->setDirty(srMeshModel::DIRTY_BOUNDS);
         model->getBoundingBox(minimum, maximum);
@@ -1145,7 +1156,7 @@ try
         stMeshModel* model = meshes[g_read_mesh_index];
         model->setName(name ? name : "");
         if (model->previous == 0) {
-            stModelInstance* instance = CreateModelInstance(model);
+            stModelInstance* instance = CreateModelInstance(roots[g_read_mesh_index]);
             instance->setName("Multi Mesh Instance");
             instance->mesh_index = g_read_mesh_index;
             model->duplicate_on_reuse = MeshHasAnimatedTexture(model);
@@ -1170,7 +1181,6 @@ try
         }
     }
 
-    free(meshes);
     return 1;
 }
 catch (const std::exception&) { return false; }

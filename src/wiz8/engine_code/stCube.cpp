@@ -84,7 +84,7 @@ W8WorldCursorNode* CreateWorldCursorCube(void)
 {
     srModeler modeller;
     srModeler::Polygon polygon(4);
-    stMeshModel* model = new stMeshModel(0, 0);
+    auto model = std::make_shared<stMeshModel>(0, 0);
     stModelInstance* instance = new stModelInstance(0);
     W8WorldCursorNode* entry = new W8WorldCursorNode;
     /* Polygon(4) already heap-allocates the modelled vertices; these four
@@ -196,7 +196,6 @@ W8WorldCursorNode* CreateWorldCursorCube(void)
     srVector3T<float> minimum;
     srVector3T<float> maximum;
     model->getBoundingBox(minimum, maximum);
-    model->autoRelease();
     model->setName("stCube");
     instance->setModel(model);
     entry->node = instance;

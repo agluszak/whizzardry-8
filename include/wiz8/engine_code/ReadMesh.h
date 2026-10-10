@@ -1,5 +1,7 @@
 #pragma once
 
+#include <memory>
+
 #include "wiz8/filesystem.h"
 
 #include "surrender/srMath.h"
@@ -39,7 +41,7 @@ void ReleaseRetainedMaterials();
 bool IsReadMeshMaterial(const srClass* material);
 unsigned char ReadSingleLevelMeshBody(W8ReadLevelInfo* info, srModelInstance** instance, int, int,
                                       const char* name, bool load_materials);
-stMeshModel*
+std::shared_ptr<stMeshModel>
 BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count, int material_count,
                      srMaterialIFace** materials, srTextureIFace** textures, srShader* render_flags,
                      unsigned int* mesh_count, int*** vertex_maps, unsigned int* vertex_map_count,

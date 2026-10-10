@@ -1,5 +1,7 @@
 #pragma once
 
+#include <memory>
+
 #include "wiz8/filesystem.h"
 
 class srMaterialIFace;
@@ -18,8 +20,8 @@ class OctMeshModel {
 public:
     OctMeshModel();  /* 0x0049E4C0 */
     ~OctMeshModel(); /* 0x0049E500 */
-    stMeshModel* Read(wiz8::File* file, srMaterialIFace** materials, srTextureIFace** textures,
-                      srShader* render_flags, stMeshModel** meshes, int material_count);
+    std::unique_ptr<stMeshModel> Read(wiz8::File* file, srMaterialIFace** materials, srTextureIFace** textures,
+                      srShader* render_flags, int material_count);
     bool Write(wiz8::File* hFile); /* 0x0049E5D0 */
 
     short version;

@@ -1181,17 +1181,16 @@ srModelInstance* MakePolygonBrush(srNode* parent, std::shared_ptr<srColorSurface
                                   double height, float mapping_x, float mapping_y,
                                   float mapping_width, float mapping_height, unsigned char overlay)
 {
-    srMeshModel* model;
+    std::shared_ptr<srMeshModel> model;
     srTextureMap* texture;
     stModelInstance2D* instance;
     srVector3T<float> scale;
     srShader shader;
 
-    model = new srMeshModel(0L, 0L);
+    model = std::make_shared<srMeshModel>(0L, 0L);
     if (!model) {
         return 0;
     }
-    model->autoRelease();
     model->setName("Video2DMakePolygonBrush");
 
     g_modeler->createGrid(1, 1);
@@ -1242,11 +1241,10 @@ stModelInstance2D* CreateSpriteFromTexture(srTextureIFace* texture, double width
     int w = static_cast<int>(width * 640.0);
     int h = static_cast<int>(height * 480.0);
 
-    srMeshModel* model = new srMeshModel(0L, 0L);
+    auto model = std::make_shared<srMeshModel>(0L, 0L);
     if (!model) {
         return 0;
     }
-    model->autoRelease();
     model->setName("Video2DMakePolygonBrush");
 
     float step = g_surface_scale * (g_float_one / w);
@@ -2692,8 +2690,7 @@ stModelInstance2D* CreateColoredPolygonSprite(int width, int height, const srVec
 {
     double scale_x = width * g_inverse_screen_width;
     double scale_y = height * g_inverse_screen_height;
-    srMeshModel* model = new srMeshModel(0L, 0L);
-    model->autoRelease();
+    auto model = std::make_shared<srMeshModel>(0L, 0L);
 
     g_modeler->createGrid(1, 1);
     srVector3T<float> scale;
@@ -3257,13 +3254,12 @@ srNode* MakePosterQuad(srTextureIFace* texture, float width, float height, bool 
     palette = srCore.getPalette();
     srPixelConvert::mapPixelFormat(srPixelConvert::SURFACE_ARGB4444, format);
 
-    stMeshModel* model = new stMeshModel(0, 0);
+    auto model = std::make_shared<stMeshModel>(0, 0);
     if (model == 0) {
         return 0;
     }
     float extent_w = g_float_one / dimensions.width * g_surface_scale;
     float extent_h = g_float_one / dimensions.height * g_surface_scale;
-    model->autoRelease();
     model->setName("VideoMakePoster");
     texture->getDimensions(dimensions);
     g_modeler->createGrid(1, 1);

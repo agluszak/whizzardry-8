@@ -1,4 +1,6 @@
 #include "wiz8/engine_code/stMeshModel.h"
+#include "wiz8/engine_code/ReadMesh.h"
+#include "wiz8/engine_code/materials.h"
 #include "wiz8/sr_api.h"
 
 #include <algorithm>
@@ -225,11 +227,11 @@ static bool cloned_ownership()
         original.InitializeVertexFrames(1);
         original.GetVertex(0)[0] = 3;
         original.GetVertexLocations(0, true, 0.0f);
-        original.LinkTo(new stMeshModel(0, 1));
+        original.LinkTo(std::make_unique<stMeshModel>(0, 1));
         original.next->InitializeVertexFrames(1);
         original.next->GetVertexLocations(0, true, 0.0f);
         std::unique_ptr<stMeshModel> clone(static_cast<stMeshModel*>(original.clone()));
-        CHECK(clone->next != original.next && clone->next->previous == clone.get());
+        CHECK(clone->next.get() != original.next.get() && clone->next->previous == clone.get());
         CHECK(clone->previous == nullptr);
         CHECK(clone->GetVertex(0) != original.GetVertex(0));
         CHECK(clone->GetVertexLocations(0, true, 0.0f) != original.GetVertexLocations(0, true, 0.0f));
@@ -251,6 +253,53 @@ static bool cloned_ownership()
     }
     CHECK(g_mesh_models.size() == registered);
     CHECK(g_decompressed_mesh_bytes == initial_bytes);
+    return true;
+}
+
+// Different materials sharing a shader take the per-vertex table path;
+// another shader adds a uniquely owned successor to the shared mesh head.
+static bool loaded_model_ownership()
+{
+    class Material : public stMaterial {
+    public:
+        ~Material() override = default;
+    } first_material, second_material, third_material;
+    srMaterialIFace* materials[] = {&first_material, &second_material, &third_material};
+    srTextureIFace* textures[] = {nullptr, nullptr, nullptr};
+    srShader shaders[3];
+    shaders[0].value = shaders[1].value = 0x251b;
+    shaders[2].value = 0x2517;
+    W8ReadMeshFace faces[3]{};
+    for (int face = 0; face < 3; ++face) {
+        faces[face].material_index = face;
+        for (int corner = 0; corner < 3; ++corner) {
+            faces[face].vertices[corner] = face * 3 + corner;
+        }
+    }
+    W8GrowableVector<short> mapped_values, mapped_keys;
+    unsigned int mesh_count = 0, map_count = 0;
+    int** maps = nullptr;
+    auto model = BuildSingleLevelMesh(3, faces, 9, 3, materials, textures, shaders,
+                                     &mesh_count, &maps, &map_count, &mapped_values, &mapped_keys);
+    CHECK(model && mesh_count == 2 && map_count == 2);
+    for (unsigned int index = 0; index < map_count; ++index) {
+        std::free(maps[index]);
+    }
+    std::free(maps);
+    CHECK(model->next && model->next->previous == model.get());
+    CHECK(first_material.getReferenceCount() == 4 && second_material.getReferenceCount() == 4);
+    CHECK(third_material.getReferenceCount() == 2);
+    std::weak_ptr<srModel> lifetime = model;
+    srModel::Client first, second;
+    first.setModel(model);
+    second = first;
+    model.reset();
+    first.setModel(nullptr);
+    CHECK(!lifetime.expired());
+    second.setModel(nullptr);
+    CHECK(lifetime.expired());
+    CHECK(first_material.getReferenceCount() == 1 && second_material.getReferenceCount() == 1);
+    CHECK(third_material.getReferenceCount() == 1);
     return true;
 }
 
@@ -361,7 +410,7 @@ int main()
         return 1;
     }
     const bool passed = frame_storage() && writable_and_empty_caches() &&
-                        eviction_and_borrowed_outputs() && cloned_ownership() && skins_and_automap();
+                        eviction_and_borrowed_outputs() && cloned_ownership() && loaded_model_ownership() && skins_and_automap();
     const bool drained = g_mesh_models.empty() && g_decompressed_mesh_bytes == 0;
     srExit();
     if (!passed || !drained) {

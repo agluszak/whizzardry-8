@@ -156,7 +156,7 @@ void stLevel::process(const ProcessInfo& info, e_processType)
             if (linked_child != 0 && linked_child->testFlag(FLAG_TERMINATE) != 0) {
                 break;
             }
-            model = model->next;
+            model = model->next.get();
             if (linked_child != 0) {
                 linked_child = linked_child->first_child_;
             }
@@ -1179,7 +1179,7 @@ try
                 srModelInstance* instance = prop->ToggleRepAnimation(animation_index);
                 stMeshModel* mesh = static_cast<stMeshModel*>(instance->getModel());
 
-                for (; mesh != 0; mesh = mesh->next) {
+                for (; mesh != 0; mesh = mesh->next.get()) {
                     if (!AnimationIsRunning(animation)) {
                         mesh->GetVertexSunlight(true);
                         SetModelInstanceChainExclusionMask(instance, 5);

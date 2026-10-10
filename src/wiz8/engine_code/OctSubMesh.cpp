@@ -206,8 +206,8 @@ bool OctMeshModel::Write(wiz8::File* hFile)
 }
 
 // FUNCTION: WIZ8 0x0049E9A0
-stMeshModel* OctMeshModel::Read(wiz8::File* file, srMaterialIFace** materials, srTextureIFace** textures,
-                                srShader* render_flags, stMeshModel** meshes, int material_count)
+std::unique_ptr<stMeshModel> OctMeshModel::Read(wiz8::File* file, srMaterialIFace** materials, srTextureIFace** textures,
+                                srShader* render_flags, int material_count)
 {
     if (g_oct_mesh_default_material == 0) {
         g_oct_mesh_default_material = new stMaterial;
@@ -244,11 +244,10 @@ stMeshModel* OctMeshModel::Read(wiz8::File* file, srMaterialIFace** materials, s
         ShutdownWithErrorBox("OctMeshModel::Read -- Could not allocate m_plVertMats.\n");
     }
 
-    stMeshModel* model = new stMeshModel(m_polygon_count, m_vertex_count);
+    auto model = std::make_unique<stMeshModel>(m_polygon_count, m_vertex_count);
     if (model == 0) {
         ShutdownWithErrorBox("OctMeshModel::Read -- Could not create pstMeshModel.\n");
     }
-    model->autoRelease();
     if (unweighted) {
         model->flags &= ~W8_MESH_SORTED_RENDERING;
     } else {
@@ -285,7 +284,6 @@ stMeshModel* OctMeshModel::Read(wiz8::File* file, srMaterialIFace** materials, s
                              "C:\\Projects\\Wizardry 8\\Engine Code\\OctSubMesh.cpp", 0x1ad, 0);
             }
             vertex_materials[index] = materials[material_index];
-            vertex_materials[index]->addReference();
         }
     } else {
         model->setMaterial(materials[m_material_index], 0, srMeshModel::SIDE_FRONT);
@@ -364,11 +362,6 @@ stMeshModel* OctMeshModel::Read(wiz8::File* file, srMaterialIFace** materials, s
         }
     } else if (!unweighted) {
         model->enable(srMeshModel::CONTROL_SORTED_RENDERING);
-    }
-
-    if (m_link_index >= 0) {
-        meshes[m_link_index]->LinkTo(model);
-        model->NotifyLinkedModel(meshes[m_link_index]);
     }
 
     m_vertex_locations = 0;

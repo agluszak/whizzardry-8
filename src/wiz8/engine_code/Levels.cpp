@@ -360,7 +360,7 @@ unsigned char LoadSkyWorld(int level, W8LevelInfo* info)
 
             if (instance != 0) {
                 for (stMeshModel* mesh = static_cast<stMeshModel*>(instance->getModel()); mesh != 0;
-                     mesh = mesh->next) {
+                     mesh = mesh->next.get()) {
                     mesh->setMaterial(material, 0, srMeshModel::SIDE_FRONT);
                 }
             }

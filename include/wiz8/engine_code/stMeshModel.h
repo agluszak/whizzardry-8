@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include <optional>
 #include <span>
 #include <string>
@@ -58,7 +59,7 @@ public:
 
     int FindMappedIndex(short key); /* 0x004712D0 */
     void SetMappedVertex(short vertex, short key);
-    void LinkTo(stMeshModel* other);      /* 0x00471D60 */
+    void LinkTo(std::unique_ptr<stMeshModel> other);      /* 0x00471D60 */
     short* GetVertex(unsigned int frame); /* 0x00471AA0 */
     int FindSkinTable(std::string_view name);
     int CreateSkinTable(std::string_view name, int base_table);
@@ -89,7 +90,7 @@ public:
     void ClearAutomapPolygonFilter();
     void ApplyAutomapPolygonFilter(std::span<const std::string_view> excluded_textures);
 
-    stMeshModel* next;     /* 0x398 */
+    std::unique_ptr<stMeshModel> next;     /* 0x398 */
     stMeshModel* previous; /* 0x39c */
     unsigned int flags;
     srVector3T<float> ambient_color;

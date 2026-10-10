@@ -129,6 +129,43 @@ static int surface_storage()
     return 0;
 }
 
+// Clients retain shared model owners, while the reverse list is borrowed.
+static int shared_model_lifetimes()
+{
+    auto model = std::make_shared<srMeshModel>(0, 0);
+    std::weak_ptr<srModel> lifetime = model;
+    srModel::Client first;
+    first.setModel(model);
+    CHECK(model->getFirstClient() == &first);
+    {
+        srModel::Client copy(first);
+        srModel::Client assigned;
+        assigned = first;
+        CHECK(model->getFirstClient() == &assigned);
+        CHECK(assigned.getNextClient() == &copy);
+        CHECK(copy.getNextClient() == &first);
+        CHECK(first.getPrevClient() == &copy);
+        const auto& self = assigned;
+        assigned = self;
+        CHECK(model->getFirstClient() == &assigned);
+        copy.setModel(nullptr);
+        CHECK(copy.getNextClient() == nullptr && copy.getPrevClient() == nullptr);
+        CHECK(assigned.getNextClient() == &first && first.getPrevClient() == &assigned);
+        auto replacement = std::make_shared<srMeshModel>(0, 0);
+        assigned.setModel(replacement);
+        CHECK(model->getFirstClient() == &first && first.getPrevClient() == nullptr);
+        CHECK(replacement->getFirstClient() == &assigned);
+        first.setModel(first.getSharedModel());
+        CHECK(model->getFirstClient() == &first);
+    }
+    model.reset();
+    CHECK(!lifetime.expired());
+    CHECK(first.getNextClient() == nullptr && first.getPrevClient() == nullptr);
+    first.setModel(nullptr);
+    CHECK(lifetime.expired());
+    return 0;
+}
+
 // Maps share their source surface; copies of dimensions also keep the palette alive.
 static int shared_surface_lifetimes()
 {
@@ -244,6 +281,7 @@ int main()
     CHECK(srInit());
     CHECK(surface_storage() == 0);
     CHECK(shared_surface_lifetimes() == 0);
+    CHECK(shared_model_lifetimes() == 0);
     {
         const int before_destruction = destroyed_nodes;
         srScene* scene = new srScene;

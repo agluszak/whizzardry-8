@@ -60,11 +60,6 @@ stMeshModel::stMeshModel(w8_long polygons, w8_long vertices)
 // FUNCTION: WIZ8 0x00470ED0
 stMeshModel::~stMeshModel()
 {
-    if (next != 0) {
-        stMeshModel* linked = next;
-        next = 0;
-        delete linked;
-    }
     ReleaseDecompressedFrames();
     std::erase(g_mesh_models, this);
 }
@@ -119,8 +114,7 @@ stMeshModel& stMeshModel::operator=(const stMeshModel& other)
     vertex_lighting_ready = other.vertex_lighting_ready;
     vertex_compression_scale = other.vertex_compression_scale;
     automap_filter_active = other.automap_filter_active;
-    delete next;
-    next = linked.release();
+    next = std::move(linked);
     if (next != nullptr) {
         next->previous = this;
     }
@@ -178,7 +172,7 @@ void stMeshModel::CalculateLinkedBounds()
     srVector3T<float> maximum;
     minimum.SetZero();
     maximum.SetZero();
-    for (model = head; model != 0; model = model->next) {
+    for (model = head; model != 0; model = model->next.get()) {
         for (unsigned int frame = 0; frame < std::max(size_t{1}, model->frames.size()); ++frame) {
             srVector3T<float> frame_minimum;
             srVector3T<float> frame_maximum;
@@ -222,7 +216,7 @@ void stMeshModel::CalculateLinkedBounds()
         radius = minimum_distance;
     }
     head->setBounds(minimum, maximum, center, radius);
-    for (model = head->next; model != 0; model = model->next) {
+    for (model = head->next.get(); model != 0; model = model->next.get()) {
         model->setBounds(minimum, maximum, center, radius);
     }
 }
@@ -762,12 +756,12 @@ int stMeshModel::FindMappedIndex(short key)
 /* Link one model onto another, setting both ends - so the two pointers are one
    link rather than two independent  Unlinking passes nothing. */
 // FUNCTION: WIZ8 0x00471d60
-void stMeshModel::LinkTo(stMeshModel* other)
+void stMeshModel::LinkTo(std::unique_ptr<stMeshModel> other)
 {
-    next = other;
-    if (other != 0) {
+    if (other) {
         other->previous = this;
     }
+    next = std::move(other);
 }
 
 /* One frame's compressed vertex table, refused outright when there is no

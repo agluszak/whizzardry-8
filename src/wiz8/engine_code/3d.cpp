@@ -327,7 +327,7 @@ unsigned char BakeInstanceVertexLighting(stModelInstance* instance, srNode* ligh
             directions = 0;
             mesh->flags |= W8_MESH_VERTEX_LIGHTING_DIRTY;
         }
-        mesh = mesh->next;
+        mesh = mesh->next.get();
     }
     return 1;
 }
@@ -373,7 +373,7 @@ void SetWorldMeshVertexLightTable(W8World* world, int table)
 {
     if (world->octree == 0) {
         for (stMeshModel* model = static_cast<stMeshModel*>(world->update_mesh_source->getModel());
-             model != 0; model = model->next) {
+             model != 0; model = model->next.get()) {
             model->vertex_light_table = table;
             model->flags |= W8_MESH_VERTEX_LIGHTING_DIRTY;
         }
@@ -382,7 +382,7 @@ void SetWorldMeshVertexLightTable(W8World* world, int table)
             srModelInstance* instance = world->psrMeshes[mesh];
             if (instance != 0) {
                 for (stMeshModel* model = static_cast<stMeshModel*>(instance->getModel());
-                     model != 0; model = model->next) {
+                     model != 0; model = model->next.get()) {
                     model->vertex_light_table = table;
                     model->flags |= W8_MESH_VERTEX_LIGHTING_DIRTY;
                 }
@@ -560,7 +560,7 @@ void ExpandBounds(srVector3T<float>* minimum, srVector3T<float>* maximum,
    Its model assignment goes through srModel::Client, exactly as the ordinary
    SurRender ownership interface requires. */
 // FUNCTION: WIZ8 0x0046F5C0
-stModelInstance* CreateModelInstance(stMeshModel* model)
+stModelInstance* CreateModelInstance(std::shared_ptr<stMeshModel> model)
 {
     stModelInstance* instance;
 
@@ -590,7 +590,7 @@ stModelInstance* DuplicateModelInstance(stModelInstance* instance)
     }
     *copy = *instance;
     copy->setName("ST_CreateInstance");
-    copy->setModel(instance->getModel());
+    copy->setModel(instance->getSharedModel());
     return copy;
 }
 
@@ -792,7 +792,7 @@ void SetSceneMeshShaderBit3(srNode* node, int argument)
         if (node->getClassID() == stModelInstance::CLASS_ID) {
             stModelInstance* instance = static_cast<stModelInstance*>(node);
             for (stMeshModel* mesh = static_cast<stMeshModel*>(instance->getModel()); mesh != 0;
-                 mesh = mesh->next) {
+                 mesh = mesh->next.get()) {
                 srShader* polygon_shader = mesh->getPolyShader(0, 0);
                 bool clear = argument == 0 || (mesh->flags & W8_MESH_SORTED_RENDERING) != 0;
 
@@ -831,7 +831,7 @@ void SetSceneMeshShaderLowBits(srNode* node, int argument)
         if (node->getClassID() == stModelInstance::CLASS_ID) {
             stModelInstance* instance = static_cast<stModelInstance*>(node);
             for (stMeshModel* mesh = static_cast<stMeshModel*>(instance->getModel()); mesh != 0;
-                 mesh = mesh->next) {
+                 mesh = mesh->next.get()) {
                 if ((mesh->flags & W8_MESH_SORTED_RENDERING) != 0) {
                     continue;
                 }

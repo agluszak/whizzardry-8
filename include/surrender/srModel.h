@@ -1,7 +1,7 @@
 #pragma once
 
 #include "srMath.h"
-#include "srPtr.h"
+#include <memory>
 #include "srTypeRegistry.h"
 
 class srGERD;
@@ -11,7 +11,8 @@ class srGERD;
 
 // VTABLE: SURRENDER 0x10076D08 srModel
 // class srModel
-class SR_DLL_IMPORT srModel : public srClassSupport<srModel, srClass, 0x2000> {
+class SR_DLL_IMPORT srModel : public srClassSupport<srModel, srClass, 0x2000>,
+      public std::enable_shared_from_this<srModel> {
 public:
     // VTABLE: SURRENDER 0x10076CD8 Client
     // class Client
@@ -22,19 +23,21 @@ public:
         enum e_update { UPDATE_BOUNDS = 0 };
 
         Client();
-        /* Copy construction/assignment are plain memberwise srPtr/links copies;
-           the custom destructor remains because it detaches from the model. */
+        Client(const Client& other);
+        Client& operator=(const Client& other);
 
         virtual ~Client();
-        virtual void setModel(srModel* model);
+        virtual void setModel(std::shared_ptr<srModel> model);
         virtual void updateClient(e_update update);
+        // Borrowed access for rendering; copies retain the owner explicitly.
         virtual srModel* getModel() const;
+        std::shared_ptr<srModel> getSharedModel() const;
         Client* getNextClient() const;
         Client* getPrevClient() const;
 
     private:
         friend class srModel;
-        srPtr<srModel> model;
+        std::shared_ptr<srModel> model;
         Client* previous;
         Client* next;
     };
@@ -52,7 +55,6 @@ public:
 
     virtual void dump(std::ostream& stream) override;
 
-protected:
     virtual ~srModel() override;
 
 public:
