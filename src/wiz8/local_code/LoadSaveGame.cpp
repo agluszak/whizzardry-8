@@ -394,7 +394,7 @@ try
     for (region = 0; region != 4; ++region) {
         for (index = 0; index < g_status.text_box_lines_shown[region]; ++index) {
             g_message_storage[region][index].saved_remaining_ms =
-                TimeUntilDeadline(g_message_storage[region][index].clock);
+                UINT32(TimeUntilDeadline(g_message_storage[region][index].clock));
         }
     }
     gXStatus.gameplay_timer->Restart();

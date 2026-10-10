@@ -159,11 +159,11 @@ struct W8CampScreenState {
     W8CampSpellRange* spell_ranges[6];
     W8CampStatsRange* stats_range;
     W8CampStatsControls* stats_controls;
-    UINT32 item_timer;
+    uint64_t item_timer;
     bool item_timer_active;
     bool item_timer_expired;
     unsigned char padding_ce6[2];
-    UINT32 animation_timer;
+    uint64_t animation_timer;
     unsigned int animation_frames[6];
     W8CampHeaderMode header_mode;
     /* The stats page's condition/equipment effect list, rebuilt

@@ -52,7 +52,7 @@
 #define VK_DELETE 0x2E
 
 typedef struct {
-    UINT32 uiTimeStamp;
+    uint64_t uiTimeStamp;
     UINT16 usKeyState;
     UINT16 usEvent;
     UINT32 usParam;
@@ -79,9 +79,9 @@ extern BOOLEAN gfTrackMousePos;
 extern BOOLEAN gfTrackDblClick;
 extern BOOLEAN gfRecordedLeftButtonUp;
 extern UINT32 guiDoubleClkDelay;
-extern UINT32 guiSingleClickTimer;
-extern UINT32 guiLeftButtonRepeatTimer;
-extern UINT32 guiRightButtonRepeatTimer;
+extern uint64_t guiSingleClickTimer;
+extern uint64_t guiLeftButtonRepeatTimer;
+extern uint64_t guiRightButtonRepeatTimer;
 
 void KeyChange(UINT32 key, UINT32 flags, UINT8 pressed);
 UINT16 TranslateKeyToCharacter(UINT16 key, UINT8 modifiers);

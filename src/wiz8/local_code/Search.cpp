@@ -47,7 +47,7 @@ W8Vector<W8Searchable*> g_searchables(5);
 // GLOBAL: WIZ8 0x00689fb8
 W8SearchableView g_search_view;
 // GLOBAL: WIZ8 0x00689fcc
-UINT32 g_search_pulse_clock;
+uint64_t g_search_pulse_clock;
 
 /* 10000.0: the unit search radius PickBestSearcher scales by score, and the
    collector's outer range gate. */

@@ -434,7 +434,7 @@ void ReloadNpcScriptResources(W8NpcState* npc)
 // FUNCTION: WIZ8 0x00524DA0
 void UpdateNpcDialogueVoiceAndCursor(void)
 {
-    UINT32 tick_count;
+    uint64_t tick_count;
     W8Monster* monster;
 
     if (g_npc_scripting.portrait_message_active) {
@@ -2592,7 +2592,7 @@ void NpcScriptHenchmanDeparted(W8Monster* monster)
 // FUNCTION: WIZ8 0x0052A190
 void NpcScriptSavantHackDone(W8Monster* monster)
 {
-    g_status.savant_hack_tick = w8_get_ticks();
+    g_status.savant_hack_tick = int(uint32_t(w8_get_ticks()));
 }
 
 // FUNCTION: WIZ8 0x0052A1A0

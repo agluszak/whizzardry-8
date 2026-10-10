@@ -2027,7 +2027,7 @@ Trigger::Trigger()
     name[0] = 0;
     position.SetZero();
     action_data[0] = 0;
-    item_group_seed = w8_get_ticks() + Random(30000);
+    item_group_seed = static_cast<unsigned int>(w8_get_ticks() + Random(30000));
     gold = 0;
     uses_remaining = 0;
     trigger_id = g_status.next_trigger_id++;

@@ -52,7 +52,7 @@ static int g_formation_drag_slot;
 // GLOBAL: WIZ8 0x0069c304
 static int g_formation_cell_slots[15];
 // GLOBAL: WIZ8 0x0069c340
-static UINT32 g_formation_drag_clock;
+static uint64_t g_formation_drag_clock;
 // GLOBAL: WIZ8 0x0069c380
 static int g_formation_drag_cell;
 

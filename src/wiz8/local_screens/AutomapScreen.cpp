@@ -125,7 +125,7 @@ W8GrowableVector<srClipPlane*> g_automap_created_layers;
 W8DialogButton** g_automap_buttons;
 struct W8AutomapState {
     unsigned char unknown_000[0xf4];
-    unsigned int blink_time;
+    uint64_t blink_time;
     bool blink_enabled;
     unsigned char pending_cell_lighting;
     unsigned char unknown_0fa[2];

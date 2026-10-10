@@ -28,7 +28,7 @@ struct W8SpellCastingView {
     int iSpellPower;                    /* chosen power index, -1 when unset */
     W8SpellPowerClass iSpellPowerClass; /* the spell record's power class */
     unsigned int uiPowerLevels;         /* affordable power-level count */
-    UINT32 realm_anim_timer;
+    uint64_t realm_anim_timer;
     unsigned int realm_anim_frame;
     W8LearnedSpellState learned;
     int uiSpellIndex; /* clicked list row */

@@ -159,7 +159,7 @@ W8DialogBase* g_modal_owner;
 W8DialogBase* g_pending_main_game_dialog;
 
 // GLOBAL: WIZ8 0x0068edb0
-static unsigned int g_mouselook_last_tick;
+static uint64_t g_mouselook_last_tick;
 // GLOBAL: WIZ8 0x0068edb4
 static bool g_mouselook_tick_init;
 // GLOBAL: WIZ8 0x0068edbc
@@ -6442,8 +6442,8 @@ void DisableCombatRegions(void)
 // FUNCTION: WIZ8 0x00568C40
 static void ApplyPendingMouselook(void)
 {
-    unsigned int now;
-    unsigned int elapsed;
+    uint64_t now;
+    uint64_t elapsed;
     float scale;
     float pitch_step;
     float yaw_step;

@@ -64,7 +64,7 @@ struct W8CharacterEvent {
     /* 0x30/0x34: ProcessDeferredCharacterEvents delays dispatch until this many
        milliseconds have elapsed since the queued w8_get_ticks stamp. */
     int dispatch_delay_ms;
-    unsigned int dispatch_delay_start;
+    uint64_t dispatch_delay_start;
 
     void DelayDispatch(int milliseconds)
     {
@@ -102,9 +102,9 @@ struct W8CharacterEventQueue {
     /* 0x58: a five-second countdown armed by every successful Dispatch; while
        it ticks, active_event_type/active_party_slot still describe the last
        dispatched event for duplicate coalescing. */
-    UINT32 recent_event_clock;
+    uint64_t recent_event_clock;
     int follow_up_flags;
-    UINT32 follow_up_clock;
+    uint64_t follow_up_clock;
     /* 0x64: the party slot that spoke the last follow-up event; the response
        pick excludes it. */
     int follow_up_speaker_slot;

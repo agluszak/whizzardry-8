@@ -26,7 +26,7 @@ extern W8DialogButton* g_combat_stance_buttons[5];
 extern W8DialogButton* g_roof_buttons[3];
 extern W8DialogButton* g_options_disk_button;
 extern short g_submenu_entry_count;
-extern UINT32 g_submenu_clock;
+extern uint64_t g_submenu_clock;
 extern bool g_submenu_close_pending;
 /* The cancel row lands at [built-1] where built is the available-entry count
    plus one, so five rows only suffice because Berserk (fighter trait 0x14) and

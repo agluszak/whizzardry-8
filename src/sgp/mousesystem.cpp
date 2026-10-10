@@ -34,7 +34,7 @@ MOUSE_REGION* gpRegionLastLButtonDown = nullptr;
 // GLOBAL: WIZ8 0x00650E70
 MOUSE_REGION* gpRegionLastLButtonUp = nullptr;
 // GLOBAL: WIZ8 0x00650E74
-UINT32 guiRegionLastLButtonDownTime = 0;
+uint64_t guiRegionLastLButtonDownTime = 0;
 
 // number of lines in height help text will be
 
@@ -535,7 +535,7 @@ void MSYS_UpdateMouseRegion(void)
                         //Kris: Nov 31, 1999 -- Added support for double click events.
                         //This is where double clicks are checked and passed down.
                         if (ButtonReason == MSYS_CALLBACK_REASON_LBUTTON_DWN) {
-                            UINT32 uiCurrTime = w8_get_ticks();
+                            uint64_t uiCurrTime = w8_get_ticks();
                             if (gpRegionLastLButtonDown == MSYS_CurrRegion &&
                                 gpRegionLastLButtonUp == MSYS_CurrRegion &&
                                 uiCurrTime <=
@@ -551,7 +551,7 @@ void MSYS_UpdateMouseRegion(void)
                                 guiRegionLastLButtonDownTime = w8_get_ticks();
                             }
                         } else if (ButtonReason == MSYS_CALLBACK_REASON_LBUTTON_UP) {
-                            UINT32 uiCurrTime = w8_get_ticks();
+                            uint64_t uiCurrTime = w8_get_ticks();
                             if (gpRegionLastLButtonDown == MSYS_CurrRegion &&
                                 uiCurrTime <=
                                     guiRegionLastLButtonDownTime +
@@ -874,16 +874,14 @@ void DisplayFastHelp(MOUSE_REGION* region)
 void RenderFastHelp()
 {
     // GLOBAL: WIZ8 0x00650e68
-    static INT32 iLastClock;
-    INT32 iTimeDifferential, iCurrentClock;
+    static int64_t iLastClock;
+    int64_t iTimeDifferential, iCurrentClock;
 
     if (!gfRenderHilights)
         return;
 
-    iCurrentClock = w8_get_ticks();
+    iCurrentClock = int64_t(w8_get_ticks());
     iTimeDifferential = iCurrentClock - iLastClock;
-    if (iTimeDifferential < 0)
-        iTimeDifferential += 0x7fffffff;
     iLastClock = iCurrentClock;
 
     if (MSYS_CurrRegion && MSYS_CurrRegion->FastHelpText && gfShowFastHelp) {
@@ -902,7 +900,7 @@ void RenderFastHelp()
                 if (MSYS_CurrRegion->uiFlags & MSYS_MOUSE_IN_AREA &&
                     !MSYS_CurrRegion->ButtonState) // & (MSYS_LEFT_BUTTON|MSYS_RIGHT_BUTTON)) )
                 {
-                    MSYS_CurrRegion->FastHelpTimer -= (INT16)std::max(iTimeDifferential, 0);
+                    MSYS_CurrRegion->FastHelpTimer -= (INT16)std::max(iTimeDifferential, int64_t(0));
 
                     if (MSYS_CurrRegion->FastHelpTimer < 0) {
                         MSYS_CurrRegion->FastHelpTimer = 0;

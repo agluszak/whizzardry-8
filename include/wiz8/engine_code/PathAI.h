@@ -43,7 +43,7 @@ struct W8PathAI : W8AIRecord {
     unsigned char padding_1d[3];
     unsigned int point_index;      /* 0x20 */
     float interpolation_fraction;  /* 0x24 */
-    unsigned int last_update_tick; /* 0x28 */
+    uint64_t last_update_tick; /* 0x28 */
     float speed;                   /* 0x2c */
     float distance_travelled;      /* 0x30 */
     float total_length;            /* 0x34 */

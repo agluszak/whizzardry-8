@@ -74,7 +74,7 @@ short g_submenu_entry_states[5];
 // GLOBAL: WIZ8 0x0069B87E
 short g_submenu_entry_count;
 // GLOBAL: WIZ8 0x0069B880
-UINT32 g_submenu_clock;
+uint64_t g_submenu_clock;
 /* Layout arrows: [0..2] left column (radar/action/formation), [3..5] right. */
 // GLOBAL: WIZ8 0x0069B884
 W8DialogButton* g_layout_arrow_buttons[6];

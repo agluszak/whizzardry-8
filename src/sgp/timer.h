@@ -4,11 +4,9 @@
 
 #include "Types.h"
 
-/* Countdowns are stored as UINT32 w8_get_ticks deadline stamps. Signed
-   subtraction keeps TimeUntilDeadline correct across the 32-bit tick
-   wraparound. */
-inline UINT32 TimeUntilDeadline(UINT32 deadline)
+/* Countdowns are stored as 64-bit w8_get_ticks deadline stamps. */
+inline uint64_t TimeUntilDeadline(uint64_t deadline)
 {
-    const INT32 remaining = INT32(deadline - w8_get_ticks());
-    return remaining > 0 ? UINT32(remaining) : 0;
+    const int64_t remaining = int64_t(deadline - w8_get_ticks());
+    return remaining > 0 ? uint64_t(remaining) : 0;
 }

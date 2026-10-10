@@ -517,8 +517,8 @@ void PathAIAdvanceNormalized(W8PathAI* path, float amount)
 // FUNCTION: WIZ8 0x004aa1f0
 unsigned char PathAITick(W8PathAI* path, signed char direction)
 {
-    UINT32 now;
-    unsigned int elapsed;
+    uint64_t now;
+    uint64_t elapsed;
     float amount;
     float point_count;
 

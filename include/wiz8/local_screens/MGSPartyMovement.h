@@ -10,7 +10,7 @@ class W8TextControl;
 
 extern W8TextControl* g_free_turn_button;
 extern W8TextControl* g_cancel_party_movement_button;
-extern UINT32 g_party_movement_animation_clock;
+extern uint64_t g_party_movement_animation_clock;
 extern Controls* g_party_movement_panel;
 extern W8TextBuffer* g_party_movement_caption;
 extern unsigned int g_party_movement_animation_frame;

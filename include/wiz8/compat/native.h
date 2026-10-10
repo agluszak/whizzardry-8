@@ -73,7 +73,8 @@ extern "C" {
 
 /* The game's one monotonic clock; runtime tests can substitute a virtual one. */
 uint64_t w8_clock_us(void);
-uint32_t w8_get_ticks(void);
+/* Milliseconds on the same clock, 64-bit so deadlines never wrap. */
+uint64_t w8_get_ticks(void);
 
 /* Narrow CRT spelling extensions. */
 char* w8_strupr(char* text);

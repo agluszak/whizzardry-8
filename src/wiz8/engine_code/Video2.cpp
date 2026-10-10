@@ -68,17 +68,7 @@
 #include "wiz8/local_code/ControlsRect.h"
 
 #include "compat/video.h"
-#define GetClientRect W8VideoGetClientRect
-#define GetWindowRect W8VideoGetWindowRect
-#define ClientToScreen W8VideoClientToScreen
-#define SetCursorPos(x, y) W8VideoWarpMouse(ghWindow, x, y)
-#define ShowCursor W8VideoShowCursor
-#define ShowWindow W8VideoShowWindow
-#define SetFocus W8VideoRaiseWindow
-#define OpenIcon(window) W8VideoShowWindow(window, 9)
-#define CloseWindow W8VideoCloseWindow
-#define SW_MINIMIZE 6
-#define SW_RESTORE 9
+#include <SDL3/SDL.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -137,7 +127,7 @@ srModelInstance* g_current_model_instance;
 // GLOBAL: WIZ8 0x6596fc
 int g_fps_frame_count;
 // GLOBAL: WIZ8 0x659700
-unsigned int g_fps_window_tick;
+uint64_t g_fps_window_tick;
 /* Per-page counters reset as each overlay page is retired; retail stores
    through g_active_page as an index, so this is one two-entry array. */
 // GLOBAL: WIZ8 0x6596dc
@@ -166,8 +156,6 @@ CpuSurface* g_primary_surface;
 // GLOBAL: WIZ8 0x6596ac
 // GLOBAL: WIZ8 0x6596b0
 std::unique_ptr<CpuSurface> videoSurfaceOwner;
-// GLOBAL: WIZ8 0x659610
-SGPRect g_window_rect;
 
 // GLOBAL: WIZ8 0x600088
 unsigned int g_color_key = 0x3def;
@@ -240,10 +228,8 @@ const int* g_overlay_viewport;
 srClass* g_render_object0;
 // GLOBAL: WIZ8 0x659678
 srClass* g_render_object1;
-// GLOBAL: WIZ8 0x659720
-SDL_Window* g_render_window;
 // GLOBAL: WIZ8 0x65409c
-unsigned int g_last_capture_tick;
+uint64_t g_last_capture_tick;
 // GLOBAL: WIZ8 0x659704
 float g_frames_per_second;
 // GLOBAL: WIZ8 0x659708
@@ -261,7 +247,7 @@ srTexture* g_cursor_texture;
 // GLOBAL: WIZ8 0x659694
 srModelInstance* g_cursor_node;
 // GLOBAL: WIZ8 0x659698
-unsigned int g_cursor_move_tick;
+uint64_t g_cursor_move_tick;
 // GLOBAL: WIZ8 0x654ad0
 int g_cursor_width;
 // GLOBAL: WIZ8 0x654ad4
@@ -278,8 +264,6 @@ double g_cursor_image_v_extent = 1.0;
 int g_cursor_hotspot_x;
 // GLOBAL: WIZ8 0x6596c0
 int g_cursor_hotspot_y;
-// GLOBAL: WIZ8 0x6596c4
-bool g_system_cursor_visible;
 
 // FUNCTION: WIZ8 0x00428ab0
 void AssertFailureHandler(const char* expression, const char* file, w8_long line, const char* message)
@@ -373,14 +357,14 @@ unsigned char InitializeVideoManager(void)
         }
         if (ghWindow && g_gerd) {
             g_video_active = true;
-            ShowWindow(ghWindow, 9);
             if (g_gerd->isWindowOpen() == 0) {
                 if (!OpenRendererWindow()) {
                     goto done;
                 }
             }
-            OpenIcon(ghWindow);
-            SetFocus(ghWindow);
+            SDL_ShowWindow(ghWindow);
+            SDL_RestoreWindow(ghWindow);
+            SDL_RaiseWindow(ghWindow);
             memset(g_tile_dirty_flags, 0, sizeof(g_tile_dirty_flags));
             active = g_active_page;
             g_page_full_redraw[g_active_page ^ 1] = 0;
@@ -415,12 +399,8 @@ void ShutdownVideoManager(void)
     ReleasePrimaryCpuSurface();
     videoSurfaceOwner.reset();
     if (ghWindow) {
-        CloseWindow(ghWindow);
+        SDL_HideWindow(ghWindow);
         ghWindow = 0;
-    }
-    if (g_render_window) {
-        CloseWindow(g_render_window);
-        g_render_window = 0;
     }
     if (g_gerd) {
         g_flush_pending = false;
@@ -714,10 +694,7 @@ void SuspendVideoManager(void)
             g_flush_pending = false;
             g_gerd->closeWindow(static_cast<srGERD::e_closeHint>(0));
         }
-        if (!g_fullscreen) {
-            GetWindowRect(ghWindow, &g_window_rect);
-        }
-        ShowWindow(ghWindow, SW_MINIMIZE);
+        SDL_MinimizeWindow(ghWindow);
         FreeMouseCursor();
     }
 }
@@ -733,10 +710,10 @@ unsigned char RestoreVideoManager(void)
     }
     if (ghWindow && g_gerd) {
         g_video_active = true;
-        ShowWindow(ghWindow, SW_RESTORE);
+        SDL_ShowWindow(ghWindow);
+        SDL_RestoreWindow(ghWindow);
         if (g_gerd->isWindowOpen() != 0 || OpenRendererWindow()) {
-            OpenIcon(ghWindow);
-            SetFocus(ghWindow);
+            SDL_RaiseWindow(ghWindow);
             memset(g_tile_dirty_flags, 0, sizeof(g_tile_dirty_flags));
             g_dirty_tile_count = 0;
             g_page_full_redraw[g_active_page ^ 1] = 0;
@@ -1341,22 +1318,9 @@ BOOLEAN BlitHVObjectToColorSurface(HVOBJECT object, UINT16 region, srColorSurfac
 
 static void MoveSystemCursor(int x, int y)
 {
-    SGPRect client;
-    SGPPoint top_left;
-    SGPPoint bottom_right;
-
-    if (!g_fullscreen) {
-        GetClientRect(ghWindow, &client);
-        top_left.iX = client.iLeft;
-        top_left.iY = client.iTop;
-        bottom_right.iX = client.iRight;
-        bottom_right.iY = client.iBottom;
-        ClientToScreen(ghWindow, &top_left);
-        ClientToScreen(ghWindow, &bottom_right);
-        x += top_left.iX;
-        y += top_left.iY;
-    }
-    SetCursorPos(x, y);
+    /* The client space is the fixed 640x480 design space, so client and
+       screen coordinates coincide. */
+    WarpGameMouse(ghWindow, x, y);
 }
 
 // FUNCTION: WIZ8 0x00427c90
@@ -1501,17 +1465,7 @@ bool IsCursorInsideViewport(void)
 // FUNCTION: WIZ8 0x004280c0
 void WarpSystemCursor(int x, int y)
 {
-    if (g_fullscreen) {
-        SetCursorPos(x, y);
-        return;
-    }
-    SGPRect client;
-    GetClientRect(ghWindow, &client);
-    // reinterpret-ok: Win32 ClientToScreen takes SGPPoint*; SGPRect is two adjacent SGPPoints
-    ClientToScreen(ghWindow, reinterpret_cast<SGPPoint*>(&client));
-    // reinterpret-ok: Win32 ClientToScreen takes SGPPoint*; SGPRect is two adjacent SGPPoints
-    ClientToScreen(ghWindow, reinterpret_cast<SGPPoint*>(&client.iRight));
-    SetCursorPos(client.iLeft + x, client.iTop + y);
+    WarpGameMouse(ghWindow, x, y);
 }
 
 // FUNCTION: WIZ8 0x00428140
@@ -1569,42 +1523,20 @@ void GetCursorScaledPosition(srVector3T<float>* position)
                   (g_cursor_hotspot_y + g_cursor_height) * g_viewport_y_scale, 0.0f);
 }
 
-/* Keep the rendered cursor synchronized with the OS cursor. In windowed mode
-   the OS cursor is visible outside the client area and hidden while the game
-   owns it; fullscreen coordinates are clamped to the 640x480 game surface. */
+/* Keep the rendered cursor synchronized with the OS cursor. The input layer
+   already reports design-space coordinates, so windowed and fullscreen share
+   the same position; fullscreen coordinates are clamped to the 640x480 game
+   surface. */
 // FUNCTION: WIZ8 0x00428340
 void SyncSystemCursor(void)
 {
     SGPPoint cursor;
-    SGPRect client;
-    SGPPoint top_left;
-    SGPPoint bottom_right;
 
     GetGameMousePosition(&cursor);
     if (!g_fullscreen) {
-        GetClientRect(ghWindow, &client);
-        top_left.iX = client.iLeft;
-        top_left.iY = client.iTop;
-        bottom_right.iX = client.iRight;
-        bottom_right.iY = client.iBottom;
-        ClientToScreen(ghWindow, &top_left);
-        ClientToScreen(ghWindow, &bottom_right);
-        if (cursor.iX < top_left.iX || cursor.iX >= bottom_right.iX || cursor.iY < top_left.iY ||
-            cursor.iY >= bottom_right.iY) {
-            if (!g_system_cursor_visible) {
-                g_system_cursor_visible = true;
-                ShowCursor(TRUE);
-            }
-            return;
-        }
-        cursor.iX -= top_left.iX;
-        cursor.iY -= top_left.iY;
+        /* GetGameMousePosition already returns design-space coordinates. */
         if (cursor.iX != g_cursor_width || cursor.iY != g_cursor_height) {
             PositionMouseCursor(cursor.iX, cursor.iY, true);
-        }
-        if (g_system_cursor_visible) {
-            g_system_cursor_visible = false;
-            ShowCursor(FALSE);
         }
         return;
     }
@@ -1619,18 +1551,7 @@ void SyncSystemCursor(void)
         cursor.iY = 480;
     if (cursor.iX != g_cursor_width || cursor.iY != g_cursor_height) {
         PositionMouseCursor(cursor.iX, cursor.iY, true);
-        if (!g_fullscreen) {
-            GetClientRect(ghWindow, &client);
-            top_left.iX = client.iLeft;
-            top_left.iY = client.iTop;
-            bottom_right.iX = client.iRight;
-            bottom_right.iY = client.iBottom;
-            ClientToScreen(ghWindow, &top_left);
-            ClientToScreen(ghWindow, &bottom_right);
-            SetCursorPos(top_left.iX + cursor.iX, top_left.iY + cursor.iY);
-        } else {
-            SetCursorPos(cursor.iX, cursor.iY);
-        }
+        WarpGameMouse(ghWindow, cursor.iX, cursor.iY);
     }
 }
 
@@ -2500,9 +2421,7 @@ BOOLEAN CheckCdPresent(void)
 // FUNCTION: WIZ8 0x00427a70
 void VideoGetClientRect(SGPRect* rect)
 {
-    GetClientRect(ghWindow, rect);
-    ClientToScreen(ghWindow, (SGPPoint*)rect);
-    ClientToScreen(ghWindow, (SGPPoint*)&rect->iRight);
+    *rect = {0, 0, 640, 480};
 }
 
 // FUNCTION: WIZ8 0x00421f20

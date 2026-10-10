@@ -43,7 +43,8 @@ struct CachedSound
     UINT32 uiSize = 0, uiFlags = 0, uiSpeed = 0, uiCacheHits = 0;
     std::shared_ptr<MIX_Mixer> owner;
     w8_native::Audio audio;
-    UINT32 uiTimeNext = 0, uiTimeMin = 0, uiTimeMax = 0;
+    uint64_t uiTimeNext = 0;
+    UINT32 uiTimeMin = 0, uiTimeMax = 0;
     UINT32 uiSpeedMin = 0, uiSpeedMax = 0, uiVolMin = 0, uiVolMax = 0;
     UINT32 uiPanMin = 0, uiPanMax = 0, uiPriority = 0, uiInstances = 0, uiMaxInstances = 0;
 };
@@ -56,7 +57,8 @@ struct SoundChannel
     UINT32 uiSample = NO_SAMPLE, uiSoundID = NO_SAMPLE, uiPriority = PRIORITY_MAX;
     void (*EOSCallback)(void*) = nullptr;
     void* pCallbackData = nullptr;
-    UINT32 uiTimeStamp = 0, uiFadeVolume = 0, uiFadeRate = 0, uiFadeTime = 0;
+    uint64_t uiTimeStamp = 0, uiFadeTime = 0;
+    UINT32 uiFadeVolume = 0, uiFadeRate = 0;
     UINT32 volume = 127, playbackRate = 44100;
     Sint64 duration = -1;
     BOOLEAN fMusic = FALSE, fStopAtZero = TRUE;
@@ -628,17 +630,14 @@ BOOLEAN SoundServiceStreams(void)
 UINT32 SoundGetPosition(UINT32 uiSoundID)
 {
     //UINT32 uiSound, uiFreq=0, uiPosition=0, uiBytesPerSample=0, uiFormat=0;
-    UINT32 uiSound, uiTime, uiPosition;
+    UINT32 uiSound;
+    uint64_t uiTime, uiPosition;
 
     if (fSoundSystemInit) {
         if ((uiSound = SoundGetIndexByID(uiSoundID)) != NO_SAMPLE) {
 
             uiTime = w8_get_ticks();
-            // check for rollover
-            if (uiTime < pSoundList[uiSound].uiTimeStamp)
-                uiPosition = (0 - pSoundList[uiSound].uiTimeStamp) + uiTime;
-            else
-                uiPosition = (uiTime - pSoundList[uiSound].uiTimeStamp);
+            uiPosition = uiTime - pSoundList[uiSound].uiTimeStamp;
 
             return (uiPosition);
         }

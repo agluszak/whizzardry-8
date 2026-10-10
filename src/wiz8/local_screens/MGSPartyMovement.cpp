@@ -32,7 +32,7 @@
 // GLOBAL: WIZ8 0x0069BF40
 static W8TextControl* g_party_movement_buttons[2];
 // GLOBAL: WIZ8 0x0069BF48
-UINT32 g_party_movement_animation_clock;
+uint64_t g_party_movement_animation_clock;
 // GLOBAL: WIZ8 0x0069BF4C
 Controls* g_party_movement_panel;
 // GLOBAL: WIZ8 0x0069BF50

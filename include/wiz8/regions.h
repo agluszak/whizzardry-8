@@ -82,7 +82,7 @@ extern W8RegionSet g_region_sets[];
 extern unsigned int g_region_count; /* guiRegionCount */
 extern W8Region g_regions[];
 extern int g_region_help_delay;
-extern UINT32 g_region_help_clock;
+extern uint64_t g_region_help_clock;
 extern unsigned int g_current_region_index;
 extern unsigned int g_captured_region_index;
 extern unsigned int g_hover_region_index;

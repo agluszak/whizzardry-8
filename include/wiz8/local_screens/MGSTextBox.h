@@ -43,7 +43,7 @@ struct W8MessageStorageRecord {
     unsigned char highlight_color;
     unsigned char highlight_start;
     unsigned char highlight_stop;
-    UINT32 clock;
+    uint64_t clock;
     /* SaveGame snapshots the unsigned milliseconds remaining from
        TimeUntilDeadline; load rearms the countdown with this duration. */
     UINT32 saved_remaining_ms;

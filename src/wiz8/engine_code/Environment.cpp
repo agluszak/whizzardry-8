@@ -191,7 +191,7 @@ static void AdvanceEnvironmentClock(void)
 {
     if (g_environment_time_enabled) {
         w8_ulong now = w8_get_ticks();
-        w8_ulong elapsed = now < g_tick ? now - g_tick - 1 : now - g_tick;
+        w8_ulong elapsed = now - g_tick;
         if (elapsed != 0) {
             AdvanceEnvironmentTime(
                 static_cast<int>(static_cast<double>(elapsed) * g_view_distance));

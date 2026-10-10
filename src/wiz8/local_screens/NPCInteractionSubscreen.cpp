@@ -167,7 +167,7 @@ wchar_t g_dialogue_empty_text[4];
 W8PendingNotice g_pending_notice;
 /* w8_get_ticks sample for the trade-item highlight timeout. */
 // GLOBAL: WIZ8 0x0068EE78
-static unsigned int g_trade_highlight_tick;
+static uint64_t g_trade_highlight_tick;
 
 // GLOBAL: WIZ8 0x00649f20
 static int g_dialogue_place_keyword_count = 15;

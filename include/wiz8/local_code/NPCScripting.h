@@ -48,11 +48,11 @@ struct W8NpcScriptingState {
     W8NpcState* npc;
     unsigned int voice_handle;
     unsigned int message_duration_ms;
-    unsigned int message_started_at;
+    uint64_t message_started_at;
     W8GrowableVector<W8MessageBoxLine*> message_lines;
     W8GrowableVector<int*> pending_script_values;
     W8MouthGapTrack gap_track;
-    unsigned int last_tick;
+    uint64_t last_tick;
     /* Latched by CancelNpcDialogue; the response loop checks it at
        entries_done and abandons the pending response. */
     bool dialogue_cancelled;

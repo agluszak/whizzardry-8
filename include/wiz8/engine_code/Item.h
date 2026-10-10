@@ -52,7 +52,7 @@ struct W8Item : public W8GrObject {
 
     Trigger* trigger;
     /* 0x1c: countdown clock; IsTicking reports whether it is running. */
-    UINT32 countdown;
+    uint64_t countdown;
 
     void DetachMesh(W8World* world);
     void ApplyRepTransform();

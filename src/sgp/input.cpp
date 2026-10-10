@@ -40,7 +40,7 @@ BOOLEAN gfTrackDblClick;
 // GLOBAL: WIZ8 0x006f04e4
 UINT32 guiDoubleClkDelay; // Current delay in milliseconds for a delay
 // GLOBAL: WIZ8 0x006f0504
-UINT32 guiSingleClickTimer;
+uint64_t guiSingleClickTimer;
 UINT32 guiRecordedWParam;
 UINT32 guiRecordedLParam;
 // GLOBAL: WIZ8 0x006f0514
@@ -49,9 +49,9 @@ UINT16 gusRecordedKeyState;
 BOOLEAN gfRecordedLeftButtonUp;
 
 // GLOBAL: WIZ8 0x006f0518
-UINT32 guiLeftButtonRepeatTimer;
+uint64_t guiLeftButtonRepeatTimer;
 // GLOBAL: WIZ8 0x006f04f0
-UINT32 guiRightButtonRepeatTimer;
+uint64_t guiRightButtonRepeatTimer;
 
 // GLOBAL: WIZ8 0x006f04ec
 BOOLEAN gfTrackMousePos; // TRUE = queue mouse movement events, FALSE = don't
@@ -111,7 +111,7 @@ void QueueEvent(UINT16 ubInputEvent, UINT32 usParam, UINT32 uiParam)
 {
     if (gEventQueue.size() == max_input_events)
         return;
-    const UINT32 uiTimer = w8_get_ticks();
+    const uint64_t uiTimer = w8_get_ticks();
     const UINT16 usKeyState = gfShiftState | gfCtrlState | gfAltState;
     switch (ubInputEvent) {
     case LEFT_BUTTON_DOWN:
@@ -264,7 +264,7 @@ void FreeMouseCursor(void)
 
 void HandleSingleClicksAndButtonRepeats(void)
 {
-    UINT32 uiTimer;
+    uint64_t uiTimer;
 
     uiTimer = w8_get_ticks();
 

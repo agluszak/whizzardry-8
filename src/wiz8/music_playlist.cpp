@@ -18,7 +18,7 @@ int g_music_sample_handle = -1;
 // GLOBAL: WIZ8 0x0065BA74
 static stScript* g_music_playlist;
 // GLOBAL: WIZ8 0x0065BA78
-static unsigned int g_music_playlist_tick;
+static uint64_t g_music_playlist_tick;
 // GLOBAL: WIZ8 0x0065BA7E
 bool g_music_playlist_active;
 // GLOBAL: WIZ8 0x0065BA80

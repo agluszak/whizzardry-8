@@ -273,12 +273,13 @@ int main()
     expect(events[0], KEY_DOWN, 'F');
     expect(events[1], KEY_UP, 'F');
 
-    UINT32 countdown = w8_get_ticks() + 100;
+    uint64_t countdown = w8_get_ticks() + 100;
     CHECK(TimeUntilDeadline(countdown) <= 100 && TimeUntilDeadline(countdown) > 0);
     CHECK(TimeUntilDeadline(w8_get_ticks() - 1) == 0);
-    /* Signed deadline math stays correct across the 32-bit tick wraparound. */
+    /* 64-bit deadlines never wrap: far-future stamps honestly report their
+       remaining time instead of aliasing into the past. */
     countdown = w8_get_ticks() + 0xfffffff0u;
-    CHECK(TimeUntilDeadline(countdown) == 0);
+    CHECK(TimeUntilDeadline(countdown) > 0 && TimeUntilDeadline(countdown) <= 0xfffffff0u);
 
     suspensions = restorations = 0;
     clock_actions.clear();

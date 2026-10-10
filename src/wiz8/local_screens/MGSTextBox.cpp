@@ -57,7 +57,7 @@ struct W8MessageStorageDiskRecord {
     unsigned char highlight_color;
     unsigned char highlight_start;
     unsigned char highlight_stop;
-    UINT32 clock;
+    uint64_t clock;
     UINT32 saved_remaining_ms;
     int link;
     int length;

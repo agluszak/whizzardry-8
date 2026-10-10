@@ -2097,8 +2097,10 @@ void UpdateNpcEvents(void)
         }
         g_status.trang_check_pending = false;
     }
+    /* The ticks live in the serialized status block at 32 bits wide, so the
+       elapsed check stays a wrap-tolerant 32-bit difference. */
     if (g_status.savant_hack_tick != 0 &&
-        static_cast<unsigned int>(w8_get_ticks() - g_status.savant_hack_tick) > 0x32) {
+        int32_t(uint32_t(w8_get_ticks()) - uint32_t(g_status.savant_hack_tick)) > 0x32) {
         group = FindFirstMonsterByID(0x1b3);
         if (group != 0) {
             index = MonsterGetIndexByLocationID(0xc17, NPC_MANAGER_CPP, group->leader_location_id,
@@ -2107,10 +2109,10 @@ void UpdateNpcEvents(void)
             MonsterStartsDying(monster_info, true);
         }
         g_status.savant_hack_tick = 0;
-        g_status.bela_cycle_tick = w8_get_ticks();
+        g_status.bela_cycle_tick = int(uint32_t(w8_get_ticks()));
     }
     if (g_status.bela_cycle_tick != 0 &&
-        static_cast<unsigned int>(w8_get_ticks() - g_status.bela_cycle_tick) > 0x1388) {
+        int32_t(uint32_t(w8_get_ticks()) - uint32_t(g_status.bela_cycle_tick)) > 0x1388) {
         group = FindFirstMonsterByID(0x1b6);
         if (group != 0) {
             index = MonsterGetIndexByLocationID(0xc2f, NPC_MANAGER_CPP, group->leader_location_id,

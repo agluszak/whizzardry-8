@@ -148,7 +148,7 @@ void wiz8::Application::shutdown() noexcept
     ShutdownVideoObjectManager();
     ShutdownVideoManager();
     wiz8::clear_asset_archives();
-    W8VideoShowCursor(TRUE);
+    SDL_ShowCursor();
     VideoDumpMemoryLeaks();
     gfApplicationActive = FALSE;
     SDL_Quit();

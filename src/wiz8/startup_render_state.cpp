@@ -9,7 +9,7 @@
 #include <string.h>
 
 // GLOBAL: WIZ8 0x0065a154
-unsigned int g_frame_tick;
+uint64_t g_frame_tick;
 // GLOBAL: WIZ8 0x0065a158
 float g_frame_elapsed;
 
@@ -19,8 +19,8 @@ float g_frame_elapsed;
 // FUNCTION: WIZ8 0x00482140
 void UpdateRenderElapsedTime(void)
 {
-    unsigned int now = w8_get_ticks();
-    unsigned int elapsed = now - g_frame_tick;
+    uint64_t now = w8_get_ticks();
+    uint64_t elapsed = now - g_frame_tick;
     g_frame_tick = now;
     g_frame_elapsed = elapsed * 0.001f;
 }

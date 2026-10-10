@@ -73,9 +73,9 @@ uint64_t w8_clock_us(void)
     return uint64_t(duration_cast<microseconds>(steady_clock::now().time_since_epoch()).count());
 }
 
-uint32_t w8_get_ticks(void)
+uint64_t w8_get_ticks(void)
 {
-    return uint32_t(w8_clock_us() / 1000);
+    return w8_clock_us() / 1000;
 }
 
 char* w8_strupr(char* text)
