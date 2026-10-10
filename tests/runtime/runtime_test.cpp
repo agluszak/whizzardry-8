@@ -6,6 +6,10 @@
    happens on the frame it is requested or never. Wall-clock limits only guard
    against hangs; synchronous UI effects use small frame budgets instead.
 
+   Every game clock reads w8_clock_us, which WIZ8_TEST_HOOK replaces with a
+   virtual clock advanced one 60 Hz frame per GameLoop: game time, movement and
+   animation are the same on every run, and nothing waits for real time.
+
    Run under SDL's offscreen video driver (no window, no host input) with
    movies skipped through WIZ8_TEST_HOOK. Exit code 77 means assets are absent. */
 #include "wiz8/application.h"
@@ -142,7 +146,9 @@ class Game
 
         g_runtime_test_hooks = {};
         g_runtime_test_hooks.skip_movies = !play_movies;
-        g_runtime_test_hooks.movie_step_seconds = 1.0 / 15;
+        // Every clock the game reads advances one 60 Hz frame per GameLoop.
+        g_runtime_test_hooks.virtual_clock = true;
+        g_runtime_test_hooks.clock_us = 1'000'000;
 
         SDL_GetLogOutputFunction(&g_default_log, &g_default_log_data);
         SDL_SetLogOutputFunction(CaptureLog, nullptr);
@@ -175,6 +181,7 @@ class Game
         GameLoop();
         gfSGPInputReceived = FALSE;
         ++frames_;
+        g_runtime_test_hooks.clock_us += frame_us;
     }
 
     /* Steps frames until `ready` holds. The time limit only catches hangs. */
@@ -253,6 +260,7 @@ class Game
     }
 
     unsigned long frames() const { return frames_; }
+    static constexpr unsigned long long frame_us = 16'667;
 
   private:
     void mouse_button(int x, int y, bool down)
@@ -282,6 +290,23 @@ class Game
     SDL_Window* window_ = nullptr;
     unsigned long frames_ = 0;
 };
+
+/* With WIZ8_RUNTIME_SNAPSHOT_DIR set, frames the scenario checks are also
+   saved there as BMPs for inspection. */
+void Snapshot(const char* name, const std::vector<unsigned>& pixels)
+{
+    const char* directory = SDL_getenv("WIZ8_RUNTIME_SNAPSHOT_DIR");
+    if (!directory)
+        return;
+    SDL_Surface* surface = SDL_CreateSurfaceFrom(SCREEN_WIDTH, SCREEN_HEIGHT, SDL_PIXELFORMAT_XRGB8888,
+                                                 const_cast<unsigned*>(pixels.data()),
+                                                 SCREEN_WIDTH * 4);
+    if (!surface)
+        return;
+    const std::string path = (fs::path(directory) / (std::string(name) + ".bmp")).string();
+    SDL_SaveBMP(surface, path.c_str());
+    SDL_DestroySurface(surface);
+}
 
 void ReachMainMenu(Game& game)
 {
@@ -491,6 +516,8 @@ void WorldRenderScenario()
     const auto control = game.read_frame();
     g_world_render_enabled = 1;
 
+    Snapshot("world", visible);
+    Snapshot("world-control", control);
     unsigned changed = 0, viewport = 0;
     for (int y = g_viewport.top; y < g_viewport.bottom; ++y)
         for (int x = g_viewport.left; x < g_viewport.right; ++x, ++viewport)
@@ -502,8 +529,9 @@ void WorldRenderScenario()
     REQUIRE("world", polygons > 0);
     REQUIRE("world", with_world.draw_calls > without_world.draw_calls);
     REQUIRE("world", with_world.input_triangles > without_world.input_triangles);
-    // Most of the 3D viewport must come from the world, not the clear colour.
-    REQUIRE("world", changed > viewport / 2);
+    // The sky is a separate pass and stays in the control frame; the world
+    // (ground, cliffs, water at the Monastery start) covers about half the view.
+    REQUIRE("world", changed > viewport / 4);
 }
 
 } // namespace

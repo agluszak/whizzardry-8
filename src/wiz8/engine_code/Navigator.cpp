@@ -2186,8 +2186,10 @@ void W8Navigator::UpdateNavigation(unsigned char skip_movement, bool slowed)
                 velocity.x = movement.velocity.x;
                 velocity.z = movement.velocity.z;
             }
-            velocity.y = (movement.position.y - previous.y) /
-                         (g_rate * g_game_time_accumulator->GetFrameDelta());
+            /* Two frames within one clock tick have no elapsed time; dividing by it
+               made movement_speed NaN, which then stuck (NaN fails every comparison). */
+            const float frame_time = g_rate * g_game_time_accumulator->GetFrameDelta();
+            velocity.y = frame_time > 0.0f ? (movement.position.y - previous.y) / frame_time : 0.0f;
             if (navigation_mode == 2 || navigation_mode == 3) {
                 minimum_speed = g_navigator_minimum_speed_mode23;
             } else {
