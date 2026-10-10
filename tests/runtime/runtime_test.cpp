@@ -395,7 +395,7 @@ void SpendPool(Game& game, const char* step, int page_index, const bool& complet
     W8CharacterPage* page = g_character_screen->m_pages[page_index];
     REQUIRE((page && !page->m_entries.empty()));
     for (int index = 0; index < static_cast<int>(page->m_entries.size()) && !complete; ++index) {
-        W8CharacterPageEntry* entry = page->m_entries[index];
+        W8CharacterPageEntry* entry = page->m_entries[index].get();
         if (!entry || !entry->m_enabled || !entry->m_second || !entry->m_third ||
             (page_index == 2 && !entry->m_increment_allowed))
             continue;
@@ -835,7 +835,7 @@ void LoadGameScenario(const fs::path& fixture)
         if (!set || set->m_current < 0 ||
             static_cast<std::size_t>(set->m_current) >= set->m_panels.size())
             return false;
-        panel = static_cast<W8OptionsSaveLoadPanel*>(set->m_panels[set->m_current].get());
+        panel = static_cast<W8OptionsSaveLoadPanel*>(set->m_panels[set->m_current]);
         return panel->m_panel == 11 && !panel->m_rows.empty();
     });
     // The only save is the first row; select it, then press Load.
