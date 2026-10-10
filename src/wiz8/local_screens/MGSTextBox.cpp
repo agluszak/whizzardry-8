@@ -1741,32 +1741,14 @@ void SelectTextBox(short text_box)
         g_level_block->text_content_region = 0x56;
     }
 
-    bool can_scroll;
-    if (!g_level_block->dialogue_text_input_open || g_level_block->dialogue_text_input == 0 ||
-        g_level_block->dialogue_text_input->text_box != text_box) {
-        can_scroll = g_level_block->text_lines[text_box] + GetTextBoxVisibleLineCount() <
-                     g_status.text_box_lines_shown[text_box];
-    } else {
-        can_scroll = g_level_block->text_lines[text_box] + GetTextBoxVisibleLineCount() <
-                     g_level_block->dialogue_text_input->line_count +
-                         g_status.text_box_lines_shown[text_box];
-    }
-    if (can_scroll) {
-        g_level_block->dialogue_content_region = 0x5a;
-        return;
-    }
-    if (!g_level_block->dialogue_text_input_open || g_level_block->dialogue_text_input == 0 ||
-        g_level_block->dialogue_text_input->text_box != text_box) {
-        can_scroll = g_level_block->text_lines[text_box] + GetTextBoxVisibleLineCount() <
-                     g_status.text_box_lines_shown[text_box];
-    } else {
-        can_scroll = g_level_block->text_lines[text_box] + GetTextBoxVisibleLineCount() <
-                     g_level_block->dialogue_text_input->line_count +
-                         g_status.text_box_lines_shown[text_box];
-    }
-    if (!can_scroll) {
-        g_level_block->dialogue_content_region = 0x59;
-    }
+    const int visible_end = g_level_block->text_lines[text_box] + GetTextBoxVisibleLineCount();
+    const int input_lines = g_level_block->dialogue_text_input_open &&
+                            g_level_block->dialogue_text_input != nullptr &&
+                            g_level_block->dialogue_text_input->text_box == text_box
+                                ? g_level_block->dialogue_text_input->line_count
+                                : 0;
+    g_level_block->dialogue_content_region =
+        visible_end < input_lines + g_status.text_box_lines_shown[text_box] ? 0x5a : 0x59;
 }
 
 static void SelectWrappedTextLine(int line, int box, int (&selection)[4])
