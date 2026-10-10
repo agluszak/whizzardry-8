@@ -69,6 +69,12 @@ disc drives. The launcher writes diagnostics to the user root.
 
 ## Native tests
 
+CI runs the asset-backed `runtime_video` and `runtime_character` scenarios when
+the `WIZ8_INPUTS_TOKEN` and `WIZ8_CACHE_KEY` repository secrets are configured.
+Use the same private GOG-release access token and encryption key as the decomp CI.
+The installer is hash-checked, and only encrypted game files are stored in the
+Actions cache. Fork PRs without those secrets run the public tests only.
+
 The CTest suite covers portable file/SLF operations, SDL events/timers,
 CRT and pointer semantics, serialization, compression, image decoding/virtual
 transfers, CPU surfaces, pixel/blitter differentials, offline/positional audio,
