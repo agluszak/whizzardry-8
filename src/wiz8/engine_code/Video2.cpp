@@ -2900,6 +2900,7 @@ srModelInstance* Video2DRectToPolygon(const W8ControlsRect* rect, void* source, 
         node->setLocation(location);
         instance->setName("Video2DRectToPolygon");
     }
+    surface->release();
     return node;
 }
 

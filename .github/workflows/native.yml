@@ -58,6 +58,19 @@ jobs:
         run: cmake --preset linux -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
       - name: Build native game and fixtures
         run: cmake --build --preset linux --parallel "$(nproc)"
+      - name: Validate loader and packed math fixtures with ASan and UBSan
+        env:
+          ASAN_OPTIONS: detect_leaks=1
+          UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
+        run: |
+          cmake -S . -B build/sanitized -G Ninja \
+            -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_C_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer" \
+            -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer" \
+            -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined"
+          cmake --build build/sanitized --target native_loader_records_test native_save_records_test native_runtime_test native_vector_math_test --parallel "$(nproc)"
+          ctest --test-dir build/sanitized -R '^native_(loader_records|save_records|vector_math)$' --output-on-failure
       # The canonical GOG installer is stored in the decomp project's private
       # wiz8-ci-inputs release. Never put decrypted game files in Actions cache.
       - name: Check access to licensed game assets
@@ -139,6 +152,13 @@ jobs:
 
       - name: Test native contracts and licensed runtime scenarios
         run: ctest --preset linux --output-on-failure
+
+      - name: Validate licensed gameplay with ASan and UBSan
+        if: steps.game-assets.outputs.enabled == 'true'
+        env:
+          ASAN_OPTIONS: detect_leaks=1
+          UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
+        run: ctest --test-dir build/sanitized -L runtime --output-on-failure
 
       - name: Remove decrypted game assets
         if: always() && steps.game-assets.outputs.enabled == 'true'

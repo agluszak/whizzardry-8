@@ -459,7 +459,9 @@ std::string CreateCharacter(Game& game)
         game.key(key);
     const W8Character& typed = g_character_screen->m_character;
     std::string name;
-    for (wchar_t c : typed.name)
+    std::array<wchar_t, 10> short_name;
+    std::memcpy(short_name.data(), static_cast<const void*>(typed.name), sizeof(short_name));
+    for (wchar_t c : short_name)
     {
         if (!c)
             break;

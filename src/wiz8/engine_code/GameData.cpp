@@ -103,7 +103,7 @@ unsigned char LoadSurfaceVertices(srVector3T<float>* output, const int* vertex_i
 {
     short index;
     for (index = 0; index < 3; ++index) {
-        if (g_octree_game_data->m_iNumVertices < vertex_indices[index]) {
+        if (g_octree_game_data->VerticesCount() < vertex_indices[index]) {
             return 0;
         }
         output[index] = g_octree_game_data->m_pVertices[vertex_indices[index]];
@@ -944,7 +944,7 @@ unsigned char W8GameData::AdvanceEnvironmentMotion()
                     surface->hit_plane = 0;
                     if ((surface->flags & W8_GD_SURFACE_CROSSING_MASK) == 0 &&
                         surface->TestSegment(&probe_position, &motion_delta, &hit_distance,
-                                             m_pVertices)) {
+                                             m_pVertices.data())) {
                         if (hit_distance < nearest_distance) {
                             nearest_distance = hit_distance;
                             hit_position = probe_position;
@@ -1022,7 +1022,7 @@ unsigned char W8GameData::AdvanceEnvironmentMotion()
                     surface = &m_pSurfaces[octree_hits[index]];
                     if ((surface->flags & W8_GD_SURFACE_CROSSING_MASK) != 0 &&
                         surface->TestSegment(&probe_position, &motion_delta, &hit_distance,
-                                             m_pVertices)) {
+                                             m_pVertices.data())) {
                         if (0 < crossed_count) {
                             for (int swap = 0; swap < crossed_count; ++swap) {
                                 W8GDSurface* prior = collisions[swap];
@@ -1069,7 +1069,7 @@ unsigned char W8GameData::AdvanceEnvironmentMotion()
                 while (index != 0) {
                     unsigned int trigger_index = static_cast<unsigned int>(index - 1);
                     if (!active_trigger_bits->Test(trigger_index)) {
-                        if (m_ppTriggers != 0) {
+                        if (!m_ppTriggers.empty()) {
                             m_ppTriggers[trigger_index]->FinishAction();
                         }
                         pending_trigger_bits->Clear(trigger_index);
@@ -1124,8 +1124,6 @@ int W8GameData::TestPropSurfaces(int count, w8_ulong* ids, W8OctreeTrace* trace,
 // FUNCTION: WIZ8 0x0041c140
 bool W8GameData::TestProp(int prop_id, W8OctreeTrace* trace, char skip_flag, char gate)
 {
-    W8GDSurface* saved_surfaces = m_pSurfaces;
-    srVector3T<float>* saved_vertices = m_pVertices;
     bool hit = false;
     GDProp* gd_prop;
     W8Prop* prop;
@@ -1141,8 +1139,8 @@ bool W8GameData::TestProp(int prop_id, W8OctreeTrace* trace, char skip_flag, cha
     } else {
         gd_prop = static_cast<GDProp*>(*g_oct_pre_tree->props->GetAt(prop_id));
     }
-    m_pSurfaces = gd_prop->m_pGDSurfaces;
-    m_pVertices = gd_prop->m_pVertices;
+    const std::span surfaces(gd_prop->m_pGDSurfaces, gd_prop->m_surface_count);
+    const std::span vertices(gd_prop->m_pVertices, gd_prop->m_vertex_count);
     if (g_oct_pre_tree == 0) {
         if (gate == 0 || !gd_prop->m_flags.unattached) {
             srVector3T<float> start = trace->start;
@@ -1151,17 +1149,15 @@ bool W8GameData::TestProp(int prop_id, W8OctreeTrace* trace, char skip_flag, cha
             prop->GetDelta(&delta, &start);
             end -= delta;
             W8OctreeTrace prop_trace(&start, &end);
-            hit = TestTraceResult(gd_prop->m_surface_count, 0, &prop_trace, skip_flag, 0);
+            hit = TestGeometryTrace(surfaces, vertices, gd_prop->m_surface_count, 0, &prop_trace, skip_flag, 0);
             if (hit) {
                 end = prop_trace.end + delta;
                 trace->Reseed(&start, &end);
             }
         }
     } else {
-        hit = TestTraceResult(gd_prop->m_surface_count, 0, trace, skip_flag, 0);
+        hit = TestGeometryTrace(surfaces, vertices, gd_prop->m_surface_count, 0, trace, skip_flag, 0);
     }
-    m_pSurfaces = saved_surfaces;
-    m_pVertices = saved_vertices;
     return hit;
 }
 
@@ -1176,6 +1172,11 @@ bool W8GameData::TestProp(int prop_id, W8OctreeTrace* trace, char skip_flag, cha
 // FUNCTION: WIZ8 0x0041c330
 bool W8GameData::TestTraceResult(int count, w8_ulong* surface_ids, W8OctreeTrace* trace,
                                  char skip_flag, int mode)
+{ return TestGeometryTrace(m_pSurfaces, m_pVertices, count, surface_ids, trace, skip_flag, mode); }
+
+bool W8GameData::TestGeometryTrace(std::span<W8GDSurface> surfaces,
+    std::span<const srVector3T<float>> vertices_bank, int count, w8_ulong* surface_ids,
+    W8OctreeTrace* trace, char skip_flag, int mode)
 {
     bool hit = false;
     srVector3T<float> best_contact;
@@ -1188,9 +1189,9 @@ bool W8GameData::TestTraceResult(int count, w8_ulong* surface_ids, W8OctreeTrace
         do {
             W8GDSurface* surface;
             if (surface_ids == 0) {
-                surface = m_pSurfaces + index;
+                surface = surfaces.data() + index;
             } else {
-                surface = m_pSurfaces + *id;
+                surface = surfaces.data() + *id;
             }
             if (((!trace_flag4_gate || (surface->flags & W8_GD_SURFACE_WALKABLE) != 0) &&
                  (surface->flags & W8_GD_SURFACE_CROSSING_MASK) == 0 &&
@@ -1222,9 +1223,9 @@ bool W8GameData::TestTraceResult(int count, w8_ulong* surface_ids, W8OctreeTrace
                         contact = trace->start;
                     }
                     srVector3T<float> vertices[3];
-                    vertices[0] = m_pVertices[surface->vertex_indices[0]];
-                    vertices[1] = m_pVertices[surface->vertex_indices[1]];
-                    vertices[2] = m_pVertices[surface->vertex_indices[2]];
+                    vertices[0] = vertices_bank[surface->vertex_indices[0]];
+                    vertices[1] = vertices_bank[surface->vertex_indices[1]];
+                    vertices[2] = vertices_bank[surface->vertex_indices[2]];
                     if (PointInsideTriangle(vertices, surface->flags & W8_GD_SURFACE_AXIS_MASK,
                                             &contact) &&
                         hit_distance < trace->hit_limit) {
@@ -1266,20 +1267,20 @@ char W8GameData::SetInterfaceState(int iID, int state)
     W8GDInterfaceState* states;
     int* polys;
 
-    if (iID == 0 || m_iNumInterfaces <= iID) {
-        srAssertFail("iID && iID < m_iNumInterfaces",
+    if (iID == 0 || InterfacesCount() <= iID) {
+        srAssertFail("iID && iID < InterfacesCount()",
                      "C:\\Projects\\Wizardry 8\\Engine Code\\GameData.cpp", 0x4e0, 0);
     }
-    interface_rec = m_pInterfaces + iID;
+    interface_rec = m_pInterfaces.data() + iID;
     iStates = interface_rec->state_count;
-    if (m_iNumStates < interface_rec->iStates + iStates) {
-        srAssertFail("(m_pInterfaces[iID].iStates + iStates) <= m_iNumStates",
+    if (StatesCount() < interface_rec->iStates + iStates) {
+        srAssertFail("(m_pInterfaces[iID].iStates + iStates) <= StatesCount()",
                      "C:\\Projects\\Wizardry 8\\Engine Code\\GameData.cpp", 0x4e2, 0);
     }
-    states = m_pStates + interface_rec->iStates;
+    states = m_pStates.data() + interface_rec->iStates;
     for (; iStates != 0; --iStates) {
         poly_count = states->poly_count;
-        polys = m_piCondPolys + states->poly_first;
+        polys = m_piCondPolys.data() + states->poly_first;
         if (states->group == state) {
             for (; poly_count != 0; --poly_count) {
                 m_pSurfaces[*polys].flags &= ~W8_GD_SURFACE_CONDITIONAL_DISABLED;
@@ -1311,7 +1312,7 @@ void W8GameData::ProcessCrossedSurface(W8GDSurface* surface)
     if ((surface->flags & W8_GD_SURFACE_ENVIRONMENT) != 0) {
         if (surface->distance > 0.0f) {
             current = g_environ;
-            record = m_ppEnvirons[surface->trigger_index];
+            record = m_ppEnvirons[surface->trigger_index].get();
             record->ground_latch = current->ground_latch;
             record->airborne = current->airborne;
             record->value_08 = current->value_08;
@@ -1322,8 +1323,8 @@ void W8GameData::ProcessCrossedSurface(W8GDSurface* surface)
             return;
         }
         current = g_environ;
-        if (current == m_ppEnvirons[surface->trigger_index]) {
-            record = m_ppEnvirons[0];
+        if (current == m_ppEnvirons[surface->trigger_index].get()) {
+            record = m_ppEnvirons[0].get();
             record->ground_latch = current->ground_latch;
             record->airborne = current->airborne;
             record->value_08 = current->value_08;
@@ -1338,7 +1339,7 @@ void W8GameData::ProcessCrossedSurface(W8GDSurface* surface)
     if (surface->distance < 0.0f) {
         direction = -1;
     }
-    if (m_ppTriggers == 0 || active_trigger_bits->Set(surface->trigger_index) ||
+    if (m_ppTriggers.empty() || active_trigger_bits->Set(surface->trigger_index) ||
         pending_trigger_bits->Set(surface->trigger_index)) {
         return;
     }
@@ -1369,8 +1370,8 @@ void W8GameData::ProcessCrossedSurface(W8GDSurface* surface)
 // FUNCTION: WIZ8 0x0041c930
 stModelInstance* W8GameData::CreateTraceModel()
 {
-    BitArray selected(m_iNumSurfaces * 3 + 10);
-    stMeshModel* mesh = new stMeshModel(m_iNumSurfaces, m_iNumSurfaces * 3);
+    BitArray selected(SurfacesCount() * 3 + 10);
+    stMeshModel* mesh = new stMeshModel(SurfacesCount(), SurfacesCount() * 3);
     if (mesh == 0) {
         srAssertFail("pstMeshModel", "C:\\Projects\\Wizardry 8\\Engine Code\\GameData.cpp", 0x56d,
                      "ModelGameData::Read -- Could not create pstMeshModel.\n");
@@ -1385,8 +1386,8 @@ stModelInstance* W8GameData::CreateTraceModel()
         mesh->getVertexMaterial(0, srMeshModel::SIDE_FRONT, 1);
     w8_ulong* shade_indices = mesh->getVertexShadeIndex(1);
     int vertex = 0;
-    for (int index = 0; index < m_iNumSurfaces; ++index) {
-        W8GDSurface* surface = m_pSurfaces + index;
+    for (int index = 0; index < SurfacesCount(); ++index) {
+        W8GDSurface* surface = m_pSurfaces.data() + index;
         poly_textures[index] = g_oct_mesh_default_texture;
         if ((surface->flags & W8_GD_SURFACE_WALKABLE) != 0) {
             selected.Set(vertex);
@@ -1900,8 +1901,8 @@ bool W8GDSurface::ResolveCollision(srVector3T<float>* origin, const srVector3T<f
 // FUNCTION: WIZ8 0x0041E8E0
 bool W8GDSurface::CentroidsDiverging(int surface_index, const glm::vec3& from, const glm::vec3& to)
 {
-    const W8GDSurface* other = g_octree_game_data->m_pSurfaces + surface_index;
-    const srVector3T<float>* vertices = g_octree_game_data->m_pVertices;
+    const W8GDSurface* other = g_octree_game_data->m_pSurfaces.data() + surface_index;
+    const srVector3T<float>* vertices = g_octree_game_data->m_pVertices.data();
     glm::vec3 this_centroid(g_float_zero, g_float_zero, g_float_zero);
     glm::vec3 other_centroid(g_float_zero, g_float_zero, g_float_zero);
     for (int vertex = 0; vertex < 3; ++vertex) {
@@ -2198,8 +2199,8 @@ void W8GameData::ReleaseLevelData()
 void ResetCurrentEnvironment(void)
 {
     if (g_environ != 0) {
-        if (g_octree_game_data != 0 && g_octree_game_data->m_ppEnvirons != 0) {
-            g_environ = g_octree_game_data->m_ppEnvirons[0];
+        if (g_octree_game_data != 0 && !g_octree_game_data->m_ppEnvirons.empty()) {
+            g_environ = g_octree_game_data->m_ppEnvirons[0].get();
         }
         g_environ->vector.SetZero();
         if (g_environment_load_flag != 0) {
@@ -2394,7 +2395,7 @@ void GetCameraPosition(srVector3T<float>* position)
    first and the live pitch in the second. GetWorldCameraState passes the yaw
    record at +0x24 as angle and the pitch record at +0x0c as pitch. */
 // FUNCTION: WIZ8 0x004213A0
-void GetCameraOrientation(W8CameraAngleRecord angle, W8CameraAngleRecord pitch)
+void GetCameraOrientation(void* angle, void* pitch)
 {
     W8CameraAngleRecord yaw_values = {}, pitch_values = {};
     yaw_values[0] = g_gd_camera->m_yaw;
@@ -2404,7 +2405,7 @@ void GetCameraOrientation(W8CameraAngleRecord angle, W8CameraAngleRecord pitch)
 }
 
 // FUNCTION: WIZ8 0x004213E0
-void SetCameraOrientation(W8CameraAngleRecord angle, W8CameraAngleRecord pitch, glm::mat3* rotation)
+void SetCameraOrientation(void* angle, void* pitch, glm::mat3* rotation)
 {
     float yaw_value, pitch_value;
     memcpy(&yaw_value, angle, sizeof(yaw_value));
@@ -2430,7 +2431,7 @@ glm::vec3 ProjectVectorOntoVector(const glm::vec3& vector, const glm::vec3& onto
 
 /* Apply saved yaw and pitch after a world reload. */
 // FUNCTION: WIZ8 0x00421570
-void RestoreWorldCameraOrientation(W8CameraAngleRecord angle, W8CameraAngleRecord pitch, W8World*)
+void RestoreWorldCameraOrientation(void* angle, void* pitch, W8World*)
 {
     SetCameraOrientation(angle, pitch, nullptr);
 }

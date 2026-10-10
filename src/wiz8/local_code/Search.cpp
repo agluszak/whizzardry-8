@@ -198,7 +198,9 @@ void W8Searchable::GetPosition(srVector3T<float>* position)
 // FUNCTION: WIZ8 0x005171b0
 void ClearSearchables()
 {
-    g_searchables.Clear();
+    g_search_view.items.Clear();
+    g_search_view.cursor = -1;
+    g_searchables.RemoveAllAndDelete();
 }
 
 /* The 500ms search sweep: while nothing is interacting or surprising the

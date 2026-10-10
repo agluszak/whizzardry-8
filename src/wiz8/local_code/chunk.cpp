@@ -1,25 +1,18 @@
 #include "wiz8/sr_api.h"
+#include <array>
+#include <algorithm>
+#include <limits>
 #include "wiz8/chunk.h"
-#include "wiz8/virtual_file.h"
 #include "wiz8/filesystem.h"
 
 #define CHUNK_CPP "C:\\Projects\\Wizardry 8\\Local Code\\chunk.cpp"
 
 enum { W8_RIFF_CHUNK_ID = 0x46464952 };
 
-/* The two scalars are initialised, not assigned: retail sets them before any of
-   the four vectors is built, and they are declared first, so they can only come
-   from a member initialiser list. The vectors are ordinary members and build
-   themselves in declaration order after them. */
-// FUNCTION: WIZ8 0x0055bce0
-W8Chunk::W8Chunk() : m_fWriting(false) {}
-
-/* Implicit member destruction releases the four backing arrays in reverse
-   order. Retail 0x0055bde0 neither deletes remaining heads nor closes the file. */
-// FUNCTION: WIZ8 0x0055bde0
-W8Chunk::~W8Chunk()
+W8ChunkHead& W8Chunk::CurrentHead()
 {
-    while (m_heads.GetCount()) m_heads.RemoveAtAndDelete(m_heads.GetCount() - 1);
+    if (m_heads.empty()) throw std::logic_error("no current RIFF chunk");
+    return m_heads.back();
 }
 
 // FUNCTION: WIZ8 0x0055ca20
@@ -58,17 +51,10 @@ try
     if (m_hFile != 0) {
         return false;
     }
-    m_hFile = [&]() { try { return wiz8::open_file(path, mode); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
-    if (m_hFile == 0) {
-        return false;
-    }
+    m_hFile = wiz8::open_file(path, mode);
     m_fWriting = false;
     OpenChunk(0, 0);
-    W8ChunkHead* head = m_heads[m_heads.GetCount() - 1];
-    if (head == 0) {
-        srAssertFail("pHead", CHUNK_CPP, 0x1f0, 0);
-        throw std::runtime_error("missing RIFF header");
-    }
+    W8ChunkHead* head = &CurrentHead();
     if (head->chunk_id != W8_RIFF_CHUNK_ID)
         throw std::runtime_error("invalid RIFF identifier");
     OpenGroup();
@@ -76,8 +62,8 @@ try
 }
 catch (const std::exception&)
 {
-    m_heads.RemoveAllAndDelete();
-    m_group_counts.Clear(); m_offsets.Clear(); m_group_progress.Clear();
+    m_heads.clear();
+    m_group_counts.clear(); m_offsets.clear(); m_group_progress.clear();
     m_hFile.reset(); m_fWriting = false;
     return false;
 }
@@ -92,13 +78,16 @@ bool W8Chunk::OpenRead(const char* path)
 bool W8Chunk::OpenWrite(const char* path)
 try
 {
-    if (m_hFile != 0) {
-        return false;
-    }
-    m_hFile = [&]() { try { return wiz8::open_file(path, wiz8::OpenMode::replace); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
-    if (m_hFile == 0) {
-        return false;
-    }
+    if (m_hFile) return false;
+    return OpenWrite(wiz8::open_file(path, wiz8::OpenMode::replace));
+}
+catch (const std::exception&) { return false; }
+
+bool W8Chunk::OpenWrite(std::shared_ptr<wiz8::File> file)
+try
+{
+    if (m_hFile || !file) return false;
+    m_hFile = std::move(file);
     m_fWriting = true;
     OpenChunk(W8_RIFF_CHUNK_ID, 0);
     OpenGroup();
@@ -106,8 +95,7 @@ try
 }
 catch (const std::exception&)
 {
-    m_heads.RemoveAllAndDelete();
-    m_group_counts.Clear(); m_offsets.Clear(); m_group_progress.Clear();
+    m_heads.clear(); m_group_counts.clear(); m_offsets.clear(); m_group_progress.clear();
     m_hFile.reset(); m_fWriting = false;
     return false;
 }
@@ -121,24 +109,20 @@ bool W8Chunk::OpenAppend(const char* path)
     W8ChunkHead* head;
     int child_count;
     int remaining;
-    int position;
-    int distance;
+    std::int64_t position;
+    std::int64_t distance;
 
     if (!OpenExistingRiff(path, wiz8::OpenMode::update)) {
         return false;
     }
-    child_count = m_group_counts[m_group_counts.GetCount() - 1];
+    child_count = m_group_counts.back();
     remaining = child_count;
     if (child_count > 0) {
         do {
             OpenChunk(0, 0);
-            head = m_heads[m_heads.GetCount() - 1];
-            if (head == 0) {
-                srAssertFail("pHead", CHUNK_CPP, 0x136, 0);
-                throw std::runtime_error("missing RIFF header");
-            }
+            head = &CurrentHead();
             position = m_hFile->tell();
-            distance = m_offsets[m_offsets.GetCount() - 1] + (head->extent - position);
+            distance = m_offsets.back() + (head->extent - position);
             if (distance != 0) {
                 m_hFile->seek(distance, wiz8::SeekOrigin::current);
             }
@@ -146,7 +130,7 @@ bool W8Chunk::OpenAppend(const char* path)
             --remaining;
         } while (remaining != 0);
     }
-    m_group_progress.Add(child_count);
+    m_group_progress.push_back(child_count);
     m_fWriting = true;
     return true;
 }
@@ -165,18 +149,22 @@ void W8Chunk::Close()
 {
     if (m_hFile != 0) {
         if (m_fWriting) {
-            int position = m_hFile->tell();
+            if (m_heads.size() != 1 || m_offsets.size() != 1 || m_group_progress.size() != 1)
+                throw std::logic_error("unfinalized RIFF children");
+            const auto position = m_hFile->tell();
             int count;
 
             RewindCurrentChunk();
-            count = m_group_progress.RemoveAt(m_group_progress.GetCount() - 1);
+            count = m_group_progress.back();
+            m_group_progress.pop_back();
             Write(&count, sizeof(count), 0);
             m_hFile->seek(position, wiz8::SeekOrigin::begin);
         } else {
-            m_group_counts.RemoveAt(m_group_counts.GetCount() - 1);
+            m_group_counts.pop_back();
         }
         ReleaseCurrentChunk();
         if (m_hFile != 0) {
+            if (m_fWriting) m_hFile->flush();
             m_hFile->close();
             m_hFile.reset();
             m_hFile = 0;
@@ -185,38 +173,25 @@ void W8Chunk::Close()
     }
 }
 
-/* Materialize the source's active payload, reproduce its tag and grouping bit
+/* Stream the source's active payload, reproduce its tag and grouping bit
    in this write stream, and finalize the copy as one complete chunk. */
 // FUNCTION: WIZ8 0x0055c1e0
 bool W8Chunk::CopyCurrentChunkFrom(W8Chunk* source)
 {
-    W8ChunkHead* source_head = source->m_heads[source->m_heads.GetCount() - 1];
-    unsigned int transferred;
+    W8ChunkHead* source_head = &source->CurrentHead();
     unsigned int extent;
 
-    if (source_head == 0) {
-        srAssertFail("pHead", CHUNK_CPP, 0x204, 0);
-        throw std::runtime_error("missing RIFF header");
-    }
     extent = source_head->extent;
     if (!m_fWriting) {
         return false;
     }
-    auto contents = std::make_unique<unsigned char[]>(extent);
-    source->Read(contents.get(), extent, &transferred);
-    if (extent != transferred) {
-        return false;
-    }
-    source_head = source->m_heads[source->m_heads.GetCount() - 1];
-    if (source_head == 0) {
-        srAssertFail("pHead", CHUNK_CPP, 0x166, 0);
-        throw std::runtime_error("missing RIFF header");
-    }
     OpenChunk(source->CurrentChunkId(), source_head->grouped);
-    Write(contents.get(), extent, &transferred);
-    if (extent != transferred) {
-        ReleaseCurrentChunk();
-        return false;
+    std::array<unsigned char, 65536> buffer;
+    while (extent) {
+        const auto bytes = std::min<std::size_t>(extent, buffer.size());
+        source->m_hFile->read_exact(buffer.data(), bytes);
+        m_hFile->write(buffer.data(), bytes);
+        extent -= bytes;
     }
     ReleaseCurrentChunk();
     return true;
@@ -227,16 +202,12 @@ bool W8Chunk::CopyCurrentChunkFrom(W8Chunk* source)
 // FUNCTION: WIZ8 0x0055c390
 bool W8Chunk::SkipCurrentChunk()
 {
-    W8ChunkHead* head = m_heads[m_heads.GetCount() - 1];
-    int position;
-    int distance;
+    W8ChunkHead* head = &CurrentHead();
+    std::int64_t position;
+    std::int64_t distance;
 
-    if (head == 0) {
-        srAssertFail("pHead", CHUNK_CPP, 0x136, 0);
-        throw std::runtime_error("missing RIFF header");
-    }
     position = m_hFile->tell();
-    distance = m_offsets[m_offsets.GetCount() - 1] + (head->extent - position);
+    distance = m_offsets.back() + (head->extent - position);
     if (distance != 0) {
         m_hFile->seek(distance, wiz8::SeekOrigin::current);
     }
@@ -255,24 +226,20 @@ bool W8Chunk::OpenGroup()
         int count;
 
         Read(&count, sizeof(count), &transferred);
-        const int extent = m_heads[m_heads.GetCount() - 1]->extent;
+        const int extent = CurrentHead().extent;
         if (count < 0 || extent < static_cast<int>(sizeof(count)) ||
             static_cast<unsigned>(count) > (extent - sizeof(count)) / 10)
             throw std::runtime_error("invalid RIFF group count");
-        m_group_counts.Add(count);
+        m_group_counts.push_back(count);
         return true;
     } else {
-        W8ChunkHead* head = m_heads[m_heads.GetCount() - 1];
-        int position = m_hFile->tell();
+        W8ChunkHead* head = &CurrentHead();
+        const auto position = m_hFile->tell();
         int count = 0;
 
-        if (head == 0) {
-            srAssertFail("pHead", CHUNK_CPP, 0x185, 0);
-            throw std::runtime_error("missing RIFF header");
-        }
         head->grouped = 1;
-        m_group_progress.Add(0);
-        m_hFile->seek(m_offsets[m_offsets.GetCount() - 1] - 6, wiz8::SeekOrigin::begin);
+        m_group_progress.push_back(0);
+        m_hFile->seek(m_offsets.back() - 6, wiz8::SeekOrigin::begin);
         Write(&head->grouped, 1, &transferred);
         m_hFile->seek(position, wiz8::SeekOrigin::begin);
         Write(&count, sizeof(count), &transferred);
@@ -286,15 +253,16 @@ bool W8Chunk::OpenGroup()
 bool W8Chunk::ReleaseGroup()
 {
     if (!m_fWriting) {
-        m_group_counts.RemoveAt(m_group_counts.GetCount() - 1);
+        m_group_counts.pop_back();
         return true;
     } else {
         unsigned int transferred;
-        int position = m_hFile->tell();
+        const auto position = m_hFile->tell();
         int count;
 
         RewindCurrentChunk();
-        count = m_group_progress.RemoveAt(m_group_progress.GetCount() - 1);
+        count = m_group_progress.back();
+            m_group_progress.pop_back();
         Write(&count, sizeof(count), &transferred);
         m_hFile->seek(position, wiz8::SeekOrigin::begin);
         return true;
@@ -304,31 +272,29 @@ bool W8Chunk::ReleaseGroup()
 // FUNCTION: WIZ8 0x0055c660
 unsigned int W8Chunk::CurrentChunkId()
 {
-    W8ChunkHead* head = m_heads[m_heads.GetCount() - 1];
+    W8ChunkHead* head = &CurrentHead();
 
-    if (head == 0) {
-        srAssertFail("pHead", CHUNK_CPP, 0x1f0, 0);
-        throw std::runtime_error("missing RIFF header");
-    }
     return head->chunk_id;
 }
 
 // FUNCTION: WIZ8 0x0055c690
 int W8Chunk::CurrentChunkExtent()
 {
-    W8ChunkHead* head = m_heads[m_heads.GetCount() - 1];
+    W8ChunkHead* head = &CurrentHead();
 
-    if (head == 0) {
-        srAssertFail("pHead", CHUNK_CPP, 0x204, 0);
-        throw std::runtime_error("missing RIFF header");
-    }
     return head->extent;
+}
+
+std::int64_t W8Chunk::CurrentChunkEnd() const
+{
+    if (m_heads.empty() || m_offsets.empty()) throw std::logic_error("no current RIFF chunk");
+    return m_offsets.back() + m_heads.back().extent;
 }
 
 // FUNCTION: WIZ8 0x0055c6c0
 int W8Chunk::ChunkCount()
 {
-    return m_group_counts[m_group_counts.GetCount() - 1];
+    return m_group_counts.back();
 }
 
 /* The on-disk header deliberately writes its four established fields
@@ -338,28 +304,28 @@ int W8Chunk::ChunkCount()
 // FUNCTION: WIZ8 0x0055c6d0
 bool W8Chunk::OpenChunk(unsigned int chunk_id, unsigned char grouped)
 {
-    auto head = std::make_unique<W8ChunkHead>();
+    W8ChunkHead head{};
     if (m_fWriting) {
         if (chunk_id == 0) {
             srAssertFail("chunkID!=0", CHUNK_CPP, 0x22d, 0);
         }
-        head->chunk_id = chunk_id;
-        head->extent = 0;
-        head->grouped = grouped;
-        m_hFile->write(&head->chunk_id, 4);
-        m_hFile->write(&head->grouped, 1);
-        m_hFile->write(&head->at_end, 1);
-        m_hFile->write(&head->extent, 4);
+        head.chunk_id = chunk_id;
+        head.extent = 0;
+        head.grouped = grouped;
+        m_hFile->write(&head.chunk_id, 4);
+        m_hFile->write(&head.grouped, 1);
+        m_hFile->write(&head.at_end, 1);
+        m_hFile->write(&head.extent, 4);
     } else {
-        m_hFile->read_exact(&head->chunk_id, 4);
-        m_hFile->read_exact(&head->grouped, 1);
-        m_hFile->read_exact(&head->at_end, 1);
-        m_hFile->read_exact(&head->extent, 4);
-        if (head->extent < 0 || head->extent > m_hFile->size() - m_hFile->tell())
+        m_hFile->read_exact(&head.chunk_id, 4);
+        m_hFile->read_exact(&head.grouped, 1);
+        m_hFile->read_exact(&head.at_end, 1);
+        m_hFile->read_exact(&head.extent, 4);
+        if (head.extent < 0 || head.extent > m_hFile->size() - m_hFile->tell())
             throw std::runtime_error("invalid RIFF chunk extent");
     }
-    m_offsets.Add(m_hFile->tell());
-    m_heads.Add(head.release());
+    m_offsets.push_back(m_hFile->tell());
+    m_heads.push_back(head);
     return true;
 }
 
@@ -369,21 +335,23 @@ bool W8Chunk::OpenChunk(unsigned int chunk_id, unsigned char grouped)
 // FUNCTION: WIZ8 0x0055c930
 bool W8Chunk::ReleaseCurrentChunk()
 {
-    m_heads.RemoveAtAndDelete(m_heads.GetCount() - 1);
+    m_heads.pop_back();
     if (m_fWriting) {
-        int end = m_hFile->tell();
-        int payload = m_offsets.RemoveAt(m_offsets.GetCount() - 1);
-        int extent = end - payload;
+        const auto end = m_hFile->tell();
+        const auto payload = m_offsets.back();
+        m_offsets.pop_back();
+        if (end < payload || end - payload > std::numeric_limits<int>::max())
+            throw std::runtime_error("RIFF chunk too large");
+        const int extent = int(end - payload);
 
         m_hFile->seek(payload - 4, wiz8::SeekOrigin::begin);
         Write(&extent, sizeof(extent), 0);
         m_hFile->seek(end, wiz8::SeekOrigin::begin);
     } else {
-        m_offsets.RemoveAt(m_offsets.GetCount() - 1);
+        m_offsets.pop_back();
     }
-    if (m_group_progress.GetCount() != 0) {
-        m_group_progress[m_group_progress.GetCount() - 1] =
-            m_group_progress[m_group_progress.GetCount() - 1] + 1;
+    if (!m_group_progress.empty()) {
+        ++m_group_progress.back();
     }
     return true;
 }
@@ -391,7 +359,7 @@ bool W8Chunk::ReleaseCurrentChunk()
 // FUNCTION: WIZ8 0x0055cae0
 void W8Chunk::RewindCurrentChunk()
 {
-    m_hFile->seek(m_offsets[m_offsets.GetCount() - 1], wiz8::SeekOrigin::begin);
+    m_hFile->seek(m_offsets.back(), wiz8::SeekOrigin::begin);
 }
 
 /* Mark the active chunk's own at_end byte in the file. This is how the save
@@ -400,9 +368,9 @@ void W8Chunk::RewindCurrentChunk()
 void W8Chunk::SetCurrentChunkAtEnd()
 {
     unsigned char value = 1;
-    int position = m_hFile->tell();
+    const auto position = m_hFile->tell();
 
-    m_hFile->seek(m_offsets[m_offsets.GetCount() - 1] - 5, wiz8::SeekOrigin::begin);
+    m_hFile->seek(m_offsets.back() - 5, wiz8::SeekOrigin::begin);
     m_hFile->write(&value, 1);
     m_hFile->seek(position, wiz8::SeekOrigin::begin);
 }
@@ -410,11 +378,7 @@ void W8Chunk::SetCurrentChunkAtEnd()
 // FUNCTION: WIZ8 0x0055cb60
 unsigned char W8Chunk::CurrentChunkAtEnd()
 {
-    W8ChunkHead* head = m_heads[m_heads.GetCount() - 1];
+    W8ChunkHead* head = &CurrentHead();
 
-    if (head == 0) {
-        srAssertFail("pHead", CHUNK_CPP, 0x303, 0);
-        throw std::runtime_error("missing RIFF header");
-    }
     return head->at_end;
 }

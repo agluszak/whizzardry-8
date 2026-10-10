@@ -13,6 +13,7 @@
 #include "wiz8/local_screens/PartySelectionScreen.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
 #include "wiz8/local_screens/MainGameScreen.h"
+#include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/local_screens/AutomapScreen.h"
 #include "wiz8/local_screens/CreditsScreen.h"
 #include "wiz8/local_screens/OptionsScreen.h"
@@ -23,6 +24,7 @@
 #include "Font.h"
 #include "wiz8/application.h"
 #include "wiz8/engine_code/Video2.h"
+#include "wiz8/engine_code/ReadMesh.h"
 #include "surrender/srTypeRegistry.h"
 
 #include <string.h>
@@ -109,10 +111,12 @@ void ShutdownGame(size_t initialized_screens, bool save_configuration)
     for (index = 0; index < static_cast<int>(initialized_screens); ++index) {
         g_screen_handlers[index].finalize();
     }
+    ClearNpcDialogueTranscript();
     g_screen_return_stack.clear();
     ReleaseAllTriggers();
     FreeStringTable();
     DestroyGameplayObjects();
+    ReleaseReadMeshScratch();
     if (save_configuration)
         SaveGameConfiguration();
 }

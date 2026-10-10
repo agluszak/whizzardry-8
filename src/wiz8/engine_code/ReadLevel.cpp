@@ -960,6 +960,7 @@ try
 
         LoadMaterial(pInfo->bitmap_folder, &record.material, &material, &texture, &render_flags, 1);
         particle->SetMaterial(material);
+        material->release();
         srShader shader;
         shader.value = render_flags.value;
         particle->SetRenderFlags(shader);

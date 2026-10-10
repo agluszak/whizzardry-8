@@ -636,7 +636,7 @@ void ShowMipeItemTableCategory(void)
 {
     ResetEditorStatusLine(-1);
     ShowNoticef(W8_FONT_PALETTE_PINK, L"Category: %S",
-                g_item_table_category_names[g_mipe_category & 0xff]);
+                g_item_table_category_names[g_mipe_category & 0xff].data());
     ShowMipeNamedTableRows<W8ItemTableRecord>(g_mipe_category_list);
 }
 
@@ -1394,20 +1394,20 @@ void HandleMipePropEditKey(unsigned short key)
                         PListClear(g_mipe_category_list);
                         for (index = 0; index < static_cast<int>(gXStatus.uiItemTablesInDatabase);
                              ++index) {
-                            table = g_item_tables[index];
+                            table = &g_item_tables[index];
                             if (table->category_id == 0) {
                                 PLAdoptAppend(list, table);
                             }
                         }
                     }
                 } else {
-                    unsigned char category = g_item_tables[table_index]->category_id;
+                    unsigned char category = g_item_tables[table_index].category_id;
                     g_mipe_category = category;
                     if (g_mipe_category_list != 0) {
                         PListClear(g_mipe_category_list);
                         for (index = 0; index < static_cast<int>(gXStatus.uiItemTablesInDatabase);
                              ++index) {
-                            table = g_item_tables[index];
+                            table = &g_item_tables[index];
                             if (table->category_id == static_cast<unsigned int>(category)) {
                                 PLAdoptAppend(list, table);
                             }
@@ -1416,7 +1416,7 @@ void HandleMipePropEditKey(unsigned short key)
                     for (index = 0; index < static_cast<int>(PLLength(g_mipe_category_list));
                          ++index) {
                         table = static_cast<W8ItemTableRecord*>(PLGet(g_mipe_category_list, index));
-                        if (table == g_item_tables[table_index]) {
+                        if (table == &g_item_tables[table_index]) {
                             break;
                         }
                     }
@@ -2186,7 +2186,7 @@ void HandleMipeItemTableKey(unsigned short key)
         if (g_mipe_state->prop != 0) {
             table_index =
                 FindCategoryItemTable(g_mipe_category & 0xff, g_mipe_table_base + g_mipe_table_row);
-            table = g_item_tables[table_index & 0xffff];
+            table = &g_item_tables[table_index & 0xffff];
             trigger = g_mipe_state->prop->GetTrigger();
             strcpy(trigger->inline_action_data, table->name);
             trigger->items_generated = 0;
@@ -2222,7 +2222,7 @@ void HandleMipeItemTableKey(unsigned short key)
                 PListClear(g_mipe_category_list);
                 for (index = 0; index < static_cast<int>(gXStatus.uiItemTablesInDatabase);
                      ++index) {
-                    table = g_item_tables[index];
+                    table = &g_item_tables[index];
                     if (table->category_id == static_cast<unsigned int>(category - 1)) {
                         PLAdoptAppend(list, table);
                     }
@@ -2247,7 +2247,7 @@ void HandleMipeItemTableKey(unsigned short key)
                 PListClear(g_mipe_category_list);
                 for (index = 0; index < static_cast<int>(gXStatus.uiItemTablesInDatabase);
                      ++index) {
-                    table = g_item_tables[index];
+                    table = &g_item_tables[index];
                     if (table->category_id == static_cast<unsigned int>(g_mipe_category & 0xff)) {
                         PLAdoptAppend(list, table);
                     }
@@ -2783,7 +2783,7 @@ int FindCategoryItemTable(unsigned int category, int ordinal)
     int index;
 
     for (index = 0; index < static_cast<int>(gXStatus.uiItemTablesInDatabase); ++index) {
-        if (g_item_tables[index]->category_id == (category & 0xff)) {
+        if (g_item_tables[index].category_id == (category & 0xff)) {
             if (found == ordinal) {
                 return index;
             }

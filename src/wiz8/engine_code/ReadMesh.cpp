@@ -26,6 +26,10 @@
 #include <stdlib.h>
 
 #include <math.h>
+#include <memory>
+#include <vector>
+#include <stdexcept>
+#include <cmath>
 #include <string.h>
 #include <stdio.h>
 #include <glm/gtc/matrix_transform.hpp>
@@ -59,47 +63,18 @@ void ReadMeshTransform(wiz8::File* file, srVector3T<float>* location, glm::mat3*
     file->read_exact(&scale->z, sizeof(scale->z));
 }
 
-/* The material reader retains its three parallel result tables together with
-   the normalized serialized records used to identify a reusable table. */
-// GLOBAL: WIZ8 0x0065B9E8
-static srMaterialIFace** g_read_mesh_materials;
-// GLOBAL: WIZ8 0x0065B9EC
-static srTextureIFace** g_read_mesh_textures;
-// GLOBAL: WIZ8 0x0065B9F0
-static srShader* g_read_mesh_render_flags;
-// GLOBAL: WIZ8 0x0065B9F4
-static W8MaterialRecord* g_read_mesh_material_records;
-/* Element count of the three scratch tables; every retail access is 16-bit. */
-// GLOBAL: WIZ8 0x0065B9F8
-static short g_read_mesh_scratch_count;
-// GLOBAL: WIZ8 0x0065B9CC
+// The raw pointer tables are borrowed views required by the mesh builder.
+struct MeshMaterials {
+    std::vector<srPtr<srMaterialIFace>> owners;
+    std::vector<srPtr<srTextureIFace>> texture_owners;
+    std::vector<srMaterialIFace*> materials;
+    std::vector<srTextureIFace*> textures;
+    std::vector<srShader> flags;
+    std::vector<W8MaterialRecord> records;
+};
+static MeshMaterials g_mesh_materials;
 static int g_read_mesh_material_count;
 
-// FUNCTION: WIZ8 0x00489A80
-bool IsTextureInReadMeshScratch(const srTextureIFace* texture)
-{
-    if (g_read_mesh_textures != 0 && g_read_mesh_scratch_count != 0) {
-        for (short index = 0; index < g_read_mesh_scratch_count; ++index) {
-            if (g_read_mesh_textures[index] == texture) {
-                return true;
-            }
-        }
-    }
-    return false;
-}
-
-// FUNCTION: WIZ8 0x00489AC0
-bool IsReadMeshMaterial(const srClass* material)
-{
-    if (g_read_mesh_materials != 0 && g_read_mesh_scratch_count != 0) {
-        for (short index = 0; index < g_read_mesh_scratch_count; ++index) {
-            if (g_read_mesh_materials[index] == material) {
-                return true;
-            }
-        }
-    }
-    return false;
-}
 // GLOBAL: WIZ8 0x0065B9E4
 static unsigned int g_read_mesh_index;
 // GLOBAL: WIZ8 0x0065BA00
@@ -742,78 +717,74 @@ static int ReadMeshMaterials(W8ReadLevelInfo* info, srMaterialIFace*** materials
                              int load_materials)
 {
     if (info == 0) {
-        srAssertFail("pInfo", "C:\\Projects\\Wizardry 8\\Engine Code\\ReadMesh.cpp", 0x256, 0);
+        return 0;
     }
     if (info->bitmap_folder == 0) {
-        srAssertFail("pInfo->strBitmapDir", "C:\\Projects\\Wizardry 8\\Engine Code\\ReadMesh.cpp",
-                     0x257, 0);
+        return 0;
     }
     if (info->world == 0) {
-        srAssertFail("pInfo->pWorld", "C:\\Projects\\Wizardry 8\\Engine Code\\ReadMesh.cpp", 0x258,
-                     0);
+        return 0;
     }
     if (info->hFile == 0) {
-        srAssertFail("pInfo->hFile", "C:\\Projects\\Wizardry 8\\Engine Code\\ReadMesh.cpp", 0x259,
-                     0);
+        return 0;
     }
 
     short count;
     short index;
-    (info->hFile->read(&count, sizeof(count)).bytes == static_cast<std::size_t>(sizeof(count)));
+    info->hFile->read_exact(&count, sizeof(count));
     if (count < 1) {
         return 0;
     }
 
-    W8MaterialRecord* records =
-        static_cast<W8MaterialRecord*>(malloc(count * sizeof(W8MaterialRecord)));
-    memset(records, 0, count * sizeof(W8MaterialRecord));
-    (info->hFile->read(records, 0x11a).bytes == static_cast<std::size_t>(0x11a));
+    if (static_cast<std::int64_t>(count) * 0x11a > info->hFile->size() - info->hFile->tell()) {
+        throw std::runtime_error("ReadMeshMaterials: Invalid material count.");
+    }
+    MeshMaterials staged;
+    staged.records.resize(count);
+    W8MaterialRecord* records = staged.records.data();
+    info->hFile->read_exact(records, 0x11a);
     if (records[0].version < 4) {
         for (index = 1; index < count; ++index) {
-            (info->hFile->read(records + index, 0x11a).bytes == static_cast<std::size_t>(0x11a));
+            info->hFile->read_exact(records + index, 0x11a);
         }
     } else {
-        (info->hFile->read(records[0].texture_modes, sizeof(records[0].texture_modes)).bytes == static_cast<std::size_t>(sizeof(records[0].texture_modes)));
-        if (count > 1) {
-            (info->hFile->read(records + 1, (count - 1) * sizeof(W8MaterialRecord)).bytes == static_cast<std::size_t>((count - 1) * sizeof(W8MaterialRecord)));
-        }
+        info->hFile->read_exact(records[0].texture_modes, sizeof(records[0].texture_modes));
+        info->hFile->read_exact(records + 1,
+                                static_cast<std::size_t>(count - 1) * sizeof(W8MaterialRecord));
     }
 
     for (index = 0; index < count; ++index) {
         ClearMaterialRecordPadding(records + index);
     }
 
-    if (g_read_mesh_scratch_count == count &&
-        memcmp(records, g_read_mesh_material_records, count * sizeof(W8MaterialRecord)) == 0) {
-        *materials = g_read_mesh_materials;
-        *textures = g_read_mesh_textures;
-        *render_flags = g_read_mesh_render_flags;
-        free(records);
+    if (g_mesh_materials.records.size() == static_cast<std::size_t>(count) &&
+        memcmp(records, g_mesh_materials.records.data(), count * sizeof(W8MaterialRecord)) == 0) {
+        *materials = g_mesh_materials.materials.data();
+        *textures = g_mesh_materials.textures.data();
+        *render_flags = g_mesh_materials.flags.data();
         return count;
     }
 
-    ReleaseReadMeshScratch();
-    *materials = static_cast<srMaterialIFace**>(malloc(count * sizeof(**materials)));
-    *textures = static_cast<srTextureIFace**>(malloc(count * sizeof(**textures)));
-    *render_flags = static_cast<srShader*>(malloc(count * sizeof(**render_flags)));
-    memset(*materials, 0, count * sizeof(**materials));
-    memset(*textures, 0, count * sizeof(**textures));
-    memset(*render_flags, 0, count * sizeof(**render_flags));
-
-    g_read_mesh_materials = *materials;
-    g_read_mesh_textures = *textures;
-    g_read_mesh_render_flags = *render_flags;
-    g_read_mesh_material_records = records;
-    g_read_mesh_scratch_count = count;
-
+    staged.owners.resize(count);
+    staged.texture_owners.resize(count);
+    staged.materials.resize(count);
+    staged.textures.resize(count);
+    staged.flags.resize(count);
     for (index = 0; index < count; ++index) {
         if (index == 0) {
-            CreateDefaultMaterial(*materials + index, *textures + index, *render_flags + index);
+            CreateDefaultMaterial(&staged.materials[index], &staged.textures[index], &staged.flags[index]);
         } else {
-            LoadMaterial(info->bitmap_folder, records + index, *materials + index,
-                         *textures + index, *render_flags + index, load_materials);
+            LoadMaterial(info->bitmap_folder, records + index, &staged.materials[index],
+                         &staged.textures[index], &staged.flags[index], load_materials);
         }
+        staged.owners[index] = staged.materials[index];
+        staged.materials[index]->release();
+        staged.texture_owners[index] = staged.textures[index];
     }
+    g_mesh_materials = std::move(staged);
+    *materials = g_mesh_materials.materials.data();
+    *textures = g_mesh_materials.textures.data();
+    *render_flags = g_mesh_materials.flags.data();
     return count;
 }
 
@@ -831,7 +802,11 @@ unsigned char ReadSingleLevelMesh(W8ReadLevelInfo* info, srModelInstance** insta
             stModelInstance* duplicate = CreateModelInstance(model);
             duplicate->setName("Read Mesh Duplicate Instance");
             *instance = duplicate;
-            SkipSingleLevelMesh(info);
+            if (SkipSingleLevelMesh(info) == 0) {
+                duplicate->release();
+                *instance = nullptr;
+                return 0;
+            }
             return 1;
         }
     }
@@ -845,37 +820,43 @@ unsigned char ReadSingleLevelMeshBody(W8ReadLevelInfo* info, srModelInstance** i
                                       const char* name, bool load_materials)
 try
 {
-    /* Retail read mapping_count/value/key/compression_type uninitialised when
-       a FileRead short-circuited; the recovery keeps that read. */
     W8GrowableVector<short> mapped_values;
     W8GrowableVector<short> mapped_keys;
     int version = 0;
     int vertex_count = 0;
     int face_count = 0;
     unsigned char flags = 0;
-    unsigned int bytes_read;
-    srVector3T<float>* vertices = 0;
-    short** compressed_vertices = 0;
+    std::vector<srVector3T<float>> vertex_storage;
+    srVector3T<float>* vertices = nullptr;
+    std::vector<std::vector<short>> compressed_vertices;
     short frame_count = 0;
     float compression_scale = 1000.0f;
-    W8ReadMeshFace* faces = 0;
+    std::vector<W8ReadMeshFace> face_storage;
+    W8ReadMeshFace* faces = nullptr;
     int** vertex_maps = 0;
     unsigned int mesh_count = 0;
     unsigned int vertex_map_count = 0;
+    const auto release_maps = [&](int***) {
+        for (unsigned int index = 0; index < vertex_map_count; ++index) {
+            free(vertex_maps[index]);
+        }
+        free(vertex_maps);
+    };
+    std::unique_ptr<int**, decltype(release_maps)> map_owner(&vertex_maps, release_maps);
     stMeshModel* first_model = 0;
 
     if (info == 0) {
-        srAssertFail("pInfo", "C:\\Projects\\Wizardry 8\\Engine Code\\ReadMesh.cpp", 0xd7, 0);
+        return 0;
     }
     wiz8::File* file = info->hFile;
     if (file == 0) {
-        srAssertFail("hFile", "C:\\Projects\\Wizardry 8\\Engine Code\\ReadMesh.cpp", 0xd9, 0);
+        return 0;
     }
 
     file->read_exact(&version, sizeof(version));
     file->read_exact(&vertex_count, sizeof(vertex_count));
-    unsigned char success = (file->read(&face_count, sizeof(face_count)).bytes == static_cast<std::size_t>(sizeof(face_count)));
-    if (vertex_count < 1 || face_count < 1) {
+    file->read_exact(&face_count, sizeof(face_count));
+    if (vertex_count < 1 || vertex_count > 100000 || face_count < 1 || face_count > 200000) {
         return 0;
     }
 
@@ -883,47 +864,37 @@ try
     srVector3T<float> scale;
     glm::mat3 rotation;
     if (version > 2) {
-        success = (file->read(&flags, sizeof(flags)).bytes == static_cast<std::size_t>(sizeof(flags)));
+        file->read_exact(&flags, sizeof(flags));
     }
     if (version > 1) {
         ReadMeshTransform(file, &location, &rotation, &scale);
     }
-    if (success == 0) {
-        return 0;
-    }
 
     if (version > 3) {
         signed char mapping_count;
-        success = (file->read(&mapping_count, sizeof(mapping_count)).bytes == static_cast<std::size_t>(sizeof(mapping_count)));
+        file->read_exact(&mapping_count, sizeof(mapping_count));
+        if (mapping_count < 0)
+            return 0;
         for (short index = 0; index < mapping_count; ++index) {
             short value = 0;
             short key = 0;
             /* Retail 0x00485e06/0x00485e1b: the mapping key (the vertex
                marker id GetCycleMappedPosition asks for) comes first in the
                file, then the original vertex index. */
-            if (success == 0 || !(file->read(&key, sizeof(key)).bytes == static_cast<std::size_t>(sizeof(key))) ||
-                !(file->read(&value, sizeof(value)).bytes == static_cast<std::size_t>(sizeof(value)))) {
-                success = 0;
+            file->read_exact(&key, sizeof(key));
+            file->read_exact(&value, sizeof(value));
+            if (value < 0 || value >= vertex_count) {
+                return 0;
             }
             mapped_values.Add(value);
             mapped_keys.Add(key);
         }
     }
-    if (success == 0) {
-        return 0;
-    }
 
     if ((flags & W8_LEVEL_MESH_LOD_VERTICES) == 0) {
-        vertices = static_cast<srVector3T<float>*>(malloc(vertex_count * sizeof(*vertices)));
-        if (vertices == 0) {
-            srAssertFail("pstVertices", "C:\\Projects\\Wizardry 8\\Engine Code\\ReadMesh.cpp",
-                         0x139, 0);
-        }
-        success = ((bytes_read = file->read(vertices, vertex_count * sizeof(*vertices)).bytes) == static_cast<std::size_t>(vertex_count * sizeof(*vertices)));
-        if (success == 0) {
-            srAssertFail("fSuccess", "C:\\Projects\\Wizardry 8\\Engine Code\\ReadMesh.cpp", 0x13b,
-                         0);
-        }
+        vertex_storage.resize(vertex_count);
+        vertices = vertex_storage.data();
+        file->read_exact(vertices, vertex_count * sizeof(*vertices));
         for (int index = 0; index < vertex_count; ++index) {
             vertices[index] *= 500.0f;
         }
@@ -937,61 +908,40 @@ try
         if ((flags & W8_LEVEL_MESH_SHORT_LOD_VERTICES) == 0) {
             srAssertFail("FALSE", "C:\\Projects\\Wizardry 8\\Engine Code\\ReadMesh.cpp", 0x131,
                          "Uncompressed mesh, please re-export level with newer plugin");
+            return 0;
         } else {
-            compressed_vertices = new short*[frame_count];
-            if (compressed_vertices == 0) {
-                srAssertFail("ppCompVertices",
-                             "C:\\Projects\\Wizardry 8\\Engine Code\\ReadMesh.cpp", 0x10e, 0);
+            if (frame_count <= 0 || !std::isfinite(compression_scale) || compression_scale <= 0 ||
+                static_cast<std::uint64_t>(frame_count) * vertex_count * 6 >
+                    static_cast<std::uint64_t>(file->size() - file->tell())) {
+                return 0;
             }
-            for (short frame = 0; frame < frame_count; ++frame) {
-                compressed_vertices[frame] =
-                    static_cast<short*>(malloc(vertex_count * 3 * sizeof(short)));
-                if (compressed_vertices[frame] == 0) {
-                    srAssertFail("ppCompVertices[i]",
-                                 "C:\\Projects\\Wizardry 8\\Engine Code\\ReadMesh.cpp", 0x114, 0);
-                }
-                success = ((bytes_read = file->read(compressed_vertices[frame], vertex_count * 3 * sizeof(short)).bytes) == static_cast<std::size_t>(vertex_count * 3 * sizeof(short)));
-                if (success == 0) {
-                    srAssertFail("fSuccess", "C:\\Projects\\Wizardry 8\\Engine Code\\ReadMesh.cpp",
-                                 0x118, 0);
-                }
+            compressed_vertices.resize(frame_count);
+            for (auto& frame : compressed_vertices) {
+                frame.resize(static_cast<std::size_t>(vertex_count) * 3);
+                file->read_exact(frame.data(), frame.size() * sizeof(short));
             }
         }
     }
 
-    faces = static_cast<W8ReadMeshFace*>(malloc(face_count * sizeof(*faces)));
-    if (faces == 0) {
-        srAssertFail("pstFaces", "C:\\Projects\\Wizardry 8\\Engine Code\\ReadMesh.cpp", 0x148, 0);
-    }
+    face_storage.resize(face_count);
+    faces = face_storage.data();
     if ((flags & W8_LEVEL_MESH_COMPRESSED_FACES) == 0) {
-        success = ((bytes_read = file->read(faces, face_count * sizeof(*faces)).bytes) == static_cast<std::size_t>(face_count * sizeof(*faces)));
-        if (success == 0) {
-            srAssertFail("fSuccess", "C:\\Projects\\Wizardry 8\\Engine Code\\ReadMesh.cpp", 0x166,
-                         0);
-        }
+        std::vector<W8SerializedMeshFace> records(face_count);
+        file->read_exact(records.data(), records.size() * sizeof(W8SerializedMeshFace));
+        for (int index = 0; index < face_count; ++index) faces[index] = DecodeMeshFace(records[index]);
     } else {
-        W8LevelFileCompressedFace* compressed_faces =
-            static_cast<W8LevelFileCompressedFace*>(malloc(face_count * sizeof(*compressed_faces)));
-        if (compressed_faces == 0) {
-            srAssertFail("pCompPoly", "C:\\Projects\\Wizardry 8\\Engine Code\\ReadMesh.cpp", 0x14e,
-                         0);
-        }
-        success =
-            ((bytes_read = file->read(compressed_faces, face_count * sizeof(*compressed_faces)).bytes) == static_cast<std::size_t>(face_count * sizeof(*compressed_faces)));
-        if (success == 0) {
-            srAssertFail("fSuccess", "C:\\Projects\\Wizardry 8\\Engine Code\\ReadMesh.cpp", 0x152,
-                         0);
-        }
+        std::vector<W8LevelFileCompressedFace> compressed_faces(face_count);
+        file->read_exact(compressed_faces.data(),
+                         compressed_faces.size() * sizeof(W8LevelFileCompressedFace));
         for (int index = 0; index < face_count; ++index) {
             for (int vertex = 0; vertex < 3; ++vertex) {
                 faces[index].vertices[vertex] = compressed_faces[index].vertex_indices[vertex];
-                faces[index].texture_coordinates[vertex] =
-                    compressed_faces[index].texture_coordinates[vertex];
+                faces[index].texture_coordinates[vertex] = {compressed_faces[index].texture_coordinates[vertex][0],
+                    compressed_faces[index].texture_coordinates[vertex][1]};
             }
             faces[index].material_index = compressed_faces[index].material_index;
             faces[index].flags = compressed_faces[index].flags;
         }
-        free(compressed_faces);
     }
 
     srMaterialIFace** materials;
@@ -1000,12 +950,31 @@ try
     int material_count =
         ReadMeshMaterials(info, &materials, &textures, &render_flags, load_materials);
     if (materials == 0) {
-        srAssertFail("ppsrMats", "C:\\Projects\\Wizardry 8\\Engine Code\\ReadMesh.cpp", 0x16b, 0);
+        return 0;
     }
     if (material_count == 0) {
-        srAssertFail("uiMatCount", "C:\\Projects\\Wizardry 8\\Engine Code\\ReadMesh.cpp", 0x16c, 0);
+        return 0;
     }
 
+    W8GrowableVector<srShader> shaders;
+    for (int index = 0; index < material_count; ++index) {
+        if (shaders.IndexOf(render_flags[index]) == -1) {
+            shaders.Add(render_flags[index]);
+        }
+    }
+    if (shaders.GetCount() > 8) {
+        return 0;
+    }
+    for (const auto& face : face_storage) {
+        if (face.material_index < 0 || face.material_index >= material_count) {
+            return 0;
+        }
+        for (int vertex : face.vertices) {
+            if (vertex < 0 || vertex >= vertex_count) {
+                return 0;
+            }
+        }
+    }
     first_model = BuildSingleLevelMesh(face_count, faces, vertex_count, material_count, materials,
                                        textures, render_flags, &mesh_count, &vertex_maps,
                                        &vertex_map_count, &mapped_values, &mapped_keys);
@@ -1065,20 +1034,6 @@ try
         }
     }
 
-    for (unsigned int map_index = 0; map_index < vertex_map_count; ++map_index) {
-        free(vertex_maps[map_index]);
-    }
-    free(vertex_maps);
-    if (compressed_vertices == 0) {
-        free(vertices);
-    } else {
-        for (short frame = 0; frame < frame_count; ++frame) {
-            free(compressed_vertices[frame]);
-        }
-        delete[] compressed_vertices;
-    }
-    free(faces);
-
     if (first_model != 0) {
         srVector3T<float> minimum;
         srVector3T<float> maximum;
@@ -1100,20 +1055,17 @@ try
     int terminator;
 
     if (info == 0) {
-        srAssertFail("pInfo", "C:\\Projects\\Wizardry 8\\Engine Code\\ReadMesh.cpp", 0x31e, 0);
+        return 0;
     }
     if (count == 0) {
-        srAssertFail("uiNumMeshes", "C:\\Projects\\Wizardry 8\\Engine Code\\ReadMesh.cpp", 0x31f,
-                     0);
+        return 0;
     }
     if (info->hFile == 0) {
-        srAssertFail("hFile", "C:\\Projects\\Wizardry 8\\Engine Code\\ReadMesh.cpp", 0x323, 0);
+        return 0;
     }
 
-    unsigned char success = (info->hFile->read(&mesh_count, sizeof(mesh_count)).bytes == static_cast<std::size_t>(sizeof(mesh_count)));
-    if (success != 0) {
-        (info->hFile->read(&root_count, sizeof(root_count)).bytes == static_cast<std::size_t>(sizeof(root_count)));
-    }
+    info->hFile->read_exact(&mesh_count, sizeof(mesh_count));
+    info->hFile->read_exact(&root_count, sizeof(root_count));
 
     g_read_mesh_material_count = ReadMeshMaterials(
         info, &g_multi_mesh_materials, &g_multi_mesh_textures, &g_multi_mesh_render_flags, 1);
@@ -1121,19 +1073,16 @@ try
         srAssertFail("uiMatCount", "C:\\Projects\\Wizardry 8\\Engine Code\\ReadMesh.cpp", 0x329, 0);
     }
 
-    (info->hFile->read(&terminator, sizeof(terminator)).bytes == static_cast<std::size_t>(sizeof(terminator)));
-    if (terminator != -1) {
-        srAssertFail("(uiTerminator == 0xffffffff)",
-                     "C:\\Projects\\Wizardry 8\\Engine Code\\ReadMesh.cpp", 0x32c,
-                     "NewReadMesh: Material list length is incorrect.");
-    }
-    if (count != mesh_count) {
-        srAssertFail("(uiNumMeshes == uiMeshNum)",
-                     "C:\\Projects\\Wizardry 8\\Engine Code\\ReadMesh.cpp", 0x32e,
-                     "NewReadMesh: Mismatch in mesh count between .oct and .pvl files.");
-    }
+    info->hFile->read_exact(&terminator, sizeof(terminator));
+    if (terminator != -1)
+        return 0;
 
-    stMeshModel** meshes = static_cast<stMeshModel**>(malloc(count * sizeof(*meshes)));
+    if (count != mesh_count || root_count > mesh_count ||
+        mesh_count > static_cast<std::uint64_t>(info->hFile->size() - info->hFile->tell())) {
+        return 0;
+    }
+    std::vector<stMeshModel*> mesh_storage(mesh_count, nullptr);
+    stMeshModel** meshes = mesh_storage.data();
     srVector3T<float> minimum;
     srVector3T<float> maximum;
     for (g_read_mesh_index = 0; g_read_mesh_index < mesh_count; ++g_read_mesh_index) {
@@ -1143,6 +1092,8 @@ try
         stMeshModel* model =
             reader.Read(info->hFile, g_multi_mesh_materials, g_multi_mesh_textures,
                         g_multi_mesh_render_flags, meshes, g_read_mesh_material_count);
+        if (model == nullptr)
+            return 0;
         meshes[g_read_mesh_index] = model;
         model->setDirty(srMeshModel::DIRTY_BOUNDS);
         model->getBoundingBox(minimum, maximum);
@@ -1160,12 +1111,9 @@ try
         }
     }
 
-    (info->hFile->read(&terminator, sizeof(terminator)).bytes == static_cast<std::size_t>(sizeof(terminator)));
-    if (terminator != -1) {
-        srAssertFail("(uiTerminator == 0xffffffff)",
-                     "C:\\Projects\\Wizardry 8\\Engine Code\\ReadMesh.cpp", 0x35b,
-                     "NewReadMesh: Incorrect offset in file at end of mesh.");
-    }
+    info->hFile->read_exact(&terminator, sizeof(terminator));
+    if (terminator != -1)
+        return 0;
 
     /* Retail 0x0048853e reads g_multi_mesh_textures (0x0065B9FC), not the
        material array, for the same retention pass. */
@@ -1177,7 +1125,6 @@ try
         }
     }
 
-    free(meshes);
     return 1;
 } catch (const std::exception&) {
     return false;
@@ -1198,6 +1145,11 @@ void ClearMaterialRecordPadding(W8MaterialRecord* material)
     if (material == 0) {
         return;
     }
+    for (const auto& name : material->texture_names) {
+        if (memchr(name, '\0', sizeof(name)) == nullptr) {
+            throw std::runtime_error("ReadMeshMaterials: Unterminated texture name.");
+        }
+    }
     /* Retail expands the four tail clears straight-line; VC6 does not unroll
        a counted loop, so these are four authored statements. */
     memset(material->texture_name, 0, sizeof(material->texture_name));
@@ -1214,98 +1166,75 @@ void ClearMaterialRecordPadding(W8MaterialRecord* material)
 // FUNCTION: WIZ8 0x004881d0
 void ReleaseReadMeshScratch()
 {
-    if (g_read_mesh_materials != 0) {
-        free(g_read_mesh_materials);
-        g_read_mesh_materials = 0;
-    }
-    if (g_read_mesh_textures != 0) {
-        free(g_read_mesh_textures);
-        g_read_mesh_textures = 0;
-    }
-    if (g_read_mesh_render_flags != 0) {
-        free(g_read_mesh_render_flags);
-        g_read_mesh_render_flags = 0;
-    }
-    if (g_read_mesh_material_records != 0) {
-        free(g_read_mesh_material_records);
-        g_read_mesh_material_records = 0;
-    }
-    g_read_mesh_scratch_count = 0;
+    g_mesh_materials = {};
 }
 
 // FUNCTION: WIZ8 0x00487bd0
 unsigned char SkipSingleLevelMesh(W8ReadLevelInfo* info)
 try
 {
-    /* Retail read count/group_count uninitialised when a FileRead
-       short-circuited; natively count starts at zero. */
-    int version;
-    int vertex_count;
-    int face_count;
+    if (info == nullptr || info->world == nullptr || info->hFile == nullptr) {
+        return 0;
+    }
+    auto& file = *info->hFile;
+    int version, vertex_count, face_count;
     unsigned char flags = 0;
-    unsigned char count = 0;
-    short item_count;
-    short index;
-    unsigned char success = 1;
-
-    if (info == 0 || info->world == 0 || info->hFile == 0) {
+    file.read_exact(&version, 4);
+    file.read_exact(&vertex_count, 4);
+    file.read_exact(&face_count, 4);
+    if (vertex_count < 1 || vertex_count > 100000 || face_count < 1 || face_count > 200000) {
         return 0;
     }
-    if (!(info->hFile->read(&version, 4).bytes == static_cast<std::size_t>(4)) || !(info->hFile->read(&vertex_count, 4).bytes == static_cast<std::size_t>(4)) ||
-        !(info->hFile->read(&face_count, 4).bytes == static_cast<std::size_t>(4))) {
+    if (version > 2)
+        file.read_exact(&flags, 1);
+    std::int64_t skip = version > 1 ? 0x28 : 0;
+    if (skip > file.size() - file.tell())
         return 0;
-    }
-    if (vertex_count < 1 || face_count < 1) {
-        return 0;
-    }
-    if (version > 2) {
-        success = (info->hFile->read(&flags, 1).bytes == static_cast<std::size_t>(1));
-    }
-    if (version > 1) {
-        (info->hFile->seek(0x28, wiz8::SeekOrigin::current), true);
-    }
+    file.seek(skip, wiz8::SeekOrigin::current);
     if (version > 3) {
-        if (success == 0 || !(info->hFile->read(&count, 1).bytes == static_cast<std::size_t>(1))) {
-            success = 0;
-        }
-        if (count != 0) {
-            (info->hFile->seek(static_cast<int>(static_cast<signed char>(count)) * 4, wiz8::SeekOrigin::current), true);
-        }
+        signed char mapping_count;
+        file.read_exact(&mapping_count, 1);
+        if (mapping_count < 0)
+            return 0;
+        skip = static_cast<std::int64_t>(mapping_count) * 4;
+        if (skip > file.size() - file.tell())
+            return 0;
+        file.seek(skip, wiz8::SeekOrigin::current);
     }
-    if ((flags & W8_LEVEL_MESH_LOD_VERTICES) == 0) {
-        vertex_count *= 0xc;
-    } else {
-        unsigned char ignored;
-        short group_count;
-
-        (info->hFile->read(&ignored, 1).bytes == static_cast<std::size_t>(1));
-        (info->hFile->read(&group_count, 2).bytes == static_cast<std::size_t>(2));
-        if ((flags & W8_LEVEL_MESH_SHORT_LOD_VERTICES) == 0) {
-            vertex_count = group_count * vertex_count * 0xc;
-        } else {
-            vertex_count = group_count * vertex_count * 6;
-        }
-    }
-    (info->hFile->seek(vertex_count, wiz8::SeekOrigin::current), true);
-    if ((flags & W8_LEVEL_MESH_COMPRESSED_FACES) == 0) {
-        face_count *= 0x29;
-    } else {
-        face_count *= 0x21;
-    }
-    (info->hFile->seek(face_count, wiz8::SeekOrigin::current), true);
-    if ((info->hFile->read(&item_count, 2).bytes == static_cast<std::size_t>(2)) && item_count > 0) {
-        for (index = 0; index < item_count; ++index) {
-            (info->hFile->read(&count, 1).bytes == static_cast<std::size_t>(1));
-            (info->hFile->seek(0x119, wiz8::SeekOrigin::current), true);
-            if (count > 3) {
-                (info->hFile->seek(0x10, wiz8::SeekOrigin::current), true);
-            }
-        }
-    }
+    skip = static_cast<std::int64_t>(vertex_count) * 12;
     if ((flags & W8_LEVEL_MESH_LOD_VERTICES) != 0) {
-        success = 2;
+        unsigned char compression;
+        short frames;
+        file.read_exact(&compression, 1);
+        file.read_exact(&frames, 2);
+        if (frames <= 0)
+            return 0;
+        if (compression == 2) {
+            float scale;
+            file.read_exact(&scale, 4);
+            if (!std::isfinite(scale) || scale <= 0)
+                return 0;
+        }
+        skip = static_cast<std::int64_t>(vertex_count) * frames *
+               ((flags & W8_LEVEL_MESH_SHORT_LOD_VERTICES) != 0 ? 6 : 12);
     }
-    return success;
-} catch (const std::exception&) {
-    return false;
+    skip += static_cast<std::int64_t>(face_count) *
+            ((flags & W8_LEVEL_MESH_COMPRESSED_FACES) != 0 ? 0x21 : 0x29);
+    if (skip > file.size() - file.tell())
+        return 0;
+    file.seek(skip, wiz8::SeekOrigin::current);
+    short material_count;
+    file.read_exact(&material_count, 2);
+    if (material_count <= 0)
+        return 0;
+    for (short index = 0; index < material_count; ++index) {
+        unsigned char material_version;
+        file.read_exact(&material_version, 1);
+        skip = material_version > 3 ? 0x129 : 0x119;
+        if (skip > file.size() - file.tell())
+            return 0;
+        file.seek(skip, wiz8::SeekOrigin::current);
+    }
+    return (flags & W8_LEVEL_MESH_LOD_VERTICES) != 0 ? 2 : 1;
 }
+catch (const std::exception&) { return false; }

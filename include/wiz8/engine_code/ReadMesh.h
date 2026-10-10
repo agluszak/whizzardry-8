@@ -10,15 +10,34 @@ struct W8MaterialRecord;
 struct W8ReadLevelInfo;
 
 #pragma pack(push, 1)
+struct W8SerializedMeshFace {
+    int vertices[3];
+    float texture_coordinates[3][2];
+    int material_index;
+    unsigned char flags;
+};
+#pragma pack(pop)
+
+static_assert(sizeof(W8SerializedMeshFace) == 0x29);
+
+// Runtime math objects have natural alignment; disk records contain only values.
 struct W8ReadMeshFace {
     int vertices[3];
     glm::vec2 texture_coordinates[3];
     int material_index;
     unsigned char flags;
 };
-#pragma pack(pop)
+inline W8ReadMeshFace DecodeMeshFace(const W8SerializedMeshFace& record) {
+    W8ReadMeshFace face{};
+    for (int corner = 0; corner < 3; ++corner) {
+        face.vertices[corner] = record.vertices[corner];
+        face.texture_coordinates[corner] = {record.texture_coordinates[corner][0],
+                                             record.texture_coordinates[corner][1]};
+    }
+    face.material_index = record.material_index; face.flags = record.flags;
+    return face;
+}
 
-W8_ABI_ASSERT(sizeof(W8ReadMeshFace) == 0x29, "W8ReadMeshFace_size_must_be_0x29");
 class srMaterialIFace;
 class srModelInstance;
 class srTextureIFace;
@@ -27,7 +46,6 @@ class stMeshModel;
 class srMeshModel;
 class srClass;
 
-bool IsTextureInReadMeshScratch(const srTextureIFace* texture);
 unsigned char ReadSingleLevelMesh(W8ReadLevelInfo* info, srModelInstance** instance,
                                   int unused_first, int unused_second, const char* name,
                                   bool load_materials);
@@ -36,7 +54,6 @@ unsigned char ReadMultipleLevelMeshes(W8ReadLevelInfo* info, srModelInstance** i
 unsigned char SkipSingleLevelMesh(W8ReadLevelInfo* info);
 void ReleaseReadMeshScratch();
 void ReleaseRetainedMaterials();
-bool IsReadMeshMaterial(const srClass* material);
 unsigned char ReadSingleLevelMeshBody(W8ReadLevelInfo* info, srModelInstance** instance, int, int,
                                       const char* name, bool load_materials);
 stMeshModel*

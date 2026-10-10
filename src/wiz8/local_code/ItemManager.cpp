@@ -185,7 +185,7 @@ int FindItemTableByName(const char* name)
     int index;
 
     for (index = 0; index < static_cast<int>(gXStatus.uiItemTablesInDatabase); ++index) {
-        if (_stricmp(name, g_item_tables[index]->name) == 0) {
+        if (_stricmp(name, g_item_tables[index].name) == 0) {
             return index;
         }
     }
@@ -233,12 +233,12 @@ int GenerateItemsFromTable(W8GrowableVector<W8WorldItem*>* output_items, unsigne
 
     table_id &= 0xffff;
     for (entry_index = 0; entry_index < 40; ++entry_index) {
-        table = g_item_tables[table_id];
+        table = &g_item_tables[table_id];
         if (table->entries[entry_index].selector != 0) {
             item_record = &g_item_records[table->entries[entry_index].item_id];
             if (table->entries[entry_index].weight == 0) {
                 output_items->Add(CreateTableItem(
-                    g_item_tables[table_id]->entries[entry_index].item_id, &position));
+                    g_item_tables[table_id].entries[entry_index].item_id, &position));
             } else if (table->level_scaled == 0) {
                 candidates.Add(entry_index);
             } else {
@@ -257,10 +257,10 @@ int GenerateItemsFromTable(W8GrowableVector<W8WorldItem*>* output_items, unsigne
     }
 
     if (candidates.GetCount() < static_cast<int>(maximum_items) &&
-        g_item_tables[table_id]->level_scaled != 0) {
+        g_item_tables[table_id].level_scaled != 0) {
         candidates.Clear();
         for (entry_index = 0; entry_index < 40; ++entry_index) {
-            if (g_item_tables[table_id]->entries[entry_index].selector != 0) {
+            if (g_item_tables[table_id].entries[entry_index].selector != 0) {
                 candidates.Add(entry_index);
             }
         }
@@ -268,7 +268,7 @@ int GenerateItemsFromTable(W8GrowableVector<W8WorldItem*>* output_items, unsigne
 
     total_weight = 0;
     for (entry_index = 0; entry_index < candidates.GetCount(); ++entry_index) {
-        total_weight += g_item_tables[table_id]->entries[*candidates.GetAt(entry_index)].weight;
+        total_weight += g_item_tables[table_id].entries[*candidates.GetAt(entry_index)].weight;
     }
 
     selected_count = 0;
@@ -278,7 +278,7 @@ int GenerateItemsFromTable(W8GrowableVector<W8WorldItem*>* output_items, unsigne
         }
         position_index = Random(candidates.GetCount());
         entry_index = *candidates.GetAt(position_index);
-        table = g_item_tables[table_id];
+        table = &g_item_tables[table_id];
         entry = &table->entries[entry_index];
         random_value = Random(total_weight);
         if (random_value <= entry->weight) {

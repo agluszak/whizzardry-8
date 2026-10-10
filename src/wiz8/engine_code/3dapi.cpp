@@ -6,6 +6,7 @@
 #include "wiz8/local_screens/AutomapScreen.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/monster_generators.h"
+#include "wiz8/local_code/MonsterGenerator.h"
 #include "wiz8/engine_code/Environment.h"
 #include "wiz8/engine_code/Video2.h"
 #include <cstdlib>
@@ -541,6 +542,7 @@ void DestroyWorldCollections(W8World* world)
 
     delete world->lights_to_update;
     delete world->collidable_props;
+    world->monster_generators->RemoveAllAndDelete();
     delete world->monster_generators;
     delete world->spell_visuals;
     delete world->missiles;

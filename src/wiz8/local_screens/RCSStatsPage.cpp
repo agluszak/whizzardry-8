@@ -1,3 +1,4 @@
+#include <algorithm>
 #include "wiz8/conditions.h"
 #include "wiz8/sgp_text.h"
 
@@ -970,7 +971,7 @@ void W8CharacterPersonalityPage::SetCharacter(W8Character* character,
         entry->AddLayoutFlags(g_W8TextControlLayoutImageAtOrigin);
         m_voice_selection.AddEntry(entry);
     }
-    ClampInteger(&character->voice, 0, 1);
+    character->voice = std::clamp(int(character->voice), 0, 1);
     m_voice_selection.SetSelected(character->voice);
     m_voice_selection.m_selectionListener = this;
 }
