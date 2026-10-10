@@ -286,7 +286,7 @@ W8World* CreateWorld()
     }
     memset(world, 0, sizeof(*world));
 
-    world->static_scene = SR_NEW(srScene)(static_cast<srNode*>(0));
+    world->static_scene = new srScene(static_cast<srNode*>(0));
     if (world->static_scene == 0) {
         free(world);
         return 0;
@@ -302,7 +302,7 @@ W8World* CreateWorld()
     world->level->setName("Sir-Tech Level");
     world->level->m_render_exclusion_mask = 1;
 
-    world->dynamic_scene = SR_NEW(srNode)(world->static_scene);
+    world->dynamic_scene = new srNode(world->static_scene);
     if (world->dynamic_scene == 0) {
         delete world->static_scene;
         delete world->level;

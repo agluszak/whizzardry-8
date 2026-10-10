@@ -17,7 +17,7 @@ struct stScriptLabel {
    growable-vector base table, then its W8Vector table, at +0x18 and +0x28.
    Load allocates eight-byte lines and 0x24-byte labels; Clear frees those
    pointed-to records before the vector storage. */
-class stScript : public srClassSupport<stScript, srClass, 1, 0x1000d> {
+class stScript : public srClassSupport<stScript, srClass, 0x1000d> {
 public:
     static const char* sGetClassName()
     {

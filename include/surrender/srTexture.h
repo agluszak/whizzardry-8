@@ -4,7 +4,7 @@
 #include "srTextureIFace.h"
 
 class SR_DLL_IMPORT srTexture
-    : public srClassSupport<srTexture, srTextureIFace, false, 0x2110> {
+    : public srClassSupport<srTexture, srTextureIFace, 0x2110> {
 public:
     static const char* sGetClassName();
     /* The copy body is consistent with ordinary member copy-construction;

@@ -1,5 +1,6 @@
 #include "surrender/srTypeRegistry.h"
 
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <memory>
@@ -43,22 +44,22 @@ void __cdecl srAssertFail(const char* expression, const char* path, w8_long line
     } while (0)
 
 namespace {
-struct Registered : srClassSupport<Registered, srClass, true, 0x7ff001> {
+struct Registered : srClassSupport<Registered, srClass, 0x7ff001> {
     static const char* sGetClassName() { return "Registry ownership fixture"; }
     srClass* vInstance() override { return new Registered; }
 };
 
-struct Inherited : srClassSupport<Inherited, Registered, false, 0x7ff002> {
+struct Inherited : srClassSupport<Inherited, Registered, 0x7ff002> {
     static const char* sGetClassName() { return "Inherited registry fixture"; }
     srClass* vInstance() override { return new Inherited; }
 };
 
-struct IndexedDerived : srClassSupport<IndexedDerived, Registered, true, 0x7ff003> {
+struct IndexedDerived : srClassSupport<IndexedDerived, Registered, 0x7ff003> {
     static const char* sGetClassName() { return "Indexed derived registry fixture"; }
     srClass* vInstance() override { return new IndexedDerived; }
 };
 
-struct Branch : srClassSupport<Branch, srClass, true, 0x7ff004> {
+struct Branch : srClassSupport<Branch, srClass, 0x7ff004> {
     static const char* sGetClassName() { return "Sibling registry fixture"; }
     srClass* vInstance() override { return new Branch; }
 };
@@ -222,7 +223,7 @@ void inherited_and_relative()
     CHECK(registry->getNumberOfInstances(indexed, 0) == 0);
     CHECK(registry->find(base, "shared", nullptr) == nullptr);
 
-    // A parent with no index searches child classes newest-first and continues across siblings.
+    // Iteration visits newest objects first and continues across sibling classes.
     auto* parent = srClass::sGetClassNode();
     std::vector<srRuntimeClass*> existing;
     for (auto* object = registry->find(parent, static_cast<const srRuntimeClass*>(nullptr));
@@ -256,32 +257,26 @@ void inherited_and_relative()
 void class_tree()
 {
     srRegistry registry;
-    CHECK(registry.checkValidity());
-    CHECK(registry.getRootClass() == nullptr);
+    CHECK(registry.getRootNode()->children.empty());
     auto* root = registry.getRootNode();
     std::vector<srRegistry::ClassNode*> nodes;
     for (w8_ulong id = 1; id <= 1024; ++id) {
         std::string name = "owned-class-" + std::to_string(id);
-        nodes.push_back(registry.registerClass(name.c_str(), root, id, id % 2));
+        nodes.push_back(registry.registerClass(name.c_str(), root, id));
         name.assign("changed producer buffer");
         CHECK(std::string(registry.getClassName(nodes.back())) == "owned-class-" + std::to_string(id));
         CHECK(registry.getClassNode(1) == nodes.front());
-        CHECK(registry.registerClass("ignored duplicate ID", root, id, 0) == nodes.back());
-        CHECK(registry.getRootClass() == nodes.back());
+        CHECK(registry.registerClass("ignored duplicate ID", root, id) == nodes.back());
+        CHECK(root->children.front() == nodes.back());
     }
-    auto* child = registry.getChildClass(root, nullptr);
-    for (auto expected = nodes.rbegin(); expected != nodes.rend(); ++expected) {
-        CHECK(child == *expected);
-        child = registry.getChildClass(root, child);
-    }
-    CHECK(child == nullptr);
+    CHECK(root->children.size() == nodes.size());
+    CHECK(std::equal(root->children.begin(), root->children.end(), nodes.rbegin()));
     CHECK(registry.getClassNode(0) == nullptr);
-    CHECK(registry.getChildClass(nodes.front(), nullptr) == nullptr);
-    CHECK(registry.getChildClass(nodes.front(), nodes.back()) == nullptr);
+    CHECK(nodes.front()->children.empty());
     // Ownership is flat, so teardown does not recursively delete a potentially deep class tree.
     auto* parent = nodes.front();
     for (w8_ulong id = 2048; id < 4096; ++id) {
-        parent = registry.registerClass("deep descendant", parent, id, 0);
+        parent = registry.registerClass("deep descendant", parent, id);
     }
     CHECK(registry.isDerivedOrSame(nodes.front(), parent));
 }

@@ -181,7 +181,7 @@ srCamera* GDCamera::CreateOrAttachCamera(srNode* parent, srCamera* camera)
     if (parent != 0) {
         srVector3T<double> position;
 
-        g_game_camera = SR_NEW(srCamera)(parent);
+        g_game_camera = new srCamera(parent);
         g_game_camera->setName("Sirtech Camera");
         position.SetFromFloat(&m_position);
         g_game_camera->setLocation(position);

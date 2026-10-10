@@ -13,10 +13,10 @@ class srPalette;
 struct W8TgaHeader;
 
 // VTABLE: SURRENDER 0x10076708
-// class srClassSupport<srColorSurfaceIFace, srClass, 1, 12544>
+// class srClassSupport<srColorSurfaceIFace, srClass, 12544>
 
 class srColorSurfaceIFace
-    : public srClassSupport<srColorSurfaceIFace, srClass, true, 0x3100> {
+    : public srClassSupport<srColorSurfaceIFace, srClass, 0x3100> {
 public:
     struct Rectangle {
         w8_long left;

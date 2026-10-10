@@ -339,10 +339,7 @@ srPalette* srPalette::findMatchingPalette(const srARGB* const colors, w8_long co
     srPalette* palette = 0;
     while (true) {
         srRegistry* registry = srCore.getRegistry();
-        srRegistry::ClassNode* node = registry->getClassNode(0x2900);
-        if (node == 0) {
-            node = registry->registerClass(sGetClassName(), srClass::sGetClassNode(), 0x2900, 1);
-        }
+        srRegistry::ClassNode* node = srPalette::sGetClassNode();
         palette = static_cast<srPalette*>(registry->findExact(node, palette));
         if (palette == 0) {
             break;
@@ -379,7 +376,7 @@ void srPalette::update()
    count gets a linear ramp. */
 // FUNCTION: SURRENDER 0x10004310
 srPalette::srPalette(srARGB* colors, w8_long color_count)
-    : srClassSupport<srPalette, srClass, 1, 0x2900>(), flags(0), colors(color_count),
+    : srClassSupport<srPalette, srClass, 0x2900>(), flags(0), colors(color_count),
       color_count(color_count)
 {
     if (colors == 0) {

@@ -1210,7 +1210,7 @@ srModelInstance* MakePolygonBrush(srNode* parent, srColorSurfaceIFace* surface, 
     srVector3T<float> scale;
     srShader shader;
 
-    model = SR_NEW(srMeshModel)(0L, 0L);
+    model = new srMeshModel(0L, 0L);
     if (!model) {
         return 0;
     }
@@ -1230,7 +1230,7 @@ srModelInstance* MakePolygonBrush(srNode* parent, srColorSurfaceIFace* surface, 
     if (!surface) {
         shader.value &= ~srShader::MASK_TEXTURING;
     } else {
-        texture = SR_NEW(srTextureMap)(static_cast<srColorSurfaceIFace*>(0));
+        texture = new srTextureMap(static_cast<srColorSurfaceIFace*>(0));
         texture->autoRelease();
         texture->setName("Video2DMakePolygonBrush");
         texture->setSurfacePtr(surface);
@@ -1265,7 +1265,7 @@ stModelInstance2D* CreateSpriteFromTexture(srTextureIFace* texture, double width
     int w = static_cast<int>(width * 640.0);
     int h = static_cast<int>(height * 480.0);
 
-    srMeshModel* model = SR_NEW(srMeshModel)(0L, 0L);
+    srMeshModel* model = new srMeshModel(0L, 0L);
     if (!model) {
         return 0;
     }
@@ -1675,7 +1675,7 @@ int GetAtomCursorY(const InputAtom* atom)
 // FUNCTION: WIZ8 0x004285c0
 unsigned char InitializeMouseCursorScene(void)
 {
-    srScene* cursor_scene = SR_NEW(srScene)(static_cast<srNode*>(0));
+    srScene* cursor_scene = new srScene(static_cast<srNode*>(0));
     cursor_scene->setAmbientLight(0.0f, 0.0f, 0.0f);
     cursor_scene->setFogColor(0.0f, 0.0f, 0.0f);
     g_cursor_scene = cursor_scene;
@@ -2115,7 +2115,7 @@ void VideoRemoveToolTip(void)
 srNode* VideoMakePoster(srColorSurfaceIFace* surface, float width, float height, bool additive)
 {
     srTextureIFace::e_hint hint;
-    srTextureMap* texture = SR_NEW(srTextureMap)(static_cast<srColorSurfaceIFace*>(0));
+    srTextureMap* texture = new srTextureMap(static_cast<srColorSurfaceIFace*>(0));
     texture->setMipmapBias(-8.0f);
     texture->autoRelease();
     texture->setName("VideoMakePoster");
@@ -2155,19 +2155,19 @@ void SetPrimarySurfaceTextureHint2Enabled(bool enabled)
 unsigned char InitializeMouseSurface(void)
 {
     if (g_pixel_format == 7) {
-        g_mouse_surface = SR_NEW(W8ColorSurface)(srPixelConvert::SURFACE_RGB565, 128UL, 128UL);
+        g_mouse_surface = new srColorSurface(srPixelConvert::SURFACE_RGB565, 128UL, 128UL);
         if (!g_mouse_surface) {
             srAssertFail("psrMouseSurface", "C:\\Projects\\Wizardry 8\\Engine Code\\Video2.cpp",
                          0x641, 0);
         }
     } else if (g_pixel_format == 8) {
-        g_mouse_surface = SR_NEW(W8ColorSurface)(srPixelConvert::SURFACE_RGB555, 128UL, 128UL);
+        g_mouse_surface = new srColorSurface(srPixelConvert::SURFACE_RGB555, 128UL, 128UL);
         if (!g_mouse_surface) {
             srAssertFail("psrMouseSurface", "C:\\Projects\\Wizardry 8\\Engine Code\\Video2.cpp",
                          0x635, 0);
         }
     } else if (g_pixel_format == 9) {
-        g_mouse_surface = SR_NEW(W8ColorSurface)(srPixelConvert::SURFACE_ARGB1555, 128UL, 128UL);
+        g_mouse_surface = new srColorSurface(srPixelConvert::SURFACE_ARGB1555, 128UL, 128UL);
         if (!g_mouse_surface) {
             srAssertFail("psrMouseSurface", "C:\\Projects\\Wizardry 8\\Engine Code\\Video2.cpp",
                          0x63b, 0);
@@ -2191,47 +2191,47 @@ unsigned char InitializeRendererSceneObjects(void)
 
     InitializeMouseSurface();
     g_modeler = new srModeler;
-    g_scene_permanent = SR_NEW(srScene)(static_cast<srNode*>(0));
+    g_scene_permanent = new srScene(static_cast<srNode*>(0));
     g_scene_permanent->setName("2D Permanent Overlay Scene");
     g_scene_permanent->setAmbientLight(0.0f, 0.0f, 0.0f);
     g_scene_permanent->setFogColor(0.0f, 0.0f, 0.0f);
 
-    g_scene_user = SR_NEW(srScene)(static_cast<srNode*>(0));
+    g_scene_user = new srScene(static_cast<srNode*>(0));
     g_scene_user->setName("2D User Overlay Scene");
     g_scene_user->setAmbientLight(0.0f, 0.0f, 0.0f);
     g_scene_user->setFogColor(0.0f, 0.0f, 0.0f);
 
-    g_scene_fullscreen = SR_NEW(srScene)(static_cast<srNode*>(0));
+    g_scene_fullscreen = new srScene(static_cast<srNode*>(0));
     g_scene_fullscreen->setName("Full Screen Overlay Scene");
     g_scene_fullscreen->setAmbientLight(0.0f, 0.0f, 0.0f);
     g_scene_fullscreen->setFogColor(0.0f, 0.0f, 0.0f);
 
-    g_scene_overlay0 = SR_NEW(srScene)(static_cast<srNode*>(0));
+    g_scene_overlay0 = new srScene(static_cast<srNode*>(0));
     g_scene_overlay0->setName("2D Overlay Scene (0)");
     g_scene_overlay0->setAmbientLight(0.0f, 0.0f, 0.0f);
     g_scene_overlay0->setFogColor(0.0f, 0.0f, 0.0f);
 
-    g_scene_overlay1 = SR_NEW(srScene)(static_cast<srNode*>(0));
+    g_scene_overlay1 = new srScene(static_cast<srNode*>(0));
     g_scene_overlay1->setName("2D Overlay Scene (1)");
     g_scene_overlay1->setAmbientLight(0.0f, 0.0f, 0.0f);
     g_scene_overlay1->setFogColor(0.0f, 0.0f, 0.0f);
 
-    g_scene_square = SR_NEW(srScene)(static_cast<srNode*>(0));
+    g_scene_square = new srScene(static_cast<srNode*>(0));
     g_scene_square->setName("2D Square Overlay Scene");
     g_scene_square->setAmbientLight(0.0f, 0.0f, 0.0f);
     g_scene_square->setFogColor(0.0f, 0.0f, 0.0f);
 
-    g_scene_prerender0 = SR_NEW(srScene)(static_cast<srNode*>(0));
+    g_scene_prerender0 = new srScene(static_cast<srNode*>(0));
     g_scene_prerender0->setName("2D Pre-render Overlay Scene (0)");
     g_scene_prerender0->setAmbientLight(0.0f, 0.0f, 0.0f);
     g_scene_prerender0->setFogColor(0.0f, 0.0f, 0.0f);
 
-    g_scene_prerender1 = SR_NEW(srScene)(static_cast<srNode*>(0));
+    g_scene_prerender1 = new srScene(static_cast<srNode*>(0));
     g_scene_prerender1->setName("2D Pre-render Overlay Scene (1)");
     g_scene_prerender1->setAmbientLight(0.0f, 0.0f, 0.0f);
     g_scene_prerender1->setFogColor(0.0f, 0.0f, 0.0f);
 
-    g_overlay_camera = SR_NEW(srCamera)(static_cast<srNode*>(0));
+    g_overlay_camera = new srCamera(static_cast<srNode*>(0));
     g_overlay_camera->setName("2D Overlay Camera");
     g_overlay_camera->setClipRange(0.01, 2.0);
     g_overlay_camera->setLocation(0.0, 0.0, -1.0);
@@ -2243,7 +2243,7 @@ unsigned char InitializeRendererSceneObjects(void)
     g_overlay_camera->setViewPlane(view, 1.0);
     g_overlay_camera->setEnvironmentRange(0.0f, 0.0f);
 
-    g_square_camera = SR_NEW(srCamera)(g_scene_square);
+    g_square_camera = new srCamera(g_scene_square);
     g_square_camera->setName("2D Square Overlay Camera");
     g_square_camera->setClipRange(0.01, 2.0);
     g_square_camera->setLocation(0.0, 0.0, -1.0);
@@ -2255,7 +2255,7 @@ unsigned char InitializeRendererSceneObjects(void)
     g_square_camera->setViewPlane(view, 1.0);
     g_square_camera->setEnvironmentRange(0.0f, 0.0f);
 
-    material = SR_NEW(srMaterial);
+    material = new srMaterial;
     g_blit_material = material;
     material->setName("Blit Rect Material");
     material_value = 1.0f;
@@ -2277,7 +2277,7 @@ unsigned char InitializeRendererSceneObjects(void)
 
     surface_description = LockCpuSurface(*g_primary_surface);
     UnlockCpuSurface(*g_primary_surface);
-    g_primary_color_surface = SR_NEW(W8ColorSurface)(
+    g_primary_color_surface = new srColorSurface(
         srPixelConvert::SURFACE_ARGB1555, surface_description.pixels, 640UL, 480UL,
         static_cast<w8_ulong>(surface_description.pitch));
     if (!g_primary_color_surface)
@@ -2660,7 +2660,7 @@ srModelInstance* Video2DRectToSquarePolygon(const W8ControlsRect* rect, void* so
         }
 
         srColorSurface* surface =
-            SR_NEW(W8ColorSurface)(srPixelConvert::SURFACE_ARGB1555, size, size);
+            new srColorSurface(srPixelConvert::SURFACE_ARGB1555, size, size);
         surface->autoRelease();
         surface->fill(0);
         surface->setFilter(&srBoxFilter);
@@ -2776,7 +2776,7 @@ stModelInstance2D* CreateColoredPolygonSprite(int width, int height, const srVec
 {
     double scale_x = width * g_inverse_screen_width;
     double scale_y = height * g_inverse_screen_height;
-    srMeshModel* model = SR_NEW(srMeshModel)(0L, 0L);
+    srMeshModel* model = new srMeshModel(0L, 0L);
     model->autoRelease();
 
     g_modeler->createGrid(1, 1);
@@ -2786,7 +2786,7 @@ stModelInstance2D* CreateColoredPolygonSprite(int width, int height, const srVec
     g_modeler->convert(*model, 1);
     g_modeler->discard();
 
-    srMaterial* material = SR_NEW(srMaterial)();
+    srMaterial* material = new srMaterial();
     material->autoRelease();
     material->setEmissive(*color);
     srVector4T<float> zero;
@@ -2944,7 +2944,7 @@ srModelInstance* Video2DRectToPolygon(const W8ControlsRect* rect, void* source, 
     }
 
     srColorSurface* surface =
-        SR_NEW(W8ColorSurface)(srPixelConvert::SURFACE_ARGB1555, static_cast<w8_ulong>(extent),
+        new srColorSurface(srPixelConvert::SURFACE_ARGB1555, static_cast<w8_ulong>(extent),
                                static_cast<w8_ulong>(extent));
     if (surface == 0) {
         return 0;
@@ -2989,7 +2989,7 @@ void VideoToolTip(CHAR16* text)
         return;
     }
     srColorSurface* surface =
-        SR_NEW(W8ColorSurface)(srPixelConvert::SURFACE_ARGB1555, 0xfeUL, 0xfeUL);
+        new srColorSurface(srPixelConvert::SURFACE_ARGB1555, 0xfeUL, 0xfeUL);
     if (surface == 0) {
         return;
     }
@@ -3158,15 +3158,15 @@ stTextureAnim* VideoVObjectToTextureAnim(HVOBJECT object, unsigned short start_f
 
             srColorSurface* surface;
             if (!use_argb1555) {
-                surface = SR_NEW(W8ColorSurface)(srPixelConvert::SURFACE_RGB555, extent, extent);
+                surface = new srColorSurface(srPixelConvert::SURFACE_RGB555, extent, extent);
             } else {
-                surface = SR_NEW(W8ColorSurface)(srPixelConvert::SURFACE_ARGB1555, extent, extent);
+                surface = new srColorSurface(srPixelConvert::SURFACE_ARGB1555, extent, extent);
             }
             surface->setName("VideoVObjecttoTextureAnim:srColorSurface");
             surface->autoRelease();
             surface->fill(0);
             if (BlitHVObjectToColorSurface(object, frame, surface, 0, 0)) {
-                srTextureMap* texture = SR_NEW(srTextureMap)(static_cast<srColorSurfaceIFace*>(0));
+                srTextureMap* texture = new srTextureMap(static_cast<srColorSurfaceIFace*>(0));
                 texture->autoRelease();
                 texture->setName("VideoVObjecttoTextureAnim");
                 texture->setMipmapBias(-8.0f);

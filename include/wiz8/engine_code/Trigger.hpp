@@ -195,7 +195,7 @@ enum W8TriggerRepresentationKind {
     W8_TRIGGER_REP_POSITION = 3
 };
 
-class Trigger : public srClassSupport<Trigger, srClass, 1, 0x10008> {
+class Trigger : public srClassSupport<Trigger, srClass, 0x10008> {
 public:
     typedef bool(__cdecl* ActivationCallback)(Trigger* trigger);
 

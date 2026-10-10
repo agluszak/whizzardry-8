@@ -51,11 +51,11 @@ srLight::srLight(srNode* parent, e_preset preset)
 }
 
 /* WIZ8 0x0049D67C..0x0049D6C5 inlines the SDK copy: construct the
-   illuminator with parent zero, register a fresh instance, then assign the
-   light before copying its members. Compiler-generated copying shares scene
+   illuminator with parent zero and a fresh identity, then copy its base state
+   and light members. Compiler-generated copying shares scene
    links and registry ownership, leaving dangling siblings during unload. */
 srLight::srLight(const srLight& other)
-    : srClassSupport<srLight, srIlluminator, false, 0x1220>(other),
+    : srClassSupport<srLight, srIlluminator, 0x1220>(other),
       attenuation_model(other.attenuation_model),
       near_start(other.near_start),
       near_end(other.near_end),

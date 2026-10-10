@@ -6,8 +6,8 @@
    0x004BA3E3 establish the complete size. The constructor/destructor pair
    registers the object as class 0x10007 and proves srNode as its base. */
 // VTABLE: WIZ8 0x005ED0F0 stLevel
-// VTABLE: WIZ8 0x005ED124 srClassSupport<stLevel, srNode, 0, 65543>
-class stLevel : public srClassSupport<stLevel, srNode, false, 0x10007> {
+// VTABLE: WIZ8 0x005ED124 srClassSupport<stLevel, srNode, 65543>
+class stLevel : public srClassSupport<stLevel, srNode, 0x10007> {
 public:
     static const char* sGetClassName()
     {

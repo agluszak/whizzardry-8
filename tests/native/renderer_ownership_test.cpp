@@ -3,6 +3,7 @@
 #include "surrender/srGERD.h"
 #include "surrender/srMaterialIFace.h"
 #include "surrender/srNode.h"
+#include "surrender/srTriMeshPipeline.h"
 #include "surrender/srVectorMath.h"
 #include "surrender/srVertexPipe.h"
 
@@ -83,12 +84,13 @@ bool recursiveSceneGraph()
 
 class TestMaterial : public srMaterialIFace {
 public:
+    w8_ulong disabled_channels = 0xffffffff;
     srClass* vInstance() override { return new TestMaterial; }
     void getMaterialInfo(srVertexProcessor::MaterialInfo& info) override
     {
         info.diffuse = info.ambient = info.specular = info.emissive = 0.0f;
         info.translucency = info.shininess = info.value_38 = info.fog_scale = 0.0f;
-        info.disabled_channels = 0xffffffff;
+        info.disabled_channels = disabled_channels;
     }
     void preProcess(srVertexPipe&) override {}
     void postProcess(srVertexPipe&) override {}
@@ -152,7 +154,7 @@ bool processorOwnership()
     inactive.enabled = false;
     std::array<srVector3, 65> positions;
     std::array<w8_ulong, 65> indices;
-    std::array<srMaterialIFace*, 65> materials;
+    std::array<srPtr<srMaterialIFace>, 65> materials;
     std::array<srVector4, 65> eye_locations;
     std::array<unsigned char, 65> attributes{};
     for (w8_ulong i = 0; i < positions.size(); ++i) {
@@ -213,6 +215,60 @@ bool processorOwnership()
     active.enabled = true;
     srVertexPipe empty;
     CHECK(active.isActive(empty));
+    return true;
+}
+
+bool pipelineRecords()
+{
+    TestMaterial material;
+    material.disabled_channels = ~((1u << srVertexProcessor::CHANNEL_ST0) |
+                                   (1u << srVertexProcessor::CHANNEL_ST1));
+    const std::array<srVector3, 3> positions{{{0, 0, 1}, {1, 0, 1}, {0, 1, 1}}};
+    const std::array<w8_ulong, 3> indices{2, 0, 1};
+    const std::array<srVector2, 3> first_uv{{{0, 0}, {1, 0}, {0, 1}}};
+    const std::array<srVector2, 3> second_uv{{{2, 3}, {4, 5}, {6, 7}}};
+    std::array<srTriMeshPipeline::Record, 2> records{};
+    std::array<srVertexArray, 2> arrays{};
+    std::array<std::array<srVector4, 3>, 2> eye_locations;
+    std::array<std::array<unsigned char, 3>, 2> attributes{};
+    std::array<std::array<std::array<srVector2, 3>, 2>, 2> texcoords;
+    std::array<std::array<std::array<float, 3>, 2>, 2> q;
+    for (std::size_t pass = 0; pass < records.size(); ++pass) {
+        records[pass].material = &material;
+        records[pass].channels = material.disabled_channels;
+        records[pass].flags = srVertexPipe::Record::HAS_TEXCOORD0 |
+                              srVertexPipe::Record::HAS_TEXCOORD1;
+        records[pass].st_source[0] = pass == 0 ? first_uv.data() : second_uv.data();
+        records[pass].st_source[1] = pass == 0 ? second_uv.data() : first_uv.data();
+        arrays[pass].eye_locations = eye_locations[pass].data();
+        arrays[pass].attributes = attributes[pass].data();
+        arrays[pass].st0 = texcoords[pass][0].data();
+        arrays[pass].st1 = texcoords[pass][1].data();
+        arrays[pass].q0 = q[pass][0].data();
+        arrays[pass].q1 = q[pass][1].data();
+    }
+    srMatrix4 identity;
+    identity.SetIdentity();
+    srVertexPipe::Input input{};
+    input.record_count = records.size();
+    input.vertex_count = positions.size();
+    input.active_vertices = indices.data();
+    input.positions = positions.data();
+    input.model_view = input.normal_matrix = &identity;
+    input.records = records.data();
+    input.vertex_arrays = arrays.data();
+    srVertexPipe pipe;
+    pipe.process(input);
+    for (std::size_t pass = 0; pass < records.size(); ++pass) {
+        for (std::size_t stage = 0; stage < 2; ++stage) {
+            for (std::size_t vertex = 0; vertex < indices.size(); ++vertex) {
+                const auto& expected = records[pass].st_source[stage][indices[vertex]];
+                CHECK(texcoords[pass][stage][vertex].x == expected.x);
+                CHECK(texcoords[pass][stage][vertex].y == expected.y);
+                CHECK(q[pass][stage][vertex] == 1.0f);
+            }
+        }
+    }
     return true;
 }
 
@@ -308,7 +364,7 @@ int main()
 {
     for (int cycle = 0; cycle < 2; ++cycle) {
         if (!srInit()) { return 1; }
-        const bool passed = recursiveSceneGraph() && processorOwnership() &&
+        const bool passed = recursiveSceneGraph() && processorOwnership() && pipelineRecords() &&
                             rendererOwnership();
         const bool exited = srExit();
         if (!passed || !exited || srGERD::getFirst() != nullptr) { return 1; }

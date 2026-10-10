@@ -23,7 +23,6 @@
 #include "srPtr.h"
 #include "srARGB.h"
 class srColorSurface;
-class srDebugDD;
 class srModelInstance;
 class srPalette;
 class srVertexProcessor;
@@ -267,27 +266,24 @@ public:
     enum e_clipMode { CLIPMODE_POSITIONAL_0 = 0 };
     /* 0 culls back faces and 1 front faces (each flipped by the winding); 2 disables culling. */
     enum e_cullMode { CULL_BACK = 0, CULL_FRONT = 1, CULL_NONE = 2 };
-    /* toggle XORs 1<<option into enable_flags. Option 1 selects sorted rendering; option 5
-       wraps/unwraps srDebugDD. The constructor sets options 4 and 6. */
+    /* toggle XORs 1<<option into enable_flags. Option 1 selects sorted rendering.
+       The constructor sets options 4 and 6. */
     enum e_enable {
         ENABLE_POSITIONAL_0 = 0,
         ENABLE_SORTED_RENDERING = 1,
         ENABLE_REVERSE_NORMALS = 3,
         ENABLE_AUTO_FLIP = 4,
-        ENABLE_DEBUG_DD = 5,
         ENABLE_CLEAR_ON_OPEN = 6
     };
     enum e_winding { WINDING_POSITIONAL_0 = 0, WINDING_POSITIONAL_1 = 1 };
     enum e_visibility { VISIBILITY_OUTSIDE = 0 };
     /* dump(stream, flags) section selectors: bit 0 driver/device info plus the window block, bit 1
-       the texture cache, bit 3 the statistics snapshot, bit 5 the srDebugDD call profile.
-       dump(stream) passes 0x3f. */
+       the texture cache, bit 3 the statistics snapshot. */
     enum e_info {
         INFO_DEVICE = 0x1,
         INFO_TEXTURE_CACHE = 0x2,
         INFO_STATISTICS = 0x8,
-        INFO_DEBUG_DD = 0x20,
-        INFO_ALL = 0x3f
+        INFO_ALL = INFO_DEVICE | INFO_TEXTURE_CACHE | INFO_STATISTICS
     };
     enum e_hint {};
     enum e_hintMode {};
@@ -875,8 +871,6 @@ private:
 
     struct Device {
         srDD* dd;
-        srDebugDD* debug_dd;
-        srDD* real_dd;
         srDD::Info info;
         /* getDriverInfo target; getDDAPIVersion/getDriverID/getDriverName
            (pre-context) and getApiVersion read its trailing fields. */

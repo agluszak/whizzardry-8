@@ -4,7 +4,6 @@ set(SURRENDER_SOURCES
     clipplane.cpp
     core.cpp
     debug.cpp
-    debug_dd.cpp
     environment_mapper.cpp
     fog.cpp
     vertex_pipe.cpp

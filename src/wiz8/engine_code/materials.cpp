@@ -2177,15 +2177,9 @@ unsigned char LoadMaterial(const char* bitmap_folder, const W8MaterialRecord* so
 
     {
         srRegistry* registry = srCore.getRegistry();
-        srRegistry::ClassNode* node = registry->getClassNode(0x10002);
+        srRegistry::ClassNode* node = stMaterial::sGetClassNode();
         stMaterial* concrete;
 
-        if (node == 0) {
-            node = registry->registerClass(
-                "stMaterial",
-                srClassSupport<srMaterial, srMaterialIFace, false, 0x2210>::sGetClassNode(),
-                0x10002, 0);
-        }
         concrete = static_cast<stMaterial*>(
             registry->find(node, material_name, static_cast<const srRuntimeClass*>(0)));
         *material = concrete;
@@ -2326,10 +2320,7 @@ srTexture* LoadTextureFromFolder(const char* folder, const char* name, bool requ
     *extension = '\0';
 
     registry = srCore.getRegistry();
-    node = registry->getClassNode(0x10001);
-    if (node == 0) {
-        node = registry->registerClass("stTextureFile", stTextureFile::sGetClassNode(), 0x10001, 0);
-    }
+    node = stTextureFile::sGetClassNode();
     texture = static_cast<stTextureFile*>(
         registry->find(node, name, static_cast<const srRuntimeClass*>(0)));
     if (texture == 0) {

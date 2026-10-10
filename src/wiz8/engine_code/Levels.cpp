@@ -713,13 +713,13 @@ unsigned char UnloadLevel(const char* save_directory)
        find (class, relative-to); the by-name overload with a null name is not
        an instance walk. */
     srRegistry* registry = srCore.getRegistry();
-    srRegistry::ClassNode* node = srClientSupport<srClipPlane, 0x1500>::sGetClassNode();
+    srRegistry::ClassNode* node = srClipPlane::sGetClassNode();
     srClass* clip_plane =
         static_cast<srClass*>(registry->find(node, static_cast<const srRuntimeClass*>(0)));
 
     while (clip_plane != 0) {
         srClass* next = static_cast<srClass*>(
-            registry->find(srClientSupport<srClipPlane, 0x1500>::sGetClassNode(),
+            registry->find(srClipPlane::sGetClassNode(),
                            static_cast<const srRuntimeClass*>(clip_plane)));
         clip_plane->release();
         clip_plane = next;

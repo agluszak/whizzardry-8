@@ -26,6 +26,9 @@ static_assert(std::is_same_v<decltype(srMeshModel::vertex_locations),
 static_assert(std::is_same_v<decltype(srTriMeshPipeline::vertex_pipe),
                              std::unique_ptr<srVertexPipe>>);
 static_assert(!std::is_copy_constructible_v<srTriMeshPipeline>);
+static_assert(std::is_same_v<srTriMeshPipeline::Record, srVertexPipe::Record>);
+static_assert(std::is_same_v<decltype(srVertexPipe::Input::records),
+                             const srTriMeshPipeline::Record*>);
 
 static bool defaults()
 {
@@ -243,10 +246,12 @@ static bool pipelineSlots()
     for (unsigned slot = 0; slot < 96; ++slot) {
         CHECK(pipeline->current_record == &pipeline->records[slot]);
         CHECK(pipeline->current_pass == &pipeline->passes[slot]);
-        CHECK(pipeline->current_record->flags == 0 && pipeline->current_record->st0 == nullptr);
-        CHECK(pipeline->current_record->dcg == nullptr && pipeline->current_record->alphas == nullptr);
+        CHECK(pipeline->current_record->flags == 0 &&
+              pipeline->current_record->st_source[0] == nullptr);
+        CHECK(pipeline->current_record->spec_for_diffuse == nullptr &&
+              pipeline->current_record->alpha_source == nullptr);
         CHECK(pipeline->current_pass->poly_uv == nullptr);
-        pipeline->current_record->st0 = uv;
+        pipeline->current_record->st_source[0] = uv;
         pipeline->current_record->flags = srVertexPipe::Record::HAS_TEXCOORD0;
         pipeline->current_pass->poly_uv = indices;
         pipeline->current_pass->texture_tables[0] = textures;
@@ -254,7 +259,7 @@ static bool pipelineSlots()
         ++pipeline->slot_count;
         pipeline->PrepareSlot();
         for (unsigned previous = 0; previous <= slot; ++previous) {
-            CHECK(pipeline->records[previous].st0 == uv);
+            CHECK(pipeline->records[previous].st_source[0] == uv);
             CHECK(pipeline->passes[previous].poly_uv == indices);
             CHECK(pipeline->passes[previous].texture_tables[0] == textures);
             CHECK(pipeline->passes[previous].shaders == &shader);
@@ -262,11 +267,11 @@ static bool pipelineSlots()
     }
     // Zero triangles exercise the real Flush boundary without any device work.
     pipeline->FlushIfCurrent();
-    CHECK(pipeline->records[0].st0 == uv && pipeline->passes[0].texture_tables[0] == textures);
+    CHECK(pipeline->records[0].st_source[0] == uv && pipeline->passes[0].texture_tables[0] == textures);
     pipeline->Reset(&renderer);
-    CHECK(pipeline->slot_count == 0 && pipeline->current_record->st0 == nullptr);
+    CHECK(pipeline->slot_count == 0 && pipeline->current_record->st_source[0] == nullptr);
     CHECK(pipeline->current_pass->texture_tables[0] == nullptr && pipeline->current_pass->shaders == nullptr);
-    CHECK(pipeline->current_record->vertex_materials == nullptr);
+    CHECK(pipeline->current_record->materials == nullptr);
     CHECK(pipeline->bounds_minimum == srVector3T<float>(0, 0, 0));
     return true;
 }

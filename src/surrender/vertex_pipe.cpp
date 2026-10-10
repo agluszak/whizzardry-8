@@ -209,7 +209,7 @@ void srVertexPipe::process(const Input& input)
         }
         w8_ulong record_index;
         for (record_index = 0; record_index < input.record_count; ++record_index) {
-            const Record* record = static_cast<const Record*>(input.records) + record_index;
+            const Record* record = input.records + record_index;
             current_record = record;
             vertex_array = input.vertex_arrays + record_index;
             if ((record->flags & Record::HAS_VERTEX_MATERIALS) == 0) {
@@ -227,8 +227,6 @@ void srVertexPipe::process(const Input& input)
                         setMaterial(next);
                         material = next;
                     }
-                    /* Retail reuses the dword scan on the pointer table; 64-bit
-                       pointers need a pointer comparison. */
                     {
                         const w8_ulong* indices = avt + 1 + sub_batch_offset;
                         const w8_ulong index_count = batch_count - sub_batch_offset - 1;

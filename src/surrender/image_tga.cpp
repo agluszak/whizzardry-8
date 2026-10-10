@@ -159,7 +159,7 @@ srColorSurface* loadTga(SDL_IOStream* source)
             depth == 16 ? ((descriptor & 15) ? srPixelConvert::SURFACE_ARGB1555 : srPixelConvert::SURFACE_RGB555) :
             depth == 24 ? srPixelConvert::SURFACE_BGR24 :
             (descriptor & 15) ? srPixelConvert::SURFACE_BGRA32 : srPixelConvert::SURFACE_BGRX32;
-        auto* surface = SR_NEW(W8ColorSurface)(format, width, height);
+        auto* surface = new srColorSurface(format, width, height);
         std::unique_ptr<srColorSurface, void(*)(srColorSurface*)> owned(surface, [](srColorSurface* p) {
             if (p) p->release();
         });
@@ -185,7 +185,7 @@ srColorSurface* loadTga(SDL_IOStream* source)
                 }
                 auto* matching = srPalette::findMatchingPalette(colors.data(), origin + count);
                 if (!matching) {
-                    matching = SR_NEW(W8Palette)(colors.data(), origin + count);
+                    matching = new srPalette(colors.data(), origin + count);
                     matching->autoRelease();
                     matching->setName("TGA-importer generated palette");
                 }

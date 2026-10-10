@@ -9,10 +9,10 @@
 class srColorSurfaceIFace;
 
 // VTABLE: SURRENDER 0x100753EC
-// class srClassSupport<srPalette, srClass, 1, 10496>
+// class srClassSupport<srPalette, srClass, 10496>
 
 // VTABLE: SURRENDER 0x100753CC srPalette
-class srPalette : public srClassSupport<srPalette, srClass, 1, 0x2900> {
+class srPalette : public srClassSupport<srPalette, srClass, 0x2900> {
 public:
     /* Two-level lookup: lut_rg[(g<<8)|r] selects a palette row, lut_rgb[(row<<8)|b] yields the
        index. */
@@ -220,5 +220,3 @@ private:
 W8_ABI_ASSERT(sizeof(srPalette::Quantizer) == 0x21918, "Quantizer_must_be_0x21918");
 W8_ABI_ASSERT(sizeof(srPalette::Sampler) == 0x20530, "Sampler_must_be_0x20530");
 W8_ABI_ASSERT(sizeof(srPalette) == 0x28, "srPalette_must_be_0x28");
-
-typedef srClientSupport<srPalette, 0x2900> W8Palette;

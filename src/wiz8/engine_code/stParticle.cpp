@@ -42,7 +42,7 @@ const float g_particle_flutter_angle_random_scale = 0.00019174758926965296f;
 // class stParticle
 
 // VTABLE: WIZ8 0x005ECC04
-// class srClassSupport<stParticle,srNode,0,65545>
+// class srClassSupport<stParticle,srNode,65545>
 
 /* Return the renderer flags as a value. VC6 lowers the four-byte class return
    through its hidden result pointer. */
@@ -156,7 +156,7 @@ static void SetParticleQuadTriangles(srVector3i* triangles, unsigned int vertex)
 
 // FUNCTION: WIZ8 0x00497AF0
 stParticle::stParticle(srNode* parent, int count)
-    : srClassSupport<stParticle, srNode, 0, 0x10009>(static_cast<srNode*>(0))
+    : srClassSupport<stParticle, srNode, 0x10009>(static_cast<srNode*>(0))
 {
     persisted = false;
     update_flags = 0;
@@ -275,7 +275,7 @@ stParticle::stParticle(srNode* parent, int count)
 
 // FUNCTION: WIZ8 0x00498180
 stParticle::stParticle(const stParticle& other)
-    : srClassSupport<stParticle, srNode, 0, 0x10009>(static_cast<srNode*>(0))
+    : srClassSupport<stParticle, srNode, 0x10009>(static_cast<srNode*>(0))
 {
     persisted = other.persisted;
     update_flags = 0;
@@ -978,12 +978,13 @@ void stParticle::SubmitToRenderer(srGERD* renderer)
     pipeline->current_pass->texture_tables[1] = 0;
 
     if (colors != 0) {
-        pipeline->current_record->colors = colors;
-        pipeline->current_record->color_format = srVertexPipe::Record::ColorSource::FORMAT_VECTOR3;
+        pipeline->current_record->color_source.colors = colors;
+        pipeline->current_record->color_source.format =
+            srVertexPipe::Record::ColorSource::FORMAT_VECTOR3;
         pipeline->current_record->flags |= srVertexPipe::Record::HAS_COLORS;
     }
     if (alphas != 0) {
-        pipeline->current_record->alphas = alphas;
+        pipeline->current_record->alpha_source = alphas;
         pipeline->current_record->flags |= srVertexPipe::Record::HAS_ALPHA;
     }
 
@@ -995,7 +996,7 @@ void stParticle::SubmitToRenderer(srGERD* renderer)
     pipeline->SetFlags(render_flags);
 
     if (texcoords != 0) {
-        pipeline->current_record->st0 = texcoords;
+        pipeline->current_record->st_source[0] = texcoords;
         pipeline->current_record->flags |= srVertexPipe::Record::HAS_TEXCOORD0;
     }
 

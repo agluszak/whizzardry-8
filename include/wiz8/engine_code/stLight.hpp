@@ -172,7 +172,7 @@ W8_ABI_ASSERT(offsetof(stKeyframedLightDefinition, end_frame) == 0x54,
 
 // VTABLE: WIZ8 0x005ecc64 stLight
 // VTABLE: WIZ8 0x005ecc58 srVertexProcessor
-class stLight : public srClassSupport<stLight, srLight, false, 0x10006> {
+class stLight : public srClassSupport<stLight, srLight, 0x10006> {
     friend class W8GrCycle;
     friend class Trigger;
 
