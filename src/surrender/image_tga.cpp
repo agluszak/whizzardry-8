@@ -1,6 +1,5 @@
-#pragma once
-
-#include "sdl_stream.h"
+#include "image_stream.h"
+#include "surrender/srImageIO.h"
 #include "surrender/srCore.h"
 #include "surrender/srColorSurface.h"
 #include <SDL3_image/SDL_image.h>
@@ -73,7 +72,7 @@ inline bool validatePixels(SDL_IOStream* io, unsigned start, Uint64 pixels,
 }
 } // namespace tga
 
-inline srColorSurface* loadTga(srBinIStream& source)
+srColorSurface* loadTga(srBinIStream& source)
 {
     try {
         const auto size = source.getSize();

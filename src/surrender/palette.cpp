@@ -12,7 +12,7 @@
 
 #include "surrender/srColorSurfaceIFace.h"
 #include "surrender/srCore.h"
-#include "surrender/srImporter.h"
+#include "surrender/srImageIO.h"
 
 /* Squared channel distance scaled by the luma weights 299/587/114; the biased
    pointers index by (channel - reference) so negative differences work. */
@@ -744,9 +744,7 @@ void srPalette::Sampler::addSurfaces(srColorSurfaceIFace** surfaces, w8_long sur
 void srPalette::Sampler::addSurface(const char* name, w8_long weight)
 {
     if ((name != 0) && (*name != '\0')) {
-        srSurfaceIOManager::ImportInfo options;
-        options.unknown_00 = 0;
-        srColorSurfaceIFace* surface = srCore.getSurfaceIOManager()->importSurface(name, options);
+        srColorSurfaceIFace* surface = srImage::load(name);
         if (surface != 0) {
             addSurface(*surface, weight);
             surface->release();
