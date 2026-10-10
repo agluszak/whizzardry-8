@@ -2113,7 +2113,7 @@ unsigned char InitializeRendererSceneObjects(void)
     SurfaceLock surface_description{};
     srCamera::Rect view;
     srMaterial* material;
-    srVector4T<float> material_value;
+    glm::vec4 material_value;
     char renderer_name[128];
 
     InitializeMouseSurface();
@@ -2185,9 +2185,9 @@ unsigned char InitializeRendererSceneObjects(void)
     material = new srMaterial;
     g_blit_material = material;
     material->setName("Blit Rect Material");
-    material_value = 1.0f;
+    material_value = glm::vec4(1.0f);
     material->setEmissive(material_value);
-    material_value = 0.0f;
+    material_value = glm::vec4(0.0f);
     material->setDiffuse(material_value);
     material->setSpecular(material_value);
     material->setOpacity(1.0);
@@ -2696,7 +2696,7 @@ stModelInstance2D* CreateSpriteFromVideoSurface(int target, const W8ControlsRect
 /* Builds a solid-color quad sprite. Width/height are pixel counts; color becomes
    the material emissive. Radar blip templates are the observed callers. */
 // FUNCTION: WIZ8 0x00424790
-stModelInstance2D* CreateColoredPolygonSprite(int width, int height, const srVector4T<float>* color,
+stModelInstance2D* CreateColoredPolygonSprite(int width, int height, const glm::vec4* color,
                                               bool fullscreen)
 {
     double scale_x = width * g_inverse_screen_width;
@@ -2714,8 +2714,8 @@ stModelInstance2D* CreateColoredPolygonSprite(int width, int height, const srVec
     srMaterial* material = new srMaterial();
     material->autoRelease();
     material->setEmissive(*color);
-    srVector4T<float> zero;
-    zero.Set(0.0f, 0.0f, 0.0f, 0.0f);
+    glm::vec4 zero;
+    zero = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
     material->setDiffuse(zero);
     material->setSpecular(zero);
     material->parms.shininess = 1.0f;
@@ -3365,7 +3365,7 @@ void DrawBufferLine(w8_long x0, w8_long y0, w8_long x1, w8_long y1, w8_ulong* pi
 }
 
 // FUNCTION: WIZ8 0x004273F0
-void GetScaledViewportBounds(srVector2T<float>* left_top, srVector2T<float>* right_bottom)
+void GetScaledViewportBounds(glm::vec2* left_top, glm::vec2* right_bottom)
 {
     left_top->x = g_viewport.left * g_viewport_x_scale;
     left_top->y = g_viewport.top * g_viewport_y_scale;

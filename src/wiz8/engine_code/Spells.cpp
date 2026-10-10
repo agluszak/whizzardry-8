@@ -232,7 +232,7 @@ void W8SpellVisual::SetCycle(signed char cycle)
 // FUNCTION: WIZ8 0x004abe00
 void W8SpellVisual::UpdateRepresentation(W8World* world)
 {
-    srMatrix3T<float> rotation;
+    glm::mat3 rotation;
     srVector3T<float> camera_position;
     srVector3T<float> position;
     bool apply_rotation = false;
@@ -243,11 +243,11 @@ void W8SpellVisual::UpdateRepresentation(W8World* world)
 
         GetCameraPosition(&position);
         SetCyclePosition(&position);
-        rotation.SetIdentity();
+        rotation = glm::mat3(1);
         angle = GetCameraYawRadians() - g_monster_rotation_offset;
-        rotation.RotateAboutY(angle);
+        rotation *= glm::mat3_cast(glm::angleAxis(float(angle), glm::vec3(0, 1, 0)));
         pitch = -GetCameraPitchRadians();
-        rotation.RotateAboutX(pitch);
+        rotation *= glm::mat3_cast(glm::angleAxis(float(pitch), glm::vec3(1, 0, 0)));
         apply_rotation = true;
     } else if (mode == W8_SPELL_VISUAL_TARGET) {
         W8Monster* monster = GetMonsterByLocationID(location_id);
@@ -288,11 +288,11 @@ void W8SpellVisual::UpdateRepresentation(W8World* world)
                         SetCyclePosition(&position);
                     }
 
-                    rotation.SetIdentity();
+                    rotation = glm::mat3(1);
                     float angle = monster->GetYaw();
-                    rotation.RotateAboutY(angle);
+                    rotation *= glm::mat3_cast(glm::angleAxis(float(angle), glm::vec3(0, 1, 0)));
                     float pitch = GetElevationAngle(&position, &camera_position);
-                    rotation.RotateAboutX(pitch);
+                    rotation *= glm::mat3_cast(glm::angleAxis(float(pitch), glm::vec3(1, 0, 0)));
                     apply_rotation = true;
                 }
             }
@@ -304,15 +304,15 @@ void W8SpellVisual::UpdateRepresentation(W8World* world)
     }
 
     if (host->billboard) {
-        srMatrix3T<float> billboard;
+        glm::mat3 billboard;
         srVector3T<float> visual_position = GetPosition();
         float angle;
 
-        billboard.SetIdentity();
+        billboard = glm::mat3(1);
         GetCameraPosition(&camera_position);
         angle =
             GetHeadingAngle(&visual_position, &camera_position) + static_cast<float>(g_camera_pi);
-        billboard.RotateAboutY(angle);
+        billboard *= glm::mat3_cast(glm::angleAxis(float(angle), glm::vec3(0, 1, 0)));
         host->SetRotation(&billboard);
     }
 
@@ -814,7 +814,7 @@ W8SpellVisual* SpawnCameraSpellEffect(const char* name, int power_level, int val
 placed:
     if (visual != 0) {
         srVector3T<float> position;
-        srMatrix3T<float> rotation;
+        glm::mat3 rotation;
         float angle;
         float pitch;
 
@@ -824,11 +824,11 @@ placed:
         visual->flags0 = flags;
         GetCameraPosition(&position);
         visual->SetCyclePosition(&position);
-        rotation.SetIdentity();
+        rotation = glm::mat3(1);
         angle = GetCameraYawRadians() - g_monster_rotation_offset;
-        rotation.RotateAboutY(angle);
+        rotation *= glm::mat3_cast(glm::angleAxis(float(angle), glm::vec3(0, 1, 0)));
         pitch = -GetCameraPitchRadians();
-        rotation.RotateAboutX(pitch);
+        rotation *= glm::mat3_cast(glm::angleAxis(float(pitch), glm::vec3(1, 0, 0)));
         visual->host->SetRotation(&rotation);
     }
     return visual;
@@ -992,7 +992,7 @@ W8SpellVisual* CreateAttachedSpellEffect(const char* mls_name, int power_level, 
             }
             visual->SetCyclePosition(&position);
         } else {
-            srMatrix3T<float> rotation;
+            glm::mat3 rotation;
 
             GetCameraPosition(&position);
             g_gd_camera->GetRotationMatrix(&rotation);
@@ -1009,7 +1009,7 @@ W8SpellVisual* CreateAttachedSpellEffect(const char* mls_name, int power_level, 
    the monster or camera. */
 // FUNCTION: WIZ8 0x004adb20
 W8SpellVisual* CreateAimedSpellEffect(const char* mls_name, int power_level,
-                                      srVector3T<float>* position, srMatrix3T<float>* rotation,
+                                      srVector3T<float>* position, glm::mat3* rotation,
                                       int value, int flags)
 {
     if (mls_name == 0 || strlen(mls_name) == 0) {
@@ -1310,16 +1310,16 @@ void stSound3D::BuildSoundOptions(const srVector3T<float>* listener, SOUND3DPARM
 {
     float angle = -GetCameraYawRadians();
     unsigned int scaled_volume = (volume * g_settings.sound_effects_volume) / 0x7f;
-    srMatrix3T<float> rotation;
+    glm::mat3 rotation;
     srVector3T<float> node_position;
     srVector3T<float> offset;
 
-    rotation.SetIdentity();
-    rotation.RotateAboutY(angle);
+    rotation = glm::mat3(1);
+    rotation *= glm::mat3_cast(glm::angleAxis(float(angle), glm::vec3(0, 1, 0)));
 
     getLocation(node_position);
     offset = node_position - *listener;
-    srVector3T<float> transformed = srVector3T<float>{rotation * offset};
+    srVector3T<float> transformed = rotation * offset.glmValue();
     float x = transformed.x;
     float y = transformed.y;
     float z = transformed.z;
@@ -1394,7 +1394,7 @@ void Update3DSounds()
                     srVector3T<float> to_listener;
                     srVector3T<float> offset;
                     srVector3T<float> transformed;
-                    srMatrix3T<float> rotation;
+                    glm::mat3 rotation;
                     float distance;
                     float angle;
                     unsigned int volume;
@@ -1407,12 +1407,13 @@ void Update3DSounds()
                         SoundSetVolume(sound->sound_handle, 0);
                     } else {
                         angle = -GetCameraYawRadians();
-                        rotation.SetIdentity();
-                        rotation.RotateAboutY(angle);
+                        rotation = glm::mat3(1);
+                        rotation *=
+                            glm::mat3_cast(glm::angleAxis(float(angle), glm::vec3(0, 1, 0)));
                         offset.Set(static_cast<float>(world.x) - listener.x,
                                    static_cast<float>(world.y) - listener.y,
                                    static_cast<float>(world.z) - listener.z);
-                        transformed = srVector3T<float>{rotation * offset};
+                        transformed = rotation * offset.glmValue();
                         Sound3DSetPosition(sound->sound_handle, transformed.x, transformed.y,
                                            transformed.z);
                         Sound3DSetDirection(sound->sound_handle, -transformed.x, -transformed.y,

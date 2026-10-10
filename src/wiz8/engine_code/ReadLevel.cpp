@@ -82,7 +82,7 @@ void stLevel::process(const ProcessInfo& info, e_processType)
         renderer.setExclusionMask(m_render_exclusion_mask | old_exclusion_mask);
     }
 
-    srVector4T<float> ambient;
+    glm::vec4 ambient;
     renderer.getAmbientLight(ambient);
     srVector3T<float> ambient_color(ambient.x, ambient.y, ambient.z);
     m_submitted_polygons = 0;
@@ -120,8 +120,8 @@ void stLevel::process(const ProcessInfo& info, e_processType)
             }
 
             if (model->vertex_lighting_ready) {
-                srVector4T<float> dark;
-                dark.Set(0.0f, 0.0f, 0.0f, 0.0f);
+                glm::vec4 dark;
+                dark = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
                 renderer.setAmbientLight(dark);
                 model->SetAmbientColor(ambient_color);
             }
@@ -356,7 +356,7 @@ try
     EnvironmentColour white;
     srVector3T<float> position;
     srVector3T<float> axis;
-    srMatrix3T<float> rotation;
+    glm::mat3 rotation;
     float intensity = 0.0f;
     float view_distance = 0.0f;
     float angle = 0.0f;
@@ -388,9 +388,11 @@ try
         position *= g_world_scale;
         SetWorldScenePosition(GetWorld(), &position);
 
-        rotation.SetIdentity();
+        rotation = glm::mat3(1);
         if (angle != 0.0f) {
-            rotation.RotateAroundAxis(sin(angle), cos(angle), axis);
+            rotation *=
+                glm::mat3_cast(glm::angleAxis(float(std::atan2(sin(angle), cos(angle))),
+                                              normalizedOrZero(glm::vec3(axis.glmValue()))));
         }
         ApplyCameraRotation(&rotation);
     }
@@ -437,8 +439,8 @@ static unsigned char ReadWorldClipPlanes(W8ReadLevelInfo* pInfo, W8World* pWorld
 try
 {
     W8GrowableVector<srClipPlane*> clip_planes(5);
-    srVector4T<float> plane;
-    srVector4T<float> serialized_position;
+    glm::vec4 plane;
+    glm::vec4 serialized_position;
     srVector3T<double> position;
     srClipPlane* clip_plane;
     char name[64];
@@ -467,7 +469,7 @@ try
     }
 
     (pInfo->hFile->read(&version, sizeof(version)).bytes == static_cast<std::size_t>(sizeof(version)));
-    plane.Set(0.0f, 1.0f, 0.0f, 0.0f);
+    plane = glm::vec4(0.0f, 1.0f, 0.0f, 0.0f);
     for (index = 0; index < count; ++index) {
         clip_plane = new srClipPlane(pWorld->static_scene);
         if (clip_plane == 0) {
@@ -903,20 +905,21 @@ try
         if (record.direction_mode == W8_PARTICLE_DIRECTION_STATIONARY) {
             particle->direction_mode = W8_PARTICLE_DIRECTION_STATIONARY;
         } else if (record.direction_mode == W8_PARTICLE_DIRECTION_FIXED) {
-            srMatrix3T<float> rotation;
+            glm::mat3 rotation;
             srVector3T<float> direction;
             srVector3T<float> transformed;
             double angle = -1.5707963;
 
-            rotation.SetIdentity();
+            rotation = glm::mat3(1);
             if (record.rotation_angle != 0.0f) {
-                rotation.RotateAroundAxis(sin(record.rotation_angle), cos(record.rotation_angle),
-                                          record.rotation_axis);
-                }
-                rotation.RotateAboutX(angle);
+                rotation *= glm::mat3_cast(glm::angleAxis(
+                    float(std::atan2(sin(record.rotation_angle), cos(record.rotation_angle))),
+                    normalizedOrZero(glm::vec3(record.rotation_axis.glmValue()))));
+            }
+            rotation *= glm::mat3_cast(glm::angleAxis(float(angle), glm::vec3(1, 0, 0)));
 
             direction.Set(0.0, 0.0, -1.0);
-                transformed = srVector3T<float>{rotation * direction};
+                transformed = rotation * direction.glmValue();
                 transformed.Unitize();
             particle->direction_mode = W8_PARTICLE_DIRECTION_FIXED;
             particle->direction = transformed;
@@ -1205,7 +1208,7 @@ try
                         srMaterial* copy = static_cast<srMaterial*>(material->clone());
                         copy->setName("Unsunlit Prop Material");
                         copy->autoRelease();
-                        copy->parms.ambient = 0.0f;
+                        copy->parms.ambient = glm::vec4(0.0f);
                         copy->dirty = 1;
                         copy->parms.emissive.x += g_environment_offset.x;
                         copy->parms.emissive.y += g_environment_offset.y;

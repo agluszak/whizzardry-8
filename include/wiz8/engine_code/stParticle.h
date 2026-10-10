@@ -37,7 +37,7 @@ public:
     /* The per-particle age/cull/move step and billboard-corner expansion used
        by the submitted batch. Their retail names remain unavailable. */
     void Update();                                 /* 0x00499FA0 */
-    void PrepareRenderer(srMatrix4T<float>& view); /* 0x00498DD0 */
+    void PrepareRenderer(glm::mat4& view); /* 0x00498DD0 */
     srShader GetRenderFlags() const;
     unsigned char ReplaceTexture(const char* old_name, srTextureIFace* replacement);
     virtual srClass* vInstance() override;                      /* 0x004980E0 */
@@ -68,7 +68,7 @@ public:
        and triangle index triples; malloc-allocated, vertex_count /
        texture_frame_count long. */
     srVector3T<float>* vertex_positions;
-    srVector2T<float>* texcoords;
+    glm::vec2* texcoords;
     srVector3i* triangles;
     /* Optional per-vertex arrays handed to the record/pipeline color and
        extra slots (dig-format vec3 colors and vertex extras/normals). Retail

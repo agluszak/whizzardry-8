@@ -98,7 +98,7 @@ void W8MaterialMapper::process(srVertexPipe& pipe)
         return;
     }
     w8_ulong count = pipe.getVertexCount();
-    srVector2T<float>* coordinates = pipe.getST(0, 0);
+    glm::vec2* coordinates = pipe.getST(0, 0);
 
     offset_x = scroll_rate_u * g_frame_elapsed + scroll_u;
     scroll_u = offset_x - static_cast<float>(floor(offset_x));
@@ -158,13 +158,13 @@ void AdvanceEnvironmentTime(int elapsed)
     srVector3T<float> direction;
     direction.Set(0.0, g_celestial_orbit_radius, 0.0);
 
-    srMatrix3T<float> rotation;
-    rotation.SetIdentity();
+    glm::mat3 rotation;
+    rotation = glm::mat3(1);
 
     angle -= 3.141592653589793 * (1.0f / 180.0f) * 40.0;
-    rotation.RotateAboutZ(angle);
+    rotation *= glm::mat3_cast(glm::angleAxis(float(angle), glm::vec3(0, 0, 1)));
 
-    srVector3T<float> position = srVector3T<float>{rotation * direction} + g_celestial_origin;
+    srVector3T<float> position = rotation * direction.glmValue() + g_celestial_origin.glmValue();
 
     W8Prop* moving = day ? g_sun_prop : g_moon_prop;
     W8Prop* opposite = day ? g_moon_prop : g_sun_prop;

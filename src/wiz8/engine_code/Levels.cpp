@@ -326,15 +326,15 @@ unsigned char LoadSkyWorld(int level, W8LevelInfo* info)
     }
     material->setName("AnimatedCloudMaterial");
     material->autoRelease();
-    srVector4T<float> colour;
-    colour.Set(1.0f, 1.0f, 1.0f, 1.0f);
+    glm::vec4 colour;
+    colour = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
     material->setAmbient(colour);
-    colour.Set(0.0f, 0.0f, 0.0f, 0.0f);
+    colour = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
     material->setDiffuse(colour);
     material->setSpecular(colour);
     material->parms.shininess = 1.0f;
     material->parms.diffuse.w = 1.0f;
-    material->parms.emissive = 0.0f;
+    material->parms.emissive = glm::vec4(0.0f);
     material->dirty = 1;
     material->m_surface_flags = 0;
     material->setMapper(&g_material_mapper);
@@ -562,12 +562,14 @@ unsigned char LoadLevel(int requested_level, int entrance, bool restoring_game)
 
             if (trigger->trigger_kind == 2) {
                 srVector3T<float> axis;
-                srMatrix3T<float> rotation;
+                glm::mat3 rotation;
 
                 axis = trigger->direction;
-                rotation.SetIdentity();
+                rotation = glm::mat3(1);
                 if (trigger->angle != 0.0f) {
-                    rotation.RotateAroundAxis(sin(trigger->angle), cos(trigger->angle), axis);
+                    rotation *= glm::mat3_cast(
+                        glm::angleAxis(float(std::atan2(sin(trigger->angle), cos(trigger->angle))),
+                                       normalizedOrZero(glm::vec3(axis.glmValue()))));
                 }
                 ApplyCameraRotation(&rotation);
             }

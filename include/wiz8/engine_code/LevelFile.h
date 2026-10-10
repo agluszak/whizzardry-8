@@ -56,7 +56,7 @@ struct W8LevelFileFramePosition {
 /* Compressed mesh face; ReadMesh expands these into W8ReadMeshFace. */
 struct W8LevelFileCompressedFace { /* 0x21 */
     unsigned short vertex_indices[3];
-    srVector2T<float> texture_coordinates[3];
+    glm::vec2 texture_coordinates[3];
     unsigned short material_index;
     unsigned char flags;
 };
@@ -131,7 +131,7 @@ struct W8LevelFileItemRecord {  /* 0x44 */
    section as a 64-byte name followed by a four-float position record. */
 struct W8LevelFileClippingPlaneRecord { /* 0x50 */
     char name0[0x40];
-    srVector4T<float> serialized_position;
+    glm::vec4 serialized_position;
 };
 
 /* Serialized form of the .pvl W8LevelLightRecord (ReadLevel.cpp): the dword

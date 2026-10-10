@@ -883,9 +883,9 @@ void DropHeldItem(int)
     direction.x = static_cast<float>(base * sin(yaw));
     direction.z = static_cast<float>(base * cos(yaw));
 
-    srMatrix3T<float> rotation;
+    glm::mat3 rotation;
     WorldGetCameraRotation(g_world, &rotation);
-    direction = srVector3T<float>{rotation * direction};
+    direction = rotation * direction.glmValue();
 
     srVector3T<float> camera;
     GetCameraPosition(&camera);

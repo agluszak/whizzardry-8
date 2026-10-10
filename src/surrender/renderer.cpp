@@ -279,8 +279,8 @@ void srGERD::Renderer::VertexArrays::reset(int release)
         decltype(diffuse){}.swap(diffuse);
         decltype(specular){}.swap(specular);
         decltype(positions){}.swap(positions);
-        std::vector<srVector2T<float>>{}.swap(st[0]);
-        std::vector<srVector2T<float>>{}.swap(st[1]);
+        std::vector<glm::vec2>{}.swap(st[0]);
+        std::vector<glm::vec2>{}.swap(st[1]);
         std::vector<float>{}.swap(q[0]);
         std::vector<float>{}.swap(q[1]);
         decltype(attributes){}.swap(attributes);
@@ -295,15 +295,15 @@ void srGERD::Renderer::VertexArrays::alloc(srVertexArray& arrays, w8_ulong count
     if (positions.size() < needed) {
         needed += 0x40;
         // Retail constant-fill helper SURRENDER 0x10027BA0 is replaced by typed defaults.
-        srVector4T<float> zero;
-        zero.Set(0.0f, 0.0f, 0.0f, 0.0f);
-        srVector4T<float> eye_default;
-        eye_default.Set(0.0f, 0.0f, 0.0f, 1.0f);
+        glm::vec4 zero;
+        zero = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
+        glm::vec4 eye_default;
+        eye_default = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
         diffuse.resize(needed, zero);
         specular.resize(needed, zero);
         positions.resize(needed, eye_default);
-        st[0].resize(needed, srVector2T<float>(0.0f, 0.0f));
-        st[1].resize(needed, srVector2T<float>(0.0f, 0.0f));
+        st[0].resize(needed, glm::vec2(0.0f, 0.0f));
+        st[1].resize(needed, glm::vec2(0.0f, 0.0f));
         q[0].resize(needed, 1.0f);
         q[1].resize(needed, 1.0f);
         attributes.resize(needed, 0);
@@ -432,7 +432,7 @@ void srGERD::Renderer::assignTextureSets(w8_ulong* texture_set, const w8_ulong* 
    bias, mapped to a sortable unsigned value. */
 // FUNCTION: SURRENDER 0x100251E0
 static void sortKeys(w8_ulong* keys, const srVector3i* triangles,
-                     const srVector4T<float>* positions, float bias, w8_ulong count)
+                     const glm::vec4* positions, float bias, w8_ulong count)
 {
     if (count != 0) {
         const srVector3i* triangle = triangles;
@@ -481,7 +481,7 @@ void srGERD::Renderer::expandTriangles(const TriInput& input, int sorted)
                                 first_vertex, chunk);
             }
             if (sorted != 0) {
-                const srVector4T<float>* positions = &vertices.positions[0];
+                const glm::vec4* positions = &vertices.positions[0];
                 sortKeys(write.sort_key + done, write.triangles + done, positions, input.sort_bias,
                          chunk);
                 for (w8_ulong replica = 1; replica < input.record_count; replica++) {
@@ -575,7 +575,7 @@ void srGERD::Renderer::expandTriangles(const TriInput& input, int sorted)
                     std::fill_n(arrays.q0 + base, new_count, 1.0f);
                 }
                 if (sorted != 0) {
-                    const srVector4T<float>* positions = &vertices.positions[0];
+                    const glm::vec4* positions = &vertices.positions[0];
                     sortKeys(write.sort_key + written, write.triangles + written, positions,
                              input.sort_bias, input.triangle_count);
                 }
@@ -584,7 +584,7 @@ void srGERD::Renderer::expandTriangles(const TriInput& input, int sorted)
                 gatherIndexedTriangles(write.triangles + written, input.triangles, input.indices,
                                        input.vertices, vertex_base, input.triangle_count);
                 if (sorted != 0) {
-                    const srVector4T<float>* positions = &vertices.positions[0];
+                    const glm::vec4* positions = &vertices.positions[0];
                     sortKeys(write.sort_key + written, write.triangles + written, positions,
                              input.sort_bias, input.triangle_count);
                 }
@@ -603,90 +603,15 @@ void srGERD::Renderer::expandTriangles(const TriInput& input, int sorted)
 // FUNCTION: SURRENDER 0x100259D0
 void srGERD::Renderer::transformVertices(const TriInput& input, unsigned char* clip_flags)
 {
-    srVector4T<float>* write = &vertices.positions[first_vertex];
-    const srMatrix4T<float>& matrix = *input.project_clip_near;
-    w8_ulong zero_mask = 0;
-    w8_ulong bit = 1;
-    for (w8_long row = 0; row < 4; row++) {
-        if (matrix.vectors[row].x == 0.0f) {
-            zero_mask |= bit;
-        }
-        if (matrix.vectors[row].y == 0.0f) {
-            zero_mask |= bit * 2;
-        }
-        if (matrix.vectors[row].z == 0.0f) {
-            zero_mask |= bit * 4;
-        }
-        if (matrix.vectors[row].w == 0.0f) {
-            zero_mask |= bit * 8;
-        }
-        bit *= 0x10;
-    }
-    srMatrix4T<float>::e_type mode;
-    if (zero_mask == 0x7bde && matrix.vectors[0].x == 1.0f && matrix.vectors[1].y == 1.0f &&
-        matrix.vectors[2].z == 1.0f && matrix.vectors[3].w == 1.0f) {
-        mode = srMatrix4T<float>::TYPE_IDENTITY;
-    } else if ((zero_mask & 0xb39a) == 0xb39a) {
-        mode = srMatrix4T<float>::TYPE_PERSPECTIVE;
-    } else if ((zero_mask & 0x7356) == 0x7356) {
-        mode = srMatrix4T<float>::TYPE_ORTHOGRAPHIC;
-    } else if ((zero_mask & 0x7000) != 0x7000) {
-        mode = srMatrix4T<float>::TYPE_GENERAL;
-    } else {
-        mode = srMatrix4T<float>::TYPE_AFFINE;
-        if (matrix.vectors[3].w != 1.0f) {
-            mode = srMatrix4T<float>::TYPE_GENERAL;
-        }
-    }
-    for (w8_ulong done = 0; done < input.vertex_count; done += 0x80) {
-        w8_ulong chunk = input.vertex_count - done;
-        if (chunk > 0x80) {
-            chunk = 0x80;
-        }
-        if (chunk != 0 && mode != srMatrix4T<float>::TYPE_IDENTITY) {
-            if (mode == srMatrix4T<float>::TYPE_ORTHOGRAPHIC) {
-                {
-                    auto transform_matrix = glm::mat4(0.0f);
-                    transform_matrix[0][0] = (*input.project_clip_near).vectors[0].x;
-                    transform_matrix[1][1] = (*input.project_clip_near).vectors[1].y;
-                    transform_matrix[2][2] = (*input.project_clip_near).vectors[2].z;
-                    transform_matrix[3][0] = (*input.project_clip_near).vectors[0].w;
-                    transform_matrix[3][1] = (*input.project_clip_near).vectors[1].w;
-                    transform_matrix[3][2] = (*input.project_clip_near).vectors[2].w;
-                    transform_matrix[3][3] = (*input.project_clip_near).vectors[3].w;
-                    for (std::size_t i = 0; i < chunk; ++i)
-                        write[i] = transform_matrix * write[i].glmValue();
-                }
-            } else if (mode == srMatrix4T<float>::TYPE_PERSPECTIVE) {
-                {
-                    auto transform_matrix = glm::mat4(0.0f);
-                    transform_matrix[0][0] = (*input.project_clip_near).vectors[0].x;
-                    transform_matrix[1][1] = (*input.project_clip_near).vectors[1].y;
-                    transform_matrix[2][0] = (*input.project_clip_near).vectors[0].z;
-                    transform_matrix[2][1] = (*input.project_clip_near).vectors[1].z;
-                    transform_matrix[2][2] = (*input.project_clip_near).vectors[2].z;
-                    transform_matrix[3][2] = (*input.project_clip_near).vectors[2].w;
-                    transform_matrix[2][3] = (*input.project_clip_near).vectors[3].z;
-                    for (std::size_t i = 0; i < chunk; ++i)
-                        write[i] = transform_matrix * write[i].glmValue();
-                }
-            } else {
-                {
-                    const auto transform_matrix = input.project_clip_near->glmValue();
-                    for (std::size_t i = 0; i < chunk; ++i)
-                        write[i] = transform_matrix * write[i].glmValue();
-                }
-            }
-        }
-        srRender::clipFlags({clip_flags + done, chunk}, {write, chunk});
-        for (w8_ulong replica = 1; replica < input.record_count; replica++) {
-            srVector4T<float>* destination = write + replica * input.vertex_count;
-            if (chunk != 0 && destination != write) {
-                std::copy_n(write, chunk, destination);
-            }
-        }
-        write += 0x80;
-    }
+    if (input.vertex_count == 0)
+        return;
+    auto* positions = vertices.positions.data() + first_vertex;
+    const auto& projection = *input.project_clip_near;
+    for (w8_ulong i = 0; i < input.vertex_count; ++i)
+        positions[i] = projection * positions[i];
+    srRender::clipFlags({clip_flags, input.vertex_count}, {positions, input.vertex_count});
+    for (w8_ulong replica = 1; replica < input.record_count; ++replica)
+        std::copy_n(positions, input.vertex_count, positions + replica * input.vertex_count);
 }
 
 /* Whether all clip-flag bytes share a clip plane. */
@@ -1095,7 +1020,7 @@ void srGERD::Renderer::bindTextureSet(w8_ulong index)
 }
 
 // FUNCTION: SURRENDER 0x10068F40
-void srRender::clipFlags(std::span<SRBYTE> destination, std::span<const srVector4> source)
+void srRender::clipFlags(std::span<SRBYTE> destination, std::span<const glm::vec4> source)
 {
     assert(source.size() >= destination.size());
     const std::size_t count = destination.size();

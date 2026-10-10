@@ -99,7 +99,7 @@ void InitializeWorldCursor(void)
     srVector3T<float> minimum;
     srVector3T<float> maximum;
     srVector3T<float> camera_position;
-    srVector4T<float> colour;
+    glm::vec4 colour;
     srShader shader;
     srMaterial* material;
 
@@ -151,7 +151,7 @@ void InitializeWorldCursor(void)
             gp3DCursor->light->setLocation(1000.0, 0.0, 0.0);
             if (gp3DCursor->particle != 0) {
                 material = new srMaterial;
-                colour.Set(0.0f, 0.0f, 0.0f, 1.0f);
+                colour = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
                 material->setEmissive(colour);
                 material->setDiffuse(colour);
                 gp3DCursor->particle->SetMaterial(material);
@@ -323,7 +323,7 @@ void GetWorldCursorAnchor(srVector3T<float>* position)
 void ApplyWorldCursorInput(void)
 {
     bool hit;
-    srMatrix3T<float> rotation;
+    glm::mat3 rotation;
     srVector3T<double> node_location;
     srVector3T<float> camera;
     srVector3T<float> delta;
@@ -361,11 +361,10 @@ void ApplyWorldCursorInput(void)
         }
         g_world->dynamic_scene->getRotation(rotation);
         gp3DCursor->cam_rel_offset += delta;
-        gp3DCursor->position =
-            srVector3T<float>{rotation.glmValue() * (gp3DCursor->cam_rel_offset).glmValue()};
+        gp3DCursor->position = rotation * (gp3DCursor->cam_rel_offset).glmValue();
         node_location = g_world->dynamic_scene->getLocation();
         srVector3T<float> scene_location;
-        scene_location = glm::vec3((&node_location)->glmValue());
+        scene_location = glm::vec3(node_location.glmValue());
         gp3DCursor->position += scene_location;
         if (gp3DCursor->track_ground) {
             if (gp3DCursor->position.y < saved_y) {
@@ -377,9 +376,9 @@ void ApplyWorldCursorInput(void)
     } else {
         GetCameraPosition(&camera);
         camera.y -= g_default_world_height;
-        rotation.SetIdentity();
-        rotation.RotateAboutY(g_gd_camera->m_yaw);
-        delta = srVector3T<float>{rotation * delta};
+        rotation = glm::mat3(1);
+        rotation *= glm::mat3_cast(glm::angleAxis(float(g_gd_camera->m_yaw), glm::vec3(0, 1, 0)));
+        delta = rotation * delta.glmValue();
         delta += gp3DCursor->position;
         if (gp3DCursor->range > g_float_zero && gp3DCursor->range < (camera - delta).Length()) {
             clamped = delta - camera;
@@ -729,7 +728,7 @@ char MarchWorldCursorTarget(srVector3T<float>* target)
 // FUNCTION: WIZ8 0x00491EC0
 void UpdateWorldCursorPlacement(void)
 {
-    srMatrix3T<float> rotation;
+    glm::mat3 rotation;
     srVector3T<float> camera(0.0f, 1.0f, 0.0f);
     srVector3T<float> forward;
     srVector3T<float> target;
@@ -737,18 +736,19 @@ void UpdateWorldCursorPlacement(void)
     float cosine;
     float sine;
 
-    rotation.SetIdentity();
+    rotation = glm::mat3(1);
     if (g_gd_camera->m_yaw != g_double_zero) {
         cosine = static_cast<float>(cos(g_gd_camera->m_yaw));
         sine = static_cast<float>(sin(g_gd_camera->m_yaw));
-        rotation.RotateAboutY(sine, cosine);
+        rotation *=
+            glm::mat3_cast(glm::angleAxis(float(std::atan2(sine, cosine)), glm::vec3(0, 1, 0)));
     }
     GetCameraPosition(&camera);
     camera.y -= g_default_world_height;
     cursor = gp3DCursor;
     cursor->last_published = -100000000.0f;
     forward.Set(0.0, 0.0, g_cursor_projection_distance);
-    target = camera + srVector3T<float>{rotation * forward};
+    target = camera + srVector3T<float>{rotation * forward.glmValue()};
     cursor->position = camera;
     cursor->track_ground = true;
     if (MarchWorldCursorTarget(&target) == 0) {

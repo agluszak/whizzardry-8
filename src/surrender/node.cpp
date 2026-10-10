@@ -16,23 +16,10 @@ std::recursive_mutex srNode::sceneGraphCSect;
 // GLOBAL: SURRENDER 0x100A49FC
 std::atomic<w8_long> srNode::sceneGraphLockCount{0};
 
-/* Retail's world-space setters measure the column vectors with Length inlined
-   and summed z, y, x; one call in setWorldSpaceRotation goes through the
-   out-of-line srVector3T<double>::Length (0x10055450), which sums x, y, z. */
-static double columnLengthZYX(const srVector3T<double>& column)
-{
-    return sqrt((column.z * column.z + column.y * column.y) + column.x * column.x);
-}
-
-static double columnLengthXYZ(const srVector3T<double>& column)
-{
-    return sqrt((column.x * column.x + column.y * column.y) + column.z * column.z);
-}
-
 // The node repair step orthonormalizes rows, preserving its zero-row behavior.
-static void orthonormalizeRotation(srMatrix3T<double>& rotation)
+static void orthonormalizeRotation(glm::dmat3& rotation)
 {
-    auto rows = glm::transpose(rotation.glmValue());
+    auto rows = glm::transpose(rotation);
     for (int row = 0; row < 3; ++row) {
         for (int earlier = 0; earlier < row; ++earlier)
             rows[row] -= rows[earlier] * glm::dot(rows[row], rows[earlier]);
@@ -216,8 +203,8 @@ w8_long srNode::getHierarchyLevel() const
 srNode::srNode(srNode* parent)
 {
     std::lock_guard access(sceneGraphCSect);
-    world_transform0.SetIdentity();
-    world_transform1.SetIdentity();
+    world_transform0 = glm::dmat4x3(1);
+    world_transform1 = glm::mat4x3(1);
     if (s_flag_names1 == 0) {
         s_flag_names1 = "DISABLE,TERMINATE,GLOBAL,IGNORE_TRANSFORM";
     }
@@ -225,9 +212,9 @@ srNode::srNode(srNode* parent)
     previous_sibling_ = 0;
     parent_ = 0;
     first_child_ = 0;
-    location.SetZero();
-    rotation.SetIdentity();
-    scale = 1.0;
+    location = glm::dvec3(0);
+    rotation = glm::dmat3(1);
+    scale = glm::dvec3(1);
     notifications.value = 0;
     setParent(parent, 0);
 }
@@ -258,7 +245,9 @@ int srNode::setParent(srNode* parent, int preserve_world_transform)
         return 0;
     }
     if (preserve_world_transform != 0) {
-        getWorldSpaceCoordinates(rotation, location, scale);
+        getWorldSpaceRotation(rotation);
+        location = getWorldSpaceLocation().glmValue();
+        scale = getWorldSpaceScale().glmValue();
     }
     unlink();
     if (parent != 0 || ((parent = srCore.getRootNode()) != this && parent != 0)) {
@@ -269,33 +258,20 @@ int srNode::setParent(srNode* parent, int preserve_world_transform)
         }
         parent->first_child_ = this;
         if (preserve_world_transform != 0) {
-            srMatrix3T<double> parent_rotation;
+            glm::dmat3 parent_rotation;
             srVector3T<double> parent_location;
             srVector3T<double> parent_scale;
             parent->getWorldSpaceCoordinates(parent_rotation, parent_location, parent_scale);
-            /* The new local rotation is transpose(parent) * world: each element is the
-               out-of-line glm::dot((0x10055cb0, summed z, y).glmValue(), x.glmValue()) of a parent
-               column with a world column. */
-            srMatrix3T<double> local;
-            for (int column = 0; column < 3; ++column) {
-                for (int row = 0; row < 3; ++row) {
-                    (&local.vectors[row].x)[column] =
-                        ((&parent_rotation.vectors[2].x)[row] * (&rotation.vectors[2].x)[column] +
-                         (&parent_rotation.vectors[1].x)[row] * (&rotation.vectors[1].x)[column]) +
-                        (&parent_rotation.vectors[0].x)[row] * (&rotation.vectors[0].x)[column];
-                }
-            }
-            rotation = local;
+            rotation = glm::transpose(parent_rotation) * rotation;
             orthonormalizeRotation(rotation);
             srVector3T<double> inverse_scale;
             inverse_scale.x = 1.0 / parent_scale.x;
             inverse_scale.y = 1.0 / parent_scale.y;
             inverse_scale.z = 1.0 / parent_scale.z;
-            location -= parent_location;
-            location *= inverse_scale;
-            location = srVector3T<double>{glm::transpose(parent_rotation.glmValue()) *
-                                          location.glmValue()};
-            scale *= inverse_scale;
+            location -= parent_location.glmValue();
+            location *= inverse_scale.glmValue();
+            location = glm::transpose(parent_rotation) * location;
+            scale *= inverse_scale.glmValue();
         }
     }
     notifyDependent();
@@ -405,9 +381,9 @@ void srNode::dump(std::ostream& stream)
 {
     srClass::dump(stream);
     const std::string path = getFullPath();
-    srMatrix3T<double> rotation;
+    glm::dmat3 rotation;
     getRotation(rotation);
-    srMatrix3T<double> ws_rotation;
+    glm::dmat3 ws_rotation;
     srVector3T<double> ws_location;
     srVector3T<double> ws_scale;
     getWorldSpaceCoordinates(ws_rotation, ws_location, ws_scale);
@@ -420,8 +396,8 @@ void srNode::dump(std::ostream& stream)
     stream.width(0x20);
     stream << "  Child count: " << getChildCount() << '\n';
     stream.width(0x20);
-    stream << "  Local matrix: " << '{' << rotation.vectors[0] << ',' << rotation.vectors[1] << ','
-           << rotation.vectors[2] << '}' << '\n';
+    stream << "  Local matrix: " << '{' << glm::row(rotation, 0) << ',' << glm::row(rotation, 1)
+           << ',' << glm::row(rotation, 2) << '}' << '\n';
     stream.width(0x20);
     srVector3T<double> location = getLocation();
     stream << "  Local translation: " << '{' << location.x << ',' << location.y << ',' << location.z
@@ -431,8 +407,8 @@ void srNode::dump(std::ostream& stream)
     stream << "  Local scale: " << '{' << scale.x << ',' << scale.y << ',' << scale.z << '}'
            << '\n';
     stream.width(0x20);
-    stream << "  WS matrix: " << '{' << ws_rotation.vectors[0] << ',' << ws_rotation.vectors[1]
-           << ',' << ws_rotation.vectors[2] << '}' << '\n';
+    stream << "  WS matrix: " << '{' << glm::row(ws_rotation, 0) << ',' << glm::row(ws_rotation, 1)
+           << ',' << glm::row(ws_rotation, 2) << '}' << '\n';
     stream.width(0x20);
     stream << "  WS location: " << '{' << ws_location.x << ',' << ws_location.y << ','
            << ws_location.z << '}' << '\n';
@@ -534,62 +510,49 @@ double srNode::getDistance(const srNode& node) const
 {
     srVector3T<double> other = node.getWorldSpaceLocation();
     srVector3T<double> offset = getWorldSpaceLocation() - other;
-    /* Retail's inlined Length sums z, x, then y here. */
-    return sqrt((offset.z * offset.z + offset.x * offset.x) + offset.y * offset.y);
+    return offset.Length();
 }
 
 // FUNCTION: SURRENDER 0x100536B0
-void srNode::setRotation(const srMatrix3T<double>& rotation)
+void srNode::setRotation(const glm::dmat3& rotation)
 {
     this->rotation = rotation;
     setWSDirty();
 }
 
 // FUNCTION: SURRENDER 0x100536D0
-void srNode::setRotation(const srMatrix3T<float>& rotation)
+void srNode::setRotation(const glm::mat3& rotation)
 {
-    srMatrix3T<double> widened;
-    widened.vectors[0] = rotation.vectors[0];
-    widened.vectors[1] = rotation.vectors[1];
-    widened.vectors[2] = rotation.vectors[2];
-    this->rotation = widened;
-    setWSDirty();
+    setRotation(glm::dmat3(rotation));
 }
 
-/* Euler form: reset to identity, then apply each nonzero axis rotation in
-   X, Y, Z order through the matrix's own guarded helpers. */
+// Compose local X, Y and Z rotations in that order.
 // FUNCTION: SURRENDER 0x10053740
 void srNode::setRotation(double x, double y, double z)
 {
-    rotation.SetIdentity();
-    rotation.RotateAboutX(x);
-    rotation.RotateAboutY(y);
-    rotation.RotateAboutZ(z);
+    rotation = glm::mat3_cast(glm::angleAxis(x, glm::dvec3(1, 0, 0)) *
+                              glm::angleAxis(y, glm::dvec3(0, 1, 0)) *
+                              glm::angleAxis(z, glm::dvec3(0, 0, 1)));
     setWSDirty();
 }
 
 // FUNCTION: SURRENDER 0x10052750
 void srNode::setRotation(double amount, const srVector3T<double>& direction)
 {
-    srVector3T<double> axis = direction;
-    axis.Normalize();
-    rotation.SetIdentity();
-    rotation.RotateAroundAxis(amount, axis);
+    const glm::dvec3 axis = normalizedOrZero(direction.glmValue());
+    rotation =
+        glm::dot(axis, axis) == 0 ? glm::dmat3(1) : glm::mat3_cast(glm::angleAxis(amount, axis));
     setWSDirty();
 }
 
 // FUNCTION: SURRENDER 0x100528C0
 void srNode::setRotation(const srVector3T<double>& direction, double amount)
 {
-    srVector3T<double> axis = direction;
-    axis.Normalize();
-    rotation.SetIdentity();
-    double angle = atan2(axis.x, axis.z);
-    rotation.RotateAboutY(angle);
-    axis = rotation.TransformTransposed(axis);
-    angle = -atan2(axis.y, axis.z);
-    rotation.RotateAboutX(angle);
-    rotation.RotateAboutZ(amount);
+    const double yaw = std::atan2(direction.x, direction.z);
+    const double pitch = -std::atan2(direction.y, std::hypot(direction.x, direction.z));
+    rotation = glm::mat3_cast(glm::angleAxis(yaw, glm::dvec3(0, 1, 0)) *
+                              glm::angleAxis(pitch, glm::dvec3(1, 0, 0)) *
+                              glm::angleAxis(amount, glm::dvec3(0, 0, 1)));
     setWSDirty();
 }
 
@@ -597,15 +560,7 @@ void srNode::setRotation(const srVector3T<double>& direction, double amount)
 void srNode::setRotation(const srVector3T<double>& first, const srVector3T<double>& second,
                          double amount)
 {
-    srVector3T<double> axis = first - second;
-    axis.Normalize();
-    rotation.SetIdentity();
-    double angle = atan2(axis.x, axis.z);
-    rotation.RotateAboutY(angle);
-    axis = rotation.TransformTransposed(axis);
-    rotation.RotateAboutX(-atan2(axis.y, axis.z));
-    rotation.RotateAboutZ(amount);
-    setWSDirty();
+    setRotation(first - second, amount);
 }
 
 // FUNCTION: SURRENDER 0x10053D70
@@ -639,17 +594,13 @@ void srNode::getLocation(srVector3T<float>& location) const
 }
 
 // FUNCTION: SURRENDER 0x10053E10
-void srNode::getRotation(srMatrix3T<float>& rotation) const
+void srNode::getRotation(glm::mat3& rotation) const
 {
-    srMatrix3T<float> narrowed;
-    narrowed.vectors[0] = this->rotation.vectors[0];
-    narrowed.vectors[1] = this->rotation.vectors[1];
-    narrowed.vectors[2] = this->rotation.vectors[2];
-    rotation = narrowed;
+    rotation = glm::mat3(this->rotation);
 }
 
 // FUNCTION: SURRENDER 0x10053E70
-void srNode::getRotation(srMatrix3T<double>& rotation) const
+void srNode::getRotation(glm::dmat3& rotation) const
 {
     rotation = this->rotation;
 }
@@ -664,7 +615,7 @@ srVector3T<double> srNode::getScale() const
 void srNode::offsetLocation(const srVector3T<double>& offset)
 {
     if (offset.x != 0.0 || offset.y != 0.0 || offset.z != 0.0) {
-        location += offset;
+        location += offset.glmValue();
         setWSDirty();
     }
 }
@@ -683,8 +634,8 @@ void srNode::offsetLocation(double x, double y, double z)
 // FUNCTION: SURRENDER 0x10054790
 void srNode::setLocation(const srVector3T<double>& location)
 {
-    if (!(location == this->location)) {
-        this->location = location;
+    if (!(location.glmValue() == this->location)) {
+        this->location = location.glmValue();
         setWSDirty();
     }
 }
@@ -693,7 +644,7 @@ void srNode::setLocation(const srVector3T<double>& location)
 void srNode::setLocation(double x, double y, double z)
 {
     if (x != location.x || y != location.y || z != location.z) {
-        location.Set(x, y, z);
+        location = glm::dvec3(x, y, z);
         setWSDirty();
     }
 }
@@ -728,14 +679,14 @@ void srNode::setLocationZ(double z)
 // FUNCTION: SURRENDER 0x100548D0
 void srNode::setScale(const srVector3T<double>& scale)
 {
-    if (!(this->scale == scale)) {
-        this->scale = scale;
+    if (!(this->scale == scale.glmValue())) {
+        this->scale = scale.glmValue();
         setWSDirty();
     }
 }
 
 // FUNCTION: SURRENDER 0x10054E70
-void srNode::getWorldSpaceCoordinates(srMatrix3T<double>& rotation, srVector3T<double>& location,
+void srNode::getWorldSpaceCoordinates(glm::dmat3& rotation, srVector3T<double>& location,
                                       srVector3T<double>& scale) const
 {
     checkTransformation();
@@ -745,203 +696,113 @@ void srNode::getWorldSpaceCoordinates(srMatrix3T<double>& rotation, srVector3T<d
 }
 
 // FUNCTION: SURRENDER 0x10054ED0
-void srNode::getWorldSpaceCoordinates(srMatrix3T<float>& rotation, srVector3T<float>& location,
+void srNode::getWorldSpaceCoordinates(glm::mat3& rotation, srVector3T<float>& location,
                                       srVector3T<float>& scale) const
 {
     checkTransformation();
     getWorldSpaceRotation(rotation);
     srVector3T<double> ws_location = getWorldSpaceLocation();
-    location = glm::vec3((&ws_location)->glmValue());
+    location = glm::vec3(ws_location.glmValue());
     srVector3T<double> ws_scale = getWorldSpaceScale();
-    scale = glm::vec3((&ws_scale)->glmValue());
+    scale = glm::vec3(ws_scale.glmValue());
 }
 
 // FUNCTION: SURRENDER 0x10054F70
 srVector3T<double> srNode::getWorldSpaceLocation() const
 {
     checkTransformation();
-    return srVector3T<double>(world_transform0.rows[0].w, world_transform0.rows[1].w,
-                              world_transform0.rows[2].w);
+    return world_transform0[3];
 }
 
 // FUNCTION: SURRENDER 0x10054FC0
-void srNode::getWorldSpaceRotation(srMatrix3T<double>& rotation) const
+void srNode::getWorldSpaceRotation(glm::dmat3& rotation) const
 {
     checkTransformation();
-    rotation.vectors[0] = world_transform0.rows[0].xyz();
-    rotation.vectors[1] = world_transform0.rows[1].xyz();
-    rotation.vectors[2] = world_transform0.rows[2].xyz();
-    srVector3T<double> scale = getWorldSpaceScale();
-    srVector3T<double> inverse_scale(1.0 / scale.x, 1.0 / scale.y, 1.0 / scale.z);
-    rotation.vectors[0] *= inverse_scale;
-    rotation.vectors[1] *= inverse_scale;
-    rotation.vectors[2] *= inverse_scale;
+    rotation = glm::dmat3(world_transform0);
+    for (int column = 0; column < 3; ++column)
+        rotation[column] = normalizedOrZero(rotation[column]);
 }
 
 // FUNCTION: SURRENDER 0x10055110
-void srNode::getWorldSpaceRotation(srMatrix3T<float>& rotation) const
+void srNode::getWorldSpaceRotation(glm::mat3& rotation) const
 {
     checkTransformation();
-    rotation.vectors[0] = world_transform1.rows[0].xyz();
-    rotation.vectors[1] = world_transform1.rows[1].xyz();
-    rotation.vectors[2] = world_transform1.rows[2].xyz();
-    srVector3T<double> scale = getWorldSpaceScale();
-    float inverse_x = 1.0f / (float)scale.x;
-    float inverse_y = 1.0f / (float)scale.y;
-    float inverse_z = 1.0f / (float)scale.z;
-    rotation.vectors[0].x *= inverse_x;
-    rotation.vectors[1].x *= inverse_x;
-    rotation.vectors[2].x *= inverse_x;
-    rotation.vectors[0].y *= inverse_y;
-    rotation.vectors[1].y *= inverse_y;
-    rotation.vectors[2].y *= inverse_y;
-    rotation.vectors[0].z *= inverse_z;
-    rotation.vectors[1].z *= inverse_z;
-    rotation.vectors[2].z *= inverse_z;
+    rotation = glm::mat3(world_transform1);
+    for (int column = 0; column < 3; ++column)
+        rotation[column] = normalizedOrZero(rotation[column]);
 }
 
 // FUNCTION: SURRENDER 0x10055210
 srVector3T<double> srNode::getWorldSpaceDOF() const
 {
     checkTransformation();
-    srVector3T<double> direction(world_transform0.rows[0].z, world_transform0.rows[1].z,
-                                 world_transform0.rows[2].z);
-    direction.Normalize();
-    return direction;
+    return normalizedOrZero(world_transform0[2]);
 }
 
 // FUNCTION: SURRENDER 0x100552B0
 srVector3T<double> srNode::getWorldSpaceScale() const
 {
     checkTransformation();
-    srVector3T<double> x_axis(world_transform0.rows[0].x, world_transform0.rows[1].x,
-                              world_transform0.rows[2].x);
-    srVector3T<double> y_axis(world_transform0.rows[0].y, world_transform0.rows[1].y,
-                              world_transform0.rows[2].y);
-    srVector3T<double> z_axis(world_transform0.rows[0].z, world_transform0.rows[1].z,
-                              world_transform0.rows[2].z);
-    return srVector3T<double>(x_axis.Length(), y_axis.Length(), z_axis.Length());
+    return {glm::length(world_transform0[0]), glm::length(world_transform0[1]),
+            glm::length(world_transform0[2])};
 }
 
 // FUNCTION: SURRENDER 0x10054D10
-void srNode::getWorldSpaceMatrix(srMatrix4x3T<double>& matrix) const
+void srNode::getWorldSpaceMatrix(glm::dmat4x3& matrix) const
 {
     checkTransformation();
     matrix = world_transform0;
 }
 
 // FUNCTION: SURRENDER 0x10054D40
-void srNode::getWorldSpaceMatrix(srMatrix4x3T<float>& matrix) const
+void srNode::getWorldSpaceMatrix(glm::mat4x3& matrix) const
 {
     checkTransformation();
     matrix = world_transform1;
 }
 
 // FUNCTION: SURRENDER 0x10054D70
-void srNode::getWorldSpaceMatrix(srMatrix4T<double>& matrix) const
+void srNode::getWorldSpaceMatrix(glm::dmat4& matrix) const
 {
     checkTransformation();
-    matrix.vectors[0] = world_transform0.rows[0];
-    matrix.vectors[1] = world_transform0.rows[1];
-    matrix.vectors[2] = world_transform0.rows[2];
-    matrix.vectors[3].Set(0.0, 0.0, 0.0, 1.0);
+    matrix = glm::dmat4(world_transform0);
 }
 
 // FUNCTION: SURRENDER 0x10054DE0
-void srNode::getWorldSpaceMatrix(srMatrix4T<float>& matrix) const
+void srNode::getWorldSpaceMatrix(glm::mat4& matrix) const
 {
     checkTransformation();
-    matrix.vectors[0] = world_transform1.rows[0];
-    matrix.vectors[1] = world_transform1.rows[1];
-    matrix.vectors[2] = world_transform1.rows[2];
-    matrix.vectors[3].Set(0.0f, 0.0f, 0.0f, 1.0f);
+    matrix = glm::mat4(world_transform1);
 }
 
 // FUNCTION: SURRENDER 0x10054920
 void srNode::updateTransformation() const
 {
     notifications.value &= ~(1u << NOTIFY_TRANSFORM_DIRTY);
-    srNode* parent = parent_;
-    if (parent == 0) {
-        if (testFlag(FLAG_IGNORE_TRANSFORM) == 0) {
-            world_transform0.SetRotation(rotation);
-            world_transform0.SetTranslation(location);
-            world_transform0.Scale(scale);
-        } else {
-            world_transform0.SetIdentity();
-        }
-    } else if (testFlag(FLAG_IGNORE_TRANSFORM) == 0) {
-        if (parent->testNotify(NOTIFY_TRANSFORM_DIRTY) != 0) {
-            parent->updateTransformation();
-        }
-        /* Retail writes the parent * local product out element by element (columns
-           first) and each element's three-term sum has its own association; the
-           parenthesization below follows retail's x87 sequence term for term. */
-        const srMatrix4x3T<double>& outer = parent->world_transform0;
-        const srVector3T<double>* local = rotation.vectors;
-        srMatrix4x3T<double>& world = world_transform0;
-        world.rows[0].x = ((local[0].x * outer.rows[0].x + outer.rows[0].y * local[1].x) +
-                           outer.rows[0].z * local[2].x) *
-                          scale.x;
-        world.rows[1].x = ((local[2].x * outer.rows[1].z + local[0].x * outer.rows[1].x) +
-                           outer.rows[1].y * local[1].x) *
-                          scale.x;
-        world.rows[2].x = ((outer.rows[2].y * local[1].x + outer.rows[2].z * local[2].x) +
-                           outer.rows[2].x * local[0].x) *
-                          scale.x;
-        world.rows[0].y = ((outer.rows[0].z * local[2].y + outer.rows[0].y * local[1].y) +
-                           outer.rows[0].x * local[0].y) *
-                          scale.y;
-        world.rows[1].y = ((outer.rows[1].x * local[0].y + local[2].y * outer.rows[1].z) +
-                           local[1].y * outer.rows[1].y) *
-                          scale.y;
-        world.rows[2].y = ((outer.rows[2].z * local[2].y + outer.rows[2].y * local[1].y) +
-                           outer.rows[2].x * local[0].y) *
-                          scale.y;
-        world.rows[0].z = ((local[2].z * outer.rows[0].z + outer.rows[0].x * local[0].z) +
-                           local[1].z * outer.rows[0].y) *
-                          scale.z;
-        world.rows[1].z = ((local[2].z * outer.rows[1].z + local[1].z * outer.rows[1].y) +
-                           outer.rows[1].x * local[0].z) *
-                          scale.z;
-        world.rows[2].z = ((local[2].z * outer.rows[2].z + local[1].z * outer.rows[2].y) +
-                           outer.rows[2].x * local[0].z) *
-                          scale.z;
-        world.rows[0].w = ((location.x * outer.rows[0].x + location.z * outer.rows[0].z) +
-                           location.y * outer.rows[0].y) +
-                          outer.rows[0].w;
-        world.rows[1].w = ((location.z * outer.rows[1].z + location.y * outer.rows[1].y) +
-                           location.x * outer.rows[1].x) +
-                          outer.rows[1].w;
-        world.rows[2].w = ((outer.rows[2].z * location.z + outer.rows[2].y * location.y) +
-                           outer.rows[2].x * location.x) +
-                          outer.rows[2].w;
-    } else {
-        parent->getWorldSpaceMatrix(world_transform0);
+    glm::dmat4 world(1);
+    if (!testFlag(FLAG_IGNORE_TRANSFORM)) {
+        world = glm::scale(glm::dmat4(rotation), scale);
+        world[3] = glm::dvec4(location, 1);
     }
-    world_transform1.rows[0].Set(
-        (float)world_transform0.rows[0].x, (float)world_transform0.rows[0].y,
-        (float)world_transform0.rows[0].z, (float)world_transform0.rows[0].w);
-    world_transform1.rows[1].Set(
-        (float)world_transform0.rows[1].x, (float)world_transform0.rows[1].y,
-        (float)world_transform0.rows[1].z, (float)world_transform0.rows[1].w);
-    world_transform1.rows[2].Set(
-        (float)world_transform0.rows[2].x, (float)world_transform0.rows[2].y,
-        (float)world_transform0.rows[2].z, (float)world_transform0.rows[2].w);
+    if (parent_) {
+        parent_->checkTransformation();
+        world = glm::dmat4(parent_->world_transform0) * world;
+    }
+    world_transform0 = glm::dmat4x3(world);
+    world_transform1 = glm::mat4x3(world);
 }
 
 // FUNCTION: SURRENDER 0x10051E10
 void srNode::setWorldSpaceLocation(const srVector3T<double>& location)
 {
     if (parent_ == 0) {
-        this->location = location;
+        this->location = location.glmValue();
     } else {
-        srMatrix4T<double> parent_world;
+        glm::dmat4 parent_world;
         parent_->getWorldSpaceMatrix(parent_world);
-        srMatrix4T<double> inverse;
-        inverse = glm::inverse(parent_world.glmValue());
-        this->location =
-            srVector3T<double>{glm::dvec3(inverse.glmValue() * glm::dvec4(location.glmValue(), 1))};
+        glm::dmat4 inverse;
+        inverse = glm::inverse(parent_world);
+        this->location = glm::dvec3(inverse * glm::dvec4(location.glmValue(), 1));
     }
     setWSDirty();
 }
@@ -1117,7 +978,7 @@ srNode* srNode::findParentByTypeInternal(w8_ulong class_id)
 void srNode::move(const srVector3T<double>& offset)
 {
     if (offset.x != 0.0 || offset.y != 0.0 || offset.z != 0.0) {
-        location += srVector3T<double>{rotation * offset};
+        location += rotation * offset.glmValue();
         setWSDirty();
     }
 }
@@ -1126,8 +987,7 @@ void srNode::move(const srVector3T<double>& offset)
 void srNode::moveForward(double distance)
 {
     if (distance != 0.0) {
-        srVector3T<double> direction(rotation.vectors[0].z, rotation.vectors[1].z,
-                                     rotation.vectors[2].z);
+        const auto direction = rotation[2];
         location += direction * distance;
         setWSDirty();
     }
@@ -1137,8 +997,7 @@ void srNode::moveForward(double distance)
 void srNode::moveBackward(double distance)
 {
     if (distance != 0.0) {
-        srVector3T<double> direction(rotation.vectors[0].z, rotation.vectors[1].z,
-                                     rotation.vectors[2].z);
+        const auto direction = rotation[2];
         location -= direction * distance;
         setWSDirty();
     }
@@ -1148,8 +1007,7 @@ void srNode::moveBackward(double distance)
 void srNode::moveLeft(double distance)
 {
     if (distance != 0.0) {
-        srVector3T<double> direction(rotation.vectors[0].x, rotation.vectors[1].x,
-                                     rotation.vectors[2].x);
+        const auto direction = rotation[0];
         location -= direction * distance;
         setWSDirty();
     }
@@ -1159,8 +1017,7 @@ void srNode::moveLeft(double distance)
 void srNode::moveRight(double distance)
 {
     if (distance != 0.0) {
-        srVector3T<double> direction(rotation.vectors[0].x, rotation.vectors[1].x,
-                                     rotation.vectors[2].x);
+        const auto direction = rotation[0];
         location += direction * distance;
         setWSDirty();
     }
@@ -1170,8 +1027,7 @@ void srNode::moveRight(double distance)
 void srNode::moveUp(double distance)
 {
     if (distance != 0.0) {
-        srVector3T<double> direction(rotation.vectors[0].y, rotation.vectors[1].y,
-                                     rotation.vectors[2].y);
+        const auto direction = rotation[1];
         location += direction * distance;
         setWSDirty();
     }
@@ -1181,20 +1037,19 @@ void srNode::moveUp(double distance)
 void srNode::moveDown(double distance)
 {
     if (distance != 0.0) {
-        srVector3T<double> direction(rotation.vectors[0].y, rotation.vectors[1].y,
-                                     rotation.vectors[2].y);
+        const auto direction = rotation[1];
         location -= direction * distance;
         setWSDirty();
     }
 }
 
 // FUNCTION: SURRENDER 0x10053F70
-void srNode::rotate(const srMatrix3T<double>& rotation)
+void srNode::rotate(const glm::dmat3& rotation)
 {
-    srMatrix3T<double> identity;
-    identity.SetIdentity();
+    glm::dmat3 identity;
+    identity = glm::dmat3(1);
     if (!(rotation == identity)) {
-        (this->rotation) = (this->rotation).glmValue() * rotation.glmValue();
+        (this->rotation) = (this->rotation) * rotation;
         setWSDirty();
     }
 }
@@ -1202,10 +1057,9 @@ void srNode::rotate(const srMatrix3T<double>& rotation)
 // FUNCTION: SURRENDER 0x100540E0
 void srNode::rotate(double angle, const srVector3T<double>& axis)
 {
-    if (angle != 0.0) {
-        srVector3T<double> normalized = axis;
-        normalized.Normalize();
-        rotation.RotateAroundAxis(angle, normalized);
+    const glm::dvec3 direction = normalizedOrZero(axis.glmValue());
+    if (angle != 0 && glm::dot(direction, direction) != 0) {
+        rotation *= glm::mat3_cast(glm::angleAxis(angle, direction));
         setWSDirty();
     }
 }
@@ -1214,7 +1068,7 @@ void srNode::rotate(double angle, const srVector3T<double>& axis)
 void srNode::rotateX(double angle)
 {
     if (angle != 0.0) {
-        rotation.RotateAboutX(angle);
+        rotation *= glm::mat3_cast(glm::angleAxis(double(angle), glm::dvec3(1, 0, 0)));
         setWSDirty();
     }
 }
@@ -1223,7 +1077,7 @@ void srNode::rotateX(double angle)
 void srNode::rotateY(double angle)
 {
     if (angle != 0.0) {
-        rotation.RotateAboutY(angle);
+        rotation *= glm::mat3_cast(glm::angleAxis(double(angle), glm::dvec3(0, 1, 0)));
         setWSDirty();
     }
 }
@@ -1232,111 +1086,52 @@ void srNode::rotateY(double angle)
 void srNode::rotateZ(double angle)
 {
     if (angle != 0.0) {
-        rotation.RotateAboutZ(angle);
+        rotation *= glm::mat3_cast(glm::angleAxis(double(angle), glm::dvec3(0, 0, 1)));
         setWSDirty();
     }
 }
 
 // FUNCTION: SURRENDER 0x10051FB0
-void srNode::setWorldSpaceRotation(const srMatrix3T<double>& rotation)
+void srNode::setWorldSpaceRotation(const glm::dmat3& rotation)
 {
-    if (parent_ == 0) {
-        this->rotation = rotation;
-    } else {
-        srMatrix4T<double> world;
-        world.vectors[0].x = rotation.vectors[0].x * scale.x;
-        world.vectors[0].y = rotation.vectors[0].y * scale.y;
-        world.vectors[0].z = rotation.vectors[0].z * scale.z;
-        world.vectors[0].w = 0.0;
-        world.vectors[1].x = rotation.vectors[1].x * scale.x;
-        world.vectors[1].y = rotation.vectors[1].y * scale.y;
-        world.vectors[1].z = rotation.vectors[1].z * scale.z;
-        world.vectors[1].w = 0.0;
-        world.vectors[2].x = rotation.vectors[2].x * scale.x;
-        world.vectors[2].y = rotation.vectors[2].y * scale.y;
-        world.vectors[2].z = rotation.vectors[2].z * scale.z;
-        world.vectors[2].w = 0.0;
-        world.vectors[3].Set(0.0, 0.0, 0.0, 1.0);
-        srMatrix4T<double> local;
-        parent_->getWorldSpaceMatrix(local);
-        local.vectors[0].w = 0.0;
-        local.vectors[1].w = 0.0;
-        local.vectors[2].w = 0.0;
-        local.vectors[3].w = 1.0;
-        srMatrix4T<double> inverse;
-        inverse = glm::inverse(local.glmValue());
-        local = inverse;
-        local = local * world;
-        srMatrix3T<double> result;
-        result.SetRows(local.vectors[0].xyz(), local.vectors[1].xyz(), local.vectors[2].xyz());
-        this->rotation = result;
-        srVector3T<double> column_x;
-        srVector3T<double> column_y;
-        srVector3T<double> column_z;
-        column_z = srVector3T<double>(this->rotation.vectors[0].z, this->rotation.vectors[1].z,
-                                      this->rotation.vectors[2].z);
-        column_y = srVector3T<double>(this->rotation.vectors[0].y, this->rotation.vectors[1].y,
-                                      this->rotation.vectors[2].y);
-        column_x = srVector3T<double>(this->rotation.vectors[0].x, this->rotation.vectors[1].x,
-                                      this->rotation.vectors[2].x);
-        srVector3T<double> inverse_scale;
-        inverse_scale.Set(1.0 / columnLengthXYZ(column_x), 1.0 / columnLengthZYX(column_y),
-                          1.0 / columnLengthZYX(column_z));
-        this->rotation.vectors[0] *= inverse_scale;
-        this->rotation.vectors[1] *= inverse_scale;
-        this->rotation.vectors[2] *= inverse_scale;
+    this->rotation = rotation;
+    if (parent_) {
+        glm::dmat4 parent_world;
+        parent_->getWorldSpaceMatrix(parent_world);
+        this->rotation = glm::inverse(glm::dmat3(parent_world)) * rotation;
+        for (int column = 0; column < 3; ++column)
+            this->rotation[column] = normalizedOrZero(this->rotation[column]);
     }
     setWSDirty();
 }
 
 // FUNCTION: SURRENDER 0x10052420
-void srNode::setWorldSpaceMatrix(const srMatrix4T<double>& matrix)
+void srNode::setWorldSpaceMatrix(const glm::dmat4& matrix)
 {
-    srMatrix4T<double> local;
-    if (parent_ == 0) {
-        local = matrix;
-    } else {
-        parent_->getWorldSpaceMatrix(local);
-        srMatrix4T<double> inverse;
-        inverse = glm::inverse(local.glmValue());
-        local = inverse;
-        local = local * matrix;
+    glm::dmat4 local = matrix;
+    if (parent_) {
+        glm::dmat4 parent_world;
+        parent_->getWorldSpaceMatrix(parent_world);
+        local = glm::inverse(parent_world) * matrix;
     }
-    srMatrix3T<double> result;
-    result.SetRows(local.vectors[0].xyz(), local.vectors[1].xyz(), local.vectors[2].xyz());
-    rotation = result;
-    location = srVector3T<double>(local.vectors[0].w, local.vectors[1].w, local.vectors[2].w);
-    srVector3T<double> column_x;
-    srVector3T<double> column_y;
-    srVector3T<double> column_z;
-    column_z =
-        srVector3T<double>(rotation.vectors[0].z, rotation.vectors[1].z, rotation.vectors[2].z);
-    column_y =
-        srVector3T<double>(rotation.vectors[0].y, rotation.vectors[1].y, rotation.vectors[2].y);
-    column_x =
-        srVector3T<double>(rotation.vectors[0].x, rotation.vectors[1].x, rotation.vectors[2].x);
-    scale.Set(columnLengthZYX(column_x), columnLengthZYX(column_y), columnLengthZYX(column_z));
-    srVector3T<double> inverse_scale;
-    inverse_scale.Set(1.0 / scale.x, 1.0 / scale.y, 1.0 / scale.z);
-    rotation.vectors[0] *= inverse_scale;
-    rotation.vectors[1] *= inverse_scale;
-    rotation.vectors[2] *= inverse_scale;
+    location = glm::dvec3(local[3]);
+    rotation = glm::dmat3(local);
+    scale =
+        glm::dvec3(glm::length(rotation[0]), glm::length(rotation[1]), glm::length(rotation[2]));
+    for (int column = 0; column < 3; ++column)
+        rotation[column] /= scale[column];
     setWSDirty();
 }
 
 // FUNCTION: SURRENDER 0x10052D80
 void srNode::pitchAt(const srVector3T<double>& target, double amount)
 {
-    srMatrix3T<double> rotation;
+    glm::dmat3 rotation;
     getWorldSpaceRotation(rotation);
-    srVector3T<double> direction = target - getWorldSpaceLocation();
-    direction.Normalize();
-    srVector3T<double> up(rotation.vectors[0].y, rotation.vectors[1].y, rotation.vectors[2].y);
-    srVector3T<double> forward(rotation.vectors[0].z, rotation.vectors[1].z, rotation.vectors[2].z);
-    /* Retail stores the forward component to a float slot and reloads it. */
-    volatile float toward = static_cast<float>(glm::dot(forward.glmValue(), direction.glmValue()));
-    double angle = -atan2(glm::dot(up.glmValue(), direction.glmValue()), toward) * amount;
-    rotation.RotateAboutX(angle);
+    const auto direction = normalizedOrZero(target.glmValue() - getWorldSpaceLocation().glmValue());
+    const double angle =
+        -std::atan2(glm::dot(rotation[1], direction), glm::dot(rotation[2], direction)) * amount;
+    rotation *= glm::mat3_cast(glm::angleAxis(angle, glm::dvec3(1, 0, 0)));
     orthonormalizeRotation(rotation);
     setWorldSpaceRotation(rotation);
 }
@@ -1350,16 +1145,12 @@ void srNode::pitchAt(const srNode* target, double amount)
 // FUNCTION: SURRENDER 0x10052FC0
 void srNode::yawAt(const srVector3T<double>& target, double amount)
 {
-    srMatrix3T<double> rotation;
+    glm::dmat3 rotation;
     getWorldSpaceRotation(rotation);
-    srVector3T<double> direction = target - getWorldSpaceLocation();
-    direction.Normalize();
-    srVector3T<double> right(rotation.vectors[0].x, rotation.vectors[1].x, rotation.vectors[2].x);
-    srVector3T<double> forward(rotation.vectors[0].z, rotation.vectors[1].z, rotation.vectors[2].z);
-    /* Retail stores the forward component to a float slot and reloads it. */
-    volatile float toward = static_cast<float>(glm::dot(forward.glmValue(), direction.glmValue()));
-    double angle = atan2(glm::dot(right.glmValue(), direction.glmValue()), toward) * amount;
-    rotation.RotateAboutY(angle);
+    const auto direction = normalizedOrZero(target.glmValue() - getWorldSpaceLocation().glmValue());
+    const double angle =
+        std::atan2(glm::dot(rotation[0], direction), glm::dot(rotation[2], direction)) * amount;
+    rotation *= glm::mat3_cast(glm::angleAxis(angle, glm::dvec3(0, 1, 0)));
     orthonormalizeRotation(rotation);
     setWorldSpaceRotation(rotation);
 }
@@ -1373,11 +1164,10 @@ void srNode::yawAt(const srNode* target, double amount)
 // FUNCTION: SURRENDER 0x10053210
 void srNode::rollUp(double amount)
 {
-    srMatrix3T<double> rotation;
+    glm::dmat3 rotation;
     getWorldSpaceRotation(rotation);
-    volatile float vertical = static_cast<float>(rotation.vectors[1].y);
-    double angle = -atan2(rotation.vectors[1].x, vertical) * amount;
-    rotation.RotateAboutZ(angle);
+    const double angle = -std::atan2(rotation[0][1], rotation[1][1]) * amount;
+    rotation *= glm::mat3_cast(glm::angleAxis(angle, glm::dvec3(0, 0, 1)));
     orthonormalizeRotation(rotation);
     setWorldSpaceRotation(rotation);
 }
@@ -1385,15 +1175,12 @@ void srNode::rollUp(double amount)
 // FUNCTION: SURRENDER 0x10053470
 void srNode::rollAt(const srVector3T<double>& target, double amount)
 {
-    srMatrix3T<double> rotation;
+    glm::dmat3 rotation;
     getWorldSpaceRotation(rotation);
-    srVector3T<double> right(rotation.vectors[0].x, rotation.vectors[1].x, rotation.vectors[2].x);
-    srVector3T<double> up(rotation.vectors[0].y, rotation.vectors[1].y, rotation.vectors[2].y);
-    /* Retail's inlined dot products associate (z + x) + y and (x + z) + y. */
-    double across = (right.z * target.z + right.x * target.x) + right.y * target.y;
-    double along = (up.x * target.x + up.z * target.z) + up.y * target.y;
-    double angle = -atan2(across, along) * amount;
-    rotation.RotateAboutZ(angle);
+    const auto direction = target.glmValue();
+    const double angle =
+        -std::atan2(glm::dot(rotation[0], direction), glm::dot(rotation[1], direction)) * amount;
+    rotation *= glm::mat3_cast(glm::angleAxis(angle, glm::dvec3(0, 0, 1)));
     orthonormalizeRotation(rotation);
     setWorldSpaceRotation(rotation);
 }
@@ -1401,8 +1188,7 @@ void srNode::rollAt(const srVector3T<double>& target, double amount)
 // FUNCTION: SURRENDER 0x10053660
 void srNode::rollAt(const srNode* target, double amount)
 {
-    srMatrix3T<double> rotation;
+    glm::dmat3 rotation;
     target->getWorldSpaceRotation(rotation);
-    rollAt(srVector3T<double>(rotation.vectors[0].x, rotation.vectors[1].x, rotation.vectors[2].x),
-           amount);
+    rollAt(srVector3T<double>(rotation[0][0], rotation[0][1], rotation[0][2]), amount);
 }

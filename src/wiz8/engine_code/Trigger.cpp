@@ -1045,7 +1045,7 @@ bool Trigger::PlayActionSound(const char* sound_name, int volume)
     stSound3D* sound = new stSound3D(sound_name, 0);
     if (sound != 0) {
         srVector3T<double> sound_position;
-        sound_position = glm::dvec3((&position)->glmValue());
+        sound_position = glm::dvec3(position.glmValue());
         sound->volume = volume;
         sound->setLocation(sound_position);
         if (sound->Play(false, true) != 0) {
@@ -1110,24 +1110,24 @@ void W8TriggerEvent::Update()
             srVector3T<float> target;
             srVector3T<float> transformed;
             srVector3T<float> axis;
-            srMatrix3T<float> rotation;
+                glm::mat3 rotation;
 
             source = trigger->position;
             target = source;
             target.z += 100.0f;
 
             axis.Set(0.0, 0.0, 1.0);
-            rotation.vectors[0].Set(trigger->direction.x, trigger->direction.y,
-                                    trigger->direction.z);
-            rotation.vectors[1].Set(1.0, 0.0, 0.0);
-            rotation.vectors[2].Set(0.0, 1.0, 0.0);
+            rotation = glm::transpose(glm::mat3(trigger->direction.glmValue(),
+                                                    glm::vec3(1, 0, 0), glm::vec3(0, 1, 0)));
 
-            if (trigger->angle != 0.0f) {
-                rotation.RotateAroundAxis(sin(trigger->angle), cos(trigger->angle), axis);
-            }
+                if (trigger->angle != 0.0f) {
+                    rotation *= glm::mat3_cast(
+                        glm::angleAxis(float(std::atan2(sin(trigger->angle), cos(trigger->angle))),
+                                       normalizedOrZero(glm::vec3(axis.glmValue()))));
+                }
 
-            transformed.x = glm::dot(rotation.vectors[1].glmValue(), target.glmValue());
-            transformed.y = glm::dot(rotation.vectors[2].glmValue(), target.glmValue());
+                transformed.x = glm::dot(glm::row(rotation, 1), target.glmValue());
+                transformed.y = glm::dot(glm::row(rotation, 2), target.glmValue());
             transformed.z = glm::dot(axis.glmValue(), target.glmValue());
             FireMissile(static_cast<unsigned int>(trigger->m_lData1), &source, &transformed, 0, 1,
                         1, 50000.0f);
@@ -2299,7 +2299,7 @@ void Trigger::RunDestination(const char* destination)
     srVector3T<float> destination_position;
     srVector3T<float> destination_direction;
     srVector3T<float> source_position;
-    srMatrix3T<float> rotation;
+    glm::mat3 rotation;
     /* Retail's named-entity path reads saved storage for these integers;
        natively a named entity stays in the current level. */
     int location_id;
@@ -2351,9 +2351,11 @@ void Trigger::RunDestination(const char* destination)
     g_octree->AdjustPortalDestination(&destination_position, &source_position);
     SetWorldScenePosition(GetWorld(), &destination_position);
 
-    rotation.SetIdentity();
+    rotation = glm::mat3(1);
     if (angle != 0.0f) {
-        rotation.RotateAroundAxis(sin(angle), cos(angle), destination_direction);
+        rotation *= glm::mat3_cast(
+            glm::angleAxis(float(std::atan2(sin(angle), cos(angle))),
+                           normalizedOrZero(glm::vec3(destination_direction.glmValue()))));
     }
     ApplyCameraRotation(&rotation);
     SpawnCameraSpellEffect("set_portal", 1, 0, 0);
@@ -3182,18 +3184,20 @@ void Trigger::Run(int source)
             srVector3T<float> source_position;
             srVector3T<float> target_position;
             srVector3T<float> transformed;
-            srMatrix3T<float> rotation;
+                glm::mat3 rotation;
 
             source_position.Set(this->position.x, this->position.y, this->position.z);
             target_position = source_position;
             target_position.z += 100.0f;
-            rotation.SetIdentity();
+            rotation = glm::mat3(1);
             /* Retail rotates the identity matrix around the trigger's direction
                field (ebp+0x100), not around identity Z. */
             if (angle != 0.0f) {
-                rotation.RotateAroundAxis(sin(angle), cos(angle), direction);
+                rotation *= glm::mat3_cast(
+                        glm::angleAxis(float(std::atan2(sin(angle), cos(angle))),
+                                       normalizedOrZero(glm::vec3(direction.glmValue()))));
                 }
-                transformed = srVector3T<float>{rotation * target_position};
+                transformed = rotation * target_position.glmValue();
                 FireMissile(static_cast<unsigned int>(m_lData1), &source_position, &transformed, 0,
                             1, 1, 50000.0f);
         } else if (m_pEvent == 0) {

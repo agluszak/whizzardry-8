@@ -205,10 +205,10 @@ void W8Octree::UpdateCameraVisibility()
     view.horizontal_fov = static_cast<float>(world->camera->getHorizontalFOV());
     view.vertical_fov = static_cast<float>(world->camera->getVerticalFOV());
 
-    srMatrix3T<float> rotation;
+    glm::mat3 rotation;
     world->camera->getRotation(rotation);
-    view.rotation_column0.Set(rotation.vectors[0].x, rotation.vectors[1].x, rotation.vectors[2].x);
-    view.rotation_column1.Set(rotation.vectors[0].y, rotation.vectors[1].y, rotation.vectors[2].y);
+    view.rotation_column0.Set(rotation[0][0], rotation[0][1], rotation[0][2]);
+    view.rotation_column1.Set(rotation[1][0], rotation[1][1], rotation[1][2]);
 
     srVector3T<double> dof = world->camera->getWorldSpaceDOF();
     view.camera_dof = dof;
@@ -1214,21 +1214,22 @@ unsigned int W8Octree::SampleRegionLinks(const srVector3T<float>* point, bool de
         double sin_tilt = sin(g_region_link_camera_tilt);
         for (int direction = 0; direction < samples; ++direction) {
             float angle = direction * view.horizontal_fov;
-            srMatrix3T<float> frame;
-            frame.SetIdentity();
-            frame.RotateAboutY(angle);
-            frame.RotateAboutX(sin_tilt, cos_tilt);
+            glm::mat3 frame;
+            frame = glm::mat3(1);
+            frame *= glm::mat3_cast(glm::angleAxis(float(angle), glm::vec3(0, 1, 0)));
+            frame *= glm::mat3_cast(
+                glm::angleAxis(float(std::atan2(sin_tilt, cos_tilt)), glm::vec3(1, 0, 0)));
             world->camera->setRotation(frame);
-            view.rotation_column0.x = frame.vectors[0].x;
+            view.rotation_column0.x = frame[0][0];
             srVector3T<float> unit;
             unit.Set(1.0, 0.0, 0.0);
-            view.rotation_column0.y = glm::dot(frame.vectors[1].glmValue(), unit.glmValue());
-            view.rotation_column0.z = glm::dot(frame.vectors[2].glmValue(), unit.glmValue());
-            float right_y = frame.vectors[0].y;
+            view.rotation_column0.y = glm::dot(glm::row(frame, 1), unit.glmValue());
+            view.rotation_column0.z = glm::dot(glm::row(frame, 2), unit.glmValue());
+            float right_y = frame[1][0];
             unit.Set(0.0, 1.0, 0.0);
             view.rotation_column1.x = right_y;
-            view.rotation_column1.y = glm::dot(frame.vectors[1].glmValue(), unit.glmValue());
-            view.rotation_column1.z = glm::dot(frame.vectors[2].glmValue(), unit.glmValue());
+            view.rotation_column1.y = glm::dot(glm::row(frame, 1), unit.glmValue());
+            view.rotation_column1.z = glm::dot(glm::row(frame, 2), unit.glmValue());
             srVector3T<double> dof = world->camera->getWorldSpaceDOF();
             view.camera_dof = dof;
             m_current_regions->ClearAll();
@@ -1377,7 +1378,7 @@ void W8Octree::BuildRegionLinks(bool rebuild_all)
     SetViewportMode(0);
     SetWorldScaledViewport(0, 0, 0x140, 0xf0);
     srVector3T<float> saved_location;
-    srMatrix3T<float> saved_rotation;
+    glm::mat3 saved_rotation;
     world->camera->getLocation(saved_location);
     world->camera->getRotation(saved_rotation);
     g_light_update_flags &= ~1u;
@@ -1500,7 +1501,7 @@ void W8Octree::BuildRegionLinks(bool rebuild_all)
         }
     }
     srVector3T<double> restore_location;
-    restore_location = glm::dvec3((&saved_location)->glmValue());
+    restore_location = glm::dvec3(saved_location.glmValue());
     world->camera->setLocation(restore_location);
     world->camera->setRotation(saved_rotation);
     g_light_update_flags |= 1u;
@@ -1822,7 +1823,7 @@ unsigned char W8Octree::PrepareNavigatorTarget(W8NavigatorMovementState* movemen
     }
     srVector3T<float> delta = movement->target_position - movement->position;
     delta.y = 0.0f;
-    if (((delta.xz())).Length() < NAVIGATOR_MINIMUM_HORIZONTAL_DISTANCE) {
+    if (glm::length(((delta.xz()))) < NAVIGATOR_MINIMUM_HORIZONTAL_DISTANCE) {
         return 0;
     }
     if ((movement->attachment->flags & W8_NAV_ATTACHMENT_FOLLOW_PATH) == 0) {
@@ -2964,9 +2965,9 @@ unsigned char W8Octree::TestProbeResult(W8OctreeTrace* trace)
             !m_pAlphaBits->Test(mesh_index)) {
             stMeshModel* model =
                 static_cast<stMeshModel*>(g_world->psrMeshes[mesh_index]->getModel());
-            const srVector4T<float>* planes = model->getPolyEq();
+            const glm::vec4* planes = model->getPolyEq();
             unsigned int polygon = m_aulGDObjs[index] & 0xffff;
-            const srVector4T<float>* plane = planes + polygon;
+            const glm::vec4* plane = planes + polygon;
             float t;
             float distance;
             srVector3T<float> point;
@@ -3073,7 +3074,7 @@ w8_ulong* W8Octree::CollectPolygonsNearPoint(srVector3T<float>* center, float ra
     for (index = 0; index < m_gd_result_count; ++index) {
         unsigned int mesh_index = m_aulGDObjs[index] >> 0x10;
         stMeshModel* model = 0;
-        const srVector4T<float>* plane = 0;
+        const glm::vec4* plane = 0;
         if (mesh_index < m_meshCount && g_world->psrMeshes[mesh_index] != 0 &&
             !m_pAlphaBits->Test(mesh_index)) {
             model = static_cast<stMeshModel*>(g_world->psrMeshes[mesh_index]->getModel());
@@ -3087,7 +3088,7 @@ w8_ulong* W8Octree::CollectPolygonsNearPoint(srVector3T<float>* center, float ra
         }
         if (m_aulGDObjs[index] != 0) {
             srVector3T<float> normal;
-            normal = plane->xyz();
+            normal = glm::vec3((*plane));
             const srVector3i* poly_vertex = model->getPolyVertex() + (m_aulGDObjs[index] & 0xffff);
             const srVector3T<float>* vertices = model->getVertexLoc();
             srVector3T<float> triangle[3];
@@ -4523,7 +4524,7 @@ unsigned int W8Octree::AdvanceNavigator(W8NavigatorMovementState* movement, floa
     }
     vecDir = movement->target_position - movement->position;
     vecDir.y = 0.0f;
-    distance = ((vecDir.xz())).Length();
+    distance = glm::length(((vecDir.xz())));
     step = g_game_time_accumulator->GetFrameDelta() * movement->movement_scale * g_rate *
            g_world_scale;
     if (step >= distance) {
@@ -4619,7 +4620,7 @@ static BOOLEAN WriteStagedVectorArray(wiz8::File* file, const Vector* values, in
 }
 
 // FUNCTION: WIZ8 0x004372E0
-BOOLEAN WriteVector4Array(wiz8::File* file, const srVector4T<float>* values, int count)
+BOOLEAN WriteVector4Array(wiz8::File* file, const glm::vec4* values, int count)
 {
     return WriteStagedVectorArray(file, values, count);
 }
@@ -4631,16 +4632,16 @@ BOOLEAN WriteVector3Array(wiz8::File* file, const srVector3T<float>* values, int
 }
 
 // FUNCTION: WIZ8 0x00437430
-BOOLEAN WriteVector2Array(wiz8::File* file, const srVector2T<float>* values, int count)
+BOOLEAN WriteVector2Array(wiz8::File* file, const glm::vec2* values, int count)
 {
     return WriteStagedVectorArray(file, values, count);
 }
 
 // FUNCTION: WIZ8 0x004374C0
-bool ReadVector4Array(wiz8::File* file, srVector4T<float>* values, int count)
+bool ReadVector4Array(wiz8::File* file, glm::vec4* values, int count)
 try {
-    return (file->read(values, count * sizeof(srVector4T<float>)).bytes ==
-            static_cast<std::size_t>(count * sizeof(srVector4T<float>))) &
+    return (file->read(values, count * sizeof(glm::vec4)).bytes ==
+            static_cast<std::size_t>(count * sizeof(glm::vec4))) &
            1;
 } catch (const std::exception&) {
     return false;
@@ -4657,10 +4658,10 @@ try {
 }
 
 // FUNCTION: WIZ8 0x00437510
-bool ReadVector2Array(wiz8::File* file, srVector2T<float>* values, int count)
+bool ReadVector2Array(wiz8::File* file, glm::vec2* values, int count)
 try {
-    return (file->read(values, count * sizeof(srVector2T<float>)).bytes ==
-            static_cast<std::size_t>(count * sizeof(srVector2T<float>))) &
+    return (file->read(values, count * sizeof(glm::vec2)).bytes ==
+            static_cast<std::size_t>(count * sizeof(glm::vec2))) &
            1;
 } catch (const std::exception&) {
     return false;
@@ -4707,8 +4708,7 @@ float PointToSegmentDistance(srVector3T<float>* point, const srVector3T<float>* 
 }
 
 // FUNCTION: WIZ8 0x00437760
-float PointToSegmentDistance2D(srVector2T<float>* point, const srVector2T<float>* from,
-                               const srVector2T<float>* to, bool clamp_point, float* out_t)
+float PointToSegmentDistance2D(glm::vec2* point, const glm::vec2* from, const glm::vec2* to, bool clamp_point, float* out_t)
 {
     float dx = to->x - from->x;
     float dy = to->y - from->y;
@@ -4729,7 +4729,7 @@ float PointToSegmentDistance2D(srVector2T<float>* point, const srVector2T<float>
             if (static_cast<float>(g_double_one) < t) {
                 *point = *to;
             } else {
-                point->Set(dx * t + from->x, dy * t + from->y);
+                (*point) = glm::vec2(dx * t + from->x, dy * t + from->y);
             }
         } else {
             *point = *from;

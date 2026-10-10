@@ -213,7 +213,7 @@ void srLight::process(const ProcessInfo& info, e_processType type)
         return;
     }
     applyWorldSpaceMatrix(*renderer);
-    srMatrix4T<float> model_view;
+    glm::mat4 model_view;
     renderer->getMatrix(model_view);
     derived_flags = 0;
     derived_flags = srLight::DERIVED_ACTIVE;
@@ -244,8 +244,7 @@ void srLight::process(const ProcessInfo& info, e_processType type)
     }
     if ((enable_flags & (1UL << srLight::ENABLE_DIRECTIONAL)) != 0) {
         derived_flags |= srLight::DERIVED_DIRECTIONAL;
-        srVector3T<float> direction(-model_view.vectors[0].z, -model_view.vectors[1].z,
-                                    -model_view.vectors[2].z);
+        srVector3T<float> direction(-model_view[2][0], -model_view[2][1], -model_view[2][2]);
         float length_squared = direction.LengthSquared();
         if (length_squared != 1.0f) {
             double scale = 1.0 / sqrt(length_squared);
@@ -255,19 +254,19 @@ void srLight::process(const ProcessInfo& info, e_processType type)
     } else {
         if ((enable_flags & (1UL << srLight::ENABLE_SPOT)) != 0 && spot_angle > 0.0f &&
             spot_exponent != 0.0f) {
-            srMatrix4T<float> inverse;
+            glm::mat4 inverse;
             renderer->getInverseModelViewMatrix(inverse);
             derived_flags |= srLight::DERIVED_SPOT;
             spot_cutoff = (float)cos(spot_angle);
-            spot_direction_eye.x = inverse.vectors[0].x * spot_direction.x +
-                                   inverse.vectors[1].x * spot_direction.y +
-                                   inverse.vectors[2].x * spot_direction.z;
-            spot_direction_eye.y = inverse.vectors[0].y * spot_direction.x +
-                                   inverse.vectors[1].y * spot_direction.y +
-                                   inverse.vectors[2].y * spot_direction.z;
-            spot_direction_eye.z = inverse.vectors[0].z * spot_direction.x +
-                                   inverse.vectors[1].z * spot_direction.y +
-                                   inverse.vectors[2].z * spot_direction.z;
+            spot_direction_eye.x = inverse[0][0] * spot_direction.x +
+                                   inverse[0][1] * spot_direction.y +
+                                   inverse[0][2] * spot_direction.z;
+            spot_direction_eye.y = inverse[1][0] * spot_direction.x +
+                                   inverse[1][1] * spot_direction.y +
+                                   inverse[1][2] * spot_direction.z;
+            spot_direction_eye.z = inverse[2][0] * spot_direction.x +
+                                   inverse[2][1] * spot_direction.y +
+                                   inverse[2][2] * spot_direction.z;
             float length_squared = spot_direction_eye.LengthSquared();
             if (length_squared != 0.0f) {
                 double scale = 1.0 / sqrt(length_squared);
@@ -311,9 +310,9 @@ void srLight::process(const ProcessInfo& info, e_processType type)
                 }
             }
         }
-        eye_location.x = model_view.vectors[0].w;
-        eye_location.y = model_view.vectors[1].w;
-        eye_location.z = model_view.vectors[2].w;
+        eye_location.x = model_view[3][0];
+        eye_location.y = model_view[3][1];
+        eye_location.z = model_view[3][2];
     }
     renderer->popMatrix();
     if ((derived_flags & srLight::DERIVED_ACTIVE) != 0) {
@@ -381,8 +380,7 @@ void srLight::process(srVertexPipe& pipe)
         for (SRDWORD i = 0; i < count; ++i) {
             directions[i] =
                 light_position -
-                glm::vec3(pipe.eye_space_locations[pipe.batch_base + pipe.sub_batch_offset + i]
-                              .glmValue());
+                glm::vec3(pipe.eye_space_locations[pipe.batch_base + pipe.sub_batch_offset + i]);
             distances[i] = glm::length(directions[i]);
             directions[i] /= distances[i];
         }
@@ -454,7 +452,7 @@ void srLight::process(srVertexPipe& pipe)
             }
             for (SRDWORD i = 0; i < count; ++i) {
                 const float dot =
-                    glm::dot(scratch->normals[pipe.sub_batch_offset + i].glmValue(), directions[i]);
+                    glm::dot(scratch->normals[pipe.sub_batch_offset + i], directions[i]);
                 dots[i] = dot <= 0.0f ? 0.0f : dot;
             }
         }
@@ -464,13 +462,13 @@ void srLight::process(srVertexPipe& pipe)
         }
         for (std::size_t i = 0; i < count; ++i)
             dots[i] =
-                glm::dot(scratch->normals[pipe.sub_batch_offset + i].glmValue(), light_position);
+                glm::dot(scratch->normals[pipe.sub_batch_offset + i], light_position);
         for (std::size_t i = 0; i < count; ++i)
             dots[i] = glm::clamp(dots[i], 0.0f, 1.0f);
     }
 
     if ((channels & (1UL << srVertexProcessor::CHANNEL_LIGHT_AMBIENT)) != 0) {
-        srVector4T<float> ambient;
+        glm::vec4 ambient;
         ambient = scaled_ambient * pipe.material_info.ambient;
         if (attenuation != 0) {
             pipe.applyDiffuseLight(attenuation, ambient);
@@ -486,22 +484,22 @@ void srLight::process(srVertexPipe& pipe)
         return;
     }
     if ((channels & (1UL << srVertexProcessor::CHANNEL_LIGHT_DIFFUSE)) != 0) {
-        srVector4T<float> diffuse;
+        glm::vec4 diffuse;
         diffuse = scaled_diffuse * pipe.material_info.diffuse;
-        const auto diffuse_color = diffuse.glmValue();
+        const auto diffuse_color = diffuse;
         srCore.getStatisticsManager()->statistics.diffuse_operations += count;
         if ((pipe.lazy_setup_mask & (1UL << srVertexProcessor::CHANNEL_DIFFUSE)) == 0) {
             pipe.setupDiffuse();
         }
-        srVector4T<float>* out =
+        glm::vec4* out =
             pipe.vertex_array->diffuse + pipe.batch_base + pipe.sub_batch_offset;
         if (attenuation != 0) {
             for (std::size_t i = 0; i < count; ++i)
-                out[i] = diffuse_color * attenuation[i] * dots[i] + out[i].glmValue();
+                out[i] = diffuse_color * attenuation[i] * dots[i] + out[i];
 
         } else {
             for (std::size_t i = 0; i < count; ++i)
-                out[i] = diffuse_color * dots[i] + out[i].glmValue();
+                out[i] = diffuse_color * dots[i] + out[i];
         }
     }
     if ((channels & (1UL << srVertexProcessor::CHANNEL_SPECULAR)) == 0) {
@@ -514,16 +512,15 @@ void srLight::process(srVertexPipe& pipe)
         pipe.setupEyeSpaceDirAndDist();
     }
     for (std::size_t i = 0; i < count; ++i)
-        directions[i] = directions[i] - scratch->dir[pipe.sub_batch_offset + i].glmValue();
+        directions[i] = directions[i] - scratch->dir[pipe.sub_batch_offset + i];
     for (std::size_t i = 0; i < count; ++i)
-        directions[i] = glm::length(directions[i]) == 0.0f ? directions[i] * 0.0f
-                                                           : glm::normalize(directions[i]) * 1.0f;
+        directions[i] = normalizedOrZero(directions[i]);
     if ((scratch->flags & srVertexPipe::Scratch::READY_EYE_NORMALS) == 0) {
         pipe.setupEyeSpaceNormal();
     }
     for (SRDWORD i = 0; i < count; ++i) {
         const float dot =
-            glm::dot(scratch->normals[pipe.sub_batch_offset + i].glmValue(), directions[i]);
+            glm::dot(scratch->normals[pipe.sub_batch_offset + i], directions[i]);
         distances[i] = dot <= 0.0f ? 0.0f : dot;
     }
     if (pipe.material_info.shininess > 1.0f) {
@@ -532,21 +529,21 @@ void srLight::process(srVertexPipe& pipe)
     }
     for (std::size_t i = 0; i < count; ++i)
         distances[i] = distances[i] * dots[i];
-    srVector4T<float> specular;
+    glm::vec4 specular;
     specular = scaled_specular * pipe.material_info.specular;
-    const auto specular_color = specular.glmValue();
+    const auto specular_color = specular;
     srCore.getStatisticsManager()->statistics.specular_operations += count;
     if ((pipe.lazy_setup_mask & (1UL << srVertexProcessor::CHANNEL_SPECULAR)) == 0) {
         pipe.setupSpecular();
     }
-    srVector4T<float>* out = pipe.vertex_array->specular + pipe.batch_base + pipe.sub_batch_offset;
+    glm::vec4* out = pipe.vertex_array->specular + pipe.batch_base + pipe.sub_batch_offset;
     if (attenuation != 0) {
         for (std::size_t i = 0; i < count; ++i)
-            out[i] = specular_color * attenuation[i] * distances[i] + out[i].glmValue();
+            out[i] = specular_color * attenuation[i] * distances[i] + out[i];
 
     } else {
         for (std::size_t i = 0; i < count; ++i)
-            out[i] = specular_color * distances[i] + out[i].glmValue();
+            out[i] = specular_color * distances[i] + out[i];
     }
 }
 

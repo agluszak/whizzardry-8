@@ -24,17 +24,17 @@ static void CheckFloats(float actual, float expected)
 
 static void ClippingAndLighting()
 {
-    std::array<srVector4, 513> vertices;
+    std::array<glm::vec4, 513> vertices;
     std::array<SRDWORD, 513> culled;
     for (std::size_t i = 0; i < vertices.size(); ++i)
-        vertices[i].Set(i % 3 ? 1 : -1, 0, 0, 1);
-    srVector4 plane;
-    plane.Set(1, 0, 0, 0);
+        vertices[i] = glm::vec4(i % 3 ? 1 : -1, 0, 0, 1);
+    glm::vec4 plane;
+    plane = glm::vec4(1, 0, 0, 0);
     const auto count = srRender::collectOutside(culled, plane, vertices);
     CHECK(count == 171);
     for (SRDWORD i = 0; i < count; ++i)
         CHECK(culled[i] == i * 3);
-    srVector4 boundary[] = {glm::vec4(-2, 0, 0, 1), glm::vec4(2, 0, 0, 1),  glm::vec4(0, -2, 0, 1),
+    glm::vec4 boundary[] = {glm::vec4(-2, 0, 0, 1), glm::vec4(2, 0, 0, 1),  glm::vec4(0, -2, 0, 1),
                             glm::vec4(0, 2, 0, 1),  glm::vec4(0, 0, -2, 1), glm::vec4(0, 0, 2, 1),
                             glm::vec4(1, -1, 1, 1)};
     SRBYTE flags[7];
@@ -42,10 +42,14 @@ static void ClippingAndLighting()
     for (int i = 0; i < 6; ++i)
         CHECK(flags[i] == (1 << i));
     CHECK(flags[6] == 0);
-    srMatrix4 identity;
-    identity.SetIdentity();
+    glm::mat4 identity;
+    identity = glm::mat4(1);
     CHECK(srRender::testBoundingBox(identity, {-0.5f, -0.5f, -0.5f}, {0.5f, 0.5f, 0.5f}));
     CHECK(!srRender::testBoundingBox(identity, {2, 2, 2}, {3, 3, 3}));
+
+    const auto shifted = glm::translate(identity, glm::vec3(3, 0, 0));
+    CHECK(!srRender::testBoundingBox(shifted, {-0.5f, -0.5f, -0.5f}, {0.5f, 0.5f, 0.5f}));
+    CHECK(srRender::testBoundingBox(shifted, {-3.5f, -0.5f, -0.5f}, {-2.5f, 0.5f, 0.5f}));
 
     float light[] = {0, 0.01f, 0.5f, 1}, power[4], clamped[4];
     srLight::specularPower(power, {light, std::size(power)}, 1);
@@ -73,20 +77,6 @@ static void PackedStorage()
 
     stored.point.Normalize();
     CHECK(stored.tag == 0x5a && std::abs(stored.point.Length() - 1) < 1e-6f);
-
-    srMatrix4 rows;
-    rows.vectors[0].Set(2, 3, 5, 7);
-    rows.vectors[1].Set(11, 13, 17, 19);
-    rows.vectors[2].Set(23, 29, 31, 37);
-    rows.vectors[3].Set(41, 43, 47, 53);
-    const auto matrix = rows.glmValue();
-    CHECK(matrix[3][0] == 7 && matrix[0][3] == 41);
-    const srMatrix4 restored = matrix;
-    for (int row = 0; row < 4; ++row)
-        CHECK(restored.vectors[row].glmValue() == rows.vectors[row].glmValue());
-    const auto transformed = matrix * glm::vec4(1, 2, 3, 1);
-    CHECK(transformed.x == 30 && transformed.y == 107 && transformed.z == 211 &&
-          transformed.w == 321);
 }
 
 static void VectorMethods()
@@ -110,33 +100,12 @@ static void VectorMethods()
     tiny.Normalize();
     CheckFloats(tiny.x, before);
 
-    srVector2T<double> horizontal(3, 4);
-    horizontal.SetLength(10);
-    CHECK(std::abs(horizontal.x - 6) < 1e-14 && std::abs(horizontal.y - 8) < 1e-14);
-    horizontal.Normalize();
-    CHECK(std::abs(horizontal.Length() - 1) < 1e-14);
-    srVector4 color;
-    color.Set(1, 2, 2, 4);
-    CHECK(color.LengthSquared() == 25 && color.Length() == 5);
-
-    // Supplied coefficients may deliberately encode scaling rather than an angle.
-    srMatrix3T<float> rotation;
-    rotation.SetIdentity();
-    rotation.RotateAboutZ(2, 3);
+    const auto horizontal = normalizedOrZero(glm::dvec2(3, 4));
+    CHECK(std::abs(glm::length(horizontal) - 1) < 1e-14);
+    CHECK(normalizedOrZero(glm::vec3(0)) == glm::vec3(0));
     point.Set(1, 0, 0);
-    CHECK(rotation.Transform(point) == srVector3(3, 2, 0));
-    point.RotateAboutZ(2, 3);
-    CHECK(point == srVector3(3, 2, 0));
-    CHECK(rotation.TransformTransposed(srVector3(1, 0, 0)) == srVector3(3, -2, 0));
-    rotation.SetIdentity();
-    rotation.RotateAroundAxis(0.7, srVector3(0, 0, 0));
-    const auto scaled = rotation.Transform(srVector3(1, 2, 3));
-    CHECK(std::abs(scaled.x - std::cos(0.7)) < 1e-6f);
-    CHECK(std::abs(scaled.z - 3 * std::cos(0.7)) < 1e-6f);
-    rotation.SetIdentity();
-    rotation.RotateAroundAxis(1, 0, srVector3(0, 0, 2));
-    CHECK(rotation.Transform(srVector3(1, 0, 0)) == srVector3(0, 2, 0));
-    CHECK(rotation.Transform(srVector3(0, 0, 1)) == srVector3(0, 0, 4));
+    point.RotateAboutZ(1, 0);
+    CHECK(std::abs(point.x) < 1e-6f && std::abs(point.y - 1) < 1e-6f);
 }
 
 int main()

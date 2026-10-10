@@ -79,7 +79,7 @@ try
         path = 0;
     } else {
         path->rotations =
-            static_cast<srMatrix3T<float>*>(malloc(point_count * sizeof(srMatrix3T<float>)));
+            static_cast<glm::mat3*>(malloc(point_count * sizeof(glm::mat3)));
         if (path->rotations == 0) {
             srAssertFail("pPathAI->pRotations", PATH_AI_CPP, 0x104, 0);
         }
@@ -95,7 +95,7 @@ try
                 static_cast<srVector3T<float>*>(std::malloc(sizeof(srVector3T<float>)));
             float angle;
             srVector3T<float> axis;
-            srMatrix3T<float> rotation;
+            glm::mat3 rotation;
 
             handle->read_exact(&point->x, 4);
             handle->read_exact(&point->y, 4);
@@ -107,9 +107,11 @@ try
             handle->read_exact(&axis.x, 4);
             handle->read_exact(&axis.y, 4);
             handle->read_exact(&axis.z, 4);
-            rotation.SetIdentity();
+            rotation = glm::mat3(1);
             if (angle != g_double_zero) {
-                rotation.RotateAroundAxis(sin(angle), cos(angle), axis);
+                rotation *=
+                    glm::mat3_cast(glm::angleAxis(float(std::atan2(sin(angle), cos(angle))),
+                                                  normalizedOrZero(glm::vec3(axis.glmValue()))));
             }
             path->rotations[index] = rotation;
             if (path->version == 2) {
@@ -251,7 +253,7 @@ W8PathAI* ClonePathAI(const W8PathAI* source)
     copy->rotations = 0;
     if (source->rotations != 0) {
         copy->rotations =
-            static_cast<srMatrix3T<float>*>(malloc(count * sizeof(srMatrix3T<float>)));
+            static_cast<glm::mat3*>(malloc(count * sizeof(glm::mat3)));
         for (index = 0; index < count; ++index) {
             copy->rotations[index] = source->rotations[index];
         }
@@ -637,8 +639,8 @@ void PathAIApply(W8PathAI* path, srNode* target)
     srVector3T<float>* scale_vector;
     srVector3T<float> position;
     srVector3T<double> location;
-    srMatrix3T<float> rotation;
-    srMatrix3T<float> next;
+    glm::mat3 rotation;
+    glm::mat3 next;
 
     if (target == 0) {
         return;
@@ -647,11 +649,11 @@ void PathAIApply(W8PathAI* path, srNode* target)
 
     node = target->first_child_;
     if (node == 0) {
-        location = glm::dvec3((&position)->glmValue());
+        location = glm::dvec3(position.glmValue());
         target->setLocation(location);
     } else {
         do {
-            location = glm::dvec3((&position)->glmValue());
+            location = glm::dvec3(position.glmValue());
             node->setLocation(location);
             node = node->next_sibling_;
         } while (node != 0);
@@ -674,8 +676,8 @@ void PathAIApply(W8PathAI* path, srNode* target)
         if (g_float_zero < blend) {
             next = path->rotations[index + 1];
             if (!(rotation == next)) {
-                const auto first_rotation = glm::dquat(glm::quat_cast(rotation.glmValue()));
-                auto next_rotation = glm::dquat(glm::quat_cast(next.glmValue()));
+                const auto first_rotation = glm::dquat(glm::quat_cast(rotation));
+                auto next_rotation = glm::dquat(glm::quat_cast(next));
                 double rotation_dot = glm::dot(first_rotation, next_rotation);
                 if (rotation_dot < g_double_zero) {
                     next_rotation = -next_rotation;
@@ -685,7 +687,7 @@ void PathAIApply(W8PathAI* path, srNode* target)
                     g_double_one - rotation_dot <= g_slerp_epsilon
                         ? first_rotation * (g_double_one - blend) + next_rotation * double(blend)
                         : glm::slerp(first_rotation, next_rotation, double(blend));
-                rotation = glm::mat3(glm::mat3_cast(glm::normalize(interpolated_rotation)));
+                rotation = glm::mat3_cast(glm::normalize(interpolated_rotation));
             }
         }
 

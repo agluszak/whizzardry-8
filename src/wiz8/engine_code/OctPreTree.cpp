@@ -543,7 +543,7 @@ OctMeshModel* OctPreTree::CreateSubMeshes(W8OctPreTreeGeometry* geometry)
                         model->m_vertex_map = record->m_uv_map;
                         model->m_poly_vertices = record->m_poly_vertices;
                         model->m_poly_uv_index = record->m_poly_uv_index;
-                        model->m_poly_equations = static_cast<srVector4T<float>*>(
+                        model->m_poly_equations = static_cast<glm::vec4*>(
                             std::malloc(record->m_polygon_count *
                                 sizeof(*model->m_poly_equations)));
                         model->m_vertex_normals = static_cast<srVector3T<float>*>(
@@ -911,7 +911,7 @@ W8_ABI_ASSERT(sizeof(W8OctUvPoolEntry) == 0xc, "W8OctUvPoolEntry_must_be_0xc");
 
 /* Builds one record's UV map: walks the three corners of every polygon,
    deduplicates uvs through the pool and emits the corner-to-uv index
-   triplets plus the final srVector2 map.  Returns the uv count. */
+   triplets plus the final glm::vec2 map.  Returns the uv count. */
 
 // FUNCTION: WIZ8 0x0046a4b0
 w8_ulong OctPreTree::SplitUVMaps(W8OctSubmeshBuild* record, W8OctPreTreeGeometry* geometry)
@@ -933,7 +933,7 @@ w8_ulong OctPreTree::SplitUVMaps(W8OctSubmeshBuild* record, W8OctPreTreeGeometry
     }
     w8_ulong uv_count = record->vertex_count;
     for (w8_ulong poly = 0; poly < record->m_polygon_count; ++poly) {
-        const srVector2T<float>* uvs =
+        const glm::vec2* uvs =
             geometry->m_polygons[record->m_polygon_ids[poly]].face.texture_coordinates;
         for (w8_ulong corner = 0; corner < 3; ++corner) {
             int vertex = (&record->m_poly_vertices[poly].x)[corner];
@@ -986,7 +986,7 @@ w8_ulong OctPreTree::SplitUVMaps(W8OctSubmeshBuild* record, W8OctPreTreeGeometry
     }
     record->m_poly_uv_index = uv_index;
     record->m_map_count = uv_count;
-    record->m_uv_map = static_cast<srVector2T<float>*>(
+    record->m_uv_map = static_cast<glm::vec2*>(
         std::malloc(uv_count * sizeof(*record->m_uv_map)));
     if (record->m_uv_map == 0) {
         ReportBuildStatus(7, "SplitUVMaps: Could not allocate pMesh->psrMaps.\n");
@@ -994,7 +994,7 @@ w8_ulong OctPreTree::SplitUVMaps(W8OctSubmeshBuild* record, W8OctPreTreeGeometry
         return 0;
     }
     for (w8_ulong uv = 0; uv < uv_count; ++uv) {
-        record->m_uv_map[uv].Set(table[uv].u, table[uv].v);
+        record->m_uv_map[uv] = glm::vec2(table[uv].u, table[uv].v);
     }
     free(table);
     return uv_count;
@@ -1832,7 +1832,7 @@ unsigned char TestSpatialTriangle(const srVector3T<float>* bounds,
         short first_axis = face_axis == 2 ? 0 : face_axis + 1;
         short second_axis = face_axis == 0 ? 2 : face_axis - 1;
         for (short side = 0; side < 2; ++side) {
-            srVector2T<float> intersection[2];
+            glm::vec2 intersection[2];
             short intersection_count = 0;
             float face = side == 0 ? (&minimum.x)[face_axis] : (&maximum.x)[face_axis];
 
@@ -1862,7 +1862,7 @@ unsigned char TestSpatialTriangle(const srVector3T<float>* bounds,
             }
 
             if (intersection_count == 2) {
-                srVector2T<float> delta(intersection[1].x - intersection[0].x,
+                glm::vec2 delta(intersection[1].x - intersection[0].x,
                                         intersection[1].y - intersection[0].y);
                 short rectangle_axes[2] = {first_axis, second_axis};
                 for (short coordinate = 0; coordinate < 2; ++coordinate) {

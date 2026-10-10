@@ -17,11 +17,11 @@ struct srVertexArray {
         ATTRIBUTE_Q0 = 0x20u,
         ATTRIBUTE_Q1 = 0x40u
     };
-    srVector4T<float>* eye_locations;
-    srVector4T<float>* diffuse;
-    srVector4T<float>* specular;
-    srVector2T<float>* st0;
-    srVector2T<float>* st1;
+    glm::vec4* eye_locations;
+    glm::vec4* diffuse;
+    glm::vec4* specular;
+    glm::vec2* st0;
+    glm::vec2* st1;
     float* q0;
     float* q1;
     unsigned char* attributes;
@@ -38,13 +38,13 @@ public:
         // FUNCTION: WIZ8 0x00424A80
         inline MaterialInfo() : disabled_channels(0) {}
 
-        srVector4T<float> diffuse;       /* 0x00 */
-        srVector4T<float> ambient;       /* 0x10 */
-        srVector4T<float> specular;      /* 0x20 */
+        glm::vec4 diffuse;          /* 0x00 */
+        glm::vec4 ambient;          /* 0x10 */
+        glm::vec4 specular;      /* 0x20 */
         float translucency;              /* 0x30 */
         float shininess;                 /* 0x34 */
         float value_38;                  /* 0x38 */
-        srVector4T<float> emissive;      /* 0x3c */
+        glm::vec4 emissive;      /* 0x3c */
         float fog_scale;                 /* 0x4c */
         w8_ulong disabled_channels; /* 0x50 */
     };

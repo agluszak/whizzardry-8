@@ -66,7 +66,7 @@ void UpdateCameraPathState(W8World* world, W8CameraPath* path, int active)
     unsigned int index;
     srVector3T<float> target;
     srVector3T<float> position;
-    srMatrix3T<float> rotation;
+    glm::mat3 rotation;
     float angle;
     float pitch;
 
@@ -84,7 +84,7 @@ void UpdateCameraPathState(W8World* world, W8CameraPath* path, int active)
         return;
     }
     g_camera_path_active = false;
-    rotation.SetIdentity();
+    rotation = glm::mat3(1);
     target.Set(0.0f, 0.0f, 1.0f);
     world->camera->getRotation(rotation);
     ApplyCameraRotation(&rotation);

@@ -143,7 +143,7 @@ stSound3D* CreateAndPlaySoundNode(const char* sound_name, srVector3T<float> posi
     stSound3D* sound = new stSound3D(sound_name, 0);
     if (sound != 0) {
         srVector3T<double> sound_position;
-        sound_position = glm::dvec3((&position)->glmValue());
+        sound_position = glm::dvec3(position.glmValue());
         sound->setLocation(sound_position);
         sound->volume = static_cast<int>(volume * g_sound_node_full_volume);
         sound->falloff = scale * g_world_scale;

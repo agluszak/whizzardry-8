@@ -147,9 +147,9 @@ void srBounder::updateBounds()
         bounds.center.SetZero();
         bounds.radius = 0.0f;
         bounds.state = 0;
-        srMatrix4T<float> world;
+        glm::mat4 world;
         getWorldSpaceMatrix(world);
-        inverse_world = glm::inverse(world.glmValue());
+        inverse_world = glm::inverse(world);
         for (srNode* child = first_child_; child != 0; child = child->getNext()) {
             getChildBoundingBox(child);
         }
@@ -175,9 +175,9 @@ void srBounder::getChildBoundingBox(srNode* node)
         BoundInfo child_bounds;
         node->getLocalBounds(child_bounds);
         if (child_bounds.state == 1) {
-            srMatrix4T<float> world;
+            glm::mat4 world;
             node->getWorldSpaceMatrix(world);
-            srMatrix4T<float> combined;
+            glm::mat4 combined;
             combined = inverse_world * world;
             srVector3T<float> corners[8];
             corners[0].Set(child_bounds.minimum.x, child_bounds.minimum.y, child_bounds.minimum.z);
@@ -189,8 +189,7 @@ void srBounder::getChildBoundingBox(srNode* node)
             corners[6].Set(child_bounds.maximum.x, child_bounds.maximum.y, child_bounds.minimum.z);
             corners[7].Set(child_bounds.maximum.x, child_bounds.maximum.y, child_bounds.maximum.z);
             for (int index = 0; index != 8; ++index) {
-                corners[index] = srVector3T<float>{
-                    glm::vec3(combined.glmValue() * glm::vec4(corners[index].glmValue(), 1))};
+                corners[index] = glm::vec3(combined * glm::vec4(corners[index].glmValue(), 1));
             }
             if (bounds.state == 0) {
                 bounds.minimum = corners[0];

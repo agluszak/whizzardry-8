@@ -105,9 +105,9 @@ public:
     float spot_exponent;                  /* 0x1cc */
     float intensity;                      /* 0x1d0 */
     float safe_range;                     /* 0x1d4 */
-    srVector4T<float> scaled_ambient;     /* 0x1d8: ambient * intensity */
-    srVector4T<float> scaled_diffuse;     /* 0x1e8: diffuse * intensity */
-    srVector4T<float> scaled_specular;    /* 0x1f8: specular * intensity */
+    glm::vec4 scaled_ambient;     /* 0x1d8: ambient * intensity */
+    glm::vec4 scaled_diffuse;     /* 0x1e8: diffuse * intensity */
+    glm::vec4 scaled_specular;    /* 0x1f8: specular * intensity */
     srVector3T<float> spot_direction_eye; /* 0x208 */
     float spot_cutoff;                    /* 0x214: cos(spot_angle) */
     float attenuation_range;              /* 0x218: scaled far end */

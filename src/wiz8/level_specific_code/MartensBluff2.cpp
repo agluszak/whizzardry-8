@@ -150,17 +150,19 @@ static void FireTrapLauncher(const char* name, W8SpellEffectDefinition* effect)
     srVector3T<float> position;
     srVector3T<float> offset;
     srVector3T<float> direction;
-    srMatrix3T<float> rotation;
+    glm::mat3 rotation;
     float angle;
     W8Missile* missile;
 
     if (FindEntityByName(name, &position, &angle, &direction)) {
         offset.Set(0.0, 0.0, 15000.0);
-        rotation.SetIdentity();
+        rotation = glm::mat3(1);
         if (angle != 0.0) {
-            rotation.RotateAroundAxis(sin(angle), cos(angle), direction);
+            rotation *=
+                glm::mat3_cast(glm::angleAxis(float(std::atan2(sin(angle), cos(angle))),
+                                              normalizedOrZero(glm::vec3(direction.glmValue()))));
             }
-            offset = position + srVector3T<float>{rotation * offset};
+            offset = position + srVector3T<float>{rotation * offset.glmValue()};
         missile = FireMissile(0, &position, &offset, 0, 0, 1, 50000.0f);
         missile->SetEffectDefinition(effect);
         CreateAndPlaySoundNode("Data\\Sound\\Combat\\Blow_Gun_Attack_01.wav", position, 1.0f,
@@ -177,7 +179,7 @@ bool TriggerArrowTrap(Trigger* pTrigger)
     srVector3T<float> position;
     srVector3T<float> offset;
     srVector3T<float> direction;
-    srMatrix3T<float> rotation;
+    glm::mat3 rotation;
     float angle;
     W8Missile* missile;
 
@@ -190,9 +192,10 @@ bool TriggerArrowTrap(Trigger* pTrigger)
     FireTrapLauncher("Arrowlauncher3", &effect);
     if (FindEntityByName("Arrowlauncher4", &position, &angle, &direction)) {
         offset.Set(0.0, 0.0, 15000.0);
-        rotation.SetIdentity();
-        rotation.RotateAroundAxis(angle, direction);
-        offset = srVector3T<float>{rotation * offset} + position;
+        rotation = glm::mat3(1);
+        rotation *= glm::mat3_cast(
+            glm::angleAxis(float(angle), normalizedOrZero(glm::vec3(direction.glmValue()))));
+        offset = rotation * offset.glmValue() + position.glmValue();
         missile = FireMissile(0, &position, &offset, 0, 0, 1, 50000.0f);
         missile->SetEffectDefinition(&effect);
         CreateAndPlaySoundNode("Data\\Sound\\Combat\\Blow_Gun_Attack_01.wav", position, 1.0f,
@@ -222,7 +225,7 @@ void MartensBluff2Spikeball(int command)
     srVector3T<float> position;
     srVector3T<float> offset;
     srVector3T<float> direction;
-    srMatrix3T<float> rotation;
+    glm::mat3 rotation;
     float angle;
     W8Missile* missile;
 
@@ -267,11 +270,13 @@ void MartensBluff2Spikeball(int command)
             FireTrapLauncher("Spikeball-launcher3", &effect);
             if (FindEntityByName("Spikeball-launcher4", &position, &angle, &direction)) {
                 offset.Set(0.0, 0.0, 15000.0);
-                rotation.SetIdentity();
+                rotation = glm::mat3(1);
                 if (angle != 0.0) {
-                    rotation.RotateAroundAxis(sin(angle), cos(angle), direction);
-                    }
-                    offset = srVector3T<float>{rotation * offset} + position;
+                    rotation *= glm::mat3_cast(
+                        glm::angleAxis(float(std::atan2(sin(angle), cos(angle))),
+                                       normalizedOrZero(glm::vec3(direction.glmValue()))));
+                }
+                offset = rotation * offset.glmValue() + position.glmValue();
                 missile = FireMissile(0, &position, &offset, 0, 0, 1, 50000.0f);
                 missile->SetEffectDefinition(&effect);
                 CreateAndPlaySoundNode("Data\\Sound\\Combat\\Blow_Gun_Attack_01.wav", position,
@@ -731,5 +736,5 @@ void MartensBluff2IdolGasVictim(void)
     }
 }
 
-/* srMatrix3T<float>::RotateAroundAxis(double, ...) emitted out-of-line for the
+/* glm::mat3::RotateAroundAxis(double, ...) emitted out-of-line for the
    arrow trap's rotation math; the primary is in srMath.h. */

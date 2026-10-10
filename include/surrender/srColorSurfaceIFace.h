@@ -83,9 +83,8 @@ public:
     virtual SR_DLL_IMPORT void copy(srColorSurfaceIFace& source);
     virtual SR_DLL_IMPORT void swapPixelRows(w8_long x0, w8_long y0, w8_long x1, w8_long y1, w8_long count);
     virtual SR_DLL_IMPORT void flipRectangle(const Rectangle& rectangle);
-    virtual SR_DLL_IMPORT void adjust(const srVector4T<float>& scale,
-                                      const srVector4T<float>& offset,
-                                      const srVector4T<float>& gamma);
+    virtual SR_DLL_IMPORT void adjust(const glm::vec4& scale, const glm::vec4& offset,
+                                      const glm::vec4& gamma);
     virtual SR_DLL_IMPORT void adjustSaturation(double saturation);
     virtual SR_DLL_IMPORT void getChannelStatistics(srStat& statistics, srARGB::e_index channel);
     virtual SR_DLL_IMPORT void remapPixels(const srARGB& from, const srARGB& to);

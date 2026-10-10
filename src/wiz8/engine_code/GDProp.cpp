@@ -134,7 +134,7 @@ void GDProp::Initialize(srModelInstance* instance, bool attach, unsigned short p
     }
 
     PrepareGeometry(instance);
-    srMatrix4T<float> world_matrix;
+    glm::mat4 world_matrix;
     instance->getWorldSpaceMatrix(world_matrix);
 
     int vertex_base = 0;
@@ -153,8 +153,8 @@ void GDProp::Initialize(srModelInstance* instance, bool attach, unsigned short p
 
         srVector3T<float>* source_vertices = mesh->getVertexLoc();
         for (int vertex = 0; vertex < mesh->vertex_location_count; ++vertex) {
-            m_pVertices[vertex_base + vertex] = srVector3T<float>{glm::vec3(
-                world_matrix.glmValue() * glm::vec4(source_vertices[vertex].glmValue(), 1))};
+            m_pVertices[vertex_base + vertex] =
+                glm::vec3(world_matrix * glm::vec4(source_vertices[vertex].glmValue(), 1));
         }
         vertex_base += mesh->vertex_location_count;
 
@@ -571,15 +571,17 @@ void GDProp::TransformMeshGeometry(const W8LevelFileScaledPathNode* node, W8Leve
     int surface_base = m_surface_count;
 
     srVector3T<float> axis = node->path.axis;
-    srMatrix3T<float> rotation;
-    srMatrix4x3T<float> matrix;
+    glm::mat3 rotation;
+    glm::mat4x3 matrix;
     srVector3T<float> translation;
     srVector3T<float> scale;
     float factor;
 
-    rotation.SetIdentity();
+    rotation = glm::mat3(1);
     if (node->path.angle != g_double_zero) {
-        rotation.RotateAroundAxis(sin(node->path.angle), cos(node->path.angle), axis);
+        rotation *= glm::mat3_cast(
+            glm::angleAxis(float(std::atan2(sin(node->path.angle), cos(node->path.angle))),
+                           normalizedOrZero(glm::vec3(axis.glmValue()))));
     }
     translation.Set(node->path.position.x * g_double_five_hundred,
                     node->path.position.y * g_double_five_hundred,
@@ -593,9 +595,12 @@ void GDProp::TransformMeshGeometry(const W8LevelFileScaledPathNode* node, W8Leve
     }
     scale = node->scale * factor;
 
-    matrix.SetRotation(rotation);
-    matrix.SetTranslation(translation);
-    matrix.Scale(scale);
+    matrix = glm::mat4x3(rotation);
+    matrix[3] = translation.glmValue();
+    {
+        for (int column = 0; column < 3; ++column)
+            matrix[column] *= scale.glmValue()[column];
+    };
 
     if ((mesh->flags & W8_LEVEL_MESH_LOD_VERTICES) != 0) {
         for (int lod = 0; lod < mesh->num_lods; ++lod) {
@@ -603,20 +608,20 @@ void GDProp::TransformMeshGeometry(const W8LevelFileScaledPathNode* node, W8Leve
             if ((mesh->flags & W8_LEVEL_MESH_SHORT_LOD_VERTICES) != 0) {
                 short* vertices = mesh->lod_shorts[lod];
                 for (int vertex = 0; vertex < mesh->num_vertices; ++vertex) {
-                    m_pVertices[m_vertex_count] = srVector3T<float>{glm::vec3(
-                        matrix.glmValue() *
+                    m_pVertices[m_vertex_count] = glm::vec3(
+                        glm::mat4(matrix) *
                         glm::vec4((srVector3T<float>(static_cast<float>(vertices[vertex * 3]),
                                                      static_cast<float>(vertices[vertex * 3 + 1]),
                                                      static_cast<float>(vertices[vertex * 3 + 2])))
                                       .glmValue(),
-                                  1))};
+                                  1));
                     ++m_vertex_count;
                 }
             } else {
                 const srVector3T<float>* vertices = mesh->lods[lod];
                 for (int vertex = 0; vertex < mesh->num_vertices; ++vertex) {
-                    m_pVertices[m_vertex_count] = srVector3T<float>{
-                        glm::vec3(matrix.glmValue() * glm::vec4(vertices[vertex].glmValue(), 1))};
+                    m_pVertices[m_vertex_count] =
+                        glm::vec3(glm::mat4(matrix) * glm::vec4(vertices[vertex].glmValue(), 1));
                     ++m_vertex_count;
                 }
             }
@@ -626,8 +631,8 @@ void GDProp::TransformMeshGeometry(const W8LevelFileScaledPathNode* node, W8Leve
         int vertex_base = m_vertex_count;
         const srVector3T<float>* vertices = mesh->pstVertices;
         for (int vertex = 0; vertex < mesh->num_vertices; ++vertex) {
-            m_pVertices[m_vertex_count] = srVector3T<float>{
-                glm::vec3(matrix.glmValue() * glm::vec4(vertices[vertex].glmValue(), 1))};
+            m_pVertices[m_vertex_count] =
+                glm::vec3(glm::mat4(matrix) * glm::vec4(vertices[vertex].glmValue(), 1));
             ++m_vertex_count;
         }
         AppendMeshFaces(mesh, vertex_base);
@@ -660,5 +665,5 @@ void GDProp::TransformMeshGeometry(const W8LevelFileScaledPathNode* node, W8Leve
     }
 }
 
-/* srMatrix4x3T<float>::SetTranslation/Scale emitted for this TU by
+/* glm::mat4x3::SetTranslation/Scale emitted for this TU by
    TransformMeshGeometry; the primary templates live in srMath.h. */

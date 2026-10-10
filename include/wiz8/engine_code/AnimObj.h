@@ -50,7 +50,7 @@ W8_ABI_ASSERT(sizeof(W8AnimObj) == 0x4c, "W8AnimObj_size_must_be_0x4c");
 W8AnimObj* CreateAnimObj();
 void DestroyAnimObj(W8AnimObj* animation);
 W8AnimObj* CloneAnimObj(const W8AnimObj* source);
-void TransformBounds(const srMatrix3T<float>* rotation, const srVector3T<float>* translation,
+void TransformBounds(const glm::mat3* rotation, const srVector3T<float>* translation,
                      const srVector3T<float>* scale, srVector3T<float>* minimum,
                      srVector3T<float>* maximum);
 unsigned int AnimObjValue(W8AnimObj* animation, signed char index);

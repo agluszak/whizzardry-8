@@ -179,13 +179,13 @@ unsigned char W8SoundEvent::Play(unsigned int mask, const srVector3T<float>* pos
                 static_cast<unsigned int>(Random(volume_max - volume_min + 1)) + volume_min;
         }
 
-        srMatrix3T<float> rotation;
+        glm::mat3 rotation;
 
-        rotation.SetIdentity();
-        rotation.RotateAboutY(angle);
+        rotation = glm::mat3(1);
+        rotation *= glm::mat3_cast(glm::angleAxis(float(angle), glm::vec3(0, 1, 0)));
 
         srVector3T<float> offset = *position - camera_position;
-        srVector3T<float> transformed = srVector3T<float>{rotation * offset};
+        srVector3T<float> transformed = rotation * offset.glmValue();
         float x = transformed.x;
         float y = transformed.y;
         float z = transformed.z;

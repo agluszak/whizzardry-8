@@ -139,7 +139,7 @@ static bool uvGrowth()
 {
     srMeshModel mesh(1, 3);
     auto* uv = mesh.getVertexTexCoords(1, 1, 1);
-    uv[0].Set(0.25f, 0.75f);
+    uv[0] = glm::vec2(0.25f, 0.75f);
     mesh.getTriMesh();
     mesh.setUVCount(12);
     uv = mesh.getVertexTexCoords(1, 1, 0);
@@ -176,7 +176,7 @@ static bool copyAndReset()
         source.getVertexLoc()[1].Set(1, 2, 3);
         source.getPolyVertex()[0].y = 1;
         source.setUVCount(7);
-        source.getVertexTexCoords(2, 0, 1)[6].Set(0.5f, 0.75f);
+        source.getVertexTexCoords(2, 0, 1)[6] = glm::vec2(0.5f, 0.75f);
         source.getVertexMaterial(1, srMeshModel::SIDE_BACK, 1)[2] = material;
         source.getPolyTexture(1, 0, 1)[0] = texture;
         source.setMaterial(material, 0, srMeshModel::SIDE_FRONT);

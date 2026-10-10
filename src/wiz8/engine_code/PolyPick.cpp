@@ -153,7 +153,7 @@ float MonsterDistanceToCamera(W8World* world, W8Monster* monster)
     }
     srVector3T<double> camera = world->camera->getLocation();
     srVector3T<float> camera_location;
-    camera_location = glm::vec3((&camera)->glmValue());
+    camera_location = glm::vec3(camera.glmValue());
     srVector3T<float> center = monster->m_pRep->location;
     center.z += (maximum.z - minimum.z) * 0.5f;
     return (camera_location - center).Length();
@@ -172,7 +172,7 @@ float ItemDistanceToCamera(W8World* world, W8Item* item)
     }
     srVector3T<double> camera = world->camera->getLocation();
     srVector3T<float> camera_location;
-    camera_location = glm::vec3((&camera)->glmValue());
+    camera_location = glm::vec3(camera.glmValue());
     srVector3T<float> center = item->m_pRep->location;
     center.z += (upper.z - lower.z) * 0.5f;
     return (camera_location - center).Length();

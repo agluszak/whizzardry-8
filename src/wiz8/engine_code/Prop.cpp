@@ -72,8 +72,8 @@ W8Prop::W8Prop()
     m_pTimer = new W8GameTimer();
     animation_position.SetZero();
     previous_animation_position.SetZero();
-    previous_animation_rotation.SetIdentity();
-    animation_rotation.SetIdentity();
+    previous_animation_rotation = glm::mat3(1);
+    animation_rotation = glm::mat3(1);
     m_gd_prop = 0;
     if (m_pRep == 0) {
         srAssertFail("m_pRep", PROP_CPP, 0x30e, "Prop::Prop() out of memory allocating m_pRep");
@@ -981,9 +981,9 @@ void W8Prop::AttachAnimationInstances(W8World* world)
     srVector3T<float> rep_position;
     srVector3T<double> location;
     srVector3T<double> scale_location;
-    srMatrix3T<float> rotation;
-    srMatrix3T<float> next;
-    srMatrix3T<float> rep_rotation;
+    glm::mat3 rotation;
+    glm::mat3 next;
+    glm::mat3 rep_rotation;
     float inv;
 
     if (Rep()->active == 0) {
@@ -1026,8 +1026,8 @@ void W8Prop::AttachAnimationInstances(W8World* world)
             next = path->rotations[next_frame];
             instance->getRotation(previous_animation_rotation);
             if (!(rotation == next)) {
-                const auto first_rotation = glm::dquat(glm::quat_cast(rotation.glmValue()));
-                auto next_rotation = glm::dquat(glm::quat_cast(next.glmValue()));
+                const auto first_rotation = glm::dquat(glm::quat_cast(rotation));
+                auto next_rotation = glm::dquat(glm::quat_cast(next));
                 double rotation_dot = glm::dot(first_rotation, next_rotation);
                 if (rotation_dot < g_double_zero) {
                     next_rotation = -next_rotation;
@@ -1038,7 +1038,7 @@ void W8Prop::AttachAnimationInstances(W8World* world)
                         ? first_rotation * (g_double_one - anim_frame_fraction) +
                               next_rotation * double(anim_frame_fraction)
                         : glm::slerp(first_rotation, next_rotation, double(anim_frame_fraction));
-                rotation = glm::mat3(glm::mat3_cast(glm::normalize(interpolated_rotation)));
+                rotation = glm::mat3_cast(glm::normalize(interpolated_rotation));
             }
             animation_rotation = rotation;
             current = **path->nodes->GetAt(Rep()->subcycle);
@@ -1054,19 +1054,19 @@ void W8Prop::AttachAnimationInstances(W8World* world)
             node = instance->first_child_;
             if (node == 0) {
                 instance->setRotation(rotation);
-                location = glm::dvec3((&position)->glmValue());
+                location = glm::dvec3(position.glmValue());
                 instance->setLocation(location);
                 if (has_scales) {
-                    scale_location = glm::dvec3((&scale_vector)->glmValue());
+                    scale_location = glm::dvec3(scale_vector.glmValue());
                     instance->setScale(scale_location);
                 }
             } else {
                 do {
                     node->setRotation(rotation);
-                    location = glm::dvec3((&position)->glmValue());
+                    location = glm::dvec3(position.glmValue());
                     node->setLocation(location);
                     if (has_scales) {
-                        scale_location = glm::dvec3((&scale_vector)->glmValue());
+                        scale_location = glm::dvec3(scale_vector.glmValue());
                         node->setScale(scale_location);
                     }
                     node = node->next_sibling_;
@@ -1099,12 +1099,12 @@ void W8Prop::AttachAnimationInstances(W8World* world)
             Rep()->GetRotation(&rep_rotation);
             node = instance->first_child_;
             if (node == 0) {
-                location = glm::dvec3((&rep_position)->glmValue());
+                location = glm::dvec3(rep_position.glmValue());
                 instance->setLocation(location);
                 instance->setRotation(rep_rotation);
             } else {
                 do {
-                    location = glm::dvec3((&rep_position)->glmValue());
+                    location = glm::dvec3(rep_position.glmValue());
                     node->setLocation(location);
                     node->setRotation(rep_rotation);
                     node = node->next_sibling_;

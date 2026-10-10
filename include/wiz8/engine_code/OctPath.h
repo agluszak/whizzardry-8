@@ -373,7 +373,7 @@ public:
     bool TestPathCellClearance(srVector3T<float>* position, float clearance, bool snap_to_cell);
     bool SnapToLowerPathCell(srVector3T<float>* position, bool allow_directional);
     bool ProbeAttachmentPath(W8NavigatorAttachment* attachment);
-    unsigned int FindPathCell(srVector3T<float>* position, srVector2T<unsigned int>* cell,
+    unsigned int FindPathCell(srVector3T<float>* position, glm::uvec2* cell,
                               bool adjust);
     void AppendScratchPath(W8NavigatorAttachment* attachment, unsigned int count);
     bool BuildAttachmentPath(W8NavigatorAttachment* attachment, unsigned int flags);
@@ -385,8 +385,7 @@ public:
                          const srVector3T<float>* velocity, float maximum);
     void ProbeWaypointArc(const srVector3T<float>* from, const srVector3T<float>* to);
     void GetPathGridStepDirections(const W8PathGridWalk* walk, int* directions);
-    void BuildPathGridWalk(const srVector2T<float>* from, const srVector2T<float>* to,
-                           const srVector2T<float>* origin, W8PathGridWalk* walk);
+    void BuildPathGridWalk(const glm::vec2* from, const glm::vec2* to, const glm::vec2* origin, W8PathGridWalk* walk);
     bool ProbeWaypointSegment(const srVector3T<float>* from, const srVector3T<float>* to);
     unsigned int ComputeWaypointNeighborMask(const srVector2i* cell, unsigned int path_value);
     /* Sums the blocked-direction unit vectors among the directions `delta`

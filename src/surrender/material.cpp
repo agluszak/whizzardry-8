@@ -167,7 +167,7 @@ void srMaterial::postProcess(srVertexPipe& pipe)
     w8_ulong operations;
     w8_ulong vertex_count;
     w8_ulong blend;
-    srVector4T<float>* color;
+    glm::vec4* color;
     float* channel;
 
     if (mapper != 0) {
@@ -197,7 +197,7 @@ void srMaterial::postProcess(srVertexPipe& pipe)
                     color = pipe.vertex_array->specular + pipe.batch_base + pipe.sub_batch_offset;
                     if (vertex_count != 0) {
                         for (std::size_t i = 0; i < vertex_count; ++i)
-                            color[i] = color[i].glmValue() *
+                            color[i] = color[i] *
                                        (pipe.scratch.depth_cue + pipe.sub_batch_offset)[i];
                     }
                     blend = 0;
@@ -217,7 +217,7 @@ void srMaterial::postProcess(srVertexPipe& pipe)
                     color = pipe.vertex_array->diffuse + pipe.batch_base + pipe.sub_batch_offset;
                     if (vertex_count != 0) {
                         for (std::size_t i = 0; i < vertex_count; ++i)
-                            color[i] = color[i].glmValue() *
+                            color[i] = color[i] *
                                        (pipe.scratch.depth_cue + pipe.sub_batch_offset)[i];
                     }
                     blend = 0;
@@ -243,7 +243,7 @@ channels_done:
             if (vertex_count != 0) {
                 for (std::size_t i = 0; i < vertex_count; ++i)
                     color[i] =
-                        color[i].glmValue() * (pipe.scratch.depth_cue + pipe.sub_batch_offset)[i];
+                        color[i] * (pipe.scratch.depth_cue + pipe.sub_batch_offset)[i];
             }
         }
         if ((pipe.channel_mask & (1UL << srVertexProcessor::CHANNEL_SPECULAR)) != 0) {
@@ -258,7 +258,7 @@ channels_done:
             if (vertex_count != 0) {
                 for (std::size_t i = 0; i < vertex_count; ++i)
                     color[i] =
-                        color[i].glmValue() * (pipe.scratch.depth_cue + pipe.sub_batch_offset)[i];
+                        color[i] * (pipe.scratch.depth_cue + pipe.sub_batch_offset)[i];
             }
         }
     }
@@ -282,10 +282,10 @@ channels_done:
 // FUNCTION: SURRENDER 0x10033F60
 void srMaterial::reset()
 {
-    parms.ambient.Set(0.2f, 0.2f, 0.2f, 1.0f);
-    parms.diffuse.Set(0.8f, 0.8f, 0.8f, 1.0f);
-    parms.specular.Set(0.0f, 0.0f, 0.0f, 1.0f);
-    parms.emissive.Set(0.0f, 0.0f, 0.0f, 1.0f);
+    parms.ambient = glm::vec4(0.2f, 0.2f, 0.2f, 1.0f);
+    parms.diffuse = glm::vec4(0.8f, 0.8f, 0.8f, 1.0f);
+    parms.specular = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
+    parms.emissive = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
     parms.shininess = 1.0f;
     parms.translucency = 0.0f;
     parms.disabled_channels = 0;
@@ -381,49 +381,49 @@ srClass* srMaterial::vInstance()
 }
 
 // FUNCTION: SURRENDER 0x10034640
-srVector4T<float> srMaterial::getAmbient() const
+glm::vec4 srMaterial::getAmbient() const
 {
     return parms.ambient;
 }
 
 // FUNCTION: SURRENDER 0x10034670
-srVector4T<float> srMaterial::getDiffuse() const
+glm::vec4 srMaterial::getDiffuse() const
 {
     return parms.diffuse;
 }
 
 // FUNCTION: SURRENDER 0x100346A0
-srVector4T<float> srMaterial::getEmissive() const
+glm::vec4 srMaterial::getEmissive() const
 {
     return parms.emissive;
 }
 
 // FUNCTION: SURRENDER 0x100346D0
-srVector4T<float> srMaterial::getSpecular() const
+glm::vec4 srMaterial::getSpecular() const
 {
     return parms.specular;
 }
 
 // FUNCTION: SURRENDER 0x10034830
-void srMaterial::getAmbient(srVector4T<float>& ambient) const
+void srMaterial::getAmbient(glm::vec4& ambient) const
 {
     ambient = parms.ambient;
 }
 
 // FUNCTION: SURRENDER 0x10034850
-void srMaterial::getDiffuse(srVector4T<float>& diffuse) const
+void srMaterial::getDiffuse(glm::vec4& diffuse) const
 {
     diffuse = parms.diffuse;
 }
 
 // FUNCTION: SURRENDER 0x10034870
-void srMaterial::getEmissive(srVector4T<float>& emissive) const
+void srMaterial::getEmissive(glm::vec4& emissive) const
 {
     emissive = parms.emissive;
 }
 
 // FUNCTION: SURRENDER 0x10034890
-void srMaterial::getSpecular(srVector4T<float>& specular) const
+void srMaterial::getSpecular(glm::vec4& specular) const
 {
     specular = parms.specular;
 }
@@ -447,7 +447,7 @@ float srMaterial::getOpacity() const
 }
 
 // FUNCTION: SURRENDER 0x100348E0
-void srMaterial::setAmbientAndDiffuse(const srVector4T<float>& color)
+void srMaterial::setAmbientAndDiffuse(const glm::vec4& color)
 {
     parms.ambient = color;
     dirty = 1;
@@ -485,7 +485,7 @@ void srMaterial::setTranslucency(double translucency)
 }
 
 // FUNCTION: SURRENDER 0x10034AA0
-void srMaterial::setVector(srVector4T<float>& destination, const srVector4T<float>& source)
+void srMaterial::setVector(glm::vec4& destination, const glm::vec4& source)
 {
     destination = source;
     dirty = 1;

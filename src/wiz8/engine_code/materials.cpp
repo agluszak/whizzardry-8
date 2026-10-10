@@ -83,8 +83,8 @@ float g_material_emissive_override;
 // FUNCTION: WIZ8 0x004B89B0
 void W8NormalTexcoordMapper::process(srVertexPipe& pipe)
 {
-    const srVector3T<float>* normals;
-    srVector2T<float>* coordinates;
+    const glm::vec3* normals;
+    glm::vec2* coordinates;
     w8_ulong count;
     w8_ulong index;
 
@@ -96,7 +96,7 @@ void W8NormalTexcoordMapper::process(srVertexPipe& pipe)
     count = pipe.getVertexCount();
     srCore.getStatisticsManager()->statistics.texture_coordinate_operations += count;
     for (index = 0; index < count; ++index) {
-        coordinates[index].Set((normals[index].x + g_float_one) * g_float_half,
+        coordinates[index] = glm::vec2((normals[index].x + g_float_one) * g_float_half,
                                (normals[index].y + g_float_one) * g_float_half);
     }
 }
@@ -133,7 +133,7 @@ void stMaterial::getMaterialInfo(srVertexProcessor::MaterialInfo& info)
         info.diffuse.w *= g_material_diffuse_scale;
     }
     if (g_material_emissive_override_enabled) {
-        info.emissive.Set(g_material_emissive_override, g_material_emissive_override,
+        info.emissive = glm::vec4(g_material_emissive_override, g_material_emissive_override,
                           g_material_emissive_override, 1.0f);
     }
 }
@@ -2190,7 +2190,8 @@ unsigned char LoadMaterial(const char* bitmap_folder, const W8MaterialRecord* so
             concrete->setName(material_name);
             concrete->autoRelease();
 
-            concrete->parms.specular.Set(source->specular.x, source->specular.y, source->specular.z,
+            concrete->parms.specular =
+                glm::vec4(source->specular.x, source->specular.y, source->specular.z,
                                          0.0f);
             concrete->dirty = 1;
             concrete->parms.shininess = 1.0f;
@@ -2204,15 +2205,18 @@ unsigned char LoadMaterial(const char* bitmap_folder, const W8MaterialRecord* so
             concrete->setOpacity(source->opacity == 0.0f ? 0.7f : source->opacity);
 
             if (texture_path[0] == '\0') {
-                concrete->parms.ambient.Set(source->diffuse.x, source->diffuse.y, source->diffuse.z,
+                concrete->parms.ambient =
+                    glm::vec4(source->diffuse.x, source->diffuse.y, source->diffuse.z,
                                             1.0f);
                 concrete->dirty = 1;
-                concrete->parms.emissive = 0.0f;
+                concrete->parms.emissive = glm::vec4(0.0f);
             } else {
-                concrete->parms.ambient.Set(source->ambient.x, source->ambient.y, source->ambient.z,
+                concrete->parms.ambient =
+                    glm::vec4(source->ambient.x, source->ambient.y, source->ambient.z,
                                             0.0f);
                 concrete->dirty = 1;
-                concrete->parms.emissive.Set(source->emission, source->emission, source->emission,
+                concrete->parms.emissive =
+                    glm::vec4(source->emission, source->emission, source->emission,
                                              1.0f);
             }
             concrete->dirty = 1;
@@ -2237,7 +2241,7 @@ unsigned char CreateDefaultMaterial(srMaterialIFace** material, srTextureIFace**
     srRegistry* registry;
     srRegistry::ClassNode* node;
     stMaterial* concrete;
-    srVector4T<float> color;
+    glm::vec4 color;
 
     render_flags->value = 0x0100251b;
     sprintf(name, DEFAULT_MATERIAL_NAME);
@@ -2260,17 +2264,17 @@ unsigned char CreateDefaultMaterial(srMaterialIFace** material, srTextureIFace**
     concrete->setName(name);
     concrete->autoRelease();
 
-    color.Set(1.0f, 1.0f, 1.0f, 1.0f);
+    color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
     concrete->setAmbient(color);
-    color.Set(1.0f, 1.0f, 1.0f, 1.0f);
+    color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
     concrete->setDiffuse(color);
-    color.Set(0.0f, 0.0f, 0.0f, 0.0f);
+    color = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
     concrete->setSpecular(color);
     concrete->dirty = 1;
     concrete->parms.shininess = 1.0f;
     concrete->parms.diffuse.w = 1.0f;
     concrete->dirty = 1;
-    concrete->parms.emissive = 0.0f;
+    concrete->parms.emissive = glm::vec4(0.0f);
     concrete->dirty = 1;
     concrete->m_surface_flags = 0;
     return 1;

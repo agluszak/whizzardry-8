@@ -2741,7 +2741,7 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
     srVector3T<float> origin;
     srVector3T<float> direction;
     srVector3T<float> axis;
-    srMatrix3T<float> local_90;
+    glm::mat3 local_90;
     double yaw;
     double pitch;
     W8Disposition disposition;
@@ -3015,13 +3015,14 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
                         origin = source->point;
                         direction = target->point - origin;
                         direction.SetLength(1.0);
-                        local_90.SetIdentity();
+                        local_90 = glm::mat3(1);
                         yaw = atan2(direction.x, direction.z);
-                        local_90.RotateAboutY(yaw);
-                        direction = srVector3T<float>{glm::transpose(local_90.glmValue()) *
-                                                      direction.glmValue()};
-                        pitch = -atan2(direction.y, direction.z);
-                        local_90.RotateAboutX(pitch);
+                        local_90 *=
+                                glm::mat3_cast(glm::angleAxis(float(yaw), glm::vec3(0, 1, 0)));
+                            direction = glm::transpose(local_90) * direction.glmValue();
+                            pitch = -atan2(direction.y, direction.z);
+                            local_90 *=
+                                glm::mat3_cast(glm::angleAxis(float(pitch), glm::vec3(1, 0, 0)));
                         visual = CreateAimedSpellEffect(g_spell_records[spell_id].resource_name,
                                                         power_level, &origin, &local_90, 0, 0);
                     }

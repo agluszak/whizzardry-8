@@ -20,9 +20,6 @@
 #include "surrender/srCore.h"
 #include "surrender/srNode.h"
 #include <algorithm>
-#include <span>
-
-#include <algorithm>
 #include <ranges>
 #include <span>
 #include <tuple>
@@ -39,7 +36,7 @@ static int operator==(const srShader& left, const srShader& right)
 }
 
 // FUNCTION: WIZ8 0x004896C0
-void ReadMeshTransform(wiz8::File* file, srVector3T<float>* location, srMatrix3T<float>* rotation,
+void ReadMeshTransform(wiz8::File* file, srVector3T<float>* location, glm::mat3* rotation,
                        srVector3T<float>* scale)
 {
     float angle;
@@ -53,8 +50,9 @@ void ReadMeshTransform(wiz8::File* file, srVector3T<float>* location, srMatrix3T
     file->read_exact(&axis.y, sizeof(axis.y));
     file->read_exact(&axis.z, sizeof(axis.z));
 
-    rotation->SetIdentity();
-    rotation->RotateAroundAxis(angle, axis);
+    (*rotation) = glm::mat3(1);
+    (*rotation) *=
+        glm::mat3_cast(glm::angleAxis(float(angle), normalizedOrZero(glm::vec3(axis.glmValue()))));
 
     file->read_exact(&scale->x, sizeof(scale->x));
     file->read_exact(&scale->y, sizeof(scale->y));
@@ -508,8 +506,8 @@ BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count, in
     int extra_uv_counts[8];
     srPtr<srMaterialIFace>* vertex_materials[8];
     srPtr<srTextureIFace>* polygon_textures[8];
-    srVector2T<float>* vertex_uvs[8];
-    srVector2T<float>* extra_uvs[8];
+    glm::vec2* vertex_uvs[8];
+    glm::vec2* extra_uvs[8];
     srVector3i* polygon_vertices[8];
     srVector3i* polygon_shades[8];
     w8_ulong* vertex_shades[8];
@@ -559,9 +557,9 @@ BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count, in
         vertex_materials[type] = new srPtr<srMaterialIFace>[capacity * 3];
         polygon_textures[type] = new srPtr<srTextureIFace>[capacity];
         vertex_uvs[type] =
-            static_cast<srVector2T<float>*>(malloc(capacity * 3 * sizeof(srVector2T<float>)));
+            static_cast<glm::vec2*>(malloc(capacity * 3 * sizeof(glm::vec2)));
         extra_uvs[type] =
-            static_cast<srVector2T<float>*>(malloc(capacity * 3 * sizeof(srVector2T<float>)));
+            static_cast<glm::vec2*>(malloc(capacity * 3 * sizeof(glm::vec2)));
         polygon_vertices[type] =
             static_cast<srVector3i*>(malloc(capacity * 3 * sizeof(srVector3i)));
         polygon_shades[type] = static_cast<srVector3i*>(malloc(capacity * sizeof(srVector3i)));
@@ -683,10 +681,10 @@ BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count, in
 
         srVector3i* model_polygons = model->getPolyVertex();
         model->setUVCount(vertex_counts[type] + extra_uv_counts[type]);
-        srVector2T<float>* model_uvs = model->getVertexTexCoords(0, 0, 1);
-        memcpy(model_uvs, vertex_uvs[type], vertex_counts[type] * sizeof(srVector2T<float>));
+        glm::vec2* model_uvs = model->getVertexTexCoords(0, 0, 1);
+        memcpy(model_uvs, vertex_uvs[type], vertex_counts[type] * sizeof(glm::vec2));
         memcpy(model_uvs + vertex_counts[type], extra_uvs[type],
-               extra_uv_counts[type] * sizeof(srVector2T<float>));
+               extra_uv_counts[type] * sizeof(glm::vec2));
         srVector3i* model_uv_indices = model->getPolyUVIndex(0, 1);
         for (int uv_polygon = 0; uv_polygon < polygon_counts[type]; ++uv_polygon) {
             for (int uv_corner = 0; uv_corner < 3; ++uv_corner) {
@@ -883,7 +881,7 @@ try
 
     srVector3T<float> location;
     srVector3T<float> scale;
-    srMatrix3T<float> rotation;
+    glm::mat3 rotation;
     if (version > 2) {
         success = (file->read(&flags, sizeof(flags)).bytes == static_cast<std::size_t>(sizeof(flags)));
     }
@@ -1018,7 +1016,7 @@ try
         loaded_instance->setName("ReadSTMeshFromFile");
         if (version > 1 && loaded_instance != 0) {
             const double angle = 3.1415926;
-            rotation.RotateAboutX(angle);
+            rotation *= glm::mat3_cast(glm::angleAxis(float(angle), glm::vec3(1, 0, 0)));
 
             srVector3T<double> translated(location.x * 500.0, location.y * 500.0,
                                           location.z * 500.0);

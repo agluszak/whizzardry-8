@@ -2789,7 +2789,7 @@ int ExecuteCharacterSpecialAttack(int party_slot)
 bool CreateCharacterBreathEffect(int party_slot)
 {
     W8TargetSource source;
-    srMatrix3T<float> rotation;
+    glm::mat3 rotation;
     srVector3T<float> camera;
     srVector3T<float> direction;
     W8GrowableVector<int> char_targets;
@@ -2814,12 +2814,12 @@ bool CreateCharacterBreathEffect(int party_slot)
     aim = target->point - camera;
     direction = aim;
     aim.SetLength(1.0);
-    rotation.SetIdentity();
+    rotation = glm::mat3(1);
     yaw = atan2(aim.x, aim.z);
-    rotation.RotateAboutY(yaw);
-    aim = srVector3T<float>{rotation * direction};
+    rotation *= glm::mat3_cast(glm::angleAxis(float(yaw), glm::vec3(0, 1, 0)));
+    aim = rotation * direction.glmValue();
     pitch = -atan2(aim.y, aim.z);
-    rotation.RotateAboutX(pitch);
+    rotation *= glm::mat3_cast(glm::angleAxis(float(pitch), glm::vec3(1, 0, 0)));
     g_combat_state->breath_visual = CreateAimedSpellEffect(
         g_spell_records[W8_SPELL_SPECIAL_ATTACK_CONE].resource_name, 1, &camera, &rotation, 0, 0);
     if (g_combat_state->breath_visual == 0) {

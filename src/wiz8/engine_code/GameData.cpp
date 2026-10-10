@@ -169,8 +169,7 @@ void UpdateGameDataRuntime()
    rotation into `saved`. ECX is the owning W8GameData; the body reads only
    globals. */
 // FUNCTION: WIZ8 0x0041F330
-void W8GameData::ApplyCameraMotionFlags(unsigned int flags, srMatrix3T<float>* rotation,
-                                        srMatrix3T<float>* saved)
+void W8GameData::ApplyCameraMotionFlags(unsigned int flags, glm::mat3* rotation, glm::mat3* saved)
 {
     float pitch_input;
     float yaw_input;
@@ -288,7 +287,7 @@ srVector3T<float> g_world_origin;
    returns before the motion helpers. */
 // FUNCTION: WIZ8 0x0041F5F0
 unsigned char W8GameData::ApplyCameraMotion(unsigned int flags, srVector3T<float>* position,
-                                            srVector3T<float>* delta, srMatrix3T<float>* saved)
+                                            srVector3T<float>* delta, glm::mat3* saved)
 {
     W8GameTimer::Flags timer_flags;
     unsigned int level_flags;
@@ -722,7 +721,7 @@ unsigned char W8GameData::ProbeMonstersAlongMotion(srVector3T<float>* direction,
     srVector3T<float> monster_position;
     srVector3T<float> adjustment;
     float extent;
-    srVector2T<float> adjusted;
+    glm::vec2 adjusted;
     float horizontal;
     srVector3T<float> delta;
     float planar;
@@ -1417,7 +1416,7 @@ stModelInstance* W8GameData::CreateTraceModel()
     srVector3i* poly_vertices = mesh->getPolyVertex();
     srPtr<srTextureIFace>* poly_textures = mesh->getPolyTexture(0, 0, 1);
     srVector3T<float>* vertex_locs = mesh->getVertexLoc();
-    srVector2T<float>* texcoords = mesh->getVertexTexCoords(0, 0, 1);
+    glm::vec2* texcoords = mesh->getVertexTexCoords(0, 0, 1);
     srPtr<srMaterialIFace>* vertex_materials =
         mesh->getVertexMaterial(0, srMeshModel::SIDE_FRONT, 1);
     w8_ulong* shade_indices = mesh->getVertexShadeIndex(1);
@@ -1430,17 +1429,17 @@ stModelInstance* W8GameData::CreateTraceModel()
             selected.Set(vertex + 1);
             selected.Set(vertex + 2);
         }
-        texcoords[vertex].SetZero();
+        texcoords[vertex] = glm::vec2(0);
         vertex_materials[vertex] = g_oct_mesh_default_material;
         poly_vertices[index].x = vertex;
         shade_indices[vertex] = vertex;
         vertex_locs[vertex] = m_pVertices[surface->vertex_indices[0]];
-        texcoords[vertex + 1].SetZero();
+        texcoords[vertex + 1] = glm::vec2(0);
         vertex_materials[vertex + 1] = g_oct_mesh_default_material;
         poly_vertices[index].y = vertex + 1;
         shade_indices[vertex + 1] = vertex + 1;
         vertex_locs[vertex + 1] = m_pVertices[surface->vertex_indices[1]];
-        texcoords[vertex + 2].SetZero();
+        texcoords[vertex + 2] = glm::vec2(0);
         vertex_materials[vertex + 2] = g_oct_mesh_default_material;
         poly_vertices[index].z = vertex + 2;
         shade_indices[vertex + 2] = vertex + 2;
@@ -2496,7 +2495,7 @@ void BeginManualCameraControl()
    yaw-rotation matrix. The diagnostics dump passes null and uses only the
    yaw. */
 // FUNCTION: WIZ8 0x00420F40
-int GetCameraYawAndRotation(srMatrix3T<float>* rotation)
+int GetCameraYawAndRotation(glm::mat3* rotation)
 {
     float degrees = g_gd_camera->m_yaw * g_camera_radians_to_degrees;
     if (rotation != 0) {
@@ -2539,7 +2538,7 @@ void SetCameraYawDegrees(float degrees)
 }
 
 // FUNCTION: WIZ8 0x00421030
-void ApplyCameraRotation(srMatrix3T<float>* rotation)
+void ApplyCameraRotation(glm::mat3* rotation)
 {
     g_gd_camera->ApplyRotationMatrix(rotation, g_level_data);
 }
@@ -2564,8 +2563,7 @@ void GetCameraOrientation(W8CameraAngleRecord angle, W8CameraAngleRecord pitch)
 }
 
 // FUNCTION: WIZ8 0x004213E0
-void SetCameraOrientation(W8CameraAngleRecord angle, W8CameraAngleRecord pitch,
-                          srMatrix3T<float>* rotation)
+void SetCameraOrientation(W8CameraAngleRecord angle, W8CameraAngleRecord pitch, glm::mat3* rotation)
 {
     float yaw_value, pitch_value;
     memcpy(&yaw_value, angle, sizeof(yaw_value));
@@ -2600,7 +2598,7 @@ unsigned char ProjectVectorOntoVector(srVector3T<float>* vector, const srVector3
 void RestoreWorldCameraOrientation(W8CameraAngleRecord angle, W8CameraAngleRecord pitch,
                                    W8World* world)
 {
-    srMatrix3T<float> rotation;
+    glm::mat3 rotation;
     world->camera->getRotation(rotation);
     SetCameraOrientation(angle, pitch, &rotation);
 }
@@ -2746,7 +2744,7 @@ bool W8LevelDataRecord::IntegrateCameraForward()
 
 // FUNCTION: WIZ8 0x00420810
 unsigned char W8LevelDataRecord::ApplySavedMotionMatrix(unsigned char prior_fast, bool fast_move,
-                                                        const srMatrix3T<float>* saved)
+                                                        const glm::mat3* saved)
 {
     float horizontal;
     float clamp_scale;
@@ -2756,7 +2754,7 @@ unsigned char W8LevelDataRecord::ApplySavedMotionMatrix(unsigned char prior_fast
         motion_input.SetZero();
         integrated_motion.SetZero();
     }
-    motion_input = srVector3T<float>{(*saved).glmValue() * motion_input.glmValue()};
+    motion_input = (*saved) * motion_input.glmValue();
     integrated_motion.Set(motion_input.x * camera_scale, motion_input.y * camera_scale,
                           motion_input.z * camera_scale);
     if (!IntegrateCameraForward()) {

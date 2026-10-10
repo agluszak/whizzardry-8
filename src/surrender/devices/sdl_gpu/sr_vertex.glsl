@@ -20,8 +20,7 @@ layout(std140, set = 1, binding = 0) uniform VertexState {
 
 void main()
 {
-    // srMatrix4T stores rows; uploaded as-is GLSL sees the transpose.
-    vec4 clip = in_position * projection;
+    vec4 clip = projection * in_position;
     // OpenGL clip depth [-w, w] to the [0, w] range SDL GPU expects.
     clip.z = (clip.z + clip.w) * 0.5;
     gl_Position = clip;

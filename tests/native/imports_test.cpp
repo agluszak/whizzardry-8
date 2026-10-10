@@ -279,7 +279,7 @@ int main()
         copy.getViewPlane(after, distance);
         CHECK(before.left == after.left && before.top == after.top);
         srClipPlane plane, plane_copy;
-        srVector4T<float> plane_value;
+        glm::vec4 plane_value;
         plane_value.x = 1;
         plane_value.y = 2;
         plane_value.z = 3;
@@ -292,7 +292,7 @@ int main()
         fog_copy = fog;
         CHECK(fog_copy.getDensity() == 0.25f);
         ClientMaterial material, material_copy;
-        srVector4T<float> emissive;
+        glm::vec4 emissive;
         emissive.x = 0.25f;
         emissive.y = 0.5f;
         emissive.z = 0.75f;

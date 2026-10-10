@@ -49,22 +49,22 @@ void CollectViewQuadCells(W8World* world, w8_long* x_list, w8_long* y_list, w8_l
     w8_long cam_x = static_cast<w8_long>((world->camera->getLocationX() - quad->origin.x) / cell_size);
     w8_long cam_y = static_cast<w8_long>((world->camera->getLocationZ() - quad->origin.y) / cell_size);
 
-    srMatrix3T<float> rotation;
+    glm::mat3 rotation;
     world->camera->getRotation(rotation);
 
     srVector3T<float> direction(0.0f, 0.0f, world->render_range);
-    srMatrix3T<float> work = rotation;
+    glm::mat3 work = rotation;
     double angle = -g_mesh_view_half_angle_degrees * g_mesh_view_degrees_to_radians;
-    work.RotateAboutY(angle);
-    direction = srVector3T<float>{work * direction};
+    work *= glm::mat3_cast(glm::angleAxis(float(angle), glm::vec3(0, 1, 0)));
+    direction = work * direction.glmValue();
     w8_long edge1_x = cam_x + static_cast<w8_long>(direction.x / cell_size);
     w8_long edge1_y = cam_y + static_cast<w8_long>(direction.z / cell_size);
 
     direction.Set(0.0f, 0.0f, world->render_range);
     work = rotation;
     angle = g_mesh_view_half_angle_degrees * g_mesh_view_degrees_to_radians;
-    work.RotateAboutY(angle);
-    direction = srVector3T<float>{work * direction};
+    work *= glm::mat3_cast(glm::angleAxis(float(angle), glm::vec3(0, 1, 0)));
+    direction = work * direction.glmValue();
     w8_long edge2_x = cam_x + static_cast<w8_long>(direction.x / cell_size);
     w8_long edge2_y = cam_y + static_cast<w8_long>(direction.z / cell_size);
 

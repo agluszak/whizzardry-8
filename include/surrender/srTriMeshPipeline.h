@@ -26,7 +26,7 @@ public:
            them synchronously in Renderer::render before unlockRenderer queues owned render data. */
         void* texture_tables[2]{};
         const srShader* shaders = nullptr;
-        const srVector2T<float>* texcoords = nullptr;
+        const glm::vec2* texcoords = nullptr;
         /* The mesh's per-triangle poly-UV corner source table. */
         const srVector3i* poly_uv = nullptr;
     };
@@ -58,7 +58,7 @@ public:
        Bit 1: vertex/triangle batch-limit path. Reset/Get always set both. */
     w8_ulong flags;
     const w8_ulong* active_triangles;
-    const srVector4T<float>* projected_vertices;
+    const glm::vec4* projected_vertices;
     const srVector3i* triangles;
     /* stParticle stores its vertex positions here; Reset/Get null it. */
     const srVector3T<float>* positions;

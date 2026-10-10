@@ -2084,11 +2084,11 @@ unsigned int W8PathingService::CollectPathProbes(W8NavigatorMovementState* movem
 srVector3T<float> W8PathingService::GetSearchTraceOffset(float bearing)
 {
     float target_yaw = NormalizeAngle(m_trace_target_yaw);
-    srMatrix3T<float> rotation;
-    rotation.SetIdentity();
+    glm::mat3 rotation;
+    rotation = glm::mat3(1);
     float angle = bearing - target_yaw;
-    rotation.RotateAboutY(angle);
-    return srVector3T<float>{rotation * trace_offset};
+    rotation *= glm::mat3_cast(glm::angleAxis(float(angle), glm::vec3(0, 1, 0)));
+    return srVector3T<float>{rotation * trace_offset.glmValue()};
 }
 
 short W8PathingService::TraceSearchNodeToTarget(unsigned short node,
@@ -2730,7 +2730,7 @@ unsigned short W8PathingService::ConfigureMovementSearch(
     W8NavigatorAttachment* attachment = movement->attachment;
     if ((attachment->flags & W8_NAV_ATTACHMENT_FOLLOW_PATH) != 0) {
         srVector3T<float> delta = movement->target_position - movement->position;
-        float horizontal_clearance = ((delta.xz())).Length() - radius;
+        float horizontal_clearance = glm::length(((delta.xz()))) - radius;
         float target_radius;
         if (target_location == 0) {
             target_radius = g_startup_world->movement.alternate_radius;
@@ -3412,8 +3412,7 @@ unsigned int W8PathingService::ClassifyWaypoint(const srVector3T<float>* positio
 }
 
 // FUNCTION: WIZ8 0x00459d60
-unsigned int W8PathingService::FindPathCell(srVector3T<float>* position,
-                                            srVector2T<unsigned int>* cell, bool adjust)
+unsigned int W8PathingService::FindPathCell(srVector3T<float>* position, glm::uvec2* cell, bool adjust)
 {
     int path_height = static_cast<int>((position->y - level_bounds.minimum.y) / span) + 1;
     srVector2i source_cell;
@@ -3756,16 +3755,16 @@ void W8PathingService::GetPathGridStepDirections(const W8PathGridWalk* walk, int
    The larger absolute delta drives the walk; the start-cell remainder fixes
    how far each axis is from its next boundary and therefore the initial error. */
 // FUNCTION: WIZ8 0x0045af60
-void W8PathingService::BuildPathGridWalk(const srVector2T<float>* from, const srVector2T<float>* to,
-                                         const srVector2T<float>* origin, W8PathGridWalk* walk)
+void W8PathingService::BuildPathGridWalk(const glm::vec2* from, const glm::vec2* to,
+                                         const glm::vec2* origin, W8PathGridWalk* walk)
 {
     int cell_size = static_cast<int>(grid_scale);
     srVector2i coordinate;
     srVector2i destination;
     srVector2i step;
     srVector2i absolute_delta;
-    srVector2T<float> boundary_offset;
-    srVector2T<float> signed_delta;
+    glm::vec2 boundary_offset;
+    glm::vec2 signed_delta;
     int major_axis = 0;
     int largest_delta = 0;
     int axis;
@@ -3837,9 +3836,9 @@ bool W8PathingService::ProbeWaypointSegment(const srVector3T<float>* from,
     }
 
     srVector2i cell;
-    srVector2T<float> walk_from;
-    srVector2T<float> walk_to;
-    srVector2T<float> origin;
+    glm::vec2 walk_from;
+    glm::vec2 walk_to;
+    glm::vec2 origin;
     W8PathGridWalk walk;
     int directions[2];
 
@@ -4084,9 +4083,9 @@ bool W8PathingService::TestWaypointSpan(const srVector3T<float>* source,
         return found && destination_value == source_value;
     }
 
-    srVector2T<float> walk_source;
-    srVector2T<float> walk_destination;
-    srVector2T<float> origin;
+    glm::vec2 walk_source;
+    glm::vec2 walk_destination;
+    glm::vec2 origin;
     W8PathGridWalk walk;
     int directions[2];
     walk_source = source->xz();
@@ -4235,8 +4234,8 @@ float W8PathingService::CompareDirectionalClearance(const srVector3T<float>* pos
                                                     const srVector3T<float>* direction,
                                                     float distance)
 {
-    srVector2T<float> horizontal = direction->xz();
-    horizontal.Normalize();
+    glm::vec2 horizontal = direction->xz();
+    horizontal = normalizedOrZero(horizontal);
     float normalized_x = horizontal.x;
     float normalized_z = horizontal.y;
 
@@ -4426,7 +4425,7 @@ unsigned short W8PathingService::FindWaypoint(const srVector3T<float>* position,
             distances[index] = static_cast<unsigned int>(static_cast<int>(delta.Length()));
 
             if (distances[index] < g_float_one_thousand &&
-                ((delta.xz())).Length() < g_double_five_hundred) {
+                glm::length(((delta.xz()))) < g_double_five_hundred) {
                 result = static_cast<unsigned short>(candidates[index]);
             }
         }
@@ -4846,9 +4845,9 @@ stModelInstance* W8PathingService::BuildPathVisualization()
                 !reverse_found) {
                 int base_vertex = 500 + link_count * 6;
                 int base_polygon = 600 + link_count * 6;
-                srVector2T<float> perpendicular(-(destination->position.z - source->position.z),
-                                                destination->position.x - source->position.x);
-                perpendicular.SetLength(g_waypoint_edge_offset);
+                glm::vec2 perpendicular(-(destination->position.z - source->position.z),
+                                        destination->position.x - source->position.x);
+                perpendicular = normalizedOrZero(perpendicular) * float(g_waypoint_edge_offset);
                 float perpendicular_x = perpendicular.x;
                 float perpendicular_z = perpendicular.y;
 
@@ -5194,7 +5193,7 @@ stModelInstance* W8PathingService::EnsurePathVisualization()
 
     srVector3i* polygons = model->getPolyVertex();
     srPtr<srTextureIFace>* textures = model->getPolyTexture(0, 0, 1);
-    srVector2T<float>* texture_coordinates = model->getVertexTexCoords(0, 0, 1);
+    glm::vec2* texture_coordinates = model->getVertexTexCoords(0, 0, 1);
     srPtr<srMaterialIFace>* materials = model->getVertexMaterial(0, srMeshModel::SIDE_FRONT, 1);
     w8_ulong* shade_indices = model->getVertexShadeIndex(1);
 
@@ -5202,7 +5201,7 @@ stModelInstance* W8PathingService::EnsurePathVisualization()
         textures[index] = g_oct_mesh_default_texture;
     }
     for (index = 0; index < vertex_count; ++index) {
-        texture_coordinates[index].SetZero();
+        texture_coordinates[index] = glm::vec2(0);
         materials[index] = g_oct_mesh_default_material;
         shade_indices[index] = index;
     }
@@ -5727,8 +5726,8 @@ bool W8PathingService::HasDirectionalWaypointLink(unsigned short source, unsigne
 
     destination_direction = destination_surface->position - source_surface->position;
     destination_distance = destination_direction.Length();
-    srVector2T<float> destination_horizontal = destination_direction.xz();
-    destination_horizontal.Normalize();
+    glm::vec2 destination_horizontal = destination_direction.xz();
+    destination_horizontal = normalizedOrZero(destination_horizontal);
     destination_direction.Set(destination_horizontal.x, 0.0f, destination_horizontal.y);
 
     edge_index = source_surface->first_edge;
@@ -5747,9 +5746,9 @@ bool W8PathingService::HasDirectionalWaypointLink(unsigned short source, unsigne
         neighbor_distance = neighbor_direction.Length();
         if (neighbor_distance < destination_distance) {
             unsigned short second_edge_index;
-            srVector2T<float> neighbor_horizontal = neighbor_direction.xz();
+            glm::vec2 neighbor_horizontal = neighbor_direction.xz();
 
-            neighbor_horizontal.Normalize();
+            neighbor_horizontal = normalizedOrZero(neighbor_horizontal);
             neighbor_direction.Set(neighbor_horizontal.x, 0.0f, neighbor_horizontal.y);
 
             second_edge_index = neighbor->first_edge;

@@ -47,7 +47,7 @@ public:
     }
     virtual void process(srVertexPipe& pipe) override;
 
-    srMatrix2T<float> transform;
+    glm::mat2 transform;
     float center_z;
     float center_x;
     srVector3T<float>* vertices;
@@ -69,7 +69,7 @@ void W8GroundShadowMapper::process(srVertexPipe& pipe)
     pipe.lazy_setup_mask |= 1 << CHANNEL_ST0;
 
     const w8_ulong* index = pipe.avt + pipe.sub_batch_offset;
-    srVector2T<float>* output = pipe.vertex_array->st0 + pipe.batch_base + pipe.sub_batch_offset;
+    glm::vec2* output = pipe.vertex_array->st0 + pipe.batch_base + pipe.sub_batch_offset;
     w8_ulong count = pipe.vertex_count;
     if (count == 0) {
         return;
@@ -78,9 +78,9 @@ void W8GroundShadowMapper::process(srVertexPipe& pipe)
         const srVector3T<float>* vertex = vertices + *index;
         float dz = vertex->z - center_z;
         float dx = vertex->x - center_x;
-        srVector2T<float> coordinate;
-        coordinate.Set(dz * transform.vectors[0].x + dx * transform.vectors[0].y + g_float_half,
-                       dx * transform.vectors[1].x + dz * transform.vectors[1].y + g_float_half);
+        glm::vec2 coordinate;
+        coordinate = glm::vec2(dz * transform[0][0] + dx * transform[1][0] + g_float_half,
+                               dx * transform[0][1] + dz * transform[1][1] + g_float_half);
         ++index;
         *output++ = coordinate;
     } while (--count != 0);
@@ -162,7 +162,7 @@ void stGroundShadow::renderGroundShadow(srGERD* renderer)
 {
     srMeshModel::TriMesh mesh;
     srVector3T<float> position;
-    srMatrix2T<float> rotation;
+    glm::mat2 rotation;
     float radius;
     float cosine;
     float sine;
@@ -187,12 +187,14 @@ void stGroundShadow::renderGroundShadow(srGERD* renderer)
     saved_offset = renderer->getPolygonOffset();
     renderer->setPolygonOffset(2);
 
-    g_ground_shadow_material_parameters.transform.vectors[0].Set(g_float_half / width, 0);
-    g_ground_shadow_material_parameters.transform.vectors[1].Set(0, g_float_half / depth);
+    g_ground_shadow_material_parameters.transform = glm::row(
+        g_ground_shadow_material_parameters.transform, 0, glm::vec2(g_float_half / width, 0));
+    g_ground_shadow_material_parameters.transform = glm::row(
+        g_ground_shadow_material_parameters.transform, 1, glm::vec2(0, g_float_half / depth));
     cosine = cos(-angle);
     sine = sin(-angle);
-    rotation.vectors[0].Set(cosine, -sine);
-    rotation.vectors[1].Set(sine, cosine);
+    rotation = glm::row(rotation, 0, glm::vec2(cosine, -sine));
+    rotation = glm::row(rotation, 1, glm::vec2(sine, cosine));
     (g_ground_shadow_material_parameters.transform) =
         g_ground_shadow_material_parameters.transform * rotation;
     g_ground_shadow_material_parameters.center_z = position.z;

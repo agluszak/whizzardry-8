@@ -148,7 +148,7 @@ unsigned char BakeInstanceVertexLighting(stModelInstance* instance, srNode* ligh
     mesh->getBoundingBox(minimum, maximum);
     maximum += location;
     minimum += location;
-    srMatrix3T<float> rotation;
+    glm::mat3 rotation;
     instance->getWorldSpaceRotation(rotation);
 
     while (mesh != 0) {
@@ -157,7 +157,7 @@ unsigned char BakeInstanceVertexLighting(stModelInstance* instance, srNode* ligh
         srPtr<srMaterialIFace>* vertex_materials =
             mesh->getVertexMaterial(0, srMeshModel::SIDE_FRONT, 0);
         srMaterialIFace* material_iface = mesh->getMaterial(0, srMeshModel::SIDE_FRONT);
-        srVector4T<float> material_diffuse;
+        glm::vec4 material_diffuse;
         if (material_iface != 0) {
             material_diffuse = static_cast<srMaterial*>(material_iface)->parms.diffuse;
         }
@@ -177,11 +177,11 @@ unsigned char BakeInstanceVertexLighting(stModelInstance* instance, srNode* ligh
         w8_ulong count = mesh->vertex_location_count;
 
         srVector3T<float>* world_vertices = vertices;
-        if (rotation.vectors[0].x != g_float_one || rotation.vectors[1].y != g_float_one ||
-            rotation.vectors[2].z != g_float_one || rotation.vectors[0].y != g_float_zero ||
-            rotation.vectors[0].z != g_float_zero || rotation.vectors[1].x != g_float_zero ||
-            rotation.vectors[1].z != g_float_zero || rotation.vectors[2].x != g_float_zero ||
-            rotation.vectors[2].y != g_float_zero || location.x != g_float_zero ||
+        if (rotation[0][0] != g_float_one || rotation[1][1] != g_float_one ||
+            rotation[2][2] != g_float_one || rotation[1][0] != g_float_zero ||
+            rotation[2][0] != g_float_zero || rotation[0][1] != g_float_zero ||
+            rotation[2][1] != g_float_zero || rotation[0][2] != g_float_zero ||
+            rotation[1][2] != g_float_zero || location.x != g_float_zero ||
             location.y != g_float_zero || location.z != g_float_zero) {
             locations_allocated = true;
             world_vertices =
@@ -192,21 +192,24 @@ unsigned char BakeInstanceVertexLighting(stModelInstance* instance, srNode* ligh
             if (count != 0 && world_vertices != vertices) {
                 std::copy_n(vertices, count, world_vertices);
             }
-            if (rotation.vectors[0].x == g_float_one && rotation.vectors[1].y == g_float_one &&
-                rotation.vectors[2].z == g_float_one && rotation.vectors[0].y == g_float_zero &&
-                rotation.vectors[0].z == g_float_zero && rotation.vectors[1].x == g_float_zero &&
-                rotation.vectors[1].z == g_float_zero && rotation.vectors[2].x == g_float_zero &&
-                rotation.vectors[2].y == g_float_zero) {
+            if (rotation[0][0] == g_float_one && rotation[1][1] == g_float_one &&
+                rotation[2][2] == g_float_one && rotation[1][0] == g_float_zero &&
+                rotation[2][0] == g_float_zero && rotation[0][1] == g_float_zero &&
+                rotation[2][1] == g_float_zero && rotation[0][2] == g_float_zero &&
+                rotation[1][2] == g_float_zero) {
                 if (count != 0 && (location.x != g_float_zero || location.y != g_float_zero ||
                                    location.z != g_float_zero)) {
                     for (std::size_t i = 0; i < count; ++i)
                         world_vertices[i] = location + world_vertices[i];
                 }
             } else if (count != 0) {
-                srMatrix4T<float> transform;
-                transform.Set(rotation, location);
+                glm::mat4 transform;
                 {
-                    const auto transform_matrix = transform.glmValue();
+                    transform = glm::mat4(rotation);
+                    transform[3] = glm::vec4(location.glmValue(), 1);
+                };
+                {
+                    const auto transform_matrix = transform;
                     for (std::size_t i = 0; i < count; ++i)
                         world_vertices[i] = glm::vec3(
                             transform_matrix * glm::vec4(world_vertices[i].glmValue(), 1.0f));
@@ -215,11 +218,11 @@ unsigned char BakeInstanceVertexLighting(stModelInstance* instance, srNode* ligh
         }
 
         srVector3T<float>* world_normals;
-        if (rotation.vectors[0].x == g_float_one && rotation.vectors[1].y == g_float_one &&
-            rotation.vectors[2].z == g_float_one && rotation.vectors[0].y == g_float_zero &&
-            rotation.vectors[0].z == g_float_zero && rotation.vectors[1].x == g_float_zero &&
-            rotation.vectors[1].z == g_float_zero && rotation.vectors[2].x == g_float_zero &&
-            rotation.vectors[2].y == g_float_zero) {
+        if (rotation[0][0] == g_float_one && rotation[1][1] == g_float_one &&
+            rotation[2][2] == g_float_one && rotation[1][0] == g_float_zero &&
+            rotation[2][0] == g_float_zero && rotation[0][1] == g_float_zero &&
+            rotation[2][1] == g_float_zero && rotation[0][2] == g_float_zero &&
+            rotation[1][2] == g_float_zero) {
             world_normals = normals;
         } else {
             world_normals =
@@ -229,10 +232,13 @@ unsigned char BakeInstanceVertexLighting(stModelInstance* instance, srNode* ligh
             }
             srVector3T<float> origin(0.0f, 0.0f, 0.0f);
             if (count != 0) {
-                srMatrix4T<float> transform;
-                transform.Set(rotation, origin);
+                glm::mat4 transform;
                 {
-                    const auto transform_matrix = transform.glmValue();
+                    transform = glm::mat4(rotation);
+                    transform[3] = glm::vec4(origin.glmValue(), 1);
+                };
+                {
+                    const auto transform_matrix = transform;
                     for (std::size_t i = 0; i < count; ++i)
                         world_normals[i] =
                             glm::vec3(transform_matrix * glm::vec4(normals[i].glmValue(), 1.0f));
@@ -322,11 +328,11 @@ unsigned char BakeInstanceVertexLighting(stModelInstance* instance, srNode* ligh
         if (locations_allocated) {
             free(world_vertices);
         }
-        if (rotation.vectors[0].x != g_float_one || rotation.vectors[1].y != g_float_one ||
-            rotation.vectors[2].z != g_float_one || rotation.vectors[0].y != g_float_zero ||
-            rotation.vectors[0].z != g_float_zero || rotation.vectors[1].x != g_float_zero ||
-            rotation.vectors[1].z != g_float_zero || rotation.vectors[2].x != g_float_zero ||
-            rotation.vectors[2].y != g_float_zero) {
+        if (rotation[0][0] != g_float_one || rotation[1][1] != g_float_one ||
+            rotation[2][2] != g_float_one || rotation[1][0] != g_float_zero ||
+            rotation[2][0] != g_float_zero || rotation[0][1] != g_float_zero ||
+            rotation[2][1] != g_float_zero || rotation[0][2] != g_float_zero ||
+            rotation[1][2] != g_float_zero) {
             free(world_normals);
         }
         if (directions != 0) {
@@ -1132,5 +1138,5 @@ bool BoundsInsideFrustum(const W8OctRegionVolume* volume, const W8BoundingBox* b
     return false;
 }
 
-/* srMatrix4T<float>::Set emitted for this TU (BakeInstanceVertexLighting's
+/* glm::mat4::Set emitted for this TU (BakeInstanceVertexLighting's
    transform builds); the primary template lives in srMath.h. */
