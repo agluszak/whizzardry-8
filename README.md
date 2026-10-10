@@ -87,6 +87,9 @@ Run these scenarios locally without a window:
 WIZ8_ASSET_ROOT=/path/to/Wizardry8 ctest --preset linux -L runtime --output-on-failure
 ```
 
+World-render validation also uses the checked-in character; character creation and
+party-screen startup remain covered by their dedicated runtime scenarios.
+
 The save/load and combat scenarios start with the checked-in character in
 `tests/runtime/fixtures`. CTest generates a shared saved game before the menu
 load test; each scenario uses its own temporary writable user directory.
@@ -105,7 +108,7 @@ display/Vulkan driver; `native_events` uses SDL's dummy driver.
 The `linux-asan` configure/build/test presets run the same suite with AddressSanitizer
 and leak detection. CI runs both presets with the encrypted licensed-asset workflow.
 The `resource-lifecycle` runtime scenario loads a retail level, renders linked meshes
-and animated textures, evicts and recreates resident textures, quick-loads twice,
+and animated textures, evicts and recreates resident textures, quick-loads once,
 and shuts down with resources resident. Asset-independent fixtures also load serialized
 linked meshes and test interrupted initialization and destruction after `srExit()`.
 
