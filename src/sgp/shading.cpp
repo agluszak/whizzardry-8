@@ -4,7 +4,6 @@
 #include "Video2.h"
 #include "himage.h"
 #include "vobject.h"
-#include "vobject_private.h"
 #include "WCheck.h"
 #include "vobject_blitters.h"
 #include "shading.h"

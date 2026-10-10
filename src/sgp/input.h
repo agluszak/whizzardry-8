@@ -26,7 +26,6 @@
 #define CTRL_DOWN 0x02
 #define ALT_DOWN 0x04
 
-#define MAX_STRING_INPUT 64
 #define DBL_CLK_TIME 300 // Increased by Alex, Jun-10-97, 200 felt too short
 #define BUTTON_REPEAT_TIMEOUT 250
 #define BUTTON_REPEAT_TIME 50
@@ -44,28 +43,10 @@ typedef struct {
 #define GETYPOS(a) HIWORD(((a)->uiParam))
 #define GETXPOS(a) LOWORD(((a)->uiParam))
 
-typedef struct StringInput {
-    UINT16* pString;
-    UINT16* pOriginalString;
-    UINT16* pFilter;
-    UINT16 usMaxStringLength;
-    UINT16 usCurrentStringLength;
-    UINT16 usStringOffset;
-    UINT16 usLastCharacter;
-    BOOLEAN fInsertMode;
-    BOOLEAN fFocus;
-    struct StringInput* pPreviousString;
-    struct StringInput* pNextString;
-
-} StringInput;
-
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-extern UINT16 gusQueueCount;
-extern UINT16 gusHeadIndex;
-extern UINT16 gusTailIndex;
 extern UINT16 gfShiftState;
 extern UINT16 gfCtrlState;
 extern UINT16 gfAltState;
@@ -77,11 +58,8 @@ extern UINT32 guiDoubleClkDelay;
 extern UINT32 guiSingleClickTimer;
 extern UINT32 guiLeftButtonRepeatTimer;
 extern UINT32 guiRightButtonRepeatTimer;
-extern BOOLEAN gfCurrentStringInputState;
-extern StringInput* gpCurrentStringDescriptor;
 
 void KeyChange(UINT32 key, UINT32 flags, UINT8 pressed);
-void RedirectToString(UINT16 key);
 UINT16 TranslateKeyToCharacter(UINT16 key, UINT8 modifiers);
 UINT16 TranslateCharacterToKey(UINT16 character);
 BOOLEAN IsUppercaseWideChar(UINT16 character);
@@ -98,8 +76,6 @@ extern void QueueEvent(UINT16 ubInputEvent, UINT32 usParam, UINT32 uiParam);
 extern void KeyDown(UINT32 usParam, UINT32 uiParam);
 extern void KeyUp(UINT32 usParam, UINT32 uiParam);
 
-extern UINT16 GetStringLastInput(void);
-extern UINT16* GetString(StringInput* pStringDescriptor);
 extern void FreeMouseCursor(void);
 
 INT16 GetMouseWheelDeltaValue(UINT32 wParam);
