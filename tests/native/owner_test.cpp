@@ -14,6 +14,7 @@
 #include "FileMan.h"
 #include "temporary_directory.h"
 #include "wiz8/asset_paths.h"
+#include "wiz8/text_input.h"
 #include <algorithm>
 #include <array>
 #include <cstdio>
@@ -139,10 +140,13 @@ void camp_effects()
     image_type image{};
     image.ubBitDepth = 8;
     image.fFlags = IMAGE_TRLECOMPRESSED;
-    image.pPalette = palette.data();
-    image.pPixData8 = &pixels;
+    image.pPalette = std::make_unique<SGPPaletteEntry[]>(256);
+    std::copy_n(palette.data(), palette.size(), image.pPalette.get());
+    image.pImageData = std::make_unique<UINT8[]>(1);
+    image.pImageData[0] = pixels;
     image.uiSizePixData = 1;
-    image.pETRLEObject = images.data();
+    image.pETRLEObject = std::make_unique<ETRLEObject[]>(images.size());
+    std::copy_n(images.data(), images.size(), image.pETRLEObject.get());
     image.usNumberOfObjects = images.size();
     VOBJECT_DESC desc{};
     desc.fCreateFlags = VOBJECT_CREATE_FROMHIMAGE;
@@ -247,8 +251,164 @@ void buttons_and_regions()
     CHECK(gpAnchoredButton == &button);
     gpAnchoredButton = nullptr;
     ButtonList[0] = nullptr;
+    for (unsigned repeat = 0; repeat < 32; ++repeat) {
+        wchar_t label[] = L"owned button";
+        const auto id = CreateTextButton(label, 0, 0, 0, -1, 0, 0, 40, 20,
+                                         BUTTON_TOGGLE, MSYS_PRIORITY_NORMAL, nullptr, click);
+        CHECK(id >= 0);
+        auto* owned = ButtonList[id];
+        CHECK(owned && owned->string[0] == L'o');
+        label[0] = L'x';
+        CHECK(owned->string[0] == L'o');
+        SpecifyButtonText(id, owned->string.get());
+        CHECK(ButtonList[id] == owned && owned->string[0] == L'o');
+        wchar_t tooltip[] = L"tooltip";
+        SetButtonFastHelpText(id, tooltip);
+        tooltip[0] = L'x';
+        CHECK(owned->Area.FastHelpText[0] == L't');
+        SetButtonFastHelpText(id, owned->Area.FastHelpText.get());
+        CHECK(owned->Area.FastHelpText[0] == L't');
+        SetButtonFastHelpText(id, nullptr);
+        CHECK(!owned->Area.FastHelpText);
+        SetButtonFastHelpText(id, label);
+        SpecifyButtonText(id, nullptr);
+        CHECK(!owned->string);
+        RemoveButton(id);
+        CHECK(!ButtonList[id]);
+    }
     MSYS_RemoveRegion(&high);
     MSYS_RemoveRegion(&low);
+    MSYS_Shutdown();
+}
+
+void image_and_sprite_ownership()
+{
+    CHECK(InitializeVideoObjectManager());
+    image_type image{};
+    image.ubBitDepth = 8;
+    image.fFlags = IMAGE_TRLECOMPRESSED | IMAGE_BITMAPDATA | IMAGE_PALETTE;
+    image.pPalette = std::make_unique<SGPPaletteEntry[]>(256);
+    image.pPalette[1] = {255, 0, 0, 0};
+    image.pImageData = std::make_unique<UINT8[]>(3);
+    image.pImageData[0] = 1;
+    image.pImageData[1] = 1;
+    image.pETRLEObject = std::make_unique<ETRLEObject[]>(1);
+    image.pETRLEObject[0] = {0, 3, 0, 0, 1, 1};
+    image.uiSizePixData = 3;
+    image.usNumberOfObjects = 1;
+    VOBJECT_DESC desc{};
+    desc.fCreateFlags = VOBJECT_CREATE_FROMHIMAGE;
+    desc.hImage = &image;
+    std::array<UINT32, 64> ids{};
+    std::array<HVOBJECT, 64> views{};
+    for (unsigned i = 0; i < ids.size(); ++i) {
+        CHECK(AddVideoObject(&desc, &ids[i]));
+        CHECK(GetVideoObject(&views[i], ids[i]));
+        CHECK(views[i]->pPixData.get() != image.pImageData.get());
+        CHECK(views[i]->pETRLEObject.get() != image.pETRLEObject.get());
+        CHECK(views[i]->pPaletteEntry.get() != image.pPalette.get());
+        (void)CreateObjectPaletteTables(views[i], HVOBJECT_GLOW_GREEN);
+        CHECK(views[i]->pShades[0] && views[i]->pShades[15]);
+        CHECK(views[i]->pShades[4].get() == views[i]->ownedPalette.get());
+        CHECK(SetObjectShade(views[i], 6));
+        auto retained = views[i]->pShades[4];
+        CHECK(SetVideoObjectPalette(views[i], image.pPalette.get()));
+        CHECK(retained && views[i]->ownedPalette.get() != retained.get());
+        CHECK(views[i]->pShades[4] == views[i]->ownedPalette);
+        CHECK(SetObjectShade(views[i], 4));
+        (void)CreateObjectPaletteTables(views[i], HVOBJECT_GLOW_RED);
+        CHECK(views[i]->pShadeCurrent == views[i]->pShades[4].get());
+    }
+    CHECK(ReleaseImageData(&image, IMAGE_ALLDATA));
+    CHECK(!image.pImageData && !image.pPalette && !image.pETRLEObject);
+    CHECK(!image.uiSizePixData && !image.usNumberOfObjects);
+    for (auto id : {ids[0], ids[31], ids[63]}) {
+        CHECK(DeleteVideoObjectFromIndex(id));
+        HVOBJECT missing = nullptr;
+        CHECK(!GetVideoObject(&missing, id));
+    }
+    HVOBJECT surviving = nullptr;
+    CHECK(GetVideoObject(&surviving, ids[32]) && surviving == views[32]);
+    CHECK(surviving->pPixData[1] == 1 && surviving->pETRLEObject[0].usWidth == 1);
+    UINT16 borrowed[256]{};
+    surviving->p16BPPPalette = borrowed;
+    CHECK(DestroyObjectPaletteTables(surviving));
+    CHECK(!surviving->ownedPalette && !surviving->p16BPPPalette);
+    for (const auto& shade : surviving->pShades) CHECK(!shade);
+    CHECK(ShutdownVideoObjectManager());
+    CHECK(InitializeVideoObjectManager() && ShutdownVideoObjectManager());
+
+    VSURFACE_DESC surface_desc{};
+    surface_desc.fCreateFlags = VSURFACE_CREATE_DEFAULT;
+    surface_desc.usWidth = 8;
+    surface_desc.usHeight = 8;
+    surface_desc.ubBitDepth = 16;
+    std::array<HVSURFACE, 64> surfaces{};
+    for (unsigned i = 0; i < ids.size(); ++i) {
+        CHECK(AddVideoSurface(&surface_desc, &ids[i]));
+        CHECK(GetVideoSurface(&surfaces[i], ids[i]));
+    }
+    for (auto id : {ids[0], ids[31], ids[63]}) {
+        CHECK(DeleteVideoSurfaceFromIndex(id));
+        HVSURFACE missing = nullptr;
+        CHECK(!GetVideoSurface(&missing, id));
+    }
+    HVSURFACE surface = nullptr;
+    CHECK(GetVideoSurface(&surface, ids[32]) && surface == surfaces[32]);
+    CHECK(surface->surface && surface->usWidth == 8);
+    CHECK(ShutdownVideoSurfaceManager());
+}
+
+void font_table_ownership()
+{
+    for (unsigned repeat = 0; repeat < 32; ++repeat) {
+        auto translation = CreateEnglishTransTable();
+        CHECK(translation.usNumberOfSymbols == translation.DynamicArrayOf16BitValues.size());
+        CHECK(InitializeFontManager(8, translation));
+        translation.DynamicArrayOf16BitValues[1] = '?';
+        CHECK(GetIndex('B') == 1);
+        translation = {};
+        CHECK(GetIndex('B') == 1);
+        CHECK(InitializeFontManager(8, CreateEnglishTransTable()));
+        CHECK(GetIndex('Z') == 25);
+        ShutdownFontManager();
+        ShutdownFontManager();
+    }
+}
+
+void text_input_ownership()
+{
+    MSYS_Init();
+    for (unsigned repeat = 0; repeat < 32; ++repeat) {
+        InitTextInputMode();
+        const auto first = AddTextInputField(0, 0, 80, 20, MSYS_PRIORITY_NORMAL,
+                                             L"alpha", 32, 0, 0);
+        const auto middle = AddTextInputField(0, 20, 80, 20, MSYS_PRIORITY_NORMAL,
+                                              L"beta", 32, 0, 0);
+        const auto last = AddTextInputField(0, 40, 80, 20, MSYS_PRIORITY_NORMAL,
+                                            L"gamma", 32, 0, 0);
+        CHECK(first == 0 && middle == 1 && last == 2);
+        wchar_t text[33]{};
+        Get16BitStringFromField(first, text);
+        CHECK(text[0] == L'a' && GetTextInputFieldLength(first) == 5);
+        RemoveTextInputField(middle);
+        CHECK(GetTextInputFieldLength(last) == 5);
+        InitTextInputMode();
+        CHECK(AddTextInputField(0, 0, 80, 20, MSYS_PRIORITY_NORMAL,
+                                L"inner", 32, 0, 0) == 0);
+        KillTextInputMode();
+        Get16BitStringFromField(first, text);
+        CHECK(text[0] == L'a' && GetTextInputFieldLength(last) == 5);
+        CHECK(AddTextInputField(0, 60, 80, 20, MSYS_PRIORITY_NORMAL,
+                                L"delta", 32, 0, 0) == 3);
+        RemoveTextInputField(first);
+        RemoveTextInputField(3);
+        RemoveTextInputField(last);
+        KillTextInputMode();
+        CHECK(GetActiveTextInputField() == -1);
+        InitTextInputMode();
+        KillTextInputMode();
+    }
     MSYS_Shutdown();
 }
 
@@ -262,7 +422,8 @@ void formatted_strings()
     CHECK(strcmp(FormatString("%d", 42), "42") == 0);
 }
 
-void button_image_fixture(const std::filesystem::path& root, std::string name, unsigned count = 9)
+void button_image_fixture(const std::filesystem::path& root, std::string name, unsigned count = 9,
+                           bool app_data = false)
 {
     std::replace(name.begin(), name.end(), '\\', '/');
     const auto path = root / name;
@@ -281,6 +442,7 @@ void button_image_fixture(const std::filesystem::path& root, std::string name, u
     header.Indexed.uiNumberOfColours = 256;
     header.Indexed.usNumberOfSubImages = count;
     header.ubDepth = 8;
+    header.uiAppDataSize = app_data ? 4 : 0;
     write(&header, STCI_HEADER_SIZE);
     std::array<STCIPaletteElement, 256> palette{};
     palette[1].ubRed = 255;
@@ -296,6 +458,10 @@ void button_image_fixture(const std::filesystem::path& root, std::string name, u
         const UINT8 pixels[]{1, 1, 0};
         write(pixels, sizeof(pixels));
     }
+    if (app_data) {
+        const UINT8 bytes[]{7, 8, 9, 10};
+        write(bytes, sizeof(bytes));
+    }
 }
 
 void generic_button_images()
@@ -307,6 +473,37 @@ void generic_button_images()
     button_image_fixture(assets, "short.sti", 8);
     w8_native::configure_paths({assets.string(), (root / "user").string(), {"", "", ""}});
     CHECK(InitializeFileManager(nullptr));
+    button_image_fixture(assets, "metadata.sti", 3, true);
+    {
+        char filename[] = "metadata.sti";
+        std::unique_ptr<image_type> image(CreateImage(filename, IMAGE_ALLDATA));
+        CHECK(image && image->uiSizePixData == 9 && image->usNumberOfObjects == 3);
+        auto* pixels = image->pImageData.get();
+        auto* palette = image->pPalette.get();
+        CHECK(LoadImageData(image.get(), IMAGE_APPDATA));
+        CHECK(image->pImageData.get() == pixels && image->pPalette.get() == palette);
+        CHECK(image->uiAppDataSize == 4 && image->pAppData[0] == 7 && image->pAppData[3] == 10);
+        auto* app = image->pAppData.get();
+        CHECK(LoadImageData(image.get(), IMAGE_PALETTE));
+        CHECK(image->pImageData.get() == pixels && image->pAppData.get() == app);
+        CHECK(image->pPalette.get() != palette && image->pPalette[1].peRed == 255);
+        palette = image->pPalette.get();
+        CHECK(ReleaseImageData(image.get(), IMAGE_BITMAPDATA));
+        CHECK(image->pPalette.get() == palette && image->pAppData.get() == app);
+        CHECK(!image->pImageData && !image->pETRLEObject && !image->usNumberOfObjects);
+        CHECK(LoadImageData(image.get(), IMAGE_BITMAPDATA));
+        CHECK(image->pPalette.get() == palette && image->pAppData.get() == app);
+        CHECK(image->pImageData[1] == 1 && image->usNumberOfObjects == 3);
+        pixels = image->pImageData.get();
+        auto* objects = image->pETRLEObject.get();
+        const auto flags = image->fFlags;
+        std::filesystem::resize_file(assets / "metadata.sti",
+            STCI_HEADER_SIZE + STCI_8BIT_PALETTE_SIZE + 3 * STCI_SUBIMAGE_SIZE + 7);
+        CHECK(!LoadImageData(image.get(), IMAGE_ALLDATA));
+        CHECK(image->pImageData.get() == pixels && image->pETRLEObject.get() == objects);
+        CHECK(image->pPalette.get() == palette && image->pAppData.get() == app);
+        CHECK(image->fFlags == flags && image->uiAppDataSize == 4 && image->uiSizePixData == 9);
+    }
     CHECK(!InitializeButtonImageManager(-1, -1, -1));
     CHECK(FindFreeGenericSlot() == 0 && GenericButtonOffNormal[0] == nullptr);
     button_image_fixture(assets, DEFAULT_GENERIC_BUTTON_ON);
@@ -341,6 +538,18 @@ void generic_button_images()
         CHECK(!GenericButtonGrayed[slot] && !GenericButtonBackground[slot]);
     }
     CHECK(load({filename, filename, nullptr, nullptr, nullptr, nullptr}) == -1);
+    for (unsigned repeat = 0; repeat < 32; ++repeat) {
+        CHECK(InitializeFontManager(16, CreateEnglishTransTable()));
+        CHECK(LoadFontFile(filename) == 0);
+        auto* font = GetFontObject(0);
+        CHECK(font && font->ownedPalette && font->usNumberOfObjects == 9);
+        UINT16 borrowed[256]{};
+        CHECK(SetFontObjectPalette16BPP(0, borrowed) == borrowed);
+        CHECK(GetFontObjectPalette16BPP(0) == borrowed);
+        CHECK(GetFontObject(0) == font);
+        ShutdownFontManager();
+        ShutdownFontManager();
+    }
     ShutdownButtonImageManager();
     CHECK(FindFreeGenericSlot() == 0 && !GenericButtonOnNormal[39]);
     ShutdownFileManager();
@@ -362,6 +571,9 @@ int main(int argc, char** argv)
     surface_regions();
     camp_effects();
     buttons_and_regions();
+    image_and_sprite_ownership();
+    font_table_ownership();
+    text_input_ownership();
     formatted_strings();
     generic_button_images();
     return 0;

@@ -64,7 +64,6 @@ int main(int argc, char** argv)
         /* This standalone test owns SDL and DBus until process exit. */
         SDL_SetHint(SDL_HINT_SHUTDOWN_DBUS_ON_QUIT, "1");
         CHECK(SDL_Init(SDL_INIT_VIDEO));
-        CHECK(InitializeMemoryManager());
         CHECK(InitializeFileManager(nullptr));
         CHECK(InitializeFileDatabase());
         CHECK(InitializeInputManager());
@@ -227,7 +226,6 @@ int main(int argc, char** argv)
         ShutdownInputManager();
         ShutDownFileDatabase();
         ShutdownFileManager();
-        ShutdownMemoryManager();
         SDL_Quit();
         return 0;
     }

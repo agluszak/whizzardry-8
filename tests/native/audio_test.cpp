@@ -2,7 +2,6 @@
 #include "native/audio_test.h"
 #include "FileMan.h"
 #include "LibraryDataBase.h"
-#include "MemMan.h"
 #include <wiz8/native_audio.h>
 #include "native/movie_audio.h"
 #include <wiz8/filesystem.h>
@@ -140,7 +139,6 @@ int main(int argc, char**)
     archive.insert(archive.end(), reinterpret_cast<unsigned char*>(entries),
                    reinterpret_cast<unsigned char*>(entries) + sizeof(entries));
     write(asset / "Data" / "DATA.SLF", archive);
-    CHECK(InitializeMemoryManager());
     CHECK(InitializeFileManager(nullptr));
     CHECK(InitializeFileDatabase());
     {
@@ -551,7 +549,6 @@ int main(int argc, char**)
     }
     ShutDownFileDatabase();
     ShutdownFileManager();
-    ShutdownMemoryManager();
     std::filesystem::remove_all(temporary);
     puts("ok: native audio samples, streams, loops, pans, fades, callbacks, spatialization and "
          "lifetime");

@@ -4,6 +4,10 @@
 #define _LIBRARY_DATABASE_H
 
 #include "Types.h"
+#include "wiz8/filesystem.h"
+#include <memory>
+#include <string>
+#include <vector>
 #include "FileMan.h"
 
 namespace wiz8 { class File; }
@@ -32,19 +36,19 @@ extern CHAR8 gzCdDirectory[SGPFILENAME_LEN];
 #endif
 
 typedef struct {
-    STR pFileName;
+    std::string pFileName;
     UINT32 uiFileLength;
     UINT32 uiFileOffset;
     SGP_FILETIME sFileTime;
 } FileHeaderStruct;
 
 typedef struct {
-    STR sLibraryPath;
-    wiz8::File* hLibraryHandle; // Owned by the slot; explicitly delete on close.
+    std::string sLibraryPath;
+    std::unique_ptr<wiz8::File> hLibraryHandle;
     UINT16 usNumberOfEntries;
     BOOLEAN fLibraryOpen;
     BOOLEAN fPatchLibrary;
-    FileHeaderStruct* pFileHeader;
+    std::vector<FileHeaderStruct> pFileHeader;
 
     //
     //	Temp:	Total memory used for each library ( all memory allocated
@@ -54,7 +58,7 @@ typedef struct {
 
 typedef struct {
     STR sManagerName;
-    LibraryHeaderStruct* pLibraries;
+    std::vector<LibraryHeaderStruct> pLibraries;
     UINT16 usNumberOfLibraries;
     BOOLEAN fInitialized;
 } DatabaseManagerHeaderStruct;

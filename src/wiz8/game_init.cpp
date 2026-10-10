@@ -57,7 +57,7 @@ unsigned char InitializeGame(void)
     strcat(version, FormatString(" %s", "2001/12/24 15:36"));
     InitializeFileDatabase();
     LoadPatchSlfArchives("Patches");
-    LoadLocalizedStrings(gzStringDataOverride ? gzStringDataOverride
+    LoadLocalizedStrings(!gzStringDataOverride.empty() ? gzStringDataOverride.c_str()
                                               : "Data\\Strings\\StringData.DAT");
     buffer = LockPrimarySurface(&count);
     memset(buffer, 0, count * 0x1e0);

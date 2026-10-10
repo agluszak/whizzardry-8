@@ -1,7 +1,7 @@
 /* Modified for the Wizardry 8 reconstruction: 2026-10-10.
    Distributed under the accompanying SFI Source Code license agreement. */
 #include "LibraryDataBase.h"
-#include "MemMan.h"
+
 #include "file_handles.h"
 #include <wiz8/filesystem.h>
 
@@ -26,37 +26,7 @@ namespace
 {
 void release_library(LibraryHeaderStruct& library)
 {
-    delete library.hLibraryHandle;
-    for (UINT16 i = 0; i < library.usNumberOfEntries; ++i)
-        MemFree(library.pFileHeader[i].pFileName);
-    MemFree(library.pFileHeader);
-    MemFree(library.sLibraryPath);
     library = {};
-}
-
-struct PendingLibrary
-{
-    LibraryHeaderStruct header{};
-    ~PendingLibrary() { release_library(header); }
-};
-
-template<typename T>
-T* allocate_array(std::size_t count)
-{
-    if (count > std::numeric_limits<UINT32>::max() / sizeof(T))
-        throw std::length_error("SLF allocation overflow");
-    auto* result = static_cast<T*>(MemAlloc(count * sizeof(T)));
-    if (!result)
-        throw std::bad_alloc();
-    std::memset(result, 0, count * sizeof(T));
-    return result;
-}
-
-char* copy_text(std::string_view text)
-{
-    auto* result = allocate_array<char>(text.size() + 1);
-    std::memcpy(result, text.data(), text.size());
-    return result;
 }
 
 template<std::size_t N>
@@ -96,7 +66,7 @@ std::string lookup_key(std::string_view text)
 
 bool valid_library(INT16 id)
 {
-    return gFileDataBase.pLibraries && id >= 0 && id < gFileDataBase.usNumberOfLibraries;
+    return !gFileDataBase.pLibraries.empty() && id >= 0 && id < gFileDataBase.usNumberOfLibraries;
 }
 
 std::unique_ptr<wiz8::File> open_archive(const char* name, bool on_cd)
@@ -187,12 +157,12 @@ FileHeaderStruct* find_entry(LibraryHeaderStruct& library, std::string_view name
     if (!name.starts_with(path) || !library.usNumberOfEntries)
         return nullptr;
     name.remove_prefix(path.size());
-    auto* end = library.pFileHeader + library.usNumberOfEntries;
-    auto* found = std::lower_bound(library.pFileHeader, end, name,
+    auto end = library.pFileHeader.end();
+    auto found = std::lower_bound(library.pFileHeader.begin(), end, name,
         [](const FileHeaderStruct& entry, std::string_view key) {
             return std::string_view(entry.pFileName) < key;
         });
-    return found != end && name == found->pFileName ? found : nullptr;
+    return found != end && name == found->pFileName ? &*found : nullptr;
 }
 
 } // namespace
@@ -202,7 +172,7 @@ BOOLEAN InitializeFileDatabase(void)
     ShutDownFileDatabase();
     try
     {
-        gFileDataBase.pLibraries = allocate_array<LibraryHeaderStruct>(MAX_NUMBER_OF_LIBRARIES);
+        gFileDataBase.pLibraries.resize(MAX_NUMBER_OF_LIBRARIES);
         std::strcpy(gzCdDirectory, ".");
         gFileDataBase.usNumberOfLibraries = NUMBER_OF_LIBRARIES;
         for (INT16 id = 0; id < NUMBER_OF_LIBRARIES; ++id)
@@ -219,7 +189,7 @@ BOOLEAN InitializeFileDatabase(void)
 
 INT32 LoadPatchSlfArchives(const CHAR8* directory)
 {
-    if (!directory || !gFileDataBase.pLibraries)
+    if (!directory || gFileDataBase.pLibraries.empty())
         return 0;
     INT32 loaded = 0;
     try
@@ -261,7 +231,7 @@ INT32 LoadPatchSlfArchives(const CHAR8* directory)
 
 BOOLEAN ReopenCDLibraries(void)
 {
-    if (!gFileDataBase.pLibraries)
+    if (gFileDataBase.pLibraries.empty())
         return FALSE;
     for (INT16 id = 0; id < NUMBER_OF_LIBRARIES; ++id)
         if (gGameLibaries[id].fOnCDrom)
@@ -275,13 +245,7 @@ BOOLEAN ReopenCDLibraries(void)
 BOOLEAN ShutDownFileDatabase()
 {
     sgp::close_files();
-    if (gFileDataBase.pLibraries)
-    {
-        for (UINT16 id = 0; id < gFileDataBase.usNumberOfLibraries; ++id)
-            release_library(gFileDataBase.pLibraries[id]);
-        MemFree(gFileDataBase.pLibraries);
-    }
-    gFileDataBase.pLibraries = nullptr;
+    gFileDataBase.pLibraries.clear();
     gFileDataBase.usNumberOfLibraries = 0;
     gFileDataBase.fInitialized = FALSE;
     return TRUE;
@@ -296,27 +260,25 @@ BOOLEAN InitializeLibrary(STR name, LibraryHeaderStruct* library, BOOLEAN on_cd)
         auto file = open_archive(name, on_cd);
         LIBHEADER disk{};
         auto entries = read_archive_table(*file, disk);
-        PendingLibrary pending;
-        auto& header = pending.header;
+        LibraryHeaderStruct header{};
         header.fPatchLibrary = library->fPatchLibrary;
-        header.sLibraryPath = copy_text(entry_key(disk_text(disk.sPathToLibrary)));
+        header.sLibraryPath = entry_key(disk_text(disk.sPathToLibrary));
         if (!entries.empty())
         {
-            header.pFileHeader = allocate_array<FileHeaderStruct>(entries.size());
+            header.pFileHeader.resize(entries.size());
             header.usNumberOfEntries = static_cast<UINT16>(entries.size());
             for (std::size_t i = 0; i < entries.size(); ++i)
             {
                 auto& target = header.pFileHeader[i];
-                target.pFileName = copy_text(entries[i].name);
+                target.pFileName = std::move(entries[i].name);
                 target.uiFileOffset = entries[i].offset;
                 target.uiFileLength = entries[i].length;
                 target.sFileTime = entries[i].time;
             }
         }
         header.fLibraryOpen = TRUE;
-        header.hLibraryHandle = file.release();
-        *library = header;
-        header = {};
+        header.hLibraryHandle = std::move(file);
+        *library = std::move(header);
         return TRUE;
     }
     catch (const std::exception&)
@@ -347,8 +309,8 @@ INT16 GetLibraryIDFromFileName(const char* name)
                 continue;
             if (best == -1 || library.fPatchLibrary ||
                 (!gFileDataBase.pLibraries[best].fPatchLibrary &&
-                 std::strlen(library.sLibraryPath) >
-                 std::strlen(gFileDataBase.pLibraries[best].sLibraryPath)))
+                 library.sLibraryPath.size() >
+                 gFileDataBase.pLibraries[best].sLibraryPath.size()))
                 best = id;
         }
         return best;

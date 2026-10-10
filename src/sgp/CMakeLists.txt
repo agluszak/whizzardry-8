@@ -1,7 +1,6 @@
 # Native SGP: recovered shell, input, CPU surfaces and portable core.
 # Audio remains at the native media boundary.
 add_library(WIZ8_SGP STATIC
-    MemMan.cpp
     FileMan.cpp
     vobject.cpp
     timer.cpp

@@ -2,6 +2,7 @@
 #include "Compression.h"
 #include "himage.h"
 
+#include <algorithm>
 #include <stdio.h>
 #include <string.h>
 #include <vector>
@@ -20,7 +21,7 @@ int main()
         return 1;
     }
 
-    PTR stream = DecompressInit(packed.data(), static_cast<UINT32>(packed_size));
+    auto stream = DecompressInit(packed.data(), static_cast<UINT32>(packed_size));
     if (stream == NULL) {
         fprintf(stderr, "DecompressInit failed\n");
         return 1;
@@ -33,13 +34,13 @@ int main()
         if (chunk > 7919) {
             chunk = 7919;
         }
-        UINT32 produced = Decompress(stream, unpacked.data() + total, chunk);
+        UINT32 produced = Decompress(stream.get(), unpacked.data() + total, chunk);
         if (produced == 0) {
             break;
         }
         total += produced;
     }
-    DecompressFini(stream);
+    stream.reset();
 
     if (total != original.size() || memcmp(unpacked.data(), original.data(), total) != 0) {
         fprintf(stderr, "round trip mismatch: %u of %zu bytes\n", total, original.size());
@@ -48,9 +49,10 @@ int main()
     image_type image{};
     image.usWidth = 500;
     image.usHeight = 200;
-    image.pCompressedImageData = packed.data();
-    UINT16 palette[256]{};
-    image.pui16BPPPalette = palette;
+    image.pImageData = std::make_unique<UINT8[]>(packed_size);
+    std::copy_n(packed.data(), packed_size, image.pImageData.get());
+    image.uiSizePixData = packed_size;
+    image.pui16BPPPalette = std::make_unique<UINT16[]>(256);
     unsigned char destination8[200]{};
     UINT16 destination16[200]{};
     SGPRect rectangle{3, 2, 13, 7};

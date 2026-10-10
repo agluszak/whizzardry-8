@@ -1,7 +1,6 @@
 #include "../../src/native/movie.h"
 #include "FileMan.h"
 #include "LibraryDataBase.h"
-#include "MemMan.h"
 #include "compat/surfaces.h"
 #include "native/audio_test.h"
 #include <wiz8/asset_paths.h>
@@ -102,7 +101,6 @@ int main(int argc, char** argv)
         archive.insert(archive.end(), reinterpret_cast<unsigned char*>(entries),
                        reinterpret_cast<unsigned char*>(entries) + sizeof(entries));
         write(assets / "Data" / "DATA.SLF", archive);
-        CHECK(InitializeMemoryManager());
         CHECK(InitializeFileManager(nullptr));
         CHECK(InitializeFileDatabase());
         w8_native::audio_offline_for_test(true);
@@ -234,7 +232,6 @@ int main(int argc, char** argv)
         ShutdownSoundManager();
         ShutDownFileDatabase();
         ShutdownFileManager();
-        ShutdownMemoryManager();
         printf("movie: loose/SLF RGB555 golden frames, timed EOF, PCM audio, "
                "reopen and bounded failure passed\n");
         return 0;
