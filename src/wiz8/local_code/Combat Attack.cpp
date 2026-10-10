@@ -1633,6 +1633,16 @@ static void MarkDefenderSkillUse(int party_slot)
     }
 }
 
+/* Both character and monster attacks report invalid targets identically. */
+static void ReportInvalidAttackTarget(const W8CombatSlot& target, const W8TargetSource& source)
+{
+    DebugMessage(!g_dev_mode,
+                 fmt::format("InvalidAttackTarget: Target Type {:d}(char {:d},ID "
+                             "{:d}), Source Type {:d}(char {:d},ID {:d})",
+                             fmt::underlying(target.iType), target.iChar, target.iMonsterID,
+                             fmt::underlying(source.iType), source.iChar, source.iMonsterID));
+}
+
 /* Resolve one queued swing of the monster's attack: rolls the hit chance and
    the fumble redirection, resolves guardian interception, picks the hit
    location, rolls penetration, applies damage and the struck target's
@@ -2019,12 +2029,7 @@ int ContinueMonsterAttack(W8MonsterInfo* monster_info, W8MonsterRecord* record)
     return 3;
 
 invalid_target:
-    DebugMessage(!g_dev_mode,
-                 fmt::format("InvalidAttackTarget: Target Type {:d}(char {:d},ID {:d}), Source "
-                             "Type {:d}(char {:d},ID {:d})",
-                             fmt::underlying(g_combat_state->TargetHit.iType),
-                             g_combat_state->TargetHit.iChar, g_combat_state->TargetHit.iMonsterID,
-                             fmt::underlying(source.iType), source.iChar, source.iMonsterID));
+    ReportInvalidAttackTarget(g_combat_state->TargetHit, source);
     return 3;
 }
 
@@ -3925,13 +3930,7 @@ int ResolveCharacterAttack(int party_slot)
             outcome = 2;
         }
     } else if (!TargetIsInPlay(party_slot, hand, W8_TARGETING_CONTEXT_OUT_OF_COMBAT)) {
-        DebugMessage(!g_dev_mode,
-                     fmt::format("InvalidAttackTarget: Target Type {:d}(char {:d},ID "
-                                 "{:d}), Source Type {:d}(char {:d},ID {:d})",
-                                 fmt::underlying(party_row->target_out_of_combat.iType),
-                                 party_row->target_out_of_combat.iChar,
-                                 party_row->target_out_of_combat.iMonsterID,
-                                 fmt::underlying(source.iType), source.iChar, source.iMonsterID));
+        ReportInvalidAttackTarget(party_row->target_out_of_combat, source);
         return 3;
     } else {
         attack_mode = static_cast<W8AttackMode>(party_row->attack_mode[hand]);
@@ -4017,14 +4016,7 @@ int ResolveCharacterAttack(int party_slot)
             source.target_diverted =
                 memcmp(&target, &g_combat_state->TargetHit, sizeof(W8CombatSlot)) != 0;
             if (!IsTargetStillPresent(&g_combat_state->TargetHit)) {
-                DebugMessage(!g_dev_mode,
-                             fmt::format("InvalidAttackTarget: Target Type {:d}(char {:d},ID "
-                                         "{:d}), Source Type {:d}(char {:d},ID {:d})",
-                                         fmt::underlying(g_combat_state->TargetHit.iType),
-                                         g_combat_state->TargetHit.iChar,
-                                         g_combat_state->TargetHit.iMonsterID,
-                                         fmt::underlying(source.iType), source.iChar,
-                                         source.iMonsterID));
+                ReportInvalidAttackTarget(g_combat_state->TargetHit, source);
                 return 3;
             }
             if (!verbose && source.target_diverted != 0) {
@@ -4047,14 +4039,7 @@ int ResolveCharacterAttack(int party_slot)
                 }
             } else {
                 if (g_combat_state->TargetHit.iType != W8_TARGET_KIND_CHARACTER) {
-                    DebugMessage(!g_dev_mode,
-                                 fmt::format("InvalidAttackTarget: Target Type {:d}(char {:d},ID "
-                                             "{:d}), Source Type {:d}(char {:d},ID {:d})",
-                                             fmt::underlying(g_combat_state->TargetHit.iType),
-                                             g_combat_state->TargetHit.iChar,
-                                             g_combat_state->TargetHit.iMonsterID,
-                                             fmt::underlying(source.iType), source.iChar,
-                                             source.iMonsterID));
+                    ReportInvalidAttackTarget(g_combat_state->TargetHit, source);
                     return 3;
                 }
                 hit_location = RollCharacterHitLocation();
