@@ -2,8 +2,8 @@
 
 #include <iosfwd>
 
+#include "srClock.h"
 #include "srStatisticsManager.h"
-#include "srVariableTimer.h"
 
 class srColorSurfaceIFace;
 class srFilter;
@@ -44,7 +44,7 @@ public:
     SR_DLL_IMPORT srTexture* getTexture() const;
     // FUNCTION: SURRENDER 0x100156C0
     // RECOMP: ?getTimer@srCore@@QBEPAVsrVariableTimer@@XZ
-    srVariableTimer* getTimer() const
+    srClock* getTimer() const
     {
         return timer;
     }
@@ -73,7 +73,7 @@ private:
 
     static SR_DLL_IMPORT int initialized;
 
-    srVariableTimer* timer;
+    srClock* timer;
     srColorSurfaceIFace* surface;
     srIStreamOpener* stream_opener;
     srFStreamOpener* file_stream_opener;

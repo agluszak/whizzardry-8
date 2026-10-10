@@ -4,10 +4,10 @@
 #define SR_NEW(Type) new Type::ClientType
 
 #include <iosfwd>
+#include <mutex>
 #include <new>
 
 #include "srCore.h"
-#include "srCriticalSection.h"
 
 class srRuntimeClass;
 class srNode;
@@ -155,7 +155,7 @@ private:
     ClassNode* root;
     ClassIndex* class_index;
     int valid;
-    srCriticalSection* critical_section;
+    std::recursive_mutex* critical_section;
 };
 
 W8_ABI_ASSERT(sizeof(srRegistry::ClassNode) == 0x2c, "srRegistry_ClassNode_must_be_0x2c");

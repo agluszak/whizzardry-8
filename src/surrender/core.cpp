@@ -3,6 +3,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <thread>
+
+#include <SDL3/SDL_platform.h>
+
 #include "surrender/srCore.h"
 #include "surrender/srStreamFlags.h"
 #include "surrender/srColorSurface.h"
@@ -53,9 +57,9 @@ int __cdecl srInit()
         srCore.reset();
         srDebugPrintf(0xfe, "srInit() -- initializing SurRender\n");
         srCore.registry_ = new srRegistry;
-        srCore.timer = new srVariableTimer;
+        srCore.timer = new srClock;
         _srLibraryInit();
-        srCore.multi_thread = srCore.timer->fastThreads();
+        srCore.multi_thread = std::thread::hardware_concurrency() > 1;
         srCore.statistics_manager = new srStatisticsManager;
         srCore.statistics_manager->reset();
         srCore.setFilter(0);
@@ -253,20 +257,12 @@ void srCore::dump(std::ostream& stream)
     stream.width(0x18);
     stream << "Debug Level: " << debug_level << '\n';
     stream.width(0x18);
-    stream << "Seconds since reset: " << timer->getTime(srTimer::TIMER_READ_DEFAULT) << '\n';
+    stream << "Seconds since reset: " << timer->seconds() << '\n';
     stream.width(0x18);
-    stream << "Operating System: " << timer->getOsIdent() << '\n';
+    stream << "Operating System: " << SDL_GetPlatform() << '\n';
     stream << "CPU Information:\n";
     stream.width(0x18);
-    stream << "  Processor: " << timer->m_cpu_count << "x " << timer->m_cpu_ident << '\n';
-    stream.width(0x18);
-    stream << "  CPU Speed: " << timer->getFreqf() << "Mhz" << '\n';
-    stream.width(0x18);
-    stream << "  FPU support: " << srBoolToString(timer->getFPUSupport()) << '\n';
-    stream.width(0x18);
-    stream << "  MMX support: " << srBoolToString(timer->getMMXSupport()) << '\n';
-    stream.width(0x18);
-    stream << "  RDTSC support: " << srBoolToString(timer->getRDTSCSupport()) << '\n';
+    stream << "  Logical CPUs: " << std::thread::hardware_concurrency() << '\n';
     stream.width(0x18);
     stream << "  Multi-thread:  " << srBoolToString(multi_thread) << '\n';
     srSetStreamFlags(stream, flags & 0x7fff);

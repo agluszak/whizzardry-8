@@ -3,19 +3,18 @@
 
 #include "surrender/srStatisticsManager.h"
 #include "surrender/srCore.h"
-#include "surrender/srTimer.h"
 
 // FUNCTION: SURRENDER 0x100148A0
 void srStatisticsManager::reset()
 {
     memset(&statistics, 0, sizeof(Statistics));
-    statistics.elapsed_time = srCore.getTimer()->getTime(srTimer::TIMER_READ_DEFAULT);
+    statistics.elapsed_time = srCore.getTimer()->seconds();
 }
 
 // FUNCTION: SURRENDER 0x10014920
 void srStatisticsManager::getStatistics(Statistics& statistics) const
 {
-    double now = srCore.getTimer()->getTime(srTimer::TIMER_READ_DEFAULT);
+    double now = srCore.getTimer()->seconds();
     statistics = this->statistics;
     statistics.elapsed_time = now - statistics.elapsed_time;
 }

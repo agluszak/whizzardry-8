@@ -5,7 +5,6 @@
 #include "surrender/srCamera.h"
 #include "surrender/srCore.h"
 #include "surrender/srGERD.h"
-#include "surrender/srTimer.h"
 
 #include <ostream>
 
@@ -125,14 +124,14 @@ void srScene::getStatistics(Statistics& statistics)
 {
     statistics = this->statistics;
     statistics.elapsed =
-        srCore.getTimer()->getTime(srTimer::TIMER_READ_DEFAULT) - statistics.elapsed;
+        srCore.getTimer()->seconds() - statistics.elapsed;
 }
 
 // FUNCTION: SURRENDER 0x10056550
 void srScene::resetStatistics()
 {
     statistics = {};
-    statistics.elapsed = srCore.getTimer()->getTime(srTimer::TIMER_READ_DEFAULT);
+    statistics.elapsed = srCore.getTimer()->seconds();
 }
 
 // FUNCTION: SURRENDER 0x10056750

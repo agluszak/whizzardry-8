@@ -741,8 +741,8 @@ srRegistry::ClassNode* srClass::getClassNode() const
 // FUNCTION: SURRENDER 0x1000E910
 srRegistry::srRegistry()
 {
-    critical_section = new srCriticalSection;
-    srCriticalSectionAccess access(critical_section);
+    critical_section = new std::recursive_mutex;
+    std::lock_guard<std::recursive_mutex> access(*critical_section);
     class_index = new ClassIndex;
     root = new ClassNode(0, "root", 0);
     w8_ulong root_id = 0;
@@ -753,14 +753,14 @@ srRegistry::srRegistry()
 // FUNCTION: SURRENDER 0x1000EA40
 w8_ulong srRegistry::getClassID(ClassNode* node)
 {
-    srCriticalSectionAccess access(critical_section);
+    std::lock_guard<std::recursive_mutex> access(*critical_section);
     return node->getClassID();
 }
 
 // FUNCTION: SURRENDER 0x1000EAA0
 const char* srRegistry::getClassName(ClassNode* node)
 {
-    srCriticalSectionAccess access(critical_section);
+    std::lock_guard<std::recursive_mutex> access(*critical_section);
     return node->class_name;
 }
 
@@ -768,7 +768,7 @@ const char* srRegistry::getClassName(ClassNode* node)
 srRegistry::~srRegistry()
 {
     {
-        srCriticalSectionAccess access(critical_section);
+        std::lock_guard<std::recursive_mutex> access(*critical_section);
         delete root;
         root = 0;
         delete class_index;
@@ -781,7 +781,7 @@ srRegistry::~srRegistry()
 // FUNCTION: SURRENDER 0x1000EBD0
 srRegistry::ClassNode* srRegistry::getClassNode(w8_ulong class_id)
 {
-    srCriticalSectionAccess access(critical_section);
+    std::lock_guard<std::recursive_mutex> access(*critical_section);
     if (class_id == 0) {
         return 0;
     }
@@ -792,7 +792,7 @@ srRegistry::ClassNode* srRegistry::getClassNode(w8_ulong class_id)
 srRegistry::ClassNode* srRegistry::registerClass(const char* class_name, ClassNode* parent,
                                                  w8_ulong class_id, int register_instances)
 {
-    srCriticalSectionAccess access(critical_section);
+    std::lock_guard<std::recursive_mutex> access(*critical_section);
     ClassNode* node = class_index->Lookup(&class_id);
     if (node == 0) {
         srDebugPrintf(0xfe, "srRegistry::registerClass() - registering %s (ID 0x%x)\n", class_name,
@@ -808,7 +808,7 @@ srRegistry::ClassNode* srRegistry::registerClass(const char* class_name, ClassNo
 // FUNCTION: SURRENDER 0x1000ED40
 void srRegistry::dumpClassHierarchy(std::ostream& stream)
 {
-    srCriticalSectionAccess access(critical_section);
+    std::lock_guard<std::recursive_mutex> access(*critical_section);
     for (ClassNode::ChildLink* link = root->children.first; link != root->children.last;
          link = link->next) {
         link->node->dump(stream, 0);
@@ -819,7 +819,7 @@ void srRegistry::dumpClassHierarchy(std::ostream& stream)
 srRegistry::ClassNode* srRegistry::addToTree(ClassNode* parent, const char* class_name,
                                              w8_ulong class_id)
 {
-    srCriticalSectionAccess access(critical_section);
+    std::lock_guard<std::recursive_mutex> access(*critical_section);
     ClassNode* node = new ClassNode(parent, class_name, class_id);
     class_index->Insert(&class_id, &node);
     return node;
@@ -828,7 +828,7 @@ srRegistry::ClassNode* srRegistry::addToTree(ClassNode* parent, const char* clas
 // FUNCTION: SURRENDER 0x1000EEA0
 void srRegistry::dumpInstanceNames(ClassNode* node, std::ostream& stream, int indent)
 {
-    srCriticalSectionAccess access(critical_section);
+    std::lock_guard<std::recursive_mutex> access(*critical_section);
     // c-style-cast-ok: selects the instance overload.
     for (srRuntimeClass* instance = find(node, (srRuntimeClass*)0); instance != 0;
          instance = find(node, instance)) {
@@ -843,14 +843,14 @@ void srRegistry::dumpInstanceNames(ClassNode* node, std::ostream& stream, int in
 // FUNCTION: SURRENDER 0x1000EFB0
 void srRegistry::registerInstance(ClassNode* node, srRuntimeClass* instance)
 {
-    srCriticalSectionAccess access(critical_section);
+    std::lock_guard<std::recursive_mutex> access(*critical_section);
     node->registerInstance(instance);
 }
 
 // FUNCTION: SURRENDER 0x1000F010
 void srRegistry::refreshInstance(ClassNode* node, srRuntimeClass* instance)
 {
-    srCriticalSectionAccess access(critical_section);
+    std::lock_guard<std::recursive_mutex> access(*critical_section);
     node->refreshInstance(instance);
 }
 
@@ -858,7 +858,7 @@ void srRegistry::refreshInstance(ClassNode* node, srRuntimeClass* instance)
 srRuntimeClass* srRegistry::find(ClassNode* node, const char* name,
                                  const srRuntimeClass* relative_to)
 {
-    srCriticalSectionAccess access(critical_section);
+    std::lock_guard<std::recursive_mutex> access(*critical_section);
     return node->findByName(node, name, 0, relative_to);
 }
 
@@ -866,35 +866,35 @@ srRuntimeClass* srRegistry::find(ClassNode* node, const char* name,
 srRuntimeClass* srRegistry::findExact(ClassNode* node, const char* name,
                                       const srRuntimeClass* relative_to)
 {
-    srCriticalSectionAccess access(critical_section);
+    std::lock_guard<std::recursive_mutex> access(*critical_section);
     return node->findByName(node, name, 1, relative_to);
 }
 
 // FUNCTION: SURRENDER 0x1000F150
 srRuntimeClass* srRegistry::find(ClassNode* node, w8_ulong id)
 {
-    srCriticalSectionAccess access(critical_section);
+    std::lock_guard<std::recursive_mutex> access(*critical_section);
     return node->findByID(node, id, 0);
 }
 
 // FUNCTION: SURRENDER 0x1000F1B0
 srRuntimeClass* srRegistry::findExact(ClassNode* node, w8_ulong id)
 {
-    srCriticalSectionAccess access(critical_section);
+    std::lock_guard<std::recursive_mutex> access(*critical_section);
     return node->findByID(node, id, 1);
 }
 
 // FUNCTION: SURRENDER 0x1000F210
 void srRegistry::unregisterInstance(ClassNode* node, srRuntimeClass* instance)
 {
-    srCriticalSectionAccess access(critical_section);
+    std::lock_guard<std::recursive_mutex> access(*critical_section);
     node->unregisterInstance(instance);
 }
 
 // FUNCTION: SURRENDER 0x1000F270
 int srRegistry::isDerivedOrSame(ClassNode* base, ClassNode* derived)
 {
-    srCriticalSectionAccess access(critical_section);
+    std::lock_guard<std::recursive_mutex> access(*critical_section);
     if (base != 0 && derived != 0) {
         return base->isDerivedOrSame(derived);
     }
@@ -904,28 +904,28 @@ int srRegistry::isDerivedOrSame(ClassNode* base, ClassNode* derived)
 // FUNCTION: SURRENDER 0x1000F2F0
 srRuntimeClass* srRegistry::findExact(ClassNode* node, const srRuntimeClass* relative_to)
 {
-    srCriticalSectionAccess access(critical_section);
+    std::lock_guard<std::recursive_mutex> access(*critical_section);
     return node->findRelative(node, 1, relative_to);
 }
 
 // FUNCTION: SURRENDER 0x1000F350
 srRuntimeClass* srRegistry::find(ClassNode* node, const srRuntimeClass* relative_to)
 {
-    srCriticalSectionAccess access(critical_section);
+    std::lock_guard<std::recursive_mutex> access(*critical_section);
     return node->findRelative(node, 0, relative_to);
 }
 
 // FUNCTION: SURRENDER 0x1000F3B0
 srRegistry::ClassNode* srRegistry::getRootClass()
 {
-    srCriticalSectionAccess access(critical_section);
+    std::lock_guard<std::recursive_mutex> access(*critical_section);
     return root->children.first->node;
 }
 
 // FUNCTION: SURRENDER 0x1000F3E0
 srRegistry::ClassNode* srRegistry::getChildClass(ClassNode* parent, ClassNode* child)
 {
-    srCriticalSectionAccess access(critical_section);
+    std::lock_guard<std::recursive_mutex> access(*critical_section);
     ClassNode::ChildLink* link = parent->children.first;
     ClassNode* result = 0;
     if (child == 0) {
@@ -953,21 +953,21 @@ int srRegistry::checkValidity()
 // FUNCTION: SURRENDER 0x1000F460
 w8_long srRegistry::getNumberOfInstances(ClassNode* node, int exact)
 {
-    srCriticalSectionAccess access(critical_section);
+    std::lock_guard<std::recursive_mutex> access(*critical_section);
     return node->getNumberOfInstances(exact);
 }
 
 // FUNCTION: SURRENDER 0x1000F4C0
 w8_ulong srRegistry::allocateID()
 {
-    srCriticalSectionAccess access(critical_section);
+    std::lock_guard<std::recursive_mutex> access(*critical_section);
     return next_instance_id++;
 }
 
 // FUNCTION: SURRENDER 0x100105C0
 srRegistry::ClassNode* srRegistry::getRootNode()
 {
-    srCriticalSectionAccess access(critical_section);
+    std::lock_guard<std::recursive_mutex> access(*critical_section);
     return root;
 }
 

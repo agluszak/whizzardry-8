@@ -38,7 +38,6 @@
 #include "wiz8/utility.h"
 #include "wiz8/vector.h"
 #include "surrender/srCamera.h"
-#include "surrender/srTimer.h"
 #include "soundman.h"
 
 #include <math.h>
@@ -210,7 +209,7 @@ void W8SpellVisual::SetCycle(signed char cycle)
     } else {
         host->m_bLOD = 0;
     }
-    host->timer = g_shared_timer_base->getMsTime(srTimer::TIMER_READ_DEFAULT);
+    host->timer = g_shared_timer_base->milliseconds();
     host->frame_method = animation->frame_method;
     host->animation_playing = animation->animation_playing;
     host->subcycle = 0;
@@ -456,7 +455,7 @@ unsigned char W8SpellEmitterHost::ReadCycleData(W8ReadLevelInfo* info, W8SpellVi
     emitter_playback_scales[emitter] = animation->playback_scale;
     active = 1;
     frame_direction = W8_ANIMATION_FORWARD;
-    timer = g_shared_timer_base->getMsTime(srTimer::TIMER_READ_DEFAULT);
+    timer = g_shared_timer_base->milliseconds();
     animation_behaviour = animation->behaviour;
     frame_method = animation->frame_method;
     animation_playing = animation->animation_playing;

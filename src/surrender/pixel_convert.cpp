@@ -11,10 +11,8 @@
 #include <string.h>
 
 #include "surrender/srARGB.h"
-#include "surrender/srCore.h"
 #include "surrender/srMath.h"
 #include "surrender/srPalette.h"
-#include "surrender/srVariableTimer.h"
 #include "surrender/srVectorMath.h"
 
 /* RGB24 rows contain a word at every third byte, including odd addresses. */
@@ -32,8 +30,7 @@ static inline void writePackedWord(unsigned char* bytes, unsigned short value)
 
 /* Conversion routines stored in the format table. The generic pair is
    selected by PixelFormat::color_model; the per-entry overrides cover
-   formats whose converter does not fit a generic kernel. The MMX workers
-   are installed by initFormats() when the CPU reports the feature bit. */
+   formats whose converter does not fit a generic kernel. */
 void __cdecl writeRGB(const srPixelConvert::ConversionInfo& info);
 void __cdecl readRGB(const srPixelConvert::ConversionInfo& info);
 void __cdecl writeYUV(const srPixelConvert::ConversionInfo& info);
@@ -52,16 +49,6 @@ void __cdecl writeABGR(const srPixelConvert::ConversionInfo& info);
 void __cdecl readABGR(const srPixelConvert::ConversionInfo& info);
 void __cdecl writeRGB24(const srPixelConvert::ConversionInfo& info);
 void __cdecl readRGB24(const srPixelConvert::ConversionInfo& info);
-void __cdecl writeL8MMX(const srPixelConvert::ConversionInfo& info);
-void __cdecl readL8MMX(const srPixelConvert::ConversionInfo& info);
-void __cdecl writeRGB565MMX(const srPixelConvert::ConversionInfo& info);
-void __cdecl readRGB565MMX(const srPixelConvert::ConversionInfo& info);
-void __cdecl writeARGB1555MMX(const srPixelConvert::ConversionInfo& info);
-void __cdecl readARGB1555MMX(const srPixelConvert::ConversionInfo& info);
-void __cdecl writeARGB4444MMX(const srPixelConvert::ConversionInfo& info);
-void __cdecl readARGB4444MMX(const srPixelConvert::ConversionInfo& info);
-void __cdecl writeBGR24MMX(const srPixelConvert::ConversionInfo& info);
-void __cdecl readBGR24MMX(const srPixelConvert::ConversionInfo& info);
 
 /* Shared conversion kernels the generic dispatchers route through, by
    destination/source byte width: pack writes BGRA source pixels through
@@ -427,18 +414,6 @@ void initFormats()
     format_table[srPixelConvert::SURFACE_ABGR32].read = readABGR;
     format_table[srPixelConvert::SURFACE_RGB24].write = writeRGB24;
     format_table[srPixelConvert::SURFACE_RGB24].read = readRGB24;
-    if ((srCore.getTimer()->m_cpu_features & (1UL << srTimer::CPU_FEATURE_MMX)) != 0) {
-        format_table[srPixelConvert::SURFACE_L8].write = writeL8MMX;
-        format_table[srPixelConvert::SURFACE_L8].read = readL8MMX;
-        format_table[srPixelConvert::SURFACE_RGB565].write = writeRGB565MMX;
-        format_table[srPixelConvert::SURFACE_RGB565].read = readRGB565MMX;
-        format_table[srPixelConvert::SURFACE_ARGB1555].write = writeARGB1555MMX;
-        format_table[srPixelConvert::SURFACE_ARGB1555].read = readARGB1555MMX;
-        format_table[srPixelConvert::SURFACE_ARGB4444].write = writeARGB4444MMX;
-        format_table[srPixelConvert::SURFACE_ARGB4444].read = readARGB4444MMX;
-        format_table[srPixelConvert::SURFACE_BGR24].write = writeBGR24MMX;
-        format_table[srPixelConvert::SURFACE_BGR24].read = readBGR24MMX;
-    }
     memset(format_hash, 0, sizeof(format_hash));
     for (FormatEntry* hashed = format_table; hashed < format_table + 25; hashed++) {
         const srPixelConvert::PixelFormat& format = hashed->format;
@@ -1386,87 +1361,6 @@ void __cdecl readRGB555(const srPixelConvert::ConversionInfo& info)
                   lutExpand5And6.expand32[pixel >> 5 & 0x1f] << 8 |
                   lutExpand5And6.expand32[pixel & 0x1f];
     }
-}
-
-/* MMX conversion workers, installed over the scalar table entries by
-   initFormats() when the CPU reports the feature bit. Each handles a
-   scalar alignment head, an MMX main loop, then a scalar tail. */
-
-/* format_table[srPixelConvert::SURFACE_BGR24] MMX read: BGR24 source records to srARGB with alpha
-   forced opaque. */
-// FUNCTION: SURRENDER 0x1000B050
-void __cdecl readBGR24MMX(const srPixelConvert::ConversionInfo& info)
-{
-    abort(); /* MMX workers are never selected natively */
-}
-
-/* format_table[srPixelConvert::SURFACE_ARGB4444] MMX read: ARGB4444 source words to srARGB with each
-   nibble replicated into its byte lane. */
-// FUNCTION: SURRENDER 0x1000B150
-void __cdecl readARGB4444MMX(const srPixelConvert::ConversionInfo& info)
-{
-    abort(); /* MMX workers are never selected natively */
-}
-
-/* format_table[srPixelConvert::SURFACE_L8] MMX read: L8 source bytes to srARGB by triplicating the
-   index and forcing alpha opaque. */
-// FUNCTION: SURRENDER 0x1000B250
-void __cdecl readL8MMX(const srPixelConvert::ConversionInfo& info)
-{
-    abort(); /* MMX workers are never selected natively */
-}
-
-/* format_table[srPixelConvert::SURFACE_ARGB1555] MMX read: ARGB1555 source words to srARGB with bit
-   replication filling the low channel bits. */
-// FUNCTION: SURRENDER 0x1000B330
-void __cdecl readARGB1555MMX(const srPixelConvert::ConversionInfo& info)
-{
-    abort(); /* MMX workers are never selected natively */
-}
-
-/* format_table[srPixelConvert::SURFACE_RGB565] MMX read: RGB565 source words to srARGB with bit
-   replication and alpha forced opaque. */
-// FUNCTION: SURRENDER 0x1000B440
-void __cdecl readRGB565MMX(const srPixelConvert::ConversionInfo& info)
-{
-    abort(); /* MMX workers are never selected natively */
-}
-
-/* format_table[srPixelConvert::SURFACE_L8] MMX write: srARGB to L8 intensity using the 54/183/19
-   luma weights. */
-// FUNCTION: SURRENDER 0x1000B570
-void __cdecl writeL8MMX(const srPixelConvert::ConversionInfo& info)
-{
-    abort(); /* MMX workers are never selected natively */
-}
-
-/* format_table[srPixelConvert::SURFACE_RGB565] MMX write: srARGB to RGB565. */
-// FUNCTION: SURRENDER 0x1000B6A0
-void __cdecl writeRGB565MMX(const srPixelConvert::ConversionInfo& info)
-{
-    abort(); /* MMX workers are never selected natively */
-}
-
-/* format_table[srPixelConvert::SURFACE_ARGB4444] MMX write: srARGB to ARGB4444 through the high
-   nibbles. */
-// FUNCTION: SURRENDER 0x1000B7C0
-void __cdecl writeARGB4444MMX(const srPixelConvert::ConversionInfo& info)
-{
-    abort(); /* MMX workers are never selected natively */
-}
-
-/* format_table[srPixelConvert::SURFACE_ARGB1555] MMX write: srARGB to ARGB1555. */
-// FUNCTION: SURRENDER 0x1000B8A0
-void __cdecl writeARGB1555MMX(const srPixelConvert::ConversionInfo& info)
-{
-    abort(); /* MMX workers are never selected natively */
-}
-
-/* format_table[srPixelConvert::SURFACE_BGR24] MMX write: srARGB to BGR24 triplets. */
-// FUNCTION: SURRENDER 0x1000B9D0
-void __cdecl writeBGR24MMX(const srPixelConvert::ConversionInfo& info)
-{
-    abort(); /* MMX workers are never selected natively */
 }
 
 /* Intensity write kernels: 32-bit BGRA source to 16/24/32-bit IXXA

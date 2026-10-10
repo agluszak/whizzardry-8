@@ -6,7 +6,7 @@
 #include "wiz8/layouts/game_status.h"
 
 /* The game-timer unit: a small timer object over one shared, reference-counted
-   srTimer-derived singleton. The image names neither the unit nor the classes -
+   clock singleton. The image names neither the unit nor the classes -
    the assertion anchors only bound this code to the gap between
    Engine Code\Octree.cpp and Engine Code\BitArray.cpp - so both classes carry
    address-qualified positional names and the file name is descriptive.
@@ -15,9 +15,9 @@
    their addresses in the original data segment are the authority. */
 
 // GLOBAL: WIZ8 0x006598B8
-srTimer* g_shared_timer_base;
+srClock* g_shared_timer_base;
 // GLOBAL: WIZ8 0x006598C0
-static srTimer* g_shared_timer;
+static srClock* g_shared_timer;
 // GLOBAL: WIZ8 0x006598C4
 int g_shared_timer_pause_base;
 // GLOBAL: WIZ8 0x006598C8
@@ -42,8 +42,8 @@ void PauseSharedGameTimers(void)
         return;
     }
 
-    g_shared_timer_pause_time =
-        g_shared_timer->getUTime(srTimer::TIMER_READ_DEFAULT) - g_shared_timer_pause_base;
+    g_shared_timer_pause_time = g_shared_timer->ticks(W8_SHARED_TIMER_TICKS_PER_SECOND) -
+                                g_shared_timer_pause_base;
 
     if (g_game_time_accumulator != 0 && !g_game_time_accumulator->m_flags.paused) {
         g_game_time_accumulator->m_flags.paused = true;
@@ -58,8 +58,8 @@ void ResumeSharedGameTimers(void)
     g_shared_timer_paused = false;
     g_shared_timer_flag0 = false;
     if (g_shared_timer != 0) {
-        g_shared_timer_pause_base =
-            g_shared_timer->getUTime(srTimer::TIMER_READ_DEFAULT) - g_shared_timer_pause_time;
+        g_shared_timer_pause_base = g_shared_timer->ticks(W8_SHARED_TIMER_TICKS_PER_SECOND) -
+                                    g_shared_timer_pause_time;
         g_shared_timer_pause_time = 0;
     }
 
@@ -81,7 +81,7 @@ void ResumeSharedGameTimers(void)
 // FUNCTION: WIZ8 0x00439a00
 W8GameTimer::~W8GameTimer()
 {
-    srTimer* shared = m_shared;
+    srClock* shared = m_shared;
 
     if (shared == g_shared_timer) {
         if (--g_shared_timer_refs <= 0) {
@@ -111,22 +111,10 @@ static void EnsureSharedGameTimer()
         g_shared_timer_flag0 = false;
         g_level_motion_resume_pending = false;
 
-        srTimer* timer = new srTimer(0, 0, 1);
+        srClock* timer = new srClock;
 
         g_shared_timer = timer;
         g_shared_timer_base = timer;
-        /* Retail dereferences the allocation without a null check. */
-        timer->m_units_per_interval = 10000;
-        {
-            double frequency;
-
-            if (timer->m_frequency != 0.0) {
-                frequency = static_cast<double>(timer->m_frequency);
-            } else {
-                frequency = 1.0;
-            }
-            timer->m_units_per_tick = 10000.0 / frequency;
-        }
         g_shared_timer_refs = 0;
         g_shared_timer_pause_base = 0;
         g_shared_timer_pause_time = 0;
