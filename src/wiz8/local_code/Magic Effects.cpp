@@ -2035,48 +2035,33 @@ void AttackThenInflictCondition(W8SpellEffectEntry* effect, W8Condition attack_c
                                 W8Condition condition, int chance, int attack_argument,
                                 int condition_argument)
 {
-    W8MonsterInfo* monster_info;
     W8CombatSlot target;
-    unsigned int duration;
-    int source_character;
-    int character_index;
-    int index;
+    const int source_character = TargetSourceIsCharacter(&effect->Source, 0)
+                                     ? effect->Source.iChar : -1;
+    const std::size_t character_count = effect->target_indices.size();
+    const std::size_t total = character_count + effect->monster_ids.size();
 
-    if (!TargetSourceIsCharacter(&effect->Source, 0)) {
-        source_character = -1;
-    } else {
-        source_character = effect->Source.iChar;
-    }
-    for (index = 0; index < static_cast<int>(effect->target_indices.size()); ++index) {
-        if (Random(100) >= static_cast<unsigned int>(chance)) {
+    for (std::size_t index = 0; index < total; ++index) {
+        if (Random(100) >= static_cast<unsigned int>(chance))
             continue;
+
+        const unsigned int duration = RollEffectDuration(&effect->definition);
+        if (index < character_count) {
+            const int character_index = effect->target_indices[index];
+            if (character_index == -1)
+                srAssertFail("iChar != -1", MAGIC_EFFECTS_CPP, 0x4bf, 0);
+            target.iType = W8_TARGET_KIND_CHARACTER;
+            target.iChar = character_index;
+        } else {
+            W8MonsterInfo* monster = GetEffectMonsterTarget(
+                effect->monster_ids[index - character_count], 0x4d8, 0x4d9);
+            target.iType = W8_TARGET_KIND_MONSTER;
+            target.iMonsterID = monster->location_id;
         }
-        duration = RollEffectDuration(&effect->definition);
-        character_index = effect->target_indices[index];
-        if (character_index == -1) {
-            srAssertFail("iChar != -1", MAGIC_EFFECTS_CPP, 0x4bf, 0);
-        }
-        target.iType = W8_TARGET_KIND_CHARACTER;
-        target.iChar = character_index;
-        if (ResolveAttackOnTarget(
-                &effect->Source, &target, attack_condition, g_spell_records[effect->kind].realm,
-                effect->definition.power_level, attack_argument, duration, false, true, 0)) {
-            InflictConditionOnTarget(&target, condition, g_spell_records[effect->kind].realm,
-                                     effect->definition.power_level, condition_argument, duration,
-                                     source_character, 0, true);
-        }
-    }
-    for (index = 0; index < static_cast<int>(effect->monster_ids.size()); ++index) {
-        if (Random(100) >= static_cast<unsigned int>(chance)) {
-            continue;
-        }
-        duration = RollEffectDuration(&effect->definition);
-        monster_info = GetEffectMonsterTarget(effect->monster_ids[index], 0x4d8, 0x4d9);
-        target.iType = W8_TARGET_KIND_MONSTER;
-        target.iMonsterID = monster_info->location_id;
-        if (ResolveAttackOnTarget(
-                &effect->Source, &target, attack_condition, g_spell_records[effect->kind].realm,
-                effect->definition.power_level, attack_argument, duration, false, true, 0)) {
+        if (ResolveAttackOnTarget(&effect->Source, &target, attack_condition,
+                                  g_spell_records[effect->kind].realm,
+                                  effect->definition.power_level, attack_argument,
+                                  duration, false, true, 0)) {
             InflictConditionOnTarget(&target, condition, g_spell_records[effect->kind].realm,
                                      effect->definition.power_level, condition_argument, duration,
                                      source_character, 0, true);
