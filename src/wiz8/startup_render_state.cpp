@@ -72,7 +72,7 @@ unsigned char InitializeEnvironmentColours(void)
     g_environment_time_enabled = false;
     g_sun_prop = 0;
     g_moon_prop = 0;
-    g_environment_lights.Clear();
+    g_environment_lights.clear();
     g_view_distance = 12.0f;
     g_sky_gradient_animations[2].reset();
     return 1;

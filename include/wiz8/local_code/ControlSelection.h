@@ -1,7 +1,8 @@
 #pragma once
 
 #include "wiz8/local_code/TextControl.h"
-#include "wiz8/vector.h"
+#include <vector>
+#include <algorithm>
 
 /* Shared declaration owner; implementation remains in Local Code\Controls.cpp. */
 
@@ -12,8 +13,6 @@ public:
     virtual void OnSelectionChanged(W8ControlSelection* control, int selected) = 0;
 };
 
-// VTABLE: WIZ8 0x005ed65c
-// class W8Vector<W8TextControl*>
 
 /* A radio group of text controls: selecting one deselects the rest. */
 // VTABLE: WIZ8 0x005ed654
@@ -30,7 +29,7 @@ public:
     int m_value_4;
     int m_value_8;
     int m_selectedIndex;
-    W8Vector<W8TextControl*> m_lsButtons;
+    std::vector<W8TextControl*> m_lsButtons;
     W8ControlSelectionListener* m_selectionListener;
 };
 W8_ABI_ASSERT(sizeof(W8ControlSelection) == 0x24, "W8ControlSelection_size");

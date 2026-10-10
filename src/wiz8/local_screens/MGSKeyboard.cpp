@@ -1,5 +1,7 @@
 #include <fmt/format.h>
 #include "wiz8/unicode.h"
+#include "wiz8/containers.h"
+#include <utility>
 #include "wiz8/fonts.h"
 #include <stdio.h>
 #include "wiz8/local_screens/MGSKeyboard.h"
@@ -76,10 +78,10 @@ MGSKeyboard::~MGSKeyboard()
 // FUNCTION: WIZ8 0x0055d260
 int MGSKeyboard::FindBinding(W8MGSCommand command) const
 {
-    int count = m_bindings.GetCount();
+    int count = static_cast<int>(m_bindings.size());
     int index;
     for (index = 0; index < count; ++index) {
-        MGSKeyBinding* binding = *m_bindings.GetAt(index);
+        MGSKeyBinding* binding = m_bindings[index];
         if (binding->command == command) {
             return index;
         }
@@ -90,10 +92,10 @@ int MGSKeyboard::FindBinding(W8MGSCommand command) const
 // FUNCTION: WIZ8 0x0055d2a0
 W8MGSCommand MGSKeyboard::FindCommandForEvent(const InputAtom* event) const
 {
-    int count = m_bindings.GetCount();
+    int count = static_cast<int>(m_bindings.size());
     int index;
     for (index = 0; index < count; ++index) {
-        MGSKeyBinding* binding = *m_bindings.GetAt(index);
+        MGSKeyBinding* binding = m_bindings[index];
         if (binding->active == event->usEvent && binding->modifiers == event->usKeyState &&
             binding->key == event->usParam) {
             return binding->command;
@@ -105,22 +107,25 @@ W8MGSCommand MGSKeyboard::FindCommandForEvent(const InputAtom* event) const
 // FUNCTION: WIZ8 0x0055d300
 MGSKeyBinding* MGSKeyboard::GetBinding(int index) const
 {
-    if (index >= 0) {
-        MGSKeyBinding** binding = m_bindings.data;
-        if (index < m_bindings.GetCount()) {
-            binding += index;
-        }
-        return *binding;
+    if (index < 0 || m_bindings.empty()) {
+        return nullptr;
     }
-    return 0;
+    // Preserve the binding table's fallback to its first entry.
+    if (std::cmp_greater_equal(index, m_bindings.size())) {
+        return m_bindings.front();
+    }
+    return m_bindings[index];
 }
 
 // FUNCTION: WIZ8 0x0055d320
 bool MGSKeyboard::IsCommandPressed(W8MGSCommand command) const
 {
-    unsigned int command_key = command;
-    MGSKeyBinding* binding = LookupIndexValue(m_command_index, command_key);
-    if (binding != 0 && gfKeyState[binding->key] != 0) {
+    const auto found = m_command_index.find(command);
+    if (found == m_command_index.end()) {
+        return false;
+    }
+    const auto* binding = found->second;
+    if (gfKeyState[binding->key] != 0) {
         unsigned short modifiers = 0;
         if (gfKeyState[VK_SHIFT] != 0) {
             modifiers |= SHIFT_DOWN;
@@ -152,7 +157,7 @@ void DrainInputEventQueue(void)
 // FUNCTION: WIZ8 0x0055D3F0
 void MGSKeyboard::Clear()
 {
-    m_bindings.RemoveAllAndDelete();
+    wiz8::remove_all_and_delete(m_bindings);
     m_command_index.clear();
 }
 
@@ -172,14 +177,13 @@ try
 
         int old_index = FindBinding(binding->command);
         if (old_index != -1) {
-            unsigned int command = binding->command;
-            m_bindings.RemoveAtAndDelete(old_index);
-            m_command_index.erase(command);
+            auto* object = m_bindings[old_index];
+            m_bindings.erase(m_bindings.begin() + old_index);
+            delete object;
+            m_command_index.erase(binding->command);
         }
-        if (m_bindings.Add(binding) != -1) {
-            unsigned int command = binding->command;
-            m_command_index.emplace(command, binding);
-        }
+        m_bindings.push_back(binding);
+        m_command_index.emplace(binding->command, binding);
     }
     return 1;
 }
@@ -188,10 +192,10 @@ catch (const std::exception&) { return false; }
 // FUNCTION: WIZ8 0x0055d7a0
 unsigned char MGSKeyboard::Save(wiz8::File* handle) const
 {
-    int count = m_bindings.GetCount();
+    int count = static_cast<int>(m_bindings.size());
     handle->write(&count, sizeof(count));
     for (int index = 0; index < count; ++index) {
-        handle->write(*m_bindings.GetAt(index), sizeof(MGSKeyBinding));
+        handle->write(m_bindings[index], sizeof(MGSKeyBinding));
     }
     return 1;
 }

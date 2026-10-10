@@ -383,7 +383,7 @@ static void MtGigas2UmpaniAlarm(int command)
             CreateAndPlaySoundNode("Data\\Sound\\VOCs\\VOC_HLLIntruder\\VOC_HLLIntruder_003.wav",
                                    position, 1.0f, 75.0f, true);
         if (g_mt_gigas_alarm_sound != 0 && g_mt_gigas_alarm_gate != 0) {
-            g_master_functions->Add(MtGigas2UmpaniAlarm);
+            g_master_functions.push_back(MtGigas2UmpaniAlarm);
         }
     }
     if (!g_mt_gigas_alarm_gate->PollFinished()) {

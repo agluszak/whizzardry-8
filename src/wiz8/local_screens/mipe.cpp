@@ -10,8 +10,8 @@
 
 #include "input.h"
 
-#include "wiz8/3d_code/IList.h"
-#include "wiz8/3d_code/PList.h"
+#include <vector>
+#include <algorithm>
 #include "wiz8/dialog_code/AssayDialog.h"
 #include "wiz8/dialog_code/NpcDialog.h"
 #include "wiz8/dialog_code/DialogInterface.h"
@@ -54,6 +54,30 @@
 #include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/local_screens/OptionsScreen.h"
 
+#include <variant>
+
+// The editor reuses its category view for four concrete borrowed row types.
+using W8MipeCategoryEntry = std::variant<std::monostate, W8MipeMonsterEntry*, W8ItemDatabaseRecord*,
+                                         W8EncounterTableRuntime*, W8ItemTableRecord*>;
+
+template <class T>
+static T* MipeCategoryValue(const std::vector<W8MipeCategoryEntry>* rows, int index)
+{
+    if (!rows || index < 0 || index >= static_cast<int>(rows->size()))
+        return nullptr;
+    const auto* value = std::get_if<T*>(&(*rows)[index]);
+    return value ? *value : nullptr;
+}
+
+static const wchar_t* MipeCategoryWideName(const std::vector<W8MipeCategoryEntry>* rows, int index)
+{
+    if (auto* monster = MipeCategoryValue<W8MipeMonsterEntry>(rows, index))
+        return monster->name;
+    if (auto* item = MipeCategoryValue<W8ItemDatabaseRecord>(rows, index))
+        return item->display_name;
+    return nullptr;
+}
+
 #define MIPE_CPP "C:\\Projects\\Wizardry 8\\Local Screens\\mipe.cpp"
 
 /* Local Screens\mipe.cpp. The MIPE state is a diagnostic monster/item
@@ -91,7 +115,7 @@ static int g_mipe_table_row;
 int g_mipe_table_base;
 
 // GLOBAL: WIZ8 0x0068f124
-static W8PList* g_mipe_monster_entries;
+static std::vector<W8MipeMonsterEntry*>* g_mipe_monster_entries;
 
 // GLOBAL: WIZ8 0x0068f12c
 static W8WorldCursorNode* g_mipe_cube;
@@ -102,7 +126,8 @@ static W8WorldCursorNode* g_mipe_cube;
 static bool g_mipe_choose_group = true;
 
 int FindCategoryItemTable(unsigned int category, int ordinal);
-static void ShowMipeNamedCategory(W8PList* list, const unsigned short* name_ids);
+static void ShowMipeNamedCategory(std::vector<W8MipeCategoryEntry>* list,
+                                  const unsigned short* name_ids);
 
 /* The MIPE toggle: leaving the panel restores the level flags and combat
    state and tears the editor state down; entering it clears combat flags,
@@ -124,22 +149,19 @@ void ToggleMipePanel(void)
         if (g_mipe_cube != 0) {
             SetWorldCursorNodeColorComponents(g_mipe_cube, 0.0f, 0.0f, 0.5f);
         }
-        for (unsigned int monster_list_index = 0;
-             monster_list_index < PLLength(gXStatus.plsMonsterList); ++monster_list_index) {
+        for (unsigned int monster_list_index = 0; monster_list_index < gXStatus.monsters.size(); ++monster_list_index) {
             W8MonsterInfo* monster = GetMonsterListEntry(monster_list_index);
             if (monster != 0 && monster->fInCombat) {
                 SetMonsterHighlight(0, monster->location_id, false);
             }
         }
-        for (unsigned int entry_index = 0; entry_index < gXStatus.uiMonstersInDatabase;
-             ++entry_index) {
-            delete static_cast<W8MipeMonsterEntry*>(PLGet(g_mipe_monster_entries, entry_index));
+        for (unsigned int entry_index = 0; entry_index < gXStatus.uiMonstersInDatabase; ++entry_index) {
+            delete (*g_mipe_monster_entries)[entry_index];
         }
-        PLDestroy(g_mipe_monster_entries);
+        delete g_mipe_monster_entries;
+
         g_mipe_monster_entries = 0;
-        IListFreeData(&g_mipe_state->monster_ids);
-        PListFreeData(&g_mipe_state->waypoints);
-        free(g_mipe_state);
+        delete g_mipe_state;
         g_mipe_state = 0;
         SetWorldCursorNodesVisible(g_mipe_trigger_display);
         return;
@@ -163,7 +185,7 @@ void ToggleMipePanel(void)
     g_mipe_active = true;
     g_mipe_menu_active = false;
     g_mipe_cube = 0;
-    g_mipe_monster_entries = PLCreate();
+    g_mipe_monster_entries = new std::vector<W8MipeMonsterEntry*>;
 
     W8MonsterRecord* records = new W8MonsterRecord[gXStatus.uiMonstersInDatabase]{};
     if (records == 0) {
@@ -180,23 +202,19 @@ void ToggleMipePanel(void)
         entry->name = records[index].name0;
         entry->kind = records[index].kind;
         entry->selectable = records[index].deleted == 0 && records[index].editor_index == -1;
-        PLAdoptAppend(g_mipe_monster_entries, entry);
+        g_mipe_monster_entries->push_back(entry);
     }
     delete[] records;
 
-    g_mipe_state = static_cast<W8MipeState*>(malloc(sizeof(W8MipeState)));
-    memset(g_mipe_state, 0, sizeof(W8MipeState));
-    IListInit(&g_mipe_state->monster_ids);
-    /* Retail overwrites IList's capacity with this sentinel-sized value here.
-       Keep the observed store even though the allocation itself is still the
-       ten-entry IListInit buffer; selected_group_id at +0x0c is a separate
-       cache used by UpdateMipeSelection. */
-    g_mipe_state->monster_ids.capacity = W8_MIPE_NO_GROUP;
+    g_mipe_state = new W8MipeState{};
+    g_mipe_state->drag_anchor.SetZero();
+    g_mipe_state->monster_ids.reserve(10);
+
     g_mipe_state->selecting = 0;
     g_mipe_state->value_34 = 1.0f;
     g_mipe_state->speed_step = 0.020000000f;
     g_mipe_state->edit_selection = -1;
-    PListInit(&g_mipe_state->waypoints);
+    g_mipe_state->waypoints.reserve(10);
 
     for (int cursor_index = 0, count = GetWorldCursorNodeCount(); cursor_index < count;
          ++cursor_index) {
@@ -214,8 +232,7 @@ void ToggleMipePanel(void)
     int monster_index = 0;
     int visible = 0;
     while (monster_index < static_cast<int>(gXStatus.uiMonstersInDatabase)) {
-        W8MipeMonsterEntry* entry =
-            static_cast<W8MipeMonsterEntry*>(PLGet(g_mipe_monster_entries, monster_index));
+        W8MipeMonsterEntry* entry = (*g_mipe_monster_entries)[monster_index];
         if (entry->kind == g_mipe_category && entry->selectable) {
             if (visible == selection) {
                 break;
@@ -251,7 +268,7 @@ void ToggleMipePanel(void)
 }
 
 // GLOBAL: WIZ8 0x0068f11c
-static W8PList* g_mipe_category_list;
+static std::vector<W8MipeCategoryEntry>* g_mipe_category_list;
 
 /* 'H' in the item-create mode: spawned items get the hidden flag. */
 // GLOBAL: WIZ8 0x0068f128
@@ -276,8 +293,7 @@ static void ShowMipeMonsterStatus(void)
     std::string name;
     const char* method;
 
-    name = static_cast<W8MipeMonsterEntry*>(
-            PLGet(g_mipe_monster_entries, static_cast<int>(g_mipe_monster_index)))->name;
+    name = (*g_mipe_monster_entries)[g_mipe_monster_index]->name;
     ResetEditorStatusLine(-1);
     ShowNotice(W8_FONT_PALETTE_PINK, "Type # to specify how many, then ENTER,");
     ShowNotice(W8_FONT_PALETTE_PINK, "OR type C to change what monster to place.  ");
@@ -335,15 +351,15 @@ static void ShowMipeItemStatus(void)
 /* Six visible rows of `list` starting at the table base; the selected row is
    palette 3, the rest 0xf, and short lists blank the remainder. */
 // FUNCTION: WIZ8 0x00577d80
-void ShowMipeTableRows(W8PList* list)
+void ShowMipeTableRows(std::vector<W8MipeCategoryEntry>* list)
 {
-    void* entry;
+    const wchar_t* entry;
     int row;
     unsigned int palette;
 
     if (list != 0) {
         for (row = 0; row < 6; ++row) {
-            entry = PLGet(list, g_mipe_table_base + row);
+            entry = MipeCategoryWideName(list, g_mipe_table_base + row);
             if (entry == 0) {
                 ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "");
             } else {
@@ -608,11 +624,11 @@ void ShowMonsterGeneratorEditor(void)
     ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "8) to toggle chance default");
 }
 
-template <class Entry> static void ShowMipeNamedTableRows(W8PList* list)
+template <class Entry> static void ShowMipeNamedTableRows(std::vector<W8MipeCategoryEntry>* list)
 {
     if (list != 0) {
         for (int row = 0; row < 6; ++row) {
-            Entry* entry = static_cast<Entry*>(PLGet(list, g_mipe_table_base + row));
+            Entry* entry = MipeCategoryValue<Entry>(list, g_mipe_table_base + row);
             if (entry == 0) {
                 ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "");
             } else {
@@ -629,7 +645,7 @@ void ShowMipeEncounterCategory(void)
 {
     ResetEditorStatusLine(-1);
     ShowNotice(W8_FONT_PALETTE_PINK,
-               fmt::format("Category: {}", *g_encounter_names.GetAt(g_mipe_category & 0xff)));
+               fmt::format("Category: {}", g_encounter_names[g_mipe_category & 0xff]));
     ShowMipeNamedTableRows<W8EncounterTableRuntime>(g_mipe_category_list);
 }
 
@@ -655,7 +671,7 @@ static unsigned int FindMipeVisibleMonster(int visible)
     monster_index = 0;
     if (0 < static_cast<int>(gXStatus.uiMonstersInDatabase)) {
         do {
-            entry = static_cast<W8MipeMonsterEntry*>(PLGet(g_mipe_monster_entries, monster_index));
+            entry = (*g_mipe_monster_entries)[monster_index];
             if (entry->kind == g_mipe_category && entry->selectable) {
                 if (index == visible) {
                     break;
@@ -671,7 +687,7 @@ static unsigned int FindMipeVisibleMonster(int visible)
 // FUNCTION: WIZ8 0x00578500
 unsigned char HandleMipeMonsterCreateKey(unsigned short key)
 {
-    W8PList* list;
+    std::vector<W8MipeCategoryEntry>* list;
     W8MipeMonsterEntry* entry;
     W8MonsterGroup* monster_group;
     int index;
@@ -682,14 +698,14 @@ unsigned char HandleMipeMonsterCreateKey(unsigned short key)
     W8MonsterRecord record;
 
     if (g_mipe_category_list == 0) {
-        list = PLCreate();
+        list = new std::vector<W8MipeCategoryEntry>;
         g_mipe_category_list = list;
         if (list != 0) {
-            PListClear(list);
+            list->clear();
             for (index = 0; index < static_cast<int>(gXStatus.uiMonstersInDatabase); ++index) {
-                entry = static_cast<W8MipeMonsterEntry*>(PLGet(g_mipe_monster_entries, index));
+                entry = (*g_mipe_monster_entries)[index];
                 if (entry->kind == g_mipe_category && entry->selectable) {
-                    PLAdoptAppend(list, entry);
+                    list->push_back(entry);
                 }
             }
         }
@@ -760,9 +776,7 @@ static unsigned int FindMipeVisibleItem(int visible)
 {
     int found = 0;
     unsigned int item_index;
-    for (item_index = 0;
-         static_cast<int>(item_index) < static_cast<int>(gXStatus.uiItemsInDatabase);
-         ++item_index) {
+    for (item_index = 0; static_cast<int>(item_index) < static_cast<int>(gXStatus.uiItemsInDatabase); ++item_index) {
         if (g_item_records[item_index].equip_class == g_mipe_category &&
             g_item_records[item_index].editor_excluded == 0) {
             if (found == visible) {
@@ -799,12 +813,13 @@ static bool MoveMipeTableSelection(unsigned short key)
         }
         return true;
     case 0x28:
-        if (g_mipe_table_row < 5 && g_mipe_table_base + g_mipe_table_row <
-                                        static_cast<int>(PLLength(g_mipe_category_list) - 1)) {
+        if (g_mipe_table_row < 5 &&
+            g_mipe_table_base + g_mipe_table_row <
+                static_cast<int>((g_mipe_category_list ? g_mipe_category_list->size() : 0) - 1)) {
             ++g_mipe_table_row;
             return true;
         }
-        if (static_cast<int>(PLLength(g_mipe_category_list) - 1) <=
+        if (static_cast<int>((g_mipe_category_list ? g_mipe_category_list->size() : 0) - 1) <=
             g_mipe_table_base + g_mipe_table_row) {
             return false;
         }
@@ -812,18 +827,20 @@ static bool MoveMipeTableSelection(unsigned short key)
         return true;
     case 0x22:
         if (g_mipe_table_base + g_mipe_table_row <
-            static_cast<int>(PLLength(g_mipe_category_list) - 6)) {
+            static_cast<int>((g_mipe_category_list ? g_mipe_category_list->size() : 0) - 6)) {
             g_mipe_table_base += 6;
             return true;
         }
-        if (static_cast<int>(PLLength(g_mipe_category_list)) <=
+        if (static_cast<int>((g_mipe_category_list ? g_mipe_category_list->size() : 0)) <=
             g_mipe_table_base + g_mipe_table_row) {
             return false;
         }
         g_mipe_table_base += 6;
         g_mipe_table_row = 0;
-        if (static_cast<int>(PLLength(g_mipe_category_list)) <= g_mipe_table_base) {
-            g_mipe_table_base = static_cast<int>(PLLength(g_mipe_category_list));
+        if (static_cast<int>((g_mipe_category_list ? g_mipe_category_list->size() : 0)) <=
+            g_mipe_table_base) {
+            g_mipe_table_base =
+                static_cast<int>((g_mipe_category_list ? g_mipe_category_list->size() : 0));
             --g_mipe_table_base;
         }
         return true;
@@ -831,7 +848,8 @@ static bool MoveMipeTableSelection(unsigned short key)
     return false;
 }
 
-static void ShowMipeNamedCategory(W8PList* list, const unsigned short* name_ids)
+static void ShowMipeNamedCategory(std::vector<W8MipeCategoryEntry>* list,
+                                  const unsigned short* name_ids)
 {
     ResetEditorStatusLine(-1);
     ShowNotice(W8_FONT_PALETTE_PINK,
@@ -839,28 +857,27 @@ static void ShowMipeNamedCategory(W8PList* list, const unsigned short* name_ids)
     ShowMipeTableRows(list);
 }
 
-static void RebuildMipeItemCategory(W8PList* list)
+static void RebuildMipeItemCategory(std::vector<W8MipeCategoryEntry>* list)
 {
     if (g_mipe_category_list != 0) {
-        PListClear(g_mipe_category_list);
+        g_mipe_category_list->clear();
         for (int index = 0; index < static_cast<int>(gXStatus.uiItemsInDatabase); ++index) {
             W8ItemDatabaseRecord* entry = &g_item_records[index];
             if (entry->equip_class == g_mipe_category && entry->editor_excluded == 0) {
-                PLAdoptAppend(list, entry);
+                list->push_back(entry);
             }
         }
     }
 }
 
-static void RebuildMipeMonsterCategory(W8PList* list)
+static void RebuildMipeMonsterCategory(std::vector<W8MipeCategoryEntry>* list)
 {
     if (g_mipe_category_list != 0) {
-        PListClear(g_mipe_category_list);
+        g_mipe_category_list->clear();
         for (int index = 0; index < static_cast<int>(gXStatus.uiMonstersInDatabase); ++index) {
-            W8MipeMonsterEntry* entry =
-                static_cast<W8MipeMonsterEntry*>(PLGet(g_mipe_monster_entries, index));
+            W8MipeMonsterEntry* entry = (*g_mipe_monster_entries)[index];
             if (entry->kind == g_mipe_category && entry->selectable) {
-                PLAdoptAppend(list, entry);
+                list->push_back(entry);
             }
         }
     }
@@ -872,13 +889,12 @@ static void RebuildMipeMonsterCategory(W8PList* list)
 // FUNCTION: WIZ8 0x00578850
 void HandleMipeItemCategoryKey(unsigned short key)
 {
-    W8PList* list;
+    std::vector<W8MipeCategoryEntry>* list;
     unsigned int item_index;
 
     list = g_mipe_category_list;
     switch (key) {
     case 0xd:
-        PLGet(g_mipe_category_list, g_mipe_table_base + g_mipe_table_row);
         item_index = FindMipeVisibleItem(g_mipe_table_base + g_mipe_table_row);
         if (item_index == gXStatus.uiItemsInDatabase) {
             item_index = 0;
@@ -929,7 +945,7 @@ void HandleMipeItemCategoryKey(unsigned short key)
 // FUNCTION: WIZ8 0x00578d00
 unsigned char HandleMipeItemCreateKey(unsigned short key)
 {
-    W8PList* list;
+    std::vector<W8MipeCategoryEntry>* list;
     W8WorldItem* spawned;
     W8WorldItem* world_item;
     int index;
@@ -939,14 +955,14 @@ unsigned char HandleMipeItemCreateKey(unsigned short key)
     srVector3T<float> anchor;
 
     if (g_mipe_category_list == 0) {
-        list = PLCreate();
+        list = new std::vector<W8MipeCategoryEntry>;
         g_mipe_category_list = list;
         if (list != 0) {
-            PListClear(list);
+            list->clear();
             for (index = 0; index < static_cast<int>(gXStatus.uiItemsInDatabase); ++index) {
                 if (g_item_records[index].equip_class == g_mipe_category &&
                     g_item_records[index].editor_excluded == 0) {
-                    PLAdoptAppend(list, &g_item_records[index]);
+                    list->push_back(&g_item_records[index]);
                 }
             }
         }
@@ -986,7 +1002,7 @@ unsigned char HandleMipeItemCreateKey(unsigned short key)
     case 0x41:
         show_invisible = !g_hide_invisible_items;
         g_hide_invisible_items = show_invisible;
-        for (item_index = 0; item_index < PLLength(gXStatus.plsItemList); ++item_index) {
+        for (item_index = 0; item_index < gXStatus.world_items.size(); ++item_index) {
             world_item = ItemInfo(item_index);
             if (ItemHasFlags(world_item, W8_WORLD_ITEM_HIDDEN)) {
                 if (show_invisible) {
@@ -1033,7 +1049,7 @@ unsigned char HandleMipeItemCreateKey(unsigned short key)
 // FUNCTION: WIZ8 0x00579300
 void HandleMipeMonsterCategoryKey(unsigned short key)
 {
-    W8PList* list;
+    std::vector<W8MipeCategoryEntry>* list;
     int index;
     int wraps;
     unsigned int monster_index;
@@ -1043,7 +1059,6 @@ void HandleMipeMonsterCategoryKey(unsigned short key)
     list = g_mipe_category_list;
     switch (key) {
     case 0xd:
-        PLGet(g_mipe_category_list, g_mipe_table_base + g_mipe_table_row);
         index = g_mipe_table_base + g_mipe_table_row;
         monster_index = FindMipeVisibleMonster(index);
         if (monster_index == gXStatus.uiMonstersInDatabase) {
@@ -1078,7 +1093,7 @@ void HandleMipeMonsterCategoryKey(unsigned short key)
                 --g_mipe_category;
             }
             RebuildMipeMonsterCategory(list);
-        } while (PLLength(g_mipe_category_list) == 0 && wraps < 2);
+        } while ((!g_mipe_category_list || g_mipe_category_list->empty()) && wraps < 2);
         break;
     case 0x27:
         wraps = 0;
@@ -1093,7 +1108,7 @@ void HandleMipeMonsterCategoryKey(unsigned short key)
                 ++wraps;
             }
             RebuildMipeMonsterCategory(list);
-        } while (PLLength(g_mipe_category_list) == 0 && wraps < 2);
+        } while ((!g_mipe_category_list || g_mipe_category_list->empty()) && wraps < 2);
         break;
     case 0x21:
     case 0x22:
@@ -1128,7 +1143,7 @@ void HandleMonsterDebugKey(unsigned short key)
 
     switch (key) {
     case 0x31:
-        monster = GetMonsterByLocationID(IListGetAt(&g_mipe_state->monster_ids, 0));
+        monster = GetMonsterByLocationID(g_mipe_state->SelectedMonsterLocationId());
         if (monster != 0) {
             scale = monster->GetCurrentAnimationScale();
             monster->SetCurrentAnimationScale(scale * g_float_half);
@@ -1136,7 +1151,7 @@ void HandleMonsterDebugKey(unsigned short key)
         }
         break;
     case 0x32:
-        monster = GetMonsterByLocationID(IListGetAt(&g_mipe_state->monster_ids, 0));
+        monster = GetMonsterByLocationID(g_mipe_state->SelectedMonsterLocationId());
         if (monster != 0) {
             scale = monster->GetCurrentAnimationScale();
             monster->SetCurrentAnimationScale(scale + scale);
@@ -1144,16 +1159,16 @@ void HandleMonsterDebugKey(unsigned short key)
         }
         break;
     case 0x33:
-        if (ILLength(&g_mipe_state->monster_ids) == 1) {
+        if (static_cast<unsigned int>(g_mipe_state->monster_ids.size()) == 1) {
             g_mipe_mode = 0xb;
             ShowMonsterSpeedStatus();
             return;
         }
         break;
     case 0x34:
-        if (ILLength(&g_mipe_state->monster_ids) == 1) {
+        if (static_cast<unsigned int>(g_mipe_state->monster_ids.size()) == 1) {
             info = MonsterGetScriptPartByLocationIndex(MonsterGetIndexByLocationID(
-                0x6e3, MIPE_CPP, IListGetAt(&g_mipe_state->monster_ids, 0), true));
+                0x6e3, MIPE_CPP, g_mipe_state->SelectedMonsterLocationId(), true));
             if (info == 0 || info->p3D == 0) {
                 srAssertFail("pMonsterInfo && pMonsterInfo->p3D", MIPE_CPP, 0x6e5, 0);
             }
@@ -1169,9 +1184,9 @@ void HandleMonsterDebugKey(unsigned short key)
         }
         break;
     case 0x35:
-        if (ILLength(&g_mipe_state->monster_ids) == 1) {
+        if (static_cast<unsigned int>(g_mipe_state->monster_ids.size()) == 1) {
             info = MonsterGetScriptPartByLocationIndex(MonsterGetIndexByLocationID(
-                0x703, MIPE_CPP, IListGetAt(&g_mipe_state->monster_ids, 0), true));
+                0x703, MIPE_CPP, g_mipe_state->SelectedMonsterLocationId(), true));
             if (info == 0) {
                 srAssertFail("pMonsterInfo", MIPE_CPP, 0x705, 0);
             }
@@ -1325,15 +1340,15 @@ void HandleWaypointKey(unsigned short key)
         world = GetWorld();
         UpdateCycleRepresentation(monster, world);
         ++g_mipe_state->waypoint_count;
-        PLAdoptAppend(&g_mipe_state->waypoints, monster);
+        g_mipe_state->waypoints.push_back(monster);
         ShowMipeWaypointStatus();
     } else if (key == 0x58) {
         if (g_mipe_state != 0) {
-            unsigned int count = PLLength(&g_mipe_state->waypoints);
+            unsigned int count = static_cast<unsigned int>(g_mipe_state->waypoints.size());
             if (count != 0) {
-                monster = static_cast<W8Monster*>(PLGet(&g_mipe_state->waypoints, count - 1));
+                monster = g_mipe_state->waypoints.back();
                 if (monster != 0) {
-                    PLRemoveAt(&g_mipe_state->waypoints, count - 1);
+                    g_mipe_state->waypoints.pop_back();
                     world = GetWorld();
                     RemoveMonsterFromWorldList(world, monster);
                     world = GetWorld();
@@ -1352,7 +1367,7 @@ void HandleWaypointKey(unsigned short key)
 // FUNCTION: WIZ8 0x00579ff0
 void HandleMipePropEditKey(unsigned short key)
 {
-    W8PList* list;
+    std::vector<W8MipeCategoryEntry>* list;
     W8World* world;
     W8Prop* prop;
     Trigger* trigger;
@@ -1387,7 +1402,7 @@ void HandleMipePropEditKey(unsigned short key)
                 trigger = prop->GetTrigger();
                 table_index = FindItemTableByName(trigger->inline_action_data);
                 if (g_mipe_category_list == 0) {
-                    g_mipe_category_list = PLCreate();
+                    g_mipe_category_list = new std::vector<W8MipeCategoryEntry>;
                 }
                 list = g_mipe_category_list;
                 if (table_index < 0) {
@@ -1395,12 +1410,11 @@ void HandleMipePropEditKey(unsigned short key)
                     g_mipe_table_base = 0;
                     g_mipe_table_row = 0;
                     if (g_mipe_category_list != 0) {
-                        PListClear(g_mipe_category_list);
-                        for (index = 0; index < static_cast<int>(gXStatus.uiItemTablesInDatabase);
-                             ++index) {
+                        g_mipe_category_list->clear();
+                        for (index = 0; index < static_cast<int>(gXStatus.uiItemTablesInDatabase); ++index) {
                             table = g_item_tables[index];
                             if (table->category_id == 0) {
-                                PLAdoptAppend(list, table);
+                                list->push_back(table);
                             }
                         }
                     }
@@ -1408,18 +1422,19 @@ void HandleMipePropEditKey(unsigned short key)
                     unsigned char category = g_item_tables[table_index]->category_id;
                     g_mipe_category = category;
                     if (g_mipe_category_list != 0) {
-                        PListClear(g_mipe_category_list);
-                        for (index = 0; index < static_cast<int>(gXStatus.uiItemTablesInDatabase);
-                             ++index) {
+                        g_mipe_category_list->clear();
+                        for (index = 0; index < static_cast<int>(gXStatus.uiItemTablesInDatabase); ++index) {
                             table = g_item_tables[index];
                             if (table->category_id == static_cast<unsigned int>(category)) {
-                                PLAdoptAppend(list, table);
+                                list->push_back(table);
                             }
                         }
                     }
-                    for (index = 0; index < static_cast<int>(PLLength(g_mipe_category_list));
+                    for (index = 0;
+                         index < static_cast<int>(
+                                     (g_mipe_category_list ? g_mipe_category_list->size() : 0));
                          ++index) {
-                        table = static_cast<W8ItemTableRecord*>(PLGet(g_mipe_category_list, index));
+                        table = MipeCategoryValue<W8ItemTableRecord>(g_mipe_category_list, index);
                         if (table == g_item_tables[table_index]) {
                             break;
                         }
@@ -1769,14 +1784,14 @@ static int HandleMonsterGeneratorKey(unsigned short key)
 /* The edit-menu keys for the selected monster generator: name entry, table
    picker, active toggle, per-generator or shared chance and interval, and the
    shared-interval flag. */
-static void RebuildMipeEncounterCategory(W8PList* list)
+static void RebuildMipeEncounterCategory(std::vector<W8MipeCategoryEntry>* list)
 {
-    PListClear(list);
-    int count = g_encounter_tables.GetCount();
+    list->clear();
+    int count = static_cast<int>(g_encounter_tables.size());
     for (int index = 0; index < count; ++index) {
         W8EncounterTableRuntime* entry = GetEncounterTable(index);
         if (entry->category == static_cast<unsigned int>(g_mipe_category)) {
-            PLAdoptAppend(list, entry);
+            list->push_back(entry);
         }
     }
 }
@@ -1784,7 +1799,7 @@ static void RebuildMipeEncounterCategory(W8PList* list)
 // FUNCTION: WIZ8 0x0057ad10
 int HandleMonsterGeneratorEditKey(unsigned short key)
 {
-    W8PList* list;
+    std::vector<W8MipeCategoryEntry>* list;
     W8EncounterTableRuntime* table;
     W8EncounterTableRuntime* entry;
     MonGen* generator;
@@ -1793,7 +1808,7 @@ int HandleMonsterGeneratorEditKey(unsigned short key)
     int slot;
 
     if (g_mipe_category_list == 0) {
-        list = PLCreate();
+        list = new std::vector<W8MipeCategoryEntry>;
         g_mipe_category_list = list;
         if (list != 0) {
             RebuildMipeEncounterCategory(list);
@@ -1823,8 +1838,10 @@ int HandleMonsterGeneratorEditKey(unsigned short key)
             if (g_mipe_category_list != 0) {
                 RebuildMipeEncounterCategory(list);
             }
-            for (found = 0; found < static_cast<int>(PLLength(g_mipe_category_list)); ++found) {
-                table = static_cast<W8EncounterTableRuntime*>(PLGet(g_mipe_category_list, found));
+            for (found = 0; found < static_cast<int>(
+                                        (g_mipe_category_list ? g_mipe_category_list->size() : 0));
+                 ++found) {
+                table = MipeCategoryValue<W8EncounterTableRuntime>(g_mipe_category_list, found);
                 entry = GetEncounterTable(current_index);
                 if (table == entry) {
                     break;
@@ -1836,13 +1853,13 @@ int HandleMonsterGeneratorEditKey(unsigned short key)
         g_mipe_mode = 0x17;
         ResetEditorStatusLine(-1);
         ShowNotice(W8_FONT_PALETTE_PINK,
-                   fmt::format("Category: {}", *g_encounter_names.GetAt(g_mipe_category & 0xff)));
+                   fmt::format("Category: {}", g_encounter_names[g_mipe_category & 0xff]));
         if (g_mipe_category_list == 0) {
             return 1;
         }
         for (slot = 0; slot < 6; ++slot) {
-            entry = static_cast<W8EncounterTableRuntime*>(
-                PLGet(g_mipe_category_list, g_mipe_table_base + slot));
+            entry = MipeCategoryValue<W8EncounterTableRuntime>(g_mipe_category_list,
+                                                               g_mipe_table_base + slot);
             if (entry == 0) {
                 ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "");
             } else {
@@ -1931,7 +1948,7 @@ int HandleMonsterGeneratorEditKey(unsigned short key)
 // FUNCTION: WIZ8 0x0057b1a0
 void HandleMipeGeneratorTableKey(unsigned short key)
 {
-    W8PList* list;
+    std::vector<W8MipeCategoryEntry>* list;
     W8EncounterTableRuntime* entry;
     int index;
     int found;
@@ -1939,14 +1956,14 @@ void HandleMipeGeneratorTableKey(unsigned short key)
     int count;
     unsigned int table_index;
 
-    count = g_encounter_tables.GetCount();
+    count = static_cast<int>(g_encounter_tables.size());
     switch (key) {
     case 0xd:
         if (g_mipe_state->generator != 0) {
             found = 0;
             table_index = 0;
             index = g_mipe_table_base + g_mipe_table_row;
-            if (0 < g_encounter_tables.GetCount()) {
+            if (0 < static_cast<int>(g_encounter_tables.size())) {
                 unsigned int category = g_mipe_category & 0xff;
                 do {
                     entry = GetEncounterTable(table_index);
@@ -1983,22 +2000,22 @@ void HandleMipeGeneratorTableKey(unsigned short key)
             list = g_mipe_category_list;
             unsigned char category;
             if (g_mipe_category == 0) {
-                g_mipe_category = static_cast<unsigned char>(g_encounter_names.GetCount());
+                g_mipe_category = static_cast<unsigned char>(g_encounter_names.size());
                 ++wraps;
             }
             category = g_mipe_category - 1;
             g_mipe_category = category;
             if (g_mipe_category_list != 0) {
-                PListClear(g_mipe_category_list);
-                count = g_encounter_tables.GetCount();
+                g_mipe_category_list->clear();
+                count = static_cast<int>(g_encounter_tables.size());
                 for (index = 0; index < count; ++index) {
                     entry = GetEncounterTable(index);
                     if (entry->category == static_cast<unsigned int>(category)) {
-                        PLAdoptAppend(list, entry);
+                        list->push_back(entry);
                     }
                 }
             }
-        } while (PLLength(g_mipe_category_list) == 0 && wraps < 2);
+        } while ((!g_mipe_category_list || g_mipe_category_list->empty()) && wraps < 2);
         ShowMipeEncounterCategory();
         return;
     case 0x27:
@@ -2007,7 +2024,7 @@ void HandleMipeGeneratorTableKey(unsigned short key)
         wraps = 0;
         do {
             list = g_mipe_category_list;
-            if ((g_mipe_category & 0xff) < g_encounter_names.GetCount() - 1) {
+            if ((g_mipe_category & 0xff) < static_cast<int>(g_encounter_names.size()) - 1) {
                 ++g_mipe_category;
             } else {
                 ++wraps;
@@ -2016,7 +2033,7 @@ void HandleMipeGeneratorTableKey(unsigned short key)
             if (g_mipe_category_list != 0) {
                 RebuildMipeEncounterCategory(list);
             }
-        } while (PLLength(g_mipe_category_list) == 0 && wraps < 2);
+        } while ((!g_mipe_category_list || g_mipe_category_list->empty()) && wraps < 2);
         ShowMipeEncounterCategory();
         return;
     }
@@ -2180,7 +2197,7 @@ void EditTriggerKeyID(unsigned int key)
 // FUNCTION: WIZ8 0x0057bbd0
 void HandleMipeItemTableKey(unsigned short key)
 {
-    W8PList* list;
+    std::vector<W8MipeCategoryEntry>* list;
     Trigger* trigger;
     W8ItemTableRecord* table;
     unsigned int table_index;
@@ -2225,16 +2242,15 @@ void HandleMipeItemTableKey(unsigned short key)
             }
             g_mipe_category = category - 1;
             if (g_mipe_category_list != 0) {
-                PListClear(g_mipe_category_list);
-                for (index = 0; index < static_cast<int>(gXStatus.uiItemTablesInDatabase);
-                     ++index) {
+                g_mipe_category_list->clear();
+                for (index = 0; index < static_cast<int>(gXStatus.uiItemTablesInDatabase); ++index) {
                     table = g_item_tables[index];
                     if (table->category_id == static_cast<unsigned int>(category - 1)) {
-                        PLAdoptAppend(list, table);
+                        list->push_back(table);
                     }
                 }
             }
-        } while (PLLength(g_mipe_category_list) == 0 && wraps < 2);
+        } while ((!g_mipe_category_list || g_mipe_category_list->empty()) && wraps < 2);
         ShowMipeItemTableCategory();
         return;
     case 0x27:
@@ -2250,16 +2266,15 @@ void HandleMipeItemTableKey(unsigned short key)
                 g_mipe_category = 0;
             }
             if (g_mipe_category_list != 0) {
-                PListClear(g_mipe_category_list);
-                for (index = 0; index < static_cast<int>(gXStatus.uiItemTablesInDatabase);
-                     ++index) {
+                g_mipe_category_list->clear();
+                for (index = 0; index < static_cast<int>(gXStatus.uiItemTablesInDatabase); ++index) {
                     table = g_item_tables[index];
                     if (table->category_id == static_cast<unsigned int>(g_mipe_category & 0xff)) {
-                        PLAdoptAppend(list, table);
+                        list->push_back(table);
                     }
                 }
             }
-        } while (PLLength(g_mipe_category_list) == 0 && wraps < 2);
+        } while ((!g_mipe_category_list || g_mipe_category_list->empty()) && wraps < 2);
         ShowMipeItemTableCategory();
         return;
     }
@@ -2296,7 +2311,8 @@ unsigned char HandleMipeKey(const InputAtom* event)
             } else if (g_mipe_mode == 2 || g_mipe_mode == 1) {
                 g_mipe_mode = 0;
                 if (g_mipe_category_list != 0) {
-                    PLDestroy(g_mipe_category_list);
+                    delete g_mipe_category_list;
+
                     g_mipe_category_list = 0;
                 }
             } else {
@@ -2353,7 +2369,8 @@ unsigned char HandleMipeKey(const InputAtom* event)
                                     }
                                     g_mipe_state->generator = 0;
                                     if (g_mipe_category_list != 0) {
-                                        PLDestroy(g_mipe_category_list);
+                                        delete g_mipe_category_list;
+
                                         g_mipe_category_list = 0;
                                     }
                                 } else {
@@ -2419,7 +2436,8 @@ unsigned char HandleMipeKey(const InputAtom* event)
                                             ShowMipePropMenu();
                                             g_mipe_menu_active = true;
                                             if (g_mipe_category_list != 0) {
-                                                PLDestroy(g_mipe_category_list);
+                                                delete g_mipe_category_list;
+
                                                 g_mipe_category_list = 0;
                                             }
                                             return 1;
@@ -2610,7 +2628,7 @@ unsigned char HandleMipeKey(const InputAtom* event)
         if (key == 0x43) {
             g_mipe_choose_group = !g_mipe_choose_group;
             if (g_mipe_state != 0) {
-                IListClear(&g_mipe_state->monster_ids);
+                g_mipe_state->monster_ids.clear();
             }
             ShowMipeSelectionMenu("MOVE IT!!");
             return handled;
@@ -2635,7 +2653,7 @@ unsigned char HandleMipeKey(const InputAtom* event)
         if (key == 0x43) {
             g_mipe_choose_group = !g_mipe_choose_group;
             if (g_mipe_state != 0) {
-                IListClear(&g_mipe_state->monster_ids);
+                g_mipe_state->monster_ids.clear();
             }
             ShowMipeSelectionMenu("Choose monster or item to edit.");
             return handled;
@@ -2867,23 +2885,26 @@ void UpdateMipeSelection(void)
         if (group_id == g_mipe_state->selected_group_id) {
             return;
         }
-        for (index = 0; index < static_cast<int>(ILLength(&g_mipe_state->monster_ids)); ++index) {
-            int listed = IListGetAt(&g_mipe_state->monster_ids, index);
+        for (index = 0; index < static_cast<int>(g_mipe_state->monster_ids.size()); ++index) {
+            int listed = g_mipe_state->monster_ids[index];
             info = MonsterGetScriptPartByLocationIndex(
                 MonsterGetIndexByLocationID(0x10cd, MIPE_CPP, listed, true));
             if (info->fActive) {
                 SetMonsterHighlight(0, listed, false);
             }
         }
-        IListClear(&g_mipe_state->monster_ids);
-        for (index = 0; index < static_cast<int>(PLLength(gXStatus.plsMonsterList)); ++index) {
+        g_mipe_state->monster_ids.clear();
+        for (index = 0;
+             index <
+             static_cast<int>(gXStatus.monsters.size());
+             ++index) {
             info = GetMonsterListEntry(index);
             if (info->fActive && info->monster_group_id == group_id) {
                 SetMonsterHighlight(0, info->location_id, true);
-                IListAdd(&g_mipe_state->monster_ids, info->location_id);
+                g_mipe_state->monster_ids.push_back(info->location_id);
             }
         }
-        if (ILLength(&g_mipe_state->monster_ids) == 1) {
+        if (static_cast<unsigned int>(g_mipe_state->monster_ids.size()) == 1) {
             info = MonsterGetScriptPartByLocationIndex(
                 MonsterGetIndexByLocationID(0x10e8, MIPE_CPP, location_id, true));
             if (info == 0) {
@@ -2895,19 +2916,19 @@ void UpdateMipeSelection(void)
         SetWorldCursorGroupId(group_id);
         return;
     }
-    if (location_id != -1 && IListIndexOf(&g_mipe_state->monster_ids, location_id) != -1) {
+    if (location_id != -1 && std::ranges::contains(g_mipe_state->monster_ids, location_id)) {
         return;
     }
-    if (ILLength(&g_mipe_state->monster_ids) != 0) {
-        int old_id = IListGetAt(&g_mipe_state->monster_ids, 0);
-        IListClear(&g_mipe_state->monster_ids);
+    if (!g_mipe_state->monster_ids.empty()) {
+        int old_id = g_mipe_state->SelectedMonsterLocationId();
+        g_mipe_state->monster_ids.clear();
         SetMonsterHighlight(0, old_id, false);
     }
     if (location_id == -1) {
         return;
     }
     SetMonsterHighlight(0, location_id, true);
-    IListAdd(&g_mipe_state->monster_ids, location_id);
+    g_mipe_state->monster_ids.push_back(location_id);
     info = MonsterGetScriptPartByLocationIndex(
         MonsterGetIndexByLocationID(0x110c, MIPE_CPP, location_id, true));
     if (info == 0) {
@@ -2936,9 +2957,9 @@ void DragSelectionWithCursor(void)
                   cursor.z - g_mipe_state->drag_anchor.z + position.z);
         g_mipe_state->trigger->SetPosition(&moved);
     } else {
-        for (index = 0; index < static_cast<int>(ILLength(&g_mipe_state->monster_ids)); ++index) {
+        for (index = 0; index < static_cast<int>(g_mipe_state->monster_ids.size()); ++index) {
             info = MonsterGetScriptPartByLocationIndex(MonsterGetIndexByLocationID(
-                0x114c, MIPE_CPP, IListGetAt(&g_mipe_state->monster_ids, index), true));
+                0x114c, MIPE_CPP, g_mipe_state->monster_ids[index], true));
             MonsterGetLocalLocation(info->p3D, &position);
             moved.Set(cursor.x - g_mipe_state->drag_anchor.x + position.x,
                       cursor.y - g_mipe_state->drag_anchor.y + position.y,

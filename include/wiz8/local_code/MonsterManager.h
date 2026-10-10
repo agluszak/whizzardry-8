@@ -2,7 +2,12 @@
 #ifndef WIZ8_LOCAL_CODE_MONSTER_MANAGER_H
 #define WIZ8_LOCAL_CODE_MONSTER_MANAGER_H
 
+#include <unordered_map>
 #include "Types.h"
+#include <vector>
+struct W8MonsterAction;
+struct W8VisibilityRecord;
+
 #include "compat/ptr32.h"
 #include <stddef.h>
 
@@ -11,7 +16,7 @@
 
 
 #include "surrender/srMath.h"
-#include "wiz8/3d_code/PList.h"
+#include <algorithm>
 #include "wiz8/layouts/character.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/local_code/CharGeneration.h"
@@ -29,7 +34,6 @@
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/mouth_gap.h"
 #include "wiz8/local_code/Targeting.h"
-#include "wiz8/vector.h"
 
 struct W8CharacterEvent;
 struct W8NpcState;
@@ -117,7 +121,7 @@ struct W8MonsterManagerEntry {
        the 1..0xc brightness phase. */
     uint64_t acting_portrait_pulse_clock;
     unsigned short acting_portrait_pulse;
-    W8GrowableVector<int> highlighted_monsters;
+    std::vector<int> highlighted_monsters;
     /* The character has reached its experience goal; set once to post
        the level-up notice line and cleared when the character is no longer
        ready to advance. */
@@ -136,7 +140,6 @@ struct W8MonsterManagerEntry {
 };
 #pragma pack(pop)
 
-W8_ABI_ASSERT(sizeof(W8GrowableVector<int>) == 0x10, "W8GrowableVector_int_size_must_be_0x10");
 W8_ABI_ASSERT(sizeof(W8PortraitQuoteState) == 0x0c, "W8PortraitQuoteState_size");
 W8_ABI_ASSERT(offsetof(W8MonsterManagerEntry, mouth_gap) == 0x05,
               "W8MonsterManagerEntry_mouth_gap_offset");
@@ -239,7 +242,7 @@ struct W8MonsterCombatState {
     bool berserk;
     /* The queue of actions the monster's AI has decided on, one
        W8MonsterAction each. The AI owns the list and destroys it outright. */
-    W8PList* plsCombatActionList;
+    std::vector<W8MonsterAction>* actions;
     int character_hate[9];
     W8EffectSlot combat_effects[9];   /* 0x03e .. 0x0d7 */
     W8EffectSlot combat_effects_2[6]; /* 0x0d7 .. 0x13d */
@@ -338,6 +341,8 @@ struct W8VisibilityRecord {
 };
 W8_ABI_ASSERT(sizeof(W8VisibilityRecord) == 0x31, "W8VisibilityRecord_size");
 
+using W8MonsterVisibility = std::unordered_map<int, W8VisibilityRecord>;
+
 struct W8MonsterInfo {
     int location_id;
     int monster_group_id;
@@ -404,7 +409,7 @@ struct W8MonsterInfo {
        other monster. The two release paths own it: one drops every record
        about a departing monster, the other empties and destroys the whole
        list. */
-    W8_PTR32(W8PList) plsVisMonToMon;
+    W8_PTR32(W8MonsterVisibility) monster_visibility;
     W8CombatSlot Target;
     /* Summon marker - 0 ordinary, 1 friendly summon, 2 hostile summon;
        nonzero raises the summoned spell icon and feeds the slain cleanup. */

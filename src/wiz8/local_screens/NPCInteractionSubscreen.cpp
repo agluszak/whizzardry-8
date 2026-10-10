@@ -3,6 +3,7 @@
 #include <string_view>
 #include <string>
 #include "wiz8/unicode.h"
+#include "wiz8/containers.h"
 #include <wiz8/filesystem.h>
 #include <sstream>
 #include <memory>
@@ -71,8 +72,8 @@
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/dialog_code/MessageDialogBase.h"
 #include "wiz8/dialog_code/NpcDialog.h"
-#include "wiz8/3d_code/IList.h"
-#include "wiz8/3d_code/PList.h"
+#include <vector>
+#include <algorithm>
 #include "wiz8/cursor.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/Navigator.h"
@@ -244,7 +245,7 @@ void W8NpcDialogueOptionsPanel::SetEnabled(bool enable)
     int index;
 
     m_fEnabled = enable;
-    for (index = 0; index < m_controls.GetCount(); ++index) {
+    for (index = 0; index < static_cast<int>(m_controls.size()); ++index) {
         if (enable &&
             (ControlAt(index) ==
                  g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_OPTION_BUTTONS + 0] ||
@@ -1166,7 +1167,8 @@ void EndNpcDialogueSession(bool skip_exit_actions)
     }
     RequestRedrawCombatBar();
     RequestRedraw(W8_MAIN_REDRAW_SUBMENU_BUTTONS);
-    for (unsigned int index = 0; index < PLLength(gXStatus.plsMonsterList); index++) {
+    for (unsigned int index = 0;
+         index < gXStatus.monsters.size(); index++) {
         ClearMonsterCharm(MonsterGetScriptPartByLocationIndex(index));
     }
     GetNpcMonsterInfo(g_npc_interaction_state->dialogue_npc);
@@ -3757,10 +3759,10 @@ bool IsDialoguePlaceKeyword(std::string_view name)
 // FUNCTION: WIZ8 0x00575070
 void ClearNpcDialogueTranscript(void)
 {
-    for (int index = 0; index < g_npc_interaction_state->dialogue_transcript.GetCount(); ++index) {
-        delete *g_npc_interaction_state->dialogue_transcript.GetAt(index);
+    for (int index = 0; index < static_cast<int>(g_npc_interaction_state->dialogue_transcript.size()); ++index) {
+        delete g_npc_interaction_state->dialogue_transcript[index];
     }
-    g_npc_interaction_state->dialogue_transcript.Clear();
+    g_npc_interaction_state->dialogue_transcript.clear();
 }
 
 // FUNCTION: WIZ8 0x005750D0
@@ -3781,7 +3783,7 @@ try
             ClearNpcDialogueTranscript(); return false;
         }
         record->text = wiz8::text::from_utf16le(bytes);
-        g_npc_interaction_state->dialogue_transcript.Add(record.release());
+        g_npc_interaction_state->dialogue_transcript.push_back(record.release());
     }
     if (version > 1 && (!read(g_npc_interaction_state->dialogue_category_filter) ||
         !read(g_npc_interaction_state->transcript_sorted))) { ClearNpcDialogueTranscript(); return false; }
@@ -3795,10 +3797,10 @@ try
 {
     auto write = [&](const auto& value) { file->write(&value, sizeof(value)); };
     const unsigned char version = 2;
-    const std::uint32_t count = g_npc_interaction_state->dialogue_transcript.GetCount();
+    const std::uint32_t count = static_cast<int>(g_npc_interaction_state->dialogue_transcript.size());
     write(version); write(count);
     for (std::uint32_t i = 0; i < count; ++i) {
-        const auto* record = *g_npc_interaction_state->dialogue_transcript.GetAt(i);
+        const auto* record = g_npc_interaction_state->dialogue_transcript[i];
         const std::uint32_t units = wiz8::text::to_utf16(record->text).size();
         std::vector<std::byte> bytes((static_cast<std::size_t>(units) + 1) * 2);
         wiz8::text::to_utf16le(record->text, bytes);
@@ -4238,7 +4240,7 @@ void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, W8NpcScriptQu
             W8PendingNoticeLine* line = new W8PendingNoticeLine;
             line->npc_kind = npc_kind;
             line->text = normalized;
-            g_npc_interaction_state->pending_notice_lines.Add(line);
+            g_npc_interaction_state->pending_notice_lines.push_back(line);
         }
         g_npc_interaction_state->quote_notice_kind = notice_kind;
         g_npc_interaction_state->quote_notice_payload = payload;
@@ -4345,8 +4347,9 @@ void FlushPendingNoticeLines(void)
     std::string npc_name;
     int index;
 
-    for (index = 0; index < g_npc_interaction_state->pending_notice_lines.GetCount(); ++index) {
-        W8PendingNoticeLine* line = *g_npc_interaction_state->pending_notice_lines.GetAt(index);
+    for (index = 0; index < static_cast<int>(g_npc_interaction_state->pending_notice_lines.size());
+         ++index) {
+        W8PendingNoticeLine* line = g_npc_interaction_state->pending_notice_lines[index];
         if (line->npc_kind != -1 &&
             line->npc_kind != g_npc_interaction_state->last_notice_npc_kind) {
             W8NpcState* npc = GetNpcState(line->npc_kind);
@@ -4358,10 +4361,7 @@ void FlushPendingNoticeLines(void)
         }
         ShowNotice(line->npc_kind == -1 ? 0xb : 0xf, line->text, 3, GetTextBoxScrollRange());
     }
-    while (g_npc_interaction_state->pending_notice_lines.GetCount() > 0) {
-        W8PendingNoticeLine* line = g_npc_interaction_state->pending_notice_lines.RemoveAt(0);
-        delete line;
-    }
+    wiz8::remove_all_and_delete_in_order(g_npc_interaction_state->pending_notice_lines);
 }
 
 // FUNCTION: WIZ8 0x005767f0
@@ -4747,9 +4747,9 @@ void AddDialogueTranscriptKeyword(std::string_view name, signed char category)
                                                        : W8_DIALOGUE_CATEGORY_MISC;
         }
     }
-    for (int index = 0; index < g_npc_interaction_state->dialogue_transcript.GetCount(); ++index) {
+    for (int index = 0; index < static_cast<int>(g_npc_interaction_state->dialogue_transcript.size()); ++index) {
         if (CompareTextIgnoreAsciiCase(
-                (*g_npc_interaction_state->dialogue_transcript.GetAt(index))->text, keyword) == 0) {
+                (g_npc_interaction_state->dialogue_transcript[index])->text, keyword) == 0) {
             return;
         }
     }
@@ -4757,7 +4757,7 @@ void AddDialogueTranscriptKeyword(std::string_view name, signed char category)
         new W8DialogueTranscriptRecord{};
     record->text = keyword;
     record->category = category;
-    g_npc_interaction_state->dialogue_transcript.Add(record);
+    g_npc_interaction_state->dialogue_transcript.push_back(record);
 }
 
 // FUNCTION: WIZ8 0x005777c0
@@ -4859,25 +4859,10 @@ bool ProcessPendingEvent(void)
     return false;
 }
 
-// VTABLE: WIZ8 0x005ee9d0
-// class W8GrowableVector<W8DialogueTranscriptRecord*>
 
-// VTABLE: WIZ8 0x005ee9d4
-// class W8GrowableVector<W8PendingNoticeLine*>
 
-// VTABLE: WIZ8 0x005ee9d8
-// class W8Vector<W8PendingNoticeLine*>
 
-// VTABLE: WIZ8 0x005ee9dc
-// class W8Vector<W8DialogueTranscriptRecord*>
 
-// VTABLE: WIZ8 0x005ee9e0
-// class W8GrowableVector<W8GrowableVector<W8GrowableVector<char*>*>*>
 
 /* The keyword-list instantiations' char element type canonicalizes to
    unsigned short under the VC6 ABI spelling used by the PDB names. */
-// VTABLE: WIZ8 0x005ee9fc
-// class W8GrowableVector<unsigned short*>
-
-// VTABLE: WIZ8 0x005eea00
-// class W8GrowableVector<W8GrowableVector<unsigned short*>*>

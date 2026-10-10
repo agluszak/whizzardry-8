@@ -6,7 +6,8 @@
 #include "wiz8/layouts/screen_state.h"
 
 #include "input.h"
-#include "wiz8/vector.h"
+#include <vector>
+#include <algorithm>
 
 struct W8CreditLine {
     unsigned int flags;

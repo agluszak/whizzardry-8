@@ -1,5 +1,7 @@
+#include "wiz8/containers.h"
 #include "wiz8/sr_api.h"
-#include "wiz8/vector.h"
+#include <vector>
+#include <algorithm>
 #include "wiz8/engine_code/GrObject.h"
 #include "wiz8/engine_code/PathAI.h"
 #include "wiz8/engine_code/SoundEvent.h"
@@ -33,16 +35,16 @@ W8GrObject::W8GrObject(const W8GrObject& other)
         int count;
         int index;
 
-        m_plsSoundEvents = new W8Vector<W8SoundEvent*>();
+        m_plsSoundEvents = new std::vector<W8SoundEvent*>();
         if (m_plsSoundEvents == 0) {
             srAssertFail("m_plsSoundEvents", GROBJECT_CPP, 0x42, 0);
         }
-        count = other.m_plsSoundEvents->GetCount();
+        count = static_cast<int>(other.m_plsSoundEvents->size());
         for (index = 0; index < count; ++index) {
-            W8SoundEvent* pse = *other.m_plsSoundEvents->GetAt(index);
+            W8SoundEvent* pse = (*other.m_plsSoundEvents)[index];
 
-            m_plsSoundEvents->Add(CreateSoundEvent(pse->kind, pse->cycle, pse->frame, pse->subcycle,
-                                                   pse->m_pacWaveName, false));
+            m_plsSoundEvents->push_back(CreateSoundEvent(pse->kind, pse->cycle, pse->frame,
+                                                         pse->subcycle, pse->m_pacWaveName, false));
         }
     } else {
         m_plsSoundEvents = 0;
@@ -64,20 +66,11 @@ W8GrObject::~W8GrObject()
         free(m_pAI);
     }
     if (m_plsSoundEvents != 0) {
-        int count = m_plsSoundEvents->GetCount();
-        int index;
-
-        for (index = 0; index < count; ++index) {
-            delete *m_plsSoundEvents->GetAt(index);
-        }
+        wiz8::remove_all_and_delete_in_order(*m_plsSoundEvents);
         delete m_plsSoundEvents;
     }
 }
 
-// VTABLE: WIZ8 0x005ed098
-// class W8GrowableVector<W8SoundEvent*>
-// VTABLE: WIZ8 0x005ed094
-// class W8Vector<W8SoundEvent*>
 /* Creates the list on first use and appends one event to it. Only one argument
    reaches this from its three call sites, each of which builds the event with
    0x004D57A0 immediately before the call - the same pointer is both the thing
@@ -94,12 +87,12 @@ unsigned char W8GrObject::AddSoundEvent(W8SoundEvent* pse)
         return 0;
     }
     if (!m_plsSoundEvents) {
-        m_plsSoundEvents = new W8Vector<W8SoundEvent*>();
+        m_plsSoundEvents = new std::vector<W8SoundEvent*>();
         if (!m_plsSoundEvents) {
             srAssertFail("m_plsSoundEvents", GROBJECT_CPP, 0x8b, 0);
         }
     }
-    m_plsSoundEvents->Add(pse);
+    m_plsSoundEvents->push_back(pse);
     return 1;
 }
 

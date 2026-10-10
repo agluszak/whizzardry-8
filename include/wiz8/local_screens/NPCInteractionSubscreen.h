@@ -9,7 +9,8 @@
 void SyncNpcDialogueTranscriptScrollButtons();
 
 #include "input.h"
-#include "wiz8/vector.h"
+#include <vector>
+#include <algorithm>
 #include "wiz8/layouts/item_instance.h"
 #include "wiz8/layouts/main_game_screen.h"
 #include "wiz8/layouts/npc_dialogue.h"
@@ -198,7 +199,7 @@ struct W8NpcInteractionState {
     /* Raised while the "Where Is" submit path runs, so the typed text is
        wrapped in the "Where is %s" template instead of a plain keyword lookup. */
     bool where_is_query;
-    W8Vector<W8DialogueTranscriptRecord*> dialogue_transcript;
+    std::vector<W8DialogueTranscriptRecord*> dialogue_transcript;
     bool transcript_sorted;
     /* The item a pending NPC notice carries; copied from g_pending_notice
        when the dialogue opens. */
@@ -227,7 +228,7 @@ struct W8NpcInteractionState {
     short quote_width;
     short quote_height;
     bool quote_visible;
-    W8Vector<W8PendingNoticeLine*> pending_notice_lines;
+    std::vector<W8PendingNoticeLine*> pending_notice_lines;
     /* The whole dialogue UI is parked (right-click hide) and the world input
        path is live until it is shown again. */
     unsigned char dialogue_hidden;
@@ -322,7 +323,7 @@ extern bool g_keyword_lists_loaded;
 /* Replace the keyword lists with the contents of
    Data\Strings\English_Keywords.txt and Data\Strings\translated_Keywords.txt. */
 void ReloadKeywordLists(void);
-/* Release every file list, its lines and its words. */
+/* Clear the loaded keyword tables. */
 void ClearKeywordLists(void);
 /* Load one keyword file into a file list. */
 bool LoadKeywordFile(std::string_view path, KeywordFile& file);

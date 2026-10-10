@@ -1,6 +1,7 @@
 #include "wiz8/engine_code/Camera.h"
 
-#include "wiz8/3d_code/PList.h"
+#include <vector>
+#include <algorithm>
 #include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/engine_code/GameData.h"
@@ -40,12 +41,7 @@ static int g_saved_environment_flag = 1;
 // FUNCTION: WIZ8 0x0048F280
 void UpdateCameraPathStateByName(W8World* world, const char* name, int active)
 {
-    /* Retail calls the length accessor unconditionally (0x0048F28C) before
-       testing the list pointer; {PLLength, ILLength} is one linker-folded
-       equivalence class, so PLLength is the correctly spelled name here.
-       The accessor is null-tolerant (returns 0 on a null head), so the call
-       precedes the guard in the original. */
-    unsigned int count = PLLength(world->plsCameras);
+    unsigned int count = (world->plsCameras ? world->plsCameras->size() : 0);
     if (world->plsCameras != 0 && count != 0) {
         for (int index = 0; index < static_cast<int>(count); ++index) {
             W8CameraPath* path = GetWorldCameraPath(world, index);

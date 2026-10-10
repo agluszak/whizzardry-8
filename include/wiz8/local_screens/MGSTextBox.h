@@ -3,6 +3,9 @@
 #include <cstddef>
 
 #include "Types.h"
+#include <vector>
+struct W8NoticeWord;
+
 #include "wiz8/filesystem.h"
 
 class Trigger;
@@ -12,6 +15,7 @@ class Trigger;
 #include "wiz8/dialog_code/DialogBase.h"
 
 #include <vector>
+#include <algorithm>
 
 struct W8MonsterInfo;
 struct W8Region;

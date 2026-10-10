@@ -21,7 +21,8 @@
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_screens/MGSSpellCasting.h"
 #include "wiz8/local_screens/MGSTextBox.h"
-#include "wiz8/3d_code/PList.h"
+#include <vector>
+#include <algorithm>
 #include "timer.h"
 
 #define COMBAT_MOVEMENT_CPP "C:\\Projects\\Wizardry 8\\Local Code\\Combat Party Movement.cpp"
@@ -317,7 +318,7 @@ void AlignCombatantsToPartyMovementPhase(void)
             RoundPhaseToStep(&row->phase, g_combat_state->round_counter);
         }
     }
-    unsigned int monster_count = PLLength(gXStatus.plsMonsterList);
+    unsigned int monster_count = gXStatus.monsters.size();
     for (unsigned int monster_index = 0; monster_index < monster_count; ++monster_index) {
         W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(monster_index);
         if (monster_info->fInCombat &&
@@ -325,7 +326,7 @@ void AlignCombatantsToPartyMovementPhase(void)
             !monster_info->pCombat->active) {
             RoundPhaseToStep(&monster_info->pCombat->phase, g_combat_state->round_counter);
         }
-        monster_count = PLLength(gXStatus.plsMonsterList);
+        monster_count = gXStatus.monsters.size();
     }
 }
 

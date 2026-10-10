@@ -23,6 +23,7 @@
 #include "wiz8/local_code/LoadSaveGame.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/npc_script_file.h"
+#include "wiz8/monster_generators.h"
 #include "wiz8/spell_ids.h"
 #include "wiz8/xstatus.h"
 
@@ -34,7 +35,7 @@
 #include <chrono>
 #include "temporary_directory.h"
 
-extern W8GrowableVector<W8NpcState*>* g_npc_states;
+extern std::vector<W8NpcState*> g_npc_states;
 extern void SaveGlobalStatus(W8Chunk* chunks, W8GlobalStatus* status);
 
 #define CHECK(expression)                                                                          \
@@ -269,7 +270,7 @@ static void transcript_contracts()
     auto* entry = new W8DialogueTranscriptRecord{};
     entry->text = "é中😀";
     entry->category = 2;
-    state.dialogue_transcript.Add(entry);
+    state.dialogue_transcript.push_back(entry);
     state.dialogue_category_filter = 3;
     state.transcript_sorted = true;
     auto file = wiz8::open_file("Saves/transcript.bin", wiz8::OpenMode::replace);
@@ -284,9 +285,9 @@ static void transcript_contracts()
     CHECK(bytes[13] == std::byte{0x3d} && bytes[14] == std::byte{0xd8});
     file->seek(0, wiz8::SeekOrigin::begin);
     CHECK(LoadNpcDialogueTranscript(file.get()));
-    CHECK(state.dialogue_transcript.GetCount() == 1);
-    CHECK((*state.dialogue_transcript.GetAt(0))->text == "é中😀");
-    CHECK((*state.dialogue_transcript.GetAt(0))->category == 2);
+    CHECK(state.dialogue_transcript.size() == 1);
+    CHECK(state.dialogue_transcript[0]->text == "é中😀");
+    CHECK(state.dialogue_transcript[0]->category == 2);
     CHECK(state.dialogue_category_filter == 3 && state.transcript_sorted);
     ClearNpcDialogueTranscript();
     file->close();
@@ -313,6 +314,8 @@ static void keyword_file_contracts()
     CHECK(first.size() == 2);
     CHECK(first[0] == std::vector<std::string>({"hello", "world"}));
     CHECK(first[1] == std::vector<std::string>({"bye", "last"}));
+    CHECK(TranslateDialogueKeyword("BONJOUR") == "hello");
+    CHECK(TranslateDialogueKeyword("unknown") == "unknown");
     ClearKeywordLists();
     CHECK(!g_keyword_lists_loaded && g_keyword_lists.size() == 0);
     write_keywords(english, "header\n01234567890partial/row/\n01234567890" + std::string("\0bad", 4));
@@ -324,6 +327,63 @@ static void keyword_file_contracts()
     CHECK(wiz8::remove_file(english));
     ReloadKeywordLists();
     CHECK(!g_keyword_lists_loaded && g_keyword_lists.size() == 0);
+}
+
+static void encounter_table_contracts()
+{
+    wiz8::create_directory("Data/Databases");
+    constexpr auto path = "Data/Databases/EncounterTables.dbs";
+    for (unsigned short version : {1, 2}) {
+        {
+            auto file = wiz8::open_file(path, wiz8::OpenMode::replace);
+            const int count = 1;
+            const char name[256] = "Wilderness";
+            W8EncounterTableDiskHeader header = {4, "Forest", 7, version, 2};
+            const unsigned short species[] = {12, 34};
+            const unsigned char rarity[] = {3, 70};
+            const unsigned char time[] = {W8_ENCOUNTER_DAY, W8_ENCOUNTER_ANY_TIME};
+            const unsigned char challenge[] = {5, 20};
+            const W8EncounterScriptName scripts[] = {{"first.msf"}, {"second.msf"}};
+            const unsigned char flags = 0x42;
+            file->write(&count, sizeof(count));
+            file->write(name, sizeof(name));
+            file->write(&count, sizeof(count));
+            file->write(&header, sizeof(header));
+            file->write(species, sizeof(species));
+            file->write(rarity, sizeof(rarity));
+            file->write(time, sizeof(time));
+            file->write(challenge, sizeof(challenge));
+            file->write(scripts, sizeof(scripts));
+            if (version == 2) file->write(&flags, sizeof(flags));
+        }
+        CHECK(InitializeEncounterTables());
+        CHECK(g_encounter_names == std::vector<std::string>{"Wilderness"});
+        CHECK(g_encounter_tables.size() == 1);
+        const auto* table = GetEncounterTable(0);
+        CHECK(table && !strcmp(table->name, "Forest") && table->category == 7);
+        CHECK(table->version_two_flags == (version == 1 ? 0 : 0x42));
+        CHECK(table->entries.size() == 2);
+        const auto& first = table->entries[0];
+        const auto& second = table->entries[1];
+        CHECK(first.species == 12 && first.rarity_class == 3 &&
+              first.time_condition == W8_ENCOUNTER_DAY && first.challenge_level == 5 &&
+              !strcmp(first.script.value, "first.msf"));
+        CHECK(second.species == 34 && second.rarity_class == 70 &&
+              second.time_condition == W8_ENCOUNTER_ANY_TIME && second.challenge_level == 20 &&
+              !strcmp(second.script.value, "second.msf"));
+        CHECK(!GetEncounterTable(-1) && !GetEncounterTable(1));
+    }
+    // Failed loads must not publish partially populated parallel data.
+    {
+        auto file = wiz8::open_file(path, wiz8::OpenMode::replace);
+        const int count = 1;
+        file->write(&count, sizeof(count));
+    }
+    CHECK(!InitializeEncounterTables());
+    CHECK(g_encounter_tables.empty() && g_encounter_names.empty());
+    CHECK(g_encounter_tables_level == -1);
+    UnloadEncounterTables();
+    CHECK(wiz8::remove_file(path));
 }
 
 static void save_file_contracts(const std::filesystem::path& user)
@@ -610,10 +670,10 @@ int main()
         chunk.m_hFile = wiz8::open_host_file(path);
         CHECK(chunk.m_hFile != 0);
         LoadNpcStates(&chunk);
-        CHECK(g_npc_states->GetCount() == 3);
+        CHECK(static_cast<int>(g_npc_states.size()) == 3);
         for (unsigned int i = 0; i < 3; ++i)
         {
-            W8NpcState* npc = *g_npc_states->GetAt(i);
+            W8NpcState* npc = g_npc_states[i];
             CHECK(npc->record == &database[i]);
             CHECK(npc->items == 0 && npc->script_file == 0);
             if (i < 2)
@@ -630,7 +690,19 @@ int main()
         CHECK(chunk.Read(&trailer, sizeof(trailer), 0) && trailer == 0xdecafbadU);
         chunk.m_hFile.reset();
         chunk.m_hFile = 0;
+        CHECK(!GetNpcState(-1) && !GetNpcState(3));
+        ReleaseNpcBinding(3); // one past the end is not a live binding
+        auto* kept = GetNpcState(1);
+        auto* retired = g_npc_states[0];
+        retired->binding_unavailable = true;
+        CHECK(!GetNpcState(0));
+        auto* replacement = CreateNpcRuntimeNode(0);
+        CHECK(g_npc_states.size() == 3 && GetNpcState(0) == replacement);
+        CHECK(replacement->partner_index == 0 && GetNpcState(1) == kept);
+        CHECK(retired->binding_unavailable && retired->character->name[0] == L'A');
         ReleaseNpcStates();
+        ReleaseNpcStates();
+        CHECK(g_npc_states.empty());
     }
     g_npc_records = nullptr;
     character_file_contracts(assets, user);
@@ -756,6 +828,7 @@ int main()
     keyword_file_contracts();
     unicode_file_contracts();
     unicode_database_contracts();
+    encounter_table_contracts();
     wiz8::clear_asset_archives();
 
     std::filesystem::remove_all(root);

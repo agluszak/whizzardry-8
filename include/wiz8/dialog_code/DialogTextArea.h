@@ -1,7 +1,8 @@
 #pragma once
 
 #include "wiz8/local_code/ControlsRect.h"
-#include "wiz8/vector.h"
+#include <vector>
+#include <algorithm>
 #include "wiz8/dialog_code/DialogTextEntry.h"
 
 extern const unsigned int g_W8DialogTextAreaNoWrap;
@@ -10,11 +11,7 @@ extern const unsigned int g_W8DialogTextAreaShortenText;
 
 /* Two instances of this pointer-vector specialization are embedded in
    W8DialogTextArea. */
-// VTABLE: WIZ8 0x005ef89c
-// class W8GrowableVector<W8DialogTextEntry*>
 
-// VTABLE: WIZ8 0x005ef898
-// class W8Vector<W8DialogTextEntry*>
 
 /* Nonpolymorphic scrolling-text helper contained by dialogs, not a widget or
    text-buffer base. Both vectors belong to this object; only all_lines owns
@@ -62,8 +59,8 @@ private:
     int m_font;
     int m_first_visible_entry;
     int m_first_visible_line;
-    W8Vector<W8DialogTextEntry*> m_all_lines;     /* owns entries */
-    W8Vector<W8DialogTextEntry*> m_visible_lines; /* non-owning view */
+    std::vector<W8DialogTextEntry*> m_all_lines;     /* owns entries */
+    std::vector<W8DialogTextEntry*> m_visible_lines; /* non-owning view */
     bool m_layout_initialized;
 
 public:

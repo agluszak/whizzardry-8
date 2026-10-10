@@ -67,8 +67,8 @@
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/dialog_code/MessageDialogBase.h"
 #include "wiz8/dialog_code/NpcDialog.h"
-#include "wiz8/3d_code/IList.h"
-#include "wiz8/3d_code/PList.h"
+#include <vector>
+#include <algorithm>
 #include "wiz8/cursor.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/Navigator.h"
@@ -2544,7 +2544,7 @@ unsigned char W8NpcDialogueTextController::AddTranscriptEntry(std::string_view t
     int index;
     int added;
 
-    for (index = 0; index < text_area.m_all_lines.GetCount(); ++index) {
+    for (index = 0; index < static_cast<int>(text_area.m_all_lines.size()); ++index) {
         text_area.GetEntry(index);
         text_area.CopyEntryText(index, existing);
         if (CompareTextIgnoreAsciiCase(existing, text) == 0) {
@@ -2556,8 +2556,8 @@ unsigned char W8NpcDialogueTextController::AddTranscriptEntry(std::string_view t
     if (mark != 0) {
         text_area.SetEntryMarked(added, true);
     }
-    if (1u < (unsigned)text_area.m_all_lines.GetCount()) {
-        for (index = 0; index < text_area.m_all_lines.GetCount(); ++index) {
+    if (1u < static_cast<int>((unsigned)text_area.m_all_lines.size())) {
+        for (index = 0; index < static_cast<int>(text_area.m_all_lines.size()); ++index) {
             text_area.GetEntry(index);
             text_area.CopyEntryText(index, existing);
             if (CompareTextIgnoreAsciiCase(existing, " [No Keywords]") == 0) {
@@ -2779,12 +2779,13 @@ void W8NpcDialogueTextController::RestoreTranscriptEntries()
     W8NpcDialogueTextController* controller;
     int index;
 
-    for (index = 0; index < g_npc_interaction_state->dialogue_transcript.GetCount(); ++index) {
-        record = *g_npc_interaction_state->dialogue_transcript.GetAt(index);
+    for (index = 0; index < static_cast<int>(g_npc_interaction_state->dialogue_transcript.size());
+         ++index) {
+        record = g_npc_interaction_state->dialogue_transcript[index];
         AddTranscriptEntry(record->text, record->category, 0);
     }
     Invalidate(0);
-    if (g_npc_interaction_state->dialogue_transcript.GetCount() == 0) {
+    if (g_npc_interaction_state->dialogue_transcript.empty()) {
         g_npc_interaction_state->dialogue_category_filter = W8_DIALOGUE_CATEGORY_ALL;
         controller =
             static_cast<W8NpcDialogueTextController*>(g_npc_interaction_state->dialogue_panels[2]);
@@ -3298,7 +3299,7 @@ render_world:
         }
         ProcessMonsterManagerFrame();
         if (g_debug_monster_cycle) {
-            W8Monster* monster = GetMonsterByLocationID(IListGetAt(&g_mipe_state->monster_ids, 0));
+            W8Monster* monster = GetMonsterByLocationID(g_mipe_state->SelectedMonsterLocationId());
             if (monster) {
                 ClearSurfaceRect(0x122, 0x159, 0x226, 0x168);
                 SetFont(g_wiz_text_font_secondary);
@@ -3944,7 +3945,7 @@ void RedrawCombatMonsterList(void)
     if (gXStatus.active_monster_count != 0) {
         SetFont(g_wiz_text_font_secondary);
         group_list_index = 0;
-        list_length = PLLength(gXStatus.plsMonsterGroupList);
+        list_length = gXStatus.monster_groups.size();
         if (list_length != 0) {
             do {
                 monster_group = GetMonsterGroupByListIndex(group_list_index);
@@ -4005,7 +4006,8 @@ void RedrawCombatMonsterList(void)
                     }
                 }
                 ++group_list_index;
-                list_length = PLLength(gXStatus.plsMonsterGroupList);
+                list_length =
+                    gXStatus.monster_groups.size();
             } while (group_list_index < list_length);
         }
     }
@@ -7437,19 +7439,19 @@ void W8NpcDialogueTextController::SaveTranscriptEntries()
     int index;
 
     ClearNpcDialogueTranscript();
-    for (index = 0; index < text_area.m_all_lines.GetCount(); ++index) {
+    for (index = 0; index < static_cast<int>(text_area.m_all_lines.size()); ++index) {
         record = new W8DialogueTranscriptRecord{};
         entry = text_area.GetEntry(index);
         record->text = entry->GetText();
         record->category = entry->m_category;
-        g_npc_interaction_state->dialogue_transcript.Add(record);
+        g_npc_interaction_state->dialogue_transcript.push_back(record);
     }
 }
 
 // FUNCTION: WIZ8 0x0055EA40
 void W8NpcDialogueTextController::ClearTranscriptEntries()
 {
-    while (0u < (unsigned)text_area.m_all_lines.GetCount()) {
+    while (0u < static_cast<int>((unsigned)text_area.m_all_lines.size())) {
         text_area.RemoveEntry(0);
     }
     Invalidate(0);

@@ -14,7 +14,8 @@
 #include "wiz8/local_code/Controls.h"
 #include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/local_code/LoadSaveGame.h"
-#include "wiz8/vector.h"
+#include <vector>
+#include <algorithm>
 #include "wiz8/text_input.h"
 
 class W8OptionsPanel;
@@ -118,7 +119,7 @@ public:
     unsigned char m_hide_navigation;
     bool m_active; /* set once the set's panels are built */
     int m_current;
-    W8Vector<W8OptionsPanel*> m_panels;
+    std::vector<W8OptionsPanel*> m_panels;
 };
 
 
@@ -169,8 +170,8 @@ public:
     int m_current;
     int m_content_top;
     int unknown_054;
-    W8Vector<W8TextBuffer*> m_text_buffers;
-    W8Vector<W8OptionsSelection*> m_option_selections;
+    std::vector<W8TextBuffer*> m_text_buffers;
+    std::vector<W8OptionsSelection*> m_option_selections;
 };
 
 
@@ -321,7 +322,7 @@ public:
     void LoadSelectedSave();
     void SaveSelectedSave();
     int m_panel;
-    W8Vector<W8OptionsSaveRow*> m_rows;
+    std::vector<W8OptionsSaveRow*> m_rows;
     W8ControlSelection m_selection;
     W8TextControl* m_delete_button;
     W8TextControl* m_action_button;
@@ -407,7 +408,7 @@ public:
     virtual void OnSecondary(W8TextControl*) override {}
     virtual void OnDialogClosed(bool accepted, int value) override;
 
-    W8Vector<W8SaveSlot*> m_save_slots;
+    std::vector<W8SaveSlot*> m_save_slots;
     bool m_redraw_pending;
     bool m_modal_closing;
     unsigned char padding_01e[2];

@@ -2,12 +2,14 @@
 #ifndef WIZ8_CHARACTER_EVENT_QUEUE_H
 #define WIZ8_CHARACTER_EVENT_QUEUE_H
 
+#include "wiz8/containers.h"
 #include "timer.h"
 
 #include "wiz8/layouts/item_instance.h"
 #include "wiz8/integer_constants.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
-#include "wiz8/vector.h"
+#include <vector>
+#include <algorithm>
 
 struct W8Character;
 
@@ -93,11 +95,11 @@ W8_ABI_ASSERT(sizeof(W8CharacterEvent) == 0x38, "W8CharacterEvent_must_be_0x38")
 struct W8CharacterEventQueue {
     /* 0x00/0x20: no retail code path ever enqueues into these; they are still
        drained and scanned alongside the live vectors. */
-    W8Vector<W8CharacterEvent*> vector0;
-    W8Vector<W8CharacterEvent*> pending_events;
-    W8Vector<W8CharacterEvent*> vector1;
-    W8Vector<W8CharacterEvent*> npc_deferred_events;
-    W8GrowableVector<W8CharacterEvent*> active_events;
+    std::vector<W8CharacterEvent*> vector0;
+    std::vector<W8CharacterEvent*> pending_events;
+    std::vector<W8CharacterEvent*> vector1;
+    std::vector<W8CharacterEvent*> npc_deferred_events;
+    std::vector<W8CharacterEvent*> active_events;
     int active_event_type;
     int active_party_slot;
     /* 0x58: a five-second countdown armed by every successful Dispatch; while
@@ -128,7 +130,7 @@ struct W8CharacterEventQueue {
     // FUNCTION: WIZ8 0x0052D8D0
     void CompleteActiveEvent(W8CharacterEvent* entry)
     {
-        active_events.Remove(entry);
+        wiz8::erase_first(active_events, entry);
         RestartFollowUpClock(entry);
         entry->Complete();
         delete entry;

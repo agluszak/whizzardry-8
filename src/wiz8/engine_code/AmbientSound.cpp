@@ -1,11 +1,12 @@
 #include "wiz8/utility.h"
 #include "wiz8/unicode.h"
+#include "wiz8/containers.h"
 #include "wiz8/engine_code/Quality.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/engine_code/GDCamera.h"
-#include "wiz8/3d_code/IList.h"
-#include "wiz8/3d_code/PList.h"
+#include <vector>
+#include <algorithm>
 #include "wiz8/engine_code/AmbientSound.h"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/float_constants.h"
@@ -367,11 +368,11 @@ W8AmbientSound* W8AmbientSound::FindNextMatching(const char* match_name, W8Ambie
     if (g_world == 0) {
         return 0;
     }
-    count = static_cast<int>(PLLength(g_world->plsAmbientSounds));
+    count = static_cast<int>((g_world->plsAmbientSounds ? g_world->plsAmbientSounds->size() : 0));
     if (previous == 0) {
         index = 0;
     } else {
-        index = PListIndexOf(g_world->plsAmbientSounds, previous) + 1;
+        index = wiz8::index_of(*g_world->plsAmbientSounds, previous) + 1;
         if (index < 0 || index > count) {
             return 0;
         }
@@ -421,7 +422,7 @@ void UpdateAmbientSounds(W8World* world)
 
         SoundServiceRandom();
         SoundServiceStreams();
-        count = static_cast<int>(PLLength(world->plsAmbientSounds));
+        count = static_cast<int>((world->plsAmbientSounds ? world->plsAmbientSounds->size() : 0));
         for (index = 0; index < count; ++index) {
             W8AmbientSound* sound = GetWorldAmbientSound(world, index);
             if (sound != 0) {
@@ -533,7 +534,7 @@ void RepositionAmbientSounds(W8World* world)
         int index;
 
         SoundServiceRandom();
-        count = static_cast<int>(PLLength(world->plsAmbientSounds));
+        count = static_cast<int>((world->plsAmbientSounds ? world->plsAmbientSounds->size() : 0));
         for (index = 0; index < count; ++index) {
             W8AmbientSound* sound = GetWorldAmbientSound(world, index);
             if (sound != 0) {
@@ -618,7 +619,7 @@ unsigned char AddAmbientSound(W8World* world, const char* name, const W8AmbientS
     sound->looping = looping;
     sound->bounded = bounded;
     sound->shared = shared;
-    PLAdoptAppend(world->plsAmbientSounds, sound);
+    world->plsAmbientSounds->push_back(sound);
     return 1;
 }
 
@@ -627,7 +628,8 @@ unsigned char AddAmbientSound(W8World* world, const char* name, const W8AmbientS
    lookup has already dereferenced it. */
 static W8AmbientSound* FindAmbientSoundByName(const char* name)
 {
-    int count = static_cast<int>(PLLength(g_world->plsAmbientSounds));
+    int count =
+        static_cast<int>((g_world->plsAmbientSounds ? g_world->plsAmbientSounds->size() : 0));
     int index;
 
     for (index = 0; index < count; ++index) {
@@ -751,7 +753,8 @@ void SetSoundEffectsVolume(unsigned char volume)
     g_settings.sound_effects_volume = volume;
     SoundSetDefaultVolume(volume);
     if (g_world != 0 && g_world->plsAmbientSounds != 0) {
-        count = static_cast<int>(PLLength(g_world->plsAmbientSounds));
+        count =
+            static_cast<int>((g_world->plsAmbientSounds ? g_world->plsAmbientSounds->size() : 0));
         for (index = 0; index < count; ++index) {
             W8AmbientSound* sound = GetWorldAmbientSound(g_world, index);
             if (sound != 0) {
@@ -770,7 +773,7 @@ void SetSoundEffectsVolume(unsigned char volume)
     world = GetWorld();
     if (world != 0) {
         SoundServiceRandom();
-        count = static_cast<int>(PLLength(world->plsAmbientSounds));
+        count = static_cast<int>((world->plsAmbientSounds ? world->plsAmbientSounds->size() : 0));
         for (index = 0; index < count; ++index) {
             W8AmbientSound* sound = GetWorldAmbientSound(world, index);
             if (sound != 0) {
@@ -826,7 +829,7 @@ void SaveAmbientSoundList(wiz8::File* handle)
         handle->write(&count, 4);
         return;
     }
-    count = PLLength(g_world->plsAmbientSounds);
+    count = (g_world->plsAmbientSounds ? g_world->plsAmbientSounds->size() : 0);
     ok = ok && (handle->write(&count, 4), true);
     for (index = 0; index < static_cast<int>(count); ++index) {
         W8AmbientSound* sound = GetWorldAmbientSound(g_world, index);
@@ -879,7 +882,8 @@ void LoadAmbientSoundList(wiz8::File* handle)
         } else {
             ok = 0;
         }
-        length = static_cast<int>(PLLength(g_world->plsAmbientSounds));
+        length =
+            static_cast<int>((g_world->plsAmbientSounds ? g_world->plsAmbientSounds->size() : 0));
         for (scan = 0; scan < length; ++scan) {
             W8AmbientSound* sound = GetWorldAmbientSound(g_world, scan);
             if (sound->pacSoundName != 0 && _stricmp(sound->pacSoundName, name) == 0) {

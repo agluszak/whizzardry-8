@@ -1,6 +1,7 @@
 #include <fmt/format.h>
 #include "wiz8/unicode.h"
 #include "wiz8/retail_text_records.h"
+#include "wiz8/containers.h"
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/engine_code/Environment.h"
@@ -21,7 +22,8 @@
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/NPCScripting.h"
-#include "wiz8/3d_code/PList.h"
+#include <vector>
+#include <algorithm>
 #include "wiz8/layouts/item_instance.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/local_code/MonsterManager.h"
@@ -47,7 +49,6 @@
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/utility.h"
 #include "wiz8/sr_api.h"
-#include "wiz8/vector.h"
 #include "wiz8/virtual_file.h"
 #include "wiz8/filesystem.h"
 #include "random.h"
@@ -357,11 +358,6 @@ try
 }
 catch (const std::exception&) { return false; }
 
-/* Retail emits this owning-list teardown out of line here and expands the same
-   operation at the NPC-item sites.  The exact source boundary remains
-   unresolved; it is neither an authored specialization nor a W8PList member
-   destructor under the VC6 ABI. */
-
 // FUNCTION: WIZ8 0x0054ac90
 void DestroyNpcDatabase(void)
 {
@@ -370,12 +366,10 @@ void DestroyNpcDatabase(void)
     if (g_npc_records) {
         for (index = 0; index < gXStatus.uiNpcsInDatabase; ++index) {
             if (g_npc_records[index].item_stock_rules) {
-                W8PList* rules = g_npc_records[index].item_stock_rules;
-                while (PLLength(rules) != 0) {
-                    delete static_cast<W8NpcItemStockRule*>(PLRemoveAt(rules, 0));
-                }
-                PListFreeData(rules);
-                PLDestroy(rules);
+                std::vector<W8NpcItemStockRule*>* rules = g_npc_records[index].item_stock_rules;
+                wiz8::remove_all_and_delete_in_order(*rules);
+                delete rules;
+
                 g_npc_records[index].item_stock_rules = 0;
             }
         }

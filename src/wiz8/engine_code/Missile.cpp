@@ -2,6 +2,7 @@
 #include "wiz8/retail_text_records.h"
 #include "wiz8/unicode.h"
 #include <string>
+#include "wiz8/containers.h"
 #include <glm/gtx/rotate_vector.hpp>
 #include "wiz8/engine_code/AnimRep.hpp"
 #include "wiz8/spell_ids.h"
@@ -25,7 +26,8 @@
 #include "wiz8/engine_code/game_timer.h"
 #include "wiz8/engine_code/AmbientSound.h"
 #include "wiz8/engine_code/SoundEvent.h"
-#include "wiz8/3d_code/PList.h"
+#include <vector>
+#include <algorithm>
 #include "wiz8/sr_api.h"
 #include "wiz8/engine_code/Environment.h"
 #include "wiz8/engine_code/Quality.h"
@@ -209,7 +211,7 @@ float AdvanceMissileAI(W8AIMissile* record, srVector3T<float>* out, unsigned int
     if (g_world->octree != 0 &&
         (entity = g_world->octree->TraceAgainstProps(&position, out, 0, 0)) != 0) {
         record->limit = 1.0f;
-        prop = *g_world->collidable_props->GetAt(entity - 1);
+        prop = (*g_world->collidable_props)[entity - 1];
         prop->RunMissileTrigger(record);
     }
     if (record->gravity) {
@@ -338,8 +340,8 @@ W8Missile* NextMissile(bool restart)
         if (restart) {
             g_missile_iterator = 0;
         }
-        if (g_missile_iterator < g_world->missiles->GetCount()) {
-            missile = *g_world->missiles->GetAt(g_missile_iterator);
+        if (g_missile_iterator < static_cast<int>(g_world->missiles->size())) {
+            missile = (*g_world->missiles)[g_missile_iterator];
             ++g_missile_iterator;
         }
     }
@@ -358,9 +360,9 @@ void UpdateWorldMissiles(W8World* world)
         srAssertFail("pWorld", MISSILE_CPP, 200, 0);
     }
     int index = 0;
-    int count = world->missiles->GetCount();
+    int count = static_cast<int>(world->missiles->size());
     while (index < count) {
-        W8Missile* missile = *world->missiles->GetAt(index);
+        W8Missile* missile = (*world->missiles)[index];
         if (missile != 0) {
             missile->DetachRepresentation(world);
             if (!missile->flight_done || missile->block_released == 0) {
@@ -368,7 +370,7 @@ void UpdateWorldMissiles(W8World* world)
                 missile->UpdateRepresentation(world);
                 missile->UpdateNavigation(0, false);
             } else {
-                world->missiles->Remove(missile);
+                wiz8::erase_first(*world->missiles, missile);
                 missile->DestroyMissile();
                 --index;
                 --count;
@@ -422,7 +424,7 @@ W8Missile* AllocateMissile(int missile_table_index)
         }
     }
     missile->impacting = false;
-    g_world->missiles->Add(missile);
+    g_world->missiles->push_back(missile);
     minimum = -125.0;
     maximum = 125.0;
     missile->SetBounds(&minimum, &maximum);
@@ -780,12 +782,12 @@ W8MissileRep::W8MissileRep(const W8MissileRep& other)
     for (emitter = 0; emitter < 2; ++emitter) {
         int list_index;
 
-        for (list_index = 0; list_index < other.light_lists[emitter].GetCount(); ++list_index) {
-            W8GrowableVector<stLight*>* source_lights =
-                *other.light_lists[emitter].GetAt(list_index);
-            W8GrowableVector<stLight*>* copied_lights =
+        for (list_index = 0; list_index < static_cast<int>(other.light_lists[emitter].size());
+             ++list_index) {
+            std::vector<stLight*>* source_lights = other.light_lists[emitter][list_index];
+            std::vector<stLight*>* copied_lights =
                 CloneAnimationLightList(source_lights, MISSILE_CPP, 0x184, 0x18c);
-            light_lists[emitter].Add(copied_lights);
+            light_lists[emitter].push_back(copied_lights);
         }
     }
 }
@@ -800,7 +802,7 @@ W8AnimRepBase* W8MissileRep::Clone()
 unsigned char W8MissileRep::ReadCycleData(W8ReadLevelInfo* info, W8Missile* missile,
                                           int cycle_index, int)
 {
-    W8GrowableVector<stLight*>* lights = new W8Vector<stLight*>;
+    std::vector<stLight*>* lights = new std::vector<stLight*>;
     W8AnimObj* animation;
     unsigned char success;
     signed char emitter;
@@ -812,13 +814,13 @@ unsigned char W8MissileRep::ReadCycleData(W8ReadLevelInfo* info, W8Missile* miss
     success = AnimObjReadFromFile(info, animation, 1, lights, 1);
     emitter = static_cast<signed char>(animation->cycle);
 
-    if (lights->GetCount() == 0) {
+    if (lights->empty()) {
         delete lights;
         lights = 0;
     } else {
         missile->SetLights(lights);
     }
-    light_lists[cycle_index].Add(lights);
+    light_lists[cycle_index].push_back(lights);
 
     if (cycle_index != -1) {
         emitter = static_cast<signed char>(cycle_index);
@@ -977,13 +979,9 @@ void W8Missile::StartIfHostActive()
 void W8Missile::DestroyMissile()
 {
     if (m_plsLights != 0) {
-        int count = m_plsLights->GetCount();
-
-        while (count != 0) {
-            stLight* light = m_plsLights->RemoveAt(0);
+        wiz8::clear_and_dispose(*m_plsLights, [](stLight* light) {
             WorldRemoveLight(g_world, light);
-            --count;
-        }
+        });
     }
     if (m_pAI != 0) {
         free(m_pAI);
@@ -997,15 +995,9 @@ void W8Missile::DestroyMissile()
 // FUNCTION: WIZ8 0x004a4210
 void DestroyAllMissiles(W8World* world)
 {
-    while (world->missiles->GetCount() != 0) {
-        W8Missile* missile = *world->missiles->GetAt(0);
-
-        if (missile == 0) {
-            srAssertFail("pMissile", MISSILE_CPP, 0x4ab, 0);
-        }
-        g_world->missiles->Remove(missile);
+    wiz8::clear_and_dispose(*world->missiles, [](W8Missile* missile) {
         missile->DestroyMissile();
-    }
+    });
 }
 
 /* Release the two owned animations and every light vector before the ordinary
@@ -1025,10 +1017,11 @@ W8MissileRep::~W8MissileRep()
     for (emitter = 0; emitter < 2; ++emitter) {
         int light_list;
 
-        for (light_list = 0; light_list < light_lists[emitter].GetCount(); ++light_list) {
-            DestroyLightVector(*light_lists[emitter].GetAt(light_list));
+        for (light_list = 0; light_list < static_cast<int>(light_lists[emitter].size());
+             ++light_list) {
+            DestroyLightVector(light_lists[emitter][light_list]);
         }
-        light_lists[emitter].Clear();
+        light_lists[emitter].clear();
     }
 }
 
@@ -1123,7 +1116,7 @@ bool W8Missile::IsCycleSupported(signed char cycle)
 // FUNCTION: WIZ8 0x004a4300
 void W8Missile::SetCycle(signed char cycle)
 {
-    W8GrowableVector<stLight*>* lights;
+    std::vector<stLight*>* lights;
     W8AnimObj* animation;
 
     if (cycle < 0 || cycle >= 2) {
@@ -1131,7 +1124,7 @@ void W8Missile::SetCycle(signed char cycle)
                      0x4d6, 0);
     }
 
-    lights = *m_pRep->light_lists[m_pRep->current_cycle].GetAt(0);
+    lights = m_pRep->light_lists[m_pRep->current_cycle][0];
     DetachCycleLights(lights);
 
     m_pRep->current_cycle = cycle;
@@ -1150,14 +1143,14 @@ void W8Missile::SetCycle(signed char cycle)
     m_pRep->animation_playing = animation->animation_playing;
     m_pRep->subcycle = 0;
 
-    lights = *m_pRep->light_lists[cycle].GetAt(0);
+    lights = m_pRep->light_lists[cycle][0];
     SetLights(lights);
     AttachCycleLights(lights);
 
     if (m_plsParticles != 0) {
-        int count = m_plsParticles->GetCount();
+        int count = static_cast<int>(m_plsParticles->size());
         for (int index = 0; index < count; ++index) {
-            W8GrCycleParticleAttachment* event = *m_plsParticles->GetAt(index);
+            W8GrCycleParticleAttachment* event = (*m_plsParticles)[index];
             event->SelectCycle(cycle);
         }
     }

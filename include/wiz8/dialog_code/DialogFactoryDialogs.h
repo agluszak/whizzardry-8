@@ -4,7 +4,8 @@
 #include "wiz8/dialog_code/DialogButton.h"
 #include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/local_code/TextBuffer.h"
-#include "wiz8/vector.h"
+#include <vector>
+#include <algorithm>
 
 #include "Button System.h"
 #include "input.h"
@@ -94,8 +95,8 @@ private:
 
 public:
     /* The displayed text lines; the dialog owns and frees each one. */
-    W8GrowableVector<char*> m_lines;
-    W8GrowableVector<void (*)(int)> m_field_064;
+    std::vector<char*> m_lines;
+    std::vector<void (*)(int)> m_field_064;
     int m_field_074;
     float m_field_078; /* 0.05 */
     float m_field_07c; /* 0.2 */
@@ -249,11 +250,11 @@ private:
     static void ScrollItemsToMouse(W8DialogButton* button);
 
 public:
-    W8Vector<W8WorldItem*> items;
-    W8GrowableVector<unsigned char> flags;
-    W8DialogButton* m_buttons[13];
-    int m_first_item;
-    W8WorldItem* m_item_group;
+  std::vector<W8WorldItem*> items;
+  std::vector<unsigned char> flags;
+  W8DialogButton* m_buttons[13];
+  int m_first_item;
+  W8WorldItem* m_item_group;
 };
 
 W8_ABI_ASSERT(sizeof(W8TriggerItemPickerDialog) == 0xb0, "W8TriggerItemPickerDialog_must_be_0xb0");

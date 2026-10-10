@@ -20,7 +20,8 @@
 #include "wiz8/engine_code/Prop.h"
 #include "wiz8/engine_code/materials.h"
 #include "wiz8/float_constants.h"
-#include "wiz8/vector.h"
+#include <vector>
+#include <algorithm>
 
 #include "wiz8/filesystem.h"
 
@@ -62,7 +63,7 @@ OctPreTree::OctPreTree() : W8Octree(0, 0)
     path_node_extent = 0;
     automesh_cells = 0;
     pre_pathing = 0;
-    props = new W8GrowableVector<GDProp*>;
+    props = new std::vector<GDProp*>;
     g_oct_pre_tree = this;
 }
 
@@ -1509,7 +1510,7 @@ char OctPreTree::TestPathPropBounds(const srVector3T<float>* minimum,
     bool prop_hit = false;
     for (int k = 0; k < count; ++k) {
         int id = ids[k];
-        GDProp* prop = *props->GetAt(id);
+        GDProp* prop = (*props)[id];
         if (prop->BoundsOverlap(minimum, maximum) != 0) {
             prop_hit = true;
             if (prop->m_flags.always_blocks_path)
@@ -1560,12 +1561,12 @@ int OctPreTree::CreatePathProps(W8LevelFile* level, W8PreProp** preprops)
                 record->pStopMeshes[0].ApplyAnimFrame(0, &prop->anim_obj);
                 record->pStopMeshes[0].ComputeBounds(&bounds.minimum, &bounds.maximum);
                 AddCollidablePropBounds(prop_number, &bounds);
-                props->Add(record->pStopMeshes);
+                props->push_back(record->pStopMeshes);
                 if (record->num_stop_meshes == 2) {
                     record->pStopMeshes[1].ApplyAnimFrame(0xffff, &prop->anim_obj);
                     record->pStopMeshes[1].ComputeBounds(&bounds.minimum, &bounds.maximum);
                     AddCollidablePropBounds(static_cast<unsigned short>(prop_number + 1), &bounds);
-                    props->Add(record->pStopMeshes + 1);
+                    props->push_back(record->pStopMeshes + 1);
                     prop_number += 2;
                 } else {
                     record->pStopMeshes[0].m_flags.always_blocks_path = true;
@@ -1605,7 +1606,7 @@ int OctPreTree::CreatePathProps(W8LevelFile* level, W8PreProp** preprops)
                     record->pStopMeshes[j].ComputeBounds(&bounds.minimum, &bounds.maximum);
                     AddCollidablePropBounds(prop_number, &bounds);
                     ++prop_number;
-                    props->Add(record->pStopMeshes + j);
+                    props->push_back(record->pStopMeshes + j);
                 }
             }
         }

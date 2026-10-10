@@ -47,7 +47,8 @@
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/combat_state.h"
-#include "wiz8/3d_code/PList.h"
+#include <vector>
+#include <algorithm>
 #include "wiz8/dice.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/utility.h"
@@ -532,7 +533,7 @@ void AdvanceTimedEffects(unsigned int minutes)
         TickRadiusBlastEffectSlots(g_combat_state->effect_slots0);
     }
 
-    for (unsigned int index = 0; index < PLLength(gXStatus.plsMonsterList); ++index) {
+    for (unsigned int index = 0; index < gXStatus.monsters.size(); ++index) {
         W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(index);
         if (monster_info->highest_condition < W8_CONDITION_DEAD) {
             AgeMonsterSight(monster_info, minutes, 0);

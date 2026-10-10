@@ -261,7 +261,7 @@ struct NpcDatabaseRecord {
        The wide RPC-character name at 0x0c4 bounds the string extent. */
     char display_name[0x26];
     NpcCharacterTemplate character; /* 0x0c4 */
-    W8_PTR32(W8PList) item_stock_rules; /* 0x2ca: W8NpcItemStockRule* elements */
+    std::uint32_t item_stock_rules; /* 0x2ca: W8NpcItemStockRule* elements */
     /* 0x2ce/0x2d2: the trade price factors. CalculateTradeStackPrice adds the
        bargained adjustment to buy_price_factor when the NPC buys from the
        party and subtracts it from sell_price_factor when the party buys. */
