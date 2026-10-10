@@ -431,15 +431,8 @@ W8Navigator::W8Navigator(const W8Navigator& other)
     movement.scale = other.movement.scale;
     minimum = other.minimum;
     maximum = other.maximum;
-    if (g_runtime_world_scale < movement.collision_radius) {
-        g_runtime_world_scale = movement.collision_radius;
-    }
-    if (g_runtime_world_scale < movement.alternate_radius) {
-        g_runtime_world_scale = movement.alternate_radius;
-    }
-    if (g_runtime_world_scale < radius) {
-        g_runtime_world_scale = radius;
-    }
+    g_runtime_world_scale = std::max({g_runtime_world_scale, movement.collision_radius,
+                                      movement.alternate_radius, radius});
     movement.CopySettingsFrom(other.movement);
     movement.height_offset -= other.movement.vertical_base;
     movement.secondary_height_offset -= other.movement.vertical_base;
@@ -1443,15 +1436,8 @@ void W8Navigator::SetScale(float scale)
     movement.height_offset *= ratio;
     movement.secondary_height_offset *= ratio;
     movement.movement_scale *= ratio;
-    if (g_runtime_world_scale < movement.collision_radius) {
-        g_runtime_world_scale = movement.collision_radius;
-    }
-    if (g_runtime_world_scale < movement.alternate_radius) {
-        g_runtime_world_scale = movement.alternate_radius;
-    }
-    if (g_runtime_world_scale < radius) {
-        g_runtime_world_scale = radius;
-    }
+    g_runtime_world_scale = std::max({g_runtime_world_scale, movement.collision_radius,
+                                      movement.alternate_radius, radius});
 }
 
 // FUNCTION: WIZ8 0x00452630
