@@ -10,10 +10,8 @@ class srFileManager {
 public:
     class Path {
     public:
-#if !defined(SURRENDER_BUILD)
-        SR_DLL_IMPORT Path& operator=(const Path& other);
-#endif
-
+        Path(const Path&) = delete;
+        Path& operator=(const Path&) = delete;
         SR_DLL_IMPORT const char* getName() const;
         SR_DLL_IMPORT Path* getNext() const;
 
@@ -30,11 +28,8 @@ public:
     };
 
     SR_DLL_IMPORT srFileManager();
-
-#if !defined(SURRENDER_BUILD)
-    SR_DLL_IMPORT srFileManager(const srFileManager& other);
-    SR_DLL_IMPORT srFileManager& operator=(const srFileManager& other);
-#endif
+    srFileManager(const srFileManager&) = delete;
+    srFileManager& operator=(const srFileManager&) = delete;
     virtual SR_DLL_IMPORT ~srFileManager();
 
     SR_DLL_IMPORT void addPath(const char* path);

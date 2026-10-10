@@ -24,11 +24,7 @@ class srSurfaceIOManager;
 class srTexture;
 class srVideoManager;
 
-class
-#if defined(SURRENDER_BUILD)
-
-#endif
-    srCore {
+class srCore {
 public:
     SR_DLL_IMPORT srCore();
 

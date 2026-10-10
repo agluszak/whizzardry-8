@@ -190,11 +190,7 @@ public:
 
 // VTABLE: SURRENDER 0x100754E4 srRuntimeClass
 // class srRuntimeClass
-class
-#if defined(SURRENDER_BUILD)
-
-#endif
-    srRuntimeClass : public srRuntimeClassEmptyBase {
+class srRuntimeClass : public srRuntimeClassEmptyBase {
 public:
     enum e_verify { VERIFY_DEFAULT = 0 };
 
@@ -228,11 +224,7 @@ private:
 
 W8_ABI_ASSERT(sizeof(srRuntimeClass) == 0x0c, "srRuntimeClass_must_be_0x0c");
 
-class
-#if defined(SURRENDER_BUILD)
-
-#endif
-srClass : public srRuntimeClass {
+class srClass : public srRuntimeClass {
 public:
     typedef srClass RegistryClass;
 

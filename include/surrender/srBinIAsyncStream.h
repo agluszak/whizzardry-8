@@ -6,14 +6,12 @@
 // VTABLE: SURRENDER 0x100769E0 srBinStream
 // VTABLE: SURRENDER 0x100769F4 srBinIStream
 // class srBinIAsyncStream
-class
-#if defined(SURRENDER_BUILD)
-
-#endif
-    srBinIAsyncStream : public srBinIStream {
+class srBinIAsyncStream : public srBinIStream {
 public:
     srBinIAsyncStream(const char* path);
     virtual ~srBinIAsyncStream() override;
+    srBinIAsyncStream(const srBinIAsyncStream&) = delete;
+    srBinIAsyncStream& operator=(const srBinIAsyncStream&) = delete;
 
     int isFinished();
 

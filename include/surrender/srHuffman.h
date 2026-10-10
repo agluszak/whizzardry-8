@@ -8,11 +8,7 @@
 
 class srHuffman {
 public:
-    class
-#if defined(SURRENDER_BUILD)
-
-#endif
-        BitIStream {
+    class BitIStream {
     public:
         SR_DLL_IMPORT BitIStream(srBinIStream& stream);
         SR_DLL_IMPORT w8_ulong get(w8_ulong bits);
@@ -34,11 +30,7 @@ public:
         w8_long bit_pos;
     };
 
-    class
-#if defined(SURRENDER_BUILD)
-
-#endif
-        BitOStream {
+    class BitOStream {
     public:
         SR_DLL_IMPORT BitOStream(srBinOStream& stream);
         SR_DLL_IMPORT ~BitOStream();
@@ -61,11 +53,7 @@ public:
         w8_ulong buffered;
     };
 
-    class
-#if defined(SURRENDER_BUILD)
-
-#endif
-        Sampler {
+    class Sampler {
     public:
         struct Symbol {
             w8_ulong symbol;
@@ -85,11 +73,7 @@ public:
         int count;
     };
 
-    class
-#if defined(SURRENDER_BUILD)
-
-#endif
-        Compressor {
+    class Compressor {
     public:
         struct Node {
             w8_ulong symbol;
@@ -133,11 +117,7 @@ public:
         void setupPath(Node* node, w8_ulong code, w8_ulong depth);
     };
 
-    class
-#if defined(SURRENDER_BUILD)
-
-#endif
-        Decompressor {
+    class Decompressor {
     public:
         SR_DLL_IMPORT Decompressor(BitIStream& stream);
         SR_DLL_IMPORT ~Decompressor();

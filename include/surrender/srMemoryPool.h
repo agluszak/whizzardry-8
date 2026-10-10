@@ -2,11 +2,7 @@
 
 #include "srHeap.h"
 
-class
-#if defined(SURRENDER_BUILD)
-
-#endif
-    srMemoryPool {
+class srMemoryPool {
 public:
     enum e_fit { FIT_FIRST = 0, FIT_BEST = 1 };
 

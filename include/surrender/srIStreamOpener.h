@@ -31,9 +31,8 @@ public:
         count = 0;
     }
     SR_DLL_IMPORT ~srIStreamOpener();
-#if !defined(SURRENDER_BUILD)
-    SR_DLL_IMPORT srIStreamOpener& operator=(const srIStreamOpener& other);
-#endif
+    srIStreamOpener(const srIStreamOpener&) = delete;
+    srIStreamOpener& operator=(const srIStreamOpener&) = delete;
 
     SR_DLL_IMPORT void addStreamType(Opener* opener, const char* extension);
     SR_DLL_IMPORT srBinIStream* open(const char* path);

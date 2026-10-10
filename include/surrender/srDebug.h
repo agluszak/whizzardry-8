@@ -23,11 +23,7 @@ SR_DLL_IMPORT void __cdecl srDefaultAssertFailFunc(const char* expression, const
 /* Sink that discards every insertion. */
 // VTABLE: SURRENDER 0x10076C00 srDummyStreamBuf
 // class srDummyStreamBuf
-class
-#if defined(SURRENDER_BUILD)
-
-#endif
-    srDummyStreamBuf : public std::streambuf {
+class srDummyStreamBuf : public std::streambuf {
 public:
     srDummyStreamBuf();
 

@@ -58,7 +58,6 @@ set(SURRENDER_SOURCES
 )
 
 add_library(SURRENDER STATIC ${SURRENDER_SOURCES})
-target_compile_definitions(SURRENDER PRIVATE SURRENDER_BUILD)
 target_link_libraries(SURRENDER PRIVATE wiz8_native_settings SDL3::SDL3 SDL3_image::SDL3_image)
 if(UNIX AND NOT APPLE)
     target_link_options(SURRENDER PRIVATE -Wl,--no-undefined)

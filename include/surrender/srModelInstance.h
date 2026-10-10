@@ -32,59 +32,13 @@ public:
     SR_DLL_IMPORT virtual void updateClient(srModel::Client::e_update update) override;
 
     double getAlignAngle() const;
-#if defined(SURRENDER_BUILD)
     srVector3T<float> getAlignAxis() const;
-#else
-    srVector3T<float> getAlignAxis() const
-    {
-        return align_axis;
-    }
-#endif
     w8_ulong getExclusionMask() const;
-#if defined(SURRENDER_BUILD)
     int isAligned() const;
-#else
-    int isAligned() const
-    {
-        return (int)(alignment_flags.value & 1);
-    }
-#endif
     void setAlignAngle(double angle);
-#if defined(SURRENDER_BUILD)
     void setAlignAxis(srVector3T<float> axis);
     void setAlignment(int enabled);
-#else
-    void setAlignAxis(srVector3T<float> axis)
-    {
-        float length_squared;
-        float scale;
-
-        align_axis = axis;
-        length_squared =
-            align_axis.z * align_axis.z + align_axis.y * align_axis.y + align_axis.x * align_axis.x;
-        if (length_squared != 0.0) {
-            scale = static_cast<float>(1.0 / sqrt(length_squared));
-            align_axis *= scale;
-        }
-        alignment_flags.value |= 1;
-    }
-    void setAlignment(int enabled)
-    {
-        if (enabled != 0) {
-            alignment_flags.value |= 1;
-            return;
-        }
-        alignment_flags.value &= ~1u;
-    }
-#endif
-#if defined(SURRENDER_BUILD)
     void setExclusionMask(w8_ulong mask);
-#else
-    SR_DLL_IMPORT void setExclusionMask(w8_ulong mask)
-    {
-        exclusion_mask = mask;
-    }
-#endif
 
     srFlags<int> alignment_flags;
 

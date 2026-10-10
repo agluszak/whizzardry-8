@@ -8,9 +8,8 @@ public:
 
     SR_DLL_IMPORT srMemoryAllocator();
     SR_DLL_IMPORT ~srMemoryAllocator();
-#if !defined(SURRENDER_BUILD)
-    SR_DLL_IMPORT srMemoryAllocator& operator=(const srMemoryAllocator& other);
-#endif
+    srMemoryAllocator(const srMemoryAllocator&) = delete;
+    srMemoryAllocator& operator=(const srMemoryAllocator&) = delete;
 
     SR_DLL_IMPORT void* allocate(w8_ulong size, const char* name);
     SR_DLL_IMPORT void* allocate(w8_ulong count, w8_ulong size, const char* name);

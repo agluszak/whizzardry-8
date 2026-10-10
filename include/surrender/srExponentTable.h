@@ -2,11 +2,7 @@
 
 #include "srHeap.h"
 
-class
-#if defined(SURRENDER_BUILD)
-
-#endif
-    srExponentTable {
+class srExponentTable {
 public:
     srExponentTable(float exponent = 1.0f);
 
@@ -25,11 +21,7 @@ static_assert((sizeof(srExponentTable) == 0x1004), "srExponentTable_must_be_0x10
 /* Process-wide doubly linked freelist of up to 0x10 exponent tables. get() bumps a reference count
    and reuses the last result; the renderer releases tables back to the pool instead of deleting
    them. */
-class
-#if defined(SURRENDER_BUILD)
-
-#endif
-    srCachedExponentTable : public srExponentTable {
+class srCachedExponentTable : public srExponentTable {
 public:
     static srCachedExponentTable* get(float exponent);
     static void freeAll();

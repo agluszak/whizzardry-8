@@ -38,9 +38,8 @@ public:
 
     SR_DLL_IMPORT srVertexPipe();
     SR_DLL_IMPORT ~srVertexPipe();
-#if !defined(SURRENDER_BUILD)
-    SR_DLL_IMPORT srVertexPipe& operator=(const srVertexPipe& other);
-#endif
+    srVertexPipe(const srVertexPipe&) = delete;
+    srVertexPipe& operator=(const srVertexPipe&) = delete;
 
     SR_DLL_IMPORT void applyDiffuseLight(const srVector4T<float>& light);
     SR_DLL_IMPORT void applyDiffuseLight(const float* values, const srVector4T<float>& light);

@@ -6,11 +6,7 @@
    gives it focus; the destructor deletes the buffer. */
 // VTABLE: SURRENDER 0x10076E20 srWindowOut
 // class srWindowOut
-class
-#if defined(SURRENDER_BUILD)
-
-#endif
-    srWindowOut : public std::ostream {
+class srWindowOut : public std::ostream {
 public:
     srWindowOut(w8_ulong handle, const char* title, w8_long width, w8_ulong height);
     virtual ~srWindowOut();

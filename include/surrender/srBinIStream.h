@@ -54,12 +54,7 @@ srBinIStream& operator>>(srBinIStream& stream, srMatrix4T<double>& value);
 // VTABLE: SURRENDER 0x10076B80 srBinStream
 // VTABLE: SURRENDER 0x10076B94 srBinIStream
 // class srBinIMStream
-#if defined(SURRENDER_BUILD)
-class srBinIMStream
-#else
-class SR_DLL_IMPORT srBinIMStream
-#endif
-    : public srBinIStream {
+class SR_DLL_IMPORT srBinIMStream : public srBinIStream {
 public:
     srBinIMStream(const void* data, w8_ulong size);
 

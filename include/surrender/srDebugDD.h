@@ -5,11 +5,7 @@
 class srGERD;
 
 // VTABLE: SURRENDER 0x100765f0 srDebugDD
-class
-#if defined(SURRENDER_BUILD)
-
-#endif
-    srDebugDD : public srDD {
+class srDebugDD : public srDD {
 public:
     srDebugDD(srDD* device);
 

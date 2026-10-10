@@ -11,11 +11,7 @@ class srModel;
 
 // VTABLE: SURRENDER 0x10075418
 // class srSurfaceIOManager
-class
-#if defined(SURRENDER_BUILD)
-
-#endif
-    srSurfaceIOManager : public srIOManager {
+class srSurfaceIOManager : public srIOManager {
 public:
     struct ImportInfo {
         w8_ulong unknown_00;
@@ -49,11 +45,7 @@ public:
 W8_ABI_ASSERT((sizeof(srSurfaceIOManager::ImportInfo) == 0x04), "srSurfaceImportInfo_must_be_0x04");
 W8_ABI_ASSERT((sizeof(srSurfaceIOManager::ExportInfo) == 0x0c), "srSurfaceExportInfo_must_be_0x0c");
 
-class
-#if defined(SURRENDER_BUILD)
-
-#endif
-    srSurfaceIOManager::SurfaceImporter : public srIOManager::Importer {
+class srSurfaceIOManager::SurfaceImporter : public srIOManager::Importer {
 public:
     virtual int getSurfaceDesc(srColorSurfaceIFace::SurfaceDesc& description, srBinIStream& stream,
                                const srSurfaceIOManager::ImportInfo& options);
@@ -63,25 +55,13 @@ public:
 
 // VTABLE: SURRENDER 0x10075530 srHierarchyIOManager
 // class srHierarchyIOManager
-class
-#if defined(SURRENDER_BUILD)
-
-#endif
-    srHierarchyIOManager : public srIOManager {
+class srHierarchyIOManager : public srIOManager {
 public:
-    class
-#if defined(SURRENDER_BUILD)
-
-#endif
-        ImportInfo {
+    class ImportInfo {
     public:
         unsigned char unknown_00;
     };
-    class
-#if defined(SURRENDER_BUILD)
-
-#endif
-        ExportInfo {
+    class ExportInfo {
     public:
         unsigned char unknown_00;
     };
@@ -99,36 +79,20 @@ static_assert((sizeof(srHierarchyIOManager::ImportInfo) == 0x01),
 static_assert((sizeof(srHierarchyIOManager::ExportInfo) == 0x01),
               "srHierarchyExportInfo_must_be_0x01");
 
-class
-#if defined(SURRENDER_BUILD)
-
-#endif
-    srHierarchyIOManager::HierarchyImporter : public srIOManager::Importer {
+class srHierarchyIOManager::HierarchyImporter : public srIOManager::Importer {
 public:
     virtual void importHierarchy(srBinIStream& stream, const ImportInfo& options) = 0;
 };
 
 // VTABLE: SURRENDER 0x10075534 srModelIOManager
 // class srModelIOManager
-class
-#if defined(SURRENDER_BUILD)
-
-#endif
-    srModelIOManager : public srIOManager {
+class srModelIOManager : public srIOManager {
 public:
-    class
-#if defined(SURRENDER_BUILD)
-
-#endif
-        ImportInfo {
+    class ImportInfo {
     public:
         unsigned char unknown_00;
     };
-    class
-#if defined(SURRENDER_BUILD)
-
-#endif
-        ExportInfo {
+    class ExportInfo {
     public:
         unsigned char unknown_00;
     };
@@ -144,11 +108,7 @@ W8_ABI_ASSERT((sizeof(srModelIOManager) == 0x1c), "srModelIOManager_must_be_0x1c
 static_assert((sizeof(srModelIOManager::ImportInfo) == 0x01), "srModelImportInfo_must_be_0x01");
 static_assert((sizeof(srModelIOManager::ExportInfo) == 0x01), "srModelExportInfo_must_be_0x01");
 
-class
-#if defined(SURRENDER_BUILD)
-
-#endif
-    srModelIOManager::ModelImporter : public srIOManager::Importer {
+class srModelIOManager::ModelImporter : public srIOManager::Importer {
 public:
     virtual srModel* importModel(srBinIStream& stream, const ImportInfo& options) = 0;
 };
