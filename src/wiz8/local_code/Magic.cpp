@@ -418,29 +418,29 @@ W8SpellEffectEntry* FindMonsterControlSpellEffect(void)
 /* Count every queued effect down by one turn. The monster-control effect
    running out is the one with a consequence: every monster that is still alive
    goes back to controlling itself. */
+/* An expired or replaced hypnotic lure releases every living monster. */
+static void ReleaseHypnoticLureControl()
+{
+    for (unsigned int index = 0; index < gXStatus.monsters.size(); ++index) {
+        W8MonsterInfo* monster = MonsterGetScriptPartByLocationIndex(index);
+        if (monster && !monster->p3D->IsDying())
+            SetMonsterControlState(monster, W8_MONSTER_CONTROL_NONE);
+    }
+}
+
 // FUNCTION: WIZ8 0x00500e90
 void TickSpellEffects(void)
 {
     int count = static_cast<int>(g_spell_effects.size());
     int index;
-    unsigned int monster_index;
     W8SpellEffectEntry* effect;
-    W8MonsterInfo* monster_info;
 
     for (index = 0; index < count; ++index) {
         effect = g_spell_effects[index];
         if (effect->turns_remaining != 0) {
             --effect->turns_remaining;
             if (effect->turns_remaining == 0 && effect->kind == W8_SPELL_HYPNOTIC_LURE) {
-                for (monster_index = 0;
-                     monster_index <
-                     gXStatus.monsters.size();
-                     ++monster_index) {
-                    monster_info = MonsterGetScriptPartByLocationIndex(monster_index);
-                    if (monster_info != 0 && !monster_info->p3D->IsDying()) {
-                        SetMonsterControlState(monster_info, W8_MONSTER_CONTROL_NONE);
-                    }
-                }
+                ReleaseHypnoticLureControl();
             }
         }
     }
@@ -3135,15 +3135,7 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
                 if (previous->kind == 0x26) {
                     if (previous != 0) {
                         previous->turns_remaining = 0;
-                        for (monster_index = 0;
-                             monster_index <
-                             gXStatus.monsters.size();
-                             ++monster_index) {
-                            monster_info = MonsterGetScriptPartByLocationIndex(monster_index);
-                            if (monster_info != 0 && !monster_info->p3D->IsDying()) {
-                                SetMonsterControlState(monster_info, W8_MONSTER_CONTROL_NONE);
-                            }
-                        }
+                        ReleaseHypnoticLureControl();
                     }
                     break;
                 }
