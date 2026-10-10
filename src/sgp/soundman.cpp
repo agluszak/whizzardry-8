@@ -1071,19 +1071,12 @@ UINT32 SoundGetUniqueID(void)
 //	Returns:	TRUE if it should be streamed, FALSE if loaded.
 
 BOOLEAN SoundPlayStreamed(STR pFilename)
+try
 {
-    std::unique_ptr<wiz8::File> hDisk;
-    UINT32 uiFilesize;
-
-    if ((hDisk = [&]() { try { return wiz8::open_file(pFilename, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }()) != 0) {
-        uiFilesize = hDisk->size();
-        if (hDisk) hDisk->close();
-        hDisk.reset();
-        return (uiFilesize >= guiSoundCacheThreshold);
-    }
-
-    return (FALSE);
+    const auto file = wiz8::open_file(pFilename);
+    return file->size() >= guiSoundCacheThreshold;
 }
+catch (const std::exception&) { return FALSE; }
 
 // SoundStopIndex
 //		Stops a sound referred to by it's slot number. This function is the only

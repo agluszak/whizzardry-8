@@ -117,9 +117,9 @@ bool CopyImageToBuffer(const image_type& image, UINT32 buffer_type, std::span<UI
 // UTILITY FUNCTIONS
 
 // Used to create a 16BPP Palette from an 8 bit palette, found in himage.c
-std::unique_ptr<UINT16[]> Create16BPPPaletteShaded(SGPPaletteEntry* pPalette, UINT32 rscale, UINT32 gscale,
+std::unique_ptr<UINT16[]> Create16BPPPaletteShaded(const SGPPaletteEntry* pPalette, UINT32 rscale, UINT32 gscale,
                                  UINT32 bscale, BOOLEAN mono);
-std::unique_ptr<UINT16[]> Create16BPPPalette(SGPPaletteEntry* pPalette);
+std::unique_ptr<UINT16[]> Create16BPPPalette(const SGPPaletteEntry* pPalette);
 UINT16 Get16BPPColor(UINT32 RGBValue);
 extern UINT16 gusAlphaMask;
 extern UINT16 gusRedMask;

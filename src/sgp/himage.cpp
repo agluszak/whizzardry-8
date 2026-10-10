@@ -407,47 +407,14 @@ bool CopyImageToBuffer(const image_type& image, UINT32 buffer_type, std::span<UI
 }
 
 // FUNCTION: WIZ8 0x00410190
-std::unique_ptr<UINT16[]> Create16BPPPalette(SGPPaletteEntry* pPalette)
+std::unique_ptr<UINT16[]> Create16BPPPalette(const SGPPaletteEntry* palette)
 {
-    auto p16BPPPalette = std::make_unique<UINT16[]>(256);
-    UINT16 r16, g16, b16, usColor;
-    UINT32 cnt;
-    UINT8 r, g, b;
-
-    Assert(pPalette != nullptr);
-
-    for (cnt = 0; cnt < 256; cnt++) {
-        r = pPalette[cnt].peRed;
-        g = pPalette[cnt].peGreen;
-        b = pPalette[cnt].peBlue;
-
-        if (gusRedShift < 0)
-            r16 = ((UINT16)r >> abs(gusRedShift));
-        else
-            r16 = ((UINT16)r << gusRedShift);
-
-        if (gusGreenShift < 0)
-            g16 = ((UINT16)g >> abs(gusGreenShift));
-        else
-            g16 = ((UINT16)g << gusGreenShift);
-
-        if (gusBlueShift < 0)
-            b16 = ((UINT16)b >> abs(gusBlueShift));
-        else
-            b16 = ((UINT16)b << gusBlueShift);
-
-        usColor = (r16 & gusRedMask) | (g16 & gusGreenMask) | (b16 & gusBlueMask);
-
-        if (usColor == 0) {
-            if ((r + g + b) != 0)
-                usColor = BLACK_SUBSTITUTE | gusAlphaMask;
-        } else
-            usColor |= gusAlphaMask;
-
-        p16BPPPalette[cnt] = usColor;
-    }
-
-    return (p16BPPPalette);
+    Assert(palette != nullptr);
+    auto packed = std::make_unique<UINT16[]>(256);
+    std::transform(palette, palette + 256, packed.get(), [](const SGPPaletteEntry& color) {
+        return Get16BPPColor(UINT32(color.peRed) | (UINT32(color.peGreen) << 8) | (UINT32(color.peBlue) << 16));
+    });
+    return packed;
 }
 
 /**********************************************************************************************
@@ -475,61 +442,19 @@ std::unique_ptr<UINT16[]> Create16BPPPalette(SGPPaletteEntry* pPalette)
 
 **********************************************************************************************/
 // FUNCTION: WIZ8 0x004102c0
-std::unique_ptr<UINT16[]> Create16BPPPaletteShaded(SGPPaletteEntry* pPalette, UINT32 rscale, UINT32 gscale,
-                                 UINT32 bscale, BOOLEAN mono)
+std::unique_ptr<UINT16[]> Create16BPPPaletteShaded(const SGPPaletteEntry* palette, UINT32 rscale,
+                                                UINT32 gscale, UINT32 bscale, BOOLEAN mono)
 {
-    auto p16BPPPalette = std::make_unique<UINT16[]>(256);
-    UINT16 r16, g16, b16, usColor;
-    UINT32 cnt, lumin;
-    UINT32 rmod, gmod, bmod;
-    UINT8 r, g, b;
-
-    Assert(pPalette != nullptr);
-
-    for (cnt = 0; cnt < 256; cnt++) {
-        if (mono) {
-            lumin = (pPalette[cnt].peRed * 299 / 1000) + (pPalette[cnt].peGreen * 587 / 1000) +
-                    (pPalette[cnt].peBlue * 114 / 1000);
-            rmod = (rscale * lumin) / 256;
-            gmod = (gscale * lumin) / 256;
-            bmod = (bscale * lumin) / 256;
-        } else {
-            rmod = (rscale * pPalette[cnt].peRed / 256);
-            gmod = (gscale * pPalette[cnt].peGreen / 256);
-            bmod = (bscale * pPalette[cnt].peBlue / 256);
-        }
-
-        r = (UINT8)__min(rmod, 255);
-        g = (UINT8)__min(gmod, 255);
-        b = (UINT8)__min(bmod, 255);
-
-        if (gusRedShift < 0)
-            r16 = ((UINT16)r >> (-gusRedShift));
-        else
-            r16 = ((UINT16)r << gusRedShift);
-
-        if (gusGreenShift < 0)
-            g16 = ((UINT16)g >> (-gusGreenShift));
-        else
-            g16 = ((UINT16)g << gusGreenShift);
-
-        if (gusBlueShift < 0)
-            b16 = ((UINT16)b >> (-gusBlueShift));
-        else
-            b16 = ((UINT16)b << gusBlueShift);
-
-        // Prevent creation of pure black color
-        usColor = (r16 & gusRedMask) | (g16 & gusGreenMask) | (b16 & gusBlueMask);
-
-        if (usColor == 0) {
-            if ((r + g + b) != 0)
-                usColor = BLACK_SUBSTITUTE | gusAlphaMask;
-        } else
-            usColor |= gusAlphaMask;
-
-        p16BPPPalette[cnt] = usColor;
-    }
-    return (p16BPPPalette);
+    Assert(palette != nullptr);
+    auto packed = std::make_unique<UINT16[]>(256);
+    std::transform(palette, palette + 256, packed.get(), [=](const SGPPaletteEntry& color) {
+        const UINT32 luminance = color.peRed * 299 / 1000 + color.peGreen * 587 / 1000 + color.peBlue * 114 / 1000;
+        const auto red = std::min(rscale * (mono ? luminance : color.peRed) / 256, 255u);
+        const auto green = std::min(gscale * (mono ? luminance : color.peGreen) / 256, 255u);
+        const auto blue = std::min(bscale * (mono ? luminance : color.peBlue) / 256, 255u);
+        return Get16BPPColor(red | (green << 8) | (blue << 16));
+    });
+    return packed;
 }
 
 // Convert from RGB to 16 bit value

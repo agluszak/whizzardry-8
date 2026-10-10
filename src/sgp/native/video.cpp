@@ -113,9 +113,10 @@ int W8ReadProfileInt(const char* path, const char* section, const char* key, int
     std::istringstream input;
     try {
         auto file = wiz8::open_file(path);
-        if (file->size() > 1024 * 1024) return fallback;
-        std::string text(static_cast<std::size_t>(file->size()), '\0');
-        if (file->read(text.data(), text.size()).bytes != text.size()) return fallback;
+        const auto size = file->size();
+        if (size < 0 || size > 1024 * 1024) return fallback;
+        std::string text(static_cast<std::size_t>(size), '\0');
+        file->read_exact(text.data(), text.size());
         input.str(text);
     } catch (const std::exception&) { return fallback; }
     std::string line, current;
