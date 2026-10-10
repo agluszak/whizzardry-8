@@ -12,6 +12,28 @@
 #include "mousesystem.h"
 #include "mousesystem_macros.h"
 
+bool UpdateDialogArrowState(GUI_BUTTON* button, INT32 reason)
+{
+    if (reason & MSYS_CALLBACK_REASON_LBUTTON_DWN) {
+        if (!(button->uiFlags & BUTTON_CLICKED_ON)) {
+            button->uiFlags |= BUTTON_CLICKED_ON;
+            return true;
+        }
+    } else if (reason & MSYS_CALLBACK_REASON_LBUTTON_UP) {
+        if (button->uiFlags & BUTTON_CLICKED_ON) {
+            button->uiFlags &= ~BUTTON_CLICKED_ON;
+            return true;
+        }
+    } else if (reason & MSYS_CALLBACK_REASON_GAIN_MOUSE) {
+        button->Area.uiFlags |= MSYS_MOUSE_IN_AREA;
+        return true;
+    } else if (reason & MSYS_CALLBACK_REASON_LOST_MOUSE) {
+        button->Area.uiFlags &= ~MSYS_MOUSE_IN_AREA;
+        return true;
+    }
+    return false;
+}
+
 // FUNCTION: WIZ8 0x005db4e0
 void W8DialogButton::Draw()
 {
