@@ -483,9 +483,11 @@ unsigned char OctBuildPreTree::UpdateRegionForGeometry(const srVector3T<float>* 
    recursive call. */
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored                                                                   \
-    "-Wsometimes-uninitialized" // uninit-ok: retail tests the unset intersects byte for modes other than 5/6; that value controls region-map updates.
+    "-Wsometimes-uninitialized" // uninit-ok: retail tests the unset intersects byte for modes other
+                                // than 5/6; that value controls region-map updates.
 #pragma clang diagnostic ignored                                                                   \
-    "-Wuninitialized" // uninit-ok: retail tests the unset intersects byte for modes other than 5/6; that value controls region-map updates.
+    "-Wuninitialized" // uninit-ok: retail tests the unset intersects byte for modes other than 5/6;
+                      // that value controls region-map updates.
 // FUNCTION: WIZ8 0x004b07e0
 unsigned char OctBuildPreTree::UpdateRegionMap(const W8OctSpatialState* arg_spatial,
                                                const srVector3T<float>* geometry, short value,

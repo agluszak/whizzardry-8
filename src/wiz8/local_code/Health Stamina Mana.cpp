@@ -954,7 +954,9 @@ void FatigueCharacter(int party_slot, int amount, bool scale_by_load,
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored                                                                   \
-    "-Wsometimes-uninitialized" // uninit-ok: retail's invalid-load assertion continues without assigning a percentage; that unresolved value still affects stamina
+    "-Wsometimes-uninitialized" // uninit-ok: retail's invalid-load assertion continues without
+                                // assigning a percentage; that unresolved value still affects
+                                // stamina
     if (scale_by_load) {
         switch (character->load_category) {
         case 0:

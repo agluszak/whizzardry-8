@@ -26,14 +26,14 @@ public:
     virtual void traverse(TraverseInfo& info) override;
     virtual void process(const ProcessInfo& info, e_processType type) override;
 
-    void setClipPlane(const srVector4T<float>& plane);
+    void setClipPlane(const glm::vec4& plane);
     void setClipType(e_clip type);
-    void getClipPlane(srVector4T<float>& plane) const;
-    srVector4T<float> getClipPlane() const;
+    void getClipPlane(glm::vec4& plane) const;
+    glm::vec4 getClipPlane() const;
     e_clip getClipType() const;
 
 protected:
-    srVector4T<float> clip_plane_; /* 0x138 */
+    glm::vec4 clip_plane_; /* 0x138 */
     e_clip clip_type_;             /* 0x148 */
 };
 

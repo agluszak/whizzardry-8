@@ -9,7 +9,6 @@ set(SURRENDER_SOURCES
     vertex_pipe.cpp
     filter.cpp
     color_surface.cpp
-    vector_math.cpp
     gerd.cpp
     gerd_filters.cpp
     huffman.cpp

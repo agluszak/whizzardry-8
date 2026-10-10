@@ -64,12 +64,12 @@ struct W8OctreeTrace {
 W8_ABI_ASSERT(sizeof(W8OctreeTrace) == 0x30, "W8OctreeTrace_must_be_0x30");
 /* Bulk .oct vector I/O. Writers stage at most 0x100 records per FileWrite;
    the raw twelve-byte reader serves float vectors and polygon index triples. */
-BOOLEAN WriteVector4Array(wiz8::File* file, const srVector4T<float>* values, int count);
+BOOLEAN WriteVector4Array(wiz8::File* file, const glm::vec4* values, int count);
 BOOLEAN WriteVector3Array(wiz8::File* file, const srVector3T<float>* values, int count);
-BOOLEAN WriteVector2Array(wiz8::File* file, const srVector2T<float>* values, int count);
-bool ReadVector4Array(wiz8::File* file, srVector4T<float>* values, int count);
+BOOLEAN WriteVector2Array(wiz8::File* file, const glm::vec2* values, int count);
+bool ReadVector4Array(wiz8::File* file, glm::vec4* values, int count);
 bool ReadVector3Array(wiz8::File* file, void* values, int count);
-bool ReadVector2Array(wiz8::File* file, srVector2T<float>* values, int count);
+bool ReadVector2Array(wiz8::File* file, glm::vec2* values, int count);
 /* Distance from `point` to the `from`-`to` segment, shared by the trace
    resolver and the GameData surface walk. When `clamp_point` is set the
    closest segment point is written back over `point`; `out_t` returns the
@@ -78,8 +78,7 @@ float PointToSegmentDistance(srVector3T<float>* point, const srVector3T<float>* 
                              const srVector3T<float>* to, bool clamp_point, float* out_t);
 /* XY-plane sibling over two-component vectors; the pathfinding code measures
    edge distances in plan view. */
-float PointToSegmentDistance2D(srVector2T<float>* point, const srVector2T<float>* from,
-                               const srVector2T<float>* to, bool clamp_point,
+float PointToSegmentDistance2D(glm::vec2* point, const glm::vec2* from, const glm::vec2* to, bool clamp_point,
                                float* out_t); /* 0x00437760 */
 /* Grow `minimum`/`maximum` to include `point`, returning whether any bound
    moved. */
@@ -93,11 +92,11 @@ inline bool ReadVectorArray(wiz8::File* file, void* values, int count)
 {
     return ReadVector3Array(file, values, count);
 }
-inline bool ReadVectorArray(wiz8::File* file, srVector4T<float>* values, int count)
+inline bool ReadVectorArray(wiz8::File* file, glm::vec4* values, int count)
 {
     return ReadVector4Array(file, values, count);
 }
-inline bool ReadVectorArray(wiz8::File* file, srVector2T<float>* values, int count)
+inline bool ReadVectorArray(wiz8::File* file, glm::vec2* values, int count)
 {
     return ReadVector2Array(file, values, count);
 }
@@ -115,11 +114,11 @@ inline BOOLEAN WriteVectorArray(wiz8::File* file, const srVector3T<float>* value
 {
     return WriteVector3Array(file, values, count);
 }
-inline BOOLEAN WriteVectorArray(wiz8::File* file, const srVector4T<float>* values, int count)
+inline BOOLEAN WriteVectorArray(wiz8::File* file, const glm::vec4* values, int count)
 {
     return WriteVector4Array(file, values, count);
 }
-inline BOOLEAN WriteVectorArray(wiz8::File* file, const srVector2T<float>* values, int count)
+inline BOOLEAN WriteVectorArray(wiz8::File* file, const glm::vec2* values, int count)
 {
     return WriteVector2Array(file, values, count);
 }

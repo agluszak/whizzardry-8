@@ -1,6 +1,7 @@
 #include "surrender/srDD_SDLGPU.h"
 
 #include <SDL3/SDL.h>
+#include <glm/gtc/type_ptr.hpp>
 #include <stdint.h>
 #include <string.h>
 
@@ -28,7 +29,7 @@ struct Vertex {
 };
 
 struct VertexUniforms {
-    float projection[16];
+    glm::mat4 projection;
 };
 
 struct FragmentUniforms {
@@ -151,9 +152,7 @@ public:
           polygon_mode(POLYGON_FILL), polygon_offset(0), vertex_arrays(), readback_dirty(0),
           locked(0), trace(SDL_getenv("WIZ8_SRDD_TRACE") != 0)
         {
-            memset(&projection, 0, sizeof(projection));
-            projection.projection[0] = projection.projection[5] = projection.projection[10] =
-                projection.projection[15] = 1.0f;
+        projection.projection = glm::mat4(1);
             memset(&clear_values, 0, sizeof(clear_values));
             memset(fog_color, 0, sizeof(fog_color));
             memset(&scissor, 0, sizeof(scissor));
@@ -351,7 +350,7 @@ public:
         clear_values = values;
     }
 
-    void setFogColor(const srVector4T<float>& color) override
+    void setFogColor(const glm::vec4& color) override
     {
         fog_color[0] = color.x;
         fog_color[1] = color.y;
@@ -535,11 +534,10 @@ public:
         cull_mode = mode;
     }
 
-    void setProjectionMatrix(const srMatrix4T<float>& matrix,
-                             srMatrix4T<float>::e_type) override
+    void setProjectionMatrix(const glm::mat4& matrix, srRendererDefs::e_matrixType) override
     {
-        /* srMatrix4T stores four row vectors; the vertex shader multiplies accordingly. */
-        memcpy(projection.projection, &matrix, sizeof(projection.projection));
+        /* GLM and GLSL both store matrix columns. */
+        projection.projection = matrix;
     }
 
     void setVertexArrayInfo(const srRendererDefs::VertexArrayInfo* info) override
@@ -749,7 +747,8 @@ private:
         }
         if (trace) {
             const Vertex& v = vertices[start];
-            const float* m = projection.projection;
+            const auto rows = glm::transpose(projection.projection);
+            const float* m = glm::value_ptr(rows);
             SDL_Log("srDD draw prim=%d count=%u shader=%08x cull=%d pos=(%g %g %g %g) "
                     "proj=[%g %g %g %g | %g %g %g %g | %g %g %g %g | %g %g %g %g] "
                     "viewport=(%g %g %g %g) scissor=(%d %d %d %d)",

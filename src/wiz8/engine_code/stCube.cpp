@@ -93,10 +93,10 @@ W8WorldCursorNode* CreateWorldCursorCube(void)
     (void)unused;
     srModeler::Vertex* vertices = polygon.vertices.data();
 
-    vertices[0].uv[0].Set(1.0f, 1.0f);
-    vertices[1].uv[0].Set(0.0f, 1.0f);
-    vertices[2].uv[0].SetZero();
-    vertices[3].uv[0].Set(1.0f, 0.0f);
+    vertices[0].uv[0] = glm::vec2(1.0f, 1.0f);
+    vertices[1].uv[0] = glm::vec2(0.0f, 1.0f);
+    vertices[2].uv[0] = glm::vec2(0);
+    vertices[3].uv[0] = glm::vec2(1.0f, 0.0f);
 
     srVector3T<float> npp(-0.5f, 1.0f, 0.5f);
     srVector3T<float> ppp(0.5f, 1.0f, 0.5f);
@@ -147,14 +147,14 @@ W8WorldCursorNode* CreateWorldCursorCube(void)
     material->setName("Cube Number Material");
     material->autoRelease();
 
-    srVector4T<float> colour;
-    colour = 1.0f;
+    glm::vec4 colour;
+    colour = glm::vec4(1.0f);
     material->setAmbient(colour);
-    colour = 1.0f;
+    colour = glm::vec4(1.0f);
     material->setEmissive(colour);
-    colour = 1.0f;
+    colour = glm::vec4(1.0f);
     material->setDiffuse(colour);
-    colour = 0.0f;
+    colour = glm::vec4(0.0f);
     material->setSpecular(colour);
     material->parms.diffuse.w = 0.35f;
     material->parms.shininess = 1.0f;
@@ -361,8 +361,8 @@ void DrawWorldBox(W8World* world, srVector3T<float> minimum, srVector3T<float> m
     corners[6].Set(maximum.x, maximum.y, maximum.z);
     corners[7].Set(maximum.x, maximum.y, minimum.z);
 
-    srVector2T<float> viewport_minimum;
-    srVector2T<float> viewport_maximum;
+    glm::vec2 viewport_minimum;
+    glm::vec2 viewport_maximum;
     GetScaledViewportBounds(&viewport_minimum, &viewport_maximum);
     float viewport_width = viewport_maximum.x - viewport_minimum.x;
     float viewport_height = viewport_maximum.y - viewport_minimum.y;
@@ -863,7 +863,7 @@ bool SelectWorldCursorNode(void)
         srVector3T<double> camera_location;
 
         GetCameraPosition(&camera_position);
-        camera_location.SetFromFloat(&camera_position);
+        camera_location = glm::dvec3(camera_position.glmValue());
         int selected = g_cursor_node_index;
         if (selected >= 0 && selected < g_world_cursor_nodes.GetCount()) {
             W8WorldCursorNode* entry = g_world_cursor_nodes[selected];

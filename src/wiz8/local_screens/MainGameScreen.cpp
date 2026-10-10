@@ -8171,10 +8171,10 @@ void ResetMainGameMode(void)
 void CreateSurpriseFade(void)
 {
     srShader shader;
-    srVector4T<float> color;
+    glm::vec4 color;
 
     SetFullscreenSceneLast(0);
-    color.Set(0.0f, 0.0f, 0.0f, 0.0f);
+    color = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
     g_surprise_fade_node = CreateColoredPolygonSprite(0x280, 0x1e0, &color, true);
     Position2DNodeUnsnapped(g_surprise_fade_node, 0, 0);
     shader = static_cast<srMeshModel*>(g_surprise_fade_node->getModel())->getShader(0);

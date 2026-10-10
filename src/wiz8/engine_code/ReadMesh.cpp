@@ -15,20 +15,20 @@
 #include "wiz8/local_screens/PleaseWaitScreen.h"
 #include "wiz8/virtual_file.h"
 #include "wiz8/vector.h"
-
 #include "wiz8/filesystem.h"
+
 #include "surrender/srCore.h"
 #include "surrender/srNode.h"
-#include "surrender/srVectorMath.h"
-
 #include <algorithm>
 #include <ranges>
 #include <span>
 #include <tuple>
 #include <stdlib.h>
+
 #include <math.h>
 #include <string.h>
 #include <stdio.h>
+#include <glm/gtc/matrix_transform.hpp>
 
 static int operator==(const srShader& left, const srShader& right)
 {
@@ -36,7 +36,7 @@ static int operator==(const srShader& left, const srShader& right)
 }
 
 // FUNCTION: WIZ8 0x004896C0
-void ReadMeshTransform(wiz8::File* file, srVector3T<float>* location, srMatrix3T<float>* rotation,
+void ReadMeshTransform(wiz8::File* file, srVector3T<float>* location, glm::mat3* rotation,
                        srVector3T<float>* scale)
 {
     float angle;
@@ -50,8 +50,9 @@ void ReadMeshTransform(wiz8::File* file, srVector3T<float>* location, srMatrix3T
     file->read_exact(&axis.y, sizeof(axis.y));
     file->read_exact(&axis.z, sizeof(axis.z));
 
-    rotation->SetIdentity();
-    rotation->RotateAroundAxis(angle, axis);
+    (*rotation) = glm::mat3(1);
+    (*rotation) *=
+        glm::mat3_cast(glm::angleAxis(float(angle), normalizedOrZero(glm::vec3(axis.glmValue()))));
 
     file->read_exact(&scale->x, sizeof(scale->x));
     file->read_exact(&scale->y, sizeof(scale->y));
@@ -310,10 +311,9 @@ static W8MeshOrder* ComputeMeshOrder(W8MeshOrderInfo* info, w8_ulong flags)
             w8_ulong* keys = new w8_ulong[info->polygon_count];
             for (unsigned int table = 0; table < info->polygon_key_count; ++table) {
                 if (info->polygon_count != 0) {
-                    srMath::copyIndexed(
-                        {keys, static_cast<std::size_t>(info->polygon_count)},
-                        static_cast<const SRDWORD*>(info->polygon_keys[table]),
-                        {order->polygons, static_cast<std::size_t>(info->polygon_count)});
+                    const auto* source = static_cast<const w8_ulong*>(info->polygon_keys[table]);
+                    for (unsigned int i = 0; i < info->polygon_count; ++i)
+                        keys[i] = source[order->polygons[i]];
                 }
                 SortGroupsByKey(order->polygons, keys, polygon_groups, info->polygon_count);
             }
@@ -381,10 +381,9 @@ static W8MeshOrder* ComputeMeshOrder(W8MeshOrderInfo* info, w8_ulong flags)
             w8_ulong* keys = new w8_ulong[info->vertex_count];
             for (unsigned int table = 0; table < info->vertex_key_count; ++table) {
                 if (info->vertex_count != 0) {
-                    srMath::copyIndexed(
-                        {keys, static_cast<std::size_t>(info->vertex_count)},
-                        static_cast<const SRDWORD*>(info->vertex_keys[table]),
-                        {order->vertices, static_cast<std::size_t>(info->vertex_count)});
+                    const auto* source = static_cast<const w8_ulong*>(info->vertex_keys[table]);
+                    for (unsigned int i = 0; i < info->vertex_count; ++i)
+                        keys[i] = source[order->vertices[i]];
                 }
                 SortGroupsByKey(order->vertices, keys, vertex_groups, info->vertex_count);
             }
@@ -507,8 +506,8 @@ BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count, in
     int extra_uv_counts[8];
     srPtr<srMaterialIFace>* vertex_materials[8];
     srPtr<srTextureIFace>* polygon_textures[8];
-    srVector2T<float>* vertex_uvs[8];
-    srVector2T<float>* extra_uvs[8];
+    glm::vec2* vertex_uvs[8];
+    glm::vec2* extra_uvs[8];
     srVector3i* polygon_vertices[8];
     srVector3i* polygon_shades[8];
     w8_ulong* vertex_shades[8];
@@ -558,9 +557,9 @@ BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count, in
         vertex_materials[type] = new srPtr<srMaterialIFace>[capacity * 3];
         polygon_textures[type] = new srPtr<srTextureIFace>[capacity];
         vertex_uvs[type] =
-            static_cast<srVector2T<float>*>(malloc(capacity * 3 * sizeof(srVector2T<float>)));
+            static_cast<glm::vec2*>(malloc(capacity * 3 * sizeof(glm::vec2)));
         extra_uvs[type] =
-            static_cast<srVector2T<float>*>(malloc(capacity * 3 * sizeof(srVector2T<float>)));
+            static_cast<glm::vec2*>(malloc(capacity * 3 * sizeof(glm::vec2)));
         polygon_vertices[type] =
             static_cast<srVector3i*>(malloc(capacity * 3 * sizeof(srVector3i)));
         polygon_shades[type] = static_cast<srVector3i*>(malloc(capacity * sizeof(srVector3i)));
@@ -682,10 +681,10 @@ BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count, in
 
         srVector3i* model_polygons = model->getPolyVertex();
         model->setUVCount(vertex_counts[type] + extra_uv_counts[type]);
-        srVector2T<float>* model_uvs = model->getVertexTexCoords(0, 0, 1);
-        memcpy(model_uvs, vertex_uvs[type], vertex_counts[type] * sizeof(srVector2T<float>));
+        glm::vec2* model_uvs = model->getVertexTexCoords(0, 0, 1);
+        memcpy(model_uvs, vertex_uvs[type], vertex_counts[type] * sizeof(glm::vec2));
         memcpy(model_uvs + vertex_counts[type], extra_uvs[type],
-               extra_uv_counts[type] * sizeof(srVector2T<float>));
+               extra_uv_counts[type] * sizeof(glm::vec2));
         srVector3i* model_uv_indices = model->getPolyUVIndex(0, 1);
         for (int uv_polygon = 0; uv_polygon < polygon_counts[type]; ++uv_polygon) {
             for (int uv_corner = 0; uv_corner < 3; ++uv_corner) {
@@ -882,7 +881,7 @@ try
 
     srVector3T<float> location;
     srVector3T<float> scale;
-    srMatrix3T<float> rotation;
+    glm::mat3 rotation;
     if (version > 2) {
         success = (file->read(&flags, sizeof(flags)).bytes == static_cast<std::size_t>(sizeof(flags)));
     }
@@ -1017,7 +1016,8 @@ try
         loaded_instance->setName("ReadSTMeshFromFile");
         if (version > 1 && loaded_instance != 0) {
             const double angle = 3.1415926;
-            rotation.RotateAboutX(sin(angle), cos(angle));
+            rotation *= glm::mat3_cast(glm::angleAxis(float(angle), glm::vec3(1, 0, 0)));
+
             srVector3T<double> translated(location.x * 500.0, location.y * 500.0,
                                           location.z * 500.0);
             loaded_instance->setLocation(translated);
@@ -1085,8 +1085,9 @@ try
         first_model->getBoundingBox(minimum, maximum);
     }
     return 1;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x00488240
 unsigned char ReadMultipleLevelMeshes(W8ReadLevelInfo* info, srModelInstance** instances,
@@ -1178,8 +1179,9 @@ try
 
     free(meshes);
     return 1;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x00489920
 void ReleaseRetainedMaterials()
@@ -1304,5 +1306,6 @@ try
         success = 2;
     }
     return success;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }

@@ -404,7 +404,7 @@ W8AnimObj* CloneAnimObj(const W8AnimObj* source)
 unsigned char AnimObjGetBounds(W8AnimObj* animation, signed char list_index, unsigned int frame,
                                srVector3T<float>* minimum, srVector3T<float>* maximum)
 {
-    srMatrix3T<float> rotation;
+    glm::mat3 rotation;
     srVector3T<float> translation;
     srVector3T<float> scale;
     srVector3T<float> transformed_minimum;
@@ -504,9 +504,9 @@ unsigned char AnimObjGetBounds(W8AnimObj* animation, signed char list_index, uns
         }
         ((srNode*)instance)->getRotation(rotation);
         srVector3T<double> node_location = ((srNode*)instance)->getLocation();
-        translation.SetFromDouble(&node_location);
+        translation = glm::vec3(node_location.glmValue());
         srVector3T<double> node_scale = ((srNode*)instance)->getScale();
-        scale.SetFromDouble(&node_scale);
+        scale = glm::vec3(node_scale.glmValue());
         transformed_minimum = *minimum;
         transformed_maximum = *maximum;
         TransformBounds(&rotation, &translation, &scale, &transformed_minimum,
@@ -543,7 +543,7 @@ unsigned char AnimObjGetBounds(W8AnimObj* animation, signed char list_index, uns
    infinite box, which is why the loop carries the is-first test instead of
    pre-filling. */
 // FUNCTION: WIZ8 0x004a1df0
-void TransformBounds(const srMatrix3T<float>* rotation, const srVector3T<float>* translation,
+void TransformBounds(const glm::mat3* rotation, const srVector3T<float>* translation,
                      const srVector3T<float>* scale, srVector3T<float>* minimum,
                      srVector3T<float>* maximum)
 {
@@ -558,7 +558,7 @@ void TransformBounds(const srMatrix3T<float>* rotation, const srVector3T<float>*
         for (j = 0; j < 2; ++j) {
             for (k = 0; k < 2; ++k) {
                 srVector3T<float> point(corner[i].x, corner[j].y, corner[k].z);
-                srVector3T<float> transformed = rotation->Transform(point);
+                srVector3T<float> transformed = ((*rotation)) * point.glmValue();
                 float tx = (transformed.x + translation->x) * scale->x;
                 float ty = (transformed.y + translation->y) * scale->y;
                 float tz = (transformed.z + translation->z) * scale->z;
@@ -725,7 +725,8 @@ srModelInstance* AnimObjDispatch(W8AnimObj* animation, signed char list_index, u
     }
     if (animation->path_lists == 0) {
         entry = animation->entries[list_index];
-        // reinterpret-ok: VC6 debug CRT freed-block poison is compared as a pointer; never dereferenced.
+        // reinterpret-ok: VC6 debug CRT freed-block poison is compared as a pointer; never
+        // dereferenced.
         if (entry != reinterpret_cast<W8AniMesh*>(WIZ8_DEBUG_FREED_HEAP_PATTERN) && entry != 0) {
             entry->list_index = list_index;
             return GetAniMeshFrame(entry, value);

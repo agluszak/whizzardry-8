@@ -12,7 +12,7 @@ struct W8ReadLevelInfo;
 #pragma pack(push, 1)
 struct W8ReadMeshFace {
     int vertices[3];
-    srVector2T<float> texture_coordinates[3];
+    glm::vec2 texture_coordinates[3];
     int material_index;
     unsigned char flags;
 };
@@ -54,5 +54,5 @@ enum {
 void OptimizeMeshOrder(srMeshModel* model, w8_ulong flags);
 
 void ClearMaterialRecordPadding(W8MaterialRecord* material);
-void ReadMeshTransform(wiz8::File* file, srVector3T<float>* location, srMatrix3T<float>* rotation,
+void ReadMeshTransform(wiz8::File* file, srVector3T<float>* location, glm::mat3* rotation,
                        srVector3T<float>* scale);

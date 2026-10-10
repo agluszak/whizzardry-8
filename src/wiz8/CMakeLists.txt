@@ -121,7 +121,6 @@ add_library(WIZ8_GAME_CORE STATIC
     engine_code/AnimRep.cpp
     engine_code/GDProp.cpp
     engine_code/Prop.cpp
-    quaternion.cpp
     engine_code/Navigator.cpp
     engine_code/GrObject.cpp
     "local_code/Party Import.cpp"

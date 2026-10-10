@@ -31,7 +31,7 @@ void UpdateWorld(W8World* world);
 void GetWorldCameraState(W8World* world, W8WorldCameraState* state);
 void SetWorldCameraState(W8World* world, W8World* source_world, W8WorldCameraState* state);
 void RestoreWorldCameraState(W8World* world, W8World* source_world, W8WorldCameraState* state);
-void WorldGetCameraRotation(W8World* world, srMatrix3T<float>* rotation);
+void WorldGetCameraRotation(W8World* world, glm::mat3* rotation);
 void WorldGetCameraLocation(W8World* world, srVector3T<float>* location);
 void WorldGetCameraLocationOrZero(W8World* world, srVector3T<float>* location);
 void SetWorldScenePosition(W8World* world, const srVector3T<float>* position);

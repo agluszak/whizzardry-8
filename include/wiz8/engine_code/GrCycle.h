@@ -108,7 +108,7 @@ public:
     /* 0x004A7E50 composes this into the model instance's own rotation with
        MultiplyBy, which is what makes it a matrix rather than 0x24
        opaque bytes. */
-    srMatrix3T<float> rotation;
+    glm::mat3 rotation;
 };
 
 W8_ABI_ASSERT(sizeof(W8GrCycleParticleAttachment) == 0x3c,

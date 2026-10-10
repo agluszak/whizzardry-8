@@ -801,8 +801,8 @@ void srColorSurfaceIFace::adjustSaturation(double saturation)
 }
 
 // FUNCTION: SURRENDER 0x10057D10
-void srColorSurfaceIFace::adjust(const srVector4T<float>& scale, const srVector4T<float>& offset,
-                                 const srVector4T<float>& gamma)
+void srColorSurfaceIFace::adjust(const glm::vec4& scale, const glm::vec4& offset,
+                                 const glm::vec4& gamma)
 {
     w8_long height = this->height;
     w8_long width = this->width;
@@ -2525,7 +2525,7 @@ void srColorSurfaceIFace::scaleHorizontal(srColorSurfaceIFace& source)
         std::vector<srARGB> row_storage(width);
         srARGB* row_colors = row_storage.data();
         w8_ulong* row = (w8_ulong*)row_colors;
-        std::vector<srVector4T<float>> channel_vectors(source_width);
+        std::vector<glm::vec4> channel_vectors(source_width);
         std::vector<SampleWeight> sample_storage;
         SampleWeight* storage;
         if (1.0 <= scale) {
@@ -2596,7 +2596,7 @@ void srColorSurfaceIFace::scaleHorizontal(srColorSurfaceIFace& source)
                     float weight = slot->weight;
                     /* The weighted sample is a float vector temporary: retail rounds each
                        product to float before accumulating (0x10059F22, 0x1005A6AF). */
-                    srVector4T<float> weighted = channel_vectors[slot->index] * weight;
+                    glm::vec4 weighted = channel_vectors[slot->index] * weight;
                     ++slot;
                     a = weighted.x + a;
                     r = weighted.y + r;
@@ -2632,7 +2632,7 @@ void srColorSurfaceIFace::scaleVertical(srColorSurfaceIFace& source)
         std::vector<srARGB> column_storage(height);
         srARGB* column_colors = column_storage.data();
         w8_ulong* column = (w8_ulong*)column_colors;
-        std::vector<srVector4T<float>> channel_vectors(source_height);
+        std::vector<glm::vec4> channel_vectors(source_height);
         std::vector<SampleWeight> sample_storage;
         SampleWeight* storage;
         /* Unlike scaleHorizontal, both branches center the source window at y / scale + 0.5
@@ -2705,7 +2705,7 @@ void srColorSurfaceIFace::scaleVertical(srColorSurfaceIFace& source)
                     float weight = slot->weight;
                     /* The weighted sample is a float vector temporary: retail rounds each
                        product to float before accumulating (0x10059F22, 0x1005A6AF). */
-                    srVector4T<float> weighted = channel_vectors[slot->index] * weight;
+                    glm::vec4 weighted = channel_vectors[slot->index] * weight;
                     ++slot;
                     a = weighted.x + a;
                     r = weighted.y + r;

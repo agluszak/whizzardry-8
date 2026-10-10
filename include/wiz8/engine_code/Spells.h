@@ -19,7 +19,7 @@ W8SpellVisual* CreateMonsterSpellEffect(const char* mls_name, int power_level, W
 W8SpellVisual* CreateAttachedSpellEffect(const char* mls_name, int power_level, W8Monster* parent,
                                          int value, int flags); /* 0x004AD8A0 */
 W8SpellVisual* CreateAimedSpellEffect(const char* mls_name, int power_level,
-                                      srVector3T<float>* position, srMatrix3T<float>* rotation,
+                                      srVector3T<float>* position, glm::mat3* rotation,
                                       int value, int flags); /* 0x004ADB20 */
 void SetTargetConeEnabled(bool enabled);
 W8SpellVisual* SpawnCameraSpellEffect(const char* name, int power_level, int value,

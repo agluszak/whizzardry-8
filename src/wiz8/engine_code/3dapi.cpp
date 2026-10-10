@@ -594,14 +594,14 @@ void DestroyWorld(W8World* world)
 void UpdateWorldCameraAndPaths(W8World* world, unsigned int flags)
 {
     static srVector3T<float> s_last_automap_refresh_position;
-    static srMatrix3T<float> s_saved_camera_rotation;
+    static glm::mat3 s_saved_camera_rotation;
     srVector3T<float> camera_position;
     srVector3T<float> navigator_position;
     srVector3T<float> delta;
     srVector3T<double> render_position;
-    srMatrix3T<float> rotation;
-    srMatrix3T<float> path_rotation;
-    srMatrix3T<float> motion_saved;
+    glm::mat3 rotation;
+    glm::mat3 path_rotation;
+    glm::mat3 motion_saved;
     W8CameraPath* camera_path;
     W8PathAI* path;
     char sound_environment;
@@ -640,10 +640,10 @@ void UpdateWorldCameraAndPaths(W8World* world, unsigned int flags)
                                        camera_position.y - g_default_world_height,
                                        camera_position.z);
                 if (world->camera_light != 0) {
-                    render_position.SetFromFloat(&camera_position);
+                    render_position = glm::dvec3(camera_position.glmValue());
                     static_cast<srNode*>(world->camera_light)->setLocation(render_position);
                 }
-                render_position.SetFromFloat(&camera_position);
+                render_position = glm::dvec3(camera_position.glmValue());
                 static_cast<srNode*>(world->camera)->setLocation(render_position);
                 g_startup_world->SetPositionInternal(&navigator_position);
                 dx = camera_position.x - s_last_automap_refresh_position.x;
@@ -682,7 +682,7 @@ void UpdateWorldCameraAndPaths(W8World* world, unsigned int flags)
                 {
                     srVector3T<double> location = world->camera->getLocation();
                     srVector3T<float> party_point;
-                    party_point.SetFromDouble(&location);
+                    party_point = glm::vec3(location.glmValue());
                     PlacePartyAtPoint(&party_point);
                 }
                 world->camera->getRotation(path_rotation);
@@ -766,12 +766,12 @@ void SetWorldScenePosition(W8World* world, const srVector3T<float>* location)
 
     position = *location;
     if (world->camera != 0) {
-        render_position.SetFromFloat(&position);
+        render_position = glm::dvec3(position.glmValue());
         static_cast<srNode*>(world->camera)->setLocation(render_position);
         PlacePartyAtPoint(&position);
     }
     if (world->camera_light != 0) {
-        render_position.SetFromFloat(&position);
+        render_position = glm::dvec3(position.glmValue());
         static_cast<srNode*>(world->camera_light)->setLocation(render_position);
     }
 }
@@ -812,7 +812,7 @@ void ReportAssertion(const char* expression, const char* source_path, w8_long li
    3dapi.cpp:976 names its camera member pWorld->psrCamera, which is what puts
    the camera at 0x44 rather than anywhere else. */
 // FUNCTION: WIZ8 0x004503c0
-void WorldGetCameraRotation(W8World* world, srMatrix3T<float>* rotation)
+void WorldGetCameraRotation(W8World* world, glm::mat3* rotation)
 {
     if (!world) {
         srAssertFail("pWorld", THREE_D_API_CPP, 0x3cf, 0);
@@ -834,12 +834,12 @@ void WorldSetCameraLocation(W8World* world, const srVector3T<float>* location)
         srAssertFail("pWorld", THREE_D_API_CPP, 0x422, 0);
     }
     if (world->camera != 0) {
-        position.SetFromFloat(location);
+        position = glm::dvec3(location->glmValue());
         world->camera->setLocation(position);
         PlacePartyAtPoint(location);
     }
     if (world->camera_light != 0) {
-        position.SetFromFloat(location);
+        position = glm::dvec3(location->glmValue());
         world->camera_light->setLocation(position);
     }
 }
@@ -852,7 +852,7 @@ void SetWorldCameraState(W8World* world, W8World* source_world, W8WorldCameraSta
 {
     srVector3T<float> location;
     srVector3T<double> position;
-    srMatrix3T<float> rotation;
+    glm::mat3 rotation;
 
     if (!world) {
         srAssertFail("pWorld", THREE_D_API_CPP, 0x43f, 0);
@@ -862,12 +862,12 @@ void SetWorldCameraState(W8World* world, W8World* source_world, W8WorldCameraSta
         }
         location = state->position;
         if (world->camera != 0) {
-            position.SetFromFloat(&location);
+            position = glm::dvec3(location.glmValue());
             ((srNode*)world->camera)->setLocation(position);
             PlacePartyAtPoint(&location);
         }
         if (world->camera_light != 0) {
-            position.SetFromFloat(&location);
+            position = glm::dvec3(location.glmValue());
             ((srNode*)world->camera_light)->setLocation(position);
         }
         world->camera->getRotation(rotation);
@@ -897,7 +897,7 @@ void RestoreWorldCameraState(W8World* world, W8World* source_world, W8WorldCamer
     }
     SetWorldCameraState(world, source_world, state);
     world->camera->getLocation(camera_location);
-    navigator_position.SetFromDouble(&camera_location);
+    navigator_position = glm::vec3(camera_location.glmValue());
     g_startup_world->SetAngles(GetCameraYawInDegrees());
     g_startup_world->SetPitch(GetCameraPitchInDegrees());
     navigator_position.y -= g_default_world_height;

@@ -58,7 +58,7 @@ void W8Item::ApplyRepTransform()
 {
     srVector3T<float> location;
     srVector3T<double> widened;
-    srMatrix3T<float> rotation;
+    glm::mat3 rotation;
     srNode* mesh;
 
     if (static_cast<W8ItemRep*>(m_pRep)->m_psrMesh == 0) {
@@ -67,7 +67,7 @@ void W8Item::ApplyRepTransform()
     }
     mesh = static_cast<W8ItemRep*>(m_pRep)->m_psrMesh;
     m_pRep->GetLocation(&location);
-    widened.SetFromFloat(&location);
+    widened = glm::dvec3(location.glmValue());
     mesh->setLocation(widened);
     m_pRep->GetRotation(&rotation);
     mesh->setRotation(rotation);
@@ -80,7 +80,7 @@ void W8Item::AttachMesh(W8World* world)
     srNode* child;
     srVector3T<float> location;
     srVector3T<double> widened;
-    srMatrix3T<float> rotation;
+    glm::mat3 rotation;
 
     if (world == 0) {
         srAssertFail("pWorld", "C:\\Projects\\Wizardry 8\\Engine Code\\Item.cpp", 0x211, 0);
@@ -100,13 +100,13 @@ void W8Item::AttachMesh(W8World* world)
     m_pRep->GetRotation(&rotation);
     child = mesh->first_child_;
     if (child == 0) {
-        widened.SetFromFloat(&location);
+        widened = glm::dvec3(location.glmValue());
         mesh->setLocation(widened);
         mesh->setRotation(rotation);
         return;
     }
     do {
-        widened.SetFromFloat(&location);
+        widened = glm::dvec3(location.glmValue());
         child->setLocation(widened);
         child->setRotation(rotation);
         child = child->next_sibling_;
@@ -240,8 +240,9 @@ try
     file.reset();
     delete[] mesh_name;
     return success;
+} catch (const std::exception&) {
+    return false;
 }
-catch (const std::exception&) { return false; }
 
 /* On failure retail leaves the output alone and does not delete the allocated
    item. This is not an owning smart-pointer factory. */
@@ -273,11 +274,12 @@ void W8Item::UpdateAnimation()
         return;
     }
     if ((rep->flags & W8_ITEM_ENTITY_ROTATE) != 0 && gfKeyState[VK_CONTROL] == 0) {
-        srMatrix3T<float> rotation;
+        glm::mat3 rotation;
         m_pRep->GetRotation(&rotation);
         double cosine = cos(-0.1963495375);
         double sine = sin(-0.1963495375);
-        rotation.RotateAboutY(sine, cosine);
+        rotation *=
+            glm::mat3_cast(glm::angleAxis(float(std::atan2(sine, cosine)), glm::vec3(0, 1, 0)));
         srNode* mesh = rep->m_psrMesh;
         m_pRep->SetRotation(&rotation);
         if (mesh->first_child_ == 0) {
@@ -345,13 +347,14 @@ unsigned char W8Item::GetSearchPosition(srVector3T<float>* location)
 // FUNCTION: WIZ8 0x0049FBF0
 void W8Item::SetYaw(float angle)
 {
-    srMatrix3T<float> rotation;
-    rotation.SetIdentity();
+    glm::mat3 rotation;
+    rotation = glm::mat3(1);
     double yaw = NormalizeAngle(angle);
     if (yaw != 0.0) {
         double cosine = cos(yaw);
         double sine = sin(yaw);
-        rotation.RotateAboutY(sine, cosine);
+        rotation *=
+            glm::mat3_cast(glm::angleAxis(float(std::atan2(sine, cosine)), glm::vec3(0, 1, 0)));
     }
     srNode* mesh = static_cast<W8ItemRep*>(m_pRep)->m_psrMesh;
     m_pRep->SetRotation(&rotation);
@@ -409,7 +412,7 @@ float W8Item::DistanceToCamera(W8World* world)
     }
     srVector3T<double> camera = world->camera->getLocation();
     srVector3T<float> camera_location;
-    camera_location.SetFromDouble(&camera);
+    camera_location = glm::vec3(camera.glmValue());
     srVector3T<float> center = m_pRep->location;
     /* Unlike the selection-point helper, retail offsets Z by half the Z
        extent here, not Y by 0.66 of the Y extent. */

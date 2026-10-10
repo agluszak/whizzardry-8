@@ -2561,7 +2561,7 @@ void BeginScreenFade(int fade_to_black, int fade_out, int duration, void (*callb
                      bool fullscreen_scene_last, char render_each_tick)
 {
     srShader shader;
-    srVector4T<float> color;
+    glm::vec4 color;
 
     g_fade_duration = duration;
     g_fade_out = fade_out;

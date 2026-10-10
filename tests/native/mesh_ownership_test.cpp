@@ -3,14 +3,16 @@
 #include "surrender/srGERD.h"
 #include "surrender/srMeshModel.h"
 #include "surrender/srTriMeshPipeline.h"
-#include "surrender/srVectorMath.h"
-
 #include <array>
 #include <cstddef>
 #include <cstdio>
+
 #include <memory>
 #include <type_traits>
 #include <vector>
+#include "surrender/srMath.h"
+#include <algorithm>
+#include <cassert>
 
 #define CHECK(expression)                                                                          \
     do {                                                                                           \
@@ -59,12 +61,13 @@ static bool defaults()
 
 static bool zeroNormals()
 {
-    std::array<srVector4, 2> normals;
-    normals[0].Set(0, 0, 0, 0);
-    normals[1].Set(0, 0, 0, 2);
-    srMath::normalize(normals, normals.data(), 1.0f);
-    CHECK(normals[0].x == 0 && normals[0].y == 0 && normals[0].z == 0 && normals[0].w == 0);
-    CHECK(normals[1].x == 0 && normals[1].y == 0 && normals[1].z == 0 && normals[1].w == 1);
+    std::array<srVector3, 2> normals;
+    normals[0].Set(0, 0, 0);
+    normals[1].Set(0, 0, 2);
+    for (auto& normal : normals)
+        normal.Normalize();
+    CHECK(normals[0] == srVector3(0, 0, 0));
+    CHECK(normals[1] == srVector3(0, 0, 1));
     return true;
 }
 
@@ -136,7 +139,7 @@ static bool uvGrowth()
 {
     srMeshModel mesh(1, 3);
     auto* uv = mesh.getVertexTexCoords(1, 1, 1);
-    uv[0].Set(0.25f, 0.75f);
+    uv[0] = glm::vec2(0.25f, 0.75f);
     mesh.getTriMesh();
     mesh.setUVCount(12);
     uv = mesh.getVertexTexCoords(1, 1, 0);
@@ -173,7 +176,7 @@ static bool copyAndReset()
         source.getVertexLoc()[1].Set(1, 2, 3);
         source.getPolyVertex()[0].y = 1;
         source.setUVCount(7);
-        source.getVertexTexCoords(2, 0, 1)[6].Set(0.5f, 0.75f);
+        source.getVertexTexCoords(2, 0, 1)[6] = glm::vec2(0.5f, 0.75f);
         source.getVertexMaterial(1, srMeshModel::SIDE_BACK, 1)[2] = material;
         source.getPolyTexture(1, 0, 1)[0] = texture;
         source.setMaterial(material, 0, srMeshModel::SIDE_FRONT);

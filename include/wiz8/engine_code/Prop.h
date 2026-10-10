@@ -173,8 +173,8 @@ public:
     GDProp* m_gd_prop;                             /* 0x38 */
     srVector3T<float> previous_animation_position; /* 0x3c */
     /* Prop::Prop writes two identity bases here as nine floats each. */
-    srMatrix3T<float> previous_animation_rotation; /* 0x48 */
-    srMatrix3T<float> animation_rotation;          /* 0x6c */
+    glm::mat3 previous_animation_rotation; /* 0x48 */
+    glm::mat3 animation_rotation;          /* 0x6c */
 }; /* 0x90 */
 
 W8_ABI_ASSERT(sizeof(W8Prop) == 0x90, "W8Prop_must_be_0x90");
