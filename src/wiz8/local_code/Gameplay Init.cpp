@@ -402,36 +402,6 @@ void ResetPartySlotRow(int slot)
 
 /* Both buffers are cleared only after both allocations succeed, so a failed
    second allocation leaves the first one live and unzeroed. */
-// FUNCTION: WIZ8 0x0054b4c0
-unsigned char AllocateStatusBuffers(W8StatusBuffers* status)
-{
-    status->Char = static_cast<W8Character*>(malloc(sizeof(W8Character) * W8_PARTY_SLOT_COUNT));
-    if (!status->Char) {
-        return 0;
-    }
-    status->XChar =
-        static_cast<W8PartySlotRow*>(malloc(sizeof(W8PartySlotRow) * W8_PARTY_SLOT_COUNT));
-    if (!status->XChar) {
-        return 0;
-    }
-    memset(status->Char, 0, sizeof(W8Character) * W8_PARTY_SLOT_COUNT);
-    memset(status->XChar, 0, sizeof(W8PartySlotRow) * W8_PARTY_SLOT_COUNT);
-    return 1;
-}
-
-// FUNCTION: WIZ8 0x0054b520
-void FreeStatusBuffers(W8StatusBuffers* status)
-{
-    if (status->Char) {
-        free(status->Char);
-        status->Char = 0;
-    }
-    if (status->XChar) {
-        free(status->XChar);
-        status->XChar = 0;
-    }
-}
-
 /* Clears the settings block and writes its defaults. The constants 0, 1, 0x40
    and 0xff are each used many times over, which is why VC6 holds them in
    registers rather than spelling out immediates. */
