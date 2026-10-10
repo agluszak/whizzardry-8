@@ -2,240 +2,44 @@
 #include "wiz8/engine_code/ReadMesh.h"
 #include "wiz8/engine_code/stTextureFile.h"
 
-#include "wiz8/engine_code/ReadLevel.h"
 #include "FileMan.h"
-#include "surrender/srCore.h"
-#include "surrender/srHeap.h"
-#include "surrender/srArray.h"
-#include "surrender/srPalette.h"
-#include "surrender/srTypeRegistry.h"
-#include "wiz8/virtual_file.h"
+#include "tga_import.h"
 
-#include <string.h>
+#include <cstring>
 
-/* Both TGA scratch buffers are srHeapBuffer objects: growth goes through the
-   preserving two-argument setCapacity (retail copies the old contents before
-   freeing) and the zero-size branch calls the emitted release() at
-   0x004741B0. The second pair backs one decoded row / RLE packet. */
-// GLOBAL: WIZ8 0x0065A138
-static srHeapBuffer<unsigned char> g_tga_file_data;
-// GLOBAL: WIZ8 0x0065A130
-static srHeapBuffer<unsigned char> g_tga_row_data;
-
-/* Decodes TGA pixel data into the surface. Destination writes are strided:
-   the pixel step is the surface's bytes-per-pixel (negated when the
-   descriptor's right-origin bit is set) and the row step only exists for
-   bottom-up images. For RLE data, retail reloads the scratch source pointer
-   at each row start and carries only the remaining packet count across a row
-   boundary. */
-// FUNCTION: WIZ8 0x0047BC80
-void __stdcall LoadSurfacePixels(int handle, srColorSurface* surface, const W8TgaHeader* header)
-{
-    unsigned char* destination = static_cast<unsigned char*>(surface->getDataPtr());
-    if (destination == 0) {
-        return;
+namespace {
+class TextureInput : public srBinIStream {
+public:
+    explicit TextureInput(int handle) : handle(handle) { setState(SR_STREAM_OK); }
+    w8_ulong getSize() override { return FileGetSize(handle); }
+    w8_ulong tell() override { return FileGetPos(handle); }
+    srBinStream& seek(w8_ulong position) override
+    {
+        if (position > getSize() || !FileSeek(handle, position, FILE_SEEK_FROM_START))
+            setState(SR_STREAM_ERROR);
+        return *this;
     }
-
-    int rle = header->image_type == 9 || header->image_type == 10 || header->image_type == 11;
-    w8_long pixel_step = surface->pixel_format.pixel_size + 1;
-    w8_long file_bpp = header->pixel_depth >> 3;
-    if (file_bpp <= 0 || file_bpp > 4) {
-        return;
+    srBinStream& seek(w8_ulong offset, e_seekDir direction) override
+    {
+        return seek(direction == SR_SEEK_BEGIN ? offset :
+                    direction == SR_SEEK_CURRENT ? tell() + offset : getSize() - offset);
     }
-
-    w8_long row_step = 0;
-    if ((header->image_descriptor & 0x20) == 0) {
-        row_step = header->width * pixel_step * -2;
-        destination += (header->height - 1) * header->width * pixel_step;
+private:
+    w8_ulong vread(void* data, w8_ulong bytes) override
+    {
+        UINT32 count = 0;
+        if (!FileRead(handle, data, bytes, &count))
+            setState(SR_STREAM_ERROR);
+        return count;
     }
-    if ((header->image_descriptor & 0x10) != 0) {
-        destination += (header->width - 1) * pixel_step;
-        pixel_step = -pixel_step;
-    }
+    int handle;
+};
+} // namespace
 
-    unsigned int count = header->width;
-    unsigned int carry = 0;
-    unsigned int scratch_size = rle ? file_bpp << 7 : header->width * file_bpp;
-
-    /* data_size is FileGetSize - FileGetPos, so it can be negative, and
-       capacity is an unsigned long. The retail compares the two as signed
-       (0x0047BD87 cmp eax,esi; jge) but then tests data_size > 0 unsigned
-       (0x0047BD8B test esi,esi; jbe), so the two uses differ in class and the
-       signed one carries a cast. Casting only data_size would leave the
-       comparison unsigned, because capacity converts to unsigned to meet it. */
-    unsigned int data_size = FileGetSize(handle) - FileGetPos(handle);
-    if (static_cast<int>(g_tga_file_data.capacity) < static_cast<int>(data_size)) {
-        g_tga_file_data.setCapacity(data_size, 1);
-    }
-    unsigned char* file_data = g_tga_file_data.data;
-    if (!FileRead(handle, file_data, data_size, 0)) {
-        return;
-    }
-
-    if (g_tga_row_data.capacity < scratch_size) {
-        g_tga_row_data.setCapacity(scratch_size, 1);
-    }
-    unsigned char* scratch = g_tga_row_data.data;
-
-    unsigned int file_offset = 0;
-    unsigned int step = file_bpp;
-    for (w8_long row = 0; row < header->height; ++row) {
-        if (!rle) {
-            unsigned int row_bytes = header->width * file_bpp;
-            memcpy(scratch, file_data + file_offset, row_bytes);
-            file_offset += header->width * file_bpp;
-        }
-
-        w8_long column = 0;
-        unsigned char* source = scratch;
-        while (column < header->width) {
-            if (carry == 0) {
-                if (rle) {
-                    unsigned char packet = file_data[file_offset];
-                    step = ((packet & 0x80) != 0) ? 0 : file_bpp;
-                    count = (packet & 0x7f) + 1;
-                    unsigned int copy_size = file_bpp;
-                    if ((packet & 0x80) == 0) {
-                        copy_size = count * file_bpp;
-                    }
-                    memcpy(scratch, file_data + file_offset + 1, copy_size);
-                    file_offset += 1 + copy_size;
-                    source = scratch;
-                }
-            } else {
-                count = carry;
-            }
-
-            if (rle) {
-                carry = column - header->width + count;
-                if (static_cast<int>(carry) < 0) {
-                    carry = 0;
-                }
-                count -= carry;
-            }
-
-            for (unsigned int index = count; index > 0; --index) {
-                memcpy(destination, source, file_bpp);
-                destination += pixel_step;
-                source += step;
-            }
-            if (carry == 0 && step == 0) {
-                source += file_bpp;
-            }
-            column += count;
-        }
-        destination += row_step;
-    }
-}
-
-// FUNCTION: WIZ8 0x0047C090
 srColorSurface* __stdcall LoadSurface(int handle, w8_long*)
 {
-    W8TgaHeader header;
-    unsigned short width;
-    unsigned short height;
-    srARGB palette_colors[1024];
-    unsigned int palette_count;
-    srPalette* palette;
-    srColorSurface* surface;
-
-    FileRead(handle, &header.id_length, 1, 0);
-    FileRead(handle, &header.color_map_type, 1, 0);
-    FileRead(handle, &header.image_type, 1, 0);
-    FileRead(handle, &header.color_map_origin, 2, 0);
-    FileRead(handle, &header.color_map_length, 2, 0);
-    FileRead(handle, &header.color_map_entry_size, 1, 0);
-    FileRead(handle, &header.x_origin, 2, 0);
-    FileRead(handle, &header.y_origin, 2, 0);
-    FileRead(handle, &width, 2, 0);
-    FileRead(handle, &height, 2, 0);
-    FileRead(handle, &header.pixel_depth, 1, 0);
-    FileRead(handle, &header.image_descriptor, 1, 0);
-    header.width = width;
-    header.height = height;
-    FileSeek(handle, header.id_length, FILE_SEEK_FROM_CURRENT);
-
-    if (header.color_map_type == 0) {
-        palette_count = header.color_map_length;
-    } else if (header.image_type == 0 || header.image_type == 1 ||
-               (header.image_type == 9 && header.color_map_type == 1)) {
-        palette_count = header.color_map_length;
-        for (unsigned int index = 0; index < palette_count; ++index) {
-            palette_colors[index].alpha = 0xff;
-            FileRead(handle, &palette_colors[index].blue, 1, 0);
-            FileRead(handle, &palette_colors[index].green, 1, 0);
-            FileRead(handle, &palette_colors[index].red, 1, 0);
-        }
-    } else {
-        FileSeek(handle, (header.color_map_entry_size >> 3) * header.color_map_length,
-                 FILE_SEEK_FROM_CURRENT);
-        palette_count = header.color_map_length;
-    }
-
-    switch (header.image_type) {
-    case 0:
-        if (header.color_map_type != 1) {
-            return 0;
-        }
-        width = 1;
-        height = 1;
-        palette = srPalette::findMatchingPalette(palette_colors, header.color_map_length);
-        if (palette == 0) {
-            palette = SR_NEW(W8Palette)(palette_colors, header.color_map_length);
-            palette->autoRelease();
-            palette->setName("TGA-importer generated palette");
-        }
-        break;
-    case 1:
-    case 9:
-        if (header.color_map_type == 1) {
-            palette = srPalette::findMatchingPalette(palette_colors, header.color_map_length);
-            if (palette == 0) {
-                palette = SR_NEW(W8Palette)(palette_colors, header.color_map_length);
-                palette->autoRelease();
-                palette->setName("TGA-importer generated palette");
-            }
-        } else {
-            palette = srCore.getPalette();
-        }
-        break;
-    case 2:
-    case 10:
-        if (header.pixel_depth == 16) {
-            surface = SR_NEW(W8ColorSurface)((header.image_descriptor & 0xf) == 0
-                                                 ? srPixelConvert::SURFACE_RGB555
-                                                 : srPixelConvert::SURFACE_ARGB1555,
-                                             width, height);
-        } else if (header.pixel_depth == 24) {
-            surface = SR_NEW(W8ColorSurface)(srPixelConvert::SURFACE_BGR24, width, height);
-        } else if (header.pixel_depth == 32) {
-            surface = SR_NEW(W8ColorSurface)((header.image_descriptor & 0xf) == 0
-                                                 ? srPixelConvert::SURFACE_BGRX32
-                                                 : srPixelConvert::SURFACE_BGRA32,
-                                             width, height);
-        } else {
-            return 0;
-        }
-        break;
-    case 3:
-    case 11:
-        surface = SR_NEW(W8ColorSurface)(srPixelConvert::SURFACE_L8, width, height);
-        break;
-    default:
-        return 0;
-    }
-
-    if (header.image_type == 0 || header.image_type == 1 || header.image_type == 9) {
-        surface = SR_NEW(W8ColorSurface)(srPixelConvert::SURFACE_P8, width, height);
-        if (surface != 0) {
-            surface->setPalette(palette);
-        }
-    }
-
-    if (surface != 0) {
-        LoadSurfacePixels(handle, surface, &header);
-    }
-    return surface;
+    TextureInput input(handle);
+    return srImage::loadTga(input);
 }
 
 // VTABLE: WIZ8 0x005EC5F8
