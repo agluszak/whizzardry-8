@@ -1,4 +1,5 @@
 #include "wiz8/utility.h"
+#include "wiz8/sr_api.h"
 #include <algorithm>
 #include <ranges>
 #include <span>
