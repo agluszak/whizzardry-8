@@ -2,7 +2,7 @@
 
 Native Wizardry 8 and SurRender for 64-bit Linux, macOS and Windows, built with Clang and C++23.
 The build uses SDL3 GPU rendering, FFmpeg video decoding,
-miniaudio sound and zlib. CMake downloads a pinned miniaudio revision.
+miniaudio sound and zlib. All dependencies use the pinned vcpkg registry.
 Game data comes from an existing retail installation and is not distributed here.
 
 ## Build

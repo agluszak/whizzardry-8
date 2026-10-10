@@ -20,6 +20,7 @@
       ]
     },
     "zlib",
+    "miniaudio",
     {
       "name": "glslang",
       "features": [

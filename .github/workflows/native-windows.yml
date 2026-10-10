@@ -2,59 +2,32 @@ name: Native
 
 on:
   pull_request:
-    branches:
-      - main
-      - devin/1791589184-native-only-cleanup
 
 jobs:
-  clang-cl:
-    runs-on: windows-2025
+  native:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-2025
+            preset: windows-clangcl
+          - os: ubuntu-24.04
+            preset: linux
+          - os: macos-15-intel
+            preset: macos-x64
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
     env:
       VCPKG_ROOT: ""
       VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}/build/vcpkg-archives
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1.13.0
+        if: runner.os == 'Windows'
         with:
           arch: x64
-      - name: Create binary cache directory
-        run: New-Item -ItemType Directory -Force -Path $env:VCPKG_DEFAULT_BINARY_CACHE | Out-Null
-      - uses: actions/cache/restore@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
-        id: vcpkg-cache
-        with:
-          path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
-          key: Windows-vcpkg-${{ hashFiles('vcpkg.json', 'cmake/BootstrapVcpkg.cmake') }}-${{ github.run_id }}
-          restore-keys: |
-            Windows-vcpkg-${{ hashFiles('vcpkg.json', 'cmake/BootstrapVcpkg.cmake') }}-
-            Windows-vcpkg-${{ hashFiles('vcpkg.json') }}-
-      - name: Configure with pinned dependencies
-        env:
-          VCPKG_ROOT: ""
-        run: cmake --preset windows-clangcl
-      - name: Build native game and fixtures
-        run: cmake --build --preset windows-clangcl --parallel 4
-      - name: Test native file, save, audio and input behavior
-        run: ctest --preset windows-clangcl --output-on-failure
-      - uses: actions/cache/save@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
-        if: always() && steps.vcpkg-cache.outputs.cache-hit != 'true'
-        with:
-          path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
-          key: ${{ steps.vcpkg-cache.outputs.cache-primary-key }}
-  unix:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: ubuntu-24.04
-            preset: linux
-          - os: macos-15-intel
-            preset: macos-x64
-    runs-on: ${{ matrix.os }}
-    env:
-      VCPKG_ROOT: ""
-      VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}/build/vcpkg-archives
-    steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Linux build interfaces
         if: runner.os == 'Linux'
         run: |
@@ -72,7 +45,10 @@ jobs:
         with:
           path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
           key: ${{ matrix.os }}-vcpkg-${{ hashFiles('vcpkg.json', 'cmake/BootstrapVcpkg.cmake') }}-${{ github.run_id }}
-          restore-keys: ${{ matrix.os }}-vcpkg-${{ hashFiles('vcpkg.json', 'cmake/BootstrapVcpkg.cmake') }}-
+          restore-keys: |
+            ${{ matrix.os }}-vcpkg-${{ hashFiles('vcpkg.json', 'cmake/BootstrapVcpkg.cmake') }}-
+            ${{ matrix.os }}-vcpkg-
+            ${{ runner.os }}-vcpkg-
       - name: Configure with pinned dependencies
         run: cmake --preset ${{ matrix.preset }}
       - name: Build native game and fixtures
