@@ -1,11 +1,13 @@
 #pragma once
 
+#include <vector>
+class W8Monster;
+
 #include <stddef.h>
 
 #include "input.h"
 #include "surrender/srMath.h"
-#include "wiz8/3d_code/IList.h"
-#include "wiz8/3d_code/PList.h"
+#include <algorithm>
 #include "input.h"
 #include "wiz8/engine_code/stCube.h"
 #include "Types.h"
@@ -43,11 +45,16 @@ struct W8MipeEditField {
 
 W8_ABI_ASSERT(sizeof(W8MipeEditField) == 0x18, "W8MipeEditField_size");
 
-/* The editor state, allocated once and stored in g_mipe_state. It begins
-   with the W8IList of selected monster location ids, and callers pass the
-   state pointer itself to IListGetAt/ILLength. */
+/* The editor owns selected monster IDs and borrows its waypoint monsters. */
 struct W8MipeState {
-    W8IList monster_ids;
+    int SelectedMonsterLocationId() const
+    {
+        if (monster_ids.empty())
+            return -1;
+        return monster_ids.front();
+    }
+
+    std::vector<int> monster_ids;
 
     int selected_group_id; /* group id of the last group pick; W8_MIPE_NO_GROUP = none */
     unsigned char selecting;
@@ -58,7 +65,7 @@ struct W8MipeState {
     unsigned char padding_32[2];
     float value_34; /* initialised to 1.0 */
     int waypoint_count;
-    W8PList waypoints;
+    std::vector<W8Monster*> waypoints;
     W8Monster* monster;
     float speed_step;
     Trigger* trigger;

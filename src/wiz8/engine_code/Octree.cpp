@@ -55,8 +55,8 @@
 #include "wiz8/engine_code/materials.h"
 #include "wiz8/engine_code/stCube.h"
 #include "wiz8/layouts/screen_state.h"
-#include "wiz8/3d_code/IList.h"
-#include "wiz8/3d_code/PList.h"
+#include <vector>
+#include <algorithm>
 #include "wiz8/engine_code/Environment.h"
 #include "wiz8/engine_code/PathAI.h"
 #include "wiz8/engine_code/Quality.h"
@@ -401,7 +401,7 @@ void W8Octree::UpdateVisibility()
    does (0x0042FD40 reads [array + bit*4 - 8], 0x0042FD8C reads
    [array + bit*4 - 4]), so it stays. */
 // FUNCTION: WIZ8 0x0042f9a0
-int W8Octree::CollectModelsNearPoint(W8GrowableVector<stModelInstance*>* out,
+int W8Octree::CollectModelsNearPoint(std::vector<stModelInstance*>& out,
                                      const srVector3T<float>* point, float radius,
                                      unsigned int flags, bool only_accumulated)
 {
@@ -481,7 +481,7 @@ int W8Octree::CollectModelsNearPoint(W8GrowableVector<stModelInstance*>* out,
                     W8BoundingBox bounds;
                     model->getBoundingBox(bounds.minimum, bounds.maximum);
                     if (SphereNearBounds(point, radius, &bounds)) {
-                        out->Add(instance);
+                        out.push_back(instance);
                     }
                 }
             }
@@ -510,14 +510,14 @@ int W8Octree::CollectModelsNearPoint(W8GrowableVector<stModelInstance*>* out,
                             (center.y - point->y) * (center.y - point->y) +
                             (center.z - point->z) * (center.z - point->z) <
                         sphere_radius * sphere_radius) {
-                        out->Add(static_cast<stModelInstance*>(instance));
+                        out.push_back(static_cast<stModelInstance*>(instance));
                     }
                 }
             }
             bit = m_linked_props->NextSetBit(false);
         }
     }
-    return out->count;
+    return static_cast<int>(out.size());
 }
 
 /* Add every particle and prop linked to one mesh to the live visibility sets.
@@ -1127,8 +1127,8 @@ unsigned int W8Octree::SampleRegionLinks(const srVector3T<float>* point, bool de
 {
     bool linked = false;
     W8World* world = GetWorld();
-    W8Vector<stModelInstance*> meshes(5);
-    W8GrowableVector<int> cells;
+    std::vector<stModelInstance*> meshes;
+    std::vector<int> cells;
     view.camera_location = *point;
     view.far_clip = m_spatial.m_extent;
     char text[104];
@@ -1183,7 +1183,7 @@ unsigned int W8Octree::SampleRegionLinks(const srVector3T<float>* point, bool de
             if (bit != 0) {
                 do {
                     unsigned int cell = static_cast<unsigned int>(bit - 1);
-                    meshes.Add(
+                    meshes.push_back(
                         static_cast<stModelInstance*>(g_world->psrMeshes[m_pSubmeshes[cell].mesh]));
                     if (!m_projected_regions->Test(cell)) {
                         auto slot = m_pRegionLinks->equal_range(key).first;
@@ -1202,7 +1202,7 @@ unsigned int W8Octree::SampleRegionLinks(const srVector3T<float>* point, bool de
                                     }
                                 }
                             }
-                            cells.Add(static_cast<int>(cell));
+                            cells.push_back(static_cast<int>(cell));
                             all_known = false;
                         } else {
                             goto known;
@@ -1217,14 +1217,14 @@ unsigned int W8Octree::SampleRegionLinks(const srVector3T<float>* point, bool de
                                 node->setFlag(srNode::FLAG_TERMINATE);
                             }
                         }
-                        cells.Add(0);
+                        cells.push_back(0);
                     }
                     bit = m_current_regions->NextSetBit(false);
                 } while (bit != 0);
                 if (!all_known) {
                     BeginRenderProbe();
-                    for (int i = 0; i < meshes.GetCount(); ++i) {
-                        stModelInstance* mesh = *meshes.GetAt(i);
+                    for (int i = 0; i < static_cast<int>(meshes.size()); ++i) {
+                        stModelInstance* mesh = meshes[i];
                         if (mesh != 0) {
                             unsigned int faces = MeasureNodeRender(mesh);
                             all_known = 9 < faces;
@@ -1237,7 +1237,7 @@ unsigned int W8Octree::SampleRegionLinks(const srVector3T<float>* point, bool de
                                 child = child->first_child_;
                             }
                             if (!all_known) {
-                                unsigned int candidate = *cells.GetAt(i);
+                                unsigned int candidate = cells[i];
                                 if (candidate != 0) {
                                     m_pSubmeshes[candidate].flags &= 0xfffffff7;
                                     srNode* node = g_world->psrMeshes[m_pSubmeshes[candidate].mesh];
@@ -1246,14 +1246,14 @@ unsigned int W8Octree::SampleRegionLinks(const srVector3T<float>* point, bool de
                                         node->setFlag(srNode::FLAG_TERMINATE);
                                     }
                                 }
-                                cells.SetAt(i, 0);
+                                cells[i] = 0;
                             }
                         }
                     }
-                    for (int index = 0; index < meshes.GetCount(); ++index) {
-                        stModelInstance* mesh = *meshes.GetAt(index);
+                    for (int index = 0; index < static_cast<int>(meshes.size()); ++index) {
+                        stModelInstance* mesh = meshes[index];
                         if (mesh != 0) {
-                            unsigned int cell = static_cast<unsigned int>(*cells.GetAt(index));
+                            unsigned int cell = static_cast<unsigned int>(cells[index]);
                             if (cell != 0) {
                                 unsigned int faces = MeasureNodeRender(mesh);
                                 if (9 < faces) {
@@ -1430,15 +1430,15 @@ void W8Octree::BuildRegionLinks(bool rebuild_all)
         m_point_count = 0;
     }
     world->camera->setViewPlane(saved_width, saved_height);
-    unsigned int camera_count = PLLength(world->plsCameras);
+    unsigned int camera_count = (world->plsCameras ? world->plsCameras->size() : 0);
     if (!aborted && world->plsCameras != 0 && camera_count != 0) {
         for (int camera_index = 0; camera_index < static_cast<int>(camera_count); ++camera_index) {
             W8CameraPath* entry = GetWorldCameraPath(world, camera_index);
             if (entry != 0 && entry->path != 0) {
-                for (int node_index = 0; node_index < entry->path->nodes->GetCount();
+                for (int node_index = 0; node_index < static_cast<int>(entry->path->nodes->size());
                      ++node_index) {
                     unsigned int key =
-                        SampleRegionLinks(*entry->path->nodes->GetAt(node_index), true, true, 0);
+                        SampleRegionLinks((*entry->path->nodes)[node_index], true, true, 0);
                     RecordRegionMeshLinks(key);
                 }
             }
@@ -3985,7 +3985,7 @@ unsigned char W8Octree::TestBoxOccupied(const srVector3T<float>* lower,
     count =
         static_cast<unsigned int>(QueryObjects(&objects, lower, upper, W8_OCTREE_KIND_PROP, -1));
     for (index = 0; index < count; ++index) {
-        W8Prop* prop = *g_world->collidable_props->GetAt(objects[index]);
+        W8Prop* prop = (*g_world->collidable_props)[objects[index]];
         if (prop->GetActivationState() != 0 && prop->m_gd_prop != 0) {
             GDProp* gd_prop = prop->m_gd_prop;
             for (int surface_index = 0; surface_index < gd_prop->m_surface_count; ++surface_index) {

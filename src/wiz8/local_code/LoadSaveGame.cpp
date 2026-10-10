@@ -1,3 +1,4 @@
+#include "wiz8/containers.h"
 #include "wiz8/compat/debug_heap.h"
 #include "wiz8/engine_code/AmbientSound.h"
 #include "wiz8/local_code/Sight.h"
@@ -14,8 +15,8 @@
 #include "wiz8/local_screens/OptionsScreen.h"
 #include "wiz8/local_code/Search.h"
 #include "wiz8/local_code/Configuration.h"
-#include "wiz8/3d_code/IList.h"
-#include "wiz8/3d_code/PList.h"
+#include <vector>
+#include <algorithm>
 #include "wiz8/engine_code/Navigator.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/stScript.h"
@@ -230,11 +231,11 @@ void FillCurrentSaveSlot(W8SaveSlot* slot)
 }
 
 // FUNCTION: WIZ8 0x00511e70
-bool EnumerateSaveSlots(W8GrowableVector<W8SaveSlot*>* slots)
+bool EnumerateSaveSlots(std::vector<W8SaveSlot*>& slots)
 try
 {
     W8Chunk chunks;
-    int first = slots->GetCount();
+    int first = static_cast<int>(slots.size());
     try {
         if (!wiz8::file_status("Saves")) return true;
         const auto utc_offset = wiz8::current_utc_offset_seconds();
@@ -292,13 +293,13 @@ try
                     slot->iron_man = status.iron_man;
                     slot->game_time_days = status.game_time_days;
                     int position;
-                    for (position = first; position < slots->GetCount(); ++position) {
+                    for (position = first; position < static_cast<int>(slots.size()); ++position) {
                         if (slot->local_write_time.ticks() >
-                            (*slots->GetAt(position))->local_write_time.ticks()) {
+                            slots[position]->local_write_time.ticks()) {
                             break;
                         }
                     }
-                    if (!slots->InsertAt(position, slot)) return false;
+                    slots.insert(slots.begin() + position, slot);
                     (void)slot_owner.release();
                 }
             }
@@ -449,7 +450,7 @@ try
     chunks.OpenChunk(0x54584554, 0); /* TEXT */
     SaveMessageStorage(chunks.m_hFile.get());
     chunks.ReleaseCurrentChunk();
-    if (g_location_variable_values.GetCount() != 0) {
+    if (!g_location_variable_values.empty()) {
         chunks.OpenChunk(0x52415654, 0); /* TVAR */
         SaveLocationVariables(chunks.m_hFile.get());
         chunks.ReleaseCurrentChunk();
@@ -626,8 +627,8 @@ try
     chunks->ReleaseCurrentChunk();
 
     chunks->OpenChunk(0x4d455449, 0); /* ITEM */
-    count = PLLength(gXStatus.plsItemList);
-    chunks->m_hFile->write(&count, sizeof(count));
+    count = gXStatus.world_items.size();
+    chunks->Write(&count, sizeof(count), 0);
     for (index = 0; index < count; ++index) {
         if (!SaveItemFile(chunks->m_hFile.get(), ItemInfo(index))) {
             return false;
@@ -661,7 +662,7 @@ try
     SaveAutomapNotes(chunks->m_hFile.get());
     chunks->ReleaseCurrentChunk();
 
-    if (g_world->triggers->GetCount() != 0) {
+    if (!g_world->triggers->empty()) {
         chunks->OpenChunk(0x47495254, 0); /* TRIG */
         SaveWorldTriggers(g_world, chunks->m_hFile.get());
         chunks->ReleaseCurrentChunk();
@@ -716,12 +717,14 @@ try
     W8MonsterGroup* group;
 
     group_count =
-        PLLength(gXStatus.plsMonsterGroupList) + PLLength(gXStatus.plsMonsterGroupEncounterList);
-    monster_count = PLLength(gXStatus.plsMonsterList) + PLLength(gXStatus.plsUnbornMonsterList);
-    chunks->m_hFile->write(&group_count, 4);
-    chunks->m_hFile->write(&monster_count, 4);
+        gXStatus.monster_groups.size() +
+        gXStatus.encounter_groups.size();
+    monster_count = gXStatus.monsters.size() +
+                    gXStatus.unborn_monsters.size();
+    chunks->Write(&group_count, 4, 0);
+    chunks->Write(&monster_count, 4, 0);
     for (index = 0; index < group_count; ++index) {
-        if (index < PLLength(gXStatus.plsMonsterGroupList)) {
+        if (index < gXStatus.monster_groups.size()) {
             unsigned char encountered;
 
             group = GetMonsterGroupByListIndex(index);
@@ -730,33 +733,37 @@ try
             }
             group->version = 3;
             record_size = 0x12b;
-            chunks->m_hFile->write(&record_size, 4);
-            chunks->m_hFile->write(group, record_size);
-            encountered = PListIndexOf(gXStatus.plsMonsterGroupEncounterList, group) != -1;
-            chunks->m_hFile->write(&encountered, 1);
+            chunks->Write(&record_size, 4, 0);
+            chunks->Write(group, record_size, 0);
+            encountered = std::ranges::contains(gXStatus.encounter_groups, group);
+            chunks->Write(&encountered, 1, 0);
         } else {
             unsigned char encountered;
 
-            group =
-                GetMonsterGroupByListIndex(index - PLLength(gXStatus.plsMonsterGroupList) + 0x2710);
+            group = GetMonsterGroupByListIndex(
+                index - gXStatus.monster_groups.size() +
+                0x2710);
             if (group == 0) {
                 goto fail;
             }
             group->version = 3;
             record_size = 0x12b;
-            chunks->m_hFile->write(&record_size, 4);
-            chunks->m_hFile->write(group, record_size);
-            encountered = PListIndexOf(gXStatus.plsMonsterGroupEncounterList, group) != -1;
-            chunks->m_hFile->write(&encountered, 1);
+            chunks->Write(&record_size, 4, 0);
+            chunks->Write(group, record_size, 0);
+            encountered = std::ranges::contains(gXStatus.encounter_groups, group);
+            chunks->Write(&encountered, 1, 0);
         }
     }
     for (index = 0; index < monster_count; ++index) {
-        if (index < PLLength(gXStatus.plsMonsterList)) {
+        if (index < gXStatus.monsters.size()) {
             if (!SaveMonsterRecord(chunks, index)) {
                 goto fail;
             }
         } else {
-            if (!SaveMonsterRecord(chunks, index - PLLength(gXStatus.plsMonsterList) + 0x2710)) {
+            if (!SaveMonsterRecord(
+                    chunks, index -
+                                gXStatus.monsters.size() +
+                                0x2710)) {
                 goto fail;
             }
         }
@@ -805,14 +812,14 @@ try
         chunks->m_hFile->write(script_name, sizeof(script_name));
         chunks->m_hFile->write(&monster->script_wait, sizeof(monster->script_wait));
         chunks->m_hFile->write(&monster->script_line, sizeof(monster->script_line));
-        const int queue_count = monster->script_conditions.GetCount();
+        const int queue_count = static_cast<int>(monster->script_conditions.size());
         chunks->m_hFile->write(&queue_count, sizeof(queue_count));
         for (int i = 0; i < queue_count; ++i) {
-            const bool script_flag = *monster->script_conditions.GetAt(i);
+            const bool script_flag = monster->script_conditions[i];
             chunks->m_hFile->write(&script_flag, sizeof(script_flag));
         }
     }
-    const unsigned char unborn = PListIndexOf(gXStatus.plsUnbornMonsterList, info) != -1;
+    const unsigned char unborn = std::ranges::contains(gXStatus.unborn_monsters, info);
     chunks->m_hFile->write(&unborn, sizeof(unborn));
     const unsigned char has_movement =
         !monster->linked_navigator && (monster->flags & 0x20000000) != 0;
@@ -831,10 +838,10 @@ try
     chunks->m_hFile->write(&monster->patrol_distance, sizeof(monster->patrol_distance));
     chunks->m_hFile->write(&monster->patrol_variation, sizeof(monster->patrol_variation));
     chunks->m_hFile->write(&monster->patrol_index, sizeof(monster->patrol_index));
-    const int point_count = monster->vector.GetCount();
+    const int point_count = static_cast<int>(monster->vector.size());
     chunks->m_hFile->write(&point_count, sizeof(point_count));
     for (int i = 0; i < point_count; ++i) {
-        chunks->m_hFile->write(monster->vector.GetAt(i), sizeof(srVector3T<float>));
+        chunks->m_hFile->write(&monster->vector[i], sizeof(srVector3T<float>));
     }
     srVector3T<float> point;
     point.Set(monster->direction_x, monster->direction_y, monster->direction_z);
@@ -1107,19 +1114,14 @@ try
     if (record->deleted) {
         return true;
     }
-    std::unique_ptr<W8IList, decltype(&ILDestroy)> members(ILCreate(), &ILDestroy);
-    if (!members) {
-        return false;
-    }
+    auto members = std::make_unique<std::vector<int>>();
     group->monsters = members.get();
     group->member_count = 0;
     group->active_member_count = 0;
     group->members_active = false;
     group->fInCombat = false;
-    auto* list = is_encounter ? gXStatus.plsMonsterGroupEncounterList : gXStatus.plsMonsterGroupList;
-    if (PLAdoptAppend(list, group.get()) == -1) {
-        return false;
-    }
+    auto& list = is_encounter ? gXStatus.encounter_groups : gXStatus.monster_groups;
+    list.push_back(group.get());
     (void)members.release();
     auto* loaded = group.release();
     ActivateGroupMembers(loaded, W8_MONSTER_LOAD_ALL_CYCLES);
@@ -1264,12 +1266,11 @@ try
     if (!monster_group) {
         return false;
     }
-    auto* plist = unborn ? gXStatus.plsUnbornMonsterList : gXStatus.plsMonsterList;
-    if (PLAdoptAppend(plist, monster_info) == -1) {
-        return false;
-    }
+    auto& monsters = unborn ? gXStatus.unborn_monsters : gXStatus.monsters;
+    monsters.reserve(monsters.size() + 1);
+    monster_group->monsters->push_back(monster_info->location_id);
+    monsters.push_back(monster_info);
     (void)owner.release();
-    IListAdd(monster_group->monsters, monster_info->location_id);
     if (static_cast<unsigned int>(monster_group->leader_location_id) ==
             WIZ8_DEBUG_UNINITIALIZED_HEAP_PATTERN ||
         static_cast<unsigned int>(monster_group->leader_location_id) <
@@ -1336,9 +1337,9 @@ try
         monster->patrol_distance = patrol_distance;
         monster->patrol_variation = patrol_variation;
         monster->patrol_index = patrol_index;
-        monster->vector.Grow(static_cast<int>(points.size()));
+        monster->vector.reserve(points.size());
         for (const auto& point : points) {
-            monster->vector.Add(point);
+            monster->vector.push_back(point);
         }
         if (record_version >= 4) {
             monster->direction_x = direction.x;
@@ -1358,9 +1359,9 @@ try
         monster->SetScript(script_name, false);
         monster->script_wait = script_wait;
         monster->script_line = script_line;
-        monster->script_conditions.Grow(static_cast<int>(script_conditions.size()));
+        monster->script_conditions.reserve(script_conditions.size());
         for (const auto condition : script_conditions) {
-            monster->script_conditions.Add(condition != 0);
+            monster->script_conditions.push_back(condition != 0);
         }
     }
     if (monster_info->hp_current == 0) {
@@ -1400,7 +1401,7 @@ void ResetLiveSessionForLoad(void)
     ResetMainGameScreenState();
     ClearNpcMessageQueue();
     ResetMainScreenStateBlock();
-    g_spell_effects.RemoveAllAndDelete();
+    wiz8::remove_all_and_delete(g_spell_effects);
     ReleaseAllTriggers();
     ResetGameplayStatusBlock();
 }
@@ -1478,19 +1479,11 @@ try
         items.push_back(std::move(item));
     } while (has_next);
 
-    if (searchables.size() > static_cast<std::size_t>(
-            std::numeric_limits<int>::max() - g_searchables.GetCount())) {
-        return nullptr;
-    }
-    if (!g_searchables.Grow(g_searchables.GetCount() + static_cast<int>(searchables.size()))) {
-        return nullptr;
-    }
+    g_searchables.reserve(g_searchables.size() + searchables.size());
     auto* first = items.front().get();
-    if (add_to_list && PLAdoptAppend(gXStatus.plsItemList, first) == -1) {
-        return nullptr;
-    }
+    if (add_to_list) gXStatus.world_items.push_back(first);
     for (auto& searchable : searchables) {
-        g_searchables.Add(searchable.release());
+        g_searchables.push_back(searchable.release());
     }
     for (auto& item : items) {
         (void)item.release();
@@ -2130,7 +2123,7 @@ void SaveGlobalStatus(W8Chunk* chunks, W8GlobalStatus* status)
    inside is loaded and appended to the caller's vector. The scan stops once
    the level's group has been processed. */
 // FUNCTION: WIZ8 0x00516070
-bool LoadSavedLevelItems(int level, W8GrowableVector<W8WorldItem*>* items)
+bool LoadSavedLevelItems(int level, std::vector<W8WorldItem*>& items)
 try
 {
     W8Chunk chunk;
@@ -2171,19 +2164,17 @@ try
                             if (remaining < 0 || item_count > static_cast<std::uint64_t>(remaining) /
                                                                  sizeof(W8WorldItem) ||
                                 item_count > static_cast<unsigned int>(
-                                    std::numeric_limits<int>::max() - items->GetCount())) {
+                                    std::numeric_limits<int>::max() - static_cast<int>(items.size()))) {
                                 return false;
                             }
-                            if (!items->Grow(items->GetCount() + static_cast<int>(item_count))) {
-                                return false;
-                            }
+                            items.reserve(items.size() + item_count);
                             for (index = 0; index < item_count; ++index) {
                                 W8WorldItem* item = LoadItem(chunk.m_hFile.get(), false);
 
                                 if (!item) {
                                     return false;
                                 }
-                                items->Add(item);
+                                items.push_back(item);
                             }
                         }
                         chunk.SkipCurrentChunk();
@@ -2342,9 +2333,3 @@ void LoadMonsterControlSpellEffect(W8Chunk* chunks)
 
 /* Write the monster-control spell effect as the HYPN record: the same fields
    the loader reads, none of the runtime vectors or result state. */
-
-/* The byte-vector Grow LoadMonster's script-condition copy emits; the linker
-   kept this unit's instance for AddItem as well. */
-
-/* The remove-and-delete emission LoadGame calls while ResetLiveSessionForLoad
-   inlines it is instantiated explicitly in vector.cpp. */

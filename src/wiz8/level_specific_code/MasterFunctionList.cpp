@@ -65,7 +65,7 @@
 static W8WorldCursorNode* g_active_cursor_node;
 
 // GLOBAL: WIZ8 0x006834d8
-W8Vector<W8MasterFunction>* g_master_functions;
+std::vector<W8MasterFunction> g_master_functions;
 // GLOBAL: WIZ8 0x006834dc
 bool g_remove_current_master_function;
 
@@ -79,12 +79,12 @@ const float g_sound_node_full_volume = 127.0f;
 // FUNCTION: WIZ8 0x004D8E40
 void RunMasterFunctions(void)
 {
-    int count = g_master_functions->GetCount();
+    int count = static_cast<int>(g_master_functions.size());
 
     for (int index = 0; index < count; ++index) {
-        (*g_master_functions->GetAt(index))(0);
+        g_master_functions[index](0);
         if (g_remove_current_master_function) {
-            g_master_functions->RemoveAt(index);
+            g_master_functions.erase(g_master_functions.begin() + index);
             --count;
             --index;
         }
@@ -97,10 +97,10 @@ void RunMasterFunctions(void)
 // FUNCTION: WIZ8 0x004D8EC0
 void SaveMasterFunctions(void)
 {
-    int count = g_master_functions->GetCount();
+    int count = static_cast<int>(g_master_functions.size());
 
     for (int index = 0; index < count; ++index) {
-        (*g_master_functions->GetAt(index))(-1);
+        g_master_functions[index](-1);
     }
 }
 
@@ -514,7 +514,7 @@ bool g_sea_caves_slope_override_enabled;
 // FUNCTION: WIZ8 0x004D9740
 void LoadAwayCampChest(void)
 {
-    W8Vector<W8WorldItem*> items(5);
+    std::vector<W8WorldItem*> items;
     W8Prop* pChest;
     Trigger* pTrigger;
     W8WorldItem* pContainer;
@@ -532,16 +532,16 @@ void LoadAwayCampChest(void)
     if (pContainer == 0) {
         srAssertFail("pContainer", MASTER_FUNCTION_CPP, 0x5a8, 0);
     }
-    LoadSavedLevelItems(0x26, &items);
-    for (index = 0; index < items.GetCount(); ++index) {
-        W8WorldItem* item = *items.GetAt(index);
+    LoadSavedLevelItems(0x26, items);
+    for (index = 0; index < static_cast<int>(items.size()); ++index) {
+        W8WorldItem* item = items[index];
 
         if (ItemInfoIsWorldPersistent(item)) {
             if (ItemInfoGetNumInGroup(item) != 0) {
                 W8WorldItem* next = ItemInfoGroupGetNext(item);
 
                 if (next != 0) {
-                    ItemInfoMakeGroupList(next, &items);
+                    ItemInfoMakeGroupList(next, items);
                 }
             }
             free(item);
@@ -655,24 +655,7 @@ void InitializeLevelMasterFunctions(int level)
 {
     Trigger* pTrigger;
 
-    if (g_master_functions == 0) {
-        g_master_functions = new W8Vector<W8MasterFunction>(5);
-    } else {
-        /* Retail caches the count and removes one entry per iteration; the
-           clearing loop leaves it at zero. */
-        int count = g_master_functions->GetCount();
-        for (int index = 0; index < count; ++index) {
-            g_master_functions->RemoveAt(0);
-        }
-    }
-    /* Retail still walks the now-empty vector from the top and deletes each
-       unlinked entry; the loop cannot run, but its instructions are present,
-       so it is preserved rather than dropped. */
-    for (int index = g_master_functions->GetCount() - 1; index >= 0; --index) {
-        void* entry = reinterpret_cast<void*>(g_master_functions->RemoveAt(
-            index)); /* reinterpret-ok: function entry stored as data */
-        operator delete(entry);
-    }
+    g_master_functions.clear();
     g_running_trigger_from_script = false;
     g_npc_dialogue_closed = true;
     g_sea_caves_slope_override_enabled = false;

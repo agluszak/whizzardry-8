@@ -94,8 +94,8 @@ int AnalyzeMusicPlaylist(stScript* playlist, int* total_weight)
     bool found_unweighted = false;
 
     *total_weight = 0;
-    for (int index = 0; index < playlist->lines.GetCount(); ++index) {
-        const char* line = (*playlist->lines.GetAt(index))->text;
+    for (int index = 0; index < static_cast<int>(playlist->lines.size()); ++index) {
+        const char* line = playlist->lines[index]->text;
 
         if (line[0] == '#') {
             if (_strnicmp(line + 1, "PAUSEMIN=", 9) == 0) {
@@ -153,8 +153,8 @@ void ServiceMusicPlaylist(void)
         } else {
             unsigned int target = Random(g_music_playlist_weight_total);
             unsigned int accumulated = 0;
-            for (int index = 0; index < g_music_playlist->lines.GetCount(); ++index) {
-                const char* line = (*g_music_playlist->lines.GetAt(index))->text;
+            for (int index = 0; index < static_cast<int>(g_music_playlist->lines.size()); ++index) {
+                const char* line = g_music_playlist->lines[index]->text;
                 if (line[0] == '#') {
                     continue;
                 }
@@ -172,7 +172,7 @@ void ServiceMusicPlaylist(void)
         }
 
         char track[260];
-        strcpy(track, (*g_music_playlist->lines.GetAt(selected))->text);
+        strcpy(track, g_music_playlist->lines[selected]->text);
         char* weight = strchr(track, '(');
         if (weight != 0) {
             *weight = 0;
@@ -242,7 +242,7 @@ unsigned char StartMusicResource(const char* resource, int fade, unsigned char r
     g_music_playlist->Clear();
     g_music_playlist->Load(path);
 
-    if (g_music_playlist->lines.GetCount() == 0) {
+    if (g_music_playlist->lines.empty()) {
         return 0;
     }
     if (replace_current != 0) {

@@ -1,3 +1,4 @@
+#include "wiz8/containers.h"
 #include "wiz8/engine_code/AnimRep.hpp"
 #include "timer.h"
 #include "wiz8/monster_cycles.h"
@@ -13,7 +14,8 @@
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/xstatus.h"
-#include "wiz8/3d_code/IList.h"
+#include <vector>
+#include <algorithm>
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/CombatAttack.h"
@@ -26,6 +28,7 @@
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/fact_state.h"
+#include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_screens/MGSButtons.h"
 #include "wiz8/local_screens/MGSPortraitCombat.h"
 #include "wiz8/engine_code/OctBuildPreTree.h"
@@ -52,7 +55,6 @@
 #include "wiz8/character_skills.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/NPCScripting.h"
-#include "wiz8/3d_code/PList.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/sr_api.h"
 #include "random.h"
@@ -129,13 +131,10 @@ W8MonsterInfo* CreateMonsterInfo(W8MonsterGroup* group, W8MonsterRecord* record,
     monster_info->elemental_summon = -1;
     monster_info->movement_watch_position.SetZero();
 
-    if (PLAdoptAppend(record->unborn != 0 ? gXStatus.plsUnbornMonsterList : gXStatus.plsMonsterList,
-                      monster_info) == -1) {
-        free(monster_info);
-        return 0;
-    }
+    (record->unborn != 0 ? &gXStatus.unborn_monsters : &gXStatus.monsters)
+        ->push_back(monster_info);
 
-    IListAdd(group->monsters, monster_info->location_id);
+    group->monsters->push_back(monster_info->location_id);
     ++group->member_count;
     ++group->active_member_count;
     RequestRedrawParty();
@@ -169,7 +168,7 @@ void ActivateMonsterInWorld(W8MonsterInfo* monster_info)
         MonsterSetLocationId(monster_info->p3D, monster_info->location_id);
         MonsterSetAdjustedPosition(monster_info->p3D, &monster_info->position);
 
-        if (PListIndexOf(gXStatus.plsUnbornMonsterList, monster_info) != -1) {
+        if (std::ranges::contains(gXStatus.unborn_monsters, monster_info)) {
             if (!MonsterIsCycleSupported(monster_info->p3D, 0)) {
                 srAssertFail("MonsterIsCycleSupported(pMonsterInfo->p3D, CYCLE_BIRTH)",
                              MONSTER_MANAGER_CPP, 0x190, "Unborn monsters must have CYCLE_BIRTH!");
@@ -230,10 +229,7 @@ void ActivateMonsterInWorld(W8MonsterInfo* monster_info)
             monster_info->p3D->SetDamageStage(damage_stage);
         }
     }
-    monster_info->plsVisMonToMon = PLCreate();
-    if (monster_info->plsVisMonToMon == 0) {
-        srAssertFail("pMonsterInfo->plsVisMonToMon != NULL", MONSTER_MANAGER_CPP, 0x1de, 0);
-    }
+    monster_info->monster_visibility = new W8MonsterVisibility;
     RequestRefreshPartyState();
     RefreshFlaggedMainGameState();
     if (record->can_open_doors != 0) {
@@ -460,14 +456,14 @@ unsigned int MonsterGetIndexByLocationID(int caller_line, const char* caller_fil
     unsigned int index;
     W8MonsterInfo* monster;
 
-    for (index = 0; index < PLLength(gXStatus.plsMonsterList); ++index) {
+    for (index = 0; index < gXStatus.monsters.size(); ++index) {
         monster = MonsterGetScriptPartByLocationIndex(index);
         if (monster->location_id == location_id) {
             return index;
         }
     }
 
-    for (index = 0; index < PLLength(gXStatus.plsUnbornMonsterList); ++index) {
+    for (index = 0; index < gXStatus.unborn_monsters.size(); ++index) {
         monster = GetUnbornMonsterEntry(index);
         if (monster->location_id == location_id) {
             return index + 10000;
@@ -490,29 +486,31 @@ W8MonsterInfo* MonsterGetScriptPartByLocationIndex(unsigned int monster_list_ind
     int line;
 
     if (monster_list_index < 10000 || monster_list_index >= 20000) {
-        if (monster_list_index >= PLLength(gXStatus.plsMonsterList)) {
-            srAssertFail("uiMonsterListIndex < (UINT32) PLLength(gXStatus.plsMonsterList)",
+        if (monster_list_index >= gXStatus.monsters.size()) {
+            srAssertFail("uiMonsterListIndex < (UINT32) (&gXStatus.monsters ? "
+                         "gXStatus.monsters.size() : 0)",
                          MONSTER_MANAGER_CPP, 0x5da, 0);
         }
         result = GetMonsterListEntry(monster_list_index);
         if (result != 0) {
             return result;
         }
-        detail = FormatString("MonsterInfo: ERROR - PLGet failed, index %d, pList %d",
-                              monster_list_index, gXStatus.plsMonsterList);
+        detail = FormatString("MonsterInfo: ERROR - missing entry, index %d, pList %d",
+                              monster_list_index, &gXStatus.monsters);
         line = 0x5de;
     } else {
-        if (monster_list_index - 10000 >= PLLength(gXStatus.plsUnbornMonsterList)) {
-            srAssertFail(
-                "(uiMonsterListIndex-10000) < (UINT32) PLLength(gXStatus.plsUnbornMonsterList)",
-                MONSTER_MANAGER_CPP, 0x5d1, 0);
+        if (monster_list_index - 10000 >=
+            gXStatus.unborn_monsters.size()) {
+            srAssertFail("(uiMonsterListIndex-10000) < (UINT32) (&gXStatus.unborn_monsters ? "
+                         "gXStatus.unborn_monsters.size() : 0)",
+                         MONSTER_MANAGER_CPP, 0x5d1, 0);
         }
         result = GetUnbornMonsterEntry(monster_list_index - 10000);
         if (result != 0) {
             return result;
         }
-        detail = FormatString("MonsterInfo: ERROR - PLGet failed, index %d, pList %d",
-                              monster_list_index, gXStatus.plsMonsterList);
+        detail = FormatString("MonsterInfo: ERROR - missing entry, index %d, pList %d",
+                              monster_list_index, &gXStatus.monsters);
         line = 0x5d5;
     }
     srAssertFail("pMonsterInfo != NULL", MONSTER_MANAGER_CPP, line, detail);
@@ -649,7 +647,8 @@ W8MonsterInfo* GetNextMonsterInfo(bool reset_iterator)
     if (reset_iterator) {
         g_monster_info_iterator_index = 0;
     }
-    if (g_monster_info_iterator_index < static_cast<int>(PLLength(gXStatus.plsMonsterList))) {
+    if (g_monster_info_iterator_index <
+        static_cast<int>(gXStatus.monsters.size())) {
         index = g_monster_info_iterator_index++;
         result = GetMonsterListEntry(index);
     }
@@ -688,7 +687,7 @@ void ProcessMonstersAtCombatEnd(bool forced_cleanup)
 {
     unsigned int index;
 
-    for (index = 0; index < PLLength(gXStatus.plsMonsterList); ++index) {
+    for (index = 0; index < gXStatus.monsters.size(); ++index) {
         W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(index);
 
         if (monster_info->fActive && monster_info->hp_current > 0 &&
@@ -756,7 +755,7 @@ W8MonsterInfo* FindMonsterInfoBySpecies(unsigned int monster_species)
     unsigned int index;
     W8MonsterInfo* monster_info;
 
-    for (index = 0; index < PLLength(gXStatus.plsMonsterList); ++index) {
+    for (index = 0; index < gXStatus.monsters.size(); ++index) {
         monster_info = MonsterGetScriptPartByLocationIndex(index);
         if (monster_info->monster_species == monster_species) {
             return monster_info;
@@ -770,7 +769,7 @@ void ResetLivingMonstersAfterCombat(void)
 {
     unsigned int index;
 
-    for (index = 0; index < PLLength(gXStatus.plsMonsterList); ++index) {
+    for (index = 0; index < gXStatus.monsters.size(); ++index) {
         W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(index);
 
         if (monster_info->hp_current > 0) {
@@ -800,7 +799,8 @@ static void DestroyMonsterListEntry(unsigned int index)
     }
     g_octree->UnregisterLocationObjects(static_cast<unsigned short>(monster_info->location_id));
     ReleaseNpcBinding(monster_info->bound_npc_index);
-    void* removed = PLRemoveAt(gXStatus.plsMonsterList, index);
+    void* removed = gXStatus.monsters[index];
+    gXStatus.monsters.erase(gXStatus.monsters.begin() + index);
     if (removed != 0) {
         free(removed);
     }
@@ -811,7 +811,7 @@ void DestroyUngroupedMonsters(void)
 {
     unsigned int index;
 
-    for (index = 0; index < PLLength(gXStatus.plsMonsterList); ++index) {
+    for (index = 0; index < gXStatus.monsters.size(); ++index) {
         W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(index);
 
         if (monster_info->monster_group_id == 0) {
@@ -885,11 +885,12 @@ void MoveMonsterToLiveList(W8MonsterInfo* monster_info)
     if (monster_info == 0) {
         srAssertFail("pMonsterInfo", MONSTER_MANAGER_CPP, 0x8b8, 0);
     }
-    if (PListRemove(gXStatus.plsUnbornMonsterList, monster_info) == 0) {
+    const bool was_removed = wiz8::erase_first(gXStatus.unborn_monsters, monster_info);
+    if (was_removed == 0) {
         return;
     }
 
-    PLAdoptAppend(gXStatus.plsMonsterList, monster_info);
+    gXStatus.monsters.push_back(monster_info);
     if (MonsterIsCycleSupported(monster_info->p3D, 0)) {
         MonsterSetCycle(monster_info->p3D, 0);
         MonsterSetCycleBehaviour(monster_info->p3D, 1);
@@ -916,7 +917,7 @@ W8MonsterInfo* FindNearestMonsterInfo(const srVector3T<float>* position, double 
     double nearest_distance = 1.0e11;
     unsigned int index;
 
-    for (index = 0; index < PLLength(gXStatus.plsMonsterList); ++index) {
+    for (index = 0; index < gXStatus.monsters.size(); ++index) {
         W8MonsterInfo* monster_info = GetMonsterListEntry(index);
         double distance = DistanceBetweenPositions(position, monster_info->p3D->GetPosition());
 
@@ -927,7 +928,7 @@ W8MonsterInfo* FindNearestMonsterInfo(const srVector3T<float>* position, double 
         }
     }
 
-    for (index = 0; index < PLLength(gXStatus.plsUnbornMonsterList); ++index) {
+    for (index = 0; index < gXStatus.unborn_monsters.size(); ++index) {
         W8MonsterInfo* monster_info = GetUnbornMonsterEntry(index);
         double distance = DistanceBetweenPositions(position, monster_info->p3D->GetPosition());
 
@@ -961,11 +962,11 @@ void InitializeMonsterRuntimeStats(void)
 {
     unsigned int index;
 
-    for (index = 0; index < PLLength(gXStatus.plsMonsterList); ++index) {
+    for (index = 0; index < gXStatus.monsters.size(); ++index) {
         InitializeMonsterRuntimeStatsFor(GetMonsterListEntry(index));
     }
 
-    for (index = 0; index < PLLength(gXStatus.plsUnbornMonsterList); ++index) {
+    for (index = 0; index < gXStatus.unborn_monsters.size(); ++index) {
         InitializeMonsterRuntimeStatsFor(GetUnbornMonsterEntry(index));
     }
 }
@@ -1052,7 +1053,7 @@ bool AnyMonsterDying(void)
     unsigned int index;
     W8MonsterInfo* monster_info;
 
-    for (index = 0; index < PLLength(gXStatus.plsMonsterList); ++index) {
+    for (index = 0; index < gXStatus.monsters.size(); ++index) {
         monster_info = MonsterGetScriptPartByLocationIndex(index);
         if (monster_info != 0 && monster_info->p3D->IsDying()) {
             return true;
@@ -1076,36 +1077,11 @@ bool InitializeMonsterManagerState(void)
     if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME && g_level_block != 0) {
         g_level_block->highlighted_item = -1;
     }
-    if (gXStatus.plsMonsterList == 0) {
-        gXStatus.plsMonsterList = PLCreate();
-    } else {
-        PListClear(gXStatus.plsMonsterList);
-    }
-    if (gXStatus.plsMonsterList == 0) {
-        return false;
-    }
-    if (gXStatus.plsMonsterGroupList == 0) {
-        gXStatus.plsMonsterGroupList = PLCreate();
-    } else {
-        PListClear(gXStatus.plsMonsterGroupList);
-    }
-    if (gXStatus.plsMonsterGroupList == 0) {
-        return false;
-    }
-    if (gXStatus.plsUnbornMonsterList == 0) {
-        gXStatus.plsUnbornMonsterList = PLCreate();
-    } else {
-        PListClear(gXStatus.plsUnbornMonsterList);
-    }
-    if (gXStatus.plsMonsterList == 0) {
-        return false;
-    }
-    if (gXStatus.plsMonsterGroupEncounterList != 0) {
-        PListClear(gXStatus.plsMonsterGroupEncounterList);
-        return gXStatus.plsMonsterGroupList != 0;
-    }
-    gXStatus.plsMonsterGroupEncounterList = PLCreate();
-    return gXStatus.plsMonsterGroupList != 0;
+    gXStatus.monsters.clear();
+    gXStatus.monster_groups.clear();
+    gXStatus.unborn_monsters.clear();
+    gXStatus.encounter_groups.clear();
+    return true;
 }
 
 /* The manager teardown: it drains the monster list by repeatedly destroying
@@ -1115,33 +1091,15 @@ bool InitializeMonsterManagerState(void)
 unsigned char ShutdownMonsterManager(void)
 {
 
-    if (gXStatus.plsMonsterGroupList == 0) {
-        srAssertFail("gXStatus.plsMonsterGroupList != NULL", MONSTER_MANAGER_CPP, 0x5c, 0);
-    }
-    if (gXStatus.plsMonsterList == 0) {
-        srAssertFail("gXStatus.plsMonsterList != NULL", MONSTER_MANAGER_CPP, 0x5d, 0);
-    }
-    while (static_cast<int>(PLLength(gXStatus.plsMonsterList)) > 0) {
+    while (!gXStatus.monsters.empty()) {
         if (!RemoveMonster(0, true)) {
             return 0;
         }
     }
-    if (PLDestroy(gXStatus.plsMonsterList) == 0) {
-        return 0;
-    }
-    gXStatus.plsMonsterList = 0;
-    if (PLDestroy(gXStatus.plsMonsterGroupList) == 0) {
-        return 0;
-    }
-    gXStatus.plsMonsterGroupList = 0;
-    if (PLDestroy(gXStatus.plsUnbornMonsterList) == 0) {
-        return 0;
-    }
-    gXStatus.plsUnbornMonsterList = 0;
-    if (PLDestroy(gXStatus.plsMonsterGroupEncounterList) == 0) {
-        return 0;
-    }
-    gXStatus.plsMonsterGroupEncounterList = 0;
+    gXStatus.monsters.clear();
+    gXStatus.monster_groups.clear();
+    gXStatus.unborn_monsters.clear();
+    gXStatus.encounter_groups.clear();
     // Direct member access retains the packed cache's alignment information.
     for (int index = 0; index < MAX_MONSTERS_IN_DATABASE; ++index) {
         if (gXStatus.monster_record_cache[index] != 0) {
@@ -1164,7 +1122,7 @@ bool RemoveMonster(unsigned int monster_list_index, bool destroy_monster)
         W8MonsterGroup* monster_group = GetMonsterGroupByListIndex(GetMonsterGroupIndexByID(
             0x125, MONSTER_MANAGER_CPP, monster_info->monster_group_id, true));
 
-        IListRemove(monster_group->monsters, monster_info->location_id);
+        wiz8::erase_first(*monster_group->monsters, monster_info->location_id);
         --monster_group->member_count;
         RequestRedrawParty();
         if (monster_group->member_count == 0) {
@@ -1373,7 +1331,9 @@ void ToggleCombatMode(void)
             ShowNotice(W8_FONT_PALETTE_BEIGE, gppStringList[W8_NOTICE_COMBAT_CANNOT_END]);
             return;
         }
-        for (group_list_index = 0; group_list_index < PLLength(gXStatus.plsMonsterGroupList);
+        for (group_list_index = 0;
+             group_list_index <
+             gXStatus.monster_groups.size();
              ++group_list_index) {
             monster_group = GetMonsterGroupByListIndex(group_list_index);
             if (monster_group->members_active && monster_group->fInCombat &&
@@ -1404,14 +1364,14 @@ void ToggleCombatMode(void)
 }
 
 /* Starts one animation cycle on a monster, and refuses in three ways.
- 
+
    A NEVER_STOP behaviour on a cycle that can be interrupted is rejected
    outright. So is any new cycle while an uninterruptable one is pending, except
    the stop cycle, which is allowed through silently - the diagnostic there names
    both cycles and the monster, which is what the cycle-name table at 0x0060EA08
    is for. And a motionless monster accepts only the stop cycle, death, and cycle
    zero; anything else fails the third assertion with no message at all.
- 
+
    The combat-mode query on the way in is made for its effect: its result is
    discarded here. */
 // FUNCTION: WIZ8 0x004e4db0
@@ -1471,8 +1431,7 @@ void ProcessMonsterManagerFrame(void)
 {
     unsigned int monster_list_index;
 
-    for (monster_list_index = 0; monster_list_index < PLLength(gXStatus.plsMonsterList);
-         ++monster_list_index) {
+    for (monster_list_index = 0; monster_list_index < gXStatus.monsters.size(); ++monster_list_index) {
         W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(monster_list_index);
         W8Monster* monster = monster_info->p3D;
 
@@ -1538,12 +1497,12 @@ void ProcessMonsterManagerFrame(void)
 }
 
 /* The display name for one monster. Three things decide it.
- 
+
    Without a record, GetMonsterDataForInfo fetches the species' cached database row.
- 
+
    One record id is special-cased entirely: it is shown as a party character's
    name with a prefix, formatted into a shared buffer.
- 
+
    Otherwise the monster's group decides which of the record's two name sets is
    used, and name_form picks the variant within it - the sets are twenty-four
    wide characters apart. A monster with no group at all is a bug unless it is
@@ -1681,8 +1640,7 @@ void DetectMonsterGroups(void)
 {
     bool noticed = false;
 
-    for (unsigned int group_index = 0; group_index < PLLength(gXStatus.plsMonsterGroupList);
-         ++group_index) {
+    for (unsigned int group_index = 0; group_index < gXStatus.monster_groups.size(); ++group_index) {
         W8MonsterGroup* group = GetMonsterGroupByListIndex(group_index);
         if (!group->members_active || (group->alternate_name && group->group_state[0] != 0) ||
             (gXStatus.fCombatMode && !group->fInCombat) ||
@@ -1777,7 +1735,7 @@ void EvaluateCombatDifficulty(void)
     unsigned int monster_index;
     int slot;
 
-    for (monster_index = 0; monster_index < PLLength(gXStatus.plsMonsterList); ++monster_index) {
+    for (monster_index = 0; monster_index < gXStatus.monsters.size(); ++monster_index) {
         W8MonsterInfo* monster = MonsterGetScriptPartByLocationIndex(monster_index);
         if (monster->fInCombat && monster->ubDisposition == W8_DISPOSITION_HOSTILE &&
             monster->hp_current > 0 && monster->highest_condition < W8_CONDITION_DEAD) {
@@ -1804,7 +1762,9 @@ void EvaluateCombatDifficulty(void)
                 int faction = npc->record->faction;
                 if (faction != 0 && faction != 1) {
                     for (unsigned int group_index = 0;
-                         group_index < PLLength(gXStatus.plsMonsterGroupList); ++group_index) {
+                         group_index <
+                         gXStatus.monster_groups.size();
+                         ++group_index) {
                         W8MonsterGroup* group = GetMonsterGroupByListIndex(group_index);
                         if (group->members_active && group->fInCombat &&
                             group->ubDisposition == W8_DISPOSITION_HOSTILE &&

@@ -1,3 +1,4 @@
+#include "wiz8/containers.h"
 #include "wiz8/fonts.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_code/Sight.h"
@@ -21,7 +22,8 @@
 #include "wiz8/utility.h"
 #include "random.h"
 #include <math.h>
-#include "wiz8/vector.h"
+#include <vector>
+#include <algorithm>
 #include "wiz8/sr_api.h"
 #include "wiz8/virtual_file.h"
 #include "wiz8/filesystem.h"
@@ -55,8 +57,7 @@ MonGen::MonGen()
 // FUNCTION: WIZ8 0x0048bdc0
 MonGen* FindMonGenByName(const char* name)
 {
-    for (int index = 0; index < g_world->monster_generators->GetCount(); ++index) {
-        MonGen* generator = *g_world->monster_generators->GetAt(index);
+    for (MonGen* generator : *g_world->monster_generators) {
         if (strncmp(name, generator->name, sizeof(generator->name)) == 0) {
             return generator;
         }
@@ -71,7 +72,7 @@ int g_random_encounter_budget = 20;
 int g_random_encounter_limit = 10;
 
 // GLOBAL: WIZ8 0x0065ba10
-W8GrowableVector<W8MonsterGroup*> g_active_groups;
+std::vector<W8MonsterGroup*> g_active_groups;
 
 // GLOBAL: WIZ8 0x0065ba48
 unsigned char g_generator_save_flag;
@@ -92,105 +93,56 @@ int g_encounter_culling_time_seconds = 180;
 const float g_generator_jitter_fraction = 0.20000000298023224f;
 
 // GLOBAL: WIZ8 0x0065ba20
-W8GrowableVector<W8EncounterTableRuntime*> g_encounter_tables;
+std::vector<W8EncounterTableRuntime> g_encounter_tables;
 // GLOBAL: WIZ8 0x0065ba38
-W8GrowableVector<char*> g_encounter_names;
+std::vector<std::string> g_encounter_names;
 // GLOBAL: WIZ8 0x0060a6bc
 int g_encounter_tables_level = -1;
 
 // FUNCTION: WIZ8 0x0048a7a0
 unsigned int InitializeEncounterTables(void)
+try
 {
-    std::unique_ptr<wiz8::File> handle = [&]() { try { return wiz8::open_file("Data\\Databases\\EncounterTables.dbs", wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
+    auto handle = wiz8::open_file("Data\\Databases\\EncounterTables.dbs");
+    UnloadEncounterTables();
+    std::vector<std::string> names;
+    std::vector<W8EncounterTableRuntime> tables;
     int name_count;
     int table_count;
-    int index;
-
-    if (!handle) {
-        return 0;
-    }
-    UnloadEncounterTables();
-    unsigned char success = (handle->read(&name_count, 4).bytes == static_cast<std::size_t>(4));
-    for (index = 0; index < name_count; ++index) {
-        if (!success) {
-            if (handle) handle->close();
-            handle.reset();
-            return 0;
-        }
-        char* name = new char[0x100];
-        success = (handle->read(name, 0x100).bytes == static_cast<std::size_t>(0x100));
-        g_encounter_names.Add(name);
-    }
-    if (!success) {
-        if (handle) handle->close();
-        handle.reset();
-        return 0;
-    }
-    handle->read_exact(&table_count, 4);
-    for (index = 0; index < table_count; ++index) {
-        unsigned char record_kind;
+    handle->read_exact(&name_count, sizeof(name_count));
+    if (name_count < 0) return 0;
+    for (int index = 0; index < name_count; ++index) {
         char name[256];
-        unsigned int category;
-        unsigned short version;
-        unsigned char entry_count;
-        unsigned short species[256];
-        unsigned char rarity[256];
-        unsigned char time[256];
-        unsigned char challenge[256];
-
-        handle->read_exact(&record_kind, 1);
         handle->read_exact(name, sizeof(name));
-        handle->read_exact(&category, 4);
-        handle->read_exact(&version, 2);
-        handle->read_exact(&entry_count, 1);
-        W8EncounterTableRuntime* table = new W8EncounterTableRuntime;
-        if (!table) {
-            srAssertFail("pTable", "C:\\Projects\\Wizardry 8\\Engine Code\\MonGen.cpp", 0xd3,
-                         "Out of memory allocating monster generation table.");
-        }
-        handle->read_exact(species, entry_count * 2);
-        handle->read_exact(rarity, entry_count);
-        handle->read_exact(time, entry_count);
-        handle->read_exact(challenge, entry_count);
-        for (int entry = 0; entry < entry_count; ++entry) {
-            W8EncounterScriptName* script =
-                static_cast<W8EncounterScriptName*>(malloc(sizeof(W8EncounterScriptName)));
-            if (!script) {
-                srAssertFail("pScript", "C:\\Projects\\Wizardry 8\\Engine Code\\MonGen.cpp", 0xdd,
-                             0);
-            }
-            handle->read_exact(script, sizeof(*script));
-            table->species_ids.Add(species[entry]);
-            table->rarity_class.Add(rarity[entry]);
-            table->time_condition.Add(time[entry]);
-            table->challenge_level.Add(challenge[entry]);
-            table->script_names.Add(script);
-        }
-        strcpy(table->name, name);
-        table->category = category;
-        g_encounter_tables.Add(table);
-        if (version == 1) {
-            table->version_two_flags = 0;
-        } else {
-            unsigned char flags;
-            handle->read_exact(&flags, 1);
-            table->version_two_flags = flags;
-        }
+        names.emplace_back(name, std::find(std::begin(name), std::end(name), '\0'));
     }
+    handle->read_exact(&table_count, sizeof(table_count));
+    if (table_count < 0) return 0;
+    for (int index = 0; index < table_count; ++index) {
+        W8EncounterTableDiskHeader header;
+        handle->read_exact(&header, sizeof(header));
+        auto& table = tables.emplace_back();
+        memcpy(table.name, header.name, sizeof(table.name));
+        table.name[sizeof(table.name) - 1] = '\0';
+        table.category = header.unknown_101;
+        table.entries.resize(header.entry_count);
+        // The file stores columns; combine them into records at the boundary.
+        for (auto& entry : table.entries) handle->read_exact(&entry.species, sizeof(entry.species));
+        for (auto& entry : table.entries) handle->read_exact(&entry.rarity_class, 1);
+        for (auto& entry : table.entries) handle->read_exact(&entry.time_condition, 1);
+        for (auto& entry : table.entries) handle->read_exact(&entry.challenge_level, 1);
+        for (auto& entry : table.entries) {
+            handle->read_exact(&entry.script, sizeof(entry.script));
+            entry.script.value[sizeof(entry.script.value) - 1] = '\0';
+        }
+        if (header.version != 1) handle->read_exact(&table.version_two_flags, 1);
+    }
+    g_encounter_names = std::move(names);
+    g_encounter_tables = std::move(tables);
     g_encounter_tables_level = g_status.current_level;
-    if (handle) handle->close();
-    handle.reset();
     return 1;
 }
-
-// FUNCTION: WIZ8 0x0048ac60
-W8EncounterTableRuntime::~W8EncounterTableRuntime()
-{
-    while (script_names.GetCount() != 0) {
-        free(*script_names.GetAt(0));
-        script_names.RemoveAt(0);
-    }
-}
+catch (const std::exception&) { return 0; }
 
 // STRING: WIZ8 0x0060A6E0
 #define MON_GEN_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\MonGen.cpp"
@@ -214,18 +166,16 @@ enum { W8_ENCOUNTER_STALE_SECONDS = 36000 };
    entry's challenge to stay within half the party's rounded average level and
    scales rarity down as that mismatch grows; when that leaves no candidate,
    retail falls back to raw rarity plus the day/night condition. A random
-   candidate is moved to slot zero because GenerateEncounter consumes slot zero. */
+   candidate is returned to GenerateEncounter. */
 // FUNCTION: WIZ8 0x0048B9A0
-int MonGen::SelectEncounterCandidates(W8EncounterTableRuntime* table,
-                                      W8GrowableVector<int>* candidates)
+const W8EncounterEntry* MonGen::SelectEncounterCandidate(const W8EncounterTableRuntime& table)
 {
     int rarity_roll;
     int rarity_class;
     int night;
-    int index;
     float party_level;
 
-    candidates->Clear();
+    std::vector<const W8EncounterEntry*> candidates;
     night = !(g_status.game_time_ms > 18000000 && g_status.game_time_ms <= 79200000);
 
     rarity_roll = Random(100);
@@ -240,12 +190,12 @@ int MonGen::SelectEncounterCandidates(W8EncounterTableRuntime* table,
     }
 
     party_level = static_cast<float>(floor(GetAveragePartyMemberLevel() + 0.49f));
-    for (index = 0; index < table->species_ids.GetCount(); ++index) {
-        float challenge = static_cast<float>(*table->challenge_level.GetAt(index));
+    for (const auto& entry : table.entries) {
+        float challenge = static_cast<float>(entry.challenge_level);
         float difference = static_cast<float>(fabs(1.0f - challenge / party_level));
 
         if (difference < 0.5f) {
-            float adjusted = (*table->rarity_class.GetAt(index)) * (1.0f - difference * 1.8f);
+            float adjusted = (entry.rarity_class) * (1.0f - difference * 1.8f);
             int adjusted_class;
 
             if (adjusted <= 3.0f) {
@@ -258,27 +208,24 @@ int MonGen::SelectEncounterCandidates(W8EncounterTableRuntime* table,
                 adjusted_class = 70;
             }
 
-            unsigned char time = *table->time_condition.GetAt(index);
+            unsigned char time = entry.time_condition;
             if (adjusted_class == rarity_class && (time == 2 || time == night)) {
-                candidates->Add(index);
+                candidates.push_back(&entry);
             }
         }
     }
 
-    if (candidates->GetCount() == 0) {
-        for (index = 0; index < table->species_ids.GetCount(); ++index) {
-            unsigned char time = *table->time_condition.GetAt(index);
-            if (*table->rarity_class.GetAt(index) == rarity_class && (time == 2 || time == night)) {
-                candidates->Add(index);
+    if (candidates.empty()) {
+        for (const auto& entry : table.entries) {
+            unsigned char time = entry.time_condition;
+            if (entry.rarity_class == rarity_class && (time == 2 || time == night)) {
+                candidates.push_back(&entry);
             }
         }
     }
 
-    if (candidates->GetCount() > 1) {
-        int selected = candidates->RemoveAt(Random(candidates->GetCount()));
-        candidates->InsertAt(0, selected);
-    }
-    return candidates->GetCount();
+    if (candidates.empty()) return nullptr;
+    return candidates[candidates.size() == 1 ? 0 : Random(static_cast<int>(candidates.size()))];
 }
 
 /* Bias the database's group-size dice by party-relative monster level and the
@@ -331,14 +278,12 @@ int MonGen::RollEncounterGroupSize(W8MonsterRecord* record)
 // FUNCTION: WIZ8 0x0048AD20
 unsigned char MonGen::GenerateEncounter(const srVector3T<float>* position)
 {
-    W8GrowableVector<int> candidates;
     W8EncounterCompanionRecord companion_records[2];
     bool companion_active[2] = {false, false};
     srVector3T<float> spawn_position;
     W8EncounterTableRuntime* table;
     W8MonsterRecord* record;
     W8MonsterGroup* group;
-    int selected_index;
     unsigned int species;
     const char* script;
     int encounter_weight;
@@ -349,14 +294,15 @@ unsigned char MonGen::GenerateEncounter(const srVector3T<float>* position)
         return 0;
     }
 
-    table = *g_encounter_tables.GetAt(encounter_table_index);
-    if (SelectEncounterCandidates(table, &candidates) == 0) {
+    table = GetEncounterTable(encounter_table_index);
+    if (!table) return 0;
+    const auto* selected = SelectEncounterCandidate(*table);
+    if (!selected) {
         return 0;
     }
 
-    selected_index = *candidates.GetAt(0);
-    species = *table->species_ids.GetAt(selected_index);
-    script = (*table->script_names.GetAt(selected_index))->value;
+    species = selected->species;
+    script = selected->script.value;
     spawn_position = *position;
     record = MonsterDBFromSpecies(species);
     if (record == 0) {
@@ -400,8 +346,9 @@ unsigned char MonGen::GenerateEncounter(const srVector3T<float>* position)
     group = CreateGroup(species, count, &spawn_position, false, false, true);
     group->encounter_registered = true;
     SetMonsterGroupFormation(group, &this->spawn_position);
-    if (group != 0 && group->encounter_registered && g_active_groups.IndexOf(group) == -1) {
-        g_active_groups.Add(group);
+    if (group != 0 && group->encounter_registered &&
+        !std::ranges::contains(g_active_groups, group)) {
+        g_active_groups.push_back(group);
     }
 
     W8Monster* monster = GetMonsterByLocationID(group->leader_location_id);
@@ -447,7 +394,7 @@ unsigned char MonGen::GenerateEncounter(const srVector3T<float>* position)
         const wchar_t* companion_word = companion_count == 1 ? L"chum" : L"chums";
         ShowNoticef(W8_FONT_PALETTE_BROWN, L"MonGen (%S): spawned %d %s & %d %s (lvl %d)", name,
                     group->member_count, group_name, companion_count, companion_word,
-                    *table->challenge_level.GetAt(selected_index));
+                    selected->challenge_level);
     }
     return 1;
 }
@@ -480,9 +427,9 @@ bool MonGen::CanGenerateEncounter(bool force)
         }
     }
 
-    if (g_active_groups.GetCount() >= g_random_encounter_limit) {
+    if (static_cast<int>(g_active_groups.size()) >= g_random_encounter_limit) {
         CullExpiredEncounters();
-        if (g_active_groups.GetCount() >= g_random_encounter_limit) {
+        if (static_cast<int>(g_active_groups.size()) >= g_random_encounter_limit) {
             return false;
         }
     }
@@ -545,8 +492,8 @@ void UpdateRandomEncounterBudget(bool reset_budget)
         RollRandomEncounters();
         return;
     }
-    for (index = 0; index < g_active_groups.GetCount(); ++index) {
-        W8MonsterGroup* group = *g_active_groups.GetAt(index);
+    for (index = 0; index < static_cast<int>(g_active_groups.size()); ++index) {
+        W8MonsterGroup* group = g_active_groups[index];
 
         group->spawn_time += elapsed;
     }
@@ -555,8 +502,8 @@ void UpdateRandomEncounterBudget(bool reset_budget)
 // FUNCTION: WIZ8 0x0048c9f0
 void DespawnAllActiveMonsterGroups(void)
 {
-    while (g_active_groups.GetCount() > 0) {
-        DespawnMonsterGroup(*g_active_groups.GetAt(g_active_groups.GetCount() - 1));
+    while (!g_active_groups.empty()) {
+        DespawnMonsterGroup(g_active_groups.back());
     }
 }
 
@@ -566,10 +513,9 @@ void DespawnAllActiveMonsterGroups(void)
 void ResetMonsterGeneratorTimers(void)
 {
     g_encounter_culling_scale_fast = 1.0f;
-    W8GrowableVector<MonGen*>* generators = g_world->monster_generators;
+    std::vector<MonGen*>* generators = g_world->monster_generators;
 
-    for (int index = 0; index < generators->GetCount(); ++index) {
-        MonGen* generator = *generators->GetAt(index);
+    for (MonGen* generator : *generators) {
 
         generator->m_pTimer->ResetDurationScale();
     }
@@ -610,8 +556,8 @@ void CullExpiredEncounters(void)
         span = g_encounter_culling_time_seconds * g_encounter_culling_scale_fast *
                g_encounter_culling_rate;
     }
-    for (index = 0; index < g_active_groups.GetCount(); ++index) {
-        W8MonsterGroup* group = *g_active_groups.GetAt(index);
+    for (index = 0; index < static_cast<int>(g_active_groups.size()); ++index) {
+        W8MonsterGroup* group = g_active_groups[index];
 
         if (span < (static_cast<unsigned int>(g_status.world_clock - group->spawn_time))) {
             W8Monster* monster = GetMonsterByLocationID(group->leader_location_id);
@@ -628,10 +574,7 @@ void CullExpiredEncounters(void)
 
 /* How many monster generators the loaded world carries. */
 // FUNCTION: WIZ8 0x0048bd80
-int GetMonsterGeneratorCount(void)
-{
-    return g_world->monster_generators->GetCount();
-}
+int GetMonsterGeneratorCount(void) { return static_cast<int>(g_world->monster_generators->size()); }
 
 /* One of them by index. Out of range answers null, which is why the bounds test
    appears twice: once here, rejecting the index outright, and once inside the
@@ -640,50 +583,33 @@ int GetMonsterGeneratorCount(void)
 // FUNCTION: WIZ8 0x0048bd90
 MonGen* GetMonsterGenerator(int index)
 {
-    W8GrowableVector<MonGen*>* generators = g_world->monster_generators;
+    std::vector<MonGen*>* generators = g_world->monster_generators;
 
-    if (index >= generators->GetCount()) {
+    if (index >= static_cast<int>(generators->size())) {
         return 0;
     }
-    return *generators->GetAt(index);
+    return (*generators)[index];
 }
 
 /* One loaded encounter table by index. */
 // FUNCTION: WIZ8 0x0048ad00
 W8EncounterTableRuntime* GetEncounterTable(int index)
 {
-    if (index < g_encounter_tables.GetCount()) {
-        return *g_encounter_tables.GetAt(index);
+    if (index >= 0 && index < static_cast<int>(g_encounter_tables.size())) {
+        return &g_encounter_tables[index];
     }
     return 0;
 }
 
-/* Appends through the world's ordinary growable vector. Add is header-visible,
-   so VC6 expands both it and Grow into this caller just as the image does. */
+/* Register a monster generator with the world. */
 // FUNCTION: WIZ8 0x0048be30
-void AddMonsterGenerator(MonGen* generator)
-{
-    g_world->monster_generators->Add(generator);
-}
+void AddMonsterGenerator(MonGen* generator) { g_world->monster_generators->push_back(generator); }
 
-/* Destroys every generator and empties the list. The count is taken once up
-   front and the list is emptied by resetting it rather than by removing
-   elements, so the walk indexes an array it is deleting out of - which is safe
-   only because nothing shifts. */
+/* Destroy every generator and empty the list. */
 // FUNCTION: WIZ8 0x0048bf70
 void DestroyMonsterGenerators(void)
 {
-    int count = g_world->monster_generators->GetCount();
-    int index;
-
-    if (count < 1) {
-        g_world->monster_generators->Clear();
-        return;
-    }
-    for (index = 0; index < count; ++index) {
-        delete *g_world->monster_generators->GetAt(index);
-    }
-    g_world->monster_generators->Clear();
+    wiz8::remove_all_and_delete_in_order(*g_world->monster_generators);
 }
 
 /* Restore the full MONG encounter state. Older save versions omit later global
@@ -725,7 +651,7 @@ try
             srAssertFail("pMonGen", MON_GEN_CPP, 0x48a, "MonGen::LoadAll() out of memory");
         }
         success = generator->Load(save_handle);
-        g_world->monster_generators->Add(generator);
+        g_world->monster_generators->push_back(generator);
     }
 
     level = &g_level_records[g_status.current_level];
@@ -764,8 +690,8 @@ void LoadMonsterGenerators(wiz8::File* handle)
         handle->read_exact(&flags, 4);
 
         generator = 0;
-        for (search = 0; search < g_world->monster_generators->GetCount(); ++search) {
-            MonGen* candidate = *g_world->monster_generators->GetAt(search);
+        for (search = 0; search < static_cast<int>(g_world->monster_generators->size()); ++search) {
+            MonGen* candidate = (*g_world->monster_generators)[search];
             if (strncmp(name, candidate->name, sizeof(name)) == 0) {
                 generator = candidate;
                 break;
@@ -796,12 +722,12 @@ void LoadMonsterGenerators(wiz8::File* handle)
 // FUNCTION: WIZ8 0x0048c600
 void RunMonsterGenerators(void)
 {
-    int count = g_world->monster_generators->GetCount();
+    int count = static_cast<int>(g_world->monster_generators->size());
     MonGen* generator;
     int index;
 
     for (index = 0; index < count; ++index) {
-        generator = *g_world->monster_generators->GetAt(index);
+        generator = (*g_world->monster_generators)[index];
         if (generator->m_pTimer != 0 && generator->m_pTimer->PollElapsedIntervals() != 0) {
             if (generator->CanGenerateEncounter(false)) {
                 generator->GenerateEncounter(&generator->spawn_position);
@@ -820,7 +746,8 @@ void UnregisterActiveEncounterGroup(W8MonsterGroup* group)
     if (group == 0 || !group->encounter_registered) {
         return;
     }
-    unsigned char removed = g_active_groups.Remove(group);
+    const bool was_removed = wiz8::erase_first(g_active_groups, group);
+    unsigned char removed = was_removed;
     if (!gXStatus.fCombatMode || removed == 0) {
         return;
     }
@@ -838,28 +765,19 @@ void UnregisterActiveEncounterGroup(W8MonsterGroup* group)
 // FUNCTION: WIZ8 0x0048c750
 void RegisterActiveEncounterGroup(W8MonsterGroup* group)
 {
-    if (group == 0 || !group->encounter_registered || g_active_groups.IndexOf(group) != -1) {
+    if (group == 0 || !group->encounter_registered ||
+        std::ranges::contains(g_active_groups, group)) {
         return;
     }
-    g_active_groups.Add(group);
+    g_active_groups.push_back(group);
 }
 
-/* Releases every loaded encounter table and every table name, and marks no
-   level loaded. Both walks re-read their base pointer and count from memory
-   each iteration, because destroying a table can reallocate neither but the
-   original reloads them anyway. */
+/* Release all encounter tables and names, and mark no level loaded. */
 // FUNCTION: WIZ8 0x0048a710
 void UnloadEncounterTables(void)
 {
-    int index;
-    for (index = 0; index < g_encounter_tables.GetCount(); ++index) {
-        delete *g_encounter_tables.GetAt(index);
-    }
-    g_encounter_tables.Clear();
-    for (index = 0; index < g_encounter_names.GetCount(); ++index) {
-        delete[] *g_encounter_names.GetAt(index);
-    }
-    g_encounter_names.Clear();
+    g_encounter_tables.clear();
+    g_encounter_names.clear();
     g_encounter_tables_level = -1;
 }
 
@@ -875,12 +793,12 @@ void SaveMonsterGenerators(wiz8::File* handle)
     int index;
 
     version = 3;
-    count = g_world->monster_generators->GetCount();
+    count = static_cast<int>(g_world->monster_generators->size());
     handle->write(&version, 4);
     handle->write(&g_generator_save_flag, 1);
     handle->write(&count, 4);
     for (index = 0; index < count; ++index) {
-        generator = *g_world->monster_generators->GetAt(index);
+        generator = (*g_world->monster_generators)[index];
         handle->write(generator->name, 0x20);
         handle->write(&generator->generation_enabled, 1);
         handle->write(&generator->flags, 4);
@@ -953,15 +871,9 @@ try
 // FUNCTION: WIZ8 0x0048beb0
 void RemoveMonsterGenerator(MonGen* generator)
 {
-    W8GrowableVector<MonGen*>* generators = g_world->monster_generators;
-    MonGen* removed;
-    int index = generators->IndexOf(generator);
-
-    if (index == -1) {
-        return;
+    if (wiz8::erase_first(*g_world->monster_generators, generator)) {
+        delete generator;
     }
-    removed = generators->RemoveAt(index);
-    delete removed;
 }
 
 /* Rearms the generator's timer, creating it on first use. The delay is the
@@ -1047,7 +959,7 @@ void SaveEncounterState(wiz8::File* handle)
     int version;
     int index;
 
-    count = g_world->monster_generators->GetCount();
+    count = static_cast<int>(g_world->monster_generators->size());
     version = 5;
     handle->write(&version, 4);
     handle->write(&gXStatus.saved_encounter_budget, 4);
@@ -1059,7 +971,7 @@ void SaveEncounterState(wiz8::File* handle)
     handle->write(&g_generator_interval_max, 2);
     handle->write(&count, 4);
     for (index = 0; index < count; ++index) {
-        (*g_world->monster_generators->GetAt(index))->Save(handle);
+        ((*g_world->monster_generators)[index])->Save(handle);
     }
 }
 
@@ -1069,26 +981,26 @@ void SaveEncounterState(wiz8::File* handle)
 // FUNCTION: WIZ8 0x0048ca20
 void RollRandomEncounters(void)
 {
-    while (g_active_groups.GetCount() > 0) {
-        DespawnMonsterGroup(*g_active_groups.GetAt(g_active_groups.GetCount() - 1));
+    while (!g_active_groups.empty()) {
+        DespawnMonsterGroup(g_active_groups.back());
     }
 
-    W8Vector<MonGen*> generators(*g_world->monster_generators);
-    int count = generators.GetCount();
+    std::vector<MonGen*> generators(*g_world->monster_generators);
+    int count = static_cast<int>(generators.size());
     if (count > 1) {
         for (int remaining = count; remaining > 0; --remaining) {
             int first = Random(count);
             int second = Random(count);
             if (first != second) {
-                MonGen* swap = *generators.GetAt(first);
-                generators.SetAt(first, *generators.GetAt(second));
-                generators.SetAt(second, swap);
+                MonGen* swap = generators[first];
+                generators[first] = generators[second];
+                generators[second] = swap;
             }
         }
     }
 
     for (int index = 0; index < count; ++index) {
-        MonGen* generator = *generators.GetAt(index);
+        MonGen* generator = generators[index];
         if (generator->CanGenerateEncounter(true)) {
             generator->GenerateEncounter(&generator->spawn_position);
         }
@@ -1101,10 +1013,10 @@ void RollRandomEncounters(void)
 void SetMonsterGeneratorDurationScale(float scale)
 {
     g_encounter_culling_scale_fast = scale;
-    W8GrowableVector<MonGen*>* generators = g_world->monster_generators;
+    std::vector<MonGen*>* generators = g_world->monster_generators;
 
-    for (int index = 0; index < generators->GetCount(); ++index) {
-        (*generators->GetAt(index))->m_pTimer->SetDurationScale(scale);
+    for (int index = 0; index < static_cast<int>(generators->size()); ++index) {
+        ((*generators)[index])->m_pTimer->SetDurationScale(scale);
     }
 }
 
@@ -1163,11 +1075,9 @@ void MonGen::SetName(const char* new_name)
 void MonGen::SetEncounterTable(int index)
 {
     encounter_table_index = index;
-    if (index < g_encounter_tables.GetCount()) {
-        W8EncounterTableRuntime* table = *g_encounter_tables.GetAt(index);
-        if (table != 0 && _strnicmp(table->name, "HARASSMENT", 10) == 0) {
-            flags |= W8_MONGEN_STORY_GATED;
-        }
+    if (auto* table = GetEncounterTable(index);
+        table && _strnicmp(table->name, "HARASSMENT", 10) == 0) {
+        flags |= W8_MONGEN_STORY_GATED;
     }
 }
 
@@ -1176,8 +1086,8 @@ void MonGen::SetEncounterTable(int index)
 // FUNCTION: WIZ8 0x0048cca0
 int FindEncounterTableByName(const char* name)
 {
-    for (int index = 0; index < g_encounter_tables.GetCount(); ++index) {
-        W8EncounterTableRuntime* table = *g_encounter_tables.GetAt(index);
+    for (int index = 0; index < static_cast<int>(g_encounter_tables.size()); ++index) {
+        W8EncounterTableRuntime* table = &g_encounter_tables[index];
         if (_strnicmp(table->name, name, strlen(name)) == 0) {
             return index;
         }

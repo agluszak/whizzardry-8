@@ -3,7 +3,8 @@
 /* Engine Code\GrObject.cpp owns these declarations. GrObject.cpp, Navigator.cpp
    and GrCycle.cpp have separate direct headers. */
 
-#include "wiz8/vector.h"
+#include <vector>
+#include <algorithm>
 
 class W8AnimRepBase;
 
@@ -31,7 +32,7 @@ public:
     unsigned char kind;                        /* 0x04 */
     int id;                                    /* 0x08 */
     W8AIRecord* m_pAI;                         /* 0x0c: GrObject::GetAI() assertion */
-    W8Vector<W8SoundEvent*>* m_plsSoundEvents; /* 0x10 */
+    std::vector<W8SoundEvent*>* m_plsSoundEvents; /* 0x10 */
     /* +0x14 remains deliberately uninitialized and unowned by this base.
        Prop and Item construct and destroy their own representation here; both
        concrete payloads derive from this polymorphic animation root. */

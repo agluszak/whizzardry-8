@@ -53,7 +53,7 @@ static const float CAMERA_LIGHT_MAXIMUM_INTENSITY = 50.0f;
 // GLOBAL: WIZ8 0x0065B9B4
 static srFog* g_environment_object1;
 // GLOBAL: WIZ8 0x0065B998
-W8Vector<stLight*> g_environment_lights(5);
+std::vector<stLight*> g_environment_lights;
 
 /* 1/duration while the transition body at 0x00484300 runs, zero when idle.
    BeginWorldLightingFade stores 1/duration and sets the lighting mode to 1;
@@ -722,14 +722,14 @@ void ReleaseEnvironmentObjects(void)
 {
     ReleaseRendererObject(g_environment_object0);
     ReleaseRendererObject(g_environment_object1);
-    g_environment_lights.Clear();
+    g_environment_lights.clear();
 }
 
 // FUNCTION: WIZ8 0x00483F30
 void AddEnvironmentLight(stLight* light)
 {
     if (light != 0) {
-        g_environment_lights.Add(light);
+        g_environment_lights.push_back(light);
     }
 }
 
@@ -793,8 +793,7 @@ void ApplyEnvironmentColour(W8World* world, float intensity, const EnvironmentCo
         world->environment_colour = *colour;
         world->environment_intensity = intensity;
     }
-    for (int index = 0; index < g_environment_lights.GetCount(); ++index) {
-        stLight* light = *g_environment_lights.GetAt(index);
+    for (stLight* light : g_environment_lights) {
         srVector3T<float> scaled(colour->x, colour->y, colour->z);
 
         scaled *= static_cast<double>(intensity);

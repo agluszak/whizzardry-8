@@ -7,7 +7,8 @@ void StripNpcKeywordPunctuation(wchar_t* text);
 
 #include "wiz8/mouth_gap.h"
 #include "wiz8/message_box.h"
-#include "wiz8/vector.h"
+#include <vector>
+#include <algorithm>
 #include "surrender/srMath.h"
 
 #include <stddef.h>
@@ -49,8 +50,8 @@ struct W8NpcScriptingState {
     unsigned int voice_handle;
     unsigned int message_duration_ms;
     uint64_t message_started_at;
-    W8GrowableVector<W8MessageBoxLine*> message_lines;
-    W8GrowableVector<int*> pending_script_values;
+    std::vector<W8MessageBoxLine*> message_lines;
+    std::vector<int*> pending_script_values;
     W8MouthGapTrack gap_track;
     uint64_t last_tick;
     /* Latched by CancelNpcDialogue; the response loop checks it at
