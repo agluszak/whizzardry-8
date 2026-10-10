@@ -1370,12 +1370,7 @@ void W8Monster::Update()
                 current_scale = target_scale;
             }
         }
-        g_monster_model_instances.clear();
-        CollectModelInstances(g_monster_model_instances);
-        for (index = 0; index < static_cast<int>(g_monster_model_instances.size()); ++index) {
-            stModelInstance* model = g_monster_model_instances[index];
-            model->light_scale = current_scale;
-        }
+        RefreshModelLightScale();
         light_scale_timer.Restart();
     }
 
@@ -3492,12 +3487,7 @@ void W8Monster::SetCycle(signed char cycle)
         m_pRep->monster_light->SetVisible(enabled);
     }
 
-    g_monster_model_instances.clear();
-    CollectModelInstances(g_monster_model_instances);
-    for (index = 0; index < static_cast<int>(g_monster_model_instances.size()); ++index) {
-        stModelInstance* model = g_monster_model_instances[index];
-        model->light_scale = current_scale;
-    }
+    RefreshModelLightScale();
 
     if (cycle == W8_MONSTER_CYCLE_DIE) {
         glm::vec4 empty;
@@ -4721,6 +4711,16 @@ void MonsterAimAtMonster(W8Monster* monster, W8Monster* target, bool alternate)
    element type: AniMesh's frame lookup returns stModelInstance objects and the
    consumers read their first-party fields beyond the srModelInstance base. */
 // FUNCTION: WIZ8 0x004c6350
+/* Apply the active light scale to the current model chain. */
+void W8Monster::RefreshModelLightScale()
+{
+    g_monster_model_instances.clear();
+    CollectModelInstances(g_monster_model_instances);
+    for (stModelInstance* model : g_monster_model_instances) {
+        model->light_scale = current_scale;
+    }
+}
+
 void W8Monster::CollectModelInstances(std::vector<stModelInstance*>& instances)
 {
     int cycle;
