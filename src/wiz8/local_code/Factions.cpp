@@ -315,10 +315,8 @@ void AdjustFactionDisposition(signed char faction, char delta)
 // FUNCTION: WIZ8 0x00536030
 void SaveFactionState(wiz8::File* file)
 {
-    unsigned int written;
-
-    file->write(g_faction_relations, sizeof(g_faction_relations)), written = sizeof(g_faction_relations);
-    file->write(g_factions, sizeof(g_factions)), written = sizeof(g_factions);
+    file->write(g_faction_relations, sizeof(g_faction_relations));
+    file->write(g_factions, sizeof(g_factions));
 }
 
 /* Read the relation matrix and runtime disposition records back from the open
@@ -326,9 +324,12 @@ void SaveFactionState(wiz8::File* file)
 // FUNCTION: WIZ8 0x00536070
 void LoadFactionState(wiz8::File* file)
 {
-    unsigned int transferred;
+    unsigned char relations[W8_FACTION_COUNT][W8_FACTION_COUNT];
+    W8FactionRuntimeRecord factions[W8_FACTION_COUNT];
 
-    ((transferred = file->read(g_faction_relations, sizeof(g_faction_relations)).bytes) == static_cast<std::size_t>(sizeof(g_faction_relations)));
-    ((transferred = file->read(g_factions, sizeof(g_factions)).bytes) == static_cast<std::size_t>(sizeof(g_factions)));
+    file->read_exact(relations, sizeof(relations));
+    file->read_exact(factions, sizeof(factions));
+    memcpy(g_faction_relations, relations, sizeof(relations));
+    memcpy(g_factions, factions, sizeof(factions));
     g_factions[W8_FACTION_PARTY].disposition_score = 100;
 }
