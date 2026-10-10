@@ -2,7 +2,7 @@ link_libraries(Catch2::Catch2WithMain)
 
 add_executable(native_game_geometry_test native/game_geometry_test.cpp)
 target_link_libraries(native_game_geometry_test PRIVATE WIZ8_GAME_CORE)
-add_test(NAME native_game_geometry COMMAND native_game_geometry_test)
+catch_discover_tests(native_game_geometry_test TEST_PREFIX "native_game_geometry/")
 
 add_executable(native_hash_consumers_test native/hash_consumers_test.cpp)
 target_link_libraries(native_hash_consumers_test PRIVATE SURRENDER wiz8_native_settings)
@@ -55,7 +55,7 @@ if(APPLE)
 elseif(UNIX)
     target_link_options(native_mesh_frames_test PRIVATE -Wl,--gc-sections -Wl,-z,start-stop-gc)
 endif()
-add_test(NAME native_mesh_frames COMMAND native_mesh_frames_test)
+catch_discover_tests(native_mesh_frames_test TEST_PREFIX "native_mesh_frames/")
 
 add_executable(native_image_io_test native/image_io_test.cpp)
 target_link_libraries(native_image_io_test PRIVATE SURRENDER wiz8_native_settings)
@@ -112,13 +112,13 @@ if(APPLE)
 elseif(UNIX)
     target_link_options(native_loader_records_test PRIVATE -Wl,--gc-sections -Wl,-z,start-stop-gc)
 endif()
-add_test(NAME native_loader_records COMMAND native_loader_records_test)
+catch_discover_tests(native_loader_records_test TEST_PREFIX "native_loader_records/")
 
 add_executable(native_jpeg_transfer_test "${PROJECT_SOURCE_DIR}/tests/native/jpeg_transfer_test.cpp")
 target_include_directories(native_jpeg_transfer_test PRIVATE "${PROJECT_SOURCE_DIR}/src/surrender")
 target_compile_definitions(native_jpeg_transfer_test PRIVATE WIZ8_IMAGE_IMPORT_FIXTURE_DIR="${PROJECT_SOURCE_DIR}/tests/native/image_import")
 target_link_libraries(native_jpeg_transfer_test PRIVATE SURRENDER wiz8_native_settings SDL3_image::SDL3_image)
-add_test(NAME native_jpeg_transfer COMMAND native_jpeg_transfer_test)
+catch_discover_tests(native_jpeg_transfer_test TEST_PREFIX "native_image_transfer/")
 
 add_executable(native_virtual_image_transfer_test native/image_import/virtual_transfer_test.cpp)
 target_include_directories(native_virtual_image_transfer_test PRIVATE "${PROJECT_SOURCE_DIR}/src/surrender")
@@ -240,7 +240,8 @@ foreach(scenario video video-seen character game-start world resource-lifecycle 
     add_test(NAME runtime_${scenario} COMMAND native_runtime_test ${scenario})
     set_tests_properties(runtime_${scenario} PROPERTIES
         ENVIRONMENT "SDL_VIDEODRIVER=offscreen;SDL_AUDIO_DRIVER=dummy"
-        SKIP_REGULAR_EXPRESSION "WIZ8_ASSET_ROOT is not set" TIMEOUT 120 LABELS runtime)
+        SKIP_REGULAR_EXPRESSION "WIZ8_ASSET_ROOT is not set" TIMEOUT 120
+        RESOURCE_LOCK game_gpu LABELS runtime)
 endforeach()
 # One saved game shared by the load scenarios, written once per run.
 set_tests_properties(runtime_save-fixture PROPERTIES FIXTURES_SETUP runtime_save)
