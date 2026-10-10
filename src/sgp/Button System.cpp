@@ -63,7 +63,7 @@ void AssertFailIfIdenticalButtonAttributesFound(GUI_BUTTON* b)
     INT32 x;
     GUI_BUTTON* c;
     for (x = 0; x < MAX_BUTTONS; x++) {
-        c = GetButtonPtr(x);
+        c = ButtonList[x].get();
         if (!c)
             continue;
         if (c->uiFlags & BUTTON_DELETION_PENDING)
@@ -133,42 +133,7 @@ UINT32 ButtonDestPitch = 640 * 2;
 UINT32 ButtonDestBPP = 16;
 
 // GLOBAL: WIZ8 0x006e1240
-std::array<std::shared_ptr<GUI_BUTTON>, MAX_BUTTONS> ButtonList;
-
-// Object-owned buttons are indexed here without transferring ownership.
-static std::array<std::weak_ptr<GUI_BUTTON>, MAX_BUTTONS> direct_buttons;
-
-static std::shared_ptr<GUI_BUTTON> RetainButton(INT32 id)
-{
-    if (id < 0 || id >= MAX_BUTTONS) return {};
-    if (ButtonList[id]) return ButtonList[id];
-    return direct_buttons[id].lock();
-}
-
-GUI_BUTTON* GetButtonPtr(INT32 id)
-{
-    if (id < 0 || id >= MAX_BUTTONS) return nullptr;
-    if (ButtonList[id]) return ButtonList[id].get();
-    return direct_buttons[id].lock().get();
-}
-
-std::shared_ptr<GUI_BUTTON> TakeButtonOwnership(INT32 id)
-{
-    if (id < 0 || id >= MAX_BUTTONS) return {};
-    auto button = std::move(ButtonList[id]);
-    if (button) direct_buttons[id] = button;
-    return button;
-}
-
-// Resource teardown belongs to the C++ object, whether registered by an
-// integer handle or held directly by a dialog.
-_GUI_BUTTON::~_GUI_BUTTON()
-{
-    if (Area.uiFlags & MSYS_REGION_EXISTS) MSYS_RemoveRegion(&Area);
-    if (this == gpAnchoredButton) gpAnchoredButton = nullptr;
-    if (this == gpPrevAnchoredButton) gpPrevAnchoredButton = nullptr;
-    if (uiFlags & BUTTON_SELFDELETE_IMAGE) UnloadButtonImage(ImageNum);
-}
+std::array<std::unique_ptr<GUI_BUTTON>, MAX_BUTTONS> ButtonList;
 
 // GLOBAL: WIZ8 0x00650ea4
 INT32 ButtonsInList = 0;
@@ -211,11 +176,7 @@ void RemoveButtonsMarkedForDeletion();
 
 namespace {
 struct ButtonDispatch {
-    explicit ButtonDispatch(GUI_BUTTON* button) : keep_alive(RetainButton(button->IDNum))
-    {
-        ++g_button_dispatch_depth;
-    }
-    std::shared_ptr<GUI_BUTTON> keep_alive;
+    ButtonDispatch() { ++g_button_dispatch_depth; }
     ~ButtonDispatch() {
         if (--g_button_dispatch_depth == 0 && gfPendingButtonDeletion) {
             gfPendingButtonDeletion = FALSE;
@@ -495,7 +456,7 @@ BOOLEAN DisableButton(INT32 iButtonID)
         AssertMsg(0, str);
     }
 
-    b = GetButtonPtr(iButtonID);
+    b = ButtonList[iButtonID].get();
 
     // If button exists, reset the ENABLED flag
     if (b) {
@@ -750,7 +711,7 @@ void ShutdownButtonSystem(void)
 
     // Kill off all buttons in the system
     for (x = 0; x < MAX_BUTTONS; x++) {
-        if (GetButtonPtr(x) != nullptr)
+        if (ButtonList[x] != nullptr)
             RemoveButton(x);
     }
     // Shutdown the button image manager sub-system
@@ -763,7 +724,7 @@ void RemoveButtonsMarkedForDeletion()
 {
     INT32 i;
     for (i = 0; i < MAX_BUTTONS; i++) {
-        if (auto* button = GetButtonPtr(i); button && button->uiFlags & BUTTON_DELETION_PENDING) {
+        if (ButtonList[i] && ButtonList[i]->uiFlags & BUTTON_DELETION_PENDING) {
             RemoveButton(i);
         }
     }
@@ -782,7 +743,7 @@ void RemoveButton(INT32 iButtonID)
         AssertMsg(0, str);
     }
 
-    b = GetButtonPtr(iButtonID);
+    b = ButtonList[iButtonID].get();
 
     // If button exists...
     if (!b) {
@@ -802,7 +763,16 @@ void RemoveButton(INT32 iButtonID)
         return;
     }
 
-    // Unregister now; callbacks retain the object until they finish.
+    //Kris:
+    if (b->uiFlags &
+        BUTTON_SELFDELETE_IMAGE) { //checkboxes and simple create buttons have their own graphics associated with them,
+        //and it is handled internally.  We delete it here.  This provides the advantage of less
+        //micromanagement, but with the disadvantage of wasting more memory if you have lots of
+        //buttons using the same graphics.
+        UnloadButtonImage(b->ImageNum);
+    }
+
+    // ...kill it!!!
     MSYS_RemoveRegion(&b->Area);
 
 
@@ -812,7 +782,6 @@ void RemoveButton(INT32 iButtonID)
         gpPrevAnchoredButton = nullptr;
 
     ButtonList[iButtonID].reset();
-    direct_buttons[iButtonID].reset();
 }
 
 //	GetNextButtonNumber
@@ -822,7 +791,7 @@ INT32 GetNextButtonNumber(void)
     INT32 x;
 
     for (x = 0; x < MAX_BUTTONS; x++) {
-        if (GetButtonPtr(x) == nullptr)
+        if (ButtonList[x] == nullptr)
             return (x);
     }
 
@@ -850,7 +819,7 @@ void ResizeButton(INT32 iButtonID, INT16 w, INT16 h)
     if (h < 3)
         h = 3;
 
-    b = GetButtonPtr(iButtonID);
+    b = ButtonList[iButtonID].get();
 
     if (!b) {
         sprintf(str, "Attempting to resize deleted button with buttonID %d", iButtonID);
@@ -887,7 +856,7 @@ void SetButtonPosition(INT32 iButtonID, INT16 x, INT16 y)
         AssertMsg(0, str);
     }
 
-    b = GetButtonPtr(iButtonID);
+    b = ButtonList[iButtonID].get();
 
     if (!b) {
         sprintf(str, "Attempting to set button position with buttonID %d", iButtonID);
@@ -947,7 +916,7 @@ INT32 CreateTextButton(std::string_view string, UINT32 uiFont, INT16 sForeColor,
     }
 
     // Allocate memory for a GUI_BUTTON structure
-    auto owner = std::make_shared<GUI_BUTTON>();
+    auto owner = std::make_unique<GUI_BUTTON>();
     b = owner.get();
 
     // Allocate memory for the button's text string...
@@ -1066,7 +1035,7 @@ INT32 QuickCreateButton(UINT32 Image, INT16 xloc, INT16 yloc, INT32 Type, INT16 
     }
 
     // Allocate memory for a GUI_BUTTON structure
-    auto owner = std::make_shared<GUI_BUTTON>();
+    auto owner = std::make_unique<GUI_BUTTON>();
     b = owner.get();
 
     // Set the values for this buttn
@@ -1162,7 +1131,7 @@ INT32 QuickCreateButton(UINT32 Image, INT16 xloc, INT16 yloc, INT32 Type, INT16 
 void SpecifyButtonText(INT32 iButtonID, std::string_view string)
 {
     Assert(iButtonID >= 0 && iButtonID < MAX_BUTTONS);
-    auto* button = GetButtonPtr(iButtonID);
+    auto* button = ButtonList[iButtonID].get();
     button->string = string;
     button->uiFlags |= BUTTON_DIRTY;
 }
@@ -1173,7 +1142,7 @@ void SpecifyButtonMultiColorFont(INT32 iButtonID, BOOLEAN fMultiColor)
     GUI_BUTTON* b;
     Assert(iButtonID >= 0);
     Assert(iButtonID < MAX_BUTTONS);
-    b = GetButtonPtr(iButtonID);
+    b = ButtonList[iButtonID].get();
     Assert(b);
     b->fMultiColor = fMultiColor;
     b->uiFlags |= BUTTON_DIRTY;
@@ -1186,7 +1155,7 @@ void SpecifyButtonTextOffsets(INT32 iButtonID, INT8 bTextXOffset, INT8 bTextYOff
     GUI_BUTTON* b;
     Assert(iButtonID >= 0);
     Assert(iButtonID < MAX_BUTTONS);
-    b = GetButtonPtr(iButtonID);
+    b = ButtonList[iButtonID].get();
     Assert(b);
     //Copy over information
     b->bTextXOffset = bTextXOffset;
@@ -1202,7 +1171,7 @@ void SetButtonFastHelpText(INT32 iButton, std::string_view Text)
     GUI_BUTTON* b;
     if (iButton < 0 || iButton > MAX_BUTTONS)
         return;
-    b = GetButtonPtr(iButton);
+    b = ButtonList[iButton].get();
     AssertMsg(b, "Called SetButtonFastHelpText() with a non-existant button.");
     SetRegionFastHelpText(&b->Area, Text);
 }
@@ -1228,7 +1197,7 @@ void QuickButtonCallbackMMove(MOUSE_REGION* reg, INT32 reason)
     AssertMsg(iButtonID >= 0, str);
     AssertMsg(iButtonID < MAX_BUTTONS, str);
 
-    b = GetButtonPtr(iButtonID);
+    b = ButtonList[iButtonID].get();
 
     AssertMsg(b != nullptr, str);
 
@@ -1258,7 +1227,7 @@ void QuickButtonCallbackMMove(MOUSE_REGION* reg, INT32 reason)
     // If this button is enabled and there is a callback function associated with it,
     // call the callback function.
     if ((b->uiFlags & BUTTON_ENABLED) && (b->uiFlags & BUTTON_MOVE_CALLBACK)) {
-        const ButtonDispatch dispatch(b);
+        const ButtonDispatch dispatch;
         (b->MoveCallback)(b, reason);
     }
 }
@@ -1285,7 +1254,7 @@ void QuickButtonCallbackMButn(MOUSE_REGION* reg, INT32 reason)
     AssertMsg(iButtonID >= 0, str);
     AssertMsg(iButtonID < MAX_BUTTONS, str);
 
-    b = GetButtonPtr(iButtonID);
+    b = ButtonList[iButtonID].get();
 
     AssertMsg(b != nullptr, str);
 
@@ -1347,7 +1316,7 @@ void QuickButtonCallbackMButn(MOUSE_REGION* reg, INT32 reason)
     // Button not enabled but allowed to use callback, then do that!
     if (!(b->uiFlags & BUTTON_ENABLED) && (b->uiFlags & BUTTON_ALLOW_DISABLED_CALLBACK)) {
         if (b->uiFlags & BUTTON_CLICK_CALLBACK) {
-            const ButtonDispatch dispatch(b);
+            const ButtonDispatch dispatch;
             (b->ClickCallback)(b, reason | BUTTON_DISABLED_CALLBACK);
         }
         return;
@@ -1358,7 +1327,7 @@ void QuickButtonCallbackMButn(MOUSE_REGION* reg, INT32 reason)
         //Kris:  January 6, 1998
         //Added these checks to avoid a case where it was possible to process a leftbuttonup message when
         //the button wasn't anchored, and should have been.
-        const ButtonDispatch dispatch(b);
+        const ButtonDispatch dispatch;
         if (!(reason & MSYS_CALLBACK_REASON_LBUTTON_UP) ||
             b->MoveCallback != DEFAULT_MOVE_CALLBACK || gpPrevAnchoredButton == b)
             (b->ClickCallback)(b, reason);
@@ -1381,7 +1350,7 @@ void RenderButtons(void)
     for (iButtonID = 0; iButtonID < MAX_BUTTONS; iButtonID++) {
         // If the button exists, and it's not owned by another object, draw it
         //Kris:  and make sure that the button isn't hidden.
-        b = GetButtonPtr(iButtonID);
+        b = ButtonList[iButtonID].get();
         if (b && b->Area.uiFlags & MSYS_REGION_ENABLED) {
             // Check for buttonchanged status
             fOldButtonDown = (BOOLEAN)(b->uiFlags & BUTTON_CLICKED_ON);
@@ -1437,9 +1406,9 @@ void MarkButtonsDirty(void)
     INT32 x;
     for (x = 0; x < MAX_BUTTONS; x++) {
         // If the button exists, and it's not owned by another object, draw it
-        if (auto* button = GetButtonPtr(x)) {
+        if (ButtonList[x]) {
             // Turn on dirty flag
-            button->uiFlags |= BUTTON_DIRTY;
+            ButtonList[x]->uiFlags |= BUTTON_DIRTY;
         }
     }
 }
@@ -1456,17 +1425,17 @@ BOOLEAN DrawButton(INT32 iButtonID)
         return FALSE;
 
     // Fail if button handle is invalid
-    if (!GetButtonPtr(iButtonID))
+    if (!ButtonList[iButtonID])
         return FALSE;
 
-    if (!GetButtonPtr(iButtonID)->string.empty())
+    if (!ButtonList[iButtonID]->string.empty())
         SaveFontSettings();
     // Draw this button
-    if (GetButtonPtr(iButtonID)->Area.uiFlags & MSYS_REGION_ENABLED) {
-        DrawButtonFromPtr(GetButtonPtr(iButtonID));
+    if (ButtonList[iButtonID]->Area.uiFlags & MSYS_REGION_ENABLED) {
+        DrawButtonFromPtr(ButtonList[iButtonID].get());
     }
 
-    if (!GetButtonPtr(iButtonID)->string.empty())
+    if (!ButtonList[iButtonID]->string.empty())
         RestoreFontSettings();
     return TRUE;
 }
@@ -2075,7 +2044,7 @@ typedef struct _CreateDlgInfo {
 void MSYS_SetBtnUserData(INT32 iButtonNum, INT32 index, INT32 userdata)
 {
     GUI_BUTTON* b;
-    b = GetButtonPtr(iButtonNum);
+    b = ButtonList[iButtonNum].get();
     if (index < 0 || index > 3)
         return;
     b->UserData[index] = userdata;
@@ -2118,7 +2087,7 @@ void HideButton(INT32 iButtonNum)
     Assert(iButtonNum >= 0);
     Assert(iButtonNum < MAX_BUTTONS);
 
-    b = GetButtonPtr(iButtonNum);
+    b = ButtonList[iButtonNum].get();
 
     Assert(b);
 
@@ -2134,7 +2103,7 @@ void ShowButton(INT32 iButtonNum)
     Assert(iButtonNum >= 0);
     Assert(iButtonNum < MAX_BUTTONS);
 
-    b = GetButtonPtr(iButtonNum);
+    b = ButtonList[iButtonNum].get();
 
     Assert(b);
 
@@ -2151,7 +2120,7 @@ BOOLEAN GetButtonArea(INT32 iButtonID, SDL_Rect* pRect)
     Assert(iButtonID < MAX_BUTTONS);
     Assert(pRect);
 
-    b = GetButtonPtr(iButtonID);
+    b = ButtonList[iButtonID].get();
     Assert(b);
 
     if ((pRect == nullptr) || (b == nullptr))
@@ -2172,7 +2141,7 @@ INT32 GetButtonWidth(INT32 iButtonID)
     Assert(iButtonID >= 0);
     Assert(iButtonID < MAX_BUTTONS);
 
-    b = GetButtonPtr(iButtonID);
+    b = ButtonList[iButtonID].get();
     Assert(b);
 
     if (b == nullptr)
@@ -2189,7 +2158,7 @@ INT32 GetButtonHeight(INT32 iButtonID)
     Assert(iButtonID >= 0);
     Assert(iButtonID < MAX_BUTTONS);
 
-    b = GetButtonPtr(iButtonID);
+    b = ButtonList[iButtonID].get();
     Assert(b);
 
     if (b == nullptr)
@@ -2206,7 +2175,7 @@ INT32 GetButtonX(INT32 iButtonID)
     Assert(iButtonID >= 0);
     Assert(iButtonID < MAX_BUTTONS);
 
-    b = GetButtonPtr(iButtonID);
+    b = ButtonList[iButtonID].get();
     Assert(b);
 
     if (b == nullptr)
@@ -2223,7 +2192,7 @@ INT32 GetButtonY(INT32 iButtonID)
     Assert(iButtonID >= 0);
     Assert(iButtonID < MAX_BUTTONS);
 
-    b = GetButtonPtr(iButtonID);
+    b = ButtonList[iButtonID].get();
     Assert(b);
 
     if (b == nullptr)

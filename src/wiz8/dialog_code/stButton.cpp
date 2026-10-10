@@ -173,7 +173,7 @@ void W8DialogButton::SetTooltipIndex(int tooltip_index)
 // FUNCTION: WIZ8 0x005dbaf0
 int W8DialogButton::GetUserData()
 {
-    return m_button->UserData[1];
+    return ButtonList[m_button_handle]->UserData[1];
 }
 
 // FUNCTION: WIZ8 0x005db1b0
@@ -207,10 +207,8 @@ W8DialogButton::W8DialogButton()
 // FUNCTION: WIZ8 0x005db260
 W8DialogButton::~W8DialogButton()
 {
-    if (m_button && GetButtonPtr(m_button_handle) == m_button.get())
-        RemoveButton(m_button_handle);
-    m_button.reset();
     ReleaseDialogButtonImage(m_image_handle);
+    ReleaseDialogButtonHandle(m_button_handle);
 }
 
 #define STBUTTON_CPP "C:\\Projects\\Wizardry 8\\Dialog Code\\stButton.cpp"
@@ -234,7 +232,6 @@ bool W8DialogButton::ConfigureVObjButton(HVOBJECT object, int base_frame,
                               DialogButtonCallback, DialogButtonCallback);
     }
     if (m_button_handle != -1) {
-        m_button = TakeButtonOwnership(m_button_handle);
         SetButtonUserDataPointer(m_button_handle, this);
         m_left_callback = left_callback;
         m_left_toggles = left_toggles;
@@ -256,7 +253,6 @@ bool W8DialogButton::ConfigureTextButton(std::string_view text, unsigned int fon
                                     DialogButtonCallback, DialogButtonCallback);
     m_button_handle = handle;
     if (handle != -1) {
-        m_button = TakeButtonOwnership(handle);
         SetButtonUserDataPointer(handle, this);
         MSYS_SetBtnUserData(m_button_handle, 1, user_data);
         m_left_callback = left_callback;
@@ -288,7 +284,6 @@ bool W8DialogButton::Configure(const char* image_path, int gray_frame, int off_n
     m_on_normal_frame = on_normal_frame;
     m_on_hover_frame = on_hover_frame;
     if (m_button_handle != -1) {
-        m_button = TakeButtonOwnership(m_button_handle);
         SetButtonUserDataPointer(m_button_handle, this);
         m_move_callback = move_callback;
         m_left_callback = left_callback;

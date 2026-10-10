@@ -79,10 +79,6 @@ typedef void (*GUI_CALLBACK)(struct _GUI_BUTTON*, INT32);
 
 // GUI_BUTTON structure definitions.
 typedef struct _GUI_BUTTON {
-    _GUI_BUTTON() = default;
-    ~_GUI_BUTTON();
-    _GUI_BUTTON(const _GUI_BUTTON&) = delete;
-    _GUI_BUTTON& operator=(const _GUI_BUTTON&) = delete;
     INT32 IDNum;                // ID Number, contains it's own button number
     UINT32 ImageNum;            // Image number to use (see DOCs for details)
     MOUSE_REGION Area;          // Mouse System's mouse region to use for this button
@@ -130,11 +126,9 @@ typedef struct _GUI_BUTTON {
 
 #define MAX_BUTTONS 400
 
-// The old API owns buttons in this table. New dialog buttons own their
-// objects directly; the slot number remains only a compatibility lookup.
-extern std::array<std::shared_ptr<GUI_BUTTON>, MAX_BUTTONS> ButtonList;
-GUI_BUTTON* GetButtonPtr(INT32 id);
-std::shared_ptr<GUI_BUTTON> TakeButtonOwnership(INT32 id);
+extern std::array<std::unique_ptr<GUI_BUTTON>, MAX_BUTTONS> ButtonList; // Button System's Main Button List
+
+#define GetButtonPtr(x) (((x >= 0) && (x < MAX_BUTTONS)) ? ButtonList[x].get() : nullptr)
 
 // Struct definition for the QuickButton pictures.
 struct BUTTON_PICS {
