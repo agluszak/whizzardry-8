@@ -5,14 +5,6 @@
 #include <SDL3/SDL_loadso.h>
 #include <string>
 
-#if defined(_WIN32)
-#define SR_LIBRARY_EXTENSION ".dll"
-#elif defined(__APPLE__)
-#define SR_LIBRARY_EXTENSION ".dylib"
-#else
-#define SR_LIBRARY_EXTENSION ".so"
-#endif
-
 /* Built-in components register directly; native plug-ins use SDL's loader. */
 namespace {
 std::string libraryName(const char* name)

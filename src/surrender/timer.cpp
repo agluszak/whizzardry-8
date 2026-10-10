@@ -183,7 +183,7 @@ int srTimer::reset(int, int, int)
 {
     m_cpu_count = std::thread::hardware_concurrency();
     if (m_cpu_count)
-        snprintf(m_cpu_ident, sizeof(m_cpu_ident), "%d logical CPUs", m_cpu_count);
+        snprintf(m_cpu_ident, sizeof(m_cpu_ident), "%u logical CPUs", m_cpu_count);
     else
         strcpy(m_cpu_ident, "unknown CPU count");
     memset(m_cpu_vendor, 0, sizeof(m_cpu_vendor));
