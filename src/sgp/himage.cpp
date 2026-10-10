@@ -133,7 +133,7 @@ try
     if (!file)
         return FALSE;
     const auto size = file->size();
-    if (!size || size > max_image_bytes)
+    if (size <= 0 || std::uint64_t(size) > max_image_bytes)
         return FALSE;
     std::vector<UINT8> bytes(size);
     UINT32 read = 0;

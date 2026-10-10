@@ -19,6 +19,11 @@
 #include <string>
 #include <vector>
 
+#if defined(__unix__) || defined(__APPLE__)
+#include <csignal>
+#include <sys/resource.h>
+#endif
+
 namespace fs = std::filesystem;
 #define CHECK(expression) do { if (!(expression)) { \
     fprintf(stderr, "line %d: %s\n", __LINE__, #expression); std::exit(1); } } while (0)
@@ -170,10 +175,21 @@ int main() try
         // Destruction owns pending headers as well as the stream, even without Close.
         CHECK(chunk.OpenRead(path));
     }
-    if (fs::exists("/dev/full")) {
-        auto full = wiz8::open_host_file("/dev/full", wiz8::OpenMode::update);
-        CHECK(fails([&] { full->write("checked", 7); full->flush(); }));
-    }
+#if defined(__unix__) || defined(__APPLE__)
+    const auto limited_path = root / "write-limit.bin";
+    auto limited = wiz8::open_host_file(limited_path, wiz8::OpenMode::replace);
+    struct rlimit old_limit{};
+    CHECK(getrlimit(RLIMIT_FSIZE, &old_limit) == 0);
+    const auto old_handler = std::signal(SIGXFSZ, SIG_IGN);
+    CHECK(old_handler != SIG_ERR);
+    const struct rlimit no_writes{0, old_limit.rlim_max};
+    CHECK(setrlimit(RLIMIT_FSIZE, &no_writes) == 0);
+    const bool rejected_write = fails([&] { limited->write("checked", 7); limited->flush(); });
+    limited.reset();
+    CHECK(setrlimit(RLIMIT_FSIZE, &old_limit) == 0);
+    CHECK(std::signal(SIGXFSZ, old_handler) != SIG_ERR);
+    CHECK(rejected_write && fs::file_size(limited_path) == 0);
+#endif
     wiz8::copy_file("Saves/CurrentGame.SAV", "Saves/Backup.SAV");
     CHECK(fails([&] { wiz8::copy_file("Saves/CurrentGame.SAV", "Saves/backup.sav"); }));
     CHECK(fails([&] { wiz8::copy_file("Saves/CurrentGame.SAV", "Saves/currentgame.sav", wiz8::CopyMode::replace); }));

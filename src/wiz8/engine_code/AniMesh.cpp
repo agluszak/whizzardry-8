@@ -427,9 +427,10 @@ try
         if (success != 0 && SkipSingleLevelMesh(&info) == 2)
             break;
     }
-    if (file == 0)
+    if (file == 0) {
         if (opened) opened->close();
         opened.reset();
+    }
     return success;
 }
 catch (const std::exception&) { return false; }

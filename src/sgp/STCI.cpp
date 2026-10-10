@@ -183,7 +183,7 @@ try
                !(hFile->seek(paletteBytes, wiz8::SeekOrigin::current), true)) {
         return FALSE;
     }
-    const auto objectCount = (pHeader->fFlags & STCI_ETRLE_COMPRESSED) ?
+    const std::size_t objectCount = (pHeader->fFlags & STCI_ETRLE_COMPRESSED) ?
         pHeader->Indexed.usNumberOfSubImages : 0;
     const auto objectBytes = objectCount * STCI_SUBIMAGE_SIZE;
     if (fContents & IMAGE_BITMAPDATA) {

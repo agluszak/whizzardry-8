@@ -56,7 +56,8 @@ void mount_slf(std::string_view game_path, bool patch)
         header.iUsed > std::numeric_limits<std::uint16_t>::max())
         throw std::runtime_error("invalid SLF entry count");
     const auto table_size = std::uint64_t(header.iEntries) * sizeof(SlfEntry);
-    if (size < sizeof(header) || table_size > std::uint64_t(size) - sizeof(header))
+    if (size < static_cast<std::int64_t>(sizeof(header)) ||
+        table_size > std::uint64_t(size) - sizeof(header))
         throw std::runtime_error("SLF directory exceeds archive");
     const auto table_start = std::uint64_t(size) - table_size;
     file->seek(table_start, SeekOrigin::begin);
