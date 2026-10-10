@@ -1,3 +1,4 @@
+#include "wiz8/utility.h"
 #include <cstdlib>
 
 #include "wiz8/engine_code/GameData.h"
@@ -19,8 +20,7 @@
 #include "wiz8/engine_code/GDFileIO.h"
 #include "wiz8/engine_code/materials.h"
 
-#include "DEBUG.H"
-#include "FileMan.h"
+#include "wiz8/filesystem.h"
 
 #include <math.h>
 #include <stdio.h>
@@ -66,7 +66,7 @@ const float g_path_endpoint_scale = 0.9900000095367432f;
    vertex banks through the record reader. */
 static W8GameData* ReadGeometry(std::unique_ptr<wiz8::File> file, bool secondary)
 {
-    auto game_data = std::make_unique<W8GameData>(0, secondary);
+    auto game_data = std::make_unique<W8GameData>(nullptr, secondary);
     const auto got_polygons = game_data->ReadWGDList(*file, 0);
     const auto got_vertices = game_data->ReadWGDList(*file, 1);
     if (got_vertices == 0 && got_polygons == 0) {
@@ -852,23 +852,22 @@ unsigned char W8EnvironRecord::RescaleToReference(const W8EnvironRecord* referen
 
 /* Read the processed GameData header and all of its variable-size banks. */
 // FUNCTION: WIZ8 0x00449240
-void W8GameData::ReadProcessedGameData(int handle)
+void W8GameData::ReadProcessedGameData(wiz8::File* handle)
 {
     W8ProcessedGameDataHeader header;
     unsigned int bytes_read;
     int index;
 
-    if (FileRead(handle, &header, sizeof(header), &bytes_read) == 0) {
+    if (((bytes_read = handle->read(&header, sizeof(header)).bytes) == static_cast<std::size_t>(sizeof(header))) == 0) {
         srAssertFail("fSuccess", "C:\\Projects\\Wizardry 8\\Engine Code\\GDFileIO.cpp", 0x465,
                      "ReadProcessedGameData: Couldn't read GameData info.");
     }
     if (header.version != 1) {
         srAssertFail("(FileGD.iVersion == GAMEDATA_VERSION)",
                      "C:\\Projects\\Wizardry 8\\Engine Code\\GDFileIO.cpp", 0x46c,
-                     reinterpret_cast<const char*>( // reinterpret-ok: String returns UINT8*
-                         String("ReadProcessedGameData: File version %d does not match program "
+                     FormatString("ReadProcessedGameData: File version %d does not match program "
                                 "version %d.",
-                                header.version, 1)));
+                                header.version, 1));
     }
 
     minimum = header.minimum;
@@ -892,7 +891,7 @@ void W8GameData::ReadProcessedGameData(int handle)
         srAssertFail("m_pVertices", "C:\\Projects\\Wizardry 8\\Engine Code\\GDFileIO.cpp", 0x483,
                      "ReadProcessedGameData: Couldn't allocate vertices.");
     }
-    if (FileRead(handle, m_pVertices, m_iNumVertices * sizeof(srVector3T<float>), &bytes_read) ==
+    if (((bytes_read = handle->read(m_pVertices, m_iNumVertices * sizeof(srVector3T<float>)).bytes) == static_cast<std::size_t>(m_iNumVertices * sizeof(srVector3T<float>))) ==
         0) {
         srAssertFail("fSuccess", "C:\\Projects\\Wizardry 8\\Engine Code\\GDFileIO.cpp", 0x487,
                      "ReadProcessedGameData: Couldn't read vertices.\n");
@@ -904,7 +903,7 @@ void W8GameData::ReadProcessedGameData(int handle)
         srAssertFail("m_pSurfaces", "C:\\Projects\\Wizardry 8\\Engine Code\\GDFileIO.cpp", 0x48c,
                      "ReadProcessedGameData: Couldn't allocate pSurfaces.");
     }
-    if (FileRead(handle, m_pSurfaces, m_iNumSurfaces * sizeof(W8GDSurface), &bytes_read) == 0) {
+    if (((bytes_read = handle->read(m_pSurfaces, m_iNumSurfaces * sizeof(W8GDSurface)).bytes) == static_cast<std::size_t>(m_iNumSurfaces * sizeof(W8GDSurface))) == 0) {
         srAssertFail("fSuccess", "C:\\Projects\\Wizardry 8\\Engine Code\\GDFileIO.cpp", 0x490,
                      "ReadProcessedGameData: Couldn't read Surface info.");
     }
@@ -916,8 +915,7 @@ void W8GameData::ReadProcessedGameData(int handle)
             srAssertFail("m_pInterfaces", "C:\\Projects\\Wizardry 8\\Engine Code\\GDFileIO.cpp",
                          0x497, "ReadProcessedGameData: Couldn't allocate switch interface info.");
         }
-        if (FileRead(handle, m_pInterfaces, m_iNumInterfaces * sizeof(W8GDInterface),
-                     &bytes_read) == 0) {
+        if (((bytes_read = handle->read(m_pInterfaces, m_iNumInterfaces * sizeof(W8GDInterface)).bytes) == static_cast<std::size_t>(m_iNumInterfaces * sizeof(W8GDInterface))) == 0) {
             srAssertFail("fSuccess", "C:\\Projects\\Wizardry 8\\Engine Code\\GDFileIO.cpp", 0x49a,
                          "ReadProcessedGameData: Couldn't read switch interface info.");
         }
@@ -930,7 +928,7 @@ void W8GameData::ReadProcessedGameData(int handle)
             srAssertFail("m_pStates", "C:\\Projects\\Wizardry 8\\Engine Code\\GDFileIO.cpp", 0x4a2,
                          "ReadProcessedGameData: Couldn't allocate switch state info.");
         }
-        if (FileRead(handle, m_pStates, m_iNumStates * sizeof(W8GDInterfaceState), &bytes_read) ==
+        if (((bytes_read = handle->read(m_pStates, m_iNumStates * sizeof(W8GDInterfaceState)).bytes) == static_cast<std::size_t>(m_iNumStates * sizeof(W8GDInterfaceState))) ==
             0) {
             srAssertFail("fSuccess", "C:\\Projects\\Wizardry 8\\Engine Code\\GDFileIO.cpp", 0x4a5,
                          "ReadProcessedGameData: Couldn't read switch state info.");
@@ -943,7 +941,7 @@ void W8GameData::ReadProcessedGameData(int handle)
             srAssertFail("m_piCondPolys", "C:\\Projects\\Wizardry 8\\Engine Code\\GDFileIO.cpp",
                          0x4ad, "ReadProcessedGameData: Couldn't allocate switch state info.");
         }
-        if (FileRead(handle, m_piCondPolys, m_iNumCondPolys * sizeof(unsigned int), &bytes_read) ==
+        if (((bytes_read = handle->read(m_piCondPolys, m_iNumCondPolys * sizeof(unsigned int)).bytes) == static_cast<std::size_t>(m_iNumCondPolys * sizeof(unsigned int))) ==
             0) {
             srAssertFail("fSuccess", "C:\\Projects\\Wizardry 8\\Engine Code\\GDFileIO.cpp", 0x4b0,
                          "ReadProcessedGameData: Couldn't read conditional poly list.");
@@ -965,7 +963,7 @@ void W8GameData::ReadProcessedGameData(int handle)
                              "ReadProcessedGameData: Couldn't allocate environment.");
             }
             m_ppEnvirons[index] = environ_record;
-            if (FileRead(handle, environ_record, sizeof(*environ_record), &bytes_read) == 0) {
+            if (((bytes_read = handle->read(environ_record, sizeof(*environ_record)).bytes) == static_cast<std::size_t>(sizeof(*environ_record))) == 0) {
                 srAssertFail("fSuccess", "C:\\Projects\\Wizardry 8\\Engine Code\\GDFileIO.cpp",
                              0x4c2, "ReadProcessedGameData: Couldn't read GD_Environ.");
             }
@@ -986,7 +984,7 @@ void W8GameData::ReadProcessedGameData(int handle)
 /* 0x0044902E is the constructor's shared body entry: the SEH wrapper at
    0x00449010 zeroes EBX and falls through into the code below. */
 // FUNCTION: WIZ8 0x00449010
-W8GameData::W8GameData(int handle, bool secondary)
+W8GameData::W8GameData(wiz8::File* handle, bool secondary)
 {
     geometry_index = 0;
     octree = 0;
@@ -1263,18 +1261,16 @@ void W8GameData::CompileGameData()
         static_cast<W8OctPreTreeVertex*>(malloc(m_iNumVertices * sizeof(W8OctPreTreeVertex)));
     if (weld_records == 0) {
         ReportBuildStatus(
-            7, reinterpret_cast<const char*>( // reinterpret-ok: String returns UINT8*
-                   String("CompileGameData: Couldn't allocate %d OctVerts (%dK).\n", m_iNumVertices,
-                          m_iNumVertices * sizeof(W8OctPreTreeVertex) / 1024)));
+            7, FormatString("CompileGameData: Couldn't allocate %d OctVerts (%dK).\n", m_iNumVertices,
+                          m_iNumVertices * sizeof(W8OctPreTreeVertex) / 1024));
     }
     memset(weld_records, 0, m_iNumVertices * sizeof(W8OctPreTreeVertex));
     g_gd_vertices =
         static_cast<W8OctPreTreeVertex*>(malloc(m_iNumVertices * sizeof(W8OctPreTreeVertex)));
     if (g_gd_vertices == 0) {
         ReportBuildStatus(
-            7, reinterpret_cast<const char*>( // reinterpret-ok: String returns UINT8*
-                   String("CompileGameData: Couldn't allocate %d NewGDVerts (%dK)\n",
-                          m_iNumVertices, m_iNumVertices * sizeof(W8OctPreTreeVertex) / 1024)));
+            7, FormatString("CompileGameData: Couldn't allocate %d NewGDVerts (%dK)\n",
+                          m_iNumVertices, m_iNumVertices * sizeof(W8OctPreTreeVertex) / 1024));
     }
     memset(g_gd_vertices, 0, m_iNumVertices * sizeof(W8OctPreTreeVertex));
     int* cond_polys = 0;
@@ -1523,7 +1519,7 @@ static void LinkSurfaceEdge(int polygon, int edge, W8HashTable<unsigned int, int
 }
 
 // FUNCTION: WIZ8 0x0044aa40
-unsigned char W8GameData::WriteGameData(int handle)
+unsigned char W8GameData::WriteGameData(wiz8::File* handle)
 {
     W8ProcessedGameDataHeader header;
     int index;
@@ -1547,35 +1543,35 @@ unsigned char W8GameData::WriteGameData(int handle)
         ReportBuildStatus(7, "WriteGameData: File not open.\n");
         return 0;
     }
-    if (FileWrite(handle, &header, sizeof(header), 0) == 0) {
+    if ((handle->write(&header, sizeof(header)), true) == 0) {
         ReportBuildStatus(7, "WriteGameData: Couldn't write GameData info.\n");
         return 0;
     }
-    if (FileWrite(handle, m_pVertices, m_iNumVertices * sizeof(srVector3T<float>), 0) == 0) {
+    if ((handle->write(m_pVertices, m_iNumVertices * sizeof(srVector3T<float>)), true) == 0) {
         ReportBuildStatus(7, "WriteGameData: Couldn't write vertex info.\n");
         return 0;
     }
-    if (FileWrite(handle, m_pSurfaces, m_iNumSurfaces * sizeof(W8GDSurface), 0) == 0) {
+    if ((handle->write(m_pSurfaces, m_iNumSurfaces * sizeof(W8GDSurface)), true) == 0) {
         ReportBuildStatus(7, "WriteGameData: Couldn't write Surface info.\n");
         return 0;
     }
     if (m_iNumInterfaces != 0 &&
-        FileWrite(handle, m_pInterfaces, m_iNumInterfaces * sizeof(W8GDInterface), 0) == 0) {
+        (handle->write(m_pInterfaces, m_iNumInterfaces * sizeof(W8GDInterface)), true) == 0) {
         ReportBuildStatus(7, "WriteGameData: Couldn't write switch interface info.\n");
         return 0;
     }
     if (m_iNumStates != 0 &&
-        FileWrite(handle, m_pStates, m_iNumStates * sizeof(W8GDInterfaceState), 0) == 0) {
+        (handle->write(m_pStates, m_iNumStates * sizeof(W8GDInterfaceState)), true) == 0) {
         ReportBuildStatus(7, "WriteGameData: Couldn't write switch state info.\n");
         return 0;
     }
-    if (m_iNumCondPolys != 0 && FileWrite(handle, m_piCondPolys, m_iNumCondPolys * 4, 0) == 0) {
+    if (m_iNumCondPolys != 0 && (handle->write(m_piCondPolys, m_iNumCondPolys * 4), true) == 0) {
         ReportBuildStatus(7, "WriteGameData: Couldn't write conditional poly list.\n");
         return 0;
     }
     if (m_iNumEnvirons != 0) {
         for (index = 0; index < m_iNumEnvirons; ++index) {
-            if (FileWrite(handle, m_ppEnvirons[index], sizeof(W8EnvironRecord), 0) == 0) {
+            if ((handle->write(m_ppEnvirons[index], sizeof(W8EnvironRecord)), true) == 0) {
                 ReportBuildStatus(7, "WriteGameData: Couldn't write GD_Environ.\n");
                 return 0;
             }

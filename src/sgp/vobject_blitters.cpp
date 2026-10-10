@@ -1,7 +1,7 @@
+#include <SDL3/SDL_log.h>
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07, 2026-10-09.
    Distributed under the accompanying SFI Source Code license agreement. */
 #include <stdio.h>
-#include "DEBUG.H"
 #include "Video2.h" // Wiz8
 #include "himage.h"
 #include "vobject.h"

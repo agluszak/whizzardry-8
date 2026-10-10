@@ -3,7 +3,6 @@
 #include "FileMan.h"
 #include "LibraryDataBase.h"
 #include "file_handles.h"
-#include "DEBUG.H"
 #include <wiz8/asset_paths.h>
 #include <wiz8/filesystem.h>
 #include <wiz8/file_time.h>
@@ -176,7 +175,6 @@ std::uint64_t ticks(const SGP_FILETIME& value)
 
 BOOLEAN InitializeFileManager(STR)
 {
-    RegisterDebugTopic(TOPIC_FILE_MANAGER, "File Manager");
     return TRUE;
 }
 
@@ -185,7 +183,6 @@ void ShutdownFileManager()
     sgp::close_files();
     for (auto& search : searches)
         search = {};
-    UnRegisterDebugTopic(TOPIC_FILE_MANAGER, "File Manager");
 }
 
 BOOLEAN FileExistsNoDB(const char* filename)

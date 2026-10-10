@@ -1,3 +1,4 @@
+#include "wiz8/utility.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/engine_code/AniMesh.h"
@@ -7,7 +8,6 @@
 #include "wiz8/sr_api.h"
 #include "wiz8/virtual_file.h"
 #include "wiz8/3d_code/PList.h"
-#include "DEBUG.H"
 #include "FileMan.h"
 #include <math.h>
 #include <stdio.h>
@@ -219,7 +219,7 @@ unsigned char LoadAniMesh(int file, W8AniMesh* mesh, bool load_all)
         handle = FileOpen(mesh->filename, FILE_ACCESS_READ | FILE_OPEN_EXISTING, 0);
         if (handle == 0) {
             srAssertFail("0", ANI_MESH_CPP, 0x199,
-                         reinterpret_cast<const char*>(String("Couldn't open %s", mesh->filename)));
+                         FormatString("Couldn't open %s", mesh->filename));
             return 0;
         }
     }
@@ -389,7 +389,7 @@ unsigned char LoadAniMeshFrameCount(int file, W8AniMesh* mesh)
         handle = FileOpen(mesh->filename, FILE_ACCESS_READ | FILE_OPEN_EXISTING, 0);
         if (handle == 0) {
             srAssertFail("fi.hFile", ANI_MESH_CPP, 0x23f,
-                         reinterpret_cast<const char*>(String("Couldn't open %s", mesh->filename)));
+                         FormatString("Couldn't open %s", mesh->filename));
             return 0;
         }
     }

@@ -18,7 +18,6 @@
 #include "wiz8/float_constants.h"
 #include "wiz8/sr_api.h"
 #include "surrender/srCamera.h"
-#include "DEBUG.H"
 
 #define MTGIGASOUTER_CPP "C:\\Projects\\Wizardry 8\\Level Specific Code\\MtGigasOuter.cpp"
 

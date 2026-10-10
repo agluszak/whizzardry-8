@@ -20,7 +20,6 @@
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/fonts.h"
 #include "wiz8/sr_api.h"
-#include "Container.h"
 #include "Font.h"
 #include "sgp.h"
 #include "surrender/srTypeRegistry.h"
@@ -51,7 +50,7 @@ W8ScreenStateRuntime g_pending_screen_state;
 // GLOBAL: WIZ8 0x0068edac
 bool g_screen_return_requested;
 // GLOBAL: WIZ8 0x0068eda8
-HSTACK g_screen_return_stack;
+std::vector<W8ScreenStateRuntime> g_screen_return_stack;
 
 // GLOBAL: WIZ8 0x00647bc8
 W8ScreenStateHandlers g_screen_handlers[W8_SCREEN_COUNT] = {
@@ -111,7 +110,7 @@ void ShutdownGame(void)
     for (index = 0; index < W8_SCREEN_COUNT; ++index) {
         g_screen_handlers[index].finalize();
     }
-    DeleteStack(g_screen_return_stack);
+    g_screen_return_stack.clear();
     SaveGameConfiguration();
     ReleaseAllTriggers();
     FreeStringTable();
@@ -136,11 +135,13 @@ void GameLoop(void)
             return;
         }
         g_current_screen_state.id = W8_SCREEN_NONE;
-        if (g_pending_screen_state.id == W8_SCREEN_NONE &&
-            (!StackSize(g_screen_return_stack) ||
-             !Pop(g_screen_return_stack, &g_pending_screen_state))) {
-            gfProgramIsRunning = 0;
-            return;
+        if (g_pending_screen_state.id == W8_SCREEN_NONE) {
+            if (g_screen_return_stack.empty()) {
+                gfProgramIsRunning = 0;
+                return;
+            }
+            g_pending_screen_state = g_screen_return_stack.back();
+            g_screen_return_stack.pop_back();
         }
         state = W8_SCREEN_NONE;
         g_current_screen_state.id = state;
@@ -162,8 +163,7 @@ void GameLoop(void)
                 return;
             }
             g_suspended_screen_id = g_current_screen_state.id;
-            if (auto stack = Push(g_screen_return_stack, &g_current_screen_state))
-                g_screen_return_stack = stack;
+            g_screen_return_stack.push_back(g_current_screen_state);
         }
         state = g_pending_screen_state.id;
         g_current_screen_state = g_pending_screen_state;
@@ -211,10 +211,11 @@ void GameloopExit(unsigned char release_screens)
             g_screen_handlers[g_current_screen_state.id].leave(1);
             g_current_screen_state.id = W8_SCREEN_NONE;
         }
-        if (!StackSize(g_screen_return_stack) ||
-            !Pop(g_screen_return_stack, &g_pending_screen_state)) {
+        if (g_screen_return_stack.empty()) {
             break;
         }
+        g_pending_screen_state = g_screen_return_stack.back();
+        g_screen_return_stack.pop_back();
         if (g_pending_screen_state.id != W8_SCREEN_NONE) {
             if (g_current_screen_state.id != W8_SCREEN_NONE) {
                 srAssertFail("gCurrentScreen.iScreenId == NO_SCREEN",

@@ -26,7 +26,6 @@
 #include "LibraryDataBase.h"
 #include "wiz8/sound_man.h"
 #include "Button System.h"
-#include "Container.h"
 #include "shading.h"
 #include "sgp.h"
 
@@ -66,10 +65,7 @@ unsigned char InitializeGame(void)
     LoadGameConfiguration();
     g_current_screen_state.id = W8_SCREEN_NONE;
     g_pending_screen_state.id = W8_SCREEN_NONE;
-    g_screen_return_stack = CreateStack(5, sizeof(W8ScreenStateRuntime));
-    if (!g_screen_return_stack) {
-        return 0;
-    }
+    g_screen_return_stack.clear();
     for (int screen = 0; screen < W8_SCREEN_COUNT; ++screen) {
         if (!g_screen_handlers[screen].initialize()) {
             return 0;

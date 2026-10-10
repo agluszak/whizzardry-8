@@ -31,7 +31,6 @@
 
 #include "FileMan.h"
 
-#include "DEBUG.H"
 
 #include <math.h>
 #include <new>
@@ -1541,10 +1540,9 @@ bool W8PropRepresentation::LoadProp(W8ReadLevelInfo* info, W8Prop* prop)
                     srAssertFail(
                         "(usTemp < (UINT16)ubNumFrames)", /* c-style-cast-ok: verbatim assert text */
                         PROP_CPP, 0x11f,
-                        reinterpret_cast<const char*>(
-                            String("%s Prop Error:Segment %d frame number is out of range (%d)",
+                        FormatString("%s Prop Error:Segment %d frame number is out of range (%d)",
                                    prop->m_name, static_cast<unsigned int>(tag_tmp),
-                                   static_cast<unsigned int>(frame_tmp))));
+                                   static_cast<unsigned int>(frame_tmp)));
                 }
                 this->slots.Add(slot);
             }
@@ -1569,7 +1567,7 @@ bool W8PropRepresentation::LoadProp(W8ReadLevelInfo* info, W8Prop* prop)
             } else {
                 instance = AnimObjDispatchList(this->animation, 2, 0);
             }
-            named = reinterpret_cast<char*>(String("Prop: %s", prop->m_name));
+            named = FormatString("Prop: %s", prop->m_name);
             instance->setName(named);
             mesh_model = static_cast<stMeshModel*>(instance->getModel());
             for (; mesh_model != 0; mesh_model = mesh_model->next) {
