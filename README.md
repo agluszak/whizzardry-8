@@ -2,7 +2,7 @@
 
 Native Wizardry 8 and SurRender for 64-bit Linux, macOS and Windows, built with Clang.
 The build uses SDL3 GPU rendering, FFmpeg video decoding,
-miniaudio sound and system zlib. CMake downloads a pinned miniaudio revision.
+miniaudio sound and zlib. CMake downloads a pinned miniaudio revision.
 Game data comes from an existing retail installation and is not distributed here.
 
 ## Build
@@ -21,16 +21,18 @@ ctest --preset linux
 
 Use `macos-arm64`, `macos-x64` or `windows-clangcl` in the same commands.
 Windows uses the same LLVM compiler with its MSVC-compatible frontend; run
-from a Visual Studio developer shell with LLVM installed. The Windows preset
-installs native x64 dependencies, not the removed 32-bit recompilation lane.
-The existing POSIX runtime still needs the subsequent platform-API migration
-before a passing Windows game build can be claimed.
+from a Visual Studio C++ developer shell with LLVM and the Windows SDK installed.
+The Windows preset builds native x64 targets with static dependencies and the
+dynamic Microsoft CRT, not the removed 32-bit recompilation lane.
 
 `VCPKG_ROOT` may point at an existing vcpkg checkout; otherwise its pinned
 release is downloaded automatically. Dependencies need no separate manual
 installation, but the compiler and platform SDK/system interfaces do.
+Visual Studio's developer shell can set `VCPKG_ROOT` automatically; clear it
+with `$env:VCPKG_ROOT = ""` in PowerShell to use the repository-pinned bootstrap.
 
-The native targets include `Wiz8Native` and SurRender (`libsr.so` on Linux).
+The native targets include `Wiz8Native` and statically linked SurRender and
+runtime adapters, sharing one SDL state.
 A Vulkan-capable SDL3 GPU backend is required for graphics checks.
 
 ## Run
@@ -52,7 +54,8 @@ drive maps to `WIZ8_ASSET_ROOT`; file reads prefer `WIZ8_USER_ROOT`, then
 fall back to the installed assets. All writes go to the user root.
 By default, this is `$XDG_DATA_HOME/whizzardry8` (or
 `~/.local/share/whizzardry8` on Linux and
-`~/Library/Application Support/whizzardry8` on macOS).
+`~/Library/Application Support/whizzardry8` on macOS). Windows uses SDL's
+preference directory, normally `%APPDATA%\Whizzardry\whizzardry8`.
 Optional `WIZ8_CD1_ROOT` through `WIZ8_CD3_ROOT` provide read-only virtual
 disc drives. The launcher writes diagnostics to the user root.
 
@@ -62,6 +65,9 @@ The CTest suite covers portable file/SLF operations, SDL events/timers,
 CRT and pointer semantics, serialization, compression, blitters, JPEG transfer,
 audio and movie decoding, and SurRender interfaces. GPU tests need a working
 display/Vulkan driver; `native_events` uses SDL's dummy driver.
+Linux and Windows x64 clang-cl builds pass the suite; the first-party
+host-width wide-string import check runs only on Unix. macOS and interactive
+Windows graphics/gameplay remain unverified.
 
 With installed game assets, run the focused graphics and world harnesses:
 

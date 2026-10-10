@@ -26,6 +26,8 @@ jobs:
           key: Windows-vcpkg-${{ hashFiles('vcpkg.json') }}-${{ github.run_id }}
           restore-keys: Windows-vcpkg-${{ hashFiles('vcpkg.json') }}-
       - name: Configure with pinned dependencies
+        env:
+          VCPKG_ROOT: ""
         run: cmake --preset windows-clangcl
       - name: Build native game and fixtures
         run: cmake --build --preset windows-clangcl --parallel 4

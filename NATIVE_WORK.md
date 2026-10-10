@@ -3,8 +3,8 @@
 Only serialized game formats are compatibility contracts; runtime classes
 do not need the original compiler layout.
 
-- Replace the file/event/timer facades in `include/wiz8/compat/` and
-  `src/compat/` with native filesystem operations, SDL events and a game loop.
+- Migrate remaining file-facade callers in `include/wiz8/compat/` and
+  `src/compat/` to explicit native filesystem operations.
   Preserve case-insensitive asset lookup, SLF access and the writable overlay.
 - Separate save/asset records from runtime objects, then replace `W8_PTR32`
   and its process-wide pointer table with ordinary pointers and containers.
