@@ -170,6 +170,12 @@ W8CampStatsControls::W8CampStatsControls()
     Controls::SetEnabled(true);
 }
 
+// FUNCTION: WIZ8 0x005c47a0
+W8CampStatsControls::~W8CampStatsControls()
+{
+    DestroyAllControls();
+}
+
 // FUNCTION: WIZ8 0x005c4800
 void W8CampStatsControls::OnPrimary(W8TextControl* control)
 {
