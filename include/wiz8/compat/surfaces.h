@@ -50,3 +50,7 @@ SDLSurfaceOwner CreateCpuStorage(int width, int height, SDL_PixelFormat format,
 SDLSurfaceOwner CopyCpuStorage(SDL_Surface& source);
 
 void FlipCpuSurface(CpuSurface& surface, SDL_FlipMode flip, const SDL_Rect* region = nullptr);
+
+// Clip an unscaled blit while preserving the source-to-destination offset.
+bool ClipCpuBlit(SDL_Rect& destination, SDL_Rect& source,
+                 const SDL_Rect& destinationBounds, const SDL_Rect& sourceBounds);

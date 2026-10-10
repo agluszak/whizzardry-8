@@ -257,3 +257,18 @@ TEST_CASE("surface_test")
     locksFillsAndKeys();
     videoSurfaceClipping();
 }
+
+TEST_CASE("CPU blit clipping preserves paired coordinates")
+{
+    SDL_Rect source{-2, 1, 8, 6};
+    SDL_Rect destination{1, -2, 8, 6};
+    REQUIRE(ClipCpuBlit(destination, source, {0, 0, 6, 4}, {0, 0, 5, 5}));
+    REQUIRE((source.x == 0 && source.y == 3 && source.w == 3 && source.h == 2));
+    REQUIRE((destination.x == 3 && destination.y == 0 && destination.w == 3 && destination.h == 2));
+
+    source = {5, 0, 2, 2};
+    destination = {0, 0, 2, 2};
+    REQUIRE_FALSE(ClipCpuBlit(destination, source, {0, 0, 6, 4}, {0, 0, 5, 5}));
+    source = {0, 0, 0, 2};
+    REQUIRE_FALSE(ClipCpuBlit(destination, source, {0, 0, 6, 4}, {0, 0, 5, 5}));
+}

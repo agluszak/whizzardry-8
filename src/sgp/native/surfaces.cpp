@@ -348,3 +348,20 @@ void FlipCpuSurface(CpuSurface& owner, SDL_FlipMode flip, const SDL_Rect* rectan
     auto flipped = ShareCpuSurface(*storage);
     BlitCpuSurface(owner, &region, flipped);
 }
+
+bool ClipCpuBlit(SDL_Rect& destination, SDL_Rect& source,
+                 const SDL_Rect& destinationBounds, const SDL_Rect& sourceBounds)
+{
+    const auto clip = [](SDL_Rect& rect, SDL_Rect& paired, const SDL_Rect& bounds) {
+        SDL_Rect intersection;
+        if (!SDL_GetRectIntersection(&rect, &bounds, &intersection))
+            return false;
+        paired.x += intersection.x - rect.x;
+        paired.y += intersection.y - rect.y;
+        paired.w = intersection.w;
+        paired.h = intersection.h;
+        rect = intersection;
+        return true;
+    };
+    return clip(source, destination, sourceBounds) && clip(destination, source, destinationBounds);
+}

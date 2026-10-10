@@ -737,19 +737,9 @@ BOOLEAN ClipReleatedSrcAndDestRectangles(HVSURFACE hDestVSurface, HVSURFACE hSrc
     Assert(hDestVSurface != nullptr);
     Assert(hSrcVSurface != nullptr);
 
-    const auto clip = [](SDL_Rect& rect, SDL_Rect& paired, const SDL_Rect& bounds) {
-        SDL_Rect intersection;
-        if (!SDL_GetRectIntersection(&rect, &bounds, &intersection))
-            return false;
-        paired.x += intersection.x - rect.x;
-        paired.y += intersection.y - rect.y;
-        paired.w = intersection.w;
-        paired.h = intersection.h;
-        rect = intersection;
-        return true;
-    };
-    return clip(*SrcRect, *DestRect, {0, 0, hSrcVSurface->usWidth, hSrcVSurface->usHeight}) &&
-           clip(*DestRect, *SrcRect, {0, 0, hDestVSurface->usWidth, hDestVSurface->usHeight});
+    return ClipCpuBlit(*DestRect, *SrcRect,
+                       {0, 0, hDestVSurface->usWidth, hDestVSurface->usHeight},
+                       {0, 0, hSrcVSurface->usWidth, hSrcVSurface->usHeight});
 }
 
 BOOLEAN FillSurface(HVSURFACE hDestVSurface, blt_vs_fx* pBltFx)
