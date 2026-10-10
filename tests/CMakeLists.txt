@@ -1,13 +1,13 @@
 add_executable(native_compression_test "${PROJECT_SOURCE_DIR}/tests/native/compression_test.cpp")
-target_link_libraries(native_compression_test PRIVATE WIZ8_SGP)
+target_link_libraries(native_compression_test PRIVATE WIZ8_GAME_CORE)
 add_test(NAME native_compression COMMAND native_compression_test)
 
 add_executable(native_images_test native/images_test.cpp)
-target_link_libraries(native_images_test PRIVATE WIZ8_SGP)
+target_link_libraries(native_images_test PRIVATE WIZ8_GAME_CORE)
 add_test(NAME native_images COMMAND native_images_test)
 
 add_executable(native_files_test "${PROJECT_SOURCE_DIR}/tests/native/files_test.cpp")
-target_link_libraries(native_files_test PRIVATE WIZ8_GAME_CORE WIZ8_SGP SURRENDER)
+target_link_libraries(native_files_test PRIVATE WIZ8_GAME_CORE SURRENDER)
 add_test(NAME native_files COMMAND native_files_test)
 
 add_executable(native_strings_test native/strings_test.cpp)
@@ -15,7 +15,7 @@ target_link_libraries(native_strings_test PRIVATE SURRENDER wiz8_native_settings
 add_test(NAME native_strings COMMAND native_strings_test)
 
 add_executable(native_events_test "${PROJECT_SOURCE_DIR}/tests/native/events_test.cpp")
-target_link_libraries(native_events_test PRIVATE WIZ8_SGP SDL3::SDL3)
+target_link_libraries(native_events_test PRIVATE WIZ8_GAME_CORE SDL3::SDL3)
 add_test(NAME native_events COMMAND native_events_test)
 set_tests_properties(native_events PROPERTIES ENVIRONMENT "SDL_VIDEODRIVER=dummy" TIMEOUT 10)
 
@@ -45,7 +45,7 @@ target_link_libraries(native_pointer_test PRIVATE wiz8_native_settings)
 add_test(NAME native_pointer COMMAND native_pointer_test)
 
 add_executable(native_save_records_test "${PROJECT_SOURCE_DIR}/tests/native/save_records_test.cpp")
-target_link_libraries(native_save_records_test PRIVATE WIZ8_GAME_CORE WIZ8_SGP WIZ8_GAME_CORE SDL3::SDL3)
+target_link_libraries(native_save_records_test PRIVATE WIZ8_GAME_CORE SDL3::SDL3)
 if(APPLE)
     target_link_options(native_save_records_test PRIVATE -Wl,-dead_strip)
 elseif(UNIX)
@@ -61,7 +61,7 @@ add_test(NAME native_jpeg_transfer COMMAND native_jpeg_transfer_test)
 
 add_executable(native_virtual_image_transfer_test native/image_import/virtual_transfer_test.cpp)
 target_compile_definitions(native_virtual_image_transfer_test PRIVATE WIZ8_IMAGE_IMPORT_FIXTURE_DIR="${PROJECT_SOURCE_DIR}/tests/native/image_import")
-target_link_libraries(native_virtual_image_transfer_test PRIVATE WIZ8_GAME_CORE WIZ8_SGP WIZ8_GAME_CORE SDL3_image::SDL3_image)
+target_link_libraries(native_virtual_image_transfer_test PRIVATE WIZ8_GAME_CORE SDL3_image::SDL3_image)
 if(APPLE)
     target_link_options(native_virtual_image_transfer_test PRIVATE -Wl,-dead_strip)
 elseif(UNIX)
@@ -70,11 +70,11 @@ endif()
 add_test(NAME native_virtual_image_transfer COMMAND native_virtual_image_transfer_test)
 
 add_executable(native_surface_test native/surface_test.cpp)
-target_link_libraries(native_surface_test PRIVATE WIZ8_SGP)
+target_link_libraries(native_surface_test PRIVATE WIZ8_GAME_CORE)
 add_test(NAME native_surfaces COMMAND native_surface_test)
 
 add_executable(native_owner_test native/owner_test.cpp)
-target_link_libraries(native_owner_test PRIVATE WIZ8_GAME_CORE WIZ8_SGP WIZ8_GAME_CORE SDL3::SDL3)
+target_link_libraries(native_owner_test PRIVATE WIZ8_GAME_CORE SDL3::SDL3)
 if(APPLE)
     target_link_options(native_owner_test PRIVATE -Wl,-dead_strip)
 elseif(UNIX)
@@ -97,7 +97,7 @@ target_link_libraries(native_vector_math_test PRIVATE SURRENDER wiz8_native_sett
 add_test(NAME native_vector_math COMMAND native_vector_math_test)
 
 add_executable(native_blitter_test "${PROJECT_SOURCE_DIR}/tests/native/blitter_test.cpp")
-target_link_libraries(native_blitter_test PRIVATE WIZ8_SGP)
+target_link_libraries(native_blitter_test PRIVATE WIZ8_GAME_CORE)
 add_test(NAME native_blitters COMMAND native_blitter_test
     "${PROJECT_SOURCE_DIR}/tests/native/blitters_expected.txt")
 
@@ -112,7 +112,7 @@ endif()
 add_executable(native_game_graphics "${PROJECT_SOURCE_DIR}/tests/native/game_graphics.cpp")
 target_compile_definitions(native_game_graphics PRIVATE
     WIZ8_MOVIE_FIXTURE="${PROJECT_SOURCE_DIR}/tests/native/movie.mkv")
-target_link_libraries(native_game_graphics PRIVATE WIZ8_GAME_CORE WIZ8_SGP WIZ8_GAME_CORE SDL3::SDL3)
+target_link_libraries(native_game_graphics PRIVATE WIZ8_GAME_CORE SDL3::SDL3)
 if(APPLE)
     target_link_options(native_game_graphics PRIVATE -Wl,-dead_strip)
 elseif(UNIX)
@@ -123,7 +123,7 @@ endif()
 # Uses installed retail assets, supplied through WIZ8_ASSET_ROOT; run explicitly.
 
 add_executable(native_audio_test "${PROJECT_SOURCE_DIR}/tests/native/audio_test.cpp")
-target_link_libraries(native_audio_test PRIVATE WIZ8_SGP)
+target_link_libraries(native_audio_test PRIVATE WIZ8_GAME_CORE)
 target_compile_definitions(native_audio_test PRIVATE WIZ8_AUDIO_TEST_MP3="${PROJECT_SOURCE_DIR}/tests/native/tone.mp3")
 add_test(NAME native_audio COMMAND native_audio_test)
 
@@ -136,7 +136,7 @@ add_executable(native_movie_test "${PROJECT_SOURCE_DIR}/tests/native/movie_test.
 target_compile_definitions(native_movie_test PRIVATE
     WIZ8_MOVIE_FIXTURE="${PROJECT_SOURCE_DIR}/tests/native/movie.mkv"
     WIZ8_MOVIE_GOLDEN="${PROJECT_SOURCE_DIR}/tests/native/movie.rgb555")
-target_link_libraries(native_movie_test PRIVATE WIZ8_GAME_CORE WIZ8_SGP WIZ8_GAME_CORE SDL3::SDL3)
+target_link_libraries(native_movie_test PRIVATE WIZ8_GAME_CORE SDL3::SDL3)
 if(APPLE)
     target_link_options(native_movie_test PRIVATE -Wl,-dead_strip)
 elseif(UNIX)
@@ -145,6 +145,11 @@ endif()
 add_test(NAME native_movies COMMAND native_movie_test)
 set_tests_properties(native_audio native_movies PROPERTIES ENVIRONMENT "SDL_AUDIO_DRIVER=wiz8-offline")
 
+add_executable(native_application_test native/application_test.cpp)
+target_link_libraries(native_application_test PRIVATE WIZ8_GAME_CORE)
+add_test(NAME native_application COMMAND native_application_test)
+set_tests_properties(native_application PROPERTIES ENVIRONMENT "SDL_VIDEODRIVER=dummy" TIMEOUT 10)
+
 # Installed level/character integration; supplied assets and a display are required.
 add_executable(native_world_graphics "${PROJECT_SOURCE_DIR}/tests/native/world_graphics.cpp")
-target_link_libraries(native_world_graphics PRIVATE WIZ8_GAME_CORE WIZ8_SGP WIZ8_GAME_CORE SDL3::SDL3)
+target_link_libraries(native_world_graphics PRIVATE WIZ8_GAME_CORE SDL3::SDL3)

@@ -8,7 +8,7 @@
 
 #include "himage.h"
 #include "vsurface.h"
-#include "sgp.h"
+#include "wiz8/application.h"
 
 /* Lifecycle record 12 is the exit screen selected by Main Menu's Exit row and
    its Escape/E/X shortcuts. Live query: 0x00591780 sits in the gap between

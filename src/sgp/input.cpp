@@ -12,7 +12,7 @@
 // Make sure to refer to the translation table which is within one of the following files (depending
 // on the language used). ENGLISH.C, JAPANESE.C, FRENCH.C, GERMAN.C, SPANISH.C, etc...
 
-#include "sgp.h"
+#include "wiz8/application.h"
 
 // The gfKeyState table is used to track which of the keys is up or down at any one time. This is used while polling
 // the interface.
@@ -134,12 +134,6 @@ BOOLEAN InitializeInputManager(void)
     gpCurrentStringDescriptor = nullptr;
     // Activate the hook functions for both keyboard and Mouse
     return TRUE;
-}
-
-// FUNCTION: WIZ8 0x00401f70
-void ShutdownInputManager(void)
-{ // There's very little to do when shutting down the input manager. In the future, this is where the keyboard and
-    // mouse hooks will be destroyed
 }
 
 // FUNCTION: WIZ8 0x00401f90

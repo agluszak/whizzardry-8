@@ -1,6 +1,26 @@
 set_source_files_properties(engine_code/gap.c PROPERTIES LANGUAGE CXX)
 
 add_library(WIZ8_GAME_CORE STATIC
+    ../sgp/vobject.cpp
+    ../sgp/timer.cpp
+    ../sgp/input.cpp
+    ../sgp/native/input_events.cpp
+    ../sgp/soundman.cpp
+    ../sgp/native/audio.cpp
+    ../sgp/native/surfaces.cpp
+    ../sgp/native/video.cpp
+    ../sgp/vsurface.cpp
+    ../sgp/Font.cpp
+    ../sgp/mousesystem.cpp
+    "../sgp/Button System.cpp"
+    ../sgp/line.cpp
+    ../sgp/himage.cpp
+    ../sgp/STCI.cpp
+    ../sgp/vobject_blitters.cpp
+    ../sgp/shading.cpp
+    ../sgp/Compression.cpp
+    ../sgp/Random.cpp
+    ../sgp/English.cpp
     "local_code/PC Item.cpp"
     local_code/FormationAndFacing.cpp
     local_code/ThingEditorShared.cpp
@@ -212,11 +232,13 @@ add_library(WIZ8_GAME_CORE STATIC
     npc_script_file.cpp
     virtual_file_stream.cpp
     engine_code/trim_string.cpp
+    ../native/application.cpp
     ../native/movie.cpp
     ../native/bink_video.cpp
 )
 target_link_libraries(WIZ8_GAME_CORE PRIVATE PkgConfig::FFMPEG)
-target_link_libraries(WIZ8_GAME_CORE PUBLIC wiz8_native_settings WIZ8_SGP SURRENDER)
+target_link_libraries(WIZ8_GAME_CORE PUBLIC wiz8_native_settings SURRENDER
+    ZLIB::ZLIB SDL3_image::SDL3_image SDL3_mixer::SDL3_mixer)
 
 # Keep focused integration tests able to discard unused recovered game functions.
 if(CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
@@ -224,3 +246,5 @@ if(CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
 else()
     target_compile_options(WIZ8_GAME_CORE PRIVATE -ffunction-sections -fdata-sections)
 endif()
+
+target_include_directories(WIZ8_GAME_CORE PUBLIC "${PROJECT_SOURCE_DIR}/src/sgp")

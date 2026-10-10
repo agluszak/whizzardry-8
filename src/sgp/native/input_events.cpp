@@ -1,3 +1,9 @@
+#include "wiz8/application.h"
+#include "wiz8/engine_code/Video2.h"
+#include "wiz8/engine_code/GameData.h"
+#include "timer.h"
+#include <stdexcept>
+
 #include "native/input_events.h"
 #include "input.h"
 
@@ -7,6 +13,7 @@
 
 namespace
 {
+bool restore_pending = false;
 SDL_Window* input_window = nullptr;
 SDL_Keymod current_modifiers = SDL_KMOD_NONE;
 POINT mouse_position{};
@@ -189,6 +196,7 @@ UINT game_key(SDL_Keycode key, bool& extended)
 
 void SetInputWindow(SDL_Window* window)
 {
+    restore_pending = false;
     reset_held_input();
     input_window = window;
     focused = window && (SDL_GetWindowFlags(window) & SDL_WINDOW_INPUT_FOCUS);
@@ -306,4 +314,99 @@ void HandleInputEvent(const SDL_Event& event)
         break;
     }
     }
+}
+
+// GLOBAL: WIZ8 0x006505a0
+BOOLEAN gfLoadAtStartup = FALSE;
+// GLOBAL: WIZ8 0x006505a1
+BOOLEAN gfUsingBoundsChecker = FALSE;
+// GLOBAL: WIZ8 0x006505a4
+std::string gzStringDataOverride;
+// GLOBAL: WIZ8 0x006505a8
+BOOLEAN gfCapturingVideo = FALSE;
+// GLOBAL: WIZ8 0x006f0630
+BOOLEAN gfApplicationActive = FALSE;
+// GLOBAL: WIZ8 0x006f0628
+BOOLEAN gfProgramIsRunning = FALSE;
+// GLOBAL: WIZ8 0x006505a9
+BOOLEAN gfGameInitialized = FALSE;
+// GLOBAL: WIZ8 0x006505ac
+CHAR8 gzErrorMsg[2048] = "";
+// GLOBAL: WIZ8 0x00650dac
+BOOLEAN gfIgnoreMessages = FALSE;
+// GLOBAL: WIZ8 0x005ff450
+UINT8 gbPixelDepth = PIXEL_DEPTH;
+
+
+// FUNCTION: WIZ8 0x00401920
+[[noreturn]] void ShutdownWithErrorBox(const CHAR8* message)
+{
+    SDL_strlcpy(gzErrorMsg, message, sizeof(gzErrorMsg));
+    gfIgnoreMessages = TRUE;
+    throw std::runtime_error(gzErrorMsg);
+}
+
+
+void HandleGameEvent(const SDL_Event& event)
+{
+    if (event.type == SDL_EVENT_QUIT)
+    {
+        gfProgramIsRunning = FALSE;
+        return;
+    }
+    if (event.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED && ghWindow &&
+        SDL_GetWindowFromEvent(&event) == reinterpret_cast<SDL_Window*>(ghWindow))
+    {
+        gfProgramIsRunning = FALSE;
+        return;
+    }
+    if (gfIgnoreMessages)
+        return;
+    HandleInputEvent(event);
+    if (!ghWindow || SDL_GetWindowFromEvent(&event) != reinterpret_cast<SDL_Window*>(ghWindow))
+        return;
+    switch (event.type)
+    {
+    case SDL_EVENT_WINDOW_RESIZED:
+        if (event.window.data1 > 0 && event.window.data2 > 0)
+            VideoResizeWindow();
+        break;
+    case SDL_EVENT_WINDOW_FOCUS_GAINED:
+        if (restore_pending)
+        {
+            if (!VideoInspectorIsEnabled())
+            {
+                RestoreVideoManager();
+                RestoreVideoSurfaces();
+            }
+            MoveTimer(TIMER_RESUME);
+            restore_pending = false;
+        }
+        gfApplicationActive = TRUE;
+        break;
+    case SDL_EVENT_WINDOW_FOCUS_LOST:
+        if (!VideoInspectorIsEnabled())
+            SuspendVideoManager();
+        MoveTimer(TIMER_SUSPEND);
+        gfApplicationActive = FALSE;
+        restore_pending = true;
+        break;
+    }
+}
+bool PumpGameEvents(bool wait)
+{
+    SDL_Event event{};
+    bool received = false;
+    if (wait && SDL_WaitEventTimeout(&event, 10))
+    {
+        HandleGameEvent(event);
+        received = true;
+    }
+    while (SDL_PollEvent(&event))
+    {
+        HandleGameEvent(event);
+        received = true;
+    }
+    UpdateClockManager();
+    return received;
 }

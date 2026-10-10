@@ -1409,17 +1409,17 @@ void W8MainGameTextKeyHandler::Redraw(bool full_redraw)
     top += 1;
     for (line = m_first_visible_line; line < last; ++line) {
         if (line == m_selected_line) {
-            colour = g_font_state_palettes[W8_FONT_PALETTE_BLUE];
+            colour = g_font_state_palettes[W8_FONT_PALETTE_BLUE].get();
         } else if (line == m_hover_line) {
-            colour = g_font_state_palettes[W8_FONT_PALETTE_YELLOW];
+            colour = g_font_state_palettes[W8_FONT_PALETTE_YELLOW].get();
         } else {
-            colour = g_wiz_text_font_secondary_palette;
+            colour = GetFontObject(g_wiz_text_font_secondary)->ownedPalette.get();
         }
         SetFontObjectPalette16BPP(g_wiz_text_font_secondary, colour);
         gprintf(left, top, Wiz8ToSgpWideText(g_format_s), gppStringList[m_line_string_ids[line]]);
         top += 0xe;
     }
-    SetFontObjectPalette16BPP(g_wiz_text_font_secondary, g_wiz_text_font_secondary_palette);
+    SetFontObjectPalette16BPP(g_wiz_text_font_secondary, GetFontObject(g_wiz_text_font_secondary)->ownedPalette.get());
     m_range.Invalidate(0);
     m_dirty = false;
 }
@@ -3855,7 +3855,7 @@ void DrawMainGameScreen(void)
         if (g_level_block->mouselook_debug != 0) {
             ClearSurfaceRect(0xdc, 0x1e, 0x154, 0x26);
             SetFont(g_smfnt_font);
-            SetFontObjectPalette16BPP(g_smfnt_font, g_font_palette_smfnt);
+            SetFontObjectPalette16BPP(g_smfnt_font, GetFontObject(g_smfnt_font)->ownedPalette.get());
             gprintfDirty(0xdc, 0x1e, Wiz8ToSgpWideText(g_format_mouselook_angles),
                          g_mouselook_pending_pitch, g_mouselook_pending_yaw);
         }
@@ -4013,14 +4013,14 @@ void RedrawCombatMonsterList(void)
                         }
                     }
                     if (is_action_group) {
-                        palette = g_font_state_palettes[W8_FONT_PALETTE_RED];
+                        palette = g_font_state_palettes[W8_FONT_PALETTE_RED].get();
                         if (g_level_block->target_highlight_ok[0] != 0) {
-                            palette = g_font_state_palettes[W8_FONT_PALETTE_GREEN];
+                            palette = g_font_state_palettes[W8_FONT_PALETTE_GREEN].get();
                         }
                     } else {
-                        palette = g_font_state_palettes[W8_FONT_PALETTE_BLUE];
+                        palette = g_font_state_palettes[W8_FONT_PALETTE_BLUE].get();
                         if (!is_target_group) {
-                            palette = g_wiz_text_font_secondary_palette;
+                            palette = GetFontObject(g_wiz_text_font_secondary)->ownedPalette.get();
                         }
                     }
                     SetFontObjectPalette16BPP(g_wiz_text_font_secondary, palette);
@@ -4306,12 +4306,12 @@ void DrawHighlightOverlay(unsigned int party_slot, int row_count, unsigned int m
     SetFont(g_wiz_text_font);
     SetFontObjectPalette16BPP(
         g_wiz_text_font,
-        g_font_state_palettes[g_status.buffers.XChar[party_slot].party_order_index]);
+        g_font_state_palettes[g_status.buffers.XChar[party_slot].party_order_index].get());
     int font_height = GetFontHeight(g_wiz_text_font);
     int name_width = StringPixLength(name, g_wiz_text_font);
     gprintf(left + static_cast<int>(panel_width >> 1) - name_width / 2,
             (0xc - font_height) / 2 + top + 6, Wiz8ToSgpWideText(g_format_s), name);
-    SetFontObjectPalette16BPP(g_wiz_text_font, g_font_palette_wiz_text);
+    SetFontObjectPalette16BPP(g_wiz_text_font, GetFontObject(g_wiz_text_font)->ownedPalette.get());
 
     row_y_pos = top + 0x12;
     DrawCatalogImage(FRAME_BUFFER, 0x70, 0, 3, left, row_y_pos, VO_BLT_SRCTRANSPARENCY, 0);

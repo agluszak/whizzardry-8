@@ -27,7 +27,7 @@
 #include "wiz8/sound_man.h"
 #include "Button System.h"
 #include "shading.h"
-#include "sgp.h"
+#include "wiz8/application.h"
 
 #include <string.h>
 #include <stdlib.h>
@@ -35,7 +35,7 @@
 /* Original translation unit is not established by the Arnika/Gameloop source anchors. */
 
 /*
- * The data bring-up gate InitializeStandardGamingPlatform calls last. It stamps the version
+ * The data bring-up gate the native application initializes last. It stamps the version
  * string, opens the archives and string data, then walks every database
  * loader in turn, abandoning the sequence the moment one fails. Its callees
  * are mostly unidentified and carry address-derived names; the ones already
@@ -43,7 +43,7 @@
  */
 
 // FUNCTION: WIZ8 0x004e2f40
-unsigned char InitializeGame(void)
+unsigned char InitializeGame(size_t& initialized_screens)
 {
     char version[64];
     void* buffer;
@@ -65,6 +65,7 @@ unsigned char InitializeGame(void)
     g_pending_screen_state.id = W8_SCREEN_NONE;
     g_screen_return_stack.clear();
     for (int screen = 0; screen < W8_SCREEN_COUNT; ++screen) {
+        initialized_screens = screen + 1;
         if (!g_screen_handlers[screen].initialize()) {
             return 0;
         }

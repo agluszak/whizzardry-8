@@ -1,3 +1,4 @@
+#include "input.h"
 #include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/dialog_code/DialogTextArea.h"

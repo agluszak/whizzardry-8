@@ -769,17 +769,17 @@ void DrawCampHeader(void)
     }
     if ((state->redraw_flags & 0x200) != 0) {
         SetFont(g_wiz_text_bold_font);
-        SetObjectShade(g_wiz_text_bold_font_object, 4);
+        SetObjectShade(GetFontObject(g_wiz_text_bold_font), 4);
         if (state->hover_region == 0xf2) {
             SetFontObjectPalette16BPP(g_wiz_text_bold_font,
-                                      g_font_state_palettes[W8_FONT_PALETTE_GREEN]);
+                                      g_font_state_palettes[W8_FONT_PALETTE_GREEN].get());
         }
         wcscpy(state->text_buffer, character->name);
         gprintfDirty((0xba - StringPixLength(state->text_buffer, g_wiz_text_bold_font)) / 2 + 0x74,
                      0x60, Wiz8ToSgpWideText(g_format_s), state->text_buffer);
-        SetFontObjectPalette16BPP(g_wiz_text_bold_font, g_font_palette_wiz_text_bold);
+        SetFontObjectPalette16BPP(g_wiz_text_bold_font, GetFontObject(g_wiz_text_bold_font)->ownedPalette.get());
         SetFont(g_wiz_text_font_secondary);
-        SetObjectShade(g_wiz_text_font_secondary_object, 4);
+        SetObjectShade(GetFontObject(g_wiz_text_font_secondary), 4);
         wcscpy(state->text_buffer, gppStringList[g_gender_name_message_rows[character->gender][0]]);
         wcscat(state->text_buffer, L" ");
         wcscat(state->text_buffer, gppStringList[g_race_name_message_ids[character->iRace]]);
@@ -788,16 +788,16 @@ void DrawCampHeader(void)
                      0x6f, Wiz8ToSgpWideText(g_format_s), state->text_buffer);
         if (state->hover_region == 0xf3) {
             SetFontObjectPalette16BPP(g_wiz_text_font_secondary,
-                                      g_font_state_palettes[W8_FONT_PALETTE_GREEN]);
+                                      g_font_state_palettes[W8_FONT_PALETTE_GREEN].get());
         }
         wcscpy(state->text_buffer,
                gppStringList[g_profession_name_message_ids[character->iProfession]]);
         gprintfDirty((0xba - StringPixLength(state->text_buffer, g_wiz_text_font_secondary)) / 2 +
                          0x74,
                      0x7c, Wiz8ToSgpWideText(g_format_s), state->text_buffer);
-        SetFontObjectPalette16BPP(g_wiz_text_font_secondary, g_wiz_text_font_secondary_palette);
+        SetFontObjectPalette16BPP(g_wiz_text_font_secondary, GetFontObject(g_wiz_text_font_secondary)->ownedPalette.get());
         SetFont(g_wiz_text_font_secondary);
-        SetObjectShade(g_wiz_text_font_secondary_object, 4);
+        SetObjectShade(GetFontObject(g_wiz_text_font_secondary), 4);
         swprintf(state->text_buffer, g_format_s_d_paren_s, gppStringList[0x91a],
                  character->uiExpLevel,
                  gppStringList[g_profession_level_name_message_ids[character->iProfession]
@@ -985,7 +985,7 @@ static void DrawCampHand(W8EquipSlot slot, int hand_index, int top, int count_ce
             wchar_t text[4];
             swprintf(text, g_format_d, count);
             SetFont(g_smfnt_font);
-            SetFontObjectPalette16BPP(g_smfnt_font, g_font_palette_smfnt);
+            SetFontObjectPalette16BPP(g_smfnt_font, GetFontObject(g_smfnt_font)->ownedPalette.get());
             gprintf(count_center - (StringPixLength(text, g_smfnt_font) + 1) / 2, top + 0xf,
                     Wiz8ToSgpWideText(g_format_s), text);
         }
@@ -1020,10 +1020,10 @@ void DrawCampHands(void)
     }
     SetFont(g_smfnt_font);
     swprintf(text, g_format_d, g_review_character->armor_class_average);
-    palette = g_font_palette_smfnt;
+    palette = GetFontObject(g_smfnt_font)->ownedPalette.get();
     if (g_review_character->load_category != 0) {
         palette =
-            g_font_state_palettes[g_load_category_palettes[g_review_character->load_category]];
+            g_font_state_palettes[g_load_category_palettes[g_review_character->load_category]].get();
     }
     SetFontObjectPalette16BPP(g_smfnt_font, palette);
     gprintf((0xd - StringPixLength(text, g_smfnt_font)) / 2 + 0x84, 0xe,

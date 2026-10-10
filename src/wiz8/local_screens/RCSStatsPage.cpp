@@ -529,10 +529,10 @@ void DrawCampEffectEntry(W8CampEffectEntry* entry, int* line_out)
     int line = *line_out;
     if (entry->kind == 0) {
         SetFontObjectPalette16BPP(g_wiz_text_font_secondary,
-                                  g_font_state_palettes[W8_FONT_PALETTE_GREEN]);
+                                  g_font_state_palettes[W8_FONT_PALETTE_GREEN].get());
         gprintf(0x15e, line * 0xe + 0xbf, Wiz8ToSgpWideText(g_format_s_space_s),
                 gppStringList[0x8d1], gppStringList[g_condition_notices[entry->index].name]);
-        SetFontObjectPalette16BPP(g_wiz_text_font_secondary, g_wiz_text_font_secondary_palette);
+        SetFontObjectPalette16BPP(g_wiz_text_font_secondary, GetFontObject(g_wiz_text_font_secondary)->ownedPalette.get());
         int next = line + 1;
         if (entry->turns == W8_CONDITION_INDEFINITE) {
             gprintf(0x15e, (line + 1) * 0xe + 0xbf, gppStringList[0x8d2]);
@@ -553,10 +553,10 @@ void DrawCampEffectEntry(W8CampEffectEntry* entry, int* line_out)
         }
     } else if (entry->kind == 1) {
         SetFontObjectPalette16BPP(g_wiz_text_font_secondary,
-                                  g_font_state_palettes[W8_FONT_PALETTE_GREEN]);
+                                  g_font_state_palettes[W8_FONT_PALETTE_GREEN].get());
         gprintf(0x15e, line * 0xe + 0xbf, L"%s %s (%d)", gppStringList[0x8d4],
                 gppStringList[g_enchantment_notices[entry->index]], entry->enchantment);
-        SetFontObjectPalette16BPP(g_wiz_text_font_secondary, g_wiz_text_font_secondary_palette);
+        SetFontObjectPalette16BPP(g_wiz_text_font_secondary, GetFontObject(g_wiz_text_font_secondary)->ownedPalette.get());
         gprintf(0x15e, (line + 1) * 0xe + 0xbf, Wiz8ToSgpWideText(g_format_d_s), entry->turns,
                 gppStringList[0x8d3]);
         *line_out = line + 3;
@@ -565,10 +565,10 @@ void DrawCampEffectEntry(W8CampEffectEntry* entry, int* line_out)
         W8ItemDatabaseRecord* record =
             &g_item_records[g_review_character->EquippedItem[entry->index].iItemNo];
         SetFontObjectPalette16BPP(g_wiz_text_font_secondary,
-                                  g_font_state_palettes[W8_FONT_PALETTE_GREEN]);
+                                  g_font_state_palettes[W8_FONT_PALETTE_GREEN].get());
         gprintf(0x15e, line * 0xe + 0xbf, Wiz8ToSgpWideText(g_format_s),
                 GetItemDisplayName(&g_review_character->EquippedItem[entry->index]));
-        SetFontObjectPalette16BPP(g_wiz_text_font_secondary, g_wiz_text_font_secondary_palette);
+        SetFontObjectPalette16BPP(g_wiz_text_font_secondary, GetFontObject(g_wiz_text_font_secondary)->ownedPalette.get());
         int next = line + 1;
         if (record->attack_damage_bonus != 0) {
             gprintf(0x15e, (line + 1) * 0xe + 0xbf, L"%s %+d", gppStringList[0x8b1],
@@ -824,21 +824,21 @@ void DrawCampSkillsPage(void)
                 SetClippingRect(&saved_clip);
                 unsigned short* palette;
                 if (!g_status.game_started || value->level == 0) {
-                    palette = g_font_state_palettes[W8_FONT_PALETTE_GRAY];
+                    palette = g_font_state_palettes[W8_FONT_PALETTE_GRAY].get();
                     if (value->active) {
-                        palette = g_wiz_text_font_secondary_palette;
+                        palette = GetFontObject(g_wiz_text_font_secondary)->ownedPalette.get();
                     }
                 } else {
                     bool best = IsBestCampSkillLevel(static_cast<W8Skill>(skill), value->level);
                     if (!best) {
-                        palette = g_font_state_palettes[W8_FONT_PALETTE_GRAY];
+                        palette = g_font_state_palettes[W8_FONT_PALETTE_GRAY].get();
                         if (value->active) {
-                            palette = g_wiz_text_font_secondary_palette;
+                            palette = GetFontObject(g_wiz_text_font_secondary)->ownedPalette.get();
                         }
                     } else {
-                        palette = g_font_state_palettes[W8_FONT_PALETTE_BEIGE];
+                        palette = g_font_state_palettes[W8_FONT_PALETTE_BEIGE].get();
                         if (value->active) {
-                            palette = g_font_state_palettes[W8_FONT_PALETTE_YELLOW];
+                            palette = g_font_state_palettes[W8_FONT_PALETTE_YELLOW].get();
                         }
                     }
                 }
@@ -847,9 +847,9 @@ void DrawCampSkillsPage(void)
                                               g_wiz_text_font_secondary);
                 gprintf((0x6b - width) / 2 + 2 + left, top + 1, Wiz8ToSgpWideText(g_format_s),
                         gppStringList[g_character_skill_name_ids[skill]]);
-                palette = g_wiz_text_font_secondary_palette;
+                palette = GetFontObject(g_wiz_text_font_secondary)->ownedPalette.get();
                 if (value->improved) {
-                    palette = g_font_state_palettes[W8_FONT_PALETTE_GREEN];
+                    palette = g_font_state_palettes[W8_FONT_PALETTE_GREEN].get();
                 }
                 SetFontObjectPalette16BPP(g_wiz_text_font_secondary, palette);
                 short value_width = StringPixLengthArg(g_wiz_text_font_secondary, 3,
@@ -857,8 +857,8 @@ void DrawCampSkillsPage(void)
                 gprintfDirty((0x24 - value_width) / 2 + 0xee + left, top + 1,
                              Wiz8ToSgpWideText(g_format_d), value->level);
                 SetFontObjectPalette16BPP(g_wiz_text_font_secondary,
-                                          g_wiz_text_font_secondary_palette);
-                SetObjectShade(g_wiz_text_font_secondary_object, 4);
+                                          GetFontObject(g_wiz_text_font_secondary)->ownedPalette.get());
+                SetObjectShade(GetFontObject(g_wiz_text_font_secondary), 4);
                 ++category_count[category];
             }
         }

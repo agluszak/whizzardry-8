@@ -3,13 +3,14 @@
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
    Distributed under the accompanying SFI Source Code license agreement. */
 #include <stdio.h>
+#include <map>
 #include "Video2.h"
 #include "himage.h"
 #include "vobject.h"
 #include "vobject_private.h"
 #include "WCheck.h"
 #include "vobject_blitters.h"
-#include "sgp.h"
+#include "wiz8/application.h"
 
 // ******************************************************************************
 // Video Object SGP Module
@@ -43,18 +44,8 @@
 // GLOBAL: WIZ8 0x00650e20
 BOOLEAN gfVideoObjectsInit = FALSE;
 
-typedef struct VOBJECT_NODE {
-    std::unique_ptr<SGPVObject, decltype(&DeleteVideoObject)> hVObject{nullptr, DeleteVideoObject};
-    UINT32 uiIndex;
-    std::unique_ptr<VOBJECT_NODE> next;
-    VOBJECT_NODE* prev;
-
-} VOBJECT_NODE;
-
 // GLOBAL: WIZ8 0x00650e24
-std::unique_ptr<VOBJECT_NODE> gpVObjectHead;
-// GLOBAL: WIZ8 0x00650e28
-VOBJECT_NODE* gpVObjectTail = nullptr;
+static std::map<UINT32, std::unique_ptr<SGPVObject>> g_video_objects;
 // GLOBAL: WIZ8 0x005ff5e8
 UINT32 guiVObjectIndex = 1;
 
@@ -88,10 +79,7 @@ BOOLEAN InitializeVideoObjectManager()
 {
     //Shouldn't be calling this if the video object manager already exists.
     //Call shutdown first...
-    Assert(!gpVObjectHead);
-    Assert(!gpVObjectTail);
-    gpVObjectHead.reset();
-    gpVObjectTail = nullptr;
+    Assert(g_video_objects.empty());
     gfVideoObjectsInit = TRUE;
     return TRUE;
 }
@@ -99,12 +87,7 @@ BOOLEAN InitializeVideoObjectManager()
 // FUNCTION: WIZ8 0x00405e80
 BOOLEAN ShutdownVideoObjectManager()
 {
-    while (gpVObjectHead) {
-        auto node = std::move(gpVObjectHead);
-        gpVObjectHead = std::move(node->next);
-    }
-    gpVObjectHead = nullptr;
-    gpVObjectTail = nullptr;
+    g_video_objects.clear();
     guiVObjectIndex = 1;
     gfVideoObjectsInit = FALSE;
     return TRUE;
@@ -121,8 +104,8 @@ BOOLEAN AddStandardVideoObject(VOBJECT_DESC* pVObjectDesc, UINT32* puiIndex)
     Assert(pVObjectDesc);
 
     // Create video object
-    auto node = std::make_unique<VOBJECT_NODE>();
-    hVObject = CreateVideoObject(pVObjectDesc);
+    auto object = std::unique_ptr<SGPVObject>(CreateVideoObject(pVObjectDesc));
+    hVObject = object.get();
 
     if (!hVObject) {
         // Video Object will set error condition.
@@ -132,18 +115,10 @@ BOOLEAN AddStandardVideoObject(VOBJECT_DESC* pVObjectDesc, UINT32* puiIndex)
     // Set transparency to default
     SetVideoObjectTransparencyColor(hVObject, FROMRGB(0, 0, 0));
 
-    // Set into video object list
-    node->hVObject.reset(hVObject);
-    node->prev = gpVObjectTail;
-    auto* tail = node.get();
-    if (gpVObjectTail)
-        gpVObjectTail->next = std::move(node);
-    else
-        gpVObjectHead = std::move(node);
-    gpVObjectTail = tail;
-    //Set the hVObject into the node.
-    gpVObjectTail->uiIndex = guiVObjectIndex += 2;
-    *puiIndex = gpVObjectTail->uiIndex;
+    const auto index = guiVObjectIndex + 2;
+    g_video_objects.emplace(index, std::move(object));
+    guiVObjectIndex = index;
+    *puiIndex = index;
     Assert(guiVObjectIndex < 0xfffffff0); //unlikely that we will ever use 2 billion vobjects!
     //We would have to create about 70 vobjects per second for 1 year straight to achieve this...
 
@@ -153,21 +128,15 @@ BOOLEAN AddStandardVideoObject(VOBJECT_DESC* pVObjectDesc, UINT32* puiIndex)
 // FUNCTION: WIZ8 0x00405fc0
 BOOLEAN GetVideoObject(HVOBJECT* hVObject, UINT32 uiIndex)
 {
-    VOBJECT_NODE* curr;
-
 #ifdef _DEBUG
     CheckValidVObjectIndex(uiIndex);
 #endif
 
-    curr = gpVObjectHead.get();
-    while (curr) {
-        if (curr->uiIndex == uiIndex) {
-            *hVObject = curr->hVObject.get();
-            return TRUE;
-        }
-        curr = curr->next.get();
-    }
-    return FALSE;
+    const auto object = g_video_objects.find(uiIndex);
+    if (object == g_video_objects.end())
+        return FALSE;
+    *hVObject = object->second.get();
+    return TRUE;
 }
 
 // FUNCTION: WIZ8 0x00405ff0
@@ -214,20 +183,7 @@ BOOLEAN DeleteVideoObjectFromIndex(UINT32 uiVObject)
     CheckValidVObjectIndex(uiVObject);
 #endif
 
-    auto* link = &gpVObjectHead;
-    while (*link) {
-        if ((*link)->uiIndex == uiVObject) {
-            auto node = std::move(*link);
-            *link = std::move(node->next);
-            if (*link)
-                (*link)->prev = node->prev;
-            else
-                gpVObjectTail = node->prev;
-                    return TRUE;
-        }
-        link = &(*link)->next;
-    }
-    return FALSE;
+    return g_video_objects.erase(uiVObject) != 0;
 }
 
 // Given indices to the destination and source video objects
@@ -286,7 +242,7 @@ HVOBJECT CreateVideoObject(VOBJECT_DESC* VObjectDesc)
         VObjectDesc->fCreateFlags & VOBJECT_CREATE_FROMHIMAGE) {
         if (VObjectDesc->fCreateFlags & VOBJECT_CREATE_FROMFILE) {
             // Create himage object from file
-            imageOwner.reset(CreateImage(VObjectDesc->ImageFile, IMAGE_ALLIMAGEDATA));
+            imageOwner.reset(CreateImage(VObjectDesc->ImageFile.c_str(), IMAGE_ALLIMAGEDATA));
             hImage = imageOwner.get();
 
             if (hImage == nullptr) {
