@@ -142,7 +142,14 @@ jobs:
           echo "WIZ8_ASSET_ROOT=$game_root" >> "$GITHUB_ENV"
 
       - name: Test native contracts and licensed runtime scenarios
-        run: ctest --preset ${{ matrix.preset }} --output-on-failure
+        run: |
+          if [[ '${{ matrix.preset }}' == linux-asan ]]; then
+            # SDL unloads the software Vulkan ICD before LSan scans globals.
+            # Keep Mesa and its dependencies mapped so process-lifetime driver
+            # allocations retain their real roots. Project leak checks stay on.
+            export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libvulkan_lvp.so
+          fi
+          ctest --preset ${{ matrix.preset }} --output-on-failure
 
       - name: Remove decrypted game assets
         if: always() && steps.game-assets.outputs.enabled == 'true'

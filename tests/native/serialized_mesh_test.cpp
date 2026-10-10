@@ -49,10 +49,11 @@ void WriteFixture(const std::filesystem::path& path, bool duplicate_successor, b
     auto file = wiz8::open_host_file(path, wiz8::OpenMode::replace);
     Write(*file, 4u); // Two roots and two successors.
     Write(*file, 2u);
-    Write(*file, short{1});
+    Write(*file, short{2});
     W8MaterialRecord material{};
     material.version = 1;
     file->write(&material, 0x11a);
+    file->write(&material, 0x11a); // Unused material must still have a cache owner.
     Write(*file, -1);
     WriteMesh(*file, -1);
     WriteMesh(*file, -1);
@@ -142,6 +143,7 @@ bool LoadCycles(const std::filesystem::path& path)
         CHECK(lifetime.expired());
         ReleaseReadMeshScratch();
         ReleaseRetainedMaterials();
+        CHECK(srCore.getRegistry()->getNumberOfInstances(stMaterial::sGetClassNode(), 0) == 1);
     }
     return true;
 }

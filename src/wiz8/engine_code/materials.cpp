@@ -141,9 +141,6 @@ void stMaterial::getMaterialInfo(srVertexProcessor::MaterialInfo& info)
 // FUNCTION: WIZ8 0x00492720
 stMaterial::~stMaterial()
 {
-    if (IsReadMeshMaterial(this)) {
-        ReleaseReadMeshScratch();
-    }
 }
 
 /* ===== OctBuild level preprocessing =====
@@ -2223,7 +2220,6 @@ unsigned char LoadMaterial(const char* bitmap_folder, const W8MaterialRecord* so
             }
         }
     }
-    (*material)->addReference();
     return 1;
 }
 

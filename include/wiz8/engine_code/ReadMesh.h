@@ -31,7 +31,6 @@ class stMeshModel;
 class srMeshModel;
 class srClass;
 
-bool IsTextureInReadMeshScratch(const srTextureIFace* texture);
 unsigned char ReadSingleLevelMesh(W8ReadLevelInfo* info, srModelInstance** instance,
                                   int unused_first, int unused_second, const char* name,
                                   bool load_materials);
@@ -40,7 +39,6 @@ unsigned char ReadMultipleLevelMeshes(W8ReadLevelInfo* info, srModelInstance** i
 unsigned char SkipSingleLevelMesh(W8ReadLevelInfo* info);
 void ReleaseReadMeshScratch();
 void ReleaseRetainedMaterials();
-bool IsReadMeshMaterial(const srClass* material);
 unsigned char ReadSingleLevelMeshBody(W8ReadLevelInfo* info, srModelInstance** instance, int, int,
                                       const char* name, bool load_materials);
 std::shared_ptr<stMeshModel>

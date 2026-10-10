@@ -5,6 +5,8 @@
 #include "wiz8/engine_code/stModelInstance.h"
 
 #include <cstdio>
+#include <cstdlib>
+#include "wiz8/npc_script_file.h"
 #include <memory>
 #include <stdexcept>
 
@@ -98,8 +100,45 @@ static bool reusable_factory_boundary()
     return true;
 }
 
+static bool npc_script_teardown()
+{
+    auto* file = static_cast<W8NpcScriptFile*>(std::calloc(1, sizeof(W8NpcScriptFile)));
+    std::unique_ptr<W8NpcScriptFile, decltype(&ReleaseNpcScriptFile)> owner(file, &ReleaseNpcScriptFile);
+    CHECK(file);
+    file->name = static_cast<char*>(std::calloc(8, 1));
+    file->quote_count = 2;
+    file->quotes = static_cast<W8NpcScriptQuote*>(std::calloc(2, sizeof(W8NpcScriptQuote)));
+    CHECK(file->quotes);
+    for (int index = 0; index != 2; ++index) {
+        auto& quote = file->quotes[index];
+        quote.subquote_count = 2;
+        quote.subquotes = static_cast<char**>(std::calloc(2, sizeof(char*)));
+        CHECK(quote.subquotes);
+        for (int text = 0; text != 2; ++text)
+            quote.subquotes[text] = static_cast<char*>(std::calloc(8, 1));
+        quote.entry_count = 2;
+        quote.entries = static_cast<W8NpcQuoteEntry*>(std::calloc(2, sizeof(W8NpcQuoteEntry)));
+        CHECK(quote.entries);
+        for (int entry = 0; entry != 2; ++entry) {
+            auto& record = quote.entries[entry];
+            record.sub_entry_count = 2;
+            record.sub_entries = static_cast<W8NpcQuoteSubEntry*>(std::calloc(2, sizeof(W8NpcQuoteSubEntry)));
+            CHECK(record.sub_entries);
+            for (int sub = 0; sub != 2; ++sub)
+                record.sub_entries[sub].text = static_cast<char*>(std::calloc(8, 1));
+        }
+    }
+    owner.reset();
+    file = static_cast<W8NpcScriptFile*>(std::calloc(1, sizeof(W8NpcScriptFile)));
+    owner.reset(file);
+    CHECK(file);
+    file->name = static_cast<char*>(std::calloc(8, 1));
+    // Zero-quote scripts still own their name and header.
+    return true;
+}
+
 int main()
 {
-    if (!shutdown_survivors() || !shutdown_survivors() || !reusable_factory_boundary()) return 1;
+    if (!shutdown_survivors() || !shutdown_survivors() || !reusable_factory_boundary() || !npc_script_teardown()) return 1;
     std::puts("ok: detached resource destruction, interrupted scenes, reinitialization and reuse ownership");
 }

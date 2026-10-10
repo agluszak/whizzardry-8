@@ -113,6 +113,7 @@ void ShutdownGame(size_t initialized_screens, bool save_configuration)
     ReleaseAllTriggers();
     FreeStringTable();
     DestroyGameplayObjects();
+    FreeStatusBuffers(&g_status.buffers);
     if (save_configuration)
         SaveGameConfiguration();
 }

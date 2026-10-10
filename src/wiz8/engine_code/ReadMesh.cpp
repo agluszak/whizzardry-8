@@ -73,31 +73,6 @@ static short g_read_mesh_scratch_count;
 // GLOBAL: WIZ8 0x0065B9CC
 static int g_read_mesh_material_count;
 
-// FUNCTION: WIZ8 0x00489A80
-bool IsTextureInReadMeshScratch(const srTextureIFace* texture)
-{
-    if (!g_read_mesh_textures.empty() && g_read_mesh_scratch_count != 0) {
-        for (short index = 0; index < g_read_mesh_scratch_count; ++index) {
-            if (g_read_mesh_textures[index] == texture) {
-                return true;
-            }
-        }
-    }
-    return false;
-}
-
-// FUNCTION: WIZ8 0x00489AC0
-bool IsReadMeshMaterial(const srClass* material)
-{
-    if (!g_read_mesh_materials.empty() && g_read_mesh_scratch_count != 0) {
-        for (short index = 0; index < g_read_mesh_scratch_count; ++index) {
-            if (g_read_mesh_materials[index] == material) {
-                return true;
-            }
-        }
-    }
-    return false;
-}
 // GLOBAL: WIZ8 0x0065B9E4
 static unsigned int g_read_mesh_index;
 // GLOBAL: WIZ8 0x0065BA00
@@ -107,12 +82,7 @@ static srTextureIFace** g_multi_mesh_textures;
 
 // GLOBAL: WIZ8 0x0065BA04
 static srShader* g_multi_mesh_render_flags;
-/* The retained-texture list is a W8GrowableVector at 0x0065B9D0,
-   constructed with capacity five by the initializer at 0x00485AF0.
-   Both retention passes store srTextureIFace pointers and release them
-   through the inherited srClass interface. */
-// GLOBAL: WIZ8 0x0065b9d0
-static W8GrowableVector<srTextureIFace*> g_retained_textures(5);
+
 
 namespace {
 
@@ -767,6 +737,8 @@ static int ReadMeshMaterials(W8ReadLevelInfo* info, srMaterialIFace*** materials
             LoadMaterial(info->bitmap_folder, g_read_mesh_material_records.data() + index, *materials + index,
                          *textures + index, *render_flags + index, load_materials);
         }
+        if ((*materials)[index]) (*materials)[index]->addReference();
+        if ((*textures)[index]) (*textures)[index]->addReference();
     }
     return count;
 }
@@ -984,17 +956,6 @@ try
         }
     }
 
-    /* Retail 0x0048662b walks the texture array (the [esp+0x54] slot that
-       ReadMeshMaterials filled as its third argument) with the material
-       count: textures nothing references yet are kept alive here. */
-    for (int index = 0; index < material_count; ++index) {
-        srTextureIFace* texture = textures[index];
-        if (texture != 0 && texture->getReferenceCount() == 0) {
-            g_retained_textures.Add(texture);
-            texture->addReference();
-        }
-    }
-
     if (first_model != 0) {
         srVector3T<float> minimum;
         srVector3T<float> maximum;
@@ -1092,16 +1053,6 @@ try
                      "NewReadMesh: Incorrect offset in file at end of mesh.");
     }
 
-    /* Retail 0x0048853e reads g_multi_mesh_textures (0x0065B9FC), not the
-       material array, for the same retention pass. */
-    for (int index = 0; index < g_read_mesh_material_count; ++index) {
-        srTextureIFace* texture = g_multi_mesh_textures[index];
-        if (texture != 0 && texture->getReferenceCount() == 0) {
-            g_retained_textures.Add(texture);
-            texture->addReference();
-        }
-    }
-
     return 1;
 }
 catch (const std::exception&) { return false; }
@@ -1109,10 +1060,7 @@ catch (const std::exception&) { return false; }
 // FUNCTION: WIZ8 0x00489920
 void ReleaseRetainedMaterials()
 {
-    while (g_retained_textures.GetCount() != 0) {
-        (*g_retained_textures.GetAt(0))->release();
-        g_retained_textures.RemoveAt(0);
-    }
+    ReleaseReadMeshScratch();
 }
 
 // FUNCTION: WIZ8 0x00489980
@@ -1137,6 +1085,8 @@ void ClearMaterialRecordPadding(W8MaterialRecord* material)
 // FUNCTION: WIZ8 0x004881d0
 void ReleaseReadMeshScratch()
 {
+    auto materials = std::move(g_read_mesh_materials);
+    auto textures = std::move(g_read_mesh_textures);
     g_read_mesh_materials.clear();
     g_read_mesh_textures.clear();
     g_read_mesh_render_flags.clear();
@@ -1145,6 +1095,8 @@ void ReleaseReadMeshScratch()
     g_multi_mesh_materials = nullptr;
     g_multi_mesh_textures = nullptr;
     g_multi_mesh_render_flags = nullptr;
+    for (auto* material : materials) if (material) material->release();
+    for (auto* texture : textures) if (texture) texture->release();
 }
 
 // FUNCTION: WIZ8 0x00487bd0

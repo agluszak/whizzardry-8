@@ -824,14 +824,12 @@ unsigned char W8CharacterEvent::Dispatch()
             }
             if ((flags & W8_EVENT_NPC_SCRIPT) != 0) {
                 SetNpcScriptEventActive(1);
-                ReleaseNpcScriptFile(npc->script_file);
                 ReloadNpcScriptResources(npc);
             }
             BeginNpcScriptDialogue(npc, 1);
             RunNpcScriptLine(event_type, (flags & W8_EVENT_NPC_SCRIPT) != 0);
             if ((flags & W8_EVENT_NPC_SCRIPT) != 0) {
                 SetNpcScriptEventActive(0);
-                ReleaseNpcScriptFile(npc->script_file);
                 ReloadNpcScriptResources(npc);
             }
             slot->active_character_event = this;
