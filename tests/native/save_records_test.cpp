@@ -7,6 +7,9 @@
 #include <wiz8/file_time.h>
 #include "wiz8/chunk.h"
 #include "wiz8/engine_code/3d.h"
+#include "wiz8/engine_code/GameData.h"
+#include "wiz8/engine_code/GDCamera.h"
+#include "wiz8/engine_code/IntervalGate.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/npc_state.h"
@@ -203,8 +206,39 @@ static void save_file_contracts(const std::filesystem::path& user)
     chunks.Close();
 }
 
+static void packed_camera_angles()
+{
+    GDCamera camera;
+    auto* previous = g_gd_camera;
+    g_gd_camera = &camera;
+    alignas(float) struct PackedCamera {
+        char padding;
+        W8WorldCameraState state;
+    } packed{};
+    CHECK(reinterpret_cast<uintptr_t>(&packed.state) % alignof(float) != 0);
+    GetCameraOrientation(packed.state.yaw, packed.state.pitch);
+    W8CameraAngleRecord yaw, pitch;
+    memcpy(yaw, packed.state.yaw, sizeof(yaw));
+    memcpy(pitch, packed.state.pitch, sizeof(pitch));
+    for (unsigned i = 0; i < 6; ++i) CHECK(yaw[i] == 0 && pitch[i] == 0);
+    yaw[0] = 0.5f;
+    pitch[0] = 0.25f;
+    yaw[5] = 123.0f;
+    pitch[5] = 456.0f;
+    memcpy(packed.state.yaw, yaw, sizeof(yaw));
+    memcpy(packed.state.pitch, pitch, sizeof(pitch));
+    SetCameraOrientation(packed.state.yaw, packed.state.pitch, nullptr);
+    CHECK(camera.m_yaw == 0.5f && camera.m_pitch == 0.25f);
+    memcpy(yaw, packed.state.yaw, sizeof(yaw));
+    memcpy(pitch, packed.state.pitch, sizeof(pitch));
+    CHECK(yaw[0] == 0.5f && pitch[0] == 0.25f && yaw[5] == 123.0f && pitch[5] == 456.0f);
+    g_gd_camera = previous;
+    delete camera.m_manual_input_timer;
+}
+
 int main()
 {
+    packed_camera_angles();
     const auto temporary = make_temporary_directory("wiz8-save-records");
     const auto root = wiz8::path_from_utf8(temporary);
     const auto assets = root / "assets", user = root / "user";

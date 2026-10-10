@@ -41,7 +41,15 @@ struct W8CharacterSpellUsageRecord {
     unsigned int usable_cast_count;
     unsigned char unknown_0c[4];
 };
+#pragma pack(pop)
 
+static_assert(sizeof(W8StatusBuffers) == 0x0c);
+static_assert(sizeof(W8ItemSpellUsageRecord) == 0x10);
+static_assert(sizeof(W8CharacterSpellUsageRecord) == 0x10);
+static_assert(offsetof(W8CharacterSpellUsageRecord, cast_count) == 0x4);
+static_assert(offsetof(W8CharacterSpellUsageRecord, usable_cast_count) == 0x8);
+
+// Live state, not a disk record. Offset comments refer to retail layout.
 struct W8GlobalStatus {
     W8StatusBuffers buffers;
     bool game_started; /* 0x000c */
@@ -75,7 +83,7 @@ struct W8GlobalStatus {
     unsigned char unknown_2013[0x294];
     /* 0x22a7: CamPos staged by recall when the anchor is on another level;
        LoadLevel restores it after the new world exists. */
-    W8WorldCameraState pending_move_location;
+    alignas(float) W8WorldCameraState pending_move_location;
     /* 0x22e3: the party-wide modifier block the effect rebuild clears and
        refills. Its +0x4a flag is the light gate the monster-sight threshold
        pass reads. */
@@ -207,10 +215,11 @@ struct W8GlobalStatus {
        the save slot as dev_flagged. */
     bool dev_flagged;
 };
-#pragma pack(pop)
+
+static_assert(offsetof(W8GlobalStatus, pending_move_location) % alignof(float) == 0);
+static_assert(offsetof(W8GlobalStatus, status_header_suffix) + sizeof(W8GlobalStatus::status_header_suffix) -
+              offsetof(W8GlobalStatus, status_header_prefix) == 0x100);
 
 extern W8GlobalStatus g_status;
-
-#include "wiz8/evidence/game_status_layout.inc"
 
 #endif
