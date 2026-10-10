@@ -107,13 +107,18 @@ static bool lookup()
         }
 
         // Palette reuse uses exact-type iteration rather than a name lookup.
-        auto* palette = new srPalette(nullptr, 2);
+        auto palette = std::make_shared<srPalette>(nullptr, 2);
         srARGB colors[2];
         std::memset(colors, 0, sizeof(colors));
         palette->setColor(0, colors[0]);
         palette->setColor(1, colors[1]);
         CHECK(srPalette::findMatchingPalette(colors, 2) == palette);
-        CHECK(palette->release());
+        palette.reset();
+        srPalette borrowed_palette(colors, 2);
+        auto match = srPalette::findMatchingPalette(colors, 2);
+        CHECK(match && match.get() != &borrowed_palette);
+        CHECK(match->matchPalette(colors, 2));
+        CHECK(srPalette::findMatchingPalette(colors, 2) == match);
     }
     CHECK(registry->getNumberOfInstances(runtime, 0) == baseline);
     CHECK(registry->find(nodes, deleted_id) == nullptr);

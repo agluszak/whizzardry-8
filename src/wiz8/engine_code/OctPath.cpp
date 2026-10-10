@@ -5183,15 +5183,10 @@ stModelInstance* W8PathingService::EnsurePathVisualization()
     const int vertex_count = 0x30d4;
     auto model = std::make_shared<stMeshModel>(polygon_count, vertex_count);
     int index;
-
-    if (model == 0) {
-        srAssertFail("pstMeshModel", OCTPATH_CPP, 0x11e9,
-                     "CreateWayPointMesh::Read -- Could not create pstMeshModel.\n");
-    }
     model->flags &= ~W8_MESH_SORTED_RENDERING;
     model->setShader(*g_oct_mesh_default_shader, 0);
     model->setName("WayPoint Mesh");
-    model->duplicate_on_reuse = 0;
+    model->setReusable(false);
 
     srVector3i* polygons = model->getPolyVertex();
     srPtr<srTextureIFace>* textures = model->getPolyTexture(0, 0, 1);

@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <atomic>
 #include <utility>
+#include <stdexcept>
 #include <ostream>
 #include <string.h>
 
@@ -80,7 +81,11 @@ void srRuntimeClass::getUniqueName(std::ostream& stream) const
 // FUNCTION: SURRENDER 0x10011950
 void srRuntimeClass::setName(std::string name)
 {
-    srCore.getRegistry()->renameInstance(this, std::move(name));
+    if (registry_) {
+        registry_->renameInstance(this, std::move(name));
+    } else {
+        this->name = std::move(name);
+    }
 }
 
 // FUNCTION: SURRENDER 0x100119D0
@@ -94,7 +99,9 @@ srRuntimeClass::srRuntimeClass()
 // FUNCTION: SURRENDER 0x10011A40
 srRuntimeClass::~srRuntimeClass()
 {
-    srCore.getRegistry()->unregisterInstance(this);
+    if (registry_) {
+        registry_->unregisterInstance(this);
+    }
 }
 
 // FUNCTION: SURRENDER 0x10011AB0
@@ -334,10 +341,20 @@ int srRegistry::isDerivedOrSame(ClassNode* base, ClassNode* derived)
     return 0;
 }
 
+srRegistry::~srRegistry()
+{
+    // Surviving resources may be destroyed after srExit(), including after
+    // another srInit(). They must never unregister from a different registry.
+    for (auto& [id, instance] : instances) {
+        instance.object->registry_ = nullptr;
+    }
+}
+
 void srRegistry::registerInstance(srRuntimeClass* instance)
 {
     std::lock_guard lock(mutex);
     instances.emplace(instance->getID(), Instance{instance, {}});
+    instance->registry_ = this;
 }
 
 void srRegistry::renameInstance(srRuntimeClass* instance, std::string name)
@@ -366,6 +383,7 @@ void srRegistry::unregisterInstance(srRuntimeClass* instance)
         named->second.remove(instance);
         if (named->second.empty()) names.erase(named);
     }
+    instance->registry_ = nullptr;
     instances.erase(found);
 }
 
@@ -477,14 +495,23 @@ void srRegistry::dumpClassHierarchy(std::ostream& stream)
 }
 
 // FUNCTION: SURRENDER 0x1000E240
+void srClass::requireIntrusiveOwnership() const
+{
+    if (!hasIntrusiveOwnership()) {
+        throw std::logic_error("Intrusive ownership is forbidden for this resource");
+    }
+}
+
 void srClass::addReference() const
 {
+    requireIntrusiveOwnership();
     ++reference_count;
 }
 
 // FUNCTION: SURRENDER 0x1000E250
 void srClass::autoRelease()
 {
+    requireIntrusiveOwnership();
     if (reference_count == 1) {
         reference_count = 0;
     }
@@ -500,6 +527,7 @@ int srClass::release() const
         return 1;
     }
 
+    requireIntrusiveOwnership();
     if (--reference_count <= 0) {
         delete this;
         return 1;
@@ -510,5 +538,6 @@ int srClass::release() const
 // FUNCTION: SURRENDER 0x1000E840
 w8_long srClass::getReferenceCount() const
 {
+    requireIntrusiveOwnership();
     return reference_count;
 }

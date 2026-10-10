@@ -1473,7 +1473,7 @@ stModelInstance* W8GameData::CreateTraceModel()
         }
     }
     mesh->setName("GameData Mesh");
-    mesh->duplicate_on_reuse = 0;
+    mesh->setReusable(false);
     mesh->flags &= ~W8_MESH_VERTEX_LIGHTING_DIRTY;
     stModelInstance* instance = CreateModelInstance(mesh);
     instance->setName("GameData Mesh");

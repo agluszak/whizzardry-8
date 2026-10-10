@@ -1050,7 +1050,7 @@ private:
     /* Accumulation buffer: width*height pixels plus one ARGB scratch row. */
     std::vector<AccumPixel> accum_buffer;
     std::vector<srARGB> accum_scratch;
-    std::unique_ptr<srColorSurfaceIFace> lock_surface;
+    std::unique_ptr<LockSurface> lock_surface;
     /* Buffer-lock nesting depth; _lockBuffer only locks the device on the
        first entry and _unlockBuffer unlocks when this returns to zero. */
     w8_long buffer_lock_count;

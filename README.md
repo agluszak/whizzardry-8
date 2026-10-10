@@ -98,6 +98,13 @@ transfers, CPU surfaces, pixel/blitter differentials, offline/positional audio,
 typed ownership/lifetimes, fatal assertions, movie decoding and SurRender interfaces.
 GPU tests need a working
 display/Vulkan driver; `native_events` uses SDL's dummy driver.
+The `linux-asan` configure/build/test presets run the same suite with AddressSanitizer
+and leak detection. CI runs both presets with the encrypted licensed-asset workflow.
+The `resource-lifecycle` runtime scenario loads a retail level, renders linked meshes
+and animated textures, evicts and recreates resident textures, quick-loads twice,
+and shuts down with resources resident. Asset-independent fixtures also load serialized
+linked meshes and test interrupted initialization and destruction after `srExit()`.
+
 CI builds Linux with native Clang; the first-party host-width wide-string import
 check runs only on Unix. macOS, Windows and interactive graphics/gameplay remain
 unverified in CI.

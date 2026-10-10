@@ -200,7 +200,7 @@ target_link_libraries(native_runtime_test PRIVATE WIZ8_GAME_CORE SDL3::SDL3)
 target_compile_definitions(native_runtime_test PRIVATE
     WIZ8_RUNTIME_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/runtime/fixtures")
 set(WIZ8_RUNTIME_SAVE_FIXTURE "${CMAKE_CURRENT_BINARY_DIR}/runtime-fixtures")
-foreach(scenario video character game-start world quick-save combat save-fixture load-game)
+foreach(scenario video character game-start world resource-lifecycle quick-save combat save-fixture load-game)
     set(arguments ${scenario})
     if(scenario MATCHES "fixture|load-game")
         list(APPEND arguments "${WIZ8_RUNTIME_SAVE_FIXTURE}")
@@ -213,3 +213,12 @@ endforeach()
 # One saved game shared by the load scenarios, written once per run.
 set_tests_properties(runtime_save-fixture PROPERTIES FIXTURES_SETUP runtime_save)
 set_tests_properties(runtime_load-game PROPERTIES FIXTURES_REQUIRED runtime_save)
+
+add_executable(native_resource_lifecycle_test native/resource_lifecycle_test.cpp)
+target_link_libraries(native_resource_lifecycle_test PRIVATE WIZ8_GAME_CORE)
+add_test(NAME native_resource_lifecycle COMMAND native_resource_lifecycle_test)
+
+add_executable(native_serialized_mesh_test native/serialized_mesh_test.cpp)
+target_include_directories(native_serialized_mesh_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/native")
+target_link_libraries(native_serialized_mesh_test PRIVATE WIZ8_GAME_CORE)
+add_test(NAME native_serialized_mesh COMMAND native_serialized_mesh_test)

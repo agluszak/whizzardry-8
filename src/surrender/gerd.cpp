@@ -74,6 +74,46 @@ void srGERD::TexturePool::release(Texture* texture)
 // RECOMP: ??0MatrixStack@srGERD@@QAE@XZ
 srGERD::MatrixStack::MatrixStack() : depth(0) {}
 
+class srGERD::LockSurface : public srClassSupport<LockSurface, srColorSurfaceIFace, 0x3111> {
+public:
+    LockSurface(srGERD* gerd, const srPixelConvert::PixelFormat& format);
+    virtual ~LockSurface() override;
+    LockSurface& operator=(const LockSurface&) = default;
+    // FUNCTION: SURRENDER 0x1001F780
+    static const char* sGetClassName()
+    {
+        return "srGERD::Surface";
+    }
+    /* Cannot construct a LockSurface without the owning GERD and pixel format. */
+    virtual srClass* vInstance() override;
+    virtual void getPixelColumn(w8_ulong* pixels, w8_long x, w8_long y0, w8_long y1) override;
+    virtual void setPixelColumn(const w8_ulong* pixels, w8_long x, w8_long y0, w8_long y1) override;
+    virtual void* getDataPtr() override;
+    virtual w8_long getDataSize() override;
+    virtual void setHLine(w8_long y, w8_long x0, w8_long x1, w8_ulong pixel) override;
+    virtual void getPixelRow(w8_ulong* pixels, w8_long y, w8_long x0, w8_long x1) override;
+    virtual void setPixelRow(const w8_ulong* pixels, w8_long y, w8_long x0, w8_long x1) override;
+    virtual void getPixelRowRaw(void* pixels, w8_long y, w8_long x0, w8_long x1) override;
+    virtual void setPixelRowRaw(const void* pixels, w8_long y, w8_long x0, w8_long x1) override;
+    void setScissor(w8_ulong left, w8_ulong top, w8_ulong right,
+                    w8_ulong bottom);
+
+private:
+    srGERD* gerd;
+    w8_ulong left;
+    w8_ulong top;
+    w8_ulong right;
+    w8_ulong bottom;
+    srColorSurface scratch;
+
+public:
+    /* Set by lockBuffer when the locked pixel format is 32-bit ARGB. */
+    unsigned char argb32;
+
+private:
+};
+
+
 // FUNCTION: SURRENDER 0x10019320
 srGERD::srGERD(srDD* device, const char* device_name)
     : dirty(0), state_flags(0), device{}, state{}, frame_statistics{}, statistics{},
@@ -1687,45 +1727,6 @@ void srGERD::accumClear()
 /* Locked-buffer surface created by lockBuffer. It keeps its own scissor rect and proxies pixel
    access through device bufferOp commands, staging through a 1-pixel-high srColorSurface scratch
    buffer when the locked format is not 32-bit ARGB. */
-class srGERD::LockSurface : public srClassSupport<LockSurface, srColorSurfaceIFace, 0x3111> {
-public:
-    LockSurface(srGERD* gerd, const srPixelConvert::PixelFormat& format);
-    virtual ~LockSurface() override;
-    LockSurface& operator=(const LockSurface&) = default;
-    // FUNCTION: SURRENDER 0x1001F780
-    static const char* sGetClassName()
-    {
-        return "srGERD::Surface";
-    }
-    /* Cannot construct a LockSurface without the owning GERD and pixel format. */
-    virtual srClass* vInstance() override;
-    virtual void getPixelColumn(w8_ulong* pixels, w8_long x, w8_long y0, w8_long y1) override;
-    virtual void setPixelColumn(const w8_ulong* pixels, w8_long x, w8_long y0, w8_long y1) override;
-    virtual void* getDataPtr() override;
-    virtual w8_long getDataSize() override;
-    virtual void setHLine(w8_long y, w8_long x0, w8_long x1, w8_ulong pixel) override;
-    virtual void getPixelRow(w8_ulong* pixels, w8_long y, w8_long x0, w8_long x1) override;
-    virtual void setPixelRow(const w8_ulong* pixels, w8_long y, w8_long x0, w8_long x1) override;
-    virtual void getPixelRowRaw(void* pixels, w8_long y, w8_long x0, w8_long x1) override;
-    virtual void setPixelRowRaw(const void* pixels, w8_long y, w8_long x0, w8_long x1) override;
-    void setScissor(w8_ulong left, w8_ulong top, w8_ulong right,
-                    w8_ulong bottom);
-
-private:
-    srGERD* gerd;
-    w8_ulong left;
-    w8_ulong top;
-    w8_ulong right;
-    w8_ulong bottom;
-    srColorSurface scratch;
-
-public:
-    /* Set by lockBuffer when the locked pixel format is 32-bit ARGB. */
-    unsigned char argb32;
-
-private:
-};
-
 // FUNCTION: SURRENDER 0x100205D0
 srGERD::LockSurface::LockSurface(srGERD* gerd, const srPixelConvert::PixelFormat& format)
     : scratch(format, std::max(gerd->getWidth(), gerd->getHeight()), 1)
@@ -2137,7 +2138,7 @@ void srGERD::recalcScissor()
     }
     getDD()->setScissor(state.scissor);
     if (lock_surface != 0) {
-        static_cast<LockSurface*>(lock_surface.get())->setScissor(state.scissor.left, state.scissor.top, state.scissor.right,
+        lock_surface->setScissor(state.scissor.left, state.scissor.top, state.scissor.right,
                                  state.scissor.bottom);
     }
 }
@@ -3596,14 +3597,14 @@ srColorSurfaceIFace* srGERD::lockBuffer()
     srPixelConvert::PixelFormat format;
     getPixelFormat(format);
     lock_surface = std::make_unique<LockSurface>(this, format);
-    static_cast<LockSurface*>(lock_surface.get())->setScissor(state.scissor.left, state.scissor.top, state.scissor.right,
+    lock_surface->setScissor(state.scissor.left, state.scissor.top, state.scissor.right,
                              state.scissor.bottom);
     if (format.color_model == srPixelConvert::COLOR_RGB &&
         format.pixel_size == srPixelConvert::PIXEL_SIZE_32 && format.red_bits == 8 &&
         format.green_bits == 8 && format.blue_bits == 8 && format.alpha_bits == 8 &&
         format.red_shift == 0x10 && format.green_shift == 8 && format.blue_shift == 0 &&
         format.alpha_shift == 0x18) {
-        static_cast<LockSurface*>(lock_surface.get())->argb32 = 1;
+        lock_surface->argb32 = 1;
     }
     return lock_surface.get();
 }

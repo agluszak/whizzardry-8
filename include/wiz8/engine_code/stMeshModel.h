@@ -100,7 +100,14 @@ public:
     std::vector<srVector3T<float> > vertex_lights[2];
     /* Per-vertex sunlight intensity, filled with 1.0f on demand. */
     std::vector<float> vertex_sunlight;
-    unsigned char duplicate_on_reuse;
+    // Reuse is enabled only after the mesh head has a shared owner.
+    bool canReuse() const { return reusable_; }
+    void setReusable(bool reusable);
+
+private:
+    bool reusable_ = false;
+
+public:
     /* Set once both vertex lights and sunlight exist. */
     bool vertex_lighting_ready;
     unsigned char padding_3ce[2];

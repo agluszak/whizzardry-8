@@ -69,7 +69,7 @@ void stTexture2D::setupDefaultValues()
 stSurface2D::stSurface2D(std::shared_ptr<srColorSurfaceIFace> source, int source_width, int source_height,
                          srNode* parent, int tile_extent)
     : srClassSupport<stSurface2D, srNode, 0x1000e>(static_cast<srNode*>(0)),
-      source_surface(source), vertex_array_mask(1 << srRendererDefs::VERTEX_ARRAY_TEXCOORD0),
+      vertex_array_mask(1 << srRendererDefs::VERTEX_ARRAY_TEXCOORD0),
       shader_bits(0x100a017), tile_size(tile_extent),
       columns((source_width + tile_extent - 1) / tile_extent),
       rows((source_height + tile_extent - 1) / tile_extent), tile_count(columns * rows),

@@ -277,15 +277,11 @@ static bool loaded_model_ownership()
         }
     }
     W8GrowableVector<short> mapped_values, mapped_keys;
-    unsigned int mesh_count = 0, map_count = 0;
-    int** maps = nullptr;
+    unsigned int mesh_count = 0;
+    std::vector<std::vector<int>> maps;
     auto model = BuildSingleLevelMesh(3, faces, 9, 3, materials, textures, shaders,
-                                     &mesh_count, &maps, &map_count, &mapped_values, &mapped_keys);
-    CHECK(model && mesh_count == 2 && map_count == 2);
-    for (unsigned int index = 0; index < map_count; ++index) {
-        std::free(maps[index]);
-    }
-    std::free(maps);
+                                     &mesh_count, maps, &mapped_values, &mapped_keys);
+    CHECK(model && mesh_count == 2 && maps.size() == 2);
     CHECK(model->next && model->next->previous == model.get());
     CHECK(first_material.getReferenceCount() == 4 && second_material.getReferenceCount() == 4);
     CHECK(third_material.getReferenceCount() == 2);

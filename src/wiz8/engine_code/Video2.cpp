@@ -1188,9 +1188,6 @@ srModelInstance* MakePolygonBrush(srNode* parent, std::shared_ptr<srColorSurface
     srShader shader;
 
     model = std::make_shared<srMeshModel>(0L, 0L);
-    if (!model) {
-        return 0;
-    }
     model->setName("Video2DMakePolygonBrush");
 
     g_modeler->createGrid(1, 1);
@@ -1242,9 +1239,6 @@ stModelInstance2D* CreateSpriteFromTexture(srTextureIFace* texture, double width
     int h = static_cast<int>(height * 480.0);
 
     auto model = std::make_shared<srMeshModel>(0L, 0L);
-    if (!model) {
-        return 0;
-    }
     model->setName("Video2DMakePolygonBrush");
 
     float step = g_surface_scale * (g_float_one / w);
@@ -2075,22 +2069,10 @@ unsigned char InitializeMouseSurface(void)
 {
     if (g_pixel_format == 7) {
         g_mouse_surface = std::make_shared<srColorSurface>(srPixelConvert::SURFACE_RGB565, 128UL, 128UL);
-        if (!g_mouse_surface) {
-            srAssertFail("psrMouseSurface", "C:\\Projects\\Wizardry 8\\Engine Code\\Video2.cpp",
-                         0x641, 0);
-        }
     } else if (g_pixel_format == 8) {
         g_mouse_surface = std::make_shared<srColorSurface>(srPixelConvert::SURFACE_RGB555, 128UL, 128UL);
-        if (!g_mouse_surface) {
-            srAssertFail("psrMouseSurface", "C:\\Projects\\Wizardry 8\\Engine Code\\Video2.cpp",
-                         0x635, 0);
-        }
     } else if (g_pixel_format == 9) {
         g_mouse_surface = std::make_shared<srColorSurface>(srPixelConvert::SURFACE_ARGB1555, 128UL, 128UL);
-        if (!g_mouse_surface) {
-            srAssertFail("psrMouseSurface", "C:\\Projects\\Wizardry 8\\Engine Code\\Video2.cpp",
-                         0x63b, 0);
-        }
     } else {
         return 0;
     }
@@ -2199,8 +2181,6 @@ unsigned char InitializeRendererSceneObjects(void)
     g_primary_color_surface = std::make_shared<srColorSurface>(
         srPixelConvert::SURFACE_ARGB1555, surface_description.pixels, 640UL, 480UL,
         static_cast<w8_ulong>(surface_description.pitch));
-    if (!g_primary_color_surface)
-        return 0;
 
     g_surface_node = new stSurface2D(g_primary_color_surface, 640, 480, g_scene_overlay0, 128);
     if (!g_surface_node)
@@ -2858,9 +2838,6 @@ srModelInstance* Video2DRectToPolygon(const W8ControlsRect* rect, void* source, 
 
     auto surface = std::make_shared<srColorSurface>(srPixelConvert::SURFACE_ARGB1555, static_cast<w8_ulong>(extent),
                                static_cast<w8_ulong>(extent));
-    if (surface == 0) {
-        return 0;
-    }
     surface->setFilter(&srBoxFilter);
     float scale_x;
     float scale_y;
@@ -2900,9 +2877,6 @@ void VideoToolTip(CHAR16* text)
         return;
     }
     auto surface = std::make_unique<srColorSurface>(srPixelConvert::SURFACE_ARGB1555, 0xfeUL, 0xfeUL);
-    if (surface == 0) {
-        return;
-    }
     W8ControlsRect bounds;
     bounds.left = 0;
     bounds.top = 0;
@@ -3255,9 +3229,6 @@ srNode* MakePosterQuad(srTextureIFace* texture, float width, float height, bool 
     srPixelConvert::mapPixelFormat(srPixelConvert::SURFACE_ARGB4444, format);
 
     auto model = std::make_shared<stMeshModel>(0, 0);
-    if (model == 0) {
-        return 0;
-    }
     float extent_w = g_float_one / dimensions.width * g_surface_scale;
     float extent_h = g_float_one / dimensions.height * g_surface_scale;
     model->setName("VideoMakePoster");

@@ -2,6 +2,7 @@
 #include <cctype>
 #include <memory>
 #include <utility>
+#include <stdexcept>
 
 #include "wiz8/engine_code/stMeshModel.h"
 
@@ -43,7 +44,6 @@ static int g_decompressed_mesh_byte_limit = 0x800000;
 stMeshModel::stMeshModel(w8_long polygons, w8_long vertices)
     : srClassSupport<stMeshModel, srMeshModel, 0x10003>(polygons, vertices)
 {
-    duplicate_on_reuse = 1;
     vertex_lighting_ready = false;
     previous = 0;
     next = 0;
@@ -55,6 +55,14 @@ stMeshModel::stMeshModel(w8_long polygons, w8_long vertices)
     render_control.value &= ~0x10UL;
     setDirty(DIRTY_BOUNDS);
     automap_filter_active = false;
+}
+
+void stMeshModel::setReusable(bool reusable)
+{
+    if (reusable && weak_from_this().expired()) {
+        throw std::logic_error("A reusable mesh must have shared ownership");
+    }
+    reusable_ = reusable;
 }
 
 // FUNCTION: WIZ8 0x00470ED0
@@ -110,7 +118,7 @@ stMeshModel& stMeshModel::operator=(const stMeshModel& other)
     flags = other.flags;
     ambient_color = other.ambient_color;
     vertex_light_table = other.vertex_light_table;
-    duplicate_on_reuse = other.duplicate_on_reuse;
+    reusable_ = false; // A clone gets a new owner before it can be cached.
     vertex_lighting_ready = other.vertex_lighting_ready;
     vertex_compression_scale = other.vertex_compression_scale;
     automap_filter_active = other.automap_filter_active;

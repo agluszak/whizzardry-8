@@ -13,7 +13,14 @@ class srGERD;
 // class srModel
 class SR_DLL_IMPORT srModel : public srClassSupport<srModel, srClass, 0x2000>,
       public std::enable_shared_from_this<srModel> {
+protected:
+    bool hasIntrusiveOwnership() const override { return false; }
 public:
+    void addReference() const = delete;
+    int release() const = delete;
+    w8_long getReferenceCount() const = delete;
+    void autoRelease() = delete;
+
     // VTABLE: SURRENDER 0x10076CD8 Client
     // class Client
     class SR_DLL_IMPORT Client {

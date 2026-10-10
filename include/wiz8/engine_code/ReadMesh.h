@@ -1,5 +1,7 @@
 #pragma once
 
+#include <vector>
+
 #include <memory>
 
 #include "wiz8/filesystem.h"
@@ -44,7 +46,7 @@ unsigned char ReadSingleLevelMeshBody(W8ReadLevelInfo* info, srModelInstance** i
 std::shared_ptr<stMeshModel>
 BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count, int material_count,
                      srMaterialIFace** materials, srTextureIFace** textures, srShader* render_flags,
-                     unsigned int* mesh_count, int*** vertex_maps, unsigned int* vertex_map_count,
+                     unsigned int* mesh_count, std::vector<std::vector<int>>& vertex_maps,
                      W8GrowableVector<short>* mapped_values, W8GrowableVector<short>* mapped_keys);
 
 enum {

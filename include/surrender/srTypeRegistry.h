@@ -30,7 +30,7 @@ public:
     };
 
     srRegistry();
-    ~srRegistry() = default;
+    ~srRegistry();
     srRegistry(const srRegistry&) = delete;
     srRegistry& operator=(const srRegistry&) = delete;
 
@@ -106,6 +106,8 @@ private:
     static SR_DLL_IMPORT w8_ulong sGetClassID();
 
     friend class srRegistry;
+    // Borrowed registration, detached by registry teardown before metadata is freed.
+    srRegistry* registry_ = nullptr;
     std::string name;
     w8_ulong id;
 };
@@ -154,10 +156,13 @@ public:
     SR_DLL_IMPORT w8_ulong getTimestamp() const;
 
 protected:
+    // Transitional boundary: standard-owned resources reject intrusive deletion.
+    virtual bool hasIntrusiveOwnership() const { return true; }
     SR_DLL_IMPORT srClass();
     SR_DLL_IMPORT w8_ulong allocateTimeStamps(w8_ulong count) const;
 
 private:
+    void requireIntrusiveOwnership() const;
     static SR_DLL_IMPORT w8_ulong _timestampCtr;
 
     mutable w8_long reference_count;

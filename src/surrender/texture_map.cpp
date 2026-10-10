@@ -7,7 +7,7 @@
 srTextureMap::srTextureMap(std::shared_ptr<srColorSurfaceIFace> surface)
 {
     frame_handle = getNewFrameHandle();
-    setSurfacePtr(surface);
+    setSurfacePtr(std::move(surface));
 }
 
 // FUNCTION: SURRENDER 0x10060210
@@ -45,7 +45,7 @@ void srTextureMap::setSurfacePtr(std::shared_ptr<srColorSurfaceIFace> surface)
 {
     if (surface != this->surface) {
         invalidate();
-        this->surface = surface;
+        this->surface = std::move(surface);
         setupDefaultValues();
     }
 }
