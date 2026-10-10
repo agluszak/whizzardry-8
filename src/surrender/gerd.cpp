@@ -1,14 +1,10 @@
 #include "surrender/srGERD.h"
 
 #include "surrender/srColorSurface.h"
-#include "surrender/srConfig.h"
 #include "surrender/srCore.h"
 #include "surrender/srCriticalSection.h"
 #include "surrender/srDebug.h"
 #include "surrender/srDebugDD.h"
-#include "surrender/srDynamicLibrary.h"
-#include "surrender/srStringTable.h"
-#include "surrender/srSystem.h"
 #include "surrender/srThread.h"
 #include "surrender/srWindow.h"
 #include "surrender/srHeap.h"
@@ -85,12 +81,11 @@ void srGERD::TexturePool::release(Texture* texture)
 srGERD::MatrixStack::MatrixStack() : depth(0) {}
 
 // FUNCTION: SURRENDER 0x10019320
-srGERD::srGERD(srDD* device, void* module, const char* device_name)
+srGERD::srGERD(srDD* device, const char* device_name)
     : dirty(0), state_flags(0), vertex_arrays_dirty(0)
 {
     owner_thread = srThread::getHandle();
     this->device.dd = device;
-    this->device.module = module;
     this->device.window = 0;
     this->device.back_buffer_type = static_cast<e_backBuffer>(0);
     this->device.debug_dd = 0;
@@ -202,9 +197,6 @@ srGERD::~srGERD()
     deleteContext();
     delete device.dd;
     device.dd = 0;
-    if (device.module != 0) {
-        srDynamicLibrary::free(device.module);
-    }
     if (prev != 0) {
         prev->next = next;
     }
@@ -3641,171 +3633,6 @@ void srGERD::dumpDeviceList(std::ostream& stream)
     }
 }
 
-// FUNCTION: SURRENDER 0x10018870
-srGERD* srGERD::loadDeviceWithFileName(const char* filename, w8_ulong device)
-{
-    static const char* const entry_names[] = {"srDDGetDriverApiVersion", "srDDGetDriverName",
-                                              "srDDConfigureDriver",     "srDDGetDeviceCount",
-                                              "srDDGetDeviceName",       "srDDInitDevice"};
-    if (filename == 0) {
-        return 0;
-    }
-    void* library = srDynamicLibrary::load(filename);
-    if (library == 0) {
-        srDebugPrintf(0,
-                      "srGERD::loadDeviceWithFileName() -- "
-                      "srDynamicLibrary::load() failed for file '%s'\n",
-                      filename);
-        return 0;
-    }
-    srDDGetDriverApiVersionFn getDriverApiVersion = reinterpret_cast<srDDGetDriverApiVersionFn>(
-        srDynamicLibrary::getFunction(library, entry_names[0]));
-    srDDGetDriverNameFn getDriverName = reinterpret_cast<srDDGetDriverNameFn>(
-        srDynamicLibrary::getFunction(library, entry_names[1]));
-    srDDConfigureDriverFn configureDriver = reinterpret_cast<srDDConfigureDriverFn>(
-        srDynamicLibrary::getFunction(library, entry_names[2]));
-    srDDGetDeviceCountFn getDeviceCount = reinterpret_cast<srDDGetDeviceCountFn>(
-        srDynamicLibrary::getFunction(library, entry_names[3]));
-    srDDGetDeviceNameFn getDeviceName = reinterpret_cast<srDDGetDeviceNameFn>(
-        srDynamicLibrary::getFunction(library, entry_names[4]));
-    srDDInitDeviceFn initDevice =
-        reinterpret_cast<srDDInitDeviceFn>(srDynamicLibrary::getFunction(library, entry_names[5]));
-    w8_long missing = -1;
-    if (getDriverApiVersion == 0) {
-        missing = 0;
-    } else if (getDriverName == 0) {
-        missing = 1;
-    } else if (configureDriver != 0 && getDeviceCount != 0 && initDevice != 0 &&
-               getDeviceName != 0) {
-        if (getDriverApiVersion() < SR_DD_MIN_API_VERSION) {
-            srDebugPrintf(0,
-                          "srGERD::loadDeviceWithFileName() -- device driver '%s' "
-                          "uses old API (cannot connect)!!\n",
-                          filename);
-            srDynamicLibrary::free(library);
-            return 0;
-        }
-        const char* name = getDriverName();
-        if (name == 0) {
-            srDebugPrintf(0,
-                          "srGERD::loadDeviceWithFileName() -- device driver '%s' "
-                          "uses old API (doesn't support srDDGetdriverName)!!\n",
-                          filename);
-            srDynamicLibrary::free(library);
-            return 0;
-        }
-        char* key = new char[strlen(name) + 8];
-        sprintf(key, "DD_%s", name);
-        w8_long key_length = static_cast<w8_long>(strlen(key));
-        for (w8_long index = 0; index < key_length; index++) {
-            key[index] = static_cast<char>(toupper(key[index]));
-        }
-        if (srConfig.get(key) != 0) {
-            configureDriver(srConfig.get(key));
-        }
-        delete[] key;
-        w8_ulong count = getDeviceCount();
-        if (device < count) {
-            srDD* dd = initDevice(device);
-            if (dd == 0) {
-                srDebugPrintf(0,
-                              "srGERD::loadDeviceWithFileName() - device "
-                              "initialization failed for file '%s' (devIndex = %d)=  "
-                              "-- no hardware found?\n",
-                              filename);
-                srDynamicLibrary::free(library);
-                return 0;
-            }
-            srDebugPrintf(5,
-                          "srGERD::loadDeviceWithFileName() -- DD driver '%s' "
-                          "(device %s) loaded succesfully.\n",
-                          filename, getDeviceName(device));
-            return new srGERD(dd, library, getDeviceName(device));
-        }
-        if (count == 0) {
-            srDebugPrintf(0,
-                          "srGERD::loadDeviceWithFileName() -- no devices available "
-                          "for driver '%s'\n",
-                          filename);
-        }
-    } else {
-        if (configureDriver == 0) {
-            missing = 2;
-        } else if (getDeviceCount == 0) {
-            missing = 3;
-        } else if (getDeviceName == 0) {
-            missing = 4;
-        } else {
-            if (initDevice != 0) {
-                srDynamicLibrary::free(library);
-                return 0;
-            }
-            missing = 5;
-        }
-    }
-    if (missing >= 0) {
-        srDebugPrintf(0,
-                      "srGERD::loadDeviceWithFileName() -- "
-                      "srDynamicLibrary::getFunction('%s') failed for file '%s'  "
-                      "-- not a valid Device Driver!!\n",
-                      entry_names[missing], filename);
-    }
-    srDynamicLibrary::free(library);
-    return 0;
-}
-
-// FUNCTION: SURRENDER 0x10018B50
-srGERD* srGERD::loadDevice(const char* name, const char* path, w8_ulong device)
-{
-    if (name == 0) {
-        return 0;
-    }
-    char filename[516];
-    if (path != 0) {
-        sprintf(filename, "%s\\srDD_%s", path, name);
-    } else {
-        sprintf(filename, "srDD_%s", name);
-    }
-    return loadDeviceWithFileName(filename, device);
-}
-
-// FUNCTION: SURRENDER 0x10018BC0
-void srGERD::loadDevices(const char* path)
-{
-    srStringTable libraries;
-    w8_ulong count = srSystem::scanLibraries(libraries, path, "srDD*");
-    for (w8_ulong index = 0; index < count; index++) {
-        w8_ulong device = 0;
-        while (loadDeviceWithFileName(libraries.getString(index), device) != 0) {
-            device++;
-        }
-    }
-}
-
-// FUNCTION: SURRENDER 0x10018DA0
-srGERD* srGERD::loadDevice(srStringTable& devices, w8_ulong index)
-{
-    const char* string = devices.getString(index);
-    if (string == 0) {
-        return 0;
-    }
-    char* filename = new char[strlen(string) + 1];
-    strcpy(filename, string);
-    w8_ulong device = 0;
-    char* open = strchr(filename, '(');
-    if (open != 0) {
-        *open = '\0';
-        char* close = strchr(open + 1, ')');
-        if (close != 0) {
-            *close = '\0';
-        }
-        device = atoi(open + 1);
-    }
-    srGERD* result = loadDeviceWithFileName(filename, device);
-    delete[] filename;
-    return result;
-}
-
 // FUNCTION: SURRENDER 0x100191E0
 srGERD::e_error srGERD::createContext(w8_ulong_ptr window)
 {
@@ -4461,29 +4288,6 @@ void srGERD::initGlobalPalette()
     }
     /* reinterpret-ok: the DD receives the palette entries as raw dwords. */
     getDD()->setGlobalPalette(reinterpret_cast<w8_ulong*>(global_palette), 0x100);
-}
-
-// FUNCTION: SURRENDER 0x10018C70
-void srGERD::scanDevices(const char* path, srStringTable& devices)
-{
-    srStringTable libraries;
-    char entry[512];
-    w8_ulong count = srSystem::scanLibraries(libraries, path, "srDD*");
-    for (w8_ulong index = 0; index < count; ++index) {
-        void* library = srDynamicLibrary::load(libraries.getString(index));
-        w8_ulong device = 0;
-        srGERD* gerd = loadDeviceWithFileName(libraries.getString(index), device);
-        while (gerd != 0) {
-            sprintf(entry, "%s(%ld)", libraries.getString(index), (long)device);
-            devices.addString(entry);
-            delete gerd;
-            device++;
-            gerd = loadDeviceWithFileName(libraries.getString(index), device);
-        }
-        if (library != 0) {
-            srDynamicLibrary::free(library);
-        }
-    }
 }
 
 // FUNCTION: SURRENDER 0x10018E40

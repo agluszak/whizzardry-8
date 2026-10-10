@@ -1,8 +1,6 @@
 #include "plugin_classes.h"
 #include "tga_import.h"
 
-srJPEGPlugin::~srJPEGPlugin() {}
-
 srTGAImporter::srTGAImporter()
 {
     addToImporters(srCore.getSurfaceIOManager(), "tga");
@@ -48,24 +46,4 @@ srJPEGImporter::~srJPEGImporter()
 const char* srJPEGImporter::getTypeName() const
 {
     return "JPEG";
-}
-
-// FUNCTION: SREXT_JPEGIMPORTER 0x10014BA0
-const char* srJPEGPlugin::getDescription() const
-{
-    return "SurRender JPEG-importer/exporter plug-in";
-}
-
-// FUNCTION: SREXT_JPEGIMPORTER 0x100155B0
-
-// FUNCTION: SREXT_JPEGIMPORTER 0x100155D0
-extern "C" w8_ulong __cdecl srGetLibraryVersion()
-{
-    return 0x012A0209UL;
-}
-
-// FUNCTION: SREXT_JPEGIMPORTER 0x10014B70
-extern "C" srPlugin* __cdecl srInitPlugin()
-{
-    return new srJPEGPlugin;
 }

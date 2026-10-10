@@ -7,6 +7,7 @@
 #include <wiz8/asset_paths.h>
 #include "sgp.h"
 #include "surrender/srGERD.h"
+#include "surrender/srImporter.h"
 #include "surrender/srTriMeshPipeline.h"
 #include "wiz8/bink_video.h"
 #include "../../src/native/movie.h"
@@ -30,6 +31,7 @@
         }                                                                                          \
     } while (0)
 void PresentMenuOverlayFrame();
+void SaveJpegScreenshot();
 extern unsigned char g_fullscreen;
 extern srScene* g_cursor_scene;
 unsigned char InitializeMouseCursorScene();
@@ -72,6 +74,10 @@ int main(int argc, char** argv)
         CHECK(InitializePrimaryCpuSurface());
         CHECK(InitializeVideoDevice());
         CHECK(InitializeRendererSceneObjects());
+        auto* targa = srCore.getSurfaceIOManager()->importSurface(
+            "Data\\AUTOMAP\\MAP_MONSTERFRIENDLY_A.TGA", {});
+        CHECK(targa && targa->getWidth() > 0 && targa->getHeight() > 0);
+        targa->release();
         CHECK(!srTriMeshPipeline::Get(nullptr));
         auto pipeline = srTriMeshPipeline::Get(g_gerd);
         CHECK(pipeline);
@@ -203,6 +209,13 @@ int main(int argc, char** argv)
                          1280) == 0);
         UnlockPrimarySurface();
         PresentMenuOverlayFrame();
+
+        g_screenshot_index = 0;
+        SaveJpegScreenshot();
+        auto* screenshot = srCore.getSurfaceIOManager()->importSurface("Wiz800000.JPG", {});
+        CHECK(screenshot && screenshot->getWidth() == 640 && screenshot->getHeight() == 480);
+        screenshot->release();
+        puts("retail Targa import and game JPEG screenshot round-trip");
 
         ShutdownVideoObjectManager();
         ShutdownVideoSurfaceManager();

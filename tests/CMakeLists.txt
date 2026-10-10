@@ -19,11 +19,12 @@ add_executable(native_imports_test "${PROJECT_SOURCE_DIR}/tests/native/imports_t
 target_link_libraries(native_imports_test PRIVATE SURRENDER wiz8_native_settings)
 add_test(NAME native_imports COMMAND native_imports_test)
 
-add_library(native_loader_fixture MODULE native/loader_fixture.cpp)
+add_executable(native_image_io_test native/image_io_test.cpp)
+target_link_libraries(native_image_io_test PRIVATE SURRENDER wiz8_native_settings)
+add_test(NAME native_image_io COMMAND native_image_io_test)
+
 add_executable(native_renderer_platform_test native/renderer_platform_test.cpp)
 target_link_libraries(native_renderer_platform_test PRIVATE SURRENDER wiz8_native_settings)
-target_compile_definitions(native_renderer_platform_test PRIVATE
-    WIZ8_PLATFORM_LIBRARY="$<TARGET_FILE:native_loader_fixture>")
 add_test(NAME native_renderer_platform COMMAND native_renderer_platform_test)
 set_tests_properties(native_renderer_platform PROPERTIES TIMEOUT 10)
 

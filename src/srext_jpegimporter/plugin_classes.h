@@ -2,7 +2,6 @@
 
 #include "surrender/srCore.h"
 #include "surrender/srExporter.h"
-#include "surrender/srPlugin.h"
 
 class srJPEGImporter : public srSurfaceIOManager::SurfaceImporter,
                        public srSurfaceIOManager::SurfaceExporter {
@@ -17,15 +16,6 @@ public:
                                                const srSurfaceIOManager::ImportInfo& options);
     virtual void exportSurface(srBinOStream& stream, srColorSurfaceIFace& surface,
                                const srSurfaceIOManager::ExportInfo& options);
-};
-
-class srJPEGPlugin : public srPlugin {
-public:
-    virtual ~srJPEGPlugin();
-    virtual const char* getDescription() const;
-
-private:
-    srJPEGImporter jpeg_importer_;
 };
 
 class srTGAImporter : public srSurfaceIOManager::SurfaceImporter {

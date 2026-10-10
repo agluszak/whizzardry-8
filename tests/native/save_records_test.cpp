@@ -11,6 +11,7 @@
 #include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/IntervalGate.h"
 #include "wiz8/layouts/character.h"
+#include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/local_code/MonsterAI.h"
@@ -30,6 +31,7 @@
 #include "temporary_directory.h"
 
 extern W8GrowableVector<W8NpcState*>* g_npc_states;
+extern void SaveGlobalStatus(W8Chunk* chunks, W8GlobalStatus* status);
 
 #define CHECK(expression)                                                                          \
     do                                                                                             \
@@ -206,6 +208,39 @@ static void save_file_contracts(const std::filesystem::path& user)
     chunks.Close();
 }
 
+static void global_status_record()
+{
+    W8Character characters[8] = {};
+    W8PartySlotRow rows[8] = {};
+    W8GlobalStatus status = {};
+    status.buffers.Char = characters;
+    status.buffers.XChar = rows;
+    status.party_gold = 0x12345678;
+    status.uiTurnsElapsed = 0x87654321;
+    status.pending_move_location.position.Set(1, 2, 3);
+    char path[] = "C:\\gsta.bin";
+    W8Chunk chunks;
+    CHECK(chunks.OpenWrite(path));
+    SaveGlobalStatus(&chunks, &status);
+    chunks.Close();
+    CHECK(chunks.OpenRead(path) && chunks.OpenChunk(0, 0));
+    CHECK(chunks.CurrentChunkId() == 0x41545347);
+    unsigned size = 0, count = 0;
+    CHECK(chunks.Read(&size, sizeof(size), &count) && count == sizeof(size) && size == 0x49c2);
+    unsigned char bytes[0x49c2];
+    CHECK(chunks.Read(bytes, sizeof(bytes), &count) && count == sizeof(bytes));
+    CHECK(!memcmp(bytes, &status, sizeof(bytes)));
+    unsigned gold, turns;
+    memcpy(&gold, bytes + 0x19, sizeof(gold));
+    memcpy(&turns, bytes + 0x19d8, sizeof(turns));
+    CHECK(gold == 0x12345678 && turns == 0x87654321);
+    float position[3];
+    memcpy(position, bytes + 0x22a7, sizeof(position));
+    CHECK(position[0] == 1 && position[1] == 2 && position[2] == 3);
+    chunks.ReleaseCurrentChunk();
+    chunks.Close();
+}
+
 static void packed_camera_angles()
 {
     GDCamera camera;
@@ -246,6 +281,7 @@ int main()
     std::filesystem::create_directories(user / "Saves");
     w8_native::configure_paths({wiz8::path_to_utf8(assets), wiz8::path_to_utf8(user), {"", "", ""}});
     CHECK(InitializeFileManager(nullptr) && InitializeFileDatabase());
+    global_status_record();
     const auto path = root / wiz8::path_from_utf8("npc-雪.bin");
     W8NpcDatabaseRecord database[3] = {};
     g_npc_records = database;

@@ -40,7 +40,6 @@
 #include "surrender/srConfig.h"
 #include "surrender/srCore.h"
 #include "surrender/srFilter.h"
-#include "surrender/srExtension.h"
 #include "surrender/srGERD.h"
 #include "surrender/srImporter.h"
 #include "surrender/srMaterial.h"
@@ -55,7 +54,6 @@
 #include "surrender/srScene.h"
 #include "surrender/srShader.h"
 #include "surrender/srStatisticsManager.h"
-#include "surrender/srStringTable.h"
 #include "surrender/srTexture.h"
 #include "surrender/srVertexProcessor.h"
 #include "compat/surfaces.h"
@@ -406,9 +404,6 @@ unsigned char InitializeVideoManager(HINSTANCE instance, unsigned short show_com
     }
 done:
     SetViewport(0, 0, 0x280, 0x1e0);
-    if (g_video_inspector_enabled) {
-        srExtension::load("INSPECTOR", "DLL");
-    }
     if (!InitializeStartupNavigation()) {
         return 0;
     }
@@ -556,7 +551,6 @@ unsigned char InitializeVideoDevice(void)
     char device[100] = "";
     char audio_setting[100] = "";
     char line[10] = "";
-    char driver_name[100];
     char* newline;
 
     if (g_gerd) {
@@ -604,10 +598,7 @@ unsigned char InitializeVideoDevice(void)
                                 "DisableDetachedSecondaryDevices=1 DisableNonDisplayDevices=1");
     srConfig.set("DD_DIRECTX6", "DisablePrimaryHEL=1 DisableAttachedSecondaryDevices=1 "
                                 "DisableDetachedSecondaryDevices=1 DisableNonDisplayDevices=1");
-    srStringTable devices;
-    sprintf(driver_name, "srDD_%s", device);
-    devices.addString(driver_name);
-    g_gerd = new srGERD(W8CreateNativeRenderDevice(), 0, "SDLGPU");
+    g_gerd = new srGERD(W8CreateNativeRenderDevice(), "SDLGPU");
     if (!g_gerd) {
         ShutdownWithErrorBox("Video device cannot be started. Please re-run 3DSetup.");
         return 0;
