@@ -1,3 +1,5 @@
+#include <wiz8/filesystem.h>
+#include <sstream>
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07, 2026-10-09, 2026-10-10.
    Distributed under the accompanying SFI Source Code license agreement. */
 // Filename: MemMan.cpp
@@ -222,14 +224,12 @@ PTR MemReallocXDebug(PTR ptr, UINT32 size, const char* sourceFile, INT32 line, v
 
 void DumpMemoryInfoIntoFile(UINT8* filename, BOOLEAN append)
 {
-    FILE* file = fopen(reinterpret_cast<const char*>(filename), append ? "a" : "w");
-    if (!file)
-        return;
+    std::ostringstream report;
     const std::lock_guard lock(allocationMutex);
     if (!gpMemoryHead) {
-        fprintf(file, "NO MEMORY LEAKS DETECTED!\n");
+        report << "NO MEMORY LEAKS DETECTED!\n";
     } else {
-        fprintf(file, "%u tracked allocation blocks remain\n", MemDebugCounter);
+        report << MemDebugCounter << " tracked allocation blocks remain\n";
         for (auto* node = gpMemoryHead; node; node = node->next) {
             auto sameLocation = [node](const MEMORY_NODE* other) {
                 return node->line == other->line &&
@@ -252,11 +252,17 @@ void DumpMemoryInfoIntoFile(UINT8* filename, BOOLEAN append)
                     bytes += other->uiSize;
                 }
             }
-            fprintf(file, "%u occurrences of %s -- line(%d) (%llu requested bytes)\n",
-                    count, node->sourceFile, node->line, bytes);
+            report << count << " occurrences of " << node->sourceFile << " -- line("
+                   << node->line << ") (" << bytes << " requested bytes)\n";
         }
     }
-    fclose(file);
+    try {
+        auto output = wiz8::open_file(reinterpret_cast<const char*>(filename),
+            append ? wiz8::OpenMode::append : wiz8::OpenMode::replace);
+        const auto text = report.str();
+        output->write(text.data(), text.size());
+    } catch (const std::exception&) {}
+
 }
 
 BOOLEAN _AddAndRecordMemAlloc(UINT32, UINT32, UINT8*)

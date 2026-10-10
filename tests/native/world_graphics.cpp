@@ -1,6 +1,7 @@
+#include <wiz8/filesystem.h>
 /* Installed character and level assets through the recovered game loop. */
 #include "sgp.h"
-#include "platform_paths.h"
+#include <wiz8/asset_paths.h>
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/GameplayInit.h"
@@ -55,19 +56,19 @@ static std::vector<unsigned int> ReadFrame()
 
 static void SaveFrame(const char* path, const std::vector<unsigned int>& pixels)
 {
-    FILE* output = fopen(path, "wb");
+    auto output = wiz8::open_host_file(path, wiz8::OpenMode::replace);
     CHECK(output);
-    fprintf(output, "P6\n%d %d\n255\n", SCREEN_WIDTH, SCREEN_HEIGHT);
-    bool written = true;
+    char header[80];
+    const int count = snprintf(header, sizeof(header), "P6\n%d %d\n255\n", SCREEN_WIDTH, SCREEN_HEIGHT);
+    output->write(header, count);
     for (auto pixel : pixels)
     {
         unsigned char rgb[] = {static_cast<unsigned char>(pixel >> 16),
                                static_cast<unsigned char>(pixel >> 8),
                                static_cast<unsigned char>(pixel)};
-        if (fwrite(rgb, 1, sizeof(rgb), output) != sizeof(rgb))
-            written = false;
+        output->write(rgb, sizeof(rgb));
     }
-    CHECK(fclose(output) == 0 && written);
+    output->close();
 }
 
 int main(int argc, char** argv)
@@ -83,10 +84,10 @@ int main(int argc, char** argv)
         auto roots = w8_native::path_roots();
         roots.user = temporary;
         w8_native::configure_paths(roots);
-        FILE* config = fopen("C:\\3DVideo.CFG", "w");
-        CHECK(config);
-        fputs("SDLGPU\n640\n480\n16\nminiaudio spatial\n", config);
-        CHECK(fclose(config) == 0);
+        auto config = wiz8::open_file("C:\\3DVideo.CFG", wiz8::OpenMode::replace);
+        const std::string settings = "SDLGPU\n640\n480\n16\nminiaudio spatial\n";
+        config->write(settings.data(), settings.size());
+        config->close();
         CHECK(SDL_Init(SDL_INIT_VIDEO));
         char command[] = "/WINDOW";
         ProcessCommandLine(command);

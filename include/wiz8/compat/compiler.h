@@ -5,6 +5,7 @@
 #include "native.h"
 
 #define SR_DLL_IMPORT
+#define SR_DLL_EXPORT
 
 typedef int32_t w8_long;
 typedef uint32_t w8_ulong;

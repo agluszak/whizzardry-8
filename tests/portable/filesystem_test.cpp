@@ -1,5 +1,5 @@
 #include "wiz8/filesystem.h"
-#include "platform_paths.h"
+#include <wiz8/asset_paths.h>
 
 #include <SDL3/SDL_init.h>
 #include <algorithm>
@@ -191,6 +191,13 @@ int main(int argc, char**)
     auto host = open_host_file(outside / path_from_utf8("h\xc3\xb4te.bin"));
     CHECK(read_all(*host) == "import");
     host.reset();
+    fixture(outside / "CaseSensitive.bin", "exact host");
+    std::error_code case_error;
+    const bool case_insensitive_host = fs::exists(outside / "casesensitive.BIN", case_error);
+    if (case_insensitive_host)
+        CHECK(read_all(*open_host_file(outside / "casesensitive.BIN")) == "exact host");
+    else
+        rejects([&] { open_host_file(outside / "casesensitive.BIN"); });
     rejects([&] { open_file(path_to_utf8(outside / "new"), OpenMode::replace); });
     rejects([&] { open_file(path_to_utf8(assets / "Data" / "Mixed.BIN")); });
     rejects([&] { open_host_file(assets / "Data" / "Mixed.BIN", OpenMode::replace); });
@@ -244,6 +251,12 @@ int main(int argc, char**)
     fixture(synthetic_legacy / "Saves" / "old.sav", "old");
     CHECK(fs::equivalent(path_from_utf8(w8_native::existing_legacy_user_root(path_to_utf8(synthetic_pref))), synthetic_legacy));
     CHECK(!fs::exists(synthetic_pref));
+    fs::create_directories(synthetic_pref);
+    CHECK(!w8_native::existing_legacy_user_root(path_to_utf8(synthetic_pref)).empty());
+    fixture(synthetic_pref / "Saves" / "new.sav", "new");
+    CHECK(w8_native::existing_legacy_user_root(path_to_utf8(synthetic_pref)).empty());
+    CHECK(contents(synthetic_legacy / "Saves" / "old.sav") == "old");
+    CHECK(contents(synthetic_pref / "Saves" / "new.sav") == "new");
     fs::permissions(assets / "Data" / "ReadOnly.bin", fs::perms::owner_write, fs::perm_options::add);
     w8_native::configure_paths({path_to_utf8(assets), path_to_utf8(assets / "nested-user"), {}});
     CHECK(w8_native::path_roots().user.empty());

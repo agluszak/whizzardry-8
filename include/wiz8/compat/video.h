@@ -1,5 +1,5 @@
 #pragma once
-#include "compat/platform.h"
+#include "compat/kernel32.h"
 #include "compat/surfaces.h"
 class srDD;
 class srGERD;

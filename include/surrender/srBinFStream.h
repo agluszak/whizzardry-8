@@ -4,7 +4,7 @@
 #include "srBinOStream.h"
 #include "srString.h"
 
-#include <stdio.h>
+#include <wiz8/filesystem.h>
 
 // VTABLE: SURRENDER 0x10076A40 srBinStream
 // VTABLE: SURRENDER 0x10076A54 srBinFStream
@@ -32,7 +32,11 @@ protected:
 
     /* The directional file streams' vget/vput/vread/vwrite bodies all touch
        the file handle directly, so the member sits at protected access. */
-    FILE* file;
+    std::unique_ptr<wiz8::File> file;
+    w8_ulong readFile(void* destination, w8_ulong size);
+    w8_ulong writeFile(const void* source, w8_ulong size);
+    unsigned short getFile();
+    unsigned short putFile(char character);
 
 private:
     void setPath(const char* path);

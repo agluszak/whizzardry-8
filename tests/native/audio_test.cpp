@@ -4,8 +4,8 @@
 #include "LibraryDataBase.h"
 #include "MemMan.h"
 #include "compat/audio.h"
-#include "compat/platform.h"
-#include "platform_paths.h"
+#include <wiz8/filesystem.h>
+#include <wiz8/asset_paths.h>
 #include "soundman.h"
 #include <wiz8/filesystem.h>
 #include <algorithm>

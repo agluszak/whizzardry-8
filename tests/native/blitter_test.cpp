@@ -1,3 +1,5 @@
+#include <wiz8/filesystem.h>
+#include <sstream>
 // The same inputs run against the legacy assembly and the native C++ paths.
 // --capture emits per-case hashes of every destination byte, the return value
 // and the caller's rectangle (some legacy blitters modify it).
@@ -22,7 +24,7 @@ static UINT16 palette[256];
 static UINT8 palette8[65537];
 static UINT8 encoded[4096];
 static unsigned cases;
-static FILE* reference;
+static std::istringstream reference;
 static bool capture;
 
 static void reset()
@@ -49,8 +51,8 @@ static bool check(const char* name, int variant, BOOLEAN result, const SGPRect& 
         fputs(actual, stdout);
         return true;
     }
-    char expected[256];
-    if (fgets(expected, sizeof(expected), reference) == nullptr || strcmp(actual, expected) != 0) {
+    std::string expected_line;
+    if (!std::getline(reference, expected_line) || expected_line + "\n" != actual) {
         fprintf(stderr, "case %u mismatch: %s", cases, actual);
         return false;
     }
@@ -95,9 +97,17 @@ static void sprite_data(ETRLEObject& frame, int variant)
 int main(int argc, char** argv)
 {
     capture = argc == 2 && strcmp(argv[1], "--capture") == 0;
-    if (!capture && (argc != 2 || (reference = fopen(argv[1], "r")) == nullptr)) {
+    if (!capture && argc != 2) {
         fprintf(stderr, "usage: blitter_test --capture | REFERENCE\n");
         return 1;
+    }
+    if (!capture) {
+        try {
+            auto file = wiz8::open_host_file(argv[1]);
+            std::string text(static_cast<std::size_t>(file->size()), '\0');
+            if (file->read(text.data(), text.size()).bytes != text.size()) return 2;
+            reference.str(text);
+        } catch (const std::exception&) { return 2; }
     }
     for (unsigned i = 0; i < 65536; ++i) {
         ShadeTable[i] = static_cast<UINT16>((i * 37) ^ 0x1234);
@@ -206,11 +216,11 @@ int main(int argc, char** argv)
             FillRect16BPP(destination, pitch, -1, 1, 9 + variant, 12, 0x693d), area) && ok;
     }
     if (!capture) {
-        if (fgetc(reference) != EOF) {
+        if (reference.peek() != EOF) {
             fprintf(stderr, "unexpected trailing cases\n");
             ok = false;
         }
-        fclose(reference);
+
         printf("%u blitter cases checked against legacy assembly output\n", cases);
     }
     return ok ? 0 : 1;

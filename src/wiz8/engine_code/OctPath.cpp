@@ -56,7 +56,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "compat/platform.h"
+#include <wiz8/filesystem.h>
 // GLOBAL: WIZ8 0x005ebc30
 const double g_double_one = 1.0;
 // GLOBAL: WIZ8 0x005ec020

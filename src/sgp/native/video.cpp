@@ -1,14 +1,13 @@
 #include "compat/video.h"
-#include "compat/platform.h"
 #include "native/input_events.h"
-#include "platform_paths.h"
+#include <wiz8/asset_paths.h>
 #include <wiz8/filesystem.h>
 #include "surrender/srDD_SDLGPU.h"
 #include <SDL3/SDL.h>
 #include <algorithm>
 #include <climits>
 #include <filesystem>
-#include <fstream>
+#include <sstream>
 namespace
 {
 SDL_Window* native(HWND window) { return reinterpret_cast<SDL_Window*>(window); }
@@ -113,7 +112,14 @@ bool W8HasEnoughSaveSpace()
 
 int W8ReadProfileInt(const char* path, const char* section, const char* key, int fallback)
 {
-    std::ifstream input(w8_native::read_path(path));
+    std::istringstream input;
+    try {
+        auto file = wiz8::open_file(path);
+        if (file->size() > 1024 * 1024) return fallback;
+        std::string text(static_cast<std::size_t>(file->size()), '\0');
+        if (file->read(text.data(), text.size()).bytes != text.size()) return fallback;
+        input.str(text);
+    } catch (const std::exception&) { return fallback; }
     std::string line, current;
     auto trim = [](std::string value)
     {

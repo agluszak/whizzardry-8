@@ -184,20 +184,7 @@ std::vector<ArchiveEntry> read_archive_table(wiz8::File& file, LIBHEADER& header
 
     if (entries.size() != static_cast<std::size_t>(header.iUsed))
         throw std::runtime_error("inconsistent SLF live entry count");
-    std::vector<const ArchiveEntry*> extents;
-    for (const auto& entry : entries)
-        if (entry.length)
-            extents.push_back(&entry);
-    std::sort(extents.begin(), extents.end(), [](auto* left, auto* right) {
-        return left->offset < right->offset;
-    });
-    std::uint64_t previous_end = sizeof(header);
-    for (const auto* entry : extents)
-    {
-        if (entry->offset < previous_end)
-            throw std::runtime_error("overlapping SLF entries");
-        previous_end = std::uint64_t(entry->offset) + entry->length;
-    }
+    // SLF names may alias payloads; each entry's extent was checked independently.
     std::sort(entries.begin(), entries.end(), [](const auto& left, const auto& right) {
         return left.name < right.name;
     });

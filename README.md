@@ -1,6 +1,6 @@
 # Whizzardry 8
 
-Native Wizardry 8 and SurRender for 64-bit Linux, macOS and Windows, built with Clang.
+Native Wizardry 8 and SurRender for 64-bit Linux, macOS and Windows, built with Clang and C++23.
 The build uses SDL3 GPU rendering, FFmpeg video decoding,
 miniaudio sound and zlib. CMake downloads a pinned miniaudio revision.
 Game data comes from an existing retail installation and is not distributed here.
@@ -32,7 +32,7 @@ Visual Studio's developer shell can set `VCPKG_ROOT` automatically; clear it
 with `$env:VCPKG_ROOT = ""` in PowerShell to use the repository-pinned bootstrap.
 
 The native targets include `Wiz8Native` and statically linked SurRender and
-runtime adapters, sharing one SDL state.
+the SDL-backed filesystem and runtime, sharing one SDL state.
 A Vulkan-capable SDL3 GPU backend is required for graphics checks.
 
 ## Run
@@ -52,10 +52,11 @@ The launcher leaves display and GPU driver selection to SDL and the host.
 Game assets and writable saves/configuration are separate. The virtual `C:\`
 drive maps to `WIZ8_ASSET_ROOT`; file reads prefer `WIZ8_USER_ROOT`, then
 fall back to the installed assets. All writes go to the user root.
-By default, this is `$XDG_DATA_HOME/whizzardry8` (or
-`~/.local/share/whizzardry8` on Linux and
-`~/Library/Application Support/whizzardry8` on macOS). Windows uses SDL's
-preference directory, normally `%APPDATA%\Whizzardry\whizzardry8`.
+The default comes from SDL's preference directory for
+`Whizzardry/whizzardry8`. Existing populated legacy `whizzardry8` directories
+are reused only when the preferred directory is empty. If both contain saves,
+the preferred directory wins; set `WIZ8_USER_ROOT` explicitly to use the other.
+The launcher queries this same policy rather than inventing another location.
 Optional `WIZ8_CD1_ROOT` through `WIZ8_CD3_ROOT` provide read-only virtual
 disc drives. The launcher writes diagnostics to the user root.
 
@@ -65,7 +66,7 @@ The CTest suite covers portable file/SLF operations, SDL events/timers,
 CRT and pointer semantics, serialization, compression, blitters, JPEG transfer,
 audio and movie decoding, and SurRender interfaces. GPU tests need a working
 display/Vulkan driver; `native_events` uses SDL's dummy driver.
-Linux and Windows x64 clang-cl builds pass the suite; the first-party
+CI builds Linux, macOS and Windows x64 clang-cl; the first-party
 host-width wide-string import check runs only on Unix. macOS and interactive
 Windows graphics/gameplay remain unverified.
 
@@ -91,8 +92,19 @@ pointer slots. Text/CRT boundaries use explicit conversion rather than host
 wide-string routines that expect four-byte `wchar_t`.
 
 There is no Wine runner, 32-bit target or legacy fallback.
-The platform adapters in `src/compat/` are temporary migration boundaries,
-not a permanent Windows emulation layer. See [remaining native work](NATIVE_WORK.md).
+The game/asset filesystem in `src/platform/` owns virtual paths and uses SDL3
+streams, native UTF-8 host imports and standard C++ filesystem operations.
+Asset names are ASCII-case-insensitive on every host; explicit host imports
+keep native filesystem case semantics. The remaining `src/compat/` CRT code
+only bridges legacy two-byte strings.
+
+SLF and save timestamps keep their packed low/high FILETIME codec. Save ordering
+uses native modification time; the iron-man mask records the metadata snapshot
+queried while writing. SDL's POSIX creation field is ctime (metadata-change time),
+not true birth time, and can change on close/rewrite. Windows birth time and
+POSIX ctime are not interchangeable persistent identities; no loader-side
+iron-man timestamp validator currently exists. Cross-host birth-time identity
+and a full iron-man save/load roundtrip remain unverified.
 
 Third-party source licenses, including the SGP license, remain with
 their respective sources.

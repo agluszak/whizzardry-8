@@ -2,7 +2,7 @@
    on-disk presence markers. No installed game data or display is required. */
 #include "FileMan.h"
 #include "LibraryDataBase.h"
-#include "platform_paths.h"
+#include <wiz8/asset_paths.h>
 #include <wiz8/filesystem.h>
 #include <wiz8/file_time.h>
 #include "wiz8/chunk.h"

@@ -1,3 +1,5 @@
+#include <wiz8/filesystem.h>
+#include <sstream>
 #include "wiz8/xstatus.h"
 #include "native/input_events.h"
 #ifdef WIZ8_RUNTIME_TESTS
@@ -410,9 +412,7 @@ unsigned char InitializeVideoManager(HINSTANCE instance, unsigned short show_com
 done:
     SetViewport(0, 0, 0x280, 0x1e0);
     if (g_video_inspector_enabled) {
-        _chdir("DLL");
-        srExtension::load("INSPECTOR", 0);
-        _chdir("..");
+        srExtension::load("INSPECTOR", "DLL");
     }
     if (!InitializeStartupNavigation()) {
         return 0;
@@ -563,7 +563,7 @@ unsigned char InitializePrimaryDirectDrawSurface(void)
 // FUNCTION: WIZ8 0x00422240
 unsigned char InitializeVideoDevice(void)
 {
-    FILE* config;
+    std::istringstream config;
     char device[100] = "";
     char sound_provider[100] = "";
     char line[10] = "";
@@ -574,9 +574,16 @@ unsigned char InitializeVideoDevice(void)
         return 1;
     }
 
-    config = fopen("3DVideo.CFG", "r");
+    try {
+        auto input = wiz8::open_file("3DVideo.CFG");
+        if (input->size() > 65536) throw std::runtime_error("oversized video configuration");
+        std::string text(static_cast<std::size_t>(input->size()), '\0');
+        if (input->read(text.data(), text.size()).bytes != text.size())
+            throw std::runtime_error("truncated video configuration");
+        config.str(text);
+    } catch (const std::exception&) { config.setstate(std::ios::failbit); }
     if (config) {
-        fgets(device, sizeof(device), config);
+        config.getline(device, sizeof(device));
         newline = strchr(device, '\r');
         if (newline) {
             *newline = '\0';
@@ -585,13 +592,13 @@ unsigned char InitializeVideoDevice(void)
         if (newline) {
             *newline = '\0';
         }
-        fgets(line, sizeof(line), config);
+        config.getline(line, sizeof(line));
         g_screen_width = atoi(line);
-        fgets(line, sizeof(line), config);
+        config.getline(line, sizeof(line));
         g_screen_height = atoi(line);
-        fgets(line, sizeof(line), config);
+        config.getline(line, sizeof(line));
         g_screen_depth = atoi(line);
-        fgets(sound_provider, sizeof(sound_provider), config);
+        config.getline(sound_provider, sizeof(sound_provider));
         newline = strchr(sound_provider, '\r');
         if (newline) {
             *newline = '\0';
@@ -600,7 +607,7 @@ unsigned char InitializeVideoDevice(void)
         if (newline) {
             *newline = '\0';
         }
-        fclose(config);
+
     }
 
     srInit();

@@ -48,7 +48,7 @@
 #include <ctype.h>
 #include <stdio.h>
 #include <wchar.h>
-#include "compat/platform.h"
+#include <wiz8/filesystem.h>
 
 // GLOBAL: WIZ8 0x0069C130
 static unsigned int* g_options_panel_region_sets;
@@ -404,7 +404,7 @@ void W8OptionsSaveLoadPanel::OnDialogClosed(bool accepted, int value)
         case 3: {
             char path[260];
             sprintf(path, "%s\\%s.%s", "Saves", ConvertWideStringToString(m_previous_name), g_save_extension);
-            if (W8DeleteFile(path) == 0) {
+            if (FileDelete(path) == 0) {
                 g_options_screen->ShowNotification(this, false, 0x82e, 0);
                 return;
             }
@@ -500,7 +500,7 @@ void W8OptionsSaveLoadPanel::DeleteSelectedSave()
     W8SaveSlot* slot = *g_options_screen->m_save_slots.GetAt(selected_slot);
     char path[260];
     sprintf(path, "%s\\%s.%s", "Saves", ConvertWideStringToString(slot->name), g_save_extension);
-    if (W8DeleteFile(path) == 0) {
+    if (FileDelete(path) == 0) {
         g_options_screen->ShowNotification(this, false, 0x82f, 0);
         return;
     }
@@ -561,7 +561,7 @@ void W8OptionsSaveLoadPanel::SaveSelectedSave()
 
     char path[260];
     sprintf(path, "%s\\%s.%s", "Saves", ConvertWideStringToString(slot->name), g_save_extension);
-    if (FileExists(path) != 0 && W8DeleteFile(path) == 0) {
+    if (FileExists(path) != 0 && FileDelete(path) == 0) {
         g_options_screen->ShowNotification(this, false, 0x82e, 0);
         return;
     }

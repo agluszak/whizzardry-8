@@ -1,7 +1,7 @@
 #include "surrender/srSystem.h"
 
 #include "surrender/srStringTable.h"
-#include "platform_paths.h"
+#include <wiz8/asset_paths.h>
 #include "wiz8/filesystem.h"
 
 #include <string>

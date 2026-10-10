@@ -1,5 +1,5 @@
 #include "wiz8/filesystem.h"
-#include "platform_paths.h"
+#include <wiz8/asset_paths.h>
 
 #include <SDL3/SDL_error.h>
 
