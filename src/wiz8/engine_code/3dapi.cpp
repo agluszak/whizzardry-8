@@ -527,7 +527,7 @@ void DestroyWorldCollections(W8World* world)
 
     delete world->lights_to_update;
     delete world->collidable_props;
-    world->monster_generators->RemoveAllAndDelete();
+    wiz8::remove_all_and_delete(*world->monster_generators);
     delete world->monster_generators;
     delete world->spell_visuals;
     delete world->missiles;

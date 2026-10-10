@@ -178,7 +178,7 @@ unsigned char CreditsScreenLeave(int)
 // FUNCTION: WIZ8 0x005bc530
 void CreditsScreenFrame(void)
 {
-    if (g_credit_static_cast<int>(lines->size()) == 0) {
+    if (g_credit_lines->empty()) {
         RequestScreenTransition();
         return;
     }
