@@ -2,7 +2,7 @@
 #include "surrender/srBinOStream.h"
 #include "surrender/srColorSurface.h"
 #include "surrender/srCore.h"
-#include "surrender/srExporter.h"
+#include "surrender/srImageIO.h"
 #include "surrender/srVectorProcessor.h"
 #include "wiz8/sr_api.h"
 
@@ -10,6 +10,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <initializer_list>
+#include <stdexcept>
 #include <vector>
 
 #define CHECK(expression) \
@@ -31,7 +32,7 @@ static void CheckImage(const char* name, const std::vector<unsigned char>& bytes
                        const w8_ulong* expected = colors)
 {
     ClientImageStream stream(bytes.data(), static_cast<w8_ulong>(bytes.size()));
-    auto* surface = srCore.getSurfaceIOManager()->importSurface(name, stream, {});
+    auto* surface = srImage::load(name, stream);
     CHECK(surface && surface->getWidth() == 2 && surface->getHeight() == 2);
     for (int y = 0; y < 2; ++y)
         for (int x = 0; x < 2; ++x)
@@ -109,14 +110,13 @@ static void CheckJPEG()
     auto* source = new PixelOnlySurface;
     CHECK(!source->getDataPtr());
     srBinOMStream output;
-    srCore.getSurfaceIOManager()->exportSurface("screenshot.JPG", output, *source,
-                                               {0, 0, "QUALITY=1.0"});
+    srImage::save("screenshot.JPG", output, *source);
     source->release();
     CHECK(output.good() && output.getSize() > 2);
     CHECK(static_cast<unsigned char*>(output.getPtr())[0] == 255 &&
           static_cast<unsigned char*>(output.getPtr())[1] == 216);
     srBinIMStream input(output.getPtr(), output.getSize());
-    auto* decoded = srCore.getSurfaceIOManager()->importSurface("screenshot.jpeg", input, {});
+    auto* decoded = srImage::load("screenshot.jpeg", input);
     CHECK(decoded && decoded->getWidth() == 16 && decoded->getHeight() == 16);
     for (int y = 0; y < 16; ++y)
         for (int x = 0; x < 16; ++x) {
@@ -128,19 +128,66 @@ static void CheckJPEG()
     decoded->release();
 }
 
+static void CheckLossless(const char* name)
+{
+    srColorSurface source(srPixelConvert::SURFACE_BGRA32, 2, 2);
+    for (int y = 0; y < 2; ++y)
+        for (int x = 0; x < 2; ++x)
+            source.setPixel(x, y, colors[y * 2 + x]);
+    srBinOMStream output;
+    srImage::save(name, output, source);
+    CHECK(output.good() && output.getSize());
+    const auto* bytes = static_cast<const unsigned char*>(output.getPtr());
+    CheckImage(name, {bytes, bytes + output.getSize()});
+    srBinIMStream input(output.getPtr(), output.getSize());
+    input.seek(7);
+    srColorSurfaceIFace::SurfaceDesc description;
+    CHECK(srImage::describe(description, name, input));
+    CHECK(description.width == 2 && description.height == 2 && input.tell() == 7);
+    unsigned char signature = 0;
+    input.seek(0);
+    input.read(&signature, 1);
+    CHECK(input.good());
+    if (strstr(name, "PNG")) {
+        CHECK(signature == 0x89);
+        CheckImage("without-extension", {bytes, bytes + output.getSize()});
+    } else {
+        CHECK(signature == 'B');
+    }
+}
+
+static void CheckErrors()
+{
+    srColorSurface source(srPixelConvert::SURFACE_BGR24, 2, 2);
+    for (const char* path : {static_cast<const char*>(nullptr), "", "image.pcx", "image", "dir.png/image", "dir\\name.jpg\\image"}) {
+        srBinOMStream output;
+        bool rejected = false;
+        try { srImage::save(path, output, source); }
+        catch (const std::runtime_error&) { rejected = true; }
+        CHECK(rejected && output.tell() == 0 && output.getSize() == 0);
+    }
+    for (const char* path : {static_cast<const char*>(nullptr), ""}) {
+        auto bytes = Bitmap();
+        srBinIMStream input(bytes.data(), bytes.size());
+        bool rejected = false;
+        try { srImage::load(path, input); }
+        catch (const std::runtime_error&) { rejected = true; }
+        CHECK(rejected && input.tell() == 0);
+    }
+    unsigned char corrupt[] = {1, 2, 3};
+    srBinIMStream input(corrupt, sizeof(corrupt));
+    input.seek(1);
+    srColorSurfaceIFace::SurfaceDesc description;
+    CHECK(!srImage::describe(description, "bad.jpg", input) && input.tell() == 1);
+}
+
 int main()
 {
     CHECK(srExit());
     for (int cycle = 0; cycle < 3; ++cycle) {
         CHECK(srInit() && srCore.isInitialized());
-        auto* manager = srCore.getSurfaceIOManager();
-        CHECK(srInit() && manager == srCore.getSurfaceIOManager());
+        CHECK(srInit());
         CHECK(srVectorProcessor::getName());
-        for (const char* extension : {"jpg", "jpeg", "tga", "bmp", "pcx"}) {
-            char name[32];
-            snprintf(name, sizeof(name), "test.%s", extension);
-            CHECK(manager->getImporter(name));
-        }
         for (bool top : {false, true})
             for (bool rle : {false, true})
                 CheckImage("test.TGA", Targa(top, rle, false));
@@ -152,14 +199,17 @@ int main()
         CheckImage("test.pcx", PCX(false));
         CheckImage("palette.pcx", PCX(true));
         CheckJPEG();
+        CheckLossless("dir.jpg/lossless.PNG");
+        CheckLossless("lossless.BMP");
+        CheckErrors();
         unsigned char corrupt[] = {1, 2, 3};
         for (const char* name : {"bad.jpg", "bad.tga", "bad.bmp", "bad.pcx"}) {
             srBinIMStream stream(corrupt, sizeof(corrupt));
-            CHECK(!manager->importSurface(name, stream, {}));
+            CHECK(!srImage::load(name, stream));
         }
         CHECK(srExit() && !srCore.isInitialized());
         CHECK(!srVectorProcessor::getName());
         CHECK(srExit());
     }
-    puts("ok: static image handlers, JPEG export and SurRender reinitialization");
+    puts("ok: direct image loading, JPEG export and SurRender reinitialization");
 }

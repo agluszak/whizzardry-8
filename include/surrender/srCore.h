@@ -8,16 +8,12 @@
 class srColorSurfaceIFace;
 class srFilter;
 class srFStreamOpener;
-class srHierarchyIOManager;
 class srIStreamOpener;
 class srMaterial;
-class srModelIOManager;
 class srNode;
 class srPalette;
 class srRegistry;
-class srSurfaceIOManager;
 class srTexture;
-class srVideoManager;
 
 class srCore {
 public:
@@ -25,20 +21,17 @@ public:
 
     SR_DLL_IMPORT void dump(std::ostream& stream);
     SR_DLL_IMPORT const char* getBuildTime() const;
-    SR_DLL_IMPORT srSurfaceIOManager* getSurfaceIOManager() const;
     SR_DLL_IMPORT srIStreamOpener* getIStreamOpener() const;
     SR_DLL_IMPORT const char* getCopyright() const;
     SR_DLL_IMPORT const char* getVersion() const;
     SR_DLL_IMPORT unsigned char getDebugLevel() const;
     SR_DLL_IMPORT srFilter* getFilter() const;
-    SR_DLL_IMPORT srHierarchyIOManager* getHierarchyIOManager() const;
     // FUNCTION: SURRENDER 0x10015730
     // RECOMP: ?getMaterial@srCore@@QBEPAVsrMaterial@@XZ
     srMaterial* getMaterial() const
     {
         return material;
     }
-    SR_DLL_IMPORT srModelIOManager* getModelIOManager() const;
     SR_DLL_IMPORT srPalette* getPalette() const;
     SR_DLL_IMPORT srNode* getRootNode() const;
     // FUNCTION: SURRENDER 0x100156B0
@@ -56,7 +49,6 @@ public:
         return timer;
     }
     SR_DLL_IMPORT w8_ulong getUniqueID();
-    SR_DLL_IMPORT srVideoManager* getVideoManager() const;
     SR_DLL_IMPORT int isInitialized() const;
     SR_DLL_IMPORT void setDebugLevel(unsigned char level);
     SR_DLL_IMPORT void setFilter(srFilter* filter);
@@ -83,7 +75,6 @@ private:
 
     srVariableTimer* timer;
     srColorSurfaceIFace* surface;
-    srSurfaceIOManager* surface_io_manager;
     srIStreamOpener* stream_opener;
     srFStreamOpener* file_stream_opener;
     srFilter* filter;
@@ -96,11 +87,8 @@ private:
     w8_ulong debug_level;
     int multi_thread;
     srNode* root_node;
-    srModelIOManager* model_io_manager;
-    srHierarchyIOManager* hierarchy_io_manager;
     srMaterial* material;
     srTexture* texture;
-    srVideoManager* video_manager;
 };
 
 W8_ABI_ASSERT(sizeof(srCore) == 0x17c, "srCore_must_be_0x17c");

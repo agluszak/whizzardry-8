@@ -1,4 +1,4 @@
-#include "plugin_classes.h"
+#include "surrender/srImageIO.h"
 #include "wiz8/virtual_file_stream.h"
 #include "wiz8/engine_code/stTextureFile.h"
 #include "wiz8/sr_api.h"
@@ -90,26 +90,22 @@ static void checkTga(const char* name, bool succeeds)
     CHECK(((count = handle->read(&signature, 1).bytes) == static_cast<std::size_t>(1)) && count == 1 && signature == 0);
     handle.reset();
 }
-static void runtimeImporters()
+static void runtimeImages()
 {
     InitializeVirtualFileImageImporters();
-    auto* manager = srCore.getSurfaceIOManager();
-    CHECK(manager->getImporter("test.jpg") && manager->getImporter("test.JPEG"));
-    CHECK(manager->getExporter("test.JPG") && manager->getExporter("test.jpeg"));
-    CHECK(manager->getImporter("test.TGA"));
     for (const char* name : {"C:/DATA/loose.jpeg", "jpg://Data/archive.jpg",
                              "jpeg://D:/Data/disc.jpg", "E:/data/DISC.JPG", "F:/data/disc.jpg"}) {
-        auto surface = own(manager->importSurface(name, {}));
+        auto surface = own(srImage::load(name));
         checkGray(surface.get());
         srColorSurfaceIFace::SurfaceDesc desc;
-        manager->getSurfaceDesc(desc, name, {});
+        srImage::describe(desc, name);
         CHECK(desc.width == 3 && desc.height == 2);
     }
     for (const char* name : {"C:/data/LOOSE.tga", "tga://Data/ARCHIVE.TGA"}) {
-        auto surface = own(manager->importSurface(name, {}));
+        auto surface = own(srImage::load(name));
         CHECK(surface && surface->getWidth() == 3 && surface->getHeight() == 2);
         srColorSurfaceIFace::SurfaceDesc desc;
-        manager->getSurfaceDesc(desc, name, {});
+        srImage::describe(desc, name);
         CHECK(desc.width == 3 && desc.height == 2);
         const unsigned char expected[] = {0, 0, 0x03, 0xfc, 0xe0, 0x03, 0x1f, 0, 0, 0x7c, 0xff, 0xff};
         for (unsigned y = 0; y < 2; ++y)
@@ -118,17 +114,17 @@ static void runtimeImporters()
     }
     for (const char* name : {"Data/Broken.jpg", "Data/Broken.tga", "Data/missing.jpeg"}) {
         bool rejected = false;
-        try { auto surface = own(manager->importSurface(name, {})); }
-        catch (const srIOManager::Error&) { rejected = true; }
+        try { auto surface = own(srImage::load(name)); }
+        catch (const std::runtime_error&) { rejected = true; }
         CHECK(rejected);
         rejected = false;
-        try { srColorSurfaceIFace::SurfaceDesc desc; manager->getSurfaceDesc(desc, name, {}); }
-        catch (const srIOManager::Error&) { rejected = true; }
+        try { srColorSurfaceIFace::SurfaceDesc desc; srImage::describe(desc, name); }
+        catch (const std::runtime_error&) { rejected = true; }
         CHECK(rejected);
     }
-    auto surface = own(manager->importSurface("Data/archive.jpg", {}));
-    manager->exportSurface("C:/capture.jpeg", *surface, {0, 1, "QUALITY=0.35"});
-    auto capture = own(manager->importSurface("C:/capture.jpeg", {}));
+    auto surface = own(srImage::load("Data/archive.jpg"));
+    srImage::save("C:/capture.jpeg", *surface, 35);
+    auto capture = own(srImage::load("C:/capture.jpeg"));
     CHECK(capture && capture->getWidth() == 3 && capture->getHeight() == 2);
 }
 int main() try
@@ -145,17 +141,16 @@ int main() try
     wiz8::mount_slf("Data\\Data.slf");
     CHECK(srInit());
     for (unsigned cycle = 0; cycle < 3; ++cycle) {
-        runtimeImporters();
+        runtimeImages();
         CHECK(fs::exists(user / "capture.jpeg") && !fs::exists(assets / "capture.jpeg"));
         srExit();
         CHECK(srInit());
     }
     {
-        srJPEGImporter importer;
         for (const char* name : {"C:/DATA/loose.jpeg", "D:/Data/disc.jpg", "E:/data/DISC.JPG", "F:/data/disc.jpg"}) {
             W8VirtualFileBinIStream stream(name);
             CHECK(stream.good());
-            auto surface = own(importer.importSurface(stream, {}));
+            auto surface = own(srImage::load(name, stream));
             checkGray(surface.get());
             stream.seek(0);
             unsigned char byte = 0; stream.read(&byte, 1);
@@ -164,23 +159,23 @@ int main() try
         W8VirtualFileBinIStream first("C:/DATA/archive.jpg"), second("Data\\ARCHIVE.JPG");
         first.seek(9);
         srColorSurfaceIFace::SurfaceDesc desc;
-        CHECK(importer.getSurfaceDesc(desc, first, {}) && first.tell() == 9);
-        auto surface = own(importer.importSurface(second, {}));
+        CHECK(srImage::describe(desc, "archive.jpg", first) && first.tell() == 9);
+        auto surface = own(srImage::load("archive.jpg", second));
         checkGray(surface.get());
         CHECK(first.tell() == 9 && first.good());
         W8VirtualFileBinIStream broken("Data/Broken.jpg");
-        CHECK(broken.good() && !importer.importSurface(broken, {}));
+        CHECK(broken.good() && !srImage::load("broken.jpg", broken));
         checkTga("C:/data/LOOSE.tga", true);
         checkTga("Data/ARCHIVE.TGA", true);
         checkTga("Data/Broken.tga", false);
         write(user / "data" / "Loose.jpeg", {0, 1, 2});
         W8VirtualFileBinIStream overlay("Data/loose.jpeg");
-        CHECK(overlay.good() && !importer.importSurface(overlay, {}));
+        CHECK(overlay.good() && !srImage::load("loose.jpeg", overlay));
     }
     srExit();
     wiz8::clear_asset_archives(); (void)0;
     fs::remove_all(root);
-    puts("Virtual image streams: native registration/reinit/export, C-F, retail case folding, overlays, SLF bounds, independent cursors and borrowed handles passed");
+    puts("Virtual image streams: direct load/save, reinit, C-F, retail case folding, overlays, SLF bounds, independent cursors and borrowed handles passed");
     return 0;
 }
 catch (...) { srExit(); wiz8::clear_asset_archives(); (void)0; return 1; }

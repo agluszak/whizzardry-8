@@ -1,8 +1,8 @@
 /* Actual SDL_image decoding and byte-exact transfer. gray.jpg/cmyk.jpg are
    synthetic 3x2, quality-100 JPEGs with samples 20 + 9*i. */
-#include "plugin_classes.h"
-#include "sdl_stream.h"
-#include "tga_import.h"
+#include "surrender/srImageIO.h"
+#include "image_stream.h"
+#include <SDL3_image/SDL_image.h>
 #include "wiz8/sr_api.h"
 #include <array>
 #include <cstdio>
@@ -35,31 +35,23 @@ static void checkFormat(const srColorSurfaceIFace& surface, srPixelConvert::e_su
     surface.getPixelFormat(actual);
     CHECK(actual == expected);
 }
-static OwnedSurface loadJpeg(const Bytes& data, srJPEGImporter& importer)
+static OwnedSurface loadJpeg(const Bytes& data)
 {
     srBinIMStream input(data.data(), data.size());
-    auto result = owned(importer.importSurface(input, {}));
+    auto result = owned(srImage::load("sample.jpg", input));
     CHECK(input.getSize() == data.size());
     return result;
 }
-static Bytes encode(srJPEGImporter& importer, srColorSurfaceIFace& surface, const char* options)
+static Bytes encode(srColorSurfaceIFace& surface, int quality = 100)
 {
     srBinOMStream output;
-    importer.exportSurface(output, surface, {0, 0, options});
+    srImage::save("sample.jpg", output, surface, quality);
     CHECK(output.good() && output.getSize() > 2);
     auto* data = static_cast<const Uint8*>(output.getPtr());
     return {data, data + output.getSize()};
 }
 static void jpegTests()
 {
-    auto* manager = srCore.getSurfaceIOManager();
-    CHECK(manager && manager->getImporter("sample.jpg"));
-    auto& importer = *static_cast<srJPEGImporter*>(manager->getImporter("sample.jpg"));
-    CHECK(strcmp(importer.getTypeName(), "JPEG") == 0);
-    CHECK(manager && manager->getImporter("sample.jpg") == &importer);
-    CHECK(manager->getImporter("sample.jpeg") == &importer);
-    CHECK(manager->getExporter("sample.jpg") == &importer);
-    CHECK(manager->getExporter("sample.jpeg") == &importer);
     const auto gray = fixture("gray.jpg"), cmyk = fixture("cmyk.jpg");
     Bytes pixels(2 * 16, 0xee);
     for (unsigned y = 0; y < 2; ++y)
@@ -69,12 +61,11 @@ static void jpegTests()
             p[1] = p[0] + 20; p[2] = p[0] + 60; p[3] = 40;
         }
     auto source = owned(SR_NEW(srColorSurface)(srPixelConvert::SURFACE_BGRA32, pixels.data(), 3, 2, 16));
-    const auto rgb = encode(importer, *source, "QUALITY = 1");
-    CHECK(rgb == encode(importer, *source, "quality=100"));
-    CHECK(rgb == encode(importer, *source, "QUALITY=nan"));
-    CHECK(rgb == encode(importer, *source, nullptr));
-    CHECK(encode(importer, *source, "QUALITY=-1") == encode(importer, *source, "QUALITY=0"));
-    CHECK(rgb != encode(importer, *source, "QUALITY=0.2"));
+    const auto rgb = encode(*source);
+    CHECK(rgb == encode(*source, 100));
+    CHECK(rgb == encode(*source, 200));
+    CHECK(encode(*source, -1) == encode(*source, 0));
+    CHECK(rgb != encode(*source, 20));
     CHECK(pixels[12] == 0xee && pixels[28] == 0xee);
     for (const auto* data : {&gray, &rgb, &cmyk}) {
         const bool monochrome = data == &gray;
@@ -83,10 +74,10 @@ static void jpegTests()
         srBinIMStream input(data->data(), data->size());
         input.seek(7);
         srColorSurfaceIFace::SurfaceDesc description;
-        CHECK(importer.getSurfaceDesc(description, input, {}));
+        CHECK(srImage::describe(description, "sample.JPEG", input));
         CHECK(input.tell() == 7 && input.good());
         CHECK(description.width == 3 && description.height == 2);
-        auto surface = loadJpeg(*data, importer);
+        auto surface = loadJpeg(*data);
         CHECK(surface && surface->getWidth() == 3 && surface->getHeight() == 2);
         checkFormat(*surface, monochrome ? srPixelConvert::SURFACE_L8 :
                               four_channels ? srPixelConvert::SURFACE_BGRA32 : srPixelConvert::SURFACE_BGR24);
@@ -114,22 +105,22 @@ static void jpegTests()
                 }
             }
         }
-        CHECK(!encode(importer, *surface, "QUALITY=1").empty());
+        CHECK(!encode(*surface).empty());
     }
     // SDL/libjpeg tolerates missing EOI; our stream bridge must not accept it.
     for (size_t length : {size_t(0), size_t(1), size_t(2), size_t(18), rgb.size() / 2, rgb.size() - 2})
-        CHECK(!loadJpeg(Bytes(rgb.begin(), rgb.begin() + length), importer));
+        CHECK(!loadJpeg(Bytes(rgb.begin(), rgb.begin() + length)));
     auto invalid = rgb;
     invalid[0] = 0;
-    CHECK(!loadJpeg(invalid, importer));
+    CHECK(!loadJpeg(invalid));
     for (size_t i = 0; i + 9 < invalid.size(); ++i)
         if (rgb[i] == 0xff && rgb[i + 1] == 0xc0) {
             invalid = rgb;
             invalid[i + 5] = invalid[i + 6] = invalid[i + 7] = invalid[i + 8] = 0xff;
-            CHECK(!loadJpeg(invalid, importer));
+            CHECK(!loadJpeg(invalid));
             invalid = rgb;
             invalid[i + 5] = invalid[i + 6] = 0;
-            CHECK(!loadJpeg(invalid, importer));
+            CHECK(!loadJpeg(invalid));
             break;
         }
 }
@@ -359,22 +350,21 @@ static void streamTests()
         CHECK(SDL_SeekIO(io.get(), std::numeric_limits<Sint64>::min(), SDL_IO_SEEK_END) == -1);
         CHECK(bridge.failed);
     }
-    srJPEGImporter importer;
     const auto jpeg = fixture("gray.jpg");
     for (int fault : {0, 1, 2, 3}) {
         FaultInput input(jpeg, fault);
-        CHECK(!importer.importSurface(input, {}));
+        CHECK(!srImage::load("sample.jpg", input));
         CHECK(input.tell() <= jpeg.size());
         FaultInput description_input(jpeg, fault);
         srColorSurfaceIFace::SurfaceDesc description;
-        CHECK(!importer.getSurfaceDesc(description, description_input, {}));
+        CHECK(!srImage::describe(description, "sample.jpg", description_input));
     }
-    auto surface = loadJpeg(jpeg, importer);
+    auto surface = loadJpeg(jpeg);
     CHECK(surface);
     for (bool throws : {false, true}) {
         FaultOutput output(throws);
         bool rejected = false;
-        try { importer.exportSurface(output, *surface, {}); }
+        try { srImage::save("sample.jpg", output, *surface); }
         catch (...) { rejected = true; }
         CHECK(rejected);
     }

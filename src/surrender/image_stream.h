@@ -2,6 +2,7 @@
 
 #include "surrender/srBinIStream.h"
 #include "surrender/srBinOStream.h"
+#include "surrender/srColorSurface.h"
 
 #include <SDL3/SDL.h>
 #include <algorithm>
