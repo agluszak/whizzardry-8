@@ -1287,6 +1287,21 @@ bool W8PathingService::BuildAttachmentPath(W8NavigatorAttachment* attachment, un
     return false;
 }
 
+/* Both recursive path searches finish with the same attachment updates. */
+static void FinalizeWaypointRoute(W8NavigatorAttachment* attachment, bool has_start_waypoint,
+                                  const srVector3T<float>& waypoint)
+{
+    if (1 < attachment->path_position_index) {
+        --attachment->path_position_index;
+        attachment->path_destination = attachment->path[attachment->path_position_index].position;
+    }
+    if (has_start_waypoint) {
+        attachment->start_waypoint = waypoint;
+        attachment->flags |= W8_NAV_ATTACHMENT_START_WAYPOINT;
+    }
+    attachment->flags |= 0x20000;
+}
+
 /* Link the attachment's recorded route to `target`: seeds the search state
    from the attachment's start waypoint, runs the recursive link search, and
    when that fails falls back to the A* FindPath when the straight-line cost
@@ -1349,15 +1364,7 @@ bool W8PathingService::LinkAttachmentTarget(W8NavigatorAttachment* attachment, u
     }
     AppendScratchPath(attachment, count);
     attachment->TruncatePathAtRadius(target, separation);
-    if (1 < attachment->path_position_index) {
-        --attachment->path_position_index;
-        attachment->path_destination = attachment->path[attachment->path_position_index].position;
-    }
-    if (start_waypoint != 0) {
-        attachment->start_waypoint = m_probe_position;
-        attachment->flags |= W8_NAV_ATTACHMENT_START_WAYPOINT;
-    }
-    attachment->flags |= 0x20000;
+    FinalizeWaypointRoute(attachment, start_waypoint != 0, m_probe_position);
     return true;
 }
 
@@ -1521,15 +1528,7 @@ bool W8PathingService::BuildPatrolPath(W8NavigatorAttachment* attachment, unsign
         ++count;
     } while (previous != static_cast<unsigned short>(current));
     AppendScratchPath(attachment, count);
-    if (1 < attachment->path_position_index) {
-        --attachment->path_position_index;
-        attachment->path_destination = attachment->path[attachment->path_position_index].position;
-    }
-    if (start_waypoint != 0) {
-        attachment->start_waypoint = m_probe_position;
-        attachment->flags |= W8_NAV_ATTACHMENT_START_WAYPOINT;
-    }
-    attachment->flags |= 0x20000;
+    FinalizeWaypointRoute(attachment, start_waypoint != 0, m_probe_position);
     return true;
 }
 
@@ -4045,6 +4044,16 @@ bool W8PathingService::TestWaypointSpan(const srVector3T<float>* source,
     unsigned int previous_key = 0;
     unsigned int previous_value;
     int iteration = 0;
+    const auto updateNeighborMask = [&](unsigned int current_key, unsigned int current_value) {
+        const unsigned int key = previous_key == 0 ? current_key : previous_key;
+        const unsigned int value = previous_key == 0 ? current_value : previous_value;
+        if (previous_key != 0 || current_key != 0) {
+            srVector2i cell;
+            cell.x = key & 0xffff;
+            cell.y = key >> 16;
+            m_waypoint_neighbor_mask = ComputeWaypointNeighborMask(&cell, value);
+        }
+    };
 
     while (iteration < walk.count && !blocked) {
         auto slot = path_index->equal_range(cell_key).first;
@@ -4073,18 +4082,7 @@ bool W8PathingService::TestWaypointSpan(const srVector3T<float>* source,
         }
 
         if (!found) {
-            unsigned int mask_key = previous_key;
-            unsigned int mask_value = previous_value;
-            if (previous_key == 0) {
-                mask_key = cell_key;
-                mask_value = path_value;
-            }
-            if (previous_key != 0 || cell_key != 0) {
-                srVector2i mask_cell;
-                mask_cell.x = mask_key & 0xffff;
-                mask_cell.y = mask_key >> 16;
-                m_waypoint_neighbor_mask = ComputeWaypointNeighborMask(&mask_cell, mask_value);
-            }
+            updateNeighborMask(cell_key, path_value);
             blocked = true;
         }
 
@@ -4127,18 +4125,7 @@ bool W8PathingService::TestWaypointSpan(const srVector3T<float>* source,
         if (cell_key == destination_key) {
             iteration = walk.count;
         } else if (direction_mask != 0 && (direction_mask & 1 << (direction & 0x1f)) == 0) {
-            unsigned int mask_key = previous_key;
-            unsigned int mask_value = previous_value;
-            if (previous_key == 0) {
-                mask_key = cell_key;
-                mask_value = path_value;
-            }
-            if (previous_key != 0 || cell_key != 0) {
-                srVector2i mask_cell;
-                mask_cell.x = mask_key & 0xffff;
-                mask_cell.y = mask_key >> 16;
-                m_waypoint_neighbor_mask = ComputeWaypointNeighborMask(&mask_cell, mask_value);
-            }
+            updateNeighborMask(cell_key, path_value);
             blocked = true;
         }
 
