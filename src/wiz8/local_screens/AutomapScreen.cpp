@@ -1476,7 +1476,7 @@ void LightAutomapCell(const srVector3T<float>* position)
                     if (count != 0) {
                         srMath::length({distances.data(),
                                         static_cast<std::size_t>(static_cast<SRDWORD>(count))},
-                                       vertices.data());
+                                       vertices);
                     }
                     float* distance = distances.data();
                     if (count != 0) {

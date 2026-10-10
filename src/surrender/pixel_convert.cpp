@@ -13,7 +13,6 @@
 #include "surrender/srARGB.h"
 #include "surrender/srMath.h"
 #include "surrender/srPalette.h"
-#include "surrender/srVectorMath.h"
 
 /* RGB24 rows contain a word at every third byte, including odd addresses. */
 static inline unsigned short readPackedWord(const unsigned char* bytes)
@@ -1271,15 +1270,27 @@ void __cdecl readBGRA(const srPixelConvert::ConversionInfo& info)
 // FUNCTION: SURRENDER 0x1000A9B0
 void __cdecl writeBGRX(const srPixelConvert::ConversionInfo& info)
 {
-    srMath::bitwiseAnd({static_cast<SRDWORD*>(info.dest), static_cast<std::size_t>(info.count)},
-                       static_cast<const SRDWORD*>(info.source), 0xffffff);
+    auto* destination = static_cast<unsigned char*>(info.dest);
+    const auto* source = static_cast<const unsigned char*>(info.source);
+    for (std::size_t index = 0; index < info.count; ++index) {
+        w8_ulong pixel;
+        std::memcpy(&pixel, source + index * sizeof(pixel), sizeof(pixel));
+        pixel &= 0x00ffffff;
+        std::memcpy(destination + index * sizeof(pixel), &pixel, sizeof(pixel));
+    }
 }
 
 // FUNCTION: SURRENDER 0x1000A9E0
 void __cdecl readBGRX(const srPixelConvert::ConversionInfo& info)
 {
-    srMath::bitwiseOr({static_cast<SRDWORD*>(info.dest), static_cast<std::size_t>(info.count)},
-                      static_cast<const SRDWORD*>(info.source), 0xff000000);
+    auto* destination = static_cast<unsigned char*>(info.dest);
+    const auto* source = static_cast<const unsigned char*>(info.source);
+    for (std::size_t index = 0; index < info.count; ++index) {
+        w8_ulong pixel;
+        std::memcpy(&pixel, source + index * sizeof(pixel), sizeof(pixel));
+        pixel |= 0xff000000;
+        std::memcpy(destination + index * sizeof(pixel), &pixel, sizeof(pixel));
+    }
 }
 
 /* format_table[srPixelConvert::SURFACE_RGBA32] write/read: rotate each BGRA pixel one byte lane so

@@ -3,8 +3,14 @@
 #include "wiz8/compat/unaligned.h"
 
 #include <algorithm>
+#include <cassert>
 
 namespace {
+constexpr float clampUnitValue(float value)
+{
+    return value < 0.0f ? 0.0f : (value > 1.0f ? 1.0f : value);
+}
+
 constexpr double coefficients[0x12][4] = {
     {0, 1e-14, 1, 0},
     {-0.068979736114850004, 0.18179573075354999, 0.88948269483362996, -0.0032237222793199999},
@@ -64,54 +70,11 @@ constexpr float points[0x12][7] = {
 };
 } // namespace
 
-// FUNCTION: SURRENDER 0x10065A80
-void srMath::bitwiseAnd(std::span<SRDWORD> destination, const SRDWORD* source, SRDWORD constant)
-{
-    std::ranges::transform(std::span{source, destination.size()}, destination.begin(),
-                           [&](auto value_0) { return value_0 & constant; });
-}
-
-// FUNCTION: SURRENDER 0x10065AB0
-void srMath::bitwiseOr(std::span<SRDWORD> destination, const SRDWORD* source, SRDWORD constant)
-{
-    std::ranges::transform(std::span{source, destination.size()}, destination.begin(),
-                           [&](auto value_0) { return value_0 | constant; });
-}
-
-// FUNCTION: SURRENDER 0x10065B10
-void srMath::bitwiseAnd(std::span<SRDWORD> destination, const SRDWORD* source_0,
-                        const SRDWORD* source_1)
-{
-    std::ranges::transform(std::span{source_0, destination.size()},
-                           std::span{source_1, destination.size()}, destination.begin(),
-                           [&](auto value_0, auto value_1) { return value_0 & value_1; });
-}
-
-// FUNCTION: SURRENDER 0x10065B40
-void srMath::bitwiseOr(std::span<SRDWORD> destination, const SRDWORD* source_0,
-                       const SRDWORD* source_1)
-{
-    std::ranges::transform(std::span{source_0, destination.size()},
-                           std::span{source_1, destination.size()}, destination.begin(),
-                           [&](auto value_0, auto value_1) { return value_0 | value_1; });
-}
-
-// FUNCTION: SURRENDER 0x10065BA0
-int srMath::isEqual(std::span<const SRDWORD> source_0, const SRDWORD* source_1)
-{
-    return std::ranges::equal(source_0, std::span{source_1, source_0.size()});
-}
-
-// FUNCTION: SURRENDER 0x10065BE0
-int srMath::isEqual(std::span<const SRDWORD> source, SRDWORD constant)
-{
-    return std::ranges::all_of(source, [constant](SRDWORD value) { return value == constant; });
-}
-
 // FUNCTION: SURRENDER 0x10065C10
 void srMath::copyIndexed(std::span<SRDWORD> destination, const SRDWORD* source,
                          std::span<const SRDWORD> indices)
 {
+    assert(destination.size() >= indices.size());
     const std::size_t count = indices.size();
     for (std::size_t index = 0; index < count; ++index) {
         SRDWORD source_index = indices[index];
@@ -119,162 +82,115 @@ void srMath::copyIndexed(std::span<SRDWORD> destination, const SRDWORD* source,
     }
 }
 
-// FUNCTION: SURRENDER 0x10065E40
-void srMath::axpy(std::span<float> destination, float add_constant, float multiply_constant,
-                  const float* multiply_source)
-{
-    std::ranges::transform(
-        std::span{multiply_source, destination.size()}, destination.begin(),
-        [&](auto value_0) { return multiply_constant * value_0 + add_constant; });
-}
-
-// FUNCTION: SURRENDER 0x10065E70
-void srMath::axpy(std::span<float> destination, const float* add_source, float multiply_constant,
-                  const float* multiply_source)
-{
-    std::ranges::transform(
-        std::span{multiply_source, destination.size()}, std::span{add_source, destination.size()},
-        destination.begin(),
-        [&](auto value_0, auto value_1) { return multiply_constant * value_0 + value_1; });
-}
-
-// FUNCTION: SURRENDER 0x10065EB0
-void srMath::axpy(std::span<float> destination, float add_constant, const float* scale_source,
-                  const float* multiply_source)
-{
-    std::ranges::transform(
-        std::span{scale_source, destination.size()}, std::span{multiply_source, destination.size()},
-        destination.begin(),
-        [&](auto value_0, auto value_1) { return value_0 * value_1 + add_constant; });
-}
-
 // FUNCTION: SURRENDER 0x10065EF0
-void srMath::axpy(std::span<float> destination, const float* add_source, const float* scale_source,
-                  const float* multiply_source)
+void srMath::axpy(std::span<float> destination, std::span<const float> add_source,
+                  std::span<const float> scale_source, std::span<const float> multiply_source)
 {
+    assert(add_source.size() >= destination.size());
+    assert(scale_source.size() >= destination.size());
+    assert(multiply_source.size() >= destination.size());
     const std::size_t count = destination.size();
     for (std::size_t index = 0; index < count; ++index) {
         destination[index] = scale_source[index] * multiply_source[index] + add_source[index];
     }
 }
 
-// FUNCTION: SURRENDER 0x10065F30
-void srMath::axpy(std::span<float> destination, float add_constant, float scale,
-                  const float* scale_source, const float* multiply_source)
-{
-    std::ranges::transform(
-        std::span{scale_source, destination.size()}, std::span{multiply_source, destination.size()},
-        destination.begin(),
-        [&](auto value_0, auto value_1) { return scale * value_0 * value_1 + add_constant; });
-}
-
-// FUNCTION: SURRENDER 0x10065F70
-void srMath::axpy(std::span<float> destination, const float* add_source, float scale,
-                  const float* scale_source, const float* multiply_source)
-{
-    const std::size_t count = destination.size();
-    for (std::size_t index = 0; index < count; ++index) {
-        destination[index] =
-            scale_source[index] * multiply_source[index] * scale + add_source[index];
-    }
-}
-
 // FUNCTION: SURRENDER 0x10065FB0
-void srMath::add(std::span<float> destination, float constant, const float* source)
+void srMath::add(std::span<float> destination, float constant, std::span<const float> source)
 {
-    std::ranges::transform(std::span{source, destination.size()}, destination.begin(),
+    assert(source.size() >= destination.size());
+    std::ranges::transform(source.first(destination.size()), destination.begin(),
                            [&](auto value_0) { return constant + value_0; });
 }
 
-// FUNCTION: SURRENDER 0x10065FE0
-void srMath::add(std::span<float> destination, const float* source_0, const float* source_1)
-{
-    std::ranges::transform(std::span{source_0, destination.size()},
-                           std::span{source_1, destination.size()}, destination.begin(),
-                           [&](auto value_0, auto value_1) { return value_0 + value_1; });
-}
-
 // FUNCTION: SURRENDER 0x10066010
-void srMath::sub(std::span<float> destination, float constant, const float* source)
+void srMath::sub(std::span<float> destination, float constant, std::span<const float> source)
 {
-    std::ranges::transform(std::span{source, destination.size()}, destination.begin(),
+    assert(source.size() >= destination.size());
+    std::ranges::transform(source.first(destination.size()), destination.begin(),
                            [&](auto value_0) { return constant - value_0; });
 }
 
 // FUNCTION: SURRENDER 0x10066040
-void srMath::sub(std::span<float> destination, const float* source_0, const float* source_1)
+void srMath::sub(std::span<srVector3> destination, std::span<const srVector3> source_0,
+                 std::span<const srVector3> source_1)
 {
-    std::ranges::transform(std::span{source_0, destination.size()},
-                           std::span{source_1, destination.size()}, destination.begin(),
+    assert(source_0.size() >= destination.size());
+    assert(source_1.size() >= destination.size());
+    std::ranges::transform(source_0.first(destination.size()), source_1.first(destination.size()),
+                           destination.begin(),
                            [&](auto value_0, auto value_1) { return value_0 - value_1; });
 }
 
 // FUNCTION: SURRENDER 0x100660A0
-void srMath::mul(std::span<float> destination, float constant, const float* source)
+void srMath::mul(std::span<float> destination, float constant, std::span<const float> source)
 {
-    std::ranges::transform(std::span{source, destination.size()}, destination.begin(),
+    assert(source.size() >= destination.size());
+    std::ranges::transform(source.first(destination.size()), destination.begin(),
                            [&](auto value_0) { return constant * value_0; });
 }
 
 // FUNCTION: SURRENDER 0x100660D0
-void srMath::mul(std::span<float> destination, const float* source_0, const float* source_1)
+void srMath::mul(std::span<float> destination, std::span<const float> source_0,
+                 std::span<const float> source_1)
 {
-    std::ranges::transform(std::span{source_0, destination.size()},
-                           std::span{source_1, destination.size()}, destination.begin(),
+    assert(source_0.size() >= destination.size());
+    assert(source_1.size() >= destination.size());
+    std::ranges::transform(source_0.first(destination.size()), source_1.first(destination.size()),
+                           destination.begin(),
                            [&](auto value_0, auto value_1) { return value_0 * value_1; });
 }
 
-// FUNCTION: SURRENDER 0x10066100
-void srMath::mul(std::span<float> destination, float constant, const float* source_0,
-                 const float* source_1)
-{
-    std::ranges::transform(
-        std::span{source_0, destination.size()}, std::span{source_1, destination.size()},
-        destination.begin(),
-        [&](auto value_0, auto value_1) { return value_0 * value_1 * constant; });
-}
-
 // FUNCTION: SURRENDER 0x100661C0
-void srMath::lerp(std::span<float> destination, const float* target, const float* source,
-                  float constant)
+void srMath::lerp(std::span<srVector3> destination, std::span<const srVector3> target,
+                  std::span<const srVector3> source, float constant)
 {
-    std::ranges::transform(std::span{target, destination.size()},
-                           std::span{source, destination.size()}, destination.begin(),
-                           [&](auto value_0, auto value_1) {
-                               return constant * value_0 + (1.0f - constant) * value_1;
+    assert(target.size() >= destination.size());
+    assert(source.size() >= destination.size());
+    std::ranges::transform(target.first(destination.size()), source.first(destination.size()),
+                           destination.begin(), [&](auto value_0, auto value_1) {
+                               return srVector3{
+                                   constant * value_0.x + (1.0f - constant) * value_1.x,
+                                   constant * value_0.y + (1.0f - constant) * value_1.y,
+                                   constant * value_0.z + (1.0f - constant) * value_1.z};
                            });
 }
 
 // FUNCTION: SURRENDER 0x10066270
-void srMath::clampMin(std::span<float> destination, const float* source, float minimum)
+void srMath::clampMin(std::span<float> destination, std::span<const float> source, float minimum)
 {
-    std::ranges::transform(std::span{source, destination.size()}, destination.begin(),
+    assert(source.size() >= destination.size());
+    std::ranges::transform(source.first(destination.size()), destination.begin(),
                            [&](auto value_0) { return value_0 <= minimum ? minimum : value_0; });
 }
 
 // FUNCTION: SURRENDER 0x100662F0
-void srMath::clampUnit(std::span<float> destination, const float* source)
+void srMath::clampUnit(std::span<float> destination, std::span<const float> source)
 {
-    std::ranges::transform(
-        std::span{source, destination.size()}, destination.begin(),
-        [&](auto value_0) { return value_0 < 0.0f ? 0.0f : (value_0 > 1.0f ? 1.0f : value_0); });
+    assert(source.size() >= destination.size());
+    std::ranges::transform(source.first(destination.size()), destination.begin(), clampUnitValue);
 }
 
-// FUNCTION: SURRENDER 0x10066390
-void srMath::mulIndexed(std::span<float> destination, float constant, const float* indexed_source,
-                        std::span<const SRDWORD> indices)
+void srMath::clampUnit(std::span<srVector4> destination, std::span<const srVector4> source)
 {
-    const std::size_t count = indices.size();
-    for (std::size_t index = 0; index < count; ++index) {
-        SRDWORD source_index = indices[index];
-        destination[index] = constant * indexed_source[source_index];
-    }
+    assert(source.size() >= destination.size());
+    std::ranges::transform(source.first(destination.size()), destination.begin(),
+                           [](const srVector4& value) {
+                               srVector4 result;
+                               result.x = clampUnitValue(value.x);
+                               result.y = clampUnitValue(value.y);
+                               result.z = clampUnitValue(value.z);
+                               result.w = clampUnitValue(value.w);
+                               return result;
+                           });
 }
 
 // FUNCTION: SURRENDER 0x100663C0
-void srMath::mulIndexed(std::span<float> destination, const float* linear_source,
+void srMath::mulIndexed(std::span<float> destination, std::span<const float> linear_source,
                         const float* indexed_source, std::span<const SRDWORD> indices)
 {
+    assert(destination.size() >= indices.size());
+    assert(linear_source.size() >= indices.size());
     const std::size_t count = indices.size();
     for (std::size_t index = 0; index < count; ++index) {
         SRDWORD source_index = indices[index];
@@ -282,39 +198,27 @@ void srMath::mulIndexed(std::span<float> destination, const float* linear_source
     }
 }
 
-// FUNCTION: SURRENDER 0x10066460
-void srMath::minMax(std::span<const float> source, float& minimum, float& maximum)
-{
-    const std::size_t count = source.size();
-    minimum = source[0];
-    maximum = source[0];
-    for (std::size_t index = 1; index < count; ++index) {
-        if (source[index] < minimum) {
-            minimum = source[index];
-        } else if (source[index] > maximum) {
-            maximum = source[index];
-        }
-    }
-}
-
 // FUNCTION: SURRENDER 0x100664B0
-int srMath::isZero(std::span<const float> source)
+bool srMath::isZero(std::span<const float> source)
 {
     return std::ranges::all_of(source, [](float value) { return value == 0.0f; });
 }
 
 // FUNCTION: SURRENDER 0x10066570
-void srMath::invPoly(std::span<float> destination, const float* source, const srVector3& poly)
+void srMath::invPoly(std::span<float> destination, std::span<const float> source,
+                     const srVector3& poly)
 {
+    assert(source.size() >= destination.size());
     std::ranges::transform(
-        std::span{source, destination.size()}, destination.begin(),
+        source.first(destination.size()), destination.begin(),
         [&](auto value_0) { return 1.0f / ((poly.z * value_0 + poly.y) * value_0 + poly.x); });
 }
 
 // FUNCTION: SURRENDER 0x100665E0
-void srMath::neg(std::span<float> destination, const float* source)
+void srMath::neg(std::span<float> destination, std::span<const float> source)
 {
-    std::ranges::transform(std::span{source, destination.size()}, destination.begin(),
+    assert(source.size() >= destination.size());
+    std::ranges::transform(source.first(destination.size()), destination.begin(),
                            [&](auto value_0) { return -value_0; });
 }
 
@@ -322,6 +226,7 @@ void srMath::neg(std::span<float> destination, const float* source)
 void srMath::copyIndexed(std::span<srVector2> destination, const srVector2* source,
                          std::span<const SRDWORD> indices)
 {
+    assert(destination.size() >= indices.size());
     const std::size_t count = indices.size();
     for (std::size_t index = 0; index < count; ++index) {
         SRDWORD source_index = indices[index];
@@ -332,6 +237,7 @@ void srMath::copyIndexed(std::span<srVector2> destination, const srVector2* sour
 // FUNCTION: SURRENDER 0x100666D0
 void srMath::minMax(std::span<const srVector3> source, srVector3& minimum, srVector3& maximum)
 {
+    assert(!source.empty());
     const std::size_t count = source.size();
     minimum = source[0];
     maximum = source[0];
@@ -352,8 +258,9 @@ void srMath::minMax(std::span<const srVector3> source, srVector3& minimum, srVec
 }
 
 // FUNCTION: SURRENDER 0x10066760
-void srMath::copy(std::span<srVector3> destination, const srVector4* source)
+void srMath::copy(std::span<srVector3> destination, std::span<const srVector4> source)
 {
+    assert(source.size() >= destination.size());
     const std::size_t count = destination.size();
     for (std::size_t index = 0; index < count; ++index) {
         destination[index].x = source[index].x;
@@ -364,88 +271,47 @@ void srMath::copy(std::span<srVector3> destination, const srVector4* source)
 
 // FUNCTION: SURRENDER 0x100667D0
 void srMath::add(std::span<srVector3> destination, const srVector3& constant,
-                 const srVector3* vector_source)
+                 std::span<const srVector3> vector_source)
 {
-    std::ranges::transform(std::span{vector_source, destination.size()}, destination.begin(),
+    assert(vector_source.size() >= destination.size());
+    std::ranges::transform(vector_source.first(destination.size()), destination.begin(),
                            [&](auto value_0) { return value_0 + constant; });
 }
 
 // FUNCTION: SURRENDER 0x10066820
 void srMath::sub(std::span<srVector3> destination, const srVector3& constant,
-                 const srVector3* vector_source)
+                 std::span<const srVector3> vector_source)
 {
-    std::ranges::transform(std::span{vector_source, destination.size()}, destination.begin(),
+    assert(vector_source.size() >= destination.size());
+    std::ranges::transform(vector_source.first(destination.size()), destination.begin(),
                            [&](auto value_0) { return constant - value_0; });
 }
 
 // FUNCTION: SURRENDER 0x10066870
 void srMath::mul(std::span<srVector3> destination, const srVector3& constant,
-                 const srVector3* vector_source)
+                 std::span<const srVector3> vector_source)
 {
-    std::ranges::transform(std::span{vector_source, destination.size()}, destination.begin(),
+    assert(vector_source.size() >= destination.size());
+    std::ranges::transform(vector_source.first(destination.size()), destination.begin(),
                            [&](auto value_0) { return value_0 * constant; });
 }
 
-// FUNCTION: SURRENDER 0x10066910
-void srMath::add(std::span<srVector3> destination, const srVector3& constant,
-                 const float* float_source)
-{
-    const std::size_t count = destination.size();
-    for (std::size_t index = 0; index < count; ++index) {
-        destination[index].x = float_source[index] + constant.x;
-        destination[index].y = constant.y + float_source[index];
-        destination[index].z = float_source[index] + constant.z;
-    }
-}
-
-// FUNCTION: SURRENDER 0x10066950
-void srMath::sub(std::span<srVector3> destination, const srVector3& constant,
-                 const float* float_source)
-{
-    const std::size_t count = destination.size();
-    for (std::size_t index = 0; index < count; ++index) {
-        destination[index].x = constant.x - float_source[index];
-        destination[index].y = constant.y - float_source[index];
-        destination[index].z = constant.z - float_source[index];
-    }
-}
-
-// FUNCTION: SURRENDER 0x10066990
-void srMath::mul(std::span<srVector3> destination, const srVector3& constant,
-                 const float* float_source)
-{
-    std::ranges::transform(std::span{float_source, destination.size()}, destination.begin(),
-                           [&](auto value_0) { return constant * value_0; });
-}
-
-// FUNCTION: SURRENDER 0x10066A10
-void srMath::add(std::span<srVector3> destination, const srVector3* vector_source,
-                 const float* float_source)
-{
-    const std::size_t count = destination.size();
-    for (std::size_t index = 0; index < count; ++index) {
-        destination[index].x = float_source[index] + vector_source[index].x;
-        destination[index].y = vector_source[index].y + float_source[index];
-        destination[index].z = vector_source[index].z + float_source[index];
-    }
-}
-
-// FUNCTION: SURRENDER 0x10066A60
-void srMath::sub(std::span<srVector3> destination, const srVector3* vector_source,
-                 const float* float_source)
-{
-    const std::size_t count = destination.size();
-    for (std::size_t index = 0; index < count; ++index) {
-        destination[index].x = vector_source[index].x - float_source[index];
-        destination[index].y = vector_source[index].y - float_source[index];
-        destination[index].z = vector_source[index].z - float_source[index];
-    }
-}
-
 // FUNCTION: SURRENDER 0x10066AB0
-void srMath::mul(std::span<srVector3> destination, const srVector3* vector_source,
-                 const float* float_source)
+void srMath::mul(std::span<srVector3> destination, float constant,
+                 std::span<const srVector3> source)
 {
+    assert(source.size() >= destination.size());
+    std::ranges::transform(
+        source.first(destination.size()), destination.begin(), [constant](const srVector3& value) {
+            return srVector3{constant * value.x, constant * value.y, constant * value.z};
+        });
+}
+
+void srMath::mul(std::span<srVector3> destination, std::span<const srVector3> vector_source,
+                 std::span<const float> float_source)
+{
+    assert(vector_source.size() >= destination.size());
+    assert(float_source.size() >= destination.size());
     const std::size_t count = destination.size();
     for (std::size_t index = 0; index < count; ++index) {
         destination[index].x = vector_source[index].x * float_source[index];
@@ -454,36 +320,29 @@ void srMath::mul(std::span<srVector3> destination, const srVector3* vector_sourc
     }
 }
 
-// FUNCTION: SURRENDER 0x10066B50
-void srMath::sub(std::span<srVector3> destination, const float* float_source,
-                 const srVector3* vector_source)
-{
-    const std::size_t count = destination.size();
-    for (std::size_t index = 0; index < count; ++index) {
-        destination[index].x = float_source[index] - vector_source[index].x;
-        destination[index].y = float_source[index] - vector_source[index].y;
-        destination[index].z = float_source[index] - vector_source[index].z;
-    }
-}
-
 // FUNCTION: SURRENDER 0x10066BF0
-void srMath::length(std::span<float> destination, const srVector3* vectors)
+void srMath::length(std::span<float> destination, std::span<const srVector3> vectors)
 {
-    std::ranges::transform(std::span{vectors, destination.size()}, destination.begin(),
+    assert(vectors.size() >= destination.size());
+    std::ranges::transform(vectors.first(destination.size()), destination.begin(),
                            [&](auto value_0) { return value_0.Length(); });
 }
 
 // FUNCTION: SURRENDER 0x10066C40
-void srMath::dot(std::span<float> destination, const srVector3& constant, const srVector3* vectors)
+void srMath::dot(std::span<float> destination, const srVector3& constant,
+                 std::span<const srVector3> vectors)
 {
-    std::ranges::transform(std::span{vectors, destination.size()}, destination.begin(),
+    assert(vectors.size() >= destination.size());
+    std::ranges::transform(vectors.first(destination.size()), destination.begin(),
                            [&](auto value_0) { return DotProduct(value_0, constant); });
 }
 
 // FUNCTION: SURRENDER 0x10066C80
-void srMath::dot(std::span<float> destination, const srVector4& constant, const srVector3* vectors)
+void srMath::dot(std::span<float> destination, const srVector4& constant,
+                 std::span<const srVector3> vectors)
 {
-    std::ranges::transform(std::span{vectors, destination.size()}, destination.begin(),
+    assert(vectors.size() >= destination.size());
+    std::ranges::transform(vectors.first(destination.size()), destination.begin(),
                            [&](auto value_0) {
                                return value_0.x * constant.x + value_0.y * constant.y +
                                       value_0.z * constant.z + constant.w;
@@ -491,18 +350,22 @@ void srMath::dot(std::span<float> destination, const srVector4& constant, const 
 }
 
 // FUNCTION: SURRENDER 0x10066CC0
-void srMath::dot(std::span<float> destination, const srVector3* vectors_0,
-                 const srVector3* vectors_1)
+void srMath::dot(std::span<float> destination, std::span<const srVector3> vectors_0,
+                 std::span<const srVector3> vectors_1)
 {
-    std::ranges::transform(
-        std::span{vectors_0, destination.size()}, std::span{vectors_1, destination.size()},
-        destination.begin(),
-        [&](auto value_0, auto value_1) { return DotProduct(value_0, value_1); });
+    assert(vectors_0.size() >= destination.size());
+    assert(vectors_1.size() >= destination.size());
+    std::ranges::transform(vectors_0.first(destination.size()), vectors_1.first(destination.size()),
+                           destination.begin(), [&](auto value_0, auto value_1) {
+                               return DotProduct(value_0, value_1);
+                           });
 }
 
 // FUNCTION: SURRENDER 0x10066D10
-void srMath::normalize(std::span<srVector3> destination, const srVector3* vectors, float length)
+void srMath::normalize(std::span<srVector3> destination, std::span<const srVector3> vectors,
+                       float length)
 {
+    assert(vectors.size() >= destination.size());
     const std::size_t count = destination.size();
     for (std::size_t index = 0; index < count; ++index) {
         float scale = length / vectors[index].Length();
@@ -510,45 +373,11 @@ void srMath::normalize(std::span<srVector3> destination, const srVector3* vector
     }
 }
 
-// FUNCTION: SURRENDER 0x10066D80
-void srMath::mulIndexed(std::span<srVector3> destination, const srVector3& constant,
-                        const srVector3* indexed_source, std::span<const SRDWORD> indices)
-{
-    const std::size_t count = indices.size();
-    for (std::size_t index = 0; index < count; ++index) {
-        SRDWORD source_index = indices[index];
-        destination[index] = indexed_source[source_index] * constant;
-    }
-}
-
-// FUNCTION: SURRENDER 0x10066DD0
-void srMath::mulIndexed(std::span<srVector3> destination, const srVector3* linear_source,
-                        const srVector3* indexed_source, std::span<const SRDWORD> indices)
-{
-    const std::size_t count = indices.size();
-    for (std::size_t index = 0; index < count; ++index) {
-        SRDWORD source_index = indices[index];
-        destination[index] = linear_source[index] * indexed_source[source_index];
-    }
-}
-
-// FUNCTION: SURRENDER 0x10066E30
-void srMath::copyIndexed(std::span<srVector3> destination, const srVector2* source,
-                         std::span<const SRDWORD> indices)
-{
-    const std::size_t count = indices.size();
-    for (std::size_t index = 0; index < count; ++index) {
-        SRDWORD source_index = indices[index];
-        destination[index].x = source[source_index].x;
-        destination[index].y = source[source_index].y;
-        destination[index].z = 0.0f;
-    }
-}
-
 // FUNCTION: SURRENDER 0x10066E70
 void srMath::copyIndexed(std::span<srVector3> destination, const srVector3* source,
                          std::span<const SRDWORD> indices)
 {
+    assert(destination.size() >= indices.size());
     const std::size_t count = indices.size();
     for (std::size_t index = 0; index < count; ++index) {
         SRDWORD source_index = indices[index];
@@ -556,23 +385,11 @@ void srMath::copyIndexed(std::span<srVector3> destination, const srVector3* sour
     }
 }
 
-// FUNCTION: SURRENDER 0x10066EC0
-void srMath::copyIndexed(std::span<srVector3> destination, const srVector4* source,
-                         std::span<const SRDWORD> indices)
-{
-    const std::size_t count = indices.size();
-    for (std::size_t index = 0; index < count; ++index) {
-        SRDWORD source_index = indices[index];
-        destination[index].x = source[source_index].x;
-        destination[index].y = source[source_index].y;
-        destination[index].z = source[source_index].z;
-    }
-}
-
 // FUNCTION: SURRENDER 0x10066F10
-void srMath::transform(std::span<srVector3> destination, const srVector3* vectors,
+void srMath::transform(std::span<srVector3> destination, std::span<const srVector3> vectors,
                        const srMatrix4& matrix)
 {
+    assert(vectors.size() >= destination.size());
     const std::size_t count = destination.size();
     const float* m = &matrix.vectors[0].x;
     for (std::size_t index = 0; index < count; ++index) {
@@ -584,8 +401,11 @@ void srMath::transform(std::span<srVector3> destination, const srVector3* vector
 }
 
 // FUNCTION: SURRENDER 0x10066FA0
-void srMath::dir(std::span<srVector3> destination, float* lengths, const srVector3* source)
+void srMath::dir(std::span<srVector3> destination, std::span<float> lengths,
+                 std::span<const srVector3> source)
 {
+    assert(lengths.size() >= destination.size());
+    assert(source.size() >= destination.size());
     const std::size_t count = destination.size();
     for (std::size_t index = 0; index < count; ++index) {
         float length = source[index].Length();
@@ -597,8 +417,11 @@ void srMath::dir(std::span<srVector3> destination, float* lengths, const srVecto
 }
 
 // FUNCTION: SURRENDER 0x10067010
-void srMath::dir(std::span<srVector3> destination, float* lengths, const srVector4* source)
+void srMath::dir(std::span<srVector3> destination, std::span<float> lengths,
+                 std::span<const srVector4> source)
 {
+    assert(lengths.size() >= destination.size());
+    assert(source.size() >= destination.size());
     const std::size_t count = destination.size();
     for (std::size_t index = 0; index < count; ++index) {
         float length = source[index].xyz().Length();
@@ -609,106 +432,21 @@ void srMath::dir(std::span<srVector3> destination, float* lengths, const srVecto
     }
 }
 
-// FUNCTION: SURRENDER 0x10067100
-void srMath::copy(std::span<srVector4> destination, const srVector3* source_0,
-                  const float* source_1)
-{
-    const std::size_t count = destination.size();
-    for (std::size_t index = 0; index < count; ++index) {
-        destination[index].x = source_0[index].x;
-        destination[index].y = source_0[index].y;
-        destination[index].z = source_0[index].z;
-        destination[index].w = source_1[index];
-    }
-}
-
-// FUNCTION: SURRENDER 0x10067150
-void srMath::copy(std::span<srVector4> destination, const srVector3* source, float constant)
-{
-    const std::size_t count = destination.size();
-    for (std::size_t index = 0; index < count; ++index) {
-        destination[index].x = source[index].x;
-        destination[index].y = source[index].y;
-        destination[index].z = source[index].z;
-        destination[index].w = constant;
-    }
-}
-
 // FUNCTION: SURRENDER 0x100671D0
 void srMath::add(std::span<srVector4> destination, const srVector4& constant,
-                 const srVector4* vector_source)
+                 std::span<const srVector4> vector_source)
 {
-    std::ranges::transform(std::span{vector_source, destination.size()}, destination.begin(),
+    assert(vector_source.size() >= destination.size());
+    std::ranges::transform(vector_source.first(destination.size()), destination.begin(),
                            [&](auto value_0) { return value_0 + constant; });
 }
 
-// FUNCTION: SURRENDER 0x10067230
-void srMath::mul(std::span<srVector4> destination, const srVector4& constant,
-                 const srVector4* vector_source)
-{
-    std::ranges::transform(std::span{vector_source, destination.size()}, destination.begin(),
-                           [&](auto value_0) { return value_0 * constant; });
-}
-
-// FUNCTION: SURRENDER 0x10067290
-void srMath::sub(std::span<srVector4> destination, const srVector4& constant,
-                 const srVector4* vector_source)
-{
-    std::ranges::transform(std::span{vector_source, destination.size()}, destination.begin(),
-                           [&](auto value_0) { return constant - value_0; });
-}
-
-// FUNCTION: SURRENDER 0x10067350
-void srMath::add(std::span<srVector4> destination, const srVector4& constant,
-                 const float* float_source)
-{
-    const std::size_t count = destination.size();
-    for (std::size_t index = 0; index < count; ++index) {
-        destination[index].x = float_source[index] + constant.x;
-        destination[index].y = float_source[index] + constant.y;
-        destination[index].z = float_source[index] + constant.z;
-        destination[index].w = float_source[index] + constant.w;
-    }
-}
-
-// FUNCTION: SURRENDER 0x100673A0
-void srMath::mul(std::span<srVector4> destination, const srVector4& constant,
-                 const float* float_source)
-{
-    std::ranges::transform(std::span{float_source, destination.size()}, destination.begin(),
-                           [&](auto value_0) { return constant * value_0; });
-}
-
-// FUNCTION: SURRENDER 0x100673F0
-void srMath::sub(std::span<srVector4> destination, const srVector4& constant,
-                 const float* float_source)
-{
-    const std::size_t count = destination.size();
-    for (std::size_t index = 0; index < count; ++index) {
-        destination[index].x = constant.x - float_source[index];
-        destination[index].y = constant.y - float_source[index];
-        destination[index].z = constant.z - float_source[index];
-        destination[index].w = constant.w - float_source[index];
-    }
-}
-
-// FUNCTION: SURRENDER 0x10067490
-void srMath::add(std::span<srVector4> destination, const srVector4* vector_source,
-                 const float* float_source)
-{
-    const std::size_t count = destination.size();
-    for (std::size_t index = 0; index < count; ++index) {
-        destination[index].x = vector_source[index].x + float_source[index];
-        destination[index].y = vector_source[index].y + float_source[index];
-        destination[index].z = vector_source[index].z + float_source[index];
-        destination[index].w = vector_source[index].w + float_source[index];
-    }
-}
-
 // FUNCTION: SURRENDER 0x100674F0
-void srMath::mul(std::span<srVector4> destination, const srVector4* vector_source,
-                 const float* float_source)
+void srMath::mul(std::span<srVector4> destination, std::span<const srVector4> vector_source,
+                 std::span<const float> float_source)
 {
+    assert(vector_source.size() >= destination.size());
+    assert(float_source.size() >= destination.size());
     const std::size_t count = destination.size();
     for (std::size_t index = 0; index < count; ++index) {
         destination[index].x = vector_source[index].x * float_source[index];
@@ -718,43 +456,12 @@ void srMath::mul(std::span<srVector4> destination, const srVector4* vector_sourc
     }
 }
 
-// FUNCTION: SURRENDER 0x10067550
-void srMath::sub(std::span<srVector4> destination, const srVector4* vector_source,
-                 const float* float_source)
-{
-    const std::size_t count = destination.size();
-    for (std::size_t index = 0; index < count; ++index) {
-        destination[index].x = vector_source[index].x - float_source[index];
-        destination[index].y = vector_source[index].y - float_source[index];
-        destination[index].z = vector_source[index].z - float_source[index];
-        destination[index].w = vector_source[index].w - float_source[index];
-    }
-}
-
-// FUNCTION: SURRENDER 0x10067610
-void srMath::sub(std::span<srVector4> destination, const float* float_source,
-                 const srVector4* vector_source)
-{
-    const std::size_t count = destination.size();
-    for (std::size_t index = 0; index < count; ++index) {
-        destination[index].x = float_source[index] - vector_source[index].x;
-        destination[index].y = float_source[index] - vector_source[index].y;
-        destination[index].z = float_source[index] - vector_source[index].z;
-        destination[index].w = float_source[index] - vector_source[index].w;
-    }
-}
-
-// FUNCTION: SURRENDER 0x100676D0
-void srMath::length(std::span<float> destination, const srVector4* vectors)
-{
-    std::ranges::transform(std::span{vectors, destination.size()}, destination.begin(),
-                           [&](auto value_0) { return value_0.Length(); });
-}
-
 // FUNCTION: SURRENDER 0x10067720
-void srMath::dot(std::span<float> destination, const srVector4& constant, const srVector4* vectors)
+void srMath::dot(std::span<float> destination, const srVector4& constant,
+                 std::span<const srVector4> vectors)
 {
-    std::ranges::transform(std::span{vectors, destination.size()}, destination.begin(),
+    assert(vectors.size() >= destination.size());
+    std::ranges::transform(vectors.first(destination.size()), destination.begin(),
                            [&](auto value_0) { return DotProduct(value_0, constant); });
 }
 
@@ -762,6 +469,7 @@ void srMath::dot(std::span<float> destination, const srVector4& constant, const 
 void srMath::dotIndexed(std::span<float> destination, const srVector4& constant,
                         const srVector4* vectors, std::span<const SRDWORD> indices)
 {
+    assert(destination.size() >= indices.size());
     const std::size_t count = indices.size();
     for (std::size_t index = 0; index < count; ++index) {
         SRDWORD source_index = indices[index];
@@ -770,30 +478,11 @@ void srMath::dotIndexed(std::span<float> destination, const srVector4& constant,
     }
 }
 
-// FUNCTION: SURRENDER 0x100677D0
-void srMath::dot(std::span<float> destination, const srVector4* vectors_0,
-                 const srVector4* vectors_1)
-{
-    std::ranges::transform(
-        std::span{vectors_0, destination.size()}, std::span{vectors_1, destination.size()},
-        destination.begin(),
-        [&](auto value_0, auto value_1) { return DotProduct(value_0, value_1); });
-}
-
-// FUNCTION: SURRENDER 0x10067830
-void srMath::normalize(std::span<srVector4> destination, const srVector4* vectors, float length)
-{
-    const std::size_t count = destination.size();
-    for (std::size_t index = 0; index < count; ++index) {
-        float scale = length / vectors[index].Length();
-        destination[index] = vectors[index] * scale;
-    }
-}
-
 // FUNCTION: SURRENDER 0x100678B0
 void srMath::mulIndexed(std::span<srVector4> destination, const srVector4& constant,
                         const srVector4* indexed_source, std::span<const SRDWORD> indices)
 {
+    assert(destination.size() >= indices.size());
     const std::size_t count = indices.size();
     for (std::size_t index = 0; index < count; ++index) {
         SRDWORD source_index = indices[index];
@@ -802,9 +491,11 @@ void srMath::mulIndexed(std::span<srVector4> destination, const srVector4& const
 }
 
 // FUNCTION: SURRENDER 0x10067910
-void srMath::mulIndexed(std::span<srVector4> destination, const srVector4* linear_source,
+void srMath::mulIndexed(std::span<srVector4> destination, std::span<const srVector4> linear_source,
                         const srVector4* indexed_source, std::span<const SRDWORD> indices)
 {
+    assert(destination.size() >= indices.size());
+    assert(linear_source.size() >= indices.size());
     const std::size_t count = indices.size();
     for (std::size_t index = 0; index < count; ++index) {
         SRDWORD source_index = indices[index];
@@ -816,6 +507,7 @@ void srMath::mulIndexed(std::span<srVector4> destination, const srVector4* linea
 void srMath::copyIndexed(std::span<srVector4> destination, const srARGB* source,
                          std::span<const SRDWORD> indices)
 {
+    assert(destination.size() >= indices.size());
     const std::size_t count = indices.size();
     for (std::size_t index = 0; index < count; ++index) {
         SRDWORD source_index = indices[index];
@@ -830,6 +522,7 @@ void srMath::copyIndexed(std::span<srVector4> destination, const srARGB* source,
 void srMath::copyIndexed(std::span<srVector4> destination, const srVector4* source,
                          std::span<const SRDWORD> indices)
 {
+    assert(destination.size() >= indices.size());
     const std::size_t count = indices.size();
     for (std::size_t index = 0; index < count; ++index) {
         SRDWORD source_index = indices[index];
@@ -841,6 +534,7 @@ void srMath::copyIndexed(std::span<srVector4> destination, const srVector4* sour
 void srMath::copyIndexed(std::span<srVector4> destination, const srVector3* source,
                          std::span<const SRDWORD> indices)
 {
+    assert(destination.size() >= indices.size());
     const std::size_t count = indices.size();
     for (std::size_t index = 0; index < count; ++index) {
         SRDWORD source_index = indices[index];
@@ -851,24 +545,11 @@ void srMath::copyIndexed(std::span<srVector4> destination, const srVector3* sour
     }
 }
 
-// FUNCTION: SURRENDER 0x10067AB0
-void srMath::copyIndexed(std::span<srVector4> destination, const srVector2* source,
-                         std::span<const SRDWORD> indices)
-{
-    const std::size_t count = indices.size();
-    for (std::size_t index = 0; index < count; ++index) {
-        SRDWORD source_index = indices[index];
-        destination[index].x = source[source_index].x;
-        destination[index].y = source[source_index].y;
-        destination[index].z = 0.0f;
-        destination[index].w = 1.0f;
-    }
-}
-
 // FUNCTION: SURRENDER 0x10067B50
-void srMath::transformOrtho(std::span<srVector4> destination, const srVector4* source,
+void srMath::transformOrtho(std::span<srVector4> destination, std::span<const srVector4> source,
                             const srMatrix4& matrix)
 {
+    assert(source.size() >= destination.size());
     const std::size_t count = destination.size();
     const float* m = &matrix.vectors[0].x;
     for (std::size_t index = 0; index < count; ++index) {
@@ -881,9 +562,10 @@ void srMath::transformOrtho(std::span<srVector4> destination, const srVector4* s
 }
 
 // FUNCTION: SURRENDER 0x10067BC0
-void srMath::transformPerspective(std::span<srVector4> destination, const srVector4* source,
-                                  const srMatrix4& matrix)
+void srMath::transformPerspective(std::span<srVector4> destination,
+                                  std::span<const srVector4> source, const srMatrix4& matrix)
 {
+    assert(source.size() >= destination.size());
     const std::size_t count = destination.size();
     const float* m = &matrix.vectors[0].x;
     for (std::size_t index = 0; index < count; ++index) {
@@ -896,9 +578,10 @@ void srMath::transformPerspective(std::span<srVector4> destination, const srVect
 }
 
 // FUNCTION: SURRENDER 0x10067C30
-void srMath::transform(std::span<srVector4> destination, const srVector4* vectors,
+void srMath::transform(std::span<srVector4> destination, std::span<const srVector4> vectors,
                        const srMatrix4& matrix)
 {
+    assert(vectors.size() >= destination.size());
     const std::size_t count = destination.size();
     const float* m = &matrix.vectors[0].x;
     for (std::size_t index = 0; index < count; ++index) {
@@ -915,9 +598,10 @@ void srMath::transform(std::span<srVector4> destination, const srVector4* vector
 }
 
 // FUNCTION: SURRENDER 0x10067D00
-void srMath::transform(std::span<srVector4> destination, const srVector3* vectors,
+void srMath::transform(std::span<srVector4> destination, std::span<const srVector3> vectors,
                        const srMatrix4& matrix)
 {
+    assert(vectors.size() >= destination.size());
     const std::size_t count = destination.size();
     const float* m = &matrix.vectors[0].x;
     for (std::size_t index = 0; index < count; ++index) {
@@ -933,6 +617,7 @@ void srMath::transform(std::span<srVector4> destination, const srVector3* vector
 void srMath::transformIndexed(std::span<srVector3> destination, const srVector3* source,
                               std::span<const SRDWORD> indices, const srMatrix4& matrix)
 {
+    assert(destination.size() >= indices.size());
     const std::size_t count = indices.size();
     const float* m = &matrix.vectors[0].x;
     for (std::size_t index = 0; index < count; ++index) {
@@ -948,6 +633,7 @@ void srMath::transformIndexed(std::span<srVector3> destination, const srVector3*
 void srMath::transformIndexed(std::span<srVector4> destination, const srVector3* source,
                               std::span<const SRDWORD> indices, const srMatrix4& matrix)
 {
+    assert(destination.size() >= indices.size());
     const std::size_t count = indices.size();
     const float* m = &matrix.vectors[0].x;
     for (std::size_t index = 0; index < count; ++index) {
@@ -960,23 +646,12 @@ void srMath::transformIndexed(std::span<srVector4> destination, const srVector3*
     }
 }
 
-// FUNCTION: SURRENDER 0x10067F20
-void srMath::axpy(std::span<srVector4> destination, const srVector4& add_constant,
-                  const srVector4& multiply_constant, const float* multiply_source)
-{
-    const std::size_t count = destination.size();
-    for (std::size_t index = 0; index < count; ++index) {
-        destination[index].x = multiply_source[index] * multiply_constant.x + add_constant.x;
-        destination[index].y = multiply_source[index] * multiply_constant.y + add_constant.y;
-        destination[index].z = multiply_source[index] * multiply_constant.z + add_constant.z;
-        destination[index].w = multiply_source[index] * multiply_constant.w + add_constant.w;
-    }
-}
-
 // FUNCTION: SURRENDER 0x10067F80
-void srMath::axpy(std::span<srVector4> destination, const srVector4* add_source,
-                  const srVector4& multiply_constant, const float* multiply_source)
+void srMath::axpy(std::span<srVector4> destination, std::span<const srVector4> add_source,
+                  const srVector4& multiply_constant, std::span<const float> multiply_source)
 {
+    assert(add_source.size() >= destination.size());
+    assert(multiply_source.size() >= destination.size());
     const std::size_t count = destination.size();
     for (std::size_t index = 0; index < count; ++index) {
         destination[index].x = multiply_constant.x * multiply_source[index] + add_source[index].x;
@@ -986,63 +661,14 @@ void srMath::axpy(std::span<srVector4> destination, const srVector4* add_source,
     }
 }
 
-// FUNCTION: SURRENDER 0x10067FF0
-void srMath::axpy(std::span<srVector4> destination, const srVector4& add_constant,
-                  const srVector4* multiply_vectors, const float* multiply_source)
-{
-    const std::size_t count = destination.size();
-    for (std::size_t index = 0; index < count; ++index) {
-        destination[index].x = multiply_vectors[index].x * multiply_source[index] + add_constant.x;
-        destination[index].y = multiply_vectors[index].y * multiply_source[index] + add_constant.y;
-        destination[index].z = multiply_vectors[index].z * multiply_source[index] + add_constant.z;
-        destination[index].w = multiply_source[index] * multiply_vectors[index].w + add_constant.w;
-    }
-}
-
-// FUNCTION: SURRENDER 0x10068060
-void srMath::axpy(std::span<srVector4> destination, const srVector4* add_source,
-                  const srVector4* multiply_vectors, const float* multiply_source)
-{
-    const std::size_t count = destination.size();
-    for (std::size_t index = 0; index < count; ++index) {
-        destination[index].x =
-            multiply_source[index] * multiply_vectors[index].x + add_source[index].x;
-        destination[index].y =
-            multiply_vectors[index].y * multiply_source[index] + add_source[index].y;
-        destination[index].z =
-            multiply_vectors[index].z * multiply_source[index] + add_source[index].z;
-        destination[index].w =
-            multiply_vectors[index].w * multiply_source[index] + add_source[index].w;
-    }
-}
-
-// FUNCTION: SURRENDER 0x10068100
-void srMath::axpy(std::span<srVector4> destination, const srVector4& add_constant,
-                  const srVector4& multiply_constant, const float* multiply_source_0,
-                  const float* multiply_source_1)
-{
-    const std::size_t count = destination.size();
-    for (std::size_t index = 0; index < count; ++index) {
-        destination[index].x =
-            multiply_constant.x * multiply_source_0[index] * multiply_source_1[index] +
-            add_constant.x;
-        destination[index].y =
-            multiply_constant.y * multiply_source_0[index] * multiply_source_1[index] +
-            add_constant.y;
-        destination[index].z =
-            multiply_source_0[index] * multiply_source_1[index] * multiply_constant.z +
-            add_constant.z;
-        destination[index].w =
-            multiply_constant.w * multiply_source_0[index] * multiply_source_1[index] +
-            add_constant.w;
-    }
-}
-
 // FUNCTION: SURRENDER 0x10068180
-void srMath::axpy(std::span<srVector4> destination, const srVector4* add_source,
-                  const srVector4& multiply_constant, const float* multiply_source_0,
-                  const float* multiply_source_1)
+void srMath::axpy(std::span<srVector4> destination, std::span<const srVector4> add_source,
+                  const srVector4& multiply_constant, std::span<const float> multiply_source_0,
+                  std::span<const float> multiply_source_1)
 {
+    assert(add_source.size() >= destination.size());
+    assert(multiply_source_0.size() >= destination.size());
+    assert(multiply_source_1.size() >= destination.size());
     const std::size_t count = destination.size();
     for (std::size_t index = 0; index < count; ++index) {
         destination[index].x =
@@ -1070,40 +696,12 @@ void srMath::copyW(std::span<srVector4> destination, float constant)
 }
 
 // FUNCTION: SURRENDER 0x100683C0
-void srMath::copyW(std::span<srVector4> destination, const float* source)
+void srMath::copyW(std::span<srVector4> destination, std::span<const float> source)
 {
+    assert(source.size() >= destination.size());
     const std::size_t count = destination.size();
     for (std::size_t index = 0; index < count; ++index) {
         destination[index].w = source[index];
-    }
-}
-
-// FUNCTION: SURRENDER 0x100683F0
-void srMath::copyW(std::span<float> destination, const srVector4* source)
-{
-    std::ranges::transform(std::span{source, destination.size()}, destination.begin(),
-                           [&](auto value_0) { return value_0.w; });
-}
-
-// FUNCTION: SURRENDER 0x10068420
-void srMath::minMax(std::span<const srVector4> source, srVector4& minimum, srVector4& maximum)
-{
-    const std::size_t count = source.size();
-    minimum = source[0];
-    maximum = source[0];
-    float* minimum_components = &minimum.x;
-    float* maximum_components = &maximum.x;
-    for (std::size_t index = 1; index < count; ++index) {
-        const float* components = &source[index].x;
-        for (int component = 0; component < 4; ++component) {
-            if (components[component] >= minimum_components[component]) {
-                if (components[component] > maximum_components[component]) {
-                    maximum_components[component] = components[component];
-                }
-            } else {
-                minimum_components[component] = components[component];
-            }
-        }
     }
 }
 
@@ -1111,6 +709,7 @@ void srMath::minMax(std::span<const srVector4> source, srVector4& minimum, srVec
 // FUNCTION: SURRENDER 0x100685C0
 void srMath::mul(srMatrix4& destination, const srMatrix4& source_0, const srMatrix4& source_1)
 {
+    assert(&destination != &source_0 && &destination != &source_1);
     float* result = &destination.vectors[0].x;
     const float* left = &source_0.vectors[0].x;
     const float* right = &source_1.vectors[0].x;
@@ -1130,19 +729,9 @@ void srMath::mul(srMatrix4& destination, const srMatrix4& source_0, const srMatr
     }
 }
 
-// FUNCTION: SURRENDER 0x10068670
-void srMath::mul(std::span<srMatrix4> destination, const srMatrix4* source_0,
-                 const srMatrix4* source_1)
-{
-    const std::size_t count = destination.size();
-    for (std::size_t index = 0; index < count; ++index) {
-        srMath::mul(destination[index], source_0[index], source_1[index]);
-    }
-}
-
 // FUNCTION: SURRENDER 0x10068700
-int srMath::srTestBoundingBox(const srMatrix4& matrix, const srVector3& minimum,
-                              const srVector3& maximum)
+bool srMath::srTestBoundingBox(const srMatrix4& matrix, const srVector3& minimum,
+                               const srVector3& maximum)
 {
     const float* m = &matrix.vectors[0].x;
     float z_min = minimum.z * m[14];
@@ -1151,7 +740,7 @@ int srMath::srTestBoundingBox(const srMatrix4& matrix, const srVector3& minimum,
     if (w_min >= fabsf(m[0] * minimum.x + m[1] * minimum.y + m[2] * minimum.z + m[3]) &&
         w_min >= fabsf(m[5] * minimum.y + m[6] * minimum.z + m[4] * minimum.x + m[7]) &&
         w_min >= fabsf(m[9] * minimum.y + m[10] * minimum.z + m[8] * minimum.x + m[11])) {
-        return 1;
+        return true;
     }
     float xy_min = m[12] * minimum.x + m[15];
     float w_max = m[12] * maximum.x + m[15];
@@ -1179,16 +768,16 @@ int srMath::srTestBoundingBox(const srMatrix4& matrix, const srVector3& minimum,
                 w_011 <= zmax + ymax + base_min && w_100 <= base_max + zmin + ymin &&
                 w_101 <= zmax + base_max + ymin && w_110 <= ymax + base_max + zmin &&
                 w_111 <= zmax + ymax + base_max) {
-                return 0;
+                return false;
             }
         } else if (zmax + ymin + base_min <= -w_001 && ymax + zmin + base_min <= -w_010 &&
                    zmax + ymax + base_min <= -w_011 && base_max + zmin + ymin <= -w_100 &&
                    zmax + base_max + ymin <= -w_101 && ymax + base_max + zmin <= -w_110 &&
                    zmax + ymax + base_max <= -w_111) {
-            return 0;
+            return false;
         }
     }
-    return 1;
+    return true;
 }
 
 /* Table-driven specular power: the exponent is clamped to 127 and halved until it lies in [1,2);
@@ -1196,8 +785,10 @@ int srMath::srTestBoundingBox(const srMatrix4& matrix, const srVector3& minimum,
    lerp, and points[index+1][squarings] is the per-element dead-zone threshold below which the
    result is 0. */
 // FUNCTION: SURRENDER 0x10068A80
-void srMath::srSpecularPow(std::span<float> destination, const float* source, float exponent)
+void srMath::srSpecularPow(std::span<float> destination, std::span<const float> source,
+                           float exponent)
 {
+    assert(source.size() >= destination.size());
     const std::size_t count = destination.size();
     SRDWORD squarings = 0;
     if (exponent > 127.0) {
@@ -1239,6 +830,7 @@ void srMath::srSpecularPow(std::span<float> destination, const float* source, fl
 void srMath::srCopyIndexedRemap(std::span<srVector3i> destination, const srVector3i* source,
                                 std::span<const SRDWORD> indices, const SRDWORD* remap)
 {
+    assert(destination.size() >= indices.size());
     const std::size_t count = indices.size();
     for (std::size_t index = 0; index < count; ++index) {
         SRDWORD source_index = indices[index];
@@ -1262,8 +854,9 @@ void srMath::srSetIndexed(SRBYTE* destination, const srVector3i* source,
 }
 
 // FUNCTION: SURRENDER 0x10068D00
-SRDWORD srMath::srCollectNonZero(std::span<SRDWORD> destination, const SRBYTE* source)
+SRDWORD srMath::srCollectNonZero(std::span<SRDWORD> destination, std::span<const SRBYTE> source)
 {
+    assert(source.size() >= destination.size());
     const std::size_t count = destination.size();
     SRDWORD collected = 0;
     for (std::size_t index = 0; index < count; ++index) {
@@ -1286,8 +879,9 @@ void srMath::srRemapInverse(SRDWORD* destination, std::span<const SRDWORD> map)
 
 // FUNCTION: SURRENDER 0x10068DE0
 SRDWORD srMath::srCullNoClip(std::span<SRDWORD> destination, const srVector4& constant,
-                             const srVector4* vectors)
+                             std::span<const srVector4> vectors)
 {
+    assert(vectors.size() >= destination.size());
     const std::size_t count = destination.size();
     float dots[0x100];
     SRDWORD collected = 0;
@@ -1296,7 +890,7 @@ SRDWORD srMath::srCullNoClip(std::span<SRDWORD> destination, const srVector4& co
         if (chunk > 0x100) {
             chunk = 0x100;
         }
-        srMath::dot({dots, static_cast<std::size_t>(chunk)}, constant, vectors + offset);
+        srMath::dot({dots, chunk}, constant, vectors.subspan(offset, chunk));
         for (std::size_t index = 0; index < chunk; ++index) {
             if (dots[index] < 0.0f) {
                 destination[collected] = index + offset;
@@ -1308,8 +902,9 @@ SRDWORD srMath::srCullNoClip(std::span<SRDWORD> destination, const srVector4& co
 }
 
 // FUNCTION: SURRENDER 0x10068F40
-void srMath::srGetClipFlags(std::span<SRBYTE> destination, const srVector4* source)
+void srMath::srGetClipFlags(std::span<SRBYTE> destination, std::span<const srVector4> source)
 {
+    assert(source.size() >= destination.size());
     const std::size_t count = destination.size();
     for (std::size_t index = 0; index < count; ++index) {
         float w = source[index].w;
