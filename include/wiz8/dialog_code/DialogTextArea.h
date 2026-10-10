@@ -1,6 +1,7 @@
 #pragma once
 
 #include "wiz8/local_code/ControlsRect.h"
+#include <memory>
 #include <vector>
 #include <algorithm>
 #include "wiz8/dialog_code/DialogTextEntry.h"
@@ -22,7 +23,7 @@ class W8DialogTextArea {
 
 public:
     W8DialogTextArea();
-    ~W8DialogTextArea();
+    ~W8DialogTextArea() = default;
     void Configure(const W8ControlsRect* bounds, int font, unsigned int flags);
     void Draw(bool force);
     void SetFirstVisibleLine(int line);
@@ -59,7 +60,7 @@ private:
     int m_font;
     int m_first_visible_entry;
     int m_first_visible_line;
-    std::vector<W8DialogTextEntry*> m_all_lines;     /* owns entries */
+    std::vector<std::unique_ptr<W8DialogTextEntry>> m_all_lines; /* owns entries */
     std::vector<W8DialogTextEntry*> m_visible_lines; /* non-owning view */
     bool m_layout_initialized;
 

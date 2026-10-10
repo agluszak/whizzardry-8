@@ -204,10 +204,7 @@ W8OptionsPanelSet::W8OptionsPanelSet()
 {
 }
 
-W8OptionsPanelSet::~W8OptionsPanelSet()
-{
-    wiz8::remove_all_and_delete(m_panels);
-}
+W8OptionsPanelSet::~W8OptionsPanelSet() = default;
 
 /* Standalone JMP thunk onto Controls::~Controls emitted for this TU. */
 
@@ -804,7 +801,7 @@ void W8OptionsKeyboardPanel::Populate()
     W8TextBuffer* title =
         new W8TextBuffer(&title_bounds, g_localized_strings[page.title], g_options_detail_font,
                          g_W8TextBufferAlignTop | g_W8TextBufferAlignCenter, 4);
-    m_text_buffers.push_back(title);
+    m_text_buffers.emplace_back(title);
     m_content_top += 44;
 
     int first = 0;
@@ -819,7 +816,7 @@ void W8OptionsKeyboardPanel::Populate()
         W8TextBuffer* label =
             new W8TextBuffer(&label_bounds, g_localized_strings[row->label], g_options_detail_font,
                              g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft, 4);
-        m_text_buffers.push_back(label);
+        m_text_buffers.emplace_back(label);
 
         W8OptionsKeyButton* button = new W8OptionsKeyButton(
             this, m_content_top, row->primary_binding, row->secondary_binding);
@@ -1277,7 +1274,7 @@ void W8OptionsUnavailablePanel::Populate()
                              m_bounds.bottom};
     W8TextBuffer* text = new W8TextBuffer(&bounds, g_localized_strings[m_message], g_options_detail_font,
                                           g_W8TextBufferAlignTop | g_W8TextBufferAlignCenter, 4);
-    m_text_buffers.push_back(text);
+    m_text_buffers.emplace_back(text);
     m_text_buffers[0]->SetLineHeight(22);
 }
 
@@ -1334,6 +1331,7 @@ W8OptionsScreen::~W8OptionsScreen()
     int index;
     SelectPanel(-1, true);
     wiz8::remove_all_and_delete(m_save_slots);
+    if (m_controls) m_controls->DestroyAllControls();
     delete m_controls;
     delete m_menu_set;
     delete m_menu_selection;
@@ -1370,7 +1368,7 @@ void W8OptionsScreen::SelectPanel(int selected, bool notify)
                 W8OptionsPanel* panel = CreateOptionsPanel(index, &created->m_compact_layout,
                                                            &created->m_hide_navigation);
                 panel->Populate();
-                created->m_panels.push_back(panel);
+                created->m_panels.emplace_back(panel);
             }
         }
         W8OptionsPanelSet* current = m_panel[m_selected_panel];
@@ -1689,9 +1687,8 @@ void W8OptionsSelection::OnPrimary(W8TextControl* control)
 // FUNCTION: WIZ8 0x005a8320
 W8OptionsPanel::~W8OptionsPanel()
 {
+    // Widgets must be unregistered before their selection listeners are destroyed.
     DestroyAllControls();
-    wiz8::remove_all_and_delete(m_text_buffers);
-    wiz8::remove_all_and_delete(m_option_selections);
 }
 
 // FUNCTION: WIZ8 0x005a84e0
@@ -1701,7 +1698,7 @@ W8OptionsCheckbox* W8OptionsPanel::AddCheckbox(int label, int* value)
                              m_bounds.top + m_content_top + 22};
     W8TextBuffer* text = new W8TextBuffer(&bounds, g_localized_strings[label], g_options_detail_font,
                                           g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft, 4);
-    m_text_buffers.push_back(text);
+    m_text_buffers.emplace_back(text);
     W8OptionsCheckbox* checkbox = new W8OptionsCheckbox(this, m_content_top, value);
     m_content_top += 44;
     return checkbox;
@@ -1714,7 +1711,7 @@ W8TextControl* W8OptionsPanel::AddChoiceButton(int label)
                              m_bounds.top + m_content_top + 22};
     W8TextBuffer* text = new W8TextBuffer(&bounds, g_localized_strings[label], g_options_detail_font,
                                           g_W8TextBufferAlignTop | g_W8TextBufferAlignRight, 4);
-    m_text_buffers.push_back(text);
+    m_text_buffers.emplace_back(text);
     W8TextControl* button = new W8TextControl(this, 0xffffffff, 0x151, m_content_top + 1, 0, 0,
                                               0xf1, 0, 4, 6, 5, 7, -1);
     button->AddLayoutFlags(g_W8TextControlLayoutLatchedImage | g_W8TextControlLayoutToggle);
@@ -1729,7 +1726,7 @@ W8OptionsSlider* W8OptionsPanel::AddSlider(int label, float* value, bool alterna
                              m_bounds.top + m_content_top + 22};
     W8TextBuffer* text = new W8TextBuffer(&bounds, g_localized_strings[label], g_options_detail_font,
                                           g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft, 4);
-    m_text_buffers.push_back(text);
+    m_text_buffers.emplace_back(text);
     W8OptionsSlider* slider = new W8OptionsSlider(this, m_content_top, value, alternate);
     m_content_top += 22;
     return slider;
@@ -1742,9 +1739,9 @@ void W8OptionsPanel::AddChoices(int label, int count, const int* choices, int* v
                              m_bounds.top + m_content_top + 22};
     W8TextBuffer* text = new W8TextBuffer(&bounds, g_localized_strings[label], g_options_detail_font,
                                           g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft, 4);
-    m_text_buffers.push_back(text);
+    m_text_buffers.emplace_back(text);
     W8OptionsSelection* selection = new W8OptionsSelection(value);
-    m_option_selections.push_back(selection);
+    m_option_selections.emplace_back(selection);
     for (int index = 0; index < count; ++index) {
         selection->AddEntry(AddChoiceButton(choices[index]));
     }

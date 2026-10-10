@@ -14,6 +14,7 @@
 #include "wiz8/local_code/Controls.h"
 #include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/local_code/LoadSaveGame.h"
+#include <memory>
 #include <vector>
 #include <algorithm>
 #include "wiz8/text_input.h"
@@ -119,7 +120,7 @@ public:
     unsigned char m_hide_navigation;
     bool m_active; /* set once the set's panels are built */
     int m_current;
-    std::vector<W8OptionsPanel*> m_panels;
+    std::vector<std::unique_ptr<W8OptionsPanel>> m_panels;
 };
 
 
@@ -170,8 +171,8 @@ public:
     int m_current;
     int m_content_top;
     int unknown_054;
-    std::vector<W8TextBuffer*> m_text_buffers;
-    std::vector<W8OptionsSelection*> m_option_selections;
+    std::vector<std::unique_ptr<W8TextBuffer>> m_text_buffers;
+    std::vector<std::unique_ptr<W8OptionsSelection>> m_option_selections;
 };
 
 
