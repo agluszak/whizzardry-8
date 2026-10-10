@@ -28,9 +28,9 @@
 #include <cstring>
 #include <cwchar>
 #include <cwctype>
+#include <string>
 #endif
 
-#define __declspec(attribute)
 #define __cdecl
 #define __stdcall
 #define __fastcall

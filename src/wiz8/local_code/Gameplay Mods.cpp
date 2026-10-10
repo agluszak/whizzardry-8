@@ -374,13 +374,11 @@ void RebuildMonsterDerivedStats(int location_id)
 void ApplyConditionModifiers(W8Character* character, const unsigned int* condition_turns,
                              int condition_argument, W8GameplayModifierBlock* target)
 {
-#if defined(WIZ8_NATIVE)
     // Monster and character condition banks are embedded in packed records.
     unsigned int aligned_turns[W8_CONDITION_COUNT];
     memcpy(aligned_turns, reinterpret_cast<const unsigned char*>(condition_turns),
            sizeof(aligned_turns)); // reinterpret-ok: packed condition bytes
     condition_turns = aligned_turns;
-#endif
     unsigned int i;
 
     for (unsigned int index = 0; index < W8_CONDITION_COUNT; ++index) {

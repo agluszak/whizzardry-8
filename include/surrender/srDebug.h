@@ -25,7 +25,7 @@ SR_DLL_IMPORT void __cdecl srDefaultAssertFailFunc(const char* expression, const
 // class srDummyStreamBuf
 class
 #if defined(SURRENDER_BUILD)
-    __declspec(dllexport)
+
 #endif
     srDummyStreamBuf : public std::streambuf {
 public:

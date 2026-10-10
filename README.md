@@ -1,26 +1,34 @@
 # Whizzardry 8
 
-Portable Wizardry 8 and SurRender reconstruction targeting native Linux and macOS.
-The native build uses modern Clang, SDL3 GPU rendering, FFmpeg video decoding,
+Native Wizardry 8 and SurRender for 64-bit Linux, macOS and Windows, built with Clang.
+The build uses SDL3 GPU rendering, FFmpeg video decoding,
 miniaudio sound and system zlib. CMake downloads a pinned miniaudio revision.
 Game data comes from an existing retail installation and is not distributed here.
 
 ## Build
 
-On Ubuntu, install the development dependencies:
+Install CMake 3.21+, Git, Ninja and Clang. The build bootstraps pinned vcpkg
+and installs SDL3, FFmpeg, zlib and the host shader compiler under the build
+tree. Miniaudio is fetched separately by CMake. Linux also needs SDL's system
+X11/Wayland development interfaces, build tools (including NASM and pkg-config)
+and a working Vulkan driver.
 
 ```sh
-sudo apt install clang cmake ninja-build pkg-config libsdl3-dev zlib1g-dev glslang-tools \
-    libavformat-dev libavcodec-dev libavutil-dev libswscale-dev libswresample-dev
+cmake --preset linux
+cmake --build --preset linux
+ctest --preset linux
 ```
 
-Configure and build:
+Use `macos-arm64`, `macos-x64` or `windows-clangcl` in the same commands.
+Windows uses the same LLVM compiler with its MSVC-compatible frontend; run
+from a Visual Studio developer shell with LLVM installed. The Windows preset
+installs native x64 dependencies, not the removed 32-bit recompilation lane.
+The existing POSIX runtime still needs the subsequent platform-API migration
+before a passing Windows game build can be claimed.
 
-```sh
-cmake -S . -B build-native -G Ninja -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
-cmake --build build-native
-ctest --test-dir build-native --output-on-failure
-```
+`VCPKG_ROOT` may point at an existing vcpkg checkout; otherwise its pinned
+release is downloaded automatically. Dependencies need no separate manual
+installation, but the compiler and platform SDK/system interfaces do.
 
 The native targets include `Wiz8Native` and SurRender (`libsr.so` on Linux).
 A Vulkan-capable SDL3 GPU backend is required for graphics checks.
@@ -34,9 +42,9 @@ WIZ8_ASSET_ROOT=/path/to/Wizardry8 ./run.sh /WINDOW
 ```
 
 The launcher accepts an optional `.env` file and passes arguments through to
-the game. It uses `build-native` unless `WIZ8_BUILD_DIR` is specified.
-`SDL_VIDEODRIVER`, `VK_DRIVER_FILES` and `VK_ICD_FILENAMES` override graphics
-defaults. `WIZ8_GPU_DEBUG=1` enables SDL GPU debugging and
+the game. It uses the host's preset build directory unless `WIZ8_BUILD_DIR` is specified.
+The launcher leaves display and GPU driver selection to SDL and the host.
+`WIZ8_GPU_DEBUG=1` enables SDL GPU debugging and
 `WIZ8_SRDD_TRACE=1` traces SurRender draws.
 
 Game assets and writable saves/configuration are separate. The virtual `C:\`
@@ -58,9 +66,9 @@ display/Vulkan driver; `native_events` uses SDL's dummy driver.
 With installed game assets, run the focused graphics and world harnesses:
 
 ```sh
-WIZ8_ASSET_ROOT=/path/to/Wizardry8 build-native/native_game_graphics
-WIZ8_ASSET_ROOT=/path/to/Wizardry8 build-native/native_world_graphics party.CHR \
-    "$PWD/build-native/world.ppm"
+WIZ8_ASSET_ROOT=/path/to/Wizardry8 build/linux/native_game_graphics
+WIZ8_ASSET_ROOT=/path/to/Wizardry8 build/linux/native_world_graphics party.CHR \
+    "$PWD/build/linux/world.ppm"
 ```
 
 The world harness accepts additional `save`, `kill` and `angles` modes for
@@ -76,10 +84,9 @@ format-defined sizes must preserve their serialized layout. `w8_long` and
 pointer slots. Text/CRT boundaries use explicit conversion rather than host
 wide-string routines that expect four-byte `wchar_t`.
 
-The native platform implementations reside in `src/compat/`,
-`src/sgp/native/`, `src/surrender/native/` and the SDL GPU device. This
-repository develops the native implementation; historical Windows
-assembly-equivalence belongs to the separate decompilation repository.
+There is no Wine runner, 32-bit target or legacy fallback.
+The platform adapters in `src/compat/` are temporary migration boundaries,
+not a permanent Windows emulation layer. See [remaining native work](NATIVE_WORK.md).
 
 Third-party source licenses, including the SGP license, remain with
 their respective sources.

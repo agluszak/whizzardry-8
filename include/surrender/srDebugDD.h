@@ -7,7 +7,7 @@ class srGERD;
 // VTABLE: SURRENDER 0x100765f0 srDebugDD
 class
 #if defined(SURRENDER_BUILD)
-    __declspec(dllexport)
+
 #endif
     srDebugDD : public srDD {
 public:

@@ -4,9 +4,6 @@
 #define SR_NEW(Type) new Type::ClientType
 
 #include <iosfwd>
-#if !defined(WIZ8_NATIVE)
-#include <windows.h>
-#endif
 
 #include "srCore.h"
 #include "srCriticalSection.h"
@@ -195,7 +192,7 @@ public:
 // class srRuntimeClass
 class
 #if defined(SURRENDER_BUILD)
-    __declspec(dllexport)
+
 #endif
     srRuntimeClass : public srRuntimeClassEmptyBase {
 public:
@@ -231,9 +228,9 @@ private:
 
 W8_ABI_ASSERT(sizeof(srRuntimeClass) == 0x0c, "srRuntimeClass_must_be_0x0c");
 
-class __declspec(novtable)
+class
 #if defined(SURRENDER_BUILD)
-__declspec(dllexport)
+
 #endif
 srClass : public srRuntimeClass {
 public:

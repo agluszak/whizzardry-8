@@ -15,7 +15,7 @@ struct W8TgaHeader;
 // VTABLE: SURRENDER 0x10076708
 // class srClassSupport<srColorSurfaceIFace, srClass, 1, 12544>
 
-class __declspec(novtable) srColorSurfaceIFace
+class srColorSurfaceIFace
     : public srClassSupport<srColorSurfaceIFace, srClass, true, 0x3100> {
 public:
     struct Rectangle {
@@ -114,7 +114,7 @@ public:
 // FUNCTION: SURRENDER 0x100598F0 SYMBOL
 // RECOMP: ?getHeight@srColorSurfaceIFace@@QBEJXZ
 #if defined(SURRENDER_BUILD)
-    __declspec(dllexport)
+
 #endif
     w8_long getHeight() const
     {
@@ -123,7 +123,7 @@ public:
 // FUNCTION: SURRENDER 0x100599E0 SYMBOL
 // RECOMP: ?getPitch@srColorSurfaceIFace@@QBEJXZ
 #if defined(SURRENDER_BUILD)
-    __declspec(dllexport)
+
 #endif
     w8_long getPitch() const
     {
@@ -132,7 +132,7 @@ public:
 // FUNCTION: SURRENDER 0x100599F0 SYMBOL
 // RECOMP: ?getPixelFormat@srColorSurfaceIFace@@QBEXAAUPixelFormat@srPixelConvert@@@Z
 #if defined(SURRENDER_BUILD)
-    __declspec(dllexport)
+
 #endif
     void getPixelFormat(srPixelConvert::PixelFormat& format) const
     {
@@ -142,7 +142,7 @@ public:
 // FUNCTION: SURRENDER 0x10059A10 SYMBOL
 // RECOMP: ?getSurfaceDesc@srColorSurfaceIFace@@QBEXAAUSurfaceDesc@1@@Z
 #if defined(SURRENDER_BUILD)
-    __declspec(dllexport)
+
 #endif
     void getSurfaceDesc(SurfaceDesc& description) const
     {
@@ -157,7 +157,7 @@ public:
 // FUNCTION: SURRENDER 0x10059A60 SYMBOL
 // RECOMP: ?getWidth@srColorSurfaceIFace@@QBEJXZ
 #if defined(SURRENDER_BUILD)
-    __declspec(dllexport)
+
 #endif
     w8_long getWidth() const
     {
@@ -169,7 +169,7 @@ public:
 // FUNCTION: SURRENDER 0x10059A90 SYMBOL
 // RECOMP: ?setFilter@srColorSurfaceIFace@@QAEXPAVsrFilter@@@Z
 #if defined(SURRENDER_BUILD)
-    __declspec(dllexport)
+
 #endif
     void setFilter(srFilter* filter)
     {

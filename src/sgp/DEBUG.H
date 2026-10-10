@@ -1,4 +1,4 @@
-/* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
+/* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07, 2026-10-09.
    Distributed under the accompanying SFI Source Code license agreement. */
 //**************************************************************************
 //
@@ -16,11 +16,7 @@
 #ifndef __DEBUG_MANAGER_
 #define __DEBUG_MANAGER_
 
-#if defined(WIZ8_NATIVE)
 #include "compat/kernel32.h"
-#else
-#include <crtdbg.h>
-#endif
 
 #include "Types.h"
 #include "TopicOps.h"
@@ -103,11 +99,7 @@ extern BOOLEAN gfDebugTopics[MAX_TOPICS_ALLOTED];
 // the actual debug functions directly
 
 // Force a breakpoint in the debugger
-#if defined(WIZ8_NATIVE)
 #define DebugBreakpoint() __builtin_debugtrap()
-#else
-#define DebugBreakpoint() __asm { int 3 }
-#endif
 
 #define DbgMessage(a, b, c)                                                                        \
     DbgMessageReal((UINT16)(a), (UINT8)(TOPIC_MESSAGE), (UINT8)(b), (CHAR8*)(c))

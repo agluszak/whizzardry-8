@@ -31,9 +31,7 @@ public:
 
     srLight(srNode* parent = 0, e_preset preset = PRESET_POINT);
 
-#if defined(WIZ8_NATIVE)
     srLight(const srLight& other);
-#endif
 
     srLight& operator=(const srLight& other);
 

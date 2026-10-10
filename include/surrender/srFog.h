@@ -14,13 +14,7 @@ public:
     typedef srClientSupport<srFog, 0x1210> ClientType;
 
     SR_DLL_IMPORT srFog(srNode* parent = 0);
-#if !defined(SURRENDER_BUILD) && !defined(WIZ8_NATIVE)
-    SR_DLL_IMPORT srFog(const srFog& other);
-#endif
 
-#if !defined(SURRENDER_BUILD) && !defined(WIZ8_NATIVE)
-    SR_DLL_IMPORT srFog& operator=(const srFog& other);
-#endif
 
     // FUNCTION: SURRENDER 0x1004C1A0
     static const char* sGetClassName()

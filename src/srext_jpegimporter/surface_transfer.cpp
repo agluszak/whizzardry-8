@@ -96,7 +96,6 @@ srColorSurfaceIFace* srJPEGImporter::importSurface(srBinIStream& stream,
             break;
         }
         case 4: {
-#if defined(WIZ8_NATIVE)
             const unsigned char* source = source_row;
             unsigned char* destination_pixel = destination;
             for (w8_ulong x = 0; x < width; ++x) {
@@ -108,15 +107,6 @@ srColorSurfaceIFace* srJPEGImporter::importSurface(srBinIStream& stream,
                 source += sizeof(pixel);
                 destination_pixel += sizeof(pixel);
             }
-#else
-            const w8_ulong* source = reinterpret_cast<const w8_ulong*>(source_row);
-            w8_ulong* destination_pixel = reinterpret_cast<w8_ulong*>(destination);
-            for (w8_ulong x = 0; x < width; ++x) {
-                const w8_ulong pixel = *source++;
-                *destination_pixel++ = (((pixel & 0x00ff0000UL) | (pixel >> 16)) >> 8) |
-                                       (((pixel << 16) | (pixel & 0x0000ff00UL)) << 8);
-            }
-#endif
             break;
         }
         }

@@ -8,7 +8,7 @@
 // class srIOManager
 class
 #if defined(SURRENDER_BUILD)
-    __declspec(dllexport)
+
 #endif
     srIOManager {
 public:
@@ -184,7 +184,7 @@ private:
 
 class
 #if defined(SURRENDER_BUILD)
-    __declspec(dllexport)
+
 #endif
     srIOManager::Error {
 public:
@@ -202,9 +202,9 @@ private:
 
 class
 #if defined(SURRENDER_BUILD)
-    __declspec(dllexport)
+
 #endif
-    __declspec(novtable) srIOManager::Importer {
+    srIOManager::Importer {
 public:
     virtual const char* getTypeName() const = 0;
 
@@ -221,9 +221,9 @@ protected:
 
 class
 #if defined(SURRENDER_BUILD)
-    __declspec(dllexport)
+
 #endif
-    __declspec(novtable) srIOManager::Exporter {
+    srIOManager::Exporter {
 public:
     virtual const char* getTypeName() const = 0;
 

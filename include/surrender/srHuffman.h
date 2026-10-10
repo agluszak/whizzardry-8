@@ -10,7 +10,7 @@ class srHuffman {
 public:
     class
 #if defined(SURRENDER_BUILD)
-        __declspec(dllexport)
+
 #endif
         BitIStream {
     public:
@@ -36,7 +36,7 @@ public:
 
     class
 #if defined(SURRENDER_BUILD)
-        __declspec(dllexport)
+
 #endif
         BitOStream {
     public:
@@ -63,7 +63,7 @@ public:
 
     class
 #if defined(SURRENDER_BUILD)
-        __declspec(dllexport)
+
 #endif
         Sampler {
     public:
@@ -74,9 +74,6 @@ public:
 
         SR_DLL_IMPORT Sampler();
 
-#if !defined(SURRENDER_BUILD) && !defined(WIZ8_NATIVE)
-        SR_DLL_IMPORT ~Sampler();
-#endif
         SR_DLL_IMPORT void insert(w8_ulong symbol);
         SR_DLL_IMPORT w8_ulong getNumSymbols() const;
         SR_DLL_IMPORT w8_ulong getSymbolValue(w8_ulong index) const;
@@ -90,7 +87,7 @@ public:
 
     class
 #if defined(SURRENDER_BUILD)
-        __declspec(dllexport)
+
 #endif
         Compressor {
     public:
@@ -138,7 +135,7 @@ public:
 
     class
 #if defined(SURRENDER_BUILD)
-        __declspec(dllexport)
+
 #endif
         Decompressor {
     public:

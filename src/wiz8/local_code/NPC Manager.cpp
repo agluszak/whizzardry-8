@@ -1583,14 +1583,10 @@ void LoadNpcStates(W8Chunk* chunks)
         npc = new W8NpcState;
         chunks->Read(npc, sizeof(*npc), 0);
         npc->items = 0;
-#if defined(WIZ8_NATIVE)
         // A saved pointer denotes an attached character, not a live handle.
         const bool has_character = W8SerializedPointerPresent(npc->character);
         npc->character = 0;
         if (has_character) {
-#else
-        if (npc->character != 0) {
-#endif
             npc->character = new W8Character;
             if (version < 3) {
                 memset(npc->character, 0, sizeof(*npc->character));

@@ -1291,14 +1291,10 @@ done:
 
 static inline int ReadAlliedGroupId(const int* ids, int index)
 {
-#if defined(WIZ8_NATIVE)
     int value;
     memcpy(&value, reinterpret_cast<const unsigned char*>(ids) + index * sizeof(value),
            sizeof(value)); // reinterpret-ok: packed monster-group id bank
     return value;
-#else
-    return ids[index];
-#endif
 }
 
 /* Detach every allied group, promote the one whose members hold the highest

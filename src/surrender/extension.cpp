@@ -178,11 +178,7 @@ srExtension* srExtension::load(const char* name, const char* path)
     }
     extension = new srExtension(name);
     extension->plugin = plugin;
-#if defined(WIZ8_NATIVE)
     extension->module = module;
-#else
-    extension->module = static_cast<HMODULE>(module);
-#endif
     srDebugPrintf(5, "srExtension::load() -- SurRender extension '%s' initialized.\n",
                   extension->getName());
     return extension;

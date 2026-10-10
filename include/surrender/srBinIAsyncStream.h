@@ -8,7 +8,7 @@
 // class srBinIAsyncStream
 class
 #if defined(SURRENDER_BUILD)
-    __declspec(dllexport)
+
 #endif
     srBinIAsyncStream : public srBinIStream {
 public:

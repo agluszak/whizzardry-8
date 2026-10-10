@@ -3,9 +3,6 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#if !defined(WIZ8_NATIVE)
-#include <io.h>
-#endif
 #include <sys/stat.h>
 
 #include "surrender/srCamera.h"
@@ -4969,11 +4966,7 @@ unsigned int W8Octree::FindScatterPositions(const srVector3T<float>* position, f
         }
     }
     if (candidates != 0) {
-#if defined(WIZ8_NATIVE)
         operator delete(candidates);
-#else
-        delete[] candidates;
-#endif
     }
     if (flatten_y && found != 0) {
         for (unsigned int index = 0; index < found; ++index) {
@@ -5149,11 +5142,7 @@ unsigned int W8Octree::FindNavigatorPosition(srVector3T<float>* source, float ya
         } while (ring_upper <= mode);
     }
     if (candidates != 0) {
-#if defined(WIZ8_NATIVE)
         operator delete(candidates);
-#else
-        delete candidates;
-#endif
     }
     if (settle_any_height && 0 < static_cast<int>(found)) {
         srVector3T<float>* out = positions;

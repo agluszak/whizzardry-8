@@ -10,7 +10,7 @@
    destructor) therefore goes to srLight, so the class is novtable and adds
    no overrides. The tables at 0x005ECD18/0x005ECD0C are the local
    srClassSupport<srLight> instantiation (see MonsterLight.cpp). */
-class __declspec(novtable) MonsterLight : public srLight {
+class MonsterLight : public srLight {
 public:
     MonsterLight(srNode* parent, bool cycle_color, float range,
                  const srVector3T<float>* first_color,

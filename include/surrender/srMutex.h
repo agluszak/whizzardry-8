@@ -14,11 +14,7 @@ public:
     void releaseAccess();
 
 private:
-#if defined(WIZ8_NATIVE)
     void* handle;
-#else
-    HANDLE handle;
-#endif
     w8_long access_count;
 };
 

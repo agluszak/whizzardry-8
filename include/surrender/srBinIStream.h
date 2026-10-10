@@ -37,9 +37,6 @@ srBinIStream& operator>>(srBinIStream& stream, char& value);
 SR_DLL_IMPORT srBinIStream& operator>>(srBinIStream& stream, unsigned char& value);
 srBinIStream& operator>>(srBinIStream& stream, short& value);
 SR_DLL_IMPORT srBinIStream& operator>>(srBinIStream& stream, unsigned short& value);
-#if !defined(WIZ8_NATIVE) /* w8_long is int natively */
-srBinIStream& operator>>(srBinIStream& stream, w8_long& value);
-#endif
 SR_DLL_IMPORT srBinIStream& operator>>(srBinIStream& stream, w8_ulong& value);
 srBinIStream& operator>>(srBinIStream& stream, srQuadWord& value);
 SR_DLL_IMPORT srBinIStream& operator>>(srBinIStream& stream, float& value);
@@ -67,7 +64,7 @@ srBinIStream& operator>>(srBinIStream& stream, srMatrix4T<double>& value);
 #if defined(SURRENDER_BUILD)
 class SR_DLL_EXPORT srBinIMStream
 #else
-class __declspec(novtable) SR_DLL_IMPORT srBinIMStream
+class SR_DLL_IMPORT srBinIMStream
 #endif
     : public srBinIStream {
 public:

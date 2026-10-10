@@ -54,7 +54,7 @@ public:
         PixelFormat() : fourcc(0) {}
 
 #if defined(SURRENDER_BUILD)
-        __declspec(dllexport)
+
 #endif
         void getName(char* const name);
         int isValid() const;

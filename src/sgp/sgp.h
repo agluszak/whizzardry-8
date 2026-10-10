@@ -1,4 +1,4 @@
-/* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-04, 2026-10-06, 2026-10-07.
+/* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-04, 2026-10-06, 2026-10-07, 2026-10-09.
    Distributed under the accompanying SFI Source Code license agreement. */
 #ifndef __SGP_
 #define __SGP_
@@ -45,11 +45,7 @@ extern BOOLEAN gfIgnoreMessages;
 extern UINT32 guiMouseWheelMsg;
 extern CHAR8 gzErrorMsg[2048];
 
-#if !defined(WIZ8_NATIVE)
-INT32 FAR PASCAL WindowProcedure(HWND window, UINT16 message, WPARAM wparam, LPARAM lparam);
-#else
 LRESULT WindowProcedure(HWND window, UINT message, WPARAM wparam, LPARAM lparam);
-#endif
 BOOLEAN InitializeStandardGamingPlatform(HINSTANCE instance, int show_command);
 void ShutdownStandardGamingPlatform(void);
 void ProcessCommandLine(CHAR8* command_line);

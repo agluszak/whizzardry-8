@@ -26,7 +26,7 @@ struct srVertexArray;
 
 // VTABLE: SURRENDER 0x100766B0 srGERD
 #if defined(SURRENDER_BUILD)
-class __declspec(dllexport) srGERD : public srRuntimeClass {
+class srGERD : public srRuntimeClass {
 #else
 class SR_DLL_IMPORT srGERD : public srRuntimeClass {
 #endif

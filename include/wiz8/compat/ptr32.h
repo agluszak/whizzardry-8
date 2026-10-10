@@ -2,10 +2,8 @@
 
 /* A pointer member inside a record the game reads or writes as raw bytes.
    Retail stores a 32-bit pointer in the slot (garbage on disk, assigned after
-   loading). The legacy lanes keep the plain pointer; natively the slot stays
-   four bytes and holds a handle into a process-wide pointer table, so the
-   record keeps its on-disk layout. */
-#if defined(WIZ8_NATIVE)
+   loading). This temporary adapter keeps four-byte slots through a pointer
+   table until disk records and runtime objects are separated. */
 #include <stdint.h>
 #include <string.h>
 
@@ -93,10 +91,3 @@ template <class T> inline bool W8SerializedPointerPresent(const W8Ptr32<T>& slot
 {
     return slot.hasStoredValue();
 }
-#else
-#define W8_PTR32(T) T*
-template <class T> inline bool W8SerializedPointerPresent(T* slot)
-{
-    return slot != 0;
-}
-#endif

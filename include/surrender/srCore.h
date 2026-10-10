@@ -26,7 +26,7 @@ class srVideoManager;
 
 class
 #if defined(SURRENDER_BUILD)
-    __declspec(dllexport)
+
 #endif
     srCore {
 public:

@@ -309,14 +309,6 @@ srBinIStream& operator>>(srBinIStream& stream, unsigned short& value)
     return stream;
 }
 
-#if !defined(WIZ8_NATIVE) /* w8_long is int natively */
-// FUNCTION: SURRENDER 0x10031860
-srBinIStream& operator>>(srBinIStream& stream, w8_long& value)
-{
-    value = stream.getDWord();
-    return stream;
-}
-#endif
 
 // FUNCTION: SURRENDER 0x10031880
 srBinIStream& operator>>(srBinIStream& stream, w8_ulong& value)

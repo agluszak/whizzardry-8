@@ -8,7 +8,7 @@
 // class srWindowOut
 class
 #if defined(SURRENDER_BUILD)
-    __declspec(dllexport)
+
 #endif
     srWindowOut : public std::ostream {
 public:

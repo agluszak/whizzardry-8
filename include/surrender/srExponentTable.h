@@ -4,7 +4,7 @@
 
 class
 #if defined(SURRENDER_BUILD)
-    __declspec(dllexport)
+
 #endif
     srExponentTable {
 public:
@@ -27,7 +27,7 @@ static_assert((sizeof(srExponentTable) == 0x1004), "srExponentTable_must_be_0x10
    them. */
 class
 #if defined(SURRENDER_BUILD)
-    __declspec(dllexport)
+
 #endif
     srCachedExponentTable : public srExponentTable {
 public:

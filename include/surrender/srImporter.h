@@ -13,7 +13,7 @@ class srModel;
 // class srSurfaceIOManager
 class
 #if defined(SURRENDER_BUILD)
-    __declspec(dllexport)
+
 #endif
     srSurfaceIOManager : public srIOManager {
 public:
@@ -51,9 +51,9 @@ W8_ABI_ASSERT((sizeof(srSurfaceIOManager::ExportInfo) == 0x0c), "srSurfaceExport
 
 class
 #if defined(SURRENDER_BUILD)
-    __declspec(dllexport)
+
 #endif
-    __declspec(novtable) srSurfaceIOManager::SurfaceImporter : public srIOManager::Importer {
+    srSurfaceIOManager::SurfaceImporter : public srIOManager::Importer {
 public:
     virtual int getSurfaceDesc(srColorSurfaceIFace::SurfaceDesc& description, srBinIStream& stream,
                                const srSurfaceIOManager::ImportInfo& options);
@@ -65,13 +65,13 @@ public:
 // class srHierarchyIOManager
 class
 #if defined(SURRENDER_BUILD)
-    __declspec(dllexport)
+
 #endif
     srHierarchyIOManager : public srIOManager {
 public:
     class
 #if defined(SURRENDER_BUILD)
-        __declspec(dllexport)
+
 #endif
         ImportInfo {
     public:
@@ -79,7 +79,7 @@ public:
     };
     class
 #if defined(SURRENDER_BUILD)
-        __declspec(dllexport)
+
 #endif
         ExportInfo {
     public:
@@ -101,9 +101,9 @@ static_assert((sizeof(srHierarchyIOManager::ExportInfo) == 0x01),
 
 class
 #if defined(SURRENDER_BUILD)
-    __declspec(dllexport)
+
 #endif
-    __declspec(novtable) srHierarchyIOManager::HierarchyImporter : public srIOManager::Importer {
+    srHierarchyIOManager::HierarchyImporter : public srIOManager::Importer {
 public:
     virtual void importHierarchy(srBinIStream& stream, const ImportInfo& options) = 0;
 };
@@ -112,13 +112,13 @@ public:
 // class srModelIOManager
 class
 #if defined(SURRENDER_BUILD)
-    __declspec(dllexport)
+
 #endif
     srModelIOManager : public srIOManager {
 public:
     class
 #if defined(SURRENDER_BUILD)
-        __declspec(dllexport)
+
 #endif
         ImportInfo {
     public:
@@ -126,7 +126,7 @@ public:
     };
     class
 #if defined(SURRENDER_BUILD)
-        __declspec(dllexport)
+
 #endif
         ExportInfo {
     public:
@@ -146,9 +146,9 @@ static_assert((sizeof(srModelIOManager::ExportInfo) == 0x01), "srModelExportInfo
 
 class
 #if defined(SURRENDER_BUILD)
-    __declspec(dllexport)
+
 #endif
-    __declspec(novtable) srModelIOManager::ModelImporter : public srIOManager::Importer {
+    srModelIOManager::ModelImporter : public srIOManager::Importer {
 public:
     virtual srModel* importModel(srBinIStream& stream, const ImportInfo& options) = 0;
 };

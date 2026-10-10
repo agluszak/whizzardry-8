@@ -5,7 +5,7 @@
 // VTABLE: SURRENDER 0x10076970 srBinStream
 // class srBinStream
 #if defined(SURRENDER_BUILD)
-class __declspec(dllexport) srBinStream {
+class srBinStream {
 #else
 class SR_DLL_IMPORT srBinStream {
 #endif

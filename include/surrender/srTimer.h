@@ -116,11 +116,7 @@ public:
     double m_units_per_tick;       /* 0x838: units / frequency */
     w8_ulong m_cpu_count;     /* 0x840 */
     TickReader m_read_tick;        /* 0x844: getTick or RDTSC */
-#if defined(WIZ8_NATIVE)
     void* m_kernel32; /* unused by the native clock */
-#else
-    HMODULE m_kernel32;            /* 0x848: kernel32 handle when QPC is used */
-#endif
     char m_cpu_vendor[0x10];       /* 0x84c: CPUID vendor string */
     w8_ulong m_cpu_max_id;    /* 0x85c: max CPUID input */
     w8_ulong m_cpu_signature; /* 0x860: CPUID EAX */

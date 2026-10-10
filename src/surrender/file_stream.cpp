@@ -12,16 +12,11 @@
 #include "surrender/srVectorProcessor.h"
 
 #include <ostream>
-#if !defined(WIZ8_NATIVE)
-#include <share.h>
-#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#if defined(WIZ8_NATIVE)
 #define _fsopen(path, mode, share) fopen(path, mode)
-#endif
 
 // FUNCTION: SURRENDER 0x1002E010
 srFileManager::Path::Path(const char* name)

@@ -72,9 +72,6 @@
 
 #include "wiz8/wiz8_windows.h"
 #include <errno.h>
-#if !defined(WIZ8_NATIVE)
-#include <io.h>
-#endif
 #include <malloc.h>
 #include <stdio.h>
 #include <string.h>
@@ -1463,11 +1460,9 @@ W8WorldItem* LoadItem(int handle, bool add_to_list)
         if (!FileRead(handle, item, sizeof(W8WorldItem), &done)) {
             return 0;
         }
-#if defined(WIZ8_NATIVE)
         // The saved pointer is a chain-presence marker, not a native handle.
         const bool has_next = W8SerializedPointerPresent(item->next);
         item->next = 0;
-#endif
         item->sector_id = -2;
         item->fActive = false;
         item->p3D = 0;
@@ -1483,11 +1478,7 @@ W8WorldItem* LoadItem(int handle, bool add_to_list)
             item->entity_flags &= ~W8_ITEM_ENTITY_RADAR_SEEN;
         }
         previous = item;
-#if defined(WIZ8_NATIVE)
         if (!has_next) {
-#else
-        if (item->next == 0) {
-#endif
             return first;
         }
         item = static_cast<W8WorldItem*>(malloc(sizeof(W8WorldItem)));

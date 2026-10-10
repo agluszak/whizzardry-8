@@ -21,7 +21,7 @@ typedef srDD*(__cdecl* srDDInitDeviceFn)(w8_ulong index);
 /* Empty base class; its original name is unknown. */
 class srDDEmptyBase {};
 
-class __declspec(novtable) srDD : public srDDEmptyBase {
+class srDD : public srDDEmptyBase {
 public:
     /* Device palette record handed to bindPalette/deletePalette. */
     struct Palette {

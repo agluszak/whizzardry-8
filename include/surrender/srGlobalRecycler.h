@@ -1,8 +1,5 @@
 #pragma once
 
-#if !defined(WIZ8_NATIVE)
-#include <windows.h>
-#endif
 
 #include "srHeap.h"
 
@@ -26,24 +23,10 @@ private:
 
     /* By-value critical section with a trivial constructor and a draining destructor; the owner
        initializes, enters and leaves it explicitly. */
-#if defined(WIZ8_NATIVE)
     class CriticalSection {
     public:
         std::recursive_mutex critical_section;
     };
-#else
-    class CriticalSection {
-    public:
-        ~CriticalSection()
-        {
-            EnterCriticalSection(&critical_section);
-            LeaveCriticalSection(&critical_section);
-            DeleteCriticalSection(&critical_section);
-        }
-
-        CRITICAL_SECTION critical_section;
-    };
-#endif
 
     CacheEntry entries[16];
     w8_ulong used_mask;

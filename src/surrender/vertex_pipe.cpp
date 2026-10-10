@@ -278,7 +278,6 @@ void srVertexPipe::process(const Input& input)
                         setMaterial(next);
                         material = next;
                     }
-#if defined(WIZ8_NATIVE)
                     /* Retail reuses the dword scan on the pointer table; 64-bit
                        pointers need a pointer comparison. */
                     {
@@ -290,18 +289,6 @@ void srVertexPipe::process(const Input& input)
                         }
                         this->vertex_count = same + 1;
                     }
-#else
-                    this->vertex_count =
-                        scanChangeIndexed(
-                            (const w8_ulong*)record
-                                ->materials /* c-style-cast-ok: retail scans the material table as a dword table through scanChangeIndexed */
-                            ,
-                            (w8_ulong)
-                                material /* c-style-cast-ok: scanChangeIndexed compares the material pointer as a dword value */
-                            ,
-                            avt + 1 + sub_batch_offset, batch_count - sub_batch_offset - 1) +
-                        1;
-#endif
                     processVertexBuffer();
                     sub_batch_offset += this->vertex_count;
                 }

@@ -1,4 +1,4 @@
-/* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
+/* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07, 2026-10-09.
    Distributed under the accompanying SFI Source Code license agreement. */
 // font.c
 #include "Types.h"
@@ -334,13 +334,9 @@ INT16 StringPixLengthArg(INT32 usUseFont, UINT32 uiCharCount, CHAR16* pFontStrin
 
 static inline CHAR16 ReadFontCharacter(const CHAR16* text)
 {
-#if defined(WIZ8_NATIVE)
     CHAR16 value;
     memcpy(&value, reinterpret_cast<const unsigned char*>(text), sizeof(value));
     return value;
-#else
-    return *text;
-#endif
 }
 
 // FUNCTION: WIZ8 0x00406f90

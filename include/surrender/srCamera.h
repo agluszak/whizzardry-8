@@ -30,10 +30,6 @@ public:
 
     srCamera(srNode* parent = 0);
 
-#if !defined(SURRENDER_BUILD) && !defined(WIZ8_NATIVE)
-    srCamera& operator=(const srCamera& other);
-    virtual ~srCamera() override;
-#endif
 
     virtual void dump(std::ostream& stream) override;
     virtual srClass* vInstance() override;

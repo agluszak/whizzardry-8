@@ -1,8 +1,5 @@
 #pragma once
 
-#if !defined(WIZ8_NATIVE)
-#include <windows.h>
-#endif
 
 #include "srCriticalSection.h"
 #include "srHeap.h"

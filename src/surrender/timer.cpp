@@ -5,16 +5,9 @@
 #include <stdio.h>
 #include <string.h>
 
-#if defined(WIZ8_NATIVE)
 #include <chrono>
 #include <sys/utsname.h>
 #include <thread>
-#else
-#include <mmsystem.h>
-#include <windows.h>
-
-typedef BOOL(__stdcall* QueryFrequency)(LARGE_INTEGER*);
-#endif
 
 /* reset()'s persistence record: the registry round-trip pairs CPU identity
    with the measured tick frequency and the read hook.  calibrate() fills the
@@ -126,11 +119,7 @@ srTimer::srTimer(const srTimer& other)
     m_pause = other.m_pause;
     m_units_per_interval = other.m_units_per_interval;
     m_read_tick = other.m_read_tick;
-#if defined(WIZ8_NATIVE)
     m_kernel32 = 0;
-#else
-    m_kernel32 = other.m_kernel32 == 0 ? 0 : LoadLibraryA("kernel32");
-#endif
     for (index = 0; index < 0xd; ++index) {
         m_cpu_vendor[index] = other.m_cpu_vendor[index];
     }
@@ -158,11 +147,7 @@ srTimer& srTimer::operator=(const srTimer& other)
     m_pause = other.m_pause;
     m_units_per_interval = other.m_units_per_interval;
     m_read_tick = other.m_read_tick;
-#if defined(WIZ8_NATIVE)
     m_kernel32 = 0;
-#else
-    m_kernel32 = other.m_kernel32 == 0 ? 0 : LoadLibraryA("kernel32");
-#endif
     for (index = 0; index < 0xd; ++index) {
         m_cpu_vendor[index] = other.m_cpu_vendor[index];
     }
@@ -175,7 +160,6 @@ srTimer& srTimer::operator=(const srTimer& other)
 // FUNCTION: SURRENDER 0x10060F80
 srTimer::~srTimer() {}
 
-#if defined(WIZ8_NATIVE)
 /* Native ticks are microseconds of the monotonic clock. */
 int __stdcall srTimer::getTick(srQuadWord* out)
 {
@@ -216,421 +200,6 @@ int srTimer::reset(int, int, int)
     strcpy(m_ident, "std::chrono::steady_clock");
     return m_read_tick(&m_base);
 }
-#else
-// FUNCTION: SURRENDER 0x10061060
-int __stdcall srTimer::getTick(srQuadWord* out)
-{
-    out->lo = GetTickCount();
-    out->hi = 0;
-    return 1;
-}
-
-// FUNCTION: SURRENDER 0x10061080
-int __stdcall srTimer::RDTSC(srQuadWord* out)
-{
-    __asm {
-        pushad
-        mov ecx, out
-        rdtsc
-        mov [ecx], eax
-        mov [ecx + 4], edx
-        popad
-    }
-    return 1;
-}
-
-/* The classic CPUID probe: the ID flag (bit 21) is toggled through
-   PUSHFD/POPFD; if it reads back changed, CPUID is available. */
-// FUNCTION: SURRENDER 0x100610A0
-int srTimer::getCPUIDSupport() const
-{
-    int supported = 0;
-    __asm {
-        push ebx
-        pushfd
-        pop eax
-        mov ebx, eax
-        xor eax, 0x00200000
-        push eax
-        popfd
-        pushfd
-        pop eax
-        xor eax, ebx
-        jz unsupported
-        mov supported, 1
-        jmp done
-    unsupported:
-        mov supported, 0
-    done:
-        push ebx
-        popfd
-        pop ebx
-    }
-    return supported == 1;
-}
-
-// FUNCTION: SURRENDER 0x100610F0
-int srTimer::reset(int force_system_timer, int, int save_calibration)
-{
-    SYSTEM_INFO system_info;
-    GetSystemInfo(&system_info);
-    m_cpu_count = system_info.dwNumberOfProcessors;
-    switch (system_info.wProcessorArchitecture) {
-    case PROCESSOR_ARCHITECTURE_INTEL:
-        if (system_info.dwProcessorType == PROCESSOR_INTEL_386) {
-            strcpy(m_cpu_ident, "i386");
-        } else if (system_info.dwProcessorType == PROCESSOR_INTEL_486) {
-            strcpy(m_cpu_ident, "i486");
-        } else if (system_info.dwProcessorType == PROCESSOR_INTEL_PENTIUM) {
-            strcpy(m_cpu_ident, "Pentium");
-        } else {
-            sprintf(m_cpu_ident, "x86 (%04X)", system_info.wProcessorLevel);
-        }
-        break;
-    case PROCESSOR_ARCHITECTURE_MIPS:
-        sprintf(m_cpu_ident, "MIPS R%02x%02x", system_info.wProcessorLevel & 0xff,
-                system_info.wProcessorRevision & 0xff);
-        break;
-    case PROCESSOR_ARCHITECTURE_ALPHA:
-        sprintf(m_cpu_ident, "Alpha %u", system_info.wProcessorLevel);
-        break;
-    case PROCESSOR_ARCHITECTURE_PPC:
-        strcpy(m_cpu_ident, "PowerPC ");
-        switch (system_info.wProcessorLevel) {
-        case 1:
-            strcat(m_cpu_ident, "601");
-            break;
-        case 3:
-            strcat(m_cpu_ident, "603");
-            break;
-        case 4:
-            strcat(m_cpu_ident, "604");
-            break;
-        case 6:
-            strcat(m_cpu_ident, "603+");
-            break;
-        case 9:
-            strcat(m_cpu_ident, "604+");
-            break;
-        case 20:
-            strcat(m_cpu_ident, "620");
-            break;
-        }
-        break;
-    }
-    if (system_info.wProcessorArchitecture != PROCESSOR_ARCHITECTURE_INTEL ||
-        system_info.dwProcessorType == PROCESSOR_INTEL_386) {
-        force_system_timer = 1;
-    }
-    if (getCPUIDSupport() == 0) {
-        force_system_timer = 1;
-    }
-    srTimerConfig config;
-    config.cpuid_support = getCPUIDSupport();
-    config.save = save_calibration;
-    config.unused = 0;
-    config.cpu_count = m_cpu_count;
-    strcpy(config.cpu_vendor, storage_class);
-    strcpy(config.os_ident, storage_class);
-    strcpy(config.cpu_ident, storage_class);
-    config.cpu_max_id = 0;
-    config.cpu_signature = 0;
-    config.cpu_features = 0;
-    config.frequency.lo = 0;
-    config.frequency.hi = 0;
-    config.read_tick = 0;
-    config.use_stored = force_system_timer;
-    if (retrieve()) {
-        config.frequency = m_frequency;
-        config.cpu_max_id = m_cpu_max_id;
-        config.cpu_signature = m_cpu_signature;
-        config.cpu_features = m_cpu_features;
-        strcpy(config.cpu_vendor, m_cpu_vendor);
-        config.read_tick = m_read_tick;
-    } else {
-        m_frequency.lo = 0;
-        config.frequency.lo = 0;
-        m_frequency.hi = 0;
-        config.frequency.hi = 0;
-    }
-    calibrate(&config);
-    strcpy(m_cpu_vendor, config.cpu_vendor);
-    strcpy(m_ident, config.os_ident);
-    strcpy(m_cpu_ident, config.cpu_ident);
-    m_cpu_max_id = config.cpu_max_id;
-    m_cpu_signature = config.cpu_signature;
-    m_cpu_features = config.cpu_features;
-    m_frequency = config.frequency;
-    m_read_tick = config.read_tick;
-    double frequency;
-    if (m_frequency == 0.0) {
-        frequency = 1.0;
-    } else {
-        frequency = m_frequency;
-    }
-    m_seconds_per_tick = 1.0 / frequency;
-    m_units_per_tick = m_units_per_interval * (1.0 / frequency);
-    if (m_read_tick == RDTSC) {
-        strcpy(m_ident, "CPU Time Stamp Counter Register");
-        strcpy(m_cpu_ident, m_cpu_vendor);
-        strcat(m_cpu_ident, " ");
-        if (memcmp(m_cpu_vendor, "CyrixInstead", 0xc) == 0) {
-            w8_ulong model = m_cpu_signature & 0xfff0;
-            if (model == 0x540) {
-                strcat(m_cpu_ident, "(MediaGX/MMX)");
-            } else if (model == 0x600) {
-                strcat(m_cpu_ident, "(6x86MX)");
-            } else if (model == 0x440) {
-                strcat(m_cpu_ident, "(MediaGX)");
-            } else if (model == 0x520) {
-                if ((m_cpu_features & 0x104) == 0x104) {
-                    strcat(m_cpu_ident, "(6x86L)");
-                } else {
-                    strcat(m_cpu_ident, "(6x86)");
-                }
-            } else {
-                strcat(m_cpu_ident, "(unknown version)");
-            }
-        } else if (memcmp(m_cpu_vendor, "CentaurHauls", 0xc) == 0) {
-            w8_ulong model = m_cpu_signature & 0xfff0;
-            if (model == 0x590) {
-                strcat(m_cpu_ident, "WinChip 3");
-            } else if (model == 0x580) {
-                strcat(m_cpu_ident, "WinChip 2");
-            } else if (model == 0x540) {
-                strcat(m_cpu_ident, "WinChip C6");
-            } else {
-                strcat(m_cpu_ident, "WinChip");
-            }
-        } else if (memcmp(m_cpu_vendor, "RiseRiseRise", 0xc) == 0) {
-            strcat(m_cpu_ident, "mP6");
-        } else if (memcmp(m_cpu_vendor, "AuthenticAMD", 0xc) == 0) {
-            w8_ulong model = m_cpu_signature & 0xfff0;
-            if (model == 0x610) {
-                strcat(m_cpu_ident, "K7(tm)");
-            } else if ((m_cpu_signature & 0xf00) == 0x600) {
-                strcat(m_cpu_ident, "Athlon");
-            } else if (model == 0x590) {
-                strcat(m_cpu_ident, "K6-3");
-            } else if (model == 0x580) {
-                strcat(m_cpu_ident, "K6-2");
-            } else if (model == 0x570) {
-                strcat(m_cpu_ident, "(K6 Model 7)");
-            } else if (model == 0x560) {
-                strcat(m_cpu_ident, "(K6 Model 6)");
-            } else if (model == 0x550) {
-                strcat(m_cpu_ident, "(K6 Model 5)");
-            } else if (model == 0x540) {
-                strcat(m_cpu_ident, "(K6 Model 4)");
-            } else if (model == 0x530) {
-                strcat(m_cpu_ident, "(K5 Model 3)");
-            } else if (model == 0x520) {
-                strcat(m_cpu_ident, "(K5 Model 2)");
-            } else if (model == 0x510) {
-                strcat(m_cpu_ident, "(K5 Model 1)");
-            } else if (model == 0x500) {
-                strcat(m_cpu_ident, "(K5)");
-            } else {
-                strcat(m_cpu_ident, "Am486/Am5x86");
-            }
-        } else {
-            unsigned short family = (unsigned short)(m_cpu_signature >> 8) & 0xf;
-            if (family < 5) {
-                sprintf(m_cpu_ident + strlen(m_cpu_ident), "i%d86", family);
-            } else if (family == 5) {
-                sprintf(m_cpu_ident + strlen(m_cpu_ident), "Pentium%s",
-                        (m_cpu_features & (1UL << srTimer::CPU_FEATURE_MMX)) != 0 ? " MMX"
-                                                                                  : storage_class);
-            } else if (family == 6) {
-                const char* name;
-                switch ((m_cpu_signature >> 4) & 0xf) {
-                case 0:
-                case 1:
-                    name = "Pentium Pro";
-                    break;
-                case 2:
-                    if ((m_cpu_features & (1UL << srTimer::CPU_FEATURE_MMX)) == 0) {
-                        name = "Pentium Pro";
-                        break;
-                    }
-                    goto pentium_ii;
-                case 3:
-                case 4:
-                case 5:
-                pentium_ii:
-                    name = "Pentium II";
-                    break;
-                case 6:
-                    name = "Celeron";
-                    break;
-                default:
-                    name = "Pentium III";
-                    break;
-                }
-                strcat(m_cpu_ident, name);
-            } else if (family > 7) {
-                sprintf(m_cpu_ident + strlen(m_cpu_ident), "x86 Family %d", family);
-                if ((m_cpu_features & (1UL << srTimer::CPU_FEATURE_MMX)) != 0) {
-                    strcat(m_cpu_ident, "/MMX");
-                }
-            }
-            switch ((m_cpu_signature >> 0xc) & 3) {
-            case 1:
-                strcat(m_cpu_ident, "/OverDrive");
-                break;
-            case 2:
-                strcat(m_cpu_ident, "/SMP");
-                break;
-            }
-            sprintf(m_cpu_ident + strlen(m_cpu_ident), " Model %u Step %u",
-                    (unsigned int)((m_cpu_signature >> 4) & 0xf),
-                    (unsigned int)(m_cpu_signature & 0xf));
-        }
-    }
-    if (m_read_tick == 0) {
-        m_kernel32 = GetModuleHandleA("kernel32");
-        if (m_kernel32 != 0) {
-            // reinterpret-ok: GetProcAddress exposes a FARPROC for this named Win32 entry
-            QueryFrequency query_frequency = reinterpret_cast<QueryFrequency>(
-                GetProcAddress(m_kernel32, "QueryPerformanceFrequency"));
-            // reinterpret-ok: Win32 writes its eight-byte result into the frequency storage
-            LARGE_INTEGER* frequency = reinterpret_cast<LARGE_INTEGER*>(&m_frequency);
-            if (query_frequency != 0 && query_frequency(frequency) != 0) {
-                // reinterpret-ok: GetProcAddress exposes a FARPROC for this named Win32 entry
-                m_read_tick = reinterpret_cast<TickReader>(
-                    GetProcAddress(m_kernel32, "QueryPerformanceCounter"));
-            }
-            if (m_read_tick == 0) {
-                m_kernel32 = 0;
-            } else {
-                strcpy(m_ident, "Win32 QueryPerformanceCounter() API");
-            }
-        }
-        if (m_read_tick == 0) {
-            m_read_tick = getTick;
-            m_frequency.lo = 1000;
-            m_frequency.hi = 0;
-            strcpy(m_ident, "Win32 GetTickCount() API");
-        }
-    }
-    if (save_calibration) {
-        store();
-    }
-    if (m_read_tick != 0) {
-        return m_read_tick(&m_base);
-    }
-    return 0;
-}
-
-// FUNCTION: SURRENDER 0x10061EC0
-int calibrate(srTimerConfig* config)
-{
-    config->save = 0;
-    if (config->read_tick != 0) {
-        return 0;
-    }
-    w8_ulong max_id = 0;
-    w8_ulong signature = 0;
-    w8_ulong features = 0;
-    char vendor[0x10];
-    if (config->use_stored == 0) {
-        __asm {
-            pushad
-            mov eax, 0
-            cpuid
-            mov max_id, eax
-            mov dword ptr [vendor], ebx
-            mov dword ptr [vendor + 4], edx
-            mov dword ptr [vendor + 8], ecx
-            xor eax, eax
-            mov vendor[0xc], al
-            mov eax, 1
-            cpuid
-            mov signature, eax
-            mov features, edx
-            popad
-        }
-    } else {
-        config->cpuid_support = 0;
-    }
-    if ((features & 0x10) == 0) {
-        return 0;
-    }
-    config->read_tick = srTimer::RDTSC;
-    if (config->cpu_count > 1) {
-        signature = (signature & 0xffffefff) | 0x2000;
-    }
-    if (strncmp(config->cpu_vendor, vendor, 0xc) != 0 ||
-        ((config->cpu_signature ^ signature) & srTimer::CPU_Model_Mask) != 0 ||
-        ((config->cpu_features ^ features) & srTimer::CPU_Features_Mask) != 0) {
-        config->frequency.lo = 0;
-        config->frequency.hi = 0;
-    }
-    if ((config->frequency.lo | config->frequency.hi) != 0) {
-        unsigned __int64 tolerance =
-            (__int64)(config->frequency * 0.01 * (srTimer::cpuFreqVariancePct & 0xffff));
-        SetPriorityClass(GetCurrentProcess(), REALTIME_PRIORITY_CLASS);
-        SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL);
-        w8_ulong edge = timeGetTime();
-        w8_ulong now;
-        do {
-            now = timeGetTime();
-        } while (now == edge);
-        srQuadWord start;
-        srQuadWord end;
-        config->read_tick(&start);
-        now += 0x7d;
-        if (timeGetTime() < now) {
-            do {
-            } while (timeGetTime() < now);
-        }
-        config->read_tick(&end);
-        SetPriorityClass(GetCurrentProcess(), NORMAL_PRIORITY_CLASS);
-        SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_NORMAL);
-        srQuadWord measured = (end - start) * 8u;
-        srQuadWord drift;
-        if (config->frequency.hi < measured.hi ||
-            (config->frequency.hi == measured.hi && config->frequency.lo <= measured.lo)) {
-            drift = measured - config->frequency;
-        } else {
-            drift = config->frequency - measured;
-        }
-        if (quadWord64(drift) > tolerance) {
-            config->frequency.lo = 0;
-            config->frequency.hi = 0;
-        }
-    }
-    if ((config->frequency.lo | config->frequency.hi) == 0) {
-        SetPriorityClass(GetCurrentProcess(), REALTIME_PRIORITY_CLASS);
-        SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL);
-        w8_ulong edge = timeGetTime();
-        w8_ulong now;
-        do {
-            now = timeGetTime();
-        } while (now == edge);
-        srQuadWord start;
-        srQuadWord end;
-        config->read_tick(&start);
-        now += 4000;
-        if (timeGetTime() < now) {
-            do {
-            } while (timeGetTime() < now);
-        }
-        config->read_tick(&end);
-        SetPriorityClass(GetCurrentProcess(), NORMAL_PRIORITY_CLASS);
-        SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_NORMAL);
-        unsigned __int64 measured = quadWord64(end - start) >> 2;
-        config->frequency.lo = (unsigned int)measured;
-        config->frequency.hi = (unsigned int)(measured >> 0x20);
-        config->cpu_max_id = max_id;
-        config->cpu_signature = signature;
-        config->cpu_features = features;
-        memcpy(config->cpu_vendor, vendor, 0xc);
-        config->cpu_vendor[0xc] = 0;
-    }
-    return 0;
-}
-#endif
 
 // FUNCTION: SURRENDER 0x10062230
 void srTimer::getFreq(srQuadWord& out) const
@@ -749,7 +318,6 @@ int srTimer::isPaused() const
     return 0;
 }
 
-#if defined(WIZ8_NATIVE)
 /* The calibration cache lived in the Windows registry; the native clock needs none. */
 int srTimer::store()
 {
@@ -760,102 +328,6 @@ int srTimer::retrieve()
 {
     return 0;
 }
-#else
-// FUNCTION: SURRENDER 0x10062960
-int srTimer::store()
-{
-    char key_name[256];
-    if (RegKeyBase == 0) {
-        setStorage(0);
-    }
-    sprintf(key_name, "%s\\%s", RegKeyName, RegRoot);
-    HKEY key;
-    DWORD disposition;
-    if (RegCreateKeyExA((HKEY)RegKeyBase, key_name, 0, storage_class, 0, KEY_ALL_ACCESS, 0, &key,
-                        &disposition) == 0) {
-        if (RegSetValueExA(key, RegCpuFreq, 0, REG_BINARY, (BYTE*)&m_frequency, 8) == 0) {
-            if (RegSetValueExA(key, RegCpuSIG, 0, REG_BINARY, (BYTE*)m_cpu_vendor, 0xd) == 0) {
-                if (RegSetValueExA(key, RegCpuMaxID, 0, REG_BINARY, (BYTE*)&m_cpu_max_id, 4) == 0) {
-                    if (RegSetValueExA(key, RegCpuVers, 0, REG_BINARY, (BYTE*)&m_cpu_signature,
-                                       4) == 0) {
-                        if (RegSetValueExA(key, RegCpuFeatures, 0, REG_BINARY,
-                                           (BYTE*)&m_cpu_features, 4) == 0) {
-                            if (RegFlushKey(key) == 0) {
-                                if (RegCloseKey(key) == 0) {
-                                    return 1;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-    return 0;
-}
-
-// FUNCTION: SURRENDER 0x10062AB0
-int srTimer::retrieve()
-{
-    char key_name[256];
-    if (RegKeyBase == 0) {
-        setStorage(0);
-    }
-    sprintf(key_name, "%s\\%s", RegKeyName, RegRoot);
-    int ok = 0;
-    HKEY key;
-    if (RegOpenKeyExA((HKEY)RegKeyBase, key_name, 0, KEY_ALL_ACCESS, &key) == 0) {
-        m_frequency.lo = 0;
-        m_frequency.hi = 0;
-        m_cpu_features = 0;
-        m_cpu_signature = 0;
-        m_cpu_max_id = 0;
-        memset(m_cpu_vendor, 0, 0xd);
-        DWORD type = REG_BINARY;
-        DWORD size = 8;
-        ok = RegQueryValueExA(key, RegCpuFreq, 0, &type, (BYTE*)&m_frequency, &size) == 0;
-        type = REG_BINARY;
-        size = 0xd;
-        if (ok != 0 &&
-            RegQueryValueExA(key, RegCpuSIG, 0, &type, (BYTE*)m_cpu_vendor, &size) != 0) {
-            ok = 0;
-        }
-        type = REG_BINARY;
-        size = 4;
-        if (ok != 0 &&
-            RegQueryValueExA(key, RegCpuMaxID, 0, &type, (BYTE*)&m_cpu_max_id, &size) != 0) {
-            ok = 0;
-        }
-        type = REG_BINARY;
-        size = 4;
-        if (ok != 0 &&
-            RegQueryValueExA(key, RegCpuVers, 0, &type, (BYTE*)&m_cpu_signature, &size) != 0) {
-            ok = 0;
-        }
-        type = REG_BINARY;
-        size = 4;
-        if (ok != 0 &&
-            RegQueryValueExA(key, RegCpuFeatures, 0, &type, (BYTE*)&m_cpu_features, &size) != 0) {
-            ok = 0;
-        }
-        type = REG_BINARY;
-        size = 4;
-        DWORD variance;
-        if (RegQueryValueExA(key, RegCpuVariance, 0, &type, (BYTE*)&variance, &size) == 0) {
-            double pct = variance;
-            if (pct <= 1.0f) {
-                pct = 1.0f;
-            } else if (pct >= 100.0f) {
-                pct = 100.0f;
-            }
-            cpuFreqVariancePct = (unsigned short)pct;
-        }
-        RegCloseKey(key);
-    }
-    return ok;
-}
-
-#endif
 
 // FUNCTION: SURRENDER 0x10062D20
 int srTimer::pause()
@@ -1015,7 +487,6 @@ const char* srTimer::getOsIdent() const
     if (osThreadState != -1) {
         return osIdent;
     }
-#if defined(WIZ8_NATIVE)
     osThreadState = 1;
     struct utsname name;
     if (uname(&name) == 0) {
@@ -1024,57 +495,6 @@ const char* srTimer::getOsIdent() const
         strcpy(osIdent, "unknown");
     }
     return osIdent;
-#else
-    osThreadState = 1;
-    OSVERSIONINFOA info;
-    info.dwOSVersionInfoSize = 0x94;
-    GetVersionExA(&info);
-    char csd[256];
-    memset(csd, 0, sizeof(csd));
-    strncpy(csd, info.szCSDVersion, 0xff);
-    char* front = csd;
-    while (isspace(*front) && *front != '\0') {
-        ++front;
-    }
-    strcpy(info.szCSDVersion, front);
-    /* The trim starts at the terminator, so it never removes anything. */
-    char* end = info.szCSDVersion + strlen(info.szCSDVersion);
-    while (end != info.szCSDVersion && isspace(*end)) {
-        --end;
-    }
-    *end = '\0';
-    if (info.dwPlatformId == 2) {
-        sprintf(osIdent, "WindowsNT %d.%d build %d", static_cast<int>(info.dwMajorVersion),
-                static_cast<int>(info.dwMinorVersion), static_cast<int>(info.dwBuildNumber));
-        if (info.szCSDVersion[0] != '\0') {
-            sprintf(osIdent + strlen(osIdent), " (%s)", info.szCSDVersion);
-        }
-        return osIdent;
-    }
-    const char* name;
-    if (info.dwMajorVersion < 4) {
-        name = "Win32s on Windows";
-    } else if (info.dwMinorVersion > 9) {
-        name = "Windows98";
-    } else {
-        name = "Windows95";
-    }
-    strcpy(osIdent, name);
-    if (info.szCSDVersion[0] != '\0') {
-        if ((info.dwBuildNumber & 0xffff) == 0x457) {
-            strcat(osIdent, " OSR2");
-        } else if (info.szCSDVersion[0] == ' ') {
-            strcat(osIdent, info.szCSDVersion);
-        } else {
-            sprintf(osIdent + strlen(osIdent), " %s", info.szCSDVersion);
-        }
-    }
-    sprintf(osIdent + strlen(osIdent), " (Version %d.%02d.%u)",
-            static_cast<int>(info.dwMajorVersion), static_cast<int>(info.dwMinorVersion),
-            static_cast<unsigned int>(info.dwBuildNumber & 0xffff));
-    osThreadState = 0;
-    return osIdent;
-#endif
 }
 
 /* The stream's width field doubles as the print-mode selector: 1 prints the

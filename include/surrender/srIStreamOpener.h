@@ -4,7 +4,7 @@
 
 class SR_DLL_EXPORT srIStreamOpener {
 public:
-    class __declspec(novtable) Opener {
+    class Opener {
     public:
         // FUNCTION: SURRENDER 0x10032680
         // RECOMP: ??0Opener@srIStreamOpener@@QAE@XZ

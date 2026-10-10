@@ -57,96 +57,39 @@ set(SURRENDER_SOURCES
     vector_processor.cpp
 )
 
-if(WIZ8_NATIVE)
-    include(native.cmake)
-    return()
+add_library(SURRENDER SHARED ${SURRENDER_SOURCES})
+target_compile_definitions(SURRENDER PRIVATE SURRENDER_BUILD)
+target_link_libraries(SURRENDER PRIVATE wiz8_native_settings SDL3::SDL3)
+if(UNIX AND NOT APPLE)
+    target_link_options(SURRENDER PRIVATE -Wl,--no-undefined)
 endif()
-
-add_library(wiz8_surrender_objects OBJECT ${SURRENDER_SOURCES})
-target_compile_definitions(wiz8_surrender_objects PRIVATE SURRENDER_BUILD)
-target_compile_options(wiz8_surrender_objects PRIVATE
-    "$<$<CXX_COMPILER_ID:MSVC>:/GX->")
-set_source_files_properties(
-    bounder.cpp
-    camera.cpp
-    clipplane.cpp
-    color_surface.cpp
-    config.cpp
-    core.cpp
-    debug.cpp
-    debug_dd.cpp
-    debug_vp.cpp
-    dynamic_library.cpp
-    extension.cpp
-    fog.cpp
-    vertex_pipe.cpp
-    file_stream.cpp
-    gerd.cpp
-    gerd_filters.cpp
-    global_recycler.cpp
-    heap.cpp
-    huffman.cpp
-    illuminator.cpp
-    io_managers.cpp
-    light.cpp
-    material.cpp
-    mesh_model.cpp
-    model.cpp
-    model_instance.cpp
-    modeler.cpp
-    mutex.cpp
-    node.cpp
-    palette.cpp
-    renderer.cpp
-    scene.cpp
-    scheduler.cpp
-    stream.cpp
-    string_table.cpp
-    texture.cpp
-    texture_file.cpp
-    texture_map.cpp
-    type_registry.cpp
-    vector_processor.cpp
-    video_manager.cpp
-    window_out.cpp
-    PROPERTIES COMPILE_OPTIONS "$<$<CXX_COMPILER_ID:MSVC>:/GX>")
-target_link_libraries(wiz8_surrender_objects PRIVATE wiz8_compile_settings)
-
-wiz8_compile_resource(SURRENDER_RESOURCE_OBJECT sr.rc)
-
-# Keep the API and ordinals, excluding VC6-only compiler emissions. Modern
-# std::ostream also makes srWindowOut's implicit copying unavailable.
-set(SURRENDER_EXPORTS sr.def)
-if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-    file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/sr.def" export_lines)
-    set(clang_exports "")
-    foreach(line IN LISTS export_lines)
-        if(line MATCHES "^[ \t]*[?][?]_[CDF]" OR
-           line MATCHES "^[ \t]*[?][?][04]srWindowOut@@.*ABV0" OR
-           line MATCHES "^[ \t]*[?][?]1srColorSurfaceIFace@@")
-            continue()
-        endif()
-        string(APPEND clang_exports "${line}\n")
-    endforeach()
-    set(SURRENDER_EXPORTS "${CMAKE_CURRENT_BINARY_DIR}/sr-clang.def")
-    file(WRITE "${SURRENDER_EXPORTS}" "${clang_exports}")
-endif()
-add_library(SURRENDER SHARED
-    $<TARGET_OBJECTS:wiz8_surrender_objects>
-    ${SURRENDER_EXPORTS}
-    "${SURRENDER_RESOURCE_OBJECT}"
-)
-# msvcrt must resolve ??3 (operator delete) before msvcprt's delop_s.obj
-# claims it; retail imports ??3 from MSVCRT.dll.
-target_link_libraries(SURRENDER PRIVATE
-    msvcrt.lib wiz8_compile_settings version.lib
-    # srTimer's hi-resolution path calls timeGetTime; retail sr.dll imports
-    # WINMM.dll for it.
-    winmm.lib
-)
-target_link_options(SURRENDER PRIVATE
-    /DEBUG "$<$<CXX_COMPILER_ID:MSVC>:/DEBUGTYPE:CV>" /INCREMENTAL:NO
-    /OPT:NOREF /OPT:NOICF /BASE:0x10000000 /FILEALIGN:0x1000
-    /OSVERSION:4.0 /SUBSYSTEM:WINDOWS,4.0
-)
 set_target_properties(SURRENDER PROPERTIES OUTPUT_NAME sr)
+
+# SDL3 GPU device: GLSL compiled to SPIR-V headers at build time.
+find_program(GLSLANG_VALIDATOR NAMES glslangValidator glslangValidator.exe
+    HINTS "${VCPKG_INSTALLED_DIR}/${VCPKG_HOST_TRIPLET}/tools/glslang"
+          "${_VCPKG_INSTALLED_DIR}/${VCPKG_HOST_TRIPLET}/tools/glslang"
+          "${CMAKE_BINARY_DIR}/vcpkg_installed/${VCPKG_HOST_TRIPLET}/tools/glslang"
+    REQUIRED)
+set(SDL_GPU_DEVICE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/devices/sdl_gpu")
+set(SDL_GPU_SHADER_DIR "${CMAKE_CURRENT_BINARY_DIR}/sdl_gpu_shaders")
+set(SDL_GPU_SHADER_HEADERS)
+foreach(shader vertex fragment)
+    if(shader STREQUAL "vertex")
+        set(stage vert)
+    else()
+        set(stage frag)
+    endif()
+    set(header "${SDL_GPU_SHADER_DIR}/sr_${shader}.spv.h")
+    add_custom_command(
+        OUTPUT "${header}"
+        COMMAND "${CMAKE_COMMAND}" -E make_directory "${SDL_GPU_SHADER_DIR}"
+        COMMAND "${GLSLANG_VALIDATOR}" -V -S ${stage} --vn sr_${shader}_spv
+            -o "${header}" "${SDL_GPU_DEVICE_DIR}/sr_${shader}.glsl"
+        DEPENDS "${SDL_GPU_DEVICE_DIR}/sr_${shader}.glsl"
+        VERBATIM
+    )
+    list(APPEND SDL_GPU_SHADER_HEADERS "${header}")
+endforeach()
+target_sources(SURRENDER PRIVATE devices/sdl_gpu/sdl_gpu_device.cpp ${SDL_GPU_SHADER_HEADERS})
+target_include_directories(SURRENDER PRIVATE "${SDL_GPU_SHADER_DIR}")

@@ -3,7 +3,7 @@
 #include "srPixelConvert.h"
 #include "srTextureIFace.h"
 
-class __declspec(novtable) SR_DLL_IMPORT SR_DLL_EXPORT srTexture
+class SR_DLL_IMPORT SR_DLL_EXPORT srTexture
     : public srClassSupport<srTexture, srTextureIFace, false, 0x2110> {
 public:
     static const char* sGetClassName();

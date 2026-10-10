@@ -5,7 +5,7 @@
 
 class
 #if defined(SURRENDER_BUILD)
-    __declspec(dllexport)
+
 #endif
     srTriangleCuller {
 public:

@@ -2,26 +2,11 @@
 
 #include <iosfwd>
 #include <string.h>
-#if defined(WIZ8_NATIVE)
 #include <fenv.h>
 #include <math.h>
-#else
-#include <windows.h>
-#endif
 
 #include "srCriticalSection.h"
 
-#if defined(_MSC_VER) && !defined(SURRENDER_BUILD)
-#define SR_DLL_IMPORT __declspec(dllimport)
-#else
-#define SR_DLL_IMPORT
-#endif
-
-#if defined(SURRENDER_BUILD)
-#define SR_DLL_EXPORT __declspec(dllexport)
-#else
-#define SR_DLL_EXPORT
-#endif
 
 /* Zero fill that pre-aligns the destination to an 8-byte boundary. */
 inline void srZeroMemory(void* destination, w8_long size)
@@ -42,7 +27,6 @@ inline void srZeroMemory(void* destination, w8_long size)
 }
 
 /* Float-to-int through the FPU's current rounding mode (round to nearest, not truncation). */
-#if defined(WIZ8_NATIVE)
 inline w8_long srFloatToInt(double value)
 {
     const double rounded = rint(value);
@@ -59,27 +43,6 @@ inline w8_long srFloatToInt(float value)
 {
     return srFloatToInt(static_cast<double>(value));
 }
-#else
-inline w8_long srFloatToInt(float value)
-{
-    w8_long result;
-    __asm {
-        fld value
-        fistp result
-    }
-    return result;
-}
-
-inline w8_long srFloatToInt(double value)
-{
-    w8_long result;
-    __asm {
-        fld value
-        fistp result
-    }
-    return result;
-}
-#endif
 
 class srHeap {
 public:

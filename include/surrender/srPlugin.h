@@ -2,7 +2,7 @@
 
 // SurRender3D 1.42.2.9 plug-in boundary.
 
-class __declspec(novtable) srPlugin {
+class srPlugin {
 public:
     virtual ~srPlugin() {}
     virtual const char* getDescription() const = 0;

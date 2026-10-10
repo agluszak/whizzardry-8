@@ -57,12 +57,8 @@ static void dumpFlags(std::ostream& stream, w8_ulong flags, const char* names)
 // FUNCTION: SURRENDER 0x100571F0
 srColorSurfaceIFace::srColorSurfaceIFace()
 {
-#if defined(WIZ8_NATIVE)
     /* width through the end of the object. */
     srZeroMemory(&width, reinterpret_cast<char*>(this + 1) - reinterpret_cast<char*>(&width));
-#else
-    srZeroMemory(&width, 0x28);
-#endif
 }
 
 // FUNCTION: SURRENDER 0x1005A120
@@ -70,11 +66,7 @@ srColorSurfaceIFace::srColorSurfaceIFace(const srColorSurfaceIFace& other)
 {
     *this = other;
     unknown_18_[1] = other.unknown_18_[1];
-#if defined(WIZ8_NATIVE)
     memcpy(&width, &other.width, reinterpret_cast<char*>(this + 1) - reinterpret_cast<char*>(&width));
-#else
-    memcpy(&width, &other.width, 0x28);
-#endif
 }
 
 // FUNCTION: SURRENDER 0x1005B280
@@ -3179,89 +3171,7 @@ void srColorSurfaceIFace::composite(w8_long x, w8_long y, srColorSurfaceIFace& s
 static void __cdecl minifyRow_MMX(w8_ulong* destination, const w8_ulong* first,
                                   const w8_ulong* second, w8_ulong count)
 {
-#if defined(WIZ8_NATIVE)
     abort(); /* MMX workers are never selected natively */
-#else
-    __asm {
-        mov ecx, count
-        test ecx, ecx
-        jz minifyRow_MMX_done
-        mov edi, destination
-        mov eax, first
-        mov ebx, second
-        pcmpeqw mm6, mm6
-        psrlw mm6, 0xe
-        pxor mm7, mm7
-        test edi, 0x4
-        jz minifyRow_MMX_pairs
-    minifyRow_MMX_single:
-        movq mm0, qword ptr [eax]
-        movq mm1, qword ptr [ebx]
-        movq mm4, mm0
-        movq mm5, mm1
-        punpcklbw mm0, mm7
-        punpcklbw mm1, mm7
-        punpckhbw mm4, mm7
-        punpckhbw mm5, mm7
-        paddw mm0, mm4
-        paddw mm1, mm5
-        paddw mm0, mm1
-        paddw mm0, mm6
-        psrlw mm0, 0x2
-        packuswb mm0, mm0
-        movd dword ptr [edi], mm0
-        add eax, 0x8
-        add ebx, 0x8
-        add edi, 0x4
-        dec ecx
-        jz minifyRow_MMX_done
-    minifyRow_MMX_pairs:
-        push ecx
-        and ecx, 0xfffffffe
-        jz minifyRow_MMX_tail
-        lea eax, [eax + ecx*0x8]
-        lea ebx, [ebx + ecx*0x8]
-        lea edi, [edi + ecx*0x4]
-        neg ecx
-    minifyRow_MMX_pair_loop:
-        movq mm0, qword ptr [eax + ecx*0x8]
-        movq mm1, qword ptr [ebx + ecx*0x8]
-        movq mm2, qword ptr [eax + ecx*0x8 + 0x8]
-        movq mm3, qword ptr [ebx + ecx*0x8 + 0x8]
-        movq mm4, mm0
-        movq mm5, mm1
-        punpcklbw mm0, mm7
-        punpcklbw mm1, mm7
-        punpckhbw mm4, mm7
-        punpckhbw mm5, mm7
-        paddw mm0, mm4
-        paddw mm1, mm5
-        movq mm4, mm2
-        movq mm5, mm3
-        punpcklbw mm2, mm7
-        punpcklbw mm3, mm7
-        punpckhbw mm4, mm7
-        punpckhbw mm5, mm7
-        paddw mm2, mm4
-        paddw mm3, mm5
-        paddw mm0, mm1
-        paddw mm2, mm3
-        paddw mm0, mm6
-        paddw mm2, mm6
-        psrlw mm0, 0x2
-        psrlw mm2, 0x2
-        packuswb mm0, mm2
-        movq qword ptr [edi + ecx*0x4], mm0
-        add ecx, 0x2
-        js minifyRow_MMX_pair_loop
-    minifyRow_MMX_tail:
-        pop ecx
-        and ecx, 0x1
-        jnz minifyRow_MMX_single
-    minifyRow_MMX_done:
-        emms
-    }
-#endif
 }
 
 // FUNCTION: SURRENDER 0x1005A930

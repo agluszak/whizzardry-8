@@ -1,12 +1,6 @@
 #pragma once
 
-#if defined(SURRENDER_BUILD)
-#define SR_DYNAMIC_LIBRARY_API __declspec(dllexport)
-#elif defined(_MSC_VER) && !defined(WIZ8_CLANG_LINT)
-#define SR_DYNAMIC_LIBRARY_API __declspec(dllimport)
-#else
 #define SR_DYNAMIC_LIBRARY_API
-#endif
 
 class SR_DYNAMIC_LIBRARY_API srDynamicLibrary {
 public:

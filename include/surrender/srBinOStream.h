@@ -9,20 +9,14 @@
 // class srBinOStream
 class
 #if defined(SURRENDER_BUILD)
-    __declspec(dllexport)
+
 #else
-    __declspec(novtable)
+
 #endif
     srBinOStream : public virtual srBinStream {
 public:
     /* The DLL build uses compiler-generated special members. Native clients use
        the same members; the Windows import declarations remain unchanged. */
-#if !defined(SURRENDER_BUILD) && !defined(WIZ8_NATIVE)
-    SR_DLL_IMPORT srBinOStream();
-    SR_DLL_IMPORT srBinOStream(const srBinOStream& stream);
-    virtual SR_DLL_IMPORT ~srBinOStream() override;
-    SR_DLL_IMPORT srBinOStream& operator=(const srBinOStream& stream);
-#endif
 
     SR_DLL_IMPORT srBinOStream& putChar(char value);
     SR_DLL_IMPORT srBinOStream& putDWord(w8_ulong value);
@@ -46,7 +40,7 @@ private:
 #if defined(SURRENDER_BUILD)
 class SR_DLL_EXPORT srBinOMStream
 #else
-class __declspec(novtable) SR_DLL_IMPORT srBinOMStream
+class SR_DLL_IMPORT srBinOMStream
 #endif
     : public srBinOStream {
 public:

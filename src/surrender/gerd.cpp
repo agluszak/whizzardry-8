@@ -105,7 +105,6 @@ srGERD::srGERD(srDD* device, void* module, const char* device_name)
         vertex_arrays.strides[index] = 0;
         vertex_arrays.arrays[index] = 0;
     }
-#if defined(WIZ8_NATIVE)
     /* The retail byte counts cover these member runs in the 32-bit layout. */
     srZeroMemory(&state, sizeof(state));
     srZeroMemory(&accum_buffer, reinterpret_cast<char*>(&texture_slots) -
@@ -118,15 +117,6 @@ srGERD::srGERD(srDD* device, void* module, const char* device_name)
     this->device.display_modes = 0;
     this->device.display_mode_count = 0;
     srZeroMemory(&this->device.driver_info, sizeof(this->device.driver_info));
-#else
-    srZeroMemory(&state, 0x13c8);
-    srZeroMemory(&accum_buffer, 0x440);
-    srZeroMemory(&texture_slots, 0xb0);
-    srZeroMemory(&this->device.info, 0x27c);
-    srZeroMemory(&this->device.texture_formats, 8);
-    srZeroMemory(&this->device.display_modes, 8);
-    srZeroMemory(&this->device.driver_info, 0x94);
-#endif
     if (device_name != 0) {
         strncpy(this->device.info.text[0], device_name, 0x3f);
     }
@@ -3119,11 +3109,7 @@ srGERD::Texture* srGERD::findLowestPriority()
 srGERD::Texture* srGERD::allocTexture(w8_ulong id)
 {
     Texture* texture = texture_pool.allocate();
-#if defined(WIZ8_NATIVE)
     memset(texture, 0, offsetof(Texture, unknown_a4));
-#else
-    memset(texture, 0, 0xa4);
-#endif
     texture->id = id;
     texture->palette = 0;
     texture_lookup.Insert(&texture->id, &texture);
@@ -5006,176 +4992,32 @@ w8_ulong srGERD::getClassID() const
 // FUNCTION: SURRENDER 0x1001FA30
 void __cdecl srGERD::accumAccum_MMX(AccumPixel* accum, const srARGB* pixels, w8_long scale, w8_long count)
 {
-#if defined(WIZ8_NATIVE)
     abort(); /* MMX workers are never selected natively */
-#else
-    __asm {
-        mov edi, accum
-        mov esi, pixels
-        mov ecx, count
-        movd mm5, scale
-        punpcklwd mm5, mm5
-        punpckhdq mm5, mm5
-        movd mm6, scale
-        punpcklwd mm6, mm6
-        punpckldq mm6, mm6
-        psrlw mm6, 1
-        lea edi, [edi + ecx*8]
-        lea esi, [esi + ecx*4]
-        neg ecx
-    accumAccum_MMX_loop:
-        movd mm0, dword ptr [esi + ecx*4]
-        punpcklbw mm0, mm0
-        psrlw mm0, 1
-        movq mm1, mm0
-        pmullw mm0, mm5
-        pmulhw mm1, mm6
-        paddw mm1, mm1
-        paddw mm0, mm1
-        movq mm1, qword ptr [edi + ecx*8]
-        paddsw mm0, mm1
-        movq qword ptr [edi + ecx*8], mm0
-        inc ecx
-        js accumAccum_MMX_loop
-        emms
-    }
-#endif
 }
 
 // FUNCTION: SURRENDER 0x1001FA90
 void __cdecl srGERD::accumLoad_MMX(AccumPixel* accum, const srARGB* pixels, w8_long scale, w8_long count)
 {
-#if defined(WIZ8_NATIVE)
     abort(); /* MMX workers are never selected natively */
-#else
-    __asm {
-        mov edi, accum
-        mov esi, pixels
-        mov ecx, count
-        movd mm5, scale
-        punpcklwd mm5, mm5
-        punpckhdq mm5, mm5
-        movd mm6, scale
-        punpcklwd mm6, mm6
-        punpckldq mm6, mm6
-        psrlw mm6, 1
-        lea edi, [edi + ecx*8]
-        lea esi, [esi + ecx*4]
-        neg ecx
-    accumLoad_MMX_loop:
-        movd mm0, dword ptr [esi + ecx*4]
-        punpcklbw mm0, mm0
-        psrlw mm0, 1
-        movq mm1, mm0
-        pmullw mm0, mm5
-        pmulhw mm1, mm6
-        paddw mm1, mm1
-        paddw mm0, mm1
-        movq qword ptr [edi + ecx*8], mm0
-        inc ecx
-        js accumLoad_MMX_loop
-        emms
-    }
-#endif
 }
 
 // FUNCTION: SURRENDER 0x1001FB70
 void __cdecl srGERD::accumReturn_MMX(srARGB* pixels, const AccumPixel* accum, w8_long scale,
                                      w8_long count)
 {
-#if defined(WIZ8_NATIVE)
     abort(); /* MMX workers are never selected natively */
-#else
-    __asm {
-        mov edi, accum
-        mov esi, pixels
-        mov ecx, count
-        movd mm5, scale
-        punpcklwd mm5, mm5
-        punpckhdq mm5, mm5
-        movd mm6, scale
-        punpcklwd mm6, mm6
-        punpckldq mm6, mm6
-        psrlw mm6, 1
-        lea edi, [edi + ecx*8]
-        lea esi, [esi + ecx*4]
-        neg ecx
-    accumReturn_MMX_loop:
-        movq mm0, qword ptr [edi + ecx*8]
-        movq mm1, mm0
-        pmullw mm0, mm5
-        pmulhw mm1, mm6
-        paddw mm1, mm1
-        paddw mm0, mm1
-        psraw mm0, 7
-        movq mm1, mm0
-        psraw mm0, 0xf
-        pandn mm0, mm1
-        packuswb mm0, mm0
-        movd dword ptr [esi + ecx*4], mm0
-        inc ecx
-        js accumReturn_MMX_loop
-        emms
-    }
-#endif
 }
 
 // FUNCTION: SURRENDER 0x1001FAF0
 void __cdecl srGERD::accumAdd_MMX(AccumPixel* accum, w8_long value, w8_long count)
 {
-#if defined(WIZ8_NATIVE)
     abort(); /* MMX workers are never selected natively */
-#else
-    __asm {
-        mov edi, accum
-        mov ecx, count
-        movd mm6, value
-        punpcklwd mm6, mm6
-        punpckldq mm6, mm6
-        lea edi, [edi + ecx*8]
-        neg ecx
-    accumAdd_MMX_loop:
-        movq mm0, qword ptr [edi + ecx*8]
-        paddw mm0, mm6
-        movq qword ptr [edi + ecx*8], mm0
-        inc ecx
-        js accumAdd_MMX_loop
-        emms
-    }
-#endif
 }
 
 // FUNCTION: SURRENDER 0x1001FB20
 void __cdecl srGERD::accumMult_MMX(AccumPixel* accum, w8_long value, w8_long count)
 {
-#if defined(WIZ8_NATIVE)
     abort(); /* MMX workers are never selected natively */
-#else
-    __asm {
-        mov edi, accum
-        mov ecx, count
-        movd mm5, value
-        punpcklwd mm5, mm5
-        punpckhdq mm5, mm5
-        movd mm6, value
-        punpcklwd mm6, mm6
-        punpckldq mm6, mm6
-        psrlw mm6, 1
-        lea edi, [edi + ecx*8]
-        neg ecx
-    accumMult_MMX_loop:
-        movq mm0, qword ptr [edi + ecx*8]
-        movq mm1, mm0
-        pmullw mm0, mm5
-        pmulhw mm1, mm6
-        paddw mm1, mm1
-        paddw mm0, mm1
-        movq qword ptr [edi + ecx*8], mm0
-        inc ecx
-        js accumMult_MMX_loop
-        emms
-    }
-#endif
 }
 
 // FUNCTION: SURRENDER 0x1001FBD0
@@ -5205,186 +5047,6 @@ void srGERD::accumulate(e_accum operation, float scale)
     /* reinterpret-ok: the accum row scratch is raw dword storage reused as
        an ARGB pixel row. */
     srARGB* pixels = reinterpret_cast<srARGB*>(accum_scratch);
-#if !defined(WIZ8_NATIVE) /* MMX workers are never selected natively */
-    if ((srCore.getTimer()->m_cpu_features & (1UL << srTimer::CPU_FEATURE_MMX)) != 0) {
-        w8_long scale16 = (w8_long)(scale * (operation == ACCUM_MULTIPLY ? 32767.0 : 65536.0));
-        switch (operation) {
-        case ACCUM_LOAD: {
-            for (w8_long y = 0; y < height; y++) {
-                surface->getPixelRow(
-                    reinterpret_cast<w8_ulong*>(
-                        pixels), // reinterpret-ok: ARGB row buffer through the dword pixel-row ABI
-                    state.scissor.top + y, state.scissor.left, state.scissor.right);
-                __asm {
-                    mov edi, row
-                    mov esi, pixels
-                    mov ecx, width
-                    movd mm5, scale16
-                    punpcklwd mm5, mm5
-                    punpckhdq mm5, mm5
-                    movd mm6, scale16
-                    punpcklwd mm6, mm6
-                    punpckldq mm6, mm6
-                    psrlw mm6, 1
-                    lea edi, [edi + ecx*8]
-                    lea esi, [esi + ecx*4]
-                    neg ecx
-                accumulate_load_loop:
-                    movd mm0, dword ptr [esi + ecx*4]
-                    punpcklbw mm0, mm0
-                    psrlw mm0, 1
-                    movq mm1, mm0
-                    pmullw mm0, mm5
-                    pmulhw mm1, mm6
-                    paddw mm1, mm1
-                    paddw mm0, mm1
-                    movq mm1, qword ptr [edi + ecx*8]
-                    paddsw mm0, mm1
-                    movq qword ptr [edi + ecx*8], mm0
-                    inc ecx
-                    js accumulate_load_loop
-                    emms
-                }
-                row += getWidth();
-            }
-            break;
-        }
-        case ACCUM_ACCUMULATE: {
-            for (w8_long y = 0; y < height; y++) {
-                surface->getPixelRow(
-                    reinterpret_cast<w8_ulong*>(
-                        pixels), // reinterpret-ok: ARGB row buffer through the dword pixel-row ABI
-                    state.scissor.top + y, state.scissor.left, state.scissor.right);
-                __asm {
-                    mov edi, row
-                    mov esi, pixels
-                    mov ecx, width
-                    movd mm5, scale16
-                    punpcklwd mm5, mm5
-                    punpckhdq mm5, mm5
-                    movd mm6, scale16
-                    punpcklwd mm6, mm6
-                    punpckldq mm6, mm6
-                    psrlw mm6, 1
-                    lea edi, [edi + ecx*8]
-                    lea esi, [esi + ecx*4]
-                    neg ecx
-                accumulate_accum_loop:
-                    movd mm0, dword ptr [esi + ecx*4]
-                    punpcklbw mm0, mm0
-                    psrlw mm0, 1
-                    movq mm1, mm0
-                    pmullw mm0, mm5
-                    pmulhw mm1, mm6
-                    paddw mm1, mm1
-                    paddw mm0, mm1
-                    movq qword ptr [edi + ecx*8], mm0
-                    inc ecx
-                    js accumulate_accum_loop
-                    emms
-                }
-                row += getWidth();
-            }
-            break;
-        }
-        case ACCUM_MULTIPLY: {
-            for (w8_long y = 0; y < height; y++) {
-                __asm {
-                    mov edi, row
-                    mov ecx, width
-                    movd mm6, scale16
-                    punpcklwd mm6, mm6
-                    punpckldq mm6, mm6
-                    lea edi, [edi + ecx*8]
-                    neg ecx
-                accumulate_add_loop:
-                    movq mm0, qword ptr [edi + ecx*8]
-                    paddw mm0, mm6
-                    movq qword ptr [edi + ecx*8], mm0
-                    inc ecx
-                    js accumulate_add_loop
-                    emms
-                }
-                row += getWidth();
-            }
-            break;
-        }
-        case ACCUM_ADD: {
-            for (w8_long y = 0; y < height; y++) {
-                __asm {
-                    mov edi, row
-                    mov ecx, width
-                    movd mm5, scale16
-                    punpcklwd mm5, mm5
-                    punpckhdq mm5, mm5
-                    movd mm6, scale16
-                    punpcklwd mm6, mm6
-                    punpckldq mm6, mm6
-                    psrlw mm6, 1
-                    lea edi, [edi + ecx*8]
-                    neg ecx
-                accumulate_mult_loop:
-                    movq mm0, qword ptr [edi + ecx*8]
-                    movq mm1, mm0
-                    pmullw mm0, mm5
-                    pmulhw mm1, mm6
-                    paddw mm1, mm1
-                    paddw mm0, mm1
-                    movq qword ptr [edi + ecx*8], mm0
-                    inc ecx
-                    js accumulate_mult_loop
-                    emms
-                }
-                row += getWidth();
-            }
-            break;
-        }
-        case ACCUM_RETURN: {
-            for (w8_long y = 0; y < height; y++) {
-                __asm {
-                    mov edi, row
-                    mov esi, pixels
-                    mov ecx, width
-                    movd mm5, scale16
-                    punpcklwd mm5, mm5
-                    punpckhdq mm5, mm5
-                    movd mm6, scale16
-                    punpcklwd mm6, mm6
-                    punpckldq mm6, mm6
-                    psrlw mm6, 1
-                    lea edi, [edi + ecx*8]
-                    lea esi, [esi + ecx*4]
-                    neg ecx
-                accumulate_return_loop:
-                    movq mm0, qword ptr [edi + ecx*8]
-                    movq mm1, mm0
-                    pmullw mm0, mm5
-                    pmulhw mm1, mm6
-                    paddw mm1, mm1
-                    paddw mm0, mm1
-                    psraw mm0, 7
-                    movq mm1, mm0
-                    psraw mm0, 0xf
-                    pandn mm0, mm1
-                    packuswb mm0, mm0
-                    movd dword ptr [esi + ecx*4], mm0
-                    inc ecx
-                    js accumulate_return_loop
-                    emms
-                }
-                surface->setPixelRow(
-                    reinterpret_cast<const w8_ulong*>(
-                        pixels), // reinterpret-ok: ARGB row buffer through the dword pixel-row ABI
-                    state.scissor.top + y, state.scissor.left, state.scissor.right);
-                row += getWidth();
-            }
-            break;
-        }
-        default:
-            setError(ERROR_INVALID_ENUM);
-        }
-    } else
-#endif
     {
         short addend = accumConvert(scale);
         switch (operation) {

@@ -1,9 +1,6 @@
 #include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
-#if !defined(WIZ8_NATIVE)
-#include <windows.h>
-#endif
 #include <new>
 
 #include "codec_adapter.h"
@@ -65,15 +62,6 @@ const char* srJPEGPlugin::getDescription() const
 }
 
 // FUNCTION: SREXT_JPEGIMPORTER 0x100155B0
-#if !defined(WIZ8_NATIVE)
-extern "C" BOOL WINAPI DllMain(HINSTANCE instance, DWORD reason, LPVOID)
-{
-    if (reason == DLL_PROCESS_ATTACH) {
-        DisableThreadLibraryCalls(instance);
-    }
-    return TRUE;
-}
-#endif
 
 // FUNCTION: SREXT_JPEGIMPORTER 0x100155D0
 extern "C" w8_ulong __cdecl srGetLibraryVersion()

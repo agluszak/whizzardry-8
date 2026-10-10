@@ -8,6 +8,7 @@
 #include "surrender/srGERD.h"
 #include "surrender/srTriMeshPipeline.h"
 #include "wiz8/bink_video.h"
+#include "../../src/native/movie.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/surface2d.h"
@@ -164,15 +165,18 @@ int main(int argc, char** argv)
 
         HWND persistent_window = ghWindow;
         {
+            std::vector<uint16_t> movie_pixels;
+            {
+                W8NativeVideo decoded;
+                decoded.open(WIZ8_MOVIE_FIXTURE);
+                CHECK(decoded.update(0) == W8NativeVideo::FrameReady);
+                CHECK(decoded.frame().width == 32 && decoded.frame().height == 24);
+                movie_pixels = decoded.frame().pixels;
+            }
             W8BinkVideo movie;
             movie.SetTarget(BeginVideoPresentation());
             CHECK(movie.Open(WIZ8_MOVIE_FIXTURE, 0));
             CHECK(!movie.UpdateFrame());
-            FILE* golden_file = fopen(WIZ8_MOVIE_GOLDEN, "rb");
-            CHECK(golden_file);
-            UINT16 golden[32 * 24];
-            CHECK(fread(golden, sizeof(UINT16), 32 * 24, golden_file) == 32 * 24);
-            fclose(golden_file);
             // The actual presentation surface reaches GPU output; the game primary stays intact.
             RenderFrame();
             buffer = g_gerd->lockBuffer();
@@ -181,7 +185,7 @@ int main(int argc, char** argv)
             for (int y = 0; y < 480; ++y)
                 for (int x = 0; x < 640; ++x)
                 {
-                    UINT16 original = x < 32 && y < 24 ? golden[y * 32 + x] : 0;
+                    UINT16 original = x < 32 && y < 24 ? movie_pixels[y * 32 + x] : 0;
                     unsigned actual = buffer->getPixel(x, y);
                     int r = ((original >> 10) & 31) * 255 / 31,
                         g = ((original >> 5) & 31) * 255 / 31, b = (original & 31) * 255 / 31;

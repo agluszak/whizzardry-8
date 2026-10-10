@@ -1,4 +1,4 @@
-/* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
+/* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07, 2026-10-09.
    Distributed under the accompanying SFI Source Code license agreement. */
 #include "vobject.h"
 
@@ -15,9 +15,6 @@
 
 #include "Types.h"
 #include "compat/kernel32.h"
-#if !defined(WIZ8_NATIVE)
-#include <ddeml.h>
-#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include "DEBUG.H"
@@ -224,11 +221,7 @@ void DbgTopicRegistration(UINT8 ubCmd, UINT16* usTopicID, CHAR8* zMessage)
 
 void RemoveDebugText(void)
 {
-#if defined(WIZ8_NATIVE)
     w8_remove(gpcDebugLogFileName);
-#else
-    W8DeleteFile(gpcDebugLogFileName);
-#endif
 }
 // DbgClearAllTopics
 // Parameter List :
