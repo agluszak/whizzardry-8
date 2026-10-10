@@ -289,7 +289,7 @@ static void tgaTests()
                 auto surface = loadTga(fixture.encoded);
                 CHECK(surface);
                 checkTga(fixture, *surface);
-                const auto* palette = surface->getPalette();
+                const auto palette = surface->getPalette();
                 CHECK(palette && palette->getPaletteSize() == 10);
                 CHECK(palette->getColor(0).red == 0 && palette->getColor(6).blue == 0);
                 for (unsigned i = 0; i < 3; ++i) {
