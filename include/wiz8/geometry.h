@@ -88,11 +88,10 @@ struct W8GDSurface {
                           srVector3T<float>* direction, int collision_index);
     /* 0x0041E8E0: whether moving `from` to `to` pushes this surface's
        centroid away from surface `surface_index`'s centroid. */
-    bool CentroidsDiverging(int surface_index, const srVector3T<float>* from,
-                            const srVector3T<float>* to);
+    bool CentroidsDiverging(int surface_index, const glm::vec3& from, const glm::vec3& to);
     /* 0x0041EA90: environment response for a walkable contact surface;
        adjusts `direction` and the active environ record. */
-    bool ApplyEnvironContact(srVector3T<float>* direction);
+    bool ApplyEnvironContact(glm::vec3& direction);
 };
 
 W8_ABI_ASSERT(sizeof(W8GDSurface) == 0x4c, "W8GDSurface_must_be_0x4c");

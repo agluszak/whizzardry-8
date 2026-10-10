@@ -713,7 +713,7 @@ void ActivateItem(W8WorldItem* item)
     node = srNode::sGetClassNode();
     sun = static_cast<srNode*>(srCore.getRegistry()->find(node, "SUN", 0));
     if (sun != 0) {
-        sun_position = sun->getLocation();
+        sun_position = glm::vec3(sun->getLocation());
         mesh = static_cast<stModelInstance*>(item->p3D->GetMesh());
         if (mesh != 0) {
             if (g_octree->HasLineOfSight(&position, &sun_position, true)) {

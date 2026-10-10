@@ -250,7 +250,7 @@ void stMeshModel::GetFrameBounds(int frame, srVector3T<float>* minimum, srVector
         DecompressFrame(frame, W8_MESH_FRAME_LOCATIONS, scratch.data());
         vertices = scratch.data();
     }
-    const auto bounds = boundingBox({vertices, vertex_location_count});
+    const auto bounds = boundingBox(std::span<const srVector3>(vertices, vertex_location_count));
     *minimum = bounds.minimum;
     *maximum = bounds.maximum;
 }

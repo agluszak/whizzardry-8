@@ -66,11 +66,17 @@ static void planes_and_segments()
     CHECK(SegmentCrossesEdge(on_line, on_line, start, end, 1));
     CHECK(!SegmentCrossesEdge(parallel_a, parallel_a, start, end, 1));
 
-    srVector3 vector(3, 4, 5), target(0, 2, 0), zero(0, 0, 0);
-    CHECK(ProjectVectorOntoVector(&vector, &target));
-    CHECK(vector == srVector3(0, 4, 0));
-    CHECK(!ProjectVectorOntoVector(&vector, &zero));
-    CHECK(vector == srVector3(0, 4, 0));
+    W8EnvironRecord environment;
+    environment.scale = 2;
+    environment.airborne = 0;
+    environment.SetScaledMotion(glm::vec3(4, 6, 8));
+    CHECK(environment.vector == srVector3(2, 3, 4) && environment.airborne == 1);
+
+    glm::vec3 vector(3, 4, 5), target(0, 2, 0), zero(0);
+    vector = ProjectVectorOntoVector(vector, target);
+    CHECK(vector == glm::vec3(0, 4, 0));
+    vector = ProjectVectorOntoVector(vector, zero);
+    CHECK(vector == glm::vec3(0, 4, 0));
 }
 
 static void camera_and_throw()
@@ -89,10 +95,21 @@ static void camera_and_throw()
     camera.SetOrientation(glm::half_pi<float>(), 0);
     srVector3 forward;
     camera.GetForwardPoint(10, &forward);
-    CHECK(close((forward - camera.m_position).glmValue(), {10, 0, 0}));
+    CHECK(close(forward.glmValue() - camera.m_position, {10, 0, 0}));
     glm::mat3 vertical(glm::eulerAngleX(glm::half_pi<float>()));
     camera.ApplyRotationMatrix(&vertical, nullptr);
     CHECK(std::isfinite(camera.m_yaw) && std::isfinite(camera.m_pitch));
+    camera.SetOrientation(glm::two_pi<float>() - 0.1f, 0);
+    CHECK(camera.BeginOrientationTransition(0, glm::two_pi<float>() + 0.1f, true));
+    CHECK(std::abs(camera.m_yaw_distance - 0.2f) < 1e-5f && camera.m_yaw_velocity > 0);
+    camera.Update(camera.m_transition_duration + 1);
+    CHECK(!camera.m_transition_active && !camera.m_forced_transition);
+    CHECK(std::abs(camera.m_yaw - 0.1f) < 1e-5f);
+    CHECK(!camera.BeginOrientationTransition(0, camera.m_yaw, true));
+    camera.Update(0.01f);
+    CHECK(std::isfinite(camera.m_yaw) && std::isfinite(camera.m_pitch));
+    CHECK(camera.BeginOrientationTransition(-0.2f, glm::two_pi<float>() - 0.1f, true));
+    CHECK(camera.m_yaw_velocity < 0 && camera.m_pitch_velocity < 0);
     delete camera.m_manual_input_timer;
 
     const auto center = ItemThrowDirection({0.5f, 0.5f}, glm::mat3(1));

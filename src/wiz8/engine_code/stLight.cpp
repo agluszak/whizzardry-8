@@ -171,22 +171,9 @@ void stLight::SetDefinitionTime(float time)
    texture at a per-update probability. Any owned path advances once the
    elapsed seconds times the path rate exceed one whole step, wrapping or
    ping-ponging at the ends. */
-void stParametricLightDefinition::GetInterpolatedColor(float blend, srVector3T<float>* out) const
+glm::vec3 stParametricLightDefinition::GetInterpolatedColor(float blend) const
 {
-    float inverse = g_float_one - blend;
-    float red = blend * color_to.x + inverse * color.x;
-    float green = blend * color_to.y + inverse * color.y;
-    float blue = blend * color_to.z + inverse * color.z;
-    if (g_float_one < red) {
-        red = 1.0f;
-    }
-    if (g_float_one < green) {
-        green = 1.0f;
-    }
-    if (g_float_one < blue) {
-        blue = 1.0f;
-    }
-    out->Set(red, green, blue);
+    return glm::min(glm::mix(color.glmValue(), color_to.glmValue(), blend), glm::vec3(1));
 }
 
 // FUNCTION: WIZ8 0x0049C960
@@ -237,19 +224,8 @@ void stLight::Update()
             index = definition->keyframe_index;
             srVector3T<float>* color_to = definition->key_colors.GetAt(index + 1);
             srVector3T<float>* color_from = definition->key_colors.GetAt(index);
-            float red = color_from->x * inverse + color_to->x * blend;
-            float green = color_from->y * inverse + color_to->y * blend;
-            float blue = color_from->z * inverse + color_to->z * blend;
-            if (g_float_one < red) {
-                red = 1.0f;
-            }
-            if (g_float_one < green) {
-                green = 1.0f;
-            }
-            if (g_float_one < blue) {
-                blue = 1.0f;
-            }
-            diffuse.Set(red, green, blue);
+            diffuse = glm::min(glm::mix(color_from->glmValue(), color_to->glmValue(), blend),
+                               glm::vec3(1));
             return;
         }
         intensity = g_float_zero;
@@ -296,7 +272,7 @@ void stLight::Update()
             if ((definition->flags & W8_PARAM_LIGHT_COLOR) == 0) {
                 m_level_time = seconds;
             } else {
-                definition->GetInterpolatedColor(blend, &diffuse);
+                diffuse = definition->GetInterpolatedColor(blend);
                 m_level_time = seconds;
             }
         }
@@ -310,7 +286,7 @@ void stLight::Update()
                             definition->intensity;
                 m_level = level;
                 if ((definition->flags & W8_PARAM_LIGHT_COLOR) != 0) {
-                    definition->GetInterpolatedColor(blend, &diffuse);
+                    diffuse = definition->GetInterpolatedColor(blend);
                 }
                 m_level_time = seconds;
             }
@@ -327,7 +303,7 @@ void stLight::Update()
             }
         }
         if ((definition->flags & W8_PARAM_LIGHT_COLOR) != 0) {
-            diffuse = definition->color;
+            diffuse = definition->color.glmValue();
         }
         if (testFlag(FLAG_DISABLE) == 0) {
             setFlag(FLAG_DISABLE);
@@ -394,7 +370,7 @@ void stLight::Reset()
                 static_cast<stParametricLightDefinition*>(m_definition);
             intensity = definition->intensity;
             if ((definition->flags & W8_PARAM_LIGHT_COLOR) != 0) {
-                diffuse = definition->color;
+                diffuse = definition->color.glmValue();
             }
         }
     }

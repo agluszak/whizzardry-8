@@ -1442,7 +1442,7 @@ void LightAutomapCell(const srVector3T<float>* position)
             }
             stMeshModel* model = static_cast<stMeshModel*>(instance->getModel());
             srVector3T<float> location;
-            location = instance->getLocation();
+            location = glm::vec3(instance->getLocation());
             srVector3T<float> minimum;
             srVector3T<float> maximum;
             model->getBoundingBox(minimum, maximum);

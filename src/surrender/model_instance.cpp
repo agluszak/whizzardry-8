@@ -90,39 +90,20 @@ void srModelInstance::process(const ProcessInfo& info, e_processType type)
         renderer->pushMatrix();
         glm::mat4 matrix;
         renderer->getMatrix(srGERD::MATRIX_MODELVIEW, matrix);
-        srVector3T<double> location = getWorldSpaceLocation();
-        float x = (float)location.x;
-        float y = (float)location.y;
-        float z = (float)location.z;
-        srVector3T<double> world_scale = getWorldSpaceScale();
-        glm::vec4 position;
-        position = glm::vec4(matrix[0][0] * x + matrix[2][0] * z + matrix[1][0] * y + matrix[3][0],
-                             matrix[0][1] * x + matrix[2][1] * z + matrix[1][1] * y + matrix[3][1],
-                             matrix[0][2] * x + matrix[2][2] * z + matrix[1][2] * y + matrix[3][2],
-                             matrix[0][3] * x + matrix[2][3] * z + matrix[1][3] * y + matrix[3][3]);
-        float length_x = (float)sqrt(matrix[0][0] * matrix[0][0] + matrix[0][1] * matrix[0][1] +
-                                     matrix[0][2] * matrix[0][2]);
-        float length_y = (float)sqrt(matrix[1][0] * matrix[1][0] + matrix[1][1] * matrix[1][1] +
-                                     matrix[1][2] * matrix[1][2]);
-        float length_z = (float)sqrt(matrix[2][0] * matrix[2][0] + matrix[2][1] * matrix[2][1] +
-                                     matrix[2][2] * matrix[2][2]);
-        float determinant =
-            matrix[0][0] * (matrix[2][2] * matrix[1][1] - matrix[1][2] * matrix[2][1]) +
-            matrix[0][1] * (matrix[1][2] * matrix[2][0] - matrix[2][2] * matrix[1][0]) +
-            matrix[0][2] * (matrix[2][1] * matrix[1][0] - matrix[1][1] * matrix[2][0]);
-        if (determinant > 0.0f) {
-            length_x = -length_x;
-            length_y = -length_y;
-            length_z = -length_z;
-        }
+        const glm::vec4 position = matrix * glm::vec4(glm::vec3(getWorldSpaceLocation()), 1);
+        const auto world_scale = glm::vec3(getWorldSpaceScale());
+        glm::vec3 scale(glm::length(glm::vec3(matrix[0])), glm::length(glm::vec3(matrix[1])),
+                        glm::length(glm::vec3(matrix[2])));
+        if (glm::determinant(glm::mat3(matrix)) > 0)
+            scale = -scale;
         renderer->loadIdentity();
         srVector3T<float> translation = glm::vec3(position);
         renderer->translate(translation);
         if (align_angle != 0.0f) {
             renderer->rotate(align_angle, align_axis);
         }
-        renderer->scale((float)world_scale.x * length_x, (float)world_scale.y * length_y,
-                        -((float)world_scale.z * length_z));
+        scale *= world_scale;
+        renderer->scale(scale.x, scale.y, -scale.z);
     }
     if (exclusion_mask != 0) {
         w8_ulong mask = renderer->getExclusionMask();
