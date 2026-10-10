@@ -56,7 +56,7 @@
 #include "vobject_blitters.h"
 #include "line.h"
 #include "surrender/srMeshModel.h"
-#include "surrender/srVectorProcessor.h"
+#include "surrender/srVectorMath.h"
 
 #include <algorithm>
 #include <vector>
@@ -1474,8 +1474,9 @@ void LightAutomapCell(const srVector3T<float>* position)
                         OffsetVertices(transformed, source, &offset, count);
                     }
                     if (count != 0) {
-                        srVectorProcessor::length(distances.data(), vertices.data(),
-                                                  static_cast<SRDWORD>(count));
+                        srMath::length({distances.data(),
+                                        static_cast<std::size_t>(static_cast<SRDWORD>(count))},
+                                       vertices.data());
                     }
                     float* distance = distances.data();
                     if (count != 0) {

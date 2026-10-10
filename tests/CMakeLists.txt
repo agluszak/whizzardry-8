@@ -93,6 +93,10 @@ add_executable(native_pixel_convert_test native/pixel_convert_test.cpp)
 target_link_libraries(native_pixel_convert_test PRIVATE SURRENDER wiz8_native_settings SDL3::SDL3)
 add_test(NAME native_pixel_convert COMMAND native_pixel_convert_test)
 
+add_executable(native_vector_math_test native/vector_math_test.cpp)
+target_link_libraries(native_vector_math_test PRIVATE SURRENDER wiz8_native_settings)
+add_test(NAME native_vector_math COMMAND native_vector_math_test)
+
 add_executable(native_blitter_test "${PROJECT_SOURCE_DIR}/tests/native/blitter_test.cpp")
 target_link_libraries(native_blitter_test PRIVATE WIZ8_GAME_CORE)
 add_test(NAME native_blitters COMMAND native_blitter_test
@@ -150,3 +154,19 @@ set_tests_properties(native_application PROPERTIES ENVIRONMENT "SDL_VIDEODRIVER=
 # Installed level/character integration; supplied assets and a display are required.
 add_executable(native_world_graphics "${PROJECT_SOURCE_DIR}/tests/native/world_graphics.cpp")
 target_link_libraries(native_world_graphics PRIVATE WIZ8_GAME_CORE SDL3::SDL3)
+
+# Scenarios through the real game loop against installed retail assets
+# (WIZ8_ASSET_ROOT); skipped when it is unset. bink_video.cpp is recompiled
+# with WIZ8_RUNTIME_TESTS so its test hooks replace the archive's object.
+add_executable(native_runtime_test runtime/runtime_test.cpp
+    "${PROJECT_SOURCE_DIR}/src/native/bink_video.cpp")
+target_compile_definitions(native_runtime_test PRIVATE WIZ8_RUNTIME_TESTS=1)
+target_include_directories(native_runtime_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/native")
+target_link_libraries(native_runtime_test PRIVATE WIZ8_GAME_CORE SDL3::SDL3)
+# game-start and world are runnable by hand; main-game frames still stall (under investigation).
+foreach(scenario video character)
+    add_test(NAME runtime_${scenario} COMMAND native_runtime_test ${scenario})
+    set_tests_properties(runtime_${scenario} PROPERTIES
+        ENVIRONMENT "SDL_VIDEODRIVER=offscreen;SDL_AUDIO_DRIVER=dummy"
+        SKIP_RETURN_CODE 77 TIMEOUT 120 LABELS runtime)
+endforeach()

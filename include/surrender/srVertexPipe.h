@@ -6,7 +6,6 @@
 #include "srVertexProcessor.h"
 
 class srMaterialIFace;
-class srVP;
 
 #pragma pack(push, 4)
 class srVertexPipe {
@@ -186,7 +185,6 @@ private:
     w8_ulong batch_count;                     /* 0x8c */
     w8_ulong active_processor_count;          /* 0x90 */
     srVertexProcessor** active_processors;         /* 0x94 */
-    srVP* vector_processor;                        /* 0x98 */
 };
 #pragma pack(pop)
 

@@ -181,6 +181,7 @@ BOOLEAN PixelateVideoSurfaceRect(UINT32 uiDestVSurface, INT32 X1, INT32 Y1, INT3
 
 // Created from a VSurface_DESC structure. Can be from a file via HIMAGE or empty.
 HVSURFACE CreateVideoSurface(VSURFACE_DESC* VSurfaceDesc);
+HVSURFACE CreateVideoSurfaceFromCpuSurface(CpuSurface* surface);
 
 // Gets the RGB palette entry values
 BOOLEAN RestoreVideoSurface(HVSURFACE hVSurface);

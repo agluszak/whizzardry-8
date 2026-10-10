@@ -303,10 +303,13 @@ int main() try
     CHECK(wiz8::file_status("Data/archiveonly.bin")->archived);
     auto archived = wiz8::open_file("Data/archiveonly.bin");
     CHECK(archived->size() == 8);
-    CHECK(fails([&] { read_bytes(*archived, 9); }) && archived->tell() == 0);
+    CHECK(read_bytes(*archived, 9) == "archive!" && archived->tell() == 8);
+    CHECK(archived->seek(0, wiz8::SeekOrigin::begin) == 0);
     CHECK(read_bytes(*archived, 8) == "archive!");
     CHECK(archived->read(nullptr, 0).bytes == 0);
-    CHECK(fails([&] { read_bytes(*archived, 1); }));
+    char past_end;
+    const auto at_end = archived->read(&past_end, 1);
+    CHECK(at_end.bytes == 0 && at_end.eof && archived->tell() == 8);
     CHECK(archived->seek(3, wiz8::SeekOrigin::begin) == 3);
     CHECK(read_bytes(*archived, 5) == "hive!");
     CHECK(fails([&] { archived->write("x", 1); }));

@@ -10,7 +10,6 @@
 #include "Video2.h"
 #include "himage.h"
 #include "vsurface.h"
-#include "vsurface_private.h"
 #include "video_private.h"
 #include "WCheck.h"
 #include "vobject_blitters.h"

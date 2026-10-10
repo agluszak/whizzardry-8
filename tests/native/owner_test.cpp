@@ -10,7 +10,6 @@
 #include "Font.h"
 #include "input.h"
 #include "mousesystem_macros.h"
-#include "vsurface_private.h"
 #include "imgfmt.h"
 #include "wiz8/filesystem.h"
 #include "temporary_directory.h"

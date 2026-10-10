@@ -107,7 +107,9 @@ Controls::~Controls() {}
 // GLOBAL: WIZ8 0x0060CC74
 wchar_t g_W8TextSeparator[] = L" ";
 // GLOBAL: WIZ8 0x00617C88
-static wchar_t g_W8TextBreakCharacters[] = L" ";
+/* Newlines are hard breaks: text can carry them, and a previous layout pass
+   leaves its own wraps in the buffer. Measuring one as a glyph is an error. */
+static wchar_t g_W8TextBreakCharacters[] = L" \n";
 
 // GLOBAL: WIZ8 0x005ebb38
 const float g_float_one = 1.0f;
@@ -452,6 +454,7 @@ void W8TextBuffer::UpdateLayout()
         size_t span = wcscspn(line, g_W8TextBreakCharacters);
         wchar_t* break_at = line + span;
         while (*break_at != L'\0') {
+            const wchar_t separator = *break_at;
             *break_at = L'\0';
             short word_width = StringPixLength(line, m_font);
             if (static_cast<unsigned int>(static_cast<int>(word_width) + accumulated_width) <
@@ -473,8 +476,18 @@ void W8TextBuffer::UpdateLayout()
                 previous_break = 0;
                 ++m_lineCount;
             }
+            if (separator == L'\n') {
+                unsigned int completed_width =
+                    accumulated_width - static_cast<int>(separator_width);
+                if (m_maxLineWidth < completed_width) {
+                    m_maxLineWidth = completed_width;
+                }
+                accumulated_width = 0;
+                previous_break = 0;
+                ++m_lineCount;
+            }
             line += span + 1;
-            *break_at = L' ';
+            *break_at = separator;
             span = wcscspn(line, g_W8TextBreakCharacters);
             break_at = line + span;
         }
