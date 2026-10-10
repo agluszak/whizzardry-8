@@ -240,3 +240,12 @@ else()
 endif()
 
 target_include_directories(WIZ8_GAME_CORE PUBLIC "${PROJECT_SOURCE_DIR}/src/sgp")
+
+if(WIZ8_PRECOMPILE_HEADERS)
+    target_precompile_headers(WIZ8_GAME_CORE PRIVATE
+        "$<$<COMPILE_LANGUAGE:CXX>:${PROJECT_SOURCE_DIR}/src/wiz8/pch.h>")
+endif()
+if(WIZ8_UNITY_BUILD)
+    set_target_properties(WIZ8_GAME_CORE PROPERTIES
+        UNITY_BUILD ON UNITY_BUILD_BATCH_SIZE ${WIZ8_UNITY_BATCH_SIZE})
+endif()

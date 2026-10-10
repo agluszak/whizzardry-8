@@ -47,6 +47,15 @@ if(UNIX AND NOT APPLE)
 endif()
 set_target_properties(SURRENDER PROPERTIES OUTPUT_NAME sr)
 
+if(WIZ8_PRECOMPILE_HEADERS)
+    target_precompile_headers(SURRENDER PRIVATE
+        "$<$<COMPILE_LANGUAGE:CXX>:${PROJECT_SOURCE_DIR}/src/surrender/pch.h>")
+endif()
+if(WIZ8_UNITY_BUILD)
+    set_target_properties(SURRENDER PROPERTIES
+        UNITY_BUILD ON UNITY_BUILD_BATCH_SIZE ${WIZ8_UNITY_BATCH_SIZE})
+endif()
+
 # SDL3 GPU device: GLSL compiled to SPIR-V headers at build time.
 find_program(GLSLANG_VALIDATOR NAMES glslangValidator glslangValidator.exe REQUIRED)
 set(SDL_GPU_DEVICE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/devices/sdl_gpu")

@@ -23,6 +23,15 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
+# Build-time experiments are opt-in; keep the ordinary build independent of
+# unity grouping and precompiled-header invalidation.
+option(WIZ8_PRECOMPILE_HEADERS "Precompile stable C++ dependencies" OFF)
+option(WIZ8_UNITY_BUILD "Compile game and renderer sources in batches" OFF)
+set(WIZ8_UNITY_BATCH_SIZE 4 CACHE STRING "Sources per unity compilation batch")
+if(WIZ8_UNITY_BUILD AND NOT WIZ8_UNITY_BATCH_SIZE MATCHES "^[1-9][0-9]*$")
+    message(FATAL_ERROR "WIZ8_UNITY_BATCH_SIZE must be a positive integer")
+endif()
+
 # First-party warning baseline.
 if(CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
     add_compile_options(/W4)
