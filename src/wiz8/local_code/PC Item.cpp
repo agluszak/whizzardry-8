@@ -856,6 +856,33 @@ enum { W8_ITEM_REQUIREMENT_NONE = 0xff };
    index 9 through the spell-source path and CASTER_ITEM_8 reads index 8. */
 enum { W8_CASTER_PROFESSION_INDEX_8 = 8, W8_CASTER_PROFESSION_INDEX_9 = 9 };
 
+/* Return the first unmet item attribute or skill requirement, optionally
+   identifying the corresponding localized attribute or skill name. */
+static bool FindUnmetItemRequirement(const W8Character* character,
+                                     const W8ItemDatabaseRecord* record,
+                                     unsigned short* message_id)
+{
+    for (unsigned int index = 0; index < 2; ++index) {
+        const int stat = static_cast<signed char>(record->attribute_requirements[index].stat_id);
+        if (record->attribute_requirements[index].stat_id != W8_ITEM_REQUIREMENT_NONE &&
+            character->attributes[stat].effective < record->attribute_requirements[index].minimum) {
+            if (message_id)
+                *message_id = g_character_description_first_ids[stat];
+            return true;
+        }
+    }
+    for (unsigned int index = 0; index < 2; ++index) {
+        const int stat = static_cast<signed char>(record->skill_requirements[index].stat_id);
+        if (record->skill_requirements[index].stat_id != W8_ITEM_REQUIREMENT_NONE &&
+            character->skills[stat].level < record->skill_requirements[index].minimum) {
+            if (message_id)
+                *message_id = g_character_skill_name_ids[stat];
+            return true;
+        }
+    }
+    return false;
+}
+
 /* Whether one character is allowed to use one item at all: profession, race
    and faction have to admit them, every attribute and skill floor has to be
    met, and a spell-bearing item additionally has to be one they have not
@@ -864,7 +891,6 @@ enum { W8_CASTER_PROFESSION_INDEX_8 = 8, W8_CASTER_PROFESSION_INDEX_9 = 9 };
 bool CanCharacterUseItem(const W8Character* character, int item_id)
 {
     const W8ItemDatabaseRecord* record = &g_item_records[item_id];
-    unsigned int index;
     unsigned int spell_id;
     unsigned int minimum_caster_level;
 
@@ -879,22 +905,8 @@ bool CanCharacterUseItem(const W8Character* character, int item_id)
         return false;
     }
 
-    for (index = 0; index < 2; ++index) {
-        if (record->attribute_requirements[index].stat_id != W8_ITEM_REQUIREMENT_NONE &&
-            character
-                    ->attributes[static_cast<signed char>(
-                        record->attribute_requirements[index].stat_id)]
-                    .effective < record->attribute_requirements[index].minimum) {
-            return false;
-        }
-    }
-    for (index = 0; index < 2; ++index) {
-        if (record->skill_requirements[index].stat_id != W8_ITEM_REQUIREMENT_NONE &&
-            character->skills[static_cast<signed char>(record->skill_requirements[index].stat_id)]
-                    .level < record->skill_requirements[index].minimum) {
-            return false;
-        }
-    }
+    if (FindUnmetItemRequirement(character, record, nullptr))
+        return false;
 
     if (record->category == W8_ITEM_CATEGORY_SPELL_SOURCE) {
         spell_id = record->spell_id;
@@ -3364,32 +3376,8 @@ void UnequipUnusableItems(W8Character* character)
         unsigned short message_id = 0;
         bool unmet = false;
         W8ItemInstance destination;
-        unsigned int index;
 
-        for (index = 0; index < 2; ++index) {
-            if (record->attribute_requirements[index].stat_id != W8_ITEM_REQUIREMENT_NONE &&
-                character
-                        ->attributes[static_cast<signed char>(
-                            record->attribute_requirements[index].stat_id)]
-                        .effective < record->attribute_requirements[index].minimum) {
-                message_id = g_character_description_first_ids[static_cast<signed char>(
-                    record->attribute_requirements[index].stat_id)];
-                unmet = true;
-                break;
-            }
-        }
-        for (index = 0; !unmet && index < 2; ++index) {
-            if (record->skill_requirements[index].stat_id != W8_ITEM_REQUIREMENT_NONE &&
-                character
-                        ->skills[static_cast<signed char>(
-                            record->skill_requirements[index].stat_id)]
-                        .level < record->skill_requirements[index].minimum) {
-                message_id = g_character_skill_name_ids[static_cast<signed char>(
-                    record->skill_requirements[index].stat_id)];
-                unmet = true;
-                break;
-            }
-        }
+        unmet = FindUnmetItemRequirement(character, record, &message_id);
         if (unmet) {
             PostCharacterNotice(
                 party_slot,
