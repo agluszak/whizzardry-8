@@ -788,29 +788,16 @@ void ApplySummonElementalEffect(W8SpellEffectEntry* effect)
     summon->p3D->SetAngles(
         HeadingTowardNearestMonster(effect->target.point, disposition, summon->location_id));
     SetMonsterGroupHostility(group, disposition, false);
-    if (disposition == W8_DISPOSITION_FRIENDLY) {
-        for (index = 0; index < group->member_count; ++index) {
-            member =
-                MonsterInfoFromID(0xfdb, MAGIC_EFFECTS_CPP, group->MemberLocationId(index), true);
-            if (member == 0) {
-                srAssertFail("pMonsterInfo", MAGIC_EFFECTS_CPP, 0xfdc, 0);
-            }
-            if (member->summoned == W8_MONSTER_SUMMON_NONE) {
-                member->summoned = W8_MONSTER_SUMMON_FRIENDLY;
-                SetMonsterSpellIcon(member->p3D, SPELL_ICON_SUMMONED, true);
-            }
-        }
-    } else {
-        for (index = 0; index < group->member_count; ++index) {
-            member =
-                MonsterInfoFromID(0xfdb, MAGIC_EFFECTS_CPP, group->MemberLocationId(index), true);
-            if (member == 0) {
-                srAssertFail("pMonsterInfo", MAGIC_EFFECTS_CPP, 0xfdc, 0);
-            }
-            if (member->summoned == W8_MONSTER_SUMMON_NONE) {
-                member->summoned = W8_MONSTER_SUMMON_HOSTILE;
-                SetMonsterSpellIcon(member->p3D, SPELL_ICON_SUMMONED, true);
-            }
+    const auto summoned_state = disposition == W8_DISPOSITION_FRIENDLY
+                                    ? W8_MONSTER_SUMMON_FRIENDLY : W8_MONSTER_SUMMON_HOSTILE;
+    for (index = 0; index < group->member_count; ++index) {
+        member =
+            MonsterInfoFromID(0xfdb, MAGIC_EFFECTS_CPP, group->MemberLocationId(index), true);
+        if (member == 0)
+            srAssertFail("pMonsterInfo", MAGIC_EFFECTS_CPP, 0xfdc, 0);
+        if (member->summoned == W8_MONSTER_SUMMON_NONE) {
+            member->summoned = summoned_state;
+            SetMonsterSpellIcon(member->p3D, SPELL_ICON_SUMMONED, true);
         }
     }
     RefreshAllSight();
