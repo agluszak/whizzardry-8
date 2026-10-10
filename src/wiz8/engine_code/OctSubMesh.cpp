@@ -33,6 +33,18 @@ srTextureIFace* g_oct_mesh_default_texture;
 // GLOBAL: WIZ8 0x00652dc4
 srShader* g_oct_mesh_default_shader;
 
+void ReleaseOctMeshDefaults()
+{
+    auto* material = g_oct_mesh_default_material;
+    auto* texture = g_oct_mesh_default_texture;
+    g_oct_mesh_default_material = nullptr;
+    g_oct_mesh_default_texture = nullptr;
+    delete g_oct_mesh_default_shader;
+    g_oct_mesh_default_shader = nullptr;
+    if (material) material->release();
+    if (texture) texture->release();
+}
+
 /* The loader verifies every array the same way: a null getter result and a
    failed bulk read each stop with the call site's own diagnostic. */
 template <class T>
@@ -216,6 +228,7 @@ std::unique_ptr<stMeshModel> OctMeshModel::Read(wiz8::File* file, srMaterialIFac
         g_oct_mesh_default_material = new stMaterial;
         g_oct_mesh_default_material->srMaterialIFace::operator=(*materials[0]);
         g_oct_mesh_default_texture = textures[0];
+        if (g_oct_mesh_default_texture) g_oct_mesh_default_texture->addReference();
         delete g_oct_mesh_default_shader;
         g_oct_mesh_default_shader = new srShader;
         *g_oct_mesh_default_shader = render_flags[0];

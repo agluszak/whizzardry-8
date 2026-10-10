@@ -4081,12 +4081,7 @@ W8Octree::~W8Octree()
     }
     g_octree_storage_ = 0;
     g_octree = 0;
-    srMaterialIFace* default_material = g_oct_mesh_default_material;
-    delete default_material;
-    g_oct_mesh_default_material = 0;
-    g_oct_mesh_default_texture = 0;
-    delete g_oct_mesh_default_shader;
-    g_oct_mesh_default_shader = 0;
+    ReleaseOctMeshDefaults();
     delete m_pPropSunBits;
     m_pPropSunBits = 0;
 }

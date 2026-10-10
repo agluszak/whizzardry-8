@@ -141,9 +141,15 @@ bool LoadCycles(const std::filesystem::path& path)
         instances[0]->release();
         instances[1]->release();
         CHECK(lifetime.expired());
+        // Later loads reuse the registered default snapshot. Releasing the
+        // octree's ownership before the cache must leave its material alive.
+        if (cycle == 2) {
+            CHECK(g_oct_mesh_default_material->getReferenceCount() == 2);
+            ReleaseOctMeshDefaults();
+        }
         ReleaseReadMeshScratch();
         ReleaseRetainedMaterials();
-        CHECK(srCore.getRegistry()->getNumberOfInstances(stMaterial::sGetClassNode(), 0) == 1);
+        CHECK(srCore.getRegistry()->getNumberOfInstances(stMaterial::sGetClassNode(), 0) == (cycle == 2 ? 0 : 1));
     }
     return true;
 }
@@ -174,11 +180,7 @@ int main()
     }
     ReleaseReadMeshScratch();
     ReleaseRetainedMaterials();
-    if (g_oct_mesh_default_material) g_oct_mesh_default_material->release();
-    g_oct_mesh_default_material = nullptr;
-    g_oct_mesh_default_texture = nullptr;
-    delete g_oct_mesh_default_shader;
-    g_oct_mesh_default_shader = nullptr;
+    ReleaseOctMeshDefaults();
     std::filesystem::remove_all(directory);
     srExit();
     if (!ok) return 1;

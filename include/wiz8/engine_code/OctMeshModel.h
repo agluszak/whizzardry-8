@@ -52,3 +52,4 @@ W8_ABI_ASSERT(sizeof(OctMeshModel) == 0x48, "OctMeshModel_size_must_be_0x48");
 extern stMaterial* g_oct_mesh_default_material;
 extern srTextureIFace* g_oct_mesh_default_texture;
 extern srShader* g_oct_mesh_default_shader;
+void ReleaseOctMeshDefaults();
