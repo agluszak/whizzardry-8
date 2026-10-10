@@ -136,7 +136,13 @@ static void Geometry()
     srMath::dir(normalized, zero_length, zero);
     CHECK(zero_length[0] == 0 && std::isnan(normalized[0].x));
     srMath::normalize(normalized, zero, 1);
-    CHECK(std::isnan(normalized[0].x));
+    CHECK(normalized[0] == srVector3(0, 0, 0));
+    srVector4 normals[2];
+    normals[0].Set(0, 0, 0, 0);
+    normals[1].Set(0, 0, 0, 2);
+    srMath::normalize(normals, normals, 1);
+    CHECK(normals[0].x == 0 && normals[0].y == 0 && normals[0].z == 0 && normals[0].w == 0);
+    CHECK(normals[1].x == 0 && normals[1].y == 0 && normals[1].z == 0 && normals[1].w == 1);
     srVector4 projected[7];
     projected[0].Set(-2, 0, 0, 1);
     projected[1].Set(2, 0, 0, 1);

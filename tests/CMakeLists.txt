@@ -23,6 +23,22 @@ add_executable(native_imports_test "${PROJECT_SOURCE_DIR}/tests/native/imports_t
 target_link_libraries(native_imports_test PRIVATE SURRENDER wiz8_native_settings)
 add_test(NAME native_imports COMMAND native_imports_test)
 
+foreach(fixture mesh_ownership registry_ownership renderer_ownership)
+    add_executable(native_${fixture}_test native/${fixture}_test.cpp)
+    target_link_libraries(native_${fixture}_test PRIVATE SURRENDER wiz8_native_settings)
+    add_test(NAME native_${fixture} COMMAND native_${fixture}_test)
+endforeach()
+set_tests_properties(native_renderer_ownership PROPERTIES TIMEOUT 15)
+
+add_executable(native_mesh_frames_test native/mesh_frames_test.cpp)
+target_link_libraries(native_mesh_frames_test PRIVATE WIZ8_GAME_CORE)
+if(APPLE)
+    target_link_options(native_mesh_frames_test PRIVATE -Wl,-dead_strip)
+elseif(UNIX)
+    target_link_options(native_mesh_frames_test PRIVATE -Wl,--gc-sections -Wl,-z,start-stop-gc)
+endif()
+add_test(NAME native_mesh_frames COMMAND native_mesh_frames_test)
+
 add_executable(native_image_io_test native/image_io_test.cpp)
 target_link_libraries(native_image_io_test PRIVATE SURRENDER wiz8_native_settings)
 add_test(NAME native_image_io COMMAND native_image_io_test)

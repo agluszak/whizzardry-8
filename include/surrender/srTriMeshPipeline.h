@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include <vector>
 #include "srMaterialIFace.h"
 #include "srMath.h"
@@ -18,43 +19,34 @@ public:
     /* Record is consumed as srVertexPipe::Record, which uses four-byte packing. */
 #pragma pack(push, 4)
     struct Record {
-        inline Record()
-            : flags(0), disable_mask(0), colors(0),
-              color_format(srVertexPipe::Record::ColorSource::FORMAT_VECTOR4)
-        {
-        }
-
-        w8_ulong flags;
-        w8_ulong disable_mask;
-        srMaterialIFace* material;
+        w8_ulong flags = 0;
+        w8_ulong disable_mask = 0;
+        srMaterialIFace* material = nullptr;
         /* Bit 0: DIG or particle colors with format. Bit 1: DCG. Bit 2: SCG. */
-        void* colors;
-        srVertexPipe::Record::ColorSource::e_format color_format;
-        srVector4T<float>* dcg;
-        srVector4T<float>* scg;
+        void* colors = nullptr;
+        srVertexPipe::Record::ColorSource::e_format color_format =
+            srVertexPipe::Record::ColorSource::FORMAT_VECTOR4;
+        srVector4T<float>* dcg = nullptr;
+        srVector4T<float>* scg = nullptr;
         /* Optional per-vertex arrays, each gated by its own flags bit. */
-        float* alphas;
-        srVector2T<float>* st0;
-        srVector2T<float>* st1;
-        srPtr<srMaterialIFace>* vertex_materials;
-        void* unknown_2c_[12];
+        float* alphas = nullptr;
+        srVector2T<float>* st0 = nullptr;
+        srVector2T<float>* st1 = nullptr;
+        srPtr<srMaterialIFace>* vertex_materials = nullptr;
+        void* unknown_2c_[12]{};
     };
 
     struct Pass {
-        inline Pass()
-        {
-            shader.value = 0x0100241b; /* default packed srShader */
-        }
-
-        srTextureIFace* textures[2];
+        srTextureIFace* textures[2]{};
         srShader shader;
         /* Borrowed per-stage srPtr<srTextureIFace> or stTextureAnim* tables.
-           The renderer reads pointer-sized entries without owning the tables. */
-        void* texture_tables[2];
-        const srShader* shaders;
-        srVector2T<float>* texcoords;
+           The renderer reads pointer-sized entries without owning the tables. FlushSlots consumes
+           them synchronously in Renderer::render before unlockRenderer queues owned render data. */
+        void* texture_tables[2]{};
+        const srShader* shaders = nullptr;
+        srVector2T<float>* texcoords = nullptr;
         /* The mesh's per-triangle poly-UV corner source table. */
-        const srVector3i* poly_uv;
+        const srVector3i* poly_uv = nullptr;
     };
 
 #pragma pack(pop)
@@ -70,19 +62,13 @@ public:
 
     inline void FlushIfCurrent()
     {
-        srTriMeshPipeline* current = pipe;
-
-        if (this == current) {
-            current->flushing = 1;
-            if (current->slot_count > 0) {
-                current->FlushSlots();
-            }
-            current->flushing = 0;
+        if (this == pipe) {
+            Flush();
         }
     }
 
     virtual void FlushSlots();
-    virtual ~srTriMeshPipeline();
+    virtual ~srTriMeshPipeline() = default;
 
     std::vector<srVertexProcessor*> vertex_processors;
     std::vector<w8_ulong> culler_scratch;
@@ -114,8 +100,9 @@ public:
     srMaterialIFace* material;
     w8_ulong slot_count;
     srGERD* renderer;
-    volatile w8_ulong flushing;
-    srVertexPipe* vertex_pipe;
+    std::unique_ptr<srVertexPipe> vertex_pipe;
+    /* PrepareSlot may relocate these vectors; it rebinds current_record/current_pass afterwards.
+       Completed slots keep their borrowed tables until FlushSlots finishes consuming them. */
     std::vector<Record> records;
     std::vector<Pass> passes;
     std::vector<srVertexArray> vertex_arrays;

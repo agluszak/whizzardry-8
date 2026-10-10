@@ -1,7 +1,4 @@
 #include <iostream>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 
 #include <thread>
 
@@ -11,7 +8,6 @@
 #include "surrender/srStreamFlags.h"
 #include "surrender/srColorSurface.h"
 #include "surrender/srDebug.h"
-#include "surrender/srExponentTable.h"
 #include "surrender/srFilter.h"
 #include "surrender/srGERD.h"
 #include "surrender/srMaterial.h"
@@ -32,21 +28,21 @@ void __cdecl _srLibraryInit(void)
 }
 
 // FUNCTION: SURRENDER 0x10015010
-const char* srCore::getCopyright() const
+std::string_view srCore::getCopyright() const
 {
-    return copyright_;
+    return "SurRender 1.42.2.9 Release Build (MSVC 6.0) (c) Hybrid Holding Ltd. 1994-1999";
 }
 
 // FUNCTION: SURRENDER 0x10015020
-const char* srCore::getBuildTime() const
+std::string_view srCore::getBuildTime() const
 {
     return __DATE__ " " __TIME__;
 }
 
 // FUNCTION: SURRENDER 0x10015030
-const char* srCore::getVersion() const
+std::string_view srCore::getVersion() const
 {
-    return version_;
+    return "1.42.2.9";
 }
 
 // FUNCTION: SURRENDER 0x10015040
@@ -55,11 +51,11 @@ int __cdecl srInit()
     if (srCore.initialized == 0) {
         srCore.reset();
         srDebugPrintf(0xfe, "srInit() -- initializing SurRender\n");
-        srCore.registry_ = new srRegistry;
-        srCore.timer = new srClock;
+        srCore.registry_ = std::make_unique<srRegistry>();
+        srCore.timer = std::make_unique<srClock>();
         _srLibraryInit();
         srCore.multi_thread = std::thread::hardware_concurrency() > 1;
-        srCore.statistics_manager = new srStatisticsManager;
+        srCore.statistics_manager = std::make_unique<srStatisticsManager>();
         srCore.statistics_manager->reset();
         srCore.setFilter(0);
         srCore.palette = new srPalette(0, 0x100);
@@ -124,7 +120,6 @@ int __cdecl srExit()
     if (srCore.initialized != 0) {
         srDebugPrintf(0xfe, "srExit() -- shutting down SurRender\n");
         srGERD::releaseAll();
-        srCachedExponentTable::freeAll();
         srCore.root_node->release();
         srCore.root_node = 0;
         srCore.texture->release();
@@ -135,17 +130,14 @@ int __cdecl srExit()
         srCore.palette = 0;
         srCore.material->release();
         srCore.material = 0;
-        srDebugPrintf(0xfe, "srExit() -- cleaning up class registry.\n");
-        delete srCore.registry_;
-        srCore.registry_ = 0;
         srCore.initialized = 0;
-        delete srCore.statistics_manager;
-        srCore.statistics_manager = 0;
-        delete srCore.timer;
-        srCore.timer = 0;
-        srCore.reset();
+        srCore.statistics_manager.reset();
+        srCore.timer.reset();
         delete srTriMeshPipeline::pipe;
         srTriMeshPipeline::pipe = 0;
+        srDebugPrintf(0xfe, "srExit() -- cleaning up class registry.\n");
+        srCore.registry_.reset();
+        srCore.reset();
         srDebugPrintf(0xfe, "srExit() -- done\n");
     }
     return 1;
@@ -196,25 +188,10 @@ srTexture* srCore::getTexture() const
 class srCore srCore;
 
 // FUNCTION: SURRENDER 0x10015B60
-srCore::srCore()
-{
-    sprintf(version_, "%d.%d.%d.%d", 1, 42, 2, 9);
-    sprintf(copyright_, "SurRender %s ", version_);
-    strcat(copyright_, "Release");
-    strcat(copyright_, " Build (");
-    strcat(copyright_, "MSVC 6.0");
-    strcat(copyright_, ") (c) Hybrid Holding Ltd. 1994-1999");
-    multi_thread = 0;
-    texture = 0;
-    surface = 0;
-    filter = 0;
-    root_node = 0;
-    palette = 0;
-    timer = 0;
-    registry_ = 0;
-    next_unique_id = 0;
-    debug_level = 1;
-}
+srCore::srCore() = default;
+
+// Out of line so the owned service types are complete here.
+srCore::~srCore() = default;
 
 // FUNCTION: SURRENDER 0x10015C90
 void srCore::reset()
@@ -225,8 +202,6 @@ void srCore::reset()
     filter = 0;
     root_node = 0;
     palette = 0;
-    timer = 0;
-    registry_ = 0;
     debug_level = 1;
     next_unique_id = 0;
 }
@@ -236,7 +211,7 @@ void srCore::dump(std::ostream& stream)
 {
     w8_long flags = srGetStreamFlags(stream);
     srSetStreamFlags(stream, (flags & ~0x180L) | 0x40);
-    stream << '\n' << copyright_ << '\n';
+    stream << '\n' << getCopyright() << '\n';
     stream.width(0x18);
     stream << "Build time: " << getBuildTime() << '\n';
     stream.width(0x18);

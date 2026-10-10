@@ -721,7 +721,7 @@ stParticle* FindParticleByName(W8World* world, const char* name)
         for (int index = 0; index < count; ++index) {
             stParticle* particle = *world->particles->GetAt(index);
 
-            if (_stricmp(particle->getName(), name) == 0) {
+            if (_stricmp(particle->getName().c_str(), name) == 0) {
                 return particle;
             }
         }

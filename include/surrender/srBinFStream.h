@@ -4,6 +4,7 @@
 #include "srBinOStream.h"
 
 #include <string>
+#include <string_view>
 
 #include <wiz8/filesystem.h>
 
@@ -16,16 +17,14 @@ public:
     srBinFStream& operator=(const srBinFStream&) = delete;
 
     void close();
-    const char* getPath() const;
+    std::string_view getPath() const;
     int isOpen();
 
 protected:
     enum e_mode { SR_MODE_READ = 0, SR_MODE_WRITE = 1, SR_MODE_READ_WRITE = 2 };
 
     srBinFStream();
-    virtual ~srBinFStream() override;
-
-    void mopen(const char* path, e_mode mode);
+    void mopen(std::string_view path, e_mode mode);
     virtual srBinStream& pseek(w8_ulong position, srBinStream::e_seekDir direction);
     virtual srBinStream& pseek(w8_ulong position);
     virtual w8_ulong ptell();
@@ -39,8 +38,6 @@ protected:
     unsigned short putFile(char character);
 
 private:
-    void setPath(const char* path);
-
     std::string path;
 };
 
@@ -52,9 +49,9 @@ class srBinIFStream : public srBinFStream,
                     public srBinIStream {
 public:
     srBinIFStream();
-    srBinIFStream(const char* path);
+    srBinIFStream(std::string_view path);
 
-    void open(const char* path);
+    void open(std::string_view path);
     virtual srBinStream& seek(w8_ulong position, srBinStream::e_seekDir direction) override;
     virtual srBinStream& seek(w8_ulong position) override;
     virtual w8_ulong tell() override;
@@ -74,9 +71,9 @@ class srBinIOFStream : public srBinFStream,
                      public srBinOStream {
 public:
     srBinIOFStream();
-    srBinIOFStream(const char* path);
+    srBinIOFStream(std::string_view path);
 
-    void open(const char* path);
+    void open(std::string_view path);
     virtual srBinStream& seek(w8_ulong position, srBinStream::e_seekDir direction) override;
     virtual srBinStream& seek(w8_ulong position) override;
     virtual w8_ulong tell() override;
@@ -96,9 +93,9 @@ class srBinOFStream : public virtual srBinOStream,
                     public virtual srBinFStream {
 public:
     srBinOFStream();
-    srBinOFStream(const char* path);
+    srBinOFStream(std::string_view path);
 
-    void open(const char* path);
+    void open(std::string_view path);
     virtual srBinStream& seek(w8_ulong position, srBinStream::e_seekDir direction) override;
     virtual srBinStream& seek(w8_ulong position) override;
     virtual w8_ulong tell() override;

@@ -505,7 +505,8 @@ void srMath::normalize(std::span<srVector3> destination, const srVector3* vector
 {
     const std::size_t count = destination.size();
     for (std::size_t index = 0; index < count; ++index) {
-        float scale = length / vectors[index].Length();
+        const float magnitude = vectors[index].Length();
+        const float scale = magnitude == 0.0f ? 0.0f : length / magnitude;
         destination[index] = vectors[index] * scale;
     }
 }
@@ -785,7 +786,8 @@ void srMath::normalize(std::span<srVector4> destination, const srVector4* vector
 {
     const std::size_t count = destination.size();
     for (std::size_t index = 0; index < count; ++index) {
-        float scale = length / vectors[index].Length();
+        const float magnitude = vectors[index].Length();
+        const float scale = magnitude == 0.0f ? 0.0f : length / magnitude;
         destination[index] = vectors[index] * scale;
     }
 }
