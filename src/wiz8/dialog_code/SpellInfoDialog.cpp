@@ -65,13 +65,6 @@ W8SpellInfoDialog::W8SpellInfoDialog(unsigned int spell)
     SetBackground(g_spell_info_background_path, 0);
 }
 
-// FUNCTION: WIZ8 0x005dbc50
-W8SpellInfoDialog::~W8SpellInfoDialog()
-{
-    W8SpellInfoDialog::DestroyControls();
-    NoOp();
-}
-
 // FUNCTION: WIZ8 0x005dbcf0
 int W8SpellInfoDialog::CreateControls()
 {
@@ -94,14 +87,6 @@ int W8SpellInfoDialog::CreateControls()
 
     CreateCloseButton(m_button, 0x11a, 0x104);
     return 0;
-}
-
-/* Same folded body as W8MonsterInfoDialog::DestroyControls at 0x005DBDE0;
-   /OPT:NOICF emits this copy. */
-void W8SpellInfoDialog::DestroyControls()
-{
-    m_scroll_bar.DestroyControls();
-    W8DialogBase::DestroyControls();
 }
 
 // FUNCTION: WIZ8 0x005dbe00

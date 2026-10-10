@@ -162,7 +162,6 @@ int W8AssayDialog::CreateControls()
 void W8AssayDialog::DestroyControls()
 {
     W8DialogBase::DestroyControls();
-    m_scroll_bar.DestroyControls();
     DestroyDialogButtons(m_buttons, W8_ASSAY_BUTTON_COUNT);
     DestroyDialogTextBuffers(m_text_buffers, W8_ASSAY_TEXT_BUFFER_COUNT);
 }
