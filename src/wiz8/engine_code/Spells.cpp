@@ -1254,7 +1254,7 @@ stSound3D::stSound3D(const char* name, srNode* parent)
         strcpy(wave_name, name);
     }
     unknown_138 = 0;
-    sound_handle = -1;
+    sound_handle = nullptr;
     volume = 0x7f;
     falloff = 25000.0f;
     auto_release = false;
@@ -1267,7 +1267,7 @@ stSound3D::~stSound3D()
     if (wave_name != nullptr) {
         free(wave_name);
     }
-    if (sound_handle != -1) {
+    if (sound_handle != nullptr) {
         SoundStop(sound_handle);
     }
     wiz8::erase_first(g_sound3d_instances, this);
@@ -1289,7 +1289,7 @@ unsigned char stSound3D::Play(bool loop, bool release_when_done)
     }
     sound_handle = Sound3DPlay(wave_name, &options);
     auto_release = release_when_done;
-    return sound_handle != -1;
+    return sound_handle != nullptr;
 }
 
 // FUNCTION: WIZ8 0x004AECC0
@@ -1336,7 +1336,7 @@ void stSound3D::BuildSoundOptions(const srVector3T<float>* listener, SOUND3DPARM
 // FUNCTION: WIZ8 0x004AEC70
 bool stSound3D::IsPlaying()
 {
-    if (sound_handle != -1 && SoundIsPlaying(sound_handle) != 0) {
+    if (sound_handle != nullptr && SoundIsPlaying(sound_handle) != 0) {
         return true;
     }
     return false;
@@ -1345,9 +1345,9 @@ bool stSound3D::IsPlaying()
 // FUNCTION: WIZ8 0x004AEC90
 void stSound3D::Stop()
 {
-    if (sound_handle != -1) {
+    if (sound_handle != nullptr) {
         SoundStop(sound_handle);
-        sound_handle = -1;
+        sound_handle = nullptr;
     }
 }
 
@@ -1367,11 +1367,11 @@ void Update3DSounds()
     if (count > 0) {
         do {
             stSound3D* sound = g_sound3d_instances[index];
-            if (sound->sound_handle != -1) {
+            if (sound->sound_handle != nullptr) {
                 srVector3T<double> world = sound->getWorldSpaceLocation();
                 if (SoundIsPlaying(sound->sound_handle) == 0) {
                     bool dead = sound->auto_release;
-                    sound->sound_handle = -1;
+                    sound->sound_handle = nullptr;
                     if (dead) {
                         delete sound;
                         --count;

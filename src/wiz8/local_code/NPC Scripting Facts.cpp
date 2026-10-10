@@ -735,7 +735,7 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
     case W8_FACT_FUZZFAS_BOOM2:
         memset(&sound, -1, sizeof(sound));
         sound.EOSCallback = ClearPotionExplosionSoundFlag;
-        if (SoundPlay("Data\\Sound\\misc\\potion_exploding.wav", &sound) != 0xffffffff) {
+        if (SoundPlay("Data\\Sound\\misc\\potion_exploding.wav", &sound) != nullptr) {
             SetScriptedSceneActive();
         }
         particle = FindParticleByName(g_world, "FuzzBlast");

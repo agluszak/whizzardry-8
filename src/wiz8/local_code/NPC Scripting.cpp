@@ -368,7 +368,7 @@ bool g_message_queue_idle;
 static int g_pending_npc_travel_level;
 
 // GLOBAL: WIZ8 0x0061aea0
-static int g_sedexus_sound_handle = -1;
+static SoundPlayback g_sedexus_sound_handle = nullptr;
 // GLOBAL: WIZ8 0x0061c324
 static char g_sedexus_moaning_sound[] = "Data\\Sound\\Ambients\\Al_Sedexus Moaning.wav";
 
@@ -482,9 +482,9 @@ void ProcessNpcScriptingFrame(void)
         ClearScriptedSceneActive();
         if (!g_npc_scripting.sedexus_release_pending) {
             memset(&local_sound_parms, 0xff, sizeof(SOUNDPARMS));
-            g_sedexus_sound_handle = static_cast<int>(SoundPlayStreamedFile(
+            g_sedexus_sound_handle = SoundPlayStreamedFile(
                 // c-style-cast-ok: SGP spells filenames STR (UINT8*), the historical ABI boundary
-                (STR)g_sedexus_moaning_sound, &local_sound_parms));
+                (STR)g_sedexus_moaning_sound, &local_sound_parms);
         } else {
             ClearMainGameTargetState();
             sedexus_party_slot = g_status.sedexus_party_slot;
@@ -504,9 +504,9 @@ void ProcessNpcScriptingFrame(void)
                                     g_character_event_full_volume);
             }
             g_npc_scripting.sedexus_capture_active = false;
-            if (g_sedexus_sound_handle != -1) {
-                SoundStop(static_cast<unsigned int>(g_sedexus_sound_handle));
-                g_sedexus_sound_handle = -1;
+            if (g_sedexus_sound_handle != nullptr) {
+                SoundStop(g_sedexus_sound_handle);
+                g_sedexus_sound_handle = nullptr;
             }
         }
         g_npc_scripting.sedexus_capture_pending = false;
@@ -737,7 +737,7 @@ static void SpeakNpcSubquote(W8NpcScriptQuote* quote, unsigned char subquote_ind
             monster->StartTalking(true);
         }
         g_npc_scripting.last_tick = w8_get_ticks();
-        if (g_npc_scripting.voice_handle == SOUND_ERROR) {
+        if (g_npc_scripting.voice_handle == nullptr) {
             g_npc_scripting.voice_playing = false;
             g_npc_scripting.message_duration_ms = wiz8::text::grapheme_count(display_text) * 60 + 2000;
             g_npc_scripting.message_started_at = w8_get_ticks();
@@ -746,7 +746,7 @@ static void SpeakNpcSubquote(W8NpcScriptQuote* quote, unsigned char subquote_ind
                 SetPartyPortraitEventState(g_npc_scripting.npc->group_index, true,
                                            g_npc_scripting.staging_restore.current_quote_index,
                                            display_text, 1);
-                entry->voice_sound_handle = SOUND_ERROR;
+                entry->voice_sound_handle = nullptr;
                 entry->voice_time_remaining_ms = g_npc_scripting.message_duration_ms;
             }
         } else {
@@ -792,7 +792,7 @@ void FinishNpcVoicePlayback(bool resume_script)
     if (g_npc_scripting.quote_active != 0) {
         if (g_npc_scripting.voice_playing) {
             g_npc_scripting.voice_playing = false;
-            if (g_npc_scripting.voice_handle != SOUND_ERROR) {
+            if (g_npc_scripting.voice_handle != nullptr) {
                 g_npc_scripting.stopping_voice_playback = true;
                 SoundStop(g_npc_scripting.voice_handle);
                 g_npc_scripting.stopping_voice_playback = false;
@@ -812,7 +812,7 @@ void FinishNpcVoicePlayback(bool resume_script)
             }
         }
         g_npc_scripting.quote_active = 0;
-        g_npc_scripting.voice_handle = SOUND_ERROR;
+        g_npc_scripting.voice_handle = nullptr;
         g_npc_scripting.staging_restore.finished_quote_index =
             g_npc_scripting.staging_restore.current_quote_index;
         if (g_npc_interaction_state->script_busy == 0 && resume_script) {

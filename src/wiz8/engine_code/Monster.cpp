@@ -1496,9 +1496,9 @@ void W8Monster::Update()
                             Query(W8_MONSTER_QUERY_FRAME) < Query(W8_MONSTER_QUERY_FRAME_COUNT) / 2;
                     }
                     if (transition) {
-                        while (!values.empty()) {
-                            SoundStop(values[0]);
-                            values.erase(values.begin());
+                        while (!sounds.empty()) {
+                            SoundStop(sounds[0]);
+                            sounds.erase(sounds.begin());
                         }
                         if (!IsCycleSupported(3)) {
                             m_pRep->pending_behaviour = W8_ANIMATION_NEVER_STOP;
@@ -2884,29 +2884,15 @@ bool MonsterGetWorldAnimationBounds(W8Monster* monster, srVector3T<float>* minim
     return false;
 }
 
-/* Keep only the short live-sound queue owned by the monster.  The growable
-   vector's normal Add/GetAt/RemoveAt methods reproduce the original inline
-   template operations; no address-shaped container wrapper is involved. */
 // FUNCTION: WIZ8 0x004ca6e0
-void W8Monster::TrackSoundHandle(int handle)
+void W8Monster::TrackSound(SoundPlayback playback)
 {
-    int count;
-    int index;
-
-    if (static_cast<int>(values.size()) > 6) {
-        while (!values.empty()) {
-            SoundStop(values[0]);
-            values.erase(values.begin());
-        }
+    if (sounds.size() > 6) {
+        for (const auto& sound : sounds) SoundStop(sound);
+        sounds.clear();
     }
-    values.push_back(handle);
-    count = static_cast<int>(values.size());
-    for (index = 0; index < count; ++index) {
-        if (SoundIsPlaying(values[index]) == 0) {
-            values.erase(values.begin() + index);
-            --count;
-        }
-    }
+    sounds.push_back(std::move(playback));
+    std::erase_if(sounds, [](const auto& sound) { return !SoundIsPlaying(sound); });
 }
 
 /* Mark the closest live member of each loaded group inside the selection

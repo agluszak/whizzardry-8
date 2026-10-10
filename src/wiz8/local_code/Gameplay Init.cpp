@@ -336,7 +336,7 @@ void ResetGameplaySlot(unsigned int slot)
 
     *record = {};
     record->portrait_event_active = false;
-    record->voice_sound_handle = SOUND_ERROR;
+    record->voice_sound_handle = nullptr;
     record->previous_portrait_frame = -1;
     record->portrait_frame = 6;
     record->portrait_pose_animation_active = false;

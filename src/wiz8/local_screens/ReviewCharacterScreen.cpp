@@ -124,7 +124,7 @@ stModelInstance2D* g_fade_overlay;
 // GLOBAL: WIZ8 0x0069c120
 int g_fade_out;
 // GLOBAL: WIZ8 0x0069c124
-unsigned int g_ending_sound;
+SoundPlayback g_ending_sound;
 // GLOBAL: WIZ8 0x0069c128
 bool g_ending_screen;
 // GLOBAL: WIZ8 0x0069c129
@@ -2732,9 +2732,9 @@ void DrawPartyDeathScreen(void)
 void EndReviewTransition(void)
 {
     ClearActiveRegionIfMatches(0x138);
-    if (g_ending_sound != 0) {
+    if (g_ending_sound != nullptr) {
         SoundStop(g_ending_sound);
-        g_ending_sound = 0;
+        g_ending_sound = nullptr;
     }
     g_world_render_enabled = 1;
     ResetMainGameMode();

@@ -80,11 +80,11 @@ void FreeMouthGapTrack(W8MouthGapTrack* track)
 }
 
 // FUNCTION: WIZ8 0x005E2F40
-void UpdateMouthGapTrack(unsigned int sound_id, W8MouthGapTrack* track)
+void UpdateMouthGapTrack(SoundPlayback playback, W8MouthGapTrack* track)
 {
     if (track != 0) {
         if (track->range_count > 0) {
-            unsigned int position = SoundGetPosition(sound_id);
+            unsigned int position = SoundGetPosition(playback);
             W8MouthGapRange* range = track->head;
             while (position > range->end_ms) {
                 range = range->next;

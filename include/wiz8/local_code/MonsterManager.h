@@ -1,3 +1,4 @@
+#include "wiz8/audio_resources.h"
 #include <string>
 #ifndef WIZ8_LOCAL_CODE_MONSTER_MANAGER_H
 #define WIZ8_LOCAL_CODE_MONSTER_MANAGER_H
@@ -51,7 +52,7 @@ struct W8PortraitQuoteState {
 // Runtime-only state: natural alignment is required for the embedded vector.
 struct W8MonsterManagerEntry {
     bool portrait_event_active;
-    unsigned int voice_sound_handle;
+    SoundPlayback voice_sound_handle;
     W8MouthGapTrack mouth_gap;
     W8PortraitQuoteState quote;
     unsigned char unknown_025[0x4c];

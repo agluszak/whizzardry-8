@@ -1,5 +1,7 @@
 #pragma once
 
+#include "wiz8/audio_resources.h"
+
 #include <memory>
 #include <string>
 #include <vector>
@@ -41,7 +43,7 @@ public:
     int pitch = 0;
     int volume_min = 0;
     int volume_max = 0;
-    int sound_handle = -1;
+    SoundPlayback sound_handle = nullptr;
     unsigned char probability = 100;
     bool looping = false;
     int location_id = 0;

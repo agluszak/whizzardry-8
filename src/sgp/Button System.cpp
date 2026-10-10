@@ -108,7 +108,6 @@ size_t RegisteredButtonCount()
 
 _GUI_BUTTON::~_GUI_BUTTON()
 {
-    if (Area.uiFlags & MSYS_REGION_EXISTS) MSYS_RemoveRegion(&Area);
     if (gpAnchoredButton == this) gpAnchoredButton = nullptr;
     if (gpPrevAnchoredButton == this) gpPrevAnchoredButton = nullptr;
 }

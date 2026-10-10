@@ -534,7 +534,7 @@ static void graphical_object_ownership_contracts()
     REQUIRE((copy.sound_events.size() == original.sound_events.size()));
     REQUIRE((copy.sound_events.front().get() != first));
     REQUIRE((copy.sound_events.front()->wave_name == "step.wav"));
-    REQUIRE((!copy.sound_events.front()->looping && copy.sound_events.front()->sound_handle == -1));
+    REQUIRE((!copy.sound_events.front()->looping && copy.sound_events.front()->sound_handle == nullptr));
     original.sound_events.clear();
     REQUIRE((copy.sound_events.front()->wave_name == "step.wav"));
     W8GrObject missile;

@@ -37,29 +37,32 @@ typedef void (*MOUSE_CALLBACK)(struct _MOUSE_REGION*,
 typedef void (*MOUSE_HELPTEXT_DONE_CALLBACK)(); // the help is done callback
 
 typedef struct _MOUSE_REGION {
-    UINT16 IDNumber;      // Region's ID number, set by mouse system
-    INT8 PriorityLevel;   // Region's Priority, set by system and/or caller
-    UINT32 uiFlags;       // Region's state flags
-    INT16 RegionTopLeftX; // Screen area affected by this region (absolute coordinates)
-    INT16 RegionTopLeftY;
-    INT16 RegionBottomRightX;
-    INT16 RegionBottomRightY;
-    INT16 MouseXPos; // Mouse's Coordinates in absolute screen coordinates
-    INT16 MouseYPos;
-    INT16 RelativeXPos; // Mouse's Coordinates relative to the Top-Left corner of the region
-    INT16 RelativeYPos;
-    UINT16 ButtonState; // Current state of the mouse buttons
+    _MOUSE_REGION() = default;
+    ~_MOUSE_REGION();
+    _MOUSE_REGION(const _MOUSE_REGION&) = delete;
+    _MOUSE_REGION& operator=(const _MOUSE_REGION&) = delete;
+    INT8 PriorityLevel{};   // Region's Priority, set by system and/or caller
+    UINT32 uiFlags{};       // Region's state flags
+    INT16 RegionTopLeftX{}; // Screen area affected by this region (absolute coordinates)
+    INT16 RegionTopLeftY{};
+    INT16 RegionBottomRightX{};
+    INT16 RegionBottomRightY{};
+    INT16 MouseXPos{}; // Mouse's Coordinates in absolute screen coordinates
+    INT16 MouseYPos{};
+    INT16 RelativeXPos{}; // Mouse's Coordinates relative to the Top-Left corner of the region
+    INT16 RelativeYPos{};
+    UINT16 ButtonState{}; // Current state of the mouse buttons
     MOUSE_CALLBACK
-    MovementCallback; // Pointer to callback function if movement occured in this region
+    MovementCallback{}; // Pointer to callback function if movement occured in this region
     MOUSE_CALLBACK
-    ButtonCallback;    // Pointer to callback function if button action occured in this region
-    INT32 UserData[4]; // User Data, can be set to anything!
+    ButtonCallback{};    // Pointer to callback function if button action occured in this region
+    INT32 UserData[4]{}; // User Data, can be set to anything!
 
     //Fast help vars.
-    INT16 FastHelpTimer;  // Countdown timer for FastHelp text
+    INT16 FastHelpTimer{};  // Countdown timer for FastHelp text
     std::string FastHelpText; // Text string for the FastHelp (describes buttons if left there a while)
-    INT32 FastHelpRect;
-    MOUSE_HELPTEXT_DONE_CALLBACK HelpDoneCallback;
+    INT32 FastHelpRect{};
+    MOUSE_HELPTEXT_DONE_CALLBACK HelpDoneCallback{};
     std::weak_ptr<void> dispatch_owner; // non-owning callback context
 
 } MOUSE_REGION;
@@ -84,10 +87,6 @@ typedef struct _MOUSE_REGION {
 #define MSYS_FASTHELP_RESET 0x00000400
 #define MSYS_ALLOW_DISABLED_FASTHELP 0x00000800
 
-// Mouse region IDs
-#define MSYS_ID_BASE 1
-#define MSYS_ID_MAX 0xffff // IDNumber is UINT16
-#define MSYS_ID_SYSTEM 0
 
 // Mouse region priorities
 #define MSYS_PRIORITY_LOWEST 0
@@ -166,7 +165,6 @@ extern "C" {
 //		The prototype for MSYS_SGP_Mouse_Handler_Hook() is defined in mousesystem_macros.h
 
 // Internal Functions
-INT32 MSYS_GetNewID(void);
 void MSYS_TrashRegList(void);
 void MSYS_AddRegionToList(MOUSE_REGION* region);
 INT32 MSYS_RegionInList(MOUSE_REGION* region);

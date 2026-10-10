@@ -38,8 +38,6 @@ uint64_t guiRegionLastLButtonDownTime = 0;
 
 // number of lines in height help text will be
 
-// GLOBAL: WIZ8 0x00650e7c
-INT32 MSYS_CurrentID = MSYS_ID_SYSTEM;
 
 // GLOBAL: WIZ8 0x00650e80
 INT16 MSYS_CurrentMX = 0;
@@ -61,7 +59,7 @@ BOOLEAN MSYS_Mouse_Grabbed = FALSE;
 MOUSE_REGION* MSYS_GrabRegion = nullptr;
 
 // GLOBAL: WIZ8 0x006e4100
-UINT16 gusClickedIDNumber;
+MOUSE_REGION* clickedRegion = nullptr;
 // GLOBAL: WIZ8 0x00650e90
 BOOLEAN gfClickedModeOn = FALSE;
 
@@ -90,25 +88,7 @@ BOOLEAN gfShowFastHelp = TRUE;
 //when an error appears here, that you need to go below to the init code and initialize the
 //values there as well.  That's the only reason why I left this here.
 // GLOBAL: WIZ8 0x005ff7d0
-MOUSE_REGION MSYS_SystemBaseRegion = {MSYS_ID_SYSTEM,
-                                      MSYS_PRIORITY_SYSTEM,
-                                      BASE_REGION_FLAGS,
-                                      -32767,
-                                      -32767,
-                                      32767,
-                                      32767,
-                                      0,
-                                      0,
-                                      0,
-                                      0,
-                                      0,
-                                      MSYS_NO_CALLBACK,
-                                      MSYS_NO_CALLBACK,
-                                      {0, 0, 0, 0},
-                                      0,
-                                      {},
-                                      -1,
-                                      MSYS_NO_CALLBACK};
+MOUSE_REGION MSYS_SystemBaseRegion{};
 
 // GLOBAL: WIZ8 0x00650ea0
 BOOLEAN gfRefreshUpdate = FALSE;
@@ -135,7 +115,6 @@ INT32 MSYS_Init(void)
     if (!MSYS_RegList.empty())
         MSYS_TrashRegList();
 
-    MSYS_CurrentID = MSYS_ID_SYSTEM;
 
     MSYS_CurrentMX = 0;
     MSYS_CurrentMY = 0;
@@ -150,7 +129,6 @@ INT32 MSYS_Init(void)
     MSYS_GrabRegion = nullptr;
 
     // Setup the system's background region
-    MSYS_SystemBaseRegion.IDNumber = MSYS_ID_SYSTEM;
     MSYS_SystemBaseRegion.PriorityLevel = MSYS_PRIORITY_SYSTEM;
     MSYS_SystemBaseRegion.uiFlags = BASE_REGION_FLAGS;
     MSYS_SystemBaseRegion.RegionTopLeftX = -32767;
@@ -290,22 +268,6 @@ void MSYS_SGP_Mouse_Handler_Hook(UINT16 Type, UINT16 Xcoord, UINT16 Ycoord, BOOL
     }
 }
 
-//	MSYS_GetNewID
-//	Returns a unique ID number for region nodes. If no new ID numbers can be found, the MAX value
-//	is returned.
-INT32 MSYS_GetNewID(void)
-{
-    for (UINT32 attempt = 0; attempt <= MSYS_ID_MAX; ++attempt) {
-        const auto id = MSYS_CurrentID;
-        MSYS_CurrentID = id == MSYS_ID_MAX ? MSYS_ID_BASE : id + 1;
-        if (std::none_of(MSYS_RegList.begin(), MSYS_RegList.end(),
-                         [id](const MOUSE_REGION* region) { return region->IDNumber == id; }))
-            return id;
-    }
-    AssertMsg(FALSE, "Mouse region IDs exhausted");
-    return MSYS_ID_MAX;
-}
-
 //	MSYS_TrashRegList
 //	Deletes the entire region list.
 void MSYS_TrashRegList(void)
@@ -327,7 +289,6 @@ void MSYS_AddRegionToList(MOUSE_REGION* region)
 {
     if (MSYS_RegionInList(region))
         MSYS_DeleteRegionFromList(region);
-    region->IDNumber = (UINT16)MSYS_GetNewID();
     const auto position = std::lower_bound(MSYS_RegList.begin(), MSYS_RegList.end(), region,
         [](const MOUSE_REGION* existing, const MOUSE_REGION* added) {
             return existing->PriorityLevel > added->PriorityLevel;
@@ -336,7 +297,7 @@ void MSYS_AddRegionToList(MOUSE_REGION* region)
 }
 
 //	MSYS_RegionInList
-//	Scan region list for presence of a node with the same region ID number
+//	Check whether this region is registered.
 INT32 MSYS_RegionInList(MOUSE_REGION* region)
 {
     return std::ranges::contains(MSYS_RegList, region);
@@ -358,14 +319,7 @@ void MSYS_DeleteRegionFromList(MOUSE_REGION* region)
         }
     }
 
-    // Is only the system background region remaining?
-    if (MSYS_RegList.size() == 1 && MSYS_RegList.front() == &MSYS_SystemBaseRegion) {
-        // Yup, so let's reset the ID values!
-        MSYS_CurrentID = MSYS_ID_BASE;
-    } else if (MSYS_RegList.empty()) {
-        // Ack, we actually emptied the list, so let's reset for re-init possibilities
-        MSYS_CurrentID = MSYS_ID_SYSTEM;
-    }
+
 }
 
 //	MSYS_UpdateMouseRegion
@@ -458,7 +412,7 @@ void MSYS_UpdateMouseRegion(void)
 
         // OK, if we do not have a button down, any button is game!
         if (!gfClickedModeOn ||
-            (gfClickedModeOn && gusClickedIDNumber == MSYS_CurrRegion->IDNumber)) {
+            (gfClickedModeOn && clickedRegion == MSYS_CurrRegion)) {
             MSYS_CurrRegion->uiFlags |= MSYS_MOUSE_IN_AREA;
 
             MSYS_CurrRegion->MouseXPos = MSYS_CurrentMX;
@@ -487,8 +441,8 @@ void MSYS_UpdateMouseRegion(void)
                     if (MSYS_Action & MSYS_DO_LBUTTON_DWN) {
                         ButtonReason |= MSYS_CALLBACK_REASON_LBUTTON_DWN;
                         gfClickedModeOn = TRUE;
-                        // Set global ID
-                        gusClickedIDNumber = MSYS_CurrRegion->IDNumber;
+                        // Capture this region
+                        clickedRegion = MSYS_CurrRegion;
                     }
 
                     if (MSYS_Action & MSYS_DO_LBUTTON_UP) {
@@ -499,8 +453,8 @@ void MSYS_UpdateMouseRegion(void)
                     if (MSYS_Action & MSYS_DO_RBUTTON_DWN) {
                         ButtonReason |= MSYS_CALLBACK_REASON_RBUTTON_DWN;
                         gfClickedModeOn = TRUE;
-                        // Set global ID
-                        gusClickedIDNumber = MSYS_CurrRegion->IDNumber;
+                        // Capture this region
+                        clickedRegion = MSYS_CurrRegion;
                     }
 
                     if (MSYS_Action & MSYS_DO_RBUTTON_UP) {
@@ -607,12 +561,9 @@ void MSYS_DefineRegion(MOUSE_REGION* region, UINT16 tlx, UINT16 tly, UINT16 brx,
                        INT8 priority, MOUSE_CALLBACK movecallback,
                        MOUSE_CALLBACK buttoncallback)
 {
-#ifdef MOUSESYSTEM_DEBUGGING
     if (region->uiFlags & MSYS_REGION_EXISTS)
-        AssertMsg(0, "Attempting to define a region that already exists.");
-#endif
+        MSYS_RemoveRegion(region);
 
-    region->IDNumber = MSYS_ID_BASE;
 
     if (priority == MSYS_PRIORITY_AUTO)
         priority = MSYS_PRIORITY_BASE;
@@ -682,7 +633,6 @@ void MSYS_RemoveRegion(MOUSE_REGION* region)
             VideoRemoveToolTip();
         region->FastHelpText.clear();
     }
-    region->FastHelpText.clear();
 
     MSYS_DeleteRegionFromList(region);
 
@@ -700,16 +650,15 @@ void MSYS_RemoveRegion(MOUSE_REGION* region)
     //dirty our update flag
     gfRefreshUpdate = TRUE;
 
-    // Check if this is a locked region, and unlock if so
-    if (gfClickedModeOn) {
-        // Set global ID
-        if (gusClickedIDNumber == region->IDNumber) {
-            gfClickedModeOn = FALSE;
-        }
+    if (clickedRegion == region) {
+        gfClickedModeOn = FALSE;
+        clickedRegion = nullptr;
     }
 
-    //clear all internal values (including the region exists flag)
-    *region = {};
+    // Mark unregistered before the owning control can be destroyed.
+    region->uiFlags = 0;
+    region->MovementCallback = region->ButtonCallback = nullptr;
+    region->HelpDoneCallback = nullptr;
 }
 
 //	MSYS_EnableRegion
@@ -932,4 +881,10 @@ void DisableMouseFastHelp(void)
 void ResetClickedMode(void)
 {
     gfClickedModeOn = FALSE;
+}
+
+_MOUSE_REGION::~_MOUSE_REGION()
+{
+    if (uiFlags & MSYS_REGION_EXISTS)
+        MSYS_RemoveRegion(this);
 }
