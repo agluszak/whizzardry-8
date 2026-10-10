@@ -357,34 +357,34 @@ catch (const std::exception&) { return 0; }
    Saves\CurrentGame.SAV through ReadSaveChunks. Every write and finalization failure aborts
    the staged replacement. */
 // FUNCTION: WIZ8 0x005123F0
-
-
-bool SaveGame(std::string_view name, W8SaveScreenshot* screenshot)
+namespace {
+// The save transaction owns both RIFF finalization and publication.
+class SaveTransaction {
+    wiz8::StagedFile staged;
+public:
+    W8Chunk chunks;
+    explicit SaveTransaction(std::string_view path) : staged(path) {
+        if (!chunks.OpenWrite(staged.file())) throw std::runtime_error("open staged save");
+    }
+    void commit() { chunks.Close(); staged.commit(); }
+};
+}
+static bool WriteGame(std::string_view name, W8SaveScreenshot* screenshot,
+                      W8Chunk& chunks)
 try
 {
-    W8Chunk chunks;
     W8Chunk current_game;
     W8ScreenRect bounds;
-    wiz8::DiskFileTime creation_time;
-    wiz8::DiskFileTime access_time;
-    wiz8::DiskFileTime write_time;
-    std::unique_ptr<srColorSurface> surface;
-    std::string path;
-    bool generated;
+    std::unique_ptr<W8SaveScreenshot> generated_screenshot;
     short cursor;
-    int saved;
     int version_major;
     int version_minor;
     int version_patch;
     int region;
     unsigned int index;
 
-    path = fmt::format("{}\\{}.{}", "Saves", name, g_save_extension);
-    if (!chunks.OpenWrite(path)) {
-        return false;
-    }
-    if (CompareTextIgnoreAsciiCase(name, "CurrentGame") != 0 &&
-        current_game.OpenRead("Saves\\CurrentGame.SAV") != 0) {
+    if (CompareTextIgnoreAsciiCase(name, "CurrentGame") != 0 && wiz8::file_status("Saves\\CurrentGame.SAV")) {
+        if (!current_game.OpenRead("Saves\\CurrentGame.SAV")) return false;
         ReadSaveChunks(&current_game, &chunks);
         current_game.Close();
     }
@@ -401,51 +401,54 @@ try
     g_status.buffers.save_version = 1.1f;
     g_status.difficulty = g_settings.difficulty;
     if (g_status.iron_man) {
-        [&]() { const auto times = chunks.m_hFile->times(); *(&creation_time) = times.created; *(&access_time) = times.accessed; *(&write_time) = times.modified; return true; }();
+        const auto creation_time = chunks.m_hFile->times().created;
         g_status.save_filetime_xor[0] = creation_time.low ^ g_save_filetime_xor_low;
         g_status.save_filetime_xor[1] = creation_time.high ^ g_save_filetime_xor_high;
     }
     cursor = g_status.text_line_cursor;
     if (cursor == 2) {
-        saved = 2;
-        cursor = 2;
         g_status.text_line_cursor = 0;
-        static_cast<void>(saved);
     }
-    SaveGlobalStatus(&chunks, &g_status);
+    try {
+        SaveGlobalStatus(&chunks, &g_status);
+    } catch (...) {
+        g_status.text_line_cursor = cursor;
+        throw;
+    }
     g_status.text_line_cursor = cursor;
     chunks.OpenChunk(0x52455647, 0); /* GVER */
     version_major = 1;
     version_minor = 2;
     version_patch = 4;
-    chunks.Write(&version_major, 4, 0);
-    chunks.Write(&version_minor, 4, 0);
-    chunks.Write(&version_patch, 4, 0);
+    chunks.m_hFile->write(&version_major, 4);
+    chunks.m_hFile->write(&version_minor, 4);
+    chunks.m_hFile->write(&version_patch, 4);
     chunks.ReleaseCurrentChunk();
-    generated = screenshot == 0;
-    if (generated) {
-        screenshot = new W8SaveScreenshot;
+    if (!screenshot) {
+        generated_screenshot = std::make_unique<W8SaveScreenshot>();
+        screenshot = generated_screenshot.get();
         screenshot->version = 1.0f;
         bounds.left = 0;
         bounds.top = 0;
         bounds.right = 0x280;
         bounds.bottom = 0x1e0;
-        surface = std::make_unique<srColorSurface>(srPixelConvert::SURFACE_ARGB1555, screenshot->pixels, 0x50,
-                                     0x3c, 0xa0);
+        auto surface = std::make_unique<srColorSurface>(
+            srPixelConvert::SURFACE_ARGB1555, screenshot->pixels, 0x50, 0x3c, 0xa0);
         SetRendererAutoFlipEnabled(false);
-        screenshot->capture_result = RenderWorldToSurface(surface.get(), &bounds, true);
-        RenderFrame();
+        try {
+            screenshot->capture_result = RenderWorldToSurface(surface.get(), &bounds, true);
+            RenderFrame();
+        } catch (...) {
+            SetRendererAutoFlipEnabled(true);
+            throw;
+        }
         SetRendererAutoFlipEnabled(true);
-        surface.reset();
     }
     chunks.OpenChunk(0x544f4853, 0); /* SHOT */
-    chunks.Write(screenshot, 0x2588, 0);
+    chunks.m_hFile->write(screenshot, 0x2588);
     chunks.ReleaseCurrentChunk();
-    if (generated) {
-        delete screenshot;
-    }
     chunks.OpenChunk(0x54584554, 0); /* TEXT */
-    SaveMessageStorage(chunks.m_hFile.get());
+    if (!SaveMessageStorage(chunks.m_hFile.get())) return false;
     chunks.ReleaseCurrentChunk();
     if (!g_location_variable_values.empty()) {
         chunks.OpenChunk(0x52415654, 0); /* TVAR */
@@ -459,7 +462,7 @@ try
     }
     chunks.ReleaseCurrentChunk();
     chunks.OpenChunk(0x5443504e, 0); /* NPCT */
-    SaveNpcStates(&chunks);
+    if (!SaveNpcStates(&chunks)) return false;
     chunks.ReleaseCurrentChunk();
     chunks.OpenChunk(0x4643504e, 0); /* NPCF */
     SaveFactState(chunks.m_hFile.get());
@@ -478,7 +481,18 @@ try
     if (!SaveStatusHeader(&chunks)) {
         return false;
     }
-    chunks.Close();
+    return true;
+}
+catch (const std::exception&) { return false; }
+
+bool SaveGame(std::string_view name, W8SaveScreenshot* screenshot)
+try
+{
+    if (name.empty()) return false;
+    const std::string path = fmt::format("Saves\\{}.{}", name, g_save_extension);
+    SaveTransaction transaction(path);
+    if (!WriteGame(name, screenshot, transaction.chunks)) return false;
+    transaction.commit();
     return true;
 }
 catch (const std::exception&) { return false; }
@@ -552,31 +566,30 @@ catch (const std::exception&) { return false; }
 bool SaveLevelStatus(const char* path)
 try
 {
-    W8Chunk chunk;
-    bool opened;
-    bool result = false;
-
-    if (!chunk.OpenReadWrite(const_cast<char*>(path))) {
-        opened = chunk.OpenWrite(const_cast<char*>(path));
-    } else {
-        unsigned int empty_percent;
-
-        MeasureLevelStatusChunks(&chunk, g_status.current_level, &empty_percent);
-        chunk.Close();
-        if (empty_percent > 0x32 && CompareTextIgnoreAsciiCase(path, "Saves\\CurrentGame.SAV") == 0) {
-            SaveGame("CleanUp", 0);
-            if ((wiz8::copy_file("Saves\\CleanUp.SAV", "Saves\\CurrentGame.SAV", wiz8::CopyMode::replace), true)) {
-                wiz8::remove_file("Saves\\CleanUp.SAV");
+    if (!path) return false;
+    SaveTransaction transaction(path);
+    W8Chunk source;
+    if (wiz8::file_status(path)) {
+        if (!source.OpenRead(path)) return false;
+        for (int index = 0; index < source.ChunkCount(); ++index) {
+            source.OpenChunk(0, 0);
+            bool replace = source.CurrentChunkAtEnd();
+            if (source.CurrentChunkId() == 0x534c564c) {
+                source.OpenGroup();
+                int level;
+                source.m_hFile->read_exact(&level, sizeof(level));
+                replace |= level == int(g_status.current_level);
+                source.ReleaseGroup();
+                source.RewindCurrentChunk();
             }
-            return false;
+            if (!replace && !transaction.chunks.CopyCurrentChunkFrom(&source)) return false;
+            source.SkipCurrentChunk(); source.ReleaseCurrentChunk();
         }
-        opened = chunk.OpenAppend(const_cast<char*>(path));
+        source.Close();
     }
-    if (opened) {
-        result = SaveStatusHeader(&chunk);
-        chunk.Close();
-    }
-    return result;
+    if (!SaveStatusHeader(&transaction.chunks)) return false;
+    transaction.commit();
+    return true;
 }
 catch (const std::exception&) { return false; }
 
@@ -1511,21 +1524,27 @@ bool SaveCharacter(W8Character* character, int slot, bool report_failure,
                    void (*continuation)(void))
 try
 {
+    std::string path;
+    bool saved = false;
+
     character->record_version = 1;
-    const auto path = BuildCharacterPath(character->name, slot);
-    bool saved;
+    path = BuildCharacterPath(character->name, slot);
+
     try {
-        if (g_status.game_started) {
-            saved = SaveCharacterToCurrentGame(path, slot, character);
-        } else {
-            if (const auto status = wiz8::file_status(path); status && status->read_only)
+        if (!g_status.game_started) {
+            const auto status = wiz8::file_status(path);
+            if (status && status->read_only) {
                 wiz8::clear_read_only(path);
-            auto file = wiz8::open_file(path, wiz8::OpenMode::replace);
-            const unsigned int size = wiz8::retail::kCharacterBytes;
-            file->write(&size, sizeof(size));
-            wiz8::retail::write(*file, *character);
-            file->close();
+            }
+            wiz8::StagedFile staged(path);
+            auto handle = staged.file();
+            const unsigned int size = W8_CHARACTER_SERIALIZED_SIZE;
+            handle->write(&size, sizeof(size));
+            wiz8::retail::write(*handle, *character);
+            staged.commit();
             saved = true;
+        } else {
+            saved = SaveCharacterToCurrentGame(path, slot, character);
         }
     } catch (const std::exception&) {
         saved = false;
@@ -1554,51 +1573,38 @@ enum { W8_SAVE_TAG_CHAR = 0x52414843, W8_SAVE_TAG_LVLS = 0x534c564c };
    the finalized RIFF is atomic; a failed replacement leaves the old save intact.
    Malformed CHAR payloads are skipped by loading and can be replaced normally. */
 // FUNCTION: WIZ8 0x005155b0
-bool MarkCurrentGameCharacterChunkConsumed(std::string_view path)
-try
-{
-    W8Chunk chunk;
-    char name[64];
-    bool found = false;
-    int index;
-    int count;
-
-    if (chunk.OpenReadWrite(const_cast<char*>("Saves\\CurrentGame.SAV")) != 0) {
-        count = chunk.ChunkCount();
-        for (index = 0; index < count && !found; ++index) {
-            chunk.OpenChunk(0, 0);
-            if (chunk.CurrentChunkAtEnd() == 0 && chunk.CurrentChunkId() == W8_SAVE_TAG_CHAR) {
-                chunk.Read(name, 0x40, 0);
-                if (CompareTextIgnoreAsciiCase(std::string_view(name, strnlen(name, sizeof(name))), path) == 0) {
-                    chunk.SetCurrentChunkAtEnd();
-                    found = true;
-                }
-            }
-        }
-        chunk.Close();
-    }
-    return found ? 1 : 0;
-}
-catch (const std::exception&) { return false; }
-
 bool SaveCharacterToCurrentGame(std::string_view path, int /*slot*/, W8Character* character)
 try
 {
-    W8Chunk chunk;
-    char name[64];
-    unsigned int size;
-
-    MarkCurrentGameCharacterChunkConsumed(path);
-    wiz8::text::write_utf8_field(path, name);
-    if (chunk.OpenAppend(const_cast<char*>("Saves\\CurrentGame.SAV")) != 0) {
-        chunk.Write(name, 0x40, 0);
-        size = W8_CHARACTER_SERIALIZED_SIZE;
-        chunk.Write(&size, 4, 0);
-        wiz8::retail::write(chunk, *character);
-        chunk.Close();
-        return true;
+    if (path.empty() || !character || path.size() >= 64) return false;
+    W8Chunk source;
+    if (!source.OpenRead("Saves\\CurrentGame.SAV")) return false;
+    SaveTransaction transaction("Saves\\CurrentGame.SAV");
+    for (int index = 0; index < source.ChunkCount(); ++index) {
+        source.OpenChunk(0, 0);
+        bool replace = false;
+        if (source.CurrentChunkId() == W8_SAVE_TAG_CHAR && source.CurrentChunkExtent() >= 64) {
+            char name[64];
+            source.m_hFile->read_exact(name, sizeof(name));
+            replace = memchr(name, '\0', sizeof(name)) && CompareTextIgnoreAsciiCase(name, path) == 0;
+            source.RewindCurrentChunk();
+        }
+        if (!replace && !source.CurrentChunkAtEnd() && !transaction.chunks.CopyCurrentChunkFrom(&source))
+            throw std::runtime_error("copy character save chunk");
+        source.SkipCurrentChunk();
+        source.ReleaseCurrentChunk();
     }
-    return false;
+    source.Close();
+    char name[64]{};
+    std::copy(path.begin(), path.end(), name);
+    const unsigned size = W8_CHARACTER_SERIALIZED_SIZE;
+    transaction.chunks.OpenChunk(W8_SAVE_TAG_CHAR, 0);
+    transaction.chunks.m_hFile->write(name, sizeof(name));
+    transaction.chunks.m_hFile->write(&size, sizeof(size));
+    wiz8::retail::write(*transaction.chunks.m_hFile, *character);
+    transaction.chunks.ReleaseCurrentChunk();
+    transaction.commit();
+    return true;
 }
 catch (const std::exception&) { return false; }
 
@@ -1944,46 +1950,6 @@ void ReadSaveChunks(W8Chunk* source, W8Chunk* destination)
    the pre-v2 profession field, while live global party rows rebuild or clear
    every transient pointer rather than trusting saved addresses. */
 // FUNCTION: WIZ8 0x00515cf0
-bool MeasureLevelStatusChunks(W8Chunk* chunk, int level, unsigned int* empty_percent)
-try
-{
-    bool found = false;
-    unsigned int total = 0;
-    unsigned int empty_total = 0;
-    int remaining = chunk->ChunkCount();
-
-    if (remaining > 0) {
-        do {
-            chunk->OpenChunk(0, 0);
-            total += chunk->CurrentChunkExtent();
-            if (chunk->CurrentChunkAtEnd() != 0) {
-                empty_total += chunk->CurrentChunkExtent();
-            } else if (chunk->CurrentChunkId() == 0x534c564c) { /* LVLS */
-                int stored_level;
-
-                chunk->OpenGroup();
-                chunk->Read(&stored_level, 4, 0);
-                if (stored_level == level) {
-                    found = true;
-                    chunk->SetCurrentChunkAtEnd();
-                }
-                chunk->SkipCurrentChunk();
-                chunk->ReleaseGroup();
-            }
-            chunk->SkipCurrentChunk();
-            chunk->ReleaseCurrentChunk();
-            --remaining;
-        } while (remaining != 0);
-    }
-    if (empty_percent != 0) {
-        /* The binary divides by the accumulated extent with no
-           zero test; an empty chunk file reaches this unsigned DIV. */
-        *empty_percent = empty_total * 100 / total;
-    }
-    return found;
-}
-catch (const std::exception&) { return false; }
-
 void LoadGameStatus(W8Chunk* chunks, W8GlobalStatus* status)
 {
     W8Character* characters = status->buffers.Char;
