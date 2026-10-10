@@ -13,7 +13,7 @@ class srRuntimeClass;
 class srNode;
 class srColorSurfaceIFace;
 
-class srRegistry {
+class SR_DLL_EXPORT srRegistry {
 public:
     class ClassNode {
         friend class srRegistry;

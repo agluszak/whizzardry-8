@@ -76,7 +76,7 @@ public:
         virtual void decompress(srColorSurfaceIFace& surface, const Target& target, w8_long frame) = 0;
 
     protected:
-        Stream(const char* path = 0);
+        SR_DLL_EXPORT Stream(const char* path = 0);
 
         w8_long loaded;
         w8_long parameter;

@@ -2,7 +2,7 @@
 
 #include "srHeap.h"
 
-class srThread {
+class SR_DLL_EXPORT srThread {
 public:
     static w8_ulong begin(void(__cdecl* entry)(void*), void* argument);
     static void end();

@@ -8,7 +8,7 @@
 // VTABLE: SURRENDER 0x100769FC srBinStream
 // VTABLE: SURRENDER 0x10076A10 srBinIStream
 // class srBinIStream
-class SR_DLL_IMPORT srBinIStream : public virtual srBinStream {
+class SR_DLL_IMPORT SR_DLL_EXPORT srBinIStream : public virtual srBinStream {
 public:
 #if !defined(SURRENDER_BUILD)
     srBinIStream() {}
@@ -62,7 +62,7 @@ srBinIStream& operator>>(srBinIStream& stream, srMatrix4T<double>& value);
 // VTABLE: SURRENDER 0x10076B94 srBinIStream
 // class srBinIMStream
 #if defined(SURRENDER_BUILD)
-class srBinIMStream
+class SR_DLL_EXPORT srBinIMStream
 #else
 class SR_DLL_IMPORT srBinIMStream
 #endif

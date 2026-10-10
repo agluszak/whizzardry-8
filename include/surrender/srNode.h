@@ -12,7 +12,7 @@
 // class srClassSupport<srNode, srClass, 1, 4096>
 
 // VTABLE: SURRENDER 0x100771D0 srNode
-class srNode : public srClassSupport<srNode, srClass, true, 0x1000> {
+class SR_DLL_EXPORT srNode : public srClassSupport<srNode, srClass, true, 0x1000> {
 public:
     class TraverseInfo {
     public:

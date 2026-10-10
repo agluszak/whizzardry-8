@@ -10,7 +10,7 @@
 
 // VTABLE: SURRENDER 0x100770B8 srVertexProcessor
 // VTABLE: SURRENDER 0x100770C4 srLight
-class SR_DLL_IMPORT srLight
+class SR_DLL_IMPORT SR_DLL_EXPORT srLight
     : public srClassSupport<srLight, srIlluminator, false, 0x1220> {
 public:
     enum e_preset { PRESET_DIRECTIONAL = 0, PRESET_POINT = 1, PRESET_SPOT = 2 };

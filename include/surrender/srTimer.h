@@ -7,7 +7,7 @@
 
 #pragma pack(push, 4)
 // VTABLE: SURRENDER 0x10077620 srTimer
-class SR_DLL_IMPORT srTimer {
+class SR_DLL_IMPORT SR_DLL_EXPORT srTimer {
 public:
     typedef int(__stdcall* TickReader)(srQuadWord* out);
 

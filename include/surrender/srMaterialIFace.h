@@ -8,7 +8,7 @@ class srVertexPipe;
 // VTABLE: SURRENDER 0x100755A8
 // class srClassSupport<srMaterialIFace, srClass, 1, 8704>
 
-class SR_DLL_IMPORT srMaterialIFace
+class SR_DLL_IMPORT SR_DLL_EXPORT srMaterialIFace
     : public srClassSupport<srMaterialIFace, srClass, true, 0x2200> {
 public:
     static const char* sGetClassName();

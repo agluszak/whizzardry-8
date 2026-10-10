@@ -4,7 +4,7 @@
 
 // VTABLE: SURRENDER 0x10075310 srFilter
 // class srFilter
-class SR_DLL_IMPORT srFilter {
+class SR_DLL_IMPORT SR_DLL_EXPORT srFilter {
 public:
     /* The reconstruction leaves trivial construction and copying implicit.
        The explicit virtual destructor supplies the modeled destruction interface. */
@@ -20,7 +20,7 @@ public:
 
 // VTABLE: SURRENDER 0x10075350 srBoxFilter
 // class srBoxFilter
-class SR_DLL_IMPORT srBoxFilter : public srFilter {
+class SR_DLL_IMPORT SR_DLL_EXPORT srBoxFilter : public srFilter {
 public:
     virtual const char* getName() const override;
     virtual double getWeight(double value) const override;
@@ -29,7 +29,7 @@ public:
 
 // VTABLE: SURRENDER 0x10075378 srBellFilter
 // class srBellFilter
-class SR_DLL_IMPORT srBellFilter : public srFilter {
+class SR_DLL_IMPORT SR_DLL_EXPORT srBellFilter : public srFilter {
 public:
     virtual const char* getName() const override;
     virtual double getWeight(double value) const override;
@@ -38,7 +38,7 @@ public:
 
 // VTABLE: SURRENDER 0x10075398 srBSplineFilter
 // class srBSplineFilter
-class SR_DLL_IMPORT srBSplineFilter : public srFilter {
+class SR_DLL_IMPORT SR_DLL_EXPORT srBSplineFilter : public srFilter {
 public:
     virtual const char* getName() const override;
     virtual double getWeight(double value) const override;
@@ -47,7 +47,7 @@ public:
 
 // VTABLE: SURRENDER 0x10075388 srTriangleFilter
 // class srTriangleFilter
-class SR_DLL_IMPORT srTriangleFilter : public srFilter {
+class SR_DLL_IMPORT SR_DLL_EXPORT srTriangleFilter : public srFilter {
 public:
     virtual const char* getName() const override;
     virtual double getWeight(double value) const override;

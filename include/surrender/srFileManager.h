@@ -6,9 +6,9 @@
 
 // VTABLE: SURRENDER 0x100755C8
 // class srFileManager
-class srFileManager {
+class SR_DLL_EXPORT srFileManager {
 public:
-    class Path {
+    class SR_DLL_EXPORT Path {
     public:
 #if !defined(SURRENDER_BUILD)
         SR_DLL_IMPORT Path& operator=(const Path& other);

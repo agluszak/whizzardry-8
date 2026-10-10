@@ -9,7 +9,7 @@
 // VTABLE: SURRENDER 0x10076FA8 srVertexProcessor
 // VTABLE: SURRENDER 0x10076FB4 srClassSupport<srIlluminator, srNode, 0, 4608>
 // class srFog
-class srFog : public srClassSupport<srFog, srIlluminator, false, 0x1210> {
+class SR_DLL_EXPORT srFog : public srClassSupport<srFog, srIlluminator, false, 0x1210> {
 public:
     typedef srClientSupport<srFog, 0x1210> ClientType;
 

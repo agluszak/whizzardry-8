@@ -16,7 +16,7 @@
 // class srClassSupport<srMeshModel, srModel, 0, 8208>
 
 // VTABLE: SURRENDER 0x10076D48 srMeshModel
-class srMeshModel : public srClassSupport<srMeshModel, srModel, 0, 0x2010> {
+class SR_DLL_EXPORT srMeshModel : public srClassSupport<srMeshModel, srModel, 0, 0x2010> {
 public:
     /* Front/back table indices: dump labels materials[pass][0/1] and
        renderTriMesh uses the corresponding CONTROL_FRONT/BACK bits. */

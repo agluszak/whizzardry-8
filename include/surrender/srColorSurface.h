@@ -7,7 +7,7 @@
 // class srClassSupport<srColorSurface, srColorSurfaceIFace, 0, 12560>
 
 // VTABLE: SURRENDER 0x100772D0 srColorSurface
-class srColorSurface
+class SR_DLL_EXPORT srColorSurface
     : public srClassSupport<srColorSurface, srColorSurfaceIFace, 0, 0x3110> {
 public:
     SR_DLL_IMPORT srColorSurface(const srPixelConvert::PixelFormat& format, w8_ulong width,

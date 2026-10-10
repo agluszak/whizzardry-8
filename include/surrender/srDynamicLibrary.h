@@ -1,7 +1,8 @@
 #pragma once
 
+#define SR_DYNAMIC_LIBRARY_API
 
-class srDynamicLibrary {
+class SR_DYNAMIC_LIBRARY_API srDynamicLibrary {
 public:
     enum Compatibility { COMPATIBILITY_0 = 0, COMPATIBILITY_1 = 1, COMPATIBILITY_2 = 2 };
 
@@ -14,3 +15,5 @@ public:
 };
 
 static_assert(sizeof(srDynamicLibrary) == 0x01, "srDynamicLibrary_must_be_stateless");
+
+#undef SR_DYNAMIC_LIBRARY_API
