@@ -5,6 +5,8 @@
 
 #include "Types.h"
 #include <memory>
+#include <string>
+#include <vector>
 #include "imgfmt.h"
 
 // The HIMAGE module provides a common interface for managing image data. This module
@@ -79,29 +81,19 @@ typedef struct tagETRLEObject {
     UINT16 usWidth;
 } ETRLEObject;
 
-typedef struct tagETRLEData {
-    std::unique_ptr<UINT8[]> pPixData;
-    UINT32 uiSizePixData;
-    std::unique_ptr<ETRLEObject[]> pETRLEObject;
-    UINT16 usNumberOfObjects;
-} ETRLEData;
-
 // Image header structure
 typedef struct {
     UINT16 usWidth;
     UINT16 usHeight;
     UINT8 ubBitDepth;
     UINT16 fFlags;
-    SGPFILENAME ImageFile;
+    std::string ImageFile;
     UINT32 iFileLoader;
     std::unique_ptr<SGPPaletteEntry[]> pPalette;
     std::unique_ptr<UINT16[]> pui16BPPPalette;
-    std::unique_ptr<UINT8[]> pAppData;
-    UINT32 uiAppDataSize;
-    std::unique_ptr<UINT8[]> pImageData;
-    UINT32 uiSizePixData;
-    std::unique_ptr<ETRLEObject[]> pETRLEObject;
-    UINT16 usNumberOfObjects;
+    std::vector<UINT8> pAppData;
+    std::vector<UINT8> pImageData;
+    std::vector<ETRLEObject> pETRLEObject;
 
 } image_type, *HIMAGE;
 
@@ -120,10 +112,7 @@ typedef struct {
 // default to PCX without changing the caller's path. Ordinary images are tight,
 // top-down INDEX8 + palettes, packed RGB555 (16-bit TGA), or RGB24.
 // Returns NULL on failure without retaining image allocations.
-HIMAGE CreateImage(const char* ImageFile, UINT16 fContents);
-
-// This function destroys the HIMAGE structure as well as its contents
-BOOLEAN DestroyImage(HIMAGE hImage);
+std::unique_ptr<image_type> CreateImage(const char* ImageFile, UINT16 fContents);
 
 // This function releases data allocated to various parts of the image based
 // on the contents flags passed as a parameter.  If a contents flag is given
@@ -158,9 +147,6 @@ BOOLEAN Copy8BPPImageTo16BPPBuffer(HIMAGE hImage, BYTE* pDestBuf, UINT16 usDestW
                                    UINT16 usDestHeight, UINT16 usX, UINT16 usY, SGPRect* srcRect);
 BOOLEAN Copy16BPPImageTo16BPPBuffer(HIMAGE hImage, BYTE* pDestBuf, UINT16 usDestWidth,
                                     UINT16 usDestHeight, UINT16 usX, UINT16 usY, SGPRect* srcRect);
-
-// This function will create a buffer in memory of ETRLE data, excluding palette
-BOOLEAN GetETRLEImageData(HIMAGE hImage, ETRLEData* pBuffer);
 
 // UTILITY FUNCTIONS
 

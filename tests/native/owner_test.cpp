@@ -142,12 +142,12 @@ void camp_effects()
     image.fFlags = IMAGE_TRLECOMPRESSED;
     image.pPalette = std::make_unique<SGPPaletteEntry[]>(256);
     std::copy_n(palette.data(), palette.size(), image.pPalette.get());
-    image.pImageData = std::make_unique<UINT8[]>(1);
+    image.pImageData.resize(1);
     image.pImageData[0] = pixels;
-    image.uiSizePixData = 1;
-    image.pETRLEObject = std::make_unique<ETRLEObject[]>(images.size());
-    std::copy_n(images.data(), images.size(), image.pETRLEObject.get());
-    image.usNumberOfObjects = images.size();
+
+    image.pETRLEObject.resize(images.size());
+    std::copy_n(images.data(), images.size(), image.pETRLEObject.data());
+
     VOBJECT_DESC desc{};
     desc.fCreateFlags = VOBJECT_CREATE_FROMHIMAGE;
     desc.hImage = &image;
@@ -363,13 +363,12 @@ void image_and_sprite_ownership()
     image.fFlags = IMAGE_TRLECOMPRESSED | IMAGE_BITMAPDATA | IMAGE_PALETTE;
     image.pPalette = std::make_unique<SGPPaletteEntry[]>(256);
     image.pPalette[1] = {255, 0, 0, 0};
-    image.pImageData = std::make_unique<UINT8[]>(3);
+    image.pImageData.resize(3);
     image.pImageData[0] = 1;
     image.pImageData[1] = 1;
-    image.pETRLEObject = std::make_unique<ETRLEObject[]>(1);
+    image.pETRLEObject.resize(1);
     image.pETRLEObject[0] = {0, 3, 0, 0, 1, 1};
-    image.uiSizePixData = 3;
-    image.usNumberOfObjects = 1;
+
     VOBJECT_DESC desc{};
     desc.fCreateFlags = VOBJECT_CREATE_FROMHIMAGE;
     desc.hImage = &image;
@@ -378,8 +377,8 @@ void image_and_sprite_ownership()
     for (unsigned i = 0; i < ids.size(); ++i) {
         CHECK(AddVideoObject(&desc, &ids[i]));
         CHECK(GetVideoObject(&views[i], ids[i]));
-        CHECK(views[i]->pPixData.get() != image.pImageData.get());
-        CHECK(views[i]->pETRLEObject.get() != image.pETRLEObject.get());
+        CHECK(views[i]->pPixData.data() != image.pImageData.data());
+        CHECK(views[i]->pETRLEObject.data() != image.pETRLEObject.data());
         CHECK(views[i]->pPaletteEntry.get() != image.pPalette.get());
         (void)CreateObjectPaletteTables(views[i], HVOBJECT_GLOW_GREEN);
         CHECK(views[i]->pShades[0] && views[i]->pShades[15]);
@@ -393,9 +392,14 @@ void image_and_sprite_ownership()
         (void)CreateObjectPaletteTables(views[i], HVOBJECT_GLOW_RED);
         CHECK(views[i]->pShadeCurrent == views[i]->pShades[4].get());
     }
+    image.pImageData[1] = 2;
+    image.pETRLEObject[0].usWidth = 2;
+    CHECK(views[0]->pPixData[1] == 1 && views[0]->pETRLEObject[0].usWidth == 1);
+    image.pETRLEObject[0].uiDataOffset = 0xffffffffu;
+    CHECK(!CreateVideoObject(&desc));
+    CHECK(image.pImageData[1] == 2 && image.pETRLEObject[0].uiDataOffset == 0xffffffffu);
     CHECK(ReleaseImageData(&image, IMAGE_ALLDATA));
-    CHECK(!image.pImageData && !image.pPalette && !image.pETRLEObject);
-    CHECK(!image.uiSizePixData && !image.usNumberOfObjects);
+    CHECK(image.pImageData.empty() && !image.pPalette && image.pETRLEObject.empty());
     for (auto id : {ids[0], ids[31], ids[63]}) {
         CHECK(DeleteVideoObjectFromIndex(id));
         HVOBJECT missing = nullptr;
@@ -551,32 +555,79 @@ void generic_button_images()
     {
         char filename[] = "metadata.sti";
         std::unique_ptr<image_type> image(CreateImage(filename, IMAGE_ALLDATA));
-        CHECK(image && image->uiSizePixData == 9 && image->usNumberOfObjects == 3);
-        auto* pixels = image->pImageData.get();
+        CHECK(image && image->pImageData.size() == 9 && image->pETRLEObject.size() == 3);
+        auto* pixels = image->pImageData.data();
         auto* palette = image->pPalette.get();
         CHECK(LoadImageData(image.get(), IMAGE_APPDATA));
-        CHECK(image->pImageData.get() == pixels && image->pPalette.get() == palette);
-        CHECK(image->uiAppDataSize == 4 && image->pAppData[0] == 7 && image->pAppData[3] == 10);
-        auto* app = image->pAppData.get();
+        CHECK(image->pImageData.data() == pixels && image->pPalette.get() == palette);
+        CHECK(image->pAppData.size() == 4 && image->pAppData[0] == 7 && image->pAppData[3] == 10);
+        auto* app = image->pAppData.data();
         CHECK(LoadImageData(image.get(), IMAGE_PALETTE));
-        CHECK(image->pImageData.get() == pixels && image->pAppData.get() == app);
+        CHECK(image->pImageData.data() == pixels && image->pAppData.data() == app);
         CHECK(image->pPalette.get() != palette && image->pPalette[1].peRed == 255);
         palette = image->pPalette.get();
         CHECK(ReleaseImageData(image.get(), IMAGE_BITMAPDATA));
-        CHECK(image->pPalette.get() == palette && image->pAppData.get() == app);
-        CHECK(!image->pImageData && !image->pETRLEObject && !image->usNumberOfObjects);
+        CHECK(image->pPalette.get() == palette && image->pAppData.data() == app);
+        CHECK(image->pImageData.empty() && image->pETRLEObject.empty());
         CHECK(LoadImageData(image.get(), IMAGE_BITMAPDATA));
-        CHECK(image->pPalette.get() == palette && image->pAppData.get() == app);
-        CHECK(image->pImageData[1] == 1 && image->usNumberOfObjects == 3);
-        pixels = image->pImageData.get();
-        auto* objects = image->pETRLEObject.get();
+        CHECK(image->pPalette.get() == palette && image->pAppData.data() == app);
+        CHECK(image->pImageData[1] == 1 && image->pETRLEObject.size() == 3);
+        pixels = image->pImageData.data();
+        auto* objects = image->pETRLEObject.data();
         const auto flags = image->fFlags;
         std::filesystem::resize_file(assets / "metadata.sti",
             STCI_HEADER_SIZE + STCI_8BIT_PALETTE_SIZE + 3 * STCI_SUBIMAGE_SIZE + 7);
         CHECK(!LoadImageData(image.get(), IMAGE_ALLDATA));
-        CHECK(image->pImageData.get() == pixels && image->pETRLEObject.get() == objects);
-        CHECK(image->pPalette.get() == palette && image->pAppData.get() == app);
-        CHECK(image->fFlags == flags && image->uiAppDataSize == 4 && image->uiSizePixData == 9);
+        CHECK(image->pImageData.data() == pixels && image->pETRLEObject.data() == objects);
+        CHECK(image->pPalette.get() == palette && image->pAppData.data() == app);
+        CHECK(image->fFlags == flags && image->pAppData.size() == 4 && image->pImageData.size() == 9);
+    }
+    std::string long_image_path;
+    for (int i = 0; i < 8; ++i)
+        long_image_path += "long-component-for-a-native-image-path/";
+    long_image_path += "button.sti";
+    CHECK(long_image_path.size() > 260);
+    button_image_fixture(assets, long_image_path, 3);
+    {
+        VOBJECT_DESC desc{};
+        desc.fCreateFlags = VOBJECT_CREATE_FROMFILE;
+        desc.ImageFile = long_image_path;
+        std::unique_ptr<SGPVObject> sprite(CreateVideoObject(&desc));
+        CHECK(sprite && sprite->pETRLEObject.size() == 3 && sprite->pPixData.size() == 9);
+        CHECK(sprite->pETRLEObject[2].uiDataOffset == 6 && sprite->pPixData[7] == 1);
+        CHECK(sprite->pPaletteEntry[1].peRed == 255);
+    }
+    for (bool corrupt_length : {false, true}) {
+        button_image_fixture(assets, "bad-extent.sti", 3);
+        {
+            std::fstream file(assets / "bad-extent.sti", std::ios::in | std::ios::out | std::ios::binary);
+            STCISubImage region{};
+            region.uiDataOffset = corrupt_length ? 1 : 0xffffffffu;
+            region.uiDataLength = corrupt_length ? 9 : 3;
+            region.usWidth = region.usHeight = 1;
+            file.seekp(STCI_HEADER_SIZE + STCI_8BIT_PALETTE_SIZE);
+            file.write(reinterpret_cast<const char*>(&region), STCI_SUBIMAGE_SIZE);
+            CHECK(file.good());
+        }
+        CHECK(!CreateImage("bad-extent.sti", IMAGE_ALLIMAGEDATA));
+        CHECK(CreateImage("bad-extent.sti", IMAGE_PALETTE));
+    }
+    for (bool corrupt_app_data : {false, true}) {
+        button_image_fixture(assets, "bad-size.sti", 3, true);
+        {
+            std::fstream file(assets / "bad-size.sti", std::ios::in | std::ios::out | std::ios::binary);
+            STCIHeader header{};
+            file.read(reinterpret_cast<char*>(&header), STCI_HEADER_SIZE);
+            if (corrupt_app_data)
+                header.uiAppDataSize = 0xffffffffu;
+            else
+                header.uiStoredSize = 0xffffffffu;
+            file.seekp(0);
+            file.write(reinterpret_cast<const char*>(&header), STCI_HEADER_SIZE);
+            CHECK(file.good());
+        }
+        CHECK(!CreateImage("bad-size.sti", IMAGE_ALLDATA));
+        CHECK(CreateImage("bad-size.sti", IMAGE_PALETTE));
     }
     CHECK(!InitializeButtonImageManager(-1, -1, -1));
     CHECK(FindFreeGenericSlot() == 0 && GenericButtonOffNormal[0] == nullptr);
@@ -616,7 +667,7 @@ void generic_button_images()
         CHECK(InitializeFontManager(CreateEnglishTransTable()));
         CHECK(LoadFontFile(reinterpret_cast<const char*>(filename)) == 0);
         auto* font = GetFontObject(0);
-        CHECK(font && font->ownedPalette && font->usNumberOfObjects == 9);
+        CHECK(font && font->ownedPalette && font->pETRLEObject.size() == 9);
         UINT16 borrowed[256]{};
         CHECK(SetFontObjectPalette16BPP(0, borrowed) == borrowed);
         CHECK(GetFontObjectPalette16BPP(0) == borrowed);

@@ -450,12 +450,12 @@ BOOLEAN ImageFillVideoSurfaceArea(UINT32 uiDestVSurface, INT32 iDestX1, INT32 iD
 HVSURFACE CreateVideoSurface(VSURFACE_DESC* VSurfaceDesc)
 {
     CHECKF(VSurfaceDesc != nullptr);
-    auto image = std::unique_ptr<image_type, decltype(&DestroyImage)>(nullptr, DestroyImage);
+    std::unique_ptr<image_type> image;
     UINT16 width = VSurfaceDesc->usWidth;
     UINT16 height = VSurfaceDesc->usHeight;
     UINT8 bits = VSurfaceDesc->ubBitDepth;
     if (VSurfaceDesc->fCreateFlags & VSURFACE_CREATE_FROMFILE) {
-        image.reset(CreateImage(VSurfaceDesc->ImageFile.c_str(), IMAGE_ALLIMAGEDATA));
+        image = CreateImage(VSurfaceDesc->ImageFile.c_str(), IMAGE_ALLIMAGEDATA);
         CHECKF(image != nullptr);
         width = image->usWidth;
         height = image->usHeight;

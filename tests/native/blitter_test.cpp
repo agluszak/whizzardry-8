@@ -123,9 +123,9 @@ int main(int argc, char** argv)
         palette8[i] = static_cast<UINT8>(i * 73 + 11);
     }
     SGPVObject object = {};
-    object.pETRLEObject = std::make_unique<ETRLEObject[]>(1);
+    object.pETRLEObject.resize(1);
     auto& frame = object.pETRLEObject[0];
-    object.pPixData = std::make_unique<UINT8[]>(sizeof(encoded));
+    object.pPixData.resize(sizeof(encoded));
     object.pShade8 = palette8;
     object.pShadeCurrent = palette;
     ClippingRect = {0, 0, 640, static_cast<INT32>(rows)};
@@ -134,7 +134,7 @@ int main(int argc, char** argv)
 
     for (int data = 0; data < 3; ++data) {
         sprite_data(frame, data);
-        std::copy_n(encoded, sizeof(encoded), object.pPixData.get());
+        std::copy_n(encoded, sizeof(encoded), object.pPixData.data());
         for (int variant = 0; variant < 8; ++variant) {
             // Whole, partial opaque/transparent runs, every clipped edge,
             // null/default clip rectangle and complete rejection.

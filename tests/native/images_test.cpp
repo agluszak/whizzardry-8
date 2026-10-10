@@ -1,4 +1,5 @@
 #include "himage.h"
+#include "imgfmt.h"
 #include "wiz8/slf.h"
 #include "temporary_directory.h"
 #include <wiz8/asset_paths.h>
@@ -20,7 +21,7 @@
     std::exit(1); } } while (0)
 
 using Bytes = std::vector<UINT8>;
-using Image = std::unique_ptr<image_type, decltype(&DestroyImage)>;
+using Image = std::unique_ptr<image_type>;
 namespace fs = std::filesystem;
 
 static void word(Bytes& bytes, std::size_t offset, unsigned value)
@@ -150,7 +151,7 @@ static Bytes slf(const std::vector<std::pair<std::string, Bytes>>& files)
 
 static Image load(const char* path, UINT16 contents = IMAGE_ALLDATA)
 {
-    return Image(CreateImage(const_cast<char*>(path), contents), DestroyImage);
+    return CreateImage(path, contents);
 }
 
 static void rgb555()
@@ -169,7 +170,7 @@ static void check_pcx(const image_type& image)
     CHECK(image.usWidth == 3 && image.usHeight == 2 && image.ubBitDepth == 8);
     CHECK(image.fFlags == IMAGE_ALLIMAGEDATA);
     const UINT8 expected[]{0, 1, 1, 2, 3, 0xc1};
-    CHECK(!memcmp(image.pImageData.get(), expected, sizeof(expected)));
+    CHECK(!memcmp(image.pImageData.data(), expected, sizeof(expected)));
     for (unsigned i = 0; i < 256; ++i)
     {
         CHECK(image.pPalette[i].peRed == (i == 2 ? 255 : i));
@@ -180,7 +181,7 @@ static void check_pcx(const image_type& image)
     CHECK(image.pui16BPPPalette[0] == 0); // Exact black stays transparent.
     CHECK(image.pui16BPPPalette[1] == 1); // Non-black quantizing to zero is substituted.
     CHECK(image.pui16BPPPalette[2] == 0x7c00);
-    CHECK(!image.pAppData && !image.uiAppDataSize && !image.usNumberOfObjects);
+    CHECK(image.pAppData.empty() && !image.pAppData.size() && !image.pETRLEObject.size());
 }
 
 int main() try
@@ -206,6 +207,43 @@ int main() try
 
     wiz8::mount_slf("Data\\Data.slf");
     rgb555();
+    {
+        STCIHeader header{};
+        memcpy(header.cID, STCI_ID_STRING, STCI_ID_LEN);
+        header.fFlags = STCI_RGB;
+        header.usWidth = 2;
+        header.usHeight = 1;
+        header.ubDepth = 16;
+        header.RGB.uiRedMask = gusRedMask;
+        header.RGB.uiGreenMask = gusGreenMask;
+        header.RGB.uiBlueMask = gusBlueMask;
+        header.uiStoredSize = header.uiOriginalSize = 4;
+        const auto write_rgb = [&] {
+            Bytes bytes(STCI_HEADER_SIZE + 4);
+            memcpy(bytes.data(), &header, STCI_HEADER_SIZE);
+            word(bytes, STCI_HEADER_SIZE, 0x7c00);
+            word(bytes, STCI_HEADER_SIZE + 2, 0x03e0);
+            fixture(assets / "native-rgb.sti", bytes);
+        };
+        write_rgb();
+        auto image = load("native-rgb.sti");
+        CHECK(image && image->pImageData.size() == 4 && image->usWidth == 2);
+        const UINT8 expected[]{0, 0x7c, 0xe0, 3};
+        CHECK(!memcmp(image->pImageData.data(), expected, sizeof(expected)));
+        CHECK(load("native-rgb.sti", 0));
+        header.RGB.uiRedMask = 0xf800;
+        write_rgb();
+        image = load("native-rgb.sti");
+        CHECK(image && image->pImageData.size() == 4);
+        CHECK(image->pImageData[1] == 0x3e); // RGB565 red bits become RGB555.
+        header.uiStoredSize = 1;
+        write_rgb();
+        CHECK(!load("native-rgb.sti"));
+        header.uiStoredSize = 0xffffffffu;
+        write_rgb();
+        CHECK(!load("native-rgb.sti"));
+    }
+
 
     {
         auto image = load("c:\\dotted.DIR\\many.dots.pcx");
@@ -215,16 +253,16 @@ int main() try
         auto default_image = load(extensionless);
         CHECK(default_image && !strcmp(extensionless, "Dotted.dir\\default"));
         check_pcx(*default_image);
-        CHECK(!strcmp(default_image->ImageFile, "Dotted.dir\\default.PCX"));
+        CHECK(default_image->ImageFile == "Dotted.dir\\default.PCX");
     }
     {
         auto palette = load("Dotted.dir/default.PCX", IMAGE_PALETTE);
         auto bitmap = load("Dotted.dir/default.PCX", IMAGE_BITMAPDATA);
         auto metadata = load("Dotted.dir/default.PCX", 0);
         CHECK(palette && bitmap && metadata);
-        CHECK(palette->fFlags == IMAGE_PALETTE && !palette->pImageData && palette->pPalette);
-        CHECK(bitmap->fFlags == IMAGE_BITMAPDATA && bitmap->pImageData && !bitmap->pPalette);
-        CHECK(metadata->fFlags == 0 && !metadata->pImageData && !metadata->pPalette);
+        CHECK(palette->fFlags == IMAGE_PALETTE && palette->pImageData.empty() && palette->pPalette);
+        CHECK(bitmap->fFlags == IMAGE_BITMAPDATA && !bitmap->pImageData.empty() && !bitmap->pPalette);
+        CHECK(metadata->fFlags == 0 && metadata->pImageData.empty() && !metadata->pPalette);
         CHECK(LoadImageData(metadata.get(), IMAGE_ALLIMAGEDATA));
         check_pcx(*metadata);
         CHECK(LoadImageData(metadata.get(), IMAGE_ALLIMAGEDATA));
@@ -246,7 +284,7 @@ int main() try
         fixture(assets / "rgb.pcx", rgb_pcx(rgb));
         auto image = load("rgb.pcx");
         CHECK(image && image->ubBitDepth == 24 && image->fFlags == IMAGE_BITMAPDATA);
-        CHECK(!memcmp(image->pImageData.get(), rgb, sizeof(rgb)));
+        CHECK(!memcmp(image->pImageData.data(), rgb, sizeof(rgb)));
     }
     for (unsigned depth : {16u, 24u})
         for (bool top : {false, true})
@@ -257,7 +295,7 @@ int main() try
                 CHECK(image && image->usWidth == 3 && image->usHeight == 2);
                 CHECK(image->ubBitDepth == depth && image->fFlags == IMAGE_BITMAPDATA);
                 CHECK(!image->pPalette && !image->pui16BPPPalette);
-                CHECK(!memcmp(image->pImageData.get(), depth == 16 ? static_cast<const void*>(packed) : rgb,
+                CHECK(!memcmp(image->pImageData.data(), depth == 16 ? static_cast<const void*>(packed) : rgb,
                               depth == 16 ? sizeof(packed) : sizeof(rgb)));
             }
     {
@@ -265,7 +303,7 @@ int main() try
         auto image = load("indexed.tga");
         CHECK(image && image->ubBitDepth == 8 && image->fFlags == IMAGE_ALLIMAGEDATA);
         const UINT8 indices[]{2, 2, 2, 2, 1, 0};
-        CHECK(!memcmp(image->pImageData.get(), indices, sizeof(indices)));
+        CHECK(!memcmp(image->pImageData.data(), indices, sizeof(indices)));
         CHECK(image->pPalette[2].peRed == 255 && image->pPalette[2].peBlue == 0);
         CHECK(image->pPalette[3].peRed == 0 && image->pPalette[255].peFlags == 0);
         CHECK(image->pui16BPPPalette[0] == 0 && image->pui16BPPPalette[1] == 1);
@@ -279,11 +317,11 @@ int main() try
         CHECK(offset && offset->pPalette[18].peRed == 255 && offset->pPalette[0].peRed == 0);
         CHECK(offset->pPalette[17].peRed == 1 && offset->pImageData[0] == 18);
         auto override_image = load("override.pcx");
-        CHECK(override_image && !memcmp(override_image->pImageData.get(), indices, sizeof(indices)));
+        CHECK(override_image && !memcmp(override_image->pImageData.data(), indices, sizeof(indices)));
     }
     {
         auto disc_image = load("D:\\DISC.TGA");
-        CHECK(disc_image && !memcmp(disc_image->pImageData.get(), rgb, sizeof(rgb)));
+        CHECK(disc_image && !memcmp(disc_image->pImageData.data(), rgb, sizeof(rgb)));
         char entry[] = "Data\\Packed.pcx";
         auto first = [&]() { try { return wiz8::open_file(entry, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
         auto second = [&]() { try { return wiz8::open_file(entry, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
@@ -293,7 +331,7 @@ int main() try
         check_pcx(*image);
         CHECK(first->tell() == 9 && second->tell() == 0);
         auto tga_image = load("data\\packed.tga");
-        CHECK(tga_image && !memcmp(tga_image->pImageData.get(), rgb, sizeof(rgb)));
+        CHECK(tga_image && !memcmp(tga_image->pImageData.data(), rgb, sizeof(rgb)));
         CHECK(!load("Data\\Truncated.tga")); // Must not read the next SLF record as image data.
         CHECK(first->tell() == 9 && second->tell() == 0);
         first.reset();
@@ -349,9 +387,9 @@ int main() try
     {
         auto image = load("Dotted.dir/default.PCX");
         CHECK(image);
-        auto* data = image->pImageData.get();
-        memcpy(image->ImageFile, "invalid.pcx", sizeof("invalid.pcx"));
-        CHECK(!LoadImageData(image.get(), IMAGE_ALLIMAGEDATA) && image->pImageData.get() == data);
+        auto* data = image->pImageData.data();
+        image->ImageFile = "invalid.pcx";
+        CHECK(!LoadImageData(image.get(), IMAGE_ALLIMAGEDATA) && image->pImageData.data() == data);
         check_pcx(*image);
     }
     fixture(assets / "invalid.jpg", {0xff, 0xd8, 0xff});
