@@ -5,6 +5,7 @@
 #include "compat/surfaces.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <map>
 #include "Video2.h"
 #include "himage.h"
 #include "vsurface.h"
@@ -31,18 +32,8 @@ BOOLEAN GetVSurfaceRect(HVSURFACE hVSurface, RECT* pRect);
 void DeletePrimaryVideoSurfaces();
 // LOCAL global variables
 
-typedef struct VSURFACE_NODE {
-    std::unique_ptr<SGPVSurface, decltype(&DeleteVideoSurface)> hVSurface{nullptr, DeleteVideoSurface};
-    UINT32 uiIndex;
-    std::unique_ptr<VSURFACE_NODE> next;
-    VSURFACE_NODE* prev;
-
-} VSURFACE_NODE;
-
 // GLOBAL: WIZ8 0x00650dbc
-std::unique_ptr<VSURFACE_NODE> gpVSurfaceHead;
-// GLOBAL: WIZ8 0x00650dc0
-VSURFACE_NODE* gpVSurfaceTail = nullptr;
+static std::map<UINT32, std::unique_ptr<SGPVSurface>> g_video_surfaces;
 // GLOBAL: WIZ8 0x00650dc4
 UINT32 guiVSurfaceIndex = 0;
 
@@ -81,10 +72,7 @@ BOOLEAN InitializeVideoSurfaceManager()
 {
     //Shouldn't be calling this if the video surface manager already exists.
     //Call shutdown first...
-    Assert(!gpVSurfaceHead);
-    Assert(!gpVSurfaceTail);
-    gpVSurfaceHead.reset();
-    gpVSurfaceTail = nullptr;
+    Assert(g_video_surfaces.empty());
 
     // Create primary and backbuffer from globals
     if (!SetPrimaryVideoSurfaces()) {
@@ -99,13 +87,7 @@ BOOLEAN InitializeVideoSurfaceManager()
 BOOLEAN ShutdownVideoSurfaceManager()
 {
     DeletePrimaryVideoSurfaces();
-    DeletePrimaryVideoSurfaces();
-    while (gpVSurfaceHead) {
-        auto node = std::move(gpVSurfaceHead);
-        gpVSurfaceHead = std::move(node->next);
-    }
-    gpVSurfaceHead = nullptr;
-    gpVSurfaceTail = nullptr;
+    g_video_surfaces.clear();
     guiVSurfaceIndex = 0;
     return TRUE;
 }
@@ -113,14 +95,10 @@ BOOLEAN ShutdownVideoSurfaceManager()
 // FUNCTION: WIZ8 0x004029f0
 BOOLEAN RestoreVideoSurfaces()
 {
-    VSURFACE_NODE* curr;
-    // Loop through Video Surfaces and Restore
-    curr = gpVSurfaceTail;
-    while (curr) {
-        if (!RestoreVideoSurface(curr->hVSurface.get())) {
+    for (auto surface = g_video_surfaces.rbegin(); surface != g_video_surfaces.rend(); ++surface) {
+        if (!RestoreVideoSurface(surface->second.get())) {
             return FALSE;
         }
-        curr = curr->prev;
     }
     return TRUE;
 }
@@ -136,8 +114,8 @@ BOOLEAN AddStandardVideoSurface(VSURFACE_DESC* pVSurfaceDesc, UINT32* puiIndex)
     Assert(pVSurfaceDesc);
 
     // Create video object
-    auto node = std::make_unique<VSURFACE_NODE>();
-    hVSurface = CreateVideoSurface(pVSurfaceDesc);
+    auto surface = std::unique_ptr<SGPVSurface>(CreateVideoSurface(pVSurfaceDesc));
+    hVSurface = surface.get();
 
     if (!hVSurface) {
         // Video Object will set error condition.
@@ -147,18 +125,10 @@ BOOLEAN AddStandardVideoSurface(VSURFACE_DESC* pVSurfaceDesc, UINT32* puiIndex)
     // Set transparency to default
     SetVideoSurfaceTransparencyColor(hVSurface, FROMRGB(0, 0, 0));
 
-    // Set into video object list
-    node->hVSurface.reset(hVSurface);
-    node->prev = gpVSurfaceTail;
-    auto* tail = node.get();
-    if (gpVSurfaceTail)
-        gpVSurfaceTail->next = std::move(node);
-    else
-        gpVSurfaceHead = std::move(node);
-    gpVSurfaceTail = tail;
-    //Set the hVSurface into the node.
-    gpVSurfaceTail->uiIndex = guiVSurfaceIndex += 2;
-    *puiIndex = gpVSurfaceTail->uiIndex;
+    const auto index = guiVSurfaceIndex + 2;
+    g_video_surfaces.emplace(index, std::move(surface));
+    guiVSurfaceIndex = index;
+    *puiIndex = index;
     Assert(guiVSurfaceIndex < 0xfffffff0); //unlikely that we will ever use 2 billion VSurfaces!
     //We would have to create about 70 VSurfaces per second for 1 year straight to achieve this...
 
@@ -168,7 +138,6 @@ BOOLEAN AddStandardVideoSurface(VSURFACE_DESC* pVSurfaceDesc, UINT32* puiIndex)
 // FUNCTION: WIZ8 0x00402b90
 BYTE* LockVideoSurface(UINT32 uiVSurface, UINT32* puiPitch)
 {
-    VSURFACE_NODE* curr;
     // Check if given backbuffer or primary buffer
 
     if (uiVSurface == FRAME_BUFFER) {
@@ -178,27 +147,14 @@ BYTE* LockVideoSurface(UINT32 uiVSurface, UINT32* puiPitch)
     if (uiVSurface == MOUSE_BUFFER) {
         return (BYTE*)LockMouseBuffer(puiPitch);
     }
-    // Otherwise, use list
-
-    curr = gpVSurfaceHead.get();
-    while (curr) {
-        if (curr->uiIndex == uiVSurface) {
-            break;
-        }
-        curr = curr->next.get();
-    }
-    if (!curr) {
-        return FALSE;
-    }
-    // Lock buffer
-
-    return LockVideoSurfaceBuffer(curr->hVSurface.get(), puiPitch);
+    const auto surface = g_video_surfaces.find(uiVSurface);
+    return surface == g_video_surfaces.end() ? nullptr :
+        LockVideoSurfaceBuffer(surface->second.get(), puiPitch);
 }
 
 // FUNCTION: WIZ8 0x00402c30
 void UnLockVideoSurface(UINT32 uiVSurface)
 {
-    VSURFACE_NODE* curr;
     // Check if given backbuffer or primary buffer
 
     if (uiVSurface == FRAME_BUFFER) {
@@ -211,19 +167,9 @@ void UnLockVideoSurface(UINT32 uiVSurface)
         return;
     }
 
-    curr = gpVSurfaceHead.get();
-    while (curr) {
-        if (curr->uiIndex == uiVSurface) {
-            break;
-        }
-        curr = curr->next.get();
-    }
-    if (!curr) {
-        return;
-    }
-    // unlock buffer
-
-    UnLockVideoSurfaceBuffer(curr->hVSurface.get());
+    const auto surface = g_video_surfaces.find(uiVSurface);
+    if (surface != g_video_surfaces.end())
+        UnLockVideoSurfaceBuffer(surface->second.get());
 }
 
 // FUNCTION: WIZ8 0x00402d00
@@ -246,8 +192,6 @@ BOOLEAN SetVideoSurfaceTransparency(UINT32 uiIndex, COLORVAL TransColor)
 // FUNCTION: WIZ8 0x00402db0
 BOOLEAN GetVideoSurface(HVSURFACE* hVSurface, UINT32 uiIndex)
 {
-    VSURFACE_NODE* curr;
-
 #ifdef _DEBUG
     CheckValidVSurfaceIndex(uiIndex);
 #endif
@@ -272,15 +216,11 @@ BOOLEAN GetVideoSurface(HVSURFACE* hVSurface, UINT32 uiIndex)
         return TRUE;
     }
 
-    curr = gpVSurfaceHead.get();
-    while (curr) {
-        if (curr->uiIndex == uiIndex) {
-            *hVSurface = curr->hVSurface.get();
-            return TRUE;
-        }
-        curr = curr->next.get();
-    }
-    return FALSE;
+    const auto surface = g_video_surfaces.find(uiIndex);
+    if (surface == g_video_surfaces.end())
+        return FALSE;
+    *hVSurface = surface->second.get();
+    return TRUE;
 }
 
 // FUNCTION: WIZ8 0x00402e30
@@ -515,7 +455,7 @@ HVSURFACE CreateVideoSurface(VSURFACE_DESC* VSurfaceDesc)
     UINT16 height = VSurfaceDesc->usHeight;
     UINT8 bits = VSurfaceDesc->ubBitDepth;
     if (VSurfaceDesc->fCreateFlags & VSURFACE_CREATE_FROMFILE) {
-        image.reset(CreateImage(VSurfaceDesc->ImageFile, IMAGE_ALLIMAGEDATA));
+        image.reset(CreateImage(VSurfaceDesc->ImageFile.c_str(), IMAGE_ALLIMAGEDATA));
         CHECKF(image != nullptr);
         width = image->usWidth;
         height = image->usHeight;
@@ -690,20 +630,7 @@ BOOLEAN DeleteVideoSurfaceFromIndex(UINT32 uiIndex)
     CheckValidVSurfaceIndex(uiIndex);
 #endif
 
-    auto* link = &gpVSurfaceHead;
-    while (*link) {
-        if ((*link)->uiIndex == uiIndex) {
-            auto node = std::move(*link);
-            *link = std::move(node->next);
-            if (*link)
-                (*link)->prev = node->prev;
-            else
-                gpVSurfaceTail = node->prev;
-            return TRUE;
-        }
-        link = &(*link)->next;
-    }
-    return FALSE;
+    return g_video_surfaces.erase(uiIndex) != 0;
 }
 
 // Deletes all palettes, surfaces and region data

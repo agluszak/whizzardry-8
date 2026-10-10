@@ -123,7 +123,7 @@ BOOLEAN InitializeStandardGamingPlatform(HINSTANCE hInstance, int sCommandShow)
     // Initialize Font Manager
     SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "%s", "Initializing the Font Manager");
     // Init the manager and copy the TransTable stuff into it.
-    if (!InitializeFontManager(8, pFontTable)) {
+    if (!InitializeFontManager(pFontTable)) {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "%s", "FAILED : Initializing Font Manager");
         return FALSE;
     }

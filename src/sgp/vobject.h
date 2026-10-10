@@ -4,6 +4,7 @@
 #define __VOBJECT_H
 
 #include "Types.h"
+#include <string>
 #include "himage.h"
 #include <array>
 #include <vector>
@@ -104,18 +105,12 @@ typedef struct TAG_HVOBJECT {
 } SGPVObject, *HVOBJECT;
 
 // This structure describes the creation parameters for a Video Object
-typedef struct {
+struct VOBJECT_DESC {
     UINT32 fCreateFlags; // Specifies creation flags like from file or not
-    union {
-        struct {
-            SGPFILENAME ImageFile; // Filename of image data to use
-        };
-        struct {
-            HIMAGE hImage;
-        };
-    };
+    std::string ImageFile;
+    HIMAGE hImage = nullptr;
     UINT8 ubBitDepth; // BPP, ignored if given from file
-} VOBJECT_DESC;
+};
 
 // **********************************************************************************
 //

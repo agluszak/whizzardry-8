@@ -1797,18 +1797,18 @@ static void DrawTextBoxLine(W8MessageStorageRecord* line, int x, int y, bool hov
         return;
     }
 
-    palette = g_font_state_palettes[W8_FONT_PALETTE_BLUE];
+    palette = g_font_state_palettes[W8_FONT_PALETTE_BLUE].get();
     if (!selected_line) {
         if (hovered_line) {
-            palette = g_font_state_palettes[W8_FONT_PALETTE_RED];
+            palette = g_font_state_palettes[W8_FONT_PALETTE_RED].get();
             if (line->font_palette != W8_FONT_PALETTE_YELLOW) {
-                palette = g_font_state_palettes[W8_FONT_PALETTE_YELLOW];
+                palette = g_font_state_palettes[W8_FONT_PALETTE_YELLOW].get();
             }
             SetFontObjectPalette16BPP(g_level_block->text_box_font, palette);
             DrawMessageLineText(line, x, y);
         } else if (line->highlight_color == 0xff) {
             if (line->font_palette < W8_FONT_PALETTE_TEXT_BOX) {
-                palette = g_font_state_palettes[line->font_palette];
+                palette = g_font_state_palettes[line->font_palette].get();
             } else {
                 palette = g_level_block->palette;
             }
@@ -1818,7 +1818,7 @@ static void DrawTextBoxLine(W8MessageStorageRecord* line, int x, int y, bool hov
             draw_x = x;
             if (line->highlight_start != 0) {
                 if (line->font_palette < W8_FONT_PALETTE_TEXT_BOX) {
-                    palette = g_font_state_palettes[line->font_palette];
+                    palette = g_font_state_palettes[line->font_palette].get();
                 } else {
                     palette = g_level_block->palette;
                 }
@@ -1840,7 +1840,7 @@ static void DrawTextBoxLine(W8MessageStorageRecord* line, int x, int y, bool hov
             }
             if (length > 0) {
                 if (line->highlight_color < 0xf) {
-                    palette = g_font_state_palettes[line->highlight_color];
+                    palette = g_font_state_palettes[line->highlight_color].get();
                 } else {
                     palette = g_level_block->palette;
                 }
@@ -1870,7 +1870,7 @@ static void DrawTextBoxLine(W8MessageStorageRecord* line, int x, int y, bool hov
                     palette_index = line->highlight_color;
                 }
                 if (palette_index < W8_FONT_PALETTE_TEXT_BOX) {
-                    palette = g_font_state_palettes[palette_index];
+                    palette = g_font_state_palettes[palette_index].get();
                 } else {
                     palette = g_level_block->palette;
                 }
@@ -2272,15 +2272,15 @@ static void DrawNoticeWordOverlays(W8MessageStorageRecord* line, int x, int y)
         W8NoticeWord* word = static_cast<W8NoticeWord*>(PLGet(line->entries, i));
         if (word->keyword != W8_NOTICE_WORD_NORMAL) {
             unsigned short* palette = word->keyword == W8_NOTICE_WORD_SELECTED
-                                          ? g_font_state_palettes[W8_FONT_PALETTE_BLUE]
-                                          : g_font_state_palettes[W8_FONT_PALETTE_YELLOW];
+                                          ? g_font_state_palettes[W8_FONT_PALETTE_BLUE].get()
+                                          : g_font_state_palettes[W8_FONT_PALETTE_YELLOW].get();
             SetFontObjectPalette16BPP(g_level_block->text_box_font, palette);
             DrawNoticeWordOverlay(line, word, x, y);
         }
         if (word->redraw) {
             unsigned short* palette;
             if (line->font_palette < W8_FONT_PALETTE_TEXT_BOX) {
-                palette = g_font_state_palettes[line->font_palette];
+                palette = g_font_state_palettes[line->font_palette].get();
             } else {
                 palette = g_level_block->palette;
             }

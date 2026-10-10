@@ -59,8 +59,6 @@ typedef struct _MOUSE_REGION {
     INT32 FastHelpRect;
     MOUSE_HELPTEXT_DONE_CALLBACK HelpDoneCallback;
 
-    struct _MOUSE_REGION* next; // List maintenance, do NOT touch these entries
-    struct _MOUSE_REGION* prev;
 } MOUSE_REGION;
 
 // *****************************************************************************
@@ -85,7 +83,7 @@ typedef struct _MOUSE_REGION {
 
 // Mouse region IDs
 #define MSYS_ID_BASE 1
-#define MSYS_ID_MAX 0xfffffff // ( INT32 max )
+#define MSYS_ID_MAX 0xffff // IDNumber is UINT16
 #define MSYS_ID_SYSTEM 0
 
 // Mouse region priorities

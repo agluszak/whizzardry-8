@@ -116,20 +116,20 @@ void W8CharacterSpellList::Redraw(bool force)
         BlitCatalogSurfaceRectTo16BPP(FRAME_BUFFER, left, top, right, bottom, 0x1b6, 0, 0);
         int y = top + 1;
         SetFont(g_wiz_text_font_secondary);
-        SetFontObjectPalette16BPP(g_wiz_text_font_secondary, g_wiz_text_font_secondary_palette);
-        SetObjectShade(g_wiz_text_font_secondary_object, 4);
+        SetFontObjectPalette16BPP(g_wiz_text_font_secondary, GetFontObject(g_wiz_text_font_secondary)->ownedPalette.get());
+        SetObjectShade(GetFontObject(g_wiz_text_font_secondary), 4);
         for (int index = m_first_entry + m_scroll_offset;
              index < m_first_entry + m_scroll_offset + 7; ++index) {
             if (index >= m_first_entry + m_entry_count)
                 break;
             if (!m_entries[index].fSelectable) {
-                SetObjectShade(g_wiz_text_font_secondary_object, 6);
+                SetObjectShade(GetFontObject(g_wiz_text_font_secondary), 6);
             } else if (m_entries[index].selected) {
                 SetFontObjectPalette16BPP(g_wiz_text_font_secondary,
-                                          g_font_state_palettes[W8_FONT_PALETTE_BLUE]);
+                                          g_font_state_palettes[W8_FONT_PALETTE_BLUE].get());
             } else if (index == m_hovered_entry) {
                 SetFontObjectPalette16BPP(g_wiz_text_font_secondary,
-                                          g_font_state_palettes[W8_FONT_PALETTE_YELLOW]);
+                                          g_font_state_palettes[W8_FONT_PALETTE_YELLOW].get());
             }
             gprintf(left + 2, y, g_format_s, g_spell_records[m_entries[index].spell].display_name);
             wchar_t cost[6];
@@ -138,8 +138,8 @@ void W8CharacterSpellList::Redraw(bool force)
             gprintf(right - StringPixLength(cost, g_wiz_text_font_secondary) - 2, y, g_format_s,
                     cost);
             y += 13;
-            SetFontObjectPalette16BPP(g_wiz_text_font_secondary, g_wiz_text_font_secondary_palette);
-            SetObjectShade(g_wiz_text_font_secondary_object, 4);
+            SetFontObjectPalette16BPP(g_wiz_text_font_secondary, GetFontObject(g_wiz_text_font_secondary)->ownedPalette.get());
+            SetObjectShade(GetFontObject(g_wiz_text_font_secondary), 4);
         }
         m_range->Invalidate(0);
         m_dirty = false;

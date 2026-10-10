@@ -599,7 +599,7 @@ void RedrawPartyPortraitBars(unsigned int party_slot, bool slot_enabled)
             bounds.bottom = menu_y + 0x46;
             text.SetLayoutMode(g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
             text.SetLayoutBounds(&bounds, true, true);
-            SetFontObjectPalette16BPP(g_smfnt_font, g_font_palette_smfnt);
+            SetFontObjectPalette16BPP(g_smfnt_font, GetFontObject(g_smfnt_font)->ownedPalette.get());
             text.SetText(FormatWideString(g_format_d, character->hp_current), g_smfnt_font);
             InvalidateRegion(bounds.left, bounds.top + 1, bounds.right, bounds.bottom, 0);
             ColorFillVideoSurfaceArea(FRAME_BUFFER, bounds.left, bounds.top + 1, bounds.right,
@@ -804,7 +804,7 @@ void RedrawPartyPortraitOverlay(unsigned int party_slot, bool highlighted, bool 
                             static_cast<int>(
                                 character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].stack_count));
                         SetFont(g_smfnt_font);
-                        SetFontObjectPalette16BPP(g_smfnt_font, g_font_palette_smfnt);
+                        SetFontObjectPalette16BPP(g_smfnt_font, GetFontObject(g_smfnt_font)->ownedPalette.get());
                         text_width = StringPixLength(text, g_smfnt_font);
                         gprintf((band_menu_edge - (text_width + 1) / 2) + 8, menu_y + 0x26,
                                 Wiz8ToSgpWideText(g_format_s), text);
@@ -831,7 +831,7 @@ void RedrawPartyPortraitOverlay(unsigned int party_slot, bool highlighted, bool 
                                          character->EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON]
                                              .stack_count));
                             SetFont(g_smfnt_font);
-                            SetFontObjectPalette16BPP(g_smfnt_font, g_font_palette_smfnt);
+                            SetFontObjectPalette16BPP(g_smfnt_font, GetFontObject(g_smfnt_font)->ownedPalette.get());
                             text_width = StringPixLength(text, g_smfnt_font);
                             gprintf((band_menu_edge - (text_width + 1) / 2) + 0xb, menu_y + 0x3e,
                                     Wiz8ToSgpWideText(g_format_s), text);
@@ -850,10 +850,10 @@ void RedrawPartyPortraitOverlay(unsigned int party_slot, bool highlighted, bool 
                 g_level_block->portrait_refresh_pending[party_slot] != 0) {
                 swprintf(text, g_format_d, character->armor_class_average);
                 if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME) {
-                    unsigned short* palette = g_font_palette_smfnt;
+                    unsigned short* palette = GetFontObject(g_smfnt_font)->ownedPalette.get();
                     if (character->load_category != 0) {
                         palette = g_font_state_palettes
-                            [g_load_category_palettes[character->load_category]];
+                            [g_load_category_palettes[character->load_category]].get();
                     }
                     SetFontObjectPalette16BPP(g_smfnt_font, palette);
                 }
@@ -865,7 +865,7 @@ void RedrawPartyPortraitOverlay(unsigned int party_slot, bool highlighted, bool 
             wcscpy(text, gppStringList[g_profession_name_message_ids[character->iProfession + 16]]);
             if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME) {
                 SetFontObjectPalette16BPP(g_smfnt_font,
-                                          g_font_state_palettes[party_row->party_order_index]);
+                                          g_font_state_palettes[party_row->party_order_index].get());
             }
             text_width = StringPixLength(text, g_smfnt_font);
             gprintf((0x12 - text_width) / 2 + 2 + band_portrait_edge, menu_y + 3,
@@ -874,17 +874,17 @@ void RedrawPartyPortraitOverlay(unsigned int party_slot, bool highlighted, bool 
             SetFont(g_wiz_text_font_secondary);
             if (g_current_screen_state.id != W8_SCREEN_MAIN_GAME ||
                 (SetFontObjectPalette16BPP(g_wiz_text_font_secondary,
-                                           g_wiz_text_font_secondary_palette),
+                                           GetFontObject(g_wiz_text_font_secondary)->ownedPalette.get()),
                  g_current_screen_state.id != W8_SCREEN_MAIN_GAME) ||
                 (text_shade = 1,
                  g_level_block->name_hover_party_slot != static_cast<int>(party_slot))) {
                 text_shade = 4;
             }
-            SetObjectShade(g_wiz_text_font_secondary_object, text_shade);
+            SetObjectShade(GetFontObject(g_wiz_text_font_secondary), text_shade);
             text_width = StringPixLength(character->name, g_wiz_text_font_secondary);
             gprintf((0x54 - text_width) / 2 + 0x15 + menu_x, menu_y + 0x49,
                     Wiz8ToSgpWideText(g_format_s), character->name);
-            SetObjectShade(g_wiz_text_font_secondary_object, 4);
+            SetObjectShade(GetFontObject(g_wiz_text_font_secondary), 4);
 
             if (gXStatus.fCombatMode) {
                 entry->combat_portrait_dirty = true;

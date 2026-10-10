@@ -8,6 +8,7 @@
 #include "compat/kernel32.h"
 #include <stdarg.h>
 #include <wchar.h>
+#include <algorithm>
 #include "sgp.h"
 #include "wiz8/filesystem.h"
 #include "Font.h"
@@ -27,13 +28,8 @@
 
 SGPPaletteEntry gSgpPalette[256];
 
-typedef struct {
-    UINT16 usDefaultPixelDepth;
-    FontTranslationTable pTranslationTable;
-} FontManager;
-
 // GLOBAL: WIZ8 0x006eb704
-std::unique_ptr<FontManager> pFManager;
+static std::vector<UINT16> g_font_translation;
 // GLOBAL: WIZ8 0x006eb6a0
 std::array<std::unique_ptr<SGPVObject>, MAX_FONTS> FontObjs;
 INT32 FontsLoaded = 0;
@@ -231,25 +227,24 @@ INT32 FindFreeFont(void)
 //  Otherwise the font number is returned.
 
 // FUNCTION: WIZ8 0x00406e00
-INT32 LoadFontFile(UINT8* filename)
+INT32 LoadFontFile(std::string_view filename)
 {
     VOBJECT_DESC vo_desc;
     INT32 LoadIndex;
 
-    Assert(filename != nullptr);
-    Assert(filename[0] != '\0');
+    Assert(!filename.empty());
 
     if ((LoadIndex = FindFreeFont()) == (-1)) {
-        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Out of font slots (%s)", filename);
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Out of font slots (%.*s)", static_cast<int>(filename.size()), filename.data());
         return (-1);
     }
 
     vo_desc.fCreateFlags = VOBJECT_CREATE_FROMFILE;
-    strcpy(vo_desc.ImageFile, (char*)filename);
+    vo_desc.ImageFile = filename;
 
     FontObjs[LoadIndex].reset(CreateVideoObject(&vo_desc));
     if (!FontObjs[LoadIndex].get()) {
-        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Error creating VOBJECT (%s)", filename);
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Error creating VOBJECT (%.*s)", static_cast<int>(filename.size()), filename.data());
         return (-1);
     }
 
@@ -266,10 +261,15 @@ INT32 LoadFontFile(UINT8* filename)
 void UnloadFont(UINT32 FontIndex)
 {
     Assert(FontIndex >= 0);
-    Assert(FontIndex <= MAX_FONTS);
+    Assert(FontIndex < MAX_FONTS);
     Assert(FontObjs[FontIndex] != nullptr);
 
     FontObjs[FontIndex].reset();
+    if (FontDefault == static_cast<INT32>(FontIndex)) {
+        const auto font = std::find_if(FontObjs.begin(), FontObjs.end(),
+                                      [](const auto& candidate) { return bool(candidate); });
+        FontDefault = font == FontObjs.end() ? -1 : static_cast<INT32>(font - FontObjs.begin());
+    }
 }
 
 // GetWidth
@@ -445,24 +445,10 @@ UINT16 GetFontHeight(INT32 FontNum)
 
 INT16 GetIndex(UINT16 siChar)
 {
-    UINT16* pTrav;
-    UINT16 ssCount = 0;
-    UINT16 usNumberOfSymbols = pFManager->pTranslationTable.usNumberOfSymbols;
-
-    // search the Translation Table and return the index for the font
-    pTrav = pFManager->pTranslationTable.DynamicArrayOf16BitValues.data();
-    while (ssCount < usNumberOfSymbols) {
-        if (siChar == *pTrav) {
-            return ssCount;
-        }
-        ssCount++;
-        pTrav++;
-    }
-
-    // If here, present warning and give the first index
+    const auto glyph = std::find(g_font_translation.begin(), g_font_translation.end(), siChar);
+    if (glyph != g_font_translation.end())
+        return static_cast<INT16>(glyph - g_font_translation.begin());
     SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Error: Invalid character given %d", siChar);
-
-    // Return 0 here, NOT -1 - we should see A's here now...
     return 0;
 }
 
@@ -829,9 +815,8 @@ UINT32 mprintf_buffer(UINT8* pDestBuf, UINT32 uiDestPitchBYTES, UINT32 FontType,
 //	Starts up the font manager system with the appropriate translation table.
 
 // FUNCTION: WIZ8 0x00407d30
-BOOLEAN InitializeFontManager(UINT16 usDefaultPixelDepth, const FontTranslationTable& pTransTable)
+BOOLEAN InitializeFontManager(const std::vector<UINT16>& translation)
 {
-    int count;
     UINT16 uiRight, uiBottom;
     UINT8 uiPixelDepth;
 
@@ -850,15 +835,8 @@ BOOLEAN InitializeFontManager(UINT16 usDefaultPixelDepth, const FontTranslationT
 
     FontDestWrap = FALSE;
 
-    if (pFManager)
-        ShutdownFontManager();
-    pFManager = std::make_unique<FontManager>();
-    pFManager->pTranslationTable = pTransTable;
-    pFManager->usDefaultPixelDepth = usDefaultPixelDepth;
-
-    // Mark all font slots as empty
-    for (count = 0; count < MAX_FONTS; count++)
-        FontObjs[count] = nullptr;
+    ShutdownFontManager();
+    g_font_translation = translation;
 
     return TRUE;
 }
@@ -869,545 +847,46 @@ BOOLEAN InitializeFontManager(UINT16 usDefaultPixelDepth, const FontTranslationT
 // FUNCTION: WIZ8 0x00407e30
 void ShutdownFontManager(void)
 {
-    INT32 count;
-
-    pFManager.reset();
-
-    for (count = 0; count < MAX_FONTS; count++) {
-        if (FontObjs[count] != nullptr)
-            UnloadFont(count);
-    }
+    for (auto& font : FontObjs)
+        font.reset();
+    g_font_translation.clear();
+    FontDefault = SaveFontDefault = -1;
 }
 
 // CreateEnglishTransTable
 // Creates the English text->font map table.
 
 // FUNCTION: WIZ8 0x00407ec0
-FontTranslationTable CreateEnglishTransTable()
+std::vector<UINT16> CreateEnglishTransTable()
 {
-    FontTranslationTable pTable{};
-    UINT16* temp;
-
-    pTable.usNumberOfSymbols = 252;
-    pTable.DynamicArrayOf16BitValues.resize(pTable.usNumberOfSymbols);
-    temp = pTable.DynamicArrayOf16BitValues.data();
-
-    *temp = 'A';
-    temp++;
-    *temp = 'B';
-    temp++;
-    *temp = 'C';
-    temp++;
-    *temp = 'D';
-    temp++;
-    *temp = 'E';
-    temp++;
-    *temp = 'F';
-    temp++;
-    *temp = 'G';
-    temp++;
-    *temp = 'H';
-    temp++;
-    *temp = 'I';
-    temp++;
-    *temp = 'J';
-    temp++;
-    *temp = 'K';
-    temp++;
-    *temp = 'L';
-    temp++;
-    *temp = 'M';
-    temp++;
-    *temp = 'N';
-    temp++;
-    *temp = 'O';
-    temp++;
-    *temp = 'P';
-    temp++;
-    *temp = 'Q';
-    temp++;
-    *temp = 'R';
-    temp++;
-    *temp = 'S';
-    temp++;
-    *temp = 'T';
-    temp++;
-    *temp = 'U';
-    temp++;
-    *temp = 'V';
-    temp++;
-    *temp = 'W';
-    temp++;
-    *temp = 'X';
-    temp++;
-    *temp = 'Y';
-    temp++;
-    *temp = 'Z';
-    temp++;
-    *temp = 'a';
-    temp++;
-    *temp = 'b';
-    temp++;
-    *temp = 'c';
-    temp++;
-    *temp = 'd';
-    temp++;
-    *temp = 'e';
-    temp++;
-    *temp = 'f';
-    temp++;
-    *temp = 'g';
-    temp++;
-    *temp = 'h';
-    temp++;
-    *temp = 'i';
-    temp++;
-    *temp = 'j';
-    temp++;
-    *temp = 'k';
-    temp++;
-    *temp = 'l';
-    temp++;
-    *temp = 'm';
-    temp++;
-    *temp = 'n';
-    temp++;
-    *temp = 'o';
-    temp++;
-    *temp = 'p';
-    temp++;
-    *temp = 'q';
-    temp++;
-    *temp = 'r';
-    temp++;
-    *temp = 's';
-    temp++;
-    *temp = 't';
-    temp++;
-    *temp = 'u';
-    temp++;
-    *temp = 'v';
-    temp++;
-    *temp = 'w';
-    temp++;
-    *temp = 'x';
-    temp++;
-    *temp = 'y';
-    temp++;
-    *temp = 'z';
-    temp++;
-    *temp = '0';
-    temp++;
-    *temp = '1';
-    temp++;
-    *temp = '2';
-    temp++;
-    *temp = '3';
-    temp++;
-    *temp = '4';
-    temp++;
-    *temp = '5';
-    temp++;
-    *temp = '6';
-    temp++;
-    *temp = '7';
-    temp++;
-    *temp = '8';
-    temp++;
-    *temp = '9';
-    temp++;
-    *temp = '!';
-    temp++;
-    *temp = '@';
-    temp++;
-    *temp = '#';
-    temp++;
-    *temp = '$';
-    temp++;
-    *temp = '%';
-    temp++;
-    *temp = '^';
-    temp++;
-    *temp = '&';
-    temp++;
-    *temp = '*';
-    temp++;
-    *temp = '(';
-    temp++;
-    *temp = ')';
-    temp++;
-    *temp = '-';
-    temp++;
-    *temp = '_';
-    temp++;
-    *temp = '+';
-    temp++;
-    *temp = '=';
-    temp++;
-    *temp = '|';
-    temp++;
-    *temp = '\\';
-    temp++;
-    *temp = '{';
-    temp++;
-    *temp = '}'; // 80
-    temp++;
-    *temp = '[';
-    temp++;
-    *temp = ']';
-    temp++;
-    *temp = ':';
-    temp++;
-    *temp = ';';
-    temp++;
-    *temp = '"';
-    temp++;
-    *temp = '\'';
-    temp++;
-    *temp = '<';
-    temp++;
-    *temp = '>';
-    temp++;
-    *temp = ',';
-    temp++;
-    *temp = '.';
-    temp++;
-    *temp = '?';
-    temp++;
-    *temp = '/';
-    temp++;
-    *temp = ' '; //93
-    temp++;
-
-    // Windows Code Page 1252 Western Standard Character Set
-
-    *temp = 193; // "A" acute
-    temp++;
-    *temp = 192; // "A" grave
-    temp++;
-    *temp = 193; // "A" circumflex
-    temp++;
-    *temp = 196; // "A" umlaut
-    temp++;
-    *temp = 195; // "A" tilde
-    temp++;
-    *temp = 197; // "A" ring
-    temp++;
-    *temp = 199; // "C" cedile
-    temp++;
-    *temp = 201; // "E" acute
-    temp++;
-    *temp = 200; // "E" grave
-    temp++;
-    *temp = 202; // "E" circumflex
-    temp++;
-    *temp = 203; // "E" umlaut
-    temp++;
-    *temp = 205; // "I" acute
-    temp++;
-    *temp = 204; // "I" grave
-    temp++;
-    *temp = 206; // "I" circumflex
-    temp++;
-    *temp = 207; // "I" umlaut
-    temp++;
-    *temp = 209; // "N" tilde
-    temp++;
-    *temp = 211; // "O" acute
-    temp++;
-    *temp = 210; // "O" grave
-    temp++;
-    *temp = 212; // "O" circumflex
-    temp++;
-    *temp = 214; // "O" umlaut
-    temp++;
-    *temp = 213; // "O" tilde
-    temp++;
-    *temp = 216; // "0" O strike-through
-    temp++;
-    *temp = 218; // "U" acute
-    temp++;
-    *temp = 217; // "U" grave
-    temp++;
-    *temp = 219; // "U" circumflex
-    temp++;
-    *temp = 220; // "U" umlaut
-    temp++;
-    *temp = 221; // "Y" acute
-    temp++;
-    *temp = 225; // "a" acute
-    temp++;
-    *temp = 224; // "a" grave
-    temp++;
-    *temp = 226; // "a" circumflex
-    temp++;
-    *temp = 228; // "a" umlaut
-    temp++;
-    *temp = 227; // "a" tilde
-    temp++;
-    *temp = 229; // "a" ring
-    temp++;
-    *temp = 231; // "c" cedile
-    temp++;
-    *temp = 233; // "e" acute
-    temp++;
-    *temp = 232; // "e" grave
-    temp++;
-    *temp = 234; // "e" circumflex
-    temp++;
-    *temp = 235; // "e" umlaut
-    temp++;
-    *temp = 237; // "i" acute
-    temp++;
-    *temp = 236; // "i" grave
-    temp++;
-    *temp = 238; // "i" circumflex
-    temp++;
-    *temp = 239; // "i" umlaut
-    temp++;
-    *temp = 241; // "n" tilde
-    temp++;
-    *temp = 243; // "o" acute
-    temp++;
-    *temp = 242; // "o" grave
-    temp++;
-    *temp = 244; // "o" circumflex
-    temp++;
-    *temp = 246; // "o" umlaut
-    temp++;
-    *temp = 245; // "o" tilde
-    temp++;
-    *temp = 248; // "o" strike-through
-    temp++;
-    *temp = 250; // "u" acute
-    temp++;
-    *temp = 249; // "u" grave
-    temp++;
-    *temp = 251; // "u" circumflex
-    temp++;
-    *temp = 252; // "u" umlaut
-    temp++;
-    *temp = 254; // "y" acute
-    temp++;
-    *temp = 255; // "y" umlaut
-    temp++;
-    *temp = 223; // beta
-
-    // Font glyphs for spell targeting icons
-    //ATE: IMPORTANT! INcreate the array above if you add any new items here...
-    temp++;
-    *temp = FONT_GLYPH_TARGET_POINT;
-    temp++;
-    *temp = FONT_GLYPH_TARGET_CONE;
-    temp++;
-    *temp = FONT_GLYPH_TARGET_SINGLE;
-    temp++;
-    *temp = FONT_GLYPH_TARGET_GROUP;
-    temp++;
-    *temp = FONT_GLYPH_TARGET_NONE;
-
-    // 154
-
-    // Wizardry: entries 154-249 are unused
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-    temp++;
-    *temp = 0;
-
-    temp++;
-    *temp = 191; // inverted question mark
-    temp++;
-    *temp = 161; // inverted exclamation mark
-
-    return pTable;
+    return {
+        'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J',
+        'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T',
+        'U', 'V', 'W', 'X', 'Y', 'Z', 'a', 'b', 'c', 'd',
+        'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n',
+        'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x',
+        'y', 'z', '0', '1', '2', '3', '4', '5', '6', '7',
+        '8', '9', '!', '@', '#', '$', '%', '^', '&', '*',
+        '(', ')', '-', '_', '+', '=', '|', '\\', '{', '}',
+        '[', ']', ':', ';', '"', '\'', '<', '>', ',', '.',
+        '?', '/', ' ', 193, 192, 193, 196, 195, 197, 199,
+        201, 200, 202, 203, 205, 204, 206, 207, 209, 211,
+        210, 212, 214, 213, 216, 218, 217, 219, 220, 221,
+        225, 224, 226, 228, 227, 229, 231, 233, 232, 234,
+        235, 237, 236, 238, 239, 241, 243, 242, 244, 246,
+        245, 248, 250, 249, 251, 252, 254, 255, 223, FONT_GLYPH_TARGET_POINT,
+        FONT_GLYPH_TARGET_CONE, FONT_GLYPH_TARGET_SINGLE, FONT_GLYPH_TARGET_GROUP, FONT_GLYPH_TARGET_NONE, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        191, 161
+    };
 }
 // LoadFontFile
 // Parameter List : filename - File created by the utility tool to open
