@@ -1,4 +1,4 @@
-/* SDL -> the recovered SGP queue and main-thread clock. Capture entry points below
+/* SDL -> the native input queue and main-thread clock. Capture entry points below
    record calls for this test; they are not a native video implementation. */
 #include <SDL3/SDL.h>
 #include <algorithm>
@@ -181,13 +181,6 @@ int main()
     drain_events();
     CHECK(screenshots == 1 && captures == 1 && input().empty());
 
-    UINT16 buffer[16]{};
-    StringInput descriptor{};
-    descriptor.pString = buffer;
-    descriptor.usMaxStringLength = 15;
-    descriptor.fInsertMode = 1;
-    gpCurrentStringDescriptor = &descriptor;
-    gfCurrentStringInputState = 1;
     key(SDL_EVENT_KEY_DOWN, SDLK_A, SDL_KMOD_LSHIFT);
     key(SDL_EVENT_KEY_UP, SDLK_A, SDL_KMOD_LSHIFT);
     key(SDL_EVENT_KEY_DOWN, SDLK_B);
@@ -197,10 +190,13 @@ int main()
     key(SDL_EVENT_KEY_DOWN, SDLK_RETURN);
     key(SDL_EVENT_KEY_UP, SDLK_RETURN);
     drain_events();
-    CHECK(buffer[0] == 'A' && buffer[1] == 0 && !gfCurrentStringInputState);
-    CHECK(descriptor.usLastCharacter == VK_RETURN);
-    CHECK(input().empty());
-    gpCurrentStringDescriptor = nullptr;
+    events = input();
+    CHECK(events.size() == 8);
+    expect(events[0], KEY_DOWN, 'A', SHIFT_DOWN);
+    CHECK(TranslateKeyToCharacter(events[0].usParam, events[0].usKeyState) == 'A');
+    expect(events[2], KEY_DOWN, 'B');
+    expect(events[4], KEY_DOWN, VK_BACK);
+    expect(events[6], KEY_DOWN, VK_RETURN);
 
     gfTrackMousePos = 1;
     mouse(SDL_EVENT_MOUSE_MOTION, 0, 1279, 959);
@@ -344,6 +340,42 @@ int main()
     drain_events();
     CHECK(!gfProgramIsRunning);
     gfIgnoreMessages = FALSE;
+    for (int round = 0; round < 3; ++round) {
+        CHECK(InitializeInputManager());
+        for (unsigned i = 0; i < 256; ++i)
+            QueueEvent(KEY_DOWN, i, i + 100);
+        QueueEvent(KEY_UP, 999, 0);
+        events = input();
+        CHECK(events.size() == 256);
+        for (unsigned i = 0; i < events.size(); ++i) {
+            expect(events[i], KEY_DOWN, i);
+            CHECK(events[i].uiParam == i + 100);
+        }
+    }
+    for (unsigned queued : {254u, 255u, 256u}) {
+        CHECK(InitializeInputManager());
+        for (unsigned i = 0; i < queued; ++i)
+            QueueEvent(KEY_DOWN, i, 0);
+        guiSingleClickTimer = GetTickCount();
+        gusRecordedKeyState = SHIFT_DOWN;
+        QueueEvent(LEFT_BUTTON_UP, 17, 23);
+        events = input();
+        CHECK(events.size() == 256);
+        for (unsigned i = 0; i < queued; ++i)
+            expect(events[i], KEY_DOWN, i);
+        if (queued < 256) {
+            expect(events[queued], LEFT_BUTTON_UP, 17, SHIFT_DOWN);
+            CHECK(events[queued].uiParam == 23);
+        }
+        if (queued == 254)
+            expect(events.back(), LEFT_BUTTON_DBL_CLK, 17, SHIFT_DOWN);
+        QueueEvent(KEY_UP, 999, 0);
+        events = input();
+        CHECK(events.size() == 1);
+        expect(events[0], KEY_UP, 999);
+    }
+    KeyChange(0xffff, 0, TRUE);
+    CHECK(input().empty());
     SetInputWindow(nullptr);
 
     SDL_DestroyWindow(window);

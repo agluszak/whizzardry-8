@@ -5,7 +5,6 @@
 #include "Video2.h" // Wiz8
 #include "himage.h"
 #include "vobject.h"
-#include "vobject_private.h"
 #include "WCheck.h"
 #include "vobject.h"
 #include "vobject_blitters.h"

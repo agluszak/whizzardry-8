@@ -3,8 +3,9 @@
 #include "Types.h"
 #include "compat/kernel32.h"
 #include "native/input_events.h"
-#include <stdio.h>
-#include <memory.h>
+#include <algorithm>
+#include <queue>
+#include <iterator>
 #include "input.h"
 #include "english.h"
 #include "Video2.h"
@@ -64,51 +65,24 @@ UINT16 gusMouseXPos; // X position of the mouse on screen
 // GLOBAL: WIZ8 0x006f04f8
 UINT16 gusMouseYPos; // y position of the mouse on screen
 
-// The queue structures are used to track input events using queued events
-
 // GLOBAL: WIZ8 0x006ef4e0
-InputAtom gEventQueue[256];
-// GLOBAL: WIZ8 0x006f04f6
-UINT16 gusQueueCount;
-// GLOBAL: WIZ8 0x006f04e2
-UINT16 gusHeadIndex;
-// GLOBAL: WIZ8 0x006f04e0
-UINT16 gusTailIndex;
+static std::queue<InputAtom> gEventQueue;
+static constexpr std::size_t max_input_events = 256;
 
 // ATE: Added to signal if we have had input this frame - cleared by the SGP main loop
 // GLOBAL: WIZ8 0x00650db9
 BOOLEAN gfSGPInputReceived = FALSE;
 
-// This is the WIN95 hook specific data and defines used to handle the keyboard and
-// mouse hook
-
-// If the following pointer is non NULL then input characters are redirected to
-// the related string
-
-// GLOBAL: WIZ8 0x006f0500
-BOOLEAN gfCurrentStringInputState;
-// GLOBAL: WIZ8 0x006f0510
-StringInput* gpCurrentStringDescriptor;
-
-// Local function headers
-
-void QueueEvent(UINT16 ubInputEvent, UINT32 usParam, UINT32 uiParam);
-void RedirectToString(UINT16 uiInputCharacter);
 void HandleSingleClicksAndButtonRepeats(void);
-void AdjustMouseForWindowOrigin(void);
 
 // These are the hook functions for both keyboard and mouse
 
 // FUNCTION: WIZ8 0x00401ea0
 BOOLEAN InitializeInputManager(void)
 {
-    // Link to debugger
-    // Initialize the gfKeyState table to FALSE everywhere
-    memset(gfKeyState, FALSE, 256);
+    std::fill(std::begin(gfKeyState), std::end(gfKeyState), FALSE);
     // Initialize the Event Queue
-    gusQueueCount = 0;
-    gusHeadIndex = 0;
-    gusTailIndex = 0;
+    gEventQueue = {};
     // By default, we will not queue mousemove events
     gfTrackMousePos = FALSE;
     // Initialize other variables
@@ -129,9 +103,6 @@ BOOLEAN InitializeInputManager(void)
     // Set the mouse to the center of the screen
     gusMouseXPos = 320;
     gusMouseYPos = 240;
-    // Initialize the string input mechanism
-    gfCurrentStringInputState = FALSE;
-    gpCurrentStringDescriptor = nullptr;
     // Activate the hook functions for both keyboard and Mouse
     return TRUE;
 }
@@ -139,122 +110,44 @@ BOOLEAN InitializeInputManager(void)
 // FUNCTION: WIZ8 0x00401f90
 void QueueEvent(UINT16 ubInputEvent, UINT32 usParam, UINT32 uiParam)
 {
-    UINT32 uiTimer;
-    UINT16 usKeyState;
-
-    uiTimer = GetTickCount();
-    usKeyState = gfShiftState | gfCtrlState | gfAltState;
-
-    // Can we queue up one more event, if not, the event is lost forever
-    if (gusQueueCount == 256) { // No more queue space
+    if (gEventQueue.size() == max_input_events)
         return;
-    }
-
-    if (ubInputEvent == LEFT_BUTTON_DOWN) {
+    const UINT32 uiTimer = GetTickCount();
+    const UINT16 usKeyState = gfShiftState | gfCtrlState | gfAltState;
+    switch (ubInputEvent) {
+    case LEFT_BUTTON_DOWN:
         guiLeftButtonRepeatTimer = uiTimer + BUTTON_REPEAT_TIMEOUT;
-    }
-
-    if (ubInputEvent == RIGHT_BUTTON_DOWN) {
+        break;
+    case RIGHT_BUTTON_DOWN:
         guiRightButtonRepeatTimer = uiTimer + BUTTON_REPEAT_TIMEOUT;
-    }
-
-    if (ubInputEvent == LEFT_BUTTON_UP) {
+        break;
+    case LEFT_BUTTON_UP:
         guiLeftButtonRepeatTimer = 0;
-    }
-
-    if (ubInputEvent == RIGHT_BUTTON_UP) {
-        guiRightButtonRepeatTimer = 0;
-    }
-
-    if (ubInputEvent == LEFT_BUTTON_UP) {
-        // Do we have a double click
         if ((uiTimer - guiSingleClickTimer) < DBL_CLK_TIME) {
             guiSingleClickTimer = 0;
-
-            // Add a button up first...
-            gEventQueue[gusTailIndex].uiTimeStamp = uiTimer;
-            gEventQueue[gusTailIndex].usKeyState = gusRecordedKeyState;
-            gEventQueue[gusTailIndex].usEvent = LEFT_BUTTON_UP;
-            gEventQueue[gusTailIndex].usParam = usParam;
-            gEventQueue[gusTailIndex].uiParam = uiParam;
-
-            // Increment the number of items on the input queue
-            gusQueueCount++;
-
-            // Increment the gusTailIndex pointer
-            if (gusTailIndex == 255) { // The gusTailIndex is about to wrap around the queue ring
-                gusTailIndex = 0;
-            } else { // We simply increment the gusTailIndex
-                gusTailIndex++;
-            }
-
-            // Now do double click
-            gEventQueue[gusTailIndex].uiTimeStamp = uiTimer;
-            gEventQueue[gusTailIndex].usKeyState = gusRecordedKeyState;
-            gEventQueue[gusTailIndex].usEvent = LEFT_BUTTON_DBL_CLK;
-            gEventQueue[gusTailIndex].usParam = usParam;
-            gEventQueue[gusTailIndex].uiParam = uiParam;
-
-            // Increment the number of items on the input queue
-            gusQueueCount++;
-
-            // Increment the gusTailIndex pointer
-            if (gusTailIndex == 255) { // The gusTailIndex is about to wrap around the queue ring
-                gusTailIndex = 0;
-            } else { // We simply increment the gusTailIndex
-                gusTailIndex++;
-            }
-
+            gEventQueue.push({uiTimer, gusRecordedKeyState, LEFT_BUTTON_UP, usParam, uiParam});
+            if (gEventQueue.size() < max_input_events)
+                gEventQueue.push({uiTimer, gusRecordedKeyState, LEFT_BUTTON_DBL_CLK, usParam, uiParam});
             return;
-        } else {
-            // Save time
-            guiSingleClickTimer = uiTimer;
         }
+        guiSingleClickTimer = uiTimer;
+        break;
+    case RIGHT_BUTTON_UP:
+        guiRightButtonRepeatTimer = 0;
+        break;
     }
-
-    // Okey Dokey, we can queue up the event, so we do it
-    gEventQueue[gusTailIndex].uiTimeStamp = uiTimer;
-    gEventQueue[gusTailIndex].usKeyState = usKeyState;
-    gEventQueue[gusTailIndex].usEvent = ubInputEvent;
-    gEventQueue[gusTailIndex].usParam = usParam;
-    gEventQueue[gusTailIndex].uiParam = uiParam;
-
-    // Increment the number of items on the input queue
-    gusQueueCount++;
-
-    // Increment the gusTailIndex pointer
-    if (gusTailIndex == 255) { // The gusTailIndex is about to wrap around the queue ring
-        gusTailIndex = 0;
-    } else { // We simply increment the gusTailIndex
-        gusTailIndex++;
-    }
+    gEventQueue.push({uiTimer, usKeyState, ubInputEvent, usParam, uiParam});
 }
 
 // FUNCTION: WIZ8 0x00402140
 BOOLEAN DequeueEvent(InputAtom* Event)
 {
     HandleSingleClicksAndButtonRepeats();
-
-    // Is there an event to dequeue
-    if (gusQueueCount > 0) {
-        // We have an event, so we dequeue it
-        memcpy(Event, &(gEventQueue[gusHeadIndex]), sizeof(InputAtom));
-
-        if (gusHeadIndex == 255) {
-            gusHeadIndex = 0;
-        } else {
-            gusHeadIndex++;
-        }
-
-        // Decrement the number of items on the input queue
-        gusQueueCount--;
-
-        // dequeued an event, return TRUE
-        return TRUE;
-    } else {
-        // No events to dequeue, return FALSE
+    if (gEventQueue.empty())
         return FALSE;
-    }
+    *Event = gEventQueue.front();
+    gEventQueue.pop();
+    return TRUE;
 }
 
 // GLOBAL: WIZ8 0x005ff51c
@@ -277,22 +170,14 @@ void KeyChange(UINT32 key, UINT32 flags, UINT8 pressed)
     }
     GetGameMousePosition(&point);
     packed = ((unsigned int)point.y << 0x10) | ((unsigned int)point.x & 0xffff);
+    code = key & 0xffff;
+    if (code >= std::size(gfKeyState))
+        return;
     if (pressed == 1) {
-        code = key & 0xffff;
-        if (gfKeyState[code] == 0) {
-            if (gfCurrentStringInputState == 0) {
-                gfKeyState[code] = 1;
-                QueueEvent(1, code, packed);
-                return;
-            }
-        } else if (gfCurrentStringInputState == 0) {
-            QueueEvent(4, code, packed);
-            return;
-        }
-        RedirectToString((unsigned short)key);
+        QueueEvent(gfKeyState[code] ? KEY_REPEAT : KEY_DOWN, code, packed);
+        gfKeyState[code] = TRUE;
         return;
     }
-    code = key & 0xffff;
     if (gfKeyState[code] == 1) {
         gfKeyState[code] = 0;
         QueueEvent(2, code, packed);
@@ -363,198 +248,6 @@ void KeyUp(UINT32 usParam, UINT32 uiParam)
                     KeyChange(usParam, uiParam, FALSE);
                 }
             }
-        }
-    }
-}
-
-// These functions will be used for string input
-
-// Since all string input will have to be handle by reentrant capable functions (since we must attend
-// to windows messaging as well as network traffic related issues), whenever there is ongoing string input
-// going on, we must use InitStringInput() and HandleStringInput() to get the job done. HandleStringInput()
-// will return TRUE as long as the string input is going on, and FALSE when its done
-//
-// During string input, all keyboard are rerouted to the string and hence are not queued up on the
-// event queue or registered in the state table. Also note that several string inputs can occur
-// at the same time. Use the SetStringFocus() function to manager the focus for multiple
-// string inputs
-
-BOOLEAN CharacterIsValid(UINT16 usCharacter, UINT16* pFilter)
-{
-    UINT32 uiIndex;
-
-    if (pFilter != nullptr) {
-        for (uiIndex = 1; uiIndex <= *pFilter; uiIndex++) {
-            if (usCharacter == *(pFilter + uiIndex)) {
-                return TRUE;
-            }
-        }
-        return FALSE;
-    }
-
-    return TRUE;
-}
-
-// FUNCTION: WIZ8 0x004023b0
-void RedirectToString(UINT16 usInputCharacter)
-{
-    UINT16 usIndex;
-
-    if (gpCurrentStringDescriptor != nullptr) {
-        // Handle the new character input
-        switch (usInputCharacter) {
-        case ENTER: // ENTER is pressed, the last character field should be set to ENTER
-            if (gpCurrentStringDescriptor->pNextString != nullptr) {
-                gpCurrentStringDescriptor->fFocus = FALSE;
-                gpCurrentStringDescriptor = gpCurrentStringDescriptor->pNextString;
-                gpCurrentStringDescriptor->fFocus = TRUE;
-                gpCurrentStringDescriptor->usLastCharacter = 0;
-            } else {
-                gpCurrentStringDescriptor->fFocus = FALSE;
-                gpCurrentStringDescriptor->usLastCharacter = usInputCharacter;
-                gfCurrentStringInputState = FALSE;
-            }
-            break;
-        case ESC: // ESC was pressed, the last character field should be set to ESC
-            gpCurrentStringDescriptor->fFocus = FALSE;
-            gpCurrentStringDescriptor->usLastCharacter = usInputCharacter;
-            gfCurrentStringInputState = FALSE;
-            break;
-        case TAB:
-            if (gfShiftState) {
-                if (gpCurrentStringDescriptor->pPreviousString == nullptr)
-                    return;
-                gpCurrentStringDescriptor->fFocus = FALSE;
-                gpCurrentStringDescriptor = gpCurrentStringDescriptor->pPreviousString;
-            } else {
-                if (gpCurrentStringDescriptor->pNextString == nullptr)
-                    return;
-                gpCurrentStringDescriptor->fFocus = FALSE;
-                gpCurrentStringDescriptor = gpCurrentStringDescriptor->pNextString;
-            }
-            gpCurrentStringDescriptor->fFocus = TRUE;
-            gpCurrentStringDescriptor->usLastCharacter = 0;
-            break;
-        case 0x26: // The UPARROW was pressed, the last character field should be set to UPARROW
-            if (gpCurrentStringDescriptor->pPreviousString != nullptr) {
-                gpCurrentStringDescriptor->fFocus = FALSE;
-                gpCurrentStringDescriptor = gpCurrentStringDescriptor->pPreviousString;
-                gpCurrentStringDescriptor->fFocus = TRUE;
-                gpCurrentStringDescriptor->usLastCharacter = 0;
-            }
-            break;
-        case 0x28: // The DNARROW was pressed, the last character field should be set to DNARROW
-            if (gpCurrentStringDescriptor->pNextString != nullptr) {
-                gpCurrentStringDescriptor->fFocus = FALSE;
-                gpCurrentStringDescriptor = gpCurrentStringDescriptor->pNextString;
-                gpCurrentStringDescriptor->fFocus = TRUE;
-                gpCurrentStringDescriptor->usLastCharacter = 0;
-            }
-            break;
-        case 0x25: // The LEFTARROW was pressed, move one character to the left
-            if (gpCurrentStringDescriptor->usStringOffset > 0) { // Decrement the offset
-                gpCurrentStringDescriptor->usStringOffset--;
-            }
-            gpCurrentStringDescriptor->usLastCharacter = usInputCharacter;
-            break;
-        case 0x27: // The RIGHTARROW was pressed, move one character to the right
-            if (gpCurrentStringDescriptor->usStringOffset <
-                gpCurrentStringDescriptor
-                    ->usCurrentStringLength) { // Ok we can move the cursor one up without going past the end of string
-                gpCurrentStringDescriptor->usStringOffset++;
-            }
-            gpCurrentStringDescriptor->usLastCharacter = usInputCharacter;
-            break;
-        case BACKSPACE: // Delete the character preceding the cursor
-            if (gpCurrentStringDescriptor->usStringOffset >
-                0) { // Ok, we are not at the beginning of the string, so we may proceed
-                for (usIndex = gpCurrentStringDescriptor->usStringOffset;
-                     usIndex <= gpCurrentStringDescriptor->usCurrentStringLength;
-                     usIndex++) { // Shift the characters one at a time
-                    *(gpCurrentStringDescriptor->pString + usIndex - 1) =
-                        *(gpCurrentStringDescriptor->pString + usIndex);
-                }
-                gpCurrentStringDescriptor->usStringOffset--;
-                gpCurrentStringDescriptor->usCurrentStringLength--;
-            }
-
-            break;
-        case 0x2e: // Delete the character which follows the cursor
-            if (gpCurrentStringDescriptor->usStringOffset <
-                gpCurrentStringDescriptor
-                    ->usCurrentStringLength) { // Ok we are not at the end of the string, so we may proceed
-                for (usIndex = gpCurrentStringDescriptor->usStringOffset;
-                     usIndex < gpCurrentStringDescriptor->usCurrentStringLength;
-                     usIndex++) { // Shift the characters one at a time
-                    *(gpCurrentStringDescriptor->pString + usIndex) =
-                        *(gpCurrentStringDescriptor->pString + usIndex + 1);
-                }
-                gpCurrentStringDescriptor->usCurrentStringLength--;
-            }
-            gpCurrentStringDescriptor->usLastCharacter = usInputCharacter;
-            break;
-        case 0x2d: // Toggle insert mode
-            if (gpCurrentStringDescriptor->fInsertMode == TRUE) {
-                gpCurrentStringDescriptor->fInsertMode = FALSE;
-            } else {
-                gpCurrentStringDescriptor->fInsertMode = TRUE;
-            }
-            gpCurrentStringDescriptor->usLastCharacter = usInputCharacter;
-            break;
-        case 0x24: // Go to the beginning of the input string
-            gpCurrentStringDescriptor->usStringOffset = 0;
-            gpCurrentStringDescriptor->usLastCharacter = usInputCharacter;
-            break;
-            // Stupid definition causes problems with headers that use the keyword END -- DB
-        case 0x23: // Go to the end of the input string
-            gpCurrentStringDescriptor->usStringOffset =
-                gpCurrentStringDescriptor->usCurrentStringLength;
-            gpCurrentStringDescriptor->usLastCharacter = usInputCharacter;
-            break;
-        default: //
-            // normal input
-            //
-            usInputCharacter = TranslateKeyToCharacter(
-                usInputCharacter, (UINT8)(gfAltState | gfCtrlState | gfShiftState));
-            if (usInputCharacter == 0)
-                return;
-            if (CharacterIsValid(usInputCharacter, gpCurrentStringDescriptor->pFilter) == TRUE) {
-                if (gpCurrentStringDescriptor->fInsertMode ==
-                    TRUE) { // Before we can shift characters for the insert, we must make sure we have the space
-                    if (gpCurrentStringDescriptor->usCurrentStringLength <
-                        (gpCurrentStringDescriptor->usMaxStringLength -
-                         1)) { // Before we can add a new character we must shift existing ones to for the insert
-                        for (usIndex = gpCurrentStringDescriptor->usCurrentStringLength;
-                             usIndex > gpCurrentStringDescriptor->usStringOffset;
-                             usIndex--) { // Shift the characters one at a time
-                            *(gpCurrentStringDescriptor->pString + usIndex) =
-                                *(gpCurrentStringDescriptor->pString + usIndex - 1);
-                        }
-                        // Ok now we introduce the new character
-                        *(gpCurrentStringDescriptor->pString + usIndex) = usInputCharacter;
-                        gpCurrentStringDescriptor->usStringOffset++;
-                        gpCurrentStringDescriptor->usCurrentStringLength++;
-                    }
-                } else {
-                    // Ok, add character to string (by overwriting)
-                    if (gpCurrentStringDescriptor->usStringOffset <
-                        (gpCurrentStringDescriptor->usMaxStringLength -
-                         1)) { // Ok, we have not exceeded the maximum number of characters yet
-                        *(gpCurrentStringDescriptor->pString +
-                          gpCurrentStringDescriptor->usStringOffset) = usInputCharacter;
-                        gpCurrentStringDescriptor->usStringOffset++;
-                    }
-                    // Did we push back the current string length (i.e. add character to end of string)
-                    if (gpCurrentStringDescriptor->usStringOffset >
-                        gpCurrentStringDescriptor->usCurrentStringLength) { // Add a NULL character
-                        *(gpCurrentStringDescriptor->pString +
-                          gpCurrentStringDescriptor->usStringOffset) = 0;
-                        gpCurrentStringDescriptor->usCurrentStringLength++;
-                    }
-                }
-                gpCurrentStringDescriptor->usLastCharacter = usInputCharacter;
-            }
-            break;
         }
     }
 }
