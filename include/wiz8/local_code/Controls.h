@@ -32,6 +32,8 @@ struct Controls {
     Controls(int left, int top, int right, int bottom, int catalog_object, int catalog_frame,
              int catalog_image);
     virtual ~Controls();
+    Controls(const Controls&) = delete;
+    Controls& operator=(const Controls&) = delete;
 
     virtual void SetEnabled(bool enable);
     virtual void Invalidate(const W8ControlsRect* rect);
@@ -56,10 +58,7 @@ struct Controls {
     void SetBounds(int left, int top, int right, int bottom);
     void AcquireRegionSet(unsigned int* shared_region_set);
 
-    /* The bounds-checked element read every walker above shares. Out of range
-       it answers element zero rather than failing, which is what the canonical
-       `p = m_ppControls; if (i < m_nControls) p += i;` compiles from and why
-       the guard shows up once per use rather than once per loop. */
+    /* Non-owning view of a child; event dispatch does not use this index. */
     inline W8Widget* ControlAt(int index) { return m_controls[index]; }
 
   protected:

@@ -2,6 +2,7 @@
 #include "wiz8/containers.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/local_code/Controls.h"
+#include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/Sight.h"
@@ -20,6 +21,8 @@
 #include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <functional>
+#include <stdexcept>
 #include <vector>
 
 
@@ -95,6 +98,147 @@ static bool ownershipAndCallbacks()
     REQUIRE(automatically_unlinked);
     REQUIRE((automatically_destroyed == std::vector<int>{5, 4}));
     return true;
+}
+
+// Exercise real region bindings rather than manually filling a panel vector.
+struct RecordingWidget : W8Widget {
+    std::vector<int>& events;
+    int id;
+    std::function<void()> on_event;
+    RecordingWidget(Controls& owner, std::vector<int>& events, int id, unsigned region = -1u)
+        : W8Widget(&owner, region, 0, 0, 20, 20), events(events), id(id) {}
+    void OnLeftButtonDown(int) override { Fire(); }
+    void OnLeftButtonUp(int) override { Fire(); }
+    void OnRightButtonDown(int) override { Fire(); }
+    void OnRightButtonUp(int) override { Fire(); }
+    void OnMouseEnter(int) override { Fire(); }
+    void OnMouseLeave(int) override { Fire(); }
+    void Fire()
+    {
+        events.push_back(id);
+        auto action = on_event;
+        if (action) action(); // May delete this object.
+    }
+};
+
+TEST_CASE("widget_region_lifetimes")
+{
+    struct RestoreCatalog {
+        unsigned region_count = g_region_count, set_count = g_region_set_count;
+        ~RestoreCatalog() { g_region_count = region_count; g_region_set_count = set_count; }
+    } restore;
+    std::vector<int> events;
+    auto first_panel = std::make_unique<Controls>();
+    unsigned first_set = 0;
+    first_panel->AcquireRegionSet(&first_set);
+    auto* first = new RecordingWidget(*first_panel, events, 1);
+    auto* second = new RecordingWidget(*first_panel, events, 2);
+    auto* third = new RecordingWidget(*first_panel, events, 3);
+    const auto third_region = third->m_region;
+    delete first;
+    REQUIRE(first_panel->m_controls.size() == 2);
+    InputAtom event{};
+    event.usEvent = LEFT_BUTTON_DOWN;
+    REQUIRE(DispatchControlRegionEvent(&event, &g_regions[third_region]) == 1);
+    REQUIRE(events.back() == 3);
+
+    Controls second_panel;
+    third->SetPanel(&second_panel);
+    third->SetPanel(&second_panel);
+    REQUIRE(second_panel.m_controls.size() == 1);
+    REQUIRE(first_panel->m_controls.size() == 1);
+    const auto second_region = second->m_region;
+    first_panel->RemoveControl(second);
+    REQUIRE(second->m_pPanel == nullptr);
+    REQUIRE(g_regions[second_region].widget == nullptr);
+    first_panel.reset();
+    delete second; // Detached widgets do not retain a dead panel pointer.
+    REQUIRE(DispatchControlRegionEvent(&event, &g_regions[third_region]) == 1);
+    REQUIRE(events.back() == 3);
+
+    // A failed derived constructor must remove the base-class registration.
+    struct FailingWidget : W8Widget {
+        explicit FailingWidget(Controls& owner) : W8Widget(&owner, -1u, 0, 0, 10, 10)
+        { throw std::runtime_error("incomplete widget"); }
+    };
+    Controls failing_panel;
+    unsigned failing_set = 0;
+    failing_panel.AcquireRegionSet(&failing_set);
+    const auto failed_region = g_region_count;
+    REQUIRE_THROWS_AS(new FailingWidget(failing_panel), std::runtime_error);
+    REQUIRE(failing_panel.m_controls.empty());
+    REQUIRE(g_regions[failed_region].widget == nullptr);
+    REQUIRE(g_regions[failed_region].callback == nullptr);
+
+    // An old widget may outlive a rebuilt screen using the same region slots.
+    Controls old_panel, replacement_panel;
+    unsigned reused_set = 0;
+    old_panel.AcquireRegionSet(&reused_set);
+    auto* old = new RecordingWidget(old_panel, events, 4);
+    const auto reused_region = old->m_region;
+    replacement_panel.AcquireRegionSet(&reused_set);
+    auto* replacement = new RecordingWidget(replacement_panel, events, 5);
+    REQUIRE(replacement->m_region == reused_region);
+    replacement->SetActive(true);
+    delete old;
+    REQUIRE(g_regions[reused_region].widget == replacement);
+    REQUIRE(!(g_regions[reused_region].flags & W8_REGION_INPUT_DISABLED));
+    REQUIRE(DispatchControlRegionEvent(&event, &g_regions[reused_region]) == 1);
+    REQUIRE(events.back() == 5);
+
+    // Post-callback latch writes must not corrupt a replacement's state.
+    for (auto reason : {LEFT_BUTTON_DOWN, LEFT_BUTTON_UP, RIGHT_BUTTON_DOWN, RIGHT_BUTTON_UP}) {
+        auto* victim = replacement;
+        victim->on_event = [&, victim] {
+            delete victim;
+            replacement_panel.AcquireRegionSet(&reused_set);
+            replacement = new RecordingWidget(replacement_panel, events, 6);
+            g_regions[reused_region].flags = W8_REGION_RECTANGLE;
+        };
+        event.usEvent = reason;
+        g_regions[reused_region].flags |= W8_REGION_LEFT_BUTTON_HELD | W8_REGION_RIGHT_BUTTON_HELD;
+        REQUIRE(DispatchControlRegionEvent(&event, &g_regions[reused_region]) == 1);
+        REQUIRE(g_regions[reused_region].flags == W8_REGION_RECTANGLE);
+    }
+    // Destroying a captured/hovered widget also releases those global views.
+    g_captured_region_index = g_current_region_index = g_hover_region_index = reused_region;
+    delete replacement;
+    REQUIRE((g_captured_region_index == 0 && g_current_region_index == 0 && g_hover_region_index == 0));
+    REQUIRE(replacement_panel.m_controls.empty());
+    REQUIRE(DispatchControlRegionEvent(&event, &g_regions[reused_region]) == 0);
+
+    Controls hover_panel;
+    unsigned hover_set = 0;
+    hover_panel.AcquireRegionSet(&hover_set);
+    auto* outgoing = new RecordingWidget(hover_panel, events, 7);
+    auto* incoming = new RecordingWidget(hover_panel, events, 8);
+    incoming->SetBounds(40, 0, 60, 20);
+    hover_panel.SetEnabled(true);
+    hover_panel.EnableRegionSet(true);
+    PushButtonSoundScheme(0, true);
+    const auto outgoing_region = outgoing->m_region;
+    REQUIRE(UpdateRegionMousePosition(5, 5) == static_cast<unsigned>(outgoing_region));
+    outgoing->on_event = [&] { delete incoming; incoming = nullptr; };
+    PushButtonSoundScheme(0, true);
+    REQUIRE(UpdateRegionMousePosition(45, 5) == 0);
+    REQUIRE(incoming == nullptr);
+    REQUIRE(events.back() == 7); // No enter dispatched to the deleted destination.
+
+    // A leave callback can rebuild its own region. Cleanup belongs to the
+    // old binding and must leave the replacement's transition flags alone.
+    outgoing->on_event = [&] {
+        delete outgoing;
+        hover_panel.AcquireRegionSet(&hover_set);
+        outgoing = new RecordingWidget(hover_panel, events, 9);
+        outgoing->SetActive(true);
+        g_regions[outgoing_region].flags |= W8_REGION_MOUSE_ENTER;
+    };
+    g_hover_region_index = g_current_region_index = outgoing_region;
+    REQUIRE(UpdateRegionMousePosition(100, 100) == 0);
+    REQUIRE(g_regions[outgoing_region].widget == outgoing);
+    REQUIRE(g_regions[outgoing_region].flags & W8_REGION_MOUSE_ENTER);
+    REQUIRE(g_hover_region_index == 0);
+    hover_panel.EnableRegionSet(false);
 }
 
 static std::vector<int> masterCalls;
