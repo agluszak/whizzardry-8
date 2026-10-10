@@ -799,7 +799,7 @@ void ApplyEnvironmentColour(W8World* world, float intensity, const EnvironmentCo
 
         scaled *= static_cast<double>(intensity);
         SaturateColor(&scaled);
-        light->ambient = scaled;
+        light->ambient = scaled.glmValue();
     }
     {
         srRegistry* registry = srCore.getRegistry();

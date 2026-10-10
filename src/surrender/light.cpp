@@ -24,18 +24,16 @@ srLight::srLight(srNode* parent, e_preset preset)
     channel_mask = 0;
     setFlag(FLAG_GLOBAL);
     enable_flags = 0;
-    ambient.SetZero();
-    diffuse = 1.0f;
-    specular = 1.0f;
-    spot_direction.Set(0.0f, 0.0f, 1.0f);
+    ambient = glm::vec3(0.0f);
+    diffuse = glm::vec3(1.0f);
+    specular = glm::vec3(1.0f);
+    spot_direction = glm::vec3(0, 0, 1);
     spot_exponent = 1.0f;
     intensity = 1.0f;
     spot_angle = (float)(3.141592653589793 * 0.5);
     safe_range = 0.0f;
     attenuation_model = ATTENUATION_OPENGL;
-    opengl_attenuation.x = 1.0f;
-    opengl_attenuation.y = 0.0f;
-    opengl_attenuation.z = 0.0f;
+    opengl_attenuation = glm::vec3(1, 0, 0);
     near_start = 0.0;
     near_end = 0.0;
     far_start = 0.0;
@@ -220,37 +218,22 @@ void srLight::process(const ProcessInfo& info, e_processType type)
     channel_mask = 0;
     if (ambient.x != 0.0f || ambient.y != 0.0f || ambient.z != 0.0f) {
         channel_mask |= (1UL << srVertexProcessor::CHANNEL_LIGHT_AMBIENT);
-        scaled_ambient.x = ambient.x * intensity;
-        scaled_ambient.y = ambient.y * intensity;
-        scaled_ambient.z = ambient.z * intensity;
-        scaled_ambient.w = 0.0f;
+        scaled_ambient = glm::vec4(ambient * intensity, 0.0f);
     }
     if (diffuse.x != 0.0f || diffuse.y != 0.0f || diffuse.z != 0.0f) {
         channel_mask |= (1UL << srVertexProcessor::CHANNEL_LIGHT_DIFFUSE);
-        scaled_diffuse.x = diffuse.x * intensity;
-        scaled_diffuse.y = diffuse.y * intensity;
-        scaled_diffuse.z = diffuse.z * intensity;
-        scaled_diffuse.w = 0.0f;
+        scaled_diffuse = glm::vec4(diffuse * intensity, 0.0f);
     }
     if (specular.x != 0.0f || specular.y != 0.0f || specular.z != 0.0f) {
         channel_mask |= (1UL << srVertexProcessor::CHANNEL_SPECULAR);
-        scaled_specular.x = specular.x * intensity;
-        scaled_specular.y = specular.y * intensity;
-        scaled_specular.z = specular.z * intensity;
-        scaled_specular.w = 0.0f;
+        scaled_specular = glm::vec4(specular * intensity, 0.0f);
     }
     if (channel_mask == 0) {
         derived_flags &= ~srLight::DERIVED_ACTIVE;
     }
     if ((enable_flags & (1UL << srLight::ENABLE_DIRECTIONAL)) != 0) {
         derived_flags |= srLight::DERIVED_DIRECTIONAL;
-        srVector3T<float> direction(-model_view[2][0], -model_view[2][1], -model_view[2][2]);
-        float length_squared = direction.LengthSquared();
-        if (length_squared != 1.0f) {
-            double scale = 1.0 / sqrt(length_squared);
-            direction *= scale;
-        }
-        eye_location = direction;
+        eye_location = normalizedOrZero(-glm::vec3(model_view[2]));
     } else {
         if ((enable_flags & (1UL << srLight::ENABLE_SPOT)) != 0 && spot_angle > 0.0f &&
             spot_exponent != 0.0f) {
@@ -258,20 +241,8 @@ void srLight::process(const ProcessInfo& info, e_processType type)
             renderer->getInverseModelViewMatrix(inverse);
             derived_flags |= srLight::DERIVED_SPOT;
             spot_cutoff = (float)cos(spot_angle);
-            spot_direction_eye.x = inverse[0][0] * spot_direction.x +
-                                   inverse[0][1] * spot_direction.y +
-                                   inverse[0][2] * spot_direction.z;
-            spot_direction_eye.y = inverse[1][0] * spot_direction.x +
-                                   inverse[1][1] * spot_direction.y +
-                                   inverse[1][2] * spot_direction.z;
-            spot_direction_eye.z = inverse[2][0] * spot_direction.x +
-                                   inverse[2][1] * spot_direction.y +
-                                   inverse[2][2] * spot_direction.z;
-            float length_squared = spot_direction_eye.LengthSquared();
-            if (length_squared != 0.0f) {
-                double scale = 1.0 / sqrt(length_squared);
-                spot_direction_eye *= scale;
-            }
+            spot_direction_eye =
+                normalizedOrZero(glm::transpose(glm::mat3(inverse)) * spot_direction);
         }
         if (attenuation_model != ATTENUATION_NONE) {
             if (attenuation_model == ATTENUATION_OPENGL) {
@@ -300,7 +271,7 @@ void srLight::process(const ProcessInfo& info, e_processType type)
                 }
                 if ((enable_flags & (1UL << srLight::ENABLE_RANGE_FAR)) != 0) {
                     if ((enable_flags & (1UL << srLight::ENABLE_BOUNDING_SPHERE)) != 0) {
-                        srVector3T<float> origin(0.0f, 0.0f, 0.0f);
+                        srVector3 origin(0, 0, 0);
                         if (renderer->testBoundingSphere(origin, safe_range + far_end) == 0) {
                             derived_flags &= ~srLight::DERIVED_ACTIVE;
                         }
@@ -310,9 +281,7 @@ void srLight::process(const ProcessInfo& info, e_processType type)
                 }
             }
         }
-        eye_location.x = model_view[3][0];
-        eye_location.y = model_view[3][1];
-        eye_location.z = model_view[3][2];
+        eye_location = glm::vec3(model_view[3]);
     }
     renderer->popMatrix();
     if ((derived_flags & srLight::DERIVED_ACTIVE) != 0) {
@@ -328,23 +297,18 @@ int srLight::isActive(srVertexPipe& pipe)
         return 0;
     }
     if ((derived_flags & srLight::DERIVED_RANGE_CULL) != 0) {
-        float dx = eye_location.x - input->eye_center.x;
-        float dy = eye_location.y - input->eye_center.y;
-        float dz = eye_location.z - input->eye_center.z;
+        const auto offset = eye_location - input->eye_center.glmValue();
         float range = attenuation_range + input->eye_radius;
-        if (range * range <= dx * dx + dy * dy + dz * dz) {
+        if (range * range <= glm::dot(offset, offset)) {
             return 0;
         }
     }
     if ((derived_flags & srLight::DERIVED_SPOT) != 0) {
         float radius = input->eye_radius;
-        float dx = input->eye_center.x - eye_location.x;
-        float dy = input->eye_center.y - eye_location.y;
-        float dz = input->eye_center.z - eye_location.z;
-        float distance_squared = dx * dx + dy * dy + dz * dz;
+        const auto offset = input->eye_center.glmValue() - eye_location;
+        const float distance_squared = glm::dot(offset, offset);
         if (radius * radius < distance_squared &&
-            (dx * spot_direction_eye.x + dy * spot_direction_eye.y + dz * spot_direction_eye.z) /
-                        sqrtf(distance_squared) +
+            glm::dot(offset, spot_direction_eye) / sqrtf(distance_squared) +
                     radius / sqrtf(radius * radius + distance_squared) <
                 spot_cutoff) {
             return 0;
@@ -372,7 +336,7 @@ void srLight::process(srVertexPipe& pipe)
     float dots[0x40];
     float distances[0x40];
     glm::vec3 directions[0x40];
-    const auto light_position = eye_location.glmValue();
+    const auto light_position = eye_location;
     srVertexPipe::Scratch* scratch = &pipe.scratch;
     float* attenuation = 0;
 
@@ -382,7 +346,7 @@ void srLight::process(srVertexPipe& pipe)
                 light_position -
                 glm::vec3(pipe.eye_space_locations[pipe.batch_base + pipe.sub_batch_offset + i]);
             distances[i] = glm::length(directions[i]);
-            directions[i] /= distances[i];
+            directions[i] = normalizedOrZero(directions[i]);
         }
         if (attenuation_model == ATTENUATION_3DSTUDIO_MAX) {
             if ((enable_flags & (1UL << srLight::ENABLE_RANGE_NEAR)) != 0) {
@@ -425,7 +389,7 @@ void srLight::process(srVertexPipe& pipe)
             }
         }
         if ((derived_flags & srLight::DERIVED_SPOT) != 0) {
-            const auto spot_direction = -spot_direction_eye.glmValue();
+            const auto spot_direction = -spot_direction_eye;
             const float spot_scale = 1.0f / (1.0f - spot_cutoff);
             for (SRDWORD i = 0; i < count; ++i) {
                 const float factor =
@@ -608,50 +572,45 @@ int srLight::isEnabled(e_enable flag) const
 }
 
 // FUNCTION: SURRENDER 0x1004E760
-void srLight::setAmbient(const srVector3T<float>& ambient)
+void srLight::setAmbient(const glm::vec3& ambient)
 {
     this->ambient = ambient;
 }
 
 // FUNCTION: SURRENDER 0x1004E670
-srVector3T<float> srLight::getAmbient() const
+glm::vec3 srLight::getAmbient() const
 {
     return ambient;
 }
 
 // FUNCTION: SURRENDER 0x1004E780
-void srLight::setDiffuse(const srVector3T<float>& diffuse)
+void srLight::setDiffuse(const glm::vec3& diffuse)
 {
     this->diffuse = diffuse;
 }
 
 // FUNCTION: SURRENDER 0x1004E6A0
-srVector3T<float> srLight::getDiffuse() const
+glm::vec3 srLight::getDiffuse() const
 {
     return diffuse;
 }
 
 // FUNCTION: SURRENDER 0x1004E7B0
-void srLight::setSpecular(const srVector3T<float>& specular)
+void srLight::setSpecular(const glm::vec3& specular)
 {
     this->specular = specular;
 }
 
 // FUNCTION: SURRENDER 0x1004E6E0
-srVector3T<float> srLight::getSpecular() const
+glm::vec3 srLight::getSpecular() const
 {
     return specular;
 }
 
 // FUNCTION: SURRENDER 0x1004E830
-void srLight::setSpotDirection(const srVector3T<float>& direction)
+void srLight::setSpotDirection(const glm::vec3& direction)
 {
-    spot_direction = direction;
-    float length_squared = spot_direction.LengthSquared();
-    if (length_squared != 0.0f) {
-        double scale = 1.0 / sqrt(length_squared);
-        spot_direction *= scale;
-    }
+    spot_direction = normalizedOrZero(direction);
 }
 
 // FUNCTION: SURRENDER 0x1004E7D0
@@ -679,7 +638,7 @@ void srLight::setSpotExponent(float exponent)
 }
 
 // FUNCTION: SURRENDER 0x1004E720
-srVector3T<float> srLight::getSpotDirection() const
+glm::vec3 srLight::getSpotDirection() const
 {
     return spot_direction;
 }
@@ -721,27 +680,13 @@ srLight::e_attenuationModel srLight::getAttenuationModel() const
 }
 
 // FUNCTION: SURRENDER 0x1004E920
-void srLight::setAttenuation(const srVector3T<float>& attenuation)
+void srLight::setAttenuation(const glm::vec3& attenuation)
 {
-    float z = attenuation.z;
-    if (z <= 0.0001f) {
-        z = 0.0001f;
-    }
-    float y = attenuation.y;
-    if (y <= 0.0001f) {
-        y = 0.0001f;
-    }
-    float x = attenuation.x;
-    if (x <= 0.0001f) {
-        x = 0.0001f;
-    }
-    opengl_attenuation.x = x;
-    opengl_attenuation.y = y;
-    opengl_attenuation.z = z;
+    opengl_attenuation = glm::max(attenuation, glm::vec3(0.0001f));
 }
 
 // FUNCTION: SURRENDER 0x1004E9A0
-srVector3T<float> srLight::getAttenuation() const
+glm::vec3 srLight::getAttenuation() const
 {
     return opengl_attenuation;
 }

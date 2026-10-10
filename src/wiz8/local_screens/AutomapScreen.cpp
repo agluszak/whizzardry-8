@@ -255,7 +255,13 @@ W8AutomapNote* g_automap_hovered_note;
 unsigned char HandleAutomapKey(const InputAtom* input);
 unsigned char HandleAutomapNoteInput(const InputAtom* input);
 unsigned char ShowAutomapNoteTooltip(W8AutomapNote* note);
-unsigned char ZoomAutomapIn(const srVector3T<float>* point);
+unsigned char ZoomAutomapIn(const glm::vec2* point);
+
+static glm::vec2 AutomapWorldPosition(const glm::vec2& cursor)
+{
+    return g_automap_position.xz() +
+           (cursor - g_float_half) * glm::vec2(g_automap_zoom, -g_automap_zoom);
+}
 void SetAutomapCameraPoint(srVector3T<float>* position);
 void SetAutomapButtonMode(int update);
 void RenderAutomapFrame(void);
@@ -497,8 +503,7 @@ void CreateAutomapButtons(void)
 // FUNCTION: WIZ8 0x00583CE0
 void AutomapZoomInButton(void)
 {
-    srVector3T<float> center;
-    center.Set(0.5f, 0.5f, 0.0f);
+    const glm::vec2 center(0.5f);
     ZoomAutomapIn(&center);
 }
 
@@ -895,16 +900,14 @@ void AutomapScreenFrame(void)
             SetAutomapToolCursor(g_automap_tool);
         }
         if (input.usEvent == LEFT_BUTTON_UP) {
-            srVector3T<float> point;
+            glm::vec2 point;
             if (g_automap_tool == 2) {
                 if (GetCursorPositionInViewport(&point)) {
                     int layer = g_automap_layer + 1;
                     if (HasAutomapLayer(layer)) {
                         (*g_automap_layers.GetAt(layer))->getLocationY();
                     }
-                    glm::vec2 location;
-                    location = glm::vec2((point.x - 0.5f) * g_automap_zoom + g_automap_position.x,
-                                 g_automap_position.z - (point.y - 0.5f) * g_automap_zoom);
+                    const auto location = AutomapWorldPosition(point);
                     g_automap_editing_note = CreateAutomapNote(&location, g_automap_layer, L"_");
                 }
             } else if (g_automap_tool == 3) {
@@ -959,7 +962,7 @@ void AutomapScreenFrame(void)
                     ShowAutomapNoteTooltip(previous);
                 RenderAutomapMarkers();
             }
-            srVector3T<float> point;
+            srVector3 point;
             if (GetAutomapPositionUnderCursor(&point)) {
                 point.y = 0.0f;
                 srVector3T<float> distance(point.x - g_automap_saved_camera.position.x, 0.0f,
@@ -1239,21 +1242,12 @@ void ResetAutomapZoom(void)
 /* Left-click zoom: drop a sight line onto the clicked point, halve the
    remaining height above ground and move the camera there. */
 // FUNCTION: WIZ8 0x0057FFC0
-unsigned char ZoomAutomapIn(const srVector3T<float>* point)
+unsigned char ZoomAutomapIn(const glm::vec2* point)
 {
-    srVector3T<float> position;
-    position.x = (point->x - g_float_half) * g_automap_zoom + g_automap_position.x;
-    position.y = g_automap_top_y;
-    position.z = g_automap_position.z - (point->y - g_float_half) * g_automap_zoom;
-
-    srVector3T<float> from;
-    srVector3T<float> to;
-    from.y = g_automap_top_y + g_world_scale;
-    to.y = g_automap_grid_min.y;
-    from.x = position.x;
-    from.z = position.z;
-    to.x = position.x;
-    to.z = position.z;
+    const auto location = AutomapWorldPosition(*point);
+    srVector3 position(location.x, g_automap_top_y, location.y);
+    srVector3 from(location.x, g_automap_top_y + g_world_scale, location.y);
+    srVector3 to(location.x, g_automap_grid_min.y, location.y);
 
     float ground;
     if (g_octree_game_data->octree->TraceLineOfSight(&from, &to, true, -3, -3, true, 0) == 0) {
@@ -1448,7 +1442,7 @@ void LightAutomapCell(const srVector3T<float>* position)
             }
             stMeshModel* model = static_cast<stMeshModel*>(instance->getModel());
             srVector3T<float> location;
-            location = instance->getLocation();
+            location = glm::vec3(instance->getLocation());
             srVector3T<float> minimum;
             srVector3T<float> maximum;
             model->getBoundingBox(minimum, maximum);
@@ -1750,7 +1744,7 @@ try
 // FUNCTION: WIZ8 0x00582050
 unsigned char GetAutomapPositionUnderCursor(srVector3T<float>* position)
 {
-    srVector3T<float> point;
+    glm::vec2 point;
 
     if (GetCursorPositionInViewport(&point) != 0) {
         int layer = g_automap_layer + 1;
@@ -1760,9 +1754,8 @@ unsigned char GetAutomapPositionUnderCursor(srVector3T<float>* position)
         } else {
             height = g_automap_grid_min.y;
         }
-        position->y = height;
-        position->x = (point.x - g_float_half) * g_automap_zoom + g_automap_position.x;
-        position->z = g_automap_position.z - (point.y - g_float_half) * g_automap_zoom;
+        const auto location = AutomapWorldPosition(point);
+        *position = glm::vec3(location.x, height, location.y);
         return 1;
     }
     return 0;
@@ -1775,22 +1768,19 @@ W8AutomapNote* FindAutomapNoteUnderCursor(void)
 {
     W8AutomapNote* result = 0;
     double best = 99999999999.9;
-    srVector3T<float> point;
+    glm::vec2 point;
 
     if (g_automap_page != 2 && GetCursorPositionInViewport(&point) != 0) {
         int layer = g_automap_layer + 1;
         if (HasAutomapLayer(layer)) {
             (*g_automap_layers.GetAt(layer))->getLocationY();
         }
-        float x = (point.x - g_float_half) * g_automap_zoom + g_automap_position.x;
-        float y = g_automap_position.z - (point.y - g_float_half) * g_automap_zoom;
+        const auto location = AutomapWorldPosition(point);
         for (unsigned int index = 0; index < static_cast<unsigned int>(g_automap_notes->GetCount());
              ++index) {
             W8AutomapNote* note = *g_automap_notes->GetAt(index);
             if (note->layer == g_automap_layer) {
-                float dx = x - note->position.x;
-                float dy = y - note->position.y;
-                double distance = sqrt(dx * dx + dy * dy);
+                const float distance = glm::distance(location, note->position);
                 if (distance < best && distance < g_automap_zoom * 0.05) {
                     best = distance;
                     result = note;
@@ -2165,16 +2155,13 @@ unsigned char HandleAutomapNoteInput(const InputAtom* input)
 {
     if (input->usEvent != KEY_DOWN && input->usEvent != KEY_REPEAT) {
         if (input->usEvent == LEFT_BUTTON_UP && IsCursorInsideViewport()) {
-            srVector3T<float> point;
+            glm::vec2 point;
             if (GetCursorPositionInViewport(&point) != 0) {
                 int layer = g_automap_layer + 1;
                 if (HasAutomapLayer(layer)) {
                     (*g_automap_layers.GetAt(layer))->getLocationY();
                 }
-                g_automap_editing_note->position =
-                    glm::vec2(
-                    (point.x - g_float_half) * g_automap_zoom + g_automap_position.x,
-                    g_automap_position.z - (point.y - g_float_half) * g_automap_zoom);
+                g_automap_editing_note->position = AutomapWorldPosition(point);
                 g_automap_redraw = true;
             }
         }

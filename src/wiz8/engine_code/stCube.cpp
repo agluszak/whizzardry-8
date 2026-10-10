@@ -698,7 +698,7 @@ unsigned char SaveWorldCursorNodes(wiz8::File* handle)
             ok = (handle->write(&node->parameters[component], 4), true);
         }
         node->node->getLocalBounds(bounds);
-        location = node->node->getLocation();
+        location = glm::vec3(node->node->getLocation());
         ok = ok && (handle->write(&bounds.minimum.x, 4), true) &&
              (handle->write(&bounds.minimum.y, 4), true) &&
              (handle->write(&bounds.minimum.z, 4), true) &&

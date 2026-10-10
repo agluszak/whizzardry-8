@@ -82,7 +82,7 @@ public:
         return false;
     }
 
-    void GetInterpolatedColor(float blend, srVector3T<float>* out) const;
+    glm::vec3 GetInterpolatedColor(float blend) const;
 
     /* flags bits 0-1 select the update mode (0 oscillating intensity, 1
        flicker, 3 one-way ramp); bit 3 lerps diffuse toward the target color,

@@ -1,4 +1,4 @@
-
+#include "wiz8/direction_angles.h"
 
 #include "wiz8/engine_code/PolyPick.h"
 
@@ -17,48 +17,18 @@
 // GLOBAL: WIZ8 0x005ed1e8
 const float g_negative_quarter_turn = -1.570796012878418f;
 
-/* 0x004BE420: the heading angle from source to target. The angle is measured
-   in the x/z plane; an exactly axis-aligned target answers one of the two
-   half turns instead of the atan2 of a zero denominator. */
+/* Heading from source to target in the x/z plane. */
 // FUNCTION: WIZ8 0x004BE420
 float GetHeadingAngle(const srVector3T<float>* source, const srVector3T<float>* target)
 {
-    float x = target->x - source->x;
-    float z = target->z - source->z;
-
-    if (z == g_float_zero) {
-        if (x > g_float_zero) {
-            return g_camera_half_pi;
-        }
-        return g_negative_quarter_turn;
-    }
-    {
-        float angle = static_cast<float>(atan2(x, z));
-        if (!_finite(angle)) {
-            return g_float_zero;
-        }
-        return angle;
-    }
+    return directionAngles(target->glmValue() - source->glmValue()).yaw;
 }
 
-/* 0x004BE490: the elevation from source to target against the horizontal.
-   acos of the vertical fraction is measured from straight up, so the half
-   turn comes off it to put the horizon at zero. */
+/* Pitch from source to target against the horizontal. */
 // FUNCTION: WIZ8 0x004BE490
 float GetElevationAngle(const srVector3T<float>* source, const srVector3T<float>* target)
 {
-    srVector3T<float> delta = *target - *source;
-    float length = delta.Length();
-    float angle;
-
-    if (length == g_float_zero) {
-        return g_float_zero;
-    }
-    angle = static_cast<float>(acos(delta.y / length));
-    if (!_finite(angle)) {
-        return g_float_zero;
-    }
-    return angle - g_quarter_turn;
+    return directionAngles(target->glmValue() - source->glmValue()).pitch;
 }
 
 /* 0x004BE520: GetElevationAngle evaluated from the camera to the target;
@@ -66,44 +36,17 @@ float GetElevationAngle(const srVector3T<float>* source, const srVector3T<float>
 // FUNCTION: WIZ8 0x004BE520
 float ElevationToTargetCPP(const srVector3T<float>* target)
 {
-    srVector3T<float> position;
+    srVector3 position;
     GetCameraPosition(&position);
-    srVector3T<float> delta = position - *target;
-    float length = delta.Length();
-    float angle;
-
-    if (length == g_float_zero) {
-        return g_float_zero;
-    }
-    angle = static_cast<float>(acos(delta.y / length));
-    if (!_finite(angle)) {
-        return g_float_zero;
-    }
-    return angle - g_quarter_turn;
+    return GetElevationAngle(target, &position);
 }
 
 // FUNCTION: WIZ8 0x004BE5C0
 float GetCameraFacingYaw(const srVector3T<float>* position)
 {
-    float position_x = position->x;
-    float position_z = position->z;
-    srVector3T<float> camera_position;
-
-    GetCameraPosition(&camera_position);
-    if (camera_position.z - position_z == g_float_zero) {
-        if (g_float_zero < camera_position.x - position_x) {
-            return g_camera_half_pi;
-        }
-        return g_negative_quarter_turn;
-    }
-    {
-        float angle = static_cast<float>(
-            atan2(camera_position.x - position_x, camera_position.z - position_z));
-        if (!_finite(angle)) {
-            return g_float_zero;
-        }
-        return angle;
-    }
+    srVector3 camera;
+    GetCameraPosition(&camera);
+    return GetHeadingAngle(position, &camera);
 }
 
 /* 0x004BE650: GetHeadingAngle evaluated from the camera to the target; the
@@ -111,24 +54,7 @@ float GetCameraFacingYaw(const srVector3T<float>* position)
 // FUNCTION: WIZ8 0x004BE650
 float HeadingToTargetCPP(const srVector3T<float>* target)
 {
-    srVector3T<float> position;
-    GetCameraPosition(&position);
-    float x = position.x - target->x;
-    float z = position.z - target->z;
-
-    if (z == g_float_zero) {
-        if (x > g_float_zero) {
-            return g_camera_half_pi;
-        }
-        return g_negative_quarter_turn;
-    }
-    {
-        float angle = static_cast<float>(atan2(x, z));
-        if (!_finite(angle)) {
-            return g_float_zero;
-        }
-        return angle;
-    }
+    return GetCameraFacingYaw(target);
 }
 
 /* Euclidean distance between two world-space points. The retail callers at

@@ -324,16 +324,16 @@ try
 
         if (light != 0) {
             if (_strnicmp(light->getName().c_str(), "Sun", 3) == 0) {
-                light->diffuse.SetZero();
-                light->ambient = record.colour;
+                light->diffuse = glm::vec3(0);
+                light->ambient = record.colour.glmValue();
                 light->setGroupMask(light->getGroupMask() | 4);
                 AddEnvironmentLight(light);
             } else {
-                light->diffuse = record.colour;
-                light->ambient.SetZero();
+                light->diffuse = record.colour.glmValue();
+                light->ambient = glm::vec3(0);
             }
 
-            light->specular.SetZero();
+            light->specular = glm::vec3(0);
             ConfigureWorldLight(light, record.range * g_world_scale);
             light->intensity = record.intensity;
             light->setLocation(record.location.x * g_world_scale, record.location.y * g_world_scale,
