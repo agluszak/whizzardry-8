@@ -4,6 +4,8 @@
 #include "wiz8/engine_code/stMeshModel.h"
 #include "wiz8/engine_code/stModelInstance.h"
 #include "wiz8/character_event_queue.h"
+#include "wiz8/message_box.h"
+#include "wiz8/npc_interaction.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 
 #include <cstdio>
@@ -154,6 +156,18 @@ static bool queued_state_teardown()
     ClearNpcDialogueTranscript();
     ClearNpcDialogueTranscript();
     CHECK(g_npc_interaction_state->dialogue_transcript.GetCount() == 0);
+    for (auto kind : {W8_NPC_MSG_PORTRAIT_MESSAGE, W8_NPC_MSG_PORTRAIT_EXTRA,
+                      W8_NPC_MSG_SKILL_NOTICES, W8_NPC_MSG_LEVEL_UP}) {
+        W8MessageBoxPayload text{}, extra{};
+        text.text = new wchar_t[8]{};
+        if (kind == W8_NPC_MSG_PORTRAIT_EXTRA) extra.experience = new W8ExperienceNoticePayload{};
+        if (kind == W8_NPC_MSG_SKILL_NOTICES) extra.skill_notices = new W8SkillNoticePayload{};
+        if (kind == W8_NPC_MSG_LEVEL_UP) extra.level_up_slot = new int{};
+        AddMessageBoxLine(kind, text, extra);
+    }
+    ClearNpcMessageQueue();
+    ClearNpcMessageQueue();
+    CHECK(IsMessageBoxLineQueueEmpty());
     return true;
 }
 
