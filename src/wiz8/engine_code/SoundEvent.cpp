@@ -24,7 +24,7 @@
 // FUNCTION: WIZ8 0x004d5770
 W8SoundEvent::~W8SoundEvent()
 {
-    if (looping && sound_handle != -1) {
+    if (looping && sound_handle != nullptr) {
         SoundStop(sound_handle);
     }
 }
@@ -178,11 +178,11 @@ bool W8SoundEvent::Play(const srVector3T<float>& position, int cycle)
                 options.Pos.flFalloffMin += options.Pos.flFalloffMin;
             }
             sound_handle = Sound3DPlay(wave_name.data(), &options);
-            if (sound_handle == -1) {
+            if (sound_handle == nullptr) {
                 return false;
             }
             if (track_sound && monster != 0) {
-                monster->TrackSoundHandle(sound_handle);
+                monster->TrackSound(sound_handle);
             }
         }
     }

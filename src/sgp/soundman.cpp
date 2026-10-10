@@ -22,8 +22,6 @@
 #include <vector>
 #include "random.h"
 
-#define SOUND_MAX_CHANNELS 32 // number of mixer channels
-
 #define SOUND_DEFAULT_MEMORY (8048 * 1024) // default memory limit
 #define SOUND_DEFAULT_THRESH (256 * 8024)  // size for sample to be double-buffered
 
@@ -40,14 +38,14 @@ struct AudioClip
     UINT32 uiSpeedMin = 0, uiSpeedMax = 0, uiVolMin = 0, uiVolMax = 0;
     UINT32 uiPanMin = 0, uiPanMax = 0, uiPriority = 0, uiInstances = 0, uiMaxInstances = 0;
 };
-struct SoundChannel
+struct AudioPlayback
 {
     std::shared_ptr<MIX_Mixer> owner;
     // Track destruction synchronizes with mixing before closing its input.
     SoundClip clip;
     w8_native::AudioInput input;
     w8_native::Track track;
-    UINT32 uiSoundID = NO_SAMPLE, uiPriority = PRIORITY_MAX;
+    UINT32 uiPriority = PRIORITY_MAX;
     void (*EOSCallback)(void*) = nullptr;
     void* pCallbackData = nullptr;
     uint64_t uiTimeStamp = 0, uiFadeTime = 0;
@@ -55,7 +53,7 @@ struct SoundChannel
     UINT32 volume = 127, playbackRate = 44100;
     Sint64 duration = -1;
     BOOLEAN fMusic = FALSE, fStopAtZero = TRUE;
-    bool spatial = false, fLooping = false;
+    bool spatial = false;
     SOUND3DPOS position{};
 };
 struct Listener
@@ -69,19 +67,14 @@ SoundClip SoundLoadSample(STR pFilename);
 SoundClip SoundGetCached(STR pFilename);
 SoundClip SoundLoadDisk(STR pFilename);
 
-UINT32 SoundGetIndexByID(UINT32 uiSoundID);
 BOOLEAN SoundInitHardware(void);
-UINT32 SoundGetFreeChannel(void);
-UINT32 SoundStartSample(SoundClip uiSample, UINT32 uiChannel, SOUNDPARMS* pParms);
-UINT32 SoundStartStream(STR pFilename, UINT32 uiChannel, SOUNDPARMS* pParms);
-UINT32 SoundGetUniqueID(void);
+template<class Parameters>
+static SoundPlayback StartSample(SoundClip sample, const Parameters* parameters, const SOUND3DPOS* position = nullptr);
+static SoundPlayback SoundStartStream(STR filename, SOUNDPARMS* parameters);
 BOOLEAN SoundPlayStreamed(STR pFilename);
-void SoundResetChannel(UINT32 channel);
 BOOLEAN SoundCleanCache(void);
-BOOLEAN SoundIndexIsPlaying(UINT32 uiSound);
-BOOLEAN SoundStopIndex(UINT32 uiSound);
-UINT32 SoundGetVolumeIndex(UINT32 uiChannel);
-BOOLEAN SoundSetVolumeIndex(UINT32 uiChannel, UINT32 uiVolume);
+static void FinishPlayback(SoundPlayback playback);
+static BOOLEAN SetGain(AudioPlayback& channel, UINT32 volume);
 
 // GLOBAL: WIZ8 0x005ff644
 UINT32 guiSoundDefaultVolume = 127;
@@ -100,7 +93,20 @@ BOOLEAN gfEnableStartup = TRUE; // Allow hardware to starup
 // GLOBAL: WIZ8 0x006e4aa0
 static std::vector<SoundClip> sampleCache;
 // GLOBAL: WIZ8 0x006e4120
-SoundChannel pSoundList[SOUND_MAX_CHANNELS];
+// Retain fire-and-forget playback until completion; callers own the same objects.
+static std::vector<SoundPlayback> activePlayback;
+
+static SoundPlayback CreatePlayback()
+{
+    const auto playing = activePlayback;
+    for (const auto& playback : playing)
+        if (!SoundIsPlaying(playback)) FinishPlayback(playback);
+    if (!fSoundSystemInit) return {};
+    auto playback = std::make_shared<AudioPlayback>();
+    playback->owner = w8_native::retain_audio_mixer();
+    playback->track.reset(MIX_CreateTrack(playback->owner.get()));
+    return playback->track ? playback : SoundPlayback{};
+}
 
 static std::string ResolveSoundPath(std::string_view path)
 {
@@ -123,7 +129,6 @@ void SoundEnableSound(BOOLEAN fEnable)
 BOOLEAN InitializeSoundManager(void)
 {
     ShutdownSoundManager();
-    for (auto& channel : pSoundList) channel = SoundChannel{};
     listener = Listener{};
 #ifndef SOUND_DISABLE
     fSoundSystemInit = gfEnableStartup && SoundInitHardware();
@@ -137,34 +142,33 @@ BOOLEAN InitializeSoundManager(void)
 // FUNCTION: WIZ8 0x00408850
 void ShutdownSoundManager(void)
 {
-    for (auto& channel : pSoundList) channel.EOSCallback = nullptr;
-    for (UINT32 index = 0; index < SOUND_MAX_CHANNELS; ++index) SoundStopIndex(index);
+    fSoundSystemInit = FALSE;
+    const auto stopped = std::move(activePlayback);
+    activePlayback.clear();
+    for (const auto& playback : stopped) {
+        playback->EOSCallback = nullptr;
+        FinishPlayback(playback);
+    }
     sampleCache.clear();
     guiSoundMemoryUsed = 0;
     w8_native::shutdown_audio();
-    fSoundSystemInit = FALSE;
 }
 
 // FUNCTION: WIZ8 0x00408860
-UINT32 SoundPlay(std::string_view path, SOUNDPARMS* parameters)
+SoundPlayback SoundPlay(std::string_view path, SOUNDPARMS* parameters)
 {
-    if (!fSoundSystemInit) return SOUND_ERROR;
+    if (!fSoundSystemInit) return {};
     auto filename = ResolveSoundPath(path);
-    if (filename.empty() || SoundPlayStreamed(filename.data())) return SOUND_ERROR;
-    const auto sample = SoundLoadSample(filename.data());
-    if (!sample) return SOUND_ERROR;
-    const auto channel = SoundGetFreeChannel();
-    return channel == SOUND_ERROR ? SOUND_ERROR : SoundStartSample(sample, channel, parameters);
+    if (filename.empty() || SoundPlayStreamed(filename.data())) return {};
+    return StartSample(SoundLoadSample(filename.data()), parameters);
 }
 
 // FUNCTION: WIZ8 0x00408ad0
-UINT32 SoundPlayStreamedFile(std::string_view path, SOUNDPARMS* parameters)
+SoundPlayback SoundPlayStreamedFile(std::string_view path, SOUNDPARMS* parameters)
 {
-    if (!fSoundSystemInit) return SOUND_ERROR;
+    if (!fSoundSystemInit) return {};
     auto filename = ResolveSoundPath(path);
-    if (filename.empty()) return SOUND_ERROR;
-    const auto channel = SoundGetFreeChannel();
-    return channel == SOUND_ERROR ? SOUND_ERROR : SoundStartStream(filename.data(), channel, parameters);
+    return filename.empty() ? SoundPlayback{} : SoundStartStream(filename.data(), parameters);
 }
 
 // FUNCTION: WIZ8 0x00408d60
@@ -195,60 +199,27 @@ SoundClip SoundPlayRandom(STR filename, RANDOMPARMS* parameters)
 }
 
 // FUNCTION: WIZ8 0x00408ef0
-BOOLEAN SoundIsPlaying(UINT32 uiSoundID)
+BOOLEAN SoundIsPlaying(SoundPlayback playback)
 {
-    UINT32 uiSound;
-
-    if (fSoundSystemInit) {
-        uiSound = SoundGetIndexByID(uiSoundID);
-        if (uiSound != NO_SAMPLE)
-            return (SoundIndexIsPlaying(uiSound));
-    }
-
-    return (FALSE);
-}
-
-BOOLEAN SoundIndexIsPlaying(UINT32 index)
-{
-    return fSoundSystemInit && index < SOUND_MAX_CHANNELS && pSoundList[index].track &&
-           MIX_TrackPlaying(pSoundList[index].track.get());
+    return fSoundSystemInit && playback && playback->track && MIX_TrackPlaying(playback->track.get());
 }
 
 // FUNCTION: WIZ8 0x00408f70
-BOOLEAN SoundStop(UINT32 uiSoundID)
+BOOLEAN SoundStop(SoundPlayback playback)
 {
-    UINT32 uiSound;
-
-    if (fSoundSystemInit) {
-        if (SoundIsPlaying(uiSoundID)) {
-            uiSound = SoundGetIndexByID(uiSoundID);
-            if (uiSound != NO_SAMPLE) {
-                SoundStopIndex(uiSound);
-                return (TRUE);
-            }
-        }
-    }
-    return (FALSE);
+    if (!SoundIsPlaying(playback)) return FALSE;
+    FinishPlayback(playback);
+    return TRUE;
 }
 
 // FUNCTION: WIZ8 0x00409020
 BOOLEAN SoundStopGroup(UINT32 uiPriority)
 {
-    UINT32 uiCount;
-    BOOLEAN fStopped = FALSE;
-
-    if (fSoundSystemInit) {
-        for (uiCount = 0; uiCount < SOUND_MAX_CHANNELS; uiCount++) {
-            if (pSoundList[uiCount].track) {
-                if (pSoundList[uiCount].uiPriority == uiPriority) {
-                    SoundStop(pSoundList[uiCount].uiSoundID);
-                    fStopped = TRUE;
-                }
-            }
-        }
-    }
-
-    return (fStopped);
+    bool stopped = false;
+    const auto playing = activePlayback;
+    for (const auto& playback : playing)
+        if (playback->uiPriority == uiPriority) stopped |= SoundStop(playback);
+    return stopped;
 }
 
 // FUNCTION: WIZ8 0x00409120
@@ -258,51 +229,29 @@ void SoundSetDefaultVolume(UINT32 uiVolume)
 }
 
 // FUNCTION: WIZ8 0x00409140
-BOOLEAN SoundSetFadeVolume(UINT32 uiSoundID, UINT32 uiVolume, UINT32 uiRate, BOOLEAN fStopAtZero)
+BOOLEAN SoundSetFadeVolume(SoundPlayback playback, UINT32 uiVolume, UINT32 uiRate, BOOLEAN fStopAtZero)
 {
-    UINT32 uiSound, uiVolCap, uiVolumeDiff;
-
-    if (fSoundSystemInit) {
-        uiVolCap = std::min(uiVolume, 127u);
-
-        if ((uiSound = SoundGetIndexByID(uiSoundID)) != NO_SAMPLE) {
-            uiVolumeDiff = abs(static_cast<int>(uiVolCap - SoundGetVolumeIndex(uiSound)));
-
-            if (!uiVolumeDiff)
-                return (FALSE);
-
-            pSoundList[uiSound].uiFadeVolume = uiVolCap;
-            pSoundList[uiSound].fStopAtZero = fStopAtZero;
-            pSoundList[uiSound].uiFadeRate = uiRate / uiVolumeDiff;
-            pSoundList[uiSound].uiFadeTime = w8_get_ticks();
-
-            return (TRUE);
-        }
-    }
-
-    return (FALSE);
+    if (!fSoundSystemInit || !playback || !playback->track) return FALSE;
+    const auto target = std::min(uiVolume, 127u);
+    const auto difference = std::abs(int(target) - int(playback->volume));
+    if (!difference) return FALSE;
+    playback->uiFadeVolume = target;
+    playback->fStopAtZero = fStopAtZero;
+    playback->uiFadeRate = uiRate / difference;
+    playback->uiFadeTime = w8_get_ticks();
+    return TRUE;
 }
 
 // FUNCTION: WIZ8 0x00409210
-BOOLEAN SoundSetVolume(UINT32 uiSoundID, UINT32 uiVolume)
+BOOLEAN SoundSetVolume(SoundPlayback playback, UINT32 uiVolume)
 {
-    UINT32 uiSound;
-
-    if (fSoundSystemInit) {
-
-        if ((uiSound = SoundGetIndexByID(uiSoundID)) != NO_SAMPLE) {
-            pSoundList[uiSound].uiFadeVolume = std::min(uiVolume, 127u);
-            return (SoundSetVolumeIndex(uiSound, uiVolume));
-        }
-    }
-
-    return (FALSE);
+    if (!fSoundSystemInit || !playback || !playback->track) return FALSE;
+    playback->uiFadeVolume = std::min(uiVolume, 127u);
+    return SetGain(*playback, uiVolume);
 }
 
-BOOLEAN SoundSetVolumeIndex(UINT32 index, UINT32 volume)
+static BOOLEAN SetGain(AudioPlayback& channel, UINT32 volume)
 {
-    if (!fSoundSystemInit || index >= SOUND_MAX_CHANNELS || !pSoundList[index].track) return FALSE;
-    auto& channel = pSoundList[index];
     const UINT32 clamped = std::min(volume, 127u);
     if (!MIX_SetTrackGain(channel.track.get(), float(clamped) / 127)) return FALSE;
     channel.volume = clamped;
@@ -310,21 +259,9 @@ BOOLEAN SoundSetVolumeIndex(UINT32 index, UINT32 volume)
 }
 
 // FUNCTION: WIZ8 0x004092a0
-UINT32 SoundGetVolume(UINT32 uiSoundID)
+UINT32 SoundGetVolume(SoundPlayback playback)
 {
-    UINT32 uiSound;
-
-    if (fSoundSystemInit) {
-        if ((uiSound = SoundGetIndexByID(uiSoundID)) != NO_SAMPLE)
-            return (SoundGetVolumeIndex(uiSound));
-    }
-
-    return (SOUND_ERROR);
-}
-
-UINT32 SoundGetVolumeIndex(UINT32 index)
-{
-    return index < SOUND_MAX_CHANNELS && pSoundList[index].track ? pSoundList[index].volume : SOUND_ERROR;
+    return fSoundSystemInit && playback && playback->track ? playback->volume : SOUND_ERROR;
 }
 
 // FUNCTION: WIZ8 0x00409310
@@ -353,40 +290,32 @@ BOOLEAN SoundRandomShouldPlay(SoundClip uiSample)
 }
 
 // FUNCTION: WIZ8 0x004093b0
-UINT32 SoundStartRandom(SoundClip uiSample)
+SoundPlayback SoundStartRandom(SoundClip uiSample)
 {
-    if (!fSoundSystemInit || !uiSample || !uiSample->audio) return SOUND_ERROR;
-    UINT32 uiChannel, uiSoundID;
-    SOUNDPARMS spParms;
-
-    if ((uiChannel = SoundGetFreeChannel()) != SOUND_ERROR) {
-        memset(&spParms, 0xff, sizeof(SOUNDPARMS));
-
-        spParms.uiVolume = uiSample->uiVolMin +
-                           (uiSample->uiVolMax > uiSample->uiVolMin ? Random(uiSample->uiVolMax - uiSample->uiVolMin) : 0);
-        spParms.uiPan = uiSample->uiPanMin +
-                        (uiSample->uiPanMax > uiSample->uiPanMin ? Random(uiSample->uiPanMax - uiSample->uiPanMin) : 0);
-        spParms.uiLoop = 1;
-        spParms.uiPriority = uiSample->uiPriority;
-
-        if ((uiSoundID = SoundStartSample(uiSample, uiChannel, &spParms)) != SOUND_ERROR) {
-            uiSample->uiTimeNext =
-                w8_get_ticks() + uiSample->uiTimeMin +
-                (uiSample->uiTimeMax > uiSample->uiTimeMin ? Random(uiSample->uiTimeMax - uiSample->uiTimeMin) : 0);
-            uiSample->uiInstances++;
-            return (uiSoundID);
-        }
+    if (!fSoundSystemInit || !uiSample) return {};
+    SOUNDPARMS parameters;
+    memset(&parameters, 0xff, sizeof(parameters));
+    parameters.uiVolume = uiSample->uiVolMin +
+        (uiSample->uiVolMax > uiSample->uiVolMin ? Random(uiSample->uiVolMax - uiSample->uiVolMin) : 0);
+    parameters.uiPan = uiSample->uiPanMin +
+        (uiSample->uiPanMax > uiSample->uiPanMin ? Random(uiSample->uiPanMax - uiSample->uiPanMin) : 0);
+    parameters.uiLoop = 1;
+    parameters.uiPriority = uiSample->uiPriority;
+    auto playback = StartSample(uiSample, &parameters);
+    if (playback) {
+        uiSample->uiTimeNext = w8_get_ticks() + uiSample->uiTimeMin +
+            (uiSample->uiTimeMax > uiSample->uiTimeMin ? Random(uiSample->uiTimeMax - uiSample->uiTimeMin) : 0);
+        ++uiSample->uiInstances;
     }
-    return (NO_SAMPLE);
+    return playback;
 }
 
 // FUNCTION: WIZ8 0x00409550
 BOOLEAN SoundStopAllRandom(void)
 {
-    for (UINT32 index = 0; index < SOUND_MAX_CHANNELS; ++index) {
-        const auto& clip = pSoundList[index].clip;
-        if (clip && (clip->uiFlags & SAMPLE_RANDOM)) SoundStopIndex(index);
-    }
+    const auto playing = activePlayback;
+    for (const auto& playback : playing)
+        if (playback->clip && (playback->clip->uiFlags & SAMPLE_RANDOM)) FinishPlayback(playback);
     for (const auto& clip : sampleCache)
         clip->uiFlags &= ~(SAMPLE_RANDOM | SAMPLE_LOCKED);
     return FALSE;
@@ -396,18 +325,18 @@ BOOLEAN SoundStopAllRandom(void)
 BOOLEAN SoundServiceStreams(void)
 {
     if (!fSoundSystemInit) return TRUE;
-    for (UINT32 index = 0; index < SOUND_MAX_CHANNELS; ++index)
-    {
-        auto& channel = pSoundList[index];
+    // Callbacks may stop other playback, start new playback, or shut down audio.
+    const auto playing = activePlayback;
+    for (const auto& playback : playing) {
+        auto& channel = *playback;
         if (!channel.track) continue;
-        if (!SoundIndexIsPlaying(index)) { SoundStopIndex(index); continue; }
+        if (!SoundIsPlaying(playback)) { FinishPlayback(playback); continue; }
         const auto time = w8_get_ticks();
         if (channel.volume == channel.uiFadeVolume || time - channel.uiFadeTime < channel.uiFadeRate) continue;
         const auto volume = channel.volume < channel.uiFadeVolume ? channel.volume + 1 : channel.volume - 1;
-        if (volume == 0 && channel.fStopAtZero) SoundStopIndex(index);
-        else
-        {
-            SoundSetVolumeIndex(index, volume);
+        if (volume == 0 && channel.fStopAtZero) FinishPlayback(playback);
+        else {
+            SetGain(channel, volume);
             channel.uiFadeTime = time;
         }
     }
@@ -415,33 +344,18 @@ BOOLEAN SoundServiceStreams(void)
 }
 
 // FUNCTION: WIZ8 0x004097f0
-UINT32 SoundGetPosition(UINT32 uiSoundID)
+UINT32 SoundGetPosition(SoundPlayback playback)
 {
-    //UINT32 uiSound, uiFreq=0, uiPosition=0, uiBytesPerSample=0, uiFormat=0;
-    UINT32 uiSound;
-    uint64_t uiTime, uiPosition;
-
-    if (fSoundSystemInit) {
-        if ((uiSound = SoundGetIndexByID(uiSoundID)) != NO_SAMPLE) {
-
-            uiTime = w8_get_ticks();
-            uiPosition = uiTime - pSoundList[uiSound].uiTimeStamp;
-
-            return (uiPosition);
-        }
-    }
-
-    return (0);
+    return fSoundSystemInit && playback && playback->track ? w8_get_ticks() - playback->uiTimeStamp : 0;
 }
 
 // FUNCTION: WIZ8 0x00409840
-BOOLEAN SoundGetMilliSecondPosition(UINT32 id, UINT32* total, UINT32* current)
+BOOLEAN SoundGetMilliSecondPosition(SoundPlayback playback, UINT32* total, UINT32* current)
 {
     if (!total || !current) return FALSE;
     *total = *current = 0;
-    const auto index = SoundGetIndexByID(id);
-    if (!fSoundSystemInit || index == NO_SAMPLE || !pSoundList[index].track) return FALSE;
-    const auto& channel = pSoundList[index];
+    if (!fSoundSystemInit || !playback || !playback->track) return FALSE;
+    const auto& channel = *playback;
     const auto position = MIX_GetTrackPlaybackPosition(channel.track.get());
     *total = UINT32(std::max<Sint64>(0, MIX_TrackFramesToMS(channel.track.get(), channel.duration)));
     *current = UINT32(std::max<Sint64>(0, MIX_TrackFramesToMS(channel.track.get(), position)));
@@ -462,19 +376,12 @@ BOOLEAN SoundSetCacheThreshhold(UINT32 uiThreshold)
 // FUNCTION: WIZ8 0x004098f0
 BOOLEAN SoundEmptyCache(void)
 {
-    UINT32 uiCount;
-
-    if (fSoundSystemInit) {
-        for (uiCount = 0; uiCount < SOUND_MAX_CHANNELS; ++uiCount) {
-            if (!pSoundList[uiCount].fMusic)
-                SoundStopIndex(uiCount);
-        }
-    }
-
+    const auto playing = activePlayback;
+    for (const auto& playback : playing)
+        if (!playback->fMusic) FinishPlayback(playback);
     sampleCache.clear();
     guiSoundMemoryUsed = 0;
-
-    return (TRUE);
+    return TRUE;
 }
 
 SoundClip SoundLoadSample(STR pFilename)
@@ -530,52 +437,15 @@ BOOLEAN SoundCleanCache(void)
     return TRUE;
 }
 
-UINT32 SoundGetIndexByID(UINT32 uiSoundID)
-{
-    if (uiSoundID == NO_SAMPLE) return NO_SAMPLE;
-    UINT32 uiCount;
-
-    for (uiCount = 0; uiCount < SOUND_MAX_CHANNELS; uiCount++) {
-        if (pSoundList[uiCount].uiSoundID == uiSoundID)
-            return (uiCount);
-    }
-
-    return (NO_SAMPLE);
-}
-
 // FUNCTION: WIZ8 0x00409c50
 BOOLEAN SoundInitHardware(void)
 {
     return w8_native::initialize_audio();
 }
 
-// FUNCTION: WIZ8 0x00409f30
-void SoundResetChannel(UINT32 index)
-{
-    auto& channel = pSoundList[index];
-    channel.track.reset();
-    channel.input.reset();
-    channel = SoundChannel{};
-    channel.uiTimeStamp = w8_get_ticks();
-}
-
-UINT32 SoundGetFreeChannel(void)
-{
-    for (UINT32 index = 0; index < SOUND_MAX_CHANNELS; ++index)
-    {
-        if (!SoundIndexIsPlaying(index)) SoundStopIndex(index);
-        if (!pSoundList[index].track)
-        {
-            SoundResetChannel(index);
-            return index;
-        }
-    }
-    return SOUND_ERROR;
-}
-
 // FUNCTION: WIZ8 0x00409fe0
 
-static bool UpdateSpatial(SoundChannel& channel)
+static bool UpdateSpatial(AudioPlayback& channel)
 {
     const auto& p = channel.position;
     const float dx = p.flX - listener.x, dy = p.flY - listener.y, dz = p.flZ - listener.z;
@@ -604,11 +474,11 @@ static UINT32 RandomRange(UINT32 minimum, UINT32 maximum)
 }
 
 template<class Parameters>
-static UINT32 StartTrack(UINT32 index, SoundClip sample, const Parameters* parameters, const SOUND3DPOS* position = nullptr)
+static SoundPlayback StartTrack(SoundPlayback playback, SoundClip sample, const Parameters* parameters, const SOUND3DPOS* position = nullptr)
 {
-    auto& channel = pSoundList[index];
+    auto& channel = *playback;
     const auto naturalRate = MIX_TrackMSToFrames(channel.track.get(), 1000);
-    if (naturalRate <= 0) { SoundResetChannel(index); return SOUND_ERROR; }
+    if (naturalRate <= 0) return {};
     UINT32 rate = UINT32(naturalRate);
     if (sample && (sample->uiFlags & SAMPLE_RANDOM))
     {
@@ -631,7 +501,7 @@ static UINT32 StartTrack(UINT32 index, SoundClip sample, const Parameters* param
     channel.uiFadeVolume = std::min(volume, 127u);
     channel.uiPriority = parameters && parameters->uiPriority != SOUND_PARMS_DEFAULT ? parameters->uiPriority : PRIORITY_MAX;
     const auto options = SDL_CreateProperties();
-    bool ok = options && SoundSetVolumeIndex(index, volume) &&
+    bool ok = options && SetGain(channel, volume) &&
               SDL_SetNumberProperty(options, MIX_PROP_PLAY_LOOPS_NUMBER, loops == 0 ? -1 : Sint64(loops) - 1);
     if (channel.spatial) ok = ok && UpdateSpatial(channel);
     else
@@ -647,64 +517,45 @@ static UINT32 StartTrack(UINT32 index, SoundClip sample, const Parameters* param
     }
     ok = ok && MIX_PlayTrack(channel.track.get(), options);
     SDL_DestroyProperties(options);
-    if (!ok) { SoundResetChannel(index); return SOUND_ERROR; }
+    if (!ok) return {};
     channel.clip = sample;
-    channel.uiSoundID = SoundGetUniqueID();
     channel.uiTimeStamp = w8_get_ticks();
-    channel.fLooping = loops == 0;
-    if (sample)
-    {
-        ++sample->uiCacheHits;
-        if (channel.fLooping) sample->uiFlags |= SAMPLE_LOCKED;
-    }
+    if (sample) ++sample->uiCacheHits;
     if (parameters && reinterpret_cast<w8_ulong_ptr>(parameters->EOSCallback) != w8_ulong_ptr(-1))
     {
         channel.EOSCallback = parameters->EOSCallback;
         channel.pCallbackData = parameters->pCallbackData;
     }
-    return channel.uiSoundID;
+    activePlayback.push_back(playback);
+    return playback;
 }
 
-UINT32 SoundStartSample(SoundClip sample, UINT32 index, SOUNDPARMS* parameters)
+template<class Parameters>
+static SoundPlayback StartSample(SoundClip sample, const Parameters* parameters, const SOUND3DPOS* position)
 {
-    if (!fSoundSystemInit || index >= SOUND_MAX_CHANNELS || !sample || !sample->audio) return SOUND_ERROR;
-    auto& channel = pSoundList[index];
-    channel.owner = w8_native::retain_audio_mixer();
-    channel.track.reset(MIX_CreateTrack(w8_native::audio_mixer()));
-    if (!channel.track || !MIX_SetTrackAudio(channel.track.get(), sample->audio.get()))
-    { SoundResetChannel(index); return SOUND_ERROR; }
-    channel.duration = MIX_GetAudioDuration(sample->audio.get());
-    return StartTrack(index, sample, parameters);
+    if (!fSoundSystemInit || !sample || !sample->audio) return {};
+    auto playback = CreatePlayback();
+    if (!playback || !MIX_SetTrackAudio(playback->track.get(), sample->audio.get())) return {};
+    playback->duration = MIX_GetAudioDuration(sample->audio.get());
+    return StartTrack(playback, sample, parameters, position);
 }
 
 // FUNCTION: WIZ8 0x0040a2e0
-UINT32 SoundStartStream(STR filename, UINT32 index, SOUNDPARMS* parameters)
+static SoundPlayback SoundStartStream(STR filename, SOUNDPARMS* parameters)
 {
-    if (!fSoundSystemInit || index >= SOUND_MAX_CHANNELS) return SOUND_ERROR;
-    auto& channel = pSoundList[index];
-    channel.owner = w8_native::retain_audio_mixer();
+    auto playback = CreatePlayback();
+    if (!playback) return {};
+    auto& channel = *playback;
     channel.input = w8_native::open_audio_input(filename);
-    if (!channel.input) return SOUND_ERROR;
+    if (!channel.input) return {};
     std::unique_ptr<MIX_AudioDecoder, decltype(&MIX_DestroyAudioDecoder)> decoder(
         MIX_CreateAudioDecoder_IO(channel.input.get(), false, 0), MIX_DestroyAudioDecoder);
-    if (!decoder) { SoundResetChannel(index); return SOUND_ERROR; }
+    if (!decoder) return {};
     channel.duration = SDL_GetNumberProperty(MIX_GetAudioDecoderProperties(decoder.get()), MIX_PROP_METADATA_DURATION_FRAMES_NUMBER, -1);
     decoder.reset();
-    channel.track.reset(MIX_CreateTrack(w8_native::audio_mixer()));
-    if (SDL_SeekIO(channel.input.get(), 0, SDL_IO_SEEK_SET) != 0 || !channel.track ||
-        !MIX_SetTrackIOStream(channel.track.get(), channel.input.get(), false))
-    { SoundResetChannel(index); return SOUND_ERROR; }
-    return StartTrack(index, {}, parameters);
-}
-
-UINT32 SoundGetUniqueID(void)
-{
-    static UINT32 uiNextID = 0;
-
-    if (uiNextID == SOUND_ERROR)
-        uiNextID++;
-
-    return (uiNextID++);
+    if (SDL_SeekIO(channel.input.get(), 0, SDL_IO_SEEK_SET) != 0 ||
+        !MIX_SetTrackIOStream(channel.track.get(), channel.input.get(), false)) return {};
+    return StartTrack(playback, {}, parameters);
 }
 
 BOOLEAN SoundPlayStreamed(STR pFilename)
@@ -716,29 +567,22 @@ try
 catch (const std::exception&) { return FALSE; }
 
 // FUNCTION: WIZ8 0x0040a5c0
-BOOLEAN SoundStopIndex(UINT32 index)
+static void FinishPlayback(SoundPlayback playback)
 {
-    if (index >= SOUND_MAX_CHANNELS || !pSoundList[index].track) return FALSE;
-    auto& channel = pSoundList[index];
-    const auto sample = channel.clip;
-    const bool looping = channel.fLooping;
-    const auto callback = channel.EOSCallback;
-    void* data = channel.pCallbackData;
-    SoundResetChannel(index);
-    if (sample)
-    {
-        auto& cached = *sample;
-        if ((cached.uiFlags & SAMPLE_RANDOM) && cached.uiInstances) --cached.uiInstances;
-        if (looping && !(cached.uiFlags & SAMPLE_RANDOM))
-        {
-            bool inUse = false;
-            for (const auto& other : pSoundList) inUse |= other.clip == sample && other.fLooping;
-            if (!inUse) cached.uiFlags &= ~SAMPLE_LOCKED;
-        }
-    }
-    // Dispatch only on the game thread, after clearing state: callback reentry is safe.
+    if (!playback || !playback->track) return;
+    const auto clip = playback->clip;
+    const auto callback = playback->EOSCallback;
+    void* data = playback->pCallbackData;
+    playback->EOSCallback = nullptr;
+    playback->pCallbackData = nullptr;
+    playback->track.reset();
+    playback->input.reset();
+    playback->clip.reset();
+    playback->owner.reset();
+    std::erase(activePlayback, playback);
+    if (clip && (clip->uiFlags & SAMPLE_RANDOM) && clip->uiInstances) --clip->uiInstances;
+    // Retained objects become inert before callbacks, and never identify later playback.
     if (callback) callback(data);
-    return TRUE;
 }
 
 // FUNCTION: WIZ8 0x0040a8b0
@@ -756,50 +600,35 @@ void SoundRemoveSampleFlags(SoundClip uiSample, UINT32 uiFlags)
 // FUNCTION: WIZ8 0x0040a910
 BOOLEAN SoundFileIsPlaying(std::string_view filename)
 {
-    for (UINT32 index = 0; index < SOUND_MAX_CHANNELS; ++index) {
-        const auto& clip = pSoundList[index].clip;
-        if (clip && SoundIndexIsPlaying(index) && clip->pName.size() == filename.size() &&
-            SDL_strncasecmp(clip->pName.c_str(), filename.data(), filename.size()) == 0)
-            return TRUE;
+    for (const auto& playback : activePlayback) {
+        const auto& clip = playback->clip;
+        if (clip && SoundIsPlaying(playback) && clip->pName.size() == filename.size() &&
+            SDL_strncasecmp(clip->pName.c_str(), filename.data(), filename.size()) == 0) return TRUE;
     }
     return FALSE;
 }
 
 // FUNCTION: WIZ8 0x0040a9a0
-void SoundSetMusic(UINT32 uiSoundID)
+void SoundSetMusic(SoundPlayback playback)
 {
-    UINT32 uiSound = SoundGetIndexByID(uiSoundID);
-
-    if (uiSound != NO_SAMPLE)
-        pSoundList[uiSound].fMusic = TRUE;
+    if (playback) playback->fMusic = TRUE;
 }
 
 // FUNCTION: WIZ8 0x0040a9d0
 BOOLEAN SoundStopMusic(void)
 {
-    UINT32 uiCount;
-    BOOLEAN fStopped = FALSE;
-
-    if (fSoundSystemInit) {
-        for (uiCount = 0; uiCount < SOUND_MAX_CHANNELS; uiCount++) {
-            if (pSoundList[uiCount].track) {
-                if (pSoundList[uiCount].fMusic) {
-                    SoundStop(pSoundList[uiCount].uiSoundID);
-                    fStopped = TRUE;
-                }
-            }
-        }
-    }
-
-    return (fStopped);
+    bool stopped = false;
+    const auto playing = activePlayback;
+    for (const auto& playback : playing)
+        if (playback->fMusic) stopped |= SoundStop(playback);
+    return stopped;
 }
 
 // FUNCTION: WIZ8 0x0040ab20
-void Sound3DSetPosition(UINT32 id, FLOAT x, FLOAT y, FLOAT z)
+void Sound3DSetPosition(SoundPlayback playback, FLOAT x, FLOAT y, FLOAT z)
 {
-    const auto index = SoundGetIndexByID(id);
-    if (index == NO_SAMPLE || !pSoundList[index].track || !pSoundList[index].spatial) return;
-    auto& channel = pSoundList[index];
+    if (!playback || !playback->track || !playback->spatial) return;
+    auto& channel = *playback;
     channel.position.flX = x; channel.position.flY = y; channel.position.flZ = z;
     UpdateSpatial(channel);
 }
@@ -807,29 +636,27 @@ void Sound3DSetPosition(UINT32 id, FLOAT x, FLOAT y, FLOAT z)
 void Sound3DSetListener(FLOAT x, FLOAT y, FLOAT z)
 {
     listener.x = x; listener.y = y; listener.z = z;
-    for (auto& channel : pSoundList) if (channel.track && channel.spatial) UpdateSpatial(channel);
+    for (const auto& playback : activePlayback) if (playback->spatial) UpdateSpatial(*playback);
 }
 void Sound3DSetListenerOrientation(FLOAT faceX, FLOAT faceY, FLOAT faceZ, FLOAT upX, FLOAT upY, FLOAT upZ)
 {
     listener.faceX = faceX; listener.faceY = faceY; listener.faceZ = faceZ;
     listener.upX = upX; listener.upY = upY; listener.upZ = upZ;
-    for (auto& channel : pSoundList) if (channel.track && channel.spatial) UpdateSpatial(channel);
+    for (const auto& playback : activePlayback) if (playback->spatial) UpdateSpatial(*playback);
 }
 void Sound3DSetListenerVelocity(FLOAT x, FLOAT y, FLOAT z)
 {
     listener.velocityX = x; listener.velocityY = y; listener.velocityZ = z;
-    for (auto& channel : pSoundList) if (channel.track && channel.spatial) UpdateSpatial(channel);
+    for (const auto& playback : activePlayback) if (playback->spatial) UpdateSpatial(*playback);
 }
 
 // FUNCTION: WIZ8 0x0040ab80
-void Sound3DSetDirection(UINT32 id, FLOAT faceX, FLOAT faceY, FLOAT faceZ, FLOAT upX, FLOAT upY, FLOAT upZ)
+void Sound3DSetDirection(SoundPlayback playback, FLOAT faceX, FLOAT faceY, FLOAT faceZ, FLOAT upX, FLOAT upY, FLOAT upZ)
 {
-    const auto index = SoundGetIndexByID(id);
-    if (index == NO_SAMPLE || !pSoundList[index].spatial) return;
-    auto& p = pSoundList[index].position;
+    if (!playback || !playback->track || !playback->spatial) return;
+    auto& p = playback->position;
     p.flFaceX = faceX; p.flFaceY = faceY; p.flFaceZ = faceZ;
     p.flUpX = upX; p.flUpY = upY; p.flUpZ = upZ;
-    // Sources are omnidirectional, as in the previous backend (no source cone).
 }
 
 // FUNCTION: WIZ8 0x0040b210
@@ -839,61 +666,32 @@ void Sound3DSetEnvironment(INT32)
 }
 
 // FUNCTION: WIZ8 0x0040abf0
-UINT32 Sound3DPlay(STR pFilename, SOUND3DPARMS* pParms)
+SoundPlayback Sound3DPlay(STR pFilename, SOUND3DPARMS* pParms)
 {
-    SoundClip uiSample;
-    UINT32 uiChannel;
-
-    if (fSoundSystemInit) {
-        if ((uiSample = SoundLoadSample(pFilename)) != nullptr) {
-            if ((uiChannel = SoundGetFreeChannel()) != SOUND_ERROR) {
-                return (Sound3DStartSample(uiSample, uiChannel, pParms));
-            }
-        } else {
-            SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Sound3DPlay: ERROR: Failed loading sample %s\n", pFilename);
-        }
+    if (!fSoundSystemInit || !pParms) return {};
+    auto clip = SoundLoadSample(pFilename);
+    if (!clip) {
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Sound3DPlay: failed loading %s", pFilename);
+        return {};
     }
-
-    return (SOUND_ERROR);
-}
-
-// FUNCTION: WIZ8 0x0040ad40
-UINT32 Sound3DStartSample(SoundClip sample, UINT32 index, SOUND3DPARMS* parameters)
-{
-    if (!fSoundSystemInit || !parameters || index >= SOUND_MAX_CHANNELS || !sample || !sample->audio) return SOUND_ERROR;
-    auto& channel = pSoundList[index];
-    channel.owner = w8_native::retain_audio_mixer();
-    channel.track.reset(MIX_CreateTrack(w8_native::audio_mixer()));
-    if (!channel.track || !MIX_SetTrackAudio(channel.track.get(), sample->audio.get()))
-    { SoundResetChannel(index); return SOUND_ERROR; }
-    channel.duration = MIX_GetAudioDuration(sample->audio.get());
-    return StartTrack(index, sample, parameters, &parameters->Pos);
+    return StartSample(clip, pParms, &pParms->Pos);
 }
 
 // FUNCTION: WIZ8 0x0040b040
-UINT32 Sound3DStartRandom(SoundClip uiSample, SOUND3DPOS* pPos)
+SoundPlayback Sound3DStartRandom(SoundClip uiSample, SOUND3DPOS* pPos)
 {
-    if (!fSoundSystemInit || !uiSample || !uiSample->audio) return SOUND_ERROR;
-    UINT32 uiChannel, uiSoundID;
-    SOUND3DPARMS sp3DParms;
-
-    if (pPos && ((uiChannel = SoundGetFreeChannel()) != SOUND_ERROR)) {
-        memset(&sp3DParms, 0xff, sizeof(SOUND3DPARMS));
-
-        sp3DParms.uiLoop = 1;
-        sp3DParms.uiPriority = uiSample->uiPriority;
-
-        sp3DParms.Pos = *pPos;
-        sp3DParms.uiVolume = pPos->uiVolume;
-
-        if ((uiSoundID = Sound3DStartSample(uiSample, uiChannel, &sp3DParms)) != SOUND_ERROR) {
-            uiSample->uiTimeNext =
-                w8_get_ticks() + uiSample->uiTimeMin +
-                (uiSample->uiTimeMax > uiSample->uiTimeMin ? Random(uiSample->uiTimeMax - uiSample->uiTimeMin) : 0);
-            uiSample->uiInstances++;
-            return (uiSoundID);
-        }
+    if (!fSoundSystemInit || !uiSample || !pPos) return {};
+    SOUND3DPARMS parameters;
+    memset(&parameters, 0xff, sizeof(parameters));
+    parameters.uiLoop = 1;
+    parameters.uiPriority = uiSample->uiPriority;
+    parameters.Pos = *pPos;
+    parameters.uiVolume = pPos->uiVolume;
+    auto playback = StartSample(uiSample, &parameters, pPos);
+    if (playback) {
+        uiSample->uiTimeNext = w8_get_ticks() + uiSample->uiTimeMin +
+            (uiSample->uiTimeMax > uiSample->uiTimeMin ? Random(uiSample->uiTimeMax - uiSample->uiTimeMin) : 0);
+        ++uiSample->uiInstances;
     }
-
-    return (NO_SAMPLE);
+    return playback;
 }

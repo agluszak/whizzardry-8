@@ -1,9 +1,8 @@
 #pragma once
 
-#include "wiz8/filesystem.h"
-#include <memory>
+#include "wiz8/audio_resources.h"
 
-struct AudioClip;
+#include "wiz8/filesystem.h"
 
 struct W8World;
 
@@ -48,8 +47,8 @@ public:
     unsigned char in_range;      /* 0x0b8: listener currently inside radius/region */
     unsigned char looping;       /* 0x0b9: continuous loop vs random one-shot */
     unsigned char padding_0ba[2];
-    int sound_handle;      /* 0x0bc: live SGP voice id */
-    std::shared_ptr<AudioClip> sample; // Shared with the cache and active tracks.
+    SoundPlayback sound_handle;      // Current playback, shared during group handoff.
+    SoundClip sample; // Shared with the cache and active tracks.
     unsigned char shared;  /* 0x0c4: shared 2D group sound; voices hand off by name */
     unsigned char bounded; /* 0x0c5: region test enabled (v2 trigger field) */
     unsigned char padding_0c6[2];
@@ -123,7 +122,7 @@ void StopAllAmbientSounds();
 
 void BuildFootstepPath(char* path, signed char surface, signed char material, char kind,
                        int variant);
-int PlayFootstep(signed char surface, signed char material, W8FootstepKind kind);
+SoundPlayback PlayFootstep(signed char surface, signed char material, W8FootstepKind kind);
 void UpdateAmbientSounds(W8World* world);
 void RepositionAmbientSounds(W8World* world);
 unsigned char ReadAmbientSoundListFile(char* filename);

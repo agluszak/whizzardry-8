@@ -26,7 +26,7 @@ struct RestartOnEnd
 {
     char* path;
     SOUNDPARMS options;
-    UINT32 restarted = SOUND_ERROR;
+    SoundPlayback restarted;
     unsigned calls = 0;
     static void callback(void* data)
     {
@@ -255,7 +255,7 @@ TEST_CASE_METHOD(AudioFixture, "Audio playback, spatialization and movie lifetim
     options.pCallbackData = &callback_data;
     char path[] = "TONE.WAV";
     auto sound = SoundPlay(path, &options);
-    REQUIRE((sound != SOUND_ERROR && SoundIsPlaying(sound)));
+    REQUIRE((sound != nullptr && SoundIsPlaying(sound)));
     REQUIRE(SoundFileIsPlaying(path));
     UINT32 total, current;
     REQUIRE(SoundGetMilliSecondPosition(sound, &total, &current));
@@ -277,7 +277,7 @@ TEST_CASE_METHOD(AudioFixture, "Audio playback, spatialization and movie lifetim
     memset(&options, 0xff, sizeof(options));
     options.uiLoop = 2;
     sound = SoundPlay(path, &options);
-    REQUIRE(sound != SOUND_ERROR);
+    REQUIRE(sound != nullptr);
     mix(6000);
     REQUIRE(SoundIsPlaying(sound));
     mix(6000);
@@ -286,14 +286,14 @@ TEST_CASE_METHOD(AudioFixture, "Audio playback, spatialization and movie lifetim
     options.uiLoop = 0;
     options.uiVolume = 127;
     sound = SoundPlayStreamedFile(path, &options);
-    REQUIRE(sound != SOUND_ERROR);
+    REQUIRE(sound != nullptr);
     mix(12000);
     REQUIRE(SoundIsPlaying(sound));
     SoundSetMusic(sound);
     REQUIRE(SoundStopMusic());
     REQUIRE(!SoundIsPlaying(sound));
     sound = SoundPlay(path, &options);
-    REQUIRE(sound != SOUND_ERROR);
+    REQUIRE(sound != nullptr);
     REQUIRE(SoundSetFadeVolume(sound, 0, 0, TRUE));
     for (int i = 0; i < 130; ++i)
         SoundServiceStreams();
@@ -301,7 +301,7 @@ TEST_CASE_METHOD(AudioFixture, "Audio playback, spatialization and movie lifetim
     options.uiLoop = 0;
     options.uiPriority = 42;
     auto first = SoundPlay(path, &options), second = SoundPlayStreamedFile(path, &options);
-    REQUIRE((first != SOUND_ERROR && second != SOUND_ERROR));
+    REQUIRE((first != nullptr && second != nullptr));
     REQUIRE(SoundStopGroup(42));
     REQUIRE((!SoundIsPlaying(first) && !SoundIsPlaying(second)));
     SOUND3DPARMS spatial;
@@ -313,7 +313,7 @@ TEST_CASE_METHOD(AudioFixture, "Audio playback, spatialization and movie lifetim
     spatial.uiVolume = 127;
     spatial.uiLoop = 1;
     sound = Sound3DPlay(path, &spatial);
-    REQUIRE((sound != SOUND_ERROR && SoundIsPlaying(sound)));
+    REQUIRE((sound != nullptr && SoundIsPlaying(sound)));
     samples = mix(1024);
     REQUIRE(energy(samples, 0) + energy(samples, 1) > 1);
     Sound3DSetPosition(sound, 1, 0, -3);
@@ -324,7 +324,7 @@ TEST_CASE_METHOD(AudioFixture, "Audio playback, spatialization and movie lifetim
     memset(&options, 0xff, sizeof(options));
     options.uiLoop = 1;
     sound = SoundPlayStreamedFile(packed, &options);
-    REQUIRE(sound != SOUND_ERROR);
+    REQUIRE(sound != nullptr);
     REQUIRE((SoundGetMilliSecondPosition(sound, &total, &current) && total == 100));
     samples = mix(8192);
     REQUIRE(energy(samples, 0) + energy(samples, 1) > 10);
@@ -332,9 +332,8 @@ TEST_CASE_METHOD(AudioFixture, "Audio playback, spatialization and movie lifetim
     REQUIRE(!SoundIsPlaying(sound));
     options.uiLoop = 0;
     options.uiPriority = 123;
-    for (int i = 0; i < 32; ++i)
-        REQUIRE(SoundPlay(path, &options) != SOUND_ERROR);
-    REQUIRE(SoundPlay(path, &options) == SOUND_ERROR);
+    for (int i = 0; i < 64; ++i)
+        REQUIRE(SoundPlay(path, &options) != nullptr);
     REQUIRE(SoundStopGroup(123));
     RANDOMPARMS random;
     memset(&random, 0xff, sizeof(random));
@@ -342,7 +341,7 @@ TEST_CASE_METHOD(AudioFixture, "Audio playback, spatialization and movie lifetim
     auto random_id = SoundPlayRandom(path, &random);
     REQUIRE(random_id != nullptr);
     REQUIRE(SoundRandomShouldPlay(random_id));
-    REQUIRE(SoundStartRandom(random_id) != SOUND_ERROR);
+    REQUIRE(SoundStartRandom(random_id) != nullptr);
     REQUIRE(!SoundRandomShouldPlay(random_id));
     mix(8192);
     SoundServiceStreams();
@@ -354,7 +353,7 @@ TEST_CASE_METHOD(AudioFixture, "Audio playback, spatialization and movie lifetim
     memset(&options, 0xff, sizeof(options));
     options.uiLoop = 0;
     sound = SoundPlay(path, &options);
-    REQUIRE(sound != SOUND_ERROR);
+    REQUIRE(sound != nullptr);
     SoundSetMusic(sound);
     REQUIRE(SoundEmptyCache());
     samples = mix(12000);
@@ -369,7 +368,7 @@ TEST_CASE_METHOD(AudioFixture, "Audio playback, spatialization and movie lifetim
     {
         spatial.Pos.flX = x;
         sound = Sound3DPlay(path, &spatial);
-        REQUIRE(sound != SOUND_ERROR);
+        REQUIRE(sound != nullptr);
         samples = mix(2048);
         const auto left = energy(samples, 0), right = energy(samples, 1);
         CAPTURE(x, left, right);
@@ -384,7 +383,7 @@ TEST_CASE_METHOD(AudioFixture, "Audio playback, spatialization and movie lifetim
     {
         spatial.Pos.flZ = -distance;
         sound = Sound3DPlay(path, &spatial);
-        REQUIRE(sound != SOUND_ERROR);
+        REQUIRE(sound != nullptr);
         samples = mix(2048);
         REQUIRE(near(energy(samples, 0), baseline * 0.25));
         REQUIRE(near(energy(samples, 1), baseline * 0.25));
@@ -393,7 +392,7 @@ TEST_CASE_METHOD(AudioFixture, "Audio playback, spatialization and movie lifetim
     spatial.Pos.flX = 3; spatial.Pos.flZ = 0;
     Sound3DSetListenerOrientation(0, 0, 1, 0, 1, 0);
     sound = Sound3DPlay(path, &spatial);
-    REQUIRE(sound != SOUND_ERROR);
+    REQUIRE(sound != nullptr);
     samples = mix(2048);
     REQUIRE((near(energy(samples, 0), baseline) && near(energy(samples, 1), baseline * 0.04)));
     Sound3DSetListenerOrientation(0, 0, -1, 0, 1, 0);
@@ -408,14 +407,14 @@ TEST_CASE_METHOD(AudioFixture, "Audio playback, spatialization and movie lifetim
     spatial.Pos.flVelX = -100;
     spatial.uiLoop = 1;
     sound = Sound3DPlay(path, &spatial);
-    REQUIRE(sound != SOUND_ERROR);
+    REQUIRE(sound != nullptr);
     samples = mix(2048);
     REQUIRE((crossings(samples, 1) >= 27 && crossings(samples, 1) <= 30));
     REQUIRE(SoundStop(sound));
     spatial.Pos.flVelX = 0;
     Sound3DSetListenerVelocity(100, 0, 0);
     sound = Sound3DPlay(path, &spatial);
-    REQUIRE(sound != SOUND_ERROR);
+    REQUIRE(sound != nullptr);
     samples = mix(2048);
     REQUIRE((crossings(samples, 1) >= 25 && crossings(samples, 1) <= 28));
     REQUIRE(SoundStop(sound));
@@ -425,20 +424,20 @@ TEST_CASE_METHOD(AudioFixture, "Audio playback, spatialization and movie lifetim
     options.uiLoop = 1;
     options.uiVolume = 127;
     sound = SoundPlay(path, &options);
-    REQUIRE(sound != SOUND_ERROR);
+    REQUIRE(sound != nullptr);
     samples = mix(2048);
     REQUIRE((near(energy(samples, 0), baseline) && near(energy(samples, 1), baseline)));
     REQUIRE(SoundStop(sound));
     options.uiVolume = 64;
     sound = SoundPlay(path, &options);
-    REQUIRE(sound != SOUND_ERROR);
+    REQUIRE(sound != nullptr);
     samples = mix(2048);
     REQUIRE(near(energy(samples, 0), baseline * std::pow(64.0 / 127, 2)));
     REQUIRE(SoundStop(sound));
     options.uiVolume = 127;
     options.uiSpeed = 88200;
     sound = SoundPlay(path, &options);
-    REQUIRE(sound != SOUND_ERROR);
+    REQUIRE(sound != nullptr);
     samples = mix(2048);
     REQUIRE((crossings(samples) >= 40 && crossings(samples) <= 42));
     mix(1024);
@@ -446,7 +445,7 @@ TEST_CASE_METHOD(AudioFixture, "Audio playback, spatialization and movie lifetim
     SoundServiceStreams();
     options.uiSpeed = 22050;
     sound = SoundPlayStreamedFile(path, &options);
-    REQUIRE(sound != SOUND_ERROR);
+    REQUIRE(sound != nullptr);
     samples = mix(2048);
     REQUIRE((crossings(samples) >= 10 && crossings(samples) <= 11));
     mix(4000);
@@ -457,7 +456,7 @@ TEST_CASE_METHOD(AudioFixture, "Audio playback, spatialization and movie lifetim
     options.uiSpeed = SOUND_ERROR;
     options.uiLoop = 2;
     sound = SoundPlayStreamedFile(packed, &options);
-    REQUIRE(sound != SOUND_ERROR);
+    REQUIRE(sound != nullptr);
     mix(6000);
     REQUIRE(SoundIsPlaying(sound));
     mix(6000);
@@ -466,35 +465,35 @@ TEST_CASE_METHOD(AudioFixture, "Audio playback, spatialization and movie lifetim
     char stereo[] = "stereo.wav";
     options.uiLoop = 1;
     sound = SoundPlay(stereo, &options);
-    REQUIRE(sound != SOUND_ERROR);
+    REQUIRE(sound != nullptr);
     samples = mix(2048);
     REQUIRE(near(energy(samples, 1) / energy(samples, 0), 0.25));
     REQUIRE(SoundStop(sound));
     options.uiPan = 127;
     sound = SoundPlay(stereo, &options);
-    REQUIRE(sound != SOUND_ERROR);
+    REQUIRE(sound != nullptr);
     samples = mix(2048);
     REQUIRE((energy(samples, 0) < 0.001 && near(energy(samples, 1), baseline * 0.25)));
     REQUIRE(SoundStop(sound));
     char fallback[] = "fallback.wav";
     options.uiPan = 64;
     sound = SoundPlay(fallback, &options);
-    REQUIRE(sound != SOUND_ERROR);
+    REQUIRE(sound != nullptr);
     samples = mix(8192);
     REQUIRE(energy(samples, 0) + energy(samples, 1) > 1);
     SoundServiceStreams();
     REQUIRE(!SoundIsPlaying(sound));
     char bad[] = "bad.wav", truncated[] = "Data\\Truncated.wav";
-    REQUIRE(SoundPlay(bad, &options) == SOUND_ERROR);
-    REQUIRE(SoundPlayStreamedFile(bad, &options) == SOUND_ERROR);
-    REQUIRE(SoundPlay(truncated, &options) == SOUND_ERROR);
-    REQUIRE(SoundPlayStreamedFile(truncated, &options) == SOUND_ERROR);
-    REQUIRE(SoundPlay({}, &options) == SOUND_ERROR);
-    REQUIRE(SoundPlayStreamedFile({}, &options) == SOUND_ERROR);
+    REQUIRE(SoundPlay(bad, &options) == nullptr);
+    REQUIRE(SoundPlayStreamedFile(bad, &options) == nullptr);
+    REQUIRE(SoundPlay(truncated, &options) == nullptr);
+    REQUIRE(SoundPlayStreamedFile(truncated, &options) == nullptr);
+    REQUIRE(SoundPlay({}, &options) == nullptr);
+    REQUIRE(SoundPlayStreamedFile({}, &options) == nullptr);
     REQUIRE(!SoundRandomShouldPlay({}));
-    REQUIRE(SoundStartRandom({}) == SOUND_ERROR);
+    REQUIRE(SoundStartRandom({}) == nullptr);
     sound = SoundPlayStreamedFile(fallback, &options);
-    REQUIRE(sound != SOUND_ERROR);
+    REQUIRE(sound != nullptr);
     samples = mix(8192);
     REQUIRE(energy(samples, 0) + energy(samples, 1) > 1);
     SoundServiceStreams();
@@ -504,10 +503,10 @@ TEST_CASE_METHOD(AudioFixture, "Audio playback, spatialization and movie lifetim
     options.EOSCallback = RestartOnEnd::callback;
     options.pCallbackData = &restart;
     sound = SoundPlay(path, &options);
-    REQUIRE(sound != SOUND_ERROR);
+    REQUIRE(sound != nullptr);
     mix(8192);
     SoundServiceStreams();
-    REQUIRE((restart.calls == 1 && restart.restarted != SOUND_ERROR && SoundIsPlaying(restart.restarted)));
+    REQUIRE((restart.calls == 1 && restart.restarted != nullptr && SoundIsPlaying(restart.restarted)));
     SoundServiceStreams();
     REQUIRE(restart.calls == 1);
     REQUIRE(SoundStop(restart.restarted));
@@ -565,7 +564,7 @@ TEST_CASE_METHOD(AudioFixture, "Audio playback, spatialization and movie lifetim
     unsigned before_shutdown = callbacks;
     options.EOSCallback = ended;
     options.pCallbackData = &callback_data;
-    REQUIRE(SoundPlay(path, &options) != SOUND_ERROR);
+    REQUIRE(SoundPlay(path, &options) != nullptr);
     ShutdownSoundManager();
     REQUIRE(callbacks == before_shutdown);
     ShutdownSoundManager();
@@ -579,14 +578,14 @@ TEST_CASE_METHOD(AudioFixture, "Audio output device", "[.manual][audio]")
 
     char path[] = "TONE.WAV";
     SOUNDPARMS options;
-    UINT32 sound;
+    SoundPlayback sound;
         w8_native::audio_offline_for_test(false);
         REQUIRE(InitializeSoundManager());
         REQUIRE(w8_native::audio_mixer());
         memset(&options, 0xff, sizeof(options));
         options.uiLoop = 1;
         sound = SoundPlay(path, &options);
-        REQUIRE(sound != SOUND_ERROR);
+        REQUIRE(sound != nullptr);
         SDL_Delay(250);
         SoundServiceStreams();
         REQUIRE(!SoundIsPlaying(sound));
@@ -621,7 +620,7 @@ TEST_CASE_METHOD(AudioFixture, "Audio clips outlive cache entries without slot r
     REQUIRE(SoundEmptyCache());
     // A retained emitter can still play its clip after the cache releases it.
     const auto sound = SoundStartRandom(clip);
-    REQUIRE(sound != SOUND_ERROR);
+    REQUIRE(sound != nullptr);
     retained = clip;
     clip.reset();
     REQUIRE_FALSE(retained.expired());
@@ -640,4 +639,76 @@ TEST_CASE_METHOD(AudioFixture, "Owned clips retain the mixer across sound shutdo
     REQUIRE(InitializeSoundManager());
     clip.reset();
     REQUIRE(lifetime.expired());
+}
+
+TEST_CASE_METHOD(AudioFixture, "Playback references never alias replacement tracks", "[audio][ownership]")
+{
+    char path[] = "tone.wav";
+    SOUNDPARMS options;
+    memset(&options, 0xff, sizeof(options));
+    options.uiLoop = 0;
+    auto first = SoundPlay(path, &options);
+    REQUIRE(first);
+    REQUIRE(SoundStop(first));
+    auto second = SoundPlay(path, &options);
+    REQUIRE(second);
+    REQUIRE(first != second);
+    REQUIRE_FALSE(SoundStop(first));
+    REQUIRE_FALSE(SoundSetVolume(first, 0));
+    REQUIRE(SoundGetVolume(second) == 127);
+    REQUIRE(SoundIsPlaying(second));
+    ShutdownSoundManager();
+    REQUIRE_FALSE(SoundIsPlaying(second));
+    REQUIRE(InitializeSoundManager());
+    auto third = SoundPlay(path, &options);
+    REQUIRE(third);
+    REQUIRE_FALSE(SoundStop(second));
+    REQUIRE(SoundIsPlaying(third));
+}
+
+TEST_CASE_METHOD(AudioFixture, "Mixer service owns discarded playback until completion", "[audio][ownership]")
+{
+    char path[] = "tone.wav";
+    std::weak_ptr<AudioPlayback> lifetime;
+    {
+        auto playback = SoundPlay(path, nullptr);
+        REQUIRE(playback);
+        lifetime = playback;
+    }
+    REQUIRE_FALSE(lifetime.expired());
+    const auto samples = mix(8192);
+    REQUIRE(energy(samples, 0) + energy(samples, 1) > 10);
+    SoundServiceStreams();
+    REQUIRE(lifetime.expired());
+}
+
+TEST_CASE_METHOD(AudioFixture, "Playback completion permits stop and shutdown reentry", "[audio][ownership]")
+{
+    struct Context {
+        SoundPlayback other;
+        unsigned calls = 0;
+    } context;
+    char path[] = "tone.wav";
+    SOUNDPARMS options;
+    memset(&options, 0xff, sizeof(options));
+    options.EOSCallback = [](void* data) {
+        auto& context = *static_cast<Context*>(data);
+        ++context.calls;
+        SoundStop(context.other);
+        ShutdownSoundManager();
+    };
+    options.pCallbackData = &context;
+    auto first = SoundPlay(path, &options);
+    REQUIRE(first);
+    options.EOSCallback = nullptr;
+    options.uiLoop = 0;
+    context.other = SoundPlayStreamedFile(path, &options);
+    REQUIRE(context.other);
+    mix(8192);
+    SoundServiceStreams();
+    REQUIRE(context.calls == 1);
+    REQUIRE_FALSE(SoundIsPlaying(first));
+    REQUIRE_FALSE(SoundIsPlaying(context.other));
+    SoundServiceStreams();
+    REQUIRE(context.calls == 1);
 }

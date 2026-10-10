@@ -37,7 +37,7 @@ void PlayCombatSound(std::string_view sound_name, unsigned int variant_count, bo
 {
     SOUNDPARMS parms;
     std::string zSoundFileName;
-    unsigned int handle;
+    SoundPlayback handle;
 
     if (sound_name.empty())
         return;
@@ -56,7 +56,7 @@ void PlayCombatSound(std::string_view sound_name, unsigned int variant_count, bo
     } else {
         handle = SoundPlay(zSoundFileName, 0);
     }
-    if (handle != 0xffffffff && g_combat_state != 0 && store_handle) {
+    if (handle != nullptr && g_combat_state != 0 && store_handle) {
         g_combat_state->hit_sound = handle;
         g_combat_state->hit_sound_active = true;
     }

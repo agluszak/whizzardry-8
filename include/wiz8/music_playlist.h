@@ -1,9 +1,10 @@
+#include "wiz8/audio_resources.h"
 #ifndef WIZ8_MUSIC_PLAYLIST_H
 #define WIZ8_MUSIC_PLAYLIST_H
 
 #include "wiz8/local_screens/Screens.h"
 
-extern int g_music_sample_handle;
+extern SoundPlayback g_music_sample_handle;
 extern bool g_music_playlist_active;
 extern int g_music_playlist_weight_total;
 extern int g_music_playlist_track_count;

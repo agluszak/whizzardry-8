@@ -5,11 +5,7 @@
 #define __SOUNDMAN_
 
 #include "Types.h"
-#include <memory>
-
-struct AudioClip;
-// Owns decoded audio, not an entry in a numeric resource registry.
-using SoundClip = std::shared_ptr<AudioClip>;
+#include "wiz8/audio_resources.h"
 
 extern BOOLEAN gfEnableStartup;
 
@@ -18,8 +14,7 @@ extern BOOLEAN gfEnableStartup;
 #define SAMPLE_RANDOM 0x00000004
 #define SAMPLE_RANDOM_MANUAL 0x00000008
 
-// Sound error values (they're all the same)
-#define NO_SAMPLE 0xffffffff
+// Invalid scalar query result; playback creation returns an empty SoundPlayback.
 #define SOUND_ERROR 0xffffffff
 
 // Maximum allowable priority value
@@ -90,27 +85,27 @@ extern SoundClip SoundLoadSample(STR pFilename);
 extern BOOLEAN SoundEmptyCache(void);
 
 // Play/service sample functions
-extern UINT32 SoundPlay(std::string_view pFilename, SOUNDPARMS* pParms);
-extern UINT32 SoundPlayStreamedFile(std::string_view pFilename, SOUNDPARMS* pParms);
+extern SoundPlayback SoundPlay(std::string_view pFilename, SOUNDPARMS* pParms);
+extern SoundPlayback SoundPlayStreamedFile(std::string_view pFilename, SOUNDPARMS* pParms);
 
 extern SoundClip SoundPlayRandom(STR pFilename, RANDOMPARMS* pParms);
 extern BOOLEAN SoundRandomShouldPlay(SoundClip uiSample);
-extern UINT32 SoundStartRandom(SoundClip uiSample);
+extern SoundPlayback SoundStartRandom(SoundClip uiSample);
 extern BOOLEAN SoundServiceStreams(void);
 extern BOOLEAN SoundServiceRandom(void);
 // Sound instance manipulation functions
-extern void SoundSetMusic(UINT32 uiSound);
+extern void SoundSetMusic(SoundPlayback playback);
 extern BOOLEAN SoundStopMusic(void);
 extern BOOLEAN SoundStopAllRandom(void);
-extern BOOLEAN SoundStop(UINT32 uiSoundID);
-extern BOOLEAN SoundIsPlaying(UINT32 uiSoundID);
+extern BOOLEAN SoundStop(SoundPlayback playback);
+extern BOOLEAN SoundIsPlaying(SoundPlayback playback);
 extern BOOLEAN SoundFileIsPlaying(std::string_view filename);
-extern BOOLEAN SoundSetFadeVolume(UINT32 uiSoundID, UINT32 uiVolume, UINT32 uiRate,
+extern BOOLEAN SoundSetFadeVolume(SoundPlayback playback, UINT32 uiVolume, UINT32 uiRate,
                                   BOOLEAN fStopAtZero);
-extern BOOLEAN SoundSetVolume(UINT32 uiSoundID, UINT32 uiVolume);
-extern UINT32 SoundGetVolume(UINT32 uiSoundID);
-extern UINT32 SoundGetPosition(UINT32 uiSoundID);
-extern BOOLEAN SoundGetMilliSecondPosition(UINT32 uiSoundID, UINT32* puiTotalMilliseconds,
+extern BOOLEAN SoundSetVolume(SoundPlayback playback, UINT32 uiVolume);
+extern UINT32 SoundGetVolume(SoundPlayback playback);
+extern UINT32 SoundGetPosition(SoundPlayback playback);
+extern BOOLEAN SoundGetMilliSecondPosition(SoundPlayback playback, UINT32* puiTotalMilliseconds,
                                            UINT32* puiCurrentMilliseconds);
 
 // Sound instance group functions
@@ -121,16 +116,15 @@ extern void SoundRemoveSampleFlags(SoundClip uiSample, UINT32 uiFlags);
 extern void SoundEnableSound(BOOLEAN fEnable);
 
 // 3D sound control
-extern void Sound3DSetPosition(UINT32 uiSample, FLOAT flX, FLOAT flY, FLOAT flZ);
+extern void Sound3DSetPosition(SoundPlayback playback, FLOAT flX, FLOAT flY, FLOAT flZ);
 extern void Sound3DSetListener(FLOAT flX, FLOAT flY, FLOAT flZ);
-extern void Sound3DSetDirection(UINT32 uiSample, FLOAT flXFace, FLOAT flYFace, FLOAT flZFace,
+extern void Sound3DSetDirection(SoundPlayback playback, FLOAT flXFace, FLOAT flYFace, FLOAT flZFace,
                                 FLOAT flXUp, FLOAT flYUp, FLOAT flZUp);
 extern void Sound3DSetListenerOrientation(FLOAT faceX, FLOAT faceY, FLOAT faceZ,
                                          FLOAT upX, FLOAT upY, FLOAT upZ);
 extern void Sound3DSetListenerVelocity(FLOAT x, FLOAT y, FLOAT z);
 extern void Sound3DSetEnvironment(INT32 iEnvironment);
-extern UINT32 Sound3DPlay(STR pFilename, SOUND3DPARMS* pParms);
-extern UINT32 Sound3DStartSample(SoundClip uiSample, UINT32 uiChannel, SOUND3DPARMS* pParms);
-extern UINT32 Sound3DStartRandom(SoundClip uiSample, SOUND3DPOS* Pos);
+extern SoundPlayback Sound3DPlay(STR pFilename, SOUND3DPARMS* pParms);
+extern SoundPlayback Sound3DStartRandom(SoundClip uiSample, SOUND3DPOS* Pos);
 
 #endif

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "wiz8/audio_resources.h"
+
 #include <string_view>
 std::string GetNpcScriptRegionName(int region);
 void StripNpcKeywordPunctuation(std::string& text);
@@ -46,7 +48,7 @@ struct W8NpcScriptingState {
     unsigned char unknown_72[6];
     W8NpcScriptFile* script_file;
     W8NpcState* npc;
-    unsigned int voice_handle;
+    SoundPlayback voice_handle;
     unsigned int message_duration_ms;
     uint64_t message_started_at;
     std::vector<W8MessageBoxLine*> message_lines;

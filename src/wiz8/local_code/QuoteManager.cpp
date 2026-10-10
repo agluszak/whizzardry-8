@@ -715,7 +715,7 @@ unsigned char W8CharacterEvent::PlayEventSound()
     std::string sound_path;
     std::string npc_sound_name;
     SOUNDPARMS sound_parms;
-    unsigned int sound_handle;
+    SoundPlayback sound_handle;
     unsigned int total_ms;
     unsigned int current_ms;
     W8MonsterManagerEntry* record;
@@ -748,7 +748,7 @@ unsigned char W8CharacterEvent::PlayEventSound()
     sound_handle = SoundPlay(sound_path, &sound_parms);
     record = &gXStatus.monster_manager_entries[party_slot];
     record->voice_sound_handle = sound_handle;
-    if (sound_handle == SOUND_ERROR) {
+    if (sound_handle == nullptr) {
         if (event_type > 0x91) {
             char fallback_text[] = FALLBACK_VOICE_TEXT;
             record->voice_time_remaining_ms = ComputePortraitMessageDuration(fallback_text);
@@ -761,7 +761,7 @@ unsigned char W8CharacterEvent::PlayEventSound()
     record->voice_time_remaining_ms = total_ms;
     LoadMouthGapTrack(sound_path, &record->mouth_gap);
 #ifdef WIZ8_RUNTIME_TESTS
-    RuntimeObserve(RUNTIME_VOICE_STARTED, party_slot, sound_handle, record->mouth_gap.range_count);
+    RuntimeObserve(RUNTIME_VOICE_STARTED, party_slot, bool(sound_handle), record->mouth_gap.range_count);
     RuntimeObserve(RUNTIME_VOICE_TIMING, party_slot, total_ms, current_ms);
 #endif
     return 1;
@@ -1770,7 +1770,7 @@ int UpdateCharacterEventState(void)
             continue;
         }
         if (record->portrait_event_active) {
-            if (record->voice_sound_handle == SOUND_ERROR) {
+            if (record->voice_sound_handle == nullptr) {
                 if (record->voice_time_remaining_ms == 0) {
                     if (record->active_character_event == 0) {
                         SetPartyPortraitEventState(party_slot, false, -1, {}, 1);

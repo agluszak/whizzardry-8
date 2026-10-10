@@ -1884,7 +1884,7 @@ void W8MainGameStatusPanel::Redraw()
 
 // FUNCTION: WIZ8 0x00589160
 W8MainGameScreen::W8MainGameScreen(Trigger* owner)
-    : m_owner(owner), m_disarm_state(0), m_target_difficulty(0), m_sound_handle(0)
+    : m_owner(owner), m_disarm_state(0), m_target_difficulty(0), m_sound_handle()
 {
     m_device_id = owner->lock_state.device_id;
     m_difficulty = owner->lock_state.difficulty;
@@ -1980,8 +1980,7 @@ void W8MainGameScreen::SelectTextEntry(int index)
     m_action_controls[4]->SetEnabled(false);
     m_action_panel->Invalidate(0);
     m_text_panel->BeginProgress(g_localized_strings[0x7b5], duration, hold);
-    m_sound_handle = static_cast<int>(
-        SoundPlay((STR)g_trap_sounds[index] /* c-style-cast-ok: SGP STR boundary */, 0));
+    m_sound_handle = SoundPlay((STR)g_trap_sounds[index] /* c-style-cast-ok: SGP STR boundary */, 0);
 }
 
 int W8MainGameScreen::GetTrapInteractionChance() const
@@ -2054,8 +2053,8 @@ void W8MainGameScreen::OnPrimary(W8TextControl* control)
     m_action_controls[4]->SetEnabled(false);
     m_action_panel->Invalidate(0);
     m_text_panel->BeginProgress(g_localized_strings[0x7b6], duration, hold);
-    m_sound_handle = static_cast<int>(SoundPlayStreamedFile(
-        (STR)g_trap_inspection_sound /* c-style-cast-ok: SGP STR boundary */, 0));
+    m_sound_handle = SoundPlayStreamedFile(
+        (STR)g_trap_inspection_sound /* c-style-cast-ok: SGP STR boundary */, 0);
 }
 
 // FUNCTION: WIZ8 0x00589a80
@@ -2109,7 +2108,7 @@ void W8MainGameScreen::Update()
         return;
     case 2:
         m_disarm_state = 0;
-        m_sound_handle = 0;
+        m_sound_handle = nullptr;
         PracticeCharacterSkill(&g_status.buffers.Char[m_selected_character], W8_SKILL_LOCKS_TRAPS,
                                1, false);
         RefreshActionPanel();
@@ -2129,9 +2128,9 @@ void W8MainGameScreen::Update()
         EndTrapInteractMode(0);
         return;
     case 4:
-        if (m_sound_handle != 0) {
+        if (m_sound_handle != nullptr) {
             SoundStop(m_sound_handle);
-            m_sound_handle = 0;
+            m_sound_handle = nullptr;
         }
         // c-style-cast-ok: SGP spells filenames STR (UINT8*), the historical ABI boundary
         SoundPlay((STR)g_trap_sprung_sound, 0);
@@ -2241,7 +2240,7 @@ void W8MainGameScreen::ApplyInspectSuccess()
     int* values;
     int roll;
 
-    m_sound_handle = 0;
+    m_sound_handle = nullptr;
     PracticeCharacterSkill(&g_status.buffers.Char[m_selected_character], W8_SKILL_LOCKS_TRAPS, 1,
                            false);
     RefreshActionPanel();

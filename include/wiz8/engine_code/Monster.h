@@ -1,3 +1,4 @@
+#include "wiz8/audio_resources.h"
 #include <string_view>
 #ifndef WIZ8_ENGINE_CODE_MONSTER_H
 #define WIZ8_ENGINE_CODE_MONSTER_H
@@ -207,7 +208,7 @@ public:
     void StopTalking();
     void SetCycleCallback(int cycle, CycleCallback callback);
     bool GetPatrolPoint(srVector3T<float>* point);
-    void TrackSoundHandle(int handle);
+    void TrackSound(SoundPlayback playback);
     float GetDistanceToPlayer();
     float GetPointDistanceToPlayer(srVector3T<float> point);
     float GetDistanceToMonster(W8Monster* monster);
@@ -359,7 +360,7 @@ public:
     bool hostility_preserved;
     unsigned char padding_333;
     stSound3D* sound;
-    std::vector<int> values;
+    std::vector<SoundPlayback> sounds;
 };
 
 W8MonsterCycle ParseMonsterCycleName(const char* name, signed char* subcycle = 0);
