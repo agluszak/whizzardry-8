@@ -11,6 +11,7 @@ struct W8MonsterInfo;
 #include "surrender/srMath.h"
 #include "wiz8/geometry.h"
 #include <vector>
+#include <memory>
 #include <algorithm>
 
 #include <stddef.h>
@@ -49,9 +50,6 @@ struct W8NavigatorAttachment {
     unsigned short path_cursor;
     unsigned short position_cursor;
     unsigned short path_position_index;
-    /* 0x00456210 sets this to ten and allocates path_positions as ten
-       srVector3T<float>, so it is that array's capacity. */
-    unsigned short capacity;
     unsigned short follow_offset;
     unsigned short padding_0e;
     srVector3T<float> segment_start;
@@ -59,12 +57,11 @@ struct W8NavigatorAttachment {
     srVector3T<float> start_waypoint; /* valid while W8_NAV_ATTACHMENT_START_WAYPOINT */
     srVector3T<float> path_length_origin;
     srVector3T<float> recorded_position;
-    /* The owned vector array uses ordinary new[]/delete[]. Growth retains the promoted
-       allocation count until the final 16-bit capacity store. */
-    srVector3T<float>* path_positions;
-    /* 0x00457530 releases this one with free while +0x4c uses delete[],
-       so the two allocations do not share an owner. */
-    unsigned short* path_values;
+    struct PathEntry {
+        srVector3T<float> position{};
+        unsigned short value = 0;
+    };
+    std::vector<PathEntry> path;
     float separation;
     /* Direct segment length after initialization; MeasurePathLength later
        replaces it with the eligible route length and latches flag 0x00400000. */
@@ -77,24 +74,6 @@ struct W8NavigatorAttachment {
        straight-line distance. */
     W8NavigatorAttachment(const srVector3T<float>* from,
                           const srVector3T<float>* to); /* 0x00456280 */
-    /* Header-visible: 0x004604B0's scope exit inlines this pair of releases,
-       while its unwind funclet tail-calls the out-of-line emission the
-       linker kept at 0x004563A0. */
-    // FUNCTION: WIZ8 0x004563A0
-    ~W8NavigatorAttachment()
-    {
-        srVector3T<float>* positions = path_positions;
-        if (positions != 0) {
-            path_positions = 0;
-            delete[] positions;
-        }
-        unsigned short* values = path_values;
-        if (values != 0) {
-            path_values = 0;
-            free(values);
-        }
-    }
-
     /* Lazily sums the stored segment lengths into path_length, skipping
        entries whose preceding path value carries bit 0x2. */
     float MeasurePathLength(); /* 0x00456B00 */
@@ -108,17 +87,14 @@ struct W8NavigatorAttachment {
         recorded_position = *position;
     }
     void GrowPathStorage();
-    /* Descriptive name for route append, expanded in the path-building users.
-       Read the position after growth, retaining retail's pointer lifetime. */
+    /* Append a waypoint and its value, reserving a spare endpoint slot. */
     void AppendPathPosition(const srVector3T<float>* position, unsigned short value)
     {
-        if (static_cast<unsigned int>(capacity) <=
-            static_cast<unsigned int>(path_position_index + 1)) {
+        const auto saved_position = *position;
+        if (path.size() <= static_cast<unsigned int>(path_position_index + 1)) {
             GrowPathStorage();
         }
-        srVector3T<float>* slot = path_positions + path_position_index;
-        *slot = *position;
-        path_values[path_position_index] = value;
+        path[path_position_index] = {saved_position, value};
         ++path_position_index;
         flags &= ~W8_NAV_ATTACHMENT_PATH_LENGTH_CACHED;
     }
@@ -211,7 +187,7 @@ struct W8NavigatorMovementState {
        zero before the owner calls Reset. MeasurePathDistance copies it as
        one 36-byte object (0x0045333F). */
     glm::mat3 basis;
-    W8NavigatorAttachment* attachment;
+    std::unique_ptr<W8NavigatorAttachment> attachment;
     /* Collision/path radius, initialized to 500 by the outer navigator and
        scaled with the navigator in SetScale. */
     float collision_radius;
@@ -431,7 +407,7 @@ public:
        (members_active, animation restart, rep/path reset). */
     bool reactivated;
     unsigned char padding_09e[2];
-    W8NavigatorOwned0A0* owned_object;
+    std::unique_ptr<W8NavigatorOwned0A0> owned_object;
     srVector3T<float> tracked_position;
     float tracked_distance;
     bool tracked_dirty;
@@ -447,7 +423,7 @@ public:
        owner. Copy construction constructs a fresh attachment and transfers
        selected settings; it never shares the source's path allocation. */
     W8NavigatorMovementState movement;
-    srNode* node; /* 0x18c: constructed srNode */
+    std::unique_ptr<srNode> node;
 }; /* 0x190 */
 
 void SetNavigatorLinkMode(unsigned char mode);
@@ -467,5 +443,3 @@ extern std::vector<W8Navigator*> g_navigator_group;
 extern float g_camera_sphere_radius_scale;
 extern float g_navigator_minimum_speed;
 extern float g_navigator_minimum_speed_mode23;
-
-#include "wiz8/evidence/Navigator_layout.inc"

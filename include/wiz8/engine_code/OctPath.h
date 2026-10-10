@@ -5,7 +5,7 @@
 #include "wiz8/navigation_flags.h"
 
 #include "surrender/srMath.h"
-#include "wiz8/engine_code/BitArray.h"
+#include "wiz8/packed_bits.h"
 #include <queue>
 #include <vector>
 #include "wiz8/index_algorithms.h"
@@ -486,9 +486,9 @@ public:
     W8PathEdge* m_pEdges;                  /* 0x4c */
     W8FileWaypoint* m_pFileWayPoints;      /* 0x50 */
     stModelInstance* m_path_visualization; /* 0x54 */
-    BitArray* m_marked_path_nodes;         /* 0x58 */
-    BitArray* m_visited_path_nodes;        /* 0x5c */
-    BitArray* m_collected_path_nodes;      /* 0x60 */
+    std::vector<bool> m_marked_path_nodes;
+    std::vector<bool> m_visited_path_nodes;
+    std::vector<bool> m_collected_path_nodes;
     /* Two hash indexes the loader builds and 0x00457B10 destroys. The path
        value words are bitfields (height in the low half, state flags in the
        high bits), so 0x64 takes unsigned values; 0x74 is the visited-cell set

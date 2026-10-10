@@ -246,7 +246,6 @@ OctBuildPreTree::OctBuildPreTree(float leaf_size, srVector3T<float>* minimum,
     selected_depth = 0;
     m_pulRegPaths = 0;
     region_path_count = 0;
-    region_bits = 0;
     m_psrvRegCenters = 0;
     region_path_map = 0;
     positional = 0;
@@ -1054,7 +1053,6 @@ unsigned short OctBuildPreTree::BuildRegions()
     region_path_map = new std::unordered_multimap<unsigned short, w8_ulong>;
     AssignInitialRegions(&working);
     positional = new std::unordered_multimap<unsigned int, short>;
-    region_bits = new BitArray(spatial.m_region_id_bound);
 
     for (unsigned short path_index = 0; path_index < region_path_count; ++path_index) {
         w8_ulong path = m_pulRegPaths[path_index];
@@ -1078,10 +1076,6 @@ unsigned short OctBuildPreTree::BuildRegions()
 
     delete[] m_psrvRegCenters;
     m_psrvRegCenters = 0;
-    if (region_bits != 0) {
-        delete region_bits;
-    }
-    region_bits = 0;
 
     if (spatial.m_region_count == 1) {
         spatial.m_region_count = 0;
@@ -1276,7 +1270,6 @@ unsigned char OctBuildPreTree::MergeRegion(W8OctBuildNode* node, const int* cell
     }
 
     unsigned short combined_count = node->leaf_kind + neighbor->leaf_kind;
-    region_bits->Set(neighbor_region);
 
     w8_ulong neighbor_count = 0;
     auto position = region_path_map->end();
@@ -1879,7 +1872,7 @@ OctPreTree* OctBuildPreTree::BuildOctPreTree()
     tree->deepest_link_list = deepest_link_list;
     tree->m_spatial.m_item_count = spatial.m_item_count;
     tree->m_spatial.m_polygon_count = spatial.m_polygon_count;
-    tree->m_visited_polygon_bits = new BitArray(spatial.m_polygon_count);
+    tree->m_visited_polygon_bits.assign(spatial.m_polygon_count, false);
     tree->m_spatial.m_region_grid_cell = spatial.m_region_grid_cell;
     tree->m_spatial.m_region_cells_per_axis = spatial.m_region_cells_per_axis;
     tree->automesh_cells = region_path_map;

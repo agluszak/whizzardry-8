@@ -127,8 +127,6 @@ struct W8OctreeTrace;
 struct W8World;
 struct W8LevelFilePlane;
 
-class BitArray;
-
 /* One environment record: seventeen dwords mixing counters and factors. */
 struct W8EnvironRecord {
     /* Inlined in CreateGDEnviron, ReadProcessedGameData, the GameData
@@ -180,8 +178,6 @@ struct W8EnvironRecord {
 };
 
 W8_ABI_ASSERT(sizeof(W8EnvironRecord) == 0x44, "W8EnvironRecord_must_be_0x44");
-
-class BitArray;
 
 /* Switch-interface record, 0xc bytes in the processed level data: the count
    and first index of the interface's state records in W8GameData::m_pStates.
@@ -274,8 +270,8 @@ struct W8GameData {
     std::vector<srVector3T<float>> m_pTrigVertices;
     std::vector<Trigger*> m_ppTriggers;
     int last_hit_surface;
-    std::unique_ptr<BitArray> pending_trigger_bits;
-    std::unique_ptr<BitArray> active_trigger_bits;
+    std::vector<bool> pending_trigger_bits;
+    std::vector<bool> active_trigger_bits;
     std::vector<W8GDInterface> m_pInterfaces;
     std::vector<W8GDInterfaceState> m_pStates;
     std::vector<int> m_piCondPolys;

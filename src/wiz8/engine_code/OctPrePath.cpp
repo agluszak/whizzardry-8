@@ -339,9 +339,10 @@ unsigned int PrePathing::DeleteUnreachableAreas()
         }
         minimum = static_cast<unsigned int>(path_node_count * min_component_percent) / 100;
     }
-    m_marked_path_nodes = new BitArray(path_node_count);
-    m_visited_path_nodes = new BitArray(path_node_count);
-    m_collected_path_nodes = new BitArray(path_node_count);
+    m_marked_path_nodes.assign(path_node_count, false);
+    m_visited_path_nodes.assign(path_node_count, false);
+    m_collected_path_nodes.assign(path_node_count, false);
+    std::vector<unsigned int> pending;
     ReportBuildStatus(6, "Deleting Unreacheable Areas.\n");
     ReportBuildStatus(6, "Deleting Nodes: \t");
     for (unsigned int i = 1; i < static_cast<unsigned int>(path_node_count); ++i) {
@@ -352,19 +353,20 @@ unsigned int PrePathing::DeleteUnreachableAreas()
                     deleted);
             ReportStartupMessage(message);
         }
-        if (m_visited_path_nodes->Test(i)) {
+        if (TestBit(m_visited_path_nodes, i)) {
             continue;
         }
         int component_size = 0;
-        m_marked_path_nodes->ClearAll();
-        m_collected_path_nodes->ClearAll();
-        int pending = i + 1;
-        while (pending != 0) {
-            do {
-                unsigned int index = pending - 1;
+        std::ranges::fill(m_marked_path_nodes, false);
+        std::ranges::fill(m_collected_path_nodes, false);
+        // Flood the component reachable from i; marked nodes are queued once.
+        pending.assign(1, i);
+        while (!pending.empty()) {
+            {
+                unsigned int index = pending.back();
+                pending.pop_back();
                 if (path_node_list[index] != 0) {
-                    m_marked_path_nodes->Clear(index);
-                    m_collected_path_nodes->Set(index);
+                    SetBit(m_collected_path_nodes, index);
                     ++component_size;
                     for (int direction = 0; direction < 8; ++direction) {
                         W8PrePathNode* node = path_node_list[index];
@@ -406,28 +408,25 @@ unsigned int PrePathing::DeleteUnreachableAreas()
                                 }
                             }
                         }
-                        if (neighbor != 0 && !m_collected_path_nodes->Test(next_index)) {
-                            if (!m_visited_path_nodes->Test(next_index)) {
-                                m_marked_path_nodes->Set(next_index);
+                        if (neighbor != 0 && !TestBit(m_collected_path_nodes, next_index)) {
+                            if (!TestBit(m_visited_path_nodes, next_index)) {
+                                if (!SetBit(m_marked_path_nodes, next_index)) {
+                                    pending.push_back(next_index);
+                                }
                             } else {
                                 component_size = minimum + 1;
                             }
                         }
                     }
                 }
-                pending = m_marked_path_nodes->NextSetBit(false);
-            } while (pending != 0);
-            pending = m_marked_path_nodes->NextSetBit(true);
+            }
         }
         if (component_size < static_cast<int>(minimum)) {
             bool clear_of_named = true;
-            pending = m_collected_path_nodes->NextSetBit(true);
-            if (pending != 0) {
-                do {
-                    if (!clear_of_named) {
-                        goto component_done;
-                    }
-                    W8PrePathNode* node = path_node_list[pending - 1];
+            for (unsigned int collected = 0;
+                 collected < m_collected_path_nodes.size() && clear_of_named; ++collected) {
+                if (m_collected_path_nodes[collected]) {
+                    W8PrePathNode* node = path_node_list[collected];
                     unsigned int cell = node->cell;
                     float world_y = node->y;
                     float world_x =
@@ -442,21 +441,21 @@ unsigned int PrePathing::DeleteUnreachableAreas()
                             clear_of_named = false;
                         }
                     }
-                    pending = m_collected_path_nodes->NextSetBit(false);
-                } while (pending != 0);
-                if (!clear_of_named) {
-                    goto component_done;
                 }
             }
-            pending = m_collected_path_nodes->NextSetBit(true);
-            while (pending != 0) {
-                path_node_list[pending - 1]->level_flags |= W8_PREPATH_NODE_PRUNED;
-                ++deleted;
-                pending = m_collected_path_nodes->NextSetBit(false);
+            for (unsigned int collected = 0;
+                 collected < m_collected_path_nodes.size() && clear_of_named; ++collected) {
+                if (m_collected_path_nodes[collected]) {
+                    path_node_list[collected]->level_flags |= W8_PREPATH_NODE_PRUNED;
+                    ++deleted;
+                }
             }
         }
-    component_done:
-        m_visited_path_nodes->UnionWith(*m_collected_path_nodes);
+        for (std::size_t node = 0; node < m_visited_path_nodes.size(); ++node) {
+            if (m_collected_path_nodes[node]) {
+                m_visited_path_nodes[node] = true;
+            }
+        }
     }
     cell_map->clear();
     int kept = 1;
@@ -471,12 +470,9 @@ unsigned int PrePathing::DeleteUnreachableAreas()
             ++kept;
         }
     }
-    delete m_marked_path_nodes;
-    m_marked_path_nodes = 0;
-    delete m_visited_path_nodes;
-    m_visited_path_nodes = 0;
-    delete m_collected_path_nodes;
-    m_collected_path_nodes = 0;
+    m_marked_path_nodes.clear();
+    m_visited_path_nodes.clear();
+    m_collected_path_nodes.clear();
     sprintf(message, "Nodes Deleted: %d\n", path_node_count - kept);
     ReportBuildStatus(6, message);
     path_node_count = kept;
