@@ -312,16 +312,19 @@ const char* g_monster_script_commands[MONSCR_COUNT] = {"GOTO",
 
 // VTABLE: WIZ8 0x005ed200
 // class W8MonsterRep
-/* The skin and skinswap directives both initialize the original skin stage. */
-static int InitializeMonsterBaseSkin(W8Monster* monster, const char* monster_name)
+/* Both skin directives ensure the base damage stage exists exactly once. */
+static void EnsureMonsterBaseSkin(W8Monster* monster, const char* monster_name,
+                                  int& damage_stage, bool& skins_started)
 {
-    const int damage_stage = monster->AddDamageStage(monster_name, 0);
+    if (skins_started)
+        return;
+    damage_stage = monster->AddDamageStage(monster_name, 0);
     std::vector<stModelInstance*> instances;
     monster->CollectModelInstances(instances);
     for (stModelInstance* instance : instances) {
         instance->damage_stage = damage_stage;
     }
-    return damage_stage;
+    skins_started = true;
 }
 
 /* Read the text-side monster representation. A named representation is shared
@@ -530,11 +533,7 @@ unsigned char ReadOrCloneMonsterCycles(const W8GrCycleLoadContext* context,
                 light_pulsing = _stricmp(light_mode, "pulsing") == 0;
                 has_light = true;
             } else if (_stricmp(command, "skin") == 0) {
-                if (!skins_started) {
-                    skin_stage = 0;
-                    damage_stage = InitializeMonsterBaseSkin(*monster, monster_name);
-                    skins_started = true;
-                }
+                EnsureMonsterBaseSkin(*monster, monster_name, damage_stage, skins_started);
                 if (_stricmp(argument, "default") != 0) {
                     ++skin_stage;
                     damage_stage = (*monster)->AddDamageStage(monster_name, skin_stage);
@@ -544,11 +543,7 @@ unsigned char ReadOrCloneMonsterCycles(const W8GrCycleLoadContext* context,
                 char new_name[64];
                 /* 0x004C0FA8..0x004C1070: a SKINSWAP with no SKIN before it
                    creates the base stage first, then swaps into that stage. */
-                if (!skins_started) {
-                    skin_stage = 0;
-                    damage_stage = InitializeMonsterBaseSkin(*monster, monster_name);
-                    skins_started = true;
-                }
+                EnsureMonsterBaseSkin(*monster, monster_name, damage_stage, skins_started);
                 sscanf(line, "%s %s %s", command, old_name, new_name);
                 if (damage_stage != -1 &&
                     !(*monster)->ReplaceSkinTexture(damage_stage, old_name, new_name)) {
