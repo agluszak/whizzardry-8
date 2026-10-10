@@ -29,6 +29,7 @@ jobs:
             curl \
             pkg-config \
             glslang-tools \
+            mesa-vulkan-drivers \
             zlib1g-dev \
             libsdl3-dev \
             libsdl3-image-dev \
@@ -56,8 +57,91 @@ jobs:
         run: cmake --preset linux -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
       - name: Build native game and fixtures
         run: cmake --build --preset linux --parallel "$(nproc)"
-      - name: Test native contracts
+      # The canonical GOG installer is stored in the decomp project's private
+      # wiz8-ci-inputs release. Never put decrypted game files in Actions cache.
+      - name: Check access to licensed game assets
+        id: game-assets
+        env:
+          INPUTS_TOKEN: ${{ secrets.WIZ8_INPUTS_TOKEN }}
+          CACHE_KEY: ${{ secrets.WIZ8_CACHE_KEY }}
+        run: |
+          if [[ -n "$INPUTS_TOKEN" && -n "$CACHE_KEY" ]]; then
+            echo 'enabled=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'enabled=false' >> "$GITHUB_OUTPUT"
+            echo '::notice::Licensed runtime scenarios need WIZ8_INPUTS_TOKEN and WIZ8_CACHE_KEY repository secrets'
+          fi
+
+      - name: Restore encrypted game assets
+        id: game-cache
+        if: steps.game-assets.outputs.enabled == 'true'
+        uses: actions/cache/restore@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
+        with:
+          path: ${{ runner.temp }}/wiz8-native-game-cache
+          key: wiz8-native-game-v1-48e31728ef2615f4e1ee3e34c901feec8ea428a474fc9c7386cc11018311a68d
+
+      - name: Prepare encrypted game assets on cache miss
+        if: steps.game-assets.outputs.enabled == 'true' && steps.game-cache.outputs.cache-hit != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.WIZ8_INPUTS_TOKEN }}
+          WIZ8_CACHE_KEY: ${{ secrets.WIZ8_CACHE_KEY }}
+        run: |
+          set -euo pipefail
+          sudo apt-get install -y --no-install-recommends innoextract
+          command -v gh
+          download="$RUNNER_TEMP/wiz8-native-game-download"
+          extracted="$RUNNER_TEMP/wiz8-native-game-extracted"
+          encrypted="$RUNNER_TEMP/wiz8-native-game-cache/game.tar.enc"
+          installer="$download/setup_wizardry_8_2001_12_23_.22306.exe"
+          trap 'rm -rf "$download" "$extracted"' EXIT
+          mkdir -p "$download" "$extracted" "$(dirname "$encrypted")"
+
+          gh release download gog-22306 \
+            --repo agluszak/wiz8-ci-inputs \
+            --pattern setup_wizardry_8_2001_12_23_.22306.exe \
+            --dir "$download"
+          echo "48e31728ef2615f4e1ee3e34c901feec8ea428a474fc9c7386cc11018311a68d  $installer" | sha256sum -c -
+          innoextract --output-dir "$extracted" "$installer"
+          game_exe="$(find "$extracted" -type f -iname 'Wiz8.exe' -print -quit)"
+          test -n "$game_exe"
+          game_root="$(dirname "$game_exe")"
+          test -d "$game_root/Data"
+          test -d "$game_root/Levels"
+
+          tar -C "$game_root" -cf - . | openssl enc \
+            -aes-256-cbc -pbkdf2 -iter 200000 -salt \
+            -out "$encrypted" -pass env:WIZ8_CACHE_KEY
+          test -s "$encrypted"
+
+      - name: Save encrypted game assets
+        if: steps.game-assets.outputs.enabled == 'true' && steps.game-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
+        with:
+          path: ${{ runner.temp }}/wiz8-native-game-cache
+          key: ${{ steps.game-cache.outputs.cache-primary-key }}
+
+      - name: Make licensed game assets available to CTest
+        if: steps.game-assets.outputs.enabled == 'true'
+        env:
+          WIZ8_CACHE_KEY: ${{ secrets.WIZ8_CACHE_KEY }}
+        run: |
+          set -euo pipefail
+          game_root="$RUNNER_TEMP/wiz8-native-game"
+          encrypted="$RUNNER_TEMP/wiz8-native-game-cache/game.tar.enc"
+          test -s "$encrypted"
+          mkdir -p "$game_root"
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 \
+            -in "$encrypted" -pass env:WIZ8_CACHE_KEY | tar -C "$game_root" -xf -
+          test -d "$game_root/Data"
+          test -d "$game_root/Levels"
+          echo "WIZ8_ASSET_ROOT=$game_root" >> "$GITHUB_ENV"
+
+      - name: Test native contracts and licensed runtime scenarios
         run: ctest --preset linux --output-on-failure
+
+      - name: Remove decrypted game assets
+        if: always() && steps.game-assets.outputs.enabled == 'true'
+        run: rm -rf "$RUNNER_TEMP/wiz8-native-game"
       - name: Show compiler cache stats
         if: always()
         run: ccache --show-stats || true
