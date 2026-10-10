@@ -1,5 +1,6 @@
 #include "wiz8/utility.h"
 #include <SDL3/SDL_log.h>
+#include <SDL3/SDL_surface.h>
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
    Distributed under the accompanying SFI Source Code license agreement. */
 #include <stdio.h>
@@ -253,6 +254,9 @@ HVOBJECT CreateVideoObject(VOBJECT_DESC* VObjectDesc)
         owner->pETRLEObject = hImage->pETRLEObject;
         owner->pPixData = hImage->pImageData;
     }
+    // Ordinary draws use decoded SDL surfaces; undecodable data keeps
+    // the streaming blitters.
+    DecodeVideoObjectSprites(owner.get());
     return owner.release();
 }
 
@@ -535,6 +539,14 @@ BOOLEAN GetETRLEPixelValue(UINT8* pDest, HVOBJECT hVObject, UINT16 usETRLEIndex,
 
     CHECKF(usX < pETRLEObject->usWidth);
     CHECKF(usY < pETRLEObject->usHeight);
+
+    // Both transparent runs and a literal index 0 read back as zero in the
+    // decoded surface, which is exactly the value this routine returns.
+    if (usETRLEIndex < hVObject->sprites.size() && hVObject->sprites[usETRLEIndex]) {
+        const SDL_Surface* sprite = hVObject->sprites[usETRLEIndex].get();
+        *pDest = static_cast<const UINT8*>(sprite->pixels)[usY * sprite->pitch + usX];
+        return (TRUE);
+    }
 
     // Assuming everything's okay, go ahead and look...
     pCurrent = &(hVObject->pPixData.data())[pETRLEObject->uiDataOffset];

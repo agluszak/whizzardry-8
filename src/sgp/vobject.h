@@ -4,8 +4,9 @@
 #define __VOBJECT_H
 
 #include "Types.h"
-#include <string>
+#include "compat/surfaces.h"
 #include "himage.h"
+#include <string>
 #include <array>
 #include <vector>
 
@@ -86,6 +87,14 @@ typedef struct TAG_HVOBJECT {
 
     std::vector<UINT8> pPixData; // ETRLE pixel data
     std::vector<ETRLEObject> pETRLEObject; // Object offset data etc
+    // Each ETRLE frame decoded to an INDEX8 SDL surface at load. Transparent
+    // runs decode to index 0, which is also the SDL color key used by the
+    // ordinary sprite draws. Frames whose opaque runs contain a literal
+    // index 0 cannot be told apart from transparent runs in this form and set
+    // spriteLiteralZero so callers keep the streaming blitters.
+    std::vector<SDLSurfaceOwner> sprites;
+    std::vector<SDLSurfaceOwner> spritesMirrored;
+    std::vector<UINT8> spriteLiteralZero;
     std::vector<SixteenBPPObjectInfo> p16BPPObject;
     std::array<std::shared_ptr<UINT16[]>, HVOBJECT_SHADE_TABLES> pShades; // Shading tables
     UINT16* pShadeCurrent;

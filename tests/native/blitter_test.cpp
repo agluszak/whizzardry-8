@@ -135,6 +135,10 @@ int main(int argc, char** argv)
     for (int data = 0; data < 3; ++data) {
         sprite_data(frame, data);
         std::copy_n(encoded, sizeof(encoded), object.pPixData.data());
+        // Decoded-surface paths must produce the legacy assembly bytes as
+        // well; data 1 carries literal index 0 in opaque runs and forces the
+        // streaming fallbacks.
+        DecodeVideoObjectSprites(&object);
         for (int variant = 0; variant < 8; ++variant) {
             // Whole, partial opaque/transparent runs, every clipped edge,
             // null/default clip rectangle and complete rejection.
@@ -160,7 +164,7 @@ int main(int argc, char** argv)
 #undef SPRITE
         }
 #define UNCLIPPED(name) \
-        reset(); ok = check(#name, data, name(destination, pitch, &object, 4, 4, 0), full) && ok
+            reset(); ok = check(#name, data, name(destination, pitch, &object, 4, 4, 0), full) && ok
         UNCLIPPED(Blt8BPPDataTo8BPPBufferTransparent);
         UNCLIPPED(Blt8BPPDataTo8BPPBufferShadow);
         UNCLIPPED(Blt8BPPDataTo16BPPBufferShadow);
