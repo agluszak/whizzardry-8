@@ -1,3 +1,4 @@
+#include <catch2/catch_test_macros.hpp>
 #include "surrender/srSerialization.h"
 #include "surrender/srHuffman.h"
 
@@ -7,9 +8,8 @@
 #include <limits>
 #include <algorithm>
 
-#define CHECK(e) do { if (!(e)) { fprintf(stderr, "line %d: %s\n", __LINE__, #e); return 1; } } while (0)
 
-int main() try
+TEST_CASE("binary_io_test")
 {
     // Known bytes are independent of the writer; cover widths, signed values,
     // both byte orders, IEEE bits and the old low/high quad-word representation.
@@ -29,28 +29,28 @@ int main() try
     srSerialization::writeDoubleBE(output.get(), std::numeric_limits<double>::infinity());
     srIO::check(SDL_WriteU16BE(output.get(), 0x3412));
     srIO::check(SDL_WriteU32LE(output.get(), 0x9abc5678));
-    CHECK(SDL_GetIOSize(output.get()) == Sint64(golden.size()));
+    REQUIRE(SDL_GetIOSize(output.get()) == Sint64(golden.size()));
     const auto* bytes = SDL_GetPointerProperty(SDL_GetIOProperties(output.get()),
                         SDL_PROP_IOSTREAM_DYNAMIC_MEMORY_POINTER, nullptr);
-    CHECK(memcmp(bytes, golden.data(), golden.size()) == 0);
+    REQUIRE(memcmp(bytes, golden.data(), golden.size()) == 0);
     auto input = srIO::own(SDL_IOFromConstMem(golden.data(), golden.size()));
     Sint8 byte;
     Sint16 word;
     Uint32 dword;
     Uint16 unsigned_word;
-    CHECK(SDL_ReadS8(input.get(), &byte) && byte == -128);
-    CHECK(SDL_ReadS16LE(input.get(), &word) && word == -2);
-    CHECK(SDL_ReadU32LE(input.get(), &dword) && dword == 0x12345678);
+    REQUIRE((SDL_ReadS8(input.get(), &byte) && byte == -128));
+    REQUIRE((SDL_ReadS16LE(input.get(), &word) && word == -2));
+    REQUIRE((SDL_ReadU32LE(input.get(), &dword) && dword == 0x12345678));
     const auto quad = srSerialization::readQuadWordBE(input.get());
-    CHECK(quad.lo == 0x89abcdef && quad.hi == 0x01234567);
-    CHECK(std::bit_cast<Uint32>(srSerialization::readFloatLE(input.get())) == 0x80000000);
-    CHECK(srSerialization::readDoubleBE(input.get()) == std::numeric_limits<double>::infinity());
-    CHECK(SDL_ReadU16BE(input.get(), &unsigned_word) && unsigned_word == 0x3412);
-    CHECK(SDL_ReadU32LE(input.get(), &dword) && dword == 0x9abc5678);
-    CHECK(!SDL_ReadU32LE(input.get(), &dword) && SDL_GetIOStatus(input.get()) == SDL_IO_STATUS_EOF);
-    CHECK(SDL_SeekIO(input.get(), 0, SDL_IO_SEEK_SET) == 0);
-    CHECK(SDL_ReadS8(input.get(), &byte) && byte == -128);
-    CHECK(!SDL_WriteU32LE(input.get(), 1));
+    REQUIRE((quad.lo == 0x89abcdef && quad.hi == 0x01234567));
+    REQUIRE(std::bit_cast<Uint32>(srSerialization::readFloatLE(input.get())) == 0x80000000);
+    REQUIRE(srSerialization::readDoubleBE(input.get()) == std::numeric_limits<double>::infinity());
+    REQUIRE((SDL_ReadU16BE(input.get(), &unsigned_word) && unsigned_word == 0x3412));
+    REQUIRE((SDL_ReadU32LE(input.get(), &dword) && dword == 0x9abc5678));
+    REQUIRE((!SDL_ReadU32LE(input.get(), &dword) && SDL_GetIOStatus(input.get()) == SDL_IO_STATUS_EOF));
+    REQUIRE(SDL_SeekIO(input.get(), 0, SDL_IO_SEEK_SET) == 0);
+    REQUIRE((SDL_ReadS8(input.get(), &byte) && byte == -128));
+    REQUIRE(!SDL_WriteU32LE(input.get(), 1));
 
     // Opposite endian spellings, including IEEE NaN payload bits.
     const Uint8 formats[] = {0x7f,0xc1,0x23,0x45, 0,0,0,0,0,0,0,0x80,
@@ -59,57 +59,57 @@ int main() try
     const float nan = srSerialization::readFloatBE(formats_input.get());
     const double negative_zero = srSerialization::readDoubleLE(formats_input.get());
     const auto little_quad = srSerialization::readQuadWordLE(formats_input.get());
-    CHECK(std::bit_cast<Uint32>(nan) == 0x7fc12345);
-    CHECK(std::bit_cast<Uint64>(negative_zero) == 0x8000000000000000);
-    CHECK(little_quad.lo == 0x89abcdef && little_quad.hi == 0x01234567);
+    REQUIRE(std::bit_cast<Uint32>(nan) == 0x7fc12345);
+    REQUIRE(std::bit_cast<Uint64>(negative_zero) == 0x8000000000000000);
+    REQUIRE((little_quad.lo == 0x89abcdef && little_quad.hi == 0x01234567));
     auto formats_output = srIO::own(SDL_IOFromDynamicMem());
     srSerialization::writeFloatBE(formats_output.get(), nan);
     srSerialization::writeDoubleLE(formats_output.get(), negative_zero);
     srSerialization::writeQuadWordLE(formats_output.get(), little_quad);
     bytes = SDL_GetPointerProperty(SDL_GetIOProperties(formats_output.get()),
             SDL_PROP_IOSTREAM_DYNAMIC_MEMORY_POINTER, nullptr);
-    CHECK(SDL_GetIOSize(formats_output.get()) == sizeof(formats));
-    CHECK(memcmp(bytes, formats, sizeof(formats)) == 0);
+    REQUIRE(SDL_GetIOSize(formats_output.get()) == sizeof(formats));
+    REQUIRE(memcmp(bytes, formats, sizeof(formats)) == 0);
     bool rejected = false;
     // A short final cache is valid; requesting a bit past it is not. Cache
     // lookahead must never reuse bytes from an earlier block.
     const Uint8 bits_data[] = {0x81, 0x42};
     auto bits_input = srIO::own(SDL_IOFromConstMem(bits_data, sizeof(bits_data)));
     srHuffman::BitIStream bits(bits_input.get());
-    CHECK(bits.get(9) == 0x81 && bits.get(7) == 0x21);
+    REQUIRE((bits.get(9) == 0x81 && bits.get(7) == 0x21));
     rejected = false;
     try { bits.getBit(); }
     catch (const std::exception&) { rejected = true; }
-    CHECK(rejected);
-    CHECK(bits.peekByte() == 0); // Padding is for lookahead, not consumption.
+    REQUIRE(rejected);
+    REQUIRE(bits.peekByte() == 0); // Padding is for lookahead, not consumption.
     for (const auto rewind : {w8_long(-1), std::numeric_limits<w8_long>::min(),
                              w8_long(17), std::numeric_limits<w8_long>::max()}) {
         rejected = false;
         try { bits.rewind(rewind); } catch (const std::out_of_range&) { rejected = true; }
-        CHECK(rejected && bits.peekByte() == 0);
+        REQUIRE((rejected && bits.peekByte() == 0));
     }
     bits.rewind(16);
     rejected = false;
     try { bits.rewind(1); } catch (const std::out_of_range&) { rejected = true; }
-    CHECK(rejected && bits.get(8) == 0x81);
+    REQUIRE((rejected && bits.get(8) == 0x81));
     rejected = false;
     try { bits.get(32); } catch (const std::out_of_range&) { rejected = true; }
-    CHECK(rejected && bits.get(8) == 0x42); // A rejected read does not advance.
-    CHECK(SDL_SeekIO(bits_input.get(), 1, SDL_IO_SEEK_SET) == 1);
+    REQUIRE((rejected && bits.get(8) == 0x42)); // A rejected read does not advance.
+    REQUIRE(SDL_SeekIO(bits_input.get(), 1, SDL_IO_SEEK_SET) == 1);
     srHuffman::BitIStream offset_bits(bits_input.get());
     rejected = false;
     try { offset_bits.rewind(1); } catch (const std::out_of_range&) { rejected = true; }
-    CHECK(rejected && offset_bits.get(8) == 0x42);
+    REQUIRE((rejected && offset_bits.get(8) == 0x42));
 
     // Exercise a cache refill and rewind across its boundary.
     std::array<Uint8, 130> long_bits{};
     long_bits[127] = 0x81; long_bits[128] = 0x42; long_bits[129] = 0xff;
     auto long_input = srIO::own(SDL_IOFromConstMem(long_bits.data(), long_bits.size()));
     srHuffman::BitIStream long_reader(long_input.get());
-    for (unsigned i = 0; i < 127; ++i) CHECK(long_reader.get(8) == 0);
-    CHECK(long_reader.get(24) == 0xff4281);
+    for (unsigned i = 0; i < 127; ++i) REQUIRE(long_reader.get(8) == 0);
+    REQUIRE(long_reader.get(24) == 0xff4281);
     long_reader.rewind(24);
-    CHECK(long_reader.get(24) == 0xff4281 && long_reader.peekByte() == 0);
+    REQUIRE((long_reader.get(24) == 0xff4281 && long_reader.peekByte() == 0));
     // A sparse SDL backend exercises positions beyond the former 32-bit bit
     // cursor without allocating a gigabyte-sized fixture.
     struct SparseInput { Sint64 position, size; } sparse{Sint64(1) << 30, (Sint64(1) << 30) + 1};
@@ -133,16 +133,16 @@ int main() try
     };
     auto sparse_io = srIO::own(SDL_OpenIO(&interface, &sparse));
     srHuffman::BitIStream sparse_reader(sparse_io.get());
-    CHECK(sparse_reader.get(8) == 0xa5);
+    REQUIRE(sparse_reader.get(8) == 0xa5);
     sparse_reader.rewind(8);
-    CHECK(sparse_reader.get(8) == 0xa5);
+    REQUIRE(sparse_reader.get(8) == 0xa5);
     sparse.position = 0;
     sparse.size = std::numeric_limits<Sint64>::max();
     rejected = false;
     try { srHuffman::BitIStream invalid(sparse_io.get()); }
     catch (const std::out_of_range&) { rejected = true; }
-    CHECK(rejected);
+    REQUIRE(rejected);
     puts("ok: SDL scalar formats, EOF and Huffman cursor/cache bounds");
-    return 0;
+    
+
 }
-catch (const std::exception& error) { fprintf(stderr, "%s\n", error.what()); return 1; }

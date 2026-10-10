@@ -1,3 +1,4 @@
+#include <catch2/catch_test_macros.hpp>
 #include <wiz8/filesystem.h>
 /* Real SLF/STI -> recovered SGP surfaces -> recovered stSurface2D -> SDL GPU.
    Also checks a movie-owned surface and restoration of the game primary. */
@@ -22,15 +23,6 @@
 #include <filesystem>
 #include "temporary_directory.h"
 #include <vector>
-#define CHECK(x)                                                                                   \
-    do                                                                                             \
-    {                                                                                              \
-        if (!(x))                                                                                  \
-        {                                                                                          \
-            fprintf(stderr, "line %d: %s; %s\n", __LINE__, #x, SDL_GetError());                    \
-            return 1;                                                                              \
-        }                                                                                          \
-    } while (0)
 void PresentMenuOverlayFrame();
 void SaveJpegScreenshot();
 extern unsigned char g_fullscreen;
@@ -47,10 +39,8 @@ struct FixtureRoot
         std::filesystem::remove_all(path, error);
     }
 };
-int main(int argc, char** argv)
+TEST_CASE("game graphics")
 {
-    try
-    {
         const auto temporary = make_temporary_directory("wiz8-graphics");
         FixtureRoot fixture{temporary};
         auto roots = w8_native::path_roots();
@@ -64,30 +54,31 @@ int main(int argc, char** argv)
         config->close();
         /* This standalone test owns SDL and DBus until process exit. */
         SDL_SetHint(SDL_HINT_SHUTDOWN_DBUS_ON_QUIT, "1");
-        CHECK(SDL_Init(SDL_INIT_VIDEO));
+        REQUIRE(SDL_Init(SDL_INIT_VIDEO));
 
         wiz8::mount_slf("Data\\Data.slf");
-        CHECK(InitializeInputManager());
+        REQUIRE(InitializeInputManager());
         g_fullscreen = 0;
         Initialize16BitPixelFormatMasks();
-        CHECK(CreateWizardryWindow());
-        CHECK(InitializePrimaryCpuSurface());
-        CHECK(InitializeVideoDevice());
-        CHECK(InitializeRendererSceneObjects());
+        REQUIRE(CreateWizardryWindow());
+        REQUIRE(InitializePrimaryCpuSurface());
+        REQUIRE(InitializeVideoDevice());
+        REQUIRE(InitializeRendererSceneObjects());
         auto targa = srImage::load("Data\\AUTOMAP\\MAP_MONSTERFRIENDLY_A.TGA");
-        CHECK(targa && targa->getWidth() > 0 && targa->getHeight() > 0);
-        CHECK(!srTriMeshPipeline::Get(nullptr));
+        REQUIRE((targa && targa->getWidth() > 0 && targa->getHeight() > 0));
+        REQUIRE(!srTriMeshPipeline::Get(nullptr));
         auto pipeline = srTriMeshPipeline::Get(g_gerd);
-        CHECK(pipeline);
+        REQUIRE(pipeline);
         pipeline->Flush();
-        CHECK(InitializeVideoSurfaceManager());
-        CHECK(InitializeVideoObjectManager());
+        REQUIRE(InitializeVideoSurfaceManager());
+        REQUIRE(InitializeVideoObjectManager());
         VOBJECT_DESC image{};
         image.fCreateFlags = VOBJECT_CREATE_FROMFILE;
-        image.ImageFile = argc > 1 ? argv[1] : "Data\\MAIN INTERFACE\\BOTTOM.STI";
+        const char* image_path = SDL_getenv("WIZ8_GRAPHICS_IMAGE");
+        image.ImageFile = image_path ? image_path : "Data\\MAIN INTERFACE\\BOTTOM.STI";
         UINT32 image_id;
-        CHECK(AddVideoObject(&image, &image_id));
-        CHECK(BltVideoObjectFromIndex(FRAME_BUFFER, image_id, 0, 0, 0, VO_BLT_SRCTRANSPARENCY,
+        REQUIRE(AddVideoObject(&image, &image_id));
+        REQUIRE(BltVideoObjectFromIndex(FRAME_BUFFER, image_id, 0, 0, 0, VO_BLT_SRCTRANSPARENCY,
                                       nullptr));
         UINT32 pitch;
         auto pixels = static_cast<UINT16*>(LockPrimarySurface(&pitch));
@@ -95,11 +86,11 @@ int main(int argc, char** argv)
         for (int y = 0; y < 480; ++y)
             memcpy(expected.data() + y * 640, reinterpret_cast<BYTE*>(pixels) + y * pitch, 1280);
         UnlockPrimarySurface();
-        CHECK(InitializeMouseCursorScene());
+        REQUIRE(InitializeMouseCursorScene());
         image.ImageFile = "Data\\CURSORS\\2D-CURSORS.STI";
         UINT32 cursor_id;
-        CHECK(AddVideoObject(&image, &cursor_id));
-        CHECK(SetMouseCursorFromVideoObject(cursor_id, 0, 0, 0));
+        REQUIRE(AddVideoObject(&image, &cursor_id));
+        REQUIRE(SetMouseCursorFromVideoObject(cursor_id, 0, 0, 0));
         PositionMouseCursor(480, 240, true);
         unsigned colored = 0, matched = 0, cursor_pixels = 0;
         for (int frame = 0; frame < 3; ++frame)
@@ -112,7 +103,7 @@ int main(int argc, char** argv)
                 fprintf(stderr, "begin frame %d: %d %s window %llu open %d\n", frame, int(error),
                         g_gerd->getErrorString(error),
                         (unsigned long long)g_gerd->getWindowHandle(), g_gerd->isWindowOpen());
-            CHECK(error == srGERD::ERROR_NONE);
+            REQUIRE(error == srGERD::ERROR_NONE);
             g_gerd->setClearColor(0, 0, 0, 1);
             g_gerd->clear(srFlags<srGERD::e_buffer>(srGERD::BUFFER_COLOR | srGERD::BUFFER_DEPTH));
             g_gerd->matrixMode(srGERD::MATRIX_MODELVIEW);
@@ -122,7 +113,7 @@ int main(int argc, char** argv)
             g_gerd->endFrame();
         }
         auto buffer = g_gerd->lockBuffer();
-        CHECK(buffer);
+        REQUIRE(buffer);
         for (int y = 0; y < 480; ++y)
             for (int x = 0; x < 640; ++x)
             {
@@ -139,11 +130,11 @@ int main(int argc, char** argv)
                         ++matched;
                 }
             }
-        if (argc > 2)
+        if (const char* output_path = SDL_getenv("WIZ8_GRAPHICS_OUTPUT"))
         {
-            auto output = wiz8::open_host_file(wiz8::path_from_utf8(argv[2]),
+            auto output = wiz8::open_host_file(wiz8::path_from_utf8(output_path),
                                               wiz8::OpenMode::replace);
-            CHECK(output);
+            REQUIRE(output);
             output->write("P6\n640 480\n255\n", 15);
             for (int y = 0; y < 480; ++y)
                 for (int x = 0; x < 640; ++x)
@@ -157,9 +148,9 @@ int main(int argc, char** argv)
         g_gerd->unlockBuffer();
         printf("retail STI: %u colored pixels, %u match CPU RGB555 within 8 levels\n", colored,
                matched);
-        CHECK(colored > 100 && matched == colored);
+        REQUIRE((colored > 100 && matched == colored));
         printf("retail cursor: %u GPU pixels\n", cursor_pixels);
-        CHECK(cursor_pixels > 5);
+        REQUIRE(cursor_pixels > 5);
 
         SDL_Window* persistent_window = ghWindow;
         {
@@ -167,18 +158,18 @@ int main(int argc, char** argv)
             {
                 W8NativeVideo decoded;
                 decoded.open(movie_path);
-                CHECK(decoded.update(0) == W8NativeVideo::FrameReady);
-                CHECK(decoded.frame().width == 32 && decoded.frame().height == 24);
+                REQUIRE(decoded.update(0) == W8NativeVideo::FrameReady);
+                REQUIRE((decoded.frame().width == 32 && decoded.frame().height == 24));
                 movie_pixels = decoded.frame().pixels;
             }
             W8BinkVideo movie;
             movie.SetTarget(BeginVideoPresentation());
-            CHECK(movie.Open(movie_path, 0));
-            CHECK(!movie.UpdateFrame());
+            REQUIRE(movie.Open(movie_path, 0));
+            REQUIRE(!movie.UpdateFrame());
             // The actual presentation surface reaches GPU output; the game primary stays intact.
             RenderFrame();
             buffer = g_gerd->lockBuffer();
-            CHECK(buffer);
+            REQUIRE(buffer);
             unsigned movie_matches = 0;
             for (int y = 0; y < 480; ++y)
                 for (int x = 0; x < 640; ++x)
@@ -191,19 +182,19 @@ int main(int argc, char** argv)
                         abs(int((actual >> 8) & 255) - g) > 8 || abs(int(actual & 255) - b) > 8)
                         fprintf(stderr, "movie mismatch %d,%d: GPU %08x CPU %04x\n", x, y, actual,
                                 original);
-                    CHECK(abs(int((actual >> 16) & 255) - r) <= 8 &&
+                    REQUIRE((abs(int((actual >> 16) & 255) - r) <= 8 &&
                           abs(int((actual >> 8) & 255) - g) <= 8 &&
-                          abs(int(actual & 255) - b) <= 8);
+                          abs(int(actual & 255) - b) <= 8));
                     ++movie_matches;
                 }
             g_gerd->unlockBuffer();
             printf("movie GPU: %u RGB555 pixels and black background match\n", movie_matches);
-            CHECK(FinishVideoPresentation() && ghWindow == persistent_window);
+            REQUIRE((FinishVideoPresentation() && ghWindow == persistent_window));
         }
         pixels = static_cast<UINT16*>(LockPrimarySurface(&pitch));
-        CHECK(pixels);
+        REQUIRE(pixels);
         for (int y = 0; y < 480; ++y)
-            CHECK(memcmp(reinterpret_cast<BYTE*>(pixels) + y * pitch, expected.data() + y * 640,
+            REQUIRE(memcmp(reinterpret_cast<BYTE*>(pixels) + y * pitch, expected.data() + y * 640,
                          1280) == 0);
         UnlockPrimarySurface();
         PresentMenuOverlayFrame();
@@ -211,7 +202,7 @@ int main(int argc, char** argv)
         g_screenshot_index = 0;
         SaveJpegScreenshot();
         auto screenshot = srImage::load("Wiz800000.JPG");
-        CHECK(screenshot && screenshot->getWidth() == 640 && screenshot->getHeight() == 480);
+        REQUIRE((screenshot && screenshot->getWidth() == 640 && screenshot->getHeight() == 480));
         puts("retail Targa import and game JPEG screenshot round-trip");
 
         ShutdownVideoObjectManager();
@@ -225,11 +216,6 @@ int main(int argc, char** argv)
         wiz8::clear_asset_archives();
 
         SDL_Quit();
-        return 0;
-    }
-    catch (const std::exception& failure)
-    {
-        fprintf(stderr, "graphics: %s\n", failure.what());
-        return 1;
-    }
+        
+
 }

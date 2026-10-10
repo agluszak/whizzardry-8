@@ -1,3 +1,4 @@
+#include <catch2/catch_test_macros.hpp>
 #include <wiz8/filesystem.h>
 /* Installed character and level assets through the recovered game loop. */
 #include "wiz8/application.h"
@@ -40,12 +41,11 @@ static void Check(bool condition, const char* expression)
     if (!condition)
         throw std::runtime_error(expression);
 }
-#define CHECK(expression) Check(bool(expression), #expression)
 
 static std::vector<unsigned int> ReadFrame()
 {
     auto surface = g_gerd->lockBuffer();
-    CHECK(surface);
+    REQUIRE(surface);
     std::vector<unsigned int> pixels(SCREEN_WIDTH * SCREEN_HEIGHT);
     for (int y = 0; y < SCREEN_HEIGHT; ++y)
         for (int x = 0; x < SCREEN_WIDTH; ++x)
@@ -57,7 +57,7 @@ static std::vector<unsigned int> ReadFrame()
 static void SaveFrame(const char* path, const std::vector<unsigned int>& pixels)
 {
     auto output = wiz8::open_host_file(wiz8::path_from_utf8(path), wiz8::OpenMode::replace);
-    CHECK(output);
+    REQUIRE(output);
     char header[80];
     const int count = snprintf(header, sizeof(header), "P6\n%d %d\n255\n", SCREEN_WIDTH, SCREEN_HEIGHT);
     output->write(header, count);
@@ -71,15 +71,15 @@ static void SaveFrame(const char* path, const std::vector<unsigned int>& pixels)
     output->close();
 }
 
-int main(int argc, char** argv)
+TEST_CASE("world graphics")
 {
+    const char* character_name = SDL_getenv("WIZ8_WORLD_CHARACTER");
+    const char* mode = SDL_getenv("WIZ8_WORLD_MODE");
     std::unique_ptr<wiz8::Application> application;
     std::string temporary;
     bool have_overlay = false;
-    int result = 1;
-    try
-    {
-        CHECK(argc >= 2); // Character basename under installed Saves/Characters.
+
+        REQUIRE(character_name); // Character basename under installed Saves/Characters.
         temporary = make_temporary_directory("wiz8-world");
         have_overlay = true;
         auto roots = w8_native::path_roots();
@@ -94,8 +94,8 @@ int main(int argc, char** argv)
         application = std::make_unique<wiz8::Application>(arguments);
         ResetForNewGame();
         W8Character character{};
-        CHECK(LoadCharacter(argv[1], &character, -1, false));
-        CHECK(AddCharacterToParty(&character, -1) == 2);
+        REQUIRE(LoadCharacter(character_name, &character, -1, false));
+        REQUIRE(AddCharacterToParty(&character, -1) == 2);
         RunNewGameOpeningSequence(false, {});
         // Bypass only the opening movie; use the normal new-game loading screen.
         g_pending_screen_state.mode = 0;
@@ -107,9 +107,9 @@ int main(int argc, char** argv)
             fprintf(stderr, "world: frame %d screen %d pending %d\n", frame,
                     int(g_current_screen_state.id), int(g_pending_screen_state.id));
         }
-        CHECK(g_current_screen_state.id == W8_SCREEN_MAIN_GAME);
+        REQUIRE(g_current_screen_state.id == W8_SCREEN_MAIN_GAME);
         auto world = GetWorld();
-        CHECK(world && world->octree && world->camera && world->level && world->psrMeshes);
+        REQUIRE((world && world->octree && world->camera && world->level && world->psrMeshes));
         W8WorldCameraState state{};
         GetWorldCameraState(world, &state);
         fprintf(stderr, "world: camera (%g %g %g) yaw %g pitch %g\n", state.position.x,
@@ -118,10 +118,10 @@ int main(int argc, char** argv)
         for (unsigned i = 0; i <= world->octree->GetMeshCount(); ++i)
             if (world->psrMeshes[i] && !world->psrMeshes[i]->testFlag(srNode::FLAG_DISABLE))
                 ++enabled;
-        CHECK(enabled > 0);
+        REQUIRE(enabled > 0);
 
         // Same scene and UI, with only the actual world pass switched off.
-        CHECK(g_world_render_enabled && !g_world_blacked_out);
+        REQUIRE((g_world_render_enabled && !g_world_blacked_out));
         RenderFrame();
         srGERD::Statistics with_world{};
         g_gerd->getStatistics(with_world);
@@ -150,19 +150,20 @@ int main(int argc, char** argv)
                 "triangles %u/%u; viewport pixels %u changed, %u restored\n",
                 enabled, polygons, with_world.draw_calls, without_world.draw_calls,
                 with_world.input_triangles, without_world.input_triangles, changed, recovered);
-        CHECK(polygons > 0 && with_world.draw_calls > without_world.draw_calls);
-        CHECK(with_world.input_triangles > without_world.input_triangles);
-        CHECK(changed > 1000 && recovered > 1000);
-        const char* output = argc > 2 ? argv[2] : "/tmp/wiz8-native-world.ppm";
+        REQUIRE((polygons > 0 && with_world.draw_calls > without_world.draw_calls));
+        REQUIRE(with_world.input_triangles > without_world.input_triangles);
+        REQUIRE((changed > 1000 && recovered > 1000));
+        const char* output = SDL_getenv("WIZ8_WORLD_OUTPUT");
+        if (!output) output = "/tmp/wiz8-native-world.ppm";
         SaveFrame(output, restored);
         std::string control_path = std::string(output) + ".control.ppm";
         SaveFrame(control_path.c_str(), control);
-        if (argc > 3 && strcmp(argv[3], "kill") == 0)
+        if (mode && strcmp(mode, "kill") == 0)
         {
             W8MonsterInfo* monster = GetNextMonsterInfo(true);
             while (monster && (!monster->fActive || !monster->p3D || !monster->hp_current))
                 monster = GetNextMonsterInfo(false);
-            CHECK(monster);
+            REQUIRE(monster);
             fprintf(stderr, "regression: kill monster %d species %u HP %u\n",
                     monster->location_id, monster->monster_species, monster->hp_current);
             if (!gXStatus.fCombatMode)
@@ -174,7 +175,7 @@ int main(int argc, char** argv)
                 }
             }
             if (!gXStatus.fCombatMode)
-                CHECK(StartCombat(0));
+                REQUIRE(StartCombat(0));
             if (!monster->fInCombat)
                 MonsterInfoEnterCombat(monster);
             W8TargetSource attacker{};
@@ -183,20 +184,20 @@ int main(int argc, char** argv)
             while (attacker.iChar < W8_PARTY_SLOT_COUNT &&
                    !g_status.buffers.XChar[attacker.iChar].fOccupied)
                 ++attacker.iChar;
-            CHECK(attacker.iChar < W8_PARTY_SLOT_COUNT);
+            REQUIRE(attacker.iChar < W8_PARTY_SLOT_COUNT);
             attacker.iMonsterID = -1;
             ApplyDamageToMonster(monster, monster->hp_current, &attacker, false, 1, 0, nullptr, false);
             fprintf(stderr, "regression: lethal damage returned\n");
             for (int frame = 0; frame < 100; ++frame) GameLoop();
         }
-        if (argc > 3 && strcmp(argv[3], "save") == 0)
+        if (mode && strcmp(mode, "save") == 0)
         {
-            CHECK(SaveGame("native-test", nullptr));
+            REQUIRE(SaveGame("native-test", nullptr));
             fprintf(stderr, "regression: save succeeded\n");
-            CHECK(LoadGame("native-test"));
+            REQUIRE(LoadGame("native-test"));
             fprintf(stderr, "regression: reload succeeded\n");
         }
-        if (argc > 3 && strcmp(argv[3], "angles") == 0)
+        if (mode && strcmp(mode, "angles") == 0)
         {
             for (int angle = 0; angle < 4; ++angle)
             {
@@ -208,14 +209,8 @@ int main(int argc, char** argv)
                 SaveFrame((std::string(output) + "." + std::to_string(angle) + ".ppm").c_str(), pixels);
             }
         }
-        result = 0;
-    }
-    catch (const std::exception& failure)
-    {
-        fprintf(stderr, "world: %s\n", failure.what());
-    }
+        
     application.reset();
     if (have_overlay)
         std::filesystem::remove_all(temporary);
-    return result;
 }

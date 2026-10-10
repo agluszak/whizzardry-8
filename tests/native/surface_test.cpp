@@ -1,3 +1,4 @@
+#include <catch2/catch_test_macros.hpp>
 #include "compat/surfaces.h"
 #include "vsurface.h"
 #include <algorithm>
@@ -8,7 +9,6 @@
 
 BOOLEAN ClipReleatedSrcAndDestRectangles(HVSURFACE, HVSURFACE, SDL_Rect*, SDL_Rect*);
 
-#define CHECK(expression) do { if (!(expression)) throw std::runtime_error(#expression); } while (0)
 
 namespace
 {
@@ -109,8 +109,8 @@ void differential()
         if (f[0] == 8)
         {
             const SDL_Color colors[2]{{255, 1, 2, 255}, {3, 255, 4, 255}};
-            CHECK(SDL_SetPaletteColors(SDL_GetSurfacePalette(src->surface.get()), colors, 0, 2));
-            CHECK(SDL_GetSurfacePalette(src->surface.get())->colors[1].g == 255);
+            REQUIRE(SDL_SetPaletteColors(SDL_GetSurfacePalette(src->surface.get()), colors, 0, 2));
+            REQUIRE(SDL_GetSurfacePalette(src->surface.get())->colors[1].g == 255);
         }
         const auto input = pixels(*src);
         const unsigned bytes = f[0] / 8;
@@ -124,7 +124,7 @@ void differential()
                 const SDL_Rect clips[]{{0, 0, 9, 7}, {4, 3, 11, 9}, {0, 0, 9, 7},
                                    {14, 0, 3, 3}, {8, 9, 0, 3}};
                 SetSurfaceClipRegions(*dest, clips);
-                CHECK(dest->clipRegions->size() == 4);
+                REQUIRE(dest->clipRegions->size() == 4);
             }
             if (clipped == 2)
                 SetSurfaceClipRegions(*dest, {});
@@ -146,7 +146,7 @@ void differential()
                             const auto offset = std::mismatch(actual.begin(), actual.end(), expected.begin()).first - actual.begin();
                             fprintf(stderr, "format %u/%x, clip %u, %dx%d, keys %u, byte %td: %02x != %02x\n",
                                     f[0], f[1], clipped, width, height, keys, offset, actual[offset], expected[offset]);
-                            CHECK(actual == expected);
+                            REQUIRE(actual == expected);
                         }
                     }
         }
@@ -155,13 +155,13 @@ void differential()
         {
             std::array<SDL_Color, 256> white;
             white.fill({255, 255, 255, 255});
-            CHECK(SDL_SetPaletteColors(SDL_GetSurfacePalette(dest->surface.get()), white.data(), 0, 256));
+            REQUIRE(SDL_SetPaletteColors(SDL_GetSurfacePalette(dest->surface.get()), white.data(), 0, 256));
         }
         seed(*dest, 17);
         const SDL_Rect s{0, 0, 12, 10}, d{3, 2, 12, 10};
         const auto expected = reference(*dest, d, *dest, s);
         BlitCpuSurface(*dest, &d, *dest, &s);
-        CHECK(pixels(*dest) == expected);
+        REQUIRE(pixels(*dest) == expected);
     }
 }
 
@@ -172,23 +172,23 @@ void videoSurfaceClipping()
     std::unique_ptr<SGPVSurface> sourceView(CreateVideoSurfaceFromCpuSurface(source.get()));
     std::unique_ptr<SGPVSurface> destView(CreateVideoSurfaceFromCpuSurface(dest.get()));
     SDL_Rect destination{-2, -1, 6, 5}, sample{1, 1, 6, 5};
-    CHECK(ClipReleatedSrcAndDestRectangles(destView.get(), sourceView.get(), &destination, &sample));
+    REQUIRE(ClipReleatedSrcAndDestRectangles(destView.get(), sourceView.get(), &destination, &sample));
     const SDL_Rect expectedDest{0, 0, 4, 4}, expectedSource{3, 2, 4, 4};
-    CHECK(SDL_RectsEqual(&destination, &expectedDest));
-    CHECK(SDL_RectsEqual(&sample, &expectedSource));
+    REQUIRE(SDL_RectsEqual(&destination, &expectedDest));
+    REQUIRE(SDL_RectsEqual(&sample, &expectedSource));
     destination = {1, 1, 6, 5};
     sample = {-2, -1, 6, 5};
-    CHECK(ClipReleatedSrcAndDestRectangles(destView.get(), sourceView.get(), &destination, &sample));
-    CHECK(SDL_RectsEqual(&destination, &expectedSource));
-    CHECK(SDL_RectsEqual(&sample, &expectedDest));
+    REQUIRE(ClipReleatedSrcAndDestRectangles(destView.get(), sourceView.get(), &destination, &sample));
+    REQUIRE(SDL_RectsEqual(&destination, &expectedSource));
+    REQUIRE(SDL_RectsEqual(&sample, &expectedDest));
     SDL_Rect clips[]{{2, 1, 3, 2}};
-    CHECK(SetClipList(destView.get(), clips, 1));
-    CHECK(dest->clipRegions->size() == 1);
-    CHECK(SDL_RectsEqual(&dest->clipRegions->front(), &clips[0]));
+    REQUIRE(SetClipList(destView.get(), clips, 1));
+    REQUIRE(dest->clipRegions->size() == 1);
+    REQUIRE(SDL_RectsEqual(&dest->clipRegions->front(), &clips[0]));
     seed(*source, 5);
     for (bool clipped : {false, true}) {
         if (!clipped) dest->clipRegions.reset();
-        else CHECK(SetClipList(destView.get(), clips, 1));
+        else REQUIRE(SetClipList(destView.get(), clips, 1));
         for (int y : {-4, -1, 0, 3, 7})
             for (int x : {-5, -1, 0, 4, 8}) {
                 seed(*dest, 17);
@@ -196,10 +196,10 @@ void videoSurfaceClipping()
                 const auto expected = reference(*dest, mapping, *source, sample);
                 blt_vs_fx effects{};
                 effects.SrcRect = sample;
-                CHECK(BltVideoSurfaceToVideoSurface(destView.get(), sourceView.get(), 0,
+                REQUIRE((BltVideoSurfaceToVideoSurface(destView.get(), sourceView.get(), 0,
                                                     x, y, VS_BLT_SRCSUBRECT, &effects) ||
-                      x >= 8 || y >= 7);
-                CHECK(pixels(*dest) == expected);
+                      x >= 8 || y >= 7));
+                REQUIRE(pixels(*dest) == expected);
             }
     }
 }
@@ -211,16 +211,16 @@ void locksFillsAndKeys()
         auto surface = CreateCpuSurface(3, 3, bits, 0x7c00, 0x3e0, 0x1f);
         const unsigned bytes = bits / 8;
         auto lock = LockCpuSurface(*surface);
-        CHECK(lock.pitch >= int(3 * bytes) && lock.pitch % 4 == 0);
+        REQUIRE((lock.pitch >= int(3 * bytes) && lock.pitch % 4 == 0));
         memset(lock.pixels, 0xa5, lock.pitch * lock.height);
         UnlockCpuSurface(*surface);
         const SDL_Rect region{1, 1, 2, 2};
         lock = LockCpuSurface(*surface, &region);
-        CHECK(lock.pixels == static_cast<BYTE*>(surface->surface->pixels) + lock.pitch + bytes);
-        CHECK(lock.width == 2 && lock.height == 2);
+        REQUIRE(lock.pixels == static_cast<BYTE*>(surface->surface->pixels) + lock.pitch + bytes);
+        REQUIRE((lock.width == 2 && lock.height == 2));
         bool rejected = false;
         try { FillCpuSurface(*surface, 0); } catch (const std::runtime_error&) { rejected = true; }
-        CHECK(rejected);
+        REQUIRE(rejected);
         UnlockCpuSurface(*surface);
         const auto before = pixels(*surface);
         const SDL_Rect clips[]{{1, 0, 2, 2}};
@@ -232,9 +232,9 @@ void locksFillsAndKeys()
             {
                 const auto index = y * lock.pitch + offset;
                 if (y < 2 && offset >= int(bytes) && offset < int(3 * bytes))
-                    CHECK(after[index] == BYTE(0xdeadbeef >> (8 * (offset % bytes))));
+                    REQUIRE(after[index] == BYTE(0xdeadbeef >> (8 * (offset % bytes))));
                 else
-                    CHECK(after[index] == before[index]);
+                    REQUIRE(after[index] == before[index]);
             }
     }
     auto src = CreateCpuSurface(2, 1, 32, 0xff0000, 0xff00, 0xff, 0xff000000);
@@ -247,23 +247,13 @@ void locksFillsAndKeys()
     src->sourceKey = SurfaceColorKey{input[0], input[0]};
     BlitCpuSurface(*dest, nullptr, *src, nullptr, true);
     const auto result = pixels(*dest);
-    CHECK(read(result.data(), 4) == 0x11223344 && read(result.data() + 4, 4) == input[1]);
+    REQUIRE((read(result.data(), 4) == 0x11223344 && read(result.data() + 4, 4) == input[1]));
 }
 } // namespace
 
-int main()
+TEST_CASE("surface_test")
 {
-    try
-    {
-        differential();
-        locksFillsAndKeys();
-        videoSurfaceClipping();
-        puts("CPU surfaces: exact packed differential, palette, pitch, alpha, clips, keys and overlap passed");
-        return 0;
-    }
-    catch (const std::exception& failure)
-    {
-        fprintf(stderr, "surfaces: %s\n", failure.what());
-        return 1;
-    }
+    differential();
+    locksFillsAndKeys();
+    videoSurfaceClipping();
 }

@@ -1,3 +1,4 @@
+#include <catch2/catch_test_macros.hpp>
 #include "surrender/srIO.h"
 /* Actual SDL_image decoding and byte-exact transfer. gray.jpg/cmyk.jpg are
    synthetic 3x2, quality-100 JPEGs with samples 20 + 9*i. */
@@ -13,15 +14,13 @@
 #include <stdexcept>
 #include <vector>
 
-#define CHECK(e) do { if (!(e)) { fprintf(stderr, "line %d: %s (%s)\n", \
-    __LINE__, #e, SDL_GetError()); throw std::runtime_error(#e); } } while (0)
 using Bytes = std::vector<Uint8>;
 using OwnedSurface = std::unique_ptr<srColorSurfaceIFace>;
 static Bytes fixture(const char* name)
 {
     std::ifstream input(std::filesystem::path(WIZ8_IMAGE_IMPORT_FIXTURE_DIR) / name,
                         std::ios::binary);
-    CHECK(input.good());
+    REQUIRE(input.good());
     return {std::istreambuf_iterator<char>(input), {}};
 }
 static void checkFormat(const srColorSurfaceIFace& surface, srPixelConvert::e_surfaceType type)
@@ -30,21 +29,21 @@ static void checkFormat(const srColorSurfaceIFace& surface, srPixelConvert::e_su
     srPixelConvert::mapPixelFormat(type, expected);
     srPixelConvert::PixelFormat actual;
     surface.getPixelFormat(actual);
-    CHECK(actual == expected);
+    REQUIRE(actual == expected);
 }
 static OwnedSurface loadJpeg(const Bytes& data)
 {
     if (data.empty()) return nullptr;
     auto input = srIO::own(SDL_IOFromConstMem(data.data(), data.size()));
     auto result = srImage::load("sample.jpg", input.get());
-    CHECK(SDL_GetIOSize(input.get()) == Sint64(data.size()));
+    REQUIRE(SDL_GetIOSize(input.get()) == Sint64(data.size()));
     return result;
 }
 static Bytes encode(srColorSurfaceIFace& surface, int quality = 100)
 {
     auto output = srIO::own(SDL_IOFromDynamicMem());
     srImage::save("sample.jpg", output.get(), surface, quality);
-    CHECK((SDL_GetIOStatus(output.get()) == SDL_IO_STATUS_READY) && SDL_GetIOSize(output.get()) > 2);
+    REQUIRE(((SDL_GetIOStatus(output.get()) == SDL_IO_STATUS_READY) && SDL_GetIOSize(output.get()) > 2));
     auto* data = static_cast<const Uint8*>(SDL_GetPointerProperty(SDL_GetIOProperties(output.get()), SDL_PROP_IOSTREAM_DYNAMIC_MEMORY_POINTER, nullptr));
     return {data, data + SDL_GetIOSize(output.get())};
 }
@@ -59,27 +58,27 @@ static void jpegValidationTests()
             scans += bytes[i] == 0xff && bytes[i + 1] == 0xda;
             restarts += bytes[i] == 0xff && bytes[i + 1] >= 0xd0 && bytes[i + 1] <= 0xd7;
         }
-        CHECK(scans > 1 || restarts > 0);
+        REQUIRE((scans > 1 || restarts > 0));
         auto surface = loadJpeg(bytes);
-        CHECK(surface && surface->getWidth() == 32 && surface->getHeight() == 32);
+        REQUIRE((surface && surface->getWidth() == 32 && surface->getHeight() == 32));
         const auto pixel = surface->getPixel(0, 0);
-        CHECK(abs(int((pixel >> 16) & 255) - 40) <= 2 &&
-              abs(int((pixel >> 8) & 255) - 90) <= 2 && abs(int(pixel & 255) - 150) <= 2);
+        REQUIRE((abs(int((pixel >> 16) & 255) - 40) <= 2 &&
+              abs(int((pixel >> 8) & 255) - 90) <= 2 && abs(int(pixel & 255) - 150) <= 2));
         for (const auto removed : {size_t(2), size_t(8), bytes.size() / 2}) {
             Bytes truncated(bytes.begin(), bytes.end() - removed);
-            CHECK(!loadJpeg(truncated));
+            REQUIRE(!loadJpeg(truncated));
             // A terminal EOI alone cannot make missing scans/entropy valid.
             if (removed != 2) {
                 truncated.insert(truncated.end(), {0xff, 0xd9});
-                CHECK(!loadJpeg(truncated));
+                REQUIRE(!loadJpeg(truncated));
             }
         }
         auto trailing = bytes;
         trailing.insert(trailing.end(), {1, 2, 3});
-        CHECK(loadJpeg(trailing));
+        REQUIRE(loadJpeg(trailing));
         auto metadata = bytes;
         metadata.insert(metadata.begin() + 2, {0xff,0xef,0,6,0xff,0xd9,0xff,0xd8});
-        CHECK(loadJpeg(metadata)); // Marker-looking bytes inside APP payloads.
+        REQUIRE(loadJpeg(metadata)); // Marker-looking bytes inside APP payloads.
     }
 }
 
@@ -95,11 +94,11 @@ static void jpegTests()
         }
     auto source = std::make_unique<srColorSurface>(srPixelConvert::SURFACE_BGRA32, pixels.data(), 3, 2, 16);
     const auto rgb = encode(*source);
-    CHECK(rgb == encode(*source, 100));
-    CHECK(rgb == encode(*source, 200));
-    CHECK(encode(*source, -1) == encode(*source, 0));
-    CHECK(rgb != encode(*source, 20));
-    CHECK(pixels[12] == 0xee && pixels[28] == 0xee);
+    REQUIRE(rgb == encode(*source, 100));
+    REQUIRE(rgb == encode(*source, 200));
+    REQUIRE(encode(*source, -1) == encode(*source, 0));
+    REQUIRE(rgb != encode(*source, 20));
+    REQUIRE((pixels[12] == 0xee && pixels[28] == 0xee));
     for (const auto* data : {&gray, &rgb, &cmyk}) {
         const bool monochrome = data == &gray;
         const bool four_channels = data == &cmyk;
@@ -107,53 +106,53 @@ static void jpegTests()
         auto input = srIO::own(SDL_IOFromConstMem(data->data(), data->size()));
         SDL_SeekIO(input.get(), 7, SDL_IO_SEEK_SET);
         srColorSurfaceIFace::SurfaceDesc description;
-        CHECK(srImage::describe(description, "sample.JPEG", input.get()));
-        CHECK(SDL_TellIO(input.get()) == 7 && SDL_GetIOStatus(input.get()) != SDL_IO_STATUS_ERROR);
-        CHECK(description.width == 3 && description.height == 2);
+        REQUIRE(srImage::describe(description, "sample.JPEG", input.get()));
+        REQUIRE((SDL_TellIO(input.get()) == 7 && SDL_GetIOStatus(input.get()) != SDL_IO_STATUS_ERROR));
+        REQUIRE((description.width == 3 && description.height == 2));
         auto surface = loadJpeg(*data);
-        CHECK(surface && surface->getWidth() == 3 && surface->getHeight() == 2);
+        REQUIRE((surface && surface->getWidth() == 3 && surface->getHeight() == 2));
         checkFormat(*surface, monochrome ? srPixelConvert::SURFACE_L8 :
                               four_channels ? srPixelConvert::SURFACE_BGRA32 : srPixelConvert::SURFACE_BGR24);
         auto io = srIO::own(SDL_IOFromConstMem(data->data(), data->size()));
         srImage::Surface decoded(IMG_LoadJPG_IO(io.get()), SDL_DestroySurface);
-        CHECK(decoded);
+        REQUIRE(decoded);
         srImage::Surface reference(SDL_ConvertSurface(decoded.get(), four_channels ? SDL_PIXELFORMAT_BGRA32 :
                                                                                   SDL_PIXELFORMAT_BGR24), SDL_DestroySurface);
-        CHECK(reference);
+        REQUIRE(reference);
         for (unsigned y = 0; y < 2; ++y) {
             const auto* expected = static_cast<const Uint8*>(reference->pixels) + y * reference->pitch;
             const auto* row = static_cast<const Uint8*>(surface->getDataPtr()) + y * surface->getPitch();
             for (unsigned x = 0; x < 3; ++x) {
                 if (monochrome) {
-                    CHECK(row[x] == expected[x * 3]);
-                    CHECK(abs(int(row[x]) - int(20 + 9 * (3 * y + x))) <= 1);
+                    REQUIRE(row[x] == expected[x * 3]);
+                    REQUIRE(abs(int(row[x]) - int(20 + 9 * (3 * y + x))) <= 1);
                 } else {
-                    CHECK(memcmp(row + x * pixel_bytes, expected + x * pixel_bytes, pixel_bytes) == 0);
-                    if (four_channels) CHECK(row[x * 4 + 3] == 255);
+                    REQUIRE(memcmp(row + x * pixel_bytes, expected + x * pixel_bytes, pixel_bytes) == 0);
+                    if (four_channels) REQUIRE(row[x * 4 + 3] == 255);
                     if (data == &rgb) {
                         const auto* original = pixels.data() + y * 16 + x * 4;
                         for (unsigned component = 0; component < 3; ++component)
-                            CHECK(abs(int(row[x * 3 + component]) - int(original[component])) <= 3);
+                            REQUIRE(abs(int(row[x * 3 + component]) - int(original[component])) <= 3);
                     }
                 }
             }
         }
-        CHECK(!encode(*surface).empty());
+        REQUIRE(!encode(*surface).empty());
     }
     // SDL/libjpeg tolerates missing EOI; the SDL entry point must reject it.
     for (size_t length : {size_t(0), size_t(1), size_t(2), size_t(18), rgb.size() / 2, rgb.size() - 2})
-        CHECK(!loadJpeg(Bytes(rgb.begin(), rgb.begin() + length)));
+        REQUIRE(!loadJpeg(Bytes(rgb.begin(), rgb.begin() + length)));
     auto invalid = rgb;
     invalid[0] = 0;
-    CHECK(!loadJpeg(invalid));
+    REQUIRE(!loadJpeg(invalid));
     for (size_t i = 0; i + 9 < invalid.size(); ++i)
         if (rgb[i] == 0xff && rgb[i + 1] == 0xc0) {
             invalid = rgb;
             invalid[i + 5] = invalid[i + 6] = invalid[i + 7] = invalid[i + 8] = 0xff;
-            CHECK(!loadJpeg(invalid));
+            REQUIRE(!loadJpeg(invalid));
             invalid = rgb;
             invalid[i + 5] = invalid[i + 6] = 0;
-            CHECK(!loadJpeg(invalid));
+            REQUIRE(!loadJpeg(invalid));
             break;
         }
 }
@@ -171,20 +170,20 @@ static void pitchTests()
             for (unsigned x = 0; x < row_bytes; ++x) src[y * src_pitch + x] = 20 * y + x;
         srImage::Surface view(SDL_CreateSurfaceFrom(3, 2, format.sdl, src.data(), src_pitch), SDL_DestroySurface);
         auto destination = std::make_unique<srColorSurface>(format.sr, dst.data(), 3, 2, dst_pitch);
-        CHECK(view && destination);
+        REQUIRE((view && destination));
         for (bool mirror : {false, true}) {
-            CHECK(srImage::copyRows(*view, *destination, format.bytes, mirror));
+            REQUIRE(srImage::copyRows(*view, *destination, format.bytes, mirror));
             for (unsigned y = 0; y < 2; ++y) {
                 for (unsigned x = 0; x < 3; ++x)
-                    CHECK(memcmp(dst.data() + y * dst_pitch + x * format.bytes,
+                    REQUIRE(memcmp(dst.data() + y * dst_pitch + x * format.bytes,
                                  src.data() + y * src_pitch + (mirror ? 2 - x : x) * format.bytes,
                                  format.bytes) == 0);
-                for (unsigned x = row_bytes; x < dst_pitch; ++x) CHECK(dst[y * dst_pitch + x] == 0xcd);
-                for (unsigned x = row_bytes; x < src_pitch; ++x) CHECK(src[y * src_pitch + x] == 0xac);
+                for (unsigned x = row_bytes; x < dst_pitch; ++x) REQUIRE(dst[y * dst_pitch + x] == 0xcd);
+                for (unsigned x = row_bytes; x < src_pitch; ++x) REQUIRE(src[y * src_pitch + x] == 0xac);
             }
         }
         view->pitch = row_bytes - 1;
-        CHECK(!srImage::copyRows(*view, *destination, format.bytes));
+        REQUIRE(!srImage::copyRows(*view, *destination, format.bytes));
     }
 }
 
@@ -256,15 +255,15 @@ static OwnedSurface loadTga(const Bytes& data)
 {
     auto input = srIO::own(SDL_IOFromConstMem(data.data(), data.size()));
     auto result = srImage::loadTga(input.get());
-    CHECK(SDL_GetIOSize(input.get()) == Sint64(data.size()));
+    REQUIRE(SDL_GetIOSize(input.get()) == Sint64(data.size()));
     return result;
 }
 static void checkTga(const TgaFixture& fixture, srColorSurfaceIFace& surface)
 {
-    CHECK(surface.getWidth() == 3 && surface.getHeight() == 2);
+    REQUIRE((surface.getWidth() == 3 && surface.getHeight() == 2));
     checkFormat(surface, fixture.format);
     for (unsigned y = 0; y < 2; ++y)
-        CHECK(memcmp(static_cast<const Uint8*>(surface.getDataPtr()) + y * surface.getPitch(),
+        REQUIRE(memcmp(static_cast<const Uint8*>(surface.getDataPtr()) + y * surface.getPitch(),
                      fixture.expected.data() + y * 3 * fixture.bytes, 3 * fixture.bytes) == 0);
 }
 static void tgaTests()
@@ -276,59 +275,59 @@ static void tgaTests()
                     const auto fixture = tgaFixture(depth, false, rle, origin, alpha);
                     auto surface = loadTga(fixture.encoded);
                     if (!surface) fprintf(stderr, "TGA depth=%u rle=%d origin=%u alpha=%d\n", depth, rle, origin, alpha);
-                    CHECK(surface);
+                    REQUIRE(surface);
                     checkTga(fixture, *surface);
                     auto truncated = fixture.encoded;
                     truncated.pop_back();
-                    CHECK(!loadTga(truncated));
+                    REQUIRE(!loadTga(truncated));
                 }
     for (unsigned origin : {0u, 0x10u, 0x20u, 0x30u})
         for (bool rle : {false, true})
             for (unsigned palette_bits : {16u, 24u, 32u}) {
                 const auto fixture = tgaFixture(8, true, rle, origin, false, palette_bits);
                 auto surface = loadTga(fixture.encoded);
-                CHECK(surface);
+                REQUIRE(surface);
                 checkTga(fixture, *surface);
                 const auto palette = surface->getPalette();
-                CHECK(palette && palette->getPaletteSize() == 10);
-                CHECK(palette->getColor(0).red == 0 && palette->getColor(6).blue == 0);
+                REQUIRE((palette && palette->getPaletteSize() == 10));
+                REQUIRE((palette->getColor(0).red == 0 && palette->getColor(6).blue == 0));
                 for (unsigned i = 0; i < 3; ++i) {
                     const auto color = palette->getColor(7 + i);
-                    CHECK(color.alpha == (palette_bits == 32 ? 40 + i : 255));
+                    REQUIRE(color.alpha == (palette_bits == 32 ? 40 + i : 255));
                     if (palette_bits != 16)
-                        CHECK(color.blue == 10 + i && color.green == 30 + i && color.red == 90 + i);
-                    else CHECK(color.red >= 248 && color.blue != 0);
+                        REQUIRE((color.blue == 10 + i && color.green == 30 + i && color.red == 90 + i));
+                    else REQUIRE((color.red >= 248 && color.blue != 0));
                 }
             }
     const auto fallback = tgaFixture(8, true, true, 0x30, false, 24, false);
     auto core_palette = loadTga(fallback.encoded);
-    CHECK(core_palette && core_palette->getPalette() == srCore.getPalette());
+    REQUIRE((core_palette && core_palette->getPalette() == srCore.getPalette()));
     checkTga(fallback, *core_palette);
     auto palette_only = tgaFixture(8, true, false, 0x20, false, 32).encoded;
     palette_only[2] = 0; palette_only[12] = palette_only[14] = 0;
     palette_only.resize(18 + 3 + 3 * 4);
     auto palette_surface = loadTga(palette_only);
-    CHECK(palette_surface && palette_surface->getWidth() == 1 && palette_surface->getPalette());
-    CHECK(*static_cast<const Uint8*>(palette_surface->getDataPtr()) == 7);
+    REQUIRE((palette_surface && palette_surface->getWidth() == 1 && palette_surface->getPalette()));
+    REQUIRE(*static_cast<const Uint8*>(palette_surface->getDataPtr()) == 7);
     const auto raw = tgaFixture(24, false, false, 0, false).encoded;
     for (size_t size : {size_t(0), size_t(17), size_t(18), raw.size() - 1})
-        CHECK(!loadTga(Bytes(raw.begin(), raw.begin() + size)));
+        REQUIRE(!loadTga(Bytes(raw.begin(), raw.begin() + size)));
     for (const auto change : {std::pair{2u, 7u}, {12u, 0u}, {16u, 15u}, {17u, 0x40u}, {1u, 2u}}) {
         auto invalid = raw; invalid[change.first] = change.second;
-        CHECK(!loadTga(invalid));
+        REQUIRE(!loadTga(invalid));
     }
     auto invalid = raw;
     invalid[12] = invalid[13] = invalid[14] = invalid[15] = 0xff;
-    CHECK(!loadTga(invalid));
+    REQUIRE(!loadTga(invalid));
     invalid = tgaFixture(24, false, true, 0, false).encoded;
     invalid[21] = 0xff;
-    CHECK(!loadTga(invalid));
+    REQUIRE(!loadTga(invalid));
     invalid = tgaFixture(8, true, false, 0, false).encoded;
     invalid[3] = 255;
-    CHECK(!loadTga(invalid));
+    REQUIRE(!loadTga(invalid));
     invalid = tgaFixture(8, true, false, 0, false).encoded;
     invalid.back() = 6;
-    CHECK(!loadTga(invalid));
+    REQUIRE(!loadTga(invalid));
 }
 
 // Faults are supplied at SDL's backend boundary, where production callers
@@ -372,38 +371,38 @@ static void streamTests()
 {
     const Bytes data{1, 2, 3, 4};
     auto source = srIO::own(SDL_IOFromConstMem(data.data(), data.size()));
-    CHECK(SDL_GetIOSize(source.get()) == 4);
-    CHECK(SDL_SeekIO(source.get(), -1, SDL_IO_SEEK_END) == 3);
+    REQUIRE(SDL_GetIOSize(source.get()) == 4);
+    REQUIRE(SDL_SeekIO(source.get(), -1, SDL_IO_SEEK_END) == 3);
     Uint8 bytes[8]{};
-    CHECK(SDL_ReadIO(source.get(), bytes, 8) == 1 && bytes[0] == 4);
-    CHECK(SDL_ReadIO(source.get(), bytes, 8) == 0);
-    CHECK(SDL_GetIOStatus(source.get()) == SDL_IO_STATUS_EOF);
-    CHECK(SDL_SeekIO(source.get(), 0, SDL_IO_SEEK_SET) == 0);
+    REQUIRE((SDL_ReadIO(source.get(), bytes, 8) == 1 && bytes[0] == 4));
+    REQUIRE(SDL_ReadIO(source.get(), bytes, 8) == 0);
+    REQUIRE(SDL_GetIOStatus(source.get()) == SDL_IO_STATUS_EOF);
+    REQUIRE(SDL_SeekIO(source.get(), 0, SDL_IO_SEEK_SET) == 0);
     // SDL's const-memory backend clamps out-of-range seeks. Archive entry
     // backends reject them; those bounds are tested in virtual_transfer_test.
     const auto jpeg = fixture("gray.jpg");
     for (int fault : {0, 1, 2, 3}) {
         FaultIO backend{jpeg, fault};
         auto input = backend.open();
-        CHECK(!srImage::load("sample.jpg", input.get()));
-        CHECK(SDL_TellIO(input.get()) <= Sint64(jpeg.size()));
+        REQUIRE(!srImage::load("sample.jpg", input.get()));
+        REQUIRE(SDL_TellIO(input.get()) <= Sint64(jpeg.size()));
         srColorSurfaceIFace::SurfaceDesc description;
-        CHECK(!srImage::describe(description, "sample.jpg", input.get()));
+        REQUIRE(!srImage::describe(description, "sample.jpg", input.get()));
     }
     auto surface = loadJpeg(jpeg);
-    CHECK(surface);
+    REQUIRE(surface);
     for (int fault : {4, 5}) {
         FaultIO backend{jpeg, fault};
         auto output = backend.open();
         bool rejected = false;
         try { srImage::save("sample.jpg", output.get(), *surface); }
         catch (...) { rejected = true; }
-        CHECK(rejected);
+        REQUIRE(rejected);
     }
 }
-int main() try
+TEST_CASE("jpeg_transfer_test")
 {
-    CHECK(srInit());
+    REQUIRE(srInit());
     jpegTests();
     jpegValidationTests();
     pitchTests();
@@ -411,6 +410,6 @@ int main() try
     streamTests();
     srExit();
     puts("SDL_image JPEG/TGA formats, transfer, origins/RLE/palettes, pitch and checked streams passed");
-    return 0;
+    
+
 }
-catch (...) { srExit(); return 1; }

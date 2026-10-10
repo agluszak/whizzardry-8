@@ -1,3 +1,4 @@
+#include <catch2/catch_test_macros.hpp>
 #include "himage.h"
 #include "imgfmt.h"
 #include "wiz8/slf.h"
@@ -16,9 +17,6 @@
 #include <string>
 #include <vector>
 
-#define CHECK(expression) do { if (!(expression)) { \
-    fprintf(stderr, "line %d: %s (%s)\n", __LINE__, #expression, SDL_GetError()); \
-    std::exit(1); } } while (0)
 
 using Bytes = std::vector<UINT8>;
 using Image = std::unique_ptr<image_type>;
@@ -35,7 +33,7 @@ static void fixture(const fs::path& path, const Bytes& bytes)
     fs::create_directories(path.parent_path());
     std::ofstream file(path, std::ios::binary);
     file.write(reinterpret_cast<const char*>(bytes.data()), bytes.size());
-    CHECK(file.good());
+    REQUIRE(file.good());
 }
 
 static Bytes pcx()
@@ -137,7 +135,7 @@ static Bytes slf(const std::vector<std::pair<std::string, Bytes>>& files)
     for (const auto& [name, data] : files)
     {
         wiz8::SlfEntry entry{};
-        CHECK(name.size() < sizeof(entry.sFileName));
+        REQUIRE(name.size() < sizeof(entry.sFileName));
         memcpy(entry.sFileName, name.c_str(), name.size() + 1);
         entry.uiOffset = bytes.size();
         entry.uiLength = data.size();
@@ -167,24 +165,24 @@ static void rgb555()
 
 static void check_pcx(const image_type& image)
 {
-    CHECK(image.usWidth == 3 && image.usHeight == 2 && image.ubBitDepth == 8);
-    CHECK(image.fFlags == IMAGE_ALLIMAGEDATA);
+    REQUIRE((image.usWidth == 3 && image.usHeight == 2 && image.ubBitDepth == 8));
+    REQUIRE(image.fFlags == IMAGE_ALLIMAGEDATA);
     const UINT8 expected[]{0, 1, 1, 2, 3, 0xc1};
-    CHECK(!memcmp(image.pImageData.data(), expected, sizeof(expected)));
+    REQUIRE(!memcmp(image.pImageData.data(), expected, sizeof(expected)));
     for (unsigned i = 0; i < 256; ++i)
     {
-        CHECK(image.pPalette[i].peRed == (i == 2 ? 255 : i));
-        CHECK(image.pPalette[i].peGreen == (i == 2 ? 0 : i));
-        CHECK(image.pPalette[i].peBlue == (i == 2 ? 0 : i));
-        CHECK(image.pPalette[i].peFlags == 0);
+        REQUIRE(image.pPalette[i].peRed == (i == 2 ? 255 : i));
+        REQUIRE(image.pPalette[i].peGreen == (i == 2 ? 0 : i));
+        REQUIRE(image.pPalette[i].peBlue == (i == 2 ? 0 : i));
+        REQUIRE(image.pPalette[i].peFlags == 0);
     }
-    CHECK(image.pui16BPPPalette[0] == 0); // Exact black stays transparent.
-    CHECK(image.pui16BPPPalette[1] == 1); // Non-black quantizing to zero is substituted.
-    CHECK(image.pui16BPPPalette[2] == 0x7c00);
-    CHECK(image.pAppData.empty() && !image.pAppData.size() && !image.pETRLEObject.size());
+    REQUIRE(image.pui16BPPPalette[0] == 0); // Exact black stays transparent.
+    REQUIRE(image.pui16BPPPalette[1] == 1); // Non-black quantizing to zero is substituted.
+    REQUIRE(image.pui16BPPPalette[2] == 0x7c00);
+    REQUIRE((image.pAppData.empty() && !image.pAppData.size() && !image.pETRLEObject.size()));
 }
 
-int main() try
+TEST_CASE("images_test")
 {
     const fs::path root = wiz8::path_from_utf8(make_temporary_directory("wiz8-images"));
     const auto assets = root / "assets", user = root / "user", disc = root / "disc";
@@ -229,46 +227,46 @@ int main() try
         };
         write_rgb();
         auto image = load("native-rgb.sti");
-        CHECK(image && image->pImageData.size() == 4 && image->usWidth == 2);
+        REQUIRE((image && image->pImageData.size() == 4 && image->usWidth == 2));
         const UINT8 expected[]{0, 0x7c, 0xe0, 3};
-        CHECK(!memcmp(image->pImageData.data(), expected, sizeof(expected)));
-        CHECK(load("native-rgb.sti", 0));
+        REQUIRE(!memcmp(image->pImageData.data(), expected, sizeof(expected)));
+        REQUIRE(load("native-rgb.sti", 0));
         header.RGB.uiRedMask = 0xf800;
         header.RGB.uiGreenMask = 0x07e0;
         write_rgb();
         image = load("native-rgb.sti");
-        CHECK(image && image->pImageData.size() == 4);
-        CHECK(image->pImageData[1] == 0x3e); // RGB565 red bits become RGB555.
+        REQUIRE((image && image->pImageData.size() == 4));
+        REQUIRE(image->pImageData[1] == 0x3e); // RGB565 red bits become RGB555.
         header.uiStoredSize = 1;
         write_rgb();
-        CHECK(!load("native-rgb.sti"));
+        REQUIRE(!load("native-rgb.sti"));
         header.uiStoredSize = 0xffffffffu;
         write_rgb();
-        CHECK(!load("native-rgb.sti"));
+        REQUIRE(!load("native-rgb.sti"));
     }
 
 
     {
         auto image = load("c:\\dotted.DIR\\many.dots.pcx");
-        CHECK(image);
+        REQUIRE(image);
         check_pcx(*image);
         char extensionless[] = "Dotted.dir\\default";
         auto default_image = load(extensionless);
-        CHECK(default_image && !strcmp(extensionless, "Dotted.dir\\default"));
+        REQUIRE((default_image && !strcmp(extensionless, "Dotted.dir\\default")));
         check_pcx(*default_image);
-        CHECK(default_image->ImageFile == "Dotted.dir\\default.PCX");
+        REQUIRE(default_image->ImageFile == "Dotted.dir\\default.PCX");
     }
     {
         auto palette = load("Dotted.dir/default.PCX", IMAGE_PALETTE);
         auto bitmap = load("Dotted.dir/default.PCX", IMAGE_BITMAPDATA);
         auto metadata = load("Dotted.dir/default.PCX", 0);
-        CHECK(palette && bitmap && metadata);
-        CHECK(palette->fFlags == IMAGE_PALETTE && palette->pImageData.empty() && palette->pPalette);
-        CHECK(bitmap->fFlags == IMAGE_BITMAPDATA && !bitmap->pImageData.empty() && !bitmap->pPalette);
-        CHECK(metadata->fFlags == 0 && metadata->pImageData.empty() && !metadata->pPalette);
-        CHECK(LoadImageData(metadata.get(), IMAGE_ALLIMAGEDATA));
+        REQUIRE((palette && bitmap && metadata));
+        REQUIRE((palette->fFlags == IMAGE_PALETTE && palette->pImageData.empty() && palette->pPalette));
+        REQUIRE((bitmap->fFlags == IMAGE_BITMAPDATA && !bitmap->pImageData.empty() && !bitmap->pPalette));
+        REQUIRE((metadata->fFlags == 0 && metadata->pImageData.empty() && !metadata->pPalette));
+        REQUIRE(LoadImageData(metadata.get(), IMAGE_ALLIMAGEDATA));
         check_pcx(*metadata);
-        CHECK(LoadImageData(metadata.get(), IMAGE_ALLIMAGEDATA));
+        REQUIRE(LoadImageData(metadata.get(), IMAGE_ALLIMAGEDATA));
         check_pcx(*metadata);
         gusAlphaMask = 0x8000;
         gusRedMask = 0x001f;
@@ -276,8 +274,8 @@ int main() try
         gusRedShift = -3;
         gusBlueShift = 7;
         auto custom = load("Dotted.dir/default.PCX");
-        CHECK(custom && custom->pui16BPPPalette[0] == 0);
-        CHECK(custom->pui16BPPPalette[1] == 0x8001 && custom->pui16BPPPalette[2] == 0x801f);
+        REQUIRE((custom && custom->pui16BPPPalette[0] == 0));
+        REQUIRE((custom->pui16BPPPalette[1] == 0x8001 && custom->pui16BPPPalette[2] == 0x801f));
         rgb555();
     }
 
@@ -288,16 +286,16 @@ int main() try
         palette[2] = {255, 0, 0, 0};
         palette[255] = {17, 121, 244, 0};
         const auto packed_palette = Create16BPPPalette(palette.data());
-        CHECK(packed_palette[0] == 0 && packed_palette[1] == 1 && packed_palette[2] == 0x7c00);
+        REQUIRE((packed_palette[0] == 0 && packed_palette[1] == 1 && packed_palette[2] == 0x7c00));
         const auto shaded = Create16BPPPaletteShaded(palette.data(), 384, 0, 128, FALSE);
-        CHECK(shaded[0] == 0 && shaded[255] == 0x0c0f);
+        REQUIRE((shaded[0] == 0 && shaded[255] == 0x0c0f));
         const auto mono = Create16BPPPaletteShaded(palette.data(), 384, 0, 128, TRUE);
-        CHECK(mono[0] == 0 && mono[255] == 0x4c06);
+        REQUIRE((mono[0] == 0 && mono[255] == 0x4c06));
         const auto clamped = Create16BPPPaletteShaded(palette.data(), 4096, 4096, 4096, FALSE);
-        CHECK(clamped[255] == 0x7fff);
+        REQUIRE(clamped[255] == 0x7fff);
         gusAlphaMask = 0x8000;
         const auto opaque = Create16BPPPalette(palette.data());
-        CHECK(opaque[0] == 0 && opaque[1] == 0x8001 && opaque[2] == 0xfc00);
+        REQUIRE((opaque[0] == 0 && opaque[1] == 0x8001 && opaque[2] == 0xfc00));
         rgb555();
     }
 
@@ -306,8 +304,8 @@ int main() try
     {
         fixture(assets / "rgb.pcx", rgb_pcx(rgb));
         auto image = load("rgb.pcx");
-        CHECK(image && image->ubBitDepth == 24 && image->fFlags == IMAGE_BITMAPDATA);
-        CHECK(!memcmp(image->pImageData.data(), rgb, sizeof(rgb)));
+        REQUIRE((image && image->ubBitDepth == 24 && image->fFlags == IMAGE_BITMAPDATA));
+        REQUIRE(!memcmp(image->pImageData.data(), rgb, sizeof(rgb)));
     }
     for (unsigned depth : {16u, 24u})
         for (bool top : {false, true})
@@ -315,21 +313,21 @@ int main() try
             {
                 fixture(assets / "test.tga", tga(depth, top, rle));
                 auto image = load("test.tga");
-                CHECK(image && image->usWidth == 3 && image->usHeight == 2);
-                CHECK(image->ubBitDepth == depth && image->fFlags == IMAGE_BITMAPDATA);
-                CHECK(!image->pPalette && !image->pui16BPPPalette);
-                CHECK(!memcmp(image->pImageData.data(), depth == 16 ? static_cast<const void*>(packed) : rgb,
+                REQUIRE((image && image->usWidth == 3 && image->usHeight == 2));
+                REQUIRE((image->ubBitDepth == depth && image->fFlags == IMAGE_BITMAPDATA));
+                REQUIRE((!image->pPalette && !image->pui16BPPPalette));
+                REQUIRE(!memcmp(image->pImageData.data(), depth == 16 ? static_cast<const void*>(packed) : rgb,
                               depth == 16 ? sizeof(packed) : sizeof(rgb)));
             }
     {
         fixture(assets / "indexed.tga", indexed_tga());
         auto image = load("indexed.tga");
-        CHECK(image && image->ubBitDepth == 8 && image->fFlags == IMAGE_ALLIMAGEDATA);
+        REQUIRE((image && image->ubBitDepth == 8 && image->fFlags == IMAGE_ALLIMAGEDATA));
         const UINT8 indices[]{2, 2, 2, 2, 1, 0};
-        CHECK(!memcmp(image->pImageData.data(), indices, sizeof(indices)));
-        CHECK(image->pPalette[2].peRed == 255 && image->pPalette[2].peBlue == 0);
-        CHECK(image->pPalette[3].peRed == 0 && image->pPalette[255].peFlags == 0);
-        CHECK(image->pui16BPPPalette[0] == 0 && image->pui16BPPPalette[1] == 1);
+        REQUIRE(!memcmp(image->pImageData.data(), indices, sizeof(indices)));
+        REQUIRE((image->pPalette[2].peRed == 255 && image->pPalette[2].peBlue == 0));
+        REQUIRE((image->pPalette[3].peRed == 0 && image->pPalette[255].peFlags == 0));
+        REQUIRE((image->pui16BPPPalette[0] == 0 && image->pui16BPPPalette[1] == 1));
         auto offset_palette = indexed_tga();
         word(offset_palette, 3, 16);
         offset_palette[28] += 16;
@@ -337,33 +335,33 @@ int main() try
         offset_palette[31] += 16;
         fixture(assets / "offset.tga", offset_palette);
         auto offset = load("offset.tga");
-        CHECK(offset && offset->pPalette[18].peRed == 255 && offset->pPalette[0].peRed == 0);
-        CHECK(offset->pPalette[17].peRed == 1 && offset->pImageData[0] == 18);
+        REQUIRE((offset && offset->pPalette[18].peRed == 255 && offset->pPalette[0].peRed == 0));
+        REQUIRE((offset->pPalette[17].peRed == 1 && offset->pImageData[0] == 18));
         auto override_image = load("override.pcx");
-        CHECK(override_image && !memcmp(override_image->pImageData.data(), indices, sizeof(indices)));
+        REQUIRE((override_image && !memcmp(override_image->pImageData.data(), indices, sizeof(indices))));
     }
     {
         auto disc_image = load("D:\\DISC.TGA");
-        CHECK(disc_image && !memcmp(disc_image->pImageData.data(), rgb, sizeof(rgb)));
+        REQUIRE((disc_image && !memcmp(disc_image->pImageData.data(), rgb, sizeof(rgb))));
         char entry[] = "Data\\Packed.pcx";
         auto first = [&]() { try { return wiz8::open_file(entry, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
         auto second = [&]() { try { return wiz8::open_file(entry, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
-        CHECK(first && second && (first->seek(9, wiz8::SeekOrigin::begin), true));
+        REQUIRE((first && second && (first->seek(9, wiz8::SeekOrigin::begin), true)));
         auto image = load("C:\\data\\PACKED.PCX");
-        CHECK(image);
+        REQUIRE(image);
         check_pcx(*image);
-        CHECK(first->tell() == 9 && second->tell() == 0);
+        REQUIRE((first->tell() == 9 && second->tell() == 0));
         auto tga_image = load("data\\packed.tga");
-        CHECK(tga_image && !memcmp(tga_image->pImageData.data(), rgb, sizeof(rgb)));
-        CHECK(!load("Data\\Truncated.tga")); // Must not read the next SLF record as image data.
-        CHECK(first->tell() == 9 && second->tell() == 0);
+        REQUIRE((tga_image && !memcmp(tga_image->pImageData.data(), rgb, sizeof(rgb))));
+        REQUIRE(!load("Data\\Truncated.tga")); // Must not read the next SLF record as image data.
+        REQUIRE((first->tell() == 9 && second->tell() == 0));
         first.reset();
         second.reset();
     }
     {
         std::unique_ptr<SDL_Surface, decltype(&SDL_DestroySurface)> surface(
             SDL_CreateSurface(8, 8, SDL_PIXELFORMAT_RGB24), SDL_DestroySurface);
-        CHECK(surface);
+        REQUIRE(surface);
         for (int y = 0; y < 8; ++y)
             for (int x = 0; x < 8; ++x)
             {
@@ -372,15 +370,15 @@ int main() try
                 pixel[1] = 20;
                 pixel[2] = 40;
             }
-        CHECK(IMG_SaveJPG(surface.get(), wiz8::path_to_utf8(assets / "test.JpEg").c_str(), 100));
+        REQUIRE(IMG_SaveJPG(surface.get(), wiz8::path_to_utf8(assets / "test.JpEg").c_str(), 100));
         auto image = load("test.jpeg");
-        CHECK(image && image->usWidth == 8 && image->usHeight == 8 && image->ubBitDepth == 24);
-        CHECK(image->fFlags == IMAGE_BITMAPDATA);
+        REQUIRE((image && image->usWidth == 8 && image->usHeight == 8 && image->ubBitDepth == 24));
+        REQUIRE(image->fFlags == IMAGE_BITMAPDATA);
         for (unsigned i = 0; i < 64; ++i)
         {
-            CHECK(abs(int(image->pImageData[i * 3]) - 240) < 4);
-            CHECK(abs(int(image->pImageData[i * 3 + 1]) - 20) < 4);
-            CHECK(abs(int(image->pImageData[i * 3 + 2]) - 40) < 4);
+            REQUIRE(abs(int(image->pImageData[i * 3]) - 240) < 4);
+            REQUIRE(abs(int(image->pImageData[i * 3 + 1]) - 20) < 4);
+            REQUIRE(abs(int(image->pImageData[i * 3 + 2]) - 40) < 4);
         }
     }
 
@@ -393,7 +391,7 @@ int main() try
     {
         fixture(assets / "invalid.pcx", bytes);
         for (unsigned repeat = 0; repeat < 10; ++repeat)
-            CHECK(!load("invalid.pcx"));
+            REQUIRE(!load("invalid.pcx"));
     }
     std::vector<Bytes> invalid_tga{{}, Bytes(17), truncated, tga(24, true, true),
                                   tga(24, true, false), tga(24, true, false), tga(24, true, false)};
@@ -405,41 +403,37 @@ int main() try
     for (const auto& bytes : invalid_tga)
     {
         fixture(assets / "invalid.tga", bytes);
-        CHECK(!load("invalid.tga"));
+        REQUIRE(!load("invalid.tga"));
     }
     {
         auto image = load("Dotted.dir/default.PCX");
-        CHECK(image);
+        REQUIRE(image);
         auto* data = image->pImageData.data();
         image->ImageFile = "invalid.pcx";
-        CHECK(!LoadImageData(image.get(), IMAGE_ALLIMAGEDATA) && image->pImageData.data() == data);
+        REQUIRE((!LoadImageData(image.get(), IMAGE_ALLIMAGEDATA) && image->pImageData.data() == data));
         check_pcx(*image);
         auto* palette = image->pPalette.get();
         image->ImageFile = "invalid.tga";
-        CHECK(!LoadImageData(image.get(), IMAGE_ALLDATA));
-        CHECK(image->pImageData.data() == data && image->pPalette.get() == palette);
+        REQUIRE(!LoadImageData(image.get(), IMAGE_ALLDATA));
+        REQUIRE((image->pImageData.data() == data && image->pPalette.get() == palette));
         check_pcx(*image);
         image->ImageFile = "test.tga";
-        CHECK(LoadImageData(image.get(), IMAGE_ALLDATA));
-        CHECK(image->ubBitDepth == 24 && !image->pPalette && !image->pui16BPPPalette);
-        CHECK(image->fFlags == IMAGE_BITMAPDATA && !image->pETRLEObject.size());
+        REQUIRE(LoadImageData(image.get(), IMAGE_ALLDATA));
+        REQUIRE((image->ubBitDepth == 24 && !image->pPalette && !image->pui16BPPPalette));
+        REQUIRE((image->fFlags == IMAGE_BITMAPDATA && !image->pETRLEObject.size()));
     }
     fixture(assets / "invalid.jpg", {0xff, 0xd8, 0xff});
-    CHECK(!load("invalid.jpg") && !load("missing.pcx") && !load("unsupported.png"));
+    REQUIRE((!load("invalid.jpg") && !load("missing.pcx") && !load("unsupported.png")));
     fixture(assets / "oversized.jpg", {0xff, 0xd8, 0xff, 0xc0, 0, 17, 8, 0xff, 0xff,
         0xff, 0xff, 3, 1, 0x11, 0, 2, 0x11, 1, 3, 0x11, 1});
-    CHECK(!load("oversized.jpg"));
-    CHECK(!load(wiz8::path_to_utf8(assets / "test.tga").c_str()));
+    REQUIRE(!load("oversized.jpg"));
+    REQUIRE(!load(wiz8::path_to_utf8(assets / "test.tga").c_str()));
     const std::string long_path(SGPFILENAME_LEN + 10, 'x');
-    CHECK(!load(long_path.c_str()));
-    CHECK(!CreateImage(nullptr, IMAGE_ALLDATA));
+    REQUIRE(!load(long_path.c_str()));
+    REQUIRE(!CreateImage(nullptr, IMAGE_ALLDATA));
 
     wiz8::clear_asset_archives();
     fs::remove_all(root);
     puts("ok: SDL_image PCX/TGA/JPEG, palette/packed-pixel policy, orientation, bounded SLF and failures");
-}
-catch (const std::exception& error)
-{
-    fprintf(stderr, "image fixture: %s\n", error.what());
-    return 1;
+
 }
