@@ -2518,19 +2518,10 @@ bool FindCharacterItemByDatabaseKind(W8Character* character, short item_kind, W8
 // FUNCTION: WIZ8 0x005207e0
 W8RangeCategory GetItemSpellRange(const W8ItemInstance* item)
 {
-    if (item == 0) {
+    if (item == nullptr)
         return W8_RANGE_NONE;
-    }
-    if (item->iItemNo == -1) {
-        srAssertFail("pPCItem->iItemNo != -1", PC_ITEM_CPP, 4003, 0);
-    }
-    if (item->iItemNo >= static_cast<int>(gXStatus.uiItemsInDatabase)) {
-        srAssertFail("pPCItem->iItemNo < (INT32) gXStatus.uiItemsInDatabase", PC_ITEM_CPP, 4004, 0);
-    }
-    if (g_item_records[item->iItemNo].spell_id != W8_SPELL_NONE) {
-        return g_spell_records[g_item_records[item->iItemNo].spell_id].range_category;
-    }
-    return W8_RANGE_NONE;
+    const int spell_id = GetItemSpell(item);
+    return spell_id == W8_SPELL_NONE ? W8_RANGE_NONE : g_spell_records[spell_id].range_category;
 }
 
 /* One character's attempt at identifying an item. Their strength is a sixth of
