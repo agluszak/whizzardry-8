@@ -41,7 +41,7 @@
 #include "surrender/srCore.h"
 #include "surrender/srFilter.h"
 #include "surrender/srGERD.h"
-#include "surrender/srImporter.h"
+#include "surrender/srImageIO.h"
 #include "surrender/srMaterial.h"
 #include "surrender/srMeshModel.h"
 #include "surrender/srModeler.h"
@@ -62,7 +62,7 @@
 #include "Font.h"
 #include "input.h"
 #include "mousesystem.h"
-#include "sgp.h"
+#include "wiz8/application.h"
 #include "soundman.h"
 #include "vobject.h"
 #include "vobject_blitters.h"
@@ -101,7 +101,7 @@ void SaveJpegScreenshot(void);
 void FlushDirtyTiles(void);
 
 /*
- * The renderer window and extension loading gate InitializeStandardGamingPlatform calls after the
+ * The renderer window and extension loading gate the native application initializes after the
  * input manager.
  */
 
@@ -146,10 +146,6 @@ unsigned int g_fps_window_tick;
 int g_overlay_page_counters[2];
 // GLOBAL: WIZ8 0x6596e8
 unsigned char g_page_full_redraw[2];
-// GLOBAL: WIZ8 0x654ac4
-HINSTANCE g_app_instance;
-// GLOBAL: WIZ8 0x659620
-unsigned short g_show_command;
 // GLOBAL: WIZ8 0x6595f8
 // GLOBAL: WIZ8 0x659710
 bool g_video_active;
@@ -351,7 +347,7 @@ void ResetVideoFrameState(void)
    original working directory. Each gate that fails returns straight out with
    the callee's own false still in AL. */
 // FUNCTION: WIZ8 0x00421bb0
-unsigned char InitializeVideoManager(HINSTANCE instance, unsigned short show_command)
+unsigned char InitializeVideoManager(void)
 {
     unsigned int active;
     g_world_pick_enabled = true;
@@ -362,8 +358,6 @@ unsigned char InitializeVideoManager(HINSTANCE instance, unsigned short show_com
     g_overlay_page_counters[1] = 0;
     g_page_full_redraw[0] = 0;
     g_page_full_redraw[1] = 0;
-    g_app_instance = instance;
-    g_show_command = show_command;
     Initialize16BitPixelFormatMasks();
     if (!CreateWizardryWindow()) {
         return 0;
@@ -2050,7 +2044,7 @@ void DrawVideoInspector(int left, unsigned int top)
     if (g_gerd != 0) {
         g_gerd->getStatistics(statistics);
         SetFont(g_smfnt_font);
-        SetFontObjectPalette16BPP(g_smfnt_font, g_font_state_palettes[W8_FONT_PALETTE_YELLOW]);
+        SetFontObjectPalette16BPP(g_smfnt_font, g_font_state_palettes[W8_FONT_PALETTE_YELLOW].get());
         gprintfDirty(left, top, L"FR: %4.1f", g_frames_per_second);
         if (g_video_inspector_mode == 2) {
             gprintfDirty(left, top + 0xa, L"OC: %d", g_world->level->m_submitted_polygons);
@@ -2553,29 +2547,20 @@ int g_screenshot_page;
 // FUNCTION: WIZ8 0x004229e0
 void SaveJpegScreenshot(void)
 {
-    srSurfaceIOManager* surface_io_manager = srCore.getSurfaceIOManager();
-
     srColorSurfaceIFace* surface = g_gerd->lockBuffer();
     if (surface != 0) {
         char filename[32];
-        srSurfaceIOManager::ExportInfo options;
 
         if (g_auto_capture) {
             int screenshot_index = g_screenshot_index++;
-            options.unknown_00 = 0;
-            options.unknown_04 = 1;
-            options.option_string = "QUALITY=0.35";
             sprintf(filename, "Wiz8%5.5d.JPG", screenshot_index);
             PauseSharedGameTimers();
-            surface_io_manager->exportSurface(filename, *surface, options);
+            srImage::save(filename, *surface, 35);
             ResumeSharedGameTimers();
         } else {
             int screenshot_index = g_screenshot_index++;
             sprintf(filename, "Wiz8%5.5d.JPG", screenshot_index);
-            options.unknown_00 = 0;
-            options.unknown_04 = 1;
-            options.option_string = 0;
-            surface_io_manager->exportSurface(filename, *surface, options);
+            srImage::save(filename, *surface);
         }
         g_gerd->unlockBuffer();
     }

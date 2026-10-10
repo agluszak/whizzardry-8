@@ -5,9 +5,10 @@
 #include "compat/video.h"
 #include "native/input_events.h"
 #include <wiz8/asset_paths.h>
-#include "sgp.h"
+#include "wiz8/application.h"
+#include "input.h"
 #include "surrender/srGERD.h"
-#include "surrender/srImporter.h"
+#include "surrender/srImageIO.h"
 #include "surrender/srTriMeshPipeline.h"
 #include "wiz8/bink_video.h"
 #include "../../src/native/movie.h"
@@ -73,8 +74,7 @@ int main(int argc, char** argv)
         CHECK(InitializePrimaryCpuSurface());
         CHECK(InitializeVideoDevice());
         CHECK(InitializeRendererSceneObjects());
-        auto* targa = srCore.getSurfaceIOManager()->importSurface(
-            "Data\\AUTOMAP\\MAP_MONSTERFRIENDLY_A.TGA", {});
+        auto* targa = srImage::load("Data\\AUTOMAP\\MAP_MONSTERFRIENDLY_A.TGA");
         CHECK(targa && targa->getWidth() > 0 && targa->getHeight() > 0);
         targa->release();
         CHECK(!srTriMeshPipeline::Get(nullptr));
@@ -85,7 +85,7 @@ int main(int argc, char** argv)
         CHECK(InitializeVideoObjectManager());
         VOBJECT_DESC image{};
         image.fCreateFlags = VOBJECT_CREATE_FROMFILE;
-        strcpy(image.ImageFile, argc > 1 ? argv[1] : "Data\\MAIN INTERFACE\\BOTTOM.STI");
+        image.ImageFile = argc > 1 ? argv[1] : "Data\\MAIN INTERFACE\\BOTTOM.STI";
         UINT32 image_id;
         CHECK(AddVideoObject(&image, &image_id));
         CHECK(BltVideoObjectFromIndex(FRAME_BUFFER, image_id, 0, 0, 0, VO_BLT_SRCTRANSPARENCY,
@@ -97,7 +97,7 @@ int main(int argc, char** argv)
             memcpy(expected.data() + y * 640, reinterpret_cast<BYTE*>(pixels) + y * pitch, 1280);
         UnlockPrimarySurface();
         CHECK(InitializeMouseCursorScene());
-        strcpy(image.ImageFile, "Data\\CURSORS\\2D-CURSORS.STI");
+        image.ImageFile = "Data\\CURSORS\\2D-CURSORS.STI";
         UINT32 cursor_id;
         CHECK(AddVideoObject(&image, &cursor_id));
         CHECK(SetMouseCursorFromVideoObject(cursor_id, 0, 0, 0));
@@ -211,7 +211,7 @@ int main(int argc, char** argv)
 
         g_screenshot_index = 0;
         SaveJpegScreenshot();
-        auto* screenshot = srCore.getSurfaceIOManager()->importSurface("Wiz800000.JPG", {});
+        auto* screenshot = srImage::load("Wiz800000.JPG");
         CHECK(screenshot && screenshot->getWidth() == 640 && screenshot->getHeight() == 480);
         screenshot->release();
         puts("retail Targa import and game JPEG screenshot round-trip");
@@ -223,7 +223,7 @@ int main(int argc, char** argv)
         srExit();
         ReleasePrimaryCpuSurface();
         W8DestroyGameWindow(window);
-        ShutdownInputManager();
+
         wiz8::clear_asset_archives();
 
         SDL_Quit();

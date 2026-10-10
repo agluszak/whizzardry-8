@@ -489,13 +489,13 @@ int LayoutPortraitQuoteBubble(int quote_handle, unsigned char background_index,
         bubble = new W8PortraitQuoteBubble;
         g_current_portrait_quote = bubble;
         surface_desc.fCreateFlags = VSURFACE_CREATE_FROMFILE | VSURFACE_SYSTEM_MEM_USAGE;
-        strcpy(surface_desc.ImageFile, g_quote_bubble_backgrounds[background_index]);
+        surface_desc.ImageFile = g_quote_bubble_backgrounds[background_index];
         if (!AddVideoSurface(&surface_desc, &bubble->background_surface)) {
             delete bubble;
             return -1;
         }
         object_desc.fCreateFlags = VOBJECT_CREATE_FROMFILE;
-        strcpy(object_desc.ImageFile, g_quote_bubble_edges[edge_index]);
+        object_desc.ImageFile = g_quote_bubble_edges[edge_index];
         if (!AddVideoObject(&object_desc, &g_current_portrait_quote->object)) {
             delete bubble;
             return -1;
@@ -514,12 +514,12 @@ int LayoutPortraitQuoteBubble(int quote_handle, unsigned char background_index,
                 g_current_portrait_quote->has_resources = false;
             }
             surface_desc.fCreateFlags = VSURFACE_CREATE_FROMFILE | VSURFACE_SYSTEM_MEM_USAGE;
-            strcpy(surface_desc.ImageFile, g_quote_bubble_backgrounds[background_index]);
+            surface_desc.ImageFile = g_quote_bubble_backgrounds[background_index];
             if (!AddVideoSurface(&surface_desc, &g_current_portrait_quote->background_surface)) {
                 return -1;
             }
             object_desc.fCreateFlags = VOBJECT_CREATE_FROMFILE;
-            strcpy(object_desc.ImageFile, g_quote_bubble_edges[edge_index]);
+            object_desc.ImageFile = g_quote_bubble_edges[edge_index];
             if (!AddVideoObject(&object_desc, &g_current_portrait_quote->object)) {
                 return -1;
             }

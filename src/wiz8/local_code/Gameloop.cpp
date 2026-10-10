@@ -21,7 +21,8 @@
 #include "wiz8/fonts.h"
 #include "wiz8/sr_api.h"
 #include "Font.h"
-#include "sgp.h"
+#include "wiz8/application.h"
+#include "wiz8/engine_code/Video2.h"
 #include "surrender/srTypeRegistry.h"
 
 #include <string.h>
@@ -86,7 +87,7 @@ W8ScreenId g_previous_screen_id = W8_SCREEN_NONE;
 W8ScreenId g_suspended_screen_id = W8_SCREEN_NONE;
 
 // FUNCTION: WIZ8 0x004e3290
-void ShutdownGame(void)
+void ShutdownGame(size_t initialized_screens, bool save_configuration)
 {
     int index;
 
@@ -102,20 +103,18 @@ void ShutdownGame(void)
     DestroyNpcDatabase();
     DestroyFactDatabase();
     DestroyLevelDatabase();
-    for (index = 0; index < 15; ++index) {
-        free(g_font_state_palettes[index]);
-    }
+    for (auto& palette : g_font_state_palettes)
+        palette.reset();
     ReleaseDefaultHelpText();
-    ShutdownButtonSystem();
-    for (index = 0; index < W8_SCREEN_COUNT; ++index) {
+    for (index = 0; index < static_cast<int>(initialized_screens); ++index) {
         g_screen_handlers[index].finalize();
     }
     g_screen_return_stack.clear();
-    SaveGameConfiguration();
     ReleaseAllTriggers();
     FreeStringTable();
-    (wiz8::clear_asset_archives(), true);
     DestroyGameplayObjects();
+    if (save_configuration)
+        SaveGameConfiguration();
 }
 
 // FUNCTION: WIZ8 0x004e3340
@@ -193,14 +192,14 @@ void GameloopExit(unsigned char release_screens)
 {
     W8ScreenId state;
 
-    SetFontObjectPalette16BPP(g_smfnt_font, g_font_palette_smfnt);
-    SetFontObjectPalette16BPP(g_calligraphy_font, g_font_palette_calligraphy);
-    SetFontObjectPalette16BPP(g_calligraphy_shadow_font, g_font_palette_calligraphy_shadow);
-    SetFontObjectPalette16BPP(g_wiz_text_font, g_font_palette_wiz_text);
-    SetFontObjectPalette16BPP(g_button_font, g_font_palette_button);
-    SetFontObjectPalette16BPP(g_wiz_text_font_secondary, g_wiz_text_font_secondary_palette);
-    SetFontObjectPalette16BPP(g_wiz_text_bold_font, g_font_palette_wiz_text_bold);
-    SetFontObjectPalette16BPP(g_options_detail_font, g_font_palette_options_detail);
+    SetFontObjectPalette16BPP(g_smfnt_font, GetFontObject(g_smfnt_font)->ownedPalette.get());
+    SetFontObjectPalette16BPP(g_calligraphy_font, GetFontObject(g_calligraphy_font)->ownedPalette.get());
+    SetFontObjectPalette16BPP(g_calligraphy_shadow_font, GetFontObject(g_calligraphy_shadow_font)->ownedPalette.get());
+    SetFontObjectPalette16BPP(g_wiz_text_font, GetFontObject(g_wiz_text_font)->ownedPalette.get());
+    SetFontObjectPalette16BPP(g_button_font, GetFontObject(g_button_font)->ownedPalette.get());
+    SetFontObjectPalette16BPP(g_wiz_text_font_secondary, GetFontObject(g_wiz_text_font_secondary)->ownedPalette.get());
+    SetFontObjectPalette16BPP(g_wiz_text_bold_font, GetFontObject(g_wiz_text_bold_font)->ownedPalette.get());
+    SetFontObjectPalette16BPP(g_options_detail_font, GetFontObject(g_options_detail_font)->ownedPalette.get());
     if (!release_screens) {
         return;
     }

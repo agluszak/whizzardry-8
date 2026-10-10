@@ -4,7 +4,7 @@
 #include <utility>
 
 #include "surrender/srCore.h"
-#include "surrender/srImporter.h"
+#include "surrender/srImageIO.h"
 
 // FUNCTION: SURRENDER 0x1005F8E0
 srTextureFile::srTextureFile(std::string file_name, int cached)
@@ -82,12 +82,7 @@ void srTextureFile::loadSurface()
     if (!file_name.empty()) {
         surface = 0;
         try {
-            srSurfaceIOManager::ImportInfo info;
-            info.unknown_00 = 0;
-            surface = srCore.getSurfaceIOManager()->importSurface(file_name.c_str(), info);
-        } catch (const srIOManager::Error&) {
-            texture_flags_ |= 1 << FLAG_GENERATESURFACE_FAILURE;
-            surface = 0;
+            surface = srImage::load(file_name.c_str());
         } catch (...) {
             texture_flags_ |= 1 << FLAG_GENERATESURFACE_FAILURE;
             surface = 0;

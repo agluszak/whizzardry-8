@@ -57,8 +57,8 @@ int W8DialogTextEntry::DrawLine(wchar_t* line, size_t span, int prefix_remaining
             line[prefix_remaining] = saved;
             if (!m_selected) {
                 SetFontObjectPalette16BPP(m_font, m_text_palette < 15
-                                                      ? g_font_state_palettes[m_text_palette]
-                                                      : g_wiz_text_font_secondary_palette);
+                                                      ? g_font_state_palettes[m_text_palette].get()
+                                                      : GetFontObject(g_wiz_text_font_secondary)->ownedPalette.get());
             }
             line += prefix_remaining;
             span -= prefix_remaining;
@@ -83,20 +83,20 @@ void W8DialogTextEntry::Draw(bool force)
         ShortenTextToWidth(copy, m_buffer, width - 5, m_font);
     }
     SetFont(m_font);
-    unsigned short* palette = g_font_state_palettes[W8_FONT_PALETTE_YELLOW];
+    unsigned short* palette = g_font_state_palettes[W8_FONT_PALETTE_YELLOW].get();
     if (!m_entry_highlighted) {
         if (m_marked) {
-            palette = g_font_state_palettes[W8_FONT_PALETTE_GREEN];
+            palette = g_font_state_palettes[W8_FONT_PALETTE_GREEN].get();
         } else if (m_selected) {
-            palette = g_font_state_palettes[W8_FONT_PALETTE_WHITE];
+            palette = g_font_state_palettes[W8_FONT_PALETTE_WHITE].get();
         } else {
-            palette = g_wiz_text_font_secondary_palette;
+            palette = GetFontObject(g_wiz_text_font_secondary)->ownedPalette.get();
             if (m_prefix_length == 0) {
                 if (m_text_palette < 15) {
-                    palette = g_font_state_palettes[m_text_palette];
+                    palette = g_font_state_palettes[m_text_palette].get();
                 }
             } else if (m_prefix_palette < 15) {
-                palette = g_font_state_palettes[m_prefix_palette];
+                palette = g_font_state_palettes[m_prefix_palette].get();
             }
         }
     }

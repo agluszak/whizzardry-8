@@ -120,7 +120,7 @@ typedef struct {
 // default to PCX without changing the caller's path. Ordinary images are tight,
 // top-down INDEX8 + palettes, packed RGB555 (16-bit TGA), or RGB24.
 // Returns NULL on failure without retaining image allocations.
-HIMAGE CreateImage(SGPFILENAME ImageFile, UINT16 fContents);
+HIMAGE CreateImage(const char* ImageFile, UINT16 fContents);
 
 // This function destroys the HIMAGE structure as well as its contents
 BOOLEAN DestroyImage(HIMAGE hImage);

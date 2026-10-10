@@ -4,6 +4,7 @@
 #define __VSURFACE_H
 
 #include "Types.h"
+#include <string>
 #include <vector>
 #include "himage.h"
 #include "vobject.h"
@@ -110,14 +111,14 @@ typedef struct SGPVSurface {
 // This structure describes the creation parameters for a Video Surface
 //
 
-typedef struct {
+struct VSURFACE_DESC {
     UINT32 fCreateFlags;   // Specifies creation flags like from file or not
-    SGPFILENAME ImageFile; // Filename of image data to use
+    std::string ImageFile; // Filename of image data to use
     UINT16 usWidth;        // Width, ignored if given from file
     UINT16 usHeight;       // Height, ignored if given from file
     UINT8 ubBitDepth;      // BPP, ignored if given from file
 
-} VSURFACE_DESC;
+};
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 //

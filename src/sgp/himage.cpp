@@ -216,7 +216,7 @@ catch (...)
 }
 
 // FUNCTION: WIZ8 0x0040f850
-HIMAGE CreateImage(SGPFILENAME ImageFile, UINT16 fContents)
+HIMAGE CreateImage(const char* ImageFile, UINT16 fContents)
 try
 {
     if (!ImageFile)

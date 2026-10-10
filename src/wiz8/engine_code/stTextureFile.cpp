@@ -3,7 +3,8 @@
 #include "wiz8/engine_code/stTextureFile.h"
 
 #include "wiz8/filesystem.h"
-#include "../../srext_jpegimporter/tga_import.h"
+#include "surrender/srImageIO.h"
+#include "surrender/srBinIStream.h"
 
 #include <cstring>
 

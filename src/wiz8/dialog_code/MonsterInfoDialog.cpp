@@ -491,7 +491,7 @@ void W8MonsterInfoDialog::Draw()
         m_button.m_dirty = true;
         W8DialogBase::Draw();
         SetFont(g_wiz_text_font_secondary);
-        SetFontObjectPalette16BPP(g_wiz_text_font_secondary, g_wiz_text_font_secondary_palette);
+        SetFontObjectPalette16BPP(g_wiz_text_font_secondary, GetFontObject(g_wiz_text_font_secondary)->ownedPalette.get());
         unsigned int monster_list_index =
             MonsterGetIndexByLocationID(0x1f1, MONSTER_INFO_DIALOG_CPP, m_location_id, true);
         W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(monster_list_index);

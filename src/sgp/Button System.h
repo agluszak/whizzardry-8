@@ -124,13 +124,15 @@ typedef struct _GUI_BUTTON {
 
 #define MAX_BUTTONS 400
 
-extern GUI_BUTTON* ButtonList[MAX_BUTTONS]; // Button System's Main Button List
+extern std::array<std::unique_ptr<GUI_BUTTON>, MAX_BUTTONS> ButtonList; // Button System's Main Button List
 
-#define GetButtonPtr(x) (((x >= 0) && (x < MAX_BUTTONS)) ? ButtonList[x] : nullptr)
+#define GetButtonPtr(x) (((x >= 0) && (x < MAX_BUTTONS)) ? ButtonList[x].get() : nullptr)
 
 // Struct definition for the QuickButton pictures.
-typedef struct {
-    HVOBJECT vobj;    // The Image itself
+struct BUTTON_PICS {
+    std::unique_ptr<SGPVObject> ownedObject;
+    HVOBJECT borrowedObject = nullptr;
+    HVOBJECT object() const { return ownedObject ? ownedObject.get() : borrowedObject; }
     INT32 Grayed;     // Index to use for a "Grayed-out" button
     INT32 OffNormal;  // Index to use when button is OFF
     INT32 OffHilite;  // Index to use when button is OFF w/ hilite on it
@@ -138,8 +140,7 @@ typedef struct {
     INT32 OnHilite;   // Index to use when button is ON w/ hilite on it
     UINT32 MaxWidth;  // Width of largest image in use
     UINT32 MaxHeight; // Height of largest image in use
-    UINT32 fFlags;    // Special image flags
-} BUTTON_PICS;
+};
 
 #define MAX_BUTTON_PICS 256
 
