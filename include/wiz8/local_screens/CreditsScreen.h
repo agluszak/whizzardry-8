@@ -1,3 +1,5 @@
+#include <optional>
+#include <string>
 #pragma once
 
 #include "wiz8/filesystem.h"
@@ -11,12 +13,12 @@ struct W8CreditLine {
     unsigned int flags;
     int pixel_width;
     int line_height;
-    wchar_t* primary;
-    wchar_t* secondary;
+    std::string primary;
+    std::string secondary;
 };
 W8_ABI_ASSERT(sizeof(W8CreditLine) == 0x14, "W8CreditLine_size");
 
-unsigned char ReadWideTextLine(wiz8::File* handle, wchar_t* destination, int capacity, unsigned char* more);
+std::optional<std::string> ReadRetailTextLine(wiz8::File* handle);
 unsigned char CreditsScreenEnter(void);
 void CreditsScreenFrame(void);
 unsigned char CreditsScreenLeave(int leaving);

@@ -25,7 +25,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <wchar.h>
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_screens/PartySelectionScreen.h"
 #include "wiz8/local_code/PartyImport.h"
@@ -37,8 +36,8 @@
 void PostNewGameLoad(void)
 {
     SetFactNotificationsSuppressed(true);
-    AddDialogueTranscriptKeyword(gppStringList[0x7e7], 3);
-    AddDialogueTranscriptKeyword(gppStringList[0x7e8], 3);
+    AddDialogueTranscriptKeyword(g_localized_strings[0x7e7], 3);
+    AddDialogueTranscriptKeyword(g_localized_strings[0x7e8], 3);
     SetFact(W8_FACT_FACTION_HIGARDI_FELLOW_FRIENDLY, 1, false);
     SetFact(W8_FACT_NARGISST_MONITOR_OVERFLOW_ON, 1, false);
     SetFact(W8_FACT_RAPAX_QUEEN_LOCKED_UP, 1, false);

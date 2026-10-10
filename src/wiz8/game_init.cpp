@@ -1,3 +1,5 @@
+#include "wiz8/unicode.h"
+#include "wiz8/version.h"
 #include "wiz8/music_playlist.h"
 #include "wiz8/cursor.h"
 #include "wiz8/local_code/LoadSaveGame.h"
@@ -45,16 +47,11 @@
 // FUNCTION: WIZ8 0x004e2f40
 unsigned char InitializeGame(size_t& initialized_screens)
 {
-    char version[64];
+    const auto version = FormatVersionBanner(true, true, true);
     void* buffer;
     UINT32 count;
     bool ok;
 
-    version[0] = '\0';
-    strcat(version, "Wizardry 8 ");
-    strcat(version, FormatString("v%d.%d.%d", 1, 2, 4));
-    strcat(version, FormatString(" (build %d)", 0xdb));
-    strcat(version, FormatString(" %s", "2001/12/24 15:36"));
     LoadLocalizedStrings(!gzStringDataOverride.empty() ? gzStringDataOverride.c_str()
                                               : "Data\\Strings\\StringData.DAT");
     buffer = LockPrimarySurface(&count);
@@ -111,7 +108,8 @@ unsigned char InitializeGame(size_t& initialized_screens)
     ConfigureSoundCache();
     SetPendingScreenState(W8_SCREEN_INTRO);
     g_status.current_level = -1;
-    if (gfLoadAtStartup && FindStartupQuickSave(g_pending_screen_state.name)) {
+    if (const auto save = gfLoadAtStartup ? FindStartupQuickSave() : std::nullopt) {
+        g_pending_screen_state.name = *save;
         g_pending_screen_state.mode = 1;
         g_pending_screen_state.parameter = GetSaveGameLevel(g_pending_screen_state.name);
         SetPendingScreenState(W8_SCREEN_PLEASE_WAIT);
@@ -126,7 +124,7 @@ unsigned char InitializeGame(size_t& initialized_screens)
     if (!LoadHitSoundDatabase()) {
         ShutdownWithErrorBox("Could not load hit sound database!");
     }
-    memset(g_message_storage, 0, sizeof(g_message_storage));
+    ReleaseMessageStorage();
     if (!InitializeMusicPlaylist()) {
         return 0;
     }

@@ -1,3 +1,6 @@
+#include <fmt/format.h>
+#include "wiz8/unicode.h"
+#include <string>
 #include "wiz8/containers.h"
 #include "surrender/srMath.h"
 #include "wiz8/xstatus.h"
@@ -36,7 +39,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <wchar.h>
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/PolyPick.h"
 #include "wiz8/local_screens/CharacterScreen.h"
@@ -286,10 +288,10 @@ void DrawWorldCursorNodeLabel(W8WorldCursorNode* entry)
         SetFont(g_smfnt_font);
         SetFontObjectPalette16BPP(g_smfnt_font, GetFontObject(g_smfnt_font)->ownedPalette.get());
         for (int index = 0; index < 3; ++index) {
-            wchar_t text[20];
-            swprintf(text, g_format_d, entry->parameters[index]);
-            gprintf_buffer(data, surface->getPitch(), g_smfnt_font, 0,
-                           GetFontHeight(g_smfnt_font) * index, text);
+            std::string text;
+            text = fmt::format("{:d}", entry->parameters[index]);
+            DrawFontTextToBuffer(data, surface->getPitch(), g_smfnt_font, 0,
+                                 GetFontHeight(g_smfnt_font) * index, text);
         }
         texture->invalidate();
         RestoreFontSettings();
@@ -601,10 +603,11 @@ unsigned int LoadWorldCursorNodes(wiz8::File* handle)
         if (version >= 2) {
             handle->read_exact(cube->name, 0x20);
             if (cube->name[0] == 0) {
-                sprintf(cube->name, "Cube%3.3d", gXStatus.mipe_cube_serial++);
+                wiz8::text::write_utf8_field(fmt::format("Cube{:03d}", gXStatus.mipe_cube_serial++),
+                                             cube->name);
             }
         } else {
-            sprintf(cube->name, "Cube%d", index);
+            wiz8::text::write_utf8_field(fmt::format("Cube{:d}", index), cube->name);
         }
         for (component = 0; component < 3; ++component) {
             if (success && (handle->read(&cube->parameters[component], 4).bytes == static_cast<std::size_t>(4))) {

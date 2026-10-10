@@ -9,7 +9,6 @@
 
 struct W8Region;
 
-extern char s_spell_sound_format[];
 extern char s_general_magic_sound[];
 
 /* The eight party-condition buttons beside the portraits, created by

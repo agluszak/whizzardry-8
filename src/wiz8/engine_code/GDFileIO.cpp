@@ -1,3 +1,5 @@
+#include <fmt/format.h>
+#include "wiz8/unicode.h"
 #include "wiz8/utility.h"
 #include <cstdlib>
 
@@ -843,7 +845,7 @@ void W8GameData::CompileGameData()
         static_cast<W8OctPreTreeVertex*>(malloc(VerticesCount() * sizeof(W8OctPreTreeVertex)));
     if (g_gd_vertices == 0) {
         ReportBuildStatus(
-            7, FormatString("CompileGameData: Couldn't allocate %d NewGDVerts (%dK)\n",
+            7, fmt::format("CompileGameData: Couldn't allocate {:d} NewGDVerts ({:d}K)\n",
                           VerticesCount(), VerticesCount() * sizeof(W8OctPreTreeVertex) / 1024));
     }
     memset(g_gd_vertices, 0, VerticesCount() * sizeof(W8OctPreTreeVertex));

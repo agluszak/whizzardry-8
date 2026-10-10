@@ -1,3 +1,5 @@
+#include <fmt/format.h>
+#include <string>
 #include "wiz8/character_skills.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/local_code/Widget.h"
@@ -19,7 +21,6 @@
 #include "Font.h"
 
 #include <new>
-#include <wchar.h>
 
 // GLOBAL: WIZ8 0x0069c534
 static unsigned int g_character_spells_region_set;
@@ -131,12 +132,10 @@ void W8CharacterSpellList::Redraw(bool force)
                 SetFontObjectPalette16BPP(g_wiz_text_font_secondary,
                                           g_font_state_palettes[W8_FONT_PALETTE_YELLOW].get());
             }
-            gprintf(left + 2, y, g_format_s, g_spell_records[m_entries[index].spell].display_name);
-            wchar_t cost[6];
-            wcscpy(cost, FormatWideString(
-                             g_format_d, g_spell_records[m_entries[index].spell].spell_point_cost));
-            gprintf(right - StringPixLength(cost, g_wiz_text_font_secondary) - 2, y, g_format_s,
-                    cost);
+            DrawFontText(left + 2, y, g_spell_records[m_entries[index].spell].display_name);
+            std::string cost;
+            cost = fmt::format("{:d}", g_spell_records[m_entries[index].spell].spell_point_cost);
+            DrawFontText(right - StringPixLength(cost, g_wiz_text_font_secondary) - 2, y, cost);
             y += 13;
             SetFontObjectPalette16BPP(g_wiz_text_font_secondary, GetFontObject(g_wiz_text_font_secondary)->ownedPalette.get());
             SetObjectShade(GetFontObject(g_wiz_text_font_secondary), 4);
@@ -306,13 +305,13 @@ void W8CharacterSpellsPage::Redraw()
         bounds.right = 0xc2;
         bounds.bottom = 0x173;
         text.RenderString(&bounds,
-                          gppStringList[m_creation_state->spell_points_total == 0 ? 0xeb : 0xea],
+                          g_localized_strings[m_creation_state->spell_points_total == 0 ? 0xeb : 0xea],
                           g_wiz_text_font_secondary, true, FRAME_BUFFER);
 
         bounds.top = 0x173;
         bounds.bottom = 0x18a;
         bounds.right = 0x8f;
-        text.RenderString(&bounds, gppStringList[0xf4], g_wiz_text_font_secondary, true,
+        text.RenderString(&bounds, g_localized_strings[0xf4], g_wiz_text_font_secondary, true,
                           FRAME_BUFFER);
         m_prepared = false;
     }
@@ -324,9 +323,8 @@ void W8CharacterSpellsPage::Redraw()
         bounds.bottom = 0x18a;
         DrawCatalogImage(FRAME_BUFFER, 0x107, 0, 5, 0x8f, 0x173, VO_BLT_SRCTRANSPARENCY, 0);
         text.SetLayoutBounds(&bounds, true, true);
-        text.RenderString(FormatWideString(g_format_d_slash_d,
-                                           m_creation_state->spell_points_remaining,
-                                           m_creation_state->spell_points_total),
+        text.RenderString(fmt::format("{:d}/{:d}", m_creation_state->spell_points_remaining,
+                                      m_creation_state->spell_points_total),
                           g_options_detail_font, true, FRAME_BUFFER);
         m_dirty = false;
     }
@@ -343,13 +341,12 @@ void W8CharacterSpellsPage::Redraw()
             bounds.bottom = bounds.top + 0x0e;
             text.SetLayoutBounds(&bounds, true, true);
             text.SetFontStateIndex(1);
-            text.RenderString(FormatWideString(g_format_s0, gppStringList[0xf2]),
+            text.RenderString(fmt::format("{}:", g_localized_strings[0xf2]),
                               g_wiz_text_font_secondary, false, FRAME_BUFFER);
             text.SetFontStateIndex(-1);
             text.SetLayoutMode(g_W8TextBufferAlignRight | g_W8TextBufferAlignMiddle);
             text.RenderString(
-                FormatWideString(g_format_d,
-                                 m_character->skills[W8_SKILL_FIRE_MAGIC + realm].points),
+                fmt::format("{:d}", m_character->skills[W8_SKILL_FIRE_MAGIC + realm].points),
                 g_wiz_text_font_secondary, false, FRAME_BUFFER);
 
             text.SetLayoutMode(g_W8TextBufferAlignLeft | g_W8TextBufferAlignMiddle);
@@ -357,14 +354,14 @@ void W8CharacterSpellsPage::Redraw()
             bounds.right = bounds.left + 0x53;
             text.SetLayoutBounds(&bounds, true, true);
             text.SetFontStateIndex(1);
-            text.RenderString(FormatWideString(g_format_s0, gppStringList[0xf3]),
+            text.RenderString(fmt::format("{}:", g_localized_strings[0xf3]),
                               g_wiz_text_font_secondary, false, FRAME_BUFFER);
             text.SetFontStateIndex(-1);
             text.SetLayoutMode(g_W8TextBufferAlignRight | g_W8TextBufferAlignMiddle);
-            text.RenderString(FormatWideString(g_format_d_slash_d,
-                                               GetCharacterRealmSpellPoints(
-                                                   m_character, static_cast<W8SpellRealm>(realm)),
-                                               m_character->sp_max[realm]),
+            text.RenderString(fmt::format("{:d}/{:d}",
+                                          GetCharacterRealmSpellPoints(
+                                              m_character, static_cast<W8SpellRealm>(realm)),
+                                          m_character->sp_max[realm]),
                               g_wiz_text_font_secondary, false, FRAME_BUFFER);
         }
     }

@@ -1,5 +1,7 @@
 #pragma once
+#include <string>
+#include <string_view>
 
-unsigned char GetStringFromStringDatabase(const char* path, int index, wchar_t* output,
+std::string GetStringFromStringDatabase(std::string_view path, int index,
                                           unsigned int* metadata_00, unsigned int* metadata_04);
-void ShowString(wchar_t* text);
+void ShowString(std::string_view text);

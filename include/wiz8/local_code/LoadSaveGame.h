@@ -1,3 +1,6 @@
+#include <string_view>
+#include <string>
+#include <optional>
 #pragma once
 
 #include <stddef.h>
@@ -6,8 +9,8 @@
 #include <algorithm>
 
 bool VerifyDataSubdirs(void);
-bool FindStartupQuickSave(char* slot_name);
-int GetSaveGameLevel(const char* slot_name);
+std::optional<std::string> FindStartupQuickSave();
+int GetSaveGameLevel(std::string_view slot_name);
 
 /* The SHOT record. SaveGame writes 0x2588 bytes; the save-screen producer
    copy-constructs one complete record, including its trailing padding.
@@ -24,7 +27,7 @@ W8_ABI_ASSERT(sizeof(W8SaveScreenshot) == 0x2588, "W8SaveScreenshot_must_be_0x25
 /* Save-list entries are allocated as 0x2640 bytes by both the enumerator and
    the Options controller. The SHOT chunk occupies the embedded screenshot. */
 struct W8SaveSlot {
-    wchar_t name[64];
+    std::string name;
     wiz8::DiskFileTime local_write_time;
     wiz8::CivilTime timestamp;
     int game_time_days;
@@ -47,7 +50,7 @@ void CaptureSaveScreenshot(W8SaveScreenshot* screenshot);
 void FillCurrentSaveSlot(W8SaveSlot* slot);
 bool EnumerateSaveSlots(std::vector<W8SaveSlot*>& slots);
 
-bool SaveGame(const char* name, W8SaveScreenshot* screenshot);
+bool SaveGame(std::string_view name, W8SaveScreenshot* screenshot);
 
 struct W8Character;
 bool SaveCharacter(W8Character* character, int slot, bool report_failure,
@@ -59,18 +62,18 @@ bool TakePendingSaveFlag(void);
 
 struct W8Chunk;
 struct W8GlobalStatus;
-unsigned char SaveSlotFileExists(const char* slot_name);
-bool LoadCharacter(const char* name, W8Character* character, int slot, bool report_failure);
-void BuildCharacterFilePath(char* destination, const char* filename, int slot);
-void BuildCharacterPath(char* destination, const wchar_t* name, int slot);
+unsigned char SaveSlotFileExists(std::string_view slot_name);
+bool LoadCharacter(std::string_view name, W8Character* character, int slot, bool report_failure);
+std::string BuildCharacterFilePath(std::string_view filename, int slot);
+std::string BuildCharacterPath(std::string_view name, int slot);
 bool SaveGameExists(void);
 void LoadGameStatus(W8Chunk* chunks, W8GlobalStatus* status);
 /* Load a save slot by name; the Please Wait screen drives it. */
-bool LoadGame(const char* slot_name);
+bool LoadGame(std::string_view slot_name);
 
 bool SaveLevelStatus(const char* path);
 bool LoadLevelStatus(const char* path, int level);
-void BuildLevelStatusPath(char* path, unsigned int level);
+std::string BuildLevelStatusPath(unsigned int level);
 bool LoadStatusHeader(W8Chunk* chunk);
 bool SaveStatusHeader(W8Chunk* chunks);
 /* The per-level item-section reader and the already-open level-status scan. */
@@ -79,8 +82,8 @@ bool LoadItemStatus(W8Chunk* chunk, int level);
 extern bool g_save_pending;
 
 /* Replace one character record in Saves\\CurrentGame.SAV. `slot` is unused. */
-bool SaveCharacterToCurrentGame(const char* path, int slot, W8Character* character);
-bool LoadCharacterFromCurrentGame(const char* path, W8Character* character);
+bool SaveCharacterToCurrentGame(std::string_view path, int slot, W8Character* character);
+bool LoadCharacterFromCurrentGame(std::string_view path, W8Character* character);
 /* Deferred main-game autosave: notice first, then SaveGame on the next tick. */
 void ProcessMainGameAutoSave(void);
 bool SaveMonsterStatus(W8Chunk* chunks);
@@ -95,8 +98,8 @@ bool LoadDefaultLevelStatus(unsigned int level);
 
 void ResetLiveSessionForLoad(void);
 
-bool SelectQuickSaveSlotForWrite(char* slot_name);
-bool FindFreeEndingSaveName(char* name);
+std::optional<std::string> SelectQuickSaveSlotForWrite();
+std::optional<std::string> FindFreeEndingSaveName();
 
 extern char g_save_extension[]; /* Initialized "SAV" */
 

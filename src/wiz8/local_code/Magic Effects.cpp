@@ -1,3 +1,5 @@
+#include <fmt/format.h>
+#include <fmt/printf.h>
 #include "wiz8/conditions.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/spell_ids.h"
@@ -305,7 +307,7 @@ unsigned int RollEffectDuration(W8SpellEffectDefinition* definition)
 void ClearMonsterCharm(W8MonsterInfo* monster_info)
 {
     if (monster_info->charm_strength != 0) {
-        PostMonsterNotice(monster_info, gppStringList[0x1ad]);
+        PostMonsterNotice(monster_info, g_localized_strings[0x1ad]);
         monster_info->charm_strength = 0;
         SetMonsterSpellIcon(monster_info->p3D, SPELL_ICON_CHARMED, false);
     }
@@ -544,8 +546,11 @@ char InflictConditionOnTarget(W8CombatSlot* target, W8Condition condition_id, W8
                     } else {
                         if (announce) {
                             PostCharacterNotice(
-                                target->iChar, g_format_s_bang,
-                                gppStringList[g_condition_notices[W8_CONDITION_SLOWED].singular]);
+                                target->iChar,
+                                fmt::format(
+                                    "{}!",
+                                    g_localized_strings[g_condition_notices[W8_CONDITION_SLOWED]
+                                                            .singular]));
                         }
                         return 1;
                     }
@@ -561,9 +566,12 @@ char InflictConditionOnTarget(W8CombatSlot* target, W8Condition condition_id, W8
                         magnitude = remaining;
                     } else {
                         if (announce) {
-                            ShowNoticef(
-                                W8_FONT_PALETTE_RUST, L"%s %s!", GetMonsterName(monster_info, 0, 0),
-                                gppStringList[g_condition_notices[W8_CONDITION_SLOWED].singular]);
+                            ShowNotice(
+                                W8_FONT_PALETTE_RUST,
+                                fmt::format(
+                                    "{} {}!", GetMonsterName(monster_info, 0, 0),
+                                    g_localized_strings[g_condition_notices[W8_CONDITION_SLOWED]
+                                                            .singular]));
                         }
                         return 1;
                     }
@@ -596,10 +604,10 @@ void AnnounceEffectResisted(W8CombatSlot* target)
     if (target->iType == W8_TARGET_KIND_MONSTER) {
         PostMonsterNotice(MonsterGetScriptPartByLocationIndex(MonsterGetIndexByLocationID(
                               3758, MAGIC_EFFECTS_CPP, target->iMonsterID, true)),
-                          gppStringList[0x1b3]);
+                          g_localized_strings[0x1b3]);
         return;
     }
-    PostCharacterNotice(target->iChar, gppStringList[0x1b3]);
+    PostCharacterNotice(target->iChar, g_localized_strings[0x1b3]);
 }
 
 /* Apply an effect and say so if it did not take. Only a zero result counts as
@@ -721,11 +729,11 @@ void ApplySummonElementalEffect(W8SpellEffectEntry* effect)
     if (TargetSourceIsCharacter(&effect->Source, 0) &&
         GetConditionRecordFlag(effect->Source.iChar, W8_DEPENDENCE_SUMMON)) {
         if (g_settings.verbose_combat_messages != 0) {
-            PostCharacterNotice(effect->Source.iChar, gppStringList[0x1a8]);
+            PostCharacterNotice(effect->Source.iChar, g_localized_strings[0x1a8]);
         } else {
-            AppendToLastTextLine(L" -- ", -1);
+            AppendToLastTextLine(" -- ", -1);
             SetTextBoxMode(1, -1);
-            AppendToLastTextLine(gppStringList[0x1a8], -1);
+            AppendToLastTextLine(g_localized_strings[0x1a8], -1);
         }
         effect->reported = true;
         return;
@@ -1047,7 +1055,7 @@ bool ResolveAttackOnTarget(const W8TargetSource* source, W8CombatSlot* target,
             case W8_CONDITION_AFRAID:
                 if (CharacterHasTrait(character, W8_TRAIT_FEARLESS)) {
                     if (announce_resistance) {
-                        PostCharacterNotice(target->iChar, gppStringList[0x180]);
+                        PostCharacterNotice(target->iChar, g_localized_strings[0x180]);
                     }
                     return true;
                 }
@@ -1071,8 +1079,11 @@ bool ResolveAttackOnTarget(const W8TargetSource* source, W8CombatSlot* target,
             case W8_CONDITION_TURNCOAT:
                 if (CharacterHasTrait(character, W8_TRAIT_MENTAL_CONDITION_IMMUNITY)) {
                     if (announce_resistance) {
-                        PostCharacterNotice(target->iChar, gppStringList[0x181],
-                                            gppStringList[g_condition_notices[condition_id].name]);
+                        PostCharacterNotice(
+                            target->iChar,
+                            fmt::sprintf(
+                                g_localized_strings[0x181],
+                                g_localized_strings[g_condition_notices[condition_id].name]));
                     }
                     return true;
                 }
@@ -1195,11 +1206,17 @@ static void ReportSpellDeaths(W8SpellEffectEntry* effect)
         effect->result.reports.erase(effect->result.reports.begin());
         if (report != 0) {
             if (report->kind == 1) {
-                PostCharacterNotice(report->value, L"%s!",
-                                    gppStringList[g_condition_notices[W8_CONDITION_DEAD].singular]);
+                PostCharacterNotice(
+                    report->value,
+                    fmt::format(
+                        "{}!",
+                        g_localized_strings[g_condition_notices[W8_CONDITION_DEAD].singular]));
             } else if (report->kind == 3) {
-                ShowNoticef(W8_FONT_PALETTE_RUST, L"%s %s!", report->text,
-                            gppStringList[g_condition_notices[W8_CONDITION_DEAD].singular]);
+                ShowNotice(
+                    W8_FONT_PALETTE_RUST,
+                    fmt::format(
+                        "{} {}!", report->text,
+                        g_localized_strings[g_condition_notices[W8_CONDITION_DEAD].singular]));
             }
             free(report);
         }
@@ -1215,7 +1232,7 @@ void ReportSpellEffectResult(W8SpellEffectEntry* effect)
 {
     unsigned char text_box_mode;
     int condition;
-    const wchar_t* condition_name;
+    std::string condition_name;
 
     if (g_settings.verbose_combat_messages != 0) {
         return;
@@ -1223,17 +1240,15 @@ void ReportSpellEffectResult(W8SpellEffectEntry* effect)
     if (effect->result.count != 0) {
         text_box_mode = GetTextBoxMode();
         if (text_box_mode != 0) {
-            AppendToLastTextLine(!effect->reported ? L" -- " : L", ", -1);
+            AppendToLastTextLine(!effect->reported ? " -- " : ", ", -1);
             SetTextBoxMode(1, -1);
         }
-        if (static_cast<int>(effect->target_indices.size()) +
-                static_cast<int>(effect->monster_ids.size()) ==
-            1) {
-            AppendToLastTextLine(FormatWideString(gppStringList[0x19a], effect->result.amount, -1),
-                                 -1);
+        if (static_cast<int>(effect->target_indices.size()) + static_cast<int>(effect->monster_ids.size()) == 1) {
+            AppendToLastTextLine(
+                fmt::sprintf(g_localized_strings[0x19a], effect->result.amount, -1), -1);
         } else {
-            AppendToLastTextLine(FormatWideString(gppStringList[0x199], effect->result.count,
-                                                  effect->result.amount / effect->result.count, -1),
+            AppendToLastTextLine(fmt::sprintf(g_localized_strings[0x199], effect->result.count,
+                                              effect->result.amount / effect->result.count, -1),
                                  -1);
         }
         SetTextBoxMode(1, -1);
@@ -1244,18 +1259,17 @@ void ReportSpellEffectResult(W8SpellEffectEntry* effect)
         if (effect->result.condition_counts[condition] != 0) {
             text_box_mode = GetTextBoxMode();
             if (text_box_mode != 0) {
-                AppendToLastTextLine(!effect->reported ? L" -- " : L", ", -1);
+                AppendToLastTextLine(!effect->reported ? " -- " : ", ", -1);
                 SetTextBoxMode(1, -1);
             }
             if (effect->result.condition_counts[condition] == 1) {
-                condition_name = gppStringList[g_condition_notices[condition].singular];
+                condition_name = g_localized_strings[g_condition_notices[condition].singular];
             } else {
-                condition_name = gppStringList[g_condition_notices[condition].plural];
+                condition_name = g_localized_strings[g_condition_notices[condition].plural];
             }
-            AppendToLastTextLine(FormatWideString(L"%ld %s",
-                                                  effect->result.condition_counts[condition],
-                                                  condition_name, -1),
-                                 -1);
+            AppendToLastTextLine(
+                fmt::format("{:d} {}", effect->result.condition_counts[condition], condition_name),
+                -1);
             SetTextBoxMode(1, -1);
         }
     }
@@ -1406,24 +1420,24 @@ char RestoreTargetsStamina(W8SpellEffectEntry* effect)
     if (!verbose && count != 0) {
         effect->applied = true;
         if (GetTextBoxMode() != 0) {
-            AppendToLastTextLine(L" -- ", -1);
+            AppendToLastTextLine(" -- ", -1);
             SetTextBoxMode(1, -1);
         }
         if (count == 1) {
-            const wchar_t* name;
-            const wchar_t* format;
+            std::string name;
+            std::string format;
             if (!target_is_character) {
                 monster_info = MonsterInfoFromID(0x83b, MAGIC_EFFECTS_CPP, target_id, true);
                 name = GetMonsterName(monster_info, 0, 0);
-                format = gppStringList[0x1a2];
+                format = g_localized_strings[0x1a2];
             } else {
                 name = g_status.buffers.Char[target_id].name;
-                format = gppStringList[(total != 1) + 0x1a1];
+                format = g_localized_strings[(total != 1) + 0x1a1];
             }
-            AppendToLastTextLine(FormatWideString(format, name, total, -1), -1);
+            AppendToLastTextLine(fmt::sprintf(format, name, total, -1), -1);
         } else {
             AppendToLastTextLine(
-                FormatWideString(gppStringList[(total != 1) + 0x19f], count, total / count, -1),
+                fmt::sprintf(g_localized_strings[(total != 1) + 0x19f], count, total / count, -1),
                 -1);
         }
         SetTextBoxMode(1, -1);
@@ -1499,11 +1513,11 @@ char HealTargets(W8SpellEffectEntry* effect)
     }
     if (!verbose && count != 0) {
         if (GetTextBoxMode() != 0) {
-            AppendToLastTextLine(L" -- ", -1);
+            AppendToLastTextLine(" -- ", -1);
             SetTextBoxMode(1, -1);
         }
         if (count == 1) {
-            const wchar_t* name;
+            std::string name;
             if (!target_is_character) {
                 monster_info = MonsterInfoFromID(0x7b2, MAGIC_EFFECTS_CPP, target_id, true);
                 name = GetMonsterName(monster_info, 0, 0);
@@ -1511,10 +1525,10 @@ char HealTargets(W8SpellEffectEntry* effect)
                 name = g_status.buffers.Char[target_id].name;
             }
             AppendToLastTextLine(
-                FormatWideString(gppStringList[(total != 1) + 0x19d], name, total, -1), -1);
+                fmt::sprintf(g_localized_strings[(total != 1) + 0x19d], name, total, -1), -1);
         } else {
-            AppendToLastTextLine(FormatWideString(gppStringList[(total / count != 1) + 0x19b],
-                                                  count, total / count, -1),
+            AppendToLastTextLine(fmt::sprintf(g_localized_strings[(total / count != 1) + 0x19b],
+                                              count, total / count, -1),
                                  -1);
         }
         SetTextBoxMode(1, -1);
@@ -1765,8 +1779,10 @@ char TryCureConditionOnTargets(W8SpellEffectEntry* effect, W8Condition condition
                     ++remaining_count;
                     all_cured = false;
                     if (g_settings.verbose_combat_messages != 0) {
-                        PostCharacterNotice(character_index, gppStringList[0x1b1],
-                                            gppStringList[g_condition_notices[condition].noun]);
+                        PostCharacterNotice(
+                            character_index,
+                            fmt::sprintf(g_localized_strings[0x1b1],
+                                         g_localized_strings[g_condition_notices[condition].noun]));
                         effect->applied = true;
                         continue;
                     }
@@ -1802,13 +1818,15 @@ char TryCureConditionOnTargets(W8SpellEffectEntry* effect, W8Condition condition
     }
     if (g_settings.verbose_combat_messages == 0 && remaining_count != 0) {
         if (GetTextBoxMode() != 0) {
-            AppendToLastTextLine(!effect->reported ? L" -- " : L", ", -1);
+            AppendToLastTextLine(!effect->reported ? " -- " : ", ", -1);
             SetTextBoxMode(1, -1);
         }
         if (remaining_count == 1) {
             if (effect->target.iType == W8_TARGET_KIND_CHARACTER) {
-                PostCharacterNotice(effect->target.iChar, gppStringList[0x1b1],
-                                    gppStringList[g_condition_notices[condition].noun]);
+                PostCharacterNotice(
+                    effect->target.iChar,
+                    fmt::sprintf(g_localized_strings[0x1b1],
+                                 g_localized_strings[g_condition_notices[condition].noun]));
                 effect->reported = true;
                 return all_cured;
             }
@@ -1816,15 +1834,17 @@ char TryCureConditionOnTargets(W8SpellEffectEntry* effect, W8Condition condition
                 unsigned int monster_index = MonsterGetIndexByLocationID(
                     0x597, MAGIC_EFFECTS_CPP, effect->target.iMonsterID, true);
                 monster_info = MonsterGetScriptPartByLocationIndex(monster_index);
-                PostMonsterNotice(monster_info, gppStringList[0x1b1],
-                                  gppStringList[g_condition_notices[condition].noun]);
+                PostMonsterNotice(
+                    monster_info,
+                    fmt::sprintf(g_localized_strings[0x1b1],
+                                 g_localized_strings[g_condition_notices[condition].noun]));
                 effect->reported = true;
                 return all_cured;
             }
         }
-        AppendToLastTextLine(FormatWideString(gppStringList[0x1b2], remaining_count,
-                                              gppStringList[g_condition_notices[condition].noun],
-                                              -1),
+        AppendToLastTextLine(fmt::sprintf(g_localized_strings[0x1b2], remaining_count,
+                                          g_localized_strings[g_condition_notices[condition].noun],
+                                          -1),
                              -1);
         effect->reported = true;
     }
@@ -1848,7 +1868,7 @@ void InflictConditionAttack(W8SpellEffectEntry* effect, W8Condition condition, i
     int affected;
     int character_index;
     int index;
-    const wchar_t* notice;
+    std::string notice;
 
     verbose = g_settings.verbose_combat_messages != 0;
     affected = 0;
@@ -1939,31 +1959,30 @@ void InflictConditionAttack(W8SpellEffectEntry* effect, W8Condition condition, i
         return;
     }
     if (GetTextBoxMode() != 0) {
-        AppendToLastTextLine(!effect->reported ? L" -- " : L", ", -1);
+        AppendToLastTextLine(!effect->reported ? " -- " : ", ", -1);
         SetTextBoxMode(1, -1);
     }
     if (static_cast<int>(effect->monster_ids.size()) +
             static_cast<int>(effect->target_indices.size()) !=
         1) {
         if (affected == 1) {
-            notice = gppStringList[g_condition_notices[condition].singular];
+            notice = g_localized_strings[g_condition_notices[condition].singular];
         } else {
-            notice = gppStringList[g_condition_notices[condition].plural];
+            notice = g_localized_strings[g_condition_notices[condition].plural];
         }
-        AppendToLastTextLine(FormatWideString(L"%ld %s", affected, notice, -1), -1);
+        AppendToLastTextLine(fmt::format("{:d} {}", affected, notice), -1);
         SetTextBoxMode(1, -1);
     } else {
-        notice = gppStringList[g_condition_notices[condition].singular];
+        notice = g_localized_strings[g_condition_notices[condition].singular];
         if (target.iType == W8_TARGET_KIND_CHARACTER) {
             AppendToLastTextLine(
-                FormatWideString(L"%s %s", g_status.buffers.Char[character_index].name, notice, -1),
-                -1);
+                fmt::format("{} {}", g_status.buffers.Char[character_index].name, notice), -1);
         } else if (target.iType == W8_TARGET_KIND_MONSTER) {
             monster_info = MonsterInfoFromID(0x486, MAGIC_EFFECTS_CPP, target.iMonsterID, true);
-            AppendToLastTextLine(
-                FormatWideString(L"%s %s", GetMonsterName(monster_info, 0, 0), notice, -1), -1);
+            AppendToLastTextLine(fmt::format("{} {}", GetMonsterName(monster_info, 0, 0), notice),
+                                 -1);
         } else {
-            AppendToLastTextLine(FormatWideString(L"%ld %s", affected, notice, -1), -1);
+            AppendToLastTextLine(fmt::format("{:d} {}", affected, notice), -1);
         }
         SetTextBoxMode(1, -1);
     }
@@ -2143,10 +2162,11 @@ void ApplyCombatEffectSlot(W8SpellEffectEntry* effect)
     }
     if (effect->result.count != 0) {
         if (GetTextBoxMode() != 0) {
-            AppendToLastTextLine(!effect->reported ? L" -- " : L", ", -1);
+            AppendToLastTextLine(!effect->reported ? " -- " : ", ", -1);
             SetTextBoxMode(1, -1);
         }
-        AppendToLastTextLine(FormatWideString(gppStringList[0x1a4], effect->result.count, -1), -1);
+        AppendToLastTextLine(fmt::sprintf(g_localized_strings[0x1a4], effect->result.count, -1),
+                             -1);
         effect->reported = true;
     }
 }
@@ -2366,16 +2386,14 @@ void DamageTargetsAndReport(W8SpellEffectEntry* effect)
     if (!verbose) {
         if (hits != 0) {
             if (GetTextBoxMode() != 0) {
-                AppendToLastTextLine(!effect->reported ? L" -- " : L", ", -1);
+                AppendToLastTextLine(!effect->reported ? " -- " : ", ", -1);
                 SetTextBoxMode(1, -1);
             }
-            if (static_cast<int>(effect->monster_ids.size()) +
-                    static_cast<int>(effect->target_indices.size()) ==
-                1) {
-                AppendToLastTextLine(FormatWideString(gppStringList[0x1a6], total, -1), -1);
+            if (static_cast<int>(effect->monster_ids.size()) + static_cast<int>(effect->target_indices.size()) == 1) {
+                AppendToLastTextLine(fmt::sprintf(g_localized_strings[0x1a6], total, -1), -1);
             } else {
-                AppendToLastTextLine(FormatWideString(gppStringList[0x1a7], hits, total / hits, -1),
-                                     -1);
+                AppendToLastTextLine(
+                    fmt::sprintf(g_localized_strings[0x1a7], hits, total / hits, -1), -1);
             }
             SetTextBoxMode(1, -1);
             effect->reported = true;
@@ -2462,15 +2480,18 @@ void DestroyConsumablesOnTargets(W8SpellEffectEntry* effect)
         for (index = 0; index < 3; ++index) {
             if (totals[index] != 0) {
                 if (!verbose) {
-                    AppendToLastTextLine(!effect->reported ? L" -- " : L", ", -1);
+                    AppendToLastTextLine(!effect->reported ? " -- " : ", ", -1);
                 }
                 SetTextBoxMode(!verbose, -1);
                 if (index == 0) {
-                    AppendToLastTextLine(FormatWideString(gppStringList[0x1fa], totals[0], -1), -1);
+                    AppendToLastTextLine(fmt::sprintf(g_localized_strings[0x1fa], totals[0], -1),
+                                         -1);
                 } else if (index == 1) {
-                    AppendToLastTextLine(FormatWideString(gppStringList[0x1fb], totals[1], -1), -1);
+                    AppendToLastTextLine(fmt::sprintf(g_localized_strings[0x1fb], totals[1], -1),
+                                         -1);
                 } else if (index == 2) {
-                    AppendToLastTextLine(FormatWideString(gppStringList[0x1fc], totals[2], -1), -1);
+                    AppendToLastTextLine(fmt::sprintf(g_localized_strings[0x1fc], totals[2], -1),
+                                         -1);
                 }
                 if (!verbose) {
                     SetTextBoxMode(1, -1);
@@ -2580,20 +2601,19 @@ char RevealItemBindingsToTarget(W8SpellEffectEntry* effect)
         if (result > 0 && result < 3) {
             if (!verbose) {
                 effect->applied = true;
-                AppendToLastTextLine(!effect->reported ? L" -- " : L", ", -1);
+                AppendToLastTextLine(!effect->reported ? " -- " : ", ", -1);
                 SetTextBoxMode(1, -1);
             }
             if (result == 2) {
-                AppendToLastTextLine(
-                    FormatWideString(gppStringList[0x1bc],
-                                     g_status.buffers.Char[effect->target.iChar].name, -1),
-                    -1);
+                AppendToLastTextLine(fmt::sprintf(g_localized_strings[0x1bc],
+                                                  g_status.buffers.Char[effect->target.iChar].name,
+                                                  -1),
+                                     -1);
                 effect->reported = true;
                 return applied;
             }
-            AppendToLastTextLine(FormatWideString(gppStringList[0x1bd],
-                                                  g_status.buffers.Char[effect->target.iChar].name,
-                                                  -1),
+            AppendToLastTextLine(fmt::sprintf(g_localized_strings[0x1bd],
+                                              g_status.buffers.Char[effect->target.iChar].name, -1),
                                  -1);
             applied = 0;
             effect->reported = true;
@@ -2613,9 +2633,9 @@ void ApplyCharmToMonsterTarget(W8SpellEffectEntry* effect)
     W8MonsterInfo* monster_info;
     W8MonsterRecord* monster;
     unsigned int magnitude;
-    const wchar_t* notice;
-    const CHAR16* name;
-    wchar_t* formatted;
+    std::string notice;
+    std::string name;
+    std::string formatted;
 
     target = &effect->target;
     if (target->iType != W8_TARGET_KIND_MONSTER) {
@@ -2651,13 +2671,13 @@ void ApplyCharmToMonsterTarget(W8SpellEffectEntry* effect)
     }
     monster_info->charm_strength = static_cast<char>(magnitude);
     if (g_settings.verbose_combat_messages != 0) {
-        PostMonsterNotice(monster_info, gppStringList[0x1ac]);
+        PostMonsterNotice(monster_info, g_localized_strings[0x1ac]);
     } else {
         effect->applied = true;
     }
-    notice = gppStringList[0x1ac];
+    notice = g_localized_strings[0x1ac];
     name = GetMonsterName(monster_info, 0, 0);
-    formatted = FormatWideString(g_format_s_space_s, name, notice);
+    formatted = fmt::format("{} {}", name, notice);
     DisplayNpcQuote(formatted, false);
 }
 
@@ -2839,14 +2859,14 @@ void FinishSpellEffectTargets(W8SpellEffectEntry* effect)
                                 false, 0, 0, 0, 0);
             if (character == 0) {
                 if (monster_info != 0) {
-                    PostMonsterNotice(monster_info, gppStringList[0x198]);
+                    PostMonsterNotice(monster_info, g_localized_strings[0x198]);
                     if (--monster_info->enchantments[W8_ENCHANTMENT_EYE_FOR_AN_EYE].power == 0) {
                         ClearMonsterEnchantmentSlot(monster_info->location_id,
                                                     W8_ENCHANTMENT_EYE_FOR_AN_EYE);
                     }
                 }
             } else {
-                PostCharacterNotice(CharacterPointerToPartySlot(character), gppStringList[0x198]);
+                PostCharacterNotice(CharacterPointerToPartySlot(character), g_localized_strings[0x198]);
                 if (--character->enchantments[W8_ENCHANTMENT_EYE_FOR_AN_EYE].power == 0) {
                     ClearCharacterEnchantmentSlot(CharacterPointerToPartySlot(character),
                                                   W8_ENCHANTMENT_EYE_FOR_AN_EYE);
@@ -2883,8 +2903,9 @@ void TickRadiusBlastEffectSlots(W8EffectSlot* effect_slots)
     remaining = 9;
     do {
         if (effect_slots->active && effect_slots->effect_id == 0x3e) {
-            ShowNoticef(W8_FONT_PALETTE_WHITE, gppStringList[0x1ae],
-                        g_spell_records[W8_SPELL_RING_OF_FIRE].display_name);
+            ShowNotice(W8_FONT_PALETTE_WHITE,
+                       fmt::sprintf(g_localized_strings[0x1ae],
+                                    g_spell_records[W8_SPELL_RING_OF_FIRE].display_name));
             SetTextBoxMode(1, -1);
             {
                 float reach = CalcRangeDistance(W8_RANGE_SHORT);
@@ -2914,20 +2935,20 @@ void TickRadiusBlastEffectSlots(W8EffectSlot* effect_slots)
             }
             if (!verbose) {
                 if (GetTextBoxMode() != 0) {
-                    AppendToLastTextLine(L" -- ", -1);
+                    AppendToLastTextLine(" -- ", -1);
                     SetTextBoxMode(1, -1);
                 }
                 if (local_result.count != 0) {
-                    const wchar_t* line;
+                    std::string line;
                     if (static_cast<int>(found.size()) == 1) {
-                        line = FormatWideString(gppStringList[0x19a], local_result.amount, -1);
+                        line = fmt::sprintf(g_localized_strings[0x19a], local_result.amount, -1);
                     } else {
-                        line = FormatWideString(gppStringList[0x199], local_result.count,
-                                                local_result.amount / local_result.count, -1);
+                        line = fmt::sprintf(g_localized_strings[0x199], local_result.count,
+                                            local_result.amount / local_result.count, -1);
                     }
                     AppendToLastTextLine(line, -1);
                 } else {
-                    AppendToLastTextLine(gppStringList[0x1a5], -1);
+                    AppendToLastTextLine(g_localized_strings[0x1a5], -1);
                 }
                 index = static_cast<int>(local_result.reports.size());
                 while (0 < index) {
@@ -2936,12 +2957,18 @@ void TickRadiusBlastEffectSlots(W8EffectSlot* effect_slots)
                     if (report != 0) {
                         if (report->kind == 1) {
                             PostCharacterNotice(
-                                report->value, L"%s!",
-                                gppStringList[g_condition_notices[W8_CONDITION_DEAD].singular]);
+                                report->value,
+                                fmt::format(
+                                    "{}!",
+                                    g_localized_strings[g_condition_notices[W8_CONDITION_DEAD]
+                                                            .singular]));
                         } else if (report->kind == 3) {
-                            ShowNoticef(
-                                W8_FONT_PALETTE_RUST, L"%s %s!", report->text,
-                                gppStringList[g_condition_notices[W8_CONDITION_DEAD].singular]);
+                            ShowNotice(
+                                W8_FONT_PALETTE_RUST,
+                                fmt::format(
+                                    "{} {}!", report->text,
+                                    g_localized_strings[g_condition_notices[W8_CONDITION_DEAD]
+                                                            .singular]));
                         }
                         free(report);
                         index = static_cast<int>(local_result.reports.size());
@@ -3022,8 +3049,9 @@ void TickCombatEffectSlots(W8EffectSlot* effect_slots, W8CombatSlot* target)
                 hit_count = 0;
                 resisted_total = 0;
                 if (verbose && !sleep_type) {
-                    ShowNoticef(W8_FONT_PALETTE_BEIGE, gppStringList[0x1ae],
-                                g_spell_records[spell_id].display_name);
+                    ShowNotice(W8_FONT_PALETTE_BEIGE,
+                               fmt::sprintf(g_localized_strings[0x1ae],
+                                            g_spell_records[spell_id].display_name));
                 }
                 do {
                     if (g_status.buffers.XChar[party_slot].fOccupied &&
@@ -3091,9 +3119,10 @@ void TickCombatEffectSlots(W8EffectSlot* effect_slots, W8CombatSlot* target)
                     ++party_slot;
                 } while (party_slot < 8);
                 if (!verbose && hit_count != 0) {
-                    ShowNoticef(W8_FONT_PALETTE_BEIGE, gppStringList[0x1af],
-                                g_spell_records[spell_id].display_name, hit_count,
-                                resisted_total / hit_count);
+                    ShowNotice(W8_FONT_PALETTE_BEIGE,
+                               fmt::sprintf(g_localized_strings[0x1af],
+                                            g_spell_records[spell_id].display_name, hit_count,
+                                            resisted_total / hit_count));
                 }
             } else if (target->iType == W8_TARGET_KIND_MONSTER) {
                 monster_info =
@@ -3178,8 +3207,8 @@ void ProcessSpellEffectTargets(W8SpellEffectEntry* effect)
     W8World* world;
     SOUNDPARMS* parms;
     srVector3T<float> point;
-    char* sound_name;
-    char* path;
+    std::string sound_name;
+    std::string path;
     unsigned char
         applied; // bool-byte-ok: bitwise intersection of byte-valued cure results; normalization changes values
     unsigned int level;
@@ -3530,7 +3559,7 @@ void ProcessSpellEffectTargets(W8SpellEffectEntry* effect)
         sound_name = g_spell_records[spell_id].sound_name;
         if (sound_name[0] != 0) {
             parms = 0;
-            path = FormatString(s_spell_sound_format, sound_name);
+            path = fmt::format("Data\\Spells\\Sounds\\{}.wav", sound_name);
             SoundPlay(path, parms);
         }
         [[fallthrough]];
@@ -3603,14 +3632,14 @@ void ProcessSpellEffectTargets(W8SpellEffectEntry* effect)
             }
             g_status.party_gold = g_status.party_gold - (percent_roll * g_status.party_gold) / 100;
             if (g_settings.verbose_combat_messages == 0 && GetTextBoxMode() != 0) {
-                AppendToLastTextLine(L" -- ", -1);
+                AppendToLastTextLine(" -- ", -1);
                 SetTextBoxMode(1, -1);
             }
             if (percent_roll < 100) {
-                AppendToLastTextLine(gppStringList[0x1b5], -1);
+                AppendToLastTextLine(g_localized_strings[0x1b5], -1);
                 effect->reported = true;
             } else {
-                AppendToLastTextLine(gppStringList[0x1b6], -1);
+                AppendToLastTextLine(g_localized_strings[0x1b6], -1);
                 effect->reported = true;
             }
         }
@@ -3648,16 +3677,16 @@ void ProcessSpellEffectTargets(W8SpellEffectEntry* effect)
         ApplyDamageToTargets(effect);
         break;
     default:
-        ShowNoticef(W8_FONT_PALETTE_BROWN, L"%s - spell effect not implemented",
-                    g_spell_records[spell_id].display_name);
+        ShowNotice(W8_FONT_PALETTE_BROWN, fmt::format("{} - spell effect not implemented",
+                                                      g_spell_records[spell_id].display_name));
         break;
     }
     if (g_settings.verbose_combat_messages == 0 && !effect->reported && !effect->Source.fBackfire) {
         if (GetTextBoxMode() != 0) {
-            AppendToLastTextLine(L" -- ", -1);
+            AppendToLastTextLine(" -- ", -1);
             SetTextBoxMode(1, -1);
         }
-        AppendToLastTextLine(effect->applied ? gppStringList[0x1b0] : gppStringList[0x1a5], -1);
+        AppendToLastTextLine(effect->applied ? g_localized_strings[0x1b0] : g_localized_strings[0x1a5], -1);
         effect->reported = true;
     }
     if (effect->recast && applied == 0) {

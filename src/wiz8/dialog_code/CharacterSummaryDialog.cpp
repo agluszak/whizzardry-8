@@ -53,10 +53,10 @@ int W8CharacterSummaryDialog::CreateControls()
     W8DialogBase::CreateControls();
     m_field_070 = 0;
     m_use_original_character = 0;
-    memcpy(&m_saved_character, g_status.buffers.Char, sizeof(m_saved_character));
+    m_saved_character = *g_status.buffers.Char;
     m_saved_monster_entry = gXStatus.monster_manager_entries[0];
     memcpy(&m_saved_party_row, g_status.buffers.XChar, sizeof(m_saved_party_row));
-    memcpy(g_status.buffers.Char, m_character, sizeof(*m_character));
+    *g_status.buffers.Char = *m_character;
     ResetPartySlotRow(0);
     ResetGameplaySlot(0);
     g_status.buffers.Char[0].fInParty = true;
@@ -76,7 +76,7 @@ void W8CharacterSummaryDialog::DestroyControls()
     m_quote_text = 0;
     gXStatus.character_event_queue->CompleteAllActiveEvents();
     if (!m_use_original_character) {
-        memcpy(g_status.buffers.Char, &m_saved_character, sizeof(m_saved_character));
+        *g_status.buffers.Char = m_saved_character;
         gXStatus.monster_manager_entries[0] = m_saved_monster_entry;
         memcpy(g_status.buffers.XChar, &m_saved_party_row, sizeof(m_saved_party_row));
     }

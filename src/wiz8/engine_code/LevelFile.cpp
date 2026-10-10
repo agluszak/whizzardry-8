@@ -1,3 +1,5 @@
+#include <fmt/format.h>
+#include "wiz8/unicode.h"
 #include "wiz8/utility.h"
 #include "wiz8/engine_code/stLight.hpp"
 #include "wiz8/engine_code/LevelFile.h"
@@ -504,7 +506,7 @@ try {
             W8LevelFileNamedPosition* pPosition = pLevel->pNamedPositions + i;
             if (!memchr(pPosition->name, '\0', sizeof(pPosition->name)))
                 return nullptr;
-            ReportBuildStatus(5, FormatString("Named Position: %s (%f, %f, %f)\n", pPosition->name,
+            ReportBuildStatus(5, fmt::format("Named Position: {} ({:f}, {:f}, {:f})\n", pPosition->name,
                                               pPosition->position.x, pPosition->position.y,
                                               pPosition->position.z));
         }
@@ -1047,14 +1049,14 @@ try {
         if (!memchr(pSwitch->recipients, '\0', sizeof(pSwitch->recipients)))
             return FALSE;
         hFile->read_exact(pSwitch->sound, sizeof(pSwitch->sound));
-        ReportBuildStatus(5, FormatString("Switch Trigger: %s, recipients: %s\n", pSwitch->name,
+        ReportBuildStatus(5, fmt::format("Switch Trigger: {}, recipients: {}\n", pSwitch->name,
                                           pSwitch->recipients));
         if (pSwitch->version > 1) {
             hFile->read_exact(&pSwitch->minimum_range, 4);
             hFile->read_exact(pSwitch->surface_id, sizeof(pSwitch->surface_id));
             if (!memchr(pSwitch->surface_id, '\0', sizeof(pSwitch->surface_id)))
                 return FALSE;
-            ReportBuildStatus(5, FormatString("Switch Trigger name: %s\n", pSwitch->surface_id));
+            ReportBuildStatus(5, fmt::format("Switch Trigger name: {}\n", pSwitch->surface_id));
         }
         if (pSwitch->version > 2) {
             hFile->read_exact(&pSwitch->has_door_trigger, 1);
@@ -1100,7 +1102,7 @@ try {
         hFile->read_exact(pInvis->recipients, sizeof(pInvis->recipients));
         if (!memchr(pInvis->recipients, '\0', sizeof(pInvis->recipients)))
             return FALSE;
-        ReportBuildStatus(5, FormatString("Invisible Trigger: %s, recipients: %s\n", pInvis->name,
+        ReportBuildStatus(5, fmt::format("Invisible Trigger: {}, recipients: {}\n", pInvis->name,
                                           pInvis->recipients));
         if (pInvis->version > 1) {
             hFile->read_exact(&pInvis->plane_flag, 1);
@@ -1190,7 +1192,7 @@ try {
         }
         if (pSound->version > 3) {
             hFile->read_exact(pSound->name, sizeof(pSound->name));
-            ReportBuildStatus(5, FormatString("Sound Trigger: %s\n", pSound->name));
+            ReportBuildStatus(5, fmt::format("Sound Trigger: {}\n", pSound->name));
         }
         if (pSound->version > 4) {
             hFile->read_exact(&pSound->shared, 1);
@@ -1393,7 +1395,7 @@ try {
     hFile->read_exact(pSuper->animation, sizeof(pSuper->animation));
 
     ReportBuildStatus(
-        5, FormatString("Super Trigger: %s, recipients: %s\n", pSuper->name, pSuper->recipients));
+        5, fmt::format("Super Trigger: {}, recipients: {}\n", pSuper->name, pSuper->recipients));
     if (pSuper->version >= 2) {
         hFile->read_exact(pSuper->size, sizeof(pSuper->size));
         hFile->read_exact(&pSuper->direction, 4);
@@ -2123,7 +2125,7 @@ try {
         }
         if (pProp->version >= 7) {
             hFile->read_exact(pProp->name, sizeof(pProp->name));
-            ReportBuildStatus(5, FormatString("Prop: %s\n", pProp->name));
+            ReportBuildStatus(5, fmt::format("Prop: {}\n", pProp->name));
         }
         if (pProp->version >= 8) {
             hFile->read_exact(&pProp->num_frame_pos, 1);
@@ -2244,7 +2246,7 @@ try {
     } else {
         pSystem->particle.start_frame = 0;
     }
-    ReportBuildStatus(5, FormatString("Particle System: %s, Position %f, %f, %f\n",
+    ReportBuildStatus(5, fmt::format("Particle System: {}, Position {:f}, {:f}, {:f}\n",
                                       pSystem->particle.name,
                                       pSystem->particle.location.x * g_world_scale,
                                       pSystem->particle.location.y * g_world_scale,

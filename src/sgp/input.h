@@ -1,3 +1,4 @@
+#include <string_view>
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
    Distributed under the accompanying SFI Source Code license agreement. */
 #ifndef __INPUT_
@@ -10,6 +11,7 @@
 #define TRANSITION_MASK 0x80000000
 
 #define KEY_DOWN 0x0001
+inline constexpr UINT32 NATIVE_TEXT_INPUT_FLAG = 0x80000000u;
 #define KEY_UP 0x0002
 #define KEY_REPEAT 0x0004
 #define LEFT_BUTTON_DOWN 0x0008
@@ -86,12 +88,12 @@ extern uint64_t guiRightButtonRepeatTimer;
 void KeyChange(UINT32 key, UINT32 flags, UINT8 pressed);
 UINT16 TranslateKeyToCharacter(UINT16 key, UINT8 modifiers);
 UINT16 TranslateCharacterToKey(UINT16 character);
-BOOLEAN IsUppercaseWideChar(UINT16 character);
-BOOLEAN IsLowercaseWideChar(UINT16 character);
-BOOLEAN IsPunctuationWideChar(UINT16 character);
-INT32 ToUppercaseWideChar(INT32 character);
-INT32 ToLowercaseWideChar(INT32 character);
-INT32 CompareWideTextIgnoreAsciiCase(const wchar_t* first, const wchar_t* second);
+BOOLEAN IsUppercaseCharacter(UINT32 character);
+BOOLEAN IsLowercaseCharacter(UINT32 character);
+BOOLEAN IsPunctuationCharacter(UINT32 character);
+INT32 ToUppercaseCharacter(INT32 character);
+INT32 ToLowercaseCharacter(INT32 character);
+INT32 CompareTextIgnoreAsciiCase(std::string_view first, std::string_view second);
 
 extern BOOLEAN InitializeInputManager(void);
 extern BOOLEAN DequeueEvent(InputAtom* Event);

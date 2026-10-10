@@ -1,3 +1,5 @@
+#include "wiz8/utility.h"
+#include "wiz8/unicode.h"
 #include "wiz8/engine_code/OctBuildPreTree.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/materials.h"
@@ -435,7 +437,7 @@ unsigned char OctBuildPreTree::InsertSurfaceRecursive(W8OctSpatialState* working
         } else {
             W8OctBuildNode* node = working->m_root;
             if (node->leaf_kind == 0) {
-                ReportBuildStatus(2, 0);
+                ReportBuildStatus(2, {});
                 ++leaf_count;
                 W8BoundingBox leaf_bounds;
                 leaf_bounds.minimum = working->m_minimum;

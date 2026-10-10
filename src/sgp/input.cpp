@@ -1,3 +1,5 @@
+#include <utf8proc.h>
+#include <string_view>
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-04, 2026-10-06, 2026-10-07, 2026-10-09.
    Distributed under the accompanying SFI Source Code license agreement. */
 #include "Types.h"
@@ -330,56 +332,42 @@ unsigned short TranslateCharacterToKey(unsigned short character)
 }
 
 // FUNCTION: WIZ8 0x00402800
-BOOLEAN IsUppercaseWideChar(unsigned short character)
+BOOLEAN IsUppercaseCharacter(UINT32 character)
 {
-    if (character >= L'A' && character <= L'Z')
-        return TRUE;
-    return FALSE;
+    return utf8proc_category(character) == UTF8PROC_CATEGORY_LU;
 }
 
 // FUNCTION: WIZ8 0x00402820
-BOOLEAN IsLowercaseWideChar(unsigned short character)
+BOOLEAN IsLowercaseCharacter(UINT32 character)
 {
-    if (character >= L'a' && character <= L'z')
-        return TRUE;
-    return FALSE;
+    const auto category = utf8proc_category(character); return category == UTF8PROC_CATEGORY_LL || category == UTF8PROC_CATEGORY_LO || category == UTF8PROC_CATEGORY_LT || category == UTF8PROC_CATEGORY_LM || category == UTF8PROC_CATEGORY_MN || category == UTF8PROC_CATEGORY_MC || category == UTF8PROC_CATEGORY_ME;
 }
 
 // FUNCTION: WIZ8 0x00402840
-BOOLEAN IsPunctuationWideChar(unsigned short character)
+BOOLEAN IsPunctuationCharacter(UINT32 character)
 {
-    if ((character >= L'!' && character <= L'/') || (character >= L':' && character <= L'@') ||
-        (character >= L'[' && character <= L'_') || (character >= L'{' && character <= L'}'))
-        return TRUE;
-    return FALSE;
+    const auto category = utf8proc_category(character); return (category >= UTF8PROC_CATEGORY_PC && category <= UTF8PROC_CATEGORY_SO) || category == UTF8PROC_CATEGORY_CF;
 }
 
 // FUNCTION: WIZ8 0x00402880
-int ToUppercaseWideChar(int character)
+int ToUppercaseCharacter(int character)
 {
-    if ((unsigned short)character > L'`' && (unsigned short)character < L'{') {
-        character -= L'a' - L'A';
-    }
-    return character;
+    return utf8proc_toupper(character);
 }
 
 // FUNCTION: WIZ8 0x004028A0
-int ToLowercaseWideChar(int character)
+int ToLowercaseCharacter(int character)
 {
-    if ((unsigned short)character > L'@' && (unsigned short)character < L'[') {
-        character += L'a' - L'A';
-    }
-    return character;
+    return utf8proc_tolower(character);
 }
 
 // FUNCTION: WIZ8 0x00402920
-int CompareWideTextIgnoreAsciiCase(const wchar_t* first, const wchar_t* second)
+int CompareTextIgnoreAsciiCase(std::string_view first, std::string_view second)
 {
-    unsigned short left;
-    unsigned short right;
-    do {
-        left = ToLowercaseWideChar(*first++);
-        right = ToLowercaseWideChar(*second++);
-    } while (left != 0 && left == right);
-    return (UINT32)left - (UINT32)right;
+    auto lower = [](unsigned char c) { return c >= 'A' && c <= 'Z' ? c + ('a' - 'A') : c; };
+    for (std::size_t i = 0; i < std::min(first.size(), second.size()); ++i) {
+        const int difference = lower(first[i]) - lower(second[i]);
+        if (difference) return difference;
+    }
+    return (first.size() > second.size()) - (first.size() < second.size());
 }

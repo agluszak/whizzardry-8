@@ -72,13 +72,13 @@ UINT16* SetFontObjectPalette16BPP(INT32 iFont, UINT16* pPal16);
 UINT16* GetFontObjectPalette16BPP(INT32 iFont);
 
 extern HVOBJECT GetFontObject(INT32 iFont);
-extern UINT32 gprintf(INT32 x, INT32 y, const CHAR16* pFontString, ...);
-extern UINT32 gprintfDirty(INT32 x, INT32 y, const CHAR16* pFontString, ...);
-extern UINT32 mprintf(INT32 x, INT32 y, const CHAR16* pFontString, ...);
-extern UINT32 gprintf_buffer(UINT8* pDestBuf, UINT32 uiDestPitchBYTES, UINT32 FontType, INT32 x,
-                             INT32 y, const CHAR16* pFontString, ...);
-extern UINT32 mprintf_buffer(UINT8* pDestBuf, UINT32 uiDestPitchBYTES, UINT32 FontType, INT32 x,
-                             INT32 y, const CHAR16* pFontString, ...);
+UINT32 DrawFontText(INT32 x, INT32 y, std::string_view text);
+UINT32 DrawFontTextDirty(INT32 x, INT32 y, std::string_view text);
+UINT32 DrawMonoFontText(INT32 x, INT32 y, std::string_view text);
+UINT32 DrawFontTextToBuffer(UINT8* pDestBuf, UINT32 uiDestPitchBYTES, UINT32 FontType, INT32 x,
+                            INT32 y, std::string_view text);
+UINT32 DrawMonoFontTextToBuffer(UINT8* pDestBuf, UINT32 uiDestPitchBYTES, UINT32 FontType, INT32 x,
+                                INT32 y, std::string_view text);
 
 // Function for displaying coded test. Since it's slower to do this, it's separate from  the normal fuctions
 #define FONT_CODE_BEGINCOLOR 180
@@ -96,24 +96,18 @@ extern void UnloadFont(UINT32 FontIndex);
 
 extern std::vector<UINT16> CreateEnglishTransTable();
 
-extern INT16 GetIndex(UINT16 siChar);
+extern INT16 GetIndex(char32_t siChar);
 extern UINT32 GetWidth(HVOBJECT hSrcVObject, INT16 ssIndex);
 
-extern INT16 StringPixLengthArg(INT32 usUseFont, UINT32 uiCharCount, const CHAR16* pFontString, ...);
-extern INT16 StringPixLength(const CHAR16* string, INT32 UseFont);
-extern INT16 StringNPixLength(CHAR16* string, UINT32 uiMaxCount, INT32 UseFont);
+INT16 StringCodepointPrefixPixelWidth(INT32 usUseFont, UINT32 uiCharCount, std::string_view text);
+extern INT16 StringPixLength(std::string_view string, INT32 UseFont);
+extern INT16 StringPrefixPixelWidth(std::string_view string, std::size_t byte_end, INT32 UseFont);
 extern void SaveFontSettings(void);
 extern void RestoreFontSettings(void);
 
-void VarFindFontRightCoordinates(INT16 sLeft, INT16 sTop, INT16 sWidth, INT16 sHeight,
-                                 INT32 iFontIndex, INT16* psNewX, INT16* psNewY,
-                                 const CHAR16* pFontString, ...);
-void VarFindFontCenterCoordinates(INT16 sLeft, INT16 sTop, INT16 sWidth, INT16 sHeight,
-                                  INT32 iFontIndex, INT16* psNewX, INT16* psNewY,
-                                  const CHAR16* pFontString, ...);
-void FindFontRightCoordinates(INT16 sLeft, INT16 sTop, INT16 sWidth, INT16 sHeight, CHAR16* pStr,
+void FindFontRightCoordinates(INT16 sLeft, INT16 sTop, INT16 sWidth, INT16 sHeight, std::string_view pStr,
                               INT32 iFontIndex, INT16* psNewX, INT16* psNewY);
-void FindFontCenterCoordinates(INT16 sLeft, INT16 sTop, INT16 sWidth, INT16 sHeight, CHAR16* pStr,
+void FindFontCenterCoordinates(INT16 sLeft, INT16 sTop, INT16 sWidth, INT16 sHeight, std::string_view pStr,
                                INT32 iFontIndex, INT16* psNewX, INT16* psNewY);
 
 //extern FontBase *LoadFontFile(UINT8 *pFileName);

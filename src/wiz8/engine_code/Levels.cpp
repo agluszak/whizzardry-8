@@ -1,3 +1,5 @@
+#include "wiz8/utility.h"
+#include "wiz8/unicode.h"
 #include "wiz8/containers.h"
 #include "wiz8/engine_code/stModelInstance.h"
 #include "wiz8/engine_code/3dapi.h"
@@ -530,9 +532,9 @@ unsigned char LoadLevel(int requested_level, int entrance, bool restoring_game)
     SetSkyNodeVisible(false);
     ResetAutomapView();
     if (!LoadLevelStatus("Saves\\CurrentGame.SAV", level)) {
-        BuildLevelStatusPath(path, level);
+        const auto status_path = BuildLevelStatusPath(level);
         g_level_status_loading = true;
-        LoadLevelStatus(path, level);
+        LoadLevelStatus(status_path.c_str(), level);
         g_level_status_loading = false;
     }
 
