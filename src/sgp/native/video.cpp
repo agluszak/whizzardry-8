@@ -2,20 +2,13 @@
 #include "compat/platform.h"
 #include "native/input_events.h"
 #include "platform_paths.h"
+#include <wiz8/filesystem.h>
 #include "surrender/srDD_SDLGPU.h"
 #include <SDL3/SDL.h>
 #include <algorithm>
 #include <climits>
 #include <filesystem>
 #include <fstream>
-#ifdef _WIN32
-#include "platform_fs_windows.h"
-#else
-#include <unistd.h>
-#endif
-#if defined(__APPLE__)
-#include <sys/sysctl.h>
-#endif
 namespace
 {
 SDL_Window* native(HWND window) { return reinterpret_cast<SDL_Window*>(window); }
@@ -88,52 +81,34 @@ BOOL W8VideoRaiseWindow(HWND window) { return window && SDL_RaiseWindow(native(w
 BOOL W8VideoCloseWindow(HWND window) { return window && SDL_HideWindow(native(window)); }
 unsigned int W8TotalPhysicalMemory()
 {
-#if defined(_WIN32)
-    uint64_t bytes = uint64_t(SDL_GetSystemRAM()) * 1024 * 1024;
-#elif defined(__APPLE__)
-    uint64_t bytes = 0;
-    size_t size = sizeof(bytes);
-    if (sysctlbyname("hw.memsize", &bytes, &size, nullptr, 0))
+    const int megabytes = SDL_GetSystemRAM();
+    if (megabytes <= 0)
         return 0;
-#else
-    long pages = sysconf(_SC_PHYS_PAGES), page_size = sysconf(_SC_PAGESIZE);
-    if (pages < 0 || page_size < 0)
-        return 0;
-    uint64_t bytes = uint64_t(pages) * page_size;
-#endif
+    const uint64_t bytes = uint64_t(megabytes) * 1024 * 1024;
     return std::min<uint64_t>(bytes, UINT_MAX);
-}
-int W8UsedPageFileBytes()
-{
-#if defined(_WIN32)
-    return std::min<uint64_t>(w8_native::committed_memory(), INT_MAX);
-#elif defined(__APPLE__)
-    xsw_usage usage{};
-    size_t size = sizeof(usage);
-    if (sysctlbyname("vm.swapusage", &usage, &size, nullptr, 0))
-        return 0;
-    return std::min<uint64_t>(usage.xsu_used, INT_MAX);
-#else
-    std::ifstream memory("/proc/meminfo");
-    std::string name, rest;
-    uint64_t amount;
-    while (memory >> name >> amount)
-    {
-        std::getline(memory, rest);
-        if (name == "Committed_AS:")
-            return std::min<uint64_t>(amount * 1024, INT_MAX);
-    }
-    return 0;
-#endif
 }
 bool W8HasEnoughSaveSpace()
 {
     std::error_code error;
-    auto root = std::filesystem::path(w8_native::path_roots().user);
-    while (!root.empty() && !std::filesystem::exists(root, error))
-        root = root.parent_path();
-    auto space = std::filesystem::space(root, error);
-    return !error && space.available >= 0x10000000;
+    auto root = wiz8::path_from_utf8(w8_native::path_roots().user);
+    while (!root.empty())
+    {
+        const bool exists = std::filesystem::exists(root, error);
+        if (error)
+            return false;
+        if (exists)
+            break;
+        const auto parent = root.parent_path();
+        if (parent == root)
+            return false;
+        root = parent;
+    }
+    if (root.empty())
+        return false;
+    if (!std::filesystem::is_directory(root, error) || error)
+        return false;
+    const auto space = std::filesystem::space(root, error);
+    return !error && space.available != static_cast<std::uintmax_t>(-1) && space.available >= 0x10000000;
 }
 
 int W8ReadProfileInt(const char* path, const char* section, const char* key, int fallback)

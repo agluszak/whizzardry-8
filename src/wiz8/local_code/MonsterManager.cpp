@@ -160,8 +160,6 @@ W8MonsterInfo* CreateMonsterInfo(W8MonsterGroup* group, W8MonsterRecord* record,
 void ActivateMonsterInWorld(W8MonsterInfo* monster_info)
 {
     W8MonsterRecord* record;
-    int registry_before;
-    int registry_after;
     srVector3T<float> camera_position;
 
     if (monster_info == 0) {
@@ -173,7 +171,6 @@ void ActivateMonsterInWorld(W8MonsterInfo* monster_info)
 
     record = MonsterDBFromSpecies(monster_info->monster_species);
     if (monster_info->p3D == 0 || monster_info->p3D->IsPendingFinalize()) {
-        registry_before = GetUsedPageFileBytes();
         ActivateMonster(monster_info, W8_MONSTER_LOAD_ALL_CYCLES);
         MonsterSetLocationId(monster_info->p3D, monster_info->location_id);
         MonsterSetAdjustedPosition(monster_info->p3D, &monster_info->position);
@@ -215,13 +212,6 @@ void ActivateMonsterInWorld(W8MonsterInfo* monster_info)
         MonsterSetLocationId(monster_info->p3D, monster_info->location_id);
         monster_info->p3D->pending_finalize = false;
 
-        registry_after = GetUsedPageFileBytes();
-        monster_info->p3D->registry_weight = registry_after - registry_before;
-        g_monster_cycle_registry_weight += registry_after - registry_before;
-        if (IsMipeActive()) {
-            ShowNoticef(W8_FONT_PALETTE_BROWN, L"(%dK)",
-                        static_cast<unsigned int>(registry_after - registry_before) >> 10);
-        }
         InitializeMonsterRangeCapabilities(monster_info,
                                            MonsterDBFromSpecies(monster_info->monster_species));
     }
