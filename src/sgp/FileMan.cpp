@@ -2,6 +2,7 @@
    Distributed under the accompanying SFI Source Code license agreement. */
 #include "FileMan.h"
 #include "LibraryDataBase.h"
+#include "file_handles.h"
 #include "DEBUG.H"
 #include <wiz8/asset_paths.h>
 #include <wiz8/filesystem.h>
@@ -12,22 +13,81 @@
 #include <cstring>
 #include <limits>
 #include <memory>
+#include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
 
 DatabaseManagerHeaderStruct gFileDataBase{};
 
+namespace sgp
+{
 namespace
 {
-struct SlotPolicy
+std::vector<std::unique_ptr<OpenFile>> files(1);
+}
+OpenFile* find_file(HWFILE handle)
 {
-    UINT32 access = 0;
-    std::string delete_on_close;
-};
-// Streams remain owned by the realloc-managed SGP slots, not a handle registry.
-std::vector<SlotPolicy> slot_policies;
+    return handle < files.size() ? files[handle].get() : nullptr;
+}
+HWFILE register_file(OpenFile file)
+{
+    if (!file.stream || !file.stream->is_open())
+        return 0;
+    auto entry = std::make_unique<OpenFile>(std::move(file));
+    const auto free = std::find(files.begin() + 1, files.end(), nullptr);
+    if (free != files.end())
+    {
+        *free = std::move(entry);
+        return HWFILE(free - files.begin());
+    }
+    if (files.size() >= std::numeric_limits<HWFILE>::max())
+        return 0;
+    files.push_back(std::move(entry));
+    return HWFILE(files.size() - 1);
+}
+void close_files(INT16 library)
+{
+    for (std::size_t id = 1; id < files.size(); ++id)
+        if (files[id] && (library < 0 ||
+                         (files[id]->archive && files[id]->archive->library == library)))
+            FileClose(HWFILE(id));
+}
+std::int64_t OpenFile::tell() const
+{
+    const auto position = stream->tell() - (archive ? std::int64_t(archive->offset) : 0);
+    if (position < 0 || (archive && position > archive->length))
+        throw std::out_of_range("SLF cursor outside entry");
+    return position;
+}
+std::int64_t OpenFile::size() const
+{
+    return archive ? std::int64_t(archive->length) : stream->size();
+}
+wiz8::ReadResult OpenFile::read(void* data, std::size_t bytes)
+{
+    if (archive && (bytes > std::uint64_t(size() - tell()) ||
+                    std::int64_t(archive->offset) + archive->length > stream->size()))
+        throw std::out_of_range("read exceeds SLF extent");
+    return stream->read(data, bytes);
+}
+void OpenFile::seek(std::int64_t offset, wiz8::SeekOrigin origin)
+{
+    if (!archive)
+    {
+        stream->seek(offset, origin);
+        return;
+    }
+    const auto base = origin == wiz8::SeekOrigin::begin ? 0 :
+                      origin == wiz8::SeekOrigin::current ? tell() : size();
+    if (offset < -base || offset > size() - base)
+        throw std::out_of_range("seek exceeds SLF extent");
+    stream->seek(std::int64_t(archive->offset) + base + offset, wiz8::SeekOrigin::begin);
+}
+} // namespace sgp
 
+namespace
+{
 struct DirectorySearch
 {
     bool active = false;
@@ -36,37 +96,6 @@ struct DirectorySearch
     std::size_t next = 0;
 };
 std::array<DirectorySearch, 20> searches;
-
-RealFileOpenStruct* real_slot(HWFILE file)
-{
-    const auto id = DB_EXTRACT_FILE_ID(file);
-    auto& real = gFileDataBase.RealFiles;
-    if (DB_EXTRACT_LIBRARY(file) != REAL_FILE_LIBRARY_ID || !id ||
-        !real.pRealFilesOpen || id >= UINT32(real.iSizeOfOpenFileArray))
-        return nullptr;
-    auto& slot = real.pRealFilesOpen[id];
-    return slot.uiFileID == file && slot.hRealFileHandle ? &slot : nullptr;
-}
-
-FileOpenStruct* library_slot(HWFILE file)
-{
-    const auto library = DB_EXTRACT_LIBRARY(file);
-    const auto id = DB_EXTRACT_FILE_ID(file);
-    if (!gFileDataBase.fInitialized || !gFileDataBase.pLibraries ||
-        library >= gFileDataBase.usNumberOfLibraries || !id)
-        return nullptr;
-    auto& entry = gFileDataBase.pLibraries[library];
-    if (!entry.fLibraryOpen || !entry.pOpenFiles || id >= UINT32(entry.iSizeOfOpenFileArray))
-        return nullptr;
-    auto& slot = entry.pOpenFiles[id];
-    return slot.uiFileID == file && slot.pFileHeader ? &slot : nullptr;
-}
-
-bool can_access(HWFILE file, UINT32 access)
-{
-    const auto id = DB_EXTRACT_FILE_ID(file);
-    return id < slot_policies.size() && (slot_policies[id].access & access) != 0;
-}
 
 wiz8::OpenMode open_mode(UINT32 options, bool exists)
 {
@@ -97,26 +126,12 @@ bool valid_options(UINT32 options, bool exists)
     return true;
 }
 
-HWFILE register_stream(std::unique_ptr<wiz8::File> stream, SlotPolicy policy)
-{
-    const auto capacity = std::size_t(std::max(0, gFileDataBase.RealFiles.iSizeOfOpenFileArray)) +
-                          NUM_FILES_TO_ADD_AT_A_TIME;
-    slot_policies.resize(std::max(slot_policies.size(), capacity));
-    const HWFILE id = CreateRealFileHandle(stream.get());
-    if (id)
-    {
-        (void)stream.release();
-        slot_policies[DB_EXTRACT_FILE_ID(id)] = std::move(policy);
-    }
-    return id;
-}
-
 UINT32 attributes(const wiz8::FileStatus& status, std::string_view name, bool enumeration)
 {
     UINT32 bits = status.info.type == SDL_PATHTYPE_DIRECTORY
                       ? (enumeration ? FILE_IS_DIRECTORY : FILE_ATTRIBUTES_DIRECTORY)
                       : (enumeration ? FILE_IS_NORMAL : FILE_ATTRIBUTES_NORMAL);
-    if (!status.writable)
+    if (!status.writable || status.read_only)
         bits |= enumeration ? FILE_IS_READONLY : FILE_ATTRIBUTES_READONLY;
     const auto slash = name.find_last_of("/\\");
     const auto base = slash == std::string_view::npos ? name : name.substr(slash + 1);
@@ -167,11 +182,7 @@ BOOLEAN InitializeFileManager(STR)
 
 void ShutdownFileManager()
 {
-    auto& real = gFileDataBase.RealFiles;
-    for (INT32 id = 1; real.pRealFilesOpen && id < real.iSizeOfOpenFileArray; ++id)
-        if (real.pRealFilesOpen[id].uiFileID)
-            FileClose(real.pRealFilesOpen[id].uiFileID);
-    slot_policies.clear();
+    sgp::close_files();
     for (auto& search : searches)
         search = {};
     UnRegisterDebugTopic(TOPIC_FILE_MANAGER, "File Manager");
@@ -227,8 +238,8 @@ HWFILE FileOpen(STR filename, UINT32 options, BOOLEAN delete_on_close)
             return 0;
         if (delete_on_close && !(options & FILE_ACCESS_WRITE) && (!status || !status->writable))
             return 0;
-        SlotPolicy policy{options, delete_on_close ? w8_native::full_path(filename) : ""};
-        return register_stream(wiz8::open_file(filename, open_mode(options, exists)), std::move(policy));
+        return sgp::register_file({wiz8::open_file(filename, open_mode(options, exists)), options,
+                                  delete_on_close ? w8_native::full_path(filename) : "", {}});
     }
     catch (...) { return 0; }
 }
@@ -241,31 +252,21 @@ HWFILE FileOpenHost(const std::filesystem::path& path, UINT32 options)
         if (!valid_options(options, status.has_value()) ||
             (status && status->info.type != SDL_PATHTYPE_FILE))
             return 0;
-        return register_stream(wiz8::open_host_file(path, open_mode(options, status.has_value())),
-                               SlotPolicy{options, {}});
+        return sgp::register_file({wiz8::open_host_file(path, open_mode(options, status.has_value())),
+                                  options, {}, {}});
     }
     catch (...) { return 0; }
 }
 
 void FileClose(HWFILE file)
 {
-    if (auto* slot = real_slot(file))
-    {
-        std::unique_ptr<wiz8::File> stream(slot->hRealFileHandle);
-        slot->hRealFileHandle = nullptr;
-        slot->uiFileID = 0;
-        --gFileDataBase.RealFiles.iNumFilesOpen;
-        const auto id = DB_EXTRACT_FILE_ID(file);
-        SlotPolicy policy;
-        if (id < slot_policies.size())
-            policy = std::exchange(slot_policies[id], {});
-        try { stream->close(); }
-        catch (...) { return; }
-        if (!policy.delete_on_close.empty())
-            FileDelete(policy.delete_on_close.data());
-    }
-    else if (library_slot(file))
-        CloseLibraryFile(INT16(DB_EXTRACT_LIBRARY(file)), DB_EXTRACT_FILE_ID(file));
+    if (!sgp::find_file(file))
+        return;
+    auto entry = std::move(sgp::files[file]);
+    try { entry->stream->close(); }
+    catch (...) { return; }
+    if (!entry->delete_on_close.empty())
+        FileDelete(entry->delete_on_close.data());
 }
 
 BOOLEAN FileRead(HWFILE file, PTR destination, UINT32 bytes, UINT32* read)
@@ -276,23 +277,14 @@ BOOLEAN FileRead(HWFILE file, PTR destination, UINT32 bytes, UINT32* read)
         return FALSE;
     try
     {
-        if (auto* slot = real_slot(file))
+        if (auto* slot = sgp::find_file(file))
         {
-            if (!can_access(file, FILE_ACCESS_READ))
+            if (!(slot->access & FILE_ACCESS_READ))
                 return FALSE;
-            const auto result = slot->hRealFileHandle->read(destination, bytes);
+            const auto result = slot->read(destination, bytes);
             if (read)
                 *read = UINT32(result.bytes);
             return result.bytes == bytes;
-        }
-        if (library_slot(file))
-        {
-            UINT32 count = 0;
-            const bool success = LoadDataFromLibrary(INT16(DB_EXTRACT_LIBRARY(file)),
-                                                     DB_EXTRACT_FILE_ID(file), destination, bytes, &count);
-            if (read)
-                *read = count;
-            return success && count == bytes;
         }
     }
     catch (...) {}
@@ -305,10 +297,10 @@ BOOLEAN FileWrite(HWFILE file, PTR source, UINT32 bytes, UINT32* written)
         *written = 0;
     try
     {
-        auto* slot = real_slot(file);
-        if (!slot || !can_access(file, FILE_ACCESS_WRITE))
+        auto* slot = sgp::find_file(file);
+        if (!slot || !(slot->access & FILE_ACCESS_WRITE))
             return FALSE;
-        slot->hRealFileHandle->write(source, bytes);
+        slot->stream->write(source, bytes);
         if (written)
             *written = bytes;
         return TRUE;
@@ -322,7 +314,7 @@ BOOLEAN FileSeek(HWFILE file, UINT32 distance, UINT8 how)
         return FALSE;
     try
     {
-        if (auto* slot = real_slot(file))
+        if (auto* slot = sgp::find_file(file))
         {
             std::int64_t offset = how == FILE_SEEK_FROM_CURRENT ? std::int64_t(INT32(distance))
                                                               : std::int64_t(distance);
@@ -334,11 +326,9 @@ BOOLEAN FileSeek(HWFILE file, UINT32 distance, UINT8 how)
             }
             else if (how == FILE_SEEK_FROM_CURRENT)
                 origin = wiz8::SeekOrigin::current;
-            slot->hRealFileHandle->seek(offset, origin);
+            slot->seek(offset, origin);
             return TRUE;
         }
-        if (library_slot(file))
-            return LibraryFileSeek(INT16(DB_EXTRACT_LIBRARY(file)), DB_EXTRACT_FILE_ID(file), distance, how);
     }
     catch (...) {}
     return FALSE;
@@ -348,14 +338,11 @@ INT32 FileGetPos(HWFILE file)
 {
     try
     {
-        if (auto* slot = real_slot(file))
+        if (auto* slot = sgp::find_file(file))
         {
-            const auto position = slot->hRealFileHandle->tell();
+            const auto position = slot->tell();
             return position <= std::numeric_limits<INT32>::max() ? INT32(position) : BAD_INDEX;
         }
-        if (auto* slot = library_slot(file))
-            return slot->uiFilePosInFile <= UINT32(std::numeric_limits<INT32>::max())
-                       ? INT32(slot->uiFilePosInFile) : BAD_INDEX;
     }
     catch (...) {}
     return BAD_INDEX;
@@ -365,16 +352,31 @@ UINT32 FileGetSize(HWFILE file)
 {
     try
     {
-        if (auto* slot = real_slot(file))
+        if (auto* slot = sgp::find_file(file))
         {
-            const auto size = slot->hRealFileHandle->size();
+            const auto size = slot->size();
             return size <= std::numeric_limits<UINT32>::max() ? UINT32(size) : 0;
         }
-        if (auto* slot = library_slot(file))
-            return slot->pFileHeader->uiFileLength;
     }
     catch (...) {}
     return 0;
+}
+
+wiz8::File* OpenLibraryStream(HWFILE file)
+{
+    auto* slot = sgp::find_file(file);
+    if (!slot || !slot->archive)
+        return nullptr;
+    try
+    {
+        auto stream = wiz8::open_host_file(slot->stream->physical_path());
+        const auto& extent = *slot->archive;
+        if (std::int64_t(extent.offset) + extent.length > stream->size())
+            return nullptr;
+        stream->seek(extent.offset, wiz8::SeekOrigin::begin);
+        return stream.release();
+    }
+    catch (...) { return nullptr; }
 }
 
 BOOLEAN DirectoryExists(STRING512 directory)
@@ -491,16 +493,7 @@ UINT32 FileGetAttributes(STR filename)
         const auto status = wiz8::file_status(filename);
         if (!status)
             return UINT32(-1);
-        auto bits = attributes(*status, filename, false);
-        if (status->writable)
-        {
-            const auto physical = w8_native::mutation_path(filename);
-            const auto permissions = std::filesystem::status(wiz8::path_from_utf8(physical)).permissions();
-            using P = std::filesystem::perms;
-            if ((permissions & (P::owner_write | P::group_write | P::others_write)) == P::none)
-                bits |= FILE_ATTRIBUTES_READONLY;
-        }
-        return bits;
+        return attributes(*status, filename, false);
     }
     catch (...) { return UINT32(-1); }
 }
@@ -511,22 +504,7 @@ BOOLEAN FileClearAttributes(STR filename)
         return FALSE;
     try
     {
-        const auto status = wiz8::file_status(filename);
-        if (!status)
-            return FALSE;
-        if (status->info.type == SDL_PATHTYPE_DIRECTORY)
-            wiz8::create_directory(filename);
-        else if (!status->writable)
-        {
-            // Copying through owned streams creates a writable overlay even
-            // when the installed source has read-only host permissions.
-            wiz8::copy_file(filename, filename, wiz8::CopyMode::replace);
-        }
-        const auto physical = w8_native::mutation_path(filename);
-        if (physical.empty())
-            return FALSE;
-        std::filesystem::permissions(wiz8::path_from_utf8(physical), std::filesystem::perms::owner_write,
-                                     std::filesystem::perm_options::add);
+        wiz8::clear_read_only(filename);
         return TRUE;
     }
     catch (...) { return FALSE; }
@@ -536,10 +514,8 @@ BOOLEAN FileCheckEndOfFile(HWFILE file)
 {
     try
     {
-        if (auto* slot = real_slot(file))
-            return slot->hRealFileHandle->tell() >= slot->hRealFileHandle->size();
-        if (auto* slot = library_slot(file))
-            return slot->uiFilePosInFile >= slot->pFileHeader->uiFileLength;
+        if (auto* slot = sgp::find_file(file))
+            return slot->tell() >= slot->size();
     }
     catch (...) {}
     return FALSE;
@@ -552,9 +528,15 @@ BOOLEAN GetFileManFileTime(HWFILE file, SGP_FILETIME* creation, SGP_FILETIME* ac
     store_time(write, {});
     try
     {
-        if (auto* slot = real_slot(file))
+        if (auto* slot = sgp::find_file(file))
         {
-            const auto& stream = *slot->hRealFileHandle;
+            if (slot->archive)
+            {
+                if (write)
+                    *write = slot->archive->modified;
+                return TRUE;
+            }
+            const auto& stream = *slot->stream;
             const auto info = stream.status().info;
             const int offset = wiz8::current_utc_offset_seconds();
             const auto convert = [offset](SDL_Time time)
@@ -565,15 +547,6 @@ BOOLEAN GetFileManFileTime(HWFILE file, SGP_FILETIME* creation, SGP_FILETIME* ac
             store_time(creation, convert(stream.opened_writer_create_time().value_or(info.create_time)));
             store_time(access, convert(info.access_time));
             store_time(write, convert(info.modify_time));
-            return TRUE;
-        }
-        if (library_slot(file))
-        {
-            SGP_FILETIME disk{};
-            if (!GetLibraryFileTime(INT16(DB_EXTRACT_LIBRARY(file)), DB_EXTRACT_FILE_ID(file), &disk))
-                return FALSE;
-            if (write)
-                *write = disk;
             return TRUE;
         }
     }

@@ -1,4 +1,4 @@
-/* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
+/* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07, 2026-10-10.
    Distributed under the accompanying SFI Source Code license agreement. */
 #ifndef _LIBRARY_DATABASE_H
 #define _LIBRARY_DATABASE_H
@@ -12,22 +12,6 @@ namespace wiz8 { class File; }
 
 //#define	FILENAME_SIZE									40 + PATH_SIZE
 #define PATH_SIZE 80
-
-#define NUM_FILES_TO_ADD_AT_A_TIME 20
-#define INITIAL_NUM_HANDLES 20
-
-#define REAL_FILE_LIBRARY_ID 1022
-
-#define DB_BITS_FOR_LIBRARY 10
-#define DB_BITS_FOR_FILE_ID 22
-
-#define DB_EXTRACT_LIBRARY(exp) (exp >> DB_BITS_FOR_FILE_ID)
-#define DB_EXTRACT_FILE_ID(exp) (exp & 0x3FFFFF)
-
-#define DB_ADD_LIBRARY_ID(exp) (exp << DB_BITS_FOR_FILE_ID)
-#define DB_ADD_FILE_ID(exp) (exp & 0xC00000)
-
-typedef UINT32 HWFILE;
 
 typedef struct {
     CHAR8 sLibraryName[FILENAME_SIZE]; // The name of the library file on the disk
@@ -47,13 +31,6 @@ extern CHAR8 gzCdDirectory[SGPFILENAME_LEN];
 }
 #endif
 
-#define REAL_LIBRARY_FILE "RealFiles.slf"
-
-typedef struct {
-    UINT32 uiFileID;        // id of the file ( they start at 1 )
-    wiz8::File* hRealFileHandle; // Owned by the slot; explicitly delete on close.
-} RealFileOpenStruct;
-
 typedef struct {
     STR pFileName;
     UINT32 uiFileLength;
@@ -62,21 +39,12 @@ typedef struct {
 } FileHeaderStruct;
 
 typedef struct {
-    UINT32 uiFileID;                  // id of the file ( they start at 1 )
-    UINT32 uiFilePosInFile;           // current position in the file
-    FileHeaderStruct* pFileHeader;
-} FileOpenStruct;
-
-typedef struct {
     STR sLibraryPath;
     wiz8::File* hLibraryHandle; // Owned by the slot; explicitly delete on close.
     UINT16 usNumberOfEntries;
     BOOLEAN fLibraryOpen;
     BOOLEAN fPatchLibrary;
-    INT32 iNumFilesOpen;
-    INT32 iSizeOfOpenFileArray;
     FileHeaderStruct* pFileHeader;
-    FileOpenStruct* pOpenFiles;
 
     //
     //	Temp:	Total memory used for each library ( all memory allocated
@@ -85,18 +53,10 @@ typedef struct {
 } LibraryHeaderStruct;
 
 typedef struct {
-    INT32 iNumFilesOpen;
-    INT32 iSizeOfOpenFileArray;
-    RealFileOpenStruct* pRealFilesOpen;
-
-} RealFileHeaderStruct;
-
-typedef struct {
     STR sManagerName;
     LibraryHeaderStruct* pLibraries;
     UINT16 usNumberOfLibraries;
     BOOLEAN fInitialized;
-    RealFileHeaderStruct RealFiles;
 } DatabaseManagerHeaderStruct;
 
 //typedef UINT32	HLIBFILE;
@@ -155,23 +115,11 @@ BOOLEAN ShutDownFileDatabase();
 BOOLEAN CheckIfFileExistInLibrary(STR pFileName);
 INT16 GetLibraryIDFromFileName(STR pFileName);
 HWFILE OpenFileFromLibrary(STR pName);
-// Takes ownership only on successful (nonzero) registration.
-HWFILE CreateRealFileHandle(wiz8::File* file);
-BOOLEAN CloseLibraryFile(INT16 sLibraryID, UINT32 uiFileID);
-BOOLEAN GetLibraryAndFileIDFromLibraryFileHandle(HWFILE hlibFile, INT16* pLibraryID,
-                                                 UINT32* pFileNum);
-BOOLEAN LoadDataFromLibrary(INT16 sLibraryID, UINT32 uiFileIndex, PTR pData, UINT32 uiBytesToRead,
-                            UINT32* pBytesRead);
-BOOLEAN LibraryFileSeek(INT16 sLibraryID, UINT32 uiFileNum, UINT32 uiDistance, UINT8 uiHowToSeek);
-
 //used to open and close libraries during the game
 BOOLEAN CloseLibrary(INT16 sLibraryID);
 BOOLEAN OpenLibrary(INT16 sLibraryID);
 
 BOOLEAN IsLibraryOpened(INT16 sLibraryID);
-
-BOOLEAN GetLibraryFileTime(INT16 sLibraryID, UINT32 uiFileNum, SGP_FILETIME* pLastWriteTime);
-
 #ifdef __cplusplus
 }
 #endif

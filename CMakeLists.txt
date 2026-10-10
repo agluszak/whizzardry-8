@@ -29,7 +29,7 @@ find_package(Threads REQUIRED)
 
 # No forced CRT vocabulary or short-wchar options at the portable API boundary.
 add_library(wiz8_filesystem STATIC
-    src/platform/asset_paths.cpp
+    src/platform/path_resolver.cpp
     src/platform/filesystem.cpp
     src/platform/file_time.cpp
 )
