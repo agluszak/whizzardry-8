@@ -14,6 +14,7 @@
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/Controls.h"
 #include "wiz8/regions.h"
+#include "wiz8/engine_code/Video2.h"
 #include "wiz8/utility.h"
 #include "wiz8/sr_api.h"
 #include <vector>
@@ -30,14 +31,12 @@ unsigned char DispatchButtonRegionEvent(const InputAtom* event, W8Region* region
     switch (event->usEvent) {
     case LEFT_BUTTON_DOWN:
     case LEFT_BUTTON_REPEAT:
-        button->OnLeftButtonDown(0);
         region->flags |= W8_REGION_LEFT_BUTTON_HELD;
+        button->OnLeftButtonDown(0);
         return 1;
     case LEFT_BUTTON_UP:
+        region->flags &= ~W8_REGION_LEFT_BUTTON_HELD;
         button->OnLeftButtonUp(0);
-        if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) != 0) {
-            region->flags &= ~W8_REGION_LEFT_BUTTON_HELD;
-        }
         return 1;
     case MOUSE_POS:
         if ((region->flags & W8_REGION_MOUSE_LEAVE) != 0) {
@@ -168,27 +167,50 @@ void Controls::EnableRegionSet(bool enable)
     }
 }
 
+bool W8Widget::OwnsRegion() const
+{
+    return m_region >= 0 && static_cast<unsigned int>(m_region) < g_region_count &&
+           g_regions[m_region].widget == this;
+}
+
 // FUNCTION: WIZ8 0x004f40f0
 void W8Widget::SetActive(bool active)
 {
     m_active = active;
-    if (m_region != -1) {
-        if (active) {
-            EnableRegionInput(m_region);
-            return;
-        }
-        DisableRegionInput(m_region);
+    if (OwnsRegion()) {
+        if (active) EnableRegionInput(m_region);
+        else DisableRegionInput(m_region);
     }
+}
+
+void W8Widget::ReleaseRegion()
+{
+    if (OwnsRegion()) {
+        auto& region = g_regions[m_region];
+        DisableRegionInput(m_region);
+        if (region.flags & W8_REGION_HELP_SHOWN) VideoRemoveToolTip();
+        region.flags &= ~(W8_REGION_MOUSE_STATE_MASK | W8_REGION_HELP_SHOWN);
+        region.widget = nullptr;
+        ++region.binding_generation;
+        // Catalog callbacks are shared with subsequent screen instances.
+        if (region.callback == DispatchControlRegionEvent) region.callback = nullptr;
+        if (g_captured_region_index == static_cast<unsigned int>(m_region)) g_captured_region_index = 0;
+        if (g_current_region_index == static_cast<unsigned int>(m_region)) g_current_region_index = 0;
+        if (g_hover_region_index == static_cast<unsigned int>(m_region)) g_hover_region_index = 0;
+    }
+    m_region = -1;
 }
 
 // FUNCTION: WIZ8 0x004f3f10
 W8Widget::~W8Widget()
 {
-    SetActive(false);
+    ReleaseRegion();
+    if (m_pPanel) m_pPanel->RemoveControl(this);
 }
 
 void W8Widget::UpdateRegionBounds(int left, int top, int right, int bottom)
 {
+    if (!OwnsRegion() || !m_pPanel) return;
     SetRegionBounds(m_region,
                     static_cast<unsigned short>(static_cast<short>(left) +
                                                 static_cast<short>(m_pPanel->m_bounds.left)),
@@ -205,94 +227,55 @@ void W8Widget::UpdateRegionBounds(int left, int top, int right, int bottom)
 // FUNCTION: WIZ8 0x004f3f30
 void W8Widget::SetPanel(Controls* panel)
 {
-    int index;
-
-    if (m_pPanel != 0) {
-        wiz8::erase_first(m_pPanel->m_controls, this);
+    if (panel == m_pPanel) return;
+    if (!panel) {
+        if (m_pPanel) m_pPanel->RemoveControl(this);
+        return;
     }
-
-    m_pPanel = panel;
-    index = static_cast<int>(panel->m_controls.size());
+    // Allocate before unlinking so failure leaves the old owner intact.
     panel->m_controls.push_back(this);
-    if (panel->m_uiRegionSetId != 0 && m_region == -1) {
-        unsigned int region = AddRegionToSet(panel->m_uiRegionSetId);
+    if (m_pPanel) wiz8::erase_first(m_pPanel->m_controls, this);
+    m_pPanel = panel;
+    if (m_region == -1 && panel->m_uiRegionSetId != 0) {
+        const auto region = AddRegionToSet(panel->m_uiRegionSetId);
         SetRegion(region);
-        SetRegionCallback(region, DispatchControlRegionEvent, static_cast<unsigned short>(index));
-        SetRegionOwner(region, panel);
-    }
-    if (m_region != -1) {
-        UpdateRegionBounds(m_left, m_top, m_right, m_bottom);
+        SetRegionCallback(region, DispatchControlRegionEvent, 0);
+    } else if (m_region != -1) {
+        SetRegion(m_region);
     }
 }
 
-/* Register the widget with its owner and allocate a region when needed.
-   Region bounds are relative to the owner's origin. */
 // FUNCTION: WIZ8 0x004f3dd0
 W8Widget::W8Widget(Controls* owner, unsigned int region, int left, int top, int right, int bottom)
+    : W8Widget()
 {
-    Controls* holder;
-    unsigned int taken;
-    int index;
-
-    m_right = right;
-    m_pPanel = owner;
-    m_enabled = true;
-    m_active = false;
-    m_dirty = false;
-    m_region = region;
-    m_primaryActivationCallback = 0;
-    m_leftButtonDownCallback = 0;
-    m_secondaryActivationCallback = 0;
-    m_rightButtonDownCallback = 0;
-    m_leftDoubleClickCallback = 0;
     m_left = left;
     m_top = top;
+    m_right = right;
     m_bottom = bottom;
-    if (region != 0xffffffff) {
-        UpdateRegionBounds(left, top, right, bottom);
-        DisableRegionInput(m_region);
-    }
-
-    holder = m_pPanel;
-    index = static_cast<int>(holder->m_controls.size());
-    holder->m_controls.push_back(this);
-    if (holder->m_uiRegionSetId != 0 && m_region == -1) {
-        taken = AddRegionToSet(holder->m_uiRegionSetId);
-        SetRegion(taken);
-        SetRegionCallback(taken, DispatchControlRegionEvent, static_cast<unsigned short>(index));
-        SetRegionOwner(taken, holder);
-    }
+    m_region = static_cast<int>(region);
+    SetPanel(owner);
 }
 
-/* The shared widget-region callback registered above. It fetches the widget
-   from the owner's array - an out-of-range index saturates to the first
-   widget - and dispatches the region event through eleven widget virtual
-   slots, answering whether the event was consumed. Button press and release
-   arms and disarms the 0x40/0x80 region latches their repeat and release
-   paths test. */
+// Dynamic regions bind directly to a widget. Removing or moving another
+// child cannot change the event target.
 // FUNCTION: WIZ8 0x004F3140
 unsigned char DispatchControlRegionEvent(const InputAtom* event, W8Region* region)
 {
-    Controls* owner = region->owner;
-    W8Widget* widget;
-    unsigned short index = region->callback_id;
-    unsigned short reason = event->usEvent;
-
-    widget = owner->m_controls[index];
-    if (widget == 0) {
-        srAssertFail("pControl", "C:\\Projects\\Wizardry 8\\Local Code\\Controls.cpp", 0x1AA, 0);
-    }
+    W8Widget* widget = region->widget;
+    if (!widget) return 0;
+    const auto reason = event->usEvent;
     switch (reason) {
     case LEFT_BUTTON_DOWN:
-        widget->OnLeftButtonDown(0);
         region->flags |= W8_REGION_LEFT_BUTTON_HELD;
+        widget->OnLeftButtonDown(0);
         return 1;
     case LEFT_BUTTON_UP:
         if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) == 0) {
             return 1;
         }
-        widget->OnLeftButtonUp(0);
         region->flags &= ~W8_REGION_LEFT_BUTTON_HELD;
+        widget->OnLeftButtonUp(0);
         return 1;
     case LEFT_BUTTON_DBL_CLK:
         widget->OnLeftButtonDoubleClick(0);
@@ -304,15 +287,15 @@ unsigned char DispatchControlRegionEvent(const InputAtom* event, W8Region* regio
         widget->ActivatePrimary(0);
         return 1;
     case RIGHT_BUTTON_DOWN:
-        widget->OnRightButtonDown(0);
         region->flags |= W8_REGION_RIGHT_BUTTON_HELD;
+        widget->OnRightButtonDown(0);
         return 1;
     case RIGHT_BUTTON_UP:
         if ((region->flags & W8_REGION_RIGHT_BUTTON_HELD) == 0) {
             return 1;
         }
-        widget->OnRightButtonUp(0);
         region->flags &= ~W8_REGION_RIGHT_BUTTON_HELD;
+        widget->OnRightButtonUp(0);
         return 1;
     case RIGHT_BUTTON_REPEAT:
         if ((region->flags & W8_REGION_RIGHT_BUTTON_HELD) == 0) {
@@ -339,24 +322,13 @@ unsigned char DispatchControlRegionEvent(const InputAtom* event, W8Region* regio
 // FUNCTION: WIZ8 0x004f4020
 void W8Widget::SetRegion(unsigned int region)
 {
-    Controls* holder;
-    unsigned int bound;
-
-    m_region = region;
-    if (region != 0xffffffff) {
-        holder = m_pPanel;
-        if (holder != 0) {
-            UpdateRegionBounds(m_left, m_top, m_right, m_bottom);
-        }
-    }
-    bound = m_region;
-    if (bound != 0xffffffff) {
-        if (m_active) {
-            EnableRegionInput(bound);
-            return;
-        }
-        DisableRegionInput(bound);
-    }
+    if (m_region != static_cast<int>(region)) ReleaseRegion();
+    m_region = static_cast<int>(region);
+    if (m_region == -1) return;
+    g_regions[m_region].widget = this;
+    ++g_regions[m_region].binding_generation;
+    UpdateRegionBounds(m_left, m_top, m_right, m_bottom);
+    SetActive(m_active);
 }
 
 /*
@@ -1942,7 +1914,10 @@ void Controls::SetEnabled(bool enable)
 // FUNCTION: WIZ8 0x004f2da0
 void Controls::RemoveControl(W8Widget* control)
 {
-    wiz8::erase_first(m_controls, control);
+    if (wiz8::erase_first(m_controls, control) && control && control->m_pPanel == this) {
+        control->ReleaseRegion();
+        control->m_pPanel = nullptr;
+    }
 }
 
 // FUNCTION: WIZ8 0x004f2df0
@@ -2074,7 +2049,7 @@ void Controls::AcquireRegionSet(unsigned int* shared_region_set)
 // FUNCTION: WIZ8 0x004f4120
 void W8Widget::EnableRegionHelp(int help_text_id)
 {
-    if (m_region != -1) {
+    if (OwnsRegion()) {
         SetRegionHelp(m_region, true, help_text_id);
     }
 }
@@ -2082,7 +2057,7 @@ void W8Widget::EnableRegionHelp(int help_text_id)
 // FUNCTION: WIZ8 0x004f4140
 void W8Widget::DisableRegionHelp()
 {
-    if (m_region != -1) {
+    if (OwnsRegion()) {
         SetRegionHelp(m_region, false, -1);
     }
 }

@@ -8,7 +8,7 @@
 #include "Types.h"
 #include "input.h"
 
-struct Controls;
+class W8Widget;
 
 extern bool g_dev_mode;
 
@@ -65,8 +65,9 @@ struct W8Region {
     bool help_enabled;
     unsigned char unknown_13;
     int help_text_id;
-    Controls* owner;
-}; /* 0x1c */
+    W8Widget* widget; // Non-owning callback target; cleared by widget teardown.
+    uint64_t binding_generation = 0; // Detect replacement during callback dispatch.
+};
 
 unsigned char InitializeRegionHelpState(void);
 
@@ -110,7 +111,6 @@ void ResetRegionSet(unsigned int region_set_index);
 unsigned int AddRegionToSet(unsigned int region_set_index);
 void SetRegionCallback(unsigned int region_index, W8RegionCallback callback,
                        unsigned short callback_id);
-void SetRegionOwner(unsigned int region_index, Controls* owner);
 void SetRegionHelp(unsigned int region_index, bool enabled, int help_text_id);
 void ClearHotRegion(void);
 void UpdateRegionHelp(void);
