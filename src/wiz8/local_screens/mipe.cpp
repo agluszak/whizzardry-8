@@ -133,6 +133,18 @@ static void ShowMipeNamedCategory(std::vector<W8MipeCategoryEntry>* list,
    state and tears the editor state down; entering it clears combat flags,
    prints the mode menu and builds the monster entry list. */
 // FUNCTION: WIZ8 0x0057d740
+static void ShowMipeMainMenu()
+{
+    ResetEditorStatusLine(-1);
+    ShowNotice(W8_FONT_PALETTE_PINK, "What would you like to do?");
+    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "1) Create a monster.");
+    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "2) Create an item.");
+    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "3) Edit object(s).");
+    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "4) Monster Generators.");
+    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "5) Select object(s).");
+    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "6) Handle triggers.");
+}
+
 void ToggleMipePanel(void)
 {
     if (g_mipe_active) {
@@ -172,14 +184,7 @@ void ToggleMipePanel(void)
     SelectTextBox(0);
     ResetEditorStatusLine(-1);
     g_mipe_active = true;
-    ResetEditorStatusLine(-1);
-    ShowNotice(W8_FONT_PALETTE_PINK, "What would you like to do?");
-    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "1) Create a monster.");
-    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "2) Create an item.");
-    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "3) Edit object(s).");
-    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "4) Monster Generators.");
-    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "5) Select object(s).");
-    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "6) Handle triggers.");
+    ShowMipeMainMenu();
     g_mipe_mode = 0;
     InitializeWorldCursor();
     g_mipe_active = true;
@@ -2547,14 +2552,7 @@ unsigned char HandleMipeKey(const InputAtom* event)
     case 0:
         switch (key) {
         case 0x30:
-            ResetEditorStatusLine(-1);
-            ShowNotice(W8_FONT_PALETTE_PINK, "What would you like to do?");
-            ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "1) Create a monster.");
-            ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "2) Create an item.");
-            ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "3) Edit object(s).");
-            ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "4) Monster Generators.");
-            ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "5) Select object(s).");
-            ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "6) Handle triggers.");
+            ShowMipeMainMenu();
             g_mipe_mode = 0;
             return handled;
         case 0x31:
