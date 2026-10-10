@@ -550,6 +550,31 @@ static bool FindEnabledRegionAtPoint(unsigned short x, unsigned short y, unsigne
     return false;
 }
 
+namespace {
+// Region storage is stable, but a callback may destroy/rebind its widget.
+bool DispatchUnchangedRegion(W8Region& region, const InputAtom& event)
+{
+    const auto generation = region.binding_generation;
+    if (!region.callback) return false;
+    region.callback(&event, &region);
+    return region.binding_generation == generation;
+}
+
+bool LeaveRegion(W8Region& region, const InputAtom& event)
+{
+    region.flags = (region.flags & ~W8_REGION_MOUSE_STATE_MASK) | W8_REGION_MOUSE_LEAVE;
+    if (!DispatchUnchangedRegion(region, event)) return false;
+    if (region.flags & W8_REGION_HELP_SHOWN) {
+        VideoRemoveToolTip();
+        region.flags &= ~W8_REGION_HELP_SHOWN;
+    }
+    region.flags &= ~W8_REGION_MOUSE_STATE_MASK;
+    g_region_help_delay = static_cast<unsigned short>(g_settings.tooltip_delay_ms);
+    SetRegionHelpForceEnabled(false);
+    return true;
+}
+}
+
 /* Dispatch one mouse-position event through the enabled region sets. A forced
    modal region bypasses hit testing; otherwise the first containing region
    receives leave/enter transitions, hover help timing, and the ordinary
@@ -568,33 +593,27 @@ unsigned int UpdateRegionMousePosition(int x, int y)
 
     if (g_captured_region_index != 0) {
         W8Region* forced = &g_regions[g_captured_region_index];
-        forced->callback(&event, forced);
+        DispatchUnchangedRegion(*forced, event);
         return g_current_region_index;
     }
 
     if (FindEnabledRegionAtPoint(static_cast<unsigned short>(x), static_cast<unsigned short>(y),
                                  &region_index)) {
         W8Region* region = &g_regions[region_index];
+        const auto generation = region->binding_generation;
         unsigned int previous_index = g_hover_region_index;
         g_current_region_index = region_index;
         if (previous_index != 0 && previous_index != region_index) {
             W8Region* previous = &g_regions[previous_index];
-            previous->flags = (previous->flags & 0xff0f) | W8_REGION_MOUSE_LEAVE;
-            previous->callback(&event, previous);
-            if ((previous->flags & W8_REGION_HELP_SHOWN) != 0) {
-                VideoRemoveToolTip();
-                previous->flags &= ~W8_REGION_HELP_SHOWN;
-            }
+            if (!LeaveRegion(*previous, event) || region->binding_generation != generation)
+                return g_current_region_index;
             PlayButtonSound(1);
-            g_region_help_delay = static_cast<unsigned short>(g_settings.tooltip_delay_ms);
-            previous->flags &= ~W8_REGION_MOUSE_STATE_MASK;
-            SetRegionHelpForceEnabled(false);
         }
         if (previous_index != region_index) {
             region->flags |= W8_REGION_MOUSE_ENTER;
             SetRegionHelpText(fmt::format("Region {:d}", region_index));
         }
-        region->callback(&event, region);
+        if (!DispatchUnchangedRegion(*region, event)) return g_current_region_index;
         if (g_current_region_index != previous_index) {
             if (region->help_enabled &&
                 (g_settings.tooltips_enabled || g_region_help_force_enabled)) {
@@ -611,16 +630,8 @@ unsigned int UpdateRegionMousePosition(int x, int y)
     if (g_hover_region_index != 0) {
         unsigned int previous_index = g_hover_region_index;
         W8Region* previous = &g_regions[previous_index];
-        previous->flags = (previous->flags & 0xff0f) | W8_REGION_MOUSE_LEAVE;
-        previous->callback(&event, previous);
-        if ((previous->flags & W8_REGION_HELP_SHOWN) != 0) {
-            VideoRemoveToolTip();
-            previous->flags &= ~W8_REGION_HELP_SHOWN;
-        }
+        if (!LeaveRegion(*previous, event)) return g_current_region_index;
         PlayButtonSound(1);
-        g_region_help_delay = static_cast<unsigned short>(g_settings.tooltip_delay_ms);
-        SetRegionHelpForceEnabled(false);
-        previous->flags &= ~W8_REGION_MOUSE_STATE_MASK;
     }
     g_hover_region_index = g_current_region_index;
     return g_current_region_index;
@@ -647,15 +658,9 @@ unsigned int FindRegionAtPoint(unsigned short x, unsigned short y)
     if (FindEnabledRegionAtPoint(x, y, &region_index)) {
         if (g_hover_region_index != 0 && g_hover_region_index != region_index) {
             W8Region* previous = &g_regions[g_hover_region_index];
-            previous->flags = (previous->flags & 0xff0f) | W8_REGION_MOUSE_LEAVE;
-            previous->callback(&event, previous);
-            if ((previous->flags & W8_REGION_HELP_SHOWN) != 0) {
-                VideoRemoveToolTip();
-                previous->flags &= ~W8_REGION_HELP_SHOWN;
-            }
-            g_region_help_delay = static_cast<unsigned short>(g_settings.tooltip_delay_ms);
-            previous->flags &= ~W8_REGION_MOUSE_STATE_MASK;
-            SetRegionHelpForceEnabled(false);
+            const auto generation = g_regions[region_index].binding_generation;
+            if (!LeaveRegion(*previous, event) || g_regions[region_index].binding_generation != generation)
+                return 0;
             g_hover_region_index = 0;
             g_current_region_index = 0;
         }
@@ -742,7 +747,7 @@ dispatch:
     memcpy(&callback_address, &region->callback, sizeof(callback_address));
     RuntimeObserve(RUNTIME_REGION_ACTIVATED, region_index, callback_address, region->callback_id);
 #endif
-    unsigned char handled = region->callback(event, region);
+    unsigned char handled = region->callback ? region->callback(event, region) : 0;
     if (sound_id != -1) {
         PlayButtonSound(sound_id);
     }
@@ -828,16 +833,7 @@ void ActivateDialogRegion(unsigned int region_index)
         event.usEvent = MOUSE_POS;
 
         W8Region* previous = &g_regions[g_hover_region_index];
-        previous->flags = (previous->flags & 0xff0f) | W8_REGION_MOUSE_LEAVE;
-        previous->callback(&event, previous);
-        unsigned int previous_index = g_hover_region_index;
-        if ((g_regions[previous_index].flags & W8_REGION_HELP_SHOWN) != 0) {
-            VideoRemoveToolTip();
-            g_regions[previous_index].flags &= ~W8_REGION_HELP_SHOWN;
-        }
-        g_region_help_delay = static_cast<unsigned short>(g_settings.tooltip_delay_ms);
-        g_regions[g_hover_region_index].flags &= ~W8_REGION_MOUSE_STATE_MASK;
-        SetRegionHelpForceEnabled(false);
+        if (!LeaveRegion(*previous, event)) return;
         g_hover_region_index = 0;
     }
     g_regions[g_captured_region_index].flags &= ~W8_REGION_MOUSE_STATE_MASK;
@@ -1105,14 +1101,9 @@ void SetRegionCallback(unsigned int region_index, W8RegionCallback callback,
         srAssertFail("uiRegionIndex <= guiRegionCount",
                      "C:\\Projects\\Wizardry 8\\Local Code\\RegionManager.cpp", 0x4df, 0);
     }
+    ++g_regions[region_index].binding_generation;
     g_regions[region_index].callback = callback;
     g_regions[region_index].callback_id = callback_id;
-}
-
-// FUNCTION: WIZ8 0x004f2a10
-void SetRegionOwner(unsigned int region_index, Controls* owner)
-{
-    g_regions[region_index].owner = owner;
 }
 
 // FUNCTION: WIZ8 0x004f2a30
@@ -1145,16 +1136,7 @@ void ClearHotRegion(void)
         W8Region* region = &g_regions[g_current_region_index];
         unsigned int mode = region->flags & W8_REGION_MODE_MASK;
         if (mode == 1 || mode == 2) {
-            region->flags = (region->flags & 0xff0f) | W8_REGION_MOUSE_LEAVE;
-            region->callback(&event, region);
-            unsigned int region_index = g_current_region_index;
-            if ((g_regions[region_index].flags & W8_REGION_HELP_SHOWN) != 0) {
-                VideoRemoveToolTip();
-                g_regions[region_index].flags &= ~W8_REGION_HELP_SHOWN;
-            }
-            g_region_help_delay = static_cast<unsigned short>(g_settings.tooltip_delay_ms);
-            SetRegionHelpForceEnabled(false);
-            g_regions[g_current_region_index].flags &= ~W8_REGION_MOUSE_STATE_MASK;
+            if (!LeaveRegion(*region, event)) return;
             g_current_region_index = 0;
         }
     }
