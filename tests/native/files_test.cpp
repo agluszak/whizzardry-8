@@ -6,7 +6,6 @@
 #include <SDL3/SDL_stdinc.h>
 #include "surrender/srSystem.h"
 #include "surrender/srBinFStream.h"
-#include "wiz8/virtual_file_stream.h"
 #include "wiz8/chunk.h"
 #include "temporary_directory.h"
 
@@ -290,15 +289,15 @@ int main() try
 
     for (const char* path : {"Data/archiveonly.bin", "Data\\archiveonly.bin",
                              "C:/Data\\archiveonly.bin"}) {
-        W8VirtualFileBinIStream input(path);
+        srBinIFStream input(path);
         CHECK(input.good() && input.getSize() == 8);
         char bytes[8];
         input.read(bytes, sizeof(bytes));
         CHECK(input.good() && input.tell() == sizeof(bytes));
         CHECK(!memcmp(bytes, "archive!", sizeof(bytes)));
     }
-    CHECK(!W8VirtualFileBinIStream(nullptr).good());
-    CHECK(!W8VirtualFileBinIStream("").good());
+    CHECK(!srBinIFStream(nullptr).good());
+    CHECK(!srBinIFStream("").good());
 
 
     CHECK(wiz8::file_status("Data/archiveonly.bin")->archived);

@@ -2,7 +2,6 @@
 #include "surrender/srBinOStream.h"
 #include "surrender/srClipPlane.h"
 #include "surrender/srCore.h"
-#include "surrender/srIStreamOpener.h"
 #include "surrender/srIlluminator.h"
 #include "surrender/srLight.h"
 #include "surrender/srModelInstance.h"
@@ -30,7 +29,6 @@
 template <class T>
 constexpr bool noncopyable = !std::is_copy_constructible_v<T> && !std::is_copy_assignable_v<T>;
 
-static_assert(noncopyable<srIStreamOpener>);
 static_assert(noncopyable<srVertexPipe>);
 static_assert(noncopyable<srBinIFStream>);
 static_assert(noncopyable<srBinOFStream>);

@@ -10,7 +10,6 @@
 #include "surrender/srExponentTable.h"
 #include "surrender/srFilter.h"
 #include "surrender/srGERD.h"
-#include "surrender/srIStreamOpener.h"
 #include "surrender/srMaterial.h"
 #include "surrender/srPalette.h"
 #include "surrender/srPixelConvert.h"
@@ -67,10 +66,6 @@ int __cdecl srInit()
         srCore.root_node->setName("SurRender root node");
         srCore.material = new srMaterial;
         srCore.material->setName("SurRender default material");
-        srDebugPrintf(0xfe, "srInit() -- initializing stream openers\n");
-        srCore.stream_opener = new srIStreamOpener;
-        srCore.file_stream_opener = new srFStreamOpener;
-        srCore.stream_opener->addStreamType(srCore.file_stream_opener, "file");
         srDebugPrintf(0xfe, "srInit() -- setting up default texture/surface\n");
         srCore.surface = new srColorSurface(srPixelConvert::SURFACE_L8, 0x40, 0x40);
         srCore.surface->setName("SurRender default surface");
@@ -142,10 +137,6 @@ int __cdecl srExit()
         delete srCore.registry_;
         srCore.registry_ = 0;
         srCore.initialized = 0;
-        delete srCore.stream_opener;
-        srCore.stream_opener = 0;
-        delete srCore.file_stream_opener;
-        srCore.file_stream_opener = 0;
         delete srCore.statistics_manager;
         srCore.statistics_manager = 0;
         delete srCore.timer;
@@ -185,12 +176,6 @@ void srCore::setFilter(srFilter* filter)
 srPalette* srCore::getPalette() const
 {
     return palette;
-}
-
-// FUNCTION: SURRENDER 0x10015AC0
-srIStreamOpener* srCore::getIStreamOpener() const
-{
-    return stream_opener;
 }
 
 // FUNCTION: SURRENDER 0x10015B00

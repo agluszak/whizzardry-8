@@ -4,43 +4,12 @@
 
 #include "wiz8/filesystem.h"
 #include "surrender/srImageIO.h"
-#include "surrender/srBinIStream.h"
 
 #include <cstring>
 
-namespace {
-class TextureInput : public srBinIStream {
-public:
-    explicit TextureInput(wiz8::File* handle) : handle(handle) { setState(SR_STREAM_OK); }
-    w8_ulong getSize() override { return handle->size(); }
-    w8_ulong tell() override { return handle->tell(); }
-    srBinStream& seek(w8_ulong position) override
-    {
-        if (position > getSize() || !(handle->seek(position, wiz8::SeekOrigin::begin), true))
-            setState(SR_STREAM_ERROR);
-        return *this;
-    }
-    srBinStream& seek(w8_ulong offset, e_seekDir direction) override
-    {
-        return seek(direction == SR_SEEK_BEGIN ? offset :
-                    direction == SR_SEEK_CURRENT ? tell() + offset : getSize() - offset);
-    }
-private:
-    w8_ulong vread(void* data, w8_ulong bytes) override
-    {
-        UINT32 count = 0;
-        if (!((count = handle->read(data, bytes).bytes) == static_cast<std::size_t>(bytes)))
-            setState(SR_STREAM_ERROR);
-        return count;
-    }
-    wiz8::File* handle;
-};
-} // namespace
-
 srColorSurface* __stdcall LoadSurface(wiz8::File* handle, w8_long*)
 {
-    TextureInput input(handle);
-    return srImage::loadTga(input);
+    return handle ? srImage::loadTga(*handle) : nullptr;
 }
 
 // VTABLE: WIZ8 0x005EC5F8
