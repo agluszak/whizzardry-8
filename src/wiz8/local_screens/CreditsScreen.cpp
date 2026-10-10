@@ -1,3 +1,9 @@
+#include <optional>
+#include <stdexcept>
+#include <string>
+#include "wiz8/unicode.h"
+#include <vector>
+#include <array>
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/local_screens/CreditsScreen.h"
 #include "wiz8/local_screens/Screens.h"
@@ -15,10 +21,9 @@
 #include "input.h"
 
 #include <stdlib.h>
-#include <wchar.h>
 
 // GLOBAL: WIZ8 0x0069C4A8
-static std::vector<W8CreditLine>* g_credit_lines;
+static std::vector<W8CreditLine> g_credit_lines;
 // GLOBAL: WIZ8 0x0069C494
 static int g_credit_elapsed_steps;
 // GLOBAL: WIZ8 0x0069C498
@@ -34,81 +39,56 @@ static int g_credit_line;
    stream. Answers whether the line ended at a newline; trailing carriage
    returns are stripped. */
 // FUNCTION: WIZ8 0x004CEED0
-unsigned char ReadWideTextLine(wiz8::File* handle, wchar_t* destination, int capacity, unsigned char* more)
-try
+std::optional<std::string> ReadRetailTextLine(wiz8::File* handle)
 {
-    wchar_t* write = destination;
-    wchar_t current = 0;
-    int count = 0;
-    unsigned char ok;
-
-    *destination = 0;
-    *more = 1;
+    std::vector<std::byte> bytes;
     for (;;) {
-        unsigned int bytes_read;
-        ok = ((bytes_read = handle->read(&current, sizeof(current)).bytes) == static_cast<std::size_t>(sizeof(current)));
-        if (bytes_read == 0) {
-            ok = 0;
-            *more = 0;
-        } else if (ok == 0) {
-            *more = 0;
-        } else if (current == 10) {
-            break;
-        } else {
-            *write++ = current;
-            ++count;
-        }
-        if (count >= capacity - 1) {
-            ok = 0;
-            break;
-        }
-        if (ok == 0) {
-            break;
-        }
+        std::array<std::byte, 2> unit{};
+        const auto result = handle->read(unit.data(), unit.size());
+        if (!result.bytes) { if (bytes.empty()) return {}; break; }
+        if (result.bytes != 2) throw std::runtime_error("Truncated UTF-16LE line");
+        if (unit[0] == std::byte{10} && unit[1] == std::byte{}) break;
+        bytes.insert(bytes.end(), unit.begin(), unit.end());
     }
-    destination[count] = 0;
-    if (count != 0 && destination[count - 1] == 0xd) {
-        destination[count - 1] = 0;
-    }
-    return ok;
+    auto text = wiz8::text::from_utf16le(bytes);
+    if (!text.empty() && text.back() == '\r') text.pop_back();
+    return text;
 }
-catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x005bc130
 unsigned char CreditsScreenEnter(void)
 try
 {
     std::unique_ptr<wiz8::File> handle;
-    wchar_t line[128];
+    std::string line;
 
     SetViewport(0, 0, 0x280, 0x1e0);
     ResetRegions();
     RegionSetEnable(2);
     DisableCursorScene();
-    g_credit_lines = new std::vector<W8CreditLine>();
+    g_credit_lines.clear();
 
     handle = [&]() { try { return wiz8::open_file((char*)"Data\\Options\\Credits.txt", wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
     if (handle != 0) {
-        unsigned char more;
-        handle->read_exact(line, sizeof(wchar_t));
+        std::optional<std::string> line_result;
+        handle->seek(2, wiz8::SeekOrigin::begin); // UTF-16LE BOM
         while (!(handle->tell() >= handle->size())) {
-            if (ReadWideTextLine(handle.get(), line, 128, &more) && line[0] != L'*') {
-                W8CreditLine entry = {0, 0, 0, 0, 0};
+            if (((line_result = ReadRetailTextLine(handle.get())) && (line = std::move(*line_result), true)) && line[0] != '*') {
+                W8CreditLine entry{};
                 bool blank = false;
                 bool bold = false;
-                if (line[0] == L'!') {
+                if (line[0] == '!') {
                     bold = true;
                     entry.flags = 1;
-                    entry.primary = _wcsdup(line + 1);
+                    entry.primary = line.substr(1);
                 } else {
-                    wchar_t* separator = wcschr(line, L'&');
-                    if (separator != 0) {
-                        separator[-1] = L'\0';
+                    const auto separator = line.find(" & ");
+                    if (separator != std::string::npos) {
                         entry.flags = 2;
-                        entry.secondary = _wcsdup(separator + 2);
-                        entry.primary = _wcsdup(line);
-                    } else if (line[0] != L'\0') {
-                        entry.primary = _wcsdup(line);
+                        entry.secondary = line.substr(separator + 3);
+                        entry.primary = line.substr(0, separator);
+                    } else if (line[0] != '\0') {
+                        entry.primary = line;
                     } else {
                         blank = true;
                         entry.flags = 4;
@@ -119,7 +99,7 @@ try
                         entry.primary, bold ? g_options_title_font : g_options_detail_font);
                 }
                 entry.line_height = 0x14 + (bold ? 5 : 0);
-                g_credit_lines->push_back(entry);
+                g_credit_lines.push_back(std::move(entry));
             }
         }
         if (handle) handle->close();
@@ -137,16 +117,7 @@ catch (const std::exception&) { return false; }
 // FUNCTION: WIZ8 0x005bc420
 unsigned char CreditsScreenLeave(int)
 {
-    for (int index = 0; index < static_cast<int>(g_credit_lines->size()); ++index) {
-        W8CreditLine* entry = &(*g_credit_lines)[index];
-        if (entry->primary != 0) {
-            free(entry->primary);
-        }
-        if (entry->secondary != 0) {
-            free(entry->secondary);
-        }
-    }
-    delete g_credit_lines;
+    g_credit_lines.clear();
     ResetRegions();
     EnableCursorScene();
     if (IsCurrentMusicPlaylist("EndCredit.MPL")) {
@@ -173,15 +144,15 @@ void CreditsScreenFrame(void)
     if (steps >= 1) {
         g_credit_elapsed_steps += steps;
         g_credit_redraw = true;
-        W8CreditLine entry = (*g_credit_lines)[g_credit_line];
+        W8CreditLine entry = g_credit_lines[g_credit_line];
         g_credit_y -= steps;
         while (g_credit_y < 0) {
             ++g_credit_line;
-            if (g_credit_line >= static_cast<int>(g_credit_lines->size())) {
+            if (g_credit_line >= g_credit_lines.size()) {
                 RequestScreenTransition();
                 break;
             }
-            entry = (*g_credit_lines)[g_credit_line];
+            entry = g_credit_lines[g_credit_line];
             g_credit_y += entry.line_height;
         }
     }
@@ -191,17 +162,16 @@ void CreditsScreenFrame(void)
 
     DrawCatalogImage(FRAME_BUFFER, 0xe9, 0, 0, 0, 0, VO_BLT_SRCTRANSPARENCY, 0);
     int y = g_credit_y;
-    for (int index = g_credit_line; index < static_cast<int>(g_credit_lines->size()) && y <= 0x1df;
-         ++index) {
-        const W8CreditLine* entry = &(*g_credit_lines)[index];
+    for (int index = g_credit_line; index < g_credit_lines.size() && y <= 0x1df; ++index) {
+        const W8CreditLine* entry = &g_credit_lines[index];
         if ((entry->flags & 4) == 0) {
             SetFont((entry->flags & 1) ? g_options_title_font : g_options_detail_font);
             if ((entry->flags & 2) == 0) {
-                gprintf((0x280 - entry->pixel_width) / 2, y, L"%s", entry->primary);
+                DrawFontText((0x280 - entry->pixel_width) / 2, y, entry->primary);
             } else {
-                gprintf(0x136 - entry->pixel_width, y, L"%s", entry->primary);
-                if (entry->secondary != 0) {
-                    gprintf(0x14a, y, L"%s", entry->secondary);
+                DrawFontText(0x136 - entry->pixel_width, y, entry->primary);
+                if (!entry->secondary.empty()) {
+                    DrawFontText(0x14a, y, entry->secondary);
                 }
             }
         }

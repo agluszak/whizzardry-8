@@ -1,3 +1,4 @@
+#include <fmt/format.h>
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/MonsterGroup.h"
@@ -2150,7 +2151,7 @@ bool RepickActionTarget(int party_slot, W8TargetingContext context, int arg)
                 }
                 if (arg == 0) {
                     if (g_settings.verbose_combat_messages != 0) {
-                        PostCharacterNotice(party_slot, gppStringList[0x26b]);
+                        PostCharacterNotice(party_slot, g_localized_strings[0x26b]);
                     }
                     ChooseCombatAction(
                         party_slot,
@@ -3034,8 +3035,9 @@ void ModifyGroupColor(int group_id, W8TargetHighlight color)
     unsigned int group_index = GetMonsterGroupIndexByID(0x6e8, TARGETING_CPP, group_id, false);
     if (group_index == 0xffffffff) {
         if (color != W8_TARGET_HIGHLIGHT_NONE) {
-            FormatDebugMessage(1, "ERROR: ModifyGroupColor - invalid ID, groupID %d, color %d",
-                               group_id, color);
+            DebugMessage(
+                1, fmt::format("ERROR: ModifyGroupColor - invalid ID, groupID {:d}, color {:d}",
+                               group_id, fmt::underlying(color)));
         }
         return;
     }
@@ -3349,9 +3351,9 @@ int ChooseFallbackMonsterTarget(int party_slot, int group_id, W8TargetingContext
             if (SwapWeaponSetSlots(party_slot, false, false)) {
                 return -1;
             }
-            PostCharacterNotice(party_slot, gppStringList[0x26c]);
+            PostCharacterNotice(party_slot, g_localized_strings[0x26c]);
         } else {
-            PostCharacterNotice(party_slot, gppStringList[0x26d]);
+            PostCharacterNotice(party_slot, g_localized_strings[0x26d]);
             W8TargetingContext resolved = GetValidatedTargetingContext(party_slot, context);
             W8CombatSlot* block = GetTargetBlockForContext(party_slot, resolved);
             if (block->iType == W8_TARGET_KIND_MONSTER) {

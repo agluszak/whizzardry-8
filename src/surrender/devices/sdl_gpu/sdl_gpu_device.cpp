@@ -1,3 +1,4 @@
+#include "wiz8/utility.h"
 #include "surrender/srDD_SDLGPU.h"
 
 #include <SDL3/SDL.h>

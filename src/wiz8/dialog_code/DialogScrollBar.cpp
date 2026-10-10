@@ -1,6 +1,5 @@
 #include "wiz8/dialog_code/DialogButton.h"
 #include "wiz8/dialog_code/DialogScrollBar.h"
-#include "wiz8/sgp_text.h"
 #include "wiz8/dialog_code/ButtonUserData.h"
 #include "wiz8/cursor.h"
 #include "wiz8/utility.h"
@@ -33,25 +32,25 @@ void W8DialogScrollBar::DestroyControls()
 // FUNCTION: WIZ8 0x005e0ca0
 bool W8DialogScrollBar::CreateControls(const Resources* resources)
 {
-    m_up_image = LoadButtonImage(Wiz8ToSgpText(resources->arrows_path), 3, 0, 1, 2, 2);
+    m_up_image = LoadButtonImage(resources->arrows_path, 3, 0, 1, 2, 2);
     if (m_up_image != -1) {
         m_up_button =
             QuickCreateButton(m_up_image, 0, 0, BUTTON_NO_TOGGLE, MSYS_PRIORITY_HIGHEST - 1,
                               UpButtonCallback, UpButtonCallback);
     }
-    m_down_image = LoadButtonImage(Wiz8ToSgpText(resources->arrows_path), 11, 8, 9, 10, 10);
+    m_down_image = LoadButtonImage(resources->arrows_path, 11, 8, 9, 10, 10);
     if (m_down_image != -1) {
         m_down_button =
             QuickCreateButton(m_down_image, 0, 0, BUTTON_NO_TOGGLE, MSYS_PRIORITY_HIGHEST - 1,
                               DownButtonCallback, DownButtonCallback);
     }
-    m_thumb_image = LoadButtonImage(Wiz8ToSgpText(resources->arrows_path), 7, 4, 5, 6, 6);
+    m_thumb_image = LoadButtonImage(resources->arrows_path, 7, 4, 5, 6, 6);
     if (m_thumb_image != -1) {
         m_thumb_button =
             QuickCreateButton(m_thumb_image, 0, 0, BUTTON_NO_TOGGLE, MSYS_PRIORITY_HIGHEST - 2,
                               BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
     }
-    m_track_image = LoadButtonImage(Wiz8ToSgpText(resources->track_path), BUTTON_NO_IMAGE,
+    m_track_image = LoadButtonImage(resources->track_path, BUTTON_NO_IMAGE,
                                     resources->track_frame, BUTTON_NO_IMAGE, resources->track_frame,
                                     BUTTON_NO_IMAGE);
     if (m_track_image != -1) {

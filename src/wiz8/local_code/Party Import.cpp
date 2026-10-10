@@ -1,3 +1,4 @@
+#include <string_view>
 #include "wiz8/compat/unaligned.h"
 #include "wiz8/conditions.h"
 #include "wiz8/local_code/PartyImport.h"
@@ -38,7 +39,6 @@
 #include "wiz8/filesystem.h"
 
 #include <string.h>
-#include <wchar.h>
 
 /* Retail Local Code\Party Import.cpp: converts imported Wizardry 7
    characters into the Wizardry 8 layout. */
@@ -118,7 +118,7 @@ W8Wiz7Character g_imported_characters[6];
    one's tag byte. On success the ending and difficulty nibbles decode from
    the shared tag and the flag bits unpack into g_import_flags. */
 // FUNCTION: WIZ8 0x00558D00
-unsigned char LoadWizardry7ImportFile(char* path)
+unsigned char LoadWizardry7ImportFile(std::string_view path)
 try
 {
     unsigned int bytes_read;
@@ -226,7 +226,7 @@ catch (const std::exception&) { return false; }
    Reports 1 when the file does not load or a slot cannot take the character,
    2 when the ending selector holds the value three, 0 otherwise. */
 // FUNCTION: WIZ8 0x00558C40
-unsigned char ImportWizardry7Party(char* path)
+unsigned char ImportWizardry7Party(std::string_view path)
 {
     W8Character scratch;
     int index;
@@ -257,9 +257,9 @@ void ImportWizardry7Character(W8Character* character, W8Wiz7Character* imported)
     unsigned int skill_id;
     int status;
 
-    memset(character, 0, sizeof(W8Character));
-    swprintf(character->name, g_combat_log_format, TitleCaseString(imported->name));
-    wcscpy(character->name_part_2, character->name);
+    *character = W8Character{};
+    character->name = TitleCaseString(imported->name);
+    character->name_part_2 = character->name;
     character->iRace = static_cast<W8Race>(imported->race);
     character->gender = static_cast<W8Gender>(imported->gender);
     switch (imported->profession) {

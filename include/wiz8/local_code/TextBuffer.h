@@ -1,7 +1,8 @@
+#include <string>
+#include <string_view>
 #pragma once
 
 #include "wiz8/local_code/ControlsRect.h"
-#include <wchar.h>
 
 /* Shared declaration owner; implementation remains in Local Code\Controls.cpp. */
 
@@ -12,16 +13,16 @@ extern const unsigned int g_W8TextBufferAlignMiddle;
 extern const unsigned int g_W8TextBufferAlignTop;
 extern const unsigned int g_W8TextBufferAlignBottom;
 extern const unsigned int g_W8TextBufferNoWrap;
-extern wchar_t g_W8LineBreakCharacters[];
+extern char g_W8LineBreakCharacters[];
 
 // VTABLE: WIZ8 0x005ed5b8
 class W8TextBuffer {
 public:
     friend class W8DialogTextArea;
     W8TextBuffer();
-    W8TextBuffer(const W8ControlsRect* bounds, const wchar_t* text, int font,
+    W8TextBuffer(const W8ControlsRect* bounds, std::string_view text, int font,
                  unsigned int layout_mode, int render_mode);
-    void CopyTextTo(wchar_t* destination);
+    std::string_view GetText() const { return m_text; }
     unsigned int GetLineHeight();
     int GetHorizontalPosition(int width);
     int GetVerticalPosition();
@@ -32,16 +33,16 @@ public:
     void RenderToTarget(int offset, bool force, unsigned int target);
     void UpdateLayout();
     void SetLayoutMode(unsigned int layout_mode);
-    void SetText(const wchar_t* text, int font);
+    void SetText(std::string_view text, int font);
     void SetLayoutBounds(const W8ControlsRect* bounds, bool copy_pending, bool update_layout);
 
-    void RenderString(const wchar_t* text, int font, bool force, unsigned int target)
+    void RenderString(std::string_view text, int font, bool force, unsigned int target)
     {
         SetText(text, font);
         RenderToTarget(0, force, target);
     }
 
-    void RenderString(const W8ControlsRect* bounds, const wchar_t* text, int font, bool force,
+    void RenderString(const W8ControlsRect* bounds, std::string_view text, int font, bool force,
                       unsigned int target)
     {
         SetLayoutBounds(bounds, true, true);
@@ -59,7 +60,7 @@ public:
 
     bool HasBuffer() const
     {
-        return m_buffer != 0;
+        return !m_buffer.empty();
     }
     void SetGeometryDirty()
     {
@@ -92,7 +93,8 @@ public:
 
 protected:
     unsigned int m_lineHeight; /* cached height, zero means query font */
-    wchar_t* m_buffer;         /* freed on teardown */
+    std::string m_text; // Original text; wrapping never modifies it.
+    std::string m_buffer; // Rebuilt layout text, owned by this control.
     unsigned int m_layoutMode; /* 10 initially */
 public:
     unsigned int m_maxLineWidth;

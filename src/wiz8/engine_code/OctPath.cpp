@@ -1,4 +1,5 @@
-#include "wiz8/sgp_text.h"
+#include <fmt/format.h>
+#include "wiz8/unicode.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/local_code/Combat.h"
@@ -479,13 +480,15 @@ void W8PathingService::BuildWaypointFileData()
                 }
                 if (g_dev_mode) {
                     if (removed == 0) {
-                        FormatDebugMessage(0, "Deleting Isolated WayPt at (%.1f, %.1f, %.1f)",
+                        DebugMessage(
+                            0, fmt::format("Deleting Isolated WayPt at ({:.1f}, {:.1f}, {:.1f})",
                                            surface->position.x, surface->position.y,
-                                           surface->position.z);
+                                           surface->position.z));
                     } else {
-                        FormatDebugMessage(0, "Deleting Dead End WayPt at (%.1f, %.1f, %.1f)",
+                        DebugMessage(
+                            0, fmt::format("Deleting Dead End WayPt at ({:.1f}, {:.1f}, {:.1f})",
                                            surface->position.x, surface->position.y,
-                                           surface->position.z);
+                                           surface->position.z));
                     }
                 }
             }
@@ -5635,8 +5638,9 @@ void W8PathingService::AddWaypointLink(unsigned short source, unsigned short des
     W8PathEdge* edge;
 
     if (source == 0 || destination == 0 || source == destination) {
-        ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, L"Cannot Link: Tried to link WayPt %d to WayPt %d. ",
-                    source, destination);
+        ShowNotice(W8_FONT_PALETTE_TEXT_BOX,
+                   fmt::format("Cannot Link: Tried to link WayPt {:d} to WayPt {:d}. ", source,
+                               destination));
         return;
     }
 
@@ -5644,7 +5648,8 @@ void W8PathingService::AddWaypointLink(unsigned short source, unsigned short des
     destination_surface = &m_waypoints[destination];
     if ((IsZeroVector(&source_surface->position) != 0) ||
         (IsZeroVector(&destination_surface->position) != 0)) {
-        ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, L"Cannot Link: WayPt %d is at (0, 0, 0). ", source);
+        ShowNotice(W8_FONT_PALETTE_TEXT_BOX,
+                   fmt::format("Cannot Link: WayPt {:d} is at (0, 0, 0). ", source));
         return;
     }
 
@@ -5898,7 +5903,7 @@ unsigned int W8PathingService::EditWaypointLinkFlags(const char* title, unsigned
     EnvironmentColour colour_backup;
     InputAtom atom;
     char* lines[9];
-    unsigned short* wide[9];
+    char* wide[9];
     char groups[32];
     unsigned int current;
     unsigned int link_flags;
@@ -5930,8 +5935,8 @@ unsigned int W8PathingService::EditWaypointLinkFlags(const char* title, unsigned
     for (index = 0; index < 9; ++index) {
         lines[index] = new char[0x100];
         memset(lines[index], 0, 0x100 * sizeof(char));
-        wide[index] = new unsigned short[0x100];
-        memset(wide[index], 0, 0x100 * sizeof(unsigned short));
+        wide[index] = new char[0x100];
+        memset(wide[index], 0, 0x100);
         groups[index] = 0;
     }
     if (title != 0) {
@@ -6011,14 +6016,14 @@ unsigned int W8PathingService::EditWaypointLinkFlags(const char* title, unsigned
         ClearSurfaceRect(0x1e, 0x64, 0x262, 0xcc);
         for (line = 0; line < 9; ++line) {
             for (length = 0; lines[line][length] != '\0' && length < 0x50; ++length) {
-                wide[line][length] = static_cast<short>(lines[line][length]);
+                wide[line][length] = lines[line][length];
             }
             while (length < 0x50) {
                 wide[line][length] = 0x20;
                 ++length;
             }
             wide[line][length] = 0;
-            gprintfDirty(0x1f, 0x65 + line * 0xd, Wiz8ToSgpWideText(g_format_s), wide[line]);
+            DrawFontTextDirty(0x1f, 0x65 + line * 0xd, wide[line]);
         }
         InvalidateRegion(0x1e, 0x64, 0x262, 0xcc, 4);
         if (DequeueEvent(&atom) == 0) {
@@ -6145,7 +6150,7 @@ unsigned int W8PathingService::EditWaypointLinkFlags(const char* title, unsigned
             wide[line][length] = 0x20;
         }
         wide[line][0x50] = 0;
-        gprintfDirty(0x1f, 0x65 + line * 0xd, Wiz8ToSgpWideText(g_format_s), wide[line]);
+        DrawFontTextDirty(0x1f, 0x65 + line * 0xd, wide[line]);
     }
     InvalidateRegion(0x1e, 0x64, 0x262, 0xd9, 4);
     RenderFrame();

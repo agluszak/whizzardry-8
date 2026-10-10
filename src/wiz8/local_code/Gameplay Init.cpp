@@ -1,3 +1,6 @@
+#include <fmt/format.h>
+#include "wiz8/unicode.h"
+#include "wiz8/retail_text_records.h"
 #include "wiz8/layouts/screen_state.h"
 #include "soundman.h"
 #include "wiz8/local_screens/Screens.h"
@@ -70,7 +73,7 @@
 unsigned char InitializeNpcDatabase(void)
 try
 {
-    char path[60];
+    std::string path;
     unsigned int index;
     unsigned int entry;
     unsigned int entry_count;
@@ -78,7 +81,7 @@ try
     std::unique_ptr<wiz8::File> handle;
     W8NpcItemStockRule* element;
 
-    sprintf(path, "%s\\%s.%s", "Data\\Databases", "NPC", "DBS");
+    path = fmt::format("{}\\{}.{}", "Data\\Databases", "NPC", "DBS");
     handle = [&]() { try { return wiz8::open_file(path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
     if (!handle) {
         return 0;
@@ -88,13 +91,12 @@ try
         handle.reset();
         return 0;
     }
-    g_npc_records = static_cast<W8NpcDatabaseRecord*>(
-        malloc(gXStatus.uiNpcsInDatabase * sizeof(*g_npc_records)));
+    g_npc_records = new W8NpcDatabaseRecord[gXStatus.uiNpcsInDatabase]{};
     if (!g_npc_records) {
         return 0;
     }
     for (index = 0; index < gXStatus.uiNpcsInDatabase; ++index) {
-        if (!((transferred = handle->read(&g_npc_records[index], sizeof(*g_npc_records)).bytes) == static_cast<std::size_t>(sizeof(*g_npc_records)))) {
+        if (!((transferred = wiz8::retail::read(*handle, g_npc_records[index]).bytes) == wiz8::retail::kNpcDatabaseRecordBytes)) {
             if (handle) handle->close();
             handle.reset();
             return 0;
@@ -145,12 +147,12 @@ catch (const std::exception&) { return false; }
 unsigned char InitializeFactDatabase(void)
 try
 {
-    char path[60];
+    std::string path;
     unsigned int index;
     unsigned int transferred;
     std::unique_ptr<wiz8::File> handle;
 
-    sprintf(path, "%s\\%s.%s", "Data\\Databases", "FACT", "DBS");
+    path = fmt::format("{}\\{}.{}", "Data\\Databases", "FACT", "DBS");
     handle = [&]() { try { return wiz8::open_file(path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
     if (!handle) {
         return 0;
@@ -160,13 +162,12 @@ try
         handle.reset();
         return 0;
     }
-    g_fact_records = static_cast<W8FactDatabaseRecord*>(
-        malloc(gXStatus.uiFactsInDatabase * sizeof(*g_fact_records)));
+    g_fact_records = new W8FactDatabaseRecord[gXStatus.uiFactsInDatabase]{};
     if (!g_fact_records) {
         return 0;
     }
     for (index = 0; index < gXStatus.uiFactsInDatabase; ++index) {
-        if (!((transferred = handle->read(&g_fact_records[index], sizeof(*g_fact_records)).bytes) == static_cast<std::size_t>(sizeof(*g_fact_records)))) {
+        if (!((transferred = wiz8::retail::read(*handle, g_fact_records[index]).bytes) == wiz8::retail::kFactDatabaseRecordBytes)) {
             if (handle) handle->close();
             handle.reset();
             return 0;
@@ -181,7 +182,7 @@ catch (const std::exception&) { return false; }
 // FUNCTION: WIZ8 0x0054ae00
 void DestroyFactDatabase(void)
 {
-    free(g_fact_records);
+    delete[] g_fact_records;
     g_fact_records = 0;
 }
 
@@ -189,12 +190,12 @@ void DestroyFactDatabase(void)
 unsigned char InitializeLevelDatabase(void)
 try
 {
-    char path[60];
+    std::string path;
     unsigned int index;
     unsigned int transferred;
     std::unique_ptr<wiz8::File> handle;
 
-    sprintf(path, "%s\\%s.%s", "Data\\Databases", "LEVELS", "DBS");
+    path = fmt::format("{}\\{}.{}", "Data\\Databases", "LEVELS", "DBS");
     handle = [&]() { try { return wiz8::open_file(path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
     if (!handle) {
         return 0;
@@ -204,13 +205,12 @@ try
         handle.reset();
         return 0;
     }
-    g_level_records = static_cast<W8LevelDatabaseRecord*>(
-        malloc(gXStatus.uiLevelsInDatabase * sizeof(*g_level_records)));
+    g_level_records = new W8LevelDatabaseRecord[gXStatus.uiLevelsInDatabase]{};
     if (!g_level_records) {
         return 0;
     }
     for (index = 0; index < gXStatus.uiLevelsInDatabase; ++index) {
-        if (!((transferred = handle->read(&g_level_records[index], sizeof(*g_level_records)).bytes) == static_cast<std::size_t>(sizeof(*g_level_records)))) {
+        if (!((transferred = wiz8::retail::read(*handle, g_level_records[index]).bytes) == wiz8::retail::kLevelDatabaseRecordBytes)) {
             if (handle) handle->close();
             handle.reset();
             return 0;
@@ -225,7 +225,7 @@ catch (const std::exception&) { return false; }
 // FUNCTION: WIZ8 0x0054af10
 void DestroyLevelDatabase(void)
 {
-    free(g_level_records);
+    delete[] g_level_records;
     g_level_records = 0;
 }
 
@@ -238,7 +238,7 @@ void ResetGameStatus(bool release)
 {
     if (release) {
         if (g_status.buffers.Char) {
-            free(g_status.buffers.Char);
+            delete[] g_status.buffers.Char;
             g_status.buffers.Char = 0;
         }
         if (g_status.buffers.XChar) {
@@ -246,9 +246,9 @@ void ResetGameStatus(bool release)
             g_status.buffers.XChar = 0;
         }
     }
-    memset(&g_status, 0, sizeof(g_status));
+    g_status = W8GlobalStatus{};
     g_status.buffers.Char =
-        static_cast<W8Character*>(malloc(sizeof(W8Character) * W8_PARTY_SLOT_COUNT));
+        new W8Character[W8_PARTY_SLOT_COUNT]{};
     if (!g_status.buffers.Char) {
         return;
     }
@@ -257,7 +257,6 @@ void ResetGameStatus(bool release)
     if (!g_status.buffers.XChar) {
         return;
     }
-    memset(g_status.buffers.Char, 0, sizeof(W8Character) * W8_PARTY_SLOT_COUNT);
     memset(g_status.buffers.XChar, 0, sizeof(W8PartySlotRow) * W8_PARTY_SLOT_COUNT);
 }
 
@@ -350,10 +349,10 @@ void ResetForNewGame(void)
    runs a fixed opening sequence. The two calls into 0x00482720 and 0x00482740
    share one stack cleanup, as consecutive cdecl calls do. */
 // FUNCTION: WIZ8 0x0054b250
-void RunNewGameOpeningSequence(bool notify, const wchar_t* target)
+void RunNewGameOpeningSequence(bool notify, std::string_view target)
 {
     g_status.game_started = true;
-    if (target) {
+    if (!target.empty()) {
         g_status.iron_man = true;
         SetLastSaveName(target);
     }
@@ -464,7 +463,7 @@ void ResetPartySlotRow(int slot)
 // FUNCTION: WIZ8 0x0054b4c0
 unsigned char AllocateStatusBuffers(W8StatusBuffers* status)
 {
-    status->Char = static_cast<W8Character*>(malloc(sizeof(W8Character) * W8_PARTY_SLOT_COUNT));
+    status->Char = new W8Character[W8_PARTY_SLOT_COUNT]{};
     if (!status->Char) {
         return 0;
     }
@@ -473,7 +472,6 @@ unsigned char AllocateStatusBuffers(W8StatusBuffers* status)
     if (!status->XChar) {
         return 0;
     }
-    memset(status->Char, 0, sizeof(W8Character) * W8_PARTY_SLOT_COUNT);
     memset(status->XChar, 0, sizeof(W8PartySlotRow) * W8_PARTY_SLOT_COUNT);
     return 1;
 }
@@ -482,7 +480,7 @@ unsigned char AllocateStatusBuffers(W8StatusBuffers* status)
 void FreeStatusBuffers(W8StatusBuffers* status)
 {
     if (status->Char) {
-        free(status->Char);
+        delete[] status->Char;
         status->Char = 0;
     }
     if (status->XChar) {

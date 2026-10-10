@@ -147,6 +147,22 @@ int main()
     expect(events[2], KEY_UP, 'A', SHIFT_DOWN);
     CHECK(events[0].uiParam == ((240u << 16) | 320u));
 
+    SetNativeTextInputEnabled(true);
+    SDL_Event committed{};
+    committed.type = SDL_EVENT_TEXT_INPUT;
+    committed.text.windowID = SDL_GetWindowID(window);
+    committed.text.text = "é中😀";
+    CHECK(SDL_PushEvent(&committed));
+    drain_events();
+    events = input();
+    CHECK(events.size() == 3);
+    CHECK(events[0].usParam == 0x00e9 && events[1].usParam == 0x4e2d && events[2].usParam == 0x1f600);
+    for (const auto& event : events) CHECK(event.usEvent == KEY_DOWN && event.uiParam == NATIVE_TEXT_INPUT_FLAG);
+    SetNativeTextInputEnabled(false);
+    CHECK(SDL_PushEvent(&committed));
+    drain_events();
+    CHECK(input().empty());
+
     key(SDL_EVENT_KEY_DOWN, SDLK_LEFT);
     key(SDL_EVENT_KEY_UP, SDLK_LEFT);
     key(SDL_EVENT_KEY_DOWN, SDLK_KP_1);

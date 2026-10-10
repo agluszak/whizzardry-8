@@ -1,3 +1,4 @@
+#include <string>
 #pragma once
 
 void InitializeItemVideoObjects(void);
@@ -5,7 +6,6 @@ void ReleaseGenericItemNames(void);
 
 #include "wiz8/npc_trade_price.h"
 #include "wiz8/character_skills.h"
-#include <wchar.h>
 
 #include "wiz8/layouts/item_instance.h"
 #include "wiz8/layouts/game_status.h"
@@ -31,7 +31,7 @@ unsigned int GetEquipmentBindingDifficulty(int character_index);
 bool CompatiblePartnerItems(int weapon_item_id, int off_hand_item_id);
 bool ItemUsesShots(int item_id);
 W8EquipSlot GetPairedEquipSlot(W8EquipSlot equip_slot);
-wchar_t* GetItemDisplayName(const W8ItemInstance* item);
+std::string GetItemDisplayName(const W8ItemInstance* item);
 
 bool ItemHasSingledOutGenericName(int item_id);
 
@@ -39,7 +39,7 @@ enum { W8_GENERIC_ITEM_NAME_COUNT = 147 };
 /* The per-item-class notice index. */
 extern unsigned short g_generic_item_name_notice[W8_GENERIC_ITEM_NAME_COUNT];
 /* One lazily built generic name per unidentified-name index. */
-extern wchar_t* g_generic_item_names[W8_GENERIC_ITEM_NAME_COUNT];
+extern std::string g_generic_item_names[W8_GENERIC_ITEM_NAME_COUNT];
 /* The message ids for what an item use did, read at every other entry; the
    last six are the item property labels. */
 enum { W8_ITEM_PROPERTY_MESSAGE_FIRST = 19 };
@@ -62,7 +62,7 @@ void ApplyIdentifyAttempt(W8ItemInstance* item, unsigned int strength, unsigned 
 /* Reveal one character's worn bindings; 0 none bound, 1 some
    still hidden, 2 all revealed. */
 int RevealCharacterItemBindings(unsigned int party_slot, int strength, unsigned int percent);
-wchar_t* FormatItemDisplayName(const W8ItemInstance* item, bool include_quantity);
+std::string FormatItemDisplayName(const W8ItemInstance* item, bool include_quantity);
 unsigned int GetItemStackValue(const W8ItemInstance* item);
 bool FindItemOnCharacter(W8Character* character, int item_id, W8ItemInstance** found,
                          int include_backpack, const W8ItemInstance* resume_after);
@@ -154,7 +154,7 @@ bool ItemHasHiddenProperties(int item_id);
 bool FindCharacterItemByDatabaseKind(W8Character* character, short item_kind, W8ItemInstance** out,
                                      int include_backpack);
 
-/* Per-item-class notice index into gppStringList used for the
+/* Per-item-class notice index into g_localized_strings used for the
    unidentified ("Uncursed item" style) display name. */
 unsigned short GetItemUnidentifiedNameIndex(const W8ItemInstance* item);
 

@@ -1,7 +1,10 @@
+#include <fmt/format.h>
+#include "wiz8/unicode.h"
+#include <algorithm>
+#include <string_view>
 #include <vector>
 #include "wiz8/dialog_code/DialogButton.h"
 #include "wiz8/dialog_code/MessageDialogBase.h"
-#include "wiz8/sgp_text.h"
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/dialog_code/ButtonUserData.h"
 #include "wiz8/sr_api.h"
@@ -15,7 +18,6 @@
 
 #include <ctype.h>
 #include <stdlib.h>
-#include <wchar.h>
 
 /* Dialog Code\stMessageDialog.cpp. SetMessage and WrapMessage assert this
    unit (lines 131 and 213); the two button callbacks are proven by their
@@ -29,7 +31,7 @@
 // FUNCTION: WIZ8 0x005d25b0
 W8MessageDialogBase::W8MessageDialogBase()
     : accepted(false), is_open(true), m_edge_image(-1), m_message_button(-1), m_confirm_button(-1),
-      m_confirm_image(-1), m_cancel_button(-1), m_cancel_image(-1), m_lines(0), m_line_count(0)
+      m_confirm_image(-1), m_cancel_button(-1), m_cancel_image(-1), m_line_count(0)
 {
 }
 
@@ -56,15 +58,15 @@ void W8MessageDialogBase::Draw()
         y = m_y + (m_height - 0x21) / 2 -
             (GetFontHeight(g_dialog_interface_font) * m_line_count >> 1);
     }
-    if (m_lines) {
+    if (!m_lines.empty()) {
         SaveFontSettings();
         SetFont(g_dialog_interface_font);
         SetFontForeground(g_dialog_font_foreground);
         SetFontBackground(g_dialog_font_background);
         for (index = 0; index < m_line_count; ++index) {
-            wchar_t* line = m_lines[index];
-            short width = StringPixLengthArg(g_dialog_interface_font, wcslen(line), line);
-            gprintf(m_x + (m_width - width) / 2, y, line);
+            const auto& line = m_lines[index];
+            short width = StringPixLength(line, g_dialog_interface_font);
+            DrawFontText(m_x + (m_width - width) / 2, y, line);
             y += GetFontHeight(g_dialog_interface_font);
         }
         RestoreFontSettings();
@@ -80,7 +82,7 @@ void W8MessageDialogBase::Draw()
 }
 
 // FUNCTION: WIZ8 0x005d2800
-void W8MessageDialogBase::SetMessage(const wchar_t* message, int line_count,
+void W8MessageDialogBase::SetMessage(std::string_view message, int line_count,
                                      unsigned short characters_per_line, bool confirmation,
                                      bool cancel, bool size_to_message, bool wrap_message,
                                      int maximum_width, int maximum_height)
@@ -89,26 +91,14 @@ void W8MessageDialogBase::SetMessage(const wchar_t* message, int line_count,
        this function is the width clamp at 0x005D295E, and `width` carries it. */
     unsigned int index;
 
-    if (!message) {
-        srAssertFail("pMessage", "C:\\Projects\\Wizardry 8\\Dialog Code\\stMessageDialog.cpp", 0x83,
-                     0);
-    }
-    if (m_lines) {
-        for (index = 0; index < m_line_count; ++index) {
-            free(m_lines[index]);
-        }
-        free(m_lines);
-        m_lines = 0;
-    }
+    m_lines.clear();
     if (line_count == 1 && wrap_message) {
         line_count = WrapMessage(message);
     } else {
-        m_lines = static_cast<wchar_t**>(malloc(line_count * sizeof(wchar_t*)));
         for (index = 0; index < static_cast<unsigned int>(line_count); ++index) {
-            m_lines[index] = static_cast<wchar_t*>(
-                malloc(characters_per_line * sizeof(wchar_t) + sizeof(wchar_t)));
-            wcscpy(m_lines[index], message);
-            message += characters_per_line;
+            auto bytes = wiz8::text::codepoint_prefix(message, characters_per_line);
+            m_lines.emplace_back(message.substr(0, bytes));
+            message.remove_prefix(bytes);
         }
     }
     m_line_count = line_count;
@@ -148,74 +138,30 @@ void W8MessageDialogBase::SetMessage(const wchar_t* message, int line_count,
 }
 
 // FUNCTION: WIZ8 0x005d2a50
-unsigned int W8MessageDialogBase::WrapMessage(const wchar_t* message)
+unsigned int W8MessageDialogBase::WrapMessage(std::string_view message)
 {
-    wchar_t lines[32][256];
-    wchar_t* remaining;
-    wchar_t* line;
-    unsigned int line_index = 0;
-    unsigned int words_on_line = 0;
-    /* 0x005D2BE8 sign-extends the word width into EAX, adds the running total and
-       bounds it against m_width with JBE at 0x005D2BF2, so the running total is
-       the unsigned operand. */
-    unsigned int line_width = 0;
-    int space_width = StringPixLength(const_cast<wchar_t*>(L" "), g_dialog_interface_font);
-    unsigned int maximum_width = static_cast<unsigned int>(m_width) + 0xf;
-    unsigned int index;
-
-    std::vector<wchar_t> storage(wcslen(message) + 1);
-    remaining = storage.data();
-    wcscpy(remaining, message);
-    for (index = 0; index < 32; ++index) {
-        wcscpy(lines[index], L"");
-    }
-
-    line = lines[0];
-    size_t word_length = wcscspn(remaining, L" ");
-    while (remaining[word_length] != L'\0') {
-        remaining[word_length] = L'\0';
-        int word_width = StringPixLength(remaining, g_dialog_interface_font);
-        if (line_width + word_width > maximum_width) {
-            if (words_on_line != 0) {
-                ++line_index;
-                line = lines[line_index];
-                wcscpy(line, remaining);
-                line_width = word_width;
-                words_on_line = 1;
-            } else {
-                wcscat(line, remaining);
-                line_width += space_width + word_width;
-                ++words_on_line;
-            }
-        } else {
-            if (words_on_line != 0) {
-                wcscat(line, L" ");
-            }
-            wcscat(line, remaining);
-            line_width += space_width + word_width;
-            ++words_on_line;
+    const auto maximum_width = std::max(m_width + 15, 1);
+    std::string line;
+    for (std::size_t start = 0; start < message.size();) {
+        if (message[start] == '\n') {
+            m_lines.push_back(std::move(line));
+            line.clear();
+            ++start;
+            continue;
         }
-        remaining += word_length + 1;
-        word_length = wcscspn(remaining, L" ");
+        const auto end = message.find_first_of(" \n", start);
+        const auto stop = end == std::string_view::npos ? message.size() : end;
+        const auto word = message.substr(start, stop - start);
+        auto candidate = line.empty() ? std::string(word) : fmt::format("{} {}", line, word);
+        if (!line.empty() && StringPixLength(candidate, g_dialog_interface_font) > maximum_width) {
+            m_lines.push_back(std::move(line));
+            line.assign(word);
+        } else line = std::move(candidate);
+        start = stop;
+        if (start < message.size() && message[start] == ' ') ++start;
     }
-
-    int word_width = StringPixLength(remaining, g_dialog_interface_font);
-    if (line_width + word_width > static_cast<unsigned int>(m_width)) {
-        ++line_index;
-        wcscpy(lines[line_index], remaining);
-    } else {
-        wcscat(lines[line_index], L" ");
-        wcscat(lines[line_index], remaining);
-    }
-
-    unsigned int count = line_index + 1;
-    m_lines = static_cast<wchar_t**>(malloc(count * sizeof(wchar_t*)));
-    for (index = 0; index < count; ++index) {
-        m_lines[index] =
-            static_cast<wchar_t*>(malloc((wcslen(lines[index]) + 1) * sizeof(wchar_t)));
-        wcscpy(m_lines[index], lines[index]);
-    }
-    return count;
+    m_lines.push_back(std::move(line));
+    return m_lines.size();
 }
 
 // FUNCTION: WIZ8 0x005d2cb0
@@ -233,30 +179,22 @@ int W8MessageDialogBase::CreateControls()
 {
     W8DialogBase::CreateControls();
     if (m_edge_image == -1) {
-        m_edge_image = LoadGenericButtonImages(0, Wiz8ToSgpText("Data\\Dialogs\\DialogEdge.STI"), 0,
-                                               Wiz8ToSgpText("Data\\Dialogs\\DialogEdge.STI"), 0,
-                                               Wiz8ToSgpText(m_background_path),
-                                               static_cast<short>(m_background_flags), 0, 0);
+        m_edge_image = LoadGenericButtonImages({}, "Data\\Dialogs\\DialogEdge.STI", {}, "Data\\Dialogs\\DialogEdge.STI", {}, m_background_path, static_cast<short>(m_background_flags), 0, 0);
         if (m_edge_image == -1) {
             return m_error = 3;
         }
     }
-    m_message_button = CreateTextButton(
-        0, g_dialog_interface_font, g_dialog_font_foreground, g_dialog_font_background,
-        m_edge_image, static_cast<short>(m_x + 9), static_cast<short>(m_y + 9),
-        static_cast<short>(m_width - 0x12), static_cast<short>(m_height - 0x12),
-        BUTTON_NO_TOGGLE | BUTTON_IGNORE_CLICKS, MSYS_PRIORITY_HIGHEST - 1, BUTTON_NO_CALLBACK,
-        BUTTON_NO_CALLBACK);
+    m_message_button = CreateTextButton({}, g_dialog_interface_font, g_dialog_font_foreground, g_dialog_font_background, m_edge_image, static_cast<short>(m_x + 9), static_cast<short>(m_y + 9), static_cast<short>(m_width - 0x12), static_cast<short>(m_height - 0x12), BUTTON_NO_TOGGLE | BUTTON_IGNORE_CLICKS, MSYS_PRIORITY_HIGHEST - 1, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
 
     m_confirm_image =
-        LoadButtonImage(Wiz8ToSgpText("Data\\Dialogs\\DialogConfirmation.STI"), 3, 0, 1, 2, 2);
+        LoadButtonImage("Data\\Dialogs\\DialogConfirmation.STI", 3, 0, 1, 2, 2);
     if (m_confirm_image != -1) {
         m_confirm_button =
             QuickCreateButton(m_confirm_image, 0, 0, BUTTON_NO_TOGGLE, MSYS_PRIORITY_HIGHEST,
                               MessageDialogConfirmCallback, MessageDialogConfirmCallback);
     }
     m_cancel_image =
-        LoadButtonImage(Wiz8ToSgpText("Data\\Dialogs\\DialogConfirmation.STI"), 7, 4, 5, 6, 6);
+        LoadButtonImage("Data\\Dialogs\\DialogConfirmation.STI", 7, 4, 5, 6, 6);
     if (m_cancel_image != -1) {
         m_cancel_button =
             QuickCreateButton(m_cancel_image, 0, 0, BUTTON_NO_TOGGLE, MSYS_PRIORITY_HIGHEST,
@@ -297,13 +235,7 @@ void W8MessageDialogBase::DestroyControls()
     ReleaseDialogButtonHandle(m_cancel_button);
     ReleaseDialogButtonImage(m_confirm_image);
     ReleaseDialogButtonImage(m_cancel_image);
-    if (m_lines) {
-        for (index = 0; index < m_line_count; ++index) {
-            free(m_lines[index]);
-        }
-        free(m_lines);
-        m_lines = 0;
-    }
+    m_lines.clear();
 }
 
 // FUNCTION: WIZ8 0x005d3020

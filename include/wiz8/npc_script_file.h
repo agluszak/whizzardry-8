@@ -4,8 +4,12 @@
 
 #include "compat/ptr32.h"
 #include <stddef.h>
+#include <cstdint>
+#include <string>
+#include <string_view>
+#include <vector>
 
-/* Packed NSF records replace on-disk array slots with runtime pointers. */
+/* NSF disk records and owning runtime script data have independent layouts. */
 
 /* Quote-entry opcodes with recovered consumers; unknown values remain unnamed. */
 typedef unsigned char W8NpcQuoteEntryKind;
@@ -41,70 +45,61 @@ enum {
     W8_NPC_ENTRY_ALWAYS_PRICE_CHECK = 30
 };
 
+// Retail NSF structures describe bytes only. Pointer words select optional
+// following records; they are never converted to native handles.
+namespace wiz8::retail::nsf {
 #pragma pack(push, 1)
-
-/* One 8-byte sub-entry. Its text slot at +4 is non-zero on disk to select the
-   length-prefixed narrow string that follows, and is then overwritten with the
-   pointer to it. The leading dword is per-kind storage: the fact-conditional
-   entry read at 0x005251F0 consumes sub-entry pairs whose +0 dwords are the
-   fact id and the expected value. */
-struct W8NpcQuoteSubEntry {
-    int operand; /* 0x00: fact id on even slots, the expected value on odd */
-    W8_PTR32(char) text; /* 0x04 */
-}; /* 0x08 */
-
-/* One 0x12-byte entry. Byte 0 is the kind discriminator read by 0x00576060;
-   the next twelve bytes come off disk untouched. The three dwords are
-   per-kind operand slots: the response chooser reads operand0 as the fixed
-   or low response index, operand1 == 2 as the random-selection mode and
-   operand2 as the range bound / chain marker. */
-struct W8NpcQuoteEntry {
-    W8NpcQuoteEntryKind kind;
-    int operand0;
-    int operand1;
-    int operand2;
-    unsigned char sub_entry_count;   /* 0x0d */
-    W8_PTR32(W8NpcQuoteSubEntry) sub_entries; /* 0x0e */
-}; /* 0x12 */
-
-/* One 0x0c-byte quote record. Field roles come from the reader at 0x0055A140. */
-struct W8NpcScriptQuote {
-    unsigned char subquote_count; /* 0x00 */
-    W8_PTR32(char*) subquotes;    /* 0x01: subquote_count entries */
-    W8_PTR32(W8NpcQuoteEntry) entries; /* 0x05: entry_count entries */
-    unsigned short entry_count;   /* 0x09 */
-    /* 0x0b: selects the alert presentation - "Data\Sound\NPCs\Dialogue
-       Alert.wav" path and the portrait-message/notice flow instead of the
-       per-NPC voice file. */
-    unsigned char dialogue_alert;
-}; /* 0x0c */
-
-/* The 0x0e-byte header the loader reads first. A non-zero name slot on disk
-   selects the length-prefixed name that follows it. */
-struct W8NpcScriptFile {
+struct SubEntry { std::int32_t operand; std::uint32_t text; };
+struct Entry {
+    std::uint8_t kind;
+    std::int32_t operand0, operand1, operand2;
+    std::uint8_t sub_entry_count;
+    std::uint32_t sub_entries;
+};
+struct Quote {
+    std::uint8_t subquote_count;
+    std::uint32_t subquotes, entries;
+    std::uint16_t entry_count;
+    std::uint8_t dialogue_alert;
+};
+struct Header {
     unsigned char unknown_00[4];
-    unsigned short quote_count; /* 0x04 */
-    W8_PTR32(char) name;        /* 0x06 */
-    W8_PTR32(W8NpcScriptQuote) quotes; /* 0x0a */
-}; /* 0x0e */
-
+    std::uint16_t quote_count;
+    std::uint32_t name, quotes;
+};
 #pragma pack(pop)
+static_assert(sizeof(SubEntry) == 8);
+static_assert(sizeof(Entry) == 0x12);
+static_assert(sizeof(Quote) == 0x0c);
+static_assert(sizeof(Header) == 0x0e);
+}
 
-W8_ABI_ASSERT(sizeof(W8NpcQuoteSubEntry) == 8, "W8NpcQuoteSubEntry_size");
-W8_ABI_ASSERT(offsetof(W8NpcQuoteSubEntry, text) == 4, "W8NpcQuoteSubEntry_text");
-W8_ABI_ASSERT(sizeof(W8NpcQuoteEntry) == 0x12, "W8NpcQuoteEntry_size");
-W8_ABI_ASSERT(offsetof(W8NpcQuoteEntry, sub_entry_count) == 0x0d, "W8NpcQuoteEntry_count");
-W8_ABI_ASSERT(offsetof(W8NpcQuoteEntry, sub_entries) == 0x0e, "W8NpcQuoteEntry_sub_entries");
-W8_ABI_ASSERT(sizeof(W8NpcScriptQuote) == 0x0c, "W8NpcScriptQuote_size");
-W8_ABI_ASSERT(offsetof(W8NpcScriptQuote, subquotes) == 1, "W8NpcScriptQuote_subquotes");
-W8_ABI_ASSERT(offsetof(W8NpcScriptQuote, entries) == 5, "W8NpcScriptQuote_entries");
-W8_ABI_ASSERT(offsetof(W8NpcScriptQuote, entry_count) == 9, "W8NpcScriptQuote_entry_count");
-W8_ABI_ASSERT(sizeof(W8NpcScriptFile) == 0x0e, "W8NpcScriptFile_size");
-W8_ABI_ASSERT(offsetof(W8NpcScriptFile, name) == 6, "W8NpcScriptFile_name");
-W8_ABI_ASSERT(offsetof(W8NpcScriptFile, quotes) == 0x0a, "W8NpcScriptFile_quotes");
+struct W8NpcQuoteSubEntry {
+    int operand{};
+    std::string text;
+};
+struct W8NpcQuoteEntry {
+    W8NpcQuoteEntryKind kind{};
+    int operand0{}, operand1{}, operand2{};
+    unsigned char sub_entry_count{};
+    std::vector<W8NpcQuoteSubEntry> sub_entries;
+};
+struct W8NpcScriptQuote {
+    unsigned char subquote_count{};
+    std::vector<std::string> subquotes;
+    std::vector<W8NpcQuoteEntry> entries;
+    unsigned short entry_count{};
+    unsigned char dialogue_alert{};
+};
+struct W8NpcScriptFile {
+    unsigned char unknown_00[4]{};
+    unsigned short quote_count{};
+    std::string name;
+    std::vector<W8NpcScriptQuote> quotes;
+};
 
 void ReleaseNpcScriptFile(W8NpcScriptFile* file);
 unsigned char ReadNpcScriptQuote(wiz8::File* handle, W8NpcScriptQuote* quote);
-W8NpcScriptFile* LoadNpcScriptFile(char* path);
+W8NpcScriptFile* LoadNpcScriptFile(std::string_view path);
 
 #endif

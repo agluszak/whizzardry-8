@@ -1,3 +1,4 @@
+#include <string_view>
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07, 2026-10-09.
    Distributed under the accompanying SFI Source Code license agreement. */
 #ifndef __SOUNDMAN_
@@ -103,8 +104,8 @@ extern BOOLEAN SoundEmptyCache(void);
 extern BOOLEAN SoundSampleIsInUse(UINT32 uiSample);
 
 // Play/service sample functions
-extern UINT32 SoundPlay(const char* pFilename, SOUNDPARMS* pParms);
-extern UINT32 SoundPlayStreamedFile(const char* pFilename, SOUNDPARMS* pParms);
+extern UINT32 SoundPlay(std::string_view pFilename, SOUNDPARMS* pParms);
+extern UINT32 SoundPlayStreamedFile(std::string_view pFilename, SOUNDPARMS* pParms);
 
 extern UINT32 SoundPlayRandom(STR pFilename, RANDOMPARMS* pParms);
 extern BOOLEAN SoundRandomShouldPlay(UINT32 uiSample);
@@ -117,7 +118,7 @@ extern BOOLEAN SoundStopMusic(void);
 extern BOOLEAN SoundStopAllRandom(void);
 extern BOOLEAN SoundStop(UINT32 uiSoundID);
 extern BOOLEAN SoundIsPlaying(UINT32 uiSoundID);
-extern BOOLEAN SoundFileIsPlaying(CHAR8* pFilename);
+extern BOOLEAN SoundFileIsPlaying(std::string_view filename);
 extern BOOLEAN SoundSetFadeVolume(UINT32 uiSoundID, UINT32 uiVolume, UINT32 uiRate,
                                   BOOLEAN fStopAtZero);
 extern BOOLEAN SoundSetVolume(UINT32 uiSoundID, UINT32 uiVolume);

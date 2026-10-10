@@ -1,3 +1,5 @@
+#include <string>
+#include <string_view>
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
    Distributed under the accompanying SFI Source Code license agreement. */
 // *****************************************************************************
@@ -55,7 +57,7 @@ typedef struct _MOUSE_REGION {
 
     //Fast help vars.
     INT16 FastHelpTimer;  // Countdown timer for FastHelp text
-    std::unique_ptr<CHAR16[]> FastHelpText; // Text string for the FastHelp (describes buttons if left there a while)
+    std::string FastHelpText; // Text string for the FastHelp (describes buttons if left there a while)
     INT32 FastHelpRect;
     MOUSE_HELPTEXT_DONE_CALLBACK HelpDoneCallback;
 
@@ -186,7 +188,7 @@ INT32 MSYS_GrabMouse(MOUSE_REGION* region);
 void MSYS_ReleaseMouse(MOUSE_REGION* region);
 // This function will force a re-evaluation of mous regions
 // Usually used to force change of mouse cursor if panels switch, etc
-void SetRegionFastHelpText(MOUSE_REGION* region, CHAR16* szText);
+void SetRegionFastHelpText(MOUSE_REGION* region, std::string_view szText);
 
 // Now also used by Wizardry -- DB
 void DisplayFastHelp(MOUSE_REGION* region);

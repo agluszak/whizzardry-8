@@ -7,3 +7,6 @@ void HandleInputEvent(const SDL_Event& event);
 void GetGameMousePosition(SDL_Point* point);
 bool SetGameCursorRect(const SDL_Rect* rect);
 bool WarpGameMouse(SDL_Window* window, int x, int y);
+
+void SetNativeTextInputEnabled(bool enabled);
+bool NativeTextInputEnabled();
