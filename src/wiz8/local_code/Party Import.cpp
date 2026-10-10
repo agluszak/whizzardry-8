@@ -1,4 +1,3 @@
-#include "wiz8/compat/unaligned.h"
 #include "wiz8/conditions.h"
 #include "wiz8/local_code/PartyImport.h"
 #include "wiz8/local_code/GameplayInit.h"
@@ -121,103 +120,55 @@ W8Wiz7Character g_imported_characters[6];
 unsigned char LoadWizardry7ImportFile(char* path)
 try
 {
-    unsigned int bytes_read;
+    if (path == nullptr) return 0;
+    auto file = wiz8::open_file(path, wiz8::OpenMode::read);
     unsigned char header[0x34c];
     short party_block[0x26];
-    unsigned char skipped_section_1[0x80];
-    unsigned char skipped_section_2[0x90];
-    unsigned char skipped_section_3[0x68];
-    unsigned char skipped_section_4[0x14a];
-    unsigned char skipped_section_5[0x344];
-    unsigned char skipped_section_6[0x42];
-    std::unique_ptr<wiz8::File> file;
-    int index;
-
+    W8Wiz7Character characters[6]{};
+    file->read_exact(header, sizeof(header));
     short record_skip;
     short bank_skip;
-
-    file = [&]() { try { return wiz8::open_file(path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
-    if (file == 0) {
-        return 0;
+    memcpy(&record_skip, header + 0x2cc, sizeof(record_skip));
+    memcpy(&bank_skip, header + 0x2ce, sizeof(bank_skip));
+    if (record_skip < 0 || bank_skip < 0) return 0;
+    file->seek(record_skip * 6 + bank_skip * 8 + 0x20 * 0x100, wiz8::SeekOrigin::current);
+    file->read_exact(party_block, sizeof(party_block));
+    const int character_count = party_block[0x25];
+    if (character_count < 1 || character_count > 6) return 0;
+    file->seek(0x80 + 0x90 + 0x68 + 0x14a + 0x344 + 0x42 + 100, wiz8::SeekOrigin::current);
+    file->read_exact(characters, character_count * sizeof(characters[0]));
+    for (int index = 1; index < character_count; ++index) {
+        if (characters[index].party_tag != characters[0].party_tag) return 0;
     }
-    if (((bytes_read = file->read(header, 0x34c).bytes) == static_cast<std::size_t>(0x34c)) != 0) {
-        // reinterpret-ok: raw serialized file image; unaligned header short
-        record_skip = *reinterpret_cast<w8_unaligned_short*>(&header[0x2cc]);
-        // reinterpret-ok: raw serialized file image; unaligned header short
-        bank_skip = *reinterpret_cast<w8_unaligned_short*>(&header[0x2ce]);
-        if ((file->seek(record_skip * 6, wiz8::SeekOrigin::current), true) != 0 &&
-            (file->seek(bank_skip * 8, wiz8::SeekOrigin::current), true) != 0) {
-            for (index = 0; index < 0x20; ++index) {
-                if ((file->seek(0x100, wiz8::SeekOrigin::current), true) == 0) {
-                    goto fail;
-                }
-            }
-            if (((bytes_read = file->read(party_block, 0x4c).bytes) == static_cast<std::size_t>(0x4c)) != 0 && party_block[0x25] != 0 &&
-                party_block[0x25] < 7 &&
-                ((bytes_read = file->read(skipped_section_1, 0x80).bytes) == static_cast<std::size_t>(0x80)) != 0 &&
-                ((bytes_read = file->read(skipped_section_2, 0x90).bytes) == static_cast<std::size_t>(0x90)) != 0 &&
-                ((bytes_read = file->read(skipped_section_3, 0x68).bytes) == static_cast<std::size_t>(0x68)) != 0 &&
-                ((bytes_read = file->read(skipped_section_4, 0x14a).bytes) == static_cast<std::size_t>(0x14a)) != 0 &&
-                ((bytes_read = file->read(skipped_section_5, 0x344).bytes) == static_cast<std::size_t>(0x344)) != 0 &&
-                ((bytes_read = file->read(skipped_section_6, 0x42).bytes) == static_cast<std::size_t>(0x42)) != 0 &&
-                (file->seek(100, wiz8::SeekOrigin::current), true) != 0) {
-                for (index = 0; index < party_block[0x25]; ++index) {
-                    if (((bytes_read = file->read(&g_imported_characters[index], sizeof(g_imported_characters[index])).bytes) == static_cast<std::size_t>(sizeof(g_imported_characters[index]))) == 0) {
-                        goto fail;
-                    }
-                    if (index != 0 && g_imported_characters[index].party_tag !=
-                                          g_imported_characters[index - 1].party_tag) {
-                        goto fail;
-                    }
-                }
-                if (file) file->close();
-                file.reset();
-                g_import_character_count = party_block[0x25];
-                g_import_ending_record = party_block[0] == -1;
-                if (g_import_ending_record) {
-                    switch (g_imported_characters[0].party_tag & 0xf0) {
-                    case 0x10:
-                        g_wiz7_ending = 0;
-                        break;
-                    case 0x20:
-                        g_wiz7_ending = 1;
-                        break;
-                    case 0x40:
-                        g_wiz7_ending = 2;
-                        break;
-                    case 0x80:
-                        g_wiz7_ending = 3;
-                        break;
-                    default:
-                        return 0;
-                    }
-                } else {
-                    g_wiz7_ending = -1;
-                }
-                switch (g_imported_characters[0].party_tag & 0xf) {
-                case 1:
-                    g_import_difficulty = 0;
-                    break;
-                case 2:
-                    g_import_difficulty = 1;
-                    break;
-                case 4:
-                    g_import_difficulty = 2;
-                    break;
-                default:
-                    g_import_difficulty = -1;
-                }
-                for (index = 0; index < 0x60; ++index) {
-                    g_import_flags[index] = (header[0x200 + (index >> 3)] >> (index & 7)) & 1;
-                }
-                return 1;
-            }
+
+    const bool ending_record = party_block[0] == -1;
+    int ending = -1;
+    if (ending_record) {
+        switch (characters[0].party_tag & 0xf0) {
+        case 0x10: ending = 0; break;
+        case 0x20: ending = 1; break;
+        case 0x40: ending = 2; break;
+        case 0x80: ending = 3; break;
+        default: return 0;
         }
     }
-fail:
-    if (file) file->close();
-    file.reset();
-    return 0;
+    int difficulty = -1;
+    switch (characters[0].party_tag & 0xf) {
+    case 1: difficulty = 0; break;
+    case 2: difficulty = 1; break;
+    case 4: difficulty = 2; break;
+    default: break;
+    }
+
+    memcpy(g_imported_characters, characters, sizeof(characters));
+    g_import_character_count = character_count;
+    g_import_ending_record = ending_record;
+    g_wiz7_ending = ending;
+    g_import_difficulty = difficulty;
+    for (int index = 0; index < 0x60; ++index) {
+        g_import_flags[index] = (header[0x200 + (index >> 3)] >> (index & 7)) & 1;
+    }
+    return 1;
 }
 catch (const std::exception&) { return false; }
 

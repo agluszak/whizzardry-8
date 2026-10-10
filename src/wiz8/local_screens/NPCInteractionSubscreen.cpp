@@ -1,5 +1,9 @@
 #include <wiz8/filesystem.h>
+#include <algorithm>
+#include <iterator>
+#include <limits>
 #include <sstream>
+#include <vector>
 #include <memory>
 #include <bit>
 #include <SDL3/SDL_stdinc.h>
@@ -362,14 +366,12 @@ try
     wchar_t line[1000];
     wchar_t field[1000];
     wchar_t* cursor;
-    std::istringstream stream;
-    try {
-        auto input = wiz8::open_file(path);
-        if (input->size() > 16 * 1024 * 1024) return 0;
-        std::string text(static_cast<std::size_t>(input->size()), '\0');
-        if (input->read(text.data(), text.size()).bytes != text.size()) return 0;
-        stream.str(text);
-    } catch (const std::exception&) { return 0; }
+    auto input = wiz8::open_file(path, wiz8::OpenMode::read);
+    const auto size = input->size();
+    if (size < 0 || size > 16 * 1024 * 1024) return 0;
+    std::string text(static_cast<std::size_t>(size), '\0');
+    input->read_exact(text.data(), text.size());
+    std::istringstream stream(std::move(text));
     auto read_line = [&]() {
         std::string bytes;
         if (!std::getline(stream, bytes)) return false;
@@ -391,30 +393,29 @@ try
             throw std::runtime_error("invalid keyword text");
         return true;
     };
-    try {
-        std::unique_ptr<KeywordFile, decltype(&ReleaseKeywordFile)> pending(
-            new KeywordFile, ReleaseKeywordFile);
-        read_line(); // Header row.
-        while (read_line()) {
-            std::unique_ptr<KeywordLine, decltype(&ReleaseKeywordLine)> entry(
-                new KeywordLine, ReleaseKeywordLine);
-            cursor = line + 11;
-            while ((cursor = ParseKeywordToken(cursor, field)) != 0) {
-                const auto length = wcslen(field);
-                std::unique_ptr<wchar_t, decltype(&free)> word(
-                    static_cast<wchar_t*>(malloc((length + 1) * sizeof(wchar_t))), free);
-                if (!word) throw std::bad_alloc();
-                wcscpy(word.get(), field);
-                if (entry->Add(word.get()) < 0) throw std::bad_alloc();
-                (void)word.release();
-            }
-            if (pending->Add(entry.get()) < 0) throw std::bad_alloc();
-            (void)entry.release();
+    std::unique_ptr<KeywordFile, decltype(&ReleaseKeywordFile)> pending(
+        new KeywordFile, ReleaseKeywordFile);
+    read_line(); // Header row.
+    while (read_line()) {
+        std::unique_ptr<KeywordLine, decltype(&ReleaseKeywordLine)> entry(
+            new KeywordLine, ReleaseKeywordLine);
+        cursor = line + 11;
+        while ((cursor = ParseKeywordToken(cursor, field)) != 0) {
+            const auto length = wcslen(field);
+            std::unique_ptr<wchar_t, decltype(&free)> word(
+                static_cast<wchar_t*>(malloc((length + 1) * sizeof(wchar_t))), free);
+            if (!word) throw std::bad_alloc();
+            wcscpy(word.get(), field);
+            if (entry->Add(word.get()) < 0) throw std::bad_alloc();
+            (void)word.release();
         }
-        if (!file->Grow(file->GetCount() + pending->GetCount())) throw std::bad_alloc();
-        for (int i = 0; i < pending->GetCount(); ++i) (void)file->Add(*pending->GetAt(i));
-        pending->Clear();
-    } catch (const std::exception&) { return 0; }
+        if (pending->Add(entry.get()) < 0) throw std::bad_alloc();
+        (void)entry.release();
+    }
+    if (pending->GetCount() > std::numeric_limits<int>::max() - file->GetCount()) return 0;
+    if (!file->Grow(file->GetCount() + pending->GetCount())) throw std::bad_alloc();
+    for (int i = 0; i < pending->GetCount(); ++i) (void)file->Add(*pending->GetAt(i));
+    pending->Clear();
     return 1;
 }
 catch (const std::exception&) { return false; }
@@ -3921,55 +3922,72 @@ unsigned char LoadNpcDialogueTranscript(wiz8::File* file)
 try
 {
     unsigned char version;
-    unsigned int bytes_read;
     int record_count;
-    int text_length;
-    int index;
-
-    ClearNpcDialogueTranscript();
-    ((bytes_read = file->read(&version, 1).bytes) == static_cast<std::size_t>(1));
-    ((bytes_read = file->read(&record_count, 4).bytes) == static_cast<std::size_t>(4));
-    for (index = 0; index < record_count; ++index) {
-        W8DialogueTranscriptRecord* record =
-            static_cast<W8DialogueTranscriptRecord*>(malloc(sizeof(W8DialogueTranscriptRecord)));
-        memset(record, 0, sizeof(*record));
-        ((bytes_read = file->read(&text_length, 4).bytes) == static_cast<std::size_t>(4));
-        ((bytes_read = file->read(record, text_length * 2 + 2).bytes) == static_cast<std::size_t>(text_length * 2 + 2));
-        ((bytes_read = file->read(&record->category, 1).bytes) == static_cast<std::size_t>(1));
-        g_npc_interaction_state->dialogue_transcript.Add(record);
+    file->read_exact(&version, sizeof(version));
+    file->read_exact(&record_count, sizeof(record_count));
+    if (version < 1 || version > 2 || record_count < 0 ||
+        record_count > (file->size() - file->tell() - (version > 1 ? 2 : 0)) / 7) {
+        return 0;
     }
+    using RecordOwner = std::unique_ptr<W8DialogueTranscriptRecord, decltype(&free)>;
+    std::vector<RecordOwner> pending;
+    pending.reserve(record_count);
+    for (int index = 0; index < record_count; ++index) {
+        int text_length;
+        file->read_exact(&text_length, sizeof(text_length));
+        if (text_length < 0 || text_length >= 100) return 0;
+        RecordOwner record(
+            static_cast<W8DialogueTranscriptRecord*>(calloc(1, sizeof(W8DialogueTranscriptRecord))), free);
+        if (!record) throw std::bad_alloc();
+        file->read_exact(record->text, (static_cast<std::size_t>(text_length) + 1) * sizeof(wchar_t));
+        if (record->text[text_length] != 0 || wcslen(record->text) != static_cast<std::size_t>(text_length)) return 0;
+        file->read_exact(&record->category, sizeof(record->category));
+        pending.push_back(std::move(record));
+    }
+    signed char category_filter = g_npc_interaction_state->dialogue_category_filter;
+    unsigned char sorted = g_npc_interaction_state->transcript_sorted;
     if (version > 1) {
-        ((bytes_read = file->read(&g_npc_interaction_state->dialogue_category_filter, 1).bytes) == static_cast<std::size_t>(1));
-        ((bytes_read = file->read(&g_npc_interaction_state->transcript_sorted, 1).bytes) == static_cast<std::size_t>(1));
+        file->read_exact(&category_filter, sizeof(category_filter));
+        file->read_exact(&sorted, sizeof(sorted));
+        if (category_filter < W8_DIALOGUE_CATEGORY_ALL || category_filter > W8_DIALOGUE_CATEGORY_MISC ||
+            sorted > 1) return 0;
     }
+    auto& transcript = g_npc_interaction_state->dialogue_transcript;
+    if (!transcript.Grow(record_count)) throw std::bad_alloc();
+    ClearNpcDialogueTranscript();
+    for (auto& record : pending) {
+        (void)transcript.Add(record.get());
+        (void)record.release();
+    }
+    g_npc_interaction_state->dialogue_category_filter = category_filter;
+    g_npc_interaction_state->transcript_sorted = sorted != 0;
     return 1;
 }
 catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x00575290
 unsigned char SaveNpcDialogueTranscript(wiz8::File* file)
+try
 {
-    unsigned char version;
-    unsigned int bytes_written;
-    size_t text_length;
-    int index;
-
-    version = 2;
-    (file->write(&version, 1), bytes_written = 1, true);
-    text_length = g_npc_interaction_state->dialogue_transcript.GetCount();
-    (file->write(&text_length, 4), bytes_written = 4, true);
-    for (index = 0; index < g_npc_interaction_state->dialogue_transcript.GetCount(); ++index) {
-        W8DialogueTranscriptRecord* record =
-            *g_npc_interaction_state->dialogue_transcript.GetAt(index);
-        text_length = wcslen(record->text);
-        (file->write(&text_length, 4), bytes_written = 4, true);
-        (file->write(record, text_length * 2 + 2), bytes_written = text_length * 2 + 2, true);
-        (file->write(&record->category, 1), bytes_written = 1, true);
+    const unsigned char version = 2;
+    const int record_count = g_npc_interaction_state->dialogue_transcript.GetCount();
+    file->write(&version, sizeof(version));
+    file->write(&record_count, sizeof(record_count));
+    for (int index = 0; index < record_count; ++index) {
+        W8DialogueTranscriptRecord* record = *g_npc_interaction_state->dialogue_transcript.GetAt(index);
+        const auto end = std::find(std::begin(record->text), std::end(record->text), L'\0');
+        if (end == std::end(record->text)) return 0;
+        const int text_length = static_cast<int>(end - record->text);
+        file->write(&text_length, sizeof(text_length));
+        file->write(record->text, (static_cast<std::size_t>(text_length) + 1) * sizeof(wchar_t));
+        file->write(&record->category, sizeof(record->category));
     }
-    (file->write(&g_npc_interaction_state->dialogue_category_filter, 1), bytes_written = 1, true);
-    (file->write(&g_npc_interaction_state->transcript_sorted, 1), bytes_written = 1, true);
+    file->write(&g_npc_interaction_state->dialogue_category_filter, 1);
+    const unsigned char sorted = g_npc_interaction_state->transcript_sorted;
+    file->write(&sorted, sizeof(sorted));
     return 1;
 }
+catch (const std::exception&) { return false; }
 
 /* Restate the five transcript category buttons so only the active
    dialogue_category_filter's button shows its secondary state. */
