@@ -545,15 +545,16 @@ unsigned char InitializePrimaryCpuSurface(void)
 }
 
 /* Selects and starts the configured SurRender display driver, binds it to the
-   top-level window, and retains the final 3DVideo.CFG line for the later sound
-   manager.  Driver and API names come from the SR export table and retail
-   strings; the file format is the five-line format emitted by 3DSetup.exe. */
+   top-level window. The final 3DVideo.CFG line still accepts "none" to disable
+   audio; other historical device names use the native mixer. Driver and API names
+   come from the SR export table and retail strings; the file format is the
+   five-line format emitted by 3DSetup.exe. */
 // FUNCTION: WIZ8 0x00422240
 unsigned char InitializeVideoDevice(void)
 {
     std::istringstream config;
     char device[100] = "";
-    char sound_provider[100] = "";
+    char audio_setting[100] = "";
     char line[10] = "";
     char driver_name[100];
     char* newline;
@@ -586,12 +587,12 @@ unsigned char InitializeVideoDevice(void)
         g_screen_height = atoi(line);
         config.getline(line, sizeof(line));
         g_screen_depth = atoi(line);
-        config.getline(sound_provider, sizeof(sound_provider));
-        newline = strchr(sound_provider, '\r');
+        config.getline(audio_setting, sizeof(audio_setting));
+        newline = strchr(audio_setting, '\r');
         if (newline) {
             *newline = '\0';
         }
-        newline = strchr(sound_provider, '\n');
+        newline = strchr(audio_setting, '\n');
         if (newline) {
             *newline = '\0';
         }
@@ -616,10 +617,8 @@ unsigned char InitializeVideoDevice(void)
     if (g_gerd->createContext(reinterpret_cast<w8_ulong_ptr>(ghWindow)) != srGERD::ERROR_NONE ||
         !OpenRendererWindow()) return 0;
     srAssertSetFunc(AssertFailureHandler);
-    if (_strnicmp(sound_provider, "none", 4) == 0) {
+    if (_strnicmp(audio_setting, "none", 4) == 0) {
         gfEnableStartup = FALSE;
-    } else {
-        Sound3DSetProvider(sound_provider);
     }
     InitializeVirtualFileImageImporters();
     return 1;
