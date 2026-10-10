@@ -29,10 +29,10 @@
 #include "wiz8/wiz8_windows.h"
 #include <new>
 #include "wiz8/engine_code/3d.h"
-#include "wiz8/filesystem.h"
 #include <memory>
 #include <limits>
 #include <stdexcept>
+#include <vector>
 
 // GLOBAL: WIZ8 0x005ec1a8
 const float g_float_negative_one_third = -0.3333333432674408f;
@@ -72,7 +72,6 @@ static W8GameData* ReadGeometry(std::unique_ptr<wiz8::File> file, bool secondary
     if (got_vertices == 0 && got_polygons == 0) {
         ReportBuildStatus(7, "ReadGameData: No polygons or vertices in GameData!\n");
     }
-    file->close();
     return game_data.release();
 }
 
@@ -100,13 +99,6 @@ W8GameData* ReadHostGameData(const std::filesystem::path& path, bool secondary)
     } catch (const std::exception& error) {
         ReportBuildStatus(7, error.what());
         return 0;
-    }
-}
-
-static void ReadGeometryRecord(wiz8::File& file, void* record, std::size_t bytes)
-{
-    if (file.read(record, bytes).bytes != bytes) {
-        throw std::runtime_error("ReadGameData: Truncated WGD record.");
     }
 }
 
@@ -162,8 +154,8 @@ unsigned char W8GameData::ReadWGDList(wiz8::File& file, int poly_type)
     if (poly_type < 0 || 2 < poly_type) {
         throw std::runtime_error("ReadWGDList: Invalid poly type.");
     }
-    ReadGeometryRecord(file, &vertex_count, 4);
-    ReadGeometryRecord(file, &face_count, 4);
+    file.read_exact(&vertex_count, 4);
+    file.read_exact(&face_count, 4);
     if (vertex_count < 0 || face_count < 0) {
         throw std::runtime_error("ReadWGDList: Negative geometry count.");
     }
@@ -172,194 +164,207 @@ unsigned char W8GameData::ReadWGDList(wiz8::File& file, int poly_type)
         m_iNumSurfaces > std::numeric_limits<int>::max() - face_count) {
         throw std::runtime_error("ReadWGDList: Too many geometry records.");
     }
-    if (face_count > 0 && vertex_count > 0) {
-        if (face_count < 0x30d41) {
-            if (vertex_count < 0x30d41) {
-                if (poly_type == 0) {
-                    m_pVertices = new srVector3T<float>[vertex_count];
-                    if (m_pVertices == nullptr) throw std::bad_alloc();
-                    m_pSurfaces =
-                        static_cast<W8GDSurface*>(malloc(face_count * sizeof(W8GDSurface)));
-                    if (m_pSurfaces == 0) {
-                        throw std::bad_alloc();
-                    }
-                } else {
-                    W8GDSurface* old_surfaces = m_pSurfaces;
-                    srVector3T<float>* old_vertices = m_pVertices;
-                    auto vertices = std::make_unique<srVector3T<float>[]>(m_iNumVertices + vertex_count);
-                    if (!vertices) throw std::bad_alloc();
-                    std::unique_ptr<W8GDSurface, decltype(&free)> surfaces(
-                        static_cast<W8GDSurface*>(malloc((m_iNumSurfaces + face_count) * sizeof(W8GDSurface))), &free);
-                    if (!surfaces) throw std::bad_alloc();
-                    if (m_iNumVertices != 0) {
-                        memcpy(vertices.get(), old_vertices, m_iNumVertices * sizeof(srVector3T<float>));
-                    }
-                    if (m_iNumSurfaces != 0) {
-                        memcpy(surfaces.get(), old_surfaces, m_iNumSurfaces * sizeof(W8GDSurface));
-                    }
-                    delete[] old_vertices;
-                    free(old_surfaces);
-                    m_pVertices = vertices.release();
-                    m_pSurfaces = surfaces.release();
-                    cond_faces.reset(static_cast<int*>(malloc(face_count * 3 * sizeof(int))));
-                    if (cond_faces == 0) {
-                        throw std::bad_alloc();
-                    }
-                    auto names = static_cast<char**>(calloc(m_iNumNames + face_count, sizeof(char*)));
-                    if (!names) throw std::bad_alloc();
-                    if (m_iNumNames != 0) {
-                        memcpy(names, m_ppNames, m_iNumNames * sizeof(char*));
-                    }
-                    free(m_ppNames);
-                    m_ppNames = names;
-                }
-                index = m_iNumVertices;
-                while (index < m_iNumVertices + vertex_count) {
-                    srVector3T<float> vertex;
-                    ReadGeometryRecord(file, &vertex, 0xc);
-                    m_pVertices[index].Set(vertex.x * g_world_scale, vertex.y * g_world_scale,
-                                           vertex.z * g_world_scale);
-                    if (index == m_iNumVertices) {
-                        minimum = vertex;
-                        maximum = vertex;
-                    } else {
-                        if (vertex.x < minimum.x) {
-                            minimum.x = vertex.x;
-                        }
-                        if (maximum.x < vertex.x) {
-                            maximum.x = vertex.x;
-                        }
-                        if (vertex.y < minimum.y) {
-                            minimum.y = vertex.y;
-                        }
-                        if (maximum.y < vertex.y) {
-                            maximum.y = vertex.y;
-                        }
-                        if (vertex.z < minimum.z) {
-                            minimum.z = vertex.z;
-                        }
-                        if (maximum.z < vertex.z) {
-                            maximum.z = vertex.z;
-                        }
-                    }
-                    ++index;
-                }
-                index = m_iNumSurfaces;
-                int* record = cond_faces.get();
-                while (index < m_iNumSurfaces + face_count) {
-                    W8GDFaceHeader header;
-                    W8GDFaceData data;
-                    W8GDExtendedFace extended;
-                    ReadGeometryRecord(file, &header, 0x1c);
-                    if (header.version != 2) {
-                        throw std::runtime_error("ReadWGDList: Wrong WGD version.");
-                    }
-                    for (int vertex : header.vertex_indices) {
-                        if (vertex < 0 || vertex >= vertex_count) {
-                            throw std::runtime_error("ReadWGDList: Invalid vertex index.");
-                        }
-                    }
-                    ReadGeometryRecord(file, &data, 0x18);
-                    if (poly_type != 0) {
-                        ReadGeometryRecord(file, &extended, 0x44);
-                        if (memchr(extended.name, '\0', sizeof(extended.name)) == nullptr) {
-                            throw std::runtime_error("ReadWGDList: Unterminated interface name.");
-                        }
-                    }
-                    W8GDSurface* surface = &m_pSurfaces[index];
-                    surface->contact_margin = data.contact_margin;
-                    surface->slope = data.slope;
-                    surface->chance = data.chance;
-                    surface->trigger_index = data.trigger_index;
-                    surface->footstep_material = data.material;
-                    surface->footstep_surface = data.surface;
-                    if (data.type == 1) {
-                        surface->flags = W8_GD_SURFACE_WALKABLE | W8_GD_SURFACE_PATHFINDING;
-                    } else {
-                        surface->flags = 0;
-                    }
-                    surface->plane.normal.Set(header.plane.x, header.plane.y, header.plane.z);
-                    float largest = static_cast<float>(fabs(surface->plane.normal.x));
-                    unsigned int axis = 0;
-                    if (largest < static_cast<float>(fabs(surface->plane.normal.y))) {
-                        largest = static_cast<float>(fabs(surface->plane.normal.y));
-                        axis = 1;
-                    }
-                    if (largest < static_cast<float>(fabs(surface->plane.normal.z))) {
-                        axis = 2;
-                    }
-                    surface->flags |= axis;
-                    surface->vertex_indices[0] = header.vertex_indices[0] + m_iNumVertices;
-                    surface->vertex_indices[1] = header.vertex_indices[1] + m_iNumVertices;
-                    surface->vertex_indices[2] = header.vertex_indices[2] + m_iNumVertices;
-                    surface->index = index;
-                    surface->trigger_index = 0;
-                    surface->edge_link[2] = -1;
-                    surface->edge_link[1] = -1;
-                    surface->edge_link[0] = -1;
-                    surface->hit_plane = 0;
-                    ClassifySurfacePlane(m_pVertices, surface);
-                    if (poly_type != 0) {
-                        record[1] = index;
-                        record[0] = 0;
-                        record[2] = extended.group;
-                        int existing_name = FindPointerByName(extended.name);
-                        if (existing_name != -1) {
-                            record[0] = existing_name;
-                        } else {
-                            name_index = m_iNumNames;
-                            m_ppNames[name_index] = static_cast<char*>(malloc(0x40));
-                            if (m_ppNames[name_index] == 0) {
-                                throw std::bad_alloc();
-                            }
-                            strcpy(m_ppNames[name_index], extended.name);
-                            if (m_iNumInterfaces == 0) {
-                                m_iNumInterfaces = 1;
-                            }
-                            record[0] = m_iNumInterfaces;
-                            ++m_iNumInterfaces;
-                            ++m_iNumNames;
-                        }
-                        surface->trigger_index = record[0];
-                        ++record_count;
-                        record += 3;
-                    }
-                    ++index;
-                }
-                ReadGeometryRecord(file, &bounds[1], 0xc);
-                ReadGeometryRecord(file, &bounds[0], 0xc);
-                for (index = 0; index < 3; ++index) {
-                    (&bounds[1].x)[index] = (&bounds[1].x)[index] * g_world_scale;
-                    (&bounds[0].x)[index] *= g_world_scale;
-                }
-                if (bounds[1].x < minimum.x) {
-                    minimum.x = bounds[1].x;
-                }
-                if (bounds[1].y < minimum.y) {
-                    minimum.y = bounds[1].y;
-                }
-                if (bounds[1].z < minimum.z) {
-                    minimum.z = bounds[1].z;
-                }
-                if (maximum.x < bounds[0].x) {
-                    maximum.x = bounds[0].x;
-                }
-                if (maximum.y < bounds[0].y) {
-                    maximum.y = bounds[0].y;
-                }
-                if (maximum.z < bounds[0].z) {
-                    maximum.z = bounds[0].z;
-                }
-                if (m_ppNames != 0 && cond_faces != 0) {
-                    CompileGDInterfaces(cond_faces.get(), record_count);
-                }
-                m_iNumVertices += vertex_count;
-                m_iNumSurfaces += face_count;
-                return 1;
+    if (face_count == 0 || vertex_count == 0)
+        return 0;
+    if (poly_type == 0 && (m_iNumVertices != 0 || m_iNumSurfaces != 0)) {
+        throw std::runtime_error("ReadWGDList: Primary bank already loaded.");
+    }
+    const auto bank_bytes =
+        static_cast<std::uint64_t>(vertex_count) * 12 +
+        static_cast<std::uint64_t>(face_count) * (poly_type == 0 ? 0x34 : 0x78) + 24;
+    if (file.size() - file.tell() < 0 ||
+        bank_bytes > static_cast<std::uint64_t>(file.size() - file.tell())) {
+        throw std::runtime_error("ReadWGDList: Truncated geometry bank.");
+    }
+    if (m_iNumNames > std::numeric_limits<int>::max() - face_count ||
+        m_iNumInterfaces > std::numeric_limits<int>::max() - face_count - 2) {
+        throw std::runtime_error("ReadWGDList: Too many interfaces.");
+    }
+    if (poly_type == 0) {
+        m_pVertices = new srVector3T<float>[vertex_count];
+        if (m_pVertices == nullptr)
+            throw std::bad_alloc();
+        m_pSurfaces = static_cast<W8GDSurface*>(malloc(face_count * sizeof(W8GDSurface)));
+        if (m_pSurfaces == 0) {
+            throw std::bad_alloc();
+        }
+    } else {
+        W8GDSurface* old_surfaces = m_pSurfaces;
+        srVector3T<float>* old_vertices = m_pVertices;
+        auto vertices = std::make_unique<srVector3T<float>[]>(m_iNumVertices + vertex_count);
+        if (!vertices)
+            throw std::bad_alloc();
+        std::unique_ptr<W8GDSurface, decltype(&free)> surfaces(
+            static_cast<W8GDSurface*>(malloc((m_iNumSurfaces + face_count) * sizeof(W8GDSurface))),
+            &free);
+        if (!surfaces)
+            throw std::bad_alloc();
+        if (m_iNumVertices != 0) {
+            memcpy(vertices.get(), old_vertices, m_iNumVertices * sizeof(srVector3T<float>));
+        }
+        if (m_iNumSurfaces != 0) {
+            memcpy(surfaces.get(), old_surfaces, m_iNumSurfaces * sizeof(W8GDSurface));
+        }
+        delete[] old_vertices;
+        free(old_surfaces);
+        m_pVertices = vertices.release();
+        m_pSurfaces = surfaces.release();
+        cond_faces.reset(static_cast<int*>(malloc(face_count * 3 * sizeof(int))));
+        if (cond_faces == 0) {
+            throw std::bad_alloc();
+        }
+        auto names = static_cast<char**>(calloc(m_iNumNames + face_count, sizeof(char*)));
+        if (!names)
+            throw std::bad_alloc();
+        if (m_iNumNames != 0) {
+            memcpy(names, m_ppNames, m_iNumNames * sizeof(char*));
+        }
+        free(m_ppNames);
+        m_ppNames = names;
+    }
+    index = m_iNumVertices;
+    while (index < m_iNumVertices + vertex_count) {
+        srVector3T<float> vertex;
+        file.read_exact(&vertex, 0xc);
+        m_pVertices[index].Set(vertex.x * g_world_scale, vertex.y * g_world_scale,
+                               vertex.z * g_world_scale);
+        if (index == m_iNumVertices) {
+            minimum = vertex;
+            maximum = vertex;
+        } else {
+            if (vertex.x < minimum.x) {
+                minimum.x = vertex.x;
+            }
+            if (maximum.x < vertex.x) {
+                maximum.x = vertex.x;
+            }
+            if (vertex.y < minimum.y) {
+                minimum.y = vertex.y;
+            }
+            if (maximum.y < vertex.y) {
+                maximum.y = vertex.y;
+            }
+            if (vertex.z < minimum.z) {
+                minimum.z = vertex.z;
+            }
+            if (maximum.z < vertex.z) {
+                maximum.z = vertex.z;
             }
         }
+        ++index;
     }
-    return 0;
+    index = m_iNumSurfaces;
+    int* record = cond_faces.get();
+    while (index < m_iNumSurfaces + face_count) {
+        W8GDFaceHeader header;
+        W8GDFaceData data;
+        W8GDExtendedFace extended;
+        file.read_exact(&header, 0x1c);
+        if (header.version != 2) {
+            throw std::runtime_error("ReadWGDList: Wrong WGD version.");
+        }
+        for (int vertex : header.vertex_indices) {
+            if (vertex < 0 || vertex >= vertex_count) {
+                throw std::runtime_error("ReadWGDList: Invalid vertex index.");
+            }
+        }
+        file.read_exact(&data, 0x18);
+        if (poly_type != 0) {
+            file.read_exact(&extended, 0x44);
+            if (memchr(extended.name, '\0', sizeof(extended.name)) == nullptr) {
+                throw std::runtime_error("ReadWGDList: Unterminated interface name.");
+            }
+        }
+        W8GDSurface* surface = &m_pSurfaces[index];
+        surface->contact_margin = data.contact_margin;
+        surface->slope = data.slope;
+        surface->chance = data.chance;
+        surface->trigger_index = data.trigger_index;
+        surface->footstep_material = data.material;
+        surface->footstep_surface = data.surface;
+        if (data.type == 1) {
+            surface->flags = W8_GD_SURFACE_WALKABLE | W8_GD_SURFACE_PATHFINDING;
+        } else {
+            surface->flags = 0;
+        }
+        surface->plane.normal.Set(header.plane.x, header.plane.y, header.plane.z);
+        float largest = static_cast<float>(fabs(surface->plane.normal.x));
+        unsigned int axis = 0;
+        if (largest < static_cast<float>(fabs(surface->plane.normal.y))) {
+            largest = static_cast<float>(fabs(surface->plane.normal.y));
+            axis = 1;
+        }
+        if (largest < static_cast<float>(fabs(surface->plane.normal.z))) {
+            axis = 2;
+        }
+        surface->flags |= axis;
+        surface->vertex_indices[0] = header.vertex_indices[0] + m_iNumVertices;
+        surface->vertex_indices[1] = header.vertex_indices[1] + m_iNumVertices;
+        surface->vertex_indices[2] = header.vertex_indices[2] + m_iNumVertices;
+        surface->index = index;
+        surface->trigger_index = 0;
+        surface->edge_link[2] = -1;
+        surface->edge_link[1] = -1;
+        surface->edge_link[0] = -1;
+        surface->hit_plane = 0;
+        ClassifySurfacePlane(m_pVertices, surface);
+        if (poly_type != 0) {
+            record[1] = index;
+            record[0] = 0;
+            record[2] = extended.group;
+            int existing_name = FindPointerByName(extended.name);
+            if (existing_name != -1) {
+                record[0] = existing_name;
+            } else {
+                name_index = m_iNumNames;
+                m_ppNames[name_index] = static_cast<char*>(malloc(0x40));
+                if (m_ppNames[name_index] == 0) {
+                    throw std::bad_alloc();
+                }
+                strcpy(m_ppNames[name_index], extended.name);
+                if (m_iNumInterfaces == 0) {
+                    m_iNumInterfaces = 1;
+                }
+                record[0] = m_iNumInterfaces;
+                ++m_iNumInterfaces;
+                ++m_iNumNames;
+            }
+            surface->trigger_index = record[0];
+            ++record_count;
+            record += 3;
+        }
+        ++index;
+    }
+    file.read_exact(&bounds[1], 0xc);
+    file.read_exact(&bounds[0], 0xc);
+    for (index = 0; index < 3; ++index) {
+        (&bounds[1].x)[index] = (&bounds[1].x)[index] * g_world_scale;
+        (&bounds[0].x)[index] *= g_world_scale;
+    }
+    if (bounds[1].x < minimum.x) {
+        minimum.x = bounds[1].x;
+    }
+    if (bounds[1].y < minimum.y) {
+        minimum.y = bounds[1].y;
+    }
+    if (bounds[1].z < minimum.z) {
+        minimum.z = bounds[1].z;
+    }
+    if (maximum.x < bounds[0].x) {
+        maximum.x = bounds[0].x;
+    }
+    if (maximum.y < bounds[0].y) {
+        maximum.y = bounds[0].y;
+    }
+    if (maximum.z < bounds[0].z) {
+        maximum.z = bounds[0].z;
+    }
+    if (m_ppNames != 0 && cond_faces != 0) {
+        CompileGDInterfaces(cond_faces.get(), record_count);
+    }
+    m_iNumVertices += vertex_count;
+    m_iNumSurfaces += face_count;
+    return 1;
 }
 
 /* Builds the switch-interface tables from the conditional-face triples
@@ -861,126 +866,130 @@ unsigned char W8EnvironRecord::RescaleToReference(const W8EnvironRecord* referen
 void W8GameData::ReadProcessedGameData(wiz8::File* handle)
 {
     W8ProcessedGameDataHeader header;
-    unsigned int bytes_read;
-    int index;
-
-    if (((bytes_read = handle->read(&header, sizeof(header)).bytes) == static_cast<std::size_t>(sizeof(header))) == 0) {
-        srAssertFail("fSuccess", "C:\\Projects\\Wizardry 8\\Engine Code\\GDFileIO.cpp", 0x465,
-                     "ReadProcessedGameData: Couldn't read GameData info.");
-    }
+    handle->read_exact(&header, sizeof(header));
     if (header.version != 1) {
-        srAssertFail("(FileGD.iVersion == GAMEDATA_VERSION)",
-                     "C:\\Projects\\Wizardry 8\\Engine Code\\GDFileIO.cpp", 0x46c,
-                     FormatString("ReadProcessedGameData: File version %d does not match program "
-                                "version %d.",
-                                header.version, 1));
+        throw std::runtime_error("ReadProcessedGameData: Unsupported version.");
+    }
+    const auto remaining = handle->size() - handle->tell();
+    std::uint64_t bytes = 0;
+    const auto count_bytes = [&](int count, std::size_t stride) {
+        if (count < 0 || count > std::numeric_limits<int>::max() - 2) {
+            throw std::runtime_error("ReadProcessedGameData: Invalid record count.");
+        }
+        bytes += static_cast<std::uint64_t>(count) * stride;
+    };
+    count_bytes(header.vertex_count, sizeof(srVector3T<float>));
+    count_bytes(header.surface_count, sizeof(W8GDSurface));
+    count_bytes(header.interface_count, sizeof(W8GDInterface));
+    count_bytes(header.state_count, sizeof(W8GDInterfaceState));
+    count_bytes(header.cond_poly_count, sizeof(int));
+    count_bytes(header.environ_count, sizeof(W8EnvironRecord));
+    // Trigger bits have no serialized bank; their IDs are carried by surfaces.
+    if (remaining < 0 || bytes > static_cast<std::uint64_t>(remaining) ||
+        header.trigger_count < 0 || header.trigger_count > header.surface_count ||
+        header.trigger_surface_base < 0 || header.trigger_surface_count < 0 ||
+        header.trigger_surface_base > header.surface_count ||
+        header.trigger_surface_count > header.surface_count - header.trigger_surface_base ||
+        header.integrated_surface_count < 0 ||
+        header.integrated_surface_count > header.surface_count) {
+        throw std::runtime_error("ReadProcessedGameData: Invalid geometry banks.");
     }
 
+    auto vertices = std::make_unique<srVector3T<float>[]>(header.vertex_count + 2);
+    std::unique_ptr<W8GDSurface, decltype(&free)> surfaces(
+        static_cast<W8GDSurface*>(
+            malloc((static_cast<std::size_t>(header.surface_count) + 2) * sizeof(W8GDSurface))),
+        &free);
+    std::unique_ptr<W8GDInterface, decltype(&free)> interfaces(
+        static_cast<W8GDInterface*>(
+            calloc(static_cast<std::size_t>(header.interface_count) + 1, sizeof(W8GDInterface))),
+        &free);
+    std::unique_ptr<W8GDInterfaceState, decltype(&free)> states(
+        static_cast<W8GDInterfaceState*>(
+            calloc(static_cast<std::size_t>(header.state_count) + 1, sizeof(W8GDInterfaceState))),
+        &free);
+    std::unique_ptr<int, decltype(&free)> cond_polys(
+        static_cast<int*>(
+            calloc(static_cast<std::size_t>(header.cond_poly_count) + 1, sizeof(int))),
+        &free);
+    std::unique_ptr<W8EnvironRecord*, decltype(&free)> environ_bank(
+        static_cast<W8EnvironRecord**>(
+            calloc(static_cast<std::size_t>(header.environ_count) + 1, sizeof(W8EnvironRecord*))),
+        &free);
+    if (!surfaces || !interfaces || !states || !cond_polys || !environ_bank) {
+        throw std::bad_alloc();
+    }
+    handle->read_exact(vertices.get(),
+                       static_cast<std::size_t>(header.vertex_count) * sizeof(srVector3T<float>));
+    handle->read_exact(surfaces.get(),
+                       static_cast<std::size_t>(header.surface_count) * sizeof(W8GDSurface));
+    handle->read_exact(interfaces.get(),
+                       static_cast<std::size_t>(header.interface_count) * sizeof(W8GDInterface));
+    handle->read_exact(states.get(),
+                       static_cast<std::size_t>(header.state_count) * sizeof(W8GDInterfaceState));
+    handle->read_exact(cond_polys.get(),
+                       static_cast<std::size_t>(header.cond_poly_count) * sizeof(int));
+    std::vector<std::unique_ptr<W8EnvironRecord>> environs;
+    environs.reserve(header.environ_count);
+    for (int index = 0; index < header.environ_count; ++index) {
+        auto record = std::make_unique<W8EnvironRecord>();
+        handle->read_exact(record.get(), sizeof(*record));
+        environs.push_back(std::move(record));
+    }
+    for (int index = 0; index < header.surface_count; ++index) {
+        for (int vertex : surfaces.get()[index].vertex_indices) {
+            if (vertex < 0 || vertex >= header.vertex_count) {
+                throw std::runtime_error("ReadProcessedGameData: Invalid vertex index.");
+            }
+        }
+    }
+    auto pending_bits = std::make_unique<BitArray>(header.trigger_count);
+    auto active_bits = std::make_unique<BitArray>(header.trigger_count);
+    if (!environs.empty() && environs[0]->RescaleToReference(0) != 0) {
+        for (std::size_t index = 1; index < environs.size(); ++index) {
+            environs[index]->RescaleToReference(environs[0].get());
+        }
+        environs[0]->RescaleToReference(environs[0].get());
+    }
+
+    const bool replace_active_environ =
+        m_iNumEnvirons > 0 && m_ppEnvirons && g_environ == m_ppEnvirons[0];
+    delete[] m_pVertices;
+    free(m_pSurfaces);
+    free(m_pInterfaces);
+    free(m_pStates);
+    free(m_piCondPolys);
+    delete pending_trigger_bits;
+    delete active_trigger_bits;
+    for (int index = 0; index < m_iNumEnvirons; ++index) {
+        delete m_ppEnvirons[index];
+    }
+    free(m_ppEnvirons);
     minimum = header.minimum;
     maximum = header.maximum;
+    m_iNumVertices = header.vertex_count;
     m_iNumSurfaces = header.surface_count;
     trigger_surface_base = header.trigger_surface_base;
     trigger_surface_count = header.trigger_surface_count;
     integrated_surface_count = header.integrated_surface_count;
-    m_iNumVertices = header.vertex_count;
     m_iNumInterfaces = header.interface_count;
     m_iNumStates = header.state_count;
     m_iNumTriggers = header.trigger_count;
     m_iNumCondPolys = header.cond_poly_count;
     m_iNumEnvirons = header.environ_count;
-
-    pending_trigger_bits = new BitArray(m_iNumTriggers);
-    active_trigger_bits = new BitArray(m_iNumTriggers);
-
-    m_pVertices = new srVector3T<float>[m_iNumVertices + 2];
-    if (m_pVertices == 0) {
-        srAssertFail("m_pVertices", "C:\\Projects\\Wizardry 8\\Engine Code\\GDFileIO.cpp", 0x483,
-                     "ReadProcessedGameData: Couldn't allocate vertices.");
+    m_pVertices = vertices.release();
+    m_pSurfaces = surfaces.release();
+    m_pInterfaces = interfaces.release();
+    m_pStates = states.release();
+    m_piCondPolys = cond_polys.release();
+    pending_trigger_bits = pending_bits.release();
+    active_trigger_bits = active_bits.release();
+    for (std::size_t index = 0; index < environs.size(); ++index) {
+        environ_bank.get()[index] = environs[index].release();
     }
-    if (((bytes_read = handle->read(m_pVertices, m_iNumVertices * sizeof(srVector3T<float>)).bytes) == static_cast<std::size_t>(m_iNumVertices * sizeof(srVector3T<float>))) ==
-        0) {
-        srAssertFail("fSuccess", "C:\\Projects\\Wizardry 8\\Engine Code\\GDFileIO.cpp", 0x487,
-                     "ReadProcessedGameData: Couldn't read vertices.\n");
-    }
-
-    m_pSurfaces =
-        static_cast<W8GDSurface*>(malloc((m_iNumSurfaces  + 2) * sizeof(*m_pSurfaces)));
-    if (m_pSurfaces == 0) {
-        srAssertFail("m_pSurfaces", "C:\\Projects\\Wizardry 8\\Engine Code\\GDFileIO.cpp", 0x48c,
-                     "ReadProcessedGameData: Couldn't allocate pSurfaces.");
-    }
-    if (((bytes_read = handle->read(m_pSurfaces, m_iNumSurfaces * sizeof(W8GDSurface)).bytes) == static_cast<std::size_t>(m_iNumSurfaces * sizeof(W8GDSurface))) == 0) {
-        srAssertFail("fSuccess", "C:\\Projects\\Wizardry 8\\Engine Code\\GDFileIO.cpp", 0x490,
-                     "ReadProcessedGameData: Couldn't read Surface info.");
-    }
-
-    if (m_iNumInterfaces != 0) {
-        m_pInterfaces =
-            static_cast<W8GDInterface*>(malloc((m_iNumInterfaces  + 1) * sizeof(*m_pInterfaces)));
-        if (m_pInterfaces == 0) {
-            srAssertFail("m_pInterfaces", "C:\\Projects\\Wizardry 8\\Engine Code\\GDFileIO.cpp",
-                         0x497, "ReadProcessedGameData: Couldn't allocate switch interface info.");
-        }
-        if (((bytes_read = handle->read(m_pInterfaces, m_iNumInterfaces * sizeof(W8GDInterface)).bytes) == static_cast<std::size_t>(m_iNumInterfaces * sizeof(W8GDInterface))) == 0) {
-            srAssertFail("fSuccess", "C:\\Projects\\Wizardry 8\\Engine Code\\GDFileIO.cpp", 0x49a,
-                         "ReadProcessedGameData: Couldn't read switch interface info.");
-        }
-    }
-
-    if (m_iNumStates != 0) {
-        m_pStates =
-            static_cast<W8GDInterfaceState*>(malloc((m_iNumStates  + 1) * sizeof(*m_pStates)));
-        if (m_pStates == 0) {
-            srAssertFail("m_pStates", "C:\\Projects\\Wizardry 8\\Engine Code\\GDFileIO.cpp", 0x4a2,
-                         "ReadProcessedGameData: Couldn't allocate switch state info.");
-        }
-        if (((bytes_read = handle->read(m_pStates, m_iNumStates * sizeof(W8GDInterfaceState)).bytes) == static_cast<std::size_t>(m_iNumStates * sizeof(W8GDInterfaceState))) ==
-            0) {
-            srAssertFail("fSuccess", "C:\\Projects\\Wizardry 8\\Engine Code\\GDFileIO.cpp", 0x4a5,
-                         "ReadProcessedGameData: Couldn't read switch state info.");
-        }
-    }
-
-    if (m_iNumCondPolys != 0) {
-        m_piCondPolys = static_cast<int*>(malloc(m_iNumCondPolys * sizeof(*m_piCondPolys) + sizeof(*m_piCondPolys)));
-        if (m_piCondPolys == 0) {
-            srAssertFail("m_piCondPolys", "C:\\Projects\\Wizardry 8\\Engine Code\\GDFileIO.cpp",
-                         0x4ad, "ReadProcessedGameData: Couldn't allocate switch state info.");
-        }
-        if (((bytes_read = handle->read(m_piCondPolys, m_iNumCondPolys * sizeof(unsigned int)).bytes) == static_cast<std::size_t>(m_iNumCondPolys * sizeof(unsigned int))) ==
-            0) {
-            srAssertFail("fSuccess", "C:\\Projects\\Wizardry 8\\Engine Code\\GDFileIO.cpp", 0x4b0,
-                         "ReadProcessedGameData: Couldn't read conditional poly list.");
-        }
-    }
-
-    if (m_iNumEnvirons != 0) {
-        m_ppEnvirons = static_cast<W8EnvironRecord**>(malloc(m_iNumEnvirons * sizeof(void*)));
-        if (m_ppEnvirons == 0) {
-            srAssertFail("m_ppEnvirons", "C:\\Projects\\Wizardry 8\\Engine Code\\GDFileIO.cpp",
-                         0x4b8, "ReadProcessedGameData: Couldn't allocate environment info.");
-        }
-        memset(m_ppEnvirons, 0, m_iNumEnvirons * sizeof(void*));
-        for (index = 0; index < m_iNumEnvirons; ++index) {
-            W8EnvironRecord* environ_record = new W8EnvironRecord();
-            if (environ_record == 0) {
-                srAssertFail("m_ppEnvirons[i]",
-                             "C:\\Projects\\Wizardry 8\\Engine Code\\GDFileIO.cpp", 0x4be,
-                             "ReadProcessedGameData: Couldn't allocate environment.");
-            }
-            m_ppEnvirons[index] = environ_record;
-            if (((bytes_read = handle->read(environ_record, sizeof(*environ_record)).bytes) == static_cast<std::size_t>(sizeof(*environ_record))) == 0) {
-                srAssertFail("fSuccess", "C:\\Projects\\Wizardry 8\\Engine Code\\GDFileIO.cpp",
-                             0x4c2, "ReadProcessedGameData: Couldn't read GD_Environ.");
-            }
-        }
-        m_ppEnvirons[0]->RescaleToReference(0);
-        if (m_ppEnvirons[0]->RescaleToReference(0) != 0) {
-            for (index = 1; index < m_iNumEnvirons; ++index) {
-                m_ppEnvirons[index]->RescaleToReference(m_ppEnvirons[0]);
-            }
-            m_ppEnvirons[0]->RescaleToReference(m_ppEnvirons[0]);
-        }
+    m_ppEnvirons = environ_bank.release();
+    if (replace_active_environ) {
+        g_environ = m_iNumEnvirons > 0 ? m_ppEnvirons[0] : nullptr;
     }
 }
 
@@ -1549,39 +1558,16 @@ unsigned char W8GameData::WriteGameData(wiz8::File* handle)
         ReportBuildStatus(7, "WriteGameData: File not open.\n");
         return 0;
     }
-    if ((handle->write(&header, sizeof(header)), true) == 0) {
-        ReportBuildStatus(7, "WriteGameData: Couldn't write GameData info.\n");
-        return 0;
-    }
-    if ((handle->write(m_pVertices, m_iNumVertices * sizeof(srVector3T<float>)), true) == 0) {
-        ReportBuildStatus(7, "WriteGameData: Couldn't write vertex info.\n");
-        return 0;
-    }
-    if ((handle->write(m_pSurfaces, m_iNumSurfaces * sizeof(W8GDSurface)), true) == 0) {
-        ReportBuildStatus(7, "WriteGameData: Couldn't write Surface info.\n");
-        return 0;
-    }
-    if (m_iNumInterfaces != 0 &&
-        (handle->write(m_pInterfaces, m_iNumInterfaces * sizeof(W8GDInterface)), true) == 0) {
-        ReportBuildStatus(7, "WriteGameData: Couldn't write switch interface info.\n");
-        return 0;
-    }
-    if (m_iNumStates != 0 &&
-        (handle->write(m_pStates, m_iNumStates * sizeof(W8GDInterfaceState)), true) == 0) {
-        ReportBuildStatus(7, "WriteGameData: Couldn't write switch state info.\n");
-        return 0;
-    }
-    if (m_iNumCondPolys != 0 && (handle->write(m_piCondPolys, m_iNumCondPolys * 4), true) == 0) {
-        ReportBuildStatus(7, "WriteGameData: Couldn't write conditional poly list.\n");
-        return 0;
-    }
-    if (m_iNumEnvirons != 0) {
-        for (index = 0; index < m_iNumEnvirons; ++index) {
-            if ((handle->write(m_ppEnvirons[index], sizeof(W8EnvironRecord)), true) == 0) {
-                ReportBuildStatus(7, "WriteGameData: Couldn't write GD_Environ.\n");
-                return 0;
-            }
-        }
+    handle->write(&header, sizeof(header));
+    handle->write(m_pVertices,
+                  static_cast<std::size_t>(m_iNumVertices) * sizeof(srVector3T<float>));
+    handle->write(m_pSurfaces, static_cast<std::size_t>(m_iNumSurfaces) * sizeof(W8GDSurface));
+    handle->write(m_pInterfaces,
+                  static_cast<std::size_t>(m_iNumInterfaces) * sizeof(W8GDInterface));
+    handle->write(m_pStates, static_cast<std::size_t>(m_iNumStates) * sizeof(W8GDInterfaceState));
+    handle->write(m_piCondPolys, static_cast<std::size_t>(m_iNumCondPolys) * sizeof(int));
+    for (index = 0; index < m_iNumEnvirons; ++index) {
+        handle->write(m_ppEnvirons[index], sizeof(W8EnvironRecord));
     }
     return 1;
 }
