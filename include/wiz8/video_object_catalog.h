@@ -1,6 +1,7 @@
 #ifndef WIZ8_VIDEO_OBJECT_CATALOG_H
 #define WIZ8_VIDEO_OBJECT_CATALOG_H
 #include <memory>
+#include <string>
 
 #include "vobject.h"
 #include "vsurface.h"
@@ -13,7 +14,7 @@ struct W8VideoObjectSlot {
 enum W8VideoStorageKind { W8_VIDEO_STORAGE_OBJECT = 0, W8_VIDEO_STORAGE_SURFACE = 1 };
 
 struct W8VideoFrame {
-    char path[0x30];
+    std::string path;
     W8VideoStorageKind storage_kind;
     bool loaded;
     unsigned int handle;

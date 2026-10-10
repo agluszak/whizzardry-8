@@ -1,8 +1,10 @@
 #ifndef WIZ8_UTILITY_H
 #define WIZ8_UTILITY_H
 
+#include <string>
+#include <string_view>
+
 #include "wiz8/local_code/ControlsRect.h"
-#include <wchar.h>
 #include "wiz8/application.h"
 
 #include "wiz8/dice.h"
@@ -29,11 +31,7 @@ void ClampUnsignedInteger(unsigned int* value, unsigned int minimum, unsigned in
 int CompareUnsignedDescending(const void* first, const void* second);
 int CompareSignedAscending(const void* first, const void* second);
 int CompareSignedDescending(const void* first, const void* second);
-char* FormatString(const char* format, ...);
-wchar_t* FormatWideString(const wchar_t* format, ...);
-wchar_t* ConvertStringToWide(const char* string);
-char* ConvertWideStringToString(const wchar_t* string);
-wchar_t* FormatUnsignedIntegerWithCommas(wchar_t* output, unsigned int value);
+std::string FormatUnsignedIntegerWithCommas(unsigned int value);
 char* TitleCaseString(char* string);
 float ShortestAngleDistance(float first, float second);
 void UnionScreenRects(const W8ScreenRect* first, const W8ScreenRect* second, W8ScreenRect* result);
@@ -42,7 +40,7 @@ void AdjustByteByPercent(unsigned char* value, unsigned int percent);
 void AdjustIntegerByPercent(unsigned int* value, unsigned int percent);
 float NormalizeAngle(float angle);
 
-void FormatDebugMessage(int channel, const char* format, ...);
+void DebugMessage(int channel, std::string_view message);
 /* The plain message reporter. ReadLevel.cpp uses it for load failures and
    GrCycle.cpp for a cycle with no usable LOD, so its name stays neutral. */
 int GetRandomCharacter(int require_primary, int require_secondary, int excluded_slot,
@@ -56,9 +54,5 @@ unsigned int GetRandomPartySlots(int require_primary, int require_secondary,
                                  unsigned int excluded_slot, unsigned int* selected,
                                  unsigned int count, bool skip_first_two);
 
-/* Shared "%d/%d" format literal; the definition is the GLOBAL in
-   CGSStatsPage.cpp. */
-/* Shared "%.1f" format literal; the definition is the GLOBAL in
-   Dialog Code\AssayDialog.cpp. */
 
 #endif

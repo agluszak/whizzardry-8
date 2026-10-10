@@ -1,3 +1,6 @@
+#include <fmt/format.h>
+#include "wiz8/unicode.h"
+#include <string>
 #include <stdarg.h>
 #include "wiz8/integer_constants.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
@@ -56,7 +59,6 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <wchar.h>
 
 
 /* The world-cursor node the party is standing in, tracked across the
@@ -300,8 +302,8 @@ static unsigned char WorldCursorNodeShowMessageOnce(int command, W8WorldCursorNo
     bool result;
     char* shown;
     int slot;
-    char path[512];
-    wchar_t text[2048];
+    std::string path;
+    std::string text;
 
     result = false;
     message_id = GetWorldCursorNodeParameter(node, 0);
@@ -335,8 +337,8 @@ command_check:
         if (folder == 0) {
             folder = "Test";
         }
-        sprintf(path, "Data\\Messages\\%s.msg", folder);
-        if (GetStringFromStringDatabase(path, message_id, text, 0, 0) != 0) {
+        path = fmt::format("Data\\Messages\\{}.msg", folder);
+        if ((!(text = GetStringFromStringDatabase(path, message_id, 0, 0)).empty()) != 0) {
             ShowString(text);
         }
     }
@@ -351,8 +353,8 @@ static unsigned char WorldCursorNodeShowContextMessage(int command, W8WorldCurso
 {
     const char* folder;
     int message_id;
-    char path[512];
-    wchar_t text[2046];
+    std::string path;
+    std::string text;
 
     folder = GetLevelFolderName(GetLoadedLevelID());
     if (command != 4) {
@@ -363,9 +365,9 @@ static unsigned char WorldCursorNodeShowContextMessage(int command, W8WorldCurso
         if (folder == 0) {
             folder = "Test";
         }
-        sprintf(path, "Data\\Messages\\%s.msg", folder);
-        if (GetStringFromStringDatabase(path, message_id, text, 0, 0) != 0) {
-            if (wcslen(text) != 0 && g_current_screen_state.id == W8_SCREEN_MAIN_GAME) {
+        path = fmt::format("Data\\Messages\\{}.msg", folder);
+        if ((!(text = GetStringFromStringDatabase(path, message_id, 0, 0)).empty()) != 0) {
+            if (text.size() != 0 && g_current_screen_state.id == W8_SCREEN_MAIN_GAME) {
                 ShowString(text);
             }
         }
@@ -379,8 +381,8 @@ static unsigned char WorldCursorNodeShowMessage(int command, W8WorldCursorNode* 
 {
     const char* folder;
     int message_id;
-    char path[512];
-    wchar_t text[2048];
+    std::string path;
+    std::string text;
 
     folder = GetLevelFolderName(GetLoadedLevelID());
     if (command != 3) {
@@ -390,9 +392,9 @@ static unsigned char WorldCursorNodeShowMessage(int command, W8WorldCursorNode* 
     if (folder == 0) {
         folder = "Test";
     }
-    sprintf(path, "Data\\Messages\\%s.msg", folder);
-    if (GetStringFromStringDatabase(path, message_id, text, 0, 0) != 0) {
-        if (wcslen(text) != 0) {
+    path = fmt::format("Data\\Messages\\{}.msg", folder);
+    if ((!(text = GetStringFromStringDatabase(path, message_id, 0, 0)).empty()) != 0) {
+        if (text.size() != 0) {
             ShowString(text);
         }
     }
@@ -586,15 +588,15 @@ static unsigned char WorldCursorNodePartyVoice(int command, W8WorldCursorNode* n
 unsigned char ShowLevelMessage(int message_id)
 {
     const char* folder;
-    char path[512];
-    wchar_t text[2000];
+    std::string path;
+    std::string text;
 
     folder = GetLevelFolderName(GetLoadedLevelID());
     if (folder == 0) {
         folder = "Test";
     }
-    sprintf(path, "Data\\Messages\\%s.msg", folder);
-    if (GetStringFromStringDatabase(path, message_id, text, 0, 0) != 0) {
+    path = fmt::format("Data\\Messages\\{}.msg", folder);
+    if ((!(text = GetStringFromStringDatabase(path, message_id, 0, 0)).empty()) != 0) {
         ShowString(text);
         return 1;
     }
@@ -643,8 +645,7 @@ static void BindLevelTrigger(const char* name, Trigger::ActivationCallback callb
     Trigger* trigger = FindTriggerByName(name);
     if (trigger == 0) {
         srAssertFail("pTrigger", MASTER_FUNCTION_CPP, line,
-                     FormatString(/* reinterpret-ok: SGP rotating debug buffer */
-                                "Missing trigger '%s'! It's not in the LVL file!", name));
+                     fmt::format("Missing trigger '{}'! It's not in the LVL file!", name));
     }
     trigger->activation_callback = callback;
 }
@@ -966,57 +967,50 @@ void InitializeLevelMasterFunctions(int level)
         pTrigger = FindTriggerByName("fire_trig_plane01");
         if (pTrigger == 0) {
             srAssertFail("pTrigger", MASTER_FUNCTION_CPP, 0x5ee,
-                         FormatString(/* reinterpret-ok: SGP rotating debug buffer */
-                                    "Missing trigger '%s'! It's not in the LVL file!",
-                                    "fire_trig_plane01"));
+                         fmt::format("Missing trigger '{}'! It's not in the LVL file!",
+                                     "fire_trig_plane01"));
         }
         pTrigger->activation_callback = SwampFirePlane;
         pTrigger = FindTriggerByName("fire_trig_plane02");
         if (pTrigger == 0) {
             srAssertFail("pTrigger", MASTER_FUNCTION_CPP, 0x5ee,
-                         FormatString(/* reinterpret-ok: SGP rotating debug buffer */
-                                    "Missing trigger '%s'! It's not in the LVL file!",
-                                    "fire_trig_plane02"));
+                         fmt::format("Missing trigger '{}'! It's not in the LVL file!",
+                                     "fire_trig_plane02"));
         }
         pTrigger->activation_callback = SwampFirePlane;
         pTrigger = FindTriggerByName("fire_trig_plane03");
         if (pTrigger == 0) {
             srAssertFail("pTrigger", MASTER_FUNCTION_CPP, 0x5ee,
-                         FormatString(/* reinterpret-ok: SGP rotating debug buffer */
-                                    "Missing trigger '%s'! It's not in the LVL file!",
-                                    "fire_trig_plane03"));
+                         fmt::format("Missing trigger '{}'! It's not in the LVL file!",
+                                     "fire_trig_plane03"));
         }
         pTrigger->activation_callback = SwampFirePlane;
         pTrigger = FindTriggerByName("fire_trig_plane04");
         if (pTrigger == 0) {
             srAssertFail("pTrigger", MASTER_FUNCTION_CPP, 0x5ee,
-                         FormatString(/* reinterpret-ok: SGP rotating debug buffer */
-                                    "Missing trigger '%s'! It's not in the LVL file!",
-                                    "fire_trig_plane04"));
+                         fmt::format("Missing trigger '{}'! It's not in the LVL file!",
+                                     "fire_trig_plane04"));
         }
         pTrigger->activation_callback = SwampFirePlane;
         pTrigger = FindTriggerByName("fire_trig_plane05");
         if (pTrigger == 0) {
             srAssertFail("pTrigger", MASTER_FUNCTION_CPP, 0x5ee,
-                         FormatString(/* reinterpret-ok: SGP rotating debug buffer */
-                                    "Missing trigger '%s'! It's not in the LVL file!",
-                                    "fire_trig_plane05"));
+                         fmt::format("Missing trigger '{}'! It's not in the LVL file!",
+                                     "fire_trig_plane05"));
         }
         pTrigger->activation_callback = SwampFirePlane;
         pTrigger = FindTriggerByName("fire_trig_plane06");
         if (pTrigger == 0) {
             srAssertFail("pTrigger", MASTER_FUNCTION_CPP, 0x5ee,
-                         FormatString(/* reinterpret-ok: SGP rotating debug buffer */
-                                    "Missing trigger '%s'! It's not in the LVL file!",
-                                    "fire_trig_plane06"));
+                         fmt::format("Missing trigger '{}'! It's not in the LVL file!",
+                                     "fire_trig_plane06"));
         }
         pTrigger->activation_callback = SwampFirePlane;
         pTrigger = FindTriggerByName("fire_trig_plane07");
         if (pTrigger == 0) {
             srAssertFail("pTrigger", MASTER_FUNCTION_CPP, 0x5ee,
-                         FormatString(/* reinterpret-ok: SGP rotating debug buffer */
-                                    "Missing trigger '%s'! It's not in the LVL file!",
-                                    "fire_trig_plane07"));
+                         fmt::format("Missing trigger '{}'! It's not in the LVL file!",
+                                     "fire_trig_plane07"));
         }
         pTrigger->activation_callback = SwampFirePlane;
         return;

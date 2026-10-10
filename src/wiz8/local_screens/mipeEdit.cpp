@@ -1,3 +1,4 @@
+#include <fmt/format.h>
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
@@ -8,6 +9,7 @@
 #include "wiz8/float_constants.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/mipe.h"
+#include "wiz8/unicode.h"
 #include "wiz8/sr_api.h"
 #include "input.h"
 
@@ -22,17 +24,17 @@ static signed char g_mipe_edit_decimal = -1;
 
 /* Row labels for the prop field editor, one per W8MipeEditField label_index. */
 // GLOBAL: WIZ8 0x0064e004
-static wchar_t g_mipe_prop_labels[][0x80] = {
-    L"Open",   L"Lockable", L"Locked",   L"AutoLocking", L"One Way",
-    L"Secret", L"Found",    L"Jammable", L"Jammed",      L"Key",
+static constexpr std::string_view g_mipe_prop_labels[] = {
+    "Open",   "Lockable", "Locked",   "AutoLocking", "One Way",
+    "Secret", "Found",    "Jammable", "Jammed",      "Key",
 };
 
 /* Key names for the type-7 "Key" row, indexed by option_base + value. */
 // GLOBAL: WIZ8 0x0064ea04
-static wchar_t g_mipe_key_names[][0x80] = {
-    L"Any Key",
-    L"Master Key",
-    L"Gold Key",
+static constexpr std::string_view g_mipe_key_names[] = {
+    "Any Key",
+    "Master Key",
+    "Gold Key",
 };
 
 /* The door-prop field table: the nine W8DoorTriggerActionData bit fields
@@ -40,10 +42,10 @@ static wchar_t g_mipe_key_names[][0x80] = {
    CommitMipeEditFields. */
 // GLOBAL: WIZ8 0x0064ed08
 static W8MipeEditField g_mipe_prop_fields[10] = {
-    {5, 0, 0, 0, 0, 0.0f, 1}, {5, 1, 0, 0, 0, 0.0f, 1}, {5, 2, 0, 0, 0, 0.0f, 1},
-    {5, 3, 0, 0, 0, 0.0f, 1}, {5, 4, 0, 0, 0, 0.0f, 1}, {5, 5, 0, 0, 0, 0.0f, 1},
-    {5, 6, 0, 0, 0, 0.0f, 1}, {5, 7, 0, 0, 0, 0.0f, 1}, {5, 8, 0, 0, 0, 0.0f, 1},
-    {7, 9, 3, 0, 0, 0.0f, 0},
+    {5, 0, 0, 0, {}, 0.0f, 1}, {5, 1, 0, 0, {}, 0.0f, 1}, {5, 2, 0, 0, {}, 0.0f, 1},
+    {5, 3, 0, 0, {}, 0.0f, 1}, {5, 4, 0, 0, {}, 0.0f, 1}, {5, 5, 0, 0, {}, 0.0f, 1},
+    {5, 6, 0, 0, {}, 0.0f, 1}, {5, 7, 0, 0, {}, 0.0f, 1}, {5, 8, 0, 0, {}, 0.0f, 1},
+    {7, 9, 3, 0, {}, 0.0f, 0},
 };
 
 /* Field table per variable set; only set 0 (prop trigger flags) exists. */
@@ -88,13 +90,12 @@ void HandleMipeEditPropKey(unsigned short key)
     W8MipeEditField* fields = state->edit_fields;
     W8MipeEditField* field;
     Trigger* trigger;
-    size_t len;
 
     if (key == 8) {
         if (state->edit_selection != -1) {
             field = &fields[static_cast<int>(state->edit_selection)];
-            if (field->type == 6 && field->text != 0 && static_cast<int>(wcslen(field->text)) > 0) {
-                field->text[wcslen(field->text) - 1] = 0;
+            if (field->type == 6 && !field->text.empty()) {
+                field->text.resize(wiz8::text::previous_grapheme(field->text, field->text.size()));
             }
             MIPE_REDRAW_EDIT_FIELDS();
         }
@@ -104,18 +105,10 @@ void HandleMipeEditPropKey(unsigned short key)
         state->edit_selection != -1) {
         field = &fields[static_cast<int>(state->edit_selection)];
         if (field->type == 6) {
-            if (field->text == 0) {
-                field->text = static_cast<wchar_t*>(malloc(0x80 * sizeof(*field->text)));
-                field->text[0] = 0;
+            if (key != 0x20 && gfKeyState[VK_SHIFT] == 0 && (key < 0x30 || key > 0x39)) {
+                key += 0x20;
             }
-            len = wcslen(field->text);
-            if (static_cast<int>(len) < 0x7e) {
-                if (key != 0x20 && gfKeyState[VK_SHIFT] == 0 && (key < 0x30 || key > 0x39)) {
-                    key += 0x20;
-                }
-                field->text[len] = key;
-                field->text[len + 1] = 0;
-            }
+            field->text.push_back(static_cast<char>(key));
             MIPE_REDRAW_EDIT_FIELDS();
         }
         return;
@@ -170,8 +163,8 @@ void HandleMipeEditPropKey(unsigned short key)
             g_mipe_edit_accum = 0.0f;
             field = &fields[static_cast<int>(state->edit_selection)];
             g_mipe_edit_decimal = -1;
-            if (field->type == 6 && field->text != 0) {
-                field->text[0] = 0;
+            if (field->type == 6) {
+                field->text.clear();
             }
         } else {
             field = &fields[static_cast<int>(state->edit_selection)];
@@ -219,30 +212,32 @@ static void DrawMipeEditFieldRow(W8MipeEditField* field, unsigned int palette, c
 {
     if (field->type == 1) {
         if (g_mipe_edit_decimal == 0) {
-            ShowNoticef(palette, L"%d) %s: %g.", static_cast<int>(row),
-                        g_mipe_prop_labels[field->label_index], field->float_value);
+            ShowNotice(palette,
+                       fmt::format("{:d}) {}: {:g}.", static_cast<int>(row),
+                                   g_mipe_prop_labels[field->label_index], field->float_value));
         } else {
-            ShowNoticef(palette, L"%d) %s: %g", static_cast<int>(row),
-                        g_mipe_prop_labels[field->label_index], field->float_value);
+            ShowNotice(palette,
+                       fmt::format("{:d}) {}: {:g}", static_cast<int>(row),
+                                   g_mipe_prop_labels[field->label_index], field->float_value));
         }
     } else if (field->type == 2 || field->type == 4) {
-        ShowNoticef(palette, L"%d) %s: %d", static_cast<int>(row),
-                    g_mipe_prop_labels[field->label_index], field->value);
+        ShowNotice(palette, fmt::format("{:d}) {}: {:d}", static_cast<int>(row),
+                                        g_mipe_prop_labels[field->label_index], field->value));
     } else if (field->type == 5) {
         if (field->value != 0) {
-            ShowNoticef(palette, L"%d) %s: true", static_cast<int>(row),
-                        g_mipe_prop_labels[field->label_index]);
+            ShowNotice(palette, fmt::format("{:d}) {}: true", static_cast<int>(row),
+                                            g_mipe_prop_labels[field->label_index]));
         } else {
-            ShowNoticef(palette, L"%d) %s: false", static_cast<int>(row),
-                        g_mipe_prop_labels[field->label_index]);
+            ShowNotice(palette, fmt::format("{:d}) {}: false", static_cast<int>(row),
+                                            g_mipe_prop_labels[field->label_index]));
         }
     } else if (field->type == 6) {
-        ShowNoticef(palette, L"%d) %s: %s", static_cast<int>(row),
-                    g_mipe_prop_labels[field->label_index], field->text);
+        ShowNotice(palette, fmt::format("{:d}) {}: {}", static_cast<int>(row),
+                                        g_mipe_prop_labels[field->label_index], field->text));
     } else if (field->type == 7) {
-        ShowNoticef(palette, L"%d) %s: %s", static_cast<int>(row),
-                    g_mipe_prop_labels[field->label_index],
-                    g_mipe_key_names[field->option_base + field->value]);
+        ShowNotice(palette, fmt::format("{:d}) {}: {}", static_cast<int>(row),
+                                        g_mipe_prop_labels[field->label_index],
+                                        g_mipe_key_names[field->option_base + field->value]));
     }
 }
 

@@ -1,3 +1,4 @@
+#include <string_view>
 #ifndef WIZ8_LOCAL_CODE_PARTYIMPORT_H
 #define WIZ8_LOCAL_CODE_PARTYIMPORT_H
 #include "wiz8/character_skills.h"
@@ -52,11 +53,11 @@ void ImportWizardry7Character(W8Character* character, W8Wiz7Character* imported)
 
 /* Parse the Wizardry 7 save into the import globals - character
    count, records, ending/difficulty selectors and the 96 flag bits. */
-unsigned char LoadWizardry7ImportFile(char* path);
+unsigned char LoadWizardry7ImportFile(std::string_view path);
 /* Load the file, reset the run, seed 2500 gold and convert every
    imported record into a regular party member. 0 ok, 1 load/pool failure,
    2 when the ending selector carries the value three. */
-unsigned char ImportWizardry7Party(char* path);
+unsigned char ImportWizardry7Party(std::string_view path);
 
 extern int g_import_character_count;
 extern bool g_import_ending_record;

@@ -1,117 +1,93 @@
+#include <regex>
 #include "wiz8/sr_api.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/string_database.h"
-#include "wiz8/virtual_file.h"
 #include "wiz8/filesystem.h"
-
-#include <stdlib.h>
-#include <string.h>
+#include "wiz8/unicode.h"
+#include <vector>
+#include <stdexcept>
 
 // GLOBAL: WIZ8 0x0068c098
 int giStringListLen;
 // GLOBAL: WIZ8 0x0068c09c
-wchar_t** gppStringList;
+std::vector<std::string> g_localized_strings;
 
-/* Read one entry of a .msg string database. The file ends with the
-   entry table; each record carries two metadata dwords, then the code-unit
-   count and the text itself. The fifth header byte selects the 0x9697 text
-   encoding, and the count guard admits at most 0x7D0 code units, which is the
-   shared quote buffer's proven extent. */
 // FUNCTION: WIZ8 0x0052FF80
-unsigned char GetStringFromStringDatabase(const char* path, int index, wchar_t* output,
+std::string GetStringFromStringDatabase(std::string_view path, int index,
                                           unsigned int* metadata_00, unsigned int* metadata_04)
 try
 {
-    std::unique_ptr<wiz8::File> handle;
+    auto handle = wiz8::open_file(path);
     unsigned char header[5];
-    wchar_t* destination;
+    handle->read_exact(header, sizeof(header));
     int count;
-    int entry_offset;
-    int length;
-    int character;
-
-    destination = output;
-    *output = 0;
-    handle = [&]() { try { return wiz8::open_file(const_cast<char*>(path), wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
-    if (!handle) {
-        return 0;
-    }
-    handle->read_exact(header, 5);
-    handle->seek(-static_cast<std::int64_t>(8), wiz8::SeekOrigin::end);
+    handle->seek(-8, wiz8::SeekOrigin::end);
     handle->read_exact(&count, 4);
-    if (index < count) {
-        handle->seek(-static_cast<std::int64_t>((count - index) * 4 + 8), wiz8::SeekOrigin::end);
-        handle->read_exact(&entry_offset, 4);
-        handle->seek(entry_offset, wiz8::SeekOrigin::begin);
-        if (metadata_00) {
-            handle->read_exact(metadata_00, 4);
-        } else {
-            handle->seek(4, wiz8::SeekOrigin::current);
-        }
-        if (metadata_04) {
-            handle->read_exact(metadata_04, 4);
-        } else {
-            handle->seek(4, wiz8::SeekOrigin::current);
-        }
-        handle->read_exact(&length, 4);
-        if (length <= 0x7d0) {
-            handle->read_exact(destination, length * 2);
-            if (header[4] && length > 0) {
-                for (character = 0; character < length; ++character) {
-                    destination[character] = static_cast<wchar_t>(~destination[character] + 0x9697);
-                }
-            }
-            if (handle) handle->close();
-            handle.reset();
-            return 1;
-        }
-    }
-    if (handle) handle->close();
-    handle.reset();
-    return 0;
+    if (index < 0 || count < 0 || index >= count) return {};
+    int entry_offset;
+    handle->seek(-static_cast<std::int64_t>((count - index) * 4LL + 8), wiz8::SeekOrigin::end);
+    handle->read_exact(&entry_offset, 4);
+    if (entry_offset < 5) return {};
+    handle->seek(entry_offset, wiz8::SeekOrigin::begin);
+    unsigned int first, second;
+    handle->read_exact(&first, 4);
+    handle->read_exact(&second, 4);
+    int length;
+    handle->read_exact(&length, 4);
+    if (length < 0 || length > 2000) return {};
+    std::vector<std::byte> bytes(static_cast<std::size_t>(length) * 2);
+    handle->read_exact(bytes.data(), bytes.size());
+    const auto text = wiz8::text::from_utf16le(bytes, header[4] != 0);
+    if (metadata_00) *metadata_00 = first;
+    if (metadata_04) *metadata_04 = second;
+    return text;
 }
-catch (const std::exception&) { return false; }
+catch (const std::exception&) { return {}; }
 
-// FUNCTION: WIZ8 0x005300e0
-void DecodeLocalizedText(wchar_t* text, int character_count)
+// FUNCTION: WIZ8 0x00518500
+void ReleaseLocalizedStrings()
 {
-    while (character_count-- > 0) {
-        *text = static_cast<unsigned short>(~*text + 0x9697);
-        ++text;
-    }
+    giStringListLen = 0;
+    g_localized_strings.clear();
 }
 
-// STRING: WIZ8 0x0061a4ec
-#define STRINGS_CPP "C:\\Projects\\Wizardry 8\\Local Code\\Strings.cpp"
+// Windows localization uses %S for UTF-16 strings and I64 for integers.
+// Convert that vocabulary once during import; {fmt} handles runtime formatting.
+static std::string ImportLocalizedPattern(std::string text)
+{
+    static const std::regex specifier(R"(%%|%([-+ #0]*[0-9]*(?:\.[0-9]+)?)(?:[hl])?S|%([-+ #0]*[0-9]*(?:\.[0-9]+)?)I64([diuoxX]))");
+    std::string result;
+    std::size_t position = 0;
+    for (auto it = std::sregex_iterator(text.begin(), text.end(), specifier); it != std::sregex_iterator(); ++it) {
+        const auto& match = *it;
+        result.append(text, position, match.position() - position);
+        if (match.str() == "%%") result += "%%";
+        else if (match[3].matched) result += "%" + match[2].str() + "ll" + match[3].str();
+        else result += "%" + match[1].str() + "s";
+        position = match.position() + match.length();
+    }
+    result.append(text, position);
+    return result;
+}
 
 // FUNCTION: WIZ8 0x00518360
-void LoadLocalizedStrings(const char* path)
+void LoadLocalizedStrings(std::string_view path)
 {
-    std::unique_ptr<wiz8::File> handle = [&]() { try { return wiz8::open_file(const_cast<char*>(path), wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
-    int index;
-
-    if (!handle) {
-        srAssertFail("hFile", STRINGS_CPP, 74, "Failed to open localization string table.");
-    }
-    handle->read_exact(&giStringListLen, 4);
-    if (!giStringListLen) {
-        srAssertFail("giStringListLen", STRINGS_CPP, 79, 0);
-    }
-    gppStringList = static_cast<wchar_t**>(malloc(giStringListLen * sizeof(wchar_t*)));
-    if (!gppStringList) {
-        srAssertFail("gppStringList", STRINGS_CPP, 82, 0);
-    }
-    memset(gppStringList, 0, giStringListLen * sizeof(wchar_t*));
-    for (index = 0; index < giStringListLen; ++index) {
+    auto handle = wiz8::open_file(path);
+    int count;
+    handle->read_exact(&count, 4);
+    if (count <= 0 || count > 100000) throw std::runtime_error("Invalid localization entry count");
+    std::vector<std::string> pending;
+    pending.reserve(count);
+    for (int index = 0; index < count; ++index) {
         int byte_count;
         handle->read_exact(&byte_count, 4);
-        gppStringList[index] = static_cast<wchar_t*>(malloc(byte_count));
-        if (!gppStringList[index]) {
-            srAssertFail("gppStringList[iCount]", STRINGS_CPP, 89, 0);
-        }
-        handle->read_exact(gppStringList[index], byte_count);
-        DecodeLocalizedText(gppStringList[index], byte_count / 2);
+        if (byte_count < 0 || byte_count > 1024 * 1024 || byte_count % 2)
+            throw std::runtime_error("Invalid localization text length");
+        std::vector<std::byte> bytes(byte_count);
+        handle->read_exact(bytes.data(), bytes.size());
+        pending.push_back(ImportLocalizedPattern(wiz8::text::from_utf16le(bytes, true)));
     }
-    if (handle) handle->close();
-    handle.reset();
+    g_localized_strings = std::move(pending);
+    giStringListLen = count;
 }

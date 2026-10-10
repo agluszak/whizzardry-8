@@ -1,3 +1,5 @@
+#include <fmt/format.h>
+#include <string>
 #include "wiz8/dialog_code/SpellInfoDialog.h"
 #include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/engine_code/Video2.h"
@@ -14,7 +16,6 @@
 #include "wiz8/video_object_catalog.h"
 #include "Font.h"
 
-#include <wchar.h>
 
 // GLOBAL: WIZ8 0x0064fccc
 const char* g_spell_info_background_path = "Data\\Dialogs\\popup_spellinfo.sti";
@@ -22,10 +23,8 @@ const char* g_spell_info_background_path = "Data\\Dialogs\\popup_spellinfo.sti";
 const char* g_spell_effect_database_path = "Data\\Databases\\SpellEffect.dbs";
 // GLOBAL: WIZ8 0x0064fcd4
 const char* g_spell_desc_database_path = "Data\\Databases\\SpellDesc.dbs";
-// GLOBAL: WIZ8 0x0061a128
-wchar_t g_format_d_s[] = L"%d %s";
 // GLOBAL: WIZ8 0x00619794
-wchar_t g_comma_space[] = L", ";
+char g_comma_space[] = ", ";
 // GLOBAL: WIZ8 0x0060cff0
 static unsigned short g_spellbook_name_ids[4] = {791, 792, 793, 794};
 // GLOBAL: WIZ8 0x0060d4a8
@@ -34,29 +33,25 @@ static unsigned short g_spell_usage_name_ids[5] = {795, 797, 796, 796, 796};
 static unsigned short g_spell_target_type_name_ids[11] = {798, 799, 800, 801, 802, 803,
                                                           804, 805, 806, 807, 807};
 // GLOBAL: WIZ8 0x0060d4cc
-static wchar_t g_spell_target_mark4[] = {0xfff4, 0};
+static char g_spell_target_mark4[] = "\xef\xbf\xb4";
 // GLOBAL: WIZ8 0x0060d4d0
-static wchar_t g_spell_target_mark0[] = {0xfff0, 0};
+static char g_spell_target_mark0[] = "\xef\xbf\xb0";
 // GLOBAL: WIZ8 0x0060d4d4
-static wchar_t g_spell_target_mark1[] = {0xfff1, 0};
+static char g_spell_target_mark1[] = "\xef\xbf\xb1";
 // GLOBAL: WIZ8 0x0060d4d8
-static wchar_t g_spell_target_mark2[] = {0xfff2, 0};
+static char g_spell_target_mark2[] = "\xef\xbf\xb2";
 // GLOBAL: WIZ8 0x0060d4dc
-static wchar_t g_spell_target_mark3[] = {0xfff3, 0};
+static char g_spell_target_mark3[] = "\xef\xbf\xb3";
 // GLOBAL: WIZ8 0x0060d4e0
-const wchar_t* g_spell_target_parentheticals[11] = {
+const char* g_spell_target_parentheticals[11] = {
     g_spell_target_mark4, g_spell_target_mark2, g_spell_target_mark4, g_spell_target_mark2,
     g_spell_target_mark3, g_spell_target_mark1, g_spell_target_mark0, g_spell_target_mark4,
     g_spell_target_mark0, g_spell_target_mark4, g_spell_target_mark4,
 };
 // GLOBAL: WIZ8 0x0061e9a0
 unsigned short g_spell_range_name_ids[4] = {1307, 1308, 1309, 1310};
-// GLOBAL: WIZ8 0x0064fdcc
-static wchar_t g_format_d_space[] = L"%d ";
 // GLOBAL: WIZ8 0x0064fdc4
-static wchar_t g_plus_space[] = L"+ ";
-// GLOBAL: WIZ8 0x0064fdd4
-static wchar_t g_format_d_d_s[] = L"%d-%d %s";
+static char g_plus_space[] = "+ ";
 
 // STRING: WIZ8 0x0064FD54
 #define SPELL_INFO_DIALOG_CPP "C:\\Projects\\Wizardry 8\\Dialog Code\\SpellInfoDialog.cpp"
@@ -145,7 +140,7 @@ bool W8SpellInfoDialog::PopulateText()
 {
     W8ControlsRect bounds;
     W8SpellRuntimeRecord* record;
-    wchar_t text[2000];
+    std::string text;
     unsigned int spellbook_mask;
     unsigned int book;
     int count;
@@ -165,7 +160,7 @@ bool W8SpellInfoDialog::PopulateText()
     m_text_area.SetEntrySpacing(1);
 
     record = &g_spell_records[m_spell];
-    text[0] = L'\0';
+    text.clear();
     spellbook_mask = static_cast<unsigned int>(record->wizardry_spell != 0) |
                      (record->divinity_spell != 0 ? W8_SPELLBOOK_DIVINITY : W8_SPELLBOOK_NONE) |
                      (record->alchemy_spell != 0 ? W8_SPELLBOOK_ALCHEMY : W8_SPELLBOOK_NONE) |
@@ -174,48 +169,46 @@ bool W8SpellInfoDialog::PopulateText()
     for (book = 0; book < 4; ++book) {
         if ((spellbook_mask & (1 << book)) != 0) {
             if (count > 0) {
-                wcscat(text, g_comma_space);
+                text += g_comma_space;
             }
-            wcscat(text, gppStringList[g_spellbook_name_ids[book]]);
+            text += g_localized_strings[g_spellbook_name_ids[book]];
             ++count;
         }
     }
-    m_text_area.AddEntry(gppStringList[0x11c], text, 10, 0xf, 0);
-    m_text_area.AddEntry(gppStringList[0x11d],
-                         gppStringList[g_spell_usage_name_ids[record->usable_when]], 10, 0xf, 0);
+    m_text_area.AddEntry(g_localized_strings[0x11c], text, 10, 0xf, 0);
+    m_text_area.AddEntry(g_localized_strings[0x11d],
+                         g_localized_strings[g_spell_usage_name_ids[record->usable_when]], 10, 0xf, 0);
 
     target_type = GetSpellTargetType(m_spell, false);
-    m_text_area.AddEntry(gppStringList[0x11e],
-                         FormatWideString(g_format_s_space_s,
-                                          gppStringList[g_spell_target_type_name_ids[target_type]],
-                                          g_spell_target_parentheticals[target_type]),
+    m_text_area.AddEntry(g_localized_strings[0x11e],
+                         fmt::format("{} {}",
+                                     g_localized_strings[g_spell_target_type_name_ids[target_type]],
+                                     g_spell_target_parentheticals[target_type]),
                          10, 0xf, 0);
-    m_text_area.AddEntry(gppStringList[0x11f],
-                         gppStringList[g_spell_range_name_ids[record->range_category]], 10, 0xf, 0);
+    m_text_area.AddEntry(g_localized_strings[0x11f],
+                         g_localized_strings[g_spell_range_name_ids[record->range_category]], 10, 0xf, 0);
 
     if (record->show_effect_dice != 0 &&
         (record->effect_dice.base != 0 || record->effect_dice.count != 0)) {
         if (record->effect_dice.count == 0) {
-            m_text_area.AddEntry(gppStringList[0x120],
-                                 FormatWideString(g_format_d_s,
-                                                  static_cast<int>(record->effect_dice.base),
-                                                  gppStringList[0x121]),
+            m_text_area.AddEntry(g_localized_strings[0x120],
+                                 fmt::format("{:d} {}", static_cast<int>(record->effect_dice.base),
+                                             g_localized_strings[0x121]),
                                  10, 0xf, 0);
         } else {
-            m_text_area.AddEntry(gppStringList[0x120],
-                                 FormatWideString(g_format_d_d_s,
-                                                  record->effect_dice.count +
-                                                      static_cast<int>(record->effect_dice.base),
-                                                  record->effect_dice.Maximum(),
-                                                  gppStringList[0x121]),
-                                 10, 0xf, 0);
+            m_text_area.AddEntry(
+                g_localized_strings[0x120],
+                fmt::format("{:d}-{:d} {}",
+                            record->effect_dice.count + static_cast<int>(record->effect_dice.base),
+                            record->effect_dice.Maximum(), g_localized_strings[0x121]),
+                10, 0xf, 0);
         }
     }
 
     duration_per_level = record->duration_per_level;
     duration_base = record->duration;
     if (duration_per_level != 0 || duration_base != 0) {
-        text[0] = L'\0';
+        text.clear();
         ui_units = 0;
         display = 0;
         if (duration_per_level > 0) {
@@ -233,10 +226,10 @@ bool W8SpellInfoDialog::PopulateText()
                 ui_units = 0x127;
             }
             if (display > 0) {
-                wcscat(text, FormatWideString(g_format_d_space, display));
+                text += fmt::format("{:d} ", display);
             }
             if (duration_base > 0) {
-                wcscat(text, g_plus_space);
+                text += g_plus_space;
             }
         }
         ui_units_lvl = ui_units;
@@ -257,10 +250,10 @@ bool W8SpellInfoDialog::PopulateText()
             }
             if (duration_per_level != 0 && ui_units != ui_units_lvl) {
                 srAssertFail("uiUnits == uiUnitsLvl", SPELL_INFO_DIALOG_CPP, 0xc5,
-                             FormatString("Spell %S duration has mismatched base & per-lvl units",
-                                          record->display_name));
+                             fmt::format("Spell {} duration has mismatched base & per-lvl units",
+                                         record->display_name));
             }
-            wcscat(text, FormatWideString(g_format_d_space, display_base));
+            text += fmt::format("{:d} ", display_base);
         }
         if ((duration_per_level == 1 && display_base == 0) ||
             (duration_per_level == 0 && display_base == 1)) {
@@ -272,22 +265,22 @@ bool W8SpellInfoDialog::PopulateText()
                 ui_units_lvl = 0x128;
             }
         }
-        wcscat(text, gppStringList[ui_units_lvl]);
+        text += g_localized_strings[ui_units_lvl];
         if (display_base > 0) {
-            wcscat(text, gppStringList[0x12a]);
+            text += g_localized_strings[0x12a];
         }
-        m_text_area.AddEntry(gppStringList[0x122], text, 10, 0xf, 0);
+        m_text_area.AddEntry(g_localized_strings[0x122], text, 10, 0xf, 0);
     }
 
-    text[0] = L'\0';
-    if (GetStringFromStringDatabase(g_spell_effect_database_path, m_spell, text, 0, 0) != 0 &&
-        text[0] != L'\0') {
-        m_text_area.AddEntry(gppStringList[0x12b], text, 10, 0xf, 0);
+    text.clear();
+    if ((!(text = GetStringFromStringDatabase(g_spell_effect_database_path, m_spell, 0, 0)).empty()) != 0 &&
+        text[0] != '\0') {
+        m_text_area.AddEntry(g_localized_strings[0x12b], text, 10, 0xf, 0);
     }
-    text[0] = L'\0';
-    if (GetStringFromStringDatabase(g_spell_desc_database_path, m_spell, text, 0, 0) != 0 &&
-        text[0] != L'\0') {
-        m_text_area.AddEntry(gppStringList[0x12c], text, 10, 0xf, 0);
+    text.clear();
+    if ((!(text = GetStringFromStringDatabase(g_spell_desc_database_path, m_spell, 0, 0)).empty()) != 0 &&
+        text[0] != '\0') {
+        m_text_area.AddEntry(g_localized_strings[0x12c], text, 10, 0xf, 0);
     }
     return true;
 }
@@ -295,7 +288,7 @@ bool W8SpellInfoDialog::PopulateText()
 // FUNCTION: WIZ8 0x005dc490
 void W8SpellInfoDialog::DrawLabels()
 {
-    wchar_t* text;
+    std::string text;
     INT16 width;
     W8SpellRuntimeRecord* record = &g_spell_records[m_spell];
 
@@ -303,23 +296,23 @@ void W8SpellInfoDialog::DrawLabels()
     SetFontObjectPalette16BPP(g_wiz_text_font_secondary, GetFontObject(g_wiz_text_font_secondary)->ownedPalette.get());
     text = record->display_name;
     width = StringPixLength(text, g_wiz_text_font_secondary);
-    gprintf(m_x + 0x25 + (0xe7 - width) / 2, m_y + 0x12, g_format_s, text);
-    text = gppStringList[0x118];
+    DrawFontText(m_x + 0x25 + (0xe7 - width) / 2, m_y + 0x12, text);
+    text = g_localized_strings[0x118];
     width = StringPixLength(text, g_wiz_text_font_secondary);
-    gprintf(m_x + 0x25 + (0x53 - width) / 2, m_y + 0x24, g_format_s, text);
+    DrawFontText(m_x + 0x25 + (0x53 - width) / 2, m_y + 0x24, text);
     if (record->power_class == W8_SPELL_POWER_FIXED) {
-        text = gppStringList[0x11a];
+        text = g_localized_strings[0x11a];
     } else {
-        text = gppStringList[0x119];
+        text = g_localized_strings[0x119];
     }
     width = StringPixLength(text, g_wiz_text_font_secondary);
-    gprintf(m_x + 0x25 + (0x7b - width) / 2, m_y + 0x33, g_format_s, text);
-    text = FormatWideString(g_format_d, record->spell_level);
+    DrawFontText(m_x + 0x25 + (0x7b - width) / 2, m_y + 0x33, text);
+    text = fmt::format("{:d}", record->spell_level);
     width = StringPixLength(text, g_wiz_text_font_secondary);
-    gprintf(m_x + 0x7c + (0x16 - width) / 2, m_y + 0x24, g_format_s, text);
-    text = FormatWideString(g_format_d_s, record->spell_point_cost, gppStringList[0x11b]);
+    DrawFontText(m_x + 0x7c + (0x16 - width) / 2, m_y + 0x24, text);
+    text = fmt::format("{:d} {}", record->spell_point_cost, g_localized_strings[0x11b]);
     width = StringPixLength(text, g_wiz_text_font_secondary);
-    gprintf(m_x + 0xa4 + (0x25 - width) / 2, m_y + 0x33, g_format_s, text);
+    DrawFontText(m_x + 0xa4 + (0x25 - width) / 2, m_y + 0x33, text);
 }
 
 // FUNCTION: WIZ8 0x005dc6c0

@@ -27,8 +27,8 @@ protected:
     W8DialogScrollBar scrollbar;
     W8DialogButton button;
     W8DialogTextArea textarea;
-    unsigned int m_title_id;  /* gppStringList index, DrawTitle */
-    unsigned int m_detail_id; /* gppStringList index, PopulateText */
+    unsigned int m_title_id;  /* g_localized_strings index, DrawTitle */
+    unsigned int m_detail_id; /* g_localized_strings index, PopulateText */
 };
 
 // VTABLE: WIZ8 0x005efcc8

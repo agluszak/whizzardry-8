@@ -1,3 +1,4 @@
+#include <string>
 #pragma once
 
 #include "wiz8/filesystem.h"
@@ -12,14 +13,12 @@ extern float g_automap_grid_cell_size;
 #include <vector>
 #include <algorithm>
 
-/* One map note. The text is separately malloc-owned and holds at most 39
-   characters plus the terminator. */
+/* One map note with owned UTF-8 text. */
 struct W8AutomapNote {
     glm::vec2 position;
     int layer;
-    wchar_t* text;
+    std::string text;
 };
-W8_ABI_ASSERT(sizeof(W8AutomapNote) == 0x10, "W8AutomapNote_size");
 
 extern std::vector<W8AutomapNote*>* g_automap_notes;
 extern W8MainUiMode g_ui_mode_current;

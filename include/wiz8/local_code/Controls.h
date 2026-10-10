@@ -8,7 +8,7 @@
 #include "input.h"
 
 /* The single-space separator wrapped notice lines are re-joined with. */
-extern wchar_t g_W8TextSeparator[];
+extern char g_W8TextSeparator[];
 
 
 /* The region callback a widget without its own region is given. It answers

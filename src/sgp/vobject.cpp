@@ -1,3 +1,4 @@
+#include <fmt/format.h>
 #include "wiz8/utility.h"
 #include <SDL3/SDL_log.h>
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
@@ -698,9 +699,9 @@ void CheckValidVObjectIndex(UINT32 uiIndex)
             break;
         }
         if (uiIndex == 0xffffffff) {
-            AssertMsg(0, FormatString("Trying to %s with deleted index -1.", str));
+            AssertMsg(0, fmt::format("Trying to {} with deleted index -1.", str));
         } else {
-            AssertMsg(0, FormatString("Trying to %s using a VSURFACE ID %d!", str, uiIndex));
+            AssertMsg(0, fmt::format("Trying to {} using a VSURFACE ID {:d}!", str, uiIndex));
         }
     }
 }

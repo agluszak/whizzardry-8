@@ -129,22 +129,43 @@ its respective focused checks. The movie fixture can be regenerated with
 
 Use `std::string` for owning text (UTF-8 for Unicode), `std::string_view` for
 borrowed read-only text, and `std::filesystem::path` for native host paths.
-Pass `.c_str()` at C-string boundaries; serialized buffers and two-byte game
-text retain their format-defined representation.
+Pass `.c_str()` at C-string boundaries. Runtime game, UI and SGP text is UTF-8;
+retail text is UTF-16LE, decoded explicitly through `wiz8/unicode.h`. Host
+`wchar_t` keeps its native width; no short-wchar flags or wide CRT substitutions
+are used. Localized tables are `std::vector<std::string>`. Format source literals
+with `fmt::format`; use `fmt::sprintf` only for the retail localization tables
+whose patterns use printf syntax. Drawing and notice APIs accept plain
+`std::string_view`, with formatting explicit at the call site.
+utf8cpp supplies conversion and traversal;
+utf8proc supplies grapheme boundaries and character classification. Editable
+controls own strings and use byte offsets at grapheme boundaries. Font rendering
+decodes UTF-8 at its boundary; retail fonts still limit the available glyphs.
 
 The original game has a 32-bit data model, two-byte strings and packed binary
 records. Native storage may use 64-bit pointers, but saved pointer words and
 format-defined sizes must preserve their serialized layout. `w8_long` and
 `w8_ulong` name historical 32-bit fields; `W8_PTR32` represents disk-size
-pointer slots. Text/CRT boundaries use explicit conversion rather than host
-wide-string routines that expect four-byte `wchar_t`.
+pointer slots. `wiz8/retail_records.h` defines independent fixed-size disk records;
+`wiz8/retail_text_records.h` translates their named fields to runtime objects
+that own strings. Native records use natural compiler layout, with no packing
+scopes or historical runtime size assertions. Packing is confined to disk types
+and invariant, trivially copyable format payloads. GSTA party slots retain their
+0x106-byte stride; missile database rows retain their 0x1e5-byte payload. Shared
+item numeric payloads are declared once and copied independently of owned text.
+Unknown binary fields remain byte arrays and are preserved. Packed UTF-16LE is read and written
+through byte spans, including character names at offset 5 and spell names at
+offset 0x9b. UTF-16 uses `char16_t`/`std::u16string` in conversion code; no
+unaligned typed text pointers are dereferenced. Malformed Unicode becomes
+U+FFFD, and bounded writes do not split UTF-8 sequences or surrogate pairs.
 
 There is no Wine runner, 32-bit target or legacy fallback.
 The game/asset filesystem in `src/platform/` owns virtual paths and uses SDL3
 streams, native UTF-8 host imports and standard C++ filesystem operations.
 Asset names are ASCII-case-insensitive on every host; explicit host imports
 keep native filesystem case semantics. The remaining `src/compat/` CRT code
-only bridges legacy two-byte strings.
+contains narrow spelling and clock helpers. Localization, quotes, credits and
+saved transcripts use explicit UTF-16LE codecs; native printf formatting
+receives UTF-8, including names used to build character filenames.
 
 SLF and save timestamps keep their packed low/high FILETIME codec. Save ordering
 uses native modification time; the iron-man mask records the metadata snapshot

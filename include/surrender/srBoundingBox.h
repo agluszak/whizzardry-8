@@ -13,6 +13,24 @@ struct srBoundingBox {
         maximum = glm::max(maximum, point);
     }
 
+    void include(const srBoundingBox& box)
+    {
+        include(box.minimum);
+        include(box.maximum);
+    }
+
+    bool contains(const glm::vec3& point) const
+    {
+        return glm::all(glm::greaterThanEqual(point, minimum)) &&
+               glm::all(glm::lessThanEqual(point, maximum));
+    }
+
+    bool overlaps(const srBoundingBox& box) const
+    {
+        return glm::all(glm::greaterThanEqual(maximum, box.minimum)) &&
+               glm::all(glm::greaterThanEqual(box.maximum, minimum));
+    }
+
     glm::vec3 center() const
     {
         return (minimum + maximum) * 0.5f;

@@ -4,7 +4,7 @@
 
 /* 1000 entries, indices 0..999, stored at 0x00689B78 and ending exactly at
    g_npc_name_buffer. GetFact/SetFact check fact_id > 1000, so index 1000
-   aliases g_npc_name_buffer[0] - a retail off-by-one, kept faithful. */
+   historically aliases g_npc_name_buffer[0]. Native storage has no such alias. */
 extern unsigned char g_fact_values[1000];
 extern bool g_fact_notifications_suppressed;
 

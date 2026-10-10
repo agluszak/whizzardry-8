@@ -2,7 +2,7 @@
 
 #include "wiz8/filesystem.h"
 
-extern wchar_t g_default_level[];
+extern char g_default_level[];
 #include "wiz8/fact_state.h"
 #include "wiz8/layouts/screen_state.h"
 #include <vector>
@@ -29,7 +29,6 @@ public:
     unsigned char m_pad_065[3];
 };
 
-W8_ABI_ASSERT(sizeof(W8JournalPanel) == 0x68, "W8JournalPanel_size");
 W8_ASSERT_BASE_END(W8JournalPanel, W8TextControl::Listener, m_next, 0x4c);
 
 struct W8JournalEntry {
@@ -37,14 +36,12 @@ struct W8JournalEntry {
     W8FactId fact;
     int alternate_text;
 };
-W8_ABI_ASSERT(sizeof(W8JournalEntry) == 0x0c, "W8JournalEntry_size");
 
 /* The fact journal, created lazily by the initializer below and
    appended to whenever a fact changes. */
 extern std::vector<W8JournalEntry> g_fact_journal_entries;
 /* The "%d / %d" current-over-max format shared by journal pages
    and debug stat readouts. */
-extern wchar_t g_journal_page_format[];
 void InitializeFactJournal(void);
 /* Append one changed fact to the journal and, unless notices are
    suppressed, post the fact's own journal entry. */

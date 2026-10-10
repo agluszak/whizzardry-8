@@ -1,3 +1,5 @@
+#include <fmt/format.h>
+#include <fmt/printf.h>
 #include "wiz8/local_screens/MGSSpellIcons.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/utility.h"
@@ -284,27 +286,11 @@ static void ShowEffectIconHelp(const W8EffectSlot* slot, bool show_duration, int
     unsigned int duration = slot->duration;
     int effect_id = slot->effect_id;
     g_effect_icon_help_duration = duration;
-    wchar_t* name = FormatWideString(g_format_s_spaced_colon, records[effect_id].display_name);
-    unsigned int name_len = wcslen(name);
-    wchar_t* detail;
-    if (show_duration) {
-        detail = FormatWideString(gppStringList[0x79c], amount, g_effect_icon_help_duration);
-    } else {
-        detail = FormatWideString(gppStringList[0x79d], amount);
-    }
-    unsigned int detail_len = wcslen(detail);
-    wchar_t* text = static_cast<wchar_t*>(operator new((name_len + detail_len) * sizeof(*text) + sizeof(*text)));
-    if (text == 0) {
-        srAssertFail("pText", MGSSPELLICONS_CPP, assertion_line, 0);
-    }
-    wcscpy(text, FormatWideString(g_format_s_colon, records[effect_id].display_name));
-    if (show_duration) {
-        wcscat(text, FormatWideString(gppStringList[0x79c], amount, g_effect_icon_help_duration));
-    } else {
-        wcscat(text, FormatWideString(gppStringList[0x79d], amount));
-    }
+    std::string text = fmt::format("{}: ", records[effect_id].display_name);
+    text += show_duration
+                ? fmt::sprintf(g_localized_strings[0x79c], amount, g_effect_icon_help_duration)
+                : fmt::sprintf(g_localized_strings[0x79d], amount);
     SetRegionHelpText(text);
-    operator delete(text);
 }
 
 // FUNCTION: WIZ8 0x005AED90

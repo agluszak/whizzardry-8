@@ -1,3 +1,5 @@
+#include <fmt/format.h>
+#include "wiz8/unicode.h"
 #include "wiz8/application.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/compat/unaligned.h"
@@ -1467,18 +1469,17 @@ void W8Octree::BuildRegionLinks(bool rebuild_all)
         stale = m_pRegionLinks;
         m_pRegionLinks = saved_links;
         if (gfProgramIsRunning) {
-            CreateMessageBox(FormatWideString(L"  Linking Aborted!  "), g_small_font, 1, true,
-                             false, 0);
+            CreateMessageBox(std::string("  Linking Aborted!  "), g_small_font, 1, true, false, 0);
         }
     } else {
         SaveRegionLinks(m_owned_0c0);
         if (hours == 0) {
             CreateMessageBox(
-                FormatWideString(L"  Linking Time: %d Min, %d Sec  ", minutes, elapsed % 60),
+                fmt::format("  Linking Time: {:d} Min, {:d} Sec  ", minutes, elapsed % 60),
                 g_small_font, 1, true, false, 0);
         } else {
-            CreateMessageBox(FormatWideString(L"  Linking Time: %d Hours, %d Min, %d Sec  ", hours,
-                                              minutes, elapsed % 60),
+            CreateMessageBox(fmt::format("  Linking Time: {:d} Hours, {:d} Min, {:d} Sec  ", hours,
+                                         minutes, elapsed % 60),
                              g_small_font, 1, true, false, 0);
         }
         stale = saved_links;
@@ -1596,8 +1597,8 @@ unsigned char W8Octree::ValidateRegionMeshLinks()
     spatial.m_level_kind = 1;
     int bad_links = CountBadRegionMeshLinks(&spatial);
     if (bad_links != 0) {
-        CreateMessageBox(FormatWideString(L" %d Bad Region-Mesh Links!", bad_links), g_small_font,
-                         1, true, false, 0);
+        CreateMessageBox(fmt::format(" {:d} Bad Region-Mesh Links!", bad_links), g_small_font, 1,
+                         true, false, 0);
         return 0;
     }
     return 1;
@@ -3117,7 +3118,7 @@ W8Octree::W8Octree(const char* path, W8GameData** game_data)
         if (asset_status > 0 && !BuildPreprocessedFiles(path)) {
             ReportStartupMessage("Cannot find or build current preprocessed files.");
             ReportStartupMessage("Attempting to run with LVL file only -- SOME FEATURES DISABLED.");
-            ReportStartupMessage(0);
+            ReportStartupMessage({});
             throw std::runtime_error("Could not build octree assets.");
         }
         auto hOctFile = wiz8::open_file(path);
@@ -3393,7 +3394,7 @@ int CheckLevelAssetSet(const char* level_path)
         ReportStartupMessage(
             "Could not find WGD file. Cannot find or build current preprocessed files.");
         ReportStartupMessage("Attempting to run with LVL file only -- NO COLLISION DATA.");
-        ReportStartupMessage(0);
+        ReportStartupMessage({});
         return -rebuild;
     }
 

@@ -1,3 +1,4 @@
+#include <string_view>
 #include <SDL3/SDL_log.h>
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07, 2026-10-09.
    Distributed under the accompanying SFI Source Code license agreement. */
@@ -39,7 +40,7 @@
 
 struct CachedSound
 {
-    CHAR8 pName[128]{};
+    std::string pName;
     UINT32 uiSize = 0, uiFlags = 0, uiSpeed = 0, uiCacheHits = 0;
     std::shared_ptr<MIX_Mixer> owner;
     w8_native::Audio audio;
@@ -119,9 +120,9 @@ CachedSound pSampleList[SOUND_MAX_CACHED];
 // GLOBAL: WIZ8 0x006e4120
 SoundChannel pSoundList[SOUND_MAX_CHANNELS];
 
-static std::string ResolveSoundPath(const char* path)
+static std::string ResolveSoundPath(std::string_view path)
 {
-    if (!path || !*path) return {};
+    if (path.empty()) return {};
     std::string filename(path);
     strupr(filename.data());
     if ([&]() { const auto status = wiz8::file_status(filename.data()); return status && status->info.type == SDL_PATHTYPE_FILE; }()) return filename;
@@ -187,7 +188,7 @@ void ShutdownSoundManager(void)
 //	!!Note:  Can no longer play streamed files
 
 // FUNCTION: WIZ8 0x00408860
-UINT32 SoundPlay(const char* path, SOUNDPARMS* parameters)
+UINT32 SoundPlay(std::string_view path, SOUNDPARMS* parameters)
 {
     if (!fSoundSystemInit) return SOUND_ERROR;
     auto filename = ResolveSoundPath(path);
@@ -208,7 +209,7 @@ UINT32 SoundPlay(const char* path, SOUNDPARMS* parameters)
 //						If an error occured, SOUND_ERROR will be returned
 
 // FUNCTION: WIZ8 0x00408ad0
-UINT32 SoundPlayStreamedFile(const char* path, SOUNDPARMS* parameters)
+UINT32 SoundPlayStreamedFile(std::string_view path, SOUNDPARMS* parameters)
 {
     if (!fSoundSystemInit) return SOUND_ERROR;
     auto filename = ResolveSoundPath(path);
@@ -741,7 +742,7 @@ UINT32 SoundGetCached(STR pFilename)
     UINT32 uiCount;
 
     for (uiCount = 0; uiCount < SOUND_MAX_CACHED; uiCount++) {
-        if (pSampleList[uiCount].audio && _stricmp(pSampleList[uiCount].pName, pFilename) == 0)
+        if (pSampleList[uiCount].audio && SDL_strcasecmp(pSampleList[uiCount].pName.c_str(), pFilename) == 0)
             return (uiCount);
     }
 
@@ -757,7 +758,7 @@ UINT32 SoundGetCached(STR pFilename)
 // FUNCTION: WIZ8 0x00409970
 UINT32 SoundLoadDisk(STR filename)
 {
-    if (!fSoundSystemInit || !filename || strlen(filename) >= sizeof(CachedSound::pName)) return NO_SAMPLE;
+    if (!fSoundSystemInit || !filename) return NO_SAMPLE;
     auto input = w8_native::open_audio_input(filename);
     if (!input) return NO_SAMPLE;
     const Sint64 size = SDL_GetIOSize(input.get());
@@ -772,8 +773,7 @@ UINT32 SoundLoadDisk(STR filename)
     if (!audio || !MIX_GetAudioFormat(audio.get(), &format)) return NO_SAMPLE;
     auto& sound = pSampleList[index];
     sound = CachedSound{};
-    std::copy_n(filename, strlen(filename) + 1, sound.pName);
-    strupr(sound.pName);
+    sound.pName = filename;
     sound.uiSize = UINT32(size);
     sound.uiSpeed = UINT32(format.freq);
     sound.uiFlags = SAMPLE_ALLOCATED;
@@ -1147,7 +1147,7 @@ BOOLEAN SoundSampleIsInUse(UINT32 sample)
 // Created:  2/24/00 Derek Beland
 
 // FUNCTION: WIZ8 0x0040a910
-BOOLEAN SoundFileIsPlaying(CHAR8* pFilename)
+BOOLEAN SoundFileIsPlaying(std::string_view filename)
 {
     UINT32 uiCount;
 
@@ -1157,7 +1157,8 @@ BOOLEAN SoundFileIsPlaying(CHAR8* pFilename)
             if (pSoundList[uiCount].uiSample >= SOUND_MAX_CACHED) {
                 continue;
             }
-            if (stricmp(pSampleList[pSoundList[uiCount].uiSample].pName, pFilename) == 0)
+            if (pSampleList[pSoundList[uiCount].uiSample].pName.size() == filename.size() &&
+                SDL_strncasecmp(pSampleList[pSoundList[uiCount].uiSample].pName.c_str(), filename.data(), filename.size()) == 0)
                 return (TRUE);
         }
     }

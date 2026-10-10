@@ -22,6 +22,7 @@
 #include <stdio.h>
 #include "surrender/srMath.h"
 #include <cassert>
+#include <limits>
 
 /* Flag-name tables dump walks while printing the render_control and dirty_flags bits. Nothing sets
    them, so dump prints numeric bit indices. */
@@ -433,10 +434,7 @@ void srMeshModel::scale(const srVector3T<float>& scale)
     for (w8_long index = 0; index < vertex_location_count; index++) {
         vertices[index] *= scale;
     }
-    setDirty(DIRTY_BOUNDS);
-    setDirty(DIRTY_POLYGON_NORMALS);
-    setDirty(DIRTY_VERTEX_NORMALS);
-    setDirty(DIRTY_TRI_MESH);
+    setDirtyAll();
 }
 
 // FUNCTION: SURRENDER 0x1003E780
@@ -445,10 +443,7 @@ void srMeshModel::applyMatrix(const glm::mat3& matrix)
     auto* vertices = getVertexLoc();
     for (w8_long i = 0; i < vertex_location_count; ++i)
         vertices[i] = matrix * vertices[i].glmValue();
-    setDirty(DIRTY_BOUNDS);
-    setDirty(DIRTY_POLYGON_NORMALS);
-    setDirty(DIRTY_VERTEX_NORMALS);
-    setDirty(DIRTY_TRI_MESH);
+    setDirtyAll();
 }
 
 // FUNCTION: SURRENDER 0x1003E8C0
@@ -458,10 +453,7 @@ void srMeshModel::relocateVertices(const srVector3T<float>& offset)
     for (w8_long index = 0; index < vertex_location_count; index++) {
         vertices[index] += offset;
     }
-    setDirty(DIRTY_BOUNDS);
-    setDirty(DIRTY_POLYGON_NORMALS);
-    setDirty(DIRTY_VERTEX_NORMALS);
-    setDirty(DIRTY_TRI_MESH);
+    setDirtyAll();
 }
 
 // FUNCTION: SURRENDER 0x1003E9B0
@@ -490,42 +482,28 @@ double srMeshModel::getAverageRadius()
 // FUNCTION: SURRENDER 0x1003EB20
 double srMeshModel::getMaxRadius()
 {
-    double maximum = 0.0;
-    if (vertex_location_count == 0) {
-        return 0.0;
+    float maximum = 0;
+    for (const auto& vertex : std::span(getVertexLoc(), vertex_location_count)) {
+        const auto value = vertex.glmValue();
+        maximum = glm::max(maximum, glm::dot(value, value));
     }
-    srVector3T<float>* vertices = getVertexLoc();
-    w8_long count = vertex_location_count;
-    for (w8_long index = 0; index < count; index++) {
-        /* Retail compares and keeps the unrounded register sum. */
-        double radius = glm::dot(vertices[index].glmValue(), vertices[index].glmValue());
-        if (maximum <= radius) {
-            maximum = radius;
-        }
-    }
-    return sqrt(maximum);
+    return std::sqrt(maximum);
 }
 
 // FUNCTION: SURRENDER 0x1003EBB0
 void srMeshModel::scaleToAverageRadius(double radius)
 {
-    if (polygon_count != 0) {
-        float factor = (float)(radius / getAverageRadius());
-        srVector3T<float> scale;
-        scale = factor;
-        this->scale(scale);
-    }
+    const double current_radius = getAverageRadius();
+    if (current_radius > 0)
+        scale(glm::vec3(static_cast<float>(radius / current_radius)));
 }
 
 // FUNCTION: SURRENDER 0x1003EBF0
 void srMeshModel::scaleToMaxRadius(double radius)
 {
-    if (polygon_count != 0) {
-        float factor = (float)(radius / getMaxRadius());
-        srVector3T<float> scale;
-        scale = factor;
-        this->scale(scale);
-    }
+    const double current_radius = getMaxRadius();
+    if (current_radius > 0)
+        scale(glm::vec3(static_cast<float>(radius / current_radius)));
 }
 
 // FUNCTION: SURRENDER 0x1003EC30
@@ -538,38 +516,26 @@ void srMeshModel::flipFaces()
             polygons[polygon].x = polygons[polygon].y;
             polygons[polygon].y = first;
         }
-        setDirty(DIRTY_BOUNDS);
-        setDirty(DIRTY_POLYGON_NORMALS);
-        setDirty(DIRTY_VERTEX_NORMALS);
-        setDirty(DIRTY_TRI_MESH);
+        setDirtyAll();
     }
 }
 
 // FUNCTION: SURRENDER 0x1003ED20
 w8_long srMeshModel::findClosestVertex(const srVector3T<float>& position)
 {
-    if (vertex_location_count != 0) {
-        srVector3T<float>* vertices = getVertexLoc();
-        w8_long index = 1;
-        w8_long closest = 0;
-        float minimum = (vertices[0].x - position.x) * (vertices[0].x - position.x) +
-                        (vertices[0].y - position.y) * (vertices[0].y - position.y) +
-                        (vertices[0].z - position.z) * (vertices[0].z - position.z);
-        if (1 < vertex_location_count) {
-            do {
-                float x = vertices[index].x - position.x;
-                float y = vertices[index].y - position.y;
-                float z = vertices[index].z - position.z;
-                if (x * x + y * y + z * z < minimum) {
-                    minimum = x * x + y * y + z * z;
-                    closest = index;
-                }
-                index = index + 1;
-            } while (index < vertex_location_count);
+    const auto target = position.glmValue();
+    float minimum = std::numeric_limits<float>::infinity();
+    w8_long closest = 0;
+    const auto* vertices = getVertexLoc();
+    for (w8_long i = 0; i < vertex_location_count; ++i) {
+        const auto offset = vertices[i].glmValue() - target;
+        const float distance = glm::dot(offset, offset);
+        if (distance < minimum) {
+            minimum = distance;
+            closest = i;
         }
-        return closest;
     }
-    return 0;
+    return closest;
 }
 
 // FUNCTION: SURRENDER 0x1003DAC0
@@ -749,10 +715,7 @@ void srMeshModel::reindexPolygons(const w8_ulong* indices)
                 table[index] = forward[table[index]];
             }
         }
-        setDirty(DIRTY_BOUNDS);
-        setDirty(DIRTY_POLYGON_NORMALS);
-        setDirty(DIRTY_VERTEX_NORMALS);
-        setDirty(DIRTY_TRI_MESH);
+        setDirtyAll();
     }
 }
 
@@ -829,10 +792,7 @@ void srMeshModel::reindexVertices(const w8_ulong* indices)
                 *corner = forward[*corner];
             }
         }
-        setDirty(DIRTY_BOUNDS);
-        setDirty(DIRTY_POLYGON_NORMALS);
-        setDirty(DIRTY_VERTEX_NORMALS);
-        setDirty(DIRTY_TRI_MESH);
+        setDirtyAll();
     }
 }
 

@@ -1,3 +1,5 @@
+#include <fmt/format.h>
+#include "wiz8/unicode.h"
 #include "wiz8/fonts.h"
 #include "wiz8/local_code/Traps.h"
 #include "wiz8/integer_constants.h"
@@ -48,10 +50,6 @@ static int g_record_mode_length;
 static char s_record_mode_prompt[] = "Type in your text, then ENTER or ESC.";
 // GLOBAL: WIZ8 0x006503ac
 static char s_record_mode_default_location[] = "tst";
-// GLOBAL: WIZ8 0x006503b0
-static char s_record_mode_orientation_format[] = "%f %f %f %f %f %d\n";
-// GLOBAL: WIZ8 0x006503c4
-static char s_record_mode_position_format[] = "%f %f %f\n";
 // GLOBAL: WIZ8 0x006503d0
 static char s_data_notes_txt[] = "data\\notes.txt";
 // GLOBAL: WIZ8 0x006503e0
@@ -83,7 +81,7 @@ void WriteRecordModeEntry(void)
 {
     W8WorldCameraState state;
     char location_code[32];
-    char line[1024];
+    std::string line;
     std::unique_ptr<wiz8::File> file;
     unsigned int length;
 
@@ -91,19 +89,21 @@ void WriteRecordModeEntry(void)
     if (file != 0) {
         file->seek(-static_cast<std::int64_t>(0), wiz8::SeekOrigin::end);
         GetWorldCameraState(GetWorld(), &state);
-        sprintf(line, s_record_mode_position_format, state.position.x, state.position.y,
-                state.position.z);
-        file->write(line, strlen(line));
-        sprintf(line, s_record_mode_orientation_format, state.pitch[0], state.pitch[1],
-                state.pitch[2], state.pitch[3], state.pitch[4],
-                // reinterpret-ok: raw low byte of the angle record's trailing slot
-                *reinterpret_cast<unsigned int*>(&state.pitch[5]) & 0xff);
-        file->write(line, strlen(line));
-        sprintf(line, s_record_mode_orientation_format, state.yaw[0], state.yaw[1], state.yaw[2],
-                state.yaw[3], state.yaw[4],
-                // reinterpret-ok: raw low byte of the angle record's trailing slot
-                *reinterpret_cast<unsigned int*>(&state.yaw[5]) & 0xff);
-        file->write(line, strlen(line));
+        line =
+            fmt::format("{:f} {:f} {:f}\n", state.position.x, state.position.y, state.position.z);
+        file->write(line.data(), line.size());
+        line = fmt::format(
+            "{:f} {:f} {:f} {:f} {:f} {:d}\n", state.pitch[0], state.pitch[1], state.pitch[2],
+            state.pitch[3],
+            state.pitch[4], // reinterpret-ok: raw low byte of the angle record's trailing slot
+            *reinterpret_cast<unsigned int*>(&state.pitch[5]) & 0xff);
+        file->write(line.data(), line.size());
+        line = fmt::format(
+            "{:f} {:f} {:f} {:f} {:f} {:d}\n", state.yaw[0], state.yaw[1], state.yaw[2],
+            state.yaw[3],
+            state.yaw[4], // reinterpret-ok: raw low byte of the angle record's trailing slot
+            *reinterpret_cast<unsigned int*>(&state.yaw[5]) & 0xff);
+        file->write(line.data(), line.size());
         if (GetLevelLocationCode(g_status.current_level, location_code) == 0) {
             strcpy(location_code, s_record_mode_default_location);
         }
@@ -137,12 +137,12 @@ void ApplyRecordModeLine(void)
         ResetEditorStatusLine(-1);
         strcpy(message, s_log_file_deleted);
     }
-    ShowNoticef(W8_FONT_PALETTE_PINK, ConvertStringToWide(message));
+    ShowNotice(W8_FONT_PALETTE_PINK, message);
     g_record_mode_line[g_record_mode_length] = 0;
     g_record_mode_length = 0;
     g_record_mode_active = false;
     strcpy(message, s_exiting_record_mode);
-    ShowNoticef(W8_FONT_PALETTE_PINK, ConvertStringToWide(message));
+    ShowNotice(W8_FONT_PALETTE_PINK, message);
 }
 
 /* The per-key prompt callback: clears the status line and shows the record
@@ -154,7 +154,7 @@ void PromptRecordModeEntry(void)
 
     ResetEditorStatusLine(-1);
     strcpy(message, s_record_mode_prompt);
-    ShowNoticef(W8_FONT_PALETTE_PINK, ConvertStringToWide(message));
+    ShowNotice(W8_FONT_PALETTE_PINK, message);
 }
 
 /* Local Code\Traps.cpp. The bodies at 0x5E3600-0x5E3730 sit in the
@@ -172,13 +172,13 @@ bool IsRecordModeActive(void)
 // FUNCTION: WIZ8 0x005E3610
 char HandleRecordModeKey(const InputAtom* input, void (*prompt)(void))
 {
-    wchar_t character;
-    char* text;
+    char character;
+    std::string text;
 
     if (gfKeyState[VK_CONTROL] != 0) {
         return 0;
     }
-    character = static_cast<wchar_t>(toupper(input->usParam));
+    character = static_cast<char>(toupper(input->usParam));
     if (input->usEvent != KEY_UP) {
         return 0;
     }
@@ -200,18 +200,18 @@ char HandleRecordModeKey(const InputAtom* input, void (*prompt)(void))
         ResetEditorStatusLine(-1);
         return -1;
     } else {
-        text = ConvertWideStringToString(&character);
-        if (gfKeyState[VK_SHIFT] == 0 && gfKeyState[0x14] == 0 && *text >= 'A' && *text <= 'Z') {
-            *text += 0x20;
+        text = &character;
+        if (gfKeyState[VK_SHIFT] == 0 && gfKeyState[0x14] == 0 && text[0] >= 'A' && text[0] <= 'Z') {
+            text[0] += 0x20;
         }
-        g_record_mode_line[g_record_mode_length] = *text;
+        g_record_mode_line[g_record_mode_length] = text[0];
         g_record_mode_line[g_record_mode_length + 1] = 0;
         ++g_record_mode_length;
     }
     if (prompt != 0) {
         prompt();
     }
-    ShowNoticef(W8_FONT_PALETTE_TEXT_BOX, ConvertStringToWide(g_record_mode_line));
+    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, g_record_mode_line);
     return 0;
 }
 
@@ -255,15 +255,15 @@ void SelectTrapType(Trigger* trigger)
 void CompleteTrapDisarm(Trigger* trigger)
 {
     int type;
-    wchar_t* text;
+    std::string text;
 
     trigger->CompleteItemInteraction();
     type = trigger->lock_state.device_id;
     if (Random(100) < 40) {
         ApplyItemEffectToRandomCharacter(g_learn_sound, -1, 0, g_character_event_no_flags);
     }
-    text = FormatWideString(g_format_s_space_s, gppStringList[g_trap_name_string_ids[type]],
-                            gppStringList[0x7b2]);
+    text = fmt::format("{} {}", g_localized_strings[g_trap_name_string_ids[type]],
+                       g_localized_strings[0x7b2]);
     ShowString(text);
     trigger->Run(-1);
 }
@@ -320,8 +320,8 @@ void ResolveSprungTrap(Trigger* trigger)
     int type;
     int count;
     int power;
-    const wchar_t* result;
-    wchar_t* text;
+    std::string result;
+    std::string text;
     srVector3T<float> point;
     srVector3T<float> camera;
     srVector3T<float> minimum;
@@ -332,12 +332,11 @@ void ResolveSprungTrap(Trigger* trigger)
     type = trigger->lock_state.device_id;
     if (Random(2) == 0) {
         trigger->CompleteItemInteraction();
-        result = gppStringList[0x7b3];
+        result = g_localized_strings[0x7b3];
     } else {
-        result = gppStringList[0x7b4];
+        result = g_localized_strings[0x7b4];
     }
-    text =
-        FormatWideString(g_format_s_space_s, gppStringList[g_trap_name_string_ids[type]], result);
+    text = fmt::format("{} {}", g_localized_strings[g_trap_name_string_ids[type]], result);
     ShowString(text);
     count = devices - static_cast<int>(Random(devices / 2));
     power = 4;
