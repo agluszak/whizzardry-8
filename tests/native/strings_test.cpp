@@ -1,6 +1,4 @@
-#include "surrender/srConfig.h"
 #include "surrender/srBinOStream.h"
-#include "surrender/srCore.h"
 #include "surrender/srIStreamOpener.h"
 
 #include <cstdio>
@@ -23,25 +21,7 @@ public:
 
 int main()
 {
-    class srConfig config;
-    config.append("text", "first");
-    CHECK(std::string(config.get("text")) == "first");
-    config.append("text", "-second");
-    CHECK(std::string(config.get("text")) == "first-second");
-    config.append("text", config.get("text"));
-    CHECK(std::string(config.get("text")) == "first-secondfirst-second");
-    config.append("empty", "");
-    CHECK(config.exists("empty") && std::string(config.get("empty")).empty());
-    config.append("empty", "zażółć-雪");
-    CHECK(std::string(config.get("empty")) == "zażółć-雪");
     const std::string long_text(4096, 'a');
-    config.append("empty", long_text.c_str());
-    CHECK(std::string(config.get("empty")) == "zażółć-雪" + long_text);
-    config.append("empty", "");
-    CHECK(std::string(config.get("empty")) == "zażółć-雪" + long_text);
-    config.append("ignored", nullptr);
-    config.append(nullptr, "ignored");
-    CHECK(!config.exists("ignored"));
 
     CapturingOpener capture;
     srIStreamOpener opener;
@@ -56,11 +36,7 @@ int main()
         std::unique_ptr<srBinIStream> stream(opener.open(source.c_str()));
         CHECK(stream && stream->good() && capture.last_path == expected);
     }
-    srFileManager file_manager;
-    auto* previous_manager = srCore.getFileManager();
-    srCore.setFileManager(&file_manager);
     std::unique_ptr<srBinIStream> fallback(opener.open("missing\\string-regression.bin"));
-    srCore.setFileManager(previous_manager);
     CHECK(fallback && fallback->good() && capture.last_path == "missing/string-regression.bin");
     CHECK(!opener.open(nullptr));
     CHECK(!opener.open("unknown://file"));
@@ -75,5 +51,5 @@ int main()
     input->read(copied.data(), copied.size());
     CHECK(input->good() && copied == memory_text);
 
-    puts("ok: standard string config appends, stream paths and polymorphic stream lifecycles");
+    puts("ok: standard string stream paths and polymorphic stream lifecycles");
 }

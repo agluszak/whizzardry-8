@@ -2,10 +2,8 @@
 
 #include <iosfwd>
 
-#include "srFileManager.h"
 #include "srGlobalRecycler.h"
 #include "srHeap.h"
-#include "srMemoryAllocator.h"
 #include "srStatisticsManager.h"
 #include "srVariableTimer.h"
 
@@ -34,7 +32,6 @@ public:
     SR_DLL_IMPORT const char* getCopyright() const;
     SR_DLL_IMPORT const char* getVersion() const;
     SR_DLL_IMPORT unsigned char getDebugLevel() const;
-    SR_DLL_IMPORT srFileManager* getFileManager() const;
     SR_DLL_IMPORT srFilter* getFilter() const;
     SR_DLL_IMPORT srGlobalRecycler* getGlobalRecycler() const;
     SR_DLL_IMPORT srHierarchyIOManager* getHierarchyIOManager() const;
@@ -44,7 +41,6 @@ public:
     {
         return material;
     }
-    SR_DLL_IMPORT srMemoryAllocator* getMemoryAllocator() const;
     SR_DLL_IMPORT srModelIOManager* getModelIOManager() const;
     SR_DLL_IMPORT srPalette* getPalette() const;
     SR_DLL_IMPORT srNode* getRootNode() const;
@@ -66,7 +62,6 @@ public:
     SR_DLL_IMPORT srVideoManager* getVideoManager() const;
     SR_DLL_IMPORT int isInitialized() const;
     SR_DLL_IMPORT void setDebugLevel(unsigned char level);
-    SR_DLL_IMPORT void setFileManager(srFileManager* manager);
     SR_DLL_IMPORT void setFilter(srFilter* filter);
     SR_DLL_IMPORT int supportMultiThread();
     SR_DLL_IMPORT void supportMultiThread(int enabled);
@@ -96,11 +91,8 @@ private:
     srIStreamOpener* stream_opener;
     srFStreamOpener* file_stream_opener;
     srFilter* filter;
-    srMemoryAllocator* memory_allocator;
-    srFileManager* file_manager;
     srStatisticsManager* statistics_manager;
     srRegistry* registry_;
-    srFileManager* default_file_manager;
     srPalette* palette;
     w8_ulong next_unique_id;
     char version_[0x20];
