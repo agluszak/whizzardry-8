@@ -116,6 +116,41 @@ static void MainGameLayoutRadarButton(W8DialogButton* button);
 static void MainGameLayoutActionPanelButton(W8DialogButton* button);
 static void MainGameLayoutFormationButton(W8DialogButton* button);
 
+int GetAttackMenuWeaponOffset(W8Skill skill)
+{
+    int base;
+    switch (skill) {
+    case W8_SKILL_MACE_FLAIL:
+        base = 3;
+        break;
+    case W8_SKILL_AXE:
+        base = 4;
+        break;
+    case W8_SKILL_POLEARM:
+        base = 7;
+        break;
+    case W8_SKILL_STAFF_WAND:
+        base = 6;
+        break;
+    case W8_SKILL_BOW:
+        base = 1;
+        break;
+    case W8_SKILL_THROWING_SLING:
+        base = 2;
+        break;
+    case W8_SKILL_MODERN_WEAPONS:
+        base = 8;
+        break;
+    case W8_SKILL_MARTIAL_ARTS:
+        base = 5;
+        break;
+    default:
+        base = 0;
+        break;
+    }
+    return base;
+}
+
 // FUNCTION: WIZ8 0x005963E0
 void RefreshSubMenuPanel(bool invalidate)
 {

@@ -3603,6 +3603,20 @@ void CheckSpellBackfire(int spell_id, W8TargetSource* source, W8CombatSlot* targ
     }
 }
 
+/* The source and target validation paths report the same cast context. */
+static void ReportInvalidMagicReference(const char* type, int spell_id,
+                                        const W8TargetSource& source, const W8CombatSlot& target)
+{
+    DebugMessage(
+        1,
+        fmt::format("{}: Spell {:d}({}), Target Type {:d}(char {:d}, "
+                    "monster ID {:d}, group ID {:d}), Source Type {:d}(char {:d},ID {:d})",
+                    type, spell_id, g_spell_records[spell_id].display_name,
+                    fmt::underlying(target.iType), target.iChar, target.iMonsterID,
+                    target.iGroupID, fmt::underlying(source.iType), source.iChar,
+                    source.iMonsterID));
+}
+
 /* Resolve valid spell targets for one cast and append location ids to the
    caller's vectors. The source's position and eye are picked per source kind,
    then the spell's target type decides whether the single aimed slot, a
@@ -3645,14 +3659,7 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
     GetCameraPosition(&camera);
     if (TargetSourceIsMonster(source, 1)) {
         if (source->iMonsterID == -1) {
-            DebugMessage(
-                1,
-                fmt::format("InvalidMagicSource: Spell {:d}({}), Target Type {:d}(char {:d}, "
-                            "monster ID {:d}, group ID {:d}), Source Type {:d}(char {:d},ID {:d})",
-                            spell_id, g_spell_records[spell_id].display_name,
-                            fmt::underlying(target->iType), target->iChar, target->iMonsterID,
-                            target->iGroupID, fmt::underlying(source->iType), source->iChar,
-                            source->iMonsterID));
+            ReportInvalidMagicReference("InvalidMagicSource", spell_id, *source, *target);
             return;
         }
         monster_info = MonsterGetScriptPartByLocationIndex(
@@ -3694,14 +3701,7 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
         } else if (target->iType == W8_TARGET_KIND_MONSTER) {
             monster_markers.push_back(target->iMonsterID);
         } else if (target_type == W8_TARGET_TYPE_ENEMY) {
-            DebugMessage(
-                1,
-                fmt::format("InvalidMagicTarget: Spell {:d}({}), Target Type {:d}(char {:d}, "
-                            "monster ID {:d}, group ID {:d}), Source Type {:d}(char {:d},ID {:d})",
-                            spell_id, g_spell_records[spell_id].display_name,
-                            fmt::underlying(target->iType), target->iChar, target->iMonsterID,
-                            target->iGroupID, fmt::underlying(source->iType), source->iChar,
-                            source->iMonsterID));
+            ReportInvalidMagicReference("InvalidMagicTarget", spell_id, *source, *target);
             return;
         }
         break;
@@ -3712,14 +3712,7 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
         } else if (target->iType == W8_TARGET_KIND_MONSTER) {
             monster_markers.push_back(target->iMonsterID);
         } else {
-            DebugMessage(
-                1,
-                fmt::format("InvalidMagicTarget: Spell {:d}({}), Target Type {:d}(char {:d}, "
-                            "monster ID {:d}, group ID {:d}), Source Type {:d}(char {:d},ID {:d})",
-                            spell_id, g_spell_records[spell_id].display_name,
-                            fmt::underlying(target->iType), target->iChar, target->iMonsterID,
-                            target->iGroupID, fmt::underlying(source->iType), source->iChar,
-                            source->iMonsterID));
+            ReportInvalidMagicReference("InvalidMagicTarget", spell_id, *source, *target);
             return;
         }
         break;
@@ -3743,14 +3736,7 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
                     marked = true;
                 }
             } else if (monster_info->ubDisposition != W8_DISPOSITION_HOSTILE) {
-                DebugMessage(
-                    1, fmt::format(
-                           "InvalidMagicSource: Spell {:d}({}), Target Type {:d}(char {:d}, "
-                           "monster ID {:d}, group ID {:d}), Source Type {:d}(char {:d},ID {:d})",
-                           spell_id, g_spell_records[spell_id].display_name,
-                           fmt::underlying(target->iType), target->iChar, target->iMonsterID,
-                           target->iGroupID, fmt::underlying(source->iType), source->iChar,
-                           source->iMonsterID));
+                ReportInvalidMagicReference("InvalidMagicSource", spell_id, *source, *target);
                 return;
             }
             side = monster_info->ubDisposition;
@@ -3773,14 +3759,7 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
             group = GetMonsterGroupByListIndex(
                 GetMonsterGroupIndexByID(0x99f, MAGIC_CPP, target->iGroupID, true));
             if (group == 0) {
-                DebugMessage(
-                    1, fmt::format(
-                           "InvalidMagicTarget: Spell {:d}({}), Target Type {:d}(char {:d}, "
-                           "monster ID {:d}, group ID {:d}), Source Type {:d}(char {:d},ID {:d})",
-                           spell_id, g_spell_records[spell_id].display_name,
-                           fmt::underlying(target->iType), target->iChar, target->iMonsterID,
-                           target->iGroupID, fmt::underlying(source->iType), source->iChar,
-                           source->iMonsterID));
+                ReportInvalidMagicReference("InvalidMagicTarget", spell_id, *source, *target);
                 return;
             }
             index = 0;
@@ -3795,14 +3774,7 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
         } else if (target->iType == W8_TARGET_KIND_PARTY) {
             marked = true;
         } else {
-            DebugMessage(
-                1,
-                fmt::format("InvalidMagicTarget: Spell {:d}({}), Target Type {:d}(char {:d}, "
-                            "monster ID {:d}, group ID {:d}), Source Type {:d}(char {:d},ID {:d})",
-                            spell_id, g_spell_records[spell_id].display_name,
-                            fmt::underlying(target->iType), target->iChar, target->iMonsterID,
-                            target->iGroupID, fmt::underlying(source->iType), source->iChar,
-                            source->iMonsterID));
+            ReportInvalidMagicReference("InvalidMagicTarget", spell_id, *source, *target);
             return;
         }
         break;
@@ -3822,14 +3794,7 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
                     marked = true;
                 }
             } else {
-                DebugMessage(
-                    1, fmt::format(
-                           "InvalidMagicSource: Spell {:d}({}), Target Type {:d}(char {:d}, "
-                           "monster ID {:d}, group ID {:d}), Source Type {:d}(char {:d},ID {:d})",
-                           spell_id, g_spell_records[spell_id].display_name,
-                           fmt::underlying(target->iType), target->iChar, target->iMonsterID,
-                           target->iGroupID, fmt::underlying(source->iType), source->iChar,
-                           source->iMonsterID));
+                ReportInvalidMagicReference("InvalidMagicSource", spell_id, *source, *target);
                 return;
             }
         } else {
@@ -3871,14 +3836,7 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
         } else if (TargetSourceIsMonster(source, 1)) {
             if (monster_info->ubDisposition != W8_DISPOSITION_FRIENDLY &&
                 monster_info->ubDisposition != W8_DISPOSITION_HOSTILE) {
-                DebugMessage(
-                    1, fmt::format(
-                           "InvalidMagicSource: Spell {:d}({}), Target Type {:d}(char {:d}, "
-                           "monster ID {:d}, group ID {:d}), Source Type {:d}(char {:d},ID {:d})",
-                           spell_id, g_spell_records[spell_id].display_name,
-                           fmt::underlying(target->iType), target->iChar, target->iMonsterID,
-                           target->iGroupID, fmt::underlying(source->iType), source->iChar,
-                           source->iMonsterID));
+                ReportInvalidMagicReference("InvalidMagicSource", spell_id, *source, *target);
                 return;
             }
             side = (source->fBackfire || source->fReflection) ? 1 : 2;

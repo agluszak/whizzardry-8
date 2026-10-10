@@ -2247,20 +2247,42 @@ static void ResolveAfflictionCondition(W8SpellEffectEntry* effect, W8CombatSlot*
     }
 }
 
+/* Apply a single affliction roll after the caller has identified its target. */
+static void ResolveAfflictionForTarget(W8SpellEffectEntry* effect, W8CombatSlot* target,
+                                      W8SpellRealm realm, int power_level, unsigned int duration,
+                                      bool verbose, W8MonsterInfo* monster_info)
+{
+    const unsigned int roll = Random(100);
+    if (roll < 0x32) {
+        ResolveAfflictionCondition(effect, target, realm, power_level, duration, verbose, roll);
+        return;
+    }
+
+    unsigned int magnitude = RollEffectMagnitude(&effect->definition);
+    ReduceMagnitudeByResistance(&magnitude, target, realm, power_level);
+    if (magnitude == 0) {
+        if (verbose)
+            AnnounceEffectResisted(target);
+        return;
+    }
+    W8SpellEffectResult* result = verbose ? nullptr : &effect->result;
+    if (target->iType == W8_TARGET_KIND_CHARACTER)
+        ApplyDamageToCharacter(target->iChar, magnitude, false, verbose, false, result, false);
+    else
+        ApplyDamageToMonster(monster_info, magnitude, &effect->Source, false, verbose, 0, result, false);
+}
+
 /* The affliction spells: each listed target takes either a weighted-random
    condition attack or a straight damage roll, about a coin flip each. With
    verbose reporting off the accumulated result is flushed at the end. */
 // FUNCTION: WIZ8 0x0054fa30
 void ResolveAfflictionAgainstTargets(W8SpellEffectEntry* effect)
 {
-    unsigned int magnitude;
-    unsigned int roll;
     W8SpellRealm realm;
     int power_level;
     bool verbose;
     W8CombatSlot target;
     W8MonsterInfo* monster_info;
-    W8SpellEffectResult* result;
     int index;
     int party_slot;
 
@@ -2276,55 +2298,14 @@ void ResolveAfflictionAgainstTargets(W8SpellEffectEntry* effect)
         }
         target.iType = W8_TARGET_KIND_CHARACTER;
         target.iChar = party_slot;
-        roll = Random(100);
-        if (roll < 0x32) {
-            ResolveAfflictionCondition(effect, &target, realm, power_level, duration, verbose,
-                                       roll);
-        } else {
-            bool resisted;
-            magnitude = RollEffectMagnitude(&effect->definition);
-            ReduceMagnitudeByResistance(&magnitude, &target, realm, power_level);
-            resisted = false;
-            if (magnitude == 0) {
-                if (!verbose) {
-                    continue;
-                }
-                AnnounceEffectResisted(&target);
-                resisted = true;
-            }
-            if (!resisted) {
-                result = !verbose ? &effect->result : 0;
-                ApplyDamageToCharacter(party_slot, magnitude, false, verbose, false, result, false);
-            }
-        }
+        ResolveAfflictionForTarget(effect, &target, realm, power_level, duration, verbose, nullptr);
     }
     for (index = 0; index < static_cast<int>(effect->monster_ids.size()); ++index) {
         unsigned int duration = RollEffectDuration(&effect->definition);
         monster_info = GetEffectMonsterTarget(effect->monster_ids[index], 0x907, 0x908);
         target.iType = W8_TARGET_KIND_MONSTER;
         target.iMonsterID = monster_info->location_id;
-        roll = Random(100);
-        if (roll < 0x32) {
-            ResolveAfflictionCondition(effect, &target, realm, power_level, duration, verbose,
-                                       roll);
-        } else {
-            bool resisted;
-            magnitude = RollEffectMagnitude(&effect->definition);
-            ReduceMagnitudeByResistance(&magnitude, &target, realm, power_level);
-            resisted = false;
-            if (magnitude == 0) {
-                if (!verbose) {
-                    continue;
-                }
-                AnnounceEffectResisted(&target);
-                resisted = true;
-            }
-            if (!resisted) {
-                result = !verbose ? &effect->result : 0;
-                ApplyDamageToMonster(monster_info, magnitude, &effect->Source, false, verbose, 0,
-                                     result, false);
-            }
-        }
+        ResolveAfflictionForTarget(effect, &target, realm, power_level, duration, verbose, monster_info);
     }
     if (!verbose) {
         ReportSpellEffectResult(effect);

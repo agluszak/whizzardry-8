@@ -1450,6 +1450,46 @@ void StartMonsterAttackCycle(W8MonsterInfo* monster_info, W8AttackMode action_de
     StartMonsterCycle(monster_info, cycle, W8_ANIMATION_PLAY_ONCE);
 }
 
+/* Release queued casualty notices and reset the attack result. */
+static void DrainCombatDeathReports(W8SpellEffectResult* report)
+{
+    W8SpellDamageReport* entry;
+    while (!report->reports.empty()) {
+        entry = report->reports[0];
+        report->reports.erase(report->reports.begin());
+        if (entry != nullptr) {
+            if (entry->kind == 1) {
+                PostCharacterNotice(
+                    entry->value,
+                    fmt::format(
+                        "{}!",
+                        g_localized_strings[g_condition_notices[W8_CONDITION_DEAD].singular]));
+            } else if (entry->kind == 3) {
+                ShowNotice(
+                    W8_FONT_PALETTE_RUST,
+                    fmt::format(
+                        "{} {}!", entry->text,
+                        g_localized_strings[g_condition_notices[W8_CONDITION_DEAD].singular]));
+            }
+            free(entry);
+        }
+    }
+    *report = {};
+}
+
+/* Both attack result paths announce target conditions in the same way. */
+static void AnnounceCombatTargetCondition(const W8SpellEffectResult* report,
+                                          unsigned int condition, W8MonsterInfo* monster_info)
+{
+    const std::string& name = g_localized_strings[g_condition_notices[condition].singular];
+    if (report->target.iType == W8_TARGET_KIND_MONSTER) {
+        ShowNotice(W8_FONT_PALETTE_RUST,
+                   fmt::format("{} {}!", GetMonsterName(monster_info, nullptr, 0), name));
+    } else if (report->target.iType == W8_TARGET_KIND_CHARACTER) {
+        PostCharacterNotice(report->target.iChar, fmt::format("{}!", name));
+    }
+}
+
 /* Announce a character's attack on the combat log: the swings line, the
    damage notices, what the target suffered unless it died, and the casualty
    list - then wipe the record clean for the next attack. */
@@ -1458,7 +1498,6 @@ void ReportCharacterAttackResult(int party_slot, W8SpellEffectResult* report)
 {
     W8MonsterInfo* monster_info;
     w8_unaligned_uint* condition_turns;
-    W8SpellDamageReport* entry;
     unsigned int condition;
 
     if (report->condition_counts[W8_CONDITION_DEAD] > 0) {
@@ -1528,44 +1567,12 @@ void ReportCharacterAttackResult(int party_slot, W8SpellEffectResult* report)
             for (condition = 0; condition < W8_CONDITION_COUNT; ++condition) {
                 if (report->condition_counts[condition] > 0 && condition != W8_CONDITION_DRAINED &&
                     condition != W8_CONDITION_MISSING) {
-                    if (report->target.iType == W8_TARGET_KIND_MONSTER) {
-                        ShowNotice(
-                            W8_FONT_PALETTE_RUST,
-                            fmt::format(
-                                "{} {}!", GetMonsterName(monster_info, nullptr, 0),
-                                g_localized_strings[g_condition_notices[condition].singular]));
-                    } else if (report->target.iType == W8_TARGET_KIND_CHARACTER) {
-                        PostCharacterNotice(
-                            report->target.iChar,
-                            fmt::format(
-                                "{}!",
-                                g_localized_strings[g_condition_notices[condition].singular]));
-                    }
+                    AnnounceCombatTargetCondition(report, condition, monster_info);
                 }
             }
         }
     }
-    while (!report->reports.empty()) {
-        entry = report->reports[0];
-        report->reports.erase(report->reports.begin());
-        if (entry != nullptr) {
-            if (entry->kind == 1) {
-                PostCharacterNotice(
-                    entry->value,
-                    fmt::format(
-                        "{}!",
-                        g_localized_strings[g_condition_notices[W8_CONDITION_DEAD].singular]));
-            } else if (entry->kind == 3) {
-                ShowNotice(
-                    W8_FONT_PALETTE_RUST,
-                    fmt::format(
-                        "{} {}!", entry->text,
-                        g_localized_strings[g_condition_notices[W8_CONDITION_DEAD].singular]));
-            }
-            free(entry);
-        }
-    }
-    *report = {};
+    DrainCombatDeathReports(report);
 }
 
 static int GetCombatFumbleChance(const std::vector<W8CombatSlot>& targets, int attack_score)
@@ -2027,7 +2034,6 @@ invalid_target:
 void ReportMonsterAttackResult(W8MonsterInfo* monster_info, W8SpellEffectResult* report)
 {
     w8_unaligned_uint* condition_turns;
-    W8SpellDamageReport* entry;
     unsigned int condition;
 
     if (report->condition_counts[W8_CONDITION_DEAD] > 0) {
@@ -2092,44 +2098,12 @@ void ReportMonsterAttackResult(W8MonsterInfo* monster_info, W8SpellEffectResult*
                             GetConditionRecordFlag(report->target.iChar, W8_DEPENDENCE_SWALLOWED)) {
                             PostCharacterNotice(report->target.iChar, g_localized_strings[0x1d5]);
                         }
-                    } else if (report->target.iType == W8_TARGET_KIND_MONSTER) {
-                        ShowNotice(
-                            W8_FONT_PALETTE_RUST,
-                            fmt::format(
-                                "{} {}!", GetMonsterName(monster_info, nullptr, 0),
-                                g_localized_strings[g_condition_notices[condition].singular]));
-                    } else if (report->target.iType == W8_TARGET_KIND_CHARACTER) {
-                        PostCharacterNotice(
-                            report->target.iChar,
-                            fmt::format(
-                                "{}!",
-                                g_localized_strings[g_condition_notices[condition].singular]));
-                    }
+                    } else AnnounceCombatTargetCondition(report, condition, monster_info);
                 }
             }
         }
     }
-    while (!report->reports.empty()) {
-        entry = report->reports[0];
-        report->reports.erase(report->reports.begin());
-        if (entry != nullptr) {
-            if (entry->kind == 1) {
-                PostCharacterNotice(
-                    entry->value,
-                    fmt::format(
-                        "{}!",
-                        g_localized_strings[g_condition_notices[W8_CONDITION_DEAD].singular]));
-            } else if (entry->kind == 3) {
-                ShowNotice(
-                    W8_FONT_PALETTE_RUST,
-                    fmt::format(
-                        "{} {}!", entry->text,
-                        g_localized_strings[g_condition_notices[W8_CONDITION_DEAD].singular]));
-            }
-            free(entry);
-        }
-    }
-    *report = {};
+    DrainCombatDeathReports(report);
 }
 
 /* Begin one of the monster's attacks for the round: validate the state, rate

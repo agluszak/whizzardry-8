@@ -1994,12 +1994,8 @@ bool W8Octree::HasLineOfSight(const srVector3T<float>* from, srVector3T<float>* 
     m_gd_result_count = 0;
     m_visited_polygon_bits->ClearAll();
     m_current_regions->ClearAll();
-    cell.x = static_cast<int>(((from->x - m_spatial.m_minimum.x) / m_spatial.m_node_extent));
-    end_cell.x = static_cast<int>(((to->x - m_spatial.m_minimum.x) / m_spatial.m_node_extent));
-    cell.y = static_cast<int>(((from->y - m_spatial.m_minimum.y) / m_spatial.m_node_extent));
-    end_cell.y = static_cast<int>(((to->y - m_spatial.m_minimum.y) / m_spatial.m_node_extent));
-    cell.z = static_cast<int>(((from->z - m_spatial.m_minimum.z) / m_spatial.m_node_extent));
-    end_cell.z = static_cast<int>(((to->z - m_spatial.m_minimum.z) / m_spatial.m_node_extent));
+    WorldPositionToCell(from, &cell);
+    WorldPositionToCell(to, &end_cell);
     span = abs(cell.z - end_cell.z) + abs(cell.y - end_cell.y) + abs(cell.x - end_cell.x);
 
     if (span < 2) {
@@ -2099,12 +2095,8 @@ short W8Octree::TraceLineOfSight(const srVector3T<float>* from, srVector3T<float
     if (visit_octree) {
         m_gd_result_count = 0;
         m_visited_object_bits->ClearAll();
-        cell.x = static_cast<int>(((from->x - m_spatial.m_minimum.x) / m_spatial.m_node_extent));
-        end_cell.x = static_cast<int>(((to->x - m_spatial.m_minimum.x) / m_spatial.m_node_extent));
-        cell.y = static_cast<int>(((from->y - m_spatial.m_minimum.y) / m_spatial.m_node_extent));
-        end_cell.y = static_cast<int>(((to->y - m_spatial.m_minimum.y) / m_spatial.m_node_extent));
-        cell.z = static_cast<int>(((from->z - m_spatial.m_minimum.z) / m_spatial.m_node_extent));
-        end_cell.z = static_cast<int>(((to->z - m_spatial.m_minimum.z) / m_spatial.m_node_extent));
+        WorldPositionToCell(from, &cell);
+        WorldPositionToCell(to, &end_cell);
         span = abs(cell.z - end_cell.z) + abs(cell.y - end_cell.y) + abs(cell.x - end_cell.x);
 
         if (span < 2) {
@@ -4020,65 +4012,25 @@ unsigned int W8Octree::CollectObjectsInCell(const srVector3T<int>* cell, unsigne
         }
         break;
     default:
-        if (W8_OCTREE_KIND_LOCATION < kind) {
-            if (cell != 0) {
-                g_octree_query_cell = PackOctreeCellKey(cell->x, cell->y, cell->z);
-                g_octree_query_slot = object_registry->by_cell->end();
-            }
-            slot = NextIndexValue(*object_registry->by_cell, g_octree_query_cell, g_octree_query_slot);
-            g_octree_query_slot = slot;
-            if (slot != object_registry->by_cell->end()) {
-                unsigned int packed =
-                    static_cast<unsigned int>(slot->second);
-                g_octree_query_id = static_cast<unsigned short>(packed);
-                while (m_gd_result_count < 10000) {
-                    short entry_kind = static_cast<short>(OctreeKeyKind(packed));
-                    if ((entry_kind == W8_OCTREE_KIND_LOCATION ||
-                         entry_kind == W8_OCTREE_KIND_NAVIGATOR) &&
-                        !m_visited_object_bits->Set(OctreeKeyId(packed) - 1)) {
-                        g_octree_state[m_gd_result_count] = g_octree_query_id - 1;
-                        ++m_gd_result_count;
-                    }
-                    slot = NextIndexValue(*object_registry->by_cell, g_octree_query_cell, g_octree_query_slot);
-                    g_octree_query_slot = slot;
-                    if (slot == object_registry->by_cell->end()) {
-                        return 0;
-                    }
-                    packed =
-                        static_cast<unsigned int>(slot->second);
-                    g_octree_query_id = static_cast<unsigned short>(packed);
-                }
-            }
-            break;
-        }
-        [[fallthrough]];
-    case W8_OCTREE_KIND_PROP:
-    case W8_OCTREE_KIND_WAYPOINT:
-    case W8_OCTREE_KIND_LOCATION:
-        if (cell != 0) {
+        if (cell != nullptr) {
             g_octree_query_cell = PackOctreeCellKey(cell->x, cell->y, cell->z);
             g_octree_query_slot = object_registry->by_cell->end();
         }
         slot = NextIndexValue(*object_registry->by_cell, g_octree_query_cell, g_octree_query_slot);
         g_octree_query_slot = slot;
-        if (slot != object_registry->by_cell->end()) {
-            unsigned int packed =
-                static_cast<unsigned int>(slot->second);
+        while (slot != object_registry->by_cell->end() && m_gd_result_count < 10000) {
+            unsigned int packed = static_cast<unsigned int>(slot->second);
             g_octree_query_id = static_cast<unsigned short>(packed);
-            while (m_gd_result_count < 10000) {
-                if ((static_cast<unsigned short>(OctreeKeyKind(packed)) == kind) &&
-                    !m_visited_object_bits->Set(OctreeKeyId(packed) - 1)) {
-                    g_octree_state[m_gd_result_count] = g_octree_query_id - 1;
-                    ++m_gd_result_count;
-                }
-                slot = NextIndexValue(*object_registry->by_cell, g_octree_query_cell, g_octree_query_slot);
-                g_octree_query_slot = slot;
-                if (slot == object_registry->by_cell->end()) {
-                    return 0;
-                }
-                packed = static_cast<unsigned int>(slot->second);
-                g_octree_query_id = static_cast<unsigned short>(packed);
+            const unsigned short entry_kind = OctreeKeyKind(packed);
+            const bool matches = kind > W8_OCTREE_KIND_LOCATION
+                ? (entry_kind == W8_OCTREE_KIND_LOCATION || entry_kind == W8_OCTREE_KIND_NAVIGATOR)
+                : entry_kind == kind;
+            if (matches && !m_visited_object_bits->Set(OctreeKeyId(packed) - 1)) {
+                g_octree_state[m_gd_result_count] = g_octree_query_id - 1;
+                ++m_gd_result_count;
             }
+            slot = NextIndexValue(*object_registry->by_cell, g_octree_query_cell, g_octree_query_slot);
+            g_octree_query_slot = slot;
         }
         break;
     }
