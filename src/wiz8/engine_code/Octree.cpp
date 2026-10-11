@@ -1,10 +1,10 @@
 #include "wiz8/engine_code/mesh_links.h"
 #include <array>
+#include "surrender/plane_math.h"
 #include "wiz8/octree_walk.h"
 #include <fmt/format.h>
 #include <SDL3/SDL_filesystem.h>
 #include <glm/ext/quaternion_trigonometric.hpp>
-#include <glm/gtc/matrix_access.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include <algorithm>
 #include <cstdio>
@@ -114,11 +114,10 @@ void W8Octree::UpdatePathVisualization()
         /* Retail reads the y component twice (proven in disassembly: both
            fcomp loads use the y slot) and never tests x. */
         if (cursor.y != g_float_zero || cursor.y != g_float_zero || cursor.z != g_float_zero) {
-            srVector3T<float> point = cursor;
-            pathing->UpdatePathVisualization(&point, &view.camera_dof);
+            pathing->UpdatePathVisualization(cursor.glmValue(), view.camera_dof);
             return;
         }
-        pathing->UpdatePathVisualization(&view.camera_location, &view.camera_dof);
+        pathing->UpdatePathVisualization(view.camera_location, view.camera_dof);
     }
 }
 
@@ -223,6 +222,19 @@ const float g_monster_proximity_radius_scale = 15.0f;
 // GLOBAL: WIZ8 0x005ec050
 const float g_scatter_inner_ring_jitter_scale = 0.00020000000949949026f;
 
+void W8OctreeView::captureCamera(const srCamera& camera)
+{
+    camera_location = glm::vec3(camera.getLocation());
+    camera_dof = glm::vec3(camera.getWorldSpaceDOF());
+    const auto rotation = camera.getRotation<glm::mat3>();
+    rotation_column0 = rotation[0];
+    rotation_column1 = rotation[1];
+    horizontal_fov = static_cast<float>(camera.getHorizontalFOV());
+    vertical_fov = static_cast<float>(camera.getVerticalFOV());
+    horizontal_fov_cosine = static_cast<float>(cos(horizontal_fov));
+    vertical_fov_cosine = static_cast<float>(cos(vertical_fov));
+}
+
 // FUNCTION: WIZ8 0x0042f7e0
 void W8Octree::UpdateCameraVisibility()
 {
@@ -232,18 +244,7 @@ void W8Octree::UpdateCameraVisibility()
     }
 
     view.far_clip = static_cast<float>(WorldGetFarClip(world));
-    view.camera_location = glm::vec3(world->camera->getLocation());
-    view.horizontal_fov = static_cast<float>(world->camera->getHorizontalFOV());
-    view.vertical_fov = static_cast<float>(world->camera->getVerticalFOV());
-
-    auto rotation = world->camera->getRotation<glm::mat3>();
-    view.rotation_column0.Set(rotation[0][0], rotation[0][1], rotation[0][2]);
-    view.rotation_column1.Set(rotation[1][0], rotation[1][1], rotation[1][2]);
-
-    srVector3T<double> dof = world->camera->getWorldSpaceDOF();
-    view.camera_dof = dof;
-    view.horizontal_fov_cosine = static_cast<float>(cos(view.horizontal_fov));
-    view.vertical_fov_cosine = static_cast<float>(cos(view.vertical_fov));
+    view.captureCamera(*world->camera);
     std::ranges::fill(m_visited_polygon_bits, false);
     std::ranges::fill(m_projected_regions, false);
     UpdateVisibility();
@@ -304,20 +305,9 @@ void W8Octree::UpdateVisibility()
     }
     m_projected_regions_valid = false;
     m_location_region_matched = 0;
-    view.visible_cells = projectRegionsAt(view.camera_location.glmValue()).cell;
+    view.visible_cells = projectRegionsAt(view.camera_location).cell;
     CollectVisibleCells();
-    if (pathing != 0) {
-        srVector3T<float> dof;
-        GetWorldCursorPosition(&dof);
-        /* Same proven retail quirk as UpdatePathVisualization: y is tested
-           twice and x is never examined. */
-        if (dof.y != g_float_zero || dof.y != g_float_zero || dof.z != g_float_zero) {
-            srVector3T<float> probe = dof;
-            pathing->UpdatePathVisualization(&probe, &view.camera_dof);
-        } else {
-            pathing->UpdatePathVisualization(&view.camera_location, &view.camera_dof);
-        }
-    }
+    UpdatePathVisualization();
     for (std::size_t region = 0; region < m_current_regions.size(); ++region) {
         if (m_projected_regions_valid && !m_projected_regions[region]) {
             m_current_regions[region] = false;
@@ -673,15 +663,15 @@ void W8Octree::MarkVisibleRegions()
         if (m_projected_regions_valid && !TestBit(m_projected_regions, volume->m_region_bit)) {
             continue;
         }
-        srVector3T<float> delta = view.camera_location - volume->m_points[0];
+        const auto delta = view.camera_location - volume->m_points[0].glmValue();
 
-        if (delta.LengthSquared() >= radius_squared) {
+        if (glm::dot(delta, delta) >= radius_squared) {
             continue;
         }
-        bool visible = PointInsideFrustum(volume->m_points[0].glmValue(), view.frustum_planes);
+        bool visible = srPlaneMath::containsSphere(view.frustum_planes, volume->m_points[0].glmValue(), 0);
 
         for (int point = 1; !visible && point < 9; ++point) {
-            visible = PointInsideFrustum(volume->m_points[point].glmValue(), view.frustum_planes);
+            visible = srPlaneMath::containsSphere(view.frustum_planes, volume->m_points[point].glmValue(), 0);
         }
         if (visible && volume->m_region_bit != 0) {
             SetBit(m_current_regions, volume->m_region_bit);
@@ -701,22 +691,22 @@ void W8Octree::BuildFrustumPlanes()
     float ratio = extent / cos(fov);
     double tangent = tan(fov);
     double tangent_vertical = tan(view.vertical_fov * g_float_half);
-    const auto location = view.camera_location.glmValue();
-    const auto dof = view.camera_dof.glmValue();
+    const auto location = view.camera_location;
+    const auto dof = view.camera_dof;
     const auto width = glm::vec3((tangent * far_clip + ratio) *
-                                glm::dvec3(view.rotation_column0.glmValue()));
+                                glm::dvec3(view.rotation_column0));
     const auto height = glm::vec3((tangent_vertical * far_clip + ratio) *
-                                 glm::dvec3(view.rotation_column1.glmValue()));
+                                 glm::dvec3(view.rotation_column1));
     const auto forward = far_clip * dof;
     const auto apex = location - backoff * dof;
     const std::array<glm::vec3, 4> far_corners{{
         (forward - width) + height + location, (forward + height) + width + location,
         (forward - width) - height + location, (forward + width) - height + location}};
-    view.frustum_planes[4] = {srVector3(dof), -glm::dot(dof, apex)};
-    view.frustum_planes[5] = {srVector3(-dof), glm::dot(dof, far_corners[0])};
+    view.frustum_planes[4] = {dof, -glm::dot(dof, apex)};
+    view.frustum_planes[5] = {-dof, glm::dot(dof, far_corners[0])};
     constexpr std::array<std::array<unsigned, 2>, 4> sides{{{1, 0}, {0, 2}, {3, 1}, {2, 3}}};
     for (unsigned side = 0; side < sides.size(); ++side)
-        view.frustum_planes[side] = trianglePlane(apex, far_corners[sides[side][0]],
+        view.frustum_planes[side] = srPlaneMath::triangle(apex, far_corners[sides[side][0]],
                                                  far_corners[sides[side][1]]);
     for (int index = 0; index < 6; ++index) {
         view.frustum_planes[index].w += m_spatial.m_region_grid_cell;
@@ -743,7 +733,7 @@ void W8Octree::CollectVisibleCells()
 
     for (int axis = 0; axis < 3; ++axis) {
         (&center.x)[axis] = static_cast<short>(
-            static_cast<int>((((&view.camera_location.x)[axis] - m_spatial.m_bounds.minimum[axis]) /
+            static_cast<int>(((view.camera_location[axis] - m_spatial.m_bounds.minimum[axis]) /
                               m_spatial.m_region_grid_cell)));
     }
     unsigned int region_base = m_region_mask;
@@ -771,7 +761,7 @@ void W8Octree::CollectVisibleCells()
                         cell_y * m_spatial.m_region_grid_cell + m_spatial.m_bounds.minimum.y + offset;
                     point.z =
                         cell_z * m_spatial.m_region_grid_cell + m_spatial.m_bounds.minimum.z + offset;
-                    if (!PointInsideFrustum(point.glmValue(), view.frustum_planes)) {
+                    if (!srPlaneMath::containsSphere(view.frustum_planes, point.glmValue(), 0)) {
                         continue;
                     }
                 }
@@ -1010,7 +1000,7 @@ unsigned int W8Octree::SampleRegionLinks(const srVector3T<float>* point, bool de
     W8World* world = GetWorld();
     std::vector<stModelInstance*> meshes;
     std::vector<int> cells;
-    view.camera_location = *point;
+    view.camera_location = point->glmValue();
     view.far_clip = m_spatial.m_extent;
     char text[104];
     sprintf(text, "Sample point: %f, %f, %f, Links Found: ", point->x, point->y, point->z);
@@ -1045,18 +1035,7 @@ unsigned int W8Octree::SampleRegionLinks(const srVector3T<float>* point, bool de
             frame *= glm::mat3_cast(
                 glm::angleAxis(float(std::atan2(sin_tilt, cos_tilt)), glm::vec3(1, 0, 0)));
             world->camera->setRotation(frame);
-            view.rotation_column0.x = frame[0][0];
-            srVector3T<float> unit;
-            unit.Set(1.0, 0.0, 0.0);
-            view.rotation_column0.y = glm::dot(glm::row(frame, 1), unit.glmValue());
-            view.rotation_column0.z = glm::dot(glm::row(frame, 2), unit.glmValue());
-            float right_y = frame[1][0];
-            unit.Set(0.0, 1.0, 0.0);
-            view.rotation_column1.x = right_y;
-            view.rotation_column1.y = glm::dot(glm::row(frame, 1), unit.glmValue());
-            view.rotation_column1.z = glm::dot(glm::row(frame, 2), unit.glmValue());
-            srVector3T<double> dof = world->camera->getWorldSpaceDOF();
-            view.camera_dof = dof;
+            view.captureCamera(*world->camera);
             std::ranges::fill(m_current_regions, false);
             CollectVisibleCells();
             bool all_known = true;
@@ -2862,7 +2841,7 @@ void W8Octree::Reset()
     m_gd_result_count = 0;
     m_aulGDObjs = 0;
 
-    memset(&view, 0, sizeof(view));
+    view = {};
     m_unknown_27c[0] = 0;
     m_unknown_27c[1] = 0;
     m_unknown_27c[2] = 0;

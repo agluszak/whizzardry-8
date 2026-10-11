@@ -1,4 +1,6 @@
 #include <algorithm>
+#include <ranges>
+#include "surrender/plane_math.h"
 #include <utility>
 #include <array>
 #include <memory>
@@ -715,9 +717,10 @@ std::array<glm::vec3, 8> sortedFrustumCorners(std::span<const glm::vec3, 8> poin
 // FUNCTION: WIZ8 0x0046d8d0
 bool SphereInsideFrustum(const glm::vec3& point, float radius, std::span<const W8Plane, 6> planes)
 {
-    return std::ranges::none_of(planes, [&](const W8Plane& plane) {
-        return glm::dot(point, plane.normal.glmValue()) + plane.w < -radius;
+    const auto coefficients = planes | std::views::transform([](const W8Plane& plane) {
+        return glm::vec4(plane.normal.glmValue(), plane.w);
     });
+    return srPlaneMath::containsSphere(coefficients, point, radius);
 }
 
 // FUNCTION: WIZ8 0x0046d920

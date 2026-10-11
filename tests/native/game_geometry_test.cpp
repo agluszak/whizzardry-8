@@ -1,4 +1,5 @@
 #include "glm/matrix.hpp"
+#include "surrender/plane_math.h"
 #include "wiz8/ground_shadow.h"
 #include "wiz8/layouts/world.h"
 #include "wiz8/engine_code/Camera.h"
@@ -2768,4 +2769,40 @@ TEST_CASE("Octree build cleanup frees shared runs and retains the reserved recor
     REQUIRE(geometry.vertex_count == 0); REQUIRE(geometry.m_polygon_count == 0);
     REQUIRE_FALSE(geometry.m_vertices); REQUIRE_FALSE(geometry.m_polygons);
     geometry.Release();
+}
+
+TEST_CASE_METHOD(SurRenderTestFixture, "octree camera snapshots use native basis columns and plane coefficients", "[geometry]")
+{
+    srCamera camera;
+    camera.setLocation(glm::dvec3(3, -7, 11));
+    const auto rotation = glm::mat3(glm::rotate(glm::mat4(1), .6f, glm::vec3(0, 1, 0)));
+    camera.setRotation(rotation);
+    camera.setFOV(1.2, 1.5);
+    W8OctreeView view;
+    view.far_clip = 123;
+    view.captureCamera(camera);
+    REQUIRE(view.camera_location == glm::vec3(3, -7, 11));
+    REQUIRE(view.rotation_column0 == rotation[0]);
+    REQUIRE(view.rotation_column1 == rotation[1]);
+    REQUIRE(view.camera_dof == glm::vec3(camera.getWorldSpaceDOF()));
+    REQUIRE(view.horizontal_fov == static_cast<float>(camera.getHorizontalFOV()));
+    REQUIRE(view.vertical_fov == static_cast<float>(camera.getVerticalFOV()));
+    REQUIRE(view.horizontal_fov_cosine == static_cast<float>(std::cos(view.horizontal_fov)));
+    REQUIRE(view.far_clip == 123);
+
+    const srBoundingBox bounds{{-1, -1, -1}, {1, 1, 1}};
+    std::array<glm::vec3, 8> corners;
+    for (unsigned i = 0; i < corners.size(); ++i) corners[i] = bounds.corner(i);
+    const auto points = sortedFrustumCorners(corners);
+    const auto packed = BuildFrustumPlanes(points);
+    for (unsigned i = 0; i < packed.size(); ++i)
+        view.frustum_planes[i] = {packed[i].normal.glmValue(), packed[i].w};
+    REQUIRE(srPlaneMath::containsSphere(view.frustum_planes, glm::vec3(0), 0));
+    REQUIRE(srPlaneMath::containsSphere(view.frustum_planes, glm::vec3(2, 0, 0), 1));
+    REQUIRE_FALSE(srPlaneMath::containsSphere(view.frustum_planes, glm::vec3(2, 0, 0), .99f));
+    REQUIRE(SphereInsideFrustum({2, 0, 0}, 1, packed));
+
+    view = {};
+    REQUIRE(view.camera_location == glm::vec3(0));
+    REQUIRE(view.frustum_planes[5] == glm::vec4(0));
 }

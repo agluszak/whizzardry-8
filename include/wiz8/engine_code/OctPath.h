@@ -360,20 +360,18 @@ public:
                                            unsigned char* probe_result);
     bool ResolvePathCell(unsigned int key, bool allow_dynamic, unsigned int* height,
                          float* direction, float* vertical, bool* dynamic);
-    unsigned short FindWaypoint(const srVector3T<float>* position, bool exhaustive);
+    unsigned short FindWaypoint(const glm::vec3& position, bool exhaustive);
     void SnapPathHeight(srVector3T<float>* position);
     void GetPathSurfaceNormal(const srVector3T<float>* position, srVector3T<float>* normal);
     void ActivateMovementTrigger(W8NavigatorMovementState* movement, bool use_path_edge);
-    void UpdatePathVisualization(const srVector3T<float>* source,
-                                 const srVector3T<float>* destination);
-    void DrawPathPosition(srVector3T<float> position, unsigned char mode);
+    void UpdatePathVisualization(const glm::vec3& source, const glm::vec3& destination);
+    void DrawPathPosition(const glm::vec3& position, unsigned char mode);
     void BuildSearchVisualization();
     stModelInstance* BuildPathVisualization();
     stModelInstance* EnsurePathVisualization();
     glm::vec3 waypointVisualizationColor(unsigned short waypoint) const;
-    short CollectPathVisualization(const srVector3T<float>* position);
-    bool PreparePathVisualization(const srVector3T<float>* source,
-                                  const srVector3T<float>* direction);
+    short CollectPathVisualization(const glm::vec3& position);
+    bool PreparePathVisualization(const glm::vec3& source, const glm::vec3& direction);
     void AddWaypoint(const srVector3T<float>* position);
     unsigned int ClassifyWaypoint(const srVector3T<float>* position);
     bool FindNearbyPathCell(srVector3T<float>* position, bool snap_to_cell,

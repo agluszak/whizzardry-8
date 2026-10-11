@@ -6,6 +6,7 @@
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
 #include "surrender/srMath.h"
+#include "surrender/plane_math.h"
 #include "wiz8/float_constants.h"
 
 #include <array>
@@ -121,8 +122,8 @@ inline RuntimeTriangle indexedTriangle(std::span<const srVector3> vertices,
 inline W8Plane trianglePlane(const glm::vec3& first, const glm::vec3& second,
                             const glm::vec3& third)
 {
-    const auto normal = normalizedOrZero(glm::cross(second - first, third - first));
-    return {normal, -glm::dot(normal, first)};
+    const auto plane = srPlaneMath::triangle(first, second, third);
+    return {glm::vec3(plane), plane.w};
 }
 
 // Prefer x, then y, then z on ties, including a completely degenerate plane.
