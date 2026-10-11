@@ -1808,8 +1808,7 @@ bool W8Monster::GetCycleMappedPosition(signed char cycle, int mapped_index,
         if (mesh != 0 && vertex != -1) {
             srVector3T<float>* vertices = mesh->GetVertexLocations(dispatch_value, true, 0.0f);
             if (vertices != 0 && current_model != 0) {
-                glm::mat3 rotation;
-                current_model->getWorldSpaceRotation(rotation);
+                auto rotation = current_model->getWorldSpaceRotation<glm::mat3>();
                 srVector3T<float> local = vertices[vertex] * m_pRep->scale;
                 srVector3T<float> rotated = rotation * local.glmValue();
                 srVector3T<float> owner_position = GetPosition();
@@ -4352,7 +4351,7 @@ void W8Monster::GetMappedPosition(srVector3T<float>* position)
                     glm::mat4 matrix;
 
                     *position = vertices[index];
-                    instance->getWorldSpaceMatrix(matrix);
+                    matrix = instance->getWorldSpaceMatrix<glm::mat4>();
                     *position = srVector3T<float>{
                         glm::vec3(matrix * glm::vec4(position->glmValue(), 1))};
                     return;
@@ -4975,7 +4974,7 @@ void W8Monster::SpawnDamageNumber(unsigned int amount)
             particle->bounds_radius = 1000.0f;
             location = glm::dvec3(position.glmValue());
             particle->setLocation(location);
-            GetCurrentModelInstance()->getRotation(rotation);
+            rotation = GetCurrentModelInstance()->getRotation<glm::mat3>();
             rotation *= glm::mat3_cast(glm::angleAxis(float(g_camera_pi), glm::vec3(0, 1, 0)));
 
             world = glm::dmat3(rotation);

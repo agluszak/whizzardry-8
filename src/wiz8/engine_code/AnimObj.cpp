@@ -383,7 +383,7 @@ bool AnimObjGetBounds(W8AnimObj* animation, signed char list_index, unsigned int
             PathAIApply(path, instance);
             PathAISetValue(path, saved);
         }
-        ((srNode*)instance)->getRotation(rotation);
+        rotation = ((srNode*)instance)->getRotation<glm::mat3>();
         srVector3T<double> node_location = ((srNode*)instance)->getLocation();
         translation = glm::vec3(node_location.glmValue());
         srVector3T<double> node_scale = ((srNode*)instance)->getScale();

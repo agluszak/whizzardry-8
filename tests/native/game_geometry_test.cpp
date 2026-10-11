@@ -322,8 +322,7 @@ static void baked_lighting()
     light.setLocation(srVector3T<double>(position));
     REQUIRE(BakeInstanceVertexLighting(&instance, &light, true));
     REQUIRE(colors[0] == srVector3(0, 0, 0));
-    glm::mat4 world;
-    instance.getWorldSpaceMatrix(world);
+    auto world = instance.getWorldSpaceMatrix<glm::mat4>();
     mesh.flags &= ~W8_MESH_VERTEX_LIGHTING_DIRTY;
     mesh.RevealVerticesNear({10, 0, -2}, 0.25f, world);
     REQUIRE((colors[0] == srVector3(1, 1, 1) && colors[1] == srVector3(0, 0, 0)));

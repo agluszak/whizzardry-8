@@ -401,7 +401,7 @@ try
                 event->m_pstParticles = particle;
                 location = particle->getLocation();
                 event->position = location;
-                particle->getRotation(event->rotation);
+                event->rotation = particle->getRotation<glm::mat3>();
                 (*cycle)->m_plsParticles->push_back(event);
             }
         }
@@ -927,7 +927,7 @@ void W8GrCycle::UpdateRepresentation(W8World* pWorld)
             location.y += movement.vertical_offset;
             psrMesh->setLocation(location);
             pRep->GetRotation(&rotation);
-            psrMesh->getRotation(current);
+            current = psrMesh->getRotation<glm::mat3>();
             rotation = rotation * current;
             psrMesh->setRotation(rotation);
             current_model_instance = psrMesh;
@@ -1101,7 +1101,7 @@ void W8GrCycle::UpdateParticleAttachments()
         pMeshModel = static_cast<stMeshModel*>(psrMesh->getModel());
     }
 
-    current_model_instance->getRotation(rotation);
+    rotation = current_model_instance->getRotation<glm::mat3>();
     scale = current_model_instance->getScale();
     scale_x = static_cast<float>(scale.x);
     scale_y = static_cast<float>(scale.y);

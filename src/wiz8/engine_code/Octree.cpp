@@ -231,12 +231,11 @@ void W8Octree::UpdateCameraVisibility()
     }
 
     view.far_clip = static_cast<float>(WorldGetFarClip(world));
-    world->camera->getLocation(view.camera_location);
+    view.camera_location = glm::vec3(world->camera->getLocation());
     view.horizontal_fov = static_cast<float>(world->camera->getHorizontalFOV());
     view.vertical_fov = static_cast<float>(world->camera->getVerticalFOV());
 
-    glm::mat3 rotation;
-    world->camera->getRotation(rotation);
+    auto rotation = world->camera->getRotation<glm::mat3>();
     view.rotation_column0.Set(rotation[0][0], rotation[0][1], rotation[0][2]);
     view.rotation_column1.Set(rotation[1][0], rotation[1][1], rotation[1][2]);
 
@@ -410,8 +409,7 @@ int W8Octree::CollectModelsNearPoint(std::vector<stModelInstance*>& out,
             return false;
         srBoundingBox bounds;
         instance->getModel()->getBoundingBox(bounds.minimum, bounds.maximum);
-        glm::mat4 world;
-        instance->getWorldSpaceMatrix(world);
+        auto world = instance->getWorldSpaceMatrix<glm::mat4>();
         return bounds.transformed(world).intersectsSphere(center, radius);
     };
     const unsigned int level_mask = m_region_mask;
@@ -1278,8 +1276,8 @@ void W8Octree::BuildRegionLinks(bool rebuild_all)
     SetWorldScaledViewport(0, 0, 0x140, 0xf0);
     srVector3T<float> saved_location;
     glm::mat3 saved_rotation;
-    world->camera->getLocation(saved_location);
-    world->camera->getRotation(saved_rotation);
+    saved_location = glm::vec3(world->camera->getLocation());
+    saved_rotation = world->camera->getRotation<glm::mat3>();
     g_light_update_flags &= ~1u;
     g_render_untextured = true;
     SetCameraLightMode(2);
@@ -1577,8 +1575,7 @@ int W8Octree::CountBadRegionMeshLinks(W8OctSpatialState* spatial)
                     if (auto* model = mesh->getModel()) {
                         srBoundingBox bounds;
                         model->getBoundingBox(bounds.minimum, bounds.maximum);
-                        glm::mat4 world;
-                        mesh->getWorldSpaceMatrix(world);
+                        auto world = mesh->getWorldSpaceMatrix<glm::mat4>();
                         const srBoundingBox cell{spatial->m_minimum.glmValue(),
                                                  spatial->m_maximum.glmValue()};
                         bad_links = !bounds.transformed(world).overlaps(cell);

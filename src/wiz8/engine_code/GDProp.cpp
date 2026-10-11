@@ -147,8 +147,7 @@ void GDProp::Initialize(srModelInstance* instance, bool attach, unsigned short p
     }
 
     PrepareGeometry(instance);
-    glm::mat4 world_matrix;
-    instance->getWorldSpaceMatrix(world_matrix);
+    auto world_matrix = instance->getWorldSpaceMatrix<glm::mat4>();
 
     int vertex_base = 0;
     int surface_total = 0;

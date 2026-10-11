@@ -373,7 +373,7 @@ void ApplyWorldCursorInput(void)
         if (gp3DCursor->range > g_float_zero && gp3DCursor->range < lifted.Length()) {
             delta.SetLength(gp3DCursor->range);
         }
-        g_world->dynamic_scene->getRotation(rotation);
+        rotation = g_world->dynamic_scene->getRotation<glm::mat3>();
         gp3DCursor->cam_rel_offset += delta;
         gp3DCursor->position = rotation * (gp3DCursor->cam_rel_offset).glmValue();
         node_location = g_world->dynamic_scene->getLocation();

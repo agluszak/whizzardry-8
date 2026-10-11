@@ -614,7 +614,7 @@ void UpdateWorldCameraAndPaths(W8World* world, unsigned int flags)
             *g_level_flags &= ~W8_LEVEL_FLAG_MOVED_THIS_UPDATE;
         }
         if (world->game_data != 0 && (flags & W8_CAMERA_MOTION_SKIP) == 0) {
-            world->camera->getRotation(rotation);
+            rotation = world->camera->getRotation<glm::mat3>();
             world->game_data->ApplyCameraMotionFlags(flags, &rotation, &motion_saved);
             world->camera->setRotation(rotation);
             s_saved_camera_rotation = rotation;
@@ -674,7 +674,7 @@ void UpdateWorldCameraAndPaths(W8World* world, unsigned int flags)
                     party_point = glm::vec3(location.glmValue());
                     PlacePartyAtPoint(&party_point);
                 }
-                world->camera->getRotation(path_rotation);
+                path_rotation = world->camera->getRotation<glm::mat3>();
                 if (g_secondary_world != 0 && g_secondary_world->camera != 0) {
                     g_secondary_world->camera->setRotation(path_rotation);
                 }
@@ -798,9 +798,7 @@ glm::mat3 cameraRotation(const W8World& world)
     if (!world.camera) {
         srAssertFail("pWorld->psrCamera", THREE_D_API_CPP, 0x3d0, 0);
     }
-    glm::mat3 rotation;
-    world.camera->getRotation(rotation);
-    return rotation;
+    return world.camera->getRotation<glm::mat3>();
 }
 
 /* Moves the camera and its camera light together. Only the camera's move
@@ -850,7 +848,7 @@ void SetWorldCameraState(W8World* world, W8World* source_world, W8WorldCameraSta
             position = glm::dvec3(location.glmValue());
             ((srNode*)world->camera_light)->setLocation(position);
         }
-        world->camera->getRotation(rotation);
+        rotation = world->camera->getRotation<glm::mat3>();
         SetCameraOrientation(state->yaw, state->pitch, &rotation);
         world->camera->setRotation(rotation);
     }
@@ -858,7 +856,7 @@ void SetWorldCameraState(W8World* world, W8World* source_world, W8WorldCameraSta
         if (state == 0) {
             srAssertFail("CamPos", THREE_D_API_CPP, 0x44e, 0);
         }
-        world->camera->getRotation(rotation);
+        rotation = world->camera->getRotation<glm::mat3>();
         SetCameraOrientation(state->yaw, state->pitch, &rotation);
         world->camera->setRotation(rotation);
     }
@@ -869,15 +867,13 @@ void SetWorldCameraState(W8World* world, W8World* source_world, W8WorldCameraSta
 // FUNCTION: WIZ8 0x00450610
 void RestoreWorldCameraState(W8World* world, W8World* source_world, W8WorldCameraState* state)
 {
-    srVector3T<double> camera_location;
     srVector3T<float> navigator_position;
 
     if (world == 0) {
         srAssertFail("pWorld", THREE_D_API_CPP, 0x46b, 0);
     }
     SetWorldCameraState(world, source_world, state);
-    world->camera->getLocation(camera_location);
-    navigator_position = glm::vec3(camera_location.glmValue());
+    navigator_position = glm::vec3(world->camera->getLocation());
     g_startup_world->SetAngles(GetCameraYawInDegrees());
     g_startup_world->SetPitch(GetCameraPitchInDegrees());
     navigator_position.y -= g_default_world_height;

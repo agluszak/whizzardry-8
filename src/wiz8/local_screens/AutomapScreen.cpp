@@ -1408,8 +1408,7 @@ void LightAutomapCell(const srVector3T<float>* position)
     for (auto* instance : instances) {
         if (!instance)
             continue;
-        glm::mat4 world;
-        instance->getWorldSpaceMatrix(world);
+        auto world = instance->getWorldSpaceMatrix<glm::mat4>();
         for (auto* mesh = static_cast<stMeshModel*>(instance->getModel()); mesh; mesh = mesh->Next())
             mesh->RevealVerticesNear(center, g_automap_range, world);
     }

@@ -182,7 +182,7 @@ void stGroundShadow::renderGroundShadow(srGERD* renderer)
     w8_ulong mesh_index;
     stMeshModel* model;
 
-    getLocation(position);
+    position = glm::vec3(getLocation());
     position.y += g_world_scale;
     if (depth <= width) {
         radius = width;

@@ -1115,7 +1115,7 @@ void stSound3D::BuildSoundOptions(const srVector3T<float>* listener, SOUND3DPARM
     rotation = glm::mat3(1);
     rotation *= glm::mat3_cast(glm::angleAxis(float(angle), glm::vec3(0, 1, 0)));
 
-    getLocation(node_position);
+    node_position = glm::vec3(getLocation());
     offset = node_position - *listener;
     srVector3T<float> transformed = rotation * offset.glmValue();
     float x = transformed.x;
