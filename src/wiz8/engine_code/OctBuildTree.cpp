@@ -1,5 +1,4 @@
-#include <cstdlib>
-#include <cstring>
+#include <memory>
 
 #include "compat/compiler.h"
 #include "wiz8/compat/unaligned.h"
@@ -8,7 +7,6 @@
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/materials.h"
 #include "wiz8/float_constants.h"
-#include "wiz8/sr_api.h"
 #include "OctPreTree.h"
 #include "geometry.h"
 #include "surrender/srMath.h"
@@ -26,40 +24,6 @@ W8GDSurface** g_oct_build_scratch;
 static w8_ulong g_oct_build_count;
 
 char CollectSurfacePredicate(W8GDSurface* surface, short kind);
-
-W8OctBuildLinkLists::W8OctBuildLinkLists() : m_usCurrent(0), unknown_02(0)
-{
-    for (int index = 0; index != 100; ++index) {
-        m_apLinkLists[index] = 0;
-        m_ausLinkCounts[index] = 0;
-    }
-}
-
-/* The original member names come from this body's assertion.  Each bank owns
-   50,000 eight-byte links.  A fresh zeroed link records the surface while its
-   next pointer remains null. */
-// FUNCTION: WIZ8 0x00446250
-W8OctBuildLink* W8OctBuildLinkLists::GetNewLink(void* surface)
-{
-    if (m_ausLinkCounts[m_usCurrent] > 49999) {
-        ++m_usCurrent;
-    }
-    if (m_usCurrent < 100) {
-        if (m_apLinkLists[m_usCurrent] == 0) {
-            m_apLinkLists[m_usCurrent] =
-                static_cast<W8OctBuildLink*>(malloc(50000 * sizeof(W8OctBuildLink)));
-            if (m_apLinkLists[m_usCurrent] == 0) {
-                srAssertFail("m_apLinkLists[m_usCurrent]", OCT_BUILD_TREE_CPP, 140,
-                             "GetNewLink: Couldn't allocate m_apLinkLists.");
-            }
-            memset(m_apLinkLists[m_usCurrent], 0, 50000 * sizeof(W8OctBuildLink));
-        }
-        W8OctBuildLink* link = &m_apLinkLists[m_usCurrent][m_ausLinkCounts[m_usCurrent]++];
-        link->surface = surface;
-        return link;
-    }
-    return 0;
-}
 
 // FUNCTION: WIZ8 0x00446330
 W8OctBuildNode::W8OctBuildNode() : children{}, region(0), leaf_kind(0), provisional_region(0) {}
@@ -85,7 +49,6 @@ W8OctBuildTree::W8OctBuildTree(float leaf_size, srVector3T<float>* minimum,
     : spatial(0)
 {
     spatial.Reset();
-    link_lists = 0;
     leaf_polygon_count = 0;
     gd_surface_count = 0;
     leaf_count = 0;
@@ -167,38 +130,23 @@ W8OctBuildTree::W8OctBuildTree(float leaf_size, srVector3T<float>* minimum,
         spatial.m_cell_size = spatial.m_node_extent * g_octree_cell_extent_scale;
         spatial.m_maximum.Set(minimum->x + spatial.m_extent, minimum->y + spatial.m_extent,
                               minimum->z + spatial.m_extent);
-        g_oct_build_scratch = static_cast<W8GDSurface**>(malloc(10000 * sizeof(*g_oct_build_scratch)));
+        scratch = std::make_unique_for_overwrite<W8GDSurface*[]>(10000);
+        g_oct_build_scratch = scratch.get();
         spatial.m_polygon_count = 1;
         spatial.m_item_count = 0;
         spatial.m_root = 0;
         spatial.m_triangle_vertices = 0;
-        link_lists = new W8OctBuildLinkLists;
     }
 }
 
-/* Release the recursive node tree, the global construction scratch buffer and
-   every allocated link bank.  The first-member spatial value performs its own
-   shallow teardown after this body returns. */
+/* The tree owns its nodes, links, and scratch storage. The borrowed global
+   scratch pointer is cleared before the owned storage is destroyed. */
 // FUNCTION: WIZ8 0x004466d0
 W8OctBuildTree::~W8OctBuildTree()
 {
     delete spatial.m_root;
-    if (g_oct_build_scratch != 0) {
-        free(g_oct_build_scratch);
-    }
-    g_oct_build_scratch = 0;
-
-    spatial.m_triangle_vertices = 0;
-    if (link_lists != 0) {
-        for (int index = 0; index != 100; ++index) {
-            if (link_lists->m_apLinkLists[index] != 0) {
-                free(link_lists->m_apLinkLists[index]);
-            }
-            link_lists->m_apLinkLists[index] = 0;
-            link_lists->m_ausLinkCounts[index] = 0;
-        }
-        delete link_lists;
-    }
+    g_oct_build_scratch = nullptr;
+    spatial.m_triangle_vertices = nullptr;
 }
 
 /* Recursive node teardown: internal nodes delete the eight children, leaf
@@ -294,16 +242,16 @@ void W8OctBuildTree::AppendLink(W8OctBuildNode* node, void* payload, short kind)
     if (deepest_link_list < node->leaf_kind) {
         deepest_link_list = node->leaf_kind;
     }
+    W8OctBuildLink* link = &links.emplace_back(W8OctBuildLink{payload, nullptr});
     W8OctBuildLink* head = node->links[kind];
-    if (head == 0) {
-        node->links[kind] = link_lists->GetNewLink(payload);
+    if (head == nullptr) {
+        node->links[kind] = link;
         return;
     }
-    W8OctBuildLink* next;
-    for (next = head->next; next != 0; next = next->next) {
-        head = next;
+    while (head->next != nullptr) {
+        head = head->next;
     }
-    head->next = link_lists->GetNewLink(payload);
+    head->next = link;
 }
 
 /* Segment query over the build tree: seed the caller's result array with the
