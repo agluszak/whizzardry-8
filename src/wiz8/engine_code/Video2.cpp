@@ -1,3 +1,4 @@
+#include "glm/ext/vector_double3.hpp"
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_video.h>
@@ -1375,7 +1376,7 @@ void WarpSystemCursor(int x, int y)
 // FUNCTION: WIZ8 0x00428140
 void PositionMouseCursor(int width, int height, bool reset_tick)
 {
-    srVector3T<double> location;
+    glm::dvec3 location;
 
     if (g_mouse_surface) {
         g_cursor_width = width < 641 ? width : 640;
@@ -2368,7 +2369,7 @@ void PositionToolTipNode(srNode* node, int x, int y, bool positional)
     int height = instance->GetScaledHeight();
     double half_height = height * g_inverse_screen_height * g_double_half;
 
-    srVector3T<double> location;
+    glm::dvec3 location;
     location.x = half_width + position_x;
     location.z = -0.0001;
     if ((instance->overlay_scene_flag & 1U) == 0) {
@@ -2712,8 +2713,8 @@ srModelInstance* Video2DRectToPolygon(const W8ControlsRect* rect, void* source, 
         instance->render_state.height = static_cast<unsigned short>(rect->bottom - rect->top);
         instance->render_state.position_x = static_cast<short>(rect->left);
         instance->render_state.position_y = static_cast<short>(rect->top);
-        srVector3T<double> location;
-        location.Set(width * g_double_half + left, g_double_one - (height * g_double_half + top),
+        glm::dvec3 location;
+        location = glm::dvec3(width * g_double_half + left, g_double_one - (height * g_double_half + top),
                      -0.0001);
         node->setLocation(location);
         instance->setName("Video2DRectToPolygon");

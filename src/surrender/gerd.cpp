@@ -1,3 +1,4 @@
+#include "surrender/srBoundingSphere.h"
 #include <glm/ext/matrix_clip_space.hpp>
 #include <glm/ext/matrix_transform.hpp>
 #include <cstdlib>
@@ -1497,9 +1498,9 @@ void srGERD::ortho(double left, double right, double bottom, double top, double 
 }
 
 // FUNCTION: SURRENDER 0x100223A0
-void srGERD::rotate(double angle, const srVector3T<double>& axis)
+void srGERD::rotate(double angle, const glm::vec3& axis)
 {
-    const glm::vec3 direction(axis.x, axis.y, axis.z);
+    const auto& direction = axis;
     if (glm::dot(direction, direction) == 0) {
         loadIdentity();
         return;
@@ -1509,44 +1510,32 @@ void srGERD::rotate(double angle, const srVector3T<double>& axis)
     setMatrixDirty();
 }
 
-// FUNCTION: SURRENDER 0x100226F0
-void srGERD::rotate(double angle, const srVector3T<float>& axis)
-{
-    rotate(angle, srVector3T<double>(axis.x, axis.y, axis.z));
-}
-
 // FUNCTION: SURRENDER 0x10022780
-void srGERD::scale(const srVector3T<double>& factors)
+void srGERD::scale(const glm::vec3& factors)
 {
     auto& current = state.matrix_current[state.matrix_mode];
-    current = glm::scale(current, glm::vec3(factors.x, factors.y, factors.z));
+    current = glm::scale(current, factors);
     setMatrixDirty();
 }
 
 // FUNCTION: SURRENDER 0x10022870
 void srGERD::scale(double x, double y, double z)
 {
-    scale(srVector3T<double>(x, y, z));
+    scale(glm::vec3(x, y, z));
 }
 
 // FUNCTION: SURRENDER 0x10022960
-void srGERD::translate(const srVector3T<double>& offset)
+void srGERD::translate(const glm::vec3& offset)
 {
     auto& current = state.matrix_current[state.matrix_mode];
-    current = glm::translate(current, glm::vec3(offset.x, offset.y, offset.z));
+    current = glm::translate(current, offset);
     setMatrixDirty();
-}
-
-// FUNCTION: SURRENDER 0x100229F0
-void srGERD::translate(const srVector3T<float>& offset)
-{
-    translate(srVector3T<double>(offset.x, offset.y, offset.z));
 }
 
 // FUNCTION: SURRENDER 0x10022A20
 void srGERD::translate(double x, double y, double z)
 {
-    translate(srVector3T<double>(x, y, z));
+    translate(glm::vec3(x, y, z));
 }
 
 // FUNCTION: SURRENDER 0x100231D0
@@ -2074,12 +2063,6 @@ void srGERD::loadMatrix(const glm::mat3& matrix)
     loadMatrix(glm::mat4(matrix));
 }
 
-// FUNCTION: SURRENDER 0x10022840
-void srGERD::scale(const srVector3T<float>& factors)
-{
-    scale(srVector3T<double>((double)factors.x, (double)factors.y, (double)factors.z));
-}
-
 // FUNCTION: SURRENDER 0x100228C0
 void srGERD::scale(double factor)
 {
@@ -2089,7 +2072,7 @@ void srGERD::scale(double factor)
 // FUNCTION: SURRENDER 0x10022730
 void srGERD::rotate(double angle, double x, double y, double z)
 {
-    rotate(angle, srVector3T<double>(x, y, z));
+    rotate(angle, glm::vec3(x, y, z));
 }
 
 // FUNCTION: SURRENDER 0x10021DF0
@@ -2333,11 +2316,10 @@ glm::vec4 srGERD::getEyeSpaceLocation(const glm::vec3& object_location)
 }
 
 // FUNCTION: SURRENDER 0x1001DDF0
-srModel::BoundingSphere srGERD::getEyeSpaceBounds(const glm::vec3& object_center,
-                                                 float object_radius)
+srBoundingSphere srGERD::eyeSpaceBounds(const srBoundingSphere& sphere)
 {
-    const auto center = glm::vec3(getEyeSpaceLocation(object_center));
-    return {center, object_radius * state.max_modelview_scale};
+    const auto center = glm::vec3(getEyeSpaceLocation(sphere.center));
+    return {center, sphere.radius * state.max_modelview_scale};
 }
 
 // FUNCTION: SURRENDER 0x1001B570

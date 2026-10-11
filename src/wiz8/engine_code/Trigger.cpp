@@ -1084,7 +1084,7 @@ bool Trigger::PlayActionSound(const char* sound_name, int volume)
 
     stSound3D* sound = new stSound3D(sound_name, 0);
     if (sound != 0) {
-        srVector3T<double> sound_position;
+        glm::dvec3 sound_position;
         sound_position = glm::dvec3(position.glmValue());
         sound->volume = volume;
         sound->setLocation(sound_position);

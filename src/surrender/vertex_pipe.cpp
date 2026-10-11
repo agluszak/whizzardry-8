@@ -1,3 +1,4 @@
+#include "surrender/srBoundingSphere.h"
 #include "surrender/srMaterial.h" // IWYU pragma: keep - complete type for srMaterial to srMaterialIFace conversion.
 #include <algorithm>
 #include <cstddef>
@@ -689,7 +690,7 @@ void srVertexPipe::setupST(w8_ulong index)
 }
 
 // FUNCTION: SURRENDER 0x1002C480
-srVertexPipe::BoundingSphere srVertexPipe::getEyeSpaceBoundingSphere() const
+srBoundingSphere srVertexPipe::getEyeSpaceBoundingSphere() const
 {
     return {input->eye_center, input->eye_radius};
 }

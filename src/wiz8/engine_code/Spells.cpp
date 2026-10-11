@@ -1,5 +1,6 @@
 #include <cstdint>
 #include <optional>
+#include "glm/ext/vector_double3.hpp"
 #include "wiz8/engine_code/emitter_cycles.h"
 #include <fmt/format.h>
 #include <glm/ext/quaternion_trigonometric.hpp>
@@ -251,7 +252,7 @@ void W8SpellVisual::UpdateRepresentation(W8World* world)
             srModelInstance* instance = GetCurrentModelInstance();
 
             while (instance != 0) {
-                srVector3T<double> scale(scale0, scale0, scale0);
+                glm::dvec3 scale(scale0, scale0, scale0);
                 instance->setScale(scale);
                 instance = static_cast<srModelInstance*>(instance->first_child_);
             }

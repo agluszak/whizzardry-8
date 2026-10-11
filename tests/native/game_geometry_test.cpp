@@ -1,3 +1,10 @@
+#include "wiz8/engine_code/ReadLevel.h"
+#include "wiz8/engine_code/Monster.h"
+#include "glm/ext/vector_double3.hpp"
+#include "wiz8/engine_code/particle_modes.h"
+#include "wiz8/engine_code/stParticle.h"
+#include "wiz8/engine_code/game_timer.h"
+#include "surrender/srClock.h"
 #include "glm/ext/vector_int3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
@@ -30,11 +37,9 @@
 #include "surrender/srTriMeshPipeline.h"
 #include "surrender/srGERD.h"
 #include "surrender/srCamera.h"
-#include "surrender/srClock.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "wiz8/engine_code/AnimRep.hpp"
 #include "wiz8/engine_code/Prop.h"
-#include "wiz8/engine_code/game_timer.h"
 #include "wiz8/engine_code/World.h"
 #include "surrender/srTriangleCuller.h"
 #include "surrender/srDD_SDLGPU.h"
@@ -42,7 +47,6 @@
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/AnimObj.h"
 #include "wiz8/engine_code/AniMesh.h"
-#include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/Emitter.h"
 #include "wiz8/engine_code/PathAI.h"
 #include "wiz8/engine_code/stLight.hpp"
@@ -265,7 +269,10 @@ static void linked_mesh_bounds()
     linked->getVertexLoc()[1] = srVector3(8, 9, 10);
     mesh.AddPart(std::unique_ptr<stMeshModel>(linked));
     mesh.AddPart(std::make_unique<stMeshModel>(0, 0));
-    linked->CalculateLinkedBounds();
+    const auto linked_bounds = linked->getBounds();
+    REQUIRE(linked_bounds.box.minimum == glm::vec3(2, 3, 4));
+    REQUIRE(linked_bounds.box.maximum == glm::vec3(8, 9, 10));
+    REQUIRE(linked_bounds.sphere.center == glm::vec3(5, 6, 7));
     for (auto* member = &mesh; member; member = member->Next()) {
         REQUIRE(member->bounds_minimum == srVector3(2, 3, 4));
         REQUIRE(member->bounds_maximum == srVector3(8, 9, 10));
@@ -304,7 +311,7 @@ static void baked_lighting()
     stModelInstance instance(nullptr);
     instance.setModel(model);
     instance.setLocation(10, 0, 0);
-    instance.setScale(srVector3T<double>(2, 1, 1));
+    instance.setScale(glm::dvec3(2, 1, 1));
     instance.setRotation(0, glm::half_pi<double>(), 0);
     struct TestLight : stLight {
         using stLight::stLight;
@@ -318,49 +325,49 @@ static void baked_lighting()
     REQUIRE(BakeInstanceVertexLighting(&instance, &light, false));
     const float first_contribution = 2 / std::sqrt(5.0f) * 0.6f;
     const float second_contribution = 0.6f * (1 - std::sqrt(20.0f) / 10);
-    auto* colors = mesh.GetVertexLights(false, -1);
-    REQUIRE(close(colors[0].glmValue(), glm::vec3(0.5f, 0.5f, 0.25f) * first_contribution));
-    REQUIRE(close(colors[1].glmValue(), glm::vec3(0.5f, 0.5f, 0.25f) * second_contribution));
+    const auto colors = mesh.GetVertexLights(false, -1);
+    REQUIRE(close(colors[0], glm::vec3(0.5f, 0.5f, 0.25f) * first_contribution));
+    REQUIRE(close(colors[1], glm::vec3(0.5f, 0.5f, 0.25f) * second_contribution));
     REQUIRE((mesh.vertex_lighting_ready && (mesh.flags & W8_MESH_VERTEX_LIGHTING_DIRTY)));
 
     mesh.setMaterial(nullptr, 0, srMeshModel::SIDE_FRONT);
-    colors[0].SetZero();
-    colors[1].SetZero();
+    colors[0] = glm::vec3(0);
+    colors[1] = glm::vec3(0);
     REQUIRE(BakeInstanceVertexLighting(&instance, &light, false));
-    REQUIRE(close(colors[0].glmValue(), light.diffuse * first_contribution));
-    REQUIRE(close(colors[1].glmValue(), light.diffuse * second_contribution));
+    REQUIRE(close(colors[0], light.diffuse * first_contribution));
+    REQUIRE(close(colors[1], light.diffuse * second_contribution));
     mesh.setMaterial(material, 0, srMeshModel::SIDE_FRONT);
 
-    colors[0].SetZero();
-    colors[1].SetZero();
+    colors[0] = glm::vec3(0);
+    colors[1] = glm::vec3(0);
     const auto world_normal = glm::normalize(glm::vec3(0, 2, -1));
     const auto position = glm::dvec3(glm::vec3(10, 0, -2) + world_normal * 0.5f);
-    light.setLocation(srVector3T<double>(position));
+    light.setLocation(glm::dvec3(position));
     light.setLinearAttenuation(1, 1.0f / 511);
     REQUIRE(BakeInstanceVertexLighting(&instance, &light, false));
-    REQUIRE(close(colors[0].glmValue(), glm::vec3(0.25f, 0.25f, 0.125f)));
-    REQUIRE(colors[1] == srVector3(0, 0, 0));
+    REQUIRE(close(colors[0], glm::vec3(0.25f, 0.25f, 0.125f)));
+    REQUIRE(colors[1] == glm::vec3(0, 0, 0));
 
-    colors[0].SetZero();
+    colors[0] = glm::vec3(0);
     light.setLocation(10, 0, -2); // Coincident light and vertex remain finite.
     REQUIRE(BakeInstanceVertexLighting(&instance, &light, false));
-    REQUIRE(colors[0] == srVector3(0, 0, 0));
+    REQUIRE(colors[0] == glm::vec3(0, 0, 0));
     light.setName("Sun");
-    light.setLocation(srVector3T<double>(position));
+    light.setLocation(glm::dvec3(position));
     REQUIRE(BakeInstanceVertexLighting(&instance, &light, true));
-    REQUIRE(colors[0] == srVector3(0, 0, 0));
+    REQUIRE(colors[0] == glm::vec3(0, 0, 0));
     auto world = instance.getWorldSpaceMatrix<glm::mat4>();
     mesh.flags &= ~W8_MESH_VERTEX_LIGHTING_DIRTY;
     mesh.RevealVerticesNear({10, 0, -2}, 0.25f, world);
-    REQUIRE((colors[0] == srVector3(1, 1, 1) && colors[1] == srVector3(0, 0, 0)));
+    REQUIRE((colors[0] == glm::vec3(1, 1, 1) && colors[1] == glm::vec3(0, 0, 0)));
     REQUIRE(mesh.flags & W8_MESH_VERTEX_LIGHTING_DIRTY);
     mesh.RevealVerticesNear({10, 0, -4}, 0.25f, world);
-    REQUIRE((colors[0] == srVector3(1, 1, 1) && colors[1] == srVector3(1, 1, 1)));
-    colors[1].SetZero();
+    REQUIRE((colors[0] == glm::vec3(1, 1, 1) && colors[1] == glm::vec3(1, 1, 1)));
+    colors[1] = glm::vec3(0);
     mesh.RevealVerticesNear({10, 0, -4}, -1, world);
-    REQUIRE(colors[1] == srVector3(0, 0, 0));
+    REQUIRE(colors[1] == glm::vec3(0, 0, 0));
     mesh.RevealVerticesNear(glm::vec3(std::numeric_limits<float>::quiet_NaN()), 1, world);
-    REQUIRE(colors[1] == srVector3(0, 0, 0));
+    REQUIRE(colors[1] == glm::vec3(0, 0, 0));
     instance.setModel(nullptr);
 }
 
@@ -528,6 +535,37 @@ static void renderer_bounds()
             position[axis] = sign * 2;
             REQUIRE((renderer.testBoundingSphere(position, 0.1f) == srGERD::VISIBILITY_OUTSIDE));
         }
+    srMeshModel empty;
+    const auto empty_bounds = empty.getBounds();
+    REQUIRE(empty_bounds.box.minimum == glm::vec3(0));
+    REQUIRE(empty_bounds.box.maximum == glm::vec3(0));
+    REQUIRE(empty_bounds.sphere.center == glm::vec3(0));
+    REQUIRE(empty_bounds.sphere.radius == 0);
+
+    srMeshModel mesh(0, 8);
+    mesh.setBounds({2, 2, 2}, {3, 3, 3}, {0, 0, 0}, 0.1f);
+    mesh.render_control.value = 0;
+    REQUIRE_FALSE(mesh.isVisible(renderer)); // Visible sphere, rejected box.
+    mesh.enable(srMeshModel::CONTROL_SKIP_AUTO_BOX);
+    REQUIRE(mesh.isVisible(renderer));
+    mesh.setBounds({-0.5f, -0.5f, -0.5f}, {0.5f, 0.5f, 0.5f}, {3, 0, 0}, 0.1f);
+    mesh.render_control.value = 0;
+    REQUIRE_FALSE(mesh.isVisible(renderer)); // Rejected sphere, visible box.
+    mesh.enable(srMeshModel::CONTROL_SKIP_AUTO_SPHERE);
+    REQUIRE(mesh.isVisible(renderer));
+    mesh.setBounds({2, 2, 2}, {3, 3, 3}, {3, 0, 0}, 0.1f);
+    mesh.enable(srMeshModel::CONTROL_SKIP_AUTO_BOX);
+    REQUIRE(mesh.isVisible(renderer));
+    mesh.disable(srMeshModel::CONTROL_SKIP_AUTO_BOX);
+    mesh.vertex_location_count = 7;
+    REQUIRE(mesh.isVisible(renderer)); // Small meshes bypass box culling.
+
+    renderer.loadMatrix(glm::scale(glm::translate(glm::mat4(1), glm::vec3(1, 2, 3)),
+                                    glm::vec3(-2, 3, 4)));
+    const auto sphere = renderer.eyeSpaceBounds({{2, 3, 4}, 2});
+    REQUIRE(sphere.center == glm::vec3(-3, 11, 19));
+    REQUIRE(sphere.radius == 8);
+    renderer.loadIdentity();
     renderer.pushClipPlane({1, 0, 0, 0}, srGERD::CLIPMODE_POSITIONAL_0);
     REQUIRE((renderer.testBoundingSphere({-0.5f, 0, 0}, 0.1f) == srGERD::VISIBILITY_OUTSIDE));
     REQUIRE((renderer.testBoundingSphere({0.5f, 0, 0}, 0.1f) != srGERD::VISIBILITY_OUTSIDE));
@@ -635,22 +673,22 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Model bounds are independent values", "[
     mesh->getVertexLoc()[0] = srVector3(-4, -3, -2);
     mesh->getVertexLoc()[1] = srVector3(2, 3, 4);
     srModel& model = *mesh;
-    auto box = model.getBoundingBox();
-    const auto sphere = model.getBoundingSphere();
+    auto box = model.getBounds().box;
+    const auto sphere = model.getBounds().sphere;
     REQUIRE(box.minimum == glm::vec3(-4, -3, -2));
     REQUIRE(box.maximum == glm::vec3(2, 3, 4));
     REQUIRE(sphere.center == glm::vec3(-1, 0, 1));
     REQUIRE(std::abs(sphere.radius - std::sqrt(27.0f) * 1.00001f) < 1e-5f);
     box.minimum = glm::vec3(99);
-    REQUIRE(model.getBoundingBox().minimum == glm::vec3(-4, -3, -2));
+    REQUIRE(model.getBounds().box.minimum == glm::vec3(-4, -3, -2));
 
     srModelInstance instance;
     instance.setModel(mesh);
     srNode& node = instance;
     const auto local = node.getLocalBounds();
     REQUIRE(local.state == 1);
-    REQUIRE(local.minimum == model.getBoundingBox().minimum);
-    REQUIRE(local.maximum == model.getBoundingBox().maximum);
+    REQUIRE(local.minimum == model.getBounds().box.minimum);
+    REQUIRE(local.maximum == model.getBounds().box.maximum);
     REQUIRE(local.center == sphere.center);
     REQUIRE(local.radius == sphere.radius);
 
@@ -659,7 +697,7 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Model bounds are independent values", "[
     REQUIRE(mesh->getTriMesh().bounds_radius == sphere.radius);
     mesh->getVertexLoc()[1] = srVector3(4, 5, 6);
     mesh->setDirtyAll();
-    REQUIRE(model.getBoundingBox().maximum == glm::vec3(4, 5, 6));
+    REQUIRE(model.getBounds().box.maximum == glm::vec3(4, 5, 6));
     REQUIRE(node.getLocalBounds().maximum == glm::vec3(4, 5, 6));
 
     srNode empty;
@@ -686,10 +724,10 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Model bounds are independent values", "[
     part->getVertexLoc()[0] = srVector3(2, 4, 6);
     linked.AddPart(std::move(part));
     srModel& linked_model = linked;
-    REQUIRE(linked_model.getBoundingBox().minimum == glm::vec3(-2, -4, -6));
-    REQUIRE(linked_model.getBoundingBox().maximum == glm::vec3(2, 4, 6));
-    REQUIRE(linked_model.getBoundingSphere().center == glm::vec3(0));
-    REQUIRE(std::abs(linked_model.getBoundingSphere().radius - std::sqrt(56.0f)) < 1e-5f);
+    REQUIRE(linked_model.getBounds().box.minimum == glm::vec3(-2, -4, -6));
+    REQUIRE(linked_model.getBounds().box.maximum == glm::vec3(2, 4, 6));
+    REQUIRE(linked_model.getBounds().sphere.center == glm::vec3(0));
+    REQUIRE(std::abs(linked_model.getBounds().sphere.radius - std::sqrt(56.0f)) < 1e-5f);
 }
 
 TEST_CASE_METHOD(SurRenderTestFixture, "Material query overrides do not mutate the cache", "[geometry]")
@@ -1365,4 +1403,194 @@ TEST_CASE("Plane contacts retain collision skin and occluder clearance", "[geome
     REQUIRE(dominantPlaneAxis({-2, 2, 2}) == 0);
     REQUIRE(dominantPlaneAxis({0, -3, 3}) == 1);
     REQUIRE(dominantPlaneAxis({0, 0, 0}) == 0);
+}
+
+TEST_CASE("Surface triangles are complete values and reject invalid vertex indices", "[geometry]")
+{
+    struct RestoreGameData {
+        W8GameData* previous = g_octree_game_data;
+        ~RestoreGameData() { g_octree_game_data = previous; }
+    } restore;
+    W8GameData data(nullptr, true);
+    data.m_pVertices = {{0, 0, 0}, {0, 2, 0}, {0, 0, 2}};
+    g_octree_game_data = &data;
+    const std::array<int, 3> indices{2, 0, 1};
+    const auto triangle = surfaceTriangle(indices);
+    REQUIRE(triangle);
+    REQUIRE((*triangle)[0] == glm::vec3(0, 0, 2));
+    REQUIRE((*triangle)[1] == glm::vec3(0));
+    REQUIRE((*triangle)[2] == glm::vec3(0, 2, 0));
+    data.m_pVertices[2] = {99, 99, 99};
+    REQUIRE((*triangle)[0] == glm::vec3(0, 0, 2));
+    REQUIRE(!surfaceTriangle(std::array<int, 3>{0, 1, 3}));
+    REQUIRE(!surfaceTriangle(std::array<int, 3>{0, -1, 2}));
+    g_octree_game_data = nullptr;
+    REQUIRE(!surfaceTriangle(indices));
+}
+
+TEST_CASE_METHOD(SurRenderTestFixture, "Particle activation values and billboard ordering", "[geometry]")
+{
+    struct RestoreClock {
+        srClock* previous = g_shared_timer_base;
+        ~RestoreClock() { g_shared_timer_base = previous; }
+    } restore;
+    srClock clock;
+    g_shared_timer_base = &clock;
+    stParticle empty(nullptr, 0);
+    REQUIRE(!empty.activateParticle(true));
+    stParticle particles(nullptr, 2);
+    particles.direction_mode = W8_PARTICLE_DIRECTION_FIXED;
+    particles.speed_mode = W8_PARTICLE_SPEED_FIXED;
+    particles.initial_speed = 5;
+    const auto first = particles.activateParticle(false);
+    REQUIRE(first);
+    REQUIRE(*first == 0);
+    REQUIRE(particles.velocities[*first] == glm::vec3(0, -5, 0));
+    REQUIRE(particles.activateParticle(false));
+    REQUIRE(!particles.activateParticle(false));
+    const auto replaced = particles.activateParticle(true);
+    REQUIRE(replaced);
+    REQUIRE(*replaced == 0);
+    REQUIRE(particles.active_particle_count == 2);
+    particles.emission_limit = particles.emission_count;
+    REQUIRE(!particles.activateParticle(true));
+    particles.DeactivateParticle(0);
+    particles.DeactivateParticle(0);
+    REQUIRE(particles.active_particle_count == 1);
+
+    particles.emission_minimum = particles.emission_maximum = {1, 2, 3};
+    particles.size_scale = 2;
+    particles.setLocation(100, 200, 300);
+    REQUIRE(particles.emissionPosition() == glm::vec3(102, 204, 306));
+    particles.particle_size = 2;
+    particles.particle_positions[0] = {10, 20, 30};
+    particles.particle_positions[1] = {-10, -20, -30};
+    glm::mat4 view(1);
+    view[3] = {70, 80, 90, 1};
+    const auto originalView = view;
+    particles.PrepareRenderer(view);
+    REQUIRE(view == originalView);
+    const std::array<glm::vec3, 4> offsets{{{-2, 2, 0}, {2, 2, 0}, {2, -2, 0}, {-2, -2, 0}}};
+    for (unsigned particle = 0; particle < 2; ++particle)
+        for (unsigned corner = 0; corner < 4; ++corner)
+            REQUIRE(particles.vertex_positions[particle * 4 + corner].glmValue() ==
+                    particles.particle_positions[particle] + offsets[corner]);
+}
+
+TEST_CASE("Bounds probes retain ordering across reversed and degenerate extents", "[geometry]")
+{
+    const srBoundingBox bounds{{1, 2, 3}, {5, 8, 13}};
+    const std::array<glm::vec3, 9> expected{{
+        {3, 5, 8}, {5, 8, 13}, {1, 2, 3}, {1, 8, 13}, {1, 8, 3},
+        {5, 8, 3}, {5, 2, 13}, {1, 2, 13}, {5, 2, 3}}};
+    REQUIRE(bounds.visibilitySamples() == expected);
+    const auto reversed = srBoundingBox{bounds.maximum, bounds.minimum}.visibilitySamples();
+    REQUIRE(reversed[0] == expected[0]);
+    REQUIRE(reversed[1] == bounds.minimum);
+    REQUIRE(reversed[2] == bounds.maximum);
+    const auto point = srBoundingBox{{4, 5, 6}, {4, 5, 6}}.visibilitySamples();
+    REQUIRE(std::ranges::all_of(point, [](const auto& p) { return p == glm::vec3(4, 5, 6); }));
+}
+
+TEST_CASE("Octree adjacent queries skip walk creation and retain early exits", "[geometry]")
+{
+    unsigned built = 0;
+    const auto makeWalk = [&] {
+        ++built;
+        W8OctreeWalk walk{};
+        walk.cell = {0, 0, 0};
+        walk.step = {1, 0, 0};
+        walk.major_axis = 0;
+        walk.minor_axis0 = 1;
+        walk.minor_axis1 = 2;
+        walk.count = 3;
+        return walk;
+    };
+    std::vector<glm::ivec3> cells;
+    visitOctreeSegment({0, 0, 0}, {0, 0, 1}, makeWalk,
+        [&](const auto& cell, bool adjacent) {
+            REQUIRE(adjacent);
+            cells.push_back(cell);
+            return true;
+        });
+    REQUIRE(built == 0);
+    REQUIRE(cells == std::vector<glm::ivec3>{{0, 0, 0}, {0, 0, 1}});
+    cells.clear();
+    visitOctreeSegment({0, 0, 0}, {1, 0, 0}, makeWalk,
+        [&](const auto& cell, bool adjacent) {
+            REQUIRE(adjacent);
+            cells.push_back(cell);
+            return false;
+        });
+    REQUIRE(built == 0);
+    REQUIRE(cells.size() == 1);
+    cells.clear();
+    visitOctreeSegment({0, 0, 0}, {2, 0, 0}, makeWalk,
+        [&](const auto& cell, bool adjacent) {
+            REQUIRE(!adjacent);
+            cells.push_back(cell);
+            return cells.size() < 2;
+        });
+    REQUIRE(built == 1);
+    REQUIRE(cells == std::vector<glm::ivec3>{{0, 0, 0}, {1, 0, 0}});
+}
+
+TEST_CASE_METHOD(SurRenderTestFixture, "Baked mesh colors preserve material and light-bank rules", "[geometry]")
+{
+    struct RestoreLighting {
+        glm::vec3 offset = g_environment_offset;
+        float scale = g_monster_light_scale;
+        bool unlit = g_render_unlit;
+        ~RestoreLighting() {
+            g_environment_offset = offset;
+            g_monster_light_scale = scale;
+            g_render_unlit = unlit;
+        }
+    } restore;
+    g_environment_offset = {0.25f, 0.5f, 0.75f};
+    g_monster_light_scale = 2;
+    g_render_unlit = false;
+    stMeshModel mesh(0, 4);
+    auto material = std::make_shared<srMaterial>();
+    material->setAmbient(glm::vec4(0.5f, 0.25f, 1, 1));
+    auto zero_material = std::make_shared<srMaterial>();
+    zero_material->setAmbient(glm::vec4(0));
+    mesh.setMaterial(material, 0, srMeshModel::SIDE_FRONT);
+    mesh.SetAmbientColor({2, 3, 4});
+    const auto sunlight = mesh.GetVertexSunlight(true);
+    const auto lights = mesh.GetVertexLights(true, 0);
+    for (unsigned vertex = 0; vertex < 4; ++vertex) {
+        sunlight[vertex] = 0.25f * (vertex + 1);
+        lights[vertex] = glm::vec3(vertex + 1);
+    }
+    const auto base = mesh.getTriMesh();
+    for (unsigned vertex = 0; vertex < 4; ++vertex)
+        REQUIRE(close(base.dig[0][vertex].glmValue(),
+            (glm::vec3(1, 0.75f, 4) * sunlight[vertex] + lights[vertex] + g_environment_offset) * 2.0f));
+
+    auto* materials = mesh.getVertexMaterial(0, srMeshModel::SIDE_FRONT, 1);
+    materials[0] = material;
+    materials[1] = zero_material;
+    materials[2] = nullptr;
+    materials[3] = material;
+    mesh.flags |= W8_MESH_VERTEX_LIGHTING_DIRTY;
+    const auto mixed = mesh.getTriMesh();
+    const std::array<glm::vec3, 4> ambient{{{1, 0.75f, 4}, {0, 0, 0}, {2, 3, 4}, {1, 0.75f, 4}}};
+    for (unsigned vertex = 0; vertex < 4; ++vertex)
+        REQUIRE(close(mixed.dig[0][vertex].glmValue(),
+            (ambient[vertex] * sunlight[vertex] + lights[vertex] + g_environment_offset) * 2.0f));
+
+    mesh.vertex_light_table = 1;
+    const auto alternate = mesh.GetVertexLights(true, 1);
+    std::ranges::fill(alternate, glm::vec3(3, 4, 5));
+    mesh.flags |= W8_MESH_VERTEX_LIGHTING_DIRTY;
+    const auto alternate_mesh = mesh.getTriMesh();
+    REQUIRE(alternate_mesh.dig[0][0].glmValue() == glm::vec3(6, 8, 10));
+    g_monster_light_scale = 0;
+    mesh.flags |= W8_MESH_VERTEX_LIGHTING_DIRTY;
+    REQUIRE(mesh.getTriMesh().dig[0][0].glmValue() == glm::vec3(0));
+    g_render_unlit = true;
+    mesh.flags |= W8_MESH_VERTEX_LIGHTING_DIRTY;
+    mesh.getTriMesh();
+    REQUIRE(mesh.flags & W8_MESH_VERTEX_LIGHTING_DIRTY);
 }

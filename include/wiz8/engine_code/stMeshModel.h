@@ -47,13 +47,12 @@ public:
     virtual ~stMeshModel() override;       /* 0x00470ED0 */
     stMeshModel(const stMeshModel&) = delete;
     stMeshModel& operator=(const stMeshModel&) = delete;
-    virtual BoundingSphere getBoundingSphere() override;    /* 0x00471dd0 */
-    virtual srBoundingBox getBoundingBox() override; /* 0x00471d80 */
+    Bounds getBounds() override;
     /* Recomputes the union bounds over the head and its parts and pushes them
        to each mesh via srMeshModel::setBounds. */
     void CalculateLinkedBounds();                 /* 0x00471e10 */
     void RevealVerticesNear(const glm::vec3& position, float range, const glm::mat4& world);
-    virtual const TriMesh& getTriMesh() override; /* 0x00472270 */
+    virtual TriMesh getTriMesh() override; /* 0x00472270 */
     virtual void renderTriMesh(class srGERD& renderer,
                                const TriMesh& mesh) override; /* 0x00470360 */
     /* Shared Wizardry-extended tri-mesh submit. `poly_normals` null skips
@@ -84,10 +83,10 @@ public:
     srVector3T<float>* GetVertexNormals(unsigned int frame, bool load); /* 0x00471CA0 */
     srVector3T<float>* GetPolygonNormals(unsigned int frame, bool load);
     void ClearVertexLights();
-    void SetAmbientColor(const srVector3T<float>& color);
+    void SetAmbientColor(const glm::vec3& color);
     unsigned char AllocateFrameBuffers(unsigned int uiFrame, unsigned char flags); /* 0x00471720 */
-    srVector3T<float>* GetVertexLights(bool initialize, int table);                /* 0x00472100 */
-    float* GetVertexSunlight(bool initialize);                                     /* 0x004721E0 */
+    std::span<glm::vec3> GetVertexLights(bool initialize, int table);                /* 0x00472100 */
+    std::span<float> GetVertexSunlight(bool initialize);                                     /* 0x004721E0 */
     void InitializeVertexFrames(int frames); /* 0x00473B00 */
     int ReleaseDecompressedFrames();         /* 0x004739E0 */
     void FinalizeVertexFrame(int frame);
@@ -161,11 +160,11 @@ public:
         bool blanking_checked = false;
     };
     unsigned int flags;
-    srVector3T<float> ambient_color;
+    glm::vec3 ambient_color;
     int vertex_light_table;
     /* m_pVertLights: per-vertex static lighting, zero-filled on demand; table
        -1 selects vertex_light_table. */
-    std::vector<srVector3T<float> > vertex_lights[2];
+    std::vector<glm::vec3> vertex_lights[2];
     /* Per-vertex sunlight intensity, filled with 1.0f on demand. */
     std::vector<float> vertex_sunlight;
     /* Set once both vertex lights and sunlight exist. */
@@ -180,6 +179,9 @@ public:
     std::vector<srVector3T<float>> lerp_buffer;
     std::optional<std::vector<w8_ulong>> automap_polygons;
     bool automap_filter_active;
+
+private:
+    void updateBakedLighting();
 };
 
 

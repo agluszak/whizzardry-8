@@ -1,3 +1,4 @@
+#include <span>
 #include <unordered_set>
 #include <vector>
 #include <utility>
@@ -153,20 +154,13 @@ W8OctBuildTree::~W8OctBuildTree()
 unsigned char W8OctBuildTree::InsertSurface(W8GDSurface* surface, w8_ulong mode)
 {
     W8OctSpatialState working(&spatial);
-    srVector3T<float> vertices[3];
-    srVector3T<float> plane_point;
-    srVector3T<float>* plane = &plane_point;
-
-    if (static_cast<short>(mode) == 3) {
-        if (LoadSurfaceVertices(vertices, surface->vertex_indices) == 0) {
-            plane = 0;
-        } else {
-            plane_point = surface->plane.normal;
-        }
-    }
-    if (TestSpatialTriangle(&spatial.m_minimum, vertices, plane) == 0) {
-        return 0;
-    }
+    // Only physical surfaces have a vertex table in this builder.
+    if (static_cast<short>(mode) != 3) return 0;
+    const auto triangle = surfaceTriangle(surface->vertex_indices);
+    if (!triangle) return 0;
+    const auto normal = surface->plane.normal.glmValue();
+    if (!triangleIntersectsBox({spatial.m_minimum.glmValue(), spatial.m_maximum.glmValue()},
+                               *triangle, normal)) return 0;
 
     if (spatial.m_root == 0) {
         if (!use_owned_nodes) {
@@ -176,10 +170,10 @@ unsigned char W8OctBuildTree::InsertSurface(W8GDSurface* surface, w8_ulong mode)
         }
     }
     working.m_root = spatial.m_root;
-    working.m_triangle_vertices = vertices;
+    working.m_triangle_vertices = triangle->data();
     working.m_depth = 0;
     working.m_level_kind = 1;
-    if (InsertSurfaceRecursive(&working, surface, &plane_point, mode) == 0) {
+    if (InsertSurfaceRecursive(&working, surface, normal, mode) == 0) {
         return 0;
     }
     ++spatial.m_item_count;
@@ -191,7 +185,7 @@ unsigned char W8OctBuildTree::InsertSurface(W8GDSurface* surface, w8_ulong mode)
 // FUNCTION: WIZ8 0x004469f0
 unsigned char W8OctBuildTree::InsertSurfaceRecursive(W8OctSpatialState* working,
                                                      W8GDSurface* surface,
-                                                     srVector3T<float>* plane_point,
+                                                     const glm::vec3& planeNormal,
                                                      w8_ulong mode)
 {
     W8OctSpatialState child(working);
@@ -213,8 +207,9 @@ unsigned char W8OctBuildTree::InsertSurfaceRecursive(W8OctSpatialState* working,
         inserted = InsertBuildSurfaceChildren(
             working, child, half_extent,
             [&](W8OctSpatialState& candidate) {
-                return TestSpatialTriangle(&candidate.m_minimum, working->m_triangle_vertices,
-                                           plane_point) != 0;
+                return triangleIntersectsBox({candidate.m_minimum.glmValue(), candidate.m_maximum.glmValue()},
+                                             std::span<const glm::vec3, 3>(working->m_triangle_vertices, 3),
+                                             planeNormal);
             },
             [&]() -> W8OctBuildNode* {
                 if (use_owned_nodes) return new W8CountedOctBuildNode;
@@ -222,7 +217,7 @@ unsigned char W8OctBuildTree::InsertSurfaceRecursive(W8OctSpatialState* working,
             },
             [&](W8OctSpatialState& candidate) {
                 candidate.m_triangle_vertices = working->m_triangle_vertices;
-                return InsertSurfaceRecursive(&candidate, surface, plane_point, mode);
+                return InsertSurfaceRecursive(&candidate, surface, planeNormal, mode);
             });
     }
     return inserted;

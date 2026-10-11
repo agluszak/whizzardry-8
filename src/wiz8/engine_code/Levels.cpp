@@ -1,3 +1,4 @@
+#include "glm/ext/vector_double3.hpp"
 #include "surrender/srCamera.h" // IWYU pragma: keep - complete camera type for conversion to srNode.
 #include <wiz8/asset_paths.h>
 #include <SDL3/SDL_filesystem.h>
@@ -322,8 +323,7 @@ unsigned char LoadSkyWorld(int level, W8LevelInfo* info)
         return 0;
     }
 
-    srVector3T<double> position;
-    position.SetZero();
+    const glm::dvec3 position(0);
     static_cast<srNode*>(sky_world->camera)->setLocation(position);
 
     auto material = std::make_shared<stMaterial>();

@@ -1,4 +1,5 @@
 #include <SDL3/SDL_pixels.h>
+#include "glm/ext/vector_double3.hpp"
 #include <fmt/format.h>
 #include <memory>
 #include <SDL3/SDL_rect.h>
@@ -785,7 +786,7 @@ unsigned char AutomapScreenEnter(void)
                     glm::vec4 plane;
                     plane = glm::vec4(0.0f, 1.0f, 0.0f, 0.0f);
                     clip->setClipPlane(plane);
-                    srVector3T<double> position(0.0, static_cast<double>(height * 500.0f), 0.0);
+                    glm::dvec3 position(0.0, static_cast<double>(height * 500.0f), 0.0);
                     clip->setLocation(position);
                     clip->setFlag(static_cast<srNode::e_flag>(2));
                     clip->setClipType(srClipPlane::CLIP_POSITIONAL_0);
@@ -973,13 +974,13 @@ void AutomapScreenFrame(void)
                 if (distance.Length() < g_automap_zoom * 0.05f && g_automap_tool == 0 &&
                     g_automap_zoom_mode != 2) {
                     DisableCursorScene();
-                    srVector3T<double> scale(0.44f, 0.44f, 0.44f);
+                    glm::dvec3 scale(0.44f, 0.44f, 0.44f);
                     g_automap_party_marker->setScale(scale);
                     continue;
                 }
             }
             float factor = (1.0f / (g_automap_zoom * 0.00004f)) * 0.44f;
-            srVector3T<double> scale(factor, factor, factor);
+            glm::dvec3 scale(factor, factor, factor);
             g_automap_party_marker->setScale(scale);
             EnableCursorScene();
         }
@@ -1162,7 +1163,7 @@ void SetAutomapCameraPoint(srVector3T<float>* position)
     clamped.z = clamped.z < g_automap_bounds_max.z
                     ? (position->z < g_automap_bounds_min.z ? g_automap_bounds_min.z : position->z)
                     : g_automap_bounds_max.z;
-    g_world->camera->setLocation(srVector3T<double>(clamped.x, clamped.y, clamped.z));
+    g_world->camera->setLocation(glm::dvec3(clamped.x, clamped.y, clamped.z));
     g_automap_position = clamped;
     SetAutomapLayer(g_automap_layer);
     g_automap_redraw = true;
@@ -1774,12 +1775,12 @@ void RenderAutomapMarkers(void)
         int x = 0xc - static_cast<int>((point.x - left) / g_automap_zoom * -455.0f);
         int y = 0x20 - static_cast<int>((1.0f - (point.z - top) / g_automap_zoom) * -435.0f);
         float factor = (g_float_one / (g_automap_zoom * 0.00004f)) * 0.44f;
-        srVector3T<double> scale(factor, factor, factor);
+        glm::dvec3 scale(factor, factor, factor);
         g_automap_party_marker->setScale(scale);
         if (g_automap_party_marker->GetScaledHeight() < 1) {
-            g_automap_party_marker->setScale(srVector3T<double>(1.0, 1.0, 1.0));
+            g_automap_party_marker->setScale(glm::dvec3(1.0, 1.0, 1.0));
             factor = g_float_one / g_automap_party_marker->GetScaledHeight();
-            scale.Set(factor, factor, factor);
+            scale = glm::dvec3(factor);
             g_automap_party_marker->setScale(scale);
         }
         unsigned short width = g_automap_party_marker->GetScaledWidth();
@@ -1886,7 +1887,7 @@ void RenderAutomapMarkers(void)
                     static_cast<int>((1.0f - (note->position.y - top) / g_automap_zoom) * -435.0f);
             stModelInstance2D* marker = CreateAutomapTextMarker();
             if (note == g_automap_editing_note)
-                marker->setScale(srVector3T<double>(0.22f, 0.22f, 0.22f));
+                marker->setScale(glm::dvec3(0.22f, 0.22f, 0.22f));
             if (marker != 0) {
                 unsigned short width = marker->GetScaledWidth();
                 x -= width >> 1;
@@ -1903,7 +1904,7 @@ void RenderAutomapMarkers(void)
                     x += width + 2;
                     DrawFontTextDirty(x, y, note->text);
                     if (note == g_automap_editing_note) {
-                        marker->setScale(srVector3T<double>(0.22f, 0.22f, 0.22f));
+                        marker->setScale(glm::dvec3(0.22f, 0.22f, 0.22f));
                         unsigned int pitch;
                         const auto& destination_storage = *GetFrameBufferSurface().cpu().surface;
                         pitch = destination_storage.pitch;
@@ -1924,10 +1925,10 @@ void RenderAutomapMarkers(void)
 static void ScaleAutomapMarker(stModelInstance2D* marker, float factor)
 {
     if (marker->GetScaledHeight() * factor < g_float_one) {
-        marker->setScale(srVector3T<double>(1.0, 1.0, 1.0));
+        marker->setScale(glm::dvec3(1.0, 1.0, 1.0));
         factor = g_float_one / marker->GetScaledHeight();
     }
-    marker->setScale(srVector3T<double>(factor, factor, factor));
+    marker->setScale(glm::dvec3(factor, factor, factor));
 }
 
 /* Create a scaled automap blip for a world item by blitting its inventory icon

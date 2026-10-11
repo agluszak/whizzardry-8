@@ -887,13 +887,13 @@ void W8Navigator::UpdateLinkedNavigator()
     srVector3T<float> camera = cameraLocation();
     if (static_cast<W8Monster*>(linked_navigator)->IsWithinWorldRange() != 0) {
         const auto bounds = MonsterGetWorldAnimationBounds(static_cast<W8Monster*>(linked_navigator));
-        if (bounds && ShowTargetMarker(&camera, *bounds) != 0) {
+        if (bounds && targetMarkerVisible(camera.glmValue(), *bounds) != 0) {
             goto follow_path;
         }
     }
     if (static_cast<W8Monster*>(this)->IsWithinWorldRange() != 0) {
         const auto bounds = MonsterGetWorldAnimationBounds(static_cast<W8Monster*>(this));
-        if (bounds && ShowTargetMarker(&camera, *bounds) != 0) {
+        if (bounds && targetMarkerVisible(camera.glmValue(), *bounds) != 0) {
             goto follow_path;
         }
     }
@@ -1726,7 +1726,7 @@ void W8Navigator::SetPosition(const srVector3T<float>* position)
 // FUNCTION: WIZ8 0x00453590
 void W8Navigator::SetPositionInternal(const srVector3T<float>* position)
 {
-    srVector3T<double> widened;
+    glm::dvec3 widened;
 
     if (position->x != movement.position.x || position->y != movement.position.y ||
         position->z != movement.position.z) {

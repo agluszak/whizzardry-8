@@ -1,5 +1,7 @@
 #pragma once
 
+#include "srBoundingSphere.h"
+
 #include <condition_variable>
 #include <list>
 #include <memory>
@@ -10,6 +12,7 @@
 #include <utility>
 #include <vector>
 #include "glm/ext/vector_int4_sized.hpp"
+#include "glm/ext/vector_float3.hpp"
 
 #include <unordered_map>
 #include "srTexture.h"
@@ -434,8 +437,7 @@ public:
     e_matrixMode getMatrixMode() const;
     glm::mat4 getMatrix();
     glm::mat4 getMatrix(e_matrixMode mode);
-    srModel::BoundingSphere getEyeSpaceBounds(const glm::vec3& object_center,
-                                             float object_radius);
+    srBoundingSphere eyeSpaceBounds(const srBoundingSphere& sphere);
     glm::vec4 getEyeSpaceLocation(const glm::vec3& object_location);
     void pushVertexProcessor(srVertexProcessor& processor);
     void popVertexProcessor();
@@ -496,15 +498,12 @@ public:
     void multMatrix(const glm::mat4& matrix);
     void multMatrix(const glm::dmat4& matrix);
     void perspective(double fov_y, double aspect, double near_plane, double far_plane);
-    void rotate(double angle, const srVector3T<float>& axis);
-    void rotate(double angle, const srVector3T<double>& axis);
+    void rotate(double angle, const glm::vec3& axis);
     void rotate(double angle, double x, double y, double z);
     void scale(double x, double y, double z);
-    void scale(const srVector3T<float>& factors);
-    void scale(const srVector3T<double>& factors);
+    void scale(const glm::vec3& factors);
     void scale(double factor);
-    void translate(const srVector3T<float>& offset);
-    void translate(const srVector3T<double>& offset);
+    void translate(const glm::vec3& offset);
     void translate(double x, double y, double z);
     e_visibility testBoundingSphere(const glm::vec3& center, float radius);
     e_visibility testBoundingBox(const glm::vec3& minimum, const glm::vec3& maximum);

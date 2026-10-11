@@ -156,7 +156,7 @@ GDCamera::GDCamera()
 srCamera* GDCamera::CreateOrAttachCamera(srNode* parent, srCamera* camera)
 {
     if (parent != 0) {
-        srVector3T<double> position;
+        glm::dvec3 position;
 
         g_game_camera = new srCamera(parent);
         g_game_camera->setName("Sirtech Camera");
@@ -168,7 +168,7 @@ srCamera* GDCamera::CreateOrAttachCamera(srNode* parent, srCamera* camera)
         double view = g_camera_view_factor2 * g_camera_view_factor0 * g_camera_view_factor1;
         g_game_camera->setViewPlane(view, view);
     } else {
-        srVector3T<double> position;
+        glm::dvec3 position;
 
         if (camera == 0) {
             if (g_game_camera == 0) {

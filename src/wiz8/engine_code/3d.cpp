@@ -138,9 +138,9 @@ unsigned char BakeInstanceVertexLighting(stModelInstance* instance, srNode* ligh
         const auto count = mesh->vertex_location_count;
         if (count <= 0)
             continue;
-        auto* vertex_lights = mesh->GetVertexLights(true, -1);
+        const auto vertex_lights = mesh->GetVertexLights(true, -1);
         mesh->GetVertexSunlight(true);
-        if (!vertex_lights)
+        if (vertex_lights.empty())
             return 0;
         if (!lights)
             continue;
@@ -165,8 +165,7 @@ unsigned char BakeInstanceVertexLighting(stModelInstance* instance, srNode* ligh
                 vertex_materials ? static_cast<srMaterial*>(vertex_materials[i].get()) : nullptr;
             material_colors[i] = material ? glm::vec3(material->parms.diffuse) : base_color;
         }
-        const auto [minimum, maximum] = mesh->getBoundingBox();
-        const auto box = srBoundingBox{minimum, maximum}.transformed(world);
+        const auto box = mesh->getBounds().box.transformed(world);
         for (auto* node = lights; node; node = walk_chain ? node->next_sibling_ : nullptr) {
             const auto* light = sr_cast<stLight>(node);
             if (!light ||
@@ -187,7 +186,7 @@ unsigned char BakeInstanceVertexLighting(stModelInstance* instance, srNode* ligh
                 const float facing = glm::dot(normalizedOrZero(direction), world_normals[i]);
                 if (facing < 0) {
                     const float contribution = -facing * light->intensity * (1 - distance / range);
-                    vertex_lights[i] = vertex_lights[i].glmValue() +
+                    vertex_lights[i] = vertex_lights[i] +
                                        material_colors[i] * light->diffuse * contribution;
                 }
             }
@@ -252,53 +251,40 @@ void SetWorldMeshVertexLightTable(W8World* world, int table)
     }
 }
 
-static std::array<srVector3T<float>, 9> boundsProbePoints(const srBoundingBox& bounds)
-{
-    const auto& [lower, upper] = bounds;
-    return {bounds.center(), upper, lower,
-            srVector3T<float>(lower.x, upper.y, upper.z),
-            srVector3T<float>(lower.x, upper.y, lower.z),
-            srVector3T<float>(upper.x, upper.y, lower.z),
-            srVector3T<float>(upper.x, lower.y, upper.z),
-            srVector3T<float>(lower.x, lower.y, upper.z),
-            srVector3T<float>(upper.x, lower.y, lower.z)};
-}
-
-/* True when the camera projects the AABB midpoint or any of its eight corners
-   and the octree has line of sight from eye to that point. */
+/* Visibility queries share midpoint/corner generation and retain early-exit order. */
 // FUNCTION: WIZ8 0x0046F820
-unsigned char ShowTargetMarker(const srVector3T<float>* eye, const srBoundingBox& bounds)
+bool targetMarkerVisible(const glm::vec3& eye, const srBoundingBox& bounds)
 {
-    for (auto point : boundsProbePoints(bounds)) {
-        if (ProjectPointThroughCamera(&point) != 0 && g_octree->HasLineOfSight(eye, &point, true))
-            return 1;
-    }
-    return 0;
-}
-
-/* The world-trace variant of HasLineOfSightToBounds: same midpoint and
-   eight-corner probe, but through TraceLineOfSight, which reports a clear
-   trace as zero. */
-// FUNCTION: WIZ8 0x0046FAF0
-char TraceLineOfSightToBounds(const srVector3T<float>* origin, const srBoundingBox& bounds)
-{
-    for (auto point : boundsProbePoints(bounds)) {
-        if (g_octree->TraceLineOfSight(origin, &point, true, -3, -3, true, 0) == 0)
-            return 1;
-    }
-    return 0;
-}
-
-// FUNCTION: WIZ8 0x0046FD70
-bool HasLineOfSightToBounds(const srVector3T<float>* origin, const srBoundingBox& bounds)
-{
-    for (auto point : boundsProbePoints(bounds)) {
-        if (g_octree->HasLineOfSight(origin, &point, true))
-            return true;
+    const srVector3 from(eye);
+    for (const auto& sample : bounds.visibilitySamples()) {
+        if (!projectsToCamera(sample)) continue;
+        srVector3 point(sample);
+        if (g_octree->HasLineOfSight(&from, &point, true)) return true;
     }
     return false;
 }
 
+// FUNCTION: WIZ8 0x0046FAF0
+bool traceLineOfSightToBounds(const glm::vec3& origin, const srBoundingBox& bounds)
+{
+    const srVector3 from(origin);
+    for (const auto& sample : bounds.visibilitySamples()) {
+        srVector3 point(sample);
+        if (g_octree->TraceLineOfSight(&from, &point, true, -3, -3, true, 0) == 0) return true;
+    }
+    return false;
+}
+
+// FUNCTION: WIZ8 0x0046FD70
+bool hasLineOfSightToBounds(const glm::vec3& origin, const srBoundingBox& bounds)
+{
+    const srVector3 from(origin);
+    for (const auto& sample : bounds.visibilitySamples()) {
+        srVector3 point(sample);
+        if (g_octree->HasLineOfSight(&from, &point, true)) return true;
+    }
+    return false;
+}
 
 /* Build the concrete first-party instance used for an already-created mesh. */
 // FUNCTION: WIZ8 0x0046F5C0
@@ -684,15 +670,15 @@ bool PointInsideFrustum(const srVector3T<float>* point, const W8Plane* planes)
    coordinate toggles the inside flag when its interpolation crosses the
    first. */
 // FUNCTION: WIZ8 0x0046d530
-bool PointInsideTriangle(std::span<const srVector3T<float>, 3> vertices, unsigned axis,
+bool PointInsideTriangle(std::span<const glm::vec3, 3> vertices, unsigned axis,
                          const glm::vec3& point)
 {
     const unsigned u = (axis + 1) % 3;
     const unsigned v = (axis + 2) % 3;
     bool inside = false;
     for (unsigned i = 0; i < vertices.size(); ++i) {
-        const auto first = vertices[i].glmValue();
-        const auto second = vertices[(i + 1) % 3].glmValue();
+        const auto& first = vertices[i];
+        const auto& second = vertices[(i + 1) % 3];
         if ((first[v] < point[v] && point[v] < second[v]) ||
             (second[v] < point[v] && point[v] < first[v])) {
             if (point[u] <= (point[v] - first[v]) * (second[u] - first[u]) /

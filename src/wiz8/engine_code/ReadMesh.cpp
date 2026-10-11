@@ -1,3 +1,4 @@
+#include "glm/ext/vector_double3.hpp"
 #include <glm/ext/quaternion_trigonometric.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include <algorithm>
@@ -642,7 +643,7 @@ try
     }
 
     if (first_model != 0) {
-        first_model->getBoundingBox();
+        first_model->getBounds();
     }
     if (first_model != 0) {
         first_model->setName(name ? name : "");
@@ -652,7 +653,7 @@ try
             const double angle = 3.1415926;
             rotation *= glm::mat3_cast(glm::angleAxis(float(angle), glm::vec3(1, 0, 0)));
 
-            srVector3T<double> translated(location.x * 500.0, location.y * 500.0,
+            glm::dvec3 translated(location.x * 500.0, location.y * 500.0,
                                           location.z * 500.0);
             loaded_instance->setLocation(translated);
             loaded_instance->setRotation(rotation);
@@ -726,7 +727,7 @@ try
         }
         meshes[mesh_index] = model;
         model->setDirty(srMeshModel::DIRTY_BOUNDS);
-        model->getBoundingBox();
+        model->getBounds();
     }
 
     info->hFile->read_exact(&terminator, sizeof(terminator));

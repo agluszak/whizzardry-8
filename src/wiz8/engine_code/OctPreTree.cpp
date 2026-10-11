@@ -1,3 +1,5 @@
+#include "glm/geometric.hpp"
+#include "glm/vector_relational.hpp"
 #include <fmt/format.h>
 #include <algorithm>
 #include <ranges>
@@ -136,31 +138,23 @@ bool OctPreTree::SegmentClear(const srVector3T<float>* from, const srVector3T<fl
     W8OctreeTrace trace;
     const auto cell = cellAt(from->glmValue());
     const auto end_cell = cellAt(to->glmValue());
-    const auto difference = glm::abs(cell - end_cell);
-    const int span = difference.x + difference.y + difference.z;
     bool blocked = false;
 
     trace.Seed(from, to);
     m_gd_result_count = 0;
     std::ranges::fill(m_visited_polygon_bits, false);
-    if (span < 2) {
-        CollectLeafPolygons(cell);
-        blocked = TestCollectedPolygons(&trace);
-        if (!blocked && span != 0) {
-            CollectLeafPolygons(end_cell);
-            blocked = TestCollectedPolygons(&trace);
-        }
-    } else {
-        auto walk = cellWalk(from->glmValue(), to->glmValue());
-        // Preprocessing starts at the world-quantized cell, which can differ
-        // from the fixed-point cursor near a cell boundary.
-        walk.cell = cell;
-        walk.visitCells([&](const glm::ivec3& current) {
+    visitOctreeSegment(cell, end_cell,
+        [&] {
+            auto walk = cellWalk(from->glmValue(), to->glmValue());
+            // Preprocessing uses its world-quantized starting cell.
+            walk.cell = cell;
+            return walk;
+        },
+        [&](const glm::ivec3& current, bool adjacent) {
             CollectLeafPolygons(current);
-            if (m_gd_result_count != 0) blocked = TestCollectedPolygons(&trace);
+            if (m_gd_result_count != 0 || adjacent) blocked = TestCollectedPolygons(&trace);
             return !blocked;
         });
-    }
     return !blocked;
 }
 
@@ -185,10 +179,9 @@ bool OctPreTree::TestCollectedPolygons(W8OctreeTrace* trace)
             {trace->start.glmValue(), trace->end.glmValue(), trace->step.glmValue(),
              trace->length, limit}, PlaneContactMode::Occlusion);
         if (contact) {
-            srVector3T<float> vertices[3];
-            vertices[0] = polygon->vertices[0]->position;
-            vertices[1] = polygon->vertices[1]->position;
-            vertices[2] = polygon->vertices[2]->position;
+            const RuntimeTriangle vertices{polygon->vertices[0]->position.glmValue(),
+                                           polygon->vertices[1]->position.glmValue(),
+                                           polygon->vertices[2]->position.glmValue()};
             if (PointInsideTriangle(vertices, polygon->flags & W8OctRegionPolygon::AXIS_MASK,
                                     contact->point)) {
                 blocked = true;
@@ -1654,91 +1647,43 @@ bool PointInsideBoxBounds(const srVector3T<float>* bounds, const srVector3T<floa
 bool SurfaceIntersectsBox(const W8GDSurface& surface, std::span<const srVector3> vertices,
                           const srBoundingBox& box)
 {
-    const srVector3 bounds[]{srVector3(box.minimum), srVector3(box.maximum)};
-    const srVector3 triangle[]{vertices[surface.vertex_indices[0]],
-                               vertices[surface.vertex_indices[1]],
-                               vertices[surface.vertex_indices[2]]};
-    return TestSpatialTriangle(bounds, triangle, surface.Normal()) != 0;
+    return triangleIntersectsBox(box, indexedTriangle(vertices, surface.vertex_indices),
+                                 surface.plane.normal.glmValue());
 }
 
 // FUNCTION: WIZ8 0x0046ce60
-unsigned char TestSpatialTriangle(const srVector3T<float>* bounds,
-                                  const srVector3T<float>* vertices,
-                                  const srVector3T<float>* plane_normal)
+bool triangleIntersectsBox(const srBoundingBox& box, std::span<const glm::vec3, 3> vertices,
+                           const glm::vec3& normal)
 {
-    const srVector3T<float>& minimum = bounds[0];
-    const srVector3T<float>& maximum = bounds[1];
+    const auto& minimum = box.minimum;
+    const auto& maximum = box.maximum;
 
-    short vertex_index;
-    for (vertex_index = 0; vertex_index < 3; ++vertex_index) {
-        const srVector3T<float>& vertex = vertices[vertex_index];
-        if (minimum.x <= vertex.x && vertex.x <= maximum.x && minimum.y <= vertex.y &&
-            vertex.y <= maximum.y && minimum.z <= vertex.z && vertex.z <= maximum.z) {
-            return 1;
-        }
+    for (const auto& vertex : vertices) {
+        if (box.contains(vertex)) return true;
     }
 
-    if (plane_normal == 0) {
-        return 0;
+    const auto triangleMinimum = glm::min(glm::min(vertices[0], vertices[1]), vertices[2]);
+    const auto triangleMaximum = glm::max(glm::max(vertices[0], vertices[1]), vertices[2]);
+    if (glm::any(glm::lessThan(triangleMaximum, minimum)) ||
+        glm::any(glm::greaterThan(triangleMinimum, maximum))) return false;
+
+    const bool nearAxis = glm::any(
+        glm::greaterThan(glm::abs(normal), glm::vec3(g_region_axis_alignment_threshold)) &&
+        glm::greaterThanEqual(vertices[0], minimum) &&
+        glm::lessThanEqual(vertices[0], maximum));
+    if (!nearAxis) {
+        const auto centroid = (vertices[0] + vertices[1] + vertices[2]) * g_float_one_third;
+        // The two support corners give the extrema formerly found by scanning eight corners.
+        const auto positive = glm::greaterThanEqual(normal, glm::vec3(0));
+        const auto nearest = glm::mix(maximum, minimum, positive);
+        const auto farthest = glm::mix(minimum, maximum, positive);
+        if (glm::dot(nearest - centroid, normal) > 0 ||
+            glm::dot(farthest - centroid, normal) < 0) return false;
     }
 
-    bool near_axis = false;
-    srVector3T<float> plane_point;
-    for (short axis = 0; axis < 3; ++axis) {
-        if ((&vertices[0].x)[axis] < (&minimum.x)[axis] &&
-            (&vertices[1].x)[axis] < (&minimum.x)[axis] &&
-            (&vertices[2].x)[axis] < (&minimum.x)[axis]) {
-            return 0;
-        }
-        if ((&maximum.x)[axis] < (&vertices[0].x)[axis] &&
-            (&maximum.x)[axis] < (&vertices[1].x)[axis] &&
-            (&maximum.x)[axis] < (&vertices[2].x)[axis]) {
-            return 0;
-        }
-        if (g_region_axis_alignment_threshold <
-                static_cast<float>(fabs((&plane_normal->x)[axis])) &&
-            (&minimum.x)[axis] <= (&vertices[0].x)[axis] &&
-            (&vertices[0].x)[axis] <= (&maximum.x)[axis]) {
-            near_axis = true;
-        }
-        (&plane_point.x)[axis] =
-            ((&vertices[0].x)[axis] + (&vertices[1].x)[axis] + (&vertices[2].x)[axis]) *
-            g_float_one_third;
-    }
-
-    if (!near_axis) {
-        bool negative = false;
-        bool positive = false;
-        for (int x = 0; x != 2; ++x) {
-            for (int y = 0; y != 2; ++y) {
-                for (int z = 0; z != 2; ++z) {
-                    float distance =
-                        ((x == 0 ? minimum.x : maximum.x) - plane_point.x) * plane_normal->x +
-                        ((y == 0 ? minimum.y : maximum.y) - plane_point.y) * plane_normal->y +
-                        ((z == 0 ? minimum.z : maximum.z) - plane_point.z) * plane_normal->z;
-                    if (distance <= g_float_zero) {
-                        negative = true;
-                    }
-                    if (g_float_zero <= distance) {
-                        positive = true;
-                    }
-                }
-            }
-        }
-        if (!negative || !positive) {
-            return 0;
-        }
-    }
-
-    srVector3T<float> edge_start[3];
-    srVector3T<float> edge_delta[3];
-    for (int edge = 0; edge != 3; ++edge) {
-        int next = edge == 2 ? 0 : edge + 1;
-        for (int axis = 0; axis != 3; ++axis) {
-            (&edge_start[edge].x)[axis] = (&vertices[edge].x)[axis];
-            (&edge_delta[edge].x)[axis] = (&vertices[next].x)[axis] - (&vertices[edge].x)[axis];
-        }
-    }
+    RuntimeTriangle edge_delta;
+    for (unsigned edge = 0; edge < vertices.size(); ++edge)
+        edge_delta[edge] = vertices[(edge + 1) % vertices.size()] - vertices[edge];
 
     for (short face_axis = 0; face_axis < 3; ++face_axis) {
         short first_axis = face_axis == 2 ? 0 : face_axis + 1;
@@ -1746,23 +1691,22 @@ unsigned char TestSpatialTriangle(const srVector3T<float>* bounds,
         for (short side = 0; side < 2; ++side) {
             glm::vec2 intersection[2];
             short intersection_count = 0;
-            float face = side == 0 ? (&minimum.x)[face_axis] : (&maximum.x)[face_axis];
+            float face = side == 0 ? minimum[face_axis] : maximum[face_axis];
 
             for (short edge = 0; edge < 3; ++edge) {
                 if (static_cast<float>(g_double_one_ten_thousandth) <
-                    static_cast<float>(fabs((&edge_delta[edge].x)[face_axis]))) {
-                    float amount = (face - (&edge_start[edge].x)[face_axis]) /
-                                   (&edge_delta[edge].x)[face_axis];
+                    static_cast<float>(fabs(edge_delta[edge][face_axis]))) {
+                    float amount = (face - vertices[edge][face_axis]) /
+                                   edge_delta[edge][face_axis];
                     if (g_float_zero <= amount && amount <= g_float_one) {
-                        float first = (&edge_start[edge].x)[first_axis] +
-                                      amount * (&edge_delta[edge].x)[first_axis];
-                        float second = (&edge_start[edge].x)[second_axis] +
-                                       amount * (&edge_delta[edge].x)[second_axis];
-                        if ((&minimum.x)[first_axis] <= first &&
-                            first <= (&maximum.x)[first_axis] &&
-                            (&minimum.x)[second_axis] <= second &&
-                            second <= (&maximum.x)[second_axis]) {
-                            return 1;
+                        const auto crossing = vertices[edge] + amount * edge_delta[edge];
+                        const float first = crossing[first_axis];
+                        const float second = crossing[second_axis];
+                        if (minimum[first_axis] <= first &&
+                            first <= maximum[first_axis] &&
+                            minimum[second_axis] <= second &&
+                            second <= maximum[second_axis]) {
+                            return true;
                         }
                         if (intersection_count < 2) {
                             intersection[intersection_count].x = first;
@@ -1774,25 +1718,24 @@ unsigned char TestSpatialTriangle(const srVector3T<float>* bounds,
             }
 
             if (intersection_count == 2) {
-                glm::vec2 delta(intersection[1].x - intersection[0].x,
-                                        intersection[1].y - intersection[0].y);
+                const auto delta = intersection[1] - intersection[0];
                 short rectangle_axes[2] = {first_axis, second_axis};
                 for (short coordinate = 0; coordinate < 2; ++coordinate) {
                     if (g_float_one_ten_thousandth <
-                        static_cast<float>(fabs((&delta.x)[coordinate]))) {
+                        static_cast<float>(fabs(delta[coordinate]))) {
                         short other = coordinate == 0 ? 1 : 0;
                         for (short edge_side = 0; edge_side < 2; ++edge_side) {
                             float boundary = edge_side == 0
-                                                 ? (&minimum.x)[rectangle_axes[coordinate]]
-                                                 : (&maximum.x)[rectangle_axes[coordinate]];
-                            float amount = (boundary - (&intersection[0].x)[coordinate]) /
-                                           (&delta.x)[coordinate];
+                                                 ? minimum[rectangle_axes[coordinate]]
+                                                 : maximum[rectangle_axes[coordinate]];
+                            float amount = (boundary - intersection[0][coordinate]) /
+                                           delta[coordinate];
                             if (g_float_zero <= amount && amount <= g_float_one) {
                                 float crossing =
-                                    (&intersection[0].x)[other] + amount * (&delta.x)[other];
-                                if ((&minimum.x)[rectangle_axes[other]] <= crossing &&
-                                    crossing <= (&maximum.x)[rectangle_axes[other]]) {
-                                    return 1;
+                                    intersection[0][other] + amount * delta[other];
+                                if (minimum[rectangle_axes[other]] <= crossing &&
+                                    crossing <= maximum[rectangle_axes[other]]) {
+                                    return true;
                                 }
                             }
                         }
@@ -1801,5 +1744,5 @@ unsigned char TestSpatialTriangle(const srVector3T<float>* bounds,
             }
         }
     }
-    return 0;
+    return false;
 }

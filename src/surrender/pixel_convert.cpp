@@ -1,3 +1,4 @@
+#include "surrender/pixel_math.h"
 #include <SDL3/SDL_pixels.h>
 #include "glm/ext/vector_uint4.hpp"
 #include "glm/ext/vector_float3.hpp"
@@ -532,16 +533,6 @@ struct PackedChannels {
     }
 };
 
-static glm::uvec4 ARGBChannels(w8_ulong pixel)
-{
-    return {(pixel >> 16) & 255, (pixel >> 8) & 255, pixel & 255, pixel >> 24};
-}
-
-static w8_ulong PackARGB(const glm::uvec4& channels)
-{
-    return channels.r << 16 | channels.g << 8 | channels.b | channels.a << 24;
-}
-
 /* Clamps a decoded YUV channel to a byte for the srARGB pack. */
 static int clampChannel(float value)
 {
@@ -564,7 +555,7 @@ void __cdecl writeYUV(const srPixelConvert::ConversionInfo& info)
     const auto& format = *info.format;
     const PackedChannels channels(format);
     ConvertPixelRun(info, 4, format.pixel_size + 1, [&](w8_ulong pixel, w8_ulong) {
-        const auto color = ARGBChannels(pixel);
+        const auto color = srPixels::channels(pixel);
         const glm::vec3 rgb(color);
         const glm::vec3 yuv(glm::dot(rgbToYUV[0], rgb), glm::dot(rgbToYUV[1], rgb),
                             glm::dot(rgbToYUV[2], rgb));
@@ -589,7 +580,7 @@ void __cdecl readYUV(const srPixelConvert::ConversionInfo& info)
         const glm::vec3 yuv(color);
         const glm::vec3 rgb(glm::dot(yuvToRGB[0], yuv), glm::dot(yuvToRGB[1], yuv),
                             glm::dot(yuvToRGB[2], yuv));
-        return PixelAt{PackARGB({clampChannel(rgb.x), clampChannel(rgb.y), clampChannel(rgb.z), color.a}),
+        return PixelAt{srPixels::pack({clampChannel(rgb.x), clampChannel(rgb.y), clampChannel(rgb.z), color.a}),
                        color.g};
     });
 }
@@ -604,7 +595,7 @@ void __cdecl writeIndexed(const srPixelConvert::ConversionInfo& info)
     const PackedChannel alpha(format.alpha_bits, format.alpha_shift);
     const unsigned bytes = format.pixel_size + 1;
     ConvertPixelRun(info, 4, bytes, [&](w8_ulong pixel, w8_ulong index) {
-        const auto color = ARGBChannels(pixel);
+        const auto color = srPixels::channels(pixel);
         srARGB quantized;
         quantized.red = color.r;
         quantized.green = color.g;
@@ -638,7 +629,7 @@ void __cdecl writeIntensity(const srPixelConvert::ConversionInfo& info)
     const PackedChannel intensity(format.red_bits, format.red_shift);
     const PackedChannel alpha(format.alpha_bits, format.alpha_shift);
     ConvertPixelRun(info, 4, format.pixel_size + 1, [&](w8_ulong pixel, w8_ulong index) {
-        const auto color = ARGBChannels(pixel);
+        const auto color = srPixels::channels(pixel);
         const unsigned luma = (lutRamp54[color.r] + lutRamp183[color.g] + lutRamp18[color.b]) >> 8;
         return PixelAt{intensity.reduce(luma) | alpha.reduce(color.a), index};
     });
@@ -678,7 +669,7 @@ void __cdecl writeRGB(const srPixelConvert::ConversionInfo& info)
     }
     const PackedChannels channels(format);
     ConvertPixelRun(info, 4, format.pixel_size + 1, [&](w8_ulong pixel, w8_ulong index) {
-        return PixelAt{channels.reduce(ARGBChannels(pixel)), index};
+        return PixelAt{channels.reduce(srPixels::channels(pixel)), index};
     });
 }
 
@@ -691,7 +682,7 @@ void __cdecl readRGB(const srPixelConvert::ConversionInfo& info)
     }
     const PackedChannels channels(format);
     ConvertPixelRun(info, format.pixel_size + 1, 4, [&](w8_ulong pixel, w8_ulong index) {
-        return PixelAt{PackARGB(channels.expand(pixel)), index};
+        return PixelAt{srPixels::pack(channels.expand(pixel)), index};
     });
 }
 
@@ -761,7 +752,7 @@ void __cdecl readABGR(const srPixelConvert::ConversionInfo& info)
 void __cdecl writeRGB555(const srPixelConvert::ConversionInfo& info)
 {
     ConvertPixelRun(info, 4, 2, [](w8_ulong pixel, w8_ulong index) {
-        const auto color = ARGBChannels(pixel);
+        const auto color = srPixels::channels(pixel);
         return PixelAt{w8_ulong(lutReduce32[color.r]) << 10 |
                        w8_ulong(lutReduce32[color.g]) << 5 | lutReduce32[color.b], index};
     });

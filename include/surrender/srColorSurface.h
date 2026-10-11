@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <span>
 
 #include "srColorSurfaceIFace.h"
 #include "srPalette.h"
@@ -77,6 +78,8 @@ private:
                                            w8_ulong count);
     SR_DLL_IMPORT int isCompatible(srColorSurfaceIFace& source);
 
+    template<class Pixel>
+    void transferColumn(std::span<Pixel> pixels, w8_long x, w8_long y);
     void fillRectangle(SDL_Rect rect, w8_ulong pixel);
     void allocate();
     void adopt(SDL_Surface* storage);

@@ -1,3 +1,4 @@
+#include "surrender/pixel_math.h"
 #include <catch2/catch_test_macros.hpp>
 #include <SDL3/SDL_surface.h>
 #include <SDL3/SDL_pixels.h>
@@ -375,4 +376,12 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Intensity and indexed decoding support u
             REQUIRE(output.back() == 0x6a);
         }
     }
+}
+
+TEST_CASE("Mipmap averages retain per-input floor and four-sample ceiling")
+{
+    REQUIRE(srPixels::average(0xffffffffu, 0x01010101u) == 0x7f7f7f7fu);
+    REQUIRE(srPixels::average(0u, 0u, 0u, 0xfefefefeu) == 0x40404040u);
+    REQUIRE(srPixels::average(0x0004080cu, 0x10182028u, 0x30384048u, 0x50586068u) ==
+            0x242b3239u);
 }

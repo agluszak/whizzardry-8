@@ -304,24 +304,17 @@ bool GDProp::ContainsPathCoordinate(unsigned short x, unsigned short y) const
     return false;
 }
 
-/* Box overlap test against every surface triangle: the query bounds are
-   copied into a local two-vector box and each surface's three vertices are
-   gathered into a triangle before the spatial triangle test runs. */
+/* Test each surface's runtime triangle against the query box. */
 // FUNCTION: WIZ8 0x004b7620
 char GDProp::BoundsOverlap(const srVector3T<float>* minimum, const srVector3T<float>* maximum)
 {
-    srVector3T<float> bounds[2];
-    srVector3T<float> triangle[3];
-    unsigned char hit = 0;
-
-    bounds[0] = *minimum;
-    bounds[1] = *maximum;
+    const srBoundingBox box{minimum->glmValue(), maximum->glmValue()};
+    bool hit = false;
     for (int index = 0; index < m_surface_count && hit == 0; ++index) {
         W8GDSurface* surface = &m_pGDSurfaces[index];
-        triangle[0] = m_pVertices[surface->vertex_indices[0]];
-        triangle[1] = m_pVertices[surface->vertex_indices[1]];
-        triangle[2] = m_pVertices[surface->vertex_indices[2]];
-        hit = TestSpatialTriangle(bounds, triangle, surface->Normal());
+        hit = triangleIntersectsBox(box,
+            indexedTriangle(std::span<const srVector3>(m_pVertices, m_vertex_count), surface->vertex_indices),
+            surface->plane.normal.glmValue());
     }
     return hit;
 }

@@ -1,3 +1,5 @@
+#include "wiz8/engine_code/ReadLevel.h"
+#include "surrender/srModel.h"
 #include <cstddef>
 #include <algorithm>
 #include <cctype>
@@ -20,7 +22,6 @@
 #include "surrender/srBoundingBox.h"
 #include "wiz8/engine_code/stMeshModel.h"
 #include "surrender/srMeshModel.h"
-#include "surrender/srModel.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/sr_api.h"
 #include "surrender/srGERD.h"
@@ -37,7 +38,6 @@
 
 class srMaterialIFace;
 
-extern srVector3T<float> g_environment_offset;
 extern float g_monster_light_scale;
 
 // GLOBAL: WIZ8 0x00659cb8
@@ -57,7 +57,7 @@ stMeshModel::stMeshModel(w8_long polygons, w8_long vertices)
 {
     vertex_lighting_ready = false;
     flags = W8_MESH_VERTEX_LIGHTING_DIRTY;
-    ambient_color = -1.0f;
+    ambient_color = glm::vec3(-1);
     vertex_light_table = 0;
     vertex_compression_scale = 1.0f;
     last_decompress_release_tick = w8_get_ticks();
@@ -73,23 +73,14 @@ stMeshModel::~stMeshModel()
     std::erase(g_mesh_models, this);
 }
 
-// FUNCTION: WIZ8 0x00471dd0
-srModel::BoundingSphere stMeshModel::getBoundingSphere()
+srModel::Bounds stMeshModel::getBounds()
 {
-    if ((dirty_flags.value & 1) != 0) {
+    if ((dirty_flags.value & (1UL << DIRTY_BOUNDS)) != 0) {
         CalculateLinkedBounds();
     }
-    return {bounds_center, bounds_radius};
+    return {{bounds_minimum, bounds_maximum}, {bounds_center, bounds_radius}};
 }
 
-// FUNCTION: WIZ8 0x00471d80
-srBoundingBox stMeshModel::getBoundingBox()
-{
-    if ((dirty_flags.value & 1) != 0) {
-        CalculateLinkedBounds();
-    }
-    return {bounds_minimum, bounds_maximum};
-}
 
 /* Recompute the model's union bounds: clear this mesh's cached box,
    accumulate every frame's bounds from the head and all parts, then
@@ -111,7 +102,7 @@ void stMeshModel::CalculateLinkedBounds()
             if (model->flags & W8_MESH_HAS_FRAME_STORAGE)
                 frame_box = model->GetFrameBounds(frame);
             else
-                frame_box = model->srMeshModel::getBoundingBox();
+                frame_box = model->srMeshModel::getBounds().box;
             if (has_vertices)
                 box.include(frame_box);
             else
@@ -130,13 +121,13 @@ void stMeshModel::RevealVerticesNear(const glm::vec3& position, float range, con
 {
     if (vertex_location_count == 0 || !(range >= 0))
         return;
-    auto* lights = GetVertexLights(true, -1);
+    const auto lights = GetVertexLights(true, -1);
     const auto* vertices =
         (flags & W8_MESH_HAS_FRAME_STORAGE) ? GetVertexLocations(0, true, 0.0f) : getVertexLoc();
     for (int i = 0; i < vertex_location_count; ++i) {
         const auto point = glm::vec3(world * glm::vec4(vertices[i].glmValue(), 1));
         if (glm::distance(point, position) <= range) {
-            lights[i] = 1.0f;
+            lights[i] = glm::vec3(1);
             flags |= W8_MESH_VERTEX_LIGHTING_DIRTY;
         }
     }
@@ -163,150 +154,59 @@ srBoundingBox stMeshModel::GetFrameBounds(int frame)
 /* Apply pending vertex DIG lighting when flags bit 1 is set, then return
    the SurRender TriMesh cache. */
 // FUNCTION: WIZ8 0x00472270
-const srMeshModel::TriMesh& stMeshModel::getTriMesh()
+void stMeshModel::updateBakedLighting()
 {
-    float light_scale = g_monster_light_scale;
-    srVector3T<float>* dig;
-    srVector3T<float>* lights;
-    float* sunlight;
-    std::shared_ptr<srMaterialIFace>* vertex_materials;
-    int count;
-    int index;
-    int run;
-    int next_index;
-    srMaterialIFace* material_iface;
-    srMaterial* material;
-    srVector3T<float> scaled;
-    srVector3T<float> ambient_rgb;
+    const auto& lights = vertex_lights[vertex_light_table];
+    if (lights.empty() || vertex_sunlight.empty())
+        return;
+    auto* destination = getVertexDIG(0, 1);
+    const auto* materials = getVertexMaterial(0, SIDE_FRONT, 0);
+    const bool suppress_ambient = ambient_color == glm::vec3(0) || vertex_light_table == 1;
+    const glm::vec3 base_ambient = materials || suppress_ambient
+        ? glm::vec3(0)
+        : ambient_color * glm::vec3(static_cast<srMaterial*>(getMaterial(0, SIDE_FRONT))->parms.ambient);
+    const auto environment = g_environment_offset;
+    const bool add_environment = vertex_light_table != 1 && environment != glm::vec3(0);
+    const float light_scale = g_monster_light_scale;
+    const srMaterialIFace* previous_material = nullptr;
+    glm::vec3 material_ambient(0);
 
-    if ((flags & W8_MESH_VERTEX_LIGHTING_DIRTY) != 0 && !g_render_unlit) {
-        lights = vertex_lights[vertex_light_table].data();
-        sunlight = vertex_sunlight.data();
-        if (!vertex_lights[vertex_light_table].empty() && !vertex_sunlight.empty()) {
-            dig = getVertexDIG(0, 1);
-            vertex_materials = getVertexMaterial(0, SIDE_FRONT, 0);
-            if (vertex_materials == 0) {
-                if ((IsZeroVector(&ambient_color) != 0) || vertex_light_table == 1) {
-                    if (dig != lights) {
-                        std::copy_n(lights, vertex_location_count, dig);
-                    }
-                    if ((g_environment_offset.x != g_float_zero ||
-                         g_environment_offset.y != g_float_zero ||
-                         g_environment_offset.z != g_float_zero) &&
-                        vertex_light_table != 1 && (count = vertex_location_count, count != 0) &&
-                        IsZeroVector(&g_environment_offset) == 0) {
-                        for (int i = 0; i < count; ++i)
-                            dig[i] += g_environment_offset;
-                    }
-                } else {
-                    /* Retail indexes material ambient at +0x28; that is
-                       srMaterial::parms.ambient on the concrete type. */
-                    material = static_cast<srMaterial*>(getMaterial(0, SIDE_FRONT));
-                    ambient_rgb = glm::vec3(material->parms.ambient);
-                    count = vertex_location_count;
-                    scaled = ambient_color;
-                    scaled *= ambient_rgb;
-                    if (count != 0) {
-                        if (scaled.x == scaled.y && scaled.x == scaled.z) {
-                            std::fill_n(dig, count,
-                                        srVector3T<float>(scaled.x, scaled.x, scaled.x));
-                        } else {
-                            std::fill_n(dig, count, scaled);
-                        }
-                    }
-                    if (vertex_location_count != 0) {
-                        for (int i = 0; i < vertex_location_count; ++i)
-                            dig[i] *= sunlight[i];
-                    }
-                    for (int i = 0; i < vertex_location_count; ++i)
-                        dig[i] += lights[i];
-                    if ((g_environment_offset.x != g_float_zero ||
-                         g_environment_offset.y != g_float_zero ||
-                         g_environment_offset.z != g_float_zero) &&
-                        (count = vertex_location_count, count != 0) &&
-                        IsZeroVector(&g_environment_offset) == 0) {
-                        for (int i = 0; i < count; ++i)
-                            dig[i] += g_environment_offset;
-                    }
+    for (int vertex = 0; vertex < vertex_location_count; ++vertex) {
+        glm::vec3 color;
+        if (materials) {
+            color = suppress_ambient ? glm::vec3(0) : ambient_color * vertex_sunlight[vertex];
+            const auto* material = materials[vertex].get();
+            if (material) {
+                if (material != previous_material) {
+                    material_ambient = glm::vec3(static_cast<const srMaterial*>(material)->parms.ambient);
+                    previous_material = material;
                 }
-            } else {
-                if ((IsZeroVector(&ambient_color) != 0) || vertex_light_table == 1) {
-                    if (vertex_location_count != 0) {
-                        std::fill_n(dig, vertex_location_count,
-                                    srVector3T<float>(0.0f, 0.0f, 0.0f));
-                    }
-                } else {
-                    count = vertex_location_count;
-                    if (count != 0) {
-                        if (ambient_color.x == ambient_color.y &&
-                            ambient_color.x == ambient_color.z) {
-                            std::fill_n(dig, count,
-                                        srVector3T<float>(ambient_color.x, ambient_color.x,
-                                                          ambient_color.x));
-                        } else {
-                            std::fill_n(dig, count, ambient_color);
-                        }
-                    }
-                    if (vertex_location_count != 0) {
-                        for (int i = 0; i < vertex_location_count; ++i)
-                            dig[i] *= sunlight[i];
-                    }
-                }
-                index = 0;
-                do {
-                    next_index = index + 1;
-                    run = 1;
-                    if (next_index < vertex_location_count) {
-                        do {
-                            if (vertex_materials[index] != vertex_materials[next_index]) {
-                                break;
-                            }
-                            ++run;
-                            ++next_index;
-                        } while (next_index < vertex_location_count);
-                    }
-                    material_iface = vertex_materials[index].get();
-                    if (material_iface != 0) {
-                        material = static_cast<srMaterial*>(material_iface);
-                        scaled = glm::vec3(material->parms.ambient);
-                        if (run != 0) {
-                            if (IsZeroVector(&scaled) == 0) {
-                                for (int i = 0; i < run; ++i)
-                                    dig[index + i] *= scaled;
-                            } else {
-                                std::fill_n(dig + index, run,
-                                            srVector3T<float>(0.0f, 0.0f, 0.0f));
-                            }
-                        }
-                    }
-                    index += run;
-                } while (index < vertex_location_count);
-                for (int i = 0; i < vertex_location_count; ++i)
-                    dig[i] += lights[i];
-                if ((g_environment_offset.x != g_float_zero ||
-                     g_environment_offset.y != g_float_zero ||
-                     g_environment_offset.z != g_float_zero) &&
-                    vertex_light_table != 1 && (count = vertex_location_count, count != 0) &&
-                    IsZeroVector(&g_environment_offset) == 0) {
-                    for (int i = 0; i < count; ++i)
-                        dig[i] += g_environment_offset;
-                }
+                color = material_ambient == glm::vec3(0) ? glm::vec3(0) : color * material_ambient;
             }
-            if (light_scale != g_float_one && (count = vertex_location_count, count != 0)) {
-                if (light_scale == g_float_zero) {
-                    std::fill_n(dig, count, srVector3T<float>(0.0f, 0.0f, 0.0f));
-                } else {
-                    for (int i = 0; i < count; ++i)
-                        dig[i] *= light_scale;
-                }
-            }
+            color += lights[vertex];
+        } else if (suppress_ambient) {
+            color = lights[vertex];
+        } else {
+            color = base_ambient * vertex_sunlight[vertex];
+            color += lights[vertex];
         }
+        if (add_environment)
+            color += environment;
+        if (light_scale != 1)
+            color = light_scale == 0 ? glm::vec3(0) : color * light_scale;
+        destination[vertex] = color;
+    }
+}
+
+srMeshModel::TriMesh stMeshModel::getTriMesh()
+{
+    if ((flags & W8_MESH_VERTEX_LIGHTING_DIRTY) != 0 && !g_render_unlit) {
+        updateBakedLighting();
         flags &= ~static_cast<unsigned int>(W8_MESH_VERTEX_LIGHTING_DIRTY);
     }
     return srMeshModel::getTriMesh();
 }
 
-/* Thin vtable wrapper: submit with no external poly-equation table. */
 // FUNCTION: WIZ8 0x00470360
 void stMeshModel::renderTriMesh(srGERD& renderer, const TriMesh& mesh)
 {
@@ -828,16 +728,12 @@ srVector3T<float>* stMeshModel::GetPolygonNormals(unsigned int frame, bool load)
 
 void stMeshModel::ClearVertexLights()
 {
-    srVector3T<float>* lights = GetVertexLights(true, 1);
-    int count = vertex_location_count;
-    if (count != 0) {
-        std::fill_n(lights, count, srVector3T<float>(0.0f, 0.0f, 0.0f));
-    }
+    std::ranges::fill(GetVertexLights(true, 1), glm::vec3(0));
     flags |= W8_MESH_VERTEX_LIGHTING_DIRTY;
 }
 
 // FUNCTION: WIZ8 0x00472990
-void stMeshModel::SetAmbientColor(const srVector3T<float>& color)
+void stMeshModel::SetAmbientColor(const glm::vec3& color)
 {
     if (!(ambient_color == color)) {
         ambient_color = color;
@@ -932,29 +828,29 @@ void stMeshModel::ComputeFrameNormals(int frame)
 
 /* Thirteen-byte forwarder onto the per-frame normal builder. */
 // FUNCTION: WIZ8 0x00472100
-srVector3T<float>* stMeshModel::GetVertexLights(bool initialize, int table)
+std::span<glm::vec3> stMeshModel::GetVertexLights(bool initialize, int table)
 {
     if (table == -1) {
         table = vertex_light_table;
     }
     auto& lights = vertex_lights[table];
     if (lights.empty() && initialize) {
-        lights.resize(vertex_location_count, srVector3T<float>(0.0f, 0.0f, 0.0f));
+        lights.resize(vertex_location_count, glm::vec3(0));
         if (!vertex_sunlight.empty()) {
             vertex_lighting_ready = true;
         }
     }
-    return lights.empty() ? nullptr : lights.data();
+    return lights;
 }
 
 // FUNCTION: WIZ8 0x004721E0
-float* stMeshModel::GetVertexSunlight(bool initialize)
+std::span<float> stMeshModel::GetVertexSunlight(bool initialize)
 {
     if (vertex_sunlight.empty() && initialize) {
         vertex_sunlight.resize(vertex_location_count, 1.0f);
         vertex_lighting_ready = true;
     }
-    return vertex_sunlight.empty() ? nullptr : vertex_sunlight.data();
+    return vertex_sunlight;
 }
 
 // FUNCTION: WIZ8 0x00473180

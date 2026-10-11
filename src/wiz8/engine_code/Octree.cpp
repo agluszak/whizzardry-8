@@ -1,3 +1,4 @@
+#include "wiz8/octree_walk.h"
 #include <fmt/format.h>
 #include <SDL3/SDL_filesystem.h>
 #include <glm/ext/quaternion_trigonometric.hpp>
@@ -407,7 +408,7 @@ int W8Octree::CollectModelsNearPoint(std::vector<stModelInstance*>& out,
     const auto intersects = [&](srModelInstance* instance) {
         if (!instance || !instance->getModel())
             return false;
-        const auto bounds = instance->getModel()->getBoundingBox();
+        const auto bounds = instance->getModel()->getBounds().box;
         const auto world = instance->getWorldSpaceMatrix<glm::mat4>();
         return bounds.transformed(world).intersectsSphere(center, radius);
     };
@@ -1079,7 +1080,7 @@ unsigned int W8Octree::SampleRegionLinks(const srVector3T<float>* point, bool de
     char text[104];
     sprintf(text, "Sample point: %f, %f, %f, Links Found: ", point->x, point->y, point->z);
     NoOp();
-    srVector3T<double> location;
+    glm::dvec3 location;
     location = glm::dvec3(point->glmValue());
     world->camera->setLocation(location);
     view.horizontal_fov = static_cast<float>(world->camera->getHorizontalFOV());
@@ -1389,7 +1390,7 @@ void W8Octree::BuildRegionLinks(bool rebuild_all)
             }
         }
     }
-    srVector3T<double> restore_location;
+    glm::dvec3 restore_location;
     restore_location = glm::dvec3(saved_location.glmValue());
     world->camera->setLocation(restore_location);
     world->camera->setRotation(saved_rotation);
@@ -1565,7 +1566,7 @@ int W8Octree::CountBadRegionMeshLinks(W8OctSpatialState* spatial)
                     static_cast<stModelInstance*>(g_world->psrMeshes[m_pSubmeshes[link].mesh]);
                 if (mesh != 0) {
                     if (auto* model = mesh->getModel()) {
-                        const auto bounds = model->getBoundingBox();
+                        const auto bounds = model->getBounds().box;
                         const auto world = mesh->getWorldSpaceMatrix<glm::mat4>();
                         const srBoundingBox cell{spatial->m_minimum.glmValue(),
                                                  spatial->m_maximum.glmValue()};
@@ -1955,7 +1956,6 @@ bool W8Octree::HasLineOfSight(const srVector3T<float>* from, srVector3T<float>* 
     glm::ivec3 cell;
     glm::ivec3 end_cell;
     unsigned char blocked = 0;
-    int span;
 
     W8OctreeTrace trace(from, to);
 
@@ -1964,22 +1964,14 @@ bool W8Octree::HasLineOfSight(const srVector3T<float>* from, srVector3T<float>* 
     std::ranges::fill(m_current_regions, false);
     cell = cellAt(from->glmValue());
     end_cell = cellAt(to->glmValue());
-    span = abs(cell.z - end_cell.z) + abs(cell.y - end_cell.y) + abs(cell.x - end_cell.x);
 
-    if (span < 2) {
-        ProbeCellForBlockers(cell);
-        blocked = TestProbeResult(&trace);
-        if (blocked == 0 && span != 0) {
-            ProbeCellForBlockers(end_cell);
-            blocked = TestProbeResult(&trace);
-        }
-    } else {
-        cellWalk(from->glmValue(), to->glmValue()).visitCells([&](const glm::ivec3& current) {
-            if (ProbeCellForBlockers(current) != 0)
+    visitOctreeSegment(cell, end_cell,
+        [&] { return cellWalk(from->glmValue(), to->glmValue()); },
+        [&](const glm::ivec3& current, bool adjacent) {
+            if (ProbeCellForBlockers(current) != 0 || adjacent)
                 blocked = TestProbeResult(&trace);
             return blocked == 0;
         });
-    }
     if (blocked != 0) {
         *to = trace.end;
     } else if (allow_fallback && TraceAgainstProps(from, to, 1, 1) != 0) {
@@ -1997,7 +1989,6 @@ short W8Octree::TraceLineOfSight(const srVector3T<float>* from, srVector3T<float
     glm::ivec3 end_cell;
 
     bool blocked = false;
-    int span;
     int result;
 
     W8OctreeTrace trace(from, to);
@@ -2008,26 +1999,15 @@ short W8Octree::TraceLineOfSight(const srVector3T<float>* from, srVector3T<float
         std::ranges::fill(m_visited_object_bits, false);
         cell = cellAt(from->glmValue());
         end_cell = cellAt(to->glmValue());
-        span = abs(cell.z - end_cell.z) + abs(cell.y - end_cell.y) + abs(cell.x - end_cell.x);
 
-        if (span < 2) {
-            ProbeCellForTrace(cell);
-            blocked = g_octree_game_data->TestTraceResult(m_gd_result_count, m_aulGDObjs, &trace,
-                                                          m_trace_skip_flag, 0);
-
-            if (!blocked && span != 0) {
-                ProbeCellForTrace(end_cell);
-                blocked = g_octree_game_data->TestTraceResult(m_gd_result_count, m_aulGDObjs,
-                                                              &trace, m_trace_skip_flag, 0);
-            }
-        } else {
-            cellWalk(from->glmValue(), to->glmValue()).visitCells([&](const glm::ivec3& current) {
-                if (ProbeCellForTrace(current) != 0)
+        visitOctreeSegment(cell, end_cell,
+            [&] { return cellWalk(from->glmValue(), to->glmValue()); },
+            [&](const glm::ivec3& current, bool adjacent) {
+                if (ProbeCellForTrace(current) != 0 || adjacent)
                     blocked = g_octree_game_data->TestTraceResult(
                         m_gd_result_count, m_aulGDObjs, &trace, m_trace_skip_flag, 0);
                 return !blocked;
             });
-        }
         if (!trace_world || TraceAgainstProps(from, &trace.end, 0, 0) == 0) {
             if (!blocked) {
                 goto resolve;
@@ -2373,7 +2353,6 @@ int W8Octree::TraceAgainstProps(const srVector3T<float>* from, srVector3T<float>
 {
     glm::ivec3 cell;
     glm::ivec3 end_cell;
-    int span;
 
     W8OctreeTrace trace(from, to);
     g_octree_state = m_aulGDObjs;
@@ -2381,21 +2360,13 @@ int W8Octree::TraceAgainstProps(const srVector3T<float>* from, srVector3T<float>
     std::ranges::fill(m_visited_object_bits, false);
     cell = cellAt(from->glmValue());
     end_cell = cellAt(to->glmValue());
-    span = abs(cell.z - end_cell.z) + abs(cell.y - end_cell.y) + abs(cell.x - end_cell.x);
-    if (span < 2) {
-        g_octree_state = m_aulGDObjs;
-        CollectObjectsInCell(cell, W8_OCTREE_KIND_PROP);
-        if (span != 0) {
-            g_octree_state = m_aulGDObjs;
-            CollectObjectsInCell(end_cell, W8_OCTREE_KIND_PROP);
-        }
-    } else {
-        cellWalk(from->glmValue(), to->glmValue()).visitCells([&](const glm::ivec3& current) {
+    visitOctreeSegment(cell, end_cell,
+        [&] { return cellWalk(from->glmValue(), to->glmValue()); },
+        [&](const glm::ivec3& current, bool) {
             g_octree_state = m_aulGDObjs;
             CollectObjectsInCell(current, W8_OCTREE_KIND_PROP);
             return true;
         });
-    }
     current_prop = g_octree_game_data->TestPropSurfaces(m_gd_result_count, m_aulGDObjs, &trace,
                                                         skip_flag, gate);
     if (current_prop < 0) {
@@ -2503,10 +2474,9 @@ unsigned char W8Octree::TestProbeResult(W8OctreeTrace* trace)
                 const auto axis = dominantPlaneAxis(glm::vec3(*plane));
                 const srVector3i* poly_vertex = model->getPolyVertex() + polygon;
                 const srVector3T<float>* vertices = model->getVertexLoc();
-                srVector3T<float> triangle[3];
-                triangle[0] = vertices[poly_vertex->x];
-                triangle[1] = vertices[poly_vertex->y];
-                triangle[2] = vertices[poly_vertex->z];
+                const RuntimeTriangle triangle{vertices[poly_vertex->x].glmValue(),
+                                               vertices[poly_vertex->y].glmValue(),
+                                               vertices[poly_vertex->z].glmValue()};
                 if (PointInsideTriangle(triangle, axis, contact->point) &&
                     contact->distance < trace->hit_limit) {
                     trace->hit_limit = contact->distance;
@@ -2536,16 +2506,11 @@ w8_ulong* W8Octree::CollectPolygonsNearPoint(srVector3T<float>* center, float ra
     std::ranges::fill(m_visited_polygon_bits, false);
     std::ranges::fill(m_current_regions, false);
 
-    srVector3T<float> bounds[2];
-    bounds[0].x = center->x - radius;
-    bounds[0].z = center->z - radius;
-    bounds[1].y = center->y;
-    bounds[0].y = center->y - height;
-    bounds[1].x = center->x + radius;
-    bounds[1].z = center->z + radius;
-
-    const auto start = cellAt(bounds[0].glmValue());
-    const auto end = cellAt(bounds[1].glmValue());
+    const auto position = center->glmValue();
+    const srBoundingBox box{position - glm::vec3(radius, height, radius),
+                            position + glm::vec3(radius, 0, radius)};
+    const auto start = cellAt(box.minimum);
+    const auto end = cellAt(box.maximum);
     glm::ivec3 cell;
     for (cell.x = start.x; cell.x <= end.x; ++cell.x) {
         for (cell.y = start.y; cell.y <= end.y; ++cell.y) {
@@ -2572,15 +2537,13 @@ w8_ulong* W8Octree::CollectPolygonsNearPoint(srVector3T<float>* center, float ra
             m_aulGDObjs[index] = 0;
         }
         if (m_aulGDObjs[index] != 0) {
-            srVector3T<float> normal;
-            normal = glm::vec3((*plane));
+            const auto normal = glm::vec3(*plane);
             const srVector3i* poly_vertex = model->getPolyVertex() + (m_aulGDObjs[index] & 0xffff);
             const srVector3T<float>* vertices = model->getVertexLoc();
-            srVector3T<float> triangle[3];
-            triangle[0] = vertices[poly_vertex->x];
-            triangle[1] = vertices[poly_vertex->y];
-            triangle[2] = vertices[poly_vertex->z];
-            if (TestSpatialTriangle(bounds, triangle, &normal) == 0) {
+            const RuntimeTriangle triangle{vertices[poly_vertex->x].glmValue(),
+                                           vertices[poly_vertex->y].glmValue(),
+                                           vertices[poly_vertex->z].glmValue()};
+            if (!triangleIntersectsBox(box, triangle, normal)) {
                 m_aulGDObjs[index] = 0;
             }
         }
