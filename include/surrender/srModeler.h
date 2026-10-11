@@ -109,9 +109,6 @@ public:
     void move(w8_ulong triangle, const glm::vec3& delta);
     void rotate(const glm::mat3& matrix);
     void rotate(w8_ulong triangle, const glm::mat3& matrix);
-    int findVertex(const glm::vec3& position, w8_ulong& triangle, w8_ulong& vertex,
-                   w8_ulong start_triangle);
-    void findClosestVertex(const glm::vec3& position, w8_ulong& triangle, w8_ulong& vertex);
     double getMaxVertexDist();
     void getAxialBounds(e_axis axis, float& minimum, float& maximum);
 
