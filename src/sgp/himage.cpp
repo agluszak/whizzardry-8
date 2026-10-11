@@ -34,14 +34,7 @@
 
 #define BLACK_SUBSTITUTE 0x0001
 
-// GLOBAL: WIZ8 0x00650f48
-UINT16 gusAlphaMask = 0;
-// GLOBAL: WIZ8 0x00650f4a
-UINT16 gusRedMask = 0;
-// GLOBAL: WIZ8 0x00650f4c
-UINT16 gusGreenMask = 0;
-// GLOBAL: WIZ8 0x00650f4e
-UINT16 gusBlueMask = 0;
+SDL_PixelFormat g_sgp_pixel_format = SDL_PIXELFORMAT_XRGB1555;
 namespace
 {
 constexpr std::size_t max_image_bytes = 256 * 1024 * 1024;
@@ -256,20 +249,28 @@ image_type load_sti(wiz8::File& file, UINT16 contents)
         if (compressed) decoded.fFlags |= IMAGE_COMPRESSED;
 
         // FUNCTION: WIZ8 0x00415250
+        const auto* target_details = SDL_GetPixelFormatDetails(g_sgp_pixel_format);
+        if (!target_details)
+            throw std::runtime_error("Unsupported SGP pixel format");
         if (rgb && header.ubDepth == 16 && !compressed &&
-            (header.RGB.uiRedMask != gusRedMask || header.RGB.uiGreenMask != gusGreenMask || header.RGB.uiBlueMask != gusBlueMask)) {
+            (header.RGB.uiRedMask != target_details->Rmask ||
+             header.RGB.uiGreenMask != target_details->Gmask ||
+             header.RGB.uiBlueMask != target_details->Bmask)) {
             const auto source_format = SDL_GetPixelFormatForMasks(16, header.RGB.uiRedMask, header.RGB.uiGreenMask, header.RGB.uiBlueMask, 0);
-            const auto target_format = SDL_GetPixelFormatForMasks(16, gusRedMask, gusGreenMask, gusBlueMask, 0);
+            // Exclude the alpha bit from SDL's conversion: zero pixels must
+            // stay transparent in the SGP blitters.
+            const auto target_format = SDL_GetPixelFormatForMasks(16, target_details->Rmask,
+                                          target_details->Gmask, target_details->Bmask, 0);
             std::vector<UINT8> converted(decoded.pImageData.size());
             if (!SDL_ConvertPixels(header.usWidth, header.usHeight, source_format,
                 decoded.pImageData.data(), header.usWidth * 2, target_format, converted.data(), header.usWidth * 2))
                 throw std::runtime_error(SDL_GetError());
             // Zero is the game's transparent pixel, even when opaque colors use an alpha mask.
-            if (gusAlphaMask) {
+            if (target_details->Amask) {
                 for (std::size_t i = 0; i < std::size_t(header.usWidth) * header.usHeight * 2; i += 2) {
                     UINT16 pixel;
                     std::memcpy(&pixel, converted.data() + i, sizeof(pixel));
-                    if (pixel) pixel |= gusAlphaMask;
+                    if (pixel) pixel |= target_details->Amask;
                     std::memcpy(converted.data() + i, &pixel, sizeof(pixel));
                 }
             }
@@ -461,16 +462,15 @@ Palette16 Create16BPPPaletteShaded(const Palette8& palette, UINT32 rscale,
 UINT16 Get16BPPColor(SDL_Color color)
 {
     // SGP treats packed zero as transparent, even when ARGB1555 has an alpha bit.
-    const auto format = SDL_GetPixelFormatForMasks(16, gusRedMask, gusGreenMask, gusBlueMask, 0);
-    const auto* details = SDL_GetPixelFormatDetails(format);
+    const auto* details = SDL_GetPixelFormatDetails(g_sgp_pixel_format);
     if (!details)
         throw std::runtime_error("Unsupported 16-bit pixel format");
 
     const UINT16 pixel = SDL_MapRGB(details, nullptr, color.r, color.g, color.b) &
-                         (gusRedMask | gusGreenMask | gusBlueMask);
+                         (details->Rmask | details->Gmask | details->Bmask);
     if (!pixel)
-        return (color.r || color.g || color.b) ? (BLACK_SUBSTITUTE | gusAlphaMask) : 0;
-    return pixel | gusAlphaMask;
+        return (color.r || color.g || color.b) ? (BLACK_SUBSTITUTE | details->Amask) : 0;
+    return pixel | details->Amask;
 }
 
 
