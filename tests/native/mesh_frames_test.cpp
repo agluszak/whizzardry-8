@@ -18,7 +18,6 @@
 #include "wiz8/engine_code/materials.h"
 #include "surrender/srModelInstance.h"
 #include "compat/compiler.h"
-#include "glm/ext/vector_float3.hpp"
 #include "surrender/srMath.h"
 #include "surrender/srMeshModel.h"
 #include "surrender/srShader.h"
