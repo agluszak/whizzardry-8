@@ -7,7 +7,6 @@
 #include <string_view>
 
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
-#include "compat/compiler.h"
 #include "wiz8/dialog_code/DialogButton.h"
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/utility.h"
