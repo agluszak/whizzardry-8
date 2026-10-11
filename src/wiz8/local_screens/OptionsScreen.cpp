@@ -305,13 +305,12 @@ void W8OptionsSaveLoadPanel::SetActive(bool active)
 /* Commit or cancel the active save-name edit before changing options pages. */
 static void FinishOptionsTextEdit(W8OptionsScreen* screen, unsigned char cancelled)
 {
-    W8OptionsTextEditor* editor = screen->m_text_editor;
+    W8OptionsTextEditor* editor = screen->m_text_editor.get();
     if (!editor)
         return;
     if (editor->m_listener)
         editor->m_listener->OnTextEditComplete(editor, cancelled);
-    delete editor;
-    screen->m_text_editor = nullptr;
+    screen->m_text_editor.reset();
 }
 
 // FUNCTION: WIZ8 0x005aab30
@@ -357,7 +356,7 @@ void W8OptionsSaveLoadPanel::OnPrimary(W8TextControl* control)
         return;
     }
 
-    W8OptionsTextEditor* editor = g_options_screen->m_text_editor;
+    W8OptionsTextEditor* editor = g_options_screen->m_text_editor.get();
     FinishOptionsTextEdit(g_options_screen.get(), 0);
     if (editor == 0 && m_current == 0 && m_selection.m_selectedIndex == 0) {
         SaveSelectedSave();
@@ -671,12 +670,12 @@ void W8OptionsSaveRow::OnLeftButtonDoubleClick(int event)
 void W8OptionsScreen::BeginSaveNameEdit(W8OptionsTextEditor::Listener* listener, int row,
                                         std::string_view text)
 {
-    W8OptionsTextEditor* editor = new W8OptionsTextEditor;
+    auto editor = std::make_unique<W8OptionsTextEditor>();
     InitTextInputModeWithScheme(1);
     AddTextInputField(0x16b, row * 0x49 + 0x46, 0xfa, 0xc, 0x7f, text, 0x3b, 0xf, 1);
     SetActiveField(0);
-    m_text_editor = editor;
     editor->m_listener = listener;
+    m_text_editor = std::move(editor);
 }
 
 // FUNCTION: WIZ8 0x005a7c70
@@ -1250,7 +1249,7 @@ void W8OptionsUnavailablePanel::Populate()
 
 // FUNCTION: WIZ8 0x005a9090
 W8OptionsScreen::W8OptionsScreen()
-    : m_redraw_pending(1), m_modal_closing(0), m_selected_panel(-1), m_active_modal(0), m_text_editor(0), m_key_capture(0)
+    : m_redraw_pending(1), m_modal_closing(0), m_selected_panel(-1), m_key_capture(0)
 {
     for (int index = 0; index < 8; ++index) {
         m_panel[index] = 0;
@@ -1352,9 +1351,8 @@ void W8OptionsScreen::ShowNotification(W8DialogCloseListener* listener, bool all
                                        int message, int value)
 {
     m_modal_closing = true;
-    delete m_active_modal;
-    W8NotificationDialog* dialog = new W8NotificationDialog(message, allow_cancel, value);
-    m_active_modal = dialog;
+    m_active_modal = std::make_unique<W8NotificationDialog>(message, allow_cancel, value);
+    auto* dialog = static_cast<W8NotificationDialog*>(m_active_modal.get());
     if (listener != 0) {
         dialog->notify_target = listener;
     }
@@ -1370,7 +1368,7 @@ void W8OptionsScreen::OnPrimary(W8TextControl*)
 // FUNCTION: WIZ8 0x005a9720
 unsigned char W8OptionsScreen::ProcessInput(const InputEvent* input)
 {
-    W8OptionsTextEditor* editor = m_text_editor;
+    W8OptionsTextEditor* editor = m_text_editor.get();
     if (editor != 0) {
         if (IsTypingEvent(*input)) {
             if (input->key != VK_ESCAPE && input->key != VK_RETURN) {
@@ -1385,8 +1383,7 @@ unsigned char W8OptionsScreen::ProcessInput(const InputEvent* input)
             if (editor->m_listener != 0) {
                 editor->m_listener->OnTextEditComplete(editor, input->key == VK_ESCAPE);
             }
-            delete m_text_editor;
-            m_text_editor = 0;
+            m_text_editor.reset();
             return 1;
         }
     } else if (m_key_capture != 0 && input->type == InputEventType::KeyDown) {
@@ -1992,12 +1989,11 @@ void OptionsScreenFrame()
         screen = g_options_screen.get();
     }
 
-    W8MessageDialogBase** active_modal = &screen->m_active_modal;
-    if (*active_modal != 0) {
-        if (!(*active_modal)->ProcessInput()) {
+    auto& active_modal = screen->m_active_modal;
+    if (active_modal) {
+        if (!active_modal->ProcessInput()) {
             if (!screen->m_modal_closing) {
-                delete *active_modal;
-                *active_modal = 0;
+                active_modal.reset();
             }
             screen->m_redraw_pending = true;
             screen->m_controls->Invalidate(0);
