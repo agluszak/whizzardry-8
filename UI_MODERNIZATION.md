@@ -42,7 +42,8 @@ Now a Controls panel owns six W8Widget instances with their own rectangles,
 creates an ordinary dynamic region set, and shares activation between keyboard
 shortcuts and pointer clicks. The old callback functions, declarations and
 hard-coded catalog region IDs are no longer used. Sprite states are table
-driven, and both full-redraw paths reuse one loop.
+driven, both full-redraw paths reuse one loop, and the modal dialog is owned
+by the screen rather than by a raw global pointer.
 
 W8Region still provides hit testing as an intermediate step. The original
 catalog retains six now-unused slots because unrelated regions refer to

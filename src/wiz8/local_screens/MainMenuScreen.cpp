@@ -54,8 +54,8 @@ bool g_main_menu_overlay_enabled;
 SGPVSurface* g_main_menu_overlay_surface;
 // GLOBAL: WIZ8 0x0069c4bc
 std::string g_pending_main_menu_message;
-// GLOBAL: WIZ8 0x0069c4c0
-W8MessageDialogBase* g_main_menu_dialog;
+// The modal dialog belongs to this screen, not a global registry.
+static std::unique_ptr<W8MessageDialogBase> main_menu_dialog;
 
 namespace {
 constexpr std::array<W8ControlsRect, 6> main_menu_item_bounds = {{
@@ -238,21 +238,21 @@ unsigned char MainMenuScreenEnter(void)
 
     pending = g_pending_main_menu_message;
     if (!pending.empty()) {
-        dialog = static_cast<W8MessageDialogBase*>(CreateDialogByKind(W8_DIALOG_MESSAGE));
+        main_menu_dialog.reset(static_cast<W8MessageDialogBase*>(CreateDialogByKind(W8_DIALOG_MESSAGE)));
+        dialog = main_menu_dialog.get();
         dialog->SetClientExtent(0xfa, 200);
         dialog->SetMessage(pending, 1, 0x32, true, false, true, true, 0, 0x15e);
         SetDialogDestroyCallback(dialog, 0);
-        g_main_menu_dialog = dialog;
         g_pending_main_menu_message.clear();
         return 1;
     }
     if (!HasEnoughFreeDiskSpace() && !g_main_menu_warning_shown) {
-        dialog = static_cast<W8MessageDialogBase*>(CreateDialogByKind(W8_DIALOG_MESSAGE));
+        main_menu_dialog.reset(static_cast<W8MessageDialogBase*>(CreateDialogByKind(W8_DIALOG_MESSAGE)));
+        dialog = main_menu_dialog.get();
         dialog->SetClientExtent(0xfa, 200);
         dialog->SetMessage(g_localized_strings[0x7ee], 1, 0x32, true, false, true, true, 0, 0x15e);
         SetDialogDestroyCallback(dialog, 0);
         g_main_menu_warning_shown = true;
-        g_main_menu_dialog = dialog;
     }
     return 1;
 }
@@ -278,11 +278,10 @@ void MainMenuScreenFrame()
     if (g_dev_mode) {
         RequestExitScreen();
     }
-    if (g_main_menu_dialog != 0) {
-        DrawDialog(g_main_menu_dialog);
-        if (!ProcessDialogInput(g_main_menu_dialog)) {
-            delete g_main_menu_dialog;
-            g_main_menu_dialog = 0;
+    if (main_menu_dialog != nullptr) {
+        DrawDialog(main_menu_dialog.get());
+        if (!ProcessDialogInput(main_menu_dialog.get())) {
+            main_menu_dialog.reset();
             g_main_menu_redraw = true;
             DrawCatalogImage(GetFrameBufferSurface(), 0xe8, 0, 0, 0, 0, VO_BLT_SRCTRANSPARENCY, 0);
             DrawMainMenuItems();
@@ -351,9 +350,9 @@ void MainMenuScreenFrame()
     }
 
     NoOp();
-    if (g_main_menu_redraw || IsMessageBoxActive() || g_main_menu_dialog != 0) {
-        if (g_main_menu_dialog != 0) {
-            DrawDialog(g_main_menu_dialog);
+    if (g_main_menu_redraw || IsMessageBoxActive() || main_menu_dialog != nullptr) {
+        if (main_menu_dialog != nullptr) {
+            DrawDialog(main_menu_dialog.get());
         }
         if (g_main_menu_overlay_enabled && g_main_menu_overlay_surface) {
             BltVideoSurfaceToVideoSurface(GetFrameBufferSurface(), *g_main_menu_overlay_surface, 0, 0x1d1, 6, 0);
@@ -368,6 +367,7 @@ void MainMenuScreenFrame()
 // FUNCTION: WIZ8 0x00591870
 unsigned char MainMenuScreenLeave(int)
 {
+    main_menu_dialog.reset();
     main_menu_controls.reset();
     ReleaseLoadedVideoFrames();
     ResetRegions();

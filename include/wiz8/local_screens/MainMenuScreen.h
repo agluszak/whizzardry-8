@@ -4,14 +4,11 @@ struct SGPVSurface;
 #include <string>
 #include <string_view>
 
-class W8MessageDialogBase;
-
 extern bool g_main_menu_has_save_games;
 extern bool g_main_menu_redraw;
 extern bool g_main_menu_warning_shown;
 extern bool g_main_menu_overlay_enabled;
 extern SGPVSurface* g_main_menu_overlay_surface;
-extern W8MessageDialogBase* g_main_menu_dialog;
 extern std::string g_pending_main_menu_message;
 
 unsigned char DrawMainMenuItem(short item, short state);
