@@ -866,7 +866,7 @@ void ResolveSpellMissileHit(W8Missile* missile)
             for (index = 0; index < gXStatus.monsters.size(); ++index) {
                 monster_info = MonsterGetScriptPartByLocationIndex(index);
                 if (monster_info->fActive) {
-                    MonsterGetLocation(monster_info->p3D, &location);
+                    location = MonsterGetLocation(monster_info->p3D);
                     srVector3T<float> offset = center - location;
                     if (offset.Length() <= definition->radius) {
                         struck.iMonsterID = monster_info->location_id;

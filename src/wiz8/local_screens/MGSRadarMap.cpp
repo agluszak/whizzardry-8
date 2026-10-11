@@ -294,7 +294,7 @@ void UpdateRadarBlips(void)
         if (item != 0) {
             W8ItemRep* rep = static_cast<W8ItemRep*>(item->m_pRep);
             if ((rep->flags & W8_ITEM_ENTITY_NO_PICKUP) == 0) {
-                rep->GetLocation(&position);
+                position = rep->GetLocation();
                 const auto bounds = item->GetCachedLocalBounds();
                 center = bounds.center();
                 position += center;

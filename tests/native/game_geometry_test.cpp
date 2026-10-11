@@ -26,6 +26,11 @@
 #include "surrender/srModeler.h"
 #include "surrender/srGERD.h"
 #include "surrender/srCamera.h"
+#include "surrender/srClock.h"
+#include "glm/ext/matrix_float3x3.hpp"
+#include "wiz8/engine_code/AnimRep.hpp"
+#include "wiz8/engine_code/Prop.h"
+#include "wiz8/engine_code/game_timer.h"
 #include "wiz8/engine_code/World.h"
 #include "surrender/srTriangleCuller.h"
 #include "surrender/srDD_SDLGPU.h"
@@ -1017,8 +1022,7 @@ TEST_CASE("Item bounds preserve local extents and report absent world items", "[
     REQUIRE(item.GetCachedLocalBounds().minimum == local.minimum);
     REQUIRE(GetItemWorldBounds(&item)->minimum == glm::vec3(95, 197, 299));
 
-    srVector3 search;
-    REQUIRE(item.GetSearchPosition(&search));
+    const auto search = item.GetSearchPosition();
     REQUIRE(close(search.glmValue(), {100, 207.92f, 300}));
     rep->bounds_minimum = glm::vec3(0);
     rep->bounds_radius = 0;
@@ -1045,4 +1049,93 @@ TEST_CASE("Viewport bounds normalize each edge into an independent value", "[geo
     REQUIRE(glm::length(outside.maximum - glm::vec2(1.125f)) < 1e-6f);
     REQUIRE(glm::length(bounds.minimum - glm::vec2(0.125f)) < 1e-6f);
     REQUIRE(glm::length(bounds.maximum - glm::vec2(0.875f)) < 1e-6f);
+}
+
+TEST_CASE("Representation transform queries preserve local and parent coordinates", "[geometry][transform]")
+{
+    W8AnimRepBase rep;
+    rep.parent_location = {10, 20, 30};
+    const srVector3 local(1, 2, 3);
+    rep.SetLocation(&local);
+    const auto world = rep.GetLocation();
+    const auto local_copy = rep.GetLocalLocation();
+    auto rotation = rep.GetRotation();
+    REQUIRE(world == srVector3(11, 22, 33));
+    REQUIRE(local_copy == local);
+    REQUIRE(rotation == glm::mat3(1));
+    rotation[0][0] = 2;
+    REQUIRE(rep.GetRotation() == glm::mat3(1));
+    rep.SetRotation(&rotation);
+    REQUIRE(rep.GetRotation() == rotation);
+    const srVector3 next(-1, -2, -3);
+    rep.SetLocation(&next);
+    REQUIRE(rep.GetLocation() == srVector3(9, 18, 27));
+    REQUIRE(world == srVector3(11, 22, 33));
+    REQUIRE(local_copy == local);
+}
+
+TEST_CASE_METHOD(SurRenderTestFixture, "Movement queries return velocity and waypoint snapshots", "[geometry][navigation]")
+{
+    W8Navigator navigator;
+    navigator.movement.velocity = {1, 2, 3};
+    const auto velocity = navigator.GetVelocity();
+    navigator.movement.velocity = {4, 5, 6};
+    REQUIRE(navigator.GetVelocity() == srVector3(4, 5, 6));
+    REQUIRE(velocity == srVector3(1, 2, 3));
+
+    W8NavigatorAttachment route;
+    route.start_waypoint = {1, 2, 3};
+    route.path_destination = {7, 8, 9};
+    route.flags = W8_NAV_ATTACHMENT_START_WAYPOINT;
+    const auto start = route.GetNextPosition();
+    REQUIRE(start == route.start_waypoint);
+    route.flags = 0;
+    route.path_cursor = 0;
+    route.path_position_index = 1;
+    route.path[0].position = {4, 5, 6};
+    const auto waypoint = route.GetNextPosition();
+    REQUIRE(waypoint == srVector3(4, 5, 6));
+    route.path[0].position = {10, 11, 12};
+    REQUIRE(waypoint == srVector3(4, 5, 6));
+    route.path_cursor = route.path_position_index;
+    REQUIRE(route.GetNextPosition() == route.path_destination);
+    REQUIRE(start == srVector3(1, 2, 3));
+}
+
+TEST_CASE_METHOD(SurRenderTestFixture, "Prop position and delta queries preserve animation stepping", "[geometry][animation]")
+{
+    struct SharedClock {
+        srClock clock;
+        srClock* saved = std::exchange(g_shared_timer_base, &clock);
+        ~SharedClock() { g_shared_timer_base = saved; }
+    } shared_clock;
+    W8Prop prop;
+    prop.Rep()->animation = std::make_unique<W8AnimObj>().release();
+    auto& animation = *prop.Rep()->animation;
+    prop.m_pRep->location = {10, 20, 30};
+    prop.animation_position = {3, 5, 7};
+    prop.previous_animation_position = {1, 2, 3};
+    const auto static_position = prop.GetPosition();
+    REQUIRE(static_position == srVector3(10, 20, 30));
+    animation.path_lists = true;
+    REQUIRE(prop.GetPosition() == prop.animation_position);
+    REQUIRE(static_position == srVector3(10, 20, 30));
+    prop.Rep()->animation_behaviour = W8_ANIMATION_PLAY_ONCE;
+    prop.Rep()->frame_direction = W8_ANIMATION_FORWARD;
+    prop.Rep()->first_frame = 0;
+    prop.Rep()->last_frame = 3;
+    prop.Rep()->subcycle = 1;
+    const auto delta = prop.GetDelta();
+    REQUIRE(delta == srVector3(2, 3, 4));
+    REQUIRE(prop.Rep()->subcycle == 1);
+    prop.Rep()->subcycle = 3;
+    REQUIRE(prop.GetDelta() == srVector3(0, 0, 0));
+    prop.Rep()->animation_behaviour = W8_ANIMATION_REPEAT;
+    prop.Rep()->frame_method = W8_ANIMATION_WRAP;
+    REQUIRE(prop.GetDelta() == srVector3(0, 0, 0));
+    prop.Rep()->frame_method = W8_ANIMATION_PING_PONG;
+    REQUIRE(prop.GetDelta() == delta);
+    prop.Rep()->frame_direction = W8_ANIMATION_REVERSE;
+    prop.Rep()->subcycle = 1;
+    REQUIRE(prop.GetDelta() == delta);
 }

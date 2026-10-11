@@ -1666,7 +1666,7 @@ unsigned char W8Octree::PrepareNavigatorTarget(W8NavigatorMovementState* movemen
                     attachment->path_destination =
                         attachment->path[attachment->path_position_index].position;
                     pathing->AdvanceAttachmentWaypoint(&movement->position, attachment);
-                    movement->attachment->GetNextPosition(&movement->target_position);
+                    movement->target_position = movement->attachment->GetNextPosition();
                     return result;
                 }
                 result = pathing->ProbeAttachmentPath(movement->attachment.get());
@@ -1714,7 +1714,7 @@ bool __stdcall IsNavigatorAtTarget(W8NavigatorMovementState* movement)
             (attachment->flags & W8_NAV_ATTACHMENT_START_WAYPOINT) != 0) {
             return false;
         }
-        attachment->GetNextPosition(&target);
+        target = attachment->GetNextPosition();
     } else {
         target = movement->target_position;
     }
@@ -1738,7 +1738,7 @@ unsigned char W8Octree::PrepareNavigatorPatrol(W8NavigatorMovementState* movemen
             return 0;
         }
         double step = movement->movement_scale * g_world_scale;
-        movement->attachment->GetNextPosition(&movement->target_position);
+        movement->target_position = movement->attachment->GetNextPosition();
         srVector3T<float> delta;
         delta = movement->target_position - movement->position;
         if (step < delta.Length()) {

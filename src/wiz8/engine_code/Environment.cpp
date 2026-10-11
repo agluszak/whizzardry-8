@@ -890,8 +890,8 @@ void InitializeLevelEnvironment(void)
             srVector3T<float> sun;
             srVector3T<float> moon;
 
-            g_sun_prop->m_pRep->GetLocation(&sun);
-            g_moon_prop->m_pRep->GetLocation(&moon);
+            sun = g_sun_prop->m_pRep->GetLocation();
+            moon = g_moon_prop->m_pRep->GetLocation();
             srVector3T<float> delta = sun - moon;
             srVector3T<float> midpoint = (sun + moon) * 0.5;
             g_celestial_orbit_radius = delta.Length() * 0.5f;

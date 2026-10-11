@@ -547,9 +547,9 @@ srVector3T<float> W8Navigator::GetPosition()
 }
 
 // FUNCTION: WIZ8 0x004534f0
-void W8Navigator::GetVelocity(srVector3T<float>* velocity)
+srVector3T<float> W8Navigator::GetVelocity() const
 {
-    *velocity = movement.velocity;
+    return movement.velocity;
 }
 
 // FUNCTION: WIZ8 0x00454950
@@ -1199,16 +1199,15 @@ void W8NavigatorAttachment::CopyPathFrom(const W8NavigatorAttachment* other)
 }
 
 // FUNCTION: WIZ8 0x00456660
-void W8NavigatorAttachment::GetNextPosition(srVector3T<float>* position)
+srVector3T<float> W8NavigatorAttachment::GetNextPosition() const
 {
     if ((flags & W8_NAV_ATTACHMENT_START_WAYPOINT) != 0) {
-        *position = start_waypoint;
-        return;
+        return start_waypoint;
     }
     if (path_cursor < path_position_index) {
-        *position = path[path_cursor].position;
+        return path[path_cursor].position;
     } else {
-        *position = path_destination;
+        return path_destination;
     }
 }
 

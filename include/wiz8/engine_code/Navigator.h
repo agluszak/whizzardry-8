@@ -96,7 +96,7 @@ struct W8NavigatorAttachment {
     }
 
     void CopyPathFrom(const W8NavigatorAttachment* other);
-    void GetNextPosition(srVector3T<float>* position);
+    srVector3T<float> GetNextPosition() const;
     void InitializeSegment(const srVector3T<float>* source, const srVector3T<float>* destination);
     /* Step `position` forward along the recorded route by the 2-D `distance`,
        consuming waypoints the step covers; returns zero once the route's last
@@ -233,9 +233,9 @@ public:
     }
     virtual void SetPosition(const srVector3T<float>* position); /* 0x00456020 */
 
-    /* Copy movement.velocity out - the missile homing step scales this
+    /* The missile homing step scales this snapshot of movement.velocity
        by its step count to predict the next position. */
-    void GetVelocity(srVector3T<float>* velocity); /* 0x004534F0 */
+    srVector3T<float> GetVelocity() const; /* 0x004534F0 */
     /* movement.velocity = *velocity - the launch direction step. */
     void SetVelocity(const srVector3T<float>* velocity); /* 0x00453520 */
     /* movement.target_yaw = NormalizeAngle(angle). */

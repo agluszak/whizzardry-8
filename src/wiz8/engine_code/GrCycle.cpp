@@ -926,7 +926,7 @@ void W8GrCycle::UpdateRepresentation(W8World* pWorld)
             location = glm::dvec3(vecPos.glmValue());
             location.y += movement.vertical_offset;
             psrMesh->setLocation(location);
-            pRep->GetRotation(&rotation);
+            rotation = pRep->GetRotation();
             current = psrMesh->getRotation<glm::mat3>();
             rotation = rotation * current;
             psrMesh->setRotation(rotation);
@@ -953,7 +953,7 @@ void W8GrCycle::UpdateRepresentation(W8World* pWorld)
         vecPos = movement.position;
         location = glm::dvec3(vecPos.glmValue());
         location.y += movement.vertical_offset;
-        pRep->GetRotation(&rotation);
+        rotation = pRep->GetRotation();
         child = psrMesh->first_child_;
         if (child == 0) {
             psrMesh->setLocation(location);
@@ -985,13 +985,13 @@ void W8GrCycle::UpdateRepresentation(W8World* pWorld)
         srVector3T<float> origin;
 
         if (AnimationIsRunning(animation) == 1) {
-            pRep->GetLocation(&origin);
+            origin = pRep->GetLocation();
         } else {
             vecPos = movement.position;
             origin = vecPos;
             origin.y += movement.vertical_offset;
         }
-        pRep->GetRotation(&rotation);
+        rotation = pRep->GetRotation();
         for (index = 0; index < count; ++index) {
             stLight* light = (*m_plsLights)[index];
             srVector3T<float> offset = light->m_position;

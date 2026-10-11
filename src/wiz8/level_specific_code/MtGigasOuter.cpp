@@ -104,7 +104,7 @@ bool OnCrankTriggerActivated(Trigger* trigger)
     if (value >= 100 && value < 1000) {
         pFlagTrigger = FindRequiredTriggerByName("flag");
         prop = pFlagTrigger->GetProp();
-        prop->GetPosition(&position);
+        position = prop->GetPosition();
         position.y = LIFT_PARKED_Y;
         prop->SetPosition(&position);
         SetTriggerVariableByName("FlagPosition", 1000);
@@ -154,7 +154,7 @@ void ControlLiftGate(int command)
         }
         pFlagTrigger = FindRequiredTriggerByName("flag");
         g_lift_prop = pFlagTrigger->GetProp();
-        g_lift_prop->GetPosition(&position);
+        position = g_lift_prop->GetPosition();
         if (value < 100) {
             g_master_functions.push_back(ControlLiftGate);
             if (g_lift_gate != 0) {
@@ -186,7 +186,7 @@ void ControlLiftGate(int command)
             SetTriggerVariableByName("FlagPosition", 100);
             g_remove_current_master_function = true;
         }
-        g_lift_prop->GetPosition(&position);
+        position = g_lift_prop->GetPosition();
         position.y = (g_float_one - progress) * (LIFT_TOP_Y - LIFT_BOTTOM_Y) + LIFT_BOTTOM_Y;
         g_lift_prop->SetPosition(&position);
     } else {

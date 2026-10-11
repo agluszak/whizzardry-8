@@ -878,12 +878,11 @@ void GetMonsterGroupCentre(W8MonsterGroup* monster_group, srVector3T<float>* cen
         monster_group->centre.SetZero();
         count = monster_group->MemberIds().size();
         for (index = 0; index < count; ++index) {
-            MonsterGetLocation(
+            position = MonsterGetLocation(
                 MonsterGetScriptPartByLocationIndex(
                     MonsterGetIndexByLocationID(0x379, MONSTER_GROUP_CPP,
                                                 monster_group->MemberLocationId(index), true))
-                    ->p3D,
-                &position);
+                    ->p3D);
             monster_group->centre += position;
         }
         divisor = static_cast<float>(count);

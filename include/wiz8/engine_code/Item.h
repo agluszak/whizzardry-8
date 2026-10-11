@@ -70,7 +70,7 @@ struct W8Item : public W8GrObject {
     float GetBoundsRadius() const;
     /* Live search/interaction point: representation location raised by 0.66 of
        the cached local Y extent. */
-    unsigned char GetSearchPosition(srVector3T<float>* location);
+    srVector3T<float> GetSearchPosition() const;
     void SetYaw(float angle);
     void SetHighlight(bool enabled);
     bool IsSelected();
