@@ -43,7 +43,6 @@
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/OctBuildPreTree.h"
 #include "wiz8/engine_code/OctBuildTree.h"
-#include "wiz8/engine_code/materials.h"
 #include "wiz8/engine_code/OctPreTree.h"
 #include "wiz8/engine_code/Navigator.h"
 #include "wiz8/engine_code/SoundEvent.h"
