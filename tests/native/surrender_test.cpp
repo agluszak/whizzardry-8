@@ -186,9 +186,6 @@ static bool interfaces()
         glm::vec4 plane;
         plane = glm::vec4(1, 2, 3, 4);
         clip.setClipPlane(plane);
-        glm::vec4 output;
-        clip.getClipPlane(output);
-        REQUIRE((output.x == 1 && output.y == 2 && output.z == 3 && output.w == 4));
         const auto returned = clip.getClipPlane();
         REQUIRE((returned.x == 1 && returned.y == 2 && returned.z == 3 && returned.w == 4));
         clip.setClipType(srClipPlane::CLIP_POSITIONAL_0);
