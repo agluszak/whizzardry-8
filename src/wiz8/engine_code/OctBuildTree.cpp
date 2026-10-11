@@ -7,7 +7,6 @@
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/materials.h"
 #include "wiz8/float_constants.h"
-#include "wiz8/sr_api.h"
 #include "OctPreTree.h"
 #include "geometry.h"
 #include "surrender/srMath.h"
