@@ -61,6 +61,7 @@
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/npc_items.h"
 #include "wiz8/local_code/NPCScripting.h"
+#include "wiz8/local_code/npc_story_events.h"
 #include "wiz8/layouts/item_instance.h"
 #include "wiz8/layouts/item_tables.h"
 #include "wiz8/layouts/gameplay_databases.h"

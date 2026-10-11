@@ -103,12 +103,8 @@ void QueueNpcMessageLine(W8NpcMessageKind kind, int argument);
 int FindNpcNameOrPlaceQuote(W8NpcState* npc, std::string_view text);
 void RestoreCurrentNpcQuoteBubble(void);
 void QueueNpcScriptLine(int quote, bool mark_pending, bool prepend, bool suppress_entries);
-void BeginNpcScriptedScene(void);
 void SetScriptedSceneActive(void);
 void ClearScriptedSceneActive(void);
-/* End a scripted portrait pick against the chosen party slot. */
-void EndScriptedPortraitPick(int party_slot);
-void BeginSedexusCapture(void);
 void CancelNpcDialogue(void);
 /* Show the NPC quote bubble for the formatted line; a nonzero
    second argument also plays the startup jingle. */

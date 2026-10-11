@@ -31,6 +31,7 @@
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/NPCScripting.h"
+#include "wiz8/local_code/npc_story_events.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"

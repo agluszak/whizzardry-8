@@ -187,6 +187,7 @@ add_library(WIZ8_GAME_CORE STATIC
     local_code/npc_interaction.cpp
     local_code/npc_dialogue.cpp
     local_code/npc_speech.cpp
+    local_code/npc_story_events.cpp
     "local_code/NPC Scripting.cpp"
     "local_code/NPC Scripting Facts.cpp"
     local_code/formation_state.cpp
