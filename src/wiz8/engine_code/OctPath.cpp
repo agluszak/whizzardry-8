@@ -2660,7 +2660,7 @@ unsigned short W8PathingService::ConfigureMovementSearch(
         m_trace_target_location = target_location;
     }
 
-    g_octree->AdjustPosition(&movement->target_position, 1);
+    movement->target_position = g_octree->settleToGround(movement->target_position.glmValue(), true, 500).position;
 
     unsigned short result = 0;
     W8NavigatorAttachment* attachment = movement->attachment.get();
@@ -4546,7 +4546,7 @@ void W8PathingService::UpdatePathVisualization(const srVector3T<float>* source,
     if (m_waypoint_editing) {
         srVector3T<float> adjusted = *source;
         srVector3T<float> endpoint = *destination;
-        g_octree->AdjustPosition(&adjusted, 1);
+        adjusted = g_octree->settleToGround(adjusted.glmValue(), true, 500).position;
         PreparePathVisualization(&adjusted, &endpoint);
 
         if (CollectPathVisualization(&adjusted) != 0) {
@@ -4598,7 +4598,7 @@ void W8PathingService::UpdatePathVisualization(const srVector3T<float>* source,
         }
 
         srVector3T<float> adjusted = *source;
-        g_octree->AdjustPosition(&adjusted, 1);
+        adjusted = g_octree->settleToGround(adjusted.glmValue(), true, 500).position;
         DrawPathPosition(adjusted, 1);
     }
 

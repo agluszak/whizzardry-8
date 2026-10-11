@@ -555,7 +555,7 @@ unsigned char LoadLevel(int requested_level, int entrance, bool restoring_game)
 
             trigger->GetPosition(&trigger_position);
             position = trigger_position;
-            position.y = SettlePositionToGround(&trigger_position, 0) + g_default_world_height;
+            position.y = probeGround(trigger_position.glmValue()).position.y + g_default_world_height;
             if (fabs(position.y - trigger_position.y) > g_position_height_epsilon) {
                 position.y = trigger_position.y;
             }

@@ -834,7 +834,7 @@ void FinishSpellEffect(W8SpellEffectEntry* effect)
             W8NavigatorMovementState* movement = &monster_info->p3D->movement;
             position = movement->position;
             position.y += movement->height_offset;
-            position.y = SettlePositionToGround(&position, 0);
+            position.y = probeGround(position.glmValue()).position.y;
             PostMonsterNotice(monster_info, g_localized_strings[0x195]);
         } else {
             position = cameraLocation();
@@ -3528,7 +3528,7 @@ void ScatterSpellPointTarget(int spell_id, W8TargetSource* source, W8CombatSlot*
                                      origin.z);
         point.y = Random(0x3e9) * range * g_double_one_thousandth + origin.y;
         g_octree->TraceLineOfSight(&origin, &point, true, -3, -3, true, 0);
-        point.y = SettlePositionToGround(&point, 0);
+        point.y = probeGround(point.glmValue()).position.y;
         if (point.y != g_ground_settle_fail) {
             break;
         }

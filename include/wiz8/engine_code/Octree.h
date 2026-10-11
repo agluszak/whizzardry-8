@@ -1,5 +1,7 @@
 #pragma once
 
+#include "wiz8/ground_probe.h"
+
 #include <vector>
 #include <optional>
 #include <unordered_map>
@@ -385,8 +387,7 @@ public:
     unsigned char LinkNavigatorTarget(W8NavigatorMovementState* movement,
                                       const srVector3T<float>* target, float separation);
     void GetPathSurfaceNormal(const srVector3T<float>* position, srVector3T<float>* normal);
-    float SettleToGround(srVector3T<float>* position, bool* out_hit, char mode,
-                         float limit); /* 0x00433820 */
+    GroundProbe settleToGround(const glm::vec3& position, bool test_props, float limit); /* 0x00433820 */
     /* Clamp `position` to the clipped ceiling, probe the ground one
        world-scale unit lower and keep the settled height on a hit. */
     /* Returns the ground-hit flag in AL; pathing callers test it. */
@@ -401,7 +402,6 @@ public:
                      int excluded); /* 0x0042F280 */
     unsigned int QueryNearbyLocations(const srVector3T<float>* position, float spacing,
                                       w8_ulong** candidates);
-    void AdjustPosition(srVector3T<float>* position, unsigned int mode);
     /* Refresh the pathing service's debug preview from the world cursor,
        falling back to the camera eye when the cursor is unset. */
     void UpdatePathVisualization(); /* 0x00434170 */

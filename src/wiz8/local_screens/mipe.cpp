@@ -1489,7 +1489,7 @@ int HandleCubeMenuKey(unsigned int key)
     case 0x31:
         g_mipe_cube = CreateWorldCursorCube();
         GetCameraForwardPointCopy(2500.0f, &position);
-        position.y = SettlePositionToGroundMutable(&position, 0);
+        position.y = probeGround(position.glmValue()).position.y;
         MoveWorldCursorNode(g_mipe_cube, &position);
         AttachWorldCursorNode(g_mipe_cube, true);
         SetWorldCursorNodeColorComponents(g_mipe_cube, 0.0f, 1.0f, 0.0f);

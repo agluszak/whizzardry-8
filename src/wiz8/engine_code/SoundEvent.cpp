@@ -163,12 +163,10 @@ bool W8SoundEvent::Play(const srVector3T<float>& position, int cycle)
                 g_previous_footstep_variant = variant;
 
                 char path[260];
-                char surface;
-                char material;
-                GetGroundSurfaceInfo(&position, &surface, &material);
+                const auto ground = groundSurfaceInfo(position.glmValue());
                 /* Retail hardcodes the surface to OutdoorsFlat here: the query
                    result that matters for the path is the material. */
-                BuildFootstepPath(path, W8_FOOTSTEP_SURFACE_OUTDOORS_FLAT, material,
+                BuildFootstepPath(path, W8_FOOTSTEP_SURFACE_OUTDOORS_FLAT, ground.material,
                                   W8_FOOTSTEP_KIND_STEP, variant);
                 wave_name = path;
             }

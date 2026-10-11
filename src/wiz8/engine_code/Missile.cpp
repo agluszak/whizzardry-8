@@ -1128,7 +1128,7 @@ void W8Missile::EnterImpactCycle()
             representation->pending_behaviour = W8_ANIMATION_PLAY_ONCE;
             impacting = true;
             if (explode_ground) {
-                representation->location.y = SettlePositionToGround(&position, 0);
+                representation->location.y = probeGround(position.glmValue()).position.y;
             }
         }
     } else {

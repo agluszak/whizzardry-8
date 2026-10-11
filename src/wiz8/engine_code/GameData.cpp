@@ -8,6 +8,8 @@
 #include "compat/compiler.h"
 #include "glm/common.hpp"
 #include "glm/ext/matrix_float3x3.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include "wiz8/ground_probe.h"
 #include "glm/geometric.hpp"
 #include "glm/gtx/projection.hpp"
 #include "glm/matrix.hpp"
@@ -77,39 +79,26 @@ W8LevelDataRecord* g_level_data;
 bool g_mouselook_manual;
 
 // FUNCTION: WIZ8 0x00420bd0
-float SettlePositionToGround(const srVector3T<float>* position, bool* hit)
+GroundProbe probeGround(const glm::vec3& position)
 {
-    srVector3T<float> candidate = *position;
-    if (g_octree_game_data != 0 && g_octree_game_data->octree != 0) {
-        return g_octree_game_data->octree->SettleToGround(&candidate, hit, 1, 500.0f);
-    }
-    float height = position->y;
-    if (hit != 0) {
-        *hit = false;
-    }
-    return height;
-}
-
-// FUNCTION: WIZ8 0x00420C30
-float SettlePositionToGroundMutable(srVector3T<float>* position, bool* hit)
-{
-    return SettlePositionToGround(position, hit);
+    if (g_octree_game_data && g_octree_game_data->octree)
+        return g_octree_game_data->octree->settleToGround(position, true, 500);
+    return {position, false};
 }
 
 /* The ground height under `position` plus the footstep surface/material of
    the surface the last trace selected; both outputs stay zero when no
    surface was recorded. */
 // FUNCTION: WIZ8 0x00420CA0
-float GetGroundSurfaceInfo(const srVector3T<float>* position, char* surface, char* material)
+GroundSurfaceInfo groundSurfaceInfo(const glm::vec3& position)
 {
-    const float height = SettlePositionToGround(position, nullptr);
-    *surface = *material = 0;
+    GroundSurfaceInfo result{probeGround(position).position.y, 0, 0};
     if (g_octree_game_data && g_octree_game_data->last_hit_surface != 0) {
         const auto& hit = g_octree_game_data->m_pSurfaces[g_octree_game_data->last_hit_surface];
-        *surface = hit.footstep_surface;
-        *material = hit.footstep_material;
+        result.surface = hit.footstep_surface;
+        result.material = hit.footstep_material;
     }
-    return height;
+    return result;
 }
 
 // GLOBAL: WIZ8 0x00652dba

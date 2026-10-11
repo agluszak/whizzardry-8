@@ -1653,15 +1653,8 @@ unsigned char W8Octree::PrepareNavigatorTarget(W8NavigatorMovementState* movemen
                                                float separation)
 {
     unsigned char result = 0;
-    bool hit = false;
-    if (movement->target_position.y > m_spatial.m_clipped_maximum.y) {
-        movement->target_position.y = m_spatial.m_clipped_maximum.y;
-    }
-    srVector3T<float> probe = movement->target_position;
-    SettleToGround(&probe, &hit, 1, 500.0f);
-    if (hit) {
-        movement->target_position.y = probe.y;
-    }
+    movement->target_position =
+        settleToGround(movement->target_position.glmValue(), true, 500).position;
     if (pathing == 0) {
         return 1;
     }
@@ -1866,11 +1859,11 @@ unsigned int W8Octree::LeafIndexForCell(const srVector3T<int>* cell)
    testing the cell's props first (a prop hit is remembered in current_prop;
    a level-surface hit clears it) and always testing the level surfaces.
    The point's y drops to the contact on a hit and keeps its input value on a
-   miss; `out_hit` receives the outcome byte when given. */
+   miss, after clamping to the ceiling. Both values are returned together. */
 // FUNCTION: WIZ8 0x00433820
-float W8Octree::SettleToGround(srVector3T<float>* position, bool* out_hit, char test_props,
-                               float limit)
+GroundProbe W8Octree::settleToGround(const glm::vec3& input, bool test_props, float limit)
 {
+    glm::vec3 position = input;
     W8OctreeTrace trace;
     srVector3T<int> cell;
     srVector3T<float> start;
@@ -1883,12 +1876,12 @@ float W8Octree::SettleToGround(srVector3T<float>* position, bool* out_hit, char 
         current_prop = -1;
     }
     std::ranges::fill(m_visited_object_bits, false);
-    if (m_spatial.m_clipped_maximum.y < position->y) {
-        position->y = m_spatial.m_clipped_maximum.y;
+    if (m_spatial.m_clipped_maximum.y < position.y) {
+        position.y = m_spatial.m_clipped_maximum.y;
     }
-    end = *position;
-    start = *position;
-    start.y = position->y + limit;
+    end = position;
+    start = position;
+    start.y = position.y + limit;
     WorldPositionToCell(&start, &cell);
     end.y = ((cell.y - 1)) * m_spatial.m_node_extent + m_spatial.m_minimum.y;
     trace.Reseed(&start, &end);
@@ -1934,16 +1927,13 @@ float W8Octree::SettleToGround(srVector3T<float>* position, bool* out_hit, char 
         } while (-1 < cell.y);
         if (hit) {
         done:
-            position->y = trace.end.y;
+            position.y = trace.end.y;
             goto out;
         }
     }
-    trace.end.y = position->y;
+    trace.end.y = position.y;
 out:
-    if (out_hit != 0) {
-        *out_hit = hit;
-    }
-    return trace.end.y;
+    return {position, hit};
 }
 
 /* Snap a point onto the surface below: clamp it to the octree's clipped
@@ -1959,7 +1949,9 @@ bool W8Octree::SnapToGround(srVector3T<float>* position, char mode)
     }
     srVector3T<float> probe = *position;
     probe.y = position->y - g_world_scale;
-    SettleToGround(&probe, &hit, mode, 500.0f);
+    const auto ground_probe = settleToGround(probe.glmValue(), mode, 500.0f);
+    probe = ground_probe.position;
+    hit = ground_probe.hit;
     if (hit) {
         position->y = probe.y;
     }
@@ -3924,26 +3916,6 @@ srVector3T<int>* W8Octree::WorldPositionToCell(const srVector3T<float>* position
     return inside ? point : 0;
 }
 
-/* Clamp a position under the spatial ceiling, settle it to the ground through
-   the surface walk, and keep the settled height only when something was hit.
-   The walk reports through the flag; the height it wrote is discarded on a
-   miss. */
-// FUNCTION: WIZ8 0x00431DA0
-void W8Octree::AdjustPosition(srVector3T<float>* position, unsigned int mode)
-{
-    srVector3T<float> adjusted;
-    bool hit = false;
-
-    if (m_spatial.m_clipped_maximum.y < position->y) {
-        position->y = m_spatial.m_clipped_maximum.y;
-    }
-    adjusted = *position;
-    SettleToGround(&adjusted, &hit, mode, 500.0f);
-    if (hit) {
-        position->y = adjusted.y;
-    }
-}
-
 /* Step one navigator's movement tail towards its target.
 
    With a pathing service present the work belongs to that service, and which of
@@ -4003,40 +3975,13 @@ unsigned int W8Octree::AdvanceNavigator(W8NavigatorMovementState* movement, floa
 void W8Octree::AdjustPortalDestination(srVector3T<float>* destination,
                                        const srVector3T<float>* source)
 {
-    srVector3T<float> local_destination;
-    srVector3T<float> local_source;
-    srVector3T<float> probe;
-    bool hit;
-
-    if (pathing == 0) {
+    if (!pathing || (!pathing->m_waypoint_editing && pathing->m_ulNumWayPoints != 0))
         return;
-    }
-    if (!pathing->m_waypoint_editing && pathing->m_ulNumWayPoints != 0) {
-        return;
-    }
-    local_destination = *destination;
-    local_source = *source;
-
-    hit = false;
-    if (local_destination.y > m_spatial.m_clipped_maximum.y) {
-        local_destination.y = m_spatial.m_clipped_maximum.y;
-    }
-    probe = local_destination;
-    SettleToGround(&probe, &hit, 1, 500.0f);
-    if (hit) {
-        local_destination.y = probe.y;
-    }
-
-    hit = false;
-    if (local_source.y > m_spatial.m_clipped_maximum.y) {
-        local_source.y = m_spatial.m_clipped_maximum.y;
-    }
-    probe = local_source;
-    SettleToGround(&probe, &hit, 1, 500.0f);
-    if (hit) {
-        local_source.y = probe.y;
-    }
-    pathing->EditTeleportalLink(&local_destination, &local_source);
+    const auto source_point = source->glmValue();
+    const auto local_destination = settleToGround(destination->glmValue(), true, 500).position;
+    const auto local_source = settleToGround(source_point, true, 500).position;
+    const srVector3 destination_record(local_destination), source_record(local_source);
+    pathing->EditTeleportalLink(&destination_record, &source_record);
 }
 
 /* Release the location-variable names and empty their parallel value and
@@ -4230,7 +4175,7 @@ unsigned int W8Octree::FindScatterPositions(const srVector3T<float>* position, f
                 candidate.y = source.y + g_world_scale;
                 candidate.z = (ring + jitter_ring) * cos_step + source.z +
                               (jitter_column + *column_offset) * sin_step;
-                float ground = SettlePositionToGround(&candidate, 0);
+                float ground = probeGround(candidate.glmValue()).position.y;
                 float height = candidate.y - ground;
                 if (g_double_one <= fabsf(height) &&
                     fabsf(height) <= g_navigator_vertical_snap_limit &&
@@ -4316,7 +4261,7 @@ unsigned int W8Octree::FindNavigatorPosition(srVector3T<float>* source, float ya
     float sin_radius = radius * sin_angle;
     float neg_cos_radius = -cos_radius;
     source->y += g_world_scale;
-    float ground = SettlePositionToGround(source, 0);
+    float ground = probeGround(source->glmValue()).position.y;
     float height = source->y - ground;
     if (g_double_one <= fabsf(height) && fabsf(height) <= g_navigator_vertical_snap_limit &&
         (settle_any_height || fabsf(height) <= g_double_twenty_five_hundred)) {
@@ -4367,7 +4312,7 @@ unsigned int W8Octree::FindNavigatorPosition(srVector3T<float>* source, float ya
                             candidate.y = source->y + g_world_scale;
                             candidate.z = (i + jitter_i) * cos_radius + source->z +
                                           (jitter_j + j) * sin_radius;
-                            ground = SettlePositionToGround(&candidate, 0);
+                            ground = probeGround(candidate.glmValue()).position.y;
                             height = candidate.y - ground;
                             if (g_double_one <= fabsf(height) &&
                                 fabsf(height) <= g_navigator_vertical_snap_limit &&

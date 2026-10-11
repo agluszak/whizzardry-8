@@ -95,9 +95,11 @@ static void bounds()
 static void planes_and_segments()
 {
     const srVector3 a(0, 2, 0), b(0, 2, 3), c(4, 2, 0);
-    char surface = 99, material = 99;
-    REQUIRE(GetGroundSurfaceInfo(&a, &surface, &material) == 2);
-    REQUIRE((surface == 0 && material == 0));
+    const auto ground = probeGround(a.glmValue());
+    REQUIRE((ground.position == a.glmValue() && !ground.hit));
+    const auto surface = groundSurfaceInfo(a.glmValue());
+    REQUIRE(surface.height == 2);
+    REQUIRE((surface.surface == 0 && surface.material == 0));
     W8Plane plane{};
     SetPlaneFromThreePoints(&plane, &a, &b, &c);
     REQUIRE(close(plane.normal.glmValue(), {0, 1, 0}));

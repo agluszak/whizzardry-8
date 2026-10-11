@@ -899,7 +899,7 @@ void DropHeldItem(int)
 
     srVector3T<float> position = camera + delta;
     position.y =
-        g_octree->SettleToGround(&position, 0, 1, 250.0f) + g_float_one_hundred_twenty_five;
+        g_octree->settleToGround(position.glmValue(), true, 250).position.y + g_float_one_hundred_twenty_five;
     if (FindNearbyFreePosition(250.0f, &position, true, true) != 0) {
         W8WorldItem* item = CreateWorldItem(&g_status.item_in_hand, &position,
                                             W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE, true);
@@ -1118,7 +1118,10 @@ unsigned char AdvanceFallingWorldItem(W8WorldItem* item)
         probe.y = dt * item->vertical_velocity + probe.y;
     }
 
-    ground = g_octree->SettleToGround(&probe, &hit, 1, 250.0f);
+    const auto ground_probe = g_octree->settleToGround(probe.glmValue(), 1, 250.0f);
+    probe = ground_probe.position;
+    hit = ground_probe.hit;
+    ground = ground_probe.position.y;
     if (!hit || fabs(ground - previous_y) < g_camera_snap_epsilon) {
         item->flags &= ~W8_WORLD_ITEM_FALLING;
         item->vertical_velocity = 0.0f;
@@ -1169,7 +1172,9 @@ unsigned char SettleWorldItem(W8WorldItem* item)
     item->flags &= ~W8_WORLD_ITEM_FALLING;
     item->vertical_velocity = 0.0f;
 
-    g_octree->SettleToGround(&start, &hit, 1, 250.0f);
+    const auto ground_probe = g_octree->settleToGround(start.glmValue(), 1, 250.0f);
+    start = ground_probe.position;
+    hit = ground_probe.hit;
     if (!hit) {
         return 0;
     }

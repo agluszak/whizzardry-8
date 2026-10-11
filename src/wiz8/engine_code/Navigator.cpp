@@ -960,7 +960,10 @@ srVector3T<float>* W8Navigator::AdjustPosition(srVector3T<float>* result,
         srVector3T<float> probe = *current;
         probe.y += g_world_scale;
         bool hit;
-        float ground = g_octree->SettleToGround(&probe, &hit, 1, 500.0f);
+        const auto ground_probe = g_octree->settleToGround(probe.glmValue(), 1, 500.0f);
+        probe = ground_probe.position;
+        hit = ground_probe.hit;
+        float ground = ground_probe.position.y;
         if (hit) {
             if (g_octree->current_prop < 0) {
                 movement.position_adjusted = false;

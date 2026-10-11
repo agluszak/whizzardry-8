@@ -804,7 +804,7 @@ try
     const unsigned int record_size = sizeof(*info);
     if (info->fActive) {
         MonsterGetLocation(monster, &info->position);
-        info->position.y = SettlePositionToGround(&info->position, 0);
+        info->position.y = probeGround(info->position.glmValue()).position.y;
         info->derived = MonsterGetYaw(monster);
     }
     chunks->m_hFile->write(&record_version, sizeof(record_version));
