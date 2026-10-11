@@ -1563,10 +1563,10 @@ void srGERD::loadIdentity()
 }
 
 // FUNCTION: SURRENDER 0x10023320
-void srGERD::getMatrix(e_matrixMode mode, glm::mat4& matrix)
+glm::mat4 srGERD::getMatrix(e_matrixMode mode)
 {
     checkViewStateChanges();
-    matrix = state.matrix_current[mode];
+    return state.matrix_current[mode];
 }
 
 // FUNCTION: SURRENDER 0x10023510
@@ -2019,23 +2019,9 @@ srGERD::e_matrixMode srGERD::getMatrixMode() const
 }
 
 // FUNCTION: SURRENDER 0x10023350
-void srGERD::getMatrix(glm::mat4& matrix)
+glm::mat4 srGERD::getMatrix()
 {
-    checkViewStateChanges();
-    matrix = state.matrix_current[state.matrix_mode];
-}
-
-// FUNCTION: SURRENDER 0x10023390
-void srGERD::getMatrix(e_matrixMode mode, glm::dmat4& matrix)
-{
-    checkViewStateChanges();
-    matrix = glm::dmat4(state.matrix_current[mode]);
-}
-
-// FUNCTION: SURRENDER 0x10023450
-void srGERD::getMatrix(glm::dmat4& matrix)
-{
-    getMatrix(state.matrix_mode, matrix);
+    return getMatrix(state.matrix_mode);
 }
 
 // FUNCTION: SURRENDER 0x10021380
