@@ -88,7 +88,6 @@ static bool SaveNpcItemLists(wiz8::File& file);
 static bool LoadNpcItemLists(wiz8::File& file);
 static bool NpcOffersService(W8NpcState* npc, unsigned int service_id);
 
-#define NPC_MANAGER_CPP "C:\\Projects\\Wizardry 8\\Local Code\\NPC Manager.cpp"
 
 enum { W8_NPC_TOPIC_SLOTS = 5, W8_NPC_FACT_SLOTS = 14 };
 
@@ -1307,7 +1306,7 @@ void BindNpcToMonster(unsigned char npc_id, bool has_monster, int location_id)
     }
 
     if (npc == 0) {
-        srAssertFail("pNode", NPC_MANAGER_CPP, 0x194, 0);
+        srAssertFail("npc", __FILE__, __LINE__, 0);
     }
     npc->location_id = location_id;
     npc->is_present = has_monster;
@@ -1882,7 +1881,7 @@ W8NpcPickpocketResult AttemptNpcPickpocket(W8Character* character, W8NpcState* n
         return W8_PICKPOCKET_FAILED;
     }
     if (npc == 0) {
-        srAssertFail("pNPC", NPC_MANAGER_CPP, 0x7a4, 0);
+        srAssertFail("npc", __FILE__, __LINE__, 0);
     }
     short item_id = npc->item_ids[picked & 0xff];
     if (item_id != -1) {
@@ -1962,7 +1961,7 @@ void TriggerBelaVoice(W8Monster* monster)
         QueueNpcScriptNotice(npc, 0, -1, false, 0);
         return;
     }
-    srAssertFail("pNPC", NPC_MANAGER_CPP, 0xbec, "Cannot find VOC_BELA_CC");
+    srAssertFail("npc", __FILE__, __LINE__, "Cannot find VOC_BELA_CC");
 }
 
 /* The NPC side of the global frame. Two timed world events first: one retires
@@ -2480,7 +2479,7 @@ void RebindNpcLevelTriggers(void)
 bool ClearNpcScheduledItem(W8NpcState* npc, int item_id, W8ItemInstance* out)
 {
     if (npc == 0) {
-        srAssertFail("pNPC", NPC_MANAGER_CPP, 0x7b7, 0);
+        srAssertFail("npc", __FILE__, __LINE__, 0);
     }
     for (int index = 0; index < 40; ++index) {
         if (npc->item_ids[index] == item_id) {
@@ -2659,7 +2658,7 @@ void ClearNpcItemId(W8NpcState* npc, int item_id)
     for (index = 0; index < 40; ++index) {
         if (npc->item_ids[index] == item_id) {
             if (npc == 0) {
-                srAssertFail("pNPC", NPC_MANAGER_CPP, 0x7a4, 0);
+                srAssertFail("npc", __FILE__, __LINE__, 0);
             }
             slot = index;
             if (npc->item_ids[slot] != -1) {

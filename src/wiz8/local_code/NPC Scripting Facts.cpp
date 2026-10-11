@@ -54,10 +54,6 @@
 #include "xstatus.h"
 #include "wiz8/npc_interaction.h"
 
-#define NPC_SCRIPTING_FACTS_CPP "C:\\Projects\\Wizardry 8\\Local Code\\NPC Scripting Facts.cpp"
-
-/* Local Code\NPC Scripting Facts.cpp. Direct assertion ownership. */
-
 /* Potion explosion completion callback: retail stores this JMP thunk rather than
    ClearScriptedSceneActive's void() entry. */
 // FUNCTION: WIZ8 0x005092c0
@@ -143,7 +139,7 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
         }
         npc = GetNpcStateByKind(0x48);
         if (npc == 0) {
-            srAssertFail("pNPC", NPC_SCRIPTING_FACTS_CPP, 0x614, 0);
+            srAssertFail("npc", __FILE__, __LINE__, 0);
         }
         ClearNpcScheduledItem(npc, 0x242, 0);
         return;
@@ -227,7 +223,7 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
         }
         npc = GetNpcStateByKind(0x29);
         if (npc == 0) {
-            srAssertFail("pNPC", NPC_SCRIPTING_FACTS_CPP, 0x636, 0);
+            srAssertFail("npc", __FILE__, __LINE__, 0);
         }
         MarkNpcOfKind(0x29);
         return;
@@ -647,7 +643,7 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
         }
         npc = GetNpcStateByKind(0x29);
         if (npc == 0) {
-            srAssertFail("pNPC", NPC_SCRIPTING_FACTS_CPP, 0x62c, 0);
+            srAssertFail("npc", __FILE__, __LINE__, 0);
         }
         MarkNpcOfKind(0x29);
         return;
