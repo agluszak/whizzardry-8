@@ -123,11 +123,11 @@ void UpdateWorldProps(W8World* world)
     unsigned int count;
     int index;
 
-    if (world == 0 || world->plsProps == 0) {
-        srAssertFail("pWorld && pWorld->plsProps",
+    if (world == 0) {
+        srAssertFail("pWorld",
                      "C:\\Projects\\Wizardry 8\\Engine Code\\Prop.cpp", 0x969, 0);
     }
-    count = (world->plsProps ? world->plsProps->size() : 0);
+    count = world->plsProps.size();
     for (index = 0; index < static_cast<int>(count); ++index) {
         W8Prop* prop = GetWorldProp(world, index);
         Trigger* trigger;
@@ -156,7 +156,7 @@ W8Prop* FindPropByName(W8World* world, const char* name)
     int index;
 
     if (world != 0 && name != 0) {
-        unsigned int count = (world->plsProps ? world->plsProps->size() : 0);
+        unsigned int count = world->plsProps.size();
 
         for (index = 0; index < static_cast<int>(count); ++index) {
             W8Prop* prop = GetWorldProp(world, index);
@@ -318,7 +318,7 @@ bool ResolvePickedProp(W8World* world)
 
     valid = true;
     camera_position = cameraLocation();
-    prop_count = (world->plsProps ? world->plsProps->size() : 0);
+    prop_count = world->plsProps.size();
     for (prop_index = 0; prop_index < static_cast<int>(prop_count); ++prop_index) {
         W8Prop* prop;
         W8PropRepresentation* representation;
@@ -1806,7 +1806,7 @@ void SaveWorldProps(W8World* world, wiz8::File* handle)
     version = 1;
     handle->write(&signature, 4);
     handle->write(&version, 4);
-    count = static_cast<int>((world->plsProps ? world->plsProps->size() : 0));
+    count = static_cast<int>(world->plsProps.size());
     handle->write(&count, 4);
     for (index = 0; index < count; ++index) {
         prop = GetWorldProp(world, index);
@@ -1845,7 +1845,7 @@ void LoadWorldProps(W8World* world, wiz8::File* handle)
         for (index = 0; index < count; ++index) {
             handle->read_exact(&key, 4);
             prop = 0;
-            entries = static_cast<int>((world->plsProps ? world->plsProps->size() : 0));
+            entries = static_cast<int>(world->plsProps.size());
             for (int entry_index = 0; entry_index < entries; ++entry_index) {
                 entry = GetWorldProp(world, entry_index);
                 if (entry->id == key) {

@@ -148,7 +148,7 @@ struct SpellVisualFixture
     W8Octree* previous_octree = g_octree;
     std::unique_ptr<W8Octree> octree;
     W8World world{};
-    std::vector<W8SpellVisual*> visuals;
+    std::vector<W8SpellVisual*>& visuals = world.spell_visuals;
 
     SpellVisualFixture()
     {
@@ -160,7 +160,6 @@ struct SpellVisualFixture
         std::filesystem::create_directory(directory.path / "user");
         w8_native::configure_paths({(directory.path / "assets").string(),
                                    (directory.path / "user").string(), {"", "", ""}});
-        world.spell_visuals = &visuals;
         SetCurrentWorld(&world);
     }
 

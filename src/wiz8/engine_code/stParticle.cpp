@@ -99,15 +99,15 @@ void SaveParticleStates(wiz8::File* handle)
 
     handle->write(&version, sizeof(version));
 
-    if (g_world != 0 && g_world->particles != 0) {
-        for (stParticle* particle : *g_world->particles) {
+    if (g_world != 0) {
+        for (stParticle* particle : g_world->particles) {
             count += particle->persisted;
         }
     }
     handle->write(&count, sizeof(count));
 
-    if (g_world != 0 && g_world->particles != 0) {
-        for (stParticle* particle : *g_world->particles) {
+    if (g_world != 0) {
+        for (stParticle* particle : g_world->particles) {
             if (particle->persisted) {
                 strcpy(name, particle->getName().c_str());
                 handle->write(name, sizeof(name));

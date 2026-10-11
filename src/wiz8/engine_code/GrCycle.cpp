@@ -496,7 +496,7 @@ W8GrCycle::W8GrCycle(const W8GrCycle& other) : W8GrObject(other), W8Navigator(ot
             copied_light->setGroupMask(2);
             g_world->transient_lights.push_back(copied_light);
             if (copied_light->definition() != 0) {
-                g_world->lights_to_update->push_back(copied_light);
+                g_world->lights_to_update.push_back(copied_light);
             }
             m_plsLights->push_back(copied_light);
         }
@@ -1345,7 +1345,7 @@ void W8GrCycle::DetachCycleLights(std::vector<stLight*>* lights)
 
             light->setParent(0, 1);
             if (light->definition() != 0) {
-                wiz8::erase_first(*g_world->lights_to_update, light);
+                wiz8::erase_first(g_world->lights_to_update, light);
             }
         }
     }
@@ -1358,7 +1358,7 @@ void W8GrCycle::AttachCycleLights(std::vector<stLight*>* lights)
 
             light->setParent(g_world->dynamic_scene, 1);
             if (light->definition() != 0) {
-                g_world->lights_to_update->push_back(light);
+                g_world->lights_to_update.push_back(light);
             }
         }
     }
@@ -1501,7 +1501,7 @@ void DestroyLightVector(std::vector<stLight*>* vector)
             stLight* light = (*vector)[index];
 
             if (light->definition() != 0) {
-                wiz8::erase_first(*g_world->lights_to_update, light);
+                wiz8::erase_first(g_world->lights_to_update, light);
             }
             light->setParent(0, 1);
             WorldRemoveLight(g_world, light);

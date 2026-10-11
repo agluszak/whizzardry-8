@@ -5,6 +5,7 @@
 #include <exception>
 #include <memory>
 #include <optional>
+#include <utility>
 #include "surrender/srBoundingBox.h"
 #include <string>
 
@@ -57,7 +58,7 @@ void W8Item::DetachMesh(W8World* world)
     if (world == 0) {
         srAssertFail("pWorld", "C:\\Projects\\Wizardry 8\\Engine Code\\Item.cpp", 0x24a, 0);
     }
-    mesh = static_cast<W8ItemRep*>(m_pRep)->m_psrMesh;
+    mesh = static_cast<W8ItemRep*>(m_pRep)->m_psrMesh.get();
     if (mesh == 0) {
         srAssertFail("psrMesh", "C:\\Projects\\Wizardry 8\\Engine Code\\Item.cpp", 0x24f, 0);
     }
@@ -79,7 +80,7 @@ void W8Item::ApplyRepTransform()
         srAssertFail("m_pRep->m_psrMesh", "C:\\Projects\\Wizardry 8\\Engine Code\\Item.cpp", 0x266,
                      0);
     }
-    mesh = static_cast<W8ItemRep*>(m_pRep)->m_psrMesh;
+    mesh = static_cast<W8ItemRep*>(m_pRep)->m_psrMesh.get();
     location = m_pRep->GetLocation();
     widened = glm::dvec3(location.glmValue());
     mesh->setLocation(widened);
@@ -102,7 +103,7 @@ void W8Item::AttachMesh(W8World* world)
     if ((static_cast<W8ItemRep*>(m_pRep)->flags & W8_ITEM_ENTITY_MESH_LOADED) == 0) {
         return;
     }
-    mesh = static_cast<W8ItemRep*>(m_pRep)->m_psrMesh;
+    mesh = static_cast<W8ItemRep*>(m_pRep)->m_psrMesh.get();
     if (mesh == 0) {
         srAssertFail("psrMesh", "C:\\Projects\\Wizardry 8\\Engine Code\\Item.cpp", 0x219, 0);
     }
@@ -130,7 +131,7 @@ void W8Item::AttachMesh(W8World* world)
 // FUNCTION: WIZ8 0x0049fb20
 srNode* W8Item::GetMesh()
 {
-    return static_cast<W8ItemRep*>(m_pRep)->m_psrMesh;
+    return static_cast<W8ItemRep*>(m_pRep)->m_psrMesh.get();
 }
 
 // FUNCTION: WIZ8 0x0049F310
@@ -159,8 +160,7 @@ bool W8Item::IsRadarBlipLit()
 // VTABLE: WIZ8 0x005ECD70 W8ItemRep
 // class W8ItemRep
 
-/* Inlined into both item construction paths. Retail leaves the mesh pointer
-   and bounds untouched until ReadFromFile; do not initialize them here. */
+/* Mesh ownership starts empty and is committed by ReadFromFile. */
 W8ItemRep::W8ItemRep()
 {
     flags = 0;
@@ -169,36 +169,24 @@ W8ItemRep::W8ItemRep()
 }
 
 // FUNCTION: WIZ8 0x0049F120
-W8ItemRep::~W8ItemRep()
-{
-    if (m_psrMesh != 0) {
-        delete m_psrMesh;
-    }
-}
+W8ItemRep::~W8ItemRep() = default;
 
 // FUNCTION: WIZ8 0x0049F170
 bool W8ItemRep::ReadFromFile(W8ReadLevelInfo* info, W8Item* item, bool anonymous_mesh)
 {
+    if (!info || !info->hFile || !item) return false;
     const char* bitmap_folder = info->bitmap_folder;
-    srModelInstance* mesh = 0;
-    if (info == 0 || info->hFile == 0 || item == 0) {
-        srAssertFail("pInfo && pInfo->hFile && pItem", ITEM_CPP, 0x7e, 0);
-    }
-
     info->bitmap_folder = "Data\\Items3D\\Bitmaps";
-    bool success =
-        ReadSingleLevelMesh(info, &mesh, 0, 0, anonymous_mesh ? 0 : info->mesh_filename, true) != 0;
-    if (!success || mesh == 0) {
-        srAssertFail("fSuccess && psrMesh", ITEM_CPP, 0x8c, 0);
-    }
-    mesh->setName("ItemRep::ReadFromFile");
-    static_cast<stModelInstance*>(mesh)->render_flags |= stModelInstance::RENDER_SHADOW;
-    SetModelInstanceChainExclusionMask(mesh, 4);
+    auto mesh = ReadSingleLevelMesh(info, anonymous_mesh ? nullptr : info->mesh_filename, true);
     info->bitmap_folder = bitmap_folder;
+    if (!mesh) return false;
+    mesh->setName("ItemRep::ReadFromFile");
+    mesh->render_flags |= stModelInstance::RENDER_SHADOW;
+    SetModelInstanceChainExclusionMask(mesh.get(), 4);
+    m_psrMesh = std::move(mesh);
     flags |= W8_ITEM_ENTITY_MESH_LOADED;
-    m_psrMesh = mesh;
     RefreshBounds();
-    return success;
+    return true;
 }
 
 // FUNCTION: WIZ8 0x0049F2B0
@@ -292,7 +280,7 @@ void W8Item::UpdateAnimation()
         glm::mat3 rotation;
         rotation = m_pRep->GetRotation();
         rotation *= glm::mat3(glm::eulerAngleY(-0.1963495375f));
-        srNode* mesh = rep->m_psrMesh;
+        srNode* mesh = rep->m_psrMesh.get();
         m_pRep->SetRotation(&rotation);
         if (mesh->first_child_ == 0) {
             mesh->setRotation(rotation);
@@ -352,7 +340,7 @@ srVector3T<float> W8Item::GetSearchPosition() const
 void W8Item::SetYaw(float angle)
 {
     glm::mat3 rotation(glm::eulerAngleY(static_cast<float>(NormalizeAngle(angle))));
-    srNode* mesh = static_cast<W8ItemRep*>(m_pRep)->m_psrMesh;
+    srNode* mesh = static_cast<W8ItemRep*>(m_pRep)->m_psrMesh.get();
     m_pRep->SetRotation(&rotation);
     if (mesh->first_child_ == 0) {
         mesh->setRotation(rotation);
@@ -391,7 +379,7 @@ void W8Item::SetHighlight(bool enabled)
 bool W8Item::IsSelected()
 {
     srModelInstance* selected = GetPickedModelInstance();
-    return selected == static_cast<W8ItemRep*>(m_pRep)->m_psrMesh;
+    return selected == static_cast<W8ItemRep*>(m_pRep)->m_psrMesh.get();
 }
 
 // FUNCTION: WIZ8 0x0049FFA0
