@@ -1049,6 +1049,9 @@ void generic_button_images()
     REQUIRE(std::all_of(quick_images.begin(), quick_images.end(),
                         [](const auto& item) { return item != nullptr; }));
     quick_images.clear();
+    const auto handler_count = std::count_if(
+        g_regions.begin(), g_regions.end(),
+        [](const W8Region& region) { return region.handler != nullptr; });
     {
         auto dialog = std::make_unique<W8DialogButton>();
         REQUIRE(dialog->ConfigureIcon("button.sti", 0, 1, BUTTON_PRIORITY_NORMAL,
@@ -1057,9 +1060,20 @@ void generic_button_images()
         REQUIRE(!dialog->ConfigureIcon("missing.sti", 0, 1, BUTTON_PRIORITY_NORMAL,
                                        W8_DIALOG_BUTTON_NO_TOOLTIP));
         REQUIRE((dialog->GetX() == 12 && dialog->GetY() == 13 && dialog->GetWidth() == 1));
-        REQUIRE(RegisteredButtonCount() == 1);
+        REQUIRE(RegisteredButtonCount() == 0);
+        REQUIRE(std::any_of(g_regions.begin(), g_regions.end(),
+                            [&dialog](const W8Region& region) {
+                                return region.handler == dialog.get();
+                            }));
+        REQUIRE(std::count_if(g_regions.begin(), g_regions.end(),
+                              [](const W8Region& region) {
+                                  return region.handler != nullptr;
+                              }) == handler_count + 1);
     }
     REQUIRE(RegisteredButtonCount() == 0);
+    REQUIRE(std::count_if(g_regions.begin(), g_regions.end(),
+                          [](const W8Region& region) { return region.handler != nullptr; }) ==
+            handler_count);
     // A dialog's click callback can close it. The dispatcher must not read
     // the released dialog while completing the click (including its sound).
     auto closing_dialog = std::make_unique<W8DialogButton>();

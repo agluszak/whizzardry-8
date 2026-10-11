@@ -8,7 +8,6 @@
 #include <string_view>
 #include <array>
 #include <cstddef>
-#include <cstdint>
 
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
    Distributed under the accompanying SFI Source Code license agreement. */
@@ -75,6 +74,7 @@
 #define BUTTON_DISABLED_CALLBACK 0x80000000
 
 inline constexpr int BUTTON_PRIORITY_LOWEST = 0;
+inline constexpr int BUTTON_PRIORITY_BACKGROUND = BUTTON_PRIORITY_LOWEST - 1;
 inline constexpr int BUTTON_PRIORITY_LOW = 15;
 inline constexpr int BUTTON_PRIORITY_BASE = 31;
 inline constexpr int BUTTON_PRIORITY_NORMAL = 31;

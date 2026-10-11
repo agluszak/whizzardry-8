@@ -152,7 +152,7 @@ int W8DialogBase::CreateControls()
     }
     if (m_resource.ConfigureTextButton({}, *m_font, m_foreground, m_background, m_x, m_y,
                                       m_width, m_height, nullptr, 0, m_border,
-                                      BUTTON_PRIORITY_HIGHEST - 2)) {
+                                      BUTTON_PRIORITY_BACKGROUND)) {
         m_resource.SetTextOffsets(3, 3, true);
         m_resource.SetMultiColor(g_dialog_font_enabled);
         m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
