@@ -2,6 +2,7 @@
 #include <array>
 #include <catch2/catch_test_macros.hpp>
 #include <SDL3/SDL_events.h>
+#include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_keycode.h>
 #include <SDL3/SDL_log.h>
 #include <SDL3/SDL_mouse.h>
