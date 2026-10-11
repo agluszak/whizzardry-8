@@ -3,8 +3,8 @@
 #include <glm/glm.hpp>
 #include <vector>
 #include <memory>
+#include <cstddef>
 
-#include "compat/compiler.h"
 #include "glm/fwd.hpp"
 
 struct W8MaterialRecord;
@@ -43,18 +43,17 @@ inline W8ReadMeshFace DecodeMeshFace(const W8SerializedMeshFace& record) {
 }
 
 class srModelInstance;
+class stModelInstance;
 class stMeshModel;
 class srMeshModel;
 
-unsigned char ReadSingleLevelMesh(W8ReadLevelInfo* info, srModelInstance** instance,
-                                  int unused_first, int unused_second, const char* name,
-                                  bool load_materials);
-unsigned char ReadMultipleLevelMeshes(W8ReadLevelInfo* info, srModelInstance** instances,
-                                      w8_ulong count, const char* name);
+// Loaders return detached owned instances; failure returns an empty result.
+std::unique_ptr<stModelInstance> ReadSingleLevelMesh(W8ReadLevelInfo* info,
+                                                   const char* name, bool load_materials);
+std::vector<std::unique_ptr<stModelInstance>>
+ReadMultipleLevelMeshes(W8ReadLevelInfo* info, std::size_t expected_count, const char* name);
 unsigned char SkipSingleLevelMesh(W8ReadLevelInfo* info);
 void ReleaseReadMeshScratch();
-unsigned char ReadSingleLevelMeshBody(W8ReadLevelInfo* info, srModelInstance** instance, int, int,
-                                      const char* name, bool load_materials);
 std::shared_ptr<stMeshModel>
 BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count,
                      const std::vector<W8MeshMaterial>& materials, unsigned int* mesh_count, std::vector<std::vector<int>>& vertex_maps,

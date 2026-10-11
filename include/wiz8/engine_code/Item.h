@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <memory>
 
 #include "wiz8/engine_code/AnimRep.hpp"
 #include "wiz8/engine_code/GrObject.h"
@@ -12,6 +13,7 @@ struct W8ReadLevelInfo;
 struct W8Item;
 class Trigger;
 class srModelInstance;
+class stModelInstance;
 class srNode;
 template <class T> class srVector3T;
 
@@ -34,13 +36,11 @@ struct W8ItemRep : public W8AnimRepBase {
     W8ItemRep();
     virtual ~W8ItemRep() override;
 
-    srModelInstance* m_psrMesh;       /* 0x64 */
+    std::unique_ptr<stModelInstance> m_psrMesh;
     glm::vec3 bounds_minimum;         /* 0x68 */
     glm::vec3 bounds_maximum;         /* 0x74 */
     float bounds_radius;              /* 0x80 */
-    unsigned char padding_84[4];
     float pulse_level; /* 0x88 */
-    unsigned char padding_8c[4];
     unsigned int flags; /* 0x90 */
 
     bool ReadFromFile(W8ReadLevelInfo* info, W8Item* item, bool anonymous_mesh);
@@ -79,14 +79,7 @@ struct W8Item : public W8GrObject {
 
 /* 0x0049F350 allocates the 0x94-byte representation; 0x0049F5D0 allocates
    the 0x20-byte item. */
-W8_ABI_ASSERT(sizeof(W8ItemRep) == 0x94, "W8ItemRep_size");
 W8_ABI_ASSERT(sizeof(W8Item) == 0x20, "W8Item_size");
-W8_ABI_ASSERT(offsetof(W8ItemRep, m_psrMesh) == 0x64, "W8ItemRep_m_psrMesh_offset");
-W8_ABI_ASSERT(offsetof(W8ItemRep, bounds_minimum) == 0x68, "W8ItemRep_bounds_minimum_offset");
-W8_ABI_ASSERT(offsetof(W8ItemRep, bounds_maximum) == 0x74, "W8ItemRep_bounds_maximum_offset");
-W8_ABI_ASSERT(offsetof(W8ItemRep, bounds_radius) == 0x80, "W8ItemRep_bounds_radius_offset");
-W8_ABI_ASSERT(offsetof(W8ItemRep, pulse_level) == 0x88, "W8ItemRep_pulse_level_offset");
-W8_ABI_ASSERT(offsetof(W8ItemRep, flags) == 0x90, "W8ItemRep_flags_offset");
 W8_ABI_ASSERT(offsetof(W8Item, trigger) == 0x18, "W8Item_trigger_offset");
 W8_ABI_ASSERT(offsetof(W8Item, countdown) == 0x1c, "W8Item_countdown_01c_offset");
 
