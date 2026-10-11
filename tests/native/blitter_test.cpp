@@ -1,431 +1,583 @@
-#include <SDL3/SDL_surface.h>
-#include <catch2/catch_test_macros.hpp>
-#include <wiz8/filesystem.h>
+#include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_rect.h>
-#include <sstream>
+#include <catch2/catch_test_macros.hpp>
+
+#include <SDL3/SDL_surface.h>
+
 #include <algorithm>
+#include <array>
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
-#include <memory>
-#include <span>
-#include <string>
-#include <vector>
-#include <optional>
-#include <utility>
-#include <variant>
-#include <fstream>
-#include <ios>
-#include <array>
 #include <cstring>
+#include <fstream>
+#include <sstream>
+#include <string>
+#include <string_view>
+#include <vector>
 
-#include "imgfmt.h"
-#include "temporary_directory.h"
-#include "wiz8/asset_paths.h"
-
-// The same inputs run against the legacy assembly and the native C++ paths.
-// --capture emits per-case hashes of every destination byte, the return value
-// and the caller's rectangle (some legacy blitters modify it).
-#include "catch2/catch_message.hpp"
-#include "compat/surfaces.h"
-#include "vobject_blitters.h"
 #include "himage.h"
+#include "image.h"
 #include "shading.h"
-#include "vobject.h"
-#include "vsurface.h"
+#include "sprite.h"
+#include "wiz8/surface_storage.h"
 
-static const unsigned pitch = 1296; // 640 pixels plus row padding
-static const unsigned rows = 20;
-static std::uint16_t destination[pitch * rows / 2];
-static std::uint16_t source[pitch * rows / 2];
-static std::uint16_t palette[256];
-static std::uint8_t encoded[4096];
-static unsigned cases;
-static std::istringstream reference;
+namespace {
+using Surface = SDLSurfaceOwner;
 
-static void reset()
+Surface surface(int width, int height)
 {
-    for (unsigned i = 0; i < sizeof(destination) / sizeof(destination[0]); ++i) {
-        destination[i] = static_cast<std::uint16_t>(i * 337 + 19);
-        source[i] = static_cast<std::uint16_t>(i * 113 + 7);
-    }
+    return CreateCpuStorage(width, height, SDL_PIXELFORMAT_RGB565);
 }
 
-static bool check(const char* name, int variant, bool result, const SDL_Rect& rect)
+std::uint16_t& pixel(SDL_Surface& image, int x, int y)
 {
-    uint64_t hash = UINT64_C(14695981039346656037);
-    const std::uint8_t* bytes = reinterpret_cast<const std::uint8_t*>(destination);
-    for (unsigned i = 0; i < sizeof(destination); ++i) {
-        hash = (hash ^ bytes[i]) * UINT64_C(1099511628211);
-    }
-    char actual[256];
-    sprintf(actual, "%s %d %u %d,%d,%d,%d %08x%08x\n", name, variant, result,
-            rect.x, rect.y, (rect.x + rect.w), (rect.y + rect.h),
-            static_cast<unsigned>(hash >> 32), static_cast<unsigned>(hash));
-    ++cases;
-    std::string expected_line;
-    const bool has_line = bool(std::getline(reference, expected_line));
-    if (!expected_line.empty() && expected_line.back() == '\r') expected_line.pop_back();
-    if (!has_line || expected_line + "\n" != actual) {
-        fprintf(stderr, "case %u mismatch: %s", cases, actual);
-        return false;
-    }
-    return true;
+    return static_cast<std::uint16_t*>(image.pixels)[y * image.pitch / 2 + x];
 }
 
-static void sprite_data(STCISubImage& frame, int variant)
+std::vector<std::uint16_t> pixels(SDL_Surface& image)
 {
-    frame.usWidth = variant == 2 ? 140 : 15;
-    frame.usHeight = 5;
+    std::vector<std::uint16_t> result;
+    result.reserve(image.w * image.h);
+    for (int y = 0; y < image.h; ++y)
+        for (int x = 0; x < image.w; ++x)
+            result.push_back(pixel(image, x, y));
+    return result;
+}
+
+std::vector<std::uint16_t> golden(std::string_view name)
+{
+    std::ifstream input(WIZ8_BLITTER_EXPECTED);
+    std::string line;
+    while (std::getline(input, line)) {
+        std::istringstream values(line);
+        std::string entry;
+        values >> entry;
+        if (entry != name)
+            continue;
+        std::vector<std::uint16_t> result;
+        std::string value;
+        while (values >> value)
+            result.push_back(static_cast<std::uint16_t>(std::stoul(value, nullptr, 0)));
+        return result;
+    }
+    return {};
+}
+
+SpriteSheet sprite_sheet(unsigned width, unsigned height, std::vector<std::uint16_t> indices)
+{
+    SpriteSheet sprites;
+    sprites.frames.resize(1);
+    sprites.frames[0].usWidth = width;
+    sprites.frames[0].usHeight = height;
+    sprites.frames[0].indices = CreateCpuStorage(width, height, SDL_PIXELFORMAT_RGB565);
+    if (sprites.frames[0].indices) {
+        for (unsigned y = 0; y < height; ++y) {
+            auto* row = reinterpret_cast<std::uint16_t*>(
+                static_cast<std::uint8_t*>(sprites.frames[0].indices->pixels) +
+                y * sprites.frames[0].indices->pitch);
+            for (unsigned x = 0; x < width; ++x)
+                row[x] = indices[y * width + x];
+        }
+    }
+    for (std::size_t index = 0; index < sprites.colors.size(); ++index)
+        sprites.colors[index] = static_cast<std::uint16_t>(0x1000 + index);
+    return sprites;
+}
+
+constexpr int blitter_width = 648;
+constexpr int blitter_height = 20;
+constexpr int blitter_pitch = blitter_width * 2;
+
+void reset_surface(SDL_Surface& image, std::uint16_t multiplier, std::uint16_t offset)
+{
+    auto* pixels = static_cast<std::uint16_t*>(image.pixels);
+    for (int index = 0; index < image.pitch * image.h / 2; ++index)
+        pixels[index] = static_cast<std::uint16_t>(index * multiplier + offset);
+}
+
+SpriteSheet legacy_sprite(int data, const std::array<std::uint16_t, 256>& palette)
+{
+    const unsigned width = data == 2 ? 140 : 15;
+    constexpr unsigned height = 5;
+    SpriteSheet sprites;
+    sprites.frames.resize(1);
+    SpriteFrame& frame = sprites.frames[0];
+    frame.usWidth = width;
+    frame.usHeight = height;
     frame.sOffsetX = 1;
     frame.sOffsetY = -1;
-    frame.uiDataOffset = 3;
-    unsigned out = frame.uiDataOffset;
-    for (unsigned y = 0; y < frame.usHeight; ++y) {
+    frame.indices = CreateCpuStorage(width, height, SDL_PIXELFORMAT_RGB565);
+    if (!frame.indices)
+        return sprites;
+
+    for (unsigned y = 0; y < height; ++y) {
+        auto* row = reinterpret_cast<std::uint16_t*>(
+            static_cast<std::uint8_t*>(frame.indices->pixels) + y * frame.indices->pitch);
         unsigned x = 0;
         unsigned run = 0;
-        const unsigned lengths[] = {1, 2, 4, 7, 127};
-        while (x < frame.usWidth) {
-            unsigned count = lengths[(run + y) % 5];
-            if (count > frame.usWidth - x) {
-                count = frame.usWidth - x;
-            }
+        constexpr unsigned lengths[]{1, 2, 4, 7, 127};
+        while (x < width) {
+            const unsigned count = std::min(lengths[(run + y) % 5], width - x);
             const bool transparent = (run + y) % 3 == 1;
-            encoded[out++] = static_cast<std::uint8_t>(count | (transparent ? 0x80 : 0));
-            if (!transparent) {
-                for (unsigned i = 0; i < count; ++i) {
-                    // Include font-mask zero only without right clipping;
-                    // the assembly's clipped tail scans bytes for zero.
-                    encoded[out++] = variant == 1 ? static_cast<std::uint8_t>((x + i + y) % 4) :
-                                                    static_cast<std::uint8_t>((x + i + 11 * y) % 255 + 1);
-                }
+            for (unsigned index = 0; index < count; ++index) {
+                row[x + index] = transparent
+                    ? SpriteFrame::kTransparent
+                    : data == 1
+                        ? static_cast<std::uint16_t>((x + index + y) % 4)
+                        : static_cast<std::uint16_t>((x + index + 11 * y) % 255 + 1);
             }
             x += count;
             ++run;
         }
-        encoded[out++] = 0;
     }
-    frame.uiDataLength = out - frame.uiDataOffset;
+    sprites.colors = palette;
+    return sprites;
 }
 
-static std::optional<SpriteSheet> load_sprite(const STCISubImage& frame, std::span<const std::uint8_t> data)
+std::vector<std::string> legacy_goldens()
 {
-    ScopedTemporaryDirectory directory{"wiz8-blitter-image"};
-    w8_native::configure_paths({wiz8::path_to_utf8(directory.path),
-                                wiz8::path_to_utf8(directory.path / "user"), {"", "", ""}});
-    STCIHeader header{};
-    memcpy(header.cID, STCI_ID_STRING, STCI_ID_LEN);
-    header.fFlags = STCI_INDEXED | STCI_ETRLE_COMPRESSED;
-    header.ubDepth = 8;
-    header.Indexed.uiNumberOfColours = 256;
-    header.Indexed.usNumberOfSubImages = 1;
-    header.uiStoredSize = data.size();
-    const std::array<STCIPaletteElement, 256> colors{};
-    {
-        std::ofstream file(directory.path / "frame.sti", std::ios::binary);
-        file.write(reinterpret_cast<const char*>(&header), sizeof(header));
-        file.write(reinterpret_cast<const char*>(colors.data()), sizeof(colors));
-        file.write(reinterpret_cast<const char*>(&frame), sizeof(frame));
-        file.write(reinterpret_cast<const char*>(data.data()), data.size());
-        REQUIRE(file.good());
+    std::ifstream file(WIZ8_BLITTER_EXPECTED);
+    std::vector<std::string> result;
+    std::string line;
+    while (std::getline(file, line)) {
+        std::istringstream fields(line);
+        std::string name;
+        fields >> name;
+        if (name.starts_with("Blt") || name == "DrawSpriteMono" || name == "FillRect16BPP")
+            result.push_back(line);
     }
-    auto image = LoadImage("frame.sti");
-    auto* sheet = image ? std::get_if<SpriteSheet>(&*image) : nullptr;
-    return sheet ? std::optional<SpriteSheet>(std::move(*sheet)) : std::nullopt;
+    return result;
 }
 
-TEST_CASE("blitter_test")
+bool matches_legacy_golden(const SDL_Surface& image, const SDL_Rect& rect, std::string_view name,
+                           int variant, bool result, const std::string& expected)
 {
-    auto file = wiz8::open_host_file(wiz8::path_from_utf8(WIZ8_BLITTER_EXPECTED));
-    std::string text(static_cast<std::size_t>(file->size()), '\0');
-    REQUIRE(file->read(text.data(), text.size()).bytes == text.size());
-    reference.str(text);
-    for (unsigned i = 0; i < 65536; ++i) {
-        ShadeTable[i] = static_cast<std::uint16_t>((i * 37) ^ 0x1234);
+    std::uint64_t hash = UINT64_C(14695981039346656037);
+    const auto* bytes = static_cast<const std::uint8_t*>(image.pixels);
+    for (int index = 0; index < image.pitch * image.h; ++index)
+        hash = (hash ^ bytes[index]) * UINT64_C(1099511628211);
+
+    char actual[256];
+    std::snprintf(actual, sizeof(actual), "%.*s %d %u %d,%d,%d,%d %08x%08x",
+                  static_cast<int>(name.size()), name.data(), variant, result,
+                  rect.x, rect.y, rect.x + rect.w, rect.y + rect.h,
+                  static_cast<unsigned>(hash >> 32), static_cast<unsigned>(hash));
+    return expected == actual;
+}
+}
+
+TEST_CASE("sprite draws distinguish opaque index zero from transparent runs", "[blit]")
+{
+    auto target = surface(5, 4);
+    REQUIRE(target);
+    REQUIRE(SDL_FillSurfaceRect(target.get(), nullptr, 0x7777));
+    auto sprites = sprite_sheet(3, 2, {0, SpriteFrame::kTransparent, 2, 3, 4, 5});
+
+    DrawSprite(*target, sprites, 0, 1, 1);
+    REQUIRE(pixels(*target) == golden("sprite-transparent"));
+}
+
+TEST_CASE("sprite mirroring respects the target surface clip", "[blit]")
+{
+    auto target = surface(5, 2);
+    REQUIRE(target);
+    REQUIRE(SDL_FillSurfaceRect(target.get(), nullptr, 0x7777));
+    auto sprites = sprite_sheet(3, 1, {1, 2, 3});
+    const SDL_Rect clip{1, 0, 2, 1};
+    REQUIRE(SDL_SetSurfaceClipRect(target.get(), &clip));
+
+    DrawSprite(*target, sprites, 0, 0, 0, {.mirror = true});
+
+    REQUIRE(pixels(*target) == golden("sprite-mirror-clip"));
+}
+
+TEST_CASE("sprite tiling keeps a negative offset phase", "[blit]")
+{
+    auto target = surface(5, 5);
+    REQUIRE(target);
+    auto sprites = sprite_sheet(2, 2, {0, 1, 2, 3});
+    const SDL_Rect area{0, 0, 5, 5};
+
+    TileSprite(*target, area, sprites, 0, SDL_Point{-1, -1});
+
+    REQUIRE(pixels(*target) == golden("sprite-negative-tile"));
+}
+
+TEST_CASE("sprite tiling phase is relative to its destination area", "[blit]")
+{
+    auto target = surface(5, 1);
+    REQUIRE(target);
+    REQUIRE(SDL_FillSurfaceRect(target.get(), nullptr, 0x7777));
+    const auto sprites = sprite_sheet(2, 1, {1, 2});
+    const SDL_Rect area{1, 0, 3, 1};
+
+    TileSprite(*target, area, sprites, 0, SDL_Point{0, 0});
+
+    REQUIRE(pixel(*target, 0, 0) == 0x7777);
+    REQUIRE(pixel(*target, 1, 0) == 0x1001);
+    REQUIRE(pixel(*target, 2, 0) == 0x1002);
+    REQUIRE(pixel(*target, 3, 0) == 0x1001);
+    REQUIRE(pixel(*target, 4, 0) == 0x7777);
+}
+
+TEST_CASE("sprite tiling period includes frame offsets", "[blit]")
+{
+    auto target = surface(7, 1);
+    REQUIRE(target);
+    REQUIRE(SDL_FillSurfaceRect(target.get(), nullptr, 0x7777));
+    auto sprites = sprite_sheet(2, 1, {1, 2});
+    sprites.frames[0].sOffsetX = 1;
+    const SDL_Rect area{0, 0, 7, 1};
+
+    TileSprite(*target, area, sprites, 0, SDL_Point{0, 0});
+
+    REQUIRE(pixel(*target, 0, 0) == 0x7777);
+    REQUIRE(pixel(*target, 1, 0) == 0x1001);
+    REQUIRE(pixel(*target, 2, 0) == 0x1002);
+    REQUIRE(pixel(*target, 3, 0) == 0x7777);
+    REQUIRE(pixel(*target, 4, 0) == 0x1001);
+    REQUIRE(pixel(*target, 5, 0) == 0x1002);
+    REQUIRE(pixel(*target, 6, 0) == 0x7777);
+}
+
+TEST_CASE("sprite tiling preserves negative-offset edge cells", "[blit]")
+{
+    auto target = surface(5, 5);
+    REQUIRE(target);
+    REQUIRE(SDL_FillSurfaceRect(target.get(), nullptr, 0x7777));
+    auto sprites = sprite_sheet(3, 3, {1, 2, 3, 4, 5, 6, 7, 8, 9});
+    sprites.frames[0].sOffsetX = -1;
+    sprites.frames[0].sOffsetY = -1;
+    const SDL_Rect area{0, 0, 5, 5};
+
+    TileSprite(*target, area, sprites, 0, SDL_Point{0, 0});
+
+    const std::uint16_t expected[]{0x1005, 0x1004, 0x1005, 0x1004, 0x1005,
+                                   0x1002, 0x1001, 0x1002, 0x1001, 0x1002,
+                                   0x1005, 0x1004, 0x1005, 0x1004, 0x1005,
+                                   0x1002, 0x1001, 0x1002, 0x1001, 0x1002,
+                                   0x1005, 0x1004, 0x1005, 0x1004, 0x1005};
+    REQUIRE(pixels(*target) == std::vector<std::uint16_t>(expected, expected + 25));
+}
+
+TEST_CASE("self blits preserve overlapping rows in either direction", "[blit]")
+{
+    auto target = surface(4, 6);
+    REQUIRE(target);
+    const auto reset = [&] {
+        for (int y = 0; y < target->h; ++y)
+            for (int x = 0; x < target->w; ++x)
+                pixel(*target, x, y) = static_cast<std::uint16_t>(y * 10 + x);
+    };
+
+    reset();
+    const SDL_Rect source_below{0, 0, 3, 4};
+    BlitImage(*target, 0, 1, *target, &source_below);
+    REQUIRE(pixel(*target, 0, 0) == 0);
+    REQUIRE(pixel(*target, 2, 1) == 2);
+    REQUIRE(pixel(*target, 1, 2) == 11);
+    REQUIRE(pixel(*target, 2, 3) == 22);
+    REQUIRE(pixel(*target, 0, 4) == 30);
+    REQUIRE(pixel(*target, 3, 4) == 43);
+    REQUIRE(pixel(*target, 0, 5) == 50);
+
+    reset();
+    const SDL_Rect source_above{0, 1, 3, 4};
+    BlitImage(*target, 0, 0, *target, &source_above);
+    REQUIRE(pixel(*target, 0, 0) == 10);
+    REQUIRE(pixel(*target, 2, 1) == 22);
+    REQUIRE(pixel(*target, 1, 2) == 31);
+    REQUIRE(pixel(*target, 2, 3) == 42);
+    REQUIRE(pixel(*target, 0, 4) == 40);
+    REQUIRE(pixel(*target, 3, 4) == 43);
+    REQUIRE(pixel(*target, 0, 5) == 50);
+
+    reset();
+    const SDL_Rect source_left{1, 0, 3, 1};
+    BlitImage(*target, 0, 0, *target, &source_left);
+    REQUIRE(pixel(*target, 0, 0) == 1);
+    REQUIRE(pixel(*target, 1, 0) == 2);
+    REQUIRE(pixel(*target, 2, 0) == 3);
+    REQUIRE(pixel(*target, 3, 0) == 3);
+}
+
+TEST_CASE("surface fills keep half-open rectangle edges", "[blit]")
+{
+    auto target = surface(5, 5);
+    REQUIRE(target);
+    REQUIRE(SDL_FillSurfaceRect(target.get(), nullptr, 0x7777));
+    const SDL_Rect area{1, 1, 2, 2};
+    REQUIRE(SDL_FillSurfaceRect(target.get(), &area, 0x1234));
+
+    REQUIRE(pixel(*target, 0, 1) == 0x7777);
+    REQUIRE(pixel(*target, 1, 1) == 0x1234);
+    REQUIRE(pixel(*target, 2, 2) == 0x1234);
+    REQUIRE(pixel(*target, 3, 2) == 0x7777);
+    REQUIRE(pixel(*target, 2, 3) == 0x7777);
+}
+
+TEST_CASE("shadow rectangles preserve inclusive legacy endpoints", "[blit]")
+{
+    auto target = surface(5, 5);
+    REQUIRE(target);
+    REQUIRE(SDL_FillSurfaceRect(target.get(), nullptr, 0x1234));
+    ShadeTable[0x1234] = 0x5678;
+    const SDL_Rect inclusive_area{1, 1, 3, 3};
+    ShadowRect(*target, inclusive_area);
+
+    REQUIRE(pixel(*target, 0, 1) == 0x1234);
+    REQUIRE(pixel(*target, 1, 1) == 0x5678);
+    REQUIRE(pixel(*target, 3, 3) == 0x5678);
+    REQUIRE(pixel(*target, 4, 3) == 0x1234);
+    REQUIRE(pixel(*target, 3, 4) == 0x1234);
+}
+
+TEST_CASE("tiled sprite fills keep half-open rectangle edges", "[blit]")
+{
+    auto target = surface(5, 5);
+    REQUIRE(target);
+    REQUIRE(SDL_FillSurfaceRect(target.get(), nullptr, 0x7777));
+    const auto sprites = sprite_sheet(1, 1, {1});
+    const SDL_Rect area{1, 1, 2, 2};
+    TileSprite(*target, area, sprites, 0, SDL_Point{0, 0});
+
+    REQUIRE(pixel(*target, 0, 1) == 0x7777);
+    REQUIRE(pixel(*target, 1, 1) == 0x1001);
+    REQUIRE(pixel(*target, 2, 2) == 0x1001);
+    REQUIRE(pixel(*target, 3, 2) == 0x7777);
+    REQUIRE(pixel(*target, 2, 3) == 0x7777);
+}
+
+TEST_CASE("image blits keep half-open source and destination edges", "[blit]")
+{
+    auto target = surface(5, 2);
+    auto source = surface(3, 1);
+    REQUIRE(target);
+    REQUIRE(source);
+    REQUIRE(SDL_FillSurfaceRect(target.get(), nullptr, 0x7777));
+    pixel(*source, 0, 0) = 0x1111;
+    pixel(*source, 1, 0) = 0x2222;
+    pixel(*source, 2, 0) = 0x3333;
+    const SDL_Rect source_rect{0, 0, 2, 1};
+    BlitImage(*target, 1, 0, *source, &source_rect);
+
+    REQUIRE(pixel(*target, 0, 0) == 0x7777);
+    REQUIRE(pixel(*target, 1, 0) == 0x1111);
+    REQUIRE(pixel(*target, 2, 0) == 0x2222);
+    REQUIRE(pixel(*target, 3, 0) == 0x7777);
+    REQUIRE(pixel(*target, 2, 1) == 0x7777);
+
+    REQUIRE(SDL_FillSurfaceRect(target.get(), nullptr, 0x7777));
+    const SDL_Rect clip{2, 0, 1, 1};
+    REQUIRE(SDL_SetSurfaceClipRect(target.get(), &clip));
+    BlitImage(*target, 1, 0, *source, &source_rect);
+    REQUIRE(pixel(*target, 1, 0) == 0x7777);
+    REQUIRE(pixel(*target, 2, 0) == 0x2222);
+    REQUIRE(pixel(*target, 3, 0) == 0x7777);
+}
+
+TEST_CASE("hatched rectangles honor the target clip and preserve their phase", "[blit]")
+{
+    auto target = surface(5, 5);
+    REQUIRE(target);
+    REQUIRE(SDL_FillSurfaceRect(target.get(), nullptr, 0x7777));
+    const SDL_Rect clip{1, 1, 3, 3};
+    REQUIRE(SDL_SetSurfaceClipRect(target.get(), &clip));
+
+    HatchRect(*target, SDL_Rect{0, 0, 5, 5});
+
+    REQUIRE(pixels(*target) == golden("hatch-clip"));
+}
+
+TEST_CASE("SDL surface blits preserve equivalent legacy pixel goldens", "[blit]")
+{
+    auto target = surface(blitter_width, blitter_height);
+    auto source = surface(blitter_width, blitter_height);
+    auto indexed_target = SDLSurfaceOwner{
+        SDL_CreateSurface(blitter_pitch, blitter_height, SDL_PIXELFORMAT_INDEX8), SDL_DestroySurface};
+    auto indexed_source = SDLSurfaceOwner{
+        SDL_CreateSurface(blitter_pitch, blitter_height, SDL_PIXELFORMAT_INDEX8), SDL_DestroySurface};
+    REQUIRE(target);
+    REQUIRE(source);
+    REQUIRE(indexed_target);
+    REQUIRE(indexed_source);
+    REQUIRE(target->pitch == blitter_pitch);
+    REQUIRE(source->pitch == blitter_pitch);
+    REQUIRE(indexed_target->pitch == blitter_pitch);
+    REQUIRE(indexed_source->pitch == blitter_pitch);
+    class PixelFormatRestore {
+    public:
+        explicit PixelFormatRestore(SDL_PixelFormat format) : previous_(g_sgp_pixel_format)
+        {
+            g_sgp_pixel_format = format;
+        }
+        ~PixelFormatRestore() { g_sgp_pixel_format = previous_; }
+
+    private:
+        SDL_PixelFormat previous_;
+    } restore_pixel_format(target->format);
+
+    const SDL_Rect full{0, 0, 640, blitter_height};
+    std::array<std::uint16_t, 256> palette{};
+    for (unsigned index = 0; index < 65536; ++index) {
+        ShadeTable[index] = static_cast<std::uint16_t>((index * 37) ^ 0x1234);
+        if (index < palette.size())
+            palette[index] = static_cast<std::uint16_t>((index * 257) ^ 0x57ab);
     }
-    for (unsigned i = 0; i < 256; ++i) {
-        palette[i] = static_cast<std::uint16_t>((i * 257) ^ 0x57ab);
-    }
-    SGPVObject object = {};
-    STCISubImage frame{};
-    std::copy_n(palette, 256, object.palette.begin());
-    ClippingRect = {0, 0, 640, static_cast<std::int32_t>(rows)};
-    SDL_Rect full = ClippingRect;
-    bool ok = true;
+
+    const auto check = [&](std::string_view name, int variant, bool result, const SDL_Rect& rect,
+                           std::size_t& expected_index, const std::vector<std::string>& expected) {
+        REQUIRE(expected_index < expected.size());
+        REQUIRE(matches_legacy_golden(*target, rect, name, variant, result, expected[expected_index]));
+        ++expected_index;
+    };
+    const auto expected = legacy_goldens();
+    std::size_t expected_index = 0;
 
     for (int data = 0; data < 3; ++data) {
-        sprite_data(frame, data);
-        // The single decoded representation must produce the legacy assembly
-        // bytes; data 1 carries literal index 0 in opaque runs and exercises
-        // the explicit opacity mask.
-        auto sheet = load_sprite(frame, encoded);
-        REQUIRE(sheet);
-        object.sprites = std::move(sheet->frames);
+        const SpriteSheet sprites = legacy_sprite(data, palette);
+        REQUIRE(sprites.frames[0].indices);
         for (int variant = 0; variant < 8; ++variant) {
-            // Whole, partial opaque/transparent runs, every clipped edge,
-            // null/default clip rectangle and complete rejection.
-            SDL_Rect clip = {3, 3, 9, 4};
-            if (data == 1 || variant == 0 || variant == 6) {
-                clip = full;
-            }
-            int x = variant == 1 ? -2 : variant == 7 ? 660 : 4;
-            int y = variant == 2 ? 1 : variant == 3 ? 6 : 4;
-            SDL_Rect* selected = variant == 6 ? nullptr : &clip;
-            unsigned id = data * 8 + variant;
-            const SpriteFrame& sprite = object.sprites[0];
-#define SPRITE(name, ...) \
-            reset(); ok = check(#name, id, \
-                BltSpriteTo16BPPBuffer(destination, pitch, sprite, object.currentPalette().data(), \
-                                       x, y, selected, __VA_ARGS__), clip) && ok
-            SPRITE(Blt8BPPDataTo16BPPBufferMonoShadowClip, false, SpriteDrawOp::MonoShadow,
-                   0xa351, variant % 2 ? 0 : 0x2f14, variant % 3 ? 0x1234 : 0);
-            SPRITE(Blt8BPPDataTo16BPPBufferTransparentClip, false, SpriteDrawOp::Transparent);
-            SPRITE(Blt8BPPDataTo16BPPBufferShadowClip, false, SpriteDrawOp::Shadow);
-#undef SPRITE
+            SDL_Rect clip = (data == 1 || variant == 0 || variant == 6)
+                ? full : SDL_Rect{3, 3, 9, 4};
+            const int x = variant == 1 ? -2 : variant == 7 ? 660 : 4;
+            const int y = variant == 2 ? 1 : variant == 3 ? 6 : 4;
+            reset_surface(*target, 337, 19);
+            REQUIRE(SDL_SetSurfaceClipRect(target.get(), &clip));
+            DrawSprite(*target, sprites, 0, x, y);
+            check("Blt8BPPDataTo16BPPBufferTransparentClip", data * 8 + variant, true,
+                  clip, expected_index, expected);
+
+            reset_surface(*target, 337, 19);
+            REQUIRE(SDL_SetSurfaceClipRect(target.get(), &clip));
+            DrawSprite(*target, sprites, 0, x, y,
+                       {.blend = SpriteBlend::Mono,
+                        .foreground = 0xa351,
+                        .background = static_cast<std::uint16_t>(variant % 2 ? 0 : 0x2f14),
+                        .shadow = static_cast<std::uint16_t>(variant % 3 ? 0x1234 : 0)});
+            check("DrawSpriteMono", data * 8 + variant, true, clip, expected_index, expected);
+
         }
-#define UNCLIPPED(name, ...) \
-            reset(); ok = check(#name, data, \
-                BltSpriteTo16BPPBuffer(destination, pitch, object.sprites[0], \
-                                       object.currentPalette().data(), 4, 4, nullptr, __VA_ARGS__), full) && ok
-        UNCLIPPED(Blt8BPPDataTo16BPPBufferShadow, false, SpriteDrawOp::Shadow);
-        UNCLIPPED(Blt8BPPDataTo16BPPBufferTransparent, false, SpriteDrawOp::Transparent);
-        UNCLIPPED(Blt8BPPDataTo16BPPBufferTransMirror, true, SpriteDrawOp::Transparent);
-#undef UNCLIPPED
+
+        reset_surface(*target, 337, 19);
+        REQUIRE(SDL_SetSurfaceClipRect(target.get(), &full));
+        DrawSprite(*target, sprites, 0, 4, 4);
+        check("Blt8BPPDataTo16BPPBufferTransparent", data, true, full, expected_index, expected);
+
+        reset_surface(*target, 337, 19);
+        REQUIRE(SDL_SetSurfaceClipRect(target.get(), &full));
+        DrawSprite(*target, sprites, 0, 4, 4, {.mirror = true});
+        check("Blt8BPPDataTo16BPPBufferTransMirror", data, true, full, expected_index, expected);
     }
 
     for (unsigned width = 1; width <= 9; ++width) {
-        // The mirror ignores source position and clips against 640x480.
-        for (int x = -3; x <= 637; x += 320) {
-            reset(); ok = check("Blt16BPPTo16BPPMirror", width * 1000 + x,
-                Blt16BPPTo16BPPMirror(destination, pitch, source, pitch, x, 2, 1, 4, width, 5), full) && ok;
+        const SDL_Rect source_rect{1, 4, static_cast<int>(width), 5};
+        reset_surface(*target, 337, 19);
+        reset_surface(*source, 113, 7);
+        REQUIRE(SDL_SetSurfaceClipRect(target.get(), &full));
+        BlitImage(*target, 3, 2, *source, &source_rect);
+        check("Blt16BPPTo16BPP", width, true, full, expected_index, expected);
+
+        reset_surface(*target, 337, 19);
+        reset_surface(*source, 113, 7);
+        const std::uint16_t key = static_cast<const std::uint16_t*>(source->pixels)[4 * blitter_width + 2];
+        REQUIRE(SDL_SetSurfaceColorKey(source.get(), true, key));
+        REQUIRE(SDL_SetSurfaceClipRect(target.get(), &full));
+        BlitImage(*target, 3, 2, *source, &source_rect, {.color_key = true});
+        check("Blt16BPPTo16BPPTrans", width, true, full, expected_index, expected);
+        REQUIRE(SDL_SetSurfaceColorKey(source.get(), false, 0));
+
+        reset_surface(*target, 337, 19);
+        reset_surface(*source, 113, 7);
+        reset_surface(*indexed_target, 337, 19);
+        reset_surface(*indexed_source, 113, 7);
+        const SDL_Rect indexed_source_rect{1, 4, static_cast<int>(width), 5};
+        BlitImage(*indexed_target, 3, 2, *indexed_source, &indexed_source_rect);
+        std::memcpy(target->pixels, indexed_target->pixels, blitter_pitch * blitter_height);
+        check("Blt8BPPTo8BPP", width, true, full, expected_index, expected);
+
+        reset_surface(*target, 337, 19);
+        const SDL_Rect overlap_rect{1, 2, static_cast<int>(width), 5};
+        REQUIRE(SDL_SetSurfaceClipRect(target.get(), &full));
+        BlitImage(*target, 2, 2, *target, &overlap_rect);
+        check("Blt16BPPTo16BPP-overlap", width, true, full, expected_index, expected);
+
+        reset_surface(*indexed_target, 337, 19);
+        const SDL_Rect indexed_overlap_rect{1, 2, static_cast<int>(width), 5};
+        BlitImage(*indexed_target, 2, 2, *indexed_target, &indexed_overlap_rect);
+        std::memcpy(target->pixels, indexed_target->pixels, blitter_pitch * blitter_height);
+        check("Blt8BPPTo8BPP-overlap", width, true, full, expected_index, expected);
+
+        for (int x : {-3, 317, 637}) {
+            reset_surface(*target, 337, 19);
+            reset_surface(*source, 113, 7);
+            REQUIRE(SDL_SetSurfaceClipRect(target.get(), &full));
+            const SDL_Rect mirror_source{0, 0, static_cast<int>(width), 5};
+            BlitImage(*target, x, 2, *source, &mirror_source, {.mirror = true});
+            check("Blt16BPPTo16BPPMirror", static_cast<int>(width * 1000 + x), true,
+                  full, expected_index, expected);
         }
-        Palette16 packed{};
-        std::copy_n(palette, 256, packed.begin());
-        SDL_Rect area = {2, 3, static_cast<std::int32_t>(width), 4};
-        reset(); ok = check("Blt8BPPDataSubTo16BPPBuffer", width,
-            Blt8BPPDataSubTo16BPPBuffer(destination, pitch, packed, reinterpret_cast<std::uint8_t*>(source), pitch,
-                3, 2, area), area) && ok;
-    }
-    std::uint8_t pattern[8][8];
-    for (unsigned y = 0; y < 8; ++y) {
-        for (unsigned x = 0; x < 8; ++x) {
-            pattern[y][x] = static_cast<std::uint8_t>((x + 3 * y) % 5);
+
+        reset_surface(*target, 337, 19);
+        reset_surface(*source, 113, 7);
+        BitmapImage bitmap;
+        bitmap.width = blitter_pitch;
+        bitmap.height = blitter_height;
+        bitmap.bitDepth = 8;
+        bitmap.format = SDL_PIXELFORMAT_INDEX8;
+        bitmap.palette.emplace();
+        const auto* details = SDL_GetPixelFormatDetails(target->format);
+        REQUIRE(details);
+        for (unsigned index = 0; index < palette.size(); ++index) {
+            const std::uint16_t value = palette[index];
+            SDL_Color color{0, 0, 0, SDL_ALPHA_OPAQUE};
+            SDL_GetRGB(value, details, nullptr, &color.r, &color.g, &color.b);
+            (*bitmap.palette)[index] = color;
         }
+        bitmap.pixels.resize(static_cast<std::size_t>(bitmap.width) * bitmap.height);
+        std::memcpy(bitmap.pixels.data(), source->pixels, bitmap.pixels.size());
+        REQUIRE(Create16BPPPalette(*bitmap.palette) == palette);
+        auto indexed_surface = ConvertIndexedBitmapToSurface(bitmap, target->format);
+        REQUIRE(indexed_surface);
+        const SDL_Rect subrect{2, 3, static_cast<int>(width), 4};
+        BlitImage(*target, 3, 2, *indexed_surface, &subrect);
+        check("Blt8BPPDataSubTo16BPPBuffer", static_cast<int>(width), true,
+              subrect, expected_index, expected);
     }
+
+    std::array<std::uint8_t, 64> pattern{};
+    for (unsigned y = 0; y < 8; ++y)
+        for (unsigned x = 0; x < 8; ++x)
+            pattern[y * 8 + x] = static_cast<std::uint8_t>((x + 3 * y) % 5);
     for (int variant = 0; variant < 6; ++variant) {
-        ClippingRect = variant % 2 ? SDL_Rect{2, 3, 16, 8} : full;
-        SDL_Rect area = {-1, 1, 10 + variant, 11};
-        reset(); ok = check("Blt16BPPBufferPixelateRectWithColor", variant,
-            Blt16BPPBufferPixelateRectWithColor(destination, pitch, &area, pattern, 0x7391), area) && ok;
-        reset(); ok = check("Blt16BPPBufferHatchRect", variant,
-            Blt16BPPBufferHatchRect(destination, pitch, &area), area) && ok;
-        area = {-1, 1, 10 + variant, 11};
-        reset(); ok = check("Blt16BPPBufferShadowRect", variant,
-            Blt16BPPBufferShadowRect(destination, pitch, &area), area) && ok;
+        const SDL_Rect clip = variant % 2 ? SDL_Rect{2, 3, 16, 8} : full;
+        const SDL_Rect legacy_area{-1, 1, 10 + variant, 11};
+        const SDL_Rect requested{legacy_area.x, legacy_area.y, legacy_area.w + 1, legacy_area.h + 1};
+        REQUIRE(SDL_SetSurfaceClipRect(target.get(), &clip));
+
+        reset_surface(*target, 337, 19);
+        PixelateRect(*target, requested, pattern, 0x7391);
+        check("Blt16BPPBufferPixelateRectWithColor", variant, true, legacy_area,
+              expected_index, expected);
+
+        reset_surface(*target, 337, 19);
+        HatchRect(*target, requested);
+        check("Blt16BPPBufferHatchRect", variant, true, legacy_area, expected_index, expected);
+
+        reset_surface(*target, 337, 19);
+        ShadowRect(*target, requested);
+        SDL_Rect visible{};
+        REQUIRE(SDL_GetRectIntersection(&requested, &clip, &visible));
+        const SDL_Rect clipped_legacy_area{visible.x, visible.y, visible.w - 1, visible.h - 1};
+        check("Blt16BPPBufferShadowRect", variant, true, clipped_legacy_area,
+              expected_index, expected);
+
+        reset_surface(*target, 337, 19);
+        REQUIRE(SDL_SetSurfaceClipRect(target.get(), &full));
+        const SDL_Rect fill_rect{-1, 1, 11 + variant, 12};
+        REQUIRE(SDL_FillSurfaceRect(target.get(), &fill_rect, 0x693d));
+        check("FillRect16BPP", variant, true, clipped_legacy_area, expected_index, expected);
     }
-    // Functional checks for behavior the hash fixtures cannot express: a
-    // literal palette index 0 must draw its palette entry (not behave as
-    // transparency), and a mirrored sprite crossing the left edge must still
-    // draw its visible portion instead of being skipped entirely.
-    {
-        ClippingRect = full;
-        SGPVObject probe = {};
-        std::copy_n(palette, 256, probe.palette.begin());
-        STCISubImage probe_frame{};
-        probe_frame.usWidth = 3;
-        probe_frame.usHeight = 1;
-        probe_frame.uiDataOffset = 0;
-        // opaque literal 0, transparent run of 1, opaque literal 2
-        static const std::uint8_t probe_data[] = {1, 0, 0x81, 1, 2, 0};
-        probe_frame.uiDataLength = sizeof(probe_data);
-        auto sheet = load_sprite(probe_frame, probe_data);
-        if (!sheet) {
-            fprintf(stderr, "probe sprite failed to decode\n");
-            ok = false;
-        } else {
-            probe.sprites = std::move(sheet->frames);
-            const SpriteFrame& sprite = probe.sprites[0];
-            reset();
-            BltSpriteTo16BPPBuffer(destination, pitch, sprite, probe.currentPalette().data(), 4, 4,
-                                   nullptr, false, SpriteDrawOp::Transparent);
-            auto untouched = [](unsigned i) {
-                return static_cast<std::uint16_t>(i * 337 + 19);
-            };
-            const unsigned base = 4 * pitch / 2;
-            if (destination[base + 4] != palette[0] ||
-                destination[base + 5] != untouched(base + 5) ||
-                destination[base + 6] != palette[2]) {
-                fprintf(stderr, "functional mismatch: literal zero / transparency\n");
-                ok = false;
-            }
-            // Mirrored at x = -1: only source columns 1 and 0 are visible,
-            // reversed onto destination columns 0 and 1. The transparent
-            // source column leaves the destination, the literal zero draws.
-            reset();
-            BltSpriteTo16BPPBuffer(destination, pitch, sprite, probe.currentPalette().data(), -1, 4,
-                                   nullptr, true, SpriteDrawOp::Transparent);
-            if (destination[base] != untouched(base) ||
-                destination[base + 1] != palette[0] ||
-                destination[base + 2] != untouched(base + 2)) {
-                fprintf(stderr, "functional mismatch: clipped mirror\n");
-                ok = false;
-            }
-        }
-    }
-
-    // Malformed frames fail at the image-loading boundary.
-    {
-        STCISubImage frame{};
-        frame.usWidth = 1;
-        frame.usHeight = 1;
-        const std::uint8_t data[] = {0x80, 1, 2, 0};
-        frame.uiDataLength = sizeof(data);
-        auto rejected = [&] {
-            return !load_sprite(frame, data);
-        };
-        ok = rejected() && ok; // Zero-length encoded run.
-        frame.usWidth = frame.usHeight = 65535;
-        ok = rejected() && ok; // Reject before allocating gigabytes.
-        frame.usWidth = frame.usHeight = 0;
-        frame.uiDataOffset = sizeof(data) + 1;
-        ok = rejected() && ok; // Empty frames still need valid encoded ranges.
-    }
-
-    {
-        if (reference.peek() != EOF) {
-            fprintf(stderr, "unexpected trailing cases\n");
-            ok = false;
-        }
-
-        printf("%u blitter cases checked against legacy assembly output\n", cases);
-    }
-    REQUIRE(ok);
-}
-
-TEST_CASE("SGP sprite clipping preserves inclusive frame bounds")
-{
-    SGPVObject object{};
-    SpriteFrame& frame = object.sprites.emplace_back();
-    frame.usWidth = 6;
-    frame.usHeight = 4;
-    frame.sOffsetX = -2;
-    frame.sOffsetY = 1;
-
-    SDL_Rect clip{0, 0, 10, 10};
-    REQUIRE_FALSE(BltIsClipped(object, 2, 1, 0, &clip));
-    REQUIRE_FALSE(BltIsClipped(object, 6, 1, 0, &clip));
-    REQUIRE(BltIsClipped(object, 1, 1, 0, &clip));
-    REQUIRE(BltIsClipped(object, 7, 1, 0, &clip));
-    REQUIRE(BltIsClipped(object, 25, 1, 0, &clip));
-    REQUIRE(BltIsClipped(object, 2, -2, 0, &clip));
-
-    frame.usWidth = 0;
-    REQUIRE_FALSE(BltIsClipped(object, 25, 1, 0, &clip));
-}
-
-TEST_CASE("SDL sprite surfaces preserve opaque palette words, shade changes and RLE mirrors")
-{
-    SGPVObject object{};
-    STCISubImage frame{};
-    frame.usWidth = 4;
-    frame.usHeight = 1;
-    const std::uint8_t data[]{2, 0, 255, 0x81, 1, 1, 0};
-    frame.uiDataLength = sizeof(data);
-    auto sheet = load_sprite(frame, data);
-    REQUIRE(sheet);
-    object.sprites = std::move(sheet->frames);
-    auto& sprite = object.sprites[0];
-    for (unsigned i = 0; i < object.palette.size(); ++i) object.palette[i] = i;
-    for (unsigned shade = 0; shade < 3; ++shade) {
-        if (shade) {
-            object.palette[0] = 0xffff;
-            object.palette[1] = shade == 1 ? 256 : 0;
-            object.palette[255] = 0x8000;
-        }
-        for (bool mirror : {false, true, false, true, false}) {
-            std::uint16_t pixels[]{0x1234, 0x1234, 0x1234, 0x1234, 0x1234, 0x1234};
-            const SDL_Rect clip{0, 0, 4, 1};
-            REQUIRE(BltSpriteTo16BPPBuffer(pixels, sizeof(pixels), sprite, object.palette.data(),
-                                          0, 0, &clip, mirror, SpriteDrawOp::Transparent));
-            const std::uint16_t expected[]{object.palette[0], object.palette[255], 0x1234, object.palette[1]};
-            for (int x = 0; x < 4; ++x) REQUIRE(pixels[x] == expected[mirror ? 3 - x : x]);
-            REQUIRE(pixels[4] == 0x1234);
-            REQUIRE(pixels[5] == 0x1234);
-            auto* surface = sprite.coloredSurface(object.palette, mirror);
-            REQUIRE(SDL_SurfaceHasRLE(surface));
-            std::uint32_t key = 0;
-            REQUIRE(SDL_GetSurfaceColorKey(surface, &key));
-            REQUIRE(std::find(object.palette.begin(), object.palette.end(), key) == object.palette.end());
-        }
-    }
-}
-
-TEST_CASE("SDL tiled backgrounds preserve clipping, phase, transparent gaps and frame offsets")
-{
-    struct RestoreClip {
-        SDL_Rect previous = ClippingRect;
-        ~RestoreClip() { ClippingRect = previous; }
-    } restore;
-    SGPVObject object{};
-    for (unsigned i = 0; i < object.palette.size(); ++i) object.palette[i] = i;
-    STCISubImage frame{};
-    frame.usWidth = 4;
-    frame.usHeight = 3;
-    const std::uint8_t data[]{2, 0, 1, 0x81, 1, 2, 0,
-                       0x81, 3, 3, 4, 5, 0,
-                       4, 6, 7, 8, 9, 0};
-    frame.uiDataLength = sizeof(data);
-    auto sheet = load_sprite(frame, data);
-    REQUIRE(sheet);
-    object.sprites = std::move(sheet->frames);
-    SGPVSurface actual{};
-    actual.ownedSurface = CreateCpuSurface(17, 11, g_sgp_pixel_format);
-    SGPVSurface expected{};
-    expected.ownedSurface = CreateCpuSurface(17, 11, g_sgp_pixel_format);
-    const SDL_Rect area{-2, 1, 17, 9};
-    for (int offsetY : {-2, 0, 2}) {
-        for (int offsetX : {-3, 0, 2}) {
-            object.sprites[0].sOffsetX = offsetX;
-            object.sprites[0].sOffsetY = offsetY;
-            const int width = frame.usWidth + offsetX, height = frame.usHeight + offsetY;
-            for (int oy : {-7, -1, 0, 1, 7}) {
-                for (int ox : {-9, -1, 0, 1, 9}) {
-                    for (SDL_Rect clip : {SDL_Rect{0, 0, 17, 11}, SDL_Rect{2, 3, 8, 5}}) {
-                        CAPTURE(offsetX, offsetY, ox, oy, clip.x, clip.y);
-                        ClippingRect = clip;
-                        FillCpuSurface(actual.cpu(), 0x1234);
-                        FillCpuSurface(expected.cpu(), 0x1234);
-                        REQUIRE(ImageFillVideoSurfaceArea(actual, area.x, area.y,
-                                                          area.x + area.w, area.y + area.h,
-                                                          object, 0, ox, oy));
-                        REQUIRE(SDL_RectsEqual(&ClippingRect, &clip));
-                        const auto modulo = [](int value, int period) { return (value % period + period) % period; };
-                        const int startX = area.x + modulo(ox, width) - width;
-                        const int startY = area.y + modulo(oy, height) - height;
-                        SDL_Rect visible;
-                        REQUIRE(SDL_GetRectIntersection(&area, &clip, &visible));
-                        ClippingRect = visible;
-                        for (int y = startY; y < area.y + area.h; y += height)
-                            for (int x = startX; x < area.x + area.w; x += width)
-                                REQUIRE(BltVideoObject(expected, object, 0, x, y,
-                                                       VO_BLT_SRCTRANSPARENCY));
-                        ClippingRect = clip;
-                        const auto& a = *actual.cpu().surface;
-                        const auto& b = *expected.cpu().surface;
-                        for (int y = 0; y < a.h; ++y) {
-                            const auto* rowA = reinterpret_cast<const std::uint16_t*>(static_cast<const std::uint8_t*>(a.pixels) + y * a.pitch);
-                            const auto* rowB = reinterpret_cast<const std::uint16_t*>(static_cast<const std::uint8_t*>(b.pixels) + y * b.pitch);
-                            for (int x = 0; x < a.w; ++x) {
-                                CAPTURE(x, y);
-                                REQUIRE(rowA[x] == rowB[x]);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-    REQUIRE_FALSE(ImageFillVideoSurfaceArea(actual, 0, 0, 0, 3, object, 0, 0, 0));
-    REQUIRE_FALSE(ImageFillVideoSurfaceArea(actual, 0, 0, 4, 3, object, 1, 0, 0));
-    object.sprites[0].sOffsetX = -4;
-    REQUIRE_FALSE(ImageFillVideoSurfaceArea(actual, 0, 0, 4, 3, object, 0, 0, 0));
+    REQUIRE(expected_index == expected.size());
 }

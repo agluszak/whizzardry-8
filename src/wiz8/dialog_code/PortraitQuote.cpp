@@ -1,4 +1,6 @@
 #include <SDL3/SDL_pixels.h>
+#include <SDL3/SDL_stdinc.h>
+#include <SDL3/SDL_surface.h>
 #include <cstdint>
 #include <memory>
 #include <SDL3/SDL_rect.h>
@@ -7,17 +9,16 @@
 #include <algorithm>
 #include <cstring>
 
+#include "wiz8/surface_storage.h"
 #include "wiz8/unicode.h"
 #include "Font.h"
 #include "himage.h"
-#include "vobject.h"
-#include "vobject_blitters.h"
-#include "wiz8/compat/surfaces.h"
-#include "vsurface.h"
+#include "image.h"
+#include "image_assets.h"
+#include "sprite.h"
 #include "wiz8/dialog_code/PortraitQuote.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/fonts.h"
-#include "compat/compiler.h"
 
 enum {
     WRAPPED_TEXT_LEFT = 0x01,
@@ -37,21 +38,19 @@ enum { QUOTE_BUBBLE_FLAT_BACKGROUND = 1 };
    the byte at 0x15 is set once the whole bubble has been created. */
 struct W8PortraitQuoteBubble {
     ~W8PortraitQuoteBubble();
-    std::unique_ptr<SGPVSurface> surface;
+    SDLSurfaceOwner surface{nullptr, SDL_DestroySurface};
     unsigned short width;
     unsigned short height;
     unsigned char background_index;
     unsigned char object_index;
-    std::unique_ptr<SGPVSurface> background_surface;
-    std::unique_ptr<SGPVObject> object;
+    std::shared_ptr<SDL_Surface> background_surface;
+    std::shared_ptr<const SpriteSheet> object;
     bool has_resources;
     bool created;
     std::uint32_t flags; /* bit 0 selects the flat fill */
     std::string text;
     std::uint32_t palette;
 };
-
-W8_ABI_ASSERT(sizeof(W8PortraitQuoteBubble) == 0x24, "W8PortraitQuoteBubble_size");
 
 // GLOBAL: WIZ8 0x0069C598
 static W8PortraitQuoteBubble* g_portrait_quotes[10];
@@ -110,11 +109,8 @@ static int DrawWrappedTextLine(std::string_view text, int x, int top, int width,
     SetFontForeground(foreground);
     SetFontBackground(background);
     if (flags & WRAPPED_TEXT_SHADOW_RECT) {
-        ShadowVideoSurfaceRect(GetFrameBufferSurface(), static_cast<unsigned short>(draw_x - 1),
-                               static_cast<unsigned short>(draw_y - 1),
-                               static_cast<unsigned short>(draw_x - 1) +
-                                   static_cast<unsigned short>(font.textWidth(text)) + 1,
-                               static_cast<unsigned short>(draw_y - 1) + font.height() + 1);
+        ShadowRect(GetFrameBufferSurface(),
+                   {draw_x - 1, draw_y - 1, font.textWidth(text) + 2, font.height() + 2});
     }
     if (dirty) {
         DrawFontTextDirty(draw_x, draw_y, text);
@@ -386,10 +382,9 @@ static int MeasureWrappedText(int x, int y, unsigned int wrap_width, int line_sp
 }
 
 // FUNCTION: WIZ8 0x005cf620
-unsigned char DrawPortraitQuoteBubble(int quote_handle, short x, short y, SGPVSurface& surface)
+unsigned char DrawPortraitQuoteBubble(int quote_handle, short x, short y, SDL_Surface& surface)
 {
     W8PortraitQuoteBubble* bubble;
-    unsigned int blt_flags;
 
     if (quote_handle == -1) {
         return 0;
@@ -398,13 +393,9 @@ unsigned char DrawPortraitQuoteBubble(int quote_handle, short x, short y, SGPVSu
     if (bubble == 0) {
         return 0;
     }
-    if ((bubble->flags & QUOTE_BUBBLE_FLAT_BACKGROUND) == 0) {
-        blt_flags = VS_BLT_FAST;
-    } else {
-        blt_flags = VS_BLT_FAST | VS_BLT_USECOLORKEY;
-    }
     g_current_portrait_quote = bubble;
-    BltVideoSurfaceToVideoSurface(surface, *bubble->surface, x, y, blt_flags, 0);
+    BlitImage(surface, x, y, *bubble->surface, nullptr,
+              {.color_key = (bubble->flags & QUOTE_BUBBLE_FLAT_BACKGROUND) != 0});
     if (&surface == &GetFrameBufferSurface()) {
         InvalidateRegion(x, y, static_cast<short>(x + bubble->width),
                          static_cast<short>(y + bubble->height), 0);
@@ -448,14 +439,8 @@ int LayoutPortraitQuoteBubble(int quote_handle, unsigned char background_index,
        still consumed them; natively they start at zero. */
     unsigned char colour = 0;
     bool shadow = false;
-    unsigned short count;
     unsigned short x;
     unsigned short y;
-    std::uint16_t fill;
-    std::uint16_t* pixels;
-    std::uint8_t* source;
-    std::uint32_t pitch;
-    std::uint32_t source_pitch;
     SDL_Rect rect;
 
     if (static_cast<unsigned short>(max_width) >= 0x280) {
@@ -470,10 +455,12 @@ int LayoutPortraitQuoteBubble(int quote_handle, unsigned char background_index,
     auto& bubble = pending ? *pending : *g_portrait_quotes[quote_handle];
     if (quote_handle == -1) {
         g_current_portrait_quote = &bubble;
-        if (!(bubble.background_surface = LoadVideoSurface(g_quote_bubble_backgrounds[background_index]))) {
+        if (!(bubble.background_surface =
+                  g_image_assets.bitmap(g_quote_bubble_backgrounds[background_index]))) {
             return -1;
         }
-        if (!(g_current_portrait_quote->object = LoadVideoObject(g_quote_bubble_edges[edge_index]))) {
+        if (!(g_current_portrait_quote->object =
+                  g_image_assets.sprites(g_quote_bubble_edges[edge_index]))) {
             return -1;
         }
         g_current_portrait_quote->has_resources = true;
@@ -489,10 +476,11 @@ int LayoutPortraitQuoteBubble(int quote_handle, unsigned char background_index,
                 g_current_portrait_quote->has_resources = false;
             }
             if (!(g_current_portrait_quote->background_surface =
-                      LoadVideoSurface(g_quote_bubble_backgrounds[background_index]))) {
+                      g_image_assets.bitmap(g_quote_bubble_backgrounds[background_index]))) {
                 return -1;
             }
-            if (!(g_current_portrait_quote->object = LoadVideoObject(g_quote_bubble_edges[edge_index]))) {
+            if (!(g_current_portrait_quote->object =
+                      g_image_assets.sprites(g_quote_bubble_edges[edge_index]))) {
                 return -1;
             }
             g_current_portrait_quote->has_resources = true;
@@ -530,10 +518,7 @@ int LayoutPortraitQuoteBubble(int quote_handle, unsigned char background_index,
         max_width = 0x15d;
     }
     if (static_cast<unsigned short>(height) < 200) {
-        if (!(bubble.surface = CreateVideoSurface(static_cast<std::uint16_t>(max_width),
-                                                   static_cast<std::uint16_t>(height), 16))) {
-            return 0;
-        }
+        bubble.surface = CreateFrameSurface(max_width, height);
         bubble.palette = font_palette;
         bubble.created = true;
         bubble.width = static_cast<unsigned short>(max_width);
@@ -544,39 +529,25 @@ int LayoutPortraitQuoteBubble(int quote_handle, unsigned char background_index,
         *out_height = static_cast<unsigned short>(height);
         rect = {0, 0, width_px, height_px};
         if (bubble.flags & QUOTE_BUBBLE_FLAT_BACKGROUND) {
-            const auto& destination_storage = *bubble.surface->cpu().surface;
-            pitch = destination_storage.pitch;
-            pixels = static_cast<std::uint16_t*>(destination_storage.pixels);
-            fill = Get16BPPColor(SDL_Color{255, 255, 0, SDL_ALPHA_OPAQUE});
-            bubble.surface->cpu().sourceKey = SurfaceColorKey{fill, fill};
-            count = static_cast<unsigned short>(height * max_width);
-            for (x = 0; x < count; ++x) {
-                pixels[x] = fill;
-            }
+            const Uint16 fill = Get16BPPColor(SDL_Color{255, 255, 0, SDL_ALPHA_OPAQUE});
+            SDL_SetSurfaceColorKey(bubble.surface.get(), true, fill);
+            SDL_FillSurfaceRect(bubble.surface.get(), nullptr, fill);
         } else {
-            auto& source_surface = *bubble.background_surface;
-            const auto& destination_storage = *bubble.surface->cpu().surface;
-            pitch = destination_storage.pitch;
-            pixels = static_cast<std::uint16_t*>(destination_storage.pixels);
-            const auto& source_storage = *bubble.background_surface->cpu().surface;
-            source_pitch = source_storage.pitch;
-            source = static_cast<std::uint8_t*>(source_storage.pixels);
-            Blt8BPPDataSubTo16BPPBuffer(pixels, pitch, source_surface.packedPalette(), source,
-                                        source_pitch, 0, 0, rect);
+            BlitImage(*bubble.surface, 0, 0, *bubble.background_surface, &rect);
         }
-        auto& object = *bubble.object;
+        const auto& object = *bubble.object;
         for (x = 0x10; static_cast<int>(x) < width_px - 0x10; x = x + 0x10) {
-            BltVideoObject(*bubble.surface, object, 1, x, 0, 2);
-            BltVideoObject(*bubble.surface, object, 6, x, height_px - 0x10, 2);
+            DrawSprite(*bubble.surface, object, 1, x, 0);
+            DrawSprite(*bubble.surface, object, 6, x, height_px - 0x10);
         }
         for (y = 0x10; static_cast<int>(y) < height_px - 0x10; y = y + 0x10) {
-            BltVideoObject(*bubble.surface, object, 3, 0, y, 2);
-            BltVideoObject(*bubble.surface, object, 4, width_px - 8, y, 2);
+            DrawSprite(*bubble.surface, object, 3, 0, y);
+            DrawSprite(*bubble.surface, object, 4, width_px - 8, y);
         }
-        BltVideoObject(*bubble.surface, object, 0, 0, 0, 2);
-        BltVideoObject(*bubble.surface, object, 2, width_px - 0x10, 0, 2);
-        BltVideoObject(*bubble.surface, object, 5, 0, height_px - 0x10, 2);
-        BltVideoObject(*bubble.surface, object, 7, width_px - 0x10, height_px - 0x10, 2);
+        DrawSprite(*bubble.surface, object, 0, 0, 0);
+        DrawSprite(*bubble.surface, object, 2, width_px - 0x10, 0);
+        DrawSprite(*bubble.surface, object, 5, 0, height_px - 0x10);
+        DrawSprite(*bubble.surface, object, 7, width_px - 0x10, height_px - 0x10);
         if (background_index == 0) {
             colour = 0xd0;
             shadow = false;

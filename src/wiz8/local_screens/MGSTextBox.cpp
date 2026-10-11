@@ -1,4 +1,5 @@
 #include "himage.h"
+#include <SDL3/SDL_surface.h>
 #include <cstddef>
 #include <cstdint>
 #include <fmt/format.h>
@@ -14,6 +15,7 @@
 #include <iterator>
 #include <utility>
 
+#include "image.h"
 #include "input.h"
 #include "random.h"
 #include "utf8/checked.h"
@@ -46,8 +48,6 @@
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/engine_code/OctPath.h"
 #include "wiz8/fonts.h"
-#include "vobject_blitters.h"
-#include "line.h"
 #include "compat/compiler.h"
 #include "compat/native.h"
 #include "dialog_code/DialogBase.h"
@@ -57,8 +57,6 @@
 #include "local_code/ControlsRect.h"
 #include "local_code/MonsterManager.h"
 #include "local_code/RangeControl.h"
-#include "vobject.h"
-#include "vsurface.h"
 
 // GLOBAL: WIZ8 0x0068f2d4
 W8MainGameScreen* g_main_game_screen;
@@ -931,7 +929,6 @@ static void DrawDialogueTextCursor(int x, int y)
         g_level_block->text_box_font->prefixWidth(std::string_view(input->text).substr(start), input->cursor - start);
 
     int y_line = y + (line - hidden - 1) * 0xb;
-    char* screen = static_cast<char*>(GetFrameBufferSurface().cpu().surface->pixels);
     if (y_line < g_level_block->text_box_bottom) {
         unsigned int bottom = g_level_block->text_box_bottom;
         unsigned int y_end = y_line + g_level_block->text_box_font->height();
@@ -939,7 +936,8 @@ static void DrawDialogueTextCursor(int x, int y)
             y_end = bottom;
         }
         int x_cursor = x + x_offset + 1;
-        LineDraw(0, x_cursor, y_line, x_cursor, y_end, -0x100, screen);
+        const SDL_Rect cursor{ x_cursor, y_line, 1, static_cast<int>(y_end - y_line + 1) };
+        SDL_FillSurfaceRect(&GetFrameBufferSurface(), &cursor, 0xff00);
     }
 }
 
@@ -1567,7 +1565,6 @@ void RedrawTextBoxBody(bool skip_invalidate)
 // FUNCTION: WIZ8 0x0058CC10
 void RedrawTextBoxScrollChrome(void)
 {
-    SDL_Rect saved_clip;
     SDL_Rect clip;
     short text_box;
     unsigned int scroll;
@@ -1575,10 +1572,10 @@ void RedrawTextBoxScrollChrome(void)
     int visible;
     int thumb_y;
 
-    GetClippingRect(&saved_clip);
-    clip = saved_clip;
+    auto& framebuffer = GetFrameBufferSurface();
+    SDL_GetSurfaceClipRect(&framebuffer, &clip);
     clip.h = (0x1db) - clip.y;
-    SetClippingRect(&clip);
+    ScopedClipRect clipped(framebuffer, clip);
 
     if (g_level_block->action_panel_visible != 0) {
         text_box = g_status.text_line_cursor;
@@ -1591,17 +1588,14 @@ void RedrawTextBoxScrollChrome(void)
 
         switch (g_level_block->text_content_region) {
         case 0x57:
-            DrawCatalogImage(GetFrameBufferSurface(), 0x86, 0, 0, g_level_block->text_box_right + 5, 0x16b,
-                             VO_BLT_SRCTRANSPARENCY);
+            DrawCatalogImage(GetFrameBufferSurface(), 0x86, 0, 0, g_level_block->text_box_right + 5, 0x16b);
             break;
         case 0x58:
-            DrawCatalogImage(GetFrameBufferSurface(), 0x86, 0, 1, g_level_block->text_box_right + 5, 0x16b,
-                             VO_BLT_SRCTRANSPARENCY);
+            DrawCatalogImage(GetFrameBufferSurface(), 0x86, 0, 1, g_level_block->text_box_right + 5, 0x16b);
             break;
         case -1:
         case 0x56:
-            DrawCatalogImage(GetFrameBufferSurface(), 0x86, 0, 3, g_level_block->text_box_right + 5, 0x16b,
-                             VO_BLT_SRCTRANSPARENCY);
+            DrawCatalogImage(GetFrameBufferSurface(), 0x86, 0, 3, g_level_block->text_box_right + 5, 0x16b);
             g_level_block->text_content_region = -1;
             break;
         }
@@ -1618,25 +1612,21 @@ void RedrawTextBoxScrollChrome(void)
 
         switch (g_level_block->dialogue_content_region) {
         case 0x5a:
-            DrawCatalogImage(GetFrameBufferSurface(), 0x86, 0, 8, g_level_block->text_box_right + 5, 0x1ad,
-                             VO_BLT_SRCTRANSPARENCY);
+            DrawCatalogImage(GetFrameBufferSurface(), 0x86, 0, 8, g_level_block->text_box_right + 5, 0x1ad);
             break;
         case 0x5b:
-            DrawCatalogImage(GetFrameBufferSurface(), 0x86, 0, 9, g_level_block->text_box_right + 5, 0x1ad,
-                             VO_BLT_SRCTRANSPARENCY);
+            DrawCatalogImage(GetFrameBufferSurface(), 0x86, 0, 9, g_level_block->text_box_right + 5, 0x1ad);
             break;
         case -1:
         case 0x59:
-            DrawCatalogImage(GetFrameBufferSurface(), 0x86, 0, 0xb, g_level_block->text_box_right + 5, 0x1ad,
-                             VO_BLT_SRCTRANSPARENCY);
+            DrawCatalogImage(GetFrameBufferSurface(), 0x86, 0, 0xb, g_level_block->text_box_right + 5, 0x1ad);
             g_level_block->dialogue_content_region = -1;
             break;
         }
 
         if (line_count > static_cast<unsigned int>(visible)) {
             thumb_y = static_cast<int>(scroll * 0x28 / (line_count - visible)) + 0x17b;
-            DrawCatalogImage(GetFrameBufferSurface(), 0x86, 0, 4, g_level_block->text_box_right + 5, thumb_y,
-                             VO_BLT_SRCTRANSPARENCY);
+            DrawCatalogImage(GetFrameBufferSurface(), 0x86, 0, 4, g_level_block->text_box_right + 5, thumb_y);
         }
     }
 
@@ -1646,7 +1636,6 @@ void RedrawTextBoxScrollChrome(void)
     if (g_level_block->dialogue_text_input_open && g_level_block->dialogue_text_input != 0) {
         g_level_block->dialogue_text_input->dirty = true;
     }
-    SetClippingRect(&saved_clip);
 }
 
 /* Invalidate the text and action panels around a status-panel text refresh. */

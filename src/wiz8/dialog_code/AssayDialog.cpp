@@ -4,6 +4,7 @@
 #include <cstring>
 #include <vector>
 
+#include "image.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/dialog_code/AssayDialog.h"
 #include "wiz8/dialog_code/SpellInfoDialog.h"
@@ -40,8 +41,6 @@
 #include "local_code/TextBuffer.h"
 #include "retail_item_payloads.h"
 #include "spell_ids.h"
-#include "vobject.h"
-#include "vsurface.h"
 
 // GLOBAL: WIZ8 0x0064f908
 static W8DialogScrollBar::Resources g_assay_scroll_resources = {
@@ -565,10 +564,9 @@ void W8AssayDialog::Draw()
     if (m_item_portrait_dirty) {
         DrawSpriteAndInvalidate(GetFrameBufferSurface(),
                                 g_item_video_objects.Sprites(m_item->iItemNo), 0, m_x + 0x45,
-                                m_y + 0xe, VO_BLT_SRCTRANSPARENCY);
+                                m_y + 0xe);
         if (!m_item->identified) {
-            DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x11b, 0, 0, m_x + 0x45, m_y + 0xe,
-                                          VO_BLT_SRCTRANSPARENCY);
+            DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x11b, 0, 0, m_x + 0x45, m_y + 0xe);
         }
         m_item_portrait_dirty = false;
     }

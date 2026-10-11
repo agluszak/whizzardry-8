@@ -1,8 +1,11 @@
 #include <SDL3/SDL_pixels.h>
 #include "glm/ext/vector_double3.hpp"
+#include <SDL3/SDL_surface.h>
+#include <SDL3/SDL_stdinc.h>
 #include <fmt/format.h>
 #include <memory>
 #include <SDL3/SDL_rect.h>
+#include <string>
 #include <vector>
 #include <algorithm>
 #include <cstddef>
@@ -12,13 +15,13 @@
 #include <exception>
 #include <iterator>
 #include <span>
-#include <string>
 #include <string_view>
 #include <unordered_map>
 #include <utility>
 
+#include <glm/geometric.hpp>
 #include "glm/ext/vector_float2.hpp"
-#include "glm/geometric.hpp"
+#include "image.h"
 #include "native/input_events.h"
 #include "utf8/checked.h"
 #include "wiz8/unicode.h"
@@ -53,7 +56,6 @@
 #include "wiz8/item_spawning.h"
 #include "wiz8/dialog_code/DialogButton.h"
 #include "surrender/srColorSurface.h"
-#include "wiz8/compat/surfaces.h"
 #include "wiz8/cursor.h"
 #include "wiz8/engine_code/Quality.h"
 #include "wiz8/engine_code/Video2.h"
@@ -68,9 +70,6 @@
 #include "input.h"
 #include "wiz8/filesystem.h"
 #include "Font.h"
-#include "vobject.h"
-#include "vobject_blitters.h"
-#include "line.h"
 #include "surrender/srMeshModel.h"
 #include "surrender/srMath.h"
 #include "AnimRep.hpp"
@@ -95,7 +94,6 @@
 #include "surrender/srNode.h"
 #include "surrender/srPixelConvert.h"
 #include "surrender/srTextureIFace.h"
-#include "vsurface.h"
 
 /* Lifecycle record 8; the automap screen. Its original screen-class name is
    unknown, so the existing compilation boundary is retained. */
@@ -746,7 +744,7 @@ unsigned char AutomapScreenEnter(void)
     SetPrimarySurfaceTextureHint2Enabled(false);
     ClearSurfaceRect(0, 0, 640, 480);
     DisableCursorScene();
-    DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x14a, 0, 0, 0, 0, VO_BLT_SRCTRANSPARENCY);
+    DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x14a, 0, 0, 0, 0);
     UpdateAutomapPageButtons();
     for (int button = 0; button < 16; ++button) {
         if (g_automap_buttons[button]) {
@@ -1430,12 +1428,8 @@ void RenderAutomapFrame(void)
                 g_automap_overlay_redraw = false;
                 SetResidentTexturePolicy(0);
             }
-            unsigned int pitch;
-            const auto& destination_storage = *GetFrameBufferSurface().cpu().surface;
-            pitch = destination_storage.pitch;
-            void* pixels = destination_storage.pixels;
             auto surface = std::make_unique<srColorSurface>(srPixelConvert::SURFACE_ARGB1555,
-                                                             pixels, 0x280, 0x1e0, pitch);
+                                                             GetFrameBufferSurface());
             surface->setFilter(&srBoxFilter);
             surface->blit(0xc, 0x20, *g_automap_surface, 0xc, 0x20, 0x1d3, 0x1d3);
             RenderAutomapMarkers();
@@ -1470,7 +1464,7 @@ void UpdateAutomapPageButtons(void)
 int RestoreAutomapRect(W8ScreenRect* rect)
 {
     if (g_automap_surface != 0) {
-        srColorSurface screen(srPixelConvert::SURFACE_ARGB1555, *GetFrameBufferSurface().cpu().surface);
+        srColorSurface screen(srPixelConvert::SURFACE_ARGB1555, GetFrameBufferSurface());
         screen.setFilter(&srBoxFilter);
         screen.blit(rect->left, rect->top, *g_automap_surface, rect->left, rect->top, rect->right,
                     rect->bottom);
@@ -1860,12 +1854,10 @@ void RenderAutomapMarkers(void)
         }
     }
     if (g_automap_page != 2) {
-        SDL_Rect saved_clip;
-        GetClippingRect(&saved_clip);
         SDL_Rect clip = {0xc, 0x20, 0x1d3 - 0xc, 0x1d3 - 0x20};
-        SetClippingRect(&clip);
+        ScopedClipRect clipped(GetFrameBufferSurface(), clip);
         SetFont(g_wiz_text_font_secondary);
-        SetObjectShade(g_wiz_text_font_secondary.glyphs, 4);
+        g_wiz_text_font_secondary.setShade(Font::kNormalShade);
         SetFontDestClip(0xc, 0x20, 0x1d3, 0x1d3);
         int font_height = g_wiz_text_font_secondary.height();
         unsigned int count = static_cast<int>(g_automap_notes->size());
@@ -1904,20 +1896,23 @@ void RenderAutomapMarkers(void)
                     DrawFontTextDirty(x, y, note->text);
                     if (note == g_automap_editing_note) {
                         marker->setScale(glm::dvec3(0.22f, 0.22f, 0.22f));
-                        unsigned int pitch;
-                        const auto& destination_storage = *GetFrameBufferSurface().cpu().surface;
-                        pitch = destination_storage.pitch;
-                        char* buffer = static_cast<char*>(destination_storage.pixels);
-                        SetClippingRegionAndImageWidth(pitch, 0xc, 0x20, 0x1c7, 0x1b3);
                         int color = Get16BPPColor(SDL_Color{239, 155, 86, SDL_ALPHA_OPAQUE});
                         int length = g_wiz_text_font_secondary.textWidth(note->text);
-                        RectangleDraw(true, x - 1, y, x + length + 2, y + (font_height & 0xffff),
-                                      color, buffer);
+                        const SDL_Rect top_edge{x - 1, y, length + 4, 1};
+                        const SDL_Rect bottom_edge{x - 1, y + (font_height & 0xffff),
+                                                   length + 4, 1};
+                        const SDL_Rect left_edge{x - 1, y, 1, (font_height & 0xffff) + 1};
+                        const SDL_Rect right_edge{x + length + 2, y, 1,
+                                                  (font_height & 0xffff) + 1};
+                        auto& framebuffer = GetFrameBufferSurface();
+                        SDL_FillSurfaceRect(&framebuffer, &top_edge, static_cast<Uint16>(color));
+                        SDL_FillSurfaceRect(&framebuffer, &bottom_edge, static_cast<Uint16>(color));
+                        SDL_FillSurfaceRect(&framebuffer, &left_edge, static_cast<Uint16>(color));
+                        SDL_FillSurfaceRect(&framebuffer, &right_edge, static_cast<Uint16>(color));
                     }
                 }
             }
         }
-        SetClippingRect(&saved_clip);
     }
 }
 
@@ -1936,10 +1931,10 @@ static void ScaleAutomapMarker(stModelInstance2D* marker, float factor)
 stModelInstance2D* CreateAutomapItemMarker(int item_id)
 {
     auto& video_object = g_item_video_objects.Sprites(item_id);
-    if (video_object.sprites.empty()) {
+    if (video_object.frames.empty()) {
         return 0;
     }
-    const SpriteFrame& properties = video_object.sprites.front();
+    const SpriteFrame& properties = video_object.frames.front();
     auto surface = std::make_shared<srColorSurface>(srPixelConvert::SURFACE_ARGB1555, 0x40, 0x40);
     surface->fill(0);
     surface->setFilter(&srBSplineFilter);

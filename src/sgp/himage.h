@@ -13,8 +13,7 @@
 #include <variant>
 #include <vector>
 
-#include "wiz8/compat/surfaces.h"
-#include <span>
+#include "wiz8/surface_storage.h"
 
 using Palette8 = std::array<SDL_Color, 256>;
 using Palette16 = std::array<std::uint16_t, 256>;
@@ -24,6 +23,7 @@ struct BitmapImage {
     std::uint16_t width = 0;
     std::uint16_t height = 0;
     std::uint8_t bitDepth = 0;
+    SDL_PixelFormat format = SDL_PIXELFORMAT_UNKNOWN;
     std::optional<Palette8> palette;
     std::vector<std::uint8_t> pixels;
 };
@@ -40,21 +40,17 @@ struct SpriteFrame {
 
     SDLSurfaceOwner indices{nullptr, SDL_DestroySurface};
     std::optional<std::uint8_t> paletteIndexAt(int x, int y) const;
-    SDL_Surface* coloredSurface(std::span<const std::uint16_t, 256> palette, bool mirror = false) const;
     std::int16_t sOffsetX = 0;
     std::int16_t sOffsetY = 0;
     std::uint16_t usHeight = 0;
     std::uint16_t usWidth = 0;
 
-private:
-    mutable SDLSurfaceOwner colored{nullptr, SDL_DestroySurface};
-    mutable Palette16 colors{};
-    mutable bool mirrored = false;
 };
 
 struct SpriteSheet {
     Palette8 palette{};
     std::vector<SpriteFrame> frames;
+    Palette16 colors{};
 };
 
 using DecodedImage = std::variant<BitmapImage, SpriteSheet>;
