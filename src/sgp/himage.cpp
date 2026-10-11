@@ -336,7 +336,7 @@ bool CopyImageToBuffer(const image_type& image, UINT32 buffer_type, std::span<UI
 
     std::span<const UINT8> source = image.pImageData;
     std::vector<UINT8> unpacked;
-    if image.compressed {
+    if (image.compressed) {
         if (source_depth != 1 || source.empty())
             return false;
         // FUNCTION: WIZ8 0x0040fca0
