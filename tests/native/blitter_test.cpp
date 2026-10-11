@@ -29,7 +29,6 @@
 #include "himage.h"
 #include "shading.h"
 #include "vobject.h"
-#include "vsurface.h"
 
 static const unsigned pitch = 1296; // 640 pixels plus row padding
 static const unsigned rows = 20;

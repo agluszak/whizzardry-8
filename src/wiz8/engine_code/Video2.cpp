@@ -90,7 +90,6 @@
 #include "wiz8/application.h"
 #include "soundman.h"
 #include "vobject.h"
-#include "vobject_blitters.h"
 #include "vsurface.h"
 #include "wiz8/local_code/ControlsRect.h"
 #include "compat/video.h"
