@@ -1,3 +1,4 @@
+#include <span>
 #include <vector>
 #include <algorithm>
 #include <cmath>

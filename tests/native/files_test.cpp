@@ -19,6 +19,7 @@
 #include <exception>
 #include <iterator>
 #include <optional>
+#include <stdexcept>
 #include <string_view>
 #include <system_error>
 #include <utility>

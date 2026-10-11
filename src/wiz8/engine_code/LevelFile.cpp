@@ -7,10 +7,13 @@
 #include <exception>
 #include <limits>
 #include <memory>
+#include <optional>
+#include <span>
 #include <stdexcept>
 #include <string>
 #include <type_traits>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "wiz8/engine_code/stLight.hpp"
@@ -18,7 +21,6 @@
 #include "wiz8/evidence/LevelFile_layout.inc"
 #include "wiz8/engine_code/ReadMesh.h"
 #include "wiz8/engine_code/OctMeshModel.h"
-#include "wiz8/sr_api.h"
 #include "wiz8/local_screens/AutomapScreen.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/filesystem.h"

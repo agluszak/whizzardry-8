@@ -1,6 +1,5 @@
 #include <fmt/format.h>
 #include <exception>
-#include <memory>
 #include <string>
 
 #include "wiz8/sr_api.h"
