@@ -2888,6 +2888,11 @@ unsigned char MainGameScreenEnter(void)
     }
     gXStatus.level_up_notice = true;
     ResetRegions();
+    InitSpellCastingRegions();
+    InitUseItemSelectRegions();
+    InitFormationRegions();
+    InitKeyboardMenuRegions();
+    InitPartyMovementRegions();
     CreateMainGameInterfaceButtons();
     CreateSpellIconHudControls();
     CreateLevelButtons();
@@ -3468,6 +3473,14 @@ unsigned char MainGameScreenLeave(int leaving)
                 return 0;
             }
         }
+        if (gXStatus.fPartyMovementUi) {
+            ReleasePartyMovement();
+        }
+        ShutdownSpellCastingRegions();
+        ShutdownUseItemSelectRegions();
+        ShutdownFormationRegions();
+        ShutdownKeyboardMenuRegions();
+        ShutdownPartyMovementRegions();
         SoundEmptyCache();
         delete g_level_block;
         g_level_block = 0;
@@ -5291,12 +5304,12 @@ void SyncMainGameModeRegions(void)
     if (g_settings.main_ui_mode != W8_MAIN_UI_MODE_RADAR) {
         EnableActionPanelRegions();
         if (gXStatus.fSpellCastMode) {
-            RegionSetEnable(0x19);
+            EnableSpellCastingRegions();
             RestoreSpellCastingRegions();
         } else if (gXStatus.fNpcDialogueMode && !CanOpenNpcDialogue()) {
             RegionSetEnable(0x18);
         } else if (gXStatus.fItemSelectMode) {
-            RegionSetEnable(0x1a);
+            EnableUseItemSelectRegions();
             RestoreSpellCastingRegions();
         } else if (gXStatus.fLockInteractMode) {
             EnableLockInteractionPanels();
@@ -5316,7 +5329,7 @@ void SyncMainGameModeRegions(void)
         UpdatePartyMovementPanel();
     }
     if (gXStatus.fReviewCharacterMode) {
-        RegionSetEnable(0x1b);
+        EnableFormationRegions();
     }
     if (g_level_block->keyboard_menu_open) {
         EnableKeyboardMenuInput();

@@ -1,4 +1,6 @@
+#include <array>
 #include <memory>
+#include <optional>
 #include "wiz8/engine_code/stModelInstance.h" // IWYU pragma: keep - complete sprite type for conversion to srNode.
 #include <SDL3/SDL_rect.h>
 #include <cstdint>
@@ -61,6 +63,54 @@ static int g_formation_cell_slots[15];
 static uint64_t g_formation_drag_clock;
 // GLOBAL: WIZ8 0x0069c380
 static int g_formation_drag_cell;
+
+// Retail set 0x1b, regions 161-179.
+static constexpr std::array<RegionTemplate, 19> g_formation_region_templates{{
+    {0x00000001, 0, 0, 0, 0, FormationCellRegionEvent, 0, false, -1},
+    {0x00000001, 0, 0, 0, 0, FormationCellRegionEvent, 1, false, -1},
+    {0x00000001, 0, 0, 0, 0, FormationCellRegionEvent, 2, false, -1},
+    {0x00000001, 0, 0, 0, 0, FormationCellRegionEvent, 3, false, -1},
+    {0x00000001, 0, 0, 0, 0, FormationCellRegionEvent, 4, false, -1},
+    {0x00000001, 0, 0, 0, 0, FormationCellRegionEvent, 5, false, -1},
+    {0x00000001, 0, 0, 0, 0, FormationCellRegionEvent, 6, false, -1},
+    {0x00000001, 0, 0, 0, 0, FormationCellRegionEvent, 7, false, -1},
+    {0x00000001, 0, 0, 0, 0, FormationCellRegionEvent, 8, false, -1},
+    {0x00000001, 0, 0, 0, 0, FormationCellRegionEvent, 9, false, -1},
+    {0x00000001, 0, 0, 0, 0, FormationCellRegionEvent, 10, false, -1},
+    {0x00000001, 0, 0, 0, 0, FormationCellRegionEvent, 11, false, -1},
+    {0x00000001, 0, 0, 0, 0, FormationCellRegionEvent, 12, false, -1},
+    {0x00000001, 0, 0, 0, 0, FormationCellRegionEvent, 13, false, -1},
+    {0x00000001, 0, 0, 0, 0, FormationCellRegionEvent, 14, false, -1},
+    {0x00000001, 0, 0, 0, 0, FormationActionRegionEvent, 0, true, 1981},
+    {0x00000001, 0, 0, 0, 0, FormationActionRegionEvent, 1, true, 1982},
+    {0x00000001, 0, 0, 0, 0, FormationActionRegionEvent, 2, true, 1983},
+    {0x00000001, 214, 60, 427, 303, FormationBackgroundRegionEvent, 0, false, -1},
+}};
+static std::optional<OwnedRegionSet> g_formation_regions;
+
+static OwnedRegionSet& FormationRegions()
+{
+    return g_formation_regions.value();
+}
+
+void InitFormationRegions()
+{
+    if (!g_formation_regions) {
+        g_formation_regions.emplace(g_formation_region_templates);
+    }
+}
+
+void ShutdownFormationRegions()
+{
+    g_formation_regions.reset();
+}
+
+void EnableFormationRegions()
+{
+    if (g_formation_regions) {
+        g_formation_regions->Enable();
+    }
+}
 
 static void UpdateFormationCells(void);
 void ResetFormationCellControls(int cell);
@@ -250,7 +300,8 @@ static unsigned char CreateFormationPanel(void)
         int top = g_formation_cell_positions[index].y;
         W8TextControl* cell;
 
-        cell = new W8TextControl(g_formation_panel, index + 0xa1, left, top, left + 0x20,
+        cell = new W8TextControl(g_formation_panel, FormationRegions().index(index), left, top,
+                                 left + 0x20,
                                  top + 0x20, 0x9f, 0, -1, -1, -1, -1, -1);
         g_formation_cell_controls[index] = cell;
         if (cell == 0) {
@@ -267,12 +318,15 @@ static unsigned char CreateFormationPanel(void)
             return 0;
         }
     }
-    g_formation_action_buttons[0] =
-        new W8TextControl(g_formation_panel, 0xb0, 0x85, 0xcb, 0xa0, 0xe6, 0x8e, 0, 0, -1, 1, 2, 3);
-    g_formation_action_buttons[1] =
-        new W8TextControl(g_formation_panel, 0xb1, 0xa7, 0xcb, 0xc2, 0xe6, 0x8e, 0, 4, -1, 5, 6, 7);
-    g_formation_action_buttons[2] =
-        new W8TextControl(g_formation_panel, 0xb2, 0xf, 0xcd, 0x29, 0xe7, 0x8f, 0, 0, -1, 1, 2, 3);
+    g_formation_action_buttons[0] = new W8TextControl(
+        g_formation_panel, FormationRegions().index(15), 0x85, 0xcb, 0xa0, 0xe6, 0x8e, 0, 0, -1, 1,
+        2, 3);
+    g_formation_action_buttons[1] = new W8TextControl(
+        g_formation_panel, FormationRegions().index(16), 0xa7, 0xcb, 0xc2, 0xe6, 0x8e, 0, 4, -1, 5,
+        6, 7);
+    g_formation_action_buttons[2] = new W8TextControl(
+        g_formation_panel, FormationRegions().index(17), 0xf, 0xcd, 0x29, 0xe7, 0x8f, 0, 0, -1, 1,
+        2, 3);
     button = g_formation_action_buttons;
     while (*button != 0) {
         ++button;
@@ -317,7 +371,7 @@ void OpenFormationPanel(void)
         g_formation_drag_slot = -1;
         g_formation_drag_clock = w8_get_ticks() + (0);
         gXStatus.fReviewCharacterMode = true;
-        RegionSetEnable(0x1b);
+        EnableFormationRegions();
         RequestRedraw(W8_MAIN_REDRAW_SUBMENU_BUTTONS);
         CopyPartyFormationState(&gXStatus.edited_formation, &g_status.formation);
         PauseMainGameWorld();
@@ -670,7 +724,9 @@ void CloseFormationPanel(void)
     DestroyFormationPanel();
     gXStatus.fReviewCharacterMode = false;
     UpdateHeldItemCursor();
-    RegionSetDisable(0x1b);
+    if (g_formation_regions) {
+        g_formation_regions->Disable();
+    }
     RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
     ClearSurfaceRect(0xd6, 0x3c, 0x1ab, 0x12f);
     InvalidateRegion(0xd6, 0x3c, 0x1ab, 0x12f, 0);

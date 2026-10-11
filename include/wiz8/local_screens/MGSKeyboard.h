@@ -63,6 +63,9 @@ extern W8TextControl* g_keyboard_menu_rows[13];
 extern srVector2i g_keyboard_row_positions[13];
 
 void ResetMGSKeyboardBindings();
+void InitKeyboardMenuRegions(void);
+void ShutdownKeyboardMenuRegions(void);
+void EnableKeyboardMenuRegions(void);
 
 /* Discard every queued input atom (screen-entry stale-input flush). */
 void DrainInputEventQueue(void);

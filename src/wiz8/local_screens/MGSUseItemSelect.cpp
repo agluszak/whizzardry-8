@@ -1,6 +1,8 @@
 #include <fmt/format.h>
+#include <array>
 #include <string>
 #include <cstring>
+#include <optional>
 #include <vector>
 
 #include "input.h"
@@ -87,6 +89,40 @@ static int g_use_item_hover_row;
 // GLOBAL: WIZ8 0x0069BF38
 static bool g_use_item_commit_active;
 
+// Retail set 0x1a, regions 156-160.
+static constexpr std::array<RegionTemplate, 5> g_use_item_select_region_templates{{
+    {0x00000001, 0, 0, 0, 0, UseItemSelectScrollRegionEvent, 0, true, 96},
+    {0x00000001, 0, 0, 0, 0, UseItemSelectScrollRegionEvent, 1, true, 97},
+    {0x00000001, 0, 0, 0, 0, UseItemSelectControlRegionEvent, 0, true, 98},
+    {0x00000001, 0, 0, 0, 0, UseItemSelectControlRegionEvent, 3, true, 99},
+    {0x00000001, 0, 0, 0, 0, UseItemSelectControlRegionEvent, 8, true, 17},
+}};
+static std::optional<OwnedRegionSet> g_use_item_select_regions;
+
+static OwnedRegionSet& UseItemSelectRegions()
+{
+    return g_use_item_select_regions.value();
+}
+
+void InitUseItemSelectRegions()
+{
+    if (!g_use_item_select_regions) {
+        g_use_item_select_regions.emplace(g_use_item_select_region_templates);
+    }
+}
+
+void ShutdownUseItemSelectRegions()
+{
+    g_use_item_select_regions.reset();
+}
+
+void EnableUseItemSelectRegions()
+{
+    if (g_use_item_select_regions) {
+        g_use_item_select_regions->Enable();
+    }
+}
+
 void UpdateUseItemScrollButtons(void);
 static void RebuildUseItemSelectList(int mode, W8ItemInstance* select);
 static bool AppendUseItemListEntry(W8ItemInstance* item, W8ItemInstance* select,
@@ -112,9 +148,11 @@ static void CreateUseItemSelectControls(void)
     g_use_item_select_panels[2] = new Controls(0x1dc, 0x166, 0x269, 0x1c2, 0x97, 0, 2);
     panel = g_use_item_select_panels[0];
     g_use_item_select_scroll_buttons[0] =
-        new W8TextControl(panel, 0x9c, 0x24, 0x1d, 0x44, 0x3d, 0x98, 0, 0, 2, 1, 4, 3);
+        new W8TextControl(panel, UseItemSelectRegions().index(0), 0x24, 0x1d, 0x44, 0x3d, 0x98, 0,
+                          0, 2, 1, 4, 3);
     g_use_item_select_scroll_buttons[1] =
-        new W8TextControl(panel, 0x9d, 0x48, 0x1d, 0x68, 0x3d, 0x98, 0, 5, 7, 6, 9, 8);
+        new W8TextControl(panel, UseItemSelectRegions().index(1), 0x48, 0x1d, 0x68, 0x3d, 0x98, 0,
+                          5, 7, 6, 9, 8);
     g_use_item_select_scroll_buttons[2] =
         new W8TextControl(panel, 0xffffffff, 4, 4, 0x89, 0x13, -1, -1, -1, -1, -1, -1, -1);
     g_use_item_select_scroll_buttons[0]->AddLayoutFlags(g_W8TextControlLayoutToggle);
@@ -127,7 +165,8 @@ static void CreateUseItemSelectControls(void)
                                                               g_wiz_text_font_secondary);
     panel = g_use_item_select_panels[2];
     g_use_item_select_controls[0] =
-        new W8TextControl(panel, 0x9e, 5, 5, 0x31, 0x39, -1, -1, -1, -1, -1, -1, -1);
+        new W8TextControl(panel, UseItemSelectRegions().index(2), 5, 5, 0x31, 0x39, -1, -1, -1, -1,
+                          -1, -1, -1);
     g_use_item_select_controls[0]->m_textBuffer.SetLayoutMode(g_W8TextBufferAlignBottom |
                                                               g_W8TextBufferAlignRight);
     g_use_item_select_controls[0]->AddLayoutFlags(g_W8TextControlLayoutImageAtOrigin);
@@ -136,7 +175,8 @@ static void CreateUseItemSelectControls(void)
     g_use_item_select_controls[2] =
         new W8TextControl(panel, 0xffffffff, 0x47, 6, 0x55, 0x14, 0x1ab, 0, 5, 6, 7, 9, 8);
     g_use_item_select_controls[3] =
-        new W8TextControl(panel, 0x9f, 0x58, 6, 0x66, 0x14, 0x1ab, 0, 0xa, 0xb, 0xc, 0xe, 0xd);
+        new W8TextControl(panel, UseItemSelectRegions().index(3), 0x58, 6, 0x66, 0x14, 0x1ab, 0,
+                          0xa, 0xb, 0xc, 0xe, 0xd);
     g_use_item_select_controls[4] = new W8TextControl(panel, 0xffffffff, 0x36, 0x17, 0x44, 0x25,
                                                       0x1ab, 0, 0xf, 0x10, 0x11, 0x13, 0x12);
     g_use_item_select_controls[5] = new W8TextControl(panel, 0xffffffff, 0x47, 0x17, 0x55, 0x25,
@@ -146,7 +186,8 @@ static void CreateUseItemSelectControls(void)
     g_use_item_select_controls[7] = new W8TextControl(panel, 0xffffffff, 0x35, 0x27, 0x56, 0x39,
                                                       0x1aa, 0, 0x1e, 0x22, 0x1f, 0x20, 0x21);
     g_use_item_select_controls[8] =
-        new W8TextControl(panel, 0xa0, 0x6c, 6, 0x87, 0x21, 0x8e, 0, 4, -1, 5, 6, 7);
+        new W8TextControl(panel, UseItemSelectRegions().index(4), 0x6c, 6, 0x87, 0x21, 0x8e, 0, 4,
+                          -1, 5, 6, 7);
     g_use_item_select_controls[2]->AddLayoutFlags(g_W8TextControlLayoutToggle);
     g_use_item_select_controls[3]->AddLayoutFlags(g_W8TextControlLayoutToggle);
     g_use_item_select_controls[4]->AddLayoutFlags(g_W8TextControlLayoutToggle);
@@ -185,7 +226,7 @@ unsigned char OpenUseItemSelectView(int slot)
     SetMainGameOverlayViewport(mode);
     g_use_item_select_return_mode = mode;
     RestoreSpellCastingRegions();
-    RegionSetEnable(0x1a);
+    EnableUseItemSelectRegions();
     SelectTextBox(2);
     ResetEditorStatusLine(-1);
     g_level_block->text_box_visible = false;
@@ -221,7 +262,9 @@ void CloseUseItemSelectView(void)
     Controls** panel;
 
     if (!g_use_item_commit_active) {
-        RegionSetDisable(0x1a);
+        if (g_use_item_select_regions) {
+            g_use_item_select_regions->Disable();
+        }
         DisableRegionInput(0x52);
         DisableRegionInput(0x53);
         DisableRegionInput(0x54);

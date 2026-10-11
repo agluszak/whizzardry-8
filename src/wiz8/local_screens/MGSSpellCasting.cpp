@@ -1,8 +1,10 @@
 #include <SDL3/SDL_pixels.h>
+#include <array>
 #include <fmt/format.h>
 #include <string>
 #include <cstdlib>
 #include <cstring>
+#include <optional>
 #include <vector>
 
 #include "input.h"
@@ -72,6 +74,52 @@ static int g_spell_realm_help_string_ids[6] = {0x27, 0x28, 0x29, 0x2a, 0x2b, 0x2
 // GLOBAL: WIZ8 0x0069BF3C
 W8SpellCastingView* gpSCSV;
 
+// Retail set 0x19, regions 139-155.
+static constexpr std::array<RegionTemplate, 17> g_spell_casting_region_templates{{
+    {0x00000001, 0, 0, 0, 0, SpellRealmButtonRegionEvent, 0, true, 0},
+    {0x00000001, 0, 0, 0, 0, SpellRealmButtonRegionEvent, 1, true, 0},
+    {0x00000001, 0, 0, 0, 0, SpellRealmButtonRegionEvent, 2, true, 0},
+    {0x00000001, 0, 0, 0, 0, SpellRealmButtonRegionEvent, 3, true, 0},
+    {0x00000001, 0, 0, 0, 0, SpellRealmButtonRegionEvent, 4, true, 0},
+    {0x00000001, 0, 0, 0, 0, SpellRealmButtonRegionEvent, 5, true, 0},
+    {0x00000002, 0, 0, 0, 0, SpellPowerPipRegionEvent, 0, true, 46},
+    {0x00000002, 0, 0, 0, 0, SpellPowerPipRegionEvent, 1, true, 47},
+    {0x00000002, 0, 0, 0, 0, SpellPowerPipRegionEvent, 2, true, 48},
+    {0x00000002, 0, 0, 0, 0, SpellPowerPipRegionEvent, 3, true, 49},
+    {0x00000002, 0, 0, 0, 0, SpellPowerPipRegionEvent, 4, true, 50},
+    {0x00000002, 0, 0, 0, 0, SpellPowerPipRegionEvent, 5, true, 51},
+    {0x00000002, 0, 0, 0, 0, SpellPowerPipRegionEvent, 6, true, 52},
+    {0x00000002, 0, 0, 0, 0, SpellPowerPipRegionEvent, 7, true, 53},
+    {0x00000002, 0, 0, 0, 0, SpellPowerPipRegionEvent, 8, true, 54},
+    {0x00000001, 0, 0, 0, 0, IgnoreSpellCastingInput, 0, true, 55},
+    {0x00000001, 0, 0, 0, 0, SpellPowerPipRegionEvent, 10, true, 17},
+}};
+static std::optional<OwnedRegionSet> g_spell_casting_regions;
+
+static OwnedRegionSet& SpellCastingRegions()
+{
+    return g_spell_casting_regions.value();
+}
+
+void InitSpellCastingRegions()
+{
+    if (!g_spell_casting_regions) {
+        g_spell_casting_regions.emplace(g_spell_casting_region_templates);
+    }
+}
+
+void ShutdownSpellCastingRegions()
+{
+    g_spell_casting_regions.reset();
+}
+
+void EnableSpellCastingRegions()
+{
+    if (g_spell_casting_regions) {
+        g_spell_casting_regions->Enable();
+    }
+}
+
 int GetSpellCastingPowerIndex(void)
 {
     if (gpSCSV == 0) {
@@ -125,17 +173,23 @@ static void CreateSpellCastingViewControls(void)
 
     panel = gpSCSV->panels[0];
     gpSCSV->realm_buttons[0] =
-        new W8TextControl(panel, 0x8b, 0x1e, 0xd, 0x69, 0x23, 0x191, 0, 0, 3, 1, 3, 2);
+        new W8TextControl(panel, SpellCastingRegions().index(0), 0x1e, 0xd, 0x69, 0x23, 0x191, 0,
+                          0, 3, 1, 3, 2);
     gpSCSV->realm_buttons[1] =
-        new W8TextControl(panel, 0x8c, 0x71, 0xd, 0xbc, 0x23, 0x191, 0, 4, 7, 5, 7, 6);
+        new W8TextControl(panel, SpellCastingRegions().index(1), 0x71, 0xd, 0xbc, 0x23, 0x191, 0,
+                          4, 7, 5, 7, 6);
     gpSCSV->realm_buttons[2] =
-        new W8TextControl(panel, 0x8d, 0x12, 0x23, 0x5d, 0x39, 0x191, 0, 0, 3, 1, 3, 2);
+        new W8TextControl(panel, SpellCastingRegions().index(2), 0x12, 0x23, 0x5d, 0x39, 0x191, 0,
+                          0, 3, 1, 3, 2);
     gpSCSV->realm_buttons[3] =
-        new W8TextControl(panel, 0x8e, 0x7d, 0x23, 200, 0x39, 0x191, 0, 4, 7, 5, 7, 6);
+        new W8TextControl(panel, SpellCastingRegions().index(3), 0x7d, 0x23, 200, 0x39, 0x191, 0,
+                          4, 7, 5, 7, 6);
     gpSCSV->realm_buttons[4] =
-        new W8TextControl(panel, 0x8f, 0x1e, 0x39, 0x69, 0x4f, 0x191, 0, 0, 3, 1, 3, 2);
+        new W8TextControl(panel, SpellCastingRegions().index(4), 0x1e, 0x39, 0x69, 0x4f, 0x191, 0,
+                          0, 3, 1, 3, 2);
     gpSCSV->realm_buttons[5] =
-        new W8TextControl(panel, 0x90, 0x71, 0x39, 0xbc, 0x4f, 0x191, 0, 4, 7, 5, 7, 6);
+        new W8TextControl(panel, SpellCastingRegions().index(5), 0x71, 0x39, 0xbc, 0x4f, 0x191, 0,
+                          4, 7, 5, 7, 6);
     for (index = 0; index < W8_SPELL_REALM_COUNT; ++index) {
         gpSCSV->realm_buttons[index]->AddLayoutFlags(g_W8TextControlLayoutToggle);
     }
@@ -177,23 +231,32 @@ static void CreateSpellCastingViewControls(void)
 
     panel = gpSCSV->panels[2];
     gpSCSV->power_controls[0] =
-        new W8TextControl(panel, 0x91, 0x38, 2, 0x47, 0x11, 0x192, 0, 0, 2, 1, 4, 3);
+        new W8TextControl(panel, SpellCastingRegions().index(6), 0x38, 2, 0x47, 0x11, 0x192, 0, 0,
+                          2, 1, 4, 3);
     gpSCSV->power_controls[1] =
-        new W8TextControl(panel, 0x92, 0x48, 4, 0x59, 0x15, 0x192, 0, 6, 8, 7, 10, 9);
+        new W8TextControl(panel, SpellCastingRegions().index(7), 0x48, 4, 0x59, 0x15, 0x192, 0, 6,
+                          8, 7, 10, 9);
     gpSCSV->power_controls[2] =
-        new W8TextControl(panel, 0x93, 0x56, 0x10, 0x69, 0x23, 0x192, 0, 0xc, 0xe, 0xd, 0x10, 0xf);
-    gpSCSV->power_controls[3] = new W8TextControl(panel, 0x94, 0x5b, 0x23, 0x70, 0x38, 0x192, 0,
-                                                  0x12, 0x14, 0x13, 0x16, 0x15);
-    gpSCSV->power_controls[4] = new W8TextControl(panel, 0x95, 0x52, 0x38, 0x69, 0x4f, 0x192, 0,
-                                                  0x18, 0x1a, 0x19, 0x1c, 0x1b);
-    gpSCSV->power_controls[5] = new W8TextControl(panel, 0x96, 0x3a, 0x41, 0x53, 0x5a, 0x192, 0,
-                                                  0x1e, 0x20, 0x1f, 0x22, 0x21);
-    gpSCSV->power_controls[6] = new W8TextControl(panel, 0x97, 0x1f, 0x3a, 0x3a, 0x55, 0x192, 0,
-                                                  0x24, 0x26, 0x25, 0x28, 0x27);
-    gpSCSV->power_controls[7] = new W8TextControl(panel, 0x98, 0x10, 0x1f, 0x2d, 0x3c, 0x192, 0,
-                                                  0x30, 0x32, 0x31, 0x34, 0x33);
-    gpSCSV->power_controls[8] = new W8TextControl(panel, 0x99, 0x10, 0x1f, 0x2d, 0x3c, 0x192, 0,
-                                                  0x2a, 0x2a, 0x2b, 0x2b, 0x2d);
+        new W8TextControl(panel, SpellCastingRegions().index(8), 0x56, 0x10, 0x69, 0x23, 0x192, 0,
+                          0xc, 0xe, 0xd, 0x10, 0xf);
+    gpSCSV->power_controls[3] = new W8TextControl(
+        panel, SpellCastingRegions().index(9), 0x5b, 0x23, 0x70, 0x38, 0x192, 0, 0x12, 0x14, 0x13,
+        0x16, 0x15);
+    gpSCSV->power_controls[4] = new W8TextControl(
+        panel, SpellCastingRegions().index(10), 0x52, 0x38, 0x69, 0x4f, 0x192, 0, 0x18, 0x1a, 0x19,
+        0x1c, 0x1b);
+    gpSCSV->power_controls[5] = new W8TextControl(
+        panel, SpellCastingRegions().index(11), 0x3a, 0x41, 0x53, 0x5a, 0x192, 0, 0x1e, 0x20, 0x1f,
+        0x22, 0x21);
+    gpSCSV->power_controls[6] = new W8TextControl(
+        panel, SpellCastingRegions().index(12), 0x1f, 0x3a, 0x3a, 0x55, 0x192, 0, 0x24, 0x26, 0x25,
+        0x28, 0x27);
+    gpSCSV->power_controls[7] = new W8TextControl(
+        panel, SpellCastingRegions().index(13), 0x10, 0x1f, 0x2d, 0x3c, 0x192, 0, 0x30, 0x32, 0x31,
+        0x34, 0x33);
+    gpSCSV->power_controls[8] = new W8TextControl(
+        panel, SpellCastingRegions().index(14), 0x10, 0x1f, 0x2d, 0x3c, 0x192, 0, 0x2a, 0x2a,
+        0x2b, 0x2b, 0x2d);
     gpSCSV->power_controls[0]->SetFlaggedRegionBounds(0x3f, 9, 7);
     gpSCSV->power_controls[1]->SetFlaggedRegionBounds(0x50, 0xc, 8);
     gpSCSV->power_controls[2]->SetFlaggedRegionBounds(0x5f, 0x19, 9);
@@ -217,11 +280,13 @@ static void CreateSpellCastingViewControls(void)
     gpSCSV->power_controls[8]->m_primaryActivationCallback = SelectSpellPowerPip8;
 
     gpSCSV->power_controls[W8_SPELL_NAME_CONTROL] =
-        new W8TextControl(panel, 0x9a, 0xe, 10, 0x30, 0x18, -1, -1, -1, -1, -1, -1, -1);
+        new W8TextControl(panel, SpellCastingRegions().index(15), 0xe, 10, 0x30, 0x18, -1, -1, -1,
+                          -1, -1, -1, -1);
     gpSCSV->power_controls[W8_SPELL_NAME_CONTROL]->m_textBuffer.SetLayoutMode(
         g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
     gpSCSV->power_controls[W8_SPELL_CANCEL_CONTROL] =
-        new W8TextControl(panel, 0x9b, 0x96, 6, 0xb1, 0x21, 0x8e, 0, 4, -1, 5, 6, 7);
+        new W8TextControl(panel, SpellCastingRegions().index(16), 0x96, 6, 0xb1, 0x21, 0x8e, 0, 4,
+                          -1, 5, 6, 7);
     gpSCSV->power_controls[W8_SPELL_CANCEL_CONTROL]->m_primaryActivationCallback =
         ResetSpellCastingSelection;
 
@@ -303,7 +368,7 @@ unsigned char OpenSpellCastingView(int party_slot)
     gpSCSV->saved_game_mode = mode;
     CreateSpellCastingViewControls();
     RestoreSpellCastingRegions();
-    RegionSetEnable(0x19);
+    EnableSpellCastingRegions();
     SelectTextBox(2);
     ResetEditorStatusLine(-1);
     g_level_block->text_box_visible = false;
@@ -332,7 +397,9 @@ void CloseSpellCastingView(void)
     W8NpcState* npc;
 
     if (!gpSCSV->closing) {
-        RegionSetDisable(0x19);
+        if (g_spell_casting_regions) {
+            g_spell_casting_regions->Disable();
+        }
         DisableRegionInput(0x52);
         DisableRegionInput(0x53);
         DisableRegionInput(0x54);

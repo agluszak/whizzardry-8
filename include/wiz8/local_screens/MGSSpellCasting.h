@@ -58,6 +58,9 @@ W8_ABI_ASSERT(sizeof(W8SpellCastingView) == 0xc5c, "W8SpellCastingView_must_be_0
 
 unsigned char OpenSpellCastingView(int party_slot);
 void CloseSpellCastingView(void);
+void InitSpellCastingRegions(void);
+void ShutdownSpellCastingRegions(void);
+void EnableSpellCastingRegions(void);
 void RestoreSpellCastingRegions(void);
 void SelectSpellCastingCharacter(int party_slot);
 void BeginSpellCast(int spell_id, int location_id, W8NpcDialogueLayout interact_id);

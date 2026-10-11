@@ -29,6 +29,9 @@ extern W8ItemInstance* g_use_item_select_override_item;
 extern int g_saved_target_cursor;
 
 void SetUseItemSelectReturnMode(W8MainUiMode value);
+void InitUseItemSelectRegions(void);
+void ShutdownUseItemSelectRegions(void);
+void EnableUseItemSelectRegions(void);
 void InvalidateUseItemSelectPanel(void);
 void CloseUseItemSelection(void);
 /* Scroll-button region callback for use-item select (ids 0 and 1). */

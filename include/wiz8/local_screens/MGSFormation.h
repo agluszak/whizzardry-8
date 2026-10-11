@@ -16,6 +16,9 @@ extern W8TextControl* g_formation_cell_overlays[15];
 extern W8TextControl* g_formation_action_buttons[3];
 
 void ReleaseFormationBoard(void);
+void InitFormationRegions(void);
+void ShutdownFormationRegions(void);
+void EnableFormationRegions(void);
 void DestroyFormationPanel(void);
 void CloseFormationPanel(void);
 
