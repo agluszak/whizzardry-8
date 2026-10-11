@@ -2252,6 +2252,92 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Model-view scopes reject overflow withou
     }
 }
 
+TEST_CASE_METHOD(SurRenderTestFixture, "Linked main and highlight draws share the instance termination boundary", "[geometry][rendering]")
+{
+    struct ProbeMesh : stMeshModel {
+        ProbeMesh() : stMeshModel(0, 0) {}
+        int draws = 0;
+        int fail_on = 0;
+        std::shared_ptr<srTextureIFace> texture;
+        TriMesh getTriMesh() override {
+            if (++draws == fail_on) throw std::runtime_error("mesh acquisition failed");
+            TriMesh mesh;
+            mesh.poly_textures[0][0] = &texture; // A table enables the highlight path.
+            return mesh;
+        }
+    };
+    srGERD renderer(srCreateSDLGPUDevice(), "linked draw boundary");
+    auto model = std::make_shared<ProbeMesh>();
+    auto part = std::make_unique<ProbeMesh>();
+    auto& middle = *part;
+    model->AddPart(std::move(part));
+    part = std::make_unique<ProbeMesh>();
+    auto& last = *part;
+    model->AddPart(std::move(part));
+    model->enable(srMeshModel::CONTROL_SKIP_AUTO_SPHERE);
+    stModelInstance instance(nullptr);
+    instance.setModel(model);
+    instance.highlight_colour = {1, 0, 0, 1};
+    srNode termination(&instance, srNode::Ownership::independent);
+    termination.setFlag(srNode::FLAG_TERMINATE);
+    const glm::vec4 ambient(0.2f, 0.3f, 0.4f, 1);
+    renderer.setAmbientLight(ambient);
+    renderer.setWinding(srGERD::WINDING_POSITIONAL_0);
+    instance.RenderMeshes(renderer);
+    REQUIRE(model->draws == 2);
+    REQUIRE(middle.draws == 2);
+    REQUIRE(last.draws == 0);
+    REQUIRE(renderer.getAmbientLight() == ambient);
+    model->draws = 0;
+    model->fail_on = 2; // Fail after entering the reversed highlight pass.
+    REQUIRE_THROWS_AS(instance.RenderMeshes(renderer), std::runtime_error);
+    REQUIRE(renderer.getWinding() == srGERD::WINDING_POSITIONAL_0);
+    REQUIRE(renderer.getAmbientLight() == ambient);
+}
+
+TEST_CASE_METHOD(SurRenderTestFixture, "Failed instance materials restore picking lighting and material overrides", "[geometry][rendering]")
+{
+    struct FailingMaterial : srMaterial {
+        void preProcess(srVertexPipe&) override { throw std::runtime_error("material failed"); }
+    };
+    srGERD renderer(srCreateSDLGPUDevice(), "failed instance draw");
+    renderer.setWinding(srGERD::WINDING_POSITIONAL_0);
+    auto* batch = renderer.lockRenderer();
+    batch->sorted = 1;
+    renderer.unlockRenderer(batch, 0);
+    auto model = std::make_shared<stMeshModel>(1, 3);
+    model->getVertexLoc()[0] = {-0.5f, -0.5f, 0.5f};
+    model->getVertexLoc()[1] = {0.5f, -0.5f, 0.5f};
+    model->getVertexLoc()[2] = {0, 0.5f, 0.5f};
+    model->getPolyVertex()[0] = {0, 2, 1};
+    model->setMaterial(std::make_shared<FailingMaterial>(), 0, srMeshModel::SIDE_FRONT);
+    model->enable(srMeshModel::CONTROL_SKIP_AUTO_SPHERE);
+    stModelInstance instance(nullptr);
+    instance.setModel(model);
+    instance.render_flags = stModelInstance::RENDER_NO_PICK;
+    instance.diffuse_scale_enabled = true;
+    instance.diffuse_scale = 0.75f;
+    instance.emissive_override_enabled = true;
+    instance.emissive_override = 0.25f;
+    const auto diffuse_enabled = g_material_diffuse_scale_enabled;
+    const auto emissive_enabled = g_material_emissive_override_enabled;
+    const auto diffuse = g_material_diffuse_scale;
+    const auto emissive = g_material_emissive_override;
+    const glm::vec4 ambient(0.2f, 0.3f, 0.4f, 1);
+    renderer.setAmbientLight(ambient);
+    renderer.pushPick({{0, 0, 1}, nullptr, 7});
+    REQUIRE_THROWS_AS(instance.RenderMeshes(renderer), std::runtime_error);
+    REQUIRE(renderer.getAmbientLight() == ambient);
+    REQUIRE(g_material_diffuse_scale_enabled == diffuse_enabled);
+    REQUIRE(g_material_emissive_override_enabled == emissive_enabled);
+    REQUIRE(g_material_diffuse_scale == diffuse);
+    REQUIRE(g_material_emissive_override == emissive);
+    REQUIRE_FALSE(renderer.isPickStackEmpty());
+    srGERD::Pick pick;
+    renderer.popPick(pick);
+    REQUIRE(pick.triangle_index == 7);
+}
+
 TEST_CASE_METHOD(SurRenderTestFixture, "Bounds rejection restores transforms before returning or traversing children", "[geometry][rendering]")
 {
     struct Child : srNode {

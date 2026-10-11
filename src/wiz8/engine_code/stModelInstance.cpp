@@ -376,6 +376,22 @@ void stModelInstance::process(const ProcessInfo& info, e_processType)
     RenderMeshes(*info.renderer);
 }
 
+namespace {
+struct MaterialOverrideScope {
+    const bool diffuse_enabled = g_material_diffuse_scale_enabled;
+    const bool emissive_enabled = g_material_emissive_override_enabled;
+    const float diffuse = g_material_diffuse_scale;
+    const float emissive = g_material_emissive_override;
+    ~MaterialOverrideScope()
+    {
+        g_material_diffuse_scale_enabled = diffuse_enabled;
+        g_material_emissive_override_enabled = emissive_enabled;
+        g_material_diffuse_scale = diffuse;
+        g_material_emissive_override = emissive;
+    }
+};
+} // namespace
+
 /* Submit the instance's linked mesh chain. Pass one fills a detached TriMesh
    per model — animated vertex buffers when the model requests them, the
    damage-stage texture/active-polygon tables, the lazily built highlight
@@ -398,7 +414,8 @@ void stModelInstance::RenderMeshes(srGERD& renderer)
     // c-style-cast-ok: the pick key is an opaque void* token
     SetPickKey((render_flags & RENDER_NO_PICK) != 0 ? (void*)0 : (void*)this);
 
-    const auto ambient = renderer.getAmbientLight();
+    const srMeshSubmission::AmbientScope lighting(renderer);
+    const auto ambient = lighting.ambient();
     const glm::vec3 ambient_color(ambient);
 
     glm::vec4 light;
@@ -425,9 +442,30 @@ void stModelInstance::RenderMeshes(srGERD& renderer)
         highlight_material->setEmissive(highlight_colour);
     }
 
-    bool first_pass = true;
-    srNode* child = this;
-    while (model != 0) {
+    const auto drawLinked = [&](auto draw) {
+        srNode* child = this;
+        for (auto* linked = first_model; linked; linked = linked->Next()) {
+            draw(linked, linked == first_model);
+            if (child && child->testFlag(FLAG_TERMINATE)) break;
+            if (child) child = child->getChild();
+        }
+    };
+    const auto selectPolygons = [&](stMeshModel& linked, srMeshModel::TriMesh& selected,
+                                    bool replace_damage_texture) {
+        if (selected.active_polygons) return;
+        const int table = damage_stage >= 0 ? damage_stage_tables.at(damage_stage) : -1;
+        if (replace_damage_texture && damage_stage >= 0)
+            selected.poly_textures[0][0] = linked.GetTextureTable(table);
+        if (const auto active = linked.GetActivePolygons(table, true))
+            selected.active_polygons = active;
+    };
+    const auto submit = [&](stMeshModel& linked, const srMeshModel::TriMesh& submitted,
+                            std::span<const glm::vec3> normals) {
+        const srMeshSubmission::PickScope picking(renderer, (render_flags & RENDER_NO_PICK) != 0);
+        linked.RenderTriMeshWithEquations(renderer, submitted, normals);
+    };
+    drawLinked([&](stMeshModel* model, bool first_pass) {
+        const MaterialOverrideScope overrides;
         model->SetAmbientColor(ambient_color);
         mesh = model->getTriMesh();
         if ((render_flags & RENDER_SHADOW) != 0 && first_pass) {
@@ -452,20 +490,7 @@ void stModelInstance::RenderMeshes(srGERD& renderer)
         if (g_render_unlit) {
             mesh.dig[0] = 0;
         }
-        std::shared_ptr<srTextureIFace>*(*poly_textures)[2] = mesh.poly_textures;
-        if (poly_textures != 0 && !mesh.active_polygons) {
-            srMeshModel::PolygonSelection active;
-            if (damage_stage >= 0) {
-                mesh.poly_textures[0][0] =
-                    model->GetTextureTable(damage_stage_tables[damage_stage]);
-                active = model->GetActivePolygons(damage_stage_tables[damage_stage], true);
-            } else {
-                active = model->GetActivePolygons(-1, true);
-            }
-            if (active) {
-                mesh.active_polygons = active;
-            }
-        }
+        selectPolygons(*model, mesh, true);
 
         if (((highlight_colour.x == g_float_zero) && (highlight_colour.y == g_float_zero) &&
              (highlight_colour.z == g_float_zero) && (highlight_colour.w == g_float_zero)) ||
@@ -485,42 +510,18 @@ void stModelInstance::RenderMeshes(srGERD& renderer)
             mesh.materials[0][0] = highlight_material;
         }
 
-        if ((render_flags & RENDER_NO_PICK) != 0 && !renderer.isPickStackEmpty()) {
-            srGERD::Pick pick;
-            renderer.popPick(pick);
-            model->RenderTriMeshWithEquations(renderer, mesh, poly_normals);
-            renderer.pushPick(pick);
-        } else {
-            model->RenderTriMeshWithEquations(renderer, mesh, poly_normals);
-        }
-
-        first_pass = false;
-        srNode* previous = child;
-        if (child == 0 || child->testFlag(FLAG_TERMINATE) == 0) {
-            model = model->Next();
-            if (previous != 0) {
-                child = previous->first_child_;
-            }
-        } else {
-            model = 0;
-        }
-        if (diffuse_scale_enabled) {
-            g_material_diffuse_scale_enabled = false;
-        }
-        if (emissive_override_enabled) {
-            g_material_emissive_override_enabled = false;
-        }
-    }
+        submit(*model, mesh, poly_normals);
+    });
 
     if (highlight_colour.x != g_float_zero || highlight_colour.y != g_float_zero ||
         highlight_colour.z != g_float_zero || highlight_colour.w != g_float_zero) {
-        model = static_cast<stMeshModel*>(getModel());
+        const srMeshSubmission::WindingScope winding(renderer);
         if (highlight_pass_mode == 0) {
             renderer.setWinding(srGERD::WINDING_POSITIONAL_1);
         }
-        while (model != 0) {
+        drawLinked([&](stMeshModel* model, bool first_pass) {
             mesh = model->getTriMesh();
-            if (((model->flags & W8_MESH_SORTED_RENDERING) == 0) || (model == first_model)) {
+            if (((model->flags & W8_MESH_SORTED_RENDERING) == 0) || first_pass) {
                 if (mesh.poly_textures[0][0] != 0 ||
                     ((mesh.textures[0][0] != 0) &&
                      (_strnicmp("blank", mesh.textures[0][0]->getName().c_str(), 5) != 0))) {
@@ -533,18 +534,7 @@ void stModelInstance::RenderMeshes(srGERD& renderer)
                         mesh.dig[1] = frame.normals.data();
                         poly_normals = frame.polygon_normals;
                     }
-                    std::shared_ptr<srTextureIFace>*(*poly_textures)[2] = mesh.poly_textures;
-                    if (poly_textures != 0 && !mesh.active_polygons) {
-                        srMeshModel::PolygonSelection active;
-                        if (damage_stage >= 0) {
-                            active = model->GetActivePolygons(damage_stage_tables[damage_stage], true);
-                        } else {
-                            active = model->GetActivePolygons(-1, true);
-                        }
-                        if (active) {
-                            mesh.active_polygons = active;
-                        }
-                    }
+                    selectPolygons(*model, mesh, false);
 
                     mesh.materials[0][0] = highlight_material;
                     mesh.shaders[1].value = (mesh.shaders[0].value & 0xffff5cb7) | 0x40a0;
@@ -556,51 +546,20 @@ void stModelInstance::RenderMeshes(srGERD& renderer)
                     double factor = g_double_one / getScale().y * g_double_fifteen_and_five_eighths;
                     float expand = static_cast<float>(
                         (bounds.sphere.radius * getScale().y * g_double_one_thousandth + g_double_one) * factor);
-                    const glm::vec3 offsets(expand);
-
-                    if (mesh.vertex_count != 0) {
-                        if (offsets.x == g_float_zero && offsets.y == g_float_zero &&
-                            offsets.z == g_float_zero) {
-                            std::fill_n(g_vertex_scratch.data(), mesh.vertex_count,
-                                        glm::vec3(0));
-                        } else {
-                            for (std::size_t i = 0; i < mesh.vertex_count; ++i)
-                                (g_vertex_scratch.data())[i] = offsets * mesh.normals[i];
-                        }
+                    if (expand == 0) {
+                        std::copy_n(mesh.positions, mesh.vertex_count, g_vertex_scratch.begin());
+                    } else {
+                        for (std::size_t i = 0; i < g_vertex_scratch.size(); ++i)
+                            g_vertex_scratch[i] = expand * mesh.normals[i] + mesh.positions[i];
                     }
-                    std::transform(g_vertex_scratch.begin(), g_vertex_scratch.end(),
-                                   mesh.positions, g_vertex_scratch.begin(),
-                                   [](const auto& offset, const auto& position) {
-                                       return offset + position;
-                                   });
                     mesh.positions = g_vertex_scratch.data();
                     mesh.control_flags |= (1UL << srMeshModel::CONTROL_SORTED_RENDERING);
 
-                    if ((render_flags & RENDER_NO_PICK) != 0 && !renderer.isPickStackEmpty()) {
-                        srGERD::Pick pick;
-                        renderer.popPick(pick);
-                        model->RenderTriMeshWithEquations(renderer, mesh, poly_normals);
-                        renderer.pushPick(pick);
-                    } else {
-                        model->RenderTriMeshWithEquations(renderer, mesh, poly_normals);
-                    }
+                    submit(*model, mesh, poly_normals);
                 }
             }
-
-            srNode* previous = child;
-            if (child != 0 && child->testFlag(FLAG_TERMINATE) != 0) {
-                break;
-            }
-            model = model->Next();
-            if (previous != 0) {
-                child = previous->first_child_;
-            }
-        }
-        if (highlight_pass_mode == 0) {
-            renderer.setWinding(srGERD::WINDING_POSITIONAL_0);
-        }
+        });
     }
-    renderer.setAmbientLight(ambient);
 }
 
 // GLOBAL: WIZ8 0x005EC8E0
