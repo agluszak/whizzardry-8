@@ -1,5 +1,4 @@
 #include <cstdint>
-#include <tuple>
 #include <fmt/format.h>
 #include <fmt/printf.h>
 #include <SDL3/SDL_filesystem.h>

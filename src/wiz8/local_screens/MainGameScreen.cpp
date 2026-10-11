@@ -1,5 +1,4 @@
 #include <SDL3/SDL_surface.h>
-#include <tuple>
 #include "wiz8/unicode.h"
 #include "himage.h"
 #include "image.h"
