@@ -1657,17 +1657,6 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Static and frame normals share area weig
 
 TEST_CASE("Region geometry preserves octant order and point versus box boundaries", "[geometry][octree]")
 {
-    struct RestoreBuildScratch {
-        void** polygons = g_poly_list;
-        W8GDSurface** surfaces = g_gd_surface_list;
-        ~RestoreBuildScratch()
-        {
-            std::free(g_poly_list);
-            std::free(g_gd_surface_list);
-            g_poly_list = polygons;
-            g_gd_surface_list = surfaces;
-        }
-    } restore;
     OctBuildPreTree tree(1, std::nullopt, 16, 0, 0);
     auto& points = tree.particle_regions.regions;
     auto& boxes = tree.prop_regions.regions;
@@ -1903,4 +1892,81 @@ TEST_CASE("Region link builders return independent packed runs and enforce disk 
     REQUIRE_THROWS_AS(props.packedLinks(3), std::length_error);
     REQUIRE_THROWS_AS(particles.packedLinks(65536), std::length_error);
     REQUIRE(particles.packedLinks(3).records == std::vector<unsigned short>{0});
+}
+
+TEST_CASE("Build surface collections own results preserve order and exceed old scratch limits", "[geometry][octree]")
+{
+    std::array<int, 3> surfaces{1, 2, 3};
+    W8OctBuildNode leaf;
+    leaf.leaf_kind = 1;
+    std::array<W8OctBuildLink, 6> links{{
+        {&surfaces[0], nullptr}, {&surfaces[0], nullptr}, {&surfaces[1], nullptr},
+        {&surfaces[0], nullptr}, {&surfaces[2], nullptr}, {&surfaces[1], nullptr}}};
+    for (unsigned i = 1; i < links.size(); ++i) links[i - 1].next = &links[i];
+    leaf.links[2] = links.data();
+    const auto collected = leaf.linkedSurfaces(2, 2, 2);
+    REQUIRE(collected == std::vector<void*>{&surfaces[0], &surfaces[1], &surfaces[2]});
+    REQUIRE(leaf.linkedSurfaces(3, 2, 2).empty());
+    REQUIRE(leaf.linkedSurfaces(2, 2, 1).empty());
+    std::array<void*, 5> stored{&surfaces[2], &surfaces[1], &surfaces[2], &surfaces[0], nullptr};
+    leaf.surface_arrays[2] = stored.data();
+    REQUIRE(leaf.storedSurfaces(2) == std::vector<void*>{&surfaces[2], &surfaces[1], &surfaces[0]});
+    REQUIRE(collected[0] == &surfaces[0]); // Subsequent collection does not overwrite a prior result.
+    leaf.surface_arrays[2] = nullptr;
+    std::vector<int> many(11000);
+    std::vector<W8OctBuildLink> many_links(many.size());
+    for (unsigned i = 0; i < many.size(); ++i)
+        many_links[i] = {&many[i], i + 1 == many.size() ? nullptr : &many_links[i + 1]};
+    leaf.links[2] = many_links.data();
+    const auto large = leaf.linkedSurfaces(0, 0, 2);
+    REQUIRE(large.size() == many.size());
+    REQUIRE(large.front() == &many.front());
+    REQUIRE(large.back() == &many.back());
+    leaf.links[2] = nullptr;
+
+    W8OctBuildNode root;
+    root.children[0] = new W8OctBuildNode;
+    root.children[7] = new W8OctBuildNode;
+    root.children[0]->leaf_kind = root.children[7]->leaf_kind = 1;
+    root.children[0]->links[2] = &links[0];
+    root.children[7]->links[2] = &links[4];
+    REQUIRE(root.linkedSurfaces(0, 1, 2) == collected);
+    root.children[0]->links[2] = root.children[7]->links[2] = nullptr;
+}
+
+TEST_CASE("Pre-tree leaf conversion packs polygon and terrain runs with independent offsets", "[geometry][octree]")
+{
+    OctPreTree tree;
+    tree.m_spatial.m_depth = 0;
+    tree.m_leaf_count = 1;
+    tree.m_leaves = static_cast<W8OctPreTreeLeaf*>(std::calloc(2, sizeof(W8OctPreTreeLeaf)));
+    tree.m_polygon_index_stream = static_cast<w8_ulong*>(std::calloc(8, sizeof(w8_ulong)));
+    tree.m_gd_surface_index_stream = static_cast<w8_ulong*>(std::calloc(8, sizeof(w8_ulong)));
+    tree.polygon_cursor = 1;
+    tree.m_gd_surface_stream_len = 2;
+    W8OctRegionPolygon polygon{};
+    polygon.ordinal = 17;
+    W8GDSurface terrain{};
+    terrain.index = 23;
+    W8OctBuildNode leaf;
+    leaf.leaf_kind = 1;
+    const auto makeRun = [](void* surface) {
+        auto** run = static_cast<void**>(std::malloc(3 * sizeof(void*)));
+        run[0] = run[1] = surface;
+        run[2] = nullptr;
+        return run;
+    };
+    leaf.surface_arrays[2] = makeRun(&polygon);
+    leaf.surface_arrays[3] = makeRun(&terrain);
+    REQUIRE(leaf.ConvertToOctPreTree(0, &tree) == 1);
+    REQUIRE(tree.m_leaves[1].polygon_offset == 1);
+    REQUIRE(tree.m_leaves[1].gd_polygon_offset == 2);
+    REQUIRE(tree.polygon_cursor == 3);
+    REQUIRE(tree.m_gd_surface_stream_len == 4);
+    REQUIRE(tree.m_polygon_index_stream[1] == 1);
+    REQUIRE(tree.m_polygon_index_stream[2] == 17);
+    REQUIRE(tree.m_gd_surface_index_stream[2] == 1);
+    REQUIRE(tree.m_gd_surface_index_stream[3] == 23);
+    REQUIRE(leaf.surface_arrays[2] == nullptr);
+    REQUIRE(leaf.surface_arrays[3] == nullptr);
 }

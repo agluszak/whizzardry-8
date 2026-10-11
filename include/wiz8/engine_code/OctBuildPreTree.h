@@ -4,6 +4,7 @@
 #include "wiz8/engine_code/mesh_links.h"
 
 #include <optional>
+#include <span>
 #include <vector>
 #include <cstddef>
 
@@ -68,10 +69,6 @@ struct W8OctRegionPolygon {
 W8_ABI_ASSERT(sizeof(W8OctRegionPolygon) == 0x74, "W8OctRegionPolygon_must_be_0x74");
 
 extern int g_build_node_instances;
-extern w8_ulong g_poly_list_count;
-/* Build scratch carries mode-2 region polygons and mode-3 GD surfaces. */
-extern void** g_poly_list;
-extern W8GDSurface** g_gd_surface_list;
 
 struct OctRegionObjectLinks {
     std::unordered_multimap<unsigned short, short> regions;
@@ -105,7 +102,7 @@ struct OctBuildPreTree : W8OctBuildTree {
     void FinalizeRegionMapping();
     void AssignRegionFromSurfaces(const W8OctSpatialState* spatial);
     void ValidatePolygonRegions();
-    void ValidateRegionBounds(const W8BoundingBox* region_bounds);
+    void ValidateRegionBounds(std::span<const srBoundingBox> region_bounds);
     /* SortGeometry: welds duplicate vertices, drops degenerate polygons,
        repacks both arrays and re-inserts every polygon with mode 2. */
     unsigned char SortGeometry(W8OctPreTreeGeometry* geometry);
