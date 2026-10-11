@@ -78,10 +78,9 @@ static bool frame_storage()
         REQUIRE(!mesh.frames[0].locations);
         REQUIRE(g_decompressed_mesh_bytes == initial_bytes); // Normal-builder scratch is not a cache.
 
-        glm::vec3 minimum, maximum;
-        mesh.GetFrameBounds(1, &minimum, &maximum);
-        REQUIRE(minimum == srVector3T<float>(2.0f, 0.0f, 0.0f));
-        REQUIRE(maximum == srVector3T<float>(3.0f, 1.0f, 0.0f));
+        auto bounds = mesh.GetFrameBounds(1);
+        REQUIRE(bounds.minimum == srVector3T<float>(2.0f, 0.0f, 0.0f));
+        REQUIRE(bounds.maximum == srVector3T<float>(3.0f, 1.0f, 0.0f));
         REQUIRE(!mesh.frames[1].locations);
         REQUIRE(g_decompressed_mesh_bytes == initial_bytes); // Bounds must not make a frame resident.
         auto* positions = mesh.GetVertexLocations(0, true, 0.0f);
@@ -105,11 +104,12 @@ static bool frame_storage()
         REQUIRE(mesh.GetVertexLocations(0, true, 1.0f) == lerp);
         REQUIRE(lerp[0] == srVector3T<float>(2.0f, 0.0f, 0.0f));
         REQUIRE(mesh.GetVertexLocations(1, true, 0.75f) == mesh.frames[1].locations->data());
-        mesh.GetFrameBounds(0, &minimum, &maximum);
-        REQUIRE(minimum == srVector3T<float>(0.0f, 0.0f, 0.0f));
-        REQUIRE(maximum == srVector3T<float>(1.0f, 1.0f, 0.0f));
-        mesh.GetFrameBounds(-1, &minimum, &maximum);
-        REQUIRE((minimum == srVector3T<float>(0.0f, 0.0f, 0.0f) && minimum == maximum));
+        bounds = mesh.GetFrameBounds(0);
+        REQUIRE(bounds.minimum == srVector3T<float>(0.0f, 0.0f, 0.0f));
+        REQUIRE(bounds.maximum == srVector3T<float>(1.0f, 1.0f, 0.0f));
+        bounds = mesh.GetFrameBounds(-1);
+        REQUIRE((bounds.minimum == srVector3T<float>(0.0f, 0.0f, 0.0f) &&
+                 bounds.minimum == bounds.maximum));
         const int cache_bytes = (3 + 3 + 3 + 1) * sizeof(srVector3T<float>);
         REQUIRE(g_decompressed_mesh_bytes == initial_bytes + cache_bytes);
         REQUIRE(mesh.ReleaseDecompressedFrames() == cache_bytes);
