@@ -302,6 +302,7 @@ unsigned int ControlRegionSetIndex(void);
 std::size_t LiveDynamicRegionCount(void);
 void CaptureInputSink(void);
 void ReleaseInputSinkCapture(void);
+bool InputSinkCaptured(void);
 void UnbindWidgetRegion(unsigned int region_index, W8Widget* widget, OwnedRegion* owner);
 std::int32_t RegionReasonForInput(const W8Region& region, const InputEvent& input);
 void EnableRegionHelp(unsigned int region_index);

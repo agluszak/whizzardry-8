@@ -567,7 +567,7 @@ class W8PartySelectionController final : public W8TextControl::Listener,
                                    public W8PartySelectionListSelectionListener,
                                    public W8PartySelectionDecisionListener {
 public:
-    W8PartySelectionController() : m_character(0), m_input_handler(0), m_dialog(0) {}
+    W8PartySelectionController() : m_character(0), m_input_handler(0) {}
     ~W8PartySelectionController();
 
     virtual void OnPrimary(W8TextControl* control) override;
@@ -611,7 +611,7 @@ public:
     W8PartySelectionListControl* m_list;
     W8TextBuffer* m_text_buffer;
     W8PartySelectionInputHandler* m_input_handler;
-    W8MessageDialogBase* m_dialog;
+    std::unique_ptr<W8MessageDialogBase> m_dialog;
     W8PartyConfirmationAction m_confirmation_action;
 };
 W8_ABI_ASSERT(sizeof(W8PartySelectionController) == 0x70, "W8PartySelectionController_size");
@@ -1798,10 +1798,7 @@ void W8PartySelectionController::OpenNotification(std::string_view message, bool
                                                   W8PartyConfirmationAction action)
 {
     m_confirmation_action = action;
-    m_dialog = new W8MessageDialogBase;
-    if (!m_dialog) {
-        return;
-    }
+    m_dialog = std::make_unique<W8MessageDialogBase>();
     m_dialog->SetOrigin(0xf0, 0xbe);
     m_dialog->SetExtent(0xa0, 100);
     m_dialog->SetBackground("Data\\Dialogs\\DialogBackground.sti", 0);
@@ -2061,8 +2058,7 @@ void PartySelectionScreenFrame(void)
         controller->m_dialog->ProcessInput();
         if (!controller->m_dialog->is_open) {
             bool result = controller->m_dialog->accepted;
-            delete controller->m_dialog;
-            controller->m_dialog = 0;
+            controller->m_dialog.reset();
             ReleaseInputSinkCapture();
             controller->InvalidatePartySelectionComposition();
             controller->ApplyPartySelectionConfirmation(controller->m_confirmation_action, result);

@@ -32,6 +32,7 @@ static unsigned int g_effect_icon_help_duration;
 unsigned int g_spell_icon_count;
 /* Child spell-icon text controls under g_spell_icon_strip. */
 // GLOBAL: WIZ8 0x0069C264
+static constexpr unsigned int kPartyEffectIconCount = 9;
 static W8TextControl* g_spell_icon_rows[12];
 /* Right-side combat-effect icon rows under g_combat_effect_right_panel. */
 // GLOBAL: WIZ8 0x0069C294
@@ -96,8 +97,14 @@ static void ClearSpellIconHudRows()
 {
     unsigned int index;
     DestroyEffectIconRows(g_spell_icon_strip, g_spell_icon_rows, g_spell_icon_count);
-    for (index = 0; index < 0xc; ++index) {
-        DisableRegionInput(g_main_effect_regions->index(8 - index));
+    /* Retail swept twelve catalog slots downward from the last party icon,
+       running three past the strip into the neighbouring set. The screen now
+       owns exactly the nine party-icon regions, and the sweep must skip the
+       leave path that has already destroyed them. */
+    if (g_main_effect_regions) {
+        for (index = 0; index < kPartyEffectIconCount; ++index) {
+            DisableRegionInput(g_main_effect_regions->index(kPartyEffectIconCount - 1 - index));
+        }
     }
     g_spell_icon_count = 0;
 }
@@ -262,15 +269,19 @@ void DestroyCombatEffectHudRows(void)
 
     DestroyEffectIconRows(g_combat_effect_left_panel, g_combat_effect_left_rows,
                           g_combat_effect_left_count);
-    for (index = 0; index < 9; ++index) {
-        DisableRegionInput(g_main_effect_regions->index(9 + index));
+    if (g_main_effect_regions) {
+        for (index = 0; index < 9; ++index) {
+            DisableRegionInput(g_main_effect_regions->index(9 + index));
+        }
     }
     g_combat_effect_left_count = 0;
 
     DestroyEffectIconRows(g_combat_effect_right_panel, g_combat_effect_right_rows,
                           g_combat_effect_right_count);
-    for (index = 0; index < 6; ++index) {
-        DisableRegionInput(g_main_effect_regions->index(23 - index));
+    if (g_main_effect_regions) {
+        for (index = 0; index < 6; ++index) {
+            DisableRegionInput(g_main_effect_regions->index(23 - index));
+        }
     }
     g_combat_effect_right_count = 0;
 }

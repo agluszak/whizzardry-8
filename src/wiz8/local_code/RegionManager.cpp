@@ -70,6 +70,12 @@ void CaptureInputSink()
     ActivateDialogRegion(region->index(0));
 }
 
+bool InputSinkCaptured()
+{
+    auto& region = InputSinkRegion();
+    return region && g_captured_region_index == region->index(0);
+}
+
 void ReleaseInputSinkCapture()
 {
     auto& region = InputSinkRegion();

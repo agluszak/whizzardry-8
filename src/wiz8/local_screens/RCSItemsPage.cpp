@@ -1281,10 +1281,10 @@ int CreateCampActionPanel(void)
         return 0;
     }
     g_camp_action_buttons[0] =
-        new W8TextControl(g_camp_action_panel, g_camp_item_pool_regions->index(7), 5, 0, 0x21, 0x18,
+        new W8TextControl(g_camp_action_panel, g_camp_item_pool_regions->index(15), 5, 0, 0x21, 0x18,
                           CatalogArtwork::Load(0x11e, 0), 0, 2, 1, 2, 3);
     g_camp_action_buttons[1] = new W8TextControl(
-        g_camp_action_panel, g_camp_item_pool_regions->index(8), 0x26, 0, 0x42, 0x18,
+        g_camp_action_panel, g_camp_item_pool_regions->index(16), 0x26, 0, 0x42, 0x18,
         CatalogArtwork::Load(0x11e, 0), 8, 4, 9, 5, 0xb);
     index = 0;
     while (g_camp_action_buttons[index] != 0) {
@@ -1361,28 +1361,28 @@ int CreateItemsTabPanel(void)
         return 0;
     }
     g_camp_item_filter_buttons[0] = new W8TextControl(
-        g_camp_item_filter_panel, g_camp_item_pool_regions->index(0), 0, 0, 0x18, 0x18,
+        g_camp_item_filter_panel, g_camp_item_pool_regions->index(8), 0, 0, 0x18, 0x18,
         CatalogArtwork::Load(0x11f, 0), 0, 2, 1, 4, 3);
     g_camp_item_filter_buttons[1] =
-        new W8TextControl(g_camp_item_filter_panel, g_camp_item_pool_regions->index(1), 0, 0x19,
+        new W8TextControl(g_camp_item_filter_panel, g_camp_item_pool_regions->index(9), 0, 0x19,
                           0x18, 0x31, CatalogArtwork::Load(0x11f, 0), 0xf, 0x11, 0x10, 0x13,
                           0x12);
     g_camp_item_filter_buttons[2] =
-        new W8TextControl(g_camp_item_filter_panel, g_camp_item_pool_regions->index(2), 0, 0x4b,
+        new W8TextControl(g_camp_item_filter_panel, g_camp_item_pool_regions->index(10), 0, 0x4b,
                           0x18, 0x63, CatalogArtwork::Load(0x11f, 0), 0x14, 0x16, 0x15, 0x18,
                           0x17);
     g_camp_item_filter_buttons[3] = new W8TextControl(
-        g_camp_item_filter_panel, g_camp_item_pool_regions->index(3), 0, 0x32, 0x18, 0x4a,
+        g_camp_item_filter_panel, g_camp_item_pool_regions->index(11), 0, 0x32, 0x18, 0x4a,
         CatalogArtwork::Load(0x11f, 0), 5, 7, 6, 9, 8);
     g_camp_item_filter_buttons[4] = new W8TextControl(
-        g_camp_item_filter_panel, g_camp_item_pool_regions->index(4), 0, 0x6c, 0x18, 0x84,
+        g_camp_item_filter_panel, g_camp_item_pool_regions->index(12), 0, 0x6c, 0x18, 0x84,
         CatalogArtwork::Load(0x11f, 0), 10, 0xc, 0xb, 0xe, 0xd);
     g_camp_item_filter_buttons[5] =
-        new W8TextControl(g_camp_item_filter_panel, g_camp_item_pool_regions->index(5), 0, 0x8e,
+        new W8TextControl(g_camp_item_filter_panel, g_camp_item_pool_regions->index(13), 0, 0x8e,
                           0x18, 0xa6, CatalogArtwork::Load(0x11f, 0), 0x28, 0x2a, 0x29, 0x2c,
                           0x2b);
     g_camp_item_filter_buttons[6] =
-        new W8TextControl(g_camp_item_filter_panel, g_camp_item_pool_regions->index(6), 0, 0xb0,
+        new W8TextControl(g_camp_item_filter_panel, g_camp_item_pool_regions->index(14), 0, 0xb0,
                           0x18, 0xc8, CatalogArtwork::Load(0x11f, 0), 0x1e, 0x20, 0x1f, 0x22,
                           0x21);
     index = 0;

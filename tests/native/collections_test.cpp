@@ -468,12 +468,16 @@ TEST_CASE("collections_test")
 
 TEST_CASE("region_storage_grows_without_aliasing_sets")
 {
-    struct RestoreCatalog {
-        size_t regions = g_regions.size(), sets = g_region_sets.size();
-        ~RestoreCatalog() { g_regions.resize(regions); g_region_sets.resize(sets); }
-    } restore;
-    const auto first = CreateRegionSet();
-    const auto second = CreateRegionSet();
+    std::vector<unsigned int> created_sets;
+    struct ReleaseSets {
+        std::vector<unsigned int>& sets;
+        ~ReleaseSets()
+        {
+            for (auto it = sets.rbegin(); it != sets.rend(); ++it) DestroyRegionSet(*it);
+        }
+    } release{created_sets};
+    const auto first = created_sets.emplace_back(CreateRegionSet());
+    const auto second = created_sets.emplace_back(CreateRegionSet());
     const auto a = AddRegionToSet(first);
     const auto b = AddRegionToSet(second);
     const auto c = AddRegionToSet(first);
@@ -496,7 +500,7 @@ TEST_CASE("region_storage_grows_without_aliasing_sets")
     auto* region = &g_regions[a];
     auto* set = &g_region_sets[first];
     for (int i = 0; i < 1600; ++i) AddRegionToSet(first);
-    for (int i = 0; i < 320; ++i) CreateRegionSet();
+    for (int i = 0; i < 320; ++i) created_sets.push_back(CreateRegionSet());
     REQUIRE(&g_regions[a] == region);
     REQUIRE(&g_region_sets[first] == set);
     REQUIRE(g_regions.size() > 1500);
