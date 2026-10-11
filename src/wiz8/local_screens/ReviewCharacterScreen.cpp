@@ -281,7 +281,7 @@ void DrawCampSpellPages(void)
     unsigned int visible;
     unsigned short* palette;
 
-    SetFont(*g_wiz_text_font_secondary);
+    SetFont(g_wiz_text_font_secondary);
     if ((g_camp_screen->redraw_flags & W8_CAMP_REDRAW_RESISTANCES) != 0 &&
         !gXStatus.fSpellCastMode) {
         DrawCampResistances();
@@ -299,22 +299,19 @@ void DrawCampSpellPages(void)
         if (character->skill_unlocks[0x1c + realm] != 0) {
             DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x140, 0, 3, left, top,
                                           VO_BLT_SRCTRANSPARENCY, 0);
-            SetFontObjectPalette16BPP(*g_wiz_text_font_secondary,
+            SetFontObjectPalette16BPP(g_wiz_text_font_secondary,
                                       g_font_state_palettes[W8_FONT_PALETTE_GREEN].get());
             DrawFontText(left + 0x1b, top + 8, fmt::format("{}:", g_localized_strings[0x8c7]));
             DrawFontText(left + 0x72, top + 8, g_localized_strings[0x8c9]);
-            SetFontObjectPalette16BPP(*g_wiz_text_font_secondary, GetFontObject(*g_wiz_text_font_secondary).ownedPalette.get());
-            width = StringPixLength(fmt::format("{}: ", g_localized_strings[0x8c7]),
-                                    *g_wiz_text_font_secondary);
+            SetFontObjectPalette16BPP(g_wiz_text_font_secondary, g_wiz_text_font_secondary.glyphs.ownedPalette.get());
+            width = g_wiz_text_font_secondary.textWidth(fmt::format("{}: ", g_localized_strings[0x8c7]));
             DrawFontText(
                 left + 0x1b + width, top + 8,
                 fmt::format("{:3d}", character->skills[W8_SKILL_FIRE_MAGIC + realm].level));
-            width = StringCodepointPrefixPixelWidth(
-                *g_wiz_text_font_secondary, 7,
-                fmt::format(
+            width = g_wiz_text_font_secondary.codepointPrefixWidth(fmt::format(
                     "{:d}/{:d}",
                     GetCharacterRealmSpellPoints(character, static_cast<W8SpellRealm>(realm)),
-                    character->sp_max[realm]));
+                    character->sp_max[realm]), 7);
             DrawFontText(left + 0xc8 - width, top + 8,
                          fmt::format("{:d}/{:d}",
                                      GetCharacterRealmSpellPoints(character,
@@ -336,20 +333,18 @@ void DrawCampSpellPages(void)
                 } else if (g_spell_records[spell_id].spell_point_cost <=
                                character->iSPLeft[realm] &&
                            SpellUsableNow(spell_id, false)) {
-                    palette = GetFontObject(*g_wiz_text_font_secondary).ownedPalette.get();
+                    palette = g_wiz_text_font_secondary.glyphs.ownedPalette.get();
                 } else {
                     palette = g_font_state_palettes[W8_FONT_PALETTE_RED].get();
                 }
-                SetFontObjectPalette16BPP(*g_wiz_text_font_secondary, palette);
-                width = StringCodepointPrefixPixelWidth(
-                    *g_wiz_text_font_secondary, 3,
-                    fmt::format("{:03d}", g_spell_records[spell_id].spell_point_cost));
+                SetFontObjectPalette16BPP(g_wiz_text_font_secondary, palette);
+                width = g_wiz_text_font_secondary.codepointPrefixWidth(fmt::format("{:03d}", g_spell_records[spell_id].spell_point_cost), 3);
                 DrawFontText(left + 0x1c, row_top, g_spell_records[spell_id].display_name);
                 DrawFontText(left + 0xb1 - width, row_top,
                              fmt::format("{:3d}", g_spell_records[spell_id].spell_point_cost));
                 row_top += 0xd;
             }
-            SetFontObjectPalette16BPP(*g_wiz_text_font_secondary, GetFontObject(*g_wiz_text_font_secondary).ownedPalette.get());
+            SetFontObjectPalette16BPP(g_wiz_text_font_secondary, g_wiz_text_font_secondary.glyphs.ownedPalette.get());
         }
         state = g_camp_screen;
         state->spell_ranges[realm]->UpdateRange(true);
@@ -391,7 +386,7 @@ void DrawCampResistances(void)
 
     DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x140, 0, 0, 0x136, 0, VO_BLT_SRCTRANSPARENCY, 0);
     text = g_localized_strings[0x8ca];
-    width = StringCodepointPrefixPixelWidth(*g_wiz_text_font_secondary, text.size(), text);
+    width = g_wiz_text_font_secondary.codepointPrefixWidth(text, text.size());
     DrawFontText((0x134 - width) / 2 + 0x144, 0x1e, text);
     for (index = 0; index < 6; ++index) {
         animation = &g_spell_realm_animations[index];
@@ -401,8 +396,7 @@ void DrawCampResistances(void)
                          VO_BLT_SRCTRANSPARENCY, 0);
         DrawCampValueBar(character->resistances[index].total, character->resistances[index].base,
                          left + 0x18, top + 4);
-        width = StringCodepointPrefixPixelWidth(
-            *g_wiz_text_font_secondary, 5, fmt::format("{:d}", character->resistances[index].total));
+        width = g_wiz_text_font_secondary.codepointPrefixWidth(fmt::format("{:d}", character->resistances[index].total), 5);
         DrawFontText(left + 0x93 - width, top + 3,
                      fmt::format("{:d}", character->resistances[index].total));
     }
@@ -503,8 +497,8 @@ void OpenSpellInfoDialog(unsigned int spell_id)
 // FUNCTION: WIZ8 0x005b7d10
 void RedrawCampItemsPage(void)
 {
-    SetFont(*g_wiz_text_font_secondary);
-    SetObjectShade(GetFontObject(*g_wiz_text_font_secondary), 4);
+    SetFont(g_wiz_text_font_secondary);
+    SetObjectShade(g_wiz_text_font_secondary.glyphs, 4);
     if ((g_camp_screen->redraw_flags & W8_CAMP_REDRAW_CHARACTER_INFO) != 0) {
         DrawCampCharacterInfo();
     }
@@ -597,7 +591,7 @@ void DrawCampCharacterInfo(void)
                 g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
     if (character->load_category != 0) {
         SetFontObjectPalette16BPP(
-            *g_wiz_text_font_secondary,
+            g_wiz_text_font_secondary,
             g_font_state_palettes[g_load_category_palettes[character->load_category]].get());
     }
     state->text_buffer = fmt::format("{:d}/{:d}", character->total_carried_weight / 10,
@@ -608,7 +602,7 @@ void DrawCampCharacterInfo(void)
                                      character->inventory_weight / 10, g_localized_strings[0x8c1],
                                      character->party_weight_share / 10);
     g_camp_help_text->SetRegionHelp(state->text_buffer);
-    SetFontObjectPalette16BPP(*g_wiz_text_font_secondary, GetFontObject(*g_wiz_text_font_secondary).ownedPalette.get());
+    SetFontObjectPalette16BPP(g_wiz_text_font_secondary, g_wiz_text_font_secondary.glyphs.ownedPalette.get());
     DrawRcsText(g_localized_strings[0x921], 0x144, 0x72, 0x75,
                 g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
     top = 0x3a;
@@ -926,27 +920,27 @@ void DrawCampItemQuantity(W8ItemInstance* item, int left, int top, int width)
         break;
     case W8_ITEM_QUANTITY_CHARGES:
     case W8_ITEM_QUANTITY_USES:
-        SetFontObjectPalette16BPP(*g_wiz_text_font_secondary,
+        SetFontObjectPalette16BPP(g_wiz_text_font_secondary,
                                   g_font_state_palettes[W8_FONT_PALETTE_BLUE].get());
         if (!item->identified) {
             state->text_buffer = "?";
         } else {
             state->text_buffer = fmt::format("{:d}", item->uses_or_charges);
         }
-        height = GetFontHeight(*g_wiz_text_font_secondary);
+        height = g_wiz_text_font_secondary.height();
         DrawRcsTextJustified(state->text_buffer, left, top, width, height,
                              g_W8TextBufferAlignMiddle | g_W8TextBufferAlignRight);
         break;
     case W8_ITEM_QUANTITY_SHOTS:
-        SetFontObjectPalette16BPP(*g_wiz_text_font_secondary,
+        SetFontObjectPalette16BPP(g_wiz_text_font_secondary,
                                   g_font_state_palettes[W8_FONT_PALETTE_YELLOW].get());
         state->text_buffer = fmt::format("{:d}", item->uses_or_charges);
-        height = GetFontHeight(*g_wiz_text_font_secondary);
+        height = g_wiz_text_font_secondary.height();
         DrawRcsTextJustified(state->text_buffer, left, top, width, height,
                              g_W8TextBufferAlignMiddle | g_W8TextBufferAlignRight);
         break;
     }
-    SetFontObjectPalette16BPP(*g_wiz_text_font_secondary, GetFontObject(*g_wiz_text_font_secondary).ownedPalette.get());
+    SetFontObjectPalette16BPP(g_wiz_text_font_secondary, g_wiz_text_font_secondary.glyphs.ownedPalette.get());
 }
 
 // FUNCTION: WIZ8 0x005b3150
@@ -1471,10 +1465,10 @@ void CampScreenFrame(void)
 unsigned char CampScreenLeave(int)
 {
     DeactivateCampPage();
-    SetFontObjectPalette16BPP(*g_smfnt_font, GetFontObject(*g_smfnt_font).ownedPalette.get());
-    SetFontObjectPalette16BPP(*g_calligraphy_font, GetFontObject(*g_calligraphy_font).ownedPalette.get());
-    SetFontObjectPalette16BPP(*g_calligraphy_shadow_font, GetFontObject(*g_calligraphy_shadow_font).ownedPalette.get());
-    SetFontObjectPalette16BPP(*g_wiz_text_font, GetFontObject(*g_wiz_text_font).ownedPalette.get());
+    SetFontObjectPalette16BPP(g_smfnt_font, g_smfnt_font.glyphs.ownedPalette.get());
+    SetFontObjectPalette16BPP(g_calligraphy_font, g_calligraphy_font.glyphs.ownedPalette.get());
+    SetFontObjectPalette16BPP(g_calligraphy_shadow_font, g_calligraphy_shadow_font.glyphs.ownedPalette.get());
+    SetFontObjectPalette16BPP(g_wiz_text_font, g_wiz_text_font.glyphs.ownedPalette.get());
     DestroyCampButtonPanel();
     ReleaseCampActionPanel();
     ReleaseItemsTabPanel();
@@ -1569,8 +1563,8 @@ void DrawCampScreen(void)
             break;
         }
         RefreshCampItemActions((state->redraw_flags & W8_CAMP_REDRAW_ITEM_ACTIONS) != 0);
-        SetFont(*g_calligraphy_font);
-        SetObjectShade(GetFontObject(*g_calligraphy_font), 4);
+        SetFont(g_calligraphy_font);
+        SetObjectShade(g_calligraphy_font.glyphs, 4);
         state->item_redraw_flags = 0;
         state->redraw_flags = 0;
         if (IsMessageBoxActive()) {
@@ -1752,19 +1746,19 @@ void DrawCampRegenStats(void)
 {
     unsigned int index;
 
-    SetFont(*g_calligraphy_font);
-    SetObjectShade(GetFontObject(*g_calligraphy_font), 4);
-    SetObjectShade(GetFontObject(*g_calligraphy_font), 0);
+    SetFont(g_calligraphy_font);
+    SetObjectShade(g_calligraphy_font.glyphs, 4);
+    SetObjectShade(g_calligraphy_font.glyphs, 0);
     DrawFontTextDirty(0x14a, 5, g_localized_strings[0x8ce]);
-    SetObjectShade(GetFontObject(*g_calligraphy_font), 4);
+    SetObjectShade(g_calligraphy_font.glyphs, 4);
     DrawFontTextDirty(0x221, 5, fmt::format("{:6.3f}", g_review_character->health_regen_rate));
-    SetObjectShade(GetFontObject(*g_calligraphy_font), 0);
+    SetObjectShade(g_calligraphy_font.glyphs, 0);
     DrawFontTextDirty(0x14a, 0x14, g_localized_strings[0x8cd]);
-    SetObjectShade(GetFontObject(*g_calligraphy_font), 4);
+    SetObjectShade(g_calligraphy_font.glyphs, 4);
     DrawFontTextDirty(0x221, 0x14, fmt::format("{:6.3f}", g_review_character->stamina_regen_rate));
-    SetObjectShade(GetFontObject(*g_calligraphy_font), 0);
+    SetObjectShade(g_calligraphy_font.glyphs, 0);
     DrawFontTextDirty(0x14a, 0x23, g_localized_strings[0x8d0]);
-    SetObjectShade(GetFontObject(*g_calligraphy_font), 4);
+    SetObjectShade(g_calligraphy_font.glyphs, 4);
     for (index = 0; index < 6; ++index) {
         DrawFontTextDirty(
             index * 0x14 + 0x1fe, 0x23,
@@ -2723,8 +2717,8 @@ void DrawPartyDeathScreen(void)
     } else {
         text = g_localized_strings[0x778];
     }
-    SetFont(*g_level_load_font);
-    DrawFontText(0x276 - StringPixLength(text, *g_level_load_font), 0x1c7, text);
+    SetFont(g_level_load_font);
+    DrawFontText(0x276 - g_level_load_font.textWidth(text), 0x1c7, text);
     SetRadarMapVisible(false);
     SetFormationBoardVisible(false);
     VideoRemoveToolTip();
@@ -2809,7 +2803,7 @@ void ShowEndingScreen(void)
     bounds.right = 0x239;
     bounds.bottom = 0x1d0;
     {
-        W8TextBuffer buffer(&bounds, text, *g_options_detail_font, g_W8TextBufferAlignBottom, 4);
+        W8TextBuffer buffer(&bounds, text, g_options_detail_font, g_W8TextBufferAlignBottom, 4);
         buffer.RenderToTarget(0, false, GetFrameBufferSurface());
     }
     SetRadarMapVisible(false);

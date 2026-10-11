@@ -984,15 +984,15 @@ void DrawSubMenuCharacterAction(void)
     if (slot > 7) {
         return;
     }
-    SetFont(*g_smfnt_font);
+    SetFont(g_smfnt_font);
     row = &g_status.buffers.XChar[slot];
-    SetFontObjectPalette16BPP(*g_smfnt_font, g_font_state_palettes[row->party_order_index].get());
+    SetFontObjectPalette16BPP(g_smfnt_font, g_font_state_palettes[row->party_order_index].get());
     DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x7e, 0, 6, 0x157, 0x1c2, VO_BLT_SRCTRANSPARENCY,
                                   0);
     character = &g_status.buffers.Char[slot];
     text = fmt::format("{} - {}", character->name,
                        g_localized_strings[g_profession_name_message_ids[character->iProfession]]);
-    DrawFontTextDirty((0xb9 - StringPixLength(text, *g_smfnt_font)) / 2 + 0x157, 0x1c6, text);
+    DrawFontTextDirty((0xb9 - g_smfnt_font.textWidth(text)) / 2 + 0x157, 0x1c6, text);
     if (!gXStatus.fCombatMode) {
         if (character->highest_condition == W8_CONDITION_NONE) {
             return;
@@ -1037,9 +1037,9 @@ void DrawSubMenuCharacterAction(void)
                 if (!character->Hand[0].in_play) {
                     text += second;
                 } else {
-                    width = StringPixLength(text, *g_smfnt_font);
-                    separator = StringPixLength("/)", *g_smfnt_font);
-                    trailing = StringPixLength(second, *g_smfnt_font);
+                    width = g_smfnt_font.textWidth(text);
+                    separator = g_smfnt_font.textWidth("/)");
+                    trailing = g_smfnt_font.textWidth(second);
                     if (static_cast<unsigned int>(trailing + width + separator) < 0xb9) {
                         text += "/";
                         text += second;
@@ -1070,7 +1070,7 @@ void DrawSubMenuCharacterAction(void)
             break;
         }
     }
-    DrawFontTextDirty((0xb9 - StringPixLength(text, *g_smfnt_font)) / 2 + 0x157, 0x1d1, text);
+    DrawFontTextDirty((0xb9 - g_smfnt_font.textWidth(text)) / 2 + 0x157, 0x1d1, text);
 }
 
 /* Enable the fight/review panel buttons from combat engagement and mode

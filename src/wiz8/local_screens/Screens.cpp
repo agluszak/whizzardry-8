@@ -414,8 +414,8 @@ void InitializeMainGameLevelBlock(void)
         g_level_block->selected_text_lines[slot_index] = -1;
     }
     g_level_block->unknown_2e4[0] = 0;
-    g_level_block->text_box_font = &*g_wiz_text_font_secondary;
-    g_level_block->palette = GetFontObject(*g_wiz_text_font_secondary).ownedPalette.get();
+    g_level_block->text_box_font = &g_wiz_text_font_secondary;
+    g_level_block->palette = g_wiz_text_font_secondary.glyphs.ownedPalette.get();
     g_level_block->selection_kind = W8_ACTION_NONE;
     g_level_block->pending_action = -1;
     g_level_block->selection_settled = false;

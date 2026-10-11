@@ -1,4 +1,3 @@
-#include <memory>
 #include <fmt/format.h>
 #include <SDL3/SDL_filesystem.h>
 #include <string>
@@ -54,7 +53,7 @@ struct W8LevelLoadDescriptor {
 };
 
 // GLOBAL: WIZ8 0x0069B7C0
-std::unique_ptr<Font> g_level_load_font;
+Font g_level_load_font;
 // GLOBAL: WIZ8 0x0069B7C4
 static int g_swap_disc_dialog_poll_count;
 // GLOBAL: WIZ8 0x0069B7C8
@@ -89,9 +88,7 @@ unsigned char PleaseWaitScreenInitialize(void)
     if ([&]() { const auto status = wiz8::file_status("CD.ROM"); return status && !status->archived && status->info.type == SDL_PATHTYPE_FILE; }()) {
         g_cd_marker_present = true;
     }
-    g_level_load_font =
-        LoadFontFile("Data\\Level Load\\levelload_font.sti");
-    return bool(g_level_load_font);
+    return g_level_load_font.load("Data\\Level Load\\levelload_font.sti");
 }
 
 /* The entry handler. It builds the descriptor once and fills the tail from the
@@ -187,7 +184,7 @@ static void DrawPleaseWaitScreen()
                        : 0xe4;
     DrawCatalogImage(GetFrameBufferSurface(), backdrop, 0, 0, 0, 0, VO_BLT_SRCTRANSPARENCY, 0);
     DrawCatalogImage(GetFrameBufferSurface(), 0x1de, 0, 0, 0, 0x1be, VO_BLT_SRCTRANSPARENCY, 0);
-    SetFont(*g_level_load_font);
+    SetFont(g_level_load_font);
     DrawFontText(0x6a, 0x1c7, g_load_descriptor->caption);
     DrawCatalogImage(GetFrameBufferSurface(), 0x1dd, 0, g_load_descriptor->caption_y, 0, 0x185,
                      VO_BLT_SRCTRANSPARENCY, 0);

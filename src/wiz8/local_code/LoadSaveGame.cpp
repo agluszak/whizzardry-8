@@ -207,7 +207,7 @@ try
     }
     if (report_failure) {
         CreateMessageBox(fmt::sprintf(g_localized_strings[W8_NOTICE_CHARACTER_LOAD_FAILED], name),
-                         *g_small_font, 1, true, false, 0);
+                         g_small_font, 1, true, false, 0);
     }
     return false;
 }
@@ -1561,7 +1561,7 @@ try
     if (report_failure) {
         CreateMessageBox(
             fmt::sprintf(g_localized_strings[W8_NOTICE_CHARACTER_SAVE_FAILED], character->name),
-            *g_small_font, 1, true, false, continuation);
+            g_small_font, 1, true, false, continuation);
         return false;
     }
     if (continuation != 0) {

@@ -7,27 +7,27 @@ void ReleaseMenuFonts();
 #include "Types.h"
 
 /* Game-specific bitmap font roles and owned notice palettes. */
-extern std::unique_ptr<Font> ghTinyMonoFont;
-extern std::unique_ptr<Font> g_calligraphy_shadow_font;
-extern std::unique_ptr<Font> g_calligraphy_font;
-extern std::unique_ptr<Font> g_engraved_font;
-extern std::unique_ptr<Font> g_monster_damage_font;
-extern std::unique_ptr<Font> g_options_detail_font;
-extern std::unique_ptr<Font> g_wiz_text_mono_font;
-extern std::unique_ptr<Font> g_wiz_text_font;
-extern std::unique_ptr<Font> g_embossed_font;
-extern std::unique_ptr<Font> g_font12point1;
-extern std::unique_ptr<Font> g_wiz_dialog_font;
-extern std::unique_ptr<Font> g_profession_font;
-extern std::unique_ptr<Font> g_wiz_text_font_secondary;
-extern std::unique_ptr<Font> g_wiz_text_bold_font;
-extern std::unique_ptr<Font> g_font10arial;
-extern std::unique_ptr<Font> g_small_font_secondary;
-extern std::unique_ptr<Font> g_button_font;
-extern std::unique_ptr<Font> g_large_font;
-extern std::unique_ptr<Font> g_small_font;
-extern std::unique_ptr<Font> g_options_title_font;
-extern std::unique_ptr<Font> g_smfnt_font;
+extern Font ghTinyMonoFont;
+extern Font g_calligraphy_shadow_font;
+extern Font g_calligraphy_font;
+extern Font g_engraved_font;
+extern Font g_monster_damage_font;
+extern Font g_options_detail_font;
+extern Font g_wiz_text_mono_font;
+extern Font g_wiz_text_font;
+extern Font g_embossed_font;
+extern Font g_font12point1;
+extern Font g_wiz_dialog_font;
+extern Font g_profession_font;
+extern Font g_wiz_text_font_secondary;
+extern Font g_wiz_text_bold_font;
+extern Font g_font10arial;
+extern Font g_small_font_secondary;
+extern Font g_button_font;
+extern Font g_large_font;
+extern Font g_small_font;
+extern Font g_options_title_font;
+extern Font g_smfnt_font;
 /* Frames of the notice palette catalog (Data\Fonts\Palette*.sti). */
 enum W8FontPaletteIndex {
     W8_FONT_PALETTE_RED = 0,

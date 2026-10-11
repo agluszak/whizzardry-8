@@ -56,10 +56,10 @@ void W8MessageDialogBase::Draw()
     W8DialogBase::Draw();
     DrawButton(m_message_button);
     if (!m_show_confirm && !allow_cancel) {
-        y = m_y + m_height / 2 - (GetFontHeight(*g_dialog_interface_font) * m_line_count >> 1);
+        y = m_y + m_height / 2 - (g_dialog_interface_font->height() * m_line_count >> 1);
     } else {
         y = m_y + (m_height - 0x21) / 2 -
-            (GetFontHeight(*g_dialog_interface_font) * m_line_count >> 1);
+            (g_dialog_interface_font->height() * m_line_count >> 1);
     }
     if (!m_lines.empty()) {
         SaveFontSettings();
@@ -68,9 +68,9 @@ void W8MessageDialogBase::Draw()
         SetFontBackground(g_dialog_font_background);
         for (index = 0; index < m_line_count; ++index) {
             const auto& line = m_lines[index];
-            short width = StringPixLength(line, *g_dialog_interface_font);
+            short width = g_dialog_interface_font->textWidth(line);
             DrawFontText(m_x + (m_width - width) / 2, y, line);
-            y += GetFontHeight(*g_dialog_interface_font);
+            y += g_dialog_interface_font->height();
         }
         RestoreFontSettings();
     }
@@ -113,7 +113,7 @@ void W8MessageDialogBase::SetMessage(std::string_view message, int line_count,
         int height;
 
         for (index = 0; index < m_line_count; ++index) {
-            short line_width = StringPixLength(m_lines[index], *g_dialog_interface_font);
+            short line_width = g_dialog_interface_font->textWidth(m_lines[index]);
             if (width < line_width) {
                 width = line_width;
             }
@@ -122,13 +122,13 @@ void W8MessageDialogBase::SetMessage(std::string_view message, int line_count,
         if (width < 0xaa) {
             width = 0xaa;
         }
-        GetFontHeight(*g_dialog_interface_font);
-        height = GetFontHeight(*g_dialog_interface_font) * m_line_count + 0x1e;
+        g_dialog_interface_font->height();
+        height = g_dialog_interface_font->height() * m_line_count + 0x1e;
         if (m_show_confirm || allow_cancel) {
-            height = GetFontHeight(*g_dialog_interface_font) * m_line_count + 0x3f;
+            height = g_dialog_interface_font->height() * m_line_count + 0x3f;
         }
-        if (height < GetFontHeight(*g_dialog_interface_font) * 7) {
-            height = GetFontHeight(*g_dialog_interface_font) * 7;
+        if (height < g_dialog_interface_font->height() * 7) {
+            height = g_dialog_interface_font->height() * 7;
         }
         if (maximum_width && maximum_width < width) {
             width = maximum_width;
@@ -156,7 +156,7 @@ unsigned int W8MessageDialogBase::WrapMessage(std::string_view message)
         const auto stop = end == std::string_view::npos ? message.size() : end;
         const auto word = message.substr(start, stop - start);
         auto candidate = line.empty() ? std::string(word) : fmt::format("{} {}", line, word);
-        if (!line.empty() && StringPixLength(candidate, *g_dialog_interface_font) > maximum_width) {
+        if (!line.empty() && g_dialog_interface_font->textWidth(candidate) > maximum_width) {
             m_lines.push_back(std::move(line));
             line.assign(word);
         } else line = std::move(candidate);

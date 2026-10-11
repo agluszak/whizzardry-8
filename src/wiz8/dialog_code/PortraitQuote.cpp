@@ -106,11 +106,11 @@ static int DrawWrappedTextLine(std::string_view text, int x, int top, int width,
         draw_y = static_cast<short>(top);
     } else if (flags & WRAPPED_TEXT_CENTER) {
         FindFontCenterCoordinates(static_cast<short>(x), static_cast<short>(top),
-                                  static_cast<short>(width), GetFontHeight(font), text, font,
+                                  static_cast<short>(width), font.height(), text, font,
                                   &draw_x, &draw_y);
     } else if (flags & WRAPPED_TEXT_RIGHT) {
         FindFontRightCoordinates(static_cast<short>(x), static_cast<short>(top),
-                                 static_cast<short>(width), GetFontHeight(font), text, font,
+                                 static_cast<short>(width), font.height(), text, font,
                                  &draw_x, &draw_y);
     }
 
@@ -121,8 +121,8 @@ static int DrawWrappedTextLine(std::string_view text, int x, int top, int width,
         ShadowVideoSurfaceRect(GetFrameBufferSurface(), static_cast<unsigned short>(draw_x - 1),
                                static_cast<unsigned short>(draw_y - 1),
                                static_cast<unsigned short>(draw_x - 1) +
-                                   static_cast<unsigned short>(StringPixLength(text, font)) + 1,
-                               static_cast<unsigned short>(draw_y - 1) + GetFontHeight(font) + 1);
+                                   static_cast<unsigned short>(font.textWidth(text)) + 1,
+                               static_cast<unsigned short>(draw_y - 1) + font.height() + 1);
     }
     if (dirty) {
         DrawFontTextDirty(draw_x, draw_y, text);
@@ -132,8 +132,8 @@ static int DrawWrappedTextLine(std::string_view text, int x, int top, int width,
         SetFontShadow(2);
     }
     if (flags & WRAPPED_TEXT_INVALIDATE) {
-        InvalidateRegion(draw_x, draw_y, draw_x + StringPixLength(text, font),
-                         draw_y + GetFontHeight(font), 0);
+        InvalidateRegion(draw_x, draw_y, draw_x + font.textWidth(text),
+                         draw_y + font.height(), 0);
     }
     return 1;
 }
@@ -170,7 +170,7 @@ int DrawWrappedText(int x, int y, unsigned int wrap_width, int line_spacing, Fon
 
     line.clear();
     word.clear();
-    GetFontHeight(font);
+    font.height();
 
     for (;;) {
         std::size_t word_cursor = 0;
@@ -181,21 +181,21 @@ int DrawWrappedText(int x, int y, unsigned int wrap_width, int line_spacing, Fon
             word.append(text.substr(scalar_start, position - scalar_start));
         } else if ((word_code < 0xb2 || word_code > 0xb5) && word_code != '\n') {
 
-            unsigned int word_width = StringPixLength(word, *active_font);
+            unsigned int word_width = active_font->textWidth(word);
             word += ' ';
 
             if ((wrap_width & 0xffff) < word_width + line_width) {
                 RenderWrappedTextLine(line, draw_x, draw_y, remaining_width, *active_font,
                                       active_colour, static_cast<unsigned char>(background),
                                       section != 0, flags);
-                draw_y += GetFontHeight(*active_font) + (line_spacing & 0xff);
+                draw_y += active_font->height() + (line_spacing & 0xff);
                 ++line_count;
                 line = word;
-                line_width = StringPixLength(line, *active_font);
+                line_width = active_font->textWidth(line);
                 remaining_width = wrap_width;
                 draw_x = x;
             } else {
-                line_width += StringPixLength(word, *active_font);
+                line_width += active_font->textWidth(word);
                 line += word;
             }
             word.clear();
@@ -204,7 +204,7 @@ int DrawWrappedText(int x, int y, unsigned int wrap_width, int line_spacing, Fon
                 RenderWrappedTextLine(line, draw_x, draw_y, remaining_width, *active_font,
                                       active_colour, static_cast<unsigned char>(background),
                                       section != 0, flags);
-                draw_y += GetFontHeight(*active_font) + (line_spacing & 0xff);
+                draw_y += active_font->height() + (line_spacing & 0xff);
                 ++line_count;
                 line.clear();
                 word.clear();
@@ -216,7 +216,7 @@ int DrawWrappedText(int x, int y, unsigned int wrap_width, int line_spacing, Fon
                                       active_colour, static_cast<unsigned char>(background),
                                       section != 0, flags);
                 if (alternate) {
-                    int span = StringPixLength(line, *active_font);
+                    int span = active_font->textWidth(line);
                     remaining_width -= line_width;
                     line.clear();
                     word.clear();
@@ -224,8 +224,8 @@ int DrawWrappedText(int x, int y, unsigned int wrap_width, int line_spacing, Fon
                     draw_x += span;
                     active_font = &font;
                 } else {
-                    int span = StringPixLength(line, *active_font);
-                    active_font = &*g_font12point1;
+                    int span = active_font->textWidth(line);
+                    active_font = &g_font12point1;
                     remaining_width -= line_width;
                     line.clear();
                     word.clear();
@@ -239,7 +239,7 @@ int DrawWrappedText(int x, int y, unsigned int wrap_width, int line_spacing, Fon
                                           active_colour, static_cast<unsigned char>(background),
                                           true, flags);
                     section = 1;
-                    draw_y += GetFontHeight(*active_font) + (line_spacing & 0xff);
+                    draw_y += active_font->height() + (line_spacing & 0xff);
                     ++line_count;
                     line.clear();
                     word.clear();
@@ -258,7 +258,7 @@ int DrawWrappedText(int x, int y, unsigned int wrap_width, int line_spacing, Fon
                 if (word_code == 0xb4 && word_cursor < word.size() && word[word_cursor] != ' ') {
                     active_colour = static_cast<unsigned char>(wiz8::text::next(word, word_cursor));
                 }
-                int span = StringPixLength(line, *active_font);
+                int span = active_font->textWidth(line);
                 remaining_width -= line_width;
                 bool restore_colour = word_code == 0xb5;
                 line.clear();
@@ -273,7 +273,7 @@ int DrawWrappedText(int x, int y, unsigned int wrap_width, int line_spacing, Fon
         if (ch == '\0') {
             RenderWrappedTextLine(line, draw_x, draw_y, remaining_width, *active_font, active_colour,
                                   static_cast<unsigned char>(background), section != 0, flags);
-            return (GetFontHeight(font) + (line_spacing & 0xff)) * line_count;
+            return (font.height() + (line_spacing & 0xff)) * line_count;
         }
     }
 }
@@ -295,7 +295,7 @@ static int MeasureWrappedText(int x, int y, unsigned int wrap_width, int line_sp
 
     line.clear();
     word.clear();
-    GetFontHeight(font);
+    font.height();
 
     for (;;) {
         std::size_t word_cursor = 0;
@@ -304,7 +304,7 @@ static int MeasureWrappedText(int x, int y, unsigned int wrap_width, int line_sp
         char32_t ch = position < text.size() ? wiz8::text::next(text, position) : 0;
         if (ch != ' ' && ch != '\0') {
             if (ch == '\n') {
-                GetFontHeight(*active_font);
+                active_font->height();
                 if (line_count == 1 && out_edge != 0) {
                     *out_edge = 0xffffffff;
                 }
@@ -317,27 +317,27 @@ static int MeasureWrappedText(int x, int y, unsigned int wrap_width, int line_sp
             }
         } else if ((word_code < 0xb2 || word_code > 0xb5) && word_code != '\n') {
 
-            unsigned int word_width = StringPixLength(word, *active_font);
+            unsigned int word_width = active_font->textWidth(word);
             word += ' ';
 
             unsigned int next_width = word_width + line_width;
             if ((wrap_width & 0xffff) < next_width) {
-                GetFontHeight(*active_font);
+                active_font->height();
                 if (line_count == 1 && out_edge != 0) {
                     *out_edge = next_width;
                 }
                 ++line_count;
                 line = word;
-                line_width = StringPixLength(line, *active_font);
+                line_width = active_font->textWidth(line);
             } else {
-                line_width += StringPixLength(word, *active_font);
+                line_width += active_font->textWidth(word);
                 line += word;
             }
             word.clear();
         } else {
             switch (word_code) {
             case '\n':
-                GetFontHeight(*active_font);
+                active_font->height();
                 if (line_count == 1 && out_edge != 0) {
                     *out_edge = 0xffffffff;
                 }
@@ -348,14 +348,14 @@ static int MeasureWrappedText(int x, int y, unsigned int wrap_width, int line_sp
                 break;
             case 0xb2:
                 if (alternate) {
-                    StringPixLength(line, *active_font);
+                    active_font->textWidth(line);
                     line.clear();
                     word.clear();
                     alternate = false;
                     active_font = &font;
                 } else {
-                    StringPixLength(line, *active_font);
-                    active_font = &*g_font12point1;
+                    active_font->textWidth(line);
+                    active_font = &g_font12point1;
                     line.clear();
                     word.clear();
                     SetFontShadow(0);
@@ -364,7 +364,7 @@ static int MeasureWrappedText(int x, int y, unsigned int wrap_width, int line_sp
                 break;
             case 0xb3:
                 if (section == 2) {
-                    GetFontHeight(*active_font);
+                    active_font->height();
                     if (line_count == 1 && out_edge != 0) {
                         *out_edge = 0xffffffff;
                     }
@@ -380,7 +380,7 @@ static int MeasureWrappedText(int x, int y, unsigned int wrap_width, int line_sp
                 break;
             case 0xb4:
             case 0xb5:
-                StringPixLength(line, *active_font);
+                active_font->textWidth(line);
                 line.clear();
                 word.clear();
                 break;
@@ -388,7 +388,7 @@ static int MeasureWrappedText(int x, int y, unsigned int wrap_width, int line_sp
         }
 
         if (ch == '\0') {
-            return (GetFontHeight(font) + (line_spacing & 0xff)) * line_count;
+            return (font.height() + (line_spacing & 0xff)) * line_count;
         }
     }
 }
@@ -428,7 +428,7 @@ static short MeasurePortraitQuoteLine(std::string_view text)
         const auto start = cursor;
         const auto codepoint = wiz8::text::next(text, cursor);
         if ((codepoint < 0xb2 || codepoint > 0xb5) && codepoint > 10)
-            width += StringPixLength(text.substr(start, cursor - start), *g_font12point1);
+            width += g_font12point1.textWidth(text.substr(start, cursor - start));
     }
     return width;
 }
@@ -535,13 +535,13 @@ int LayoutPortraitQuoteBubble(int quote_handle, unsigned char background_index,
     } else {
         max_line = (max_width - margin_x) - 0x17;
         right_edge = 0xffffffff;
-        MeasureWrappedText(0, 0, max_line, 2, *g_font12point1, text, 0, 0, 1, &right_edge);
+        MeasureWrappedText(0, 0, max_line, 2, g_font12point1, text, 0, 0, 1, &right_edge);
         if (right_edge != 0xffffffff && static_cast<int>(right_edge - (max_line & 0xffff)) < 0x14) {
             max_line = right_edge;
             max_width = right_edge + 0x18;
         }
     }
-    text_height = MeasureWrappedText(0, 0, max_line, 2, *g_font12point1, text, 0, 0, 1, 0);
+    text_height = MeasureWrappedText(0, 0, max_line, 2, g_font12point1, text, 0, 0, 1, 0);
     height = text_height + margin_top + 0x18 + margin_bottom;
     max_width = max_width + margin_x * 2;
     if (static_cast<unsigned short>(max_width) >= 0x15e) {
@@ -604,14 +604,14 @@ int LayoutPortraitQuoteBubble(int quote_handle, unsigned char background_index,
         if (bubble.palette != 0xffffffff) {
             colour = static_cast<unsigned char>(bubble.palette);
         }
-        SetFont(*g_font12point1);
+        SetFont(g_font12point1);
         /* Retail 0x005cfe87 and 0x005cfefd call SetFontShadow (0x00406C90):
            the bubble text drops its shadow on a plain background, and the
            default shadow index 2 is restored afterwards. */
         SetFontShadow(shadow);
         SetFontDestBuffer(*bubble.surface, 0, 0, width_px, height_px, 0);
         try {
-            DrawWrappedText(margin_x + 0xc, margin_top + 0xc, max_line, 2, *g_font12point1, colour, text,
+            DrawWrappedText(margin_x + 0xc, margin_top + 0xc, max_line, 2, g_font12point1, colour, text,
                         0, 0, 1);
         } catch (...) {
             SetFontDestBuffer(GetFrameBufferSurface(), 0, 0, 0x280, 0x1e0, 0);

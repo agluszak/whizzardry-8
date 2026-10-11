@@ -1177,12 +1177,12 @@ static void DrawCampItemLabel(W8ItemInstance* item, int left, int top, char flag
     bounds.top = top;
     bounds.right = left + 0xfa;
     bounds.bottom = top + 0xfa;
-    text = new W8TextBuffer(&bounds, g_camp_screen->text_buffer, *g_font10arial,
+    text = new W8TextBuffer(&bounds, g_camp_screen->text_buffer, g_font10arial,
                             g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft, 4);
     if (text != 0) {
         height = text->m_lineCount;
         width = text->m_maxLineWidth + 4;
-        height = GetFontHeight(*g_font10arial) * height + 2;
+        height = g_font10arial.height() * height + 2;
         if (flag != 0) {
             bounds.right -= width;
             bounds.left -= width;

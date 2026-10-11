@@ -25,10 +25,31 @@ static std::vector<UINT16> g_font_translation;
 FontRenderState g_font_render_state;
 static FontRenderState saved_font_state;
 
+Font::Font(Font&& other) noexcept : glyphs(std::move(other.glyphs))
+{
+    other.clear();
+}
+
+Font& Font::operator=(Font&& other) noexcept
+{
+    if (this != &other) {
+        clear();
+        glyphs = std::move(other.glyphs);
+        other.clear();
+    }
+    return *this;
+}
+
 Font::~Font()
+{
+    clear();
+}
+
+void Font::clear()
 {
     if (g_font_render_state.font == this) g_font_render_state.font = nullptr;
     if (saved_font_state.font == this) saved_font_state.font = nullptr;
+    glyphs = {};
 }
 
 // SetFontForeground
@@ -137,27 +158,17 @@ UINT16* GetFontObjectPalette16BPP(Font& iFont)
     return (iFont.glyphs.p16BPPPalette);
 }
 
-// GetFontObject
-//	Returns the VOBJECT pointer of a font.
-
-// FUNCTION: WIZ8 0x00406df0
-SGPVObject& GetFontObject(Font& iFont)
-{
-
-    return (iFont.glyphs);
-}
-
 // FUNCTION: WIZ8 0x00406e00
-std::unique_ptr<Font> LoadFontFile(std::string_view filename)
+bool Font::load(std::string_view filename)
 {
     VOBJECT_DESC desc;
     desc.fCreateFlags = VOBJECT_CREATE_FROMFILE;
     desc.ImageFile = filename;
-    auto glyphs = CreateVideoObject(desc);
-    if (!glyphs) return nullptr;
-    auto font = std::make_unique<Font>(std::move(*glyphs));
-    if (!g_font_render_state.font) SetFont(*font);
-    return font;
+    auto object = CreateVideoObject(desc);
+    if (!object) return false;
+    clear();
+    glyphs = std::move(*object);
+    return true;
 }
 
 // GetWidth
@@ -180,11 +191,10 @@ UINT32 GetWidth(const SGPVObject& hSrcVObject, INT16 ssIndex)
 // Measure a prefix counted in Unicode scalar values.
 
 // FUNCTION: WIZ8 0x00406ea0
-INT16 StringCodepointPrefixPixelWidth(Font& usUseFont, UINT32 uiCharCount, std::string_view string)
+INT16 Font::codepointPrefixWidth(std::string_view string, UINT32 uiCharCount) const
 {
 
-    return StringPixLength(string.substr(0, wiz8::text::codepoint_prefix(string, uiCharCount)),
-                           usUseFont);
+    return textWidth(string.substr(0, wiz8::text::codepoint_prefix(string, uiCharCount)));
 }
 //  StringNPixLength
 //  Return the length of the of the string or count characters in the
@@ -194,21 +204,22 @@ INT16 StringCodepointPrefixPixelWidth(Font& usUseFont, UINT32 uiCharCount, std::
 //  Created on:     12/1/99
 
 // FUNCTION: WIZ8 0x00406f90
-INT16 StringPrefixPixelWidth(std::string_view string, std::size_t byte_end, Font& UseFont)
+INT16 Font::prefixWidth(std::string_view string, std::size_t byte_end) const
 {
+    if (glyphs.sprites.empty()) return 0;
     UINT32 width = 0;
     for (std::size_t offset = 0; offset < string.size() && offset < byte_end;) {
         const auto glyph = GetIndex(wiz8::text::next(string, offset));
         if (offset > byte_end) break;
-        width += GetWidth(UseFont.glyphs, glyph);
+        width += GetWidth(glyphs, glyph);
     }
     return static_cast<INT16>(width);
 }
 
 // FUNCTION: WIZ8 0x00407010
-INT16 StringPixLength(std::string_view string, Font& UseFont)
+INT16 Font::textWidth(std::string_view string) const
 {
-    return StringPrefixPixelWidth(string, string.size(), UseFont);
+    return prefixWidth(string, string.size());
 }
 // SaveFontSettings
 //	Saves the current font printing settings into temporary locations.
@@ -244,10 +255,10 @@ UINT32 GetHeight(const SGPVObject& hSrcVObject, INT16 ssIndex)
 //	Returns the height of the first character in a font.
 
 // FUNCTION: WIZ8 0x004071f0
-UINT16 GetFontHeight(Font& FontNum)
+UINT16 Font::height() const
 {
-
-    return ((UINT16)GetHeight(FontNum.glyphs, 0));
+    if (glyphs.sprites.empty()) return 0;
+    return ((UINT16)GetHeight(glyphs, 0));
 }
 
 // GetIndex
@@ -339,8 +350,8 @@ void FindFontRightCoordinates(INT16 sLeft, INT16 sTop, INT16 sWidth, INT16 sHeig
     INT16 xp, yp;
 
     // Compute the coordinates to right justify the text
-    xp = ((sWidth - StringPixLength(pStr, iFontIndex))) + sLeft;
-    yp = ((sHeight - GetFontHeight(iFontIndex)) / 2) + sTop;
+    xp = ((sWidth - iFontIndex.textWidth(pStr))) + sLeft;
+    yp = ((sHeight - iFontIndex.height()) / 2) + sTop;
 
     *psNewX = xp;
     *psNewY = yp;
@@ -353,8 +364,8 @@ void FindFontCenterCoordinates(INT16 sLeft, INT16 sTop, INT16 sWidth, INT16 sHei
     INT16 xp, yp;
 
     // Compute the coordinates to center the text
-    xp = ((sWidth - StringPixLength(pStr, iFontIndex) + 1) / 2) + sLeft;
-    yp = ((sHeight - GetFontHeight(iFontIndex)) / 2) + sTop;
+    xp = ((sWidth - iFontIndex.textWidth(pStr) + 1) / 2) + sLeft;
+    yp = ((sHeight - iFontIndex.height()) / 2) + sTop;
 
     *psNewX = xp;
     *psNewY = yp;
@@ -373,7 +384,7 @@ UINT32 DrawFontTextDirty(INT32 x, INT32 y, std::string_view string)
 {
     if (!g_font_render_state.font) return 0;
     DrawFontText(x, y, string);
-    InvalidateRegion(x, y, x + StringPixLength(string, *g_font_render_state.font), y + GetFontHeight(*g_font_render_state.font),
+    InvalidateRegion(x, y, x + g_font_render_state.font->textWidth(string), y + g_font_render_state.font->height(),
                      INVAL_SRC_TRANS);
     return 0;
 }

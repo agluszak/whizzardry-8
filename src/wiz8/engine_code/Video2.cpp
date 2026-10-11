@@ -1901,8 +1901,8 @@ void DrawVideoInspector(int left, unsigned int top)
     InvalidateRegion(left, top, left + 0x113, bottom, 0);
     if (g_gerd != 0) {
         g_gerd->getStatistics(statistics);
-        SetFont(*g_smfnt_font);
-        SetFontObjectPalette16BPP(*g_smfnt_font, g_font_state_palettes[W8_FONT_PALETTE_YELLOW].get());
+        SetFont(g_smfnt_font);
+        SetFontObjectPalette16BPP(g_smfnt_font, g_font_state_palettes[W8_FONT_PALETTE_YELLOW].get());
         DrawFontTextDirty(left, top, fmt::format("FR: {:4.1f}", g_frames_per_second));
         if (g_video_inspector_mode == 2) {
             DrawFontTextDirty(left, top + 0xa,
@@ -2794,13 +2794,13 @@ void VideoToolTip(std::string_view text)
     bounds.top = 0;
     bounds.right = 0xfa;
     bounds.bottom = 0xfa;
-    W8TextBuffer* buffer = new W8TextBuffer(&bounds, text, *g_font10arial,
+    W8TextBuffer* buffer = new W8TextBuffer(&bounds, text, g_font10arial,
                                             g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft, 4);
     if (buffer == 0) {
         return;
     }
     g_help_box_width = static_cast<int>(buffer->m_maxLineWidth) + 4;
-    g_help_box_height = GetFontHeight(*g_font10arial) * buffer->m_lineCount + 2;
+    g_help_box_height = g_font10arial.height() * buffer->m_lineCount + 2;
     surface->fill(0);
     void* data = surface->getDataPtr();
     unsigned char colour[4];

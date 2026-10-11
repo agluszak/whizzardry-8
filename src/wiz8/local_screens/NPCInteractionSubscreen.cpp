@@ -692,7 +692,7 @@ void SelectNpcDialogueSpeaker(W8NpcState* npc, int flags)
          state->dialogue_layout == W8_DIALOGUE_LAYOUT_TOPIC_MENU) &&
         gXStatus.fNpcDialogueMode) {
         static_cast<W8TextControl*>(state->dialogue_controls[W8_NPC_CONTROL_NPC_NAME])
-            ->m_textBuffer.SetText(state->dialogue_npc->record->source_name, *g_wiz_text_bold_font);
+            ->m_textBuffer.SetText(state->dialogue_npc->record->source_name, g_wiz_text_bold_font);
         static_cast<W8TextControl*>(state->dialogue_controls[W8_NPC_CONTROL_NPC_NAME])
             ->Invalidate(true);
     }
@@ -833,14 +833,14 @@ void CreateNpcDialogueControls(void)
     state->dialogue_controls[W8_NPC_CONTROL_TEXT_23] =
         new W8TextControl(panel, 0x73, 9, 0x33, 0x84, 0x44, 0x1a9, 0, -1, -1, 0xe, 0xf, -1);
     static_cast<W8TextControl*>(state->dialogue_controls[W8_NPC_CONTROL_TEXT_23])
-        ->m_textBuffer.SetText(g_localized_strings[0x741], *g_wiz_text_font_secondary);
+        ->m_textBuffer.SetText(g_localized_strings[0x741], g_wiz_text_font_secondary);
     state->dialogue_controls[W8_NPC_CONTROL_TEXT_23]->m_primaryActivationCallback =
         SubmitNpcDialogueInput;
     state->dialogue_controls[W8_NPC_CONTROL_TEXT_23]->EnableRegionHelp(0x66);
     state->dialogue_controls[W8_NPC_CONTROL_TEXT_22] =
         new W8TextControl(panel, 0x72, 9, 0x43, 0x84, 0x52, 0x1a9, 0, -1, -1, 0xe, 0xf, -1);
     static_cast<W8TextControl*>(state->dialogue_controls[W8_NPC_CONTROL_TEXT_22])
-        ->m_textBuffer.SetText(g_localized_strings[0x742], *g_wiz_text_font_secondary);
+        ->m_textBuffer.SetText(g_localized_strings[0x742], g_wiz_text_font_secondary);
     state->dialogue_controls[W8_NPC_CONTROL_TEXT_22]->m_primaryActivationCallback =
         SubmitNpcWhereIsQuery;
     state->dialogue_controls[W8_NPC_CONTROL_TEXT_22]->EnableRegionHelp(0x67);
@@ -1631,10 +1631,10 @@ static void ShowNpcTradeGold()
         ->m_textBuffer.SetGeometryDirty();
     g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_31]->SetEnabled(true);
     static_cast<W8TextControl*>(g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_36])
-        ->m_textBuffer.SetText(g_localized_strings[0x72d], *g_wiz_text_font_secondary);
+        ->m_textBuffer.SetText(g_localized_strings[0x72d], g_wiz_text_font_secondary);
     text = fmt::format("{:d}g", g_npc_interaction_state->trade_gold);
     static_cast<W8TextControl*>(g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_35])
-        ->m_textBuffer.SetText(text, *g_wiz_text_font_secondary);
+        ->m_textBuffer.SetText(text, g_wiz_text_font_secondary);
     g_npc_interaction_state->dialogue_panels[5]->Invalidate(0);
 }
 
@@ -1673,10 +1673,10 @@ void UpdateNpcTradeSelection(int index, int increment, int commit)
             W8_ITEM_EQUIP_CLASS_AMMUNITION) {
             g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_31]->SetEnabled(false);
         }
-        text = ShortenTextToWidth(FormatItemDisplayName(g_npc_interaction_state->trade_item, false), 0x7d, *g_wiz_text_font_secondary);
+        text = ShortenTextToWidth(FormatItemDisplayName(g_npc_interaction_state->trade_item, false), 0x7d, g_wiz_text_font_secondary);
         static_cast<W8TextControl*>(
             g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_36])
-            ->m_textBuffer.SetText(text, *g_wiz_text_font_secondary);
+            ->m_textBuffer.SetText(text, g_wiz_text_font_secondary);
         static_cast<W8TextControl*>(
             g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_37])
             ->m_textBuffer.SetFontStateIndex(1);
@@ -1735,7 +1735,7 @@ void UpdateNpcTradeSelection(int index, int increment, int commit)
         }
         static_cast<W8TextControl*>(
             g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_35])
-            ->m_textBuffer.SetText(price_text, *g_wiz_text_font_secondary);
+            ->m_textBuffer.SetText(price_text, g_wiz_text_font_secondary);
         return;
     }
     if (g_npc_interaction_state->trade_mode == W8_NPC_TRADE_GIVE && index == 0) {
@@ -1754,13 +1754,13 @@ void ResetNpcDialogueItemEditor(void)
     static_cast<W8TextControl*>(g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_24])
         ->ClearImage();
     static_cast<W8TextControl*>(g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_24])
-        ->m_textBuffer.SetText("", *g_large_font);
+        ->m_textBuffer.SetText("", g_large_font);
     static_cast<W8TextControl*>(g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_24])
         ->Invalidate(true);
     static_cast<W8TextControl*>(g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_35])
-        ->m_textBuffer.SetText("", *g_wiz_text_font_secondary);
+        ->m_textBuffer.SetText("", g_wiz_text_font_secondary);
     static_cast<W8TextControl*>(g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_36])
-        ->m_textBuffer.SetText("", *g_wiz_text_font_secondary);
+        ->m_textBuffer.SetText("", g_wiz_text_font_secondary);
     g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_31]->SetEnabled(false);
     g_npc_interaction_state->selected_trade_row = -1;
     g_npc_interaction_state->trade_quantity = 1;
@@ -1867,7 +1867,7 @@ static void SetNpcDialogueAction(W8NpcDialogueControlSlot slot, int text_id,
                                  W8ControlCallback callback)
 {
     static_cast<W8TextControl*>(g_npc_interaction_state->dialogue_controls[slot])
-        ->m_textBuffer.SetText(g_localized_strings[text_id], *g_wiz_text_font_secondary);
+        ->m_textBuffer.SetText(g_localized_strings[text_id], g_wiz_text_font_secondary);
     g_npc_interaction_state->dialogue_controls[slot]->m_primaryActivationCallback = callback;
 }
 
@@ -1887,11 +1887,11 @@ void ShowNpcDialogueTopicMenu(void)
     g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_38]->SetActive(true);
     static_cast<W8TextControl*>(g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_NPC_NAME])
         ->m_textBuffer.SetText(g_npc_interaction_state->dialogue_npc->record->source_name,
-                               *g_wiz_text_bold_font);
+                               g_wiz_text_bold_font);
     static_cast<W8TextControl*>(g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_NPC_NAME])
         ->Invalidate(true);
     static_cast<W8TextControl*>(g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_38])
-        ->m_textBuffer.SetText(g_localized_strings[0x726], *g_wiz_text_bold_font);
+        ->m_textBuffer.SetText(g_localized_strings[0x726], g_wiz_text_bold_font);
     SetNpcDialogueAction(W8_NPC_CONTROL_TEXT_1, 0x727, SelectNpcDialogueService);
     SetNpcDialogueAction(W8_NPC_CONTROL_TEXT_2, 0x728, SelectNpcDialogueTalk);
     SetNpcDialogueAction(W8_NPC_CONTROL_TEXT_3, 0x729, SelectNpcDialogueExit);
@@ -1926,7 +1926,7 @@ void CloseNpcDialogueLayout(void)
     g_npc_interaction_state->dialogue_panels[4]->SetEnabled(false);
     g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_38]->SetActive(false);
     static_cast<W8TextControl*>(g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_38])
-        ->m_textBuffer.SetText("", *g_wiz_text_bold_font);
+        ->m_textBuffer.SetText("", g_wiz_text_bold_font);
     SetNpcDialogueLayoutMode(W8_DIALOGUE_LAYOUT_NONE);
 }
 
@@ -2026,7 +2026,7 @@ void OpenNpcDialogueTranscriptLayout(void)
     g_npc_interaction_state->dialogue_panels[6]->SetEnabled(true);
     g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_38]->SetActive(false);
     static_cast<W8TextControl*>(g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_38])
-        ->m_textBuffer.SetText("", *g_wiz_text_bold_font);
+        ->m_textBuffer.SetText("", g_wiz_text_bold_font);
     RegionSetEnable(0x18);
     RegionSetEnable(0x16);
     if (g_npc_interaction_state->dialogue_npc->name_style == 0x32) {
@@ -2034,12 +2034,12 @@ void OpenNpcDialogueTranscriptLayout(void)
             fmt::format("Al-{}", g_status.buffers.Char[g_status.sedexus_party_slot].name);
         static_cast<W8TextControl*>(
             g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_NPC_NAME])
-            ->m_textBuffer.SetText(g_status.monster_name_buffer, *g_wiz_text_bold_font);
+            ->m_textBuffer.SetText(g_status.monster_name_buffer, g_wiz_text_bold_font);
     } else {
         static_cast<W8TextControl*>(
             g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_NPC_NAME])
             ->m_textBuffer.SetText(g_npc_interaction_state->dialogue_npc->record->source_name,
-                                   *g_wiz_text_bold_font);
+                                   g_wiz_text_bold_font);
     }
     SetNpcDialogueAction(W8_NPC_CONTROL_TEXT_1, 0x735, EnterNpcTradeOptions);
     SetNpcDialogueAction(W8_NPC_CONTROL_TEXT_2, 0x738, ShowNpcDialogueNotice);
@@ -2371,14 +2371,14 @@ void OpenNpcDialogueOptionLayout(void)
     }
     g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_38]->SetActive(false);
     static_cast<W8TextControl*>(g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_38])
-        ->m_textBuffer.SetText("", *g_wiz_text_bold_font);
+        ->m_textBuffer.SetText("", g_wiz_text_bold_font);
     g_npc_interaction_state->dialogue_panels[0]->SetEnabled(true);
     g_npc_interaction_state->dialogue_panels[1]->SetEnabled(true);
     g_npc_interaction_state->dialogue_panels[5]->SetEnabled(true);
     RegionSetEnable(0x18);
     RegionSetEnable(0x17);
     static_cast<W8TextControl*>(g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_34])
-        ->m_textBuffer.SetText(g_localized_strings[0x72d], *g_wiz_text_font_secondary);
+        ->m_textBuffer.SetText(g_localized_strings[0x72d], g_wiz_text_font_secondary);
     ConfigureNpcTradeCommands();
     SetNpcDialogueAction(W8_NPC_CONTROL_TEXT_5, 0x72b, SelectNpcPartyItems);
     SetNpcDialogueAction(W8_NPC_CONTROL_TEXT_6, 0x72c, SelectNpcStockItems);
@@ -2391,7 +2391,7 @@ void OpenNpcDialogueOptionLayout(void)
         ->m_primaryActivationCallback = ConfirmNpcTradeSlot;
     buffer = fmt::format("{:d}g", g_status.party_gold);
     static_cast<W8TextControl*>(g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_33])
-        ->m_textBuffer.SetText(buffer, *g_wiz_text_font_secondary);
+        ->m_textBuffer.SetText(buffer, g_wiz_text_font_secondary);
     g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_37]->SetEnabled(false);
     g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_37]
         ->m_primaryActivationCallback = ConfirmNpcTradeItem;
@@ -2476,9 +2476,9 @@ static void SelectNpcTradeModeControls(W8NpcDialogueControlSlot selected,
 static void SetNpcTradeTitle(int text_id)
 {
     static_cast<W8TextControl*>(g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_NPC_NAME])
-        ->m_textBuffer.SetText(g_localized_strings[text_id], *g_wiz_text_bold_font);
+        ->m_textBuffer.SetText(g_localized_strings[text_id], g_wiz_text_bold_font);
     static_cast<W8TextControl*>(g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_37])
-        ->m_textBuffer.SetText(g_localized_strings[text_id], *g_wiz_text_bold_font);
+        ->m_textBuffer.SetText(g_localized_strings[text_id], g_wiz_text_bold_font);
 }
 
 // FUNCTION: WIZ8 0x00571F60
@@ -2729,7 +2729,7 @@ static void ShowSelectedNpcTradeItem(const W8ItemInstance* item)
         text = count_text;
     }
     static_cast<W8TextControl*>(g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_24])
-        ->m_textBuffer.SetText(text, *g_wiz_text_font_secondary);
+        ->m_textBuffer.SetText(text, g_wiz_text_font_secondary);
     static_cast<W8TextControl*>(g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_24])
         ->Invalidate(true);
 }
@@ -2778,7 +2778,7 @@ W8ItemInstance* ResolveNpcTradeRow(int index, bool pick, char decrement, char co
                     ->SetImage(0x1ac);
                 static_cast<W8TextControl*>(
                     g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_24])
-                    ->m_textBuffer.SetText("", *g_wiz_text_font_secondary);
+                    ->m_textBuffer.SetText("", g_wiz_text_font_secondary);
                 return 0;
             }
             --index;
@@ -2955,14 +2955,14 @@ void OpenNpcDialogueMode5Layout(void)
     RegionSetEnable(0x18);
     RegionSetEnable(0x17);
     static_cast<W8TextControl*>(g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_NPC_NAME])
-        ->m_textBuffer.SetText(g_localized_strings[0x739], *g_wiz_text_bold_font);
+        ->m_textBuffer.SetText(g_localized_strings[0x739], g_wiz_text_bold_font);
     ConfigureNpcTradeCommands();
     g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_31]->SetEnabled(false);
     g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_31]
         ->m_primaryActivationCallback = ConfirmNpcTradeSlot;
     buffer = fmt::format("{:d}g", g_status.party_gold);
     static_cast<W8TextControl*>(g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_33])
-        ->m_textBuffer.SetText(buffer, *g_wiz_text_font_secondary);
+        ->m_textBuffer.SetText(buffer, g_wiz_text_font_secondary);
     g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_37]->SetEnabled(false);
     g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_37]
         ->m_primaryActivationCallback = RestockNpcTradeStock;
@@ -3158,10 +3158,10 @@ void OpenNpcDialogueMode1Layout(void)
     g_npc_interaction_state->dialogue_panels[4]->SetEnabled(true);
     g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_38]->SetActive(false);
     static_cast<W8TextControl*>(g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_38])
-        ->m_textBuffer.SetText("", *g_wiz_text_bold_font);
+        ->m_textBuffer.SetText("", g_wiz_text_bold_font);
     RegionSetEnable(0x18);
     static_cast<W8TextControl*>(g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_NPC_NAME])
-        ->m_textBuffer.SetText(g_localized_strings[0x72f], *g_wiz_text_bold_font);
+        ->m_textBuffer.SetText(g_localized_strings[0x72f], g_wiz_text_bold_font);
     SetNpcDialogueAction(W8_NPC_CONTROL_TEXT_1, 0x730, RequestNpcSpellService3);
     SetNpcDialogueAction(W8_NPC_CONTROL_TEXT_2, 0x732, RequestNpcSpellService41);
     SetNpcDialogueAction(W8_NPC_CONTROL_TEXT_4, 0x733, RequestNpcCharacterService);
@@ -3282,7 +3282,7 @@ W8ItemInstance* GetNpcTradeSlotItem(int index)
                 }
                 static_cast<W8TextControl*>(
                     g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_24])
-                    ->m_textBuffer.SetText(text, *g_wiz_text_font_secondary);
+                    ->m_textBuffer.SetText(text, g_wiz_text_font_secondary);
                 static_cast<W8TextControl*>(
                     g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_24])
                     ->Invalidate(true);
@@ -3308,7 +3308,7 @@ W8ItemInstance* GetNpcTradeSlotItem(int index)
                 }
                 static_cast<W8TextControl*>(
                     g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_24])
-                    ->m_textBuffer.SetText(text, *g_wiz_text_font_secondary);
+                    ->m_textBuffer.SetText(text, g_wiz_text_font_secondary);
                 static_cast<W8TextControl*>(
                     g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_24])
                     ->Invalidate(true);
@@ -4031,7 +4031,7 @@ void RefreshNpcTradePartyGold(void)
 
     text = fmt::format("{:d}g", g_status.party_gold);
     static_cast<W8TextControl*>(g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_33])
-        ->m_textBuffer.SetText(text, *g_wiz_text_font_secondary);
+        ->m_textBuffer.SetText(text, g_wiz_text_font_secondary);
 }
 
 // FUNCTION: WIZ8 0x00575C00
@@ -4043,7 +4043,7 @@ void RefreshNpcTradePrice(void)
         text = fmt::format("{:d}", g_npc_interaction_state->trade_quantity);
         static_cast<W8TextControl*>(
             g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_24])
-            ->m_textBuffer.SetText(text, *g_wiz_text_font_secondary);
+            ->m_textBuffer.SetText(text, g_wiz_text_font_secondary);
     }
 }
 
@@ -4122,7 +4122,7 @@ void OpenNpcDialog(W8NpcQuoteEntry* request, int aux_data)
     W8NpcDialog* dialog;
 
     if (!gXStatus.fNpcDialogueMode || g_npc_interaction_state->scripted_dialogue) {
-        InitTextInputMode(*g_wiz_text_mono_font);
+        InitTextInputMode(g_wiz_text_mono_font);
     } else {
         SetNpcDialoguePanelVisible(0);
     }
@@ -4645,11 +4645,11 @@ void HandleNpcDialogueDeparture(unsigned char value)
 std::string ShortenTextToWidth(std::string_view text, unsigned int width, Font& font)
 {
     std::string shortened(text);
-    if (static_cast<unsigned int>(StringPixLength(shortened, font)) <= width) return shortened;
+    if (static_cast<unsigned int>(font.textWidth(shortened)) <= width) return shortened;
     while (!shortened.empty()) {
         shortened.resize(wiz8::text::previous_grapheme(shortened, shortened.size()));
         const auto candidate = shortened + "...";
-        if (static_cast<unsigned int>(StringPixLength(candidate, font)) <= width) return candidate;
+        if (static_cast<unsigned int>(font.textWidth(candidate)) <= width) return candidate;
     }
     return {};
 }

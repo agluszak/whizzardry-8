@@ -55,15 +55,15 @@ W8CharacterPageEntry::W8CharacterPageEntry(Controls* owner, int x, int y, bool c
     m_y = owner->m_bounds.top + y;
     int split = m_x + (compact ? 0x6d : 0x78);
     W8ControlsRect bounds = {m_x + 5, m_y + 1, split, m_y + 0xd};
-    m_label = new W8TextBuffer(&bounds, {}, *g_wiz_text_font_secondary, 0, 4);
+    m_label = new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, 0, 4);
     m_label->SetLayoutMode(g_W8TextBufferAlignLeft);
     bounds.left = split;
     bounds.right = split + 0x17;
-    m_first_text = new W8TextBuffer(&bounds, {}, *g_wiz_text_font_secondary, 0, 4);
+    m_first_text = new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, 0, 4);
     m_first_text->SetLayoutMode(g_W8TextBufferAlignRight);
     bounds.left = split + 0x2a;
     bounds.right = split + 0x39;
-    m_second_text = new W8TextBuffer(&bounds, {}, *g_wiz_text_font_secondary, 0, 4);
+    m_second_text = new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, 0, 4);
     m_second_text->SetLayoutMode(g_W8TextBufferAlignRight);
 
     int relative_split = split - owner->m_bounds.left;
@@ -94,7 +94,7 @@ void W8CharacterPageEntry::SetContent(unsigned int id, std::string_view label, u
     m_first = first;
     m_second = second;
     m_third = third;
-    m_label->SetText(label, *g_wiz_text_font_secondary);
+    m_label->SetText(label, g_wiz_text_font_secondary);
     if (help_id == -1)
         m_help->DisableRegionHelp();
     else
@@ -136,8 +136,8 @@ void W8CharacterPageEntry::Redraw()
             DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x108, 0, 2, m_x, m_y,
                                           VO_BLT_SRCTRANSPARENCY, 0);
         }
-        m_first_text->SetText(fmt::format("{:d}", ReadStatValue<unsigned int>(m_first)), *g_wiz_text_font_secondary);
-        m_second_text->SetText(fmt::format("{:d}", ReadStatValue<int>(m_second)), *g_wiz_text_font_secondary);
+        m_first_text->SetText(fmt::format("{:d}", ReadStatValue<unsigned int>(m_first)), g_wiz_text_font_secondary);
+        m_second_text->SetText(fmt::format("{:d}", ReadStatValue<int>(m_second)), g_wiz_text_font_secondary);
         m_first_text->FillBounds(0x8000);
         m_second_text->FillBounds(0x8000);
         m_label->RenderToTarget(0, true, GetFrameBufferSurface());

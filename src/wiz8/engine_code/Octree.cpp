@@ -1421,18 +1421,18 @@ void W8Octree::BuildRegionLinks(bool rebuild_all)
         stale = m_pRegionLinks;
         m_pRegionLinks = saved_links;
         if (gfProgramIsRunning) {
-            CreateMessageBox(std::string("  Linking Aborted!  "), *g_small_font, 1, true, false, 0);
+            CreateMessageBox(std::string("  Linking Aborted!  "), g_small_font, 1, true, false, 0);
         }
     } else {
         SaveRegionLinks(m_owned_0c0);
         if (hours == 0) {
             CreateMessageBox(
                 fmt::format("  Linking Time: {:d} Min, {:d} Sec  ", minutes, elapsed % 60),
-                *g_small_font, 1, true, false, 0);
+                g_small_font, 1, true, false, 0);
         } else {
             CreateMessageBox(fmt::format("  Linking Time: {:d} Hours, {:d} Min, {:d} Sec  ", hours,
                                          minutes, elapsed % 60),
-                             *g_small_font, 1, true, false, 0);
+                             g_small_font, 1, true, false, 0);
         }
         stale = saved_links;
     }
@@ -1549,7 +1549,7 @@ unsigned char W8Octree::ValidateRegionMeshLinks()
     spatial.m_level_kind = 1;
     int bad_links = CountBadRegionMeshLinks(&spatial);
     if (bad_links != 0) {
-        CreateMessageBox(fmt::format(" {:d} Bad Region-Mesh Links!", bad_links), *g_small_font, 1,
+        CreateMessageBox(fmt::format(" {:d} Bad Region-Mesh Links!", bad_links), g_small_font, 1,
                          true, false, 0);
         return 0;
     }

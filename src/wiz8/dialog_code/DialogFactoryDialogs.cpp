@@ -114,7 +114,7 @@ int W8ListBoxDialog::GetVisibleLineCount()
         return 0;
     }
     return GetButtonHeight(m_area_button) /
-           static_cast<int>(static_cast<unsigned int>(GetFontHeight(*g_dialog_interface_font)));
+           static_cast<int>(static_cast<unsigned int>(g_dialog_interface_font->height()));
 }
 
 /* Both selection directions clamp the requested top row independently of
@@ -218,7 +218,7 @@ int W8ListBoxDialog::CreateControls()
         CreateTextButton(m_text, *g_dialog_interface_font, g_dialog_font_foreground,
                          g_dialog_font_background, edge_inlay, static_cast<short>(m_x) + 9,
                          static_cast<short>(m_y) + 9, static_cast<short>(m_width) - 0x12,
-                         static_cast<short>(GetFontHeight(*g_dialog_interface_font) * 0x96 / 100),
+                         static_cast<short>(g_dialog_interface_font->height() * 0x96 / 100),
                          BUTTON_NO_TOGGLE | BUTTON_IGNORE_CLICKS, MSYS_PRIORITY_HIGHEST - 1,
                          BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
     if (!m_text_button) {
@@ -368,12 +368,12 @@ void W8ListBoxDialog::Draw()
                  GetButtonY(m_second_text_button);
     unsigned int visible_lines;
     if (static_cast<int>(m_lines.size()) < height / static_cast<int>(static_cast<unsigned int>(
-                                                        GetFontHeight(*g_dialog_interface_font)))) {
+                                                        g_dialog_interface_font->height()))) {
         m_scrollable = false;
         visible_lines = static_cast<int>(m_lines.size());
     } else {
         int rows = height / static_cast<int>(
-                                static_cast<unsigned int>(GetFontHeight(*g_dialog_interface_font)));
+                                static_cast<unsigned int>(g_dialog_interface_font->height()));
         if (static_cast<int>(m_lines.size()) > rows) {
             width = width + (-7 - GetButtonWidth(m_up_button));
             m_scrollable = true;
@@ -429,15 +429,15 @@ void W8ListBoxDialog::Draw()
         if (line == m_selected_line) {
             ColorFillVideoSurfaceArea(
                 GetFrameBufferSurface(), m_x + 3 + dx,
-                m_y + static_cast<unsigned int>(GetFontHeight(*g_dialog_interface_font)) * index +
+                m_y + static_cast<unsigned int>(g_dialog_interface_font->height()) * index +
                     2 + dy,
                 width + m_x - 3 + dx,
-                static_cast<unsigned int>(GetFontHeight(*g_dialog_interface_font)) + m_y +
-                    static_cast<unsigned int>(GetFontHeight(*g_dialog_interface_font)) * index + dy,
+                static_cast<unsigned int>(g_dialog_interface_font->height()) + m_y +
+                    static_cast<unsigned int>(g_dialog_interface_font->height()) * index + dy,
                 Get16BPPColor(m_fill_colour));
         }
         DrawFontText(m_x + 3 + dx,
-                     static_cast<unsigned int>(GetFontHeight(*g_dialog_interface_font)) * index +
+                     static_cast<unsigned int>(g_dialog_interface_font->height()) * index +
                          m_y + 2 + dy,
                      text);
     }
@@ -645,7 +645,7 @@ bool W8SplitAmountDialog::CreateTextBuffers()
         bounds.right = g_split_amount_text_bounds[index].right + m_x;
         bounds.bottom = g_split_amount_text_bounds[index].bottom + m_y;
         m_text_buffers[index] = new W8TextBuffer(
-            &bounds, g_localized_strings[g_split_amount_string_ids[index]], *g_wiz_text_font_secondary,
+            &bounds, g_localized_strings[g_split_amount_string_ids[index]], g_wiz_text_font_secondary,
             g_W8TextBufferAlignMiddle | g_W8TextBufferAlignRight, 4);
         if (m_text_buffers[index] == 0) {
             DestroyDialogTextBuffers(m_text_buffers, 3);
@@ -665,7 +665,7 @@ bool W8SplitAmountDialog::CreateNumericInput()
     bounds.top = g_split_amount_field_bounds.top + m_y;
     bounds.right = g_split_amount_field_bounds.right + m_x;
     bounds.bottom = g_split_amount_field_bounds.bottom + m_y;
-    m_split_input = new W8DialogNumericInput(0, &bounds, m_taken, *g_wiz_text_font_secondary, this,
+    m_split_input = new W8DialogNumericInput(0, &bounds, m_taken, g_wiz_text_font_secondary, this,
                                              m_buttons[3]);
     if (m_split_input == 0) {
         NoOp();
@@ -725,7 +725,7 @@ void W8SplitAmountDialog::UpdateTextBuffers()
     std::string text;
 
     text = fmt::format("{:d}", m_remaining);
-    m_text_buffers[2]->SetText(text, *g_wiz_text_font_secondary);
+    m_text_buffers[2]->SetText(text, g_wiz_text_font_secondary);
     m_buttons[2]->m_dirty = true;
     m_text_buffers[2]->SetGeometryDirty();
     if (m_remaining < 0) {
@@ -1593,7 +1593,7 @@ void W8TriggerItemPickerDialog::Draw()
         int video_object = g_item_video_objects.GetOrCreateVideoObject(item->iItemNo);
         DrawCatalogImage(GetFrameBufferSurface(), video_object, 0, 0, button->GetX() + 2, button->GetY() + 2,
                          VO_BLT_SRCTRANSPARENCY, 0);
-        SetFont(*g_wiz_text_font);
+        SetFont(g_wiz_text_font);
         if (item->stack_count > 1) {
             auto name = GetItemDisplayName(item);
             DrawFontText(button->GetX() + 0x3c, button->GetY() + 6,
@@ -1603,7 +1603,7 @@ void W8TriggerItemPickerDialog::Draw()
             DrawFontText(button->GetX() + 0x3c, button->GetY() + 6, name);
         }
         unsigned short weight = g_item_records[item->iItemNo].weight;
-        DrawFontText(button->GetX() + 0x3c, button->GetY() + GetFontHeight(*g_wiz_text_font) + 6,
+        DrawFontText(button->GetX() + 0x3c, button->GetY() + g_wiz_text_font.height() + 6,
                      fmt::format("{:4.1f} lbs", weight * 0.1f));
     }
 }

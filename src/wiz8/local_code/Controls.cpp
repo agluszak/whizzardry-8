@@ -442,7 +442,7 @@ void W8TextBuffer::UpdateLayout()
     char* line = m_buffer.data();
     unsigned int accumulated_width = 0;
     char* previous_break = 0;
-    short separator_width = StringPixLength(const_cast<char*>(g_W8TextSeparator), *m_font);
+    short separator_width = m_font->textWidth(const_cast<char*>(g_W8TextSeparator));
 
     m_lineCount = 1;
     if ((m_layoutMode & 0x40) == 0) {
@@ -452,7 +452,7 @@ void W8TextBuffer::UpdateLayout()
         while (*break_at != '\0') {
             const char separator = *break_at;
             *break_at = '\0';
-            short word_width = StringPixLength(line, *m_font);
+            short word_width = m_font->textWidth(line);
             if (static_cast<unsigned int>(static_cast<int>(word_width) + accumulated_width) <
                 available_width) {
                 accumulated_width +=
@@ -487,7 +487,7 @@ void W8TextBuffer::UpdateLayout()
             span = strcspn(line, g_W8TextBreakCharacters);
             break_at = line + span;
         }
-        short final_width = StringPixLength(line, *m_font);
+        short final_width = m_font->textWidth(line);
         unsigned int total_width = static_cast<int>(final_width) + accumulated_width;
         if (available_width <= total_width) {
             if (previous_break != 0) {
@@ -534,7 +534,7 @@ int W8TextBuffer::GetHorizontalPosition(int width)
 int W8TextBuffer::GetVerticalPosition()
 {
     unsigned int line_height = m_lineHeight;
-    unsigned int font_height = GetFontHeight(*m_font);
+    unsigned int font_height = m_font->height();
     unsigned int first_line_inset;
     if (line_height == 0) {
         line_height = font_height;
@@ -560,7 +560,7 @@ int W8TextBuffer::GetVerticalPosition()
 // FUNCTION: WIZ8 0x004f3cf0
 void W8TextBuffer::SetLineHeight(unsigned int height)
 {
-    if (height < GetFontHeight(*m_font)) {
+    if (height < m_font->height()) {
         m_lineHeight = 0;
         return;
     }
@@ -590,7 +590,7 @@ void W8TextBuffer::RenderText(unsigned char* buffer, unsigned int pitch, int x_o
     }
 
     SetFont(*m_font);
-    auto& font_object = GetFontObject(*m_font);
+    auto& font_object = m_font->glyphs;
     SetObjectShade(font_object, m_renderMode);
     unsigned short* previous_state = GetFontObjectPalette16BPP(*m_font);
     if (m_fontStateIndex != -1) {
@@ -607,7 +607,7 @@ void W8TextBuffer::RenderText(unsigned char* buffer, unsigned int pitch, int x_o
         if (has_next_line)
             line[span] = '\0';
 
-        const int x = GetHorizontalPosition(StringPixLength(line, *m_font));
+        const int x = GetHorizontalPosition(m_font->textWidth(line));
         if (m_alternateRenderer == 0)
             DrawFontTextToBuffer(buffer, pitch, *m_font, x + x_offset, y + y_offset, line);
         else
@@ -640,7 +640,7 @@ void W8TextBuffer::RenderToTarget(int offset, bool force, SGPVSurface& target)
     }
 
     SetFont(*m_font);
-    auto& font_object = GetFontObject(*m_font);
+    auto& font_object = m_font->glyphs;
     SetObjectShade(font_object, m_renderMode);
     SetFontDestBuffer(target, m_pendingBounds.left, m_pendingBounds.top, m_pendingBounds.right,
                       m_pendingBounds.bottom, 0);
@@ -659,7 +659,7 @@ void W8TextBuffer::RenderToTarget(int offset, bool force, SGPVSurface& target)
         if (has_next_line)
             line[span] = '\0';
 
-        const int x = GetHorizontalPosition(StringPixLength(line, *m_font));
+        const int x = GetHorizontalPosition(m_font->textWidth(line));
         DrawFontText(x + offset, y + offset, line);
 
         if (!has_next_line)
@@ -687,7 +687,7 @@ unsigned int W8TextBuffer::GetLineHeight()
 {
     unsigned int height = m_lineHeight;
     if (height == 0) {
-        height = GetFontHeight(*m_font);
+        height = m_font->height();
     }
     return height;
 }

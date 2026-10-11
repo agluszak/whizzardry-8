@@ -506,7 +506,7 @@ bool CreateMessageBox(std::string_view text, Font& font, unsigned int shade, boo
     if (has_accept || has_cancel) {
         height = 0x6c;
     }
-    unsigned short width = StringPixLength(text, font) + 10;
+    unsigned short width = font.textWidth(text) + 10;
     if (width > 0x258) {
         width = 0x258;
     } else if (width < 0x64) {
@@ -658,12 +658,12 @@ void RenderMessageBox(void)
         ReleaseMessageBoxControls();
         g_message_box_state = 3;
     } else if (g_message_box_state == 2) {
-        Font& shade_font = g_message_box_font == &*g_large_font ? *g_large_font
-            : g_message_box_font == &*g_small_font ? *g_small_font
-            : g_message_box_font == &*g_small_font_secondary ? *g_small_font_secondary
-            : g_message_box_font == &*g_wiz_text_font ? *g_wiz_text_font
-            : *g_wiz_text_font_secondary;
-        SetObjectShade(GetFontObject(shade_font), g_message_box_shade);
+        Font& shade_font = g_message_box_font == &g_large_font ? g_large_font
+            : g_message_box_font == &g_small_font ? g_small_font
+            : g_message_box_font == &g_small_font_secondary ? g_small_font_secondary
+            : g_message_box_font == &g_wiz_text_font ? g_wiz_text_font
+            : g_wiz_text_font_secondary;
+        SetObjectShade(shade_font.glyphs, g_message_box_shade);
         MarkButtonsDirty();
         RenderButtons();
     } else if (g_message_box_state == 3) {

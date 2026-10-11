@@ -768,30 +768,30 @@ W8LockInfoPanel::W8LockInfoPanel(int tumbler_count) : Controls(0x17, 0x166, 0, 0
     bounds.top = m_bounds.top + 7;
     bounds.right = m_bounds.left + 0xb4;
     bounds.bottom = m_bounds.top + 0x11;
-    m_text0 = new W8TextBuffer(&bounds, {}, *g_wiz_text_font_secondary, g_W8TextBufferAlignCenter, 4);
+    m_text0 = new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, g_W8TextBufferAlignCenter, 4);
     bounds.top += 0xe;
     bounds.bottom += 0xe;
-    m_text1 = new W8TextBuffer(&bounds, g_localized_strings[0x7a9], *g_wiz_text_font_secondary,
+    m_text1 = new W8TextBuffer(&bounds, g_localized_strings[0x7a9], g_wiz_text_font_secondary,
                                g_W8TextBufferAlignLeft, 4);
     bounds.top += 0xe;
     bounds.bottom += 0xe;
-    m_text3 = new W8TextBuffer(&bounds, g_localized_strings[0x7aa], *g_wiz_text_font_secondary,
+    m_text3 = new W8TextBuffer(&bounds, g_localized_strings[0x7aa], g_wiz_text_font_secondary,
                                g_W8TextBufferAlignLeft, 4);
     bounds.top += 0xe;
     bounds.bottom += 0xe;
-    m_text5 = new W8TextBuffer(&bounds, g_localized_strings[0x7ab], *g_wiz_text_font_secondary,
+    m_text5 = new W8TextBuffer(&bounds, g_localized_strings[0x7ab], g_wiz_text_font_secondary,
                                g_W8TextBufferAlignLeft, 4);
     bounds.left = m_bounds.left + 0x98;
     bounds.top = m_bounds.top + 0x15;
     bounds.right = m_bounds.left + 0xb5;
     bounds.bottom = m_bounds.top + 0x1f;
-    m_text2 = new W8TextBuffer(&bounds, {}, *g_wiz_text_font_secondary, g_W8TextBufferAlignCenter, 4);
+    m_text2 = new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, g_W8TextBufferAlignCenter, 4);
     bounds.top += 0xe;
     bounds.bottom += 0xe;
-    m_text4 = new W8TextBuffer(&bounds, {}, *g_wiz_text_font_secondary, g_W8TextBufferAlignCenter, 4);
+    m_text4 = new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, g_W8TextBufferAlignCenter, 4);
     bounds.top += 0xe;
     bounds.bottom += 0xe;
-    m_text = new W8TextBuffer(&bounds, {}, *g_wiz_text_font_secondary, g_W8TextBufferAlignCenter, 4);
+    m_text = new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, g_W8TextBufferAlignCenter, 4);
     SetEnabled(true);
     Invalidate(0);
 }
@@ -817,21 +817,21 @@ void W8LockInfoPanel::RefreshInfo()
     unsigned int book;
     unsigned int realm;
 
-    m_text0->SetText(character->name, *g_wiz_text_font_secondary);
+    m_text0->SetText(character->name, g_wiz_text_font_secondary);
     if (!IsPartySlotEligible(g_status.selected_character) ||
         (!character->skills[W8_SKILL_LOCKS_TRAPS].active &&
          character->skills[W8_SKILL_LOCKS_TRAPS].level == 0) ||
         static_cast<int>(character->skills[W8_SKILL_LOCKS_TRAPS].level) < 0) {
         m_text2->SetFontStateIndex(0);
-        m_text2->SetText(g_dash, *g_wiz_text_font_secondary);
+        m_text2->SetText(g_dash, g_wiz_text_font_secondary);
     } else {
         m_text2->SetFontStateIndex(-1);
         m_text2->SetText(fmt::format("{:d}%", character->skills[W8_SKILL_LOCKS_TRAPS].level),
-                         *g_wiz_text_font_secondary);
+                         g_wiz_text_font_secondary);
     }
     if (!IsPartySlotEligible(g_status.selected_character) || character->spell_learned[0x27] != 1) {
         m_text4->SetFontStateIndex(0);
-        m_text4->SetText(g_dash, *g_wiz_text_font_secondary);
+        m_text4->SetText(g_dash, g_wiz_text_font_secondary);
     } else {
         W8Skill book_skill =
             GetBestSpellbookSkillForSpell(character, W8_SPELL_KNOCK_KNOCK, true, false, 7);
@@ -839,7 +839,7 @@ void W8LockInfoPanel::RefreshInfo()
                     .level;
         book = character->skills[book_skill].level;
         m_text4->SetFontStateIndex(-1);
-        m_text4->SetText(fmt::format("{:d}%", (book + realm * 4) / 5), *g_wiz_text_font_secondary);
+        m_text4->SetText(fmt::format("{:d}%", (book + realm * 4) / 5), g_wiz_text_font_secondary);
     }
     if (IsPartySlotEligible(g_status.selected_character) && character->stamina > 0x4f &&
         character->attributes[W8_ATTRIBUTE_STRENGTH].effective > 0x32) {
@@ -849,12 +849,12 @@ void W8LockInfoPanel::RefreshInfo()
                  IntegerPower(2, divisor - 2);
         if (static_cast<int>(figure) > -1) {
             m_text->SetFontStateIndex(-1);
-            m_text->SetText(fmt::format("{:d}%", figure), *g_wiz_text_font_secondary);
+            m_text->SetText(fmt::format("{:d}%", figure), g_wiz_text_font_secondary);
             goto done;
         }
     }
     m_text->SetFontStateIndex(0);
-    m_text->SetText(g_dash, *g_wiz_text_font_secondary);
+    m_text->SetText(g_dash, g_wiz_text_font_secondary);
 done:
     m_text1->SetGeometryDirty();
     m_text3->SetGeometryDirty();
@@ -1395,7 +1395,7 @@ void W8MainGameTextKeyHandler::Redraw(bool full_redraw)
     bottom = m_pPanel->m_bounds.top + m_bottom;
     InvalidateRegion(left, top, right, bottom, 0);
     BlitCatalogSurfaceRectTo16BPP(GetFrameBufferSurface(), left, top, right, bottom, 0x1b6, 0, 0);
-    SetFont(*g_wiz_text_font_secondary);
+    SetFont(g_wiz_text_font_secondary);
     last = m_first_visible_line + m_visible_lines;
     left += 2;
     top += 1;
@@ -1405,13 +1405,13 @@ void W8MainGameTextKeyHandler::Redraw(bool full_redraw)
         } else if (line == m_hover_line) {
             colour = g_font_state_palettes[W8_FONT_PALETTE_YELLOW].get();
         } else {
-            colour = GetFontObject(*g_wiz_text_font_secondary).ownedPalette.get();
+            colour = g_wiz_text_font_secondary.glyphs.ownedPalette.get();
         }
-        SetFontObjectPalette16BPP(*g_wiz_text_font_secondary, colour);
+        SetFontObjectPalette16BPP(g_wiz_text_font_secondary, colour);
         DrawFontText(left, top, g_localized_strings[m_line_string_ids[line]]);
         top += 0xe;
     }
-    SetFontObjectPalette16BPP(*g_wiz_text_font_secondary, GetFontObject(*g_wiz_text_font_secondary).ownedPalette.get());
+    SetFontObjectPalette16BPP(g_wiz_text_font_secondary, g_wiz_text_font_secondary.glyphs.ownedPalette.get());
     m_range.Invalidate(0);
     m_dirty = false;
 }
@@ -1578,7 +1578,7 @@ void W8MainGameTextEntry::Redraw(bool full_redraw)
 void W8MainGameTextPanel::BeginProgress(std::string_view text, float duration, float hold)
 {
     m_progress_display = true;
-    m_text_buffer.SetText(text, *g_wiz_text_font_secondary);
+    m_text_buffer.SetText(text, g_wiz_text_font_secondary);
     m_progress_duration = duration;
     m_progress_elapsed = 0.0f;
     m_progress_drawn = 0;
@@ -1769,30 +1769,30 @@ W8MainGameStatusPanel::W8MainGameStatusPanel() : Controls(0x17, 0x166, 0, 0, 0x1
     bounds.top = m_bounds.top + 7;
     bounds.right = m_bounds.left + 0xb4;
     bounds.bottom = m_bounds.top + 0x11;
-    m_text = new W8TextBuffer(&bounds, {}, *g_wiz_text_font_secondary, g_W8TextBufferAlignCenter, 4);
+    m_text = new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, g_W8TextBufferAlignCenter, 4);
     bounds.top += 0xe;
     bounds.bottom += 0xe;
-    m_text0 = new W8TextBuffer(&bounds, g_localized_strings[0x7a9], *g_wiz_text_font_secondary,
+    m_text0 = new W8TextBuffer(&bounds, g_localized_strings[0x7a9], g_wiz_text_font_secondary,
                                g_W8TextBufferAlignLeft, 4);
     bounds.top += 0xe;
     bounds.bottom += 0xe;
-    m_text2 = new W8TextBuffer(&bounds, g_localized_strings[0x7aa], *g_wiz_text_font_secondary,
+    m_text2 = new W8TextBuffer(&bounds, g_localized_strings[0x7aa], g_wiz_text_font_secondary,
                                g_W8TextBufferAlignLeft, 4);
     bounds.top += 0xe;
     bounds.bottom += 0xe;
-    m_text4 = new W8TextBuffer(&bounds, g_localized_strings[0x7b0], *g_wiz_text_font_secondary,
+    m_text4 = new W8TextBuffer(&bounds, g_localized_strings[0x7b0], g_wiz_text_font_secondary,
                                g_W8TextBufferAlignLeft, 4);
     bounds.left = m_bounds.left + 0x98;
     bounds.top = m_bounds.top + 0x15;
     bounds.right = m_bounds.left + 0xb5;
     bounds.bottom = m_bounds.top + 0x1f;
-    m_text1 = new W8TextBuffer(&bounds, {}, *g_wiz_text_font_secondary, g_W8TextBufferAlignCenter, 4);
+    m_text1 = new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, g_W8TextBufferAlignCenter, 4);
     bounds.top += 0xe;
     bounds.bottom += 0xe;
-    m_text3 = new W8TextBuffer(&bounds, {}, *g_wiz_text_font_secondary, g_W8TextBufferAlignCenter, 4);
+    m_text3 = new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, g_W8TextBufferAlignCenter, 4);
     bounds.top += 0xe;
     bounds.bottom += 0xe;
-    m_text5 = new W8TextBuffer(&bounds, {}, *g_wiz_text_font_secondary, g_W8TextBufferAlignCenter, 4);
+    m_text5 = new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, g_W8TextBufferAlignCenter, 4);
     m_target = 0;
     SetEnabled(true);
     Invalidate(0);
@@ -1819,20 +1819,20 @@ void W8MainGameStatusPanel::RefreshStatusTexts()
     unsigned int realm;
     unsigned int figure;
 
-    m_text->SetText(character->name, *g_wiz_text_font_secondary);
+    m_text->SetText(character->name, g_wiz_text_font_secondary);
     if (level >= 0) {
         level += m_target * 6;
     }
     if (level < 0) {
         m_text1->SetFontStateIndex(0);
-        m_text1->SetText(g_dash, *g_wiz_text_font_secondary);
+        m_text1->SetText(g_dash, g_wiz_text_font_secondary);
     } else {
         m_text1->SetFontStateIndex(m_target < 1 ? -1 : 3);
-        m_text1->SetText(fmt::format("{:d}%", level), *g_wiz_text_font_secondary);
+        m_text1->SetText(fmt::format("{:d}%", level), g_wiz_text_font_secondary);
     }
     if (!IsPartySlotEligible(g_status.selected_character) || character->spell_learned[0x27] != 1) {
         m_text3->SetFontStateIndex(0);
-        m_text3->SetText(g_dash, *g_wiz_text_font_secondary);
+        m_text3->SetText(g_dash, g_wiz_text_font_secondary);
     } else {
         W8Skill book_skill =
             GetBestSpellbookSkillForSpell(character, W8_SPELL_KNOCK_KNOCK, true, false, 7);
@@ -1840,7 +1840,7 @@ void W8MainGameStatusPanel::RefreshStatusTexts()
                     .level;
         book = character->skills[book_skill].level;
         m_text3->SetFontStateIndex(-1);
-        m_text3->SetText(fmt::format("{:d}%", (book + realm * 4) / 5), *g_wiz_text_font_secondary);
+        m_text3->SetText(fmt::format("{:d}%", (book + realm * 4) / 5), g_wiz_text_font_secondary);
     }
     if (IsPartySlotEligible(g_status.selected_character) && character->spell_learned[0x12] == 1) {
         W8Skill figure_skill =
@@ -1849,7 +1849,7 @@ void W8MainGameStatusPanel::RefreshStatusTexts()
                                            g_spell_records[W8_SPELL_DIVINE_TRAP].realm);
         if (static_cast<int>(figure) >= 0) {
             m_text5->SetFontStateIndex(-1);
-            m_text5->SetText(fmt::format("{:d}%", figure), *g_wiz_text_font_secondary);
+            m_text5->SetText(fmt::format("{:d}%", figure), g_wiz_text_font_secondary);
             m_text0->SetGeometryDirty();
             m_text2->SetGeometryDirty();
             m_text4->SetGeometryDirty();
@@ -1858,7 +1858,7 @@ void W8MainGameStatusPanel::RefreshStatusTexts()
         }
     }
     m_text5->SetFontStateIndex(0);
-    m_text5->SetText(g_dash, *g_wiz_text_font_secondary);
+    m_text5->SetText(g_dash, g_wiz_text_font_secondary);
     m_text0->SetGeometryDirty();
     m_text2->SetGeometryDirty();
     m_text4->SetGeometryDirty();
@@ -2496,7 +2496,7 @@ W8NpcDialogueTextController::W8NpcDialogueTextController(int panel_left, int pan
     bounds.left = panel_left + 6;
     bounds.top = bounds.bottom - line_height;
     bounds.right = panel_left + 0x7c;
-    text_area.Configure(&bounds, *g_wiz_text_font_secondary,
+    text_area.Configure(&bounds, g_wiz_text_font_secondary,
                         g_W8DialogTextAreaShortenText | g_W8DialogTextAreaPointSelection |
                             g_W8DialogTextAreaNoWrap);
     text_area.SetLineHeight(scroll_height);
@@ -2643,7 +2643,7 @@ void W8NpcDialogueTextController::Collapse()
     bounds.right = m_bounds.left + 0x7c;
     bounds.bottom = m_bounds.top + 0x12;
     bounds.top = bounds.bottom - line_height;
-    text_area.Configure(&bounds, *g_wiz_text_font_secondary,
+    text_area.Configure(&bounds, g_wiz_text_font_secondary,
                         g_W8DialogTextAreaNoWrap | g_W8DialogTextAreaPointSelection |
                             g_W8DialogTextAreaShortenText);
     RegionSetDisable(3);
@@ -2669,7 +2669,7 @@ void W8NpcDialogueTextController::Expand()
     bounds.bottom = m_bounds.top + 0x12;
     bounds.top = bounds.bottom - text_height;
     scroll_height = text_height;
-    text_area.Configure(&bounds, *g_wiz_text_font_secondary,
+    text_area.Configure(&bounds, g_wiz_text_font_secondary,
                         g_W8DialogTextAreaNoWrap | g_W8DialogTextAreaPointSelection |
                             g_W8DialogTextAreaShortenText);
     if (scroll_height != 0xff) {
@@ -3314,7 +3314,7 @@ render_world:
             W8Monster* monster = GetMonsterByLocationID(g_mipe_state->SelectedMonsterLocationId());
             if (monster) {
                 ClearSurfaceRect(0x122, 0x159, 0x226, 0x168);
-                SetFont(*g_wiz_text_font_secondary);
+                SetFont(g_wiz_text_font_secondary);
                 unsigned char frame = monster->m_pRep->subcycle;
                 const char* cycle = g_cycle_names[monster->Query(W8_MONSTER_QUERY_CYCLE)].name;
                 unsigned char subcycles = static_cast<unsigned char>(monster->GetNumSubCycles());
@@ -3836,8 +3836,8 @@ void DrawMainGameScreen(void)
         RenderAllTextFields();
         if (g_level_block->mouselook_debug != 0) {
             ClearSurfaceRect(0xdc, 0x1e, 0x154, 0x26);
-            SetFont(*g_smfnt_font);
-            SetFontObjectPalette16BPP(*g_smfnt_font, GetFontObject(*g_smfnt_font).ownedPalette.get());
+            SetFont(g_smfnt_font);
+            SetFontObjectPalette16BPP(g_smfnt_font, g_smfnt_font.glyphs.ownedPalette.get());
             DrawFontTextDirty(
                 0xdc, 0x1e,
                 fmt::format("{:.3f}, {:.3f}", g_mouselook_pending_pitch, g_mouselook_pending_yaw));
@@ -3955,7 +3955,7 @@ void RedrawCombatMonsterList(void)
         InvalidateRegion(0xfa, 0x19, clear_right, clear_bottom, 1);
     }
     if (gXStatus.active_monster_count != 0) {
-        SetFont(*g_wiz_text_font_secondary);
+        SetFont(g_wiz_text_font_secondary);
         group_list_index = 0;
         list_length = gXStatus.monster_groups.size();
         if (list_length != 0) {
@@ -3967,7 +3967,7 @@ void RedrawCombatMonsterList(void)
                         GetMonsterGroupName(monster_group), monster_group->active_member_count,
                         monster_group->selectable_member_count,
                         monster_group->visible_member_count);
-                    text_width = StringPixLength(scratch_text, *g_wiz_text_font_secondary);
+                    text_width = g_wiz_text_font_secondary.textWidth(scratch_text);
                     is_action_group = false;
                     if (monster_group->group_id == g_level_block->action_group) {
                         is_action_group = true;
@@ -4003,10 +4003,10 @@ void RedrawCombatMonsterList(void)
                     } else {
                         palette = g_font_state_palettes[W8_FONT_PALETTE_BLUE].get();
                         if (!is_target_group) {
-                            palette = GetFontObject(*g_wiz_text_font_secondary).ownedPalette.get();
+                            palette = g_wiz_text_font_secondary.glyphs.ownedPalette.get();
                         }
                     }
-                    SetFontObjectPalette16BPP(*g_wiz_text_font_secondary, palette);
+                    SetFontObjectPalette16BPP(g_wiz_text_font_secondary, palette);
                     DrawFontTextDirty(0xfa, row_y, scratch_text);
                     row_y += 0xb;
                     ++live_row_count;
@@ -4215,9 +4215,9 @@ void DrawHighlightOverlay(unsigned int party_slot, int row_count, unsigned int m
     SetMainGameMode(W8_MAIN_GAME_HIGHLIGHT_OVERLAY);
 
     std::string name = g_status.buffers.Char[party_slot].name;
-    int width = StringPixLength(name, *g_wiz_text_font);
+    int width = g_wiz_text_font.textWidth(name);
     if (min_width < static_cast<unsigned int>(width)) {
-        width = StringPixLength(name, *g_wiz_text_font);
+        width = g_wiz_text_font.textWidth(name);
         min_width = width;
     }
     min_width += 6;
@@ -4287,15 +4287,15 @@ void DrawHighlightOverlay(unsigned int party_slot, int row_count, unsigned int m
         row_y_pos += 6;
     }
 
-    SetFont(*g_wiz_text_font);
+    SetFont(g_wiz_text_font);
     SetFontObjectPalette16BPP(
-        *g_wiz_text_font,
+        g_wiz_text_font,
         g_font_state_palettes[g_status.buffers.XChar[party_slot].party_order_index].get());
-    int font_height = GetFontHeight(*g_wiz_text_font);
-    int name_width = StringPixLength(name, *g_wiz_text_font);
+    int font_height = g_wiz_text_font.height();
+    int name_width = g_wiz_text_font.textWidth(name);
     DrawFontText(left + static_cast<int>(panel_width >> 1) - name_width / 2,
                  (0xc - font_height) / 2 + top + 6, name);
-    SetFontObjectPalette16BPP(*g_wiz_text_font, GetFontObject(*g_wiz_text_font).ownedPalette.get());
+    SetFontObjectPalette16BPP(g_wiz_text_font, g_wiz_text_font.glyphs.ownedPalette.get());
 
     row_y_pos = top + 0x12;
     DrawCatalogImage(GetFrameBufferSurface(), 0x70, 0, 3, left, row_y_pos, VO_BLT_SRCTRANSPARENCY, 0);
@@ -4359,7 +4359,7 @@ static void DrawPortraitConditionRow(int condition, int text_x, int row_y, unsig
                      0);
     g_level_block->text_paint_scratch =
         fmt::format("{}", g_localized_strings[g_condition_notices[condition].name]);
-    int text_width = StringPixLength(g_level_block->text_paint_scratch, *g_wiz_text_font);
+    int text_width = g_wiz_text_font.textWidth(g_level_block->text_paint_scratch);
     DrawFontText(((width >> 1) - text_width / 2) + 0x1a + text_x, row_y,
                  g_level_block->text_paint_scratch);
 }
@@ -4371,7 +4371,7 @@ static void DrawPortraitEnchantmentRow(const W8Character* character, int slot, i
     g_level_block->text_paint_scratch =
         fmt::format("{} ({:d})", g_localized_strings[g_enchantment_notices[slot]],
                     character->enchantments[slot].power);
-    int text_width = StringPixLength(g_level_block->text_paint_scratch, *g_wiz_text_font);
+    int text_width = g_wiz_text_font.textWidth(g_level_block->text_paint_scratch);
     DrawFontText(((width >> 1) - text_width / 2) + 0x1a + text_x, row_y,
                  g_level_block->text_paint_scratch);
 }
@@ -4388,11 +4388,11 @@ void DrawPortraitVitalsOverlay(int party_slot)
     W8Character* character = &g_status.buffers.Char[party_slot];
 
     g_level_block->text_paint_scratch = fmt::format("{}: ", g_localized_strings[0x282]);
-    unsigned int label_width = StringPixLength(g_level_block->text_paint_scratch, *g_wiz_text_font);
+    unsigned int label_width = g_wiz_text_font.textWidth(g_level_block->text_paint_scratch);
     g_level_block->text_paint_scratch = fmt::format("{}: ", g_localized_strings[0x283]);
-    int width = StringPixLength(g_level_block->text_paint_scratch, *g_wiz_text_font);
+    int width = g_wiz_text_font.textWidth(g_level_block->text_paint_scratch);
     if (label_width < static_cast<unsigned int>(width)) {
-        width = StringPixLength(g_level_block->text_paint_scratch, *g_wiz_text_font);
+        width = g_wiz_text_font.textWidth(g_level_block->text_paint_scratch);
         label_width = width;
     }
     if (label_width < 0x12) {
@@ -4402,12 +4402,12 @@ void DrawPortraitVitalsOverlay(int party_slot)
 
     g_level_block->text_paint_scratch =
         fmt::format("{:d}/{:d}", character->hp_current, character->uiHPMax);
-    unsigned int value_width = StringPixLength(g_level_block->text_paint_scratch, *g_wiz_text_font);
+    unsigned int value_width = g_wiz_text_font.textWidth(g_level_block->text_paint_scratch);
     g_level_block->text_paint_scratch =
         fmt::format("{:d}/{:d}", character->stamina, character->uiStaminaMax);
-    width = StringPixLength(g_level_block->text_paint_scratch, *g_wiz_text_font);
+    width = g_wiz_text_font.textWidth(g_level_block->text_paint_scratch);
     if (value_width < static_cast<unsigned int>(width)) {
-        width = StringPixLength(g_level_block->text_paint_scratch, *g_wiz_text_font);
+        width = g_wiz_text_font.textWidth(g_level_block->text_paint_scratch);
         value_width = width;
     }
     int realm;
@@ -4415,9 +4415,9 @@ void DrawPortraitVitalsOverlay(int party_slot)
         g_level_block->text_paint_scratch = fmt::format(
             "{:d}/{:d}", GetCharacterRealmSpellPoints(character, static_cast<W8SpellRealm>(realm)),
             character->sp_max[realm]);
-        width = StringPixLength(g_level_block->text_paint_scratch, *g_wiz_text_font);
+        width = g_wiz_text_font.textWidth(g_level_block->text_paint_scratch);
         if (label_width < static_cast<unsigned int>(width)) {
-            width = StringPixLength(g_level_block->text_paint_scratch, *g_wiz_text_font);
+            width = g_wiz_text_font.textWidth(g_level_block->text_paint_scratch);
             value_width = width;
         }
     }
@@ -4433,7 +4433,7 @@ void DrawPortraitVitalsOverlay(int party_slot)
     g_level_block->text_paint_scratch =
         fmt::format("{:d}/{:d}", character->hp_current, character->uiHPMax);
     unsigned int value_center = (text_width - label_width) >> 1;
-    width = StringPixLength(g_level_block->text_paint_scratch, *g_wiz_text_font);
+    width = g_wiz_text_font.textWidth(g_level_block->text_paint_scratch);
     DrawFontText(value_center - width / 2 + text_x + label_width, row_y,
                  g_level_block->text_paint_scratch);
     row_y += 0x12;
@@ -4442,7 +4442,7 @@ void DrawPortraitVitalsOverlay(int party_slot)
     DrawFontText(text_x, row_y, g_level_block->text_paint_scratch);
     g_level_block->text_paint_scratch =
         fmt::format("{:d}/{:d}", character->stamina, character->uiStaminaMax);
-    width = StringPixLength(g_level_block->text_paint_scratch, *g_wiz_text_font);
+    width = g_wiz_text_font.textWidth(g_level_block->text_paint_scratch);
     DrawFontText(value_center - width / 2 + text_x + label_width, row_y,
                  g_level_block->text_paint_scratch);
     row_y += 0x12;
@@ -4454,8 +4454,8 @@ void DrawPortraitVitalsOverlay(int party_slot)
         g_level_block->text_paint_scratch = fmt::format(
             "{:d}/{:d}", GetCharacterRealmSpellPoints(character, static_cast<W8SpellRealm>(realm)),
             character->sp_max[realm]);
-        int text_y = (0x12 - GetFontHeight(*g_wiz_text_font)) / 2 + row_y;
-        width = StringPixLength(g_level_block->text_paint_scratch, *g_wiz_text_font);
+        int text_y = (0x12 - g_wiz_text_font.height()) / 2 + row_y;
+        width = g_wiz_text_font.textWidth(g_level_block->text_paint_scratch);
         DrawFontText(value_center - width / 2 + text_x + label_width, text_y,
                      g_level_block->text_paint_scratch);
         row_y += 0x12;
@@ -4475,7 +4475,7 @@ static int MeasurePortraitConditions(const W8Character* character, unsigned int&
         if (character->uiCondition[condition] != 0) {
             g_level_block->text_paint_scratch =
                 fmt::format("{}", g_localized_strings[g_condition_notices[condition].name]);
-            int width = StringPixLength(g_level_block->text_paint_scratch, *g_wiz_text_font);
+            int width = g_wiz_text_font.textWidth(g_level_block->text_paint_scratch);
             if (max_width < static_cast<unsigned int>(width)) {
                 max_width = width;
             }
@@ -4499,7 +4499,7 @@ static int MeasurePortraitEnchantments(const W8Character* character, unsigned in
             g_level_block->text_paint_scratch =
                 fmt::format("{} ({:d})", g_localized_strings[g_enchantment_notices[slot]],
                             character->enchantments[slot].power);
-            int width = StringPixLength(g_level_block->text_paint_scratch, *g_wiz_text_font);
+            int width = g_wiz_text_font.textWidth(g_level_block->text_paint_scratch);
             if (max_width < static_cast<unsigned int>(width)) {
                 max_width = width;
             }
@@ -4555,9 +4555,9 @@ void DrawPortraitStatusOverlay(int party_slot)
     if (0x14 < row_count) {
         row_count = 0x14;
         truncated = true;
-        int width = StringPixLength(g_localized_strings[0x7d8], *g_wiz_text_font);
+        int width = g_wiz_text_font.textWidth(g_localized_strings[0x7d8]);
         if (max_width < static_cast<unsigned int>(width - 0x1a)) {
-            width = StringPixLength(g_level_block->text_paint_scratch, *g_wiz_text_font);
+            width = g_wiz_text_font.textWidth(g_level_block->text_paint_scratch);
             max_width = width - 0x1a;
         }
     }
@@ -4578,7 +4578,7 @@ void DrawPortraitStatusOverlay(int party_slot)
     for (slot = 7; slot > 0; --slot) {
         if (rows_drawn == 0x13 && truncated) {
             g_level_block->text_paint_scratch = g_localized_strings[0x7d8];
-            int width = StringPixLength(g_level_block->text_paint_scratch, *g_wiz_text_font);
+            int width = g_wiz_text_font.textWidth(g_level_block->text_paint_scratch);
             DrawFontText((((text_width - width) + 0x1a) >> 1) + text_x, row_y,
                          g_level_block->text_paint_scratch);
             return;
@@ -6756,9 +6756,9 @@ static void DrawMainGamePrompt(void)
         bounds.top = 0x13f;
         bounds.right = 0x1cf;
         bounds.bottom = 0x153;
-        buffer = new W8TextBuffer(&bounds, {}, *g_wiz_text_font_secondary, g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
+        buffer = new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
         buffer->RenderString(g_localized_strings[gXStatus.fCombatMode ? 0x780 : 0x77f],
-                             *g_wiz_text_font_secondary, false, GetFrameBufferSurface());
+                             g_wiz_text_font_secondary, false, GetFrameBufferSurface());
         delete buffer;
     }
 }
@@ -7648,7 +7648,7 @@ void ShowNpcTradeItemNotice(W8ItemInstance* item)
     g_level_block->text_paint_scratch = fmt::format("{:d}{}", price, g_localized_strings[0x797]);
     ShowNotice(font_palette, FormatItemDisplayName(item, true), 2,
                GetTextBoxScrollRange() -
-                   StringPixLength(g_level_block->text_paint_scratch, GetTextBoxFont()));
+                   GetTextBoxFont().textWidth(g_level_block->text_paint_scratch));
     AppendTextBoxLine(g_level_block->text_paint_scratch, 2);
 }
 
@@ -7719,7 +7719,7 @@ static void ShowNpcPlayerTradeItem(W8ItemInstance* item, bool acceptable, unsign
         }
         ShowNotice(font_palette, FormatItemDisplayName(item, true), 2,
                    GetTextBoxScrollRange() -
-                       StringPixLength(g_level_block->text_paint_scratch, GetTextBoxFont()));
+                       GetTextBoxFont().textWidth(g_level_block->text_paint_scratch));
         AppendTextBoxLine(g_level_block->text_paint_scratch, 2);
     } else {
         ShowNotice(font_palette, FormatItemDisplayName(item, true), 2);
@@ -7740,7 +7740,7 @@ void PopulateNpcTradeList(void)
             fmt::format("{:d}{}", g_status.party_gold, g_localized_strings[0x797]);
         ShowNotice(W8_FONT_PALETTE_TEXT_BOX, g_localized_strings[0x72d], 2,
                    GetTextBoxScrollRange() -
-                       StringPixLength(g_level_block->text_paint_scratch, GetTextBoxFont()));
+                       GetTextBoxFont().textWidth(g_level_block->text_paint_scratch));
         AppendTextBoxLine(g_level_block->text_paint_scratch, 2);
     }
     if ((static_cast<W8TextControl*>(

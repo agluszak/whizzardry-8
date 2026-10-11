@@ -131,7 +131,7 @@ W8CharacterStatsValue::W8CharacterStatsValue(Controls* owner, int x, int y,
     : W8TextControl(owner, 0xffffffff, x, y, 0, 0, 0x104, 0, 1, 1, 2, 2, 3),
       m_default_record(default_record)
 {
-    m_textBuffer.SetText(g_localized_strings[default_record->name_id], *g_options_detail_font);
+    m_textBuffer.SetText(g_localized_strings[default_record->name_id], g_options_detail_font);
     m_textBuffer.SetLayoutMode(g_W8TextBufferAlignMiddle | g_W8TextBufferAlignLeft);
     m_pressedTextOffset = 0;
     UpdateTextBounds(x + 0x19, y, x + 0x7e, y + 0x16);
@@ -146,7 +146,7 @@ void W8CharacterStatsValue::SetRecord(const W8CharacterStatsRecord* record)
         record = m_default_record;
     }
     m_record = record;
-    m_textBuffer.SetText(g_localized_strings[record->name_id], *g_options_detail_font);
+    m_textBuffer.SetText(g_localized_strings[record->name_id], g_options_detail_font);
 }
 
 /* Redraw the current record's name over the value control's own text. */
@@ -202,7 +202,7 @@ W8CharacterStatsRecordControl::W8CharacterStatsRecordControl(Controls* owner, in
     m_alternatePressedSprite = text;
     m_alternateNormalSprite = text;
     m_disabledSprite = text;
-    m_textBuffer.SetText(g_localized_strings[record->name_id], *g_options_detail_font);
+    m_textBuffer.SetText(g_localized_strings[record->name_id], g_options_detail_font);
     m_textBuffer.SetLayoutMode(g_W8TextBufferAlignMiddle | g_W8TextBufferAlignLeft);
     m_pressedTextOffset = 0;
     UpdateTextBounds(0x19, m_text_offset + top, 0x7e, m_text_offset + top + 0x16);
@@ -840,7 +840,7 @@ void W8CharacterStatsPage::Redraw()
         bounds.right = left + 0x1a8;
         bounds.top = top + 0xe;
         bounds.bottom = top + 0x1a;
-        text.RenderString(&bounds, g_localized_strings[0x96], *g_wiz_text_font_secondary, false,
+        text.RenderString(&bounds, g_localized_strings[0x96], g_wiz_text_font_secondary, false,
                           GetFrameBufferSurface());
 
         if (m_character->iRace != W8_RACE_NONE) {
@@ -850,7 +850,7 @@ void W8CharacterStatsPage::Redraw()
             bounds.right = left + 0x10f;
             text.SetLayoutBounds(&bounds, true, true);
             text.RenderString(fmt::format("{:d}", m_creation_state->attribute_points_remaining),
-                              *g_wiz_text_font_secondary, false, GetFrameBufferSurface());
+                              g_wiz_text_font_secondary, false, GetFrameBufferSurface());
         }
 
         text.SetLayoutMode(g_W8TextBufferAlignLeft | g_W8TextBufferAlignMiddle);
@@ -859,7 +859,7 @@ void W8CharacterStatsPage::Redraw()
         bounds.bottom = top + 0x8a;
         bounds.left = left + 0x116;
         int saved_right = bounds.right;
-        text.RenderString(&bounds, g_localized_strings[0x87], *g_wiz_text_font_secondary, false,
+        text.RenderString(&bounds, g_localized_strings[0x87], g_wiz_text_font_secondary, false,
                           GetFrameBufferSurface());
 
         text.SetLayoutMode(g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
@@ -867,7 +867,7 @@ void W8CharacterStatsPage::Redraw()
         bounds.right = left + 0xe4;
         bounds.top = top + 0xac;
         bounds.bottom = top + 0xb8;
-        text.RenderString(&bounds, g_localized_strings[0xb1], *g_wiz_text_font_secondary, false,
+        text.RenderString(&bounds, g_localized_strings[0xb1], g_wiz_text_font_secondary, false,
                           GetFrameBufferSurface());
 
         text.SetLayoutMode(g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft);
@@ -895,14 +895,14 @@ void W8CharacterStatsPage::Redraw()
                                     [g_character_skill_name_ids
                                          [g_profession_bonus_skills[m_character->iProfession]]],
                                 g_localized_strings[0xb2]),
-                    *g_wiz_text_font_secondary, false, GetFrameBufferSurface());
+                    g_wiz_text_font_secondary, false, GetFrameBufferSurface());
                 bounds.top += line_height;
             }
             for (int trait_index = 0; trait_index < 0x20; ++trait_index) {
                 if (available[trait_index] != 0) {
                     text.RenderString(&bounds,
                                       g_localized_strings[g_character_trait_name_ids[trait_index]],
-                                      *g_wiz_text_font_secondary, false, GetFrameBufferSurface());
+                                      g_wiz_text_font_secondary, false, GetFrameBufferSurface());
                     bounds.top += line_height;
                 }
             }
@@ -913,7 +913,7 @@ void W8CharacterStatsPage::Redraw()
         bounds.right = left + 0x1a7;
         bounds.top = top + 0xac;
         bounds.bottom = top + 0xb8;
-        text.RenderString(&bounds, g_localized_strings[0xa6], *g_wiz_text_font_secondary, false,
+        text.RenderString(&bounds, g_localized_strings[0xa6], g_wiz_text_font_secondary, false,
                           GetFrameBufferSurface());
 
         bounds.left = left + 0xf8;
@@ -921,57 +921,57 @@ void W8CharacterStatsPage::Redraw()
         bounds.bottom = top + 0xc6;
         bounds.right = left + 0x195;
         text.SetLayoutMode(g_W8TextBufferAlignLeft | g_W8TextBufferAlignMiddle);
-        text.RenderString(&bounds, g_localized_strings[0xa7], *g_wiz_text_font_secondary, false,
+        text.RenderString(&bounds, g_localized_strings[0xa7], g_wiz_text_font_secondary, false,
                           GetFrameBufferSurface());
         if (m_character->iRace != W8_RACE_NONE) {
             text.SetLayoutMode(g_W8TextBufferAlignRight | g_W8TextBufferAlignMiddle);
-            text.RenderString(fmt::format("{:d}", m_character->uiHPMax), *g_wiz_text_font_secondary,
+            text.RenderString(fmt::format("{:d}", m_character->uiHPMax), g_wiz_text_font_secondary,
                               false, GetFrameBufferSurface());
         }
 
         bounds.top += 0xe;
         bounds.bottom += 0xe;
         text.SetLayoutMode(g_W8TextBufferAlignLeft | g_W8TextBufferAlignMiddle);
-        text.RenderString(&bounds, g_localized_strings[0xa9], *g_wiz_text_font_secondary, false,
+        text.RenderString(&bounds, g_localized_strings[0xa9], g_wiz_text_font_secondary, false,
                           GetFrameBufferSurface());
         if (m_character->iRace != W8_RACE_NONE) {
             text.SetLayoutMode(g_W8TextBufferAlignRight | g_W8TextBufferAlignMiddle);
             text.RenderString(fmt::format("{:d}", m_character->uiStaminaMax),
-                              *g_wiz_text_font_secondary, false, GetFrameBufferSurface());
+                              g_wiz_text_font_secondary, false, GetFrameBufferSurface());
         }
 
         bounds.bottom += 0xe;
         bounds.top += 0xe;
         text.SetLayoutMode(g_W8TextBufferAlignLeft | g_W8TextBufferAlignMiddle);
-        text.RenderString(&bounds, g_localized_strings[0xed], *g_wiz_text_font_secondary, false,
+        text.RenderString(&bounds, g_localized_strings[0xed], g_wiz_text_font_secondary, false,
                           GetFrameBufferSurface());
         if (m_character->iRace != W8_RACE_NONE) {
             text.SetLayoutMode(g_W8TextBufferAlignRight | g_W8TextBufferAlignMiddle);
             text.RenderString(
                 fmt::format("{:d}", ComputeLevelUpSpellPointAward(m_character, m_creation_state)),
-                *g_wiz_text_font_secondary, false, GetFrameBufferSurface());
+                g_wiz_text_font_secondary, false, GetFrameBufferSurface());
         }
 
         bounds.top += 0xe;
         bounds.bottom += 0xe;
         text.SetLayoutMode(g_W8TextBufferAlignLeft | g_W8TextBufferAlignMiddle);
-        text.RenderString(&bounds, g_localized_strings[0xad], *g_wiz_text_font_secondary, false,
+        text.RenderString(&bounds, g_localized_strings[0xad], g_wiz_text_font_secondary, false,
                           GetFrameBufferSurface());
         if (m_character->iRace != W8_RACE_NONE) {
             text.SetLayoutMode(g_W8TextBufferAlignRight | g_W8TextBufferAlignMiddle);
             text.RenderString(fmt::format("{:d}", m_character->armor_class_average),
-                              *g_wiz_text_font_secondary, false, GetFrameBufferSurface());
+                              g_wiz_text_font_secondary, false, GetFrameBufferSurface());
         }
 
         bounds.top += 0xe;
         bounds.bottom += 0xe;
         text.SetLayoutMode(g_W8TextBufferAlignLeft | g_W8TextBufferAlignMiddle);
-        text.RenderString(&bounds, g_localized_strings[0xaf], *g_wiz_text_font_secondary, false,
+        text.RenderString(&bounds, g_localized_strings[0xaf], g_wiz_text_font_secondary, false,
                           GetFrameBufferSurface());
         if (m_character->iRace != W8_RACE_NONE) {
             text.SetLayoutMode(g_W8TextBufferAlignRight | g_W8TextBufferAlignMiddle);
             text.RenderString(fmt::format("{:d}", m_character->carrying_capacity / 10),
-                              *g_wiz_text_font_secondary, false, GetFrameBufferSurface());
+                              g_wiz_text_font_secondary, false, GetFrameBufferSurface());
         }
 
         text.SetLayoutMode(g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
@@ -979,7 +979,7 @@ void W8CharacterStatsPage::Redraw()
         bounds.right = left + 0xe4;
         bounds.top = top + 0x140;
         bounds.bottom = top + 0x14c;
-        text.RenderString(&bounds, g_localized_strings[0xb9], *g_wiz_text_font_secondary, false,
+        text.RenderString(&bounds, g_localized_strings[0xb9], g_wiz_text_font_secondary, false,
                           GetFrameBufferSurface());
         if (m_character->iRace != W8_RACE_NONE || m_character->iProfession != W8_PROFESSION_NONE) {
             for (int realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
@@ -992,7 +992,7 @@ void W8CharacterStatsPage::Redraw()
                 int value = m_character->resistances[realm].total - 0x19;
                 std::string value_text =
                     value == 0 ? std::string(g_dash) : fmt::format("{:+d}", value);
-                text.RenderString(value_text, *g_wiz_text_font_secondary, false, GetFrameBufferSurface());
+                text.RenderString(value_text, g_wiz_text_font_secondary, false, GetFrameBufferSurface());
             }
         }
         for (int realm_index = 0; realm_index < 6; ++realm_index) {
@@ -1009,7 +1009,7 @@ void W8CharacterStatsPage::Redraw()
         bounds.right = left + 0x1a7;
         bounds.top = top + 0x120;
         bounds.bottom = top + 0x12c;
-        text.RenderString(&bounds, g_localized_strings[0xb3], *g_wiz_text_font_secondary, false,
+        text.RenderString(&bounds, g_localized_strings[0xb3], g_wiz_text_font_secondary, false,
                           GetFrameBufferSurface());
         if (m_character->iProfession != W8_PROFESSION_NONE) {
             text.SetLayoutMode(g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft);
@@ -1021,7 +1021,7 @@ void W8CharacterStatsPage::Redraw()
                 &bounds,
                 g_localized_strings[g_character_skill_name_ids
                                   [g_profession_bonus_skills[m_character->iProfession]]],
-                *g_wiz_text_font_secondary, false, GetFrameBufferSurface());
+                g_wiz_text_font_secondary, false, GetFrameBufferSurface());
             for (int index = 0; index < 4; ++index) {
                 if (g_profession_skills[m_character->iProfession][index] != -1) {
                     bounds.top += 0xe;
@@ -1030,7 +1030,7 @@ void W8CharacterStatsPage::Redraw()
                         &bounds,
                         g_localized_strings[g_character_skill_name_ids
                                           [g_profession_skills[m_character->iProfession][index]]],
-                        *g_wiz_text_font_secondary, false, GetFrameBufferSurface());
+                        g_wiz_text_font_secondary, false, GetFrameBufferSurface());
                 }
             }
             text.SetLayoutMode(g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
@@ -1040,14 +1040,14 @@ void W8CharacterStatsPage::Redraw()
             bounds.bottom = top + 0x185;
             text.SetLayoutBounds(&bounds, true, true);
             text.RenderString(fmt::format("{:d}", m_creation_state->skill_points_total),
-                              *g_wiz_text_font_secondary, false, GetFrameBufferSurface());
+                              g_wiz_text_font_secondary, false, GetFrameBufferSurface());
         }
         text.SetLayoutMode(g_W8TextBufferAlignLeft | g_W8TextBufferAlignMiddle);
         bounds.top = top + 0x179;
         bounds.left = left + 0x123;
         bounds.bottom = top + 0x185;
         bounds.right = saved_right;
-        text.RenderString(&bounds, g_localized_strings[0x87], *g_wiz_text_font_secondary, false,
+        text.RenderString(&bounds, g_localized_strings[0x87], g_wiz_text_font_secondary, false,
                           GetFrameBufferSurface());
     }
 
@@ -1063,15 +1063,15 @@ void W8CharacterStatsPage::Redraw()
         } else {
             text_id = 0xe6;
         }
-        text.RenderString(g_localized_strings[text_id], *g_wiz_text_font_secondary, true, GetFrameBufferSurface());
+        text.RenderString(g_localized_strings[text_id], g_wiz_text_font_secondary, true, GetFrameBufferSurface());
         bounds.top = 0x162;
         bounds.bottom = 0x179;
         bounds.right = 0x8f;
-        text.RenderString(&bounds, g_localized_strings[0xe2], *g_wiz_text_font_secondary, true,
+        text.RenderString(&bounds, g_localized_strings[0xe2], g_wiz_text_font_secondary, true,
                           GetFrameBufferSurface());
         bounds.top = 0x184;
         bounds.bottom = 0x19b;
-        text.RenderString(&bounds, g_localized_strings[0xe4], *g_wiz_text_font_secondary, true,
+        text.RenderString(&bounds, g_localized_strings[0xe4], g_wiz_text_font_secondary, true,
                           GetFrameBufferSurface());
         m_prepared = false;
     }
@@ -1081,7 +1081,7 @@ void W8CharacterStatsPage::Redraw()
         DrawCatalogImage(GetFrameBufferSurface(), 0x107, 0, 5, 0x8f, 0x162, VO_BLT_SRCTRANSPARENCY, 0);
         text.SetLayoutBounds(&bounds, true, true);
         text.RenderString(fmt::format("{:d}", m_creation_state->attribute_step_limit),
-                          *g_options_detail_font, true, GetFrameBufferSurface());
+                          g_options_detail_font, true, GetFrameBufferSurface());
         bounds.top = 0x184;
         bounds.bottom = 0x19b;
         DrawCatalogImage(GetFrameBufferSurface(), 0x107, 0, 5, 0x8f, 0x184, VO_BLT_SRCTRANSPARENCY, 0);
@@ -1091,7 +1091,7 @@ void W8CharacterStatsPage::Redraw()
             total < 1
                 ? g_zero_slash_zero
                 : fmt::format("{:d}/{:d}", m_creation_state->attribute_points_remaining, total);
-        text.RenderString(points_text, *g_options_detail_font, true, GetFrameBufferSurface());
+        text.RenderString(points_text, g_options_detail_font, true, GetFrameBufferSurface());
         m_dirty = false;
     }
 

@@ -5775,9 +5775,9 @@ unsigned int W8PathingService::EditWaypointLinkFlags(const char* title, unsigned
     colour_backup.SetZero();
     GetWorldColour(&colour_backup);
     PublishLightDirection(&colour_saved);
-    SetFont(*g_smfnt_font);
+    SetFont(g_smfnt_font);
     SetRGBFontShadow(0, 0, 0);
-    SetFontObjectPalette16BPP(*g_smfnt_font, g_font_state_palettes[W8_FONT_PALETTE_YELLOW].get());
+    SetFontObjectPalette16BPP(g_smfnt_font, g_font_state_palettes[W8_FONT_PALETTE_YELLOW].get());
     if (direction == 0 || (waypoint_editor_flags & 2) != 0) {
         direction = 3;
     }

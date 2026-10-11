@@ -178,12 +178,12 @@ unsigned char MainMenuScreenEnter(void)
 
     text = FormatVersionBanner(false, false, false);
     wide = text;
-    SetFont(*g_wiz_text_font_secondary);
-    SetFontObjectPalette16BPP(*g_wiz_text_font_secondary,
+    SetFont(g_wiz_text_font_secondary);
+    SetFontObjectPalette16BPP(g_wiz_text_font_secondary,
                               g_font_state_palettes[W8_FONT_PALETTE_WHITE].get());
-    measured = StringPixLength(wide, *g_wiz_text_font_secondary);
+    measured = g_wiz_text_font_secondary.textWidth(wide);
     DrawFontText(0x27b - measured, 5, wide);
-    SetFontObjectPalette16BPP(*g_wiz_text_font_secondary, GetFontObject(*g_wiz_text_font_secondary).ownedPalette.get());
+    SetFontObjectPalette16BPP(g_wiz_text_font_secondary, g_wiz_text_font_secondary.glyphs.ownedPalette.get());
     ResetRegions();
     RegionSetEnable(1);
 
@@ -262,9 +262,9 @@ void MainMenuScreenFrame()
             if (!DispatchRegionInput(&input) && input.usEvent == KEY_DOWN) {
                 if (HandleDeveloperModeKey(&input)) {
                     if (g_dev_mode) {
-                        SetFont(*g_wiz_text_font_secondary);
-                        SetFontObjectPalette16BPP(*g_wiz_text_font_secondary,
-                                                  GetFontObject(*g_wiz_text_font_secondary).ownedPalette.get());
+                        SetFont(g_wiz_text_font_secondary);
+                        SetFontObjectPalette16BPP(g_wiz_text_font_secondary,
+                                                  g_wiz_text_font_secondary.glyphs.ownedPalette.get());
                         DrawFontTextDirty(5, 5, "Developer mode enabled.");
                     }
                 } else {

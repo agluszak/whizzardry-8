@@ -60,7 +60,7 @@ W8NpcDialog::W8NpcDialog(W8NpcQuoteEntry* message, int aux_data)
         }
         for (index = 0; index < message->sub_entry_count; ++index) {
             line = message->sub_entries[index].text;
-            short length = StringPixLength(line, *g_wiz_text_mono_font);
+            short length = g_wiz_text_mono_font.textWidth(line);
             if (max_width < length) {
                 max_width = length;
             }
@@ -69,7 +69,7 @@ W8NpcDialog::W8NpcDialog(W8NpcQuoteEntry* message, int aux_data)
         width = (m_text_width + 0xa) * message->sub_entry_count + 0x1e;
     } else if (opcode == W8_NPC_ENTRY_PRICE_CHECK || opcode == W8_NPC_ENTRY_ALWAYS_PRICE_CHECK) {
         m_compact_options = false;
-        short length = StringPixLength(g_localized_strings[0x7df], *g_wiz_text_mono_font);
+        short length = g_wiz_text_mono_font.textWidth(g_localized_strings[0x7df]);
         height = 0x50;
         m_text_width = length + 6;
         width = m_text_width * 2 + 0x32;
@@ -109,7 +109,7 @@ int W8NpcDialog::CreateControls()
             line = m_message->sub_entries[index].text;
             m_buttons[index] = std::make_unique<W8DialogButton>();
             m_buttons[index]->ConfigureTextButton(
-                line, *g_wiz_text_mono_font, 4, 5, static_cast<short>(m_x + x),
+                line, g_wiz_text_mono_font, 4, 5, static_cast<short>(m_x + x),
                 static_cast<short>(m_y + 0x23), m_text_width, 0x14, OptionSelected, index);
             x += m_text_width + 10;
         }
@@ -118,17 +118,17 @@ int W8NpcDialog::CreateControls()
         bounds.right = m_x + m_width - 10;
         bounds.bottom = m_y + 0x19;
         m_text_buffers[0] =
-            std::make_unique<W8TextBuffer>(&bounds, g_localized_strings[0x7e4], *g_wiz_text_font_secondary,
+            std::make_unique<W8TextBuffer>(&bounds, g_localized_strings[0x7e4], g_wiz_text_font_secondary,
                              g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
     } else if (m_message->kind == W8_NPC_ENTRY_PRICE_CHECK ||
                m_message->kind == W8_NPC_ENTRY_ALWAYS_PRICE_CHECK) {
         short x = static_cast<short>((m_width - static_cast<short>((m_text_width + 5) * 2)) / 2);
         m_buttons[0] = std::make_unique<W8DialogButton>();
         m_buttons[0]->ConfigureTextButton(
-            g_localized_strings[0x7df], *g_wiz_text_mono_font, 4, 5, static_cast<short>(m_x + x),
+            g_localized_strings[0x7df], g_wiz_text_mono_font, 4, 5, static_cast<short>(m_x + x),
             static_cast<short>(m_y + 0x1e), m_text_width, 0x14, OptionSelected, 0);
         m_buttons[1] = std::make_unique<W8DialogButton>();
-        m_buttons[1]->ConfigureTextButton(g_localized_strings[0x7e0], *g_wiz_text_mono_font, 4, 5,
+        m_buttons[1]->ConfigureTextButton(g_localized_strings[0x7e0], g_wiz_text_mono_font, 4, 5,
                                           static_cast<short>(m_x + x + m_text_width + 10),
                                           static_cast<short>(m_y + 0x1e), m_text_width, 0x14,
                                           OptionSelected, 1);
@@ -138,7 +138,7 @@ int W8NpcDialog::CreateControls()
         bounds.right = m_x + m_width - 10;
         bounds.bottom = m_y + 0x19;
         m_text_buffers[0] =
-            std::make_unique<W8TextBuffer>(&bounds, line, *g_wiz_text_font_secondary,
+            std::make_unique<W8TextBuffer>(&bounds, line, g_wiz_text_font_secondary,
                              g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
         line = fmt::format("{} {:d}g", g_localized_strings[0x7e6], g_status.party_gold);
         bounds.left = m_x + 10;
@@ -146,7 +146,7 @@ int W8NpcDialog::CreateControls()
         bounds.right = m_x + m_width - 10;
         bounds.bottom = m_y + 0x46;
         m_text_buffers[1] =
-            std::make_unique<W8TextBuffer>(&bounds, line, *g_wiz_text_font_secondary,
+            std::make_unique<W8TextBuffer>(&bounds, line, g_wiz_text_font_secondary,
                              g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
     } else if (m_message->kind == W8_NPC_ENTRY_KEYWORD_INPUT) {
         SetTextInputScheme(1);
@@ -158,7 +158,7 @@ int W8NpcDialog::CreateControls()
         bounds.right = m_x + m_width - 10;
         bounds.bottom = m_y + 0x19;
         m_text_buffers[0] =
-            std::make_unique<W8TextBuffer>(&bounds, g_localized_strings[0x7e4], *g_wiz_text_font_secondary,
+            std::make_unique<W8TextBuffer>(&bounds, g_localized_strings[0x7e4], g_wiz_text_font_secondary,
                              g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
     }
     return 0;

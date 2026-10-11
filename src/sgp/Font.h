@@ -8,6 +8,7 @@
 #include <vector>
 #include <string_view>
 #include <cstddef>
+#include <utility>
 
 #include "Types.h"
 #include "vobject.h"
@@ -48,7 +49,18 @@
 
 struct SGPVSurface;
 struct Font {
-    SGPVObject glyphs;
+    SGPVObject glyphs{};
+    Font() = default;
+    Font(Font&& other) noexcept;
+    Font& operator=(Font&& other) noexcept;
+    // Failed loads preserve the resource and render selection. Successful
+    // loads, clearing, and moves invalidate its saved and active selections.
+    bool load(std::string_view filename);
+    void clear();
+    UINT16 height() const;
+    INT16 textWidth(std::string_view text) const;
+    INT16 prefixWidth(std::string_view text, std::size_t byte_end) const;
+    INT16 codepointPrefixWidth(std::string_view text, UINT32 count) const;
     explicit Font(SGPVObject object) : glyphs(std::move(object)) {}
     ~Font();
 };
@@ -79,7 +91,6 @@ void SetRGBFontShadow(UINT32 uiRed, UINT32 uiGreen, UINT32 uiBlue);
 UINT16* SetFontObjectPalette16BPP(Font& iFont, UINT16* pPal16);
 UINT16* GetFontObjectPalette16BPP(Font& iFont);
 
-extern SGPVObject& GetFontObject(Font& iFont);
 UINT32 DrawFontText(INT32 x, INT32 y, std::string_view text);
 UINT32 DrawFontTextDirty(INT32 x, INT32 y, std::string_view text);
 UINT32 DrawMonoFontText(INT32 x, INT32 y, std::string_view text);
@@ -96,8 +107,6 @@ extern BOOLEAN SetFontDestBuffer(SGPVSurface& DestBuffer, INT32 x1, INT32 y1, IN
                                  BOOLEAN wrap);
 extern BOOLEAN SetFont(Font& iFontIndex);
 
-extern std::unique_ptr<Font> LoadFontFile(std::string_view filename);
-extern UINT16 GetFontHeight(Font& FontNum);
 void ConfigureFontRendering(const std::vector<UINT16>& translation);
 void ResetFontRendering();
 
@@ -107,9 +116,6 @@ extern std::vector<UINT16> CreateEnglishTransTable();
 extern INT16 GetIndex(char32_t siChar);
 extern UINT32 GetWidth(const SGPVObject& hSrcVObject, INT16 ssIndex);
 
-INT16 StringCodepointPrefixPixelWidth(Font& usUseFont, UINT32 uiCharCount, std::string_view text);
-extern INT16 StringPixLength(std::string_view string, Font& UseFont);
-extern INT16 StringPrefixPixelWidth(std::string_view string, std::size_t byte_end, Font& UseFont);
 extern void SaveFontSettings(void);
 extern void RestoreFontSettings(void);
 

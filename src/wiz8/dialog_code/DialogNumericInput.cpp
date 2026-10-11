@@ -75,7 +75,7 @@ void W8DialogNumericInput::SetActive(bool active, const SDL_Point* point)
     m_caret = -1;
     std::size_t suffix = length - 1;
     for (; count < length; ++count, --suffix) {
-        short suffix_width = StringPixLength(std::string_view(g_numeric_input_text).substr(suffix), *m_font);
+        short suffix_width = m_font->textWidth(std::string_view(g_numeric_input_text).substr(suffix));
         if ((m_bounds.right - point->x) - m_bounds.left < suffix_width) {
             m_caret = count;
             break;
@@ -97,28 +97,28 @@ void W8DialogNumericInput::Draw(bool force)
     g_numeric_input_text = fmt::format("{:d}", m_value);
     size_t length = g_numeric_input_text.size();
     SetFont(*m_font);
-    auto& font_object = GetFontObject(*m_font);
+    auto& font_object = m_font->glyphs;
     g_numeric_input_text = fmt::format("{:d}", m_value);
     SetObjectShade(font_object, 4);
     SetFontDestBuffer(GetFrameBufferSurface(), m_bounds.left, m_bounds.top, m_bounds.right, m_bounds.bottom,
                       0);
-    unsigned short font_height = GetFontHeight(*m_font);
+    unsigned short font_height = m_font->height();
     int text_y = m_bounds.top + std::max(0, (m_bounds.bottom - m_bounds.top - font_height) / 2);
-    int text_x = m_bounds.right - StringPixLength(g_numeric_input_text, *m_font);
+    int text_x = m_bounds.right - m_font->textWidth(g_numeric_input_text);
     if (text_x <= m_bounds.left) {
         text_x = m_bounds.left;
     }
     DrawFontTextDirty(text_x, text_y, g_numeric_input_text);
     if (m_active && m_caret != -1) {
         int caret_x =
-            m_bounds.right - StringPixLength(std::string_view(g_numeric_input_text).substr(length - m_caret), *m_font) - 1;
-        font_height = GetFontHeight(*m_font);
+            m_bounds.right - m_font->textWidth(std::string_view(g_numeric_input_text).substr(length - m_caret)) - 1;
+        font_height = m_font->height();
         int caret_top = m_bounds.top + std::max(0, (m_bounds.bottom - m_bounds.top - font_height) / 2);
         UINT32 pitch;
         char* screen = static_cast<char*>(LockPrimarySurface(&pitch));
         int caret_bottom = m_bounds.bottom;
-        if (caret_top + GetFontHeight(*m_font) < caret_bottom) {
-            caret_bottom = caret_top + GetFontHeight(*m_font);
+        if (caret_top + m_font->height() < caret_bottom) {
+            caret_bottom = caret_top + m_font->height();
         }
         LineDraw(0, caret_x, caret_top, caret_x, caret_bottom, -1, screen);
         UnlockPrimarySurface();

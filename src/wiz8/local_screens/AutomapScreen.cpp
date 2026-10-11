@@ -1526,10 +1526,10 @@ unsigned char ShowAutomapNoteTooltip(W8AutomapNote* note)
             g_automap_text_marker->GetScaledHeight();
             W8ScreenRect rect;
             rect.top =
-                (0x20 - screen_y) - ((unsigned)GetFontHeight(*g_wiz_text_font_secondary) >> 1);
+                (0x20 - screen_y) - ((unsigned)g_wiz_text_font_secondary.height() >> 1);
             rect.left = marker_width / 2 + (0xe - screen_x);
-            rect.bottom = rect.top + GetFontHeight(*g_wiz_text_font_secondary) + 3;
-            rect.right = StringPixLength(note->text, *g_wiz_text_font_secondary) + 3 + rect.left;
+            rect.bottom = rect.top + g_wiz_text_font_secondary.height() + 3;
+            rect.right = g_wiz_text_font_secondary.textWidth(note->text) + 3 + rect.left;
             if (rect.left < 0xc) {
                 rect.left = 0xc;
             }
@@ -1875,10 +1875,10 @@ void RenderAutomapMarkers(void)
         GetClippingRect(&saved_clip);
         SDL_Rect clip = {0xc, 0x20, 0x1d3 - 0xc, 0x1d3 - 0x20};
         SetClippingRect(&clip);
-        SetFont(*g_wiz_text_font_secondary);
-        SetObjectShade(GetFontObject(*g_wiz_text_font_secondary), 4);
+        SetFont(g_wiz_text_font_secondary);
+        SetObjectShade(g_wiz_text_font_secondary.glyphs, 4);
         SetFontDestClip(0xc, 0x20, 0x1d3, 0x1d3);
-        int font_height = GetFontHeight(*g_wiz_text_font_secondary);
+        int font_height = g_wiz_text_font_secondary.height();
         unsigned int count = static_cast<int>(g_automap_notes->size());
         for (unsigned int index = 0; index < count; ++index) {
             W8AutomapNote* note = (*g_automap_notes)[index];
@@ -1919,7 +1919,7 @@ void RenderAutomapMarkers(void)
                         char* buffer = static_cast<char*>(LockPrimarySurface(&pitch));
                         SetClippingRegionAndImageWidth(pitch, 0xc, 0x20, 0x1c7, 0x1b3);
                         int color = Get16BPPColor(0x569bef);
-                        int length = StringPixLength(note->text, *g_wiz_text_font_secondary);
+                        int length = g_wiz_text_font_secondary.textWidth(note->text);
                         RectangleDraw(TRUE, x - 1, y, x + length + 2, y + (font_height & 0xffff),
                                       color, buffer);
                         UnlockPrimarySurface();

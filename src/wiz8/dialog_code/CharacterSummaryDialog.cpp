@@ -99,7 +99,7 @@ bool W8CharacterSummaryDialog::CreateQuoteText()
         W8CharacterEvent* event = new W8CharacterEvent(
             character, g_effect0, 0, g_character_event_no_flags, g_character_event_full_volume);
         *buffers[index] =
-            new W8TextBuffer(&absolute, event->GetQuoteText(), *g_wiz_text_font_secondary,
+            new W8TextBuffer(&absolute, event->GetQuoteText(), g_wiz_text_font_secondary,
                              g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
         delete event;
         if (*buffers[index] == 0) {

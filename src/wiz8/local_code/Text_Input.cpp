@@ -164,7 +164,7 @@ void InitTextInputMode(Font& font)
 void InitTextInputModeWithScheme(int mode)
 {
     Assert(mode >= 0 && mode <= 2);
-    InitTextInputMode(mode == 0 ? *g_font12point1 : *g_wiz_text_mono_font);
+    InitTextInputMode(mode == 0 ? g_font12point1 : g_wiz_text_mono_font);
     SetTextInputScheme(mode);
 }
 
@@ -172,7 +172,7 @@ void InitTextInputModeWithScheme(int mode)
 void SetTextInputScheme(char mode)
 {
     if (mode == 0) {
-        pColors->usFont = &*g_font12point1;
+        pColors->usFont = &g_font12point1;
         pColors->usTextFieldColor = Get16BPPColor(0x00c8c8);
         pColors->usInactiveTextFieldColor = Get16BPPColor(0xffffff);
         pColors->usDarkerColor = Get16BPPColor(0x513d18);
@@ -182,7 +182,7 @@ void SetTextInputScheme(char mode)
         pColors->ubShadowColor = 0;
         pColors->ubHiForeColor = 0xd0;
     } else if (mode == 1) {
-        pColors->usFont = &*g_wiz_text_mono_font;
+        pColors->usFont = &g_wiz_text_mono_font;
         pColors->usTextFieldColor = Get16BPPColor(0x632a1e);
         pColors->usInactiveTextFieldColor = Get16BPPColor(0xffffff);
         pColors->usInactiveTextFieldColor = Get16BPPColor(0x0a0a0a);
@@ -197,7 +197,7 @@ void SetTextInputScheme(char mode)
         pColors->usCursorColor = Get16BPPColor(0xffffff);
         return;
     } else if (mode == 2) {
-        pColors->usFont = &*g_wiz_text_mono_font;
+        pColors->usFont = &g_wiz_text_mono_font;
         pColors->usTextFieldColor = Get16BPPColor(0xffffff);
         pColors->usInactiveTextFieldColor = Get16BPPColor(0xffffff);
         pColors->usDarkerColor = Get16BPPColor(0);
@@ -804,7 +804,7 @@ static std::size_t FindTextInputMousePosition(TEXTINPUTNODE* field, std::size_t 
     int previous_width = 0;
     for (auto position = start; position < field->szString.size();) {
         const auto end = wiz8::text::next_grapheme(field->szString, position);
-        const auto width = StringPixLength(std::string_view(field->szString).substr(start, end - start), *pColors->usFont);
+        const auto width = pColors->usFont->textWidth(std::string_view(field->szString).substr(start, end - start));
         if (mouse_offset < (width + previous_width) / 2) return position;
         previous_width = width;
         position = end;
@@ -1036,7 +1036,7 @@ void RenderActiveTextField(void)
 
     SaveFontSettings();
     SetFont(*pColors->usFont);
-    unsigned short font_height = GetFontHeight(*pColors->usFont);
+    unsigned short font_height = pColors->usFont->height();
     unsigned int vertical_offset =
         (field->region.RegionBottomRightY - field->region.RegionTopLeftY - font_height) / 2;
     RenderBackgroundField(field);
@@ -1052,7 +1052,7 @@ void RenderActiveTextField(void)
     }
 
     for (size_t index = 0; index < guiVisibleCount && visible[index];) {
-        short prefix = StringPrefixPixelWidth(const_cast<char*>(visible), index, *pColors->usFont);
+        short prefix = pColors->usFont->prefixWidth(const_cast<char*>(visible), index);
         unsigned char background;
         if (has_selection &&
             selection_first <= gubParkingPos + index &&
@@ -1102,7 +1102,7 @@ void RenderInactiveTextFieldNode(TEXTINPUTNODE* field)
         shadow = pColors->ubShadowColor;
     }
     SetFontShadow(shadow);
-    unsigned short font_height = GetFontHeight(*pColors->usFont);
+    unsigned short font_height = pColors->usFont->height();
     unsigned int vertical_offset =
         (field->region.RegionBottomRightY - field->region.RegionTopLeftY - font_height) / 2;
     SetFontBackground(0);
@@ -1110,7 +1110,7 @@ void RenderInactiveTextFieldNode(TEXTINPUTNODE* field)
 
     const char* visible = field->szString.c_str();
     for (size_t index = 0; visible[index];) {
-        short prefix = StringPrefixPixelWidth(field->szString.c_str(), index, *pColors->usFont);
+        short prefix = pColors->usFont->prefixWidth(field->szString.c_str(), index);
         if (field->region.RegionBottomRightX - field->region.RegionTopLeftX - 10 < prefix + 3) break;
         std::size_t end = index;
         wiz8::text::next(visible, end);
@@ -1163,16 +1163,16 @@ std::size_t CalculateCursorPos(int width, std::size_t cursor, std::string_view t
 {
     cursor = std::min(cursor, text.size());
     auto start = std::min(gubVisibleStart, cursor);
-    while (start < cursor && StringPixLength(text.substr(start, cursor - start), *pColors->usFont) > width)
+    while (start < cursor && pColors->usFont->textWidth(text.substr(start, cursor - start)) > width)
         start = wiz8::text::next_grapheme(text, start);
     auto end = start;
     while (end < text.size()) {
         auto next = wiz8::text::next_grapheme(text, end);
-        if (StringPixLength(text.substr(start, next - start), *pColors->usFont) > width) break;
+        if (pColors->usFont->textWidth(text.substr(start, next - start)) > width) break;
         end = next;
     }
     gubVisibleStart = start;
-    *cursor_width = StringPixLength(text.substr(start, cursor - start), *pColors->usFont) + 2;
+    *cursor_width = pColors->usFont->textWidth(text.substr(start, cursor - start)) + 2;
     *visible_count = end - start; // Byte extent; the renderer decodes glyphs.
     return start;
 }

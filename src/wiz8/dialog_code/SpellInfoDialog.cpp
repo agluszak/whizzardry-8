@@ -150,7 +150,7 @@ bool W8SpellInfoDialog::PopulateText()
     bounds.top = m_y + 0x43;
     bounds.right = m_x + 0x11f;
     bounds.bottom = m_y + 0xfc;
-    m_text_area.Configure(&bounds, *g_wiz_text_font_secondary, 0);
+    m_text_area.Configure(&bounds, g_wiz_text_font_secondary, 0);
     m_text_area.SetEntrySpacing(1);
 
     record = &g_spell_records[m_spell];
@@ -286,26 +286,26 @@ void W8SpellInfoDialog::DrawLabels()
     INT16 width;
     W8SpellRuntimeRecord* record = &g_spell_records[m_spell];
 
-    SetFont(*g_wiz_text_font_secondary);
-    SetFontObjectPalette16BPP(*g_wiz_text_font_secondary, GetFontObject(*g_wiz_text_font_secondary).ownedPalette.get());
+    SetFont(g_wiz_text_font_secondary);
+    SetFontObjectPalette16BPP(g_wiz_text_font_secondary, g_wiz_text_font_secondary.glyphs.ownedPalette.get());
     text = record->display_name;
-    width = StringPixLength(text, *g_wiz_text_font_secondary);
+    width = g_wiz_text_font_secondary.textWidth(text);
     DrawFontText(m_x + 0x25 + (0xe7 - width) / 2, m_y + 0x12, text);
     text = g_localized_strings[0x118];
-    width = StringPixLength(text, *g_wiz_text_font_secondary);
+    width = g_wiz_text_font_secondary.textWidth(text);
     DrawFontText(m_x + 0x25 + (0x53 - width) / 2, m_y + 0x24, text);
     if (record->power_class == W8_SPELL_POWER_FIXED) {
         text = g_localized_strings[0x11a];
     } else {
         text = g_localized_strings[0x119];
     }
-    width = StringPixLength(text, *g_wiz_text_font_secondary);
+    width = g_wiz_text_font_secondary.textWidth(text);
     DrawFontText(m_x + 0x25 + (0x7b - width) / 2, m_y + 0x33, text);
     text = fmt::format("{:d}", record->spell_level);
-    width = StringPixLength(text, *g_wiz_text_font_secondary);
+    width = g_wiz_text_font_secondary.textWidth(text);
     DrawFontText(m_x + 0x7c + (0x16 - width) / 2, m_y + 0x24, text);
     text = fmt::format("{:d} {}", record->spell_point_cost, g_localized_strings[0x11b]);
-    width = StringPixLength(text, *g_wiz_text_font_secondary);
+    width = g_wiz_text_font_secondary.textWidth(text);
     DrawFontText(m_x + 0xa4 + (0x25 - width) / 2, m_y + 0x33, text);
 }
 

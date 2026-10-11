@@ -207,14 +207,14 @@ void GameloopExit(unsigned char release_screens)
     if (gXStatus.character_event_queue)
         gXStatus.character_event_queue->DestroyAllEvents();
 
-    SetFontObjectPalette16BPP(*g_smfnt_font, GetFontObject(*g_smfnt_font).ownedPalette.get());
-    SetFontObjectPalette16BPP(*g_calligraphy_font, GetFontObject(*g_calligraphy_font).ownedPalette.get());
-    SetFontObjectPalette16BPP(*g_calligraphy_shadow_font, GetFontObject(*g_calligraphy_shadow_font).ownedPalette.get());
-    SetFontObjectPalette16BPP(*g_wiz_text_font, GetFontObject(*g_wiz_text_font).ownedPalette.get());
-    SetFontObjectPalette16BPP(*g_button_font, GetFontObject(*g_button_font).ownedPalette.get());
-    SetFontObjectPalette16BPP(*g_wiz_text_font_secondary, GetFontObject(*g_wiz_text_font_secondary).ownedPalette.get());
-    SetFontObjectPalette16BPP(*g_wiz_text_bold_font, GetFontObject(*g_wiz_text_bold_font).ownedPalette.get());
-    SetFontObjectPalette16BPP(*g_options_detail_font, GetFontObject(*g_options_detail_font).ownedPalette.get());
+    SetFontObjectPalette16BPP(g_smfnt_font, g_smfnt_font.glyphs.ownedPalette.get());
+    SetFontObjectPalette16BPP(g_calligraphy_font, g_calligraphy_font.glyphs.ownedPalette.get());
+    SetFontObjectPalette16BPP(g_calligraphy_shadow_font, g_calligraphy_shadow_font.glyphs.ownedPalette.get());
+    SetFontObjectPalette16BPP(g_wiz_text_font, g_wiz_text_font.glyphs.ownedPalette.get());
+    SetFontObjectPalette16BPP(g_button_font, g_button_font.glyphs.ownedPalette.get());
+    SetFontObjectPalette16BPP(g_wiz_text_font_secondary, g_wiz_text_font_secondary.glyphs.ownedPalette.get());
+    SetFontObjectPalette16BPP(g_wiz_text_bold_font, g_wiz_text_bold_font.glyphs.ownedPalette.get());
+    SetFontObjectPalette16BPP(g_options_detail_font, g_options_detail_font.glyphs.ownedPalette.get());
     if (!release_screens) {
         return;
     }

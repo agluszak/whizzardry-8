@@ -125,7 +125,7 @@ static void CreateUseItemSelectControls(void)
     g_use_item_select_scroll_buttons[2]->m_textBuffer.SetLayoutMode(g_W8TextBufferAlignMiddle |
                                                                     g_W8TextBufferAlignCenter);
     g_use_item_select_scroll_buttons[2]->m_textBuffer.SetText(g_localized_strings[0x77a],
-                                                              *g_wiz_text_font_secondary);
+                                                              g_wiz_text_font_secondary);
     panel = g_use_item_select_panels[2];
     g_use_item_select_controls[0] =
         new W8TextControl(panel, 0x9e, 5, 5, 0x31, 0x39, -1, -1, -1, -1, -1, -1, -1);
@@ -507,7 +507,7 @@ static void RebuildUseItemSelectList(int mode, W8ItemInstance* select)
     g_use_item_selected = 0;
     g_use_item_detail_item = 0;
     g_use_item_select_controls[0]->ClearImage();
-    g_use_item_select_controls[0]->m_textBuffer.SetText("", *g_large_font);
+    g_use_item_select_controls[0]->m_textBuffer.SetText("", g_large_font);
     g_use_item_select_controls[0]->Invalidate(true);
     SelectSpellCastingPartySlot(g_status.selected_character);
     g_use_item_select_mode = mode;
@@ -933,7 +933,7 @@ void UpdateUseItemDetailPanel(W8ItemInstance* item)
     } else {
         value = "";
     }
-    g_use_item_select_controls[0]->m_textBuffer.SetText(value, *g_wiz_text_font_secondary);
+    g_use_item_select_controls[0]->m_textBuffer.SetText(value, g_wiz_text_font_secondary);
     g_use_item_select_controls[0]->Invalidate(true);
     g_use_item_detail_item = item;
 }

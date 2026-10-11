@@ -463,7 +463,7 @@ void UpdateSpellRealmPointDisplays(void)
                 "{:d}/{:d}",
                 GetCharacterRealmSpellPoints(gpSCSV->caster, static_cast<W8SpellRealm>(realm)),
                 gpSCSV->caster->sp_max[realm]),
-            *g_wiz_text_font_secondary);
+            g_wiz_text_font_secondary);
     }
 }
 
@@ -941,14 +941,14 @@ static void SelectSpellPowerPip7(void)
         }
         gpSCSV->power_controls[W8_SPELL_NAME_CONTROL]->m_textBuffer.SetRenderMode(4);
         gpSCSV->power_controls[W8_SPELL_NAME_CONTROL]->m_textBuffer.SetText(
-            "?", *g_wiz_text_font_secondary);
+            "?", g_wiz_text_font_secondary);
         gpSCSV->iSpellPower = 7;
         gpSCSV->power_controls[W8_SPELL_NAME_CONTROL]->Invalidate(true);
         return;
     }
     gpSCSV->power_controls[W8_SPELL_NAME_CONTROL]->m_textBuffer.SetRenderMode(4);
     gpSCSV->power_controls[W8_SPELL_NAME_CONTROL]->m_textBuffer.SetText("",
-                                                                        *g_wiz_text_font_secondary);
+                                                                        g_wiz_text_font_secondary);
     gpSCSV->iSpellPower = -1;
     gpSCSV->power_controls[W8_SPELL_NAME_CONTROL]->Invalidate(true);
 }
@@ -962,7 +962,7 @@ static void SelectSpellPowerPip8(void)
                                    g_W8TextControlStateSecondary) != 0) {
         gpSCSV->power_controls[W8_SPELL_NAME_CONTROL]->m_textBuffer.SetRenderMode(4);
         gpSCSV->power_controls[W8_SPELL_NAME_CONTROL]->m_textBuffer.SetText(
-            "?", *g_wiz_text_font_secondary);
+            "?", g_wiz_text_font_secondary);
         gpSCSV->iSpellPower = 7;
         gpSCSV->power_controls[W8_SPELL_NAME_CONTROL]->Invalidate(true);
         return;
@@ -996,7 +996,7 @@ void SelectSpellPowerLevel(int power_level)
             } else {
                 gpSCSV->power_controls[W8_SPELL_NAME_CONTROL]->m_textBuffer.SetRenderMode(4);
                 gpSCSV->power_controls[W8_SPELL_NAME_CONTROL]->m_textBuffer.SetText(
-                    "?", *g_wiz_text_font_secondary);
+                    "?", g_wiz_text_font_secondary);
                 gpSCSV->iSpellPower = 7;
             }
             gpSCSV->power_controls[W8_SPELL_NAME_CONTROL]->Invalidate(true);
@@ -1025,7 +1025,7 @@ void SelectSpellPowerLevel(int power_level)
                                        g_spell_records[gpSCSV->uiSpellToCast].spell_point_cost);
     }
     gpSCSV->power_controls[W8_SPELL_NAME_CONTROL]->m_textBuffer.SetText(text,
-                                                                        *g_wiz_text_font_secondary);
+                                                                        g_wiz_text_font_secondary);
 }
 
 /* Hover preview for a power pip: clears the spell-name plate and shows the
@@ -1055,7 +1055,7 @@ static void PreviewSpellPowerPipHover(int power_level)
                 text = fmt::format("{:d}",
                                    (power_level + 1) *
                                        g_spell_records[gpSCSV->uiSpellToCast].spell_point_cost);
-                spell_name->m_textBuffer.SetText(text, *g_wiz_text_font_secondary);
+                spell_name->m_textBuffer.SetText(text, g_wiz_text_font_secondary);
                 return;
             }
             if (gpSCSV->iSpellPowerClass == W8_SPELL_POWER_SELECTABLE) {
@@ -1064,10 +1064,10 @@ static void PreviewSpellPowerPipHover(int power_level)
                     text = fmt::format("{:d}",
                                        (gpSCSV->iSpellPower + 1) *
                                            g_spell_records[gpSCSV->uiSpellToCast].spell_point_cost);
-                    spell_name->m_textBuffer.SetText(text, *g_wiz_text_font_secondary);
+                    spell_name->m_textBuffer.SetText(text, g_wiz_text_font_secondary);
                     return;
                 }
-                spell_name->m_textBuffer.SetText("", *g_wiz_text_font_secondary);
+                spell_name->m_textBuffer.SetText("", g_wiz_text_font_secondary);
             }
         }
     }

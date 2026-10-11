@@ -211,7 +211,7 @@ bool W8AssayDialog::PopulateText()
     bounds.top = m_y + g_assay_text_area_offsets.top;
     bounds.right = m_x + g_assay_text_area_offsets.right;
     bounds.bottom = m_y + g_assay_text_area_offsets.bottom;
-    m_text_area.Configure(&bounds, *g_wiz_text_font_secondary, 0);
+    m_text_area.Configure(&bounds, g_wiz_text_font_secondary, 0);
     m_text_area.SetEntrySpacing(1);
     record = &g_item_records[m_item->iItemNo];
     if (m_item->identified && record->damage_dice.count + record->damage_dice.base > 0) {
@@ -835,17 +835,17 @@ bool W8AssayDialog::CreateTextBuffers()
         bounds.bottom = m_y + g_assay_text_buffer_offsets[index].bottom;
         m_text_buffers[index] = new W8TextBuffer(
             &bounds, g_localized_strings[g_assay_text_buffer_string_ids[index]],
-            *g_wiz_text_font_secondary, g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
+            g_wiz_text_font_secondary, g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
         if (m_text_buffers[index] == 0) {
             DestroyDialogTextBuffers(m_text_buffers, W8_ASSAY_TEXT_BUFFER_COUNT);
             return false;
         }
     }
 
-    m_text_buffers[0]->SetText(FormatItemDisplayName(m_item, false), *g_wiz_text_font_secondary);
+    m_text_buffers[0]->SetText(FormatItemDisplayName(m_item, false), g_wiz_text_font_secondary);
     equip_class = GetItemEquipClass(m_item);
     m_text_buffers[2]->SetText(g_localized_strings[g_equip_class_name_ids[equip_class]],
-                               *g_wiz_text_font_secondary);
+                               g_wiz_text_font_secondary);
     item = m_item;
     if (g_item_records[item->iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK &&
         item->stack_count > 1) {
@@ -856,7 +856,7 @@ bool W8AssayDialog::CreateTextBuffers()
     } else {
         text = fmt::format("{:.1f}", GetItemUnitWeight(item) * g_item_weight_display_scale);
     }
-    m_text_buffers[4]->SetText(text, *g_wiz_text_font_secondary);
+    m_text_buffers[4]->SetText(text, g_wiz_text_font_secondary);
     return true;
 }
 

@@ -238,7 +238,7 @@ struct W8LevelRuntimeBlock {
     int move_percent;
     int move_percent_shown;
     unsigned char unknown_2e4[4];
-    Font* text_box_font;       /* Historical offset 0x2e8: *g_wiz_text_font_secondary while the main text box is live */
+    Font* text_box_font;       /* Historical offset 0x2e8: g_wiz_text_font_secondary while the main text box is live */
     unsigned short* palette; /* Historical offset 0x2ec */
     W8ActionKind selection_kind;
     int pending_action; /* Historical offset 0x2f4 */

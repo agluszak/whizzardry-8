@@ -779,7 +779,7 @@ void DrawTextOnButton(GUI_BUTTON* b)
 
         // Compute the coordinates to center the text
         if (b->bTextYOffset == -1)
-            yp = (((height)-GetFontHeight(*b->usFont)) / 2) + TextY - 1;
+            yp = (((height)-b->usFont->height()) / 2) + TextY - 1;
         else
             yp = b->Area.RegionTopLeftY + b->bTextYOffset;
         if (b->bTextXOffset == -1) {
@@ -788,11 +788,11 @@ void DrawTextOnButton(GUI_BUTTON* b)
                 xp = TextX + 3;
                 break;
             case BUTTON_TEXT_RIGHT:
-                xp = (NewClip.x + NewClip.w) - StringPixLength(b->string, *b->usFont) - 3;
+                xp = (NewClip.x + NewClip.w) - b->usFont->textWidth(b->string) - 3;
                 break;
             case BUTTON_TEXT_CENTER:
             default:
-                xp = (((width - 6) - StringPixLength(b->string, *b->usFont)) / 2) + TextX;
+                xp = (((width - 6) - b->usFont->textWidth(b->string)) / 2) + TextX;
                 break;
             }
         } else

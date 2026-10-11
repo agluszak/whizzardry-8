@@ -120,14 +120,14 @@ void W8ProfRaceInfoDialogBase::Draw()
         DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), m_uiTitleId, 0, m_uiSummaryId, m_x + 0xd,
                                       m_y + 0xd, VO_BLT_SRCTRANSPARENCY, 0);
         DrawTextLine(g_W8TextBufferAlignLeft, 0x25, 0xb, 0x147, 0x18, g_localized_strings[m_uiNameId],
-                     *g_options_detail_font);
+                     g_options_detail_font);
         DrawTextLine(g_W8TextBufferAlignCenter, 0xd, 0x29, 0x8e, 0xc, g_localized_strings[m_uiHeadingId],
-                     *g_wiz_text_font_secondary);
+                     g_wiz_text_font_secondary);
         int top = 0x37;
         for (int attribute = 0; attribute < ATTR_COUNT; ++attribute) {
             DrawTextLine(g_W8TextBufferAlignLeft, 0x10, top, 0x74, 0xc,
                          g_localized_strings[g_character_description_first_ids[attribute]],
-                         *g_wiz_text_font_secondary);
+                         g_wiz_text_font_secondary);
             std::string minimum;
             if (m_minimums[attribute] == -1) {
                 minimum = "?";
@@ -135,7 +135,7 @@ void W8ProfRaceInfoDialogBase::Draw()
                 minimum = fmt::format("{:d}", m_minimums[attribute]);
             }
             DrawTextLine(g_W8TextBufferAlignCenter, 0x85, top, 0x16, 0xc, minimum,
-                         *g_wiz_text_font_secondary);
+                         g_wiz_text_font_secondary);
             top += 0xe;
         }
     }
@@ -166,7 +166,7 @@ bool W8ProfRaceInfoDialogBase::PopulateText()
     bounds.top = m_y + 0x29;
     bounds.right = m_x + 0x151;
     bounds.bottom = m_y + 0xe1;
-    m_text_area.Configure(&bounds, *g_wiz_text_font_secondary, 0);
+    m_text_area.Configure(&bounds, g_wiz_text_font_secondary, 0);
     m_text_area.SetEntrySpacing(0);
     return true;
 }

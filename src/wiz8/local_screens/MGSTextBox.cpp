@@ -133,9 +133,9 @@ void W8MessageStorageRecord::RebuildEntries()
         auto end = value.find(' ', start);
         if (end == value.npos)
             end = value.size();
-        const auto x = StringPrefixPixelWidth(value, start, *g_level_block->text_box_font);
+        const auto x = g_level_block->text_box_font->prefixWidth(value, start);
         const auto width =
-            StringPixLength(value.substr(start, end - start), *g_level_block->text_box_font);
+            g_level_block->text_box_font->textWidth(value.substr(start, end - start));
         entries.push_back(
             {start, end - 1, x, static_cast<short>(x + width), W8_NOTICE_WORD_NORMAL, false});
         start = end;
@@ -311,7 +311,7 @@ void ShowNotice(unsigned int font_palette, std::string_view text_view, short tex
             g_status.long_quote = 0;
         }
         g_level_block->text_lines[8 + text_box] = 0;
-        if (static_cast<unsigned int>(StringPixLength(text, *g_level_block->text_box_font)) <
+        if (static_cast<unsigned int>(g_level_block->text_box_font->textWidth(text)) <
             wrap_width) {
             AppendNoticeLine(static_cast<unsigned char>(font_palette), text, text_box, 0);
         } else {
@@ -321,7 +321,7 @@ void ShowNotice(unsigned int font_palette, std::string_view text_view, short tex
                 std::size_t end = 0, last_space = 0;
                 while (end < remaining.size() && remaining[end] != '\n') {
                     const auto next = wiz8::text::next_grapheme(remaining, end);
-                    if (StringPixLength(remaining.substr(0, next), *g_level_block->text_box_font) >= wrap_width && end) {
+                    if (g_level_block->text_box_font->textWidth(remaining.substr(0, next)) >= wrap_width && end) {
                         if (last_space) end = last_space;
                         break;
                     }
@@ -925,17 +925,17 @@ static void DrawDialogueTextCursor(int x, int y)
 
     int x_offset = 0;
     if (line == 1 && !input->first_line_prefix.empty()) {
-        x_offset = StringPixLength(input->first_line_prefix, *g_level_block->text_box_font);
+        x_offset = g_level_block->text_box_font->textWidth(input->first_line_prefix);
     }
     unsigned int start = input->line_offsets[line - 1];
     x_offset +=
-        StringPrefixPixelWidth(std::string_view(input->text).substr(start), input->cursor - start, *g_level_block->text_box_font);
+        g_level_block->text_box_font->prefixWidth(std::string_view(input->text).substr(start), input->cursor - start);
 
     int y_line = y + (line - hidden - 1) * 0xb;
     char* screen = static_cast<char*>(LockPrimarySurface(&pitch));
     if (y_line < g_level_block->text_box_bottom) {
         unsigned int bottom = g_level_block->text_box_bottom;
-        unsigned int y_end = y_line + GetFontHeight(*g_level_block->text_box_font);
+        unsigned int y_end = y_line + g_level_block->text_box_font->height();
         if (bottom <= y_end) {
             y_end = bottom;
         }
@@ -961,10 +961,10 @@ void DrawDialogueTextInputLines(int x, int y, unsigned int first_line)
         int draw_x = x;
         if (line == 0 && !input->first_line_prefix.empty()) {
             DrawFontText(draw_x, y, input->first_line_prefix);
-            draw_x += StringPixLength(input->first_line_prefix, *g_level_block->text_box_font);
+            draw_x += g_level_block->text_box_font->textWidth(input->first_line_prefix);
         }
         DrawFontText(draw_x, y, text);
-        maximum_width = std::max(maximum_width, draw_x - x + StringPixLength(text, *g_level_block->text_box_font));
+        maximum_width = std::max(maximum_width, draw_x - x + g_level_block->text_box_font->textWidth(text));
         y += 11;
         if (y >= g_level_block->text_box_bottom) break;
     }
@@ -1035,9 +1035,9 @@ void InvalidateDialogueTextCursor(void)
     bounds.top = g_status.text_box_lines_shown[g_status.text_line_cursor] -
                  g_level_block->text_lines[g_status.text_line_cursor] + g_level_block->text_box_top;
     bounds.right =
-        StringPixLength(g_level_block->dialogue_text_input->text, *g_level_block->text_box_font) +
+        g_level_block->text_box_font->textWidth(g_level_block->dialogue_text_input->text) +
         bounds.left;
-    bounds.bottom = GetFontHeight(*g_level_block->text_box_font) + bounds.top;
+    bounds.bottom = g_level_block->text_box_font->height() + bounds.top;
     InvalidateMainGameActionPanelRect(&bounds);
 }
 
@@ -1050,8 +1050,8 @@ static void RewrapDialogueTextFromLine(unsigned int)
     auto last_break = std::size_t{0};
     for (std::size_t position = 0; position < input.text.size();) {
         auto end = wiz8::text::next_grapheme(input.text, position);
-        auto width = StringPixLength(std::string_view(input.text).substr(line_start, end - line_start), *g_level_block->text_box_font);
-        if (line_start == 0) width += StringPixLength(input.first_line_prefix, *g_level_block->text_box_font);
+        auto width = g_level_block->text_box_font->textWidth(std::string_view(input.text).substr(line_start, end - line_start));
+        if (line_start == 0) width += g_level_block->text_box_font->textWidth(input.first_line_prefix);
         if (width > static_cast<int>(input.wrap_width) && position > line_start) {
             line_start = last_break > line_start ? last_break : position;
             input.line_offsets.push_back(line_start);
@@ -1450,7 +1450,7 @@ static void DrawTextBoxLine(W8MessageStorageRecord* line, int x, int y, bool hov
     auto draw = [&](std::string_view span, unsigned int palette) {
         set_palette(palette);
         DrawFontTextDirty(x, y, span);
-        x += StringPixLength(span, *g_level_block->text_box_font);
+        x += g_level_block->text_box_font->textWidth(span);
     };
     auto end = line->length < 0 ? text.size() : wiz8::text::byte_prefix(text, line->length);
     auto visible = text.substr(0, end);
@@ -1465,7 +1465,7 @@ static void DrawTextBoxLine(W8MessageStorageRecord* line, int x, int y, bool hov
         const auto suffix = text.substr(end);
         set_palette(foreground);
         DrawFontTextDirty(g_level_block->text_box_right -
-                              StringPixLength(suffix, *g_level_block->text_box_font),
+                              g_level_block->text_box_font->textWidth(suffix),
                           y, suffix);
     }
     DrawNoticeWordOverlays(line, x, y);
@@ -1544,8 +1544,7 @@ void RedrawTextBoxBody(bool skip_invalidate)
                 } else {
                     x = g_level_block->text_box_left +
                         ((g_level_block->text_box_right - g_level_block->text_box_left) / 2 -
-                         StringPixLength(line->text,
-                                         *g_level_block->text_box_font) /
+                         g_level_block->text_box_font->textWidth(line->text) /
                              2);
                 }
                 DrawTextBoxLine(
@@ -1877,8 +1876,7 @@ static int GetNoticeLineLeft(int text_box, int line)
     } else {
         x_base = g_level_block->text_box_left +
                  ((g_level_block->text_box_right - g_level_block->text_box_left) / 2 -
-                  StringPixLength(g_message_storage[text_box][line].text,
-                                  *g_level_block->text_box_font) /
+                  g_level_block->text_box_font->textWidth(g_message_storage[text_box][line].text) /
                       2);
     }
     return x_base;

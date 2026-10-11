@@ -931,74 +931,112 @@ void generic_button_images()
 
     for (unsigned repeat = 0; repeat < 32; ++repeat) {
         ConfigureFontRendering(CreateEnglishTransTable());
-        auto primary = LoadFontFile(filename);
-        REQUIRE(primary);
-        auto& font = GetFontObject(*primary);
+        Font primary;
+        REQUIRE(primary.load(filename));
+        auto& font = primary.glyphs;
         REQUIRE((font.ownedPalette && font.sprites.size() == 9));
         UINT16 borrowed[256]{};
-        REQUIRE(SetFontObjectPalette16BPP(*primary, borrowed) == borrowed);
-        REQUIRE(GetFontObjectPalette16BPP(*primary) == borrowed);
-        REQUIRE(&GetFontObject(*primary) == &font);
+        REQUIRE(SetFontObjectPalette16BPP(primary, borrowed) == borrowed);
+        REQUIRE(GetFontObjectPalette16BPP(primary) == borrowed);
+        SetFont(primary);
         SaveFontSettings();
-        primary.reset();
+        primary.clear();
         REQUIRE(g_font_render_state.font == nullptr);
         RestoreFontSettings();
         REQUIRE(g_font_render_state.font == nullptr);
         ResetFontRendering();
     }
     // Font lifetime is independent of rendering setup and has no slot limit.
-    std::vector<std::unique_ptr<Font>> many_fonts;
+    std::vector<Font> many_fonts;
     for (unsigned index = 0; index < 32; ++index) {
-        many_fonts.push_back(LoadFontFile(filename));
-        REQUIRE(many_fonts.back());
+        many_fonts.emplace_back();
+        REQUIRE(many_fonts.back().load(filename));
     }
     ResetFontRendering();
-    REQUIRE(GetFontHeight(*many_fonts.back()) > 0);
+    REQUIRE(many_fonts.back().height() > 0);
     many_fonts.clear();
+    // Value moves preserve glyph storage but invalidate old render selections.
+    // Failed reloads preserve both the existing resource and its selection.
+    {
+        Font source;
+        REQUIRE(source.height() == 0);
+        REQUIRE(source.textWidth("empty") == 0);
+        REQUIRE(source.load(filename));
+        const auto height = source.height();
+        SetFont(source);
+        SaveFontSettings();
+        REQUIRE_FALSE(source.load("missing-font.sti"));
+        REQUIRE(source.height() == height);
+        REQUIRE(g_font_render_state.font == &source);
+        Font moved(std::move(source));
+        REQUIRE(moved.height() == height);
+        REQUIRE(source.height() == 0);
+        REQUIRE(g_font_render_state.font == nullptr);
+        RestoreFontSettings();
+        REQUIRE(g_font_render_state.font == nullptr);
+        SetFont(moved);
+        SaveFontSettings();
+        REQUIRE(moved.load(filename));
+        REQUIRE(g_font_render_state.font == nullptr);
+        RestoreFontSettings();
+        REQUIRE(g_font_render_state.font == nullptr);
+        SetFont(moved);
+        SaveFontSettings();
+        source = std::move(moved);
+        REQUIRE(source.height() == height);
+        REQUIRE(moved.height() == 0);
+        RestoreFontSettings();
+        REQUIRE(g_font_render_state.font == nullptr);
+        SetFont(source);
+        SaveFontSettings();
+    }
+    REQUIRE(g_font_render_state.font == nullptr);
+    RestoreFontSettings();
+    REQUIRE(g_font_render_state.font == nullptr);
     ConfigureFontRendering(std::vector<UINT16>{'?', 0x00e9, 0x4e2d, 'e', 0x0301, 'a', 'b', ' ', 'c'});
-    auto primary = LoadFontFile(filename);
-    REQUIRE(primary);
-    REQUIRE(StringPixLength("é", *primary) > 0);
-    REQUIRE(StringCodepointPrefixPixelWidth(*primary, 1, "é中") == StringPixLength("é", *primary));
-    REQUIRE(StringCodepointPrefixPixelWidth(*primary, 2, "é中") == StringPixLength("é中", *primary));
+    Font primary;
+    REQUIRE(primary.load(filename));
+    REQUIRE(primary.textWidth("é") > 0);
+    REQUIRE(primary.codepointPrefixWidth("é中", 1) == primary.textWidth("é"));
+    REQUIRE(primary.codepointPrefixWidth("é中", 2) == primary.textWidth("é中"));
     // Render borrowed substrings without depending on a trailing NUL or
     // accidentally consuming the next glyph in the backing string.
-    SetFont(*primary);
+    SetFont(primary);
     g_font_render_state.clip = {0, 0, 64, 32};
     std::vector<UINT16> expected_pixels(64 * 32), view_pixels(64 * 32);
-    DrawFontTextToBuffer(reinterpret_cast<UINT8*>(expected_pixels.data()), 64 * 2, *primary, 0, 0, "é");
+    DrawFontTextToBuffer(reinterpret_cast<UINT8*>(expected_pixels.data()), 64 * 2, primary, 0, 0, "é");
     const std::string backing = "é中";
-    DrawFontTextToBuffer(reinterpret_cast<UINT8*>(view_pixels.data()), 64 * 2, *primary, 0, 0,
+    DrawFontTextToBuffer(reinterpret_cast<UINT8*>(view_pixels.data()), 64 * 2, primary, 0, 0,
                          std::string_view(backing).substr(0, 2));
     REQUIRE(view_pixels == expected_pixels);
     REQUIRE(
         std::any_of(view_pixels.begin(), view_pixels.end(), [](auto pixel) { return pixel != 0; }));
     // Explicit-buffer rendering must use its font argument, even when the
     // current surface font has a different palette.
-    auto secondary = LoadFontFile(filename);
-    REQUIRE(secondary);
-    auto* alternate = GetFontObjectPalette16BPP(*secondary);
+    Font secondary;
+    REQUIRE(secondary.load(filename));
+    auto* alternate = GetFontObjectPalette16BPP(secondary);
     std::fill(alternate, alternate + 256, UINT16{0x1234});
     std::fill(expected_pixels.begin(), expected_pixels.end(), 0);
     std::fill(view_pixels.begin(), view_pixels.end(), 0);
-    SetFont(*secondary);
-    DrawFontTextToBuffer(reinterpret_cast<UINT8*>(expected_pixels.data()), 128, *secondary, 0, 0, "é中");
-    SetFont(*primary);
-    DrawFontTextToBuffer(reinterpret_cast<UINT8*>(view_pixels.data()), 128, *secondary, 0, 0, "é中");
+    SetFont(secondary);
+    DrawFontTextToBuffer(reinterpret_cast<UINT8*>(expected_pixels.data()), 128, secondary, 0, 0, "é中");
+    SetFont(primary);
+    DrawFontTextToBuffer(reinterpret_cast<UINT8*>(view_pixels.data()), 128, secondary, 0, 0, "é中");
     REQUIRE(view_pixels == expected_pixels);
     // Rebuilding word ranges preserves UTF-8 byte boundaries and discards
     // old hover state, including when a line becomes empty.
     auto level = std::make_unique<W8LevelRuntimeBlock>();
     auto* previous_level = g_level_block;
     g_level_block = level.get();
-    level->text_box_font = &*primary;
+    level->text_box_font = &primary;
     W8MessageStorageRecord words{};
     words.text = "  é 中  ";
     words.RebuildEntries();
     REQUIRE(words.entries.size() == 2);
     REQUIRE((words.entries[0].start == 2 && words.entries[0].end == 3));
     REQUIRE((words.entries[1].start == 5 && words.entries[1].end == 7));
-    REQUIRE(words.entries[1].x_start == StringPixLength("  é ", *primary));
+    REQUIRE(words.entries[1].x_start == primary.textWidth("  é "));
     words.entries[0].keyword = W8_NOTICE_WORD_SELECTED;
     words.text = "中";
     words.RebuildEntries();
@@ -1007,9 +1045,9 @@ void generic_button_images()
     words.RebuildEntries();
     REQUIRE(words.entries.empty());
     g_level_block = previous_level;
-    g_font12point1 = LoadFontFile(filename);
+    REQUIRE(g_font12point1.load(filename));
     MSYS_Init();
-    InitTextInputMode(*g_font12point1);
+    InitTextInputMode(g_font12point1);
     const auto field = AddTextInputField(0, 0, 80, 20, MSYS_PRIORITY_NORMAL, "", 1000, 0x0f, 0);
     SetActiveField(field);
     const std::string clusters = "é👩‍👩‍👧‍👦中";
@@ -1053,7 +1091,7 @@ void generic_button_images()
     KillTextInputMode();
     MSYS_Shutdown();
     ResetFontRendering();
-    g_font12point1.reset();
+    g_font12point1.clear();
     ShutdownButtonImageManager();
 
     std::filesystem::remove_all(root);

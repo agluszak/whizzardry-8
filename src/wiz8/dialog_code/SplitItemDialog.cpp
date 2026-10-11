@@ -247,7 +247,7 @@ bool W8SplitItemDialog::CreateTextBuffers()
         bounds.right = g_split_text_bounds[index].right + m_x;
         bounds.bottom = g_split_text_bounds[index].bottom + m_y;
         m_texts[index] = new W8TextBuffer(&bounds, g_localized_strings[g_split_text_string_ids[index]],
-                                          *g_wiz_text_font_secondary,
+                                          g_wiz_text_font_secondary,
                                           g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
         if (m_texts[index] == 0) {
             DestroyTextBuffers();
@@ -261,20 +261,20 @@ bool W8SplitItemDialog::CreateTextBuffers()
         m_texts[11]->SetLayoutMode(g_W8TextBufferAlignRight | g_W8TextBufferAlignMiddle);
         m_texts[13]->SetLayoutMode(g_W8TextBufferAlignRight | g_W8TextBufferAlignMiddle);
         if (m_mode == W8_ITEM_SPLIT_SELL) {
-            m_texts[1]->SetText(g_localized_strings[274], *g_wiz_text_font_secondary);
+            m_texts[1]->SetText(g_localized_strings[274], g_wiz_text_font_secondary);
             header = g_localized_strings[268];
         } else {
-            m_texts[1]->SetText(g_localized_strings[275], *g_wiz_text_font_secondary);
+            m_texts[1]->SetText(g_localized_strings[275], g_wiz_text_font_secondary);
             header = g_localized_strings[276];
         }
-        m_texts[0]->SetText(header, *g_wiz_text_font_secondary);
+        m_texts[0]->SetText(header, g_wiz_text_font_secondary);
     }
-    m_texts[3]->SetText(FormatItemDisplayName(m_item, false), *g_wiz_text_font_secondary);
+    m_texts[3]->SetText(FormatItemDisplayName(m_item, false), g_wiz_text_font_secondary);
     m_texts[5]->SetText(
         fmt::format(
             "{} ({})", g_localized_strings[g_equip_class_name_ids[GetItemEquipClass(m_item)]],
             g_localized_strings[g_generic_item_name_notice[GetItemUnidentifiedNameIndex(m_item)]]),
-        *g_wiz_text_font_secondary);
+        g_wiz_text_font_secondary);
     return true;
 }
 
@@ -288,7 +288,7 @@ bool W8SplitItemDialog::CreateNumericInput()
     bounds.top = g_split_count_field_bounds.top + m_y;
     bounds.right = g_split_count_field_bounds.right + m_x;
     bounds.bottom = g_split_count_field_bounds.bottom + m_y;
-    m_count_input = new W8DialogNumericInput(0, &bounds, split_count, *g_wiz_text_font_secondary,
+    m_count_input = new W8DialogNumericInput(0, &bounds, split_count, g_wiz_text_font_secondary,
                                              this, m_buttons[3]);
     if (m_count_input == 0) {
         NoOp();
@@ -406,11 +406,11 @@ void W8SplitItemDialog::UpdateCostLabels()
         split_price = remaining_price;
     }
     text = fmt::format("{:d}", remaining_price);
-    m_texts[11]->SetText(text, *g_wiz_text_font_secondary);
+    m_texts[11]->SetText(text, g_wiz_text_font_secondary);
     m_buttons[8]->m_dirty = true;
     m_texts[11]->SetGeometryDirty();
     text = fmt::format("{:d}", split_price);
-    m_texts[13]->SetText(text, *g_wiz_text_font_secondary);
+    m_texts[13]->SetText(text, g_wiz_text_font_secondary);
     m_buttons[9]->m_dirty = true;
     m_texts[13]->SetGeometryDirty();
 }
@@ -465,7 +465,7 @@ void W8SplitItemDialog::UpdateTotals()
     UpdateArrowStates();
     UpdateAcceptButton();
     text = fmt::format("{:d}", m_remaining);
-    m_texts[2]->SetText(text, *g_wiz_text_font_secondary);
+    m_texts[2]->SetText(text, g_wiz_text_font_secondary);
     m_buttons[2]->m_dirty = true;
     m_texts[2]->SetGeometryDirty();
     m_count_input->SetValue(split_count);
@@ -474,12 +474,12 @@ void W8SplitItemDialog::UpdateTotals()
     m_count_input->m_button->m_dirty = true;
     text = fmt::format("{:.1f}", static_cast<double>(GetItemUnitWeight(m_item) * m_remaining) *
                                      g_item_weight_display_scale);
-    m_texts[7]->SetText(text, *g_wiz_text_font_secondary);
+    m_texts[7]->SetText(text, g_wiz_text_font_secondary);
     m_buttons[4]->m_dirty = true;
     m_texts[7]->SetGeometryDirty();
     text = fmt::format("{:.1f}", static_cast<double>(GetItemUnitWeight(m_item) * split_count) *
                                      g_item_weight_display_scale);
-    m_texts[9]->SetText(text, *g_wiz_text_font_secondary);
+    m_texts[9]->SetText(text, g_wiz_text_font_secondary);
     m_buttons[5]->m_dirty = true;
     m_texts[9]->SetGeometryDirty();
     UpdateCostLabels();
