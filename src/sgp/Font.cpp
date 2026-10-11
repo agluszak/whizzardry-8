@@ -58,7 +58,7 @@ void Font::clear()
     glyphs = {};
     customPalette.reset();
     shades.clear();
-    currentShade = 4;
+    currentShade = kNormalShade;
 }
 
 // SetFontForeground
@@ -133,7 +133,7 @@ void SetRGBFontShadow(SDL_Color color)
 void Font::setPalette(const Palette16& colors)
 {
     customPalette = colors;
-    currentShade = 4;
+    currentShade = kNormalShade;
 }
 
 // FUNCTION: WIZ8 0x00406de0
@@ -145,12 +145,12 @@ const Palette16& Font::palette() const
 
 const Palette16& Font::currentPalette() const
 {
-    return currentShade == 4 ? palette() : shades.at(currentShade).value();
+    return currentShade == kNormalShade ? palette() : shades.at(currentShade).value();
 }
 
 void Font::resetPalette()
 {
-    currentShade = 4;
+    currentShade = kNormalShade;
     customPalette.reset();
 }
 
@@ -190,14 +190,14 @@ std::uint16_t Font::createShades(std::uint32_t glow)
     shades[13] = Create16BPPPaletteShaded(glyphs->palette, 18, 18, 18, false);
     shades[14] = Create16BPPPaletteShaded(glyphs->palette, 9, 9, 9, false);
     shades[15] = Create16BPPPaletteShaded(glyphs->palette, 0, 0, 0, false);
-    currentShade = 4;
+    currentShade = kNormalShade;
     return true;
 }
 
 // FUNCTION: WIZ8 0x004068e0
 std::uint16_t Font::setShade(std::uint32_t shade)
 {
-    if (shade != 4 && (shade >= shades.size() || !shades[shade]))
+    if (shade != kNormalShade && (shade >= shades.size() || !shades[shade]))
         return false;
     currentShade = shade;
     return true;
@@ -328,41 +328,6 @@ void SetFontDestBuffer(SDL_Surface& destination, std::int32_t x1, std::int32_t y
     g_font_render_state.wrap = wrap;
 }
 
-static void DrawMonoGlyph(SDL_Surface& target, const SpriteSheet& sprites, std::size_t glyph_index,
-                          std::int32_t x, std::int32_t y)
-{
-    const auto& frame = sprites.frames.at(glyph_index);
-    if (!frame.indices)
-        return;
-    const SDL_Rect sprite{x + frame.sOffsetX, y + frame.sOffsetY,
-                          frame.usWidth, frame.usHeight};
-    SDL_Rect clip{};
-    SDL_GetSurfaceClipRect(&target, &clip);
-    SDL_Rect visible{};
-    if (!SDL_GetRectIntersection(&sprite, &clip, &visible))
-        return;
-
-    for (int destination_y = visible.y; destination_y < visible.y + visible.h; ++destination_y) {
-        const int source_y = destination_y - sprite.y;
-        const auto* input = reinterpret_cast<const std::uint16_t*>(
-            static_cast<const std::uint8_t*>(frame.indices->pixels) + source_y * frame.indices->pitch);
-        auto* output = reinterpret_cast<std::uint16_t*>(
-            static_cast<std::uint8_t*>(target.pixels) + destination_y * target.pitch);
-        for (int destination_x = visible.x; destination_x < visible.x + visible.w; ++destination_x) {
-            const int source_x = destination_x - sprite.x;
-            const auto index = input[source_x];
-            if (index == 1) {
-                if (g_font_render_state.shadow)
-                    output[destination_x] = g_font_render_state.shadow;
-            } else if (index != SpriteFrame::kTransparent && index != 0) {
-                output[destination_x] = g_font_render_state.foreground;
-            } else if (g_font_render_state.background) {
-                output[destination_x] = g_font_render_state.background;
-            }
-        }
-    }
-}
-
 static void DrawTextToSurface(SDL_Surface& target, Font& font, std::int32_t x, std::int32_t y,
                               std::string_view text, bool mono)
 {
@@ -380,11 +345,12 @@ static void DrawTextToSurface(SDL_Surface& target, Font& font, std::int32_t x, s
             destx = x;
             y += GetHeight(sprites, glyph);
         }
-        if (mono)
-            DrawMonoGlyph(target, sprites, glyph, destx, y);
-        else
-            DrawSprite(target, sprites, glyph, destx, y,
-                       {.blend = SpriteBlend::Transparent, .palette = &font.currentPalette()});
+        DrawSprite(target, sprites, glyph, destx, y,
+                   {.blend = mono ? SpriteBlend::Mono : SpriteBlend::Transparent,
+                    .foreground = g_font_render_state.foreground,
+                    .background = g_font_render_state.background,
+                    .shadow = g_font_render_state.shadow,
+                    .palette = &font.currentPalette()});
         destx += GetWidth(sprites, glyph);
     }
 }

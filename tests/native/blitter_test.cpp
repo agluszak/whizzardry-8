@@ -144,7 +144,7 @@ std::vector<std::string> legacy_goldens()
         std::istringstream fields(line);
         std::string name;
         fields >> name;
-        if (name.starts_with("Blt") || name == "FillRect16BPP")
+        if (name.starts_with("Blt") || name == "DrawSpriteMono" || name == "FillRect16BPP")
             result.push_back(line);
     }
     return result;
@@ -204,6 +204,122 @@ TEST_CASE("sprite tiling keeps a negative origin phase", "[blit]")
     REQUIRE(pixels(*target) == golden("sprite-negative-tile"));
 }
 
+TEST_CASE("self blits preserve overlapping rows in either direction", "[blit]")
+{
+    auto target = surface(4, 6);
+    REQUIRE(target);
+    const auto reset = [&] {
+        for (int y = 0; y < target->h; ++y)
+            for (int x = 0; x < target->w; ++x)
+                pixel(*target, x, y) = static_cast<std::uint16_t>(y * 10 + x);
+    };
+
+    reset();
+    const SDL_Rect source_below{0, 0, 3, 4};
+    BlitImage(*target, 0, 1, *target, &source_below);
+    REQUIRE(pixel(*target, 0, 0) == 0);
+    REQUIRE(pixel(*target, 2, 1) == 2);
+    REQUIRE(pixel(*target, 1, 2) == 11);
+    REQUIRE(pixel(*target, 2, 3) == 22);
+    REQUIRE(pixel(*target, 0, 4) == 30);
+    REQUIRE(pixel(*target, 3, 4) == 43);
+    REQUIRE(pixel(*target, 0, 5) == 50);
+
+    reset();
+    const SDL_Rect source_above{0, 1, 3, 4};
+    BlitImage(*target, 0, 0, *target, &source_above);
+    REQUIRE(pixel(*target, 0, 0) == 10);
+    REQUIRE(pixel(*target, 2, 1) == 22);
+    REQUIRE(pixel(*target, 1, 2) == 31);
+    REQUIRE(pixel(*target, 2, 3) == 42);
+    REQUIRE(pixel(*target, 0, 4) == 40);
+    REQUIRE(pixel(*target, 3, 4) == 43);
+    REQUIRE(pixel(*target, 0, 5) == 50);
+
+    reset();
+    const SDL_Rect source_left{1, 0, 3, 1};
+    BlitImage(*target, 0, 0, *target, &source_left);
+    REQUIRE(pixel(*target, 0, 0) == 1);
+    REQUIRE(pixel(*target, 1, 0) == 2);
+    REQUIRE(pixel(*target, 2, 0) == 3);
+    REQUIRE(pixel(*target, 3, 0) == 3);
+}
+
+TEST_CASE("surface fills keep half-open rectangle edges", "[blit]")
+{
+    auto target = surface(5, 5);
+    REQUIRE(target);
+    REQUIRE(SDL_FillSurfaceRect(target.get(), nullptr, 0x7777));
+    const SDL_Rect area{1, 1, 2, 2};
+    REQUIRE(SDL_FillSurfaceRect(target.get(), &area, 0x1234));
+
+    REQUIRE(pixel(*target, 0, 1) == 0x7777);
+    REQUIRE(pixel(*target, 1, 1) == 0x1234);
+    REQUIRE(pixel(*target, 2, 2) == 0x1234);
+    REQUIRE(pixel(*target, 3, 2) == 0x7777);
+    REQUIRE(pixel(*target, 2, 3) == 0x7777);
+}
+
+TEST_CASE("shadow rectangles preserve inclusive legacy endpoints", "[blit]")
+{
+    auto target = surface(5, 5);
+    REQUIRE(target);
+    REQUIRE(SDL_FillSurfaceRect(target.get(), nullptr, 0x1234));
+    ShadeTable[0x1234] = 0x5678;
+    const SDL_Rect inclusive_area{1, 1, 3, 3};
+    ShadowRect(*target, inclusive_area);
+
+    REQUIRE(pixel(*target, 0, 1) == 0x1234);
+    REQUIRE(pixel(*target, 1, 1) == 0x5678);
+    REQUIRE(pixel(*target, 3, 3) == 0x5678);
+    REQUIRE(pixel(*target, 4, 3) == 0x1234);
+    REQUIRE(pixel(*target, 3, 4) == 0x1234);
+}
+
+TEST_CASE("tiled sprite fills keep half-open rectangle edges", "[blit]")
+{
+    auto target = surface(5, 5);
+    REQUIRE(target);
+    REQUIRE(SDL_FillSurfaceRect(target.get(), nullptr, 0x7777));
+    const auto sprites = sprite_sheet(1, 1, {1});
+    const SDL_Rect area{1, 1, 2, 2};
+    TileSprite(*target, area, sprites, 0, SDL_Point{0, 0});
+
+    REQUIRE(pixel(*target, 0, 1) == 0x7777);
+    REQUIRE(pixel(*target, 1, 1) == 0x1001);
+    REQUIRE(pixel(*target, 2, 2) == 0x1001);
+    REQUIRE(pixel(*target, 3, 2) == 0x7777);
+    REQUIRE(pixel(*target, 2, 3) == 0x7777);
+}
+
+TEST_CASE("image blits keep half-open source and destination edges", "[blit]")
+{
+    auto target = surface(5, 2);
+    auto source = surface(3, 1);
+    REQUIRE(target);
+    REQUIRE(source);
+    REQUIRE(SDL_FillSurfaceRect(target.get(), nullptr, 0x7777));
+    pixel(*source, 0, 0) = 0x1111;
+    pixel(*source, 1, 0) = 0x2222;
+    pixel(*source, 2, 0) = 0x3333;
+    const SDL_Rect source_rect{0, 0, 2, 1};
+    BlitImage(*target, 1, 0, *source, &source_rect);
+
+    REQUIRE(pixel(*target, 0, 0) == 0x7777);
+    REQUIRE(pixel(*target, 1, 0) == 0x1111);
+    REQUIRE(pixel(*target, 2, 0) == 0x2222);
+    REQUIRE(pixel(*target, 3, 0) == 0x7777);
+    REQUIRE(pixel(*target, 2, 1) == 0x7777);
+
+    REQUIRE(SDL_FillSurfaceRect(target.get(), nullptr, 0x7777));
+    const SDL_Rect clip{2, 0, 1, 1};
+    REQUIRE(SDL_SetSurfaceClipRect(target.get(), &clip));
+    BlitImage(*target, 1, 0, *source, &source_rect);
+    REQUIRE(pixel(*target, 1, 0) == 0x7777);
+    REQUIRE(pixel(*target, 2, 0) == 0x2222);
+    REQUIRE(pixel(*target, 3, 0) == 0x7777);
+}
+
 TEST_CASE("hatched rectangles honor the target clip and preserve their phase", "[blit]")
 {
     auto target = surface(5, 5);
@@ -233,6 +349,17 @@ TEST_CASE("SDL surface blits preserve equivalent legacy pixel goldens", "[blit]"
     REQUIRE(source->pitch == blitter_pitch);
     REQUIRE(indexed_target->pitch == blitter_pitch);
     REQUIRE(indexed_source->pitch == blitter_pitch);
+    class PixelFormatRestore {
+    public:
+        explicit PixelFormatRestore(SDL_PixelFormat format) : previous_(g_sgp_pixel_format)
+        {
+            g_sgp_pixel_format = format;
+        }
+        ~PixelFormatRestore() { g_sgp_pixel_format = previous_; }
+
+    private:
+        SDL_PixelFormat previous_;
+    } restore_pixel_format(target->format);
 
     const SDL_Rect full{0, 0, 640, blitter_height};
     std::array<std::uint16_t, 256> palette{};
@@ -264,6 +391,15 @@ TEST_CASE("SDL surface blits preserve equivalent legacy pixel goldens", "[blit]"
             DrawSprite(*target, sprites, 0, x, y);
             check("Blt8BPPDataTo16BPPBufferTransparentClip", data * 8 + variant, true,
                   clip, expected_index, expected);
+
+            reset_surface(*target, 337, 19);
+            REQUIRE(SDL_SetSurfaceClipRect(target.get(), &clip));
+            DrawSprite(*target, sprites, 0, x, y,
+                       {.blend = SpriteBlend::Mono,
+                        .foreground = 0xa351,
+                        .background = static_cast<std::uint16_t>(variant % 2 ? 0 : 0x2f14),
+                        .shadow = static_cast<std::uint16_t>(variant % 3 ? 0x1234 : 0)});
+            check("DrawSpriteMono", data * 8 + variant, true, clip, expected_index, expected);
 
             reset_surface(*target, 337, 19);
             REQUIRE(SDL_SetSurfaceClipRect(target.get(), &clip));
@@ -334,6 +470,32 @@ TEST_CASE("SDL surface blits preserve equivalent legacy pixel goldens", "[blit]"
             check("Blt16BPPTo16BPPMirror", static_cast<int>(width * 1000 + x), true,
                   full, expected_index, expected);
         }
+
+        reset_surface(*target, 337, 19);
+        reset_surface(*source, 113, 7);
+        BitmapImage bitmap;
+        bitmap.width = blitter_pitch;
+        bitmap.height = blitter_height;
+        bitmap.bitDepth = 8;
+        bitmap.format = SDL_PIXELFORMAT_INDEX8;
+        bitmap.palette.emplace();
+        const auto* details = SDL_GetPixelFormatDetails(target->format);
+        REQUIRE(details);
+        for (unsigned index = 0; index < palette.size(); ++index) {
+            const std::uint16_t value = palette[index];
+            SDL_Color color{0, 0, 0, SDL_ALPHA_OPAQUE};
+            SDL_GetRGB(value, details, nullptr, &color.r, &color.g, &color.b);
+            (*bitmap.palette)[index] = color;
+        }
+        bitmap.pixels.resize(static_cast<std::size_t>(bitmap.width) * bitmap.height);
+        std::memcpy(bitmap.pixels.data(), source->pixels, bitmap.pixels.size());
+        REQUIRE(Create16BPPPalette(*bitmap.palette) == palette);
+        auto indexed_surface = ConvertIndexedBitmapToSurface(bitmap, target->format);
+        REQUIRE(indexed_surface);
+        const SDL_Rect subrect{2, 3, static_cast<int>(width), 4};
+        BlitImage(*target, 3, 2, *indexed_surface, &subrect);
+        check("Blt8BPPDataSubTo16BPPBuffer", static_cast<int>(width), true,
+              subrect, expected_index, expected);
     }
 
     std::array<std::uint8_t, 64> pattern{};

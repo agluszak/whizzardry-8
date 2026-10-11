@@ -3,6 +3,7 @@
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>
 #include <cstddef>
+#include <cstdint>
 
 #include "himage.h"
 #include "wiz8/surface_storage.h"
@@ -10,10 +11,14 @@
 enum class SpriteBlend {
     Transparent,
     Shadow,
+    Mono,
 };
 
 struct SpriteDraw {
     SpriteBlend blend = SpriteBlend::Transparent;
+    std::uint16_t foreground = 0;
+    std::uint16_t background = 0;
+    std::uint16_t shadow = 0;
     bool mirror = false;
     const Palette16* palette = nullptr;
 };

@@ -1,11 +1,14 @@
 #pragma once
 
+#include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>
 #include <cstdint>
 #include <span>
 
 #include "wiz8/surface_storage.h"
+
+struct BitmapImage;
 
 struct ImageBlit {
     bool color_key = false;
@@ -26,6 +29,7 @@ private:
 
 SDL_Surface& GetFrameBufferSurface();
 SDLSurfaceOwner CreateFrameSurface(int width, int height);
+SDLSurfaceOwner ConvertIndexedBitmapToSurface(const BitmapImage& bitmap, SDL_PixelFormat format);
 void BlitImage(SDL_Surface& destination, int x, int y, SDL_Surface& source,
                const SDL_Rect* source_rect = nullptr, ImageBlit options = {});
 void PixelateRect(SDL_Surface& surface, const SDL_Rect& area,

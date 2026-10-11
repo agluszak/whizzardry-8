@@ -6,12 +6,14 @@
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_stdinc.h>
 #include <SDL3/SDL_surface.h>
+#include <algorithm>
 #include <cstdint>
 #include <cstring>
-#include <initializer_list>
 #include <span>
 #include <stdexcept>
+#include <vector>
 
+#include "himage.h"
 #include "shading.h"
 #include "wiz8/surface_storage.h"
 
@@ -54,6 +56,26 @@ SDLSurfaceOwner CreateFrameSurface(int width, int height)
     return result;
 }
 
+SDLSurfaceOwner ConvertIndexedBitmapToSurface(const BitmapImage& bitmap, SDL_PixelFormat format)
+{
+    if (bitmap.bitDepth != 8 || !bitmap.palette || format == SDL_PIXELFORMAT_UNKNOWN)
+        throw std::invalid_argument("Indexed bitmap format");
+    SDLSurfaceOwner result{SDL_CreateSurface(bitmap.width, bitmap.height, format), SDL_DestroySurface};
+    if (!result)
+        throw std::runtime_error(SDL_GetError());
+    require_sdl(SDL_SetSurfaceBlendMode(result.get(), SDL_BLENDMODE_NONE));
+
+    const Palette16 palette = Create16BPPPalette(*bitmap.palette);
+    for (int y = 0; y < bitmap.height; ++y) {
+        const auto* input = bitmap.pixels.data() + y * bitmap.width;
+        auto* output = reinterpret_cast<std::uint16_t*>(
+            static_cast<std::uint8_t*>(result->pixels) + y * result->pitch);
+        for (int x = 0; x < bitmap.width; ++x)
+            output[x] = palette[input[x]];
+    }
+    return result;
+}
+
 void BlitImage(SDL_Surface& destination, int x, int y, SDL_Surface& source,
                const SDL_Rect* source_rect, ImageBlit options)
 {
@@ -64,48 +86,45 @@ void BlitImage(SDL_Surface& destination, int x, int y, SDL_Surface& source,
     Uint32 color_key = 0;
     const bool has_color_key = SDL_GetSurfaceColorKey(&source, &color_key);
     const unsigned bytes_per_pixel = SDL_BYTESPERPIXEL(destination.format);
-    if (!options.mirror && destination.pixels == source.pixels &&
-        destination.format == source.format && (bytes_per_pixel == 1 || bytes_per_pixel == 2)) {
+    const bool shares_pixels = destination.pixels == source.pixels;
+    const bool keyed_copy = options.color_key && has_color_key;
+
+    if (shares_pixels && !options.mirror && !keyed_copy &&
+        destination.format == source.format && bytes_per_pixel != 0) {
         SDL_Rect visible{};
         SDL_Rect clip{};
         SDL_GetSurfaceClipRect(&destination, &clip);
         if (!SDL_GetRectIntersection(&destination_area, &clip, &visible))
             return;
-        const int source_x = source_area.x + visible.x - x;
-        if (source_x >= 0 && source_x + visible.w <= source.w) {
-            for (int row = 0; row < visible.h; ++row) {
-                const int destination_y = visible.y + row;
-                const int source_y = source_area.y + destination_y - y;
-                if (source_y < 0 || source_y >= source.h)
-                    continue;
-                const auto* input = static_cast<const std::uint8_t*>(source.pixels) +
-                    source_y * source.pitch + source_x * bytes_per_pixel;
-                auto* output = static_cast<std::uint8_t*>(destination.pixels) +
-                    destination_y * destination.pitch + visible.x * bytes_per_pixel;
-                if (options.color_key && has_color_key) {
-                    for (int column = 0; column < visible.w; ++column) {
-                        Uint32 pixel = 0;
-                        std::memcpy(&pixel, input + column * bytes_per_pixel, bytes_per_pixel);
-                        if (pixel != color_key)
-                            std::memcpy(output + column * bytes_per_pixel, &pixel, bytes_per_pixel);
-                    }
-                } else {
-                    const unsigned row_bytes = visible.w * bytes_per_pixel;
-                    unsigned offset = 0;
-                    for (unsigned chunk : {1u, 2u, 4u}) {
-                        const unsigned end = chunk == 4 ? row_bytes : offset + (row_bytes & chunk);
-                        for (; offset < end; offset += chunk) {
-                            std::uint32_t value = 0;
-                            std::memcpy(&value, input + offset, chunk);
-                            std::memcpy(output + offset, &value, chunk);
-                        }
-                    }
-                }
-            }
+        const SDL_Rect bounds = surface_bounds(source);
+        const SDL_Rect source_visible{source_area.x + visible.x - x,
+                                      source_area.y + visible.y - y,
+                                      visible.w, visible.h};
+        SDL_Rect clipped_source{};
+        if (!SDL_GetRectIntersection(&source_visible, &bounds, &clipped_source))
             return;
+        visible.x += clipped_source.x - source_visible.x;
+        visible.y += clipped_source.y - source_visible.y;
+        visible.w = clipped_source.w;
+        visible.h = clipped_source.h;
+
+        const int first_source_y = source_area.y + visible.y - y;
+        const bool copy_bottom_up = visible.y > first_source_y;
+        const std::size_t row_bytes = static_cast<std::size_t>(visible.w) * bytes_per_pixel;
+        for (int row = 0; row < visible.h; ++row) {
+            const int offset = copy_bottom_up ? visible.h - 1 - row : row;
+            const int destination_y = visible.y + offset;
+            const int source_y = source_area.y + destination_y - y;
+            const auto* input = static_cast<const std::uint8_t*>(source.pixels) +
+                source_y * source.pitch + clipped_source.x * bytes_per_pixel;
+            auto* output = static_cast<std::uint8_t*>(destination.pixels) +
+                destination_y * destination.pitch + visible.x * bytes_per_pixel;
+            std::memmove(output, input, row_bytes);
         }
+        return;
     }
-    if (!options.mirror && (options.color_key || !has_color_key)) {
+
+    if (!options.mirror && (!has_color_key || options.color_key) && !shares_pixels) {
         require_sdl(SDL_BlitSurface(&source, &source_area, &destination, &destination_area));
         return;
     }
@@ -119,8 +138,17 @@ void BlitImage(SDL_Surface& destination, int x, int y, SDL_Surface& source,
     if (!SDL_GetRectIntersection(&destination_area, &clip, &visible))
         return;
 
+    std::vector<std::uint16_t> source_row;
+    std::vector<std::uint8_t> source_valid;
+    if (shares_pixels) {
+        source_row.resize(visible.w);
+        source_valid.resize(visible.w);
+    }
+    const int first_source_y = source_area.y + visible.y - y;
+    const bool copy_bottom_up = shares_pixels && visible.y > first_source_y;
     for (int row = 0; row < visible.h; ++row) {
-        const int destination_y = visible.y + row;
+        const int offset = copy_bottom_up ? visible.h - 1 - row : row;
+        const int destination_y = visible.y + offset;
         const int source_y = source_area.y + destination_y - y;
         if (source_y < 0 || source_y >= source.h)
             continue;
@@ -128,15 +156,29 @@ void BlitImage(SDL_Surface& destination, int x, int y, SDL_Surface& source,
             static_cast<const std::uint8_t*>(source.pixels) + source_y * source.pitch);
         auto* output = reinterpret_cast<std::uint16_t*>(
             static_cast<std::uint8_t*>(destination.pixels) + destination_y * destination.pitch);
+        if (shares_pixels) {
+            std::fill(source_valid.begin(), source_valid.end(), 0);
+            for (int column = 0; column < visible.w; ++column) {
+                const int destination_x = visible.x + column;
+                const int relative_x = destination_x - x;
+                const int source_x = options.mirror
+                    ? source_area.x + source_area.w - 1 - relative_x
+                    : source_area.x + relative_x;
+                if (source_x >= 0 && source_x < source.w) {
+                    source_row[column] = input[source_x];
+                    source_valid[column] = 1;
+                }
+            }
+        }
         for (int column = 0; column < visible.w; ++column) {
             const int destination_x = visible.x + column;
             const int relative_x = destination_x - x;
             const int source_x = options.mirror
                 ? source_area.x + source_area.w - 1 - relative_x
                 : source_area.x + relative_x;
-            if (source_x < 0 || source_x >= source.w)
+            if (shares_pixels ? !source_valid[column] : source_x < 0 || source_x >= source.w)
                 continue;
-            const std::uint16_t pixel = input[source_x];
+            const std::uint16_t pixel = shares_pixels ? source_row[column] : input[source_x];
             if (options.color_key && has_color_key && pixel == color_key)
                 continue;
             output[destination_x] = pixel;

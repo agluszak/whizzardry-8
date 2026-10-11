@@ -52,6 +52,17 @@ void DrawSprite(SDL_Surface& target, const SpriteSheet& sprites, std::size_t fra
             const int relative_x = destination_x - requested.x;
             const int source_x = options.mirror ? frame.usWidth - 1 - relative_x : relative_x;
             const std::uint16_t index = input[source_x];
+            if (options.blend == SpriteBlend::Mono) {
+                if (index == 1) {
+                    if (options.shadow != 0)
+                        output[destination_x] = options.shadow;
+                } else if (index != 0 && index != SpriteFrame::kTransparent) {
+                    output[destination_x] = options.foreground;
+                } else if (options.background != 0) {
+                    output[destination_x] = options.background;
+                }
+                continue;
+            }
             if (index == SpriteFrame::kTransparent)
                 continue;
             if (options.blend == SpriteBlend::Shadow)

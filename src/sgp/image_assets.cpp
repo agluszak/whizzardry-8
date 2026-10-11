@@ -4,7 +4,6 @@
 #include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_surface.h>
 #include <memory>
-#include <cstdint>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -61,20 +60,11 @@ std::shared_ptr<SDL_Surface> ImageAssets::bitmap(std::string_view path)
     if (!image)
         return {};
 
-    auto bitmap_owner = CreateFrameSurface(image->width, image->height);
-    auto& framebuffer = GetFrameBufferSurface();
-    if (image->bitDepth == 8) {
-        if (!image->palette)
-            throw std::runtime_error("Indexed bitmap has no palette");
-        const auto palette = Create16BPPPalette(*image->palette);
-        for (int y = 0; y < image->height; ++y) {
-            const auto* input = image->pixels.data() + y * image->width;
-            auto* output = reinterpret_cast<std::uint16_t*>(
-                static_cast<std::uint8_t*>(bitmap_owner->pixels) + y * bitmap_owner->pitch);
-            for (int x = 0; x < image->width; ++x)
-                output[x] = palette[input[x]];
-        }
-    } else {
+    auto bitmap_owner = image->bitDepth == 8
+        ? ConvertIndexedBitmapToSurface(*image, GetFrameBufferSurface().format)
+        : CreateFrameSurface(image->width, image->height);
+    if (image->bitDepth != 8) {
+        auto& framebuffer = GetFrameBufferSurface();
         if (image->format == SDL_PIXELFORMAT_UNKNOWN ||
             !SDL_ConvertPixels(image->width, image->height, image->format,
                                image->pixels.data(), image->width * SDL_BYTESPERPIXEL(image->format),

@@ -31,10 +31,12 @@ inline constexpr std::uint32_t FONT_GLOW_RED = 3;
 struct SDL_Surface;
 struct SpriteSheet;
 struct Font {
+    static constexpr std::uint32_t kNormalShade = 4;
+
     std::shared_ptr<const SpriteSheet> glyphs;
     std::optional<Palette16> customPalette;
     std::vector<std::optional<Palette16>> shades;
-    std::uint32_t currentShade = 4;
+    std::uint32_t currentShade = kNormalShade;
     Font() = default;
     Font(Font&& other) noexcept;
     Font& operator=(Font&& other) noexcept;
