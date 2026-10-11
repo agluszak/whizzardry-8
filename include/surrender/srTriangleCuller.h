@@ -61,14 +61,15 @@ public:
     static SR_DLL_IMPORT int cull(Output& output, const Input& input);
 
 private:
-    /* Chunks vertices by 0x100, runs setClipFlags per plane/bit pair, and
-       ANDs the per-vertex masks. shared_out ORs each plane's any-outside
-       result. Returns 0 when every vertex shares an outside bit (fully
-       clipped). */
-    static int setClipFlagsObjectSpace(w8_ulong* clip_flags, const srVector3T<float>* vertices,
-                                       const glm::vec4* planes,
-                                       const w8_ulong* plane_bits, w8_ulong plane_count,
-                                       w8_ulong vertex_count, w8_ulong& shared_out);
+    struct ClipFlagsResult {
+        bool visible;
+        bool clipped;
+    };
+    /* Build per-vertex plane masks and return both the full-rejection result
+       and whether any vertices lie outside an active plane. */
+    static ClipFlagsResult setClipFlagsObjectSpace(
+        w8_ulong* clip_flags, const srVector3T<float>* vertices, const glm::vec4* planes,
+        const w8_ulong* plane_bits, w8_ulong plane_count, w8_ulong vertex_count);
     static w8_ulong cullNoClip(w8_ulong* indices, const glm::vec4* projected,
                                const glm::vec4& constant, w8_ulong count);
     static w8_ulong cullNoClipAPT(w8_ulong* indices, const w8_ulong* active,
