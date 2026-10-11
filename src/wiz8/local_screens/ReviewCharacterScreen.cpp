@@ -135,7 +135,7 @@ unsigned char g_fade_flag;
 // GLOBAL: WIZ8 0x0069c118
 unsigned int g_fade_duration;
 // GLOBAL: WIZ8 0x0069c11c
-stModelInstance2D* g_fade_overlay;
+std::unique_ptr<stModelInstance2D> g_fade_overlay;
 // GLOBAL: WIZ8 0x0069c120
 int g_fade_out;
 // GLOBAL: WIZ8 0x0069c124
@@ -2592,8 +2592,8 @@ void BeginScreenFade(int fade_to_black, int fade_out, int duration, void (*callb
         color.z = 0.0f;
     }
     color.w = 1.0f;
-    g_fade_overlay = CreateColoredPolygonSprite(0x280, 0x1e0, &color, true);
-    Position2DNodeUnsnapped(g_fade_overlay, 0, 0);
+    g_fade_overlay.reset(CreateColoredPolygonSprite(0x280, 0x1e0, &color, true));
+    Position2DNodeUnsnapped(g_fade_overlay.get(), 0, 0);
     shader = static_cast<srMeshModel*>(g_fade_overlay->getModel())->getShader(0);
     if (fade_to_black == 0) {
         shader.value = (shader.value & ~0x6040) | 0xa0;
@@ -2627,7 +2627,7 @@ unsigned char UpdateScreenFade(void)
             RenderFrame();
             RenderFrame();
         }
-        delete g_fade_overlay;
+        g_fade_overlay.reset();
         SetFullscreenSceneLast(0);
         if (g_fade_callback != 0) {
             g_fade_callback();
