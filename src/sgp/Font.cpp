@@ -65,35 +65,25 @@ void Font::clear()
 // FUNCTION: WIZ8 0x00406c20
 void SetFontForeground(UINT8 ubForeground)
 {
-    UINT32 uiRed, uiGreen, uiBlue;
-
     if (!g_font_render_state.font)
         return;
 
     g_font_render_state.foreground_index = ubForeground;
 
-    uiRed = (UINT32)g_font_render_state.font->glyphs.pPaletteEntry[ubForeground].peRed;
-    uiGreen = (UINT32)g_font_render_state.font->glyphs.pPaletteEntry[ubForeground].peGreen;
-    uiBlue = (UINT32)g_font_render_state.font->glyphs.pPaletteEntry[ubForeground].peBlue;
-
-    g_font_render_state.foreground = Get16BPPColor(FROMRGB(uiRed, uiGreen, uiBlue));
+    g_font_render_state.foreground =
+        Get16BPPColor(g_font_render_state.font->glyphs.pPaletteEntry[ubForeground]);
 }
 
 // FUNCTION: WIZ8 0x00406c90
 void SetFontShadow(UINT8 ubShadow)
 {
-    UINT32 uiRed, uiGreen, uiBlue;
-
     if (!g_font_render_state.font)
         return;
 
     //g_font_render_state.foreground_index=ubForeground;
 
-    uiRed = (UINT32)g_font_render_state.font->glyphs.pPaletteEntry[ubShadow].peRed;
-    uiGreen = (UINT32)g_font_render_state.font->glyphs.pPaletteEntry[ubShadow].peGreen;
-    uiBlue = (UINT32)g_font_render_state.font->glyphs.pPaletteEntry[ubShadow].peBlue;
-
-    g_font_render_state.shadow = Get16BPPColor(FROMRGB(uiRed, uiGreen, uiBlue));
+    g_font_render_state.shadow =
+        Get16BPPColor(g_font_render_state.font->glyphs.pPaletteEntry[ubShadow]);
 
     if (ubShadow != 0) {
         if (g_font_render_state.shadow == 0) {
@@ -114,18 +104,13 @@ void SetFontShadow(UINT8 ubShadow)
 // FUNCTION: WIZ8 0x00406d10
 void SetFontBackground(UINT8 ubBackground)
 {
-    UINT32 uiRed, uiGreen, uiBlue;
-
     if (!g_font_render_state.font)
         return;
 
     g_font_render_state.background_index = ubBackground;
 
-    uiRed = (UINT32)g_font_render_state.font->glyphs.pPaletteEntry[ubBackground].peRed;
-    uiGreen = (UINT32)g_font_render_state.font->glyphs.pPaletteEntry[ubBackground].peGreen;
-    uiBlue = (UINT32)g_font_render_state.font->glyphs.pPaletteEntry[ubBackground].peBlue;
-
-    g_font_render_state.background = Get16BPPColor(FROMRGB(uiRed, uiGreen, uiBlue));
+    g_font_render_state.background =
+        Get16BPPColor(g_font_render_state.font->glyphs.pPaletteEntry[ubBackground]);
 }
 
 // FUNCTION: WIZ8 0x00406d80
@@ -133,7 +118,8 @@ void SetRGBFontShadow(UINT32 uiRed, UINT32 uiGreen, UINT32 uiBlue)
 {
     if (!g_font_render_state.font)
         return;
-    g_font_render_state.shadow = Get16BPPColor(FROMRGB(uiRed, uiGreen, uiBlue));
+    g_font_render_state.shadow = Get16BPPColor(SDL_Color{static_cast<UINT8>(uiRed),
+        static_cast<UINT8>(uiGreen), static_cast<UINT8>(uiBlue), SDL_ALPHA_OPAQUE});
 }
 //end Kris
 
