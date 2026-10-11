@@ -76,7 +76,7 @@ using Palette8 = std::array<SGPPaletteEntry, 256>;
 using Palette16 = std::array<UINT16, 256>;
 
 // Image header structure
-typedef struct {
+struct image_type {
     UINT16 usWidth;
     UINT16 usHeight;
     UINT8 ubBitDepth;
@@ -87,7 +87,7 @@ typedef struct {
     std::vector<UINT8> pImageData;
     std::vector<ETRLEObject> pETRLEObject;
 
-} image_type;
+};
 
 #define SGPGetRValue(rgb) ((BYTE)(rgb))
 #define SGPGetBValue(rgb) ((BYTE)((rgb) >> 16))
