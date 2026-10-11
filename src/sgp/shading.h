@@ -5,16 +5,17 @@
    Distributed under the accompanying SFI Source Code license agreement. */
 
 #include "Types.h"
+#include <cstdint>
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 void BuildShadeTable(void);
-void SetShadeTablePercent(FLOAT uiShadePercent);
+void SetShadeTablePercent(float uiShadePercent);
 
-extern UINT16 IntensityTable[65536];
-extern UINT16 ShadeTable[65536];
-extern FLOAT guiShadePercent;
+extern std::uint16_t IntensityTable[65536];
+extern std::uint16_t ShadeTable[65536];
+extern float guiShadePercent;
 
 #ifdef __cplusplus
 }

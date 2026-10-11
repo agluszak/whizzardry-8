@@ -6,7 +6,6 @@
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/sr_api.h"
 #include "timer.h"
-#include "Types.h"
 #include "compat/native.h"
 
 // GLOBAL: WIZ8 0x0062A458
@@ -64,7 +63,7 @@ void PlayButtonSound(int sound_id)
     SOUNDPARMS options;
     memset(&options, -1, sizeof(options));
     options.uiVolume = g_settings.sound_effects_volume >> 1;
-    SoundPlay((STR)path, &options);
+    SoundPlay((char*)path, &options);
 }
 
 // FUNCTION: WIZ8 0x005587c0

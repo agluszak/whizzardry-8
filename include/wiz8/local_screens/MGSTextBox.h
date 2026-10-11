@@ -7,7 +7,6 @@
 #include <string>
 #include <string_view>
 
-#include "Types.h"
 #include "input.h"
 
 struct W8MonsterInfo;
@@ -42,7 +41,7 @@ struct W8MessageStorageRecord {
     uint64_t clock;
     /* SaveGame snapshots the unsigned milliseconds remaining from
        TimeUntilDeadline; load rearms the countdown with this duration. */
-    UINT32 saved_remaining_ms;
+    std::uint32_t saved_remaining_ms;
     /* Continuation link count of a wrapped entry; -1 when unlinked. */
     int link;
     int length; /* UTF-8 byte length, -1 when unset */

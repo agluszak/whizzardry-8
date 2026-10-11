@@ -15,43 +15,42 @@
 
 #include "compat/surfaces.h"
 #include "vsurface.h"
-#include "Types.h"
 
 
 
 namespace
 {
-UINT32 read(const void* data, unsigned bytes)
+std::uint32_t read(const void* data, unsigned bytes)
 {
-    UINT32 result = 0;
+    std::uint32_t result = 0;
     memcpy(&result, data, bytes);
     return result;
 }
 
-std::vector<BYTE> pixels(CpuSurface& owner)
+std::vector<std::uint8_t> pixels(CpuSurface& owner)
 {
     const auto& storage = *owner.surface;
-    const auto* begin = static_cast<const BYTE*>(storage.pixels);
-    std::vector<BYTE> result(begin, begin + storage.pitch * storage.h);
+    const auto* begin = static_cast<const std::uint8_t*>(storage.pixels);
+    std::vector<std::uint8_t> result(begin, begin + storage.pitch * storage.h);
     return result;
 }
 
 void seed(CpuSurface& owner, unsigned salt)
 {
     const auto& storage = *owner.surface;
-    auto* begin = static_cast<BYTE*>(storage.pixels);
+    auto* begin = static_cast<std::uint8_t*>(storage.pixels);
     std::fill_n(begin, storage.pitch * storage.h, 0xa5);
     const unsigned bytes = SDL_BYTESPERPIXEL(owner.surface->format);
     for (int y = 0; y < storage.h; ++y)
         for (int x = 0; x < storage.w; ++x)
         {
-            const UINT32 value = (salt + y * 211 + x * 79) * 0x10307u;
+            const std::uint32_t value = (salt + y * 211 + x * 79) * 0x10307u;
             memcpy(begin + y * storage.pitch + x * bytes, &value, bytes);
         }
 }
 
 // Reference is the previous packed-word contract, not SDL's pixel output.
-std::vector<BYTE> reference(CpuSurface& dest, const SDL_Rect& d, CpuSurface& source, const SDL_Rect& s,
+std::vector<std::uint8_t> reference(CpuSurface& dest, const SDL_Rect& d, CpuSurface& source, const SDL_Rect& s,
                             bool sourceKey = false, bool destinationKey = false)
 {
     auto result = pixels(dest);
@@ -60,10 +59,10 @@ std::vector<BYTE> reference(CpuSurface& dest, const SDL_Rect& d, CpuSurface& sou
     const auto regions = dest.clipRegions.value_or(std::vector<SDL_Rect>{d});
     for (SDL_Rect region : regions)
     {
-        const INT32 left = std::max({region.x, d.x, 0});
-        const INT32 top = std::max({region.y, d.y, 0});
-        const INT32 right = std::min({region.x + region.w, d.x + d.w, dest.surface->w});
-        const INT32 bottom = std::min({region.y + region.h, d.y + d.h, dest.surface->h});
+        const std::int32_t left = std::max({region.x, d.x, 0});
+        const std::int32_t top = std::max({region.y, d.y, 0});
+        const std::int32_t right = std::min({region.x + region.w, d.x + d.w, dest.surface->w});
+        const std::int32_t bottom = std::min({region.y + region.h, d.y + d.h, dest.surface->h});
         region = SDL_Rect{left, top, right - left, bottom - top};
         if (region.w <= 0 || region.h <= 0)
             continue;
@@ -72,12 +71,12 @@ std::vector<BYTE> reference(CpuSurface& dest, const SDL_Rect& d, CpuSurface& sou
         {
             const float scaleX = float(s.w) / (d.w);
             const float scaleY = float(s.h) / (d.h);
-            const INT32 left = INT32((region.x - d.x) * scaleX);
-            const INT32 top = INT32((region.y - d.y) * scaleY);
+            const std::int32_t left = std::int32_t((region.x - d.x) * scaleX);
+            const std::int32_t top = std::int32_t((region.y - d.y) * scaleY);
             sample.x += left;
             sample.y += top;
-            sample.w -= INT32(((d.x + d.w) - (region.x + region.w)) * scaleX) + left;
-            sample.h -= INT32(((d.y + d.h) - (region.y + region.h)) * scaleY) + top;
+            sample.w -= std::int32_t(((d.x + d.w) - (region.x + region.w)) * scaleX) + left;
+            sample.h -= std::int32_t(((d.y + d.h) - (region.y + region.h)) * scaleY) + top;
         }
         const auto mapping = dest.clipRegions ? region : d;
         for (int y = region.y; y < (region.y + region.h); ++y)
@@ -87,7 +86,7 @@ std::vector<BYTE> reference(CpuSurface& dest, const SDL_Rect& d, CpuSurface& sou
                     (sample.w) / (mapping.w));
                 const int sy = sample.y + int(int64_t(y - mapping.y) *
                     (sample.h) / (mapping.h));
-                const UINT32 value = read(input.data() + sy * source.surface->pitch + sx * bytes, bytes);
+                const std::uint32_t value = read(input.data() + sy * source.surface->pitch + sx * bytes, bytes);
                 auto* target = result.data() + y * dest.surface->pitch + x * bytes;
                 if (sourceKey && value >= source.sourceKey->low && value <= source.sourceKey->high)
                     continue;
@@ -141,7 +140,7 @@ void differential()
                     {
                         seed(*dest, 3);
                         src->sourceKey = SurfaceColorKey{keys & 2 ? 0u : key, keys & 2 ? high / 2 : key};
-                        dest->destinationKey = SurfaceColorKey{high / 4, UINT32(high * uint64_t(3) / 4)};
+                        dest->destinationKey = SurfaceColorKey{high / 4, std::uint32_t(high * uint64_t(3) / 4)};
                         const SDL_Rect d{origin[0], origin[1], width, height};
                         const SDL_Rect s{1, 0, 6, 5};
                         const auto expected = reference(*dest, d, *src, s, keys & 1, keys & 2);
@@ -233,14 +232,14 @@ void fillsAndKeys()
             {
                 const auto index = y * storage.pitch + offset;
                 if (y < 2 && offset >= int(bytes) && offset < int(3 * bytes))
-                    REQUIRE(after[index] == BYTE(0xdeadbeef >> (8 * (offset % bytes))));
+                    REQUIRE(after[index] == std::uint8_t(0xdeadbeef >> (8 * (offset % bytes))));
                 else
                     REQUIRE(after[index] == before[index]);
             }
     }
     auto src = CreateCpuSurface(2, 1, SDL_PIXELFORMAT_ARGB8888);
     auto dest = CreateCpuSurface(2, 1, SDL_PIXELFORMAT_ARGB8888);
-    const UINT32 input[] {0x00123456, 0xff123456};
+    const std::uint32_t input[] {0x00123456, 0xff123456};
     const auto& storage = *src->surface;
     memcpy(storage.pixels, input, sizeof(input));
     FillCpuSurface(*dest, 0x11223344);

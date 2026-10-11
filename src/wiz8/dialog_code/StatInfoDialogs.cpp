@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <fmt/printf.h>
 #include <string>
 #include <vector>
@@ -10,7 +11,6 @@
 #include "wiz8/fonts.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/sr_api.h"
-#include "Types.h"
 #include "character_skills.h"
 #include "dialog_code/DialogBase.h"
 #include "dialog_code/DialogButton.h"
@@ -98,7 +98,7 @@ void W8StatInfoDialogBase::DrawTitle()
     SetFont(g_wiz_text_font_secondary);
     g_wiz_text_font_secondary.resetPalette();
     std::string title = g_localized_strings[m_title_id];
-    INT16 width = g_wiz_text_font_secondary.textWidth(title);
+    std::int16_t width = g_wiz_text_font_secondary.textWidth(title);
     DrawFontText(m_x + 0xe + (0x112 - width) / 2, m_y + 0x11, title);
 }
 

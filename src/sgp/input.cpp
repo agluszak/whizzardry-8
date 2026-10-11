@@ -11,7 +11,6 @@
 
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-04, 2026-10-06, 2026-10-07, 2026-10-09.
    Distributed under the accompanying SFI Source Code license agreement. */
-#include "Types.h"
 #include "native/input_events.h"
 #include "input.h"
 #include "english.h"
@@ -25,20 +24,20 @@
 // the interface.
 
 // GLOBAL: WIZ8 0x006f0520
-BOOLEAN gfKeyState[256]; // TRUE = Pressed, FALSE = Not Pressed
+bool gfKeyState[256]; // TRUE = Pressed, FALSE = Not Pressed
 // GLOBAL: WIZ8 0x00650db8
-BOOLEAN fCursorWasClipped = FALSE;
+bool fCursorWasClipped = false;
 SDL_Rect gCursorClipRect;
 
 // The gsKeyTranslationTables basically translates scan codes to our own key value table. Please note that the table is 2 bytes
 // wide per entry. This will be used since we will use 2 byte characters for translation purposes.
 
 // GLOBAL: WIZ8 0x006f04ea
-UINT16 gfShiftState; // TRUE = Pressed, FALSE = Not Pressed
+std::uint16_t gfShiftState; // TRUE = Pressed, FALSE = Not Pressed
 // GLOBAL: WIZ8 0x006f051c
-UINT16 gfAltState; // TRUE = Pressed, FALSE = Not Pressed
+std::uint16_t gfAltState; // TRUE = Pressed, FALSE = Not Pressed
 // GLOBAL: WIZ8 0x006f0508
-UINT16 gfCtrlState; // TRUE = Pressed, FALSE = Not Pressed
+std::uint16_t gfCtrlState; // TRUE = Pressed, FALSE = Not Pressed
 
 // These data structure are used to track the mouse while polling
 
@@ -48,15 +47,15 @@ uint64_t guiLeftButtonRepeatTimer;
 uint64_t guiRightButtonRepeatTimer;
 
 // GLOBAL: WIZ8 0x006f04ec
-BOOLEAN gfTrackMousePos; // TRUE = queue mouse movement events, FALSE = don't
+bool gfTrackMousePos; // TRUE = queue mouse movement events, FALSE = don't
 // GLOBAL: WIZ8 0x006f04ed
-BOOLEAN gfLeftButtonState; // TRUE = Pressed, FALSE = Not Pressed
+bool gfLeftButtonState; // TRUE = Pressed, FALSE = Not Pressed
 // GLOBAL: WIZ8 0x006f04e8
-BOOLEAN gfRightButtonState; // TRUE = Pressed, FALSE = Not Pressed
+bool gfRightButtonState; // TRUE = Pressed, FALSE = Not Pressed
 // GLOBAL: WIZ8 0x006f050a
-UINT16 gusMouseXPos; // X position of the mouse on screen
+std::uint16_t gusMouseXPos; // X position of the mouse on screen
 // GLOBAL: WIZ8 0x006f04f8
-UINT16 gusMouseYPos; // y position of the mouse on screen
+std::uint16_t gusMouseYPos; // y position of the mouse on screen
 
 // GLOBAL: WIZ8 0x006ef4e0
 static std::queue<InputAtom> gEventQueue;
@@ -64,27 +63,27 @@ static constexpr std::size_t max_input_events = 256;
 
 // ATE: Added to signal if we have had input this frame - cleared by the SGP main loop
 // GLOBAL: WIZ8 0x00650db9
-BOOLEAN gfSGPInputReceived = FALSE;
+bool gfSGPInputReceived = false;
 
 void HandleButtonRepeats(void);
 
 // These are the hook functions for both keyboard and mouse
 
 // FUNCTION: WIZ8 0x00401ea0
-BOOLEAN InitializeInputManager(void)
+bool InitializeInputManager(void)
 {
-    std::fill(std::begin(gfKeyState), std::end(gfKeyState), FALSE);
+    std::fill(std::begin(gfKeyState), std::end(gfKeyState), false);
     // Initialize the Event Queue
     gEventQueue = {};
     // By default, we will not queue mousemove events
-    gfTrackMousePos = FALSE;
+    gfTrackMousePos = false;
     // Initialize other variables
-    gfShiftState = FALSE;
-    gfAltState = FALSE;
-    gfCtrlState = FALSE;
+    gfShiftState = false;
+    gfAltState = false;
+    gfCtrlState = false;
     // Initialize variables pertaining to the button states
-    gfLeftButtonState = FALSE;
-    gfRightButtonState = FALSE;
+    gfLeftButtonState = false;
+    gfRightButtonState = false;
     // Initialize variables pertaining to the repeat mechanism
     guiLeftButtonRepeatTimer = 0;
     guiRightButtonRepeatTimer = 0;
@@ -92,16 +91,16 @@ BOOLEAN InitializeInputManager(void)
     gusMouseXPos = 320;
     gusMouseYPos = 240;
     // Activate the hook functions for both keyboard and Mouse
-    return TRUE;
+    return true;
 }
 
 // FUNCTION: WIZ8 0x00401f90
-void QueueEvent(UINT16 ubInputEvent, UINT32 usParam, UINT32 uiParam, UINT8 clicks)
+void QueueEvent(std::uint16_t ubInputEvent, std::uint32_t usParam, std::uint32_t uiParam, std::uint8_t clicks)
 {
     if (gEventQueue.size() == max_input_events)
         return;
     const uint64_t uiTimer = w8_get_ticks();
-    const UINT16 usKeyState = gfShiftState | gfCtrlState | gfAltState;
+    const std::uint16_t usKeyState = gfShiftState | gfCtrlState | gfAltState;
     switch (ubInputEvent) {
     case LEFT_BUTTON_DOWN:
         guiLeftButtonRepeatTimer = uiTimer + BUTTON_REPEAT_TIMEOUT;
@@ -122,14 +121,14 @@ void QueueEvent(UINT16 ubInputEvent, UINT32 usParam, UINT32 uiParam, UINT8 click
 }
 
 // FUNCTION: WIZ8 0x00402140
-BOOLEAN DequeueEvent(InputAtom* Event)
+bool DequeueEvent(InputAtom* Event)
 {
     HandleButtonRepeats();
     if (gEventQueue.empty())
-        return FALSE;
+        return false;
     *Event = gEventQueue.front();
     gEventQueue.pop();
-    return TRUE;
+    return true;
 }
 
 // GLOBAL: WIZ8 0x005ff51c
@@ -137,7 +136,7 @@ unsigned short g_key_remap_5ff51c[14] = {0x0069, 0x0063, 0x0061, 0x0067, 0x0064,
                                          0x0062, 0x0000, 0x0000, 0x0000, 0x0000, 0x0060, 0x006e};
 
 // FUNCTION: WIZ8 0x00402270
-void KeyChange(UINT32 key, UINT32 flags, UINT8 pressed)
+void KeyChange(std::uint32_t key, std::uint32_t flags, std::uint8_t pressed)
 {
     SDL_Point point;
     unsigned int packed;
@@ -157,7 +156,7 @@ void KeyChange(UINT32 key, UINT32 flags, UINT8 pressed)
         return;
     if (pressed == 1) {
         QueueEvent(gfKeyState[code] ? KEY_REPEAT : KEY_DOWN, code, packed);
-        gfKeyState[code] = TRUE;
+        gfKeyState[code] = true;
         return;
     }
     if (gfKeyState[code] == 1) {
@@ -172,19 +171,19 @@ void KeyChange(UINT32 key, UINT32 flags, UINT8 pressed)
     }
 }
 
-void KeyDown(UINT32 usParam, UINT32 uiParam)
+void KeyDown(std::uint32_t usParam, std::uint32_t uiParam)
 {                        // Are we PRESSING down one of SHIFT, ALT or CTRL ???
     if (usParam == 16) { // SHIFT key is PRESSED
         gfShiftState = SHIFT_DOWN;
-        gfKeyState[16] = TRUE;
+        gfKeyState[16] = true;
     } else {
         if (usParam == 17) { // CTRL key is PRESSED
             gfCtrlState = CTRL_DOWN;
-            gfKeyState[17] = TRUE;
+            gfKeyState[17] = true;
         } else {
             if (usParam == 18) { // ALT key is pressed
                 gfAltState = ALT_DOWN;
-                gfKeyState[18] = TRUE;
+                gfKeyState[18] = true;
             } else {
                 if (usParam == SNAPSHOT) {
                     //PrintScreen();
@@ -194,26 +193,26 @@ void KeyDown(UINT32 usParam, UINT32 uiParam)
                 } else {
                     // No special keys have been pressed
                     // Call KeyChange() and pass TRUE to indicate key has been PRESSED and not RELEASED
-                    KeyChange(usParam, uiParam, TRUE);
+                    KeyChange(usParam, uiParam, true);
                 }
             }
         }
     }
 }
 
-void KeyUp(UINT32 usParam, UINT32 uiParam)
+void KeyUp(std::uint32_t usParam, std::uint32_t uiParam)
 {                        // Are we RELEASING one of SHIFT, ALT or CTRL ???
     if (usParam == 16) { // SHIFT key is RELEASED
-        gfShiftState = FALSE;
-        gfKeyState[16] = FALSE;
+        gfShiftState = false;
+        gfKeyState[16] = false;
     } else {
         if (usParam == 17) { // CTRL key is RELEASED
-            gfCtrlState = FALSE;
-            gfKeyState[17] = FALSE;
+            gfCtrlState = false;
+            gfKeyState[17] = false;
         } else {
             if (usParam == 18) { // ALT key is RELEASED
-                gfAltState = FALSE;
-                gfKeyState[18] = FALSE;
+                gfAltState = false;
+                gfKeyState[18] = false;
             } else {
                 if (usParam == SNAPSHOT) {
                     // DB this used to be keyed to SCRL_LOCK
@@ -227,7 +226,7 @@ void KeyUp(UINT32 usParam, UINT32 uiParam)
                 } else {
                     // No special keys have been pressed
                     // Call KeyChange() and pass FALSE to indicate key has been PRESSED and not RELEASED
-                    KeyChange(usParam, uiParam, FALSE);
+                    KeyChange(usParam, uiParam, false);
                 }
             }
         }
@@ -242,7 +241,7 @@ void KeyUp(UINT32 usParam, UINT32 uiParam)
 void FreeMouseCursor(void)
 {
     SetGameCursorRect(nullptr);
-    fCursorWasClipped = FALSE;
+    fCursorWasClipped = false;
 }
 
 void HandleButtonRepeats(void)
@@ -254,7 +253,7 @@ void HandleButtonRepeats(void)
     // Is there a LEFT mouse button repeat
     if (gfLeftButtonState) {
         if ((guiLeftButtonRepeatTimer > 0) && (guiLeftButtonRepeatTimer <= uiTimer)) {
-            UINT32 uiTmpLParam;
+            std::uint32_t uiTmpLParam;
             SDL_Point MousePos;
 
             GetGameMousePosition(&MousePos);
@@ -269,7 +268,7 @@ void HandleButtonRepeats(void)
     // Is there a RIGHT mouse button repeat
     if (gfRightButtonState) {
         if ((guiRightButtonRepeatTimer > 0) && (guiRightButtonRepeatTimer <= uiTimer)) {
-            UINT32 uiTmpLParam;
+            std::uint32_t uiTmpLParam;
             SDL_Point MousePos;
 
             GetGameMousePosition(&MousePos);
@@ -283,9 +282,9 @@ void HandleButtonRepeats(void)
 }
 
 // FUNCTION: WIZ8 0x00402760
-INT16 GetMouseWheelDeltaValue(UINT32 wParam)
+std::int16_t GetMouseWheelDeltaValue(std::uint32_t wParam)
 {
-    INT16 sDelta = HIWORD(wParam);
+    std::int16_t sDelta = HIWORD(wParam);
 
     return (sDelta / 120);
 }
@@ -303,7 +302,7 @@ unsigned short TranslateKeyToCharacter(unsigned short key, unsigned char modifie
 // FUNCTION: WIZ8 0x004027C0
 unsigned short TranslateCharacterToKey(unsigned short character)
 {
-    UINT16 key;
+    std::uint16_t key;
     for (key = 0; key < 0x200; ++key) {
         if (gsKeyTranslationTable[key] == character) {
             return key % 256;
@@ -313,19 +312,19 @@ unsigned short TranslateCharacterToKey(unsigned short character)
 }
 
 // FUNCTION: WIZ8 0x00402800
-BOOLEAN IsUppercaseCharacter(UINT32 character)
+bool IsUppercaseCharacter(std::uint32_t character)
 {
     return utf8proc_category(character) == UTF8PROC_CATEGORY_LU;
 }
 
 // FUNCTION: WIZ8 0x00402820
-BOOLEAN IsLowercaseCharacter(UINT32 character)
+bool IsLowercaseCharacter(std::uint32_t character)
 {
     const auto category = utf8proc_category(character); return category == UTF8PROC_CATEGORY_LL || category == UTF8PROC_CATEGORY_LO || category == UTF8PROC_CATEGORY_LT || category == UTF8PROC_CATEGORY_LM || category == UTF8PROC_CATEGORY_MN || category == UTF8PROC_CATEGORY_MC || category == UTF8PROC_CATEGORY_ME;
 }
 
 // FUNCTION: WIZ8 0x00402840
-BOOLEAN IsPunctuationCharacter(UINT32 character)
+bool IsPunctuationCharacter(std::uint32_t character)
 {
     const auto category = utf8proc_category(character); return (category >= UTF8PROC_CATEGORY_PC && category <= UTF8PROC_CATEGORY_SO) || category == UTF8PROC_CATEGORY_CF;
 }

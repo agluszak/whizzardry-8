@@ -17,7 +17,6 @@
 #include "input.h"
 #include "mousesystem.h"
 #include "Font.h"
-#include "Types.h"
 #include "dialog_code/DialogBase.h"
 #include "dialog_code/DialogButton.h"
 #include "local_code/ControlsRect.h"
@@ -201,7 +200,7 @@ bool W8NpcDialog::ProcessInput()
     InputAtom input;
 
     RefreshMouseRegions();
-    while (DequeueEvent(&input) == TRUE) {
+    while (DequeueEvent(&input) == true) {
         if ((input.usEvent != KEY_DOWN && input.usEvent != KEY_REPEAT) ||
             static_cast<char>(HandleTextInput(&input)) == 0) {
             if (input.usEvent == KEY_DOWN && input.usParam == VK_RETURN &&

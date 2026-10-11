@@ -1,4 +1,5 @@
 #include "Font.h"
+#include <cstdint>
 #include <SDL3/SDL_mouse.h>
 #include <string_view>
 #include <utility>
@@ -12,7 +13,6 @@
 #include "wiz8/engine_code/Video2.h"
 #include "Button System.h"
 #include "mousesystem.h"
-#include "Types.h"
 
 // FUNCTION: WIZ8 0x005db4e0
 void W8DialogButton::Draw()
@@ -238,12 +238,12 @@ bool W8DialogButton::Configure(const char* image_path, int gray_frame, int off_n
 }
 
 // FUNCTION: WIZ8 0x005db620
-void DialogButtonCallback(MOUSE_REGION* region, INT32 reason)
+void DialogButtonCallback(MOUSE_REGION* region, std::int32_t reason)
 {
     if (region && region->dialog_button) region->dialog_button->HandleMouseEvent(reason);
 }
 
-void W8DialogButton::HandleMouseEvent(INT32 reason)
+void W8DialogButton::HandleMouseEvent(std::int32_t reason)
 {
     if (m_live_dialog_count != g_live_dialog_count) return;
     if (!m_left_callback && !m_right_callback && !m_move_callback && !m_double_click_callback) return;

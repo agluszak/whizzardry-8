@@ -938,11 +938,12 @@ bool RegionContainsPoint(unsigned int region_index, unsigned short x, unsigned s
     }
     region = &g_regions[region_index];
     switch (region->flags & W8_REGION_MODE_MASK) {
-    case W8_REGION_RECTANGLE:
-        if (x >= region->x1 && x <= region->x2 && y >= region->y1 && y <= region->y2) {
-            return true;
-        }
-        break;
+    case W8_REGION_RECTANGLE: {
+        const SDL_Point point{x, y};
+        const SDL_Rect bounds{region->x1, region->y1,
+                              region->x2 - region->x1 + 1, region->y2 - region->y1 + 1};
+        return SDL_PointInRect(&point, &bounds);
+    }
     case W8_REGION_CIRCLE: {
         short delta_x = x - region->x1;
         short delta_y = y - region->y1;

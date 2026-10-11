@@ -3977,7 +3977,7 @@ w8_ulong srGERD::getClassID() const
 // FUNCTION: SURRENDER 0x1001FA30
 void __cdecl srGERD::accumAccum_MMX(AccumPixel* accum, const srARGB* pixels, w8_long scale, w8_long count)
 {
-    abort(); /* MMX workers are never selected natively */
+    std::abort(); /* MMX workers are never selected natively */
 }
 
 // FUNCTION: SURRENDER 0x1001FA90

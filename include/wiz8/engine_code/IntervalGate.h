@@ -1,7 +1,6 @@
 #pragma once
 
 #include "wiz8/engine_code/game_timer.h"
-#include "Types.h"
 #include "compat/compiler.h"
 
 namespace wiz8 { class File; }
@@ -29,8 +28,8 @@ public:
         }
         return IsFinished();
     }
-    BOOLEAN Load(wiz8::File* handle);
-    BOOLEAN Save(wiz8::File* handle);
+    bool Load(wiz8::File* handle);
+    bool Save(wiz8::File* handle);
 
 private:
     bool m_finished; /* 0x024 */

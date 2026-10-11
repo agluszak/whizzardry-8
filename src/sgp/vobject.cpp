@@ -1,5 +1,10 @@
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
    Distributed under the accompanying SFI Source Code license agreement. */
+#include <SDL3/SDL_blendmode.h>
+#include <SDL3/SDL_surface.h>
+#include <algorithm>
+#include <span>
+#include <cstdint>
 #include <SDL3/SDL_log.h>
 #include <memory>
 #include <string_view>
@@ -7,6 +12,7 @@
 #include <variant>
 
 #include "Types.h"
+#include "wiz8/compat/surfaces.h"
 #include "himage.h"
 #include "vobject.h"
 #include "vobject_blitters.h"
@@ -39,13 +45,13 @@
 // There are two types, a BltFast and a Blt. BltFast is 10% faster, uses no
 // clipping lists
 // FUNCTION: WIZ8 0x00406110
-BOOLEAN BltVideoObject(SGPVSurface& uiDestVSurface, SGPVObject& hSrcVObject, UINT16 usRegionIndex,
-                       INT32 iDestX, INT32 iDestY, UINT32 fBltFlags, blt_fx* pBltFx)
+bool BltVideoObject(SGPVSurface& uiDestVSurface, SGPVObject& hSrcVObject, std::uint16_t usRegionIndex,
+                       std::int32_t iDestX, std::int32_t iDestY, std::uint32_t fBltFlags, blt_fx* pBltFx)
 {
     const auto& storage = *uiDestVSurface.cpu().surface;
     if (!storage.pixels)
-        return FALSE;
-    return BltVideoObjectToBuffer(static_cast<UINT16*>(storage.pixels), storage.pitch,
+        return false;
+    return BltVideoObjectToBuffer(static_cast<std::uint16_t*>(storage.pixels), storage.pitch,
                                   hSrcVObject, usRegionIndex, iDestX, iDestY, fBltFlags, pBltFx);
 }
 
@@ -85,7 +91,7 @@ void SGPVObject::setPalette(const Palette8& colors)
 **********************************************************************************************/
 
 // FUNCTION: WIZ8 0x00406460
-UINT16 CreateObjectPaletteTables(SGPVObject& pObj, UINT32 uiType)
+std::uint16_t CreateObjectPaletteTables(SGPVObject& pObj, std::uint32_t uiType)
 {
 
     // this creates the highlight table. Specify the glow-type when creating the tables
@@ -95,41 +101,41 @@ UINT16 CreateObjectPaletteTables(SGPVObject& pObj, UINT32 uiType)
 
     switch (uiType) {
     case HVOBJECT_GLOW_GREEN: // green glow
-        pObj.pShades[0] = Create16BPPPaletteShaded(pObj.pPaletteEntry, 0, 255, 0, TRUE);
+        pObj.pShades[0] = Create16BPPPaletteShaded(pObj.pPaletteEntry, 0, 255, 0, true);
         break;
     case HVOBJECT_GLOW_BLUE: // blue glow
-        pObj.pShades[0] = Create16BPPPaletteShaded(pObj.pPaletteEntry, 0, 0, 255, TRUE);
+        pObj.pShades[0] = Create16BPPPaletteShaded(pObj.pPaletteEntry, 0, 0, 255, true);
         break;
     case HVOBJECT_GLOW_YELLOW: // yellow glow
-        pObj.pShades[0] = Create16BPPPaletteShaded(pObj.pPaletteEntry, 255, 255, 0, TRUE);
+        pObj.pShades[0] = Create16BPPPaletteShaded(pObj.pPaletteEntry, 255, 255, 0, true);
         break;
     case HVOBJECT_GLOW_RED: // red glow
-        pObj.pShades[0] = Create16BPPPaletteShaded(pObj.pPaletteEntry, 255, 0, 0, TRUE);
+        pObj.pShades[0] = Create16BPPPaletteShaded(pObj.pPaletteEntry, 255, 0, 0, true);
         break;
     }
 
     // these are the brightening tables, 115%-150% brighter than original
-    pObj.pShades[1] = Create16BPPPaletteShaded(pObj.pPaletteEntry, 293, 293, 293, FALSE);
-    pObj.pShades[2] = Create16BPPPaletteShaded(pObj.pPaletteEntry, 281, 281, 281, FALSE);
-    pObj.pShades[3] = Create16BPPPaletteShaded(pObj.pPaletteEntry, 268, 268, 268, FALSE);
+    pObj.pShades[1] = Create16BPPPaletteShaded(pObj.pPaletteEntry, 293, 293, 293, false);
+    pObj.pShades[2] = Create16BPPPaletteShaded(pObj.pPaletteEntry, 281, 281, 281, false);
+    pObj.pShades[3] = Create16BPPPaletteShaded(pObj.pPaletteEntry, 268, 268, 268, false);
 
     // Shade 4 always uses the original palette directly.
 
     // the rest are darkening tables, right down to all-black.
-    pObj.pShades[5] = Create16BPPPaletteShaded(pObj.pPaletteEntry, 195, 195, 195, FALSE);
-    pObj.pShades[6] = Create16BPPPaletteShaded(pObj.pPaletteEntry, 165, 165, 165, FALSE);
-    pObj.pShades[7] = Create16BPPPaletteShaded(pObj.pPaletteEntry, 135, 135, 135, FALSE);
-    pObj.pShades[8] = Create16BPPPaletteShaded(pObj.pPaletteEntry, 105, 105, 105, FALSE);
-    pObj.pShades[9] = Create16BPPPaletteShaded(pObj.pPaletteEntry, 75, 75, 75, FALSE);
-    pObj.pShades[10] = Create16BPPPaletteShaded(pObj.pPaletteEntry, 45, 45, 45, FALSE);
-    pObj.pShades[11] = Create16BPPPaletteShaded(pObj.pPaletteEntry, 36, 36, 36, FALSE);
-    pObj.pShades[12] = Create16BPPPaletteShaded(pObj.pPaletteEntry, 27, 27, 27, FALSE);
-    pObj.pShades[13] = Create16BPPPaletteShaded(pObj.pPaletteEntry, 18, 18, 18, FALSE);
-    pObj.pShades[14] = Create16BPPPaletteShaded(pObj.pPaletteEntry, 9, 9, 9, FALSE);
-    pObj.pShades[15] = Create16BPPPaletteShaded(pObj.pPaletteEntry, 0, 0, 0, FALSE);
+    pObj.pShades[5] = Create16BPPPaletteShaded(pObj.pPaletteEntry, 195, 195, 195, false);
+    pObj.pShades[6] = Create16BPPPaletteShaded(pObj.pPaletteEntry, 165, 165, 165, false);
+    pObj.pShades[7] = Create16BPPPaletteShaded(pObj.pPaletteEntry, 135, 135, 135, false);
+    pObj.pShades[8] = Create16BPPPaletteShaded(pObj.pPaletteEntry, 105, 105, 105, false);
+    pObj.pShades[9] = Create16BPPPaletteShaded(pObj.pPaletteEntry, 75, 75, 75, false);
+    pObj.pShades[10] = Create16BPPPaletteShaded(pObj.pPaletteEntry, 45, 45, 45, false);
+    pObj.pShades[11] = Create16BPPPaletteShaded(pObj.pPaletteEntry, 36, 36, 36, false);
+    pObj.pShades[12] = Create16BPPPaletteShaded(pObj.pPaletteEntry, 27, 27, 27, false);
+    pObj.pShades[13] = Create16BPPPaletteShaded(pObj.pPaletteEntry, 18, 18, 18, false);
+    pObj.pShades[14] = Create16BPPPaletteShaded(pObj.pPaletteEntry, 9, 9, 9, false);
+    pObj.pShades[15] = Create16BPPPaletteShaded(pObj.pPaletteEntry, 0, 0, 0, false);
 
     pObj.currentShade = 4;
-    return TRUE;
+    return true;
 }
 
 // *******************************************************************
@@ -138,8 +144,8 @@ UINT16 CreateObjectPaletteTables(SGPVObject& pObj, UINT32 uiType)
 
 // High level blit function encapsolates ALL effects and BPP
 // FUNCTION: WIZ8 0x004066b0
-BOOLEAN BltVideoObjectToBuffer(UINT16* pBuffer, UINT32 uiDestPitchBYTES, SGPVObject& hSrcVObject,
-                               UINT16 usIndex, INT32 iDestX, INT32 iDestY, INT32 fBltFlags,
+bool BltVideoObjectToBuffer(std::uint16_t* pBuffer, std::uint32_t uiDestPitchBYTES, SGPVObject& hSrcVObject,
+                               std::uint16_t usIndex, std::int32_t iDestX, std::int32_t iDestY, std::int32_t fBltFlags,
                                blt_fx* pBltFx)
 {
 
@@ -147,7 +153,7 @@ BOOLEAN BltVideoObjectToBuffer(UINT16* pBuffer, UINT32 uiDestPitchBYTES, SGPVObj
     Assert(pBuffer != nullptr);
 
     if (usIndex >= hSrcVObject.sprites.size())
-        return TRUE;
+        return true;
     const bool mirror = (fBltFlags & VO_BLT_MIRROR_Y) != 0;
     const bool transparent = mirror || (fBltFlags & VO_BLT_SRCTRANSPARENCY);
     if (transparent || (fBltFlags & VO_BLT_SHADOW))
@@ -155,20 +161,52 @@ BOOLEAN BltVideoObjectToBuffer(UINT16* pBuffer, UINT32 uiDestPitchBYTES, SGPVObj
                                      hSrcVObject.currentPalette().data(), iDestX, iDestY, nullptr, mirror,
                                      transparent ? SpriteDrawOp::Transparent : SpriteDrawOp::Shadow);
 
-    return (TRUE);
+    return (true);
 }
 
 // FUNCTION: WIZ8 0x004068e0
-UINT16 SetObjectShade(SGPVObject& pObj, UINT32 uiShade)
+bool SetObjectShade(SGPVObject& pObj, std::uint32_t uiShade)
 {
     Assert(uiShade >= 0);
     Assert(uiShade < HVOBJECT_SHADE_TABLES);
 
     if (uiShade != 4 && (uiShade >= pObj.pShades.size() || !pObj.pShades[uiShade])) {
         SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "Attempt to set shade level to nullptr table");
-        return (FALSE);
+        return (false);
     }
 
     pObj.currentShade = uiShade;
-    return (TRUE);
+    return (true);
+}
+
+SDL_Surface* SpriteFrame::coloredSurface(std::span<const std::uint16_t, 256> palette, bool mirror) const
+{
+    if (!indices) return nullptr;
+    if (!colored || colored->format != g_sgp_pixel_format || !std::equal(colors.begin(), colors.end(), palette.begin())) {
+        auto surface = CreateCpuStorage(usWidth, usHeight, g_sgp_pixel_format);
+        if (!surface) return nullptr;
+        // A key outside the whole LUT preserves opaque index zero and every shade.
+        std::uint16_t key = 0;
+        while (std::find(palette.begin(), palette.end(), key) != palette.end()) ++key;
+        for (int y = 0; y < usHeight; ++y) {
+            const auto* source = reinterpret_cast<const std::uint16_t*>(static_cast<const std::uint8_t*>(indices->pixels) + y * indices->pitch);
+            auto* destination = reinterpret_cast<std::uint16_t*>(static_cast<std::uint8_t*>(surface->pixels) + y * surface->pitch);
+            for (int x = 0; x < usWidth; ++x)
+                destination[x] = source[x] == kTransparent ? key : palette[source[x]];
+        }
+        if (!SDL_SetSurfaceBlendMode(surface.get(), SDL_BLENDMODE_NONE) ||
+            !SDL_SetSurfaceColorKey(surface.get(), true, key) || !SDL_SetSurfaceRLE(surface.get(), true))
+            return nullptr;
+        colored = std::move(surface);
+        std::copy(palette.begin(), palette.end(), colors.begin());
+        mirrored = false;
+    }
+    if (mirror != mirrored) {
+        if (!SDL_LockSurface(colored.get())) return nullptr;
+        const bool flipped = SDL_FlipSurface(colored.get(), SDL_FLIP_HORIZONTAL);
+        SDL_UnlockSurface(colored.get());
+        if (!flipped) return nullptr;
+        mirrored = mirror;
+    }
+    return colored.get();
 }
