@@ -178,15 +178,17 @@ void srCamera::setEnvironmentScale(float near_scale, float far_scale)
 }
 
 // FUNCTION: SURRENDER 0x10048700
-std::pair<float, float> srCamera::getEnvironmentRange() const
+void srCamera::getEnvironmentRange(float& near_range, float& far_range) const
 {
-    return {environment_near, environment_far};
+    near_range = environment_near;
+    far_range = environment_far;
 }
 
 // FUNCTION: SURRENDER 0x10048720
-std::pair<float, float> srCamera::getEnvironmentScale() const
+void srCamera::getEnvironmentScale(float& near_scale, float& far_scale) const
 {
-    return {environment_near_scale, environment_far_scale};
+    near_scale = environment_near_scale;
+    far_scale = environment_far_scale;
 }
 
 // FUNCTION: SURRENDER 0x10048740
@@ -367,9 +369,13 @@ void srCamera::dump(std::ostream& stream)
     getClipRange(near_plane, far_plane);
     stream << "  Object space Clip Range (near,far): " << near_plane << ',' << far_plane << '\n';
     stream.width(0x20);
-    const auto [near_range, far_range] = getEnvironmentRange();
+    float near_range;
+    float far_range;
+    getEnvironmentRange(near_range, far_range);
     stream << "  Environment Range (near,far): " << near_range << ',' << far_range << '\n';
-    const auto [near_scale, far_scale] = getEnvironmentScale();
+    float near_scale;
+    float far_scale;
+    getEnvironmentScale(near_scale, far_scale);
     stream << "  Environment Scale (near,far): " << near_scale << ',' << far_scale << '\n';
     srSetStreamFlags(stream, flags & 0x7fff);
 }
