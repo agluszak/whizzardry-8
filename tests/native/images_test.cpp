@@ -167,6 +167,22 @@ static Bytes rgb_pcx(const UINT8* rgb)
     return bytes;
 }
 
+static Bytes sti_sheet(const std::vector<STCISubImage>& frames, const Bytes& pixels)
+{
+    auto bytes = sti_bitmap(0, 0, 8, pixels, false);
+    STCIHeader header;
+    memcpy(&header, bytes.data(), sizeof(header));
+    header.fFlags |= STCI_ETRLE_COMPRESSED;
+    header.Indexed.usNumberOfSubImages = frames.size();
+    memcpy(bytes.data(), &header, sizeof(header));
+    if (!frames.empty()) {
+        const auto* records = reinterpret_cast<const UINT8*>(frames.data());
+        bytes.insert(bytes.begin() + STCI_HEADER_SIZE + STCI_8BIT_PALETTE_SIZE,
+                     records, records + frames.size() * sizeof(STCISubImage));
+    }
+    return bytes;
+}
+
 static Bytes slf(const std::vector<std::pair<std::string, Bytes>>& files)
 {
     static_assert(sizeof(wiz8::SlfHeader) == 532 && sizeof(wiz8::SlfEntry) == 280);
@@ -537,6 +553,77 @@ TEST_CASE_METHOD(ImageFixture, "Raw and zlib STI RGB masks normalize identically
                 REQUIRE(!memcmp(static_cast<const UINT8*>(storage.pixels) + row * storage.pitch,
                                 expected.data() + row * 2, 4));
         }
+    }
+}
+
+TEST_CASE_METHOD(ImageFixture, "STI sprite sheets decode and transfer ownership at loading", "[image][decoding]")
+{
+    const Bytes runs{1, 0, 0x81, 1, 2, 0, 0x82, 1, 3, 0};
+    const std::vector<STCISubImage> frames{{0, 10, -2, 3, 2, 3}, {6, 4, 4, -1, 1, 3}};
+    const auto bytes = sti_sheet(frames, runs);
+    fixture(assets / "sheet.sti", bytes);
+    auto image = LoadImage("sheet.sti");
+    REQUIRE(image);
+    auto* sheet = std::get_if<SpriteSheet>(&*image);
+    REQUIRE(sheet);
+    REQUIRE(sheet->frames.size() == 2);
+    const std::vector<UINT16> expected{0, SpriteFrame::kTransparent, 2,
+                                      SpriteFrame::kTransparent, SpriteFrame::kTransparent, 3};
+    REQUIRE(sheet->frames[0].pixels == expected);
+    REQUIRE((sheet->frames[0].sOffsetX == -2 && sheet->frames[0].sOffsetY == 3));
+    REQUIRE((sheet->frames[1].sOffsetX == 4 && sheet->frames[1].sOffsetY == -1));
+    REQUIRE(sheet->palette[2].peRed == 2);
+    REQUIRE_FALSE(LoadVideoSurface("sheet.sti"));
+    const auto* pixels = sheet->frames[0].pixels.data();
+    SGPVObject moved(std::move(*sheet));
+    REQUIRE(moved.sprites[0].pixels.data() == pixels);
+    REQUIRE(moved.sprites[0].pixels == expected);
+    auto object = LoadVideoObject("sheet.sti");
+    REQUIRE(object);
+    image.reset();
+    REQUIRE(object->sprites[0].pixels == expected);
+    REQUIRE(object->currentPalette() == Create16BPPPalette(object->pPaletteEntry));
+
+    fixture(assets / "Data" / "Sprites.slf", slf({{"Sheet.sti", bytes}}));
+    wiz8::mount_slf("Data\\Sprites.slf");
+    auto archived = LoadVideoObject("Data\\Sheet.sti");
+    REQUIRE(archived);
+    REQUIRE(archived->sprites[0].pixels == expected);
+
+    fixture(assets / "empty.sti", sti_sheet({}, {}));
+    auto empty = LoadImage("empty.sti");
+    REQUIRE(empty);
+    REQUIRE(std::holds_alternative<SpriteSheet>(*empty));
+    REQUIRE(LoadVideoObject("empty.sti"));
+    REQUIRE_FALSE(LoadVideoSurface("empty.sti"));
+}
+
+TEST_CASE_METHOD(ImageFixture, "Malformed ETRLE fails before any image is exposed", "[image][validation]")
+{
+    const Bytes runs{1, 0, 0x81, 1, 2, 0, 0x82, 1, 3, 0};
+    const std::vector<STCISubImage> valid_frames{{0, 10, -2, 3, 2, 3}, {6, 4, 4, -1, 1, 3}};
+    for (unsigned corruption = 0; corruption < 8; ++corruption) {
+        auto frames = valid_frames;
+        auto pixels = runs;
+        if (corruption == 0) pixels[6] = 0x80; // Zero-length run in the second frame.
+        if (corruption == 1) frames[1].uiDataLength = 3; // Missing terminator.
+        if (corruption == 2) frames[1].uiDataOffset = 0xffffffffu;
+        if (corruption == 3) frames[1].usWidth = 2; // Run exceeds row width.
+        if (corruption == 4) frames[1].usWidth = 4; // Short row.
+        if (corruption == 5) frames[1].usWidth = frames[1].usHeight = 65535;
+        if (corruption == 6) pixels[6] = 3; // Truncated literal run.
+        if (corruption == 7) {
+            frames[1].usWidth = frames[1].usHeight = 0;
+            frames[1].uiDataOffset = pixels.size() + 1;
+        }
+        fixture(assets / "bad-sheet.sti", sti_sheet(frames, pixels));
+        REQUIRE_FALSE(LoadImage("bad-sheet.sti"));
+        REQUIRE_FALSE(LoadVideoObject("bad-sheet.sti"));
+        fixture(assets / "good-sheet.sti", sti_sheet(valid_frames, runs));
+        auto good = LoadVideoObject("good-sheet.sti");
+        REQUIRE(good);
+        REQUIRE(good->sprites.size() == 2);
+        REQUIRE(good->sprites[0].pixels[0] == 0);
     }
 }
 
