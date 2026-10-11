@@ -2,6 +2,7 @@
 #include <fmt/printf.h>
 #include <wiz8/filesystem.h>
 #include <SDL3/SDL_rect.h>
+#include <algorithm>
 #include <string_view>
 #include <string>
 #include <sstream>
@@ -13,6 +14,7 @@
 #include <optional>
 #include <span>
 #include <utility>
+#include <variant>
 
 #include "wiz8/unicode.h"
 #include "wiz8/containers.h"
@@ -1096,19 +1098,13 @@ void EndNpcDialogueSession(bool skip_exit_actions)
     ApplyMainGameModeFlag(gXStatus.fCampMode ? g_settings.main_ui_mode
                                              : g_npc_interaction_state->saved_main_ui_mode,
                           true);
-    /* Retail deleted the seven dialogue panels through a non-virtual Controls
-       destructor; the native one is virtual, so the derived panels' members
-       are released too. The members stay dangling until the next dialogue
-       rebuilds them. */
-    int i;
-    Controls** panel = g_npc_interaction_state->dialogue_panels;
-    for (i = 0; i < 7; i++) {
-        delete panel[i];
+    /* Each dialogue control is parented to one of the seven panels, which
+       owns it, so deleting the panels releases the controls too. */
+    for (Controls*& panel : g_npc_interaction_state->dialogue_panels) {
+        delete panel;
+        panel = 0;
     }
-    W8Widget** control = g_npc_interaction_state->dialogue_controls;
-    for (i = 0; i < 39; i++) {
-        delete control[i];
-    }
+    std::ranges::fill(g_npc_interaction_state->dialogue_controls, nullptr);
     RequestRedrawCombatBar();
     RequestRedraw(W8_MAIN_REDRAW_SUBMENU_BUTTONS);
     for (unsigned int index = 0;
@@ -4144,17 +4140,13 @@ void OpenNpcDialog(W8NpcQuoteEntry* request, int aux_data)
 void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, W8NpcScriptQuote* quote,
                               int quote_id, unsigned int font_palette)
 {
-    W8MessageBoxPayload payload;
-    payload.argument = 0;
-    SetNpcQuoteBubbleVisible(visible, text, quote, quote_id, font_palette, W8_QUOTE_NOTICE_TEXT,
-                             payload, -1);
+    SetNpcQuoteBubbleVisible(visible, text, quote, quote_id, font_palette, {}, -1);
 }
 
 // FUNCTION: WIZ8 0x00576060
 void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, W8NpcScriptQuote* quote,
                               int quote_id, unsigned int font_palette,
-                              W8NpcQuoteNoticeKind notice_kind, W8MessageBoxPayload payload,
-                              int npc_kind)
+                              W8QuoteNotice notice, int npc_kind)
 {
     if (visible == g_npc_interaction_state->quote_visible) {
         return;
@@ -4197,46 +4189,34 @@ void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, W8NpcScriptQu
         RegionSetEnable(0x25);
         EnableRegionSetInput(0x25);
         g_npc_interaction_state->quote_visible = true;
-        if (notice_kind == W8_QUOTE_NOTICE_TEXT) {
+        if (std::holds_alternative<std::monostate>(notice)) {
             W8PendingNoticeLine* line = new W8PendingNoticeLine;
             line->npc_kind = npc_kind;
             line->text = normalized;
             g_npc_interaction_state->pending_notice_lines.push_back(line);
         }
-        g_npc_interaction_state->quote_notice_kind = notice_kind;
-        g_npc_interaction_state->quote_notice_payload = payload;
-        if (g_npc_interaction_state->quote_notice_kind == W8_QUOTE_NOTICE_LEVEL_UP) {
+        bool level_up = std::holds_alternative<W8LevelUpNotice>(notice);
+        g_npc_interaction_state->quote_notice = std::move(notice);
+        if (level_up) {
             wiz8::sound::play(reinterpret_cast<char*>(const_cast<char*>( // reinterpret-ok: SGP text ABI
                           "Data\\Sound\\Misc\\GainLevel.wav")));
         }
         return;
     }
 
-    bool flush_notices = (quote_id == 0x12 || quote_id < 0) &&
-                         g_npc_interaction_state->quote_notice_kind == W8_QUOTE_NOTICE_TEXT;
-    switch (g_npc_interaction_state->quote_notice_kind) {
-    case W8_QUOTE_NOTICE_EXPERIENCE: {
-        W8ExperienceNoticePayload* experience =
-            g_npc_interaction_state->quote_notice_payload.experience;
+    bool flush_notices =
+        (quote_id == 0x12 || quote_id < 0) &&
+        std::holds_alternative<std::monostate>(g_npc_interaction_state->quote_notice);
+    W8QuoteNotice dismissed = std::exchange(g_npc_interaction_state->quote_notice, {});
+    if (const auto* experience = std::get_if<W8ExperienceNoticePayload>(&dismissed)) {
         ShowNotice(W8_FONT_PALETTE_BEIGE,
                    fmt::sprintf(g_localized_strings[experience->alternate_message ? 0x231 : 0x232],
                                 experience->amount),
                    0);
-        delete experience;
-        break;
-    }
-    case W8_QUOTE_NOTICE_SKILL_INCREASE: {
-        W8SkillNoticePayload* skills = g_npc_interaction_state->quote_notice_payload.skill_notices;
+    } else if (const auto* skills = std::get_if<W8SkillNoticePayload>(&dismissed)) {
         PostSkillIncreaseNotices(skills);
-        delete skills;
-        break;
-    }
-    case W8_QUOTE_NOTICE_LEVEL_UP: {
-        int* slot = g_npc_interaction_state->quote_notice_payload.level_up_slot;
-        PostCharacterNotice(*slot, g_localized_strings[0x773]);
-        delete slot;
-        break;
-    }
+    } else if (const auto* level_up = std::get_if<W8LevelUpNotice>(&dismissed)) {
+        PostCharacterNotice(level_up->party_slot, g_localized_strings[0x773]);
     }
     if (quote != 0) {
         /* index is int, not unsigned int: entry_count is an unsigned short,
