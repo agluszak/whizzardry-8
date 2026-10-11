@@ -220,8 +220,7 @@ void srLight::process(const ProcessInfo& info, e_processType type)
     } else {
         if ((enable_flags & (1UL << srLight::ENABLE_SPOT)) != 0 && spot_angle > 0.0f &&
             spot_exponent != 0.0f) {
-            glm::mat4 inverse;
-            renderer->getInverseModelViewMatrix(inverse);
+            const auto inverse = renderer->getInverseModelViewMatrix();
             derived_flags |= srLight::DERIVED_SPOT;
             spot_cutoff = (float)cos(spot_angle);
             spot_direction_eye =
