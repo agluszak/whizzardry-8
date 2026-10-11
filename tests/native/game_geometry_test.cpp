@@ -1,3 +1,6 @@
+#include "surrender/srClipPlane.h"
+#include "surrender/srIlluminator.h"
+#include "surrender/srLight.h"
 #include <optional>
 #include <unordered_map>
 #include "wiz8/engine_code/ReadLevel.h"
@@ -1703,4 +1706,102 @@ TEST_CASE("Region geometry preserves octant order and point versus box boundarie
         REQUIRE(candidate.bounds().maximum == minimum + 1.0f);
     });
     REQUIRE(order == std::vector<unsigned>{0, 1, 2, 3, 4, 5, 6, 7});
+}
+
+namespace {
+class TraversalMarker : public srNode {
+public:
+    explicit TraversalMarker(srNode& parent) : srNode(&parent) {}
+    void traverse(TraverseInfo& info) override
+    {
+        srNode::traverse(info);
+        info.entries.push_back({this, PROCESS_RENDER});
+    }
+};
+}
+
+TEST_CASE("Scoped renderer effects preserve sibling order and global or disabled descent", "[geometry][rendering]")
+{
+    SurRenderTestFixture runtime;
+    const auto check = []<class Effect>() {
+        srNode root;
+        auto* sibling = new TraversalMarker(root);
+        auto* effect = new Effect(&root);
+        auto* child = new TraversalMarker(*effect);
+        effect->clearFlag(srNode::FLAG_GLOBAL);
+        srNode::TraverseInfo info;
+        root.traverse(info);
+        REQUIRE(info.entries.size() == 4);
+        REQUIRE(info.entries[0].node == sibling);
+        REQUIRE(info.entries[1].node == effect);
+        REQUIRE(info.entries[1].value == srNode::PROCESS_PUSH);
+        REQUIRE(info.entries[2].node == child);
+        REQUIRE(info.entries[3].node == effect);
+        REQUIRE(info.entries[3].value == srNode::PROCESS_POP);
+        REQUIRE(info.nodes.empty());
+
+        effect->setFlag(srNode::FLAG_GLOBAL);
+        info = {};
+        root.traverse(info);
+        REQUIRE(info.nodes.size() == 1);
+        REQUIRE(info.nodes[0] == effect);
+        REQUIRE(info.entries.size() == 2);
+        REQUIRE(info.entries[0].node == sibling);
+        REQUIRE(info.entries[1].node == child);
+
+        effect->setFlag(srNode::FLAG_DISABLE);
+        info = {};
+        root.traverse(info);
+        REQUIRE(info.nodes.empty());
+        REQUIRE(info.entries.size() == 2);
+        REQUIRE(info.entries[1].node == child);
+
+        effect->setFlag(srNode::FLAG_TERMINATE);
+        info = {};
+        root.traverse(info);
+        REQUIRE(info.entries.size() == 1);
+        REQUIRE(info.entries[0].node == sibling);
+    };
+    check.template operator()<srClipPlane>();
+    check.template operator()<srIlluminator>();
+    check.template operator()<srLight>();
+}
+
+TEST_CASE("Wizardry light inactivity and missing definitions have distinct traversal policies", "[geometry][rendering]")
+{
+    SurRenderTestFixture runtime;
+    struct RestoreFlags {
+        unsigned saved = g_light_update_flags;
+        ~RestoreFlags() { g_light_update_flags = saved; }
+    } restore;
+    g_light_update_flags = 1;
+    stLight light(nullptr);
+    light.setIntensity(1);
+    light.clearFlag(srNode::FLAG_GLOBAL);
+    auto* child = new TraversalMarker(light);
+    srNode::TraverseInfo info;
+    light.traverse(info);
+    REQUIRE(info.entries.empty()); // Active without a definition skips children too.
+    light.setFlag(srNode::FLAG_DISABLE);
+    light.traverse(info);
+    REQUIRE(info.entries.size() == 1);
+    REQUIRE(info.entries[0].node == child);
+    light.clearFlag(srNode::FLAG_DISABLE);
+    light.setIntensity(0);
+    info = {};
+    light.traverse(info);
+    REQUIRE(info.entries.size() == 1);
+    light.setIntensity(1);
+    g_light_update_flags = 0;
+    info = {};
+    light.traverse(info);
+    REQUIRE(info.entries.size() == 1);
+    g_light_update_flags = 1;
+    light.m_definition = new stParametricLightDefinition;
+    info = {};
+    light.traverse(info);
+    REQUIRE(info.entries.size() == 3);
+    REQUIRE(info.entries[0].node == &light);
+    REQUIRE(info.entries[1].node == child);
+    REQUIRE(info.entries[2].node == &light);
 }

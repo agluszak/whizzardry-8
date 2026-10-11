@@ -5,7 +5,6 @@
 #include <cmath>
 #include <cstddef>
 #include <span>
-#include <vector>
 
 #include "glm/common.hpp"
 #include "glm/geometric.hpp"
@@ -479,29 +478,9 @@ void srLight::process(srVertexPipe& pipe)
 // FUNCTION: SURRENDER 0x1004DC80
 void srLight::traverse(TraverseInfo& info)
 {
-    if (next_sibling_ != 0) {
-        next_sibling_->traverse(info);
-    }
-    if (testFlag(FLAG_TERMINATE)) {
-        return;
-    }
-    if (testFlag(FLAG_DISABLE) || fabs(intensity) <= 0.0001) {
-        if (first_child_ != 0) {
-            first_child_->traverse(info);
-        }
-        return;
-    }
-    if (!testFlag(FLAG_GLOBAL)) {
-        info.entries.push_back({this, 1});
-    } else {
-        info.nodes.push_back(this);
-    }
-    if (first_child_ != 0) {
-        first_child_->traverse(info);
-    }
-    if (!testFlag(FLAG_GLOBAL)) {
-        info.entries.push_back({this, 2});
-    }
+    traverseEffect(info, [&] {
+        return fabs(intensity) <= 0.0001 ? EffectTraversal::childrenOnly : EffectTraversal::active;
+    });
 }
 
 // FUNCTION: SURRENDER 0x1004DF40
