@@ -121,11 +121,11 @@ void srScene::render(srGERD& renderer, srCamera* camera)
 }
 
 // FUNCTION: SURRENDER 0x10056520
-void srScene::getStatistics(Statistics& statistics)
+srScene::Statistics srScene::getStatistics() const
 {
-    statistics = this->statistics;
-    statistics.elapsed =
-        srCore.getTimer()->seconds() - statistics.elapsed;
+    Statistics result = statistics;
+    result.elapsed = srCore.getTimer()->seconds() - result.elapsed;
+    return result;
 }
 
 // FUNCTION: SURRENDER 0x10056550
@@ -148,8 +148,7 @@ void srScene::dump(std::ostream& stream)
     stream.width(0x20);
     stream << "  Fog color: ";
     stream << '{' << fog_color.x << ',' << fog_color.y << ',' << fog_color.z << '}' << '\n';
-    Statistics statistics;
-    getStatistics(statistics);
+    const auto statistics = getStatistics();
     stream.width(0x20);
     stream << "  Time since stat reset: " << statistics.elapsed << '\n';
     stream.width(0x20);
