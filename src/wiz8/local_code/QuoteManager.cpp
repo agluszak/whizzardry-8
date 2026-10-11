@@ -697,8 +697,6 @@ unsigned char W8CharacterEvent::PlayEventSound()
     std::string npc_sound_name;
     SOUNDPARMS sound_parms;
     SoundPlayback sound_handle;
-    unsigned int total_ms;
-    unsigned int current_ms;
     W8MonsterManagerEntry* record;
     W8NpcState* npc;
 
@@ -738,12 +736,13 @@ unsigned char W8CharacterEvent::PlayEventSound()
         }
         return 1;
     }
-    SoundGetMilliSecondPosition(sound_handle, &total_ms, &current_ms);
-    record->voice_time_remaining_ms = total_ms;
+    const auto playback_time = SoundGetMilliSecondPosition(sound_handle).value_or(SoundPlaybackTime{});
+    record->voice_time_remaining_ms = playback_time.total_ms;
     LoadMouthGapTrack(sound_path, &record->mouth_gap);
 #ifdef WIZ8_RUNTIME_TESTS
     RuntimeObserve(RUNTIME_VOICE_STARTED, party_slot, bool(sound_handle), record->mouth_gap.range_count);
-    RuntimeObserve(RUNTIME_VOICE_TIMING, party_slot, total_ms, current_ms);
+    RuntimeObserve(RUNTIME_VOICE_TIMING, party_slot, playback_time.total_ms,
+                   playback_time.current_ms);
 #endif
     return 1;
 }
