@@ -334,7 +334,6 @@ unsigned int ApplyDamageToMonster(W8MonsterInfo* monster_info, unsigned int amou
     unsigned int absorbed;
     unsigned int applied;
     unsigned int category;
-    W8SpellDamageReport* report;
 
     if (monster_info->hp_current == 0) {
         return 0;
