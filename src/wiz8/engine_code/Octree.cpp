@@ -408,9 +408,8 @@ int W8Octree::CollectModelsNearPoint(std::vector<stModelInstance*>& out,
     const auto intersects = [&](srModelInstance* instance) {
         if (!instance || !instance->getModel())
             return false;
-        srBoundingBox bounds;
-        instance->getModel()->getBoundingBox(bounds.minimum, bounds.maximum);
-        auto world = instance->getWorldSpaceMatrix<glm::mat4>();
+        const auto bounds = instance->getModel()->getBoundingBox();
+        const auto world = instance->getWorldSpaceMatrix<glm::mat4>();
         return bounds.transformed(world).intersectsSphere(center, radius);
     };
     const unsigned int level_mask = m_region_mask;
@@ -1373,8 +1372,8 @@ void W8Octree::BuildRegionLinks(bool rebuild_all)
         m_point_count = 0;
     }
     world->camera->setViewPlane(saved_width, saved_height);
-    unsigned int camera_count = (world->plsCameras ? world->plsCameras->size() : 0);
-    if (!aborted && world->plsCameras != 0 && camera_count != 0) {
+    unsigned int camera_count = world->plsCameras.size();
+    if (!aborted && camera_count != 0) {
         for (int camera_index = 0; camera_index < static_cast<int>(camera_count); ++camera_index) {
             W8CameraPath* entry = GetWorldCameraPath(world, camera_index);
             if (entry != 0 && entry->path != 0) {
@@ -1563,9 +1562,8 @@ int W8Octree::CountBadRegionMeshLinks(W8OctSpatialState* spatial)
                     static_cast<stModelInstance*>(g_world->psrMeshes[m_pSubmeshes[link].mesh]);
                 if (mesh != 0) {
                     if (auto* model = mesh->getModel()) {
-                        srBoundingBox bounds;
-                        model->getBoundingBox(bounds.minimum, bounds.maximum);
-                        auto world = mesh->getWorldSpaceMatrix<glm::mat4>();
+                        const auto bounds = model->getBoundingBox();
+                        const auto world = mesh->getWorldSpaceMatrix<glm::mat4>();
                         const srBoundingBox cell{spatial->m_minimum.glmValue(),
                                                  spatial->m_maximum.glmValue()};
                         bad_links = !bounds.transformed(world).overlaps(cell);
@@ -1623,8 +1621,7 @@ void W8Octree::ToggleUpdateSuspension(W8World* world)
     }
     memset(m_pfRegsVisited, 0, m_spatial.m_region_id_bound + 1);
     if (g_octree_trace_node == 0) {
-        g_octree_trace_node = g_octree_game_data->CreateTraceModel();
-        g_octree_trace_node->setParent(world->static_scene, 1);
+        g_octree_trace_node = world->static_scene->adoptChild(g_octree_game_data->CreateTraceModel(), 1);
         SetModelInstanceChainExclusionMask(g_octree_trace_node, 2);
     }
     g_octree_trace_node->clearFlag(srNode::FLAG_DISABLE);
@@ -3490,7 +3487,7 @@ unsigned char W8Octree::TestBoxOccupied(const srVector3T<float>* lower,
     objects = queryObjects({lower->glmValue(), upper->glmValue()}, W8_OCTREE_KIND_PROP, -1);
     count = objects.size();
     for (index = 0; index < count; ++index) {
-        W8Prop* prop = (*g_world->collidable_props)[objects[index]];
+        W8Prop* prop = g_world->collidable_props[objects[index]];
         if (prop->GetActivationState() != 0 && prop->m_gd_prop != 0) {
             GDProp* gd_prop = prop->m_gd_prop;
             for (int surface_index = 0; surface_index < gd_prop->m_surface_count; ++surface_index) {

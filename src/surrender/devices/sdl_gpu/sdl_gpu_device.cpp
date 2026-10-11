@@ -8,6 +8,7 @@
 #include <SDL3/SDL_stdinc.h>
 #include <SDL3/SDL_video.h>
 #include <map>
+#include <span>
 #include <vector>
 #include <cstddef>
 #include <cstdint>
@@ -182,8 +183,19 @@ public:
         deleteContext();
     }
 
-    void getInfo(Info& info) override
+    Info getInfo() override
     {
+        Info info{};
+        info.unknown_08_ = 4;
+        info.unknown_0c_ = 0x10;
+        info.unknown_10_ = 1.0f;
+        info.unknown_14_ = 65536.0f;
+        info.renderer_batch_limit = 0x100;
+        info.unknown_20_ = 0x3b808081;
+        info.hardware_id = 1;
+        for (auto& text : info.text) {
+            strcpy(text, "Unknown");
+        }
         info.max_back_buffer_width = 8192;
         info.max_back_buffer_height = 8192;
         info.max_texture_stages = 2;
@@ -196,24 +208,23 @@ public:
         strcpy(info.text[1], "SDL");
         strcpy(info.text[2], SDL_GetPlatform());
         strcpy(info.text[3], device != 0 ? SDL_GetGPUDeviceDriver(device) : "none");
+        return info;
     }
 
-    void getWindowList(WindowInfoList& list) override
+    std::span<const WindowInfo> getWindowList() override
     {
-        list.entries = 0;
-        list.count = 0;
+        return {};
     }
 
-    void getTextureFormats(PixelFormatList& list) override
+    std::span<const PixelFormat> getTextureFormats() override
     {
-        static PixelFormat formats[1] = {argb8888Format()};
-        list.formats = formats;
-        list.count = 1;
+        static const PixelFormat formats[] = {argb8888Format()};
+        return formats;
     }
 
-    void getStatistics(Statistics& stats) override
+    Statistics getStatistics() override
     {
-        memset(&stats, 0, sizeof(stats));
+        return {};
     }
 
     void resetStatistics() override {}
@@ -522,19 +533,21 @@ public:
         vertex_buffer_size = 0;
     }
 
-    void getDriverInfo(DriverInfo& info) override
+    DriverInfo getDriverInfo() override
     {
+        DriverInfo info{};
         info.dd_api_version = SR_DD_MIN_API_VERSION;
         info.driver_id = 0;
         strcpy(info.name, "SDLGPU");
         strcpy(info.api_name, "SDL GPU");
+        return info;
     }
 
     void fence() override {}
 
-    void getBufferPixelFormat(PixelFormat& format) override
+    PixelFormat getBufferPixelFormat() override
     {
-        format = argb8888Format();
+        return argb8888Format();
     }
 
     void preBindTexture(w8_ulong, Texture&) override {}

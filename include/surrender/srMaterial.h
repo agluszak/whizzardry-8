@@ -33,7 +33,7 @@ public:
     virtual void dump(std::ostream& stream) override;
     virtual void verify(srRuntimeClass::e_verify mode) override;
 
-    virtual void getMaterialInfo(srVertexProcessor::MaterialInfo& info) override;
+    virtual srVertexProcessor::MaterialInfo getMaterialInfo() override;
     virtual void preProcess(srVertexPipe& pipe) override;
     virtual void postProcess(srVertexPipe& pipe) override;
 
@@ -105,4 +105,3 @@ public:
     srVertexProcessor* mapper;             /* 0x70 */
     int dirty;                             /* 0x74 */
 };
-

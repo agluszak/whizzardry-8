@@ -47,9 +47,8 @@ public:
     virtual ~stMeshModel() override;       /* 0x00470ED0 */
     stMeshModel(const stMeshModel&) = delete;
     stMeshModel& operator=(const stMeshModel&) = delete;
-    virtual int getBoundingSphere(glm::vec3& center, float& radius) override;    /* 0x00471dd0 */
-    virtual int getBoundingBox(glm::vec3& minimum, glm::vec3& maximum) override; /* 0x00471d80 */
-    virtual void getTriMesh(TriMesh& mesh) override;                 /* 0x004727e0 */
+    virtual BoundingSphere getBoundingSphere() override;    /* 0x00471dd0 */
+    virtual srBoundingBox getBoundingBox() override; /* 0x00471d80 */
     /* Recomputes the union bounds over the head and its parts and pushes them
        to each mesh via srMeshModel::setBounds. */
     void CalculateLinkedBounds();                 /* 0x00471e10 */

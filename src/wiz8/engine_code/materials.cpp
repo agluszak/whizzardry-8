@@ -133,9 +133,9 @@ stMaterial::stMaterial()
 }
 
 // FUNCTION: WIZ8 0x004928F0
-void stMaterial::getMaterialInfo(srVertexProcessor::MaterialInfo& info)
+srVertexProcessor::MaterialInfo stMaterial::getMaterialInfo()
 {
-    srMaterial::getMaterialInfo(info);
+    auto info = srMaterial::getMaterialInfo();
     if (g_material_diffuse_scale_enabled) {
         info.diffuse.w *= g_material_diffuse_scale;
     }
@@ -143,6 +143,7 @@ void stMaterial::getMaterialInfo(srVertexProcessor::MaterialInfo& info)
         info.emissive = glm::vec4(g_material_emissive_override, g_material_emissive_override,
                           g_material_emissive_override, 1.0f);
     }
+    return info;
 }
 
 
@@ -328,8 +329,6 @@ static unsigned char PreprocessLevel(wiz8::File* handle, char* stem)
     char name[20];
     srVector3T<float> minimum;
     srVector3T<float> maximum;
-    srVector3T<float> bound_min;
-    srVector3T<float> bound_max;
     W8OctPreTreeGeometry geometry;
     W8LevelFileLight* lights;
     int* sun_map;
@@ -751,13 +750,13 @@ static unsigned char PreprocessLevel(wiz8::File* handle, char* stem)
                                 ReportBuildStatus(7, "Could not create submesh data.\n");
                                 result = 0;
                             } else {
-                                tree->m_spatial.GetWorkingBounds(&bound_min, &bound_max);
+                                const auto bounds = tree->m_spatial.GetWorkingBounds();
                                 ReportBuildStatus(6, "Graphic Data Bounding Box:\n");
-                                snprintf(message, sizeof(message), "     Minimum: %f   %f   %f\n", bound_min.x,
-                                        bound_min.y, bound_min.z);
+                                snprintf(message, sizeof(message), "     Minimum: %f   %f   %f\n", bounds.minimum.x,
+                                        bounds.minimum.y, bounds.minimum.z);
                                 ReportBuildStatus(6, message);
-                                snprintf(message, sizeof(message), "     Maximum: %f   %f   %f\n\n", bound_max.x,
-                                        bound_max.y, bound_max.z);
+                                snprintf(message, sizeof(message), "     Maximum: %f   %f   %f\n\n", bounds.maximum.x,
+                                        bounds.maximum.y, bounds.maximum.z);
                                 ReportBuildStatus(6, message);
                                 ReportBuildStatus(6, "\nWriting Oct File...\n");
                                 result = tree->WriteOctFile(&geometry, value);

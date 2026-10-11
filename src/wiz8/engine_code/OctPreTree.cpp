@@ -1640,17 +1640,15 @@ void W8OctSpatialState::Reset()
 }
 
 // FUNCTION: WIZ8 0x0046cdf0
-void W8OctSpatialState::GetWorkingBounds(srVector3T<float>* minimum, srVector3T<float>* maximum)
+srBoundingBox W8OctSpatialState::GetWorkingBounds() const
 {
-    *minimum = m_working_minimum;
-    *maximum = m_working_maximum;
+    return {m_working_minimum.glmValue(), m_working_maximum.glmValue()};
 }
 
 // FUNCTION: WIZ8 0x0046ce30
-void W8OctSpatialState::GetClippedBounds(srVector3T<float>* minimum, srVector3T<float>* maximum)
+srBoundingBox W8OctSpatialState::GetClippedBounds() const
 {
-    *minimum = m_clipped_minimum;
-    *maximum = m_clipped_maximum;
+    return {m_clipped_minimum.glmValue(), m_clipped_maximum.glmValue()};
 }
 
 /* Strict axis-aligned overlap: touching faces are not an intersection. */

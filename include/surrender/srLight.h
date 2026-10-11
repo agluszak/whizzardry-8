@@ -77,8 +77,6 @@ public:
     e_attenuationModel getAttenuationModel() const;
     void setAttenuation(const glm::vec3& attenuation);
     glm::vec3 getAttenuation() const;
-    void getFarAttenuationRange(double& start, double& end) const;
-    void getNearAttenuationRange(double& start, double& end) const;
     void setFarAttenuationRange(double start, double end);
     void setNearAttenuationRange(double start, double end);
     void setSafeRange(float range);
@@ -122,4 +120,3 @@ public:
     w8_ulong derived_flags; /* 0x21c */
     w8_ulong channel_mask;  /* 0x220 */
 };
-

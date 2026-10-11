@@ -132,12 +132,12 @@ srMaterial& srMaterial::operator=(const srMaterial& other)
 }
 
 // FUNCTION: SURRENDER 0x10033B50
-void srMaterial::getMaterialInfo(srVertexProcessor::MaterialInfo& info)
+srVertexProcessor::MaterialInfo srMaterial::getMaterialInfo()
 {
     if (dirty != 0) {
         updateParms();
     }
-    info = parms;
+    return parms;
 }
 
 // FUNCTION: SURRENDER 0x10033C00

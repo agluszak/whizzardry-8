@@ -30,7 +30,6 @@ public:
     void forceUpdateBounds();
     e_boundMode getBoundMode() const;
     void setBoundMode(e_boundMode mode);
-    void getBounds(BoundInfo& bounds);
     void setBounds(const BoundInfo& bounds);
 
 private:
@@ -44,4 +43,3 @@ private:
        child bounding boxes into bounder space. */
     glm::mat4 inverse_world;
 };
-

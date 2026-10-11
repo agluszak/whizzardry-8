@@ -4,6 +4,9 @@
 #include <cstring>
 #include <exception>
 #include <memory>
+#include <optional>
+#include <utility>
+#include "surrender/srBoundingBox.h"
 #include <string>
 
 #include "wiz8/engine_code/Item.h"
@@ -55,7 +58,7 @@ void W8Item::DetachMesh(W8World* world)
     if (world == 0) {
         srAssertFail("pWorld", "C:\\Projects\\Wizardry 8\\Engine Code\\Item.cpp", 0x24a, 0);
     }
-    mesh = static_cast<W8ItemRep*>(m_pRep)->m_psrMesh;
+    mesh = static_cast<W8ItemRep*>(m_pRep)->m_psrMesh.get();
     if (mesh == 0) {
         srAssertFail("psrMesh", "C:\\Projects\\Wizardry 8\\Engine Code\\Item.cpp", 0x24f, 0);
     }
@@ -77,7 +80,7 @@ void W8Item::ApplyRepTransform()
         srAssertFail("m_pRep->m_psrMesh", "C:\\Projects\\Wizardry 8\\Engine Code\\Item.cpp", 0x266,
                      0);
     }
-    mesh = static_cast<W8ItemRep*>(m_pRep)->m_psrMesh;
+    mesh = static_cast<W8ItemRep*>(m_pRep)->m_psrMesh.get();
     m_pRep->GetLocation(&location);
     widened = glm::dvec3(location.glmValue());
     mesh->setLocation(widened);
@@ -100,7 +103,7 @@ void W8Item::AttachMesh(W8World* world)
     if ((static_cast<W8ItemRep*>(m_pRep)->flags & W8_ITEM_ENTITY_MESH_LOADED) == 0) {
         return;
     }
-    mesh = static_cast<W8ItemRep*>(m_pRep)->m_psrMesh;
+    mesh = static_cast<W8ItemRep*>(m_pRep)->m_psrMesh.get();
     if (mesh == 0) {
         srAssertFail("psrMesh", "C:\\Projects\\Wizardry 8\\Engine Code\\Item.cpp", 0x219, 0);
     }
@@ -128,7 +131,7 @@ void W8Item::AttachMesh(W8World* world)
 // FUNCTION: WIZ8 0x0049fb20
 srNode* W8Item::GetMesh()
 {
-    return static_cast<W8ItemRep*>(m_pRep)->m_psrMesh;
+    return static_cast<W8ItemRep*>(m_pRep)->m_psrMesh.get();
 }
 
 // FUNCTION: WIZ8 0x0049F310
@@ -157,8 +160,7 @@ bool W8Item::IsRadarBlipLit()
 // VTABLE: WIZ8 0x005ECD70 W8ItemRep
 // class W8ItemRep
 
-/* Inlined into both item construction paths. Retail leaves the mesh pointer
-   and bounds untouched until ReadFromFile; do not initialize them here. */
+/* Mesh ownership starts empty and is committed by ReadFromFile. */
 W8ItemRep::W8ItemRep()
 {
     flags = 0;
@@ -167,42 +169,32 @@ W8ItemRep::W8ItemRep()
 }
 
 // FUNCTION: WIZ8 0x0049F120
-W8ItemRep::~W8ItemRep()
-{
-    if (m_psrMesh != 0) {
-        delete m_psrMesh;
-    }
-}
+W8ItemRep::~W8ItemRep() = default;
 
 // FUNCTION: WIZ8 0x0049F170
 bool W8ItemRep::ReadFromFile(W8ReadLevelInfo* info, W8Item* item, bool anonymous_mesh)
 {
+    if (!info || !info->hFile || !item) return false;
     const char* bitmap_folder = info->bitmap_folder;
-    srModelInstance* mesh = 0;
-    if (info == 0 || info->hFile == 0 || item == 0) {
-        srAssertFail("pInfo && pInfo->hFile && pItem", ITEM_CPP, 0x7e, 0);
-    }
-
     info->bitmap_folder = "Data\\Items3D\\Bitmaps";
-    bool success =
-        ReadSingleLevelMesh(info, &mesh, 0, 0, anonymous_mesh ? 0 : info->mesh_filename, true) != 0;
-    if (!success || mesh == 0) {
-        srAssertFail("fSuccess && psrMesh", ITEM_CPP, 0x8c, 0);
-    }
-    mesh->setName("ItemRep::ReadFromFile");
-    static_cast<stModelInstance*>(mesh)->render_flags |= stModelInstance::RENDER_SHADOW;
-    SetModelInstanceChainExclusionMask(mesh, 4);
+    auto mesh = ReadSingleLevelMesh(info, anonymous_mesh ? nullptr : info->mesh_filename, true);
     info->bitmap_folder = bitmap_folder;
+    if (!mesh) return false;
+    mesh->setName("ItemRep::ReadFromFile");
+    mesh->render_flags |= stModelInstance::RENDER_SHADOW;
+    SetModelInstanceChainExclusionMask(mesh.get(), 4);
+    m_psrMesh = std::move(mesh);
     flags |= W8_ITEM_ENTITY_MESH_LOADED;
-    m_psrMesh = mesh;
     RefreshBounds();
-    return success;
+    return true;
 }
 
 // FUNCTION: WIZ8 0x0049F2B0
 void W8ItemRep::RefreshBounds()
 {
-    m_psrMesh->getModel()->getBoundingBox(bounds_minimum, bounds_maximum);
+    const auto bounds = m_psrMesh->getModel()->getBoundingBox();
+    bounds_minimum = bounds.minimum;
+    bounds_maximum = bounds.maximum;
     bounds_radius = static_cast<float>(glm::distance(bounds_maximum, bounds_minimum) * 0.5);
 }
 
@@ -288,7 +280,7 @@ void W8Item::UpdateAnimation()
         glm::mat3 rotation;
         m_pRep->GetRotation(&rotation);
         rotation *= glm::mat3(glm::eulerAngleY(-0.1963495375f));
-        srNode* mesh = rep->m_psrMesh;
+        srNode* mesh = rep->m_psrMesh.get();
         m_pRep->SetRotation(&rotation);
         if (mesh->first_child_ == 0) {
             mesh->setRotation(rotation);
@@ -319,19 +311,16 @@ void W8Item::UpdateAnimation()
 }
 
 // FUNCTION: WIZ8 0x0049FB30
-unsigned char W8Item::GetCachedLocalBounds(srVector3T<float>* lower, srVector3T<float>* upper)
+srBoundingBox W8Item::GetCachedLocalBounds() const
 {
-    W8ItemRep* rep = static_cast<W8ItemRep*>(m_pRep);
-    *lower = rep->bounds_minimum;
-    *upper = rep->bounds_maximum;
-    return true;
+    const auto* rep = static_cast<W8ItemRep*>(m_pRep);
+    return {rep->bounds_minimum, rep->bounds_maximum};
 }
 
 // FUNCTION: WIZ8 0x0049FB80
-bool W8Item::GetBoundsRadius(float* radius)
+float W8Item::GetBoundsRadius() const
 {
-    *radius = static_cast<W8ItemRep*>(m_pRep)->bounds_radius;
-    return true;
+    return static_cast<W8ItemRep*>(m_pRep)->bounds_radius;
 }
 
 /* Raise the representation location by two thirds of the cached local height.
@@ -341,14 +330,9 @@ static const float g_item_bounds_vertical_factor = 0.66f;
 // FUNCTION: WIZ8 0x0049FBA0
 unsigned char W8Item::GetSearchPosition(srVector3T<float>* location)
 {
-    srVector3T<float> lower;
-    srVector3T<float> upper;
-
-    if (GetCachedLocalBounds(&lower, &upper) == 0) {
-        return 0;
-    }
+    const auto bounds = GetCachedLocalBounds();
     m_pRep->GetLocation(location);
-    location->y += (upper.y - lower.y) * g_item_bounds_vertical_factor;
+    location->y += (bounds.maximum.y - bounds.minimum.y) * g_item_bounds_vertical_factor;
     return 1;
 }
 
@@ -356,7 +340,7 @@ unsigned char W8Item::GetSearchPosition(srVector3T<float>* location)
 void W8Item::SetYaw(float angle)
 {
     glm::mat3 rotation(glm::eulerAngleY(static_cast<float>(NormalizeAngle(angle))));
-    srNode* mesh = static_cast<W8ItemRep*>(m_pRep)->m_psrMesh;
+    srNode* mesh = static_cast<W8ItemRep*>(m_pRep)->m_psrMesh.get();
     m_pRep->SetRotation(&rotation);
     if (mesh->first_child_ == 0) {
         mesh->setRotation(rotation);
@@ -399,24 +383,20 @@ bool W8Item::IsSelected()
     /* The selection-point helper is inlined here even though its result is
        not used by the final mesh-identity test. */
     GetSearchPosition(&location);
-    return selected == static_cast<W8ItemRep*>(m_pRep)->m_psrMesh;
+    return selected == static_cast<W8ItemRep*>(m_pRep)->m_psrMesh.get();
 }
 
 // FUNCTION: WIZ8 0x0049FFA0
 float W8Item::DistanceToCamera(W8World* world)
 {
-    srVector3T<float> lower;
-    srVector3T<float> upper;
-    if (!GetCachedLocalBounds(&lower, &upper)) {
-        return -1.0f;
-    }
+    const auto bounds = GetCachedLocalBounds();
     srVector3T<double> camera = world->camera->getLocation();
     srVector3T<float> camera_location;
     camera_location = glm::vec3(camera.glmValue());
     srVector3T<float> center = m_pRep->location;
     /* Unlike the selection-point helper, retail offsets Z by half the Z
        extent here, not Y by 0.66 of the Y extent. */
-    center.z += (upper.z - lower.z) * 0.5f;
+    center.z += (bounds.maximum.z - bounds.minimum.z) * 0.5f;
     return (camera_location - center).Length();
 }
 
@@ -448,15 +428,15 @@ unsigned char RunItemTrigger(W8Item* item)
 }
 
 // FUNCTION: WIZ8 0x004A00C0
-bool GetItemWorldBounds(W8Item* item, srVector3T<float>* lower, srVector3T<float>* upper)
+std::optional<srBoundingBox> GetItemWorldBounds(const W8Item* item)
 {
     if (item == 0) {
-        return false;
+        return std::nullopt;
     }
-    item->GetCachedLocalBounds(lower, upper);
+    auto bounds = item->GetCachedLocalBounds();
     srVector3T<float> location;
     item->m_pRep->GetLocation(&location);
-    *lower += location;
-    *upper += location;
-    return true;
+    bounds.minimum += location.glmValue();
+    bounds.maximum += location.glmValue();
+    return bounds;
 }

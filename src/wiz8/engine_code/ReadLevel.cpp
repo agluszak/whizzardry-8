@@ -7,6 +7,7 @@
 #include <vector>
 #include <exception>
 #include <memory>
+#include <iterator>
 #include <string>
 #include <utility>
 
@@ -116,17 +117,13 @@ void stLevel::process(const ProcessInfo& info, e_processType)
         }
 
         if ((model->render_control.value & 0x20) == 0) {
-            glm::vec3 center;
-            float radius;
-            model->getBoundingSphere(center, radius);
+            const auto [center, radius] = model->getBoundingSphere();
             if (renderer.testBoundingSphere(center, radius) == srGERD::VISIBILITY_OUTSIDE) {
                 continue;
             }
         }
         if ((model->render_control.value & 0x10) == 0 && model->vertex_location_count >= 8) {
-            glm::vec3 minimum;
-            glm::vec3 maximum;
-            model->getBoundingBox(minimum, maximum);
+            const auto [minimum, maximum] = model->getBoundingBox();
             if (renderer.testBoundingBox(minimum, maximum) == srGERD::VISIBILITY_OUTSIDE) {
                 continue;
             }
@@ -147,8 +144,7 @@ void stLevel::process(const ProcessInfo& info, e_processType)
                 model->SetAmbientColor(ambient_color);
             }
 
-            srMeshModel::TriMesh mesh;
-            model->getTriMesh(mesh);
+            auto mesh = model->getTriMesh();
             if (g_render_untextured) {
                 mesh.shaders[0].value &= 0xffff7fff;
                 mesh.poly_shaders[0] = 0;
@@ -229,15 +225,15 @@ void AssociateWorldLights(W8World* world)
 {
     int light_index;
 
-    for (light_index = 0; light_index < static_cast<int>(world->lights_to_update->size());
+    for (light_index = 0; light_index < static_cast<int>(world->lights_to_update.size());
          ++light_index) {
-        stLight* light = (*world->lights_to_update)[light_index];
+        stLight* light = world->lights_to_update[light_index];
         stLightDefinition* definition = light->m_definition;
 
         if (definition != 0 && definition->kind == W8_LIGHT_DEFINITION_PARAMETRIC &&
             (static_cast<stParametricLightDefinition*>(definition)->flags &
              W8_PARAM_LIGHT_FLICKER) != 0) {
-            int prop_count = (world->plsProps ? world->plsProps->size() : 0);
+            int prop_count = world->plsProps.size();
             int prop_index;
 
             for (prop_index = 0; prop_index < prop_count; ++prop_index) {
@@ -315,7 +311,7 @@ try
             } else {
                 light = CreateWorldLight(world, name);
                 light->m_definition = definition;
-                world->lights_to_update->push_back(light);
+                world->lights_to_update.push_back(light);
                 if (path != 0) {
                     light->path_ai = path;
                 }
@@ -557,10 +553,10 @@ try
                 }
                 g_octree->AddLoadedProp(prop);
             }
-            pWorld->plsProps->push_back(prop);
+            pWorld->plsProps.push_back(prop);
             if ((prop->flags & W8_PROP_COLLIDABLE) != 0) {
                 prop->GetBounds(&bounds.minimum, &bounds.maximum);
-                pWorld->collidable_props->push_back(prop);
+                pWorld->collidable_props.push_back(prop);
                 if (pWorld->octree != 0) {
                     pWorld->octree->AddCollidablePropBounds(collidable_index, &bounds);
                     ++collidable_index;
@@ -764,53 +760,54 @@ try
 }
 
 // FUNCTION: WIZ8 0x004BC850
-unsigned char ReadWorldCameras(W8ReadLevelInfo* pInfo, W8World* pWorld)
+unsigned char ReadWorldCameras(W8ReadLevelInfo* info, W8World* world)
 try
 {
+    if (!info || !info->hFile || !world) {
+        return false;
+    }
+    auto* file = info->hFile;
     int count;
-    int index;
-    int positional_0;
-    int positional_1;
-    unsigned char has_scale;
-    float scale;
-    unsigned char success;
-    W8CameraPath* entry;
-
-    if (pInfo == 0 || (pInfo->hFile == 0 | pWorld == 0)) {
-        return 0;
+    file->read_exact(&count, sizeof(count));
+    if (count < 0 || count >= 100000) {
+        return false;
     }
-    success = (pInfo->hFile->read(&count, sizeof(count)).bytes == static_cast<std::size_t>(sizeof(count)));
-    if (!success || count >= 100000) {
-        return 0;
-    }
-    if (count == 0) {
-        return 1;
-    }
-
-    for (index = 0; index < count; ++index) {
-        entry = static_cast<W8CameraPath*>(malloc(sizeof(W8CameraPath)));
-        if (entry == 0) {
-            return 0;
+    std::vector<std::unique_ptr<W8CameraPath>> pending;
+    for (int index = 0; index < count; ++index) {
+        auto entry = std::make_unique<W8CameraPath>();
+        int positional_0, positional_1;
+        unsigned char has_scale;
+        float scale = 15.0f;
+        file->read_exact(&positional_0, sizeof(positional_0));
+        file->read_exact(&positional_1, sizeof(positional_1));
+        file->read_exact(&has_scale, sizeof(has_scale));
+        file->read_exact(entry->name0, sizeof(entry->name0));
+        if (memchr(entry->name0, '\0', sizeof(entry->name0)) == nullptr) {
+            return false;
         }
-        memset(entry, 0, sizeof(W8CameraPath));
-        (pInfo->hFile->read(&positional_0, sizeof(positional_0)).bytes == static_cast<std::size_t>(sizeof(positional_0)));
-        (pInfo->hFile->read(&positional_1, sizeof(positional_1)).bytes == static_cast<std::size_t>(sizeof(positional_1)));
-        (pInfo->hFile->read(&has_scale, sizeof(has_scale)).bytes == static_cast<std::size_t>(sizeof(has_scale)));
-        (pInfo->hFile->read(entry->name0, sizeof(entry->name0)).bytes == static_cast<std::size_t>(sizeof(entry->name0)));
         if (has_scale > 0) {
-            (pInfo->hFile->read(&scale, sizeof(scale)).bytes == static_cast<std::size_t>(sizeof(scale)));
-        } else {
-            scale = 15.0f;
+            file->read_exact(&scale, sizeof(scale));
         }
 
-        entry->path = 0;
-        success = success && LoadPathAI(&entry->path, pInfo->hFile);
-        PathAIEnableTimedMode(entry->path);
-        pWorld->plsCameras->push_back(entry);
+        // LoadPathAI publishes only on success. Adopt its result immediately;
+        // empty paths are invalid for cameras, which always use a live path.
+        W8PathAI* path = nullptr;
+        if (!LoadPathAI(&path, file)) {
+            return false;
+        }
+        entry->path.reset(path);
+        if (!entry->path) {
+            return false;
+        }
+        PathAIEnableTimedMode(entry->path.get());
         entry->path->entry_index = index;
         entry->path->speed = scale;
+        pending.push_back(std::move(entry));
     }
-    return 1;
+    world->plsCameras.insert(world->plsCameras.end(),
+                             std::make_move_iterator(pending.begin()),
+                             std::make_move_iterator(pending.end()));
+    return true;
 } catch (const std::exception&) {
     return false;
 }
@@ -997,41 +994,40 @@ try
 }
 
 // FUNCTION: WIZ8 0x004BDC90
-static unsigned char ReadNamedPositions(W8ReadLevelInfo* pInfo,
-                                        std::vector<W8NamedPosition*>* named_positions)
+bool ReadNamedPositions(wiz8::File* hFile, std::vector<W8NamedPosition>& named_positions)
 try
 {
-    wiz8::File* hFile;
     int count;
     int index;
     unsigned char version;
-    W8NamedPosition* pNamedPos;
 
-    hFile = pInfo->hFile;
     hFile->read_exact(&count, sizeof(count));
+    if (count < 0) return false;
+    std::vector<W8NamedPosition> pending;
     for (index = 0; index < count; ++index) {
-        pNamedPos = new W8NamedPosition;
-        if (pNamedPos == 0) {
-            srAssertFail("pNamedPos", READ_LEVEL_CPP, 0x6d3, "out of memory creating NamedPos");
-        }
+        W8NamedPosition position;
 
         hFile->read_exact(&version, sizeof(version));
         if (version != 1) {
-            srAssertFail("bVersion == 1", READ_LEVEL_CPP, 0x6d6, "Unknown Named Position version");
+            return false;
         }
 
-        hFile->read_exact(pNamedPos->name, sizeof(pNamedPos->name));
-        hFile->read_exact(&pNamedPos->position.x, sizeof(pNamedPos->position.x));
-        hFile->read_exact(&pNamedPos->position.y, sizeof(pNamedPos->position.y));
-        hFile->read_exact(&pNamedPos->position.z, sizeof(pNamedPos->position.z));
-        pNamedPos->position *= 500.0;
-        hFile->read_exact(&pNamedPos->angle, sizeof(pNamedPos->angle));
-        hFile->read_exact(&pNamedPos->direction.x, sizeof(pNamedPos->direction.x));
-        hFile->read_exact(&pNamedPos->direction.y, sizeof(pNamedPos->direction.y));
-        hFile->read_exact(&pNamedPos->direction.z, sizeof(pNamedPos->direction.z));
-        named_positions->push_back(pNamedPos);
+        hFile->read_exact(position.name, sizeof(position.name));
+        if (memchr(position.name, '\0', sizeof(position.name)) == nullptr) {
+            return false;
+        }
+        hFile->read_exact(&position.position.x, sizeof(position.position.x));
+        hFile->read_exact(&position.position.y, sizeof(position.position.y));
+        hFile->read_exact(&position.position.z, sizeof(position.position.z));
+        position.position *= 500.0;
+        hFile->read_exact(&position.angle, sizeof(position.angle));
+        hFile->read_exact(&position.direction.x, sizeof(position.direction.x));
+        hFile->read_exact(&position.direction.y, sizeof(position.direction.y));
+        hFile->read_exact(&position.direction.z, sizeof(position.direction.z));
+        pending.push_back(position);
     }
-    return 1;
+    named_positions.insert(named_positions.end(), pending.begin(), pending.end());
+    return true;
 } catch (const std::exception&) {
     return false;
 }
@@ -1049,9 +1045,7 @@ unsigned char ReadLevel(W8World* world, wiz8::File* handle, bool use_octree, con
 try
 {
     W8ReadLevelInfo info;
-    srModelInstance* level_mesh;
-    glm::vec3 minimum;
-    glm::vec3 maximum;
+    std::unique_ptr<stModelInstance> level_mesh;
     srVector3T<float> environment_offset;
     char error_message[512];
     int section_end;
@@ -1061,23 +1055,19 @@ try
     unsigned int prop_count;
     unsigned char success;
 
-    level_mesh = 0;
-    if (world->update_mesh_source != 0) {
-        delete world->update_mesh_source;
-    }
-    if (world->psrMeshes != 0) {
-        while (world->psrMeshes[0] != 0) {
-            delete world->psrMeshes[0];
-            world->psrMeshes[0] = 0;
-        }
-        if (world->octree == 0) {
-            free(world->psrMeshes);
-            world->psrMeshes = 0;
-        }
+    if (world == nullptr || world->static_scene == nullptr || handle == nullptr) {
+        return false;
     }
 
-    if (world == 0 || world->static_scene == 0 || handle == 0) {
-        return 0;
+    level_mesh = nullptr;
+    delete std::exchange(world->update_mesh_source, nullptr);
+    // Each non-null entry is a distinct scene-owned root instance. Replacing
+    // the level must unlink all old roots, not just the first table entry.
+    for (auto*& instance : world->psrMeshes) {
+        delete std::exchange(instance, nullptr);
+    }
+    if (world->octree == nullptr) {
+        world->psrMeshes.clear();
     }
 
     info.world = world;
@@ -1085,25 +1075,23 @@ try
     info.bitmap_folder = bitmap_folder;
     w8_get_ticks();
 
-    if (world->psrMeshes == 0 || world->octree == 0) {
-        if (!ReadSingleLevelMesh(&info, &level_mesh, 0, 0, 0, true)) {
+    if (world->psrMeshes.empty() || world->octree == 0) {
+        level_mesh = ReadSingleLevelMesh(&info, nullptr, true);
+        if (!level_mesh) {
             return 0;
         }
-        if (level_mesh == 0) {
-            srAssertFail("psrMesh", READ_LEVEL_CPP, 0xfa, 0);
-        }
         level_mesh->setName("ReadLevel");
-        world->update_mesh_source = level_mesh;
-        level_mesh->setParent(world->level, 1);
-        SetModelInstanceChainExclusionMask(level_mesh, 1);
+        SetModelInstanceChainExclusionMask(level_mesh.get(), 1);
+        world->update_mesh_source = world->level->adoptChild(std::move(level_mesh), 1);
     } else {
-        if (!ReadMultipleLevelMeshes(&info, world->psrMeshes, world->octree->GetMeshCount(), 0)) {
+        auto meshes = ReadMultipleLevelMeshes(&info, world->octree->GetMeshCount(), nullptr);
+        if (meshes.empty()) {
             ShutdownWithErrorBox("ReadLevel: Error reading multi-meshes.");
         }
         for (unsigned int mesh_index = 0; mesh_index < world->octree->m_meshCount; ++mesh_index) {
-            if (world->psrMeshes[mesh_index] != 0) {
-                world->psrMeshes[mesh_index]->setParent(world->level, 1);
-                SetModelInstanceChainExclusionMask(world->psrMeshes[mesh_index], 1);
+            if (meshes[mesh_index]) {
+                SetModelInstanceChainExclusionMask(meshes[mesh_index].get(), 1);
+                world->psrMeshes[mesh_index] = world->level->adoptChild(std::move(meshes[mesh_index]), 1);
             }
         }
     }
@@ -1176,9 +1164,9 @@ try
     CHECK_PVL_OFFSET("Wrong offset in .pvl file after Clipping Planes.");
 
     if (use_octree) {
-        srMeshModel* model = static_cast<srMeshModel*>(level_mesh->getModel());
-        model->getBoundingBox(minimum, maximum);
-        world->quads = BuildWorldQuad(level_mesh, minimum, maximum);
+        srMeshModel* model = static_cast<srMeshModel*>(world->update_mesh_source->getModel());
+        const auto [minimum, maximum] = model->getBoundingBox();
+        world->quads = BuildWorldQuad(world->update_mesh_source, minimum, maximum);
     }
     RefreshEnvironment();
     FinalizeStaticScene(world->static_scene);
@@ -1188,16 +1176,16 @@ try
         !(handle->read(&environment_offset.z, sizeof(environment_offset.z)).bytes == static_cast<std::size_t>(sizeof(environment_offset.z)))) {
         success = 0;
     } else {
-        success = ReadWorldParticles(&info, world->dynamic_scene, world->particles);
+        success = ReadWorldParticles(&info, world->dynamic_scene, &world->particles);
     }
     CHECK_PVL_OFFSET("Wrong offset in .pvl file after particles.");
-    success = success && ReadNamedPositions(&info, world->named_positions);
+    success = success && ReadNamedPositions(info.hFile, world->named_positions);
     CHECK_PVL_OFFSET("Wrong offset in .pvl file after named position points.");
     success = success && ReadAutomapNodes(handle);
     CHECK_PVL_OFFSET("Wrong offset in .pvl file after automap nodes.");
 
     g_environment_offset = environment_offset;
-    prop_count = (world->plsProps ? world->plsProps->size() : 0);
+    prop_count = world->plsProps.size();
     for (index = 0; index < static_cast<int>(prop_count); ++index) {
         W8Prop* prop = GetWorldProp(world, index);
         W8AnimObj* animation = prop->Rep()->animation;

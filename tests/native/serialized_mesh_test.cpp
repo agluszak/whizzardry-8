@@ -5,15 +5,20 @@
 #include <string>
 #include "file_faults.h"
 #include <cstdint>
+#include <cstddef>
 #include <cstdio>
 #include <filesystem>
 #include <ios>
 #include <iterator>
 #include <memory>
+#include <utility>
 #include <vector>
 
 #include "surrender/srCore.h"
+#include "surrender/srScene.h"
+#include "surrender/srNode.h"
 #include "surrender/srModelInstance.h"
+#include "wiz8/engine_code/stModelInstance.h"
 #include "wiz8/engine_code/OctMeshModel.h"
 #include "wiz8/engine_code/ReadLevel.h"
 #include "wiz8/engine_code/stMeshModel.h"
@@ -111,23 +116,23 @@ bool LoadAnimated(const std::filesystem::path& path)
     auto file = wiz8::open_host_file(path);
     W8World world{};
     W8ReadLevelInfo info{&world, file.get(), "", nullptr};
-    srModelInstance* first = nullptr;
-    REQUIRE((ReadSingleLevelMesh(&info, &first, 0, 0, "animated fixture", true)));
+    auto first = ReadSingleLevelMesh(&info, "animated fixture", true);
     REQUIRE((first));
     auto* model = static_cast<stMeshModel*>(first->getModel());
     REQUIRE((model->frames.size() == 2));
     REQUIRE((model->GetVertexLocations(0, true, 0)[1].x == 1.0f));
     REQUIRE((model->GetVertexLocations(1, true, 0)[1].x == 3.0f));
-    srModelInstance* second = nullptr;
     // Cached models still consume and validate their serialized record.
     file->seek(0, wiz8::SeekOrigin::begin);
-    REQUIRE((ReadSingleLevelMesh(&info, &second, 0, 0, "animated fixture", true)));
+    auto second = ReadSingleLevelMesh(&info, "animated fixture", true);
     REQUIRE((second && second->getModel() == model));
-    srModelInstance* truncated = nullptr;
-    REQUIRE((!ReadSingleLevelMesh(&info, &truncated, 0, 0, "animated fixture", true)));
-    REQUIRE((!truncated));
-    delete first;
-    delete second;
+    REQUIRE(first->getParent() == nullptr);
+    REQUIRE(second->getParent() == nullptr);
+    auto truncated = ReadSingleLevelMesh(&info, "animated fixture", true);
+    REQUIRE_FALSE(truncated);
+    REQUIRE(first->getModel() == model);
+    first.reset();
+    second.reset();
     REQUIRE((g_mesh_models.empty() && g_decompressed_mesh_bytes == 0));
     ReleaseReadMeshScratch();
     return true;
@@ -142,18 +147,29 @@ bool LoadCycles(const std::filesystem::path& path)
         info.world = &world;
         info.bitmap_folder = "";
         info.hFile = file.get();
-        srModelInstance* instances[4]{};
-        REQUIRE((ReadMultipleLevelMeshes(&info, instances, 4, "serialized linked mesh")));
-        REQUIRE((instances[0] && instances[1] && !instances[2] && !instances[3]));
-        auto* head = static_cast<stMeshModel*>(instances[0]->getModel());
-        REQUIRE((head->parts.size() == 2));
-        REQUIRE((head->parts[0]->head == head && head->parts[1]->head == head));
-        REQUIRE((head->getPolyVertex()[0].x == 0 && head->getPolyVertex()[0].z == 2));
-        REQUIRE((head->getVertexLoc()[1].x == 1));
-        REQUIRE((head->parts[0]->vertex_location_count == 3));
-        delete instances[0];
-        delete instances[1];
-        REQUIRE((g_mesh_models.empty()));
+        {
+            auto instances = ReadMultipleLevelMeshes(&info, 4, "serialized linked mesh");
+            REQUIRE(instances.size() == 4);
+            REQUIRE((instances[0] && instances[1] && !instances[2] && !instances[3]));
+            REQUIRE(instances[0]->getParent() == nullptr);
+            REQUIRE(instances[1]->getParent() == nullptr);
+            auto* head = static_cast<stMeshModel*>(instances[0]->getModel());
+            REQUIRE((head->parts.size() == 2));
+            REQUIRE((head->parts[0]->head == head && head->parts[1]->head == head));
+            REQUIRE((head->getPolyVertex()[0].x == 0 && head->getPolyVertex()[0].z == 2));
+            REQUIRE((head->getVertexLoc()[1].x == 1));
+            REQUIRE((head->parts[0]->vertex_location_count == 3));
+            // Transfer exactly once into the scene. The world table only observes.
+            srScene scene(nullptr);
+            world.psrMeshes.resize(5, nullptr);
+            for (std::size_t index = 0; index < instances.size(); ++index) {
+                world.psrMeshes[index] = scene.adoptChild(std::move(instances[index]));
+            }
+            REQUIRE(world.psrMeshes[0]->getParent() == &scene);
+            REQUIRE(world.psrMeshes[1]->getParent() == &scene);
+            REQUIRE(world.psrMeshes.back() == nullptr);
+        }
+        REQUIRE(g_mesh_models.empty());
         // Later loads reuse the default snapshot taken by the first read.
         if (cycle == 2) {
             ReleaseOctMeshDefaults();
@@ -189,9 +205,59 @@ TEST_CASE("serialized_mesh_test")
         info.world = &world;
         info.bitmap_folder = "";
         info.hFile = file.get();
-        srModelInstance* instances[4]{};
-        ok = ok && !ReadMultipleLevelMeshes(&info, instances, 4, "invalid linked mesh");
-        ok = ok && !instances[0] && !instances[1];
+        auto instances = ReadMultipleLevelMeshes(&info, 4, "invalid linked mesh");
+        ok = ok && instances.empty();
+    }
+    {
+        W8World world{};
+        for (std::size_t size : {0u, 3u, 5u}) {
+            auto file = wiz8::open_host_file(good);
+            W8ReadLevelInfo info{&world, file.get(), "", nullptr};
+            REQUIRE(ReadMultipleLevelMeshes(&info, size, nullptr).empty());
+        }
+        std::size_t operations;
+        {
+            auto file = wiz8::open_host_file(good);
+            W8ReadLevelInfo info{&world, file.get(), "", nullptr};
+            FileFaults trace;
+            auto instances = ReadMultipleLevelMeshes(&info, 4, nullptr);
+            REQUIRE(instances.size() == 4);
+            operations = trace.operations;
+        }
+        for (std::size_t operation = 1; operation <= operations; ++operation) {
+            auto file = wiz8::open_host_file(good);
+            W8ReadLevelInfo info{&world, file.get(), "", nullptr};
+            FileFaults fault(operation);
+            REQUIRE(ReadMultipleLevelMeshes(&info, 4, nullptr).empty());
+            REQUIRE(fault.fired);
+            REQUIRE(g_mesh_models.empty());
+        }
+    }
+    {
+        // A failed reload must leave no dangling pointers to the old scene roots.
+        struct TrackedInstance : srModelInstance {
+            int& destroyed;
+            TrackedInstance(srNode* parent, int& destroyed)
+                : srModelInstance(parent), destroyed(destroyed) {}
+            ~TrackedInstance() override { ++destroyed; }
+        };
+        int destroyed = 0;
+        srScene scene(nullptr);
+        W8World world{};
+        world.static_scene = &scene;
+        world.update_mesh_source = new TrackedInstance(&scene, destroyed);
+        world.psrMeshes = {new TrackedInstance(&scene, destroyed),
+                           new TrackedInstance(&scene, destroyed), nullptr};
+        const auto empty = directory / "empty.lvl";
+        wiz8::open_host_file(empty, wiz8::OpenMode::replace)->close();
+        auto file = wiz8::open_host_file(empty);
+        REQUIRE_FALSE(ReadLevel(&world, file.get(), false, ""));
+        REQUIRE(destroyed == 3);
+        REQUIRE(world.update_mesh_source == nullptr);
+        REQUIRE(world.psrMeshes.empty());
+        REQUIRE(scene.getChildCount() == 0);
+        REQUIRE_FALSE(ReadLevel(&world, file.get(), false, ""));
+        REQUIRE(destroyed == 3);
     }
     ReleaseReadMeshScratch();
     ReleaseOctMeshDefaults();

@@ -12,7 +12,6 @@
 #include <string>
 
 #include "compat/compiler.h"
-#include "glm/common.hpp"
 #include "glm/fwd.hpp"
 #include "wiz8/engine_code/AnimRep.hpp"
 #include "wiz8/engine_code/Video2.h"
@@ -124,11 +123,11 @@ void UpdateWorldProps(W8World* world)
     unsigned int count;
     int index;
 
-    if (world == 0 || world->plsProps == 0) {
-        srAssertFail("pWorld && pWorld->plsProps",
+    if (world == 0) {
+        srAssertFail("pWorld",
                      "C:\\Projects\\Wizardry 8\\Engine Code\\Prop.cpp", 0x969, 0);
     }
-    count = (world->plsProps ? world->plsProps->size() : 0);
+    count = world->plsProps.size();
     for (index = 0; index < static_cast<int>(count); ++index) {
         W8Prop* prop = GetWorldProp(world, index);
         Trigger* trigger;
@@ -157,7 +156,7 @@ W8Prop* FindPropByName(W8World* world, const char* name)
     int index;
 
     if (world != 0 && name != 0) {
-        unsigned int count = (world->plsProps ? world->plsProps->size() : 0);
+        unsigned int count = world->plsProps.size();
 
         for (index = 0; index < static_cast<int>(count); ++index) {
             W8Prop* prop = GetWorldProp(world, index);
@@ -320,7 +319,7 @@ bool ResolvePickedProp(W8World* world)
 
     valid = true;
     camera_position = cameraLocation();
-    prop_count = (world->plsProps ? world->plsProps->size() : 0);
+    prop_count = world->plsProps.size();
     for (prop_index = 0; prop_index < static_cast<int>(prop_count); ++prop_index) {
         W8Prop* prop;
         W8PropRepresentation* representation;
@@ -1638,29 +1637,21 @@ try
         W8AniMesh* mesh = AnimObjEntry(animation, 2, 0);
         unsigned char value_count = AniMeshValue(mesh);
         stModelInstance* frame = GetAniMeshFrame(mesh, 0);
-        glm::vec3 minimum;
-        glm::vec3 maximum;
-        unsigned int frame_i;
 
         if (frame == 0) {
             srAssertFail("psrMesh", PROP_CPP, 0x182, 0);
         }
-        frame->getModel()->getBoundingBox(minimum, maximum);
-        for (frame_i = 0; frame_i < value_count; ++frame_i) {
-            glm::vec3 frame_min;
-            glm::vec3 frame_max;
-
+        auto bounds = frame->getModel()->getBoundingBox();
+        for (unsigned int frame_i = 0; frame_i < value_count; ++frame_i) {
             frame = GetAniMeshFrame(mesh, frame_i);
             if (frame == 0) {
                 srAssertFail("psrMesh", PROP_CPP, 0x192, 0);
             }
-            frame->getModel()->getBoundingBox(frame_min, frame_max);
-            minimum = glm::min(minimum, frame_min);
-            maximum = glm::max(maximum, frame_max);
+            bounds.include(frame->getModel()->getBoundingBox());
         }
-        bounds_min = minimum;
-        bounds_max = maximum;
-        const auto size = maximum - minimum;
+        bounds_min = bounds.minimum;
+        bounds_max = bounds.maximum;
+        const auto size = bounds.maximum - bounds.minimum;
         bounds_extent = std::max({size.x, size.y, size.z}) * g_float_half;
     }
 
@@ -1820,7 +1811,7 @@ void SaveWorldProps(W8World* world, wiz8::File* handle)
     version = 1;
     handle->write(&signature, 4);
     handle->write(&version, 4);
-    count = static_cast<int>((world->plsProps ? world->plsProps->size() : 0));
+    count = static_cast<int>(world->plsProps.size());
     handle->write(&count, 4);
     for (index = 0; index < count; ++index) {
         prop = GetWorldProp(world, index);
@@ -1859,7 +1850,7 @@ void LoadWorldProps(W8World* world, wiz8::File* handle)
         for (index = 0; index < count; ++index) {
             handle->read_exact(&key, 4);
             prop = 0;
-            entries = static_cast<int>((world->plsProps ? world->plsProps->size() : 0));
+            entries = static_cast<int>(world->plsProps.size());
             for (int entry_index = 0; entry_index < entries; ++entry_index) {
                 entry = GetWorldProp(world, entry_index);
                 if (entry->id == key) {

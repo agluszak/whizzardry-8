@@ -407,7 +407,9 @@ void ResetAutomapView(void)
         g_automap_grid_min = -250000.0f;
         g_automap_grid_max = 250000.0f;
     } else {
-        g_octree->m_spatial.GetClippedBounds(&g_automap_grid_min, &g_automap_grid_max);
+        const auto bounds = g_octree->m_spatial.GetClippedBounds();
+        g_automap_grid_min = bounds.minimum;
+        g_automap_grid_max = bounds.maximum;
     }
     g_automap_grid_origin = g_automap_grid_min;
     g_automap_grid_center.Set((g_automap_grid_min.x + g_automap_grid_max.x) * g_float_half, 0.0f,

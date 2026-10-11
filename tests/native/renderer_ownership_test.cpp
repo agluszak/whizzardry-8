@@ -36,7 +36,8 @@
 namespace {
 class TestNode : public srNode {
 public:
-    explicit TestNode(srNode* parent = nullptr) : srNode(parent) {}
+    explicit TestNode(srNode* parent = nullptr, Ownership ownership = Ownership::parent)
+        : srNode(parent, ownership) {}
     ~TestNode() override { ++destroyed; }
     TestNode& operator=(const TestNode&) = default;
     static inline int destroyed = 0;
@@ -92,11 +93,13 @@ bool recursiveSceneGraph()
 
 class TestMaterial : public srMaterialIFace {
 public:
-    void getMaterialInfo(srVertexProcessor::MaterialInfo& info) override
+    srVertexProcessor::MaterialInfo getMaterialInfo() override
     {
+        srVertexProcessor::MaterialInfo info{};
         info.diffuse = info.ambient = info.specular = info.emissive = glm::vec4(0.0f);
         info.translucency = info.shininess = info.value_38 = info.fog_scale = 0.0f;
         info.disabled_channels = 0xffffffff;
+        return info;
     }
     void preProcess(srVertexPipe&) override {}
     void postProcess(srVertexPipe&) override {}
@@ -242,10 +245,11 @@ public:
 class CoverageMaterial : public TestMaterial {
 public:
     float scale = 1;
-    void getMaterialInfo(srVertexProcessor::MaterialInfo& info) override
+    srVertexProcessor::MaterialInfo getMaterialInfo() override
     {
-        TestMaterial::getMaterialInfo(info);
+        auto info = TestMaterial::getMaterialInfo();
         info.diffuse.w = info.fog_scale = scale;
+        return info;
     }
 };
 
@@ -366,12 +370,13 @@ public:
 
 class LightingMaterial : public TestMaterial {
 public:
-    void getMaterialInfo(srVertexProcessor::MaterialInfo& info) override
+    srVertexProcessor::MaterialInfo getMaterialInfo() override
     {
-        TestMaterial::getMaterialInfo(info);
+        auto info = TestMaterial::getMaterialInfo();
         info.disabled_channels = 0;
         info.diffuse = glm::vec4(.5f); info.specular = glm::vec4(.25f);
         info.emissive = glm::vec4(.125f); info.shininess = 1;
+        return info;
     }
 };
 
@@ -430,11 +435,12 @@ bool surfaceLighting()
 
 class ProfileMaterial : public TestMaterial {
 public:
-    void getMaterialInfo(srVertexProcessor::MaterialInfo& info) override
+    srVertexProcessor::MaterialInfo getMaterialInfo() override
     {
-        TestMaterial::getMaterialInfo(info);
+        auto info = TestMaterial::getMaterialInfo();
         info.disabled_channels = 0;
         info.fog_scale = 1;
+        return info;
     }
 };
 
@@ -605,9 +611,8 @@ bool rendererOwnership()
     srGERD gerd(srCreateSDLGPUDevice(), "ownership fixture");
     auto* renderer = gerd.lockRenderer(); // nested flush/create locks
     gerd.unlockRenderer(renderer, 1);
-    w8_ulong statistics[7];
-    renderer->getStatistics(statistics);
-    REQUIRE(statistics[4] == 1);
+    auto statistics = renderer->getStatistics();
+    REQUIRE(statistics.device_calls == 1);
 
     for (int mode = 0; mode < 4; ++mode) {
         std::promise<srGERD::Renderer*> acquired;
@@ -630,8 +635,8 @@ bool rendererOwnership()
         else { gerd.flushRenderers(); }
         worker.join();
         REQUIRE(borrowed == renderer);
-        renderer->getStatistics(statistics);
-        REQUIRE(statistics[4] == (mode == 0 ? 2u : mode == 1 ? 3u : mode == 2 ? 0u : 1u));
+        statistics = renderer->getStatistics();
+        REQUIRE(statistics.device_calls == (mode == 0 ? 2u : mode == 1 ? 3u : mode == 2 ? 0u : 1u));
         if (mode == 2) {
             // Reuse the CPU renderer as a sorted renderer without opening a
             // window, to exercise flushSort's worker-release wait as well.
@@ -830,6 +835,41 @@ bool pipelineRecordTexcoords()
 }
 
 } // namespace
+
+TEST_CASE("Scene membership preserves independent node ownership")
+{
+    REQUIRE(srInit());
+    const int before = TestNode::destroyed;
+    const auto root_children = srCore.getRootNode()->getChildCount();
+    auto owned = std::make_unique<TestNode>(nullptr, srNode::Ownership::independent);
+    REQUIRE(srCore.getRootNode()->getChildCount() == root_children);
+    {
+        TestNode scene;
+        REQUIRE(owned->setParent(&scene, 0));
+        REQUIRE(scene.getChildCount() == 1);
+    }
+    REQUIRE(TestNode::destroyed == before + 1); // Only the scene was destroyed.
+    REQUIRE(owned->getParent() == nullptr);
+    owned.reset();
+    REQUIRE(TestNode::destroyed == before + 2);
+    REQUIRE(srExit());
+}
+
+TEST_CASE("Scene adoption transfers node destruction ownership")
+{
+    REQUIRE(srInit());
+    const int before = TestNode::destroyed;
+    {
+        TestNode scene;
+        auto owned = std::make_unique<TestNode>(nullptr, srNode::Ownership::independent);
+        auto* observed = scene.adoptChild(std::move(owned));
+        REQUIRE_FALSE(owned);
+        REQUIRE(observed->getParent() == &scene);
+        REQUIRE(scene.getChildCount() == 1);
+    }
+    REQUIRE(TestNode::destroyed == before + 2);
+    REQUIRE(srExit());
+}
 
 TEST_CASE("renderer_ownership_test")
 {

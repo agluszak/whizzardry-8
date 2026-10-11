@@ -40,17 +40,6 @@ void srBounder::setBoundMode(e_boundMode mode)
     bound_mode = mode;
 }
 
-// FUNCTION: SURRENDER 0x1004b0e0
-void srBounder::getBounds(BoundInfo& bounds)
-{
-    if (bound_mode == BOUND_MODE_DYNAMIC) {
-        if (testNotify(NOTIFY_BOUNDS_DIRTY)) {
-            updateBounds();
-        }
-    }
-    bounds = this->bounds;
-}
-
 // FUNCTION: SURRENDER 0x1004b120
 void srBounder::setBounds(const BoundInfo& bounds)
 {
@@ -166,8 +155,7 @@ void srBounder::getChildBoundingBox(srNode* node)
 {
     node->updateBounds();
     if (bounds.state != 2) {
-        BoundInfo child_bounds;
-        node->getLocalBounds(child_bounds);
+        const auto child_bounds = node->getLocalBounds();
         if (child_bounds.state == 1) {
             auto world = node->getWorldSpaceMatrix<glm::mat4>();
             const srBoundingBox child_box{child_bounds.minimum, child_bounds.maximum};

@@ -141,17 +141,10 @@ void srNode::updateBounds()
 }
 
 // FUNCTION: SURRENDER 0x10050510
-void srNode::getLocalBounds(BoundInfo& bounds)
+srNode::BoundInfo srNode::getLocalBounds()
 {
-    bounds.minimum = glm::vec3(0);
-    bounds.maximum = glm::vec3(0);
-    bounds.center = glm::vec3(0);
-    bounds.radius = 0.0f;
-    if (testFlag(FLAG_GLOBAL) != 0) {
-        bounds.state = 2;
-        return;
-    }
-    bounds.state = 0;
+    return {glm::vec3(0), glm::vec3(0), glm::vec3(0), 0.0f,
+            testFlag(FLAG_GLOBAL) != 0 ? 2 : 0};
 }
 
 // FUNCTION: SURRENDER 0x100505E0
@@ -212,7 +205,8 @@ w8_long srNode::getHierarchyLevel() const
 }
 
 // FUNCTION: SURRENDER 0x10050C10
-srNode::srNode(srNode* parent)
+srNode::srNode(srNode* parent, Ownership ownership)
+    : parent_owns_(ownership == Ownership::parent)
 {
     std::lock_guard access(sceneGraphCSect);
     world_transform0 = glm::dmat4x3(1);
@@ -228,17 +222,21 @@ srNode::srNode(srNode* parent)
     rotation = glm::dmat3(1);
     scale = glm::dvec3(1);
     notifications.value = 0;
-    setParent(parent, 0);
+    if (parent || parent_owns_) setParent(parent, 0);
 }
 
-/* Destroying a node detaches it and deletes its whole child list. */
+/* Destroy owned children; independently owned render members are detached. */
 // FUNCTION: SURRENDER 0x10050E20
 srNode::~srNode()
 {
     std::lock_guard access(sceneGraphCSect);
     unlink();
-    while (first_child_ != 0) {
-        delete first_child_;
+    while (first_child_ != nullptr) {
+        if (first_child_->parent_owns_) {
+            delete first_child_;
+        } else {
+            first_child_->detach();
+        }
     }
 }
 
@@ -286,6 +284,14 @@ int srNode::setParent(srNode* parent, int preserve_world_transform)
         updateTransformation();
     }
     return 1;
+}
+
+void srNode::detach()
+{
+    std::lock_guard access(sceneGraphCSect);
+    unlink();
+    parent_owns_ = false;
+    setWSDirty();
 }
 
 // FUNCTION: SURRENDER 0x10050B70

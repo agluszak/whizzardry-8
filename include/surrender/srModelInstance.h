@@ -13,7 +13,7 @@
 class srModelInstance : public srClassSupport<srModelInstance, srNode, 0x1100> {
 public:
     SR_DLL_IMPORT virtual ~srModelInstance() override;
-    SR_DLL_IMPORT srModelInstance(srNode* parent = 0);
+    SR_DLL_IMPORT srModelInstance(srNode* parent = nullptr, Ownership ownership = Ownership::parent);
 
     SR_DLL_IMPORT srModelInstance& operator=(const srModelInstance& other);
 
@@ -26,7 +26,7 @@ public:
     SR_DLL_IMPORT virtual void dump(std::ostream& stream) override;
     SR_DLL_IMPORT virtual void traverse(TraverseInfo& info) override;
     SR_DLL_IMPORT virtual void process(const ProcessInfo& info, e_processType type) override;
-    SR_DLL_IMPORT virtual void getLocalBounds(BoundInfo& bounds) override;
+    SR_DLL_IMPORT virtual BoundInfo getLocalBounds() override;
 
     // The instance shares ownership of its model; renderers borrow it.
     srModel* getModel() const
@@ -58,4 +58,3 @@ protected:
 private:
     std::shared_ptr<srModel> model_;
 };
-

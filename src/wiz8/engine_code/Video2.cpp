@@ -800,7 +800,7 @@ static RuntimeWorldRenderData ObserveWorldRenderState()
                  (g_video_active ? 4UL : 0UL) | (g_monster_shadow_updates_enabled ? 8UL : 0UL) |
                  (g_render_mesh_sky ? 16UL : 0UL) | (g_world_pick_enabled ? 32UL : 0UL);
     data.scene_children = g_world->static_scene->getChildCount();
-    if (g_world->octree != 0 && g_world->psrMeshes != 0) {
+    if (g_world->octree != 0 && !g_world->psrMeshes.empty()) {
         for (w8_ulong index = 0; index < g_world->octree->m_meshCount; ++index) {
             srModelInstance* instance = g_world->psrMeshes[index];
             if (instance != 0 && !instance->testFlag(srNode::FLAG_DISABLE)) {
@@ -814,8 +814,7 @@ static RuntimeWorldRenderData ObserveWorldRenderState()
     data.viewport[3] = g_viewport.bottom;
     data.renderer_size[0] = g_gerd->getWidth();
     data.renderer_size[1] = g_gerd->getHeight();
-    srGERD::Statistics statistics;
-    g_gerd->getStatistics(statistics);
+    const auto statistics = g_gerd->getStatistics();
     data.draw_calls = statistics.draw_calls;
     srVector3T<float> camera = cameraLocation();
     data.camera[0] = camera.x;
@@ -1831,7 +1830,6 @@ void PrintScreen(void)
 // FUNCTION: WIZ8 0x00427460
 void DrawVideoInspector(int left, unsigned int top)
 {
-    srGERD::Statistics statistics;
     srVector3T<float> position;
     unsigned int bottom;
     unsigned char* row;
@@ -1861,7 +1859,7 @@ void DrawVideoInspector(int left, unsigned int top)
     }
     InvalidateRegion(left, top, left + 0x113, bottom, 0);
     if (g_gerd != 0) {
-        g_gerd->getStatistics(statistics);
+        const auto statistics = g_gerd->getStatistics();
         SetFont(g_smfnt_font);
         g_smfnt_font.setPalette(g_font_state_palettes[W8_FONT_PALETTE_YELLOW]);
         DrawFontTextDirty(left, top, fmt::format("FR: {:4.1f}", g_frames_per_second));
@@ -2983,7 +2981,6 @@ void BeginRenderProbe(void)
 // FUNCTION: WIZ8 0x004289e0
 unsigned int MeasureNodeRender(srNode* node)
 {
-    srGERD::Statistics statistics;
     srNode::ProcessInfo process;
 
     g_gerd->flushRenderers();
@@ -2997,7 +2994,7 @@ unsigned int MeasureNodeRender(srNode* node)
     srNode::unlockSceneGraph();
     g_gerd->endFrame();
     g_gerd->flushRenderers();
-    g_gerd->getStatistics(statistics);
+    const auto statistics = g_gerd->getStatistics();
     return static_cast<unsigned int>(statistics.pixels_drawn);
 }
 
@@ -3145,12 +3142,10 @@ void DrawBufferLine(w8_long x0, w8_long y0, w8_long x1, w8_long y1, w8_ulong* pi
 }
 
 // FUNCTION: WIZ8 0x004273F0
-void GetScaledViewportBounds(glm::vec2* left_top, glm::vec2* right_bottom)
+ViewportBounds GetScaledViewportBounds()
 {
-    left_top->x = g_viewport.left * g_viewport_x_scale;
-    left_top->y = g_viewport.top * g_viewport_y_scale;
-    right_bottom->x = g_viewport.right * g_viewport_x_scale;
-    right_bottom->y = g_viewport.bottom * g_viewport_y_scale;
+    return {{g_viewport.left * g_viewport_x_scale, g_viewport.top * g_viewport_y_scale},
+            {g_viewport.right * g_viewport_x_scale, g_viewport.bottom * g_viewport_y_scale}};
 }
 
 // FUNCTION: WIZ8 0x004277F0

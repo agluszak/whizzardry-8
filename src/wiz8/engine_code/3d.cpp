@@ -53,18 +53,15 @@ void UpdateWorldMonsters(W8World* world)
     if (world == 0) {
         srAssertFail("pWorld", THREE_D_CPP, 0x10d, 0);
     }
-    if (world->plsMonsters == 0) {
-        srAssertFail("pWorld->plsMonsters", THREE_D_CPP, 0x10e, 0);
-    }
 
     srVector3T<double> camera_location = world->camera->getLocation();
     srVector3T<float> position;
     position = camera_location;
 
-    unsigned int count = (world->plsMonsters ? world->plsMonsters->size() : 0);
+    unsigned int count = world->plsMonsters.size();
     UpdateNearestMonsterGroupMembers();
     for (int index = 0; index < static_cast<int>(count); ++index) {
-        W8Monster* monster = (*world->plsMonsters)[index];
+        W8Monster* monster = world->plsMonsters[index];
         if (monster != 0) {
             monster->DetachRepresentation(world);
             monster->SelectLOD(&position);
@@ -82,12 +79,9 @@ void DetachWorldItemMeshes(W8World* world)
     if (world == 0) {
         srAssertFail("pWorld", THREE_D_CPP, 0x135, 0);
     }
-    if (world->plsItems == 0) {
-        srAssertFail("pWorld->plsItems", THREE_D_CPP, 0x136, 0);
-    }
-    unsigned int count = (world->plsItems ? world->plsItems->size() : 0);
+    unsigned int count = world->plsItems.size();
     for (int index = 0; index < static_cast<int>(count); ++index) {
-        W8Item* item = (*world->plsItems)[index];
+        W8Item* item = world->plsItems[index];
         if (item != 0) {
             item->DetachMesh(world);
             item->UpdateAnimation();
@@ -170,8 +164,7 @@ unsigned char BakeInstanceVertexLighting(stModelInstance* instance, srNode* ligh
                 vertex_materials ? static_cast<srMaterial*>(vertex_materials[i].get()) : nullptr;
             material_colors[i] = material ? glm::vec3(material->parms.diffuse) : base_color;
         }
-        glm::vec3 minimum, maximum;
-        mesh->getBoundingBox(minimum, maximum);
+        const auto [minimum, maximum] = mesh->getBoundingBox();
         const auto box = srBoundingBox{minimum, maximum}.transformed(world);
         for (auto* node = lights; node; node = walk_chain ? node->next_sibling_ : nullptr) {
             const auto* light = sr_cast<stLight>(node);
@@ -413,35 +406,22 @@ bool HasLineOfSightToBounds(const srVector3T<float>* origin, srVector3T<float>* 
 
 /* Build the concrete first-party instance used for an already-created mesh. */
 // FUNCTION: WIZ8 0x0046F5C0
-stModelInstance* CreateModelInstance(std::shared_ptr<stMeshModel> model)
+std::unique_ptr<stModelInstance> CreateModelInstance(std::shared_ptr<stMeshModel> model)
 {
-    stModelInstance* instance;
-
-    if (model == 0) {
+    if (model == nullptr) {
         srAssertFail("pstMeshModel", THREE_D_CPP, 0x5bf, 0);
     }
-    instance = new stModelInstance(0);
-    if (instance == 0) {
-        srAssertFail("pstHeadInstance", THREE_D_CPP, 0x5c2, 0);
-    }
+    auto instance = std::make_unique<stModelInstance>(nullptr, srNode::Ownership::independent);
     instance->setName("ST_CreateInstance");
     instance->setModel(model);
     return instance;
 }
 
 // FUNCTION: WIZ8 0x0046F680
-stModelInstance* DuplicateModelInstance(stModelInstance* instance)
+std::unique_ptr<stModelInstance> DuplicateModelInstance(const stModelInstance& instance)
 {
-    stModelInstance* copy;
-
-    if (instance == 0) {
-        srAssertFail("pstModelInstance", THREE_D_CPP, 0x5ce, 0);
-    }
-    copy = new stModelInstance(0);
-    if (copy == 0) {
-        srAssertFail("pstHeadInstance", THREE_D_CPP, 0x5d1, 0);
-    }
-    *copy = *instance;
+    auto copy = std::make_unique<stModelInstance>(nullptr, srNode::Ownership::independent);
+    *copy = instance;
     copy->setName("ST_CreateInstance");
     return copy;
 }
@@ -531,7 +511,7 @@ void WorldRemoveLight(W8World* world, stLight* light)
         srAssertFail("pLight", THREE_D_CPP, 0x279, 0);
     }
     wiz8::erase_first(world->transient_lights, light);
-    wiz8::erase_first(*world->lights_to_update, light);
+    wiz8::erase_first(world->lights_to_update, light);
     if (light != 0) {
         delete light;
     }
@@ -557,11 +537,11 @@ void WorldUpdateProps(W8World* world)
     int index;
     W8Prop* prop;
 
-    if (!world || !world->plsProps) {
-        srAssertFail("pWorld && pWorld->plsProps", "C:\\Projects\\Wizardry 8\\Engine Code\\3d.cpp",
+    if (!world) {
+        srAssertFail("pWorld", "C:\\Projects\\Wizardry 8\\Engine Code\\3d.cpp",
                      0x158, 0);
     }
-    count = static_cast<int>((world->plsProps ? world->plsProps->size() : 0));
+    count = static_cast<int>(world->plsProps.size());
     for (index = 0; index < count; index++) {
         prop = GetWorldProp(world, index);
         if (prop) {
@@ -575,10 +555,10 @@ void WorldUpdateProps(W8World* world)
 // FUNCTION: WIZ8 0x0046df50
 void WorldUpdateLights(W8World* world)
 {
-    int count = static_cast<int>(world->lights_to_update->size());
+    int count = static_cast<int>(world->lights_to_update.size());
 
     for (int index = 0; index < count; ++index) {
-        (*world->lights_to_update)[index]->Update();
+        world->lights_to_update[index]->Update();
     }
 }
 
@@ -587,22 +567,22 @@ void WorldUpdateLights(W8World* world)
    this global instead. */
 
 // FUNCTION: WIZ8 0x0046e580
-void AddMonsterToWorld(W8World*, W8Monster* monster) { g_world->plsMonsters->push_back(monster); }
+void AddMonsterToWorld(W8World*, W8Monster* monster) { g_world->plsMonsters.push_back(monster); }
 
 // FUNCTION: WIZ8 0x0046e5c0
-void AddItemToWorld(W8World*, W8Item* item) { g_world->plsItems->push_back(item); }
+void AddItemToWorld(W8World*, W8Item* item) { g_world->plsItems.push_back(item); }
 
 // FUNCTION: WIZ8 0x0046e5e0
 void RemoveItemFromWorld(W8World*, W8Item* item)
 {
-    wiz8::erase_first(*g_world->plsItems, item);
+    wiz8::erase_first(g_world->plsItems, item);
 }
 
 /* How many props the world holds, and the one at a position - both answers
    discarded by the wrapper itself, which is what makes these thin forwarders
    rather than accessors. */
 // FUNCTION: WIZ8 0x0046e600
-int WorldGetPropCount(W8World*) { return (g_world->plsProps ? g_world->plsProps->size() : 0); }
+int WorldGetPropCount(W8World*) { return g_world->plsProps.size(); }
 
 // FUNCTION: WIZ8 0x0046e620
 W8Prop* WorldGetPropAt(W8World*, int index)
@@ -766,7 +746,7 @@ double WorldGetFarClip(W8World* world)
 // FUNCTION: WIZ8 0x0046E5A0
 void RemoveMonsterFromWorldList(W8World*, W8Monster* monster)
 {
-    wiz8::erase_first(*g_world->plsMonsters, monster);
+    wiz8::erase_first(g_world->plsMonsters, monster);
 }
 
 // FUNCTION: WIZ8 0x0046DC90

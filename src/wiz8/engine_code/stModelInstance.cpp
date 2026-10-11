@@ -293,7 +293,7 @@ void stModelInstance2D::process(const ProcessInfo& info, e_processType)
     ApplyModelViewMatrix(this, renderer, align_angle, align_axis);
 
     srMeshModel* model = static_cast<srMeshModel*>(getModel());
-    model->getTriMesh(mesh);
+    mesh = model->getTriMesh();
 
     if (render_state.glow_enabled) {
         if (glow_material == 0) {
@@ -369,8 +369,8 @@ void stModelInstance2D::SetGlowColors(const glm::vec4& first, const glm::vec4& s
 }
 
 // FUNCTION: WIZ8 0x0047EC80
-stModelInstance::stModelInstance(srNode* parent)
-    : srClassSupport<stModelInstance, srModelInstance, 0x10004>(static_cast<srNode*>(0))
+stModelInstance::stModelInstance(srNode* parent, Ownership ownership)
+    : srClassSupport<stModelInstance, srModelInstance, 0x10004>(static_cast<srNode*>(nullptr), ownership)
 {
     highlight_colour = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
     render_flags = 0;
@@ -450,17 +450,13 @@ void stModelInstance::RenderMeshes(srGERD& renderer)
     stMeshModel* model = static_cast<stMeshModel*>(getModel());
     stMeshModel* first_model = model;
 
-    glm::vec3 center;
-    float radius;
-    model->getBoundingSphere(center, radius);
+    const auto [center, radius] = model->getBoundingSphere();
     if (((model->render_control.value & 0x20) == 0) &&
         (renderer.testBoundingSphere(center, radius) == srGERD::VISIBILITY_OUTSIDE)) {
         return;
     }
     if (((model->render_control.value & 0x10) == 0) && (model->vertex_location_count >= 8)) {
-        glm::vec3 minimum;
-        glm::vec3 maximum;
-        model->getBoundingBox(minimum, maximum);
+        const auto [minimum, maximum] = model->getBoundingBox();
         if (renderer.testBoundingBox(minimum, maximum) == srGERD::VISIBILITY_OUTSIDE) {
             return;
         }
@@ -505,7 +501,7 @@ void stModelInstance::RenderMeshes(srGERD& renderer)
     srNode* child = this;
     while (model != 0) {
         model->SetAmbientColor(ambient_color);
-        model->getTriMesh(mesh);
+        mesh = model->getTriMesh();
         if ((render_flags & RENDER_SHADOW) != 0 && first_pass) {
             RenderShadow(renderer, mesh);
         }
@@ -599,7 +595,7 @@ void stModelInstance::RenderMeshes(srGERD& renderer)
             renderer.setWinding(srGERD::WINDING_POSITIONAL_1);
         }
         while (model != 0) {
-            model->getTriMesh(mesh);
+            mesh = model->getTriMesh();
             if (((model->flags & W8_MESH_SORTED_RENDERING) == 0) || (model == first_model)) {
                 if (mesh.poly_textures[0][0] != 0 ||
                     ((mesh.textures[0][0] != 0) &&
