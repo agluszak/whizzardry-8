@@ -68,65 +68,29 @@ W8MessageDialogBase* g_main_menu_dialog;
 // FUNCTION: WIZ8 0x005bcab0
 unsigned char DrawMainMenuItem(short item, short state)
 {
-    int slot;
-    int top;
-    int bottom;
+    struct ItemBounds { int top, bottom; };
+    static constexpr std::array<ItemBounds, 6> items = {{
+        {0x8a, 0xb1}, {0xbb, 0xe1}, {0xeb, 0x112},
+        {0x11c, 0x145}, {0x14f, 0x193}, {0x1a7, 0x1d3},
+    }};
+    static constexpr std::array<int, 4> sprite_objects = {0xea, 0xec, 0xeb, 0xed};
 
-    switch (item) {
-    case 0:
-        slot = 0;
-        top = 0x8a;
-        bottom = 0xb1;
-        break;
-    case 1:
-        slot = 1;
-        top = 0xbb;
-        bottom = 0xe1;
-        break;
-    case 2:
-        slot = 2;
-        top = 0xeb;
-        bottom = 0x112;
-        if (!g_main_menu_has_save_games) {
-            state = 3;
-        }
-        break;
-    case 3:
-        slot = 3;
-        top = 0x11c;
-        bottom = 0x145;
-        break;
-    case 4:
-        slot = 4;
-        top = 0x14f;
-        bottom = 0x193;
-        break;
-    case 5:
-        slot = 5;
-        top = 0x1a7;
-        bottom = 0x1d3;
-        break;
-    default:
-        return 0;
-    }
+    if (item < 0 || static_cast<std::size_t>(item) >= items.size()) return 0;
+    if (item == 2 && !g_main_menu_has_save_games) state = 3;
 
-    switch (state) {
-    case 0:
-        DrawCatalogImage(GetFrameBufferSurface(), 0xea, 0, slot, 0x98, top, VO_BLT_SRCTRANSPARENCY, 0);
-        break;
-    case 1:
-        DrawCatalogImage(GetFrameBufferSurface(), 0xec, 0, slot, 0x98, top, VO_BLT_SRCTRANSPARENCY, 0);
-        break;
-    case 2:
-        DrawCatalogImage(GetFrameBufferSurface(), 0xeb, 0, slot, 0x98, top, VO_BLT_SRCTRANSPARENCY, 0);
-        break;
-    case 3:
-        DrawCatalogImage(GetFrameBufferSurface(), 0xed, 0, slot, 0x98, top, VO_BLT_SRCTRANSPARENCY, 0);
-        break;
-    }
+    const auto& bounds = items[item];
+    if (state >= 0 && static_cast<std::size_t>(state) < sprite_objects.size())
+        DrawCatalogImage(GetFrameBufferSurface(), sprite_objects[state], 0, item, 0x98,
+                         bounds.top, VO_BLT_SRCTRANSPARENCY, 0);
 
-    InvalidateRegion(0x98, top, 0x1f2, bottom, 0);
+    InvalidateRegion(0x98, bounds.top, 0x1f2, bounds.bottom, 0);
     return 1;
+}
+
+static void DrawMainMenuItems()
+{
+    for (short item = 0; item < 6; ++item) DrawMainMenuItem(item, 0);
+    DrawMainMenuItem(g_main_menu_selected_item, 1);
 }
 
 static void SelectMainMenuItem(short item)
@@ -255,13 +219,7 @@ unsigned char MainMenuScreenEnter(void)
     g_main_menu_selected_item = 0;
     DrawCatalogImage(GetFrameBufferSurface(), 0xe8, 0, 0, 0, 0, VO_BLT_SRCTRANSPARENCY, 0);
 
-    DrawMainMenuItem(0, 0);
-    DrawMainMenuItem(1, 0);
-    DrawMainMenuItem(2, 0);
-    DrawMainMenuItem(3, 0);
-    DrawMainMenuItem(4, 0);
-    DrawMainMenuItem(5, 0);
-    DrawMainMenuItem(g_main_menu_selected_item, 1);
+    DrawMainMenuItems();
 
     text = FormatVersionBanner(false, false, false);
     wide = text;
@@ -333,13 +291,7 @@ void MainMenuScreenFrame()
             g_main_menu_dialog = 0;
             g_main_menu_redraw = true;
             DrawCatalogImage(GetFrameBufferSurface(), 0xe8, 0, 0, 0, 0, VO_BLT_SRCTRANSPARENCY, 0);
-            DrawMainMenuItem(0, 0);
-            DrawMainMenuItem(1, 0);
-            DrawMainMenuItem(2, 0);
-            DrawMainMenuItem(3, 0);
-            DrawMainMenuItem(4, 0);
-            DrawMainMenuItem(5, 0);
-            DrawMainMenuItem(g_main_menu_selected_item, 1);
+            DrawMainMenuItems();
         }
     } else if (IsMessageBoxActive()) {
         ProcessMessageBoxInput();

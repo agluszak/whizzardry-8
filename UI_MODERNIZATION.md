@@ -41,7 +41,8 @@ The main menu's six catalog regions used six free callbacks to handle hover,
 press and activation. The POC binds those same rectangles to six panel-owned
 W8Widget instances, uses DispatchControlRegionEvent, and shares activation
 between keyboard shortcuts and pointer clicks. The old callback functions and
-their declarations are deleted.
+their declarations are deleted. Its sprite-state mapping is table driven, and
+both full menu-redraw paths reuse one loop rather than six calls apiece.
 
 This deliberately still uses W8Region for hit testing: changing the event
 dispatcher, control ownership and region storage simultaneously would hide
