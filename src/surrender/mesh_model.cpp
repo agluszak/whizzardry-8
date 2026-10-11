@@ -6,6 +6,7 @@
 #include <memory>
 #include <span>
 #include <utility>
+#include <stdexcept>
 
 #include "glm/common.hpp"
 #include "glm/geometric.hpp"
@@ -50,15 +51,52 @@ static const char* s_control_names;
 // GLOBAL: SURRENDER 0x100A499C
 static const char* s_flag_names0;
 
-/* Copy to scratch, then reorder the table. */
-template <class T> static void permuteTable(T* table, const w8_ulong* indices, w8_long count)
-{
-    if (count > 0) {
-        std::vector<T> scratch(table, table + count);
-        for (w8_long index = 0; index < count; ++index) {
-            table[index] = scratch[indices[index]];
+// A validated permutation carries both directions for attribute-table reorder
+// and references that point into those tables. Validate before mutating a mesh.
+class MeshPermutation {
+public:
+    MeshPermutation(std::span<const w8_ulong> order, w8_long count) : order(order), inverse(order.size())
+    {
+        if (order.size() != static_cast<std::size_t>(count))
+            throw std::invalid_argument("Mesh permutation length mismatch");
+        std::vector<bool> seen(order.size());
+        for (std::size_t i = 0; i < order.size(); ++i) {
+            if (order[i] >= order.size() || seen[order[i]])
+                throw std::invalid_argument("Invalid mesh permutation");
+            seen[order[i]] = true;
+            inverse[order[i]] = static_cast<w8_ulong>(i);
         }
     }
+
+    template<class T> void apply(T* table) const
+    {
+        if (!table || order.empty()) return;
+        const std::vector<T> original(table, table + order.size());
+        for (std::size_t i = 0; i < order.size(); ++i) table[i] = original[order[i]];
+    }
+
+    void remapCorners(std::span<srVector3i> triangles, bool retain_external) const
+    {
+        for (auto& triangle : triangles)
+            for (auto* corner : {&triangle.x, &triangle.y, &triangle.z}) {
+                if (static_cast<w8_ulong>(*corner) < inverse.size()) *corner = inverse[*corner];
+                else if (!retain_external) throw std::out_of_range("Mesh corner index out of range");
+            }
+    }
+
+    std::span<const w8_ulong> order;
+    std::vector<w8_ulong> inverse;
+};
+
+// Required channels are checked for presence by the caller; optional channels
+// are skipped. Each call retains its own expression and source diagnostic.
+template<class Vector>
+static void VerifyFiniteChannel(const Vector* values, w8_long count, const char* expression, int line)
+{
+    if (!values || count <= 0) return;
+    for (const auto& value : std::span(values, static_cast<std::size_t>(count)))
+        if (!isFinite(value))
+            srAssertFail(expression, "D:\\srsdk1x\\sources\\corelib\\srMeshModel.cpp", line, 0);
 }
 
 /* Bounds-checked pass/side slots; out-of-range indices are ignored. */
@@ -667,115 +705,57 @@ void srMeshModel::render(srGERD& renderer)
 }
 
 // FUNCTION: SURRENDER 0x100418C0
-void srMeshModel::reindexPolygons(const w8_ulong* indices)
+void srMeshModel::reindexPolygons(std::span<const w8_ulong> indices)
 {
-    w8_long index;
-    w8_long pass;
-    if (polygon_count != 0) {
-        permuteTable(getPolyEq(), indices, polygon_count);
-        permuteTable(getPolyVertex(), indices, polygon_count);
-        for (pass = 0; pass < pass_count; ++pass) {
-            if (getPolyUVIndex(pass, 0) != 0) {
-                permuteTable(getPolyUVIndex(pass, 0), indices, polygon_count);
-            }
-            if (getPolyShader(pass, 0) != 0) {
-                permuteTable(getPolyShader(pass, 0), indices, polygon_count);
-            }
-            for (w8_long layer = 0; layer < 2; ++layer) {
-                if (getPolyTexture(pass, layer, 0) != 0) {
-                    permuteTable(getPolyTexture(pass, layer, 0), indices, polygon_count);
-                }
-            }
-        }
-        if (active_polygon_count != 0 && getActivePolygonTable(0) != 0) {
-            w8_ulong* table = getActivePolygonTable(1);
-            std::vector<w8_ulong> forward(polygon_count);
-            for (index = 0; index < polygon_count; ++index) {
-                forward[indices[index]] = index;
-            }
-            for (index = 0; index < active_polygon_count; ++index) {
-                table[index] = forward[table[index]];
-            }
-        }
-        setDirtyAll();
+    const MeshPermutation permutation(indices, polygon_count);
+    if (!polygon_count) return;
+    permutation.apply(getPolyEq());
+    permutation.apply(getPolyVertex());
+    for (w8_long pass = 0; pass < pass_count; ++pass) {
+        permutation.apply(getPolyUVIndex(pass, 0));
+        permutation.apply(getPolyShader(pass, 0));
+        for (w8_long layer = 0; layer < 2; ++layer)
+            permutation.apply(getPolyTexture(pass, layer, 0));
     }
+    if (active_polygon_count && getActivePolygonTable(0)) {
+        auto* table = getActivePolygonTable(1);
+        for (w8_long i = 0; i < active_polygon_count; ++i)
+            table[i] = permutation.inverse[table[i]];
+    }
+    setDirtyAll();
 }
 
 // FUNCTION: SURRENDER 0x10042230
-void srMeshModel::reindexVertices(const w8_ulong* indices)
+void srMeshModel::reindexVertices(std::span<const w8_ulong> indices)
 {
-    w8_long component;
-    w8_long pass;
-    w8_long polygon;
-    w8_long side;
-    w8_long table;
-    w8_long index;
-    if (vertex_location_count != 0) {
-        std::vector<w8_ulong> forward(vertex_location_count);
-        for (index = 0; index < vertex_location_count; ++index) {
-            forward[indices[index]] = index;
-        }
-        permuteTable(getVertexNormal(), indices, vertex_location_count);
-        permuteTable(getVertexLoc(), indices, vertex_location_count);
-        w8_ulong* shade = getVertexShadeIndex(0);
-        if (shade != 0) {
-            std::vector<w8_ulong> copy(shade, shade + vertex_location_count);
-            for (index = 0; index < vertex_location_count; ++index) {
-                shade[index] = forward[copy[indices[index]]];
-            }
-            for (index = 0; index < vertex_location_count; ++index) {
-                w8_ulong value = shade[index];
-                if (value < (w8_ulong)index) {
-                    shade[index] = shade[value];
-                    shade[value] = value;
-                }
+    const MeshPermutation permutation(indices, vertex_location_count);
+    if (!vertex_location_count) return;
+    permutation.apply(getVertexNormal());
+    permutation.apply(getVertexLoc());
+    if (auto* shade = getVertexShadeIndex(0)) {
+        permutation.apply(shade);
+        for (w8_long i = 0; i < vertex_location_count; ++i) shade[i] = permutation.inverse[shade[i]];
+        for (w8_long i = 0; i < vertex_location_count; ++i) {
+            const auto value = shade[i];
+            if (value < static_cast<w8_ulong>(i)) {
+                shade[i] = shade[value];
+                shade[value] = value;
             }
         }
-        for (pass = 0; pass < pass_count; ++pass) {
-            for (side = 0; side < 2; ++side) {
-                if (getVertexMaterial(pass, static_cast<e_side>(side), 0) != 0) {
-                    permuteTable(getVertexMaterial(pass, static_cast<e_side>(side), 0), indices,
-                                   vertex_location_count);
-                }
-            }
-            for (table = 0; table < 2; ++table) {
-                if (getVertexTexCoords(pass, table, 0) != 0) {
-                    permuteTable(getVertexTexCoords(pass, table, 0), indices,
-                                 vertex_location_count);
-                }
-            }
-            if (getVertexDIG(pass, 0) != 0) {
-                permuteTable(getVertexDIG(pass, 0), indices, vertex_location_count);
-            }
-            if (getVertexSCG(pass, 0) != 0) {
-                permuteTable(getVertexSCG(pass, 0), indices, vertex_location_count);
-            }
-            if (getVertexDCG(pass, 0) != 0) {
-                permuteTable(getVertexDCG(pass, 0), indices, vertex_location_count);
-            }
-            if (getPolyUVIndex(pass, 0) != 0) {
-                srVector3i* uv = getPolyUVIndex(pass, 1);
-                for (polygon = 0; polygon < polygon_count; ++polygon, ++uv) {
-                    int* corner = &uv->x;
-                    for (component = 0; component < 3; ++component, ++corner) {
-                        int index = *corner;
-                        if (index < vertex_location_count) {
-                            index = forward[index];
-                        }
-                        *corner = index;
-                    }
-                }
-            }
-        }
-        srVector3i* vertices = getPolyVertex();
-        for (polygon = 0; polygon < polygon_count; ++polygon, ++vertices) {
-            int* corner = &vertices->x;
-            for (component = 0; component < 3; ++component, ++corner) {
-                *corner = forward[*corner];
-            }
-        }
-        setDirtyAll();
     }
+    for (w8_long pass = 0; pass < pass_count; ++pass) {
+        for (w8_long side = 0; side < 2; ++side)
+            permutation.apply(getVertexMaterial(pass, static_cast<e_side>(side), 0));
+        for (w8_long table = 0; table < 2; ++table)
+            permutation.apply(getVertexTexCoords(pass, table, 0));
+        permutation.apply(getVertexDIG(pass, 0));
+        permutation.apply(getVertexSCG(pass, 0));
+        permutation.apply(getVertexDCG(pass, 0));
+        if (getPolyUVIndex(pass, 0))
+            permutation.remapCorners({getPolyUVIndex(pass, 1), static_cast<std::size_t>(polygon_count)}, true);
+    }
+    permutation.remapCorners({getPolyVertex(), static_cast<std::size_t>(polygon_count)}, false);
+    setDirtyAll();
 }
 
 // FUNCTION: SURRENDER 0x10040C40
@@ -837,21 +817,11 @@ void srMeshModel::verify(srRuntimeClass::e_verify mode)
         if (t.poly_equations == 0) {
             srAssertFail("t.pEq", "D:\\srsdk1x\\sources\\corelib\\srMeshModel.cpp", 0x5f1, 0);
         }
-        for (i = 0; i < t.polygon_count; ++i) {
-            if (!isFinite(t.poly_equations[i])) {
-                srAssertFail("t.pEq[i].isValid()", "D:\\srsdk1x\\sources\\corelib\\srMeshModel.cpp",
-                             0x5f6, 0);
-            }
-        }
+        VerifyFiniteChannel(t.poly_equations, t.polygon_count, "t.pEq[i].isValid()", 0x5f6);
         if (t.positions == 0) {
             srAssertFail("t.vLoc", "D:\\srsdk1x\\sources\\corelib\\srMeshModel.cpp", 0x5fa, 0);
         }
-        for (i = 0; i < t.vertex_count; ++i) {
-            if (!isFinite(t.positions[i])) {
-                srAssertFail("t.vLoc[i].isValid()",
-                             "D:\\srsdk1x\\sources\\corelib\\srMeshModel.cpp", 0x5fe, 0);
-            }
-        }
+        VerifyFiniteChannel(t.positions, t.vertex_count, "t.vLoc[i].isValid()", 0x5fe);
         if (t.normals == 0) {
             srAssertFail("t.vNorm", "D:\\srsdk1x\\sources\\corelib\\srMeshModel.cpp", 0x602, 0);
         }
@@ -862,40 +832,11 @@ void srMeshModel::verify(srRuntimeClass::e_verify mode)
             }
         }
         for (p = 0; p < pass_count; ++p) {
-            if (t.dig[p] != 0) {
-                for (i = 0; i < t.vertex_count; ++i) {
-                    if (!isFinite(t.dig[p][i])) {
-                        srAssertFail("t.DIG[p][i].isValid()",
-                                     "D:\\srsdk1x\\sources\\corelib\\srMeshModel.cpp", 0x611, 0);
-                    }
-                }
-            }
-            if (t.dcg[p] != 0) {
-                for (i = 0; i < t.vertex_count; ++i) {
-                    if (!isFinite(t.dcg[p][i])) {
-                        srAssertFail("t.DCG[p][i].isValid()",
-                                     "D:\\srsdk1x\\sources\\corelib\\srMeshModel.cpp", 0x615, 0);
-                    }
-                }
-            }
-            if (t.scg[p] != 0) {
-                for (i = 0; i < t.vertex_count; ++i) {
-                    if (!isFinite(t.scg[p][i])) {
-                        srAssertFail("t.SCG[p][i].isValid()",
-                                     "D:\\srsdk1x\\sources\\corelib\\srMeshModel.cpp", 0x619, 0);
-                    }
-                }
-            }
+            VerifyFiniteChannel(t.dig[p], t.vertex_count, "t.DIG[p][i].isValid()", 0x611);
+            VerifyFiniteChannel(t.dcg[p], t.vertex_count, "t.DCG[p][i].isValid()", 0x615);
+            VerifyFiniteChannel(t.scg[p], t.vertex_count, "t.SCG[p][i].isValid()", 0x619);
             for (j = 0; j < 2; ++j) {
-                if (t.texcoords[p][j] != 0) {
-                for (i = 0; i < t.vertex_count; ++i) {
-                    if (!isFinite(t.texcoords[p][j][i])) {
-                            srAssertFail("t.vUV[p][j][i].isValid()",
-                                         "D:\\srsdk1x\\sources\\corelib\\srMeshModel.cpp", 0x620,
-                                         0);
-                        }
-                    }
-                }
+                VerifyFiniteChannel(t.texcoords[p][j], t.vertex_count, "t.vUV[p][j][i].isValid()", 0x620);
                 if (t.poly_textures[p][j] != 0) {
                     for (i = 0; i < t.polygon_count; ++i) {
                         if (!t.poly_textures[p][j][i]) {

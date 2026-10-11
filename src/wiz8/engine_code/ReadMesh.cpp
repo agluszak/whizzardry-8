@@ -168,8 +168,8 @@ void OptimizeMeshOrder(srMeshModel* model)
         return first_use[left] < first_use[right];
     });
 
-    model->reindexPolygons(polygons.data());
-    model->reindexVertices(vertices.data());
+    model->reindexPolygons(polygons);
+    model->reindexVertices(vertices);
 }
 
 // FUNCTION: WIZ8 0x00488650
