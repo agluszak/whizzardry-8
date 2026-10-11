@@ -295,7 +295,7 @@ static void procedural_meshes()
     REQUIRE((std::abs(modeler.getMaxVertexDist() - std::sqrt(0.5)) < 1e-5));
     modeler.planarMap(0, 0, {});
     for (w8_ulong i = 0; i < modeler.getTriangleCount(); ++i) {
-        REQUIRE((modeler.getTriangle(i, triangle)));
+        triangle = *modeler.getTriangle(i);
         for (const auto& vertex : triangle.vertices)
             REQUIRE((glm::length(vertex.uv[0] - glm::vec2(vertex.position.x + 0.5f,
                                                        0.5f - vertex.position.y)) < 1e-5f));
@@ -306,14 +306,14 @@ static void procedural_meshes()
     }
     modeler.autoSmooth(0.3, 1);
     srModeler::Triangle first, second;
-    modeler.getTriangle(0, first);
-    modeler.getTriangle(1, second);
+    first = *modeler.getTriangle(0);
+    second = *modeler.getTriangle(1);
     REQUIRE(((first.flags & second.flags) != 0));
     second.shaders[0].value ^= 1;
     modeler.setTriangle(1, second);
     modeler.autoSmooth(0.3, 0);
-    modeler.getTriangle(0, first);
-    modeler.getTriangle(1, second);
+    first = *modeler.getTriangle(0);
+    second = *modeler.getTriangle(1);
     REQUIRE(((first.flags & second.flags) == 0));
     modeler.addFromModeler(modeler);
     REQUIRE((modeler.getTriangleCount() == 24));
@@ -321,10 +321,12 @@ static void procedural_meshes()
     modeler.move({10, 20, 30});
     REQUIRE((modeler.getAxialBounds(srModeler::AXIS_X) == std::pair{9.f, 11.f}));
 
+    REQUIRE_FALSE(modeler.getTriangle(modeler.getTriangleCount()).has_value());
+
     modeler.createSphere(8);
     REQUIRE((modeler.getTriangleCount() == 128));
     for (w8_ulong i = 0; i < modeler.getTriangleCount(); ++i) {
-        modeler.getTriangle(i, triangle);
+        triangle = *modeler.getTriangle(i);
         for (const auto& vertex : triangle.vertices)
             REQUIRE((std::abs(glm::length(vertex.position) - 0.5f) < 1e-5f));
         const auto normal =
@@ -338,7 +340,7 @@ static void procedural_meshes()
     modeler.createTorus(8, 6, 0.4);
     REQUIRE((modeler.getTriangleCount() == 96));
     for (w8_ulong i = 0; i < modeler.getTriangleCount(); ++i) {
-        modeler.getTriangle(i, triangle);
+        triangle = *modeler.getTriangle(i);
         for (const auto& vertex : triangle.vertices) {
             const float ring = glm::length(glm::vec2(vertex.position)) - 0.5f;
             REQUIRE((std::abs(ring * ring + vertex.position.z * vertex.position.z - 0.04f) < 1e-5f));
@@ -361,7 +363,7 @@ static void procedural_meshes()
     modeler.tesselateEdges(1.1);
     double area = 0;
     for (w8_ulong i = 0; i < modeler.getTriangleCount(); ++i) {
-        modeler.getTriangle(i, triangle);
+        triangle = *modeler.getTriangle(i);
         for (int edge = 0; edge < 3; ++edge)
             REQUIRE((glm::distance(triangle.vertices[edge].position,
                                 triangle.vertices[(edge + 1) % 3].position) <= 1.10001f));
@@ -404,7 +406,7 @@ static void procedural_meshes()
             REQUIRE((modeler.getTriangleCount() == 3));
             area = 0;
             for (w8_ulong i = 0; i < modeler.getTriangleCount(); ++i) {
-                modeler.getTriangle(i, triangle);
+                triangle = *modeler.getTriangle(i);
                 area += glm::length(glm::cross(
                             triangle.vertices[1].position - triangle.vertices[0].position,
                             triangle.vertices[2].position - triangle.vertices[0].position)) *
