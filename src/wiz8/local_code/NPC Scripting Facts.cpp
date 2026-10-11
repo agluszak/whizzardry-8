@@ -45,7 +45,6 @@
 #include "wiz8/local_code/PartyImport.h"
 #include "wiz8/local_screens/JournalScreen.h"
 #include "Item.h"
-#include "compat/ptr32.h"
 #include "conditions.h"
 #include "layouts/targeting.h"
 #include "layouts/world.h"

@@ -43,7 +43,6 @@
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/application.h"
 #include "wiz8/engine_code/GameData.h"
-#include "compat/ptr32.h"
 #include "conditions.h"
 #include "gameplay_modifiers.h"
 #include "layouts/character.h"

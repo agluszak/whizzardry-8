@@ -6,9 +6,12 @@ do not need the original compiler layout.
 - Replace the file/event/timer facades in `include/wiz8/compat/` and
   `src/compat/` with native filesystem operations, SDL events and a game loop.
   Preserve case-insensitive asset lookup, SLF access and the writable overlay.
-- Separate save/asset records from runtime objects, then replace `W8_PTR32`
-  and its process-wide pointer table with ordinary pointers and containers.
-  Keep explicit fixed-width disk fields and round-trip fixtures.
+- Save and game-data records that hold live objects now have fixed-width
+  disk images and `wiz8::retail::Record` codecs (`retail_save_records.h`,
+  `retail_geometry_records.h`); runtime types use ordinary pointers. Next:
+  give those runtime types owning members (NPC stock lists and characters,
+  monster group member lists, world item chains) instead of raw pointers
+  managed by hand.
 - Continue separating the remaining numeric save records and engine resource
   identifiers from their runtime representations. Game text and editable
   controls now own UTF-8 strings; retail UTF-16LE records have independent

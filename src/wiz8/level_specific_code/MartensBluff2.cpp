@@ -39,7 +39,6 @@
 #include "random.h"
 #include "Navigator.h"
 #include "compat/compiler.h"
-#include "compat/ptr32.h"
 #include "conditions.h"
 #include "dice.h"
 #include "glm/ext/matrix_float3x3.hpp"

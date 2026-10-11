@@ -18,6 +18,7 @@
 #include <iterator>
 #include <utility>
 
+#include "wiz8/retail_save_records.h"
 #include "wiz8/retail_text_records.h"
 #include "wiz8/containers.h"
 #include "wiz8/compat/debug_heap.h"
@@ -86,7 +87,6 @@
 #include "AnimRep.hpp"
 #include "Item.h"
 #include "compat/native.h"
-#include "compat/ptr32.h"
 #include "conditions.h"
 #include "gameplay_modifiers.h"
 #include "input.h"
@@ -282,7 +282,7 @@ int PeekGroupLevel(W8Chunk& chunk)
 unsigned int ReadWorldItemCount(W8Chunk& chunk)
 {
     const auto count = chunk.ReadValue<unsigned int>();
-    if (count > static_cast<std::uint64_t>(chunk.RemainingBytes()) / sizeof(W8WorldItem))
+    if (count > static_cast<std::uint64_t>(chunk.RemainingBytes()) / sizeof(wiz8::retail::WorldItem))
         throw std::runtime_error("invalid item section count");
     return count;
 }
@@ -341,7 +341,7 @@ void ApplyStatusHeader(const W8StatusHeader& header)
    pointer-list vectors and the result state are rebuilt, not saved. */
 template<class Entry, class Field> void ForEachMonsterControlField(Entry& effect, Field&& field)
 {
-    static_assert(sizeof(W8TargetSource) == 0x34 && sizeof(W8CombatSlot) == 0x20);
+    static_assert(sizeof(W8TargetSource) == 0x34);
     field(effect.kind);
     field(effect.turns_remaining);
     field(effect.Source);
@@ -359,7 +359,6 @@ template<class Entry, class Field> void ForEachMonsterControlField(Entry& effect
    sections. Version 7 writes all of them. */
 constexpr unsigned int kMonsterRecordVersion = 7;
 constexpr unsigned int kMonsterGroupRecordVersion = 3;
-constexpr unsigned int kMonsterGroupRecordBytes = 0x12b;
 constexpr unsigned int kMonsterHasMovement = 0x20000000;
 
 struct SavedMonsterScript {
@@ -476,9 +475,15 @@ struct SavedMonsterOrders {
 
     static SavedMonsterOrders Capture(const W8Monster& monster)
     {
-        SavedMonsterOrders orders{monster.defining_orders, monster.order_mode, monster.orders_finished,
-                                  monster.deaf, monster.patrol_distance, monster.patrol_variation,
-                                  monster.patrol_index, monster.vector};
+        SavedMonsterOrders orders;
+        orders.defining_orders = monster.defining_orders;
+        orders.order_mode = monster.order_mode;
+        orders.orders_finished = monster.orders_finished;
+        orders.deaf = monster.deaf;
+        orders.patrol_distance = monster.patrol_distance;
+        orders.patrol_variation = monster.patrol_variation;
+        orders.patrol_index = monster.patrol_index;
+        orders.points = monster.vector;
         srVector3T<float> direction;
         direction.Set(monster.direction_x, monster.direction_y, monster.direction_z);
         orders.direction = direction;
@@ -579,8 +584,7 @@ void WriteMonsterRecord(W8Chunk& chunk, unsigned int list_index)
         info->derived = MonsterGetYaw(&monster);
     }
     chunk.WriteValue(kMonsterRecordVersion);
-    chunk.WriteValue(static_cast<unsigned int>(sizeof(*info)));
-    chunk.WriteBytes(info, sizeof(*info));
+    wiz8::retail::write_sized(chunk, *info);
 
     const unsigned char has_script = monster.script != nullptr;
     chunk.WriteValue(has_script);
@@ -1074,8 +1078,7 @@ try
         W8MonsterGroup* group = GetMonsterGroupByListIndex(list_index(index, gXStatus.monster_groups.size()));
         if (!group) return false;
         group->version = kMonsterGroupRecordVersion;
-        chunks->WriteValue(kMonsterGroupRecordBytes);
-        chunks->WriteBytes(group, kMonsterGroupRecordBytes);
+        wiz8::retail::write_sized(*chunks, *group);
         const unsigned char encountered = std::ranges::contains(gXStatus.encounter_groups, group);
         chunks->WriteValue(encountered);
     }
@@ -1148,9 +1151,7 @@ try
 {
     auto owner = AllocateZeroed<W8MonsterGroup>();
     auto& group = *owner;
-    const auto record_size = chunk->ReadValue<unsigned int>();
-    if (record_size > sizeof(W8MonsterGroup)) return false;
-    chunk->ReadBytes(&group, record_size);
+    wiz8::retail::read_sized(*chunk, group);
     const bool is_encounter = group.version >= 2 && chunk->ReadValue<unsigned char>() != 0;
     if (group.version < 3) group.forced_neutral = false;
 
@@ -1186,9 +1187,7 @@ try
     auto owner = AllocateZeroed<W8MonsterInfo>();
     auto& info = *owner;
     const auto version = chunk->ReadValue<unsigned int>();
-    const auto record_size = chunk->ReadValue<unsigned int>();
-    if (record_size > sizeof(W8MonsterInfo)) return false;
-    chunk->ReadBytes(&info, record_size);
+    wiz8::retail::read_sized(*chunk, info);
     std::optional<SavedMonsterScript> script;
     if (chunk->ReadValue<unsigned char>()) script = SavedMonsterScript::Read(*chunk);
     info.fActive = false;
@@ -1279,7 +1278,7 @@ try
             item->entity_flags = static_cast<W8ItemRep*>(item->p3D->m_pRep)->flags;
         }
         if (g_level_status_loading) item->entity_flags &= ~W8_ITEM_ENTITY_RADAR_SEEN;
-        handle.write(item, sizeof(W8WorldItem));
+        wiz8::retail::write(handle, *item);
     }
     return true;
 }
@@ -1295,13 +1294,12 @@ try
     std::vector<W8WorldItem> staged;
     bool has_next;
     do {
+        const auto image = wiz8::retail::read_image<W8WorldItem>(handle);
+        has_next = image.next != 0;
         W8WorldItem& item = staged.emplace_back();
-        handle.read_exact(&item, sizeof(W8WorldItem));
-        has_next = W8SerializedPointerPresent(item.next);
-        item.next = nullptr;
+        wiz8::retail::decode_image(image, item);
         item.sector_id = -2;
         item.fActive = false;
-        item.p3D = nullptr;
         if (g_level_status_loading) item.entity_flags &= ~W8_ITEM_ENTITY_RADAR_SEEN;
     } while (has_next);
 
@@ -1518,7 +1516,10 @@ void SaveMonsterControlSpellEffect(W8Chunk* chunks)
 {
     W8SpellEffectEntry* lure = FindMonsterControlSpellEffect();
     if (!lure) srAssertFail("pLure", LOADSAVEGAME_CPP, 0xdb3, 0);
-    ForEachMonsterControlField(*lure, [&](const auto& field) { chunks->WriteValue(field); });
+    ForEachMonsterControlField(*lure, [&]<class Field>(const Field& field) {
+        if constexpr (std::is_same_v<Field, W8CombatSlot>) wiz8::retail::write(*chunks, field);
+        else chunks->WriteValue(field);
+    });
 }
 
 /* The quick-save slot to write next: the first missing one, otherwise the
@@ -1716,6 +1717,9 @@ catch (const std::exception&) { return false; }
 void LoadMonsterControlSpellEffect(W8Chunk* chunks)
 {
     auto effect = std::make_unique<W8SpellEffectEntry>();
-    ForEachMonsterControlField(*effect, [&](auto& field) { chunks->ReadValue(field); });
+    ForEachMonsterControlField(*effect, [&]<class Field>(Field& field) {
+        if constexpr (std::is_same_v<Field, W8CombatSlot>) wiz8::retail::read_exact(*chunks, field);
+        else chunks->ReadValue(field);
+    });
     AddSpellEffect(effect.release());
 }

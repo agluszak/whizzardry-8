@@ -135,7 +135,6 @@
 #include "application.h"
 #include "camera_motion.h"
 #include "compat/native.h"
-#include "compat/ptr32.h"
 #include "dialog_code/DialogBase.h"
 #include "dialog_code/DialogTextArea.h"
 #include "dialog_code/DialogTextEntry.h"

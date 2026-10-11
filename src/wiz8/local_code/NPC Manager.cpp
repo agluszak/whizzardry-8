@@ -14,6 +14,7 @@
 #include <utility>
 
 #include "wiz8/unicode.h"
+#include "wiz8/retail_save_records.h"
 #include "wiz8/retail_text_records.h"
 #include "wiz8/containers.h"
 #include "wiz8/compat/unaligned.h"
@@ -69,7 +70,6 @@
 #include "wiz8/engine_code/GameData.h"
 #include "Item.h"
 #include "compat/native.h"
-#include "compat/ptr32.h"
 #include "dice.h"
 #include "equipment_slots.h"
 #include "float_constants.h"
@@ -830,7 +830,6 @@ std::string GetNpcDisplayName(W8NpcState* npc)
 // FUNCTION: WIZ8 0x0050ADA0
 W8NpcState* FindNpcStateByName(std::string_view name)
 {
-    int index;
     std::string candidate;
 
     for (auto* npc : g_npc_states) {
@@ -1185,7 +1184,7 @@ try
     file.write(&count, 4);
     for (index = 0; index < count; ++index) {
         npc = g_npc_states[index];
-        file.write(npc, sizeof(*npc));
+        wiz8::retail::write(file, *npc);
         if (npc->character != 0) {
             size = wiz8::retail::kCharacterBytes;
             file.write(&size, 4);
@@ -1207,7 +1206,7 @@ catch (const std::exception&) { return false; }
 bool SaveNpcItemLists(wiz8::File& file)
 try
 {
-    for (int npc_index = 0; npc_index < g_npc_states.size(); ++npc_index) {
+    for (std::size_t npc_index = 0; npc_index < g_npc_states.size(); ++npc_index) {
         W8NpcState* npc = g_npc_states[npc_index];
         const unsigned int item_count = npc->items != nullptr ? npc->items->size() : 0;
         file.write(&item_count, sizeof(item_count));
@@ -1463,17 +1462,14 @@ void LoadNpcStates(wiz8::File& file)
     file.read_exact(&version, 1);
     file.read_exact(&count, 4);
     if (count > static_cast<unsigned int>(std::numeric_limits<int>::max()) ||
-        count > (file.size() - file.tell()) / sizeof(W8NpcState)) {
+        count > (file.size() - file.tell()) / sizeof(wiz8::retail::NpcState)) {
         throw std::runtime_error("invalid NPC state count");
     }
     for (loaded = 0; loaded < count; ++loaded) {
+        const auto image = wiz8::retail::read_image<W8NpcState>(file);
+        const bool has_character = image.character != 0;
         W8NpcState disk_state;
-        file.read_exact(&disk_state, sizeof(disk_state));
-        const bool has_character = W8SerializedPointerPresent(disk_state.character);
-        disk_state.script_file = nullptr;
-        disk_state.items = nullptr;
-        disk_state.character = nullptr;
-        disk_state.record = nullptr;
+        wiz8::retail::decode_image(image, disk_state);
         const unsigned int record_id = disk_state.name_style == 0 ? loaded : disk_state.name_style;
         if (record_id >= gXStatus.uiNpcsInDatabase ||
             record_id > std::numeric_limits<unsigned char>::max()) {
@@ -1544,7 +1540,7 @@ try
     using ItemListOwner = std::unique_ptr<std::vector<W8NpcItemEntry*>, decltype(&DestroyNpcItemList)>;
     std::vector<ItemListOwner> pending;
     pending.reserve(g_npc_states.size());
-    for (int npc_index = 0; npc_index < g_npc_states.size(); ++npc_index) {
+    for (std::size_t npc_index = 0; npc_index < g_npc_states.size(); ++npc_index) {
         unsigned int item_count;
         file.read_exact(&item_count, sizeof(item_count));
         if (item_count > static_cast<unsigned int>(std::numeric_limits<int>::max()) ||
@@ -1564,7 +1560,7 @@ try
         }
         pending.push_back(std::move(items));
     }
-    for (int npc_index = 0; npc_index < g_npc_states.size(); ++npc_index) {
+    for (std::size_t npc_index = 0; npc_index < g_npc_states.size(); ++npc_index) {
         W8NpcState* npc = g_npc_states[npc_index];
         DestroyNpcItemList(npc->items);
         npc->items = pending[npc_index].get();

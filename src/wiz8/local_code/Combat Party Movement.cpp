@@ -22,7 +22,6 @@
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "timer.h"
 #include "compat/native.h"
-#include "compat/ptr32.h"
 #include "conditions.h"
 #include "layouts/character.h"
 #include "layouts/game_status.h"

@@ -9,7 +9,6 @@
 #include <vector>
 #include <span>
 
-#include "compat/ptr32.h"
 #include "wiz8/monster_actions.h"
 #include "wiz8/local_code/Factions.h"
 
@@ -21,8 +20,7 @@ struct W8MonsterInfo;
 
 bool DestroyMonsterGroup(W8MonsterGroup* monster_group, W8MonsterInfo* monster_info);
 
-#pragma pack(push, 1)
-/* One monster group record, read whole by LoadMonsterGroup. */
+/* A live monster group. Saves store it as wiz8::retail::MonsterGroup. */
 struct W8MonsterGroup {
     std::span<const int> MemberIds() const
     {
@@ -42,7 +40,7 @@ struct W8MonsterGroup {
 
     int group_id;              /* GroupIndex ID lookup key */
     unsigned int member_count; /* decremented when members leave */
-    W8_PTR32(std::vector<int>) monsters; /* location IDs of live members */
+    std::vector<int>* monsters; /* location IDs of live members */
     /* Refreshed together by the targeting visibility pass. */
     int visible_member_count;
     int selectable_member_count;
@@ -116,7 +114,6 @@ struct W8MonsterGroup {
     bool encounter_ended;
     unsigned char unknown_d4[0x57];
 };
-#pragma pack(pop)
 
 unsigned int GetMonsterGroupIndexByID(int caller_line, const char* caller_file, int group_id,
                                       bool assert_on_failure);

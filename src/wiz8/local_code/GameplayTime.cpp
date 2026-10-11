@@ -59,7 +59,6 @@
 #include "random.h"
 #include "soundman.h"
 #include "compat/native.h"
-#include "compat/ptr32.h"
 #include "gameplay_modifiers.h"
 #include "layouts/item_instance.h"
 #include "layouts/main_game_screen.h"

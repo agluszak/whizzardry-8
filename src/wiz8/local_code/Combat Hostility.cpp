@@ -34,7 +34,6 @@
 #include "wiz8/local_code/MonsterAI.h"
 #include "wiz8/utility.h"
 #include "character_skills.h"
-#include "compat/ptr32.h"
 #include "conditions.h"
 #include "difficulty.h"
 #include "gameplay_modifiers.h"

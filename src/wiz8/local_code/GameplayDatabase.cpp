@@ -18,7 +18,6 @@
 #include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/filesystem.h"
-#include "compat/ptr32.h"
 #include "layouts/item_tables.h"
 #include "retail_records.h"
 

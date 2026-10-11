@@ -44,7 +44,6 @@
 #include "timer.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "compat/native.h"
-#include "compat/ptr32.h"
 #include "conditions.h"
 #include "equipment_slots.h"
 #include "layouts/item_instance.h"

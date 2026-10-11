@@ -13,7 +13,6 @@
 #include "wiz8/xstatus.h"
 #include "random.h"
 #include "Navigator.h"
-#include "compat/ptr32.h"
 #include "local_code/Factions.h"
 #include "surrender/srMath.h"
 

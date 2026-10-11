@@ -41,7 +41,6 @@
 #include "wiz8/filesystem.h"
 #include "random.h"
 #include "compat/native.h"
-#include "compat/ptr32.h"
 #include "conditions.h"
 #include "difficulty.h"
 #include "layouts/main_game_screen.h"

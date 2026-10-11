@@ -75,7 +75,6 @@
 #include "Font.h"
 #include "input.h"
 #include "wiz8/application.h"
-#include "compat/ptr32.h"
 #include "geometry.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_float3.hpp"

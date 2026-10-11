@@ -45,7 +45,6 @@
 #include "wiz8/sr_api.h"
 #include "wiz8/world_cursor.h"
 #include "wiz8/xstatus.h"
-#include "compat/ptr32.h"
 #include "dice.h"
 #include "layouts/gameplay_databases.h"
 #include "layouts/main_game_screen.h"

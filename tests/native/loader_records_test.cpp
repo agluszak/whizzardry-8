@@ -24,6 +24,7 @@
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/LevelFile.h"
 #include <variant>
+#include "wiz8/retail_geometry_records.h"
 #include "wiz8/engine_code/ReadMesh.h"
 #include "wiz8/engine_code/ReadLevel.h"
 #include "wiz8/engine_code/Camera.h"
@@ -338,7 +339,7 @@ static void geometry()
     append(bytes, header);
     const std::array<srVector3, 3> vertices{srVector3(0, 0, 0), srVector3(1, 0, 0), srVector3(0, 1, 0)};
     append(bytes, vertices);
-    W8GDSurface surface{};
+    wiz8::retail::GDSurface surface{};
     surface.vertex_indices[0] = 0; surface.vertex_indices[1] = 1; surface.vertex_indices[2] = 2;
     surface.plane.normal.Set(0, 0, 1);
     surface.flags = 2; // dominant Z axis for the spatial query
@@ -402,7 +403,7 @@ static void geometry()
     }
     auto bad = bytes;
     int invalid = 3;
-    std::memcpy(bad.data() + header.size() + sizeof(vertices) + offsetof(W8GDSurface, vertex_indices),
+    std::memcpy(bad.data() + header.size() + sizeof(vertices) + offsetof(wiz8::retail::GDSurface, vertex_indices),
                 &invalid, 4);
     store("geometry.bin", bad);
     file = wiz8::open_file("geometry.bin");

@@ -17,7 +17,6 @@
 #include "wiz8/xstatus.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/utility.h"
-#include "compat/ptr32.h"
 #include "conditions.h"
 #include "gameplay_modifiers.h"
 #include "layouts/item_instance.h"

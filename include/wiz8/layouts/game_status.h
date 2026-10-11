@@ -3,7 +3,6 @@
 
 #include <string>
 
-#include "compat/ptr32.h"
 #include "wiz8/difficulty.h"
 
 #include "wiz8/gameplay_modifiers.h"
@@ -21,10 +20,12 @@ struct W8Character;
 
 enum { W8_PARTY_SLOT_COUNT = 8 };
 
+/* The status block's version and the process-owned party buffers it points
+   at; the pointers are never saved. */
 struct W8StatusBuffers {
     float save_version;
-    W8_PTR32(W8Character) Char;
-    W8_PTR32(W8PartySlotRow) XChar;
+    W8Character* Char;
+    W8PartySlotRow* XChar;
 };
 
 enum { W8_CHARACTER_SERIALIZED_SIZE = 0x1862 };
