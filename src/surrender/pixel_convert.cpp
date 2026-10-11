@@ -2,7 +2,6 @@
 #include <algorithm>
 #include <iterator>
 #include <cstring>
-#include <cstdio>
 
 #include "glm/geometric.hpp"
 #include "surrender/srPixelConvert.h"
@@ -318,21 +317,16 @@ int srPixelConvert::PixelFormat::isValid() const
 }
 
 // FUNCTION: SURRENDER 0x10007E90
-void srPixelConvert::PixelFormat::getName(char* const name)
+std::string srPixelConvert::PixelFormat::getName() const
 {
     static const char channel_letters[] = "RGBAYUVAIXXAPXXA";
 
     if (fourcc != 0) {
-        name[0] = static_cast<char>(fourcc);
-        name[1] = static_cast<char>(fourcc >> 8);
-        name[2] = static_cast<char>(fourcc >> 0x10);
-        name[3] = static_cast<char>(fourcc >> 0x18);
-        name[4] = '\0';
-        return;
+        char code[5] = {static_cast<char>(fourcc), static_cast<char>(fourcc >> 8),
+                        static_cast<char>(fourcc >> 16), static_cast<char>(fourcc >> 24), 0};
+        return code;
     }
-    if (name == 0) {
-        return;
-    }
+
     w8_ulong shifts[4] = {red_shift, green_shift, blue_shift, alpha_shift};
     unsigned char bits[4] = {red_bits, green_bits, blue_bits, alpha_bits};
     unsigned char order[4] = {0, 1, 2, 3};
@@ -351,23 +345,17 @@ void srPixelConvert::PixelFormat::getName(char* const name)
             }
         }
     }
-    char text[16];
-    int length = 0;
-    for (int k = 0; k < 4; k++) {
-        if (bits[k] != 0) {
-            text[length++] = channel_letters[color_model * 4 + order[k]];
-        }
-    }
-    for (int j = 0; j < 4; j++) {
-        if (bits[j] != 0) {
-            text[length++] = static_cast<char>(bits[j] + '0');
-        }
-    }
-    text[length] = '\0';
-    char tail[8];
-    sprintf(tail, "/%d", pixel_size * 8 + 8);
-    strcat(text, tail);
-    strcpy(name, text);
+
+    std::string name;
+    for (int k = 0; k < 4; k++)
+        if (bits[k] != 0)
+            name.push_back(channel_letters[color_model * 4 + order[k]]);
+    for (int j = 0; j < 4; j++)
+        if (bits[j] != 0)
+            name.push_back(static_cast<char>(bits[j] + '0'));
+    name += '/';
+    name += std::to_string(pixel_size * 8 + 8);
+    return name;
 }
 
 // FUNCTION: SURRENDER 0x10008020
