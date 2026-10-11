@@ -1164,10 +1164,9 @@ void W8LockInteraction::AttemptForce()
             }
             wiz8::sound::play(s_lock_forcing_fail);
             ShowString(fmt::format("{} {}", character->name, g_localized_strings[0x7ad]));
-            if (!IsPartySlotEligible(g_status.selected_character)) {
-                level = -1;
-            } else if (!character->skills[W8_SKILL_LOCKS_TRAPS].active &&
-                       character->skills[W8_SKILL_LOCKS_TRAPS].level == 0) {
+            if (!IsPartySlotEligible(g_status.selected_character) ||
+                (!character->skills[W8_SKILL_LOCKS_TRAPS].active &&
+                 character->skills[W8_SKILL_LOCKS_TRAPS].level == 0)) {
                 level = -1;
             } else {
                 level = character->skills[W8_SKILL_LOCKS_TRAPS].level;
