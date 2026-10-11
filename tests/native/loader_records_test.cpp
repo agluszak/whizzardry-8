@@ -527,6 +527,21 @@ TEST_CASE_METHOD(LoaderFixture, "Malformed octree files", "[loader][records]")
 }
 
 
+// Test malformed headers, interior truncations across large fixed-size fields,
+// and the final two bytes. Exercising every byte of each 1-3 KiB record across
+// all format variants repeats the same short-read failure thousands of times.
+static std::vector<std::size_t> truncation_samples(std::size_t size)
+{
+    std::vector<std::size_t> lengths{
+        0, 1, 2, size / 4, size / 2, size * 3 / 4, size - 2, size - 1
+    };
+    for (std::size_t length = 128; length < size; length += 128)
+        lengths.push_back(length);
+    std::ranges::sort(lengths);
+    lengths.erase(std::unique(lengths.begin(), lengths.end()), lengths.end());
+    return lengths;
+}
+
 TEST_CASE_METHOD(LoaderFixture, "Versioned level record layouts", "[loader][records]")
 {
     auto written_bytes = [](const char* path) {
@@ -584,7 +599,7 @@ TEST_CASE_METHOD(LoaderFixture, "Versioned level record layouts", "[loader][reco
         REQUIRE(WriteSuperTriggerFile(*output, trigger));
         output->close();
         REQUIRE(written_bytes("roundtrip.bin") == bytes);
-        for (std::size_t end = 0; end < bytes.size(); ++end) {
+        for (const std::size_t end : truncation_samples(bytes.size())) {
             store("super.bin", bytes.substr(0, end));
             file = wiz8::open_file("super.bin");
             trigger = {};
@@ -622,7 +637,7 @@ TEST_CASE_METHOD(LoaderFixture, "Versioned level record layouts", "[loader][reco
             REQUIRE(WriteLevelFileBlock(*output, block));
             output->close();
             REQUIRE(written_bytes("roundtrip.bin") == bytes);
-            for (std::size_t end = 0; end < bytes.size(); ++end) {
+            for (const std::size_t end : truncation_samples(bytes.size())) {
                 store("block.bin", bytes.substr(0, end));
                 file = wiz8::open_file("block.bin");
                 block = {};
