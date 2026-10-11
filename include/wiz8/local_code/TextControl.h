@@ -1,10 +1,11 @@
-#include "local_code/ControlsRect.h"
-#include "compat/compiler.h"
-#include <string_view>
-#include <string>
-#include <memory>
 #pragma once
 
+#include <memory>
+#include <string>
+#include <string_view>
+
+#include "compat/compiler.h"
+#include "local_code/ControlsRect.h"
 #include "wiz8/local_code/Widget.h"
 #include "wiz8/local_code/TextBuffer.h"
 

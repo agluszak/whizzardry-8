@@ -10,7 +10,6 @@
 #include <string_view>
 #include <memory>
 #include <sstream>
-#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
@@ -24,7 +23,9 @@
 
 #include "compat/compiler.h"
 #include "compat/native.h"
+#include "glm/common.hpp" // IWYU pragma: keep
 #include "glm/ext/vector_float2.hpp"
+#include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
 #include "wiz8/surface_storage.h"
 #include "surrender/srMath.h"
@@ -759,10 +760,9 @@ void RenderScene(srScene* scene, srCamera* camera, const int* viewport, bool pre
 #endif
     }
     if (!preserve_fog) {
-        const auto fog = g_world ? g_world->static_scene->getFogColor()
-                                 : srVector3(0.0f, 0.0f, 0.0f).glmValue();
-        scene->setFogColor(std::clamp(fog.x, 0.0f, 1.0f), std::clamp(fog.y, 0.0f, 1.0f),
-                           std::clamp(fog.z, 0.0f, 1.0f));
+        const auto fog = g_world ? g_world->static_scene->getFogColor() : glm::vec3(0);
+        // NOLINTNEXTLINE(misc-include-cleaner)
+        scene->setFogColor(glm::clamp(fog, 0.0f, 1.0f));
     }
     scene->render(*g_gerd, camera);
     g_gerd->flushRenderers();
@@ -843,10 +843,9 @@ void RenderFrame(void)
         if (!IsSkyEnabled()) {
             GetWorldLightValue(g_world, &clear_color);
         } else {
-            const auto fog = g_world->static_scene->getFogColor();
             static_cast<srVector3&>(clear_color) =
-                srVector3(std::clamp(fog.x, 0.0f, 1.0f), std::clamp(fog.y, 0.0f, 1.0f),
-                          std::clamp(fog.z, 0.0f, 1.0f));
+                // NOLINTNEXTLINE(misc-include-cleaner)
+                glm::clamp(g_world->static_scene->getFogColor(), 0.0f, 1.0f);
         }
     }
 
@@ -1089,10 +1088,9 @@ void SetRendererAutoFlipEnabled(bool enabled)
 void GetWorldColour(EnvironmentColour* colour)
 {
     if (g_world != 0) {
-        const auto fog = g_world->static_scene->getFogColor();
         static_cast<srVector3&>(*colour) =
-            srVector3(std::clamp(fog.x, 0.0f, 1.0f), std::clamp(fog.y, 0.0f, 1.0f),
-                      std::clamp(fog.z, 0.0f, 1.0f));
+            // NOLINTNEXTLINE(misc-include-cleaner)
+            glm::clamp(g_world->static_scene->getFogColor(), 0.0f, 1.0f);
         return;
     }
     colour->SetZero();
@@ -1136,8 +1134,7 @@ srModelInstance* MakePolygonBrush(srNode* parent, std::shared_ptr<srColorSurface
     srModeler::MappingInfo mapping(srModeler::AXIS_X, srModeler::AXIS_Y, mapping_width,
                                    mapping_height, mapping_x, mapping_y);
     g_modeler->planarMap(0, 0, mapping);
-    g_modeler->scale(
-        srVector3(static_cast<float>(width), static_cast<float>(height), 1.0f).glmValue());
+    g_modeler->scale(glm::vec3(static_cast<float>(width), static_cast<float>(height), 1.0f));
     g_modeler->convert(*model, 1);
     g_modeler->discard();
 
@@ -1188,8 +1185,7 @@ stModelInstance2D* CreateSpriteFromTexture(std::shared_ptr<srTextureIFace> textu
                                    g_float_one - (step + step), g_float_one - (step + step), step,
                                    step);
     g_modeler->planarMap(0, 0, mapping);
-    g_modeler->scale(
-        srVector3(static_cast<float>(width), static_cast<float>(height), 1.0f).glmValue());
+    g_modeler->scale(glm::vec3(static_cast<float>(width), static_cast<float>(height), 1.0f));
     g_modeler->convert(*model, 1);
     g_modeler->discard();
 
@@ -2525,8 +2521,7 @@ stModelInstance2D* CreateColoredPolygonSprite(int width, int height, const glm::
     auto model = std::make_shared<srMeshModel>(0L, 0L);
 
     g_modeler->createGrid(1, 1);
-    g_modeler->scale(
-        srVector3(static_cast<float>(scale_x), static_cast<float>(scale_y), 1.0f).glmValue());
+    g_modeler->scale(glm::vec3(static_cast<float>(scale_x), static_cast<float>(scale_y), 1.0f));
     g_modeler->convert(*model, 1);
     g_modeler->discard();
 
@@ -3083,7 +3078,7 @@ srNode* MakePosterQuad(std::shared_ptr<srTextureIFace> texture, float width, flo
     srModeler::MappingInfo mapping(srModeler::AXIS_X, srModeler::AXIS_Y, g_float_one - extent_w,
                                    g_float_one - extent_h, extent_w, extent_h);
     g_modeler->planarMap(0, 0, mapping);
-    g_modeler->scale(srVector3(width, height, 1.0f).glmValue());
+    g_modeler->scale(glm::vec3(width, height, 1.0f));
     g_modeler->convert(*model, 1);
     g_modeler->discard();
 
