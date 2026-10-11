@@ -1,5 +1,4 @@
 #include <fmt/format.h>
-#include <SDL3/SDL_rect.h>
 #include <algorithm>
 #include <string_view>
 #include <vector>
@@ -12,12 +11,10 @@
 #include "wiz8/dialog_code/DialogButton.h"
 #include "wiz8/dialog_code/MessageDialogBase.h"
 #include "wiz8/dialog_code/DialogInterface.h"
-#include "wiz8/sr_api.h"
 #include "english.h"
 #include "mousesystem.h"
 #include "Button System.h"
 #include "Font.h"
-#include "Video2.h"
 #include "dialog_code/DialogBase.h"
 #include "input.h"
 

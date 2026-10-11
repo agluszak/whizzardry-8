@@ -3,6 +3,7 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
 #include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_mouse.h>
 #include <algorithm>
 #include <array>
 #include <cstring>
@@ -27,7 +28,9 @@
 #include "wiz8/video_object_catalog.h"
 #include "Button System.h"
 #include "wiz8/dialog_code/DialogButton.h"
-#include "wiz8/dialog_code/ButtonUserData.h"
+#include "wiz8/dialog_code/DialogScrollBar.h"
+#include "wiz8/dialog_code/MessageDialogBase.h"
+#include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "Font.h"
 #include "input.h"
@@ -587,8 +590,9 @@ void formatted_strings()
 }
 
 void button_image_fixture(const std::filesystem::path& root, std::string name, unsigned count = 9,
-                           bool app_data = false)
+                           bool app_data = false, unsigned width = 1, unsigned height = 1)
 {
+    REQUIRE((width > 0 && width < 128 && height > 0));
     std::replace(name.begin(), name.end(), '\\', '/');
     const auto path = root / name;
     std::filesystem::create_directories(path.parent_path());
@@ -599,10 +603,12 @@ void button_image_fixture(const std::filesystem::path& root, std::string name, u
     };
     STCIHeader header{};
     memcpy(header.cID, STCI_ID_STRING, STCI_ID_LEN);
-    header.uiOriginalSize = count;
-    header.uiStoredSize = count * 3;
+    const unsigned image_size = (width + 2) * height;
+    header.uiOriginalSize = count * width * height;
+    header.uiStoredSize = count * image_size;
     header.fFlags = STCI_INDEXED | STCI_ETRLE_COMPRESSED;
-    header.usWidth = header.usHeight = 1;
+    header.usWidth = width;
+    header.usHeight = height;
     header.Indexed.uiNumberOfColours = 256;
     header.Indexed.usNumberOfSubImages = count;
     header.ubDepth = 8;
@@ -613,15 +619,18 @@ void button_image_fixture(const std::filesystem::path& root, std::string name, u
     write(palette.data(), STCI_8BIT_PALETTE_SIZE);
     std::vector<STCISubImage> regions(count);
     for (unsigned index = 0; index < count; ++index) {
-        regions[index].uiDataOffset = index * 3;
-        regions[index].uiDataLength = 3;
-        regions[index].usWidth = regions[index].usHeight = 1;
+        regions[index].uiDataOffset = index * image_size;
+        regions[index].uiDataLength = image_size;
+        regions[index].usWidth = width;
+        regions[index].usHeight = height;
     }
     write(regions.data(), regions.size() * sizeof(STCISubImage));
-    for (unsigned index = 0; index < count; ++index) {
-        const UINT8 pixels[]{1, 1, 0};
-        write(pixels, sizeof(pixels));
-    }
+    std::vector<UINT8> pixels(width + 2, 1);
+    pixels.front() = width;
+    pixels.back() = 0;
+    for (unsigned index = 0; index < count; ++index)
+        for (unsigned row = 0; row < height; ++row)
+            write(pixels.data(), pixels.size());
     if (app_data) {
         const UINT8 bytes[]{7, 8, 9, 10};
         write(bytes, sizeof(bytes));
@@ -1173,6 +1182,76 @@ TEST_CASE("Dialog controls own interaction without legacy GUI buttons", "[owner]
     dispatch_mouse(LEFT_BUTTON_UP, 15, 15, false, false);
     REQUIRE(!closing);
     MSYS_Shutdown();
+}
+
+TEST_CASE("Modal confirmations and scrollbars dispatch through their native owners", "[owner]")
+{
+    const std::filesystem::path root = make_temporary_directory("wiz8-modal-controls");
+    const auto assets = root / "assets";
+    for (const auto* image : {"DialogBorder.STI", "DialogEdge.STI", "DialogConfirmation.STI"})
+        button_image_fixture(assets / "Data" / "Dialogs", image);
+    button_image_fixture(assets, "background.sti");
+    button_image_fixture(assets, "arrows.sti", 12, false, 2, 3);
+    button_image_fixture(assets, "track.sti", 1, false, 5, 100);
+    w8_native::configure_paths({assets.string(), (root / "user").string(), {"", "", ""}});
+    REQUIRE(MSYS_Init());
+    PushButtonSoundScheme(0, true);
+    static std::vector<int> positions;
+    positions.clear();
+    {
+        W8DialogScrollBar bar;
+        const W8DialogScrollBar::Resources resources{"arrows.sti", "track.sti", 0,
+            [](W8DialogScrollBar*, int position) { positions.push_back(position); }};
+        REQUIRE(bar.CreateControls(&resources));
+        REQUIRE(RegisteredButtonCount() == 0);
+        bar.SetLayout(100, 20, 20, 5, 10, 30);
+        gusMouseYPos = 400;
+        dispatch_mouse(LEFT_BUTTON_DOWN, 101, 116, true, false);
+        dispatch_mouse(LEFT_BUTTON_UP, 101, 116, false, false);
+        REQUIRE(positions == std::vector<int>{17});
+        dispatch_mouse(LEFT_BUTTON_DOWN, 101, 21, true, false);
+        dispatch_mouse(LEFT_BUTTON_REPEAT, 101, 21, true, false);
+        dispatch_mouse(LEFT_BUTTON_UP, 101, 21, false, false);
+        REQUIRE(positions == std::vector<int>{17, 16, 15});
+        bar.SetLayout(100, 20, 1, 0, 10, 30);
+        dispatch_mouse(LEFT_BUTTON_DOWN, 101, 21, true, false);
+        dispatch_mouse(LEFT_BUTTON_UP, 101, 21, false, false);
+        REQUIRE(positions.size() == 3);
+        bar.SetLayout(100, 20, 20, 5, 10, 30);
+        dispatch_mouse(LEFT_BUTTON_DOWN, 101, 118, true, false);
+        dispatch_mouse(LEFT_BUTTON_UP, 101, 118, false, false);
+        REQUIRE(positions.back() == 6);
+    }
+    auto saved_frame = std::move(GetFrameBufferSurface());
+    auto frame = CreateVideoSurface(640, 480, 16);
+    REQUIRE(frame);
+    GetFrameBufferSurface() = std::move(*frame);
+    Font font{SGPVObject{}};
+    auto* old_font = std::exchange(g_dialog_interface_font, &font);
+    class MessageDialog final : public W8MessageDialogBase {
+    public:
+        using W8MessageDialogBase::m_confirm_button;
+        using W8MessageDialogBase::m_cancel_button;
+    };
+    for (const bool accept : {false, true}) {
+        MessageDialog dialog;
+        dialog.SetOrigin(10, 10);
+        dialog.SetExtent(100, 80);
+        dialog.SetBackground("background.sti", 0);
+        dialog.SetMessage("", 0, 0, true, true, false, false, 100, 80);
+        REQUIRE(dialog.CreateControls() == 0);
+        auto& control = accept ? dialog.m_confirm_button : dialog.m_cancel_button;
+        dispatch_mouse(LEFT_BUTTON_DOWN, control.GetX(), control.GetY(), true, false);
+        REQUIRE(dialog.is_open);
+        dispatch_mouse(LEFT_BUTTON_UP, control.GetX(), control.GetY(), false, false);
+        REQUIRE(!dialog.is_open);
+        REQUIRE(dialog.accepted == accept);
+    }
+    g_dialog_interface_font = old_font;
+    GetFrameBufferSurface() = std::move(saved_frame);
+    REQUIRE(RegisteredButtonCount() == 0);
+    MSYS_Shutdown();
+    std::filesystem::remove_all(root);
 }
 
 TEST_CASE("Mouse regions use SDL click counts, not a local timer", "[owner]")

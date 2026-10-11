@@ -1,3 +1,4 @@
+#include <SDL3/SDL_mouse.h>
 #include <SDL3/SDL_log.h>
 #include <SDL3/SDL_rect.h>
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-04, 2026-10-06, 2026-10-07.

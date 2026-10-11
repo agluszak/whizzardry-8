@@ -2,7 +2,6 @@
 #include <algorithm>
 
 #include "Button System.h"
-#include "Types.h"
 #include "wiz8/dialog_code/DialogButton.h"
 #include "wiz8/dialog_code/DialogScrollBar.h"
 #include "Video2.h"
@@ -44,6 +43,7 @@ bool W8DialogScrollBar::CreateControls(const Resources* resources)
     }
     m_up_button.m_activation = m_down_button.m_activation = m_track_button.m_activation =
         DialogButtonActivation::Press;
+    m_up_button.m_repeat_enabled = m_down_button.m_repeat_enabled = true;
     m_on_scroll = resources->on_scroll;
     m_initialized = true;
     m_visible = false;
@@ -166,12 +166,11 @@ void W8DialogScrollBar::ScrollToMouse(int mouse_y)
 {
     if (m_view_height / m_entry_height < m_entry_count && m_entry_count != -1 &&
         m_first_visible_entry != -1) {
-        mouse_y = std::clamp(mouse_y, m_track_bounds.top, m_track_bounds.bottom);
         int top = m_track_bounds.top;
         int range = m_track_bounds.bottom - top - m_thumb_button.GetHeight();
         if (range <= 0) return;
         const int last_entry = m_entry_count - m_view_height / m_entry_height;
-        m_first_visible_entry = std::clamp(last_entry * (mouse_y - top) / range, 0, last_entry);
+        m_first_visible_entry = last_entry * std::clamp(mouse_y - top, 0, range) / range;
         if (m_on_scroll) {
             m_on_scroll(this, m_first_visible_entry);
         }

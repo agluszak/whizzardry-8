@@ -18,7 +18,6 @@
 #include <algorithm>
 
 #include "Types.h"
-#include "input.h"
 #include "mousesystem.h"
 #include "vobject.h"
 #include "vobject_blitters.h"

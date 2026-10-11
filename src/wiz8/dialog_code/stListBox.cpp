@@ -10,7 +10,6 @@
 #include "mousesystem.h"
 #include "Button System.h"
 #include "Types.h"
-#include "Video2.h"
 #include "dialog_code/DialogBase.h"
 
 /* Retail Dialog Code\stListBox.cpp - the SGP button callbacks that give

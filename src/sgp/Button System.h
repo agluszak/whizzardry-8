@@ -124,8 +124,6 @@ struct ButtonAppearance {
     INT8 bTextYSubOffSet = 0;
     BOOLEAN fShiftText = TRUE;
     INT16 sWrappedWidth = -1;
-
-
 };
 struct ButtonVisualState {
     bool enabled = true;
@@ -215,7 +213,6 @@ void DrawButtonFromPtr(GUI_BUTTON* b);
 
 //Base button types
 // Text can be overlaid on generic and quick buttons.
-
 
 extern BOOLEAN gfRenderHilights;
 #define EnableHilightsAndHelpText() gfRenderHilights = TRUE;

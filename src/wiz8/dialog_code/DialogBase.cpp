@@ -1,4 +1,3 @@
-#include <SDL3/SDL_rect.h>
 #include <cstdlib>
 #include <cstring>
 #include <string_view>

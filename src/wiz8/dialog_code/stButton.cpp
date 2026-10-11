@@ -1,8 +1,8 @@
 #include "Font.h"
+#include <SDL3/SDL_mouse.h>
 #include <string_view>
 #include <utility>
 #include <algorithm>
-#include <vector>
 
 #include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/dialog_code/DialogButton.h"
@@ -10,9 +10,7 @@
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/engine_code/Video2.h"
-#include "wiz8/sr_api.h"
 #include "Button System.h"
-#include "input.h"
 #include "mousesystem.h"
 #include "Types.h"
 
@@ -129,7 +127,11 @@ W8DialogButton::W8DialogButton()
 }
 
 // FUNCTION: WIZ8 0x005db260
-W8DialogButton::~W8DialogButton() = default;
+W8DialogButton::~W8DialogButton()
+{
+    m_mouse_region.reset();
+    m_mouse_region.dialog_button = nullptr;
+}
 
 void W8DialogButton::Reset()
 {
@@ -174,6 +176,7 @@ bool W8DialogButton::ConfigureTextButton(std::string_view text, Font& font, shor
     m_left_callback = left_callback;
     m_right_callback = m_move_callback = m_double_click_callback = nullptr;
     m_left_toggles = m_right_toggles = m_repeat_enabled = false;
+    m_activation = DialogButtonActivation::Release;
     m_tooltip_index = W8_DIALOG_BUTTON_NO_TOOLTIP;
     ConfigureRegion(MSYS_PRIORITY_HIGHEST);
     return true;
