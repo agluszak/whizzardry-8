@@ -221,7 +221,9 @@ void fillsAndKeys()
 {
     for (unsigned bits : {8, 16, 32})
     {
-        auto surface = CreateCpuSurface(3, 3, bits, 0x7c00, 0x3e0, 0x1f);
+        const auto format = bits == 8 ? SDL_PIXELFORMAT_INDEX8 :
+                            bits == 16 ? SDL_PIXELFORMAT_XRGB1555 : SDL_PIXELFORMAT_ARGB8888;
+        auto surface = CreateCpuSurface(3, 3, format);
         const unsigned bytes = bits / 8;
         const auto& storage = *surface->surface;
         REQUIRE((storage.pitch >= int(3 * bytes) && storage.pitch % 4 == 0));
@@ -241,8 +243,8 @@ void fillsAndKeys()
                     REQUIRE(after[index] == before[index]);
             }
     }
-    auto src = CreateCpuSurface(2, 1, 32, 0xff0000, 0xff00, 0xff, 0xff000000);
-    auto dest = CreateCpuSurface(2, 1, 32, 0xff0000, 0xff00, 0xff, 0xff000000);
+    auto src = CreateCpuSurface(2, 1, SDL_PIXELFORMAT_ARGB8888);
+    auto dest = CreateCpuSurface(2, 1, SDL_PIXELFORMAT_ARGB8888);
     const UINT32 input[] {0x00123456, 0xff123456};
     const auto& storage = *src->surface;
     memcpy(storage.pixels, input, sizeof(input));
