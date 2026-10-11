@@ -1,41 +1,24 @@
-#include "wiz8/audio_resources.h"
-#include <string_view>
 #pragma once
 
-#include <stddef.h>
+#include <cstdint>
+#include <string_view>
+#include <vector>
 
-/* Mouth-open interval list loaded from a voice sample's companion .gap file by
-   LoadMouthGapTrack. Each range is a (start, end) pair in milliseconds on the
-   SoundGetPosition clock; UpdateMouthGapTrack sets mouth_open while playback
-   is strictly inside a range. */
-typedef struct W8MouthGapRange {
-    unsigned int start_ms;
-    unsigned int end_ms;
-    struct W8MouthGapRange* next;
-} W8MouthGapRange;
+#include "wiz8/audio_resources.h"
 
-typedef struct W8MouthGapTrack {
-    unsigned int range_count;
-    int unused; /* written to zero at load, never read */
-    W8MouthGapRange* head;
-    /* Initialized to the first range at load; no retail reader. */
-    W8MouthGapRange* cursor;
-    unsigned char
-        mouth_open; /* bool-byte-ok: C gap.c uses this one-byte state and VC6 C has no bool */
-    unsigned char padding_11[3];
-} W8MouthGapTrack;
+/* A (start, end) millisecond interval on the playback clock while which the
+   speaker's mouth is held open. */
+struct W8MouthGapRange {
+    std::uint32_t start_ms;
+    std::uint32_t end_ms;
+};
 
-W8_ABI_ASSERT(sizeof(W8MouthGapRange) == 0x0c, "W8MouthGapRange_size");
-W8_ABI_ASSERT(offsetof(W8MouthGapTrack, range_count) == 0x00, "W8MouthGapTrack_range_count_offset");
-W8_ABI_ASSERT(offsetof(W8MouthGapTrack, unused) == 0x04, "W8MouthGapTrack_unused_04_offset");
-W8_ABI_ASSERT(offsetof(W8MouthGapTrack, head) == 0x08, "W8MouthGapTrack_head_offset");
-W8_ABI_ASSERT(offsetof(W8MouthGapTrack, cursor) == 0x0c, "W8MouthGapTrack_cursor_offset");
-W8_ABI_ASSERT(offsetof(W8MouthGapTrack, mouth_open) == 0x10, "W8MouthGapTrack_mouth_open_offset");
-W8_ABI_ASSERT(sizeof(W8MouthGapTrack) == 0x14, "W8MouthGapTrack_size");
+struct W8MouthGapTrack {
+    std::vector<W8MouthGapRange> ranges;
+    bool mouth_open = false;
+};
 
-
-/* Engine Code\gap.c: mouth-gap companions to voice .wav files. */
-void LoadMouthGapTrack(std::string_view path, W8MouthGapTrack* track);              /* 0x005E2D10 */
-// Tracks must initially be zero-initialized; loading replaces their ranges.
-void FreeMouthGapTrack(W8MouthGapTrack* track);                          /* 0x005E2EF0 */
-void UpdateMouthGapTrack(wiz8::sound::Playback playback, W8MouthGapTrack* track); /* 0x005E2F40 */
+/* Load the ranges of <voice dir>\GAP\<voice name>.gap; empty when it has none. */
+W8MouthGapTrack LoadMouthGapTrack(std::string_view voice_path);
+/* Set mouth_open while the playback position is strictly inside a range. */
+void UpdateMouthGapTrack(wiz8::sound::Playback playback, W8MouthGapTrack& track);

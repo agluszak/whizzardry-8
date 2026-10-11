@@ -656,15 +656,14 @@ void SpeakNpcSubquote(W8NpcScriptQuote* quote, unsigned char subquote_index,
                     wiz8::sound::playback_time(g_npc_scripting.speech.voice_handle)
                         .value_or(wiz8::sound::PlaybackTime{});
                 entry->voice_time_remaining_ms = playback_time.total_ms;
-                LoadMouthGapTrack(
-                    voice_path,
-                    &gXStatus.monster_manager_entries[g_npc_scripting.session.npc->group_index].mouth_gap);
+                gXStatus.monster_manager_entries[g_npc_scripting.session.npc->group_index].mouth_gap =
+                    LoadMouthGapTrack(voice_path);
                 g_status.buffers.XChar[g_npc_scripting.session.npc->group_index].pending_event_type =
                     g_npc_scripting.session.current_quote_index;
                 entry->pending_event_type = g_npc_scripting.session.current_quote_index;
                 g_npc_interaction_state->last_notice_npc_kind = g_npc_scripting.session.npc->partner_index;
             } else {
-                LoadMouthGapTrack(voice_path, &g_npc_scripting.speech.gap_track);
+                g_npc_scripting.speech.gap_track = LoadMouthGapTrack(voice_path);
             }
         }
         g_npc_scripting.session.quote_active = true;

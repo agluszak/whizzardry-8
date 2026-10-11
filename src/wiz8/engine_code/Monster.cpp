@@ -2814,7 +2814,7 @@ void W8Monster::StartTalking(bool animate_mouth)
         talking = true;
         this->animate_mouth = animate_mouth;
         mouth_frame_clock = w8_get_ticks();
-        mouth_open = 0;
+        mouth_open = false;
         talk_state = -1;
         talk_start = w8_get_ticks();
         talk_duration = Random(2000) + 2000;
@@ -3198,7 +3198,7 @@ void W8Monster::UpdateRepresentation(W8World* world)
     }
 
     if (talking && animate_mouth) {
-        if (mouth_open != 0) {
+        if (mouth_open) {
             model = GetCurrentModelInstance();
             if (model != 0 &&
                 (mouth = static_cast<stModelInstance*>(model)->FindMouthTexture()) != 0) {

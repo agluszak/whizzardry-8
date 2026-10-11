@@ -281,9 +281,9 @@ public:
     uint64_t talk_start;
     unsigned int talk_duration;
     int talk_state;
-    /* 0x214: the current mouth state the dialogue update copies out of the
-       active W8MouthGapTrack; forces mouth frame 0 while open. */
-    unsigned char mouth_open; // bool-byte-ok: copied raw from the C gap track byte
+    /* The mouth state the dialogue update copies out of the active
+       W8MouthGapTrack; forces mouth frame 0 while open. */
+    bool mouth_open;
     /* 0x215: set while the monster is deactivated (active cleared). */
     bool inactive;
     /* 0x216: raised at construction; cleared once AddMonsterToWorld and the

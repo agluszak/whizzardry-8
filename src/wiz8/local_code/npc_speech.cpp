@@ -36,7 +36,7 @@ void StopNpcVoice(W8NpcSpeech& speech)
         wiz8::sound::stop(speech.voice_handle);
         speech.stopping = false;
     }
-    FreeMouthGapTrack(&speech.gap_track);
+    speech.gap_track = {};
 }
 
 // FUNCTION: WIZ8 0x00525E60
@@ -58,7 +58,7 @@ bool IsNpcSpeechHoldOver(const W8NpcSpeech& speech)
 
 void UpdateNpcMouth(W8NpcSpeech& speech, W8Monster* monster)
 {
-    UpdateMouthGapTrack(speech.voice_handle, &speech.gap_track);
+    UpdateMouthGapTrack(speech.voice_handle, speech.gap_track);
     if (monster != 0) {
         monster->mouth_open = speech.gap_track.mouth_open;
     }
