@@ -386,7 +386,8 @@ void W8ListBoxDialog::Draw()
         m_cancel_button.Draw();
     }
     if (!m_scrollable)
-        m_up_button.m_dirty = m_down_button.m_dirty = m_slider_button.m_dirty = false;
+        m_up_button.m_dirty = m_down_button.m_dirty = m_slider_button.m_dirty =
+            m_third_text_button.m_dirty = false;
     SetFont(*g_dialog_interface_font);
     rect = m_area_button.GetBounds();
     {

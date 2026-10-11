@@ -1,4 +1,5 @@
 #include <SDL3/SDL_rect.h>
+#include <vector>
 
 #include "wiz8/dialog_code/DialogButton.h"
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
