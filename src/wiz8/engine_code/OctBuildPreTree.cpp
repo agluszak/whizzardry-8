@@ -1,3 +1,5 @@
+#include <limits>
+#include <stdexcept>
 #include <utility>
 #include "wiz8/engine_code/mesh_links.h"
 #include <array>
@@ -42,10 +44,6 @@ w8_ulong g_poly_list_count;
 void** g_poly_list;
 // GLOBAL: WIZ8 0x0065be68
 W8GDSurface** g_gd_surface_list;
-// GLOBAL: WIZ8 0x0065be5c
-unsigned short* g_region_id_list;
-// GLOBAL: WIZ8 0x0065be6c
-unsigned short g_region_id_count;
 
 // GLOBAL: WIZ8 0x005ed034
 const float g_region_boundary_tolerance = -0.009999999776482582f;
@@ -485,7 +483,7 @@ bool OctBuildPreTree::updateRegionMap(const W8OctSpatialState& state,
     if (state.m_depth >= 16) return false;
     bool changed = false;
     const auto* point = std::get_if<glm::vec3>(&geometry);
-    auto& map = point ? *inside_region_map : *overlap_region_map;
+    auto& map = point ? particle_regions.regions : prop_regions.regions;
     const auto updateRegion = [&](unsigned short region) {
         if (region == 0) return;
         RemoveIndexValue(map, region, value);
@@ -1434,28 +1432,41 @@ void OctBuildPreTree::ValidateRegionBounds(const W8BoundingBox* region_bounds)
 
 // The first zero-terminated run contains unassigned items. Each region then
 // contributes one run, with zero lookup offsets for regions that have no items.
-template<class Value>
-static OctreeMeshLinks packRegionLists(std::unordered_multimap<unsigned short, short>& regions,
-                                       std::span<const Value> always_visible, w8_ulong region_count)
+OctreeMeshLinks OctRegionObjectLinks::packedLinks(std::size_t region_count) const
 {
+    constexpr auto limit = std::numeric_limits<unsigned short>::max();
+    if (region_count > limit) throw std::length_error("Too many octree mesh regions");
     OctreeMeshLinks links;
     links.lookup.resize(region_count);
-    for (const auto id : always_visible) links.records.push_back(static_cast<unsigned short>(id));
-    links.records.push_back(0);
-    for (w8_ulong index = 1; index < region_count; ++index) {
-        const auto region = static_cast<unsigned short>(index);
-        auto entry = regions.end();
-        bool first = true;
-        while ((entry = NextIndexValue(regions, region, entry)) != regions.end()) {
-            if (first) {
-                links.lookup[index] = static_cast<unsigned short>(links.records.size());
-                first = false;
-            }
-            links.records.push_back(static_cast<unsigned short>(entry->second));
-        }
-        if (!first) links.records.push_back(0);
+    const auto append = [&](unsigned short id) {
+        if (links.records.size() == limit)
+            throw std::length_error("Octree mesh links exceed the disk record limit");
+        links.records.push_back(id);
+    };
+    for (const auto id : always_visible) append(static_cast<unsigned short>(id));
+    append(0);
+    for (std::size_t index = 1; index < region_count; ++index) {
+        const auto [first, last] = regions.equal_range(static_cast<unsigned short>(index));
+        if (first == last) continue;
+        links.lookup[index] = static_cast<unsigned short>(links.records.size());
+        for (auto entry = first; entry != last; ++entry)
+            append(static_cast<unsigned short>(entry->second));
+        append(0);
     }
     return links;
+}
+
+bool OctBuildPreTree::assignPointToVolumes(const glm::vec3& point, short object,
+                                           OctRegionObjectLinks& links)
+{
+    bool mapped = false;
+    for (unsigned short index = 1; index < spatial.m_region_count; ++index) {
+        const auto& volume = spatial.m_region_volumes[index];
+        if (!volume.ContainsPoint(point)) continue;
+        InsertUniqueIndexValue(links.regions, volume.m_region, object);
+        mapped = true;
+    }
+    return mapped;
 }
 
 /* Associate every non-cloud particle with the regions containing its origin
@@ -1467,11 +1478,7 @@ unsigned char OctBuildPreTree::BuildParticleRegions(const W8LevelFileParticleSys
                                                     int particle_count)
 {
     this->particle_count = particle_count;
-    inside_region_map = new std::unordered_multimap<unsigned short, short>;
-
-    short region_particles[4998];
-    region_particles[0] = 0;
-    unsigned short list_count = 0;
+    particle_regions.clear();
     int particle_number = 0;
 
     for (int particle_index = 0; particle_index < particle_count; ++particle_index) {
@@ -1485,93 +1492,53 @@ unsigned char OctBuildPreTree::BuildParticleRegions(const W8LevelFileParticleSys
 
         ++particle_number;
         short particle_value = static_cast<short>(particle_number);
-        srVector3T<float> position;
-        position = particle.location * g_world_scale;
+        const glm::vec3 position = particle.location.glmValue() * g_world_scale;
 
-        bool mapped = false;
-        for (unsigned short region_index = 1; region_index < spatial.m_region_count;
-             ++region_index) {
-            W8OctRegionVolume* volume = spatial.m_region_volumes + region_index;
-            if (volume->ContainsPoint(position.glmValue())) {
-                unsigned short region = volume->m_region;
-                InsertUniqueIndexValue(*inside_region_map, region, particle_value);
-                mapped = true;
-            }
-        }
+        bool mapped = assignPointToVolumes(position, particle_value, particle_regions);
         if (mapped) {
             continue;
         }
 
-        if (updateRegionForGeometry(position.glmValue(), particle_value) == 0) {
-            srVector3T<float> extent;
+        if (updateRegionForGeometry(position, particle_value) == 0) {
+            glm::vec3 extent(0);
             bool has_bounds = false;
             if (particle.bounds_mode == 1) {
-                extent = particle.bounds_extent * g_startup_near_limit;
+                extent = particle.bounds_extent.glmValue() * g_startup_near_limit;
                 has_bounds = true;
             } else if (particle.bounds_mode == 2 && particle.bounds_radius > g_float_zero) {
-                extent = particle.bounds_origin * g_world_scale;
+                extent = particle.bounds_origin.glmValue() * g_world_scale;
                 has_bounds = true;
             }
 
             if (has_bounds) {
-                srVector3T<float> minimum;
-                srVector3T<float> maximum;
-                minimum = position - extent;
-                maximum = position + extent;
-
-                for (int x = 0; x != 2; ++x) {
-                    for (int y = 0; y != 2; ++y) {
-                        for (int z = 0; z != 2; ++z) {
-                            srVector3T<float> corner;
-                            corner.x = x == 0 ? minimum.x : maximum.x;
-                            corner.y = y == 0 ? minimum.y : maximum.y;
-                            corner.z = z == 0 ? minimum.z : maximum.z;
-
-                            bool corner_mapped = false;
-                            for (unsigned short region_index = 1;
-                                 region_index < spatial.m_region_count; ++region_index) {
-                                W8OctRegionVolume* volume = spatial.m_region_volumes + region_index;
-                                if (volume->ContainsPoint(corner.glmValue())) {
-                                    unsigned short region = volume->m_region;
-                                    InsertUniqueIndexValue(*inside_region_map, region, particle_value);
-                                    corner_mapped = true;
-                                    mapped = true;
-                                }
-                            }
-                            if (!corner_mapped &&
-                                updateRegionForGeometry(corner.glmValue(), particle_value) != 0) {
-                                mapped = true;
-                            }
-                        }
-                    }
+                const srBoundingBox bounds{position - extent, position + extent};
+                for (unsigned index = 0; index < 8; ++index) {
+                    const auto corner = bounds.corner(index);
+                    const bool in_volume = assignPointToVolumes(corner, particle_value, particle_regions);
+                    if (in_volume || updateRegionForGeometry(corner, particle_value)) mapped = true;
                 }
             }
 
             if (!mapped) {
-                region_particles[list_count++] = particle_value;
+                particle_regions.always_visible.push_back(particle_value);
             }
         }
     }
 
-    unsigned short region_count = static_cast<unsigned short>(spatial.submesh_count);
-    mesh_particle_links = packRegionLists(*inside_region_map,
-        std::span<const short>(region_particles, list_count), region_count);
-    delete inside_region_map;
+    mesh_particle_links = particle_regions.packedLinks(spatial.submesh_count);
+    particle_regions.clear();
     return 1;
 }
 
 /* Accumulate the two preprocessing geometry banks into one region-to-prop
-   table. The first call owns the shared scratch list; the final call appends
-   the second bank, emits the compact lookup/list pair, and releases scratch. */
+   table owned by this builder. The final call appends the second bank and
+   returns the compact lookup/list pair before clearing temporary membership. */
 // FUNCTION: WIZ8 0x004b3f90
 unsigned char OctBuildPreTree::BuildGeometryRegions(const W8LevelFileProp* records,
                                                     int record_count, int base_index, bool finalize)
 {
     if (!finalize) {
-        overlap_region_map = new std::unordered_multimap<unsigned short, short>;
-        g_region_id_list = static_cast<unsigned short*>(malloc(5000 * sizeof(*g_region_id_list)));
-        g_region_id_list[0] = 0;
-        g_region_id_count = 0;
+        prop_regions.clear();
     }
 
     for (int record_index = 0; record_index < record_count; ++record_index) {
@@ -1579,43 +1546,25 @@ unsigned char OctBuildPreTree::BuildGeometryRegions(const W8LevelFileProp* recor
         short value = static_cast<short>(base_index + 1 + record_index);
         bool mapped = false;
 
-        for (unsigned short region_index = 1; region_index < spatial.m_region_count;
-             ++region_index) {
-            W8OctRegionVolume* volume = spatial.m_region_volumes + region_index;
-            for (unsigned char bounds_index = 0; bounds_index < record.anim_obj.num_bound_box;
-                 ++bounds_index) {
-                const auto& stored = record.anim_obj.pBoundBox[bounds_index];
-                const srBoundingBox bounds{stored.minimum.glmValue() * g_world_scale,
-                                           stored.maximum.glmValue() * g_world_scale};
-                for (unsigned corner_index = 0; corner_index < 8; ++corner_index) {
-                    const srVector3 corner(bounds.corner(corner_index));
-                    if (volume->ContainsPoint(corner.glmValue())) {
-                        InsertUniqueIndexValue(*overlap_region_map, volume->m_region, value);
-                        mapped = true;
-                    }
-                }
-            }
-        }
-
         srBoundingBox aggregate{glm::vec3(1000000.0f), glm::vec3(-1000000.0f)};
-        for (unsigned char bounds_index = 0; bounds_index < record.anim_obj.num_bound_box; ++bounds_index) {
-            const auto& bounds = record.anim_obj.pBoundBox[bounds_index];
-            aggregate.include(bounds.minimum.glmValue() * g_world_scale);
-            aggregate.include(bounds.maximum.glmValue() * g_world_scale);
+        for (unsigned char index = 0; index < record.anim_obj.num_bound_box; ++index) {
+            const auto& stored = record.anim_obj.pBoundBox[index];
+            const srBoundingBox bounds{stored.minimum.glmValue() * g_world_scale,
+                                       stored.maximum.glmValue() * g_world_scale};
+            aggregate.include(bounds);
+            for (unsigned corner = 0; corner < 8; ++corner)
+                if (assignPointToVolumes(bounds.corner(corner), value, prop_regions)) mapped = true;
         }
 
         if (updateRegionForGeometry(aggregate, value) == 0 && !mapped) {
-            g_region_id_list[g_region_id_count++] = value;
+            prop_regions.always_visible.push_back(value);
         }
     }
 
     if (finalize) {
-        w8_ulong region_count = spatial.submesh_count;
-        mesh_prop_links = packRegionLists(*overlap_region_map,
-            std::span<const unsigned short>(g_region_id_list, g_region_id_count), region_count);
+        mesh_prop_links = prop_regions.packedLinks(spatial.submesh_count);
         prop_count = record_count + base_index;
-        delete overlap_region_map;
-        free(g_region_id_list);
+        prop_regions.clear();
     }
     return 1;
 }

@@ -4,6 +4,8 @@
 #include "wiz8/engine_code/mesh_links.h"
 
 #include <optional>
+#include <vector>
+#include <cstddef>
 
 #include <unordered_map>
 #include <variant>
@@ -70,8 +72,14 @@ extern w8_ulong g_poly_list_count;
 /* Build scratch carries mode-2 region polygons and mode-3 GD surfaces. */
 extern void** g_poly_list;
 extern W8GDSurface** g_gd_surface_list;
-extern unsigned short* g_region_id_list;
-extern unsigned short g_region_id_count;
+
+struct OctRegionObjectLinks {
+    std::unordered_multimap<unsigned short, short> regions;
+    std::vector<short> always_visible;
+
+    OctreeMeshLinks packedLinks(std::size_t region_count) const;
+    void clear() { regions.clear(); always_visible.clear(); }
+};
 
 /* Retail assertion text gives the class and member names directly:
    "OctBuildPreTree::m_ppPolyList too long.", "m_pulRegPaths" and
@@ -81,6 +89,7 @@ struct OctBuildPreTree : W8OctBuildTree {
                     unsigned short item_limit, w8_ulong path_capacity, short extent_mode);
     OctPreTree* BuildOctPreTree();
     unsigned short BuildRegions();
+    bool assignPointToVolumes(const glm::vec3& point, short object, OctRegionObjectLinks& links);
     unsigned char BuildParticleRegions(const W8LevelFileParticleSystem* particles,
                                        int particle_count);
     unsigned char BuildGeometryRegions(const W8LevelFileProp* records, int record_count,
@@ -150,8 +159,8 @@ struct OctBuildPreTree : W8OctBuildTree {
     /* Allocated next to region_path_map but never read, inserted into, or
        freed in recovered code - dead table kept for layout fidelity. */
     std::unordered_multimap<unsigned int, short>* positional;
-    std::unordered_multimap<unsigned short, short>* inside_region_map;
-    std::unordered_multimap<unsigned short, short>* overlap_region_map;
+    OctRegionObjectLinks particle_regions;
+    OctRegionObjectLinks prop_regions;
     W8OctPreTreeGeometry* game_data;
     w8_ulong unknown_138;
     w8_ulong unknown_13c;

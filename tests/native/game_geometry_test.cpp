@@ -1,3 +1,4 @@
+#include <stdexcept>
 #include "wiz8/engine_code/mesh_links.h"
 #include "surrender/srClipPlane.h"
 #include "surrender/srIlluminator.h"
@@ -1668,9 +1669,8 @@ TEST_CASE("Region geometry preserves octant order and point versus box boundarie
         }
     } restore;
     OctBuildPreTree tree(1, std::nullopt, 16, 0, 0);
-    std::unordered_multimap<unsigned short, short> points, boxes;
-    tree.inside_region_map = &points;
-    tree.overlap_region_map = &boxes;
+    auto& points = tree.particle_regions.regions;
+    auto& boxes = tree.prop_regions.regions;
     tree.spatial.m_extent = 2;
     tree.spatial.m_bounds.minimum = glm::vec3(0);
     tree.spatial.m_bounds.maximum = glm::vec3(2);
@@ -1707,6 +1707,22 @@ TEST_CASE("Region geometry preserves octant order and point versus box boundarie
         REQUIRE(candidate.bounds().maximum == minimum + 1.0f);
     });
     REQUIRE(order == std::vector<unsigned>{0, 1, 2, 3, 4, 5, 6, 7});
+    std::array<W8OctRegionVolume, 3> volumes{};
+    volumes[1].m_region = 11;
+    volumes[2].m_region = 12;
+    tree.spatial.m_region_volumes = volumes.data();
+    tree.spatial.m_region_count = volumes.size();
+    tree.particle_regions.clear();
+    REQUIRE(tree.assignPointToVolumes(glm::vec3(0), 5, tree.particle_regions));
+    REQUIRE(tree.assignPointToVolumes(glm::vec3(1), 5, tree.particle_regions));
+    REQUIRE(points.count(11) == 1);
+    REQUIRE(points.count(12) == 1);
+    REQUIRE(points.size() == 2);
+    REQUIRE(boxes.size() == 9);
+    tree.spatial.m_region_count = 1;
+    REQUIRE_FALSE(tree.assignPointToVolumes(glm::vec3(0), 6, tree.particle_regions));
+    tree.spatial.m_region_volumes = nullptr;
+    tree.spatial.m_region_count = 0;
 }
 
 namespace {
@@ -1858,4 +1874,33 @@ TEST_CASE("Octree mesh links own bounded runs and mark one-based object ids", "[
     visible.assign(1, false);
     links.markVisible(1, std::span<int* const>(loaded), visible);
     REQUIRE_FALSE(visible[0]);
+}
+
+TEST_CASE("Region link builders return independent packed runs and enforce disk limits", "[geometry][octree]")
+{
+    OctRegionObjectLinks particles, props;
+    particles.always_visible = {2};
+    particles.regions.emplace(1, 1);
+    particles.regions.emplace(1, 3);
+    props.always_visible.assign(6000, 4); // Beyond the former fixed scratch capacity.
+    const auto packed = particles.packedLinks(3);
+    REQUIRE(packed.lookup.size() == 3);
+    REQUIRE(packed.lookup[0] == 0);
+    REQUIRE(packed.lookup[2] == 0);
+    REQUIRE(packed.alwaysVisible().size() == 1);
+    REQUIRE(packed.alwaysVisible()[0] == 2);
+    REQUIRE(packed.forMesh(1).size() == 2);
+    const auto [first, last] = particles.regions.equal_range(1);
+    auto run = packed.forMesh(1);
+    unsigned index = 0;
+    for (auto entry = first; entry != last; ++entry) REQUIRE(run[index++] == entry->second);
+    particles.clear();
+    REQUIRE(particles.regions.empty());
+    REQUIRE(particles.always_visible.empty());
+    REQUIRE(packed.forMesh(1).size() == 2);
+    REQUIRE(props.packedLinks(3).alwaysVisible().size() == 6000);
+    props.always_visible.assign(65535, 4);
+    REQUIRE_THROWS_AS(props.packedLinks(3), std::length_error);
+    REQUIRE_THROWS_AS(particles.packedLinks(65536), std::length_error);
+    REQUIRE(particles.packedLinks(3).records == std::vector<unsigned short>{0});
 }
