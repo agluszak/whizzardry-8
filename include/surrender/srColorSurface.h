@@ -39,6 +39,7 @@ public:
 
     virtual SR_DLL_IMPORT void dump(std::ostream& stream) override;
 
+    std::span<unsigned char> rawPixelRow(w8_long y, w8_long x_start, w8_long x_end);
     virtual SR_DLL_IMPORT w8_ulong getPixelRaw(w8_long x, w8_long y) override;
     virtual SR_DLL_IMPORT void setPixelRaw(w8_long x, w8_long y, w8_ulong pixel) override;
     virtual SR_DLL_IMPORT void getPixelColumn(w8_ulong* pixels, w8_long x, w8_long y_start,
@@ -54,10 +55,7 @@ public:
     virtual SR_DLL_IMPORT int changePixelFormat(const srPixelConvert::PixelFormat& format,
                                                 int preserve) override;
     virtual SR_DLL_IMPORT void fill(w8_ulong pixel) override;
-    virtual SR_DLL_IMPORT void setHLine(w8_long y, w8_long x_start, w8_long x_end,
-                                        w8_ulong pixel) override;
-    virtual SR_DLL_IMPORT void setVLine(w8_long x, w8_long y_start, w8_long y_end,
-                                        w8_ulong pixel) override;
+    void fillRectangle(SDL_Rect rect, w8_ulong pixel) override;
     virtual SR_DLL_IMPORT void blit(w8_long x, w8_long y, srColorSurfaceIFace& source, w8_long source_x,
                                     w8_long source_y, w8_long width, w8_long height) override;
     virtual SR_DLL_IMPORT void flipRectangle(const Rectangle& rectangle) override;
@@ -86,7 +84,6 @@ private:
 
     template<class Pixel>
     void transferColumn(std::span<Pixel> pixels, w8_long x, w8_long y);
-    void fillRectangle(SDL_Rect rect, w8_ulong pixel);
     void allocate();
     void adopt(SDL_Surface* storage);
     /* Caller memory or a shared surface cannot be reallocated. */
