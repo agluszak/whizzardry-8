@@ -768,8 +768,6 @@ void stParticle::SubmitToRenderer(srGERD* renderer)
 
     srTriMeshPipeline* pipeline = srTriMeshPipeline::Get(renderer);
 
-    /* Three array/count pairs: the index pairs rebuilt above, the polygon
-       index list, and the transformed vertex positions. */
     pipeline->active_triangles =
         std::span(active_triangles).first(active_particle_count * 2);
     pipeline->triangles = triangles.data();
