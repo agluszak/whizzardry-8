@@ -1,5 +1,4 @@
 #include <catch2/catch_test_macros.hpp>
-#include <cstdio>
 #include <filesystem>
 #include <memory>
 #include <stdexcept>
@@ -20,7 +19,6 @@
 #include "wiz8/npc_interaction.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/npc_script_file.h"
-#include "wiz8/asset_paths.h"
 #include "wiz8/engine_code/AnimObj.h"
 #include "wiz8/engine_code/Spells.h"
 #include "wiz8/engine_code/Missile.h"
@@ -28,6 +26,7 @@
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/game_timer.h"
 #include "temporary_directory.h"
+#include "scoped_asset_roots.h"
 #include "local_code/NPCScripting.h"
 #include "surrender/srPixelConvert.h"
 
@@ -35,7 +34,7 @@ extern std::shared_ptr<srColorSurface> g_mouse_surface;
 extern std::unique_ptr<srColorSurface> g_automap_surface;
 
 
-static bool shutdown_survivors()
+static void shutdown_survivors()
 {
     REQUIRE((srInit()));
     auto model = std::make_shared<stMeshModel>(0, 1);
@@ -75,10 +74,9 @@ static bool shutdown_survivors()
     palette.reset();
     REQUIRE((g_mesh_models.empty() && g_decompressed_mesh_bytes == 0));
     REQUIRE((srExit()));
-    return true;
 }
 
-static bool npc_script_teardown()
+static void npc_script_teardown()
 {
     auto owner = std::make_unique<W8NpcScriptFile>();
     owner->name.assign(80, 'n');
@@ -100,10 +98,9 @@ static bool npc_script_teardown()
     owner->name.assign(80, 'n');
     // Zero-quote scripts still own their name and header.
 
-    return true;
 }
 
-static bool queued_state_teardown()
+static void queued_state_teardown()
 {
     {
         W8CharacterEventQueue queue;
@@ -126,19 +123,28 @@ static bool queued_state_teardown()
     ClearNpcMessageQueue();
     ClearNpcMessageQueue();
     REQUIRE((IsMessageBoxLineQueueEmpty()));
-    return true;
 }
 
-TEST_CASE("resource_lifecycle_test")
+TEST_CASE("Detached SurRender resources outlive shutdown and repeated initialization", "[resources][lifecycle]")
 {
-    REQUIRE(shutdown_survivors()); REQUIRE(shutdown_survivors()); REQUIRE(npc_script_teardown()); REQUIRE(queued_state_teardown());
-    std::puts("ok: detached resource destruction, interrupted scenes, and reinitialization");
+    shutdown_survivors();
+    shutdown_survivors();
+}
+
+TEST_CASE("NPC script owns nested quotes until release", "[resources][lifecycle]")
+{
+    npc_script_teardown();
+}
+
+TEST_CASE("Deferred character events and NPC message queues release their contents", "[resources][lifecycle]")
+{
+    queued_state_teardown();
 }
 
 struct SpellVisualFixture
 {
     ScopedTemporaryDirectory directory{"wiz8-spell-visuals"};
-    w8_native::Roots previous_roots = w8_native::path_roots();
+    ScopedAssetRoots roots;
     W8World* previous_world = GetWorld();
     srClock* previous_clock = g_shared_timer_base;
     srClock clock;
@@ -155,8 +161,8 @@ struct SpellVisualFixture
         g_octree = octree.get();
         std::filesystem::create_directory(directory.path / "assets");
         std::filesystem::create_directory(directory.path / "user");
-        w8_native::configure_paths({(directory.path / "assets").string(),
-                                   (directory.path / "user").string(), {"", "", ""}});
+        roots.configure({(directory.path / "assets").string(),
+                         (directory.path / "user").string(), {"", "", ""}});
         SetCurrentWorld(&world);
     }
 
@@ -167,7 +173,6 @@ struct SpellVisualFixture
         g_octree = previous_octree;
         g_shared_timer_base = previous_clock;
         SetCurrentWorld(previous_world);
-        w8_native::configure_paths(previous_roots);
         srExit();
     }
 };
