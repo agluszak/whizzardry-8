@@ -1,3 +1,4 @@
+#include <SDL3/SDL_pixels.h>
 #include "surrender/srScene.h" // IWYU pragma: keep - complete scene type for conversion to srNode.
 #include <fmt/format.h>
 #include <unordered_map>
