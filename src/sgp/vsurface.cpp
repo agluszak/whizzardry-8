@@ -4,6 +4,8 @@
 #include <SDL3/SDL_surface.h>
 #include <cstddef>
 #include <memory>
+#include <string>
+#include <string_view>
 #include <optional>
 
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07, 2026-10-09.
@@ -124,29 +126,19 @@ BOOLEAN ImageFillVideoSurfaceArea(SGPVSurface& uiDestVSurface, INT32 iDestX1, IN
 // Video Surface Manipulation Functions
 
 // FUNCTION: WIZ8 0x004033d0
-std::unique_ptr<SGPVSurface> CreateVideoSurface(const VSURFACE_DESC& VSurfaceDesc)
+static std::unique_ptr<SGPVSurface> MakeVideoSurface(UINT16 width, UINT16 height, UINT8 bits,
+                                                       const image_type* image)
 {
-    std::unique_ptr<image_type> image;
-    UINT16 width = VSurfaceDesc.usWidth;
-    UINT16 height = VSurfaceDesc.usHeight;
-    UINT8 bits = VSurfaceDesc.ubBitDepth;
-    if (VSurfaceDesc.fCreateFlags & VSURFACE_CREATE_FROMFILE) {
-        image = CreateImage(VSurfaceDesc.ImageFile.c_str(), IMAGE_ALLIMAGEDATA);
-        CHECKN(image != nullptr);
-        width = image->usWidth;
-        height = image->usHeight;
-        bits = image->ubBitDepth;
-    }
     CHECKN(width && height && (bits == 8 || bits == 16));
     UINT32 red = 0, green = 0, blue = 0;
     if (bits == 16)
         CHECKN(GetPrimaryRGBDistributionMasks(&red, &green, &blue));
     auto result = std::make_unique<SGPVSurface>();
     result->ownedSurface = CreateCpuSurface(width, height, bits, red, green, blue);
+    CHECKN(result->ownedSurface != nullptr);
     result->usWidth = width;
     result->usHeight = height;
     result->ubBitDepth = bits;
-    result->fFlags = VSURFACE_SYSTEM_MEM_USAGE;
     result->TransparentColor = FROMRGB(0, 0, 0);
     if (image) {
         if (image->fFlags & IMAGE_PALETTE)
@@ -155,8 +147,19 @@ std::unique_ptr<SGPVSurface> CreateVideoSurface(const VSURFACE_DESC& VSurfaceDes
         SetVideoSurfaceDataFromHImage(*result, *image, 0, 0, &region);
     }
     SetVideoSurfaceTransparencyColor(*result, result->TransparentColor);
-
     return result;
+}
+
+std::unique_ptr<SGPVSurface> CreateVideoSurface(UINT16 width, UINT16 height, UINT8 bits)
+{
+    return MakeVideoSurface(width, height, bits, nullptr);
+}
+
+std::unique_ptr<SGPVSurface> LoadVideoSurface(std::string_view filename)
+{
+    auto image = CreateImage(std::string(filename).c_str(), IMAGE_ALLIMAGEDATA);
+    if (!image) return nullptr;
+    return MakeVideoSurface(image->usWidth, image->usHeight, image->ubBitDepth, image.get());
 }
 // Given an HIMAGE object, blit imagery into existing Video Surface. Can be from 8->16 BPP
 // FUNCTION: WIZ8 0x00403780
@@ -400,12 +403,8 @@ std::unique_ptr<SGPVSurface> MakeVSurfaceFromVObject(SGPVObject& object, UINT16 
 {
     if (subIndex >= object.sprites.size())
         return nullptr;
-    VSURFACE_DESC desc{};
-    desc.fCreateFlags = VSURFACE_CREATE_DEFAULT;
-    desc.usWidth = object.sprites[subIndex].usWidth;
-    desc.usHeight = object.sprites[subIndex].usHeight;
-    desc.ubBitDepth = PIXEL_DEPTH;
-    auto surface = CreateVideoSurface(desc);
+    auto surface = CreateVideoSurface(object.sprites[subIndex].usWidth,
+                                      object.sprites[subIndex].usHeight, PIXEL_DEPTH);
     if (!surface || !BltVideoObject(*surface, object, subIndex, 0, 0,
                                     VO_BLT_SRCTRANSPARENCY, nullptr))
         return nullptr;

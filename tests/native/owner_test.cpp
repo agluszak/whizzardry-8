@@ -137,10 +137,7 @@ void camp_effects()
         }
     }
 
-    VOBJECT_DESC desc{};
-    desc.fCreateFlags = VOBJECT_CREATE_FROMHIMAGE;
-    desc.hImage = &image;
-    auto object = CreateVideoObject(desc);
+    auto object = CreateVideoObject(image);
     REQUIRE(object);
     const auto saved_slot = g_video_slots[0x86];
     auto saved_frame = std::move(g_video_frames[0]);
@@ -468,12 +465,9 @@ void image_and_sprite_ownership()
     image.pETRLEObject.resize(1);
     image.pETRLEObject[0] = {0, 3, 0, 0, 1, 1};
 
-    VOBJECT_DESC desc{};
-    desc.fCreateFlags = VOBJECT_CREATE_FROMHIMAGE;
-    desc.hImage = &image;
     std::array<std::unique_ptr<SGPVObject>, 64> objects{};
     for (unsigned i = 0; i < objects.size(); ++i) {
-        objects[i] = CreateVideoObject(desc);
+        objects[i] = CreateVideoObject(image);
         REQUIRE(objects[i]);
         REQUIRE((objects[i]->sprites.size() == 1 && objects[i]->sprites[0].pixels.size() == 1));
         REQUIRE(reinterpret_cast<const UINT8*>(objects[i]->sprites[0].pixels.data()) !=
@@ -495,7 +489,7 @@ void image_and_sprite_ownership()
     image.pETRLEObject[0].usWidth = 2;
     REQUIRE((objects[0]->sprites[0].pixels[0] == 1 && objects[0]->sprites[0].usWidth == 1));
     image.pETRLEObject[0].uiDataOffset = 0xffffffffu;
-    REQUIRE(!CreateVideoObject(desc));
+    REQUIRE(!CreateVideoObject(image));
     REQUIRE((image.pImageData[1] == 2 && image.pETRLEObject[0].uiDataOffset == 0xffffffffu));
     image = {};
     REQUIRE((image.pImageData.empty() && !image.pPalette && image.pETRLEObject.empty()));
@@ -504,14 +498,9 @@ void image_and_sprite_ownership()
     }
     auto& surviving = *objects[32];
     REQUIRE((surviving.sprites[0].pixels[0] == 1 && surviving.sprites[0].usWidth == 1));
-    VSURFACE_DESC surface_desc{};
-    surface_desc.fCreateFlags = VSURFACE_CREATE_DEFAULT;
-    surface_desc.usWidth = 8;
-    surface_desc.usHeight = 8;
-    surface_desc.ubBitDepth = 16;
     std::array<std::unique_ptr<SGPVSurface>, 64> surfaces{};
     for (auto& surface : surfaces) {
-        surface = CreateVideoSurface(surface_desc);
+        surface = CreateVideoSurface(8, 8, 16);
         REQUIRE(surface);
     }
     auto& surviving_surface = *surfaces[32];
@@ -690,10 +679,7 @@ void generic_button_images()
     REQUIRE(long_image_path.size() > 260);
     button_image_fixture(assets, long_image_path, 3);
     {
-        VOBJECT_DESC desc{};
-        desc.fCreateFlags = VOBJECT_CREATE_FROMFILE;
-        desc.ImageFile = long_image_path;
-        std::unique_ptr<SGPVObject> sprite(CreateVideoObject(desc));
+        auto sprite = LoadVideoObject(long_image_path);
         REQUIRE((sprite && sprite->sprites.size() == 3));
         REQUIRE((sprite->sprites[2].usWidth == 1 && sprite->sprites[2].pixels[0] == 1));
         REQUIRE(sprite->pPaletteEntry[1].peRed == 255);
@@ -749,11 +735,7 @@ void generic_button_images()
         sprite.sprites[frame].pixels[0] = frame + 1;
         sprite.palette[frame + 1] = 0x1000 + frame;
     }
-    VSURFACE_DESC target_desc{};
-    target_desc.fCreateFlags = VSURFACE_CREATE_DEFAULT;
-    target_desc.usWidth = target_desc.usHeight = 8;
-    target_desc.ubBitDepth = 16;
-    auto target_owner = CreateVideoSurface(target_desc);
+    auto target_owner = CreateVideoSurface(8, 8, 16);
     REQUIRE(target_owner);
     auto& target = *target_owner;
     const auto old_target = ButtonDestBuffer;

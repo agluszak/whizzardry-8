@@ -5,7 +5,7 @@
    Distributed under the accompanying SFI Source Code license agreement. */
 
 #include <SDL3/SDL_rect.h>
-#include <string>
+#include <string_view>
 #include <memory>
 
 #include "Types.h"
@@ -43,53 +43,16 @@ typedef struct {
 
 } blt_vs_fx;
 
-//
-// Video Surface Flags
-// Used to describe the memory usage of a video Surface
-//
-
-#define VSURFACE_DEFAULT_MEM_USAGE                                                                 \
-    0x00000001 // CPU memory is the native default
-#define VSURFACE_VIDEO_MEM_USAGE                                                                   \
-    0x00000002 // Will force surface into video memory and will fail if it can't
-#define VSURFACE_SYSTEM_MEM_USAGE                                                                  \
-    0x00000004 // Will force surface into system memory and will fail if it can't
-#define VSURFACE_RESERVED_SURFACE                                                                  \
-    0x00000100 // Reserved for special purposes, like a primary surface
-
-//
-// Video Surface creation flags
-// Used in the VSurface_DESC structure to describe creation flags
-//
-
-#define VSURFACE_CREATE_DEFAULT                                                                    \
-    0x00000020 // Creates and empty Surface of given width, height and BPP
-#define VSURFACE_CREATE_FROMFILE 0x00000040 // Creates a video Surface from a file ( using HIMAGE )
-
 struct SGPVSurface {
     UINT16 usHeight;  // Height of Video Surface
     UINT16 usWidth;   // Width of Video Surface
     UINT8 ubBitDepth; // 8 or 16 bits per pixel
     std::unique_ptr<CpuSurface> ownedSurface;
     CpuSurface& cpu() { return *ownedSurface; }
-    UINT32 fFlags;
     Palette8 palette{};
     bool hasPalette = false;
     Palette16 p16BPPPalette{};
     COLORVAL TransparentColor;
-
-};
-
-//
-// This structure describes the creation parameters for a Video Surface
-//
-
-struct VSURFACE_DESC {
-    UINT32 fCreateFlags{};   // Specifies creation flags like from file or not
-    std::string ImageFile; // Filename of image data to use
-    UINT16 usWidth{};        // Width, ignored if given from file
-    UINT16 usHeight{};       // Height, ignored if given from file
-    UINT8 ubBitDepth{};      // BPP, ignored if given from file
 
 };
 
@@ -117,8 +80,9 @@ BOOLEAN ImageFillVideoSurfaceArea(SGPVSurface& uiDestVSurface, INT32 iDestX1, IN
 //
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Created from a VSurface_DESC structure. Can be from a file via HIMAGE or empty.
-std::unique_ptr<SGPVSurface> CreateVideoSurface(const VSURFACE_DESC& VSurfaceDesc);
+// Explicit factories for empty CPU surfaces and images from the virtual filesystem.
+std::unique_ptr<SGPVSurface> CreateVideoSurface(UINT16 width, UINT16 height, UINT8 bits);
+std::unique_ptr<SGPVSurface> LoadVideoSurface(std::string_view filename);
 
 // Set data from HIMAGE.
 BOOLEAN SetVideoSurfaceDataFromHImage(SGPVSurface& hVSurface, const image_type& hImage, UINT16 usX, UINT16 usY,

@@ -164,10 +164,7 @@ void Font::resetPalette()
 // FUNCTION: WIZ8 0x00406e00
 bool Font::load(std::string_view filename)
 {
-    VOBJECT_DESC desc;
-    desc.fCreateFlags = VOBJECT_CREATE_FROMFILE;
-    desc.ImageFile = filename;
-    auto object = CreateVideoObject(desc);
+    auto object = LoadVideoObject(filename);
     if (!object) return false;
     clear();
     glyphs = std::move(*object);

@@ -175,13 +175,8 @@ void differential()
 
 void videoSurfaceClipping()
 {
-    VSURFACE_DESC desc{};
-    desc.fCreateFlags = VSURFACE_CREATE_DEFAULT;
-    desc.usWidth = 8;
-    desc.usHeight = 7;
-    desc.ubBitDepth = 16;
-    auto sourceView = CreateVideoSurface(desc);
-    auto destView = CreateVideoSurface(desc);
+    auto sourceView = CreateVideoSurface(8, 7, 16);
+    auto destView = CreateVideoSurface(8, 7, 16);
     auto& source = sourceView->cpu();
     auto& dest = destView->cpu();
     SDL_Rect destination{-2, -1, 6, 5}, sample{1, 1, 6, 5};
