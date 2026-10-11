@@ -1,5 +1,6 @@
 #include "glm/matrix.hpp"
 #include "surrender/plane_math.h"
+#include "surrender/triangle_projection.h"
 #include "wiz8/ground_shadow.h"
 #include "wiz8/layouts/world.h"
 #include "wiz8/engine_code/Camera.h"
@@ -2805,4 +2806,69 @@ TEST_CASE_METHOD(SurRenderTestFixture, "octree camera snapshots use native basis
     view = {};
     REQUIRE(view.camera_location == glm::vec3(0));
     REQUIRE(view.frustum_planes[5] == glm::vec4(0));
+}
+
+TEST_CASE("Projected triangle queries retain visibility and collision boundary rules", "[geometry]")
+{
+    using srTriangleProjection::Boundary;
+    for (unsigned axis = 0; axis < 3; ++axis) {
+        const auto point = [axis](float u, float v) {
+            glm::vec3 result(0);
+            result[axis] = 123;
+            result[(axis + 1) % 3] = u;
+            result[(axis + 2) % 3] = v;
+            return result;
+        };
+        const std::array triangle{point(0, 0), point(2, 0), point(0, 2)};
+        REQUIRE(srTriangleProjection::contains(triangle, axis, point(.5f, .5f), Boundary::visibility));
+        REQUIRE(srTriangleProjection::contains(triangle, axis, point(.5f, .5f), Boundary::collision));
+        REQUIRE_FALSE(srTriangleProjection::contains(triangle, axis, point(.5f, 0), Boundary::visibility));
+        REQUIRE(srTriangleProjection::contains(triangle, axis, point(.5f, 0), Boundary::collision));
+        REQUIRE(srTriangleProjection::contains(triangle, axis, point(1, 1), Boundary::visibility));
+        REQUIRE_FALSE(srTriangleProjection::contains(triangle, axis, point(1, 1), Boundary::collision));
+        REQUIRE_FALSE(srTriangleProjection::contains(triangle, axis, point(3, 3), Boundary::collision));
+    }
+}
+
+TEST_CASE("Surface contacts return positions distances and edge limits without output parameters", "[geometry]")
+{
+    const std::array<glm::vec3, 3> triangle{{{0, 0, 0}, {0, 2, 0}, {0, 0, 2}}};
+    W8GDSurface surface{};
+    surface.plane = {glm::vec3(1, 0, 0), 0};
+    surface.contact_margin = 150; // Wall slope adjustment leaves a zero plane limit.
+    const glm::vec3 from(3, .5f, .5f);
+    const auto hit = surface.segmentContact(from, {-5, 0, 0}, triangle);
+    REQUIRE(hit);
+    REQUIRE(glm::length(hit->point - glm::vec3(0, .5f, .5f)) < 1e-6f);
+    REQUIRE(std::abs(hit->distance - 3) < 1e-6f);
+    REQUIRE(surface.distance == 0);
+    surface.distance = 9;
+    REQUIRE_FALSE(surface.segmentContact({3, 4, 4}, {-5, 0, 0}, triangle));
+    REQUIRE(surface.distance == 9);
+    surface.flags = W8_GD_SURFACE_WALKABLE;
+    const auto limit = surface.edgeContactLimit({0, .5f, -.2f}, triangle, 1);
+    REQUIRE(limit);
+    REQUIRE(std::abs(*limit - std::sqrt(.96f)) < 1e-6f);
+    REQUIRE_FALSE(surface.edgeContactLimit({0, 4, 4}, triangle, 1));
+
+    W8LevelDataRecord level{};
+    const struct RestoreLevel {
+        W8LevelDataRecord* previous;
+        ~RestoreLevel() { g_level_data = previous; }
+    } restore{g_level_data};
+    g_level_data = &level;
+    surface.flags = W8_GD_SURFACE_CROSSING;
+    surface.contact_margin = 0;
+    const auto crossing = surface.segmentContact(from, {-5, 0, 0}, triangle);
+    REQUIRE(crossing);
+    REQUIRE(crossing->point == from);
+    REQUIRE(std::abs(crossing->distance - 3) < 1e-6f);
+    REQUIRE(surface.distance > 0);
+    const glm::vec3 reverse_from(-2, .5f, .5f);
+    const auto reverse = surface.segmentContact(reverse_from, {5, 0, 0}, triangle);
+    REQUIRE(reverse);
+    REQUIRE(reverse->point == reverse_from);
+    // Reverse crossings retain the full segment when the signed span is below one.
+    REQUIRE(std::abs(reverse->distance - 5) < 1e-6f);
+    REQUIRE(surface.distance < 0);
 }

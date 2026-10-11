@@ -53,6 +53,11 @@ struct W8Plane {
 
 W8_ABI_ASSERT(sizeof(W8Plane) == 0x10, "W8Plane_must_be_0x10");
 
+struct PlaneContact {
+    glm::vec3 point;
+    float distance;
+};
+
 struct W8GDSurface {
     unsigned int flags;
     unsigned int index;
@@ -79,15 +84,13 @@ struct W8GDSurface {
         return &plane.normal;
     }
 
-    /* 0x0041CF90: segment-vs-surface test used by env motion. On a hit `from`
-       advances to the contact point and `hit_distance` gets the travelled
-       length; distance takes the surface's updated limit. */
-    bool TestSegment(srVector3T<float>* from, const srVector3T<float>* direction,
-                     float* hit_distance, srVector3T<float>* vertices);
-    /* 0x0041D9D0: shrink `limit` to the remaining in-plane distance against
-       the nearest triangle edge; fails when no edge improves it. */
-    bool ClampHitToEdge(const srVector3T<float>* point, const srVector3T<float>* vertices,
-                        float* limit);
+    /* The returned contact carries the position and travelled distance.
+       A hit also stores the surface's contact limit in distance. */
+    std::optional<PlaneContact> segmentContact(const glm::vec3& from,
+        const glm::vec3& direction, std::span<const glm::vec3, 3> vertices);
+    /* Shrink the limit against the nearest edge, if it improves the contact. */
+    std::optional<float> edgeContactLimit(const glm::vec3& point,
+        std::span<const glm::vec3, 3> vertices, float limit) const;
     /* 0x0041DC10: collision response for a hit surface; `origin` is advanced
        to `hit_point` and `direction` is bent along the contact plane. */
     bool ResolveCollision(srVector3T<float>* origin, const srVector3T<float>* hit_point,
@@ -149,11 +152,6 @@ struct PlaneSegment {
     float limit;
 };
 
-struct PlaneContact {
-    glm::vec3 point;
-    float distance;
-};
-
 enum class PlaneContactMode { Collision, SurfaceCollision, Occlusion };
 
 // Occlusion requires a full five-unit exit behind a plane. Collision accepts
@@ -185,9 +183,9 @@ inline std::optional<PlaneContact> planeContact(const glm::vec4& plane,
 
 /* Signed plane distance n·p + w. Independent TUs: 3d.cpp PointInsideFrustum
    0x0046D880 and stLight ContainsPoint 0x0049E460. No Wiz8 COMDAT. */
-inline float SignedPlaneDistance(const W8Plane& plane, const srVector3T<float>& point)
+inline float SignedPlaneDistance(const W8Plane& plane, const glm::vec3& point)
 {
-    return glm::dot(plane.normal.glmValue(), point.glmValue()) + plane.w;
+    return glm::dot(plane.normal.glmValue(), point) + plane.w;
 }
 
 void ClassifySurfacePlane(const srVector3T<float>* vertices, W8GDSurface* surface);
