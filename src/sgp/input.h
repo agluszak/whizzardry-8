@@ -3,6 +3,7 @@
 
 #include <string_view>
 #include <cstdint>
+#include <SDL3/SDL_mouse.h>
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
    Distributed under the accompanying SFI Source Code license agreement. */
 
@@ -54,14 +55,16 @@ inline constexpr UINT32 NATIVE_TEXT_INPUT_FLAG = 0x80000000u;
 #define VK_INSERT 0x2D
 #define VK_DELETE 0x2E
 
-typedef struct {
+struct InputAtom {
     uint64_t uiTimeStamp;
     UINT16 usKeyState;
     UINT16 usEvent;
     UINT32 usParam;
     UINT32 uiParam;
+    SDL_MouseButtonFlags mouseButtons = 0;
+    UINT8 clicks = 0;
 
-} InputAtom;
+};
 
 #define LOWORD(value) ((uint16_t)((uintptr_t)(value) & 0xffffu))
 #define HIWORD(value) ((uint16_t)(((uintptr_t)(value) >> 16) & 0xffffu))
@@ -93,7 +96,7 @@ INT32 CompareTextIgnoreAsciiCase(std::string_view first, std::string_view second
 
 extern BOOLEAN InitializeInputManager(void);
 extern BOOLEAN DequeueEvent(InputAtom* Event);
-extern void QueueEvent(UINT16 ubInputEvent, UINT32 usParam, UINT32 uiParam);
+extern void QueueEvent(UINT16 ubInputEvent, UINT32 usParam, UINT32 uiParam, UINT8 clicks = 0);
 
 extern void KeyDown(UINT32 usParam, UINT32 uiParam);
 extern void KeyUp(UINT32 usParam, UINT32 uiParam);

@@ -676,18 +676,15 @@ void RenderMessageBox(void)
 // FUNCTION: WIZ8 0x00518b30
 void ProcessMessageBoxInput(void)
 {
-    SDL_Point point;
     InputAtom input;
-    SGPMouseGetPos(&point);
-    DispatchMouseEvent(MOUSE_POS, point.x, point.y, gfLeftButtonState, gfRightButtonState);
+    RefreshMouseRegions();
     while (DequeueEvent(&input) == 1) {
         switch (input.usEvent) {
         case LEFT_BUTTON_DOWN:
         case LEFT_BUTTON_UP:
         case RIGHT_BUTTON_DOWN:
         case RIGHT_BUTTON_UP:
-            DispatchMouseEvent(input.usEvent, point.x, point.y, gfLeftButtonState,
-                                        gfRightButtonState);
+            DispatchMouseEvent(input);
             break;
         case KEY_DOWN:
             switch (toupper(input.usParam)) {
