@@ -1,4 +1,7 @@
 #include <SDL3/SDL_rect.h>
+#ifdef WIZ8_RMLUI_POC
+#include "wiz8/ui/rmlui_poc.h"
+#endif
 #include <string_view>
 #include <string>
 #include <array>
@@ -251,6 +254,10 @@ void MainMenuScreenFrame()
             DrawMainMenuItem(5, 0);
             DrawMainMenuItem(g_main_menu_selected_item, 1);
         }
+#ifdef WIZ8_RMLUI_POC
+    } else if (wiz8::ui_poc::active()) {
+        // The modal consumes SDL input directly; do not dispatch the legacy queue.
+#endif
     } else if (IsMessageBoxActive()) {
         ProcessMessageBoxInput();
     } else {
@@ -359,12 +366,19 @@ void MainMenuScreenFrame()
         ResetTransientRenderScenes();
         g_main_menu_redraw = false;
     }
+#ifdef WIZ8_RMLUI_POC
+    if (wiz8::ui_poc::active())
+        wiz8::ui_poc::frame();
+#endif
     RenderFrame();
 }
 
 // FUNCTION: WIZ8 0x00591870
 unsigned char MainMenuScreenLeave(int)
 {
+#ifdef WIZ8_RMLUI_POC
+    wiz8::ui_poc::close();
+#endif
     ReleaseLoadedVideoFrames();
     ResetRegions();
     MSYS_Shutdown();

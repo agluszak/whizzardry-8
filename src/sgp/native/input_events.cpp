@@ -14,6 +14,11 @@
 
 #include "wiz8/unicode.h"
 #include "wiz8/application.h"
+#ifdef WIZ8_RMLUI_POC
+#include "wiz8/ui/rmlui_poc.h"
+#include "wiz8/local_code/Gameloop.h"
+#include "wiz8/local_screens/MainMenuScreen.h"
+#endif
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/engine_code/GameData.h"
 #include "native/input_events.h"
@@ -389,6 +394,17 @@ void HandleGameEvent(const SDL_Event& event)
     }
     if (gfIgnoreMessages)
         return;
+#ifdef WIZ8_RMLUI_POC
+    // The POC modal is allowed to consume input before the SGP event queue.
+    if (wiz8::ui_poc::active() && wiz8::ui_poc::handle_event(event))
+        return;
+    if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat &&
+        event.key.key == SDLK_F9 &&
+        g_current_screen_state.id == W8_SCREEN_MAIN_MENU &&
+        !g_main_menu_dialog && ghWindow && SDL_GetWindowFromEvent(&event) == ghWindow &&
+        wiz8::ui_poc::open())
+        return;
+#endif
     HandleInputEvent(event);
     if (!ghWindow || SDL_GetWindowFromEvent(&event) != reinterpret_cast<SDL_Window*>(ghWindow))
         return;

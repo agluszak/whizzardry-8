@@ -78,6 +78,17 @@ FetchContent_Declare(utf8proc
     URL_HASH SHA256=6f4f1b639daa6dca9f80bc5db1233e9cbaa31a67790887106160b33ef743f136)
 FetchContent_MakeAvailable(fmt utf8cpp utf8proc)
 
+# Experimental RmlUi modal in the *native* main menu. Disabled by default.
+option(WIZ8_RMLUI_POC "Enable the RmlUi in-game dialog experiment" OFF)
+if(WIZ8_RMLUI_POC)
+    set(BUILD_SHARED_LIBS OFF)
+    FetchContent_Declare(rmlui
+        GIT_REPOSITORY https://github.com/mikke89/RmlUi.git
+        GIT_TAG ba95ffe8bfb6370efb2cdcca927eaad4710c5413 # RmlUi 6.3
+    )
+    FetchContent_MakeAvailable(rmlui)
+endif()
+
 # No forced CRT vocabulary or short-wchar options at the portable API boundary.
 add_library(wiz8_filesystem STATIC
     src/platform/path_resolver.cpp

@@ -41,6 +41,7 @@ jobs:
             mesa-vulkan-drivers \
             zlib1g-dev \
             libjpeg-dev \
+            libfreetype-dev \
             libsdl3-dev \
             libsdl3-image-dev \
             libavcodec-dev \
@@ -71,7 +72,10 @@ jobs:
           if [[ "${{ matrix.preset }}" == "linux-asan" ]]; then
             build_type=RelWithDebInfo
           fi
+          rmlui_poc=OFF
+          if [[ "${{ matrix.preset }}" == linux ]]; then rmlui_poc=ON; fi
           cmake --preset "${{ matrix.preset }}" \
+            -DWIZ8_RMLUI_POC="$rmlui_poc" \
             -DCMAKE_BUILD_TYPE="$build_type" \
             -DCMAKE_C_COMPILER=clang-21 -DCMAKE_CXX_COMPILER=clang++-21 \
             -DCMAKE_C_FLAGS_DEBUG="-O0 -g1" \

@@ -252,3 +252,14 @@ if(WIZ8_UNITY_BUILD)
     set_target_properties(WIZ8_GAME_CORE PROPERTIES
         UNITY_BUILD ON UNITY_BUILD_BATCH_SIZE ${WIZ8_UNITY_BATCH_SIZE})
 endif()
+
+if(WIZ8_RMLUI_POC)
+    # Use the upstream SDL renderer directly. This POC draws onto the existing
+    # game's SDL CPU surface; no additional SDL window or GPU device.
+    target_sources(WIZ8_GAME_CORE PRIVATE
+        ui/rmlui_poc.cpp
+        "${rmlui_SOURCE_DIR}/Backends/RmlUi_Renderer_SDL.cpp")
+    target_include_directories(WIZ8_GAME_CORE PRIVATE "${rmlui_SOURCE_DIR}/Backends")
+    target_compile_definitions(WIZ8_GAME_CORE PRIVATE WIZ8_RMLUI_POC RMLUI_SDL_VERSION_MAJOR=3)
+    target_link_libraries(WIZ8_GAME_CORE PUBLIC RmlUi::RmlUi)
+endif()
