@@ -5,7 +5,6 @@
 #include <utility>
 #include <vector>
 #include <cmath>
-#include <cstdlib>
 #include <cstring>
 
 #include "wiz8/compat/unaligned.h"
