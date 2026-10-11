@@ -1,4 +1,5 @@
 #pragma once
+#include <memory>
 
 #include "wiz8/ground_probe.h"
 #include "wiz8/octree_walk.h"
@@ -194,10 +195,10 @@ public:
     /* Retail emits both lifecycle bodies out of line in the Octree TU: the
        constructor at 0x00436840 and the destructor at 0x00436B20. */
     W8OctreeObjectRegistry();
-    ~W8OctreeObjectRegistry();
+    ~W8OctreeObjectRegistry() = default;
 
-    W8OctreeIndex* by_cell;
-    W8OctreeIndex* by_object;
+    std::unique_ptr<W8OctreeIndex> by_cell;
+    std::unique_ptr<W8OctreeIndex> by_object;
 
     /* Returns whether the pairing ended up recorded; every recovered caller
        discards it. */

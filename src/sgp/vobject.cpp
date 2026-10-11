@@ -1,18 +1,18 @@
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
    Distributed under the accompanying SFI Source Code license agreement. */
-#include <cstdint>
-#include <SDL3/SDL_log.h>
 #include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_surface.h>
 #include <algorithm>
 #include <span>
+#include <cstdint>
+#include <SDL3/SDL_log.h>
 #include <memory>
 #include <string_view>
-#include <optional>
 #include <utility>
+#include <variant>
 
 #include "Types.h"
-#include "compat/surfaces.h"
+#include "wiz8/compat/surfaces.h"
 #include "himage.h"
 #include "vobject.h"
 #include "vobject_blitters.h"
@@ -60,26 +60,16 @@ bool BltVideoObject(SGPVSurface& uiDestVSurface, SGPVObject& hSrcVObject, std::u
 // *******************************************************************************
 
 // FUNCTION: WIZ8 0x00406180
-std::unique_ptr<SGPVObject> CreateVideoObject(const image_type& image)
+SGPVObject::SGPVObject(SpriteSheet image) : sprites(std::move(image.frames))
 {
-    if (!image.etrle)
-        return nullptr;
-    auto owner = std::make_unique<SGPVObject>();
-    owner->ubBitDepth = image.ubBitDepth;
-    if (image.ubBitDepth == 8) {
-        if (!image.pPalette) return nullptr;
-        owner->setPalette(*image.pPalette);
-    }
-    // Decode once; neither the source palette nor compressed bytes are retained.
-    if (!DecodeVideoObjectSprites(*owner, image.pETRLEObject, image.pImageData))
-        return nullptr;
-    return owner;
+    setPalette(image.palette);
 }
 
 std::unique_ptr<SGPVObject> LoadVideoObject(std::string_view filename)
 {
     auto image = LoadImage(filename);
-    return image ? CreateVideoObject(*image) : nullptr;
+    auto* sheet = image ? std::get_if<SpriteSheet>(&*image) : nullptr;
+    return sheet ? std::make_unique<SGPVObject>(std::move(*sheet)) : nullptr;
 }
 
 void SGPVObject::setPalette(const Palette8& colors)
@@ -162,7 +152,7 @@ bool BltVideoObjectToBuffer(std::uint16_t* pBuffer, std::uint32_t uiDestPitchBYT
     // Assertions
     Assert(pBuffer != nullptr);
 
-    if (hSrcVObject.ubBitDepth != 8 || usIndex >= hSrcVObject.sprites.size())
+    if (usIndex >= hSrcVObject.sprites.size())
         return true;
     const bool mirror = (fBltFlags & VO_BLT_MIRROR_Y) != 0;
     const bool transparent = mirror || (fBltFlags & VO_BLT_SRCTRANSPARENCY);
@@ -187,16 +177,6 @@ bool SetObjectShade(SGPVObject& pObj, std::uint32_t uiShade)
 
     pObj.currentShade = uiShade;
     return (true);
-}
-
-// FUNCTION: WIZ8 0x00406900
-std::optional<std::uint8_t> SpriteFrame::paletteIndexAt(int x, int y) const
-{
-    if (x < 0 || y < 0 || x >= usWidth || y >= usHeight) return std::nullopt;
-    if (!indices) return std::nullopt;
-    const auto* row = reinterpret_cast<const std::uint16_t*>(static_cast<const std::uint8_t*>(indices->pixels) + y * indices->pitch);
-    const auto value = row[x];
-    return value == kTransparent ? 0 : static_cast<std::uint8_t>(value);
 }
 
 SDL_Surface* SpriteFrame::coloredSurface(std::span<const std::uint16_t, 256> palette, bool mirror) const

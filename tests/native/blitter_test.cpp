@@ -10,6 +10,17 @@
 #include <span>
 #include <string>
 #include <vector>
+#include <optional>
+#include <utility>
+#include <variant>
+#include <fstream>
+#include <ios>
+#include <array>
+#include <cstring>
+
+#include "imgfmt.h"
+#include "temporary_directory.h"
+#include "wiz8/asset_paths.h"
 
 // The same inputs run against the legacy assembly and the native C++ paths.
 // --capture emits per-case hashes of every destination byte, the return value
@@ -66,7 +77,7 @@ static bool check(const char* name, int variant, bool result, const SDL_Rect& re
     return true;
 }
 
-static void sprite_data(ETRLEObject& frame, int variant)
+static void sprite_data(STCISubImage& frame, int variant)
 {
     frame.usWidth = variant == 2 ? 140 : 15;
     frame.usHeight = 5;
@@ -101,6 +112,32 @@ static void sprite_data(ETRLEObject& frame, int variant)
     frame.uiDataLength = out - frame.uiDataOffset;
 }
 
+static std::optional<SpriteSheet> load_sprite(const STCISubImage& frame, std::span<const std::uint8_t> data)
+{
+    ScopedTemporaryDirectory directory{"wiz8-blitter-image"};
+    w8_native::configure_paths({wiz8::path_to_utf8(directory.path),
+                                wiz8::path_to_utf8(directory.path / "user"), {"", "", ""}});
+    STCIHeader header{};
+    memcpy(header.cID, STCI_ID_STRING, STCI_ID_LEN);
+    header.fFlags = STCI_INDEXED | STCI_ETRLE_COMPRESSED;
+    header.ubDepth = 8;
+    header.Indexed.uiNumberOfColours = 256;
+    header.Indexed.usNumberOfSubImages = 1;
+    header.uiStoredSize = data.size();
+    const std::array<STCIPaletteElement, 256> colors{};
+    {
+        std::ofstream file(directory.path / "frame.sti", std::ios::binary);
+        file.write(reinterpret_cast<const char*>(&header), sizeof(header));
+        file.write(reinterpret_cast<const char*>(colors.data()), sizeof(colors));
+        file.write(reinterpret_cast<const char*>(&frame), sizeof(frame));
+        file.write(reinterpret_cast<const char*>(data.data()), data.size());
+        REQUIRE(file.good());
+    }
+    auto image = LoadImage("frame.sti");
+    auto* sheet = image ? std::get_if<SpriteSheet>(&*image) : nullptr;
+    return sheet ? std::optional<SpriteSheet>(std::move(*sheet)) : std::nullopt;
+}
+
 TEST_CASE("blitter_test")
 {
     auto file = wiz8::open_host_file(wiz8::path_from_utf8(WIZ8_BLITTER_EXPECTED));
@@ -115,7 +152,7 @@ TEST_CASE("blitter_test")
         palette[i] = static_cast<std::uint16_t>((i * 257) ^ 0x57ab);
     }
     SGPVObject object = {};
-    ETRLEObject frame{};
+    STCISubImage frame{};
     std::copy_n(palette, 256, object.palette.begin());
     ClippingRect = {0, 0, 640, static_cast<std::int32_t>(rows)};
     SDL_Rect full = ClippingRect;
@@ -126,7 +163,9 @@ TEST_CASE("blitter_test")
         // The single decoded representation must produce the legacy assembly
         // bytes; data 1 carries literal index 0 in opaque runs and exercises
         // the explicit opacity mask.
-        REQUIRE(DecodeVideoObjectSprites(object, {&frame, 1}, {encoded, sizeof(encoded)}));
+        auto sheet = load_sprite(frame, encoded);
+        REQUIRE(sheet);
+        object.sprites = std::move(sheet->frames);
         for (int variant = 0; variant < 8; ++variant) {
             // Whole, partial opaque/transparent runs, every clipped edge,
             // null/default clip rectangle and complete rejection.
@@ -217,18 +256,19 @@ TEST_CASE("blitter_test")
         ClippingRect = full;
         SGPVObject probe = {};
         std::copy_n(palette, 256, probe.palette.begin());
-        ETRLEObject probe_frame{};
+        STCISubImage probe_frame{};
         probe_frame.usWidth = 3;
         probe_frame.usHeight = 1;
         probe_frame.uiDataOffset = 0;
         // opaque literal 0, transparent run of 1, opaque literal 2
         static const std::uint8_t probe_data[] = {1, 0, 0x81, 1, 2, 0};
         probe_frame.uiDataLength = sizeof(probe_data);
-        if (!DecodeVideoObjectSprites(probe, {&probe_frame, 1},
-                                      {probe_data, sizeof(probe_data)})) {
+        auto sheet = load_sprite(probe_frame, probe_data);
+        if (!sheet) {
             fprintf(stderr, "probe sprite failed to decode\n");
             ok = false;
         } else {
+            probe.sprites = std::move(sheet->frames);
             const SpriteFrame& sprite = probe.sprites[0];
             reset();
             BltSpriteTo16BPPBuffer(destination, pitch, sprite, probe.currentPalette().data(), 4, 4,
@@ -258,18 +298,15 @@ TEST_CASE("blitter_test")
         }
     }
 
-    // Malformed frames must fail without replacing previously decoded sprites.
+    // Malformed frames fail at the image-loading boundary.
     {
-        SGPVObject object{};
-        object.sprites.emplace_back().usWidth = 7;
-        ETRLEObject frame{};
+        STCISubImage frame{};
         frame.usWidth = 1;
         frame.usHeight = 1;
         const std::uint8_t data[] = {0x80, 1, 2, 0};
         frame.uiDataLength = sizeof(data);
         auto rejected = [&] {
-            return !DecodeVideoObjectSprites(object, {&frame, 1}, data) &&
-                   object.sprites.size() == 1 && object.sprites[0].usWidth == 7;
+            return !load_sprite(frame, data);
         };
         ok = rejected() && ok; // Zero-length encoded run.
         frame.usWidth = frame.usHeight = 65535;
@@ -314,12 +351,14 @@ TEST_CASE("SGP sprite clipping preserves inclusive frame bounds")
 TEST_CASE("SDL sprite surfaces preserve opaque palette words, shade changes and RLE mirrors")
 {
     SGPVObject object{};
-    ETRLEObject frame{};
+    STCISubImage frame{};
     frame.usWidth = 4;
     frame.usHeight = 1;
     const std::uint8_t data[]{2, 0, 255, 0x81, 1, 1, 0};
     frame.uiDataLength = sizeof(data);
-    REQUIRE(DecodeVideoObjectSprites(object, {&frame, 1}, data));
+    auto sheet = load_sprite(frame, data);
+    REQUIRE(sheet);
+    object.sprites = std::move(sheet->frames);
     auto& sprite = object.sprites[0];
     for (unsigned i = 0; i < object.palette.size(); ++i) object.palette[i] = i;
     for (unsigned shade = 0; shade < 3; ++shade) {
@@ -353,16 +392,17 @@ TEST_CASE("SDL tiled backgrounds preserve clipping, phase, transparent gaps and 
         ~RestoreClip() { ClippingRect = previous; }
     } restore;
     SGPVObject object{};
-    object.ubBitDepth = 8;
     for (unsigned i = 0; i < object.palette.size(); ++i) object.palette[i] = i;
-    ETRLEObject frame{};
+    STCISubImage frame{};
     frame.usWidth = 4;
     frame.usHeight = 3;
     const std::uint8_t data[]{2, 0, 1, 0x81, 1, 2, 0,
                        0x81, 3, 3, 4, 5, 0,
                        4, 6, 7, 8, 9, 0};
     frame.uiDataLength = sizeof(data);
-    REQUIRE(DecodeVideoObjectSprites(object, {&frame, 1}, data));
+    auto sheet = load_sprite(frame, data);
+    REQUIRE(sheet);
+    object.sprites = std::move(sheet->frames);
     SGPVSurface actual{};
     actual.ownedSurface = CreateCpuSurface(17, 11, 16);
     SGPVSurface expected{};

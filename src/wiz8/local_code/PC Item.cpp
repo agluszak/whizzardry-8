@@ -1,6 +1,7 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
 #include <string>
+#include <memory>
 #include <cstdlib>
 #include <cstring>
 #include <string_view>
@@ -240,23 +241,18 @@ W8ItemVideoObjectCache g_item_video_objects;
 // FUNCTION: WIZ8 0x0055cdb0
 W8ItemVideoObjectEntry::W8ItemVideoObjectEntry() : initialized(0), video_object(0) {}
 
-W8ItemVideoObjectEntry::~W8ItemVideoObjectEntry() {}
-
 // FUNCTION: WIZ8 0x0055cdc0
 void W8ItemVideoObjectCache::Initialize(int new_capacity)
 {
     capacity = new_capacity;
-    data = new W8ItemVideoObjectEntry[new_capacity];
+    data = std::make_unique<W8ItemVideoObjectEntry[]>(new_capacity);
     loaded_count = 0;
 }
 
 // FUNCTION: WIZ8 0x0055ce40
 void W8ItemVideoObjectCache::Clear()
 {
-    if (data) {
-        delete[] data;
-        data = 0;
-    }
+    data.reset();
     loaded_count = 0;
 }
 
@@ -410,7 +406,7 @@ static char g_item_video_object_fallback_names[145][0x30] = {"Dagger.sti",
 // FUNCTION: WIZ8 0x0055ce80
 int W8ItemVideoObjectCache::GetOrCreateVideoObject(int item_id)
 {
-    W8ItemVideoObjectEntry* entry = data + item_id;
+    W8ItemVideoObjectEntry* entry = &data[item_id];
     const W8ItemDatabaseRecord* record = &g_item_records[item_id];
     std::string_view name = record->video_object_name;
     int object;

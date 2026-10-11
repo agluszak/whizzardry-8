@@ -50,7 +50,7 @@ srModelInstance& srModelInstance::operator=(const srModelInstance& other)
 }
 
 // FUNCTION: SURRENDER 0x1004FA40
-srModelInstance::~srModelInstance() {}
+srModelInstance::~srModelInstance() = default;
 
 // FUNCTION: SURRENDER 0x1004F3A0
 void srModelInstance::traverse(TraverseInfo& info)

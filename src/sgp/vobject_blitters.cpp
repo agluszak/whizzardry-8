@@ -9,8 +9,6 @@
 #include <memory>
 #include <optional>
 #include <span>
-#include <utility>
-#include <vector>
 
 #include "Types.h"
 #include "vsurface.h"
@@ -40,76 +38,6 @@ void NativeWriteWord(std::uint8_t* data, std::uint16_t value)
 
 // GLOBAL: WIZ8 0x00600078
 SDL_Rect ClippingRect = {0, 0, 640, 480};
-
-// Decode every ETRLE frame once into SpriteFrame pixels, each strictly
-// inside its own recorded byte range. Transparent runs become
-// SpriteFrame::kTransparent so a literal index 0 stays distinguishable.
-// Every scanline must account for the full frame width before its
-// terminator. Decoding is transactional: hVObject.sprites is replaced
-// only after all frames validate.
-bool DecodeVideoObjectSprites(SGPVObject& hVObject, std::span<const ETRLEObject> frames,
-                                 std::span<const std::uint8_t> data)
-{
-    if (!frames.empty() && data.empty()) {
-        return (false);
-    }
-    std::vector<SpriteFrame> decoded;
-    decoded.reserve(frames.size());
-    constexpr size_t max_pixels = 256 * 1024 * 1024 / sizeof(std::uint16_t);
-    size_t remaining_pixels = max_pixels;
-    for (const ETRLEObject& frame : frames) {
-        SpriteFrame& out = decoded.emplace_back();
-        out.sOffsetX = frame.sOffsetX;
-        out.sOffsetY = frame.sOffsetY;
-        out.usWidth = frame.usWidth;
-        out.usHeight = frame.usHeight;
-        if (frame.uiDataOffset > data.size() ||
-            frame.uiDataLength > data.size() - frame.uiDataOffset)
-            return (false);
-        const size_t pixel_count = size_t(frame.usWidth) * frame.usHeight;
-        if (pixel_count > remaining_pixels)
-            return false;
-        remaining_pixels -= pixel_count;
-        if (pixel_count == 0)
-            continue;
-        const std::uint8_t* src = data.data() + frame.uiDataOffset;
-        const std::uint8_t* const end = src + frame.uiDataLength;
-        out.indices = CreateCpuStorage(frame.usWidth, frame.usHeight, SDL_PIXELFORMAT_RGB565);
-        if (!out.indices || !SDL_FillSurfaceRect(out.indices.get(), nullptr, SpriteFrame::kTransparent))
-            return false;
-        for (std::uint32_t y = 0; y < frame.usHeight; ++y) {
-            auto* row = reinterpret_cast<std::uint16_t*>(static_cast<std::uint8_t*>(out.indices->pixels) + y * out.indices->pitch);
-            std::uint32_t x = 0;
-            for (;;) {
-                if (src >= end) {
-                    return (false);
-                }
-                const std::uint8_t control = *src++;
-                if (control == 0) {
-                    break;
-                }
-                const std::uint32_t count = control & 0x7f;
-                if (count == 0 || count > frame.usWidth - x) {
-                    return (false);
-                }
-                if (control & 0x80) {
-                    x += count;
-                } else {
-                    if (count > static_cast<std::uint32_t>(end - src)) {
-                        return (false);
-                    }
-                    for (std::uint32_t n = 0; n < count; ++n)
-                        row[x++] = *src++;
-                }
-            }
-            if (x != frame.usWidth) {
-                return (false);
-            }
-        }
-    }
-    hVObject.sprites = std::move(decoded);
-    return (true);
-}
 
 // Ordinary buffer copies share the CPU surface backend. The legacy entry points
 // deliberately propagate writes through overlapping input; SDL snapshots instead,

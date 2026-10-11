@@ -1,5 +1,8 @@
-#include <utility>
+#include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_surface.h>
+#include "wiz8/compat/surfaces.h"
+#include <utility>
+#include <variant>
 #include <catch2/catch_test_macros.hpp>
 #include <fmt/format.h>
 #include <fmt/printf.h>
@@ -116,29 +119,16 @@ void screen_stack()
 
 void camp_effects()
 {
-    std::array<SGPPaletteEntry, 256> palette{};
-    std::array<ETRLEObject, 12> images{};
-    for (auto& image : images) { image.usWidth = 16; image.usHeight = 8; }
-    image_type image{};
-    image.ubBitDepth = 8;
-    image.etrle = true;
-    image.pPalette.emplace();
-    std::copy_n(palette.data(), palette.size(), image.pPalette->data());
-    // Each frame is eight scanlines of one transparent run of 16 then the
-    // row terminator: 0x90 0x00 repeated.
-    image.pImageData.resize(images.size() * 16);
-
-    image.pETRLEObject.resize(images.size());
-    std::copy_n(images.data(), images.size(), image.pETRLEObject.data());
-    for (std::size_t i = 0; i < images.size(); ++i) {
-        image.pETRLEObject[i].uiDataOffset = i * 16;
-        image.pETRLEObject[i].uiDataLength = 16;
-        for (unsigned row = 0; row < 8; ++row) {
-            image.pImageData[i * 16 + row * 2] = 0x90;
-        }
+    SpriteSheet image;
+    image.frames.resize(12);
+    for (auto& frame : image.frames) {
+        frame.usWidth = 16;
+        frame.usHeight = 8;
+        frame.indices = CreateCpuStorage(16, 8, SDL_PIXELFORMAT_RGB565);
+        REQUIRE(frame.indices);
+        REQUIRE(SDL_FillSurfaceRect(frame.indices.get(), nullptr, SpriteFrame::kTransparent));
     }
-
-    auto object = CreateVideoObject(image);
+    auto object = std::make_unique<SGPVObject>(std::move(image));
     REQUIRE(object);
     const auto saved_slot = g_video_slots[0x86];
     auto saved_frame = std::move(g_video_frames[0]);
@@ -455,45 +445,42 @@ void buttons_and_regions()
 
 void image_and_sprite_ownership()
 {
-    image_type image{};
-    image.ubBitDepth = 8;
-    image.etrle = true;
-    image.pPalette.emplace();
-    (*image.pPalette)[1] = {255, 0, 0, 0};
-    image.pImageData.resize(3);
-    image.pImageData[0] = 1;
-    image.pImageData[1] = 1;
-    image.pETRLEObject.resize(1);
-    image.pETRLEObject[0] = {0, 3, 0, 0, 1, 1};
+    SpriteSheet image;
+    image.palette[1] = {255, 0, 0, 0};
+    image.frames.resize(1);
+    image.frames[0].indices = CreateCpuStorage(1, 1, SDL_PIXELFORMAT_RGB565);
+    REQUIRE(image.frames[0].indices);
+    REQUIRE(SDL_FillSurfaceRect(image.frames[0].indices.get(), nullptr, 1));
+    image.frames[0].usWidth = image.frames[0].usHeight = 1;
 
     std::array<std::unique_ptr<SGPVObject>, 64> objects{};
     for (unsigned i = 0; i < objects.size(); ++i) {
-        objects[i] = CreateVideoObject(image);
+        objects[i] = std::make_unique<SGPVObject>(image);
         REQUIRE(objects[i]);
         REQUIRE((objects[i]->sprites.size() == 1 && objects[i]->sprites[0].indices->w == 1 && objects[i]->sprites[0].indices->h == 1));
-        REQUIRE(objects[i]->sprites[0].indices->pixels !=
-              image.pImageData.data());
-        REQUIRE(objects[i]->pPaletteEntry.data() != image.pPalette->data());
+        REQUIRE(objects[i]->sprites[0].indices->pixels != image.frames[0].indices->pixels);
+        REQUIRE(objects[i]->pPaletteEntry.data() != image.palette.data());
         (void)CreateObjectPaletteTables(*objects[i], HVOBJECT_GLOW_GREEN);
         REQUIRE((objects[i]->pShades[0] && objects[i]->pShades[15]));
         REQUIRE(objects[i]->currentPalette() == objects[i]->palette);
         REQUIRE(SetObjectShade(*objects[i], 6));
         auto retained = objects[i]->palette;
-        objects[i]->setPalette(*image.pPalette);
+        objects[i]->setPalette(image.palette);
         REQUIRE(objects[i]->palette == retained);
         REQUIRE(objects[i]->currentPalette() == objects[i]->palette);
         REQUIRE(SetObjectShade(*objects[i], 4));
         (void)CreateObjectPaletteTables(*objects[i], HVOBJECT_GLOW_RED);
         REQUIRE(objects[i]->currentPalette() == objects[i]->palette);
     }
-    image.pImageData[1] = 2;
-    image.pETRLEObject[0].usWidth = 2;
+    REQUIRE(SDL_FillSurfaceRect(image.frames[0].indices.get(), nullptr, 2));
+    image.frames[0].usWidth = 2;
     REQUIRE((objects[0]->sprites[0].paletteIndexAt(0, 0) == 1 && objects[0]->sprites[0].usWidth == 1));
-    image.pETRLEObject[0].uiDataOffset = 0xffffffffu;
-    REQUIRE(!CreateVideoObject(image));
-    REQUIRE((image.pImageData[1] == 2 && image.pETRLEObject[0].uiDataOffset == 0xffffffffu));
+    const auto* owned_pixels = image.frames[0].indices->pixels;
+    SGPVObject moved(std::move(image));
+    REQUIRE(moved.sprites[0].indices->pixels == owned_pixels);
+    REQUIRE(moved.sprites[0].paletteIndexAt(0, 0) == 2);
     image = {};
-    REQUIRE((image.pImageData.empty() && !image.pPalette && image.pETRLEObject.empty()));
+    REQUIRE(image.frames.empty());
     for (unsigned index : {0u, 31u, 63u}) {
         objects[index].reset();
     }
@@ -631,8 +618,12 @@ void generic_button_images()
     button_image_fixture(assets, "metadata.sti", 3, true);
     {
         auto image = LoadImage("metadata.sti");
-        REQUIRE((image && image->pImageData.size() == 9 && image->pETRLEObject.size() == 3));
-        REQUIRE((image->pPalette && (*image->pPalette)[1].peRed == 255));
+        REQUIRE(image);
+        const auto* sheet = std::get_if<SpriteSheet>(&*image);
+        REQUIRE(sheet);
+        REQUIRE(sheet->frames.size() == 3);
+        REQUIRE(sheet->frames[2].paletteIndexAt(0, 0) == 1);
+        REQUIRE(sheet->palette[1].peRed == 255);
 
         const auto pixel_offset = STCI_HEADER_SIZE + STCI_8BIT_PALETTE_SIZE + 3 * STCI_SUBIMAGE_SIZE;
         for (std::uintmax_t cut : {0u, STCI_HEADER_SIZE - 1u,

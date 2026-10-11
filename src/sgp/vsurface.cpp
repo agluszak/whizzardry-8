@@ -1,11 +1,13 @@
-#include <cstdint>
 #include <algorithm>
-#include <SDL3/SDL_log.h>
+#include <cstdint>
 #include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>
 #include <cstddef>
+#include <cstring>
+#include <vector>
 #include <memory>
+#include <variant>
 #include <string_view>
 #include <optional>
 
@@ -133,23 +135,22 @@ std::unique_ptr<SGPVSurface> CreateVideoSurface(std::uint16_t width, std::uint16
 
 std::unique_ptr<SGPVSurface> LoadVideoSurface(std::string_view filename)
 {
-    auto image = LoadImage(filename);
+    auto decoded = LoadImage(filename);
+    auto* image = decoded ? std::get_if<BitmapImage>(&*decoded) : nullptr;
     if (!image) return nullptr;
-    auto result = CreateVideoSurface(image->usWidth, image->usHeight, image->ubBitDepth);
+    auto result = CreateVideoSurface(image->width, image->height, image->bitDepth);
     if (!result) return nullptr;
-    if (image->pPalette && !SetVideoSurfacePalette(*result, *image->pPalette))
+    if (image->palette && !SetVideoSurfacePalette(*result, *image->palette))
         return nullptr;
 
     const auto& storage = *result->cpu().surface;
-    const auto bits = result->ubBitDepth;
-    const auto format = bits == 8 ? BUFFER_8BPP : BUFFER_16BPP;
-    const SDL_Rect bounds{0, 0, result->usWidth, result->usHeight};
-    if (!CopyImageToBuffer(*image, format,
-            {static_cast<std::uint8_t*>(storage.pixels), std::size_t(storage.pitch) * result->usHeight},
-            storage.pitch / (bits / 8), result->usHeight, 0, 0, bounds)) {
-        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Error copying image data to video surface");
-        return nullptr;
-    }
+    const std::size_t row_bytes = image->width * (image->bitDepth / 8);
+    // FUNCTION: WIZ8 0x0040fad0
+    // FUNCTION: WIZ8 0x0040ff30
+    // FUNCTION: WIZ8 0x00410050
+    for (int row = 0; row < storage.h; ++row)
+        std::memcpy(static_cast<std::uint8_t*>(storage.pixels) + row * storage.pitch,
+                    image->pixels.data() + row * row_bytes, row_bytes);
     return result;
 }
 // Indexed surfaces use SDL palettes; custom RGB555 blitters retain their table.
