@@ -372,6 +372,20 @@ TEST_CASE("imports_test")
         source.getViewPlane(before, distance);
         copy.getViewPlane(after, distance);
         REQUIRE((before.left == after.left && before.top == after.top));
+        const auto normalized = copy.getNormalizedViewPlane();
+        REQUIRE((normalized.left == after.left / distance &&
+                 normalized.bottom == after.bottom / distance &&
+                 normalized.right == after.right / distance &&
+                 normalized.top == after.top / distance));
+        copy.setClipRange(1000, 10);
+        const auto [near_clip, far_clip] = copy.getClipRange();
+        REQUIRE((near_clip == 10 && far_clip == 1000));
+        copy.setEnvironmentRange(3, 9);
+        const auto [near_range, far_range] = copy.getEnvironmentRange();
+        REQUIRE((near_range == 3 && far_range == 9));
+        copy.setEnvironmentScale(0.5f, 2);
+        const auto [near_scale, far_scale] = copy.getEnvironmentScale();
+        REQUIRE((near_scale == 0.5f && far_scale == 2));
         srClipPlane plane, plane_copy;
         glm::vec4 plane_value;
         plane_value.x = 1;
