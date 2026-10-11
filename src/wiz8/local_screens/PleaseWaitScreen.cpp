@@ -1,6 +1,7 @@
 #include <fmt/format.h>
 #include <SDL3/SDL_filesystem.h>
 #include <SDL3/SDL_log.h>
+#include <exception>
 #include <string>
 #include <optional>
 #include <vector>
@@ -124,8 +125,7 @@ unsigned char PleaseWaitScreenEnter(void)
         case 2:
             g_load_descriptor->parameter = g_status.current_level;
             g_load_descriptor->name = g_current_screen_state.name;
-            g_load_descriptor->previous_save_name =
-                g_current_screen_state.previous_save_name;
+            g_load_descriptor->previous_save_name = g_current_screen_state.previous_save_name;
             g_load_descriptor->save_payload =
                 static_cast<W8SaveScreenshot*>(g_current_screen_state.parameter_3);
             break;
@@ -295,7 +295,8 @@ void PleaseWaitScreenFrame(void)
         if (saved && !g_load_descriptor->previous_save_name.empty() &&
             g_load_descriptor->previous_save_name != g_load_descriptor->name) {
             const std::string previous_path =
-                fmt::format("Saves\\{}.{}", g_load_descriptor->previous_save_name, g_save_extension);
+                fmt::format("Saves\\{}.{}", g_load_descriptor->previous_save_name,
+                            g_save_extension);
             try {
                 wiz8::remove_file(previous_path);
             } catch (const std::exception& error) {
