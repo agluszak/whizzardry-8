@@ -97,6 +97,15 @@ void frame() { ++screen_frames; }
 void button_image_fixture(const std::filesystem::path& root, std::string name, unsigned count,
                           bool app_data, unsigned width, unsigned height);
 
+void initialize_test_framebuffer()
+{
+    ResetFontRendering();
+    g_pixel_format = 9;
+    Initialize16BitPixelFormatMasks();
+    REQUIRE(InitializePrimarySurface());
+    ButtonDestBuffer = &GetFrameBufferSurface();
+}
+
 void screen_stack()
 {
     W8CharacterEventQueue queue;
@@ -645,6 +654,7 @@ void image_and_sprite_ownership()
 
 void font_resource_ownership()
 {
+    initialize_test_framebuffer();
     for (unsigned repeat = 0; repeat < 32; ++repeat) {
         auto translation = CreateEnglishTransTable();
         REQUIRE(translation.size() == 252);
@@ -770,6 +780,7 @@ void button_image_fixture(const std::filesystem::path& root, std::string name, u
 
 void generic_button_images()
 {
+    initialize_test_framebuffer();
     RegionStateSnapshot saved_regions;
     ResetRegions();
     const std::filesystem::path root = make_temporary_directory("wiz8-button-images");
@@ -1351,6 +1362,7 @@ TEST_CASE("Dialog controls own interaction without legacy GUI buttons", "[owner]
 
 TEST_CASE("Modal confirmations and scrollbars dispatch through their native owners", "[owner]")
 {
+    initialize_test_framebuffer();
     RegionStateSnapshot saved_state;
     ResetRegions();
     ExclusiveRegionSet button_scope(ControlRegionSetIndex());
