@@ -1546,44 +1546,26 @@ unsigned char ShowAutomapNoteTooltip(W8AutomapNote* note)
 // FUNCTION: WIZ8 0x00581CE0
 bool SaveAutomapNotes(wiz8::File& handle)
 {
-    int signature = 0xf00df00d;
-    unsigned char saved;
-    if (!g_automap_visited_cells.empty()) {
-        saved = SavePackedBits(handle, g_automap_visited_cells);
-    } else {
-        saved = true;
-    }
-    if (saved == 0) {
+    const int signature = 0xf00df00d;
+    if (!g_automap_visited_cells.empty() && !SavePackedBits(handle, g_automap_visited_cells)) {
         return false;
     }
-    if ((handle.write(&signature, 4), true) == 0) {
-        return false;
+    handle.write(&signature, 4);
+    const unsigned int count = static_cast<int>(g_automap_notes->size());
+    handle.write(&count, 4);
+    for (const W8AutomapNote* note : *g_automap_notes) {
+        if (note == 0) continue;
+        handle.write(&note->position.x, 4);
+        handle.write(&note->position.y, 4);
+        handle.write(&note->layer, 4);
+        const std::uint32_t length = wiz8::text::to_utf16(note->text).size() + 1;
+        std::vector<std::byte> bytes(length * 2);
+        wiz8::text::to_utf16le(note->text, bytes);
+        handle.write(&length, 4);
+        handle.write(bytes.data(), bytes.size());
     }
-    unsigned int count = static_cast<int>(g_automap_notes->size());
-    if ((handle.write(&count, 4), true) == 0) {
-        return false;
-    }
-    for (unsigned int index = 0; index < count; ++index) {
-        W8AutomapNote* note = (*g_automap_notes)[index];
-        if (note != 0) {
-            bool ok = (handle.write(&note->position.x, 4), true) != 0 &&
-                      (handle.write(&note->position.y, 4), true) != 0 &&
-                      (handle.write(&note->layer, 4), true) != 0;
-            const std::uint32_t length = wiz8::text::to_utf16(note->text).size() + 1;
-            std::vector<std::byte> bytes(length * 2);
-            wiz8::text::to_utf16le(note->text, bytes);
-            if (!ok) {
-                return false;
-            }
-            if ((handle.write(&length, 4), true) == 0) {
-                return false;
-            }
-            if ((handle.write(bytes.data(), bytes.size()), true) == 0) {
-                return false;
-            }
-        }
-    }
-    return (handle.write(&signature, 4), true) != 0;
+    handle.write(&signature, 4);
+    return true;
 }
 
 /* Release every note, restore the visited-cell bitmap for the loaded level,

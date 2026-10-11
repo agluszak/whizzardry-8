@@ -498,28 +498,23 @@ unsigned int LoadWorldCursorNodeStates(wiz8::File& handle)
 // FUNCTION: WIZ8 0x0048e6d0
 unsigned char SaveWorldCursorNodeStates(wiz8::File& handle)
 {
-    bool ok = true;
     int version = 2;
     unsigned int count;
     unsigned int index;
     W8WorldCursorNode* node;
 
-    if (!(handle.write(&version, 4), true)) {
-        return 0;
-    }
+    handle.write(&version, 4);
     count = static_cast<int>(g_world_cursor_nodes.size());
-    if (!(handle.write(&count, 4), true)) {
-        return 0;
-    }
-    for (index = 0; index < count && ok; ++index) {
+    handle.write(&count, 4);
+    for (index = 0; index < count; ++index) {
         node = g_world_cursor_nodes[index];
-        ok = (handle.write(node->name, sizeof(node->name)), true) &&
-             (handle.write(&node->userdata_size, 4), true);
+        handle.write(node->name, sizeof(node->name));
+        handle.write(&node->userdata_size, 4);
         if (node->userdata_size != 0) {
-            ok = ok && (handle.write(node->pUserdata, node->userdata_size), true);
+            handle.write(node->pUserdata, node->userdata_size);
         }
     }
-    return ok;
+    return 1;
 }
 
 // FUNCTION: WIZ8 0x0048e7b0
@@ -625,7 +620,6 @@ unsigned int LoadWorldCursorNodes(wiz8::File& handle)
 // FUNCTION: WIZ8 0x0048ead0
 unsigned char SaveWorldCursorNodes(wiz8::File& handle)
 {
-    bool ok = true;
     int version = 3;
     unsigned int count;
     unsigned int index;
@@ -633,32 +627,30 @@ unsigned char SaveWorldCursorNodes(wiz8::File& handle)
     srVector3T<float> location;
     W8WorldCursorNode* node;
 
-    if (!(handle.write(&version, 4), true)) {
-        return 0;
-    }
+    handle.write(&version, 4);
     handle.write(&gXStatus.mipe_cube_serial, 4);
     count = static_cast<int>(g_world_cursor_nodes.size());
-    if (!(handle.write(&count, 4), true)) {
-        return 0;
-    }
-    for (index = 0; index < count && ok; ++index) {
+    handle.write(&count, 4);
+    for (index = 0; index < count; ++index) {
         node = g_world_cursor_nodes[index];
         handle.write(node->name, sizeof(node->name));
-        for (component = 0; component < 3 && ok; ++component) {
-            ok = (handle.write(&node->parameters[component], 4), true);
-        }
+        for (component = 0; component < 3; ++component) {
+            handle.write(&node->parameters[component], 4);
+            }
         const auto bounds = node->node->getLocalBounds();
         location = glm::vec3(node->node->getLocation());
-        ok = ok && (handle.write(&bounds.minimum.x, 4), true) &&
-             (handle.write(&bounds.minimum.y, 4), true) &&
-             (handle.write(&bounds.minimum.z, 4), true) &&
-             (handle.write(&bounds.maximum.x, 4), true) &&
-             (handle.write(&bounds.maximum.y, 4), true) &&
-             (handle.write(&bounds.maximum.z, 4), true) && (handle.write(&location.x, 4), true) &&
-             (handle.write(&location.y, 4), true) && (handle.write(&location.z, 4), true) &&
-             (handle.write(&node->value_08, 4), true);
+        handle.write(&bounds.minimum.x, 4);
+        handle.write(&bounds.minimum.y, 4);
+        handle.write(&bounds.minimum.z, 4);
+        handle.write(&bounds.maximum.x, 4);
+        handle.write(&bounds.maximum.y, 4);
+        handle.write(&bounds.maximum.z, 4);
+        handle.write(&location.x, 4);
+        handle.write(&location.y, 4);
+        handle.write(&location.z, 4);
+        handle.write(&node->value_08, 4);
     }
-    return ok;
+    return 1;
 }
 
 // FUNCTION: WIZ8 0x0048ED00

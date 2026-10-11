@@ -596,27 +596,20 @@ void W8Navigator::ClearMovementStopped()
 // FUNCTION: WIZ8 0x004549d0
 unsigned char W8Navigator::SaveMovementState(wiz8::File* hFile)
 {
-    unsigned char has_state = 0;
-    unsigned char ok;
-    srVector3T<float> position;
-    srVector3T<float> target;
-
     if (hFile == 0) {
         return 0;
     }
-    if (linked_navigator == 0 && (flags & 0x20000000) != 0) {
-        has_state = 1;
-        ok = (hFile->write(&has_state, 1), true);
-        ok &= (hFile->write(&minimum_height, 4), true);
-        ok &= (hFile->write(&maximum_height, 4), true);
-        position = patrol_home;
-        ok &= (hFile->write(&position, 0xc), true);
-        target = movement.attachment->path_destination;
-        ok &= (hFile->write(&target, 0xc), true);
-        return ok;
+    const unsigned char has_state = linked_navigator == 0 && (flags & 0x20000000) != 0;
+    hFile->write(&has_state, 1);
+    if (has_state) {
+        const srVector3T<float> position = patrol_home;
+        const srVector3T<float> target = movement.attachment->path_destination;
+        hFile->write(&minimum_height, 4);
+        hFile->write(&maximum_height, 4);
+        hFile->write(&position, 0xc);
+        hFile->write(&target, 0xc);
     }
-    ok = (hFile->write(&has_state, 1), true);
-    return ok;
+    return 1;
 }
 
 /* Load the movement state saved by 0x004549D0: a presence byte, the height
