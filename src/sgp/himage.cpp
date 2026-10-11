@@ -1,7 +1,6 @@
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
    Distributed under the accompanying SFI Source Code license agreement. */
 #include <SDL3/SDL_log.h>
-#include <SDL3/SDL_rect.h>
 #include <SDL3_image/SDL_image.h>
 #include <zlib.h>
 #include <SDL3/SDL_error.h>
@@ -22,9 +21,10 @@
 #include <cstdint>
 #include <cstring>
 #include <stdexcept>
-#include <span>
 #include <cstdlib>
 #include <exception>
+#include <span>
+#include <cstddef>
 
 #include "Types.h"
 #include "wiz8/filesystem.h"
@@ -148,7 +148,7 @@ bool valid_image_header(const std::vector<UINT8>& bytes, ImageFormat format)
     return false;
 }
 
-image_type load_ordinary_image(wiz8::File& file, ImageFormat format)
+BitmapImage load_ordinary_image(wiz8::File& file, ImageFormat format)
 {
     const auto size = file.size();
     if (size <= 0 || std::uint64_t(size) > max_image_bytes)
@@ -179,32 +179,95 @@ image_type load_ordinary_image(wiz8::File& file, ImageFormat format)
             throw std::runtime_error(SDL_GetError());
         surface = std::move(converted);
     }
-    image_type decoded{};
-    decoded.usWidth = surface->w;
-    decoded.usHeight = surface->h;
-    decoded.ubBitDepth = indexed ? 8 : rgb555 ? 16 : 24;
-    const std::size_t row_bytes = surface->w * (decoded.ubBitDepth / 8);
-    decoded.pImageData.resize(row_bytes * surface->h);
+    BitmapImage decoded{};
+    decoded.width = surface->w;
+    decoded.height = surface->h;
+    decoded.bitDepth = indexed ? 8 : rgb555 ? 16 : 24;
+    const std::size_t row_bytes = surface->w * (decoded.bitDepth / 8);
+    decoded.pixels.resize(row_bytes * surface->h);
     for (int y = 0; y < surface->h; ++y)
         std::copy_n(static_cast<const UINT8*>(surface->pixels) + y * surface->pitch, row_bytes,
-                    decoded.pImageData.data() + y * row_bytes);
+                    decoded.pixels.data() + y * row_bytes);
     if (indexed) {
-        decoded.pPalette.emplace();
+        decoded.palette.emplace();
         const unsigned first_color = format == ImageFormat::tga &&
             (bytes[2] == 1 || bytes[2] == 9) ? little_word(bytes.data() + 3) : 0;
         std::transform(palette->colors, palette->colors + std::min(unsigned(palette->ncolors), 256 - first_color),
-            decoded.pPalette->begin() + first_color, [](const SDL_Color& color) {
+            decoded.palette->begin() + first_color, [](const SDL_Color& color) {
                 return SGPPaletteEntry{color.r, color.g, color.b, 0};
             });
     }
     return decoded;
 }
 
+std::vector<SpriteFrame> decode_sti_frames(std::span<const STCISubImage> frames,
+                                         std::span<const UINT8> data)
+{
+    if (!frames.empty() && data.empty()) {
+        throw std::runtime_error("Invalid STI sprite data");
+    }
+    std::vector<SpriteFrame> decoded;
+    decoded.reserve(frames.size());
+    constexpr size_t max_pixels = max_image_bytes / sizeof(UINT16);
+    size_t remaining_pixels = max_pixels;
+    for (const STCISubImage& frame : frames) {
+        SpriteFrame& out = decoded.emplace_back();
+        out.sOffsetX = frame.sOffsetX;
+        out.sOffsetY = frame.sOffsetY;
+        out.usWidth = frame.usWidth;
+        out.usHeight = frame.usHeight;
+        if (frame.uiDataOffset > data.size() ||
+            frame.uiDataLength > data.size() - frame.uiDataOffset)
+            throw std::runtime_error("Invalid STI sprite data");
+        const size_t pixel_count = size_t(frame.usWidth) * frame.usHeight;
+        if (pixel_count > remaining_pixels)
+            throw std::runtime_error("STI sprites exceed decoded pixel limit");
+        remaining_pixels -= pixel_count;
+        if (pixel_count == 0)
+            continue;
+        const UINT8* src = data.data() + frame.uiDataOffset;
+        const UINT8* const end = src + frame.uiDataLength;
+        out.pixels.assign(static_cast<size_t>(frame.usWidth) * frame.usHeight,
+                          SpriteFrame::kTransparent);
+        UINT16* row = out.pixels.data();
+        for (UINT32 y = 0; y < frame.usHeight; ++y) {
+            UINT32 x = 0;
+            for (;;) {
+                if (src >= end) {
+                    throw std::runtime_error("Invalid STI sprite data");
+                }
+                const UINT8 control = *src++;
+                if (control == 0) {
+                    break;
+                }
+                const UINT32 count = control & 0x7f;
+                if (count == 0 || count > frame.usWidth - x) {
+                    throw std::runtime_error("Invalid STI sprite data");
+                }
+                if (control & 0x80) {
+                    x += count;
+                } else {
+                    if (count > static_cast<UINT32>(end - src)) {
+                        throw std::runtime_error("Invalid STI sprite data");
+                    }
+                    for (UINT32 n = 0; n < count; ++n)
+                        row[x++] = *src++;
+                }
+            }
+            if (x != frame.usWidth) {
+                throw std::runtime_error("Invalid STI sprite data");
+            }
+            row += frame.usWidth;
+        }
+    }
+    return decoded;
+}
+
 // FUNCTION: WIZ8 0x00415130
-image_type load_sti(wiz8::File& file)
+DecodedImage load_sti(wiz8::File& file)
 {
     static_assert(sizeof(STCIHeader) == STCI_HEADER_SIZE);
-    static_assert(sizeof(ETRLEObject) == STCI_SUBIMAGE_SIZE);
+    static_assert(sizeof(STCISubImage) == STCI_SUBIMAGE_SIZE);
     static_assert(sizeof(STCIPaletteElement) == STCI_PALETTE_ELEMENT_SIZE);
     STCIHeader header{};
     file.read_exact(&header, sizeof(header));
@@ -216,16 +279,22 @@ image_type load_sti(wiz8::File& file)
         throw std::runtime_error("Unsupported STI pixel format");
     const bool etrle = !rgb && (header.fFlags & STCI_ETRLE_COMPRESSED);
     const bool compressed = header.fFlags & STCI_ZLIB_COMPRESSED;
+    if ((rgb && (header.fFlags & (STCI_INDEXED | STCI_ETRLE_COMPRESSED))) || (etrle && compressed))
+        throw std::runtime_error("Conflicting STI encodings");
+    const std::size_t bitmap_bytes = std::size_t(header.usWidth) * header.usHeight * (header.ubDepth / 8);
+    if (!etrle && (!safe_dimensions(header.usWidth, header.usHeight) ||
+                  (compressed && header.uiOriginalSize != bitmap_bytes)))
+        throw std::runtime_error("Invalid STI bitmap dimensions or decoded size");
     const std::uint64_t palette_bytes = rgb ? 0 : std::uint64_t(header.Indexed.uiNumberOfColours) * sizeof(STCIPaletteElement);
     const std::size_t frame_count = etrle ? header.Indexed.usNumberOfSubImages : 0;
     const auto frames_offset = sizeof(header) + palette_bytes;
-    const auto pixels_offset = frames_offset + frame_count * sizeof(ETRLEObject);
+    const auto pixels_offset = frames_offset + frame_count * sizeof(STCISubImage);
     const auto app_offset = pixels_offset + header.uiStoredSize;
     const auto file_size = file.size();
-    image_type decoded{};
-    decoded.usWidth = header.usWidth;
-    decoded.usHeight = header.usHeight;
-    decoded.ubBitDepth = header.ubDepth;
+    BitmapImage decoded{};
+    decoded.width = header.usWidth;
+    decoded.height = header.usHeight;
+    decoded.bitDepth = header.ubDepth;
 
     // FUNCTION: WIZ8 0x004153f0
     if (!rgb) {
@@ -233,8 +302,8 @@ image_type load_sti(wiz8::File& file)
             throw std::runtime_error("STI requires a 256-color palette");
         std::array<STCIPaletteElement, 256> palette{};
         file.read_exact(palette.data(), sizeof(palette));
-        decoded.pPalette.emplace();
-        std::transform(palette.begin(), palette.end(), decoded.pPalette->begin(),
+        decoded.palette.emplace();
+        std::transform(palette.begin(), palette.end(), decoded.palette->begin(),
             [](const STCIPaletteElement& color) {
                 return SGPPaletteEntry{color.ubRed, color.ubGreen, color.ubBlue, 0};
             });
@@ -245,29 +314,35 @@ image_type load_sti(wiz8::File& file)
     // section extending past EOF means this STI is truncated.
     if (header.uiAppDataSize > std::uint64_t(file_size) - app_offset)
         throw std::runtime_error("STI application data exceeds file bounds");
-    if (!etrle && !compressed &&
-        std::size_t(header.usWidth) * header.usHeight * (header.ubDepth / 8) > header.uiStoredSize)
+    if (!etrle && !compressed && bitmap_bytes > header.uiStoredSize)
         throw std::runtime_error("STI bitmap is shorter than its dimensions");
     file.seek(frames_offset, wiz8::SeekOrigin::begin);
-    decoded.pETRLEObject.resize(frame_count);
-    file.read_exact(decoded.pETRLEObject.data(), frame_count * sizeof(ETRLEObject));
-    decoded.pImageData.resize(header.uiStoredSize);
-    file.read_exact(decoded.pImageData.data(), decoded.pImageData.size());
-    for (const auto& frame : decoded.pETRLEObject) {
-        if (std::uint64_t(frame.uiDataOffset) + frame.uiDataLength > decoded.pImageData.size())
-            throw std::runtime_error("STI subimage exceeds pixel buffer bounds");
+    std::vector<STCISubImage> frames(frame_count);
+    file.read_exact(frames.data(), frame_count * sizeof(STCISubImage));
+    decoded.pixels.resize(header.uiStoredSize);
+    file.read_exact(decoded.pixels.data(), decoded.pixels.size());
+    if (etrle)
+        return SpriteSheet{*decoded.palette, decode_sti_frames(frames, decoded.pixels)};
+    // FUNCTION: WIZ8 0x0040fca0
+    if (compressed) {
+        std::vector<UINT8> unpacked(bitmap_bytes);
+        uLongf output_size = unpacked.size();
+        uLong input_size = decoded.pixels.size();
+        if (uncompress2(unpacked.data(), &output_size, decoded.pixels.data(), &input_size) != Z_OK ||
+            output_size != unpacked.size() || input_size != decoded.pixels.size())
+            throw std::runtime_error("Invalid STI zlib payload");
+        decoded.pixels = std::move(unpacked);
+    } else {
+        decoded.pixels.resize(bitmap_bytes);
     }
-    decoded.etrle = etrle;
-    decoded.compressed = compressed;
-
     // FUNCTION: WIZ8 0x00415250
-    if (rgb && header.ubDepth == 16 && !compressed &&
+    if (rgb && header.ubDepth == 16 &&
         (header.RGB.uiRedMask != gusRedMask || header.RGB.uiGreenMask != gusGreenMask || header.RGB.uiBlueMask != gusBlueMask)) {
         const auto source_format = SDL_GetPixelFormatForMasks(16, header.RGB.uiRedMask, header.RGB.uiGreenMask, header.RGB.uiBlueMask, 0);
         const auto target_format = SDL_GetPixelFormatForMasks(16, gusRedMask, gusGreenMask, gusBlueMask, 0);
-        std::vector<UINT8> converted(decoded.pImageData.size());
+        std::vector<UINT8> converted(decoded.pixels.size());
         if (!SDL_ConvertPixels(header.usWidth, header.usHeight, source_format,
-            decoded.pImageData.data(), header.usWidth * 2, target_format, converted.data(), header.usWidth * 2))
+            decoded.pixels.data(), header.usWidth * 2, target_format, converted.data(), header.usWidth * 2))
             throw std::runtime_error(SDL_GetError());
         // Zero is the game's transparent pixel, even when opaque colors use an alpha mask.
         if (gusAlphaMask) {
@@ -278,14 +353,14 @@ image_type load_sti(wiz8::File& file)
                 std::memcpy(converted.data() + i, &pixel, sizeof(pixel));
             }
         }
-        decoded.pImageData = std::move(converted);
+        decoded.pixels = std::move(converted);
     }
     return decoded;
 }
 }
 
 // FUNCTION: WIZ8 0x0040f850
-std::optional<image_type> LoadImage(std::string_view filename)
+std::optional<DecodedImage> LoadImage(std::string_view filename)
 {
     if (filename.empty())
         return std::nullopt;
@@ -298,81 +373,14 @@ std::optional<image_type> LoadImage(std::string_view filename)
 
         const auto format = image_format(path);
         const auto file = wiz8::open_file(path);
-        auto decoded = format == ImageFormat::sti
-            ? load_sti(*file) : load_ordinary_image(*file, format);
-        if (decoded.pPalette)
-            decoded.pui16BPPPalette = Create16BPPPalette(*decoded.pPalette);
-        return decoded;
+        if (format == ImageFormat::sti)
+            return load_sti(*file);
+        return load_ordinary_image(*file, format);
     } catch (const std::exception& error) {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Loading image %.*s: %s",
                      static_cast<int>(filename.size()), filename.data(), error.what());
         return std::nullopt;
     }
-}
-
-// FUNCTION: WIZ8 0x0040fad0
-bool CopyImageToBuffer(const image_type& image, UINT32 buffer_type, std::span<UINT8> destination,
-                       std::size_t dest_width, std::size_t dest_height, std::size_t x, std::size_t y,
-                       const SDL_Rect& rect)
-{
-    if (rect.x < 0 || rect.y < 0 || rect.w <= 0 || rect.h <= 0 ||
-        (rect.x + rect.w) > image.usWidth || (rect.y + rect.h) > image.usHeight || x >= dest_width || y >= dest_height)
-        return false;
-    const std::size_t width = rect.w;
-    const std::size_t height = rect.h;
-    if (width > dest_width - x || height > dest_height - y || image.etrle)
-        return false;
-    const std::size_t source_depth = image.ubBitDepth / 8;
-    const std::size_t target_depth = buffer_type == BUFFER_8BPP ? 1 : buffer_type == BUFFER_16BPP ? 2 : 0;
-    if ((image.ubBitDepth != 8 && image.ubBitDepth != 16) || !target_depth || target_depth < source_depth)
-        return false;
-    if (dest_height > destination.size() / target_depth ||
-        dest_width > destination.size() / target_depth / dest_height)
-        return false;
-    const std::size_t image_bytes = std::size_t(image.usWidth) * image.usHeight * source_depth;
-    if (image_bytes > max_image_bytes)
-        return false;
-
-    // FUNCTION: WIZ8 0x0040fba0
-    // The retail compressed INDEX8-to-INDEX8 path intentionally never copies pixels.
-    if (image.compressed && target_depth == 1)
-        return true;
-    if (target_depth != source_depth && !image.pui16BPPPalette)
-        return false;
-
-    std::span<const UINT8> source = image.pImageData;
-    std::vector<UINT8> unpacked;
-    if (image.compressed) {
-        if (source_depth != 1 || source.empty())
-            return false;
-        // FUNCTION: WIZ8 0x0040fca0
-        unpacked.resize(image_bytes);
-        uLongf output_size = unpacked.size();
-        uLong input_size = source.size();
-        if (uncompress2(unpacked.data(), &output_size, source.data(), &input_size) != Z_OK ||
-            output_size != unpacked.size() || input_size != source.size())
-            return false;
-        source = unpacked;
-    }
-    if (source.size() < image_bytes)
-        return false;
-    // FUNCTION: WIZ8 0x0040fe40
-    // FUNCTION: WIZ8 0x0040ff30
-    // FUNCTION: WIZ8 0x00410050
-    for (std::size_t row = 0; row < height; ++row) {
-        const auto input = source.subspan(((rect.y + row) * image.usWidth + rect.x) * source_depth,
-                                         width * source_depth);
-        auto output = destination.subspan(((y + row) * dest_width + x) * target_depth, width * target_depth);
-        if (source_depth == target_depth) {
-            std::copy(input.begin(), input.end(), output.begin());
-        } else {
-            for (std::size_t column = 0; column < width; ++column) {
-                const UINT16 pixel = (*image.pui16BPPPalette)[input[column]];
-                std::memcpy(output.data() + column * sizeof(pixel), &pixel, sizeof(pixel));
-            }
-        }
-    }
-    return true;
 }
 
 // FUNCTION: WIZ8 0x00410190
@@ -469,3 +477,11 @@ UINT16 Get16BPPColor(UINT32 RGBValue)
 // Return Value  pointer to the SGPPaletteEntry
 // Modification History :
 // Dec 15th 1996 -> modified for use by Wizardry
+
+// FUNCTION: WIZ8 0x00406900
+std::optional<UINT8> SpriteFrame::paletteIndexAt(int x, int y) const
+{
+    if (x < 0 || y < 0 || x >= usWidth || y >= usHeight) return std::nullopt;
+    const auto value = pixels[y * usWidth + x];
+    return value == kTransparent ? 0 : static_cast<UINT8>(value);
+}
