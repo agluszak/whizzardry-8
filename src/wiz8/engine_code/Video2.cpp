@@ -801,7 +801,7 @@ static RuntimeWorldRenderData ObserveWorldRenderState()
                  (g_video_active ? 4UL : 0UL) | (g_monster_shadow_updates_enabled ? 8UL : 0UL) |
                  (g_render_mesh_sky ? 16UL : 0UL) | (g_world_pick_enabled ? 32UL : 0UL);
     data.scene_children = g_world->static_scene->getChildCount();
-    if (g_world->octree != 0 && g_world->psrMeshes != 0) {
+    if (g_world->octree != 0 && !g_world->psrMeshes.empty()) {
         for (w8_ulong index = 0; index < g_world->octree->m_meshCount; ++index) {
             srModelInstance* instance = g_world->psrMeshes[index];
             if (instance != 0 && !instance->testFlag(srNode::FLAG_DISABLE)) {
