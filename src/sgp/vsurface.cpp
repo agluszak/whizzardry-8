@@ -138,11 +138,15 @@ std::unique_ptr<SGPVSurface> CreateVideoSurface(const VSURFACE_DESC& VSurfaceDes
         bits = image->ubBitDepth;
     }
     CHECKN(width && height && (bits == 8 || bits == 16));
-    const auto* format = bits == 16 ? SDL_GetPixelFormatDetails(g_sgp_pixel_format) : nullptr;
-    CHECKN(bits != 16 || format);
+    const auto* details = bits == 16 ? SDL_GetPixelFormatDetails(g_sgp_pixel_format) : nullptr;
+    CHECKN(bits != 16 || details);
+    // CPU storage treats every bit as raw pixels; the SGP opaque marker is
+    // not an SDL alpha channel.
+    const auto format = bits == 8 ? SDL_PIXELFORMAT_INDEX8 :
+        SDL_GetPixelFormatForMasks(16, details->Rmask, details->Gmask, details->Bmask, 0);
+    CHECKN(format != SDL_PIXELFORMAT_UNKNOWN);
     auto result = std::make_unique<SGPVSurface>();
-    result->ownedSurface = CreateCpuSurface(width, height, bits,
-        format ? format->Rmask : 0, format ? format->Gmask : 0, format ? format->Bmask : 0);
+    result->ownedSurface = CreateCpuSurface(width, height, format);
     result->usWidth = width;
     result->usHeight = height;
     result->ubBitDepth = bits;
