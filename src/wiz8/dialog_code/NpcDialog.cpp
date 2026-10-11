@@ -13,6 +13,7 @@
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/text_input.h"
+#include "wiz8/regions.h"
 #include "input.h"
 #include "Font.h"
 #include "dialog_code/DialogBase.h"

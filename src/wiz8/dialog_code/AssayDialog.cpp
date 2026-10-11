@@ -18,6 +18,7 @@
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
+#include "wiz8/regions.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/fonts.h"
 #include "wiz8/layouts/game_status.h"
@@ -29,7 +30,7 @@
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/video_object_catalog.h"
-#include "Button System.h"
+#include "wiz8/dialog_code/ButtonAppearance.h"
 #include "dialog_code/DialogButton.h"
 #include "dialog_code/DialogScrollBar.h"
 #include "dialog_code/DialogTextArea.h"
@@ -668,74 +669,74 @@ bool W8AssayDialog::PopulateRequirements()
     }
 
     m_buttons[0]->Configure("Data\\Dialogs\\popup_iteminfo.sti", BUTTON_NO_IMAGE, 1, 1, 1, 1,
-                            BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK, false, BUTTON_PRIORITY_LOWEST,
+                            BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK, false, REGION_PRIORITY_LOWEST,
                             W8_DIALOG_BUTTON_NO_TOOLTIP, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
     m_buttons[1]->Configure("Data\\Dialogs\\popup_iteminfo.sti", BUTTON_NO_IMAGE, 2, 2, 2, 2,
-                            BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK, false, BUTTON_PRIORITY_LOWEST,
+                            BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK, false, REGION_PRIORITY_LOWEST,
                             W8_DIALOG_BUTTON_NO_TOOLTIP, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
     m_buttons[2]->Configure("Data\\Dialogs\\iteminfo_tabbutton.sti", 3, 0, 1, 4, 2,
-                            PrimaryTabCallback, BUTTON_NO_CALLBACK, true, BUTTON_PRIORITY_HIGHEST,
+                            PrimaryTabCallback, BUTTON_NO_CALLBACK, true, REGION_PRIORITY_HIGHEST,
                             0x115, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
     m_buttons[3]->Configure("Data\\Dialogs\\iteminfo_tabbutton.sti", 8, 5, 6, 9, 7,
-                            SecondaryTabCallback, BUTTON_NO_CALLBACK, true, BUTTON_PRIORITY_HIGHEST,
+                            SecondaryTabCallback, BUTTON_NO_CALLBACK, true, REGION_PRIORITY_HIGHEST,
                             0x116, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
     m_buttons[4]->Configure("Data\\Dialogs\\popup_iteminfo.sti", BUTTON_NO_IMAGE, 3, 3, 3, 3,
-                            BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK, false, BUTTON_PRIORITY_LOWEST,
+                            BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK, false, REGION_PRIORITY_LOWEST,
                             W8_DIALOG_BUTTON_NO_TOOLTIP, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
     m_buttons[5]->Configure("Data\\Dialogs\\popup_confirmationbuttons.sti", 3, 0, 1, 2, 2,
                             W8TriggerItemPickerDialog::CloseOwningDialog, BUTTON_NO_CALLBACK, false,
-                            BUTTON_PRIORITY_HIGHEST, 0x12, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
-    m_buttons[6]->ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 1, 0, BUTTON_PRIORITY_HIGHEST,
+                            REGION_PRIORITY_HIGHEST, 0x12, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
+    m_buttons[6]->ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 1, 0, REGION_PRIORITY_HIGHEST,
                                 0x2ad);
-    m_buttons[7]->ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 3, 2, BUTTON_PRIORITY_HIGHEST,
+    m_buttons[7]->ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 3, 2, REGION_PRIORITY_HIGHEST,
                                 0x2a7);
-    m_buttons[8]->ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 5, 4, BUTTON_PRIORITY_HIGHEST,
+    m_buttons[8]->ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 5, 4, REGION_PRIORITY_HIGHEST,
                                 0x2b0);
-    m_buttons[9]->ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 7, 6, BUTTON_PRIORITY_HIGHEST,
+    m_buttons[9]->ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 7, 6, REGION_PRIORITY_HIGHEST,
                                 0x2ac);
-    m_buttons[10]->ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 9, 8, BUTTON_PRIORITY_HIGHEST,
+    m_buttons[10]->ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 9, 8, REGION_PRIORITY_HIGHEST,
                                  0x2a6);
     m_buttons[11]->ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 0xb, 10,
-                                 BUTTON_PRIORITY_HIGHEST, 0x2a4);
+                                 REGION_PRIORITY_HIGHEST, 0x2a4);
     m_buttons[12]->ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 0xd, 0xc,
-                                 BUTTON_PRIORITY_HIGHEST, 0x2aa);
+                                 REGION_PRIORITY_HIGHEST, 0x2aa);
     m_buttons[13]->ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 0xf, 0xe,
-                                 BUTTON_PRIORITY_HIGHEST, 0x2b1);
+                                 REGION_PRIORITY_HIGHEST, 0x2b1);
     m_buttons[14]->ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 0x11, 0x10,
-                                 BUTTON_PRIORITY_HIGHEST, 0x2a8);
+                                 REGION_PRIORITY_HIGHEST, 0x2a8);
     m_buttons[15]->ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 0x13, 0x12,
-                                 BUTTON_PRIORITY_HIGHEST, 0x2ae);
+                                 REGION_PRIORITY_HIGHEST, 0x2ae);
     m_buttons[16]->ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 0x15, 0x14,
-                                 BUTTON_PRIORITY_HIGHEST, 0x2a9);
+                                 REGION_PRIORITY_HIGHEST, 0x2a9);
     m_buttons[17]->ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 0x17, 0x16,
-                                 BUTTON_PRIORITY_HIGHEST, 0x2af);
+                                 REGION_PRIORITY_HIGHEST, 0x2af);
     m_buttons[18]->ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 0x19, 0x18,
-                                 BUTTON_PRIORITY_HIGHEST, 0x2a5);
+                                 REGION_PRIORITY_HIGHEST, 0x2a5);
     m_buttons[19]->ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 0x1b, 0x1a,
-                                 BUTTON_PRIORITY_HIGHEST, 0x2b2);
+                                 REGION_PRIORITY_HIGHEST, 0x2b2);
     m_buttons[20]->ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 0x1d, 0x1c,
-                                 BUTTON_PRIORITY_HIGHEST, 0x2ab);
-    m_buttons[21]->ConfigureIcon("Data\\Dialogs\\icons_race.sti", 1, 0, BUTTON_PRIORITY_HIGHEST,
+                                 REGION_PRIORITY_HIGHEST, 0x2ab);
+    m_buttons[21]->ConfigureIcon("Data\\Dialogs\\icons_race.sti", 1, 0, REGION_PRIORITY_HIGHEST,
                                  0x28a);
-    m_buttons[22]->ConfigureIcon("Data\\Dialogs\\icons_race.sti", 3, 2, BUTTON_PRIORITY_HIGHEST,
+    m_buttons[22]->ConfigureIcon("Data\\Dialogs\\icons_race.sti", 3, 2, REGION_PRIORITY_HIGHEST,
                                  0x28c);
-    m_buttons[23]->ConfigureIcon("Data\\Dialogs\\icons_race.sti", 5, 4, BUTTON_PRIORITY_HIGHEST,
+    m_buttons[23]->ConfigureIcon("Data\\Dialogs\\icons_race.sti", 5, 4, REGION_PRIORITY_HIGHEST,
                                  0x285);
-    m_buttons[24]->ConfigureIcon("Data\\Dialogs\\icons_race.sti", 7, 6, BUTTON_PRIORITY_HIGHEST,
+    m_buttons[24]->ConfigureIcon("Data\\Dialogs\\icons_race.sti", 7, 6, REGION_PRIORITY_HIGHEST,
                                  0x28e);
-    m_buttons[25]->ConfigureIcon("Data\\Dialogs\\icons_race.sti", 9, 8, BUTTON_PRIORITY_HIGHEST,
+    m_buttons[25]->ConfigureIcon("Data\\Dialogs\\icons_race.sti", 9, 8, REGION_PRIORITY_HIGHEST,
                                  0x284);
-    m_buttons[26]->ConfigureIcon("Data\\Dialogs\\icons_race.sti", 0xb, 10, BUTTON_PRIORITY_HIGHEST,
+    m_buttons[26]->ConfigureIcon("Data\\Dialogs\\icons_race.sti", 0xb, 10, REGION_PRIORITY_HIGHEST,
                                  0x28b);
-    m_buttons[27]->ConfigureIcon("Data\\Dialogs\\icons_race.sti", 0xd, 0xc, BUTTON_PRIORITY_HIGHEST,
+    m_buttons[27]->ConfigureIcon("Data\\Dialogs\\icons_race.sti", 0xd, 0xc, REGION_PRIORITY_HIGHEST,
                                  0x286);
-    m_buttons[28]->ConfigureIcon("Data\\Dialogs\\icons_race.sti", 0xf, 0xe, BUTTON_PRIORITY_HIGHEST,
+    m_buttons[28]->ConfigureIcon("Data\\Dialogs\\icons_race.sti", 0xf, 0xe, REGION_PRIORITY_HIGHEST,
                                  0x288);
-    m_buttons[29]->ConfigureIcon("Data\\Dialogs\\icons_race.sti", 0x11, 0x10, BUTTON_PRIORITY_HIGHEST,
+    m_buttons[29]->ConfigureIcon("Data\\Dialogs\\icons_race.sti", 0x11, 0x10, REGION_PRIORITY_HIGHEST,
                                  0x287);
-    m_buttons[30]->ConfigureIcon("Data\\Dialogs\\icons_race.sti", 0x13, 0x12, BUTTON_PRIORITY_HIGHEST,
+    m_buttons[30]->ConfigureIcon("Data\\Dialogs\\icons_race.sti", 0x13, 0x12, REGION_PRIORITY_HIGHEST,
                                  0x28d);
-    m_buttons[31]->ConfigureIcon("Data\\Dialogs\\icons_race.sti", 0x15, 0x14, BUTTON_PRIORITY_HIGHEST,
+    m_buttons[31]->ConfigureIcon("Data\\Dialogs\\icons_race.sti", 0x15, 0x14, REGION_PRIORITY_HIGHEST,
                                  0x289);
 
     for (us_index = 0; us_index < NUM_RPC_RACES; ++us_index) {
@@ -790,7 +791,7 @@ bool W8AssayDialog::PopulateRequirements()
             break;
         }
         m_buttons[button_index]->ConfigureIcon("Data\\Dialogs\\icons_race.sti", frame + 1, frame,
-                                               BUTTON_PRIORITY_HIGHEST, tooltip_index);
+                                               REGION_PRIORITY_HIGHEST, tooltip_index);
         m_buttons[button_index]->SetVisible(false);
     }
 

@@ -1,9 +1,10 @@
 #include <SDL3/SDL_rect.h>
 #include <algorithm>
 
-#include "Button System.h"
+#include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/dialog_code/DialogButton.h"
 #include "wiz8/dialog_code/DialogScrollBar.h"
+#include "wiz8/regions.h"
 #include "Video2.h"
 #include "local_code/ControlsRect.h"
 
@@ -20,18 +21,18 @@ bool W8DialogScrollBar::CreateControls(const Resources* resources)
         // FUNCTION: WIZ8 0x005e1280
         m_up_button.Configure(resources->arrows_path, 3, 0, 1, 2, 2,
                               [this](W8DialogButton*) { ScrollUp(); }, nullptr, false,
-                              BUTTON_PRIORITY_HIGHEST - 1, W8_DIALOG_BUTTON_NO_TOOLTIP, nullptr, nullptr) &&
+                              REGION_PRIORITY_HIGHEST - 1, W8_DIALOG_BUTTON_NO_TOOLTIP, nullptr, nullptr) &&
         // FUNCTION: WIZ8 0x005e1320
         m_down_button.Configure(resources->arrows_path, 11, 8, 9, 10, 10,
                                 [this](W8DialogButton*) { ScrollDown(); }, nullptr, false,
-                                BUTTON_PRIORITY_HIGHEST - 1, W8_DIALOG_BUTTON_NO_TOOLTIP, nullptr, nullptr) &&
+                                REGION_PRIORITY_HIGHEST - 1, W8_DIALOG_BUTTON_NO_TOOLTIP, nullptr, nullptr) &&
         m_thumb_button.Configure(resources->arrows_path, 7, 4, 5, 6, 6, nullptr, nullptr, false,
-                                 BUTTON_PRIORITY_HIGHEST - 2, W8_DIALOG_BUTTON_NO_TOOLTIP, nullptr, nullptr) &&
+                                 REGION_PRIORITY_HIGHEST - 2, W8_DIALOG_BUTTON_NO_TOOLTIP, nullptr, nullptr) &&
         // FUNCTION: WIZ8 0x005e13d0
         m_track_button.Configure(resources->track_path, BUTTON_NO_IMAGE, resources->track_frame,
                                  BUTTON_NO_IMAGE, resources->track_frame, BUTTON_NO_IMAGE,
                                  [this](W8DialogButton* button) { ScrollToMouse(button->GetMousePosition().y); },
-                                 nullptr, false, BUTTON_PRIORITY_HIGHEST - 2,
+                                 nullptr, false, REGION_PRIORITY_HIGHEST - 2,
                                  W8_DIALOG_BUTTON_NO_TOOLTIP, nullptr, nullptr);
     if (!configured) {
         m_up_button.Reset();

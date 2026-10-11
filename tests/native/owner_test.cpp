@@ -15,6 +15,8 @@
 #include <algorithm>
 #include <array>
 #include <cstring>
+#include <cstdio>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <ios>
@@ -36,13 +38,17 @@
 #include "wiz8/xstatus.h"
 #include "wiz8/video_object_catalog.h"
 #include "image_assets.h"
-#include "Button System.h"
+#include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/dialog_code/DialogButton.h"
 #include "wiz8/dialog_code/DialogScrollBar.h"
 #include "wiz8/dialog_code/MessageDialogBase.h"
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/local_code/ButtonSound.h"
+#include "wiz8/local_code/UtilityFunctions.h"
+#include "wiz8/utility.h"
+#include "wiz8/compat/compiler.h"
+#include "wiz8/sr_api.h"
 #include "Font.h"
 #include "input.h"
 #include "wiz8/regions.h"
@@ -60,8 +66,6 @@
 #include "vobject.h"
 #include "vsurface.h"
 
-
-extern GUI_BUTTON* gpAnchoredButton;
 
 namespace {
 std::vector<int>* scrollbar_position_sink = nullptr;
@@ -214,16 +218,6 @@ void camp_effects()
     }
 }
 
-int clicks = 0;
-int click_reason = 0;
-GUI_BUTTON* clicked_button = nullptr;
-void click(GUI_BUTTON* button, std::int32_t reason)
-{
-    ++clicks;
-    click_reason = reason;
-    clicked_button = button;
-}
-
 std::uint64_t next_mouse_timestamp = 1;
 InputAtom mouse_atom(std::uint16_t event, std::uint16_t x, std::uint16_t y, bool left = false,
                      bool right = false, std::uint8_t click_count = 0)
@@ -299,28 +293,29 @@ unsigned int add_test_region(unsigned int set, unsigned short id, int x1, int y1
 }
 
 std::vector<std::pair<int, int>> region_events;
+struct TestOwnedRegionHandler final : W8RegionHandler {
+    std::vector<std::int32_t> reasons;
+
+    int HandleRegionInput(W8Region& region, const InputAtom& input) override
+    {
+        reasons.push_back(RegionReasonForInput(region, input));
+        return 1;
+    }
+};
+
 unsigned char record_region_event(const InputAtom* event, W8Region* region)
 {
     region_events.emplace_back(region->callback_id, event->usEvent);
     return 1;
 }
-unsigned int panel_capture_index = 0;
-unsigned char capture_panel_event(const InputAtom* event, W8Region* region)
-{
-    record_region_event(event, region);
-    if (event->usEvent == LEFT_BUTTON_DOWN) g_captured_region_index = panel_capture_index;
-    if (event->usEvent == LEFT_BUTTON_UP && g_captured_region_index == panel_capture_index)
-        g_captured_region_index = 0;
-    return 1;
-}
 unsigned char hover_region(const InputAtom*, W8Region* region)
 {
     if (region->flags & W8_REGION_MOUSE_LEAVE)
-        region_events.emplace_back(region->callback_id, BUTTON_REASON_LOST_MOUSE);
+        region_events.emplace_back(region->callback_id, REGION_REASON_LOST_MOUSE);
     else if (region->flags & W8_REGION_MOUSE_ENTER)
-        region_events.emplace_back(region->callback_id, BUTTON_REASON_GAIN_MOUSE);
+        region_events.emplace_back(region->callback_id, REGION_REASON_GAIN_MOUSE);
     else
-        region_events.emplace_back(region->callback_id, BUTTON_REASON_MOVE);
+        region_events.emplace_back(region->callback_id, REGION_REASON_MOVE);
     return 1;
 }
 
@@ -379,26 +374,31 @@ void nested_hover_transitions()
         UpdateRegionMousePosition(25, 5);
     }
     REQUIRE(region_events.size() >= 2);
-    REQUIRE((region_events[0] == std::pair<int, int>{1, BUTTON_REASON_LOST_MOUSE}));
-    REQUIRE((region_events[1] == std::pair<int, int>{2, BUTTON_REASON_GAIN_MOUSE}));
+    REQUIRE((region_events[0] == std::pair<int, int>{1, REGION_REASON_LOST_MOUSE}));
+    REQUIRE((region_events[1] == std::pair<int, int>{2, REGION_REASON_GAIN_MOUSE}));
 }
-void release_outside_controls()
+void owned_region_captures_across_frames()
 {
-    Font font{SGPVObject{}};
-    auto left = CreateTextButton("left", font, 0, 0, {}, 0, 0, 10, 10, BUTTON_TOGGLE,
-                                 BUTTON_PRIORITY_NORMAL, nullptr, click);
-    auto right = CreateTextButton("right", font, 0, 0, {}, 20, 0, 10, 10, BUTTON_TOGGLE,
-                                  BUTTON_PRIORITY_NORMAL, nullptr, click);
-    REQUIRE((left && right));
-    {
-        ExclusiveRegionSet scope(ButtonRegionSetIndex());
-        dispatch_mouse(LEFT_BUTTON_DOWN, 5, 5);
-        REQUIRE(g_captured_region_index == left->region_index);
-        dispatch_mouse(LEFT_BUTTON_UP, 100, 100);
-        REQUIRE(g_captured_region_index == 0);
-        dispatch_mouse(LEFT_BUTTON_DOWN, 25, 5);
-        REQUIRE(clicked_button == right.get());
-    }
+    RegionStateSnapshot saved_state;
+    ResetRegions();
+    const auto set = ControlRegionSetIndex();
+    TestOwnedRegionHandler handler;
+    OwnedRegion region(set, REGION_PRIORITY_NORMAL, handler);
+    region.region().flags = W8_REGION_RECTANGLE;
+    SetRegionBounds(region.index(), 10, 10, 30, 30);
+    ExclusiveRegionSet scope(set);
+
+    dispatch_mouse(LEFT_BUTTON_DOWN, 15, 15, true);
+    REQUIRE(g_captured_region_index == region.index());
+    UpdateRegionMousePosition(100, 100);
+    REQUIRE(g_captured_region_index == region.index());
+    dispatch_mouse(LEFT_BUTTON_UP, 100, 100);
+
+    REQUIRE(g_captured_region_index == 0);
+    REQUIRE(std::find(handler.reasons.begin(), handler.reasons.end(),
+                      REGION_REASON_LBUTTON_DWN) != handler.reasons.end());
+    REQUIRE(std::find(handler.reasons.begin(), handler.reasons.end(),
+                      REGION_REASON_LBUTTON_UP) != handler.reasons.end());
 }
 
 void modal_scope_persists_across_frames()
@@ -416,7 +416,7 @@ void modal_scope_persists_across_frames()
 
     REQUIRE(g_hover_region_index == region);
     REQUIRE(std::count_if(region_events.begin(), region_events.end(), [](const auto& event) {
-                return event.second == BUTTON_REASON_GAIN_MOUSE;
+                return event.second == REGION_REASON_GAIN_MOUSE;
             }) == 1);
 }
 
@@ -424,24 +424,22 @@ void modal_scope_preserves_capture_across_frames()
 {
     RegionStateSnapshot saved_state;
     ResetRegions();
-    Font font{SGPVObject{}};
-    const auto button_set = ButtonRegionSetIndex();
-    auto button = CreateTextButton("captured", font, 0, 0, {}, 10, 10, 20, 20, BUTTON_TOGGLE,
-                                   BUTTON_PRIORITY_NORMAL, nullptr, click);
-    REQUIRE(button);
+    const auto button_set = ControlRegionSetIndex();
+    TestOwnedRegionHandler handler;
+    OwnedRegion region(button_set, REGION_PRIORITY_NORMAL, handler);
+    region.region().flags = W8_REGION_RECTANGLE;
+    SetRegionBounds(region.index(), 10, 10, 30, 30);
 
-    clicked_button = nullptr;
-    click_reason = 0;
     std::optional<ExclusiveRegionSet> scope;
     scope.emplace(button_set);
     dispatch_mouse(LEFT_BUTTON_DOWN, 15, 15);
-    REQUIRE(g_captured_region_index == button->region_index);
+    REQUIRE(g_captured_region_index == region.index());
     UpdateRegionMousePosition(100, 100);
-    REQUIRE(g_captured_region_index == button->region_index);
+    REQUIRE(g_captured_region_index == region.index());
     dispatch_mouse(LEFT_BUTTON_UP, 100, 100);
 
-    REQUIRE(clicked_button == button.get());
-    REQUIRE((click_reason & BUTTON_REASON_LBUTTON_UP) != 0);
+    REQUIRE(std::find(handler.reasons.begin(), handler.reasons.end(),
+                      REGION_REASON_LBUTTON_UP) != handler.reasons.end());
     REQUIRE(g_captured_region_index == 0);
 }
 
@@ -476,13 +474,13 @@ void reset_regions_preserves_hidden_buttons()
 {
     RegionStateSnapshot saved_state;
     ResetRegions();
-    Font font{SGPVObject{}};
-    const auto button_set = ButtonRegionSetIndex();
-    auto button = CreateTextButton("hidden", font, 0, 0, {}, 70, 70, 20, 20, BUTTON_TOGGLE,
-                                   BUTTON_PRIORITY_NORMAL, nullptr, click);
-    REQUIRE(button);
-    const auto region_index = button->region_index;
-    HideButton(button);
+    const auto button_set = ControlRegionSetIndex();
+    TestOwnedRegionHandler handler;
+    OwnedRegion region(button_set, REGION_PRIORITY_NORMAL, handler);
+    region.region().flags = W8_REGION_RECTANGLE;
+    SetRegionBounds(region.index(), 70, 70, 90, 90);
+    const auto region_index = region.index();
+    DisableRegionInput(region_index);
     REQUIRE((g_regions[region_index].flags & W8_REGION_INPUT_DISABLED) != 0);
 
     ResetRegions();
@@ -497,16 +495,15 @@ void later_region_set_precedes_button_set()
 {
     RegionStateSnapshot saved_state;
     ResetRegions();
-    Font font{SGPVObject{}};
-    const auto button_set = ButtonRegionSetIndex();
-    auto button = CreateTextButton("button", font, 0, 0, {}, 100, 100, 20, 20, BUTTON_TOGGLE,
-                                   BUTTON_PRIORITY_NORMAL, nullptr, click);
-    REQUIRE(button);
+    const auto button_set = ControlRegionSetIndex();
+    TestOwnedRegionHandler handler;
+    OwnedRegion control(button_set, REGION_PRIORITY_NORMAL, handler);
+    control.region().flags = W8_REGION_RECTANGLE;
+    SetRegionBounds(control.index(), 100, 100, 120, 120);
     const auto screen_set = new_test_region_set();
     const auto screen_region =
         add_test_region(screen_set, 7, 100, 100, 120, 120, 0, record_region_event);
     REQUIRE(screen_set > button_set);
-    clicked_button = nullptr;
     region_events.clear();
 
     UpdateRegionMousePosition(105, 105);
@@ -515,12 +512,8 @@ void later_region_set_precedes_button_set()
 
     REQUIRE(std::find(region_events.begin(), region_events.end(),
                       std::pair<int, int>{7, LEFT_BUTTON_DOWN}) != region_events.end());
-    REQUIRE(clicked_button != button.get());
+    REQUIRE(handler.reasons.empty());
 }
-
-struct TestOwnedRegionHandler final : W8RegionHandler {
-    int HandleRegionInput(W8Region&, const InputAtom&) override { return 1; }
-};
 
 void owned_region_move_and_teardown()
 {
@@ -551,26 +544,8 @@ void owned_region_move_and_teardown()
     REQUIRE(g_captured_region_index == 0);
     REQUIRE(g_hover_region_index == 0);
 }
-GUIButton nested_outer, nested_inner, removable_button;
-void nested_click(GUI_BUTTON* button, std::int32_t reason)
-{
-    if (button == nested_inner.get()) {
-        nested_outer.reset();
-        return;
-    }
-    REQUIRE(button == nested_outer.get());
-    QuickButtonCallbackMButn(nested_inner.get(), reason);
-    REQUIRE(!nested_outer);
-    nested_inner.reset();
-}
-void remove_button_on_callback(GUI_BUTTON*, std::int32_t)
-{
-    removable_button.reset();
-    REQUIRE(!removable_button);
-}
 void region_registration_and_callback_lifetimes()
 {
-    Font font{SGPVObject{}};
     const auto set = new_test_region_set();
     const auto first = add_test_region(set, 1, 0, 0, 40, 40, 0, record_region_event);
     const auto latest = add_test_region(set, 2, 0, 0, 40, 40, 0, record_region_event);
@@ -588,124 +563,29 @@ void region_registration_and_callback_lifetimes()
     }
     REQUIRE(region_events.front().first == 2);
     RemoveRegionFromSet(set, latest);
-
-    nested_outer = CreateTextButton("nested", font, 0, 0, {}, 0, 0, 40, 20, BUTTON_TOGGLE,
-                                    BUTTON_PRIORITY_NORMAL, nullptr, nested_click);
-    nested_inner = CreateTextButton("nested", font, 0, 0, {}, 0, 20, 40, 20, BUTTON_TOGGLE,
-                                    BUTTON_PRIORITY_NORMAL, nullptr, nested_click);
-    REQUIRE((nested_outer && nested_inner));
-    QuickButtonCallbackMButn(nested_outer.get(), BUTTON_REASON_LBUTTON_DWN);
-    REQUIRE((!nested_outer && !nested_inner));
-
-    removable_button = CreateTextButton("remove", font, 0, 0, {}, 0, 0, 40, 20, BUTTON_TOGGLE,
-                                        BUTTON_PRIORITY_NORMAL, remove_button_on_callback, nullptr);
-    REQUIRE(removable_button);
-    auto weak = std::weak_ptr<GUI_BUTTON>(removable_button);
-    {
-        ExclusiveRegionSet scope(ButtonRegionSetIndex());
-        UpdateRegionMousePosition(10, 10);
-    }
-    REQUIRE(weak.expired());
 }
-void buttons_and_regions()
+void owned_regions_honor_priority()
 {
-    Font font{SGPVObject{}};
-    const auto panel_set = new_test_region_set();
-    const auto panel = add_test_region(panel_set, 7, 0, 0, 40, 40, 0, capture_panel_event);
-    panel_capture_index = panel;
-    const auto button_set = ButtonRegionSetIndex();
-    auto low = CreateTextButton("low", font, 0, 0, {}, 0, 0, 40, 40, BUTTON_TOGGLE,
-                                BUTTON_PRIORITY_LOW, nullptr, click);
-    auto high = CreateTextButton("high", font, 0, 0, {}, 0, 0, 20, 20, BUTTON_TOGGLE,
-                                 BUTTON_PRIORITY_HIGH, nullptr, click);
-    REQUIRE((low && high));
-    REQUIRE(g_regions[high->region_index].button == high.get());
-    {
-        ExclusiveRegionSet panel_scope(panel_set);
-        UpdateRegionMousePosition(10, 10);
-        REQUIRE(g_hover_region_index == panel);
-        region_events.clear();
-        dispatch_mouse(LEFT_BUTTON_DOWN, 10, 10);
-        REQUIRE(region_events.front().first == 7);
-        REQUIRE(g_captured_region_index == panel);
-        {
-            ExclusiveRegionSet button_scope(button_set);
-            dispatch_mouse(LEFT_BUTTON_DOWN, 10, 10);
-            REQUIRE(clicked_button == high.get());
-            REQUIRE(g_captured_region_index == high->region_index);
-            REQUIRE(std::count_if(region_events.begin(), region_events.end(), [](const auto& event) {
-                        return event.second == LEFT_BUTTON_DOWN;
-                    }) == 1);
-        }
-        REQUIRE(g_captured_region_index == panel);
-        REQUIRE(g_hover_region_index == panel);
-        dispatch_mouse(LEFT_BUTTON_UP, 100, 100);
-        REQUIRE(g_captured_region_index == 0);
-    }
+    RegionStateSnapshot saved_state;
+    ResetRegions();
+    const auto set = ControlRegionSetIndex();
+    TestOwnedRegionHandler low_handler;
+    TestOwnedRegionHandler high_handler;
+    OwnedRegion low(set, REGION_PRIORITY_LOW, low_handler);
+    OwnedRegion high(set, REGION_PRIORITY_HIGH, high_handler);
+    low.region().flags = high.region().flags = W8_REGION_RECTANGLE;
+    SetRegionBounds(low.index(), 0, 0, 40, 40);
+    SetRegionBounds(high.index(), 0, 0, 20, 20);
 
-    high->uiFlags = BUTTON_ENABLED | BUTTON_CLICK_CALLBACK;
-    QuickButtonCallbackMButn(high.get(), BUTTON_REASON_LBUTTON_DWN);
-    REQUIRE((clicks > 0 && click_reason == BUTTON_REASON_LBUTTON_DWN));
-    high->uiFlags &= ~BUTTON_ENABLED;
-    const auto click_count = clicks;
-    QuickButtonCallbackMButn(high.get(), BUTTON_REASON_LBUTTON_DWN);
-    REQUIRE(clicks == click_count);
-    high->uiFlags |= BUTTON_ALLOW_DISABLED_CALLBACK;
-    QuickButtonCallbackMButn(high.get(), BUTTON_REASON_LBUTTON_DWN);
-    REQUIRE(clicks == click_count + 1);
-
-    auto double_click = CreateTextButton("double", font, 0, 0, {}, 50, 0, 20, 20,
-                                         BUTTON_TOGGLE, BUTTON_PRIORITY_NORMAL, nullptr, click);
-    REQUIRE(double_click);
-    {
-        ExclusiveRegionSet scope(button_set);
-        auto first_down = mouse_atom(LEFT_BUTTON_DOWN, 55, 5, true, false, 1);
-        first_down.uiTimeStamp = 1000;
-        DispatchRegionInput(&first_down);
-        auto first_up = mouse_atom(LEFT_BUTTON_UP, 55, 5);
-        first_up.uiTimeStamp = 1050;
-        DispatchRegionInput(&first_up);
-        auto second_down = mouse_atom(LEFT_BUTTON_DOWN, 55, 5, true, false, 2);
-        second_down.uiTimeStamp = 1200;
-        DispatchRegionInput(&second_down);
-        REQUIRE((click_reason & BUTTON_REASON_LBUTTON_DOUBLECLICK) != 0);
-        auto second_up = mouse_atom(LEFT_BUTTON_UP, 55, 5);
-        second_up.uiTimeStamp = 1250;
-        DispatchRegionInput(&second_up);
-        const auto reason_after_up = click_reason;
-        auto double_atom = mouse_atom(LEFT_BUTTON_DBL_CLK, 55, 5, false, false, 2);
-        double_atom.uiTimeStamp = 1251;
-        DispatchRegionInput(&double_atom);
-        REQUIRE(click_reason == reason_after_up);
-    }
-
-    char label[] = "owned button";
-    SpecifyButtonText(high, label);
-    label[0] = 'x';
-    REQUIRE(high->string[0] == 'o');
-    char tooltip[] = "tooltip";
-    SetButtonHelpText(high, tooltip);
-    tooltip[0] = 'x';
-    REQUIRE(g_regions[high->region_index].help_text == "tooltip");
-    SetButtonHelpText(high, g_regions[high->region_index].help_text);
-    REQUIRE(g_regions[high->region_index].help_text == "tooltip");
-    SetButtonHelpText(high, {});
-    REQUIRE(g_regions[high->region_index].help_text.empty());
-
-    const auto region_count = g_regions.size();
-    const auto high_region_index = high->region_index;
-    const auto high_generation = g_regions[high_region_index].binding_generation;
-    high.reset();
-    REQUIRE(g_regions[high_region_index].button == nullptr);
-    REQUIRE(g_regions[high_region_index].binding_generation > high_generation);
-    low.reset();
-    for (unsigned repeat = 0; repeat < 32; ++repeat) {
-        auto button = CreateTextButton("reuse", font, 0, 0, {}, 0, 0, 40, 20, BUTTON_TOGGLE,
-                                       BUTTON_PRIORITY_NORMAL, nullptr, click);
-        REQUIRE(button);
-        button.reset();
-    }
-    REQUIRE(g_regions.size() <= region_count + 1);
+    ExclusiveRegionSet scope(set);
+    dispatch_mouse(MOUSE_POS, 10, 10);
+    REQUIRE(g_hover_region_index == high.index());
+    dispatch_mouse(LEFT_BUTTON_DOWN, 10, 10, true);
+    REQUIRE(g_captured_region_index == high.index());
+    REQUIRE(high_handler.reasons.back() == REGION_REASON_LBUTTON_DWN);
+    REQUIRE(low_handler.reasons.empty());
+    dispatch_mouse(LEFT_BUTTON_UP, 10, 10);
+    REQUIRE(g_captured_region_index == 0);
 }
 
 void image_and_sprite_ownership()
@@ -785,11 +665,11 @@ void text_input_ownership()
     Font font{SGPVObject{}};
     for (unsigned repeat = 0; repeat < 32; ++repeat) {
         InitTextInputMode(font);
-        const auto first = AddTextInputField(0, 0, 80, 20, BUTTON_PRIORITY_NORMAL,
+        const auto first = AddTextInputField(0, 0, 80, 20, REGION_PRIORITY_NORMAL,
                                              "alpha", 32, 0, 0);
-        const auto middle = AddTextInputField(0, 20, 80, 20, BUTTON_PRIORITY_NORMAL,
+        const auto middle = AddTextInputField(0, 20, 80, 20, REGION_PRIORITY_NORMAL,
                                               "beta", 32, 0, 0);
-        const auto last = AddTextInputField(0, 40, 80, 20, BUTTON_PRIORITY_NORMAL,
+        const auto last = AddTextInputField(0, 40, 80, 20, REGION_PRIORITY_NORMAL,
                                             "gamma", 32, 0, 0);
         REQUIRE((first == 0 && middle == 1 && last == 2));
         std::string text;
@@ -802,7 +682,7 @@ void text_input_ownership()
             REQUIRE(field_region != g_regions.end());
             const auto region_index =
                 static_cast<unsigned int>(field_region - g_regions.begin());
-            ExclusiveRegionSet scope(ButtonRegionSetIndex());
+            ExclusiveRegionSet scope(ControlRegionSetIndex());
             dispatch_mouse(LEFT_BUTTON_DOWN, 5, 5);
             REQUIRE(g_captured_region_index == region_index);
             dispatch_mouse(LEFT_BUTTON_UP, 100, 100);
@@ -811,12 +691,12 @@ void text_input_ownership()
         RemoveTextInputField(middle);
         REQUIRE(GetTextInputFieldByteLength(last) == 5);
         InitTextInputMode(font);
-        REQUIRE(AddTextInputField(0, 0, 80, 20, BUTTON_PRIORITY_NORMAL,
+        REQUIRE(AddTextInputField(0, 0, 80, 20, REGION_PRIORITY_NORMAL,
                                 "inner", 32, 0, 0) == 0);
         KillTextInputMode();
         text = GetTextFromField(first);
         REQUIRE((text[0] == 'a' && GetTextInputFieldByteLength(last) == 5));
-        REQUIRE(AddTextInputField(0, 60, 80, 20, BUTTON_PRIORITY_NORMAL,
+        REQUIRE(AddTextInputField(0, 60, 80, 20, REGION_PRIORITY_NORMAL,
                                 "delta", 32, 0, 0) == 3);
         RemoveTextInputField(first);
         RemoveTextInputField(3);
@@ -894,7 +774,7 @@ void generic_button_images()
     ResetRegions();
     const std::filesystem::path root = make_temporary_directory("wiz8-button-images");
     const auto assets = root / "assets";
-    button_image_fixture(assets, DEFAULT_GENERIC_BUTTON_OFF);
+    button_image_fixture(assets, std::string(DEFAULT_GENERIC_BUTTON_OFF));
     button_image_fixture(assets, "button.sti");
     button_image_fixture(assets, "short.sti", 8);
     g_image_assets.clear();
@@ -961,19 +841,18 @@ void generic_button_images()
         }
         REQUIRE(!LoadImage("bad-size.sti"));
     }
-    // A button retains its graphics after the loader's reference and the
-    // image manager are released; the last button releases the resource.
+    // Appearance instances retain their graphics independently of the loader
+    // and image manager.
     auto graphics = ButtonGraphics::Load("button.sti", 0, 1, 2, 3, 4);
     REQUIRE(graphics);
     REQUIRE((graphics->MaxWidth == 1 && graphics->MaxHeight == 1));
     std::weak_ptr<const ButtonGraphics> lifetime = graphics;
-    auto first_button = QuickCreateButton(graphics, 0, 0, BUTTON_NO_TOGGLE,
-                                          BUTTON_PRIORITY_NORMAL, nullptr, nullptr);
-    auto second_button = QuickCreateButton(graphics, 2, 0, BUTTON_NO_TOGGLE,
-                                           BUTTON_PRIORITY_NORMAL, nullptr, nullptr);
-    REQUIRE((first_button && second_button));
-    // Give each frame a distinct color and verify actual blits for both
-    // button kinds, including checkbox-only mouse-down highlights.
+    ButtonAppearance first_appearance;
+    ButtonAppearance second_appearance;
+    first_appearance.quick_image = second_appearance.quick_image = graphics;
+    first_appearance.bounds = {0, 0, 8, 8};
+    second_appearance.bounds = {2, 0, 8, 8};
+    // Verify blits for normal and checkbox highlights in every visual state.
     auto& sprite = graphics->object();
     for (unsigned frame = 0; frame < 5; ++frame) {
         REQUIRE(SDL_FillSurfaceRect(sprite.sprites[frame].indices.get(), nullptr, frame + 1));
@@ -984,10 +863,6 @@ void generic_button_images()
     auto& target = *target_owner;
     const auto old_target = ButtonDestBuffer;
     const auto old_hilights = gfRenderHilights;
-    const auto old_left_down = gfLeftButtonState;
-    const auto old_hover_region = g_hover_region_index;
-    auto& first_region = g_regions[first_button->region_index];
-    const auto old_region_flags = first_region.flags;
     ButtonDestBuffer = &target;
     gfRenderHilights = true;
     for (bool checkbox : {false, true}) {
@@ -995,16 +870,8 @@ void generic_button_images()
             for (bool pressed : {false, true}) {
                 for (bool hover : {false, true}) {
                     for (bool mouse_down : {false, true}) {
-                        first_button->uiFlags = (checkbox ? BUTTON_CHECKBOX : BUTTON_QUICK) |
-                            (enabled ? BUTTON_ENABLED : 0) | (pressed ? BUTTON_CLICKED_ON : 0);
-                        g_hover_region_index =
-                            hover ? first_button->region_index : 0;
-                        gfLeftButtonState = mouse_down;
-                        if (mouse_down)
-                            first_region.flags |= W8_REGION_LEFT_BUTTON_HELD;
-                        else
-                            first_region.flags &= ~W8_REGION_LEFT_BUTTON_HELD;
-                        DrawButton(first_button);
+                        DrawButtonAppearance(first_appearance,
+                                              {enabled, pressed, hover, checkbox, mouse_down});
                         auto* pixels = static_cast<std::uint16_t*>(target.cpu().surface->pixels);
                         REQUIRE(pixels);
                         const auto color = pixels[0];
@@ -1019,18 +886,14 @@ void generic_button_images()
     }
     ButtonDestBuffer = old_target;
     gfRenderHilights = old_hilights;
-    gfLeftButtonState = old_left_down;
-    g_hover_region_index = old_hover_region;
-    first_region.flags = old_region_flags;
     target_owner.reset();
     graphics.reset();
     ShutdownButtonImageManager();
     REQUIRE(!lifetime.expired());
-    first_button.reset();
-    REQUIRE(second_button->quick_image->object().sprites[4].paletteIndexAt(0, 0) == 5);
-    second_button.reset();
+    first_appearance.quick_image.reset();
+    REQUIRE(!lifetime.expired());
+    second_appearance.quick_image.reset();
     REQUIRE(lifetime.expired());
-    REQUIRE(RegisteredButtonCount() == 0);
     // Validate each of the five states, including invalid negative indices.
     for (int bad : {-2, 9, 65536}) {
         for (size_t state = 0; state < 5; ++state) {
@@ -1054,13 +917,12 @@ void generic_button_images()
         [](const W8Region& region) { return region.handler != nullptr; });
     {
         auto dialog = std::make_unique<W8DialogButton>();
-        REQUIRE(dialog->ConfigureIcon("button.sti", 0, 1, BUTTON_PRIORITY_NORMAL,
+        REQUIRE(dialog->ConfigureIcon("button.sti", 0, 1, REGION_PRIORITY_NORMAL,
                                       W8_DIALOG_BUTTON_NO_TOOLTIP));
         dialog->SetPosition(12, 13);
-        REQUIRE(!dialog->ConfigureIcon("missing.sti", 0, 1, BUTTON_PRIORITY_NORMAL,
+        REQUIRE(!dialog->ConfigureIcon("missing.sti", 0, 1, REGION_PRIORITY_NORMAL,
                                        W8_DIALOG_BUTTON_NO_TOOLTIP));
         REQUIRE((dialog->GetX() == 12 && dialog->GetY() == 13 && dialog->GetWidth() == 1));
-        REQUIRE(RegisteredButtonCount() == 0);
         REQUIRE(std::any_of(g_regions.begin(), g_regions.end(),
                             [&dialog](const W8Region& region) {
                                 return region.handler == dialog.get();
@@ -1070,7 +932,6 @@ void generic_button_images()
                                   return region.handler != nullptr;
                               }) == handler_count + 1);
     }
-    REQUIRE(RegisteredButtonCount() == 0);
     REQUIRE(std::count_if(g_regions.begin(), g_regions.end(),
                           [](const W8Region& region) { return region.handler != nullptr; }) ==
             handler_count);
@@ -1079,19 +940,18 @@ void generic_button_images()
     auto closing_dialog = std::make_unique<W8DialogButton>();
     REQUIRE(closing_dialog->Configure("button.sti", 0, 1, 2, 3, 4,
         [&](W8DialogButton*) { closing_dialog.reset(); }, nullptr, false,
-        BUTTON_PRIORITY_NORMAL, W8_DIALOG_BUTTON_NO_TOOLTIP, nullptr, nullptr));
+        REGION_PRIORITY_NORMAL, W8_DIALOG_BUTTON_NO_TOOLTIP, nullptr, nullptr));
     closing_dialog->SetPosition(12, 13);
     PushButtonSoundScheme(0, true);
     {
-        ExclusiveRegionSet scope(ButtonRegionSetIndex());
+        ExclusiveRegionSet scope(ControlRegionSetIndex());
         dispatch_mouse(LEFT_BUTTON_DOWN, 12, 13, true, false, 1);
         dispatch_mouse(LEFT_BUTTON_UP, 12, 13, false, false, 1);
     }
     REQUIRE_FALSE(closing_dialog);
-    REQUIRE(RegisteredButtonCount() == 0);
 
     REQUIRE(!InitializeButtonImageManager());
-    button_image_fixture(assets, DEFAULT_GENERIC_BUTTON_ON);
+    button_image_fixture(assets, std::string(DEFAULT_GENERIC_BUTTON_ON));
     REQUIRE(InitializeButtonImageManager());
     const std::string_view filename = "button.sti", missing = "missing.sti";
     const auto load = [](const std::array<std::string_view, 6>& names) {
@@ -1298,7 +1158,7 @@ void generic_button_images()
     g_level_block = previous_level;
     REQUIRE(g_font12point1.load(filename));
     InitTextInputMode(g_font12point1);
-    const auto field = AddTextInputField(0, 0, 80, 20, BUTTON_PRIORITY_NORMAL, "", 1000, 0x0f, 0);
+    const auto field = AddTextInputField(0, 0, 80, 20, REGION_PRIORITY_NORMAL, "", 1000, 0x0f, 0);
     SetActiveField(field);
     const std::string clusters = "é👩‍👩‍👧‍👦中";
     SetInputFieldText(field, clusters);
@@ -1358,9 +1218,9 @@ TEST_CASE("Camp effect ownership", "[owner]")
     camp_effects();
 }
 
-TEST_CASE("Button and mouse region ownership", "[owner]")
+TEST_CASE("Owned control region priority", "[owner]")
 {
-    buttons_and_regions();
+    owned_regions_honor_priority();
 }
 
 TEST_CASE("Callback reentrancy and region teardown", "[owner]")
@@ -1368,7 +1228,7 @@ TEST_CASE("Callback reentrancy and region teardown", "[owner]")
     region_registration_and_callback_lifetimes();
     region_nested_input();
     nested_hover_transitions();
-    release_outside_controls();
+    owned_region_captures_across_frames();
     owned_region_move_and_teardown();
     modal_scope_persists_across_frames();
     modal_scope_preserves_capture_across_frames();
@@ -1406,7 +1266,7 @@ TEST_CASE("Dialog controls own interaction without legacy GUI buttons", "[owner]
 {
     RegionStateSnapshot saved_state;
     ResetRegions();
-    ExclusiveRegionSet button_scope(ButtonRegionSetIndex());
+    ExclusiveRegionSet button_scope(ControlRegionSetIndex());
     Font font{SGPVObject{}};
     PushButtonSoundScheme(0, true);
     int activations = 0;
@@ -1417,7 +1277,6 @@ TEST_CASE("Dialog controls own interaction without legacy GUI buttons", "[owner]
                 REQUIRE(control->GetUserData() == 42);
                 ++activations;
             }, 42));
-        REQUIRE(RegisteredButtonCount() == 0);
         gfLeftButtonState = false;
         gusMouseXPos = gusMouseYPos = 400;
         dispatch_mouse(LEFT_BUTTON_DOWN, 15, 15, true, false, 1);
@@ -1485,7 +1344,7 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
 {
     RegionStateSnapshot saved_state;
     ResetRegions();
-    ExclusiveRegionSet button_scope(ButtonRegionSetIndex());
+    ExclusiveRegionSet button_scope(ControlRegionSetIndex());
     const std::filesystem::path root = make_temporary_directory("wiz8-modal-controls");
     const auto assets = root / "assets";
     for (const auto* image : {"DialogBorder.STI", "DialogEdge.STI", "DialogConfirmation.STI"})
@@ -1507,7 +1366,6 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
         const W8DialogScrollBar::Resources resources{
             "arrows.sti", "track.sti", 0, RecordScrollPosition};
         REQUIRE(bar.CreateControls(&resources));
-        REQUIRE(RegisteredButtonCount() == 0);
         bar.SetLayout(100, 20, 20, 5, 10, 30);
         gusMouseYPos = 400;
         dispatch_mouse(LEFT_BUTTON_DOWN, 101, 116, true);
@@ -1546,7 +1404,6 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
         dialog.SetBackground("background.sti", 0);
         dialog.SetMessage("", 0, 0, true, true, false, false, 100, 80);
         REQUIRE(dialog.CreateControls() == 0);
-        REQUIRE(RegisteredButtonCount() == 0);
         auto& control = accept ? dialog.m_confirm_button : dialog.m_cancel_button;
         dispatch_mouse(LEFT_BUTTON_DOWN, control.GetX(), control.GetY(), true);
         REQUIRE(dialog.is_open);
@@ -1566,7 +1423,6 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
         for (int index = 0; index < 20; ++index) list.m_lines.emplace_back("X");
         REQUIRE(list.CreateControls() == 0);
         list.Draw();
-        REQUIRE(RegisteredButtonCount() == 0);
         gusMouseYPos = 400;
         dispatch_mouse(LEFT_BUTTON_DOWN, list.m_area_button.GetX() + 3,
                        list.m_area_button.GetY() + 21, true);
@@ -1609,27 +1465,108 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
     g_dialog_interface_font = old_font;
     ButtonDestBuffer = old_target;
     GetFrameBufferSurface() = std::move(saved_frame);
-    REQUIRE(RegisteredButtonCount() == 0);
     g_image_assets.clear();
     std::filesystem::remove_all(root);
 }
 
-TEST_CASE("Button regions use SDL click counts", "[owner]")
+namespace {
+int message_box_callback_count = 0;
+void message_box_callback()
+{
+    ++message_box_callback_count;
+}
+}
+
+TEST_CASE("Message box owns its buttons and isolates modal input", "[owner]")
 {
     RegionStateSnapshot saved_state;
     ResetRegions();
-    const auto button_set = ButtonRegionSetIndex();
+    ScopedTemporaryDirectory directory{"wiz8-message-box"};
+    const auto assets = directory.path / "assets";
+    const auto previous_roots = w8_native::path_roots();
+    button_image_fixture(assets / "Data" / "Message Box", "GENBUTN.STI");
+    button_image_fixture(assets / "Data" / "Message Box", "GENBUTN2.STI");
+    button_image_fixture(assets / "Data" / "Message Box", "GENBUTN3.STI");
+    button_image_fixture(assets / "Data" / "Message Box", "GENBUTN4.STI");
+    button_image_fixture(assets / "Data" / "Message Box", "Ok.sti", 5, false, 40, 20);
+    button_image_fixture(assets / "Data" / "Message Box", "Cancel.sti", 5, false, 40, 20);
+    button_image_fixture(assets / "Data" / "Dialogs", "DialogBackground.STI");
+    g_image_assets.clear();
+    w8_native::configure_paths({assets.string(), (directory.path / "user").string(), {}});
+    auto* const previous_destination = ButtonDestBuffer;
+    auto saved_frame = std::move(GetFrameBufferSurface());
+
+    struct Restore {
+        w8_native::Roots roots;
+        SGPVSurface* destination;
+        SGPVSurface frame_buffer;
+        ~Restore()
+        {
+            if (IsMessageBoxActive()) {
+                CloseMessageBox();
+                RenderMessageBox();
+                RenderMessageBox();
+            }
+            ShutdownButtonImageManager();
+            ButtonDestBuffer = destination;
+            GetFrameBufferSurface() = std::move(frame_buffer);
+            g_image_assets.clear();
+            w8_native::configure_paths(roots);
+        }
+    } restore{previous_roots, previous_destination, std::move(saved_frame)};
+
+    auto frame = CreateVideoSurface(640, 480, 16);
+    REQUIRE(frame);
+    GetFrameBufferSurface() = std::move(*frame);
+    ButtonDestBuffer = &GetFrameBufferSurface();
+
+    REQUIRE(InitializeButtonImageManager());
+    TestOwnedRegionHandler screen_handler;
+    const auto screen_set = new_test_region_set();
+    OwnedRegion underlying(screen_set, REGION_PRIORITY_NORMAL, screen_handler);
+    underlying.region().flags = W8_REGION_RECTANGLE;
+    SetRegionBounds(underlying.index(), 275, 256, 315, 276);
+    const auto baseline_regions = LiveDynamicRegionCount();
+
     Font font{SGPVObject{}};
-    auto button = CreateTextButton("clicks", font, 0, 0, {}, 0, 0, 40, 40, BUTTON_TOGGLE,
-                                   BUTTON_PRIORITY_NORMAL, click, click);
-    REQUIRE(button);
-    ExclusiveRegionSet scope(button_set);
+    PushButtonSoundScheme(0, true);
+    for (const bool accepted : {true, false}) {
+        message_box_callback_count = 0;
+        REQUIRE(CreateMessageBox("", font, 0, true, true, message_box_callback));
+        REQUIRE(IsMessageBoxActive());
+        REQUIRE(LiveDynamicRegionCount() > baseline_regions);
+
+        const auto x = accepted ? 280 : 340;
+        dispatch_mouse(LEFT_BUTTON_DOWN, x, 260, true);
+        dispatch_mouse(LEFT_BUTTON_UP, x, 260);
+        REQUIRE(screen_handler.reasons.empty());
+
+        RenderMessageBox();
+        RenderMessageBox();
+        REQUIRE_FALSE(IsMessageBoxActive());
+        REQUIRE(message_box_callback_count == (accepted ? 1 : 0));
+        REQUIRE(LiveDynamicRegionCount() == baseline_regions);
+    }
+}
+
+TEST_CASE("Owned regions use SDL click counts", "[owner]")
+{
+    RegionStateSnapshot saved_state;
+    ResetRegions();
+    const auto set = ControlRegionSetIndex();
+    TestOwnedRegionHandler handler;
+    OwnedRegion region(set, REGION_PRIORITY_NORMAL, handler);
+    region.region().flags = W8_REGION_RECTANGLE;
+    SetRegionBounds(region.index(), 0, 0, 40, 40);
+    ExclusiveRegionSet scope(set);
     for (const std::uint8_t click_count : {0, 1, 2, 3, 4}) {
-        dispatch_mouse(LEFT_BUTTON_DOWN, 10, 10, true, false, click_count);
-        REQUIRE((click_reason & BUTTON_REASON_LBUTTON_DWN) != 0);
-        REQUIRE(((click_reason & BUTTON_REASON_LBUTTON_DOUBLECLICK) != 0) ==
-                (click_count >= 2));
-        dispatch_mouse(LEFT_BUTTON_UP, 10, 10);
+        const auto down = mouse_atom(LEFT_BUTTON_DOWN, 10, 10, true, false, click_count);
+        DispatchRegionInput(&down);
+        const auto reason = handler.reasons.back();
+        REQUIRE((reason & REGION_REASON_LBUTTON_DWN) != 0);
+        REQUIRE(((reason & REGION_REASON_LBUTTON_DOUBLECLICK) != 0) == (click_count >= 2));
+        const auto up = mouse_atom(LEFT_BUTTON_UP, 10, 10);
+        DispatchRegionInput(&up);
     }
 }
 
@@ -1639,12 +1576,19 @@ TEST_CASE("assert-plain", "[.death]")
     FAIL("Assert did not abort");
 }
 
+namespace {
+void assertion_message_handler(const char* expression, const char*, w8_long, const char*)
+{
+    std::fprintf(stderr, "Assertion failed: %s\n", expression);
+    std::abort();
+}
+}
+
 TEST_CASE("assert-message", "[.death]")
 {
-    Font font{SGPVObject{}};
-    CreateTextButton("invalid", font, 0, 0, {}, -1, 0, 40, 20,
-                     BUTTON_TOGGLE, BUTTON_PRIORITY_NORMAL, nullptr, nullptr);
-    FAIL("CreateTextButton did not abort");
+    srAssertSetFunc(assertion_message_handler);
+    SetRegionBounds(static_cast<unsigned int>(g_regions.size()), 0, 0, 1, 1);
+    FAIL("SetRegionBounds did not abort");
 }
 
 TEST_CASE("Image assets share normalized paths and retain resources across clearing", "[owner][image]")

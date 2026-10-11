@@ -6,7 +6,7 @@
 #include <string>
 #include <string_view>
 
-#include "Button System.h"
+#include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/dialog_code/DialogButton.h"
 #include "wiz8/regions.h"
 
@@ -32,7 +32,7 @@ void SetDialogDestroyCallback(W8DialogBase* dialog, W8DialogDestroyCallback call
 void DialogCloseButtonCallback(W8DialogButton* button);
 
 /* Modal controls own their regions and state; only visual resources and
-   rendering are shared with the SGP Button System. */
+   rendering uses the shared dialog button appearance module. */
 // VTABLE: WIZ8 0x005efaf8
 class W8DialogBase {
 public:

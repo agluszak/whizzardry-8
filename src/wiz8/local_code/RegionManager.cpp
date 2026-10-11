@@ -1,4 +1,5 @@
 #include <cstddef>
+#include <cstdint>
 #include <deque>
 #include <fmt/format.h>
 #include <algorithm>
@@ -507,7 +508,8 @@ struct ExclusiveRegionScope {
 
 std::vector<ExclusiveRegionScope> g_exclusive_region_sets;
 std::vector<unsigned int> g_reusable_region_indices;
-const size_t g_static_region_count = g_regions.size();
+const std::size_t g_static_region_count = g_regions.size();
+unsigned int g_control_region_set = 0;
 
 bool RegionAllowedByExclusiveSet(unsigned int region_index)
 {
@@ -536,7 +538,7 @@ bool RegionContainsInputPoint(unsigned int region_index, unsigned short x, unsig
                               bool dispatch_coordinates)
 {
     const auto& region = g_regions[region_index];
-    if (dispatch_coordinates && (region.button || region.text_field)) {
+    if (dispatch_coordinates && region.text_field) {
         return RegionContainsPoint(
             region_index, static_cast<unsigned short>(static_cast<int>(x) - g_cursor_hotspot_x),
             static_cast<unsigned short>(static_cast<int>(y) - g_cursor_hotspot_y));
@@ -552,6 +554,32 @@ void SetRegionHelpDelay(int delay_ms)
         delay_ms = g_settings.tooltip_delay_ms;
     }
     g_region_help_delay = delay_ms;
+}
+
+std::int32_t RegionReasonForInput(const W8Region& region, const InputAtom& input)
+{
+    switch (input.usEvent) {
+    case MOUSE_POS:
+        if (region.flags & W8_REGION_MOUSE_LEAVE) return REGION_REASON_LOST_MOUSE;
+        if (region.flags & W8_REGION_MOUSE_ENTER) return REGION_REASON_GAIN_MOUSE;
+        return REGION_REASON_MOVE;
+    case LEFT_BUTTON_DOWN:
+        return REGION_REASON_LBUTTON_DWN |
+               (input.clicks >= 2 ? REGION_REASON_LBUTTON_DOUBLECLICK : 0);
+    case LEFT_BUTTON_UP:
+        return REGION_REASON_LBUTTON_UP;
+    case LEFT_BUTTON_DBL_CLK:
+        return REGION_REASON_NONE;
+    case LEFT_BUTTON_REPEAT:
+        return REGION_REASON_LBUTTON_REPEAT;
+    case RIGHT_BUTTON_DOWN:
+        return REGION_REASON_RBUTTON_DWN;
+    case RIGHT_BUTTON_UP:
+        return REGION_REASON_RBUTTON_UP;
+    case RIGHT_BUTTON_REPEAT:
+        return REGION_REASON_RBUTTON_REPEAT;
+    }
+    return REGION_REASON_NONE;
 }
 
 // FUNCTION: WIZ8 0x004F27C0
@@ -1245,6 +1273,31 @@ unsigned int CreateRegionSet(void)
     return static_cast<unsigned int>(g_region_sets.size() - 1);
 }
 
+unsigned int ControlRegionSetIndex(void)
+{
+    if (g_control_region_set == 0) {
+        g_control_region_set = CreateRegionSet();
+        g_region_sets[g_control_region_set].persistent = true;
+    }
+    RegionSetEnable(g_control_region_set);
+    return g_control_region_set;
+}
+
+std::size_t LiveDynamicRegionCount(void)
+{
+    std::size_t count = 0;
+    for (std::size_t index = g_static_region_count; index < g_regions.size(); ++index) {
+        const bool registered = std::ranges::any_of(
+            g_region_sets, [index](const W8RegionSet& set) {
+                const auto regions = set.Regions();
+                return std::ranges::find(regions, static_cast<unsigned int>(index)) !=
+                       regions.end();
+            });
+        if (registered) ++count;
+    }
+    return count;
+}
+
 // FUNCTION: WIZ8 0x004f28e0
 void ResetRegionSet(unsigned int region_set_index)
 {
@@ -1373,7 +1426,6 @@ void RemoveRegionFromSet(unsigned int region_set_index, unsigned int region_inde
     auto& region = g_regions[region_index];
     if (region.flags & W8_REGION_HELP_SHOWN) VideoRemoveToolTip();
     region.widget = nullptr;
-    region.button = nullptr;
     region.text_field = nullptr;
     region.flags &= ~(W8_REGION_MOUSE_STATE_MASK | W8_REGION_HELP_SHOWN);
     const auto generation = region.binding_generation + 1;

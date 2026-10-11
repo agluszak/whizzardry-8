@@ -66,7 +66,6 @@
 #include "wiz8/fonts.h"
 #include "wiz8/local_screens/MGSKeyboard.h"
 #include "input.h"
-#include "Button System.h"
 #include "wiz8/filesystem.h"
 #include "Font.h"
 #include "vobject.h"
@@ -512,7 +511,7 @@ void CreateAutomapButtons(void)
         if (button->Configure(GetCatalogVideoObjectPath(catalog_id).data(), base_frame + 3,
                               base_frame, base_frame + 1,
                               base_frame + 2, base_frame + 2, callback, nullptr, false,
-                              BUTTON_PRIORITY_HIGHEST, g_automap_button_tooltips[index], nullptr, nullptr)) {
+                              REGION_PRIORITY_HIGHEST, g_automap_button_tooltips[index], nullptr, nullptr)) {
             button->SetPosition(g_automap_button_positions[index].x,
                                 g_automap_button_positions[index].y);
         }

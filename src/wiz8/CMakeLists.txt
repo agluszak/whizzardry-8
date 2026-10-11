@@ -9,7 +9,7 @@ add_library(WIZ8_GAME_CORE STATIC
     ../sgp/native/video.cpp
     ../sgp/vsurface.cpp
     ../sgp/Font.cpp
-    "../sgp/Button System.cpp"
+    dialog_code/ButtonAppearance.cpp
     ../sgp/line.cpp
     ../sgp/himage.cpp
     ../sgp/image_assets.cpp

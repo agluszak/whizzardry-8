@@ -16,7 +16,6 @@
 #include "wiz8/cursor.h"
 #include "Font.h"
 #include "input.h"
-#include "Button System.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/regions.h"
@@ -89,21 +88,16 @@ unsigned char TextFieldRegionEvent(const InputAtom* event, W8Region* region)
     g_text_field_input_buttons = event->mouseButtons;
     switch (event->usEvent) {
     case MOUSE_POS: {
-        int reason = BUTTON_REASON_MOVE;
-        if (region->flags & W8_REGION_MOUSE_LEAVE) reason = BUTTON_REASON_LOST_MOUSE;
-        else if (region->flags & W8_REGION_MOUSE_ENTER) reason = BUTTON_REASON_GAIN_MOUSE;
-        MouseMovedInTextRegionCallback(field, reason);
+        MouseMovedInTextRegionCallback(field, RegionReasonForInput(*region, *event));
         return 1;
     }
     case LEFT_BUTTON_DOWN:
         g_captured_region_index = field->region_index;
-        MouseClickedInTextRegionCallback(
-            field, BUTTON_REASON_LBUTTON_DWN |
-                       (event->clicks >= 2 ? BUTTON_REASON_LBUTTON_DOUBLECLICK : 0));
+        MouseClickedInTextRegionCallback(field, RegionReasonForInput(*region, *event));
         return 1;
     case LEFT_BUTTON_UP:
         if (g_captured_region_index == field->region_index) g_captured_region_index = 0;
-        MouseClickedInTextRegionCallback(field, BUTTON_REASON_LBUTTON_UP);
+        MouseClickedInTextRegionCallback(field, RegionReasonForInput(*region, *event));
         return 1;
     case LEFT_BUTTON_DBL_CLK:
         return 1;
@@ -266,7 +260,7 @@ void KillTextInputMode(void)
     gpActive = nullptr;
     gpTextInputTail = nullptr;
     for (auto* field = gpTextInputHead.get(); field != nullptr; field = field->next.get()) {
-        RemoveRegionFromSet(ButtonRegionSetIndex(), field->region_index);
+        RemoveRegionFromSet(ControlRegionSetIndex(), field->region_index);
         field->region_index = 0;
     }
     gpTextInputHead.reset();
@@ -358,7 +352,7 @@ char AddTextInputField(int left, int top, int width, int height, int priority, s
     field->fUserField = false;
     field->fEnabled = 1;
     field->fBlockMouseCallbacks = false;
-    field->region_index = AddRegionToSet(ButtonRegionSetIndex(), priority);
+    field->region_index = AddRegionToSet(ControlRegionSetIndex(), priority);
     auto& region = g_regions[field->region_index];
     region.text_field = field;
     SetRegionBounds(field->region_index, static_cast<unsigned short>(left),
@@ -378,7 +372,7 @@ void RemoveTextInputField(int index)
     if (field == 0)
         return;
     if (g_captured_region_index == field->region_index) g_captured_region_index = 0;
-    RemoveRegionFromSet(ButtonRegionSetIndex(), field->region_index);
+    RemoveRegionFromSet(ControlRegionSetIndex(), field->region_index);
     field->region_index = 0;
     if (field == gpTextInputTail)
         gpTextInputTail = field->prev;
@@ -876,13 +870,13 @@ void MouseMovedInTextRegionCallback(TEXTINPUTNODE* field, int reason)
     if (field->fBlockMouseCallbacks) return;
     int field_index = field->ubID;
 
-    if ((reason & BUTTON_REASON_GAIN_MOUSE) != 0)
+    if ((reason & REGION_REASON_GAIN_MOUSE) != 0)
         SetTargetCursor(GetTextInputCursor());
-    if ((reason & BUTTON_REASON_LOST_MOUSE) != 0)
+    if ((reason & REGION_REASON_LOST_MOUSE) != 0)
         SetTargetCursor(W8_CURSOR_NONE);
 
     if ((g_text_field_input_buttons & SDL_BUTTON_LMASK) == 0 || gpActive == 0 ||
-        (reason & BUTTON_REASON_MOVE) == 0) {
+        (reason & REGION_REASON_MOVE) == 0) {
         return;
     }
 
@@ -940,13 +934,13 @@ void MouseClickedInTextRegionCallback(TEXTINPUTNODE* field, int reason)
 
     if (field->fBlockMouseCallbacks) return;
 
-    if ((reason & BUTTON_REASON_LBUTTON_DOUBLECLICK) != 0) {
+    if ((reason & REGION_REASON_LBUTTON_DOUBLECLICK) != 0) {
         if (gpActive != 0)
             SelectAllText();
         return;
     }
 
-    if ((reason & BUTTON_REASON_LBUTTON_DWN) != 0) {
+    if ((reason & REGION_REASON_LBUTTON_DWN) != 0) {
         TEXTINPUTNODE* field = gpActive;
         if (field == 0 || field_index != field->ubID)
             return;
@@ -963,7 +957,7 @@ void MouseClickedInTextRegionCallback(TEXTINPUTNODE* field, int reason)
         return;
     }
 
-    if ((reason & BUTTON_REASON_LBUTTON_UP) == 0)
+    if ((reason & REGION_REASON_LBUTTON_UP) == 0)
         return;
     TEXTINPUTNODE* clicked = gpTextInputHead.get();
     if (gpActive != 0) {

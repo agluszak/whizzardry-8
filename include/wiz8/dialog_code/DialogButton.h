@@ -4,7 +4,7 @@
 #include <functional>
 #pragma once
 
-#include "Button System.h"
+#include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/regions.h"
 
 /* Tooltip string-table sentinel; independent of the five frame indices. */
@@ -80,7 +80,7 @@ public:
     bool ConfigureTextButton(std::string_view text, Font& font, short fore_color,
                              short shadow_color, short x, short y, short width, short height,
                              W8DialogButtonCallback left_callback, int user_data,
-                             GenericButtonImage image = {}, int priority = BUTTON_PRIORITY_HIGHEST);
+                             GenericButtonImage image = {}, int priority = REGION_PRIORITY_HIGHEST);
     /* Store the tooltip string-table index and, when tooltips are
        enabled, push its text onto the mouse region. */
     void SetTooltipIndex(int tooltip_index);

@@ -27,7 +27,7 @@
 #include "wiz8/local_code/GameplayInit.h"
 #include "wiz8/engine_code/Missile.h"
 #include "wiz8/sound_man.h"
-#include "Button System.h"
+#include "wiz8/dialog_code/ButtonAppearance.h"
 #include "shading.h"
 #include "wiz8/application.h"
 
@@ -65,7 +65,7 @@ unsigned char InitializeGame(size_t& initialized_screens)
     if (!InitializeMenuFonts()) {
         return 0;
     }
-    InitButtonSystem();
+    InitializeButtonImageManager();
     InitializeRegionHelpState();
     ResetGameStatus(false);
     InitializeGameplayRuntimeObjects();

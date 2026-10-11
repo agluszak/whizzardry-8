@@ -12,7 +12,7 @@
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/asset_paths.h"
 #include "temporary_directory.h"
-#include "Button System.h"
+#include "wiz8/regions.h"
 
 
 static void CheckStopped()
@@ -20,7 +20,7 @@ static void CheckStopped()
     REQUIRE(SDL_WasInit(0) == 0);
     REQUIRE((!gfProgramIsRunning && !gfGameInitialized && !gfApplicationActive));
     REQUIRE(ghWindow == nullptr);
-    REQUIRE(RegisteredButtonCount() == 0);
+    REQUIRE(LiveDynamicRegionCount() == 0);
 }
 
 TEST_CASE("application_test")
