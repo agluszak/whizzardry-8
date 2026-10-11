@@ -37,8 +37,8 @@
 // GLOBAL: WIZ8 0x0060bfdc
 unsigned int g_light_update_flags = 1;
 
-/* rand() normalization to a 0..1 flicker probability; only Update
-   uses it. */
+/* Normalizes a retail 15-bit rand() roll to a 0..1 flicker probability;
+   only Update uses it. */
 // GLOBAL: WIZ8 0x005ec1e4
 const float g_light_flicker_random_unit_scale = 3.0518509447574615e-05f;
 
@@ -288,7 +288,7 @@ void stLight::Update()
                 SetModelAnimatedTextureFrame(instance, 1);
             }
         } else {
-            int roll = rand();
+            int roll = rand() & 0x7fff;
             if (roll * g_light_flicker_random_unit_scale < definition->flicker_chance) {
                 if (testFlag(FLAG_DISABLE) == 0) {
                     setFlag(FLAG_DISABLE);

@@ -26,27 +26,39 @@
 
 namespace {
 
-// Returns whether sound remains enabled.
-bool ParseArguments(std::span<const std::string_view> arguments)
+struct LaunchOptions
 {
     bool sound = true;
+    bool inspector = false;
+    bool load_at_startup = false;
+    bool windowed = false;
+    bool bounds_checker = false;
+    bool capture = false;
+    bool no_octree = false;
+    std::string video_config;
+    std::string string_data;
+};
+
+LaunchOptions ParseArguments(std::span<const std::string_view> arguments)
+{
+    LaunchOptions options;
     for (size_t index = 0; index < arguments.size(); ++index) {
         const auto separator = arguments[index].find('=');
         const std::string option(arguments[index].substr(0, separator));
         if (SDL_strcasecmp(option.c_str(), "/NOSOUND") == 0)
-            sound = false;
+            options.sound = false;
         else if (SDL_strcasecmp(option.c_str(), "/INSPECTOR") == 0)
-            VideoInspectorEnable();
+            options.inspector = true;
         else if (SDL_strcasecmp(option.c_str(), "/LOAD") == 0)
-            gfLoadAtStartup = true;
+            options.load_at_startup = true;
         else if (SDL_strcasecmp(option.c_str(), "/WINDOW") == 0)
-            VideoFullScreen(false);
+            options.windowed = true;
         else if (SDL_strcasecmp(option.c_str(), "/BC") == 0)
-            gfUsingBoundsChecker = true;
+            options.bounds_checker = true;
         else if (SDL_strcasecmp(option.c_str(), "/CAPTURE") == 0)
-            gfCapturingVideo = true;
+            options.capture = true;
         else if (SDL_strcasecmp(option.c_str(), "/NOOCT") == 0)
-            NoOct();
+            options.no_octree = true;
         else if (SDL_strcasecmp(option.c_str(), "/VIDEOCFG") == 0 ||
                  SDL_strcasecmp(option.c_str(), "/STRINGDATA") == 0) {
             const auto value = separator != std::string_view::npos
@@ -54,14 +66,13 @@ bool ParseArguments(std::span<const std::string_view> arguments)
                 : ++index < arguments.size() ? arguments[index] : std::string_view{};
             if (value.empty())
                 throw std::invalid_argument(option + " requires a filename");
-            if (SDL_strcasecmp(option.c_str(), "/VIDEOCFG") == 0) {
-                std::string filename(value);
-                VideoSetConfigFile(filename.data());
-            } else
-                gzStringDataOverride = value;
+            if (SDL_strcasecmp(option.c_str(), "/VIDEOCFG") == 0)
+                options.video_config = value;
+            else
+                options.string_data = value;
         }
     }
-    return sound;
+    return options;
 }
 }
 
@@ -77,17 +88,23 @@ wiz8::Application::Application(std::span<const std::string_view> arguments)
         }
         sdl_initialized_ = true;
         gfIgnoreMessages = false;
-        gfLoadAtStartup = gfUsingBoundsChecker = gfCapturingVideo = false;
-        gzStringDataOverride.clear();
         gzErrorMsg.clear();
-        const bool sound = ParseArguments(arguments);
+        const auto options = ParseArguments(arguments);
+        gfLoadAtStartup = options.load_at_startup;
+        gfUsingBoundsChecker = options.bounds_checker;
+        gfCapturingVideo = options.capture;
+        gzStringDataOverride = options.string_data;
+        if (options.inspector) VideoInspectorEnable();
+        if (options.windowed) VideoFullScreen(false);
+        if (options.no_octree) NoOct();
+        if (!options.video_config.empty()) VideoSetConfigFile(options.video_config.c_str());
         wiz8::refresh_asset_archives();
         if (!InitializeInputManager())
             throw std::runtime_error("Input initialization failed");
         if (!InitializeVideoManager())
             throw std::runtime_error("Video initialization failed");
         ConfigureFontRendering(CreateEnglishTransTable());
-        if (!wiz8::sound::initialize(sound && !SetupDisablesAudio()))
+        if (!wiz8::sound::initialize(options.sound && !SetupDisablesAudio()))
             throw std::runtime_error("Sound initialization failed");
         InitializeRandom();
         game_started_ = true;
