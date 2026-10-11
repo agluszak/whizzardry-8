@@ -1132,16 +1132,15 @@ bool W8GameData::TestProp(int prop_id, W8OctreeTrace* trace, char skip_flag, cha
     const std::span vertices(gd_prop->m_pVertices, gd_prop->m_vertex_count);
     if (g_oct_pre_tree == 0) {
         if (gate == 0 || !gd_prop->m_flags.unattached) {
-            srVector3T<float> start = trace->start;
-            srVector3T<float> end = trace->end;
-            srVector3T<float> delta;
-            delta = prop->GetDelta();
+            const auto start = trace->start;
+            auto end = trace->end;
+            const auto delta = prop->GetDelta().glmValue();
             end -= delta;
-            W8OctreeTrace prop_trace(&start, &end);
+            W8OctreeTrace prop_trace(start, end);
             hit = TestGeometryTrace(surfaces, vertices, gd_prop->m_surface_count, 0, &prop_trace, skip_flag, 0);
             if (hit) {
                 end = prop_trace.end + delta;
-                trace->Reseed(&start, &end);
+                trace->reset(start, end);
             }
         }
     } else {
@@ -1168,7 +1167,7 @@ bool W8GameData::TestGeometryTrace(std::span<W8GDSurface> surfaces,
     W8OctreeTrace* trace, char skip_flag, int mode)
 {
     bool hit = false;
-    srVector3T<float> best_contact;
+    glm::vec3 best_contact;
 
     last_hit_surface = 0;
     if (count != 0) {
@@ -1189,40 +1188,23 @@ bool W8GameData::TestGeometryTrace(std::span<W8GDSurface> surfaces,
                  (mode != -1 && (mode < 2 || static_cast<int>(surface->chance) < mode) &&
                   (mode != 1 ||
                    (static_cast<int>(surface->chance) < 100 &&
-                    static_cast<int>(surface->chance) < static_cast<int>(Random(100)))))) &&
-                glm::dot((surface->plane.normal).glmValue(), (trace->step).glmValue()) <=
-                    g_float_zero) {
-                float hit_distance = SignedPlaneDistance(surface->plane, trace->start);
-                if (hit_distance <= trace->hit_limit && g_float_zero < hit_distance) {
-                    srVector3T<float> contact;
-                    if (g_float_one <= hit_distance) {
-                        float back = SignedPlaneDistance(surface->plane, trace->end);
-                        if (g_float_one <= back) {
-                            goto next;
-                        }
-                        back = -back;
-                        if (g_float_one <= back || trace->hit_limit < trace->length) {
-                            hit_distance = (hit_distance / (back + hit_distance)) * trace->length;
-                            contact = trace->start + trace->step * hit_distance;
-                        } else {
-                            contact = trace->end;
-                            hit_distance = trace->length;
-                        }
-                    } else {
-                        contact = trace->start;
-                    }
+                    static_cast<int>(surface->chance) < static_cast<int>(Random(100))))))) {
+                const auto contact = planeContact(
+                    glm::vec4(surface->plane.normal.glmValue(), surface->plane.w),
+                    {trace->start, trace->end, trace->step, trace->length, trace->hit_limit},
+                    PlaneContactMode::SurfaceCollision);
+                if (contact) {
                     const auto vertices = indexedTriangle(vertices_bank, surface->vertex_indices);
                     if (PointInsideTriangle(vertices, surface->flags & W8_GD_SURFACE_AXIS_MASK,
-                                            contact.glmValue()) &&
-                        hit_distance < trace->hit_limit) {
+                                            contact->point) &&
+                        contact->distance < trace->hit_limit) {
                         last_hit_surface = surface->index;
                         hit = true;
-                        trace->hit_limit = hit_distance;
-                        best_contact = contact;
+                        trace->hit_limit = contact->distance;
+                        best_contact = contact->point;
                     }
                 }
             }
-        next:
             /* Retail verified at 0x0041C627: the cursor advances
                unconditionally even when `surface_ids` is null, so `++id` on a
                null pointer is the retail behavior rather than a defect. */

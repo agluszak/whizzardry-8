@@ -46,34 +46,19 @@ struct W8World;
 struct W8GameData;
 struct W8NavigatorMovementState;
 
-/* The 0x30-byte ray state the octree line/probe walks share: a segment
-   (start, end), a fixed-length march step (end-start scaled by
-   g_double_one / length), the closest accepted hit distance at +0x24,
-   the segment length at +0x28 and a per-probe flag word at +0x2c.
-   The default constructor at 0x004577C0 seeds +0x24 with the 0x60AD78EC
-   "no hit" sentinel. The three segment-seeding bodies are distinct source
-   operations despite identical instructions: SegmentClear constructs first
-   and then calls Seed (0x00457580), ordinary trace sites call the two-argument
-   constructor (0x00457640), and existing traces call Reseed (0x00457700).
-   Their call sites distinguish construction from mutation; they are not
-   duplicate header emissions of one constructor. */
+// Native segment state; disk geometry retains its explicit record types.
 struct W8OctreeTrace {
-    srVector3T<float> start;
-    srVector3T<float> end;
-    srVector3T<float> step;
-    float hit_limit;
-    float length;
-    unsigned short state;
-    unsigned short pad_2e;
+    glm::vec3 start{0};
+    glm::vec3 end{0};
+    glm::vec3 step{0};
+    float hit_limit = 1.0e20f;
+    float length = 0;
+    unsigned short state = 0;
+    unsigned short pad_2e = 0;
 
-    W8OctreeTrace(); /* 0x004577C0 */
-    /* Copies the endpoints, stores the normalized direction, seeds
-       hit_limit/length and clears state. */
-    W8OctreeTrace(const srVector3T<float>* from, const srVector3T<float>* to); /* 0x00457640 */
-    /* Identical body to the (from, to) constructor; the only retail caller is
-       the OctPreTree segment-occlusion walk at 0x00467BB0. */
-    void Seed(const srVector3T<float>* from, const srVector3T<float>* to);   /* 0x00457580 */
-    void Reseed(const srVector3T<float>* from, const srVector3T<float>* to); /* 0x00457700 */
+    W8OctreeTrace() = default;
+    W8OctreeTrace(const glm::vec3& from, const glm::vec3& to);
+    void reset(const glm::vec3& from, const glm::vec3& to);
 };
 
 W8_ABI_ASSERT(sizeof(W8OctreeTrace) == 0x30, "W8OctreeTrace_must_be_0x30");
@@ -279,8 +264,12 @@ public:
     /* Test every buffered (mesh<<16)|polygon key's triangle against the trace
        ray; on a closer hit, end returns the contact point. */
     unsigned char TestProbeResult(W8OctreeTrace* trace); /* 0x00435F00 */
-    int TraceAgainstProps(const srVector3T<float>* from, srVector3T<float>* to, int skip_flag,
-                          int gate); /* 0x00436510 */
+    struct PropTraceHit {
+        glm::vec3 position;
+        int prop_id;
+    };
+    std::optional<PropTraceHit> traceProps(const glm::vec3& from, const glm::vec3& to,
+                                         int skip_flag, int gate);
     struct SphereTraceHit {
         glm::vec3 position;
         int location_id;
@@ -529,7 +518,7 @@ public:
        visited leaf's region-polygon ids and plane/slab-testing them. Answers
        whether the segment is unobstructed; the light-visibility callers
        accumulate its result. */
-    bool SegmentClear(const srVector3T<float>* from, const srVector3T<float>* to);
+    bool SegmentClear(const glm::vec3& from, const glm::vec3& to);
     /* Resets the collected-id run and appends every not-yet-seen polygon id
        the leaf under `cell` lists. */
     void CollectLeafPolygons(const glm::ivec3& cell);

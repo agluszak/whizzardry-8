@@ -1798,8 +1798,8 @@ GroundProbe W8Octree::settleToGround(const glm::vec3& input, bool test_props, fl
     glm::vec3 position = input;
     W8OctreeTrace trace;
     glm::ivec3 cell;
-    srVector3T<float> start;
-    srVector3T<float> end;
+    glm::vec3 start;
+    glm::vec3 end;
     bool prop_hit = false;
     bool hit = false;
 
@@ -1814,9 +1814,9 @@ GroundProbe W8Octree::settleToGround(const glm::vec3& input, bool test_props, fl
     end = position;
     start = position;
     start.y = position.y + limit;
-    cell = cellAt(start.glmValue());
+    cell = cellAt(start);
     end.y = ((cell.y - 1)) * m_spatial.m_node_extent + m_spatial.m_bounds.minimum.y;
-    trace.Reseed(&start, &end);
+    trace.reset(start, end);
     if (-1 < cell.y) {
         do {
             if (hit) {
@@ -1850,7 +1850,7 @@ GroundProbe W8Octree::settleToGround(const glm::vec3& input, bool test_props, fl
                     --cell.y;
                     start.y = level * m_spatial.m_node_extent + m_spatial.m_bounds.minimum.y;
                     end.y -= m_spatial.m_node_extent;
-                    trace.Reseed(&start, &end);
+                    trace.reset(start, end);
                 }
             } else if (prop_hit) {
                 current_prop = -1;
@@ -1898,7 +1898,7 @@ bool W8Octree::HasLineOfSight(const srVector3T<float>* from, srVector3T<float>* 
     glm::ivec3 end_cell;
     unsigned char blocked = 0;
 
-    W8OctreeTrace trace(from, to);
+    W8OctreeTrace trace(from->glmValue(), to->glmValue());
 
     m_gd_result_count = 0;
     std::ranges::fill(m_visited_polygon_bits, false);
@@ -1915,8 +1915,11 @@ bool W8Octree::HasLineOfSight(const srVector3T<float>* from, srVector3T<float>* 
         });
     if (blocked != 0) {
         *to = trace.end;
-    } else if (allow_fallback && TraceAgainstProps(from, to, 1, 1) != 0) {
-        blocked = 1;
+    } else if (allow_fallback) {
+        if (const auto hit = traceProps(from->glmValue(), to->glmValue(), 1, 1)) {
+            *to = hit->position;
+            blocked = 1;
+        }
     }
     return blocked == 0;
 }
@@ -1932,7 +1935,7 @@ short W8Octree::TraceLineOfSight(const srVector3T<float>* from, srVector3T<float
     bool blocked = false;
     int result;
 
-    W8OctreeTrace trace(from, to);
+    W8OctreeTrace trace(from->glmValue(), to->glmValue());
     result = 0;
 
     if (visit_octree) {
@@ -1949,11 +1952,13 @@ short W8Octree::TraceLineOfSight(const srVector3T<float>* from, srVector3T<float
                         m_gd_result_count, m_aulGDObjs, &trace, m_trace_skip_flag, 0);
                 return !blocked;
             });
-        if (!trace_world || TraceAgainstProps(from, &trace.end, 0, 0) == 0) {
+        const auto prop_hit = trace_world ? traceProps(from->glmValue(), trace.end, 0, 0) : std::nullopt;
+        if (!prop_hit) {
             if (!blocked) {
                 goto resolve;
             }
         } else {
+            trace.end = prop_hit->position;
             blocked = true;
         }
         result = 1;
@@ -1964,7 +1969,7 @@ short W8Octree::TraceLineOfSight(const srVector3T<float>* from, srVector3T<float
     }
 resolve:
     if (from_location_id > -3) {
-        if (const auto hit = traceSphereHit(trace.start.glmValue(), trace.end.glmValue(),
+        if (const auto hit = traceSphereHit(trace.start, trace.end,
                 from_location_id, to_location_id, to_location_id, 0, trace_mode)) {
             *to = hit->position;
             return -1;
@@ -2274,11 +2279,11 @@ W8OctreeWalk W8Octree::cellWalk(const glm::vec3& from, const glm::vec3& to) cons
 
 /* Walk the segment's cells collecting every kind-8 (collidable prop) registry
    entry into the shared buffer, then hand the accumulated id list to the
-   GameData prop trace. The returned index lands in current_prop and, when
-   non-negative, `to` is rewritten with the record's contact point. */
+   GameData prop trace. The hit returns its prop id and contact together;
+   current_prop keeps the selected id for existing registry consumers. */
 // FUNCTION: WIZ8 0x00436510
-int W8Octree::TraceAgainstProps(const srVector3T<float>* from, srVector3T<float>* to, int skip_flag,
-                                int gate)
+std::optional<W8Octree::PropTraceHit> W8Octree::traceProps(
+    const glm::vec3& from, const glm::vec3& to, int skip_flag, int gate)
 {
     glm::ivec3 cell;
     glm::ivec3 end_cell;
@@ -2287,10 +2292,10 @@ int W8Octree::TraceAgainstProps(const srVector3T<float>* from, srVector3T<float>
     g_octree_state = m_aulGDObjs;
     m_gd_result_count = 0;
     std::ranges::fill(m_visited_object_bits, false);
-    cell = cellAt(from->glmValue());
-    end_cell = cellAt(to->glmValue());
+    cell = cellAt(from);
+    end_cell = cellAt(to);
     visitOctreeSegment(cell, end_cell,
-        [&] { return cellWalk(from->glmValue(), to->glmValue()); },
+        [&] { return cellWalk(from, to); },
         [&](const glm::ivec3& current, bool) {
             g_octree_state = m_aulGDObjs;
             CollectObjectsInCell(current, W8_OCTREE_KIND_PROP);
@@ -2299,10 +2304,9 @@ int W8Octree::TraceAgainstProps(const srVector3T<float>* from, srVector3T<float>
     current_prop = g_octree_game_data->TestPropSurfaces(m_gd_result_count, m_aulGDObjs, &trace,
                                                         skip_flag, gate);
     if (current_prop < 0) {
-        return 0;
+        return std::nullopt;
     }
-    *to = trace.end;
-    return current_prop + 1;
+    return PropTraceHit{trace.end, current_prop};
 }
 
 /* The cell probes share one lookup: bounds-check the cell against the grid,
@@ -2385,7 +2389,7 @@ int W8Octree::ProbeCellForBlockersAppend(const glm::ivec3& cell)
 unsigned char W8Octree::TestProbeResult(W8OctreeTrace* trace)
 {
     bool hit = false;
-    srVector3T<float> best_contact;
+    glm::vec3 best_contact;
 
     for (unsigned int index = 0; index < m_gd_result_count; ++index) {
         unsigned int mesh_index = m_aulGDObjs[index] >> 0x10;
@@ -2397,7 +2401,7 @@ unsigned char W8Octree::TestProbeResult(W8OctreeTrace* trace)
             unsigned int polygon = m_aulGDObjs[index] & 0xffff;
             const glm::vec4* plane = planes + polygon;
             const auto contact = planeContact(*plane,
-                {trace->start.glmValue(), trace->end.glmValue(), trace->step.glmValue(),
+                {trace->start, trace->end, trace->step,
                  trace->length, trace->hit_limit}, PlaneContactMode::Collision);
             if (contact) {
                 const auto axis = dominantPlaneAxis(glm::vec3(*plane));

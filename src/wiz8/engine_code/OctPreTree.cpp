@@ -126,19 +126,18 @@ void OctPreTree::CollectLeafPolygons(const glm::ivec3& cell)
    whether the segment is unobstructed; the light-visibility callers
    accumulate its result. */
 // FUNCTION: WIZ8 0x00467bb0
-bool OctPreTree::SegmentClear(const srVector3T<float>* from, const srVector3T<float>* to)
+bool OctPreTree::SegmentClear(const glm::vec3& from, const glm::vec3& to)
 {
-    W8OctreeTrace trace;
-    const auto cell = cellAt(from->glmValue());
-    const auto end_cell = cellAt(to->glmValue());
+    W8OctreeTrace trace(from, to);
+    const auto cell = cellAt(from);
+    const auto end_cell = cellAt(to);
     bool blocked = false;
 
-    trace.Seed(from, to);
     m_gd_result_count = 0;
     std::ranges::fill(m_visited_polygon_bits, false);
     visitOctreeSegment(cell, end_cell,
         [&] {
-            auto walk = cellWalk(from->glmValue(), to->glmValue());
+            auto walk = cellWalk(from, to);
             // Preprocessing uses its world-quantized starting cell.
             walk.cell = cell;
             return walk;
@@ -169,7 +168,7 @@ bool OctPreTree::TestCollectedPolygons(W8OctreeTrace* trace)
         W8OctRegionPolygon* polygon = &game_data->m_polygons[m_aulGDObjs[index]];
         const W8Plane* plane = &polygon->plane;
         const auto contact = planeContact(glm::vec4(plane->normal.glmValue(), plane->w),
-            {trace->start.glmValue(), trace->end.glmValue(), trace->step.glmValue(),
+            {trace->start, trace->end, trace->step,
              trace->length, limit}, PlaneContactMode::Occlusion);
         if (contact) {
             const RuntimeTriangle vertices{polygon->vertices[0]->position.glmValue(),

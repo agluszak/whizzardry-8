@@ -360,9 +360,14 @@ static void geometry()
         const auto hits = data.geometry_index->queryAlongSegment(start.glmValue(), delta.glmValue(), 0, 3);
         REQUIRE(hits.size() == 1);
         REQUIRE((hits[0] == data.m_pSurfaces.data()));
-        W8OctreeTrace trace(&start, &end);
+        W8OctreeTrace trace(start.glmValue(), end.glmValue());
         REQUIRE((data.TestTraceResult(1, nullptr, &trace, 0, 0)));
         REQUIRE((trace.end.z == 0 && data.last_hit_surface == 0));
+        W8OctreeTrace skin_trace({0.25f, 0.25f, 0.5f}, {0.25f, 0.25f, -2});
+        REQUIRE(data.TestTraceResult(1, nullptr, &skin_trace, 0, 0));
+        REQUIRE(skin_trace.end.z == 0.5f);
+        REQUIRE(skin_trace.hit_limit == 0.5f);
+        REQUIRE(skin_trace.length == 0.5f);
     };
     for (int reload = 0; reload < 10; ++reload) {
         auto reload_file = wiz8::open_file("geometry.bin");

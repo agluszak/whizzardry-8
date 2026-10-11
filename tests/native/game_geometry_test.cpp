@@ -1426,6 +1426,10 @@ TEST_CASE("Plane contacts retain collision skin and occluder clearance", "[geome
     REQUIRE(start.has_value());
     REQUIRE(start->point == inside_skin.start);
     REQUIRE(start->distance == 0);
+    const auto surface_start = planeContact(plane, inside_skin, PlaneContactMode::SurfaceCollision);
+    REQUIRE(surface_start.has_value());
+    REQUIRE(surface_start->point == inside_skin.start);
+    REQUIRE(surface_start->distance == 0.5f);
     inside_skin.start.x = 0;
     REQUIRE_FALSE(planeContact(plane, inside_skin, PlaneContactMode::Collision));
     REQUIRE_FALSE(planeContact(-plane, crossing, PlaneContactMode::Collision));
@@ -2267,4 +2271,24 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Material vertex splits preserve first-fa
             REQUIRE(vertex->position.x == float(corner + 1));
         }
     }
+}
+
+TEST_CASE("Native octree trace reset snapshots aliased endpoints and clears hit state", "[geometry][octree]")
+{
+    W8OctreeTrace trace;
+    REQUIRE(trace.start == glm::vec3(0));
+    REQUIRE(trace.step == glm::vec3(0));
+    REQUIRE(trace.hit_limit == 1.0e20f);
+    trace.reset({1, 2, 3}, {4, 6, 3});
+    REQUIRE(trace.length == 5);
+    REQUIRE(trace.hit_limit == 5);
+    REQUIRE(trace.step == glm::vec3(0.6f, 0.8f, 0));
+    trace.state = 7;
+    trace.hit_limit = 2;
+    trace.reset(trace.end, trace.start);
+    REQUIRE(trace.start == glm::vec3(4, 6, 3));
+    REQUIRE(trace.end == glm::vec3(1, 2, 3));
+    REQUIRE(trace.step == glm::vec3(-0.6f, -0.8f, 0));
+    REQUIRE(trace.hit_limit == 5);
+    REQUIRE(trace.state == 0);
 }

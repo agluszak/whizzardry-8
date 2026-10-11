@@ -1413,7 +1413,7 @@ static int AccumulateVertexLight(OctPreTree* tree, W8OctPreTreeVertex* vertex, s
                 if (g_float_zero < dot) {
                     ++g_lights_facing;
                     if (g_option_shadow_test) {
-                        if (!tree->SegmentClear(&light->position, &vertex->position)) {
+                        if (!tree->SegmentClear(light->position.glmValue(), vertex->position.glmValue())) {
                             goto next_light;
                         }
                     }
@@ -1457,7 +1457,7 @@ static unsigned char PropReceivesLight(OctPreTree* tree, W8LevelFileProp* prop,
 
     position.Set(prop->position.x * g_world_scale, prop->position.y * g_world_scale,
                  prop->position.z * g_world_scale);
-    if (tree->SegmentClear(&light->position, &position)) {
+    if (tree->SegmentClear(light->position.glmValue(), position.glmValue())) {
         return 1;
     }
     bound = 0;
@@ -1472,7 +1472,7 @@ static unsigned char PropReceivesLight(OctPreTree* tree, W8LevelFileProp* prop,
                     float y = bounds[corner_y].y * g_world_scale;
                     for (corner_z = 0; corner_z < 2; ++corner_z) {
                         corner.Set(x, y, bounds[corner_z].z * g_world_scale);
-                        if (tree->SegmentClear(&light->position, &corner)) {
+                        if (tree->SegmentClear(light->position.glmValue(), corner.glmValue())) {
                             return 1;
                         }
                     }
