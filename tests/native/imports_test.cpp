@@ -207,7 +207,7 @@ static int shared_surface_lifetimes()
         surface_lifetime = surface;
         Map first(surface), second;
         second = first;
-        first.getDimensions(dimensions);
+        dimensions = first.getDimensions();
         surface.reset();
         palette.reset();
         first.setSurfacePtr(nullptr);
