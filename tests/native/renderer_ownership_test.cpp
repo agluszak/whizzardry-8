@@ -15,6 +15,7 @@
 #include "surrender/srCore.h"
 #include "surrender/srDD_SDLGPU.h"
 #include "surrender/srGERD.h"
+#include "surrender/srRendererDefs.h"
 #include "surrender/srFog.h"
 #include "surrender/srLight.h"
 #include "surrender/srStatisticsManager.h"
@@ -670,6 +671,109 @@ bool rendererOwnership()
     return true;
 }
 
+bool rendererTextureStages()
+{
+    srGERD gerd(srCreateSDLGPUDevice(), "texture stage fixture");
+    for (unsigned stages : {1u, 2u}) {
+        srGERD::Renderer renderer({&gerd, 0, 256, stages});
+        srVertexArray arrays{};
+        renderer.allocVertexArray(arrays, 3);
+        for (unsigned stage = 0; stage < 2; ++stage)
+            for (unsigned i = 0; i < 3; ++i) {
+                renderer.vertices.st[stage][i] = glm::vec2(10 * stage + i, 20 + i);
+                renderer.vertices.q[stage][i] = 0.25f * (stage + i + 1);
+            }
+        for (unsigned attributes = 0; attributes < 128; ++attributes) {
+            for (auto& stream : renderer.stq) stream.clear();
+            renderer.vertices.attributes[0] = attributes;
+            renderer.programVertexArrays(&arrays, 3);
+            const auto mask = gerd.getVertexArrayMask().value;
+            for (unsigned stage = 0; stage < 2; ++stage) {
+                const bool enabled = stage < stages &&
+                    (attributes & (srVertexArray::ATTRIBUTE_ST0 << stage));
+                REQUIRE(bool(mask & (1u << (srRendererDefs::VERTEX_ARRAY_TEXCOORD0 + stage))) == enabled);
+                const bool combined = enabled &&
+                    (attributes & (srVertexArray::ATTRIBUTE_Q0 << stage));
+                REQUIRE(renderer.stq[stage].size() == (combined ? 3u : 0u));
+                if (combined)
+                    for (unsigned i = 0; i < 3; ++i) {
+                        REQUIRE(renderer.stq[stage][i].st == renderer.vertices.st[stage][i]);
+                        REQUIRE(renderer.stq[stage][i].q == renderer.vertices.q[stage][i]);
+                    }
+            }
+        }
+    }
+    return true;
+}
+
+bool rendererCornerRemapping()
+{
+    // All combinations of reused/new corners, mixed UV and flat passes, and
+    // a nonzero batch base exercise allocation order and copied vertex streams.
+    for (unsigned changed = 0; changed < 8; ++changed) {
+        for (int sorted : {0, 1}) {
+            srGERD::Renderer renderer({nullptr, sorted, 256, 2});
+            srVertexArray arrays{};
+            renderer.vertices.alloc(arrays, 5);
+            renderer.allocVertexArray(arrays, 6);
+            for (unsigned i = 5; i < 11; ++i) {
+                renderer.vertices.positions[i] = glm::vec4(float(i), 2, 3, 1);
+                renderer.vertices.diffuse[i] = glm::vec4(float(i) / 20);
+                renderer.vertices.specular[i] = glm::vec4(float(i) / 30);
+                renderer.vertices.st[1][i] = glm::vec2(float(i), 4);
+                renderer.vertices.q[1][i] = float(i) / 10;
+                renderer.vertices.attributes[i] = i;
+            }
+            std::array<w8_ulong, 1> indices{0};
+            std::array<w8_ulong, 3> vertices{2, 0, 1};
+            std::array<srVector3i, 1> triangles{{{0, 1, 2}}};
+            std::array<int, 3> uv;
+            for (unsigned corner = 0; corner < 3; ++corner)
+                uv[corner] = corner + ((changed & (1u << corner)) ? 3 : 0);
+            std::array<srVector3i, 1> poly_uv{{{uv[0], uv[1], uv[2]}}};
+            std::array<glm::vec2, 6> texcoords;
+            for (unsigned i = 0; i < texcoords.size(); ++i) texcoords[i] = glm::vec2(i, i + 10);
+            std::array<srTriMeshPipeline::Pass, 2> passes{};
+            passes[0].poly_uv = poly_uv.data();
+            passes[0].texcoords = texcoords.data();
+            srGERD::Renderer::TriInput input{};
+            input.triangle_count = 1;
+            input.record_count = 2;
+            input.vertex_count = 3;
+            input.indices = indices.data();
+            input.vertices = vertices.data();
+            input.triangles = triangles.data();
+            input.passes = passes.data();
+            renderer.expandTriangles(input, sorted);
+            const auto& result = renderer.indices.triangles[0];
+            const std::array corners{result.x, result.y, result.z};
+            int next = 11;
+            for (unsigned corner = 0; corner < 3; ++corner) {
+                const int source = 5 + static_cast<int>(vertices[corner]);
+                if ((changed & (1u << corner)) == 0) {
+                    REQUIRE(corners[corner] == source);
+                    continue;
+                }
+                REQUIRE(corners[corner] == next);
+                REQUIRE(renderer.vertices.positions[next] == renderer.vertices.positions[source]);
+                REQUIRE(renderer.vertices.diffuse[next] == renderer.vertices.diffuse[source]);
+                REQUIRE(renderer.vertices.specular[next] == renderer.vertices.specular[source]);
+                REQUIRE(renderer.vertices.st[1][next] == renderer.vertices.st[1][source]);
+                REQUIRE(renderer.vertices.q[1][next] == renderer.vertices.q[1][source]);
+                REQUIRE(renderer.vertices.attributes[next] == renderer.vertices.attributes[source]);
+                REQUIRE(renderer.vertices.st[0][next] == texcoords[uv[corner]]);
+                REQUIRE(renderer.vertices.q[0][next] == 1.0f);
+                ++next;
+            }
+            REQUIRE(renderer.vertices.count == next);
+            const auto& flat = renderer.indices.triangles[1];
+            REQUIRE((flat.x == 10 && flat.y == 8 && flat.z == 9));
+            if (sorted) REQUIRE(renderer.indices.sort_key[0] == renderer.indices.sort_key[1]);
+        }
+    }
+    return true;
+}
+
 bool pipelineRecordTexcoords()
 {
     // Consume the producer's actual records, including a second record and
@@ -739,6 +843,8 @@ TEST_CASE("renderer_ownership_test")
         REQUIRE(distanceProfiles());
         REQUIRE(surfaceLighting());
         REQUIRE(pipelineRecordTexcoords());
+        REQUIRE(rendererTextureStages());
+        REQUIRE(rendererCornerRemapping());
         REQUIRE(srExit());
         REQUIRE(srGERD::getFirst() == nullptr);
     }
