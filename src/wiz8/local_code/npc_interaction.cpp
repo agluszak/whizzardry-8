@@ -4,9 +4,8 @@
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/local_code/NPCScripting.h"
-#include "soundman.h"
 #include "conditions.h"
-#include "mouth_gap.h"
+#include "wiz8/npc_speech.h"
 
 // GLOBAL: WIZ8 0x0068C430
 W8NpcScriptingState g_npc_scripting;
@@ -44,11 +43,6 @@ bool IsPartySlotEligible(int slot)
 void ClearNpcMessageQueue(void)
 {
 
-    if (g_npc_scripting.voice_playing) {
-        g_npc_scripting.voice_playing = false;
-        g_npc_scripting.stopping_voice_playback = true;
-        wiz8::sound::stop(g_npc_scripting.voice_handle);
-    }
-    FreeMouthGapTrack(&g_npc_scripting.gap_track);
+    StopNpcVoice(g_npc_scripting.speech);
     g_npc_scripting = {};
 }

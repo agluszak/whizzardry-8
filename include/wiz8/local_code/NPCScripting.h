@@ -1,17 +1,13 @@
 #pragma once
 
-#include "wiz8/audio_resources.h"
-
-#include <optional>
-#include <string_view>
-std::string GetNpcScriptRegionName(int region);
-void StripNpcKeywordPunctuation(std::string& text);
-
-#include "wiz8/mouth_gap.h"
-#include "wiz8/message_box.h"
 #include <list>
+#include <optional>
+#include <string>
+#include <string_view>
 #include <vector>
-#include <algorithm>
+
+#include "wiz8/message_box.h"
+#include "wiz8/npc_speech.h"
 
 
 struct W8NpcState;
@@ -58,16 +54,9 @@ struct W8NpcScriptingState {
     std::optional<W8NpcDialogueSession> suspended_session;
     W8NpcReplyState reply;
     std::optional<W8NpcPriceCheck> price_check;
-    /* The quote's voice sound actually started; gates wiz8::sound::stop and the
-       mouth-gap cleanup in FinishNpcVoicePlayback. */
-    bool voice_playing;
-    wiz8::sound::Playback voice_handle;
-    unsigned int message_duration_ms;
-    uint64_t message_started_at;
+    W8NpcSpeech speech;
     std::list<W8MessageBoxLine> message_lines;
     std::vector<int> pending_script_values;
-    W8MouthGapTrack gap_track;
-    uint64_t last_tick;
     /* Latched by CancelNpcDialogue; the response loop checks it at
        entries_done and abandons the pending response. */
     bool dialogue_cancelled;
@@ -76,14 +65,12 @@ struct W8NpcScriptingState {
     bool sedexus_release_pending;
     bool sedexus_capture_pending;
     bool sedexus_capture_active;
-    bool stopping_voice_playback;
 };
 
 extern W8NpcScriptingState g_npc_scripting;
-extern bool g_message_queue_idle;
-/* Scripted portrait-pick / cutscene gate PortraitSelectRegionEvent
-   and EndScriptedPortraitPick clear. */
 
+std::string GetNpcScriptRegionName(int region);
+void StripNpcKeywordPunctuation(std::string& text);
 void TryFinishNpcVoicePlayback(bool force);
 int FindNpcScriptQuoteByKeyword(std::string_view keyword, short* entry_index, short* sub_entry_index);
 void RunNpcScriptLine(int script_line, bool force_npc_voice);

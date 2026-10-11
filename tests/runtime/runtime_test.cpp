@@ -1172,7 +1172,7 @@ void WaitDialogue(Game& game, const char* step, const std::function<bool()>& rea
     game.wait(step, [&] {
         if (ready())
             return true;
-        if (g_npc_scripting.voice_playing && g_modal_owner == nullptr)
+        if (g_npc_scripting.speech.voice_playing && g_modal_owner == nullptr)
             game.key(SDLK_ESCAPE);
         return false;
     });
