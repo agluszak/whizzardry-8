@@ -2,6 +2,7 @@
 #include <ostream>
 #include <cstddef>
 #include <span>
+#include <utility>
 
 #include "glm/geometric.hpp"
 #include "surrender/srFog.h"
@@ -10,7 +11,6 @@
 #include "surrender/srDebug.h"
 #include "surrender/srVertexPipe.h"
 #include "compat/compiler.h"
-#include "glm/ext/vector_float3.hpp"
 #include "surrender/srNode.h"
 #include "surrender/srTypeRegistry.h"
 #include "surrender/srVertexProcessor.h"
