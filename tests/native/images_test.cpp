@@ -5,6 +5,8 @@
 #include <SDL3_image/SDL_image.h>
 #include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_surface.h>
+#include <zlib.h>
+#include <zconf.h>
 #include <array>
 #include <cstdlib>
 #include <cstring>
@@ -109,6 +111,41 @@ static Bytes indexed_tga()
     return bytes;
 }
 
+static Bytes sti_bitmap(unsigned width, unsigned height, unsigned depth, const Bytes& pixels,
+                        bool compressed)
+{
+    STCIHeader header{};
+    memcpy(header.cID, STCI_ID_STRING, STCI_ID_LEN);
+    header.usWidth = width;
+    header.usHeight = height;
+    header.ubDepth = depth;
+    header.fFlags = depth == 8 ? STCI_INDEXED : STCI_RGB;
+    if (depth == 8)
+        header.Indexed.uiNumberOfColours = 256;
+    else {
+        header.RGB.uiRedMask = gusRedMask;
+        header.RGB.uiGreenMask = gusGreenMask;
+        header.RGB.uiBlueMask = gusBlueMask;
+    }
+    header.uiOriginalSize = width * height * (depth / 8);
+    Bytes stored = pixels;
+    if (compressed) {
+        header.fFlags |= STCI_ZLIB_COMPRESSED;
+        uLongf size = compressBound(pixels.size());
+        stored.resize(size);
+        REQUIRE(compress2(stored.data(), &size, pixels.data(), pixels.size(), 9) == Z_OK);
+        stored.resize(size);
+    }
+    header.uiStoredSize = stored.size();
+    Bytes bytes(sizeof(header));
+    memcpy(bytes.data(), &header, sizeof(header));
+    if (depth == 8)
+        for (unsigned i = 0; i < 256; ++i)
+            bytes.insert(bytes.end(), {UINT8(i), UINT8(i), UINT8(i)});
+    bytes.insert(bytes.end(), stored.begin(), stored.end());
+    return bytes;
+}
+
 static Bytes rgb_pcx(const UINT8* rgb)
 {
     auto bytes = pcx();
@@ -174,7 +211,7 @@ static void rgb555()
 static void check_pcx(const image_type& image)
 {
     REQUIRE((image.usWidth == 3 && image.usHeight == 2 && image.ubBitDepth == 8));
-    REQUIRE((image.pPalette && !image.etrle && !image.compressed));
+    REQUIRE((image.pPalette && !image.etrle));
     const UINT8 expected[]{0, 1, 1, 2, 3, 0xc1};
     REQUIRE(!memcmp(image.pImageData.data(), expected, sizeof(expected)));
     for (unsigned i = 0; i < 256; ++i)
@@ -184,9 +221,10 @@ static void check_pcx(const image_type& image)
         REQUIRE((*image.pPalette)[i].peBlue == (i == 2 ? 0 : i));
         REQUIRE((*image.pPalette)[i].peFlags == 0);
     }
-    REQUIRE((*image.pui16BPPPalette)[0] == 0); // Exact black stays transparent.
-    REQUIRE((*image.pui16BPPPalette)[1] == 1); // Non-black quantizing to zero is substituted.
-    REQUIRE((*image.pui16BPPPalette)[2] == 0x7c00);
+    const auto palette = Create16BPPPalette(*image.pPalette);
+    REQUIRE(palette[0] == 0); // Exact black stays transparent.
+    REQUIRE(palette[1] == 1); // Non-black quantizing to zero is substituted.
+    REQUIRE(palette[2] == 0x7c00);
     REQUIRE(image.pETRLEObject.empty());
 }
 
@@ -298,8 +336,10 @@ TEST_CASE_METHOD(ImageFixture, "Native image formats, palettes and archives", "[
         gusRedShift = -3;
         gusBlueShift = 7;
         auto custom = load("Dotted.dir/default.PCX");
-        REQUIRE((custom && (*custom->pui16BPPPalette)[0] == 0));
-        REQUIRE(((*custom->pui16BPPPalette)[1] == 0x8001 && (*custom->pui16BPPPalette)[2] == 0x801f));
+        REQUIRE((custom && custom->pPalette));
+        const auto palette = Create16BPPPalette(*custom->pPalette);
+        REQUIRE(palette[0] == 0);
+        REQUIRE((palette[1] == 0x8001 && palette[2] == 0x801f));
         rgb555();
     }
 
@@ -339,7 +379,6 @@ TEST_CASE_METHOD(ImageFixture, "Native image formats, palettes and archives", "[
                 auto image = load("test.tga");
                 REQUIRE((image && image->usWidth == 3 && image->usHeight == 2));
                 REQUIRE((image->ubBitDepth == depth && !image->pPalette));
-                REQUIRE((!image->pPalette && !image->pui16BPPPalette));
                 REQUIRE(!memcmp(image->pImageData.data(), depth == 16 ? static_cast<const void*>(packed) : rgb,
                               depth == 16 ? sizeof(packed) : sizeof(rgb)));
             }
@@ -351,7 +390,8 @@ TEST_CASE_METHOD(ImageFixture, "Native image formats, palettes and archives", "[
         REQUIRE(!memcmp(image->pImageData.data(), indices, sizeof(indices)));
         REQUIRE(((*image->pPalette)[2].peRed == 255 && (*image->pPalette)[2].peBlue == 0));
         REQUIRE(((*image->pPalette)[3].peRed == 0 && (*image->pPalette)[255].peFlags == 0));
-        REQUIRE(((*image->pui16BPPPalette)[0] == 0 && (*image->pui16BPPPalette)[1] == 1));
+        const auto palette = Create16BPPPalette(*image->pPalette);
+        REQUIRE((palette[0] == 0 && palette[1] == 1));
         auto offset_palette = indexed_tga();
         word(offset_palette, 3, 16);
         offset_palette[28] += 16;
@@ -397,7 +437,7 @@ TEST_CASE_METHOD(ImageFixture, "Native image formats, palettes and archives", "[
         REQUIRE(IMG_SaveJPG(surface.get(), wiz8::path_to_utf8(assets / "test.JpEg").c_str(), 100));
         auto image = load("test.jpeg");
         REQUIRE((image && image->usWidth == 8 && image->usHeight == 8 && image->ubBitDepth == 24));
-        REQUIRE((!image->pPalette && !image->etrle && !image->compressed));
+        REQUIRE((!image->pPalette && !image->etrle));
         for (unsigned i = 0; i < 64; ++i)
         {
             CHECK(abs(int(image->pImageData[i * 3]) - 240) < 4);
@@ -407,6 +447,164 @@ TEST_CASE_METHOD(ImageFixture, "Native image formats, palettes and archives", "[
     }
 
 
+}
+
+TEST_CASE_METHOD(ImageFixture, "STI bitmaps decode before pitched surface initialization", "[image][decoding]")
+{
+    for (unsigned depth : {8u, 16u, 24u}) {
+        const unsigned width = 5, height = 3;
+        Bytes expected(width * height * (depth / 8));
+        for (std::size_t i = 0; i < expected.size(); ++i)
+            expected[i] = (i * 7) ^ (i >> 5);
+        for (bool compressed : {false, true}) {
+            fixture(assets / "bitmap.sti", sti_bitmap(width, height, depth, expected, compressed));
+            auto image = load("bitmap.sti");
+            REQUIRE(image);
+            REQUIRE(image->pImageData == expected);
+            REQUIRE_FALSE(image->etrle);
+            REQUIRE(image->pETRLEObject.empty());
+            REQUIRE(image->pPalette.has_value() == (depth == 8));
+            if (depth == 24) {
+                REQUIRE_FALSE(LoadVideoSurface("bitmap.sti")); // SGP CPU surfaces are 8 or 16 bpp.
+                continue;
+            }
+            for (unsigned repeat = 0; repeat < 3; ++repeat) {
+                auto surface = LoadVideoSurface("bitmap.sti");
+                REQUIRE(surface);
+                const auto& storage = *surface->cpu().surface;
+                const unsigned row_bytes = width * (depth / 8);
+                REQUIRE(storage.pitch > int(row_bytes)); // Odd widths exercise SDL's padded rows.
+                for (unsigned row = 0; row < height; ++row) {
+                    const auto* pixels = static_cast<const UINT8*>(storage.pixels) + row * storage.pitch;
+                    REQUIRE(!memcmp(pixels, expected.data() + row * row_bytes, row_bytes));
+                    for (unsigned padding = row_bytes; padding < unsigned(storage.pitch); ++padding)
+                        REQUIRE(pixels[padding] == 0);
+                }
+                REQUIRE(surface->cpu().sourceKey);
+                REQUIRE(surface->cpu().sourceKey->low == 0);
+                if (depth == 8) {
+                    const auto* palette = SDL_GetSurfacePalette(surface->cpu().surface.get());
+                    REQUIRE(palette);
+                    for (unsigned i = 0; i < 256; ++i) {
+                        REQUIRE(palette->colors[i].r == i);
+                        REQUIRE(palette->colors[i].g == i);
+                        REQUIRE(palette->colors[i].b == i);
+                        REQUIRE(palette->colors[i].a == 255);
+                    }
+                    REQUIRE(surface->p16BPPPalette == Create16BPPPalette(*image->pPalette));
+                }
+            }
+        }
+    }
+    // Decoding no longer captures the renderer's palette state.
+    const Bytes indices{0, 1, 2, 3, 4, 5};
+    fixture(assets / "palette.sti", sti_bitmap(3, 2, 8, indices, true));
+    auto image = load("palette.sti");
+    REQUIRE((image && image->pPalette));
+    const auto colors = *image->pPalette;
+    gusAlphaMask = 0x8000;
+    auto surface = LoadVideoSurface("palette.sti");
+    REQUIRE(surface);
+    REQUIRE(!memcmp(&*image->pPalette, &colors, sizeof(colors)));
+    REQUIRE(surface->p16BPPPalette[0] == 0);
+    REQUIRE(surface->p16BPPPalette[1] == 0x8001);
+}
+
+TEST_CASE_METHOD(ImageFixture, "Raw and zlib STI RGB masks normalize identically", "[image][decoding]")
+{
+    const Bytes source{0, 0, 0, 0xf8, 0xe0, 0x07, 0x1f, 0};
+    for (bool compressed : {false, true}) {
+        auto bytes = sti_bitmap(2, 2, 16, source, compressed);
+        STCIHeader header;
+        memcpy(&header, bytes.data(), sizeof(header));
+        header.RGB.uiRedMask = 0xf800;
+        header.RGB.uiGreenMask = 0x07e0;
+        memcpy(bytes.data(), &header, sizeof(header));
+        fixture(assets / "rgb565.sti", bytes);
+        for (UINT16 alpha : {UINT16(0), UINT16(0x8000)}) {
+            gusAlphaMask = alpha;
+            auto image = load("rgb565.sti");
+            REQUIRE(image);
+            const std::array<UINT16, 4> expected{0, UINT16(0x7c00 | alpha),
+                                               UINT16(0x03e0 | alpha), UINT16(0x001f | alpha)};
+            REQUIRE(image->pImageData.size() == sizeof(expected));
+            REQUIRE(!memcmp(image->pImageData.data(), expected.data(), sizeof(expected)));
+            auto surface = LoadVideoSurface("rgb565.sti");
+            REQUIRE(surface);
+            const auto& storage = *surface->cpu().surface;
+            for (int row = 0; row < 2; ++row)
+                REQUIRE(!memcmp(static_cast<const UINT8*>(storage.pixels) + row * storage.pitch,
+                                expected.data() + row * 2, 4));
+        }
+    }
+}
+
+TEST_CASE_METHOD(ImageFixture, "STI zlib decoding respects SLF entry bounds and independent cursors", "[image][decoding]")
+{
+    Bytes expected(500 * 200);
+    for (std::size_t i = 0; i < expected.size(); ++i)
+        expected[i] = (i * 7) ^ (i >> 5);
+    const auto valid = sti_bitmap(500, 200, 8, expected, true);
+    auto truncated = valid;
+    truncated.pop_back();
+    fixture(assets / "Data" / "Compressed.slf", slf({{"Good.sti", valid}, {"Bad.sti", truncated},
+                                                       {"Following.sti", valid}}));
+    wiz8::mount_slf("Data\\Compressed.slf");
+    auto first = wiz8::open_file("Data\\Good.sti");
+    auto second = wiz8::open_file("Data\\Good.sti");
+    first->seek(9, wiz8::SeekOrigin::begin);
+    for (unsigned repeat = 0; repeat < 3; ++repeat) {
+        auto image = load("Data\\Good.sti");
+        REQUIRE(image);
+        REQUIRE(image->pImageData == expected);
+        REQUIRE_FALSE(load("Data\\Bad.sti"));
+        REQUIRE_FALSE(LoadVideoSurface("Data\\Bad.sti"));
+        auto surface = LoadVideoSurface("Data\\Following.sti");
+        REQUIRE(surface);
+        const auto& storage = *surface->cpu().surface;
+        for (int row = 0; row < 200; ++row)
+            REQUIRE(!memcmp(static_cast<const UINT8*>(storage.pixels) + row * storage.pitch,
+                            expected.data() + row * 500, 500));
+        REQUIRE(first->tell() == 9);
+        REQUIRE(second->tell() == 0);
+    }
+}
+
+TEST_CASE_METHOD(ImageFixture, "Malformed STI zlib data fails at the loading boundary", "[image][validation]")
+{
+    const Bytes original{0, 1, 2, 3, 4, 5};
+    const auto valid = sti_bitmap(3, 2, 8, original, true);
+    for (unsigned corruption = 0; corruption < 15; ++corruption) {
+        auto bytes = valid;
+        STCIHeader header;
+        memcpy(&header, bytes.data(), sizeof(header));
+        if (corruption == 0) bytes.pop_back();
+        if (corruption == 1) bytes.back() ^= 1;
+        if (corruption == 2) { bytes.push_back(0); ++header.uiStoredSize; }
+        if (corruption == 3) ++header.uiOriginalSize;
+        if (corruption == 4) ++header.usHeight;
+        if (corruption == 5) header.uiOriginalSize = 0xffffffffu;
+        if (corruption == 6) header.usWidth = 0;
+        if (corruption == 7) header.usHeight = 0;
+        if (corruption == 8) header.usWidth = header.usHeight = 65535;
+        if (corruption == 9) header.fFlags |= STCI_ETRLE_COMPRESSED;
+        if (corruption == 10) header.Indexed.uiNumberOfColours = 255;
+        if (corruption == 11) header.uiAppDataSize = 1;
+        if (corruption < 12)
+            memcpy(bytes.data(), &header, sizeof(header));
+        if (corruption == 12) bytes = sti_bitmap(3, 2, 8, {}, true);
+        if (corruption == 13) bytes = sti_bitmap(3, 2, 8, {0, 1, 2, 3, 4}, true);
+        if (corruption == 14) bytes = sti_bitmap(3, 2, 8, {0, 1, 2, 3, 4, 5, 6}, true);
+        fixture(assets / "bad-zlib.sti", bytes);
+        for (unsigned repeat = 0; repeat < 3; ++repeat) {
+            REQUIRE_FALSE(load("bad-zlib.sti"));
+            REQUIRE_FALSE(LoadVideoSurface("bad-zlib.sti"));
+        }
+        fixture(assets / "good-zlib.sti", valid);
+        auto image = load("good-zlib.sti");
+        REQUIRE(image);
+        REQUIRE(image->pImageData == original);
+    }
 }
 
 TEST_CASE_METHOD(ImageFixture, "Truncated images and rollback", "[image][validation]")
@@ -440,7 +638,7 @@ TEST_CASE_METHOD(ImageFixture, "Truncated images and rollback", "[image][validat
         REQUIRE(!load("invalid.pcx"));
         REQUIRE(!load("invalid.tga"));
         auto image = load("test.tga");
-        REQUIRE((image && image->ubBitDepth == 24 && !image->pPalette && !image->pui16BPPPalette));
+        REQUIRE((image && image->ubBitDepth == 24 && !image->pPalette));
         REQUIRE((!image->pPalette && image->pETRLEObject.empty()));
     }
     fixture(assets / "invalid.jpg", {0xff, 0xd8, 0xff});

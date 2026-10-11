@@ -4,14 +4,10 @@
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
    Distributed under the accompanying SFI Source Code license agreement. */
 
-#include <SDL3/SDL_rect.h>
-#include <memory>
 #include <array>
 #include <optional>
 #include <string_view>
 #include <vector>
-#include <span>
-#include <cstddef>
 
 #include "Types.h"
 
@@ -24,12 +20,6 @@
 // - A comprehensive automatic blitter which blits the appropriate type based on the
 //   image header.
 
-// Defines for buffer bit depth
-#define BUFFER_8BPP 0x1
-#define BUFFER_16BPP 0x2
-
-// Defines for image charactoristics
-
 // Palette structure, mimics that of Win32
 typedef struct tagSGPPaletteEntry {
     UINT8 peRed;
@@ -38,29 +28,6 @@ typedef struct tagSGPPaletteEntry {
     UINT8 peFlags;
 
 } SGPPaletteEntry;
-
-#define AUX_FULL_TILE 0x01
-#define AUX_ANIMATED_TILE 0x02
-#define AUX_DYNAMIC_TILE 0x04
-#define AUX_INTERACTIVE_TILE 0x08
-#define AUX_IGNORES_HEIGHT 0x10
-#define AUX_USES_LAND_Z 0x20
-
-typedef struct {
-    UINT8 ubWallOrientation;
-    UINT8 ubNumberOfTiles;
-    UINT16 usTileLocIndex;
-    UINT8 ubUnused1[3];
-    UINT8 ubCurrentFrame;
-    UINT8 ubNumberOfFrames;
-    UINT8 fFlags;
-    UINT8 ubUnused[6];
-} AuxObjectData;
-
-typedef struct {
-    INT8 bTileOffsetX;
-    INT8 bTileOffsetY;
-} RelTileLoc; // relative tile location
 
 // TRLE subimage structure, mirroring that of ST(C)I
 typedef struct tagETRLEObject {
@@ -80,10 +47,8 @@ struct image_type {
     UINT16 usWidth;
     UINT16 usHeight;
     UINT8 ubBitDepth;
-    bool compressed = false;
     bool etrle = false;
     std::optional<Palette8> pPalette;
-    std::optional<Palette16> pui16BPPPalette;
     std::vector<UINT8> pImageData;
     std::vector<ETRLEObject> pETRLEObject;
 
@@ -103,12 +68,10 @@ struct image_type {
 // basename extension selects STI or SDL_image PCX/TGA/JPEG; extensionless names
 // default to PCX without changing the caller's path. Ordinary images are tight,
 // top-down INDEX8 + palettes, packed RGB555 (16-bit TGA), or RGB24.
-// Returns no image on failure.
+// STI bitmaps are also tight pixels: zlib decoding and RGB mask conversion
+// finish before a result is returned. ETRLE sheets retain their frame records
+// and run data for CreateVideoObject. Returns no image on failure.
 std::optional<image_type> LoadImage(std::string_view filename);
-
-bool CopyImageToBuffer(const image_type& image, UINT32 buffer_type, std::span<UINT8> destination,
-                       std::size_t dest_width, std::size_t dest_height, std::size_t x, std::size_t y,
-                       const SDL_Rect& source_rect);
 
 // UTILITY FUNCTIONS
 
