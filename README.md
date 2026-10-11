@@ -185,8 +185,8 @@ git clang-format-21 --binary clang-format-21 main -- include src tests
 ```
 
 For a complete reformat of one file, run `clang-format-21 -i path/to/file.cpp`.
-CI checks formatting of changed lines only; existing files do not require a
-mass reformat.
+CI checks formatting of changed lines only. A separate stacked pull request
+will apply the initial repository-wide reformat.
 
 ## Catch2 test cases
 
