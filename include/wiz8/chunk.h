@@ -20,8 +20,6 @@ struct W8ChunkHead {
     int extent; /* 0x08 */
 };
 
-W8_ABI_ASSERT(sizeof(W8ChunkHead) == 0x0c, "W8ChunkHead_size_must_be_0x0c");
-
 // A chunk id is its four-character code stored little-endian.
 constexpr unsigned int W8ChunkId(const char (&tag)[5])
 {

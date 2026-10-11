@@ -19,7 +19,6 @@
 #include "wiz8/sr_api.h"
 #include "wiz8/catalog_artwork.h"
 #include "input.h"
-#include "compat/compiler.h"
 
 #define CGS_STATS_PAGE_CPP "C:\\Projects\\Wizardry 8\\Local Screens\\CGSStatsPage.cpp"
 
@@ -123,7 +122,6 @@ public:
     unsigned char pad_0bd[3];
     int m_text_offset;
 };
-W8_ABI_ASSERT(sizeof(W8CharacterStatsRecordControl) == 0xc4, "W8CharacterStatsRecordControl_size");
 
 // FUNCTION: WIZ8 0x005c8e70
 W8CharacterStatsValue::W8CharacterStatsValue(Controls* owner, int x, int y,

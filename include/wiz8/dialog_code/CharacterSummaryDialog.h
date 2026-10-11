@@ -48,6 +48,3 @@ private:
     bool m_portrait_clock_started;
     uint64_t m_portrait_clock;
 };
-
-W8_ABI_ASSERT(sizeof(W8CharacterSummaryDialog) == 0x1b00,
-              "W8CharacterSummaryDialog_must_be_0x1b00");

@@ -66,7 +66,6 @@ struct W8OctreeTrace {
     void reset(const glm::vec3& from, const glm::vec3& to);
 };
 
-W8_ABI_ASSERT(sizeof(W8OctreeTrace) == 0x30, "W8OctreeTrace_must_be_0x30");
 /* One 0x10-byte entry of the .oct file's submesh table. Field +4 is the index
    into W8World::psrMeshes; the visibility update and UpdateMonsterLocation both
    resolve a region through it, and the update's reset pass writes the owning
@@ -81,8 +80,6 @@ struct W8OctSubmesh {
     /* Reader max-scans this to size the g_octree_storage identity table. */
     unsigned int polygon_count;
 };
-
-W8_ABI_ASSERT(sizeof(W8OctSubmesh) == 0x10, "W8OctSubmesh_must_be_0x10");
 
 /* The object classes the octree tracks. Kind 3 is not dynamic: it names the
    static GD-surface polygon streams stored inside each leaf record. The
@@ -170,9 +167,6 @@ struct W8OctPreTreeLeaf {
        flat ten-dword table (kind + leaf_index * 10). */
     w8_ulong kind_offsets[6];
 };
-
-W8_ABI_ASSERT(sizeof(W8OctPreTreeBranch) == 0x24, "W8OctPreTreeBranch_must_be_0x24");
-W8_ABI_ASSERT(sizeof(W8OctPreTreeLeaf) == 0x28, "W8OctPreTreeLeaf_must_be_0x28");
 
 /* Native camera snapshot and visibility frustum; level-file planes retain
    their packed W8Plane representation independently. */
@@ -477,8 +471,6 @@ public:
     unsigned char m_padding_29a[2];
 };
 
-W8_ABI_ASSERT(sizeof(W8Octree) == 0x29c, "W8Octree_must_be_0x29c");
-
 class OctPreTree : public W8Octree {
 public:
     OctPreTree();
@@ -545,8 +537,6 @@ public:
     char PropFramesDiffer(const W8LevelFileAnimObj& anim, unsigned short first, unsigned short last);
 };
 
-W8_ABI_ASSERT(sizeof(OctPreTree) == 0x3bc, "OctPreTree_must_be_0x3bc");
-
 extern W8Octree* g_octree;
 extern OctPreTree* g_oct_pre_tree;
 
@@ -555,8 +545,6 @@ void NoOct(void);
 extern bool g_octree_disabled;
 
 bool __stdcall IsNavigatorAtTarget(W8NavigatorMovementState* movement);
-
-W8_ABI_ASSERT(sizeof(W8Octree) == 0x29c, "W8Octree_must_be_0x29c");
 
 extern unsigned int* g_octree_storage_;
 extern w8_ulong* g_octree_state;

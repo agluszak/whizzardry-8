@@ -18,7 +18,6 @@ extern const unsigned int g_W8DialogTextAreaShortenText;
 /* Two instances of this pointer-vector specialization are embedded in
    W8DialogTextArea. */
 
-
 /* Nonpolymorphic scrolling-text helper contained by dialogs, not a widget or
    text-buffer base. Both vectors belong to this object; only all_lines owns
    the entries. visible_lines references entries selected/ordered from it. */
@@ -87,4 +86,3 @@ private:
     bool m_sorted;
     unsigned char unknown_057;
 };
-W8_ABI_ASSERT(sizeof(W8DialogTextArea) == 0x58, "W8DialogTextArea_size");

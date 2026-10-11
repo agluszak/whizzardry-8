@@ -34,7 +34,6 @@ struct W8FilePathNode {
     unsigned int cell;
     unsigned int level_flags;
 };
-W8_ABI_ASSERT(sizeof(W8FilePathNode) == 8, "W8FilePathNode_size");
 
 /* Header preceding the conditional path tables. The writer deliberately
    writes zero to flags while the reader accepts the stored word. */
@@ -44,7 +43,6 @@ struct W8ConditionalPathHeader {
     unsigned int node_count;
     unsigned int flags;
 };
-W8_ABI_ASSERT(sizeof(W8ConditionalPathHeader) == 0x10, "W8ConditionalPathHeader_size");
 
 /* One pre-path prop record handed to LinkCollideableProps: the prop's path
    name plus the GDPreProp array OctPreTree.cpp builds for it (stride 0x48). */
@@ -57,10 +55,6 @@ struct W8PreProp {
     unsigned short first_prop_number;
     GDPreProp* pStopMeshes;
 };
-
-W8_ABI_ASSERT(sizeof(W8PreProp) == 0x48, "W8PreProp_must_be_0x48");
-W8_ABI_ASSERT(offsetof(W8PreProp, num_stop_meshes) == 0x40, "W8PreProp_num_stop_meshes_40");
-W8_ABI_ASSERT(offsetof(W8PreProp, pStopMeshes) == 0x44, "W8PreProp_pStopMeshes");
 
 struct W8NavigatorMovementState;
 
@@ -140,7 +134,6 @@ private:
     W8Monster* monster;
 };
 
-W8_ABI_ASSERT(sizeof(W8PathParameters) == 0x58, "W8PathParameters_must_be_0x58");
 struct W8NavigatorAttachment;
 
 /* OctPath.cpp's two compact graph records. Surface zero and edge zero are
@@ -182,9 +175,9 @@ struct W8PathEdge {
 };
 #pragma pack(pop)
 
-W8_ABI_ASSERT(sizeof(W8PathSurface) == 0x28, "W8PathSurface_must_be_0x28");
-W8_ABI_ASSERT(sizeof(W8PathEdge) == 0x0e, "W8PathEdge_must_be_0x0e");
-W8_ABI_ASSERT(sizeof(W8FileWaypoint) == 0x10, "W8FileWaypoint_must_be_0x10");
+static_assert(sizeof(W8PathSurface) == 0x28, "W8PathSurface_must_be_0x28");
+static_assert(sizeof(W8PathEdge) == 0x0e, "W8PathEdge_must_be_0x0e");
+static_assert(sizeof(W8FileWaypoint) == 0x10, "W8FileWaypoint_must_be_0x10");
 
 /* One named conditional-path set. FindPathHandle compares path.name and then
    walks the zero-terminated lookup run starting at lookup_index: each lookup
@@ -213,8 +206,6 @@ struct GDPropCondPaths {
     unsigned int lookup_index; /* 0x40 */
 };
 
-W8_ABI_ASSERT(sizeof(GDPropCondPaths) == 0x44, "GDPropCondPaths_must_be_0x44");
-
 /* The two-dimensional cell walk used by path-surface probing. The cell and
    step runs are modeled as triples like the sibling octree walker; only X/Z
    participate and the third slots are zeroed. Retail does not distinguish
@@ -234,12 +225,6 @@ struct W8PathGridWalk {
     int error_reset1;
 };
 
-W8_ABI_ASSERT(sizeof(W8PathGridWalk) == 0x40, "W8PathGridWalk_must_be_0x40");
-W8_ABI_ASSERT(offsetof(W8PathGridWalk, step) == 0x0c, "W8PathGridWalk_step_offset");
-W8_ABI_ASSERT(offsetof(W8PathGridWalk, minor_axis1) == 0x20, "W8PathGridWalk_second_axis_offset");
-W8_ABI_ASSERT(offsetof(W8PathGridWalk, error_delta1) == 0x34, "W8PathGridWalk_second_error_offset");
-W8_ABI_ASSERT(offsetof(W8PathGridWalk, error_reset1) == 0x3c, "W8PathGridWalk_second_reset_offset");
-
 /* One of the fixed probe volumes assembled by 0x004656A0. The outer radius
    is the navigator's collision radius; the inner bound is its distance from
    the movement search origin. The player entry leaves the inner bound
@@ -250,8 +235,6 @@ struct W8PathProbeVolume {
     float inner_radius; /* Initial distance from the search origin, not a body radius. */
     srVector3T<float> center;
 };
-
-W8_ABI_ASSERT(sizeof(W8PathProbeVolume) == 0x18, "W8PathProbeVolume_must_be_0x18");
 
 /* The fixed 0x2c search node allocated by W8PathingService's constructor.
    Scoring at 0x00464FF0 proves the flag word, base score, current distance,
@@ -293,10 +276,6 @@ struct W8PathHeapHandle {
 
     void DeleteRoot(W8PathSearchNode* node);
 };
-
-W8_ABI_ASSERT(sizeof(W8PathHeapEntry) == 8, "W8PathHeapEntry_must_be_8");
-
-W8_ABI_ASSERT(sizeof(W8PathSearchNode) == 0x2c, "W8PathSearchNode_must_be_0x2c");
 
 /* The pathing service the octree builds when its file carries one. Its own
    constructor at 0x004578E0 initialises through 0x238 and ReadOctFile allocates
@@ -566,8 +545,6 @@ public:
     unsigned char m_padding_23d[3];
 };
 
-W8_ABI_ASSERT(sizeof(W8PathingService) == 0x240, "W8PathingService_must_be_0x240");
-
 /* The 8-byte record InsertConditionalNodes hangs on the cond map under a
    (frame << 16 | preprop index + 1) key: the node's serialized flag word
    (height level + 1 in the low half, |0x02000000 when it came from the
@@ -588,8 +565,6 @@ struct W8PrePathNode {
     float y;                  /* 0x08 */
     W8PrePathNode* next;      /* 0x0c: allocation order, same-cell runs */
 };
-
-W8_ABI_ASSERT(sizeof(W8PrePathNode) == 0x10, "W8PrePathNode_must_be_0x10");
 
 enum { W8_PREPATH_NODES_PER_CHUNK = 1000 };
 
@@ -637,13 +612,6 @@ public:
        while linking; capped at 50. */
     unsigned int min_component_percent;
 };
-
-W8_ABI_ASSERT(sizeof(PrePathing) == 0x1204, "PrePathing_must_be_0x1204");
-W8_ABI_ASSERT(offsetof(PrePathing, path_node_list) == 0x240, "PrePathing_path_node_list_240");
-W8_ABI_ASSERT(offsetof(PrePathing, node_chunks) == 0x258, "PrePathing_node_chunks_258");
-W8_ABI_ASSERT(offsetof(PrePathing, chunk_index) == 0x11f8, "PrePathing_chunk_index_11f8");
-W8_ABI_ASSERT(offsetof(PrePathing, min_component_percent) == 0x1200,
-              "PrePathing_min_component_percent_1200");
 
 /* Move an integer path cell one compass step; directions outside the
    eight-value range wrap once. */

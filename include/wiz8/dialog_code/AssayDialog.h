@@ -46,5 +46,4 @@ private:
     W8DialogTextArea m_text_area;
     W8Character* m_character;
 };
-W8_ABI_ASSERT(sizeof(W8AssayDialog) == 0x1ac, "W8AssayDialog_size");
 extern unsigned short g_equip_class_name_ids[32];

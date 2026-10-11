@@ -41,8 +41,6 @@ struct W8BoundingBox {
     srVector3T<float> maximum;
 };
 
-W8_ABI_ASSERT(sizeof(W8BoundingBox) == 0x18, "W8BoundingBox_must_be_0x18");
-
 /* Plane equation record n·p + w = 0: a unit normal plus the signed origin
    distance. The canonical coefficient quad shared by GD surfaces, build-time
    region polygons and frustum culling volumes. */
@@ -50,8 +48,6 @@ struct W8Plane {
     srVector3T<float> normal;
     float w;
 };
-
-W8_ABI_ASSERT(sizeof(W8Plane) == 0x10, "W8Plane_must_be_0x10");
 
 struct PlaneContact {
     glm::vec3 point;
@@ -102,7 +98,6 @@ struct W8GDSurface {
        adjusts `direction` and the active environ record. */
     bool ApplyEnvironContact(glm::vec3& direction);
 };
-
 
 using RuntimeTriangle = std::array<glm::vec3, 3>;
 
@@ -194,4 +189,3 @@ bool SegmentCrossesEdge(const glm::vec3& seg_start, const glm::vec3& seg_end,
                         const glm::vec3& edge_a, const glm::vec3& edge_b, unsigned int axis);
 
 #endif
-

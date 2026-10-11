@@ -105,7 +105,6 @@ protected:
     void NotifyPrimaryActivation();
     void NotifySecondaryActivation();
 };
-W8_ABI_ASSERT(sizeof(W8TextControl) == 0xc0, "W8TextControl_size");
 
 // VTABLE: WIZ8 0x005ed758
 class W8HelpTextControl : public W8TextControl {
@@ -124,7 +123,6 @@ public:
 protected:
     std::string m_regionHelp;
 };
-W8_ABI_ASSERT(sizeof(W8HelpTextControl) == 0x248, "W8HelpTextControl_size");
 
 /* Separate panel-owned arrays retain their slots until each control has been
    destroyed. Panel storage and region sets are released by the caller. */

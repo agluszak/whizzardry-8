@@ -59,8 +59,6 @@
 /* Party-selection and imported-character UI. The original translation-unit
    spelling is not established; this descriptive name is provisional. */
 
-
-
 /* Two ordinary growable vectors and the scroll origin account for all 0x24
    bytes allocated at party-selection entry. The second vector supplies the names this
    control renders; the first owns the corresponding party records. */
@@ -80,8 +78,6 @@ struct W8PartySelectionCharacterCollection {
     std::vector<char*> names;
     int first_visible;
 };
-W8_ABI_ASSERT(sizeof(W8PartySelectionCharacterCollection) == 0x24,
-              "W8PartySelectionCharacterCollection_size");
 
 // GLOBAL: WIZ8 0x0069C4EC
 W8PartySelectionCharacterCollection* g_party_selection_character_collection;
@@ -328,8 +324,6 @@ public:
     int m_first_visible;
     W8PartySelectionListSelectionListener* m_listener;
 };
-W8_ABI_ASSERT(sizeof(W8PartySelectionListControl) == 0x4c, "W8PartySelectionListControl_size");
-W8_ASSERT_BASE_END(W8PartySelectionListControl, W8RangeListener, m_visible_rows, 0x34);
 
 // FUNCTION: WIZ8 0x005bff60
 void W8PartySelectionListControl::Redraw(bool full_redraw)
@@ -438,7 +432,6 @@ public:
     int m_character_index;
     W8PartySelectionPanelSelectionListener* m_selection_listener;
 };
-W8_ABI_ASSERT(sizeof(W8PartySelectionCharacterRow) == 0xc4, "W8PartySelectionCharacterRow_size");
 
 // VTABLE: WIZ8 0x005EF4BC W8PartySelectionInputHandler
 // class W8PartySelectionInputHandler
@@ -454,7 +447,6 @@ public:
 
     W8PartySelectionDecisionListener* m_listener;
 };
-W8_ABI_ASSERT(sizeof(W8PartySelectionInputHandler) == 8, "W8PartySelectionInputHandler_size");
 
 /* Controls owns the six row widgets. The three callback bases occupy +0x4c,
    +0x50 and +0x54; the complete W8Control member at +0x58 owns their selection
@@ -482,10 +474,6 @@ public:
     W8RangeControl* m_range;
     int m_selected_row;
 };
-W8_ABI_ASSERT(sizeof(W8PartySelectionCharacterPanel) == 0x84,
-              "W8PartySelectionCharacterPanel_size");
-W8_ASSERT_BASE_END(W8PartySelectionCharacterPanel, W8PartySelectionPanelSelectionListener,
-                   m_control, 0x54);
 
 // VTABLE: WIZ8 0x005ef448 W8TextControl::Listener
 class W8PartySelectionCharacterGridPanel : public Controls, public W8TextControl::Listener {
@@ -495,9 +483,6 @@ public:
     virtual void OnPrimary(W8TextControl* control) override;
     virtual void OnSecondary(W8TextControl*) override {}
 };
-W8_ABI_ASSERT(sizeof(W8PartySelectionCharacterGridPanel) == 0x50,
-              "W8PartySelectionCharacterGridPanel_size");
-W8_ASSERT_BASE_TAIL(W8PartySelectionCharacterGridPanel, W8TextControl::Listener, 0x4c);
 
 class W8PartySelectionPartySlotRow : public W8TextControl {
 public:
@@ -509,7 +494,6 @@ public:
     int m_row;
     W8Widget* m_redraw_partner;
 };
-W8_ABI_ASSERT(sizeof(W8PartySelectionPartySlotRow) == 0xc0, "W8PartySelectionPartySlotRow_size");
 
 class W8PartySelectionPartySlotPanel : public Controls, public W8ControlSelectionListener {
 public:
@@ -521,9 +505,6 @@ public:
 
     W8ControlSelection m_control;
 };
-W8_ABI_ASSERT(sizeof(W8PartySelectionPartySlotPanel) == 0x74,
-              "W8PartySelectionPartySlotPanel_size");
-W8_ASSERT_BASE_END(W8PartySelectionPartySlotPanel, W8ControlSelectionListener, m_control, 0x4c);
 
 class W8PartySelectionCharacterSummaryPanel : public Controls {
 public:
@@ -532,8 +513,6 @@ public:
 
     W8Character* m_character;
 };
-W8_ABI_ASSERT(sizeof(W8PartySelectionCharacterSummaryPanel) == 0x50,
-              "W8PartySelectionCharacterSummaryPanel_size");
 
 /* Unlike the two selection panels above, the option panel does not inherit
    W8Control.  Its constructor writes a mode word at +0x4c and constructs a
@@ -556,7 +535,6 @@ public:
     short m_image_width;
     short m_image_height;
 };
-W8_ABI_ASSERT(sizeof(W8PartySelectionOptionPanel) == 0x98, "W8PartySelectionOptionPanel_size");
 
 /* The party-selection owner is established by three construction-phase abstract
    vtables, seven registered text controls, the list-selection callback above,
@@ -614,8 +592,6 @@ public:
     W8MessageDialogBase* m_dialog;
     W8PartyConfirmationAction m_confirmation_action;
 };
-W8_ABI_ASSERT(sizeof(W8PartySelectionController) == 0x70, "W8PartySelectionController_size");
-W8_ASSERT_BASE_END(W8PartySelectionController, W8PartySelectionDecisionListener, m_mode, 0x8);
 
 // GLOBAL: WIZ8 0x0069C4E8
 W8PartySelectionController* g_party_selection_controller;

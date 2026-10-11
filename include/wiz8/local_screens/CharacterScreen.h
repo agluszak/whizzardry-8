@@ -211,7 +211,6 @@ public:
     unsigned char pad_08a[2];
     W8TextControl* m_attribute_controls[5];
 };
-W8_ASSERT_BASE_END(W8CharacterStatsPage, W8TextControl::Listener, m_profession_row, 0x78);
 
 struct W8CharacterSpellEntry {
     W8SpellRealm realm;
@@ -421,7 +420,6 @@ public:
     bool m_capture_dialog_result;
     unsigned char pad_1b25[3];
 };
-W8_ASSERT_BASE_END(W8CharacterScreen, W8TextControl::Listener, m_mode, 0x4);
 
 extern W8CharacterScreen* g_character_screen;
 

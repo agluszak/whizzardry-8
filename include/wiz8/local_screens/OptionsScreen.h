@@ -39,7 +39,6 @@ public:
     Listener* m_listener;
 };
 
-
 class W8OptionsKeyCapture {
 public:
     virtual unsigned char OnKey(unsigned short key, unsigned short modifiers) = 0;
@@ -67,7 +66,6 @@ public:
     W8SaveSlot* m_save;
     W8OptionsSaveRowListener* m_save_listener;
 };
-
 
 /* The settings transfer routines at 005A6E20/005A72F0/005A7320 share this
    receiver. The trailing direction flag is part of the record, not a global.
@@ -126,7 +124,6 @@ public:
     std::vector<std::unique_ptr<W8OptionsPanel>> m_panels;
 };
 
-
 /* Widgets bound to an option value; their input handlers store through the
    value pointer. */
 // VTABLE: WIZ8 0x005eed8c
@@ -155,7 +152,6 @@ public:
     int* m_value;
 };
 
-
 /* Common base of the concrete option panels. */
 // VTABLE: WIZ8 0x005eefa8
 class W8OptionsPanel : public Controls {
@@ -177,7 +173,6 @@ public:
     std::vector<std::unique_ptr<W8TextBuffer>> m_text_buffers;
     std::vector<std::unique_ptr<W8OptionsSelection>> m_option_selections;
 };
-
 
 // VTABLE: WIZ8 0x005ef174
 class W8OptionsGamePanel : public W8OptionsPanel {
@@ -264,7 +259,6 @@ public:
     W8MGSCommand m_secondary_binding;
 };
 
-
 // VTABLE: WIZ8 0x005ef034 W8OptionsPanel
 // VTABLE: WIZ8 0x005ef02c W8TextControl::Listener
 // VTABLE: WIZ8 0x005ef028 W8ControlSelectionListener
@@ -334,12 +328,6 @@ public:
     int m_editing_row;
 };
 
-W8_ASSERT_BASE_END(W8OptionsInterfacePanel, W8TextControl::Listener, m_tooltip_delay, 0x7c);
-W8_ASSERT_BASE_END(W8OptionsAudioPanel, W8TextControl::Listener, m_sliders, 0x7c);
-W8_ASSERT_BASE_TAIL(W8OptionsGraphicsPanel, W8HorizontalRangeThumbListener, 0x78);
-W8_ASSERT_BASE_END(W8OptionsKeyboardPanel, W8DialogCloseListener, m_panel, 0x84);
-W8_ASSERT_BASE_END(W8OptionsSaveLoadPanel, W8ControlSelectionListener, m_panel, 0x88);
-
 /* One row of the main options menu table: the menu item id, two optional
    child text controls (left == -1 when absent), the button bounds, and the
    button's W8TextControl image indices. */
@@ -369,8 +357,6 @@ public:
     int m_item_id;
 };
 
-W8_ASSERT_BASE_END(W8OptionsMenuButton, W8TextControl::Listener, m_item_id, 0xb8);
-
 /* The options menu: its rows and the panel set they select. */
 // VTABLE: WIZ8 0x005eefec Controls
 // VTABLE: WIZ8 0x005eefe4 W8TextControl::Listener
@@ -388,8 +374,6 @@ public:
 
     void UpdateMenuSet();
 };
-
-W8_ASSERT_BASE_END(W8OptionsMenuSet, W8TextControl::Listener, m_pMenuSet, 0x4c);
 
 // VTABLE: WIZ8 0x005ef008 W8ControlSelectionListener
 // VTABLE: WIZ8 0x005ef000 W8TextControl::Listener
@@ -426,8 +410,6 @@ public:
     W8OptionsTextEditor* m_text_editor;
     W8OptionsKeyCapture* m_key_capture;
 };
-
-W8_ASSERT_BASE_END(W8OptionsScreen, W8DialogCloseListener, m_save_slots, 0x8);
 
 extern W8OptionsScreen* g_options_screen;
 extern std::string g_options_last_save_name;

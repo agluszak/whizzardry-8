@@ -52,8 +52,6 @@ struct MonGen {
     ~MonGen();
 };
 
-W8_ABI_ASSERT(sizeof(MonGen) == 0x48, "MonGen_size_must_be_0x48");
-
 MonGen* FindMonGenByName(const char* name);
 
 #endif

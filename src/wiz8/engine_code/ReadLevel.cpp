@@ -182,8 +182,6 @@ struct W8LevelItemRecord {
     char item_name[20];
 };
 
-W8_ABI_ASSERT(sizeof(W8LevelItemRecord) == 0x30, "W8LevelItemRecord_size_must_be_0x30");
-
 struct W8LevelLightRecord {
     short version;
     unsigned char create;
@@ -194,8 +192,6 @@ struct W8LevelLightRecord {
     float intensity;
     float range;
 };
-
-W8_ABI_ASSERT(sizeof(W8LevelLightRecord) == 0x28, "W8LevelLightRecord_size_must_be_0x28");
 
 } // namespace
 

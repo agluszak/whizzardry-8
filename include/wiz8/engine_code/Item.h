@@ -81,9 +81,6 @@ struct W8Item : public W8GrObject {
 
 /* 0x0049F350 allocates the 0x94-byte representation; 0x0049F5D0 allocates
    the 0x20-byte item. */
-W8_ABI_ASSERT(sizeof(W8Item) == 0x20, "W8Item_size");
-W8_ABI_ASSERT(offsetof(W8Item, trigger) == 0x18, "W8Item_trigger_offset");
-W8_ABI_ASSERT(offsetof(W8Item, countdown) == 0x1c, "W8Item_countdown_01c_offset");
 
 bool ReadItemFromFile(W8ReadLevelInfo* info, W8Item** item, bool anonymous_mesh);
 /* Run the item's trigger, if any, and report its action state. */

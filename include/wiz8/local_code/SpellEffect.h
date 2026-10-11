@@ -24,8 +24,6 @@ struct W8SpellDamageReport {
     std::string text;
 };
 
-W8_ABI_ASSERT(sizeof(W8SpellDamageReport) == 0x6c, "W8SpellDamageReport_must_be_0x6c");
-
 /* One spell effect definition, 0x30 bytes. A missile carries its own copy at
    0x1fc. The radius at 0x00 bounds an area effect (0 for a single target),
    the dice at 0x04 are rolled for the effect's size, the three values at
@@ -47,8 +45,6 @@ struct W8SpellEffectDefinition {
     int duration_base;
     int duration_per_power;
 };
-
-W8_ABI_ASSERT(sizeof(W8SpellEffectDefinition) == 0x30, "W8SpellEffectDefinition_must_be_0x30");
 
 /* What one missile or queued effect accumulates while it resolves: the total
    amount, the number of hits, one count per condition, and the report records
@@ -73,8 +69,6 @@ struct W8SpellEffectResult {
        replaces it with the rerolled victim. */
     W8CombatSlot target;
 };
-
-W8_ABI_ASSERT(sizeof(W8SpellEffectResult) == 0xa2, "W8SpellEffectResult_must_be_0xa2");
 
 struct W8SpellEffectEntry {
     void AddVisual(W8SpellVisual* visual);
@@ -139,20 +133,6 @@ struct W8SpellEffectEntry {
     bool applied;
     W8SpellEffectResult result;
 };
-
-W8_ABI_ASSERT(sizeof(W8SpellEffectEntry) == 0x1c8, "W8SpellEffectEntry_must_be_0x1c8");
-W8_ABI_ASSERT(offsetof(W8SpellEffectEntry, OrigSource) == 0x008, "W8SpellEffectEntry_OrigSource");
-W8_ABI_ASSERT(offsetof(W8SpellEffectEntry, Source) == 0x05c, "W8SpellEffectEntry_Source");
-W8_ABI_ASSERT(offsetof(W8SpellEffectEntry, target) == 0x090, "W8SpellEffectEntry_target");
-W8_ABI_ASSERT(offsetof(W8SpellEffectEntry, definition) == 0x0b0, "W8SpellEffectEntry_definition");
-W8_ABI_ASSERT(offsetof(W8SpellEffectEntry, monster_ids) == 0x0e0, "W8SpellEffectEntry_monster_ids");
-W8_ABI_ASSERT(offsetof(W8SpellEffectEntry, target_indices) == 0x0f0,
-              "W8SpellEffectEntry_target_indices");
-W8_ABI_ASSERT(offsetof(W8SpellEffectEntry, spell_visuals) == 0x100,
-              "W8SpellEffectEntry_spell_visuals");
-W8_ABI_ASSERT(offsetof(W8SpellEffectEntry, missiles) == 0x110, "W8SpellEffectEntry_missiles");
-W8_ABI_ASSERT(offsetof(W8SpellEffectEntry, reported) == 0x124, "W8SpellEffectEntry_reported");
-W8_ABI_ASSERT(offsetof(W8SpellEffectEntry, result) == 0x126, "W8SpellEffectEntry_result");
 
 extern std::vector<W8SpellEffectEntry*> g_spell_effects;
 

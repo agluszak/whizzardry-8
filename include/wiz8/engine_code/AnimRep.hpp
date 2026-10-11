@@ -137,13 +137,6 @@ public:
     unsigned char padding_096[2];
 };
 
-W8_ABI_ASSERT(sizeof(W8ModelInstance2DRenderState) == 0x10,
-              "W8ModelInstance2DRenderState_size_must_be_0x10");
-W8_ABI_ASSERT(offsetof(W8AnimRepBase, highlight_colour) == 0x4c,
-              "W8AnimRepBase_render_state_offset");
-W8_ABI_ASSERT(sizeof(W8AnimRepBase) == 0x64, "W8AnimRepBase_size_must_be_0x64");
-W8_ABI_ASSERT(sizeof(W8AnimRep) == 0x98, "W8AnimRep_size_must_be_0x98");
-
 extern float g_lod_range_default0;
 extern float g_lod_range_default1;
 

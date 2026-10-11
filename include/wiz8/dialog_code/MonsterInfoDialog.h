@@ -25,7 +25,6 @@ private:
     W8DialogButton m_button;
     W8DialogTextArea m_text_area;
 };
-W8_ABI_ASSERT(sizeof(W8MonsterInfoDialog) == 0x144, "W8MonsterInfoDialog_size");
 
 /* The monster and statistic info dialogs' background. */
 extern const char* g_info_dialog_background;

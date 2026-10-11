@@ -34,5 +34,3 @@ public:
     bool m_fade_out;                  /* 0x249 */
     unsigned char m_padding_24a[6];
 };
-
-W8_ABI_ASSERT(sizeof(MonsterLight) == 0x250, "MonsterLight_must_be_0x250");

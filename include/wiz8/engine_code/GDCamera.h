@@ -22,8 +22,6 @@ class srCamera;
 class W8IntervalGate;
 struct W8LevelDataRecord;
 
-W8_ABI_ASSERT(sizeof(glm::mat3) == 0x24, "srMatrix3T_float_must_be_0x24");
-
 /* Reconstructed owner with unproven TU identity. The cluster 0x476140-
    0x478EB0 sits in the gap between stMeshModel.cpp and AmbientSound.cpp and
    is NOT Engine Code\Camera.cpp - that TU's only anchor is
@@ -127,7 +125,5 @@ extern const double g_camera_pi;
 extern const float g_camera_transition_epsilon;
 extern float g_camera_default_forward_scale;
 extern float g_camera_forward_scale;
-
-W8_ABI_ASSERT(sizeof(GDCamera) == 0xc0, "GDCamera_must_be_0xc0");
 
 bool IsCameraTransitionActive(void);

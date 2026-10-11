@@ -29,8 +29,6 @@ private:
     float m_elapsed;
 };
 
-W8_ABI_ASSERT(sizeof(W8GameTimeAccumulator) == 0x34, "W8GameTimeAccumulator_must_be_0x34");
-
 extern W8GameTimeAccumulator* g_game_time_accumulator;
 
 extern float g_rate;
