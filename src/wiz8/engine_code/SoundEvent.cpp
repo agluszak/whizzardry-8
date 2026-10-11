@@ -93,9 +93,7 @@ bool W8SoundEvent::Play(const srVector3T<float>& position, int cycle)
     }
     float angle = -GetCameraYawRadians();
     unsigned int base_volume = 0x78;
-    srVector3T<float> camera_position;
-
-    GetCameraPosition(&camera_position);
+    srVector3T<float> camera_position = cameraLocation();
     srVector3T<float> camera_offset = camera_position - position;
     if (camera_offset.Length() < falloff) {
         if (kind == W8_SOUND_EVENT_FOOTSTEP || wave_name.contains("step") ||

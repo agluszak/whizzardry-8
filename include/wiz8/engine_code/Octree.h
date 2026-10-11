@@ -70,16 +70,6 @@ BOOLEAN WriteVector2Array(wiz8::File* file, const glm::vec2* values, int count);
 bool ReadVector4Array(wiz8::File* file, glm::vec4* values, int count);
 bool ReadVector3Array(wiz8::File* file, void* values, int count);
 bool ReadVector2Array(wiz8::File* file, glm::vec2* values, int count);
-/* Distance from `point` to the `from`-`to` segment, shared by the trace
-   resolver and the GameData surface walk. When `clamp_point` is set the
-   closest segment point is written back over `point`; `out_t` returns the
-   clamped [0,1] projection fraction. */
-float PointToSegmentDistance(srVector3T<float>* point, const srVector3T<float>* from,
-                             const srVector3T<float>* to, bool clamp_point, float* out_t);
-/* XY-plane sibling over two-component vectors; the pathfinding code measures
-   edge distances in plan view. */
-float PointToSegmentDistance2D(glm::vec2* point, const glm::vec2* from, const glm::vec2* to, bool clamp_point,
-                               float* out_t); /* 0x00437760 */
 /* Grow `minimum`/`maximum` to include `point`, returning whether any bound
    moved. */
 char GrowBoundsByPoint(const srVector3T<float>* point, srVector3T<float>* minimum,

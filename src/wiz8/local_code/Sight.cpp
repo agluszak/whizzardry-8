@@ -498,7 +498,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
         return;
     }
 
-    GetCameraPosition(&camera_position);
+    camera_position = cameraLocation();
     {
         float distance = monster->GetDistanceToPlayer();
         bool visible_to_player;
@@ -637,7 +637,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                 unsigned char npc_fade_flag;
 
                 record = GetMonsterDataForInfo(monster_info);
-                GetCameraPosition(&camera_position);
+                camera_position = cameraLocation();
                 yaw = GetCameraYawRadians();
                 distance = monster->GetDistanceToPlayer();
                 npc_fade_flag = 0;

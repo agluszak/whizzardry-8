@@ -3276,7 +3276,7 @@ W8Missile* FireMissileSourceToTarget(int missile_type, W8TargetSource* source, W
         return nullptr;
     }
     if (target->iType == W8_TARGET_KIND_CHARACTER || target->iType == W8_TARGET_KIND_PARTY) {
-        GetCameraPosition(&target_position);
+        target_position = cameraLocation();
     } else if (target->iType == W8_TARGET_KIND_MONSTER) {
         index = MonsterGetIndexByLocationID(0x134f, COMBAT_ATTACK_CPP, target->iMonsterID, true);
         monster_info = MonsterGetScriptPartByLocationIndex(index);
@@ -3294,7 +3294,7 @@ W8Missile* FireMissileSourceToTarget(int missile_type, W8TargetSource* source, W
         if (target->iType == W8_TARGET_KIND_PLACE) {
             if (g_octree->TraceLineOfSight(&source_position, &target_position, true, -3, -3, true,
                                            0) == 1) {
-                GetCameraPosition(&source_position);
+                source_position = cameraLocation();
             }
         } else if (target->iType == W8_TARGET_KIND_MONSTER) {
             monster = GetMonsterByLocationID(target->iMonsterID);
@@ -3302,7 +3302,7 @@ W8Missile* FireMissileSourceToTarget(int missile_type, W8TargetSource* source, W
                 monster->GetPlayerToMonsterSightFlags(&primary, &secondary, &source_position);
             }
             if (!secondary || (!g_missile_table[missile_type].spell_missile && !primary)) {
-                GetCameraPosition(&source_position);
+                source_position = cameraLocation();
             }
         }
         if (target->iType == W8_TARGET_KIND_CHARACTER || target->iType == W8_TARGET_KIND_PARTY) {

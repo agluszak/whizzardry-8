@@ -725,7 +725,7 @@ unsigned char ReloadLevelPreservingCamera(int level, int entrance)
 
     if (entrance == -1 && level == g_status.current_level) {
         GetCameraOrientation(saved_angle, saved_pitch);
-        WorldGetCameraLocationOrZero(GetWorld(), &saved_position);
+        saved_position = cameraLocationOrZero(*GetWorld());
         restore = true;
     }
     if (g_status.current_level != -1) {

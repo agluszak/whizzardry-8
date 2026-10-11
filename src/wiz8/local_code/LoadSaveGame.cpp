@@ -394,7 +394,7 @@ try
         ReadSaveChunks(&current_game, &chunks);
         current_game.Close();
     }
-    GetWorldCameraState(GetWorld(), &g_status.pending_move_location);
+    g_status.pending_move_location = cameraState(*GetWorld());
     for (region = 0; region != 4; ++region) {
         for (index = 0; index < g_status.text_box_lines_shown[region]; ++index) {
             g_message_storage[region][index].saved_remaining_ms =

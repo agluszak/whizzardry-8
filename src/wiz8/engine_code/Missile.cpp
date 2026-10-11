@@ -291,8 +291,7 @@ bool W8Missile::BlocksEndingCombat()
 // FUNCTION: WIZ8 0x004A57B0
 void GetCharacterProjectilePosition(unsigned int character_index, srVector3T<float>* position)
 {
-    srVector3 camera;
-    GetCameraPosition(&camera);
+    srVector3 camera = cameraLocation();
     const glm::vec3 offset((character_index & 1) ? -75.0f : 75.0f,
                            g_character_projectile_height -
                                character_index * g_float_half * g_character_projectile_height_step,

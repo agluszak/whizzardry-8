@@ -14,6 +14,7 @@
 #include "glm/trigonometric.hpp"
 #include "glm/vector_relational.hpp"
 #include "surrender/srMath.h"
+#include "surrender/segment_math.h"
 #include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/OctMeshModel.h"
@@ -1663,9 +1664,9 @@ bool W8GDSurface::ClampHitToEdge(const srVector3T<float>* point, const srVector3
     float nearest_dist = 10000000.0f;
     short nearest_edge = 0;
     for (short edge = 0; edge < 3; ++edge) {
-        srVector3T<float> probe = *point;
-        float dist = PointToSegmentDistance(&probe, vertices + vertex_indices[edge],
-                                            vertices + vertex_indices[(edge + 1) % 3], false, 0);
+        const float dist = srSegmentMath::project(point->glmValue(),
+            vertices[vertex_indices[edge]].glmValue(),
+            vertices[vertex_indices[(edge + 1) % 3]].glmValue()).distance;
         if (dist < nearest_dist) {
             nearest_edge = edge;
             nearest_dist = dist;
@@ -1677,8 +1678,9 @@ bool W8GDSurface::ClampHitToEdge(const srVector3T<float>* point, const srVector3
     float offset = -(SignedPlaneDistance(plane, *point));
     srVector3 projected = *point + plane.normal * offset;
     float edge_dist =
-        PointToSegmentDistance(&projected, vertices + vertex_indices[nearest_edge],
-                               vertices + vertex_indices[(nearest_edge + 1) % 3], false, 0);
+        srSegmentMath::project(projected.glmValue(),
+            vertices[vertex_indices[nearest_edge]].glmValue(),
+            vertices[vertex_indices[(nearest_edge + 1) % 3]].glmValue()).distance;
     if ((flags & W8_GD_SURFACE_WALKABLE) != 0) {
         float threshold = *limit * g_float_half;
         if (threshold < offset) {
@@ -2390,13 +2392,13 @@ void ApplyCameraRotation(glm::mat3* rotation)
 }
 
 // FUNCTION: WIZ8 0x00421070
-void GetCameraPosition(srVector3T<float>* position)
+glm::vec3 cameraLocation()
 {
-    *position = g_gd_camera->m_position;
+    return g_gd_camera->m_position;
 }
 
 /* Zero the two six-float CamPos angle records, then store the live yaw in the
-   first and the live pitch in the second. GetWorldCameraState passes the yaw
+   first and the live pitch in the second. cameraState passes the yaw
    record at +0x24 as angle and the pitch record at +0x0c as pitch. */
 // FUNCTION: WIZ8 0x004213A0
 void GetCameraOrientation(void* angle, void* pitch)
@@ -2456,8 +2458,7 @@ bool HasCameraLineOfSight(const srVector3T<float>* position)
     if (g_world == 0) {
         return false;
     }
-    srVector3T<float> from;
-    GetCameraPosition(&from);
+    srVector3T<float> from = cameraLocation();
     if (g_world->octree != 0) {
         return g_world->octree->HasLineOfSight(&from, &to, true);
     }

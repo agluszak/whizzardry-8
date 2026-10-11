@@ -1507,7 +1507,7 @@ unsigned char W8Octree::UpdateWorldTrace()
     srVector3T<float> maximum;
     w8_ulong color;
 
-    GetCameraPosition(&camera);
+    camera = cameraLocation();
     WorldPositionToCell(&camera, &cell);
     minimum.Set(cell.x * m_spatial.m_node_extent + m_spatial.m_minimum.x,
                 cell.y * m_spatial.m_node_extent + m_spatial.m_minimum.y,
@@ -2292,7 +2292,9 @@ no_probes:;
                         center.x = monster->movement.position.x;
                         center.z = monster->movement.position.z;
                         center.y = monster->movement.position.y + monster->movement.height_offset;
-                        float distance = PointToSegmentDistance(&center, from, to, true, 0);
+                        const auto projection = srSegmentMath::project(center.glmValue(), from->glmValue(), to->glmValue());
+                        center = projection.point;
+                        float distance = projection.distance;
                         if (noise_adjust != 0) {
                             distance =
                                 distance - (static_cast<float>(
@@ -2345,9 +2347,11 @@ no_probes:;
         }
     }
     if (excluded != -1 && location != -1) {
-        GetCameraPosition(&camera);
+        camera = cameraLocation();
         center = camera;
-        float distance = PointToSegmentDistance(&center, from, to, true, 0);
+        const auto projection = srSegmentMath::project(center.glmValue(), from->glmValue(), to->glmValue());
+        center = projection.point;
+        float distance = projection.distance;
         if (noise_adjust != 0) {
             distance =
                 distance - (static_cast<float>(sqrt((center.y - from->y) * (center.y - from->y) +
@@ -4197,25 +4201,6 @@ try
     return true;
 }
 catch (const std::exception&) { return false; }
-
-// FUNCTION: WIZ8 0x00437540
-float PointToSegmentDistance(srVector3T<float>* point, const srVector3T<float>* from,
-                             const srVector3T<float>* to, bool clamp_point, float* out_t)
-{
-    const auto projection = srSegmentMath::project(point->glmValue(), from->glmValue(), to->glmValue());
-    if (clamp_point) *point = projection.point;
-    if (out_t != nullptr) *out_t = projection.fraction;
-    return projection.distance;
-}
-
-// FUNCTION: WIZ8 0x00437760
-float PointToSegmentDistance2D(glm::vec2* point, const glm::vec2* from, const glm::vec2* to, bool clamp_point, float* out_t)
-{
-    const auto projection = srSegmentMath::project(*point, *from, *to);
-    if (clamp_point) *point = projection.point;
-    if (out_t != nullptr) *out_t = projection.fraction;
-    return projection.distance;
-}
 
 /* Grow `minimum`/`maximum` to include `point`, returning whether any bound
    moved. Retail's second comparison tests point->z where point->y is meant

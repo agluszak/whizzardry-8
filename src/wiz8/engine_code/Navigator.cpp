@@ -1,3 +1,4 @@
+#include "surrender/segment_math.h"
 #include <memory>
 #include <vector>
 #include <algorithm>
@@ -882,8 +883,7 @@ void W8Navigator::UpdateLinkedNavigator()
         return;
     }
     linked_update_time = tick;
-    srVector3T<float> camera;
-    GetCameraPosition(&camera);
+    srVector3T<float> camera = cameraLocation();
     if (static_cast<W8Monster*>(linked_navigator)->IsWithinWorldRange() != 0) {
         MonsterGetWorldAnimationBounds(static_cast<W8Monster*>(linked_navigator), &linked_position,
                                        &own_position);
@@ -1292,7 +1292,9 @@ bool W8NavigatorAttachment::CheckPositionHopHeight(const srVector3T<float>* posi
     point = position->xz();
     from = path[base].position.xz();
     to = path[end].position.xz();
-    distance = PointToSegmentDistance2D(&point, &from, &to, false, &fraction);
+    const auto projection = srSegmentMath::project(point, from, to);
+    distance = projection.distance;
+    fraction = projection.fraction;
     surfaces = g_octree->pathing->m_waypoints;
     from_height = (surfaces[path[base].value].flags >> 0xc) * g_world_scale;
     to_height = (surfaces[path[end].value].flags >> 0xc) * g_world_scale;
@@ -1320,12 +1322,16 @@ bool W8NavigatorAttachment::CheckPredictedHopHeight(const srVector3T<float>* pos
     point = position->xz();
     from = path[path_cursor - 1].position.xz();
     to = path[path_cursor].position.xz();
-    distance = PointToSegmentDistance2D(&point, &from, &to, false, &fraction);
+    const auto projection = srSegmentMath::project(point, from, to);
+    distance = projection.distance;
+    fraction = projection.fraction;
     base = path_cursor - 1;
     if (path_cursor < path_position_index && path[path_cursor + 1].value != 0) {
         from = to;
         to = path[path_cursor + 1].position.xz();
-        other_distance = PointToSegmentDistance2D(&point, &from, &to, false, &other_fraction);
+        const auto other_projection = srSegmentMath::project(point, from, to);
+        other_distance = other_projection.distance;
+        other_fraction = other_projection.fraction;
         if (other_distance < distance) {
             base = path_cursor;
             fraction = other_fraction;
@@ -1357,7 +1363,9 @@ bool W8NavigatorAttachment::AdvancePositionTowardWaypoint(srVector3T<float>* pos
     point = position->xz();
     from = path[path_cursor - 1].position.xz();
     to = path[path_cursor].position.xz();
-    PointToSegmentDistance2D(&point, &from, &to, true, &fraction);
+    const auto projection = srSegmentMath::project(point, from, to);
+    point = projection.point;
+    fraction = projection.fraction;
     dir.x = to.x - from.x;
     dir.y = to.y - from.y;
     remainder = (g_float_one - fraction) * glm::length(dir);

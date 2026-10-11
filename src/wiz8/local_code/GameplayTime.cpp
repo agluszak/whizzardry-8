@@ -942,7 +942,7 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
             srVector3T<float> camera;
 
             probe.y += g_float_one_thousand;
-            GetCameraPosition(&camera);
+            camera = cameraLocation();
             if (ProjectPointThroughCamera(&probe) == 0 &&
                 !g_octree->HasLineOfSight(&camera, &probe, true)) {
                 srVector3T<float> notify_position = last_seen;
@@ -1008,7 +1008,7 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
                             srVector3T<float> camera;
                             srVector3T<float> probe = next_position;
 
-                            GetCameraPosition(&camera);
+                            camera = cameraLocation();
                             if (ProjectPointThroughCamera(&probe) == 0 &&
                                 !g_octree->HasLineOfSight(&camera, &probe, true)) {
                                 srVector3T<float> notify_position = next_position;
@@ -1041,7 +1041,7 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
                 srVector3T<float> probe;
                 srVector3T<float> location2;
 
-                GetCameraPosition(&camera);
+                camera = cameraLocation();
                 location2 = monster->GetPosition();
                 probe = location2;
                 probe.y += g_float_one_thousand;

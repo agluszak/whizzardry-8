@@ -832,7 +832,7 @@ void UpdateNearbyWorldItems(void)
     unsigned int index;
     unsigned int count;
 
-    WorldGetCameraLocation(GetWorld(), &camera);
+    camera = cameraLocation(*GetWorld());
     count = gXStatus.world_items.size();
     for (index = 0; index < count; ++index) {
         W8WorldItem* item = ItemInfo(index);
@@ -887,11 +887,10 @@ glm::vec3 ItemThrowDirection(const glm::vec2& cursor, const glm::mat3& camera_ro
 void DropHeldItem(int)
 {
     glm::mat3 rotation;
-    WorldGetCameraRotation(g_world, &rotation);
+    rotation = cameraRotation(*g_world);
     srVector3 direction = ItemThrowDirection(GetCursorScaledPosition(), rotation);
 
-    srVector3T<float> camera;
-    GetCameraPosition(&camera);
+    srVector3T<float> camera = cameraLocation();
     direction += camera;
     g_octree->TraceLineOfSight(&camera, &direction, true, -3, -3, true, 0);
 
@@ -1027,7 +1026,7 @@ bool IsWorldItemWithinReach(W8Item* owner, const srVector3T<float>* from, float 
     srVector3T<float> eye;
 
     owner->m_pRep->GetLocation(&position);
-    GetCameraPosition(&eye);
+    eye = cameraLocation();
 
     srVector3T<float> delta = position - *from;
     if (delta.Length() < radius) {
@@ -1053,7 +1052,7 @@ static bool IsWorldItemMarkerVisible(W8WorldItem* item, const srVector3T<float>&
         srVector3T<float> lower;
         srVector3T<float> upper;
         item->p3D->m_pRep->GetLocation(&position);
-        GetCameraPosition(&eye);
+        eye = cameraLocation();
         srVector3T<float> delta = position - camera;
         if (delta.Length() < static_cast<float>(g_double_twenty_five_hundred)) {
             item->p3D->GetCachedLocalBounds(&lower, &upper);
@@ -1077,7 +1076,7 @@ bool AnyWorldItemVisible(void)
     if (g_world == 0 || g_world->camera == 0) {
         return false;
     }
-    GetCameraPosition(&camera);
+    camera = cameraLocation();
     count = gXStatus.world_items.size();
     if (0 <= g_last_visible_world_item && g_last_visible_world_item < count) {
         W8WorldItem* item = GetWorldItemListEntry(g_last_visible_world_item);

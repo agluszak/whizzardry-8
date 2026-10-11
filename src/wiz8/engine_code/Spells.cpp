@@ -235,7 +235,7 @@ void W8SpellVisual::UpdateRepresentation(W8World* world)
         float angle;
         float pitch;
 
-        GetCameraPosition(&position);
+        position = cameraLocation();
         SetCyclePosition(&position);
         rotation = glm::mat3(1);
         angle = GetCameraYawRadians() - g_monster_rotation_offset;
@@ -268,7 +268,7 @@ void W8SpellVisual::UpdateRepresentation(W8World* world)
     } else if (mode == W8_SPELL_VISUAL_CONE) {
         GetCurrentModelInstance();
         if (!fixed_transform) {
-            GetCameraPosition(&camera_position);
+            camera_position = cameraLocation();
             if (location_id == 0) {
                 SetCyclePosition(&camera_position);
                 g_gd_camera->GetRotationMatrix(&rotation);
@@ -303,7 +303,7 @@ void W8SpellVisual::UpdateRepresentation(W8World* world)
         float angle;
 
         billboard = glm::mat3(1);
-        GetCameraPosition(&camera_position);
+        camera_position = cameraLocation();
         angle =
             GetHeadingAngle(&visual_position, &camera_position) + static_cast<float>(g_camera_pi);
         billboard *= glm::mat3_cast(glm::angleAxis(float(angle), glm::vec3(0, 1, 0)));
@@ -706,7 +706,7 @@ W8SpellVisual* SpawnCameraSpellEffect(std::string_view name, int power_level, in
         float angle;
         float pitch;
 
-        GetCameraPosition(&position);
+        position = cameraLocation();
         visual->SetCyclePosition(&position);
         rotation = glm::mat3(1);
         angle = GetCameraYawRadians() - g_monster_rotation_offset;
@@ -797,7 +797,7 @@ W8SpellVisual* CreateAttachedSpellEffect(std::string_view mls_name, int power_le
         } else {
             glm::mat3 rotation;
 
-            GetCameraPosition(&position);
+            position = cameraLocation();
             g_gd_camera->GetRotationMatrix(&rotation);
             visual->SetCyclePosition(&position);
             visual->host->SetRotation(&rotation);
@@ -1093,7 +1093,7 @@ unsigned char stSound3D::Play(bool loop, bool release_when_done)
     if (wave_name == 0) {
         return 0;
     }
-    GetCameraPosition(&listener);
+    listener = cameraLocation();
     BuildSoundOptions(&listener, &options);
     if (loop) {
         options.uiLoop = 0;
@@ -1170,9 +1170,7 @@ void stSound3D::Stop()
 // FUNCTION: WIZ8 0x004aefd0
 void Update3DSounds()
 {
-    srVector3T<float> listener;
-
-    GetCameraPosition(&listener);
+    srVector3T<float> listener = cameraLocation();
     int index = 0;
     int count = static_cast<int>(g_sound3d_instances.size());
     if (count > 0) {

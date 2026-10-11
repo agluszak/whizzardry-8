@@ -193,8 +193,7 @@ void UpdateShakeEffects()
     }
     if (!g_shake_effects->empty()) {
         float intensity = 0.0f;
-        srVector3T<float> camera;
-        GetCameraPosition(&camera);
+        srVector3T<float> camera = cameraLocation();
         for (int index = 0; index < static_cast<int>(g_shake_effects->size()); ++index) {
             W8CameraShakeEffect* effect = (*g_shake_effects)[index];
             float amount;

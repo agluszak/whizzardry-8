@@ -194,7 +194,7 @@ void InitializeWorldCursor(void)
             }
             ApplyWorldCursorInput();
             if (gp3DCursor != 0) {
-                GetCameraPosition(&camera_position);
+                camera_position = cameraLocation();
                 if (!gp3DCursor->detached) {
                     gp3DCursor->cam_rel_offset += camera_position;
                 }
@@ -236,7 +236,7 @@ void ReleaseWorldCursor(void)
     if (cursor == 0) {
         return;
     }
-    GetCameraPosition(&camera);
+    camera = cameraLocation();
     camera.y = 0.0f;
     cursor->position.y = 0.0f;
     delta = cursor->position - camera;
@@ -388,7 +388,7 @@ void ApplyWorldCursorInput(void)
                 g_octree->SettleToGround(&gp3DCursor->position, &hit, 1, 500.0f);
         }
     } else {
-        GetCameraPosition(&camera);
+        camera = cameraLocation();
         camera.y -= g_default_world_height;
         rotation = glm::mat3(1);
         rotation *= glm::mat3_cast(glm::angleAxis(float(g_gd_camera->m_yaw), glm::vec3(0, 1, 0)));
@@ -615,7 +615,7 @@ void UpdateWorldCursor(void)
     }
     if (gfLeftButtonState == 0) {
         if (gp3DCursor->left_held && gXStatus.iTargetingMode == W8_TARGET_NEED_PLACE) {
-            GetCameraPosition(&camera);
+            camera = cameraLocation();
             if (ResolveWorldCursorTarget(&resolved) != 0 &&
                 g_octree->TraceLineOfSight(&camera, &resolved, true, -3, -3, true, 0) == 0) {
                 box_min = resolved + gp3DCursor->extent_min;
@@ -745,7 +745,7 @@ void UpdateWorldCursorPlacement(void)
     srVector3T<float> camera(0.0f, 1.0f, 0.0f);
     srVector3T<float> target;
     W8WorldCursorState* cursor;
-    GetCameraPosition(&camera);
+    camera = cameraLocation();
     camera.y -= g_default_world_height;
     cursor = gp3DCursor;
     cursor->last_published = -100000000.0f;

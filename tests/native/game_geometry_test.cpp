@@ -20,6 +20,8 @@
 #include "surrender/srMaterial.h"
 #include "surrender/srModeler.h"
 #include "surrender/srGERD.h"
+#include "surrender/srCamera.h"
+#include "wiz8/engine_code/World.h"
 #include "surrender/srTriangleCuller.h"
 #include "surrender/srDD_SDLGPU.h"
 #include "wiz8/engine_code/3d.h"
@@ -39,6 +41,7 @@
 #include "compat/compiler.h"
 #include "geometry.h"
 #include "surrender/srMath.h"
+#include "surrender/segment_math.h"
 #include "surrender/srMeshModel.h"
 #include "surrender/srShader.h"
 #include "glm/fwd.hpp"
@@ -116,37 +119,27 @@ static void planes_and_segments()
 
     // The spatial and planar callers share endpoint clamping but measure
     // different dimensions. Exercise before, within and beyond the segment.
-    const srVector3 segment_from(0, 0, 0), segment_to(4, 0, 0);
-    const glm::vec2 planar_from(0, 0), planar_to(4, 0);
+    const glm::vec3 segment_from(0), segment_to(4, 0, 0);
+    const glm::vec2 planar_from(0), planar_to(4, 0);
     for (float x : {-2.f, 2.f, 6.f}) {
-        for (bool clamp_point : {false, true}) {
-            srVector3 point(x, 3, 4);
-            glm::vec2 planar(x, 3);
-            float fraction = -1, planar_fraction = -1;
-            const float distance = PointToSegmentDistance(&point, &segment_from, &segment_to,
-                                                          clamp_point, &fraction);
-            const float planar_distance = PointToSegmentDistance2D(&planar, &planar_from,
-                &planar_to, clamp_point, &planar_fraction);
-            REQUIRE(std::abs(distance - (x == 2 ? 5.f : std::sqrt(29.f))) < 1e-5f);
-            REQUIRE(std::abs(planar_distance - (x == 2 ? 3.f : std::sqrt(13.f))) < 1e-5f);
-            const float expected_fraction = x < 0 ? 0 : x > 4 ? 1 : .5f;
-            REQUIRE(fraction == expected_fraction);
-            REQUIRE(planar_fraction == expected_fraction);
-            REQUIRE(point == (clamp_point ? srVector3(expected_fraction * 4, 0, 0)
-                                           : srVector3(x, 3, 4)));
-            REQUIRE(planar == (clamp_point ? glm::vec2(expected_fraction * 4, 0)
-                                          : glm::vec2(x, 3)));
-        }
+        const glm::vec3 point(x, 3, 4);
+        const glm::vec2 planar(x, 3);
+        const auto projection = srSegmentMath::project(point, segment_from, segment_to);
+        const auto planar_projection = srSegmentMath::project(planar, planar_from, planar_to);
+        REQUIRE(std::abs(projection.distance - (x == 2 ? 5.f : std::sqrt(29.f))) < 1e-5f);
+        REQUIRE(std::abs(planar_projection.distance - (x == 2 ? 3.f : std::sqrt(13.f))) < 1e-5f);
+        const float expected_fraction = x < 0 ? 0 : x > 4 ? 1 : .5f;
+        REQUIRE(projection.fraction == expected_fraction);
+        REQUIRE(planar_projection.fraction == expected_fraction);
+        REQUIRE(projection.point == glm::vec3(expected_fraction * 4, 0, 0));
+        REQUIRE(planar_projection.point == glm::vec2(expected_fraction * 4, 0));
     }
-    srVector3 degenerate_point(0, 3, 4);
-    glm::vec2 degenerate_planar(0, 3);
-    float fraction = -1;
-    REQUIRE(PointToSegmentDistance(&degenerate_point, &segment_from, &segment_from,
-                                   true, &fraction) == 5);
-    REQUIRE((degenerate_point == segment_from && fraction == 0));
-    REQUIRE(PointToSegmentDistance2D(&degenerate_planar, &planar_from, &planar_from,
-                                     true, &fraction) == 3);
-    REQUIRE((degenerate_planar == planar_from && fraction == 0));
+    const auto degenerate = srSegmentMath::project(glm::vec3(0, 3, 4), segment_from, segment_from);
+    const auto degenerate_planar = srSegmentMath::project(glm::vec2(0, 3), planar_from, planar_from);
+    REQUIRE(degenerate.distance == 5);
+    REQUIRE((degenerate.point == segment_from && degenerate.fraction == 0));
+    REQUIRE(degenerate_planar.distance == 3);
+    REQUIRE((degenerate_planar.point == planar_from && degenerate_planar.fraction == 0));
 
     W8EnvironRecord environment;
     environment.scale = 2;
@@ -174,6 +167,31 @@ static void camera_and_throw()
     REQUIRE(close(position.glmValue(), {11, -3, 3}));
 
     GDCamera camera;
+    camera.m_position = glm::vec3(3, 4, 5);
+    camera.m_yaw = .25f;
+    camera.m_pitch = -.5f;
+    auto* previous_camera = g_gd_camera;
+    g_gd_camera = &camera;
+    W8World world{};
+    const auto empty_location = cameraLocationOrZero(world);
+    const auto empty_state = cameraState(world);
+    srCamera node;
+    node.setLocation(1.25, -2.5, 3.75);
+    world.camera = &node;
+    const auto live_location = cameraLocation();
+    const auto node_location = cameraLocation(world);
+    const auto state = cameraState(world);
+    const auto rotation = cameraRotation(world);
+    g_gd_camera = previous_camera;
+    REQUIRE(empty_location == glm::vec3(0));
+    REQUIRE(empty_state.position == srVector3(0, 0, 0));
+    REQUIRE(live_location == glm::vec3(3, 4, 5));
+    REQUIRE(node_location == glm::vec3(1.25f, -2.5f, 3.75f));
+    REQUIRE(state.position.glmValue() == node_location);
+    REQUIRE((state.yaw[0] == .25f && state.pitch[0] == -.5f));
+    for (int index = 1; index < 6; ++index)
+        REQUIRE((state.yaw[index] == 0 && state.pitch[index] == 0));
+    REQUIRE(rotation == glm::mat3(1));
     camera.SetOrientation(glm::half_pi<float>(), 0);
     srVector3 forward;
     camera.GetForwardPoint(10, &forward);

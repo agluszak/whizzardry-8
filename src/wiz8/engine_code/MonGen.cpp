@@ -426,7 +426,7 @@ bool MonGen::CanGenerateEncounter(bool force)
         return false;
     }
 
-    GetCameraPosition(&camera);
+    camera = cameraLocation();
     srVector3T<float> delta = spawn_position - camera;
     distance = delta.Length();
 
@@ -567,7 +567,7 @@ void CullExpiredEncounters(void)
     float span;
     int index;
 
-    GetCameraPosition(&party);
+    party = cameraLocation();
     if (!IsSightRangeOverridden()) {
         span = g_encounter_culling_time_seconds * g_sight_default;
     } else {

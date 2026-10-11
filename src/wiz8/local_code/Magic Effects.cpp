@@ -3378,7 +3378,7 @@ void ProcessSpellEffectTargets(W8SpellEffectEntry* effect)
         }
         camera_state = &g_status.buffers.Char[effect->Source.iChar].saved_location;
         world = GetWorld();
-        GetWorldCameraState(world, camera_state);
+        *camera_state = cameraState(*world);
         g_status.buffers.Char[effect->Source.iChar].saved_level = g_status.current_level;
         g_status.buffers.Char[effect->Source.iChar].has_saved_location = true;
         effect->applied = true;

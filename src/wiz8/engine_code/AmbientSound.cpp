@@ -260,7 +260,7 @@ void W8AmbientSound::Service(bool entered)
                 unsigned int volume;
                 SOUND3DPOS pos;
 
-                GetCameraPosition(&camera);
+                camera = cameraLocation();
                 rotation = glm::mat3(1);
                 rotation *= glm::mat3_cast(glm::angleAxis(float(angle), glm::vec3(0, 1, 0)));
                 offset = position - camera;
@@ -310,7 +310,7 @@ void W8AmbientSound::Service(bool entered)
         srVector3T<float> transformed;
         SOUND3DPARMS parms;
 
-        GetCameraPosition(&camera);
+        camera = cameraLocation();
         current_volume = (volume_max * g_settings.sound_effects_volume) / 0x7f;
         rotation = glm::mat3(1);
         rotation *= glm::mat3_cast(glm::angleAxis(float(angle), glm::vec3(0, 1, 0)));
@@ -541,8 +541,7 @@ void RepositionAmbientSounds(W8World* world)
         for (index = 0; index < count; ++index) {
             W8AmbientSound* sound = GetWorldAmbientSound(world, index);
             if (sound != 0) {
-                srVector3T<float> position;
-                GetCameraPosition(&position);
+                srVector3T<float> position = cameraLocation();
                 sound->UpdatePosition(&position);
             }
         }
@@ -646,8 +645,7 @@ static W8AmbientSound* FindAmbientSoundByName(const char* name)
 
 static void StartAmbientSoundAtCamera(W8AmbientSound* sound)
 {
-    srVector3T<float> position;
-    GetCameraPosition(&position);
+    srVector3T<float> position = cameraLocation();
     sound->stopped = 0;
     sound->UpdatePosition(&position);
 }
@@ -780,8 +778,7 @@ void SetSoundEffectsVolume(unsigned char volume)
         for (index = 0; index < count; ++index) {
             W8AmbientSound* sound = GetWorldAmbientSound(world, index);
             if (sound != 0) {
-                srVector3T<float> position;
-                GetCameraPosition(&position);
+                srVector3T<float> position = cameraLocation();
                 sound->UpdatePosition(&position);
             }
         }

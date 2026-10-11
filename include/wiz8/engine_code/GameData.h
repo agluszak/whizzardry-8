@@ -417,7 +417,7 @@ glm::vec3 ProjectVectorOntoVector(const glm::vec3& vector, const glm::vec3& onto
    (both into the same dead local in retail). */
 void RestoreWorldCameraOrientation(void* angle, void* pitch,
                                    W8World* world);
-void GetCameraPosition(srVector3T<float>* position);
+glm::vec3 cameraLocation();
 int GetCameraYawDegrees(void);
 /* 0x004215E0: point-visibility query through the world octree; false with no
    world, true for a loaded world without an octree. */

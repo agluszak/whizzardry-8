@@ -837,7 +837,7 @@ void UpdateWorldTriggers(W8World* world)
     bool activated = false;
     bool running = false;
 
-    GetCameraPosition(&camera);
+    camera = cameraLocation();
     int count = static_cast<int>(world->triggers->size());
     for (int index = 0; index < count; ++index) {
         Trigger* trigger = (*world->triggers)[index];
@@ -3071,7 +3071,7 @@ void Trigger::Run(int source)
         srVector3T<float> party_position;
         W8TriggerShakeEvent* event;
 
-        GetCameraPosition(&party_position);
+        party_position = cameraLocation();
         if (m_pEvent == 0) {
             event = new W8TriggerShakeEvent;
             m_pEvent = event;
@@ -3918,7 +3918,7 @@ bool AnyPropTriggerInView(W8World* world)
     if (world == 0) {
         srAssertFail("pWorld", "C:\\Projects\\Wizardry 8\\Engine Code\\Trigger.cpp", 0x1395, 0);
     }
-    GetCameraPosition(&position);
+    position = cameraLocation();
     prop_count = (world->plsProps ? world->plsProps->size() : 0);
     if (0 <= s_last_prop_index && s_last_prop_index < static_cast<int>(prop_count)) {
         W8Prop* prop = GetWorldProp(world, s_last_prop_index);

@@ -837,7 +837,7 @@ void FinishSpellEffect(W8SpellEffectEntry* effect)
             position.y = SettlePositionToGround(&position, 0);
             PostMonsterNotice(monster_info, g_localized_strings[0x195]);
         } else {
-            GetCameraPosition(&position);
+            position = cameraLocation();
             position.y -= g_default_world_height;
             PostCharacterNotice(effect->target.iChar, g_localized_strings[0x195]);
         }
@@ -3379,7 +3379,7 @@ void PrepareSpellTarget(int spell_id, W8TargetSource* source, W8CombatSlot* targ
         return;
     case 5:
         if (TargetSourceIsCharacter(source, 0)) {
-            GetCameraPosition(&from);
+            from = cameraLocation();
         } else if (TargetSourceIsMonster(source, 0)) {
             if (!monster_info->p3D->GetSpellPosition(&from)) {
                 monster_info->p3D->GetMappedPosition(&from);
@@ -3393,7 +3393,7 @@ void PrepareSpellTarget(int spell_id, W8TargetSource* source, W8CombatSlot* targ
         saved = source->point;
         source->point = target->point;
         if (TargetSourceIsCharacter(source, 0)) {
-            GetCameraPosition(&from);
+            from = cameraLocation();
             target->point = from;
         } else if (TargetSourceIsMonster(source, 0)) {
             navigator = monster_info->p3D;
@@ -3662,7 +3662,7 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
         return;
     }
     player_pos = g_startup_world->GetPosition();
-    GetCameraPosition(&camera);
+    camera = cameraLocation();
     if (TargetSourceIsMonster(source, 1)) {
         if (source->iMonsterID == -1) {
             ReportInvalidMagicReference("InvalidMagicSource", spell_id, *source, *target);

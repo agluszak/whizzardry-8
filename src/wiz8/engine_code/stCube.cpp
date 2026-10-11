@@ -786,7 +786,7 @@ bool SelectWorldCursorNode(void)
         srVector3T<float> camera_position;
         srVector3T<double> camera_location;
 
-        GetCameraPosition(&camera_position);
+        camera_position = cameraLocation();
         camera_location = glm::dvec3(camera_position.glmValue());
         int selected = g_cursor_node_index;
         if (static_cast<std::size_t>(selected) < g_world_cursor_nodes.size()) {

@@ -319,7 +319,7 @@ bool ResolvePickedProp(W8World* world)
     }
 
     valid = true;
-    GetCameraPosition(&camera_position);
+    camera_position = cameraLocation();
     prop_count = (world->plsProps ? world->plsProps->size() : 0);
     for (prop_index = 0; prop_index < static_cast<int>(prop_count); ++prop_index) {
         W8Prop* prop;

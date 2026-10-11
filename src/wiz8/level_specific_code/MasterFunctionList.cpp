@@ -229,7 +229,7 @@ unsigned char DispatchWorldCursorNodeCommand(W8MonsterInfo* info, int command, .
         return handled;
     }
     if (info == 0) {
-        GetCameraPosition(&position);
+        position = cameraLocation();
     } else {
         position = info->p3D->GetPosition();
     }

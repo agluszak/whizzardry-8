@@ -686,8 +686,7 @@ void stParticle::SubmitToRenderer(srGERD* renderer)
     glm::vec3 position;
 
     if (camera_relative == 1) {
-        srVector3T<float> camera_position;
-        GetCameraPosition(&camera_position);
+        srVector3T<float> camera_position = cameraLocation();
         position = camera_position.glmValue() + camera_offset.glmValue();
 
         setLocation(srVector3T<double>(glm::dvec3(position)));
