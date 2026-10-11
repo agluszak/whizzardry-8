@@ -473,34 +473,25 @@ void srPixelConvert::mapPixelFormat(e_surfaceType type, PixelFormat& format)
 }
 
 // FUNCTION: SURRENDER 0x100087A0
-void srPixelConvert::selectFuncs(const PixelFormat& format, ConversionFunc& write,
-                                 ConversionFunc& read)
+srPixelConvert::ConversionFunctions srPixelConvert::selectFuncs(const PixelFormat& format)
 {
     initFormats();
     const auto entry = std::find_if(std::begin(format_table), std::end(format_table),
         [&](const FormatEntry& candidate) { return candidate.format == format; });
-    if (entry != std::end(format_table)) {
-        read = entry->read;
-        write = entry->write;
-        return;
-    }
+    if (entry != std::end(format_table))
+        return {entry->write, entry->read};
+
     switch (format.color_model) {
     case srPixelConvert::COLOR_RGB:
-        write = writeRGB;
-        read = readRGB;
-        return;
+        return {writeRGB, readRGB};
     case srPixelConvert::COLOR_YUV:
-        write = writeYUV;
-        read = readYUV;
-        return;
+        return {writeYUV, readYUV};
     case srPixelConvert::COLOR_INTENSITY:
-        write = writeIntensity;
-        read = readIntensity;
-        return;
+        return {writeIntensity, readIntensity};
     case srPixelConvert::COLOR_INDEXED:
-        write = writeIndexed;
-        read = readIndexed;
+        return {writeIndexed, readIndexed};
     }
+    return {};
 }
 
 /* Clamps a decoded YUV channel to a byte for the srARGB pack. */
