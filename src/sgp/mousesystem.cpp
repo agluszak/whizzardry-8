@@ -1,4 +1,5 @@
 #include <SDL3/SDL_log.h>
+#include <SDL3/SDL_rect.h>
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-04, 2026-10-06, 2026-10-07.
    Distributed under the accompanying SFI Source Code license agreement. */
 
@@ -248,12 +249,15 @@ void MSYS_UpdateMouseRegion(void)
     }
     if (!found) {
         event.current = nullptr;
+        const SDL_Point point{event.x, event.y};
         for (auto* candidate = MOUSE_REGION::first; candidate; candidate = candidate->next) {
+            // SGP's bottom/right edges are inclusive; SDL_Rect's are exclusive.
+            const SDL_Rect bounds{
+                candidate->RegionTopLeftX, candidate->RegionTopLeftY,
+                candidate->RegionBottomRightX - candidate->RegionTopLeftX + 1,
+                candidate->RegionBottomRightY - candidate->RegionTopLeftY + 1};
             if ((candidate->uiFlags & (MSYS_REGION_ENABLED | MSYS_ALLOW_DISABLED_FASTHELP)) &&
-                candidate->RegionTopLeftX <= event.x &&
-                candidate->RegionTopLeftY <= event.y &&
-                candidate->RegionBottomRightX >= event.x &&
-                candidate->RegionBottomRightY >= event.y &&
+                SDL_PointInRect(&point, &bounds) &&
                 (!event.current || candidate->PriorityLevel > event.current->PriorityLevel))
                 event.current = candidate;
         }
