@@ -297,14 +297,14 @@ TEST_CASE("SGP sprite clipping preserves inclusive frame bounds")
     frame.sOffsetX = -2;
     frame.sOffsetY = 1;
 
-    const SDL_Rect clip{0, 0, 10, 10};
-    REQUIRE_FALSE(BltIsClipped(object, 2, 1, 0, const_cast<SDL_Rect*>(&clip)));
-    REQUIRE_FALSE(BltIsClipped(object, 6, 1, 0, const_cast<SDL_Rect*>(&clip)));
-    REQUIRE(BltIsClipped(object, 1, 1, 0, const_cast<SDL_Rect*>(&clip)));
-    REQUIRE(BltIsClipped(object, 7, 1, 0, const_cast<SDL_Rect*>(&clip)));
-    REQUIRE(BltIsClipped(object, 25, 1, 0, const_cast<SDL_Rect*>(&clip)));
-    REQUIRE(BltIsClipped(object, 2, -2, 0, const_cast<SDL_Rect*>(&clip)));
+    SDL_Rect clip{0, 0, 10, 10};
+    REQUIRE_FALSE(BltIsClipped(object, 2, 1, 0, &clip));
+    REQUIRE_FALSE(BltIsClipped(object, 6, 1, 0, &clip));
+    REQUIRE(BltIsClipped(object, 1, 1, 0, &clip));
+    REQUIRE(BltIsClipped(object, 7, 1, 0, &clip));
+    REQUIRE(BltIsClipped(object, 25, 1, 0, &clip));
+    REQUIRE(BltIsClipped(object, 2, -2, 0, &clip));
 
     frame.usWidth = 0;
-    REQUIRE_FALSE(BltIsClipped(object, 25, 1, 0, const_cast<SDL_Rect*>(&clip)));
+    REQUIRE_FALSE(BltIsClipped(object, 25, 1, 0, &clip));
 }
