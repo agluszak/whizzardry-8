@@ -3,7 +3,6 @@
 #ifndef WIZ8_LAYOUTS_COMBAT_STATE_H
 #define WIZ8_LAYOUTS_COMBAT_STATE_H
 
-#include "Types.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/equipment_slots.h"
 #include "wiz8/gameplay_modifiers.h"

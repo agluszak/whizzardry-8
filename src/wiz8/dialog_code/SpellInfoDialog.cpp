@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <fmt/format.h>
 #include <string>
 #include <vector>
@@ -12,7 +13,6 @@
 #include "wiz8/string_database.h"
 #include "wiz8/video_object_catalog.h"
 #include "Font.h"
-#include "Types.h"
 #include "dialog_code/DialogButton.h"
 #include "dialog_code/DialogScrollBar.h"
 #include "dialog_code/DialogTextArea.h"
@@ -282,7 +282,7 @@ bool W8SpellInfoDialog::PopulateText()
 void W8SpellInfoDialog::DrawLabels()
 {
     std::string text;
-    INT16 width;
+    std::int16_t width;
     W8SpellRuntimeRecord* record = &g_spell_records[m_spell];
 
     SetFont(g_wiz_text_font_secondary);

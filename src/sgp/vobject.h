@@ -5,12 +5,12 @@
    Distributed under the accompanying SFI Source Code license agreement. */
 
 #include <array>
+#include <cstdint>
 #include <string_view>
 #include <vector>
 #include <memory>
 #include <optional>
 
-#include "Types.h"
 #include "himage.h"
 
 // ************************************************************************************
@@ -53,14 +53,14 @@ struct SGPVObject {
 };
 
 // Palette generation and shade selection preserve the game's RGB555 tables.
-void CreateObjectPaletteTables(SGPVObject& object, UINT32 type);
-bool SetObjectShade(SGPVObject& object, UINT32 shade);
+void CreateObjectPaletteTables(SGPVObject& object, std::uint32_t type);
+bool SetObjectShade(SGPVObject& object, std::uint32_t shade);
 
 struct SGPVSurface;
-BOOLEAN BltVideoObject(SGPVSurface& destination, SGPVObject& source, UINT16 frame,
-                       INT32 x, INT32 y, UINT32 flags);
-BOOLEAN BltVideoObjectToBuffer(UINT16* pixels, UINT32 pitch, SGPVObject& source,
-                               UINT16 frame, INT32 x, INT32 y, INT32 flags);
+bool BltVideoObject(SGPVSurface& destination, SGPVObject& source, std::uint16_t frame,
+                       std::int32_t x, std::int32_t y, std::uint32_t flags);
+bool BltVideoObjectToBuffer(std::uint16_t* pixels, std::uint32_t pitch, SGPVObject& source,
+                               std::uint16_t frame, std::int32_t x, std::int32_t y, std::int32_t flags);
 
 // Load an STI sprite sheet from the virtual filesystem.
 std::unique_ptr<SGPVObject> LoadVideoObject(std::string_view filename);

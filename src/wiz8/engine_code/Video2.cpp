@@ -82,7 +82,6 @@
 #include "surrender/srStatisticsManager.h"
 #include "surrender/srTexture.h"
 #include "compat/surfaces.h"
-#include "Types.h"
 #include "himage.h"
 #include "Font.h"
 #include "input.h"
@@ -341,7 +340,7 @@ void ResetVideoFrameState(void)
    original working directory. Each gate that fails returns straight out with
    the callee's own false still in AL. */
 // FUNCTION: WIZ8 0x00421bb0
-unsigned char InitializeVideoManager(void)
+bool InitializeVideoManager(void)
 {
     g_world_pick_enabled = true;
     SetPickedModelInstance(0);
@@ -565,7 +564,7 @@ try
         !OpenRendererWindow()) return 0;
     srAssertSetFunc(AssertFailureHandler);
     if (_strnicmp(audio_setting, "none", 4) == 0) {
-        gfEnableStartup = FALSE;
+        gfEnableStartup = false;
     }
     return 1;
 }
@@ -607,7 +606,7 @@ unsigned char FinishVideoPresentation(void)
    startup receives the same Windows notification while the device already
    owns its configured 640x480 mode, so there is no resize operation to do. */
 // FUNCTION: WIZ8 0x00422550
-unsigned char VideoResizeWindow(void)
+bool VideoResizeWindow(void)
 {
     if (g_fullscreen || !ghWindow || !g_gerd || !g_flush_pending) {
         return 0;
@@ -624,7 +623,7 @@ unsigned char VideoResizeWindow(void)
 }
 
 // FUNCTION: WIZ8 0x00422970
-void VideoFullScreen(unsigned char enabled)
+void VideoFullScreen(bool enabled)
 {
     g_fullscreen = enabled;
     if (ghWindow && g_gerd && g_flush_pending) {
@@ -649,7 +648,7 @@ void ClearVideoDirtyBlocks(void)
 }
 
 // FUNCTION: WIZ8 0x004277e0
-unsigned char VideoInspectorIsEnabled(void)
+bool VideoInspectorIsEnabled(void)
 {
     return g_video_inspector_enabled;
 }
@@ -670,7 +669,7 @@ void SuspendVideoManager(void)
 }
 
 // FUNCTION: WIZ8 0x004220b0
-unsigned char RestoreVideoManager(void)
+bool RestoreVideoManager(void)
 {
     if (g_video_active) {
         return 1;
@@ -1215,17 +1214,17 @@ stModelInstance2D* CreateSpriteFromTexture(std::shared_ptr<srTextureIFace> textu
 }
 
 // FUNCTION: WIZ8 0x00484A40
-BOOLEAN BlitVideoObjectToColorSurface(SGPVObject& video_object, UINT16 region,
+bool BlitVideoObjectToColorSurface(SGPVObject& video_object, std::uint16_t region,
                                       srColorSurface& destination, int x, int y)
 {
     SGPVObject& object = video_object;
 
     if (region >= object.sprites.size()) {
-        return FALSE;
+        return false;
     }
-    BltVideoObjectToBuffer(static_cast<UINT16*>(destination.getDataPtr()), destination.getPitch(),
+    BltVideoObjectToBuffer(static_cast<std::uint16_t*>(destination.getDataPtr()), destination.getPitch(),
                            object, region, x, y, VO_BLT_SRCTRANSPARENCY);
-    return TRUE;
+    return true;
 }
 
 static void MoveSystemCursor(int x, int y)
@@ -1236,13 +1235,13 @@ static void MoveSystemCursor(int x, int y)
 }
 
 // FUNCTION: WIZ8 0x00427c90
-BOOLEAN ResizeMouseCursorSurface(int width, int height)
+bool ResizeMouseCursorSurface(int width, int height)
 {
     int extent;
     float mapping_scale;
 
     if (g_cursor_image_width == width && g_cursor_image_height == height) {
-        return TRUE;
+        return true;
     }
     extent = width > height ? width : height;
     if (extent <= 16)
@@ -1258,7 +1257,7 @@ BOOLEAN ResizeMouseCursorSurface(int width, int height)
     else
         extent = -1;
     if (!g_mouse_surface->resize(extent, extent)) {
-        return FALSE;
+        return false;
     }
     delete g_cursor_node;
     mapping_scale = g_surface_scale / extent;
@@ -1273,7 +1272,7 @@ BOOLEAN ResizeMouseCursorSurface(int width, int height)
     g_cursor_texture = std::static_pointer_cast<srTexture>(g_cursor_model->textures[0][0]);
     g_cursor_texture->setWrapS(srTextureIFace::WRAP_CLAMP);
     g_cursor_texture->setWrapT(srTextureIFace::WRAP_CLAMP);
-    return TRUE;
+    return true;
 }
 
 /* Move the OS/system cursor when the hotspot changes, then resync the rendered
@@ -1295,19 +1294,19 @@ void SetMouseCursorHotspot(short hotspot_x, short hotspot_y)
 }
 
 // FUNCTION: WIZ8 0x00427ab0
-BOOLEAN SetMouseCursorFromVideoObject(SGPVObject& video_object, UINT16 region, INT16 offset_x,
-                                      INT16 offset_y)
+bool SetMouseCursorFromVideoObject(SGPVObject& video_object, std::uint16_t region, std::int16_t offset_x,
+                                      std::int16_t offset_y)
 {
     SGPVObject& object = video_object;
     int x;
     int y;
 
     if (region >= object.sprites.size()) {
-        return FALSE;
+        return false;
     }
     const SpriteFrame& properties = object.sprites[region];
     if (!ResizeMouseCursorSurface(properties.usWidth + 1, properties.usHeight + 1)) {
-        return FALSE;
+        return false;
     }
     if (g_cursor_hotspot_x != offset_x || g_cursor_hotspot_y != offset_y) {
         x = g_cursor_width - offset_x + g_cursor_hotspot_x;
@@ -1326,7 +1325,7 @@ BOOLEAN SetMouseCursorFromVideoObject(SGPVObject& video_object, UINT16 region, I
 }
 
 // FUNCTION: WIZ8 0x00427fc0
-void BlitToMouseCursor(SGPVObject& video_object, UINT16 region, UINT16 x, UINT16 y)
+void BlitToMouseCursor(SGPVObject& video_object, std::uint16_t region, std::uint16_t x, std::uint16_t y)
 {
     BlitVideoObjectToColorSurface(video_object, region, *g_mouse_surface, x, y);
 }
@@ -1900,9 +1899,9 @@ void VideoInspectorEnable(void)
 }
 
 // GLOBAL: WIZ8 0x006548a0
-INT32 g_help_box_width;
+std::int32_t g_help_box_width;
 // GLOBAL: WIZ8 0x00654acc
-INT32 g_help_box_height;
+std::int32_t g_help_box_height;
 
 /* Live tooltip sprites, left to right. */
 static std::vector<stModelInstance2D*> g_tooltip_nodes;
@@ -2090,8 +2089,8 @@ void ClearSurfaceRect(int left, unsigned int top, int right, unsigned int bottom
 {
     if (top >= bottom || left >= right)
         return;
-    const SDL_Rect rectangle{left, static_cast<INT32>(top), right - left,
-                             static_cast<INT32>(bottom - top)};
+    const SDL_Rect rectangle{left, static_cast<std::int32_t>(top), right - left,
+                             static_cast<std::int32_t>(bottom - top)};
     FillCpuSurface(primarySurface.cpu(), 0, &rectangle);
 }
 
@@ -2256,7 +2255,7 @@ char* VideoGetConfigFile(void)
 }
 
 // FUNCTION: WIZ8 0x004229b0
-unsigned char VideoIsFullScreen(void)
+bool VideoIsFullScreen(void)
 {
     return g_fullscreen;
 }
@@ -2271,9 +2270,9 @@ int VideoDumpMemoryLeaks(void)
    0x42B830 address sits past the proven Video2 hull, so its placement stays
    provisional. */
 // FUNCTION: WIZ8 0x0042b830
-BOOLEAN CheckCdPresent(void)
+bool CheckCdPresent(void)
 {
-    return TRUE;
+    return true;
 }
 
 // FUNCTION: WIZ8 0x00427a70
@@ -2446,8 +2445,8 @@ stModelInstance2D* CreateSpriteFromVideoSurface(SGPVSurface& surface, const W8Co
     unsigned short width;
     unsigned short height;
     W8ControlsRect source_rect;
-    UINT32 pitch;
-    BYTE* pixels;
+    std::uint32_t pitch;
+    std::uint8_t* pixels;
     srModelInstance* node;
     stModelInstance2D* instance;
     char mode = static_cast<char>(square);
@@ -2480,7 +2479,7 @@ stModelInstance2D* CreateSpriteFromVideoSurface(SGPVSurface& surface, const W8Co
     }
     const auto& destination_storage = *surface.cpu().surface;
     pitch = destination_storage.pitch;
-    pixels = static_cast<BYTE*>(destination_storage.pixels);
+    pixels = static_cast<std::uint8_t*>(destination_storage.pixels);
     if (pixels == 0) {
         return 0;
     }
@@ -2581,10 +2580,10 @@ void SetModelInstance2DDisplayState(stModelInstance2D* object, unsigned char sta
    the cursor by each node's scaled width. With no live objects, just record
    the requested position. */
 // FUNCTION: WIZ8 0x00429210
-void VideoPositionToolTip(INT32 x, INT32 y)
+void VideoPositionToolTip(std::int32_t x, std::int32_t y)
 {
     if (!g_tooltip_nodes.empty()) {
-        INT32 offset = x;
+        std::int32_t offset = x;
         for (auto* node : g_tooltip_nodes) {
             PositionToolTipNode(node, offset, y, true);
             offset += node->GetScaledWidth();

@@ -1,4 +1,5 @@
 #include <SDL3/SDL_pixels.h>
+#include <cstdint>
 #include <memory>
 #include <SDL3/SDL_rect.h>
 #include <string_view>
@@ -7,7 +8,6 @@
 #include <cstring>
 
 #include "wiz8/unicode.h"
-#include "Types.h"
 #include "Font.h"
 #include "himage.h"
 #include "vobject.h"
@@ -46,9 +46,9 @@ struct W8PortraitQuoteBubble {
     std::unique_ptr<SGPVObject> object;
     bool has_resources;
     bool created;
-    UINT32 flags; /* bit 0 selects the flat fill */
+    std::uint32_t flags; /* bit 0 selects the flat fill */
     std::string text;
-    UINT32 palette;
+    std::uint32_t palette;
 };
 
 W8_ABI_ASSERT(sizeof(W8PortraitQuoteBubble) == 0x24, "W8PortraitQuoteBubble_size");
@@ -451,11 +451,11 @@ int LayoutPortraitQuoteBubble(int quote_handle, unsigned char background_index,
     unsigned short count;
     unsigned short x;
     unsigned short y;
-    UINT16 fill;
-    UINT16* pixels;
-    UINT8* source;
-    UINT32 pitch;
-    UINT32 source_pitch;
+    std::uint16_t fill;
+    std::uint16_t* pixels;
+    std::uint8_t* source;
+    std::uint32_t pitch;
+    std::uint32_t source_pitch;
     SDL_Rect rect;
 
     if (static_cast<unsigned short>(max_width) >= 0x280) {
@@ -530,8 +530,8 @@ int LayoutPortraitQuoteBubble(int quote_handle, unsigned char background_index,
         max_width = 0x15d;
     }
     if (static_cast<unsigned short>(height) < 200) {
-        if (!(bubble.surface = CreateVideoSurface(static_cast<UINT16>(max_width),
-                                                   static_cast<UINT16>(height), 16))) {
+        if (!(bubble.surface = CreateVideoSurface(static_cast<std::uint16_t>(max_width),
+                                                   static_cast<std::uint16_t>(height), 16))) {
             return 0;
         }
         bubble.palette = font_palette;
@@ -546,7 +546,7 @@ int LayoutPortraitQuoteBubble(int quote_handle, unsigned char background_index,
         if (bubble.flags & QUOTE_BUBBLE_FLAT_BACKGROUND) {
             const auto& destination_storage = *bubble.surface->cpu().surface;
             pitch = destination_storage.pitch;
-            pixels = static_cast<UINT16*>(destination_storage.pixels);
+            pixels = static_cast<std::uint16_t*>(destination_storage.pixels);
             fill = Get16BPPColor(SDL_Color{255, 255, 0, SDL_ALPHA_OPAQUE});
             bubble.surface->cpu().sourceKey = SurfaceColorKey{fill, fill};
             count = static_cast<unsigned short>(height * max_width);
@@ -557,10 +557,10 @@ int LayoutPortraitQuoteBubble(int quote_handle, unsigned char background_index,
             auto& source_surface = *bubble.background_surface;
             const auto& destination_storage = *bubble.surface->cpu().surface;
             pitch = destination_storage.pitch;
-            pixels = static_cast<UINT16*>(destination_storage.pixels);
+            pixels = static_cast<std::uint16_t*>(destination_storage.pixels);
             const auto& source_storage = *bubble.background_surface->cpu().surface;
             source_pitch = source_storage.pitch;
-            source = static_cast<BYTE*>(source_storage.pixels);
+            source = static_cast<std::uint8_t*>(source_storage.pixels);
             Blt8BPPDataSubTo16BPPBuffer(pixels, pitch, source_surface.packedPalette(), source,
                                         source_pitch, 0, 0, rect);
         }

@@ -25,7 +25,6 @@
 #include "input.h"
 #include "timer.h"
 #include "wiz8/local_screens/MGSTextBox.h"
-#include "Types.h"
 #include "compat/native.h"
 #include "layouts/main_game_screen.h"
 #include "layouts/party_formation.h"
@@ -590,7 +589,7 @@ static void BeginFormationDrag(const InputAtom*)
     region = GetCatalogVideoObjectYOffset(0x9f) + static_cast<short>(sprite);
     auto& video_object = GetCatalogVideoObject(0x9f, 0);
     SetMouseCursorFromVideoObject(video_object, region, 0x10, 0x10);
-    const auto overlay = static_cast<UINT16>(GetCatalogVideoObjectYOffset(0xa0) +
+    const auto overlay = static_cast<std::uint16_t>(GetCatalogVideoObjectYOffset(0xa0) +
         static_cast<short>(g_formation_cell_overlays[g_formation_drag_cell]->m_alternateNormalSprite));
     BlitToMouseCursor(GetCatalogVideoObject(0xa0, 0), overlay, 0, 0);
     WarpSystemCursor(point.x - 0x10, point.y - 0x10);

@@ -1,4 +1,5 @@
 #include <SDL3/SDL_pixels.h>
+#include <cstdint>
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>
 #include <algorithm>
@@ -12,7 +13,6 @@
 
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07, 2026-10-09.
    Distributed under the accompanying SFI Source Code license agreement. */
-#include "Types.h"
 #include "compat/surfaces.h"
 #include "Video2.h"
 #include "himage.h"
@@ -32,93 +32,91 @@ extern void GetClippingRect(SDL_Rect* clip);
 // Fills an rectangular area with a specified color value.
 
 // FUNCTION: WIZ8 0x00402fa0
-BOOLEAN ColorFillVideoSurfaceArea(SGPVSurface& uiDestVSurface, INT32 iDestX1, INT32 iDestY1,
-                                  INT32 iDestX2, INT32 iDestY2, UINT16 Color16BPP)
+bool ColorFillVideoSurfaceArea(SGPVSurface& uiDestVSurface, std::int32_t iDestX1, std::int32_t iDestY1,
+                                  std::int32_t iDestX2, std::int32_t iDestY2, std::uint16_t Color16BPP)
 {
     SDL_Rect clip;
     GetClippingRect(&clip);
     SDL_Rect area{iDestX1, iDestY1, iDestX2 - iDestX1, iDestY2 - iDestY1};
     if (!SDL_GetRectIntersection(&area, &clip, &area))
-        return FALSE;
+        return false;
     FillCpuSurface(uiDestVSurface.cpu(), Color16BPP, &area);
-    return TRUE;
+    return true;
 }
 // Fills an rectangular area with a specified image value.
 
 // FUNCTION: WIZ8 0x00403150
-BOOLEAN ImageFillVideoSurfaceArea(SGPVSurface& uiDestVSurface, INT32 iDestX1, INT32 iDestY1,
-                                  INT32 iDestX2, INT32 iDestY2, SGPVObject& BkgrndImg, UINT16 Index,
-                                  INT16 Ox, INT16 Oy)
+bool ImageFillVideoSurfaceArea(SGPVSurface& uiDestVSurface, std::int32_t iDestX1, std::int32_t iDestY1,
+                                  std::int32_t iDestX2, std::int32_t iDestY2, SGPVObject& BkgrndImg, std::uint16_t Index,
+                                  std::int16_t Ox, std::int16_t Oy)
 {
-    INT16 xc, yc, hblits, wblits, aw, pw, ah, ph, w, h, xo, yo;
-    SpriteFrame* pTrav;
-    SDL_Rect NewClip, OldClip;
-
-    pTrav = &(BkgrndImg.sprites[Index]);
-    ph = (INT16)(pTrav->usHeight + pTrav->sOffsetY);
-    pw = (INT16)(pTrav->usWidth + pTrav->sOffsetX);
-
-    ah = (INT16)(iDestY2 - iDestY1);
-    aw = (INT16)(iDestX2 - iDestX1);
-
-    Ox %= pw;
-    Oy %= ph;
-
-    if (Ox > 0)
-        Ox -= pw;
-    xo = (-Ox) % pw;
-
-    if (Oy > 0)
-        Oy -= ph;
-    yo = (-Oy) % ph;
-
-    if (Ox < 0)
-        xo = (-Ox) % pw;
-    else {
-        xo = pw - (Ox % pw);
-        Ox -= pw;
-    }
-
-    if (Oy < 0)
-        yo = (-Oy) % ph;
-    else {
-        yo = ph - (Oy % pw);
-        Oy -= ph;
-    }
-
-    hblits = ((ah + yo) / ph) + (((ah + yo) % ph) ? 1 : 0);
-    wblits = ((aw + xo) / pw) + (((aw + xo) % pw) ? 1 : 0);
-
-    if ((hblits == 0) || (wblits == 0))
-        return (FALSE);
-    // Clip fill region coords
-
-    GetClippingRect(&OldClip);
-
-    NewClip = {iDestX1, iDestY1, iDestX2 - iDestX1, iDestY2 - iDestY1};
-    if (!SDL_GetRectIntersection(&NewClip, &OldClip, &NewClip))
-        return (FALSE);
-
-    SetClippingRect(&NewClip);
-
-    yc = (INT16)iDestY1;
-    for (h = 0; h < hblits; h++) {
-        xc = (INT16)iDestX1;
-        for (w = 0; w < wblits; w++) {
-            BltVideoObject(uiDestVSurface, BkgrndImg, Index, xc + Ox, yc + Oy,
-                           VO_BLT_SRCTRANSPARENCY);
-            xc += pw;
+    if (Index >= BkgrndImg.sprites.size()) return false;
+    const auto& frame = BkgrndImg.sprites[Index];
+    const int width = frame.usWidth + frame.sOffsetX;
+    const int height = frame.usHeight + frame.sOffsetY;
+    if (width <= 0 || height <= 0) return false;
+    SDL_Rect visible{iDestX1, iDestY1, iDestX2 - iDestX1, iDestY2 - iDestY1};
+    const auto& storage = *uiDestVSurface.cpu().surface;
+    const SDL_Rect bounds{0, 0, storage.w, storage.h};
+    if (!SDL_GetRectIntersection(&visible, &ClippingRect, &visible) ||
+        !SDL_GetRectIntersection(&visible, &bounds, &visible)) return false;
+    auto* source = frame.coloredSurface(BkgrndImg.currentPalette());
+    if (!source) return false;
+    std::uint32_t key;
+    if (!SDL_GetSurfaceColorKey(source, &key)) return false;
+    auto destination = CreateCpuStorage(storage.w, storage.h, g_sgp_pixel_format,
+                                        storage.pixels, storage.pitch);
+    if (!destination) return false;
+    const auto modulo = [](int value, int period) { return (value % period + period) % period; };
+    const int startX = iDestX1 + modulo(Ox, width) - width;
+    const int startY = iDestY1 + modulo(Oy, height) - height;
+    const int lastX = iDestX2 - 1 - modulo(iDestX2 - 1 - startX, width);
+    const int lastY = iDestY2 - 1 - modulo(iDestY2 - 1 - startY, height);
+    // Negative frame offsets overlap later tiles. At the finite grid's right
+    // and bottom edges those neighbors do not exist, so keep separate edge cells.
+    const int xs[]{visible.x,
+                   std::clamp(lastX + width + std::min<int>(frame.sOffsetX, 0),
+                              visible.x, visible.x + visible.w),
+                   visible.x + visible.w};
+    const int ys[]{visible.y,
+                   std::clamp(lastY + height + std::min<int>(frame.sOffsetY, 0),
+                              visible.y, visible.y + visible.h),
+                   visible.y + visible.h};
+    for (int row = 0; row < 2; ++row) {
+        for (int column = 0; column < 2; ++column) {
+            const SDL_Rect area{xs[column], ys[row],
+                                xs[column + 1] - xs[column], ys[row + 1] - ys[row]};
+            if (area.w == 0 || area.h == 0) continue;
+            const int cellWidth = column ? area.w : std::min(width, area.w);
+            const int cellHeight = row ? area.h : std::min(height, area.h);
+            auto tile = CreateCpuStorage(cellWidth, cellHeight, g_sgp_pixel_format);
+            if (!tile || !SDL_FillSurfaceRect(tile.get(), nullptr, key) ||
+                !SDL_SetSurfaceColorKey(tile.get(), true, key)) return false;
+            const int lowerX = area.x - frame.sOffsetX - frame.usWidth + 1;
+            const int lowerY = area.y - frame.sOffsetY - frame.usHeight + 1;
+            const int firstX = std::max(startX, lowerX + modulo(startX - lowerX, width));
+            const int firstY = std::max(startY, lowerY + modulo(startY - lowerY, height));
+            const int endX = std::min(lastX, area.x + cellWidth - 1 - frame.sOffsetX);
+            const int endY = std::min(lastY, area.y + cellHeight - 1 - frame.sOffsetY);
+            // Compose only one phase-aligned cell, including overlapping frames.
+            for (int y = firstY; y <= endY; y += height) {
+                for (int x = firstX; x <= endX; x += width) {
+                    const SDL_Rect position{x + frame.sOffsetX - area.x,
+                                            y + frame.sOffsetY - area.y,
+                                            frame.usWidth, frame.usHeight};
+                    if (!SDL_BlitSurface(source, nullptr, tile.get(), &position)) return false;
+                }
+            }
+            if (!SDL_SetSurfaceRLE(tile.get(), true) ||
+                !SDL_BlitSurfaceTiled(tile.get(), nullptr, destination.get(), &area)) return false;
         }
-        yc += ph;
     }
-
-    SetClippingRect(&OldClip);
-    return (TRUE);
+    return true;
 }
 // Video Surface Manipulation Functions
 
 // FUNCTION: WIZ8 0x004033d0
-std::unique_ptr<SGPVSurface> CreateVideoSurface(UINT16 width, UINT16 height, UINT8 bits)
+std::unique_ptr<SGPVSurface> CreateVideoSurface(std::uint16_t width, std::uint16_t height, std::uint8_t bits)
 {
     CHECKN(width && height && (bits == 8 || bits == 16));
     const auto* details = bits == 16 ? SDL_GetPixelFormatDetails(g_sgp_pixel_format) : nullptr;
@@ -160,18 +158,18 @@ std::unique_ptr<SGPVSurface> LoadVideoSurface(std::string_view filename)
     // FUNCTION: WIZ8 0x0040ff30
     // FUNCTION: WIZ8 0x00410050
     for (int row = 0; row < storage.h; ++row)
-        std::memcpy(static_cast<UINT8*>(storage.pixels) + row * storage.pitch,
+        std::memcpy(static_cast<std::uint8_t*>(storage.pixels) + row * storage.pitch,
                     image->pixels.data() + row * row_bytes, row_bytes);
     return result;
 }
 // FUNCTION: WIZ8 0x00403b10
-BOOLEAN BltVideoSurfaceToVideoSurface(SGPVSurface& hDestVSurface, SGPVSurface& hSrcVSurface,
-                                      INT32 iDestX, INT32 iDestY, INT32 fBltFlags,
+bool BltVideoSurfaceToVideoSurface(SGPVSurface& hDestVSurface, SGPVSurface& hSrcVSurface,
+                                      std::int32_t iDestX, std::int32_t iDestY, std::int32_t fBltFlags,
                                       const SDL_Rect* sourceRect)
 {
     SDL_Rect SrcRect;
-    UINT16 *pDestSurface16, *pSrcSurface16;
-    UINT32 uiSrcPitch, uiDestPitch;
+    std::uint16_t *pDestSurface16, *pSrcSurface16;
+    std::uint32_t uiSrcPitch, uiDestPitch;
 
     if (sourceRect) {
         SrcRect = *sourceRect;
@@ -186,24 +184,24 @@ BOOLEAN BltVideoSurfaceToVideoSurface(SGPVSurface& hDestVSurface, SGPVSurface& h
     const SDL_Rect bounds{0, 0, hDestVSurface.width(), hDestVSurface.height()};
     const SDL_Rect destination{iDestX, iDestY, SrcRect.w, SrcRect.h};
     if (!SDL_HasRectIntersection(&destination, &bounds))
-        return FALSE;
+        return false;
 
     CHECKF(hDestVSurface.bitDepth() == hSrcVSurface.bitDepth() &&
            (hDestVSurface.bitDepth() == 8 || hDestVSurface.bitDepth() == 16));
     if (hDestVSurface.bitDepth() == 16 && (fBltFlags & VS_BLT_MIRROR_Y)) {
         const auto& source_storage = *hSrcVSurface.cpu().surface;
         uiSrcPitch = source_storage.pitch;
-        pSrcSurface16 = static_cast<UINT16*>(source_storage.pixels);
+        pSrcSurface16 = static_cast<std::uint16_t*>(source_storage.pixels);
         CHECKF(pSrcSurface16);
         const auto& destination_storage = *hDestVSurface.cpu().surface;
         uiDestPitch = destination_storage.pitch;
-        pDestSurface16 = static_cast<UINT16*>(destination_storage.pixels);
+        pDestSurface16 = static_cast<std::uint16_t*>(destination_storage.pixels);
         if (!pDestSurface16) {
-            return FALSE;
+            return false;
         }
         Blt16BPPTo16BPPMirror(pDestSurface16, uiDestPitch, pSrcSurface16, uiSrcPitch,
                              iDestX, iDestY, SrcRect.x, SrcRect.y, SrcRect.w, SrcRect.h);
-        return TRUE;
+        return true;
     }
     SDL_Rect clippedDestination = destination;
     if (fBltFlags & VS_BLT_FAST) {
@@ -214,34 +212,34 @@ BOOLEAN BltVideoSurfaceToVideoSurface(SGPVSurface& hDestVSurface, SGPVSurface& h
     } else if (!ClipCpuBlit(clippedDestination, SrcRect,
                             {0, 0, hDestVSurface.width(), hDestVSurface.height()},
                             {0, 0, hSrcVSurface.width(), hSrcVSurface.height()})) {
-        return TRUE;
+        return true;
     }
     if (clippedDestination.w == 0 || clippedDestination.h == 0)
-        return TRUE;
+        return true;
     BlitCpuSurface(hDestVSurface.cpu(), &clippedDestination, hSrcVSurface.cpu(), &SrcRect,
                    fBltFlags & VS_BLT_USECOLORKEY, fBltFlags & VS_BLT_USEDESTCOLORKEY);
-    return TRUE;
+    return true;
 }
 
 // FUNCTION: WIZ8 0x004045b0
 // FUNCTION: WIZ8 0x004048a0
-BOOLEAN ShadowVideoSurfaceRect(SGPVSurface& uiDestVSurface, INT32 X1, INT32 Y1, INT32 X2, INT32 Y2)
+bool ShadowVideoSurfaceRect(SGPVSurface& uiDestVSurface, std::int32_t X1, std::int32_t Y1, std::int32_t X2, std::int32_t Y2)
 {
     // The shadow blitter adds the final pixel on each axis; keep its inclusive
     // endpoint convention while intersecting the edge-based area here.
     const SDL_Rect bounds{0, 0, uiDestVSurface.width() - 1, uiDestVSurface.height() - 1};
     SDL_Rect area{X1, Y1, X2 - X1, Y2 - Y1};
     if (!SDL_GetRectIntersection(&area, &bounds, &area))
-        return FALSE;
+        return false;
 
     const auto& storage = *uiDestVSurface.cpu().surface;
     if (!storage.pixels)
-        return FALSE;
-    return Blt16BPPBufferShadowRect(static_cast<UINT16*>(storage.pixels), storage.pitch, &area);
+        return false;
+    return Blt16BPPBufferShadowRect(static_cast<std::uint16_t*>(storage.pixels), storage.pitch, &area);
 }
 
 // FUNCTION: WIZ8 0x004048d0
-std::unique_ptr<SGPVSurface> MakeVSurfaceFromVObject(SGPVObject& object, UINT16 subIndex)
+std::unique_ptr<SGPVSurface> MakeVSurfaceFromVObject(SGPVObject& object, std::uint16_t subIndex)
 {
     if (subIndex >= object.sprites.size())
         return nullptr;

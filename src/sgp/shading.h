@@ -5,13 +5,12 @@
    Distributed under the accompanying SFI Source Code license agreement. */
 
 #include <array>
-
-#include "Types.h"
+#include <cstdint>
 
 // Maps every packed g_sgp_pixel_format pixel to its darkened pixel.
-extern std::array<UINT16, 65536> ShadeTable;
+extern std::array<std::uint16_t, 65536> ShadeTable;
 
 // Rebuilds ShadeTable for the current pixel format; call after it is selected.
-void SetShadeTablePercent(FLOAT percent);
+void SetShadeTablePercent(float percent);
 
 #endif

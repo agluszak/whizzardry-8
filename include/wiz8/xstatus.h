@@ -8,7 +8,6 @@ struct W8MonsterGroup;
 struct W8MonsterInfo;
 struct W8WorldItem;
 
-#include "Types.h"
 #include <stddef.h>
 
 #include <algorithm>

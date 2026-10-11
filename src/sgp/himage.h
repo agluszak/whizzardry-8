@@ -5,36 +5,51 @@
    Distributed under the accompanying SFI Source Code license agreement. */
 
 #include <SDL3/SDL_pixels.h>
+#include <SDL3/SDL_surface.h>
+#include <cstdint>
 #include <array>
 #include <optional>
 #include <string_view>
 #include <variant>
 #include <vector>
 
-#include "Types.h"
+#include "wiz8/compat/surfaces.h"
+#include <span>
 
 using Palette8 = std::array<SDL_Color, 256>;
-using Palette16 = std::array<UINT16, 256>;
+using Palette16 = std::array<std::uint16_t, 256>;
 
 // Tight, top-down INDEX8, RGB555 or RGB24 pixels.
 struct BitmapImage {
-    UINT16 width = 0;
-    UINT16 height = 0;
-    UINT8 bitDepth = 0;
+    std::uint16_t width = 0;
+    std::uint16_t height = 0;
+    std::uint8_t bitDepth = 0;
     std::optional<Palette8> palette;
-    std::vector<UINT8> pixels;
+    std::vector<std::uint8_t> pixels;
 };
 
 // Palette indices 0-255 or kTransparent; opaque index 0 is not a transparent run.
 struct SpriteFrame {
-    static constexpr UINT16 kTransparent = 256;
+    SpriteFrame() = default;
+    SpriteFrame(const SpriteFrame& other);
+    SpriteFrame& operator=(const SpriteFrame& other);
+    SpriteFrame(SpriteFrame&&) noexcept = default;
+    SpriteFrame& operator=(SpriteFrame&&) noexcept = default;
 
-    std::vector<UINT16> pixels;
-    std::optional<UINT8> paletteIndexAt(int x, int y) const;
-    INT16 sOffsetX = 0;
-    INT16 sOffsetY = 0;
-    UINT16 usHeight = 0;
-    UINT16 usWidth = 0;
+    static constexpr std::uint16_t kTransparent = 256;
+
+    SDLSurfaceOwner indices{nullptr, SDL_DestroySurface};
+    std::optional<std::uint8_t> paletteIndexAt(int x, int y) const;
+    SDL_Surface* coloredSurface(std::span<const std::uint16_t, 256> palette, bool mirror = false) const;
+    std::int16_t sOffsetX = 0;
+    std::int16_t sOffsetY = 0;
+    std::uint16_t usHeight = 0;
+    std::uint16_t usWidth = 0;
+
+private:
+    mutable SDLSurfaceOwner colored{nullptr, SDL_DestroySurface};
+    mutable Palette16 colors{};
+    mutable bool mirrored = false;
 };
 
 struct SpriteSheet {
@@ -62,10 +77,10 @@ std::optional<DecodedImage> LoadImage(std::string_view filename);
 // UTILITY FUNCTIONS
 
 // Used to create a 16BPP Palette from an 8 bit palette, found in himage.c
-Palette16 Create16BPPPaletteShaded(const Palette8& pPalette, UINT32 rscale, UINT32 gscale,
-                                 UINT32 bscale, BOOLEAN mono);
+Palette16 Create16BPPPaletteShaded(const Palette8& pPalette, std::uint32_t rscale, std::uint32_t gscale,
+                                 std::uint32_t bscale, bool mono);
 Palette16 Create16BPPPalette(const Palette8& pPalette);
-UINT16 Get16BPPColor(SDL_Color color);
+std::uint16_t Get16BPPColor(SDL_Color color);
 // Selected SDL format for native 16-bit sprite and UI pixels.
 extern SDL_PixelFormat g_sgp_pixel_format;
 

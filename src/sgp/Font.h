@@ -5,6 +5,7 @@
    Distributed under the accompanying SFI Source Code license agreement. */
 
 #include <SDL3/SDL_rect.h>
+#include <cstdint>
 #include <vector>
 #include <string_view>
 #include <cstddef>
@@ -40,10 +41,10 @@ struct Font {
     void resetPalette();
     SDL_Point rightAlignedPosition(const SDL_Rect& bounds, std::string_view text) const;
     SDL_Point centeredPosition(const SDL_Rect& bounds, std::string_view text) const;
-    UINT16 height() const;
-    INT16 textWidth(std::string_view text) const;
-    INT16 prefixWidth(std::string_view text, std::size_t byte_end) const;
-    INT16 codepointPrefixWidth(std::string_view text, UINT32 count) const;
+    std::uint16_t height() const;
+    std::int16_t textWidth(std::string_view text) const;
+    std::int16_t prefixWidth(std::string_view text, std::size_t byte_end) const;
+    std::int16_t codepointPrefixWidth(std::string_view text, std::uint32_t count) const;
     explicit Font(SGPVObject object) : glyphs(std::move(object)) {}
     ~Font();
 };
@@ -53,41 +54,41 @@ struct FontRenderState {
     SGPVSurface* destination = nullptr;
     SDL_Rect clip = {0, 0, 640, 480};
     bool wrap = false;
-    UINT16 foreground = 0;
-    UINT16 background = 0;
-    UINT16 shadow = 2;
-    UINT8 foreground_index = 0;
-    UINT8 background_index = 0;
+    std::uint16_t foreground = 0;
+    std::uint16_t background = 0;
+    std::uint16_t shadow = 2;
+    std::uint8_t foreground_index = 0;
+    std::uint8_t background_index = 0;
 };
 extern FontRenderState g_font_render_state;
-void SetFontDestClip(INT32 x1, INT32 y1, INT32 x2, INT32 y2);
+void SetFontDestClip(std::int32_t x1, std::int32_t y1, std::int32_t x2, std::int32_t y2);
 
 // functions
 
-void SetFontForeground(UINT8 ubForeground);
-void SetFontBackground(UINT8 ubBackground);
-void SetFontShadow(UINT8 ubBackground);
+void SetFontForeground(std::uint8_t ubForeground);
+void SetFontBackground(std::uint8_t ubBackground);
+void SetFontShadow(std::uint8_t ubBackground);
 
 void SetRGBFontShadow(SDL_Color color);
 
-void DrawFontText(INT32 x, INT32 y, std::string_view text);
-void DrawFontTextDirty(INT32 x, INT32 y, std::string_view text);
-void DrawMonoFontText(INT32 x, INT32 y, std::string_view text);
-void DrawFontTextToBuffer(UINT8* pDestBuf, UINT32 uiDestPitchBYTES, Font& FontType, INT32 x,
-                            INT32 y, std::string_view text);
-void DrawMonoFontTextToBuffer(UINT8* pDestBuf, UINT32 uiDestPitchBYTES, Font& FontType, INT32 x,
-                                INT32 y, std::string_view text);
+void DrawFontText(std::int32_t x, std::int32_t y, std::string_view text);
+void DrawFontTextDirty(std::int32_t x, std::int32_t y, std::string_view text);
+void DrawMonoFontText(std::int32_t x, std::int32_t y, std::string_view text);
+void DrawFontTextToBuffer(std::uint8_t* pDestBuf, std::uint32_t uiDestPitchBYTES, Font& FontType, std::int32_t x,
+                            std::int32_t y, std::string_view text);
+void DrawMonoFontTextToBuffer(std::uint8_t* pDestBuf, std::uint32_t uiDestPitchBYTES, Font& FontType, std::int32_t x,
+                                std::int32_t y, std::string_view text);
 
-void SetFontDestBuffer(SGPVSurface& DestBuffer, INT32 x1, INT32 y1, INT32 x2, INT32 y2,
+void SetFontDestBuffer(SGPVSurface& DestBuffer, std::int32_t x1, std::int32_t y1, std::int32_t x2, std::int32_t y2,
                                  bool wrap);
 void SetFont(Font& font);
 
-void ConfigureFontRendering(const std::vector<UINT16>& translation);
+void ConfigureFontRendering(const std::vector<std::uint16_t>& translation);
 void ResetFontRendering();
 
-std::vector<UINT16> CreateEnglishTransTable();
+std::vector<std::uint16_t> CreateEnglishTransTable();
 
-INT16 GetIndex(char32_t siChar);
+std::int16_t GetIndex(char32_t siChar);
 
 // Each scope owns its snapshot; nested UI drawing cannot overwrite an outer save.
 class FontRenderScope {

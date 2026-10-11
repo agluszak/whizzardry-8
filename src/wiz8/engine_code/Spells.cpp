@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "wiz8/engine_code/emitter_cycles.h"
 #include <fmt/format.h>
 #include <glm/ext/quaternion_trigonometric.hpp>
@@ -45,7 +46,6 @@
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/PolyPick.h"
 #include "GrCycle.h"
-#include "Types.h"
 #include "compat/native.h"
 #include "glm/ext/vector_float3.hpp"
 #include "layouts/world.h"
@@ -1216,7 +1216,7 @@ void Update3DSounds()
                                             -transformed.z, 0.0f, g_float_one, 0.0f);
                         volume = (sound->volume * g_settings.sound_effects_volume) / 0x7f;
                         SoundSetVolume(sound->sound_handle,
-                                       static_cast<UINT32>(
+                                       static_cast<std::uint32_t>(
                                            (g_float_one - distance / sound->falloff) * volume));
                     }
                 }

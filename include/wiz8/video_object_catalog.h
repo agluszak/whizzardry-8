@@ -1,8 +1,10 @@
 #ifndef WIZ8_VIDEO_OBJECT_CATALOG_H
 #define WIZ8_VIDEO_OBJECT_CATALOG_H
 #include <utility>
+#include <cstdint>
 #include <string_view>
 
+#include "himage.h"
 #include "vobject.h"
 #include "vsurface.h"
 
@@ -25,19 +27,19 @@ W8VideoStorageKind GetCatalogStorageKind(int object);
    receives the slot y_offset. */
 SGPVObject& GetCatalogVideoObject(int object, int frame, int* y_offset_out = nullptr);
 void DrawSprite(SGPVSurface& target, SGPVObject& sprites, short image, int left, int top,
-                UINT32 mode);
+                std::uint32_t mode);
 void DrawSpriteAndInvalidate(SGPVSurface& target, SGPVObject& sprites, int image, int left, int top,
-                             UINT32 mode);
+                             std::uint32_t mode);
 std::pair<int, int> GetSpriteSize(const SGPVObject& sprites, int image);
 std::pair<int, int> GetCatalogImageSize(int object, int frame, int image);
 /* 0x00549700: the image's own offset inside its frame, read from the video object's
    ETRLE subregion table. */
 void GetCatalogImagePosition(int object, int frame, int image, short* x, short* y);
 void DrawCatalogImage(SGPVSurface& target, int object, int frame, short image, int left, int top,
-                      UINT32 mode);
+                      std::uint32_t mode);
 void InvalidateCatalogImageRect(int object, int frame, int image, int left, int top, int flags);
 void DrawCatalogImageAndInvalidate(SGPVSurface& target, int object, int frame, int image, int left,
-                                   int top, UINT32 mode);
+                                   int top, std::uint32_t mode);
 unsigned char BlitCatalogSurfaceRectTo16BPP(SGPVSurface& target, int left, int top, int right, int bottom,
                                             int object, int source_x, int source_y);
 

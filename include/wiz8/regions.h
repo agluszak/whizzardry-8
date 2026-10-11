@@ -8,7 +8,6 @@
 #include <vector>
 #include <span>
 
-#include "Types.h"
 #include "input.h"
 
 class W8Widget;

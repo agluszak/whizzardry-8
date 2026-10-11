@@ -13,6 +13,7 @@
 #include "wiz8/compat/compiler.h"
 #include "wiz8/engine_code/game_timer.h"
 #include "wiz8/local_code/Controls.h"
+#include "wiz8/local_code/ControlsRect.h"
 #include "input.h"
 #include "layouts/gameplay_databases.h"
 
