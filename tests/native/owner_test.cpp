@@ -783,6 +783,14 @@ void input_sink_capture_can_be_released()
     ReleaseInputSinkCapture();
     REQUIRE(g_captured_region_index == 0);
 
+    // The released sink must not keep swallowing clicks at its zero-sized origin.
+    constexpr std::array<RegionTemplate, 1> origin_templates{{
+        {W8_REGION_RECTANGLE, 0, 0, 5, 5, record_region_event, 42, false, -1},
+    }};
+    OwnedRegionSet origin{origin_templates};
+    origin.Enable();
+    REQUIRE(FindRegionAtPoint(0, 0) == origin.index(0));
+
     constexpr std::array<RegionTemplate, 1> templates{{
         {W8_REGION_RECTANGLE, 10, 10, 30, 30, record_region_event, 41, false, -1},
     }};
@@ -793,6 +801,62 @@ void input_sink_capture_can_be_released()
     ReleaseInputSinkCapture();
     REQUIRE(g_captured_region_index == other.index(0));
     ClearActiveRegionIfMatches(other.index(0));
+}
+
+void region_set_order_beats_creation_order()
+{
+    RegionStateSnapshot saved_state;
+    ResetRegions();
+    constexpr std::array<RegionTemplate, 1> templates{{
+        {W8_REGION_RECTANGLE, 10, 10, 30, 30, record_region_event, 51, false, -1},
+    }};
+
+    ScreenRegionSet later{templates, 0x20};
+    ScreenRegionSet earlier{templates, 0x10};
+    later.Create();
+    earlier.Create();
+    later.Enable();
+    earlier.Enable();
+    REQUIRE(FindRegionAtPoint(20, 20) == earlier->index(0));
+
+    // Dynamic sets rank behind every retail-ordered set.
+    earlier.Destroy();
+    auto dynamic_first = std::make_unique<OwnedRegionSet>(templates);
+    dynamic_first->Enable();
+    REQUIRE(FindRegionAtPoint(20, 20) == later->index(0));
+    later.Destroy();
+    REQUIRE(FindRegionAtPoint(20, 20) == dynamic_first->index(0));
+
+    // Dynamic sets keep creation order even when a released slot is reused.
+    OwnedRegionSet dynamic_second{templates};
+    dynamic_second.Enable();
+    REQUIRE(FindRegionAtPoint(20, 20) == dynamic_first->index(0));
+    const auto recycled_set = dynamic_first->set();
+    dynamic_first.reset();
+    OwnedRegionSet dynamic_third{templates};
+    dynamic_third.Enable();
+    REQUIRE(dynamic_third.set() == recycled_set);
+    REQUIRE(FindRegionAtPoint(20, 20) == dynamic_second.index(0));
+}
+
+void stale_exclusive_scope_blocks_reused_set_slot()
+{
+    RegionStateSnapshot saved_state;
+    ResetRegions();
+    constexpr std::array<RegionTemplate, 1> templates{{
+        {W8_REGION_RECTANGLE, 10, 10, 30, 30, record_region_event, 52, false, -1},
+    }};
+    auto modal = std::make_unique<OwnedRegionSet>(templates);
+    modal->Enable();
+    ExclusiveRegionSet scope(modal->set());
+    REQUIRE(FindRegionAtPoint(20, 20) == modal->index(0));
+
+    const auto modal_set = modal->set();
+    modal.reset();
+    OwnedRegionSet replacement{templates};
+    replacement.Enable();
+    REQUIRE(replacement.set() == modal_set);
+    REQUIRE(FindRegionAtPoint(20, 20) == 0);
 }
 
 void region_registration_and_callback_lifetimes()
@@ -1979,6 +2043,16 @@ TEST_CASE("Widget-owned regions release with their widget", "[owner]")
 TEST_CASE("Input sink capture releases only its own capture", "[owner]")
 {
     input_sink_capture_can_be_released();
+}
+
+TEST_CASE("Region set hit-test order follows declared order, not creation", "[owner]")
+{
+    region_set_order_beats_creation_order();
+}
+
+TEST_CASE("A stale exclusive scope hides a reused set slot", "[owner]")
+{
+    stale_exclusive_scope_blocks_reused_set_slot();
 }
 
 TEST_CASE("assert-plain", "[.death]")

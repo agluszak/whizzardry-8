@@ -46,9 +46,16 @@ inline constexpr std::int32_t REGION_REASON_BUTTONS =
     REGION_REASON_LBUTTON_DWN | REGION_REASON_LBUTTON_UP |
     REGION_REASON_RBUTTON_DWN | REGION_REASON_RBUTTON_UP;
 
+// Hit-test precedence between region sets: lower orders win, and sets with the
+// same order resolve by creation sequence. Screen sets pass the retail catalog
+// set index they replaced; everything else is dynamic.
+inline constexpr int kDynamicRegionSetOrder = 0x33;
+
 struct W8RegionSet {
     W8RegionSet() = default;
     unsigned int enabled = 0;
+    int order = kDynamicRegionSetOrder;
+    std::uint64_t sequence = 0;
     std::span<const unsigned int> Regions() const { return {region_ids.data(), active_count}; }
     void Reset() { active_count = 0; }
     unsigned int AddRegion(int priority = 0);
@@ -157,7 +164,8 @@ private:
 
 class OwnedRegionSet {
 public:
-    explicit OwnedRegionSet(std::span<const RegionTemplate> entries);
+    explicit OwnedRegionSet(std::span<const RegionTemplate> entries,
+                            int order = kDynamicRegionSetOrder);
     ~OwnedRegionSet();
     OwnedRegionSet(const OwnedRegionSet&) = delete;
     OwnedRegionSet& operator=(const OwnedRegionSet&) = delete;
@@ -180,7 +188,11 @@ private:
 // An owned region set over a constexpr template table, created and destroyed with its screen.
 class ScreenRegionSet {
 public:
-    explicit ScreenRegionSet(std::span<const RegionTemplate> templates) : templates_(templates) {}
+    explicit ScreenRegionSet(std::span<const RegionTemplate> templates,
+                             int order = kDynamicRegionSetOrder)
+        : templates_(templates), order_(order)
+    {
+    }
     void Create();
     void Destroy();
     explicit operator bool() const { return set_.has_value(); }
@@ -193,6 +205,7 @@ public:
 
 private:
     std::span<const RegionTemplate> templates_;
+    int order_;
     std::optional<OwnedRegionSet> set_;
 };
 
@@ -200,7 +213,8 @@ private:
 // Destroy it before its source.
 class RegionSetView {
 public:
-    RegionSetView(const OwnedRegionSet& source, std::size_t first, std::size_t count);
+    RegionSetView(const OwnedRegionSet& source, std::size_t first, std::size_t count,
+                  int order = kDynamicRegionSetOrder);
     ~RegionSetView();
     RegionSetView(const RegionSetView&) = delete;
     RegionSetView& operator=(const RegionSetView&) = delete;
@@ -228,6 +242,7 @@ private:
         unsigned int flags;
     };
     unsigned int set_;
+    std::uint64_t sequence_ = 0;
     SavedRegionState saved_current_{};
     SavedRegionState saved_captured_{};
     SavedRegionState saved_hover_{};
@@ -269,7 +284,7 @@ void SetRegionBounds(unsigned int region_index, unsigned short x1, unsigned shor
                      unsigned short x2, unsigned short y2);
 bool RegionContainsPoint(unsigned int region_index, unsigned short x, unsigned short y);
 bool RegionHasFlags(unsigned int region_index, unsigned int flags);
-unsigned int CreateRegionSet(void);
+unsigned int CreateRegionSet(int order = kDynamicRegionSetOrder);
 void DestroyRegionSet(unsigned int region_set_index);
 void ResetRegionSet(unsigned int region_set_index);
 unsigned int AddRegionToSet(unsigned int region_set_index, int priority = 0);

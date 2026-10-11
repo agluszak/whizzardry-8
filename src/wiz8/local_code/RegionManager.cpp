@@ -9,6 +9,7 @@
 #include <string_view>
 #include <string>
 #include <stdexcept>
+#include <utility>
 #include <vector>
 
 #include "wiz8/regions.h"
@@ -72,7 +73,10 @@ void CaptureInputSink()
 void ReleaseInputSinkCapture()
 {
     auto& region = InputSinkRegion();
-    if (region) ClearActiveRegionIfMatches(region->index(0));
+    if (!region) return;
+    ClearActiveRegionIfMatches(region->index(0));
+    region.DisableInput();
+    region.Disable();
 }
 
 // Retail catalog at GLOBAL WIZ8 0x00620048 / 0x0061f238 contained 313 regions / 51 sets; records now live with owning screens.
@@ -101,21 +105,32 @@ namespace {
 struct ExclusiveRegionScope {
     ExclusiveRegionSet* scope;
     unsigned int set_index;
+    std::uint64_t sequence;
 };
 
 std::vector<ExclusiveRegionScope> g_exclusive_region_sets;
 std::vector<unsigned int> g_reusable_region_indices;
 std::vector<unsigned int> g_reusable_region_set_indices;
+// Live set indices sorted by (order, sequence); the hit-test scan order.
+std::vector<unsigned int> g_region_set_scan_order;
+std::uint64_t g_region_set_sequence = 0;
 constexpr std::size_t kFirstDynamicRegionIndex = 1;
 constexpr std::size_t kFirstDynamicRegionSetIndex = 1;
 unsigned int g_control_region_set = 0;
 
+// A scope whose set slot was destroyed and reused must not expose the new occupant.
+bool ExclusiveScopeIsLive(const ExclusiveRegionScope& scope)
+{
+    return scope.set_index < g_region_sets.size() &&
+           g_region_sets[scope.set_index].sequence == scope.sequence;
+}
+
 bool RegionAllowedByExclusiveSet(unsigned int region_index)
 {
     if (g_exclusive_region_sets.empty()) return true;
-    const auto set_index = g_exclusive_region_sets.back().set_index;
-    if (set_index >= g_region_sets.size()) return false;
-    const auto region_indices = g_region_sets[set_index].Regions();
+    const auto& scope = g_exclusive_region_sets.back();
+    if (!ExclusiveScopeIsLive(scope)) return false;
+    const auto region_indices = g_region_sets[scope.set_index].Regions();
     return std::ranges::find(region_indices, region_index) != region_indices.end();
 }
 
@@ -207,41 +222,47 @@ void ReleaseDefaultHelpText(void)
     g_default_help_text.clear();
 }
 
+static bool FindEnabledRegionInSet(const W8RegionSet& set, unsigned short x, unsigned short y,
+                                   bool dispatch_coordinates, unsigned int* found_region)
+{
+    if (set.enabled != 1) return false;
+    bool found_in_set = false;
+    unsigned int best_region = 0;
+    int best_priority = 0;
+    for (const auto region_index : set.Regions()) {
+        if (!RegionContainsInputPoint(region_index, x, y, dispatch_coordinates)) continue;
+        const int priority = g_regions[region_index].priority;
+        if (found_in_set && priority <= best_priority) continue;
+        found_in_set = true;
+        best_region = region_index;
+        best_priority = priority;
+    }
+    if (found_in_set) *found_region = best_region;
+    return found_in_set;
+}
+
+/* Sets are scanned by declared order, then creation sequence; the widget
+   control set is always consulted last. A modal scope restricts the scan to
+   its own set. */
 static bool FindEnabledRegionAtPoint(unsigned short x, unsigned short y, unsigned int* found_region,
                                      bool dispatch_coordinates = false)
 {
-    const bool exclusive = !g_exclusive_region_sets.empty();
-    const unsigned int first_set = exclusive ? g_exclusive_region_sets.back().set_index : 0;
-    const unsigned int set_count = exclusive ? 1 : 2;
-    for (unsigned int pass = 0; pass < set_count; ++pass) {
-        const bool control_set_pass = pass != 0;
-        const unsigned int end_set =
-            exclusive ? first_set + 1 : static_cast<unsigned int>(g_region_sets.size());
-        for (unsigned int set_index = first_set; set_index < end_set; ++set_index) {
-            if (set_index >= g_region_sets.size()) break;
-            const auto& set = g_region_sets[set_index];
-            if (set.enabled != 1 ||
-                (!exclusive && (set_index == g_control_region_set) != control_set_pass)) {
-                continue;
-            }
-            bool found_in_set = false;
-            unsigned int best_region = 0;
-            int best_priority = 0;
-            for (const auto region_index : set.Regions()) {
-                if (!RegionContainsInputPoint(region_index, x, y, dispatch_coordinates)) continue;
-                const int priority = g_regions[region_index].priority;
-                if (found_in_set && priority <= best_priority) continue;
-                found_in_set = true;
-                best_region = region_index;
-                best_priority = priority;
-            }
-            if (found_in_set) {
-                *found_region = best_region;
-                return true;
-            }
+    if (!g_exclusive_region_sets.empty()) {
+        const auto& scope = g_exclusive_region_sets.back();
+        return ExclusiveScopeIsLive(scope) &&
+               FindEnabledRegionInSet(g_region_sets[scope.set_index], x, y, dispatch_coordinates,
+                                      found_region);
+    }
+    for (const auto set_index : g_region_set_scan_order) {
+        if (set_index >= g_region_sets.size() || set_index == g_control_region_set) continue;
+        if (FindEnabledRegionInSet(g_region_sets[set_index], x, y, dispatch_coordinates,
+                                   found_region)) {
+            return true;
         }
     }
-    return false;
+    return g_control_region_set != 0 && g_control_region_set < g_region_sets.size() &&
+           FindEnabledRegionInSet(g_region_sets[g_control_region_set], x, y, dispatch_coordinates,
+                                  found_region);
 }
 
 namespace {
@@ -297,7 +318,8 @@ W8Region* FindDispatchRegion(const DispatchPoint& point, unsigned int& region_in
 }
 }
 
-ExclusiveRegionSet::ExclusiveRegionSet(unsigned int set) : set_(set)
+ExclusiveRegionSet::ExclusiveRegionSet(unsigned int set)
+    : set_(set), sequence_(set < g_region_sets.size() ? g_region_sets[set].sequence : 0)
 {
     const auto save_region = [](unsigned int index) {
         SavedRegionState saved{index, 0, 0};
@@ -335,7 +357,7 @@ ExclusiveRegionSet::ExclusiveRegionSet(unsigned int set) : set_(set)
     g_current_region_index = 0;
     g_captured_region_index = 0;
     g_hover_region_index = 0;
-    g_exclusive_region_sets.push_back({this, set_});
+    g_exclusive_region_sets.push_back({this, set_, sequence_});
 }
 
 ExclusiveRegionSet::~ExclusiveRegionSet()
@@ -870,20 +892,46 @@ void ResetRegionHelp(bool delayed)
     }
 }
 
-// FUNCTION: WIZ8 0x004f2880
-unsigned int CreateRegionSet(void)
+static void RemoveFromScanOrder(unsigned int set_index)
 {
+    std::erase(g_region_set_scan_order, set_index);
+}
+
+static void InsertIntoScanOrder(unsigned int set_index)
+{
+    RemoveFromScanOrder(set_index);
+    const auto& set = g_region_sets[set_index];
+    const auto key = std::pair{set.order, set.sequence};
+    const auto position = std::ranges::upper_bound(
+        g_region_set_scan_order, key, {}, [](unsigned int index) {
+            return std::pair{g_region_sets[index].order, g_region_sets[index].sequence};
+        });
+    g_region_set_scan_order.insert(position, set_index);
+}
+
+// FUNCTION: WIZ8 0x004f2880
+unsigned int CreateRegionSet(int order)
+{
+    unsigned int set_index = 0;
     while (!g_reusable_region_set_indices.empty()) {
-        const auto set_index = g_reusable_region_set_indices.back();
+        const auto candidate = g_reusable_region_set_indices.back();
         g_reusable_region_set_indices.pop_back();
-        if (set_index < kFirstDynamicRegionSetIndex || set_index >= g_region_sets.size()) {
+        if (candidate < kFirstDynamicRegionSetIndex || candidate >= g_region_sets.size()) {
             continue;
         }
-        g_region_sets[set_index] = W8RegionSet{};
-        return set_index;
+        set_index = candidate;
+        break;
     }
-    g_region_sets.emplace_back();
-    return static_cast<unsigned int>(g_region_sets.size() - 1);
+    if (set_index == 0) {
+        g_region_sets.emplace_back();
+        set_index = static_cast<unsigned int>(g_region_sets.size() - 1);
+    }
+    auto& set = g_region_sets[set_index];
+    set = W8RegionSet{};
+    set.order = order;
+    set.sequence = ++g_region_set_sequence;
+    InsertIntoScanOrder(set_index);
+    return set_index;
 }
 
 static void ReleaseRegionSetSlot(unsigned int region_set_index)
@@ -892,6 +940,7 @@ static void ReleaseRegionSetSlot(unsigned int region_set_index)
         region_set_index >= g_region_sets.size() || region_set_index == g_control_region_set) {
         return;
     }
+    RemoveFromScanOrder(region_set_index);
     g_region_sets[region_set_index] = W8RegionSet{};
     if (std::ranges::find(g_reusable_region_set_indices, region_set_index) ==
         g_reusable_region_set_indices.end()) {
@@ -1053,8 +1102,8 @@ OwnedRegion::OwnedRegion(unsigned int set, const RegionTemplate& entry)
     generation_ = ++owned_region.binding_generation;
 }
 
-OwnedRegionSet::OwnedRegionSet(std::span<const RegionTemplate> entries)
-    : set_(CreateRegionSet())
+OwnedRegionSet::OwnedRegionSet(std::span<const RegionTemplate> entries, int order)
+    : set_(CreateRegionSet(order))
 {
     try {
         regions_.reserve(entries.size());
@@ -1105,7 +1154,7 @@ bool OwnedRegionSet::IsEnabled() const
 void ScreenRegionSet::Create()
 {
     if (!set_) {
-        set_.emplace(templates_);
+        set_.emplace(templates_, order_);
     }
 }
 
@@ -1142,12 +1191,13 @@ void ScreenRegionSet::DisableInput()
     }
 }
 
-RegionSetView::RegionSetView(const OwnedRegionSet& source, std::size_t first, std::size_t count)
+RegionSetView::RegionSetView(const OwnedRegionSet& source, std::size_t first, std::size_t count,
+                             int order)
 {
     if (first > source.size() || count > source.size() - first) {
         throw std::out_of_range("region set view range out of bounds");
     }
-    set_ = CreateRegionSet();
+    set_ = CreateRegionSet(order);
     try {
         auto& view = g_region_sets.at(set_);
         for (std::size_t index = first; index < first + count; ++index) {

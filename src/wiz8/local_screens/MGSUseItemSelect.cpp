@@ -98,7 +98,7 @@ static constexpr std::array<RegionTemplate, 5> g_use_item_select_region_template
     {0x00000001, 0, 0, 0, 0, UseItemSelectControlRegionEvent, 3, true, 99},
     {0x00000001, 0, 0, 0, 0, UseItemSelectControlRegionEvent, 8, true, 17},
 }};
-ScreenRegionSet g_use_item_select_regions{g_use_item_select_region_templates};
+ScreenRegionSet g_use_item_select_regions{g_use_item_select_region_templates, 0x1a};
 
 void UpdateUseItemScrollButtons(void);
 static void RebuildUseItemSelectList(int mode, W8ItemInstance* select);

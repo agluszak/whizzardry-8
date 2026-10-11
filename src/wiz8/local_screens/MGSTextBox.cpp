@@ -85,7 +85,7 @@ unsigned int TextBoxRegionIndex(TextBoxRegion region)
 
 } // namespace
 
-ScreenRegionSet g_text_box_regions{kTextBoxRegionTemplates};
+ScreenRegionSet g_text_box_regions{kTextBoxRegionTemplates, 0x14};
 static std::optional<RegionSetView> g_dialogue_text_box_region_view;
 
 /* The TEXT chunk's 0x24-byte form is separate from the live message record:
@@ -291,7 +291,7 @@ void InitTextBoxRegions()
 {
     g_text_box_regions.Create();
     if (!g_dialogue_text_box_region_view) {
-        g_dialogue_text_box_region_view.emplace(*g_text_box_regions, 0, 4);
+        g_dialogue_text_box_region_view.emplace(*g_text_box_regions, 0, 4, 0x15); // Retail set 0x15
     }
 }
 

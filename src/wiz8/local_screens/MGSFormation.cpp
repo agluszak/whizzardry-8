@@ -88,7 +88,7 @@ static constexpr std::array<RegionTemplate, 19> g_formation_region_templates{{
     {0x00000001, 0, 0, 0, 0, FormationActionRegionEvent, 2, true, 1983},
     {0x00000001, 214, 60, 427, 303, FormationBackgroundRegionEvent, 0, false, -1},
 }};
-ScreenRegionSet g_formation_regions{g_formation_region_templates};
+ScreenRegionSet g_formation_regions{g_formation_region_templates, 0x1b};
 
 static void UpdateFormationCells(void);
 void ResetFormationCellControls(int cell);

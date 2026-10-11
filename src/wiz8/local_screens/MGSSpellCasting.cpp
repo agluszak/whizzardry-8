@@ -97,7 +97,7 @@ static constexpr std::array<RegionTemplate, 17> g_spell_casting_region_templates
     {0x00000001, 0, 0, 0, 0, IgnoreSpellCastingInput, 0, true, 55},
     {0x00000001, 0, 0, 0, 0, SpellPowerPipRegionEvent, 10, true, 17},
 }};
-ScreenRegionSet g_spell_casting_regions{g_spell_casting_region_templates};
+ScreenRegionSet g_spell_casting_regions{g_spell_casting_region_templates, 0x19};
 
 int GetSpellCastingPowerIndex(void)
 {

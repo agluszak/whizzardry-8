@@ -871,44 +871,59 @@ static constexpr std::array<RegionTemplate, 8> g_party_portrait_event_templates{
     {0x00000001, 0, 0, 0, 0, PartyPortraitEventRegionEvent, 6, false, -1},
     {0x00000001, 0, 0, 0, 0, PartyPortraitEventRegionEvent, 7, false, -1},
 }};
-std::array<ScreenRegionSet, 8> g_party_portrait_event_regions{
-    ScreenRegionSet{std::span<const RegionTemplate>(g_party_portrait_event_templates.data() + 0, 1)},
-    ScreenRegionSet{std::span<const RegionTemplate>(g_party_portrait_event_templates.data() + 1, 1)},
-    ScreenRegionSet{std::span<const RegionTemplate>(g_party_portrait_event_templates.data() + 2, 1)},
-    ScreenRegionSet{std::span<const RegionTemplate>(g_party_portrait_event_templates.data() + 3, 1)},
-    ScreenRegionSet{std::span<const RegionTemplate>(g_party_portrait_event_templates.data() + 4, 1)},
-    ScreenRegionSet{std::span<const RegionTemplate>(g_party_portrait_event_templates.data() + 5, 1)},
-    ScreenRegionSet{std::span<const RegionTemplate>(g_party_portrait_event_templates.data() + 6, 1)},
-    ScreenRegionSet{std::span<const RegionTemplate>(g_party_portrait_event_templates.data() + 7, 1)},
-};
+/* Retail kept these eight single-region sets for the whole process; the main
+   game and camp both drive them while the other screen is suspended, so no
+   screen owns them. They are created on first use and never torn down. */
+static std::array<ScreenRegionSet, 8>& PartyPortraitEventRegions()
+{
+    static std::array<ScreenRegionSet, 8> regions{
+        ScreenRegionSet{std::span<const RegionTemplate>(g_party_portrait_event_templates.data() + 0, 1),
+                        0x1d + 0},
+        ScreenRegionSet{std::span<const RegionTemplate>(g_party_portrait_event_templates.data() + 1, 1),
+                        0x1d + 1},
+        ScreenRegionSet{std::span<const RegionTemplate>(g_party_portrait_event_templates.data() + 2, 1),
+                        0x1d + 2},
+        ScreenRegionSet{std::span<const RegionTemplate>(g_party_portrait_event_templates.data() + 3, 1),
+                        0x1d + 3},
+        ScreenRegionSet{std::span<const RegionTemplate>(g_party_portrait_event_templates.data() + 4, 1),
+                        0x1d + 4},
+        ScreenRegionSet{std::span<const RegionTemplate>(g_party_portrait_event_templates.data() + 5, 1),
+                        0x1d + 5},
+        ScreenRegionSet{std::span<const RegionTemplate>(g_party_portrait_event_templates.data() + 6, 1),
+                        0x1d + 6},
+        ScreenRegionSet{std::span<const RegionTemplate>(g_party_portrait_event_templates.data() + 7, 1),
+                        0x1d + 7},
+    };
+    return regions;
+}
 void SetPartyPortraitEventBounds(unsigned int slot, unsigned short x, unsigned short y,
                                  unsigned short right, unsigned short bottom)
 {
-    if (slot < g_party_portrait_event_regions.size() && g_party_portrait_event_regions[slot])
-        SetRegionBounds(g_party_portrait_event_regions[slot]->index(0), x, y, right, bottom);
+    auto& regions = PartyPortraitEventRegions();
+    if (slot >= regions.size()) return;
+    regions[slot].Create();
+    SetRegionBounds(regions[slot]->index(0), x, y, right, bottom);
 }
 void EnablePartyPortraitEvent(unsigned int slot)
 {
-    if (slot < g_party_portrait_event_regions.size() && g_party_portrait_event_regions[slot]) {
-        g_party_portrait_event_regions[slot].Enable();
-        g_party_portrait_event_regions[slot].EnableInput();
-    }
+    auto& regions = PartyPortraitEventRegions();
+    if (slot >= regions.size()) return;
+    regions[slot].Create();
+    regions[slot].Enable();
+    regions[slot].EnableInput();
 }
 void DisablePartyPortraitEvent(unsigned int slot)
 {
-    if (slot < g_party_portrait_event_regions.size() && g_party_portrait_event_regions[slot]) {
-        g_party_portrait_event_regions[slot].Disable();
-        g_party_portrait_event_regions[slot].DisableInput();
+    auto& regions = PartyPortraitEventRegions();
+    if (slot < regions.size() && regions[slot]) {
+        regions[slot].Disable();
+        regions[slot].DisableInput();
     }
 }
 
 void CreatePartyPortraitEventRegions()
 {
-    for (auto& region_set : g_party_portrait_event_regions) region_set.Create();
-}
-void DestroyPartyPortraitEventRegions()
-{
-    for (auto& region_set : g_party_portrait_event_regions) region_set.Destroy();
+    for (auto& region_set : PartyPortraitEventRegions()) region_set.Create();
 }
 
 /* Turn a party-slot portrait/voice event on or off, optionally

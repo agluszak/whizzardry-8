@@ -154,10 +154,12 @@ constexpr std::array<RegionTemplate, 1> kNpcQuoteBubbleRegionTemplates{{
 } // namespace
 
 ScreenRegionSet g_npc_dialogue_transcript_panel_regions{
-    kNpcDialogueTranscriptPanelRegionTemplates};
-ScreenRegionSet g_npc_dialogue_trade_panel_regions{kNpcDialogueTradePanelRegionTemplates};
-ScreenRegionSet g_npc_dialogue_options_panel_regions{kNpcDialogueOptionsPanelRegionTemplates};
-ScreenRegionSet g_npc_quote_bubble_regions{kNpcQuoteBubbleRegionTemplates};
+    kNpcDialogueTranscriptPanelRegionTemplates, 0x16};
+ScreenRegionSet g_npc_dialogue_trade_panel_regions{kNpcDialogueTradePanelRegionTemplates,
+                                                   0x17};
+ScreenRegionSet g_npc_dialogue_options_panel_regions{kNpcDialogueOptionsPanelRegionTemplates,
+                                                     0x18};
+ScreenRegionSet g_npc_quote_bubble_regions{kNpcQuoteBubbleRegionTemplates, 0x25};
 
 void ShowNpcQuoteBubbleRegion(int x1, int y1, int x2, int y2)
 {

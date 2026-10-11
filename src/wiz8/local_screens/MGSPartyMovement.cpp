@@ -56,7 +56,7 @@ static constexpr std::array<RegionTemplate, 2> g_party_movement_region_templates
     {0x00000001, 0, 0, 0, 0, FreeTurnButtonRegionEvent, 0, true, 37},
     {0x00000001, 0, 0, 0, 0, FreeTurnButtonRegionEvent, 1, true, 38},
 }};
-ScreenRegionSet g_party_movement_regions{g_party_movement_region_templates};
+ScreenRegionSet g_party_movement_regions{g_party_movement_region_templates, 0x1c};
 
 // GLOBAL: WIZ8 0x005EECD0
 const float g_movement_fatigue_tick_scale = 0.0004f;

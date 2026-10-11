@@ -93,7 +93,7 @@ static constexpr std::array<RegionTemplate, 14> g_keyboard_menu_region_templates
     {0x00000001, 0, 0, 0, 0, KeyboardMenuRowRegionEvent, 12, true, -1},
     {0x00000001, 0, 0, 0, 0, KeyboardMenuBackgroundRegionEvent, 0, false, -1},
 }};
-ScreenRegionSet g_keyboard_menu_regions{g_keyboard_menu_region_templates};
+ScreenRegionSet g_keyboard_menu_regions{g_keyboard_menu_region_templates, 0x26};
 
 // FUNCTION: WIZ8 0x0055d260
 int MGSKeyboard::FindBinding(W8MGSCommand command) const

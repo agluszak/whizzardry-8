@@ -74,7 +74,6 @@ bool BlitPartyPortraitAnimation(int portrait, int left, int top, SpriteDraw opti
 void SetPartyPortraitEventState(unsigned int party_slot, bool active, unsigned int event_type,
                                 std::string_view quote_text, int show_quote);
 void CreatePartyPortraitEventRegions();
-void DestroyPartyPortraitEventRegions();
 extern int g_special_event2;
 extern unsigned int g_event_range_max;
 extern int g_special_event18; /* One of the three melee

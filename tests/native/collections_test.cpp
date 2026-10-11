@@ -149,11 +149,11 @@ TEST_CASE("widget_region_lifetimes")
     Controls failing_panel;
     unsigned failing_set = 0;
     failing_panel.AcquireRegionSet(&failing_set);
-    const auto failed_region = g_regions.size();
+    const auto live_before_failure = LiveDynamicRegionCount();
     REQUIRE_THROWS_AS(new FailingWidget(failing_panel), std::runtime_error);
     REQUIRE(failing_panel.ControlCount() == 0);
-    REQUIRE(g_regions[failed_region].widget == nullptr);
-    REQUIRE(g_regions[failed_region].callback == nullptr);
+    REQUIRE(g_region_sets[failing_set].Regions().empty());
+    REQUIRE(LiveDynamicRegionCount() == live_before_failure);
 
     // An old widget may outlive a rebuilt screen using the same region slots.
     Controls old_panel, replacement_panel;

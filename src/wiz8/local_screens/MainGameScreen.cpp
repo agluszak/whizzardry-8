@@ -3042,12 +3042,14 @@ static constexpr std::array<RegionTemplate, 26> g_main_effect_templates{{
     {0x00000001, 0, 0, 0, 0, WorldViewRegionEvent, 0, false, 23},
 }};
 
+// Retail sets 0x07-0x0e (one per party slot) and 0x11.
 void CreateMainGameRegionViews()
 {
     for (unsigned int slot = 0; slot < 8; ++slot) {
-        g_main_portrait_slot_views[slot].emplace(*g_main_portrait_regions, slot * 6, 6);
+        g_main_portrait_slot_views[slot].emplace(*g_main_portrait_regions, slot * 6, 6,
+                                                 0x07 + static_cast<int>(slot));
     }
-    g_main_portrait_edge_view.emplace(*g_main_portrait_edge_regions, 0, 8);
+    g_main_portrait_edge_view.emplace(*g_main_portrait_edge_regions, 0, 8, 0x11);
 }
 void DestroyMainGameRegionViews()
 {
@@ -3055,33 +3057,18 @@ void DestroyMainGameRegionViews()
     for (auto& view : g_main_portrait_slot_views) view.reset();
 }
 }
-ScreenRegionSet g_main_party_controls{g_main_party_controls_templates};
-ScreenRegionSet g_main_screen{g_main_screen_template};
-ScreenRegionSet g_main_dialogue{g_main_dialogue_template};
-ScreenRegionSet g_main_combat_actions{g_main_combat_action_templates};
-ScreenRegionSet g_main_portrait_controls{g_main_portrait_control_templates};
-ScreenRegionSet g_main_conditions{g_main_condition_templates};
-ScreenRegionSet g_main_portrait_regions{g_main_portrait_templates};
-ScreenRegionSet g_main_portrait_edge_regions{g_main_portrait_edge_templates};
-ScreenRegionSet g_main_radar_regions{g_main_radar_template};
-ScreenRegionSet g_main_formation_board_regions{g_main_formation_board_templates};
-ScreenRegionSet g_main_submenu_regions{g_main_submenu_templates};
-ScreenRegionSet g_main_effect_regions{g_main_effect_templates};
-
-/* Put the main region set up, and take it down again with its mode reset -
-   the two are not symmetric, which is what the extra call shows. */
-// FUNCTION: WIZ8 0x00561fa0
-void EnableMainRegionSet(void)
-{
-    g_main_screen.Enable();
-}
-
-// FUNCTION: WIZ8 0x00561fb0
-void DisableMainRegionSet(void)
-{
-    g_main_screen.Disable();
-    g_main_screen.DisableInput();
-}
+ScreenRegionSet g_main_party_controls{g_main_party_controls_templates, 0x01};
+ScreenRegionSet g_main_screen{g_main_screen_template, 0x02};
+ScreenRegionSet g_main_dialogue{g_main_dialogue_template, 0x03};
+ScreenRegionSet g_main_combat_actions{g_main_combat_action_templates, 0x04};
+ScreenRegionSet g_main_portrait_controls{g_main_portrait_control_templates, 0x05};
+ScreenRegionSet g_main_conditions{g_main_condition_templates, 0x06};
+ScreenRegionSet g_main_portrait_regions{g_main_portrait_templates, 0x0f};
+ScreenRegionSet g_main_portrait_edge_regions{g_main_portrait_edge_templates, 0x10};
+ScreenRegionSet g_main_radar_regions{g_main_radar_template, 0x12};
+ScreenRegionSet g_main_formation_board_regions{g_main_formation_board_templates, 0x13};
+ScreenRegionSet g_main_submenu_regions{g_main_submenu_templates, 0x27};
+ScreenRegionSet g_main_effect_regions{g_main_effect_templates, 0x28};
 
 void EnableMainGamePortraitSlot(unsigned int slot) {
     if (slot < g_main_portrait_slot_views.size() && g_main_portrait_slot_views[slot]) {
@@ -3719,7 +3706,6 @@ unsigned char MainGameScreenLeave(int leaving)
         if (gXStatus.fPartyMovementUi) {
             ReleasePartyMovement();
         }
-        DestroyPartyPortraitEventRegions();
         DestroyMainGameRegionViews();
         g_main_effect_regions.Destroy();
         g_game_time_combat_bar_region.Destroy();

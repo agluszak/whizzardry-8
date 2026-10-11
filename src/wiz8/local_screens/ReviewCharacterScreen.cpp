@@ -316,14 +316,14 @@ static constexpr std::array<RegionTemplate, 1> g_camp_overlay_templates{{
     {0x00000001, 0, 0, 639, 479, nullptr, 0, false, -1},
 }};
 
-ScreenRegionSet g_camp_main_regions{g_camp_main_templates};
-ScreenRegionSet g_camp_inventory_regions{g_camp_inventory_templates};
-ScreenRegionSet g_camp_item_pool_regions{g_camp_item_pool_templates};
-ScreenRegionSet g_camp_spell_list_regions{g_camp_spell_list_templates};
-ScreenRegionSet g_camp_page_regions{g_camp_page_templates};
-ScreenRegionSet g_camp_item_action_regions{g_camp_item_action_templates};
-ScreenRegionSet g_camp_automap_regions{g_camp_automap_templates};
-ScreenRegionSet g_camp_overlay_regions{g_camp_overlay_templates};
+ScreenRegionSet g_camp_main_regions{g_camp_main_templates, 0x29};
+ScreenRegionSet g_camp_inventory_regions{g_camp_inventory_templates, 0x2a};
+ScreenRegionSet g_camp_item_pool_regions{g_camp_item_pool_templates, 0x2b};
+ScreenRegionSet g_camp_spell_list_regions{g_camp_spell_list_templates, 0x2c};
+ScreenRegionSet g_camp_page_regions{g_camp_page_templates, 0x2d};
+ScreenRegionSet g_camp_item_action_regions{g_camp_item_action_templates, 0x2e};
+ScreenRegionSet g_camp_automap_regions{g_camp_automap_templates, 0x2f};
+ScreenRegionSet g_camp_overlay_regions{g_camp_overlay_templates, 0x30};
 /* Enable or disable the six spell-realm scrollbars together. While enabling, a
    realm whose learned spells fit the eight visible rows keeps its bar off. */
 // FUNCTION: WIZ8 0x005B71C0
@@ -1290,8 +1290,6 @@ void W8CampSpellRange::OnRangeChanged(W8RangeControl*)
 unsigned char CampScreenInitialize(void)
 {
     g_camp_screen = 0;
-    CampScreenInitializeRegions();
-    LayoutCampSecondaryRegions();
     return 1;
 }
 
@@ -1328,9 +1326,10 @@ void CampScreenInitializeRegions(void)
     }
 }
 
-/* The camp screen's remaining six regions, three across and two down. The
-   initializer calls this immediately after the block above; nothing else
-   reaches it, and nothing here names what the six cells hold. */
+/* The camp screen's remaining six regions, three across and two down. Camp
+   entry calls this immediately after the block above, once the region sets
+   exist; nothing else reaches it, and nothing here names what the six cells
+   hold. */
 // FUNCTION: WIZ8 0x005b7230
 void LayoutCampSecondaryRegions(void)
 {
@@ -1379,6 +1378,8 @@ unsigned char CampScreenEnter(void)
     g_camp_item_action_regions.Create();
     g_camp_automap_regions.Create();
     g_camp_overlay_regions.Create();
+    CampScreenInitializeRegions();
+    LayoutCampSecondaryRegions();
     g_camp_screen->item_action = initial_item_action;
     for (unsigned int filter = 0; filter < W8_CAMP_ITEM_FILTER_COUNT; ++filter) {
         g_camp_screen->item_filters[filter] = 0;
@@ -1576,7 +1577,6 @@ unsigned char CampScreenLeave(int)
     g_camp_item_pool_regions.Destroy();
     g_camp_inventory_regions.Destroy();
     g_camp_main_regions.Destroy();
-    DestroyPartyPortraitEventRegions();
     ResetRegions();
     if (gXStatus.fCampMode) {
         gXStatus.dialogue_sync_pending = true;
