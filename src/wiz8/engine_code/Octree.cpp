@@ -1,3 +1,4 @@
+#include "wiz8/engine_code/mesh_links.h"
 #include <array>
 #include "wiz8/octree_walk.h"
 #include <fmt/format.h>
@@ -277,19 +278,13 @@ void W8Octree::UpdateVisibility()
         for (index = 0; index < m_usNumPropsLoaded; ++index) {
             m_papProps[index]->SetActivationState(0);
         }
-        if (m_pusMeshProps != 0) {
-            for (index = 0; m_pusMeshProps[index] != 0; ++index) {
-                m_papProps[m_pusMeshProps[index] - 1]->SetActivationState(1);
-            }
-        }
+        for (const auto id : m_prop_links.alwaysVisible())
+            m_papProps[id - 1]->SetActivationState(1);
         for (index = 0; index < m_usNumParticlesLoaded; ++index) {
             m_papParticles[index]->SetTraversalEnabled(false);
         }
-        if (m_pusMeshParticles != 0) {
-            for (index = 0; m_pusMeshParticles[index] != 0; ++index) {
-                m_papParticles[m_pusMeshParticles[index] - 1]->SetTraversalEnabled(true);
-            }
-        }
+        for (const auto id : m_particle_links.alwaysVisible())
+            m_papParticles[id - 1]->SetTraversalEnabled(true);
         ValidateRegionMeshLinks();
         std::ranges::fill(m_previous_regions, false);
         std::ranges::fill(m_accumulated_regions, false);
@@ -362,9 +357,8 @@ void W8Octree::UpdateVisibility()
         MarkMeshLinksVisible(static_cast<unsigned int>(region));
     }
     if (m_ulNumParticles != 0) {
-        for (index = 0; m_pusMeshParticles[index] != 0; ++index) {
-            SetBit(m_linked_particles, m_pusMeshParticles[index] - 1);
-        }
+        for (const auto id : m_particle_links.alwaysVisible())
+            SetBit(m_linked_particles, id - 1);
         for (std::size_t particle = 0; particle < m_linked_particles.size(); ++particle) {
             if (m_linked_particles[particle] && !m_visible_particles[particle]) {
                 m_papParticles[particle]->SetTraversalEnabled(true);
@@ -375,9 +369,8 @@ void W8Octree::UpdateVisibility()
         m_visible_particles = m_linked_particles;
     }
     if (m_ulNumProps != 0) {
-        for (index = 0; m_pusMeshProps[index] != 0; ++index) {
-            SetBit(m_linked_props, m_pusMeshProps[index] - 1);
-        }
+        for (const auto id : m_prop_links.alwaysVisible())
+            SetBit(m_linked_props, id - 1);
         for (std::size_t prop = 0; prop < m_linked_props.size(); ++prop) {
             if (m_linked_props[prop] && !m_visible_props[prop]) {
                 m_papProps[prop]->SetActivationState(1);
@@ -483,41 +476,10 @@ int W8Octree::CollectModelsNearPoint(std::vector<stModelInstance*>& out,
 // FUNCTION: WIZ8 0x00430a70
 void W8Octree::MarkMeshLinksVisible(unsigned int mesh)
 {
-    if (mesh > m_meshCount) {
-        return;
-    }
-    if (m_ulNumParticles != 0) {
-        unsigned short link = m_pusMeshParticleLookup[mesh];
-        if (link != 0 && m_pusMeshParticles[link] != 0) {
-            do {
-                if (m_usMeshParticlesLen < link) {
-                    srAssertFail("usProp<=m_usMeshParticlesLen", OCTREE_CPP, 0xa07,
-                                 "Particle lookup index out of range");
-                }
-                unsigned short particle = m_pusMeshParticles[link];
-                ++link;
-                if (particle <= m_usNumParticlesLoaded && m_papParticles[particle] != 0) {
-                    SetBit(m_linked_particles, particle - 1);
-                }
-            } while (m_pusMeshParticles[link] != 0);
-        }
-    }
-    if (m_ulNumProps != 0) {
-        unsigned short link = m_pusMeshPropLookup[mesh];
-        if (link != 0 && m_pusMeshProps[link] != 0) {
-            do {
-                if (m_usMeshPropsLen < link) {
-                    srAssertFail("usProp<=m_usMeshPropsLen", OCTREE_CPP, 0xa1b,
-                                 "Prop lookup index out of range");
-                }
-                unsigned short prop = m_pusMeshProps[link];
-                ++link;
-                if (prop <= m_usNumPropsLoaded && m_papProps[prop] != 0) {
-                    SetBit(m_linked_props, prop - 1);
-                }
-            } while (m_pusMeshProps[link] != 0);
-        }
-    }
+    if (mesh > m_meshCount) return;
+    m_particle_links.markVisible(mesh, std::span<stParticle* const>(m_papParticles, m_usNumParticlesLoaded),
+                                m_linked_particles);
+    m_prop_links.markVisible(mesh, std::span<W8Prop* const>(m_papProps, m_usNumPropsLoaded), m_linked_props);
 }
 
 /* Expand the camera box over the spatial levels and collect the regions the
@@ -2779,28 +2741,9 @@ W8Octree::W8Octree(const char* path, W8GameData** game_data)
                     throw std::runtime_error("Could not read octree alpha bits.");
                 }
             }
-            if (m_ulNumParticles != 0) {
-                m_pusMeshParticleLookup = static_cast<unsigned short*>(
-                    malloc((std::size_t{m_meshCount} + 1) * sizeof(unsigned short)));
-                m_pusMeshParticles = static_cast<unsigned short*>(
-                    malloc(std::size_t{m_usMeshParticlesLen} * sizeof(unsigned short)));
-                if (!m_pusMeshParticleLookup || (m_usMeshParticlesLen != 0 && !m_pusMeshParticles)) {
-                    throw std::bad_alloc();
-                }
-                hOctFile->read_exact(m_pusMeshParticleLookup, (std::size_t{m_meshCount} + 1) * sizeof(unsigned short));
-                hOctFile->read_exact(m_pusMeshParticles, std::size_t{m_usMeshParticlesLen} * sizeof(unsigned short));
-            }
-            if (m_ulNumProps != 0) {
-                m_pusMeshPropLookup = static_cast<unsigned short*>(
-                    malloc((std::size_t{m_meshCount} + 1) * sizeof(unsigned short)));
-                m_pusMeshProps = static_cast<unsigned short*>(
-                    malloc(std::size_t{m_usMeshPropsLen} * sizeof(unsigned short)));
-                if (!m_pusMeshPropLookup || (m_usMeshPropsLen != 0 && !m_pusMeshProps)) {
-                    throw std::bad_alloc();
-                }
-                hOctFile->read_exact(m_pusMeshPropLookup, (std::size_t{m_meshCount} + 1) * sizeof(unsigned short));
-                hOctFile->read_exact(m_pusMeshProps, std::size_t{m_usMeshPropsLen} * sizeof(unsigned short));
-            }
+            if (m_ulNumParticles != 0) m_particle_links.read(*hOctFile, m_meshCount);
+            if (m_ulNumProps != 0) m_prop_links.read(*hOctFile, m_meshCount);
+
         }
         hOctFile->read_exact(&uiTerminator, sizeof(uiTerminator));
         if (uiTerminator != 0xffffffff) {
@@ -2964,12 +2907,8 @@ void W8Octree::Reset()
     m_path_clearance = 0;
     pathing = 0;
     m_fAccumulating = false;
-    m_pusMeshParticleLookup = 0;
-    m_pusMeshParticles = 0;
-    m_usMeshParticlesLen = 0;
-    m_pusMeshPropLookup = 0;
-    m_pusMeshProps = 0;
-    m_usMeshPropsLen = 0;
+    m_particle_links = {};
+    m_prop_links = {};
     m_ulNumParticles = 0;
     m_papProps = 0;
     m_papParticles = 0;
@@ -3063,8 +3002,8 @@ void W8Octree::Initialize(const W8OctFileHeader* header)
         m_path_clearance = header->m_path_clearance;
         m_spatial.m_max_region_radius = header->m_max_region_radius;
         m_ulNumProps = header->m_prop_count;
-        m_usMeshParticlesLen = header->m_particle_len;
-        m_usMeshPropsLen = header->m_prop_len;
+        m_particle_links.records.resize(header->m_particle_len);
+        m_prop_links.records.resize(header->m_prop_len);
         m_ulNumParticles = header->m_particle_count;
 
         if (m_ulNumParticles != 0) {
@@ -3194,22 +3133,8 @@ W8Octree::~W8Octree()
         free(m_pfRegsVisited);
     }
 
-    if (m_pusMeshParticleLookup != 0) {
-        free(m_pusMeshParticleLookup);
-    }
-    m_pusMeshParticleLookup = 0;
-    if (m_pusMeshParticles != 0) {
-        free(m_pusMeshParticles);
-    }
-    m_pusMeshParticles = 0;
-    if (m_pusMeshPropLookup != 0) {
-        free(m_pusMeshPropLookup);
-    }
-    m_pusMeshPropLookup = 0;
-    if (m_pusMeshProps != 0) {
-        free(m_pusMeshProps);
-    }
-    m_pusMeshProps = 0;
+    m_particle_links = {};
+    m_prop_links = {};
     if (m_papProps != 0) {
         free(m_papProps);
     }
@@ -3970,4 +3895,17 @@ unsigned int W8Octree::FindNavigatorPosition(srVector3T<float>* source, float ya
         } while (remaining != 0);
     }
     return found;
+}
+
+void OctreeMeshLinks::read(wiz8::File& file, std::size_t mesh_count)
+{
+    lookup.resize(mesh_count + 1);
+    file.read_exact(lookup.data(), lookup.size() * sizeof(unsigned short));
+    file.read_exact(records.data(), records.size() * sizeof(unsigned short));
+}
+
+void OctreeMeshLinks::write(wiz8::File& file, std::size_t mesh_count) const
+{
+    file.write(lookup.data(), (mesh_count + 1) * sizeof(unsigned short));
+    file.write(records.data(), records.size() * sizeof(unsigned short));
 }

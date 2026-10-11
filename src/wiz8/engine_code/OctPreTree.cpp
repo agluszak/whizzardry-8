@@ -238,9 +238,9 @@ try
     header.m_region_list_len = m_region_list_len;
     header.m_region_cell = m_region_cell;
     header.m_max_region_radius = m_spatial.m_max_region_radius;
-    header.m_particle_len = m_usMeshParticlesLen;
+    header.m_particle_len = static_cast<unsigned short>(m_particle_links.records.size());
     header.m_region_grid_cell = m_spatial.m_region_grid_cell;
-    header.m_prop_len = m_usMeshPropsLen;
+    header.m_prop_len = static_cast<unsigned short>(m_prop_links.records.size());
     header.m_prop_count = m_ulNumProps;
     header.m_prop_sun_bits = !m_sunlit_props.empty();
     header.m_particle_count = m_ulNumParticles;
@@ -322,26 +322,8 @@ try
             srAssertFail("m_pAlphaBits->Save(hOctFile)", OCTPRETREE_CPP, 0x224,
                          "ReadOctFile: Failure writing Alpha Bits.");
         }
-        if (m_ulNumParticles != 0) {
-            if ((file->write(m_pusMeshParticleLookup, header.m_mesh_total * 2 + 2), true) == 0) {
-                ReportBuildStatus(7, "WriteOctFile: Couldn't write Mesh Particle Lookup Table.\n");
-                return 0;
-            }
-            if ((file->write(m_pusMeshParticles, static_cast<unsigned int>(m_usMeshParticlesLen) << 1), true) == 0) {
-                ReportBuildStatus(7, "WriteOctFile: Couldn't write Mesh Particle Link Table.\n");
-                return 0;
-            }
-        }
-        if (m_ulNumProps != 0) {
-            if ((file->write(m_pusMeshPropLookup, header.m_mesh_total * 2 + 2), true) == 0) {
-                ReportBuildStatus(7, "WriteOctFile: Couldn't write Mesh Prop Lookup Table.\n");
-                return 0;
-            }
-            if ((file->write(m_pusMeshProps, static_cast<unsigned int>(m_usMeshPropsLen) << 1), true) == 0) {
-                ReportBuildStatus(7, "WriteOctFile: Couldn't write Mesh Prop Link Table.\n");
-                return 0;
-            }
-        }
+        if (m_ulNumParticles != 0) m_particle_links.write(*file, header.m_mesh_total);
+        if (m_ulNumProps != 0) m_prop_links.write(*file, header.m_mesh_total);
     }
     /* Every section terminator is the same 0xffffffff dword: retail keeps one
        -1 local for all of them (verified at 0x468406). */

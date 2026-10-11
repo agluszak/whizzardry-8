@@ -1,3 +1,5 @@
+#include <utility>
+#include "wiz8/engine_code/mesh_links.h"
 #include <array>
 #include <optional>
 #include <variant>
@@ -270,12 +272,7 @@ OctBuildPreTree::OctBuildPreTree(float leaf_size, std::optional<srBoundingBox> b
     region_remap = 0;
     g_poly_list = static_cast<void**>(malloc(10000 * sizeof(void*)));
     g_gd_surface_list = static_cast<W8GDSurface**>(malloc(10000 * sizeof(W8GDSurface*)));
-    mesh_particle_lookup = 0;
-    mesh_particles = 0;
-    mesh_particle_count = 0;
-    mesh_prop_lookup = 0;
-    mesh_props = 0;
-    mesh_prop_count = 0;
+
     particle_count = 0;
 }
 
@@ -1438,30 +1435,27 @@ void OctBuildPreTree::ValidateRegionBounds(const W8BoundingBox* region_bounds)
 // The first zero-terminated run contains unassigned items. Each region then
 // contributes one run, with zero lookup offsets for regions that have no items.
 template<class Value>
-static unsigned short* PackRegionLists(
-    std::unordered_multimap<unsigned short, short>& regions, Value* values,
-    unsigned short& count, unsigned short* lookup, w8_ulong region_count)
+static OctreeMeshLinks packRegionLists(std::unordered_multimap<unsigned short, short>& regions,
+                                       std::span<const Value> always_visible, w8_ulong region_count)
 {
-    if (count != 0) values[count++] = 0;
-    else count = 1;
-
+    OctreeMeshLinks links;
+    links.lookup.resize(region_count);
+    for (const auto id : always_visible) links.records.push_back(static_cast<unsigned short>(id));
+    links.records.push_back(0);
     for (w8_ulong index = 1; index < region_count; ++index) {
-        unsigned short region = static_cast<unsigned short>(index);
-        lookup[index] = 0;
+        const auto region = static_cast<unsigned short>(index);
         auto entry = regions.end();
         bool first = true;
         while ((entry = NextIndexValue(regions, region, entry)) != regions.end()) {
             if (first) {
-                lookup[index] = count;
+                links.lookup[index] = static_cast<unsigned short>(links.records.size());
                 first = false;
             }
-            values[count++] = entry->second;
+            links.records.push_back(static_cast<unsigned short>(entry->second));
         }
-        if (!first) values[count++] = 0;
+        if (!first) links.records.push_back(0);
     }
-    auto* packed = static_cast<unsigned short*>(malloc(count * sizeof(unsigned short)));
-    if (packed) memcpy(packed, values, count * sizeof(unsigned short));
-    return packed;
+    return links;
 }
 
 /* Associate every non-cloud particle with the regions containing its origin
@@ -1560,12 +1554,8 @@ unsigned char OctBuildPreTree::BuildParticleRegions(const W8LevelFileParticleSys
     }
 
     unsigned short region_count = static_cast<unsigned short>(spatial.submesh_count);
-    mesh_particle_lookup =
-        static_cast<unsigned short*>(malloc(region_count * sizeof(unsigned short)));
-    memset(mesh_particle_lookup, 0, region_count * sizeof(unsigned short));
-    mesh_particles = PackRegionLists(*inside_region_map, region_particles, list_count,
-                                    mesh_particle_lookup, region_count);
-    mesh_particle_count = list_count;
+    mesh_particle_links = packRegionLists(*inside_region_map,
+        std::span<const short>(region_particles, list_count), region_count);
     delete inside_region_map;
     return 1;
 }
@@ -1621,11 +1611,8 @@ unsigned char OctBuildPreTree::BuildGeometryRegions(const W8LevelFileProp* recor
 
     if (finalize) {
         w8_ulong region_count = spatial.submesh_count;
-        mesh_prop_lookup =
-            static_cast<unsigned short*>(malloc(region_count * sizeof(unsigned short)));
-        mesh_props = PackRegionLists(*overlap_region_map, g_region_id_list, g_region_id_count,
-                                    mesh_prop_lookup, region_count);
-        mesh_prop_count = g_region_id_count;
+        mesh_prop_links = packRegionLists(*overlap_region_map,
+            std::span<const unsigned short>(g_region_id_list, g_region_id_count), region_count);
         prop_count = record_count + base_index;
         delete overlap_region_map;
         free(g_region_id_list);
@@ -1683,16 +1670,8 @@ OctPreTree* OctBuildPreTree::BuildOctPreTree()
     tree->m_spatial.submesh_count = spatial.submesh_count;
     tree->m_spatial.m_region_id_bound = spatial.m_region_id_bound;
 
-    tree->m_pusMeshParticleLookup = mesh_particle_lookup;
-    mesh_particle_lookup = 0;
-    tree->m_pusMeshParticles = mesh_particles;
-    mesh_particles = 0;
-    tree->m_usMeshParticlesLen = mesh_particle_count;
-    tree->m_pusMeshPropLookup = mesh_prop_lookup;
-    mesh_prop_lookup = 0;
-    tree->m_pusMeshProps = mesh_props;
-    tree->m_usMeshPropsLen = mesh_prop_count;
-    mesh_props = 0;
+    tree->m_particle_links = std::move(mesh_particle_links);
+    tree->m_prop_links = std::move(mesh_prop_links);
     tree->m_ulNumParticles = particle_count;
     tree->m_ulNumProps = prop_count;
 

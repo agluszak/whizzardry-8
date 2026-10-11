@@ -1,6 +1,8 @@
 #ifndef WIZ8_ENGINE_CODE_OCT_BUILD_PRE_TREE_H
 #define WIZ8_ENGINE_CODE_OCT_BUILD_PRE_TREE_H
 
+#include "wiz8/engine_code/mesh_links.h"
+
 #include <optional>
 
 #include <unordered_map>
@@ -140,14 +142,8 @@ struct OctBuildPreTree : W8OctBuildTree {
     /* Region remap table indexed by old region id; RemapNodeRegions frees it
        after rewriting every leaf's region list through it. */
     unsigned short* region_remap;
-    unsigned short* mesh_particle_lookup;
-    unsigned short* mesh_particles;
-    unsigned short mesh_particle_count;
-    unsigned short padding_10e;
-    unsigned short* mesh_prop_lookup;
-    unsigned short* mesh_props;
-    unsigned short mesh_prop_count;
-    unsigned short padding_11a;
+    OctreeMeshLinks mesh_particle_links;
+    OctreeMeshLinks mesh_prop_links;
     w8_ulong particle_count;
     w8_ulong prop_count;
     std::unordered_multimap<unsigned short, w8_ulong>* region_path_map;

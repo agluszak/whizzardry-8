@@ -1,4 +1,6 @@
 #pragma once
+
+#include "wiz8/engine_code/mesh_links.h"
 #include <memory>
 
 #include "wiz8/ground_probe.h"
@@ -459,18 +461,11 @@ public:
        polygon index to (kind<<16)|id object key. */
     w8_ulong* m_aulPolyLookup;
     W8OctSubmesh* m_pSubmeshes;
-    /* Retail m_pAlphaBits; empty without a mesh count. The m_pus names below
-       come from ReadOctFile's own assertion text, so the four lookup and link
-       tables are unsigned short arrays. */
+    /* Retail m_pAlphaBits; empty without a mesh count. Link tables retain
+       unsigned-short disk records but use native owned containers. */
     std::vector<bool> m_alpha_bits;
-    unsigned short* m_pusMeshParticleLookup; /* 0xe0 */
-    unsigned short* m_pusMeshParticles;      /* 0xe4 */
-    unsigned short m_usMeshParticlesLen;
-    unsigned short m_padding_0ea;
-    unsigned short* m_pusMeshPropLookup; /* 0xec */
-    unsigned short* m_pusMeshProps;      /* 0xf0 */
-    unsigned short m_usMeshPropsLen;
-    unsigned short m_padding_0f6;
+    OctreeMeshLinks m_particle_links;
+    OctreeMeshLinks m_prop_links;
     w8_ulong m_ulNumParticles;
     std::vector<bool> m_linked_particles;
     std::vector<bool> m_visible_particles;

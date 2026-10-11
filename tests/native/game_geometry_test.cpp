@@ -1,3 +1,4 @@
+#include "wiz8/engine_code/mesh_links.h"
 #include "surrender/srClipPlane.h"
 #include "surrender/srIlluminator.h"
 #include "surrender/srLight.h"
@@ -1831,4 +1832,30 @@ TEST_CASE("Frustum corner ordering preserves every point and shares point sphere
     REQUIRE(BoundsInsideFrustum(volume, {glm::vec3(-2), glm::vec3(2)}));
     REQUIRE(BoundsInsideFrustum(volume, {{1, -1, -1}, {2, 1, 1}}));
     REQUIRE_FALSE(BoundsInsideFrustum(volume, {glm::vec3(2), glm::vec3(3)}));
+}
+
+TEST_CASE("Octree mesh links own bounded runs and mark one-based object ids", "[geometry][octree]")
+{
+    OctreeMeshLinks links{{0, 2, 0, 6, 99}, {2, 0, 1, 2, 3, 0, 2}};
+    REQUIRE(links.alwaysVisible().size() == 1);
+    REQUIRE(links.alwaysVisible()[0] == 2);
+    REQUIRE(links.forMesh(1).size() == 3);
+    REQUIRE(links.forMesh(2).empty());
+    REQUIRE(links.forMesh(4).empty());
+    REQUIRE(links.forMesh(5).empty());
+    REQUIRE(links.forMesh(3).size() == 1); // An unterminated run stays inside the record buffer.
+    int first = 0, last = 0;
+    std::array<int*, 2> loaded{&first, &last};
+    std::vector<bool> visible(2, false);
+    links.markVisible(1, std::span<int* const>(loaded), visible);
+    REQUIRE(visible[0]);
+    REQUIRE(visible[1]); // The last loaded object has no following slot to consult.
+    loaded[0] = nullptr;
+    visible.assign(2, false);
+    links.markVisible(1, std::span<int* const>(loaded), visible);
+    REQUIRE_FALSE(visible[0]);
+    REQUIRE(visible[1]);
+    visible.assign(1, false);
+    links.markVisible(1, std::span<int* const>(loaded), visible);
+    REQUIRE_FALSE(visible[0]);
 }
