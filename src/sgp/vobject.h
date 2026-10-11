@@ -62,7 +62,7 @@ struct SGPVObject {
 
 // Palette generation and shade selection preserve the game's RGB555 tables.
 std::uint16_t CreateObjectPaletteTables(SGPVObject& object, std::uint32_t type);
-std::uint16_t SetObjectShade(SGPVObject& object, std::uint32_t shade);
+bool SetObjectShade(SGPVObject& object, std::uint32_t shade);
 
 struct SGPVSurface;
 bool BltVideoObject(SGPVSurface& destination, SGPVObject& source, std::uint16_t frame,
