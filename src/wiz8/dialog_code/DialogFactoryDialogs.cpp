@@ -830,11 +830,6 @@ void W8SplitAmountDialog::SplitActivateField(W8DialogButton* button)
 // FUNCTION: WIZ8 0x005cd710
 W8TriggerItemPickerDialog::W8TriggerItemPickerDialog()
 {
-    int index;
-
-    for (index = 0; index < 13; ++index) {
-        m_buttons[index] = 0;
-    }
     SetExtent(200, 100);
     SetOrigin(0x84, 0x50);
     SetBackground("Data\\Dialogs\\DialogBackground.STI", 0);
@@ -849,8 +844,6 @@ W8TriggerItemPickerDialog::~W8TriggerItemPickerDialog()
         m_destroy_callback(this);
         m_destroy_callback = 0;
     }
-    W8DialogBase::DestroyControls();
-    DestroyDialogButtons(m_buttons, 13);
 }
 
 /* Allocate the thirteen button slots, then configure their frame images,
@@ -861,13 +854,9 @@ bool W8TriggerItemPickerDialog::CreateButtons()
 {
     int index;
 
-    for (index = 0; index < 13; ++index) {
-        m_buttons[index] = new W8DialogButton;
-        if (m_buttons[index] == 0) {
-            DestroyDialogButtons(m_buttons, 13);
-            return false;
-        }
-        m_buttons[index]->m_owner = this;
+    for (auto& button : m_buttons) {
+        button = std::make_unique<W8DialogButton>();
+        button->m_owner = this;
     }
     m_buttons[0]->Configure("Data\\Dialogs\\popup_chest_selectionbuttons.sti", 3, 0, 1, 2, 2,
                             ToggleAllItems, BUTTON_NO_CALLBACK, false, MSYS_PRIORITY_HIGHEST, 0x15,
@@ -918,12 +907,6 @@ bool W8TriggerItemPickerDialog::CreateButtons()
     m_buttons[6]->m_right_toggles = true;
     m_buttons[7]->m_right_toggles = true;
     m_buttons[8]->m_right_toggles = true;
-    for (index = 0; index < 13; ++index) {
-        if (m_buttons[index] == 0) {
-            DestroyDialogButtons(m_buttons, 13);
-            return false;
-        }
-    }
     return true;
 }
 
@@ -940,22 +923,18 @@ W8DialogKind W8TriggerItemPickerDialog::GetDialogType()
 // FUNCTION: WIZ8 0x005ce420
 void W8TriggerItemPickerDialog::RefreshScrollButtons()
 {
-    int index;
-    W8DialogButton** button;
-
     if (static_cast<int>(items.size()) <= 4) {
         m_first_item = 0;
     }
-    button = &m_buttons[5];
-    for (index = 0; index < 4; ++index) {
+    for (int index = 0; index < 4; ++index) {
+        W8DialogButton& button = *m_buttons[5 + index];
         int item = m_first_item + index;
         if (item < static_cast<int>(items.size())) {
-            (*button)->SetPressed(IsItemSelected(item));
-        } else if ((*button)->IsPressed() != 0) {
-            (*button)->SetPressed(false);
-            (*button)->SetVisible(false);
+            button.SetPressed(IsItemSelected(item));
+        } else if (button.IsPressed() != 0) {
+            button.SetPressed(false);
+            button.SetVisible(false);
         }
-        ++button;
     }
 }
 
@@ -1495,7 +1474,7 @@ void W8TriggerItemPickerDialog::Draw()
     RefreshScrollButtons();
 
     for (int row = 0; row < visible_rows; ++row) {
-        W8DialogButton* button = m_buttons[5 + row];
+        W8DialogButton* button = m_buttons[5 + row].get();
 
         button->SetVisible(true);
         button->SetPosition(m_x + 7, m_y + button->GetHeight() * row + 7);
@@ -1550,7 +1529,9 @@ int W8TriggerItemPickerDialog::CreateControls()
 void W8TriggerItemPickerDialog::DestroyControls()
 {
     W8DialogBase::DestroyControls();
-    DestroyDialogButtons(m_buttons, 13);
+    for (auto& button : m_buttons) {
+        button.reset();
+    }
 }
 
 // FUNCTION: WIZ8 0x005ce6e0
