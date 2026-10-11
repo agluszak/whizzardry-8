@@ -1,14 +1,20 @@
-struct SDL_Surface;
-#include <string_view>
 #pragma once
 
+#include <cstdint>
+#include <optional>
+#include <string_view>
 
-int LayoutPortraitQuoteBubble(int quote_handle, unsigned char background_index,
-                              unsigned char edge_index, std::string_view text, unsigned int max_width,
-                              int margin_x, int margin_top, int margin_bottom,
-                              unsigned short* out_width, unsigned short* out_height,
-                              unsigned int font_palette);
-/* Blit the bubble's rendered surface to `surface` at (x, y). */
-unsigned char DrawPortraitQuoteBubble(int quote_handle, short x, short y, SDL_Surface& surface);
-unsigned char ReleasePortraitQuoteBubble(int quote_handle);
-const char* GetPortraitQuoteText(int quote_handle);
+struct SDL_Surface;
+
+struct QuoteBubbleLayout {
+    int handle;
+    int width;
+    int height;
+};
+
+/* Renders `text` into a new NPC quote bubble no wider than `max_width`. */
+std::optional<QuoteBubbleLayout> LayoutPortraitQuoteBubble(std::string_view text, int max_width,
+                                                           std::optional<std::uint8_t> text_colour);
+void DrawPortraitQuoteBubble(int handle, int x, int y, SDL_Surface& target);
+void ReleasePortraitQuoteBubble(int handle);
+std::string_view GetPortraitQuoteText(int handle);

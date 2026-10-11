@@ -30,10 +30,8 @@
 #include "himage.h"
 #include "imgfmt.h"
 
-// This is the color substituted to keep a 24bpp -> 16bpp color
-// from going transparent (0x0000) -- DB
-
-#define BLACK_SUBSTITUTE 0x0001
+// Nonblack colors that pack to 0 are nudged to 1 so they stay opaque.
+constexpr std::uint32_t kBlackSubstitute = 0x0001;
 
 SDL_PixelFormat g_sgp_pixel_format = SDL_PIXELFORMAT_XRGB1555;
 
@@ -254,7 +252,6 @@ std::vector<SpriteFrame> decode_sti_frames(std::span<const STCISubImage> frames,
     return decoded;
 }
 
-// FUNCTION: WIZ8 0x00415130
 DecodedImage load_sti(wiz8::File& file)
 {
     static_assert(sizeof(STCIHeader) == STCI_HEADER_SIZE);
@@ -283,7 +280,6 @@ DecodedImage load_sti(wiz8::File& file)
     const auto app_offset = pixels_offset + header.uiStoredSize;
     const auto file_size = file.size();
     Palette8 palette{};
-    // FUNCTION: WIZ8 0x004153f0
     if (!rgb) {
         if (header.Indexed.uiNumberOfColours != 256)
             throw std::runtime_error("STI requires a 256-color palette");
@@ -309,7 +305,6 @@ DecodedImage load_sti(wiz8::File& file)
     file.read_exact(pixels.data(), pixels.size());
     if (etrle)
         return SpriteSheet{palette, decode_sti_frames(frames, pixels)};
-    // FUNCTION: WIZ8 0x0040fca0
     if (compressed) {
         std::vector<std::uint8_t> unpacked(bitmap_bytes);
         uLongf output_size = unpacked.size();
@@ -324,7 +319,6 @@ DecodedImage load_sti(wiz8::File& file)
         set_palette(*bitmap, palette);
         return bitmap;
     }
-    // FUNCTION: WIZ8 0x00415250
     const auto format = header.ubDepth == 24
         ? SDL_PIXELFORMAT_RGB24
         : SDL_GetPixelFormatForMasks(16, header.RGB.uiRedMask, header.RGB.uiGreenMask,
@@ -335,7 +329,6 @@ DecodedImage load_sti(wiz8::File& file)
 }
 }
 
-// FUNCTION: WIZ8 0x0040f850
 std::optional<DecodedImage> LoadImage(std::string_view filename)
 {
     if (filename.empty())
@@ -359,7 +352,6 @@ std::optional<DecodedImage> LoadImage(std::string_view filename)
     }
 }
 
-// FUNCTION: WIZ8 0x00410190
 Palette16 Create16BPPPalette(const Palette8& palette)
 {
     Palette16 packed{};
@@ -393,7 +385,6 @@ Palette16 Create16BPPPalette(const Palette8& palette)
 	4) For gamma correction, pass in weighted values for each color.
 
 **********************************************************************************************/
-// FUNCTION: WIZ8 0x004102c0
 Palette16 Create16BPPPaletteShaded(const Palette8& palette, std::uint32_t rscale,
                                                 std::uint32_t gscale, std::uint32_t bscale, bool mono)
 {
@@ -410,7 +401,6 @@ Palette16 Create16BPPPaletteShaded(const Palette8& palette, std::uint32_t rscale
 }
 
 // Convert from RGB to 16 bit value
-// FUNCTION: WIZ8 0x004104b0
 std::uint16_t Get16BPPColor(SDL_Color color)
 {
     const auto* details = SDL_GetPixelFormatDetails(g_sgp_pixel_format);
@@ -419,7 +409,7 @@ std::uint16_t Get16BPPColor(SDL_Color color)
     const std::uint16_t pixel = SDL_MapRGB(details, nullptr, color.r, color.g, color.b) &
                          (details->Rmask | details->Gmask | details->Bmask);
     if (!pixel)
-        return (color.r || color.g || color.b) ? (BLACK_SUBSTITUTE | details->Amask) : 0;
+        return (color.r || color.g || color.b) ? (kBlackSubstitute | details->Amask) : 0;
     return pixel | details->Amask;
 }
 
@@ -429,7 +419,6 @@ std::uint16_t Get16BPPColor(SDL_Color color)
 // Modification History :
 // Dec 15th 1996 -> modified for use by Wizardry
 
-// FUNCTION: WIZ8 0x00406900
 std::optional<std::uint8_t> SpriteFrame::paletteIndexAt(int x, int y) const
 {
     if (x < 0 || y < 0 || x >= width || y >= height || indices.empty()) return std::nullopt;

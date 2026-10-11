@@ -210,7 +210,6 @@ void BlitImage(SDL_Surface& destination, int x, int y, SDL_Surface& source,
     }
 }
 
-// FUNCTION: WIZ8 0x004124a0
 void ShadowRect(SDL_Surface& surface, const SDL_Rect& area)
 {
     if (SDL_BYTESPERPIXEL(surface.format) != 2)
@@ -229,7 +228,6 @@ void ShadowRect(SDL_Surface& surface, const SDL_Rect& area)
     }
 }
 
-// FUNCTION: WIZ8 0x00411850
 void PixelateRect(SDL_Surface& surface, const SDL_Rect& area,
                   std::span<const std::uint8_t, 64> pattern, std::uint16_t color)
 {
@@ -252,7 +250,6 @@ void PixelateRect(SDL_Surface& surface, const SDL_Rect& area,
     }
 }
 
-// FUNCTION: WIZ8 0x00411930
 void HatchRect(SDL_Surface& surface, const SDL_Rect& area)
 {
     if (SDL_BYTESPERPIXEL(surface.format) != 2)

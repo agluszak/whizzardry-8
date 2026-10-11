@@ -9,11 +9,10 @@
 #include <utility>
 #include <variant>
 #include "himage.h"
-#include <fmt/format.h>
+#include <SDL3/SDL_log.h>
 #include <SDL3/SDL_rect.h>
 
 #include "wiz8/engine_code/Video2.h"
-#include "wiz8/sr_api.h"
 #include "wiz8/catalog_artwork.h"
 #include "image_assets.h"
 #include "image.h"
@@ -32,8 +31,7 @@ struct CatalogEntry {
     CatalogStorage storage;
 };
 
-/* Asset paths and storage kinds retain their retail catalog order. */
-// GLOBAL: WIZ8 0x0062c430
+/* Catalog object numbers index this table through g_catalog_slots; keep its order. */
 static constexpr std::array<CatalogEntry, 657> g_catalog_entries = {{
     {"Data\\Cursors\\2D-Cursors.sti", CatalogStorage::Sprites},
     {"Data\\Portraits\\Large\\Lhummf.sti", CatalogStorage::Bitmap},
@@ -694,7 +692,6 @@ static constexpr std::array<CatalogEntry, 657> g_catalog_entries = {{
     {"Data\\Options\\Falcon.sti", CatalogStorage::Sprites},
 }};
 
-// GLOBAL: WIZ8 0x006448c8
 static constexpr std::array<CatalogSlot, 492> g_catalog_slots = {{
     {0, 0},    {0, 1},    {0, 2},    {0, 7},    {0, 12},   {0, 13},   {0, 14},   {0, 18},
     {0, 22},   {0, 23},   {0, 24},   {0, 29},   {0, 30},   {0, 31},   {0, 35},   {0, 36},
@@ -760,11 +757,6 @@ static constexpr std::array<CatalogSlot, 492> g_catalog_slots = {{
     {568, 0},  {569, 0},  {570, 0},  {571, 0},
 }};
 
-/* Catalog records identify paths decoded by the shared virtual-filesystem loaders. */
-
-static constexpr char VIDEO_OBJECT_MANAGER_CPP[] =
-    "C:\\Projects\\Wizardry 8\\Local Code\\VideoObjectManager.cpp";
-
 static const CatalogEntry& CatalogEntryFor(int object, int frame)
 {
     if (frame < 0)
@@ -773,14 +765,12 @@ static const CatalogEntry& CatalogEntryFor(int object, int frame)
     return g_catalog_entries.at(index);
 }
 
-static void AssertCatalogLoadFailure(const CatalogEntry& record)
+static void ReportCatalogLoadFailure(const CatalogEntry& record)
 {
-    srAssertFail("fReturnCode", VIDEO_OBJECT_MANAGER_CPP, 0x68,
-                 fmt::format("LoadVideoObject: ERROR - Add {} failed, type {:d}", record.path,
-                             fmt::underlying(record.storage)));
+    SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Cannot load catalog artwork %.*s",
+                 static_cast<int>(record.path.size()), record.path.data());
 }
 
-// FUNCTION: WIZ8 0x00549250
 void ReleaseCatalogArtwork()
 {
     g_image_assets.clear();
@@ -814,7 +804,6 @@ CatalogArtwork::CatalogArtwork(std::shared_ptr<SDL_Surface> bitmap, short image_
 {
 }
 
-// FUNCTION: WIZ8 0x00549420
 CatalogArtwork CatalogArtwork::Load(int object, int frame)
 {
     const auto& record = CatalogEntryFor(object, frame);
@@ -822,19 +811,17 @@ CatalogArtwork CatalogArtwork::Load(int object, int frame)
     if (record.storage == CatalogStorage::Sprites) {
         auto sprites = g_image_assets.sprites(record.path);
         if (!sprites)
-            AssertCatalogLoadFailure(record);
+            ReportCatalogLoadFailure(record);
         return CatalogArtwork(std::move(sprites), image_offset);
     }
     auto bitmap = g_image_assets.bitmap(record.path);
     if (!bitmap)
-        AssertCatalogLoadFailure(record);
+        ReportCatalogLoadFailure(record);
     return CatalogArtwork(std::move(bitmap), image_offset);
 }
 
-// FUNCTION: WIZ8 0x005493e0
 short CatalogArtwork::imageOffset() const { return image_offset_; }
 
-// FUNCTION: WIZ8 0x00548f90
 void CatalogArtwork::draw(SDL_Surface& target, int image, int x, int y, SpriteDraw options,
                           BitmapKey key) const
 {
@@ -852,7 +839,6 @@ void CatalogArtwork::draw(SDL_Surface& target, int image, int x, int y, SpriteDr
                    .mirror = options.mirror});
 }
 
-// FUNCTION: WIZ8 0x005494f0
 void CatalogArtwork::invalidate(int image, int x, int y, int flags) const
 {
     const SDL_Point extent = size(image);
@@ -860,7 +846,6 @@ void CatalogArtwork::invalidate(int image, int x, int y, int flags) const
         InvalidateRegion(x, y, x + extent.x, y + extent.y, flags);
 }
 
-// FUNCTION: WIZ8 0x00549660
 SDL_Point CatalogArtwork::size(int image) const
 {
     if (const auto sprites = spriteSheet()) {
@@ -872,7 +857,6 @@ SDL_Point CatalogArtwork::size(int image) const
     return {};
 }
 
-// FUNCTION: WIZ8 0x00549700
 SDL_Point CatalogArtwork::position(int image) const
 {
     if (const auto sprites = spriteSheet()) {
@@ -882,7 +866,6 @@ SDL_Point CatalogArtwork::position(int image) const
     return {};
 }
 
-// FUNCTION: WIZ8 0x005497c0
 void CatalogArtwork::drawRect(SDL_Surface& target, const SDL_Rect& source, int x, int y) const
 {
     const auto surface = bitmap();
@@ -899,7 +882,6 @@ std::shared_ptr<const SpriteSheet> CatalogArtwork::spriteSheet() const
     return {};
 }
 
-// FUNCTION: WIZ8 0x005498a0
 std::shared_ptr<SDL_Surface> CatalogArtwork::bitmap() const
 {
     if (const auto* surface = std::get_if<std::shared_ptr<SDL_Surface>>(&image_))
@@ -907,7 +889,6 @@ std::shared_ptr<SDL_Surface> CatalogArtwork::bitmap() const
     return {};
 }
 
-// FUNCTION: WIZ8 0x00549600
 void CatalogArtwork::drawAndInvalidate(SDL_Surface& target, int image, int x, int y,
                                        SpriteDraw options, BitmapKey key) const
 {

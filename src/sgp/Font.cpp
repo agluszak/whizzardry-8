@@ -53,14 +53,12 @@ void Font::clear()
     currentShade = kNormalShade;
 }
 
-// FUNCTION: WIZ8 0x00406dc0
 void Font::setPalette(const Palette16& colors)
 {
     customPalette = colors;
     currentShade = kNormalShade;
 }
 
-// FUNCTION: WIZ8 0x00406de0
 const Palette16& Font::palette() const
 {
     static const Palette16 empty{};
@@ -78,7 +76,6 @@ void Font::resetPalette()
     customPalette.reset();
 }
 
-// FUNCTION: WIZ8 0x00406460
 std::uint16_t Font::createShades(std::uint32_t glow)
 {
     if (!glyphs)
@@ -118,7 +115,6 @@ std::uint16_t Font::createShades(std::uint32_t glow)
     return true;
 }
 
-// FUNCTION: WIZ8 0x004068e0
 std::uint16_t Font::setShade(std::uint32_t shade)
 {
     if (shade != kNormalShade && (shade >= shades.size() || !shades[shade]))
@@ -127,15 +123,11 @@ std::uint16_t Font::setShade(std::uint32_t shade)
     return true;
 }
 
-// FUNCTION: WIZ8 0x00406c20
-// FUNCTION: WIZ8 0x00406c90
-// FUNCTION: WIZ8 0x00406d10
 std::uint16_t Font::color(std::uint8_t index) const
 {
     return glyphs ? Get16BPPColor(glyphs->palette[index]) : 0;
 }
 
-// FUNCTION: WIZ8 0x00406e00
 bool Font::load(std::string_view filename)
 {
     auto sheet = g_image_assets.sprites(filename);
@@ -159,7 +151,6 @@ static std::uint32_t GetWidth(const SpriteSheet& sprites, std::int16_t ssIndex)
 
 // Measure a prefix counted in Unicode scalar values.
 
-// FUNCTION: WIZ8 0x00406ea0
 std::int16_t Font::codepointPrefixWidth(std::string_view string, std::uint32_t uiCharCount) const
 {
 
@@ -172,7 +163,6 @@ std::int16_t Font::codepointPrefixWidth(std::string_view string, std::uint32_t u
 //  Created by:     Gilles Beauparlant
 //  Created on:     12/1/99
 
-// FUNCTION: WIZ8 0x00406f90
 std::int16_t Font::prefixWidth(std::string_view string, std::size_t byte_end) const
 {
     if (!glyphs || glyphs->frames.empty()) return 0;
@@ -185,7 +175,6 @@ std::int16_t Font::prefixWidth(std::string_view string, std::size_t byte_end) co
     return static_cast<std::int16_t>(width);
 }
 
-// FUNCTION: WIZ8 0x00407010
 std::int16_t Font::textWidth(std::string_view string) const
 {
     return prefixWidth(string, string.size());
@@ -203,7 +192,6 @@ static std::uint32_t GetHeight(const SpriteSheet& sprites, std::int16_t ssIndex)
 // GetFontHeight
 //	Returns the height of the first character in a font.
 
-// FUNCTION: WIZ8 0x004071f0
 std::uint16_t Font::height() const
 {
     if (!glyphs || glyphs->frames.empty()) return 0;
@@ -224,23 +212,17 @@ std::int16_t GetIndex(char32_t siChar)
     return fallback == g_font_translation.end() ? 0 : static_cast<std::int16_t>(fallback - g_font_translation.begin());
 }
 
-// FUNCTION: WIZ8 0x00407420
 SDL_Point Font::rightAlignedPosition(const SDL_Rect& bounds, std::string_view text) const
 {
     return {bounds.x + bounds.w - textWidth(text), bounds.y + (bounds.h - height()) / 2};
 }
 
-// FUNCTION: WIZ8 0x00407530
 SDL_Point Font::centeredPosition(const SDL_Rect& bounds, std::string_view text) const
 {
     return {bounds.x + (bounds.w - textWidth(text) + 1) / 2,
             bounds.y + (bounds.h - height()) / 2};
 }
 
-// FUNCTION: WIZ8 0x00407260
-// FUNCTION: WIZ8 0x00407650
-// FUNCTION: WIZ8 0x00407a10
-// FUNCTION: WIZ8 0x00407b80
 void DrawText(SDL_Surface& target, Font& font, SDL_Point at, std::string_view text,
               TextOptions options)
 {
@@ -269,7 +251,6 @@ void DrawText(SDL_Surface& target, Font& font, SDL_Point at, std::string_view te
     }
 }
 
-// FUNCTION: WIZ8 0x004077d0
 void DrawTextAndInvalidate(SDL_Surface& target, Font& font, SDL_Point at,
                            std::string_view text, TextOptions options)
 {
@@ -278,14 +259,12 @@ void DrawTextAndInvalidate(SDL_Surface& target, Font& font, SDL_Point at,
                      INVAL_SRC_TRANS);
 }
 
-// FUNCTION: WIZ8 0x00407d30
 void ConfigureFontRendering(const std::vector<std::uint16_t>& translation)
 {
     ResetFontRendering();
     g_font_translation = translation;
 }
 
-// FUNCTION: WIZ8 0x00407e30
 void ResetFontRendering()
 {
     g_font_translation.clear();
@@ -294,7 +273,6 @@ void ResetFontRendering()
 // CreateEnglishTransTable
 // Creates the English text->font map table.
 
-// FUNCTION: WIZ8 0x00407ec0
 std::vector<std::uint16_t> CreateEnglishTransTable()
 {
     return {

@@ -990,12 +990,10 @@ void SetPartyPortraitEventState(unsigned int party_slot, bool active, unsigned i
         if (!layout_quote || g_settings.pc_subtitles == 0) {
             quote->quote_handle = -1;
         } else {
-            unsigned short width;
-            unsigned short height;
-            quote->quote_handle = LayoutPortraitQuoteBubble(-1, 0, 0, quote_text, 200, 0, 0, 0,
-                                                            &width, &height, 0xffffffff);
-            quote->width = width;
-            quote->height = height;
+            const auto layout = LayoutPortraitQuoteBubble(quote_text, 200, std::nullopt);
+            quote->quote_handle = layout ? layout->handle : -1;
+            quote->width = static_cast<unsigned short>(layout ? layout->width : 0);
+            quote->height = static_cast<unsigned short>(layout ? layout->height : 0);
             if (g_current_screen_state.id == W8_SCREEN_CAMP) {
                 if (static_cast<int>(party_slot) == giReviewCharSlot) {
                     quote->x = 10;

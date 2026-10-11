@@ -4151,8 +4151,6 @@ void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, W8NpcScriptQu
     if (visible) {
         std::string normalized;
         std::string error_text;
-        unsigned short width;
-        unsigned short height;
 
         CancelMouselook();
 
@@ -4162,9 +4160,11 @@ void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, W8NpcScriptQu
             }
             normalized += text[index];
         }
-        g_npc_interaction_state->quote_bubble = LayoutPortraitQuoteBubble(
-            -1, 0, 0, normalized, 280, 0, 0, 0, &width, &height, font_palette);
-        if (g_npc_interaction_state->quote_bubble == -1) {
+        auto layout = LayoutPortraitQuoteBubble(
+            normalized, 280,
+            font_palette == 0xffffffff ? std::nullopt
+                                       : std::optional<std::uint8_t>(font_palette));
+        if (!layout) {
             if (g_npc_interaction_state->dialogue_npc != 0) {
                 error_text = fmt::format(
                     "Error creating box - most likely text too large: NPC {}, quote {:d}",
@@ -4172,14 +4172,14 @@ void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, W8NpcScriptQu
             } else {
                 error_text = "Error creating box - most likely text too large";
             }
-            g_npc_interaction_state->quote_bubble =
-                LayoutPortraitQuoteBubble(-1, 0, 0, error_text, 300, 0, 0, 0, &width, &height, -1);
+            layout = LayoutPortraitQuoteBubble(error_text, 300, std::nullopt);
             ShowNotice(W8_FONT_PALETTE_BEIGE, error_text, 0, GetTextBoxScrollRange());
         }
-        g_npc_interaction_state->quote_width = width;
-        g_npc_interaction_state->quote_height = height;
-        g_npc_interaction_state->quote_x = 320 - (width >> 1);
-        g_npc_interaction_state->quote_y = quote_id < 0 ? 350 - height : 20;
+        g_npc_interaction_state->quote_bubble = layout ? layout->handle : -1;
+        g_npc_interaction_state->quote_width = static_cast<short>(layout ? layout->width : 0);
+        g_npc_interaction_state->quote_height = static_cast<short>(layout ? layout->height : 0);
+        g_npc_interaction_state->quote_x = 320 - g_npc_interaction_state->quote_width / 2;
+        g_npc_interaction_state->quote_y = quote_id < 0 ? 350 - g_npc_interaction_state->quote_height : 20;
         SetRegionBounds(0x136, g_npc_interaction_state->quote_x, g_npc_interaction_state->quote_y,
                         g_npc_interaction_state->quote_x + g_npc_interaction_state->quote_width,
                         g_npc_interaction_state->quote_y + g_npc_interaction_state->quote_height);
