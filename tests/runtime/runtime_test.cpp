@@ -86,7 +86,7 @@
 #include "wiz8/local_screens/MGSKeyboard.h"
 #include "wiz8/local_screens/OptionsScreen.h"
 #include "wiz8/local_screens/AutomapScreen.h"
-#include "wiz8/dialog_code/DialogButton.h"
+#include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/local_code/NPCManager.h"
@@ -1199,11 +1199,13 @@ void Ask(Game& game, std::string_view keyword)
     game.key(SDLK_RETURN);
 }
 
+/* Live regions bound to a dialog control: a W8ButtonWidget binds through
+   `widget`, the remaining W8RegionHandler controls through `handler`. */
 std::vector<unsigned> HandlerRegions()
 {
     std::vector<unsigned> regions;
     for (unsigned region = 1; region < g_regions.size(); ++region)
-        if (RegionLive(region) && g_regions[region].handler)
+        if (RegionLive(region) && (g_regions[region].handler || g_regions[region].widget))
             regions.push_back(region);
     return regions;
 }

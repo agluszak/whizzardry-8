@@ -1,5 +1,6 @@
 #pragma once
 
+#include "wiz8/regions.h"
 #include "wiz8/local_code/Controls.h"
 #include "wiz8/local_code/RangeControl.h"
 #include "wiz8/local_code/TextControl.h"
@@ -63,4 +64,4 @@ unsigned char CampSkillListRegionHandler(const InputEvent* event, W8Region* regi
 
 extern unsigned int g_camp_stats_range_region_set;
 extern unsigned int g_camp_stats_controls_region_set;
-extern unsigned int g_camp_skill_regions;
+extern ScreenRegionSet g_camp_skill_regions;

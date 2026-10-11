@@ -6,7 +6,7 @@
 
 #include "wiz8/dialog_code/DialogBase.h"
 #include "input.h"
-#include "wiz8/dialog_code/DialogButton.h"
+#include "wiz8/local_code/ButtonWidget.h"
 #include "compat/compiler.h"
 
 // VTABLE: WIZ8 0x005ef8b0
@@ -32,8 +32,8 @@ public:
 
     unsigned int WrapMessage(std::string_view message);
 
-    friend void MessageDialogConfirmCallback(W8DialogButton* button);
-    friend void MessageDialogCancelCallback(W8DialogButton* button);
+    friend void MessageDialogConfirmCallback(W8ButtonWidget* button);
+    friend void MessageDialogCancelCallback(W8ButtonWidget* button);
 
     /* Both are read and written on this object from outside the class by the
        Please Wait screen's frame handler, which is what puts them here. */
@@ -42,10 +42,10 @@ public:
 
 protected:
     GenericButtonImage m_edge_image; /* 0x56 generic-button-image resource */
-    W8DialogButton m_message_button;
-    W8DialogButton m_confirm_button;
+    W8ButtonWidget m_message_button;
+    W8ButtonWidget m_confirm_button;
     unsigned char unknown_064[0x10];
-    W8DialogButton m_cancel_button;
+    W8ButtonWidget m_cancel_button;
     unsigned char unknown_07c[0x10];
     std::vector<std::string> m_lines;
     unsigned int m_line_count;
@@ -54,5 +54,5 @@ protected:
     unsigned char unknown_096[2];
 };
 
-void MessageDialogConfirmCallback(W8DialogButton* button);
-void MessageDialogCancelCallback(W8DialogButton* button);
+void MessageDialogConfirmCallback(W8ButtonWidget* button);
+void MessageDialogCancelCallback(W8ButtonWidget* button);

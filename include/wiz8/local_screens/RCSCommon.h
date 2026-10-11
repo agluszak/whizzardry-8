@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include <SDL3/SDL_rect.h>
 #include <string_view>
 
@@ -78,8 +79,8 @@ void TryGiveHeldItemToCampPortrait(int slot);
 void RedrawRcsLevelUpPanel(void);
 void RedrawRcsDismissPanel(void);
 
-extern Controls* g_level_up_panel;
-extern Controls* g_dismiss_panel;
+extern std::unique_ptr<Controls> g_level_up_panel;
+extern std::unique_ptr<Controls> g_dismiss_panel;
 extern W8TextControl* g_level_up_button;
 extern W8TextControl* g_dismiss_button;
 /* Five bottom page buttons created with the item-action strip by
@@ -88,7 +89,7 @@ extern W8TextControl* g_camp_page_buttons[5];
 extern W8TextControl* g_item_action_controls[W8_CAMP_ACTION_BUTTON_COUNT];
 /* The bottom Controls panel CreateCampButtonPanel parents
    the page and item-action strips to. */
-extern Controls* g_item_actions_panel;
+extern std::unique_ptr<Controls> g_item_actions_panel;
 
 unsigned char CampDismissPortraitRegionEvent(const InputEvent* event, W8Region* region);
 unsigned char CampPortraitSlotRegionEvent(const InputEvent* event, W8Region* region);

@@ -1,4 +1,5 @@
 #include "himage.h"
+#include <memory>
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>
 #include <fmt/format.h>
@@ -64,9 +65,9 @@
 #include "layouts/main_game_screen.h"
 
 // GLOBAL: WIZ8 0x0069c3c4
-Controls* g_level_up_panel;
+std::unique_ptr<Controls> g_level_up_panel;
 // GLOBAL: WIZ8 0x0069c3c8
-Controls* g_dismiss_panel;
+std::unique_ptr<Controls> g_dismiss_panel;
 
 /* The eight item-page action buttons, indexed by the mode SetCampItemActionMode
    arms: one control per actionable entry-mode, cleared before each reselection. */
@@ -84,7 +85,7 @@ W8TextControl* g_dismiss_button;
 /* The shared bottom panel CreateCampButtonPanel parents the five page
    buttons and the eight item-action controls to. */
 // GLOBAL: WIZ8 0x0069c404
-Controls* g_item_actions_panel;
+std::unique_ptr<Controls> g_item_actions_panel;
 
 /* The level-line format the header draws - name, level and the
    profession's level-band title. */
@@ -462,17 +463,17 @@ unsigned char CampItemActionRegionEvent(const InputEvent* event, W8Region* regio
 // FUNCTION: WIZ8 0x005b6400
 void CreateRcsLevelUpPanel(void)
 {
-    g_level_up_panel = 0;
+    g_level_up_panel.reset();
     g_level_up_button = 0;
 
-    g_level_up_panel = new Controls(0xe9, 0x3f, 0xfb, 0x51, std::nullopt, -1);
-    if (g_level_up_panel == 0) {
+    g_level_up_panel = std::make_unique<Controls>(0xe9, 0x3f, 0xfb, 0x51, std::nullopt, -1);
+    if (!g_level_up_panel) {
         srAssertFail("gpLevelUpPanel", "C:\\Projects\\Wizardry 8\\Local Screens\\RCSCommon.cpp",
                      0x84e, 0);
     }
 
     g_level_up_button =
-        new W8TextControl(g_level_up_panel, g_camp_main_regions->index(0), 0, 0, 0x12, 0x12,
+        new W8TextControl(g_level_up_panel.get(), g_camp_main_regions->index(0), 0, 0, 0x12, 0x12,
                           CatalogArtwork::Load(0xa7, 0), 0, 2, 1, 4, 3);
     if (g_level_up_button == 0) {
         srAssertFail("gpLevelUpButton", "C:\\Projects\\Wizardry 8\\Local Screens\\RCSCommon.cpp",
@@ -503,7 +504,7 @@ void RedrawRcsDismissPanel(void)
 // FUNCTION: WIZ8 0x005b6540
 void DestroyRcsLevelUpPanel(void)
 {
-    DestroyControlPanel(g_level_up_panel);
+    g_level_up_panel.reset();
     g_level_up_button = nullptr;
 }
 
@@ -535,17 +536,17 @@ unsigned char CampLevelUpButtonRegionEvent(const InputEvent* event, W8Region* re
 // FUNCTION: WIZ8 0x005b6740
 void CreateRcsDismissPanel(void)
 {
-    g_dismiss_panel = 0;
+    g_dismiss_panel.reset();
     g_dismiss_button = 0;
 
-    g_dismiss_panel = new Controls(0xa7, 0x41, 0xbe, 0x51, std::nullopt, -1);
-    if (g_dismiss_panel == 0) {
+    g_dismiss_panel = std::make_unique<Controls>(0xa7, 0x41, 0xbe, 0x51, std::nullopt, -1);
+    if (!g_dismiss_panel) {
         srAssertFail("gpDismissPanel", "C:\\Projects\\Wizardry 8\\Local Screens\\RCSCommon.cpp",
                      0x8cf, 0);
     }
 
     g_dismiss_button =
-        new W8TextControl(g_dismiss_panel, g_camp_main_regions->index(1), 0, 0, 0x17, 0x10,
+        new W8TextControl(g_dismiss_panel.get(), g_camp_main_regions->index(1), 0, 0, 0x17, 0x10,
                           CatalogArtwork::Load(0x113, 0), 0, 2, 1, 2, 3);
     if (g_dismiss_button == 0) {
         srAssertFail("gpDismissButton", "C:\\Projects\\Wizardry 8\\Local Screens\\RCSCommon.cpp",
@@ -582,7 +583,7 @@ static void ShowDismissCharacterDialog(void)
     dialog->SetMessage(fmt::sprintf(format, character->name), 1, 0x32, true, true, true, true, 0,
                        0x15e);
     SetDialogDestroyCallback(dialog, OnDismissCharacterDialogClosed);
-    DisplayCampDialog(dialog);
+    DisplayCampDialog(std::unique_ptr<W8DialogBase>(dialog));
 }
 
 // FUNCTION: WIZ8 0x005b6a60
@@ -606,7 +607,7 @@ unsigned char CampDismissButtonRegionEvent(const InputEvent* event, W8Region* re
 // FUNCTION: WIZ8 0x005b6880
 void DestroyRcsDismissPanel(void)
 {
-    DestroyControlPanel(g_dismiss_panel);
+    g_dismiss_panel.reset();
     g_dismiss_button = nullptr;
 }
 
@@ -632,7 +633,7 @@ void UpdateRcsDismissPanel(void)
    the lifecycle interface is owned by MGSFormation.h. */
 
 // GLOBAL: WIZ8 0x0069c2ec
-Controls* g_formation_panel;
+std::unique_ptr<Controls> g_formation_panel;
 // GLOBAL: WIZ8 0x0069c344
 W8TextControl* g_formation_cell_controls[15];
 // GLOBAL: WIZ8 0x0069c384
@@ -661,7 +662,7 @@ void ReleaseFormationBoard(void)
 // FUNCTION: WIZ8 0x005B2580
 void DestroyFormationPanel(void)
 {
-    DestroyControlPanel(g_formation_panel);
+    g_formation_panel.reset();
     for (auto& control : g_formation_cell_controls) control = nullptr;
     for (auto& overlay : g_formation_cell_overlays) overlay = nullptr;
     for (auto& button : g_formation_action_buttons) button = nullptr;
@@ -674,7 +675,7 @@ void DestroyFormationPanel(void)
 // FUNCTION: WIZ8 0x005b4000
 void DrawCampHeader(void)
 {
-    W8CampScreenState* state = g_camp_screen;
+    W8CampScreenState* state = g_camp_screen.get();
     W8Character* character = g_review_character;
     unsigned int row;
     unsigned int slot;
@@ -1018,7 +1019,7 @@ int CreateCampButtonPanel(void)
 {
     int index;
 
-    g_item_actions_panel = 0;
+    g_item_actions_panel.reset();
     for (index = 0; index < 5; ++index) {
         if (g_camp_page_buttons[index] != 0) {
             g_camp_page_buttons[index] = 0;
@@ -1031,23 +1032,22 @@ int CreateCampButtonPanel(void)
     }
     g_camp_page_regions.Enable();
     g_camp_item_action_regions.Enable();
-    g_item_actions_panel =
-        new Controls(0, 0x1c2, 0x280, 0x1e0, CatalogArtwork::Load(0x110, 0), 0);
-    if (g_item_actions_panel != 0) {
+    g_item_actions_panel = std::make_unique<Controls>(0, 0x1c2, 0x280, 0x1e0, CatalogArtwork::Load(0x110, 0), 0);
+    if (g_item_actions_panel) {
         g_camp_page_buttons[0] = new W8TextControl(
-            g_item_actions_panel, g_camp_page_regions->index(0), 0x1a4, 0, 0x1d0, 0x1e,
+            g_item_actions_panel.get(), g_camp_page_regions->index(0), 0x1a4, 0, 0x1d0, 0x1e,
             CatalogArtwork::Load(0x111, 0), 0, 4, 1, 2, 3);
         g_camp_page_buttons[1] = new W8TextControl(
-            g_item_actions_panel, g_camp_page_regions->index(1), 0x1d0, 0, 0x1fc, 0x1e,
+            g_item_actions_panel.get(), g_camp_page_regions->index(1), 0x1d0, 0, 0x1fc, 0x1e,
             CatalogArtwork::Load(0x111, 0), 10, 0xe, 0xb, 0xc, 0xd);
         g_camp_page_buttons[2] = new W8TextControl(
-            g_item_actions_panel, g_camp_page_regions->index(2), 0x1fc, 0, 0x228, 0x1e,
+            g_item_actions_panel.get(), g_camp_page_regions->index(2), 0x1fc, 0, 0x228, 0x1e,
             CatalogArtwork::Load(0x111, 0), 0xf, 0x13, 0x10, 0x11, 0x12);
         g_camp_page_buttons[3] = new W8TextControl(
-            g_item_actions_panel, g_camp_page_regions->index(3), 0x228, 0, 0x254, 0x1e,
+            g_item_actions_panel.get(), g_camp_page_regions->index(3), 0x228, 0, 0x254, 0x1e,
             CatalogArtwork::Load(0x111, 0), 5, 9, 6, 7, 8);
         g_camp_page_buttons[4] = new W8TextControl(
-            g_item_actions_panel, g_camp_page_regions->index(4), 0x254, 0, 0x280, 0x1e,
+            g_item_actions_panel.get(), g_camp_page_regions->index(4), 0x254, 0, 0x280, 0x1e,
             CatalogArtwork::Load(0x106, 0), 0x10, -1, 0x11, 0x12, 0x13);
         for (index = 0; index < 5; ++index) {
             if (g_camp_page_buttons[index] == 0) {
@@ -1064,32 +1064,32 @@ int CreateCampButtonPanel(void)
         g_camp_page_buttons[3]->m_primaryActivationCallback = OnCampPageButton3;
         g_camp_page_buttons[4]->m_primaryActivationCallback = CampPageDismissAction;
         g_item_action_controls[W8_CAMP_ACTION_BUTTON_IDENTIFY] = new W8TextControl(
-            g_item_actions_panel, g_camp_item_action_regions->index(0), 0, 0, 0x2c, 0x1e,
+            g_item_actions_panel.get(), g_camp_item_action_regions->index(0), 0, 0, 0x2c, 0x1e,
             CatalogArtwork::Load(0x112, 0), 0, 2, 1, 4, 3);
         g_item_action_controls[W8_CAMP_ACTION_BUTTON_MOVE] = new W8TextControl(
-            g_item_actions_panel, g_camp_item_action_regions->index(1), 0x2c, 0, 0x58, 0x1e,
+            g_item_actions_panel.get(), g_camp_item_action_regions->index(1), 0x2c, 0, 0x58, 0x1e,
             CatalogArtwork::Load(0x112, 0), 10, 0xc, 0xb, 0xe, 0xd);
         g_item_action_controls[W8_CAMP_ACTION_BUTTON_SPLIT_STACK] = new W8TextControl(
-            g_item_actions_panel, g_camp_item_action_regions->index(2), 0x58, 0, 0x84, 0x1e,
+            g_item_actions_panel.get(), g_camp_item_action_regions->index(2), 0x58, 0, 0x84, 0x1e,
             CatalogArtwork::Load(0x112, 0), 5, 7, 6, 9, 8);
         g_item_action_controls[W8_CAMP_ACTION_BUTTON_USE] =
-            new W8TextControl(g_item_actions_panel, g_camp_item_action_regions->index(3), 0x84, 0,
+            new W8TextControl(g_item_actions_panel.get(), g_camp_item_action_regions->index(3), 0x84, 0,
                               0xb0, 0x1e, CatalogArtwork::Load(0x112, 0), 0xf, 0x11, 0x10, 0x13,
                               0x12);
         g_item_action_controls[W8_CAMP_ACTION_BUTTON_DROP] =
-            new W8TextControl(g_item_actions_panel, g_camp_item_action_regions->index(4), 0xb0, 0,
+            new W8TextControl(g_item_actions_panel.get(), g_camp_item_action_regions->index(4), 0xb0, 0,
                               0xdc, 0x1e, CatalogArtwork::Load(0x112, 0), 0x14, 0x16, 0x15,
                               0x18, 0x17);
         g_item_action_controls[W8_CAMP_ACTION_BUTTON_CAST_SPELL] =
-            new W8TextControl(g_item_actions_panel, g_camp_item_action_regions->index(5), 0x134, 0,
+            new W8TextControl(g_item_actions_panel.get(), g_camp_item_action_regions->index(5), 0x134, 0,
                               0x160, 0x1e, CatalogArtwork::Load(0x112, 0), 0x19, 0x1b, 0x1a,
                               0x1d, 0x1c);
         g_item_action_controls[W8_CAMP_ACTION_BUTTON_USE_ON_ITEM] =
-            new W8TextControl(g_item_actions_panel, g_camp_item_action_regions->index(6), 0xdc, 0,
+            new W8TextControl(g_item_actions_panel.get(), g_camp_item_action_regions->index(6), 0xdc, 0,
                               0x108, 0x1e, CatalogArtwork::Load(0x112, 0), 0x1e, 0x20, 0x1f,
                               0x22, 0x21);
         g_item_action_controls[W8_CAMP_ACTION_BUTTON_USE_ON_CHARACTER] =
-            new W8TextControl(g_item_actions_panel, g_camp_item_action_regions->index(7), 0x108, 0,
+            new W8TextControl(g_item_actions_panel.get(), g_camp_item_action_regions->index(7), 0x108, 0,
                               0x134, 0x1e, CatalogArtwork::Load(0x112, 0), 0x23, 0x25, 0x24,
                               0x27, 0x26);
         index = 0;
@@ -1142,7 +1142,7 @@ int CreateCampButtonPanel(void)
 // FUNCTION: WIZ8 0x005b55f0
 void DestroyCampButtonPanel(void)
 {
-    DestroyControlPanel(g_item_actions_panel);
+    g_item_actions_panel.reset();
     for (auto& button : g_camp_page_buttons) button = nullptr;
     for (auto& button : g_item_action_controls) button = nullptr;
     g_camp_item_action_regions.Disable();

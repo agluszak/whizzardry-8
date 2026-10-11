@@ -43,7 +43,7 @@
 #include "wiz8/catalog_artwork.h"
 #include "image_assets.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
-#include "wiz8/dialog_code/DialogButton.h"
+#include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/dialog_code/DialogScrollBar.h"
 #include "wiz8/dialog_code/MessageDialogBase.h"
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
@@ -181,17 +181,17 @@ void camp_effects()
         w8_native::Roots roots;
         ~Restore()
         {
-            g_camp_screen = nullptr;
+            g_camp_screen.reset();
             g_image_assets.clear();
             w8_native::configure_paths(roots);
         }
     } restore{previous_roots};
     {
-        auto state = std::make_unique<W8CampScreenState>();
+        g_camp_screen = std::make_unique<W8CampScreenState>();
+        auto* state = g_camp_screen.get();
         REQUIRE((state->effect_list.empty() && state->stats_range == nullptr));
-        g_camp_screen = state.get();
-        W8CampStatsRange range;
-        state->stats_range = &range;
+        state->stats_range = std::make_unique<W8CampStatsRange>();
+        auto& range = *state->stats_range;
         state->effect_list = {
             {false, false, true, false, 0, 0, 0, 3, 10}, {false, false, false, true, 0, 1, 0, 3, 9},
             {true, false, true, false, 2, 2, 0, 9999, 3}, {false, false, true, true, 0, 3, 0, 3, 2}};
@@ -987,7 +987,9 @@ void text_input_ownership()
         if (repeat == 0) {
             const auto field_region = std::find_if(
                 g_regions.begin(), g_regions.end(),
-                [](const W8Region& region) { return region.text_field != nullptr; });
+                [](const W8Region& region) {
+                    return region.text_field != nullptr && region.y1 == 0;
+                });
             REQUIRE(field_region != g_regions.end());
             const auto region_index =
                 static_cast<unsigned int>(field_region - g_regions.begin());
@@ -1297,11 +1299,11 @@ void generic_button_images()
     REQUIRE(std::all_of(quick_images.begin(), quick_images.end(),
                         [](const auto& item) { return item != nullptr; }));
     quick_images.clear();
-    const auto handler_count = std::count_if(
+    const auto widget_count = std::count_if(
         g_regions.begin(), g_regions.end(),
-        [](const W8Region& region) { return region.handler != nullptr; });
+        [](const W8Region& region) { return region.widget != nullptr; });
     {
-        auto dialog = std::make_unique<W8DialogButton>();
+        auto dialog = std::make_unique<W8ButtonWidget>();
         REQUIRE(dialog->ConfigureIcon("button.sti", 0, 1, REGION_PRIORITY_NORMAL,
                                       W8_DIALOG_BUTTON_NO_TOOLTIP));
         dialog->SetPosition(12, 13);
@@ -1310,21 +1312,21 @@ void generic_button_images()
         REQUIRE((dialog->GetX() == 12 && dialog->GetY() == 13 && dialog->GetWidth() == 1));
         REQUIRE(std::any_of(g_regions.begin(), g_regions.end(),
                             [&dialog](const W8Region& region) {
-                                return region.handler == dialog.get();
+                                return region.widget == dialog.get();
                             }));
         REQUIRE(std::count_if(g_regions.begin(), g_regions.end(),
                               [](const W8Region& region) {
-                                  return region.handler != nullptr;
-                              }) == handler_count + 1);
+                                  return region.widget != nullptr;
+                              }) == widget_count + 1);
     }
     REQUIRE(std::count_if(g_regions.begin(), g_regions.end(),
-                          [](const W8Region& region) { return region.handler != nullptr; }) ==
-            handler_count);
+                          [](const W8Region& region) { return region.widget != nullptr; }) ==
+            widget_count);
     // A dialog's click callback can close it. The dispatcher must not read
     // the released dialog while completing the click (including its sound).
-    auto closing_dialog = std::make_unique<W8DialogButton>();
+    auto closing_dialog = std::make_unique<W8ButtonWidget>();
     REQUIRE(closing_dialog->Configure("button.sti", 0, 1, 2, 3, 4,
-        [&](W8DialogButton*) { closing_dialog.reset(); }, nullptr, false,
+        [&](W8ButtonWidget*) { closing_dialog.reset(); }, nullptr, false,
         REGION_PRIORITY_NORMAL, W8_DIALOG_BUTTON_NO_TOOLTIP, nullptr, nullptr));
     closing_dialog->SetPosition(12, 13);
     PushButtonSoundScheme(0, true);
@@ -1728,9 +1730,9 @@ TEST_CASE("Dialog controls own interaction without legacy GUI buttons", "[owner]
     PushButtonSoundScheme(0, true);
     int activations = 0;
     {
-        W8DialogButton button;
+        W8ButtonWidget button;
         REQUIRE(button.ConfigureTextButton("button", font, 0, 0, 10, 10, 40, 20,
-            [&](W8DialogButton* control) {
+            [&](W8ButtonWidget* control) {
                 REQUIRE(control->GetUserData() == 42);
                 ++activations;
             }, 42));
@@ -1738,7 +1740,7 @@ TEST_CASE("Dialog controls own interaction without legacy GUI buttons", "[owner]
         button.SetTooltipEnabled(true);
         auto region = std::find_if(g_regions.begin(), g_regions.end(),
                                    [&button](const W8Region& item) {
-                                       return item.handler == &button;
+                                       return item.widget == &button;
                                    });
         REQUIRE(region != g_regions.end());
         REQUIRE(region->help_enabled);
@@ -1801,9 +1803,9 @@ TEST_CASE("Dialog controls own interaction without legacy GUI buttons", "[owner]
         REQUIRE(activations == 5);
     }
 
-    auto closing = std::make_unique<W8DialogButton>();
+    auto closing = std::make_unique<W8ButtonWidget>();
     closing->ConfigureTextButton("close", font, 0, 0, 10, 10, 40, 20,
-        [&](W8DialogButton*) { closing.reset(); }, 0);
+        [&](W8ButtonWidget*) { closing.reset(); }, 0);
     dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
     dispatch_mouse(InputEventType::LeftButtonUp, 15, 15);
     REQUIRE(!closing);
@@ -1920,7 +1922,7 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
                                    &short_list.m_third_text_button}) {
             const auto region = std::find_if(
                 g_regions.begin(), g_regions.end(),
-                [button](const W8Region& item) { return item.handler == button; });
+                [button](const W8Region& item) { return item.widget == button; });
             REQUIRE(region != g_regions.end());
             REQUIRE((region->flags & W8_REGION_INPUT_DISABLED) != 0);
             REQUIRE_FALSE(button->m_dirty);

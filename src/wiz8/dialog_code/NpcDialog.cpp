@@ -17,7 +17,7 @@
 #include "input.h"
 #include "Font.h"
 #include "dialog_code/DialogBase.h"
-#include "dialog_code/DialogButton.h"
+#include "wiz8/local_code/ButtonWidget.h"
 #include "local_code/ControlsRect.h"
 #include "npc_script_file.h"
 
@@ -104,7 +104,7 @@ int W8NpcDialog::CreateControls()
             2;
         for (index = 0; index < m_message->sub_entry_count; ++index) {
             line = m_message->sub_entries[index].text;
-            m_buttons[index] = std::make_unique<W8DialogButton>();
+            m_buttons[index] = std::make_unique<W8ButtonWidget>();
             m_buttons[index]->ConfigureTextButton(
                 line, g_wiz_text_mono_font, 4, 5, static_cast<short>(m_x + x),
                 static_cast<short>(m_y + 0x23), m_text_width, 0x14, OptionSelected, index);
@@ -120,11 +120,11 @@ int W8NpcDialog::CreateControls()
     } else if (m_message->kind == W8_NPC_ENTRY_PRICE_CHECK ||
                m_message->kind == W8_NPC_ENTRY_ALWAYS_PRICE_CHECK) {
         short x = static_cast<short>((m_width - static_cast<short>((m_text_width + 5) * 2)) / 2);
-        m_buttons[0] = std::make_unique<W8DialogButton>();
+        m_buttons[0] = std::make_unique<W8ButtonWidget>();
         m_buttons[0]->ConfigureTextButton(
             g_localized_strings[0x7df], g_wiz_text_mono_font, 4, 5, static_cast<short>(m_x + x),
             static_cast<short>(m_y + 0x1e), m_text_width, 0x14, OptionSelected, 0);
-        m_buttons[1] = std::make_unique<W8DialogButton>();
+        m_buttons[1] = std::make_unique<W8ButtonWidget>();
         m_buttons[1]->ConfigureTextButton(g_localized_strings[0x7e0], g_wiz_text_mono_font, 4, 5,
                                           static_cast<short>(m_x + x + m_text_width + 10),
                                           static_cast<short>(m_y + 0x1e), m_text_width, 0x14,
@@ -218,7 +218,7 @@ bool W8NpcDialog::ProcessInput()
 }
 
 // FUNCTION: WIZ8 0x005DB150
-void W8NpcDialog::OptionSelected(W8DialogButton* button)
+void W8NpcDialog::OptionSelected(W8ButtonWidget* button)
 {
     g_npc_dialog->m_selected_option = static_cast<unsigned char>(button->GetUserData());
     g_npc_dialog->m_keep_open = false;

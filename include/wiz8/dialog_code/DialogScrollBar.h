@@ -1,6 +1,6 @@
 #pragma once
 
-#include "wiz8/dialog_code/DialogButton.h"
+#include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/ControlsRect.h"
 #include "Types.h"
 #include "compat/compiler.h"
@@ -46,9 +46,9 @@ public:
     W8DialogBase* m_owner;
 
 private:
-    W8DialogButton m_up_button;
-    W8DialogButton m_down_button;
-    W8DialogButton m_thumb_button;
-    W8DialogButton m_track_button;
+    W8ButtonWidget m_up_button;
+    W8ButtonWidget m_down_button;
+    W8ButtonWidget m_thumb_button;
+    W8ButtonWidget m_track_button;
     void (*m_on_scroll)(W8DialogScrollBar* scroll_bar, int first_visible_entry);
 };

@@ -1,3 +1,4 @@
+#include <memory>
 #include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>
@@ -78,7 +79,7 @@ int g_empty_hand_catalog_ids[32] = {
 };
 
 // GLOBAL: WIZ8 0x0069B940
-static Controls* g_portrait_panel; /* gpLevelButtonsPanel */
+static std::unique_ptr<Controls> g_portrait_panel; /* gpLevelButtonsPanel */
 // GLOBAL: WIZ8 0x0064C664
 char s_general_magic_sound[] = "Data\\Spells\\Sounds\\GeneralMagic.wav";
 
@@ -88,7 +89,7 @@ static W8TextControl* g_portrait_controls[8]; /* gpLevelButtons[uiSlot] */
 // GLOBAL: WIZ8 0x0069B900
 static W8ConditionButton* g_condition_buttons[8];
 // GLOBAL: WIZ8 0x0069B944
-static Controls* g_condition_buttons_panel;
+static std::unique_ptr<Controls> g_condition_buttons_panel;
 /* Party slot the level-up portrait button opens; -1 while idle. */
 // GLOBAL: WIZ8 0x0069B948
 static int giLevelUpChar;
@@ -1068,7 +1069,7 @@ void ShadeStatusBarGap(int length, int left, int top)
 void ReleasePortraitControls(void)
 {
     DisablePortraitControls();
-    DestroyControlPanel(g_portrait_panel);
+    g_portrait_panel.reset();
     for (auto& control : g_portrait_controls) {
         control = nullptr;
     }
@@ -1077,7 +1078,7 @@ void ReleasePortraitControls(void)
 // FUNCTION: WIZ8 0x0059BF70
 void ReleaseConditionButtons(void)
 {
-    DestroyControlPanel(g_condition_buttons_panel);
+    g_condition_buttons_panel.reset();
     for (auto& button : g_condition_buttons) {
         button = nullptr;
     }
@@ -1198,14 +1199,14 @@ void CreateLevelButtons(void)
 {
     unsigned int uiSlot;
 
-    g_portrait_panel = 0;
+    g_portrait_panel.reset();
     const auto artwork = CatalogArtwork::Load(0xa8);
     for (uiSlot = 0; uiSlot < 8; ++uiSlot) {
         g_portrait_controls[uiSlot] = 0;
     }
 
-    g_portrait_panel = new Controls(0, 0, 0x280, 0x1e0, std::nullopt, -1);
-    if (g_portrait_panel == 0) {
+    g_portrait_panel = std::make_unique<Controls>(0, 0, 0x280, 0x1e0, std::nullopt, -1);
+    if (!g_portrait_panel) {
         srAssertFail("gpLevelButtonsPanel",
                      "C:\\Projects\\Wizardry 8\\Local Screens\\MGSPortraits.cpp", 0x8e0, 0);
     }
@@ -1214,7 +1215,7 @@ void CreateLevelButtons(void)
         unsigned int column_x = (uiSlot & 1) != 0 ? 0x23b : 0;
         int row_y = (uiSlot >> 1) * 0x55;
         g_portrait_controls[uiSlot] =
-            new W8TextControl(g_portrait_panel, g_main_portrait_controls->index(uiSlot), column_x + 0x19, row_y + 0x46,
+            new W8TextControl(g_portrait_panel.get(), g_main_portrait_controls->index(uiSlot), column_x + 0x19, row_y + 0x46,
                               column_x + 0x2b, row_y + 0x58, CatalogArtwork::Load(0xa7, 0), 0, 2,
                               1, 4, 3);
         g_portrait_controls[uiSlot]->m_primaryActivationCallback = OnLevelButtonActivate;
@@ -1287,13 +1288,13 @@ void CreateConditionButtons(void)
 {
     unsigned int uiSlot;
 
-    g_condition_buttons_panel = 0;
+    g_condition_buttons_panel.reset();
     for (uiSlot = 0; uiSlot < 8; ++uiSlot) {
         g_condition_buttons[uiSlot] = 0;
     }
 
-    g_condition_buttons_panel = new Controls(0, 0, 0x280, 0x1e0, std::nullopt, -1);
-    if (g_condition_buttons_panel == 0) {
+    g_condition_buttons_panel = std::make_unique<Controls>(0, 0, 0x280, 0x1e0, std::nullopt, -1);
+    if (!g_condition_buttons_panel) {
         srAssertFail("gpConditionButtonsPanel",
                      "C:\\Projects\\Wizardry 8\\Local Screens\\MGSPortraits.cpp", 0x9db, 0);
     }
@@ -1303,7 +1304,7 @@ void CreateConditionButtons(void)
         unsigned int column_x = (uiSlot & 1) != 0 ? 0x23f : 0;
         int row_y = (uiSlot >> 1) * 0x55;
         g_condition_buttons[uiSlot] = new W8ConditionButton(
-            g_condition_buttons_panel, g_main_conditions->index(uiSlot), column_x + 0x17, row_y + 0x13,
+            g_condition_buttons_panel.get(), g_main_conditions->index(uiSlot), column_x + 0x17, row_y + 0x13,
             column_x + 0x2a, row_y + 0x26, artwork, 0, 0, 1, 1, -1, uiSlot);
         if (g_condition_buttons[uiSlot] == 0) {
             srAssertFail("gpConditionButtons[uiSlot]",

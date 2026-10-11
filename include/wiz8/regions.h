@@ -141,7 +141,7 @@ class OwnedRegion {
 public:
     OwnedRegion() = default;
     OwnedRegion(unsigned int set, int priority, W8RegionHandler& handler);
-    OwnedRegion(unsigned int set, const RegionTemplate& entry);
+    OwnedRegion(unsigned int set, const RegionTemplate& entry, int priority = REGION_PRIORITY_LOWEST);
     ~OwnedRegion();
     OwnedRegion(const OwnedRegion&) = delete;
     OwnedRegion& operator=(const OwnedRegion&) = delete;

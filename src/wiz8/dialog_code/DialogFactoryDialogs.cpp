@@ -11,7 +11,7 @@
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
 #include "image.h"
 #include "sprite.h"
-#include "wiz8/dialog_code/DialogButton.h"
+#include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/regions.h"
 #include "wiz8/utility.h"
@@ -504,7 +504,7 @@ bool W8SplitAmountDialog::CreateButtons()
 {
     int index;
 
-    for (auto& button : m_buttons) button = std::make_unique<W8DialogButton>();
+    for (auto& button : m_buttons) button = std::make_unique<W8ButtonWidget>();
     if (!m_buttons[0]->Configure("Data\\Dialogs\\popup_splititem.sti", 0xc, 9, 10, 0xd, 0xb,
                             SplitDecrementOne, BUTTON_NO_CALLBACK, false, REGION_PRIORITY_HIGHEST,
                             W8_DIALOG_BUTTON_NO_TOOLTIP, SplitDecrementFive, BUTTON_NO_CALLBACK)) return false;
@@ -708,7 +708,7 @@ bool W8SplitAmountDialog::ProcessInput()
 }
 
 // FUNCTION: WIZ8 0x005da440
-void W8SplitAmountDialog::SplitDecrementOne(W8DialogButton* button)
+void W8SplitAmountDialog::SplitDecrementOne(W8ButtonWidget* button)
 {
     if (button != 0) {
         static_cast<W8SplitAmountDialog*>(button->m_owner)->DecreaseAmount(1);
@@ -716,7 +716,7 @@ void W8SplitAmountDialog::SplitDecrementOne(W8DialogButton* button)
 }
 
 // FUNCTION: WIZ8 0x005da490
-void W8SplitAmountDialog::SplitDecrementFive(W8DialogButton* button)
+void W8SplitAmountDialog::SplitDecrementFive(W8ButtonWidget* button)
 {
     if (button != 0) {
         static_cast<W8SplitAmountDialog*>(button->m_owner)->DecreaseAmount(5);
@@ -724,7 +724,7 @@ void W8SplitAmountDialog::SplitDecrementFive(W8DialogButton* button)
 }
 
 // FUNCTION: WIZ8 0x005da4e0
-void W8SplitAmountDialog::SplitIncrementOne(W8DialogButton* button)
+void W8SplitAmountDialog::SplitIncrementOne(W8ButtonWidget* button)
 {
     if (button != 0) {
         static_cast<W8SplitAmountDialog*>(button->m_owner)->IncreaseAmount(1);
@@ -732,7 +732,7 @@ void W8SplitAmountDialog::SplitIncrementOne(W8DialogButton* button)
 }
 
 // FUNCTION: WIZ8 0x005da530
-void W8SplitAmountDialog::SplitIncrementFive(W8DialogButton* button)
+void W8SplitAmountDialog::SplitIncrementFive(W8ButtonWidget* button)
 {
     if (button != 0) {
         static_cast<W8SplitAmountDialog*>(button->m_owner)->IncreaseAmount(5);
@@ -740,7 +740,7 @@ void W8SplitAmountDialog::SplitIncrementFive(W8DialogButton* button)
 }
 
 // FUNCTION: WIZ8 0x005da580
-void W8SplitAmountDialog::SplitAccept(W8DialogButton* button)
+void W8SplitAmountDialog::SplitAccept(W8ButtonWidget* button)
 {
     if (button != 0) {
         W8SplitAmountDialog* dialog = static_cast<W8SplitAmountDialog*>(button->m_owner);
@@ -750,7 +750,7 @@ void W8SplitAmountDialog::SplitAccept(W8DialogButton* button)
 }
 
 // FUNCTION: WIZ8 0x005da5a0
-void W8SplitAmountDialog::SplitCancel(W8DialogButton* button)
+void W8SplitAmountDialog::SplitCancel(W8ButtonWidget* button)
 {
     if (button != 0) {
         W8SplitAmountDialog* dialog = static_cast<W8SplitAmountDialog*>(button->m_owner);
@@ -760,7 +760,7 @@ void W8SplitAmountDialog::SplitCancel(W8DialogButton* button)
 }
 
 // FUNCTION: WIZ8 0x005da5c0
-void W8SplitAmountDialog::SplitActivateField(W8DialogButton* button)
+void W8SplitAmountDialog::SplitActivateField(W8ButtonWidget* button)
 {
     SDL_Point point;
 
@@ -807,7 +807,7 @@ W8TriggerItemPickerDialog::~W8TriggerItemPickerDialog()
 bool W8TriggerItemPickerDialog::CreateButtons()
 {
     for (auto& button : m_buttons) {
-        button = std::make_unique<W8DialogButton>();
+        button = std::make_unique<W8ButtonWidget>();
         button->m_owner = this;
     }
     bool configured = true;
@@ -885,7 +885,7 @@ void W8TriggerItemPickerDialog::RefreshScrollButtons()
         m_first_item = 0;
     }
     for (int index = 0; index < 4; ++index) {
-        W8DialogButton& button = *m_buttons[5 + index];
+        W8ButtonWidget& button = *m_buttons[5 + index];
         int item = m_first_item + index;
         if (item < static_cast<int>(items.size())) {
             button.SetPressed(IsItemSelected(item));
@@ -928,7 +928,7 @@ void W8TriggerItemPickerDialog::SetItemSelected(int index, bool selected)
     }
 }
 
-void W8TriggerItemPickerDialog::ToggleItem(int index, W8DialogButton* button)
+void W8TriggerItemPickerDialog::ToggleItem(int index, W8ButtonWidget* button)
 {
     bool selected = !IsItemSelected(index);
     if (index < 0 || index >= static_cast<int>(items.size())) {
@@ -985,7 +985,7 @@ void W8TriggerItemPickerDialog::TransferSelectedItems(int destination)
 /* The select-all button: clear every flag when all are set, otherwise set them
    all. The four visible row buttons are synced with the flags. */
 // FUNCTION: WIZ8 0x005ce5f0
-void W8TriggerItemPickerDialog::ToggleAllItems(W8DialogButton* button)
+void W8TriggerItemPickerDialog::ToggleAllItems(W8ButtonWidget* button)
 {
     if (button != 0) {
         W8TriggerItemPickerDialog* dialog =
@@ -1010,7 +1010,7 @@ void W8TriggerItemPickerDialog::ToggleAllItems(W8DialogButton* button)
 
 /* Hand the selected items to the shared party pool. */
 // FUNCTION: WIZ8 0x005ce6a0
-void W8TriggerItemPickerDialog::TakeSelectedToParty(W8DialogButton* button)
+void W8TriggerItemPickerDialog::TakeSelectedToParty(W8ButtonWidget* button)
 {
     if (button != 0) {
         static_cast<W8TriggerItemPickerDialog*>(button->m_owner)->TransferSelectedItems(-1);
@@ -1019,7 +1019,7 @@ void W8TriggerItemPickerDialog::TakeSelectedToParty(W8DialogButton* button)
 
 /* Hand the selected items to the currently selected party member. */
 // FUNCTION: WIZ8 0x005ce6c0
-void W8TriggerItemPickerDialog::TakeSelectedToCharacter(W8DialogButton* button)
+void W8TriggerItemPickerDialog::TakeSelectedToCharacter(W8ButtonWidget* button)
 {
     if (button != 0) {
         static_cast<W8TriggerItemPickerDialog*>(button->m_owner)
@@ -1030,7 +1030,7 @@ void W8TriggerItemPickerDialog::TakeSelectedToCharacter(W8DialogButton* button)
 /* Toggle the flag on the first visible row and press its button to match. An
    out-of-range row just unpresses the clicked button. */
 // FUNCTION: WIZ8 0x005ce6f0
-void W8TriggerItemPickerDialog::ToggleVisibleItem0(W8DialogButton* button)
+void W8TriggerItemPickerDialog::ToggleVisibleItem0(W8ButtonWidget* button)
 {
     if (button != 0) {
         W8TriggerItemPickerDialog* dialog =
@@ -1040,7 +1040,7 @@ void W8TriggerItemPickerDialog::ToggleVisibleItem0(W8DialogButton* button)
 }
 
 // FUNCTION: WIZ8 0x005ce790
-void W8TriggerItemPickerDialog::ToggleVisibleItem1(W8DialogButton* button)
+void W8TriggerItemPickerDialog::ToggleVisibleItem1(W8ButtonWidget* button)
 {
     if (button != 0) {
         W8TriggerItemPickerDialog* dialog =
@@ -1052,7 +1052,7 @@ void W8TriggerItemPickerDialog::ToggleVisibleItem1(W8DialogButton* button)
 }
 
 // FUNCTION: WIZ8 0x005ce830
-void W8TriggerItemPickerDialog::ToggleVisibleItem2(W8DialogButton* button)
+void W8TriggerItemPickerDialog::ToggleVisibleItem2(W8ButtonWidget* button)
 {
     if (button != 0) {
         W8TriggerItemPickerDialog* dialog =
@@ -1064,7 +1064,7 @@ void W8TriggerItemPickerDialog::ToggleVisibleItem2(W8DialogButton* button)
 }
 
 // FUNCTION: WIZ8 0x005ce8d0
-void W8TriggerItemPickerDialog::ToggleVisibleItem3(W8DialogButton* button)
+void W8TriggerItemPickerDialog::ToggleVisibleItem3(W8ButtonWidget* button)
 {
     if (button != 0) {
         W8TriggerItemPickerDialog* dialog =
@@ -1077,7 +1077,7 @@ void W8TriggerItemPickerDialog::ToggleVisibleItem3(W8DialogButton* button)
 
 /* The four right-click callbacks copy the visible row's world item and open
    the assay dialog on it. */
-void W8TriggerItemPickerDialog::ShowVisibleItemInfo(W8DialogButton* button, int row)
+void W8TriggerItemPickerDialog::ShowVisibleItemInfo(W8ButtonWidget* button, int row)
 {
     if (button != 0) {
         W8TriggerItemPickerDialog* dialog =
@@ -1091,32 +1091,32 @@ void W8TriggerItemPickerDialog::ShowVisibleItemInfo(W8DialogButton* button, int 
 }
 
 // FUNCTION: WIZ8 0x005ce970
-void W8TriggerItemPickerDialog::ShowVisibleItemInfo0(W8DialogButton* button)
+void W8TriggerItemPickerDialog::ShowVisibleItemInfo0(W8ButtonWidget* button)
 {
     ShowVisibleItemInfo(button, 0);
 }
 
 // FUNCTION: WIZ8 0x005ce9b0
-void W8TriggerItemPickerDialog::ShowVisibleItemInfo1(W8DialogButton* button)
+void W8TriggerItemPickerDialog::ShowVisibleItemInfo1(W8ButtonWidget* button)
 {
     ShowVisibleItemInfo(button, 1);
 }
 
 // FUNCTION: WIZ8 0x005ce9f0
-void W8TriggerItemPickerDialog::ShowVisibleItemInfo2(W8DialogButton* button)
+void W8TriggerItemPickerDialog::ShowVisibleItemInfo2(W8ButtonWidget* button)
 {
     ShowVisibleItemInfo(button, 2);
 }
 
 // FUNCTION: WIZ8 0x005cea30
-void W8TriggerItemPickerDialog::ShowVisibleItemInfo3(W8DialogButton* button)
+void W8TriggerItemPickerDialog::ShowVisibleItemInfo3(W8ButtonWidget* button)
 {
     ShowVisibleItemInfo(button, 3);
 }
 
 /* The two scroll arrows step the first visible row through SetFirstVisible. */
 // FUNCTION: WIZ8 0x005cea70
-void W8TriggerItemPickerDialog::ScrollItemsUp(W8DialogButton* button)
+void W8TriggerItemPickerDialog::ScrollItemsUp(W8ButtonWidget* button)
 {
     if (button != 0) {
         W8TriggerItemPickerDialog* dialog =
@@ -1126,7 +1126,7 @@ void W8TriggerItemPickerDialog::ScrollItemsUp(W8DialogButton* button)
 }
 
 // FUNCTION: WIZ8 0x005ceab0
-void W8TriggerItemPickerDialog::ScrollItemsDown(W8DialogButton* button)
+void W8TriggerItemPickerDialog::ScrollItemsDown(W8ButtonWidget* button)
 {
     if (button != 0) {
         W8TriggerItemPickerDialog* dialog =
@@ -1139,7 +1139,7 @@ void W8TriggerItemPickerDialog::ScrollItemsDown(W8DialogButton* button)
    position between the scroll buttons' top and bottom bounds onto the item
    list, then clamp through SetFirstVisible. */
 // FUNCTION: WIZ8 0x005ceaf0
-void W8TriggerItemPickerDialog::ScrollItemsToMouse(W8DialogButton* button)
+void W8TriggerItemPickerDialog::ScrollItemsToMouse(W8ButtonWidget* button)
 {
     int top;
     int bottom;
@@ -1417,7 +1417,7 @@ void W8TriggerItemPickerDialog::Draw()
     RefreshScrollButtons();
 
     for (int row = 0; row < visible_rows; ++row) {
-        W8DialogButton* button = m_buttons[5 + row].get();
+        W8ButtonWidget* button = m_buttons[5 + row].get();
 
         button->SetVisible(true);
         button->SetPosition(m_x + 7, m_y + button->GetHeight() * row + 7);
@@ -1478,7 +1478,7 @@ void W8TriggerItemPickerDialog::DestroyControls()
 }
 
 // FUNCTION: WIZ8 0x005ce6e0
-void W8TriggerItemPickerDialog::CloseOwningDialog(W8DialogButton* button)
+void W8TriggerItemPickerDialog::CloseOwningDialog(W8ButtonWidget* button)
 {
     if (button != 0) {
         button->m_owner->m_keep_open = false;

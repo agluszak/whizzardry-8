@@ -53,7 +53,7 @@
 #include "wiz8/float_constants.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/item_spawning.h"
-#include "wiz8/dialog_code/DialogButton.h"
+#include "wiz8/local_code/ButtonWidget.h"
 #include "surrender/srColorSurface.h"
 #include "wiz8/cursor.h"
 #include "wiz8/engine_code/Quality.h"
@@ -150,7 +150,7 @@ std::vector<srClass*>* g_automap_markers;
 // GLOBAL: WIZ8 0x0068f220
 std::vector<std::unique_ptr<srClipPlane>> g_automap_created_layers;
 // GLOBAL: WIZ8 0x0068f24c
-std::vector<std::unique_ptr<W8DialogButton>> g_automap_buttons;
+std::vector<std::unique_ptr<W8ButtonWidget>> g_automap_buttons;
 struct W8AutomapState {
     unsigned char unknown_000[0xf4];
     uint64_t blink_time;
@@ -494,17 +494,17 @@ void RestoreAutomapCameraPosition(void)
 // FUNCTION: WIZ8 0x00583BC0
 void CreateAutomapButtons(void)
 {
-    std::vector<std::unique_ptr<W8DialogButton>> buttons(16);
+    std::vector<std::unique_ptr<W8ButtonWidget>> buttons(16);
     for (size_t index = 0; index < buttons.size(); ++index) {
         const int catalog_id = g_automap_button_catalogs[index];
         auto artwork = CatalogArtwork::Load(catalog_id);
         auto sprites = artwork.spriteSheet();
         if (!sprites) continue;
         const int base_frame = artwork.imageOffset();
-        auto button = std::make_unique<W8DialogButton>();
+        auto button = std::make_unique<W8ButtonWidget>();
         const auto action = g_automap_button_callbacks[index];
-        W8DialogButtonCallback callback;
-        if (action) callback = [action](W8DialogButton*) { action(); };
+        W8ButtonCallback callback;
+        if (action) callback = [action](W8ButtonWidget*) { action(); };
         if (button->Configure(std::move(sprites), base_frame + 3, base_frame, base_frame + 1,
                               base_frame + 2, base_frame + 2, callback, nullptr, false,
                               REGION_PRIORITY_HIGHEST, g_automap_button_tooltips[index], nullptr, nullptr)) {

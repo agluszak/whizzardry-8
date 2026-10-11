@@ -1,5 +1,6 @@
 #include "wiz8/local_screens/MGSPartyMovement.h"
 
+#include <memory>
 #include <SDL3/SDL_rect.h>
 #include <array>
 #include <cstdint>
@@ -45,7 +46,7 @@ static W8TextControl* g_party_movement_buttons[2];
 // GLOBAL: WIZ8 0x0069BF48
 uint64_t g_party_movement_animation_clock;
 // GLOBAL: WIZ8 0x0069BF4C
-Controls* g_party_movement_panel;
+std::unique_ptr<Controls> g_party_movement_panel;
 // GLOBAL: WIZ8 0x0069BF50
 W8TextBuffer* g_party_movement_caption;
 // GLOBAL: WIZ8 0x0069BF54
@@ -69,12 +70,12 @@ unsigned char CreatePartyMovementPanel(void)
     W8ControlsRect bounds;
 
     g_party_movement_animation_frame = 0;
-    g_party_movement_panel = 0;
+    g_party_movement_panel.reset();
     g_party_movement_caption = 0;
     g_party_movement_buttons[0] = 0;
     g_party_movement_buttons[1] = 0;
 
-    g_party_movement_panel = new Controls(0xb1, 0x13f, 0x1cf, 0x153, CatalogArtwork::Load(0x93, 0), 0);
+    g_party_movement_panel = std::make_unique<Controls>(0xb1, 0x13f, 0x1cf, 0x153, CatalogArtwork::Load(0x93, 0), 0);
 
     bounds.left = 0xc3;
     bounds.right = 0x1b9;
@@ -84,13 +85,13 @@ unsigned char CreatePartyMovementPanel(void)
         new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
 
     g_party_movement_buttons[0] =
-        new W8TextControl(g_party_movement_panel, g_party_movement_regions->index(0), 0x10a, 0, 0x11e,
+        new W8TextControl(g_party_movement_panel.get(), g_party_movement_regions->index(0), 0x10a, 0, 0x11e,
                           0x14, CatalogArtwork::Load(0x94, 0), 4, 6, 5, 6, 7);
     g_party_movement_buttons[1] =
-        new W8TextControl(g_party_movement_panel, g_party_movement_regions->index(1), 0x10a, 0, 0x11e,
+        new W8TextControl(g_party_movement_panel.get(), g_party_movement_regions->index(1), 0x10a, 0, 0x11e,
                           0x14, CatalogArtwork::Load(0x94, 0), 4, 6, 5, 6, 7);
 
-    if (g_party_movement_panel != 0 && g_party_movement_buttons[0] != 0 &&
+    if (g_party_movement_panel && g_party_movement_buttons[0] != 0 &&
         g_party_movement_buttons[1] != 0) {
         g_party_movement_buttons[0]->m_primaryActivationCallback = BeginFreeTurnPhase;
         g_party_movement_buttons[1]->m_primaryActivationCallback = CancelPartyMovement;
@@ -116,7 +117,7 @@ void ReleasePartyMovement(void)
     }
     RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
     g_party_movement_regions.Disable();
-    DestroyControlPanel(g_party_movement_panel);
+    g_party_movement_panel.reset();
     for (auto& button : g_party_movement_buttons) button = nullptr;
     if (g_party_movement_caption != 0) {
         delete g_party_movement_caption;

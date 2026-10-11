@@ -7,6 +7,7 @@
 #include <array>
 #include <cstring>
 #include <memory>
+#include <utility>
 #include <vector>
 
 #include "wiz8/conditions.h"
@@ -61,7 +62,15 @@ unsigned int g_camp_stats_controls_region_set;
 // GLOBAL: WIZ8 0x0069c524
 static int g_camp_skill_hover_row;
 // GLOBAL: WIZ8 0x0069c528
-unsigned int g_camp_skill_regions;
+/* Five skill-category list regions; bounds are applied by CreateCampSkillRegions. */
+static constexpr std::array<RegionTemplate, 5> g_camp_skill_templates{{
+    {0x00000001, 0, 0, 0, 0, CampSkillListRegionHandler, 0, true, -1},
+    {0x00000001, 0, 0, 0, 0, CampSkillListRegionHandler, 1, true, -1},
+    {0x00000001, 0, 0, 0, 0, CampSkillListRegionHandler, 2, true, -1},
+    {0x00000001, 0, 0, 0, 0, CampSkillListRegionHandler, 3, true, -1},
+    {0x00000001, 0, 0, 0, 0, CampSkillListRegionHandler, 4, true, -1},
+}};
+ScreenRegionSet g_camp_skill_regions{g_camp_skill_templates};
 
 static unsigned char CampStatsMouseWheel(const InputEvent* event, W8Region*);
 void DrawCampEffectList(void);
@@ -376,7 +385,7 @@ static void AddCampEffectEntry(W8CampScreenState* screen, W8CampEffectEntry* ent
 // FUNCTION: WIZ8 0x005c4ee0
 void RebuildCampEffectList(void)
 {
-    W8CampScreenState* screen = g_camp_screen;
+    W8CampScreenState* screen = g_camp_screen.get();
     screen->effect_list.clear();
     screen->effect_beneficial_count = 0;
     screen->effect_detrimental_count = 0;
@@ -447,7 +456,7 @@ void RebuildCampEffectList(void)
 // FUNCTION: WIZ8 0x005c5240
 void FilterCampEffectList(void)
 {
-    W8CampScreenState* screen = g_camp_screen;
+    W8CampScreenState* screen = g_camp_screen.get();
     screen->effect_visible_lines = 0;
     bool any_visible = false;
     unsigned int count = screen->effect_list.size();
@@ -491,7 +500,7 @@ void FilterCampEffectList(void)
 // FUNCTION: WIZ8 0x005c53c0
 void DrawCampEffectList(void)
 {
-    W8CampScreenState* screen = g_camp_screen;
+    W8CampScreenState* screen = g_camp_screen.get();
     SDL_Rect effect_clip{0, 0xbe, 0x280, 0xee};
     ScopedClipRect clipping(GetFrameBufferSurface(), effect_clip);
     int line = -screen->effect_scroll;
@@ -671,30 +680,25 @@ static unsigned char CampStatsMouseWheel(const InputEvent* event, W8Region*)
 // FUNCTION: WIZ8 0x005c5cd0
 void CreateCampSkillRegions(void)
 {
-    if (g_camp_skill_regions == 0) {
-        g_camp_skill_regions = CreateRegionSet();
-        for (unsigned int category = 0; category < 5; ++category) {
-            unsigned int region = AddRegionToSet(g_camp_skill_regions);
-            SetRegionCallback(region, CampSkillListRegionHandler,
-                              static_cast<unsigned short>(category));
-            SetRegionHelp(region, true, -1);
-            int x = g_camp_skill_category_positions[category].x;
-            int y = g_camp_skill_category_positions[category].y;
-            if (category == 4) {
-                x += 0x136;
-            } else {
-                y += 0xa5;
-            }
-            SetRegionBounds(region, x, y, x + 0x6d, g_camp_skill_category_rows[category] * 0xe + y);
+    g_camp_skill_regions.Create();
+    for (unsigned int category = 0; category < 5; ++category) {
+        int x = g_camp_skill_category_positions[category].x;
+        int y = g_camp_skill_category_positions[category].y;
+        if (category == 4) {
+            x += 0x136;
+        } else {
+            y += 0xa5;
         }
+        SetRegionBounds(g_camp_skill_regions->index(category), x, y, x + 0x6d,
+                        g_camp_skill_category_rows[category] * 0xe + y);
     }
-    RegionSetEnable(g_camp_skill_regions);
+    g_camp_skill_regions.Enable();
 }
 
 // FUNCTION: WIZ8 0x005c5d70
 void DisableCampSkillRegions(void)
 {
-    RegionSetDisable(g_camp_skill_regions);
+    g_camp_skill_regions.Disable();
 }
 
 /* Unlike the gameplay best-skill query, the camp display includes every
@@ -869,10 +873,10 @@ unsigned char CampSkillListRegionHandler(const InputEvent* event, W8Region* regi
             best = IsBestCampSkillLevel(static_cast<W8Skill>(skill),
                                         g_review_character->skills[skill].level);
         }
-        W8SkillInfoDialog* dialog = new W8SkillInfoDialog(
+        auto dialog = std::make_unique<W8SkillInfoDialog>(
             static_cast<W8Skill>(skill), best, !g_review_character->skills[skill].active,
             skill == g_profession_bonus_skills[g_review_character->iProfession]);
-        DisplayCampDialog(dialog);
+        DisplayCampDialog(std::move(dialog));
     }
     return 1;
 }

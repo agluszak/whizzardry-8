@@ -210,7 +210,7 @@ add_library(WIZ8_GAME_CORE STATIC
     dialog_code/AssayDialog.cpp
     dialog_code/DialogTextArea.cpp
     dialog_code/NpcDialog.cpp
-    dialog_code/stButton.cpp
+    local_code/ButtonWidget.cpp
     dialog_code/SpellInfoDialog.cpp
     dialog_code/SplitItemDialog.cpp
     dialog_code/DialogScrollBar.cpp

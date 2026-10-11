@@ -1,7 +1,7 @@
 #include <SDL3/SDL_rect.h>
 #include <vector>
 
-#include "wiz8/dialog_code/DialogButton.h"
+#include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "Font.h"
@@ -16,7 +16,7 @@
    DialogFactoryDialogs.h for these call sites. */
 
 // FUNCTION: WIZ8 0x005cce70
-void W8ListBoxDialog::TextAreaButtonCallback(W8DialogButton* button)
+void W8ListBoxDialog::TextAreaButtonCallback(W8ButtonWidget* button)
 {
     auto* dialog = static_cast<W8ListBoxDialog*>(button->m_owner);
     const SDL_Point cursor = button->GetMousePosition();
@@ -32,21 +32,21 @@ void W8ListBoxDialog::TextAreaButtonCallback(W8DialogButton* button)
 }
 
 // FUNCTION: WIZ8 0x005ccf30
-void W8ListBoxDialog::UpButtonCallback(W8DialogButton* button)
+void W8ListBoxDialog::UpButtonCallback(W8ButtonWidget* button)
 {
     auto* dialog = static_cast<W8ListBoxDialog*>(button->m_owner);
     dialog->SetCurrentLine(dialog->m_selected_line - 1);
 }
 
 // FUNCTION: WIZ8 0x005ccfe0
-void W8ListBoxDialog::DownButtonCallback(W8DialogButton* button)
+void W8ListBoxDialog::DownButtonCallback(W8ButtonWidget* button)
 {
     auto* dialog = static_cast<W8ListBoxDialog*>(button->m_owner);
     dialog->SetCurrentLine(dialog->m_selected_line + 1);
 }
 
 // FUNCTION: WIZ8 0x005cd090
-void W8ListBoxDialog::OkButtonCallback(W8DialogButton* button)
+void W8ListBoxDialog::OkButtonCallback(W8ButtonWidget* button)
 {
     auto* dialog = static_cast<W8ListBoxDialog*>(button->m_owner);
     dialog->m_keep_open = false;
@@ -54,7 +54,7 @@ void W8ListBoxDialog::OkButtonCallback(W8DialogButton* button)
 }
 
 // FUNCTION: WIZ8 0x005cd130
-void W8ListBoxDialog::CancelButtonCallback(W8DialogButton* button)
+void W8ListBoxDialog::CancelButtonCallback(W8ButtonWidget* button)
 {
     auto* dialog = static_cast<W8ListBoxDialog*>(button->m_owner);
     dialog->m_keep_open = false;
@@ -63,7 +63,7 @@ void W8ListBoxDialog::CancelButtonCallback(W8DialogButton* button)
 }
 
 // FUNCTION: WIZ8 0x005cd1e0
-void W8ListBoxDialog::SliderTrackButtonCallback(W8DialogButton* button)
+void W8ListBoxDialog::SliderTrackButtonCallback(W8ButtonWidget* button)
 {
     auto* dialog = static_cast<W8ListBoxDialog*>(button->m_owner);
     SDL_Point cursor = button->GetMousePosition();

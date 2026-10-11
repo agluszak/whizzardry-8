@@ -11,7 +11,7 @@ struct Controls;
 class W8TextControl;
 class ScreenRegionSet;
 
-extern Controls* g_formation_panel;
+extern std::unique_ptr<Controls> g_formation_panel;
 extern W8TextControl* g_formation_cell_controls[15];
 extern W8TextControl* g_formation_cell_overlays[15];
 extern W8TextControl* g_formation_action_buttons[3];

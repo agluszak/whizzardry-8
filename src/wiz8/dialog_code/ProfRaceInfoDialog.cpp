@@ -18,7 +18,7 @@
 #include "wiz8/catalog_artwork.h"
 #include "character_skills.h"
 #include "dialog_code/DialogBase.h"
-#include "dialog_code/DialogButton.h"
+#include "wiz8/local_code/ButtonWidget.h"
 #include "dialog_code/DialogScrollBar.h"
 #include "dialog_code/DialogTextArea.h"
 #include "layouts/gameplay_databases.h"

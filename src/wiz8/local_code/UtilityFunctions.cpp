@@ -9,7 +9,7 @@
 
 #include "wiz8/utility.h"
 #include "wiz8/dialog_code/DialogBase.h"
-#include "wiz8/dialog_code/DialogButton.h"
+#include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/local_code/UtilityFunctions.h"
@@ -30,9 +30,9 @@
 #include "dice.h"
 
 struct MessageBoxState {
-    W8DialogButton background;
-    W8DialogButton accept;
-    W8DialogButton cancel;
+    W8ButtonWidget background;
+    W8ButtonWidget accept;
+    W8ButtonWidget cancel;
     std::optional<ExclusiveRegionSet> input_scope;
 
     int state = 0;
@@ -538,7 +538,7 @@ bool CreateMessageBox(std::string_view text, Font& font, unsigned int shade, boo
 
     if (!message_box.background.ConfigureTextButton(
             text, font, 0xff, 0, (0x280 - width) / 2, y, width, height,
-            [](W8DialogButton*) { SetMessageBoxResult(true); },
+            [](W8ButtonWidget*) { SetMessageBoxResult(true); },
             0, background_image, REGION_PRIORITY_BACKGROUND)) {
         return fail_creation();
     }
@@ -549,7 +549,7 @@ bool CreateMessageBox(std::string_view text, Font& font, unsigned int shade, boo
     if (has_accept) {
         if (!message_box.accept.Configure(
                 "Data\\Message Box\\Ok.sti", 0, 1, 2, 3, 4,
-                [](W8DialogButton*) { SetMessageBoxResult(true); },
+                [](W8ButtonWidget*) { SetMessageBoxResult(true); },
                 nullptr, false, REGION_PRIORITY_HIGHEST - 1,
                 W8_DIALOG_BUTTON_NO_TOOLTIP, nullptr, nullptr)) {
             return fail_creation();
@@ -559,7 +559,7 @@ bool CreateMessageBox(std::string_view text, Font& font, unsigned int shade, boo
     if (has_cancel) {
         if (!message_box.cancel.Configure(
                 "Data\\Message Box\\Cancel.sti", 0, 1, 2, 3, 4,
-                [](W8DialogButton*) { SetMessageBoxResult(false); },
+                [](W8ButtonWidget*) { SetMessageBoxResult(false); },
                 nullptr, false, REGION_PRIORITY_HIGHEST - 1,
                 W8_DIALOG_BUTTON_NO_TOOLTIP, nullptr, nullptr)) {
             return fail_creation();

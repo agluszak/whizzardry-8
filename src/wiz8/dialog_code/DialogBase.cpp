@@ -4,7 +4,7 @@
 
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/dialog_code/DialogBase.h"
-#include "wiz8/dialog_code/DialogButton.h"
+#include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/dialog_code/DialogTextArea.h"
 #include "wiz8/regions.h"
 #include "wiz8/catalog_artwork.h"
@@ -15,7 +15,7 @@
 // GLOBAL: WIZ8 0x0069CA28
 int g_live_dialog_count;
 
-void W8DialogBase::CreateCloseButton(W8DialogButton& button, int left, int top)
+void W8DialogBase::CreateCloseButton(W8ButtonWidget& button, int left, int top)
 {
     button.Configure("Data\\Dialogs\\popup_confirmationbuttons.sti", 3, 0, 1, 4, 2,
                      DialogCloseButtonCallback, BUTTON_NO_CALLBACK, false, REGION_PRIORITY_HIGHEST,
@@ -214,7 +214,7 @@ bool W8DialogBase::ProcessInput()
 }
 
 // FUNCTION: WIZ8 0x005d6eb0
-void DialogCloseButtonCallback(W8DialogButton* button)
+void DialogCloseButtonCallback(W8ButtonWidget* button)
 {
     W8DialogBase* dialog = button->m_owner;
     if (dialog != 0) {

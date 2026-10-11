@@ -1,7 +1,7 @@
 #pragma once
 
 #include "wiz8/dialog_code/DialogBase.h"
-#include "wiz8/dialog_code/DialogButton.h"
+#include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/dialog_code/DialogScrollBar.h"
 #include "wiz8/dialog_code/DialogTextArea.h"
 #include "compat/compiler.h"
@@ -22,7 +22,7 @@ private:
 
     int m_location_id;
     W8DialogScrollBar m_scroll_bar;
-    W8DialogButton m_button;
+    W8ButtonWidget m_button;
     W8DialogTextArea m_text_area;
 };
 

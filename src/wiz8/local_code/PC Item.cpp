@@ -1511,7 +1511,7 @@ bool AddItemToCharacter(W8Character* character, W8ItemInstance* item, bool equip
     if (RecalculateCarriedWeight(character)) {
         RedistributePartyEncumbrance();
     }
-    if (g_current_screen_state.id == W8_SCREEN_CAMP && g_camp_screen != 0) {
+    if (g_current_screen_state.id == W8_SCREEN_CAMP && g_camp_screen) {
         g_camp_screen->item_redraw_flags |= W8_CAMP_ITEM_REDRAW_BACKPACK_CELL_FIRST << stored_index;
     }
     if (announce) {
@@ -3298,7 +3298,7 @@ bool AddItemToParty(W8ItemInstance* item, bool announce, bool skip_stacking)
         stored = true;
     }
 
-    if (g_current_screen_state.id == W8_SCREEN_CAMP && g_camp_screen != 0) {
+    if (g_current_screen_state.id == W8_SCREEN_CAMP && g_camp_screen) {
         g_camp_screen->item_redraw_flags |= W8_CAMP_ITEM_REDRAW_POOL;
     }
     if (announce) {

@@ -14,7 +14,7 @@
 #include "wiz8/sr_api.h"
 #include "character_skills.h"
 #include "dialog_code/DialogBase.h"
-#include "dialog_code/DialogButton.h"
+#include "wiz8/local_code/ButtonWidget.h"
 #include "dialog_code/DialogScrollBar.h"
 #include "dialog_code/DialogTextArea.h"
 #include "local_code/ControlsRect.h"
