@@ -75,9 +75,7 @@ void srCamera::processPush(srGERD* renderer)
     renderer->pushMatrix();
     renderer->loadIdentity();
 
-    double near_plane;
-    double far_plane;
-    getClipRange(near_plane, far_plane);
+    const auto [near_plane, far_plane] = getClipRange();
 
     Rect rectangle;
     double distance;
@@ -135,12 +133,10 @@ srCamera::srCamera(srNode* parent)
 }
 
 // FUNCTION: SURRENDER 0x100485A0
-void srCamera::getNormalizedViewPlane(Rect& rectangle) const
+srCamera::Rect srCamera::getNormalizedViewPlane() const
 {
-    rectangle.left = view_plane.left / view_plane_distance;
-    rectangle.bottom = view_plane.bottom / view_plane_distance;
-    rectangle.right = view_plane.right / view_plane_distance;
-    rectangle.top = view_plane.top / view_plane_distance;
+    return {view_plane.left / view_plane_distance, view_plane.bottom / view_plane_distance,
+            view_plane.right / view_plane_distance, view_plane.top / view_plane_distance};
 }
 
 // FUNCTION: SURRENDER 0x100485F0
@@ -178,17 +174,15 @@ void srCamera::setEnvironmentScale(float near_scale, float far_scale)
 }
 
 // FUNCTION: SURRENDER 0x10048700
-void srCamera::getEnvironmentRange(float& near_range, float& far_range) const
+std::pair<float, float> srCamera::getEnvironmentRange() const
 {
-    near_range = environment_near;
-    far_range = environment_far;
+    return {environment_near, environment_far};
 }
 
 // FUNCTION: SURRENDER 0x10048720
-void srCamera::getEnvironmentScale(float& near_scale, float& far_scale) const
+std::pair<float, float> srCamera::getEnvironmentScale() const
 {
-    near_scale = environment_near_scale;
-    far_scale = environment_far_scale;
+    return {environment_near_scale, environment_far_scale};
 }
 
 // FUNCTION: SURRENDER 0x10048740
@@ -210,10 +204,9 @@ void srCamera::setClipRange(double near_plane, double far_plane)
 }
 
 // FUNCTION: SURRENDER 0x100487F0
-void srCamera::getClipRange(double& near_plane, double& far_plane) const
+std::pair<double, double> srCamera::getClipRange() const
 {
-    near_plane = near_clip;
-    far_plane = far_clip;
+    return {near_clip, far_clip};
 }
 
 // FUNCTION: SURRENDER 0x10048820
@@ -364,18 +357,12 @@ void srCamera::dump(std::ostream& stream)
     stream.width(0x20);
     stream << "  Viewplane distance: " << view_plane_distance << '\n';
     stream.width(0x20);
-    double near_plane;
-    double far_plane;
-    getClipRange(near_plane, far_plane);
+    const auto [near_plane, far_plane] = getClipRange();
     stream << "  Object space Clip Range (near,far): " << near_plane << ',' << far_plane << '\n';
     stream.width(0x20);
-    float near_range;
-    float far_range;
-    getEnvironmentRange(near_range, far_range);
+    const auto [near_range, far_range] = getEnvironmentRange();
     stream << "  Environment Range (near,far): " << near_range << ',' << far_range << '\n';
-    float near_scale;
-    float far_scale;
-    getEnvironmentScale(near_scale, far_scale);
+    const auto [near_scale, far_scale] = getEnvironmentScale();
     stream << "  Environment Scale (near,far): " << near_scale << ',' << far_scale << '\n';
     srSetStreamFlags(stream, flags & 0x7fff);
 }
