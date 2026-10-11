@@ -508,7 +508,9 @@ struct ExclusiveRegionScope {
 
 std::vector<ExclusiveRegionScope> g_exclusive_region_sets;
 std::vector<unsigned int> g_reusable_region_indices;
+std::vector<unsigned int> g_reusable_region_set_indices;
 const std::size_t g_static_region_count = g_regions.size();
+const std::size_t g_static_region_set_count = g_region_sets.size();
 unsigned int g_control_region_set = 0;
 
 bool RegionAllowedByExclusiveSet(unsigned int region_index)
@@ -1269,8 +1271,37 @@ void ResetRegionHelp(bool delayed)
 // FUNCTION: WIZ8 0x004f2880
 unsigned int CreateRegionSet(void)
 {
+    while (!g_reusable_region_set_indices.empty()) {
+        const auto set_index = g_reusable_region_set_indices.back();
+        g_reusable_region_set_indices.pop_back();
+        if (set_index < g_static_region_set_count || set_index >= g_region_sets.size()) {
+            continue;
+        }
+        g_region_sets[set_index] = W8RegionSet{};
+        return set_index;
+    }
     g_region_sets.emplace_back();
     return static_cast<unsigned int>(g_region_sets.size() - 1);
+}
+
+void DestroyRegionSet(unsigned int region_set_index)
+{
+    if (region_set_index < g_static_region_set_count ||
+        region_set_index >= g_region_sets.size() || g_region_sets[region_set_index].persistent) {
+        return;
+    }
+
+    RegionSetDisable(region_set_index);
+    const auto active_regions = g_region_sets[region_set_index].Regions();
+    const std::vector<unsigned int> region_indices(active_regions.begin(), active_regions.end());
+    for (const auto region_index : region_indices) {
+        RemoveRegionFromSet(region_set_index, region_index);
+    }
+    g_region_sets[region_set_index] = W8RegionSet{};
+    if (std::ranges::find(g_reusable_region_set_indices, region_set_index) ==
+        g_reusable_region_set_indices.end()) {
+        g_reusable_region_set_indices.push_back(region_set_index);
+    }
 }
 
 unsigned int ControlRegionSetIndex(void)
@@ -1364,6 +1395,66 @@ OwnedRegion::OwnedRegion(unsigned int set, int priority, W8RegionHandler& handle
     generation_ = ++owned_region.binding_generation;
 }
 
+OwnedRegion::OwnedRegion(unsigned int set, const RegionTemplate& entry)
+    : set_(set), index_(AddRegionToSet(set, REGION_PRIORITY_LOWEST))
+{
+    auto& owned_region = g_regions[index_];
+    owned_region.flags = entry.flags;
+    owned_region.x1 = entry.x1;
+    owned_region.y1 = entry.y1;
+    owned_region.x2 = entry.x2;
+    owned_region.y2 = entry.y2;
+    owned_region.callback = entry.callback;
+    owned_region.callback_id = entry.callback_id;
+    owned_region.help_enabled = entry.help_enabled;
+    owned_region.help_text_id = entry.help_text_id;
+    owned_region.unknown_13 = 0;
+    owned_region.widget = nullptr;
+    owned_region.help_text.clear();
+    owned_region.text_field = nullptr;
+    owned_region.handler = nullptr;
+    generation_ = ++owned_region.binding_generation;
+}
+
+OwnedRegionSet::OwnedRegionSet(std::span<const RegionTemplate> entries)
+    : set_(CreateRegionSet())
+{
+    try {
+        regions_.reserve(entries.size());
+        for (const auto& entry : entries) {
+            regions_.emplace_back(set_, entry);
+        }
+    } catch (...) {
+        regions_.clear();
+        DestroyRegionSet(set_);
+        set_ = 0;
+        throw;
+    }
+}
+
+OwnedRegionSet::~OwnedRegionSet()
+{
+    if (set_ == 0) return;
+    Disable();
+    regions_.clear();
+    DestroyRegionSet(set_);
+}
+
+void OwnedRegionSet::Enable()
+{
+    if (set_ != 0) RegionSetEnable(set_);
+}
+
+void OwnedRegionSet::Disable()
+{
+    if (set_ != 0) RegionSetDisable(set_);
+}
+
+bool OwnedRegionSet::IsEnabled() const
+{
+    return set_ != 0 && set_ < g_region_sets.size() && g_region_sets[set_].enabled != 0;
+}
+
 OwnedRegion::~OwnedRegion()
 {
     reset();
@@ -1393,8 +1484,7 @@ OwnedRegion& OwnedRegion::operator=(OwnedRegion&& other) noexcept
 OwnedRegion::operator bool() const
 {
     return index_ != 0 && index_ < g_regions.size() &&
-           g_regions[index_].binding_generation == generation_ &&
-           g_regions[index_].handler != nullptr;
+           g_regions[index_].binding_generation == generation_;
 }
 
 W8Region& OwnedRegion::region()

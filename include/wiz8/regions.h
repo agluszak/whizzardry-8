@@ -89,6 +89,18 @@ enum W8RegionFlags {
 struct W8Region;
 typedef unsigned char (*W8RegionCallback)(const InputAtom* event, struct W8Region* region);
 
+struct RegionTemplate {
+    std::uint32_t flags;
+    std::int16_t x1;
+    std::int16_t y1;
+    std::int16_t x2;
+    std::int16_t y2;
+    W8RegionCallback callback;
+    std::uint16_t callback_id;
+    bool help_enabled;
+    std::int32_t help_text_id;
+};
+
 class W8RegionHandler {
 public:
     virtual int HandleRegionInput(W8Region& region, const InputAtom& input) = 0;
@@ -133,6 +145,7 @@ class OwnedRegion {
 public:
     OwnedRegion() = default;
     OwnedRegion(unsigned int set, int priority, W8RegionHandler& handler);
+    OwnedRegion(unsigned int set, const RegionTemplate& entry);
     ~OwnedRegion();
     OwnedRegion(const OwnedRegion&) = delete;
     OwnedRegion& operator=(const OwnedRegion&) = delete;
@@ -149,6 +162,26 @@ private:
     unsigned int set_ = 0;
     unsigned int index_ = 0;
     uint64_t generation_ = 0;
+};
+
+class OwnedRegionSet {
+public:
+    explicit OwnedRegionSet(std::span<const RegionTemplate> entries);
+    ~OwnedRegionSet();
+    OwnedRegionSet(const OwnedRegionSet&) = delete;
+    OwnedRegionSet& operator=(const OwnedRegionSet&) = delete;
+
+    unsigned int set() const { return set_; }
+    std::size_t size() const { return regions_.size(); }
+    W8Region& operator[](std::size_t index) { return regions_.at(index).region(); }
+    unsigned int index(std::size_t index) const { return regions_.at(index).index(); }
+    void Enable();
+    void Disable();
+    bool IsEnabled() const;
+
+private:
+    unsigned int set_ = 0;
+    std::vector<OwnedRegion> regions_;
 };
 
 class ExclusiveRegionSet {
@@ -207,6 +240,7 @@ void SetRegionBounds(unsigned int region_index, unsigned short x1, unsigned shor
 bool RegionContainsPoint(unsigned int region_index, unsigned short x, unsigned short y);
 bool RegionHasFlags(unsigned int region_index, unsigned int flags);
 unsigned int CreateRegionSet(void);
+void DestroyRegionSet(unsigned int region_set_index);
 void ResetRegionSet(unsigned int region_set_index);
 unsigned int AddRegionToSet(unsigned int region_set_index, int priority = 0);
 void RemoveRegionFromSet(unsigned int region_set_index, unsigned int region_index);
