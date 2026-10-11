@@ -46,12 +46,10 @@ unsigned char W8OctPreTreeGeometry::CheckArrayLength(int** run, unsigned short c
                                                      unsigned short capacity)
 {
     if (capacity == 0) {
-        ReportBuildStatus(7, "CheckArrayLength: Zero growth capacity.\n");
         return 0;
     }
     if (count % capacity == 0) {
         if (unsigned(count) + capacity > 65535) {
-            ReportBuildStatus(7, "CheckArrayLength: Face run too long.\n");
             return 0;
         }
         const unsigned short total = count + capacity;
