@@ -2,6 +2,7 @@
 #define WIZ8_LAYOUTS_WORLD_H
 
 #include <utility>
+#include <memory>
 
 #include <vector>
 class W8AmbientSound;
@@ -50,14 +51,16 @@ struct W8WorldCameraState {
 W8_ABI_ASSERT(sizeof(W8WorldCameraState) == 0x3c, "W8WorldCameraState_size");
 W8_ABI_ASSERT(alignof(W8WorldCameraState) == 1, "W8WorldCameraState_alignment");
 
-/* Engine Code\3dapi.cpp. CreateWorld allocates and zeroes exactly 0xdc bytes;
-   the list/vector setup and teardown routines prove the owned fields below. */
+/* Runtime world, not a retail disk record. Collection storage belongs to the
+   world; raw entity pointers still follow the ordered DestroyWorld teardown.
+   lights_to_update and collidable_props are non-owning indexes. Named positions
+   are owned values: lookups copy their data and never retain element addresses. */
 struct W8World {
-    std::vector<W8Monster*>* plsMonsters;
-    std::vector<W8Item*>* plsItems;
-    std::vector<W8Prop*>* plsProps;
-    std::vector<W8CameraPath*>* plsCameras;
-    std::vector<W8AmbientSound*>* plsAmbientSounds;
+    std::vector<W8Monster*> plsMonsters;
+    std::vector<W8Item*> plsItems;
+    std::vector<W8Prop*> plsProps;
+    std::vector<W8CameraPath*> plsCameras;
+    std::vector<W8AmbientSound*> plsAmbientSounds;
     float environment_range_start;
     float environment_range_end;
     /* Third serialized environment channel (loaded from
@@ -87,18 +90,16 @@ struct W8World {
     unsigned char m_unknown_07c[0x20];
     std::vector<srNode*> nodes_to_disable;
     std::vector<stLight*> transient_lights;
-    std::vector<W8SpellVisual*>* spell_visuals;
-    std::vector<W8Missile*>* missiles;
-    std::vector<stLight*>* lights_to_update;
-    std::vector<W8Prop*>* collidable_props;
-    std::vector<MonGen*>* monster_generators;
-    std::vector<Trigger*>* triggers;
-    std::vector<stParticle*>* particles;
-    std::vector<W8NamedPosition*>* named_positions;
+    std::vector<W8SpellVisual*> spell_visuals;
+    std::vector<W8Missile*> missiles;
+    std::vector<stLight*> lights_to_update;
+    std::vector<W8Prop*> collidable_props;
+    std::vector<MonGen*> monster_generators;
+    std::vector<Trigger*> triggers;
+    std::vector<stParticle*> particles;
+    std::vector<W8NamedPosition> named_positions;
     unsigned char m_unknown_0d4[8];
 };
-
-W8_ABI_ASSERT(sizeof(W8World) == 0xdc, "W8World_must_be_0xdc");
 
 extern W8World* g_world;
 extern W8World* g_secondary_world;
@@ -107,28 +108,28 @@ extern int g_combat_round_counter;
 /* Typed element access for the homogeneous world lists. */
 inline W8Prop* GetWorldProp(W8World* world, int index)
 {
-    if (!world->plsProps || index < 0 || std::cmp_greater_equal(index, world->plsProps->size())) {
+    if (index < 0 || std::cmp_greater_equal(index, world->plsProps.size())) {
         return nullptr;
     }
-    return (*world->plsProps)[index];
+    return world->plsProps[index];
 }
 
 inline W8CameraPath* GetWorldCameraPath(W8World* world, int index)
 {
-    if (!world->plsCameras || index < 0 ||
-        std::cmp_greater_equal(index, world->plsCameras->size())) {
+    if (index < 0 ||
+        std::cmp_greater_equal(index, world->plsCameras.size())) {
         return nullptr;
     }
-    return (*world->plsCameras)[index];
+    return world->plsCameras[index];
 }
 
 inline W8AmbientSound* GetWorldAmbientSound(W8World* world, int index)
 {
-    if (!world->plsAmbientSounds || index < 0 ||
-        std::cmp_greater_equal(index, world->plsAmbientSounds->size())) {
+    if (index < 0 ||
+        std::cmp_greater_equal(index, world->plsAmbientSounds.size())) {
         return nullptr;
     }
-    return (*world->plsAmbientSounds)[index];
+    return world->plsAmbientSounds[index];
 }
 
 #endif

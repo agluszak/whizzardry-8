@@ -45,8 +45,8 @@ static int g_saved_environment_flag = 1;
 // FUNCTION: WIZ8 0x0048F280
 void UpdateCameraPathStateByName(W8World* world, const char* name, int active)
 {
-    unsigned int count = (world->plsCameras ? world->plsCameras->size() : 0);
-    if (world->plsCameras != 0 && count != 0) {
+    unsigned int count = world->plsCameras.size();
+    if (count != 0) {
         for (int index = 0; index < static_cast<int>(count); ++index) {
             W8CameraPath* path = GetWorldCameraPath(world, index);
             if (_stricmp(path->name0, name) == 0) {

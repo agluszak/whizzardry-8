@@ -1031,7 +1031,7 @@ bool W8PathingService::TestAttachmentHopDoor(W8NavigatorAttachment* attachment)
                 g_octree->QueryObjects(&candidates, &lower, &upper, W8_OCTREE_KIND_PROP, -1);
             if (count > 0) {
                 if (count == 1) {
-                    W8Prop* prop = (*g_world->collidable_props)[candidates[0]];
+                    W8Prop* prop = g_world->collidable_props[candidates[0]];
                     selected = prop->GetGDPropOwnerTrigger();
                     if (selected == 0) {
                         return false;
@@ -1040,7 +1040,7 @@ bool W8PathingService::TestAttachmentHopDoor(W8NavigatorAttachment* attachment)
                     double nearest_distance = 1e32;
                     srVector3T<float> center = (upper - lower) * g_double_half + lower;
                     for (int index = 0; index < count; ++index) {
-                        W8Prop* prop = (*g_world->collidable_props)[candidates[index]];
+                        W8Prop* prop = g_world->collidable_props[candidates[index]];
                         Trigger* trigger = prop->GetGDPropOwnerTrigger();
                         if (trigger != 0) {
                             srVector3T<float> position;
@@ -1938,7 +1938,7 @@ int W8PathingService::ProcessSearchNodeProps(unsigned short node_index, bool fir
     unsigned int count =
         g_octree->QueryObjects(&candidates, &lower, &upper, W8_OCTREE_KIND_PROP, -1);
     for (unsigned int index = 0; index < count; ++index) {
-        W8Prop* prop = (*g_world->collidable_props)[candidates[index]];
+        W8Prop* prop = g_world->collidable_props[candidates[index]];
         prop->CanBeUsedFrom(node->cell_x, node->cell_z, true);
         if (first_only) {
             return candidates[index];
@@ -4495,7 +4495,7 @@ void W8PathingService::ActivateMovementTrigger(W8NavigatorMovementState* movemen
 
     Trigger* selected = 0;
     if (count == 1) {
-        W8Prop* prop = (*g_world->collidable_props)[candidates[0]];
+        W8Prop* prop = g_world->collidable_props[candidates[0]];
         Trigger* trigger = prop->GetGDPropOwnerTrigger();
         if (prop->GetActivationState() == 0 || trigger == 0 ||
             (trigger->flags & W8_TRIGGER_ENABLED) == 0) {
@@ -4508,7 +4508,7 @@ void W8PathingService::ActivateMovementTrigger(W8NavigatorMovementState* movemen
         double nearest_distance = 1e32;
 
         for (int index = 0; index < count; ++index) {
-            W8Prop* prop = (*g_world->collidable_props)[candidates[index]];
+            W8Prop* prop = g_world->collidable_props[candidates[index]];
             Trigger* trigger = prop->GetGDPropOwnerTrigger();
             if (prop->GetActivationState() != 0 && trigger != 0 &&
                 (trigger->flags & W8_TRIGGER_ENABLED) != 0) {

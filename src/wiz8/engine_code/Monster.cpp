@@ -2728,7 +2728,7 @@ void SetMonsterPartySlotMarker(int party_slot, int location_id, char on)
         item = rep->objects[party_slot];
         if (item != 0) {
             item->DetachMesh(g_world);
-            wiz8::erase_first(*g_world->plsItems, item);
+            wiz8::erase_first(g_world->plsItems, item);
             delete item;
             rep->objects[party_slot] = 0;
             --rep->icon_count;
@@ -3429,7 +3429,7 @@ void W8Monster::SetCycle(signed char cycle)
 
                 light->setParent(0, 1);
                 if (light->definition() != 0) {
-                    wiz8::erase_first(*g_world->lights_to_update, light);
+                    wiz8::erase_first(g_world->lights_to_update, light);
                 }
             }
         }
@@ -3467,7 +3467,7 @@ void W8Monster::SetCycle(signed char cycle)
             light->setParent(g_world->dynamic_scene, 1);
             light->Reset();
             if (light->definition() != 0) {
-                g_world->lights_to_update->push_back(light);
+                g_world->lights_to_update.push_back(light);
             }
         }
     }

@@ -230,15 +230,15 @@ void AssociateWorldLights(W8World* world)
 {
     int light_index;
 
-    for (light_index = 0; light_index < static_cast<int>(world->lights_to_update->size());
+    for (light_index = 0; light_index < static_cast<int>(world->lights_to_update.size());
          ++light_index) {
-        stLight* light = (*world->lights_to_update)[light_index];
+        stLight* light = world->lights_to_update[light_index];
         stLightDefinition* definition = light->m_definition;
 
         if (definition != 0 && definition->kind == W8_LIGHT_DEFINITION_PARAMETRIC &&
             (static_cast<stParametricLightDefinition*>(definition)->flags &
              W8_PARAM_LIGHT_FLICKER) != 0) {
-            int prop_count = (world->plsProps ? world->plsProps->size() : 0);
+            int prop_count = world->plsProps.size();
             int prop_index;
 
             for (prop_index = 0; prop_index < prop_count; ++prop_index) {
@@ -316,7 +316,7 @@ try
             } else {
                 light = CreateWorldLight(world, name);
                 light->m_definition = definition;
-                world->lights_to_update->push_back(light);
+                world->lights_to_update.push_back(light);
                 if (path != 0) {
                     light->path_ai = path;
                 }
@@ -558,10 +558,10 @@ try
                 }
                 g_octree->AddLoadedProp(prop);
             }
-            pWorld->plsProps->push_back(prop);
+            pWorld->plsProps.push_back(prop);
             if ((prop->flags & W8_PROP_COLLIDABLE) != 0) {
                 prop->GetBounds(&bounds.minimum, &bounds.maximum);
-                pWorld->collidable_props->push_back(prop);
+                pWorld->collidable_props.push_back(prop);
                 if (pWorld->octree != 0) {
                     pWorld->octree->AddCollidablePropBounds(collidable_index, &bounds);
                     ++collidable_index;
@@ -807,7 +807,7 @@ try
         entry->path = 0;
         success = success && LoadPathAI(&entry->path, pInfo->hFile);
         PathAIEnableTimedMode(entry->path);
-        pWorld->plsCameras->push_back(entry);
+        pWorld->plsCameras.push_back(entry);
         entry->path->entry_index = index;
         entry->path->speed = scale;
     }
@@ -998,41 +998,40 @@ try
 }
 
 // FUNCTION: WIZ8 0x004BDC90
-static unsigned char ReadNamedPositions(W8ReadLevelInfo* pInfo,
-                                        std::vector<W8NamedPosition*>* named_positions)
+bool ReadNamedPositions(wiz8::File* hFile, std::vector<W8NamedPosition>& named_positions)
 try
 {
-    wiz8::File* hFile;
     int count;
     int index;
     unsigned char version;
-    W8NamedPosition* pNamedPos;
 
-    hFile = pInfo->hFile;
     hFile->read_exact(&count, sizeof(count));
+    if (count < 0) return false;
+    std::vector<W8NamedPosition> pending;
     for (index = 0; index < count; ++index) {
-        pNamedPos = new W8NamedPosition;
-        if (pNamedPos == 0) {
-            srAssertFail("pNamedPos", READ_LEVEL_CPP, 0x6d3, "out of memory creating NamedPos");
-        }
+        W8NamedPosition position;
 
         hFile->read_exact(&version, sizeof(version));
         if (version != 1) {
-            srAssertFail("bVersion == 1", READ_LEVEL_CPP, 0x6d6, "Unknown Named Position version");
+            return false;
         }
 
-        hFile->read_exact(pNamedPos->name, sizeof(pNamedPos->name));
-        hFile->read_exact(&pNamedPos->position.x, sizeof(pNamedPos->position.x));
-        hFile->read_exact(&pNamedPos->position.y, sizeof(pNamedPos->position.y));
-        hFile->read_exact(&pNamedPos->position.z, sizeof(pNamedPos->position.z));
-        pNamedPos->position *= 500.0;
-        hFile->read_exact(&pNamedPos->angle, sizeof(pNamedPos->angle));
-        hFile->read_exact(&pNamedPos->direction.x, sizeof(pNamedPos->direction.x));
-        hFile->read_exact(&pNamedPos->direction.y, sizeof(pNamedPos->direction.y));
-        hFile->read_exact(&pNamedPos->direction.z, sizeof(pNamedPos->direction.z));
-        named_positions->push_back(pNamedPos);
+        hFile->read_exact(position.name, sizeof(position.name));
+        if (memchr(position.name, '\0', sizeof(position.name)) == nullptr) {
+            return false;
+        }
+        hFile->read_exact(&position.position.x, sizeof(position.position.x));
+        hFile->read_exact(&position.position.y, sizeof(position.position.y));
+        hFile->read_exact(&position.position.z, sizeof(position.position.z));
+        position.position *= 500.0;
+        hFile->read_exact(&position.angle, sizeof(position.angle));
+        hFile->read_exact(&position.direction.x, sizeof(position.direction.x));
+        hFile->read_exact(&position.direction.y, sizeof(position.direction.y));
+        hFile->read_exact(&position.direction.z, sizeof(position.direction.z));
+        pending.push_back(position);
     }
-    return 1;
+    named_positions.insert(named_positions.end(), pending.begin(), pending.end());
+    return true;
 } catch (const std::exception&) {
     return false;
 }
@@ -1189,16 +1188,16 @@ try
         !(handle->read(&environment_offset.z, sizeof(environment_offset.z)).bytes == static_cast<std::size_t>(sizeof(environment_offset.z)))) {
         success = 0;
     } else {
-        success = ReadWorldParticles(&info, world->dynamic_scene, world->particles);
+        success = ReadWorldParticles(&info, world->dynamic_scene, &world->particles);
     }
     CHECK_PVL_OFFSET("Wrong offset in .pvl file after particles.");
-    success = success && ReadNamedPositions(&info, world->named_positions);
+    success = success && ReadNamedPositions(info.hFile, world->named_positions);
     CHECK_PVL_OFFSET("Wrong offset in .pvl file after named position points.");
     success = success && ReadAutomapNodes(handle);
     CHECK_PVL_OFFSET("Wrong offset in .pvl file after automap nodes.");
 
     g_environment_offset = environment_offset;
-    prop_count = (world->plsProps ? world->plsProps->size() : 0);
+    prop_count = world->plsProps.size();
     for (index = 0; index < static_cast<int>(prop_count); ++index) {
         W8Prop* prop = GetWorldProp(world, index);
         W8AnimObj* animation = prop->Rep()->animation;

@@ -24,6 +24,8 @@
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/LevelFile.h"
 #include "wiz8/engine_code/ReadMesh.h"
+#include "wiz8/engine_code/ReadLevel.h"
+#include "wiz8/layouts/world.h"
 #include "wiz8/engine_code/OctPath.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/OctPreTree.h"
@@ -742,5 +744,85 @@ TEST_CASE_METHOD(LoaderFixture, "Trigger layouts retain version gates and cleanu
                 REQUIRE(trigger.pData == nullptr);
             }
         }
+    }
+}
+
+TEST_CASE_METHOD(LoaderFixture, "Named positions commit only complete sections", "[loader][records]")
+{
+    // The disk payload is one version byte, a 128-byte name and seven floats.
+    // Build it field by field so the fixture does not depend on runtime layout.
+    std::string bytes;
+    append(bytes, std::int32_t{2});
+    for (const char* name : {"FIRST", "SECOND"}) {
+        append(bytes, std::uint8_t{1});
+        std::array<char, 128> disk_name{};
+        std::strcpy(disk_name.data(), name);
+        append(bytes, disk_name);
+        for (float value : {1.f, 2.f, 3.f, 45.f, 0.f, 1.f, 0.f}) {
+            append(bytes, value);
+        }
+    }
+    W8World world{};
+    world.named_positions.emplace_back();
+    std::strcpy(world.named_positions.front().name, "EXISTING");
+    auto unchanged = [&] {
+        REQUIRE(world.named_positions.size() == 1);
+        REQUIRE(std::string(world.named_positions.front().name) == "EXISTING");
+    };
+
+    // Includes failures after the first complete entry has been decoded.
+    for (std::size_t end = 0; end < bytes.size(); ++end) {
+        store("positions.bin", bytes.substr(0, end));
+        auto file = wiz8::open_file("positions.bin");
+        REQUIRE_FALSE(ReadNamedPositions(file.get(), world.named_positions));
+        unchanged();
+    }
+    store("positions.bin", bytes);
+    std::size_t operations;
+    {
+        auto file = wiz8::open_file("positions.bin");
+        FileFaults trace;
+        REQUIRE(ReadNamedPositions(file.get(), world.named_positions));
+        operations = trace.operations;
+    }
+    REQUIRE(world.named_positions.size() == 3);
+    REQUIRE(std::string(world.named_positions[1].name) == "FIRST");
+    REQUIRE(std::string(world.named_positions[2].name) == "SECOND");
+    REQUIRE(world.named_positions[1].position.x == 500.f);
+    REQUIRE(world.named_positions[1].position.y == 1000.f);
+    REQUIRE(world.named_positions[1].position.z == 1500.f);
+    REQUIRE(world.named_positions[1].angle == 45.f);
+    REQUIRE(world.named_positions[1].direction.y == 1.f);
+    world.named_positions.resize(1);
+    for (std::size_t operation = 1; operation <= operations; ++operation) {
+        auto file = wiz8::open_file("positions.bin");
+        FileFaults fault(operation);
+        REQUIRE_FALSE(ReadNamedPositions(file.get(), world.named_positions));
+        REQUIRE(fault.fired);
+        unchanged();
+    }
+    auto invalid = bytes;
+    invalid[4] = 2;
+    store("positions.bin", invalid);
+    {
+        auto file = wiz8::open_file("positions.bin");
+        REQUIRE_FALSE(ReadNamedPositions(file.get(), world.named_positions));
+        unchanged();
+    }
+    invalid = bytes;
+    invalid.replace(5, 128, 128, 'x');
+    store("positions.bin", invalid);
+    {
+        auto file = wiz8::open_file("positions.bin");
+        REQUIRE_FALSE(ReadNamedPositions(file.get(), world.named_positions));
+        unchanged();
+    }
+    for (std::int32_t count : {-1, 0}) {
+        std::string empty;
+        append(empty, count);
+        store("positions.bin", empty);
+        auto file = wiz8::open_file("positions.bin");
+        REQUIRE(ReadNamedPositions(file.get(), world.named_positions) == (count == 0));
+        unchanged();
     }
 }

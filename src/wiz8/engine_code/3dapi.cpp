@@ -100,81 +100,6 @@ float g_mesh_view_half_angle_degrees = 60.0f;
 // GLOBAL: WIZ8 0x00609c8c
 bool g_world_update_requested = true;
 
-// FUNCTION: WIZ8 0x00450B10
-void ConstructWorldCollections(W8World* world)
-{
-    world->plsMonsters = new std::vector<W8Monster*>;
-    world->plsItems = new std::vector<W8Item*>;
-    world->plsProps = new std::vector<W8Prop*>;
-    world->plsCameras = new std::vector<W8CameraPath*>;
-    world->plsAmbientSounds = new std::vector<W8AmbientSound*>;
-    world->lights_to_update = new std::vector<stLight*>;
-    world->collidable_props = new std::vector<W8Prop*>;
-    world->monster_generators = new std::vector<MonGen*>;
-    world->spell_visuals = new std::vector<W8SpellVisual*>;
-    world->missiles = new std::vector<W8Missile*>;
-    world->triggers = new std::vector<Trigger*>;
-    world->particles = new std::vector<stParticle*>;
-    world->named_positions = new std::vector<W8NamedPosition*>;
-
-    if (world->plsMonsters == 0) {
-        srAssertFail("pWorld->plsMonsters", THREE_D_API_CPP, 0x57e,
-                     "Out of memory creating plsMonsters.");
-    }
-    if (world->plsItems == 0) {
-        srAssertFail("pWorld->plsItems", THREE_D_API_CPP, 0x57f,
-                     "Out of memory creating plsItems.");
-    }
-    if (world->plsProps == 0) {
-        srAssertFail("pWorld->plsProps", THREE_D_API_CPP, 0x580,
-                     "Out of memory creating plsProps.");
-    }
-    if (world->plsCameras == 0) {
-        srAssertFail("pWorld->plsCameras", THREE_D_API_CPP, 0x581,
-                     "Out of memory creating plsCameras.");
-    }
-    if (world->plsAmbientSounds == 0) {
-        srAssertFail("pWorld->plsAmbientSounds", THREE_D_API_CPP, 0x582,
-                     "Out of memory creating plsAmbientSounds.");
-    }
-    if (world->lights_to_update == 0) {
-        srAssertFail("pWorld->plsLightsToUpdate", THREE_D_API_CPP, 0x583,
-                     "Out of memory creating plsLightsToUpdate.");
-    }
-    if (world->collidable_props == 0) {
-        srAssertFail("pWorld->plsCollidableProps", THREE_D_API_CPP, 0x584,
-                     "Out of memory creating plsCollidableProps.");
-    }
-    if (world->monster_generators == 0) {
-        srAssertFail("pWorld->plsMonsterGenerators", THREE_D_API_CPP, 0x585,
-                     "Out of memory creating plsMonsterGenerators.");
-    }
-    if (world->lights_to_update == 0) {
-        srAssertFail("pWorld->plsLightsToUpdate", THREE_D_API_CPP, 0x586,
-                     "Out of memory creating plsLightsToUpdate.");
-    }
-    if (world->collidable_props == 0) {
-        srAssertFail("pWorld->plsCollidableProps", THREE_D_API_CPP, 0x587,
-                     "Out of memory creating plsCollidableProps.");
-    }
-    if (world->missiles == 0) {
-        srAssertFail("pWorld->plsMissiles", THREE_D_API_CPP, 0x588,
-                     "Out of memory creating plsMissiles.");
-    }
-    if (world->triggers == 0) {
-        srAssertFail("pWorld->plsTriggers", THREE_D_API_CPP, 0x589,
-                     "Out of memory creating plsTriggers.");
-    }
-    if (world->particles == 0) {
-        srAssertFail("pWorld->plsParticles", THREE_D_API_CPP, 0x58a,
-                     "Out of memory creating plsParticles.");
-    }
-    if (world->named_positions == 0) {
-        srAssertFail("pWorld->plsNamedPositions", THREE_D_API_CPP, 0x58b,
-                     "Out of memory creating plsNamedPositions.");
-    }
-}
-
 /* Load the renderer-facing half of one level. The subordinate OCT, game-data,
    and ReadLevel parsers remain their original owners; this routine establishes
    their order, inputs, and rollback-visible world  */
@@ -290,39 +215,29 @@ unsigned char LoadWorld(W8World* world, char* level_file_name, const char* level
 // FUNCTION: WIZ8 0x0044F1C0
 W8World* CreateWorld()
 {
-    W8World* world = new W8World{};
+    auto world = std::make_unique<W8World>();
     world->environment_colour.SetZero();
 
-    world->static_scene = new srScene(static_cast<srNode*>(0));
-    if (world->static_scene == 0) {
-        delete world;
-        return 0;
-    }
-    world->static_scene->setName("Sir-Tech Scene Static Scene");
+    // The scene owns its children. Keep both allocations scoped until setup
+    // succeeds, including failures while allocating nodes or assigning names.
+    auto scene = std::make_unique<srScene>(nullptr);
+    world->static_scene = scene.get();
+    scene->setName("Sir-Tech Scene Static Scene");
 
-    world->level = new stLevel(world->static_scene);
-    if (world->level == 0) {
-        delete world->static_scene;
-        delete world;
-        return 0;
-    }
+    world->level = new stLevel(scene.get());
     world->level->setName("Sir-Tech Level");
     world->level->m_render_exclusion_mask = 1;
 
-    world->dynamic_scene = new srNode(world->static_scene);
-    if (world->dynamic_scene == 0) {
-        delete world->static_scene;
-        delete world->level;
-        delete world;
-        return 0;
-    }
+    world->dynamic_scene = new srNode(scene.get());
     world->dynamic_scene->setName("Sir-Tech Dynamic Scene");
-    SetSceneAmbientLightWhite(world->static_scene);
-    ConstructWorldCollections(world);
+    SetSceneAmbientLightWhite(scene.get());
     world->environment_range_end = 1.0f;
     world->environment_range_blue = 1.0f;
     world->environment_range_start = 0.75f;
-    return world;
+
+    // The existing DestroyWorld boundary takes over after successful setup.
+    scene.release();
+    return world.release();
 }
 
 // FUNCTION: WIZ8 0x0044F400
@@ -453,91 +368,44 @@ void SetCameraSwayMode(srCamera* camera, int mode)
             radians);
 }
 
-// FUNCTION: WIZ8 0x004507A0
-void DestroyWorldCollections(W8World* world)
+/* Entity teardown still has gameplay/rendering side effects. Keep its order
+   explicit while the collection storage itself is owned by W8World. */
+static void DestroyWorldEntities(W8World* world)
 {
-    if (world == 0) {
-        return;
-    }
-
-    if (world->monster_generators) {
-        wiz8::remove_all_and_delete_in_order(*world->monster_generators);
-    }
-
-    if (world->plsMonsters != 0) {
-        wiz8::remove_all_and_delete_in_order(*world->plsMonsters);
-        delete world->plsMonsters;
-
-        world->plsMonsters = 0;
-    }
+    wiz8::remove_all_and_delete_in_order(world->monster_generators);
+    wiz8::remove_all_and_delete_in_order(world->plsMonsters);
     if (g_world_cleanup_flag)
         RenderFrame();
-    if (world->plsItems != 0) {
-        wiz8::remove_all_and_delete_in_order(*world->plsItems);
-        delete world->plsItems;
-
-        world->plsItems = 0;
-    }
+    wiz8::remove_all_and_delete_in_order(world->plsItems);
     if (g_world_cleanup_flag)
         RenderFrame();
-    if (world->plsProps != 0) {
-        wiz8::remove_all_and_delete_in_order(*world->plsProps);
-        delete world->plsProps;
-
-        world->plsProps = 0;
-    }
+    wiz8::remove_all_and_delete_in_order(world->plsProps);
     if (g_world_cleanup_flag)
         RenderFrame();
 
     DestroyAllWorldTriggers(world);
-    if (world->triggers != 0) {
-        delete world->triggers;
-        world->triggers = 0;
-    }
     if (g_world_cleanup_flag)
         RenderFrame();
 
-    if (world->plsCameras != 0) {
-        wiz8::clear_and_dispose(*world->plsCameras, [](W8CameraPath* entry) {
-            delete entry->path;
-            free(entry);
-        });
-        delete world->plsCameras;
-
-        world->plsCameras = 0;
-    }
+    wiz8::clear_and_dispose(world->plsCameras, [](W8CameraPath* entry) {
+        delete entry->path;
+        free(entry);
+    });
 
     StopAllAmbientSounds();
-    if (world->plsAmbientSounds != 0) {
-        wiz8::clear_and_dispose(*world->plsAmbientSounds, DestroyAmbientSound);
-        delete world->plsAmbientSounds;
-
-        world->plsAmbientSounds = 0;
-    }
+    wiz8::clear_and_dispose(world->plsAmbientSounds, DestroyAmbientSound);
     if (g_world_cleanup_flag)
         RenderFrame();
 
-    if (world->particles != 0) {
-        wiz8::remove_all_and_delete_in_order(*world->particles);
-    }
-    if (world->named_positions != 0) {
-        wiz8::remove_all_and_delete_in_order(*world->named_positions);
-    }
-
+    wiz8::remove_all_and_delete_in_order(world->particles);
+    world->named_positions.clear();
     DestroyAllMissiles(world);
     DestroyAllSpellVisuals(world);
     DestroyWorldLights(world);
     world->transient_lights.clear();
     world->nodes_to_disable.clear();
-
-    delete world->lights_to_update;
-    delete world->collidable_props;
-    wiz8::remove_all_and_delete(*world->monster_generators);
-    delete world->monster_generators;
-    delete world->spell_visuals;
-    delete world->missiles;
-    delete world->particles;
-    delete world->named_positions;
+    world->lights_to_update.clear();
+    world->collidable_props.clear();
 }
 
 // FUNCTION: WIZ8 0x0044FAF0
@@ -564,7 +432,7 @@ void DestroyWorld(W8World* world)
     world->quads.reset();
     if (g_world_cleanup_flag)
         RenderFrame();
-    DestroyWorldCollections(world);
+    DestroyWorldEntities(world);
     if (g_world_cleanup_flag)
         RenderFrame();
     if (IsWorldCursorVisible())
@@ -660,8 +528,8 @@ void UpdateWorldCameraAndPaths(W8World* world, unsigned int flags)
         world->camera->setRotation(s_saved_camera_rotation);
     }
     SetCameraSwayMode(world->camera, 0);
-    camera_count = static_cast<int>((world->plsCameras ? world->plsCameras->size() : 0));
-    if (world->plsCameras != 0 && camera_count != 0) {
+    camera_count = static_cast<int>(world->plsCameras.size());
+    if (camera_count != 0) {
         for (index = 0; index < camera_count; ++index) {
             camera_path = GetWorldCameraPath(world, index);
             if (camera_path != 0 && camera_path->active) {
@@ -703,11 +571,11 @@ void MarkRendererReady(void)
 // FUNCTION: WIZ8 0x00451080
 stParticle* FindParticleByName(W8World* world, const char* name)
 {
-    if (world != 0 && world->particles != 0) {
-        int count = static_cast<int>(world->particles->size());
+    if (world != 0) {
+        int count = static_cast<int>(world->particles.size());
 
         for (int index = 0; index < count; ++index) {
-            stParticle* particle = (*world->particles)[index];
+            stParticle* particle = world->particles[index];
 
             if (_stricmp(particle->getName().c_str(), name) == 0) {
                 return particle;
@@ -1013,9 +881,9 @@ bool FindEntityByName(const char* name, srVector3T<float>* position, float* angl
         return true;
     }
 
-    int count = static_cast<int>(g_world->named_positions->size());
+    int count = static_cast<int>(g_world->named_positions.size());
     for (int index = 0; index < count; ++index) {
-        W8NamedPosition* entry = (*g_world->named_positions)[index];
+        const W8NamedPosition* entry = &g_world->named_positions[index];
         if (_stricmp(name, entry->name) == 0) {
             *position = entry->position;
             if (angle != 0) {

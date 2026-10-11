@@ -319,7 +319,7 @@ void W8SpellVisual::UpdateRepresentation(W8World* world)
 
 static void DestroySpellVisual(W8World* world, W8SpellVisual* visual)
 {
-    wiz8::erase_first(*world->spell_visuals, visual);
+    wiz8::erase_first(world->spell_visuals, visual);
     if (visual->m_plsLights) {
         wiz8::clear_and_dispose(*visual->m_plsLights, [world](stLight* light) {
             WorldRemoveLight(world, light);
@@ -341,9 +341,9 @@ void UpdateWorldSpellVisuals(W8World* world)
         srAssertFail("pWorld", "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp", 0x130, 0);
     }
     int index = 0;
-    int count = static_cast<int>(world->spell_visuals->size());
+    int count = static_cast<int>(world->spell_visuals.size());
     while (index < count) {
-        W8SpellVisual* visual = (*world->spell_visuals)[index];
+        W8SpellVisual* visual = world->spell_visuals[index];
         if (visual != 0) {
             visual->DetachRepresentation(world);
             if (!visual->finished || !visual->auto_release) {
@@ -553,7 +553,7 @@ W8SpellVisual::~W8SpellVisual()
     SetLights(0);
     delete host;
 
-    wiz8::erase_first(*g_world->spell_visuals, this);
+    wiz8::erase_first(g_world->spell_visuals, this);
     UnregisterGrCycle(this);
 }
 
@@ -562,8 +562,8 @@ W8SpellVisual::~W8SpellVisual()
 // FUNCTION: WIZ8 0x004ac3d0
 void DestroyAllSpellVisuals(W8World* world)
 {
-    while (!world->spell_visuals->empty()) {
-        DestroySpellVisual(world, world->spell_visuals->front());
+    while (!world->spell_visuals.empty()) {
+        DestroySpellVisual(world, world->spell_visuals.front());
     }
 }
 
@@ -641,7 +641,7 @@ static W8SpellVisual* CreateSpellVisual(std::string_view name, W8SpellVisualMode
         visual->SetNavigationMode(4);
         visual->active = false;
         visual->SetPitchRollEnabled(true, true);
-        g_world->spell_visuals->push_back(visual);
+        g_world->spell_visuals.push_back(visual);
         return visual;
     };
 
@@ -1010,7 +1010,7 @@ void SetMonsterSpellIcon(W8Monster* pMonster, W8MonsterSpellIconId iIcon, bool a
                 }
                 if (pSpellMI->psrBMO != 0) {
                     pSpellMI->psrBMO->DetachMesh(g_world);
-                    wiz8::erase_first(*g_world->plsItems, pSpellMI->psrBMO);
+                    wiz8::erase_first(g_world->plsItems, pSpellMI->psrBMO);
                     if (pSpellMI->psrBMO != 0) {
                         delete pSpellMI->psrBMO;
                     }
@@ -1253,7 +1253,7 @@ void ClearMonsterSpellIcons(W8Monster* monster)
             }
             if (entry->psrBMO != 0) {
                 entry->psrBMO->DetachMesh(g_world);
-                wiz8::erase_first(*g_world->plsItems, entry->psrBMO);
+                wiz8::erase_first(g_world->plsItems, entry->psrBMO);
                 delete entry->psrBMO;
             }
             free(entry);

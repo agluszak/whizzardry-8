@@ -5,6 +5,7 @@
 namespace wiz8 { class File; }
 
 struct W8World;
+struct W8NamedPosition;
 class srNode;
 class stParticle;
 
@@ -18,3 +19,6 @@ struct W8ReadLevelInfo {
 unsigned char ReadLevel(W8World* world, wiz8::File* handle, bool use_octree, const char* bitmap_folder);
 unsigned char ReadWorldParticles(W8ReadLevelInfo* info, srNode* scene,
                                  std::vector<stParticle*>* particles);
+
+// Append a complete named-position section; failure leaves the destination unchanged.
+bool ReadNamedPositions(wiz8::File* file, std::vector<W8NamedPosition>& positions);

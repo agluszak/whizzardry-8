@@ -24,8 +24,6 @@ unsigned char ForwardLoadWorld(W8World* world, char* level_file_name, const char
                                const char* asset_folder, bool use_octree);
 void ForwardDestroyWorld(W8World* world);
 void SetCurrentWorld(W8World* world);
-void ConstructWorldCollections(W8World* world);
-void DestroyWorldCollections(W8World* world);
 void DestroyWorld(W8World* world);
 void DetachAllWorldItems(void);
 void UpdateWorlds(void);
@@ -45,8 +43,6 @@ unsigned char AdjustWorldCollisionPosition(float radius, srVector3T<float>* posi
                                            bool check_items, bool check_monsters);
 unsigned char FindNearbyFreePosition(float radius, srVector3T<float>* position, bool check_items,
                                      bool check_monsters);
-
-W8_ABI_ASSERT(sizeof(W8World) == 0xdc, "W8World_must_be_0xdc");
 
 void SetSecondaryWorld(W8World* world);
 

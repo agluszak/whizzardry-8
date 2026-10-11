@@ -70,7 +70,7 @@ MonGen::MonGen()
 // FUNCTION: WIZ8 0x0048bdc0
 MonGen* FindMonGenByName(const char* name)
 {
-    for (MonGen* generator : *g_world->monster_generators) {
+    for (MonGen* generator : g_world->monster_generators) {
         if (strncmp(name, generator->name, sizeof(generator->name)) == 0) {
             return generator;
         }
@@ -531,7 +531,7 @@ void DespawnAllActiveMonsterGroups(void)
 void ResetMonsterGeneratorTimers(void)
 {
     g_encounter_culling_scale_fast = 1.0f;
-    std::vector<MonGen*>* generators = g_world->monster_generators;
+    std::vector<MonGen*>* generators = &g_world->monster_generators;
 
     for (MonGen* generator : *generators) {
 
@@ -592,7 +592,7 @@ void CullExpiredEncounters(void)
 
 /* How many monster generators the loaded world carries. */
 // FUNCTION: WIZ8 0x0048bd80
-int GetMonsterGeneratorCount(void) { return static_cast<int>(g_world->monster_generators->size()); }
+int GetMonsterGeneratorCount(void) { return static_cast<int>(g_world->monster_generators.size()); }
 
 /* One of them by index. Out of range answers null, which is why the bounds test
    appears twice: once here, rejecting the index outright, and once inside the
@@ -601,7 +601,7 @@ int GetMonsterGeneratorCount(void) { return static_cast<int>(g_world->monster_ge
 // FUNCTION: WIZ8 0x0048bd90
 MonGen* GetMonsterGenerator(int index)
 {
-    std::vector<MonGen*>* generators = g_world->monster_generators;
+    std::vector<MonGen*>* generators = &g_world->monster_generators;
 
     if (index >= static_cast<int>(generators->size())) {
         return 0;
@@ -621,13 +621,13 @@ W8EncounterTableRuntime* GetEncounterTable(int index)
 
 /* Register a monster generator with the world. */
 // FUNCTION: WIZ8 0x0048be30
-void AddMonsterGenerator(MonGen* generator) { g_world->monster_generators->push_back(generator); }
+void AddMonsterGenerator(MonGen* generator) { g_world->monster_generators.push_back(generator); }
 
 /* Destroy every generator and empty the list. */
 // FUNCTION: WIZ8 0x0048bf70
 void DestroyMonsterGenerators(void)
 {
-    wiz8::remove_all_and_delete_in_order(*g_world->monster_generators);
+    wiz8::remove_all_and_delete_in_order(g_world->monster_generators);
 }
 
 /* Restore the full MONG encounter state. Older save versions omit later global
@@ -669,7 +669,7 @@ try
             srAssertFail("pMonGen", MON_GEN_CPP, 0x48a, "MonGen::LoadAll() out of memory");
         }
         success = generator->Load(save_handle);
-        g_world->monster_generators->push_back(generator);
+        g_world->monster_generators.push_back(generator);
     }
 
     level = &g_level_records[g_status.current_level];
@@ -704,8 +704,8 @@ void LoadMonsterGenerators(wiz8::File* handle)
         handle->read_exact(&flags, 4);
 
         generator = 0;
-        for (search = 0; search < static_cast<int>(g_world->monster_generators->size()); ++search) {
-            MonGen* candidate = (*g_world->monster_generators)[search];
+        for (search = 0; search < static_cast<int>(g_world->monster_generators.size()); ++search) {
+            MonGen* candidate = g_world->monster_generators[search];
             if (strncmp(name, candidate->name, sizeof(name)) == 0) {
                 generator = candidate;
                 break;
@@ -736,12 +736,12 @@ void LoadMonsterGenerators(wiz8::File* handle)
 // FUNCTION: WIZ8 0x0048c600
 void RunMonsterGenerators(void)
 {
-    int count = static_cast<int>(g_world->monster_generators->size());
+    int count = static_cast<int>(g_world->monster_generators.size());
     MonGen* generator;
     int index;
 
     for (index = 0; index < count; ++index) {
-        generator = (*g_world->monster_generators)[index];
+        generator = g_world->monster_generators[index];
         if (generator->m_pTimer != 0 && generator->m_pTimer->PollElapsedIntervals() != 0) {
             if (generator->CanGenerateEncounter(false)) {
                 generator->GenerateEncounter(&generator->spawn_position);
@@ -803,12 +803,12 @@ void SaveMonsterGenerators(wiz8::File* handle)
     int index;
 
     version = 3;
-    count = static_cast<int>(g_world->monster_generators->size());
+    count = static_cast<int>(g_world->monster_generators.size());
     handle->write(&version, 4);
     handle->write(&g_generator_save_flag, 1);
     handle->write(&count, 4);
     for (index = 0; index < count; ++index) {
-        generator = (*g_world->monster_generators)[index];
+        generator = g_world->monster_generators[index];
         handle->write(generator->name, 0x20);
         handle->write(&generator->generation_enabled, 1);
         handle->write(&generator->flags, 4);
@@ -881,7 +881,7 @@ try
 // FUNCTION: WIZ8 0x0048beb0
 void RemoveMonsterGenerator(MonGen* generator)
 {
-    if (wiz8::erase_first(*g_world->monster_generators, generator)) {
+    if (wiz8::erase_first(g_world->monster_generators, generator)) {
         delete generator;
     }
 }
@@ -969,7 +969,7 @@ void SaveEncounterState(wiz8::File* handle)
     int version;
     int index;
 
-    count = static_cast<int>(g_world->monster_generators->size());
+    count = static_cast<int>(g_world->monster_generators.size());
     version = 5;
     handle->write(&version, 4);
     handle->write(&gXStatus.saved_encounter_budget, 4);
@@ -981,7 +981,7 @@ void SaveEncounterState(wiz8::File* handle)
     handle->write(&g_generator_interval_max, 2);
     handle->write(&count, 4);
     for (index = 0; index < count; ++index) {
-        ((*g_world->monster_generators)[index])->Save(handle);
+        (g_world->monster_generators[index])->Save(handle);
     }
 }
 
@@ -995,7 +995,7 @@ void RollRandomEncounters(void)
         DespawnMonsterGroup(g_active_groups.back());
     }
 
-    std::vector<MonGen*> generators(*g_world->monster_generators);
+    std::vector<MonGen*> generators(g_world->monster_generators);
     int count = static_cast<int>(generators.size());
     if (count > 1) {
         for (int remaining = count; remaining > 0; --remaining) {
@@ -1023,7 +1023,7 @@ void RollRandomEncounters(void)
 void SetMonsterGeneratorDurationScale(float scale)
 {
     g_encounter_culling_scale_fast = scale;
-    std::vector<MonGen*>* generators = g_world->monster_generators;
+    std::vector<MonGen*>* generators = &g_world->monster_generators;
 
     for (int index = 0; index < static_cast<int>(generators->size()); ++index) {
         ((*generators)[index])->m_pTimer->SetDurationScale(scale);

@@ -1384,8 +1384,8 @@ void W8Octree::BuildRegionLinks(bool rebuild_all)
         m_point_count = 0;
     }
     world->camera->setViewPlane(saved_width, saved_height);
-    unsigned int camera_count = (world->plsCameras ? world->plsCameras->size() : 0);
-    if (!aborted && world->plsCameras != 0 && camera_count != 0) {
+    unsigned int camera_count = world->plsCameras.size();
+    if (!aborted && camera_count != 0) {
         for (int camera_index = 0; camera_index < static_cast<int>(camera_count); ++camera_index) {
             W8CameraPath* entry = GetWorldCameraPath(world, camera_index);
             if (entry != 0 && entry->path != 0) {
@@ -3843,7 +3843,7 @@ unsigned char W8Octree::TestBoxOccupied(const srVector3T<float>* lower,
     count =
         static_cast<unsigned int>(QueryObjects(&objects, lower, upper, W8_OCTREE_KIND_PROP, -1));
     for (index = 0; index < count; ++index) {
-        W8Prop* prop = (*g_world->collidable_props)[objects[index]];
+        W8Prop* prop = g_world->collidable_props[objects[index]];
         if (prop->GetActivationState() != 0 && prop->m_gd_prop != 0) {
             GDProp* gd_prop = prop->m_gd_prop;
             for (int surface_index = 0; surface_index < gd_prop->m_surface_count; ++surface_index) {
