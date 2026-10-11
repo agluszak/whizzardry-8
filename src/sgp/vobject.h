@@ -94,85 +94,22 @@ struct SGPVObject {
 
 // This structure describes the creation parameters for a Video Object
 struct VOBJECT_DESC {
-    UINT32 fCreateFlags{}; // Specifies creation flags like from file or not
+    UINT32 fCreateFlags{};
     std::string ImageFile;
     HIMAGE hImage = nullptr;
-    UINT8 ubBitDepth{}; // BPP, ignored if given from file
+    UINT8 ubBitDepth{};
 };
 
-// **********************************************************************************
-//
-// Video Object Manager Functions
-//
-// **********************************************************************************
-
-
-UINT16 CreateObjectPaletteTables(SGPVObject& pObj, UINT32 uiType);
+// Palette generation and shade selection preserve the game's RGB555 tables.
+UINT16 CreateObjectPaletteTables(SGPVObject& object, UINT32 type);
+UINT16 SetObjectShade(SGPVObject& object, UINT32 shade);
 
 struct SGPVSurface;
+BOOLEAN BltVideoObject(SGPVSurface& destination, SGPVObject& source, UINT16 frame,
+                       INT32 x, INT32 y, UINT32 flags, blt_fx* effects);
+BOOLEAN BltVideoObjectToBuffer(UINT16* pixels, UINT32 pitch, SGPVObject& source,
+                               UINT16 frame, INT32 x, INT32 y, INT32 flags, blt_fx* effects);
 
-// Blits a video object to a surface
-struct SGPVSurface;
-BOOLEAN BltVideoObject(SGPVSurface& uiDestVSurface, SGPVObject& hVSrcObject, UINT16 usRegionIndex,
-                       INT32 iDestX, INT32 iDestY, UINT32 fBltFlags, blt_fx* pBltFx);
-
-
-// Sets transparency
-
-// **********************************************************************************
-//
-// Video Object manipulation functions
-//
-// **********************************************************************************
-
-// Created from a VOBJECT_DESC structure. Can be from a file via HIMAGE or empty.
-std::unique_ptr<SGPVObject> CreateVideoObject(const VOBJECT_DESC& VObjectDesc);
-
-// Sets the object transparency color
-
-
-// Sets SGPVObject& palette, creates if nessessary. Also sets 16BPP palette
-
-
-
-// Deletes the 16-bit palette tables
-
-
-// Sets the current object shade table
-UINT16 SetObjectShade(SGPVObject& pObj, UINT32 uiShade);
-
-
-// Retrieves an SGPVObject& pixel value
-
-// ****************************************************************************
-//
-// Globals
-//
-// ****************************************************************************
-
-// ****************************************************************************
-//
-// Macros
-//
-// ****************************************************************************
-
-
-// ****************************************************************************
-//
-// Blt Functions
-//
-// ****************************************************************************
-
-// These blitting functions more-or less encapsolate all of the functionality of DirectDraw
-// Blitting, giving an API layer for portability.
-
-BOOLEAN BltVideoObjectToBuffer(UINT16* pBuffer, UINT32 uiDestPitchBYTES, SGPVObject& hSrcVObject,
-                               UINT16 usIndex, INT32 iDestX, INT32 iDestY, INT32 fBltFlags,
-                               blt_fx* pBltFx);
-
-
-
-
-
+std::unique_ptr<SGPVObject> CreateVideoObject(const VOBJECT_DESC& description);
 
 #endif

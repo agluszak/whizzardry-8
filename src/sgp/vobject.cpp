@@ -2,12 +2,11 @@
    Distributed under the accompanying SFI Source Code license agreement. */
 #include <SDL3/SDL_log.h>
 #include <memory>
-#include <span>
+#include <optional>
 
 #include "Types.h"
 #include "himage.h"
 #include "vobject.h"
-#include "WCheck.h"
 #include "vobject_blitters.h"
 #include "vsurface.h"
 
