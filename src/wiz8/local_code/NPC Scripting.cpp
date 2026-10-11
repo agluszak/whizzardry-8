@@ -626,8 +626,6 @@ static void SpeakNpcSubquote(W8NpcScriptQuote* quote, unsigned char subquote_ind
     std::string display_text;
     std::string plain_text;
     std::string prefixed_text;
-    unsigned int voice_total_ms;
-    unsigned int voice_position_ms;
 
     static const int s_empty_quote_text_ids[2] = {1867, 1868};
 
@@ -741,9 +739,10 @@ static void SpeakNpcSubquote(W8NpcScriptQuote* quote, unsigned char subquote_ind
                                            g_npc_scripting.staging_restore.current_quote_index,
                                            display_text, 1);
                 entry->voice_sound_handle = g_npc_scripting.voice_handle;
-                SoundGetMilliSecondPosition(g_npc_scripting.voice_handle, &voice_total_ms,
-                                            &voice_position_ms);
-                entry->voice_time_remaining_ms = voice_total_ms;
+                const auto playback_time =
+                    SoundGetMilliSecondPosition(g_npc_scripting.voice_handle)
+                        .value_or(SoundPlaybackTime{});
+                entry->voice_time_remaining_ms = playback_time.total_ms;
                 LoadMouthGapTrack(
                     voice_path,
                     &gXStatus.monster_manager_entries[g_npc_scripting.npc->group_index].mouth_gap);
