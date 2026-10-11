@@ -1352,16 +1352,12 @@ void srTriMeshPipeline::FlushSlots()
                     this->renderer->getEnvironmentScaleFactor();
                 w8_ulong exclusion_mask = this->renderer->getExclusionMask();
 
-                srVertexPipe::Input pipe_input;
-                pipe_input.vertex_count = culler_output.vertexCount();
-                pipe_input.active_vertices = culler_output.avt.data();
+                srVertexPipe::Input pipe_input(model_view, normal_matrix);
+                pipe_input.active_vertices = culler_output.avt;
                 pipe_input.direct_vertex_indices = false;
-                pipe_input.positions = positions;
-                pipe_input.normals = vertex_extras;
-                pipe_input.eye_center = eye_bounds.center;
-                pipe_input.eye_radius = eye_bounds.radius;
-                pipe_input.model_view = &model_view;
-                pipe_input.normal_matrix = &normal_matrix;
+                pipe_input.positions = {positions, vertex_count};
+                if (vertex_extras) pipe_input.normals = {vertex_extras, vertex_count};
+                pipe_input.eye_bounds = eye_bounds;
                 pipe_input.vertex_arrays = std::span{this->vertex_arrays}.first(slot_count);
                 pipe_input.exclusion_mask = exclusion_mask;
                 pipe_input.ambient_light = ambient_light;

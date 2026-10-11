@@ -1,3 +1,4 @@
+#include "glm/ext/matrix_float4x4.hpp"
 #include <stdexcept>
 #include "surrender/lighting_math.h"
 #include <cassert>
@@ -43,6 +44,16 @@ static void MultiplyIndexedColors(std::span<glm::vec4> destination,
 {
     for (std::size_t index = 0; index < destination.size(); ++index)
         destination[index] *= multipliers[indices[index]];
+}
+
+template<class Vector>
+static void TransformGeometry(const srVertexPipe::Input& input,
+                              std::span<const glm::vec3> source, const glm::mat4& matrix,
+                              std::span<Vector> destination, w8_ulong processed_base)
+{
+    for (w8_ulong index = 0; index < destination.size(); ++index)
+        destination[index] = Vector(matrix * glm::vec4(
+            source[input.geometryIndex(processed_base + index)], 1.0f));
 }
 
 // FUNCTION: SURRENDER 0x1002AA50
@@ -203,26 +214,28 @@ void srVertexPipe::process(const Input& input)
     }
     setMaterial(0);
     batch_base = 0;
-    w8_ulong vertex_count = input.vertex_count;
+    w8_ulong vertex_count = static_cast<w8_ulong>(input.active_vertices.size());
     if (vertex_count == 0)
         return;
     if (input.vertex_arrays.size() < input.records.size() || input.vertex_arrays.empty())
         throw std::invalid_argument("vertex pipeline requires an array for every render pass");
     eye_space_locations = input.vertex_arrays.front().eye_locations;
-    const auto model_view = (*input.model_view);
+    for (w8_ulong processed = 0; processed < input.active_vertices.size(); ++processed) {
+        const auto index = input.geometryIndex(processed);
+        if (index >= input.positions.size() ||
+            (!input.normals.empty() && index >= input.normals.size()))
+            throw std::out_of_range("vertex pipeline geometry index exceeds its source channel");
+    }
     while (vertex_count != 0) {
         vertex_count -= batch_base;
         batch_count = vertex_count;
         if (0x40 < vertex_count) {
             batch_count = 0x40;
         }
-        avt = input.active_vertices + batch_base;
+        avt = input.active_vertices.data() + batch_base;
         scratch.flags = 0;
-        for (w8_ulong i = 0; i < batch_count; ++i) {
-            const auto index = input.geometryIndex(batch_base + i);
-            eye_space_locations[batch_base + i] =
-                model_view * glm::vec4(input.positions[index], 1.0f);
-        }
+        TransformGeometry(input, input.positions, input.model_view,
+                          std::span{eye_space_locations + batch_base, batch_count}, batch_base);
         w8_ulong record_index;
         for (record_index = 0; record_index < input.records.size(); ++record_index) {
             const Record* record = &input.records[record_index];
@@ -267,7 +280,7 @@ void srVertexPipe::process(const Input& input)
             }
         }
         batch_base += 0x40;
-        vertex_count = input.vertex_count;
+        vertex_count = static_cast<w8_ulong>(input.active_vertices.size());
         if (batch_base >= vertex_count) {
             break;
         }
@@ -415,16 +428,11 @@ void srVertexPipe::finishSpecularFog()
 // FUNCTION: SURRENDER 0x1002B860
 void srVertexPipe::setupEyeSpaceNormal()
 {
-    const glm::vec3* normals = input->normals;
-    if (normals == 0) {
+    if (input->normals.empty()) {
         std::fill_n(scratch.normals, batch_count, glm::vec3(0, 0, -1));
     } else {
-        const auto normal_transform = (*input->normal_matrix);
-        for (w8_ulong i = 0; i < batch_count; ++i) {
-            const auto index = input->geometryIndex(batch_base + i);
-            scratch.normals[i] = glm::vec3(
-                normal_transform * glm::vec4(normals[index], 1.0f));
-        }
+        TransformGeometry(*input, input->normals, input->normal_matrix,
+                          std::span{scratch.normals, batch_count}, batch_base);
     }
     scratch.flags |= srVertexPipe::Scratch::READY_EYE_NORMALS;
 }
@@ -629,8 +637,8 @@ w8_ulong srVertexPipe::getExclusionMask() const
 // FUNCTION: SURRENDER 0x1002C350
 int srVertexPipe::testEyeSpaceBounds(const glm::vec3& center, float radius) const
 {
-    const auto offset = center - input->eye_center;
-    const float sum = radius + input->eye_radius;
+    const auto offset = center - input->eye_bounds.center;
+    const float sum = radius + input->eye_bounds.radius;
     return glm::dot(offset, offset) < sum * sum;
 }
 
@@ -661,7 +669,7 @@ void srVertexPipe::setupST(w8_ulong index)
 // FUNCTION: SURRENDER 0x1002C480
 srBoundingSphere srVertexPipe::getEyeSpaceBoundingSphere() const
 {
-    return {input->eye_center, input->eye_radius};
+    return input->eye_bounds;
 }
 
 // FUNCTION: SURRENDER 0x1002C4C0

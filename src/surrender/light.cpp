@@ -277,15 +277,15 @@ int srLight::isActive(srVertexPipe& pipe)
         return 0;
     }
     if ((derived_flags & srLight::DERIVED_RANGE_CULL) != 0) {
-        const auto offset = eye_location - input->eye_center;
-        float range = attenuation_range + input->eye_radius;
+        const auto offset = eye_location - input->eye_bounds.center;
+        float range = attenuation_range + input->eye_bounds.radius;
         if (range * range <= glm::dot(offset, offset)) {
             return 0;
         }
     }
     if ((derived_flags & srLight::DERIVED_SPOT) != 0) {
-        float radius = input->eye_radius;
-        const auto offset = input->eye_center - eye_location;
+        float radius = input->eye_bounds.radius;
+        const auto offset = input->eye_bounds.center - eye_location;
         const float distance_squared = glm::dot(offset, offset);
         if (radius * radius < distance_squared &&
             glm::dot(offset, spot_direction_eye) / sqrtf(distance_squared) +

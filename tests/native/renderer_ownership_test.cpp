@@ -195,12 +195,10 @@ bool processorOwnership()
     record.channels = 0xffffffff;
     record.materials = materials.data();
     std::array<srVertexProcessor*, 3> processors{&probe, &active, &inactive};
-    srVertexPipe::Input input{};
-    input.vertex_count = positions.size();
-    input.active_vertices = indices.data();
+    srVertexPipe::Input input(identity, identity);
+    input.active_vertices = indices;
     input.direct_vertex_indices = 1;
-    input.positions = positions.data();
-    input.model_view = input.normal_matrix = &identity;
+    input.positions = positions;
     input.vertex_arrays = {&arrays, 1};
     input.records = {&record, 1};
     input.processors = processors;
@@ -231,7 +229,7 @@ bool processorOwnership()
         REQUIRE(active.calls == 9 + 129 * 3);
         input.vertex_arrays = {};
         REQUIRE_THROWS_AS(pipe.process(input), std::invalid_argument);
-        input.vertex_count = 0;
+        input.active_vertices = {};
         REQUIRE_NOTHROW(pipe.process(input));
     }
     // The pipe owns the pointer list, never the processors.
@@ -305,10 +303,9 @@ bool coverageFinalization()
     CoverageMaterial material;
     srVertexPipe::Record record{};
     record.material = &material;
-    srVertexPipe::Input input{};
-    input.vertex_count = positions.size(); input.active_vertices = indices.data();
-    input.direct_vertex_indices = 1; input.positions = positions.data();
-    input.model_view = input.normal_matrix = &identity;
+    srVertexPipe::Input input(identity, identity);
+     input.active_vertices = indices;
+    input.direct_vertex_indices = 1; input.positions = positions;
     input.vertex_arrays = {&arrays, 1}; input.records = {&record, 1};
     input.processors = {&processor, 1};
     input.environment_maximum = input.environment_inverse_scale = 1;
@@ -414,11 +411,11 @@ bool surfaceLighting()
     glm::mat4 identity(1);
     SurfaceLightProbe probe;
     srVertexProcessor* processor = &probe;
-    srVertexPipe::Input input{};
-    input.positions = positions.data(); input.normals = normals.data();
-    input.active_vertices = indices.data(); input.direct_vertex_indices = 1;
+    srVertexPipe::Input input(identity, identity);
+    input.positions = positions; input.normals = normals;
+    input.active_vertices = indices; input.direct_vertex_indices = 1;
     input.vertex_arrays = {&arrays, 1}; input.records = {&record, 1};
-    input.model_view = input.normal_matrix = &identity;
+
     input.processors = {&processor, 1};
     input.ambient_light = glm::vec4(0);
     for (unsigned channels = 1; channels < 4; ++channels)
@@ -446,7 +443,7 @@ bool surfaceLighting()
         light.near_attenuation = light.far_attenuation = .05f;
         light.opengl_attenuation = glm::vec3(2, 0, 0);
         light.scaled_diffuse = glm::vec4(.5f); light.scaled_specular = glm::vec4(.25f);
-        input.vertex_count = count;
+        input.active_vertices = std::span{indices}.first(count);
         record.channels = ~(light.channel_mask | (1u << srVertexProcessor::CHANNEL_DIFFUSE));
         const int before = probe.calls;
         srVertexPipe pipe;
@@ -510,12 +507,11 @@ bool distanceProfiles()
     srVertexPipe::Record record{};
     record.material = &material;
     record.channels = ~(1u << srVertexProcessor::CHANNEL_FOG);
-    srVertexPipe::Input input{};
-    input.vertex_count = positions.size(); input.active_vertices = indices.data();
-    input.direct_vertex_indices = 1; input.positions = positions.data();
-    input.model_view = input.normal_matrix = &identity;
+    srVertexPipe::Input input(identity, identity);
+     input.active_vertices = indices;
+    input.direct_vertex_indices = 1; input.positions = positions;
     input.vertex_arrays = {&arrays, 1}; input.records = {&record, 1};
-    input.eye_center = glm::vec3(0, 0, 33); input.eye_radius = 33;
+    input.eye_bounds = {glm::vec3(0, 0, 33), 33};
     input.environment_scale = .2f; input.environment_inverse_scale = .8f;
     DistanceProfileProbe probe;
     srVertexProcessor* processor = &probe;
@@ -573,12 +569,10 @@ bool materialChannelOperations()
                         (1u << srVertexProcessor::CHANNEL_ALPHA) |
                         (1u << srVertexProcessor::CHANNEL_LIGHT_DIFFUSE) |
                         (1u << srVertexProcessor::CHANNEL_LIGHT_AMBIENT));
-    srVertexPipe::Input input{};
-    input.vertex_count = positions.size();
-    input.active_vertices = indices.data();
+    srVertexPipe::Input input(identity, identity);
+    input.active_vertices = indices;
     input.direct_vertex_indices = 1;
-    input.positions = positions.data();
-    input.model_view = input.normal_matrix = &identity;
+    input.positions = positions;
     input.vertex_arrays = {&arrays, 1};
     input.records = {&record, 1};
     input.processors = {&processor, 1};
@@ -867,11 +861,9 @@ bool pipelineRecordTexcoords()
         ++pipeline->slot_count;
         pipeline->PrepareSlot();
     }
-    srVertexPipe::Input input{};
-    input.vertex_count = positions.size();
-    input.active_vertices = indices.data();
-    input.positions = positions.data();
-    input.model_view = input.normal_matrix = &identity;
+    srVertexPipe::Input input(identity, identity);
+    input.active_vertices = indices;
+    input.positions = positions;
     input.vertex_arrays = arrays;
     input.records = std::span{pipeline->records}.first(pipeline->slot_count);
     pipeline->vertex_pipe->process(input);
@@ -882,6 +874,67 @@ bool pipelineRecordTexcoords()
             REQUIRE(q[channel][vertex] == 1.0f);
         }
     pipeline->Reset(&renderer);
+    return true;
+}
+
+bool countedGeometryTransforms()
+{
+    struct Probe : Counter {
+        const srVertexPipe::Input* input = nullptr;
+        unsigned processed = 0;
+        void process(srVertexPipe& pipe) override
+        {
+            const auto locations = pipe.getEyeSpaceLocation();
+            const auto normals = pipe.getEyeSpaceNormal();
+            const auto attributes = pipe.getAVT();
+            for (unsigned index = 0; index < locations.size(); ++index) {
+                const auto source = input->geometryIndex(processed + index);
+                REQUIRE(locations[index] == input->model_view * glm::vec4(input->positions[source], 1));
+                const auto expected = input->normals.empty() ? glm::vec3(0, 0, -1) :
+                    glm::vec3(input->normal_matrix * glm::vec4(input->normals[source], 1));
+                REQUIRE(normals[index] == expected);
+                REQUIRE(attributes[index] == input->active_vertices[processed + index]);
+            }
+            processed += locations.size();
+        }
+    } probe;
+    std::array<glm::vec3, 65> positions, normals;
+    std::array<w8_ulong, 65> indices;
+    std::array<glm::vec4, 65> eyes;
+    std::array<unsigned char, 65> attributes{};
+    for (unsigned index = 0; index < positions.size(); ++index) {
+        positions[index] = glm::vec3(index, 2, 3);
+        normals[index] = glm::vec3(1, index, 2);
+        indices[index] = positions.size() - index - 1;
+    }
+    const glm::mat4 model_view = glm::translate(glm::mat4(1), glm::vec3(4, 5, 6));
+    const glm::mat4 normal_matrix = glm::scale(model_view, glm::vec3(2, 3, 4));
+    srVertexPipe::Input input(model_view, normal_matrix);
+    input.positions = positions; input.normals = normals; input.active_vertices = indices;
+    srVertexArray array{};
+    array.eye_locations = eyes.data(); array.attributes = attributes.data();
+    input.vertex_arrays = {&array, 1};
+    TestMaterial material;
+    srVertexPipe::Record record{};
+    record.material = &material; record.channels = 0xffffffff;
+    input.records = {&record, 1};
+    srVertexProcessor* processor = &probe;
+    input.processors = {&processor, 1}; probe.input = &input;
+    srVertexPipe pipe;
+    for (bool direct : {false, true}) {
+        input.direct_vertex_indices = direct; probe.processed = 0;
+        pipe.process(input);
+        REQUIRE(probe.processed == positions.size());
+    }
+    input.normals = {}; probe.processed = 0;
+    pipe.process(input);
+    REQUIRE(probe.processed == positions.size());
+    input.positions = std::span{positions}.first(64);
+    eyes.fill(glm::vec4(-99));
+    REQUIRE_THROWS_AS(pipe.process(input), std::out_of_range);
+    for (const auto& eye : eyes) REQUIRE(eye == glm::vec4(-99));
+    input.positions = positions; input.normals = std::span{normals}.first(64);
+    REQUIRE_THROWS_AS(pipe.process(input), std::out_of_range);
     return true;
 }
 
@@ -928,6 +981,7 @@ TEST_CASE("renderer_ownership_test")
         REQUIRE(srInit());
         REQUIRE(recursiveSceneGraph());
         REQUIRE(processorOwnership());
+        REQUIRE(countedGeometryTransforms());
         REQUIRE(rendererOwnership());
         REQUIRE(materialChannelOperations());
         REQUIRE(coverageFinalization());
