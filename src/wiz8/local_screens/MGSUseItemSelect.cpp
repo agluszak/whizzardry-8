@@ -507,7 +507,7 @@ static void RebuildUseItemSelectList(int mode, W8ItemInstance* select)
     g_use_item_selected = 0;
     g_use_item_detail_item = 0;
     g_use_item_select_controls[0]->ClearImage();
-    g_use_item_select_controls[0]->m_textBuffer.SetText("", 0);
+    g_use_item_select_controls[0]->m_textBuffer.SetText("", g_large_font);
     g_use_item_select_controls[0]->Invalidate(true);
     SelectSpellCastingPartySlot(g_status.selected_character);
     g_use_item_select_mode = mode;

@@ -1,3 +1,4 @@
+#include "Font.h"
 #include <string_view>
 #include <utility>
 #include <vector>
@@ -13,7 +14,6 @@
 #include "Button System.h"
 #include "input.h"
 #include "mousesystem.h"
-#include "mousesystem_macros.h"
 #include "Types.h"
 
 bool UpdateDialogArrowState(GUI_BUTTON* button, INT32 reason)
@@ -139,11 +139,11 @@ void W8DialogButton::SetVisible(bool visible)
     if (visible) {
         if (!(m_button_handle.get()->Area.uiFlags & MSYS_REGION_ENABLED)) {
             ShowButton(m_button_handle);
-            MSYS_SGP_Mouse_Handler_Hook(MOUSE_POS, 0, 0, gfLeftButtonState, gfRightButtonState);
+            DispatchMouseEvent(MOUSE_POS, 0, 0, gfLeftButtonState, gfRightButtonState);
         }
     } else if (m_button_handle.get()->Area.uiFlags & MSYS_REGION_ENABLED) {
         HideButton(m_button_handle);
-        MSYS_SGP_Mouse_Handler_Hook(MOUSE_POS, 0, 0, gfLeftButtonState, gfRightButtonState);
+        DispatchMouseEvent(MOUSE_POS, 0, 0, gfLeftButtonState, gfRightButtonState);
     }
 }
 
@@ -207,7 +207,7 @@ W8DialogButton::~W8DialogButton() = default;
 #define STBUTTON_CPP "C:\\Projects\\Wizardry 8\\Dialog Code\\stButton.cpp"
 
 // FUNCTION: WIZ8 0x005DB350
-bool W8DialogButton::ConfigureTextButton(std::string_view text, unsigned int font, short fore_color,
+bool W8DialogButton::ConfigureTextButton(std::string_view text, Font& font, short fore_color,
                                          short shadow_color, short x, short y, short width,
                                          short height, W8DialogButtonCallback left_callback,
                                          int user_data)

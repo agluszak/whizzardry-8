@@ -15,9 +15,9 @@ unsigned char InitializeMouseCursorScene(void);
 
 class srTextureIFace;
 
-BOOLEAN SetMouseCursorFromVideoObject(UINT32 video_object, UINT16 region, INT16 offset_x,
+BOOLEAN SetMouseCursorFromVideoObject(SGPVObject& video_object, UINT16 region, INT16 offset_x,
                                       INT16 offset_y);
-void BlitToMouseCursor(UINT32 video_object, UINT16 region, UINT16 x, UINT16 y);
+void BlitToMouseCursor(SGPVObject& video_object, UINT16 region, UINT16 x, UINT16 y);
 void RefreshMouseCursorTexture(void);
 BOOLEAN ResizeMouseCursorSurface(int width, int height);      /* 0x00427c90 */
 void SetMouseCursorHotspot(short hotspot_x, short hotspot_y); /* 0x00427f00 */

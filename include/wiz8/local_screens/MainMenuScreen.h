@@ -1,3 +1,4 @@
+struct SGPVSurface;
 #pragma once
 
 #include <string>
@@ -14,7 +15,7 @@ extern bool g_main_menu_has_save_games;
 extern bool g_main_menu_redraw;
 extern bool g_main_menu_warning_shown;
 extern bool g_main_menu_overlay_enabled;
-extern unsigned int g_main_menu_overlay_surface;
+extern SGPVSurface* g_main_menu_overlay_surface;
 extern unsigned int g_main_menu_hover_region;
 extern W8MessageDialogBase* g_main_menu_dialog;
 extern std::string g_pending_main_menu_message;

@@ -1,3 +1,4 @@
+#include "himage.h"
 #include <fmt/format.h>
 #include <SDL3/SDL_rect.h>
 #include <algorithm>
@@ -214,34 +215,33 @@ void DrawCampStatsPage(void)
 {
     SetFont(g_wiz_text_font_secondary);
     if (g_camp_screen->redraw_flags == W8_CAMP_REDRAW_ALL) {
-        DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x142, 0, 1, 0, 0xa5, VO_BLT_SRCTRANSPARENCY,
+        DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x142, 0, 1, 0, 0xa5, VO_BLT_SRCTRANSPARENCY,
                                       0);
         g_camp_stats_origin_x = 0;
         g_camp_stats_origin_y = 0xa5;
         int index;
         std::string text = g_localized_strings[0x937];
         DrawFontText(g_camp_stats_origin_x + 10 +
-                         ((0x11f - StringPixLength(text, g_wiz_text_font_secondary)) >> 1),
+                         ((0x11f - g_wiz_text_font_secondary.textWidth(text)) >> 1),
                      g_camp_stats_origin_y + 10, text);
         int row_y = 0xbf;
         for (index = 0; index < 7; ++index) {
             std::string label = g_localized_strings[g_attribute_label_ids[index]];
             DrawFontText(g_camp_stats_origin_x + 10 +
-                             ((0x7b - StringPixLength(label, g_wiz_text_font_secondary)) >> 1),
+                             ((0x7b - g_wiz_text_font_secondary.textWidth(label)) >> 1),
                          row_y - 0xa6 + g_camp_stats_origin_y, label);
             unsigned int effective = g_review_character->attributes[index].effective;
             DrawCampValueBar(effective, g_review_character->attributes[index].base, 0x88, row_y);
             g_camp_screen->text_buffer = fmt::format("{:d}", effective);
             DrawFontText(g_camp_stats_origin_x + 0x108 +
-                             ((0x21 - StringPixLength(g_camp_screen->text_buffer,
-                                                      g_wiz_text_font_secondary)) >>
+                             ((0x21 - g_wiz_text_font_secondary.textWidth(g_camp_screen->text_buffer)) >>
                               1),
                          row_y - 0xa6 + g_camp_stats_origin_y, g_camp_screen->text_buffer);
             row_y += 0xe;
         }
         text = g_localized_strings[0x938];
         DrawFontText(g_camp_stats_origin_x + 10 +
-                         ((0x11f - StringPixLength(text, g_wiz_text_font_secondary)) >> 1),
+                         ((0x11f - g_wiz_text_font_secondary.textWidth(text)) >> 1),
                      g_camp_stats_origin_y + 0x8d, text);
         g_camp_screen->text_buffer = fmt::format(
             "{} {}",
@@ -269,14 +269,14 @@ void DrawCampStatsPage(void)
         }
         text = g_localized_strings[0x939];
         DrawFontText(g_camp_stats_origin_x + 0x13b +
-                         ((0x13b - StringPixLength(text, g_wiz_text_font_secondary)) >> 1),
+                         ((0x13b - g_wiz_text_font_secondary.textWidth(text)) >> 1),
                      g_camp_stats_origin_y + 10, text);
         g_camp_screen->stats_controls->Invalidate(0);
         g_camp_screen->stats_range->m_range->Invalidate(0);
     }
     if ((g_camp_screen->redraw_flags & W8_CAMP_REDRAW_EFFECT_LIST) != 0) {
         InvalidateRegion(0x15d, 0xbe, 0x260, 0x1b5, 0);
-        BlitCatalogSurfaceRectTo16BPP(FRAME_BUFFER, 0x15d, 0xbe, 0x260, 0x1b5, 0x1b6, 0, 0);
+        BlitCatalogSurfaceRectTo16BPP(GetFrameBufferSurface(), 0x15d, 0xbe, 0x260, 0x1b5, 0x1b6, 0, 0);
         DrawCampEffectList();
     }
     g_camp_screen->stats_range->m_range->Redraw();
@@ -503,7 +503,7 @@ void FilterCampEffectList(void)
 void DrawCampEffectList(void)
 {
     W8CampScreenState* screen = g_camp_screen;
-    SetFontDestBuffer(0xfffffff2, 0, 0xbe, 0x280, 0x1ac, 0);
+    SetFontDestBuffer(GetFrameBufferSurface(), 0, 0xbe, 0x280, 0x1ac, 0);
     int line = -screen->effect_scroll;
     unsigned int count = screen->effect_list.size();
     for (unsigned int pos = 0; pos < count; ++pos) {
@@ -519,7 +519,7 @@ void DrawCampEffectList(void)
             }
         }
     }
-    SetFontDestBuffer(0xfffffff2, 0, 0, 0x280, 0x1e0, 0);
+    SetFontDestBuffer(GetFrameBufferSurface(), 0, 0, 0x280, 0x1e0, 0);
 }
 
 /* Renders one effect-list entry at `line` (in 0xe-pixel rows from
@@ -531,12 +531,11 @@ void DrawCampEffectEntry(W8CampEffectEntry* entry, int* line_out)
     int index;
     int line = *line_out;
     if (entry->kind == 0) {
-        SetFontObjectPalette16BPP(g_wiz_text_font_secondary,
-                                  g_font_state_palettes[W8_FONT_PALETTE_GREEN].get());
+        g_wiz_text_font_secondary.setPalette(g_font_state_palettes[W8_FONT_PALETTE_GREEN]);
         DrawFontText(0x15e, line * 0xe + 0xbf,
                      fmt::format("{} {}", g_localized_strings[0x8d1],
                                  g_localized_strings[g_condition_notices[entry->index].name]));
-        SetFontObjectPalette16BPP(g_wiz_text_font_secondary, GetFontObject(g_wiz_text_font_secondary)->ownedPalette.get());
+        g_wiz_text_font_secondary.resetPalette();
         int next = line + 1;
         if (entry->turns == W8_CONDITION_INDEFINITE) {
             DrawFontText(0x15e, (line + 1) * 0xe + 0xbf, g_localized_strings[0x8d2]);
@@ -558,13 +557,12 @@ void DrawCampEffectEntry(W8CampEffectEntry* entry, int* line_out)
             }
         }
     } else if (entry->kind == 1) {
-        SetFontObjectPalette16BPP(g_wiz_text_font_secondary,
-                                  g_font_state_palettes[W8_FONT_PALETTE_GREEN].get());
+        g_wiz_text_font_secondary.setPalette(g_font_state_palettes[W8_FONT_PALETTE_GREEN]);
         DrawFontText(0x15e, line * 0xe + 0xbf,
                      fmt::format("{} {} ({:d})", g_localized_strings[0x8d4],
                                  g_localized_strings[g_enchantment_notices[entry->index]],
                                  entry->enchantment));
-        SetFontObjectPalette16BPP(g_wiz_text_font_secondary, GetFontObject(g_wiz_text_font_secondary)->ownedPalette.get());
+        g_wiz_text_font_secondary.resetPalette();
         DrawFontText(0x15e, (line + 1) * 0xe + 0xbf,
                      fmt::format("{:d} {}", entry->turns, g_localized_strings[0x8d3]));
         *line_out = line + 3;
@@ -572,11 +570,10 @@ void DrawCampEffectEntry(W8CampEffectEntry* entry, int* line_out)
     } else if (entry->kind == 2) {
         W8ItemDatabaseRecord* record =
             &g_item_records[g_review_character->EquippedItem[entry->index].iItemNo];
-        SetFontObjectPalette16BPP(g_wiz_text_font_secondary,
-                                  g_font_state_palettes[W8_FONT_PALETTE_GREEN].get());
+        g_wiz_text_font_secondary.setPalette(g_font_state_palettes[W8_FONT_PALETTE_GREEN]);
         DrawFontText(0x15e, line * 0xe + 0xbf,
                      GetItemDisplayName(&g_review_character->EquippedItem[entry->index]));
-        SetFontObjectPalette16BPP(g_wiz_text_font_secondary, GetFontObject(g_wiz_text_font_secondary)->ownedPalette.get());
+        g_wiz_text_font_secondary.resetPalette();
         int next = line + 1;
         if (record->attack_damage_bonus != 0) {
             DrawFontText(
@@ -776,9 +773,9 @@ void DrawCampSkillsPage(void)
                 break;
             }
         }
-        DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x141, 0, has_fifth, 0x136, 0,
+        DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x141, 0, has_fifth, 0x136, 0,
                                       VO_BLT_SRCTRANSPARENCY, 0);
-        DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x141, 0, 2, 0, 0xa5, VO_BLT_SRCTRANSPARENCY,
+        DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x141, 0, 2, 0, 0xa5, VO_BLT_SRCTRANSPARENCY,
                                       0);
         for (int category = 0; category < 5; ++category) {
             if (category != 4 || has_fifth) {
@@ -789,7 +786,7 @@ void DrawCampSkillsPage(void)
                 } else {
                     y += 0xa5;
                 }
-                DrawCatalogImage(FRAME_BUFFER, 0x144, 0,
+                DrawCatalogImage(GetFrameBufferSurface(), 0x144, 0,
                                  static_cast<short>(g_camp_skill_category_images[category]),
                                  x - 0x16, y - 3, VO_BLT_SRCTRANSPARENCY, 0);
             }
@@ -807,7 +804,7 @@ void DrawCampSkillsPage(void)
                     top += 0xa5;
                 }
                 top += category_count[category] * 0xe;
-                DrawCatalogImage(FRAME_BUFFER, 0x141, 0, 3, left, top, VO_BLT_SRCTRANSPARENCY, 0);
+                DrawCatalogImage(GetFrameBufferSurface(), 0x141, 0, 3, left, top, VO_BLT_SRCTRANSPARENCY, 0);
                 unsigned int level = value->level;
                 unsigned int base = value->points;
                 int gained;
@@ -829,7 +826,7 @@ void DrawCampSkillsPage(void)
                     clip.x = left + 0x6f;
                     clip.w = level;
                     SetClippingRect(&clip);
-                    DrawCatalogImage(FRAME_BUFFER, 0x143, 0, 0, left + 0x6f, top + 2,
+                    DrawCatalogImage(GetFrameBufferSurface(), 0x143, 0, 0, left + 0x6f, top + 2,
                                      VO_BLT_SRCTRANSPARENCY, 0);
                 }
                 if (gained == 0) {
@@ -837,54 +834,51 @@ void DrawCampSkillsPage(void)
                         clip.x = level + 0x6f + left;
                         clip.w = lost;
                         SetClippingRect(&clip);
-                        DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x143, 0, 2, left + 0x6f,
+                        DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x143, 0, 2, left + 0x6f,
                                                       top + 2, VO_BLT_SRCTRANSPARENCY, 0);
                     }
                 } else {
                     clip.x = level + 0x6f + left;
                     clip.w = gained;
                     SetClippingRect(&clip);
-                    DrawCatalogImage(FRAME_BUFFER, 0x143, 0, 1, left + 0x6f, top + 2,
+                    DrawCatalogImage(GetFrameBufferSurface(), 0x143, 0, 1, left + 0x6f, top + 2,
                                      VO_BLT_SRCTRANSPARENCY, 0);
                 }
                 SetClippingRect(&saved_clip);
-                unsigned short* palette;
+                Palette16 palette;
                 if (!g_status.game_started || value->level == 0) {
-                    palette = g_font_state_palettes[W8_FONT_PALETTE_GRAY].get();
+                    palette = g_font_state_palettes[W8_FONT_PALETTE_GRAY];
                     if (value->active) {
-                        palette = GetFontObject(g_wiz_text_font_secondary)->ownedPalette.get();
+                        palette = g_wiz_text_font_secondary.glyphs.palette;
                     }
                 } else {
                     bool best = IsBestCampSkillLevel(static_cast<W8Skill>(skill), value->level);
                     if (!best) {
-                        palette = g_font_state_palettes[W8_FONT_PALETTE_GRAY].get();
+                        palette = g_font_state_palettes[W8_FONT_PALETTE_GRAY];
                         if (value->active) {
-                            palette = GetFontObject(g_wiz_text_font_secondary)->ownedPalette.get();
+                            palette = g_wiz_text_font_secondary.glyphs.palette;
                         }
                     } else {
-                        palette = g_font_state_palettes[W8_FONT_PALETTE_BEIGE].get();
+                        palette = g_font_state_palettes[W8_FONT_PALETTE_BEIGE];
                         if (value->active) {
-                            palette = g_font_state_palettes[W8_FONT_PALETTE_YELLOW].get();
+                            palette = g_font_state_palettes[W8_FONT_PALETTE_YELLOW];
                         }
                     }
                 }
-                SetFontObjectPalette16BPP(g_wiz_text_font_secondary, palette);
-                short width = StringPixLength(g_localized_strings[g_character_skill_name_ids[skill]],
-                                              g_wiz_text_font_secondary);
+                g_wiz_text_font_secondary.setPalette(palette);
+                short width = g_wiz_text_font_secondary.textWidth(g_localized_strings[g_character_skill_name_ids[skill]]);
                 DrawFontText((0x6b - width) / 2 + 2 + left, top + 1,
                              g_localized_strings[g_character_skill_name_ids[skill]]);
-                palette = GetFontObject(g_wiz_text_font_secondary)->ownedPalette.get();
+                palette = g_wiz_text_font_secondary.glyphs.palette;
                 if (value->improved) {
-                    palette = g_font_state_palettes[W8_FONT_PALETTE_GREEN].get();
+                    palette = g_font_state_palettes[W8_FONT_PALETTE_GREEN];
                 }
-                SetFontObjectPalette16BPP(g_wiz_text_font_secondary, palette);
-                short value_width = StringCodepointPrefixPixelWidth(
-                    g_wiz_text_font_secondary, 3, fmt::format("{:d}", value->level));
+                g_wiz_text_font_secondary.setPalette(palette);
+                short value_width = g_wiz_text_font_secondary.codepointPrefixWidth(fmt::format("{:d}", value->level), 3);
                 DrawFontTextDirty((0x24 - value_width) / 2 + 0xee + left, top + 1,
                                   fmt::format("{:d}", value->level));
-                SetFontObjectPalette16BPP(g_wiz_text_font_secondary,
-                                          GetFontObject(g_wiz_text_font_secondary)->ownedPalette.get());
-                SetObjectShade(GetFontObject(g_wiz_text_font_secondary), 4);
+                g_wiz_text_font_secondary.resetPalette();
+                SetObjectShade(g_wiz_text_font_secondary.glyphs, 4);
                 ++category_count[category];
             }
         }
@@ -1116,7 +1110,7 @@ void W8CharacterPersonalityPage::Redraw()
         int elapsed = static_cast<int>(anim_timer.GetProgress());
         if (elapsed > 0) {
             m_animation_frame = (m_animation_frame + elapsed) % 3;
-            DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x105, 0, m_animation_frame + 2,
+            DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x105, 0, m_animation_frame + 2,
                                           m_bounds.left + 0x156, m_bounds.top + 0x137,
                                           VO_BLT_SRCTRANSPARENCY, 0);
         }
@@ -1137,41 +1131,41 @@ void W8CharacterPersonalityPage::Redraw()
         bounds.top = m_bounds.top + 0x19;
         bounds.bottom = m_bounds.top + 0x31;
         text.RenderString(&bounds, g_localized_strings[0xee], g_wiz_text_font_secondary, true,
-                          FRAME_BUFFER);
+                          GetFrameBufferSurface());
 
         bounds.top = m_bounds.top + 0x67;
         bounds.bottom = m_bounds.top + 0x7f;
         text.RenderString(&bounds, g_localized_strings[0xf0], g_wiz_text_font_secondary, true,
-                          FRAME_BUFFER);
+                          GetFrameBufferSurface());
 
         bounds.left = m_bounds.left + 0x160;
         bounds.right = m_bounds.left + 0x198;
         text.RenderString(&bounds, g_localized_strings[0xf1], g_wiz_text_font_secondary, true,
-                          FRAME_BUFFER);
+                          GetFrameBufferSurface());
 
         bounds.top = m_bounds.top + 0x19;
         bounds.bottom = m_bounds.top + 0x31;
         text.RenderString(&bounds, g_localized_strings[0xef], g_wiz_text_font_secondary, true,
-                          FRAME_BUFFER);
+                          GetFrameBufferSurface());
 
         bounds.left = m_bounds.left + 0x24;
         bounds.right = m_bounds.left + 0x92;
         bounds.top = m_bounds.top + 0xaa;
         bounds.bottom = m_bounds.top + 0xbc;
         text.RenderString(&bounds, g_localized_strings[0x84], g_wiz_text_font_secondary, true,
-                          FRAME_BUFFER);
+                          GetFrameBufferSurface());
 
         bounds.top = m_bounds.top + 0xc6;
         bounds.bottom = m_bounds.top + 0xd8;
         text.RenderString(&bounds, g_localized_strings[0x85], g_wiz_text_font_secondary, true,
-                          FRAME_BUFFER);
+                          GetFrameBufferSurface());
 
         bounds.left = m_bounds.left + 0x18;
         bounds.top = m_bounds.top + 0xee;
         bounds.right = m_bounds.left + 0x1a8;
         bounds.bottom = m_bounds.top + 0xfa;
         text.RenderString(&bounds, g_localized_strings[0x86], g_wiz_text_font_secondary, true,
-                          FRAME_BUFFER);
+                          GetFrameBufferSurface());
 
         int index = 0;
         for (const unsigned short* message_id = g_personality_message_ids;
@@ -1183,7 +1177,7 @@ void W8CharacterPersonalityPage::Redraw()
             text.SetLayoutBounds(&bounds, true, true);
             text.SetLayoutMode(g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft);
             text.RenderString(g_localized_strings[*message_id], g_wiz_text_font_secondary, true,
-                              FRAME_BUFFER);
+                              GetFrameBufferSurface());
         }
 
         bounds.top = m_bounds.top + 0x13f;
@@ -1192,12 +1186,12 @@ void W8CharacterPersonalityPage::Redraw()
         bounds.right = m_bounds.left + 0x69;
         text.SetLayoutMode(g_W8TextBufferAlignCenter | g_W8TextBufferAlignTop);
         text.RenderString(&bounds, g_localized_strings[0x8d], g_wiz_text_font_secondary, true,
-                          FRAME_BUFFER);
+                          GetFrameBufferSurface());
 
         bounds.top = m_bounds.top + 0x15c;
         bounds.bottom = m_bounds.top + 0x16a;
         text.RenderString(&bounds, g_localized_strings[0x8e], g_wiz_text_font_secondary, true,
-                          FRAME_BUFFER);
+                          GetFrameBufferSurface());
 
         m_portrait_dirty = true;
         m_description_dirty = true;
@@ -1205,7 +1199,7 @@ void W8CharacterPersonalityPage::Redraw()
     }
 
     if (m_portrait_dirty) {
-        DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x11, m_character->portrait_index, 0,
+        DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x11, m_character->portrait_index, 0,
                                       m_bounds.left + 0x86, m_bounds.top + 5, 0, 0);
         m_portrait_dirty = false;
     }
@@ -1223,7 +1217,7 @@ void W8CharacterPersonalityPage::Redraw()
         text.SetLayoutBounds(&bounds, true, true);
         text.SetText(element.GetQuoteText(), g_wiz_text_font_secondary);
         text.FillBounds(0x8000);
-        text.RenderToTarget(0, true, FRAME_BUFFER);
+        text.RenderToTarget(0, true, GetFrameBufferSurface());
         m_description_dirty = false;
     }
 
@@ -1231,7 +1225,7 @@ void W8CharacterPersonalityPage::Redraw()
         W8TextBuffer text;
         W8ControlsRect bounds = {9, 0xec, 0xbd, 0x184};
         text.RenderString(&bounds, g_localized_strings[0xe9], g_wiz_text_font_secondary, true,
-                          FRAME_BUFFER);
+                          GetFrameBufferSurface());
         m_prepared = false;
     }
 }
@@ -1274,7 +1268,7 @@ void W8CharacterPersonalityPage::OnPrimary(W8TextControl* control)
         m_animation_active = true;
         m_animation_frame = 2;
         anim_timer.Restart();
-        ShadowVideoSurfaceRect(FRAME_BUFFER, 0, 0, 0x280, 0x1e0);
+        ShadowVideoSurfaceRect(GetFrameBufferSurface(), 0, 0, 0x280, 0x1e0);
         ResetTransientRenderScenes();
         m_screen->ShowCharacterSummary();
     }
@@ -1393,7 +1387,7 @@ void W8CharacterSkillsPage::Redraw()
     if (redraw) {
         for (int category = 0; category < 5; ++category) {
             if (category != 4 || m_show_fifth_category) {
-                DrawCatalogImage(FRAME_BUFFER, 0x144, 0,
+                DrawCatalogImage(GetFrameBufferSurface(), 0x144, 0,
                                  static_cast<short>(g_character_page2_category_frames[category]),
                                  m_bounds.left + g_character_page2_category_geometry[category].x -
                                      0x16,
@@ -1402,7 +1396,7 @@ void W8CharacterSkillsPage::Redraw()
             }
         }
         if (!m_show_fifth_category) {
-            DrawCatalogImage(FRAME_BUFFER, 0x108, 0, 1, m_bounds.left, m_bounds.top + 0x118,
+            DrawCatalogImage(GetFrameBufferSurface(), 0x108, 0, 1, m_bounds.left, m_bounds.top + 0x118,
                              VO_BLT_SRCTRANSPARENCY, 0);
         }
     }
@@ -1411,35 +1405,35 @@ void W8CharacterSkillsPage::Redraw()
         W8TextBuffer text;
         W8ControlsRect bounds = {4, 0xec, 0xc2, 0x162};
         text.RenderString(&bounds, g_localized_strings[0xe8], g_wiz_text_font_secondary, true,
-                          FRAME_BUFFER);
+                          GetFrameBufferSurface());
         bounds.top = 0x162;
         bounds.right = 0x8f;
         bounds.bottom = 0x179;
         text.RenderString(&bounds, g_localized_strings[0xe3], g_wiz_text_font_secondary, true,
-                          FRAME_BUFFER);
+                          GetFrameBufferSurface());
         bounds.top = 0x184;
         bounds.bottom = 0x19b;
         text.RenderString(&bounds, g_localized_strings[0xe4], g_wiz_text_font_secondary, true,
-                          FRAME_BUFFER);
+                          GetFrameBufferSurface());
         bounds.left = 0x8f;
         bounds.top = 0x162;
         bounds.right = 0xbf;
         bounds.bottom = 0x179;
-        DrawCatalogImage(FRAME_BUFFER, 0x107, 0, 5, 0x8f, 0x162, VO_BLT_SRCTRANSPARENCY, 0);
+        DrawCatalogImage(GetFrameBufferSurface(), 0x107, 0, 5, 0x8f, 0x162, VO_BLT_SRCTRANSPARENCY, 0);
         text.SetLayoutBounds(&bounds, true, true);
         text.RenderString(fmt::format("{:d}", m_creation_state->skill_step_limit),
-                          g_options_detail_font, true, FRAME_BUFFER);
+                          g_options_detail_font, true, GetFrameBufferSurface());
         m_prepared = false;
     }
 
     if (m_dirty) {
         W8TextBuffer text;
         W8ControlsRect bounds = {0x8f, 0x184, 0xbf, 0x19b};
-        DrawCatalogImage(FRAME_BUFFER, 0x107, 0, 5, 0x8f, 0x184, VO_BLT_SRCTRANSPARENCY, 0);
+        DrawCatalogImage(GetFrameBufferSurface(), 0x107, 0, 5, 0x8f, 0x184, VO_BLT_SRCTRANSPARENCY, 0);
         text.SetLayoutBounds(&bounds, true, true);
         text.RenderString(fmt::format("{:d}/{:d}", m_creation_state->skill_points_remaining,
                                       m_creation_state->skill_points_total),
-                          g_options_detail_font, true, FRAME_BUFFER);
+                          g_options_detail_font, true, GetFrameBufferSurface());
         m_dirty = false;
     }
 }

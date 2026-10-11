@@ -88,7 +88,6 @@
 #include "layouts/world.h"
 #include "local_code/Factions.h"
 #include "mgs_commands.h"
-#include "mousesystem_macros.h"
 #include "sight_state.h"
 #include "surrender/srFilter.h"
 #include "surrender/srFlags.h"
@@ -310,7 +309,7 @@ stModelInstance2D* CreateAutomapTextMarker(void);
 static void SetAutomapCursorImage(int tool)
 {
     SetMouseCursorFromVideoObject(
-        GetCatalogVideoObjectHandle(tool + 0x14b, 0), GetCatalogVideoObjectYOffset(tool + 0x14b),
+        GetCatalogVideoObject(tool + 0x14b, 0), GetCatalogVideoObjectYOffset(tool + 0x14b),
         g_automap_cursor_offsets[tool].x, g_automap_cursor_offsets[tool].y);
     gXStatus.iCurrentCursor = W8_CURSOR_INVALID_TARGET;
     RefreshMouseCursorTexture();
@@ -745,7 +744,7 @@ unsigned char AutomapScreenEnter(void)
     SetPrimarySurfaceTextureHint2Enabled(false);
     ClearSurfaceRect(0, 0, 640, 480);
     DisableCursorScene();
-    DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x14a, 0, 0, 0, 0, VO_BLT_SRCTRANSPARENCY, 0);
+    DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x14a, 0, 0, 0, 0, VO_BLT_SRCTRANSPARENCY, 0);
     UpdateAutomapPageButtons();
     for (int button = 0; button < 16; ++button) {
         if (g_automap_buttons[button]) {
@@ -881,7 +880,7 @@ void AutomapScreenFrame(void)
             }
             SDL_Point point;
             SGPMouseGetPos(&point);
-            MSYS_SGP_Mouse_Handler_Hook(MOUSE_POS, point.x, point.y, gfLeftButtonState,
+            DispatchMouseEvent(MOUSE_POS, point.x, point.y, gfLeftButtonState,
                                         gfRightButtonState);
             unsigned short reason;
             switch (input.usEvent) {
@@ -901,7 +900,7 @@ void AutomapScreenFrame(void)
             default:
                 continue;
             }
-            MSYS_SGP_Mouse_Handler_Hook(reason, point.x, point.y, gfLeftButtonState,
+            DispatchMouseEvent(reason, point.x, point.y, gfLeftButtonState,
                                         gfRightButtonState);
             continue;
         }
@@ -1441,12 +1440,13 @@ void RenderAutomapFrame(void)
                 SetResidentTexturePolicy(0);
             }
             unsigned int pitch;
-            void* pixels = LockPrimarySurface(&pitch);
+            const auto& destination_storage = *GetFrameBufferSurface().cpu().surface;
+            pitch = destination_storage.pitch;
+            void* pixels = destination_storage.pixels;
             auto surface = std::make_unique<srColorSurface>(srPixelConvert::SURFACE_ARGB1555,
                                                              pixels, 0x280, 0x1e0, pitch);
             surface->setFilter(&srBoxFilter);
             surface->blit(0xc, 0x20, *g_automap_surface, 0xc, 0x20, 0x1d3, 0x1d3);
-            UnlockPrimarySurface();
             RenderAutomapMarkers();
             InvalidateRegion(0xc, 0x20, 0x1d3, 0x1d3, 0);
             SetRendererAutoFlipEnabled(false);
@@ -1479,13 +1479,10 @@ void UpdateAutomapPageButtons(void)
 int RestoreAutomapRect(W8ScreenRect* rect)
 {
     if (g_automap_surface != 0) {
-        unsigned int pitch;
-        LockPrimarySurface(&pitch);
-        srColorSurface screen(srPixelConvert::SURFACE_ARGB1555, *g_primary_surface->surface);
+        srColorSurface screen(srPixelConvert::SURFACE_ARGB1555, *GetFrameBufferSurface().cpu().surface);
         screen.setFilter(&srBoxFilter);
         screen.blit(rect->left, rect->top, *g_automap_surface, rect->left, rect->top, rect->right,
                     rect->bottom);
-        UnlockPrimarySurface();
     }
     return 1;
 }
@@ -1527,10 +1524,10 @@ unsigned char ShowAutomapNoteTooltip(W8AutomapNote* note)
             g_automap_text_marker->GetScaledHeight();
             W8ScreenRect rect;
             rect.top =
-                (0x20 - screen_y) - ((unsigned)GetFontHeight(g_wiz_text_font_secondary) >> 1);
+                (0x20 - screen_y) - ((unsigned)g_wiz_text_font_secondary.height() >> 1);
             rect.left = marker_width / 2 + (0xe - screen_x);
-            rect.bottom = rect.top + GetFontHeight(g_wiz_text_font_secondary) + 3;
-            rect.right = StringPixLength(note->text, g_wiz_text_font_secondary) + 3 + rect.left;
+            rect.bottom = rect.top + g_wiz_text_font_secondary.height() + 3;
+            rect.right = g_wiz_text_font_secondary.textWidth(note->text) + 3 + rect.left;
             if (rect.left < 0xc) {
                 rect.left = 0xc;
             }
@@ -1877,9 +1874,9 @@ void RenderAutomapMarkers(void)
         SDL_Rect clip = {0xc, 0x20, 0x1d3 - 0xc, 0x1d3 - 0x20};
         SetClippingRect(&clip);
         SetFont(g_wiz_text_font_secondary);
-        SetObjectShade(GetFontObject(g_wiz_text_font_secondary), 4);
+        SetObjectShade(g_wiz_text_font_secondary.glyphs, 4);
         SetFontDestClip(0xc, 0x20, 0x1d3, 0x1d3);
-        int font_height = GetFontHeight(g_wiz_text_font_secondary);
+        int font_height = g_wiz_text_font_secondary.height();
         unsigned int count = static_cast<int>(g_automap_notes->size());
         for (unsigned int index = 0; index < count; ++index) {
             W8AutomapNote* note = (*g_automap_notes)[index];
@@ -1917,13 +1914,14 @@ void RenderAutomapMarkers(void)
                     if (note == g_automap_editing_note) {
                         marker->setScale(srVector3T<double>(0.22f, 0.22f, 0.22f));
                         unsigned int pitch;
-                        char* buffer = static_cast<char*>(LockPrimarySurface(&pitch));
+                        const auto& destination_storage = *GetFrameBufferSurface().cpu().surface;
+                        pitch = destination_storage.pitch;
+                        char* buffer = static_cast<char*>(destination_storage.pixels);
                         SetClippingRegionAndImageWidth(pitch, 0xc, 0x20, 0x1c7, 0x1b3);
                         int color = Get16BPPColor(0x569bef);
-                        int length = StringPixLength(note->text, g_wiz_text_font_secondary);
+                        int length = g_wiz_text_font_secondary.textWidth(note->text);
                         RectangleDraw(TRUE, x - 1, y, x + length + 2, y + (font_height & 0xffff),
                                       color, buffer);
-                        UnlockPrimarySurface();
                     }
                 }
             }
@@ -1948,19 +1946,18 @@ stModelInstance2D* CreateAutomapItemMarker(int item_id)
 {
     int object = g_item_video_objects.GetOrCreateVideoObject(item_id);
     unsigned short region = GetCatalogVideoObjectYOffset(object);
-    unsigned int handle = GetCatalogVideoObjectHandle(object, 0);
-    HVOBJECT video_object;
-    if (!GetVideoObject(&video_object, handle) || region >= video_object->sprites.size()) {
+    const auto& video_object = GetCatalogVideoObject(object, 0);
+    if (region >= video_object.sprites.size()) {
         return 0;
     }
-    const SpriteFrame& properties = video_object->sprites[region];
+    const SpriteFrame& properties = video_object.sprites[region];
     auto surface = std::make_shared<srColorSurface>(srPixelConvert::SURFACE_ARGB1555, 0x40, 0x40);
     surface->fill(0);
     surface->setFilter(&srBSplineFilter);
     int y = (0x40 - properties.usHeight) / 2;
     int x = (0x40 - properties.usWidth) / 2;
-    BlitVideoObjectToColorSurface(GetCatalogVideoObjectHandle(object, 0),
-                                  GetCatalogVideoObjectYOffset(object), surface.get(), x, y);
+    BlitVideoObjectToColorSurface(GetCatalogVideoObject(object, 0),
+                                  GetCatalogVideoObjectYOffset(object), *surface, x, y);
     float factor = (g_float_one / (g_automap_zoom * 0.00004f)) * 0.44f;
     stModelInstance2D* marker = static_cast<stModelInstance2D*>(
         MakePolygonBrush(g_scene_fullscreen, surface, surface->getWidth() * g_viewport_x_scale,

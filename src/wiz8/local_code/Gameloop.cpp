@@ -1,5 +1,4 @@
 #include <cstddef>
-#include <memory>
 #include <vector>
 
 #include "wiz8/music_playlist.h"
@@ -109,8 +108,7 @@ void ShutdownGame(size_t initialized_screens, bool save_configuration)
     DestroyNpcDatabase();
     DestroyFactDatabase();
     DestroyLevelDatabase();
-    for (auto& palette : g_font_state_palettes)
-        palette.reset();
+    g_font_state_palettes = {};
     ReleaseDefaultHelpText();
     for (index = 0; index < static_cast<int>(initialized_screens); ++index) {
         g_screen_handlers[index].finalize();
@@ -207,14 +205,14 @@ void GameloopExit(unsigned char release_screens)
     if (gXStatus.character_event_queue)
         gXStatus.character_event_queue->DestroyAllEvents();
 
-    SetFontObjectPalette16BPP(g_smfnt_font, GetFontObject(g_smfnt_font)->ownedPalette.get());
-    SetFontObjectPalette16BPP(g_calligraphy_font, GetFontObject(g_calligraphy_font)->ownedPalette.get());
-    SetFontObjectPalette16BPP(g_calligraphy_shadow_font, GetFontObject(g_calligraphy_shadow_font)->ownedPalette.get());
-    SetFontObjectPalette16BPP(g_wiz_text_font, GetFontObject(g_wiz_text_font)->ownedPalette.get());
-    SetFontObjectPalette16BPP(g_button_font, GetFontObject(g_button_font)->ownedPalette.get());
-    SetFontObjectPalette16BPP(g_wiz_text_font_secondary, GetFontObject(g_wiz_text_font_secondary)->ownedPalette.get());
-    SetFontObjectPalette16BPP(g_wiz_text_bold_font, GetFontObject(g_wiz_text_bold_font)->ownedPalette.get());
-    SetFontObjectPalette16BPP(g_options_detail_font, GetFontObject(g_options_detail_font)->ownedPalette.get());
+    g_smfnt_font.resetPalette();
+    g_calligraphy_font.resetPalette();
+    g_calligraphy_shadow_font.resetPalette();
+    g_wiz_text_font.resetPalette();
+    g_button_font.resetPalette();
+    g_wiz_text_font_secondary.resetPalette();
+    g_wiz_text_bold_font.resetPalette();
+    g_options_detail_font.resetPalette();
     if (!release_screens) {
         return;
     }

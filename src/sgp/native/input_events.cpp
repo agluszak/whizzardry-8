@@ -19,7 +19,6 @@
 #include "native/input_events.h"
 #include "input.h"
 #include "Types.h"
-#include "vsurface.h"
 
 namespace
 {
@@ -405,7 +404,6 @@ void HandleGameEvent(const SDL_Event& event)
             if (!VideoInspectorIsEnabled())
             {
                 RestoreVideoManager();
-                RestoreVideoSurfaces();
             }
             MoveTimer(TIMER_RESUME);
             restore_pending = false;

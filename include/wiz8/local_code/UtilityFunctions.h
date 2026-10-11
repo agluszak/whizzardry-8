@@ -1,3 +1,4 @@
+#include "Font.h"
 #pragma once
 
 #include <string_view>
@@ -9,7 +10,7 @@
 struct W8MonsterManagerEntry;
 struct W8Character;
 
-bool CreateMessageBox(std::string_view text, int font, unsigned int shade, bool has_accept, bool has_cancel,
+bool CreateMessageBox(std::string_view text, Font& font, unsigned int shade, bool has_accept, bool has_cancel,
                       void (*callback)(void));
 void CloseMessageBox(void);
 void MessageBoxAcceptMoveCallback(GUI_BUTTON* button, INT32 reason);

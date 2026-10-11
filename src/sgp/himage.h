@@ -6,6 +6,8 @@
 
 #include <SDL3/SDL_rect.h>
 #include <memory>
+#include <array>
+#include <optional>
 #include <string>
 #include <vector>
 #include <span>
@@ -77,6 +79,9 @@ typedef struct tagETRLEObject {
     UINT16 usWidth;
 } ETRLEObject;
 
+using Palette8 = std::array<SGPPaletteEntry, 256>;
+using Palette16 = std::array<UINT16, 256>;
+
 // Image header structure
 typedef struct {
     UINT16 usWidth;
@@ -84,8 +89,8 @@ typedef struct {
     UINT8 ubBitDepth;
     UINT16 fFlags;
     std::string ImageFile;
-    std::unique_ptr<SGPPaletteEntry[]> pPalette;
-    std::unique_ptr<UINT16[]> pui16BPPPalette;
+    std::optional<Palette8> pPalette;
+    std::optional<Palette16> pui16BPPPalette;
     std::vector<UINT8> pAppData;
     std::vector<UINT8> pImageData;
     std::vector<ETRLEObject> pETRLEObject;
@@ -120,9 +125,9 @@ bool CopyImageToBuffer(const image_type& image, UINT32 buffer_type, std::span<UI
 // UTILITY FUNCTIONS
 
 // Used to create a 16BPP Palette from an 8 bit palette, found in himage.c
-std::unique_ptr<UINT16[]> Create16BPPPaletteShaded(const SGPPaletteEntry* pPalette, UINT32 rscale, UINT32 gscale,
+Palette16 Create16BPPPaletteShaded(const Palette8& pPalette, UINT32 rscale, UINT32 gscale,
                                  UINT32 bscale, BOOLEAN mono);
-std::unique_ptr<UINT16[]> Create16BPPPalette(const SGPPaletteEntry* pPalette);
+Palette16 Create16BPPPalette(const Palette8& pPalette);
 UINT16 Get16BPPColor(UINT32 RGBValue);
 extern UINT16 gusAlphaMask;
 extern UINT16 gusRedMask;

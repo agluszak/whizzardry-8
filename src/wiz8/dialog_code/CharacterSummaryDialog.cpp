@@ -15,7 +15,7 @@
 #include "wiz8/xstatus.h"
 #include "input.h"
 #include "english.h"
-#include "mousesystem_macros.h"
+#include "mousesystem.h"
 #include "character_event_queue.h"
 #include "compat/native.h"
 #include "dialog_code/DialogBase.h"
@@ -122,7 +122,7 @@ void W8CharacterSummaryDialog::Draw()
         W8DialogBase::Draw();
     }
     if (m_quote_text != 0) {
-        m_quote_text->RenderToTarget(0, false, FRAME_BUFFER);
+        m_quote_text->RenderToTarget(0, false, GetFrameBufferSurface());
     }
     RenderPartyPortrait(m_character->portrait_index, m_x + 11, m_y + 11, 2, 1, 0);
     if (!m_portrait_clock_started) {
@@ -178,7 +178,7 @@ bool W8CharacterSummaryDialog::ProcessInput()
     InputAtom input;
 
     SGPMouseGetPos(&mouse);
-    MSYS_SGP_Mouse_Handler_Hook(MOUSE_POS, mouse.x, mouse.y, gfLeftButtonState, gfRightButtonState);
+    DispatchMouseEvent(MOUSE_POS, mouse.x, mouse.y, gfLeftButtonState, gfRightButtonState);
     if (!m_voice_started && m_portrait_clock + 750 < w8_get_ticks()) {
         m_voice_started = true;
         W8Character* character = m_use_original_character ? m_character : g_status.buffers.Char;

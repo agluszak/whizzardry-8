@@ -16,7 +16,7 @@
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/text_input.h"
 #include "input.h"
-#include "mousesystem_macros.h"
+#include "mousesystem.h"
 #include "Font.h"
 #include "Types.h"
 #include "dialog_code/DialogBase.h"
@@ -60,7 +60,7 @@ W8NpcDialog::W8NpcDialog(W8NpcQuoteEntry* message, int aux_data)
         }
         for (index = 0; index < message->sub_entry_count; ++index) {
             line = message->sub_entries[index].text;
-            short length = StringPixLength(line, g_wiz_text_mono_font);
+            short length = g_wiz_text_mono_font.textWidth(line);
             if (max_width < length) {
                 max_width = length;
             }
@@ -69,7 +69,7 @@ W8NpcDialog::W8NpcDialog(W8NpcQuoteEntry* message, int aux_data)
         width = (m_text_width + 0xa) * message->sub_entry_count + 0x1e;
     } else if (opcode == W8_NPC_ENTRY_PRICE_CHECK || opcode == W8_NPC_ENTRY_ALWAYS_PRICE_CHECK) {
         m_compact_options = false;
-        short length = StringPixLength(g_localized_strings[0x7df], g_wiz_text_mono_font);
+        short length = g_wiz_text_mono_font.textWidth(g_localized_strings[0x7df]);
         height = 0x50;
         m_text_width = length + 6;
         width = m_text_width * 2 + 0x32;
@@ -191,7 +191,7 @@ void W8NpcDialog::Draw()
     }
     for (index = 0; index < 2; ++index) {
         if (m_text_buffers[index] != 0) {
-            m_text_buffers[index]->RenderToTarget(0, false, FRAME_BUFFER);
+            m_text_buffers[index]->RenderToTarget(0, false, GetFrameBufferSurface());
         }
     }
 }
@@ -203,7 +203,7 @@ bool W8NpcDialog::ProcessInput()
     InputAtom input;
 
     SGPMouseGetPos(&mouse);
-    MSYS_SGP_Mouse_Handler_Hook(MOUSE_POS, mouse.x, mouse.y, gfLeftButtonState, gfRightButtonState);
+    DispatchMouseEvent(MOUSE_POS, mouse.x, mouse.y, gfLeftButtonState, gfRightButtonState);
     while (DequeueEvent(&input) == TRUE) {
         if ((input.usEvent != KEY_DOWN && input.usEvent != KEY_REPEAT) ||
             static_cast<char>(HandleTextInput(&input)) == 0) {

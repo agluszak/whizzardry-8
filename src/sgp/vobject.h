@@ -9,6 +9,7 @@
 #include <array>
 #include <vector>
 #include <memory>
+#include <optional>
 
 #include "Types.h"
 #include "himage.h"
@@ -31,7 +32,7 @@ typedef UINT32 COLORVAL;
 #define VO_BLT_CLIP 0x000000001
 #define VO_BLT_MIRROR_Y 0x000001000 // must be the same as VS_BLT_MIRROR_Y for Wiz!!!
 
-// Defines for HVOBJECT limits
+// Defines for SGPVObject& limits
 #define HVOBJECT_SHADE_TABLES 48
 
 #define HVOBJECT_GLOW_GREEN 0
@@ -46,24 +47,6 @@ typedef struct {
 
 } blt_fx;
 
-// Z-buffer info structure for properly assigning Z values
-typedef struct {
-    INT8 bInitialZChange;     // difference in Z value between the leftmost and base strips
-    UINT8 ubFirstZStripWidth; // # of pixels in the leftmost strip
-    UINT8 ubNumberOfZChanges; // number of strips (after the first)
-    std::unique_ptr<INT8[]> pbZChange; // change to the Z value in each strip (after the first)
-} ZStripInfo;
-
-typedef struct {
-    std::unique_ptr<UINT16[]> p16BPPData;
-    UINT16 usRegionIndex;
-    UINT8 ubShadeLevel;
-    UINT16 usWidth;
-    UINT16 usHeight;
-    INT16 sOffsetX;
-    INT16 sOffsetY;
-} SixteenBPPObjectInfo;
-
 // This definition mimics what is found in WINDOWS.H ( for Direct Draw compatiblity )
 // From RGB to COLORVAL
 #define FROMRGB(r, g, b)                                                                           \
@@ -76,9 +59,6 @@ typedef struct {
 #define VOBJECT_CREATE_FROMFILE 0x00000040   // Creates a video object from a file ( using HIMAGE )
 #define VOBJECT_CREATE_FROMHIMAGE 0x00000080 // Creates a video object from a pre-loaded hImage
 
-// VOBJECT FLAGS
-#define VOBJECT_FLAG_SHADETABLE_SHARED 0x00000100
-
 // This structure is a video object.
 // One decoded sprite frame: pixels are palette indices 0-255 or
 // kTransparent for ETRLE transparent runs, so opaque palette index 0
@@ -88,6 +68,7 @@ struct SpriteFrame {
     static constexpr UINT16 kTransparent = 256;
 
     std::vector<UINT16> pixels;
+    std::optional<UINT8> paletteIndexAt(int x, int y) const;
     INT16 sOffsetX = 0;
     INT16 sOffsetY = 0;
     UINT16 usHeight = 0;
@@ -95,141 +76,40 @@ struct SpriteFrame {
 };
 
 // The video object contains different data based on it's type, compressed or not
-typedef struct TAG_HVOBJECT {
-    UINT32 fFlags;                  // Special flags
-    std::unique_ptr<SGPPaletteEntry[]> pPaletteEntry; // 8BPP Palette
-    COLORVAL TransparentColor;      // Defaults to 0,0,0
-    std::shared_ptr<UINT16[]> ownedPalette;
-    UINT16* p16BPPPalette; // Borrowed palette view; font drawing may temporarily override it.
+struct SGPVObject {
+    Palette8 pPaletteEntry{}; // 8BPP Palette
+    Palette16 palette{};
 
     std::vector<SpriteFrame> sprites;   // Decoded frames, one per ETRLE subimage
-    std::vector<SixteenBPPObjectInfo> p16BPPObject;
-    std::array<std::shared_ptr<UINT16[]>, HVOBJECT_SHADE_TABLES> pShades; // Shading tables
-    UINT16* pShadeCurrent;
-    UINT16* pGlow;             // glow highlight table
-    std::vector<std::unique_ptr<ZStripInfo>> ppZStripInfo; // Z-value strip info arrays
+    std::vector<std::optional<Palette16>> pShades;
+    void setPalette(const Palette8& colors);
+    unsigned currentShade = 4;
+    const Palette16& currentPalette() const {
+        return currentShade == 4 ? palette : pShades[currentShade].value();
+    }
 
     UINT8 ubBitDepth;         // BPP
 
-} SGPVObject, *HVOBJECT;
+};
 
 // This structure describes the creation parameters for a Video Object
 struct VOBJECT_DESC {
-    UINT32 fCreateFlags; // Specifies creation flags like from file or not
+    UINT32 fCreateFlags{};
     std::string ImageFile;
     HIMAGE hImage = nullptr;
-    UINT8 ubBitDepth; // BPP, ignored if given from file
+    UINT8 ubBitDepth{};
 };
 
-// **********************************************************************************
-//
-// Video Object Manager Functions
-//
-// **********************************************************************************
+// Palette generation and shade selection preserve the game's RGB555 tables.
+UINT16 CreateObjectPaletteTables(SGPVObject& object, UINT32 type);
+UINT16 SetObjectShade(SGPVObject& object, UINT32 shade);
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+struct SGPVSurface;
+BOOLEAN BltVideoObject(SGPVSurface& destination, SGPVObject& source, UINT16 frame,
+                       INT32 x, INT32 y, UINT32 flags, blt_fx* effects);
+BOOLEAN BltVideoObjectToBuffer(UINT16* pixels, UINT32 pitch, SGPVObject& source,
+                               UINT16 frame, INT32 x, INT32 y, INT32 flags, blt_fx* effects);
 
-// Creates a list to contain video objects
-BOOLEAN InitializeVideoObjectManager();
-
-// Deletes any video object placed into list
-BOOLEAN ShutdownVideoObjectManager();
-
-// Creates and adds a video object to list
-#define AddVideoObject(a, b) AddStandardVideoObject(a, b)
-
-BOOLEAN AddStandardVideoObject(VOBJECT_DESC* VObjectDesc, UINT32* uiIndex);
-
-// Removes a video object
-BOOLEAN DeleteVideoObjectFromIndex(UINT32 uiVObject);
-
-UINT16 CreateObjectPaletteTables(HVOBJECT pObj, UINT32 uiType);
-
-// Returns a HVOBJECT for the specified index
-BOOLEAN GetVideoObject(HVOBJECT* hVObject, UINT32 uiIndex);
-
-// Blits a video object to another video object
-BOOLEAN BltVideoObject(UINT32 uiDestVSurface, HVOBJECT hVSrcObject, UINT16 usRegionIndex,
-                       INT32 iDestX, INT32 iDestY, UINT32 fBltFlags, blt_fx* pBltFx);
-
-BOOLEAN BltVideoObjectFromIndex(UINT32 uiDestVSurface, UINT32 uiSrcVObject, UINT16 usRegionIndex,
-                                INT32 iDestX, INT32 iDestY, UINT32 fBltFlags, blt_fx* pBltFx);
-
-// Sets transparency
-
-// **********************************************************************************
-//
-// Video Object manipulation functions
-//
-// **********************************************************************************
-
-// Created from a VOBJECT_DESC structure. Can be from a file via HIMAGE or empty.
-HVOBJECT CreateVideoObject(VOBJECT_DESC* VObjectDesc);
-
-// Sets Transparency color into HVOBJECT
-BOOLEAN SetVideoObjectTransparencyColor(HVOBJECT hVObject, COLORVAL TransColor);
-
-// Sets HVOBJECT palette, creates if nessessary. Also sets 16BPP palette
-BOOLEAN SetVideoObjectPalette(HVOBJECT hVObject, SGPPaletteEntry* pSrcPalette);
-
-// Deletes all data
-BOOLEAN DeleteVideoObject(HVOBJECT hVObject);
-
-// Deletes the 16-bit palette tables
-BOOLEAN DestroyObjectPaletteTables(HVOBJECT hVObject);
-
-// Sets the current object shade table
-UINT16 SetObjectShade(HVOBJECT pObj, UINT32 uiShade);
-
-// Sets the current object shade table using a vobject handle
-// Fills a rectangular area of an object with a color
-UINT16 FillObjectRect(UINT32 iObj, INT32 x1, INT32 y1, INT32 x2, INT32 y2, COLORVAL color32);
-
-// Retrieves an HVOBJECT pixel value
-BOOLEAN GetETRLEPixelValue(UINT8* pDest, HVOBJECT hVObject, UINT16 usETLREIndex, UINT16 usX,
-                           UINT16 usY);
-
-// ****************************************************************************
-//
-// Globals
-//
-// ****************************************************************************
-
-// ****************************************************************************
-//
-// Macros
-//
-// ****************************************************************************
-
-extern BOOLEAN gfVideoObjectsInit;
-#define VideoObjectsInitialized() (gfVideoObjectsInit)
-
-// ****************************************************************************
-//
-// Blt Functions
-//
-// ****************************************************************************
-
-// These blitting functions more-or less encapsolate all of the functionality of DirectDraw
-// Blitting, giving an API layer for portability.
-
-BOOLEAN BltVideoObjectToBuffer(UINT16* pBuffer, UINT32 uiDestPitchBYTES, HVOBJECT hSrcVObject,
-                               UINT16 usIndex, INT32 iDestX, INT32 iDestY, INT32 fBltFlags,
-                               blt_fx* pBltFx);
-
-HVOBJECT GetPrimaryVideoObject();
-HVOBJECT GetBackBufferVideoObject();
-
-BOOLEAN GetVideoObjectETRLESubregionProperties(UINT32 uiVideoObject, UINT16 usIndex,
-                                               UINT16* pusWidth, UINT16* pusHeight);
-
-BOOLEAN SetVideoObjectPalette16BPP(INT32 uiVideoObject, UINT16* pPal16);
-BOOLEAN CopyVideoObjectPalette16BPP(INT32 uiVideoObject, UINT16* ppPal16);
-
-#ifdef __cplusplus
-}
-#endif
+std::unique_ptr<SGPVObject> CreateVideoObject(const VOBJECT_DESC& description);
 
 #endif

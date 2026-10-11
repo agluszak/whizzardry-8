@@ -563,11 +563,11 @@ void W8AssayDialog::Draw()
         W8DialogBase::Draw();
     }
     if (m_item_portrait_dirty) {
-        DrawCatalogImageAndInvalidate(FRAME_BUFFER,
+        DrawCatalogImageAndInvalidate(GetFrameBufferSurface(),
                                       g_item_video_objects.GetOrCreateVideoObject(m_item->iItemNo),
                                       0, 0, m_x + 0x45, m_y + 0xe, VO_BLT_SRCTRANSPARENCY, 0);
         if (!m_item->identified) {
-            DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x11b, 0, 0, m_x + 0x45, m_y + 0xe,
+            DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x11b, 0, 0, m_x + 0x45, m_y + 0xe,
                                           VO_BLT_SRCTRANSPARENCY, 0);
         }
         m_item_portrait_dirty = false;
@@ -579,7 +579,7 @@ void W8AssayDialog::Draw()
     }
     for (index = 0; index < W8_ASSAY_TEXT_BUFFER_COUNT; ++index) {
         if (m_text_buffers[index] != 0) {
-            m_text_buffers[index]->RenderToTarget(0, false, FRAME_BUFFER);
+            m_text_buffers[index]->RenderToTarget(0, false, GetFrameBufferSurface());
         }
     }
     m_text_area.Draw(false);

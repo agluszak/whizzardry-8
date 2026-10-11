@@ -485,12 +485,12 @@ void W8MonsterInfoDialog::Draw()
         m_button.m_dirty = true;
         W8DialogBase::Draw();
         SetFont(g_wiz_text_font_secondary);
-        SetFontObjectPalette16BPP(g_wiz_text_font_secondary, GetFontObject(g_wiz_text_font_secondary)->ownedPalette.get());
+        g_wiz_text_font_secondary.resetPalette();
         unsigned int monster_list_index =
             MonsterGetIndexByLocationID(0x1f1, MONSTER_INFO_DIALOG_CPP, m_location_id, true);
         W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(monster_list_index);
         auto name = GetMonsterName(monster_info, 0, 0);
-        INT16 width = StringPixLength(name, g_wiz_text_font_secondary);
+        INT16 width = g_wiz_text_font_secondary.textWidth(name);
         DrawFontText(m_x + 0xe + (0x112 - width) / 2, m_y + 0x11, name);
     }
     m_text_area.Draw(false);

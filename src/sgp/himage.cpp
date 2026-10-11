@@ -190,11 +190,11 @@ image_type load_ordinary_image(wiz8::File& file, ImageFormat format, UINT16 cont
         decoded.fFlags |= IMAGE_BITMAPDATA;
     }
     if (indexed && (contents & IMAGE_PALETTE)) {
-        decoded.pPalette = std::make_unique<SGPPaletteEntry[]>(256);
+        decoded.pPalette.emplace();
         const unsigned first_color = format == ImageFormat::tga &&
             (bytes[2] == 1 || bytes[2] == 9) ? little_word(bytes.data() + 3) : 0;
         std::transform(palette->colors, palette->colors + std::min(unsigned(palette->ncolors), 256 - first_color),
-            decoded.pPalette.get() + first_color, [](const SDL_Color& color) {
+            decoded.pPalette->begin() + first_color, [](const SDL_Color& color) {
                 return SGPPaletteEntry{color.r, color.g, color.b, 0};
             });
         decoded.fFlags |= IMAGE_PALETTE;
@@ -235,8 +235,8 @@ image_type load_sti(wiz8::File& file, UINT16 contents)
             throw std::runtime_error("STI requires a 256-color palette");
         std::array<STCIPaletteElement, 256> palette{};
         file.read_exact(palette.data(), sizeof(palette));
-        decoded.pPalette = std::make_unique<SGPPaletteEntry[]>(256);
-        std::transform(palette.begin(), palette.end(), decoded.pPalette.get(),
+        decoded.pPalette.emplace();
+        std::transform(palette.begin(), palette.end(), decoded.pPalette->begin(),
             [](const STCIPaletteElement& color) {
                 return SGPPaletteEntry{color.ubRed, color.ubGreen, color.ubBlue, 0};
             });
@@ -321,7 +321,7 @@ try
     const auto file = wiz8::open_file(image->ImageFile);
     auto decoded = format == ImageFormat::sti ? load_sti(*file, contents) : load_ordinary_image(*file, format, contents);
     if (decoded.pPalette)
-        decoded.pui16BPPPalette = Create16BPPPalette(decoded.pPalette.get());
+        decoded.pui16BPPPalette = Create16BPPPalette(*decoded.pPalette);
 
     // Commit once after decoding. Unrequested buffers retain their owners.
     if (contents & IMAGE_PALETTE) {
@@ -404,7 +404,7 @@ bool CopyImageToBuffer(const image_type& image, UINT32 buffer_type, std::span<UI
             std::copy(input.begin(), input.end(), output.begin());
         } else {
             for (std::size_t column = 0; column < width; ++column) {
-                const UINT16 pixel = image.pui16BPPPalette[input[column]];
+                const UINT16 pixel = (*image.pui16BPPPalette)[input[column]];
                 std::memcpy(output.data() + column * sizeof(pixel), &pixel, sizeof(pixel));
             }
         }
@@ -413,11 +413,10 @@ bool CopyImageToBuffer(const image_type& image, UINT32 buffer_type, std::span<UI
 }
 
 // FUNCTION: WIZ8 0x00410190
-std::unique_ptr<UINT16[]> Create16BPPPalette(const SGPPaletteEntry* palette)
+Palette16 Create16BPPPalette(const Palette8& palette)
 {
-    Assert(palette != nullptr);
-    auto packed = std::make_unique<UINT16[]>(256);
-    std::transform(palette, palette + 256, packed.get(), [](const SGPPaletteEntry& color) {
+    Palette16 packed{};
+    std::transform(palette.begin(), palette.end(), packed.begin(), [](const SGPPaletteEntry& color) {
         return Get16BPPColor(UINT32(color.peRed) | (UINT32(color.peGreen) << 8) | (UINT32(color.peBlue) << 16));
     });
     return packed;
@@ -448,12 +447,11 @@ std::unique_ptr<UINT16[]> Create16BPPPalette(const SGPPaletteEntry* palette)
 
 **********************************************************************************************/
 // FUNCTION: WIZ8 0x004102c0
-std::unique_ptr<UINT16[]> Create16BPPPaletteShaded(const SGPPaletteEntry* palette, UINT32 rscale,
+Palette16 Create16BPPPaletteShaded(const Palette8& palette, UINT32 rscale,
                                                 UINT32 gscale, UINT32 bscale, BOOLEAN mono)
 {
-    Assert(palette != nullptr);
-    auto packed = std::make_unique<UINT16[]>(256);
-    std::transform(palette, palette + 256, packed.get(), [=](const SGPPaletteEntry& color) {
+    Palette16 packed{};
+    std::transform(palette.begin(), palette.end(), packed.begin(), [=](const SGPPaletteEntry& color) {
         const UINT32 luminance = color.peRed * 299 / 1000 + color.peGreen * 587 / 1000 + color.peBlue * 114 / 1000;
         const auto red = std::min(rscale * (mono ? luminance : color.peRed) / 256, 255u);
         const auto green = std::min(gscale * (mono ? luminance : color.peGreen) / 256, 255u);

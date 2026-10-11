@@ -7,8 +7,9 @@
 #include <stddef.h>
 
 struct TEXTINPUTNODE;
+struct Font;
 
-void InitTextInputMode(void);
+void InitTextInputMode(Font& font);
 void InitTextInputModeWithScheme(int mode);
 void KillTextInputMode(void);
 char AddTextInputField(int left, int top, int width, int height, int priority, std::string_view text,

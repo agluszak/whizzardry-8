@@ -80,7 +80,7 @@ catch_discover_tests(native_unicode_test
     TEST_PREFIX "native_unicode/")
 
 add_executable(native_pointer_test "${PROJECT_SOURCE_DIR}/tests/native/pointer_test.cpp")
-target_link_libraries(native_pointer_test PRIVATE wiz8_native_settings)
+target_link_libraries(native_pointer_test PRIVATE WIZ8_GAME_CORE)
 add_test(NAME native_pointer COMMAND native_pointer_test)
 
 add_executable(native_world_lookup_test "${PROJECT_SOURCE_DIR}/tests/native/world_lookup_test.cpp")

@@ -1,3 +1,4 @@
+#include <memory>
 #include "wiz8/engine_code/stModelInstance.h" // IWYU pragma: keep - complete sprite type for conversion to srNode.
 #include <SDL3/SDL_rect.h>
 #include <cstdint>
@@ -68,7 +69,7 @@ void ResetFormationCellControls(int cell);
 /* Draw each occupied slot's facing arrow and marching-order chip into the
    board image; the slot the board highlights gets the +1 frame of each. */
 // FUNCTION: WIZ8 0x005b1f40
-void DrawFormationSlotMarkers(UINT32 target)
+void DrawFormationSlotMarkers(SGPVSurface& target)
 {
     int slot;
 
@@ -101,9 +102,8 @@ void DrawFormationSlotMarkers(UINT32 target)
 // FUNCTION: WIZ8 0x005b1c80
 void RefreshFormationBoard(void)
 {
-    unsigned int board_image;
-    unsigned int compass_image;
-    unsigned int video_object;
+    std::unique_ptr<SGPVSurface> board_image;
+    std::unique_ptr<SGPVSurface> compass_image;
 
     if (g_status.selected_character != -1) {
         FaceCameraToSelection(g_status.selected_character);
@@ -112,25 +112,16 @@ void RefreshFormationBoard(void)
         return;
     }
     ReleaseFormationBoard();
-    if (g_level_block->formation_board_alternate == 0) {
-        video_object = GetCatalogVideoObjectHandle(0x99, 0);
-    } else {
-        video_object = GetCatalogVideoObjectHandle(0x9a, 0);
-    }
-    if (video_object == 0) {
-        return;
-    }
-    MakeVSurfaceFromVObject(video_object, 0, &board_image);
-    video_object = GetCatalogVideoObjectHandle(0x9b, 0);
-    if (video_object == 0) {
-        return;
-    }
-    MakeVSurfaceFromVObject(video_object, 0, &compass_image);
-    DrawFormationSlotMarkers(board_image);
-    g_level_block->formation_compass_sprite = CreateSpriteFromSurface(compass_image, 0, 1, 0, 1);
+    auto& board_object = GetCatalogVideoObject(g_level_block->formation_board_alternate ? 0x9a : 0x99, 0);
+    board_image = MakeVSurfaceFromVObject(board_object, 0);
+    if (!board_image) return;
+    compass_image = MakeVSurfaceFromVObject(GetCatalogVideoObject(0x9b, 0), 0);
+    if (!compass_image) return;
+    DrawFormationSlotMarkers(*board_image);
+    g_level_block->formation_compass_sprite = CreateSpriteFromSurface(*compass_image, 0, 1, 0, 1);
     Position2DNodeUnsnapped(g_level_block->formation_compass_sprite, 0x207, 0x167);
     SetModelInstance2DDisplayState(g_level_block->formation_compass_sprite, 4);
-    g_level_block->formation_board_sprite = CreateSpriteFromSurface(board_image, 0, 1, 0, 1);
+    g_level_block->formation_board_sprite = CreateSpriteFromSurface(*board_image, 0, 1, 0, 1);
     Position2DNodeUnsnapped(g_level_block->formation_board_sprite, 0x207, 0x167);
     SetModelInstance2DDisplayState(g_level_block->formation_board_sprite, 4);
     UpdateFormationCompass();
@@ -159,7 +150,7 @@ void CreateFormationBoardOverlay(void)
         bounds.top = 0x166;
         bounds.right = 0x269;
         bounds.bottom = 0x1c2;
-        g_level_block->formation_overlay_sprite = CreateSpriteFromSurface(-14, &bounds, 0, 0, 1);
+        g_level_block->formation_overlay_sprite = CreateSpriteFromSurface(GetFrameBufferSurface(), &bounds, 0, 0, 1);
         Position2DNodeUnsnapped(g_level_block->formation_overlay_sprite, 0x200, 0x166);
         SetModelInstance2DDisplayState(g_level_block->formation_overlay_sprite, 4);
     }
@@ -586,7 +577,6 @@ static void BeginFormationDrag(const InputAtom*)
 {
     SDL_Point point;
     unsigned short region;
-    unsigned int video_object;
     int sprite;
 
     SelectFormationCell();
@@ -598,12 +588,11 @@ static void BeginFormationDrag(const InputAtom*)
     ClearMouseSurface();
     sprite = g_formation_cell_controls[g_formation_drag_cell]->m_alternatePressedSprite;
     region = GetCatalogVideoObjectYOffset(0x9f) + static_cast<short>(sprite);
-    video_object = GetCatalogVideoObjectHandle(0x9f, 0);
+    auto& video_object = GetCatalogVideoObject(0x9f, 0);
     SetMouseCursorFromVideoObject(video_object, region, 0x10, 0x10);
-    DrawCatalogImage(MOUSE_BUFFER, 0xa0, 0,
-                     static_cast<short>(
-                         g_formation_cell_overlays[g_formation_drag_cell]->m_alternateNormalSprite),
-                     0, 0, VO_BLT_SRCTRANSPARENCY, 0);
+    const auto overlay = static_cast<UINT16>(GetCatalogVideoObjectYOffset(0xa0) +
+        static_cast<short>(g_formation_cell_overlays[g_formation_drag_cell]->m_alternateNormalSprite));
+    BlitToMouseCursor(GetCatalogVideoObject(0xa0, 0), overlay, 0, 0);
     WarpSystemCursor(point.x - 0x10, point.y - 0x10);
     RefreshMouseCursorTexture();
     gXStatus.iCurrentCursor = W8_CURSOR_INVALID_TARGET;

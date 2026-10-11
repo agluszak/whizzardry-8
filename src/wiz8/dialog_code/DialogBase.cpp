@@ -10,9 +10,8 @@
 #include "wiz8/video_object_catalog.h"
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "input.h"
-#include "mousesystem_macros.h"
-#include "Button System.h"
 #include "mousesystem.h"
+#include "Button System.h"
 #include "vsurface.h"
 
 // GLOBAL: WIZ8 0x0069CA28
@@ -36,7 +35,7 @@ void W8DialogBase::ScrollTextArea(W8DialogTextArea& area, int first_visible_line
     int right = left + width;
     int bottom = top + height;
     InvalidateRegion(left, top, right, bottom, 0);
-    BlitCatalogSurfaceRectTo16BPP(FRAME_BUFFER, left, top, right, bottom, 0x1b6, 0, 0);
+    BlitCatalogSurfaceRectTo16BPP(GetFrameBufferSurface(), left, top, right, bottom, 0x1b6, 0, 0);
     area.m_dirty = true;
 }
 
@@ -157,7 +156,7 @@ int W8DialogBase::CreateControls()
     if (m_width < 0 || m_height < 0) {
         return m_error = 3;
     }
-    if (m_font == -1) {
+    if (!m_font) {
         return m_error = 2;
     }
     if (!m_background_path) {
@@ -170,7 +169,7 @@ int W8DialogBase::CreateControls()
         }
     }
     m_resource =
-        CreateTextButton({}, m_font, m_foreground, m_background, m_border, static_cast<short>(m_x), static_cast<short>(m_y), static_cast<short>(m_width), static_cast<short>(m_height), BUTTON_NO_TOGGLE | BUTTON_IGNORE_CLICKS, MSYS_PRIORITY_HIGHEST - 2, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
+        CreateTextButton({}, *m_font, m_foreground, m_background, m_border, static_cast<short>(m_x), static_cast<short>(m_y), static_cast<short>(m_width), static_cast<short>(m_height), BUTTON_NO_TOGGLE | BUTTON_IGNORE_CLICKS, MSYS_PRIORITY_HIGHEST - 2, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
     if (m_resource) {
         SpecifyButtonTextOffsets(m_resource, 3, 3, 1);
         SpecifyButtonMultiColorFont(m_resource, g_dialog_font_enabled);
@@ -204,7 +203,7 @@ bool W8DialogBase::ProcessInput()
     InputAtom input;
 
     SGPMouseGetPos(&mouse);
-    MSYS_SGP_Mouse_Handler_Hook(MOUSE_POS, mouse.x, mouse.y, gfLeftButtonState, gfRightButtonState);
+    DispatchMouseEvent(MOUSE_POS, mouse.x, mouse.y, gfLeftButtonState, gfRightButtonState);
     while (DequeueEvent(&input)) {
         if (DispatchDialogMouseInput(input.usEvent, mouse.x, mouse.y)) {
             if (input.usEvent == RIGHT_BUTTON_DOWN) {

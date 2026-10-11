@@ -7,7 +7,6 @@
 #include <cstdio>
 #include <cstring>
 #include <vector>
-#include <memory>
 #include <span>
 
 #include "himage.h"
@@ -29,9 +28,9 @@ TEST_CASE("compression_test")
     REQUIRE(compress2(packed.data(), &packed_size, original.data(), original.size(), 9) == Z_OK);
     packed.resize(packed_size);
     image.pImageData = packed;
-    image.pui16BPPPalette = std::make_unique<UINT16[]>(256);
+    image.pui16BPPPalette.emplace();
     for (unsigned i = 0; i < 256; ++i)
-        image.pui16BPPPalette[i] = 0x8000 | i;
+        (*image.pui16BPPPalette)[i] = 0x8000 | i;
     const SDL_Rect rect{3, 2, 10, 5};
     std::array<UINT8, 200> destination8;
     std::array<UINT8, 401> destination16;
@@ -47,7 +46,7 @@ TEST_CASE("compression_test")
                 UINT16 pixel;
                 std::memcpy(&pixel, output16.data() + (y * 20 + x) * 2, sizeof(pixel));
                 const auto expected = x >= 1 && x < 11 && y >= 1 && y < 6 ?
-                    image.pui16BPPPalette[original[(y + 1) * image.usWidth + x + 2]] : 0xa5a5;
+                    (*image.pui16BPPPalette)[original[(y + 1) * image.usWidth + x + 2]] : 0xa5a5;
                 REQUIRE(pixel == expected);
             }
         }

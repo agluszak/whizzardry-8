@@ -44,12 +44,12 @@ SDL_Rect ClippingRect = {0, 0, 640, 480};
 // inside its own recorded byte range. Transparent runs become
 // SpriteFrame::kTransparent so a literal index 0 stays distinguishable.
 // Every scanline must account for the full frame width before its
-// terminator. Decoding is transactional: hVObject->sprites is replaced
+// terminator. Decoding is transactional: hVObject.sprites is replaced
 // only after all frames validate.
-BOOLEAN DecodeVideoObjectSprites(HVOBJECT hVObject, std::span<const ETRLEObject> frames,
+BOOLEAN DecodeVideoObjectSprites(SGPVObject& hVObject, std::span<const ETRLEObject> frames,
                                  std::span<const UINT8> data)
 {
-    if (!hVObject || (!frames.empty() && data.empty())) {
+    if (!frames.empty() && data.empty()) {
         return (FALSE);
     }
     std::vector<SpriteFrame> decoded;
@@ -106,7 +106,7 @@ BOOLEAN DecodeVideoObjectSprites(HVOBJECT hVObject, std::span<const ETRLEObject>
             row += frame.usWidth;
         }
     }
-    hVObject->sprites = std::move(decoded);
+    hVObject.sprites = std::move(decoded);
     return (TRUE);
 }
 
@@ -255,7 +255,7 @@ BOOLEAN Blt8BPPTo8BPP(UINT8* pDest, UINT32 uiDestPitch, UINT8* pSrc, UINT32 uiSr
 **********************************************************************************************/
 // FUNCTION: WIZ8 0x00411730
 BOOLEAN Blt8BPPDataSubTo16BPPBuffer(UINT16* pBuffer, UINT32 uiDestPitchBYTES,
-                                    HVSURFACE hSrcVSurface, UINT8* pSrcBuffer, UINT32 uiSrcPitch,
+                                    SGPVSurface& hSrcVSurface, UINT8* pSrcBuffer, UINT32 uiSrcPitch,
                                     INT32 iX, INT32 iY, SDL_Rect* pRect)
 {
     UINT16* p16BPPPalette;
@@ -264,7 +264,6 @@ BOOLEAN Blt8BPPDataSubTo16BPPBuffer(UINT16* pBuffer, UINT32 uiDestPitchBYTES,
     INT32 iTempX, iTempY;
 
     // Assertions
-    Assert(hSrcVSurface != nullptr);
     Assert(pSrcBuffer != nullptr);
     Assert(pBuffer != nullptr);
 
@@ -283,7 +282,7 @@ BOOLEAN Blt8BPPDataSubTo16BPPBuffer(UINT16* pBuffer, UINT32 uiDestPitchBYTES,
 
     SrcPtr = (UINT8*)(pSrcBuffer + TopSkip + LeftSkip);
     DestPtr = ((UINT8*)pBuffer + (uiDestPitchBYTES * iTempY) + (iTempX * 2));
-    p16BPPPalette = hSrcVSurface->p16BPPPalette.get();
+    p16BPPPalette = hSrcVSurface.p16BPPPalette.data();
 
     // Every index writes its LUT word.
     for (UINT32 y = 0; y < BlitHeight; ++y) {
@@ -450,7 +449,7 @@ BOOLEAN Blt16BPPBufferHatchRect(UINT16* pBuffer, UINT32 uiDestPitchBYTES, SDL_Re
     return Blt16BPPBufferPixelateRectWithColor(pBuffer, uiDestPitchBYTES, area, Pattern, 0);
 }
 // FUNCTION: WIZ8 0x004120b0
-BOOLEAN BltIsClipped(HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex, SDL_Rect* clipregion)
+BOOLEAN BltIsClipped(SGPVObject& hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex, SDL_Rect* clipregion)
 {
     UINT32 usHeight, usWidth;
     const SpriteFrame* pTrav;
@@ -458,10 +457,9 @@ BOOLEAN BltIsClipped(HVOBJECT hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex, S
     INT32 ClipX1, ClipY1, ClipX2, ClipY2;
 
     // Assertions
-    Assert(hSrcVObject != nullptr);
 
     // Get Offsets from Index into structure
-    pTrav = &hSrcVObject->sprites[usIndex];
+    pTrav = &hSrcVObject.sprites[usIndex];
     usHeight = (UINT32)pTrav->usHeight;
     usWidth = (UINT32)pTrav->usWidth;
 

@@ -1,3 +1,5 @@
+
+
 #ifndef _MOUSE_SYSTEM_H_
 #define _MOUSE_SYSTEM_H_
 
@@ -39,7 +41,9 @@ typedef void (*MOUSE_CALLBACK)(struct _MOUSE_REGION*,
 typedef void (*MOUSE_HELPTEXT_DONE_CALLBACK)(); // the help is done callback
 
 typedef struct _MOUSE_REGION {
-    _MOUSE_REGION() = default;
+    _MOUSE_REGION();
+    void configure(UINT16 tlx, UINT16 tly, UINT16 brx, UINT16 bry, INT8 priority,
+                   MOUSE_CALLBACK move, MOUSE_CALLBACK button);
     ~_MOUSE_REGION();
     _MOUSE_REGION(const _MOUSE_REGION&) = delete;
     _MOUSE_REGION& operator=(const _MOUSE_REGION&) = delete;
@@ -65,7 +69,17 @@ typedef struct _MOUSE_REGION {
     std::string FastHelpText; // Text string for the FastHelp (describes buttons if left there a while)
     INT32 FastHelpRect{};
     MOUSE_HELPTEXT_DONE_CALLBACK HelpDoneCallback{};
-    std::weak_ptr<void> dispatch_owner; // non-owning callback context
+    struct _GUI_BUTTON* button = nullptr; // observer; callback dispatch never owns the control
+
+private:
+    _MOUSE_REGION* previous = nullptr;
+    _MOUSE_REGION* next = nullptr;
+    static _MOUSE_REGION* first;
+    void unlink();
+    void clearDispatch();
+    friend INT32 MSYS_Init();
+    friend void MSYS_Shutdown();
+    friend void MSYS_UpdateMouseRegion();
 
 } MOUSE_REGION;
 
@@ -97,7 +111,6 @@ typedef struct _MOUSE_REGION {
 #define MSYS_PRIORITY_NORMAL 31
 #define MSYS_PRIORITY_HIGH 63
 #define MSYS_PRIORITY_HIGHEST 127
-#define MSYS_PRIORITY_SYSTEM -1
 #define MSYS_PRIORITY_AUTO -1
 
 // Mouse system defines used during updates
@@ -157,29 +170,19 @@ typedef struct _MOUSE_REGION {
 //
 // *****************************************************************************
 
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 // *****************************************************************************
 
-// Note:
-//		The prototype for MSYS_SGP_Mouse_Handler_Hook() is defined in mousesystem_macros.h
 
 // Internal Functions
-void MSYS_TrashRegList(void);
-void MSYS_AddRegionToList(MOUSE_REGION* region);
-INT32 MSYS_RegionInList(MOUSE_REGION* region);
-void MSYS_DeleteRegionFromList(MOUSE_REGION* region);
 void MSYS_UpdateMouseRegion(void);
+
+// UI dispatch consumes events from the SDL-backed input stream.
+void DispatchMouseEvent(UINT16 type, UINT16 x, UINT16 y, BOOLEAN left, BOOLEAN right);
 
 // External
 INT32 MSYS_Init(void);
 void MSYS_Shutdown(void);
-void MSYS_DefineRegion(MOUSE_REGION* region, UINT16 tlx, UINT16 tly, UINT16 brx, UINT16 bry,
-                       INT8 priority, MOUSE_CALLBACK movecallback,
-                       MOUSE_CALLBACK buttoncallback);
-void MSYS_RemoveRegion(MOUSE_REGION* region);
 void MSYS_EnableRegion(MOUSE_REGION* region);
 void MSYS_DisableRegion(MOUSE_REGION* region);
 void MSYS_SetRegionUserData(MOUSE_REGION* region, INT32 index, INT32 userdata);
@@ -203,9 +206,6 @@ void ResetClickedMode(void);
 
 // *****************************************************************************
 
-#ifdef __cplusplus
-}
-#endif
 
 #endif
 

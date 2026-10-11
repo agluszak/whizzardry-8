@@ -1182,15 +1182,17 @@ static void DrawCampItemLabel(W8ItemInstance* item, int left, int top, char flag
     if (text != 0) {
         height = text->m_lineCount;
         width = text->m_maxLineWidth + 4;
-        height = GetFontHeight(g_font10arial) * height + 2;
+        height = g_font10arial.height() * height + 2;
         if (flag != 0) {
             bounds.right -= width;
             bounds.left -= width;
             text->SetLayoutBounds(&bounds, true, true);
         }
-        ColorFillVideoSurfaceArea(0xfffffff2, bounds.left, bounds.top, bounds.left + width,
+        ColorFillVideoSurfaceArea(GetFrameBufferSurface(), bounds.left, bounds.top, bounds.left + width,
                                   bounds.top + height, 0x8000);
-        buffer = static_cast<char*>(LockPrimarySurface(&pitch));
+        const auto& destination_storage = *GetFrameBufferSurface().cpu().surface;
+        pitch = destination_storage.pitch;
+        buffer = static_cast<char*>(destination_storage.pixels);
         if (buffer != 0) {
             // reinterpret-ok: SGP frame-buffer bytes to W8TextBuffer's byte view
             text->RenderText(reinterpret_cast<unsigned char*>(buffer), pitch, 2, 1, true);
@@ -1200,7 +1202,6 @@ static void DrawCampItemLabel(W8ItemInstance* item, int left, int top, char flag
             LineDraw(0, bounds.left + width, bounds.top + height, bounds.left, bounds.top + height,
                      -0x6613, buffer);
             LineDraw(0, bounds.left, bounds.top + height, bounds.left, bounds.top, -0x6613, buffer);
-            UnlockPrimarySurface();
             delete text;
         }
     }
