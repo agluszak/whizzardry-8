@@ -492,7 +492,7 @@ static bool AgePartyEffectSlot(W8EffectSlot* slot, unsigned int minutes)
     ShowNotice(W8_FONT_PALETTE_BEIGE, fmt::sprintf(g_localized_strings[0x1b4],
                                                    g_spell_records[slot->effect_id].display_name));
     if (GetViewDistance() != g_encounter_culling_rate) {
-        SoundPlay("Data\\Sound\\Misc\\Spell Expiry.wav", 0);
+        wiz8::sound::play("Data\\Sound\\Misc\\Spell Expiry.wav");
     }
     ResetPartyEffectBlock(slot);
     return true;
@@ -580,7 +580,7 @@ void AdvanceTimedEffects(unsigned int minutes)
         ApplyMonsterControlToNearbyMonsters(control);
     }
     if (party_changed || combat_changed) {
-        SoundPlay("Data\\Sound\\Misc\\GeneralMagic.wav", 0);
+        wiz8::sound::play("Data\\Sound\\Misc\\GeneralMagic.wav");
     }
     if (!gXStatus.fSurprisePossible) {
         DetectMonsterGroups();

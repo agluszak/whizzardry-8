@@ -104,7 +104,7 @@ static void exercise_movie(const char* retail_movie)
 
         wiz8::mount_slf("Data\\Data.slf");
         w8_native::audio_offline_for_test(true);
-        REQUIRE(InitializeSoundManager());
+        REQUIRE(wiz8::sound::initialize(true));
         double energy = 0;
         std::vector<uint16_t> first_frame;
         {
@@ -229,7 +229,7 @@ static void exercise_movie(const char* retail_movie)
             printf("retail movie: %u frames, %llu PCM frames, RGB555 FNV64 %016llx\n", shown,
                    (unsigned long long)retail.decoded_audio_frames(), (unsigned long long)hash);
         }
-        ShutdownSoundManager();
+        wiz8::sound::shutdown();
         wiz8::clear_asset_archives();
 
         printf("movie: loose/SLF RGB555 golden frames, timed EOF, PCM audio, "

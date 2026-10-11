@@ -359,7 +359,7 @@ void UpdatePleaseWaitLoadFrame(void)
 {
     w8_ulong tick;
 
-    SoundServiceStreams();
+    wiz8::sound::service();
     ServiceMusicPlaylist();
     tick = w8_get_ticks();
     if (tick - g_load_descriptor->entered_tick > 499) {

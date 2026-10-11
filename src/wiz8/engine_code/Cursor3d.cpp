@@ -623,9 +623,7 @@ void UpdateWorldCursor(void)
                     return;
                 }
             }
-            // c-style-cast-ok: SGP SoundPlay spells filenames UINT8* - the
-            // documented historical ABI boundary.
-            SoundPlay((char*) "Data\\Sound\\Misc\\ErrorBeep.wav", 0);
+            wiz8::sound::play("Data\\Sound\\Misc\\ErrorBeep.wav");
         }
         gp3DCursor->left_held = false;
     } else {

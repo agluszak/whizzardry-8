@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <fmt/format.h>
 #include <glm/ext/quaternion_trigonometric.hpp>
 #include <glm/gtc/matrix_access.hpp>
@@ -1061,10 +1062,8 @@ bool Trigger::PlayActionSound(const char* sound_name, int volume)
     }
     if ((flags & W8_TRIGGER_POSITIONED) == 0) {
         if (m_pProp == 0) {
-            SOUNDPARMS options;
-            memset(&options, -1, sizeof(options));
-            options.uiVolume = (g_settings.sound_effects_volume * volume) / 0x7f;
-            SoundPlay((char*)sound_name, &options);
+            wiz8::sound::play(sound_name,
+                              {.volume = std::uint32_t((g_settings.sound_effects_volume * volume) / 0x7f)});
             return false;
         }
         const auto center = m_pProp->GetCenterPosition();

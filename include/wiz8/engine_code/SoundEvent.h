@@ -43,7 +43,7 @@ public:
     int pitch = 0;
     int volume_min = 0;
     int volume_max = 0;
-    SoundPlayback sound_handle = nullptr;
+    wiz8::sound::Playback sound_handle = nullptr;
     unsigned char probability = 100;
     bool looping = false;
     int location_id = 0;

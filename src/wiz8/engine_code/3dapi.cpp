@@ -58,7 +58,6 @@
 #include "surrender/srScene.h"
 #include "wiz8/filesystem.h"
 #include "input.h"
-#include "soundman.h"
 #include "camera_motion.h"
 #include "compat/native.h"
 #include "environment_colour.h"
@@ -446,8 +445,6 @@ void UpdateWorldCameraAndPaths(W8World* world, unsigned int flags)
     glm::mat3 motion_saved;
     W8CameraPath* camera_path;
     W8PathAI* path;
-    char sound_environment;
-    char sound_environment_secondary;
     float yaw;
     float pitch;
     int camera_count;
@@ -501,10 +498,6 @@ void UpdateWorldCameraAndPaths(W8World* world, unsigned int flags)
                     }
                 }
                 DispatchWorldCursorNodeCommand(0, 0, 0);
-                GetLevelSoundEnvironment(&sound_environment, &sound_environment_secondary);
-                if (sound_environment >= 0) {
-                    Sound3DSetEnvironment(sound_environment);
-                }
             }
         } else {
             world->camera->setRotation(s_saved_camera_rotation);

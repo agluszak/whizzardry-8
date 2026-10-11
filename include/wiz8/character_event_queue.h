@@ -53,7 +53,7 @@ struct W8CharacterEvent {
     int queue_mode;
     /* 0x10: event flags passed as the third argument. */
     unsigned int flags;
-    /* 0x14: the 0-127 multiplier used for SOUNDPARMS::uiVolume. */
+    /* 0x14: the 0-127 multiplier applied to the voice volume. */
     int volume;
     /* 0x18/0x1c: thresholds sampled at queue time (hp_current or
        highest_condition, by event type); the consumer fires once the live
@@ -75,7 +75,7 @@ struct W8CharacterEvent {
 
     /* The event owns the playback whose callback borrows this entry. The
        portrait's shared handle can change independently of this lifetime. */
-    SoundPlayback voice_playback;
+    wiz8::sound::Playback voice_playback;
 
     void DelayDispatch(int milliseconds)
     {

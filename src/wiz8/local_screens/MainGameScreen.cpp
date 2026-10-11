@@ -400,12 +400,12 @@ int OpenLockInteraction(Trigger* trigger)
     }
     if (gXStatus.fLockInteractMode || (gXStatus.fLockInteract && trigger != 0)) {
         QueueInteractionNotice(g_lock_notice_event);
-        SoundPlay(s_lock_open_fail, 0);
+        wiz8::sound::play(s_lock_open_fail);
         return 1;
     }
     if (gXStatus.fCombatMode) {
         QueueInteractionNotice(g_lock_notice_event);
-        SoundPlay(s_lock_open_fail, 0);
+        wiz8::sound::play(s_lock_open_fail);
         return 1;
     }
     gXStatus.fLockInteractMode = true;
@@ -423,7 +423,7 @@ int OpenLockInteraction(Trigger* trigger)
     RequestRedraw(W8_MAIN_REDRAW_SUBMENU_BUTTONS);
     if (!gXStatus.fLockInteract) {
         QueueInteractionNotice(g_lock_notice_event);
-        SoundPlay(s_lock_open_fail, 0);
+        wiz8::sound::play(s_lock_open_fail);
         g_lock_interaction = new W8LockInteraction(trigger);
         gXStatus.fLockInteract = false;
         return 1;
@@ -1024,7 +1024,7 @@ void W8LockInteraction::Process()
         dropped = ReleaseOwnedTumblers(g_status.selected_character);
     lock_release_done:
         if (dropped) {
-            SoundPlay(s_lock_pin_falling, 0);
+            wiz8::sound::play(s_lock_pin_falling);
             return;
         }
         break;
@@ -1041,7 +1041,7 @@ void W8LockInteraction::Process()
                 return;
             }
         }
-        SoundPlay(s_lock_picking_success, 0);
+        wiz8::sound::play(s_lock_picking_success);
         ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x7ac]);
         BeginUnlock();
         break;
@@ -1106,7 +1106,7 @@ void W8LockInteraction::OnTumblerPicked(int index)
     m_tumbler_panel->m_tumblers[index]->m_hovered = false;
     m_tumbler_panel->m_tumblers[index]->m_rising = true;
     m_tumbler_panel->m_animating = true;
-    SoundPlay(s_lock_pin_rising, 0);
+    wiz8::sound::play(s_lock_pin_rising);
 }
 
 // FUNCTION: WIZ8 0x00586C00
@@ -1163,14 +1163,14 @@ void W8LockInteraction::ResolvePick()
         }
     }
     if (dropped) {
-        SoundPlay(s_lock_pin_falling, 0);
+        wiz8::sound::play(s_lock_pin_falling);
     }
     for (i = 0; i < m_tumbler_count; i++) {
         if (m_tumbler_owner[i] == -1) {
             return;
         }
     }
-    SoundPlay(s_lock_picking_success, 0);
+    wiz8::sound::play(s_lock_picking_success);
     ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x7ac]);
     BeginUnlock();
 }
@@ -1196,12 +1196,12 @@ void W8LockInteraction::AttemptForce()
         if (static_cast<int>(chance) > -1) {
             FatigueCharacter(g_status.selected_character, 0x50, false, 0);
             if (static_cast<int>(Random(100)) < static_cast<int>(chance)) {
-                SoundPlay(s_lock_forcing_success, 0);
+                wiz8::sound::play(s_lock_forcing_success);
                 ShowString(fmt::format("{} {}", character->name, g_localized_strings[0x7ae]));
                 BeginUnlock();
                 return;
             }
-            SoundPlay(s_lock_forcing_fail, 0);
+            wiz8::sound::play(s_lock_forcing_fail);
             ShowString(fmt::format("{} {}", character->name, g_localized_strings[0x7ad]));
             if (!IsPartySlotEligible(g_status.selected_character)) {
                 level = -1;
@@ -1316,9 +1316,9 @@ void W8LockInteraction::ApplyKnockKnock(int level, int /*flag*/, char backfire)
     }
     if (rolled) {
         if (backfire == 0) {
-            SoundPlay(s_lock_pin_rising, 0);
+            wiz8::sound::play(s_lock_pin_rising);
         } else {
-            SoundPlay(s_lock_pin_falling, 0);
+            wiz8::sound::play(s_lock_pin_falling);
             m_tumbler_panel->Invalidate(0);
         }
     }
@@ -1989,7 +1989,7 @@ void W8MainGameScreen::SelectTextEntry(int index)
     m_action_controls[4]->SetEnabled(false);
     m_action_panel->Invalidate(0);
     m_text_panel->BeginProgress(g_localized_strings[0x7b5], duration, hold);
-    m_sound_handle = SoundPlay((char*)g_trap_sounds[index] /* c-style-cast-ok: SGP STR boundary */, 0);
+    m_sound_handle = wiz8::sound::play(g_trap_sounds[index]);
 }
 
 int W8MainGameScreen::GetTrapInteractionChance() const
@@ -2062,8 +2062,7 @@ void W8MainGameScreen::OnPrimary(W8TextControl* control)
     m_action_controls[4]->SetEnabled(false);
     m_action_panel->Invalidate(0);
     m_text_panel->BeginProgress(g_localized_strings[0x7b6], duration, hold);
-    m_sound_handle = SoundPlayStreamedFile(
-        (char*)g_trap_inspection_sound /* c-style-cast-ok: SGP STR boundary */, 0);
+    m_sound_handle = wiz8::sound::stream(g_trap_inspection_sound);
 }
 
 // FUNCTION: WIZ8 0x00589a80
@@ -2138,11 +2137,11 @@ void W8MainGameScreen::Update()
         return;
     case 4:
         if (m_sound_handle != nullptr) {
-            SoundStop(m_sound_handle);
+            wiz8::sound::stop(m_sound_handle);
             m_sound_handle = nullptr;
         }
         // c-style-cast-ok: SGP spells filenames STR (UINT8*), the historical ABI boundary
-        SoundPlay((char*)g_trap_sprung_sound, 0);
+        wiz8::sound::play(g_trap_sprung_sound);
         EnablePanelRegionSets(false);
         ResolveSprungTrap(m_owner);
         m_disarm_state = 9;
@@ -2362,12 +2361,12 @@ int OpenTrapInteraction(Trigger* trigger)
             return 1;
         }
         QueueInteractionNotice(g_trap_notice_event);
-        SoundPlay(s_trap_detect, 0);
+        wiz8::sound::play(s_trap_detect);
         return 1;
     }
     if (gXStatus.fCombatMode) {
         QueueInteractionNotice(g_trap_notice_event);
-        SoundPlay(s_trap_detect, 0);
+        wiz8::sound::play(s_trap_detect);
         return 1;
     }
     gXStatus.fTrapInteractMode = true;
@@ -2410,7 +2409,7 @@ int OpenTrapInteraction(Trigger* trigger)
         QueueInteractionNotice(event_type);
     }
     trigger->lock_state.last_interaction_clock = g_status.world_clock;
-    SoundPlay(s_trap_detect, 0);
+    wiz8::sound::play(s_trap_detect);
     gXStatus.fTrapInteract = false;
     return 1;
 }
@@ -3461,7 +3460,7 @@ unsigned char MainGameScreenLeave(int leaving)
                 return 0;
             }
         }
-        SoundEmptyCache();
+        wiz8::sound::release_cache();
         delete g_level_block;
         g_level_block = 0;
         ReleaseLoadedVideoFrames();

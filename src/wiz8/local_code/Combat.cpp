@@ -283,7 +283,7 @@ bool StartCombat(int surprise)
         g_combat_state->combat_ui_timer =
             w8_get_ticks() + (g_settings.continuous_combat_start_delay_ms);
     }
-    SoundPlay("Data\\Sound\\Misc\\Ready Weapons.wav", 0);
+    wiz8::sound::play("Data\\Sound\\Misc\\Ready Weapons.wav");
     return true;
 }
 
@@ -1860,7 +1860,7 @@ void AdvanceCombatRound(void)
     if (gXStatus.hostile_monster_count != 0) {
         ShowNotice(W8_FONT_PALETTE_BEIGE,
                    fmt::sprintf(g_localized_strings[0x22b], g_combat_state->round_count));
-        SoundPlay("Data\\Sound\\Misc\\EndTurnChime.wav", 0);
+        wiz8::sound::play("Data\\Sound\\Misc\\EndTurnChime.wav");
     }
     g_combat_state->party_surprised = false;
     g_combat_state->monsters_surprised = false;
@@ -3171,7 +3171,7 @@ void UpdateCombat(void)
             return;
         }
         if (g_combat_state->hit_sound_active) {
-            if (SoundIsPlaying(g_combat_state->hit_sound) != 0) {
+            if (wiz8::sound::is_playing(g_combat_state->hit_sound)) {
                 return;
             }
             g_combat_state->hit_sound_active = false;

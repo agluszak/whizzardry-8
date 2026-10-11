@@ -26,13 +26,15 @@
 
 namespace {
 
-void ParseArguments(std::span<const std::string_view> arguments)
+// Returns whether sound remains enabled.
+bool ParseArguments(std::span<const std::string_view> arguments)
 {
+    bool sound = true;
     for (size_t index = 0; index < arguments.size(); ++index) {
         const auto separator = arguments[index].find('=');
         const std::string option(arguments[index].substr(0, separator));
         if (SDL_strcasecmp(option.c_str(), "/NOSOUND") == 0)
-            SoundEnableSound(false);
+            sound = false;
         else if (SDL_strcasecmp(option.c_str(), "/INSPECTOR") == 0)
             VideoInspectorEnable();
         else if (SDL_strcasecmp(option.c_str(), "/LOAD") == 0)
@@ -59,6 +61,7 @@ void ParseArguments(std::span<const std::string_view> arguments)
                 gzStringDataOverride = value;
         }
     }
+    return sound;
 }
 }
 
@@ -77,15 +80,14 @@ wiz8::Application::Application(std::span<const std::string_view> arguments)
         gfLoadAtStartup = gfUsingBoundsChecker = gfCapturingVideo = false;
         gzStringDataOverride.clear();
         gzErrorMsg.clear();
-        SoundEnableSound(true);
-        ParseArguments(arguments);
+        const bool sound = ParseArguments(arguments);
         wiz8::refresh_asset_archives();
         if (!InitializeInputManager())
             throw std::runtime_error("Input initialization failed");
         if (!InitializeVideoManager())
             throw std::runtime_error("Video initialization failed");
         ConfigureFontRendering(CreateEnglishTransTable());
-        if (!InitializeSoundManager())
+        if (!wiz8::sound::initialize(sound && !SetupDisablesAudio()))
             throw std::runtime_error("Sound initialization failed");
         InitializeRandom();
         game_started_ = true;
@@ -134,7 +136,7 @@ void wiz8::Application::shutdown() noexcept
         }
     }
     gfGameInitialized = false;
-    ShutdownSoundManager();
+    wiz8::sound::shutdown();
     if (game_started_) {
         try {
             ShutdownGame(initialized_screens_, complete);

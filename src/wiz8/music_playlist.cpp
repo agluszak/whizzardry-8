@@ -20,7 +20,7 @@
 /* Original translation-unit ownership is unknown; surrounding anchors do not resolve it. */
 
 // GLOBAL: WIZ8 0x0060aae0
-SoundPlayback g_music_sample_handle = nullptr;
+wiz8::sound::Playback g_music_sample_handle = nullptr;
 // GLOBAL: WIZ8 0x0065BA74
 static stScript* g_music_playlist;
 // GLOBAL: WIZ8 0x0065BA78
@@ -47,7 +47,7 @@ void SetMusicVolume(unsigned char volume)
 {
     g_settings.music_volume = volume;
     if (g_music_sample_handle != nullptr) {
-        SoundSetVolume(g_music_sample_handle, volume);
+        wiz8::sound::set_volume(g_music_sample_handle, volume);
     }
 }
 
@@ -136,7 +136,7 @@ void ServiceMusicPlaylist(void)
     if (!g_music_playlist_active) {
         return;
     }
-    if (g_music_sample_handle != nullptr && SoundIsPlaying(g_music_sample_handle) != 0) {
+    if (g_music_sample_handle != nullptr && wiz8::sound::is_playing(g_music_sample_handle)) {
         return;
     }
     if (w8_get_ticks() <= g_music_playlist_tick) {
@@ -211,23 +211,15 @@ unsigned char StartMusicResource(const char* resource, int fade, unsigned char r
             g_music_playlist->setName("");
         }
 
-        auto handle = SoundPlayStreamedFile(path, 0);
+        const bool crossfade = g_music_fade != 0;
+        auto handle = wiz8::sound::stream(path, {.volume = std::uint32_t(g_settings.music_volume),
+                                                 .group = wiz8::sound::Group::music,
+                                                 .fade_in_ms = crossfade ? 5000u : 0u});
         if (handle == nullptr) {
             return 0;
         }
-        SoundSetMusic(handle);
-
-        if (g_music_fade != 0) {
-            if (g_music_sample_handle != nullptr) {
-                SoundSetFadeVolume(g_music_sample_handle, 0, 2000, 1);
-            }
-            SoundSetVolume(handle, 0);
-            SoundSetFadeVolume(handle, g_settings.music_volume, 5000, 0);
-        } else {
-            if (g_music_sample_handle != nullptr) {
-                SoundStop(g_music_sample_handle);
-            }
-            SoundSetVolume(handle, g_settings.music_volume);
+        if (g_music_sample_handle != nullptr) {
+            wiz8::sound::stop(g_music_sample_handle, crossfade ? 2000u : 0u);
         }
         g_music_sample_handle = handle;
         return 1;
@@ -250,9 +242,9 @@ unsigned char StartMusicResource(const char* resource, int fade, unsigned char r
     if (replace_current != 0) {
         if (g_music_sample_handle != nullptr) {
             if (g_music_fade == 0) {
-                SoundStop(g_music_sample_handle);
+                wiz8::sound::stop(g_music_sample_handle);
             } else {
-                SoundSetFadeVolume(g_music_sample_handle, 0, 2000, 1);
+                wiz8::sound::stop(g_music_sample_handle, 2000);
             }
         }
         g_music_sample_handle = nullptr;
@@ -273,13 +265,13 @@ void StopMusicPlaylist(bool fade)
 {
     if (fade) {
         if (g_music_sample_handle != nullptr) {
-            SoundSetFadeVolume(g_music_sample_handle, 0, 2000, 1);
+            wiz8::sound::stop(g_music_sample_handle, 2000);
             g_music_sample_handle = nullptr;
             g_music_playlist_active = false;
             return;
         }
     } else {
-        SoundStopMusic();
+        wiz8::sound::stop_group(wiz8::sound::Group::music);
     }
     g_music_sample_handle = nullptr;
     g_music_playlist_active = false;

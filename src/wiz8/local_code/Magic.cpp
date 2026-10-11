@@ -2819,10 +2819,10 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
             PrepareSpellTarget(spell_id, source, target);
             source->fBackfire = true;
             recast = false;
-            SoundPlay("Data\\Sound\\Misc\\Spell Backfire.wav", 0);
+            wiz8::sound::play("Data\\Sound\\Misc\\Spell Backfire.wav");
         } else {
             fizzled = true;
-            SoundPlay("Data\\Sound\\Misc\\Spell Fizzle 01.wav", 0);
+            wiz8::sound::play("Data\\Sound\\Misc\\Spell Fizzle 01.wav");
             if (caster_slot != -1 && Random(100) < 0x46) {
                 QueueCharacterEvent(&g_status.buffers.Char[caster_slot], g_special_event13, 0,
                                     g_character_event_no_flags, g_character_event_full_volume);
@@ -3125,7 +3125,7 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
                 break;
             default:
                 SpawnCameraSpellEffect("Default", 0, 0, 0);
-                SoundPlay("Data\\Sound\\Misc\\GeneralMagic.wav", 0);
+                wiz8::sound::play("Data\\Sound\\Misc\\GeneralMagic.wav");
                 break;
             case W8_TARGET_TYPE_ITEM:
             case W8_TARGET_TYPE_NONE:

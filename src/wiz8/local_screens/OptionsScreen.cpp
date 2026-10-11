@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_surface.h>
 #include <tuple>
@@ -1165,17 +1166,15 @@ void W8OptionsAudioPanel::OnDragEnd(W8HorizontalRangeThumb* thumb)
     }
     switch (index) {
     case 1:
-        SoundPlay("Data\\Sound\\Misc\\Interface Swoosh 01.wav", 0);
+        wiz8::sound::play("Data\\Sound\\Misc\\Interface Swoosh 01.wav");
         break;
     case 2:
         PlayFootstep(W8_FOOTSTEP_SURFACE_MEDIUM_ROOM, W8_FOOTSTEP_MATERIAL_GRAVEL,
                      W8_FOOTSTEP_KIND_STEP);
         break;
     case 3: {
-        SOUNDPARMS options;
-        memset(&options, -1, sizeof(options));
-        options.uiVolume = g_settings.voice_volume;
-        SoundPlay("Data\\Sound\\Misc\\Interface Vox 01.wav", &options);
+        wiz8::sound::play("Data\\Sound\\Misc\\Interface Vox 01.wav",
+                          {.volume = std::uint32_t(g_settings.voice_volume)});
         break;
     }
     }

@@ -131,7 +131,7 @@ void GameLoop(void)
 {
     W8ScreenId state;
 
-    SoundServiceStreams();
+    wiz8::sound::service();
     ServiceMusicPlaylist();
     state = g_current_screen_state.id;
     if (g_screen_return_requested) {
