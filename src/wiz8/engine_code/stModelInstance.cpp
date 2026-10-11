@@ -526,20 +526,17 @@ void stModelInstance::RenderMeshes(srGERD& renderer)
             mesh.dig[0] = 0;
         }
         std::shared_ptr<srTextureIFace>*(*poly_textures)[2] = mesh.poly_textures;
-        if (poly_textures != 0 && mesh.active_polygons == 0) {
-            w8_long active_count;
-            w8_ulong* active;
+        if (poly_textures != 0 && !mesh.active_polygons) {
+            srMeshModel::PolygonSelection active;
             if (damage_stage >= 0) {
                 mesh.poly_textures[0][0] =
                     model->GetTextureTable(damage_stage_tables[damage_stage]);
-                active = model->GetActivePolygons(&active_count,
-                                                  damage_stage_tables[damage_stage], true);
+                active = model->GetActivePolygons(damage_stage_tables[damage_stage], true);
             } else {
-                active = model->GetActivePolygons(&active_count, -1, true);
+                active = model->GetActivePolygons(-1, true);
             }
-            if (active != 0) {
+            if (active) {
                 mesh.active_polygons = active;
-                mesh.active_polygon_count = active_count;
             }
         }
 
@@ -610,18 +607,15 @@ void stModelInstance::RenderMeshes(srGERD& renderer)
                         poly_normals = model->GetPolygonNormals(frame_index, true);
                     }
                     std::shared_ptr<srTextureIFace>*(*poly_textures)[2] = mesh.poly_textures;
-                    if (poly_textures != 0 && mesh.active_polygons == 0) {
-                        w8_long active_count;
-                        w8_ulong* active;
+                    if (poly_textures != 0 && !mesh.active_polygons) {
+                        srMeshModel::PolygonSelection active;
                         if (damage_stage >= 0) {
-                            active = model->GetActivePolygons(
-                                &active_count, damage_stage_tables[damage_stage], true);
+                            active = model->GetActivePolygons(damage_stage_tables[damage_stage], true);
                         } else {
-                            active = model->GetActivePolygons(&active_count, -1, true);
+                            active = model->GetActivePolygons(-1, true);
                         }
-                        if (active != 0) {
+                        if (active) {
                             mesh.active_polygons = active;
-                            mesh.active_polygon_count = active_count;
                         }
                     }
 

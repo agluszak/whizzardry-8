@@ -16,6 +16,7 @@
 #include "surrender/srTypeRegistry.h"
 #include "wiz8/engine_code/stTextureFile.h"
 #include "wiz8/engine_code/stParticle.h"
+#include <span>
 #include "wiz8/engine_code/game_timer.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/Octree.h"
@@ -769,8 +770,8 @@ void stParticle::SubmitToRenderer(srGERD* renderer)
 
     /* Three array/count pairs: the index pairs rebuilt above, the polygon
        index list, and the transformed vertex positions. */
-    pipeline->active_triangles = active_triangles.data();
-    pipeline->active_triangle_count = active_particle_count * 2;
+    pipeline->active_triangles =
+        std::span<const w8_ulong>(active_triangles).first(active_particle_count * 2);
     pipeline->triangles = triangles.data();
     pipeline->triangle_count = triangles.size();
     pipeline->positions = vertex_positions.data();

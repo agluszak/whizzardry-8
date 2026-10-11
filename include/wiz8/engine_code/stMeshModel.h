@@ -71,9 +71,9 @@ public:
     int FindSkinTable(std::string_view name);
     int CreateSkinTable(std::string_view name, int base_table);
     std::shared_ptr<srTextureIFace>* GetTextureTable(int table); /* 0x00473720 */
-    /* Active-polygon index list for a texture table; writes the count through
-       `count_out`. Null draws all polygons, non-null with count zero draws none. */
-    w8_ulong* GetActivePolygons(w8_long* count_out, int table, bool flag);
+    /* No selection draws all polygons; an engaged empty span draws none.
+       The view is borrowed until its skin or automap filter is changed. */
+    PolygonSelection GetActivePolygons(int table, bool check_blanking);
     void RemoveSkinTable(int index);
     void RemoveSkinTablesForCycle(std::string_view cycle_name);
     srVector3T<float>* GetVertexLocations(unsigned int frame, bool load, float interpolation);
