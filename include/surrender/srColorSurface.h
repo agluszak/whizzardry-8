@@ -1,12 +1,18 @@
 #pragma once
 
+#include <SDL3/SDL_surface.h>
+#include <SDL3/SDL_rect.h>
 #include <memory>
+#include <ostream>
 #include <span>
 
+#include "compat/compiler.h"
 #include "srColorSurfaceIFace.h"
 #include "srPalette.h"
 
-#include "wiz8/compat/surfaces.h"
+#include "surrender/srTypeRegistry.h"
+#include "surrender/srPixelConvert.h"
+#include "wiz8/surface_storage.h"
 
 // VTABLE: SURRENDER 0x100773A0
 // class srClassSupport<srColorSurface, srColorSurfaceIFace, 12560>

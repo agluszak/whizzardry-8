@@ -2197,45 +2197,24 @@ int W8Navigator::ResolveMovement()
     return 0;
 }
 
-/* The W8OctreeTrace methods sit in the link-order gap between Navigator.cpp's
-   last body and OctPath.cpp's first. Their identical seed instructions serve
-   three source-level roles proven by the callers: initialize a default trace,
-   construct a trace over a segment, and reseed an existing trace. */
-// FUNCTION: WIZ8 0x00457580
-void W8OctreeTrace::Seed(const srVector3T<float>* from, const srVector3T<float>* to)
+// Construction and reuse share endpoint copying and direction normalization.
+void W8OctreeTrace::reset(const glm::vec3& from, const glm::vec3& to)
 {
-    start = *from;
-    end = *to;
+    // Copy before mutation so resetting from this trace's endpoints is safe.
+    const auto from_value = from;
+    const auto to_value = to;
+    start = from_value;
+    end = to_value;
     step = end - start;
-    length = step.Length();
+    length = glm::length(step);
     hit_limit = length;
-    step /= length;
+    step = glm::vec3(glm::dvec3(step) * (1.0 / static_cast<double>(length)));
     state = 0;
 }
 
-// FUNCTION: WIZ8 0x00457640
-W8OctreeTrace::W8OctreeTrace(const srVector3T<float>* from, const srVector3T<float>* to)
+W8OctreeTrace::W8OctreeTrace(const glm::vec3& from, const glm::vec3& to)
 {
-    Seed(from, to);
-}
-
-// FUNCTION: WIZ8 0x00457700
-void W8OctreeTrace::Reseed(const srVector3T<float>* from, const srVector3T<float>* to)
-{
-    Seed(from, to);
-}
-
-// FUNCTION: WIZ8 0x004577c0
-W8OctreeTrace::W8OctreeTrace()
-{
-    start.SetZero();
-    end.SetZero();
-    step.z = 0.0f;
-    step.y = 0.0f;
-    step.x = 0.0f;
-    length = 0.0f;
-    state = 0;
-    hit_limit = 1.0e20f;
+    reset(from, to);
 }
 
 // FUNCTION: WIZ8 0x00453c70

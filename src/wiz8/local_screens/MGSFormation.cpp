@@ -1,11 +1,16 @@
 #include <array>
 #include <memory>
 #include <optional>
-#include "wiz8/engine_code/stModelInstance.h" // IWYU pragma: keep - complete sprite type for conversion to srNode.
+#include <vector>
+
 #include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_surface.h>
+
+#include "sprite.h"
+#include "wiz8/surface_storage.h"
+#include "wiz8/engine_code/stModelInstance.h" // IWYU pragma: keep - complete sprite type for conversion to srNode.
 #include <cstdint>
 #include <cstring>
-#include <vector>
 
 #include "wiz8/fonts.h"
 #include "wiz8/local_screens/MGSFormation.h"
@@ -32,8 +37,6 @@
 #include "layouts/party_formation.h"
 #include "local_code/ControlsRect.h"
 #include "surrender/srMath.h"
-#include "vobject.h"
-#include "vsurface.h"
 
 /* On-board (left, top) of each of the fifteen cell markers,
    relative to the board anchor. */
@@ -118,7 +121,7 @@ void ResetFormationCellControls(int cell);
 /* Draw each occupied slot's facing arrow and marching-order chip into the
    board image; the slot the board highlights gets the +1 frame of each. */
 // FUNCTION: WIZ8 0x005b1f40
-void DrawFormationSlotMarkers(SGPVSurface& target)
+void DrawFormationSlotMarkers(SDL_Surface& target)
 {
     int slot;
 
@@ -141,8 +144,8 @@ void DrawFormationSlotMarkers(SGPVSurface& target)
             image += 1;
             order_image += 1;
         }
-        DrawCatalogImage(target, 0x9c, 0, image, left, top, VO_BLT_SRCTRANSPARENCY);
-        DrawCatalogImage(target, 0x9d, 0, order_image, left, top, VO_BLT_SRCTRANSPARENCY);
+        DrawCatalogImage(target, 0x9c, 0, image, left, top);
+        DrawCatalogImage(target, 0x9d, 0, order_image, left, top);
     }
 }
 
@@ -151,8 +154,8 @@ void DrawFormationSlotMarkers(SGPVSurface& target)
 // FUNCTION: WIZ8 0x005b1c80
 void RefreshFormationBoard(void)
 {
-    std::unique_ptr<SGPVSurface> board_image;
-    std::unique_ptr<SGPVSurface> compass_image;
+    SDLSurfaceOwner board_image{nullptr, SDL_DestroySurface};
+    SDLSurfaceOwner compass_image{nullptr, SDL_DestroySurface};
 
     if (g_status.selected_character != -1) {
         FaceCameraToSelection(g_status.selected_character);
@@ -161,10 +164,11 @@ void RefreshFormationBoard(void)
         return;
     }
     ReleaseFormationBoard();
-    auto& board_object = GetCatalogVideoObject(g_level_block->formation_board_alternate ? 0x9a : 0x99, 0);
-    board_image = MakeVSurfaceFromVObject(board_object, 0);
+    const auto& board_object =
+        GetCatalogVideoObject(g_level_block->formation_board_alternate ? 0x9a : 0x99, 0);
+    board_image = RenderSpriteToImage(board_object, 0);
     if (!board_image) return;
-    compass_image = MakeVSurfaceFromVObject(GetCatalogVideoObject(0x9b, 0), 0);
+    compass_image = RenderSpriteToImage(GetCatalogVideoObject(0x9b, 0), 0);
     if (!compass_image) return;
     DrawFormationSlotMarkers(*board_image);
     g_level_block->formation_compass_sprite = CreateSpriteFromSurface(*compass_image, 0, 1, 0, 1);

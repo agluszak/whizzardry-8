@@ -4,7 +4,7 @@
 #include "compat/compiler.h"
 
 struct W8NativeVideo;
-struct CpuSurface;
+struct SDL_Surface;
 
 /* Movie playback backed by FFmpeg. */
 class W8BinkVideo {
@@ -16,11 +16,11 @@ public:
     unsigned char UpdateFrame();
     unsigned char CopyFrameToPrimarySurface();
     unsigned char CopyFrameToTargetSurface();
-    void SetTarget(CpuSurface* target);
+    void SetTarget(SDL_Surface* target);
 
 private:
     W8NativeVideo* m_handle;
-    CpuSurface* m_target; /* 0x08 */
+    SDL_Surface* m_target; /* 0x08 */
 };
 
 W8_ABI_ASSERT(sizeof(W8BinkVideo) == 0x0c, "W8BinkVideo_must_be_0x0c");

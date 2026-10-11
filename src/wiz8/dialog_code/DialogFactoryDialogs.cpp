@@ -1,5 +1,6 @@
 #include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_surface.h>
 #include <fmt/format.h>
 #include <string>
 #include <memory>
@@ -8,6 +9,7 @@
 #include <string_view>
 
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
+#include "sprite.h"
 #include "wiz8/dialog_code/DialogButton.h"
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/regions.h"
@@ -29,14 +31,12 @@
 #include "himage.h"
 #include "input.h"
 #include "soundman.h"
-#include "vsurface.h"
 #include "Video2.h"
 #include "dialog_code/DialogBase.h"
 #include "layouts/game_status.h"
 #include "layouts/item_instance.h"
 #include "local_code/ControlsRect.h"
 #include "local_code/TextBuffer.h"
-#include "vobject.h"
 
 void W8ListBoxDialog::ClearLines()
 {
@@ -344,10 +344,11 @@ void W8ListBoxDialog::Draw()
                  m_selected_line) /
                     static_cast<int>(m_lines.size()) +
                 m_y + 3 + dy);
-        ColorFillVideoSurfaceArea(
-            GetFrameBufferSurface(), m_x + width + dx, m_y + dy + m_up_button.GetHeight(),
-            m_x + width + dx + m_up_button.GetWidth(),
-            m_y + height + dy - m_down_button.GetHeight(), Get16BPPColor(m_fill_colour));
+        const int fill_left = m_x + width + dx;
+        const int fill_top = m_y + dy + m_up_button.GetHeight();
+        const SDL_Rect fill{fill_left, fill_top, m_up_button.GetWidth(),
+                            height - m_up_button.GetHeight() - m_down_button.GetHeight()};
+        SDL_FillSurfaceRect(&GetFrameBufferSurface(), &fill, Get16BPPColor(m_fill_colour));
         m_third_text_button.SetPosition(m_x + dx + width, m_y + dy);
         m_third_text_button.Resize(m_up_button.GetWidth() + 7, height);
         m_third_text_button.Draw();
@@ -383,14 +384,11 @@ void W8ListBoxDialog::Draw()
             line = m_first_visible_line + index;
             const std::string& text = m_lines[line];
             if (line == m_selected_line) {
-                ColorFillVideoSurfaceArea(
-                    GetFrameBufferSurface(), m_x + 3 + dx,
-                    m_y + static_cast<unsigned int>(g_dialog_interface_font->height()) * index +
-                        2 + dy,
-                    width + m_x - 3 + dx,
-                    static_cast<unsigned int>(g_dialog_interface_font->height()) + m_y +
-                        static_cast<unsigned int>(g_dialog_interface_font->height()) * index + dy,
-                    Get16BPPColor(m_fill_colour));
+                const int top = m_y + g_dialog_interface_font->height() * index + 2 + dy;
+                const SDL_Rect selection{m_x + 3 + dx, top, width - 6,
+                                         g_dialog_interface_font->height() - 2};
+                SDL_FillSurfaceRect(&GetFrameBufferSurface(), &selection,
+                                    Get16BPPColor(m_fill_colour));
             }
             DrawFontText(m_x + 3 + dx,
                          static_cast<unsigned int>(g_dialog_interface_font->height()) * index +
@@ -588,7 +586,7 @@ void W8SplitAmountDialog::Draw()
         numeric->m_dirty = true;
         numeric->m_button->m_dirty = true;
         W8DialogBase::Draw();
-        DrawCatalogImage(GetFrameBufferSurface(), 0x1ac, 0, 0, m_x + 0x18, m_y + 0x1a, VO_BLT_SRCTRANSPARENCY);
+        DrawCatalogImage(GetFrameBufferSurface(), 0x1ac, 0, 0, m_x + 0x18, m_y + 0x1a);
     }
     if (m_buttons[3]->m_dirty) {
         W8DialogNumericInput* numeric = m_split_input.get();
@@ -1439,7 +1437,7 @@ void W8TriggerItemPickerDialog::Draw()
         W8WorldItem* world_item = items[item_index];
         W8ItemInstance* item = &world_item->item;
         DrawSprite(GetFrameBufferSurface(), g_item_video_objects.Sprites(item->iItemNo), 0,
-                   button->GetX() + 2, button->GetY() + 2, VO_BLT_SRCTRANSPARENCY);
+                   button->GetX() + 2, button->GetY() + 2);
         SetFont(g_wiz_text_font);
         if (item->stack_count > 1) {
             auto name = GetItemDisplayName(item);

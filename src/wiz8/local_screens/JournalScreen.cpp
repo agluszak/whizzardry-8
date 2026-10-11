@@ -36,8 +36,6 @@
 #include "difficulty.h"
 #include "local_code/Controls.h"
 #include "message_box.h"
-#include "vobject.h"
-#include "vsurface.h"
 
 // GLOBAL: WIZ8 0x0064df38
 int g_journal_page = -1;
@@ -207,7 +205,7 @@ void W8JournalPanel::Refresh()
         std::string page_text;
         page_text = fmt::format("{:d} / {:d}", g_journal_page + 1, page_count);
         m_page_text->SetText(page_text, g_options_detail_font);
-        DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x1b8, 0, 0, 0, 0, VO_BLT_SRCTRANSPARENCY);
+        DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x1b8, 0, 0, 0, 0);
         DrawJournalLine(g_localized_strings[0x6db], 0, 0x19, 0, true);
         DrawJournalLine(g_localized_strings[0x6dc], 1, 0x19, 0, true);
 
@@ -242,7 +240,7 @@ void W8JournalPanel::Refresh()
         m_next->SetEnabled(false);
         m_previous->SetEnabled(false);
         m_page_text->SetText(g_journal_alternate_page, g_options_detail_font);
-        DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x1b8, 0, 0, 0, 0, VO_BLT_SRCTRANSPARENCY);
+        DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x1b8, 0, 0, 0, 0);
         DrawJournalLine(g_localized_strings[0x6de], 0, 0x19, 0, true);
         DrawJournalLine(g_localized_strings[0x6df], 1, 0x19, 0, true);
 
@@ -424,7 +422,7 @@ unsigned char JournalScreenEnter(void)
         }
     }
     g_journal_panel->Refresh();
-    DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x1b7, 0, 1, 0, 0x1b4, VO_BLT_SRCTRANSPARENCY);
+    DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x1b7, 0, 1, 0, 0x1b4);
     return 1;
 }
 

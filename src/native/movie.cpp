@@ -8,7 +8,6 @@
 #include <wiz8/filesystem.h>
 #include <SDL3/SDL_surface.h>
 
-#include "compat/surfaces.h"
 #include "native/movie_audio.h"
 #include "surrender/srGERD.h"
 #include "wiz8/engine_code/Video2.h"
@@ -369,11 +368,11 @@ W8NativeVideo::Result W8NativeVideo::update_now()
     return update((now - state->began) / 1e6);
 }
 
-void W8NativeVideo::present(CpuSurface* target)
+void W8NativeVideo::present(SDL_Surface* target)
 {
     if (!g_gerd || !g_surface_node)
         return;
-    const auto& description = *target->surface;
+    const auto& description = *target;
     if (!state->presentation_surface)
     {
         state->presentation_surface = std::make_shared<srColorSurface>(srPixelConvert::SURFACE_RGB555,

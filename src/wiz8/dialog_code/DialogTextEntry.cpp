@@ -4,7 +4,6 @@
 #include <string>
 #include <string_view>
 
-#include "vsurface.h"
 #include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/dialog_code/DialogTextEntry.h"
@@ -51,7 +50,7 @@ int W8DialogTextEntry::DrawLine(std::string_view line, int prefix_remaining, int
             if (!m_selected) {
                 m_font->setPalette(m_text_palette < 15
                                       ? g_font_state_palettes[m_text_palette]
-                                      : g_wiz_text_font_secondary.glyphs.palette);
+                                      : g_wiz_text_font_secondary.glyphs->colors);
             }
             line.remove_prefix(prefix_remaining);
         }
@@ -83,7 +82,7 @@ void W8DialogTextEntry::Draw(bool force)
         } else if (m_selected) {
             palette = g_font_state_palettes[W8_FONT_PALETTE_WHITE];
         } else {
-            palette = g_wiz_text_font_secondary.glyphs.palette;
+            palette = g_wiz_text_font_secondary.glyphs->colors;
             if (m_prefix_length == 0) {
                 if (m_text_palette < 15) {
                     palette = g_font_state_palettes[m_text_palette];

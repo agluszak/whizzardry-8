@@ -1,4 +1,5 @@
 #include "wiz8/engine_code/LevelFile.h"
+#include "wiz8/surface_geometry.h"
 #include "wiz8/navigation_flags.h"
 #include "wiz8/engine_code/GDProp.h"
 #include <stdexcept>
@@ -43,6 +44,7 @@
 #include "surrender_test_fixture.h"
 #include "surrender/srBoundingBox.h"
 #include "surrender/srMaterial.h"
+#include "surrender/srVertexPipe.h"
 #include "surrender/srModeler.h"
 #include "surrender/srTriMeshPipeline.h"
 #include "surrender/srGERD.h"
@@ -1394,6 +1396,55 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Empty software backface selections skip 
     REQUIRE(pipeline->triangle_count == before);
 }
 
+TEST_CASE_METHOD(SurRenderTestFixture, "Failed mesh materials release renderer and restore enable flags", "[geometry]")
+{
+    class FailingMaterial : public srMaterial {
+    public:
+        void preProcess(srVertexPipe&) override { throw std::runtime_error("material failed"); }
+    };
+    srGERD renderer(srCreateSDLGPUDevice(), "failed mesh submission");
+    renderer.setWinding(srGERD::WINDING_POSITIONAL_0);
+    // Reuse a CPU batch as sorted without requiring a window or GPU context.
+    auto* batch = renderer.lockRenderer();
+    batch->sorted = 1;
+    renderer.unlockRenderer(batch, 0);
+    renderer.toggle(srGERD::ENABLE_REVERSE_NORMALS);
+    srMeshModel native(1, 3);
+    stMeshModel extended(1, 3);
+    std::array<glm::vec3, 3> positions{{{-0.5f, -0.5f, 0.5f},
+                                      {0.5f, -0.5f, 0.5f}, {0, 0.5f, 0.5f}}};
+    std::array<srVector3i, 1> triangles{{{0, 1, 2}}};
+    std::array<glm::vec4, 1> equations{{{0, 0, 1, -0.5f}}};
+    const std::array<glm::vec3, 1> normals{{{0, 0, -1}}};
+    srMeshModel::TriMesh mesh;
+    mesh.vertex_count = positions.size();
+    mesh.polygon_count = triangles.size();
+    mesh.pass_count = 1;
+    mesh.positions = positions.data();
+    mesh.poly_vertices = triangles.data();
+    mesh.poly_equations = equations.data();
+    mesh.bounds_center = {0, 0, 0.5f};
+    mesh.bounds_radius = 1;
+    mesh.control_flags = (1u << srMeshModel::CONTROL_FRONT) |
+                         (1u << srMeshModel::CONTROL_NO_FRONT_CULL) |
+                         (1u << srMeshModel::CONTROL_SORTED_RENDERING);
+    mesh.materials[0][0] = std::make_shared<FailingMaterial>();
+    for (bool software : {false, true}) {
+        if (software)
+            REQUIRE_THROWS_AS(extended.RenderTriMeshWithEquations(renderer, mesh, normals),
+                              std::runtime_error);
+        else
+            REQUIRE_THROWS_AS(native.renderTriMesh(renderer, mesh), std::runtime_error);
+        REQUIRE_FALSE(renderer.isEnabled(srGERD::ENABLE_SORTED_RENDERING));
+        REQUIRE(renderer.isEnabled(srGERD::ENABLE_REVERSE_NORMALS));
+        renderer.toggle(srGERD::ENABLE_SORTED_RENDERING);
+        auto* resumed = renderer.lockRenderer();
+        renderer.unlockRenderer(resumed, 0);
+        REQUIRE(resumed == batch);
+        renderer.toggle(srGERD::ENABLE_SORTED_RENDERING);
+    }
+}
+
 TEST_CASE("Plane contacts retain collision skin and occluder clearance", "[geometry]")
 {
     const glm::vec4 plane(1, 0, 0, 0);
@@ -1426,6 +1477,10 @@ TEST_CASE("Plane contacts retain collision skin and occluder clearance", "[geome
     REQUIRE(start.has_value());
     REQUIRE(start->point == inside_skin.start);
     REQUIRE(start->distance == 0);
+    const auto surface_start = planeContact(plane, inside_skin, PlaneContactMode::SurfaceCollision);
+    REQUIRE(surface_start.has_value());
+    REQUIRE(surface_start->point == inside_skin.start);
+    REQUIRE(surface_start->distance == 0.5f);
     inside_skin.start.x = 0;
     REQUIRE_FALSE(planeContact(plane, inside_skin, PlaneContactMode::Collision));
     REQUIRE_FALSE(planeContact(-plane, crossing, PlaneContactMode::Collision));
@@ -2235,7 +2290,7 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Material vertex splits preserve first-fa
     for (unsigned source = 1; source < 5; ++source) {
         auto& vertex = geometry.m_vertices[source];
         vertex.m_vertex_index = source;
-        vertex.position = srVector3(float(source), 2, 3);
+        vertex.position = glm::vec3(float(source), 2, 3);
         if (source < 4) {
             vertex.face_indices = faces.data();
             vertex.face_count = faces.size();
@@ -2267,4 +2322,151 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Material vertex splits preserve first-fa
             REQUIRE(vertex->position.x == float(corner + 1));
         }
     }
+}
+
+TEST_CASE("Native octree trace reset snapshots aliased endpoints and clears hit state", "[geometry][octree]")
+{
+    W8OctreeTrace trace;
+    REQUIRE(trace.start == glm::vec3(0));
+    REQUIRE(trace.step == glm::vec3(0));
+    REQUIRE(trace.hit_limit == 1.0e20f);
+    trace.reset({1, 2, 3}, {4, 6, 3});
+    REQUIRE(trace.length == 5);
+    REQUIRE(trace.hit_limit == 5);
+    REQUIRE(trace.step == glm::vec3(0.6f, 0.8f, 0));
+    trace.state = 7;
+    trace.hit_limit = 2;
+    trace.reset(trace.end, trace.start);
+    REQUIRE(trace.start == glm::vec3(4, 6, 3));
+    REQUIRE(trace.end == glm::vec3(1, 2, 3));
+    REQUIRE(trace.step == glm::vec3(-0.6f, -0.8f, 0));
+    REQUIRE(trace.hit_limit == 5);
+    REQUIRE(trace.state == 0);
+}
+
+TEST_CASE("Geometry compaction preserves weld chains, stable faces and normalized attributes", "[geometry][octree]")
+{
+    W8OctPreTreeGeometry geometry{};
+    geometry.vertex_count = 7;
+    geometry.m_polygon_count = 4;
+    geometry.m_vertices = static_cast<W8OctPreTreeVertex*>(std::calloc(7, sizeof(W8OctPreTreeVertex)));
+    geometry.m_polygons = static_cast<W8OctRegionPolygon*>(std::calloc(4, sizeof(W8OctRegionPolygon)));
+    struct ReleaseGeometry {
+        W8OctPreTreeGeometry& geometry;
+        ~ReleaseGeometry() { std::free(geometry.m_vertices); std::free(geometry.m_polygons); }
+    } release{geometry};
+    REQUIRE(geometry.m_vertices);
+    REQUIRE(geometry.m_polygons);
+    for (w8_ulong vertex = 1; vertex < 7; ++vertex) {
+        auto& record = geometry.m_vertices[vertex];
+        record.m_vertex_index = vertex;
+        record.position.x = static_cast<float>(vertex);
+        record.m_normal_count = 30;
+        record.m_normal = {0, 3, 4};
+    }
+    geometry.m_vertices[2].m_normal = {-0.0f, 0, 0};
+    geometry.m_vertices[3].flags = W8OctPreTreeVertex::EXCLUDED;
+    geometry.m_vertices[3].m_vertex_index = 1;
+    geometry.m_vertices[5].flags = W8OctPreTreeVertex::EXCLUDED;
+    geometry.m_vertices[5].m_vertex_index = 3;
+    constexpr std::array<std::array<unsigned, 3>, 3> source_corners{{{1, 3, 2}, {2, 4, 2}, {5, 6, 2}}};
+    for (unsigned face = 1; face < 4; ++face) {
+        auto& polygon = geometry.m_polygons[face];
+        polygon.ordinal = face + 10;
+        polygon.material = face * 10;
+        for (unsigned corner = 0; corner < 3; ++corner) {
+            polygon.vertices[corner] = geometry.m_vertices + source_corners[face - 1][corner];
+            polygon.face.texture_coordinates[corner] = glm::vec2(face, corner);
+        }
+    }
+    geometry.m_polygons[2].degenerate = true;
+    REQUIRE(geometry.compact());
+    REQUIRE(geometry.vertex_count == 4);
+    REQUIRE(geometry.m_polygon_count == 3);
+    REQUIRE(geometry.m_vertices[1].position.x == 1);
+    REQUIRE(geometry.m_vertices[2].position.x == 2);
+    REQUIRE(geometry.m_vertices[3].position.x == 6);
+    REQUIRE(geometry.m_vertices[1].m_normal == glm::vec3(0, 0.6f, 0.8f));
+    REQUIRE(std::signbit(geometry.m_vertices[2].m_normal.x));
+    REQUIRE(geometry.m_vertices[2].m_normal_count == 2);
+    constexpr std::array<std::array<unsigned, 3>, 2> expected{{{1, 1, 2}, {1, 3, 2}}};
+    for (unsigned face = 1; face < 3; ++face) {
+        const auto& polygon = geometry.m_polygons[face];
+        const unsigned original = face == 1 ? 1 : 3;
+        REQUIRE(polygon.ordinal == face);
+        REQUIRE(polygon.material == original * 10);
+        for (unsigned corner = 0; corner < 3; ++corner) {
+            REQUIRE(polygon.vertices[corner] == geometry.m_vertices + expected[face - 1][corner]);
+            REQUIRE(polygon.face.vertices[corner] == expected[face - 1][corner]);
+            REQUIRE(polygon.face.texture_coordinates[corner] == glm::vec2(original, corner));
+        }
+    }
+}
+
+TEST_CASE("Surface compilation keeps stable walkable runs and drops welded degeneracies", "[geometry]")
+{
+    std::array<W8GDSurface, 6> surfaces{};
+    for (int index = 0; index < 6; ++index) {
+        auto& surface = surfaces[index];
+        surface.index = 100 + index;
+        for (int corner = 0; corner < 3; ++corner) surface.vertex_indices[corner] = index * 3 + corner;
+    }
+    for (auto index : {0, 3, 5}) surfaces[index].flags = W8_GD_SURFACE_WALKABLE;
+    surfaces[2].vertex_indices[2] = surfaces[2].vertex_indices[0];
+    const auto order = surfaceGeometry::compilationOrder(surfaces);
+    REQUIRE(order.indices == std::vector<int>{0, 3, 5, 1, 4});
+    REQUIRE(order.walkable_count == 3);
+    REQUIRE(surfaces[3].index == 103);
+    const auto empty = surfaceGeometry::compilationOrder({});
+    REQUIRE(empty.indices.empty());
+    REQUIRE(empty.walkable_count == 0);
+}
+
+TEST_CASE("Animated prop affine geometry uses scaled paths and rotated native bounds", "[geometry]")
+{
+    std::array<srVector3, 3> positions{{{0, 0, 0}, {0, 0, 2}, {2, 0, 0}}};
+    W8SerializedMeshFace face{};
+    for (int corner = 0; corner < 3; ++corner) face.vertices[corner] = corner;
+    W8LevelFileFrame frame{};
+    frame.mesh.num_vertices = 3;
+    frame.mesh.num_faces = 1;
+    frame.mesh.pstVertices = positions.data();
+    frame.mesh.pstFaces = &face;
+    W8LevelFileScaledPathNode node{};
+    node.path.position.Set(1, -2, 3);
+    node.path.axis.Set(0, 2, 0);
+    node.path.angle = 1.5707963267948966f;
+    node.scale.Set(2, 3, 4);
+    W8LevelFileTransform transform{};
+    transform.LODMesh.pFrames = &frame;
+    transform.pathAI.scaled = 2;
+    transform.pathAI.path_count = 1;
+    transform.pathAI.pScaledPaths = &node;
+    W8LevelFileAnimObj animation{};
+    animation.num_transforms = 1;
+    animation.pTransforms = &transform;
+    GDProp prop;
+    prop.ApplyAnimFrame(0, &animation);
+    const auto bounds = prop.computeBounds();
+    REQUIRE(glm::length(bounds.minimum - glm::vec3(500, -1000, -500)) < 0.01f);
+    REQUIRE(glm::length(bounds.maximum - glm::vec3(4500, -1000, 1500)) < 0.01f);
+}
+
+TEST_CASE("Prop surface geometry preserves walkable slope while clearing steep slope", "[geometry]")
+{
+    std::array<srVector3, 3> positions{{{0, -2, 0}, {0, -2, 2}, {2, -2, 0}}};
+    W8GDSurface surface{};
+    for (int corner = 0; corner < 3; ++corner) surface.vertex_indices[corner] = corner;
+    surface.slope = 0.3f;
+    surfaceGeometry::initializePropSurface(surface, positions);
+    REQUIRE(surface.plane.normal.glmValue() == glm::vec3(0, 1, 0));
+    REQUIRE(surface.plane.w == 2);
+    REQUIRE(surface.flags == (W8_GD_SURFACE_PROP_GEOMETRY | W8_GD_SURFACE_WALKABLE | 1));
+    REQUIRE(surface.slope == 0.3f);
+    REQUIRE(surface.contact_margin == 500);
+    std::swap(surface.vertex_indices[1], surface.vertex_indices[2]);
+    surfaceGeometry::initializePropSurface(surface, positions);
+    REQUIRE(surface.plane.normal.glmValue() == glm::vec3(0, -1, 0));
+    REQUIRE(surface.flags == (W8_GD_SURFACE_PROP_GEOMETRY | 1));
+    REQUIRE(surface.slope == 0);
 }

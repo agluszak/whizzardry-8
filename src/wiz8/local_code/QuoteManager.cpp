@@ -8,6 +8,8 @@
 #include <cstring>
 #include <optional>
 
+#include "sprite.h"
+#include "image.h"
 #include "wiz8/unicode.h"
 #include "wiz8/containers.h"
 #include "wiz8/fonts.h"
@@ -18,8 +20,6 @@
 #include "input.h"
 #include "layouts/main_game_screen.h"
 #include "message_box.h"
-#include "vobject.h"
-#include "vsurface.h"
 #include "audio_resources.h"
 #ifdef WIZ8_RUNTIME_TESTS
 #include "runtime_instrumentation.h"
@@ -1884,22 +1884,22 @@ int UpdateCharacterEventState(void)
    for the animated form the frame blitter runs first, and the death,
    in-combat or exhausted state adds the darkened overlay. */
 // FUNCTION: WIZ8 0x0052eb00
-void RenderPartyPortrait(int portrait, int left, int top, unsigned int flags, unsigned char value,
+void RenderPartyPortrait(int portrait, int left, int top, SpriteDraw options, unsigned char value,
                          int party_slot)
 {
-    DrawCatalogImage(GetFrameBufferSurface(), 0x12, portrait, 0, left, top, flags | VO_BLT_SHADOW);
+    DrawCatalogImage(GetFrameBufferSurface(), 0x12, portrait, 0, left, top, options);
     if (party_slot == -1) {
         return;
     }
     if (value != 0 && g_portrait_frame_flags[portrait] != 0) {
-        bool drawn = BlitPartyPortraitAnimation(portrait, left, top, flags, party_slot, true);
+        bool drawn = BlitPartyPortraitAnimation(portrait, left, top, options, party_slot, true);
         value = !drawn;
     }
     if ((((gXStatus.fCombatMode && g_combat_state->characters[party_slot].dead) ||
           gXStatus.fSurprisePossible) ||
          g_status.buffers.Char[party_slot].highest_condition == W8_CONDITION_MISSING) &&
         value != 0) {
-        ShadowVideoSurfaceRect(GetFrameBufferSurface(), left, top, left + 0x59, top + 0x47);
+        ShadowRect(GetFrameBufferSurface(), {left, top, 0x5a, 0x48});
     }
 }
 
@@ -1908,7 +1908,7 @@ void RenderPartyPortrait(int portrait, int left, int top, unsigned int flags, un
    frame and its blend predecessor; the A track draws the frame the animation
    is moving to, and a dead character stops after the B track. */
 // FUNCTION: WIZ8 0x0052ebe0
-bool BlitPartyPortraitAnimation(int portrait, int left, int top, unsigned int flags, int party_slot,
+bool BlitPartyPortraitAnimation(int portrait, int left, int top, SpriteDraw options, int party_slot,
                                 bool animate)
 {
     W8MonsterManagerEntry* state = &gXStatus.monster_manager_entries[party_slot];
@@ -1933,13 +1933,13 @@ bool BlitPartyPortraitAnimation(int portrait, int left, int top, unsigned int fl
         rect.bottom = height + rect.top;
         if (!animate && ((gXStatus.fCombatMode && g_combat_state->characters[party_slot].dead) ||
                          gXStatus.fSurprisePossible)) {
-            RenderPartyPortrait(portrait, left, top, flags, 0, party_slot);
+            RenderPartyPortrait(portrait, left, top, options, 0, party_slot);
         }
         if (g_status.buffers.Char[party_slot].hp_current == 0) {
             return true;
         }
         DrawCatalogImage(GetFrameBufferSurface(), 0x12, portrait, state->portrait_pose, left, top,
-                         flags | VO_BLT_SHADOW);
+                         options);
         drawn = true;
         if (state->previous_portrait_pose != -1) {
             std::tie(width, height) = GetCatalogImageSize(0x12, portrait, state->previous_portrait_pose);
@@ -1965,9 +1965,10 @@ bool BlitPartyPortraitAnimation(int portrait, int left, int top, unsigned int fl
         GetCatalogImagePosition(0x12, portrait, state->portrait_frame, &image_x, &image_y);
         if (!animate && !drawn && gXStatus.fCombatMode &&
             g_combat_state->characters[party_slot].dead) {
-            RenderPartyPortrait(portrait, left, top, flags, 0, party_slot);
+            RenderPartyPortrait(portrait, left, top, options, 0, party_slot);
         }
-        DrawCatalogImage(GetFrameBufferSurface(), 0x12, portrait, state->portrait_frame, left, top, flags);
+        DrawCatalogImage(GetFrameBufferSurface(), 0x12, portrait, state->portrait_frame, left, top,
+                         options);
 #ifdef WIZ8_RUNTIME_TESTS
         RuntimeObserve(RUNTIME_PORTRAIT_BLIT, party_slot, state->portrait_frame, portrait);
 #endif
@@ -1993,7 +1994,7 @@ bool BlitPartyPortraitAnimation(int portrait, int left, int top, unsigned int fl
     if (((gXStatus.fCombatMode && g_combat_state->characters[party_slot].dead) ||
          gXStatus.fSurprisePossible) ||
         g_status.buffers.Char[party_slot].highest_condition == W8_CONDITION_MISSING) {
-        ShadowVideoSurfaceRect(GetFrameBufferSurface(), left, top, left + 0x59, top + 0x47);
+        ShadowRect(GetFrameBufferSurface(), {left, top, 0x5a, 0x48});
     }
     return drawn;
 }

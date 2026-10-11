@@ -6,12 +6,12 @@
 #include <memory>
 #include <string>
 #include <string_view>
+#include <SDL3/SDL_surface.h>
 #include <SDL3/SDL_rect.h>
 
 #include "Font.h"
-#include "vobject.h"
-#include "vsurface.h"
 
+struct SpriteSheet;
 inline constexpr std::string_view DEFAULT_GENERIC_BUTTON_OFF = "Data\\Message Box\\GENBUTN.STI";
 inline constexpr std::string_view DEFAULT_GENERIC_BUTTON_ON = "Data\\Message Box\\GENBUTN2.STI";
 inline constexpr std::string_view DEFAULT_GENERIC_BUTTON_OFF_HI = "Data\\Message Box\\GENBUTN3.STI";
@@ -79,10 +79,10 @@ struct ButtonGraphics {
                             std::int32_t off_normal, std::int32_t off_hilite,
                             std::int32_t on_normal, std::int32_t on_hilite);
 
-    SGPVObject& object() const { return *sprites; }
+    const SpriteSheet& object() const { return *sprites; }
 
 private:
-    std::shared_ptr<SGPVObject> sprites;
+    std::shared_ptr<const SpriteSheet> sprites;
 
 public:
     std::int32_t Grayed = BUTTON_NO_IMAGE;
@@ -95,14 +95,14 @@ public:
 };
 
 struct GenericButtonImages {
-    std::array<std::shared_ptr<SGPVObject>, 6> frames;
+    std::array<std::shared_ptr<const SpriteSheet>, 6> frames;
     std::uint16_t fill_color = 0;
     std::uint16_t background_frame = 0;
     std::int16_t offset_x = 0;
     std::int16_t offset_y = 0;
 };
 
-extern SGPVSurface* ButtonDestBuffer;
+extern SDL_Surface* ButtonDestBuffer;
 extern bool gfRenderHilights;
 
 void DrawButtonAppearance(const ButtonAppearance& appearance, const ButtonVisualState& state);

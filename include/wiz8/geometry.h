@@ -155,7 +155,7 @@ struct PlaneContact {
     float distance;
 };
 
-enum class PlaneContactMode { Collision, Occlusion };
+enum class PlaneContactMode { Collision, SurfaceCollision, Occlusion };
 
 // Occlusion requires a full five-unit exit behind a plane. Collision accepts
 // the endpoint within its one-unit skin, unless a closer hit already exists.
@@ -167,7 +167,10 @@ inline std::optional<PlaneContact> planeContact(const glm::vec4& plane,
     if (!(glm::dot(normal, segment.direction) <= 0)) return std::nullopt;
     const float front = glm::dot(normal, segment.start) + plane.w;
     if (!(front > 0 && front <= segment.limit)) return std::nullopt;
-    if (front < 1) return PlaneContact{segment.start, 0};
+    // GD surface traces retain the positive front distance within the skin;
+    // mesh probes and occlusion report the same contact at zero distance.
+    if (front < 1) return PlaneContact{segment.start,
+        mode == PlaneContactMode::SurfaceCollision ? front : 0};
     const float clearance = mode == PlaneContactMode::Occlusion ? 5.0f : 1.0f;
     const float back = glm::dot(normal, segment.end) + plane.w;
     if (back >= clearance) return std::nullopt;

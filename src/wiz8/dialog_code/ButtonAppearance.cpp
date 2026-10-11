@@ -1,5 +1,6 @@
 #include <SDL3/SDL_log.h>
 #include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_surface.h>
 #include <algorithm>
 #include <array>
 #include <cstddef>
@@ -11,11 +12,10 @@
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "Font.h"
 #include "Video2.h"
+#include "image.h"
 #include "image_assets.h"
 #include "line.h"
-#include "vobject.h"
-#include "vobject_blitters.h"
-#include "vsurface.h"
+#include "sprite.h"
 
 #define FONT_MCOLOR_BLACK 0
 
@@ -23,7 +23,7 @@
 bool gfRenderHilights = true;
 
 // GLOBAL: WIZ8 0x005ff828
-SGPVSurface* ButtonDestBuffer = nullptr;
+SDL_Surface* ButtonDestBuffer = nullptr;
 
 static GenericButtonImage default_generic_image;
 
@@ -64,12 +64,12 @@ ButtonImage ButtonGraphics::Load(std::string_view filename, std::int32_t grayed,
         if (index == BUTTON_NO_IMAGE)
             continue;
         if (index < 0 ||
-            static_cast<std::size_t>(index) >= image->object().sprites.size()) {
+            static_cast<std::size_t>(index) >= image->object().frames.size()) {
             SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Invalid button frame %d in %s",
                          index, std::string(filename).c_str());
             return {};
         }
-        const auto& frame = image->object().sprites[index];
+        const auto& frame = image->object().frames[index];
         image->MaxWidth = std::max(image->MaxWidth,
             static_cast<std::uint32_t>(std::max(0, frame.usWidth + frame.sOffsetX)));
         image->MaxHeight = std::max(image->MaxHeight,
@@ -96,9 +96,9 @@ GenericButtonImage LoadGenericGraphics(const std::array<std::string_view, 6>& fi
         object = g_image_assets.sprites(filenames[index]);
         const bool valid = object && (index == 5
             ? background_frame >= 0 &&
-                  static_cast<std::size_t>(background_frame) < object->sprites.size()
-            : object->sprites.size() >= 9 && object->sprites[0].usWidth > 0 &&
-              object->sprites[0].usHeight > 0);
+                  static_cast<std::size_t>(background_frame) < object->frames.size()
+            : object->frames.size() >= 9 && object->frames[0].usWidth > 0 &&
+              object->frames[0].usHeight > 0);
         if (!valid) {
             if (optional_highlights && (index == 3 || index == 4)) {
                 object.reset();
@@ -109,9 +109,9 @@ GenericButtonImage LoadGenericGraphics(const std::array<std::string_view, 6>& fi
             return {};
         }
     }
-    const auto pixel = image->frames[0]->sprites[8].paletteIndexAt(0, 0);
+    const auto pixel = image->frames[0]->frames[8].paletteIndexAt(0, 0);
     if (!pixel) return {};
-    image->fill_color = image->frames[0]->palette[*pixel];
+    image->fill_color = image->frames[0]->colors[*pixel];
     image->background_frame = background_frame;
     image->offset_x = offset_x;
     image->offset_y = offset_y;
@@ -186,39 +186,32 @@ static std::int8_t DrawQuickButton(const ButtonAppearance* b, const ButtonVisual
         disabled_style = DisabledOverlayStyle(*b, state);
     }
     if (frame != BUTTON_NO_IMAGE)
-        BltVideoObject(*ButtonDestBuffer, image.object(), static_cast<std::uint16_t>(frame),
-                       b->bounds.x, b->bounds.y, VO_BLT_SRCTRANSPARENCY);
+        DrawSprite(*ButtonDestBuffer, image.object(), static_cast<std::size_t>(frame),
+                   b->bounds.x, b->bounds.y);
     return disabled_style;
 }
 
 static void DrawHatchOnButton(const ButtonAppearance* b)
 {
     const auto& bounds = b->bounds;
-    SDL_Rect clip_rect{bounds.x, bounds.y, bounds.w - 1, bounds.h - 1};
-    const auto& destination_storage = *ButtonDestBuffer->cpu().surface;
-    auto* pixel_bytes = static_cast<std::uint8_t*>(destination_storage.pixels);
-    Blt16BPPBufferHatchRect(reinterpret_cast<std::uint16_t*>(pixel_bytes),
-                            static_cast<std::uint32_t>(destination_storage.pitch), &clip_rect);
+    const SDL_Rect area{bounds.x, bounds.y, bounds.w, bounds.h};
+    HatchRect(*ButtonDestBuffer, area);
 }
 
 static void DrawShadeOnButton(const ButtonAppearance* b)
 {
     const auto& bounds = b->bounds;
-    SDL_Rect clip_rect{bounds.x, bounds.y, bounds.w - 1, bounds.h - 1};
-    const auto& destination_storage = *ButtonDestBuffer->cpu().surface;
-    auto* pixel_bytes = static_cast<std::uint8_t*>(destination_storage.pixels);
-    Blt16BPPBufferShadowRect(reinterpret_cast<std::uint16_t*>(pixel_bytes),
-                             static_cast<std::uint32_t>(destination_storage.pitch), &clip_rect);
+    const SDL_Rect area{bounds.x, bounds.y, bounds.w, bounds.h};
+    ShadowRect(*ButtonDestBuffer, area);
 }
 
 // FUNCTION: WIZ8 0x0040e170
 static void DrawDefaultOnButton(const ButtonAppearance* b)
 {
     const auto& bounds = b->bounds;
-    const auto& destination_storage = *ButtonDestBuffer->cpu().surface;
-    auto* pixels = static_cast<char*>(destination_storage.pixels);
-    SetClippingRegionAndImageWidth(static_cast<std::uint32_t>(destination_storage.pitch),
-                                   0, 0, 640, 480);
+    auto* pixels = static_cast<char*>(ButtonDestBuffer->pixels);
+    SetClippingRegionAndImageWidth(static_cast<std::uint32_t>(ButtonDestBuffer->pitch),
+                                   0, 0, ButtonDestBuffer->w, ButtonDestBuffer->h);
     if (b->bDefaultStatus == DEFAULT_STATUS_DARKBORDER ||
         b->bDefaultStatus == DEFAULT_STATUS_WINDOWS95) {
         //left (one thick)
@@ -264,7 +257,7 @@ static void DrawTextOnButton(const ButtonAppearance* b, const ButtonVisualState&
         text_origin_y = text_clip.y;
 
         // Get the current clipping area and clip the viewable area to it
-        GetClippingRect(&previous_clip);
+        SDL_GetSurfaceClipRect(ButtonDestBuffer, &previous_clip);
         if (!SDL_GetRectIntersection(&text_clip, &previous_clip, &text_clip))
             return;
 
@@ -341,10 +334,6 @@ static std::int8_t DrawGenericButton(const ButtonAppearance* b, const ButtonVisu
     std::int32_t q, ImgNum, ox, oy;
     std::int32_t iBorderHeight, iBorderWidth;
     std::size_t picture_index = 0;
-    std::uint32_t uiDestPitchBYTES;
-    std::uint8_t* pDestBuf;
-    SDL_Rect ClipRect;
-    SpriteFrame* pTrav;
 
     // Select the graphics to use depending on the current state of the button
     if (state.enabled) {
@@ -368,18 +357,10 @@ static std::int8_t DrawGenericButton(const ButtonAppearance* b, const ButtonVisu
         disabled_style = DisabledOverlayStyle(*b, state);
     }
 
-    auto& BPic = *b->generic_image->frames[picture_index];
-    iBorderWidth = 3;
-    iBorderHeight = 2;
-    pTrav = nullptr;
-
-    // DB - Added this to support more flexible sizing of border images
-    // The 3x2 size was a bit limiting. JA2 should default to the original
-    // size, unchanged
-
-    pTrav = &(BPic.sprites[0]);
-    iBorderHeight = (std::int32_t)pTrav->usHeight;
-    iBorderWidth = (std::int32_t)pTrav->usWidth;
+    const auto& BPic = *b->generic_image->frames[picture_index];
+    const auto& first_frame = BPic.frames[0];
+    iBorderHeight = first_frame.usHeight;
+    iBorderWidth = first_frame.usWidth;
 
     // Compute the number of button "chunks" needed to be blitted
     width = b->bounds.w;
@@ -392,10 +373,8 @@ static std::int8_t DrawGenericButton(const ButtonAppearance* b, const ButtonVisu
     cx = (b->bounds.x + ((NumChunksWide - 1) * iBorderWidth) + wremain);
     cy = (b->bounds.y + ((NumChunksHigh - 1) * iBorderHeight) + hremain);
 
-    // Fill the button's area with the button's background color
-    ColorFillVideoSurfaceArea(*ButtonDestBuffer, b->bounds.x, b->bounds.y,
-                              (b->bounds.x + b->bounds.w), (b->bounds.y + b->bounds.h),
-                              b->generic_image->fill_color);
+    const SDL_Rect button_area{b->bounds.x, b->bounds.y, b->bounds.w, b->bounds.h};
+    SDL_FillSurfaceRect(ButtonDestBuffer, &button_area, b->generic_image->fill_color);
 
     // If there is a background image, fill the button's area with it
     if (b->generic_image->frames[5] != nullptr) {
@@ -405,19 +384,16 @@ static std::int8_t DrawGenericButton(const ButtonAppearance* b, const ButtonVisu
         if (state.pressed)
             ox = oy = 1;
 
-        // Fill the area with the image, tilling it if need be.
-        ImageFillVideoSurfaceArea(
-            *ButtonDestBuffer, b->bounds.x + ox, b->bounds.y + oy,
-            (b->bounds.x + b->bounds.w), (b->bounds.y + b->bounds.h),
-            *b->generic_image->frames[5], b->generic_image->background_frame,
-            b->generic_image->offset_x, b->generic_image->offset_y);
+        const SDL_Rect background_area{b->bounds.x + ox, b->bounds.y + oy,
+                                       b->bounds.w - ox, b->bounds.h - oy};
+        TileSprite(*ButtonDestBuffer, background_area, *b->generic_image->frames[5],
+                   b->generic_image->background_frame,
+                   {b->generic_image->offset_x, b->generic_image->offset_y});
     }
 
-    const auto& destination_storage = *ButtonDestBuffer->cpu().surface;
-    uiDestPitchBYTES = destination_storage.pitch;
-    pDestBuf = static_cast<std::uint8_t*>(destination_storage.pixels);
-
-    GetClippingRect(&ClipRect);
+    const auto draw_frame = [&](std::size_t frame, int x, int y) {
+        DrawSprite(*ButtonDestBuffer, BPic, frame, x, y);
+    };
 
     // Draw the button's borders and corners (horizontally)
     for (q = 0; q < NumChunksWide; q++) {
@@ -426,57 +402,33 @@ static std::int8_t DrawGenericButton(const ButtonAppearance* b, const ButtonVisu
         else
             ImgNum = 1;
 
-        BltSpriteTo16BPPBuffer((std::uint16_t*)pDestBuf, uiDestPitchBYTES,
-                                   BPic.sprites[(std::uint16_t)ImgNum], BPic.currentPalette().data(),
-                                   (std::int32_t)(b->bounds.x + (q * iBorderWidth)), (std::int32_t)b->bounds.y, &ClipRect, false,
-                                   SpriteDrawOp::Transparent);
+        draw_frame(static_cast<std::size_t>(ImgNum),
+                   b->bounds.x + q * iBorderWidth, b->bounds.y);
 
         if (q == 0)
             ImgNum = 5;
         else
             ImgNum = 6;
 
-        BltSpriteTo16BPPBuffer((std::uint16_t*)pDestBuf, uiDestPitchBYTES,
-                                   BPic.sprites[(std::uint16_t)ImgNum], BPic.currentPalette().data(),
-                                   (std::int32_t)(b->bounds.x + (q * iBorderWidth)), cy, &ClipRect, false,
-                                   SpriteDrawOp::Transparent);
+        draw_frame(static_cast<std::size_t>(ImgNum), b->bounds.x + q * iBorderWidth, cy);
     }
     // Blit the right side corners
-    BltSpriteTo16BPPBuffer((std::uint16_t*)pDestBuf, uiDestPitchBYTES,
-                               BPic.sprites[2], BPic.currentPalette().data(),
-                               cx, (std::int32_t)b->bounds.y, &ClipRect, false,
-                               SpriteDrawOp::Transparent);
-
-    BltSpriteTo16BPPBuffer((std::uint16_t*)pDestBuf, uiDestPitchBYTES,
-                               BPic.sprites[7], BPic.currentPalette().data(),
-                               cx, cy, &ClipRect, false,
-                               SpriteDrawOp::Transparent);
+    draw_frame(2, cx, b->bounds.y);
+    draw_frame(7, cx, cy);
     // Draw the vertical members of the button's borders
     NumChunksHigh--;
 
     if (hremain != 0) {
         q = NumChunksHigh;
-        BltSpriteTo16BPPBuffer((std::uint16_t*)pDestBuf, uiDestPitchBYTES,
-                                   BPic.sprites[3], BPic.currentPalette().data(),
-                                   (std::int32_t)b->bounds.x, (std::int32_t)(b->bounds.y + (q * iBorderHeight) - (iBorderHeight - hremain)), &ClipRect, false,
-                                   SpriteDrawOp::Transparent);
-
-        BltSpriteTo16BPPBuffer((std::uint16_t*)pDestBuf, uiDestPitchBYTES,
-                                   BPic.sprites[4], BPic.currentPalette().data(),
-                                   cx, (std::int32_t)(b->bounds.y + (q * iBorderHeight) - (iBorderHeight - hremain)), &ClipRect, false,
-                                   SpriteDrawOp::Transparent);
+        const int y = b->bounds.y + q * iBorderHeight - (iBorderHeight - hremain);
+        draw_frame(3, b->bounds.x, y);
+        draw_frame(4, cx, y);
     }
 
     for (q = 1; q < NumChunksHigh; q++) {
-        BltSpriteTo16BPPBuffer((std::uint16_t*)pDestBuf, uiDestPitchBYTES,
-                                   BPic.sprites[3], BPic.currentPalette().data(),
-                                   (std::int32_t)b->bounds.x, (std::int32_t)(b->bounds.y + (q * iBorderHeight)), &ClipRect, false,
-                                   SpriteDrawOp::Transparent);
-
-        BltSpriteTo16BPPBuffer((std::uint16_t*)pDestBuf, uiDestPitchBYTES,
-                                   BPic.sprites[4], BPic.currentPalette().data(),
-                                   cx, (std::int32_t)(b->bounds.y + (q * iBorderHeight)), &ClipRect, false,
-                                   SpriteDrawOp::Transparent);
+        const int y = b->bounds.y + q * iBorderHeight;
+        draw_frame(3, b->bounds.x, y);
+        draw_frame(4, cx, y);
     }
 
     return disabled_style;

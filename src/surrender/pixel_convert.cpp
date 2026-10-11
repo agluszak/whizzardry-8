@@ -9,7 +9,7 @@
 
 #include "glm/geometric.hpp"
 #include "surrender/srPixelConvert.h"
-#include "wiz8/compat/surfaces.h"
+#include "wiz8/surface_storage.h"
 #include "surrender/srARGB.h"
 #include "surrender/srMath.h"
 #include "surrender/srPalette.h"

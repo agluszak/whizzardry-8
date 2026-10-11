@@ -4,6 +4,7 @@
 #include <memory>
 #include <vector>
 
+#include "image.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/local_code/ControlsRect.h"
 #include "input.h"
@@ -12,9 +13,7 @@
 #include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/video_object_catalog.h"
 #include "wiz8/fonts.h"
-#include "vsurface.h"
 #include "local_code/Controls.h"
-#include "vobject.h"
 
 struct W8CharacterCreationState;
 
@@ -133,8 +132,7 @@ void W8CharacterPageEntry::Redraw()
 {
     if (m_enabled && m_dirty) {
         if (m_draw_background) {
-            DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x108, 0, 2, m_x, m_y,
-                                          VO_BLT_SRCTRANSPARENCY);
+            DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x108, 0, 2, m_x, m_y);
         }
         m_first_text->SetText(fmt::format("{:d}", ReadStatValue<unsigned int>(m_first)), g_wiz_text_font_secondary);
         m_second_text->SetText(fmt::format("{:d}", ReadStatValue<int>(m_second)), g_wiz_text_font_secondary);

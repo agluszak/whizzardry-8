@@ -151,10 +151,14 @@ TEST_CASE("Lighting kernels share bounded ramps and preserve normal-dot clamp po
     srLightingMath::normalDots({}, {}, {}, srLightingMath::DotRange::unit);
     std::array<glm::vec4, 2> colors{glm::vec4(1), glm::vec4(2)};
     const std::array<float, 2> weights{.5f, 2}, attenuation{.25f, .5f};
-    srLightingMath::accumulateLight(colors, glm::vec4(4), weights, attenuation);
+    srLightingMath::accumulateLight(std::span<glm::vec4>(colors), glm::vec4(4), weights, attenuation);
     REQUIRE(colors[0] == glm::vec4(1.5f));
     REQUIRE(colors[1] == glm::vec4(6));
-    srLightingMath::accumulateLight(colors, glm::vec4(1));
+    srLightingMath::accumulateLight(std::span<glm::vec4>(colors), glm::vec4(1));
     REQUIRE(colors[0] == glm::vec4(2.5f));
     srLightingMath::accumulateLight({}, glm::vec4(1));
+    std::array<glm::vec3, 2> rgb{glm::vec3(1), glm::vec3(2)};
+    srLightingMath::accumulateLight(std::span<glm::vec3>(rgb), glm::vec3(4), weights, attenuation);
+    REQUIRE(rgb[0] == glm::vec3(1.5f));
+    REQUIRE(rgb[1] == glm::vec3(6));
 }

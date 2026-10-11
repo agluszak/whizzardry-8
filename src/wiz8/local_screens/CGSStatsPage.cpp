@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 
+#include "image.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/local_code/Controls.h"
 #include "wiz8/local_screens/CharacterScreen.h"
@@ -18,8 +19,6 @@
 #include "wiz8/video_object_catalog.h"
 #include "input.h"
 #include "compat/compiler.h"
-#include "vobject.h"
-#include "vsurface.h"
 
 #define CGS_STATS_PAGE_CPP "C:\\Projects\\Wizardry 8\\Local Screens\\CGSStatsPage.cpp"
 
@@ -161,7 +160,7 @@ void W8CharacterStatsValue::Redraw(bool full_redraw)
     int top = m_pPanel->m_bounds.top + m_top + 1;
     const W8CharacterStatsRecord* record = m_record;
     unsigned int image = m_enabled ? record->image_enabled : record->image_disabled;
-    DrawCatalogImage(GetFrameBufferSurface(), record->object, 0, image, left, top, VO_BLT_SRCTRANSPARENCY);
+    DrawCatalogImage(GetFrameBufferSurface(), record->object, 0, image, left, top);
 }
 
 /* Force the control enabled while the base handles the right-button release,
@@ -220,7 +219,7 @@ void W8CharacterStatsRecordControl::Redraw(bool full_redraw)
     int top = m_pPanel->m_bounds.top + m_text_offset + m_top + 1;
     const W8CharacterStatsRecord* record = m_record;
     unsigned int image = m_enabled ? record->image_enabled : record->image_disabled;
-    DrawCatalogImage(GetFrameBufferSurface(), record->object, 0, image, left, top, VO_BLT_SRCTRANSPARENCY);
+    DrawCatalogImage(GetFrameBufferSurface(), record->object, 0, image, left, top);
 }
 
 // FUNCTION: WIZ8 0x005c9290
@@ -1000,8 +999,7 @@ void W8CharacterStatsPage::Redraw()
             int frame_top = (first_column ? 0x155 : 0x16f) + top;
             DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), g_character_resistance_images[realm_index],
                                           0, g_spell_realm_animations[realm_index].initial_frame,
-                                          (realm_index / 2) * 0x3f + 0x23 + left, frame_top,
-                                          VO_BLT_SRCTRANSPARENCY);
+                                          (realm_index / 2) * 0x3f + 0x23 + left, frame_top);
         }
 
         text.SetLayoutMode(g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
@@ -1078,13 +1076,13 @@ void W8CharacterStatsPage::Redraw()
 
     if (m_dirty) {
         W8ControlsRect bounds = {0x8f, 0x162, 0xbf, 0x179};
-        DrawCatalogImage(GetFrameBufferSurface(), 0x107, 0, 5, 0x8f, 0x162, VO_BLT_SRCTRANSPARENCY);
+        DrawCatalogImage(GetFrameBufferSurface(), 0x107, 0, 5, 0x8f, 0x162);
         text.SetLayoutBounds(&bounds, true, true);
         text.RenderString(fmt::format("{:d}", m_creation_state->attribute_step_limit),
                           g_options_detail_font, true, GetFrameBufferSurface());
         bounds.top = 0x184;
         bounds.bottom = 0x19b;
-        DrawCatalogImage(GetFrameBufferSurface(), 0x107, 0, 5, 0x8f, 0x184, VO_BLT_SRCTRANSPARENCY);
+        DrawCatalogImage(GetFrameBufferSurface(), 0x107, 0, 5, 0x8f, 0x184);
         text.SetLayoutBounds(&bounds, true, true);
         int total = m_creation_state->attribute_points_total;
         std::string points_text =

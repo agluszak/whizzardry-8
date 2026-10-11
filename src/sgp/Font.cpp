@@ -6,25 +6,27 @@
 #include <memory>
 #include <string_view>
 #include <vector>
+#include <SDL3/SDL_surface.h>
 
 #include "wiz8/unicode.h"
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07, 2026-10-09.
    Distributed under the accompanying SFI Source Code license agreement. */
 // font.c
-#include "Types.h"
 #include "Font.h"
 #include "Video2.h"
 #include "himage.h"
-#include "vobject.h"
-#include "vobject_blitters.h"
-#include "vsurface.h"
+#include "image.h"
+#include "image_assets.h"
+#include "sprite.h"
+#include "Types.h"
 
 static std::vector<std::uint16_t> g_font_translation;
 FontRenderState g_font_render_state;
 FontRenderScope* FontRenderScope::current = nullptr;
 
 Font::Font(Font&& other) noexcept
-    : glyphs(std::move(other.glyphs)), customPalette(std::move(other.customPalette))
+    : glyphs(std::move(other.glyphs)), customPalette(std::move(other.customPalette)),
+      shades(std::move(other.shades)), currentShade(other.currentShade)
 {
     other.clear();
 }
@@ -35,6 +37,8 @@ Font& Font::operator=(Font&& other) noexcept
         clear();
         glyphs = std::move(other.glyphs);
         customPalette = std::move(other.customPalette);
+        shades = std::move(other.shades);
+        currentShade = other.currentShade;
         other.clear();
     }
     return *this;
@@ -52,6 +56,8 @@ void Font::clear()
         if (scope->saved.font == this) scope->saved.font = nullptr;
     glyphs = {};
     customPalette.reset();
+    shades.clear();
+    currentShade = kNormalShade;
 }
 
 // SetFontForeground
@@ -71,7 +77,7 @@ void SetFontForeground(std::uint8_t ubForeground)
     g_font_render_state.foreground_index = ubForeground;
 
     g_font_render_state.foreground =
-        Get16BPPColor(g_font_render_state.font->glyphs.pPaletteEntry[ubForeground]);
+        Get16BPPColor(g_font_render_state.font->glyphs->palette[ubForeground]);
 }
 
 // FUNCTION: WIZ8 0x00406c90
@@ -83,7 +89,7 @@ void SetFontShadow(std::uint8_t ubShadow)
     //g_font_render_state.foreground_index=ubForeground;
 
     g_font_render_state.shadow =
-        Get16BPPColor(g_font_render_state.font->glyphs.pPaletteEntry[ubShadow]);
+        Get16BPPColor(g_font_render_state.font->glyphs->palette[ubShadow]);
 
     if (ubShadow != 0) {
         if (g_font_render_state.shadow == 0) {
@@ -110,7 +116,7 @@ void SetFontBackground(std::uint8_t ubBackground)
     g_font_render_state.background_index = ubBackground;
 
     g_font_render_state.background =
-        Get16BPPColor(g_font_render_state.font->glyphs.pPaletteEntry[ubBackground]);
+        Get16BPPColor(g_font_render_state.font->glyphs->palette[ubBackground]);
 }
 
 // FUNCTION: WIZ8 0x00406d80
@@ -126,42 +132,93 @@ void SetRGBFontShadow(SDL_Color color)
 void Font::setPalette(const Palette16& colors)
 {
     customPalette = colors;
-    glyphs.currentShade = SGPVObject::normalShade;
+    currentShade = kNormalShade;
 }
 
 // FUNCTION: WIZ8 0x00406de0
 const Palette16& Font::palette() const
 {
-    return customPalette ? *customPalette : glyphs.palette;
+    static const Palette16 empty{};
+    return customPalette ? *customPalette : glyphs ? glyphs->colors : empty;
 }
 
 const Palette16& Font::currentPalette() const
 {
-    return glyphs.currentShade == SGPVObject::normalShade ? palette() : glyphs.currentPalette();
+    return currentShade == kNormalShade ? palette() : shades.at(currentShade).value();
 }
 
 void Font::resetPalette()
 {
-    glyphs.currentShade = SGPVObject::normalShade;
+    currentShade = kNormalShade;
     customPalette.reset();
+}
+
+// FUNCTION: WIZ8 0x00406460
+std::uint16_t Font::createShades(std::uint32_t glow)
+{
+    if (!glyphs)
+        return false;
+    shades.clear();
+    shades.resize(16);
+    switch (glow) {
+    case FONT_GLOW_GREEN:
+        shades[0] = Create16BPPPaletteShaded(glyphs->palette, 0, 255, 0, true);
+        break;
+    case FONT_GLOW_BLUE:
+        shades[0] = Create16BPPPaletteShaded(glyphs->palette, 0, 0, 255, true);
+        break;
+    case FONT_GLOW_YELLOW:
+        shades[0] = Create16BPPPaletteShaded(glyphs->palette, 255, 255, 0, true);
+        break;
+    case FONT_GLOW_RED:
+        shades[0] = Create16BPPPaletteShaded(glyphs->palette, 255, 0, 0, true);
+        break;
+    }
+
+    shades[1] = Create16BPPPaletteShaded(glyphs->palette, 293, 293, 293, false);
+    shades[2] = Create16BPPPaletteShaded(glyphs->palette, 281, 281, 281, false);
+    shades[3] = Create16BPPPaletteShaded(glyphs->palette, 268, 268, 268, false);
+    shades[5] = Create16BPPPaletteShaded(glyphs->palette, 195, 195, 195, false);
+    shades[6] = Create16BPPPaletteShaded(glyphs->palette, 165, 165, 165, false);
+    shades[7] = Create16BPPPaletteShaded(glyphs->palette, 135, 135, 135, false);
+    shades[8] = Create16BPPPaletteShaded(glyphs->palette, 105, 105, 105, false);
+    shades[9] = Create16BPPPaletteShaded(glyphs->palette, 75, 75, 75, false);
+    shades[10] = Create16BPPPaletteShaded(glyphs->palette, 45, 45, 45, false);
+    shades[11] = Create16BPPPaletteShaded(glyphs->palette, 36, 36, 36, false);
+    shades[12] = Create16BPPPaletteShaded(glyphs->palette, 27, 27, 27, false);
+    shades[13] = Create16BPPPaletteShaded(glyphs->palette, 18, 18, 18, false);
+    shades[14] = Create16BPPPaletteShaded(glyphs->palette, 9, 9, 9, false);
+    shades[15] = Create16BPPPaletteShaded(glyphs->palette, 0, 0, 0, false);
+    currentShade = kNormalShade;
+    return true;
+}
+
+// FUNCTION: WIZ8 0x004068e0
+std::uint16_t Font::setShade(std::uint32_t shade)
+{
+    if (shade != kNormalShade && (shade >= shades.size() || !shades[shade]))
+        return false;
+    currentShade = shade;
+    return true;
 }
 
 // FUNCTION: WIZ8 0x00406e00
 bool Font::load(std::string_view filename)
 {
-    auto object = LoadVideoObject(filename);
-    if (!object) return false;
+    auto sheet = g_image_assets.sprites(filename);
+    if (!sheet)
+        return false;
     clear();
-    glyphs = std::move(*object);
+    glyphs = std::move(sheet);
     return true;
 }
 
 // GetWidth
 //	Returns the width of a given character in the font.
 
-static std::uint32_t GetWidth(const SGPVObject& hSrcVObject, std::int16_t ssIndex)
+static std::uint32_t GetWidth(const SpriteSheet& sprites, std::int16_t ssIndex)
 {
-    const auto& glyph = hSrcVObject.sprites[ssIndex];
+    const auto& glyph = sprites.frames[ssIndex];
     return glyph.usWidth + glyph.sOffsetX;
 }
 
@@ -183,12 +240,12 @@ std::int16_t Font::codepointPrefixWidth(std::string_view string, std::uint32_t u
 // FUNCTION: WIZ8 0x00406f90
 std::int16_t Font::prefixWidth(std::string_view string, std::size_t byte_end) const
 {
-    if (glyphs.sprites.empty()) return 0;
+    if (!glyphs || glyphs->frames.empty()) return 0;
     std::uint32_t width = 0;
     for (std::size_t offset = 0; offset < string.size() && offset < byte_end;) {
         const auto glyph = GetIndex(wiz8::text::next(string, offset));
         if (offset > byte_end) break;
-        width += GetWidth(glyphs, glyph);
+        width += GetWidth(*glyphs, glyph);
     }
     return static_cast<std::int16_t>(width);
 }
@@ -215,9 +272,9 @@ FontRenderScope::~FontRenderScope()
 // GetHeight
 //	Returns the height of a given character in the font.
 
-static std::uint32_t GetHeight(const SGPVObject& hSrcVObject, std::int16_t ssIndex)
+static std::uint32_t GetHeight(const SpriteSheet& sprites, std::int16_t ssIndex)
 {
-    const auto& glyph = hSrcVObject.sprites[ssIndex];
+    const auto& glyph = sprites.frames[ssIndex];
     return glyph.usHeight + glyph.sOffsetY;
 }
 // GetFontHeight
@@ -226,8 +283,8 @@ static std::uint32_t GetHeight(const SGPVObject& hSrcVObject, std::int16_t ssInd
 // FUNCTION: WIZ8 0x004071f0
 std::uint16_t Font::height() const
 {
-    if (glyphs.sprites.empty()) return 0;
-    return ((std::uint16_t)GetHeight(glyphs, 0));
+    if (!glyphs || glyphs->frames.empty()) return 0;
+    return static_cast<std::uint16_t>(GetHeight(*glyphs, 0));
 }
 
 // GetIndex
@@ -259,45 +316,48 @@ void SetFont(Font& font)
 // sets the line wrap on/off. The destination is a non-owning surface reference.
 
 // FUNCTION: WIZ8 0x00407220
-void SetFontDestBuffer(SGPVSurface& DestBuffer, std::int32_t x1, std::int32_t y1, std::int32_t x2, std::int32_t y2, bool wrap)
+void SetFontDestBuffer(SDL_Surface& destination, std::int32_t x1, std::int32_t y1,
+                       std::int32_t x2, std::int32_t y2, bool wrap)
 {
     Assert(x2 > x1);
     Assert(y2 > y1);
 
-    g_font_render_state.destination = &DestBuffer;
-
+    g_font_render_state.destination = &destination;
     g_font_render_state.clip = {x1, y1, x2 - x1, y2 - y1};
     g_font_render_state.wrap = wrap;
-
 }
 
-// One bounded UTF-8 traversal for surface and buffer rendering.
-static void DrawTextToBuffer(std::uint8_t* buffer, std::uint32_t pitch, Font& font_index, std::int32_t x, std::int32_t y,
-                             std::string_view text, bool mono)
+static void DrawTextToSurface(SDL_Surface& target, Font& font, std::int32_t x, std::int32_t y,
+                              std::string_view text, bool mono)
 {
-    auto& font = font_index.glyphs;
-    if (!buffer) return;
+    if (!font.glyphs)
+        return;
+    ScopedClipRect clip(target, g_font_render_state.clip);
+    const auto& sprites = *font.glyphs;
     std::int32_t destx = x;
     for (std::size_t offset = 0; offset < text.size();) {
         const auto glyph = GetIndex(wiz8::text::next(text, offset));
-        if (g_font_render_state.wrap && BltIsClipped(font, destx, y, glyph, &g_font_render_state.clip)) {
+        if (glyph < 0 || static_cast<std::size_t>(glyph) >= sprites.frames.size())
+            continue;
+        if (g_font_render_state.wrap &&
+            SpriteIsClipped(sprites, glyph, destx, y, g_font_render_state.clip)) {
             destx = x;
-            y += GetHeight(font, glyph);
+            y += GetHeight(sprites, glyph);
         }
-        BltSpriteTo16BPPBuffer(reinterpret_cast<std::uint16_t*>(buffer), pitch, font.sprites[glyph],
-                              font_index.currentPalette().data(), destx, y, &g_font_render_state.clip, false,
-                              mono ? SpriteDrawOp::MonoShadow : SpriteDrawOp::Transparent,
-                              g_font_render_state.foreground, g_font_render_state.background, g_font_render_state.shadow);
-        destx += GetWidth(font, glyph);
+        DrawSprite(target, sprites, glyph, destx, y,
+                   {.blend = mono ? SpriteBlend::Mono : SpriteBlend::Transparent,
+                    .foreground = g_font_render_state.foreground,
+                    .background = g_font_render_state.background,
+                    .shadow = g_font_render_state.shadow,
+                    .palette = &font.currentPalette()});
+        destx += GetWidth(sprites, glyph);
     }
 }
 
 static void DrawTextToSurface(std::int32_t x, std::int32_t y, std::string_view text, bool mono)
 {
     if (!g_font_render_state.font || !g_font_render_state.destination) return;
-    const auto& storage = *g_font_render_state.destination->cpu().surface;
-    DrawTextToBuffer(static_cast<std::uint8_t*>(storage.pixels), storage.pitch, *g_font_render_state.font, x, y, text, mono);
-    return;
+    DrawTextToSurface(*g_font_render_state.destination, *g_font_render_state.font, x, y, text, mono);
 }
 
 // Draw UTF-8 text using the current font and destination.
@@ -342,19 +402,17 @@ void DrawFontTextDirty(std::int32_t x, std::int32_t y, std::string_view string)
 // Draw UTF-8 text using the current font and destination.
 
 // FUNCTION: WIZ8 0x00407a10
-void DrawFontTextToBuffer(std::uint8_t* pDestBuf, std::uint32_t uiDestPitchBYTES, Font& FontType, std::int32_t x,
-                            std::int32_t y, std::string_view string)
+void DrawFontTextToSurface(SDL_Surface& target, Font& font, std::int32_t x, std::int32_t y,
+                           std::string_view string)
 {
-    DrawTextToBuffer(pDestBuf, uiDestPitchBYTES, FontType, x, y, string, false);
-    return;
+    DrawTextToSurface(target, font, x, y, string, false);
 }
 
 // FUNCTION: WIZ8 0x00407b80
-void DrawMonoFontTextToBuffer(std::uint8_t* pDestBuf, std::uint32_t uiDestPitchBYTES, Font& FontType, std::int32_t x,
-                                std::int32_t y, std::string_view string)
+void DrawMonoFontTextToSurface(SDL_Surface& target, Font& font, std::int32_t x, std::int32_t y,
+                               std::string_view string)
 {
-    DrawTextToBuffer(pDestBuf, uiDestPitchBYTES, FontType, x, y, string, true);
-    return;
+    DrawTextToSurface(target, font, x, y, string, true);
 }
 
 // FUNCTION: WIZ8 0x00407d30

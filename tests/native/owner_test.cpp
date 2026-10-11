@@ -1,6 +1,6 @@
 #include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_surface.h>
-#include "wiz8/compat/surfaces.h"
+#include "image.h"
 #include <utility>
 #include <stdexcept>
 #include <limits>
@@ -49,6 +49,7 @@
 #include "wiz8/utility.h"
 #include "wiz8/compat/compiler.h"
 #include "wiz8/sr_api.h"
+#include "wiz8/engine_code/Video2.h"
 #include "Font.h"
 #include "input.h"
 #include "wiz8/regions.h"
@@ -59,12 +60,11 @@
 #include "Types.h"
 #include "application.h"
 #include "himage.h"
+#include "wiz8/surface_storage.h"
 #include "layouts/main_game_screen.h"
 #include "layouts/screen_state.h"
 #include "local_code/RangeControl.h"
 #include "local_screens/RCSStatsPage.h"
-#include "vobject.h"
-#include "vsurface.h"
 
 
 namespace {
@@ -94,8 +94,18 @@ unsigned char enter() { ++screen_entries; return 1; }
 unsigned char leave(int discard) { screen_leaves.push_back(discard); return 1; }
 void frame() { ++screen_frames; }
 
-void button_image_fixture(const std::filesystem::path& root, std::string name, unsigned count,
-                          bool app_data, unsigned width, unsigned height);
+void button_image_fixture(const std::filesystem::path& root, std::string name, unsigned count = 9,
+                          bool app_data = false, unsigned width = 1, unsigned height = 1,
+                          std::array<std::uint8_t, 5> frame_palette_indices = {});
+
+void initialize_test_framebuffer()
+{
+    ResetFontRendering();
+    g_pixel_format = 9;
+    Initialize16BitPixelFormatMasks();
+    REQUIRE(InitializePrimarySurface());
+    ButtonDestBuffer = &GetFrameBufferSurface();
+}
 
 void screen_stack()
 {
@@ -661,59 +671,55 @@ void image_and_sprite_ownership()
 {
     SpriteSheet image;
     image.palette[1] = {255, 0, 0, 0};
+    image.colors = Create16BPPPalette(image.palette);
     image.frames.resize(1);
     image.frames[0].indices = CreateCpuStorage(1, 1, SDL_PIXELFORMAT_RGB565);
     REQUIRE(image.frames[0].indices);
     REQUIRE(SDL_FillSurfaceRect(image.frames[0].indices.get(), nullptr, 1));
     image.frames[0].usWidth = image.frames[0].usHeight = 1;
 
-    std::array<std::unique_ptr<SGPVObject>, 64> objects{};
+    std::array<std::unique_ptr<SpriteSheet>, 64> objects{};
     for (unsigned i = 0; i < objects.size(); ++i) {
-        objects[i] = std::make_unique<SGPVObject>(image);
+        objects[i] = std::make_unique<SpriteSheet>(image);
         REQUIRE(objects[i]);
-        REQUIRE((objects[i]->sprites.size() == 1 && objects[i]->sprites[0].indices->w == 1 && objects[i]->sprites[0].indices->h == 1));
-        REQUIRE(objects[i]->sprites[0].indices->pixels != image.frames[0].indices->pixels);
-        REQUIRE(objects[i]->pPaletteEntry.data() != image.palette.data());
-        (void)CreateObjectPaletteTables(*objects[i], HVOBJECT_GLOW_GREEN);
-        REQUIRE((objects[i]->pShades[0] && objects[i]->pShades[15]));
-        REQUIRE(objects[i]->currentPalette() == objects[i]->palette);
-        REQUIRE(SetObjectShade(*objects[i], 6));
-        auto retained = objects[i]->palette;
-        objects[i]->setPalette(image.palette);
-        REQUIRE(objects[i]->palette == retained);
-        REQUIRE(objects[i]->currentPalette() == objects[i]->palette);
-        REQUIRE(SetObjectShade(*objects[i], 4));
-        (void)CreateObjectPaletteTables(*objects[i], HVOBJECT_GLOW_RED);
-        REQUIRE(objects[i]->currentPalette() == objects[i]->palette);
+        REQUIRE((objects[i]->frames.size() == 1 && objects[i]->frames[0].indices->w == 1 &&
+                 objects[i]->frames[0].indices->h == 1));
+        REQUIRE(objects[i]->frames[0].indices->pixels != image.frames[0].indices->pixels);
+        REQUIRE(objects[i]->palette.data() != image.palette.data());
+        REQUIRE(objects[i]->colors.data() != image.colors.data());
     }
     REQUIRE(SDL_FillSurfaceRect(image.frames[0].indices.get(), nullptr, 2));
     image.frames[0].usWidth = 2;
-    REQUIRE((objects[0]->sprites[0].paletteIndexAt(0, 0) == 1 && objects[0]->sprites[0].usWidth == 1));
+    REQUIRE((objects[0]->frames[0].paletteIndexAt(0, 0) == 1 &&
+             objects[0]->frames[0].usWidth == 1));
     const auto* owned_pixels = image.frames[0].indices->pixels;
-    SGPVObject moved(std::move(image));
-    REQUIRE(moved.sprites[0].indices->pixels == owned_pixels);
-    REQUIRE(moved.sprites[0].paletteIndexAt(0, 0) == 2);
+    SpriteSheet moved(std::move(image));
+    REQUIRE(moved.frames[0].indices->pixels == owned_pixels);
+    REQUIRE(moved.frames[0].paletteIndexAt(0, 0) == 2);
     image = {};
     REQUIRE(image.frames.empty());
     for (unsigned index : {0u, 31u, 63u}) {
         objects[index].reset();
     }
     auto& surviving = *objects[32];
-    REQUIRE((surviving.sprites[0].paletteIndexAt(0, 0) == 1 && surviving.sprites[0].usWidth == 1));
-    std::array<std::unique_ptr<SGPVSurface>, 64> surfaces{};
-    for (auto& surface : surfaces) {
-        surface = CreateVideoSurface(8, 8, 16);
-        REQUIRE(surface);
+    REQUIRE((surviving.frames[0].paletteIndexAt(0, 0) == 1 &&
+             surviving.frames[0].usWidth == 1));
+    std::vector<SDLSurfaceOwner> surfaces;
+    surfaces.reserve(64);
+    for (unsigned index = 0; index < 64; ++index) {
+        surfaces.push_back(CreateCpuStorage(8, 8, SDL_PIXELFORMAT_RGB565));
+        REQUIRE(surfaces.back());
     }
     auto& surviving_surface = *surfaces[32];
     for (unsigned index : {0u, 31u, 63u})
         surfaces[index].reset();
-    REQUIRE((surviving_surface.ownedSurface && surviving_surface.width() == 8));
+    REQUIRE(surviving_surface.w == 8);
 
 }
 
 void font_resource_ownership()
 {
+    initialize_test_framebuffer();
     for (unsigned repeat = 0; repeat < 32; ++repeat) {
         auto translation = CreateEnglishTransTable();
         REQUIRE(translation.size() == 252);
@@ -731,7 +737,7 @@ void font_resource_ownership()
 
 void text_input_ownership()
 {
-    Font font{SGPVObject{}};
+    Font font{};
     for (unsigned repeat = 0; repeat < 32; ++repeat) {
         InitTextInputMode(font);
         const auto first = AddTextInputField(0, 0, 80, 20, REGION_PRIORITY_NORMAL,
@@ -789,8 +795,9 @@ void formatted_strings()
     REQUIRE(std::string("100% literal") == "100% literal");
 }
 
-void button_image_fixture(const std::filesystem::path& root, std::string name, unsigned count = 9,
-                          bool app_data = false, unsigned width = 1, unsigned height = 1)
+void button_image_fixture(const std::filesystem::path& root, std::string name, unsigned count,
+                          bool app_data, unsigned width, unsigned height,
+                          std::array<std::uint8_t, 5> frame_palette_indices)
 {
     REQUIRE((width > 0 && width < 128 && height > 0));
     std::replace(name.begin(), name.end(), '\\', '/');
@@ -815,7 +822,23 @@ void button_image_fixture(const std::filesystem::path& root, std::string name, u
     header.uiAppDataSize = app_data ? 4 : 0;
     write(&header, STCI_HEADER_SIZE);
     std::array<STCIPaletteElement, 256> palette{};
-    palette[1].ubRed = 255;
+    if (frame_palette_indices[0]) {
+        const std::array<SDL_Color, 5> colors{{
+            {255, 0, 0, SDL_ALPHA_OPAQUE},
+            {0, 255, 0, SDL_ALPHA_OPAQUE},
+            {0, 0, 255, SDL_ALPHA_OPAQUE},
+            {255, 255, 255, SDL_ALPHA_OPAQUE},
+            {255, 255, 0, SDL_ALPHA_OPAQUE},
+        }};
+        for (std::size_t index = 0; index < colors.size(); ++index) {
+            auto& entry = palette[frame_palette_indices[index]];
+            entry.ubRed = colors[index].r;
+            entry.ubGreen = colors[index].g;
+            entry.ubBlue = colors[index].b;
+        }
+    } else {
+        palette[1].ubRed = 255;
+    }
     write(palette.data(), STCI_8BIT_PALETTE_SIZE);
     std::vector<STCISubImage> regions(count);
     for (unsigned index = 0; index < count; ++index) {
@@ -828,9 +851,12 @@ void button_image_fixture(const std::filesystem::path& root, std::string name, u
     std::vector<std::uint8_t> pixels(width + 2, 1);
     pixels.front() = width;
     pixels.back() = 0;
-    for (unsigned index = 0; index < count; ++index)
+    for (unsigned index = 0; index < count; ++index) {
+        if (frame_palette_indices[0])
+            pixels[1] = frame_palette_indices[index % frame_palette_indices.size()];
         for (unsigned row = 0; row < height; ++row)
             write(pixels.data(), pixels.size());
+    }
     if (app_data) {
         const std::uint8_t bytes[]{7, 8, 9, 10};
         write(bytes, sizeof(bytes));
@@ -839,12 +865,13 @@ void button_image_fixture(const std::filesystem::path& root, std::string name, u
 
 void generic_button_images()
 {
+    initialize_test_framebuffer();
     RegionStateSnapshot saved_regions;
     ResetRegions();
     const std::filesystem::path root = make_temporary_directory("wiz8-button-images");
     const auto assets = root / "assets";
     button_image_fixture(assets, std::string(DEFAULT_GENERIC_BUTTON_OFF));
-    button_image_fixture(assets, "button.sti");
+    button_image_fixture(assets, "button.sti", 9, false, 1, 1, {1, 2, 3, 4, 5});
     button_image_fixture(assets, "short.sti", 8);
     g_image_assets.clear();
     w8_native::configure_paths({assets.string(), (root / "user").string(), {"", "", ""}});
@@ -875,10 +902,10 @@ void generic_button_images()
     REQUIRE(long_image_path.size() > 260);
     button_image_fixture(assets, long_image_path, 3);
     {
-        auto sprite = LoadVideoObject(long_image_path);
-        REQUIRE((sprite && sprite->sprites.size() == 3));
-        REQUIRE((sprite->sprites[2].usWidth == 1 && sprite->sprites[2].paletteIndexAt(0, 0) == 1));
-        REQUIRE(sprite->pPaletteEntry[1].r == 255);
+        auto sprite = g_image_assets.sprites(long_image_path);
+        REQUIRE((sprite && sprite->frames.size() == 3));
+        REQUIRE((sprite->frames[2].usWidth == 1 && sprite->frames[2].paletteIndexAt(0, 0) == 1));
+        REQUIRE(sprite->palette[1].r == 255);
     }
     for (bool corrupt_length : {false, true}) {
         button_image_fixture(assets, "bad-extent.sti", 3);
@@ -922,12 +949,8 @@ void generic_button_images()
     first_appearance.bounds = {0, 0, 8, 8};
     second_appearance.bounds = {2, 0, 8, 8};
     // Verify blits for normal and checkbox highlights in every visual state.
-    auto& sprite = graphics->object();
-    for (unsigned frame = 0; frame < 5; ++frame) {
-        REQUIRE(SDL_FillSurfaceRect(sprite.sprites[frame].indices.get(), nullptr, frame + 1));
-        sprite.palette[frame + 1] = 0x1000 + frame;
-    }
-    auto target_owner = CreateVideoSurface(8, 8, 16);
+    const auto& frame_colors = graphics->object().colors;
+    auto target_owner = CreateCpuStorage(8, 8, SDL_PIXELFORMAT_RGB565);
     REQUIRE(target_owner);
     auto& target = *target_owner;
     const auto old_target = ButtonDestBuffer;
@@ -941,13 +964,13 @@ void generic_button_images()
                     for (bool mouse_down : {false, true}) {
                         DrawButtonAppearance(first_appearance,
                                               {enabled, pressed, hover, checkbox, mouse_down});
-                        auto* pixels = static_cast<std::uint16_t*>(target.cpu().surface->pixels);
+                        auto* pixels = static_cast<std::uint16_t*>(target.pixels);
                         REQUIRE(pixels);
                         const auto color = pixels[0];
                         const bool highlight = hover && (!checkbox || mouse_down);
                         const unsigned expected_frame = !enabled ? 0 :
                             pressed ? (highlight ? 4 : 3) : (highlight ? 2 : 1);
-                        REQUIRE(color == 0x1000 + expected_frame);
+                        REQUIRE(color == frame_colors[expected_frame + 1]);
                     }
                 }
             }
@@ -1063,7 +1086,9 @@ void generic_button_images()
     REQUIRE((image->frames[2] && image->frames[3] && image->frames[4]));
     REQUIRE((image->frames[5] && image->background_frame == 3));
     REQUIRE((image->offset_x == 4 && image->offset_y == 5));
-    REQUIRE(image->fill_color == image->frames[0]->palette[1]);
+    const auto background_pixel = image->frames[0]->frames[8].paletteIndexAt(0, 0);
+    REQUIRE(background_pixel);
+    REQUIRE(image->fill_color == image->frames[0]->colors[*background_pixel]);
     auto another_owner = image;
     image.reset();
     REQUIRE(another_owner->frames[0]);
@@ -1081,12 +1106,21 @@ void generic_button_images()
         Font primary;
         REQUIRE(primary.load(filename));
         auto& font = primary.glyphs;
-        REQUIRE((font.sprites.size() == 9));
+        REQUIRE((font->frames.size() == 9));
         Palette16 colours{};
         colours[1] = 0x1234;
         primary.setPalette(colours);
         colours[1] = 0;
         REQUIRE(primary.palette()[1] == 0x1234);
+        REQUIRE(primary.createShades(FONT_GLOW_GREEN));
+        REQUIRE(primary.setShade(15));
+        REQUIRE(primary.currentPalette()[1] != primary.palette()[1]);
+        REQUIRE(primary.setShade(Font::kNormalShade));
+        REQUIRE(primary.currentPalette()[1] == 0x1234);
+        Font secondary;
+        REQUIRE(secondary.load(filename));
+        REQUIRE(secondary.createShades(FONT_GLOW_RED));
+        REQUIRE(secondary.shades[0] != primary.shades[0]);
         SetFont(primary);
         {
             FontRenderScope outer;
@@ -1182,11 +1216,26 @@ void generic_button_images()
     // accidentally consuming the next glyph in the backing string.
     SetFont(primary);
     g_font_render_state.clip = {0, 0, 64, 32};
-    std::vector<std::uint16_t> expected_pixels(64 * 32), view_pixels(64 * 32);
-    DrawFontTextToBuffer(reinterpret_cast<std::uint8_t*>(expected_pixels.data()), 64 * 2, primary, 0, 0, "é");
+    auto expected_surface = CreateCpuStorage(64, 32, SDL_PIXELFORMAT_RGB565);
+    auto view_surface = CreateCpuStorage(64, 32, SDL_PIXELFORMAT_RGB565);
+    REQUIRE(expected_surface);
+    REQUIRE(view_surface);
+    REQUIRE(SDL_FillSurfaceRect(expected_surface.get(), nullptr, 0));
+    REQUIRE(SDL_FillSurfaceRect(view_surface.get(), nullptr, 0));
+    DrawFontTextToSurface(*expected_surface, primary, 0, 0, "é");
     const std::string backing = "é中";
-    DrawFontTextToBuffer(reinterpret_cast<std::uint8_t*>(view_pixels.data()), 64 * 2, primary, 0, 0,
-                         std::string_view(backing).substr(0, 2));
+    DrawFontTextToSurface(*view_surface, primary, 0, 0, std::string_view(backing).substr(0, 2));
+    const auto surface_pixels = [](const SDL_Surface& surface) {
+        std::vector<std::uint16_t> pixels(static_cast<std::size_t>(surface.w * surface.h));
+        const auto* bytes = static_cast<const std::uint8_t*>(surface.pixels);
+        for (int y = 0; y < surface.h; ++y) {
+            const auto* row = reinterpret_cast<const std::uint16_t*>(bytes + y * surface.pitch);
+            std::copy_n(row, surface.w, pixels.begin() + y * surface.w);
+        }
+        return pixels;
+    };
+    auto expected_pixels = surface_pixels(*expected_surface);
+    auto view_pixels = surface_pixels(*view_surface);
     REQUIRE(view_pixels == expected_pixels);
     REQUIRE(
         std::any_of(view_pixels.begin(), view_pixels.end(), [](auto pixel) { return pixel != 0; }));
@@ -1197,12 +1246,14 @@ void generic_button_images()
     Palette16 alternate;
     alternate.fill(0x1234);
     secondary.setPalette(alternate);
-    std::fill(expected_pixels.begin(), expected_pixels.end(), 0);
-    std::fill(view_pixels.begin(), view_pixels.end(), 0);
+    REQUIRE(SDL_FillSurfaceRect(expected_surface.get(), nullptr, 0));
+    REQUIRE(SDL_FillSurfaceRect(view_surface.get(), nullptr, 0));
     SetFont(secondary);
-    DrawFontTextToBuffer(reinterpret_cast<std::uint8_t*>(expected_pixels.data()), 128, secondary, 0, 0, "é中");
+    DrawFontTextToSurface(*expected_surface, secondary, 0, 0, "é中");
     SetFont(primary);
-    DrawFontTextToBuffer(reinterpret_cast<std::uint8_t*>(view_pixels.data()), 128, secondary, 0, 0, "é中");
+    DrawFontTextToSurface(*view_surface, secondary, 0, 0, "é中");
+    expected_pixels = surface_pixels(*expected_surface);
+    view_pixels = surface_pixels(*view_surface);
     REQUIRE(view_pixels == expected_pixels);
     // Rebuilding word ranges preserves UTF-8 byte boundaries and discards
     // old hover state, including when a line becomes empty.
@@ -1336,7 +1387,7 @@ TEST_CASE("Dialog controls own interaction without legacy GUI buttons", "[owner]
     RegionStateSnapshot saved_state;
     ResetRegions();
     ExclusiveRegionSet button_scope(ControlRegionSetIndex());
-    Font font{SGPVObject{}};
+    Font font{};
     PushButtonSoundScheme(0, true);
     int activations = 0;
     {
@@ -1411,6 +1462,7 @@ TEST_CASE("Dialog controls own interaction without legacy GUI buttons", "[owner]
 
 TEST_CASE("Modal confirmations and scrollbars dispatch through their native owners", "[owner]")
 {
+    initialize_test_framebuffer();
     RegionStateSnapshot saved_state;
     ResetRegions();
     ExclusiveRegionSet button_scope(ControlRegionSetIndex());
@@ -1454,12 +1506,8 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
         REQUIRE(positions.back() == 6);
     }
 
-    auto saved_frame = std::move(GetFrameBufferSurface());
-    auto frame = CreateVideoSurface(640, 480, 16);
-    REQUIRE(frame);
-    GetFrameBufferSurface() = std::move(*frame);
     auto* old_target = std::exchange(ButtonDestBuffer, &GetFrameBufferSurface());
-    Font font{SGPVObject{}};
+    Font font{};
     auto* old_font = std::exchange(g_dialog_interface_font, &font);
     class MessageDialog final : public W8MessageDialogBase {
     public:
@@ -1481,9 +1529,7 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
         REQUIRE(dialog.accepted == accept);
     }
 
-    auto glyphs = LoadVideoObject("font.sti");
-    REQUIRE(glyphs);
-    font = Font{std::move(*glyphs)};
+    REQUIRE(font.load("font.sti"));
     {
         W8ListBoxDialog list;
         list.SetOrigin(10, 10);
@@ -1533,7 +1579,6 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
     }
     g_dialog_interface_font = old_font;
     ButtonDestBuffer = old_target;
-    GetFrameBufferSurface() = std::move(saved_frame);
     g_image_assets.clear();
     std::filesystem::remove_all(root);
 }
@@ -1548,6 +1593,7 @@ void message_box_callback()
 
 TEST_CASE("Message box owns its buttons and isolates modal input", "[owner]")
 {
+    initialize_test_framebuffer();
     RegionStateSnapshot saved_state;
     ResetRegions();
     ScopedTemporaryDirectory directory{"wiz8-message-box"};
@@ -1563,12 +1609,10 @@ TEST_CASE("Message box owns its buttons and isolates modal input", "[owner]")
     g_image_assets.clear();
     w8_native::configure_paths({assets.string(), (directory.path / "user").string(), {}});
     auto* const previous_destination = ButtonDestBuffer;
-    auto saved_frame = std::move(GetFrameBufferSurface());
 
     struct Restore {
         w8_native::Roots roots;
-        SGPVSurface* destination;
-        SGPVSurface frame_buffer;
+        SDL_Surface* destination;
         ~Restore()
         {
             if (IsMessageBoxActive()) {
@@ -1578,15 +1622,11 @@ TEST_CASE("Message box owns its buttons and isolates modal input", "[owner]")
             }
             ShutdownButtonImageManager();
             ButtonDestBuffer = destination;
-            GetFrameBufferSurface() = std::move(frame_buffer);
             g_image_assets.clear();
             w8_native::configure_paths(roots);
         }
-    } restore{previous_roots, previous_destination, std::move(saved_frame)};
+    } restore{previous_roots, previous_destination};
 
-    auto frame = CreateVideoSurface(640, 480, 16);
-    REQUIRE(frame);
-    GetFrameBufferSurface() = std::move(*frame);
     ButtonDestBuffer = &GetFrameBufferSurface();
 
     REQUIRE(InitializeButtonImageManager());
@@ -1597,7 +1637,7 @@ TEST_CASE("Message box owns its buttons and isolates modal input", "[owner]")
     SetRegionBounds(underlying.index(), 275, 256, 315, 276);
     const auto baseline_regions = LiveDynamicRegionCount();
 
-    Font font{SGPVObject{}};
+    Font font{};
     PushButtonSoundScheme(0, true);
     for (const bool accepted : {true, false}) {
         message_box_callback_count = 0;
@@ -1667,6 +1707,7 @@ TEST_CASE("assert-message", "[.death]")
 
 TEST_CASE("Image assets share normalized paths and retain resources across clearing", "[owner][image]")
 {
+    initialize_test_framebuffer();
     ScopedTemporaryDirectory directory{"wiz8-image-assets"};
     const auto assets = directory.path / "assets";
     const auto previous_roots = w8_native::path_roots();
@@ -1725,8 +1766,8 @@ TEST_CASE("Image assets share normalized paths and retain resources across clear
     REQUIRE(bitmap_reloaded);
     REQUIRE(reloaded != original);
     REQUIRE(bitmap_reloaded != bitmap);
-    REQUIRE(original->sprites.size() == 1);
-    REQUIRE(bitmap->width() == 1);
+    REQUIRE(original->frames.size() == 1);
+    REQUIRE(bitmap->w == 1);
 }
 
 TEST_CASE("Item image cache owns shared sprite sheets", "[owner][catalog]")
@@ -1767,7 +1808,7 @@ TEST_CASE("Item image cache owns shared sprite sheets", "[owner][catalog]")
 
     for (std::size_t index = 0; index < records.size(); ++index) {
         auto& sprites = g_item_video_objects.Sprites(index);
-        REQUIRE(sprites.sprites.size() == 1);
+        REQUIRE(sprites.frames.size() == 1);
         REQUIRE(&g_item_video_objects.Sprites(index) == &sprites);
     }
     REQUIRE(g_item_video_objects.LoadedImageCount() == records.size());
@@ -1775,7 +1816,7 @@ TEST_CASE("Item image cache owns shared sprite sheets", "[owner][catalog]")
     auto held = g_image_assets.sprites("Data\\Items\\icon.sti");
     REQUIRE(held);
     g_image_assets.clear();
-    REQUIRE(held->sprites.size() == 1);
+    REQUIRE(held->frames.size() == 1);
     REQUIRE(&g_item_video_objects.Sprites(0) == held.get());
     REQUIRE_THROWS_AS(GetCatalogVideoObject(-1, 0), std::out_of_range);
     REQUIRE_THROWS_AS(GetCatalogVideoObject(0, -1), std::out_of_range);

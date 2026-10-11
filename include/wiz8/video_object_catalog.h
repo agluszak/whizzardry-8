@@ -1,12 +1,12 @@
 #ifndef WIZ8_VIDEO_OBJECT_CATALOG_H
 #define WIZ8_VIDEO_OBJECT_CATALOG_H
+#include <memory>
 #include <utility>
-#include <cstdint>
 #include <string_view>
+#include <SDL3/SDL_surface.h>
 
 #include "himage.h"
-#include "vobject.h"
-#include "vsurface.h"
+#include "sprite.h"
 
 struct W8VideoObjectSlot {
     int first_frame;
@@ -23,28 +23,28 @@ struct W8CatalogArtwork {
 short GetCatalogVideoObjectYOffset(int object);
 std::string_view GetCatalogVideoObjectPath(int object);
 W8VideoStorageKind GetCatalogStorageKind(int object);
-/* 0x00549420: load the catalog frame and return its sprite object; optional out
+/* 0x00549420: load the catalog frame and return its sprite sheet; optional out
    receives the slot y_offset. */
-SGPVObject& GetCatalogVideoObject(int object, int frame, int* y_offset_out = nullptr);
-void DrawSprite(SGPVSurface& target, SGPVObject& sprites, short image, int left, int top,
-                std::uint32_t mode);
-void DrawSpriteAndInvalidate(SGPVSurface& target, SGPVObject& sprites, int image, int left, int top,
-                             std::uint32_t mode);
-std::pair<int, int> GetSpriteSize(const SGPVObject& sprites, int image);
+const SpriteSheet& GetCatalogVideoObject(int object, int frame, int* y_offset_out = nullptr);
+std::shared_ptr<const SpriteSheet> GetCatalogSpriteSheet(int object, int frame,
+                                                        int* y_offset_out = nullptr);
+std::pair<int, int> GetSpriteSize(const SpriteSheet& sprites, int image);
+void DrawSpriteAndInvalidate(SDL_Surface& target, const SpriteSheet& sprites, int image,
+                             int left, int top, SpriteDraw options = {});
 std::pair<int, int> GetCatalogImageSize(int object, int frame, int image);
 /* 0x00549700: the image's own offset inside its frame, read from the video object's
    ETRLE subregion table. */
 void GetCatalogImagePosition(int object, int frame, int image, short* x, short* y);
-void DrawCatalogImage(SGPVSurface& target, int object, int frame, short image, int left, int top,
-                      std::uint32_t mode);
+void DrawCatalogImage(SDL_Surface& target, int object, int frame, short image, int left, int top,
+                      SpriteDraw options = {});
 void InvalidateCatalogImageRect(int object, int frame, int image, int left, int top, int flags);
-void DrawCatalogImageAndInvalidate(SGPVSurface& target, int object, int frame, int image, int left,
-                                   int top, std::uint32_t mode);
-unsigned char BlitCatalogSurfaceRectTo16BPP(SGPVSurface& target, int left, int top, int right, int bottom,
+void DrawCatalogImageAndInvalidate(SDL_Surface& target, int object, int frame, int image, int left,
+                                   int top, SpriteDraw options = {});
+unsigned char BlitCatalogSurfaceRectTo16BPP(SDL_Surface& target, int left, int top, int right, int bottom,
                                             int object, int source_x, int source_y);
 
 Palette16 CopyCatalogImagePalette16BPP(int object, int frame);
-SGPVSurface& GetCatalogFrameSurface(unsigned int object, unsigned int frame);
+SDL_Surface& GetCatalogFrameSurface(unsigned int object, unsigned int frame);
 
 void ReleaseLoadedVideoFrames(void);
 

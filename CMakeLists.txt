@@ -149,7 +149,7 @@ target_link_libraries(wiz8_native_settings INTERFACE glm::glm-header-only Thread
 # Shared platform helpers and the SDL CPU surface backend used by SGP and SurRender.
 add_library(wiz8_compat STATIC
     src/compat/native_helpers.cpp
-    src/sgp/native/surfaces.cpp
+    src/native/surface_storage.cpp
 )
 target_compile_options(wiz8_compat PRIVATE ${WIZ8_COMPAT_OPTIONS})
 target_include_directories(wiz8_compat PRIVATE "${PROJECT_SOURCE_DIR}/include/wiz8" "${PROJECT_SOURCE_DIR}/include")

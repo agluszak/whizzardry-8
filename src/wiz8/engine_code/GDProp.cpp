@@ -1,6 +1,7 @@
 #include <glm/ext/quaternion_trigonometric.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include <algorithm>
+#include "wiz8/surface_geometry.h"
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
@@ -10,15 +11,14 @@
 #include "surrender/srBoundingBox.h"
 #include "wiz8/containers.h"
 #include "wiz8/local_code/ItemManager.h"
-#include "compat/ptr32.h"
 #include "geometry.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/matrix_float4x3.hpp"
 #include "glm/ext/matrix_float4x4.hpp"
 #include "glm/ext/vector_float3.hpp"
+#include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_int2.hpp"
-#include "glm/ext/vector_float4.hpp"
 #include "navigation_flags.h"
 #include "sr_api.h"
 /* Engine Code\GDProp.cpp */
@@ -156,37 +156,25 @@ void GDProp::Initialize(srModelInstance* instance, bool attach, unsigned short p
         surface_total += mesh->polygon_count;
 
         glm::vec3* source_vertices = mesh->getVertexLoc();
-        for (int vertex = 0; vertex < mesh->vertex_location_count; ++vertex) {
-            m_pVertices[vertex_base + vertex] =
-                glm::vec3(world_matrix * glm::vec4(source_vertices[vertex], 1));
-        }
+        surfaceGeometry::transformPositions({m_pVertices + vertex_base, static_cast<std::size_t>(mesh->vertex_location_count)},
+            glm::mat4x3(world_matrix), [&](std::size_t vertex) { return source_vertices[vertex]; });
         vertex_base += mesh->vertex_location_count;
 
         for (int surface_index = 0; surface_index < surface_total; ++surface_index) {
             W8GDSurface* surface = &m_pGDSurfaces[surface_index];
-            surface->plane = trianglePlane(m_pVertices[surface->vertex_indices[0]].glmValue(),
-                m_pVertices[surface->vertex_indices[1]].glmValue(), m_pVertices[surface->vertex_indices[2]].glmValue());
-
-            const auto dominant_axis = dominantPlaneAxis(surface->plane.normal.glmValue());
-            surface->flags = dominant_axis + W8_GD_SURFACE_PROP_GEOMETRY;
+            surfaceGeometry::initializePropSurface(*surface, {m_pVertices, static_cast<std::size_t>(m_vertex_count)});
             surface->footstep_surface = footstep_surface;
             surface->footstep_material = footstep_material;
-            surface->hit_plane = 0;
             if ((mesh_flags & W8_MESH_SORTED_RENDERING) != 0) {
                 surface->flags |= W8_GD_SURFACE_SKIP_FILTERED_TRACE;
             }
 
             if (g_float_half <= surface->plane.normal.y) {
-                surface->contact_margin = 500.0f;
-                surface->flags |= W8_GD_SURFACE_WALKABLE;
                 if (g_float_three_quarters < surface->plane.normal.y) {
                     surface->slope = 1.0f;
                 } else {
                     surface->slope = surface->plane.normal.y;
                 }
-            } else {
-                surface->slope = 0.0f;
-                surface->contact_margin = 500.0f;
             }
         }
         mesh = mesh->Next();
@@ -449,31 +437,18 @@ void GDProp::ApplyAnimFrame(unsigned short frame, W8LevelFileAnimObj* anim)
             node.path = transform->pathAI.pPaths[frame];
             node.scale.x = node.scale.y = node.scale.z = 1.0f;
         }
-        TransformMeshGeometry(&node, &transform->LODMesh.pFrames->mesh);
+        appendMeshGeometry(node, transform->LODMesh.pFrames->mesh);
     }
 }
 
 /* Retail selects the face representation with the short-LOD bit. */
-void GDProp::AppendMeshFaces(W8LevelFileMesh* mesh, int vertex_base)
+void GDProp::AppendMeshFaces(const W8LevelFileMesh& mesh, int vertex_base)
 {
-    if ((mesh->flags & W8_LEVEL_MESH_SHORT_LOD_VERTICES) != 0) {
-        W8LevelFileCompressedFace* faces = mesh->pstCompFaces;
-        for (int face = 0; face < mesh->num_faces; ++face) {
-            W8GDSurface* surface = &m_pGDSurfaces[m_surface_count];
-            ++m_surface_count;
-            surface->vertex_indices[0] = faces[face].vertex_indices[0] + vertex_base;
-            surface->vertex_indices[1] = faces[face].vertex_indices[1] + vertex_base;
-            surface->vertex_indices[2] = faces[face].vertex_indices[2] + vertex_base;
-        }
-    } else {
-        W8SerializedMeshFace* faces = mesh->pstFaces;
-        for (int face = 0; face < mesh->num_faces; ++face) {
-            W8GDSurface* surface = &m_pGDSurfaces[m_surface_count];
-            ++m_surface_count;
-            surface->vertex_indices[0] = faces[face].vertices[0] + vertex_base;
-            surface->vertex_indices[1] = faces[face].vertices[1] + vertex_base;
-            surface->vertex_indices[2] = faces[face].vertices[2] + vertex_base;
-        }
+    for (int face = 0; face < mesh.num_faces; ++face) {
+        auto& surface = m_pGDSurfaces[m_surface_count++];
+        for (unsigned corner = 0; corner < 3; ++corner)
+            surface.vertex_indices[corner] = vertex_base + ((mesh.flags & W8_LEVEL_MESH_SHORT_LOD_VERTICES)
+                ? mesh.pstCompFaces[face].vertex_indices[corner] : mesh.pstFaces[face].vertices[corner]);
     }
 }
 
@@ -483,95 +458,53 @@ void GDProp::AppendMeshFaces(W8LevelFileMesh* mesh, int vertex_base)
    and every appended surface then receives its plane, dominant axis and slope
    classification. */
 // FUNCTION: WIZ8 0x004b7e50
-void GDProp::TransformMeshGeometry(const W8LevelFileScaledPathNode* node, W8LevelFileMesh* mesh)
+void GDProp::appendMeshGeometry(const W8LevelFileScaledPathNode& node, const W8LevelFileMesh& mesh)
 {
     int surface_base = m_surface_count;
 
-    srVector3T<float> axis = node->path.axis;
-    glm::mat3 rotation;
-    glm::mat4x3 matrix;
-    srVector3T<float> translation;
-    srVector3T<float> scale;
+    const auto axis = node.path.axis.glmValue();
+    glm::mat3 rotation(1);
+    if (node.path.angle != g_double_zero)
+        rotation *= glm::mat3_cast(glm::angleAxis(float(std::atan2(sin(node.path.angle), cos(node.path.angle))),
+                                                normalizedOrZero(axis)));
+    const auto translation = glm::vec3(glm::dvec3(node.path.position.glmValue()) * g_double_five_hundred);
     float factor;
 
-    rotation = glm::mat3(1);
-    if (node->path.angle != g_double_zero) {
-        rotation *= glm::mat3_cast(
-            glm::angleAxis(float(std::atan2(sin(node->path.angle), cos(node->path.angle))),
-                           normalizedOrZero(glm::vec3(axis.glmValue()))));
-    }
-    translation.Set(node->path.position.x * g_double_five_hundred,
-                    node->path.position.y * g_double_five_hundred,
-                    node->path.position.z * g_double_five_hundred);
-
-    if ((mesh->flags & W8_LEVEL_MESH_LOD_VERTICES) != 0 &&
-        (mesh->flags & W8_LEVEL_MESH_SHORT_LOD_VERTICES) != 0) {
-        factor = mesh->lod_scale * g_world_scale;
+    if ((mesh.flags & W8_LEVEL_MESH_LOD_VERTICES) != 0 &&
+        (mesh.flags & W8_LEVEL_MESH_SHORT_LOD_VERTICES) != 0) {
+        factor = mesh.lod_scale * g_world_scale;
     } else {
         factor = static_cast<float>(g_double_five_hundred);
     }
-    scale = node->scale * factor;
+    const auto scale = node.scale.glmValue() * factor;
 
-    matrix = glm::mat4x3(rotation);
-    matrix[3] = translation.glmValue();
-    {
-        for (int column = 0; column < 3; ++column)
-            matrix[column] *= scale.glmValue()[column];
-    };
+    glm::mat4x3 matrix(rotation);
+    matrix[3] = translation;
+    for (int column = 0; column < 3; ++column) matrix[column] *= scale[column];
 
-    if ((mesh->flags & W8_LEVEL_MESH_LOD_VERTICES) != 0) {
-        for (int lod = 0; lod < mesh->num_lods; ++lod) {
-            int vertex_base = m_vertex_count;
-            if ((mesh->flags & W8_LEVEL_MESH_SHORT_LOD_VERTICES) != 0) {
-                short* vertices = mesh->lod_shorts[lod];
-                for (int vertex = 0; vertex < mesh->num_vertices; ++vertex) {
-                    m_pVertices[m_vertex_count] = glm::vec3(
-                        glm::mat4(matrix) *
-                        glm::vec4((srVector3T<float>(static_cast<float>(vertices[vertex * 3]),
-                                                     static_cast<float>(vertices[vertex * 3 + 1]),
-                                                     static_cast<float>(vertices[vertex * 3 + 2])))
-                                      .glmValue(),
-                                  1));
-                    ++m_vertex_count;
+    const bool has_lods = (mesh.flags & W8_LEVEL_MESH_LOD_VERTICES) != 0;
+    const bool compressed = has_lods && (mesh.flags & W8_LEVEL_MESH_SHORT_LOD_VERTICES) != 0;
+    const int frame_count = has_lods ? mesh.num_lods : 1;
+    for (int frame = 0; frame < frame_count; ++frame) {
+        const int vertex_base = m_vertex_count;
+        surfaceGeometry::transformPositions({m_pVertices + vertex_base, static_cast<std::size_t>(mesh.num_vertices)},
+            matrix, [&](std::size_t vertex) {
+                if (compressed) {
+                    const auto* packed = mesh.lod_shorts[frame] + vertex * 3;
+                    return glm::vec3(packed[0], packed[1], packed[2]);
                 }
-            } else {
-                const srVector3T<float>* vertices = mesh->lods[lod];
-                for (int vertex = 0; vertex < mesh->num_vertices; ++vertex) {
-                    m_pVertices[m_vertex_count] =
-                        glm::vec3(glm::mat4(matrix) * glm::vec4(vertices[vertex].glmValue(), 1));
-                    ++m_vertex_count;
-                }
-            }
-            AppendMeshFaces(mesh, vertex_base);
-        }
-    } else {
-        int vertex_base = m_vertex_count;
-        const srVector3T<float>* vertices = mesh->pstVertices;
-        for (int vertex = 0; vertex < mesh->num_vertices; ++vertex) {
-            m_pVertices[m_vertex_count] =
-                glm::vec3(glm::mat4(matrix) * glm::vec4(vertices[vertex].glmValue(), 1));
-            ++m_vertex_count;
-        }
+                const auto* vertices = has_lods ? mesh.lods[frame] : mesh.pstVertices;
+                return vertices[vertex].glmValue();
+            });
+        m_vertex_count += mesh.num_vertices;
         AppendMeshFaces(mesh, vertex_base);
     }
 
     for (int index = surface_base; index < m_surface_count; ++index) {
         W8GDSurface* surface = &m_pGDSurfaces[index];
-        surface->plane = trianglePlane(m_pVertices[surface->vertex_indices[0]].glmValue(),
-            m_pVertices[surface->vertex_indices[1]].glmValue(), m_pVertices[surface->vertex_indices[2]].glmValue());
-
-        const auto dominant_axis = dominantPlaneAxis(surface->plane.normal.glmValue());
-        surface->flags = dominant_axis + W8_GD_SURFACE_PROP_GEOMETRY;
-        surface->hit_plane = 0;
-        if (g_float_half <= surface->plane.normal.y) {
-            surface->contact_margin = 500.0f;
-            surface->flags |= W8_GD_SURFACE_WALKABLE;
-        } else {
-            surface->slope = 0.0f;
-            surface->contact_margin = 500.0f;
-        }
+        surfaceGeometry::initializePropSurface(*surface, {m_pVertices, static_cast<std::size_t>(m_vertex_count)});
     }
 }
 
 /* glm::mat4x3::SetTranslation/Scale emitted for this TU by
-   TransformMeshGeometry; the primary templates live in srMath.h. */
+   appendMeshGeometry; the primary templates live in srMath.h. */

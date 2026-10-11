@@ -3,6 +3,7 @@
 
 #include <SDL3/SDL_rect.h>
 #include <cstdint>
+#include <SDL3/SDL_surface.h>
 #include <SDL3/SDL_video.h>
 #include <string_view>
 #include <memory>
@@ -11,15 +12,11 @@
 #include "compat/native.h"
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float4.hpp"
-#include "vobject.h"
+#include "himage.h"
 /* Modified for the Wizardry 8 reconstruction, 2026-09-10.
    Reconstructed Wizardry Video2 interface.
    Remove the artificial SGP C boundary and unused local configuration include, 2026-10-04.
    Distributed under the accompanying SFI Source Code license agreement. */
-
-struct CpuSurface; // IWYU pragma: keep - pointer declarations in this API.
-
-#include "Types.h"
 
 #define BUFFER_READY 0x00
 #define BUFFER_BUSY 0x01
@@ -55,6 +52,7 @@ void VideoSetConfigFile(const char* path);
 int VideoDumpMemoryLeaks(void);
 bool CheckCdPresent(void);
 void VideoGetClientRect(SDL_Rect* rect);
+SDL_Surface& GetFrameBufferSurface();
 void VideoToolTip(std::string_view text);
 extern std::int32_t g_help_box_width;
 extern std::int32_t g_help_box_height;
@@ -121,11 +119,11 @@ stModelInstance2D* CreateColoredPolygonSprite(int width, int height, const glm::
                                               bool fullscreen);
 /* 0x004253F0: the render-target sprite factory CreateSpriteFromSurface wraps; the
    radar overlay is created through it directly. */
-stModelInstance2D* CreateSpriteFromVideoSurface(SGPVSurface& surface, const W8ControlsRect* bounds,
+stModelInstance2D* CreateSpriteFromVideoSurface(SDL_Surface& surface, const W8ControlsRect* bounds,
                                                 int square, int, char overlay);
 /* 0x004255C0: wrap the sprite-surface factory - image is a video surface
    handle (or a negative target id), rect an optional source rectangle. */
-stModelInstance2D* CreateSpriteFromSurface(SGPVSurface& image, const W8ControlsRect* rect, int mode,
+stModelInstance2D* CreateSpriteFromSurface(SDL_Surface& image, const W8ControlsRect* rect, int mode,
                                            int unused, int overlay);
 /* 0x004257D0: position a 2D node without pixel snapping. */
 void Position2DNodeUnsnapped(srNode* node, int x, int y);
@@ -156,12 +154,12 @@ srModelInstance* MakePolygonBrush(srNode* parent, std::shared_ptr<srColorSurface
                                   double height, float mapping_x, float mapping_y,
                                   float mapping_width, float mapping_height, unsigned char overlay);
 /* 0x00484A40: blit one frame of a video object into a color surface. */
-bool BlitVideoObjectToColorSurface(SGPVObject& video_object, std::uint16_t region,
+bool BlitVideoObjectToColorSurface(const SpriteSheet& sprites, std::uint16_t region,
                                       srColorSurface& destination, int x, int y);
 class stTextureAnim;
 
 /* 0x00428E90: build an stTextureAnim whose frames are VObject subimages. */
-std::shared_ptr<stTextureAnim> VideoVObjectToTextureAnim(SGPVObject& object, unsigned short start_frame,
+std::shared_ptr<stTextureAnim> VideoVObjectToTextureAnim(const SpriteSheet& sprites, unsigned short start_frame,
                                          unsigned short frame_count, bool use_argb1555);
 /* 0x00428A90: mark the primary renderer mode word dirty. */
 void SetOverlayRenderMode(void);
@@ -266,7 +264,7 @@ void ClearVideoDirtyBlocks(void); /* 0x00423150 */
 void RenderScene(srScene* scene, srCamera* camera, const int* viewport, bool preserve_fog);
 void RenderFrame(void);
 /* The native presentation shell also owns this opaque surface entry point. */
-CpuSurface* BeginVideoPresentation(void);
+SDL_Surface* BeginVideoPresentation(void);
 unsigned char FinishVideoPresentation(void);
 void PublishLightDirection(const EnvironmentColour* direction);
 void GetWorldColour(EnvironmentColour* colour); /* 0x00427290 */
@@ -274,8 +272,8 @@ srVector3T<float>* __fastcall SaturateColor(srVector3T<float>* color);
 void ReleaseObject(stModelInstance2D* object);
 void Initialize16BitPixelFormatMasks(void);
 unsigned char CreateWizardryWindow(void);
-unsigned char InitializePrimaryCpuSurface(void);
-void ReleasePrimaryCpuSurface(void);
+unsigned char InitializePrimarySurface(void);
+void ReleasePrimarySurface(void);
 unsigned char InitializeVideoDevice(void);
 unsigned char OpenRendererWindow(void);
 void InvalidateRendererTextureCache(void);

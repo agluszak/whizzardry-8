@@ -1,3 +1,4 @@
+#include <SDL3/SDL_surface.h>
 #include <SDL3/SDL_pixels.h>
 #include <catch2/catch_test_macros.hpp>
 #include <ios>
@@ -19,7 +20,7 @@
 #include "../../src/native/movie.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/slf.h"
-#include "compat/surfaces.h"
+#include "wiz8/surface_storage.h"
 #include "native/audio_test.h"
 #include "soundman.h"
 #include "wiz8/bink_video.h"
@@ -171,8 +172,10 @@ static void exercise_movie(const char* retail_movie)
             REQUIRE(reusable.update(0) == W8NativeVideo::FrameReady);
             REQUIRE(matchesFrame(reusable.frame().pixels, golden.data()));
         }
-        auto target = CreateCpuSurface(640, 480, SDL_PIXELFORMAT_XRGB1555);
-        const auto& description = *target->surface;
+        SDLSurfaceOwner target{SDL_CreateSurface(640, 480, SDL_PIXELFORMAT_XRGB1555),
+                               SDL_DestroySurface};
+        REQUIRE(target);
+        const auto& description = *target;
         {
             W8BinkVideo movie;
             movie.SetTarget(target.get());

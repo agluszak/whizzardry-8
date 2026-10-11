@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "wiz8/dialog_code/SpellInfoDialog.h"
+#include "image.h"
 #include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/fonts.h"
 #include "wiz8/local_code/Strings.h"
@@ -20,8 +21,6 @@
 #include "game_timer.h"
 #include "layouts/gameplay_databases.h"
 #include "local_code/ControlsRect.h"
-#include "vobject.h"
-#include "vsurface.h"
 
 
 // GLOBAL: WIZ8 0x0064fccc
@@ -124,7 +123,7 @@ void W8SpellInfoDialog::Draw()
         m_animation_frame += steps;
         m_animation_frame %= animation->frame_count;
         DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), animation->image, 0, m_animation_frame,
-                                      m_x + 0xe, m_y + 0xe, VO_BLT_SRCTRANSPARENCY);
+                                      m_x + 0xe, m_y + 0xe);
     }
 }
 

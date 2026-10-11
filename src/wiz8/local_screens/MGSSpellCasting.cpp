@@ -1,4 +1,6 @@
 #include <SDL3/SDL_pixels.h>
+#include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_surface.h>
 #include <array>
 #include <fmt/format.h>
 #include <string>
@@ -7,6 +9,7 @@
 #include <optional>
 #include <vector>
 
+#include "Video2.h"
 #include "input.h"
 #include "wiz8/spell_ids.h"
 #include "wiz8/local_screens/MGSSpellCasting.h"
@@ -51,7 +54,6 @@
 #include "wiz8/local_screens/MGSUseItemSelect.h"
 #include "wiz8/xstatus.h"
 #include "himage.h"
-#include "vsurface.h"
 #include "character_skills.h"
 #include "compat/native.h"
 #include "layouts/main_game_screen.h"
@@ -1113,10 +1115,12 @@ static void PreviewSpellPowerPipHover(int power_level)
                                    gpSCSV->power_controls[power_level]->m_enabled))) {
             spell_name = gpSCSV->power_controls[W8_SPELL_NAME_CONTROL];
             panel = gpSCSV->panels[2];
-            ColorFillVideoSurfaceArea(
-                GetFrameBufferSurface(), spell_name->m_left + panel->m_bounds.left,
-                spell_name->m_top + panel->m_bounds.top, spell_name->m_right + panel->m_bounds.left,
-                spell_name->m_bottom + panel->m_bounds.top, Get16BPPColor(SDL_Color{1, 1, 1, SDL_ALPHA_OPAQUE}));
+            const int left = spell_name->m_left + panel->m_bounds.left;
+            const int top = spell_name->m_top + panel->m_bounds.top;
+            const SDL_Rect bounds{left, top, spell_name->m_right - spell_name->m_left,
+                                  spell_name->m_bottom - spell_name->m_top};
+            SDL_FillSurfaceRect(&GetFrameBufferSurface(), &bounds,
+                                Get16BPPColor(SDL_Color{1, 1, 1, SDL_ALPHA_OPAQUE}));
             spell_name->Invalidate(false);
             if (power_level != -1) {
                 spell_name->m_textBuffer.SetRenderMode(6);

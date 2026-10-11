@@ -139,7 +139,7 @@ struct W8OctPreTreeVertex {
        vertex's face run is walked once per pass. */
     bool m_visited;
     unsigned char padding_0b;
-    srVector3T<float> position;
+    glm::vec3 position;
     /* Number of polygons referencing this vertex; SortGeometry counts and
        the region pass tracks the run bound. */
     short m_normal_count;
@@ -148,8 +148,8 @@ struct W8OctPreTreeVertex {
     /* The polygon automesh kind SplitVertices copies onto material-split
        duplicates. */
     w8_ulong m_kind;
-    srVector3T<float> m_normal;
-    srVector3T<float> m_light;
+    glm::vec3 m_normal;
+    glm::vec3 m_light;
     float* m_sun_lights;
     unsigned short face_count;
     unsigned char padding_42[2];
@@ -162,7 +162,7 @@ struct W8OctPreTreeVertex {
     glm::vec2 m_uv;
     /* Unscaled level-file position kept beside the engine-scaled
        position. */
-    srVector3T<float> m_original_position;
+    glm::vec3 m_original_position;
 };
 
 /* The shared geometry context the 0x00493120 driver builds and hands to
@@ -172,6 +172,7 @@ struct W8OctPreTreeVertex {
    buffer the cleanup releases. */
 struct W8OctPreTreeGeometry {
     bool splitVerticesByMaterial();
+    bool compact();
     w8_ulong vertex_count;
     W8OctPreTreeVertex* m_vertices;
     w8_ulong m_polygon_count;

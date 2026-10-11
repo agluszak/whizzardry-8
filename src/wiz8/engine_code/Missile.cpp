@@ -176,7 +176,6 @@ float AdvanceMissileAI(W8AIMissile* record, srVector3T<float>* out, unsigned int
     float advance;
     float pitch;
     float yaw;
-    int entity;
 
     representation = record->missile->m_pRep;
     if (steps == 0) {
@@ -189,11 +188,13 @@ float AdvanceMissileAI(W8AIMissile* record, srVector3T<float>* out, unsigned int
     position = record->missile->GetPosition();
     out->Set(position.x + direction.x * advance, position.y + direction.y * advance,
              position.z + direction.z * advance);
-    if (g_world->octree != 0 &&
-        (entity = g_world->octree->TraceAgainstProps(&position, out, 0, 0)) != 0) {
-        record->limit = 1.0f;
-        prop = g_world->collidable_props[entity - 1];
-        prop->RunMissileTrigger(record);
+    if (g_world->octree != 0) {
+        if (const auto hit = g_world->octree->traceProps(position.glmValue(), out->glmValue(), 0, 0)) {
+            *out = hit->position;
+            record->limit = 1.0f;
+            prop = g_world->collidable_props[hit->prop_id];
+            prop->RunMissileTrigger(record);
+        }
     }
     if (record->gravity) {
         float dx;

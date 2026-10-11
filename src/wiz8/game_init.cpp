@@ -1,4 +1,3 @@
-#include "vsurface.h"
 #include <cstring>
 #include <optional>
 #include <string>
@@ -49,7 +48,7 @@ unsigned char InitializeGame(size_t& initialized_screens)
 
     LoadLocalizedStrings(!gzStringDataOverride.empty() ? gzStringDataOverride.c_str()
                                               : "Data\\Strings\\StringData.DAT");
-    const auto& framebuffer = *GetFrameBufferSurface().cpu().surface;
+    const auto& framebuffer = GetFrameBufferSurface();
     memset(framebuffer.pixels, 0, framebuffer.pitch * framebuffer.h);
     LoadGameConfiguration();
     g_current_screen_state.id = W8_SCREEN_NONE;

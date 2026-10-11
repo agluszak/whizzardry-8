@@ -29,13 +29,10 @@
 #include "Font.h"
 #include "wiz8/filesystem.h"
 #include "soundman.h"
-#include "line.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "compat/compiler.h"
 #include "compat/native.h"
 #include "layouts/levels.h"
-#include "vobject.h"
-#include "vsurface.h"
 
 
 /* The screen's descriptor. The entry handler mallocs it, clears it and fills the
@@ -135,7 +132,6 @@ unsigned char PleaseWaitScreenEnter(void)
         }
     }
     ResetRegions();
-    SetClippingRegionAndImageWidth(0x500, 0, 0, 0x280, 0x1e0);
     SetFontDestBuffer(GetFrameBufferSurface(), 0, 0, 0x280, 0x1e0, 0);
     SetPrimarySurfaceTextureHint2Enabled(false);
     DisableCursorScene();
@@ -184,12 +180,11 @@ static void DrawPleaseWaitScreen()
     int backdrop = static_cast<unsigned int>(g_load_descriptor->parameter) < W8_LEVEL_COUNT
                        ? g_level_backdrops[g_load_descriptor->parameter]
                        : 0xe4;
-    DrawCatalogImage(GetFrameBufferSurface(), backdrop, 0, 0, 0, 0, VO_BLT_SRCTRANSPARENCY);
-    DrawCatalogImage(GetFrameBufferSurface(), 0x1de, 0, 0, 0, 0x1be, VO_BLT_SRCTRANSPARENCY);
+    DrawCatalogImage(GetFrameBufferSurface(), backdrop, 0, 0, 0, 0);
+    DrawCatalogImage(GetFrameBufferSurface(), 0x1de, 0, 0, 0, 0x1be);
     SetFont(g_level_load_font);
     DrawFontText(0x6a, 0x1c7, g_load_descriptor->caption);
-    DrawCatalogImage(GetFrameBufferSurface(), 0x1dd, 0, g_load_descriptor->caption_y, 0, 0x185,
-                     VO_BLT_SRCTRANSPARENCY);
+    DrawCatalogImage(GetFrameBufferSurface(), 0x1dd, 0, g_load_descriptor->caption_y, 0, 0x185);
     ResetTransientRenderScenes();
 }
 
@@ -371,7 +366,7 @@ void UpdatePleaseWaitLoadFrame(void)
         g_load_descriptor->caption_y = (g_load_descriptor->caption_y + 1) % 0x18;
         g_load_descriptor->entered_tick = tick;
         DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x1dd, 0, g_load_descriptor->caption_y, 0,
-                                      0x185, VO_BLT_SRCTRANSPARENCY);
+                                      0x185);
         RenderFrame();
     }
 }
