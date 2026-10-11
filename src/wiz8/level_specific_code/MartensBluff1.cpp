@@ -103,7 +103,7 @@ void MartensBluff1Setup(void)
             if ((dial_state & 0xf0000000) == 0) {
                 particle->SetActive(0);
             } else {
-                particle->getLocation(position);
+                position = glm::vec3(particle->getLocation());
                 g_gas_sound0 = CreateAndPlaySoundNode(
                     "Data\\Sound\\Ambients\\Air_Escaping_Loop.wav", position, 0.3f, 30.0f, true);
             }
@@ -113,7 +113,7 @@ void MartensBluff1Setup(void)
             if ((dial_state & 0xf0000000) == 0) {
                 particle->SetActive(0);
             } else {
-                particle->getLocation(position);
+                position = glm::vec3(particle->getLocation());
                 g_gas_sound1 = CreateAndPlaySoundNode(
                     "Data\\Sound\\Ambients\\Air_Escaping_Loop.wav", position, 0.3f, 30.0f, true);
             }
@@ -249,14 +249,14 @@ bool MartensBluff1JDoorController(Trigger* pTrigger)
     particle = FindParticleByName(g_world, "GasSpray-00");
     if (particle != 0) {
         particle->SetActive(1);
-        particle->getLocation(position);
+        position = glm::vec3(particle->getLocation());
         g_gas_sound0 = CreateAndPlaySoundNode("Data\\Sound\\Ambients\\Air_Escaping_Loop.wav",
                                               position, 0.3f, 30.0f, true);
     }
     particle = FindParticleByName(g_world, "GasSpray-01");
     if (particle != 0) {
         particle->SetActive(1);
-        particle->getLocation(position);
+        position = glm::vec3(particle->getLocation());
         g_gas_sound1 = CreateAndPlaySoundNode("Data\\Sound\\Ambients\\Air_Escaping_Loop.wav",
                                               position, 0.3f, 30.0f, true);
     }

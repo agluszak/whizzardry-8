@@ -62,7 +62,7 @@ void srCamera::setProjectionType(e_project projection)
 void srCamera::processPush(srGERD* renderer)
 {
     glm::dmat4 world;
-    getWorldSpaceMatrix(world);
+    world = getWorldSpaceMatrix<glm::dmat4>();
 
     /* The view transform reverses the inverse world matrix's Z row. */
     glm::dmat4 view;
@@ -367,7 +367,7 @@ srCamera::e_projectionResult srCamera::project(srVector3T<float>& output,
                                                const srVector3T<double>& input)
 {
     glm::dmat3 rotation;
-    getWorldSpaceRotation(rotation);
+    rotation = getWorldSpaceRotation<glm::dmat3>();
     const auto point = glm::transpose(rotation) * (input.glmValue() - getWorldSpaceLocation());
     if (point.z < std::min(near_clip, far_clip) || point.z > std::max(near_clip, far_clip) ||
         point.z == 0) {
@@ -398,7 +398,7 @@ int srCamera::unproject(srVector3T<float>& output, const srVector3T<double>& inp
     const glm::dvec2 end(view_plane.right, view_plane.bottom);
     const glm::dvec3 point(glm::mix(start, end, uv) * (input.z / view_plane_distance), input.z);
     glm::dmat3 rotation;
-    getWorldSpaceRotation(rotation);
+    rotation = getWorldSpaceRotation<glm::dmat3>();
     output = glm::vec3(rotation * point + getWorldSpaceLocation());
     return 1;
 }

@@ -1,6 +1,7 @@
 #include <SDL3/SDL_rect.h>
 #include <fmt/format.h>
 #include <string>
+#include <memory>
 #include <cctype>
 #include <cstdlib>
 #include <string_view>
@@ -9,7 +10,6 @@
 #include "compat/compiler.h"
 #include "wiz8/dialog_code/DialogButton.h"
 #include "wiz8/dialog_code/DialogInterface.h"
-#include "wiz8/local_screens/Screens.h"
 #include "wiz8/utility.h"
 #include "wiz8/fonts.h"
 #include "wiz8/item_spawning.h"
@@ -40,13 +40,6 @@
 
 void W8ListBoxDialog::ClearLines()
 {
-    int line_count = static_cast<int>(m_lines.size());
-    for (int index = 0; index < line_count; ++index) {
-        char* line = m_lines[index];
-        if (line != 0) {
-            free(line);
-        }
-    }
     m_lines.clear();
     m_field_064.clear();
     m_selected_line = -1;
@@ -64,18 +57,6 @@ W8ListBoxDialog::W8ListBoxDialog()
     m_field_084 = 0.75f;
     m_field_074 = 0;
     m_fill_colour = 0x6000;
-    m_text_button.Reset();
-    m_second_text_button.Reset();
-    area_inlay.reset();
-    m_area_button.Reset();
-    m_up_button.Reset();
-    m_down_button.Reset();
-    third_btn_inlay.reset();
-    m_third_text_button.Reset();
-    m_slider_button.Reset();
-    m_ok_button.Reset();
-    m_cancel_button.Reset();
-    edge_inlay.reset();
     ClearLines();
 }
 
@@ -400,7 +381,7 @@ void W8ListBoxDialog::Draw()
         }
         for (index = 0; index < static_cast<int>(visible_lines); ++index) {
             line = m_first_visible_line + index;
-            char* text = m_lines[line];
+            const std::string& text = m_lines[line];
             if (line == m_selected_line) {
                 ColorFillVideoSurfaceArea(
                     GetFrameBufferSurface(), m_x + 3 + dx,
@@ -471,84 +452,51 @@ static int g_split_amount_string_ids[3] = {265, 266, 267};
 
 // FUNCTION: WIZ8 0x005d97d0
 W8SplitAmountDialog::W8SplitAmountDialog()
+    : W8SplitAmountDialog(0)
 {
-    int index;
-
-    SetExtent(322, 111);
-    SetBackground("Data\\Dialogs\\popup_splititem.sti", 2);
-    for (index = 0; index < 6; ++index) {
-        m_buttons[index] = 0;
-    }
-    m_text_buffers[0] = 0;
-    m_text_buffers[1] = 0;
-    m_text_buffers[2] = 0;
-    m_split_input = 0;
-    m_remaining = 0;
-    m_taken = 0;
-    m_total = 0;
-    m_result = W8_SPLIT_RESULT_PENDING;
-    m_active_field = 0;
 }
 
 // FUNCTION: WIZ8 0x005d9890
 W8SplitAmountDialog::W8SplitAmountDialog(int total)
+    : m_active_field(nullptr), m_remaining(total), m_taken(0), m_total(total),
+      m_result(W8_SPLIT_RESULT_PENDING)
 {
-    int index;
-
     SetExtent(322, 111);
     SetBackground("Data\\Dialogs\\popup_splititem.sti", 2);
-    for (index = 0; index < 6; ++index) {
-        m_buttons[index] = 0;
-    }
-    m_text_buffers[0] = 0;
-    m_text_buffers[1] = 0;
-    m_text_buffers[2] = 0;
-    m_split_input = 0;
-    m_remaining = total;
-    m_total = total;
-    m_taken = 0;
-    m_result = W8_SPLIT_RESULT_PENDING;
-    m_active_field = 0;
 }
 
 // FUNCTION: WIZ8 0x005d9ac0
 void W8SplitAmountDialog::DestroyControls()
 {
+    m_active_field = nullptr;
+    m_split_input.reset();
+    for (auto& text : m_text_buffers) text.reset();
+    for (auto& button : m_buttons) button.reset();
     W8DialogBase::DestroyControls();
-    DestroyDialogButtons(m_buttons, 6);
-    DestroyDialogTextBuffers(m_text_buffers, 3);
-    if (m_split_input != 0) {
-        NoOp();
-        delete m_split_input;
-        m_split_input = 0;
-    }
 }
 
 // FUNCTION: WIZ8 0x005d9930
-W8SplitAmountDialog::~W8SplitAmountDialog()
-{
-    DestroyControls();
-}
+W8SplitAmountDialog::~W8SplitAmountDialog() = default;
 
 /* The split-item dialog. Three text buffers show the running totals, the
    numeric field edits the taken amount, and the buttons step it. */
 // FUNCTION: WIZ8 0x005d99f0
 int W8SplitAmountDialog::CreateControls()
 {
-    W8DialogBase::CreateControls();
+    if (int error = W8DialogBase::CreateControls(); error != 0) return error;
     m_result = W8_SPLIT_RESULT_PENDING;
     if (!CreateButtons()) {
+        DestroyControls();
         m_error = 7;
         return 7;
     }
     if (!CreateTextBuffers()) {
-        DestroyDialogButtons(m_buttons, 6);
+        DestroyControls();
         m_error = 7;
         return 7;
     }
     if (!CreateNumericInput()) {
-        DestroyDialogButtons(m_buttons, 6);
-        DestroyDialogTextBuffers(m_text_buffers, 3);
+        DestroyControls();
         m_error = 7;
         return 7;
     }
@@ -562,27 +510,25 @@ bool W8SplitAmountDialog::CreateButtons()
 {
     int index;
 
-    if (!AllocateDialogButtons(m_buttons, 6)) {
-        return false;
-    }
-    m_buttons[0]->Configure("Data\\Dialogs\\popup_splititem.sti", 0xc, 9, 10, 0xd, 0xb,
+    for (auto& button : m_buttons) button = std::make_unique<W8DialogButton>();
+    if (!m_buttons[0]->Configure("Data\\Dialogs\\popup_splititem.sti", 0xc, 9, 10, 0xd, 0xb,
                             SplitDecrementOne, BUTTON_NO_CALLBACK, false, MSYS_PRIORITY_HIGHEST,
-                            W8_DIALOG_BUTTON_NO_TOOLTIP, SplitDecrementFive, BUTTON_NO_CALLBACK);
-    m_buttons[1]->Configure("Data\\Dialogs\\popup_splititem.sti", 7, 4, 5, 8, 6, SplitIncrementOne,
+                            W8_DIALOG_BUTTON_NO_TOOLTIP, SplitDecrementFive, BUTTON_NO_CALLBACK)) return false;
+    if (!m_buttons[1]->Configure("Data\\Dialogs\\popup_splititem.sti", 7, 4, 5, 8, 6, SplitIncrementOne,
                             BUTTON_NO_CALLBACK, false, MSYS_PRIORITY_HIGHEST,
-                            W8_DIALOG_BUTTON_NO_TOOLTIP, SplitIncrementFive, BUTTON_NO_CALLBACK);
-    m_buttons[2]->ConfigureIcon("Data\\Dialogs\\popup_splititem.sti", BUTTON_NO_IMAGE, 3,
-                                MSYS_PRIORITY_LOWEST, W8_DIALOG_BUTTON_NO_TOOLTIP);
-    m_buttons[3]->Configure("Data\\Dialogs\\popup_splititem.sti", BUTTON_NO_IMAGE, 3,
+                            W8_DIALOG_BUTTON_NO_TOOLTIP, SplitIncrementFive, BUTTON_NO_CALLBACK)) return false;
+    if (!m_buttons[2]->ConfigureIcon("Data\\Dialogs\\popup_splititem.sti", BUTTON_NO_IMAGE, 3,
+                                MSYS_PRIORITY_LOWEST, W8_DIALOG_BUTTON_NO_TOOLTIP)) return false;
+    if (!m_buttons[3]->Configure("Data\\Dialogs\\popup_splititem.sti", BUTTON_NO_IMAGE, 3,
                             BUTTON_NO_IMAGE, 3, BUTTON_NO_IMAGE, SplitActivateField,
                             BUTTON_NO_CALLBACK, false, MSYS_PRIORITY_HIGHEST,
-                            W8_DIALOG_BUTTON_NO_TOOLTIP, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
-    m_buttons[4]->Configure("Data\\Dialogs\\popup_confirmationbuttons.sti", 3, 0, 1, 4, 2,
+                            W8_DIALOG_BUTTON_NO_TOOLTIP, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK)) return false;
+    if (!m_buttons[4]->Configure("Data\\Dialogs\\popup_confirmationbuttons.sti", 3, 0, 1, 4, 2,
                             SplitAccept, BUTTON_NO_CALLBACK, false, MSYS_PRIORITY_HIGHEST,
-                            W8_DIALOG_BUTTON_NO_TOOLTIP, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
-    m_buttons[5]->Configure("Data\\Dialogs\\popup_confirmationbuttons.sti", 3, 5, 6, 9, 7,
+                            W8_DIALOG_BUTTON_NO_TOOLTIP, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK)) return false;
+    if (!m_buttons[5]->Configure("Data\\Dialogs\\popup_confirmationbuttons.sti", 3, 5, 6, 9, 7,
                             SplitCancel, BUTTON_NO_CALLBACK, false, MSYS_PRIORITY_HIGHEST,
-                            W8_DIALOG_BUTTON_NO_TOOLTIP, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
+                            W8_DIALOG_BUTTON_NO_TOOLTIP, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK)) return false;
     m_buttons[0]->m_repeat_enabled = true;
     m_buttons[1]->m_repeat_enabled = true;
     for (index = 0; index < 6; ++index) {
@@ -604,13 +550,9 @@ bool W8SplitAmountDialog::CreateTextBuffers()
         bounds.top = g_split_amount_text_bounds[index].top + m_y;
         bounds.right = g_split_amount_text_bounds[index].right + m_x;
         bounds.bottom = g_split_amount_text_bounds[index].bottom + m_y;
-        m_text_buffers[index] = new W8TextBuffer(
+        m_text_buffers[index] = std::make_unique<W8TextBuffer>(
             &bounds, g_localized_strings[g_split_amount_string_ids[index]], g_wiz_text_font_secondary,
             g_W8TextBufferAlignMiddle | g_W8TextBufferAlignRight, 4);
-        if (m_text_buffers[index] == 0) {
-            DestroyDialogTextBuffers(m_text_buffers, 3);
-            return false;
-        }
     }
     return true;
 }
@@ -625,14 +567,8 @@ bool W8SplitAmountDialog::CreateNumericInput()
     bounds.top = g_split_amount_field_bounds.top + m_y;
     bounds.right = g_split_amount_field_bounds.right + m_x;
     bounds.bottom = g_split_amount_field_bounds.bottom + m_y;
-    m_split_input = new W8DialogNumericInput(0, &bounds, m_taken, g_wiz_text_font_secondary, this,
-                                             m_buttons[3]);
-    if (m_split_input == 0) {
-        NoOp();
-        delete m_split_input;
-        m_split_input = 0;
-        return false;
-    }
+    m_split_input = std::make_unique<W8DialogNumericInput>(
+        0, &bounds, m_taken, g_wiz_text_font_secondary, this, m_buttons[3].get());
     m_split_input->m_maximum = 1000000;
     return true;
 }
@@ -643,16 +579,14 @@ void W8SplitAmountDialog::Draw()
     int index;
 
     if ((m_dirty_flags & W8_DIALOG_DIRTY_REDRAW) != 0) {
-        if (!m_initialized) {
-            CreateControls();
-        }
+        if (!m_initialized && CreateControls() != 0) return;
         for (index = 0; index < 6; ++index) {
             m_buttons[index]->m_dirty = true;
         }
         for (index = 0; index < 3; ++index) {
             m_text_buffers[index]->SetGeometryDirty();
         }
-        W8DialogNumericInput* numeric = m_split_input;
+        W8DialogNumericInput* numeric = m_split_input.get();
         numeric->m_dirty = true;
         numeric->m_button->m_dirty = true;
         W8DialogBase::Draw();
@@ -660,7 +594,7 @@ void W8SplitAmountDialog::Draw()
                          0);
     }
     if (m_buttons[3]->m_dirty) {
-        W8DialogNumericInput* numeric = m_split_input;
+        W8DialogNumericInput* numeric = m_split_input.get();
         numeric->m_dirty = true;
         numeric->m_button->m_dirty = true;
     }
@@ -756,16 +690,8 @@ void W8SplitAmountDialog::IncreaseAmount(int amount)
 // FUNCTION: WIZ8 0x005da180
 bool W8SplitAmountDialog::HandleInputEvent(const InputAtom* input)
 {
-    int index;
-    W8DialogNumericInput** field;
-
-    field = &m_split_input;
-    for (index = 0; index < 1; ++index) {
-        if (*field != 0 && (*field)->m_active != 0 && (*field)->HandleInput(input)) {
-            return true;
-        }
-        ++field;
-    }
+    if (m_split_input && m_split_input->m_active && m_split_input->HandleInput(input))
+        return true;
     if (input->usEvent == KEY_DOWN || input->usEvent == KEY_REPEAT) {
         int key = toupper(input->usParam);
         if (key == 0x1b) {
@@ -857,21 +783,15 @@ void W8SplitAmountDialog::SplitActivateField(W8DialogButton* button)
             point.x -= g_split_amount_field_bounds.left;
             point.y -= g_split_amount_field_bounds.top;
             dialog->m_split_input->SetActive(true, &point);
-            dialog->m_active_field = dialog->m_split_input;
+            dialog->m_active_field = dialog->m_split_input.get();
         }
     }
 }
 
-/* The trigger-owned item picker. The thirteen same-sized button slots are
-   allocated by CreateControls; the constructor only clears them. */
+/* The trigger-owned item picker allocates its buttons in CreateControls. */
 // FUNCTION: WIZ8 0x005cd710
 W8TriggerItemPickerDialog::W8TriggerItemPickerDialog()
 {
-    int index;
-
-    for (index = 0; index < 13; ++index) {
-        m_buttons[index] = 0;
-    }
     SetExtent(200, 100);
     SetOrigin(0x84, 0x50);
     SetBackground("Data\\Dialogs\\DialogBackground.STI", 0);
@@ -886,82 +806,73 @@ W8TriggerItemPickerDialog::~W8TriggerItemPickerDialog()
         m_destroy_callback(this);
         m_destroy_callback = 0;
     }
-    W8DialogBase::DestroyControls();
-    DestroyDialogButtons(m_buttons, 13);
 }
 
-/* Allocate the thirteen button slots, then configure their frame images,
-   callbacks and tooltips. Buttons 5..8 are the four item rows, 9..12 the
-   scroll bar. A nil allocation clears every slot and reports failure. */
+/* Configure the thirteen owned buttons. Buttons 5..8 are item rows and
+   9..12 are the scroll bar. */
 // FUNCTION: WIZ8 0x005cd8d0
 bool W8TriggerItemPickerDialog::CreateButtons()
 {
-    int index;
-
-    for (index = 0; index < 13; ++index) {
-        m_buttons[index] = new W8DialogButton;
-        if (m_buttons[index] == 0) {
-            DestroyDialogButtons(m_buttons, 13);
-            return false;
-        }
-        m_buttons[index]->m_owner = this;
+    for (auto& button : m_buttons) {
+        button = std::make_unique<W8DialogButton>();
+        button->m_owner = this;
     }
-    m_buttons[0]->Configure("Data\\Dialogs\\popup_chest_selectionbuttons.sti", 3, 0, 1, 2, 2,
+    bool configured = true;
+    configured = m_buttons[0]->Configure("Data\\Dialogs\\popup_chest_selectionbuttons.sti", 3, 0, 1, 2, 2,
                             ToggleAllItems, BUTTON_NO_CALLBACK, false, MSYS_PRIORITY_HIGHEST, 0x15,
-                            BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
-    m_buttons[1]->Configure("Data\\Dialogs\\chest_confirmationbuttons.sti", 0xd, 10, 0xb, 0xc, 0xc,
+                            BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK) && configured;
+    configured = m_buttons[1]->Configure("Data\\Dialogs\\chest_confirmationbuttons.sti", 0xd, 10, 0xb, 0xc, 0xc,
                             TakeSelectedToParty, BUTTON_NO_CALLBACK, false, MSYS_PRIORITY_HIGHEST,
-                            0x13, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
-    m_buttons[2]->Configure("Data\\Dialogs\\chest_confirmationbuttons.sti", 3, 0, 1, 2, 2,
+                            0x13, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK) && configured;
+    configured = m_buttons[2]->Configure("Data\\Dialogs\\chest_confirmationbuttons.sti", 3, 0, 1, 2, 2,
                             TakeSelectedToCharacter, BUTTON_NO_CALLBACK, false,
-                            MSYS_PRIORITY_HIGHEST, 0x14, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
-    m_buttons[3]->Configure("Data\\Dialogs\\chest_confirmationbuttons.sti", 8, 5, 6, 7, 7,
+                            MSYS_PRIORITY_HIGHEST, 0x14, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK) && configured;
+    configured = m_buttons[3]->Configure("Data\\Dialogs\\chest_confirmationbuttons.sti", 8, 5, 6, 7, 7,
                             CloseOwningDialog, BUTTON_NO_CALLBACK, false, MSYS_PRIORITY_HIGHEST,
-                            0x16, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
-    m_buttons[4]->Configure("Data\\Dialogs\\popup_chest2.sti", BUTTON_NO_IMAGE, 0, BUTTON_NO_IMAGE,
+                            0x16, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK) && configured;
+    configured = m_buttons[4]->Configure("Data\\Dialogs\\popup_chest2.sti", BUTTON_NO_IMAGE, 0, BUTTON_NO_IMAGE,
                             BUTTON_NO_IMAGE, BUTTON_NO_IMAGE, BUTTON_NO_CALLBACK,
                             BUTTON_NO_CALLBACK, false, MSYS_PRIORITY_LOWEST,
-                            W8_DIALOG_BUTTON_NO_TOOLTIP, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
-    m_buttons[5]->Configure("Data\\Dialogs\\popup_chest2.sti", BUTTON_NO_IMAGE, 1, BUTTON_NO_IMAGE,
+                            W8_DIALOG_BUTTON_NO_TOOLTIP, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK) && configured;
+    configured = m_buttons[5]->Configure("Data\\Dialogs\\popup_chest2.sti", BUTTON_NO_IMAGE, 1, BUTTON_NO_IMAGE,
                             2, BUTTON_NO_IMAGE, ToggleVisibleItem0, BUTTON_NO_CALLBACK, true,
                             MSYS_PRIORITY_HIGHEST - 1, W8_DIALOG_BUTTON_NO_TOOLTIP,
-                            ShowVisibleItemInfo0, BUTTON_NO_CALLBACK);
-    m_buttons[6]->Configure("Data\\Dialogs\\popup_chest2.sti", BUTTON_NO_IMAGE, 1, BUTTON_NO_IMAGE,
+                            ShowVisibleItemInfo0, BUTTON_NO_CALLBACK) && configured;
+    configured = m_buttons[6]->Configure("Data\\Dialogs\\popup_chest2.sti", BUTTON_NO_IMAGE, 1, BUTTON_NO_IMAGE,
                             2, BUTTON_NO_IMAGE, ToggleVisibleItem1, BUTTON_NO_CALLBACK, true,
                             MSYS_PRIORITY_HIGHEST - 1, W8_DIALOG_BUTTON_NO_TOOLTIP,
-                            ShowVisibleItemInfo1, BUTTON_NO_CALLBACK);
-    m_buttons[7]->Configure("Data\\Dialogs\\popup_chest2.sti", BUTTON_NO_IMAGE, 1, BUTTON_NO_IMAGE,
+                            ShowVisibleItemInfo1, BUTTON_NO_CALLBACK) && configured;
+    configured = m_buttons[7]->Configure("Data\\Dialogs\\popup_chest2.sti", BUTTON_NO_IMAGE, 1, BUTTON_NO_IMAGE,
                             2, BUTTON_NO_IMAGE, ToggleVisibleItem2, BUTTON_NO_CALLBACK, true,
                             MSYS_PRIORITY_HIGHEST - 1, W8_DIALOG_BUTTON_NO_TOOLTIP,
-                            ShowVisibleItemInfo2, BUTTON_NO_CALLBACK);
-    m_buttons[8]->Configure("Data\\Dialogs\\popup_chest2.sti", BUTTON_NO_IMAGE, 1, BUTTON_NO_IMAGE,
+                            ShowVisibleItemInfo2, BUTTON_NO_CALLBACK) && configured;
+    configured = m_buttons[8]->Configure("Data\\Dialogs\\popup_chest2.sti", BUTTON_NO_IMAGE, 1, BUTTON_NO_IMAGE,
                             2, BUTTON_NO_IMAGE, ToggleVisibleItem3, BUTTON_NO_CALLBACK, true,
                             MSYS_PRIORITY_HIGHEST - 1, W8_DIALOG_BUTTON_NO_TOOLTIP,
-                            ShowVisibleItemInfo3, BUTTON_NO_CALLBACK);
-    m_buttons[9]->Configure("Data\\Dialogs\\maininterface_scroll.STI", 3, 0, 1, 2, 2, ScrollItemsUp,
+                            ShowVisibleItemInfo3, BUTTON_NO_CALLBACK) && configured;
+    configured = m_buttons[9]->Configure("Data\\Dialogs\\maininterface_scroll.STI", 3, 0, 1, 2, 2, ScrollItemsUp,
                             BUTTON_NO_CALLBACK, false, MSYS_PRIORITY_HIGHEST,
-                            W8_DIALOG_BUTTON_NO_TOOLTIP, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
-    m_buttons[10]->Configure("Data\\Dialogs\\maininterface_scroll.STI", 0xb, 8, 9, 10, 10,
+                            W8_DIALOG_BUTTON_NO_TOOLTIP, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK) && configured;
+    configured = m_buttons[10]->Configure("Data\\Dialogs\\maininterface_scroll.STI", 0xb, 8, 9, 10, 10,
                              ScrollItemsDown, BUTTON_NO_CALLBACK, false, MSYS_PRIORITY_HIGHEST,
-                             W8_DIALOG_BUTTON_NO_TOOLTIP, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
-    m_buttons[11]->Configure("Data\\Dialogs\\maininterface_scroll.STI", 7, 4, 5, 6, 6,
+                             W8_DIALOG_BUTTON_NO_TOOLTIP, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK) && configured;
+    configured = m_buttons[11]->Configure("Data\\Dialogs\\maininterface_scroll.STI", 7, 4, 5, 6, 6,
                              BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK, false, MSYS_PRIORITY_LOWEST,
-                             W8_DIALOG_BUTTON_NO_TOOLTIP, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
-    m_buttons[12]->Configure("Data\\Dialogs\\popup_chest2.sti", BUTTON_NO_IMAGE, 3, 3, 3, 3,
+                             W8_DIALOG_BUTTON_NO_TOOLTIP, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK) && configured;
+    configured = m_buttons[12]->Configure("Data\\Dialogs\\popup_chest2.sti", BUTTON_NO_IMAGE, 3, 3, 3, 3,
                              BUTTON_NO_CALLBACK, ScrollItemsToMouse, false,
                              MSYS_PRIORITY_HIGHEST - 1, W8_DIALOG_BUTTON_NO_TOOLTIP,
-                             BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
+                             BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK) && configured;
     m_buttons[5]->m_right_toggles = true;
     m_buttons[6]->m_right_toggles = true;
     m_buttons[7]->m_right_toggles = true;
     m_buttons[8]->m_right_toggles = true;
-    for (index = 0; index < 13; ++index) {
-        if (m_buttons[index] == 0) {
-            DestroyDialogButtons(m_buttons, 13);
-            return false;
+    if (!configured) {
+        for (auto& button : m_buttons) {
+            button.reset();
         }
     }
-    return true;
+    return configured;
 }
 
 /* The picker reports the fourth factory kind. */
@@ -977,22 +888,18 @@ W8DialogKind W8TriggerItemPickerDialog::GetDialogType()
 // FUNCTION: WIZ8 0x005ce420
 void W8TriggerItemPickerDialog::RefreshScrollButtons()
 {
-    int index;
-    W8DialogButton** button;
-
     if (static_cast<int>(items.size()) <= 4) {
         m_first_item = 0;
     }
-    button = &m_buttons[5];
-    for (index = 0; index < 4; ++index) {
+    for (int index = 0; index < 4; ++index) {
+        W8DialogButton& button = *m_buttons[5 + index];
         int item = m_first_item + index;
         if (item < static_cast<int>(items.size())) {
-            (*button)->SetPressed(IsItemSelected(item));
-        } else if ((*button)->IsPressed() != 0) {
-            (*button)->SetPressed(false);
-            (*button)->SetVisible(false);
+            button.SetPressed(IsItemSelected(item));
+        } else if (button.IsPressed() != 0) {
+            button.SetPressed(false);
+            button.SetVisible(false);
         }
-        ++button;
     }
 }
 
@@ -1520,7 +1427,7 @@ void W8TriggerItemPickerDialog::Draw()
     RefreshScrollButtons();
 
     for (int row = 0; row < visible_rows; ++row) {
-        W8DialogButton* button = m_buttons[5 + row];
+        W8DialogButton* button = m_buttons[5 + row].get();
 
         button->SetVisible(true);
         button->SetPosition(m_x + 7, m_y + button->GetHeight() * row + 7);
@@ -1555,8 +1462,7 @@ void W8TriggerItemPickerDialog::Draw()
     }
 }
 
-/* Create the base controls first, then the thirteen button slots. A failed
-   button allocation is reported as the dialog's own error 7. */
+/* Create the base controls first, then the picker buttons. */
 // FUNCTION: WIZ8 0x005cdc10
 int W8TriggerItemPickerDialog::CreateControls()
 {
@@ -1570,12 +1476,14 @@ int W8TriggerItemPickerDialog::CreateControls()
     return 0;
 }
 
-/* Release the base controls and every allocated button slot. */
+/* Release base graphics and owned picker buttons. */
 // FUNCTION: WIZ8 0x005cdc40
 void W8TriggerItemPickerDialog::DestroyControls()
 {
     W8DialogBase::DestroyControls();
-    DestroyDialogButtons(m_buttons, 13);
+    for (auto& button : m_buttons) {
+        button.reset();
+    }
 }
 
 // FUNCTION: WIZ8 0x005ce6e0

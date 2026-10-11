@@ -36,7 +36,6 @@
 #include "IntervalGate.h"
 #include "Monster.h"
 #include "Octree.h"
-#include "compat/compiler.h"
 #include "compat/native.h"
 #include "dice.h"
 #include "difficulty.h"
@@ -426,7 +425,7 @@ bool MonGen::CanGenerateEncounter(bool force)
         return false;
     }
 
-    GetCameraPosition(&camera);
+    camera = cameraLocation();
     srVector3T<float> delta = spawn_position - camera;
     distance = delta.Length();
 
@@ -455,8 +454,8 @@ bool MonGen::CanGenerateEncounter(bool force)
                                 spawn_position.z - 5000.0f);
         srVector3T<float> upper(spawn_position.x + 5000.0f, spawn_position.y + 5000.0f,
                                 spawn_position.z + 5000.0f);
-        w8_ulong* locations = 0;
-        if (g_octree->QueryLocationsInBox(&locations, &lower, &upper, 0) > 0) {
+        const auto locations = g_octree->locationsInBox({lower.glmValue(), upper.glmValue()}, 0);
+        if (!locations.empty()) {
             return false;
         }
     }
@@ -567,7 +566,7 @@ void CullExpiredEncounters(void)
     float span;
     int index;
 
-    GetCameraPosition(&party);
+    party = cameraLocation();
     if (!IsSightRangeOverridden()) {
         span = g_encounter_culling_time_seconds * g_sight_default;
     } else {

@@ -13,7 +13,6 @@
 class W8MessageDialogBase : public W8DialogBase {
 public:
     W8MessageDialogBase();
-    virtual ~W8MessageDialogBase() override;
     virtual int CreateControls() override;
     virtual void DestroyControls() override;
     virtual void Draw() override;

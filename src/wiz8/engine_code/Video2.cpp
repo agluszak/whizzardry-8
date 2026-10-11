@@ -818,8 +818,7 @@ static RuntimeWorldRenderData ObserveWorldRenderState()
     srGERD::Statistics statistics;
     g_gerd->getStatistics(statistics);
     data.draw_calls = statistics.draw_calls;
-    srVector3T<float> camera;
-    GetCameraPosition(&camera);
+    srVector3T<float> camera = cameraLocation();
     data.camera[0] = camera.x;
     data.camera[1] = camera.y;
     data.camera[2] = camera.z;
@@ -856,7 +855,7 @@ void RenderFrame(void)
     }
 
     if (g_trigger_action_active && GetWorld() != 0) {
-        GetCameraPosition(&saved_world_position);
+        saved_world_position = cameraLocation();
         shifted_world_position = saved_world_position + g_trigger_action_scene_offset;
         SetWorldScenePosition(GetWorld(), &shifted_world_position);
     }
@@ -1897,7 +1896,7 @@ void DrawVideoInspector(int left, unsigned int top)
         if (g_video_inspector_mode == 3) {
             float scaled;
 
-            GetCameraPosition(&position);
+            position = cameraLocation();
             if (gfKeyState[0x70] != 0) {
                 position.x *= g_world_cursor_scale;
                 scaled = position.y * g_world_cursor_scale;

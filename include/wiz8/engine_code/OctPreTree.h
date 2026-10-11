@@ -2,11 +2,14 @@
 #define WIZ8_ENGINE_CODE_OCT_PRE_TREE_H
 
 #include "surrender/srMath.h"
+#include "surrender/srBoundingBox.h"
+#include <span>
 #include "wiz8/geometry.h"
 #include "compat/compiler.h"
 #include "glm/ext/vector_float2.hpp"
 
 struct W8OctBuildNode;
+struct W8GDSurface;
 
 /* One 0xe8-byte region volume from the spatial state's region array. The
    region id at +4 is consumed by the particle-region builder, and the six
@@ -109,6 +112,8 @@ struct W8OctSpatialState {
 unsigned char TestSpatialTriangle(const srVector3T<float>* bounds,
                                   const srVector3T<float>* vertices,
                                   const srVector3T<float>* plane_normal);
+bool SurfaceIntersectsBox(const W8GDSurface& surface, std::span<const srVector3> vertices,
+                          const srBoundingBox& box);
 bool BoundsOverlapStrict(const srVector3T<float>* first, const srVector3T<float>* second);
 bool PointInsideBoxBounds(const srVector3T<float>* bounds, const srVector3T<float>* point);
 

@@ -217,7 +217,7 @@ void ActivateMonsterInWorld(W8MonsterInfo* monster_info)
                                            MonsterDBFromSpecies(monster_info->monster_species));
     }
 
-    WorldGetCameraLocation(GetWorld(), &camera_position);
+    camera_position = cameraLocation(*GetWorld());
     MonsterSelectLOD(monster_info->p3D, &camera_position);
     UpdateCycleRepresentation(monster_info->p3D, GetWorld());
     g_octree->VisitPointCopy(static_cast<unsigned short>(monster_info->location_id),

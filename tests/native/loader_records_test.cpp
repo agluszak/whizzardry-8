@@ -353,8 +353,8 @@ static void geometry()
         srVector3 start(0.25f, 0.25f, 2), end(0.25f, 0.25f, -2);
         if (!data.geometry_index) REQUIRE((InitializeGameData(&data)));
         auto delta = end - start;
-        W8GDSurface** hits = nullptr;
-        REQUIRE((data.geometry_index->CollectObjectsAlongSegment(&hits, &start, &delta, 0, 0, 3) == 1));
+        const auto hits = data.geometry_index->queryAlongSegment(start.glmValue(), delta.glmValue(), 0, 3);
+        REQUIRE(hits.size() == 1);
         REQUIRE((hits[0] == data.m_pSurfaces.data()));
         W8OctreeTrace trace(&start, &end);
         REQUIRE((data.TestTraceResult(1, nullptr, &trace, 0, 0)));

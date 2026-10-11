@@ -7,7 +7,6 @@
 #include <algorithm>
 #include <array>
 #include <cstring>
-#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <ios>
@@ -1273,13 +1272,7 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
         list.SetOrigin(10, 10);
         list.SetExtent(100, 80);
         list.SetBackground("background.sti", 0);
-        for (int index = 0; index < 20; ++index) {
-            auto* line = static_cast<char*>(std::malloc(2));
-            REQUIRE(line);
-            line[0] = 'X';
-            line[1] = 0;
-            list.m_lines.push_back(line);
-        }
+        for (int index = 0; index < 20; ++index) list.m_lines.emplace_back("X");
         REQUIRE(list.CreateControls() == 0);
         list.Draw();
         REQUIRE(RegisteredButtonCount() == 0);

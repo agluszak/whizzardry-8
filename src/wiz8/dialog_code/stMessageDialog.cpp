@@ -24,23 +24,13 @@
    destructor, draw and input bodies are the surrounding attribution gaps
    placed with them provisionally. */
 
-/* Dialog Code. The shared dialog base at vtable 0x005EF8B0. Its lifetime
-   bodies are what every derived dialog runs before and after its own. */
+/* Dialog Code. The base dialog releases its graphics in its destructor;
+   the message dialog's shared button and sprite resources are RAII members. */
 
 // FUNCTION: WIZ8 0x005d25b0
 W8MessageDialogBase::W8MessageDialogBase()
-    : accepted(false), is_open(true), m_edge_image(), m_message_button(), m_confirm_button(),
-      m_cancel_button(), m_line_count(0)
+    : accepted(false), is_open(true), m_line_count(0), m_show_confirm(false), allow_cancel(false)
 {
-}
-
-/* A virtual called from a destructor has a fixed dynamic type, so the
-   compiler dispatches it directly; that direct call is slot 2. */
-
-// FUNCTION: WIZ8 0x005d2610
-W8MessageDialogBase::~W8MessageDialogBase()
-{
-    DestroyControls();
 }
 
 // FUNCTION: WIZ8 0x005d2660
@@ -178,7 +168,7 @@ void W8MessageDialogBase::SetClientExtent(int width, int height)
 // FUNCTION: WIZ8 0x005d2d00
 int W8MessageDialogBase::CreateControls()
 {
-    W8DialogBase::CreateControls();
+    if (int error = W8DialogBase::CreateControls(); error != 0) return error;
     if (!m_edge_image) {
         m_edge_image = LoadGenericButtonImages({}, "Data\\Dialogs\\DialogEdge.STI", {}, "Data\\Dialogs\\DialogEdge.STI", {}, m_background_path, static_cast<short>(m_background_flags), 0, 0);
         if (!m_edge_image) {
