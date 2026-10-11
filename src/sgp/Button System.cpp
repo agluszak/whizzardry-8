@@ -146,7 +146,7 @@ ButtonImage ButtonGraphics::Load(std::string_view filename, INT32 grayed, INT32 
             continue;
         if (index < 0 || static_cast<size_t>(index) >= image->object().sprites.size()) {
             SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Invalid button frame %d in %s",
-                         index, desc.ImageFile.c_str());
+                         index, std::string(filename).c_str());
             return {};
         }
         const auto& frame = image->object().sprites[index];
@@ -199,7 +199,7 @@ GenericButtonImage LoadGenericGraphics(const std::array<std::string_view, 6>& fi
                 continue;
             }
             SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Invalid generic button graphics: %s",
-                         desc.ImageFile.c_str());
+                         std::string(filenames[index]).c_str());
             return {};
         }
     }
