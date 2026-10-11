@@ -803,7 +803,7 @@ try
     const unsigned int record_version = 7;
     const unsigned int record_size = sizeof(*info);
     if (info->fActive) {
-        MonsterGetLocation(monster, &info->position);
+        info->position = MonsterGetLocation(monster);
         info->position.y = probeGround(info->position.glmValue()).position.y;
         info->derived = MonsterGetYaw(monster);
     }
@@ -1442,7 +1442,7 @@ try
     for (auto* item = item_info; item; item = item->next) {
         item->saved_marker = 1;
         if (item->fActive) {
-            item->p3D->m_pRep->GetLocation(&item->position);
+            item->position = item->p3D->m_pRep->GetLocation();
             item->entity_flags = static_cast<W8ItemRep*>(item->p3D->m_pRep)->flags;
         }
         if (g_level_status_loading) {

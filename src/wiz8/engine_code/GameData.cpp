@@ -614,7 +614,7 @@ W8GDSurface* W8GameData::ProbePropsAlongMotion(srVector3T<float>* direction,
                     return 0;
                 }
             }
-            prop->GetDelta(&prop_delta, position);
+            prop_delta = prop->GetDelta();
             adjusted_direction = *direction - prop_delta;
             probe = *position;
             if (adjusted_direction.x != g_float_zero || adjusted_direction.y != g_float_zero ||
@@ -735,7 +735,7 @@ unsigned char W8GameData::ProbeMonstersAlongMotion(srVector3T<float>* direction,
         if (monster_info != 0 && monster_info->p3D != 0 && monster_info->p3D->active) {
             monster = monster_info->p3D;
             time_scale = g_rate * g_game_time_accumulator->GetFrameDelta();
-            monster->GetVelocity(&velocity);
+            velocity = monster->GetVelocity();
             adjusted.x = direction->x - velocity.x * static_cast<float>(time_scale);
             adjusted.y = direction->z - velocity.z * static_cast<float>(time_scale);
             horizontal = sqrtf(adjusted.x * adjusted.x + adjusted.y * adjusted.y);
@@ -1138,7 +1138,7 @@ bool W8GameData::TestProp(int prop_id, W8OctreeTrace* trace, char skip_flag, cha
             srVector3T<float> start = trace->start;
             srVector3T<float> end = trace->end;
             srVector3T<float> delta;
-            prop->GetDelta(&delta, &start);
+            delta = prop->GetDelta();
             end -= delta;
             W8OctreeTrace prop_trace(&start, &end);
             hit = TestGeometryTrace(surfaces, vertices, gd_prop->m_surface_count, 0, &prop_trace, skip_flag, 0);

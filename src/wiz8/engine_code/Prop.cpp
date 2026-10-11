@@ -169,13 +169,12 @@ W8Prop* FindPropByName(W8World* world, const char* name)
 }
 
 // FUNCTION: WIZ8 0x0044e2c0
-void W8Prop::GetPosition(srVector3T<float>* out)
+srVector3T<float> W8Prop::GetPosition() const
 {
     if (AnimationIsRunning(Rep()->animation) == 1) {
-        *out = animation_position;
-        return;
+        return animation_position;
     }
-    m_pRep->GetLocation(out);
+    return m_pRep->GetLocation();
 }
 
 // FUNCTION: WIZ8 0x0044e270
@@ -840,21 +839,17 @@ char W8Prop::NextAnimationValue()
     return rep->last_frame;
 }
 
-/* When the next animation step moves the rep exactly one frame, write the
-   delta between the current and previous positions into `out` and return the
-   elapsed frame count; otherwise `out` is zeroed.  `point` is accepted but
-   never read. */
+/* A single-frame step moves by the difference between the position snapshots;
+   discontinuous animation changes contribute no motion. */
 // FUNCTION: WIZ8 0x0044e130
-char W8Prop::GetDelta(srVector3T<float>* out, const srVector3T<float>* point)
+srVector3T<float> W8Prop::GetDelta()
 {
     unsigned char next = static_cast<unsigned char>(NextAnimationValue());
 
     if (abs(next - Rep()->subcycle) == 1) {
-        *out = animation_position - previous_animation_position;
-        return Rep()->frame_steps;
+        return animation_position - previous_animation_position;
     }
-    out->SetZero();
-    return 0;
+    return {0, 0, 0};
 }
 
 /* Whether the prop can be used from where the caller is. Retail clears the
@@ -1094,8 +1089,8 @@ void W8Prop::AttachAnimationInstances(W8World* world)
         if (Rep()->animation->path != 0) {
             PathAIApply(Rep()->animation->path.get(), instance);
         } else {
-            Rep()->GetLocation(&rep_position);
-            Rep()->GetRotation(&rep_rotation);
+            rep_position = Rep()->GetLocation();
+            rep_rotation = Rep()->GetRotation();
             node = instance->first_child_;
             if (node == 0) {
                 location = glm::dvec3(rep_position.glmValue());

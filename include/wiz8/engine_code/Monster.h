@@ -380,10 +380,10 @@ unsigned char LoadMonsterCycle(const W8GrCycleLoadContext* context, const char* 
                                W8Monster** monster, int cycle, int value);
 
 bool MonsterUsesCurrentModelInstance(W8GrCycle* cycle);
-void MonsterGetLocation(W8Monster* monster, srVector3T<float>* location);
+srVector3T<float> MonsterGetLocation(const W8Monster* monster);
 /* Expose the first Navigator angle through the enclosing Monster. */
 float MonsterGetYaw(W8Monster* monster); /* 0x004C5770 */
-void MonsterGetLocalLocation(W8Monster* monster, srVector3T<float>* location);
+srVector3T<float> MonsterGetLocalLocation(const W8Monster* monster);
 void UpdateMonster(W8Monster* monster);
 bool MonsterIsCycleSupported(W8Monster* monster, signed char cycle);
 unsigned char MonsterReplacePath(W8Monster* monster, W8PathAI* path);

@@ -81,10 +81,10 @@ void W8Item::ApplyRepTransform()
                      0);
     }
     mesh = static_cast<W8ItemRep*>(m_pRep)->m_psrMesh.get();
-    m_pRep->GetLocation(&location);
+    location = m_pRep->GetLocation();
     widened = glm::dvec3(location.glmValue());
     mesh->setLocation(widened);
-    m_pRep->GetRotation(&rotation);
+    rotation = m_pRep->GetRotation();
     mesh->setRotation(rotation);
 }
 
@@ -111,8 +111,8 @@ void W8Item::AttachMesh(W8World* world)
         mesh->clearFlag(srNode::FLAG_DISABLE);
     }
     mesh->setParent(world->dynamic_scene, 0);
-    m_pRep->GetLocation(&location);
-    m_pRep->GetRotation(&rotation);
+    location = m_pRep->GetLocation();
+    rotation = m_pRep->GetRotation();
     child = mesh->first_child_;
     if (child == 0) {
         widened = glm::dvec3(location.glmValue());
@@ -278,7 +278,7 @@ void W8Item::UpdateAnimation()
     }
     if ((rep->flags & W8_ITEM_ENTITY_ROTATE) != 0 && gfKeyState[VK_CONTROL] == 0) {
         glm::mat3 rotation;
-        m_pRep->GetRotation(&rotation);
+        rotation = m_pRep->GetRotation();
         rotation *= glm::mat3(glm::eulerAngleY(-0.1963495375f));
         srNode* mesh = rep->m_psrMesh.get();
         m_pRep->SetRotation(&rotation);
@@ -328,12 +328,12 @@ float W8Item::GetBoundsRadius() const
 static const float g_item_bounds_vertical_factor = 0.66f;
 
 // FUNCTION: WIZ8 0x0049FBA0
-unsigned char W8Item::GetSearchPosition(srVector3T<float>* location)
+srVector3T<float> W8Item::GetSearchPosition() const
 {
     const auto bounds = GetCachedLocalBounds();
-    m_pRep->GetLocation(location);
-    location->y += (bounds.maximum.y - bounds.minimum.y) * g_item_bounds_vertical_factor;
-    return 1;
+    auto location = m_pRep->GetLocation();
+    location.y += (bounds.maximum.y - bounds.minimum.y) * g_item_bounds_vertical_factor;
+    return location;
 }
 
 // FUNCTION: WIZ8 0x0049FBF0
@@ -379,10 +379,6 @@ void W8Item::SetHighlight(bool enabled)
 bool W8Item::IsSelected()
 {
     srModelInstance* selected = GetPickedModelInstance();
-    srVector3T<float> location;
-    /* The selection-point helper is inlined here even though its result is
-       not used by the final mesh-identity test. */
-    GetSearchPosition(&location);
     return selected == static_cast<W8ItemRep*>(m_pRep)->m_psrMesh.get();
 }
 
@@ -434,8 +430,7 @@ std::optional<srBoundingBox> GetItemWorldBounds(const W8Item* item)
         return std::nullopt;
     }
     auto bounds = item->GetCachedLocalBounds();
-    srVector3T<float> location;
-    item->m_pRep->GetLocation(&location);
+    const auto location = item->m_pRep->GetLocation();
     bounds.minimum += location.glmValue();
     bounds.maximum += location.glmValue();
     return bounds;

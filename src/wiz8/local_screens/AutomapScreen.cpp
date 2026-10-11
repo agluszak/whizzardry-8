@@ -1794,7 +1794,7 @@ void RenderAutomapMarkers(void)
         W8Monster* monster = info->p3D;
         srVector3T<float> location;
         location = 0.0f;
-        monster->m_pRep->GetLocation(&location);
+        location = monster->m_pRep->GetLocation();
         FindAutomapLayerAtHeight(location.y);
         if (g_automap_show_all_monsters || detect_all ||
             (!monster->disabled && info->party_threat.sight_state == W8_SIGHT_SEEN)) {
@@ -1833,7 +1833,7 @@ void RenderAutomapMarkers(void)
             continue;
         }
         srVector3T<float> location;
-        item->GetSearchPosition(&location);
+        location = item->GetSearchPosition();
         int layer = FindAutomapLayerAtHeight(location.y);
         if ((static_cast<W8ItemRep*>(item->m_pRep)->flags & W8_ITEM_ENTITY_NO_PICKUP) == 0 &&
             (detect_all ||
