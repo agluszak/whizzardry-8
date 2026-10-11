@@ -151,7 +151,7 @@ void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
     } else if (pSource->iType == W8_TARGET_SOURCE_MONSTER) {
         unsigned int value;
 
-        monster_info = MonsterInfoFromID(0xb0, GROUP_ATTACKS_CPP, pSource->iMonsterID, true);
+        monster_info = MonsterInfoFromID(pSource->iMonsterID);
         record = GetMonsterDataForInfo(monster_info);
         if (record->effective_level < 0x10) {
             value = record->effective_level;
@@ -299,7 +299,7 @@ void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
             ResetCombatSlot(&target);
             target.iType = W8_TARGET_KIND_MONSTER;
             target.iMonsterID = iMonsterID;
-            monster_info = MonsterInfoFromID(0x170, GROUP_ATTACKS_CPP, iMonsterID, true);
+            monster_info = MonsterInfoFromID(iMonsterID);
             for (i = 0; i < 2; ++i) {
                 if (i == 0) {
                     if (Random(100) <= 9) {
@@ -497,8 +497,8 @@ void SpawnSummonedMonsterGroup(int special_attack_kind, W8TargetSource* pSource,
     if (group == 0) {
         srAssertFail("pGroup", GROUP_ATTACKS_CPP, 600, 0);
     }
-    MonsterInfoFromID(0x25a, GROUP_ATTACKS_CPP, group->leader_location_id, true);
-    monster_info = MonsterInfoFromID(0x25b, GROUP_ATTACKS_CPP, pAttackerSlot->iMonsterID, true);
+    MonsterInfoFromID(group->leader_location_id);
+    monster_info = MonsterInfoFromID(pAttackerSlot->iMonsterID);
     if (monster_info->ubDisposition == W8_DISPOSITION_FRIENDLY) {
         disposition = 2;
     } else {

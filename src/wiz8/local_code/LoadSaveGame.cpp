@@ -1209,7 +1209,7 @@ try
     if (!record) return false;
     if (record->deleted) return true;
     auto* group = GetMonsterGroupByListIndex(
-        GetMonsterGroupIndexByID(0x698, LOADSAVEGAME_CPP, info.monster_group_id, true));
+        GetMonsterGroupIndexByID(info.monster_group_id));
     if (!group) return false;
 
     auto& monsters = unborn ? gXStatus.unborn_monsters : gXStatus.monsters;

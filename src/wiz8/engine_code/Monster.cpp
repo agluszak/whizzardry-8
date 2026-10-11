@@ -1443,7 +1443,7 @@ void W8Monster::Update()
 
     {
         unsigned int monster_index =
-            MonsterGetIndexByLocationID(0x86a, MONSTER_CPP, location_id, false);
+            MonsterGetIndexByLocationID(location_id, false);
         if (monster_index != 0xffffffff) {
             monster_info = MonsterGetScriptPartByLocationIndex(monster_index);
         }
@@ -1654,7 +1654,7 @@ bool W8Monster::EvaluateScriptCondition(std::string_view expression)
         monster_position = current_position;
         if (!g_status.world_suspended &&
             (party_position - monster_position).Length() < *parameter * g_world_scale &&
-            MonsterInfoFromID(7533, MONSTER_CPP, location_id, true)
+            MonsterInfoFromID(location_id)
                     ->player_visibility.line_of_sight != 0) {
             return true;
         }
@@ -1732,7 +1732,7 @@ bool W8Monster::GetProjectilePosition(srVector3T<float>* position)
     if (!result && !missile_point_warned) {
         if (g_dev_mode) {
             W8MonsterInfo* info = MonsterGetScriptPartByLocationIndex(
-                MonsterGetIndexByLocationID(0x18c3, MONSTER_CPP, location_id, true));
+                MonsterGetIndexByLocationID(location_id));
             DebugMessage(0,
                          fmt::format("WARNING: {} does not have a MISSILE vertex marked --> Lee!",
                                      GetMonsterDataForInfo(info)->name0));
@@ -1756,7 +1756,7 @@ bool W8Monster::GetSpellPosition(srVector3T<float>* position)
     if (!found && !spell_vertex_warned) {
         if (g_dev_mode) {
             W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(
-                MonsterGetIndexByLocationID(0x18e4, MONSTER_CPP, location_id, true));
+                MonsterGetIndexByLocationID(location_id));
             W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
             DebugMessage(0, fmt::sprintf(g_warning_missing_spell_vertex, record->name0));
         }
@@ -1863,7 +1863,7 @@ void W8Monster::ProcessScript()
         return;
     }
 
-    monster_index = MonsterGetIndexByLocationID(0x1a4a, MONSTER_CPP, location_id, true);
+    monster_index = MonsterGetIndexByLocationID(location_id);
     monster_info = MonsterGetScriptPartByLocationIndex(monster_index);
     if (orders_finished) {
         if (monster_info == 0 || (monster_info->ai_mode & W8_MONSTER_AI_RESTORE_SCRIPT) == 0) {
@@ -1990,8 +1990,7 @@ void W8Monster::ProcessScript()
                     }
                 }
                 ForwardNpcScriptNotice(
-                    FindNpcBindingForMonster(MonsterGetIndexByLocationID(
-                        command == MONSCR_SAY ? 0x1ac9 : 0x1b77, MONSTER_CPP, location_id, true)),
+                    FindNpcBindingForMonster(MonsterGetIndexByLocationID(location_id)),
                     0, line_number, command == MONSCR_SAY ? 1 : suppress);
                 if (command == MONSCR_NPCINTERACTION) {
                     script_wait = MONSCR_NPCINTERACTION;
@@ -2132,10 +2131,9 @@ void W8Monster::ProcessScript()
                     else if (_stricmp(token.c_str(), "DISP_FRIENDLY") == 0)
                         disposition = 2;
                     monster_info = MonsterGetScriptPartByLocationIndex(
-                        MonsterGetIndexByLocationID(0x1b8b, MONSTER_CPP, location_id, true));
+                        MonsterGetIndexByLocationID(location_id));
                     if (monster_info != 0) {
-                        unsigned int group_index = GetMonsterGroupIndexByID(
-                            0x1b90, MONSTER_CPP, monster_info->monster_group_id, false);
+                        unsigned int group_index = GetMonsterGroupIndexByID(monster_info->monster_group_id, false);
                         if (group_index != static_cast<unsigned int>(-1)) {
                             W8MonsterGroup* group = GetMonsterGroupByListIndex(group_index);
                             if (group != 0) {
@@ -2152,7 +2150,7 @@ void W8Monster::ProcessScript()
             case MONSCR_LOOKHERE:
                 PointCameraAtMonster(
                     MonsterGetScriptPartByLocationIndex(
-                        MonsterGetIndexByLocationID(0x1ba0, MONSTER_CPP, location_id, true)),
+                        MonsterGetIndexByLocationID(location_id)),
                     true, true);
                 tokens >> token;
                 if (!tokens || _stricmp(token.c_str(), "NOBLOCK") != 0) {
@@ -2239,7 +2237,7 @@ void W8Monster::ProcessScript()
                         ClearMainGameTargetState();
                         SetScript("ClosePatrol.msf", true);
                         monster_info = MonsterGetScriptPartByLocationIndex(
-                            MonsterGetIndexByLocationID(0x1c3a, MONSTER_CPP, location_id, true));
+                            MonsterGetIndexByLocationID(location_id));
                         ResetTargetSource(&source);
                         SetMonsterCondition(monster_info->location_id, W8_CONDITION_ASLEEP, 6, 0,
                                             &source, true);
@@ -2251,7 +2249,7 @@ void W8Monster::ProcessScript()
                         if (npc != 0)
                             QueueNpcScriptNotice(npc, 0, 6, false, 0);
                         monster_info = MonsterGetScriptPartByLocationIndex(
-                            MonsterGetIndexByLocationID(0x14b3, MONSTER_CPP, location_id, true));
+                            MonsterGetIndexByLocationID(location_id));
                         if (monster_info->control_state != W8_MONSTER_CONTROL_LURED) {
                             srVector3T<float> party = cameraLocation();
                             AimAtPosition(&party);
@@ -2710,7 +2708,7 @@ void SetMonsterPartySlotMarker(int party_slot, int location_id, char on)
     std::string path;
 
     info = MonsterGetScriptPartByLocationIndex(
-        MonsterGetIndexByLocationID(0xf1b, MONSTER_CPP, location_id, true));
+        MonsterGetIndexByLocationID(location_id));
     rep = info->p3D->m_pRep;
     if (on == 0) {
         item = rep->objects[party_slot];
@@ -2783,7 +2781,7 @@ void W8Monster::BeginFadeOutAndRemove(W8MonsterRemovalState state)
         }
         fade_state = W8_MONSTER_FADE_OUT;
     }
-    RemoveMonster(MonsterGetIndexByLocationID(0x1021, MONSTER_CPP, location_id, true), false);
+    RemoveMonster(MonsterGetIndexByLocationID(location_id), false);
     removal_state = state;
 }
 
@@ -2923,8 +2921,7 @@ void UpdateNearestMonsterGroupMembers()
 
             for (member_index = 0; member_index < group->MemberIds().size(); ++member_index) {
                 W8MonsterInfo* member =
-                    MonsterGetScriptPartByLocationIndex(MonsterGetIndexByLocationID(
-                        0x1efe, MONSTER_CPP, group->MemberLocationId(member_index), true));
+                    MonsterGetScriptPartByLocationIndex(MonsterGetIndexByLocationID(group->MemberLocationId(member_index)));
 
                 if (member != 0 && member->p3D != 0) {
                     srVector3T<float> position = member->p3D->GetPosition();
@@ -3001,7 +2998,7 @@ float W8Monster::GetPointDistanceToMonster(W8Monster* monster, srVector3T<float>
 // FUNCTION: WIZ8 0x004c2bf0
 unsigned char W8Monster::CanEnterCycle(signed char cycle)
 {
-    unsigned int monster_index = MonsterGetIndexByLocationID(0x969, MONSTER_CPP, location_id, true);
+    unsigned int monster_index = MonsterGetIndexByLocationID(location_id);
     W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(monster_index);
 
     if (gXStatus.fCombatMode && IsCameraTransitionActive()) {
@@ -3364,7 +3361,7 @@ void W8Monster::SetCycle(signed char cycle)
     if (count == 0) {
         if (static_cast<int>(m_pRep->animations[1].size()) < 1) {
             W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(
-                MonsterGetIndexByLocationID(0xb26, MONSTER_CPP, location_id, true));
+                MonsterGetIndexByLocationID(location_id));
             srAssertFail("FALSE", MONSTER_CPP, 0xb26,
                          fmt::format("ERROR: Monster {} has no IDLE cycle!",
                                      GetMonsterName(monster_info, 0, 0)));
@@ -3372,7 +3369,7 @@ void W8Monster::SetCycle(signed char cycle)
         }
 
         W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(
-            MonsterGetIndexByLocationID(0xb1d, MONSTER_CPP, location_id, true));
+            MonsterGetIndexByLocationID(location_id));
         DebugMessage(0, fmt::format("WARNING: Monster {} is missing anim cycle {}",
                                     GetMonsterName(monster_info, 0, 0), g_cycle_names[cycle].name));
         m_pRep->CopyCycle(cycle, m_pRep, 1);
@@ -3830,7 +3827,7 @@ void W8Monster::HandleAnimationFrame(unsigned char previous_frame)
         }
 
         monster_info = MonsterGetScriptPartByLocationIndex(
-            MonsterGetIndexByLocationID(0x1804, MONSTER_CPP, location_id, true));
+            MonsterGetIndexByLocationID(location_id));
         action_kind = monster_info->action_kind;
         action_detail = monster_info->action_detail;
         power_level = monster_info->spell_power_level;
@@ -3862,7 +3859,7 @@ void W8Monster::HandleAnimationThreshold()
 
     selected_attack = false;
     monster_info = MonsterGetScriptPartByLocationIndex(
-        MonsterGetIndexByLocationID(0x1834, MONSTER_CPP, location_id, true));
+        MonsterGetIndexByLocationID(location_id));
     record = GetMonsterDataForInfo(monster_info);
     SetTargetSourceToMonster(monster_info, &source);
 
@@ -4648,7 +4645,7 @@ void MonsterForwardReferencePosition(W8Monster* monster, char alternate)
 
     if (monster != 0) {
         monster_info = MonsterGetScriptPartByLocationIndex(
-            MonsterGetIndexByLocationID(0x14b3, MONSTER_CPP, monster->location_id, true));
+            MonsterGetIndexByLocationID(monster->location_id));
         if (monster_info->control_state != W8_MONSTER_CONTROL_LURED) {
             position = cameraLocation();
             if (alternate != 0) {
@@ -4672,7 +4669,7 @@ void MonsterAimAtMonster(W8Monster* monster, W8Monster* target, bool alternate)
 
     if (monster != 0 && target != 0) {
         monster_info = MonsterGetScriptPartByLocationIndex(
-            MonsterGetIndexByLocationID(0x14c7, MONSTER_CPP, monster->location_id, true));
+            MonsterGetIndexByLocationID(monster->location_id));
         if (monster_info->control_state != W8_MONSTER_CONTROL_LURED) {
             target_position = target->GetPosition();
             position = target_position;
@@ -4993,7 +4990,7 @@ bool W8Monster::IsRenderable(bool alternate)
     }
 
     monster_info = MonsterGetScriptPartByLocationIndex(
-        MonsterGetIndexByLocationID(0x1977, MONSTER_CPP, location_id, true));
+        MonsterGetIndexByLocationID(location_id));
     record = GetMonsterDataForInfo(monster_info);
     if (record->camouflage0 > 0) {
         return monster_info->party_threat.party_detected;

@@ -190,7 +190,7 @@ bool ShouldClearAimForAppliedTarget(W8TargetSource* source, W8CombatSlot* target
         }
         source_hostile =
             MonsterGetScriptPartByLocationIndex(
-                MonsterGetIndexByLocationID(0xdf3, TARGETING_CPP, source->iMonsterID, true))
+                MonsterGetIndexByLocationID(source->iMonsterID))
                 ->ubDisposition == W8_DISPOSITION_HOSTILE;
     }
     if (target->iType == W8_TARGET_KIND_CHARACTER) {
@@ -199,11 +199,11 @@ bool ShouldClearAimForAppliedTarget(W8TargetSource* source, W8CombatSlot* target
     } else if (target->iType == W8_TARGET_KIND_MONSTER) {
         target_hostile =
             MonsterGetScriptPartByLocationIndex(
-                MonsterGetIndexByLocationID(0xe06, TARGETING_CPP, target->iMonsterID, true))
+                MonsterGetIndexByLocationID(target->iMonsterID))
                 ->ubDisposition == W8_DISPOSITION_HOSTILE;
     } else if (target->iType == W8_TARGET_KIND_GROUP) {
         target_hostile = GetMonsterGroupByListIndex(
-                             GetMonsterGroupIndexByID(0xe0b, TARGETING_CPP, target->iGroupID, true))
+                             GetMonsterGroupIndexByID(target->iGroupID))
                              ->ubDisposition == W8_DISPOSITION_HOSTILE;
     } else {
         srAssertFail("FALSE", TARGETING_CPP, 0xe11, 0);
@@ -377,7 +377,7 @@ void AimAtMonsterLocation(int party_slot, int location_id, bool allow_single_tar
                 target.iType = W8_TARGET_KIND_GROUP;
                 target.iGroupID =
                     MonsterGetScriptPartByLocationIndex(
-                        MonsterGetIndexByLocationID(0x390, TARGETING_CPP, location_id, true))
+                        MonsterGetIndexByLocationID(location_id))
                         ->monster_group_id;
                 AimAtTarget(party_slot, &target, W8_TARGETING_CONTEXT_CURRENT);
                 StartBreathCycle(party_slot, false);
@@ -509,7 +509,7 @@ void ApplyTarget(W8CombatSlot* target, bool in_combat)
 
     if (target->iType == W8_TARGET_KIND_MONSTER) {
         monster_info = MonsterGetScriptPartByLocationIndex(
-            MonsterGetIndexByLocationID(0x638, TARGETING_CPP, target->iMonsterID, true));
+            MonsterGetIndexByLocationID(target->iMonsterID));
         MonsterSetHighlightMask(monster_info->p3D, 0);
     }
 
@@ -768,7 +768,7 @@ void TintHighlightedMonster(W8Monster* monster, W8TargetHighlight tint)
 // FUNCTION: WIZ8 0x00539630
 void SetMonsterHighlight(int party_slot, int location_id, bool on)
 {
-    int index = MonsterGetIndexByLocationID(1879, TARGETING_CPP, location_id, false);
+    int index = MonsterGetIndexByLocationID(location_id, false);
     W8MonsterInfo* monster_info;
     W8Monster* monster;
     unsigned char bit;
@@ -855,7 +855,7 @@ int PickNearestMonsterUnderCursor(int cursor_x, int cursor_y)
 // FUNCTION: WIZ8 0x00538c00
 void SetGroupHighlight(int party_slot, int group_id, bool on)
 {
-    unsigned int group_index = GetMonsterGroupIndexByID(1498, TARGETING_CPP, group_id, false);
+    unsigned int group_index = GetMonsterGroupIndexByID(group_id, false);
 
     if (group_index == 0xffffffff) {
         return;
@@ -1115,7 +1115,7 @@ bool IsTargetStillPresent(const W8CombatSlot* target)
         if (target->iMonsterID == BAD_INDEX) {
             srAssertFail("pTarget->iMonsterID != BAD_INDEX", TARGETING_CPP, 0x7e, 0);
         }
-        index = MonsterGetIndexByLocationID(0x80, TARGETING_CPP, target->iMonsterID, false);
+        index = MonsterGetIndexByLocationID(target->iMonsterID, false);
         if (index == BAD_INDEX) {
             return false;
         }
@@ -1138,7 +1138,7 @@ bool IsTargetStillPresent(const W8CombatSlot* target)
         if (target->iGroupID == BAD_INDEX) {
             srAssertFail("pTarget->iGroupID != BAD_INDEX", TARGETING_CPP, 0x99, 0);
         }
-        group_list_index = GetMonsterGroupIndexByID(0x9b, TARGETING_CPP, target->iGroupID, false);
+        group_list_index = GetMonsterGroupIndexByID(target->iGroupID, false);
         if (group_list_index == 0xffffffff) {
             return false;
         }
@@ -1179,7 +1179,7 @@ bool IsTargetStillPresent(const W8CombatSlot* target)
 // FUNCTION: WIZ8 0x00539110
 char HighlightMonsterAsTarget(int location_id, int party_slot, char highlight)
 {
-    int index = MonsterGetIndexByLocationID(0x68d, TARGETING_CPP, location_id, false);
+    int index = MonsterGetIndexByLocationID(location_id, false);
     W8MonsterInfo* monster_info;
     W8Monster* monster;
     glm::vec4 block;
@@ -1661,7 +1661,7 @@ bool IsTargetSourceInRangeOfGroup(const W8TargetSource* source, W8MonsterGroup* 
         if (source->iMonsterID == BAD_INDEX) {
             srAssertFail("pSource->iMonsterID != -1", TARGETING_CPP, 0x343, 0);
         }
-        index = MonsterGetIndexByLocationID(0x344, TARGETING_CPP, source->iMonsterID, true);
+        index = MonsterGetIndexByLocationID(source->iMonsterID);
         monster_info = MonsterGetScriptPartByLocationIndex(index);
         source_monster = GetMonsterByLocationID(source->iMonsterID);
         record = GetMonsterDataForInfo(monster_info);
@@ -2044,8 +2044,7 @@ bool CanTargetMonsterGroup(int party_slot, W8MonsterGroup* group)
     reachable = 0;
     for (index = 0; index < group->MemberIds().size(); ++index) {
         W8MonsterInfo* monster_info =
-            MonsterGetScriptPartByLocationIndex(MonsterGetIndexByLocationID(
-                0x37a, TARGETING_CPP, group->MemberLocationId(index), true));
+            MonsterGetScriptPartByLocationIndex(MonsterGetIndexByLocationID(group->MemberLocationId(index)));
 
         if (CanPartyMemberAimAtMonster(party_slot, 2, monster_info, W8_TARGETING_CONTEXT_CURRENT,
                                        false)) {
@@ -2105,8 +2104,7 @@ bool RepickActionTarget(int party_slot, W8TargetingContext context, int arg)
         if ((is_attack_kind || kind == W8_ACTION_CAST_SPELL || kind == W8_ACTION_USE_ITEM) &&
             needed == W8_TARGET_NEED_ENEMY) {
             group_id = -1;
-            if (target->iMonsterID != -1 && (monster_index = MonsterGetIndexByLocationID(
-                                                 0xf40, TARGETING_CPP, target->iMonsterID, false),
+            if (target->iMonsterID != -1 && (monster_index = MonsterGetIndexByLocationID(target->iMonsterID, false),
                                              monster_index != 0xffffffff)) {
                 monster_info = MonsterGetScriptPartByLocationIndex(monster_index);
                 group_id = monster_info->monster_group_id;
@@ -2199,7 +2197,7 @@ bool CanTargetMonster(int party_slot, int location_id, bool allow_single_target,
                       bool notify_failure)
 {
     W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(
-        MonsterGetIndexByLocationID(0x1ce, TARGETING_CPP, location_id, true));
+        MonsterGetIndexByLocationID(location_id));
     W8MonsterRecord* record;
     W8ActionKind action;
     int detail;
@@ -2432,7 +2430,7 @@ static int SelectNextGroupMemberByAngle(const std::vector<int>& candidates, int 
     for (index = 0; index < count; ++index) {
         int location_id = candidates[static_cast<int>(index)];
         W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(
-            MonsterGetIndexByLocationID(0x4a1, TARGETING_CPP, location_id, true));
+            MonsterGetIndexByLocationID(location_id));
         srVector3T<float> position = monster_info->p3D->GetPosition();
 
         sorted[index].location_id = location_id;
@@ -2487,7 +2485,7 @@ static int PickNextTargetableGroupMember(int party_slot, W8MonsterGroup* group)
         int location_id = group->MemberLocationId(index);
 
         MonsterGetScriptPartByLocationIndex(
-            MonsterGetIndexByLocationID(0x46e, TARGETING_CPP, location_id, true));
+            MonsterGetIndexByLocationID(location_id));
         if (CanTargetMonster(party_slot, location_id, true, false)) {
             targetable.push_back(location_id);
         }
@@ -2590,7 +2588,7 @@ int PickNextTargetableGroup(int party_slot)
     if (gXStatus.picked_group == BAD_INDEX) {
         start = 0;
     } else {
-        start = GetMonsterGroupIndexByID(0x414, TARGETING_CPP, gXStatus.picked_group, false);
+        start = GetMonsterGroupIndexByID(gXStatus.picked_group, false);
         if (start == 0xffffffff) {
             start = 0;
             gXStatus.picked_group = BAD_INDEX;
@@ -2725,8 +2723,7 @@ void RefreshAllPartyTargets(void)
                 int group_id = -1;
 
                 if (row->target_in_combat.iMonsterID != -1) {
-                    unsigned int monster_index = MonsterGetIndexByLocationID(
-                        0xf40, TARGETING_CPP, row->target_in_combat.iMonsterID, false);
+                    unsigned int monster_index = MonsterGetIndexByLocationID(row->target_in_combat.iMonsterID, false);
 
                     if (monster_index != 0xffffffff) {
                         group_id =
@@ -2773,7 +2770,7 @@ void RefreshMonsterTargetCounts(void)
         for (unsigned int index = 0; index < group->MemberIds().size(); ++index) {
             int location_id = group->MemberLocationId(index);
             unsigned int monster_index =
-                MonsterGetIndexByLocationID(0x81a, TARGETING_CPP, location_id, true);
+                MonsterGetIndexByLocationID(location_id);
             W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(monster_index);
 
             if (!monster_info->p3D->IsWithinWorldRange()) {
@@ -2985,7 +2982,7 @@ void ModifyGroupColor(int group_id, W8TargetHighlight color)
     if (group_id == -1) {
         srAssertFail("uiGroupID != BAD_INDEX", TARGETING_CPP, 0x6e5, 0);
     }
-    unsigned int group_index = GetMonsterGroupIndexByID(0x6e8, TARGETING_CPP, group_id, false);
+    unsigned int group_index = GetMonsterGroupIndexByID(group_id, false);
     if (group_index == 0xffffffff) {
         if (color != W8_TARGET_HIGHLIGHT_NONE) {
             DebugMessage(
@@ -3029,7 +3026,7 @@ unsigned char SourceCanSeeMonster(const W8TargetSource* source, W8MonsterInfo* m
             srAssertFail("pSource->iMonsterID != -1", TARGETING_CPP, 0x84c, 0);
         }
         unsigned int monster_index =
-            MonsterGetIndexByLocationID(0x84d, TARGETING_CPP, source->iMonsterID, true);
+            MonsterGetIndexByLocationID(source->iMonsterID);
         W8MonsterInfo* source_info = MonsterGetScriptPartByLocationIndex(monster_index);
         W8VisibilityRecord* visibility = FindMonToMonVisibility(source_info, monster_info);
         if (visibility != 0 && visibility->los_flags[sight_flag]) {
@@ -3083,7 +3080,7 @@ int CollectConeMonsterTargets(const W8TargetSource* source, const srVector3T<flo
         radius = g_startup_world->radius;
     } else if (source->iType == W8_TARGET_SOURCE_MONSTER) {
         W8MonsterInfo* source_info =
-            MonsterInfoFromID(0x8bc, TARGETING_CPP, source->iMonsterID, true);
+            MonsterInfoFromID(source->iMonsterID);
         radius = source_info->p3D->radius;
     } else {
         radius = 0.0f;
@@ -3311,7 +3308,7 @@ int ChooseFallbackMonsterTarget(int party_slot, int group_id, W8TargetingContext
             W8CombatSlot* block = GetTargetBlockForContext(party_slot, resolved);
             if (block->iType == W8_TARGET_KIND_MONSTER) {
                 unsigned int monster_index =
-                    MonsterGetIndexByLocationID(0xf82, TARGETING_CPP, block->iMonsterID, false);
+                    MonsterGetIndexByLocationID(block->iMonsterID, false);
                 if (monster_index != 0xffffffff) {
                     W8MonsterInfo* monster_info =
                         MonsterGetScriptPartByLocationIndex(monster_index);

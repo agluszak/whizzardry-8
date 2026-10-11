@@ -1,5 +1,6 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
+#include <source_location>
 #include <string>
 #include <vector>
 #include <algorithm>
@@ -333,8 +334,7 @@ void MonsterStartsDying(W8MonsterInfo* monster_info, bool display_message)
         StartMonsterCycle(monster_info, W8_MONSTER_CYCLE_DIE, W8_ANIMATION_PLAY_ONCE);
         DeactivateMonster(monster_info);
         RecordMonsterKill(monster_info, display_message);
-        RemoveMonster(MonsterGetIndexByLocationID(0x31f, MONSTER_MANAGER_CPP,
-                                                  monster_info->location_id, true),
+        RemoveMonster(MonsterGetIndexByLocationID(monster_info->location_id),
                       false);
     }
 }
@@ -367,7 +367,7 @@ void RecordMonsterKill(W8MonsterInfo* monster_info, bool announce)
         }
     }
     unsigned int monster_list_index =
-        MonsterGetIndexByLocationID(0x34f, MONSTER_MANAGER_CPP, monster_info->location_id, true);
+        MonsterGetIndexByLocationID(monster_info->location_id);
     unsigned int notice_channel;
     if (TargetSourceIsCharacter(&monster_info->condition_target, 0)) {
         killer_party_slot = monster_info->condition_target.iChar;
@@ -400,8 +400,7 @@ void RecordMonsterKill(W8MonsterInfo* monster_info, bool announce)
         if (!TargetSourceIsMonster(&monster_info->condition_target, 0)) {
             goto done;
         }
-        unsigned int killer_index = MonsterGetIndexByLocationID(
-            0x37d, MONSTER_MANAGER_CPP, monster_info->condition_target.iMonsterID, false);
+        unsigned int killer_index = MonsterGetIndexByLocationID(monster_info->condition_target.iMonsterID, false);
         if (killer_index == 0xffffffff) {
             goto done;
         }
@@ -460,8 +459,8 @@ done:
 }
 
 // FUNCTION: WIZ8 0x004e5550
-unsigned int MonsterGetIndexByLocationID(int caller_line, const char* caller_file, int location_id,
-                                         bool assert_on_failure)
+unsigned int MonsterGetIndexByLocationID(int location_id, bool assert_on_failure,
+                                         std::source_location caller)
 {
     unsigned int index;
     W8MonsterInfo* monster;
@@ -483,7 +482,7 @@ unsigned int MonsterGetIndexByLocationID(int caller_line, const char* caller_fil
     if (assert_on_failure) {
         srAssertFail("FALSE", MONSTER_MANAGER_CPP, 0x5c1,
                      fmt::format("MonsterIndex: ID {:d} not found ({} line {:d})", location_id,
-                                 caller_file, caller_line));
+                                 caller.file_name(), caller.line()));
     }
     return 0xffffffff;
 }
@@ -560,20 +559,20 @@ W8MonsterRecord* GetMonsterDataForInfo(W8MonsterInfo* monster_info)
 }
 
 // FUNCTION: WIZ8 0x004e5840
-W8MonsterInfo* MonsterInfoFromID(int caller_line, const char* caller_file, int location_id,
-                                 bool assert_on_failure)
+W8MonsterInfo* MonsterInfoFromID(int location_id, bool assert_on_failure,
+                                 std::source_location caller)
 {
     W8MonsterInfo* monster = 0;
     unsigned int index;
 
-    index = MonsterGetIndexByLocationID(0x61d, MONSTER_MANAGER_CPP, location_id, false);
+    index = MonsterGetIndexByLocationID(location_id, false);
     if (index != 0xffffffff) {
         monster = MonsterGetScriptPartByLocationIndex(index);
     }
     if (monster == 0 && assert_on_failure) {
         srAssertFail("FALSE", MONSTER_MANAGER_CPP, 0x626,
                      fmt::format("MonsterInfoFromID: ID {:d} not found ({} line {:d})", location_id,
-                                 caller_file, caller_line));
+                                 caller.file_name(), caller.line()));
     }
     return monster;
 }
@@ -584,7 +583,7 @@ W8MonsterRecord* GetMonsterDataByLocationID(int location_id)
     W8MonsterInfo* monster;
     unsigned int index;
 
-    index = MonsterGetIndexByLocationID(0x632, MONSTER_MANAGER_CPP, location_id, true);
+    index = MonsterGetIndexByLocationID(location_id);
     monster = MonsterGetScriptPartByLocationIndex(index);
     if (monster == 0) {
         return 0;
@@ -599,7 +598,7 @@ W8Monster* GetMonsterByLocationID(int location_id)
     unsigned int index;
 
     if (location_id != -1) {
-        index = MonsterGetIndexByLocationID(0x64f, MONSTER_MANAGER_CPP, location_id, false);
+        index = MonsterGetIndexByLocationID(location_id, false);
         if (index != 0xffffffff) {
             monster_info = MonsterGetScriptPartByLocationIndex(index);
             if (monster_info != 0) {
@@ -860,8 +859,7 @@ void SetMonsterControlState(W8MonsterInfo* monster_info, W8MonsterControlState c
         break;
     }
     monster_info->control_state = control_state;
-    RecountActiveMonsterGroupMembers(GetMonsterGroupByListIndex(GetMonsterGroupIndexByID(
-        0x872, MONSTER_MANAGER_CPP, monster_info->monster_group_id, true)));
+    RecountActiveMonsterGroupMembers(GetMonsterGroupByListIndex(GetMonsterGroupIndexByID(monster_info->monster_group_id)));
 }
 
 // FUNCTION: WIZ8 0x004e60b0
@@ -1022,8 +1020,7 @@ void TryStartMonsterCycle2(W8MonsterInfo* monster_info, W8Monster* monster, int 
                      g_combat_state->pActionMonsterInfo == monster_info)) {
                     return;
                 }
-                W8MonsterGroup* group = GetMonsterGroupByListIndex(GetMonsterGroupIndexByID(
-                    0x987, MONSTER_MANAGER_CPP, monster_info->monster_group_id, true));
+                W8MonsterGroup* group = GetMonsterGroupByListIndex(GetMonsterGroupIndexByID(monster_info->monster_group_id));
                 unsigned int chance = group->member_count * 20;
 
                 if (!gXStatus.fNpcDialogueMode && Random(chance) == 0) {
@@ -1120,8 +1117,7 @@ bool RemoveMonster(unsigned int monster_list_index, bool destroy_monster)
         MonsterInfoLeaveCombat(monster_info);
     }
     if (monster_info->monster_group_id != 0) {
-        W8MonsterGroup* monster_group = GetMonsterGroupByListIndex(GetMonsterGroupIndexByID(
-            0x125, MONSTER_MANAGER_CPP, monster_info->monster_group_id, true));
+        W8MonsterGroup* monster_group = GetMonsterGroupByListIndex(GetMonsterGroupIndexByID(monster_info->monster_group_id));
 
         wiz8::erase_first(*monster_group->monsters, monster_info->location_id);
         --monster_group->member_count;
@@ -1528,8 +1524,7 @@ std::string GetMonsterName(W8MonsterInfo* monster_info, W8MonsterRecord* record,
                 1, fmt::format("ERROR: Monster ID {:d} has no group", monster_info->location_id));
         }
     } else {
-        monster_group = GetMonsterGroupByListIndex(GetMonsterGroupIndexByID(
-            0x54c, MONSTER_MANAGER_CPP, monster_info->monster_group_id, true));
+        monster_group = GetMonsterGroupByListIndex(GetMonsterGroupIndexByID(monster_info->monster_group_id));
         if (monster_group == 0) {
             srAssertFail("pMonsterGroup", MONSTER_MANAGER_CPP, 0x54d, 0);
         }

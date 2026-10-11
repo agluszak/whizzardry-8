@@ -21,7 +21,6 @@
 #include "gameplay_modifiers.h"
 #include "layouts/item_instance.h"
 
-#define GAMEPLAY_MODS_CPP "C:\\Projects\\Wizardry 8\\Local Code\\Gameplay Mods.cpp"
 
 /* Clear the party modifier block, fold the party's effect slots, the combat
    effect run and each character's own equipment and condition blocks into
@@ -330,7 +329,7 @@ void RebuildConditionsAndDerivedStats(int party_slot)
 void RebuildMonsterDerivedStats(int location_id)
 {
     W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(
-        MonsterGetIndexByLocationID(0xa6, GAMEPLAY_MODS_CPP, location_id, true));
+        MonsterGetIndexByLocationID(location_id));
     W8GameplayModifierBlock* modifiers = &monster_info->modifiers;
 
     memset(modifiers, 0, sizeof(W8GameplayModifierBlock));
@@ -429,9 +428,7 @@ void ApplyConditionModifiers(W8Character* character, const unsigned int* conditi
                 W8MonsterInfo* bound;
                 if (character->conditions[W8_DEPENDENCE_SWALLOWED].level_acquired ==
                         g_status.current_level &&
-                    (bound = MonsterInfoFromID(
-                         0x16b, GAMEPLAY_MODS_CPP,
-                         character->conditions[W8_DEPENDENCE_SWALLOWED].source_monster, true)) !=
+                    (bound = MonsterInfoFromID(character->conditions[W8_DEPENDENCE_SWALLOWED].source_monster)) !=
                         0) {
                     W8MonsterRecord* monster = GetMonsterDataForInfo(bound);
                     target->health_regen_adjustment += -1 - (monster->effective_level >> 1);

@@ -1824,7 +1824,7 @@ void W8PathingService::AdjustFinalPathEndpoint(W8NavigatorMovementState* movemen
         target_position = g_startup_world->GetPosition();
     } else {
         unsigned int monster_index =
-            MonsterGetIndexByLocationID(0x27b0, OCTPATH_CPP, target_location, true);
+            MonsterGetIndexByLocationID(target_location);
         W8MonsterInfo* info = MonsterGetScriptPartByLocationIndex(monster_index);
         if (info != 0 && info->p3D != 0) {
             target_radius = info->p3D->movement.alternate_radius;
@@ -1959,9 +1959,9 @@ unsigned int W8PathingService::CollectPathProbes(W8NavigatorMovementState* movem
          ++index) {
         int location_id = m_path_candidates[index];
         unsigned int monster_index =
-            MonsterGetIndexByLocationID(0x26ae, OCTPATH_CPP, location_id, false);
+            MonsterGetIndexByLocationID(location_id, false);
         if (monster_index != static_cast<unsigned int>(-1)) {
-            monster_index = MonsterGetIndexByLocationID(0x26b1, OCTPATH_CPP, location_id, true);
+            monster_index = MonsterGetIndexByLocationID(location_id);
             W8MonsterInfo* info = MonsterGetScriptPartByLocationIndex(monster_index);
             if (info != 0 && info->p3D != 0 && info->p3D->active) {
                 W8Monster* monster = info->p3D;
@@ -2488,7 +2488,7 @@ unsigned short W8PathingService::ResolveSearchNodeCollisions(W8NavigatorMovement
     for (unsigned int candidate = 0; candidate < m_path_candidates.size(); ++candidate) {
         int location_id = m_path_candidates[candidate];
         unsigned int monster_index =
-            MonsterGetIndexByLocationID(0x2622, OCTPATH_CPP, location_id, false);
+            MonsterGetIndexByLocationID(location_id, false);
         if (monster_index == static_cast<unsigned int>(-1)) {
             continue;
         }
@@ -2509,7 +2509,7 @@ unsigned short W8PathingService::ResolveSearchNodeCollisions(W8NavigatorMovement
             continue;
         }
 
-        monster_index = MonsterGetIndexByLocationID(0x262b, OCTPATH_CPP, location_id, true);
+        monster_index = MonsterGetIndexByLocationID(location_id);
         W8MonsterInfo* info = MonsterGetScriptPartByLocationIndex(monster_index);
         if (info == 0 || info->p3D == 0 || !info->p3D->active) {
             continue;
@@ -3026,9 +3026,9 @@ unsigned int W8PathingService::StepMonsterAlongPath(W8NavigatorMovementState* mo
     bool arrived = false;
     W8NavigatorAttachment* attachment = movement->attachment.get();
     W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(
-        MonsterGetIndexByLocationID(0x2a95, OCTPATH_CPP, movement->location_id, true));
+        MonsterGetIndexByLocationID(movement->location_id));
     W8MonsterGroup* group = GetMonsterGroupByListIndex(
-        GetMonsterGroupIndexByID(0x2a96, OCTPATH_CPP, monster_info->monster_group_id, true));
+        GetMonsterGroupIndexByID(monster_info->monster_group_id));
     monster_info->p3D->group_linked = true;
     float remaining = g_rate * g_game_time_accumulator->GetFrameDelta();
     do {

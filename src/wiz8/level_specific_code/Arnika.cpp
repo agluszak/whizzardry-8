@@ -32,7 +32,6 @@
 
 struct W8NpcState;
 
-#define ARNIKA_CPP "C:\\Projects\\Wizardry 8\\Level Specific Code\\Arnika.cpp"
 
 /* Level Specific Code\Arnika.cpp (level 0, Arnika).
 
@@ -423,14 +422,13 @@ bool ArnikaMookholo(Trigger* pTrigger)
         location_id = group->MemberLocationId(0);
         if (location_id != 0) {
             info = MonsterGetScriptPartByLocationIndex(
-                MonsterGetIndexByLocationID(0x193, ARNIKA_CPP, location_id, true));
+                MonsterGetIndexByLocationID(location_id));
             if (info != 0) {
                 g_mookholo_monster = info->p3D;
                 g_npc_dialogue_closed = false;
                 g_master_functions.push_back(ArnikaMookholoWatch);
             }
-            QueueNpcScriptNotice(FindNpcBindingForMonster(MonsterGetIndexByLocationID(
-                                     0x199, ARNIKA_CPP, location_id, true)),
+            QueueNpcScriptNotice(FindNpcBindingForMonster(MonsterGetIndexByLocationID(location_id)),
                                  0, -1, false, 0);
         }
     }
@@ -488,7 +486,7 @@ bool ArnikaYellowButton(Trigger* pTrigger)
         group = SpawnMonsters(0xc, 6, &position, 1, true, false, false);
         if (group != 0) {
             info = MonsterGetScriptPartByLocationIndex(
-                MonsterGetIndexByLocationID(0x215, ARNIKA_CPP, group->leader_location_id, true));
+                MonsterGetIndexByLocationID(group->leader_location_id));
             info->p3D->SetScript("guard.msf", true);
         }
     }

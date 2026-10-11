@@ -1,6 +1,8 @@
 #ifndef WIZ8_LOCAL_CODE_MONSTER_MANAGER_H
 #define WIZ8_LOCAL_CODE_MONSTER_MANAGER_H
 
+#include <source_location>
+
 #include "wiz8/audio_resources.h"
 
 #include <string>
@@ -420,10 +422,10 @@ void ActivateMonster(W8MonsterInfo* monster_info, W8MonsterActivationMode mode);
 void ClearMonsterPathAndResume(W8MonsterInfo* monster_info);
 void MonsterStartsDying(W8MonsterInfo* monster_info, bool display_message);
 W8MonsterRecord* GetMonsterDataForInfo(W8MonsterInfo* monster_info);
-unsigned int MonsterGetIndexByLocationID(int caller_line, const char* caller_file, int location_id,
-                                         bool assert_on_failure);
-W8MonsterInfo* MonsterInfoFromID(int caller_line, const char* caller_file, int location_id,
-                                 bool assert_on_failure);
+unsigned int MonsterGetIndexByLocationID(int location_id, bool assert_on_failure = true,
+                                         std::source_location caller = std::source_location::current());
+W8MonsterInfo* MonsterInfoFromID(int location_id, bool assert_on_failure = true,
+                                 std::source_location caller = std::source_location::current());
 W8MonsterRecord* GetMonsterDataByLocationID(int location_id);
 W8Monster* GetMonsterByLocationID(int location_id);
 float GetMonsterCombatMoveRange(W8MonsterInfo* monster_info);

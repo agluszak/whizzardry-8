@@ -36,7 +36,6 @@ class Trigger;
    (GoodaVine_A/B, Give_Zulu, Meat_Maker, Meat_Box, URN_Trigger_01-04) and runs
    the Trynnie2Killed location-variable sync. */
 
-#define TRYNNIE2_CPP "C:\\Projects\\Wizardry 8\\Level Specific Code\\Trynnie2.cpp"
 
 /* Fact 0x229 records that the Trynnie2 group was wiped out; mirror it into the
    Trynnie2Killed location variable the first time this level sees it, so the
@@ -130,7 +129,7 @@ bool Trynnie2MeatBox(Trigger* pTrigger)
         ShowNotice(W8_FONT_PALETTE_TEXT_BOX, g_localized_strings[0x964]);
         return true;
     }
-    index = MonsterGetIndexByLocationID(0x68, TRYNNIE2_CPP, group->leader_location_id, true);
+    index = MonsterGetIndexByLocationID(group->leader_location_id);
     info = MonsterGetScriptPartByLocationIndex(index);
     if (info->highest_condition >= W8_CONDITION_ASLEEP) {
         return true;

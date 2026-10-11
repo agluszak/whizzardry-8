@@ -1,6 +1,8 @@
 #ifndef WIZ8_LOCAL_CODE_MONSTER_GROUP_H
 #define WIZ8_LOCAL_CODE_MONSTER_GROUP_H
 
+#include <source_location>
+
 #include <string>
 #include <cstddef>
 
@@ -115,8 +117,8 @@ struct W8MonsterGroup {
     unsigned char unknown_d4[0x57];
 };
 
-unsigned int GetMonsterGroupIndexByID(int caller_line, const char* caller_file, int group_id,
-                                      bool assert_on_failure);
+unsigned int GetMonsterGroupIndexByID(int group_id, bool assert_on_failure = true,
+                                      std::source_location caller = std::source_location::current());
 W8MonsterGroup* GetMonsterGroupByListIndex(unsigned int group_list_index);
 bool GetMonsterGroupEngagementState(int group_id);
 unsigned char ApplyToMonsterGroupLeader(W8MonsterGroup* monster_group,

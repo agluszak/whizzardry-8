@@ -695,7 +695,7 @@ try
             continue;
         }
         location_id = group->MemberLocationId(0);
-        monster_index = MonsterGetIndexByLocationID(0x315, READ_LEVEL_CPP, location_id, true);
+        monster_index = MonsterGetIndexByLocationID(location_id);
         monster_info = MonsterGetScriptPartByLocationIndex(monster_index);
         ActivateMonster(monster_info, W8_MONSTER_LOAD_ALL_CYCLES);
         monster = monster_info->p3D;

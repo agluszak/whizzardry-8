@@ -819,8 +819,7 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
         ResetLevelDataVectors();
         group = FindFirstMonsterByID(0xc2);
         if (group != 0) {
-            monster_info = MonsterGetScriptPartByLocationIndex(MonsterGetIndexByLocationID(
-                0x4b4, NPC_SCRIPTING_FACTS_CPP, group->leader_location_id, true));
+            monster_info = MonsterGetScriptPartByLocationIndex(MonsterGetIndexByLocationID(group->leader_location_id));
             monster_info->p3D->SetScript("MoveSavantBoffo.msf", true);
         }
         wiz8::sound::stream("Data\\Sound\\Misc\\Earthquake End.wav");
