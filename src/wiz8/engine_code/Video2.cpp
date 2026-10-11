@@ -593,8 +593,8 @@ unsigned char OpenRendererWindow(void)
 CpuSurface* BeginVideoPresentation(void)
 {
     const auto& source = primarySurface.cpu();
-    videoSurfaceOwner = CreateCpuSurface(source.surface->w, source.surface->h, 16,
-                                        source.redMask, source.greenMask, source.blueMask);
+    videoSurfaceOwner = CreateCpuSurface(source.surface->w, source.surface->h,
+                                         source.surface->format);
     g_flush_pending = false;
     return videoSurfaceOwner.get();
 }
