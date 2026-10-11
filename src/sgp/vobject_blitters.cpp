@@ -6,11 +6,9 @@
 #include <cstdint>
 #include <cstring>
 #include <memory>
-#include <optional>
 
 #include "Types.h"
 #include "vsurface.h"
-#include "wiz8/compat/surfaces.h"
 #include "himage.h"
 #include "vobject.h"
 #include "WCheck.h"
@@ -36,87 +34,6 @@ void NativeWriteWord(UINT8* data, UINT16 value)
 
 // GLOBAL: WIZ8 0x00600078
 SDL_Rect ClippingRect = {0, 0, 640, 480};
-
-// Ordinary buffer copies share the CPU surface backend. The legacy entry points
-// deliberately propagate writes through overlapping input; SDL snapshots instead,
-// so only that unsupported case uses the shared forward-copy loop below.
-static void BlitPackedBuffers(void* destination, UINT32 destinationPitch,
-                              void* source, UINT32 sourcePitch, UINT32 width,
-                              UINT32 height, unsigned bytes,
-                              std::optional<SurfaceColorKey> key = std::nullopt)
-{
-    if (!width || !height)
-        return;
-    const auto dest = reinterpret_cast<uintptr_t>(destination);
-    const auto src = reinterpret_cast<uintptr_t>(source);
-    if (dest < src + size_t(height - 1) * sourcePitch + width * bytes &&
-        src < dest + size_t(height - 1) * destinationPitch + width * bytes) {
-        auto* output = static_cast<UINT8*>(destination);
-        const auto* input = static_cast<const UINT8*>(source);
-        const unsigned rowBytes = width * bytes;
-        for (unsigned y = 0; y < height; ++y, output += destinationPitch, input += sourcePitch) {
-            if (key) {
-                for (unsigned x = 0; x < rowBytes; x += 2)
-                    if (NativeReadWord(input + x) != key->low)
-                        NativeWriteWord(output + x, NativeReadWord(input + x));
-            } else {
-                // MOVSB/MOVSW prefix followed by forward MOVSD groups.
-                unsigned offset = 0;
-                for (unsigned chunk : {1u, 2u, 4u}) {
-                    const unsigned end = chunk == 4 ? rowBytes : offset + (rowBytes & chunk);
-                    for (; offset < end; offset += chunk) {
-                        UINT32 value;
-                        memcpy(&value, input + offset, chunk);
-                        memcpy(output + offset, &value, chunk);
-                    }
-                }
-            }
-        }
-        return;
-    }
-    const auto format = bytes == 1 ? SDL_PIXELFORMAT_INDEX8 : SDL_PIXELFORMAT_RGB565;
-    auto outputStorage = CreateCpuStorage(width, height, format, destination, destinationPitch);
-    auto inputStorage = CreateCpuStorage(width, height, format, source, sourcePitch);
-    auto output = ShareCpuSurface(*outputStorage);
-    auto input = ShareCpuSurface(*inputStorage);
-    input.sourceKey = key;
-    BlitCpuSurface(output, nullptr, input, nullptr, key.has_value());
-}
-
-// FUNCTION: WIZ8 0x00411430
-BOOLEAN Blt16BPPTo16BPP(UINT16* pDest, UINT32 uiDestPitch, UINT16* pSrc, UINT32 uiSrcPitch,
-                        INT32 iDestXPos, INT32 iDestYPos, INT32 iSrcXPos, INT32 iSrcYPos,
-                        UINT32 uiWidth, UINT32 uiHeight)
-{
-    Assert(pDest != nullptr);
-    Assert(pSrc != nullptr);
-    auto* source = reinterpret_cast<UINT8*>(pSrc) + iSrcYPos * uiSrcPitch + iSrcXPos * 2;
-    auto* destination = reinterpret_cast<UINT8*>(pDest) + iDestYPos * uiDestPitch + iDestXPos * 2;
-    BlitPackedBuffers(destination, uiDestPitch, source, uiSrcPitch, uiWidth, uiHeight, 2);
-    return TRUE;
-}
-
-/**********************************************************************************************
-	Blt16BPPTo16BPPTrans
-
-	Copies a rect of 16 bit data from a video buffer to a buffer position of the brush
-	in the data area, for later blitting. Used to copy background information for mercs
-	etc. to their unblit buffer, for later reblitting. Does NOT clip. Transparent color is
-	not copied.
-
-**********************************************************************************************/
-// FUNCTION: WIZ8 0x004114c0
-BOOLEAN Blt16BPPTo16BPPTrans(UINT16* pDest, UINT32 uiDestPitch, UINT16* pSrc, UINT32 uiSrcPitch,
-                             INT32 iDestXPos, INT32 iDestYPos, INT32 iSrcXPos, INT32 iSrcYPos,
-                             UINT32 uiWidth, UINT32 uiHeight, UINT16 usTrans)
-{
-    Assert(pDest != nullptr);
-    Assert(pSrc != nullptr);
-    auto* source = reinterpret_cast<UINT8*>(pSrc) + iSrcYPos * uiSrcPitch + iSrcXPos * 2;
-    auto* destination = reinterpret_cast<UINT8*>(pDest) + iDestYPos * uiDestPitch + iDestXPos * 2;
-    BlitPackedBuffers(destination, uiDestPitch, source, uiSrcPitch, uiWidth, uiHeight, 2, SurfaceColorKey{usTrans, usTrans});
-    return TRUE;
-}
 
 /**********************************************************************************************
 	Blt16BPPTo16BPPMirror
@@ -151,29 +68,6 @@ BOOLEAN Blt16BPPTo16BPPMirror(UINT16* pDest, UINT32 uiDestPitch, UINT16* pSrc, U
     return TRUE;
 }
 
-/***********************************************************************************************
-	Blt8BPPTo8BPP
-
-	Copies a rect of an 8 bit data from a video buffer to a buffer position of the brush
-	in the data area, for later blitting. Used to copy background information for mercs
-	etc. to their unblit buffer, for later reblitting. Does NOT clip.
-
-**********************************************************************************************/
-// FUNCTION: WIZ8 0x004116c0
-BOOLEAN Blt8BPPTo8BPP(UINT8* pDest, UINT32 uiDestPitch, UINT8* pSrc, UINT32 uiSrcPitch,
-                      INT32 iDestXPos, INT32 iDestYPos, INT32 iSrcXPos, INT32 iSrcYPos,
-                      UINT32 uiWidth, UINT32 uiHeight)
-{
-    Assert(pDest != nullptr);
-    Assert(pSrc != nullptr);
-    auto* source = reinterpret_cast<UINT8*>(pSrc) + iSrcYPos * uiSrcPitch + iSrcXPos * 1;
-    auto* destination = reinterpret_cast<UINT8*>(pDest) + iDestYPos * uiDestPitch + iDestXPos * 1;
-    BlitPackedBuffers(destination, uiDestPitch, source, uiSrcPitch, uiWidth, uiHeight, 1);
-    return TRUE;
-}
-
-
-
 /**********************************************************************************************
  Blt8BPPDataSubTo16BPPBuffer
 
@@ -182,45 +76,20 @@ BOOLEAN Blt8BPPTo8BPP(UINT8* pDest, UINT32 uiDestPitch, UINT8* pSrc, UINT32 uiSr
 **********************************************************************************************/
 // FUNCTION: WIZ8 0x00411730
 BOOLEAN Blt8BPPDataSubTo16BPPBuffer(UINT16* pBuffer, UINT32 uiDestPitchBYTES,
-                                    SGPVSurface& hSrcVSurface, UINT8* pSrcBuffer, UINT32 uiSrcPitch,
-                                    INT32 iX, INT32 iY, SDL_Rect* pRect)
+                                    const Palette16& palette, const UINT8* pSrcBuffer,
+                                    UINT32 uiSrcPitch, INT32 iX, INT32 iY, const SDL_Rect& source)
 {
-    UINT16* p16BPPPalette;
-    UINT8 *SrcPtr, *DestPtr;
-    UINT32 LeftSkip, TopSkip, BlitLength, BlitHeight;
-    INT32 iTempX, iTempY;
-
-    // Assertions
     Assert(pSrcBuffer != nullptr);
     Assert(pBuffer != nullptr);
+    CHECKF(iX >= 0);
+    CHECKF(iY >= 0);
 
-    // Add to start position of dest buffer
-    iTempX = iX;
-    iTempY = iY;
-
-    // Validations
-    CHECKF(iTempX >= 0);
-    CHECKF(iTempY >= 0);
-
-    LeftSkip = pRect->x;
-    TopSkip = pRect->y * uiSrcPitch;
-    BlitLength = pRect->w;
-    BlitHeight = pRect->h;
-
-    SrcPtr = (UINT8*)(pSrcBuffer + TopSkip + LeftSkip);
-    DestPtr = ((UINT8*)pBuffer + (uiDestPitchBYTES * iTempY) + (iTempX * 2));
-    p16BPPPalette = hSrcVSurface.p16BPPPalette.data();
-
-    // Every index writes its LUT word.
-    for (UINT32 y = 0; y < BlitHeight; ++y) {
-        for (UINT32 x = 0; x < BlitLength; ++x) {
-            NativeWriteWord(DestPtr + x * 2, p16BPPPalette[SrcPtr[x]]);
-        }
-        SrcPtr += uiSrcPitch;
-        DestPtr += uiDestPitchBYTES;
-    }
-
-    return (TRUE);
+    const UINT8* src = pSrcBuffer + source.y * uiSrcPitch + source.x;
+    auto* dest = reinterpret_cast<UINT8*>(pBuffer) + uiDestPitchBYTES * iY + iX * 2;
+    for (int y = 0; y < source.h; ++y, src += uiSrcPitch, dest += uiDestPitchBYTES)
+        for (int x = 0; x < source.w; ++x)
+            NativeWriteWord(dest + x * 2, palette[src[x]]);
+    return TRUE;
 }
 
 /****************************INCOMPLETE***********************************************/
@@ -375,10 +244,19 @@ BOOLEAN BltIsClipped(SGPVObject& object, INT32 x, INT32 y, UINT16 index, SDL_Rec
     return !SDL_GetRectIntersection(&sprite, &clip, &visible) ||
            !SDL_RectsEqual(&sprite, &visible);
 }
+/**********************************************************************************************
+	Blt16BPPBufferShadowRect
+
+		Darkens a rectangular area through ShadeTable. This blitter is used by
+		ShadowVideoSurfaceRect.
+
+	pBuffer						Pointer to a 16BPP buffer
+	uiDestPitchBytes	Pitch of the destination surface
+	area							An SDL_Rect, the area to darken
+
+*********************************************************************************************/
 // FUNCTION: WIZ8 0x004124a0
-/* Keep the legacy inclusive rectangle and palette transforms in one place. */
-static BOOLEAN Blt16BPPBufferShadowRectWithTable(UINT16* pBuffer, UINT32 uiDestPitchBYTES,
-                                                 SDL_Rect* area, const UINT16* table)
+BOOLEAN Blt16BPPBufferShadowRect(UINT16* pBuffer, UINT32 uiDestPitchBYTES, SDL_Rect* area)
 {
     Assert(pBuffer != nullptr);
 
@@ -394,52 +272,9 @@ static BOOLEAN Blt16BPPBufferShadowRectWithTable(UINT16* pBuffer, UINT32 uiDestP
     for (int y = 0; y < visible.h; ++y) {
         for (int x = 0; x < visible.w; ++x) {
             UINT8* pixel = dest + x * 2;
-            NativeWriteWord(pixel, table[NativeReadWord(pixel)]);
+            NativeWriteWord(pixel, ShadeTable[NativeReadWord(pixel)]);
         }
         dest += uiDestPitchBYTES;
     }
-    return TRUE;
-}
-
-BOOLEAN Blt16BPPBufferShadowRect(UINT16* pBuffer, UINT32 uiDestPitchBYTES, SDL_Rect* area)
-{
-    return Blt16BPPBufferShadowRectWithTable(pBuffer, uiDestPitchBYTES, area, ShadeTable);
-}
-
-/**********************************************************************************************
-	Blt16BPPBufferShadowRect
-
-		Darkens a rectangular area by 25%. This blitter is used by ShadowVideoObjectRect.
-
-	pBuffer						Pointer to a 16BPP buffer
-	uiDestPitchBytes	Pitch of the destination surface
-	area							An SDL_Rect, the area to darken
-
-*********************************************************************************************/
-// FUNCTION: WIZ8 0x00412570
-BOOLEAN Blt16BPPBufferShadowRectAlternateTable(UINT16* pBuffer, UINT32 uiDestPitchBYTES,
-                                               SDL_Rect* area)
-{
-    return Blt16BPPBufferShadowRectWithTable(pBuffer, uiDestPitchBYTES, area, IntensityTable);
-}
-
-// UTILITY FUNCTIONS FOR BLITTING
-
-// FUNCTION: WIZ8 0x00412640
-BOOLEAN FillRect16BPP(UINT16* pBuffer, UINT32 uiDestPitchBYTES, INT32 x1, INT32 y1, INT32 x2,
-                      INT32 y2, UINT16 color)
-{
-    Assert(pBuffer != nullptr);
-    Assert(uiDestPitchBYTES > 0);
-    // This legacy entry point uses inclusive coordinates on the 640x480 buffer.
-    const SDL_Rect rectangle{std::max(0, x1), std::max(0, y1),
-                            std::min(639, x2) - std::max(0, x1) + 1,
-                            std::min(479, y2) - std::max(0, y1) + 1};
-    if (SDL_RectEmpty(&rectangle))
-        return TRUE;
-    auto storage = CreateCpuStorage(uiDestPitchBYTES / 2, 480, SDL_PIXELFORMAT_RGB565,
-                                    pBuffer, uiDestPitchBYTES);
-    auto destination = ShareCpuSurface(*storage);
-    FillCpuSurface(destination, color, &rectangle);
     return TRUE;
 }

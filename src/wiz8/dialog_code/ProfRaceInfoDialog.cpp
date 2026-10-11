@@ -118,7 +118,7 @@ void W8ProfRaceInfoDialogBase::Draw()
         m_button.m_dirty = true;
         W8DialogBase::Draw();
         DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), m_uiTitleId, 0, m_uiSummaryId, m_x + 0xd,
-                                      m_y + 0xd, VO_BLT_SRCTRANSPARENCY, 0);
+                                      m_y + 0xd, VO_BLT_SRCTRANSPARENCY);
         DrawTextLine(g_W8TextBufferAlignLeft, 0x25, 0xb, 0x147, 0x18, g_localized_strings[m_uiNameId],
                      g_options_detail_font);
         DrawTextLine(g_W8TextBufferAlignCenter, 0xd, 0x29, 0x8e, 0xc, g_localized_strings[m_uiHeadingId],

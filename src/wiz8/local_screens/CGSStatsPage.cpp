@@ -161,7 +161,7 @@ void W8CharacterStatsValue::Redraw(bool full_redraw)
     int top = m_pPanel->m_bounds.top + m_top + 1;
     const W8CharacterStatsRecord* record = m_record;
     unsigned int image = m_enabled ? record->image_enabled : record->image_disabled;
-    DrawCatalogImage(GetFrameBufferSurface(), record->object, 0, image, left, top, VO_BLT_SRCTRANSPARENCY, 0);
+    DrawCatalogImage(GetFrameBufferSurface(), record->object, 0, image, left, top, VO_BLT_SRCTRANSPARENCY);
 }
 
 /* Force the control enabled while the base handles the right-button release,
@@ -220,7 +220,7 @@ void W8CharacterStatsRecordControl::Redraw(bool full_redraw)
     int top = m_pPanel->m_bounds.top + m_text_offset + m_top + 1;
     const W8CharacterStatsRecord* record = m_record;
     unsigned int image = m_enabled ? record->image_enabled : record->image_disabled;
-    DrawCatalogImage(GetFrameBufferSurface(), record->object, 0, image, left, top, VO_BLT_SRCTRANSPARENCY, 0);
+    DrawCatalogImage(GetFrameBufferSurface(), record->object, 0, image, left, top, VO_BLT_SRCTRANSPARENCY);
 }
 
 // FUNCTION: WIZ8 0x005c9290
@@ -1001,7 +1001,7 @@ void W8CharacterStatsPage::Redraw()
             DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), g_character_resistance_images[realm_index],
                                           0, g_spell_realm_animations[realm_index].initial_frame,
                                           (realm_index / 2) * 0x3f + 0x23 + left, frame_top,
-                                          VO_BLT_SRCTRANSPARENCY, 0);
+                                          VO_BLT_SRCTRANSPARENCY);
         }
 
         text.SetLayoutMode(g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
@@ -1078,13 +1078,13 @@ void W8CharacterStatsPage::Redraw()
 
     if (m_dirty) {
         W8ControlsRect bounds = {0x8f, 0x162, 0xbf, 0x179};
-        DrawCatalogImage(GetFrameBufferSurface(), 0x107, 0, 5, 0x8f, 0x162, VO_BLT_SRCTRANSPARENCY, 0);
+        DrawCatalogImage(GetFrameBufferSurface(), 0x107, 0, 5, 0x8f, 0x162, VO_BLT_SRCTRANSPARENCY);
         text.SetLayoutBounds(&bounds, true, true);
         text.RenderString(fmt::format("{:d}", m_creation_state->attribute_step_limit),
                           g_options_detail_font, true, GetFrameBufferSurface());
         bounds.top = 0x184;
         bounds.bottom = 0x19b;
-        DrawCatalogImage(GetFrameBufferSurface(), 0x107, 0, 5, 0x8f, 0x184, VO_BLT_SRCTRANSPARENCY, 0);
+        DrawCatalogImage(GetFrameBufferSurface(), 0x107, 0, 5, 0x8f, 0x184, VO_BLT_SRCTRANSPARENCY);
         text.SetLayoutBounds(&bounds, true, true);
         int total = m_creation_state->attribute_points_total;
         std::string points_text =

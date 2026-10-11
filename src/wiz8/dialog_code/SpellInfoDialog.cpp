@@ -124,7 +124,7 @@ void W8SpellInfoDialog::Draw()
         m_animation_frame += steps;
         m_animation_frame %= animation->frame_count;
         DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), animation->image, 0, m_animation_frame,
-                                      m_x + 0xe, m_y + 0xe, VO_BLT_SRCTRANSPARENCY, 0);
+                                      m_x + 0xe, m_y + 0xe, VO_BLT_SRCTRANSPARENCY);
     }
 }
 

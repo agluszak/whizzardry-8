@@ -215,8 +215,7 @@ void DrawCampStatsPage(void)
 {
     SetFont(g_wiz_text_font_secondary);
     if (g_camp_screen->redraw_flags == W8_CAMP_REDRAW_ALL) {
-        DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x142, 0, 1, 0, 0xa5, VO_BLT_SRCTRANSPARENCY,
-                                      0);
+        DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x142, 0, 1, 0, 0xa5, VO_BLT_SRCTRANSPARENCY);
         g_camp_stats_origin_x = 0;
         g_camp_stats_origin_y = 0xa5;
         int index;
@@ -774,9 +773,8 @@ void DrawCampSkillsPage(void)
             }
         }
         DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x141, 0, has_fifth, 0x136, 0,
-                                      VO_BLT_SRCTRANSPARENCY, 0);
-        DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x141, 0, 2, 0, 0xa5, VO_BLT_SRCTRANSPARENCY,
-                                      0);
+                                      VO_BLT_SRCTRANSPARENCY);
+        DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x141, 0, 2, 0, 0xa5, VO_BLT_SRCTRANSPARENCY);
         for (int category = 0; category < 5; ++category) {
             if (category != 4 || has_fifth) {
                 int x = g_camp_skill_category_positions[category].x;
@@ -788,7 +786,7 @@ void DrawCampSkillsPage(void)
                 }
                 DrawCatalogImage(GetFrameBufferSurface(), 0x144, 0,
                                  static_cast<short>(g_camp_skill_category_images[category]),
-                                 x - 0x16, y - 3, VO_BLT_SRCTRANSPARENCY, 0);
+                                 x - 0x16, y - 3, VO_BLT_SRCTRANSPARENCY);
             }
         }
         int category_count[5] = {0, 0, 0, 0, 0};
@@ -804,7 +802,7 @@ void DrawCampSkillsPage(void)
                     top += 0xa5;
                 }
                 top += category_count[category] * 0xe;
-                DrawCatalogImage(GetFrameBufferSurface(), 0x141, 0, 3, left, top, VO_BLT_SRCTRANSPARENCY, 0);
+                DrawCatalogImage(GetFrameBufferSurface(), 0x141, 0, 3, left, top, VO_BLT_SRCTRANSPARENCY);
                 unsigned int level = value->level;
                 unsigned int base = value->points;
                 int gained;
@@ -827,7 +825,7 @@ void DrawCampSkillsPage(void)
                     clip.w = level;
                     SetClippingRect(&clip);
                     DrawCatalogImage(GetFrameBufferSurface(), 0x143, 0, 0, left + 0x6f, top + 2,
-                                     VO_BLT_SRCTRANSPARENCY, 0);
+                                     VO_BLT_SRCTRANSPARENCY);
                 }
                 if (gained == 0) {
                     if (lost != 0) {
@@ -835,14 +833,14 @@ void DrawCampSkillsPage(void)
                         clip.w = lost;
                         SetClippingRect(&clip);
                         DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x143, 0, 2, left + 0x6f,
-                                                      top + 2, VO_BLT_SRCTRANSPARENCY, 0);
+                                                      top + 2, VO_BLT_SRCTRANSPARENCY);
                     }
                 } else {
                     clip.x = level + 0x6f + left;
                     clip.w = gained;
                     SetClippingRect(&clip);
                     DrawCatalogImage(GetFrameBufferSurface(), 0x143, 0, 1, left + 0x6f, top + 2,
-                                     VO_BLT_SRCTRANSPARENCY, 0);
+                                     VO_BLT_SRCTRANSPARENCY);
                 }
                 SetClippingRect(&saved_clip);
                 Palette16 palette;
@@ -1112,7 +1110,7 @@ void W8CharacterPersonalityPage::Redraw()
             m_animation_frame = (m_animation_frame + elapsed) % 3;
             DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x105, 0, m_animation_frame + 2,
                                           m_bounds.left + 0x156, m_bounds.top + 0x137,
-                                          VO_BLT_SRCTRANSPARENCY, 0);
+                                          VO_BLT_SRCTRANSPARENCY);
         }
     }
 
@@ -1200,7 +1198,7 @@ void W8CharacterPersonalityPage::Redraw()
 
     if (m_portrait_dirty) {
         DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x11, m_character->portrait_index, 0,
-                                      m_bounds.left + 0x86, m_bounds.top + 5, 0, 0);
+                                      m_bounds.left + 0x86, m_bounds.top + 5, 0);
         m_portrait_dirty = false;
     }
 
@@ -1392,12 +1390,12 @@ void W8CharacterSkillsPage::Redraw()
                                  m_bounds.left + g_character_page2_category_geometry[category].x -
                                      0x16,
                                  m_bounds.top + g_character_page2_category_geometry[category].y - 3,
-                                 VO_BLT_SRCTRANSPARENCY, 0);
+                                 VO_BLT_SRCTRANSPARENCY);
             }
         }
         if (!m_show_fifth_category) {
             DrawCatalogImage(GetFrameBufferSurface(), 0x108, 0, 1, m_bounds.left, m_bounds.top + 0x118,
-                             VO_BLT_SRCTRANSPARENCY, 0);
+                             VO_BLT_SRCTRANSPARENCY);
         }
     }
 
@@ -1419,7 +1417,7 @@ void W8CharacterSkillsPage::Redraw()
         bounds.top = 0x162;
         bounds.right = 0xbf;
         bounds.bottom = 0x179;
-        DrawCatalogImage(GetFrameBufferSurface(), 0x107, 0, 5, 0x8f, 0x162, VO_BLT_SRCTRANSPARENCY, 0);
+        DrawCatalogImage(GetFrameBufferSurface(), 0x107, 0, 5, 0x8f, 0x162, VO_BLT_SRCTRANSPARENCY);
         text.SetLayoutBounds(&bounds, true, true);
         text.RenderString(fmt::format("{:d}", m_creation_state->skill_step_limit),
                           g_options_detail_font, true, GetFrameBufferSurface());
@@ -1429,7 +1427,7 @@ void W8CharacterSkillsPage::Redraw()
     if (m_dirty) {
         W8TextBuffer text;
         W8ControlsRect bounds = {0x8f, 0x184, 0xbf, 0x19b};
-        DrawCatalogImage(GetFrameBufferSurface(), 0x107, 0, 5, 0x8f, 0x184, VO_BLT_SRCTRANSPARENCY, 0);
+        DrawCatalogImage(GetFrameBufferSurface(), 0x107, 0, 5, 0x8f, 0x184, VO_BLT_SRCTRANSPARENCY);
         text.SetLayoutBounds(&bounds, true, true);
         text.RenderString(fmt::format("{:d}/{:d}", m_creation_state->skill_points_remaining,
                                       m_creation_state->skill_points_total),

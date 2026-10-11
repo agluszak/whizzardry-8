@@ -1593,16 +1593,16 @@ void RedrawTextBoxScrollChrome(void)
         switch (g_level_block->text_content_region) {
         case 0x57:
             DrawCatalogImage(GetFrameBufferSurface(), 0x86, 0, 0, g_level_block->text_box_right + 5, 0x16b,
-                             VO_BLT_SRCTRANSPARENCY, 0);
+                             VO_BLT_SRCTRANSPARENCY);
             break;
         case 0x58:
             DrawCatalogImage(GetFrameBufferSurface(), 0x86, 0, 1, g_level_block->text_box_right + 5, 0x16b,
-                             VO_BLT_SRCTRANSPARENCY, 0);
+                             VO_BLT_SRCTRANSPARENCY);
             break;
         case -1:
         case 0x56:
             DrawCatalogImage(GetFrameBufferSurface(), 0x86, 0, 3, g_level_block->text_box_right + 5, 0x16b,
-                             VO_BLT_SRCTRANSPARENCY, 0);
+                             VO_BLT_SRCTRANSPARENCY);
             g_level_block->text_content_region = -1;
             break;
         }
@@ -1620,16 +1620,16 @@ void RedrawTextBoxScrollChrome(void)
         switch (g_level_block->dialogue_content_region) {
         case 0x5a:
             DrawCatalogImage(GetFrameBufferSurface(), 0x86, 0, 8, g_level_block->text_box_right + 5, 0x1ad,
-                             VO_BLT_SRCTRANSPARENCY, 0);
+                             VO_BLT_SRCTRANSPARENCY);
             break;
         case 0x5b:
             DrawCatalogImage(GetFrameBufferSurface(), 0x86, 0, 9, g_level_block->text_box_right + 5, 0x1ad,
-                             VO_BLT_SRCTRANSPARENCY, 0);
+                             VO_BLT_SRCTRANSPARENCY);
             break;
         case -1:
         case 0x59:
             DrawCatalogImage(GetFrameBufferSurface(), 0x86, 0, 0xb, g_level_block->text_box_right + 5, 0x1ad,
-                             VO_BLT_SRCTRANSPARENCY, 0);
+                             VO_BLT_SRCTRANSPARENCY);
             g_level_block->dialogue_content_region = -1;
             break;
         }
@@ -1637,7 +1637,7 @@ void RedrawTextBoxScrollChrome(void)
         if (line_count > static_cast<unsigned int>(visible)) {
             thumb_y = static_cast<int>(scroll * 0x28 / (line_count - visible)) + 0x17b;
             DrawCatalogImage(GetFrameBufferSurface(), 0x86, 0, 4, g_level_block->text_box_right + 5, thumb_y,
-                             VO_BLT_SRCTRANSPARENCY, 0);
+                             VO_BLT_SRCTRANSPARENCY);
         }
     }
 

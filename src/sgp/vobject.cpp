@@ -40,13 +40,13 @@
 // clipping lists
 // FUNCTION: WIZ8 0x00406110
 BOOLEAN BltVideoObject(SGPVSurface& uiDestVSurface, SGPVObject& hSrcVObject, UINT16 usRegionIndex,
-                       INT32 iDestX, INT32 iDestY, UINT32 fBltFlags, blt_fx* pBltFx)
+                       INT32 iDestX, INT32 iDestY, UINT32 fBltFlags)
 {
     const auto& storage = *uiDestVSurface.cpu().surface;
     if (!storage.pixels)
         return FALSE;
     return BltVideoObjectToBuffer(static_cast<UINT16*>(storage.pixels), storage.pitch,
-                                  hSrcVObject, usRegionIndex, iDestX, iDestY, fBltFlags, pBltFx);
+                                  hSrcVObject, usRegionIndex, iDestX, iDestY, fBltFlags);
 }
 
 // *******************************************************************************
@@ -70,7 +70,7 @@ void SGPVObject::setPalette(const Palette8& colors)
 {
     pPaletteEntry = colors;
     palette = Create16BPPPalette(colors);
-    currentShade = 4;
+    currentShade = SGPVObject::normalShade;
 }
 
 /**********************************************************************************************
@@ -78,20 +78,17 @@ void SGPVObject::setPalette(const Palette8& colors)
 
 		Creates the shading tables for 8-bit brushes. One highlight table is created, based on
 	the object-type, 3 brightening tables, 1 normal, and 11 darkening tables. The entries are
-	created iteratively, rather than in a loop to allow hand-tweaking of the values. If you
-	change the HVOBJECT_SHADE_TABLES symbol, remember to add/delete entries here, it won't
-	adjust automagically.
+	created iteratively, rather than in a loop to allow hand-tweaking of the values.
 
 **********************************************************************************************/
 
 // FUNCTION: WIZ8 0x00406460
-UINT16 CreateObjectPaletteTables(SGPVObject& pObj, UINT32 uiType)
+void CreateObjectPaletteTables(SGPVObject& pObj, UINT32 uiType)
 {
 
     // this creates the highlight table. Specify the glow-type when creating the tables
     // through uiType, symbols are from VOBJECT.H
-    pObj.pShades.clear();
-    pObj.pShades.resize(16);
+    pObj.pShades = {};
 
     switch (uiType) {
     case HVOBJECT_GLOW_GREEN: // green glow
@@ -128,8 +125,7 @@ UINT16 CreateObjectPaletteTables(SGPVObject& pObj, UINT32 uiType)
     pObj.pShades[14] = Create16BPPPaletteShaded(pObj.pPaletteEntry, 9, 9, 9, FALSE);
     pObj.pShades[15] = Create16BPPPaletteShaded(pObj.pPaletteEntry, 0, 0, 0, FALSE);
 
-    pObj.currentShade = 4;
-    return TRUE;
+    pObj.currentShade = SGPVObject::normalShade;
 }
 
 // *******************************************************************
@@ -139,8 +135,7 @@ UINT16 CreateObjectPaletteTables(SGPVObject& pObj, UINT32 uiType)
 // High level blit function encapsolates ALL effects and BPP
 // FUNCTION: WIZ8 0x004066b0
 BOOLEAN BltVideoObjectToBuffer(UINT16* pBuffer, UINT32 uiDestPitchBYTES, SGPVObject& hSrcVObject,
-                               UINT16 usIndex, INT32 iDestX, INT32 iDestY, INT32 fBltFlags,
-                               blt_fx* pBltFx)
+                               UINT16 usIndex, INT32 iDestX, INT32 iDestY, INT32 fBltFlags)
 {
 
     // Assertions
@@ -159,16 +154,14 @@ BOOLEAN BltVideoObjectToBuffer(UINT16* pBuffer, UINT32 uiDestPitchBYTES, SGPVObj
 }
 
 // FUNCTION: WIZ8 0x004068e0
-UINT16 SetObjectShade(SGPVObject& pObj, UINT32 uiShade)
+bool SetObjectShade(SGPVObject& pObj, UINT32 uiShade)
 {
-    Assert(uiShade >= 0);
-    Assert(uiShade < HVOBJECT_SHADE_TABLES);
-
-    if (uiShade != 4 && (uiShade >= pObj.pShades.size() || !pObj.pShades[uiShade])) {
+    if (uiShade != SGPVObject::normalShade &&
+        (uiShade >= pObj.pShades.size() || !pObj.pShades[uiShade])) {
         SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "Attempt to set shade level to nullptr table");
-        return (FALSE);
+        return false;
     }
 
     pObj.currentShade = uiShade;
-    return (TRUE);
+    return true;
 }

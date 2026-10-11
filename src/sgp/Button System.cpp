@@ -676,7 +676,7 @@ static INT8 DrawQuickButton(const ButtonAppearance* b, const ButtonVisualState& 
     }
     if (frame != BUTTON_NO_IMAGE)
         BltVideoObject(*ButtonDestBuffer, image.object(), static_cast<UINT16>(frame),
-                       b->bounds.x, b->bounds.y, VO_BLT_SRCTRANSPARENCY, nullptr);
+                       b->bounds.x, b->bounds.y, VO_BLT_SRCTRANSPARENCY);
     return disabled_style;
 }
 

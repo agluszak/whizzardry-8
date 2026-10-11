@@ -225,7 +225,7 @@ void RefreshRadarMap(void)
                 int cell = position->bQuadrant * 3 + position->bQuadrantSlot;
                 DrawCatalogImage(*map_surface, 0xa5, 0, row->party_order_index,
                                  g_radar_cell_offsets[cell].x, g_radar_cell_offsets[cell].y,
-                                 VO_BLT_SRCTRANSPARENCY, 0);
+                                 VO_BLT_SRCTRANSPARENCY);
             }
         }
     }

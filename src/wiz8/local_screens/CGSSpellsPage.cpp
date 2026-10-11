@@ -324,7 +324,7 @@ void W8CharacterSpellsPage::Redraw()
         bounds.top = 0x173;
         bounds.right = 0xbf;
         bounds.bottom = 0x18a;
-        DrawCatalogImage(GetFrameBufferSurface(), 0x107, 0, 5, 0x8f, 0x173, VO_BLT_SRCTRANSPARENCY, 0);
+        DrawCatalogImage(GetFrameBufferSurface(), 0x107, 0, 5, 0x8f, 0x173, VO_BLT_SRCTRANSPARENCY);
         text.SetLayoutBounds(&bounds, true, true);
         text.RenderString(fmt::format("{:d}/{:d}", m_creation_state->spell_points_remaining,
                                       m_creation_state->spell_points_total),
@@ -381,7 +381,7 @@ void W8CharacterSpellsPage::Redraw()
                 DrawCatalogImageAndInvalidate(
                     GetFrameBufferSurface(), animation.image, 0, m_animation_frames[realm],
                     m_bounds.left + 0x0f + (realm % 2) * 0xd7,
-                    m_bounds.top + 0x0a + (realm / 2) * 0x82, VO_BLT_SRCTRANSPARENCY, 0);
+                    m_bounds.top + 0x0a + (realm / 2) * 0x82, VO_BLT_SRCTRANSPARENCY);
             }
         }
     }

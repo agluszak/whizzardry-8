@@ -31,11 +31,6 @@
 #include "vobject.h"
 #include "vsurface.h"
 
-BOOLEAN Blt16BPPBufferShadowRectAlternateTable(UINT16*, UINT32, SDL_Rect*);
-
-UINT16 ShadeTable[65536];
-UINT16 IntensityTable[65536];
-
 static const unsigned pitch = 1296; // 640 pixels plus row padding
 static const unsigned rows = 20;
 static UINT16 destination[pitch * rows / 2];
@@ -144,7 +139,6 @@ TEST_CASE("blitter_test")
     reference.str(text);
     for (unsigned i = 0; i < 65536; ++i) {
         ShadeTable[i] = static_cast<UINT16>((i * 37) ^ 0x1234);
-        IntensityTable[i] = static_cast<UINT16>((i * 83) ^ 0x5678);
     }
     for (unsigned i = 0; i < 256; ++i) {
         palette[i] = static_cast<UINT16>((i * 257) ^ 0x57ab);
@@ -197,32 +191,17 @@ TEST_CASE("blitter_test")
     }
 
     for (unsigned width = 1; width <= 9; ++width) {
-        reset(); ok = check("Blt16BPPTo16BPP", width,
-            Blt16BPPTo16BPP(destination, pitch, source, pitch, 3, 2, 1, 4, width, 5), full) && ok;
-        reset(); ok = check("Blt16BPPTo16BPPTrans", width,
-            Blt16BPPTo16BPPTrans(destination, pitch, source, pitch, 3, 2, 1, 4, width, 5,
-                source[4 * pitch / 2 + 2]), full) && ok;
-        reset(); ok = check("Blt8BPPTo8BPP", width,
-            Blt8BPPTo8BPP(reinterpret_cast<UINT8*>(destination), pitch, reinterpret_cast<UINT8*>(source), pitch,
-                3, 2, 1, 4, width, 5), full) && ok;
-        reset(); ok = check("Blt16BPPTo16BPP-overlap", width,
-            Blt16BPPTo16BPP(destination, pitch, destination, pitch, 2, 2, 1, 2, width, 5), full) && ok;
-        reset(); ok = check("Blt8BPPTo8BPP-overlap", width,
-            Blt8BPPTo8BPP(reinterpret_cast<UINT8*>(destination), pitch, reinterpret_cast<UINT8*>(destination), pitch,
-                2, 2, 1, 2, width, 5), full) && ok;
         // The mirror ignores source position and clips against 640x480.
         for (int x = -3; x <= 637; x += 320) {
             reset(); ok = check("Blt16BPPTo16BPPMirror", width * 1000 + x,
                 Blt16BPPTo16BPPMirror(destination, pitch, source, pitch, x, 2, 1, 4, width, 5), full) && ok;
         }
-        SGPVSurface surface = {};
-        surface.usWidth = pitch;
-        surface.usHeight = rows;
-        std::copy_n(palette, 256, surface.p16BPPPalette.begin());
+        Palette16 packed{};
+        std::copy_n(palette, 256, packed.begin());
         SDL_Rect area = {2, 3, static_cast<INT32>(width), 4};
         reset(); ok = check("Blt8BPPDataSubTo16BPPBuffer", width,
-            Blt8BPPDataSubTo16BPPBuffer(destination, pitch, surface, reinterpret_cast<UINT8*>(source), pitch,
-                3, 2, &area), area) && ok;
+            Blt8BPPDataSubTo16BPPBuffer(destination, pitch, packed, reinterpret_cast<UINT8*>(source), pitch,
+                3, 2, area), area) && ok;
     }
     UINT8 pattern[8][8];
     for (unsigned y = 0; y < 8; ++y) {
@@ -240,11 +219,6 @@ TEST_CASE("blitter_test")
         area = {-1, 1, 10 + variant, 11};
         reset(); ok = check("Blt16BPPBufferShadowRect", variant,
             Blt16BPPBufferShadowRect(destination, pitch, &area), area) && ok;
-        area = {-1, 1, 10 + variant, 11};
-        reset(); ok = check("Blt16BPPBufferShadowRectAlternateTable", variant,
-            Blt16BPPBufferShadowRectAlternateTable(destination, pitch, &area), area) && ok;
-        reset(); ok = check("FillRect16BPP", variant,
-            FillRect16BPP(destination, pitch, -1, 1, 9 + variant, 12, 0x693d), area) && ok;
     }
     // Functional checks for behavior the hash fixtures cannot express: a
     // literal palette index 0 must draw its palette entry (not behave as

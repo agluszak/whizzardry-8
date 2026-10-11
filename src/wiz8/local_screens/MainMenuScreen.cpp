@@ -112,16 +112,16 @@ unsigned char DrawMainMenuItem(short item, short state)
 
     switch (state) {
     case 0:
-        DrawCatalogImage(GetFrameBufferSurface(), 0xea, 0, slot, 0x98, top, VO_BLT_SRCTRANSPARENCY, 0);
+        DrawCatalogImage(GetFrameBufferSurface(), 0xea, 0, slot, 0x98, top, VO_BLT_SRCTRANSPARENCY);
         break;
     case 1:
-        DrawCatalogImage(GetFrameBufferSurface(), 0xec, 0, slot, 0x98, top, VO_BLT_SRCTRANSPARENCY, 0);
+        DrawCatalogImage(GetFrameBufferSurface(), 0xec, 0, slot, 0x98, top, VO_BLT_SRCTRANSPARENCY);
         break;
     case 2:
-        DrawCatalogImage(GetFrameBufferSurface(), 0xeb, 0, slot, 0x98, top, VO_BLT_SRCTRANSPARENCY, 0);
+        DrawCatalogImage(GetFrameBufferSurface(), 0xeb, 0, slot, 0x98, top, VO_BLT_SRCTRANSPARENCY);
         break;
     case 3:
-        DrawCatalogImage(GetFrameBufferSurface(), 0xed, 0, slot, 0x98, top, VO_BLT_SRCTRANSPARENCY, 0);
+        DrawCatalogImage(GetFrameBufferSurface(), 0xed, 0, slot, 0x98, top, VO_BLT_SRCTRANSPARENCY);
         break;
     }
 
@@ -166,7 +166,7 @@ unsigned char MainMenuScreenEnter(void)
     ColorFillVideoSurfaceArea(GetFrameBufferSurface(), 0, 0, 0x280, 0x1e0, colour);
     SetViewport(0, 0, 0x280, 0x1e0);
     g_main_menu_selected_item = 0;
-    DrawCatalogImage(GetFrameBufferSurface(), 0xe8, 0, 0, 0, 0, VO_BLT_SRCTRANSPARENCY, 0);
+    DrawCatalogImage(GetFrameBufferSurface(), 0xe8, 0, 0, 0, 0, VO_BLT_SRCTRANSPARENCY);
 
     DrawMainMenuItem(0, 0);
     DrawMainMenuItem(1, 0);
@@ -243,7 +243,7 @@ void MainMenuScreenFrame()
             delete g_main_menu_dialog;
             g_main_menu_dialog = 0;
             g_main_menu_redraw = true;
-            DrawCatalogImage(GetFrameBufferSurface(), 0xe8, 0, 0, 0, 0, VO_BLT_SRCTRANSPARENCY, 0);
+            DrawCatalogImage(GetFrameBufferSurface(), 0xe8, 0, 0, 0, 0, VO_BLT_SRCTRANSPARENCY);
             DrawMainMenuItem(0, 0);
             DrawMainMenuItem(1, 0);
             DrawMainMenuItem(2, 0);

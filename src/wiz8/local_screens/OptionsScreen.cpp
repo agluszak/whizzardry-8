@@ -613,7 +613,7 @@ void W8OptionsSaveRow::Redraw(bool full_redraw)
     int x = m_pPanel->m_bounds.left + m_left;
     int y = m_pPanel->m_bounds.top + m_top;
     if (m_save->screenshot.capture_result == 0) {
-        DrawCatalogImage(GetFrameBufferSurface(), 0xf6, 0, 0, x + 6, y + 6, VO_BLT_SRCTRANSPARENCY, 0);
+        DrawCatalogImage(GetFrameBufferSurface(), 0xf6, 0, 0, x + 6, y + 6, VO_BLT_SRCTRANSPARENCY);
     } else {
         auto portrait = std::make_unique<srColorSurface>(srPixelConvert::SURFACE_ARGB1555,
                                                       m_save->screenshot.pixels, 0x50, 0x3c, 0xa0);
@@ -1434,7 +1434,7 @@ void W8OptionsScreen::Redraw()
     if (m_redraw_pending) {
         ClearPrimarySurface();
         ClearSurfaceRect(0, 0, 640, 480);
-        DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0xee, 0, 0, 0, 0, VO_BLT_SRCTRANSPARENCY, 0);
+        DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0xee, 0, 0, 0, 0, VO_BLT_SRCTRANSPARENCY);
         m_redraw_pending = false;
     }
     if (m_selected_panel != -1) {
@@ -1733,7 +1733,7 @@ void W8OptionsMenuButton::Redraw(bool full_redraw)
     if ((full_redraw || m_dirty) && (m_stateFlags & g_W8TextControlStateSecondary) != 0 &&
         m_item_id != -1) {
         DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0xf0, 0, m_item_id, 12, 15,
-                                      VO_BLT_SRCTRANSPARENCY, 0);
+                                      VO_BLT_SRCTRANSPARENCY);
     }
     W8TextControl::Redraw(full_redraw);
 }

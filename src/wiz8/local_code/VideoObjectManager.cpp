@@ -793,16 +793,16 @@ void ReleaseLoadedVideoFrames(void)
 }
 
 void DrawSprite(SGPVSurface& target, SGPVObject& sprites, short image, int left, int top,
-                UINT32 mode, blt_fx* effects)
+                UINT32 mode)
 {
-    if (!BltVideoObject(target, sprites, image, left, top, mode, effects))
+    if (!BltVideoObject(target, sprites, image, left, top, mode))
         srAssertFail("fReturnCode", VIDEO_OBJECT_MANAGER_CPP, 0x3e, 0);
 }
 
 void DrawSpriteAndInvalidate(SGPVSurface& target, SGPVObject& sprites, int image, int left, int top,
-                             UINT32 mode, blt_fx* effects)
+                             UINT32 mode)
 {
-    DrawSprite(target, sprites, static_cast<short>(image), left, top, mode, effects);
+    DrawSprite(target, sprites, static_cast<short>(image), left, top, mode);
     const auto [width, height] = GetSpriteSize(sprites, image);
     if (width != 0 && height != 0)
         InvalidateRegion(left, top, left + width, top + height, mode == VO_BLT_SRCTRANSPARENCY);
@@ -818,12 +818,12 @@ std::pair<int, int> GetSpriteSize(const SGPVObject& sprites, int image)
 
 // FUNCTION: WIZ8 0x00548f90
 void DrawCatalogImage(SGPVSurface& target, int object, int frame, short image, int left, int top,
-                      UINT32 mode, blt_fx* effects)
+                      UINT32 mode)
 {
     const auto& slot = g_video_slots.at(object);
     if (CatalogFrame(object, frame).storage_kind == W8_VIDEO_STORAGE_OBJECT)
         DrawSprite(target, CatalogSprites(object, frame),
-                   static_cast<short>(slot.y_offset + image), left, top, mode, effects);
+                   static_cast<short>(slot.y_offset + image), left, top, mode);
     else if (!BltVideoSurfaceToVideoSurface(target, CatalogBitmap(object, frame), left, top, mode, 0))
         srAssertFail("fReturnCode", VIDEO_OBJECT_MANAGER_CPP, 0x3e, 0);
 }
@@ -877,15 +877,15 @@ void InvalidateCatalogImageRect(int object, int frame, int image, int left, int 
    and the seventh reaches the mark only as whether it equals two. */
 // FUNCTION: WIZ8 0x00549600
 void DrawCatalogImageAndInvalidate(SGPVSurface& target, int object, int frame, int image, int left,
-                                   int top, UINT32 mode, blt_fx* effects)
+                                   int top, UINT32 mode)
 {
     if (CatalogFrame(object, frame).storage_kind == W8_VIDEO_STORAGE_OBJECT) {
         DrawSpriteAndInvalidate(target, CatalogSprites(object, frame),
-                                g_video_slots.at(object).y_offset + image, left, top, mode, effects);
+                                g_video_slots.at(object).y_offset + image, left, top, mode);
         return;
     }
 
-    DrawCatalogImage(target, object, frame, static_cast<short>(image), left, top, mode, effects);
+    DrawCatalogImage(target, object, frame, static_cast<short>(image), left, top, mode);
     InvalidateCatalogImageRect(object, frame, image, left, top, mode == VO_BLT_SRCTRANSPARENCY);
 }
 
@@ -940,8 +940,8 @@ unsigned char BlitCatalogSurfaceRectTo16BPP(SGPVSurface& target, int left, int t
     source_pitch = source_storage.pitch;
     source_pixels = static_cast<BYTE*>(source_storage.pixels);
     Blt8BPPDataSubTo16BPPBuffer(reinterpret_cast<unsigned short*>(target_pixels), target_pitch,
-                                source_surface, source_pixels, source_pitch, left, top,
-                                &source_rect);
+                                source_surface.packedPalette(), source_pixels, source_pitch,
+                                left, top, source_rect);
     return 1;
 }
 

@@ -44,10 +44,6 @@ struct SpriteSheet {
 
 using DecodedImage = std::variant<BitmapImage, SpriteSheet>;
 
-#define SGPGetRValue(rgb) ((BYTE)(rgb))
-#define SGPGetBValue(rgb) ((BYTE)((rgb) >> 16))
-#define SGPGetGValue(rgb) ((BYTE)(((UINT16)(rgb)) >> 8))
-
 // *****************************************************************************
 //
 // Function prototypes

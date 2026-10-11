@@ -4,7 +4,9 @@
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
    Distributed under the accompanying SFI Source Code license agreement. */
 
+#include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_surface.h>
 #include <string_view>
 #include <memory>
 
@@ -32,14 +34,17 @@
 // Effects structure for specialized blitting
 //
 
+// Geometry, depth and palette are read from the owned SDL surface.
 struct SGPVSurface {
-    UINT16 usHeight;  // Height of Video Surface
-    UINT16 usWidth;   // Width of Video Surface
-    UINT8 ubBitDepth; // 8 or 16 bits per pixel
     std::unique_ptr<CpuSurface> ownedSurface;
     CpuSurface& cpu() { return *ownedSurface; }
-    Palette16 p16BPPPalette{};
-
+    const CpuSurface& cpu() const { return *ownedSurface; }
+    int width() const { return ownedSurface->surface->w; }
+    int height() const { return ownedSurface->surface->h; }
+    // 8 or 16; 15-bit SDL formats still occupy 16-bit pixels.
+    int bitDepth() const { return SDL_BYTESPERPIXEL(ownedSurface->surface->format) * 8; }
+    // Indexed surfaces: SDL palette packed into g_sgp_pixel_format.
+    Palette16 packedPalette() const;
 };
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////

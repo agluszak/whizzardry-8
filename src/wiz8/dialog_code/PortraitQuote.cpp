@@ -561,22 +561,22 @@ int LayoutPortraitQuoteBubble(int quote_handle, unsigned char background_index,
             const auto& source_storage = *bubble.background_surface->cpu().surface;
             source_pitch = source_storage.pitch;
             source = static_cast<BYTE*>(source_storage.pixels);
-            Blt8BPPDataSubTo16BPPBuffer(pixels, pitch, source_surface, source, source_pitch, 0, 0,
-                                        &rect);
+            Blt8BPPDataSubTo16BPPBuffer(pixels, pitch, source_surface.packedPalette(), source,
+                                        source_pitch, 0, 0, rect);
         }
         auto& object = *bubble.object;
         for (x = 0x10; static_cast<int>(x) < width_px - 0x10; x = x + 0x10) {
-            BltVideoObject(*bubble.surface, object, 1, x, 0, 2, 0);
-            BltVideoObject(*bubble.surface, object, 6, x, height_px - 0x10, 2, 0);
+            BltVideoObject(*bubble.surface, object, 1, x, 0, 2);
+            BltVideoObject(*bubble.surface, object, 6, x, height_px - 0x10, 2);
         }
         for (y = 0x10; static_cast<int>(y) < height_px - 0x10; y = y + 0x10) {
-            BltVideoObject(*bubble.surface, object, 3, 0, y, 2, 0);
-            BltVideoObject(*bubble.surface, object, 4, width_px - 8, y, 2, 0);
+            BltVideoObject(*bubble.surface, object, 3, 0, y, 2);
+            BltVideoObject(*bubble.surface, object, 4, width_px - 8, y, 2);
         }
-        BltVideoObject(*bubble.surface, object, 0, 0, 0, 2, 0);
-        BltVideoObject(*bubble.surface, object, 2, width_px - 0x10, 0, 2, 0);
-        BltVideoObject(*bubble.surface, object, 5, 0, height_px - 0x10, 2, 0);
-        BltVideoObject(*bubble.surface, object, 7, width_px - 0x10, height_px - 0x10, 2, 0);
+        BltVideoObject(*bubble.surface, object, 0, 0, 0, 2);
+        BltVideoObject(*bubble.surface, object, 2, width_px - 0x10, 0, 2);
+        BltVideoObject(*bubble.surface, object, 5, 0, height_px - 0x10, 2);
+        BltVideoObject(*bubble.surface, object, 7, width_px - 0x10, height_px - 0x10, 2);
         if (background_index == 0) {
             colour = 0xd0;
             shadow = false;

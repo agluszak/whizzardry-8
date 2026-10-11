@@ -890,10 +890,10 @@ void W8TextControl::Redraw(bool full_redraw)
         }
         if (m_imageIsItem)
             DrawSpriteAndInvalidate(GetFrameBufferSurface(), g_item_video_objects.Sprites(m_imageObject),
-                                    sprite, x, y, VO_BLT_SRCTRANSPARENCY, 0);
+                                    sprite, x, y, VO_BLT_SRCTRANSPARENCY);
         else
             DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), m_imageObject, m_imageFrame, sprite,
-                                          x, y, VO_BLT_SRCTRANSPARENCY, 0);
+                                          x, y, VO_BLT_SRCTRANSPARENCY);
     }
 
     if (m_textBuffer.HasBuffer()) {
@@ -1627,7 +1627,7 @@ void W8VerticalRangeThumb::Redraw(bool full_redraw)
     }
     DrawCatalogImage(GetFrameBufferSurface(), m_catalogObject, m_catalogFrame, sprite,
                      m_pPanel->m_bounds.left + m_drawOffsetX + m_left,
-                     m_pPanel->m_bounds.top + m_pixelPosition + m_top, VO_BLT_SRCTRANSPARENCY, 0);
+                     m_pPanel->m_bounds.top + m_pixelPosition + m_top, VO_BLT_SRCTRANSPARENCY);
 }
 
 // FUNCTION: WIZ8 0x004f6050
@@ -1886,7 +1886,7 @@ void W8HorizontalRangeThumb::Redraw(bool full_redraw)
     int x = m_pPanel->m_bounds.left + m_left;
     int y = m_pPanel->m_bounds.top + m_top;
     DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), m_catalogObject, m_catalogFrame, m_backgroundSprite,
-                                  x, y, VO_BLT_SRCTRANSPARENCY, 0);
+                                  x, y, VO_BLT_SRCTRANSPARENCY);
 
     int sprite;
     if (!m_enabled && m_disabledThumbSprite != -1) {
@@ -1897,7 +1897,7 @@ void W8HorizontalRangeThumb::Redraw(bool full_redraw)
         sprite = m_normalThumbSprite;
     }
     DrawCatalogImage(GetFrameBufferSurface(), m_catalogObject, m_catalogFrame, sprite, x + m_pixelPosition, y,
-                     VO_BLT_SRCTRANSPARENCY, 0);
+                     VO_BLT_SRCTRANSPARENCY);
 }
 
 /* Enables or disables the whole panel: the panel's own flag, then every child's,
@@ -2014,7 +2014,7 @@ void Controls::Redraw()
     if (m_fDirty) {
         if (m_catalogObject != -1) {
             DrawCatalogImage(GetFrameBufferSurface(), m_catalogObject, m_catalogFrame, m_catalogImage,
-                             m_bounds.left, m_bounds.top, VO_BLT_SRCTRANSPARENCY, 0);
+                             m_bounds.left, m_bounds.top, VO_BLT_SRCTRANSPARENCY);
         }
         redrawn = true;
     } else if (!m_fLayoutDirty) {

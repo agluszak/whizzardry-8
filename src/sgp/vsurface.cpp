@@ -1,6 +1,7 @@
 #include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>
+#include <algorithm>
 #include <cstddef>
 #include <cstring>
 #include <vector>
@@ -105,7 +106,7 @@ BOOLEAN ImageFillVideoSurfaceArea(SGPVSurface& uiDestVSurface, INT32 iDestX1, IN
         xc = (INT16)iDestX1;
         for (w = 0; w < wblits; w++) {
             BltVideoObject(uiDestVSurface, BkgrndImg, Index, xc + Ox, yc + Oy,
-                           VO_BLT_SRCTRANSPARENCY, nullptr);
+                           VO_BLT_SRCTRANSPARENCY);
             xc += pw;
         }
         yc += ph;
@@ -128,11 +129,16 @@ std::unique_ptr<SGPVSurface> CreateVideoSurface(UINT16 width, UINT16 height, UIN
     auto result = std::make_unique<SGPVSurface>();
     result->ownedSurface = CreateCpuSurface(width, height, format);
     CHECKN(result->ownedSurface != nullptr);
-    result->usWidth = width;
-    result->usHeight = height;
-    result->ubBitDepth = bits;
     result->cpu().sourceKey = SurfaceColorKey{0, 0};
     return result;
+}
+
+Palette16 SGPVSurface::packedPalette() const
+{
+    Palette8 colors{};
+    if (const SDL_Palette* palette = SDL_GetSurfacePalette(ownedSurface->surface.get()))
+        std::copy_n(palette->colors, std::min<int>(palette->ncolors, colors.size()), colors.begin());
+    return Create16BPPPalette(colors);
 }
 
 std::unique_ptr<SGPVSurface> LoadVideoSurface(std::string_view filename)
@@ -146,7 +152,6 @@ std::unique_ptr<SGPVSurface> LoadVideoSurface(std::string_view filename)
         CHECKN(image->bitDepth == 8);
         CHECKN(SDL_SetPaletteColors(SDL_GetSurfacePalette(result->cpu().surface.get()),
                                     image->palette->data(), 0, 256));
-        result->p16BPPPalette = Create16BPPPalette(*image->palette);
     }
 
     const auto& storage = *result->cpu().surface;
@@ -171,21 +176,21 @@ BOOLEAN BltVideoSurfaceToVideoSurface(SGPVSurface& hDestVSurface, SGPVSurface& h
     if (sourceRect) {
         SrcRect = *sourceRect;
     } else {
-        CHECKF(hDestVSurface.usHeight >= hSrcVSurface.usHeight);
-        CHECKF(hDestVSurface.usWidth >= hSrcVSurface.usWidth);
-        SrcRect = {0, 0, hSrcVSurface.usWidth, hSrcVSurface.usHeight};
+        CHECKF(hDestVSurface.height() >= hSrcVSurface.height());
+        CHECKF(hDestVSurface.width() >= hSrcVSurface.width());
+        SrcRect = {0, 0, hSrcVSurface.width(), hSrcVSurface.height()};
     }
 
     // Once here, assert valid Src
 
-    const SDL_Rect bounds{0, 0, hDestVSurface.usWidth, hDestVSurface.usHeight};
+    const SDL_Rect bounds{0, 0, hDestVSurface.width(), hDestVSurface.height()};
     const SDL_Rect destination{iDestX, iDestY, SrcRect.w, SrcRect.h};
     if (!SDL_HasRectIntersection(&destination, &bounds))
         return FALSE;
 
-    CHECKF(hDestVSurface.ubBitDepth == hSrcVSurface.ubBitDepth &&
-           (hDestVSurface.ubBitDepth == 8 || hDestVSurface.ubBitDepth == 16));
-    if (hDestVSurface.ubBitDepth == 16 && (fBltFlags & VS_BLT_MIRROR_Y)) {
+    CHECKF(hDestVSurface.bitDepth() == hSrcVSurface.bitDepth() &&
+           (hDestVSurface.bitDepth() == 8 || hDestVSurface.bitDepth() == 16));
+    if (hDestVSurface.bitDepth() == 16 && (fBltFlags & VS_BLT_MIRROR_Y)) {
         const auto& source_storage = *hSrcVSurface.cpu().surface;
         uiSrcPitch = source_storage.pitch;
         pSrcSurface16 = static_cast<UINT16*>(source_storage.pixels);
@@ -204,11 +209,11 @@ BOOLEAN BltVideoSurfaceToVideoSurface(SGPVSurface& hDestVSurface, SGPVSurface& h
     if (fBltFlags & VS_BLT_FAST) {
         CHECKF(iDestX >= 0 && iDestY >= 0);
         CHECKF(!hDestVSurface.cpu().clipRegions);
-        CHECKF((destination.x + destination.w) <= hDestVSurface.usWidth &&
-               (destination.y + destination.h) <= hDestVSurface.usHeight);
+        CHECKF((destination.x + destination.w) <= hDestVSurface.width() &&
+               (destination.y + destination.h) <= hDestVSurface.height());
     } else if (!ClipCpuBlit(clippedDestination, SrcRect,
-                            {0, 0, hDestVSurface.usWidth, hDestVSurface.usHeight},
-                            {0, 0, hSrcVSurface.usWidth, hSrcVSurface.usHeight})) {
+                            {0, 0, hDestVSurface.width(), hDestVSurface.height()},
+                            {0, 0, hSrcVSurface.width(), hSrcVSurface.height()})) {
         return TRUE;
     }
     if (clippedDestination.w == 0 || clippedDestination.h == 0)
@@ -218,49 +223,21 @@ BOOLEAN BltVideoSurfaceToVideoSurface(SGPVSurface& hDestVSurface, SGPVSurface& h
     return TRUE;
 }
 
-BOOLEAN Blt16BPPBufferShadowRectAlternateTable(UINT16* pBuffer, UINT32 uiDestPitchBYTES,
-                                               SDL_Rect* area);
-
 // FUNCTION: WIZ8 0x004045b0
-BOOLEAN InternalShadowVideoSurfaceRect(SGPVSurface& uiDestVSurface, INT32 X1, INT32 Y1, INT32 X2,
-                                       INT32 Y2, BOOLEAN fLowPercentShadeTable)
-{
-    UINT16* pBuffer;
-    UINT32 uiPitch;
-    SDL_Rect area;
-    SGPVSurface& hVSurface = uiDestVSurface;
-
-    // CLIP IT!
-    // FIRST GET SURFACE
-    // Get Video Surface
-
-
-    // The shadow blitter adds the final pixel on each axis; keep its inclusive
-    // endpoint convention while intersecting the edge-based area here.
-    const SDL_Rect bounds{0, 0, hVSurface.usWidth - 1, hVSurface.usHeight - 1};
-    area = {X1, Y1, X2 - X1, Y2 - Y1};
-    if (!SDL_GetRectIntersection(&area, &bounds, &area))
-        return FALSE;
-
-    const auto& destination_storage = *uiDestVSurface.cpu().surface;
-    uiPitch = destination_storage.pitch;
-    pBuffer = static_cast<UINT16*>(destination_storage.pixels);
-
-
-    if (pBuffer == nullptr) {
-        return (FALSE);
-    }
-
-    const BOOLEAN result = fLowPercentShadeTable
-        ? Blt16BPPBufferShadowRectAlternateTable(pBuffer, uiPitch, &area)
-        : Blt16BPPBufferShadowRect(pBuffer, uiPitch, &area);
-    return result;
-}
-
 // FUNCTION: WIZ8 0x004048a0
 BOOLEAN ShadowVideoSurfaceRect(SGPVSurface& uiDestVSurface, INT32 X1, INT32 Y1, INT32 X2, INT32 Y2)
 {
-    return (InternalShadowVideoSurfaceRect(uiDestVSurface, X1, Y1, X2, Y2, FALSE));
+    // The shadow blitter adds the final pixel on each axis; keep its inclusive
+    // endpoint convention while intersecting the edge-based area here.
+    const SDL_Rect bounds{0, 0, uiDestVSurface.width() - 1, uiDestVSurface.height() - 1};
+    SDL_Rect area{X1, Y1, X2 - X1, Y2 - Y1};
+    if (!SDL_GetRectIntersection(&area, &bounds, &area))
+        return FALSE;
+
+    const auto& storage = *uiDestVSurface.cpu().surface;
+    if (!storage.pixels)
+        return FALSE;
+    return Blt16BPPBufferShadowRect(static_cast<UINT16*>(storage.pixels), storage.pitch, &area);
 }
 
 // FUNCTION: WIZ8 0x004048d0
@@ -271,7 +248,7 @@ std::unique_ptr<SGPVSurface> MakeVSurfaceFromVObject(SGPVObject& object, UINT16 
     auto surface = CreateVideoSurface(object.sprites[subIndex].usWidth,
                                       object.sprites[subIndex].usHeight, PIXEL_DEPTH);
     if (!surface || !BltVideoObject(*surface, object, subIndex, 0, 0,
-                                    VO_BLT_SRCTRANSPARENCY, nullptr))
+                                    VO_BLT_SRCTRANSPARENCY))
         return nullptr;
     return surface;
 }

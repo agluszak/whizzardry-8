@@ -125,7 +125,7 @@ void SetRGBFontShadow(SDL_Color color)
 void Font::setPalette(const Palette16& colors)
 {
     customPalette = colors;
-    glyphs.currentShade = 4;
+    glyphs.currentShade = SGPVObject::normalShade;
 }
 
 // FUNCTION: WIZ8 0x00406de0
@@ -136,12 +136,12 @@ const Palette16& Font::palette() const
 
 const Palette16& Font::currentPalette() const
 {
-    return glyphs.currentShade == 4 ? palette() : glyphs.currentPalette();
+    return glyphs.currentShade == SGPVObject::normalShade ? palette() : glyphs.currentPalette();
 }
 
 void Font::resetPalette()
 {
-    glyphs.currentShade = 4;
+    glyphs.currentShade = SGPVObject::normalShade;
     customPalette.reset();
 }
 

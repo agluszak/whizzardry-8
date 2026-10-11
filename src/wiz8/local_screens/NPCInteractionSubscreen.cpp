@@ -176,11 +176,11 @@ void W8NpcTypedDialoguePanel::Redraw()
     if (m_fDirty) {
         if (m_catalogObject != -1) {
             DrawCatalogImage(GetFrameBufferSurface(), m_catalogObject, m_catalogFrame, m_catalogImage,
-                             m_bounds.left, m_bounds.top, VO_BLT_SRCTRANSPARENCY, 0);
+                             m_bounds.left, m_bounds.top, VO_BLT_SRCTRANSPARENCY);
         }
         DrawCatalogImage(GetFrameBufferSurface(), 0x1a9, 0, 0x10, 0x1df,
                          g_npc_interaction_state->where_is_query ? 0x19b : 0x18b,
-                         VO_BLT_SRCTRANSPARENCY, 0);
+                         VO_BLT_SRCTRANSPARENCY);
         redrawn = 1;
     } else if (!m_fLayoutDirty) {
         return;
@@ -233,7 +233,7 @@ void W8NpcDialogueOptionsPanel::Redraw()
                                      W8_DIALOGUE_LAYOUT_MAIN_TEXT_BOX
                                  ? m_main_text_box_image
                                  : m_catalogImage,
-                             m_bounds.left, m_bounds.top, VO_BLT_SRCTRANSPARENCY, 0);
+                             m_bounds.left, m_bounds.top, VO_BLT_SRCTRANSPARENCY);
         }
         redrawn = 1;
     } else if (!m_fLayoutDirty) {
