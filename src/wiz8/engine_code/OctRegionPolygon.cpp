@@ -45,8 +45,14 @@ bool W8OctRegionPolygon::ContainsPoint(const srVector3T<float>* bounds) const
 unsigned char W8OctPreTreeGeometry::CheckArrayLength(int** run, unsigned short count,
                                                      unsigned short capacity)
 {
+    if (capacity == 0) {
+        return 0;
+    }
     if (count % capacity == 0) {
-        unsigned short total = count + capacity;
+        if (unsigned(count) + capacity > 65535) {
+            return 0;
+        }
+        const unsigned short total = count + capacity;
         int* grown = static_cast<int*>(malloc(total * sizeof(int)));
         if (grown != 0) {
             memset(grown, 0, total * sizeof(*grown));

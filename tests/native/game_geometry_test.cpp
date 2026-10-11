@@ -627,3 +627,13 @@ TEST_CASE("Empty octree build geometry cleanup", "[geometry]")
     REQUIRE(geometry.m_polygon_count == 0);
     geometry.Release();
 }
+
+TEST_CASE("Octree face run rejects invalid growth capacity", "[geometry]")
+{
+    W8OctPreTreeGeometry geometry{};
+    int* faces = nullptr;
+    REQUIRE(geometry.CheckArrayLength(&faces, 0, 0) == 0);
+    REQUIRE(faces == nullptr);
+    REQUIRE(geometry.CheckArrayLength(&faces, 65535, 5) == 0);
+    REQUIRE(faces == nullptr);
+}
