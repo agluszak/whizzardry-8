@@ -150,7 +150,7 @@ struct W8LevelRuntimeBlock {
     bool dialogue_text_input_open;
     unsigned char padding_1f9[3];
     /* Never set in this build; the editor path that consumes it is dormant. */
-    W8DialogueTextState* dialogue_text_input;
+    std::unique_ptr<W8DialogueTextState> dialogue_text_input;
     int portrait_overlay_party_slot; /* Historical offset 0x200: -1 while untracked */
     /* Historical offset 0x204 / 0x208: party slot whose condition / enchantment orb is held or
        drag-hovering; PortraitConditionOrbRegionEvent and

@@ -635,7 +635,7 @@ void ScrollDialogueTextBoxToLine(void)
         return;
     }
     if (g_level_block->dialogue_text_input_open &&
-        (input = g_level_block->dialogue_text_input) != 0 &&
+        (input = g_level_block->dialogue_text_input.get()) != 0 &&
         g_status.text_line_cursor == input->text_box) {
         if (gXStatus.fNpcDialogueMode) {
             offset = g_npc_interaction_state->text_box_collapsed ? 1 : 7;
@@ -996,7 +996,7 @@ void ScrollTextBoxDown(int lines)
 // FUNCTION: WIZ8 0x0058C8E0
 static void DrawDialogueTextCursor(int x, int y)
 {
-    W8DialogueTextState* input = g_level_block->dialogue_text_input;
+    W8DialogueTextState* input = g_level_block->dialogue_text_input.get();
     unsigned int line = FindDialogueTextLine(input);
     unsigned int hidden = 0;
     short text_box = g_status.text_line_cursor;
@@ -1034,7 +1034,7 @@ static void DrawDialogueTextCursor(int x, int y)
 // FUNCTION: WIZ8 0x0058CA30
 void DrawDialogueTextInputLines(int x, int y, unsigned int first_line)
 {
-    auto* input = g_level_block->dialogue_text_input;
+    auto* input = g_level_block->dialogue_text_input.get();
     const int first_y = y;
     int maximum_width = 0;
     for (std::size_t line = first_line; line < input->line_offsets.size(); ++line) {
@@ -1060,7 +1060,7 @@ void DrawDialogueTextInputLines(int x, int y, unsigned int first_line)
 // FUNCTION: WIZ8 0x0058C790
 void RedrawDialogueTextInput(void)
 {
-    W8DialogueTextState* input = g_level_block->dialogue_text_input;
+    W8DialogueTextState* input = g_level_block->dialogue_text_input.get();
     if ((input->dirty || input->cursor_dirty != 0)) {
         short text_box = g_status.text_line_cursor;
         int offset = g_status.text_box_lines_shown[text_box] - g_level_block->text_lines[text_box];
@@ -1102,10 +1102,7 @@ void RedrawDialogueTextInput(void)
 // FUNCTION: WIZ8 0x0058D940
 void ReleaseDialogueTextInput(void)
 {
-    if (g_level_block->dialogue_text_input != 0) {
-        delete g_level_block->dialogue_text_input;
-        g_level_block->dialogue_text_input = 0;
-    }
+    g_level_block->dialogue_text_input.reset();
 }
 
 // FUNCTION: WIZ8 0x0058DF60
@@ -1423,7 +1420,7 @@ unsigned char HandleDialogueTextInput(const InputEvent* input_event)
         (input_event->modifiers & (CTRL_DOWN | ALT_DOWN)) != 0) {
         return 0;
     }
-    W8DialogueTextState* input = g_level_block->dialogue_text_input;
+    W8DialogueTextState* input = g_level_block->dialogue_text_input.get();
     if (input_event->type == InputEventType::Text) {
         if (input_event->text >= 32) InsertDialogueTextCharacter(input_event->text);
         return 1;

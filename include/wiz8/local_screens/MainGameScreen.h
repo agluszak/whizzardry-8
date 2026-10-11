@@ -393,7 +393,7 @@ public:
     W8GameTimer m_timer;
 };
 
-extern W8LevelRuntimeBlock* g_level_block;
+extern std::unique_ptr<W8LevelRuntimeBlock> g_level_block;
 extern std::unique_ptr<W8MainGameScreen> g_main_game_screen;
 
 /* Insanity (spell 0x3c) world-cursor extent rows and the per spell-power

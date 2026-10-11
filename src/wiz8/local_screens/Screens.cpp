@@ -383,7 +383,7 @@ void InitializeMainGameLevelBlock(void)
     g_level_block->text_box_visible = true;
     g_level_block->dialogue_text_input_open = false;
     g_level_block->mipe_editing = false;
-    g_level_block->dialogue_text_input = 0;
+    g_level_block->dialogue_text_input.reset();
     g_level_block->value_278 = 0;
     g_level_block->tick = w8_get_ticks();
     g_level_block->group_list_rows = 0;

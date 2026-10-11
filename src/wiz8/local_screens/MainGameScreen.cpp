@@ -170,7 +170,7 @@ class srColorSurfaceIFace;
 
 /* The region set the two enable/disable wrappers below own. */
 // GLOBAL: WIZ8 0x0068edcc
-W8LevelRuntimeBlock* g_level_block;
+std::unique_ptr<W8LevelRuntimeBlock> g_level_block;
 // GLOBAL: WIZ8 0x0068edd0
 W8DialogBase* g_modal_owner;
 // GLOBAL: WIZ8 0x0068edd4
@@ -3018,10 +3018,7 @@ unsigned char MainGameScreenEnter(void)
     W8Difficulty difficulty = g_status.difficulty;
 
     if (!g_level_block) {
-        g_level_block = new W8LevelRuntimeBlock{};
-        if (!g_level_block) {
-            return 0;
-        }
+        g_level_block = std::make_unique<W8LevelRuntimeBlock>();
         ResetMainGameScreenState();
         LoadMainGameCursorResources();
     }
@@ -3658,8 +3655,7 @@ unsigned char MainGameScreenLeave(int leaving)
         g_keyboard_menu_regions.Destroy();
         g_party_movement_regions.Destroy();
         wiz8::sound::release_cache();
-        delete g_level_block;
-        g_level_block = 0;
+        g_level_block.reset();
         ReleaseCatalogArtwork();
     }
     NoOp();
