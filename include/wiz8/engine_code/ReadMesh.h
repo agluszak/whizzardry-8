@@ -43,6 +43,7 @@ inline W8ReadMeshFace DecodeMeshFace(const W8SerializedMeshFace& record) {
 }
 
 class srModelInstance;
+class stModelInstance;
 class stMeshModel;
 class srMeshModel;
 
