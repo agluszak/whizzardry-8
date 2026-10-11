@@ -2,6 +2,7 @@
 #include <fmt/printf.h>
 #include <string_view>
 #include <string>
+#include <utility>
 #include <vector>
 #include <cmath>
 #include <cstdlib>
@@ -1509,9 +1510,8 @@ void StartMonsterAttackCycle(W8MonsterInfo* monster_info, W8AttackMode action_de
 /* Release queued casualty notices and reset the attack result. */
 static void DrainCombatDeathReports(W8SpellEffectResult* report)
 {
-    W8SpellDamageReport* entry;
     while (!report->reports.empty()) {
-        entry = report->reports[0];
+        auto entry = std::move(report->reports.front());
         report->reports.erase(report->reports.begin());
         if (entry != nullptr) {
             if (entry->kind == 1) {
@@ -1527,7 +1527,6 @@ static void DrainCombatDeathReports(W8SpellEffectResult* report)
                         "{} {}!", entry->text,
                         g_localized_strings[g_condition_notices[W8_CONDITION_DEAD].singular]));
             }
-            free(entry);
         }
     }
     *report = {};
