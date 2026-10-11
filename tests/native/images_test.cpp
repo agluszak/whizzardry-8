@@ -164,9 +164,6 @@ static void rgb555()
     gusRedMask = 0x7c00;
     gusGreenMask = 0x03e0;
     gusBlueMask = 0x001f;
-    gusRedShift = 7;
-    gusGreenShift = 2;
-    gusBlueShift = -3;
 }
 
 static void check_pcx(const image_type& image)
@@ -177,10 +174,10 @@ static void check_pcx(const image_type& image)
     REQUIRE(!memcmp(image.pImageData.data(), expected, sizeof(expected)));
     for (unsigned i = 0; i < 256; ++i)
     {
-        REQUIRE((*image.pPalette)[i].peRed == (i == 2 ? 255 : i));
-        REQUIRE((*image.pPalette)[i].peGreen == (i == 2 ? 0 : i));
-        REQUIRE((*image.pPalette)[i].peBlue == (i == 2 ? 0 : i));
-        REQUIRE((*image.pPalette)[i].peFlags == 0);
+        REQUIRE((*image.pPalette)[i].r == (i == 2 ? 255 : i));
+        REQUIRE((*image.pPalette)[i].g == (i == 2 ? 0 : i));
+        REQUIRE((*image.pPalette)[i].b == (i == 2 ? 0 : i));
+        REQUIRE((*image.pPalette)[i].a == SDL_ALPHA_OPAQUE);
     }
     REQUIRE((*image.pui16BPPPalette)[0] == 0); // Exact black stays transparent.
     REQUIRE((*image.pui16BPPPalette)[1] == 1); // Non-black quantizing to zero is substituted.
@@ -293,8 +290,6 @@ TEST_CASE_METHOD(ImageFixture, "Native image formats, palettes and archives", "[
         gusAlphaMask = 0x8000;
         gusRedMask = 0x001f;
         gusBlueMask = 0x7c00;
-        gusRedShift = -3;
-        gusBlueShift = 7;
         auto custom = load("Dotted.dir/default.PCX");
         REQUIRE((custom && (*custom->pui16BPPPalette)[0] == 0));
         REQUIRE(((*custom->pui16BPPPalette)[1] == 0x8001 && (*custom->pui16BPPPalette)[2] == 0x801f));
@@ -302,7 +297,7 @@ TEST_CASE_METHOD(ImageFixture, "Native image formats, palettes and archives", "[
     }
 
     {
-        std::array<SGPPaletteEntry, 256> palette{};
+        std::array<SDL_Color, 256> palette{};
         palette[0] = {0, 0, 0, 255};
         palette[1] = {1, 1, 1, 255};
         palette[2] = {255, 0, 0, 0};
@@ -347,8 +342,8 @@ TEST_CASE_METHOD(ImageFixture, "Native image formats, palettes and archives", "[
         REQUIRE((image && image->ubBitDepth == 8 && image->fFlags == IMAGE_ALLIMAGEDATA));
         const UINT8 indices[]{2, 2, 2, 2, 1, 0};
         REQUIRE(!memcmp(image->pImageData.data(), indices, sizeof(indices)));
-        REQUIRE(((*image->pPalette)[2].peRed == 255 && (*image->pPalette)[2].peBlue == 0));
-        REQUIRE(((*image->pPalette)[3].peRed == 0 && (*image->pPalette)[255].peFlags == 0));
+        REQUIRE(((*image->pPalette)[2].r == 255 && (*image->pPalette)[2].b == 0));
+        REQUIRE(((*image->pPalette)[3].r == 0 && (*image->pPalette)[255].a == SDL_ALPHA_OPAQUE));
         REQUIRE(((*image->pui16BPPPalette)[0] == 0 && (*image->pui16BPPPalette)[1] == 1));
         auto offset_palette = indexed_tga();
         word(offset_palette, 3, 16);
@@ -357,8 +352,8 @@ TEST_CASE_METHOD(ImageFixture, "Native image formats, palettes and archives", "[
         offset_palette[31] += 16;
         fixture(assets / "offset.tga", offset_palette);
         auto offset = load("offset.tga");
-        REQUIRE((offset && (*offset->pPalette)[18].peRed == 255 && (*offset->pPalette)[0].peRed == 0));
-        REQUIRE(((*offset->pPalette)[17].peRed == 1 && offset->pImageData[0] == 18));
+        REQUIRE((offset && (*offset->pPalette)[18].r == 255 && (*offset->pPalette)[0].r == 0));
+        REQUIRE(((*offset->pPalette)[17].r == 1 && offset->pImageData[0] == 18));
         auto override_image = load("override.pcx");
         REQUIRE((override_image && !memcmp(override_image->pImageData.data(), indices, sizeof(indices))));
     }
