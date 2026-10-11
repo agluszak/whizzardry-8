@@ -1,3 +1,4 @@
+#include "glm/geometric.hpp"
 #include <cstdlib>
 #include <cstddef>
 #include <cstdio>
@@ -434,24 +435,18 @@ void DestroyWorld(W8World* world)
 // FUNCTION: WIZ8 0x0044FC20
 void UpdateWorldCameraAndPaths(W8World* world, unsigned int flags)
 {
-    static srVector3T<float> s_last_automap_refresh_position;
-    static glm::mat3 s_saved_camera_rotation;
-    srVector3T<float> camera_position;
+    static glm::vec3 s_last_automap_refresh_position(0);
+    static glm::mat3 s_saved_camera_rotation(1);
+    glm::vec3 camera_position;
     srVector3T<float> navigator_position;
-    srVector3T<float> delta;
     glm::dvec3 render_position;
-    glm::mat3 rotation;
     glm::mat3 path_rotation;
-    glm::mat3 motion_saved;
     W8CameraPath* camera_path;
     W8PathAI* path;
     float yaw;
     float pitch;
     int camera_count;
     int index;
-    float dx;
-    float dy;
-    float dz;
 
     RefreshDirtyAutomap();
     camera_position = cameraLocation();
@@ -464,34 +459,34 @@ void UpdateWorldCameraAndPaths(W8World* world, unsigned int flags)
             *g_level_flags &= ~W8_LEVEL_FLAG_MOVED_THIS_UPDATE;
         }
         if (world->game_data != 0 && (flags & W8_CAMERA_MOTION_SKIP) == 0) {
-            rotation = world->camera->getRotation<glm::mat3>();
-            world->game_data->ApplyCameraMotionFlags(flags, &rotation, &motion_saved);
-            world->camera->setRotation(rotation);
-            s_saved_camera_rotation = rotation;
+            const auto orientation = world->game_data->cameraRotation(
+                flags, world->camera->getRotation<glm::mat3>());
+            world->camera->setRotation(orientation.rotation);
+            s_saved_camera_rotation = orientation.rotation;
             yaw = GetCameraYawInDegrees();
             pitch = GetCameraPitchInDegrees();
             g_startup_world->SetAngles(yaw);
             g_startup_world->SetPitch(pitch);
-            if (world->game_data->ApplyCameraMotion(flags, &camera_position, &delta,
-                                                    &motion_saved) != 0) {
-                camera_position += delta;
+            const auto motion = world->game_data->cameraMotion(
+                flags, camera_position, orientation.movement_basis);
+            if (motion.moved) {
+                camera_position += motion.displacement;
                 navigator_position.Set(camera_position.x,
                                        camera_position.y - g_default_world_height,
                                        camera_position.z);
                 if (world->camera_light != 0) {
-                    render_position = glm::dvec3(camera_position.glmValue());
+                    render_position = glm::dvec3(camera_position);
                     static_cast<srNode*>(world->camera_light)->setLocation(render_position);
                 }
-                render_position = glm::dvec3(camera_position.glmValue());
+                render_position = glm::dvec3(camera_position);
                 static_cast<srNode*>(world->camera)->setLocation(render_position);
                 g_startup_world->SetPositionInternal(&navigator_position);
-                dx = camera_position.x - s_last_automap_refresh_position.x;
-                dy = camera_position.y - s_last_automap_refresh_position.y;
-                dz = camera_position.z - s_last_automap_refresh_position.z;
-                if (dx * dx + dy * dy + dz * dz > g_automap_refresh_distance_squared) {
+                const auto refresh_offset = camera_position - s_last_automap_refresh_position;
+                if (glm::dot(refresh_offset, refresh_offset) > g_automap_refresh_distance_squared) {
                     s_last_automap_refresh_position = camera_position;
                     camera_position.y -= g_default_world_height;
-                    if (AutomapHasCellAt(&camera_position)) {
+                    const srVector3T<float> automap_position = camera_position;
+                    if (AutomapHasCellAt(&automap_position)) {
                         SetWorldMeshVertexLightTable(g_world, 1);
                         UpdateAutomapBounds();
                         SetWorldMeshVertexLightTable(g_world, 0);
