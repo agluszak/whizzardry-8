@@ -1,3 +1,15 @@
+#include "wiz8/navigation_math.h"
+#include "compat/compiler.h"
+#include "surrender/triangle_runs.h"
+#include <vector>
+#include "surrender/bounding_radius.h"
+#include "surrender/stream_scope.h"
+#include "surrender/srDebug.h"
+#include "glm/ext/vector_double3.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include <sstream>
+#include <stdexcept>
+#include <ios>
 #include "surrender/channel_math.h"
 #include "surrender/lighting_math.h"
 #include <catch2/catch_test_macros.hpp>
@@ -161,4 +173,96 @@ TEST_CASE("Lighting kernels share bounded ramps and preserve normal-dot clamp po
     srLightingMath::accumulateLight(std::span<glm::vec3>(rgb), glm::vec3(4), weights, attenuation);
     REQUIRE(rgb[0] == glm::vec3(1.5f));
     REQUIRE(rgb[1] == glm::vec3(6));
+}
+
+TEST_CASE("Bounds radii preserve scalar precision and caller-selected centers")
+{
+    const std::array<glm::vec3, 2> points{glm::vec3(-3, 4, 0), glm::vec3(0, 0, 0)};
+    REQUIRE(boundingRadius(points, glm::vec3(0)) == 5);
+    REQUIRE(boundingRadius(points, glm::vec3(-3, 0, 0)) == 4);
+    REQUIRE(boundingRadius(std::span<const glm::vec3>{}, glm::vec3(12)) == 0);
+    const std::array<glm::vec3, 1> large{glm::vec3(1e20f, 0, 0)};
+    REQUIRE(std::isfinite(boundingRadius(large, glm::dvec3(0))));
+    REQUIRE(boundingRadius(large, glm::dvec3(0)) == double(large[0].x));
+}
+
+TEST_CASE("Renderer dump formatting restores native flags on failed output")
+{
+    std::ostringstream stream;
+    stream.setf(std::ios_base::right, std::ios_base::adjustfield);
+    stream.setf(std::ios_base::hex, std::ios_base::basefield);
+    stream.setf(std::ios_base::showbase);
+    const auto original = stream.flags();
+    REQUIRE_THROWS_AS(([&] {
+        const srDumpStreamScope outer(stream);
+        REQUIRE((stream.flags() & std::ios_base::adjustfield) == std::ios_base::left);
+        const auto inner_flags = stream.flags();
+        { const srDumpStreamScope inner(stream); }
+        REQUIRE(stream.flags() == inner_flags);
+        throw std::runtime_error("failed diagnostic output");
+    }()), std::runtime_error);
+    REQUIRE(stream.flags() == original);
+    stream.setf(std::ios_base::dec, std::ios_base::basefield);
+    stream.unsetf(std::ios_base::showbase);
+    srDumpFlags(stream, 0, nullptr);
+    srDumpFlags(stream, 0b101, "first,unused,last");
+    srDumpFlags(stream, 8, nullptr);
+    REQUIRE(stream.str() == "[NONE][first,last][3]");
+}
+
+TEST_CASE("Triangle texture runs follow depth order and retain submission limits")
+{
+    const std::array<w8_ulong, 5> textures{7, 7, 8, 7, 7};
+    std::vector<srTriangleRun> runs;
+    const auto record = [&](const srTriangleRun& run) { runs.push_back(run); };
+    visitTriangleRuns(textures, {}, textures.size(), record);
+    REQUIRE(runs.size() == 3);
+    REQUIRE((runs[0].first == 0 && runs[0].count == 2 && runs[0].texture_set == 7));
+    REQUIRE((runs[1].first == 2 && runs[1].count == 1 && runs[1].texture_set == 8));
+    REQUIRE((runs[2].first == 3 && runs[2].count == 2 && runs[2].texture_set == 7));
+    std::array<w8_ulong, 5> keys{0xffffffffu, 0, 128, 0, 0};
+    const auto order = sortedTriangleOrder(keys);
+    REQUIRE(order == std::vector<w8_ulong>{1, 3, 4, 2, 0});
+    REQUIRE(keys == std::array<w8_ulong, 5>{0, 0, 0, 128, 0xffffffffu});
+    runs.clear();
+    visitTriangleRuns(textures, order, 512, record);
+    REQUIRE(runs.size() == 3);
+    REQUIRE((runs[0].count == 3 && runs[0].texture_set == 7));
+    REQUIRE((runs[1].count == 1 && runs[1].texture_set == 8));
+    REQUIRE((runs[2].count == 1 && runs[2].texture_set == 7));
+    std::vector<w8_ulong> uniform(1025, 7), uniform_keys(1025, 0);
+    const auto uniform_order = sortedTriangleOrder(uniform_keys);
+    runs.clear();
+    visitTriangleRuns(uniform, uniform_order, 512, record);
+    REQUIRE(runs.size() == 3);
+    REQUIRE((runs[0].first == 0 && runs[0].count == 512));
+    REQUIRE((runs[1].first == 512 && runs[1].count == 512));
+    REQUIRE((runs[2].first == 1024 && runs[2].count == 1));
+    runs.clear();
+    visitTriangleRuns(uniform, {}, uniform.size(), record);
+    REQUIRE((runs.size() == 1 && runs.front().count == 1025));
+    runs.clear();
+    visitTriangleRuns({}, {}, 512, record);
+    REQUIRE(runs.empty());
+    REQUIRE(sortedTriangleOrder({}).empty());
+}
+
+TEST_CASE("Navigation slide math returns complete values for blocked headings")
+{
+    REQUIRE_FALSE(slideDirection(0, {1, 0, 1}));
+    REQUIRE_FALSE(slideDirection(255, {1, 0, 1}));
+    REQUIRE_FALSE(slideDirection(1, {0, 0, 0}));
+    const std::array<glm::vec3, 8> directions{{
+        {0, 0, -1}, {-1, 0, -1}, {-1, 0, 0}, {-1, 0, 1},
+        {0, 0, 1}, {1, 0, 1}, {1, 0, 0}, {1, 0, -1}}};
+    for (unsigned bit = 0; bit < directions.size(); ++bit) {
+        const auto slide = slideDirection(255u & ~(1u << bit), -directions[bit]);
+        REQUIRE(slide);
+        REQUIRE(glm::length(*slide - glm::normalize(directions[bit])) < 1e-6f);
+        REQUIRE(slide->y == 0);
+    }
+    // Opposing blocked neighbors still yield an engaged zero direction.
+    const auto cancelled = slideDirection(255u & ~((1u << 3) | (1u << 7)), {1, 0, 1});
+    REQUIRE(cancelled);
+    REQUIRE(*cancelled == glm::vec3(0));
 }

@@ -1,3 +1,5 @@
+#include "surrender/raster_math.h"
+#include "surrender/stream_scope.h"
 #include "surrender/pixel_math.h"
 #include "glm/ext/vector_uint4.hpp"
 #include <SDL3/SDL_error.h>
@@ -10,7 +12,6 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
-#include <ios>
 #include <iterator>
 #include <memory>
 #include <new>
@@ -338,46 +339,27 @@ void srColorSurfaceIFace::fill(w8_ulong pixel)
     }
 }
 
+void srColorSurfaceIFace::fillRectangle(SDL_Rect rectangle, w8_ulong pixel)
+{
+    const SDL_Rect bounds{0, 0, width, height};
+    if (!SDL_GetRectIntersection(&rectangle, &bounds, &rectangle)) return;
+    for (int y = rectangle.y; y < rectangle.y + rectangle.h; ++y)
+        for (int x = rectangle.x; x < rectangle.x + rectangle.w; ++x)
+            setPixel(x, y, pixel);
+}
+
 // FUNCTION: SURRENDER 0x10057750
 void srColorSurfaceIFace::setHLine(w8_long y, w8_long x_start, w8_long x_end, w8_ulong pixel)
 {
-    if (y >= 0 && y < height) {
-        if (x_end < x_start) {
-            w8_long swap = x_start;
-            x_start = x_end;
-            x_end = swap;
-        }
-        if (x_start < 0) {
-            x_start = 0;
-        }
-        if (width < x_end) {
-            x_end = width;
-        }
-        for (; x_start < x_end; ++x_start) {
-            setPixel(x_start, y, pixel);
-        }
-    }
+    if (const auto rectangle = axisLineRectangle(y, x_start, x_end, false, {width, height}))
+        fillRectangle(*rectangle, pixel);
 }
 
 // FUNCTION: SURRENDER 0x100577B0
 void srColorSurfaceIFace::setVLine(w8_long x, w8_long y_start, w8_long y_end, w8_ulong pixel)
 {
-    if (x >= 0 && x < width) {
-        if (y_end < y_start) {
-            w8_long swap = y_start;
-            y_start = y_end;
-            y_end = swap;
-        }
-        if (y_start < 0) {
-            y_start = 0;
-        }
-        if (height < y_end) {
-            y_end = height;
-        }
-        for (; y_start < y_end; ++y_start) {
-            setPixel(x, y_start, pixel);
-        }
-    }
+    if (const auto rectangle = axisLineRectangle(x, y_start, y_end, true, {width, height}))
+        fillRectangle(*rectangle, pixel);
 }
 
 // FUNCTION: SURRENDER 0x10057550
@@ -531,8 +513,7 @@ void srColorSurfaceIFace::scale(srColorSurfaceIFace& source)
 void srColorSurfaceIFace::dump(std::ostream& stream)
 {
     srClass::dump(stream);
-    std::ios::fmtflags flags = stream.flags();
-    stream.setf(std::ios::left, std::ios::adjustfield);
+    const srDumpStreamScope formatting(stream);
     stream.width(0x20);
     if (filter != 0) {
         stream << "  Filter: " << filter->getName() << '\n';
@@ -555,7 +536,6 @@ void srColorSurfaceIFace::dump(std::ostream& stream)
     stream << "  Data size: " << getDataSize() << " bytes" << '\n';
     stream.width(0x20);
     stream << "  Pixel format: " << pixel_format.getName() << '\n';
-    stream.flags(static_cast<std::ios::fmtflags>(flags & 0x7fff));
 }
 
 // FUNCTION: SURRENDER 0x1005A040
@@ -907,28 +887,25 @@ void srColorSurface::setPixelRow(const w8_ulong* pixels, w8_long y, w8_long x_st
     }
 }
 
+std::span<unsigned char> srColorSurface::rawPixelRow(w8_long y, w8_long x_start, w8_long x_end)
+{
+    if (y < 0 || y >= height || x_start < 0 || x_start >= x_end || x_end > width) return {};
+    const auto bytes = std::size_t(x_end - x_start) * (pixel_format.pixel_size + 1);
+    return {getAddress(x_start, y), bytes};
+}
+
 // FUNCTION: SURRENDER 0x1005BF70
 void srColorSurface::getPixelRowRaw(void* pixels, w8_long y, w8_long x_start, w8_long x_end)
 {
-    if (y >= 0 && y < height && x_start >= 0 && x_start < x_end && x_end <= width) {
-        w8_long count = (x_end - x_start) * (pixel_format.pixel_size + 1);
-        unsigned char* address = getAddress(x_start, y);
-        if (count != 0 && pixels != address) {
-            std::memcpy(pixels, address, count);
-        }
-    }
+    const auto row = rawPixelRow(y, x_start, x_end);
+    if (!row.empty() && pixels != row.data()) std::memcpy(pixels, row.data(), row.size());
 }
 
 // FUNCTION: SURRENDER 0x1005BFD0
 void srColorSurface::setPixelRowRaw(const void* pixels, w8_long y, w8_long x_start, w8_long x_end)
 {
-    if (y >= 0 && y < height && x_start >= 0 && x_start < x_end && x_end <= width) {
-        w8_long count = (x_end - x_start) * (pixel_format.pixel_size + 1);
-        unsigned char* address = getAddress(x_start, y);
-        if (count != 0 && address != pixels) {
-            std::memcpy(address, pixels, count);
-        }
-    }
+    const auto row = rawPixelRow(y, x_start, x_end);
+    if (!row.empty() && pixels != row.data()) std::memcpy(row.data(), pixels, row.size());
 }
 
 template<class Pixel>
@@ -994,6 +971,10 @@ void srColorSurface::flipRectangle(const Rectangle& rectangle)
 
 void srColorSurface::fillRectangle(SDL_Rect rect, w8_ulong pixel)
 {
+    if (getDataPtr() == nullptr) {
+        srColorSurfaceIFace::fillRectangle(rect, pixel);
+        return;
+    }
     const SDL_Rect bounds{0, 0, width, height};
     if (!SDL_GetRectIntersection(&rect, &bounds, &rect))
         return;
@@ -1002,30 +983,6 @@ void srColorSurface::fillRectangle(SDL_Rect rect, w8_ulong pixel)
     const auto raw = getPixelRaw(rect.x, rect.y);
     if (!SDL_FillSurfaceRect(storage.get(), &rect, raw))
         throw std::runtime_error(SDL_GetError());
-}
-
-// FUNCTION: SURRENDER 0x1005C560
-void srColorSurface::setHLine(w8_long y, w8_long x_start, w8_long x_end, w8_ulong pixel)
-{
-    if (getDataPtr() == nullptr) {
-        srColorSurfaceIFace::setHLine(y, x_start, x_end, pixel);
-        return;
-    }
-    if (x_end < x_start)
-        std::swap(x_start, x_end);
-    fillRectangle({x_start, y, x_end - x_start, 1}, pixel);
-}
-
-// FUNCTION: SURRENDER 0x1005C740
-void srColorSurface::setVLine(w8_long x, w8_long y_start, w8_long y_end, w8_ulong pixel)
-{
-    if (getDataPtr() == nullptr) {
-        srColorSurfaceIFace::setVLine(x, y_start, y_end, pixel);
-        return;
-    }
-    if (y_end < y_start)
-        std::swap(y_start, y_end);
-    fillRectangle({x, y_start, 1, y_end - y_start}, pixel);
 }
 
 // FUNCTION: SURRENDER 0x1005C900
@@ -1265,11 +1222,9 @@ void srColorSurfaceIFace::magnify(srColorSurfaceIFace& source)
 void srColorSurface::dump(std::ostream& stream)
 {
     srColorSurfaceIFace::dump(stream);
-    std::ios::fmtflags flags = stream.flags();
-    stream.setf(std::ios::left, std::ios::adjustfield);
+    const srDumpStreamScope formatting(stream);
     if (getPalette() != 0) {
         stream.width(0x20);
         stream << "  Palette: " << getPalette()->getName() << '\n';
     }
-    stream.flags(static_cast<std::ios::fmtflags>(flags & 0x7fff));
 }

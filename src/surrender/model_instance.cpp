@@ -7,7 +7,7 @@
 #include "glm/geometric.hpp"
 #include "glm/matrix.hpp"
 #include "surrender/srModelInstance.h"
-#include "surrender/srStreamFlags.h"
+#include "surrender/stream_scope.h"
 #include "surrender/srCore.h"
 #include "surrender/srDebug.h"
 #include "surrender/srGERD.h"
@@ -134,8 +134,7 @@ void srModelInstance::process(const ProcessInfo& info, e_processType type)
 void srModelInstance::dump(std::ostream& stream)
 {
     srNode::dump(stream);
-    w8_long flags = srGetStreamFlags(stream);
-    srSetStreamFlags(stream, (flags & 0xfffffe7fL) | 0x40);
+    const srDumpStreamScope formatting(stream);
     stream.width(0x20);
     stream << "  Is aligned: " << srBoolToString(alignment_flags.value & 1) << '\n';
     if ((alignment_flags.value & 1) != 0) {
@@ -150,7 +149,6 @@ void srModelInstance::dump(std::ostream& stream)
     stream << (getModel() != 0 ? getModel()->getName() : "none") << '\n';
     stream.width(0x20);
     stream << "  Exclusion mask: " << exclusion_mask << '\n';
-    srSetStreamFlags(stream, flags & 0x7fff);
 }
 
 // FUNCTION: SURRENDER 0x1004FF40

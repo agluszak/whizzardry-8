@@ -1,5 +1,9 @@
 #pragma once
 
+#include <optional>
+#include <span>
+#include <cstddef>
+
 #include <string>
 
 class srPalette;
@@ -55,7 +59,7 @@ public:
 
         std::string getName() const;
         int isValid() const;
-        w8_ulong match(const PixelFormat* formats, w8_ulong count) const;
+        std::optional<std::size_t> match(std::span<const PixelFormat> formats) const;
 
         int operator==(const PixelFormat& other) const
         {

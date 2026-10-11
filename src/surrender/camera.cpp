@@ -1,3 +1,4 @@
+#include "surrender/srDebug.h"
 #include <glm/gtc/matrix_access.hpp>
 #include <ostream>
 #include <algorithm>
@@ -10,9 +11,8 @@
 #include "glm/matrix.hpp"
 #include "glm/vector_relational.hpp"
 #include "surrender/srCamera.h"
-#include "surrender/srStreamFlags.h"
+#include "surrender/stream_scope.h"
 #include "surrender/srGERD.h"
-#include "compat/compiler.h"
 #include "glm/ext/matrix_double3x3.hpp"
 #include "glm/ext/matrix_double4x4.hpp"
 #include "glm/ext/vector_double2.hpp"
@@ -308,45 +308,10 @@ void srCamera::flipHorizontal()
 void srCamera::dump(std::ostream& stream)
 {
     srNode::dump(stream);
-    w8_long flags = srGetStreamFlags(stream);
-    srSetStreamFlags(stream, (flags & 0xfffffe7fL) | 0x40);
+    const srDumpStreamScope formatting(stream);
     stream.width(0x20);
     stream << "Control flags: ";
-    if (this->flags.value == 0) {
-        stream << "[NONE]";
-    } else {
-        stream << '[';
-        int first = 1;
-        const char* names = flag_names;
-        for (w8_ulong bit = 0; bit < 0x20; ++bit) {
-            if ((this->flags.value & (1UL << bit)) != 0) {
-                if (first == 0) {
-                    stream << ',';
-                } else {
-                    first = 0;
-                }
-                if (names == 0 || *names == '\0') {
-                    stream << bit;
-                } else {
-                    while (*names != '\0' && *names != ',') {
-                        stream << *names;
-                        ++names;
-                    }
-                    if (*names == ',') {
-                        ++names;
-                    }
-                }
-            } else if (names != 0) {
-                while (*names != '\0' && *names != ',') {
-                    ++names;
-                }
-                if (*names == ',') {
-                    ++names;
-                }
-            }
-        }
-        stream << ']';
-    }
+    srDumpFlags(stream, this->flags.value, flag_names);
     stream << '\n';
     stream.width(0x20);
     stream << "  Viewplane: " << view_plane << '\n';
@@ -360,7 +325,6 @@ void srCamera::dump(std::ostream& stream)
     stream << "  Environment Range (near,far): " << near_range << ',' << far_range << '\n';
     const auto [near_scale, far_scale] = getEnvironmentScale();
     stream << "  Environment Scale (near,far): " << near_scale << ',' << far_scale << '\n';
-    srSetStreamFlags(stream, flags & 0x7fff);
 }
 
 // FUNCTION: SURRENDER 0x10048E30

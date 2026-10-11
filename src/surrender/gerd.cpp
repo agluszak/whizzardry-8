@@ -1,3 +1,4 @@
+#include <stdexcept>
 #include "surrender/srBoundingBox.h"
 #include "surrender/plane_math.h"
 #include "surrender/model_view_scope.h"
@@ -25,7 +26,6 @@
 #include <thread>
 #include <unordered_map>
 #include <utility>
-#include <stdexcept>
 
 #include "glm/common.hpp"
 #include "glm/geometric.hpp"
@@ -3306,10 +3306,10 @@ void srGERD::evaluateTexturePixelFormat(Texture& texture,
     }
     texture.device.resident = (dimensions.hints >> srTextureIFace::HINT_RESIDENT) & 1;
     texture.device.format = convertPixelFormat(format);
-    w8_ulong index = format.match(device.texture_formats.data(),
-                                 static_cast<w8_ulong>(device.texture_formats.size()));
-    texture.device.format_index = index;
-    texture.pixel_format = device.texture_formats[index];
+    const auto index = format.match(device.texture_formats);
+    if (!index) throw std::runtime_error("device has no supported texture formats");
+    texture.device.format_index = static_cast<w8_ulong>(*index);
+    texture.pixel_format = device.texture_formats[*index];
     if (texture.pixel_format.color_model == srPixelConvert::COLOR_INDEXED) {
         texture.palette = dimensions.palette;
     } else {
