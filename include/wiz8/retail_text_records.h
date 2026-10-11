@@ -23,6 +23,17 @@ template<class T> void pointer_slot(T* const& live, std::span<std::byte> bytes)
 }
 template<class T> void pointer_slot(T*& live, std::span<const std::byte>) { live = nullptr; }
 
+/* A disk pointer slot whose payload a live record owns by value (an
+   optional or a container): writers store whether it is present. */
+template<class Owner> void presence_slot(const Owner& live, std::span<std::byte> bytes)
+{
+    std::uint32_t present;
+    if constexpr (requires { live.has_value(); }) present = live.has_value();
+    else present = !live.empty();
+    std::memcpy(bytes.data(), &present, sizeof(present));
+}
+template<class Owner> void presence_slot(Owner&, std::span<const std::byte>) {}
+
 /* A nested record with its own codec. */
 template<class Runtime, class Bytes, class Value, class Text>
 void nested(Runtime& runtime, Bytes bytes, Value value, Text text)

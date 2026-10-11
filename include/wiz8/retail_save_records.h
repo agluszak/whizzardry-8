@@ -346,7 +346,7 @@ template<> struct Record<W8NpcState> {
         pointer_slot(runtime.script_file, field(offsetof(Disk, script_file), sizeof(Disk::script_file)));
         value(&runtime.spawned, field(offsetof(Disk, spawned), sizeof(Disk::spawned)));
         pointer_slot(runtime.record, field(offsetof(Disk, record), sizeof(Disk::record)));
-        pointer_slot(runtime.items, field(offsetof(Disk, items), sizeof(Disk::items)));
+        presence_slot(runtime.items, field(offsetof(Disk, items), sizeof(Disk::items)));
         value(&runtime.restock_clock, field(offsetof(Disk, restock_clock), sizeof(Disk::restock_clock)));
         value(&runtime.maintenance_clock, field(offsetof(Disk, maintenance_clock), sizeof(Disk::maintenance_clock)));
         value(&runtime.location_id, field(offsetof(Disk, location_id), sizeof(Disk::location_id)));
@@ -360,7 +360,7 @@ template<> struct Record<W8NpcState> {
         value(&runtime.level_band, field(offsetof(Disk, level_band), sizeof(Disk::level_band)));
         value(&runtime.is_present, field(offsetof(Disk, is_present), sizeof(Disk::is_present)));
         value(&runtime.is_grouped, field(offsetof(Disk, is_grouped), sizeof(Disk::is_grouped)));
-        pointer_slot(runtime.character, field(offsetof(Disk, character), sizeof(Disk::character)));
+        presence_slot(runtime.character, field(offsetof(Disk, character), sizeof(Disk::character)));
         value(&runtime.group_index, field(offsetof(Disk, group_index), sizeof(Disk::group_index)));
         value(&runtime.partner_index, field(offsetof(Disk, partner_index), sizeof(Disk::partner_index)));
         value(&runtime.party_noticed, field(offsetof(Disk, party_noticed), sizeof(Disk::party_noticed)));

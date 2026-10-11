@@ -29,7 +29,6 @@ enum W8NpcDispositionBand {
 
 void QueueNpcHeldItemNotice(int npc_kind);
 
-struct W8Chunk;
 class W8Monster;
 class Trigger;
 struct W8GameplayModifierBlock;
@@ -78,7 +77,7 @@ int SelectNewGameStartLevel(void);
 void BindNpcToMonster(unsigned char value, bool enabled, int location_id);
 bool RecruitNpcIntoParty(W8NpcState* npc);
 int DismissNpcFromParty(int party_slot, int, bool skip_spawn, bool neutral);
-void ReturnDismissedNpcItems(W8NpcState* npc, W8Character* character);
+void ReturnDismissedNpcItems(W8NpcState* npc, W8Character& character);
 /* How many leading party slots are occupied. */
 unsigned char CountLeadingPartySlots(void);
 char GetNpcDisposition(W8NpcState* npc);
@@ -108,7 +107,7 @@ void ReleaseNpcStates(void);
    reusing the slot of a released node when one is free. */
 W8NpcState* CreateNpcRuntimeNode(int npc_id);
 /* Expand the record's character block into a fresh character. */
-bool InitializeNpcCharacter(W8NpcState* npc, W8Character* character);
+bool InitializeNpcCharacter(W8NpcState* npc, W8Character& character);
 /* Copy the record's item table into the state's runtime arrays. */
 void InitializeNpcItemTable(W8NpcState* npc);
 
@@ -167,7 +166,6 @@ bool ClearNpcScheduledItem(W8NpcState* npc, int item_id, W8ItemInstance* out);
 void ReleaseNpcMonsterByKind(int kind);
 /* Record that the NPC has told the party the given fact. */
 void TellNpcFact(W8NpcState* npc, short fact);
-struct W8Chunk;
 bool SaveNpcStates(wiz8::File& file);
 void LoadNpcStates(wiz8::File& file);
 bool SaveNpcItemLists(wiz8::File& file);

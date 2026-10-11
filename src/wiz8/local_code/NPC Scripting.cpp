@@ -1223,7 +1223,7 @@ void ProcessNpcQuoteEntry(W8NpcQuoteEntry* entry, int continuation_quote)
         AwardPartyExperience(entry->operand0, 0);
         break;
     }
-    if (g_npc_scripting.npc->character != 0 && g_npc_scripting.npc->group_index != -1) {
+    if (g_npc_scripting.npc->character && g_npc_scripting.npc->group_index != -1) {
         g_status.buffers.XChar[g_npc_scripting.npc->group_index].pending_event_type = 0;
     }
 }

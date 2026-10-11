@@ -7,7 +7,7 @@ struct W8TargetSource;
 struct W8Character;
 struct W8MonsterInfo;
 
-void CopyCharacterConditionsToTarget(const W8Character* character, const int* target);
+void CopyCharacterConditionsToTarget(const W8Character& character, const int* target);
 void CopyMonsterConditionsToCharacter(W8Character* character, const W8MonsterInfo* monster_info);
 
 #pragma pack(push, 2)

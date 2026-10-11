@@ -181,7 +181,7 @@ unsigned char ImportWizardry7Party(std::string_view path)
     if (g_import_character_count < 7) {
         for (index = 0; index < g_import_character_count; ++index) {
             ImportWizardry7Character(&scratch, &g_imported_characters[index]);
-            if (AddCharacterToParty(&scratch, -1) == -1) {
+            if (AddCharacterToParty(scratch, -1) == -1) {
                 return 1;
             }
         }
