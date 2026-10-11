@@ -77,9 +77,7 @@ void srCamera::processPush(srGERD* renderer)
 
     const auto [near_plane, far_plane] = getClipRange();
 
-    Rect rectangle;
-    double distance;
-    getViewPlane(rectangle, distance);
+    auto [rectangle, distance] = getViewPlane();
     double scale = near_plane / distance;
     rectangle.left *= scale;
     rectangle.right *= scale;
@@ -150,13 +148,9 @@ void srCamera::normalizeViewPlane()
 }
 
 // FUNCTION: SURRENDER 0x10048650
-void srCamera::getViewPlane(Rect& rectangle, double& distance) const
+srCamera::ViewPlane srCamera::getViewPlane() const
 {
-    rectangle.left = view_plane.left;
-    rectangle.bottom = view_plane.bottom;
-    rectangle.right = view_plane.right;
-    rectangle.top = view_plane.top;
-    distance = view_plane_distance;
+    return {view_plane, view_plane_distance};
 }
 
 // FUNCTION: SURRENDER 0x100486C0
