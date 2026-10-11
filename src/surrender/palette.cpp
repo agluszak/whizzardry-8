@@ -1,7 +1,6 @@
 #include <algorithm>
 #include <array>
 #include <cstdlib>
-#include <ios>
 #include <memory>
 #include <ostream>
 #include <vector>
@@ -428,13 +427,11 @@ srPalette& srPalette::operator=(const srPalette& other)
 void srPalette::dump(std::ostream& stream)
 {
     srClass::dump(stream);
-    std::ios::fmtflags flags = stream.flags();
-    stream.setf(std::ios::left, std::ios::adjustfield);
+    const srDumpStreamScope formatting(stream);
     stream.width(0x20);
     stream << "  Colors: " << color_count << '\n';
     stream.width(0x20);
     stream << "  Dataptr: " << static_cast<void*>(colors.data()) << '\n';
-    stream.flags(static_cast<std::ios::fmtflags>(flags & 0x7fff));
 }
 
 // FUNCTION: SURRENDER 0x10004850

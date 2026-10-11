@@ -385,3 +385,35 @@ TEST_CASE("Mipmap averages retain per-input floor and four-sample ceiling")
     REQUIRE(srPixels::average(0x0004080cu, 0x10182028u, 0x30384048u, 0x50586068u) ==
             0x242b3239u);
 }
+
+TEST_CASE("Pixel format matching retains shortfall, channel and fallback policies")
+{
+    using Converter = srPixelConvert;
+    const auto rgb565 = Converter::pixelFormat(Converter::SURFACE_RGB565);
+    const auto rgb555 = Converter::pixelFormat(Converter::SURFACE_RGB555);
+    const auto rgb24 = Converter::pixelFormat(Converter::SURFACE_RGB24);
+    const auto rgba32 = Converter::pixelFormat(Converter::SURFACE_RGBA32);
+    REQUIRE_FALSE(rgb565.match({}));
+    std::array formats{rgb555, rgb24, rgb565};
+    REQUIRE(rgb565.match(formats) == 2); // extra bits are free, fewer bytes win the tie
+    formats = {rgb555, rgb24, rgb24};
+    REQUIRE(rgb565.match(formats) == 1); // equal scores retain the first candidate
+    formats = {rgb555, rgb565, rgb555};
+    REQUIRE(rgb24.match(formats) == 1); // smaller channel shortfall wins
+    const std::array with_alpha{rgb24, rgba32};
+    REQUIRE(rgba32.match(with_alpha) == 1);
+    const std::array without_alpha{rgb565, rgb24};
+    REQUIRE(rgba32.match(without_alpha) == 1); // no complete channels: widest fallback
+    auto indexed = rgb24;
+    indexed.color_model = Converter::COLOR_INDEXED;
+    const std::array wrong_class{indexed, rgb565};
+    REQUIRE(rgb565.match(wrong_class) == 1);
+    auto fourcc = rgba32;
+    fourcc.fourcc = 123;
+    auto exact_fourcc = indexed;
+    exact_fourcc.fourcc = 123;
+    const std::array compressed{rgba32, exact_fourcc};
+    REQUIRE(fourcc.match(compressed) == 1); // FOURCC match precedes class/channel scoring
+    const std::array single{indexed};
+    REQUIRE(rgb565.match(single) == 0); // retain the sole candidate policy
+}

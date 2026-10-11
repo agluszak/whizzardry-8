@@ -1,3 +1,4 @@
+#include "surrender/stream_scope.h"
 #include "surrender/pixel_math.h"
 #include "glm/ext/vector_uint4.hpp"
 #include <SDL3/SDL_error.h>
@@ -10,7 +11,6 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
-#include <ios>
 #include <iterator>
 #include <memory>
 #include <new>
@@ -531,8 +531,7 @@ void srColorSurfaceIFace::scale(srColorSurfaceIFace& source)
 void srColorSurfaceIFace::dump(std::ostream& stream)
 {
     srClass::dump(stream);
-    std::ios::fmtflags flags = stream.flags();
-    stream.setf(std::ios::left, std::ios::adjustfield);
+    const srDumpStreamScope formatting(stream);
     stream.width(0x20);
     if (filter != 0) {
         stream << "  Filter: " << filter->getName() << '\n';
@@ -555,7 +554,6 @@ void srColorSurfaceIFace::dump(std::ostream& stream)
     stream << "  Data size: " << getDataSize() << " bytes" << '\n';
     stream.width(0x20);
     stream << "  Pixel format: " << pixel_format.getName() << '\n';
-    stream.flags(static_cast<std::ios::fmtflags>(flags & 0x7fff));
 }
 
 // FUNCTION: SURRENDER 0x1005A040
@@ -1265,11 +1263,9 @@ void srColorSurfaceIFace::magnify(srColorSurfaceIFace& source)
 void srColorSurface::dump(std::ostream& stream)
 {
     srColorSurfaceIFace::dump(stream);
-    std::ios::fmtflags flags = stream.flags();
-    stream.setf(std::ios::left, std::ios::adjustfield);
+    const srDumpStreamScope formatting(stream);
     if (getPalette() != 0) {
         stream.width(0x20);
         stream << "  Palette: " << getPalette()->getName() << '\n';
     }
-    stream.flags(static_cast<std::ios::fmtflags>(flags & 0x7fff));
 }
