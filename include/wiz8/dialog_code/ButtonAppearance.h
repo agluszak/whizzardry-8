@@ -22,12 +22,6 @@ inline constexpr int BUTTON_TEXT_CENTER = 0;
 inline constexpr int BUTTON_TEXT_RIGHT = 1;
 inline constexpr int BUTTON_NO_IMAGE = -1;
 inline constexpr std::nullptr_t BUTTON_NO_CALLBACK = nullptr;
-enum {
-    DEFAULT_STATUS_NONE,
-    DEFAULT_STATUS_DARKBORDER,
-    DEFAULT_STATUS_DOTTEDINTERIOR,
-    DEFAULT_STATUS_WINDOWS95,
-};
 
 enum {
     DISABLED_STYLE_NONE,
@@ -46,7 +40,6 @@ struct ButtonAppearance {
     ButtonImage quick_image;
     GenericButtonImage generic_image;
     SDL_Rect bounds{};
-    std::int8_t bDefaultStatus = DEFAULT_STATUS_NONE;
     std::int8_t bDisabledStyle = DISABLED_STYLE_DEFAULT;
     std::string string;
     Font* usFont = nullptr;

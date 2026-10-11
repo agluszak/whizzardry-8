@@ -151,6 +151,8 @@ bool Font::load(std::string_view filename)
 
 static std::uint32_t GetWidth(const SpriteSheet& sprites, std::int16_t ssIndex)
 {
+    if (ssIndex < 0 || static_cast<std::size_t>(ssIndex) >= sprites.frames.size())
+        return 0;
     const auto& glyph = sprites.frames[ssIndex];
     return glyph.usWidth + glyph.sOffsetX;
 }
@@ -193,6 +195,8 @@ std::int16_t Font::textWidth(std::string_view string) const
 
 static std::uint32_t GetHeight(const SpriteSheet& sprites, std::int16_t ssIndex)
 {
+    if (ssIndex < 0 || static_cast<std::size_t>(ssIndex) >= sprites.frames.size())
+        return 0;
     const auto& glyph = sprites.frames[ssIndex];
     return glyph.usHeight + glyph.sOffsetY;
 }

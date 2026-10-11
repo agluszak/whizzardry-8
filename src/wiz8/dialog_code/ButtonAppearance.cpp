@@ -39,7 +39,6 @@ static void DrawTextOnButton(SDL_Surface& target, const ButtonAppearance* appear
                              const ButtonVisualState& state);
 static void DrawHatchOnButton(SDL_Surface& target, const ButtonAppearance* appearance);
 static void DrawShadeOnButton(SDL_Surface& target, const ButtonAppearance* appearance);
-static void DrawDefaultOnButton(SDL_Surface& target, const ButtonAppearance* appearance);
 
 ButtonImage ButtonGraphics::Load(std::string_view filename, std::int32_t grayed, std::int32_t off_normal,
                                  std::int32_t off_hilite, std::int32_t on_normal, std::int32_t on_hilite)
@@ -154,7 +153,6 @@ void DrawButtonAppearance(SDL_Surface& target, const ButtonAppearance& appearanc
     if (!b->string.empty()) DrawTextOnButton(target, b, state);
     if (disabled_style == DISABLED_STYLE_HATCHED) DrawHatchOnButton(target, b);
     else if (disabled_style == DISABLED_STYLE_SHADED) DrawShadeOnButton(target, b);
-    if (b->bDefaultStatus) DrawDefaultOnButton(target, b);
 }
 
 // FUNCTION: WIZ8 0x0040e060
@@ -198,32 +196,6 @@ static void DrawShadeOnButton(SDL_Surface& target, const ButtonAppearance* b)
     const auto& bounds = b->bounds;
     const SDL_Rect area{bounds.x, bounds.y, bounds.w, bounds.h};
     ShadowRect(target, area);
-}
-
-// FUNCTION: WIZ8 0x0040e170
-static void DrawDefaultOnButton(SDL_Surface& target, const ButtonAppearance* b)
-{
-    const auto& bounds = b->bounds;
-    const SDL_Rect full_surface{0, 0, target.w, target.h};
-    ScopedClipRect clip(target, full_surface);
-    if (b->bDefaultStatus == DEFAULT_STATUS_DARKBORDER ||
-        b->bDefaultStatus == DEFAULT_STATUS_WINDOWS95) {
-        //left (one thick)
-        SDL_Rect left{bounds.x - 1, bounds.y - 1, 1, bounds.h + 3};
-        SDL_FillSurfaceRect(&target, &left, 0);
-        //top (one thick)
-        SDL_Rect top{bounds.x - 1, bounds.y - 1, bounds.w + 3, 1};
-        SDL_FillSurfaceRect(&target, &top, 0);
-        //right (two thick)
-        SDL_Rect right{bounds.x + bounds.w, bounds.y - 1, 2, bounds.h + 3};
-        SDL_FillSurfaceRect(&target, &right, 0);
-        //bottom (two thick)
-        SDL_Rect bottom{bounds.x - 1, bounds.y + bounds.h, bounds.w + 3, 2};
-        SDL_FillSurfaceRect(&target, &bottom, 0);
-    }
-    if (b->bDefaultStatus == DEFAULT_STATUS_DOTTEDINTERIOR ||
-        b->bDefaultStatus == DEFAULT_STATUS_WINDOWS95) { //Draw an internal dotted rectangle.
-    }
 }
 
 // FUNCTION: WIZ8 0x0040e5d0

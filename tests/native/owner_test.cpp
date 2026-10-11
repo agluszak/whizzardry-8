@@ -31,6 +31,7 @@
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_code/Gameloop.h"
+#include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
 #include "wiz8/character_event_queue.h"
@@ -914,25 +915,6 @@ void generic_button_images()
     second_appearance.quick_image.reset();
     REQUIRE(lifetime.expired());
 
-    auto border_target_owner = CreateCpuStorage(12, 12, SDL_PIXELFORMAT_RGB565);
-    REQUIRE(border_target_owner);
-    auto& border_target = *border_target_owner;
-    REQUIRE(SDL_FillSurfaceRect(&border_target, nullptr, 0xffff));
-    ButtonAppearance bordered;
-    bordered.bounds = {3, 3, 4, 4};
-    bordered.bDefaultStatus = DEFAULT_STATUS_DARKBORDER;
-    DrawButtonAppearance(border_target, bordered, {});
-    const auto* border_pixels = static_cast<const std::uint16_t*>(border_target.pixels);
-    REQUIRE(border_pixels);
-    for (int coordinate = 2; coordinate <= 8; ++coordinate) {
-        REQUIRE(border_pixels[2 * 12 + coordinate] == 0);
-        REQUIRE(border_pixels[7 * 12 + coordinate] == 0);
-        REQUIRE(border_pixels[8 * 12 + coordinate] == 0);
-        REQUIRE(border_pixels[coordinate * 12 + 2] == 0);
-        REQUIRE(border_pixels[coordinate * 12 + 7] == 0);
-        REQUIRE(border_pixels[coordinate * 12 + 8] == 0);
-    }
-    REQUIRE(border_pixels[5 * 12 + 5] == 0xffff);
     // Validate each of the five states, including invalid negative indices.
     for (int bad : {-2, 9, 65536}) {
         for (size_t state = 0; state < 5; ++state) {
@@ -1311,6 +1293,39 @@ TEST_CASE("Sprite ownership", "[owner]")
 TEST_CASE("Font resource ownership", "[owner]")
 {
     font_resource_ownership();
+}
+
+TEST_CASE("Font measurements skip glyphs outside the sprite sheet", "[font][owner]")
+{
+    initialize_test_framebuffer();
+    ScopedTemporaryDirectory directory{"wiz8-font-glyph-range"};
+    const auto assets = directory.path / "assets";
+    const auto previous_roots = w8_native::path_roots();
+    button_image_fixture(assets, "font.sti", 1, false, 1, 1);
+    g_image_assets.clear();
+    w8_native::configure_paths({assets.string(), (directory.path / "user").string(), {}});
+    struct Restore {
+        w8_native::Roots roots;
+        ~Restore()
+        {
+            ResetFontRendering();
+            g_image_assets.clear();
+            w8_native::configure_paths(roots);
+        }
+    } restore{previous_roots};
+
+    ConfigureFontRendering(CreateEnglishTransTable());
+    Font font;
+    REQUIRE(font.load("font.sti"));
+    REQUIRE(font.glyphs->frames.size() == 1);
+    REQUIRE(GetIndex(U'é') >= static_cast<std::int16_t>(font.glyphs->frames.size()));
+    REQUIRE(font.textWidth("é") == 0);
+    REQUIRE(font.prefixWidth("é", 2) == 0);
+    W8ControlsRect tooltip_bounds{0, 0, 250, 250};
+    W8TextBuffer tooltip(&tooltip_bounds, "é", font,
+                         g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft, 4);
+    REQUIRE(tooltip.m_maxLineWidth == 0);
+    REQUIRE(tooltip.m_lineCount == 1);
 }
 
 TEST_CASE("Text input ownership", "[owner]")

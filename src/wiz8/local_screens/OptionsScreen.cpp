@@ -751,32 +751,21 @@ void W8OptionsKeyButton::SetKey(unsigned short key)
 // FUNCTION: WIZ8 0x005a7e40
 void W8OptionsKeyButton::SetKeyText(unsigned short key)
 {
-    std::string character;
-    int index = 0;
     std::string text;
-
-    if (g_options_key_names[0].key != key) {
-        W8OptionsKeyName* name = g_options_key_names;
-        do {
-            unsigned short current = name->key;
-            ++index;
-            ++name;
-            if (current == 0) {
-                goto translate_key;
-            }
-        } while (name->key != key);
-    }
-
-    text = g_localized_strings[g_options_key_names[index].label];
-    if (text.empty()) {
-    translate_key:
-        character[0] = TranslateKeyToCharacter(key, 0);
-        if (character[0] == 0) {
-            m_textBuffer.SetText(g_localized_strings[0x86d], g_options_detail_font);
-            return;
+    for (const auto* name = g_options_key_names; name->key != 0; ++name) {
+        if (name->key == key) {
+            text = g_localized_strings[name->label];
+            break;
         }
-        character[0] = static_cast<char>(toupper(character[0]));
-        text = character;
+    }
+    if (text.empty()) {
+        const auto character = TranslateKeyToCharacter(key, 0);
+        if (character == 0) {
+            text = g_localized_strings[0x86d];
+        } else {
+            text.push_back(static_cast<char>(
+                std::toupper(static_cast<unsigned char>(character))));
+        }
     }
 
     if (m_secondary_binding != W8_MGS_COMMAND_NONE && key != 0) {
