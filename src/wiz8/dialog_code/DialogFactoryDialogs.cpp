@@ -1446,9 +1446,8 @@ void W8TriggerItemPickerDialog::Draw()
         }
         W8WorldItem* world_item = items[item_index];
         W8ItemInstance* item = &world_item->item;
-        int video_object = g_item_video_objects.GetOrCreateVideoObject(item->iItemNo);
-        DrawCatalogImage(GetFrameBufferSurface(), video_object, 0, 0, button->GetX() + 2, button->GetY() + 2,
-                         VO_BLT_SRCTRANSPARENCY, 0);
+        DrawSprite(GetFrameBufferSurface(), g_item_video_objects.Sprites(item->iItemNo), 0,
+                   button->GetX() + 2, button->GetY() + 2, VO_BLT_SRCTRANSPARENCY, 0);
         SetFont(g_wiz_text_font);
         if (item->stack_count > 1) {
             auto name = GetItemDisplayName(item);

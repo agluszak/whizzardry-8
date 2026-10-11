@@ -211,16 +211,13 @@ void SetTargetCursor(int cursor)
 // FUNCTION: WIZ8 0x0055ef90
 void UpdateHeldItemCursor(void)
 {
-    int object;
-
     if ((g_current_screen_state.id == W8_SCREEN_MAIN_GAME ||
          g_current_screen_state.id == W8_SCREEN_CAMP) &&
         g_status.item_in_cursor) {
         if (g_status.item_in_hand.iItemNo != -1) {
             g_status.item_in_cursor = true;
-            object = g_item_video_objects.GetOrCreateVideoObject(g_status.item_in_hand.iItemNo);
-            SetMouseCursorFromVideoObject(GetCatalogVideoObject(object, 0),
-                                          GetCatalogVideoObjectYOffset(object), 0, 0);
+            auto& sprites = g_item_video_objects.Sprites(g_status.item_in_hand.iItemNo);
+            SetMouseCursorFromVideoObject(sprites, 0, 0, 0);
             BlitToMouseCursor(GetCatalogVideoObject(0, 0), GetCatalogVideoObjectYOffset(0), 0,
                               0);
             RefreshMouseCursorTexture();
@@ -298,16 +295,12 @@ unsigned char GetPartyOrderTextColor(signed char party_order)
 // FUNCTION: WIZ8 0x0055F160
 void SetItemCursor(int overlay_video_object)
 {
-    int object;
-    unsigned short y_offset;
-
     if (g_status.item_in_hand.iItemNo != -1) {
         g_status.item_in_cursor = true;
-        object = g_item_video_objects.GetOrCreateVideoObject(g_status.item_in_hand.iItemNo);
-        y_offset = GetCatalogVideoObjectYOffset(object);
-        SetMouseCursorFromVideoObject(GetCatalogVideoObject(object, 0), y_offset, 0, 0);
-        y_offset = GetCatalogVideoObjectYOffset(overlay_video_object);
-        BlitToMouseCursor(GetCatalogVideoObject(overlay_video_object, 0), y_offset, 0, 0);
+        auto& sprites = g_item_video_objects.Sprites(g_status.item_in_hand.iItemNo);
+        SetMouseCursorFromVideoObject(sprites, 0, 0, 0);
+        BlitToMouseCursor(GetCatalogVideoObject(overlay_video_object, 0),
+                          GetCatalogVideoObjectYOffset(overlay_video_object), 0, 0);
         RefreshMouseCursorTexture();
         gXStatus.iCurrentCursor = W8_CURSOR_INVALID_TARGET;
     }
