@@ -1,6 +1,8 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
 #include <vector>
+#include <memory>
+#include <utility>
 #include <cstdlib>
 #include <cstring>
 #include <string>
@@ -137,14 +139,10 @@ unsigned int ApplyDamageToCharacter(int party_slot, unsigned int amount, bool qu
         }
     } else {
         if (result_stats != 0) {
-            W8SpellDamageReport* report =
-                static_cast<W8SpellDamageReport*>(malloc(sizeof(W8SpellDamageReport)));
-            if (report != 0) {
-                memset(report, 0, sizeof(W8SpellDamageReport));
-                report->kind = 1;
-                report->value = party_slot;
-                result_stats->reports.push_back(report);
-            }
+            auto report = std::make_unique<W8SpellDamageReport>();
+            report->kind = 1;
+            report->value = party_slot;
+            result_stats->reports.push_back(std::move(report));
         }
         SetCharacterCondition(party_slot, W8_CONDITION_DEAD, W8_CONDITION_INDEFINITE, 0, 0,
                               result_stats == 0);
@@ -397,13 +395,10 @@ unsigned int ApplyDamageToMonster(W8MonsterInfo* monster_info, unsigned int amou
         } else {
             monster_info->hp_current = 0;
             if (result_stats != 0) {
-                report = static_cast<W8SpellDamageReport*>(malloc(sizeof(W8SpellDamageReport)));
-                if (report != 0) {
-                    memset(report, 0, sizeof(W8SpellDamageReport));
-                    report->kind = 3;
-                    report->text = GetMonsterName(monster_info, 0, 0);
-                    result_stats->reports.push_back(report);
-                }
+                auto death_report = std::make_unique<W8SpellDamageReport>();
+                death_report->kind = 3;
+                death_report->text = GetMonsterName(monster_info, 0, 0);
+                result_stats->reports.push_back(std::move(death_report));
             }
             MonsterStartsDying(monster_info, result_stats == 0);
         }
