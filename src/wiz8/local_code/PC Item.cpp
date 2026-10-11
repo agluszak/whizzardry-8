@@ -405,7 +405,7 @@ static char g_item_video_object_fallback_names[145][0x30] = {"Dagger.sti",
 // FUNCTION: WIZ8 0x0055ce80
 int W8ItemVideoObjectCache::GetOrCreateVideoObject(int item_id)
 {
-    W8ItemVideoObjectEntry* entry = data + item_id;
+    W8ItemVideoObjectEntry* entry = &data[item_id];
     const W8ItemDatabaseRecord* record = &g_item_records[item_id];
     std::string_view name = record->video_object_name;
     int object;
