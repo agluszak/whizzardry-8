@@ -1,13 +1,18 @@
+#include "surrender/pixel_math.h"
+#include "glm/ext/vector_uint4.hpp"
 #include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>
 #include <algorithm>
+#include <array>
+#include <type_traits>
 #include <cstdlib>
 #include <cstring>
 #include <ios>
 #include <iterator>
 #include <memory>
 #include <new>
+#include <span>
 #include <utility>
 #include <ostream>
 #include <cmath>
@@ -22,7 +27,6 @@
 #include "surrender/srPalette.h"
 #include "compat/compiler.h"
 #include "glm/ext/vector_float4.hpp"
-#include "surrender/srARGB.h"
 #include "surrender/srColorSurfaceIFace.h"
 #include "surrender/srPixelConvert.h"
 #include "surrender/srTypeRegistry.h"
@@ -434,12 +438,9 @@ void srColorSurfaceIFace::scaleFast(srColorSurfaceIFace& source)
         return;
     }
     std::vector<w8_long> column_map(width);
-    std::vector<srARGB> source_row_storage(source_width);
-    srARGB* source_row_colors = source_row_storage.data();
-    w8_ulong* source_row = (w8_ulong*)source_row_colors;
-    std::vector<srARGB> row_storage(width);
-    srARGB* row_colors = row_storage.data();
-    w8_ulong* row = (w8_ulong*)row_colors;
+    std::vector<w8_ulong> source_row_storage(source_width), row_storage(width);
+    auto* source_row = source_row_storage.data();
+    auto* row = row_storage.data();
     for (w8_long x = 0; x < width; x++) {
         column_map[x] = source.getClampedX((w8_long)((float)x * source_width / width));
     }
@@ -463,9 +464,8 @@ void srColorSurfaceIFace::copyNoScaling(srColorSurfaceIFace& source)
     if (this != &source) {
         w8_long height = source.height;
         w8_long width = source.width;
-        std::vector<srARGB> row_storage(width);
-        srARGB* row_colors = row_storage.data();
-        w8_ulong* row = (w8_ulong*)row_colors;
+        std::vector<w8_ulong> row_storage(width);
+        auto* row = row_storage.data();
         for (w8_long y = 0; y < height; y++) {
             source.getPixelRow(row, y, 0, width);
             setPixelRow(row, y, 0, width);
@@ -928,40 +928,43 @@ void srColorSurface::setPixelRowRaw(const void* pixels, w8_long y, w8_long x_sta
     }
 }
 
+template<class Pixel>
+void srColorSurface::transferColumn(std::span<Pixel> pixels, w8_long x, w8_long y)
+{
+    constexpr bool reading = !std::is_const_v<Pixel>;
+    constexpr std::size_t chunkSize = 256;
+    std::array<unsigned char, chunkSize * sizeof(w8_ulong)> buffer;
+    const unsigned bytes = pixel_format.pixel_size + 1;
+    for (std::size_t offset = 0; offset < pixels.size(); offset += chunkSize) {
+        const auto count = std::min(chunkSize, pixels.size() - offset);
+        auto* chunk = pixels.data() + offset;
+        if constexpr (!reading)
+            convertFromARGB8888(buffer.data(), chunk, count);
+        auto* first = getAddress(x, y + static_cast<w8_long>(offset));
+        for (std::size_t i = 0; i < count; ++i) {
+            auto* address = first + i * pitch;
+            if constexpr (reading)
+                std::memcpy(buffer.data() + i * bytes, address, bytes);
+            else
+                std::memcpy(address, buffer.data() + i * bytes, bytes);
+        }
+        if constexpr (reading)
+            convertToARGB8888(chunk, buffer.data(), count);
+    }
+}
+
 // FUNCTION: SURRENDER 0x1005D970
 void srColorSurface::getPixelColumn(w8_ulong* pixels, w8_long x, w8_long y_start, w8_long y_end)
 {
-    unsigned char buffer[0x400];
-    for (; y_start < y_end; y_start += 0x100) {
-        w8_ulong count = y_end - y_start;
-        if (count > 0x100) {
-            count = 0x100;
-        }
-        unsigned char* address = getAddress(x, y_start);
-        const unsigned bytes = pixel_format.pixel_size + 1;
-        for (w8_ulong i = 0; i < count; ++i, address += pitch)
-            std::memcpy(buffer + i * bytes, address, bytes);
-        convertToARGB8888(pixels, (const void*)buffer, count);
-        pixels += 0x100;
-    }
+    if (y_start < y_end)
+        transferColumn(std::span<w8_ulong>(pixels, y_end - y_start), x, y_start);
 }
 
 // FUNCTION: SURRENDER 0x1005DAD0
 void srColorSurface::setPixelColumn(const w8_ulong* pixels, w8_long x, w8_long y_start, w8_long y_end)
 {
-    unsigned char buffer[0x400];
-    for (; y_start < y_end; y_start += 0x100) {
-        w8_ulong count = y_end - y_start;
-        if (count > 0x100) {
-            count = 0x100;
-        }
-        convertFromARGB8888(buffer, pixels, count);
-        unsigned char* address = getAddress(x, y_start);
-        const unsigned bytes = pixel_format.pixel_size + 1;
-        for (w8_ulong i = 0; i < count; ++i, address += pitch)
-            std::memcpy(address, buffer + i * bytes, bytes);
-        pixels += 0x100;
-    }
+    if (y_start < y_end)
+        transferColumn(std::span<const w8_ulong>(pixels, y_end - y_start), x, y_start);
 }
 
 // FUNCTION: SURRENDER 0x1005C2E0
@@ -1149,9 +1152,7 @@ void srColorSurfaceIFace::scaleAxis(srColorSurfaceIFace& source, bool vertical)
         if (vertical) source.getPixelColumn(input.data(), line, 0, sourceSize);
         else source.getPixelRow(input.data(), line, 0, sourceSize);
         for (w8_long i = 0; i < sourceSize; ++i) {
-            const auto pixel = input[i];
-            channels[i] = glm::vec4(pixel >> 24, (pixel >> 16) & 255,
-                                    (pixel >> 8) & 255, pixel & 255);
+            channels[i] = glm::vec4(srPixels::channels(input[i]));
         }
         for (w8_long i = 0; i < size; ++i) {
             glm::vec4 value(0.0f);
@@ -1160,11 +1161,10 @@ void srColorSurfaceIFace::scaleAxis(srColorSurfaceIFace& source, bool vertical)
                 const glm::vec4 weighted = channels[sample.index] * sample.weight;
                 value = weighted + value;
             }
-            const auto channel = [](float value) {
-                return w8_ulong(static_cast<unsigned char>(srFloatToInt(value)));
-            };
-            output[i] = channel(value.x) << 24 | channel(value.y) << 16 |
-                        channel(value.z) << 8 | channel(value.w);
+            glm::uvec4 rounded;
+            for (unsigned channel = 0; channel < 4; ++channel)
+                rounded[channel] = static_cast<unsigned char>(srFloatToInt(value[channel]));
+            output[i] = srPixels::pack(rounded);
         }
         if (vertical) setPixelColumn(output.data(), line, 0, size);
         else setPixelRow(output.data(), line, 0, size);
@@ -1200,72 +1200,47 @@ void srColorSurfaceIFace::blit(w8_long x, w8_long y, srColorSurfaceIFace& source
 // FUNCTION: SURRENDER 0x1005A930
 void srColorSurfaceIFace::minify(srColorSurfaceIFace& source)
 {
-    w8_long height = this->height;
-    w8_ulong width = this->width;
-    w8_long source_width = source.width;
-    if (((width == (w8_ulong)(source_width / 2)) && (height == source.height / 2)) &&
-        (this != &source)) {
-        std::vector<srARGB> buffer_storage(width + source_width * 2);
-        srARGB* buffer_colors = buffer_storage.data();
-        w8_ulong* buffer = (w8_ulong*)buffer_colors;
-        w8_ulong* second = buffer + source_width;
-        w8_ulong* row = buffer + source_width * 2;
-        for (w8_long y = 0; y < height; y++) {
-            source.getPixelRow(buffer, y * 2, 0, source_width);
-            source.getPixelRow(second, y * 2 + 1, 0, source_width);
-            for (w8_ulong x = 0; x < width; x++) {
-                unsigned char* top = (unsigned char*)&buffer[x * 2];
-                unsigned char* bottom = (unsigned char*)&second[x * 2];
-                unsigned char* pixel = (unsigned char*)&row[x];
-                pixel[0] = (unsigned char)((top[0] + top[4] + bottom[0] + bottom[4] + 3) >> 2);
-                pixel[1] = (unsigned char)((top[1] + top[5] + bottom[1] + bottom[5] + 3) >> 2);
-                pixel[2] = (unsigned char)((top[2] + top[6] + bottom[2] + bottom[6] + 3) >> 2);
-                pixel[3] = (unsigned char)((top[3] + top[7] + bottom[3] + bottom[7] + 3) >> 2);
-            }
-            setPixelRow(row, y, 0, width);
-        }
+    if (width != source.width / 2 || height != source.height / 2 || this == &source ||
+        width <= 0 || height <= 0) return;
+    std::vector<w8_ulong> first(source.width), second(source.width), row(width);
+    for (w8_long y = 0; y < height; ++y) {
+        source.getPixelRow(first.data(), y * 2, 0, source.width);
+        source.getPixelRow(second.data(), y * 2 + 1, 0, source.width);
+        for (w8_long x = 0; x < width; ++x)
+            row[x] = srPixels::average(first[x * 2], first[x * 2 + 1],
+                                       second[x * 2], second[x * 2 + 1]);
+        setPixelRow(row.data(), y, 0, width);
     }
 }
+
+namespace {
+void magnifyRow(std::span<w8_ulong> destination, std::span<const w8_ulong> source)
+{
+    for (std::size_t x = 0; x < source.size(); ++x) {
+        destination[x * 2] = source[x];
+        destination[x * 2 + 1] = x + 1 == source.size() ? source[x] :
+            srPixels::average(source[x], source[x + 1]);
+    }
+}
+} // namespace
 
 // FUNCTION: SURRENDER 0x1005ABB0
 void srColorSurfaceIFace::magnify(srColorSurfaceIFace& source)
 {
-    w8_long source_height = source.height;
-    w8_long width = this->width;
-    w8_long source_width = source.width;
-    if (width == source_width * 2 && height == source_height * 2 && this != &source) {
-        std::vector<srARGB> buffer_storage(source_width + width * 2);
-        srARGB* buffer_colors = buffer_storage.data();
-        w8_ulong* buffer = (w8_ulong*)buffer_colors;
-        w8_ulong* even = buffer + source_width;
-        w8_ulong* odd = even + width;
-        source.getPixelRow(buffer, 0, 0, source_width);
-        w8_long x;
-        for (x = 0; x < source_width - 1; x++) {
-            even[x * 2] = buffer[x];
-            even[x * 2 + 1] = (buffer[x + 1] >> 1 & 0x7f7f7f7f) + (buffer[x] >> 1 & 0x7f7f7f7f);
-        }
-        even[(source_width - 1) * 2] = buffer[source_width - 1];
-        even[(source_width - 1) * 2 + 1] = buffer[source_width - 1];
-        /* Each pass writes the widened row y and the average of rows y and y + 1; the widened last
-           source row is never written, so the bottom two destination rows keep their contents. */
-        for (w8_long y = 0; y < source_height - 1; y++) {
-            source.getPixelRow(buffer, y + 1, 0, source_width);
-            for (x = 0; x < source_width - 1; x++) {
-                odd[x * 2] = buffer[x];
-                odd[x * 2 + 1] = (buffer[x + 1] >> 1 & 0x7f7f7f7f) + (buffer[x] >> 1 & 0x7f7f7f7f);
-            }
-            odd[(source_width - 1) * 2] = buffer[source_width - 1];
-            odd[(source_width - 1) * 2 + 1] = buffer[source_width - 1];
-            setPixelRow(even, y * 2, 0, width);
-            for (x = 0; x < width; x++) {
-                even[x] = (odd[x] >> 1 & 0x7f7f7f7f) + (even[x] >> 1 & 0x7f7f7f7f);
-            }
-            setPixelRow(even, y * 2 + 1, 0, width);
-            w8_ulong* swap = even;
-            even = odd;
-            odd = swap;
-        }
+    if (width != source.width * 2 || height != source.height * 2 || this == &source ||
+        source.width <= 0 || source.height <= 0) return;
+    std::vector<w8_ulong> input(source.width), even(width), odd(width);
+    source.getPixelRow(input.data(), 0, 0, source.width);
+    magnifyRow(even, input);
+    // Keep the historical untouched bottom two destination rows.
+    for (w8_long y = 0; y < source.height - 1; ++y) {
+        source.getPixelRow(input.data(), y + 1, 0, source.width);
+        magnifyRow(odd, input);
+        setPixelRow(even.data(), y * 2, 0, width);
+        for (w8_long x = 0; x < width; ++x)
+            even[x] = srPixels::average(odd[x], even[x]);
+        setPixelRow(even.data(), y * 2 + 1, 0, width);
+        even.swap(odd);
     }
 }
 
