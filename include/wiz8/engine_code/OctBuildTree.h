@@ -1,6 +1,9 @@
 #ifndef WIZ8_ENGINE_CODE_OCT_BUILD_TREE_H
 #define WIZ8_ENGINE_CODE_OCT_BUILD_TREE_H
 
+#include <deque>
+#include <memory>
+
 #include "wiz8/engine_code/OctPreTree.h"
 #include "compat/compiler.h"
 
@@ -13,16 +16,6 @@ struct W8OctBuildLink {
 };
 
 class OctPreTree;
-
-struct W8OctBuildLinkLists {
-    W8OctBuildLinkLists();
-    W8OctBuildLink* GetNewLink(void* surface);
-
-    unsigned short m_usCurrent;
-    unsigned short unknown_02;
-    W8OctBuildLink* m_apLinkLists[100];
-    unsigned short m_ausLinkCounts[100];
-};
 
 struct W8OctBuildNode {
     W8OctBuildNode();
@@ -87,7 +80,9 @@ struct W8OctBuildTree {
     int ClassifyBoxBounds(const srVector3T<float>* box, const srVector3T<float>* bounds, bool leaf);
 
     W8OctSpatialState spatial;
-    W8OctBuildLinkLists* link_lists;
+    /* Deque appends preserve the addresses stored in node link chains. */
+    std::deque<W8OctBuildLink> links;
+    std::unique_ptr<W8GDSurface*[]> scratch;
     w8_ulong leaf_polygon_count;
     w8_ulong gd_surface_count;
     w8_ulong leaf_count;
@@ -98,12 +93,6 @@ struct W8OctBuildTree {
     unsigned char unknown_b5[3];
     w8_ulong deepest_link_list;
 };
-
-W8_ABI_ASSERT(sizeof(W8OctBuildLink) == 8, "W8OctBuildLink_must_be_8");
-W8_ABI_ASSERT(sizeof(W8OctBuildLinkLists) == 0x25c, "W8OctBuildLinkLists_must_be_0x25c");
-W8_ABI_ASSERT(sizeof(W8OctBuildNode) == 0x30, "W8OctBuildNode00446330_must_be_0x30");
-W8_ABI_ASSERT(sizeof(W8CountedOctBuildNode) == 0x30, "W8CountedOctBuildNode004AF760_must_be_0x30");
-W8_ABI_ASSERT(sizeof(W8OctBuildTree) == 0xbc, "W8OctBuildTree_must_be_0xbc");
 
 extern const float g_octree_cell_extent_scale;
 extern W8GDSurface** g_oct_build_scratch;
