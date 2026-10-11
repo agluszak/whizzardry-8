@@ -10,6 +10,7 @@
 #include "compat/compiler.h"
 
 class W8TextControl;
+class ScreenRegionSet;
 struct Controls;
 struct W8Character;
 
@@ -56,6 +57,10 @@ struct W8SpellCastingView {
 
 unsigned char OpenSpellCastingView(int party_slot);
 void CloseSpellCastingView(void);
+extern ScreenRegionSet g_spell_casting_regions;
+enum SpellCastingRegionOffset {
+    kSpellPowerPipRegionOffset = 11,
+};
 void RestoreSpellCastingRegions(void);
 void SelectSpellCastingCharacter(int party_slot);
 void BeginSpellCast(int spell_id, int location_id, W8NpcDialogueLayout interact_id);

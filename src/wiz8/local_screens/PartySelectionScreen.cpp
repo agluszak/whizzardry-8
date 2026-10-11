@@ -545,7 +545,7 @@ class W8PartySelectionController final : public W8TextControl::Listener,
                                    public W8PartySelectionListSelectionListener,
                                    public W8PartySelectionDecisionListener {
 public:
-    W8PartySelectionController() : m_character(0), m_input_handler(0), m_dialog(0) {}
+    W8PartySelectionController() : m_character(0), m_input_handler(0) {}
     ~W8PartySelectionController();
 
     virtual void OnPrimary(W8TextControl* control) override;
@@ -589,7 +589,7 @@ public:
     W8PartySelectionListControl* m_list;
     W8TextBuffer* m_text_buffer;
     W8PartySelectionInputHandler* m_input_handler;
-    W8MessageDialogBase* m_dialog;
+    std::unique_ptr<W8MessageDialogBase> m_dialog;
     W8PartyConfirmationAction m_confirmation_action;
 };
 
@@ -1774,17 +1774,14 @@ void W8PartySelectionController::OpenNotification(std::string_view message, bool
                                                   W8PartyConfirmationAction action)
 {
     m_confirmation_action = action;
-    m_dialog = new W8MessageDialogBase;
-    if (!m_dialog) {
-        return;
-    }
+    m_dialog = std::make_unique<W8MessageDialogBase>();
     m_dialog->SetOrigin(0xf0, 0xbe);
     m_dialog->SetExtent(0xa0, 100);
     m_dialog->SetBackground("Data\\Dialogs\\DialogBackground.sti", 0);
     m_dialog->SetClientExtent(0xfa, 200);
     m_dialog->SetMessage(message, 1, 0x32, true, allow_cancel, true, true, 0,
                          0x15e);
-    ActivateDialogRegion(0x138);
+    CaptureInputSink();
 }
 
 /* Apply the result of a party-selection confirmation dialog.  The dialog value selects
@@ -2037,9 +2034,8 @@ void PartySelectionScreenFrame(void)
         controller->m_dialog->ProcessInput();
         if (!controller->m_dialog->is_open) {
             bool result = controller->m_dialog->accepted;
-            delete controller->m_dialog;
-            controller->m_dialog = 0;
-            ClearActiveRegionIfMatches(0x138);
+            controller->m_dialog.reset();
+            ReleaseInputSinkCapture();
             controller->InvalidatePartySelectionComposition();
             controller->ApplyPartySelectionConfirmation(controller->m_confirmation_action, result);
         }

@@ -357,8 +357,8 @@ void InitializeMainGameLevelBlock(void)
     g_level_block->condition_orb_party_slot = -1;
     g_level_block->enchantment_orb_party_slot = -1;
     g_level_block->condition_highlight_party_slot = -1;
-    g_level_block->text_content_region = CurrentTextLineHasContent() ? 0x57 : -1;
-    g_level_block->dialogue_content_region = CurrentDialogueLineHasContent() ? 0x5a : -1;
+    g_level_block->text_content_region = CurrentTextLineHasContent() ? kUpArrowEnabled : -1;
+    g_level_block->dialogue_content_region = CurrentDialogueLineHasContent() ? kDownArrowEnabled : -1;
     g_level_block->world_update_flags = 0;
     g_level_block->camera_motion_flags = 0;
     g_level_block->highlighted_item = -1;
@@ -388,7 +388,7 @@ void InitializeMainGameLevelBlock(void)
     g_level_block->tick = w8_get_ticks();
     g_level_block->group_list_rows = 0;
     g_level_block->group_list_width = 0;
-    DisableRegionInput(0xe5);
+    DisableRegionInput(g_main_effect_regions->index(kMonsterListRegionOffset));
     g_level_block->action_group = -1;
     g_level_block->value_2ac = 0;
     g_level_block->value_2b4 = 0;

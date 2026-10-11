@@ -31,12 +31,12 @@
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_code/Gameloop.h"
+#include "wiz8/local_code/Controls.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
-#include "wiz8/local_code/Controls.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/xstatus.h"
@@ -278,7 +278,7 @@ struct RegionStateSnapshot {
             if (index < set_enabled.size()) {
                 g_region_sets[index].enabled = set_enabled[index];
             } else {
-                g_region_sets[index].enabled = g_region_sets[index].persistent ? 1 : 0;
+                g_region_sets[index].enabled = 0;
             }
         }
         for (std::size_t index = 0;
@@ -556,6 +556,310 @@ void owned_region_move_and_teardown()
     REQUIRE(g_captured_region_index == 0);
     REQUIRE(g_hover_region_index == 0);
 }
+void owned_region_set_templates_and_teardown()
+{
+    constexpr int left_button_down = static_cast<int>(InputEventType::LeftButtonDown);
+    RegionStateSnapshot saved_state;
+    ResetRegions();
+
+    constexpr std::array<RegionTemplate, 3> templates{{
+        {W8_REGION_RECTANGLE, 10, 10, 30, 30, record_region_event, 11, true, 101},
+        {W8_REGION_RECTANGLE, 40, 10, 60, 30, record_region_event, 12, false, -1},
+        {W8_REGION_RECTANGLE, 70, 10, 90, 30, record_region_event, 13, true, 103},
+    }};
+
+    const auto baseline_region_count = LiveDynamicRegionCount();
+    unsigned int released_set_index;
+    {
+        std::optional<OwnedRegionSet> regions;
+        regions.emplace(templates);
+        released_set_index = regions->set();
+        REQUIRE(regions->size() == templates.size());
+        REQUIRE(g_region_sets[regions->set()].Regions().size() == templates.size());
+
+        for (std::size_t index = 0; index < templates.size(); ++index) {
+            const auto& region = (*regions)[index];
+            const auto& entry = templates[index];
+            REQUIRE(region.flags == entry.flags);
+            REQUIRE(region.x1 == entry.x1);
+            REQUIRE(region.y1 == entry.y1);
+            REQUIRE(region.x2 == entry.x2);
+            REQUIRE(region.y2 == entry.y2);
+            REQUIRE(region.callback == entry.callback);
+            REQUIRE(region.callback_id == entry.callback_id);
+            REQUIRE(region.help_enabled == entry.help_enabled);
+            REQUIRE(region.help_text_id == entry.help_text_id);
+            REQUIRE(regions->index(index) < g_regions.size());
+        }
+
+        std::optional<ExclusiveRegionSet> scope;
+        scope.emplace(regions->set());
+        regions->Enable();
+        region_events.clear();
+        dispatch_mouse(InputEventType::LeftButtonDown, 45, 15, true);
+        REQUIRE(g_captured_region_index == regions->index(1));
+        REQUIRE(std::find(region_events.begin(), region_events.end(),
+                          std::pair<int, int>{12, left_button_down}) != region_events.end());
+        dispatch_mouse(InputEventType::LeftButtonUp, 45, 15);
+
+        regions->Disable();
+        region_events.clear();
+        dispatch_mouse(InputEventType::LeftButtonDown, 45, 15, true);
+        REQUIRE(region_events.empty());
+
+        regions->Enable();
+        UpdateRegionMousePosition(45, 15);
+        REQUIRE(g_hover_region_index == regions->index(1));
+        dispatch_mouse(InputEventType::LeftButtonDown, 45, 15, true);
+        REQUIRE(g_captured_region_index == regions->index(1));
+        regions.reset();
+        REQUIRE(g_hover_region_index == 0);
+        REQUIRE(g_captured_region_index == 0);
+        scope.reset();
+    }
+
+    REQUIRE(LiveDynamicRegionCount() == baseline_region_count);
+    {
+        OwnedRegionSet reused_set(templates);
+        REQUIRE(reused_set.set() == released_set_index);
+    }
+    REQUIRE(LiveDynamicRegionCount() == baseline_region_count);
+}
+
+void region_set_views_share_owned_regions()
+{
+    constexpr int left_button_down = static_cast<int>(InputEventType::LeftButtonDown);
+    RegionStateSnapshot saved_state;
+    ResetRegions();
+
+    constexpr std::array<RegionTemplate, 3> templates{{
+        {W8_REGION_RECTANGLE, 10, 10, 30, 30, record_region_event, 21, false, -1},
+        {W8_REGION_RECTANGLE, 40, 10, 60, 30, record_region_event, 22, false, -1},
+        {W8_REGION_RECTANGLE, 70, 10, 90, 30, record_region_event, 23, false, -1},
+    }};
+
+    const auto baseline_region_count = LiveDynamicRegionCount();
+    unsigned int released_view_set;
+    {
+        OwnedRegionSet source(templates);
+        source.Disable();
+        const auto source_index = source.index(0);
+        const auto baseline_with_source = LiveDynamicRegionCount();
+        {
+            RegionSetView view(source, 0, 2);
+            released_view_set = view.set();
+            REQUIRE(g_region_sets[view.set()].Regions().size() == 2);
+            REQUIRE(g_region_sets[view.set()].Regions()[0] == source.index(0));
+            REQUIRE(g_region_sets[view.set()].Regions()[1] == source.index(1));
+
+            view.Enable();
+            region_events.clear();
+            dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
+            REQUIRE(g_captured_region_index == source.index(0));
+            REQUIRE(std::find(region_events.begin(), region_events.end(),
+                              std::pair<int, int>{21, left_button_down}) != region_events.end());
+            dispatch_mouse(InputEventType::LeftButtonUp, 15, 15);
+
+            region_events.clear();
+            dispatch_mouse(InputEventType::LeftButtonDown, 45, 15, true);
+            REQUIRE(g_captured_region_index == source.index(1));
+            REQUIRE(std::find(region_events.begin(), region_events.end(),
+                              std::pair<int, int>{22, left_button_down}) != region_events.end());
+            dispatch_mouse(InputEventType::LeftButtonUp, 45, 15);
+
+            region_events.clear();
+            dispatch_mouse(InputEventType::LeftButtonDown, 75, 15, true);
+            REQUIRE(std::none_of(region_events.begin(), region_events.end(),
+                                 [](const auto& event) { return event.first == 23; }));
+        }
+
+        {
+            RegionSetView view(source, 1, 2);
+            REQUIRE(g_region_sets[view.set()].Regions().size() == 2);
+            REQUIRE(g_region_sets[view.set()].Regions()[0] == source.index(1));
+            REQUIRE(g_region_sets[view.set()].Regions()[1] == source.index(2));
+
+            view.Enable();
+            region_events.clear();
+            dispatch_mouse(InputEventType::LeftButtonDown, 45, 15, true);
+            REQUIRE(std::find(region_events.begin(), region_events.end(),
+                              std::pair<int, int>{22, left_button_down}) != region_events.end());
+            dispatch_mouse(InputEventType::LeftButtonUp, 45, 15);
+
+            region_events.clear();
+            dispatch_mouse(InputEventType::LeftButtonDown, 75, 15, true);
+            REQUIRE(std::find(region_events.begin(), region_events.end(),
+                              std::pair<int, int>{23, left_button_down}) != region_events.end());
+            dispatch_mouse(InputEventType::LeftButtonUp, 75, 15);
+
+            region_events.clear();
+            dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
+            REQUIRE(std::none_of(region_events.begin(), region_events.end(),
+                                 [](const auto& event) { return event.first == 21; }));
+        }
+        REQUIRE(LiveDynamicRegionCount() == baseline_with_source);
+
+        REQUIRE(source.index(0) == source_index);
+        REQUIRE(source[0].callback == record_region_event);
+        REQUIRE(source[0].callback_id == 21);
+        REQUIRE(LiveDynamicRegionCount() == baseline_with_source);
+
+        source.Enable();
+        region_events.clear();
+        dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
+        REQUIRE(std::find(region_events.begin(), region_events.end(),
+                          std::pair<int, int>{21, left_button_down}) != region_events.end());
+        dispatch_mouse(InputEventType::LeftButtonUp, 15, 15);
+
+        {
+            RegionSetView reused_view(source, 0, 2);
+            REQUIRE(reused_view.set() == released_view_set);
+        }
+        REQUIRE(LiveDynamicRegionCount() == baseline_with_source);
+    }
+
+    REQUIRE(LiveDynamicRegionCount() == baseline_region_count);
+}
+
+void screen_region_set_lifecycle()
+{
+    RegionStateSnapshot saved_state;
+    ResetRegions();
+
+    constexpr std::array<RegionTemplate, 1> templates{{
+        {W8_REGION_RECTANGLE, 10, 10, 30, 30, record_region_event, 31, false, -1},
+    }};
+
+    const auto baseline_region_count = LiveDynamicRegionCount();
+    ScreenRegionSet regions{templates};
+    regions.Enable();
+    regions.Disable();
+    regions.EnableInput();
+    regions.DisableInput();
+    REQUIRE_FALSE(regions);
+
+    regions.Create();
+    REQUIRE(regions);
+    const auto set = regions->set();
+    const auto region_index = regions->index(0);
+    REQUIRE(LiveDynamicRegionCount() == baseline_region_count + 1);
+
+    regions.Create();
+    REQUIRE(regions->set() == set);
+    REQUIRE(regions->index(0) == region_index);
+
+    regions.Disable();
+    REQUIRE_FALSE(regions->IsEnabled());
+    regions.Enable();
+    REQUIRE(regions->IsEnabled());
+    regions.Destroy();
+    REQUIRE_FALSE(regions);
+    REQUIRE(LiveDynamicRegionCount() == baseline_region_count);
+}
+
+void widget_owned_regions_release_with_widget()
+{
+    RegionStateSnapshot saved_state;
+    ResetRegions();
+    const auto baseline_region_count = LiveDynamicRegionCount();
+    unsigned int shared_set = 0;
+    {
+        Controls panel;
+        panel.AcquireRegionSet(&shared_set);
+        auto widget = std::make_unique<W8Widget>();
+        widget->SetPanel(panel);
+        REQUIRE(LiveDynamicRegionCount() == baseline_region_count + 1);
+    }
+    REQUIRE(LiveDynamicRegionCount() == baseline_region_count);
+    DestroyRegionSet(shared_set);
+}
+
+void input_sink_capture_can_be_released()
+{
+    RegionStateSnapshot saved_state;
+    ResetRegions();
+    CaptureInputSink();
+    const auto sink_index = g_captured_region_index;
+    REQUIRE(sink_index != 0);
+    ReleaseInputSinkCapture();
+    REQUIRE(g_captured_region_index == 0);
+
+    // The released sink must not keep swallowing clicks at its zero-sized origin.
+    constexpr std::array<RegionTemplate, 1> origin_templates{{
+        {W8_REGION_RECTANGLE, 0, 0, 5, 5, record_region_event, 42, false, -1},
+    }};
+    OwnedRegionSet origin{origin_templates};
+    origin.Enable();
+    REQUIRE(FindRegionAtPoint(0, 0) == origin.index(0));
+
+    constexpr std::array<RegionTemplate, 1> templates{{
+        {W8_REGION_RECTANGLE, 10, 10, 30, 30, record_region_event, 41, false, -1},
+    }};
+    OwnedRegionSet other{templates};
+    other.Enable();
+    ActivateDialogRegion(other.index(0));
+    REQUIRE(g_captured_region_index == other.index(0));
+    ReleaseInputSinkCapture();
+    REQUIRE(g_captured_region_index == other.index(0));
+    ClearActiveRegionIfMatches(other.index(0));
+}
+
+void region_set_order_beats_creation_order()
+{
+    RegionStateSnapshot saved_state;
+    ResetRegions();
+    constexpr std::array<RegionTemplate, 1> templates{{
+        {W8_REGION_RECTANGLE, 10, 10, 30, 30, record_region_event, 51, false, -1},
+    }};
+
+    ScreenRegionSet later{templates, 0x20};
+    ScreenRegionSet earlier{templates, 0x10};
+    later.Create();
+    earlier.Create();
+    later.Enable();
+    earlier.Enable();
+    REQUIRE(FindRegionAtPoint(20, 20) == earlier->index(0));
+
+    // Dynamic sets rank behind every retail-ordered set.
+    earlier.Destroy();
+    auto dynamic_first = std::make_unique<OwnedRegionSet>(templates);
+    dynamic_first->Enable();
+    REQUIRE(FindRegionAtPoint(20, 20) == later->index(0));
+    later.Destroy();
+    REQUIRE(FindRegionAtPoint(20, 20) == dynamic_first->index(0));
+
+    // Dynamic sets keep creation order even when a released slot is reused.
+    OwnedRegionSet dynamic_second{templates};
+    dynamic_second.Enable();
+    REQUIRE(FindRegionAtPoint(20, 20) == dynamic_first->index(0));
+    const auto recycled_set = dynamic_first->set();
+    dynamic_first.reset();
+    OwnedRegionSet dynamic_third{templates};
+    dynamic_third.Enable();
+    REQUIRE(dynamic_third.set() == recycled_set);
+    REQUIRE(FindRegionAtPoint(20, 20) == dynamic_second.index(0));
+}
+
+void stale_exclusive_scope_blocks_reused_set_slot()
+{
+    RegionStateSnapshot saved_state;
+    ResetRegions();
+    constexpr std::array<RegionTemplate, 1> templates{{
+        {W8_REGION_RECTANGLE, 10, 10, 30, 30, record_region_event, 52, false, -1},
+    }};
+    auto modal = std::make_unique<OwnedRegionSet>(templates);
+    modal->Enable();
+    ExclusiveRegionSet scope(modal->set());
+    REQUIRE(FindRegionAtPoint(20, 20) == modal->index(0));
+
+    const auto modal_set = modal->set();
+    modal.reset();
+    OwnedRegionSet replacement{templates};
+    replacement.Enable();
+    REQUIRE(replacement.set() == modal_set);
+    REQUIRE(FindRegionAtPoint(20, 20) == 0);
+}
+
 void region_registration_and_callback_lifetimes()
 {
     const auto set = new_test_region_set();
@@ -1714,6 +2018,41 @@ TEST_CASE("Owned regions use SDL click counts", "[owner]")
         const auto up = mouse_atom(InputEventType::LeftButtonUp, 10, 10);
         DispatchRegionInput(&up);
     }
+}
+
+TEST_CASE("Owned region sets copy templates and release dynamic slots", "[owner]")
+{
+    owned_region_set_templates_and_teardown();
+}
+
+TEST_CASE("Region set views share owned regions", "[owner]")
+{
+    region_set_views_share_owned_regions();
+}
+
+TEST_CASE("Screen region sets follow their screen lifecycle", "[owner]")
+{
+    screen_region_set_lifecycle();
+}
+
+TEST_CASE("Widget-owned regions release with their widget", "[owner]")
+{
+    widget_owned_regions_release_with_widget();
+}
+
+TEST_CASE("Input sink capture releases only its own capture", "[owner]")
+{
+    input_sink_capture_can_be_released();
+}
+
+TEST_CASE("Region set hit-test order follows declared order, not creation", "[owner]")
+{
+    region_set_order_beats_creation_order();
+}
+
+TEST_CASE("A stale exclusive scope hides a reused set slot", "[owner]")
+{
+    stale_exclusive_scope_blocks_reused_set_slot();
 }
 
 TEST_CASE("assert-plain", "[.death]")

@@ -7,6 +7,7 @@ struct Controls;
 struct W8Region;
 class W8TextControl;
 class W8DialogBase;
+class ScreenRegionSet;
 struct W8ItemInstance;
 
 /* The three use-item select panels; element 1 is the list panel
@@ -29,6 +30,7 @@ extern W8ItemInstance* g_use_item_select_override_item;
 extern int g_saved_target_cursor;
 
 void SetUseItemSelectReturnMode(W8MainUiMode value);
+extern ScreenRegionSet g_use_item_select_regions;
 void InvalidateUseItemSelectPanel(void);
 void CloseUseItemSelection(void);
 /* Scroll-button region callback for use-item select (ids 0 and 1). */

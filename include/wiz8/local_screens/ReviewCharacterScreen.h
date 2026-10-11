@@ -1,6 +1,8 @@
 #pragma once
 
 #include <string_view>
+#include <cstddef>
+#include "wiz8/regions.h"
 #include <string>
 #include <vector>
 #include <cstdint>
@@ -20,6 +22,24 @@ class W8Widget;
 struct W8Character;
 struct W8CombatSlot;
 struct W8Region;
+
+extern ScreenRegionSet g_camp_main_regions;
+extern ScreenRegionSet g_camp_inventory_regions;
+extern ScreenRegionSet g_camp_item_pool_regions;
+extern ScreenRegionSet g_camp_spell_list_regions;
+extern ScreenRegionSet g_camp_page_regions;
+extern ScreenRegionSet g_camp_item_action_regions;
+extern ScreenRegionSet g_camp_automap_regions;
+extern ScreenRegionSet g_camp_overlay_regions;
+
+enum CampMainRegionOffset {
+    kCampPartyPortraitRegionOffset = 3,
+    kCampCharacterHeaderRegionOffset = 11
+};
+
+enum CampInventoryRegionOffset {
+    kCampEquipmentRegionOffset = 8
+};
 
 enum W8CampPage {
     W8_CAMP_PAGE_ITEMS = 0,

@@ -108,10 +108,15 @@ struct RecordingWidget : W8Widget {
 
 TEST_CASE("widget_region_lifetimes")
 {
-    struct RestoreCatalog {
-        unsigned region_count = g_regions.size(), set_count = g_region_sets.size();
-        ~RestoreCatalog() { g_regions.resize(region_count); g_region_sets.resize(set_count); }
-    } restore;
+    // Destroy every set this case creates instead of shrinking the global
+    // tables: the scan order and free lists still refer to those slots.
+    struct DestroyCreatedSets {
+        unsigned set_count = g_region_sets.size();
+        ~DestroyCreatedSets()
+        {
+            for (unsigned set = g_region_sets.size(); set-- > set_count;) DestroyRegionSet(set);
+        }
+    } cleanup;
     std::vector<int> events;
     auto first_panel = std::make_unique<Controls>();
     unsigned first_set = 0;
@@ -149,11 +154,11 @@ TEST_CASE("widget_region_lifetimes")
     Controls failing_panel;
     unsigned failing_set = 0;
     failing_panel.AcquireRegionSet(&failing_set);
-    const auto failed_region = g_regions.size();
+    const auto live_before_failure = LiveDynamicRegionCount();
     REQUIRE_THROWS_AS(new FailingWidget(failing_panel), std::runtime_error);
     REQUIRE(failing_panel.ControlCount() == 0);
-    REQUIRE(g_regions[failed_region].widget == nullptr);
-    REQUIRE(g_regions[failed_region].callback == nullptr);
+    REQUIRE(g_region_sets[failing_set].Regions().empty());
+    REQUIRE(LiveDynamicRegionCount() == live_before_failure);
 
     // An old widget may outlive a rebuilt screen using the same region slots.
     Controls old_panel, replacement_panel;
@@ -468,12 +473,16 @@ TEST_CASE("collections_test")
 
 TEST_CASE("region_storage_grows_without_aliasing_sets")
 {
-    struct RestoreCatalog {
-        size_t regions = g_regions.size(), sets = g_region_sets.size();
-        ~RestoreCatalog() { g_regions.resize(regions); g_region_sets.resize(sets); }
-    } restore;
-    const auto first = CreateRegionSet();
-    const auto second = CreateRegionSet();
+    std::vector<unsigned int> created_sets;
+    struct ReleaseSets {
+        std::vector<unsigned int>& sets;
+        ~ReleaseSets()
+        {
+            for (auto it = sets.rbegin(); it != sets.rend(); ++it) DestroyRegionSet(*it);
+        }
+    } release{created_sets};
+    const auto first = created_sets.emplace_back(CreateRegionSet());
+    const auto second = created_sets.emplace_back(CreateRegionSet());
     const auto a = AddRegionToSet(first);
     const auto b = AddRegionToSet(second);
     const auto c = AddRegionToSet(first);
@@ -496,7 +505,7 @@ TEST_CASE("region_storage_grows_without_aliasing_sets")
     auto* region = &g_regions[a];
     auto* set = &g_region_sets[first];
     for (int i = 0; i < 1600; ++i) AddRegionToSet(first);
-    for (int i = 0; i < 320; ++i) CreateRegionSet();
+    for (int i = 0; i < 320; ++i) created_sets.push_back(CreateRegionSet());
     REQUIRE(&g_regions[a] == region);
     REQUIRE(&g_region_sets[first] == set);
     REQUIRE(g_regions.size() > 1500);

@@ -8,10 +8,15 @@ will still need to render the game's original graphics and text.
 ## Current layers
 
 - **ButtonAppearance**: shared sprite resources and drawing styles. The SGP
-  Button System and its input registry are gone; the static catalog remains.
-- **W8Region / RegionManager**: the sole mouse hit-test and event dispatcher,
-  with a global catalog of 313 predeclared regions and 51 sets, plus reusable
-  dynamic registrations and the shared tooltip path.
+  Button System, its input registry and the static region catalog are gone.
+- **W8Region / RegionManager**: the sole mouse hit-test and event dispatcher.
+  Every region belongs to an `OwnedRegionSet`, `ScreenRegionSet`, `OwnedRegion`
+  or widget that creates it on screen entry and releases it on exit; released
+  slots are recycled, so region and set indices are handles, not positions.
+  Screen sets pass the retail set index they replaced as their hit-test order,
+  so overlapping regions keep the original precedence regardless of creation
+  order. The eight party-portrait event regions are process-lifetime because
+  the main game and camp both drive them while the other is suspended.
 - **Controls / W8Widget / W8TextControl**: already owns child controls through
   unique_ptr and routes region events into virtual widget methods. It backs
   game panels and many screens.
@@ -30,7 +35,7 @@ will still need to render the game's original graphics and text.
 - SDL events are normalized exactly once. Widgets receive mouse, keyboard,
   wheel and text input through the same dispatch. Rendering is separate.
 - Asset decoding and sprite/text rendering stay usable as ordinary resources.
-  The static catalog and W8DialogButton-to-W8Widget migration remain.
+  The W8DialogButton-to-W8Widget migration remains.
 - Preserve the original 640x480 game-space coordinates and visual appearance.
   Avoid bolting on a new adapter or adding another parallel control class.
 
@@ -44,10 +49,7 @@ hard-coded catalog region IDs are no longer used. Sprite states are table
 driven, both full-redraw paths reuse one loop, and the modal dialog is owned
 by the screen rather than by a raw global pointer.
 
-W8Region still provides hit testing as an intermediate step. The original
-catalog retains six now-unused slots because unrelated regions refer to
-the historic indices; those slots can be removed with the catalog itself,
-without renumbering the rest of the game in this PR.
+W8Region still provides hit testing as an intermediate step.
 
 ## Passive screens do not need widgets
 
@@ -59,7 +61,7 @@ Do not invent widget subclasses where simple screen input suffices.
 
 1. **Screen-owned UI**: convert screens with interactive hit targets to
    Controls-owned widgets. Delete redundant full-screen regions for passive
-   screens. Remove per-screen global callbacks and static catalog records
+   screens. Remove per-screen global callbacks and global region tables
    as screens migrate.
 2. **Dialogs**: migrate a small message dialog first, then text entry,
    scrolling and complex dialogs. Make dialog buttons normal widgets with

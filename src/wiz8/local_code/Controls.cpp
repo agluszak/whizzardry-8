@@ -178,6 +178,9 @@ bool W8Widget::OwnsRegion() const
            g_regions[m_region].widget == this;
 }
 
+static constexpr RegionTemplate g_widget_region_template{
+    W8_REGION_RECTANGLE, 0, 0, 0, 0, DispatchControlRegionEvent, 0, false, -1};
+
 // FUNCTION: WIZ8 0x004f40f0
 void W8Widget::SetActive(bool active)
 {
@@ -191,18 +194,9 @@ void W8Widget::SetActive(bool active)
 void W8Widget::ReleaseRegion()
 {
     if (OwnsRegion()) {
-        auto& region = g_regions[m_region];
-        DisableRegionInput(m_region);
-        if (region.flags & W8_REGION_HELP_SHOWN) VideoRemoveToolTip();
-        region.flags &= ~(W8_REGION_MOUSE_STATE_MASK | W8_REGION_HELP_SHOWN);
-        region.widget = nullptr;
-        ++region.binding_generation;
-        // Catalog callbacks are shared with subsequent screen instances.
-        if (region.callback == DispatchControlRegionEvent) region.callback = nullptr;
-        if (g_captured_region_index == static_cast<unsigned int>(m_region)) g_captured_region_index = 0;
-        if (g_current_region_index == static_cast<unsigned int>(m_region)) g_current_region_index = 0;
-        if (g_hover_region_index == static_cast<unsigned int>(m_region)) g_hover_region_index = 0;
+        UnbindWidgetRegion(static_cast<unsigned int>(m_region), this, &m_owned_region);
     }
+    m_owned_region.reset();
     m_region = -1;
 }
 
@@ -238,7 +232,11 @@ void W8Widget::SetPanel(Controls& new_panel)
     if (panel->m_controls.size() == panel->m_controls.capacity())
         panel->m_controls.reserve(std::max(size_t{8}, panel->m_controls.capacity() * 2));
     const bool needs_region = m_region == -1 && panel->m_uiRegionSetId != 0;
-    const auto region = needs_region ? AddRegionToSet(panel->m_uiRegionSetId) : 0;
+    OwnedRegion allocated_region;
+    if (needs_region) {
+        allocated_region = OwnedRegion(panel->m_uiRegionSetId, g_widget_region_template);
+    }
+    const auto region = needs_region ? allocated_region.index() : 0;
     if (m_pPanel) {
         // Reparent without releasing the live region binding.
         auto& children = m_pPanel->m_controls;
@@ -252,7 +250,7 @@ void W8Widget::SetPanel(Controls& new_panel)
     m_pPanel = panel;
     if (needs_region) {
         SetRegion(region);
-        SetRegionCallback(region, DispatchControlRegionEvent, 0);
+        m_owned_region = std::move(allocated_region);
     } else if (m_region != -1) {
         SetRegion(m_region);
     }

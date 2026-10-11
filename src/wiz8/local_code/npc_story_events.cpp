@@ -157,9 +157,8 @@ void BeginNpcScriptedScene(void)
     SetTargetingMode(W8_TARGET_NEED_ALLY);
     for (party_slot = 0; party_slot < 8; ++party_slot) {
         if (g_status.buffers.XChar[party_slot].fOccupied) {
-            RegionSetEnable(party_slot + 7);
-            EnableRegionSetInput(party_slot + 7);
-            EnableRegionInput(party_slot + 0x5a);
+            EnableMainGamePortraitSlot(party_slot);
+            EnableRegionInput(g_main_portrait_edge_regions->index(party_slot));
         }
     }
 }
@@ -189,9 +188,8 @@ void EndScriptedPortraitPick(int party_slot)
     SetTargetingMode(W8_TARGET_NEED_NONE);
     for (slot = 0; slot < 8; ++slot) {
         if (g_status.buffers.XChar[slot].fOccupied) {
-            RegionSetDisable(slot + 7);
-            DisableRegionSetInput(slot + 7);
-            DisableRegionInput(slot + 0x5a);
+            DisableMainGamePortraitSlot(slot);
+            DisableRegionInput(g_main_portrait_edge_regions->index(slot));
         }
     }
     ClearScriptedSceneActive();
@@ -235,9 +233,8 @@ void EndScriptedPortraitPick(int party_slot)
     }
     for (slot = 0; slot < 8; ++slot) {
         if (g_status.buffers.XChar[slot].fOccupied) {
-            RegionSetEnable(slot + 7);
-            EnableRegionSetInput(slot + 7);
-            EnableRegionInput(slot + 0x5a);
+            EnableMainGamePortraitSlot(slot);
+            EnableRegionInput(g_main_portrait_edge_regions->index(slot));
         }
     }
 }

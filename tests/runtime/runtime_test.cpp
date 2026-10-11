@@ -621,7 +621,7 @@ void StartGame(Game& game)
          ++press)
     {
         game.click("start", RegionInSet(g_party_selection_bottom_action_region_set, 0x6cb));
-        if (g_captured_region_index == 0x138)
+        if (InputSinkCaptured())
             game.key(SDLK_RETURN);
     }
     game.wait_screen("main-game", W8_SCREEN_MAIN_GAME, 60);

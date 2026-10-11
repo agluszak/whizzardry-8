@@ -1,7 +1,9 @@
+#include <array>
 #include <cstdint>
 #include <fmt/format.h>
 #include <fmt/printf.h>
 #include <SDL3/SDL_filesystem.h>
+#include <span>
 #include <SDL3/SDL_rect.h>
 #include <string_view>
 #include <string>
@@ -858,6 +860,72 @@ finish_without_dispatch:
     return 0;
 }
 
+// Retail sets 0x1d-0x24, regions 302-309
+static constexpr std::array<RegionTemplate, 8> g_party_portrait_event_templates{{
+    {0x00000001, 0, 0, 0, 0, PartyPortraitEventRegionEvent, 0, false, -1},
+    {0x00000001, 0, 0, 0, 0, PartyPortraitEventRegionEvent, 1, false, -1},
+    {0x00000001, 0, 0, 0, 0, PartyPortraitEventRegionEvent, 2, false, -1},
+    {0x00000001, 0, 0, 0, 0, PartyPortraitEventRegionEvent, 3, false, -1},
+    {0x00000001, 0, 0, 0, 0, PartyPortraitEventRegionEvent, 4, false, -1},
+    {0x00000001, 0, 0, 0, 0, PartyPortraitEventRegionEvent, 5, false, -1},
+    {0x00000001, 0, 0, 0, 0, PartyPortraitEventRegionEvent, 6, false, -1},
+    {0x00000001, 0, 0, 0, 0, PartyPortraitEventRegionEvent, 7, false, -1},
+}};
+/* Retail kept these eight single-region sets for the whole process; the main
+   game and camp both drive them while the other screen is suspended, so no
+   screen owns them. They are created on first use and never torn down. */
+static std::array<ScreenRegionSet, 8>& PartyPortraitEventRegions()
+{
+    static std::array<ScreenRegionSet, 8> regions{
+        ScreenRegionSet{std::span<const RegionTemplate>(g_party_portrait_event_templates.data() + 0, 1),
+                        0x1d + 0},
+        ScreenRegionSet{std::span<const RegionTemplate>(g_party_portrait_event_templates.data() + 1, 1),
+                        0x1d + 1},
+        ScreenRegionSet{std::span<const RegionTemplate>(g_party_portrait_event_templates.data() + 2, 1),
+                        0x1d + 2},
+        ScreenRegionSet{std::span<const RegionTemplate>(g_party_portrait_event_templates.data() + 3, 1),
+                        0x1d + 3},
+        ScreenRegionSet{std::span<const RegionTemplate>(g_party_portrait_event_templates.data() + 4, 1),
+                        0x1d + 4},
+        ScreenRegionSet{std::span<const RegionTemplate>(g_party_portrait_event_templates.data() + 5, 1),
+                        0x1d + 5},
+        ScreenRegionSet{std::span<const RegionTemplate>(g_party_portrait_event_templates.data() + 6, 1),
+                        0x1d + 6},
+        ScreenRegionSet{std::span<const RegionTemplate>(g_party_portrait_event_templates.data() + 7, 1),
+                        0x1d + 7},
+    };
+    return regions;
+}
+void SetPartyPortraitEventBounds(unsigned int slot, unsigned short x, unsigned short y,
+                                 unsigned short right, unsigned short bottom)
+{
+    auto& regions = PartyPortraitEventRegions();
+    if (slot >= regions.size()) return;
+    regions[slot].Create();
+    SetRegionBounds(regions[slot]->index(0), x, y, right, bottom);
+}
+void EnablePartyPortraitEvent(unsigned int slot)
+{
+    auto& regions = PartyPortraitEventRegions();
+    if (slot >= regions.size()) return;
+    regions[slot].Create();
+    regions[slot].Enable();
+    regions[slot].EnableInput();
+}
+void DisablePartyPortraitEvent(unsigned int slot)
+{
+    auto& regions = PartyPortraitEventRegions();
+    if (slot < regions.size() && regions[slot]) {
+        regions[slot].Disable();
+        regions[slot].DisableInput();
+    }
+}
+
+void CreatePartyPortraitEventRegions()
+{
+    for (auto& region_set : PartyPortraitEventRegions()) region_set.Create();
+}
+
 /* Turn a party-slot portrait/voice event on or off, optionally
    laying out the quote bubble and posting subtitle notices when one ends. */
 // FUNCTION: WIZ8 0x0052F890
@@ -922,8 +990,7 @@ void SetPartyPortraitEventState(unsigned int party_slot, bool active, unsigned i
             ClearSurfaceRect(left, top, quote->width + left, quote->height + top);
             InvalidateRegion(left, top, quote->width + left, quote->height + top, 0);
         }
-        RegionSetDisable(party_slot + 0x1d);
-        DisableRegionSetInput(party_slot + 0x1d);
+        DisablePartyPortraitEvent(party_slot);
         if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME) {
             RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
             RequestRedrawParty();
@@ -1015,9 +1082,8 @@ void SetPartyPortraitEventState(unsigned int party_slot, bool active, unsigned i
             }
             unsigned short x = quote->x;
             unsigned short y = quote->y;
-            SetRegionBounds(party_slot + 0x12e, x, y, x + quote->width, quote->height + y);
-            RegionSetEnable(party_slot + 0x1d);
-            EnableRegionSetInput(party_slot + 0x1d);
+            SetPartyPortraitEventBounds(party_slot, x, y, x + quote->width, quote->height + y);
+            EnablePartyPortraitEvent(party_slot);
         }
     }
     if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME &&

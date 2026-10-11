@@ -8,6 +8,7 @@ struct Controls;
 struct W8Region;
 class W8TextBuffer;
 class W8TextControl;
+class ScreenRegionSet;
 
 extern W8TextControl* g_free_turn_button;
 extern W8TextControl* g_cancel_party_movement_button;
@@ -19,6 +20,7 @@ extern unsigned int g_party_movement_animation_frame;
 /* Creates the combat party-movement panel and its two buttons; returns zero
    when an allocation fails. */
 unsigned char CreatePartyMovementPanel(void);
+extern ScreenRegionSet g_party_movement_regions;
 /* Releases the party-movement panels and clears the
    combat-UI teardown flag; called when the party regains movement. */
 void ReleasePartyMovement(void);

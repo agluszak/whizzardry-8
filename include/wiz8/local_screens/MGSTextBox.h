@@ -8,6 +8,7 @@
 #include <string_view>
 
 #include "input.h"
+#include "wiz8/regions.h"
 
 struct W8MonsterInfo;
 namespace wiz8 { class File; }
@@ -51,6 +52,36 @@ struct W8MessageStorageRecord {
 
 
 extern W8MessageStorageRecord g_message_storage[4][0x15e];
+
+enum class TextBoxRegion : std::size_t {
+    ScrollUp,
+    ScrollDown,
+    ScrollThumb,
+    Body,
+    ChannelTab1,
+    ChannelTab2,
+    ChannelTab3,
+    Mute
+};
+
+// Scroll-arrow visual states stored in text_content_region / dialogue_content_region.
+enum TextBoxArrowState : int {
+    kUpArrowDisabled = 0x56,
+    kUpArrowEnabled = 0x57,
+    kUpArrowPressed = 0x58,
+    kDownArrowDisabled = 0x59,
+    kDownArrowEnabled = 0x5a,
+    kDownArrowPressed = 0x5b,
+};
+
+void InitTextBoxRegions();
+void ShutdownTextBoxRegions();
+extern ScreenRegionSet g_text_box_regions;
+void EnableDialogueTextBoxRegions();
+void DisableDialogueTextBoxRegions();
+void SetTextBoxScrollInput(bool enabled);
+void SetTextBoxChannelTabInput(bool enabled);
+void SetTextBoxMuteInput(bool enabled);
 
 /* Reset one editor status line; -1 selects the current line. */
 void ResetEditorStatusLine(short line);

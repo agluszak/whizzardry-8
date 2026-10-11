@@ -1,6 +1,7 @@
 #pragma once
 
 #include "wiz8/local_code/ControlsRect.h"
+#include "wiz8/regions.h"
 
 /* Shared declaration owner; implementation remains in Local Code\Controls.cpp. */
 
@@ -81,4 +82,5 @@ public:
     W8ControlCallback m_secondaryActivationCallback;
     W8ControlCallback m_rightButtonDownCallback;
     W8ControlCallback m_leftDoubleClickCallback;
+    OwnedRegion m_owned_region;
 };

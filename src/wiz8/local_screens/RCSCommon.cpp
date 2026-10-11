@@ -472,7 +472,8 @@ void CreateRcsLevelUpPanel(void)
     }
 
     g_level_up_button =
-        new W8TextControl(g_level_up_panel, 0xe7, 0, 0, 0x12, 0x12, CatalogArtwork::Load(0xa7, 0), 0, 2, 1, 4, 3);
+        new W8TextControl(g_level_up_panel, g_camp_main_regions->index(0), 0, 0, 0x12, 0x12,
+                          CatalogArtwork::Load(0xa7, 0), 0, 2, 1, 4, 3);
     if (g_level_up_button == 0) {
         srAssertFail("gpLevelUpButton", "C:\\Projects\\Wizardry 8\\Local Screens\\RCSCommon.cpp",
                      0x852, 0);
@@ -544,7 +545,8 @@ void CreateRcsDismissPanel(void)
     }
 
     g_dismiss_button =
-        new W8TextControl(g_dismiss_panel, 0xe8, 0, 0, 0x17, 0x10, CatalogArtwork::Load(0x113, 0), 0, 2, 1, 2, 3);
+        new W8TextControl(g_dismiss_panel, g_camp_main_regions->index(1), 0, 0, 0x17, 0x10,
+                          CatalogArtwork::Load(0x113, 0), 0, 2, 1, 2, 3);
     if (g_dismiss_button == 0) {
         srAssertFail("gpDismissButton", "C:\\Projects\\Wizardry 8\\Local Screens\\RCSCommon.cpp",
                      0x8d3, 0);
@@ -758,7 +760,7 @@ void DrawCampHeader(void)
     }
     if ((state->redraw_flags & 0x200) != 0) {
         g_wiz_text_bold_font.setShade(Font::kNormalShade);
-        if (state->hover_region == 0xf2) {
+        if (state->hover_region == g_camp_main_regions->index(kCampCharacterHeaderRegionOffset)) {
             g_wiz_text_bold_font.setPalette(g_font_state_palettes[W8_FONT_PALETTE_GREEN]);
         }
         state->text_buffer = character->name;
@@ -775,7 +777,7 @@ void DrawCampHeader(void)
             GetFrameBufferSurface(), g_wiz_text_font_secondary,
             {(0xba - g_wiz_text_font_secondary.textWidth(state->text_buffer)) / 2 + 0x74, 0x6f},
             state->text_buffer);
-        if (state->hover_region == 0xf3) {
+        if (state->hover_region == g_camp_main_regions->index(12)) {
             g_wiz_text_font_secondary.setPalette(g_font_state_palettes[W8_FONT_PALETTE_GREEN]);
         }
         state->text_buffer = g_localized_strings[g_profession_name_message_ids[character->iProfession]];
@@ -817,7 +819,8 @@ void DrawCampHeader(void)
                     ShadowRect(GetFrameBufferSurface(), bounds);
                     ShadowRect(GetFrameBufferSurface(), bounds);
                 }
-                if (state->hover_region == slot + 0xea) {
+                if (state->hover_region ==
+                    g_camp_main_regions->index(kCampPartyPortraitRegionOffset + slot)) {
                     CatalogArtwork::Load(0x117, 0).draw(GetFrameBufferSurface(), 0, left, top);
                 } else if (static_cast<int>(slot) == giReviewCharSlot) {
                     CatalogArtwork::Load(0x117, 0).draw(GetFrameBufferSurface(), 1, left, top);
@@ -922,7 +925,7 @@ void DrawCampVitals(void)
         }
     }
     bounds.left = 0x10e;
-    bounds.right = 0x121;
+    bounds.right = g_camp_page_regions->index(2);
     bounds.top = 0xd;
     bounds.bottom = 0x17;
     text =
@@ -937,7 +940,7 @@ void DrawCampVitals(void)
         g_smfnt_font, false, GetFrameBufferSurface());
     if (g_settings.numeric_hit_points != 0) {
         bounds.left = 0x10e;
-        bounds.right = 0x120;
+        bounds.right = g_camp_page_regions->index(1);
         bounds.top = 0x49;
         bounds.bottom = 0x51;
         text->SetLayoutBounds(&bounds, true, false);
@@ -945,7 +948,7 @@ void DrawCampVitals(void)
         formatted = fmt::format("{:d}", g_review_character->hp_current);
         text->RenderString(formatted, g_smfnt_font, false, GetFrameBufferSurface());
     }
-    InvalidateRegion(0x10c, bar_top, 0x124, frame_column + 0x38, 0);
+    InvalidateRegion(0x10c, bar_top, g_camp_item_action_regions->index(0), frame_column + 0x38, 0);
     delete text;
 }
 
@@ -1026,15 +1029,26 @@ int CreateCampButtonPanel(void)
             g_item_action_controls[index] = 0;
         }
     }
-    RegionSetEnable(0x2d);
-    RegionSetEnable(0x2e);
-    g_item_actions_panel = new Controls(0, 0x1c2, 0x280, 0x1e0, CatalogArtwork::Load(0x110, 0), 0);
+    g_camp_page_regions.Enable();
+    g_camp_item_action_regions.Enable();
+    g_item_actions_panel =
+        new Controls(0, 0x1c2, 0x280, 0x1e0, CatalogArtwork::Load(0x110, 0), 0);
     if (g_item_actions_panel != 0) {
-        g_camp_page_buttons[0] = new W8TextControl(g_item_actions_panel, 0x11f, 0x1a4, 0, 0x1d0, 0x1e, CatalogArtwork::Load(0x111, 0), 0, 4, 1, 2, 3);
-        g_camp_page_buttons[1] = new W8TextControl(g_item_actions_panel, 0x120, 0x1d0, 0, 0x1fc, 0x1e, CatalogArtwork::Load(0x111, 0), 10, 0xe, 0xb, 0xc, 0xd);
-        g_camp_page_buttons[2] = new W8TextControl(g_item_actions_panel, 0x121, 0x1fc, 0, 0x228, 0x1e, CatalogArtwork::Load(0x111, 0), 0xf, 0x13, 0x10, 0x11, 0x12);
-        g_camp_page_buttons[3] = new W8TextControl(g_item_actions_panel, 0x122, 0x228, 0, 0x254, 0x1e, CatalogArtwork::Load(0x111, 0), 5, 9, 6, 7, 8);
-        g_camp_page_buttons[4] = new W8TextControl(g_item_actions_panel, 0x123, 0x254, 0, 0x280, 0x1e, CatalogArtwork::Load(0x106, 0), 0x10, -1, 0x11, 0x12, 0x13);
+        g_camp_page_buttons[0] = new W8TextControl(
+            g_item_actions_panel, g_camp_page_regions->index(0), 0x1a4, 0, 0x1d0, 0x1e,
+            CatalogArtwork::Load(0x111, 0), 0, 4, 1, 2, 3);
+        g_camp_page_buttons[1] = new W8TextControl(
+            g_item_actions_panel, g_camp_page_regions->index(1), 0x1d0, 0, 0x1fc, 0x1e,
+            CatalogArtwork::Load(0x111, 0), 10, 0xe, 0xb, 0xc, 0xd);
+        g_camp_page_buttons[2] = new W8TextControl(
+            g_item_actions_panel, g_camp_page_regions->index(2), 0x1fc, 0, 0x228, 0x1e,
+            CatalogArtwork::Load(0x111, 0), 0xf, 0x13, 0x10, 0x11, 0x12);
+        g_camp_page_buttons[3] = new W8TextControl(
+            g_item_actions_panel, g_camp_page_regions->index(3), 0x228, 0, 0x254, 0x1e,
+            CatalogArtwork::Load(0x111, 0), 5, 9, 6, 7, 8);
+        g_camp_page_buttons[4] = new W8TextControl(
+            g_item_actions_panel, g_camp_page_regions->index(4), 0x254, 0, 0x280, 0x1e,
+            CatalogArtwork::Load(0x106, 0), 0x10, -1, 0x11, 0x12, 0x13);
         for (index = 0; index < 5; ++index) {
             if (g_camp_page_buttons[index] == 0) {
                 return 0;
@@ -1049,19 +1063,35 @@ int CreateCampButtonPanel(void)
         g_camp_page_buttons[2]->m_primaryActivationCallback = OnCampPageButton2;
         g_camp_page_buttons[3]->m_primaryActivationCallback = OnCampPageButton3;
         g_camp_page_buttons[4]->m_primaryActivationCallback = CampPageDismissAction;
-        g_item_action_controls[W8_CAMP_ACTION_BUTTON_IDENTIFY] = new W8TextControl(g_item_actions_panel, 0x124, 0, 0, 0x2c, 0x1e, CatalogArtwork::Load(0x112, 0), 0, 2, 1, 4, 3);
-        g_item_action_controls[W8_CAMP_ACTION_BUTTON_MOVE] = new W8TextControl(g_item_actions_panel, 0x125, 0x2c, 0, 0x58, 0x1e, CatalogArtwork::Load(0x112, 0), 10, 0xc, 0xb, 0xe, 0xd);
-        g_item_action_controls[W8_CAMP_ACTION_BUTTON_SPLIT_STACK] = new W8TextControl(g_item_actions_panel, 0x126, 0x58, 0, 0x84, 0x1e, CatalogArtwork::Load(0x112, 0), 5, 7, 6, 9, 8);
+        g_item_action_controls[W8_CAMP_ACTION_BUTTON_IDENTIFY] = new W8TextControl(
+            g_item_actions_panel, g_camp_item_action_regions->index(0), 0, 0, 0x2c, 0x1e,
+            CatalogArtwork::Load(0x112, 0), 0, 2, 1, 4, 3);
+        g_item_action_controls[W8_CAMP_ACTION_BUTTON_MOVE] = new W8TextControl(
+            g_item_actions_panel, g_camp_item_action_regions->index(1), 0x2c, 0, 0x58, 0x1e,
+            CatalogArtwork::Load(0x112, 0), 10, 0xc, 0xb, 0xe, 0xd);
+        g_item_action_controls[W8_CAMP_ACTION_BUTTON_SPLIT_STACK] = new W8TextControl(
+            g_item_actions_panel, g_camp_item_action_regions->index(2), 0x58, 0, 0x84, 0x1e,
+            CatalogArtwork::Load(0x112, 0), 5, 7, 6, 9, 8);
         g_item_action_controls[W8_CAMP_ACTION_BUTTON_USE] =
-            new W8TextControl(g_item_actions_panel, 0x127, 0x84, 0, 0xb0, 0x1e, CatalogArtwork::Load(0x112, 0), 0xf, 0x11, 0x10, 0x13, 0x12);
+            new W8TextControl(g_item_actions_panel, g_camp_item_action_regions->index(3), 0x84, 0,
+                              0xb0, 0x1e, CatalogArtwork::Load(0x112, 0), 0xf, 0x11, 0x10, 0x13,
+                              0x12);
         g_item_action_controls[W8_CAMP_ACTION_BUTTON_DROP] =
-            new W8TextControl(g_item_actions_panel, 0x128, 0xb0, 0, 0xdc, 0x1e, CatalogArtwork::Load(0x112, 0), 0x14, 0x16, 0x15, 0x18, 0x17);
+            new W8TextControl(g_item_actions_panel, g_camp_item_action_regions->index(4), 0xb0, 0,
+                              0xdc, 0x1e, CatalogArtwork::Load(0x112, 0), 0x14, 0x16, 0x15,
+                              0x18, 0x17);
         g_item_action_controls[W8_CAMP_ACTION_BUTTON_CAST_SPELL] =
-            new W8TextControl(g_item_actions_panel, 0x129, 0x134, 0, 0x160, 0x1e, CatalogArtwork::Load(0x112, 0), 0x19, 0x1b, 0x1a, 0x1d, 0x1c);
+            new W8TextControl(g_item_actions_panel, g_camp_item_action_regions->index(5), 0x134, 0,
+                              0x160, 0x1e, CatalogArtwork::Load(0x112, 0), 0x19, 0x1b, 0x1a,
+                              0x1d, 0x1c);
         g_item_action_controls[W8_CAMP_ACTION_BUTTON_USE_ON_ITEM] =
-            new W8TextControl(g_item_actions_panel, 0x12a, 0xdc, 0, 0x108, 0x1e, CatalogArtwork::Load(0x112, 0), 0x1e, 0x20, 0x1f, 0x22, 0x21);
+            new W8TextControl(g_item_actions_panel, g_camp_item_action_regions->index(6), 0xdc, 0,
+                              0x108, 0x1e, CatalogArtwork::Load(0x112, 0), 0x1e, 0x20, 0x1f,
+                              0x22, 0x21);
         g_item_action_controls[W8_CAMP_ACTION_BUTTON_USE_ON_CHARACTER] =
-            new W8TextControl(g_item_actions_panel, 0x12b, 0x108, 0, 0x134, 0x1e, CatalogArtwork::Load(0x112, 0), 0x23, 0x25, 0x24, 0x27, 0x26);
+            new W8TextControl(g_item_actions_panel, g_camp_item_action_regions->index(7), 0x108, 0,
+                              0x134, 0x1e, CatalogArtwork::Load(0x112, 0), 0x23, 0x25, 0x24,
+                              0x27, 0x26);
         index = 0;
         while (g_item_action_controls[index] != 0) {
             ++index;
@@ -1115,8 +1145,8 @@ void DestroyCampButtonPanel(void)
     DestroyControlPanel(g_item_actions_panel);
     for (auto& button : g_camp_page_buttons) button = nullptr;
     for (auto& button : g_item_action_controls) button = nullptr;
-    RegionSetDisable(0x2e);
-    RegionSetDisable(0x2d);
+    g_camp_item_action_regions.Disable();
+    g_camp_page_regions.Disable();
 }
 
 /* Refresh the enabled state of the eight item-action controls. Every button
