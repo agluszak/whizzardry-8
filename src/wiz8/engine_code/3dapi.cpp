@@ -40,7 +40,6 @@
 #include "wiz8/engine_code/ReadLevel.h"
 #include "wiz8/engine_code/SpellVisual.h"
 #include "wiz8/engine_code/Spells.h"
-#include "wiz8/engine_code/quad.h"
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/UpdateMesh.h"
