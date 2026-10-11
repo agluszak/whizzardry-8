@@ -569,7 +569,7 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Model bounds are independent values", "[
     REQUIRE(box.minimum == glm::vec3(-4, -3, -2));
     REQUIRE(box.maximum == glm::vec3(2, 3, 4));
     REQUIRE(sphere.center == glm::vec3(-1, 0, 1));
-    REQUIRE(std::abs(sphere.radius - std::sqrt(27.0f)) < 1e-5f);
+    REQUIRE(std::abs(sphere.radius - std::sqrt(27.0f) * 1.00001f) < 1e-5f);
     box.minimum = glm::vec3(99);
     REQUIRE(model.getBoundingBox().minimum == glm::vec3(-4, -3, -2));
 

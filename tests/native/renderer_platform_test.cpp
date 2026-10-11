@@ -7,8 +7,8 @@
 #include "surrender/srClock.h"
 #include "surrender/srCore.h"
 #include "surrender/srDD_SDLGPU.h"
+#include "surrender/srDD.h"
 #include "surrender/srGERD.h"
-#include "compat/compiler.h"
 
 
 TEST_CASE("renderer platform")
@@ -23,8 +23,9 @@ TEST_CASE("renderer platform")
     for (int cycle = 0; cycle < 3; ++cycle) {
         REQUIRE((srInit() && srCore.isInitialized()));
         {
-            srGERD gerd(srCreateSDLGPUDevice(), "SDLGPU");
-            const auto info = gerd.getDD()->getInfo();
+            auto* device = srCreateSDLGPUDevice();
+            srGERD gerd(device, "SDLGPU");
+            const auto info = device->getInfo();
             REQUIRE(info.max_back_buffer_width == 8192);
             REQUIRE(info.max_back_buffer_height == 8192);
             REQUIRE(info.renderer_batch_limit == 0x100);
@@ -42,25 +43,26 @@ TEST_CASE("renderer platform")
             REQUIRE(info.texture_max_aspect == 4096);
             REQUIRE(std::string_view(info.text[0]) == "SDL GPU");
             REQUIRE(std::string_view(info.text[4]) == "Unknown");
-            const auto driver = gerd.getDD()->getDriverInfo();
+            const auto driver = device->getDriverInfo();
             REQUIRE(driver.dd_api_version == SR_DD_MIN_API_VERSION);
             REQUIRE(driver.driver_id == 0);
             REQUIRE(std::string_view(driver.name) == "SDLGPU");
             REQUIRE(std::string_view(driver.api_name) == "SDL GPU");
-            REQUIRE(gerd.getDD()->getWindowList().empty());
-            const auto formats = gerd.getDD()->getTextureFormats();
+            REQUIRE(device->getWindowList().empty());
+            const auto formats = device->getTextureFormats();
             REQUIRE(formats.size() == 1);
             REQUIRE(formats[0].red_bits == 8);
             REQUIRE(formats[0].alpha_shift == 24);
-            REQUIRE(gerd.getDD()->getTextureFormats().data() == formats.data());
-            REQUIRE(gerd.getDD()->getBufferPixelFormat().red_shift == 16);
-            const auto device_stats = gerd.getDD()->getStatistics();
+            REQUIRE(device->getTextureFormats().data() == formats.data());
+            REQUIRE(device->getBufferPixelFormat().red_shift == 16);
+            const auto device_stats = device->getStatistics();
             REQUIRE(device_stats.texture_transfer == 0);
             REQUIRE(device_stats.pixels_drawn == 0);
             REQUIRE(device_stats.triangles_received == 0);
             REQUIRE(device_stats.vertices_transferred == 0);
             REQUIRE(device_stats.vertex_indices == 0);
-            REQUIRE_FALSE(gerd.getPixelFormat().has_value());
+            REQUIRE(gerd.lockBuffer() == nullptr);
+            REQUIRE(gerd.getError() == srGERD::ERROR_WINDOW_NOT_OPEN);
             auto* renderer = gerd.lockRenderer();
             gerd.unlockRenderer(renderer, 1);
             auto statistics = renderer->getStatistics();

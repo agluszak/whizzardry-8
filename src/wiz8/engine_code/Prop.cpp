@@ -12,7 +12,6 @@
 #include <string>
 
 #include "compat/compiler.h"
-#include "glm/common.hpp"
 #include "glm/fwd.hpp"
 #include "wiz8/engine_code/AnimRep.hpp"
 #include "wiz8/engine_code/Video2.h"

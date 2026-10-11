@@ -18,6 +18,7 @@
 #include "surrender/srBoundingBox.h"
 #include "wiz8/engine_code/stMeshModel.h"
 #include "surrender/srMeshModel.h"
+#include "surrender/srModel.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/sr_api.h"
 #include "surrender/srGERD.h"

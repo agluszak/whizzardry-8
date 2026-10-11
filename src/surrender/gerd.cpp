@@ -6,6 +6,7 @@
 #include <bit>
 #include <cstdint>
 #include <ostream>
+#include <optional>
 #include <memory>
 #include <vector>
 #include <cmath>
@@ -3013,15 +3014,16 @@ srColorSurfaceIFace* srGERD::lockBuffer()
     if (lock_surface != 0) {
         return 0;
     }
+    const auto format = getPixelFormat();
+    if (!format) {
+        setError(ERROR_WINDOW_NOT_OPEN);
+        return nullptr;
+    }
     flush();
     if (_lockBuffer() != 0) {
         return 0;
     }
     checkViewStateChanges();
-    const auto format = getPixelFormat();
-    if (!format) {
-        return nullptr;
-    }
     lock_surface = std::make_unique<LockSurface>(this, *format);
     lock_surface->setScissor(state.scissor.left, state.scissor.top, state.scissor.right,
                              state.scissor.bottom);

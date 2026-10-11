@@ -8,6 +8,7 @@
 #include <SDL3/SDL_stdinc.h>
 #include <SDL3/SDL_video.h>
 #include <map>
+#include <span>
 #include <vector>
 #include <cstddef>
 #include <cstdint>
