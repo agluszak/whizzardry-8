@@ -117,7 +117,6 @@ Palette16 Create16BPPPaletteShaded(const Palette8& pPalette, UINT32 rscale, UINT
                                  UINT32 bscale, BOOLEAN mono);
 Palette16 Create16BPPPalette(const Palette8& pPalette);
 UINT16 Get16BPPColor(SDL_Color color);
-UINT16 Get16BPPColor(UINT32 RGBValue);
 extern UINT16 gusAlphaMask;
 extern UINT16 gusRedMask;
 extern UINT16 gusGreenMask;
