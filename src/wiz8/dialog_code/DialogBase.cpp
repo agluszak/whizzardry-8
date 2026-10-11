@@ -1,6 +1,5 @@
 #include <SDL3/SDL_rect.h>
-#include <cstdlib>
-#include <cstring>
+#include <string>
 #include <string_view>
 
 #include "wiz8/engine_code/Video2.h"
@@ -41,19 +40,15 @@ void W8DialogBase::ScrollTextArea(W8DialogTextArea& area, int first_visible_line
 // FUNCTION: WIZ8 0x005dc7a0
 W8DialogBase::W8DialogBase()
 {
-    m_resource.reset();
     m_dirty_flags = 0;
     m_error = 0;
-    m_text.clear();
     m_font = g_dialog_interface_font;
     m_foreground = g_dialog_font_foreground;
     m_background = g_dialog_font_background;
-    m_border.reset();
     m_x = -1;
     m_y = -1;
     m_width = -1;
     m_height = -1;
-    m_background_path = 0;
     m_background_flags = 0;
     m_field_4c = 0;
     m_initialized = false;
@@ -67,6 +62,7 @@ W8DialogBase::W8DialogBase()
 // FUNCTION: WIZ8 0x005dc860
 W8DialogBase::~W8DialogBase()
 {
+    EndModalInput();
     if (m_destroy_callback) {
         m_destroy_callback(this);
     }
@@ -132,16 +128,7 @@ void W8DialogBase::SetExtent(int width, int height)
 // FUNCTION: WIZ8 0x005dca70
 void W8DialogBase::SetBackground(const char* path, int flags)
 {
-    if (m_background_path) {
-        free(m_background_path);
-        m_background_path = 0;
-    }
-    if (path) {
-        if (strlen(path) != 0) {
-            m_background_path = static_cast<char*>(malloc(strlen(path) + 1));
-            strcpy(m_background_path, path);
-        }
-    }
+    m_background_path = path ? path : "";
     m_background_flags = flags;
     m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
 }
@@ -158,7 +145,7 @@ int W8DialogBase::CreateControls()
     if (!m_font) {
         return m_error = 2;
     }
-    if (!m_background_path) {
+    if (m_background_path.empty()) {
         return m_error = 4;
     }
     if (!m_border) {
@@ -182,17 +169,29 @@ int W8DialogBase::CreateControls()
 // FUNCTION: WIZ8 0x005dcc30
 void W8DialogBase::DestroyControls()
 {
+    EndModalInput();
     m_resource.reset();
     m_border.reset();
     m_text.clear();
-    if (m_background_path) {
-        free(m_background_path);
-        m_background_path = 0;
-        m_background_flags = 0;
+    m_background_path.clear();
+    m_background_flags = 0;
+    if (m_initialized && m_x >= 0 && m_y >= 0 && m_width >= 0 && m_height >= 0) {
+        ClearSurfaceRect(m_x, m_y, m_x + m_width + 1, m_y + m_height + 1);
+        InvalidateRegion(m_x, m_y, m_x + m_width + 1, m_y + m_height + 1, 1);
     }
-    ClearSurfaceRect(m_x, m_y, m_x + m_width + 1, m_y + m_height + 1);
-    InvalidateRegion(m_x, m_y, m_x + m_width + 1, m_y + m_height + 1, 1);
     m_initialized = false;
+}
+
+void W8DialogBase::BeginModalInput()
+{
+    if (!m_input_scope) {
+        m_input_scope.emplace(ButtonRegionSetIndex());
+    }
+}
+
+void W8DialogBase::EndModalInput()
+{
+    m_input_scope.reset();
 }
 
 // FUNCTION: WIZ8 0x005dcce0
@@ -200,8 +199,8 @@ bool W8DialogBase::ProcessInput()
 {
     SDL_Point mouse;
     InputAtom input;
-    ExclusiveRegionSet button_scope(ButtonRegionSetIndex());
 
+    BeginModalInput();
     SGPMouseGetPos(&mouse);
     UpdateRegionMousePosition(mouse.x, mouse.y);
     while (DequeueEvent(&input)) {
@@ -216,6 +215,9 @@ bool W8DialogBase::ProcessInput()
         } else if (input.usEvent == KEY_DOWN && input.usParam == VK_ESCAPE) {
             m_keep_open = false;
         }
+    }
+    if (!m_keep_open) {
+        EndModalInput();
     }
     return m_keep_open;
 }

@@ -37,6 +37,7 @@ bool W8NotificationDialog::ProcessInput()
 {
     bool handled;
 
+    BeginModalInput();
     W8MessageDialogBase::ProcessInput();
     handled = is_open;
     if (!handled) {
@@ -44,6 +45,9 @@ bool W8NotificationDialog::ProcessInput()
         if (notify_target) {
             notify_target->OnDialogClosed(accepted, notification_value);
         }
+    }
+    if (!handled) {
+        EndModalInput();
     }
     return handled;
 }

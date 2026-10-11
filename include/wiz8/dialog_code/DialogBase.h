@@ -1,10 +1,12 @@
 #include "Font.h"
 #pragma once
 
+#include <optional>
 #include <string>
 #include <string_view>
 
 #include "Button System.h"
+#include "wiz8/regions.h"
 
 enum W8DialogKind {
     W8_DIALOG_BASIC = 0,
@@ -51,12 +53,17 @@ public:
 
     friend void SetDialogDestroyCallback(W8DialogBase* dialog, W8DialogDestroyCallback callback);
     friend class W8DialogNumericInput;
+    template <class Dialog, class Field>
+    friend void ProcessNumericDialogInputEvents(Dialog* dialog, Field*& active_field,
+                                                bool (Dialog::*handle_event)(const InputAtom*));
 
 public:
     /* Main Game raises the redraw bit when promoting its pending dialog. */
     unsigned int m_dirty_flags;
 
 protected:
+    void BeginModalInput();
+    void EndModalInput();
     void CreateCloseButton(W8DialogButton& button, int left, int top);
     void ScrollTextArea(W8DialogTextArea& area, int first_visible_line, int left, int top,
                         int width, int height);
@@ -68,7 +75,7 @@ protected:
     unsigned char m_foreground;
     unsigned char m_background;
     unsigned char padding_01a[2];
-    char* m_background_path;
+    std::string m_background_path;
     int m_background_flags;
     GenericButtonImage m_border;
     unsigned char padding_026[2];
@@ -97,6 +104,7 @@ protected:
     int m_field_4c;
     bool m_right_button_down;
     unsigned char padding_051[3];
+    std::optional<ExclusiveRegionSet> m_input_scope;
 };
 
 

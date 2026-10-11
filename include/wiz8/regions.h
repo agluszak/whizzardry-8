@@ -28,6 +28,7 @@ struct W8RegionSet {
         active_count = region_ids.size();
     }
     unsigned int enabled = 0;
+    bool persistent = false;
     std::span<const unsigned int> Regions() const { return {region_ids.data(), active_count}; }
     void Reset() { active_count = 0; }
     unsigned int AddRegion(int priority = 0);

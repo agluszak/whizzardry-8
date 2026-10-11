@@ -201,8 +201,8 @@ bool W8NpcDialog::ProcessInput()
 {
     SDL_Point mouse;
     InputAtom input;
-    ExclusiveRegionSet button_scope(ButtonRegionSetIndex());
 
+    BeginModalInput();
     SGPMouseGetPos(&mouse);
     UpdateRegionMousePosition(mouse.x, mouse.y);
     while (DequeueEvent(&input) == TRUE) {
@@ -212,10 +212,14 @@ bool W8NpcDialog::ProcessInput()
                 m_message->kind == W8_NPC_ENTRY_KEYWORD_INPUT) {
                 m_input_text = GetTextFromField(m_input_field);
                 g_npc_dialog->m_keep_open = false;
+                EndModalInput();
                 return true;
             }
             DispatchRegionInput(&input);
         }
+    }
+    if (!m_keep_open) {
+        EndModalInput();
     }
     return m_keep_open;
 }

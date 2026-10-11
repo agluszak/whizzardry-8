@@ -176,8 +176,8 @@ bool W8CharacterSummaryDialog::ProcessInput()
 {
     SDL_Point mouse;
     InputAtom input;
-    ExclusiveRegionSet button_scope(ButtonRegionSetIndex());
 
+    BeginModalInput();
     SGPMouseGetPos(&mouse);
     UpdateRegionMousePosition(mouse.x, mouse.y);
     if (!m_voice_started && m_portrait_clock + 750 < w8_get_ticks()) {
@@ -192,8 +192,15 @@ bool W8CharacterSummaryDialog::ProcessInput()
             m_keep_open = false;
         }
         if (!DispatchRegionInput(&input)) {
-            return HandleInputEvent(&input);
+            const bool keep_open = HandleInputEvent(&input);
+            if (!keep_open) {
+                EndModalInput();
+            }
+            return keep_open;
         }
+    }
+    if (!m_keep_open) {
+        EndModalInput();
     }
     return m_keep_open;
 }

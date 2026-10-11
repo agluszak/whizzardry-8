@@ -20,8 +20,8 @@ void ProcessNumericDialogInputEvents(Dialog* dialog, Field*& active_field,
 {
     SDL_Point mouse;
     InputAtom input;
-    ExclusiveRegionSet button_scope(ButtonRegionSetIndex());
 
+    dialog->BeginModalInput();
     SGPMouseGetPos(&mouse);
     UpdateRegionMousePosition(mouse.x, mouse.y);
     while (DequeueEvent(&input) == 1) {

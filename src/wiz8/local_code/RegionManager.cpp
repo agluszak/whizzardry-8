@@ -498,14 +498,19 @@ bool g_region_help_force_enabled;
 bool g_dev_mode;
 
 namespace {
-std::vector<unsigned int> g_exclusive_region_sets;
+struct ExclusiveRegionScope {
+    ExclusiveRegionSet* scope;
+    unsigned int set_index;
+};
+
+std::vector<ExclusiveRegionScope> g_exclusive_region_sets;
 std::vector<unsigned int> g_reusable_region_indices;
 const size_t g_static_region_count = g_regions.size();
 
 bool RegionAllowedByExclusiveSet(unsigned int region_index)
 {
     if (g_exclusive_region_sets.empty()) return true;
-    const auto set_index = g_exclusive_region_sets.back();
+    const auto set_index = g_exclusive_region_sets.back().set_index;
     if (set_index >= g_region_sets.size()) return false;
     const auto regions = g_region_sets[set_index].Regions();
     return std::find(regions.begin(), regions.end(), region_index) != regions.end();
@@ -560,21 +565,25 @@ void ReleaseDefaultHelpText(void)
 static bool FindEnabledRegionAtPoint(unsigned short x, unsigned short y, unsigned int* found_region,
                                      bool dispatch_coordinates = false)
 {
+    const bool exclusive = !g_exclusive_region_sets.empty();
     const unsigned int first_set =
-        g_exclusive_region_sets.empty() ? 0 : g_exclusive_region_sets.back();
+        exclusive ? g_exclusive_region_sets.back().set_index : 0;
     const unsigned int end_set =
-        g_exclusive_region_sets.empty() ? static_cast<unsigned int>(g_region_sets.size())
-                                        : first_set + 1;
-    for (unsigned int set_index = first_set; set_index < end_set; ++set_index) {
-        if (set_index >= g_region_sets.size()) break;
-        W8RegionSet* set = &g_region_sets[set_index];
-        if (set->enabled != 1) {
-            continue;
-        }
-        for (auto region_index : set->Regions()) {
-            if (RegionContainsInputPoint(region_index, x, y, dispatch_coordinates)) {
-                *found_region = region_index;
-                return true;
+        exclusive ? first_set + 1 : static_cast<unsigned int>(g_region_sets.size());
+    const unsigned int passes = exclusive ? 1 : 2;
+    for (unsigned int pass = 0; pass < passes; ++pass) {
+        const bool persistent = pass != 0;
+        for (unsigned int set_index = first_set; set_index < end_set; ++set_index) {
+            if (set_index >= g_region_sets.size()) break;
+            W8RegionSet* set = &g_region_sets[set_index];
+            if (set->enabled != 1 || ( !exclusive && set->persistent != persistent)) {
+                continue;
+            }
+            for (auto region_index : set->Regions()) {
+                if (RegionContainsInputPoint(region_index, x, y, dispatch_coordinates)) {
+                    *found_region = region_index;
+                    return true;
+                }
             }
         }
     }
@@ -643,11 +652,32 @@ ExclusiveRegionSet::ExclusiveRegionSet(unsigned int set) : set_(set)
     g_current_region_index = 0;
     g_captured_region_index = 0;
     g_hover_region_index = 0;
-    g_exclusive_region_sets.push_back(set_);
+    g_exclusive_region_sets.push_back({this, set_});
 }
 
 ExclusiveRegionSet::~ExclusiveRegionSet()
 {
+    size_t scope_index = g_exclusive_region_sets.size();
+    for (size_t index = g_exclusive_region_sets.size(); index > 0; --index) {
+        if (g_exclusive_region_sets[index - 1].scope == this) {
+            scope_index = index - 1;
+            break;
+        }
+    }
+    if (scope_index == g_exclusive_region_sets.size()) return;
+
+    const bool was_top = scope_index + 1 == g_exclusive_region_sets.size();
+    if (!was_top) {
+        if (auto* child = g_exclusive_region_sets[scope_index + 1].scope) {
+            child->saved_regions_ = saved_regions_;
+            child->saved_current_ = saved_current_;
+            child->saved_captured_ = saved_captured_;
+            child->saved_hover_ = saved_hover_;
+        }
+        g_exclusive_region_sets.erase(g_exclusive_region_sets.begin() + scope_index);
+        return;
+    }
+
     const unsigned int active_indices[] = {
         g_current_region_index, g_captured_region_index, g_hover_region_index};
     for (const auto index : active_indices) {
@@ -657,7 +687,7 @@ ExclusiveRegionSet::~ExclusiveRegionSet()
             region.flags &= ~(W8_REGION_MOUSE_STATE_MASK | W8_REGION_HELP_SHOWN);
         }
     }
-    if (!g_exclusive_region_sets.empty()) g_exclusive_region_sets.pop_back();
+    g_exclusive_region_sets.erase(g_exclusive_region_sets.begin() + scope_index);
 
     for (const auto& saved : saved_regions_) {
         if (saved.index == 0 || saved.index >= g_regions.size() ||
@@ -1303,8 +1333,19 @@ void ResetRegions(void)
         VideoRemoveToolTip();
         g_regions[index].flags &= ~W8_REGION_HELP_SHOWN;
     }
-    for (auto& set : g_region_sets) set.enabled = 0;
-    for (auto& region : g_regions) region.flags &= (W8_REGION_RECTANGLE | W8_REGION_CIRCLE);
+    for (auto& set : g_region_sets) {
+        if (!set.persistent) {
+            set.enabled = 0;
+        }
+        for (const auto region_index : set.Regions()) {
+            auto& region = g_regions[region_index];
+            if (set.persistent) {
+                region.flags &= ~W8_REGION_MOUSE_STATE_MASK;
+            } else {
+                region.flags &= (W8_REGION_RECTANGLE | W8_REGION_CIRCLE);
+            }
+        }
+    }
     g_current_region_index = 0;
     g_hover_region_index = 0;
     g_captured_region_index = 0;

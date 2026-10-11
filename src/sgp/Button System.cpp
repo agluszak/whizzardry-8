@@ -352,7 +352,10 @@ void ShutdownButtonImageManager(void)
 
 unsigned int ButtonRegionSetIndex(void)
 {
-    if (button_region_set == 0) button_region_set = CreateRegionSet();
+    if (button_region_set == 0) {
+        button_region_set = CreateRegionSet();
+        g_region_sets[button_region_set].persistent = true;
+    }
     RegionSetEnable(button_region_set);
     return button_region_set;
 }

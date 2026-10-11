@@ -524,7 +524,11 @@ bool W8SplitItemDialog::HandleInputEvent(const InputAtom* input)
 // FUNCTION: WIZ8 0x005DE1B0
 bool W8SplitItemDialog::ProcessInput()
 {
+    BeginModalInput();
     ProcessNumericDialogInputEvents(this, m_active_input, &W8SplitItemDialog::HandleInputEvent);
+    if (!m_keep_open) {
+        EndModalInput();
+    }
     return m_keep_open;
 }
 

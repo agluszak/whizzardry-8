@@ -3072,9 +3072,19 @@ unsigned char ProcessMainGameInput(void)
         handled = true;
         if ((!g_mouselook_active || HandleMouselookInput(&input) == 0) &&
             DispatchRegionInput(&input) == 0 && GetForcedRegion() == 0) {
-            if (HandleDialogueTextInput(&input) == 0 && HandleMainGameInputEvent(&input) == 0) {
-                ResetMainGameMode();
-                return 1;
+            switch (input.usEvent) {
+            case LEFT_BUTTON_DOWN:
+            case LEFT_BUTTON_UP:
+            case RIGHT_BUTTON_DOWN:
+            case RIGHT_BUTTON_UP:
+                break;
+            default:
+                if (HandleDialogueTextInput(&input) == 0 &&
+                    HandleMainGameInputEvent(&input) == 0) {
+                    ResetMainGameMode();
+                    return 1;
+                }
+                break;
             }
         }
     }

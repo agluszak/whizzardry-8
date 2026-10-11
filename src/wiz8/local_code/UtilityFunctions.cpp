@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cstring>
+#include <optional>
 
 #include "Types.h"
 #include "wiz8/utility.h"
@@ -50,6 +51,7 @@ static Font* g_message_box_font;
 static unsigned int g_message_box_shade;
 // GLOBAL: WIZ8 0x0068c0b0
 static bool g_message_box_accepted;
+static std::optional<ExclusiveRegionSet> g_message_box_input_scope;
 // GLOBAL: WIZ8 0x0068BFD0
 // GLOBAL: WIZ8 0x00689FD0
 
@@ -557,6 +559,7 @@ bool CreateMessageBox(std::string_view text, Font& font, unsigned int shade, boo
     g_message_box_shade = shade;
     g_message_box_state = 2;
     g_message_box_callback = callback;
+    g_message_box_input_scope.emplace(ButtonRegionSetIndex());
     GetButtonArea(g_message_box_background_button, &rect);
     InvalidateRegion(rect.x, rect.y, (rect.x + rect.w), (rect.y + rect.h), 0x11);
     return true;
@@ -565,6 +568,7 @@ bool CreateMessageBox(std::string_view text, Font& font, unsigned int shade, boo
 static void ReleaseMessageBoxControls()
 {
     SDL_Rect rect;
+    g_message_box_input_scope.reset();
     if (g_message_box_accept_button) {
         g_message_box_accept_button.reset();
         g_message_box_accept_image.reset();
@@ -678,7 +682,6 @@ void ProcessMessageBoxInput(void)
 {
     SDL_Point point;
     InputAtom input;
-    ExclusiveRegionSet button_scope(ButtonRegionSetIndex());
     SGPMouseGetPos(&point);
     UpdateRegionMousePosition(point.x, point.y);
     while (DequeueEvent(&input) == 1) {

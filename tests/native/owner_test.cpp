@@ -10,6 +10,7 @@
 #include <fstream>
 #include <ios>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 #include <cstdint>
@@ -222,6 +223,43 @@ unsigned int new_test_region_set()
     RegionSetEnable(set);
     return set;
 }
+
+struct RegionStateSnapshot {
+    std::vector<unsigned int> set_enabled;
+    std::vector<unsigned int> region_flags;
+    unsigned int current = g_current_region_index;
+    unsigned int captured = g_captured_region_index;
+    unsigned int hover = g_hover_region_index;
+    int help_delay = g_region_help_delay;
+    bool help_force_enabled = g_region_help_force_enabled;
+
+    RegionStateSnapshot()
+    {
+        for (const auto& set : g_region_sets) set_enabled.push_back(set.enabled);
+        for (const auto& region : g_regions) region_flags.push_back(region.flags);
+    }
+
+    ~RegionStateSnapshot()
+    {
+        for (std::size_t index = 0; index < g_region_sets.size(); ++index) {
+            if (index < set_enabled.size()) {
+                g_region_sets[index].enabled = set_enabled[index];
+            } else {
+                g_region_sets[index].enabled = g_region_sets[index].persistent ? 1 : 0;
+            }
+        }
+        for (std::size_t index = 0;
+             index < region_flags.size() && index < g_regions.size(); ++index) {
+            g_regions[index].flags = region_flags[index];
+        }
+        g_current_region_index = current;
+        g_captured_region_index = captured;
+        g_hover_region_index = hover;
+        g_region_help_delay = help_delay;
+        g_region_help_force_enabled = help_force_enabled;
+    }
+};
+
 unsigned int add_test_region(unsigned int set, unsigned short id, int x1, int y1, int x2, int y2,
                              int priority, W8RegionCallback callback)
 {
@@ -334,6 +372,123 @@ void release_outside_controls()
         dispatch_mouse(LEFT_BUTTON_DOWN, 25, 5);
         REQUIRE(clicked_button == right.get());
     }
+}
+
+void modal_scope_persists_across_frames()
+{
+    RegionStateSnapshot saved_state;
+    ResetRegions();
+    const auto set = new_test_region_set();
+    const auto region = add_test_region(set, 1, 0, 0, 20, 20, 0, hover_region);
+    region_events.clear();
+
+    std::optional<ExclusiveRegionSet> scope;
+    scope.emplace(set);
+    UpdateRegionMousePosition(5, 5);
+    UpdateRegionMousePosition(5, 5);
+
+    REQUIRE(g_hover_region_index == region);
+    REQUIRE(std::count_if(region_events.begin(), region_events.end(), [](const auto& event) {
+                return event.second == BUTTON_REASON_GAIN_MOUSE;
+            }) == 1);
+}
+
+void modal_scope_preserves_capture_across_frames()
+{
+    RegionStateSnapshot saved_state;
+    ResetRegions();
+    Font font{SGPVObject{}};
+    const auto button_set = ButtonRegionSetIndex();
+    auto button = CreateTextButton("captured", font, 0, 0, {}, 10, 10, 20, 20, BUTTON_TOGGLE,
+                                   BUTTON_PRIORITY_NORMAL, nullptr, click);
+    REQUIRE(button);
+
+    clicked_button = nullptr;
+    click_reason = 0;
+    std::optional<ExclusiveRegionSet> scope;
+    scope.emplace(button_set);
+    dispatch_mouse(LEFT_BUTTON_DOWN, 15, 15);
+    REQUIRE(g_captured_region_index == button->region_index);
+    UpdateRegionMousePosition(100, 100);
+    REQUIRE(g_captured_region_index == button->region_index);
+    dispatch_mouse(LEFT_BUTTON_UP, 100, 100);
+
+    REQUIRE(clicked_button == button.get());
+    REQUIRE((click_reason & BUTTON_REASON_LBUTTON_UP) != 0);
+    REQUIRE(g_captured_region_index == 0);
+}
+
+void exclusive_scopes_destroy_out_of_order()
+{
+    RegionStateSnapshot saved_state;
+    ResetRegions();
+    const auto outer_set = new_test_region_set();
+    const auto outer_region = add_test_region(outer_set, 1, 0, 0, 10, 10, 0, record_region_event);
+    const auto inner_set = new_test_region_set();
+    const auto inner_region = add_test_region(inner_set, 2, 20, 0, 30, 10, 0, record_region_event);
+    const auto fallback_set = new_test_region_set();
+    const auto fallback_region =
+        add_test_region(fallback_set, 3, 40, 0, 50, 10, 0, record_region_event);
+
+    std::optional<ExclusiveRegionSet> outer_scope;
+    std::optional<ExclusiveRegionSet> inner_scope;
+    outer_scope.emplace(outer_set);
+    UpdateRegionMousePosition(5, 5);
+    REQUIRE(g_hover_region_index == outer_region);
+    inner_scope.emplace(inner_set);
+    outer_scope.reset();
+    UpdateRegionMousePosition(25, 5);
+    REQUIRE(g_hover_region_index == inner_region);
+    inner_scope.reset();
+    REQUIRE(g_hover_region_index == 0);
+    UpdateRegionMousePosition(45, 5);
+    REQUIRE(g_hover_region_index == fallback_region);
+}
+
+void reset_regions_preserves_hidden_buttons()
+{
+    RegionStateSnapshot saved_state;
+    ResetRegions();
+    Font font{SGPVObject{}};
+    const auto button_set = ButtonRegionSetIndex();
+    auto button = CreateTextButton("hidden", font, 0, 0, {}, 70, 70, 20, 20, BUTTON_TOGGLE,
+                                   BUTTON_PRIORITY_NORMAL, nullptr, click);
+    REQUIRE(button);
+    const auto region_index = button->region_index;
+    HideButton(button);
+    REQUIRE((g_regions[region_index].flags & W8_REGION_INPUT_DISABLED) != 0);
+
+    ResetRegions();
+
+    REQUIRE(g_region_sets[button_set].enabled == 1);
+    REQUIRE((g_regions[region_index].flags & W8_REGION_INPUT_DISABLED) != 0);
+    UpdateRegionMousePosition(75, 75);
+    REQUIRE(g_hover_region_index != region_index);
+}
+
+void later_region_set_precedes_button_set()
+{
+    RegionStateSnapshot saved_state;
+    ResetRegions();
+    Font font{SGPVObject{}};
+    const auto button_set = ButtonRegionSetIndex();
+    auto button = CreateTextButton("button", font, 0, 0, {}, 100, 100, 20, 20, BUTTON_TOGGLE,
+                                   BUTTON_PRIORITY_NORMAL, nullptr, click);
+    REQUIRE(button);
+    const auto screen_set = new_test_region_set();
+    const auto screen_region =
+        add_test_region(screen_set, 7, 100, 100, 120, 120, 0, record_region_event);
+    REQUIRE(screen_set > button_set);
+    clicked_button = nullptr;
+    region_events.clear();
+
+    UpdateRegionMousePosition(105, 105);
+    REQUIRE(g_hover_region_index == screen_region);
+    dispatch_mouse(LEFT_BUTTON_DOWN, 105, 105);
+
+    REQUIRE(std::find(region_events.begin(), region_events.end(),
+                      std::pair<int, int>{7, LEFT_BUTTON_DOWN}) != region_events.end());
+    REQUIRE(clicked_button != button.get());
 }
 
 GUIButton nested_outer, nested_inner, removable_button;
@@ -1119,6 +1274,11 @@ TEST_CASE("Callback reentrancy and region teardown", "[owner]")
     region_nested_input();
     nested_hover_transitions();
     release_outside_controls();
+    modal_scope_persists_across_frames();
+    modal_scope_preserves_capture_across_frames();
+    exclusive_scopes_destroy_out_of_order();
+    reset_regions_preserves_hidden_buttons();
+    later_region_set_precedes_button_set();
 }
 
 TEST_CASE("Sprite ownership", "[owner]")
