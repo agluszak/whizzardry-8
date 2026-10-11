@@ -196,9 +196,13 @@ catch_discover_tests(native_audio_test
     PROPERTIES ENVIRONMENT "SDL_AUDIO_DRIVER=wiz8-offline")
 
 # Standalone SDL/Vulkan lifetime control for diagnosing host leak reports.
-# Run manually: failures here are independent of game and SurRender ownership.
+# Failures here are independent of game and SurRender ownership.
 add_executable(native_gpu_lifecycle "${PROJECT_SOURCE_DIR}/tests/native/gpu_lifecycle.cpp")
 target_link_libraries(native_gpu_lifecycle PRIVATE SDL3::SDL3)
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    catch_discover_tests(native_gpu_lifecycle TEST_PREFIX "native_gpu/"
+        PROPERTIES ENVIRONMENT "SDL_VIDEODRIVER=offscreen" TIMEOUT 30)
+endif()
 
 add_executable(native_movie_test "${PROJECT_SOURCE_DIR}/tests/native/movie_test.cpp")
 target_compile_definitions(native_movie_test PRIVATE
