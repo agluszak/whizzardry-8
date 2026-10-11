@@ -7,7 +7,8 @@ on:
 
 concurrency:
   group: native-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  # Let a running main build finish so it can seed caches for PRs.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   native:
@@ -24,6 +25,8 @@ jobs:
       CCACHE_BASEDIR: ${{ github.workspace }}
       CCACHE_NOHASHDIR: "true"
       CCACHE_MAXSIZE: 500M
+      # Clang PCH can be cached only with these documented ccache settings.
+      CCACHE_SLOPPINESS: pch_defines,time_macros
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Install build dependencies
@@ -60,9 +63,9 @@ jobs:
         id: ccache-cache
         with:
           path: ${{ env.CCACHE_DIR }}
-          key: linux-ccache-${{ matrix.preset }}-${{ github.run_id }}
+          key: ccache-v2-${{ matrix.preset }}-clang21-${{ github.run_id }}
           restore-keys: |
-            linux-ccache-${{ matrix.preset }}-
+            ccache-v2-${{ matrix.preset }}-clang21-
       - name: Reset compiler cache statistics
         run: ccache --zero-stats
       - name: Configure
@@ -75,11 +78,20 @@ jobs:
             -DCMAKE_BUILD_TYPE="$build_type" \
             -DCMAKE_C_COMPILER=clang-21 -DCMAKE_CXX_COMPILER=clang++-21 \
             -DCMAKE_C_FLAGS_DEBUG="-O0 -g1" \
-            -DCMAKE_CXX_FLAGS_DEBUG="-O0 -g1" \
+            -DCMAKE_CXX_FLAGS_DEBUG="-O0 -g1 -Xclang -fno-pch-timestamp" \
+            -DCMAKE_CXX_FLAGS_RELWITHDEBINFO="-O1 -g1 -DNDEBUG -Xclang -fno-pch-timestamp" \
             -DWIZ8_SURRENDER_UNITY_BUILD=ON \
             -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
       - name: Build native game and fixtures
         run: cmake --build --preset ${{ matrix.preset }} --parallel "$(nproc)"
+      # Publish the compiler cache as soon as main builds successfully;
+      # frequent main pushes may cancel a run before its runtime tests finish.
+      - uses: actions/cache/save@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
+        # PRs restore the latest main cache; avoid filling storage with PR snapshots.
+        if: success() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ccache-v2-${{ matrix.preset }}-clang21-${{ github.run_id }}
       # The canonical GOG installer is stored in the decomp project's private
       # wiz8-ci-inputs release. Never put decrypted game files in Actions cache.
       - name: Check access to licensed game assets
@@ -175,11 +187,6 @@ jobs:
       - name: Show compiler cache stats
         if: always()
         run: ccache --show-stats || true
-      - uses: actions/cache/save@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
-        if: always()
-        with:
-          path: ${{ env.CCACHE_DIR }}
-          key: linux-ccache-${{ matrix.preset }}-${{ github.run_id }}
 
   include-hygiene:
     runs-on: ubuntu-26.04
