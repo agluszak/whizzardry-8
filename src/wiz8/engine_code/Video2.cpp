@@ -450,8 +450,6 @@ void ShutdownVideoScenes(void)
 // FUNCTION: WIZ8 0x004265c0
 void Initialize16BitPixelFormatMasks(void)
 {
-    unsigned short bit;
-
     if (g_pixel_format == 7) {
         gusAlphaMask = 0;
         gusRedMask = 0xf800;
@@ -472,18 +470,6 @@ void Initialize16BitPixelFormatMasks(void)
     }
 
     gusBlueMask = 0x001f;
-    gusRedShift = 8;
-    for (bit = 0x8000; (gusRedMask & bit) == 0; bit >>= 1) {
-        --gusRedShift;
-    }
-    gusGreenShift = 8;
-    for (bit = 0x8000; (gusGreenMask & bit) == 0; bit >>= 1) {
-        --gusGreenShift;
-    }
-    gusBlueShift = 8;
-    for (bit = 0x8000; (0x001f & bit) == 0; bit >>= 1) {
-        --gusBlueShift;
-    }
 }
 
 /* Registers and creates the real top-level Wizardry window.  The odd use of
