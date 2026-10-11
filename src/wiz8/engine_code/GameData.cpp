@@ -627,6 +627,7 @@ W8GDSurface* W8GameData::ProbePropsAlongMotion(srVector3T<float>* direction,
                 if (direction_zero) {
                     test_direction = surface->plane.normal;
                 }
+                if ((surface->flags & W8_GD_SURFACE_INACTIVE_MASK) != 0) continue;
                 if (const auto contact = surface->segmentContact(probe.glmValue(),
                         test_direction.glmValue(), indexedTriangle(
                             {gd_prop->m_pVertices, static_cast<std::size_t>(gd_prop->m_vertex_count)},
@@ -944,7 +945,8 @@ unsigned char W8GameData::AdvanceEnvironmentMotion()
                         surface = &m_pSurfaces[octree_hits[index]];
                     }
                     surface->hit_plane = 0;
-                    if ((surface->flags & W8_GD_SURFACE_CROSSING_MASK) != 0) continue;
+                    if ((surface->flags & (W8_GD_SURFACE_CROSSING_MASK |
+                                           W8_GD_SURFACE_INACTIVE_MASK)) != 0) continue;
                     if (const auto contact = surface->segmentContact(probe_position.glmValue(),
                             motion_delta.glmValue(), indexedTriangle(m_pVertices, surface->vertex_indices))) {
                         if (contact->distance < nearest_distance) {
@@ -1012,6 +1014,7 @@ unsigned char W8GameData::AdvanceEnvironmentMotion()
                 for (index = 0; index < hit_count; ++index) {
                     surface = &m_pSurfaces[octree_hits[index]];
                     if ((surface->flags & W8_GD_SURFACE_CROSSING_MASK) != 0 &&
+                        (surface->flags & W8_GD_SURFACE_INACTIVE_MASK) == 0 &&
                         surface->segmentContact(probe_position.glmValue(), motion_delta.glmValue(),
                             indexedTriangle(m_pVertices, surface->vertex_indices))) {
                         if (0 < crossed_count) {

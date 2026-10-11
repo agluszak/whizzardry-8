@@ -1,3 +1,4 @@
+#include "glm/ext/vector_float3.hpp"
 #include <fmt/format.h>
 #include <fmt/printf.h>
 #include <string>
@@ -71,7 +72,7 @@ bool MoveMonsterGroupToPosition(W8MonsterGroup* group, const srVector3T<float>* 
         MonsterGetIndexByLocationID(0x67c, MONSTER_GROUP_CPP, group->leader_location_id, true));
     float radius = alternate_radius ? leader->p3D->movement.alternate_radius : leader->p3D->radius;
     int location_ids[45];
-    srVector3T<float> positions[45];
+    std::vector<glm::vec3> positions;
     unsigned int count = group->member_count;
     unsigned int index;
     for (index = 0; index < count; ++index) {
@@ -102,14 +103,14 @@ bool MoveMonsterGroupToPosition(W8MonsterGroup* group, const srVector3T<float>* 
         }
     }
     srVector3T<float> target = *position;
-    unsigned int found;
     if (alternate_radius) {
-        found = g_octree->FindNavigatorPosition(&target, yaw, radius + radius, count, positions,
-                                                proximity_check, flatten_y, false, 5, true);
+        positions = g_octree->navigatorPositions(target.glmValue(), yaw, radius + radius, count,
+            proximity_check, flatten_y, false, 5, true).positions;
     } else {
-        found = g_octree->FindScatterPositions(&target, yaw, radius + radius, count, positions,
-                                               proximity_check, flatten_y);
+        positions = g_octree->scatterPositions(target.glmValue(), yaw, radius + radius, count,
+            proximity_check, flatten_y);
     }
+    const auto found = positions.size();
     if (found == 0) {
         return false;
     }
@@ -135,7 +136,8 @@ bool MoveMonsterGroupToPosition(W8MonsterGroup* group, const srVector3T<float>* 
             if (position_index < found - 1) {
                 ++position_index;
             }
-            member->p3D->SetPositionInternal(&positions[position_index]);
+            const srVector3T<float> member_position = positions[position_index];
+            member->p3D->SetPositionInternal(&member_position);
         }
         srVector3T<float> placed = member->p3D->GetPosition();
         g_octree->UpdateMonsterLocation(static_cast<unsigned short>(location_id), &placed);

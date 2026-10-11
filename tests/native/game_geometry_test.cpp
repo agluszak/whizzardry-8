@@ -1,3 +1,5 @@
+#include "wiz8/placement_math.h"
+#include "wiz8/float_constants.h"
 #include "glm/matrix.hpp"
 #include "surrender/plane_math.h"
 #include "surrender/triangle_projection.h"
@@ -2871,4 +2873,21 @@ TEST_CASE("Surface contacts return positions distances and edge limits without o
     // Reverse crossings retain the full segment when the signed span is below one.
     REQUIRE(std::abs(reverse->distance - 5) < 1e-6f);
     REQUIRE(surface.distance < 0);
+}
+
+TEST_CASE("Placement grids rotate candidate cells and retain ground height bands", "[geometry]")
+{
+    const glm::vec3 source(13, 20, -7);
+    const wiz8::placement::Grid grid(0, 10);
+    REQUIRE(grid.candidate(source, {2, 3}) == glm::vec3(-17, 20 + g_world_scale, 13));
+    const wiz8::placement::Grid rotated(glm::half_pi<float>(), 10);
+    const auto point = rotated.candidate(source, {2, 3});
+    REQUIRE(glm::length(point - glm::vec3(33, 20 + g_world_scale, 23)) < 1e-4f);
+    using wiz8::placement::grounded;
+    REQUIRE_FALSE(grounded({1, .5f, 3}, 0, false));
+    REQUIRE(grounded({1, 1, 3}, 0, false) == glm::vec3(1, 0, 3));
+    REQUIRE(grounded({1, -2500, 3}, 0, false) == glm::vec3(1, 0, 3));
+    REQUIRE_FALSE(grounded({1, 2501, 3}, 0, false));
+    REQUIRE(grounded({1, 5000, 3}, 0, true) == glm::vec3(1, 0, 3));
+    REQUIRE_FALSE(grounded({1, 5001, 3}, 0, true));
 }

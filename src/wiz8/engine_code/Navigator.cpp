@@ -922,12 +922,13 @@ bool W8Navigator::UpdateLinkedPosition()
     }
     srVector3T<float> position;
     if (linked_navigator->movement_stopped) {
-        if (g_octree->FindNavigatorPosition(&linked_navigator->movement.position,
-                                            linked_navigator->movement.yaw,
-                                            movement.collision_radius + movement.collision_radius,
-                                            1, &position, true, false, false, 5, true) == 0) {
-            return false;
-        }
+        const auto placement = g_octree->navigatorPositions(
+            linked_navigator->movement.position.glmValue(), linked_navigator->movement.yaw,
+            movement.collision_radius + movement.collision_radius,
+            1, true, false, false, 5, true);
+        linked_navigator->movement.position = placement.source;
+        if (placement.positions.empty()) return false;
+        position = placement.positions.front();
         SetMovementStopped();
     } else {
         position = linked_navigator->movement.position;
