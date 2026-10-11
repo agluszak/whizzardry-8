@@ -868,7 +868,7 @@ void DrawCampSkillsPage(void)
                 DrawFontTextDirty((0x24 - value_width) / 2 + 0xee + left, top + 1,
                                   fmt::format("{:d}", value->level));
                 g_wiz_text_font_secondary.resetPalette();
-                g_wiz_text_font_secondary.setShade(4);
+                g_wiz_text_font_secondary.setShade(Font::kNormalShade);
                 ++category_count[category];
             }
         }

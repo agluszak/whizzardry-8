@@ -121,7 +121,7 @@ void W8CharacterSpellList::Redraw(bool force)
         int y = top + 1;
         SetFont(g_wiz_text_font_secondary);
         g_wiz_text_font_secondary.resetPalette();
-        g_wiz_text_font_secondary.setShade(4);
+        g_wiz_text_font_secondary.setShade(Font::kNormalShade);
         for (int index = m_first_entry + m_scroll_offset;
              index < m_first_entry + m_scroll_offset + 7; ++index) {
             if (index >= m_first_entry + m_entry_count)
@@ -139,7 +139,7 @@ void W8CharacterSpellList::Redraw(bool force)
             DrawFontText(right - g_wiz_text_font_secondary.textWidth(cost) - 2, y, cost);
             y += 13;
             g_wiz_text_font_secondary.resetPalette();
-            g_wiz_text_font_secondary.setShade(4);
+            g_wiz_text_font_secondary.setShade(Font::kNormalShade);
         }
         m_range->Invalidate(0);
         m_dirty = false;

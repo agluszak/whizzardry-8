@@ -693,7 +693,7 @@ void W8PartySelectionCharacterRow::Redraw(bool full_redraw)
                  fmt::format("{} {}",
                              g_localized_strings[g_gender_name_message_rows[character->gender][0]],
                              g_localized_strings[g_race_name_message_ids[character->iRace]]));
-    g_wiz_text_font_secondary.setShade(4);
+    g_wiz_text_font_secondary.setShade(Font::kNormalShade);
 }
 
 // FUNCTION: WIZ8 0x005beb90
@@ -1008,7 +1008,7 @@ void W8PartySelectionCharacterSummaryPanel::Redraw()
     }
 
     SetFont(g_wiz_text_font_secondary);
-    g_wiz_text_font_secondary.setShade(4);
+    g_wiz_text_font_secondary.setShade(Font::kNormalShade);
 
     std::string level_text = g_localized_strings[0x6b9];
     std::string profession =

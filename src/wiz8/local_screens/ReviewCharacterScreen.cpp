@@ -492,7 +492,7 @@ void OpenSpellInfoDialog(unsigned int spell_id)
 void RedrawCampItemsPage(void)
 {
     SetFont(g_wiz_text_font_secondary);
-    g_wiz_text_font_secondary.setShade(4);
+    g_wiz_text_font_secondary.setShade(Font::kNormalShade);
     if ((g_camp_screen->redraw_flags & W8_CAMP_REDRAW_CHARACTER_INFO) != 0) {
         DrawCampCharacterInfo();
     }
@@ -1538,7 +1538,7 @@ void DrawCampScreen(void)
         }
         RefreshCampItemActions((state->redraw_flags & W8_CAMP_REDRAW_ITEM_ACTIONS) != 0);
         SetFont(g_calligraphy_font);
-        g_calligraphy_font.setShade(4);
+        g_calligraphy_font.setShade(Font::kNormalShade);
         state->item_redraw_flags = 0;
         state->redraw_flags = 0;
         if (IsMessageBoxActive()) {
@@ -1721,18 +1721,18 @@ void DrawCampRegenStats(void)
     unsigned int index;
 
     SetFont(g_calligraphy_font);
-    g_calligraphy_font.setShade(4);
+    g_calligraphy_font.setShade(Font::kNormalShade);
     g_calligraphy_font.setShade(0);
     DrawFontTextDirty(0x14a, 5, g_localized_strings[0x8ce]);
-    g_calligraphy_font.setShade(4);
+    g_calligraphy_font.setShade(Font::kNormalShade);
     DrawFontTextDirty(0x221, 5, fmt::format("{:6.3f}", g_review_character->health_regen_rate));
     g_calligraphy_font.setShade(0);
     DrawFontTextDirty(0x14a, 0x14, g_localized_strings[0x8cd]);
-    g_calligraphy_font.setShade(4);
+    g_calligraphy_font.setShade(Font::kNormalShade);
     DrawFontTextDirty(0x221, 0x14, fmt::format("{:6.3f}", g_review_character->stamina_regen_rate));
     g_calligraphy_font.setShade(0);
     DrawFontTextDirty(0x14a, 0x23, g_localized_strings[0x8d0]);
-    g_calligraphy_font.setShade(4);
+    g_calligraphy_font.setShade(Font::kNormalShade);
     for (index = 0; index < 6; ++index) {
         DrawFontTextDirty(
             index * 0x14 + 0x1fe, 0x23,

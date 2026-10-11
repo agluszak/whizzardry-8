@@ -95,7 +95,7 @@ void W8DialogNumericInput::Draw(bool force)
     size_t length = g_numeric_input_text.size();
     SetFont(*m_font);
     g_numeric_input_text = fmt::format("{:d}", m_value);
-    m_font->setShade(4);
+    m_font->setShade(Font::kNormalShade);
     SetFontDestBuffer(GetFrameBufferSurface(), m_bounds.left, m_bounds.top, m_bounds.right, m_bounds.bottom,
                       0);
     unsigned short font_height = m_font->height();

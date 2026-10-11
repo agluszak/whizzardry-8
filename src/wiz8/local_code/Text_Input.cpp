@@ -1174,8 +1174,8 @@ void RenderInactiveTextFieldNode(TEXTINPUTNODE* field)
         SDL_Rect rectangle = {
             TextFieldRegion(field).x1,
             TextFieldRegion(field).y1,
-            TextFieldRegion(field).x2 - TextFieldRegion(field).x1,
-            TextFieldRegion(field).y2 - TextFieldRegion(field).y1,
+            TextFieldRegion(field).x2 - TextFieldRegion(field).x1 + 1,
+            TextFieldRegion(field).y2 - TextFieldRegion(field).y1 + 1,
         };
         ShadowRect(GetFrameBufferSurface(), rectangle);
     }

@@ -759,7 +759,7 @@ void DrawCampHeader(void)
     }
     if ((state->redraw_flags & 0x200) != 0) {
         SetFont(g_wiz_text_bold_font);
-        g_wiz_text_bold_font.setShade(4);
+        g_wiz_text_bold_font.setShade(Font::kNormalShade);
         if (state->hover_region == 0xf2) {
             g_wiz_text_bold_font.setPalette(g_font_state_palettes[W8_FONT_PALETTE_GREEN]);
         }
@@ -769,7 +769,7 @@ void DrawCampHeader(void)
                           0x60, state->text_buffer);
         g_wiz_text_bold_font.resetPalette();
         SetFont(g_wiz_text_font_secondary);
-        g_wiz_text_font_secondary.setShade(4);
+        g_wiz_text_font_secondary.setShade(Font::kNormalShade);
         state->text_buffer = g_localized_strings[g_gender_name_message_rows[character->gender][0]];
         state->text_buffer += " ";
         state->text_buffer += g_localized_strings[g_race_name_message_ids[character->iRace]];
@@ -785,7 +785,7 @@ void DrawCampHeader(void)
             0x7c, state->text_buffer);
         g_wiz_text_font_secondary.resetPalette();
         SetFont(g_wiz_text_font_secondary);
-        g_wiz_text_font_secondary.setShade(4);
+        g_wiz_text_font_secondary.setShade(Font::kNormalShade);
         state->text_buffer = fmt::format(
             "{} {:d} ({})", g_localized_strings[0x91a], character->uiExpLevel,
             g_localized_strings[g_profession_level_name_message_ids[character->iProfession]

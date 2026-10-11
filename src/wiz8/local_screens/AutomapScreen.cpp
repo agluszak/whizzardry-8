@@ -1858,7 +1858,7 @@ void RenderAutomapMarkers(void)
         SDL_Rect clip = {0xc, 0x20, 0x1d3 - 0xc, 0x1d3 - 0x20};
         ScopedClipRect clipped(GetFrameBufferSurface(), clip);
         SetFont(g_wiz_text_font_secondary);
-        g_wiz_text_font_secondary.setShade(4);
+        g_wiz_text_font_secondary.setShade(Font::kNormalShade);
         SetFontDestClip(0xc, 0x20, 0x1d3, 0x1d3);
         int font_height = g_wiz_text_font_secondary.height();
         unsigned int count = static_cast<int>(g_automap_notes->size());

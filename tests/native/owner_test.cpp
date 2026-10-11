@@ -1018,6 +1018,15 @@ void generic_button_images()
         primary.setPalette(colours);
         colours[1] = 0;
         REQUIRE(primary.palette()[1] == 0x1234);
+        REQUIRE(primary.createShades(FONT_GLOW_GREEN));
+        REQUIRE(primary.setShade(15));
+        REQUIRE(primary.currentPalette()[1] != primary.palette()[1]);
+        REQUIRE(primary.setShade(Font::kNormalShade));
+        REQUIRE(primary.currentPalette()[1] == 0x1234);
+        Font secondary;
+        REQUIRE(secondary.load(filename));
+        REQUIRE(secondary.createShades(FONT_GLOW_RED));
+        REQUIRE(secondary.shades[0] != primary.shades[0]);
         SetFont(primary);
         {
             FontRenderScope outer;

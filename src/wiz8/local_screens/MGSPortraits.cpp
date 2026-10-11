@@ -888,7 +888,7 @@ void RedrawPartyPortraitOverlay(unsigned int party_slot, bool highlighted, bool 
             g_wiz_text_font_secondary.setShade(text_shade);
             text_width = g_wiz_text_font_secondary.textWidth(character->name);
             DrawFontText((0x54 - text_width) / 2 + 0x15 + menu_x, menu_y + 0x49, character->name);
-            g_wiz_text_font_secondary.setShade(4);
+            g_wiz_text_font_secondary.setShade(Font::kNormalShade);
 
             if (gXStatus.fCombatMode) {
                 entry->combat_portrait_dirty = true;
