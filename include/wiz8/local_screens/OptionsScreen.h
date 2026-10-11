@@ -323,7 +323,7 @@ public:
     virtual void OnSelectionChanged(W8ControlSelection* selection, int selected) override;
     void DeleteSelectedSave();
     void LoadSelectedSave();
-    void SaveSelectedSave();
+    void SaveSelectedSave(std::string_view previous_name = {});
     int m_panel;
     std::vector<W8OptionsSaveRow*> m_rows;
     W8ControlSelection m_selection;

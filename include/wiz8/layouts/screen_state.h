@@ -50,6 +50,8 @@ struct W8ScreenStateRuntime {
        that lives on W8CampScreenState::item_action. */
     struct W8Character* parameter_4;
     std::string name;
+    /* Previous user save slot, removed only after a successful renamed save. */
+    std::string previous_save_name;
 };
 
 
