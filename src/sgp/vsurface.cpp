@@ -231,7 +231,7 @@ BOOLEAN SetVideoSurfacePalette(SGPVSurface& hVSurface, const Palette8& pSrcPalet
         for (auto& color : hVSurface.palette)
             color.a = SDL_ALPHA_OPAQUE;
         CHECKF(SDL_SetPaletteColors(SDL_GetSurfacePalette(hVSurface.cpu().surface.get()),
-                                    hVSurface.palette.data(), 0, hVSurface.palette.size()));
+                                    hVSurface.palette.data(), 0, 256));
     }
     hVSurface.p16BPPPalette = Create16BPPPalette(pSrcPalette);
     return TRUE;
