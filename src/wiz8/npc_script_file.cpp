@@ -51,7 +51,7 @@ try
             quote.subquotes.push_back(wiz8::text::from_utf16le(bytes));
         }
     }
-    if (quote.entry_count > (file->size() - file->tell()) / sizeof(wiz8::retail::nsf::Entry)) return false;
+    if (quote.entry_count > (file->size() - file->tell()) / sizeof(wiz8::retail::nsf::Entry)) return std::nullopt;
     quote.entries.reserve(quote.entry_count);
     for (unsigned i = 0; i < quote.entry_count; ++i) {
         wiz8::retail::nsf::Entry stored;
@@ -62,7 +62,7 @@ try
         entry.operand1 = stored.operand1;
         entry.operand2 = stored.operand2;
         entry.sub_entry_count = stored.sub_entry_count;
-        if (entry.sub_entry_count > (file->size() - file->tell()) / sizeof(wiz8::retail::nsf::SubEntry)) return false;
+        if (entry.sub_entry_count > (file->size() - file->tell()) / sizeof(wiz8::retail::nsf::SubEntry)) return std::nullopt;
         entry.sub_entries.reserve(entry.sub_entry_count);
         for (unsigned j = 0; j < entry.sub_entry_count; ++j) {
             wiz8::retail::nsf::SubEntry part;
