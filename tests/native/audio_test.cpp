@@ -739,3 +739,72 @@ TEST_CASE_METHOD(AudioFixture, "Playback completion permits stop and shutdown re
     SoundServiceStreams();
     REQUIRE(context.calls == 1);
 }
+
+TEST_CASE_METHOD(AudioFixture, "Mixer tags stop only the original group before reentrant callbacks", "[audio][ownership]")
+{
+    startOfflineAudio();
+    struct Context {
+        SOUNDPARMS options;
+        SoundPlayback replacement;
+        unsigned calls = 0;
+    } context;
+    memset(&context.options, 0xff, sizeof(context.options));
+    context.options.uiLoop = 0;
+    context.options.uiPriority = 42;
+    context.options.EOSCallback = [](void* data) {
+        auto& context = *static_cast<Context*>(data);
+        ++context.calls;
+        auto options = context.options;
+        options.EOSCallback = nullptr;
+        context.replacement = SoundPlayStreamedFile("tone.wav", &options);
+    };
+    context.options.pCallbackData = &context;
+    auto first = SoundPlay("tone.wav", &context.options);
+    REQUIRE(first);
+    auto options = context.options;
+    options.EOSCallback = nullptr;
+    auto second = SoundPlayStreamedFile("tone.wav", &options);
+    REQUIRE(second);
+    options.uiPriority = 43;
+    auto unrelated = SoundPlay("tone.wav", &options);
+    REQUIRE(unrelated);
+    auto music = SoundPlay("tone.wav", &options);
+    REQUIRE(music);
+    SoundSetMusic(music);
+    REQUIRE_FALSE(SoundStopGroup(123));
+    REQUIRE(SoundStopGroup(42));
+    REQUIRE(context.calls == 1);
+    REQUIRE_FALSE(SoundIsPlaying(first));
+    REQUIRE_FALSE(SoundIsPlaying(second));
+    REQUIRE(SoundIsPlaying(context.replacement));
+    REQUIRE(SoundIsPlaying(unrelated));
+    REQUIRE(SoundIsPlaying(music));
+    REQUIRE(SoundEmptyCache());
+    REQUIRE_FALSE(SoundIsPlaying(context.replacement));
+    REQUIRE_FALSE(SoundIsPlaying(unrelated));
+    REQUIRE(SoundIsPlaying(music));
+    REQUIRE(SoundStopMusic());
+    REQUIRE_FALSE(SoundStopMusic());
+    REQUIRE(context.calls == 1);
+}
+
+TEST_CASE_METHOD(AudioFixture, "Mixer completion defers game callbacks until service or next play", "[audio][ownership]")
+{
+    startOfflineAudio();
+    SOUNDPARMS options;
+    memset(&options, 0xff, sizeof(options));
+    unsigned callback_data = 0;
+    options.EOSCallback = ended;
+    options.pCallbackData = &callback_data;
+    auto first = SoundPlayStreamedFile("tone.wav", &options);
+    REQUIRE(first);
+    mix(8192);
+    REQUIRE_FALSE(SoundIsPlaying(first));
+    REQUIRE(callback_data == 0);
+    options.EOSCallback = nullptr;
+    auto next = SoundPlay("tone.wav", &options);
+    REQUIRE(next);
+    REQUIRE(callback_data == 1);
+    SoundServiceStreams();
+    REQUIRE(callback_data == 1);
+}

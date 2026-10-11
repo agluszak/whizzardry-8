@@ -2,6 +2,7 @@
    Distributed under the accompanying SFI Source Code license agreement. */
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_pixels.h>
+#include <SDL3/SDL_surface.h>
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
@@ -73,10 +74,11 @@ BOOLEAN DecodeVideoObjectSprites(SGPVObject& hVObject, std::span<const ETRLEObje
             continue;
         const UINT8* src = data.data() + frame.uiDataOffset;
         const UINT8* const end = src + frame.uiDataLength;
-        out.pixels.assign(static_cast<size_t>(frame.usWidth) * frame.usHeight,
-                          SpriteFrame::kTransparent);
-        UINT16* row = out.pixels.data();
+        out.indices = CreateCpuStorage(frame.usWidth, frame.usHeight, SDL_PIXELFORMAT_RGB565);
+        if (!out.indices || !SDL_FillSurfaceRect(out.indices.get(), nullptr, SpriteFrame::kTransparent))
+            return FALSE;
         for (UINT32 y = 0; y < frame.usHeight; ++y) {
+            auto* row = reinterpret_cast<UINT16*>(static_cast<UINT8*>(out.indices->pixels) + y * out.indices->pitch);
             UINT32 x = 0;
             for (;;) {
                 if (src >= end) {
@@ -103,7 +105,6 @@ BOOLEAN DecodeVideoObjectSprites(SGPVObject& hVObject, std::span<const ETRLEObje
             if (x != frame.usWidth) {
                 return (FALSE);
             }
-            row += frame.usWidth;
         }
     }
     hVObject.sprites = std::move(decoded);
@@ -347,9 +348,17 @@ BOOLEAN BltSpriteTo16BPPBuffer(UINT16* pBuffer, UINT32 uiDestPitchBYTES,
         return (TRUE);
     }
 
-    const UINT16* const pixels = frame.pixels.data();
+    if (op == SpriteDrawOp::Transparent) {
+        auto* source = frame.coloredSurface(std::span<const UINT16, 256>(palette, 256), fMirror);
+        auto destination = CreateCpuStorage(visible.x + visible.w, visible.y + visible.h,
+                                           SDL_PIXELFORMAT_RGB565, pBuffer, uiDestPitchBYTES);
+        if (!source || !destination) return FALSE;
+        SDL_Rect sourceRect{visible.x - sprite.x, visible.y - sprite.y, visible.w, visible.h};
+        return SDL_BlitSurface(source, &sourceRect, destination.get(), &visible);
+    }
+
     for (INT32 dy = visible.y; dy < visible.y + visible.h; ++dy) {
-        const UINT16* row = pixels + (dy - sprite.y) * frame.usWidth;
+        const auto* row = reinterpret_cast<const UINT16*>(static_cast<const UINT8*>(frame.indices->pixels) + (dy - sprite.y) * frame.indices->pitch);
         UINT8* dest = reinterpret_cast<UINT8*>(pBuffer) + dy * uiDestPitchBYTES + visible.x * 2;
         const INT32 left = visible.x - sprite.x;
         for (INT32 dx = 0; dx < visible.w; ++dx, dest += 2) {
@@ -357,8 +366,6 @@ BOOLEAN BltSpriteTo16BPPBuffer(UINT16* pBuffer, UINT32 uiDestPitchBYTES,
             const UINT16 index = row[sx];
             switch (op) {
             case SpriteDrawOp::Transparent:
-                if (index != SpriteFrame::kTransparent)
-                    NativeWriteWord(dest, palette[index]);
                 break;
             case SpriteDrawOp::Shadow:
                 if (index != SpriteFrame::kTransparent)

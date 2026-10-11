@@ -48,70 +48,48 @@ BOOLEAN ImageFillVideoSurfaceArea(SGPVSurface& uiDestVSurface, INT32 iDestX1, IN
                                   INT32 iDestX2, INT32 iDestY2, SGPVObject& BkgrndImg, UINT16 Index,
                                   INT16 Ox, INT16 Oy)
 {
-    INT16 xc, yc, hblits, wblits, aw, pw, ah, ph, w, h, xo, yo;
-    SpriteFrame* pTrav;
-    SDL_Rect NewClip, OldClip;
-
-    pTrav = &(BkgrndImg.sprites[Index]);
-    ph = (INT16)(pTrav->usHeight + pTrav->sOffsetY);
-    pw = (INT16)(pTrav->usWidth + pTrav->sOffsetX);
-
-    ah = (INT16)(iDestY2 - iDestY1);
-    aw = (INT16)(iDestX2 - iDestX1);
-
-    Ox %= pw;
-    Oy %= ph;
-
-    if (Ox > 0)
-        Ox -= pw;
-    xo = (-Ox) % pw;
-
-    if (Oy > 0)
-        Oy -= ph;
-    yo = (-Oy) % ph;
-
-    if (Ox < 0)
-        xo = (-Ox) % pw;
-    else {
-        xo = pw - (Ox % pw);
-        Ox -= pw;
-    }
-
-    if (Oy < 0)
-        yo = (-Oy) % ph;
-    else {
-        yo = ph - (Oy % pw);
-        Oy -= ph;
-    }
-
-    hblits = ((ah + yo) / ph) + (((ah + yo) % ph) ? 1 : 0);
-    wblits = ((aw + xo) / pw) + (((aw + xo) % pw) ? 1 : 0);
-
-    if ((hblits == 0) || (wblits == 0))
-        return (FALSE);
-    // Clip fill region coords
-
-    GetClippingRect(&OldClip);
-
-    NewClip = {iDestX1, iDestY1, iDestX2 - iDestX1, iDestY2 - iDestY1};
-    if (!SDL_GetRectIntersection(&NewClip, &OldClip, &NewClip))
-        return (FALSE);
-
-    SetClippingRect(&NewClip);
-
-    yc = (INT16)iDestY1;
-    for (h = 0; h < hblits; h++) {
-        xc = (INT16)iDestX1;
-        for (w = 0; w < wblits; w++) {
-            BltVideoObject(uiDestVSurface, BkgrndImg, Index, xc + Ox, yc + Oy,
-                           VO_BLT_SRCTRANSPARENCY, nullptr);
-            xc += pw;
+    if (Index >= BkgrndImg.sprites.size()) return FALSE;
+    const auto& frame = BkgrndImg.sprites[Index];
+    const int width = frame.usWidth + frame.sOffsetX;
+    const int height = frame.usHeight + frame.sOffsetY;
+    if (width <= 0 || height <= 0) return FALSE;
+    SDL_Rect visible{iDestX1, iDestY1, iDestX2 - iDestX1, iDestY2 - iDestY1};
+    const auto& storage = *uiDestVSurface.cpu().surface;
+    const SDL_Rect bounds{0, 0, storage.w, storage.h};
+    if (!SDL_GetRectIntersection(&visible, &ClippingRect, &visible) ||
+        !SDL_GetRectIntersection(&visible, &bounds, &visible)) return FALSE;
+    auto* source = frame.coloredSurface(BkgrndImg.currentPalette());
+    if (!source) return FALSE;
+    auto tile = CreateCpuStorage(width, height, SDL_PIXELFORMAT_RGB565);
+    UINT32 key;
+    if (!tile || !SDL_GetSurfaceColorKey(source, &key) ||
+        !SDL_FillSurfaceRect(tile.get(), nullptr, key) ||
+        !SDL_SetSurfaceColorKey(tile.get(), true, key)) return FALSE;
+    // Include overlapping neighbors when a frame has a negative offset.
+    for (int y = frame.sOffsetY; y < height; y += height) {
+        for (int x = frame.sOffsetX; x < width; x += width) {
+            const SDL_Rect position{x, y, frame.usWidth, frame.usHeight};
+            if (!SDL_BlitSurface(source, nullptr, tile.get(), &position)) return FALSE;
         }
-        yc += ph;
     }
-
-    SetClippingRect(&OldClip);
-    return (TRUE);
+    const auto modulo = [](int value, int period) { return (value % period + period) % period; };
+    const int phaseX = modulo(visible.x - iDestX1 - Ox, width);
+    const int phaseY = modulo(visible.y - iDestY1 - Oy, height);
+    // SDL tiling starts at the clipped destination origin. Rotate one cell
+    // first so clipping and caller offsets do not reset the pattern phase.
+    auto phased = CreateCpuStorage(width, height, SDL_PIXELFORMAT_RGB565);
+    if (!phased || !SDL_FillSurfaceRect(phased.get(), nullptr, key) ||
+        !SDL_SetSurfaceColorKey(phased.get(), true, key)) return FALSE;
+    for (int y : {-phaseY, height - phaseY}) {
+        for (int x : {-phaseX, width - phaseX}) {
+            const SDL_Rect position{x, y, width, height};
+            if (!SDL_BlitSurface(tile.get(), nullptr, phased.get(), &position)) return FALSE;
+        }
+    }
+    if (!SDL_SetSurfaceRLE(phased.get(), true)) return FALSE;
+    auto destination = CreateCpuStorage(storage.w, storage.h, SDL_PIXELFORMAT_RGB565,
+                                        storage.pixels, storage.pitch);
+    return destination && SDL_BlitSurfaceTiled(phased.get(), nullptr, destination.get(), &visible);
 }
 // Video Surface Manipulation Functions
 

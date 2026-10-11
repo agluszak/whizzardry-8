@@ -1,6 +1,11 @@
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
    Distributed under the accompanying SFI Source Code license agreement. */
 #include <SDL3/SDL_log.h>
+#include <SDL3/SDL_pixels.h>
+#include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_surface.h>
+#include <algorithm>
+#include <span>
 #include <memory>
 #include <string_view>
 #include <optional>
@@ -186,6 +191,37 @@ UINT16 SetObjectShade(SGPVObject& pObj, UINT32 uiShade)
 std::optional<UINT8> SpriteFrame::paletteIndexAt(int x, int y) const
 {
     if (x < 0 || y < 0 || x >= usWidth || y >= usHeight) return std::nullopt;
-    const auto value = pixels[y * usWidth + x];
+    if (!indices) return std::nullopt;
+    const auto* row = reinterpret_cast<const UINT16*>(static_cast<const UINT8*>(indices->pixels) + y * indices->pitch);
+    const auto value = row[x];
     return value == kTransparent ? 0 : static_cast<UINT8>(value);
+}
+
+SDL_Surface* SpriteFrame::coloredSurface(std::span<const UINT16, 256> palette, bool mirror) const
+{
+    if (!indices) return nullptr;
+    if (!colored || !std::equal(colors.begin(), colors.end(), palette.begin())) {
+        auto surface = CreateCpuStorage(usWidth, usHeight, SDL_PIXELFORMAT_RGB565);
+        if (!surface) return nullptr;
+        // RGB555 is stored as raw words, not converted to RGB565. A key outside
+        // the whole LUT preserves opaque index zero and every possible shade.
+        UINT16 key = 0;
+        while (std::find(palette.begin(), palette.end(), key) != palette.end()) ++key;
+        for (int y = 0; y < usHeight; ++y) {
+            const auto* source = reinterpret_cast<const UINT16*>(static_cast<const UINT8*>(indices->pixels) + y * indices->pitch);
+            auto* destination = reinterpret_cast<UINT16*>(static_cast<UINT8*>(surface->pixels) + y * surface->pitch);
+            for (int x = 0; x < usWidth; ++x)
+                destination[x] = source[x] == kTransparent ? key : palette[source[x]];
+        }
+        if (!SDL_SetSurfaceColorKey(surface.get(), true, key) || !SDL_SetSurfaceRLE(surface.get(), true))
+            return nullptr;
+        colored = std::move(surface);
+        std::copy(palette.begin(), palette.end(), colors.begin());
+        mirrored = false;
+    }
+    if (mirror != mirrored) {
+        if (!SDL_FlipSurface(colored.get(), SDL_FLIP_HORIZONTAL)) return nullptr;
+        mirrored = mirror;
+    }
+    return colored.get();
 }

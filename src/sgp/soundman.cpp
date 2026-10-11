@@ -10,6 +10,7 @@
 #include <SDL3_mixer/SDL_mixer.h>
 #include <string_view>
 #include <algorithm>
+#include <atomic>
 #include <cmath>
 #include <string>
 #include <vector>
@@ -51,15 +52,15 @@ struct AudioPlayback
     // Track destruction synchronizes with mixing before closing its input.
     SoundClip clip;
     w8_native::AudioInput input;
+    std::atomic<bool> stopped = false;
     w8_native::Track track;
-    UINT32 uiPriority = PRIORITY_MAX;
     void (*EOSCallback)(void*) = nullptr;
     void* pCallbackData = nullptr;
     uint64_t uiTimeStamp = 0, uiFadeTime = 0;
     UINT32 uiFadeVolume = 0, uiFadeRate = 0;
     UINT32 volume = 127, playbackRate = 44100;
     Sint64 duration = -1;
-    BOOLEAN fMusic = FALSE, fStopAtZero = TRUE;
+    BOOLEAN fStopAtZero = TRUE;
     bool spatial = false;
     SOUND3DPOS position{};
 };
@@ -103,16 +104,43 @@ static std::vector<SoundClip> sampleCache;
 // Retain fire-and-forget playback until completion; callers own the same objects.
 static std::vector<SoundPlayback> activePlayback;
 
-static SoundPlayback CreatePlayback()
+static void ServiceFinishedPlayback()
 {
     const auto playing = activePlayback;
     for (const auto& playback : playing)
-        if (!SoundIsPlaying(playback)) FinishPlayback(playback);
+        if (playback->stopped.load(std::memory_order_acquire)) FinishPlayback(playback);
+}
+
+static BOOLEAN StopTaggedPlayback(const char* tag)
+{
+    auto owner = w8_native::retain_audio_mixer();
+    if (!fSoundSystemInit || !owner) return FALSE;
+    std::unique_ptr<MIX_Track*, decltype(&SDL_free)> tracks(
+        MIX_GetTaggedTracks(owner.get(), tag, nullptr), SDL_free);
+    if (!tracks) return FALSE;
+    bool playing = false;
+    for (auto** track = tracks.get(); *track; ++track) playing |= MIX_TrackPlaying(*track);
+    // Retain this batch before dispatch: callbacks may start another tagged track.
+    const auto batch = activePlayback;
+    if (!MIX_StopTag(owner.get(), tag, 0)) return FALSE;
+    for (const auto& playback : batch)
+        if (playback->stopped.load(std::memory_order_acquire)) FinishPlayback(playback);
+    return playing;
+}
+
+static SoundPlayback CreatePlayback()
+{
+    ServiceFinishedPlayback();
     if (!fSoundSystemInit) return {};
     auto playback = std::make_shared<AudioPlayback>();
     playback->owner = w8_native::retain_audio_mixer();
     playback->track.reset(MIX_CreateTrack(playback->owner.get()));
-    return playback->track ? playback : SoundPlayback{};
+    if (!playback->track || !MIX_TagTrack(playback->track.get(), "sound") ||
+        !MIX_SetTrackStoppedCallback(playback->track.get(), [](void* data, MIX_Track*) {
+            // The mixer thread must not dispatch game callbacks or destroy inputs.
+            static_cast<AudioPlayback*>(data)->stopped.store(true, std::memory_order_release);
+        }, playback.get())) return {};
+    return playback;
 }
 
 static std::string ResolveSoundPath(std::string_view path)
@@ -222,11 +250,7 @@ BOOLEAN SoundStop(SoundPlayback playback)
 // FUNCTION: WIZ8 0x00409020
 BOOLEAN SoundStopGroup(UINT32 uiPriority)
 {
-    bool stopped = false;
-    const auto playing = activePlayback;
-    for (const auto& playback : playing)
-        if (playback->uiPriority == uiPriority) stopped |= SoundStop(playback);
-    return stopped;
+    return StopTaggedPlayback(("priority:" + std::to_string(uiPriority)).c_str());
 }
 
 // FUNCTION: WIZ8 0x00409120
@@ -320,9 +344,7 @@ SoundPlayback SoundStartRandom(SoundClip uiSample)
 // FUNCTION: WIZ8 0x00409550
 BOOLEAN SoundStopAllRandom(void)
 {
-    const auto playing = activePlayback;
-    for (const auto& playback : playing)
-        if (playback->clip && (playback->clip->uiFlags & SAMPLE_RANDOM)) FinishPlayback(playback);
+    StopTaggedPlayback("random");
     for (const auto& clip : sampleCache)
         clip->uiFlags &= ~(SAMPLE_RANDOM | SAMPLE_LOCKED);
     return FALSE;
@@ -337,7 +359,7 @@ BOOLEAN SoundServiceStreams(void)
     for (const auto& playback : playing) {
         auto& channel = *playback;
         if (!channel.track) continue;
-        if (!SoundIsPlaying(playback)) { FinishPlayback(playback); continue; }
+        if (channel.stopped.load(std::memory_order_acquire)) { FinishPlayback(playback); continue; }
         const auto time = w8_get_ticks();
         if (channel.volume == channel.uiFadeVolume || time - channel.uiFadeTime < channel.uiFadeRate) continue;
         const auto volume = channel.volume < channel.uiFadeVolume ? channel.volume + 1 : channel.volume - 1;
@@ -381,9 +403,7 @@ BOOLEAN SoundSetCacheThreshhold(UINT32 uiThreshold)
 // FUNCTION: WIZ8 0x004098f0
 BOOLEAN SoundEmptyCache(void)
 {
-    const auto playing = activePlayback;
-    for (const auto& playback : playing)
-        if (!playback->fMusic) FinishPlayback(playback);
+    StopTaggedPlayback("sound");
     sampleCache.clear();
     guiSoundMemoryUsed = 0;
     return TRUE;
@@ -504,9 +524,12 @@ static SoundPlayback StartTrack(SoundPlayback playback, SoundClip sample, const 
     const UINT32 volume = parameters && parameters->uiVolume != SOUND_PARMS_DEFAULT ? parameters->uiVolume : guiSoundDefaultVolume;
     const UINT32 loops = parameters && parameters->uiLoop != SOUND_PARMS_DEFAULT ? parameters->uiLoop : 1;
     channel.uiFadeVolume = std::min(volume, 127u);
-    channel.uiPriority = parameters && parameters->uiPriority != SOUND_PARMS_DEFAULT ? parameters->uiPriority : PRIORITY_MAX;
+    const auto priority = parameters && parameters->uiPriority != SOUND_PARMS_DEFAULT ? parameters->uiPriority : PRIORITY_MAX;
+    const auto tag = "priority:" + std::to_string(priority);
     const auto options = SDL_CreateProperties();
-    bool ok = options && SetGain(channel, volume) &&
+    bool ok = options && MIX_TagTrack(channel.track.get(), tag.c_str()) &&
+              (!(sample && (sample->uiFlags & SAMPLE_RANDOM)) || MIX_TagTrack(channel.track.get(), "random")) &&
+              SetGain(channel, volume) &&
               SDL_SetNumberProperty(options, MIX_PROP_PLAY_LOOPS_NUMBER, loops == 0 ? -1 : Sint64(loops) - 1);
     if (channel.spatial) ok = ok && UpdateSpatial(channel);
     else
@@ -580,6 +603,7 @@ static void FinishPlayback(SoundPlayback playback)
     void* data = playback->pCallbackData;
     playback->EOSCallback = nullptr;
     playback->pCallbackData = nullptr;
+    MIX_SetTrackStoppedCallback(playback->track.get(), nullptr, nullptr);
     playback->track.reset();
     playback->input.reset();
     playback->clip.reset();
@@ -616,17 +640,14 @@ BOOLEAN SoundFileIsPlaying(std::string_view filename)
 // FUNCTION: WIZ8 0x0040a9a0
 void SoundSetMusic(SoundPlayback playback)
 {
-    if (playback) playback->fMusic = TRUE;
+    if (playback && playback->track && MIX_TagTrack(playback->track.get(), "music"))
+        MIX_UntagTrack(playback->track.get(), "sound");
 }
 
 // FUNCTION: WIZ8 0x0040a9d0
 BOOLEAN SoundStopMusic(void)
 {
-    bool stopped = false;
-    const auto playing = activePlayback;
-    for (const auto& playback : playing)
-        if (playback->fMusic) stopped |= SoundStop(playback);
-    return stopped;
+    return StopTaggedPlayback("music");
 }
 
 // FUNCTION: WIZ8 0x0040ab20

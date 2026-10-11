@@ -11,9 +11,11 @@
 #include <vector>
 #include <memory>
 #include <optional>
+#include <span>
 
 #include "Types.h"
 #include "himage.h"
+#include "wiz8/compat/surfaces.h"
 
 // ************************************************************************************
 //
@@ -61,12 +63,18 @@ typedef struct {
 struct SpriteFrame {
     static constexpr UINT16 kTransparent = 256;
 
-    std::vector<UINT16> pixels;
+    SDLSurfaceOwner indices{nullptr, SDL_DestroySurface};
     std::optional<UINT8> paletteIndexAt(int x, int y) const;
+    SDL_Surface* coloredSurface(std::span<const UINT16, 256> palette, bool mirror = false) const;
     INT16 sOffsetX = 0;
     INT16 sOffsetY = 0;
     UINT16 usHeight = 0;
     UINT16 usWidth = 0;
+
+private:
+    mutable SDLSurfaceOwner colored{nullptr, SDL_DestroySurface};
+    mutable Palette16 colors{};
+    mutable bool mirrored = false;
 };
 
 // The video object contains different data based on it's type, compressed or not

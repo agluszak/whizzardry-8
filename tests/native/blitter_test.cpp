@@ -308,3 +308,107 @@ TEST_CASE("SGP sprite clipping preserves inclusive frame bounds")
     frame.usWidth = 0;
     REQUIRE_FALSE(BltIsClipped(object, 25, 1, 0, &clip));
 }
+
+TEST_CASE("SDL sprite surfaces preserve opaque palette words, shade changes and RLE mirrors")
+{
+    SGPVObject object{};
+    ETRLEObject frame{};
+    frame.usWidth = 4;
+    frame.usHeight = 1;
+    const UINT8 data[]{2, 0, 255, 0x81, 1, 1, 0};
+    frame.uiDataLength = sizeof(data);
+    REQUIRE(DecodeVideoObjectSprites(object, {&frame, 1}, data));
+    auto& sprite = object.sprites[0];
+    for (unsigned i = 0; i < object.palette.size(); ++i) object.palette[i] = i;
+    for (unsigned shade = 0; shade < 3; ++shade) {
+        if (shade) {
+            object.palette[0] = 0xffff;
+            object.palette[1] = shade == 1 ? 256 : 0;
+            object.palette[255] = 0x8000;
+        }
+        for (bool mirror : {false, true, false, true, false}) {
+            UINT16 pixels[]{0x1234, 0x1234, 0x1234, 0x1234, 0x1234, 0x1234};
+            const SDL_Rect clip{0, 0, 4, 1};
+            REQUIRE(BltSpriteTo16BPPBuffer(pixels, sizeof(pixels), sprite, object.palette.data(),
+                                          0, 0, &clip, mirror, SpriteDrawOp::Transparent));
+            const UINT16 expected[]{object.palette[0], object.palette[255], 0x1234, object.palette[1]};
+            for (int x = 0; x < 4; ++x) REQUIRE(pixels[x] == expected[mirror ? 3 - x : x]);
+            REQUIRE(pixels[4] == 0x1234);
+            REQUIRE(pixels[5] == 0x1234);
+            auto* surface = sprite.coloredSurface(object.palette, mirror);
+            REQUIRE(SDL_SurfaceHasRLE(surface));
+            UINT32 key = 0;
+            REQUIRE(SDL_GetSurfaceColorKey(surface, &key));
+            REQUIRE(std::find(object.palette.begin(), object.palette.end(), key) == object.palette.end());
+        }
+    }
+}
+
+TEST_CASE("SDL tiled backgrounds preserve clipping, phase, transparent gaps and frame offsets")
+{
+    struct RestoreClip {
+        SDL_Rect previous = ClippingRect;
+        ~RestoreClip() { ClippingRect = previous; }
+    } restore;
+    SGPVObject object{};
+    for (unsigned i = 0; i < object.palette.size(); ++i) object.palette[i] = i;
+    ETRLEObject frame{};
+    frame.usWidth = 4;
+    frame.usHeight = 3;
+    const UINT8 data[]{2, 0, 1, 0x81, 1, 2, 0,
+                       0x81, 3, 3, 4, 5, 0,
+                       4, 6, 7, 8, 9, 0};
+    frame.uiDataLength = sizeof(data);
+    REQUIRE(DecodeVideoObjectSprites(object, {&frame, 1}, data));
+    SGPVSurface actual{};
+    actual.ownedSurface = CreateCpuSurface(17, 11, 16);
+    SGPVSurface expected{};
+    expected.ownedSurface = CreateCpuSurface(17, 11, 16);
+    const SDL_Rect area{-2, 1, 17, 9};
+    for (int offsetY : {-2, 0, 2}) {
+        for (int offsetX : {-3, 0, 2}) {
+            object.sprites[0].sOffsetX = offsetX;
+            object.sprites[0].sOffsetY = offsetY;
+            const int width = frame.usWidth + offsetX, height = frame.usHeight + offsetY;
+            for (int oy : {-7, -1, 0, 1, 7}) {
+                for (int ox : {-9, -1, 0, 1, 9}) {
+                    for (SDL_Rect clip : {SDL_Rect{0, 0, 17, 11}, SDL_Rect{2, 3, 8, 5}}) {
+                        CAPTURE(offsetX, offsetY, ox, oy, clip.x, clip.y);
+                        ClippingRect = clip;
+                        FillCpuSurface(actual.cpu(), 0x1234);
+                        FillCpuSurface(expected.cpu(), 0x1234);
+                        REQUIRE(ImageFillVideoSurfaceArea(actual, area.x, area.y,
+                                                          area.x + area.w, area.y + area.h,
+                                                          object, 0, ox, oy));
+                        REQUIRE(SDL_RectsEqual(&ClippingRect, &clip));
+                        const auto modulo = [](int value, int period) { return (value % period + period) % period; };
+                        const int startX = area.x + modulo(ox, width) - width;
+                        const int startY = area.y + modulo(oy, height) - height;
+                        SDL_Rect visible;
+                        REQUIRE(SDL_GetRectIntersection(&area, &clip, &visible));
+                        ClippingRect = visible;
+                        for (int y = startY; y < area.y + area.h; y += height)
+                            for (int x = startX; x < area.x + area.w; x += width)
+                                REQUIRE(BltVideoObject(expected, object, 0, x, y,
+                                                       VO_BLT_SRCTRANSPARENCY, nullptr));
+                        ClippingRect = clip;
+                        const auto& a = *actual.cpu().surface;
+                        const auto& b = *expected.cpu().surface;
+                        for (int y = 0; y < a.h; ++y) {
+                            const auto* rowA = reinterpret_cast<const UINT16*>(static_cast<const UINT8*>(a.pixels) + y * a.pitch);
+                            const auto* rowB = reinterpret_cast<const UINT16*>(static_cast<const UINT8*>(b.pixels) + y * b.pitch);
+                            for (int x = 0; x < a.w; ++x) {
+                                CAPTURE(x, y);
+                                REQUIRE(rowA[x] == rowB[x]);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    REQUIRE_FALSE(ImageFillVideoSurfaceArea(actual, 0, 0, 0, 3, object, 0, 0, 0));
+    REQUIRE_FALSE(ImageFillVideoSurfaceArea(actual, 0, 0, 4, 3, object, 1, 0, 0));
+    object.sprites[0].sOffsetX = -4;
+    REQUIRE_FALSE(ImageFillVideoSurfaceArea(actual, 0, 0, 4, 3, object, 0, 0, 0));
+}

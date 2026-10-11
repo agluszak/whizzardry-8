@@ -1497,7 +1497,8 @@ bool IsCursorInRectangle(int left, int top, int right, int bottom)
     SDL_Point point;
 
     SGPMouseGetPos(&point);
-    return point.x >= left && point.x <= right && point.y >= top && point.y <= bottom;
+    const SDL_Rect bounds{left, top, right - left + 1, bottom - top + 1};
+    return SDL_PointInRect(&point, &bounds);
 }
 
 /* The atom's packed mouse position plus the cursor hotspot, split into the

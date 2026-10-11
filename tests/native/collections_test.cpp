@@ -504,3 +504,39 @@ TEST_CASE("region_storage_grows_without_aliasing_sets")
     REQUIRE(g_region_sets.size() > 300);
     REQUIRE(g_region_sets[second].Regions()[0] == b);
 }
+
+TEST_CASE("SDL region rectangles keep inclusive edges and circle hit tests")
+{
+    const auto size = g_regions.size();
+    struct RestoreCatalog {
+        size_t size;
+        ~RestoreCatalog() { g_regions.resize(size); }
+    } restore{size};
+    auto& region = g_regions.emplace_back();
+    region.flags = W8_REGION_RECTANGLE;
+    region.x1 = 10;
+    region.y1 = 20;
+    region.x2 = 30;
+    region.y2 = 40;
+    for (unsigned short x : {10, 20, 30})
+        for (unsigned short y : {20, 30, 40}) REQUIRE(RegionContainsPoint(size, x, y));
+    REQUIRE_FALSE(RegionContainsPoint(size, 9, 30));
+    REQUIRE_FALSE(RegionContainsPoint(size, 31, 30));
+    REQUIRE_FALSE(RegionContainsPoint(size, 20, 19));
+    REQUIRE_FALSE(RegionContainsPoint(size, 20, 41));
+    region.x2 = region.x1;
+    region.y2 = region.y1;
+    REQUIRE(RegionContainsPoint(size, 10, 20));
+    REQUIRE_FALSE(RegionContainsPoint(size, 11, 20));
+    region.x2 = 9;
+    REQUIRE_FALSE(RegionContainsPoint(size, 10, 20));
+    region.x1 = region.y1 = 65535;
+    region.x2 = region.y2 = 65535;
+    REQUIRE(RegionContainsPoint(size, 65535, 65535));
+    REQUIRE_FALSE(RegionContainsPoint(size, 0, 0));
+    region.flags = W8_REGION_CIRCLE;
+    region.x1 = region.y1 = 20;
+    region.x2 = 5;
+    REQUIRE(RegionContainsPoint(size, 23, 24));
+    REQUIRE_FALSE(RegionContainsPoint(size, 24, 24));
+}
