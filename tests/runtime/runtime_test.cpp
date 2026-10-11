@@ -21,6 +21,7 @@
 #include <string>
 #include <vector>
 #include <cstdint>
+#include <cstddef>
 #include <iterator>
 #include <memory>
 #include <string_view>
@@ -692,7 +693,8 @@ void GameStartScenario()
 }
 
 void CheckWorldRender(Game& game)
-{    W8World* world = GetWorld();
+{
+    W8World* world = GetWorld();
     unsigned enabled = 0;
     for (unsigned i = 0; i <= world->octree->GetMeshCount(); ++i)
         if (world->psrMeshes[i] && !world->psrMeshes[i]->testFlag(srNode::FLAG_DISABLE))
