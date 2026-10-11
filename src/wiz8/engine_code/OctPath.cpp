@@ -1,3 +1,4 @@
+#include <SDL3/SDL_pixels.h>
 #include "surrender/srScene.h" // IWYU pragma: keep - complete scene type for conversion to srNode.
 #include <fmt/format.h>
 #include <unordered_map>
@@ -1044,7 +1045,7 @@ bool W8PathingService::TestAttachmentHopDoor(W8NavigatorAttachment* attachment)
                         Trigger* trigger = prop->GetGDPropOwnerTrigger();
                         if (trigger != 0) {
                             srVector3T<float> position;
-                            prop->GetPosition(&position);
+                            position = prop->GetPosition();
                             float distance = glm::dot((position - center).glmValue(),
                                                       (position - center).glmValue());
                             if (distance < nearest_distance) {
@@ -4506,7 +4507,7 @@ void W8PathingService::ActivateMovementTrigger(W8NavigatorMovementState* movemen
             if (prop->GetActivationState() != 0 && trigger != 0 &&
                 (trigger->flags & W8_TRIGGER_ENABLED) != 0) {
                 srVector3T<float> center;
-                prop->GetPosition(&center);
+                center = prop->GetPosition();
                 srVector3T<float> difference = center - midpoint;
                 double distance = difference.LengthSquared();
                 if (distance < nearest_distance) {
@@ -5718,7 +5719,7 @@ unsigned int W8PathingService::EditWaypointLinkFlags(const char* title, unsigned
     GetWorldColour(&colour_backup);
     PublishLightDirection(&colour_saved);
     SetFont(g_smfnt_font);
-    SetRGBFontShadow(0, 0, 0);
+    SetRGBFontShadow(SDL_Color{0, 0, 0, SDL_ALPHA_OPAQUE});
     g_smfnt_font.setPalette(g_font_state_palettes[W8_FONT_PALETTE_YELLOW]);
     if (direction == 0 || (waypoint_editor_flags & 2) != 0) {
         direction = 3;
@@ -6265,7 +6266,7 @@ bool W8PathParameters::PredictNavigatorCollision()
             position = navigator->GetPosition();
             delta = position - movement->position;
             if (g_float_zero < glm::dot(delta.glmValue(), direction.glmValue())) {
-                navigator->GetVelocity(&other_velocity);
+                other_velocity = navigator->GetVelocity();
                 relative = movement->velocity - other_velocity;
                 relative.Normalize();
                 approach = glm::dot(delta.glmValue(), relative.glmValue());
@@ -6338,7 +6339,7 @@ bool W8PathParameters::HandleObstacleAhead()
     if (velocity_length == g_float_zero) {
         if (g_octree->pathing->GetNeighborSlideDirection(&movement->position, &direction,
                                                          &escape)) {
-            movement->attachment->GetNextPosition(&waypoint);
+            waypoint = movement->attachment->GetNextPosition();
             waypoint -= movement->position;
             waypoint.y = 0.0f;
             if ((escape.z * waypoint.x + waypoint.z * -escape.x) *
@@ -6357,7 +6358,7 @@ bool W8PathParameters::HandleObstacleAhead()
             ahead -= movement->position;
             distance = ahead.Length();
             if (distance <= reach) {
-                movement->attachment->GetNextPosition(&waypoint);
+                waypoint = movement->attachment->GetNextPosition();
                 waypoint -= movement->position;
                 waypoint.y = 0.0f;
                 waypoint.SetLength(1.0);
@@ -6571,7 +6572,7 @@ void W8PathParameters::SteerFromPathStart(W8NavigatorMovementState* movement, bo
             IntegrateSteering();
             return;
         } else {
-            movement->attachment->GetNextPosition(&target);
+            target = movement->attachment->GetNextPosition();
             AccumulateSeekForce();
         }
     }
@@ -6611,7 +6612,7 @@ bool W8PathParameters::SteerAlongPath(W8NavigatorMovementState* movement, bool a
             IntegrateSteering();
             return false;
         }
-        movement->attachment->GetNextPosition(&target);
+        target = movement->attachment->GetNextPosition();
         AccumulateSeekForce();
     }
 steered:

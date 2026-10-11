@@ -964,8 +964,8 @@ static void DrawCampHand(W8EquipSlot slot, int hand_index, int top, int count_ce
             g_empty_hand_catalog_ids[g_review_character->iRace * W8_RACE_DWARF + hand_index], 0, 0,
             0x85, top, VO_BLT_SRCTRANSPARENCY, 0);
     } else {
-        DrawCatalogImage(GetFrameBufferSurface(), g_item_video_objects.GetOrCreateVideoObject(item_id), 0, 2,
-                         0x84, top, VO_BLT_SRCTRANSPARENCY, 0);
+        DrawSprite(GetFrameBufferSurface(), g_item_video_objects.Sprites(item_id), 2, 0x84, top,
+                   VO_BLT_SRCTRANSPARENCY, 0);
         unsigned char count = g_review_character->EquippedItem[slot].stack_count;
         if (count != 0) {
             std::string text;

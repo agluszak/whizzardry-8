@@ -1,3 +1,4 @@
+#include <SDL3/SDL_pixels.h>
 #include <tuple>
 #include <fmt/format.h>
 #include <memory>
@@ -1630,7 +1631,7 @@ void W8OptionsSlider::Redraw(bool full_redraw)
         if (m_enabled && m_pixelPosition > 13) {
             int left = m_pPanel->m_bounds.left + m_left;
             int top = m_pPanel->m_bounds.top + m_top;
-            unsigned short color = Get16BPPColor(0x00ff00);
+            unsigned short color = Get16BPPColor(SDL_Color{0, 255, 0, SDL_ALPHA_OPAQUE});
             int end = m_pixelPosition < 74 ? m_pixelPosition - 1 : 73;
             ColorFillVideoSurfaceArea(GetFrameBufferSurface(), left + 13, top + 7, left + end, top + 9, color);
             if (m_pixelPosition > 83) {

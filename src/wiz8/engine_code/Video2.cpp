@@ -1,4 +1,5 @@
 #include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_video.h>
 #include <fmt/format.h>
 #include <ios>
@@ -443,45 +444,25 @@ void ShutdownVideoScenes(void)
     g_primary_color_surface.reset();
 }
 
-/* Derives the 16-bit channel masks and their leading-bit positions from the
-   renderer's reviewed pixel-format selector.  The startup configuration uses
-   format 9, RGB 5:5:5 with the high bit reserved. */
+/* Selects the SDL packed format for SGP's 16-bit framebuffer and sprites.
+   The startup configuration uses ARGB1555; the high bit is an opaque-pixel
+   marker, while zero is the software blitters' transparent pixel. */
 // FUNCTION: WIZ8 0x004265c0
 void Initialize16BitPixelFormatMasks(void)
 {
-    unsigned short bit;
-
-    if (g_pixel_format == 7) {
-        gusAlphaMask = 0;
-        gusRedMask = 0xf800;
-        gusGreenMask = 0x07e0;
+    switch (g_pixel_format) {
+    case 7:
+        g_sgp_pixel_format = SDL_PIXELFORMAT_RGB565;
         g_color_key = 0x7bef;
-    } else if (g_pixel_format == 8) {
-        gusAlphaMask = 0;
-        gusRedMask = 0x7c00;
-        gusGreenMask = 0x03e0;
+        break;
+    case 8:
+        g_sgp_pixel_format = SDL_PIXELFORMAT_XRGB1555;
         g_color_key = 0x3def;
-    } else if (g_pixel_format == 9) {
-        gusAlphaMask = 0x8000;
-        gusRedMask = 0x7c00;
-        gusGreenMask = 0x03e0;
+        break;
+    case 9:
+        g_sgp_pixel_format = SDL_PIXELFORMAT_ARGB1555;
         g_color_key = 0x3def;
-    } else {
-        return;
-    }
-
-    gusBlueMask = 0x001f;
-    gusRedShift = 8;
-    for (bit = 0x8000; (gusRedMask & bit) == 0; bit >>= 1) {
-        --gusRedShift;
-    }
-    gusGreenShift = 8;
-    for (bit = 0x8000; (gusGreenMask & bit) == 0; bit >>= 1) {
-        --gusGreenShift;
-    }
-    gusBlueShift = 8;
-    for (bit = 0x8000; (0x001f & bit) == 0; bit >>= 1) {
-        --gusBlueShift;
+        break;
     }
 }
 
@@ -505,7 +486,15 @@ void ReleasePrimaryCpuSurface(void)
 
 unsigned char InitializePrimaryCpuSurface(void)
 {
-    primarySurface.ownedSurface = CreateCpuSurface(640, 480, 16, gusRedMask, gusGreenMask, gusBlueMask);
+    const auto* pixel_format = SDL_GetPixelFormatDetails(g_sgp_pixel_format);
+    if (!pixel_format)
+        return 0;
+    // The alpha marker is retained as a raw pixel bit in CPU storage.
+    const auto format = SDL_GetPixelFormatForMasks(16,
+        pixel_format->Rmask, pixel_format->Gmask, pixel_format->Bmask, 0);
+    if (format == SDL_PIXELFORMAT_UNKNOWN)
+        return 0;
+    primarySurface.ownedSurface = CreateCpuSurface(640, 480, format);
     primarySurface.usWidth = 640;
     primarySurface.usHeight = 480;
     primarySurface.ubBitDepth = 16;
@@ -602,8 +591,8 @@ unsigned char OpenRendererWindow(void)
 CpuSurface* BeginVideoPresentation(void)
 {
     const auto& source = primarySurface.cpu();
-    videoSurfaceOwner = CreateCpuSurface(source.surface->w, source.surface->h, 16,
-                                        source.redMask, source.greenMask, source.blueMask);
+    videoSurfaceOwner = CreateCpuSurface(source.surface->w, source.surface->h,
+                                         source.surface->format);
     g_flush_pending = false;
     return videoSurfaceOwner.get();
 }
@@ -2298,16 +2287,6 @@ void VideoGetClientRect(SDL_Rect* rect)
 SGPVSurface& GetFrameBufferSurface()
 {
     return primarySurface;
-}
-
-// FUNCTION: WIZ8 0x00421f40
-unsigned char GetPrimaryRGBDistributionMasks(unsigned int* red, unsigned int* green,
-                                             unsigned int* blue)
-{
-    *red = gusRedMask;
-    *green = gusGreenMask;
-    *blue = gusBlueMask;
-    return 1;
 }
 
 /* The retail empty video-capture entry folds with the shared 0x4023a0 ret. */

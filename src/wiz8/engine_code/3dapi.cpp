@@ -904,7 +904,7 @@ unsigned char AdjustWorldCollisionPosition(float radius, srVector3T<float>* posi
             W8Item* owner = item->p3D;
             if (owner != 0) {
                 srVector3T<float> center;
-                owner->GetSearchPosition(&center);
+                center = owner->GetSearchPosition();
                 const auto other_radius = owner->GetBoundsRadius();
                 srVector3T<float> delta = center - *position;
                 if (delta.Length() < other_radius + radius) {

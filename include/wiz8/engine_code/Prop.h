@@ -118,13 +118,12 @@ public:
        path values re-synced while a running animation is active. */
     bool LoadAnimationState(wiz8::File* hFile);        /* 0x0044DBD0 */
     int BuildOrRefreshPathingRepresentation(); /* 0x0044DEA0 */
-    /* When the animation advanced exactly one frame this writes the current
-       position minus the home position into `out`; otherwise `out` is zeroed.
-       `point` is accepted but never read. */
-    char GetDelta(srVector3T<float>* out, const srVector3T<float>* point); /* 0x0044E130 */
+    /* Current minus previous position when the animation advances exactly
+       one frame; otherwise zero. */
+    srVector3T<float> GetDelta(); /* 0x0044E130 */
     /* The prop's position for external queries: animation_position while its
        animation runs, else the rep node's location. */
-    void GetPosition(srVector3T<float>* out); /* 0x0044E2C0 */
+    srVector3T<float> GetPosition() const; /* 0x0044E2C0 */
     /* Mirror of GetPosition: stores `position` in animation_position while the
        animation runs, else moves the rep node through SetLocation. */
     void SetPosition(srVector3T<float>* position); /* 0x0044E310 */

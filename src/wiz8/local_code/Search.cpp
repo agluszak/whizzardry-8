@@ -172,7 +172,7 @@ void W8Searchable::GetPosition(srVector3T<float>* position)
     position->SetZero();
     if (world_item != 0) {
         if (world_item->p3D != 0) {
-            world_item->p3D->GetSearchPosition(position);
+            *position = world_item->p3D->GetSearchPosition();
             return;
         }
         position->Set(world_item->position.x, world_item->position.y + g_octree_cell_scale,

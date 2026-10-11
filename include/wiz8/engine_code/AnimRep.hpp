@@ -67,10 +67,10 @@ public:
     virtual W8AnimRepBase* Clone();
 
     void SetLocation(const srVector3T<float>* location);
-    void GetLocation(srVector3T<float>* location) const;
-    void GetLocalLocation(srVector3T<float>* location) const;
+    srVector3T<float> GetLocation() const;
+    srVector3T<float> GetLocalLocation() const;
     void SetRotation(const glm::mat3* rotation);
-    void GetRotation(glm::mat3* rotation);
+    glm::mat3 GetRotation() const;
 
 public:
     srVector3T<float> location;

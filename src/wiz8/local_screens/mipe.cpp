@@ -1178,7 +1178,7 @@ void HandleMonsterDebugKey(unsigned short key)
             }
             monster = info->p3D;
             GetWorldCursorPosition(&position);
-            MonsterGetLocation(monster, &location);
+            location = MonsterGetLocation(monster);
             MonsterAddPathPoint(monster, &position);
             MonsterSetAnimating(monster, true);
             MonsterSetCycle(monster, 4);
@@ -2956,7 +2956,7 @@ void DragSelectionWithCursor(void)
         for (index = 0; index < static_cast<int>(g_mipe_state->monster_ids.size()); ++index) {
             info = MonsterGetScriptPartByLocationIndex(MonsterGetIndexByLocationID(
                 0x114c, MIPE_CPP, g_mipe_state->monster_ids[index], true));
-            MonsterGetLocalLocation(info->p3D, &position);
+            position = MonsterGetLocalLocation(info->p3D);
             moved.Set(cursor.x - g_mipe_state->drag_anchor.x + position.x,
                       cursor.y - g_mipe_state->drag_anchor.y + position.y,
                       cursor.z - g_mipe_state->drag_anchor.z + position.z);

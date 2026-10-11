@@ -70,9 +70,6 @@ BOOLEAN ImageFillVideoSurfaceArea(SGPVSurface& uiDestVSurface, INT32 iDestX1, IN
 std::unique_ptr<SGPVSurface> CreateVideoSurface(UINT16 width, UINT16 height, UINT8 bits);
 std::unique_ptr<SGPVSurface> LoadVideoSurface(std::string_view filename);
 
-// Sets the packed source color key
-void SetVideoSurfaceTransparencyColor(SGPVSurface& surface, COLORVAL color);
-
 /////////////////////////////////////////////////////////////////////////////////////////////////////
 //
 // Blt Functions

@@ -1,3 +1,4 @@
+#include <SDL3/SDL_pixels.h>
 #include <fmt/format.h>
 #include <memory>
 #include <SDL3/SDL_rect.h>
@@ -10,6 +11,7 @@
 #include <exception>
 #include <iterator>
 #include <span>
+#include <string>
 #include <string_view>
 #include <unordered_map>
 #include <utility>
@@ -500,15 +502,15 @@ void CreateAutomapButtons(void)
 {
     std::vector<std::unique_ptr<W8DialogButton>> buttons(16);
     for (size_t index = 0; index < buttons.size(); ++index) {
-        const auto& slot = g_video_slots.at(g_automap_button_catalogs[index]);
-        const auto& frame = g_video_frames.at(slot.first_frame);
-        const int base_frame = slot.y_offset;
-        if (frame.storage_kind != W8_VIDEO_STORAGE_OBJECT) continue;
+        const int catalog_id = g_automap_button_catalogs[index];
+        const int base_frame = GetCatalogVideoObjectYOffset(catalog_id);
+        if (GetCatalogStorageKind(catalog_id) != W8_VIDEO_STORAGE_OBJECT) continue;
         auto button = std::make_unique<W8DialogButton>();
         const auto action = g_automap_button_callbacks[index];
         W8DialogButtonCallback callback;
         if (action) callback = [action](W8DialogButton*) { action(); };
-        if (button->Configure(frame.path.c_str(), base_frame + 3, base_frame, base_frame + 1,
+        if (button->Configure(GetCatalogVideoObjectPath(catalog_id).data(), base_frame + 3,
+                              base_frame, base_frame + 1,
                               base_frame + 2, base_frame + 2, callback, nullptr, false,
                               BUTTON_PRIORITY_HIGHEST, g_automap_button_tooltips[index], nullptr, nullptr)) {
             button->SetPosition(g_automap_button_positions[index].x,
@@ -1795,7 +1797,7 @@ void RenderAutomapMarkers(void)
         W8Monster* monster = info->p3D;
         srVector3T<float> location;
         location = 0.0f;
-        monster->m_pRep->GetLocation(&location);
+        location = monster->m_pRep->GetLocation();
         FindAutomapLayerAtHeight(location.y);
         if (g_automap_show_all_monsters || detect_all ||
             (!monster->disabled && info->party_threat.sight_state == W8_SIGHT_SEEN)) {
@@ -1834,7 +1836,7 @@ void RenderAutomapMarkers(void)
             continue;
         }
         srVector3T<float> location;
-        item->GetSearchPosition(&location);
+        location = item->GetSearchPosition();
         int layer = FindAutomapLayerAtHeight(location.y);
         if ((static_cast<W8ItemRep*>(item->m_pRep)->flags & W8_ITEM_ENTITY_NO_PICKUP) == 0 &&
             (detect_all ||
@@ -1908,7 +1910,7 @@ void RenderAutomapMarkers(void)
                         pitch = destination_storage.pitch;
                         char* buffer = static_cast<char*>(destination_storage.pixels);
                         SetClippingRegionAndImageWidth(pitch, 0xc, 0x20, 0x1c7, 0x1b3);
-                        int color = Get16BPPColor(0x569bef);
+                        int color = Get16BPPColor(SDL_Color{239, 155, 86, SDL_ALPHA_OPAQUE});
                         int length = g_wiz_text_font_secondary.textWidth(note->text);
                         RectangleDraw(TRUE, x - 1, y, x + length + 2, y + (font_height & 0xffff),
                                       color, buffer);
@@ -1934,20 +1936,17 @@ static void ScaleAutomapMarker(stModelInstance2D* marker, float factor)
 // FUNCTION: WIZ8 0x005833E0
 stModelInstance2D* CreateAutomapItemMarker(int item_id)
 {
-    int object = g_item_video_objects.GetOrCreateVideoObject(item_id);
-    unsigned short region = GetCatalogVideoObjectYOffset(object);
-    const auto& video_object = GetCatalogVideoObject(object, 0);
-    if (region >= video_object.sprites.size()) {
+    auto& video_object = g_item_video_objects.Sprites(item_id);
+    if (video_object.sprites.empty()) {
         return 0;
     }
-    const SpriteFrame& properties = video_object.sprites[region];
+    const SpriteFrame& properties = video_object.sprites.front();
     auto surface = std::make_shared<srColorSurface>(srPixelConvert::SURFACE_ARGB1555, 0x40, 0x40);
     surface->fill(0);
     surface->setFilter(&srBSplineFilter);
     int y = (0x40 - properties.usHeight) / 2;
     int x = (0x40 - properties.usWidth) / 2;
-    BlitVideoObjectToColorSurface(GetCatalogVideoObject(object, 0),
-                                  GetCatalogVideoObjectYOffset(object), *surface, x, y);
+    BlitVideoObjectToColorSurface(video_object, 0, *surface, x, y);
     float factor = (g_float_one / (g_automap_zoom * 0.00004f)) * 0.44f;
     stModelInstance2D* marker = static_cast<stModelInstance2D*>(
         MakePolygonBrush(g_scene_fullscreen, surface, surface->getWidth() * g_viewport_x_scale,

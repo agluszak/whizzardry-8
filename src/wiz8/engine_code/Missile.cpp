@@ -184,7 +184,7 @@ float AdvanceMissileAI(W8AIMissile* record, srVector3T<float>* out, unsigned int
         return 0.0f;
     }
     advance = steps * record->speed_per_step;
-    record->missile->GetVelocity(&direction);
+    direction = record->missile->GetVelocity();
     *out = direction;
     position = record->missile->GetPosition();
     out->Set(position.x + direction.x * advance, position.y + direction.y * advance,

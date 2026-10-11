@@ -21,13 +21,12 @@ struct SurfaceColorKey
 struct CpuSurface
 {
     SDLSurfaceOwner surface{nullptr, SDL_DestroySurface};
-    uint32_t redMask = 0, greenMask = 0, blueMask = 0, alphaMask = 0;
     std::optional<SurfaceColorKey> sourceKey, destinationKey;
     std::optional<std::vector<SDL_Rect>> clipRegions;
 };
 
-std::unique_ptr<CpuSurface> CreateCpuSurface(uint16_t width, uint16_t height, uint8_t bits,
-    uint32_t red = 0, uint32_t green = 0, uint32_t blue = 0, uint32_t alpha = 0);
+std::unique_ptr<CpuSurface> CreateCpuSurface(uint16_t width, uint16_t height,
+                                              SDL_PixelFormat format);
 void SetSurfaceClipRegions(CpuSurface& surface, std::span<const SDL_Rect> rectangles);
 void FillCpuSurface(CpuSurface& destination, uint32_t color, const SDL_Rect* rectangle = nullptr);
 void BlitCpuSurface(CpuSurface& destination, const SDL_Rect* destinationRect, CpuSurface& source,

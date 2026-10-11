@@ -194,9 +194,9 @@ struct ButtonGraphics {
     // Each resource owns its decoded sprite sheet. Buttons may share the resource.
     static ButtonImage Load(std::string_view filename, INT32 grayed, INT32 off_normal,
                             INT32 off_hilite, INT32 on_normal, INT32 on_hilite);
-    SGPVObject& object() const { return *ownedObject; }
+    SGPVObject& object() const { return *sprites; }
 private:
-    std::unique_ptr<SGPVObject> ownedObject;
+    std::shared_ptr<SGPVObject> sprites;
 public:
     INT32 Grayed;     // Index to use for a "Grayed-out" button
     INT32 OffNormal;  // Index to use when button is OFF
@@ -210,7 +210,7 @@ public:
 
 struct GenericButtonImages {
     // Off-normal, on-normal, grayed, off-highlight, on-highlight, background.
-    std::array<std::unique_ptr<SGPVObject>, 6> frames;
+    std::array<std::shared_ptr<SGPVObject>, 6> frames;
     UINT16 fill_color = 0;
     UINT16 background_frame = 0;
     INT16 offset_x = 0;

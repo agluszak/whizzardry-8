@@ -1294,6 +1294,12 @@ W8Region& OwnedRegion::region()
     return g_regions[index_];
 }
 
+const W8Region& OwnedRegion::region() const
+{
+    if (!*this) throw std::logic_error("Accessing an unbound owned region");
+    return g_regions[index_];
+}
+
 void OwnedRegion::reset()
 {
     if (*this) RemoveRegionFromSet(set_, index_);

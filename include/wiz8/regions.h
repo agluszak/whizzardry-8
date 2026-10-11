@@ -116,6 +116,7 @@ public:
 
     explicit operator bool() const;
     W8Region& region();
+    const W8Region& region() const;
     unsigned int index() const { return index_; }
     void reset();
 

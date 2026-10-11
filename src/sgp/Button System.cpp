@@ -23,6 +23,7 @@
 #include "vobject_blitters.h"
 #include "Button System.h"
 #include "wiz8/regions.h"
+#include "image_assets.h"
 #include "Font.h"
 #include "line.h"
 #include "vsurface.h"
@@ -88,6 +89,8 @@ void ReleaseButtonRegion(GUI_BUTTON* button)
     RemoveRegionFromSet(button_region_set, index);
 }
 
+}
+
 INT32 ButtonReasonForRegionInput(const W8Region& region, const InputAtom& event)
 {
     switch (event.usEvent) {
@@ -111,6 +114,7 @@ INT32 ButtonReasonForRegionInput(const W8Region& region, const InputAtom& event)
     return BUTTON_REASON_NONE;
 }
 
+namespace {
 unsigned char DispatchButtonRegionEvent(const InputAtom* event, W8Region* region)
 {
     auto* button = region->button;
@@ -237,8 +241,8 @@ ButtonImage ButtonGraphics::Load(std::string_view filename, INT32 grayed, INT32 
         return {};
 
     auto image = std::make_shared<ButtonGraphics>();
-    image->ownedObject = LoadVideoObject(filename);
-    if (!image->ownedObject)
+    image->sprites = g_image_assets.sprites(filename);
+    if (!image->sprites)
         return {};
 
     image->MaxWidth = image->MaxHeight = 0;
@@ -289,7 +293,7 @@ GenericButtonImage LoadGenericGraphics(const std::array<std::string_view, 6>& fi
     for (size_t index = 0; index < filenames.size(); ++index) {
         if (filenames[index].empty()) continue;
         auto& object = image->frames[index];
-        object = LoadVideoObject(filenames[index]);
+        object = g_image_assets.sprites(filenames[index]);
         const bool valid = object && (index == 5
             ? background_frame >= 0 && static_cast<size_t>(background_frame) < object->sprites.size()
             : object->sprites.size() >= 9 && object->sprites[0].usWidth > 0 &&

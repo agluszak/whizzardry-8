@@ -4110,15 +4110,15 @@ bool MonsterUsesCurrentModelInstance(W8GrCycle* cycle)
 }
 
 // FUNCTION: WIZ8 0x004c5730
-void MonsterGetLocation(W8Monster* monster, srVector3T<float>* location)
+srVector3T<float> MonsterGetLocation(const W8Monster* monster)
 {
-    monster->m_pRep->GetLocation(location);
+    return monster->m_pRep->GetLocation();
 }
 
 // FUNCTION: WIZ8 0x004c5750
-void MonsterGetLocalLocation(W8Monster* monster, srVector3T<float>* location)
+srVector3T<float> MonsterGetLocalLocation(const W8Monster* monster)
 {
-    monster->m_pRep->GetLocalLocation(location);
+    return monster->m_pRep->GetLocalLocation();
 }
 
 /* The wrapper is intentionally unguarded: every retail caller supplies a live

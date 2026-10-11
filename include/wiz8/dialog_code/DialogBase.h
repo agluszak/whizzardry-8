@@ -55,10 +55,9 @@ public:
     template <class HandleInput>
     static void DrainModalInput(HandleInput&& handle_input)
     {
-        SDL_Point mouse;
         InputAtom input;
 
-        SGPMouseGetPos(&mouse);
+        const auto mouse = GetRegionMousePosition();
         UpdateRegionMousePosition(mouse.x, mouse.y);
         while (DequeueEvent(&input) == 1) {
             if (!handle_input(input)) break;
