@@ -1,4 +1,3 @@
-#include "surrender/srBoundingBox.h"
 #include <tuple>
 #include "himage.h"
 #include "surrender/srScene.h" // IWYU pragma: keep - complete scene type for conversion to srNode.
