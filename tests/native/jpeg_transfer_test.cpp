@@ -43,9 +43,11 @@ static void checkFormat(const srColorSurfaceIFace& surface, srPixelConvert::e_su
 {
     srPixelConvert::PixelFormat expected;
     srPixelConvert::mapPixelFormat(type, expected);
-    srPixelConvert::PixelFormat actual;
-    surface.getPixelFormat(actual);
-    REQUIRE(actual == expected);
+    REQUIRE(surface.getPixelFormat() == expected);
+    const auto description = surface.getSurfaceDesc();
+    REQUIRE(description.pixel_format == expected);
+    REQUIRE(description.width == static_cast<w8_ulong>(surface.getWidth()));
+    REQUIRE(description.height == static_cast<w8_ulong>(surface.getHeight()));
 }
 static OwnedSurface loadJpeg(const Bytes& data)
 {
