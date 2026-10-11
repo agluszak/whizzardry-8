@@ -108,10 +108,15 @@ struct RecordingWidget : W8Widget {
 
 TEST_CASE("widget_region_lifetimes")
 {
-    struct RestoreCatalog {
-        unsigned region_count = g_regions.size(), set_count = g_region_sets.size();
-        ~RestoreCatalog() { g_regions.resize(region_count); g_region_sets.resize(set_count); }
-    } restore;
+    // Destroy every set this case creates instead of shrinking the global
+    // tables: the scan order and free lists still refer to those slots.
+    struct DestroyCreatedSets {
+        unsigned set_count = g_region_sets.size();
+        ~DestroyCreatedSets()
+        {
+            for (unsigned set = g_region_sets.size(); set-- > set_count;) DestroyRegionSet(set);
+        }
+    } cleanup;
     std::vector<int> events;
     auto first_panel = std::make_unique<Controls>();
     unsigned first_set = 0;
