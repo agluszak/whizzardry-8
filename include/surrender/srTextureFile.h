@@ -33,7 +33,7 @@ public:
 
     virtual void dump(std::ostream& stream) override;
     virtual w8_ulong getTextureFrameHandle() override;
-    virtual void getMipmapData(MultiRequest& request) override;
+    virtual void getMipmapData(const MultiRequest& request) override;
     virtual void getMipmapLevelPartial(PartialRequest& request) override;
     virtual void invalidate() override;
 

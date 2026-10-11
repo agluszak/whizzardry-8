@@ -138,7 +138,7 @@ srTextureIFace::Dimensions stTextureAnim::getDimensions()
 }
 
 // FUNCTION: WIZ8 0x00484DB0
-void stTextureAnim::getMipmapData(MultiRequest& request)
+void stTextureAnim::getMipmapData(const MultiRequest& request)
 {
     current().getMipmapData(request);
 }

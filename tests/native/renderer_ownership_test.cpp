@@ -1,3 +1,9 @@
+#include "surrender/srTextureIFace.h"
+#include "surrender/srPixelConvert.h"
+#include "surrender/srColorSurface.h"
+#include "surrender/srTextureFile.h"
+#include "surrender/srTextureMap.h"
+#include "surrender_test_fixture.h"
 #include "glm/geometric.hpp"
 #include "surrender/srModelInstance.h"
 #include "glm/ext/matrix_transform.hpp"
@@ -923,4 +929,50 @@ TEST_CASE("renderer_ownership_test")
         REQUIRE(srExit());
         REQUIRE(srGERD::getFirst() == nullptr);
     }
+}
+
+TEST_CASE("Counted mipmap chains copy adjacent levels and preserve file cache policy")
+{
+    SurRenderTestFixture runtime;
+    constexpr w8_ulong color = 0xff102030;
+    const auto source = [] {
+        auto pixels = std::make_unique<srColorSurface>(srPixelConvert::SURFACE_BGRA32, 8, 8);
+        pixels->fill(color);
+        return pixels;
+    };
+    struct PreparedFile : srTextureFile {
+        PreparedFile(std::unique_ptr<srColorSurfaceIFace> pixels, int cache) : srTextureFile({}, cache)
+        {
+            surface = std::move(pixels);
+        }
+    };
+    srColorSurface first(srPixelConvert::SURFACE_BGRA32, 4, 4);
+    srColorSurface second(srPixelConvert::SURFACE_BGRA32, 2, 2);
+    srColorSurface third(srPixelConvert::SURFACE_BGRA32, 1, 1);
+    std::array<srColorSurfaceIFace*, 3> destinations{&first, &second, &third};
+    const srTextureIFace::MultiRequest request{3, destinations};
+    srTextureMap map{std::shared_ptr<srColorSurfaceIFace>(source())};
+    map.getMipmapData(request);
+    REQUIRE(first.getPixel(0, 0) == color);
+    REQUIRE(second.getPixel(1, 1) == color);
+    REQUIRE(third.getPixel(0, 0) == color);
+
+    PreparedFile uncached(source(), 0);
+    uncached.getMipmapData({3, {}});
+    REQUIRE(uncached.isSurfaceLoaded());
+    uncached.getMipmapData(request);
+    REQUIRE_FALSE(uncached.isSurfaceLoaded());
+    PreparedFile cached(source(), 1);
+    cached.getMipmapData(request);
+    REQUIRE(cached.isSurfaceLoaded());
+
+    third.fill(0xffabcdef);
+    destinations[1] = nullptr;
+    cached.getMipmapData(request);
+    REQUIRE(first.getPixel(0, 0) == color);
+    REQUIRE(third.getPixel(0, 0) == 0xffabcdef);
+    destinations[0] = nullptr;
+    PreparedFile missing_first(source(), 0);
+    missing_first.getMipmapData(request);
+    REQUIRE(missing_first.isSurfaceLoaded());
 }

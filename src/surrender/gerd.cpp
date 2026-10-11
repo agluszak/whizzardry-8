@@ -3394,19 +3394,17 @@ srGERD::Texture* srGERD::createNewTexture(srTextureIFace* texture)
     evaluateTextureDimensions(result->device, dimensions);
     evaluateTexturePixelFormat(*result, dimensions);
     allocTextureData(*result);
-    srTextureIFace::MultiRequest request{};
+    std::array<srColorSurfaceIFace*, 12> destinations{};
     std::unique_ptr<srColorSurface> surfaces[12];
-    request.mipmap_level = (w8_long)result->device.first_level;
-    request.last_level = result->device.last_level;
+
     w8_ulong width = result->device.width;
     w8_ulong height = result->device.height;
-    w8_long level = request.mipmap_level;
-    for (; level <= (w8_long)request.last_level; ++level) {
+    for (w8_ulong level = result->device.first_level; level <= result->device.last_level; ++level) {
         surfaces[level] = std::make_unique<srColorSurface>(
             result->pixel_format, result->device.levels[level], width, height,
             (w8_ulong)(result->pixel_format.pixel_size + 1) * width);
         auto* surface = surfaces[level].get();
-        request.destinations[level] = surface;
+        destinations[level] = surface;
         if (result->palette != 0) {
             surface->setPalette(result->palette);
         }
@@ -3414,6 +3412,10 @@ srGERD::Texture* srGERD::createNewTexture(srTextureIFace* texture)
         width >>= 1;
         height >>= 1;
     }
+    const srTextureIFace::MultiRequest request{
+        result->device.first_level,
+        std::span<srColorSurfaceIFace* const>(destinations).subspan(
+            result->device.first_level, result->device.last_level - result->device.first_level + 1)};
     texture->getMipmapData(request);
 
     result->device.resident_data = 0;

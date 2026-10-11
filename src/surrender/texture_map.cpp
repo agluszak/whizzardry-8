@@ -32,17 +32,9 @@ srTextureMap::~srTextureMap()
 }
 
 // FUNCTION: SURRENDER 0x100601C0
-void srTextureMap::getMipmapData(MultiRequest& request)
+void srTextureMap::getMipmapData(const MultiRequest& request)
 {
-    if (surface != 0) {
-        request.destinations[request.mipmap_level]->copy(*surface.get());
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wsign-compare"
-        for (w8_long level = request.mipmap_level + 1; level <= request.last_level; ++level) {
-            request.destinations[level]->copy(*request.destinations[level - 1]);
-        }
-#pragma clang diagnostic pop
-    }
+    if (surface) copyMipmapChain(*surface, request);
 }
 
 // FUNCTION: SURRENDER 0x100604E0

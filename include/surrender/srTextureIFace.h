@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <span>
 
 #include "srColorSurfaceIFace.h"
 #include "srPalette.h"
@@ -28,10 +29,9 @@ public:
         srFilter* filter;
     };
     struct MultiRequest {
-        w8_long mipmap_level;
-        /* Last mipmap level filled; iterated level <= last_level. */
-        w8_ulong last_level;
-        srColorSurfaceIFace* destinations[12];
+        // destinations[0] is first_level; each subsequent slot is the next mip.
+        w8_ulong first_level;
+        std::span<srColorSurfaceIFace* const> destinations;
     };
     /* srGERD::setTextureSubImage packs the level-0 dimensions and the target
        mipmap level ahead of the clipped destination rect. */
@@ -105,7 +105,7 @@ public:
     virtual w8_ulong getTextureFrameHandle() = 0;
     virtual float getPriority() = 0;
     virtual Dimensions getDimensions() = 0;
-    virtual void getMipmapData(MultiRequest& request) = 0;
+    virtual void getMipmapData(const MultiRequest& request) = 0;
     virtual void getMipmapLevelPartial(PartialRequest& request) = 0;
     virtual Parameters getParameters() = 0;
     virtual const char* getTextureName();
