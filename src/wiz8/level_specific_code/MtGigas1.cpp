@@ -7,8 +7,6 @@
 #include "wiz8/engine_code/GDProp.h"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/local_code/NPCManager.h"
-#include "wiz8/local_screens/NPCInteractionSubscreen.h"
-#include "wiz8/layouts/game_status.h"
 #include "wiz8/xstatus.h"
 #include "surrender/srCamera.h"
 #include "soundman.h"

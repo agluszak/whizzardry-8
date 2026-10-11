@@ -2,6 +2,7 @@
 #include <glm/ext/quaternion_trigonometric.hpp>
 #include <glm/gtc/matrix_access.hpp>
 #include <glm/gtc/quaternion.hpp>
+#include <source_location>
 #include <string>
 #include <vector>
 #include <algorithm>

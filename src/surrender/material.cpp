@@ -1,7 +1,6 @@
 /* D:\srsdk1x\sources\corelib\srMaterial.cpp */
 
 #include <ostream>
-#include <cstddef>
 
 #include "surrender/srMaterial.h"
 #include "surrender/srStreamFlags.h"
@@ -12,7 +11,6 @@
 #include "surrender/srFlags.h"
 #include "surrender/srMaterialIFace.h"
 #include "surrender/srShader.h"
-#include "surrender/srStatisticsManager.h"
 #include "surrender/srTypeRegistry.h"
 #include "surrender/srVertexPipe.h"
 #include "surrender/srVertexProcessor.h"

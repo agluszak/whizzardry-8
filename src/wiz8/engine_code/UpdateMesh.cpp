@@ -1,5 +1,7 @@
+#include <algorithm>
 #include <glm/ext/quaternion_trigonometric.hpp>
 #include <glm/gtc/quaternion.hpp>
+#include <utility>
 #include <vector>
 #include <memory>
 

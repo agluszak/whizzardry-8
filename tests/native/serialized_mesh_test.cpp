@@ -1,7 +1,10 @@
 #include <catch2/catch_test_macros.hpp>
 #include <array>
+#include <cstdint>
 #include <cstdio>
 #include <filesystem>
+#include <ios>
+#include <iterator>
 #include <memory>
 #include <vector>
 
@@ -16,7 +19,6 @@
 #include "filesystem.h"
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float4.hpp"
-#include "wiz8/engine_code/LevelFile.h"
 #include <fstream>
 
 #include "layouts/world.h"

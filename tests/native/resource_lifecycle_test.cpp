@@ -1,10 +1,14 @@
 #include <catch2/catch_test_macros.hpp>
 #include <cstdio>
+#include <filesystem>
 #include <memory>
 #include <stdexcept>
 #include <string>
 #include <vector>
 
+#include "GrCycle.h"
+#include "SpellVisual.h"
+#include "glm/ext/matrix_float3x3.hpp"
 #include "surrender/srColorSurface.h"
 #include "surrender/srCore.h"
 #include "surrender/srScene.h"

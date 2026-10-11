@@ -17,7 +17,6 @@
 #include "wiz8/cursor.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/float_constants.h"
-#include "wiz8/sr_api.h"
 #include "surrender/srCamera.h"
 #include "glm/ext/vector_float3.hpp"
 #include "layouts/world.h"

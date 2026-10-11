@@ -66,7 +66,6 @@
 #include "wiz8/regions.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/xstatus.h"
-#include "wiz8/sr_api.h"
 #include "Types.h"
 #include "compat/native.h"
 #include "compat/ptr32.h"

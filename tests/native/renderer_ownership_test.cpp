@@ -6,10 +6,12 @@
 #include <future>
 #include <memory>
 #include <thread>
+#include <utility>
 #include <vector>
 #include <cstddef>
 #include <span>
 
+#include "catch2/catch_message.hpp"
 #include "surrender/srCore.h"
 #include "surrender/srDD_SDLGPU.h"
 #include "surrender/srGERD.h"

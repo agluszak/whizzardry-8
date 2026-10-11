@@ -53,7 +53,6 @@
 #include "monster_spell_icons.h"
 #include "retail_records.h"
 #include "spell_ids.h"
-#include "surrender/srClock.h"
 #include "surrender/srMath.h"
 #include "surrender/srModelInstance.h"
 #include "surrender/srNode.h"

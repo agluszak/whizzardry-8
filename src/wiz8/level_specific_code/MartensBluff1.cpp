@@ -22,7 +22,6 @@
 #include "wiz8/location_variables.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/string_database.h"
-#include "wiz8/sr_api.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/dice.h"
 #include "wiz8/utility.h"
