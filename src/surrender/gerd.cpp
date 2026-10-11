@@ -2627,9 +2627,7 @@ bound:
         }
         ++statistics.texture_binds;
     }
-    srTextureIFace::Parameters parameters;
-    texture->getTextureParms(parameters);
-    setTextureParameters(stage, parameters);
+    setTextureParameters(stage, texture->getParameters());
 }
 
 namespace {
@@ -3468,22 +3466,9 @@ void srGERD::allocTextureData(Texture& texture)
 // FUNCTION: SURRENDER 0x10029090
 srGERD::Texture* srGERD::createNewTexture(srTextureIFace* texture)
 {
-    srTextureIFace::Dimensions dimensions;
-    dimensions.palette = srCore.getPalette();
-    dimensions.filter = srCore.getFilter();
-    dimensions.hints = 0;
-    dimensions.compression = srTextureIFace::COMPRESSION_DEFAULT;
-    srPixelConvert::mapPixelFormat(srPixelConvert::SURFACE_ARGB4444, dimensions.format);
     Texture* result = allocTexture(texture->getTextureFrameHandle());
     result->name = texture->getName();
-    dimensions.compression = texture_state.default_compression;
-    dimensions.width = 1;
-    dimensions.height = 1;
-    dimensions.palette = 0;
-    dimensions.format = device.texture_formats.front();
-    dimensions.filter = 0;
-    dimensions.hints = 0;
-    texture->getDimensions(dimensions);
+    const auto dimensions = texture->getDimensions();
     evaluateTextureDimensions(result->device, dimensions);
     evaluateTexturePixelFormat(*result, dimensions);
     allocTextureData(*result);
