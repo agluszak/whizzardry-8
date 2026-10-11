@@ -78,8 +78,16 @@
 #include "message_box.h"
 #include "retail_records.h"
 #include "surrender/srMath.h"
+#include "wiz8/npc_interaction.h"
 
-#define NPC_MANAGER_CPP "C:\\Projects\\Wizardry 8\\Local Code\\NPC Manager.cpp"
+static bool ProbeNpcPlacementNearParty(int party_slot, int mode, srVector3T<float>* position_out);
+static bool InitializeNpcCharacter(W8NpcState* npc, W8Character* character);
+static void InitializeNpcItemTable(W8NpcState* npc);
+static bool RestoreNpcMonster(W8NpcState* npc, const char* entity_name);
+static bool SaveNpcItemLists(wiz8::File& file);
+static bool LoadNpcItemLists(wiz8::File& file);
+static bool NpcOffersService(W8NpcState* npc, unsigned int service_id);
+
 
 enum { W8_NPC_TOPIC_SLOTS = 5, W8_NPC_FACT_SLOTS = 14 };
 
@@ -120,7 +128,7 @@ bool NpcRecordHasTradePool(W8NpcState* npc)
    static or the faction holds nothing toward the party; a factioned NPC whose
    allied faction a living front-rank party RPC shares answers fifty. */
 // FUNCTION: WIZ8 0x0050A280
-char GetNpcDisposition(W8NpcState* npc)
+static char GetNpcDisposition(W8NpcState* npc)
 {
     char disposition = npc->disposition;
     char faction_disposition;
@@ -130,7 +138,7 @@ char GetNpcDisposition(W8NpcState* npc)
 
     if (npc->has_monster && npc->is_present) {
         monster_info = MonsterGetScriptPartByLocationIndex(
-            MonsterGetIndexByLocationID(0x2a1, NPC_MANAGER_CPP, npc->location_id, true));
+            MonsterGetIndexByLocationID(npc->location_id));
         if (monster_info != 0) {
             disposition += monster_info->charm_strength;
             if (monster_info->uiCondition[W8_CONDITION_TURNCOAT] > 0) {
@@ -288,7 +296,7 @@ W8MonsterInfo* GetNpcMonsterInfo(W8NpcState* npc)
         return 0;
     }
     return MonsterGetScriptPartByLocationIndex(
-        MonsterGetIndexByLocationID(673, NPC_MANAGER_CPP, npc->location_id, true));
+        MonsterGetIndexByLocationID(npc->location_id));
 }
 
 /* The monster manager entry this NPC's group occupies, if its database entry
@@ -418,7 +426,7 @@ bool NpcWantsItem(W8NpcState* npc, W8ItemInstance* item)
 }
 
 // FUNCTION: WIZ8 0x0050ddc0
-void ReturnDismissedNpcItems(W8NpcState* npc, W8Character* character)
+static void ReturnDismissedNpcItems(W8NpcState* npc, W8Character* character)
 {
     bool returned = false;
     bool dropped = false;
@@ -497,7 +505,7 @@ int DismissNpcFromParty(int party_slot, int /*unused*/, bool skip_spawn, bool ne
         }
         W8MonsterGroup* group = CreateGroup(species, 1, &position, true, false, true);
         W8MonsterInfo* monster = MonsterGetScriptPartByLocationIndex(
-            MonsterGetIndexByLocationID(0x6c7, NPC_MANAGER_CPP, group->leader_location_id, true));
+            MonsterGetIndexByLocationID(group->leader_location_id));
         if (monster != 0) {
             CopyCharacterConditionsToTarget(npc->character, &monster->location_id);
             if (monster->uiCondition[W8_CONDITION_UNCONSCIOUS] == W8_CONDITION_INDEFINITE) {
@@ -583,11 +591,11 @@ bool RecruitNpcIntoParty(W8NpcState* npc)
     RefreshCharacterSkillAvailability(&g_status.buffers.Char[party_slot]);
     if (npc->has_monster && npc->is_present) {
         W8MonsterInfo* monster = MonsterGetScriptPartByLocationIndex(
-            MonsterGetIndexByLocationID(0x2a1, NPC_MANAGER_CPP, npc->location_id, true));
+            MonsterGetIndexByLocationID(npc->location_id));
         if (monster != 0) {
             CopyMonsterConditionsToCharacter(&g_status.buffers.Char[party_slot], monster);
             RemoveMonster(
-                MonsterGetIndexByLocationID(0x5bf, NPC_MANAGER_CPP, monster->location_id, true),
+                MonsterGetIndexByLocationID(monster->location_id),
                 true);
         }
     }
@@ -645,7 +653,7 @@ W8Monster* GetNpcMonster(W8NpcState* npc)
         return 0;
     }
     monster_info = MonsterGetScriptPartByLocationIndex(
-        MonsterGetIndexByLocationID(673, NPC_MANAGER_CPP, npc->location_id, true));
+        MonsterGetIndexByLocationID(npc->location_id));
     if (monster_info == 0) {
         return 0;
     }
@@ -777,7 +785,7 @@ bool CanNpcJoinParty(W8NpcState* npc)
 /* Whether the NPC offers one service. The service id is looked up in a table
    that pairs it with its bit, so the ids need not be contiguous. */
 // FUNCTION: WIZ8 0x0050c9e0
-bool NpcOffersService(W8NpcState* npc, unsigned int service_id)
+static bool NpcOffersService(W8NpcState* npc, unsigned int service_id)
 {
     int row = 0;
 
@@ -1061,7 +1069,7 @@ void ChooseNewGameStartLocation(int* level, int* entrance)
    kind-0x8c greeter with the camera swung onto its head — and anything else
    falls back to the kind-0x18 greeter. */
 // FUNCTION: WIZ8 0x00509560
-void SelectStartNpcGreeting(void)
+static void SelectStartNpcGreeting(void)
 {
     W8Monster* monster;
     W8NpcState* npc;
@@ -1202,7 +1210,7 @@ catch (const std::exception&) { return false; }
 /* The stock-list tail of the NPCT section: for every NPC state the entry
    count, then each 0x14-byte stock entry in list order. */
 // FUNCTION: WIZ8 0x0050AA10
-bool SaveNpcItemLists(wiz8::File& file)
+static bool SaveNpcItemLists(wiz8::File& file)
 try
 {
     for (std::size_t npc_index = 0; npc_index < g_npc_states.size(); ++npc_index) {
@@ -1271,7 +1279,7 @@ void BindNpcToMonster(unsigned char npc_id, bool has_monster, int location_id)
 
     if (has_monster) {
         unsigned int monster_list_index =
-            MonsterGetIndexByLocationID(0x150, NPC_MANAGER_CPP, location_id, true);
+            MonsterGetIndexByLocationID(location_id);
         monster_info = MonsterGetScriptPartByLocationIndex(monster_list_index);
         W8MonsterRecord* monster_record = GetMonsterDataForInfo(monster_info);
         if (monster_record == 0 || (monster_record->flags & W8_MONSTER_FLAG_NPC) == 0) {
@@ -1298,7 +1306,7 @@ void BindNpcToMonster(unsigned char npc_id, bool has_monster, int location_id)
     }
 
     if (npc == 0) {
-        srAssertFail("pNode", NPC_MANAGER_CPP, 0x194, 0);
+        srAssertFail("npc", __FILE__, __LINE__, 0);
     }
     npc->location_id = location_id;
     npc->is_present = has_monster;
@@ -1312,7 +1320,7 @@ void BindNpcToMonster(unsigned char npc_id, bool has_monster, int location_id)
    the name, profession and starting level, attributes, skills, known spells
    and worn/carried items, then the derived passes a level advance settles. */
 // FUNCTION: WIZ8 0x0050aed0
-bool InitializeNpcCharacter(W8NpcState* npc, W8Character* character)
+static bool InitializeNpcCharacter(W8NpcState* npc, W8Character* character)
 {
     W8NpcDatabaseRecord* record = npc->record;
     W8NpcCharacterTemplate* source;
@@ -1390,7 +1398,7 @@ bool InitializeNpcCharacter(W8NpcState* npc, W8Character* character)
    whose table id is zero or past the table database keeps the -1 ids and
    leaves the dice untouched. */
 // FUNCTION: WIZ8 0x0050b9e0
-void InitializeNpcItemTable(W8NpcState* npc)
+static void InitializeNpcItemTable(W8NpcState* npc)
 {
     unsigned int index;
 
@@ -1533,7 +1541,7 @@ static void DestroyNpcItemList(std::vector<W8NpcItemEntry*>* items)
 
 /* Stage all stock lists before replacing any live NPC's inventory. */
 // FUNCTION: WIZ8 0x0050AAF0
-bool LoadNpcItemLists(wiz8::File& file)
+static bool LoadNpcItemLists(wiz8::File& file)
 try
 {
     using ItemListOwner = std::unique_ptr<std::vector<W8NpcItemEntry*>, decltype(&DestroyNpcItemList)>;
@@ -1696,7 +1704,7 @@ void ApplyNpcInteraction(W8NpcState* npc, int kind, int value, W8ItemInstance* i
             monster_info = 0;
         } else {
             monster_info = MonsterGetScriptPartByLocationIndex(
-                MonsterGetIndexByLocationID(0x2a1, NPC_MANAGER_CPP, npc->location_id, true));
+                MonsterGetIndexByLocationID(npc->location_id));
         }
         monster_record = GetMonsterDataForInfo(monster_info);
         monster_level = monster_record->effective_level;
@@ -1761,7 +1769,7 @@ void ApplyNpcInteraction(W8NpcState* npc, int kind, int value, W8ItemInstance* i
    item is offered - its weight and price penalties, all scaled by the
    character's difficulty. */
 // FUNCTION: WIZ8 0x0050BAF0
-char ScoreNpcTheft(W8Character* character, W8NpcState* npc, int item_id, int count)
+static char ScoreNpcTheft(W8Character* character, W8NpcState* npc, int item_id, int count)
 {
     W8ItemInstance item;
     int score;
@@ -1873,7 +1881,7 @@ W8NpcPickpocketResult AttemptNpcPickpocket(W8Character* character, W8NpcState* n
         return W8_PICKPOCKET_FAILED;
     }
     if (npc == 0) {
-        srAssertFail("pNPC", NPC_MANAGER_CPP, 0x7a4, 0);
+        srAssertFail("npc", __FILE__, __LINE__, 0);
     }
     short item_id = npc->item_ids[picked & 0xff];
     if (item_id != -1) {
@@ -1913,7 +1921,7 @@ const float g_targeting_quarter_pi = 0.7853981256484985f;
 /* Probe the navigator from the party eye at three height bands, reporting
    whether any band reaches. */
 // FUNCTION: WIZ8 0x0050B2F0
-bool ProbeNpcPlacementNearParty(int /*party_slot*/, int /*mode*/, srVector3T<float>* position_out)
+static bool ProbeNpcPlacementNearParty(int /*party_slot*/, int /*mode*/, srVector3T<float>* position_out)
 {
     srVector3T<float> party_position;
     float yaw;
@@ -1953,7 +1961,7 @@ void TriggerBelaVoice(W8Monster* monster)
         QueueNpcScriptNotice(npc, 0, -1, false, 0);
         return;
     }
-    srAssertFail("pNPC", NPC_MANAGER_CPP, 0xbec, "Cannot find VOC_BELA_CC");
+    srAssertFail("npc", __FILE__, __LINE__, "Cannot find VOC_BELA_CC");
 }
 
 /* The NPC side of the global frame. Two timed world events first: one retires
@@ -1984,8 +1992,7 @@ void UpdateNpcEvents(void)
         int32_t(uint32_t(w8_get_ticks()) - uint32_t(g_status.savant_hack_tick)) > 0x32) {
         group = FindFirstMonsterByID(0x1b3);
         if (group != 0) {
-            index = MonsterGetIndexByLocationID(0xc17, NPC_MANAGER_CPP, group->leader_location_id,
-                                                true);
+            index = MonsterGetIndexByLocationID(group->leader_location_id);
             monster_info = MonsterGetScriptPartByLocationIndex(index);
             MonsterStartsDying(monster_info, true);
         }
@@ -1996,8 +2003,7 @@ void UpdateNpcEvents(void)
         int32_t(uint32_t(w8_get_ticks()) - uint32_t(g_status.bela_cycle_tick)) > 0x1388) {
         group = FindFirstMonsterByID(0x1b6);
         if (group != 0) {
-            index = MonsterGetIndexByLocationID(0xc2f, NPC_MANAGER_CPP, group->leader_location_id,
-                                                true);
+            index = MonsterGetIndexByLocationID(group->leader_location_id);
             monster_info = MonsterGetScriptPartByLocationIndex(index);
             StartMonsterCycle(monster_info, W8_MONSTER_CYCLE_ATTACK_LASH, W8_ANIMATION_PLAY_ONCE);
             monster_info->p3D->SetCycleCallback(0x10, TriggerBelaVoice);
@@ -2029,11 +2035,10 @@ void UpdateNpcEvents(void)
             }
             if (partner->is_present) {
                 index =
-                    MonsterGetIndexByLocationID(0x2a1, NPC_MANAGER_CPP, partner->location_id, true);
+                    MonsterGetIndexByLocationID(partner->location_id);
                 monster_info = MonsterGetScriptPartByLocationIndex(index);
                 if (monster_info != 0) {
-                    index = MonsterGetIndexByLocationID(0x9bb, NPC_MANAGER_CPP,
-                                                        monster_info->location_id, true);
+                    index = MonsterGetIndexByLocationID(monster_info->location_id);
                     RemoveMonster(index, true);
                 }
             }
@@ -2185,11 +2190,11 @@ static void ReleaseNpcCompanionMonster(W8NpcState* npc)
     if (npc->has_monster) {
         if (npc->is_present) {
             unsigned int index =
-                MonsterGetIndexByLocationID(0x2a1, NPC_MANAGER_CPP, npc->location_id, true);
+                MonsterGetIndexByLocationID(npc->location_id);
             W8MonsterInfo* monster = MonsterGetScriptPartByLocationIndex(index);
             if (monster != 0) {
                 RemoveMonster(
-                    MonsterGetIndexByLocationID(0x9bb, NPC_MANAGER_CPP, monster->location_id, true),
+                    MonsterGetIndexByLocationID(monster->location_id),
                     true);
             }
         }
@@ -2244,7 +2249,7 @@ void ReleaseNpcMonsterByKind(int kind)
    byte matches, and asks CreateGroup to create it; with a live monster it
    repositions the Navigator subobject. */
 // FUNCTION: WIZ8 0x0050c560
-bool RestoreNpcMonster(W8NpcState* npc, const char* entity_name)
+static bool RestoreNpcMonster(W8NpcState* npc, const char* entity_name)
 {
     srVector3T<float> position;
     srVector3T<float> copied;
@@ -2278,7 +2283,7 @@ bool RestoreNpcMonster(W8NpcState* npc, const char* entity_name)
     }
     {
         unsigned int monster_index =
-            MonsterGetIndexByLocationID(0x2a1, NPC_MANAGER_CPP, npc->location_id, true);
+            MonsterGetIndexByLocationID(npc->location_id);
         W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(monster_index);
 
         if (monster_info == 0) {
@@ -2474,7 +2479,7 @@ void RebindNpcLevelTriggers(void)
 bool ClearNpcScheduledItem(W8NpcState* npc, int item_id, W8ItemInstance* out)
 {
     if (npc == 0) {
-        srAssertFail("pNPC", NPC_MANAGER_CPP, 0x7b7, 0);
+        srAssertFail("npc", __FILE__, __LINE__, 0);
     }
     for (int index = 0; index < 40; ++index) {
         if (npc->item_ids[index] == item_id) {
@@ -2653,7 +2658,7 @@ void ClearNpcItemId(W8NpcState* npc, int item_id)
     for (index = 0; index < 40; ++index) {
         if (npc->item_ids[index] == item_id) {
             if (npc == 0) {
-                srAssertFail("pNPC", NPC_MANAGER_CPP, 0x7a4, 0);
+                srAssertFail("npc", __FILE__, __LINE__, 0);
             }
             slot = index;
             if (npc->item_ids[slot] != -1) {

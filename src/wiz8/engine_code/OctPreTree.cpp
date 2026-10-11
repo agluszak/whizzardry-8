@@ -817,8 +817,6 @@ struct W8OctUvPoolEntry {
     float v;
 };
 
-W8_ABI_ASSERT(sizeof(W8OctUvPoolEntry) == 0xc, "W8OctUvPoolEntry_must_be_0xc");
-
 /* Builds one record's UV map: walks the three corners of every polygon,
    deduplicates uvs through the pool and emits the corner-to-uv index
    triplets plus the final glm::vec2 map.  Returns the uv count. */

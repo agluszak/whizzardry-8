@@ -11,7 +11,6 @@
 
 struct W8NpcState;
 
-#define SEACAVES_CPP "C:\\Projects\\Wizardry 8\\Level Specific Code\\SeaCaves.cpp"
 
 /* Level Specific Code\SeaCaves.cpp (level 0x16).
 
@@ -105,7 +104,7 @@ bool SeaCavesDoorTomb(Trigger* pTrigger)
         return true;
     }
     group = GetMonsterGroupByListIndex(
-        GetMonsterGroupIndexByID(0x4b, SEACAVES_CPP, monster_info->monster_group_id, true));
+        GetMonsterGroupIndexByID(monster_info->monster_group_id));
     if (group != 0) {
         GiveBirthToMonster(group);
     }

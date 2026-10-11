@@ -1,4 +1,3 @@
-set_source_files_properties(engine_code/gap.c PROPERTIES LANGUAGE CXX)
 
 add_library(WIZ8_GAME_CORE STATIC
     ../sgp/image.cpp
@@ -141,7 +140,7 @@ add_library(WIZ8_GAME_CORE STATIC
     engine_code/LevelFile.cpp
     local_code/Targeting.cpp
     engine_code/3d.cpp
-    engine_code/gap.c
+    engine_code/mouth_gap.cpp
     level_specific_code/MasterFunctionList.cpp
     level_specific_code/Monastery1.cpp
     level_specific_code/Monastery2.cpp
@@ -186,6 +185,9 @@ add_library(WIZ8_GAME_CORE STATIC
     local_code/party_encumbrance.cpp
     local_code/Search.cpp
     local_code/npc_interaction.cpp
+    local_code/npc_dialogue.cpp
+    local_code/npc_speech.cpp
+    local_code/npc_story_events.cpp
     "local_code/NPC Scripting.cpp"
     "local_code/NPC Scripting Facts.cpp"
     local_code/formation_state.cpp

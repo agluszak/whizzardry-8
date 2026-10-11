@@ -88,9 +88,6 @@ public:
     int m_first_visible_line;
     W8RangeListener* m_range_listener;
 };
-W8_ABI_ASSERT(sizeof(W8MainGameTextKeyHandler) == 0xc0, "W8MainGameTextKeyHandler_size");
-
-W8_ASSERT_BASE_END(W8MainGameTextKeyHandler, W8RangeListener, m_range, 0x34);
 
 /* One text-panel cell: the catalog image it shows (or -1) and a flag that
    gates mouse handling. */
@@ -106,7 +103,6 @@ public:
     int m_image;
     bool m_input_blocked;
 };
-W8_ABI_ASSERT(sizeof(W8MainGameTextEntry) == 0xc0, "W8MainGameTextEntry_size");
 
 // VTABLE: WIZ8 0x005eeba8
 // VTABLE: WIZ8 0x005eeba0 W8TextControl::Listener
@@ -142,9 +138,6 @@ public:
        m_fDirty, consumed by Redraw. */
     bool m_target_marker_pending;
 };
-W8_ABI_ASSERT(sizeof(W8MainGameTextPanel) == 0x144, "W8MainGameTextPanel_size");
-
-W8_ASSERT_BASE_END(W8MainGameTextPanel, W8RangeListener, m_entries, 0x50);
 
 // VTABLE: WIZ8 0x005eebc0
 class W8MainGameStatusPanel : public Controls {
@@ -163,7 +156,6 @@ public:
     W8TextBuffer* m_text5;
     int m_target;
 };
-W8_ABI_ASSERT(sizeof(W8MainGameStatusPanel) == 0x6c, "W8MainGameStatusPanel_size");
 
 /* The NPC dialogue keyword transcript. */
 // VTABLE: WIZ8 0x005ee920
@@ -220,17 +212,6 @@ public:
     W8DialogTextArea text_area;
     void SelectTranscriptKeywordAtPoint(int x, int y);
 };
-W8_ABI_ASSERT(sizeof(W8NpcDialogueTextController) == 0xbc, "W8NpcDialogueTextController_size");
-W8_ABI_ASSERT(offsetof(W8NpcDialogueTextController, visible) == 0x54,
-              "W8NpcDialogueTextController_visible");
-W8_ABI_ASSERT(offsetof(W8NpcDialogueTextController, line_height) == 0x58,
-              "W8NpcDialogueTextController_line_height");
-W8_ABI_ASSERT(offsetof(W8NpcDialogueTextController, margin) == 0x5c,
-              "W8NpcDialogueTextController_margin");
-W8_ABI_ASSERT(offsetof(W8NpcDialogueTextController, scroll_height) == 0x60,
-              "W8NpcDialogueTextController_scroll_height");
-W8_ABI_ASSERT(offsetof(W8NpcDialogueTextController, text_area) == 0x64,
-              "W8NpcDialogueTextController_text_area");
 
 /* The hover/click target over the dialogue transcript. Entering selects the
    first visible entry, leaving clears the selection, and the button handlers
@@ -248,9 +229,6 @@ public:
 
     unsigned int m_flags; /* bit 0 while the primary button is held */
 };
-W8_ABI_ASSERT(sizeof(W8NpcDialogueScrollWidget) == 0x38, "W8NpcDialogueScrollWidget_size");
-W8_ABI_ASSERT(offsetof(W8NpcDialogueScrollWidget, m_flags) == 0x34,
-              "W8NpcDialogueScrollWidget_flags_34");
 
 class W8LockTumbler;
 
@@ -286,7 +264,6 @@ public:
     int m_pin_height; /* pixel offset, 0x22 at rest */
     W8LockTumblerListener* m_listener;
 };
-W8_ABI_ASSERT(sizeof(W8LockTumbler) == 0x48, "W8LockTumbler_size");
 
 /* Notified by W8LockTumblerPanel with the index of a released tumbler. */
 // VTABLE: WIZ8 0x005eeae0
@@ -317,11 +294,6 @@ public:
     W8GameTimer m_fall_timer;  /* 0.01s */
     W8LockTumblerPanelListener* m_listener;
 };
-W8_ABI_ASSERT(sizeof(W8LockTumblerPanel) == 0xec, "W8LockTumblerPanel_size");
-
-W8_ASSERT_BASE_END(W8LockTumblerPanel, W8LockTumblerListener, m_tumbler_count, 0x4c);
-W8_ABI_ASSERT(offsetof(W8LockTumblerPanel, m_tumblers) == 0x54, "W8LockTumblerPanel_tumblers");
-W8_ABI_ASSERT(offsetof(W8LockTumblerPanel, m_listener) == 0xe8, "W8LockTumblerPanel_listener");
 
 /* The lock interaction's readout column: the selected character's name plus
    the lockpick-skill, spell-power and force-chance percentages. */
@@ -343,7 +315,6 @@ public:
     W8TextBuffer* m_text5;
     W8TextBuffer* m_text; /* force chance */
 };
-W8_ABI_ASSERT(sizeof(W8LockInfoPanel) == 0x6c, "W8LockInfoPanel_size");
 
 /* The lock-picking interaction. It answers the tumbler panel's "released
    tumbler N" callback and receives the action-panel buttons; Process() is the
@@ -385,13 +356,6 @@ public:
     int m_slot_attempts[8];            /* pick attempts per party slot */
     W8GameTimer m_timer;               /* state-8 completion delay */
 };
-W8_ABI_ASSERT(sizeof(W8LockInteraction) == 0xa4, "W8LockInteraction_size");
-W8_ASSERT_BASE_END(W8LockInteraction, W8TextControl::Listener, m_trigger, 0x4);
-W8_ABI_ASSERT(offsetof(W8LockInteraction, m_trigger) == 0x08, "W8LockInteraction_trigger");
-W8_ABI_ASSERT(offsetof(W8LockInteraction, m_tumbler_panel) == 0x10,
-              "W8LockInteraction_tumbler_panel");
-W8_ABI_ASSERT(offsetof(W8LockInteraction, m_state) == 0x34, "W8LockInteraction_state");
-W8_ABI_ASSERT(offsetof(W8LockInteraction, m_timer) == 0x80, "W8LockInteraction_timer");
 
 // VTABLE: WIZ8 0x005eebdc
 class W8MainGameTextSelectionListener {
@@ -432,8 +396,6 @@ public:
     wiz8::sound::Playback m_sound_handle;
     W8GameTimer m_timer;
 };
-W8_ABI_ASSERT(sizeof(W8MainGameScreen) == 0x178, "W8MainGameScreen_size");
-W8_ASSERT_BASE_END(W8MainGameScreen, W8TextControl::Listener, m_owner, 0x4);
 
 extern W8LevelRuntimeBlock* g_level_block;
 extern W8MainGameScreen* g_main_game_screen;

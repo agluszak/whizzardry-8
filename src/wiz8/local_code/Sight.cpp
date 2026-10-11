@@ -258,7 +258,7 @@ bool MonsterGroupHasVisibleThreat(W8MonsterGroup* group)
     W8MonsterInfo* monster_info;
 
     for (index = 0; index < group->MemberIds().size(); ++index) {
-        monster_info = MonsterInfoFromID(1120, SIGHT_CPP, group->MemberLocationId(index), true);
+        monster_info = MonsterInfoFromID(group->MemberLocationId(index));
         if (monster_info->fActive && !monster_info->p3D->IsDying() &&
             monster_info->hp_current != 0 && monster_info->highest_condition < W8_CONDITION_BLIND &&
             monster_info->party_threat.sight_state == W8_SIGHT_SEEN) {
@@ -820,9 +820,9 @@ bool MonsterGroupCanSeeGroup(W8MonsterGroup* source, W8MonsterGroup* target)
     double far_clip;
 
     source_info = MonsterGetScriptPartByLocationIndex(
-        MonsterGetIndexByLocationID(0x47c, SIGHT_CPP, source->leader_location_id, true));
+        MonsterGetIndexByLocationID(source->leader_location_id));
     target_info = MonsterGetScriptPartByLocationIndex(
-        MonsterGetIndexByLocationID(0x47d, SIGHT_CPP, target->leader_location_id, true));
+        MonsterGetIndexByLocationID(target->leader_location_id));
     source_monster = source_info->p3D;
     target_monster = target_info->p3D;
     if (!target_info->fInCombat) {

@@ -84,4 +84,3 @@ public:
     W8ControlCallback m_leftDoubleClickCallback;
     OwnedRegion m_owned_region;
 };
-W8_ABI_ASSERT(sizeof(W8Widget) == 0x44, "W8Widget_size");

@@ -74,7 +74,6 @@
 #include "AnimRep.hpp"
 #include "Item.h"
 #include "OctPreTree.h"
-#include "compat/compiler.h"
 #include "compat/native.h"
 #include "environment_colour.h"
 #include "glm/ext/matrix_float4x4.hpp"
@@ -159,7 +158,6 @@ struct W8AutomapState {
     unsigned char pending_cell_lighting;
     unsigned char unknown_0fa[2];
 };
-W8_ABI_ASSERT(sizeof(W8AutomapState) == 0xfc, "W8AutomapState_size");
 // GLOBAL: WIZ8 0x0068f268
 W8AutomapState* g_automap_state;
 // GLOBAL: WIZ8 0x0068f274

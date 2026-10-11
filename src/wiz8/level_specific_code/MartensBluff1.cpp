@@ -32,7 +32,6 @@
 #include "glm/ext/vector_float3.hpp"
 #include "layouts/world.h"
 
-#define MARTENSBLUFF1_CPP "C:\\Projects\\Wizardry 8\\Level Specific Code\\MartensBluff1.cpp"
 
 /* Level Specific Code\MartensBluff1.cpp (level 5, Marten's Bluff).
 
@@ -310,7 +309,7 @@ bool MartensBluff1TransportSpawn(void)
     location_id = group->MemberLocationId(0);
     if (location_id != 0) {
         info = MonsterGetScriptPartByLocationIndex(
-            MonsterGetIndexByLocationID(0x1fd, MARTENSBLUFF1_CPP, location_id, true));
+            MonsterGetIndexByLocationID(location_id));
         if (info != 0 && info->p3D != 0) {
             info->p3D->SetScript("M1_Trang_trans.MSF", true);
         }

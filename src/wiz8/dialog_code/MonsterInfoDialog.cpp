@@ -44,7 +44,6 @@
 #include "surrender/srMath.h"
 
 // STRING: WIZ8 0x0064F6B0
-#define MONSTER_INFO_DIALOG_CPP "C:\\Projects\\Wizardry 8\\Dialog Code\\MonsterInfoDialog.cpp"
 
 /* The background and scroll track the monster and statistic info dialogs
    load, read through this pointer. */
@@ -135,7 +134,7 @@ bool W8MonsterInfoDialog::PopulateText()
     bounds.bottom = m_y + 0xdf;
 
     monster_info = MonsterGetScriptPartByLocationIndex(
-        MonsterGetIndexByLocationID(0xa0, MONSTER_INFO_DIALOG_CPP, m_location_id, true));
+        MonsterGetIndexByLocationID(m_location_id));
     record = GetMonsterDataForInfo(monster_info);
     average_level = GetAveragePartyMemberLevel();
     monster_level = record->display_level;
@@ -162,8 +161,7 @@ bool W8MonsterInfoDialog::PopulateText()
     m_text_area.SetEntrySpacing(1);
 
     if (g_dev_mode) {
-        group = GetMonsterGroupByListIndex(GetMonsterGroupIndexByID(
-            0xc8, MONSTER_INFO_DIALOG_CPP, monster_info->monster_group_id, true));
+        group = GetMonsterGroupByListIndex(GetMonsterGroupIndexByID(monster_info->monster_group_id));
         linked = monster_info->p3D->linked_navigator;
         if (linked == 0) {
             leader_location_id = m_location_id;
@@ -433,7 +431,7 @@ bool W8MonsterInfoDialog::PopulateText()
                 (monster_info->p3D->GetPosition() - g_startup_world->GetPosition()).Length() *
                     g_world_cursor_scale),
             5, 0xf, 0);
-        leader_info = MonsterInfoFromID(0x1d6, MONSTER_INFO_DIALOG_CPP, leader_location_id, true);
+        leader_info = MonsterInfoFromID(leader_location_id);
         script = leader_info->p3D->script.get();
         m_text_area.AddEntry("Leader's Current Script",
                              fmt::format("<{}>", script != 0 ? script->getName().c_str() : ""), 5,
@@ -486,7 +484,7 @@ void W8MonsterInfoDialog::Draw()
         W8DialogBase::Draw();
         g_wiz_text_font_secondary.resetPalette();
         unsigned int monster_list_index =
-            MonsterGetIndexByLocationID(0x1f1, MONSTER_INFO_DIALOG_CPP, m_location_id, true);
+            MonsterGetIndexByLocationID(m_location_id);
         W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(monster_list_index);
         auto name = GetMonsterName(monster_info, 0, 0);
         std::int16_t width = g_wiz_text_font_secondary.textWidth(name);

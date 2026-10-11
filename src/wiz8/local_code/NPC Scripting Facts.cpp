@@ -31,6 +31,7 @@
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/NPCScripting.h"
+#include "wiz8/local_code/npc_story_events.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
@@ -51,10 +52,7 @@
 #include "message_box.h"
 #include "surrender/srMath.h"
 #include "xstatus.h"
-
-#define NPC_SCRIPTING_FACTS_CPP "C:\\Projects\\Wizardry 8\\Local Code\\NPC Scripting Facts.cpp"
-
-/* Local Code\NPC Scripting Facts.cpp. Direct assertion ownership. */
+#include "wiz8/npc_interaction.h"
 
 /* Potion explosion completion callback: retail stores this JMP thunk rather than
    ClearScriptedSceneActive's void() entry. */
@@ -141,7 +139,7 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
         }
         npc = GetNpcStateByKind(0x48);
         if (npc == 0) {
-            srAssertFail("pNPC", NPC_SCRIPTING_FACTS_CPP, 0x614, 0);
+            srAssertFail("npc", __FILE__, __LINE__, 0);
         }
         ClearNpcScheduledItem(npc, 0x242, 0);
         return;
@@ -225,7 +223,7 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
         }
         npc = GetNpcStateByKind(0x29);
         if (npc == 0) {
-            srAssertFail("pNPC", NPC_SCRIPTING_FACTS_CPP, 0x636, 0);
+            srAssertFail("npc", __FILE__, __LINE__, 0);
         }
         MarkNpcOfKind(0x29);
         return;
@@ -645,7 +643,7 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
         }
         npc = GetNpcStateByKind(0x29);
         if (npc == 0) {
-            srAssertFail("pNPC", NPC_SCRIPTING_FACTS_CPP, 0x62c, 0);
+            srAssertFail("npc", __FILE__, __LINE__, 0);
         }
         MarkNpcOfKind(0x29);
         return;
@@ -817,8 +815,7 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
         ResetLevelDataVectors();
         group = FindFirstMonsterByID(0xc2);
         if (group != 0) {
-            monster_info = MonsterGetScriptPartByLocationIndex(MonsterGetIndexByLocationID(
-                0x4b4, NPC_SCRIPTING_FACTS_CPP, group->leader_location_id, true));
+            monster_info = MonsterGetScriptPartByLocationIndex(MonsterGetIndexByLocationID(group->leader_location_id));
             monster_info->p3D->SetScript("MoveSavantBoffo.msf", true);
         }
         wiz8::sound::stream("Data\\Sound\\Misc\\Earthquake End.wav");
@@ -1042,15 +1039,10 @@ void SetFact(W8FactId fact_id, unsigned char value, bool suppress_side_effects)
     }
 }
 
-/* The whole 1001-byte fact array minus its last entry goes to the save file in
-   one write. Retail passes the handle's own dead stack slot as the
-   bytes-written out-parameter; that is VC6 reusing the slot for this local. */
 // FUNCTION: WIZ8 0x00506480
 void SaveFactState(wiz8::File& save_handle)
 {
-    unsigned int bytes_written;
-
-    (save_handle.write(g_fact_values, 1000), bytes_written = 1000, true);
+    save_handle.write(g_fact_values, sizeof(g_fact_values));
 }
 
 /* Clears every fact, then seeds the ones a fresh party starts with. A party

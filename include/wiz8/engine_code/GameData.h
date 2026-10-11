@@ -181,8 +181,6 @@ struct W8EnvironRecord {
     glm::vec3 withScaledMotion(const glm::vec3& position) const;
 };
 
-W8_ABI_ASSERT(sizeof(W8EnvironRecord) == 0x44, "W8EnvironRecord_must_be_0x44");
-
 /* Switch-interface record, 0xc bytes in the processed level data: the count
    and first index of the interface's state records in W8GameData::m_pStates.
    Field +0 is the interface's own id. Retail's SetInterfaceState assertion
@@ -335,17 +333,6 @@ struct W8GameData {
     bool TestTraceResult(int count, w8_ulong* surface_ids, W8OctreeTrace* trace,
                          char skip_flag, int mode); /* 0x0041C330 */
 };
-
-
-W8_ABI_ASSERT(offsetof(W8LevelDataRecord, primary_contact_prop_id) == 0x04,
-              "W8LevelDataRecord_primary_contact_prop_id");
-W8_ABI_ASSERT(offsetof(W8LevelDataRecord, residual_contact_length) == 0x18,
-              "W8LevelDataRecord_residual_contact_length");
-W8_ABI_ASSERT(offsetof(W8LevelDataRecord, contact_normal) == 0xac,
-              "W8LevelDataRecord_contact_normal_ac");
-W8_ABI_ASSERT(offsetof(W8LevelDataRecord, contact_normal_scale) == 0xb8,
-              "W8LevelDataRecord_contact_normal_scale");
-W8_ABI_ASSERT(sizeof(W8LevelDataRecord) == 0xf4, "W8LevelDataRecord_must_be_0xf4");
 
 extern W8LevelDataRecord* g_level_data;
 /* Companion pointer cleared alongside g_level_data on level

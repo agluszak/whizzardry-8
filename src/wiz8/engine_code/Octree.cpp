@@ -94,7 +94,6 @@
 #include "surrender/srModel.h"
 #include "surrender/srNode.h"
 
-#define OCTREE_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\Octree.cpp"
 
 // FUNCTION: WIZ8 0x00433a70
 void W8Octree::GetPathSurfaceNormal(const srVector3T<float>* position, srVector3T<float>* normal)
@@ -2001,7 +2000,7 @@ std::optional<W8Octree::SphereTraceHit> W8Octree::traceSphereHit(
         if (target < 1) {
             goto no_probes;
         }
-        unsigned int monster_index = MonsterGetIndexByLocationID(0x1836, OCTREE_CPP, target, true);
+        unsigned int monster_index = MonsterGetIndexByLocationID(target);
         W8MonsterInfo* info = MonsterGetScriptPartByLocationIndex(monster_index);
         if (info == 0 || info->p3D == 0) {
             goto no_probes;
@@ -2022,7 +2021,7 @@ no_probes:;
             if (((excluded < 0) || (excluded != id)) && ((target < 0) || (excluded_location != id)) &&
                 (probe_set == 0 || !pathing->MatchesPathProbe(id, 0, 0))) {
                 unsigned int monster_index =
-                    MonsterGetIndexByLocationID(0x1851, OCTREE_CPP, id, true);
+                    MonsterGetIndexByLocationID(id);
                 W8MonsterInfo* info = MonsterGetScriptPartByLocationIndex(monster_index);
                 if (info != 0) {
                     W8Monster* monster = info->p3D;
@@ -2442,7 +2441,7 @@ void W8Octree::UpdateMonsterLocation(unsigned short location_id, const srVector3
     if (location_id == 0) {
         return;
     }
-    monster_list_index = MonsterGetIndexByLocationID(0x4c4, OCTREE_CPP, location_id, true);
+    monster_list_index = MonsterGetIndexByLocationID(location_id);
     info = MonsterGetScriptPartByLocationIndex(monster_list_index);
     if (info != 0 && info->p3D != 0) {
         monster = info->p3D;
@@ -3207,8 +3206,7 @@ unsigned char W8Octree::TestBoxOccupied(const srVector3T<float>* lower,
     objects = queryObjects({lower->glmValue(), upper->glmValue()}, W8_OCTREE_KIND_LOCATION, -1);
     count = objects.size();
     for (index = 0; index < count; ++index) {
-        unsigned int monster_index = MonsterGetIndexByLocationID(
-            0x62d, "C:\\Projects\\Wizardry 8\\Engine Code\\Octree.cpp", objects[index], true);
+        unsigned int monster_index = MonsterGetIndexByLocationID(objects[index]);
         W8MonsterInfo* info = MonsterGetScriptPartByLocationIndex(monster_index);
         if (info != 0 && info->p3D != 0) {
             srVector3T<float> position = info->p3D->GetPosition();

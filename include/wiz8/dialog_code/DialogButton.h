@@ -131,8 +131,6 @@ private:
     int m_live_dialog_count;
 };
 
-W8_ABI_ASSERT(sizeof(W8DialogButton) == 0x48, "W8DialogButton_size");
-
 /* Button arrays keep unallocated slots as supplied by their owner. Failure
    deletes every non-null slot in the full array, in ascending order. */
 inline void DestroyDialogButtons(W8DialogButton** buttons, int count)

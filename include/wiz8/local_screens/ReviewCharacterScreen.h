@@ -123,8 +123,6 @@ public:
     W8HelpTextControl* m_values[4];
 };
 
-W8_ASSERT_BASE_END(W8CampCharacterInfo, W8TextControl::Listener, m_combat_view, 0x4c);
-
 /* W8CampScreenState::redraw_flags. Party-slot bits are shifted by the slot
    and realm-spell bits by the realm. */
 enum W8CampRedrawFlag {

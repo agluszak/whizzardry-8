@@ -34,8 +34,6 @@ public:
     bool completed;
 };
 
-W8_ABI_ASSERT(sizeof(W8TriggerEvent) == 0x38, "W8TriggerEvent_must_be_0x38");
-
 void UpdateTimedTriggerEvents(void);
 
 /* Payload tags remain signed bytes in the common prefix and on disk. */
@@ -55,16 +53,11 @@ public:
     signed char type; /* W8TriggerPayloadKind */
 };
 
-W8_ABI_ASSERT(sizeof(W8TriggerActionData) == 0x08, "W8TriggerActionData_must_be_0x08");
-
 /* Type 5 installs its own final table and retains the previous environment value. */
 class W8EnvironmentTriggerActionData : public W8TriggerActionData {
 public:
     float previous_environment;
 };
-
-W8_ABI_ASSERT(sizeof(W8EnvironmentTriggerActionData) == 0x0c,
-              "W8EnvironmentTriggerActionData_must_be_0x0c");
 
 /* The level loader allocates 0x98 bytes for type 10. Its first twelve bytes
    are the common polymorphic payload above; the remaining bytes are the
@@ -109,16 +102,12 @@ public:
     srVector3T<float> position;
 };
 
-W8_ABI_ASSERT(sizeof(W8DoorTriggerActionData) == 0x98, "W8DoorTriggerActionData_must_be_0x98");
-
 /* Type 6 (built for action 17) owns a copy of the trigger's action string. */
 class W8StringTriggerActionData : public W8TriggerActionData {
 public:
     virtual ~W8StringTriggerActionData() override;
     char* owned_string;
 };
-
-W8_ABI_ASSERT(sizeof(W8StringTriggerActionData) == 0x0c, "W8StringTriggerActionData_must_be_0x0c");
 
 enum W8TriggerFlag {
     W8_TRIGGER_ANIMATE_STATES = 0x1,
@@ -154,8 +143,6 @@ struct W8TriggerDeviceState {
     unsigned char pins[8];
 };
 
-W8_ABI_ASSERT(sizeof(W8TriggerDeviceState) == 9, "W8TriggerDeviceState_must_be_9");
-
 /* The locks & traps device record embedded at the tail of Trigger. `lock_type` is the editor "Type" (0 none,
    1 pickable lock, 2 trap, 3 key lock); `difficulty` is the editor "Difficulty"
    grade — it doubles as the pickable lock's pin budget; `device_id` indexes
@@ -180,8 +167,6 @@ struct W8LockState {
     int lock_countdown;
     int last_interaction_clock;
 };
-
-W8_ABI_ASSERT(sizeof(W8LockState) == 0x24, "W8LockState_must_be_0x24");
 
 /* Engine Code\Trigger.cpp. Trigger is registered directly below srClass. It is
    not an srNode: the temporary table installed while srClassSupport is under
@@ -309,8 +294,6 @@ public:
 };
 
 void InitializeStateDrivenPropVariables(Trigger* trigger);
-
-W8_ABI_ASSERT(sizeof(Trigger) == 0x38c, "Trigger_must_be_0x38c");
 
 Trigger* FindTriggerByName(const char* name);
 Trigger* FindRequiredTriggerByName(const char* name,

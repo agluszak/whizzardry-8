@@ -55,6 +55,7 @@
 #include "local_code/ControlsRect.h"
 #include "local_code/MonsterManager.h"
 #include "soundman.h"
+#include "wiz8/local_code/NPCScripting.h"
 
 static void DrawDamageSplatOverlay(unsigned int party_slot);
 void DrawPortraitEffectIcon(unsigned int party_slot);
@@ -1041,7 +1042,7 @@ portrait_fx:
         g_npc_interaction_state->dialogue_layout == W8_DIALOGUE_LAYOUT_TRANSCRIPT &&
         !g_npc_interaction_state->scripted_dialogue &&
         !g_npc_interaction_state->dialogue_panel_hidden &&
-        g_npc_interaction_state->script_busy == 0 &&
+        g_npc_scripting.reply == W8NpcReplyState::none &&
         g_npc_interaction_state->dialogue_hidden == 0 && !gXStatus.scripted_scene) {
         SetNpcDialoguePanelVisible(1);
     }

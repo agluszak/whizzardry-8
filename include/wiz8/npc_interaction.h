@@ -1,6 +1,6 @@
-#include <string>
-#include <string_view>
 #pragma once
+
+#include <string>
 
 #include "wiz8/local_code/NPCScripting.h"
 
@@ -8,6 +8,9 @@
    reads. */
 
 bool IsNpcScriptSessionActive(void);
+/* Raise / drop the world-cursor gate around a scripted world action. */
+void BeginScriptedWorldAction(void);
+void ClearMainGameTargetState(void);
 bool ShouldDeferCharacterEventForNpcScript(bool require_group_entry);
 /* 0x005294C0: format the bound NPC's quote for one event type into the wide
    output. */
@@ -18,6 +21,3 @@ void ClearNpcMessageQueue(void); /* 0x00524C50 */
 
 std::string FormatNpcVoiceSoundPath(W8NpcState* npc);
 void BeginNpcScriptDialogue(W8NpcState* npc, unsigned char preserve_state);
-void FinishNpcVoicePlayback(bool resume_script);
-int ComputePortraitMessageDuration(std::string_view text);
-void UpdateNpcDialogueVoiceIdle(void);

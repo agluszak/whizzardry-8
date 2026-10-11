@@ -1097,7 +1097,7 @@ void W8Missile::AnnounceCollisionTarget()
     target_start = text.size();
     if (combat_slot.iType == W8_TARGET_KIND_MONSTER) {
         unsigned int monster_list_index =
-            MonsterGetIndexByLocationID(0x701, MISSILE_CPP, combat_slot.iMonsterID, true);
+            MonsterGetIndexByLocationID(combat_slot.iMonsterID);
         W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(monster_list_index);
         text += GetMonsterName(monster_info, 0, 0);
     } else {
@@ -1173,7 +1173,7 @@ bool W8Missile::OnCollision(W8Navigator* other)
         W8Monster* monster = static_cast<W8Monster*>(other);
         int location_id = monster->location_id;
         unsigned int monster_list_index =
-            MonsterGetIndexByLocationID(0x636, MISSILE_CPP, location_id, true);
+            MonsterGetIndexByLocationID(location_id);
         W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(monster_list_index);
         if (TargetSourceIsMonster(&m_Source, 0) && m_Source.iMonsterID == location_id) {
             goto miss;
@@ -1203,7 +1203,7 @@ bool W8Missile::OnCollision(W8Navigator* other)
             deflect_chance = g_status.buffers.Char[combat_slot.iChar].bonus.missile_deflect_chance;
         } else {
             W8MonsterInfo* monster_info =
-                MonsterInfoFromID(0x676, MISSILE_CPP, combat_slot.iMonsterID, true);
+                MonsterInfoFromID(combat_slot.iMonsterID);
             deflect_chance = monster_info->modifiers.missile_deflect_chance;
         }
         if (deflect_chance > 0 && Random(100) + 1 <= deflect_chance) {

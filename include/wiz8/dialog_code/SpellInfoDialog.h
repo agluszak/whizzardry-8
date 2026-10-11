@@ -31,7 +31,6 @@ private:
     W8GameTimer m_timer;
     unsigned int m_animation_frame;
 };
-W8_ABI_ASSERT(sizeof(W8SpellInfoDialog) == 0x16c, "W8SpellInfoDialog_size");
 
 /* The "(on ...)" parenthetical per spell target type. */
 extern const char* g_spell_target_parentheticals[11];

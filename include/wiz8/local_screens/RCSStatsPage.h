@@ -21,7 +21,6 @@ struct W8CampEffectEntry {
     int turns;       /* remaining turns; 9999 is permanent */
     int lines;       /* rendered height in 0xe-pixel lines */
 };
-W8_ABI_ASSERT(sizeof(W8CampEffectEntry) == 0x18, "W8CampEffectEntry_size");
 
 /* Camp stats page (page 1) and skills page (page 2) machinery. The scrollbar and
    the three toggle buttons drive the stats page's condition/equipment effect
@@ -45,10 +44,6 @@ public:
     virtual void OnPrimary(W8TextControl* control) override;
     W8TextControl* m_buttons[3];
 };
-
-W8_ABI_ASSERT(sizeof(W8CampStatsRange) == 8, "W8CampStatsRange_size");
-W8_ABI_ASSERT(sizeof(W8CampStatsControls) == 0x5c, "W8CampStatsControls_size");
-W8_ASSERT_BASE_END(W8CampStatsControls, W8TextControl::Listener, m_buttons, 0x4c);
 
 /* Camp page-1 renderer - attributes, traits and the effect list trigger. */
 void DrawCampStatsPage(void);

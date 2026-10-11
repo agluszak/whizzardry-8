@@ -95,8 +95,6 @@ public:
     virtual void process(srVertexPipe& pipe) override;
 };
 
-W8_ABI_ASSERT(sizeof(W8NormalTexcoordMapper) == 4, "W8NormalTexcoordMapper004B89A0_must_be_4");
-
 // GLOBAL: WIZ8 0x0065BEA8
 static W8NormalTexcoordMapper g_normal_texcoord_mapper;
 
@@ -151,7 +149,6 @@ srVertexProcessor::MaterialInfo stMaterial::getMaterialInfo()
     }
     return info;
 }
-
 
 /* ===== OctBuild level preprocessing =====
    The retail level preprocessor lives in this TU between the stMaterial

@@ -47,7 +47,6 @@
 #include "layouts/world.h"
 #include "local_code/SpellEffect.h"
 
-#define MARTENSBLUFF2_CPP "C:\\Projects\\Wizardry 8\\Level Specific Code\\MartensBluff2.cpp"
 
 /* Level Specific Code\MartensBluff2.cpp (level 6).
 
@@ -124,8 +123,7 @@ void MartensBluff2Setup(void)
                     group = SpawnMonsters(0x183, 1, &position, 0, true, false, false);
                     location_id = group->MemberLocationId(0);
                     if (location_id != 0) {
-                        info = MonsterGetScriptPartByLocationIndex(MonsterGetIndexByLocationID(
-                            0x1d2, MARTENSBLUFF2_CPP, location_id, true));
+                        info = MonsterGetScriptPartByLocationIndex(MonsterGetIndexByLocationID(location_id));
                         if (info != 0 && info->p3D != 0) {
                             info->p3D->SetScript("MB_MoveRapax.msf", true);
                             SetTriggerVariableByName("RavenQuest", 3);
@@ -373,7 +371,7 @@ bool MartensBluff2PerfumeBox(Trigger* pTrigger)
         location_id = group->MemberLocationId(0);
         if (location_id != 0) {
             info = MonsterGetScriptPartByLocationIndex(
-                MonsterGetIndexByLocationID(0x1d2, MARTENSBLUFF2_CPP, location_id, true));
+                MonsterGetIndexByLocationID(location_id));
             if (info != 0 && info->p3D != 0) {
                 info->p3D->SetScript("MB_MoveRapax.msf", true);
                 quest_state = 3;
@@ -559,7 +557,7 @@ void MartensBluff2MonsterCrusher(int command)
         return;
     }
     for (i = 0; i < count; i++) {
-        index = MonsterGetIndexByLocationID(0x28d, MARTENSBLUFF2_CPP, location_ids[i], true);
+        index = MonsterGetIndexByLocationID(location_ids[i]);
         info = MonsterGetScriptPartByLocationIndex(index);
         if (info != 0 && info->p3D != 0 &&
             (!g_crusher_excluded_flag || info->p3D != g_crusher_excluded) &&

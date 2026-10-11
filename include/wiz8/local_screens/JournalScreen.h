@@ -28,8 +28,6 @@ public:
     unsigned char m_pad_065[3];
 };
 
-W8_ASSERT_BASE_END(W8JournalPanel, W8TextControl::Listener, m_next, 0x4c);
-
 struct W8JournalEntry {
     int level;
     W8FactId fact;

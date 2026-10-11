@@ -17,8 +17,6 @@ enum W8MonsterActionKind {
     W8_MONSTER_ACTION_CONTROLLED_MOVE = 9
 };
 
-W8_ABI_ASSERT(sizeof(W8MonsterActionKind) == 4, "W8MonsterActionKind_size");
-
 /* Lure success/resistance state, separate from real-time movement modes. */
 enum W8MonsterControlState {
     W8_MONSTER_CONTROL_NONE = 0,

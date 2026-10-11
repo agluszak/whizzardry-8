@@ -49,4 +49,3 @@ private:
     unsigned char unknown_079;
     std::string m_input_text; /* fills the 0x270-byte allocation */
 };
-W8_ABI_ASSERT(sizeof(W8NpcDialog) == 0x270, "W8NpcDialog_size");

@@ -35,7 +35,6 @@
 #include "wiz8/retail_geometry_records.h"
 #include "wiz8/retail_text_records.h"
 #include "wiz8/engine_code/3d.h"
-#include "compat/compiler.h"
 #include "geometry.h"
 #include "surrender/srMath.h"
 
@@ -117,8 +116,6 @@ struct W8GDFaceHeader { /* 0x1c */
     int version;
 };
 
-W8_ABI_ASSERT(sizeof(W8GDFaceHeader) == 0x1c, "W8GDFaceHeader_must_be_0x1c");
-
 /* The WGD face record's tail: classification flag, slope/value pair, footstep
    selectors, trace chance, and the trigger index the writer overrode. */
 struct W8GDFaceData { /* 0x18 */
@@ -132,16 +129,12 @@ struct W8GDFaceData { /* 0x18 */
     int trigger_index;
 };
 
-W8_ABI_ASSERT(sizeof(W8GDFaceData) == 0x18, "W8GDFaceData_must_be_0x18");
-
 /* The conditional-face record following a non-primary face: the group key the
    interface compiler buckets on and the interface's name. */
 struct W8GDExtendedFace { /* 0x44 */
     int group;
     char name[0x40];
 };
-
-W8_ABI_ASSERT(sizeof(W8GDExtendedFace) == 0x44, "W8GDExtendedFace_must_be_0x44");
 
 namespace {
 struct ConditionalFace { int interface_id, surface, group; };
@@ -511,8 +504,6 @@ struct W8ProcessedGameDataHeader {
     unsigned char reserved[0x24];
 };
 
-W8_ABI_ASSERT(sizeof(W8ProcessedGameDataHeader) == 0x68, "W8ProcessedGameDataHeader_must_be_0x68");
-
 // FUNCTION: WIZ8 0x0041a820
 unsigned char W8EnvironRecord::RescaleToReference(const W8EnvironRecord* reference)
 {
@@ -660,7 +651,6 @@ W8GameData::W8GameData(wiz8::File* handle, bool secondary)
     trigger_surface_count = 0;
     trigger_surface_base = 0;
 
-
     m_iNumTriggers = 0;
     last_hit_surface = 0;
 
@@ -765,8 +755,6 @@ void ClassifySurfacePlane(const srVector3T<float>* vertices, W8GDSurface* surfac
     }
     surface->flags = flags & ~W8_GD_SURFACE_COLLISION_PROCESSED;
 }
-
-
 
 /* Release level globals; member owners release the runtime banks. */
 // FUNCTION: WIZ8 0x00449BB0

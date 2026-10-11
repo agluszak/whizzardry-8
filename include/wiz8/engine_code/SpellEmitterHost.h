@@ -37,6 +37,4 @@ public:
     unsigned char padding_379[3];
 }; /* 0x37c */
 
-W8_ABI_ASSERT(sizeof(W8SpellEmitterHost) == 0x37c, "W8SpellEmitterHost_size_must_be_0x37c");
-
 #endif

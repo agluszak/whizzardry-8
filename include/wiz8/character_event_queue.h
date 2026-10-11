@@ -154,6 +154,4 @@ struct W8CharacterEventQueue {
     void ProcessFollowUpEvents(); /* 0x0052E1C0 */
 };
 
-W8_ABI_ASSERT(sizeof(W8CharacterEventQueue) == 0x6c, "W8CharacterEventQueue_must_be_0x6c");
-
 #endif

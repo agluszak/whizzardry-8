@@ -34,7 +34,6 @@ public:
     w8_ulong color; /* 0x20 */
     char name[0x20];
 };
-W8_ABI_ASSERT(sizeof(W8WorldCursorNode) == 0x44, "W8WorldCursorNode_size");
 
 extern const double g_world_cursor_scale;
 

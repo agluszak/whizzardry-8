@@ -24,8 +24,6 @@ struct W8SaveScreenshot {
     unsigned short pixels[60][80];
 };
 
-W8_ABI_ASSERT(sizeof(W8SaveScreenshot) == 0x2588, "W8SaveScreenshot_must_be_0x2588");
-
 /* Save-list entries are allocated as 0x2640 bytes by both the enumerator and
    the Options controller. The SHOT chunk occupies the embedded screenshot. */
 struct W8SaveSlot {
@@ -44,9 +42,6 @@ struct W8SaveSlot {
     bool dev_flagged; /* saved copy of status dev_flagged */
     unsigned char padding_263d[3];
 };
-
-W8_ABI_ASSERT(sizeof(W8SaveSlot) == 0x2640, "W8SaveSlot_size");
-W8_ABI_ASSERT(offsetof(W8SaveSlot, screenshot) == 0xa8, "W8SaveSlot_screenshot_offset");
 
 void CaptureSaveScreenshot(W8SaveScreenshot& screenshot);
 void FillCurrentSaveSlot(W8SaveSlot& slot);

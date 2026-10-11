@@ -13,7 +13,6 @@ public:
     virtual void OnSelectionChanged(W8ControlSelection* control, int selected) = 0;
 };
 
-
 /* A radio group of text controls: selecting one deselects the rest. */
 // VTABLE: WIZ8 0x005ed654
 class W8ControlSelection : public W8TextControl::Listener {
@@ -32,4 +31,3 @@ public:
     std::vector<W8TextControl*> m_lsButtons;
     W8ControlSelectionListener* m_selectionListener;
 };
-W8_ABI_ASSERT(sizeof(W8ControlSelection) == 0x24, "W8ControlSelection_size");

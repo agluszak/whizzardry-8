@@ -232,7 +232,6 @@ void ResetMGSKeyboardBindings()
     g_mgs_keyboard->LoadDefaults("Data\\Strings\\MGSKeyboard.ini");
 }
 
-#define MGSKEYBOARD_CPP "C:\\Projects\\Wizardry 8\\Local Screens\\MGSKeyboard.cpp"
 
 /* Route one non-mouse input atom: text entry, NPC dialogue and the trap text
    box consume key presses first; the MIPE editor and the record-mode console
@@ -671,8 +670,7 @@ void DispatchMGSCommand(W8MGSCommand command)
         break;
     case W8_MGS_COMMAND_DEBUG_MONSTER_SCRIPT:
         if (g_level_block->highlighted_item != -1) {
-            MonsterGetScriptPartByLocationIndex(MonsterGetIndexByLocationID(
-                0x1b9, MGSKEYBOARD_CPP, g_level_block->highlighted_item, true));
+            MonsterGetScriptPartByLocationIndex(MonsterGetIndexByLocationID(g_level_block->highlighted_item));
         }
         break;
     default:

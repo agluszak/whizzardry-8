@@ -203,21 +203,6 @@ struct W8NpcInteractionState {
     /* pending_item came in through the cursor item; dialogue close returns it
        to the hand and the consume path drains its stack. */
     bool held_item_pending;
-    unsigned char script_busy; /* set 0xff during script execution */
-    /* The aux_data argument the NPC-dialog dispatch stashes when the
-       request is a 0x12/0x1e price check; the reply handler runs it as the
-       accepted script line, tells it as a fact, or runs its kind-0x17 decline
-       entries. */
-    int pending_fact;
-    /* A kind-0x12/0x1e price-check modal is awaiting its yes/no reply; the
-       reply handler matches the accepted string against pending_price. */
-    bool price_check_pending;
-    /* The request was kind 0x1e, so the accept path skips the TellNpcFact
-       call 0x12 makes. */
-    bool price_check_skip_fact;
-    /* The haggled price the NPC dialogue's price-check popup displays and the
-       submit path acts on. */
-    int pending_price;
     std::optional<QuoteBubble> quote_bubble;
     short quote_x;
     short quote_y;
@@ -293,15 +278,12 @@ extern bool g_keyword_lists_loaded;
 void ReloadKeywordLists(void);
 /* Clear the loaded keyword tables. */
 void ClearKeywordLists(void);
-/* Load one keyword file into a file list. */
-bool LoadKeywordFile(std::string_view path, KeywordFile& file);
 /* Copy the next '/'-terminated field out of a keyword line into
    the caller's buffer and return the cursor past it, or null at the end. */
 
 void SyncDialogueNpcState(void);
 /* Store a transcript keyword, inferring its category when category is -1. */
 void AddDialogueTranscriptKeyword(std::string_view name, signed char category);
-bool IsDialoguePlaceKeyword(std::string_view name);
 void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, W8NpcScriptQuote* quote,
                               int quote_id, unsigned int font_palette);
 void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, W8NpcScriptQuote* quote,
@@ -309,9 +291,6 @@ void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, W8NpcScriptQu
                               W8QuoteNotice notice, int npc_kind);
 void DrawNpcQuoteBubble(void);
 void LookAtDialogueNpc(void);
-void BeginNpcDialogueInternal(W8NpcState* npc, W8ItemInstance* item, int quote, unsigned char flags,
-                              unsigned char force);
-void BeginScriptedWorldAction(void);
 void CloseNpcDialogueLayout(void);
 void OpenNpcDialogueTranscriptLayout(void);
 void DispatchPendingNpcScriptNotice(void);
@@ -321,7 +300,6 @@ bool IsNpcDialogueTextBoxActive(void);
 unsigned char SetNpcDialoguePanelVisible(unsigned char value);
 bool ProcessPendingEvent(void);
 void SyncDialogueNpcStateAndMarkPending(void);
-void ClearMainGameTargetState(void);
 /* A script notice is staged in g_pending_notice */
 extern bool g_pending_notice_queued;
 void SyncNpcServiceButtons(int party_slot);
@@ -331,42 +309,26 @@ unsigned char MainScreenControlRegionEvent(const InputEvent* event, struct W8Reg
 void SwitchNpcDialogueLayout(W8NpcDialogueLayout layout);
 void BeginNpcDialogue(W8NpcState* npc, W8ItemInstance* item, int quote, unsigned char flags,
                       unsigned char force);
-unsigned char OpenNpcDialoguePanel(W8NpcState* npc, W8ItemInstance* item, bool force);
 void SelectNpcDialogueSpeaker(W8NpcState* npc, int flags);
-void CreateNpcDialogueControls(void);
 void InvalidateMainGameActionPanelRect(const W8ControlsRect* rect);
-void SetNpcDialogueLayoutMode(W8NpcDialogueLayout value);
-void CloseNpcDialogueMode1Layout(void);
-void CloseNpcDialogueTranscriptLayout(void);
 void CloseNpcDialogueOptionLayout(void);
-void CloseNpcDialogueMode5Layout(void);
 void ShowNpcDialogueTopicMenu(void);
-void HandleNpcDialogueDeparture(unsigned char value);
-unsigned char HandleNpcDialogueItem(W8ItemInstance* item);
-unsigned char AcceptNpcDialogueItem(W8NpcState* npc, W8ItemInstance* item, int mode);
 std::string TranslateDialogueKeyword(std::string_view source);
 void ResetNpcDialogueItemEditor(void);
-void SetNpcDialogueHidden(char value);
 /* While NPC script deferral holds character events, drain Escape / click so
    the open dialogue layout can dismiss without the normal input path. */
 void DrainNpcDialogueDeferralInput(void);
 /* When world_cursor_gate is set, discard queued input after a mouse-position hook so
    the world-cursor gate does not process stale events. */
 void FlushInputWhileWorldCursorGate(void);
-void HandleNpcDialogueReply(std::string_view text, bool echo);
 void HandleNpcDialogueInput(void);
 void OpenNpcDialog(W8NpcQuoteEntry* request, int aux_data);
-void OnNpcDialogClosed(W8DialogBase* dialog);
-void ConfirmNpcTradePurchase(void);
 /* Learn one keyword into the dialogue transcript. category -1
    auto-classifies the text against items, NPC/named-monster names and the
    place-name table; a nonzero play_chime rings the keyword chime. */
 void AddNpcDialogueKeyword(std::string text, signed char category, int play_chime);
 void ClearNpcDialogueTranscript(void);
 void CloseNpcDialogueForCamp(void);
-void OpenNpcDialogueOptionLayout(void);
-void OpenNpcDialogueMode1Layout(void);
-void OpenNpcDialogueMode5Layout(void);
 void UpdateNpcDialogueSubMode(void);
 /* Restate the five transcript category buttons so only the
    active dialogue_category_filter's button shows its secondary state. */
@@ -399,64 +361,12 @@ void NpcDialogueTextBoxWheelAt(short x, unsigned short y, bool flag);
 /* True when an NPC quote/portrait session is active: finish voice playback and
    report that the click was consumed. */
 bool FinishNpcVoiceIfSessionActive(void);
-void ToggleNpcHandItemFilter(void);
-void ToggleNpcAccessoryItemFilter(void);
-void ToggleNpcBodyItemFilter(void);
-void ToggleNpcOtherItemFilter(void);
-void ToggleNpcCharacterUsabilityFilter(void);
-void ToggleNpcPartyUsabilityFilter(void);
-void BackOutNpcDialogue(void);
-void SubmitNpcWhereIsQuery(void);
-void SubmitNpcDialogueInput(void);
-void SelectNpcDialogueService(void);
-void SelectNpcDialogueTalk(void);
-void SelectNpcDialogueExit(void);
-void PromptNpcDispositionChange(void);
-void OnNpcDispositionPromptClosed(W8DialogBase* dialog);
-void EnterNpcServiceLayout(void);
-void LeaveNpcDialogueLayout(void);
-void EnterNpcTradeOptions(void);
-void ShowNpcDialogueNotice(void);
-void RequestNpcJoinParty(void);
-void ScrollNpcDialogueUp(void);
-void ScrollNpcDialogueDown(void);
-void SubmitNpcDialogueKeyword(void);
-void RefreshNpcDialogueTranscript(void);
-void SyncNpcDialogueListFilter(void);
-void SelectNpcPeopleTopics(void);
-void SelectNpcPlaceTopics(void);
-void SelectNpcItemTopics(void);
-void SelectNpcMiscTopics(void);
-void SelectNpcDialogueCategoryAll(void);
-void SelectNpcSellMode(void);
-void SelectNpcGiveMode(void);
-void SelectNpcShopliftMode(void);
-void SelectNpcPartyItems(void);
-void SelectNpcStockItems(void);
-void OpenNpcItemAssay(void);
-void OnNpcAssayDialogClosed(W8DialogBase* dialog);
-void ConfirmNpcTradeSlot(void);
-void RequestNpcSpellService3(void);
-void RequestNpcSpellService41(void);
-void RequestNpcCharacterService(void);
-void OnNpcTradeDialogClosed(W8DialogBase* dialog);
 void UpdateNpcTradeSelection(int index, int, int);
-void OpenNpcGoldAmountDialog(void);
-/* The dialogue text-box's button-up/double-click handlers, dispatched from
-   NpcDialogueTextBoxRegionEvent. */
-void NpcDialogueTextBoxLeftUp(int x, int y);
-void NpcDialogueTextBoxRightUp(int x, int y);
-void NpcDialogueTextBoxDoubleClick(int x, int y);
-/* W8SplitAmountDialog destroy callback installed by OpenNpcGoldAmountDialog. */
-void OnNpcTradeSplitDialogDestroy(W8DialogBase* dialog);
-W8ItemInstance* ResolveNpcTradeRow(int index, bool, char, char);
 bool NpcTradeItemAllowed(W8ItemInstance* item);
 void EnableNpcTradeFilterButtons(void);
-W8ItemInstance* GetNpcTradeSlotItem(int index);
 void HandleNpcDialogueKeyEvent(const InputEvent* event);
 unsigned char LoadNpcDialogueTranscript(wiz8::File& file);
 unsigned char SaveNpcDialogueTranscript(wiz8::File& file);
 void HandleNpcDialogueItemChoice(void);
 void RefreshNpcTradePartyGold(void);
 void RefreshNpcTradePrice(void);
-void ResolveNpcPickpocket(int party_slot);
