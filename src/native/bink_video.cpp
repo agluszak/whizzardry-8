@@ -21,22 +21,18 @@ bool copy(const W8NativeVideo::Frame& frame, CpuSurface* target)
 {
     if (!target || frame.pixels.empty())
         return false;
-    SurfaceLock description{};
-    description.width = target->surface->w;
-    description.height = target->surface->h;
-    if (description.width < frame.width || description.height < frame.height ||
+    const auto& description = *target->surface;
+    if (description.w < frame.width || description.h < frame.height ||
         SDL_BYTESPERPIXEL(target->surface->format) != 2 ||
         target->redMask != 0x7c00 ||
         target->greenMask != 0x3e0 ||
         target->blueMask != 0x1f)
         return false;
-    description = LockCpuSurface(*target);
     if (!description.pixels)
         return false;
     for (int y = 0; y < frame.height; ++y)
         memcpy(static_cast<unsigned char*>(description.pixels) + y * description.pitch,
                frame.pixels.data() + y * frame.width, frame.width * 2);
-    UnlockCpuSurface(*target);
     return true;
 }
 

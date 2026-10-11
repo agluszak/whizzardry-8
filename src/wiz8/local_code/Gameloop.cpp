@@ -109,8 +109,7 @@ void ShutdownGame(size_t initialized_screens, bool save_configuration)
     DestroyNpcDatabase();
     DestroyFactDatabase();
     DestroyLevelDatabase();
-    for (auto& palette : g_font_state_palettes)
-        palette.reset();
+    g_font_state_palettes = {};
     ReleaseDefaultHelpText();
     for (index = 0; index < static_cast<int>(initialized_screens); ++index) {
         g_screen_handlers[index].finalize();
@@ -207,14 +206,14 @@ void GameloopExit(unsigned char release_screens)
     if (gXStatus.character_event_queue)
         gXStatus.character_event_queue->DestroyAllEvents();
 
-    SetFontObjectPalette16BPP(g_smfnt_font, g_smfnt_font.glyphs.ownedPalette.get());
-    SetFontObjectPalette16BPP(g_calligraphy_font, g_calligraphy_font.glyphs.ownedPalette.get());
-    SetFontObjectPalette16BPP(g_calligraphy_shadow_font, g_calligraphy_shadow_font.glyphs.ownedPalette.get());
-    SetFontObjectPalette16BPP(g_wiz_text_font, g_wiz_text_font.glyphs.ownedPalette.get());
-    SetFontObjectPalette16BPP(g_button_font, g_button_font.glyphs.ownedPalette.get());
-    SetFontObjectPalette16BPP(g_wiz_text_font_secondary, g_wiz_text_font_secondary.glyphs.ownedPalette.get());
-    SetFontObjectPalette16BPP(g_wiz_text_bold_font, g_wiz_text_bold_font.glyphs.ownedPalette.get());
-    SetFontObjectPalette16BPP(g_options_detail_font, g_options_detail_font.glyphs.ownedPalette.get());
+    g_smfnt_font.resetPalette();
+    g_calligraphy_font.resetPalette();
+    g_calligraphy_shadow_font.resetPalette();
+    g_wiz_text_font.resetPalette();
+    g_button_font.resetPalette();
+    g_wiz_text_font_secondary.resetPalette();
+    g_wiz_text_bold_font.resetPalette();
+    g_options_detail_font.resetPalette();
     if (!release_screens) {
         return;
     }

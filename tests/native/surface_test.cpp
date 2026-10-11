@@ -32,26 +32,24 @@ UINT32 read(const void* data, unsigned bytes)
 
 std::vector<BYTE> pixels(CpuSurface& owner)
 {
-    const auto lock = LockCpuSurface(owner);
-    const auto* begin = static_cast<const BYTE*>(lock.pixels);
-    std::vector<BYTE> result(begin, begin + lock.pitch * lock.height);
-    UnlockCpuSurface(owner);
+    const auto& storage = *owner.surface;
+    const auto* begin = static_cast<const BYTE*>(storage.pixels);
+    std::vector<BYTE> result(begin, begin + storage.pitch * storage.h);
     return result;
 }
 
 void seed(CpuSurface& owner, unsigned salt)
 {
-    const auto lock = LockCpuSurface(owner);
-    auto* begin = static_cast<BYTE*>(lock.pixels);
-    std::fill_n(begin, lock.pitch * lock.height, 0xa5);
+    const auto& storage = *owner.surface;
+    auto* begin = static_cast<BYTE*>(storage.pixels);
+    std::fill_n(begin, storage.pitch * storage.h, 0xa5);
     const unsigned bytes = SDL_BYTESPERPIXEL(owner.surface->format);
-    for (int y = 0; y < lock.height; ++y)
-        for (int x = 0; x < lock.width; ++x)
+    for (int y = 0; y < storage.h; ++y)
+        for (int x = 0; x < storage.w; ++x)
         {
             const UINT32 value = (salt + y * 211 + x * 79) * 0x10307u;
-            memcpy(begin + y * lock.pitch + x * bytes, &value, bytes);
+            memcpy(begin + y * storage.pitch + x * bytes, &value, bytes);
         }
-    UnlockCpuSurface(owner);
 }
 
 // Reference is the previous packed-word contract, not SDL's pixel output.
@@ -198,13 +196,13 @@ void videoSurfaceClipping()
     REQUIRE(SDL_RectsEqual(&destination, &expectedSource));
     REQUIRE(SDL_RectsEqual(&sample, &expectedDest));
     SDL_Rect clips[]{{2, 1, 3, 2}};
-    REQUIRE(SetClipList(*destView, clips, 1));
+    SetSurfaceClipRegions(destView->cpu(), clips);
     REQUIRE(dest.clipRegions->size() == 1);
     REQUIRE(SDL_RectsEqual(&dest.clipRegions->front(), &clips[0]));
     seed(source, 5);
     for (bool clipped : {false, true}) {
         if (!clipped) dest.clipRegions.reset();
-        else REQUIRE(SetClipList(*destView, clips, 1));
+        else SetSurfaceClipRegions(destView->cpu(), clips);
         for (int y : {-4, -1, 0, 3, 7})
             for (int x : {-5, -1, 0, 4, 8}) {
                 seed(dest, 17);
@@ -212,7 +210,7 @@ void videoSurfaceClipping()
                 const auto expected = reference(dest, mapping, source, sample);
                 blt_vs_fx effects{};
                 effects.SrcRect = sample;
-                REQUIRE((BltVideoSurfaceToVideoSurface(*destView, *sourceView, 0,
+                REQUIRE((BltVideoSurfaceToVideoSurface(*destView, *sourceView,
                                                     x, y, VS_BLT_SRCSUBRECT, &effects) ||
                       x >= 8 || y >= 7));
                 REQUIRE(pixels(dest) == expected);
@@ -220,33 +218,24 @@ void videoSurfaceClipping()
     }
 }
 
-void locksFillsAndKeys()
+void fillsAndKeys()
 {
     for (unsigned bits : {8, 16, 32})
     {
         auto surface = CreateCpuSurface(3, 3, bits, 0x7c00, 0x3e0, 0x1f);
         const unsigned bytes = bits / 8;
-        auto lock = LockCpuSurface(*surface);
-        REQUIRE((lock.pitch >= int(3 * bytes) && lock.pitch % 4 == 0));
-        memset(lock.pixels, 0xa5, lock.pitch * lock.height);
-        UnlockCpuSurface(*surface);
-        const SDL_Rect region{1, 1, 2, 2};
-        lock = LockCpuSurface(*surface, &region);
-        REQUIRE(lock.pixels == static_cast<BYTE*>(surface->surface->pixels) + lock.pitch + bytes);
-        REQUIRE((lock.width == 2 && lock.height == 2));
-        bool rejected = false;
-        try { FillCpuSurface(*surface, 0); } catch (const std::runtime_error&) { rejected = true; }
-        REQUIRE(rejected);
-        UnlockCpuSurface(*surface);
+        const auto& storage = *surface->surface;
+        REQUIRE((storage.pitch >= int(3 * bytes) && storage.pitch % 4 == 0));
+        memset(storage.pixels, 0xa5, storage.pitch * storage.h);
         const auto before = pixels(*surface);
         const SDL_Rect clips[]{{1, 0, 2, 2}};
         SetSurfaceClipRegions(*surface, clips);
         FillCpuSurface(*surface, 0xdeadbeef);
         const auto after = pixels(*surface);
         for (int y = 0; y < 3; ++y)
-            for (int offset = 0; offset < lock.pitch; ++offset)
+            for (int offset = 0; offset < storage.pitch; ++offset)
             {
-                const auto index = y * lock.pitch + offset;
+                const auto index = y * storage.pitch + offset;
                 if (y < 2 && offset >= int(bytes) && offset < int(3 * bytes))
                     REQUIRE(after[index] == BYTE(0xdeadbeef >> (8 * (offset % bytes))));
                 else
@@ -256,9 +245,8 @@ void locksFillsAndKeys()
     auto src = CreateCpuSurface(2, 1, 32, 0xff0000, 0xff00, 0xff, 0xff000000);
     auto dest = CreateCpuSurface(2, 1, 32, 0xff0000, 0xff00, 0xff, 0xff000000);
     const UINT32 input[] {0x00123456, 0xff123456};
-    auto lock = LockCpuSurface(*src);
-    memcpy(lock.pixels, input, sizeof(input));
-    UnlockCpuSurface(*src);
+    const auto& storage = *src->surface;
+    memcpy(storage.pixels, input, sizeof(input));
     FillCpuSurface(*dest, 0x11223344);
     src->sourceKey = SurfaceColorKey{input[0], input[0]};
     BlitCpuSurface(*dest, nullptr, *src, nullptr, true);
@@ -270,7 +258,7 @@ void locksFillsAndKeys()
 TEST_CASE("surface_test")
 {
     differential();
-    locksFillsAndKeys();
+    fillsAndKeys();
     videoSurfaceClipping();
 }
 

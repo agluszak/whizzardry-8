@@ -1,3 +1,4 @@
+#include "vsurface.h"
 #include <cstring>
 #include <optional>
 #include <string>
@@ -46,15 +47,12 @@
 unsigned char InitializeGame(size_t& initialized_screens)
 {
     const auto version = FormatVersionBanner(true, true, true);
-    void* buffer;
-    UINT32 count;
     bool ok;
 
     LoadLocalizedStrings(!gzStringDataOverride.empty() ? gzStringDataOverride.c_str()
                                               : "Data\\Strings\\StringData.DAT");
-    buffer = LockPrimarySurface(&count);
-    memset(buffer, 0, count * 0x1e0);
-    UnlockPrimarySurface();
+    const auto& framebuffer = *GetFrameBufferSurface().cpu().surface;
+    memset(framebuffer.pixels, 0, framebuffer.pitch * framebuffer.h);
     LoadGameConfiguration();
     g_current_screen_state.id = W8_SCREEN_NONE;
     g_pending_screen_state.id = W8_SCREEN_NONE;

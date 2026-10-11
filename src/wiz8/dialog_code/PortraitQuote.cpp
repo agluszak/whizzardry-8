@@ -92,27 +92,17 @@ static int DrawWrappedTextLine(std::string_view text, int x, int top, int width,
                                unsigned char foreground, unsigned char background, bool dirty,
                                unsigned int flags)
 {
-    short draw_x = static_cast<short>(x);
-    short draw_y = static_cast<short>(top);
-
-    if (flags & WRAPPED_TEXT_MEASURE_ONLY) {
-        return 1;
+    if (flags & WRAPPED_TEXT_MEASURE_ONLY) return 1;
+    if (flags == 0) flags = WRAPPED_TEXT_LEFT;
+    SDL_Point position{x, top};
+    const SDL_Rect bounds{x, top, width, font.height()};
+    if (!(flags & WRAPPED_TEXT_LEFT)) {
+        if (flags & WRAPPED_TEXT_CENTER)
+            position = font.centeredPosition(bounds, text);
+        else if (flags & WRAPPED_TEXT_RIGHT)
+            position = font.rightAlignedPosition(bounds, text);
     }
-    if (flags == 0) {
-        flags = WRAPPED_TEXT_LEFT;
-    }
-    if (flags & WRAPPED_TEXT_LEFT) {
-        draw_x = static_cast<short>(x);
-        draw_y = static_cast<short>(top);
-    } else if (flags & WRAPPED_TEXT_CENTER) {
-        FindFontCenterCoordinates(static_cast<short>(x), static_cast<short>(top),
-                                  static_cast<short>(width), font.height(), text, font,
-                                  &draw_x, &draw_y);
-    } else if (flags & WRAPPED_TEXT_RIGHT) {
-        FindFontRightCoordinates(static_cast<short>(x), static_cast<short>(top),
-                                 static_cast<short>(width), font.height(), text, font,
-                                 &draw_x, &draw_y);
-    }
+    const auto [draw_x, draw_y] = position;
 
     SetFont(font);
     SetFontForeground(foreground);
@@ -412,7 +402,7 @@ unsigned char DrawPortraitQuoteBubble(int quote_handle, short x, short y, SGPVSu
         blt_flags = VS_BLT_FAST | VS_BLT_USECOLORKEY;
     }
     g_current_portrait_quote = bubble;
-    BltVideoSurfaceToVideoSurface(surface, *bubble->surface, 0, x, y, blt_flags, 0);
+    BltVideoSurfaceToVideoSurface(surface, *bubble->surface, x, y, blt_flags, 0);
     if (&surface == &GetFrameBufferSurface()) {
         InvalidateRegion(x, y, static_cast<short>(x + bubble->width),
                          static_cast<short>(y + bubble->height), 0);
@@ -566,23 +556,24 @@ int LayoutPortraitQuoteBubble(int quote_handle, unsigned char background_index,
         rect = {0, 0, width_px, height_px};
         if (bubble.flags & QUOTE_BUBBLE_FLAT_BACKGROUND) {
             SetVideoSurfaceTransparencyColor(*bubble.surface, 0xffff);
-            pixels = reinterpret_cast<UINT16*>( // reinterpret-ok: raw locked pixel memory
-                LockVideoSurfaceBuffer(*bubble.surface, &pitch));
+            const auto& destination_storage = *bubble.surface->cpu().surface;
+            pitch = destination_storage.pitch;
+            pixels = static_cast<UINT16*>(destination_storage.pixels);
             fill = Get16BPPColor(0xffff);
             count = static_cast<unsigned short>(height * max_width);
             for (x = 0; x < count; ++x) {
                 pixels[x] = fill;
             }
-            UnLockVideoSurfaceBuffer(*bubble.surface);
         } else {
             auto& source_surface = *bubble.background_surface;
-            pixels = reinterpret_cast<UINT16*>( // reinterpret-ok: raw locked pixel memory
-                LockVideoSurfaceBuffer(*bubble.surface, &pitch));
-            source = LockVideoSurfaceBuffer(*bubble.background_surface, &source_pitch);
+            const auto& destination_storage = *bubble.surface->cpu().surface;
+            pitch = destination_storage.pitch;
+            pixels = static_cast<UINT16*>(destination_storage.pixels);
+            const auto& source_storage = *bubble.background_surface->cpu().surface;
+            source_pitch = source_storage.pitch;
+            source = static_cast<BYTE*>(source_storage.pixels);
             Blt8BPPDataSubTo16BPPBuffer(pixels, pitch, source_surface, source, source_pitch, 0, 0,
                                         &rect);
-            UnLockVideoSurfaceBuffer(*bubble.background_surface);
-            UnLockVideoSurfaceBuffer(*bubble.surface);
         }
         auto& object = *bubble.object;
         for (x = 0x10; static_cast<int>(x) < width_px - 0x10; x = x + 0x10) {

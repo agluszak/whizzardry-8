@@ -1034,54 +1034,57 @@ void RenderActiveTextField(void)
         }
     }
 
-    SaveFontSettings();
-    SetFont(*pColors->usFont);
-    unsigned short font_height = pColors->usFont->height();
-    unsigned int vertical_offset =
-        (field->region.RegionBottomRightY - field->region.RegionTopLeftY - font_height) / 2;
-    RenderBackgroundField(field);
+    {
 
-    const char* visible = field->szString.c_str() + gubParkingPos;
+        FontRenderScope font_scope;
+        SetFont(*pColors->usFont);
+        unsigned short font_height = pColors->usFont->height();
+        unsigned int vertical_offset =
+            (field->region.RegionBottomRightY - field->region.RegionTopLeftY - font_height) / 2;
+        RenderBackgroundField(field);
 
-    bool has_selection = gfHiliteMode && gubStartHilite != gubEndHilite;
-    std::size_t selection_first = gubEndHilite;
-    std::size_t selection_last = gubStartHilite;
-    if (gubStartHilite < gubEndHilite) {
-        selection_first = gubStartHilite;
-        selection_last = gubEndHilite;
-    }
+        const char* visible = field->szString.c_str() + gubParkingPos;
 
-    for (size_t index = 0; index < guiVisibleCount && visible[index];) {
-        short prefix = pColors->usFont->prefixWidth(const_cast<char*>(visible), index);
-        unsigned char background;
-        if (has_selection &&
-            selection_first <= gubParkingPos + index &&
-            gubParkingPos + index < selection_last) {
-            SetFontForeground(pColors->ubHiForeColor);
-            SetFontShadow(pColors->ubHiShadowColor);
-            background = pColors->ubHiBackColor;
-        } else {
-            SetFontForeground(pColors->ubForeColor);
-            SetFontShadow(pColors->ubShadowColor);
-            background = 0;
+        bool has_selection = gfHiliteMode && gubStartHilite != gubEndHilite;
+        std::size_t selection_first = gubEndHilite;
+        std::size_t selection_last = gubStartHilite;
+        if (gubStartHilite < gubEndHilite) {
+            selection_first = gubStartHilite;
+            selection_last = gubEndHilite;
         }
-        SetFontBackground(background);
-        std::size_t end = index;
-        wiz8::text::next(visible, end);
-        const std::string glyph(visible + index, end - index);
-        DrawMonoFontText(field->region.RegionTopLeftX + prefix + 3,
-                         field->region.RegionTopLeftY + vertical_offset, glyph);
-        index = end;
-    }
 
-    if (gfEditingText && !field->fUserField && gfLeftButtonState == 0 &&
-        w8_get_ticks() % 1000 < 500) {
-        int left = field->region.RegionTopLeftX + gsCursorX;
-        int top = field->region.RegionTopLeftY + vertical_offset;
-        ColorFillVideoSurfaceArea(GetFrameBufferSurface(), left, top, left + 1, top + font_height,
-                                  pColors->usCursorColor);
+        for (size_t index = 0; index < guiVisibleCount && visible[index];) {
+            short prefix = pColors->usFont->prefixWidth(const_cast<char*>(visible), index);
+            unsigned char background;
+            if (has_selection &&
+                selection_first <= gubParkingPos + index &&
+                gubParkingPos + index < selection_last) {
+                SetFontForeground(pColors->ubHiForeColor);
+                SetFontShadow(pColors->ubHiShadowColor);
+                background = pColors->ubHiBackColor;
+            } else {
+                SetFontForeground(pColors->ubForeColor);
+                SetFontShadow(pColors->ubShadowColor);
+                background = 0;
+            }
+            SetFontBackground(background);
+            std::size_t end = index;
+            wiz8::text::next(visible, end);
+            const std::string glyph(visible + index, end - index);
+            DrawMonoFontText(field->region.RegionTopLeftX + prefix + 3,
+                             field->region.RegionTopLeftY + vertical_offset, glyph);
+            index = end;
+        }
+
+        if (gfEditingText && !field->fUserField && gfLeftButtonState == 0 &&
+            w8_get_ticks() % 1000 < 500) {
+            int left = field->region.RegionTopLeftX + gsCursorX;
+            int top = field->region.RegionTopLeftY + vertical_offset;
+            ColorFillVideoSurfaceArea(GetFrameBufferSurface(), left, top, left + 1, top + font_height,
+                                      pColors->usCursorColor);
+        }
+
     }
-    RestoreFontSettings();
 }
 
 // FUNCTION: WIZ8 0x005D5770
@@ -1090,36 +1093,39 @@ void RenderInactiveTextFieldNode(TEXTINPUTNODE* field)
     if (field == 0 || field->fUserField)
         return;
 
-    SaveFontSettings();
-    SetFont(*pColors->usFont);
-    bool disabled = field->fEnabled == 0 && pColors->fUseDisabledAutoShade;
-    unsigned char shadow;
-    if (disabled) {
-        SetFontForeground(pColors->ubDisabledForeColor);
-        shadow = pColors->ubDisabledShadowColor;
-    } else {
-        SetFontForeground(pColors->ubForeColor);
-        shadow = pColors->ubShadowColor;
-    }
-    SetFontShadow(shadow);
-    unsigned short font_height = pColors->usFont->height();
-    unsigned int vertical_offset =
-        (field->region.RegionBottomRightY - field->region.RegionTopLeftY - font_height) / 2;
-    SetFontBackground(0);
-    RenderBackgroundField(field);
+    const bool disabled = field->fEnabled == 0 && pColors->fUseDisabledAutoShade;
+    {
 
-    const char* visible = field->szString.c_str();
-    for (size_t index = 0; visible[index];) {
-        short prefix = pColors->usFont->prefixWidth(field->szString.c_str(), index);
-        if (field->region.RegionBottomRightX - field->region.RegionTopLeftX - 10 < prefix + 3) break;
-        std::size_t end = index;
-        wiz8::text::next(visible, end);
-        const std::string glyph(visible + index, end - index);
-        DrawMonoFontText(field->region.RegionTopLeftX + prefix + 3,
-                         field->region.RegionTopLeftY + vertical_offset, glyph);
-        index = end;
+        FontRenderScope font_scope;
+        SetFont(*pColors->usFont);
+        unsigned char shadow;
+        if (disabled) {
+            SetFontForeground(pColors->ubDisabledForeColor);
+            shadow = pColors->ubDisabledShadowColor;
+        } else {
+            SetFontForeground(pColors->ubForeColor);
+            shadow = pColors->ubShadowColor;
+        }
+        SetFontShadow(shadow);
+        unsigned short font_height = pColors->usFont->height();
+        unsigned int vertical_offset =
+            (field->region.RegionBottomRightY - field->region.RegionTopLeftY - font_height) / 2;
+        SetFontBackground(0);
+        RenderBackgroundField(field);
+
+        const char* visible = field->szString.c_str();
+        for (size_t index = 0; visible[index];) {
+            short prefix = pColors->usFont->prefixWidth(field->szString.c_str(), index);
+            if (field->region.RegionBottomRightX - field->region.RegionTopLeftX - 10 < prefix + 3) break;
+            std::size_t end = index;
+            wiz8::text::next(visible, end);
+            const std::string glyph(visible + index, end - index);
+            DrawMonoFontText(field->region.RegionTopLeftX + prefix + 3,
+                             field->region.RegionTopLeftY + vertical_offset, glyph);
+            index = end;
+        }
+
     }
-    RestoreFontSettings();
 
     if (disabled) {
         SDL_Rect rectangle = {
@@ -1128,10 +1134,8 @@ void RenderInactiveTextFieldNode(TEXTINPUTNODE* field)
             field->region.RegionBottomRightX - field->region.RegionTopLeftX,
             field->region.RegionBottomRightY - field->region.RegionTopLeftY,
         };
-        unsigned int pitch;
-        void* pixels = LockVideoSurfaceBuffer(GetFrameBufferSurface(), &pitch);
-        Blt16BPPBufferShadowRect(static_cast<unsigned short*>(pixels), pitch, &rectangle);
-        UnLockVideoSurfaceBuffer(GetFrameBufferSurface());
+        const auto& surface = *GetFrameBufferSurface().cpu().surface;
+        Blt16BPPBufferShadowRect(static_cast<unsigned short*>(surface.pixels), surface.pitch, &rectangle);
     }
 }
 

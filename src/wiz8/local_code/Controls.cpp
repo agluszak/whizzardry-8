@@ -592,39 +592,40 @@ void W8TextBuffer::RenderText(unsigned char* buffer, unsigned int pitch, int x_o
     SetFont(*m_font);
     auto& font_object = m_font->glyphs;
     SetObjectShade(font_object, m_renderMode);
-    unsigned short* previous_state = GetFontObjectPalette16BPP(*m_font);
+    const auto previous_state = m_font->palette();
     if (m_fontStateIndex != -1) {
-        SetFontObjectPalette16BPP(*m_font, g_font_state_palettes[m_fontStateIndex].get());
+        m_font->setPalette(g_font_state_palettes[m_fontStateIndex]);
     }
-    SaveFontSettings();
-    SetFontDestBuffer(*g_font_render_state.destination, m_pendingBounds.left, m_pendingBounds.top,
-                      m_pendingBounds.right, m_pendingBounds.bottom, g_font_render_state.wrap);
+    {
+        FontRenderScope font_scope;
+        SetFontDestClip(m_pendingBounds.left, m_pendingBounds.top,
+                          m_pendingBounds.right, m_pendingBounds.bottom);
 
-    int y = GetVerticalPosition();
-    size_t span = strcspn(line, g_W8LineBreakCharacters);
-    for (;;) {
-        const bool has_next_line = line[span] != '\0';
-        if (has_next_line)
-            line[span] = '\0';
+        int y = GetVerticalPosition();
+        size_t span = strcspn(line, g_W8LineBreakCharacters);
+        for (;;) {
+            const bool has_next_line = line[span] != '\0';
+            if (has_next_line)
+                line[span] = '\0';
 
-        const int x = GetHorizontalPosition(m_font->textWidth(line));
-        if (m_alternateRenderer == 0)
-            DrawFontTextToBuffer(buffer, pitch, *m_font, x + x_offset, y + y_offset, line);
-        else
-            DrawMonoFontTextToBuffer(buffer, pitch, *m_font, x + x_offset, y + y_offset, line);
+            const int x = GetHorizontalPosition(m_font->textWidth(line));
+            if (m_alternateRenderer == 0)
+                DrawFontTextToBuffer(buffer, pitch, *m_font, x + x_offset, y + y_offset, line);
+            else
+                DrawMonoFontTextToBuffer(buffer, pitch, *m_font, x + x_offset, y + y_offset, line);
 
-        if (!has_next_line)
-            break;
-        y += GetLineHeight();
-        line[span] = '\n';
-        if (m_layoutBounds.bottom <= y)
-            break;
-        line += span + 1;
-        span = strcspn(line, g_W8LineBreakCharacters);
+            if (!has_next_line)
+                break;
+            y += GetLineHeight();
+            line[span] = '\n';
+            if (m_layoutBounds.bottom <= y)
+                break;
+            line += span + 1;
+            span = strcspn(line, g_W8LineBreakCharacters);
+        }
+
+        m_font->setPalette(previous_state);
     }
-
-    SetFontObjectPalette16BPP(*m_font, previous_state);
-    RestoreFontSettings();
     m_geometryDirty = false;
 }
 
@@ -644,12 +645,12 @@ void W8TextBuffer::RenderToTarget(int offset, bool force, SGPVSurface& target)
     SetObjectShade(font_object, m_renderMode);
     SetFontDestBuffer(target, m_pendingBounds.left, m_pendingBounds.top, m_pendingBounds.right,
                       m_pendingBounds.bottom, 0);
-    unsigned short* previous_state = GetFontObjectPalette16BPP(*m_font);
+    const auto previous_state = m_font->palette();
     if (m_fontStateIndex != -1) {
-        SetFontObjectPalette16BPP(*m_font, g_font_state_palettes[m_fontStateIndex].get());
+        m_font->setPalette(g_font_state_palettes[m_fontStateIndex]);
     }
     if (m_highlighted) {
-        SetFontObjectPalette16BPP(*m_font, g_font_state_palettes[W8_FONT_PALETTE_GREEN].get());
+        m_font->setPalette(g_font_state_palettes[W8_FONT_PALETTE_GREEN]);
     }
 
     int y = GetVerticalPosition();
@@ -672,7 +673,7 @@ void W8TextBuffer::RenderToTarget(int offset, bool force, SGPVSurface& target)
         span = strcspn(line, g_W8LineBreakCharacters);
     }
 
-    SetFontObjectPalette16BPP(*m_font, previous_state);
+    m_font->setPalette(previous_state);
     InvalidateRegion(m_layoutBounds.left, m_layoutBounds.top, m_layoutBounds.right,
                      m_layoutBounds.bottom, 0);
     SetFontDestBuffer(GetFrameBufferSurface(), 0, 0, 640, 480, 0);

@@ -911,7 +911,6 @@ void ScrollTextBoxDown(int lines)
 // FUNCTION: WIZ8 0x0058C8E0
 static void DrawDialogueTextCursor(int x, int y)
 {
-    unsigned int pitch = 0;
     W8DialogueTextState* input = g_level_block->dialogue_text_input;
     unsigned int line = FindDialogueTextLine(input);
     unsigned int hidden = 0;
@@ -932,7 +931,7 @@ static void DrawDialogueTextCursor(int x, int y)
         g_level_block->text_box_font->prefixWidth(std::string_view(input->text).substr(start), input->cursor - start);
 
     int y_line = y + (line - hidden - 1) * 0xb;
-    char* screen = static_cast<char*>(LockPrimarySurface(&pitch));
+    char* screen = static_cast<char*>(GetFrameBufferSurface().cpu().surface->pixels);
     if (y_line < g_level_block->text_box_bottom) {
         unsigned int bottom = g_level_block->text_box_bottom;
         unsigned int y_end = y_line + g_level_block->text_box_font->height();
@@ -942,7 +941,6 @@ static void DrawDialogueTextCursor(int x, int y)
         int x_cursor = x + x_offset + 1;
         LineDraw(0, x_cursor, y_line, x_cursor, y_end, -0x100, screen);
     }
-    UnlockPrimarySurface();
 }
 
 /* Print the dormant typed-dialogue editor's wrapped lines starting at
@@ -982,33 +980,34 @@ void RedrawDialogueTextInput(void)
         short text_box = g_status.text_line_cursor;
         int offset = g_status.text_box_lines_shown[text_box] - g_level_block->text_lines[text_box];
         if (offset < 7) {
-            SaveFontSettings();
-            SetFontDestBuffer(GetFrameBufferSurface(), g_level_block->text_box_left, g_level_block->text_box_top,
-                              g_level_block->text_box_right, g_level_block->text_box_bottom, 0);
-            SetFontObjectPalette16BPP(*g_level_block->text_box_font, g_level_block->palette);
-            SetFont(*g_level_block->text_box_font);
+            {
+                FontRenderScope font_scope;
+                SetFontDestBuffer(GetFrameBufferSurface(), g_level_block->text_box_left, g_level_block->text_box_top,
+                                  g_level_block->text_box_right, g_level_block->text_box_bottom, 0);
+                g_level_block->text_box_font->setPalette(g_level_block->palette);
+                SetFont(*g_level_block->text_box_font);
 
-            int y = g_level_block->text_box_top + offset * 0xb;
-            if (y < g_level_block->text_box_top) {
-                y = g_level_block->text_box_top;
-            }
-            if (!input->dirty) {
-                if (input->cursor_dirty != 0) {
+                int y = g_level_block->text_box_top + offset * 0xb;
+                if (y < g_level_block->text_box_top) {
+                    y = g_level_block->text_box_top;
+                }
+                if (!input->dirty) {
+                    if (input->cursor_dirty != 0) {
+                        DrawDialogueTextCursor(g_level_block->text_box_left, y);
+                    }
+                } else {
+                    unsigned int first_line = 0;
+                    if (offset < 0) {
+                        first_line = g_level_block->text_lines[text_box] -
+                                     g_status.text_box_lines_shown[text_box];
+                    }
+                    DrawDialogueTextInputLines(g_level_block->text_box_left, y, first_line);
+                    input->dirty = false;
                     DrawDialogueTextCursor(g_level_block->text_box_left, y);
                 }
-            } else {
-                unsigned int first_line = 0;
-                if (offset < 0) {
-                    first_line = g_level_block->text_lines[text_box] -
-                                 g_status.text_box_lines_shown[text_box];
-                }
-                DrawDialogueTextInputLines(g_level_block->text_box_left, y, first_line);
-                input->dirty = false;
-                DrawDialogueTextCursor(g_level_block->text_box_left, y);
-            }
 
-            SetFontObjectPalette16BPP(*g_level_block->text_box_font, g_level_block->palette);
-            RestoreFontSettings();
+                g_level_block->text_box_font->setPalette(g_level_block->palette);
+            }
         }
     }
 }
@@ -1444,8 +1443,7 @@ static void DrawTextBoxLine(W8MessageStorageRecord* line, int x, int y, bool hov
     auto text = std::string_view(line->text);
     auto foreground = selected_line ? W8_FONT_PALETTE_BLUE : hovered_line ? W8_FONT_PALETTE_YELLOW : line->font_palette;
     auto set_palette = [&](unsigned int index) {
-        SetFontObjectPalette16BPP(*g_level_block->text_box_font,
-            index < W8_FONT_PALETTE_TEXT_BOX ? g_font_state_palettes[index].get() : g_level_block->palette);
+        g_level_block->text_box_font->setPalette(index < W8_FONT_PALETTE_TEXT_BOX ? g_font_state_palettes[index] : g_level_block->palette);
     };
     auto draw = [&](std::string_view span, unsigned int palette) {
         set_palette(palette);
@@ -1527,38 +1525,41 @@ void RedrawTextBoxBody(bool skip_invalidate)
         }
     }
 
-    SaveFontSettings();
-    SetFontDestBuffer(GetFrameBufferSurface(), g_level_block->text_box_left, g_level_block->text_box_top,
-                      g_level_block->text_box_right, g_level_block->text_box_bottom, 0);
-    SetFontObjectPalette16BPP(*g_level_block->text_box_font, g_level_block->palette);
-    SetFont(*g_level_block->text_box_font);
+    {
 
-    y_offset = 0;
-    for (row = 0; row < rows; ++row) {
-        line_index = static_cast<int>(scroll + row);
-        if (static_cast<unsigned int>(line_index) < 0x15e) {
-            line = &g_message_storage[text_box][line_index];
-            if (!line->text.empty()) {
-                if (text_box == 3 || !g_level_block->text_box_visible) {
-                    x = g_level_block->text_box_left;
-                } else {
-                    x = g_level_block->text_box_left +
-                        ((g_level_block->text_box_right - g_level_block->text_box_left) / 2 -
-                         g_level_block->text_box_font->textWidth(line->text) /
-                             2);
+        FontRenderScope font_scope;
+        SetFontDestBuffer(GetFrameBufferSurface(), g_level_block->text_box_left, g_level_block->text_box_top,
+                          g_level_block->text_box_right, g_level_block->text_box_bottom, 0);
+        g_level_block->text_box_font->setPalette(g_level_block->palette);
+        SetFont(*g_level_block->text_box_font);
+
+        y_offset = 0;
+        for (row = 0; row < rows; ++row) {
+            line_index = static_cast<int>(scroll + row);
+            if (static_cast<unsigned int>(line_index) < 0x15e) {
+                line = &g_message_storage[text_box][line_index];
+                if (!line->text.empty()) {
+                    if (text_box == 3 || !g_level_block->text_box_visible) {
+                        x = g_level_block->text_box_left;
+                    } else {
+                        x = g_level_block->text_box_left +
+                            ((g_level_block->text_box_right - g_level_block->text_box_left) / 2 -
+                             g_level_block->text_box_font->textWidth(line->text) /
+                                 2);
+                    }
+                    DrawTextBoxLine(
+                        line, x, g_level_block->text_box_top + y_offset,
+                        line_index - line->link == g_level_block->hovered_text_lines[text_box],
+                        line_index - line->link == g_level_block->selected_text_lines[text_box],
+                        skip_invalidate);
                 }
-                DrawTextBoxLine(
-                    line, x, g_level_block->text_box_top + y_offset,
-                    line_index - line->link == g_level_block->hovered_text_lines[text_box],
-                    line_index - line->link == g_level_block->selected_text_lines[text_box],
-                    skip_invalidate);
             }
+            y_offset += 0xb;
         }
-        y_offset += 0xb;
-    }
 
-    SetFontObjectPalette16BPP(*g_level_block->text_box_font, g_level_block->palette);
-    RestoreFontSettings();
+        g_level_block->text_box_font->setPalette(g_level_block->palette);
+
+    }
 }
 
 /* Redraw the text-box scroll chrome (up/down buttons and thumb) when the
@@ -1822,20 +1823,20 @@ static void DrawNoticeWordOverlays(W8MessageStorageRecord* line, int x, int y)
     for (auto& entry : line->entries) {
         auto* word = &entry;
         if (word->keyword != W8_NOTICE_WORD_NORMAL) {
-            unsigned short* palette = word->keyword == W8_NOTICE_WORD_SELECTED
-                                          ? g_font_state_palettes[W8_FONT_PALETTE_BLUE].get()
-                                          : g_font_state_palettes[W8_FONT_PALETTE_YELLOW].get();
-            SetFontObjectPalette16BPP(*g_level_block->text_box_font, palette);
+            Palette16 palette = word->keyword == W8_NOTICE_WORD_SELECTED
+                                          ? g_font_state_palettes[W8_FONT_PALETTE_BLUE]
+                                          : g_font_state_palettes[W8_FONT_PALETTE_YELLOW];
+            g_level_block->text_box_font->setPalette(palette);
             DrawNoticeWordOverlay(line, word, x, y);
         }
         if (word->redraw) {
-            unsigned short* palette;
+            Palette16 palette;
             if (line->font_palette < W8_FONT_PALETTE_TEXT_BOX) {
-                palette = g_font_state_palettes[line->font_palette].get();
+                palette = g_font_state_palettes[line->font_palette];
             } else {
                 palette = g_level_block->palette;
             }
-            SetFontObjectPalette16BPP(*g_level_block->text_box_font, palette);
+            g_level_block->text_box_font->setPalette(palette);
             DrawNoticeWordOverlay(line, word, x, y);
         }
     }

@@ -759,14 +759,13 @@ void DrawCampHeader(void)
         SetFont(g_wiz_text_bold_font);
         SetObjectShade(g_wiz_text_bold_font.glyphs, 4);
         if (state->hover_region == 0xf2) {
-            SetFontObjectPalette16BPP(g_wiz_text_bold_font,
-                                      g_font_state_palettes[W8_FONT_PALETTE_GREEN].get());
+            g_wiz_text_bold_font.setPalette(g_font_state_palettes[W8_FONT_PALETTE_GREEN]);
         }
         state->text_buffer = character->name;
         DrawFontTextDirty((0xba - g_wiz_text_bold_font.textWidth(state->text_buffer)) / 2 +
                               0x74,
                           0x60, state->text_buffer);
-        SetFontObjectPalette16BPP(g_wiz_text_bold_font, g_wiz_text_bold_font.glyphs.ownedPalette.get());
+        g_wiz_text_bold_font.resetPalette();
         SetFont(g_wiz_text_font_secondary);
         SetObjectShade(g_wiz_text_font_secondary.glyphs, 4);
         state->text_buffer = g_localized_strings[g_gender_name_message_rows[character->gender][0]];
@@ -776,14 +775,13 @@ void DrawCampHeader(void)
             (0xba - g_wiz_text_font_secondary.textWidth(state->text_buffer)) / 2 + 0x74,
             0x6f, state->text_buffer);
         if (state->hover_region == 0xf3) {
-            SetFontObjectPalette16BPP(g_wiz_text_font_secondary,
-                                      g_font_state_palettes[W8_FONT_PALETTE_GREEN].get());
+            g_wiz_text_font_secondary.setPalette(g_font_state_palettes[W8_FONT_PALETTE_GREEN]);
         }
         state->text_buffer = g_localized_strings[g_profession_name_message_ids[character->iProfession]];
         DrawFontTextDirty(
             (0xba - g_wiz_text_font_secondary.textWidth(state->text_buffer)) / 2 + 0x74,
             0x7c, state->text_buffer);
-        SetFontObjectPalette16BPP(g_wiz_text_font_secondary, g_wiz_text_font_secondary.glyphs.ownedPalette.get());
+        g_wiz_text_font_secondary.resetPalette();
         SetFont(g_wiz_text_font_secondary);
         SetObjectShade(g_wiz_text_font_secondary.glyphs, 4);
         state->text_buffer = fmt::format(
@@ -973,7 +971,7 @@ static void DrawCampHand(W8EquipSlot slot, int hand_index, int top, int count_ce
             std::string text;
             text = fmt::format("{:d}", count);
             SetFont(g_smfnt_font);
-            SetFontObjectPalette16BPP(g_smfnt_font, g_smfnt_font.glyphs.ownedPalette.get());
+            g_smfnt_font.resetPalette();
             DrawFontText(count_center - (g_smfnt_font.textWidth(text) + 1) / 2, top + 0xf,
                          text);
         }
@@ -991,7 +989,7 @@ void DrawCampHands(void)
     int item_id;
     int hand_image;
     std::string text;
-    unsigned short* palette;
+    Palette16 palette;
 
     item_id = g_review_character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo;
     if (item_id == -1 || (g_item_records[item_id].flags & W8_ITEM_FLAG_TWO_HANDED) == 0) {
@@ -1008,12 +1006,12 @@ void DrawCampHands(void)
     }
     SetFont(g_smfnt_font);
     text = fmt::format("{:d}", g_review_character->armor_class_average);
-    palette = g_smfnt_font.glyphs.ownedPalette.get();
+    palette = g_smfnt_font.glyphs.palette;
     if (g_review_character->load_category != 0) {
         palette =
-            g_font_state_palettes[g_load_category_palettes[g_review_character->load_category]].get();
+            g_font_state_palettes[g_load_category_palettes[g_review_character->load_category]];
     }
-    SetFontObjectPalette16BPP(g_smfnt_font, palette);
+    g_smfnt_font.setPalette(palette);
     DrawFontText((0xd - g_smfnt_font.textWidth(text)) / 2 + 0x84, 0xe, text);
     InvalidateRegion(0x81, 0xb, 0x95, 0x53, 0);
 }

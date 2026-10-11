@@ -44,27 +44,11 @@
 BOOLEAN BltVideoObject(SGPVSurface& uiDestVSurface, SGPVObject& hSrcVObject, UINT16 usRegionIndex,
                        INT32 iDestX, INT32 iDestY, UINT32 fBltFlags, blt_fx* pBltFx)
 {
-
-    UINT16* pBuffer;
-    UINT32 uiPitch;
-
-    // Lock video surface
-    pBuffer = (UINT16*)LockVideoSurfaceBuffer(uiDestVSurface, &uiPitch);
-
-    if (pBuffer == nullptr) {
-        return (FALSE);
-    }
-
-    // Now we have the video object and surface, call the VO blitter function
-    if (!BltVideoObjectToBuffer(pBuffer, uiPitch, hSrcVObject, usRegionIndex, iDestX, iDestY,
-                                fBltFlags, pBltFx)) {
-        UnLockVideoSurfaceBuffer(uiDestVSurface);
-        // VO Blitter will set debug messages for error conditions
-        return (FALSE);
-    }
-
-    UnLockVideoSurfaceBuffer(uiDestVSurface);
-    return (TRUE);
+    const auto& storage = *uiDestVSurface.cpu().surface;
+    if (!storage.pixels)
+        return FALSE;
+    return BltVideoObjectToBuffer(static_cast<UINT16*>(storage.pixels), storage.pitch,
+                                  hSrcVObject, usRegionIndex, iDestX, iDestY, fBltFlags, pBltFx);
 }
 
 // *******************************************************************************
@@ -87,8 +71,8 @@ std::unique_ptr<SGPVObject> CreateVideoObject(const VOBJECT_DESC& VObjectDesc)
     auto owner = std::make_unique<SGPVObject>();
     owner->ubBitDepth = image.ubBitDepth;
     if (image.ubBitDepth == 8) {
-        if (!image.pPalette || !SetVideoObjectPalette(*owner, image.pPalette.get()))
-            return nullptr;
+        if (!image.pPalette) return nullptr;
+        owner->setPalette(*image.pPalette);
     }
     // ETRLE data decodes once here; the compressed bytes are never kept
     // on the video object.
@@ -98,39 +82,11 @@ std::unique_ptr<SGPVObject> CreateVideoObject(const VOBJECT_DESC& VObjectDesc)
     return owner;
 }
 
-// Palette setting is expensive, need to set both DDPalette and create 16BPP palette
-BOOLEAN SetVideoObjectPalette(SGPVObject& hVObject, SGPPaletteEntry* pSrcPalette)
+void SGPVObject::setPalette(const Palette8& colors)
 {
-
-    Assert(pSrcPalette != nullptr);
-
-    if (!hVObject.pPaletteEntry)
-        hVObject.pPaletteEntry = std::make_unique<SGPPaletteEntry[]>(256);
-    std::copy_n(pSrcPalette, 256, hVObject.pPaletteEntry.get());
-
-    std::shared_ptr<UINT16[]> palette = Create16BPPPalette(pSrcPalette);
-    const auto* oldPalette = hVObject.ownedPalette.get();
-    for (auto& shade : hVObject.pShades)
-        if (shade.get() == oldPalette)
-            shade = palette;
-    hVObject.ownedPalette = std::move(palette);
-    hVObject.p16BPPPalette = hVObject.ownedPalette.get();
-    hVObject.pShadeCurrent = hVObject.p16BPPPalette;
-
-    return (TRUE);
-}
-
-// Transparency needs to take RGB value and find best fit and place it into DD Surface
-// colorkey value.
-BOOLEAN SetVideoObjectTransparencyColor(SGPVObject& hVObject, COLORVAL TransColor)
-{
-
-    // Assertions
-
-    //Set trans color into video object
-    hVObject.TransparentColor = TransColor;
-
-    return (TRUE);
+    pPaletteEntry = colors;
+    palette = Create16BPPPalette(colors);
+    currentShade = 4;
 }
 
 /**********************************************************************************************
@@ -147,66 +103,49 @@ BOOLEAN SetVideoObjectTransparencyColor(SGPVObject& hVObject, COLORVAL TransColo
 // FUNCTION: WIZ8 0x00406460
 UINT16 CreateObjectPaletteTables(SGPVObject& pObj, UINT32 uiType)
 {
-    UINT32 count;
 
     // this creates the highlight table. Specify the glow-type when creating the tables
     // through uiType, symbols are from VOBJECT.H
-    for (auto& shade : pObj.pShades)
-        shade.reset();
+    pObj.pShades.clear();
+    pObj.pShades.resize(16);
 
     switch (uiType) {
     case HVOBJECT_GLOW_GREEN: // green glow
-        pObj.pShades[0] = Create16BPPPaletteShaded(pObj.pPaletteEntry.get(), 0, 255, 0, TRUE);
+        pObj.pShades[0] = Create16BPPPaletteShaded(pObj.pPaletteEntry, 0, 255, 0, TRUE);
         break;
     case HVOBJECT_GLOW_BLUE: // blue glow
-        pObj.pShades[0] = Create16BPPPaletteShaded(pObj.pPaletteEntry.get(), 0, 0, 255, TRUE);
+        pObj.pShades[0] = Create16BPPPaletteShaded(pObj.pPaletteEntry, 0, 0, 255, TRUE);
         break;
     case HVOBJECT_GLOW_YELLOW: // yellow glow
-        pObj.pShades[0] = Create16BPPPaletteShaded(pObj.pPaletteEntry.get(), 255, 255, 0, TRUE);
+        pObj.pShades[0] = Create16BPPPaletteShaded(pObj.pPaletteEntry, 255, 255, 0, TRUE);
         break;
     case HVOBJECT_GLOW_RED: // red glow
-        pObj.pShades[0] = Create16BPPPaletteShaded(pObj.pPaletteEntry.get(), 255, 0, 0, TRUE);
+        pObj.pShades[0] = Create16BPPPaletteShaded(pObj.pPaletteEntry, 255, 0, 0, TRUE);
         break;
     }
 
     // these are the brightening tables, 115%-150% brighter than original
-    pObj.pShades[1] = Create16BPPPaletteShaded(pObj.pPaletteEntry.get(), 293, 293, 293, FALSE);
-    pObj.pShades[2] = Create16BPPPaletteShaded(pObj.pPaletteEntry.get(), 281, 281, 281, FALSE);
-    pObj.pShades[3] = Create16BPPPaletteShaded(pObj.pPaletteEntry.get(), 268, 268, 268, FALSE);
+    pObj.pShades[1] = Create16BPPPaletteShaded(pObj.pPaletteEntry, 293, 293, 293, FALSE);
+    pObj.pShades[2] = Create16BPPPaletteShaded(pObj.pPaletteEntry, 281, 281, 281, FALSE);
+    pObj.pShades[3] = Create16BPPPaletteShaded(pObj.pPaletteEntry, 268, 268, 268, FALSE);
 
-    // palette 4 is the non-modified palette.
-    // if the standard one has already been made, we'll use it
-    if (pObj.ownedPalette)
-        pObj.pShades[4] = pObj.ownedPalette;
-    else {
-        // or create our own, and assign it to the standard one
-        pObj.pShades[4] = Create16BPPPaletteShaded(pObj.pPaletteEntry.get(), 255, 255, 255, FALSE);
-        pObj.ownedPalette = pObj.pShades[4];
-        pObj.p16BPPPalette = pObj.ownedPalette.get();
-    }
+    // Shade 4 always uses the original palette directly.
 
     // the rest are darkening tables, right down to all-black.
-    pObj.pShades[5] = Create16BPPPaletteShaded(pObj.pPaletteEntry.get(), 195, 195, 195, FALSE);
-    pObj.pShades[6] = Create16BPPPaletteShaded(pObj.pPaletteEntry.get(), 165, 165, 165, FALSE);
-    pObj.pShades[7] = Create16BPPPaletteShaded(pObj.pPaletteEntry.get(), 135, 135, 135, FALSE);
-    pObj.pShades[8] = Create16BPPPaletteShaded(pObj.pPaletteEntry.get(), 105, 105, 105, FALSE);
-    pObj.pShades[9] = Create16BPPPaletteShaded(pObj.pPaletteEntry.get(), 75, 75, 75, FALSE);
-    pObj.pShades[10] = Create16BPPPaletteShaded(pObj.pPaletteEntry.get(), 45, 45, 45, FALSE);
-    pObj.pShades[11] = Create16BPPPaletteShaded(pObj.pPaletteEntry.get(), 36, 36, 36, FALSE);
-    pObj.pShades[12] = Create16BPPPaletteShaded(pObj.pPaletteEntry.get(), 27, 27, 27, FALSE);
-    pObj.pShades[13] = Create16BPPPaletteShaded(pObj.pPaletteEntry.get(), 18, 18, 18, FALSE);
-    pObj.pShades[14] = Create16BPPPaletteShaded(pObj.pPaletteEntry.get(), 9, 9, 9, FALSE);
-    pObj.pShades[15] = Create16BPPPaletteShaded(pObj.pPaletteEntry.get(), 0, 0, 0, FALSE);
+    pObj.pShades[5] = Create16BPPPaletteShaded(pObj.pPaletteEntry, 195, 195, 195, FALSE);
+    pObj.pShades[6] = Create16BPPPaletteShaded(pObj.pPaletteEntry, 165, 165, 165, FALSE);
+    pObj.pShades[7] = Create16BPPPaletteShaded(pObj.pPaletteEntry, 135, 135, 135, FALSE);
+    pObj.pShades[8] = Create16BPPPaletteShaded(pObj.pPaletteEntry, 105, 105, 105, FALSE);
+    pObj.pShades[9] = Create16BPPPaletteShaded(pObj.pPaletteEntry, 75, 75, 75, FALSE);
+    pObj.pShades[10] = Create16BPPPaletteShaded(pObj.pPaletteEntry, 45, 45, 45, FALSE);
+    pObj.pShades[11] = Create16BPPPaletteShaded(pObj.pPaletteEntry, 36, 36, 36, FALSE);
+    pObj.pShades[12] = Create16BPPPaletteShaded(pObj.pPaletteEntry, 27, 27, 27, FALSE);
+    pObj.pShades[13] = Create16BPPPaletteShaded(pObj.pPaletteEntry, 18, 18, 18, FALSE);
+    pObj.pShades[14] = Create16BPPPaletteShaded(pObj.pPaletteEntry, 9, 9, 9, FALSE);
+    pObj.pShades[15] = Create16BPPPaletteShaded(pObj.pPaletteEntry, 0, 0, 0, FALSE);
 
-    // Set current shade table to neutral color
-    pObj.pShadeCurrent = pObj.pShades[4].get();
-
-    // check to make sure every table got a palette
-    for (count = 0; (count < HVOBJECT_SHADE_TABLES) && (pObj.pShades[count] != nullptr); count++)
-        ;
-
-    // return the result of the check
-    return (count == HVOBJECT_SHADE_TABLES);
+    pObj.currentShade = 4;
+    return TRUE;
 }
 
 // *******************************************************************
@@ -229,28 +168,8 @@ BOOLEAN BltVideoObjectToBuffer(UINT16* pBuffer, UINT32 uiDestPitchBYTES, SGPVObj
     const bool transparent = mirror || (fBltFlags & VO_BLT_SRCTRANSPARENCY);
     if (transparent || (fBltFlags & VO_BLT_SHADOW))
         return BltSpriteTo16BPPBuffer(pBuffer, uiDestPitchBYTES, hSrcVObject.sprites[usIndex],
-                                     hSrcVObject.pShadeCurrent, iDestX, iDestY, nullptr, mirror,
+                                     hSrcVObject.currentPalette().data(), iDestX, iDestY, nullptr, mirror,
                                      transparent ? SpriteDrawOp::Transparent : SpriteDrawOp::Shadow);
-
-    return (TRUE);
-}
-
-/**********************************************************************************************
- DestroyObjectPaletteTables
-
-	Destroys the palette tables of a video object. All memory is deallocated, and
-	the pointers set to NULL. Be careful not to try and blit this object until new
-	tables are calculated, or things WILL go boom.
-
-**********************************************************************************************/
-BOOLEAN DestroyObjectPaletteTables(SGPVObject& hVObject)
-{
-    for (auto& shade : hVObject.pShades)
-        shade.reset();
-    hVObject.ownedPalette.reset();
-    hVObject.p16BPPPalette = nullptr;
-    hVObject.pShadeCurrent = nullptr;
-    hVObject.pGlow = nullptr;
 
     return (TRUE);
 }
@@ -261,12 +180,12 @@ UINT16 SetObjectShade(SGPVObject& pObj, UINT32 uiShade)
     Assert(uiShade >= 0);
     Assert(uiShade < HVOBJECT_SHADE_TABLES);
 
-    if (pObj.pShades[uiShade] == nullptr) {
+    if (uiShade != 4 && (uiShade >= pObj.pShades.size() || !pObj.pShades[uiShade])) {
         SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "Attempt to set shade level to nullptr table");
         return (FALSE);
     }
 
-    pObj.pShadeCurrent = pObj.pShades[uiShade].get();
+    pObj.currentShade = uiShade;
     return (TRUE);
 }
 
@@ -300,15 +219,6 @@ BOOLEAN GetVideoObjectETRLESubregionProperties(SGPVObject& hVObject, UINT16 usIn
 
     *pusWidth = hVObject.sprites[usIndex].usWidth;
     *pusHeight = hVObject.sprites[usIndex].usHeight;
-
-    return (TRUE);
-}
-
-// FUNCTION: WIZ8 0x00406b30
-BOOLEAN CopyVideoObjectPalette16BPP(SGPVObject& hVObject, UINT16* ppPal16)
-{
-
-    memcpy(ppPal16, hVObject.p16BPPPalette, 256 * 2);
 
     return (TRUE);
 }

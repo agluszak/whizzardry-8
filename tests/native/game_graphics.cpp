@@ -94,12 +94,12 @@ TEST_CASE("game graphics")
         REQUIRE(image_object);
         REQUIRE(BltVideoObject(GetFrameBufferSurface(), *image_object, 0, 0, 0, VO_BLT_SRCTRANSPARENCY,
                                       nullptr));
-        UINT32 pitch;
-        auto pixels = static_cast<UINT16*>(LockPrimarySurface(&pitch));
+        const auto& framebuffer = *GetFrameBufferSurface().cpu().surface;
+        const auto pitch = framebuffer.pitch;
+        const auto* pixels = static_cast<const BYTE*>(framebuffer.pixels);
         std::vector<UINT16> expected(640 * 480);
         for (int y = 0; y < 480; ++y)
-            memcpy(expected.data() + y * 640, reinterpret_cast<BYTE*>(pixels) + y * pitch, 1280);
-        UnlockPrimarySurface();
+            memcpy(expected.data() + y * 640, pixels + y * pitch, 1280);
         REQUIRE(InitializeMouseCursorScene());
         image.ImageFile = "Data\\CURSORS\\2D-CURSORS.STI";
         auto cursor_object = CreateVideoObject(image);
@@ -205,12 +205,12 @@ TEST_CASE("game graphics")
             printf("movie GPU: %u RGB555 pixels and black background match\n", movie_matches);
             REQUIRE((FinishVideoPresentation() && ghWindow == persistent_window));
         }
-        pixels = static_cast<UINT16*>(LockPrimarySurface(&pitch));
-        REQUIRE(pixels);
+        const auto& restored_framebuffer = *GetFrameBufferSurface().cpu().surface;
+        const auto* restored_pixels = static_cast<const BYTE*>(restored_framebuffer.pixels);
+        REQUIRE(restored_pixels);
         for (int y = 0; y < 480; ++y)
-            REQUIRE(memcmp(reinterpret_cast<BYTE*>(pixels) + y * pitch, expected.data() + y * 640,
+            REQUIRE(memcmp(restored_pixels + y * restored_framebuffer.pitch, expected.data() + y * 640,
                          1280) == 0);
-        UnlockPrimarySurface();
         PresentMenuOverlayFrame();
 
         g_screenshot_index = 0;

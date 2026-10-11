@@ -26,6 +26,7 @@
 #include "wiz8/xstatus.h"
 #include "wiz8/video_object_catalog.h"
 #include "Button System.h"
+#include "WCheck.h"
 #include "wiz8/dialog_code/DialogButton.h"
 #include "wiz8/dialog_code/ButtonUserData.h"
 #include "wiz8/local_code/ButtonSound.h"
@@ -113,31 +114,6 @@ void screen_stack()
     g_screen_handlers[W8_SCREEN_OPTIONS] = saved_options;
 }
 
-void surface_regions()
-{
-    VSURFACE_DESC desc{};
-    desc.fCreateFlags = VSURFACE_CREATE_DEFAULT;
-    desc.usWidth = desc.usHeight = 16;
-    desc.ubBitDepth = 16;
-    auto surface = CreateVideoSurface(desc);
-    REQUIRE((surface && surface->RegionList.empty()));
-    VSURFACE_REGION result{};
-    result.ubHitMask = 99;
-    REQUIRE((!GetVSurfaceRegion(*surface, 0, &result) && result.ubHitMask == 99));
-    for (int index = 0; index < 80; ++index) {
-        VSURFACE_REGION region{};
-        region.Origin.x = index;
-        region.RegionCoords.w = (index + 1) - region.RegionCoords.x;
-        region.ubHitMask = static_cast<UINT8>(index);
-        surface->RegionList.push_back(region);
-    }
-    REQUIRE(GetVSurfaceRegion(*surface, 79, &result));
-    REQUIRE((result.Origin.x == 79 && (result.RegionCoords.x + result.RegionCoords.w) == 80 && result.ubHitMask == 79));
-    REQUIRE(!GetVSurfaceRegion(*surface, 80, &result));
-    REQUIRE(!GetVSurfaceRegion(*surface, 1, nullptr));
-
-}
-
 void camp_effects()
 {
     std::array<SGPPaletteEntry, 256> palette{};
@@ -146,8 +122,8 @@ void camp_effects()
     image_type image{};
     image.ubBitDepth = 8;
     image.fFlags = IMAGE_TRLECOMPRESSED;
-    image.pPalette = std::make_unique<SGPPaletteEntry[]>(256);
-    std::copy_n(palette.data(), palette.size(), image.pPalette.get());
+    image.pPalette.emplace();
+    std::copy_n(palette.data(), palette.size(), image.pPalette->data());
     // Each frame is eight scanlines of one transparent run of 16 then the
     // row terminator: 0x90 0x00 repeated.
     image.pImageData.resize(images.size() * 16);
@@ -485,8 +461,8 @@ void image_and_sprite_ownership()
     image_type image{};
     image.ubBitDepth = 8;
     image.fFlags = IMAGE_TRLECOMPRESSED | IMAGE_BITMAPDATA | IMAGE_PALETTE;
-    image.pPalette = std::make_unique<SGPPaletteEntry[]>(256);
-    image.pPalette[1] = {255, 0, 0, 0};
+    image.pPalette.emplace();
+    (*image.pPalette)[1] = {255, 0, 0, 0};
     image.pImageData.resize(3);
     image.pImageData[0] = 1;
     image.pImageData[1] = 1;
@@ -503,18 +479,18 @@ void image_and_sprite_ownership()
         REQUIRE((objects[i]->sprites.size() == 1 && objects[i]->sprites[0].pixels.size() == 1));
         REQUIRE(reinterpret_cast<const UINT8*>(objects[i]->sprites[0].pixels.data()) !=
               image.pImageData.data());
-        REQUIRE(objects[i]->pPaletteEntry.get() != image.pPalette.get());
+        REQUIRE(objects[i]->pPaletteEntry.data() != image.pPalette->data());
         (void)CreateObjectPaletteTables(*objects[i], HVOBJECT_GLOW_GREEN);
         REQUIRE((objects[i]->pShades[0] && objects[i]->pShades[15]));
-        REQUIRE(objects[i]->pShades[4].get() == objects[i]->ownedPalette.get());
+        REQUIRE(objects[i]->currentPalette() == objects[i]->palette);
         REQUIRE(SetObjectShade(*objects[i], 6));
-        auto retained = objects[i]->pShades[4];
-        REQUIRE(SetVideoObjectPalette(*objects[i], image.pPalette.get()));
-        REQUIRE((retained && objects[i]->ownedPalette.get() != retained.get()));
-        REQUIRE(objects[i]->pShades[4] == objects[i]->ownedPalette);
+        auto retained = objects[i]->palette;
+        objects[i]->setPalette(*image.pPalette);
+        REQUIRE(objects[i]->palette == retained);
+        REQUIRE(objects[i]->currentPalette() == objects[i]->palette);
         REQUIRE(SetObjectShade(*objects[i], 4));
         (void)CreateObjectPaletteTables(*objects[i], HVOBJECT_GLOW_RED);
-        REQUIRE(objects[i]->pShadeCurrent == objects[i]->pShades[4].get());
+        REQUIRE(objects[i]->currentPalette() == objects[i]->palette);
     }
     image.pImageData[1] = 2;
     image.pETRLEObject[0].usWidth = 2;
@@ -529,12 +505,6 @@ void image_and_sprite_ownership()
     }
     auto& surviving = *objects[32];
     REQUIRE((surviving.sprites[0].pixels[0] == 1 && surviving.sprites[0].usWidth == 1));
-    UINT16 borrowed[256]{};
-    surviving.p16BPPPalette = borrowed;
-    REQUIRE(DestroyObjectPaletteTables(surviving));
-    REQUIRE((!surviving.ownedPalette && !surviving.p16BPPPalette));
-    for (const auto& shade : surviving.pShades) REQUIRE(!shade);
-
     VSURFACE_DESC surface_desc{};
     surface_desc.fCreateFlags = VSURFACE_CREATE_DEFAULT;
     surface_desc.usWidth = 8;
@@ -675,17 +645,17 @@ void generic_button_images()
         std::unique_ptr<image_type> image(CreateImage(filename, IMAGE_ALLDATA));
         REQUIRE((image && image->pImageData.size() == 9 && image->pETRLEObject.size() == 3));
         auto* pixels = image->pImageData.data();
-        auto* palette = image->pPalette.get();
+        auto* palette = image->pPalette->data();
         REQUIRE(LoadImageData(image.get(), IMAGE_APPDATA));
-        REQUIRE((image->pImageData.data() == pixels && image->pPalette.get() == palette));
+        REQUIRE((image->pImageData.data() == pixels && image->pPalette->data() == palette));
         REQUIRE((image->pAppData.size() == 4 && image->pAppData[0] == 7 && image->pAppData[3] == 10));
         auto* app = image->pAppData.data();
         REQUIRE(LoadImageData(image.get(), IMAGE_PALETTE));
         REQUIRE((image->pImageData.data() == pixels && image->pAppData.data() == app));
-        REQUIRE((image->pPalette.get() != palette && image->pPalette[1].peRed == 255));
-        palette = image->pPalette.get();
+        REQUIRE(((*image->pPalette)[1].peRed == 255));
+        palette = image->pPalette->data();
         REQUIRE(LoadImageData(image.get(), IMAGE_BITMAPDATA));
-        REQUIRE((image->pPalette.get() == palette && image->pAppData.data() == app));
+        REQUIRE((image->pPalette->data() == palette && image->pAppData.data() == app));
         REQUIRE((image->pImageData[1] == 1 && image->pETRLEObject.size() == 3));
         pixels = image->pImageData.data();
         auto* objects = image->pETRLEObject.data();
@@ -694,7 +664,7 @@ void generic_button_images()
             STCI_HEADER_SIZE + STCI_8BIT_PALETTE_SIZE + 3 * STCI_SUBIMAGE_SIZE + 7);
         REQUIRE(!LoadImageData(image.get(), IMAGE_ALLDATA));
         REQUIRE((image->pImageData.data() == pixels && image->pETRLEObject.data() == objects));
-        REQUIRE((image->pPalette.get() == palette && image->pAppData.data() == app));
+        REQUIRE((image->pPalette->data() == palette && image->pAppData.data() == app));
         REQUIRE((image->fFlags == flags && image->pAppData.size() == 4 && image->pImageData.size() == 9));
 
         const auto pixel_offset = STCI_HEADER_SIZE + STCI_8BIT_PALETTE_SIZE + 3 * STCI_SUBIMAGE_SIZE;
@@ -705,7 +675,7 @@ void generic_button_images()
             std::filesystem::resize_file(assets / "metadata.sti", cut);
             REQUIRE(!LoadImageData(image.get(), IMAGE_ALLDATA));
             REQUIRE((image->pImageData.data() == pixels && image->pETRLEObject.data() == objects));
-            REQUIRE((image->pPalette.get() == palette && image->pAppData.data() == app));
+            REQUIRE((image->pPalette->data() == palette && image->pAppData.data() == app));
             REQUIRE((image->fFlags == flags && image->pAppData.size() == 4 && image->pImageData[1] == 1));
         }
         button_image_fixture(assets, "metadata.sti", 3, true);
@@ -778,7 +748,7 @@ void generic_button_images()
     auto& sprite = graphics->object();
     for (unsigned frame = 0; frame < 5; ++frame) {
         sprite.sprites[frame].pixels[0] = frame + 1;
-        sprite.p16BPPPalette[frame + 1] = 0x1000 + frame;
+        sprite.palette[frame + 1] = 0x1000 + frame;
     }
     VSURFACE_DESC target_desc{};
     target_desc.fCreateFlags = VSURFACE_CREATE_DEFAULT;
@@ -804,10 +774,10 @@ void generic_button_images()
                         gfLeftButtonState = mouse_down;
                         DrawButton(first_button);
                         UINT32 pitch;
-                        auto* pixels = reinterpret_cast<UINT16*>(LockVideoSurfaceBuffer(target, &pitch));
+                        pitch = (target).cpu().surface->pitch;
+                        auto* pixels = reinterpret_cast<UINT16*>(static_cast<BYTE*>((target).cpu().surface->pixels));
                         REQUIRE(pixels);
                         const auto color = pixels[0];
-                        UnLockVideoSurfaceBuffer(target);
                         const bool highlight = hover && (!checkbox || mouse_down);
                         const unsigned expected_frame = !enabled ? 0 :
                             pressed ? (highlight ? 4 : 3) : (highlight ? 2 : 1);
@@ -916,7 +886,7 @@ void generic_button_images()
     REQUIRE((image->frames[2] && image->frames[3] && image->frames[4]));
     REQUIRE((image->frames[5] && image->background_frame == 3));
     REQUIRE((image->offset_x == 4 && image->offset_y == 5));
-    REQUIRE(image->fill_color == image->frames[0]->p16BPPPalette[1]);
+    REQUIRE(image->fill_color == image->frames[0]->palette[1]);
     auto another_owner = image;
     image.reset();
     REQUIRE(another_owner->frames[0]);
@@ -934,15 +904,19 @@ void generic_button_images()
         Font primary;
         REQUIRE(primary.load(filename));
         auto& font = primary.glyphs;
-        REQUIRE((font.ownedPalette && font.sprites.size() == 9));
-        UINT16 borrowed[256]{};
-        REQUIRE(SetFontObjectPalette16BPP(primary, borrowed) == borrowed);
-        REQUIRE(GetFontObjectPalette16BPP(primary) == borrowed);
+        REQUIRE((font.sprites.size() == 9));
+        Palette16 colours{};
+        colours[1] = 0x1234;
+        primary.setPalette(colours);
+        colours[1] = 0;
+        REQUIRE(primary.palette()[1] == 0x1234);
         SetFont(primary);
-        SaveFontSettings();
-        primary.clear();
-        REQUIRE(g_font_render_state.font == nullptr);
-        RestoreFontSettings();
+        {
+            FontRenderScope outer;
+            FontRenderScope inner;
+            primary.clear();
+            REQUIRE(g_font_render_state.font == nullptr);
+        }
         REQUIRE(g_font_render_state.font == nullptr);
         ResetFontRendering();
     }
@@ -955,43 +929,71 @@ void generic_button_images()
     ResetFontRendering();
     REQUIRE(many_fonts.back().height() > 0);
     many_fonts.clear();
-    // Value moves preserve glyph storage but invalidate old render selections.
-    // Failed reloads preserve both the existing resource and its selection.
+    // Nested drawing restores each caller's state, not a single shared slot.
     {
-        Font source;
+        Font first, second;
+        SetFont(first);
+        g_font_render_state.clip = {1, 2, 3, 4};
+        {
+            FontRenderScope outer;
+            SetFont(second);
+            g_font_render_state.clip = {5, 6, 7, 8};
+            {
+                FontRenderScope inner;
+                SetFont(first);
+                g_font_render_state.clip = {9, 10, 11, 12};
+            }
+            REQUIRE(g_font_render_state.font == &second);
+            REQUIRE(g_font_render_state.clip.x == 5);
+        }
+        REQUIRE(g_font_render_state.font == &first);
+        REQUIRE(g_font_render_state.clip.x == 1);
+    }
+    // Failed loads retain selection; moves/reloads invalidate saved selections.
+    {
+        Font source, moved;
         REQUIRE(source.height() == 0);
         REQUIRE(source.textWidth("empty") == 0);
         REQUIRE(source.load(filename));
         const auto height = source.height();
         SetFont(source);
-        SaveFontSettings();
-        REQUIRE_FALSE(source.load("missing-font.sti"));
-        REQUIRE(source.height() == height);
-        REQUIRE(g_font_render_state.font == &source);
-        Font moved(std::move(source));
-        REQUIRE(moved.height() == height);
-        REQUIRE(source.height() == 0);
-        REQUIRE(g_font_render_state.font == nullptr);
-        RestoreFontSettings();
-        REQUIRE(g_font_render_state.font == nullptr);
-        SetFont(moved);
-        SaveFontSettings();
-        REQUIRE(moved.load(filename));
-        REQUIRE(g_font_render_state.font == nullptr);
-        RestoreFontSettings();
+        {
+            FontRenderScope scope;
+            REQUIRE_FALSE(source.load("missing-font.sti"));
+            REQUIRE(source.height() == height);
+            REQUIRE(g_font_render_state.font == &source);
+            Font temporary(std::move(source));
+            REQUIRE(temporary.height() == height);
+            REQUIRE(source.height() == 0);
+            REQUIRE(g_font_render_state.font == nullptr);
+            moved = std::move(temporary);
+        }
         REQUIRE(g_font_render_state.font == nullptr);
         SetFont(moved);
-        SaveFontSettings();
-        source = std::move(moved);
-        REQUIRE(source.height() == height);
-        REQUIRE(moved.height() == 0);
-        RestoreFontSettings();
+        {
+            FontRenderScope scope;
+            REQUIRE(moved.load(filename));
+            REQUIRE(g_font_render_state.font == nullptr);
+        }
         REQUIRE(g_font_render_state.font == nullptr);
-        SetFont(source);
-        SaveFontSettings();
+        SetFont(moved);
+        {
+            FontRenderScope scope;
+            source = std::move(moved);
+            REQUIRE(source.height() == height);
+            REQUIRE(moved.height() == 0);
+        }
+        REQUIRE(g_font_render_state.font == nullptr);
     }
-    REQUIRE(g_font_render_state.font == nullptr);
-    RestoreFontSettings();
+    {
+        FontRenderScope outer;
+        {
+            Font source;
+            SetFont(source);
+            FontRenderScope inner;
+            source.clear();
+        }
+    }
     REQUIRE(g_font_render_state.font == nullptr);
     ConfigureFontRendering(std::vector<UINT16>{'?', 0x00e9, 0x4e2d, 'e', 0x0301, 'a', 'b', ' ', 'c'});
     Font primary;
@@ -1015,8 +1017,9 @@ void generic_button_images()
     // current surface font has a different palette.
     Font secondary;
     REQUIRE(secondary.load(filename));
-    auto* alternate = GetFontObjectPalette16BPP(secondary);
-    std::fill(alternate, alternate + 256, UINT16{0x1234});
+    Palette16 alternate;
+    alternate.fill(0x1234);
+    secondary.setPalette(alternate);
     std::fill(expected_pixels.begin(), expected_pixels.end(), 0);
     std::fill(view_pixels.begin(), view_pixels.end(), 0);
     SetFont(secondary);
@@ -1103,11 +1106,6 @@ TEST_CASE("Screen stack ownership", "[owner]")
     screen_stack();
 }
 
-TEST_CASE("Surface region ownership", "[owner]")
-{
-    surface_regions();
-}
-
 TEST_CASE("Camp effect ownership", "[owner]")
 {
     camp_effects();
@@ -1153,9 +1151,8 @@ TEST_CASE("Generic button image ownership", "[owner]")
 
 TEST_CASE("assert-plain", "[.death]")
 {
-    SGPVObject object{};
-    SetVideoObjectPalette(object, nullptr);
-    FAIL("SetVideoObjectPalette did not abort");
+    Assert(false);
+    FAIL("Assert did not abort");
 }
 
 TEST_CASE("assert-message", "[.death]")

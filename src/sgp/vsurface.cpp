@@ -2,11 +2,9 @@
 #include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>
-#include <algorithm>
 #include <cstddef>
 #include <memory>
 #include <optional>
-#include <span>
 
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07, 2026-10-09.
    Distributed under the accompanying SFI Source Code license agreement. */
@@ -152,7 +150,7 @@ std::unique_ptr<SGPVSurface> CreateVideoSurface(const VSURFACE_DESC& VSurfaceDes
     result->TransparentColor = FROMRGB(0, 0, 0);
     if (image) {
         if (image->fFlags & IMAGE_PALETTE)
-            SetVideoSurfacePalette(*result, image->pPalette.get());
+            SetVideoSurfacePalette(*result, *image->pPalette);
         SDL_Rect region{0, 0, width, height};
         SetVideoSurfaceDataFromHImage(*result, *image, 0, 0, &region);
     }
@@ -160,22 +158,6 @@ std::unique_ptr<SGPVSurface> CreateVideoSurface(const VSURFACE_DESC& VSurfaceDes
 
     return result;
 }
-// Lock must be followed by release
-// Pitch MUST be used for all width calculations ( Pitch is in bytes )
-// The time between Locking and unlocking must be minimal
-BYTE* LockVideoSurfaceBuffer(SGPVSurface& hVSurface, UINT32* pPitch)
-{
-    Assert(pPitch != nullptr);
-    const auto lock = LockCpuSurface(hVSurface.cpu());
-    *pPitch = lock.pitch;
-    return static_cast<BYTE*>(lock.pixels);
-}
-
-void UnLockVideoSurfaceBuffer(SGPVSurface& hVSurface)
-{
-    UnlockCpuSurface(hVSurface.cpu());
-}
-
 // Given an HIMAGE object, blit imagery into existing Video Surface. Can be from 8->16 BPP
 // FUNCTION: WIZ8 0x00403780
 BOOLEAN SetVideoSurfaceDataFromHImage(SGPVSurface& hVSurface, const image_type& hImage, UINT16 usX, UINT16 usY,
@@ -217,7 +199,9 @@ BOOLEAN SetVideoSurfaceDataFromHImage(SGPVSurface& hVSurface, const image_type& 
     Assert(fBufferBPP != 0);
 
     // Get surface buffer data
-    pDest = LockVideoSurfaceBuffer(hVSurface, &uiPitch);
+    const auto& destination_storage = *hVSurface.cpu().surface;
+    uiPitch = destination_storage.pitch;
+    pDest = static_cast<BYTE*>(destination_storage.pixels);
 
     // Effective width ( in PIXELS ) is Pitch ( in bytes ) converted to pitch ( IN PIXELS )
     usEffectiveWidth = uiPitch / (hVSurface.ubBitDepth / 8);
@@ -232,21 +216,16 @@ BOOLEAN SetVideoSurfaceDataFromHImage(SGPVSurface& hVSurface, const image_type& 
     if (!CopyImageToBuffer(hImage, fBufferBPP, {pDest, std::size_t(uiPitch) * hVSurface.usHeight},
                            usEffectiveWidth, hVSurface.usHeight, usX, usY, aRect)) {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Error copying image data to video surface");
-        UnLockVideoSurfaceBuffer(hVSurface);
         return (FALSE);
     }
-
-    // All is OK
-    UnLockVideoSurfaceBuffer(hVSurface);
 
     return (TRUE);
 }
 
 // Indexed surfaces use SDL palettes; custom RGB555 blitters retain their table.
-BOOLEAN SetVideoSurfacePalette(SGPVSurface& hVSurface, SGPPaletteEntry* pSrcPalette)
+BOOLEAN SetVideoSurfacePalette(SGPVSurface& hVSurface, const Palette8& pSrcPalette)
 {
-    CHECKF(pSrcPalette);
-    std::copy_n(pSrcPalette, 256, hVSurface.palette.begin());
+    hVSurface.palette = pSrcPalette;
     hVSurface.hasPalette = true;
     if (hVSurface.ubBitDepth == 8) {
         SDL_Color colors[256];
@@ -269,58 +248,14 @@ BOOLEAN SetVideoSurfaceTransparencyColor(SGPVSurface& hVSurface, COLORVAL TransC
     return TRUE;
 }
 
-// ********************************************************
-// Clipper manipulation functions
-// ********************************************************
-
-BOOLEAN SetClipList(SGPVSurface& hVSurface, SDL_Rect* RegionData, UINT16 usNumRegions)
-{
-    CHECKF(RegionData && usNumRegions);
-    SetSurfaceClipRegions(hVSurface.cpu(), {RegionData, usNumRegions});
-    return TRUE;
-}
-
-// ********************************************************
-// Region manipulation functions
-// ********************************************************
-
-BOOLEAN GetVSurfaceRegion(SGPVSurface& hVSurface, UINT16 usIndex, VSURFACE_REGION* aRegion)
-{
-
-    if (!aRegion || usIndex >= hVSurface.RegionList.size()) {
-        return FALSE;
-    }
-    *aRegion = hVSurface.RegionList[usIndex];
-    return TRUE;
-}
-
 // FUNCTION: WIZ8 0x00403b10
 BOOLEAN BltVideoSurfaceToVideoSurface(SGPVSurface& hDestVSurface, SGPVSurface& hSrcVSurface,
-                                      UINT16 usIndex, INT32 iDestX, INT32 iDestY, INT32 fBltFlags,
+                                      INT32 iDestX, INT32 iDestY, INT32 fBltFlags,
                                       blt_vs_fx* pBltFx)
 {
-    VSURFACE_REGION aRegion;
     SDL_Rect SrcRect;
     UINT16 *pDestSurface16, *pSrcSurface16;
     UINT32 uiSrcPitch, uiDestPitch;
-
-    // Assertions
-
-    // Check that both region and subrect are not given
-    if ((fBltFlags & VS_BLT_SRCREGION) && (fBltFlags & VS_BLT_SRCSUBRECT)) {
-        SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "Inconsistant blit flags given");
-        return (FALSE);
-    }
-
-    // Check for dest src options
-    if (fBltFlags & VS_BLT_DESTREGION) {
-        CHECKF(pBltFx != nullptr);
-        CHECKF(GetVSurfaceRegion(hDestVSurface, pBltFx->DestRegion, &aRegion));
-
-        // Set starting coordinates from destination region
-        iDestY = aRegion.RegionCoords.y;
-        iDestX = aRegion.RegionCoords.x;
-    }
 
     // Check for fill, if true, fill entire region with color
     if (fBltFlags & VS_BLT_COLORFILL) {
@@ -333,38 +268,14 @@ BOOLEAN BltVideoSurfaceToVideoSurface(SGPVSurface& hDestVSurface, SGPVSurface& h
     }
 
 
-    // Check for source coordinate options - from region, specific rect or full src dimensions
-    do {
-        // Get Region from index, if specified
-        if (fBltFlags & VS_BLT_SRCREGION) {
-            CHECKF(GetVSurfaceRegion(hSrcVSurface, usIndex, &aRegion))
-
-            SrcRect = aRegion.RegionCoords;
-            break;
-        }
-
-        // Use SUBRECT if specified
-        if (fBltFlags & VS_BLT_SRCSUBRECT) {
-            CHECKF(pBltFx != nullptr);
-            SrcRect = pBltFx->SrcRect;
-
-            break;
-        }
-
-        // Here, use default, which is entire Video Surface
-        // Check Sizes, SRC size MUST be <= DEST size
-        if (hDestVSurface.usHeight < hSrcVSurface.usHeight) {
-            SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "Incompatible height size given in Video Surface blit");
-            return (FALSE);
-        }
-        if (hDestVSurface.usWidth < hSrcVSurface.usWidth) {
-            SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "Incompatible height size given in Video Surface blit");
-            return (FALSE);
-        }
-
+    if (fBltFlags & VS_BLT_SRCSUBRECT) {
+        CHECKF(pBltFx != nullptr);
+        SrcRect = pBltFx->SrcRect;
+    } else {
+        CHECKF(hDestVSurface.usHeight >= hSrcVSurface.usHeight);
+        CHECKF(hDestVSurface.usWidth >= hSrcVSurface.usWidth);
         SrcRect = {0, 0, hSrcVSurface.usWidth, hSrcVSurface.usHeight};
-
-    } while (FALSE);
+    }
 
     // Once here, assert valid Src
 
@@ -376,17 +287,18 @@ BOOLEAN BltVideoSurfaceToVideoSurface(SGPVSurface& hDestVSurface, SGPVSurface& h
     CHECKF(hDestVSurface.ubBitDepth == hSrcVSurface.ubBitDepth &&
            (hDestVSurface.ubBitDepth == 8 || hDestVSurface.ubBitDepth == 16));
     if (hDestVSurface.ubBitDepth == 16 && (fBltFlags & VS_BLT_MIRROR_Y)) {
-        pSrcSurface16 = (UINT16*)LockVideoSurfaceBuffer(hSrcVSurface, &uiSrcPitch);
+        const auto& source_storage = *hSrcVSurface.cpu().surface;
+        uiSrcPitch = source_storage.pitch;
+        pSrcSurface16 = static_cast<UINT16*>(source_storage.pixels);
         CHECKF(pSrcSurface16);
-        pDestSurface16 = (UINT16*)LockVideoSurfaceBuffer(hDestVSurface, &uiDestPitch);
+        const auto& destination_storage = *hDestVSurface.cpu().surface;
+        uiDestPitch = destination_storage.pitch;
+        pDestSurface16 = static_cast<UINT16*>(destination_storage.pixels);
         if (!pDestSurface16) {
-            UnLockVideoSurfaceBuffer(hSrcVSurface);
             return FALSE;
         }
         Blt16BPPTo16BPPMirror(pDestSurface16, uiDestPitch, pSrcSurface16, uiSrcPitch,
                              iDestX, iDestY, SrcRect.x, SrcRect.y, SrcRect.w, SrcRect.h);
-        UnLockVideoSurfaceBuffer(hSrcVSurface);
-        UnLockVideoSurfaceBuffer(hDestVSurface);
         return TRUE;
     }
     return BltVSurfaceUsingSDL(hDestVSurface, hSrcVSurface, fBltFlags, iDestX, iDestY, &SrcRect);
@@ -462,9 +374,10 @@ BOOLEAN InternalShadowVideoSurfaceRect(SGPVSurface& uiDestVSurface, INT32 X1, IN
     if (!SDL_GetRectIntersection(&area, &bounds, &area))
         return FALSE;
 
-    // Lock video surface
-    pBuffer = (UINT16*)LockVideoSurfaceBuffer(uiDestVSurface, &uiPitch);
-    //UnLockVideoSurfaceBuffer( uiDestVSurface );
+    const auto& destination_storage = *uiDestVSurface.cpu().surface;
+    uiPitch = destination_storage.pitch;
+    pBuffer = static_cast<UINT16*>(destination_storage.pixels);
+
 
     if (pBuffer == nullptr) {
         return (FALSE);
@@ -473,7 +386,6 @@ BOOLEAN InternalShadowVideoSurfaceRect(SGPVSurface& uiDestVSurface, INT32 X1, IN
     const BOOLEAN result = fLowPercentShadeTable
         ? Blt16BPPBufferShadowRectAlternateTable(pBuffer, uiPitch, &area)
         : Blt16BPPBufferShadowRect(pBuffer, uiPitch, &area);
-    UnLockVideoSurfaceBuffer(uiDestVSurface);
     return result;
 }
 

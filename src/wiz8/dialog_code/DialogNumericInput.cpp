@@ -114,14 +114,12 @@ void W8DialogNumericInput::Draw(bool force)
             m_bounds.right - m_font->textWidth(std::string_view(g_numeric_input_text).substr(length - m_caret)) - 1;
         font_height = m_font->height();
         int caret_top = m_bounds.top + std::max(0, (m_bounds.bottom - m_bounds.top - font_height) / 2);
-        UINT32 pitch;
-        char* screen = static_cast<char*>(LockPrimarySurface(&pitch));
+        char* screen = static_cast<char*>(GetFrameBufferSurface().cpu().surface->pixels);
         int caret_bottom = m_bounds.bottom;
         if (caret_top + m_font->height() < caret_bottom) {
             caret_bottom = caret_top + m_font->height();
         }
         LineDraw(0, caret_x, caret_top, caret_x, caret_bottom, -1, screen);
-        UnlockPrimarySurface();
     }
     SetFontDestBuffer(GetFrameBufferSurface(), 0, 0, 640, 480, 0);
     m_dirty = false;

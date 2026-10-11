@@ -19,13 +19,12 @@
 #include "vobject_blitters.h"
 #include "vsurface.h"
 
-
-
 static std::vector<UINT16> g_font_translation;
 FontRenderState g_font_render_state;
-static FontRenderState saved_font_state;
+FontRenderScope* FontRenderScope::current = nullptr;
 
-Font::Font(Font&& other) noexcept : glyphs(std::move(other.glyphs))
+Font::Font(Font&& other) noexcept
+    : glyphs(std::move(other.glyphs)), customPalette(std::move(other.customPalette))
 {
     other.clear();
 }
@@ -35,6 +34,7 @@ Font& Font::operator=(Font&& other) noexcept
     if (this != &other) {
         clear();
         glyphs = std::move(other.glyphs);
+        customPalette = std::move(other.customPalette);
         other.clear();
     }
     return *this;
@@ -48,8 +48,10 @@ Font::~Font()
 void Font::clear()
 {
     if (g_font_render_state.font == this) g_font_render_state.font = nullptr;
-    if (saved_font_state.font == this) saved_font_state.font = nullptr;
+    for (auto* scope = FontRenderScope::current; scope; scope = scope->previous)
+        if (scope->saved.font == this) scope->saved.font = nullptr;
     glyphs = {};
+    customPalette.reset();
 }
 
 // SetFontForeground
@@ -135,27 +137,28 @@ void SetRGBFontShadow(UINT32 uiRed, UINT32 uiGreen, UINT32 uiBlue)
 }
 //end Kris
 
-// SetFontObjectPalette16BPP
-//	Sets the palette of a font, using a 16 bit palette.
-
 // FUNCTION: WIZ8 0x00406dc0
-UINT16* SetFontObjectPalette16BPP(Font& iFont, UINT16* pPal16)
+void Font::setPalette(const Palette16& colors)
 {
-
-    iFont.glyphs.p16BPPPalette = pPal16;
-    iFont.glyphs.pShadeCurrent = pPal16;
-
-    return (pPal16);
+    customPalette = colors;
+    glyphs.currentShade = 4;
 }
 
-// GetFontObjectPalette16BPP
-//	Sets the palette of a font, using a 16 bit palette.
-
 // FUNCTION: WIZ8 0x00406de0
-UINT16* GetFontObjectPalette16BPP(Font& iFont)
+const Palette16& Font::palette() const
 {
+    return customPalette ? *customPalette : glyphs.palette;
+}
 
-    return (iFont.glyphs.p16BPPPalette);
+const Palette16& Font::currentPalette() const
+{
+    return glyphs.currentShade == 4 ? palette() : glyphs.currentPalette();
+}
+
+void Font::resetPalette()
+{
+    glyphs.currentShade = 4;
+    customPalette.reset();
 }
 
 // FUNCTION: WIZ8 0x00406e00
@@ -174,18 +177,10 @@ bool Font::load(std::string_view filename)
 // GetWidth
 //	Returns the width of a given character in the font.
 
-UINT32 GetWidth(const SGPVObject& hSrcVObject, INT16 ssIndex)
+static UINT32 GetWidth(const SGPVObject& hSrcVObject, INT16 ssIndex)
 {
-    const SpriteFrame* pTrav;
-
-    // Assertions
-
-    if (ssIndex < 0 || ssIndex > 92) {
-    }
-
-    // Get Offsets from Index into structure
-    pTrav = &(hSrcVObject.sprites[ssIndex]);
-    return ((UINT32)(pTrav->usWidth + pTrav->sOffsetX));
+    const auto& glyph = hSrcVObject.sprites[ssIndex];
+    return glyph.usWidth + glyph.sOffsetX;
 }
 
 // Measure a prefix counted in Unicode scalar values.
@@ -221,35 +216,27 @@ INT16 Font::textWidth(std::string_view string) const
 {
     return prefixWidth(string, string.size());
 }
-// SaveFontSettings
-//	Saves the current font printing settings into temporary locations.
-
 // FUNCTION: WIZ8 0x00407090
-void SaveFontSettings(void)
+FontRenderScope::FontRenderScope() : saved(g_font_render_state), previous(current)
 {
-    saved_font_state = g_font_render_state;
+    current = this;
 }
-// RestoreFontSettings
-//	Restores the last saved font printing settings from the temporary lactions
 
 // FUNCTION: WIZ8 0x00407140
-void RestoreFontSettings(void)
+FontRenderScope::~FontRenderScope()
 {
-    g_font_render_state = saved_font_state;
+    Assert(current == this);
+    g_font_render_state = saved;
+    current = previous;
 }
 
 // GetHeight
 //	Returns the height of a given character in the font.
 
-UINT32 GetHeight(const SGPVObject& hSrcVObject, INT16 ssIndex)
+static UINT32 GetHeight(const SGPVObject& hSrcVObject, INT16 ssIndex)
 {
-    const SpriteFrame* pTrav;
-
-    // Assertions
-
-    // Get Offsets from Index into structure
-    pTrav = &(hSrcVObject.sprites[ssIndex]);
-    return ((UINT32)(pTrav->usHeight + pTrav->sOffsetY));
+    const auto& glyph = hSrcVObject.sprites[ssIndex];
+    return glyph.usHeight + glyph.sOffsetY;
 }
 // GetFontHeight
 //	Returns the height of the first character in a font.
@@ -279,11 +266,10 @@ INT16 GetIndex(char32_t siChar)
 //	Selects a non-owning reference to the font resource.
 
 // FUNCTION: WIZ8 0x00407210
-BOOLEAN SetFont(Font& iFontIndex)
+void SetFont(Font& font)
 {
 
-    g_font_render_state.font = &iFontIndex;
-    return (TRUE);
+    g_font_render_state.font = &font;
 }
 
 // SetFontDestBuffer
@@ -291,7 +277,7 @@ BOOLEAN SetFont(Font& iFontIndex)
 // sets the line wrap on/off. The destination is a non-owning surface reference.
 
 // FUNCTION: WIZ8 0x00407220
-BOOLEAN SetFontDestBuffer(SGPVSurface& DestBuffer, INT32 x1, INT32 y1, INT32 x2, INT32 y2, BOOLEAN wrap)
+void SetFontDestBuffer(SGPVSurface& DestBuffer, INT32 x1, INT32 y1, INT32 x2, INT32 y2, bool wrap)
 {
     Assert(x2 > x1);
     Assert(y2 > y1);
@@ -301,7 +287,6 @@ BOOLEAN SetFontDestBuffer(SGPVSurface& DestBuffer, INT32 x1, INT32 y1, INT32 x2,
     g_font_render_state.clip = {x1, y1, x2 - x1, y2 - y1};
     g_font_render_state.wrap = wrap;
 
-    return (TRUE);
 }
 
 // One bounded UTF-8 traversal for surface and buffer rendering.
@@ -318,93 +303,76 @@ static void DrawTextToBuffer(UINT8* buffer, UINT32 pitch, Font& font_index, INT3
             y += GetHeight(font, glyph);
         }
         BltSpriteTo16BPPBuffer(reinterpret_cast<UINT16*>(buffer), pitch, font.sprites[glyph],
-                              font.pShadeCurrent, destx, y, &g_font_render_state.clip, false,
+                              font_index.currentPalette().data(), destx, y, &g_font_render_state.clip, false,
                               mono ? SpriteDrawOp::MonoShadow : SpriteDrawOp::Transparent,
                               g_font_render_state.foreground, g_font_render_state.background, g_font_render_state.shadow);
         destx += GetWidth(font, glyph);
     }
 }
 
-static UINT32 DrawTextToSurface(INT32 x, INT32 y, std::string_view text, bool mono)
+static void DrawTextToSurface(INT32 x, INT32 y, std::string_view text, bool mono)
 {
-    if (!g_font_render_state.font || !g_font_render_state.destination) return 0;
-    UINT32 pitch;
-    auto* buffer = LockVideoSurfaceBuffer(*g_font_render_state.destination, &pitch);
-    DrawTextToBuffer(buffer, pitch, *g_font_render_state.font, x, y, text, mono);
-    UnLockVideoSurfaceBuffer(*g_font_render_state.destination);
-    return 0;
+    if (!g_font_render_state.font || !g_font_render_state.destination) return;
+    const auto& storage = *g_font_render_state.destination->cpu().surface;
+    DrawTextToBuffer(static_cast<BYTE*>(storage.pixels), storage.pitch, *g_font_render_state.font, x, y, text, mono);
+    return;
 }
 
 // Draw UTF-8 text using the current font and destination.
 
 // FUNCTION: WIZ8 0x00407260
-UINT32 DrawMonoFontText(INT32 x, INT32 y, std::string_view string)
+void DrawMonoFontText(INT32 x, INT32 y, std::string_view string)
 {
-    return DrawTextToSurface(x, y, string, true);
+    DrawTextToSurface(x, y, string, true);
 }
 
 // FUNCTION: WIZ8 0x00407420
-void FindFontRightCoordinates(INT16 sLeft, INT16 sTop, INT16 sWidth, INT16 sHeight, std::string_view pStr,
-                              Font& iFontIndex, INT16* psNewX, INT16* psNewY)
+SDL_Point Font::rightAlignedPosition(const SDL_Rect& bounds, std::string_view text) const
 {
-    INT16 xp, yp;
-
-    // Compute the coordinates to right justify the text
-    xp = ((sWidth - iFontIndex.textWidth(pStr))) + sLeft;
-    yp = ((sHeight - iFontIndex.height()) / 2) + sTop;
-
-    *psNewX = xp;
-    *psNewY = yp;
+    return {bounds.x + bounds.w - textWidth(text), bounds.y + (bounds.h - height()) / 2};
 }
 
 // FUNCTION: WIZ8 0x00407530
-void FindFontCenterCoordinates(INT16 sLeft, INT16 sTop, INT16 sWidth, INT16 sHeight, std::string_view pStr,
-                               Font& iFontIndex, INT16* psNewX, INT16* psNewY)
+SDL_Point Font::centeredPosition(const SDL_Rect& bounds, std::string_view text) const
 {
-    INT16 xp, yp;
-
-    // Compute the coordinates to center the text
-    xp = ((sWidth - iFontIndex.textWidth(pStr) + 1) / 2) + sLeft;
-    yp = ((sHeight - iFontIndex.height()) / 2) + sTop;
-
-    *psNewX = xp;
-    *psNewY = yp;
+    return {bounds.x + (bounds.w - textWidth(text) + 1) / 2,
+            bounds.y + (bounds.h - height()) / 2};
 }
 
 // Draw UTF-8 text using the current font and destination.
 
 // FUNCTION: WIZ8 0x00407650
-UINT32 DrawFontText(INT32 x, INT32 y, std::string_view string)
+void DrawFontText(INT32 x, INT32 y, std::string_view string)
 {
-    return DrawTextToSurface(x, y, string, false);
+    DrawTextToSurface(x, y, string, false);
 }
 
 // FUNCTION: WIZ8 0x004077d0
-UINT32 DrawFontTextDirty(INT32 x, INT32 y, std::string_view string)
+void DrawFontTextDirty(INT32 x, INT32 y, std::string_view string)
 {
-    if (!g_font_render_state.font) return 0;
+    if (!g_font_render_state.font) return;
     DrawFontText(x, y, string);
     InvalidateRegion(x, y, x + g_font_render_state.font->textWidth(string), y + g_font_render_state.font->height(),
                      INVAL_SRC_TRANS);
-    return 0;
+    return;
 }
 
 // Draw UTF-8 text using the current font and destination.
 
 // FUNCTION: WIZ8 0x00407a10
-UINT32 DrawFontTextToBuffer(UINT8* pDestBuf, UINT32 uiDestPitchBYTES, Font& FontType, INT32 x,
+void DrawFontTextToBuffer(UINT8* pDestBuf, UINT32 uiDestPitchBYTES, Font& FontType, INT32 x,
                             INT32 y, std::string_view string)
 {
     DrawTextToBuffer(pDestBuf, uiDestPitchBYTES, FontType, x, y, string, false);
-    return 0;
+    return;
 }
 
 // FUNCTION: WIZ8 0x00407b80
-UINT32 DrawMonoFontTextToBuffer(UINT8* pDestBuf, UINT32 uiDestPitchBYTES, Font& FontType, INT32 x,
+void DrawMonoFontTextToBuffer(UINT8* pDestBuf, UINT32 uiDestPitchBYTES, Font& FontType, INT32 x,
                                 INT32 y, std::string_view string)
 {
     DrawTextToBuffer(pDestBuf, uiDestPitchBYTES, FontType, x, y, string, true);
-    return 0;
+    return;
 }
 
 // FUNCTION: WIZ8 0x00407d30
@@ -423,13 +391,15 @@ void ConfigureFontRendering(const std::vector<UINT16>& translation)
 void ResetFontRendering()
 {
     g_font_render_state = {};
-    saved_font_state = {};
+    for (auto* scope = FontRenderScope::current; scope; scope = scope->previous)
+        scope->saved = {};
     g_font_translation.clear();
 }
 
 void SetFontDestClip(INT32 x1, INT32 y1, INT32 x2, INT32 y2)
 {
-    SetFontDestBuffer(*g_font_render_state.destination, x1, y1, x2, y2, g_font_render_state.wrap);
+    Assert(x2 > x1 && y2 > y1);
+    g_font_render_state.clip = {x1, y1, x2 - x1, y2 - y1};
 }
 
 // CreateEnglishTransTable

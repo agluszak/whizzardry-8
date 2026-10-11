@@ -52,9 +52,9 @@ int W8DialogTextEntry::DrawLine(char* line, size_t span, int prefix_remaining, i
             x += m_font->textWidth(line);
             line[prefix_remaining] = saved;
             if (!m_selected) {
-                SetFontObjectPalette16BPP(*m_font, m_text_palette < 15
-                                                      ? g_font_state_palettes[m_text_palette].get()
-                                                      : g_wiz_text_font_secondary.glyphs.ownedPalette.get());
+                m_font->setPalette(m_text_palette < 15
+                                                      ? g_font_state_palettes[m_text_palette]
+                                                      : g_wiz_text_font_secondary.glyphs.palette);
             }
             line += prefix_remaining;
             span -= prefix_remaining;
@@ -78,24 +78,24 @@ void W8DialogTextEntry::Draw(bool force)
         copy = ShortenTextToWidth(m_buffer, width - 5, *m_font);
     }
     SetFont(*m_font);
-    unsigned short* palette = g_font_state_palettes[W8_FONT_PALETTE_YELLOW].get();
+    Palette16 palette = g_font_state_palettes[W8_FONT_PALETTE_YELLOW];
     if (!m_entry_highlighted) {
         if (m_marked) {
-            palette = g_font_state_palettes[W8_FONT_PALETTE_GREEN].get();
+            palette = g_font_state_palettes[W8_FONT_PALETTE_GREEN];
         } else if (m_selected) {
-            palette = g_font_state_palettes[W8_FONT_PALETTE_WHITE].get();
+            palette = g_font_state_palettes[W8_FONT_PALETTE_WHITE];
         } else {
-            palette = g_wiz_text_font_secondary.glyphs.ownedPalette.get();
+            palette = g_wiz_text_font_secondary.glyphs.palette;
             if (m_prefix_length == 0) {
                 if (m_text_palette < 15) {
-                    palette = g_font_state_palettes[m_text_palette].get();
+                    palette = g_font_state_palettes[m_text_palette];
                 }
             } else if (m_prefix_palette < 15) {
-                palette = g_font_state_palettes[m_prefix_palette].get();
+                palette = g_font_state_palettes[m_prefix_palette];
             }
         }
     }
-    SetFontObjectPalette16BPP(*m_font, palette);
+    m_font->setPalette(palette);
     SetFontDestBuffer(GetFrameBufferSurface(), m_pendingBounds.left, m_pendingBounds.top,
                       m_pendingBounds.right, m_pendingBounds.bottom, 0);
     int y = GetVerticalPosition();

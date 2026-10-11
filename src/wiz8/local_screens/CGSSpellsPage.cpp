@@ -123,7 +123,7 @@ void W8CharacterSpellList::Redraw(bool force)
         BlitCatalogSurfaceRectTo16BPP(GetFrameBufferSurface(), left, top, right, bottom, 0x1b6, 0, 0);
         int y = top + 1;
         SetFont(g_wiz_text_font_secondary);
-        SetFontObjectPalette16BPP(g_wiz_text_font_secondary, g_wiz_text_font_secondary.glyphs.ownedPalette.get());
+        g_wiz_text_font_secondary.resetPalette();
         SetObjectShade(g_wiz_text_font_secondary.glyphs, 4);
         for (int index = m_first_entry + m_scroll_offset;
              index < m_first_entry + m_scroll_offset + 7; ++index) {
@@ -132,18 +132,16 @@ void W8CharacterSpellList::Redraw(bool force)
             if (!m_entries[index].fSelectable) {
                 SetObjectShade(g_wiz_text_font_secondary.glyphs, 6);
             } else if (m_entries[index].selected) {
-                SetFontObjectPalette16BPP(g_wiz_text_font_secondary,
-                                          g_font_state_palettes[W8_FONT_PALETTE_BLUE].get());
+                g_wiz_text_font_secondary.setPalette(g_font_state_palettes[W8_FONT_PALETTE_BLUE]);
             } else if (index == m_hovered_entry) {
-                SetFontObjectPalette16BPP(g_wiz_text_font_secondary,
-                                          g_font_state_palettes[W8_FONT_PALETTE_YELLOW].get());
+                g_wiz_text_font_secondary.setPalette(g_font_state_palettes[W8_FONT_PALETTE_YELLOW]);
             }
             DrawFontText(left + 2, y, g_spell_records[m_entries[index].spell].display_name);
             std::string cost;
             cost = fmt::format("{:d}", g_spell_records[m_entries[index].spell].spell_point_cost);
             DrawFontText(right - g_wiz_text_font_secondary.textWidth(cost) - 2, y, cost);
             y += 13;
-            SetFontObjectPalette16BPP(g_wiz_text_font_secondary, g_wiz_text_font_secondary.glyphs.ownedPalette.get());
+            g_wiz_text_font_secondary.resetPalette();
             SetObjectShade(g_wiz_text_font_secondary.glyphs, 4);
         }
         m_range->Invalidate(0);

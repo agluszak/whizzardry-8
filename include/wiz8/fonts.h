@@ -49,4 +49,4 @@ enum W8FontPaletteIndex {
     W8_FONT_PALETTE_COUNT = 16
 };
 
-extern std::array<std::unique_ptr<UINT16[]>, 15> g_font_state_palettes;
+extern std::array<Palette16, 15> g_font_state_palettes;

@@ -62,7 +62,7 @@ Font ghTinyMonoFont;
 Font g_smfnt_font;
 
 // GLOBAL: WIZ8 0x0068EE1C
-std::array<std::unique_ptr<UINT16[]>, 15> g_font_state_palettes;
+std::array<Palette16, 15> g_font_state_palettes;
 
 // FUNCTION: WIZ8 0x004e27a0
 unsigned char InitializeMenuFonts(void)
@@ -105,9 +105,6 @@ unsigned char InitializeMenuFonts(void)
     decltype(g_font_state_palettes) palettes;
     for (size_t index = 0; index < palettes.size(); ++index) {
         palettes[index] = CopyCatalogImagePalette16BPP(0x1e5, index);
-        if (!palettes[index]) {
-            return 0;
-        }
     }
     for (size_t index = 0; index < fonts.size(); ++index)
         *std::get<0>(fonts[index]) = std::move(loaded[index]);
@@ -142,5 +139,5 @@ void ReleaseMenuFonts()
     g_small_font.clear();
     g_options_title_font.clear();
     g_smfnt_font.clear();
-    for (auto& palette : g_font_state_palettes) palette.reset();
+    g_font_state_palettes = {};
 }

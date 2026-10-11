@@ -1381,7 +1381,7 @@ void W8MainGameTextKeyHandler::Redraw(bool full_redraw)
     int bottom;
     int line;
     int last;
-    unsigned short* colour;
+    Palette16 colour;
 
     if (!m_active) {
         return;
@@ -1401,17 +1401,17 @@ void W8MainGameTextKeyHandler::Redraw(bool full_redraw)
     top += 1;
     for (line = m_first_visible_line; line < last; ++line) {
         if (line == m_selected_line) {
-            colour = g_font_state_palettes[W8_FONT_PALETTE_BLUE].get();
+            colour = g_font_state_palettes[W8_FONT_PALETTE_BLUE];
         } else if (line == m_hover_line) {
-            colour = g_font_state_palettes[W8_FONT_PALETTE_YELLOW].get();
+            colour = g_font_state_palettes[W8_FONT_PALETTE_YELLOW];
         } else {
-            colour = g_wiz_text_font_secondary.glyphs.ownedPalette.get();
+            colour = g_wiz_text_font_secondary.glyphs.palette;
         }
-        SetFontObjectPalette16BPP(g_wiz_text_font_secondary, colour);
+        g_wiz_text_font_secondary.setPalette(colour);
         DrawFontText(left, top, g_localized_strings[m_line_string_ids[line]]);
         top += 0xe;
     }
-    SetFontObjectPalette16BPP(g_wiz_text_font_secondary, g_wiz_text_font_secondary.glyphs.ownedPalette.get());
+    g_wiz_text_font_secondary.resetPalette();
     m_range.Invalidate(0);
     m_dirty = false;
 }
@@ -3837,7 +3837,7 @@ void DrawMainGameScreen(void)
         if (g_level_block->mouselook_debug != 0) {
             ClearSurfaceRect(0xdc, 0x1e, 0x154, 0x26);
             SetFont(g_smfnt_font);
-            SetFontObjectPalette16BPP(g_smfnt_font, g_smfnt_font.glyphs.ownedPalette.get());
+            g_smfnt_font.resetPalette();
             DrawFontTextDirty(
                 0xdc, 0x1e,
                 fmt::format("{:.3f}, {:.3f}", g_mouselook_pending_pitch, g_mouselook_pending_yaw));
@@ -3939,7 +3939,7 @@ void RedrawCombatMonsterList(void)
     bool is_target_group;
     int context_slot;
     W8CombatSlot* target;
-    unsigned short* palette;
+    Palette16 palette;
     unsigned int monster_index;
     W8MonsterInfo* monster_info;
     std::string scratch_text;
@@ -3996,17 +3996,17 @@ void RedrawCombatMonsterList(void)
                         }
                     }
                     if (is_action_group) {
-                        palette = g_font_state_palettes[W8_FONT_PALETTE_RED].get();
+                        palette = g_font_state_palettes[W8_FONT_PALETTE_RED];
                         if (g_level_block->target_highlight_ok[0] != 0) {
-                            palette = g_font_state_palettes[W8_FONT_PALETTE_GREEN].get();
+                            palette = g_font_state_palettes[W8_FONT_PALETTE_GREEN];
                         }
                     } else {
-                        palette = g_font_state_palettes[W8_FONT_PALETTE_BLUE].get();
+                        palette = g_font_state_palettes[W8_FONT_PALETTE_BLUE];
                         if (!is_target_group) {
-                            palette = g_wiz_text_font_secondary.glyphs.ownedPalette.get();
+                            palette = g_wiz_text_font_secondary.glyphs.palette;
                         }
                     }
-                    SetFontObjectPalette16BPP(g_wiz_text_font_secondary, palette);
+                    g_wiz_text_font_secondary.setPalette(palette);
                     DrawFontTextDirty(0xfa, row_y, scratch_text);
                     row_y += 0xb;
                     ++live_row_count;
@@ -4288,14 +4288,12 @@ void DrawHighlightOverlay(unsigned int party_slot, int row_count, unsigned int m
     }
 
     SetFont(g_wiz_text_font);
-    SetFontObjectPalette16BPP(
-        g_wiz_text_font,
-        g_font_state_palettes[g_status.buffers.XChar[party_slot].party_order_index].get());
+    g_wiz_text_font.setPalette(g_font_state_palettes[g_status.buffers.XChar[party_slot].party_order_index]);
     int font_height = g_wiz_text_font.height();
     int name_width = g_wiz_text_font.textWidth(name);
     DrawFontText(left + static_cast<int>(panel_width >> 1) - name_width / 2,
                  (0xc - font_height) / 2 + top + 6, name);
-    SetFontObjectPalette16BPP(g_wiz_text_font, g_wiz_text_font.glyphs.ownedPalette.get());
+    g_wiz_text_font.resetPalette();
 
     row_y_pos = top + 0x12;
     DrawCatalogImage(GetFrameBufferSurface(), 0x70, 0, 3, left, row_y_pos, VO_BLT_SRCTRANSPARENCY, 0);
@@ -8204,15 +8202,15 @@ unsigned char UpdateSurpriseFade(void)
 
     if (boundary) {
         if (gXStatus.surprise_phase == 0) {
-            w8_long pitch;
-            void* pixels = LockCatalogFrameSurface(0x1e0, 0, &pitch);
+            const auto& snapshot = *GetCatalogFrameSurface(0x1e0, 0).cpu().surface;
+            const auto pitch = snapshot.pitch;
+            void* pixels = snapshot.pixels;
             auto surface = std::make_shared<srColorSurface>(srPixelConvert::SURFACE_ARGB1555,
                                                              pixels, 0x280, 0x1e0, pitch);
             g_surprise_snapshot_surface = surface;
             g_surprise_snapshot_overlay = new stSurface2D(g_surprise_snapshot_surface, 0x280, 0x1e0,
                                                           g_scene_fullscreen, 0x80);
             g_surprise_snapshot_overlay->updateRectangle(g_gerd, pixels, pitch, 0, 0, 0x280, 0x1e0);
-            UnlockCatalogFrameSurface(0x1e0, 0);
             g_world_render_enabled = 0;
             g_surprise_fade_tick_base = w8_get_ticks();
         } else {

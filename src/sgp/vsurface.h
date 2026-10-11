@@ -6,8 +6,6 @@
 
 #include <SDL3/SDL_rect.h>
 #include <string>
-#include <vector>
-#include <array>
 #include <memory>
 
 #include "Types.h"
@@ -30,8 +28,6 @@
 #define VS_BLT_USEDESTCOLORKEY 0x000000200
 #define VS_BLT_FAST 0x000000004
 #define VS_BLT_CLIPPED 0x000000008
-#define VS_BLT_SRCREGION 0x000000010
-#define VS_BLT_DESTREGION 0x000000080
 #define VS_BLT_SRCSUBRECT 0x000000040
 #define VS_BLT_COLORFILLRECT 0x000000100
 #define VS_BLT_MIRROR_Y 0x000001000
@@ -44,7 +40,6 @@ typedef struct {
     COLORVAL ColorFill; // Used for fill effect
     SDL_Rect SrcRect;    // Given SRC subrect instead of srcregion
     SDL_Rect FillRect;   // Given SRC subrect instead of srcregion
-    UINT16 DestRegion;  // Given a DEST region for dest positions within the VO
 
 } blt_vs_fx;
 
@@ -71,22 +66,6 @@ typedef struct {
     0x00000020 // Creates and empty Surface of given width, height and BPP
 #define VSURFACE_CREATE_FROMFILE 0x00000040 // Creates a video Surface from a file ( using HIMAGE )
 
-//
-// The following structure is used to define a region of the video Surface
-// Regions are owned by the video surface
-//
-
-typedef struct {
-    SDL_Rect RegionCoords; // Rectangle describing coordinates of region
-    SDL_Point Origin;      // Origin used for hot spots, etc
-    UINT8 ubHitMask;      // Byte flags for hit detection
-
-} VSURFACE_REGION;
-
-//
-// This structure is a video Surface. Owns its regions
-//
-
 struct SGPVSurface {
     UINT16 usHeight;  // Height of Video Surface
     UINT16 usWidth;   // Width of Video Surface
@@ -94,11 +73,10 @@ struct SGPVSurface {
     std::unique_ptr<CpuSurface> ownedSurface;
     CpuSurface& cpu() { return *ownedSurface; }
     UINT32 fFlags;
-    std::array<SGPPaletteEntry, 256> palette{};
+    Palette8 palette{};
     bool hasPalette = false;
-    std::unique_ptr<UINT16[]> p16BPPPalette;
+    Palette16 p16BPPPalette{};
     COLORVAL TransparentColor;
-    std::vector<VSURFACE_REGION> RegionList;          // A List of regions within the video Surface
 
 };
 
@@ -142,12 +120,6 @@ BOOLEAN ImageFillVideoSurfaceArea(SGPVSurface& uiDestVSurface, INT32 iDestX1, IN
 // Created from a VSurface_DESC structure. Can be from a file via HIMAGE or empty.
 std::unique_ptr<SGPVSurface> CreateVideoSurface(const VSURFACE_DESC& VSurfaceDesc);
 
-// Returns a flat pointer for direct manipulation of data
-BYTE* LockVideoSurfaceBuffer(SGPVSurface& hVSurface, UINT32* pPitch);
-
-// Must be called after Locking buffer call above
-void UnLockVideoSurfaceBuffer(SGPVSurface& hVSurface);
-
 // Set data from HIMAGE.
 BOOLEAN SetVideoSurfaceDataFromHImage(SGPVSurface& hVSurface, const image_type& hImage, UINT16 usX, UINT16 usY,
                                       SDL_Rect* pSrcRect);
@@ -156,25 +128,7 @@ BOOLEAN SetVideoSurfaceDataFromHImage(SGPVSurface& hVSurface, const image_type& 
 BOOLEAN SetVideoSurfaceTransparencyColor(SGPVSurface& hVSurface, COLORVAL TransColor);
 
 // Sets HVSurface palette, creates if nessessary. Also sets 16BPP palette
-BOOLEAN SetVideoSurfacePalette(SGPVSurface& hVSurface, SGPPaletteEntry* pSrcPalette);
-
-///////////////////////////////////////////////////////////////////////////////////////////////////
-//
-// Region manipulation functions
-//
-///////////////////////////////////////////////////////////////////////////////////////////////////
-
-// Regions will allow creation of sections within the Surface to manipulate quickly and cleanly
-// An example would be a cursor tileset
-BOOLEAN GetVSurfaceRegion(SGPVSurface& hVSurface, UINT16 usIndex, VSURFACE_REGION* aRegion);
-
-///////////////////////////////////////////////////////////////////////////////////////////////////
-//
-// Clipper manipulation functions
-//
-///////////////////////////////////////////////////////////////////////////////////////////////////
-
-BOOLEAN SetClipList(SGPVSurface& hVSurface, SDL_Rect* RegionData, UINT16 usNumRegions);
+BOOLEAN SetVideoSurfacePalette(SGPVSurface& hVSurface, const Palette8& pSrcPalette);
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////
 //
@@ -186,7 +140,7 @@ BOOLEAN SetClipList(SGPVSurface& hVSurface, SDL_Rect* RegionData, UINT16 usNumRe
 // Blitting, giving an API layer for portability.
 
 BOOLEAN BltVideoSurfaceToVideoSurface(SGPVSurface& hDestVSurface, SGPVSurface& hSrcVSurface,
-                                      UINT16 usIndex, INT32 iDestX, INT32 iDestY, INT32 fBltFlags,
+                                      INT32 iDestX, INT32 iDestY, INT32 fBltFlags,
                                       blt_vs_fx* pBltFx);
 
 BOOLEAN ShadowVideoSurfaceRect(SGPVSurface& uiDestVSurface, INT32 X1, INT32 Y1, INT32 X2, INT32 Y2);

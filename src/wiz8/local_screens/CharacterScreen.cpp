@@ -716,8 +716,8 @@ unsigned char CharacterScreenEnter(void)
     MSYS_Init();
     ResetRegions();
     UpdateHeldItemCursor();
-    SetFontObjectPalette16BPP(g_wiz_text_font_secondary, g_wiz_text_font_secondary.glyphs.ownedPalette.get());
-    SetFontObjectPalette16BPP(g_wiz_text_bold_font, g_wiz_text_bold_font.glyphs.ownedPalette.get());
+    g_wiz_text_font_secondary.resetPalette();
+    g_wiz_text_bold_font.resetPalette();
     g_character_screen = new W8CharacterScreen(
         g_current_screen_state.mode, static_cast<W8Character*>(g_current_screen_state.parameter_3));
     g_character_screen->BuildControls();

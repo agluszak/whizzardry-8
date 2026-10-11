@@ -9,6 +9,7 @@
 #include <array>
 #include <vector>
 #include <memory>
+#include <optional>
 
 #include "Types.h"
 #include "himage.h"
@@ -46,24 +47,6 @@ typedef struct {
 
 } blt_fx;
 
-// Z-buffer info structure for properly assigning Z values
-typedef struct {
-    INT8 bInitialZChange;     // difference in Z value between the leftmost and base strips
-    UINT8 ubFirstZStripWidth; // # of pixels in the leftmost strip
-    UINT8 ubNumberOfZChanges; // number of strips (after the first)
-    std::unique_ptr<INT8[]> pbZChange; // change to the Z value in each strip (after the first)
-} ZStripInfo;
-
-typedef struct {
-    std::unique_ptr<UINT16[]> p16BPPData;
-    UINT16 usRegionIndex;
-    UINT8 ubShadeLevel;
-    UINT16 usWidth;
-    UINT16 usHeight;
-    INT16 sOffsetX;
-    INT16 sOffsetY;
-} SixteenBPPObjectInfo;
-
 // This definition mimics what is found in WINDOWS.H ( for Direct Draw compatiblity )
 // From RGB to COLORVAL
 #define FROMRGB(r, g, b)                                                                           \
@@ -75,9 +58,6 @@ typedef struct {
 #define VOBJECT_CREATE_DEFAULT 0x00000020 // Creates and empty object of given width, height and BPP
 #define VOBJECT_CREATE_FROMFILE 0x00000040   // Creates a video object from a file ( using HIMAGE )
 #define VOBJECT_CREATE_FROMHIMAGE 0x00000080 // Creates a video object from a pre-loaded hImage
-
-// VOBJECT FLAGS
-#define VOBJECT_FLAG_SHADETABLE_SHARED 0x00000100
 
 // This structure is a video object.
 // One decoded sprite frame: pixels are palette indices 0-255 or
@@ -96,18 +76,16 @@ struct SpriteFrame {
 
 // The video object contains different data based on it's type, compressed or not
 struct SGPVObject {
-    UINT32 fFlags;                  // Special flags
-    std::unique_ptr<SGPPaletteEntry[]> pPaletteEntry; // 8BPP Palette
-    COLORVAL TransparentColor;      // Defaults to 0,0,0
-    std::shared_ptr<UINT16[]> ownedPalette;
-    UINT16* p16BPPPalette; // Borrowed palette view; font drawing may temporarily override it.
+    Palette8 pPaletteEntry{}; // 8BPP Palette
+    Palette16 palette{};
 
     std::vector<SpriteFrame> sprites;   // Decoded frames, one per ETRLE subimage
-    std::vector<SixteenBPPObjectInfo> p16BPPObject;
-    std::array<std::shared_ptr<UINT16[]>, HVOBJECT_SHADE_TABLES> pShades; // Shading tables
-    UINT16* pShadeCurrent;
-    UINT16* pGlow;             // glow highlight table
-    std::vector<std::unique_ptr<ZStripInfo>> ppZStripInfo; // Z-value strip info arrays
+    std::vector<std::optional<Palette16>> pShades;
+    void setPalette(const Palette8& colors);
+    unsigned currentShade = 4;
+    const Palette16& currentPalette() const {
+        return currentShade == 4 ? palette : pShades[currentShade].value();
+    }
 
     UINT8 ubBitDepth;         // BPP
 
@@ -150,14 +128,14 @@ BOOLEAN BltVideoObject(SGPVSurface& uiDestVSurface, SGPVObject& hVSrcObject, UIN
 std::unique_ptr<SGPVObject> CreateVideoObject(const VOBJECT_DESC& VObjectDesc);
 
 // Sets the object transparency color
-BOOLEAN SetVideoObjectTransparencyColor(SGPVObject& hVObject, COLORVAL TransColor);
+
 
 // Sets SGPVObject& palette, creates if nessessary. Also sets 16BPP palette
-BOOLEAN SetVideoObjectPalette(SGPVObject& hVObject, SGPPaletteEntry* pSrcPalette);
+
 
 
 // Deletes the 16-bit palette tables
-BOOLEAN DestroyObjectPaletteTables(SGPVObject& hVObject);
+
 
 // Sets the current object shade table
 UINT16 SetObjectShade(SGPVObject& pObj, UINT32 uiShade);
@@ -197,7 +175,7 @@ BOOLEAN BltVideoObjectToBuffer(UINT16* pBuffer, UINT32 uiDestPitchBYTES, SGPVObj
 BOOLEAN GetVideoObjectETRLESubregionProperties(SGPVObject& hVObject, UINT16 usIndex,
                                                UINT16* pusWidth, UINT16* pusHeight);
 
-BOOLEAN CopyVideoObjectPalette16BPP(SGPVObject& hVObject, UINT16* ppPal16);
+
 
 
 #endif

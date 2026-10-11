@@ -416,32 +416,33 @@ void W8ListBoxDialog::Draw()
     }
     SetFont(*g_dialog_interface_font);
     GetButtonArea(m_area_button, &rect);
-    SaveFontSettings();
-    SetFontDestBuffer(GetFrameBufferSurface(), rect.x + 3, rect.y + 3, (rect.x + rect.w) - 3,
-                      (rect.y + rect.h) - 3, 0);
-    if (static_cast<int>(m_lines.size()) <=
-        static_cast<int>(visible_lines + m_first_visible_line)) {
-        visible_lines = static_cast<int>(m_lines.size()) - m_first_visible_line;
-    }
-    for (index = 0; index < static_cast<int>(visible_lines); ++index) {
-        line = m_first_visible_line + index;
-        char* text = m_lines[line];
-        if (line == m_selected_line) {
-            ColorFillVideoSurfaceArea(
-                GetFrameBufferSurface(), m_x + 3 + dx,
-                m_y + static_cast<unsigned int>(g_dialog_interface_font->height()) * index +
-                    2 + dy,
-                width + m_x - 3 + dx,
-                static_cast<unsigned int>(g_dialog_interface_font->height()) + m_y +
-                    static_cast<unsigned int>(g_dialog_interface_font->height()) * index + dy,
-                Get16BPPColor(m_fill_colour));
+    {
+        FontRenderScope font_scope;
+        SetFontDestBuffer(GetFrameBufferSurface(), rect.x + 3, rect.y + 3, (rect.x + rect.w) - 3,
+                          (rect.y + rect.h) - 3, 0);
+        if (static_cast<int>(m_lines.size()) <=
+            static_cast<int>(visible_lines + m_first_visible_line)) {
+            visible_lines = static_cast<int>(m_lines.size()) - m_first_visible_line;
         }
-        DrawFontText(m_x + 3 + dx,
-                     static_cast<unsigned int>(g_dialog_interface_font->height()) * index +
-                         m_y + 2 + dy,
-                     text);
+        for (index = 0; index < static_cast<int>(visible_lines); ++index) {
+            line = m_first_visible_line + index;
+            char* text = m_lines[line];
+            if (line == m_selected_line) {
+                ColorFillVideoSurfaceArea(
+                    GetFrameBufferSurface(), m_x + 3 + dx,
+                    m_y + static_cast<unsigned int>(g_dialog_interface_font->height()) * index +
+                        2 + dy,
+                    width + m_x - 3 + dx,
+                    static_cast<unsigned int>(g_dialog_interface_font->height()) + m_y +
+                        static_cast<unsigned int>(g_dialog_interface_font->height()) * index + dy,
+                    Get16BPPColor(m_fill_colour));
+            }
+            DrawFontText(m_x + 3 + dx,
+                         static_cast<unsigned int>(g_dialog_interface_font->height()) * index +
+                             m_y + 2 + dy,
+                         text);
+        }
     }
-    RestoreFontSettings();
 }
 
 // FUNCTION: WIZ8 0x005cd470

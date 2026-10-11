@@ -287,7 +287,7 @@ void W8SpellInfoDialog::DrawLabels()
     W8SpellRuntimeRecord* record = &g_spell_records[m_spell];
 
     SetFont(g_wiz_text_font_secondary);
-    SetFontObjectPalette16BPP(g_wiz_text_font_secondary, g_wiz_text_font_secondary.glyphs.ownedPalette.get());
+    g_wiz_text_font_secondary.resetPalette();
     text = record->display_name;
     width = g_wiz_text_font_secondary.textWidth(text);
     DrawFontText(m_x + 0x25 + (0xe7 - width) / 2, m_y + 0x12, text);

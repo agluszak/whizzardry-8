@@ -1440,12 +1440,13 @@ void RenderAutomapFrame(void)
                 SetResidentTexturePolicy(0);
             }
             unsigned int pitch;
-            void* pixels = LockPrimarySurface(&pitch);
+            const auto& destination_storage = *GetFrameBufferSurface().cpu().surface;
+            pitch = destination_storage.pitch;
+            void* pixels = destination_storage.pixels;
             auto surface = std::make_unique<srColorSurface>(srPixelConvert::SURFACE_ARGB1555,
                                                              pixels, 0x280, 0x1e0, pitch);
             surface->setFilter(&srBoxFilter);
             surface->blit(0xc, 0x20, *g_automap_surface, 0xc, 0x20, 0x1d3, 0x1d3);
-            UnlockPrimarySurface();
             RenderAutomapMarkers();
             InvalidateRegion(0xc, 0x20, 0x1d3, 0x1d3, 0);
             SetRendererAutoFlipEnabled(false);
@@ -1478,13 +1479,10 @@ void UpdateAutomapPageButtons(void)
 int RestoreAutomapRect(W8ScreenRect* rect)
 {
     if (g_automap_surface != 0) {
-        unsigned int pitch;
-        LockPrimarySurface(&pitch);
         srColorSurface screen(srPixelConvert::SURFACE_ARGB1555, *GetFrameBufferSurface().cpu().surface);
         screen.setFilter(&srBoxFilter);
         screen.blit(rect->left, rect->top, *g_automap_surface, rect->left, rect->top, rect->right,
                     rect->bottom);
-        UnlockPrimarySurface();
     }
     return 1;
 }
@@ -1916,13 +1914,14 @@ void RenderAutomapMarkers(void)
                     if (note == g_automap_editing_note) {
                         marker->setScale(srVector3T<double>(0.22f, 0.22f, 0.22f));
                         unsigned int pitch;
-                        char* buffer = static_cast<char*>(LockPrimarySurface(&pitch));
+                        const auto& destination_storage = *GetFrameBufferSurface().cpu().surface;
+                        pitch = destination_storage.pitch;
+                        char* buffer = static_cast<char*>(destination_storage.pixels);
                         SetClippingRegionAndImageWidth(pitch, 0xc, 0x20, 0x1c7, 0x1b3);
                         int color = Get16BPPColor(0x569bef);
                         int length = g_wiz_text_font_secondary.textWidth(note->text);
                         RectangleDraw(TRUE, x - 1, y, x + length + 2, y + (font_height & 0xffff),
                                       color, buffer);
-                        UnlockPrimarySurface();
                     }
                 }
             }

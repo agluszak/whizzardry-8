@@ -282,7 +282,7 @@ BOOLEAN Blt8BPPDataSubTo16BPPBuffer(UINT16* pBuffer, UINT32 uiDestPitchBYTES,
 
     SrcPtr = (UINT8*)(pSrcBuffer + TopSkip + LeftSkip);
     DestPtr = ((UINT8*)pBuffer + (uiDestPitchBYTES * iTempY) + (iTempX * 2));
-    p16BPPPalette = hSrcVSurface.p16BPPPalette.get();
+    p16BPPPalette = hSrcVSurface.p16BPPPalette.data();
 
     // Every index writes its LUT word.
     for (UINT32 y = 0; y < BlitHeight; ++y) {

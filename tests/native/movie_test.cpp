@@ -171,18 +171,16 @@ static void exercise_movie(const char* retail_movie)
             REQUIRE(matchesFrame(reusable.frame().pixels, golden.data()));
         }
         auto target = CreateCpuSurface(640, 480, 16, 0x7c00, 0x3e0, 0x1f);
-        SurfaceLock description{};
+        const auto& description = *target->surface;
         {
             W8BinkVideo movie;
             movie.SetTarget(target.get());
             REQUIRE(movie.Open("Movie.mkv", 0));
             REQUIRE(!movie.UpdateFrame());
-            description = LockCpuSurface(*target);
             for (int y = 0; y < 24; ++y)
                 REQUIRE(std::memcmp(static_cast<unsigned char*>(description.pixels) +
                                       y * description.pitch,
                                   first_frame.data() + y * 32, 64) == 0);
-            UnlockCpuSurface(*target);
             REQUIRE(movie.Open("Data\\Packed.mkv",
                              0)); // Reopen stops the preceding PCM voice.
             REQUIRE(!movie.UpdateFrame());

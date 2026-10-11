@@ -211,7 +211,7 @@ GenericButtonImage LoadGenericGraphics(const std::array<std::string_view, 6>& fi
     }
     UINT8 pixel = 0;
     if (!GetETRLEPixelValue(&pixel, *image->frames[0], 8, 0, 0)) return {};
-    image->fill_color = image->frames[0]->p16BPPPalette[pixel];
+    image->fill_color = image->frames[0]->palette[pixel];
     image->background_frame = background_frame;
     image->offset_x = offset_x;
     image->offset_y = offset_y;
@@ -566,24 +566,25 @@ void QuickButtonCallbackMButn(MOUSE_REGION* reg, INT32 reason)
 // FUNCTION: WIZ8 0x0040dc80
 void RenderButtons(void)
 {
-    SaveFontSettings();
-    std::erase_if(active_buttons, [](const auto& entry) { return entry.expired(); });
-    for (const auto& weak : active_buttons) {
-        auto button = weak.lock();
-        if (!button || !(button->Area.uiFlags & MSYS_REGION_ENABLED)) continue;
-        auto& flags = button->uiFlags;
-        if (((flags ^ button->uiOldFlags) & (BUTTON_CLICKED_ON | BUTTON_ENABLED)) ||
-            (flags & BUTTON_SAVEBACKGROUND))
-            flags |= BUTTON_DIRTY;
-        button->uiOldFlags = flags;
-        if (flags & BUTTON_FORCE_UNDIRTY)
-            flags &= ~(BUTTON_DIRTY | BUTTON_FORCE_UNDIRTY);
-        if (flags & BUTTON_DIRTY) {
-            flags &= ~BUTTON_DIRTY;
-            DrawButtonFromPtr(button.get());
+    {
+        FontRenderScope font_scope;
+        std::erase_if(active_buttons, [](const auto& entry) { return entry.expired(); });
+        for (const auto& weak : active_buttons) {
+            auto button = weak.lock();
+            if (!button || !(button->Area.uiFlags & MSYS_REGION_ENABLED)) continue;
+            auto& flags = button->uiFlags;
+            if (((flags ^ button->uiOldFlags) & (BUTTON_CLICKED_ON | BUTTON_ENABLED)) ||
+                (flags & BUTTON_SAVEBACKGROUND))
+                flags |= BUTTON_DIRTY;
+            button->uiOldFlags = flags;
+            if (flags & BUTTON_FORCE_UNDIRTY)
+                flags &= ~(BUTTON_DIRTY | BUTTON_FORCE_UNDIRTY);
+            if (flags & BUTTON_DIRTY) {
+                flags &= ~BUTTON_DIRTY;
+                DrawButtonFromPtr(button.get());
+            }
         }
     }
-    RestoreFontSettings();
 }
 
 //	MarkButtonsDirty
@@ -602,9 +603,8 @@ void MarkButtonsDirty(void)
 BOOLEAN DrawButton(const GUIButton& button)
 {
     if (!button) return FALSE;
-    if (!button->string.empty()) SaveFontSettings();
+    FontRenderScope font_scope;
     if (button->Area.uiFlags & MSYS_REGION_ENABLED) DrawButtonFromPtr(button.get());
-    if (!button->string.empty()) RestoreFontSettings();
     return TRUE;
 }
 
@@ -697,9 +697,10 @@ void DrawHatchOnButton(GUI_BUTTON* b)
     SDL_Rect ClipRect{b->Area.RegionTopLeftX, b->Area.RegionTopLeftY,
                             b->Area.RegionBottomRightX - 1 - b->Area.RegionTopLeftX,
                             b->Area.RegionBottomRightY - 1 - b->Area.RegionTopLeftY};
-    pDestBuf = LockVideoSurfaceBuffer(*ButtonDestBuffer, &uiDestPitchBYTES);
+    const auto& destination_storage = *ButtonDestBuffer->cpu().surface;
+    uiDestPitchBYTES = destination_storage.pitch;
+    pDestBuf = static_cast<BYTE*>(destination_storage.pixels);
     Blt16BPPBufferHatchRect((UINT16*)pDestBuf, uiDestPitchBYTES, &ClipRect);
-    UnLockVideoSurfaceBuffer(*ButtonDestBuffer);
 }
 
 void DrawShadeOnButton(GUI_BUTTON* b)
@@ -709,9 +710,10 @@ void DrawShadeOnButton(GUI_BUTTON* b)
     SDL_Rect ClipRect{b->Area.RegionTopLeftX, b->Area.RegionTopLeftY,
                             b->Area.RegionBottomRightX - 1 - b->Area.RegionTopLeftX,
                             b->Area.RegionBottomRightY - 1 - b->Area.RegionTopLeftY};
-    pDestBuf = LockVideoSurfaceBuffer(*ButtonDestBuffer, &uiDestPitchBYTES);
+    const auto& destination_storage = *ButtonDestBuffer->cpu().surface;
+    uiDestPitchBYTES = destination_storage.pitch;
+    pDestBuf = static_cast<BYTE*>(destination_storage.pixels);
     Blt16BPPBufferShadowRect((UINT16*)pDestBuf, uiDestPitchBYTES, &ClipRect);
-    UnLockVideoSurfaceBuffer(*ButtonDestBuffer);
 }
 
 // FUNCTION: WIZ8 0x0040e170
@@ -719,7 +721,9 @@ void DrawDefaultOnButton(GUI_BUTTON* b)
 {
     UINT8* pDestBuf;
     UINT32 uiDestPitchBYTES;
-    pDestBuf = LockVideoSurfaceBuffer(*ButtonDestBuffer, &uiDestPitchBYTES);
+    const auto& destination_storage = *ButtonDestBuffer->cpu().surface;
+    uiDestPitchBYTES = destination_storage.pitch;
+    pDestBuf = static_cast<BYTE*>(destination_storage.pixels);
     SetClippingRegionAndImageWidth(uiDestPitchBYTES, 0, 0, 640, 480);
     if (b->bDefaultStatus == DEFAULT_STATUS_DARKBORDER ||
         b->bDefaultStatus == DEFAULT_STATUS_WINDOWS95) {
@@ -745,7 +749,6 @@ void DrawDefaultOnButton(GUI_BUTTON* b)
     if (b->bDefaultStatus == DEFAULT_STATUS_DOTTEDINTERIOR ||
         b->bDefaultStatus == DEFAULT_STATUS_WINDOWS95) { //Draw an internal dotted rectangle.
     }
-    UnLockVideoSurfaceBuffer(*ButtonDestBuffer);
 }
 
 //If a button has text attached to it, then it'll draw it last.
@@ -917,8 +920,9 @@ static INT8 DrawGenericButton(GUI_BUTTON* b)
             b->generic_image->offset_x, b->generic_image->offset_y);
     }
 
-    // Lock the dest buffer
-    pDestBuf = LockVideoSurfaceBuffer(*ButtonDestBuffer, &uiDestPitchBYTES);
+    const auto& destination_storage = *ButtonDestBuffer->cpu().surface;
+    uiDestPitchBYTES = destination_storage.pitch;
+    pDestBuf = static_cast<BYTE*>(destination_storage.pixels);
 
     GetClippingRect(&ClipRect);
 
@@ -930,7 +934,7 @@ static INT8 DrawGenericButton(GUI_BUTTON* b)
             ImgNum = 1;
 
         BltSpriteTo16BPPBuffer((UINT16*)pDestBuf, uiDestPitchBYTES,
-                                   BPic.sprites[(UINT16)ImgNum], BPic.pShadeCurrent,
+                                   BPic.sprites[(UINT16)ImgNum], BPic.currentPalette().data(),
                                    (INT32)(b->XLoc + (q * iBorderWidth)), (INT32)b->YLoc, &ClipRect, false,
                                    SpriteDrawOp::Transparent);
 
@@ -940,18 +944,18 @@ static INT8 DrawGenericButton(GUI_BUTTON* b)
             ImgNum = 6;
 
         BltSpriteTo16BPPBuffer((UINT16*)pDestBuf, uiDestPitchBYTES,
-                                   BPic.sprites[(UINT16)ImgNum], BPic.pShadeCurrent,
+                                   BPic.sprites[(UINT16)ImgNum], BPic.currentPalette().data(),
                                    (INT32)(b->XLoc + (q * iBorderWidth)), cy, &ClipRect, false,
                                    SpriteDrawOp::Transparent);
     }
     // Blit the right side corners
     BltSpriteTo16BPPBuffer((UINT16*)pDestBuf, uiDestPitchBYTES,
-                               BPic.sprites[2], BPic.pShadeCurrent,
+                               BPic.sprites[2], BPic.currentPalette().data(),
                                cx, (INT32)b->YLoc, &ClipRect, false,
                                SpriteDrawOp::Transparent);
 
     BltSpriteTo16BPPBuffer((UINT16*)pDestBuf, uiDestPitchBYTES,
-                               BPic.sprites[7], BPic.pShadeCurrent,
+                               BPic.sprites[7], BPic.currentPalette().data(),
                                cx, cy, &ClipRect, false,
                                SpriteDrawOp::Transparent);
     // Draw the vertical members of the button's borders
@@ -960,30 +964,28 @@ static INT8 DrawGenericButton(GUI_BUTTON* b)
     if (hremain != 0) {
         q = NumChunksHigh;
         BltSpriteTo16BPPBuffer((UINT16*)pDestBuf, uiDestPitchBYTES,
-                                   BPic.sprites[3], BPic.pShadeCurrent,
+                                   BPic.sprites[3], BPic.currentPalette().data(),
                                    (INT32)b->XLoc, (INT32)(b->YLoc + (q * iBorderHeight) - (iBorderHeight - hremain)), &ClipRect, false,
                                    SpriteDrawOp::Transparent);
 
         BltSpriteTo16BPPBuffer((UINT16*)pDestBuf, uiDestPitchBYTES,
-                                   BPic.sprites[4], BPic.pShadeCurrent,
+                                   BPic.sprites[4], BPic.currentPalette().data(),
                                    cx, (INT32)(b->YLoc + (q * iBorderHeight) - (iBorderHeight - hremain)), &ClipRect, false,
                                    SpriteDrawOp::Transparent);
     }
 
     for (q = 1; q < NumChunksHigh; q++) {
         BltSpriteTo16BPPBuffer((UINT16*)pDestBuf, uiDestPitchBYTES,
-                                   BPic.sprites[3], BPic.pShadeCurrent,
+                                   BPic.sprites[3], BPic.currentPalette().data(),
                                    (INT32)b->XLoc, (INT32)(b->YLoc + (q * iBorderHeight)), &ClipRect, false,
                                    SpriteDrawOp::Transparent);
 
         BltSpriteTo16BPPBuffer((UINT16*)pDestBuf, uiDestPitchBYTES,
-                                   BPic.sprites[4], BPic.pShadeCurrent,
+                                   BPic.sprites[4], BPic.currentPalette().data(),
                                    cx, (INT32)(b->YLoc + (q * iBorderHeight)), &ClipRect, false,
                                    SpriteDrawOp::Transparent);
     }
 
-    // Unlock buffer
-    UnLockVideoSurfaceBuffer(*ButtonDestBuffer);
     return disabled_style;
 }
 

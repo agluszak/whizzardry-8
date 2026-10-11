@@ -307,16 +307,6 @@ void AssertFailureHandler(const char* expression, const char* file, w8_long line
     ShutdownWithErrorBox(text);
 }
 
-// FUNCTION: WIZ8 0x00421f70
-PTR LockPrimarySurface(UINT32* pitch)
-{
-    SurfaceLock description{};
-
-    description = LockCpuSurface(primarySurface.cpu());
-    *pitch = description.pitch;
-    return description.pixels;
-}
-
 /* Reset both framebuffer pages and discard transient scene instances.
    Callers select whether to invalidate all dirty blocks or the normal region. */
 static void ResetVideoDirtyState(int invalidate_flag)
@@ -340,9 +330,8 @@ static void ResetVideoDirtyState(int invalidate_flag)
 // FUNCTION: WIZ8 0x00422b10
 void ResetVideoFrameState(void)
 {
-    SurfaceLock description = LockCpuSurface(primarySurface.cpu());
+    const auto& description = *primarySurface.cpu().surface;
     memset(description.pixels, 0, description.pitch * 480);
-    UnlockCpuSurface(primarySurface.cpu());
     memset(g_surface_nodes, 0, sizeof(g_surface_nodes));
     ResetVideoDirtyState(0);
 }
@@ -716,15 +705,6 @@ unsigned char RestoreVideoManager(void)
         }
     }
     return 0;
-}
-
-/* Releases the lock the frame tick takes on the primary surface. The second
-   argument is the locked pointer SGP's wrapper wants; the original passes null
-   because it unlocks the whole surface. */
-// FUNCTION: WIZ8 0x00421fb0
-void UnlockPrimarySurface(void)
-{
-    UnlockCpuSurface(primarySurface.cpu());
 }
 
 /* The mode the engine falls back to: 640x480 at 16bpp, reported height first.
@@ -1735,18 +1715,16 @@ void InvalidateScreenRects(W8ScreenRect* rects, unsigned int count, int flags)
     }
 }
 
-/* Coalesces dirty 8x8 cells into rectangular texture updates. Retail keeps the
-   software surface locked for the complete batch and clears only the uploaded
-   bit, preserving the lower per-cell state for the page lifecycle. */
+/* Coalesces dirty 8x8 cells into rectangular texture updates, clearing only
+   the uploaded bit and preserving the lower per-cell state for each page. */
 // FUNCTION: WIZ8 0x00425b40
 void FlushDirtyTiles(void)
 {
-    SurfaceLock description{};
 
     if (g_dirty_tile_count == 0) {
         return;
     }
-    description = LockCpuSurface(primarySurface.cpu());
+    const auto& description = *primarySurface.cpu().surface;
     for (int row = 0; row != 60; ++row) {
         int column = 0;
         while (column < 80) {
@@ -1776,7 +1754,6 @@ void FlushDirtyTiles(void)
             column += width;
         }
     }
-    UnlockCpuSurface(primarySurface.cpu());
     g_dirty_tile_count = 0;
 }
 
@@ -1868,7 +1845,6 @@ void PrintScreen(void)
 // FUNCTION: WIZ8 0x00427460
 void DrawVideoInspector(int left, unsigned int top)
 {
-    SurfaceLock description{};
     srGERD::Statistics statistics;
     srVector3T<float> position;
     unsigned int bottom;
@@ -1886,7 +1862,7 @@ void DrawVideoInspector(int left, unsigned int top)
         height = 0x2c;
     }
     bottom = top + height;
-    description = LockCpuSurface(primarySurface.cpu());
+    const auto& description = *primarySurface.cpu().surface;
     if (description.pixels != 0) {
         if (top < bottom) {
             row = static_cast<unsigned char*>(description.pixels) + description.pitch * top +
@@ -1896,13 +1872,12 @@ void DrawVideoInspector(int left, unsigned int top)
                 row += description.pitch;
             }
         }
-        UnlockCpuSurface(primarySurface.cpu());
     }
     InvalidateRegion(left, top, left + 0x113, bottom, 0);
     if (g_gerd != 0) {
         g_gerd->getStatistics(statistics);
         SetFont(g_smfnt_font);
-        SetFontObjectPalette16BPP(g_smfnt_font, g_font_state_palettes[W8_FONT_PALETTE_YELLOW].get());
+        g_smfnt_font.setPalette(g_font_state_palettes[W8_FONT_PALETTE_YELLOW]);
         DrawFontTextDirty(left, top, fmt::format("FR: {:4.1f}", g_frames_per_second));
         if (g_video_inspector_mode == 2) {
             DrawFontTextDirty(left, top + 0xa,
@@ -2501,8 +2476,7 @@ srModelInstance* Video2DRectToSquarePolygon(const W8ControlsRect* rect, void* so
     return 0;
 }
 
-/* Locks a video surface (or negative target id), copies the requested rectangle
-   into either the user overlay polygon path or the square overlay path, and
+/* Copies a surface rectangle into the user or square overlay path, and
    records the resulting 2D instance extents. */
 // FUNCTION: WIZ8 0x004253F0
 stModelInstance2D* CreateSpriteFromVideoSurface(SGPVSurface& surface, const W8ControlsRect* bounds,
@@ -2543,7 +2517,9 @@ stModelInstance2D* CreateSpriteFromVideoSurface(SGPVSurface& surface, const W8Co
     if (width > 0x100 || height > 0x100) {
         return 0;
     }
-    pixels = LockVideoSurfaceBuffer(surface, &pitch);
+    const auto& destination_storage = *surface.cpu().surface;
+    pitch = destination_storage.pitch;
+    pixels = static_cast<BYTE*>(destination_storage.pixels);
     if (pixels == 0) {
         return 0;
     }
@@ -2556,7 +2532,6 @@ stModelInstance2D* CreateSpriteFromVideoSurface(SGPVSurface& surface, const W8Co
         g_paired_render_mode = 2;
     }
     SetOverlayRenderMode();
-    UnLockVideoSurfaceBuffer(surface);
     instance = static_cast<stModelInstance2D*>(node);
     if (instance != 0) {
         if (mode != 0) {

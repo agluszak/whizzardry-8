@@ -62,17 +62,18 @@ void W8MessageDialogBase::Draw()
             (g_dialog_interface_font->height() * m_line_count >> 1);
     }
     if (!m_lines.empty()) {
-        SaveFontSettings();
-        SetFont(*g_dialog_interface_font);
-        SetFontForeground(g_dialog_font_foreground);
-        SetFontBackground(g_dialog_font_background);
-        for (index = 0; index < m_line_count; ++index) {
-            const auto& line = m_lines[index];
-            short width = g_dialog_interface_font->textWidth(line);
-            DrawFontText(m_x + (m_width - width) / 2, y, line);
-            y += g_dialog_interface_font->height();
+        {
+            FontRenderScope font_scope;
+            SetFont(*g_dialog_interface_font);
+            SetFontForeground(g_dialog_font_foreground);
+            SetFontBackground(g_dialog_font_background);
+            for (index = 0; index < m_line_count; ++index) {
+                const auto& line = m_lines[index];
+                short width = g_dialog_interface_font->textWidth(line);
+                DrawFontText(m_x + (m_width - width) / 2, y, line);
+                y += g_dialog_interface_font->height();
+            }
         }
-        RestoreFontSettings();
     }
     if (m_show_confirm) {
         if (m_confirm_button) {

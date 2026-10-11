@@ -780,7 +780,7 @@ void DrawCatalogImage(SGPVSurface& target, int object, int frame, short image, i
     if (g_video_frames[slot->first_frame + frame].storage_kind == W8_VIDEO_STORAGE_OBJECT) {
         ok = BltVideoObject(target, *g_video_frames[slot->first_frame + frame].object, row, left, top, mode, effects);
     } else {
-        ok = BltVideoSurfaceToVideoSurface(target, *g_video_frames[slot->first_frame + frame].surface, row, left, top, mode, 0);
+        ok = BltVideoSurfaceToVideoSurface(target, *g_video_frames[slot->first_frame + frame].surface, left, top, mode, 0);
     }
     if (!ok) {
         srAssertFail("fReturnCode", VIDEO_OBJECT_MANAGER_CPP, 0x3e, 0);
@@ -820,18 +820,10 @@ void EnsureCatalogFrameLoaded(int object, int frame)
     }
 }
 
-/* Copies the loaded frame's released-SGP palette into an owned 256-entry
-   table.  The allocation is intentionally retained when the source API says
-   the object has no palette, matching the shipped failure path. */
 // FUNCTION: WIZ8 0x005492e0
-std::unique_ptr<UINT16[]> CopyCatalogImagePalette16BPP(int object, int frame)
+Palette16 CopyCatalogImagePalette16BPP(int object, int frame)
 {
-    auto palette = std::make_unique<UINT16[]>(256);
-    EnsureCatalogFrameLoaded(object, frame);
-    if (!CopyVideoObjectPalette16BPP(GetCatalogVideoObject(object, frame), palette.get())) {
-        return nullptr;
-    }
-    return palette;
+    return GetCatalogVideoObject(object, frame).palette;
 }
 
 // FUNCTION: WIZ8 0x005493e0
@@ -952,40 +944,25 @@ unsigned char BlitCatalogSurfaceRectTo16BPP(SGPVSurface& target, int left, int t
 
     EnsureCatalogFrameLoaded(object, 0);
     auto& source_surface = *g_video_frames[g_video_slots[object].first_frame].surface;
-    target_pixels = LockVideoSurfaceBuffer(target, &target_pitch);
-    source_pixels = LockVideoSurfaceBuffer(source_surface, &source_pitch);
+    const auto& destination_storage = *target.cpu().surface;
+    target_pitch = destination_storage.pitch;
+    target_pixels = static_cast<BYTE*>(destination_storage.pixels);
+    const auto& source_storage = *source_surface.cpu().surface;
+    source_pitch = source_storage.pitch;
+    source_pixels = static_cast<BYTE*>(source_storage.pixels);
     Blt8BPPDataSubTo16BPPBuffer(reinterpret_cast<unsigned short*>(target_pixels), target_pitch,
                                 source_surface, source_pixels, source_pitch, left, top,
                                 &source_rect);
-    UnLockVideoSurfaceBuffer(target);
-    UnLockVideoSurfaceBuffer(source_surface);
     return 1;
 }
 
-/* Lock the pixel buffer of a surface-backed catalog frame. ETRLE video-object
-   entries have no lockable surface and return null. */
+/* Surface-backed catalog frames expose their storage directly. */
 // FUNCTION: WIZ8 0x005498a0
-void* LockCatalogFrameSurface(unsigned int object, unsigned int frame, w8_long* pitch)
+SGPVSurface& GetCatalogFrameSurface(unsigned int object, unsigned int frame)
 {
-
     EnsureCatalogFrameLoaded(object, frame);
-    if (g_video_frames[g_video_slots[object].first_frame + frame].storage_kind ==
-        W8_VIDEO_STORAGE_OBJECT) {
-        return 0;
-    }
-    // reinterpret-ok: retail forwards the same 32-bit pitch word to the SGP lock API
-    return LockVideoSurfaceBuffer(*g_video_frames[g_video_slots[object].first_frame + frame].surface, reinterpret_cast<UINT32*>(pitch));
-}
-
-/* Release a surface-backed catalog frame locked by LockCatalogFrameSurface. Video
-   objects need no corresponding SGP surface unlock. */
-// FUNCTION: WIZ8 0x00549950
-void UnlockCatalogFrameSurface(unsigned int object, unsigned int frame)
-{
-
-    EnsureCatalogFrameLoaded(object, frame);
-    if (g_video_frames[g_video_slots[object].first_frame + frame].storage_kind !=
-        W8_VIDEO_STORAGE_OBJECT) {
-        UnLockVideoSurfaceBuffer(*g_video_frames[g_video_slots[object].first_frame + frame].surface);
-    }
+    auto& surface = g_video_frames[g_video_slots[object].first_frame + frame].surface;
+    if (!surface)
+        throw std::logic_error("Catalog frame does not contain a surface");
+    return *surface;
 }

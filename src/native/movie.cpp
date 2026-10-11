@@ -373,29 +373,25 @@ void W8NativeVideo::present(CpuSurface* target)
 {
     if (!g_gerd || !g_surface_node)
         return;
-    SurfaceLock description{};
-    description.width = target->surface->w;
-    description.height = target->surface->h;
+    const auto& description = *target->surface;
     if (!state->presentation_surface)
     {
         state->presentation_surface = std::make_shared<srColorSurface>(srPixelConvert::SURFACE_RGB555,
-                                                         description.width, description.height);
+                                                         description.w, description.h);
         state->presentation_tiles = new stSurface2D(
-            state->presentation_surface, description.width, description.height, nullptr, 128);
+            state->presentation_surface, description.w, description.h, nullptr, 128);
         state->presentation_tiles->setAlphaTestEnabled(false);
     }
-    description = LockCpuSurface(*target);
     if (!description.pixels)
-        throw std::runtime_error("Cannot lock movie presentation surface");
-    for (int y = 0; y < description.height; ++y)
+        throw std::runtime_error("Movie presentation surface has no pixels");
+    for (int y = 0; y < description.h; ++y)
         state->presentation_surface->setPixelRowRaw(
             static_cast<unsigned char*>(description.pixels) + y * description.pitch, y, 0,
-            description.width);
+            description.w);
     // stSurface2D uploads from its source surface, not updateRectangle's ABI
     // pixel argument.
     state->presentation_tiles->updateRectangle(g_gerd, description.pixels, description.pitch, 0,
-                                               0, description.width, description.height);
-    UnlockCpuSurface(*target);
+                                               0, description.w, description.h);
     if (g_gerd->beginFrame() != srGERD::ERROR_NONE)
         throw std::runtime_error("Cannot begin movie presentation");
     g_gerd->setClearColor(0, 0, 0, 1);

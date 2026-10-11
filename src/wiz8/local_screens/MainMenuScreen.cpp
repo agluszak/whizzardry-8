@@ -179,11 +179,10 @@ unsigned char MainMenuScreenEnter(void)
     text = FormatVersionBanner(false, false, false);
     wide = text;
     SetFont(g_wiz_text_font_secondary);
-    SetFontObjectPalette16BPP(g_wiz_text_font_secondary,
-                              g_font_state_palettes[W8_FONT_PALETTE_WHITE].get());
+    g_wiz_text_font_secondary.setPalette(g_font_state_palettes[W8_FONT_PALETTE_WHITE]);
     measured = g_wiz_text_font_secondary.textWidth(wide);
     DrawFontText(0x27b - measured, 5, wide);
-    SetFontObjectPalette16BPP(g_wiz_text_font_secondary, g_wiz_text_font_secondary.glyphs.ownedPalette.get());
+    g_wiz_text_font_secondary.resetPalette();
     ResetRegions();
     RegionSetEnable(1);
 
@@ -263,8 +262,7 @@ void MainMenuScreenFrame()
                 if (HandleDeveloperModeKey(&input)) {
                     if (g_dev_mode) {
                         SetFont(g_wiz_text_font_secondary);
-                        SetFontObjectPalette16BPP(g_wiz_text_font_secondary,
-                                                  g_wiz_text_font_secondary.glyphs.ownedPalette.get());
+                        g_wiz_text_font_secondary.resetPalette();
                         DrawFontTextDirty(5, 5, "Developer mode enabled.");
                     }
                 } else {
@@ -356,7 +354,7 @@ void MainMenuScreenFrame()
             DrawDialog(g_main_menu_dialog);
         }
         if (g_main_menu_overlay_enabled && g_main_menu_overlay_surface) {
-            BltVideoSurfaceToVideoSurface(GetFrameBufferSurface(), *g_main_menu_overlay_surface, 0, 0, 0x1d1, 6, 0);
+            BltVideoSurfaceToVideoSurface(GetFrameBufferSurface(), *g_main_menu_overlay_surface, 0, 0x1d1, 6, 0);
         }
         RenderMessageBox();
         ResetTransientRenderScenes();

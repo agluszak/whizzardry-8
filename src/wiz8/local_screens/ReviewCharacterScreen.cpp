@@ -279,7 +279,7 @@ void DrawCampSpellPages(void)
     int spell_id;
     int width;
     unsigned int visible;
-    unsigned short* palette;
+    Palette16 palette;
 
     SetFont(g_wiz_text_font_secondary);
     if ((g_camp_screen->redraw_flags & W8_CAMP_REDRAW_RESISTANCES) != 0 &&
@@ -299,11 +299,10 @@ void DrawCampSpellPages(void)
         if (character->skill_unlocks[0x1c + realm] != 0) {
             DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x140, 0, 3, left, top,
                                           VO_BLT_SRCTRANSPARENCY, 0);
-            SetFontObjectPalette16BPP(g_wiz_text_font_secondary,
-                                      g_font_state_palettes[W8_FONT_PALETTE_GREEN].get());
+            g_wiz_text_font_secondary.setPalette(g_font_state_palettes[W8_FONT_PALETTE_GREEN]);
             DrawFontText(left + 0x1b, top + 8, fmt::format("{}:", g_localized_strings[0x8c7]));
             DrawFontText(left + 0x72, top + 8, g_localized_strings[0x8c9]);
-            SetFontObjectPalette16BPP(g_wiz_text_font_secondary, g_wiz_text_font_secondary.glyphs.ownedPalette.get());
+            g_wiz_text_font_secondary.resetPalette();
             width = g_wiz_text_font_secondary.textWidth(fmt::format("{}: ", g_localized_strings[0x8c7]));
             DrawFontText(
                 left + 0x1b + width, top + 8,
@@ -329,22 +328,22 @@ void DrawCampSpellPages(void)
                                            [g_camp_screen->learned_spells.scroll[realm] + row];
                 if (g_camp_screen->hover_region == static_cast<unsigned int>(realm + 0x119) &&
                     g_camp_screen->selected_spell_row == row) {
-                    palette = g_font_state_palettes[W8_FONT_PALETTE_YELLOW].get();
+                    palette = g_font_state_palettes[W8_FONT_PALETTE_YELLOW];
                 } else if (g_spell_records[spell_id].spell_point_cost <=
                                character->iSPLeft[realm] &&
                            SpellUsableNow(spell_id, false)) {
-                    palette = g_wiz_text_font_secondary.glyphs.ownedPalette.get();
+                    palette = g_wiz_text_font_secondary.glyphs.palette;
                 } else {
-                    palette = g_font_state_palettes[W8_FONT_PALETTE_RED].get();
+                    palette = g_font_state_palettes[W8_FONT_PALETTE_RED];
                 }
-                SetFontObjectPalette16BPP(g_wiz_text_font_secondary, palette);
+                g_wiz_text_font_secondary.setPalette(palette);
                 width = g_wiz_text_font_secondary.codepointPrefixWidth(fmt::format("{:03d}", g_spell_records[spell_id].spell_point_cost), 3);
                 DrawFontText(left + 0x1c, row_top, g_spell_records[spell_id].display_name);
                 DrawFontText(left + 0xb1 - width, row_top,
                              fmt::format("{:3d}", g_spell_records[spell_id].spell_point_cost));
                 row_top += 0xd;
             }
-            SetFontObjectPalette16BPP(g_wiz_text_font_secondary, g_wiz_text_font_secondary.glyphs.ownedPalette.get());
+            g_wiz_text_font_secondary.resetPalette();
         }
         state = g_camp_screen;
         state->spell_ranges[realm]->UpdateRange(true);
@@ -590,9 +589,7 @@ void DrawCampCharacterInfo(void)
     DrawRcsText(state->text_buffer, 0x18d, 0x48, 0x2c,
                 g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
     if (character->load_category != 0) {
-        SetFontObjectPalette16BPP(
-            g_wiz_text_font_secondary,
-            g_font_state_palettes[g_load_category_palettes[character->load_category]].get());
+        g_wiz_text_font_secondary.setPalette(g_font_state_palettes[g_load_category_palettes[character->load_category]]);
     }
     state->text_buffer = fmt::format("{:d}/{:d}", character->total_carried_weight / 10,
                                      character->carrying_capacity / 10);
@@ -602,7 +599,7 @@ void DrawCampCharacterInfo(void)
                                      character->inventory_weight / 10, g_localized_strings[0x8c1],
                                      character->party_weight_share / 10);
     g_camp_help_text->SetRegionHelp(state->text_buffer);
-    SetFontObjectPalette16BPP(g_wiz_text_font_secondary, g_wiz_text_font_secondary.glyphs.ownedPalette.get());
+    g_wiz_text_font_secondary.resetPalette();
     DrawRcsText(g_localized_strings[0x921], 0x144, 0x72, 0x75,
                 g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
     top = 0x3a;
@@ -920,8 +917,7 @@ void DrawCampItemQuantity(W8ItemInstance* item, int left, int top, int width)
         break;
     case W8_ITEM_QUANTITY_CHARGES:
     case W8_ITEM_QUANTITY_USES:
-        SetFontObjectPalette16BPP(g_wiz_text_font_secondary,
-                                  g_font_state_palettes[W8_FONT_PALETTE_BLUE].get());
+        g_wiz_text_font_secondary.setPalette(g_font_state_palettes[W8_FONT_PALETTE_BLUE]);
         if (!item->identified) {
             state->text_buffer = "?";
         } else {
@@ -932,15 +928,14 @@ void DrawCampItemQuantity(W8ItemInstance* item, int left, int top, int width)
                              g_W8TextBufferAlignMiddle | g_W8TextBufferAlignRight);
         break;
     case W8_ITEM_QUANTITY_SHOTS:
-        SetFontObjectPalette16BPP(g_wiz_text_font_secondary,
-                                  g_font_state_palettes[W8_FONT_PALETTE_YELLOW].get());
+        g_wiz_text_font_secondary.setPalette(g_font_state_palettes[W8_FONT_PALETTE_YELLOW]);
         state->text_buffer = fmt::format("{:d}", item->uses_or_charges);
         height = g_wiz_text_font_secondary.height();
         DrawRcsTextJustified(state->text_buffer, left, top, width, height,
                              g_W8TextBufferAlignMiddle | g_W8TextBufferAlignRight);
         break;
     }
-    SetFontObjectPalette16BPP(g_wiz_text_font_secondary, g_wiz_text_font_secondary.glyphs.ownedPalette.get());
+    g_wiz_text_font_secondary.resetPalette();
 }
 
 // FUNCTION: WIZ8 0x005b3150
@@ -1465,10 +1460,10 @@ void CampScreenFrame(void)
 unsigned char CampScreenLeave(int)
 {
     DeactivateCampPage();
-    SetFontObjectPalette16BPP(g_smfnt_font, g_smfnt_font.glyphs.ownedPalette.get());
-    SetFontObjectPalette16BPP(g_calligraphy_font, g_calligraphy_font.glyphs.ownedPalette.get());
-    SetFontObjectPalette16BPP(g_calligraphy_shadow_font, g_calligraphy_shadow_font.glyphs.ownedPalette.get());
-    SetFontObjectPalette16BPP(g_wiz_text_font, g_wiz_text_font.glyphs.ownedPalette.get());
+    g_smfnt_font.resetPalette();
+    g_calligraphy_font.resetPalette();
+    g_calligraphy_shadow_font.resetPalette();
+    g_wiz_text_font.resetPalette();
     DestroyCampButtonPanel();
     ReleaseCampActionPanel();
     ReleaseItemsTabPanel();

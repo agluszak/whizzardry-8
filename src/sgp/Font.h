@@ -9,47 +9,24 @@
 #include <string_view>
 #include <cstddef>
 #include <utility>
+#include <optional>
+
+#include "himage.h"
 
 #include "Types.h"
 #include "vobject.h"
 
-#define DEFAULT_SHADOW 2
-#define MILITARY_SHADOW 67
-#define NO_SHADOW 0
-
-// font foreground color symbols
-#define FONT_FCOLOR_WHITE 0x0000
-#define FONT_FCOLOR_RED 0x0000
-#define FONT_FCOLOR_BLUE 0x0000
-#define FONT_FCOLOR_GREEN 0x0000
-#define FONT_FCOLOR_YELLOW 0x0000
-#define FONT_FCOLOR_BROWN 0x0000
-#define FONT_FCOLOR_ORANGE 0x0000
-#define FONT_FCOLOR_PURPLE 0x0000
-
-// font background color symbols
-#define FONT_BCOLOR_WHITE 0x0000
-#define FONT_BCOLOR_RED 0x0000
-#define FONT_BCOLOR_BLUE 0x0000
-#define FONT_BCOLOR_GREEN 0x0000
-#define FONT_BCOLOR_YELLOW 0x0000
-#define FONT_BCOLOR_BROWN 0x0000
-#define FONT_BCOLOR_ORANGE 0x0000
-#define FONT_BCOLOR_PURPLE 0x0000
-
 // font glyphs for spell targeting types
-#define FONT_GLYPH_TARGET_POINT 0xFFF0
-#define FONT_GLYPH_TARGET_CONE 0xFFF1
-#define FONT_GLYPH_TARGET_SINGLE 0xFFF2
-#define FONT_GLYPH_TARGET_GROUP 0xFFF3
-#define FONT_GLYPH_TARGET_NONE 0xFFF4
-
-// typedefs
-
+inline constexpr char32_t FONT_GLYPH_TARGET_POINT = 0xFFF0;
+inline constexpr char32_t FONT_GLYPH_TARGET_CONE = 0xFFF1;
+inline constexpr char32_t FONT_GLYPH_TARGET_SINGLE = 0xFFF2;
+inline constexpr char32_t FONT_GLYPH_TARGET_GROUP = 0xFFF3;
+inline constexpr char32_t FONT_GLYPH_TARGET_NONE = 0xFFF4;
 
 struct SGPVSurface;
 struct Font {
     SGPVObject glyphs{};
+    std::optional<Palette16> customPalette;
     Font() = default;
     Font(Font&& other) noexcept;
     Font& operator=(Font&& other) noexcept;
@@ -57,6 +34,12 @@ struct Font {
     // loads, clearing, and moves invalidate its saved and active selections.
     bool load(std::string_view filename);
     void clear();
+    void setPalette(const Palette16& palette);
+    const Palette16& palette() const;
+    const Palette16& currentPalette() const;
+    void resetPalette();
+    SDL_Point rightAlignedPosition(const SDL_Rect& bounds, std::string_view text) const;
+    SDL_Point centeredPosition(const SDL_Rect& bounds, std::string_view text) const;
     UINT16 height() const;
     INT16 textWidth(std::string_view text) const;
     INT16 prefixWidth(std::string_view text, std::size_t byte_end) const;
@@ -69,10 +52,10 @@ struct FontRenderState {
     Font* font = nullptr;
     SGPVSurface* destination = nullptr;
     SDL_Rect clip = {0, 0, 640, 480};
-    BOOLEAN wrap = FALSE;
+    bool wrap = false;
     UINT16 foreground = 0;
     UINT16 background = 0;
-    UINT16 shadow = DEFAULT_SHADOW;
+    UINT16 shadow = 2;
     UINT8 foreground_index = 0;
     UINT8 background_index = 0;
 };
@@ -85,44 +68,40 @@ void SetFontForeground(UINT8 ubForeground);
 void SetFontBackground(UINT8 ubBackground);
 void SetFontShadow(UINT8 ubBackground);
 
-//Kris:  added these
 void SetRGBFontShadow(UINT32 uiRed, UINT32 uiGreen, UINT32 uiBlue);
 
-UINT16* SetFontObjectPalette16BPP(Font& iFont, UINT16* pPal16);
-UINT16* GetFontObjectPalette16BPP(Font& iFont);
-
-UINT32 DrawFontText(INT32 x, INT32 y, std::string_view text);
-UINT32 DrawFontTextDirty(INT32 x, INT32 y, std::string_view text);
-UINT32 DrawMonoFontText(INT32 x, INT32 y, std::string_view text);
-UINT32 DrawFontTextToBuffer(UINT8* pDestBuf, UINT32 uiDestPitchBYTES, Font& FontType, INT32 x,
+void DrawFontText(INT32 x, INT32 y, std::string_view text);
+void DrawFontTextDirty(INT32 x, INT32 y, std::string_view text);
+void DrawMonoFontText(INT32 x, INT32 y, std::string_view text);
+void DrawFontTextToBuffer(UINT8* pDestBuf, UINT32 uiDestPitchBYTES, Font& FontType, INT32 x,
                             INT32 y, std::string_view text);
-UINT32 DrawMonoFontTextToBuffer(UINT8* pDestBuf, UINT32 uiDestPitchBYTES, Font& FontType, INT32 x,
+void DrawMonoFontTextToBuffer(UINT8* pDestBuf, UINT32 uiDestPitchBYTES, Font& FontType, INT32 x,
                                 INT32 y, std::string_view text);
 
-// Function for displaying coded test. Since it's slower to do this, it's separate from  the normal fuctions
-#define FONT_CODE_BEGINCOLOR 180
-#define FONT_CODE_RESETCOLOR 181
-
-extern BOOLEAN SetFontDestBuffer(SGPVSurface& DestBuffer, INT32 x1, INT32 y1, INT32 x2, INT32 y2,
-                                 BOOLEAN wrap);
-extern BOOLEAN SetFont(Font& iFontIndex);
+void SetFontDestBuffer(SGPVSurface& DestBuffer, INT32 x1, INT32 y1, INT32 x2, INT32 y2,
+                                 bool wrap);
+void SetFont(Font& font);
 
 void ConfigureFontRendering(const std::vector<UINT16>& translation);
 void ResetFontRendering();
 
+std::vector<UINT16> CreateEnglishTransTable();
 
-extern std::vector<UINT16> CreateEnglishTransTable();
+INT16 GetIndex(char32_t siChar);
 
-extern INT16 GetIndex(char32_t siChar);
-extern UINT32 GetWidth(const SGPVObject& hSrcVObject, INT16 ssIndex);
-
-extern void SaveFontSettings(void);
-extern void RestoreFontSettings(void);
-
-void FindFontRightCoordinates(INT16 sLeft, INT16 sTop, INT16 sWidth, INT16 sHeight, std::string_view pStr,
-                              Font& iFontIndex, INT16* psNewX, INT16* psNewY);
-void FindFontCenterCoordinates(INT16 sLeft, INT16 sTop, INT16 sWidth, INT16 sHeight, std::string_view pStr,
-                               Font& iFontIndex, INT16* psNewX, INT16* psNewY);
-
+// Each scope owns its snapshot; nested UI drawing cannot overwrite an outer save.
+class FontRenderScope {
+public:
+    FontRenderScope();
+    ~FontRenderScope();
+    FontRenderScope(const FontRenderScope&) = delete;
+    FontRenderScope& operator=(const FontRenderScope&) = delete;
+private:
+    friend struct Font;
+    friend void ResetFontRendering();
+    FontRenderState saved;
+    FontRenderScope* previous;
+    static FontRenderScope* current;
+};
 
 #endif

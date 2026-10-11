@@ -177,14 +177,14 @@ static void check_pcx(const image_type& image)
     REQUIRE(!memcmp(image.pImageData.data(), expected, sizeof(expected)));
     for (unsigned i = 0; i < 256; ++i)
     {
-        REQUIRE(image.pPalette[i].peRed == (i == 2 ? 255 : i));
-        REQUIRE(image.pPalette[i].peGreen == (i == 2 ? 0 : i));
-        REQUIRE(image.pPalette[i].peBlue == (i == 2 ? 0 : i));
-        REQUIRE(image.pPalette[i].peFlags == 0);
+        REQUIRE((*image.pPalette)[i].peRed == (i == 2 ? 255 : i));
+        REQUIRE((*image.pPalette)[i].peGreen == (i == 2 ? 0 : i));
+        REQUIRE((*image.pPalette)[i].peBlue == (i == 2 ? 0 : i));
+        REQUIRE((*image.pPalette)[i].peFlags == 0);
     }
-    REQUIRE(image.pui16BPPPalette[0] == 0); // Exact black stays transparent.
-    REQUIRE(image.pui16BPPPalette[1] == 1); // Non-black quantizing to zero is substituted.
-    REQUIRE(image.pui16BPPPalette[2] == 0x7c00);
+    REQUIRE((*image.pui16BPPPalette)[0] == 0); // Exact black stays transparent.
+    REQUIRE((*image.pui16BPPPalette)[1] == 1); // Non-black quantizing to zero is substituted.
+    REQUIRE((*image.pui16BPPPalette)[2] == 0x7c00);
     REQUIRE((image.pAppData.empty() && !image.pAppData.size() && !image.pETRLEObject.size()));
 }
 
@@ -296,8 +296,8 @@ TEST_CASE_METHOD(ImageFixture, "Native image formats, palettes and archives", "[
         gusRedShift = -3;
         gusBlueShift = 7;
         auto custom = load("Dotted.dir/default.PCX");
-        REQUIRE((custom && custom->pui16BPPPalette[0] == 0));
-        REQUIRE((custom->pui16BPPPalette[1] == 0x8001 && custom->pui16BPPPalette[2] == 0x801f));
+        REQUIRE((custom && (*custom->pui16BPPPalette)[0] == 0));
+        REQUIRE(((*custom->pui16BPPPalette)[1] == 0x8001 && (*custom->pui16BPPPalette)[2] == 0x801f));
         rgb555();
     }
 
@@ -307,16 +307,16 @@ TEST_CASE_METHOD(ImageFixture, "Native image formats, palettes and archives", "[
         palette[1] = {1, 1, 1, 255};
         palette[2] = {255, 0, 0, 0};
         palette[255] = {17, 121, 244, 0};
-        const auto packed_palette = Create16BPPPalette(palette.data());
+        const auto packed_palette = Create16BPPPalette(palette);
         REQUIRE((packed_palette[0] == 0 && packed_palette[1] == 1 && packed_palette[2] == 0x7c00));
-        const auto shaded = Create16BPPPaletteShaded(palette.data(), 384, 0, 128, FALSE);
+        const auto shaded = Create16BPPPaletteShaded(palette, 384, 0, 128, FALSE);
         REQUIRE((shaded[0] == 0 && shaded[255] == 0x0c0f));
-        const auto mono = Create16BPPPaletteShaded(palette.data(), 384, 0, 128, TRUE);
+        const auto mono = Create16BPPPaletteShaded(palette, 384, 0, 128, TRUE);
         REQUIRE((mono[0] == 0 && mono[255] == 0x4c06));
-        const auto clamped = Create16BPPPaletteShaded(palette.data(), 4096, 4096, 4096, FALSE);
+        const auto clamped = Create16BPPPaletteShaded(palette, 4096, 4096, 4096, FALSE);
         REQUIRE(clamped[255] == 0x7fff);
         gusAlphaMask = 0x8000;
-        const auto opaque = Create16BPPPalette(palette.data());
+        const auto opaque = Create16BPPPalette(palette);
         REQUIRE((opaque[0] == 0 && opaque[1] == 0x8001 && opaque[2] == 0xfc00));
         rgb555();
     }
@@ -347,9 +347,9 @@ TEST_CASE_METHOD(ImageFixture, "Native image formats, palettes and archives", "[
         REQUIRE((image && image->ubBitDepth == 8 && image->fFlags == IMAGE_ALLIMAGEDATA));
         const UINT8 indices[]{2, 2, 2, 2, 1, 0};
         REQUIRE(!memcmp(image->pImageData.data(), indices, sizeof(indices)));
-        REQUIRE((image->pPalette[2].peRed == 255 && image->pPalette[2].peBlue == 0));
-        REQUIRE((image->pPalette[3].peRed == 0 && image->pPalette[255].peFlags == 0));
-        REQUIRE((image->pui16BPPPalette[0] == 0 && image->pui16BPPPalette[1] == 1));
+        REQUIRE(((*image->pPalette)[2].peRed == 255 && (*image->pPalette)[2].peBlue == 0));
+        REQUIRE(((*image->pPalette)[3].peRed == 0 && (*image->pPalette)[255].peFlags == 0));
+        REQUIRE(((*image->pui16BPPPalette)[0] == 0 && (*image->pui16BPPPalette)[1] == 1));
         auto offset_palette = indexed_tga();
         word(offset_palette, 3, 16);
         offset_palette[28] += 16;
@@ -357,8 +357,8 @@ TEST_CASE_METHOD(ImageFixture, "Native image formats, palettes and archives", "[
         offset_palette[31] += 16;
         fixture(assets / "offset.tga", offset_palette);
         auto offset = load("offset.tga");
-        REQUIRE((offset && offset->pPalette[18].peRed == 255 && offset->pPalette[0].peRed == 0));
-        REQUIRE((offset->pPalette[17].peRed == 1 && offset->pImageData[0] == 18));
+        REQUIRE((offset && (*offset->pPalette)[18].peRed == 255 && (*offset->pPalette)[0].peRed == 0));
+        REQUIRE(((*offset->pPalette)[17].peRed == 1 && offset->pImageData[0] == 18));
         auto override_image = load("override.pcx");
         REQUIRE((override_image && !memcmp(override_image->pImageData.data(), indices, sizeof(indices))));
     }
@@ -440,10 +440,10 @@ TEST_CASE_METHOD(ImageFixture, "Truncated images and rollback", "[image][validat
         image->ImageFile = "invalid.pcx";
         REQUIRE((!LoadImageData(image.get(), IMAGE_ALLIMAGEDATA) && image->pImageData.data() == data));
         check_pcx(*image);
-        auto* palette = image->pPalette.get();
+        auto* palette = image->pPalette->data();
         image->ImageFile = "invalid.tga";
         REQUIRE(!LoadImageData(image.get(), IMAGE_ALLDATA));
-        REQUIRE((image->pImageData.data() == data && image->pPalette.get() == palette));
+        REQUIRE((image->pImageData.data() == data && image->pPalette->data() == palette));
         check_pcx(*image);
         image->ImageFile = "test.tga";
         REQUIRE(LoadImageData(image.get(), IMAGE_ALLDATA));

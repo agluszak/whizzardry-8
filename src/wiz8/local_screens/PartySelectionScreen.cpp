@@ -350,18 +350,18 @@ void W8PartySelectionListControl::Redraw(bool full_redraw)
         top += 1;
         SetFont(g_wiz_text_font_secondary);
         for (int row = m_first_visible; row < end; ++row) {
-            unsigned short* colour = g_font_state_palettes[W8_FONT_PALETTE_BLUE].get();
+            Palette16 colour = g_font_state_palettes[W8_FONT_PALETTE_BLUE];
             if (row != m_selection) {
-                colour = g_wiz_text_font_secondary.glyphs.ownedPalette.get();
+                colour = g_wiz_text_font_secondary.glyphs.palette;
                 if (row == m_hovered) {
-                    colour = g_font_state_palettes[W8_FONT_PALETTE_YELLOW].get();
+                    colour = g_font_state_palettes[W8_FONT_PALETTE_YELLOW];
                 }
             }
-            SetFontObjectPalette16BPP(g_wiz_text_font_secondary, colour);
+            g_wiz_text_font_secondary.setPalette(colour);
             DrawFontText(left + 2, top, g_party_selection_character_collection->names[row]);
             top += 0x0e;
         }
-        SetFontObjectPalette16BPP(g_wiz_text_font_secondary, g_wiz_text_font_secondary.glyphs.ownedPalette.get());
+        g_wiz_text_font_secondary.resetPalette();
         SetFontDestBuffer(GetFrameBufferSurface(), 0, 0, 0x280, 0x1e0, 0);
         m_dirty = false;
     }
@@ -2020,8 +2020,8 @@ unsigned char PartySelectionScreenEnter(void)
     MSYS_Init();
     ResetRegions();
     UpdateHeldItemCursor();
-    SetFontObjectPalette16BPP(g_wiz_text_font_secondary, g_wiz_text_font_secondary.glyphs.ownedPalette.get());
-    SetFontObjectPalette16BPP(g_wiz_text_bold_font, g_wiz_text_bold_font.glyphs.ownedPalette.get());
+    g_wiz_text_font_secondary.resetPalette();
+    g_wiz_text_bold_font.resetPalette();
 
     W8PartySelectionCharacterCollection* collection = g_party_selection_character_collection;
     if (!collection) {

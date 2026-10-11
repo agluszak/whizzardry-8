@@ -985,7 +985,7 @@ void ReportStartupMessage(std::string_view message)
     }
     SetFont(g_smfnt_font);
     SetRGBFontShadow(0, 0, 0);
-    SetFontObjectPalette16BPP(g_smfnt_font, g_font_state_palettes[W8_FONT_PALETTE_YELLOW].get());
+    g_smfnt_font.setPalette(g_font_state_palettes[W8_FONT_PALETTE_YELLOW]);
     if (scrolled) {
         ClearSurfaceRect(0, 400, 0x27f, 0x1df);
         index = 0x191;
@@ -1845,7 +1845,7 @@ void W8Octree::OctBuildOptions(char* stem)
     PublishLightDirection(&colour_saved);
     SetFont(g_smfnt_font);
     SetRGBFontShadow(0, 0, 0);
-    SetFontObjectPalette16BPP(g_smfnt_font, g_font_state_palettes[W8_FONT_PALETTE_YELLOW].get());
+    g_smfnt_font.setPalette(g_font_state_palettes[W8_FONT_PALETTE_YELLOW]);
     edit_char[0] = 0;
     edit_char[4] = 0;
     strcpy(log_state, "OFF");
