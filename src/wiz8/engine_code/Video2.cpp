@@ -3144,7 +3144,7 @@ srNode* MakePosterQuad(std::shared_ptr<srTextureIFace> texture, float width, flo
     float extent_w = g_float_one / dimensions.width * g_surface_scale;
     float extent_h = g_float_one / dimensions.height * g_surface_scale;
     model->setName("VideoMakePoster");
-    texture->getDimensions(dimensions);
+    texture->getDimensions();
     g_modeler->createGrid(1, 1);
     srModeler::MappingInfo mapping(srModeler::AXIS_X, srModeler::AXIS_Y, g_float_one - extent_w,
                                    g_float_one - extent_h, extent_w, extent_h);
