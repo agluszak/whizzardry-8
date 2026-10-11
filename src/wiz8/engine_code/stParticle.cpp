@@ -771,7 +771,7 @@ void stParticle::SubmitToRenderer(srGERD* renderer)
     /* Three array/count pairs: the index pairs rebuilt above, the polygon
        index list, and the transformed vertex positions. */
     pipeline->active_triangles =
-        std::span<const w8_ulong>(active_triangles).first(active_particle_count * 2);
+        std::span(active_triangles).first(active_particle_count * 2);
     pipeline->triangles = triangles.data();
     pipeline->triangle_count = triangles.size();
     pipeline->positions = vertex_positions.data();

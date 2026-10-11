@@ -201,7 +201,7 @@ static bool pipelineSlots()
     auto* pipeline = srTriMeshPipeline::Get(&renderer);
     REQUIRE((pipeline && pipeline->vertex_pipe && !pipeline->active_triangles));
     pipeline->triangle_count = 1;
-    pipeline->active_triangles = std::span<const w8_ulong>{};
+    pipeline->active_triangles.emplace();
     pipeline->FlushSlots();
     REQUIRE(pipeline->active_triangles->empty());
     pipeline->Reset(&renderer);
