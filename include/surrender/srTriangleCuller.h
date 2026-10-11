@@ -4,6 +4,10 @@
 
 #include "srMath.h"
 #include <vector>
+#include <span>
+#include <optional>
+#include "glm/ext/matrix_float4x4.hpp"
+#include "glm/ext/vector_float4.hpp"
 
 class srTriangleCuller {
 public:
@@ -17,18 +21,18 @@ public:
     };
 
     struct Input {
-        w8_ulong triangle_count;
-        w8_ulong vertex_count;
-        w8_ulong active_triangle_count;
-        int cull_mode;
-        const w8_ulong* active_triangles;
-        const glm::vec4* projected_vertices;
-        const srVector3i* triangles;
-        const glm::vec3* vertices;
-        const glm::vec4* clip_planes;
-        const glm::mat4* model_view;
-        const glm::mat4* inverse_model_view;
-        w8_ulong clip_mask;
+        Input(const glm::mat4& model_view, const glm::mat4& inverse_model_view)
+            : model_view(model_view), inverse_model_view(inverse_model_view) {}
+        const glm::mat4& model_view;
+        const glm::mat4& inverse_model_view;
+        std::span<const srVector3i> triangles;
+        std::span<const glm::vec3> vertices;
+        std::span<const glm::vec4> polygon_planes;
+        std::span<const glm::vec4> clip_planes;
+        // Absent draws every triangle; engaged empty draws none.
+        std::optional<std::span<const w8_ulong>> active_triangles;
+        int cull_mode = 0;
+        w8_ulong clip_mask = 0;
     };
 
     /* Apply a covector transform and normalize the plane normal. */
@@ -41,7 +45,7 @@ public:
     /* Sphere-vs-plane-mask test over active clip planes, including the
        0..1 penetration fraction across side planes. */
     static SR_DLL_IMPORT ClipMask getClipMask(const glm::vec3& center, float radius,
-                                              const glm::vec4* planes, w8_ulong mask);
+                                              std::span<const glm::vec4> planes, w8_ulong mask);
     // Owns the surviving triangle indices, ordered active vertices and inverse remap.
     static SR_DLL_IMPORT Output cull(const Input& input);
 };

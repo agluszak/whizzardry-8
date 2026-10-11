@@ -1,10 +1,9 @@
 #pragma once
 
+#include <SDL3/SDL_surface.h>
 #include <string>
 #include <string_view>
 #include "Font.h"
-
-struct SGPVSurface;
 
 #include "wiz8/local_code/ControlsRect.h"
 
@@ -31,22 +30,21 @@ public:
     int GetVerticalPosition();
     void SetLineHeight(unsigned int height);
     void FillBounds(int colour);
-    void RenderText(unsigned char* buffer, unsigned int pitch, int x_offset, int y_offset,
-                    bool force);
-    void RenderToTarget(int offset, bool force, SGPVSurface& target);
+    void RenderText(SDL_Surface& target, int x_offset, int y_offset, bool force);
+    void RenderToTarget(int offset, bool force, SDL_Surface& target);
     void UpdateLayout();
     void SetLayoutMode(unsigned int layout_mode);
     void SetText(std::string_view text, Font& font);
     void SetLayoutBounds(const W8ControlsRect* bounds, bool copy_pending, bool update_layout);
 
-    void RenderString(std::string_view text, Font& font, bool force, SGPVSurface& target)
+    void RenderString(std::string_view text, Font& font, bool force, SDL_Surface& target)
     {
         SetText(text, font);
         RenderToTarget(0, force, target);
     }
 
     void RenderString(const W8ControlsRect* bounds, std::string_view text, Font& font, bool force,
-                      SGPVSurface& target)
+                      SDL_Surface& target)
     {
         SetLayoutBounds(bounds, true, true);
         RenderString(text, font, force, target);

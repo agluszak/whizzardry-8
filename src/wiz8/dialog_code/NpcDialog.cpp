@@ -4,7 +4,6 @@
 #include <string>
 #include <vector>
 
-#include "vsurface.h"
 #include "wiz8/dialog_code/NpcDialog.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/fonts.h"

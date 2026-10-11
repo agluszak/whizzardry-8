@@ -16,6 +16,7 @@
 #include "wiz8/engine_code/AnimObj.h"
 #include "wiz8/engine_code/PathAI.h"
 #include "surrender/srClipPlane.h"
+#include "surrender/mesh_submission.h"
 #include "wiz8/engine_code/Environment.h"
 #include "wiz8/engine_code/Level.h"
 #include "wiz8/engine_code/Monster.h"
@@ -95,7 +96,7 @@ void stLevel::traverse(TraverseInfo& info)
 void stLevel::process(const ProcessInfo& info, e_processType)
 {
     srGERD& renderer = *info.renderer;
-    applyWorldSpaceMatrix(renderer);
+    const auto transform = scopedWorldSpaceMatrix(renderer);
 
     w8_ulong old_exclusion_mask = 0;
     if (m_render_exclusion_mask != 0) {
@@ -103,7 +104,8 @@ void stLevel::process(const ProcessInfo& info, e_processType)
         renderer.setExclusionMask(m_render_exclusion_mask | old_exclusion_mask);
     }
 
-    const auto ambient = renderer.getAmbientLight();
+    const srMeshSubmission::AmbientScope lighting(renderer);
+    const auto ambient = lighting.ambient();
     const glm::vec3 ambient_color(ambient);
     m_submitted_polygons = 0;
 
@@ -145,12 +147,9 @@ void stLevel::process(const ProcessInfo& info, e_processType)
                 }
             }
 
-            if ((model->flags & W8_MESH_SORTED_RENDERING) != 0 && !renderer.isPickStackEmpty()) {
-                srGERD::Pick pick;
-                renderer.popPick(pick);
-                model->renderTriMesh(renderer, mesh);
-                renderer.pushPick(pick);
-            } else {
+            {
+                const srMeshSubmission::PickScope picking(renderer,
+                    (model->flags & W8_MESH_SORTED_RENDERING) != 0);
                 model->renderTriMesh(renderer, mesh);
             }
 
@@ -170,7 +169,6 @@ void stLevel::process(const ProcessInfo& info, e_processType)
     if (m_render_exclusion_mask != 0) {
         renderer.setExclusionMask(old_exclusion_mask);
     }
-    renderer.popMatrix();
 }
 
 namespace {

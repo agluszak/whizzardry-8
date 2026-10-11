@@ -1,19 +1,18 @@
 set_source_files_properties(engine_code/gap.c PROPERTIES LANGUAGE CXX)
 
 add_library(WIZ8_GAME_CORE STATIC
-    ../sgp/vobject.cpp
+    ../sgp/image.cpp
+    ../sgp/sprite.cpp
     ../sgp/input.cpp
     ../sgp/native/input_events.cpp
     ../sgp/soundman.cpp
     ../sgp/native/audio.cpp
     ../sgp/native/video.cpp
-    ../sgp/vsurface.cpp
     ../sgp/Font.cpp
     dialog_code/ButtonAppearance.cpp
     ../sgp/line.cpp
     ../sgp/himage.cpp
     ../sgp/image_assets.cpp
-    ../sgp/vobject_blitters.cpp
     ../sgp/shading.cpp
     ../sgp/Random.cpp
     ../sgp/English.cpp

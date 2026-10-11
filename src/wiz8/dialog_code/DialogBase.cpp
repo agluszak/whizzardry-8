@@ -10,7 +10,6 @@
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "input.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
-#include "vsurface.h"
 
 // GLOBAL: WIZ8 0x0069CA28
 int g_live_dialog_count;

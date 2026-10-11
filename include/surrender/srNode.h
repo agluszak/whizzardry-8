@@ -9,6 +9,7 @@
 #include <string_view>
 #include <vector>
 #include "srFlags.h"
+#include "model_view_scope.h"
 #include "srMath.h"
 #include "srTypeRegistry.h"
 
@@ -138,7 +139,7 @@ public:
     static SR_DLL_IMPORT void lockSceneGraph();
     static SR_DLL_IMPORT void unlockSceneGraph();
 
-    SR_DLL_IMPORT void applyWorldSpaceMatrix(class srGERD& renderer) const;
+    [[nodiscard]] SR_DLL_IMPORT srModelViewScope scopedWorldSpaceMatrix(class srGERD& renderer) const;
     SR_DLL_IMPORT double getDistance(const srNode& node) const;
     SR_DLL_IMPORT glm::dvec3 getLocation() const;
     SR_DLL_IMPORT double getLocationX() const;

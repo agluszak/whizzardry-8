@@ -23,8 +23,6 @@
 #include "Font.h"
 #include "input.h"
 #include "compat/native.h"
-#include "vobject.h"
-#include "vsurface.h"
 
 // GLOBAL: WIZ8 0x0069C4A8
 static std::vector<W8CreditLine> g_credit_lines;
@@ -165,7 +163,7 @@ void CreditsScreenFrame(void)
         return;
     }
 
-    DrawCatalogImage(GetFrameBufferSurface(), 0xe9, 0, 0, 0, 0, VO_BLT_SRCTRANSPARENCY);
+    DrawCatalogImage(GetFrameBufferSurface(), 0xe9, 0, 0, 0, 0);
     int y = g_credit_y;
     for (int index = g_credit_line; index < g_credit_lines.size() && y <= 0x1df; ++index) {
         const W8CreditLine* entry = &g_credit_lines[index];

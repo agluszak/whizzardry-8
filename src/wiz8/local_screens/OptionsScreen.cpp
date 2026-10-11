@@ -1,4 +1,5 @@
 #include <SDL3/SDL_pixels.h>
+#include <SDL3/SDL_surface.h>
 #include <tuple>
 #include <fmt/format.h>
 #include <memory>
@@ -41,7 +42,6 @@
 #include "wiz8/video_object_catalog.h"
 #include "wiz8/text_input.h"
 #include "wiz8/local_code/Strings.h"
-#include "vsurface.h"
 #include "himage.h"
 #include "input.h"
 #include "surrender/srColorSurface.h"
@@ -54,7 +54,6 @@
 #include "local_code/RangeControl.h"
 #include "mgs_commands.h"
 #include "surrender/srPixelConvert.h"
-#include "vobject.h"
 
 // GLOBAL: WIZ8 0x0069C130
 static unsigned int* g_options_panel_region_sets;
@@ -615,7 +614,7 @@ void W8OptionsSaveRow::Redraw(bool full_redraw)
     int x = m_pPanel->m_bounds.left + m_left;
     int y = m_pPanel->m_bounds.top + m_top;
     if (m_save->screenshot.capture_result == 0) {
-        DrawCatalogImage(GetFrameBufferSurface(), 0xf6, 0, 0, x + 6, y + 6, VO_BLT_SRCTRANSPARENCY);
+        DrawCatalogImage(GetFrameBufferSurface(), 0xf6, 0, 0, x + 6, y + 6);
     } else {
         auto portrait = std::make_unique<srColorSurface>(srPixelConvert::SURFACE_ARGB1555,
                                                       m_save->screenshot.pixels, 0x50, 0x3c, 0xa0);
@@ -1432,7 +1431,7 @@ void W8OptionsScreen::Redraw()
     if (m_redraw_pending) {
         ClearPrimarySurface();
         ClearSurfaceRect(0, 0, 640, 480);
-        DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0xee, 0, 0, 0, 0, VO_BLT_SRCTRANSPARENCY);
+        DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0xee, 0, 0, 0, 0);
         m_redraw_pending = false;
     }
     if (m_selected_panel != -1) {
@@ -1634,10 +1633,11 @@ void W8OptionsSlider::Redraw(bool full_redraw)
             int top = m_pPanel->m_bounds.top + m_top;
             unsigned short color = Get16BPPColor(SDL_Color{0, 255, 0, SDL_ALPHA_OPAQUE});
             int end = m_pixelPosition < 74 ? m_pixelPosition - 1 : 73;
-            ColorFillVideoSurfaceArea(GetFrameBufferSurface(), left + 13, top + 7, left + end, top + 9, color);
+            const SDL_Rect first_segment{left + 13, top + 7, end - 13, 2};
+            SDL_FillSurfaceRect(&GetFrameBufferSurface(), &first_segment, color);
             if (m_pixelPosition > 83) {
-                ColorFillVideoSurfaceArea(GetFrameBufferSurface(), left + 83, top + 7,
-                                          left + m_pixelPosition - 1, top + 9, color);
+                const SDL_Rect second_segment{left + 83, top + 7, m_pixelPosition - 84, 2};
+                SDL_FillSurfaceRect(&GetFrameBufferSurface(), &second_segment, color);
             }
         }
     }
@@ -1730,8 +1730,7 @@ void W8OptionsMenuButton::Redraw(bool full_redraw)
 {
     if ((full_redraw || m_dirty) && (m_stateFlags & g_W8TextControlStateSecondary) != 0 &&
         m_item_id != -1) {
-        DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0xf0, 0, m_item_id, 12, 15,
-                                      VO_BLT_SRCTRANSPARENCY);
+        DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0xf0, 0, m_item_id, 12, 15);
     }
     W8TextControl::Redraw(full_redraw);
 }

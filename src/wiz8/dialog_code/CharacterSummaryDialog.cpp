@@ -2,7 +2,6 @@
 #include <cstring>
 
 #include "wiz8/dialog_code/DialogInterface.h"
-#include "vsurface.h"
 #include "wiz8/dialog_code/CharacterSummaryDialog.h"
 #include "wiz8/integer_constants.h"
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
@@ -123,7 +122,7 @@ void W8CharacterSummaryDialog::Draw()
     if (m_quote_text != 0) {
         m_quote_text->RenderToTarget(0, false, GetFrameBufferSurface());
     }
-    RenderPartyPortrait(m_character->portrait_index, m_x + 11, m_y + 11, 2, 1, 0);
+    RenderPartyPortrait(m_character->portrait_index, m_x + 11, m_y + 11, {}, 1, 0);
     if (!m_portrait_clock_started) {
         m_portrait_clock_started = true;
         m_portrait_clock = w8_get_ticks();
@@ -133,7 +132,7 @@ void W8CharacterSummaryDialog::Draw()
 // FUNCTION: WIZ8 0x005e0830
 void W8CharacterSummaryDialog::DrawPortraitAnimationFrame()
 {
-    BlitPartyPortraitAnimation(m_character->portrait_index, m_x + 11, m_y + 11, 2, 0, false);
+    BlitPartyPortraitAnimation(m_character->portrait_index, m_x + 11, m_y + 11, {}, 0, false);
 }
 
 // FUNCTION: WIZ8 0x005e0860

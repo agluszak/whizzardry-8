@@ -489,8 +489,7 @@ public:
     {
         return 0x20;
     }
-    void pushMatrix();
-    void pushMultMatrix(const glm::mat4x3& matrix);
+    bool pushMatrix();
     void popMatrix();
     void pushEnable();
     void popEnable();

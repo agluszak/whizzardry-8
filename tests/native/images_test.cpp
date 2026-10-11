@@ -1,5 +1,4 @@
 #include <SDL3/SDL_rect.h>
-#include "wiz8/compat/surfaces.h"
 #include <cstdint>
 #include <catch2/catch_test_macros.hpp>
 #include <ios>
@@ -25,10 +24,11 @@
 #include <variant>
 
 #include "himage.h"
-#include "vsurface.h"
-#include "vobject.h"
+#include "image_assets.h"
 #include "imgfmt.h"
+#include "sprite.h"
 #include "wiz8/slf.h"
+#include "wiz8/surface_storage.h"
 #include "temporary_directory.h"
 
 
@@ -263,6 +263,7 @@ struct ImageFixture
 
     ImageFixture()
     {
+        g_image_assets.clear();
         fs::create_directories(user);
         fixture(assets / "Dotted.dir" / "many.dots.PcX", pcx());
         fixture(assets / "Dotted.dir" / "default.PCX", pcx());
@@ -286,6 +287,7 @@ struct ImageFixture
 
     ~ImageFixture()
     {
+        g_image_assets.clear();
         wiz8::clear_asset_archives();
         rgb555();
     }
@@ -344,15 +346,11 @@ TEST_CASE_METHOD(ImageFixture, "Native image formats, palettes and archives", "[
         REQUIRE((default_image && !strcmp(extensionless, "Dotted.dir\\default")));
         check_pcx(*default_image);
 
-        // The surface factory must copy the image pixels, not merely allocate storage.
-        auto surface = LoadVideoSurface("Dotted.dir/default.PCX");
-        REQUIRE(surface);
-        const auto& pixels = *surface->cpu().surface;
-        REQUIRE((pixels.w == 3 && pixels.h == 2 && surface->bitDepth() == 8));
+        auto bitmap = load("Dotted.dir/default.PCX");
+        REQUIRE(bitmap);
+        REQUIRE((bitmap->width == 3 && bitmap->height == 2 && bitmap->bitDepth == 8));
         const std::uint8_t expected[]{0, 1, 1, 2, 3, 0xc1};
-        for (int y = 0; y < 2; ++y)
-            REQUIRE(!memcmp(static_cast<const std::uint8_t*>(pixels.pixels) + y * pixels.pitch,
-                            expected + y * 3, 3));
+        REQUIRE(!memcmp(bitmap->pixels.data(), expected, sizeof(expected)));
     }
     {
         auto complete = load("Dotted.dir/default.PCX");
@@ -479,7 +477,7 @@ TEST_CASE_METHOD(ImageFixture, "Native image formats, palettes and archives", "[
 
 }
 
-TEST_CASE_METHOD(ImageFixture, "STI bitmaps decode before pitched surface initialization", "[image][decoding]")
+TEST_CASE_METHOD(ImageFixture, "STI bitmaps decode to normalized pixel data", "[image][decoding]")
 {
     for (unsigned depth : {8u, 16u, 24u}) {
         const unsigned width = 5, height = 3;
@@ -490,54 +488,10 @@ TEST_CASE_METHOD(ImageFixture, "STI bitmaps decode before pitched surface initia
             fixture(assets / "bitmap.sti", sti_bitmap(width, height, depth, expected, compressed));
             auto image = load("bitmap.sti");
             REQUIRE(image);
-            REQUIRE_FALSE(LoadVideoObject("bitmap.sti"));
             REQUIRE(image->pixels == expected);
             REQUIRE(image->palette.has_value() == (depth == 8));
-            if (depth == 24) {
-                REQUIRE_FALSE(LoadVideoSurface("bitmap.sti")); // SGP CPU surfaces are 8 or 16 bpp.
-                continue;
-            }
-            for (unsigned repeat = 0; repeat < 3; ++repeat) {
-                auto surface = LoadVideoSurface("bitmap.sti");
-                REQUIRE(surface);
-                const auto& storage = *surface->cpu().surface;
-                const unsigned row_bytes = width * (depth / 8);
-                REQUIRE(storage.pitch > int(row_bytes)); // Odd widths exercise SDL's padded rows.
-                for (unsigned row = 0; row < height; ++row) {
-                    const auto* pixels = static_cast<const std::uint8_t*>(storage.pixels) + row * storage.pitch;
-                    REQUIRE(!memcmp(pixels, expected.data() + row * row_bytes, row_bytes));
-                    for (unsigned padding = row_bytes; padding < unsigned(storage.pitch); ++padding)
-                        REQUIRE(pixels[padding] == 0);
-                }
-                REQUIRE(surface->cpu().sourceKey);
-                REQUIRE(surface->cpu().sourceKey->low == 0);
-                if (depth == 8) {
-                    const auto* palette = SDL_GetSurfacePalette(surface->cpu().surface.get());
-                    REQUIRE(palette);
-                    for (unsigned i = 0; i < 256; ++i) {
-                        REQUIRE(palette->colors[i].r == i);
-                        REQUIRE(palette->colors[i].g == i);
-                        REQUIRE(palette->colors[i].b == i);
-                        REQUIRE(palette->colors[i].a == 255);
-                    }
-                    REQUIRE(surface->packedPalette() == Create16BPPPalette(*image->palette));
-                }
-            }
         }
     }
-    // Decoding no longer captures the renderer's palette state.
-    const Bytes indices{0, 1, 2, 3, 4, 5};
-    fixture(assets / "palette.sti", sti_bitmap(3, 2, 8, indices, true));
-    auto image = load("palette.sti");
-    REQUIRE((image && image->palette));
-    const auto colors = *image->palette;
-    g_sgp_pixel_format = SDL_PIXELFORMAT_ARGB1555;
-    auto surface = LoadVideoSurface("palette.sti");
-    REQUIRE(surface);
-    REQUIRE(!memcmp(&*image->palette, &colors, sizeof(colors)));
-    REQUIRE(surface->packedPalette()[0] == 0);
-    REQUIRE(surface->packedPalette()[1] == 0x8001);
-    rgb555();
 }
 
 TEST_CASE_METHOD(ImageFixture, "Raw and zlib STI RGB masks normalize identically", "[image][decoding]")
@@ -559,12 +513,6 @@ TEST_CASE_METHOD(ImageFixture, "Raw and zlib STI RGB masks normalize identically
                                                std::uint16_t(0x03e0 | alpha), std::uint16_t(0x001f | alpha)};
             REQUIRE(image->pixels.size() == sizeof(expected));
             REQUIRE(!memcmp(image->pixels.data(), expected.data(), sizeof(expected)));
-            auto surface = LoadVideoSurface("rgb565.sti");
-            REQUIRE(surface);
-            const auto& storage = *surface->cpu().surface;
-            for (int row = 0; row < 2; ++row)
-                REQUIRE(!memcmp(static_cast<const std::uint8_t*>(storage.pixels) + row * storage.pitch,
-                                expected.data() + row * 2, 4));
         }
     }
     rgb555();
@@ -587,29 +535,27 @@ TEST_CASE_METHOD(ImageFixture, "STI sprite sheets decode and transfer ownership 
     REQUIRE((sheet->frames[0].sOffsetX == -2 && sheet->frames[0].sOffsetY == 3));
     REQUIRE((sheet->frames[1].sOffsetX == 4 && sheet->frames[1].sOffsetY == -1));
     REQUIRE(sheet->palette[2].r == 2);
-    REQUIRE_FALSE(LoadVideoSurface("sheet.sti"));
-    const auto* pixels = sheet->frames[0].indices->pixels;
-    SGPVObject moved(std::move(*sheet));
-    REQUIRE(moved.sprites[0].indices->pixels == pixels);
-    REQUIRE(sprite_pixels(moved.sprites[0]) == expected);
-    auto object = LoadVideoObject("sheet.sti");
+    const auto* pixels = sheet->frames[0].indices.get();
+    SpriteSheet moved(std::move(*sheet));
+    REQUIRE(moved.frames[0].indices.get() == pixels);
+    REQUIRE(sprite_pixels(moved.frames[0]) == expected);
+    auto object = g_image_assets.sprites("sheet.sti");
     REQUIRE(object);
     image.reset();
-    REQUIRE(sprite_pixels(object->sprites[0]) == expected);
-    REQUIRE(object->currentPalette() == Create16BPPPalette(object->pPaletteEntry));
+    REQUIRE(sprite_pixels(object->frames[0]) == expected);
+    REQUIRE(object->colors == Create16BPPPalette(object->palette));
 
     fixture(assets / "Data" / "Sprites.slf", slf({{"Sheet.sti", bytes}}));
     wiz8::mount_slf("Data\\Sprites.slf");
-    auto archived = LoadVideoObject("Data\\Sheet.sti");
+    auto archived = g_image_assets.sprites("Data\\Sheet.sti");
     REQUIRE(archived);
-    REQUIRE(sprite_pixels(archived->sprites[0]) == expected);
+    REQUIRE(sprite_pixels(archived->frames[0]) == expected);
 
     fixture(assets / "empty.sti", sti_sheet({}, {}));
     auto empty = LoadImage("empty.sti");
     REQUIRE(empty);
     REQUIRE(std::holds_alternative<SpriteSheet>(*empty));
-    REQUIRE(LoadVideoObject("empty.sti"));
-    REQUIRE_FALSE(LoadVideoSurface("empty.sti"));
+    REQUIRE(g_image_assets.sprites("empty.sti"));
 }
 
 TEST_CASE_METHOD(ImageFixture, "Malformed ETRLE fails before any image is exposed", "[image][validation]")
@@ -632,12 +578,13 @@ TEST_CASE_METHOD(ImageFixture, "Malformed ETRLE fails before any image is expose
         }
         fixture(assets / "bad-sheet.sti", sti_sheet(frames, pixels));
         REQUIRE_FALSE(LoadImage("bad-sheet.sti"));
-        REQUIRE_FALSE(LoadVideoObject("bad-sheet.sti"));
         fixture(assets / "good-sheet.sti", sti_sheet(valid_frames, runs));
-        auto good = LoadVideoObject("good-sheet.sti");
+        auto good = LoadImage("good-sheet.sti");
         REQUIRE(good);
-        REQUIRE(good->sprites.size() == 2);
-        REQUIRE(good->sprites[0].paletteIndexAt(0, 0) == 0);
+        auto* good_sheet = std::get_if<SpriteSheet>(&*good);
+        REQUIRE(good_sheet);
+        REQUIRE(good_sheet->frames.size() == 2);
+        REQUIRE(sprite_pixels(good_sheet->frames[0])[0] == 0);
     }
 }
 
@@ -660,13 +607,9 @@ TEST_CASE_METHOD(ImageFixture, "STI zlib decoding respects SLF entry bounds and 
         REQUIRE(image);
         REQUIRE(image->pixels == expected);
         REQUIRE_FALSE(load("Data\\Bad.sti"));
-        REQUIRE_FALSE(LoadVideoSurface("Data\\Bad.sti"));
-        auto surface = LoadVideoSurface("Data\\Following.sti");
-        REQUIRE(surface);
-        const auto& storage = *surface->cpu().surface;
-        for (int row = 0; row < 200; ++row)
-            REQUIRE(!memcmp(static_cast<const std::uint8_t*>(storage.pixels) + row * storage.pitch,
-                            expected.data() + row * 500, 500));
+        auto following = load("Data\\Following.sti");
+        REQUIRE(following);
+        REQUIRE(following->pixels == expected);
         REQUIRE(first->tell() == 9);
         REQUIRE(second->tell() == 0);
     }
@@ -700,7 +643,6 @@ TEST_CASE_METHOD(ImageFixture, "Malformed STI zlib data fails at the loading bou
         fixture(assets / "bad-zlib.sti", bytes);
         for (unsigned repeat = 0; repeat < 3; ++repeat) {
             REQUIRE_FALSE(LoadImage("bad-zlib.sti"));
-            REQUIRE_FALSE(LoadVideoSurface("bad-zlib.sti"));
         }
         fixture(assets / "good-zlib.sti", valid);
         auto image = load("good-zlib.sti");
@@ -756,7 +698,7 @@ TEST_CASE_METHOD(ImageFixture, "Truncated images and rollback", "[image][validat
 
 }
 
-TEST_CASE("SDL sprite cache preserves opaque pixels across native formats")
+TEST_CASE("SDL sprite drawing preserves opaque pixels across native formats")
 {
     const auto previous_format = g_sgp_pixel_format;
     struct RestoreFormat {
@@ -772,18 +714,23 @@ TEST_CASE("SDL sprite cache preserves opaque pixels across native formats")
     const SDL_Rect second{1, 0, 1, 1};
     REQUIRE(SDL_FillSurfaceRect(frame.indices.get(), &second, 1));
     Palette16 palette{};
+    palette[0] = 0x2468;
     palette[1] = 0xffff;
+    SpriteSheet sprites;
+    sprites.frames.push_back(std::move(frame));
+    sprites.colors = palette;
     for (auto format : {SDL_PIXELFORMAT_XRGB1555, SDL_PIXELFORMAT_ARGB1555, SDL_PIXELFORMAT_RGB565}) {
-        g_sgp_pixel_format = format;
-        auto* source = frame.coloredSurface(palette);
+        auto source = CreateCpuStorage(2, 1, format);
         REQUIRE(source);
-        REQUIRE(source->format == format);
+        REQUIRE(SDL_FillSurfaceRect(source.get(), nullptr, 0));
+        DrawSprite(*source, sprites, 0, 0, 0);
+        REQUIRE(SDL_SetSurfaceColorKey(source.get(), true, 0));
         auto target = CreateCpuStorage(2, 1, format);
         REQUIRE(target);
         REQUIRE(SDL_FillSurfaceRect(target.get(), nullptr, 0x1234));
-        REQUIRE(SDL_BlitSurface(source, nullptr, target.get(), nullptr));
+        REQUIRE(SDL_BlitSurface(source.get(), nullptr, target.get(), nullptr));
         const auto* pixels = static_cast<const std::uint16_t*>(target->pixels);
-        REQUIRE(pixels[0] == 0);
+        REQUIRE(pixels[0] == 0x2468);
         REQUIRE(pixels[1] == 0xffff);
     }
 }

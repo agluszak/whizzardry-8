@@ -74,11 +74,14 @@ enum PrimitiveClass { PRIMITIVE_CLASS_TRIANGLES, PRIMITIVE_CLASS_LINES, PRIMITIV
 
 /* Fixed-function state that SDL GPU bakes into a pipeline. */
 struct PipelineKey {
-    uint32_t value;
+    uint32_t value = 0;
+    w8_long offset = 0;
 
+    PipelineKey() = default;
     PipelineKey(const srShader& shader, srDD::e_cullMode cull, srDD::e_polygonMode polygon,
-                PrimitiveClass primitive)
+                PrimitiveClass primitive, w8_long bias)
     {
+        offset = bias;
         const uint32_t packed_shader =
             shader.value & (srShader::PASS_MASK | srShader::MASK_DEPTH_WRITE |
                             srShader::MASK_COLOR_WRITE | 0x7u << srShader::DSTBLEND_SHIFT |
@@ -89,7 +92,7 @@ struct PipelineKey {
 
     bool operator<(const PipelineKey& other) const
     {
-        return value < other.value;
+        return value != other.value ? value < other.value : offset < other.offset;
     }
 };
 
@@ -97,11 +100,11 @@ struct DrawCommand {
     enum Kind { DRAW, CLEAR };
     Kind kind;
     /* DRAW */
-    uint32_t pipeline_key;
+    PipelineKey pipeline_key;
     uint32_t first_vertex;
     uint32_t vertex_count;
     uint32_t textures[2];
-    uint32_t samplers[2];
+    SDL_GPUSampler* samplers[2];
     VertexUniforms vertex_uniforms;
     FragmentUniforms fragment_uniforms;
     /* DRAW and CLEAR */
@@ -190,8 +193,7 @@ public:
             memset(&scissor, 0, sizeof(scissor));
             memset(&viewport, 0, sizeof(viewport));
             bound[0] = bound[1] = 0;
-            parameters[0] = parameters[1] = 0;
-            samplers[0] = samplers[1] = 0;
+            parameters[0] = parameters[1] = {};
         }
 
     ~SDLGPUDevice() override
@@ -405,7 +407,7 @@ public:
     void setTextureParameters(w8_ulong stage, const TexParms& parms) override
     {
         if (stage < 2) {
-            parameters[stage] = parms.packed;
+            parameters[stage] = parms;
         }
     }
 
@@ -491,17 +493,6 @@ public:
                                      SDL_GPU_SHADERSTAGE_VERTEX, 0);
         fragment_shader = createShader(sr_fragment_spv, sizeof(sr_fragment_spv),
                                        SDL_GPU_SHADERSTAGE_FRAGMENT, 2);
-        for (int filter = 0; filter < 2; ++filter) {
-            SDL_GPUSamplerCreateInfo sampler = {};
-            sampler.min_filter = filter != 0 ? SDL_GPU_FILTER_LINEAR : SDL_GPU_FILTER_NEAREST;
-            sampler.mag_filter = sampler.min_filter;
-            sampler.mipmap_mode = SDL_GPU_SAMPLERMIPMAPMODE_LINEAR;
-            sampler.address_mode_u = SDL_GPU_SAMPLERADDRESSMODE_REPEAT;
-            sampler.address_mode_v = SDL_GPU_SAMPLERADDRESSMODE_REPEAT;
-            sampler.address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_REPEAT;
-            sampler.max_lod = 16.0f;
-            samplers[filter] = SDL_CreateGPUSampler(device, &sampler);
-        }
         /* Handle 1 is the white texture unbound stages sample. */
         DeviceTexture white = createTexture(1, 1, 1);
         textures.push_back(white);
@@ -527,11 +518,10 @@ public:
             SDL_ReleaseGPUGraphicsPipeline(device, it->second);
         }
         pipelines.clear();
-        for (int index = 0; index < 2; ++index) {
-            if (samplers[index] != 0) {
-                SDL_ReleaseGPUSampler(device, samplers[index]);
-            }
+        for (const auto& entry : samplers) {
+            SDL_ReleaseGPUSampler(device, entry.second);
         }
+        samplers.clear();
         if (vertex_buffer != 0) {
             SDL_ReleaseGPUBuffer(device, vertex_buffer);
         }
@@ -798,14 +788,13 @@ private:
         }
         DrawCommand command = {};
         command.kind = DrawCommand::DRAW;
-        command.pipeline_key = PipelineKey(shader, cull_mode, polygon_mode, primitive_class).value;
+        command.pipeline_key = PipelineKey(shader, cull_mode, polygon_mode, primitive_class, polygon_offset);
         command.first_vertex = start;
         command.vertex_count = (uint32_t)vertices.size() - start;
         const bool texturing = (shader.value & srShader::MASK_TEXTURING) != 0;
         for (int stage = 0; stage < 2; ++stage) {
             command.textures[stage] = texturing && bound[stage] != 0 ? bound[stage] : 1;
-            // srGERD packs magnification at bits 4..5; low bits are correction.
-            command.samplers[stage] = ((parameters[stage] >> 4) & 3) >= 2 ? 1 : 0;
+            command.samplers[stage] = sampler(parameters[stage]);
         }
         command.vertex_uniforms = projection;
         FragmentUniforms& fragment = command.fragment_uniforms;
@@ -821,10 +810,36 @@ private:
         commands.push_back(command);
     }
 
-    SDL_GPUGraphicsPipeline* pipeline(uint32_t key_value)
+    SDL_GPUSampler* sampler(const TexParms& parameters)
     {
-        PipelineKey key = PipelineKey(srShader(), CULL_NONE, POLYGON_FILL, PRIMITIVE_CLASS_TRIANGLES);
-        key.value = key_value;
+        const auto key = std::make_pair(parameters.packed, parameters.mipmap_bias);
+        const auto found = samplers.find(key);
+        if (found != samplers.end()) return found->second;
+        SDL_GPUSamplerCreateInfo info = {};
+        info.mag_filter = ((parameters.packed >> 4) & 3) >= 2
+                              ? SDL_GPU_FILTER_LINEAR : SDL_GPU_FILTER_NEAREST;
+        info.min_filter = ((parameters.packed >> 6) & 3) >= 2
+                              ? SDL_GPU_FILTER_LINEAR : SDL_GPU_FILTER_NEAREST;
+        const auto mip = (parameters.packed >> 8) & 3;
+        info.mipmap_mode = mip == 2 ? SDL_GPU_SAMPLERMIPMAPMODE_LINEAR
+                                   : SDL_GPU_SAMPLERMIPMAPMODE_NEAREST;
+        info.address_mode_u = ((parameters.packed >> 10) & 3) == 1
+                                  ? SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE
+                                  : SDL_GPU_SAMPLERADDRESSMODE_REPEAT;
+        info.address_mode_v = ((parameters.packed >> 12) & 3) == 1
+                                  ? SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE
+                                  : SDL_GPU_SAMPLERADDRESSMODE_REPEAT;
+        info.address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_REPEAT;
+        info.mip_lod_bias = parameters.mipmap_bias;
+        info.max_lod = mip == 0 ? 0.0f : 16.0f;
+        auto* created = SDL_CreateGPUSampler(device, &info);
+        samplers.emplace(key, created);
+        return created;
+    }
+
+    SDL_GPUGraphicsPipeline* pipeline(const PipelineKey& key)
+    {
+        const uint32_t key_value = key.value;
         std::map<PipelineKey, SDL_GPUGraphicsPipeline*>::iterator found = pipelines.find(key);
         if (found != pipelines.end()) {
             return found->second;
@@ -883,6 +898,10 @@ private:
                                                                : SDL_GPU_CULLMODE_NONE;
         info.rasterizer_state.front_face = SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE;
         info.rasterizer_state.enable_depth_clip = true;
+        // Surrender's positive offset pulls overlays toward the camera.
+        info.rasterizer_state.enable_depth_bias = key.offset != 0;
+        info.rasterizer_state.depth_bias_constant_factor = -float(key.offset);
+        info.rasterizer_state.depth_bias_slope_factor = -float(key.offset);
         info.depth_stencil_state.compare_op = compareOp(pass);
         info.depth_stencil_state.enable_depth_test = pass != srShader::PASS_ALWAYS || depth_write;
         info.depth_stencil_state.enable_depth_write = depth_write;
@@ -1017,7 +1036,7 @@ private:
             for (int stage = 0; stage < 2; ++stage) {
                 SDL_GPUTexture* texture = textures[entry.textures[stage] - 1].texture;
                 bindings[stage].texture = texture != 0 ? texture : textures[0].texture;
-                bindings[stage].sampler = samplers[entry.samplers[stage]];
+                bindings[stage].sampler = entry.samplers[stage];
             }
             SDL_BindGPUFragmentSamplers(pass, 0, bindings, 2);
             SDL_PushGPUVertexUniformData(command, 0, &entry.vertex_uniforms,
@@ -1196,7 +1215,7 @@ private:
     SDL_GPUTextureFormat depth_format;
     SDL_GPUShader* vertex_shader;
     SDL_GPUShader* fragment_shader;
-    SDL_GPUSampler* samplers[2];
+    std::map<std::pair<w8_ulong, float>, SDL_GPUSampler*> samplers;
     SDL_GPUBuffer* vertex_buffer;
     uint32_t vertex_buffer_size;
     SDL_GPUCommandBuffer* command_buffer;
@@ -1214,7 +1233,7 @@ private:
     SDL_GPUViewport viewport;
     srRendererDefs::VertexArrayInfo vertex_arrays;
     uint32_t bound[2];
-    uint32_t parameters[2];
+    TexParms parameters[2];
 
     std::map<PipelineKey, SDL_GPUGraphicsPipeline*> pipelines;
     std::vector<DeviceTexture> textures;

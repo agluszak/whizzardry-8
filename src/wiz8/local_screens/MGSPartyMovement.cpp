@@ -4,9 +4,9 @@
 #include <cstdint>
 #include <vector>
 
+#include "image.h"
 #include "input.h"
 #include "timer.h"
-#include "vobject_blitters.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/Levels.h"
 #include "wiz8/engine_code/Video2.h"
@@ -34,8 +34,6 @@
 #include "layouts/character.h"
 #include "layouts/main_game_screen.h"
 #include "layouts/targeting.h"
-#include "vobject.h"
-#include "vsurface.h"
 
 #define PARTY_MOVEMENT_CPP "C:\\Projects\\Wizardry 8\\Local Screens\\MGSPartyMovement.cpp"
 
@@ -133,7 +131,6 @@ void UpdatePartyMovementPanel(void)
 // FUNCTION: WIZ8 0x005A19B0
 void DrawPartyMovementPanel(void)
 {
-    SDL_Rect previous;
     SDL_Rect clip;
     bool panel_live;
     int caption;
@@ -194,12 +191,9 @@ void DrawPartyMovementPanel(void)
         }
     }
     if (panel_live) {
-        GetClippingRect(&previous);
         clip = {right, 0, 0x1b9 - right, 0x1e0};
-        SetClippingRect(&clip);
-        DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x96, 0, image, 0xc3, 0x144,
-                                      VO_BLT_SRCTRANSPARENCY);
-        SetClippingRect(&previous);
+        ScopedClipRect clipped(GetFrameBufferSurface(), clip);
+        DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x96, 0, image, 0xc3, 0x144);
     }
     DrawPartyMovementGauge(right, image, panel_live, caption);
     if (panel_live) {
@@ -261,7 +255,7 @@ void DrawPartyMovementGauge(short right, short image, bool panel_live, int capti
     }
     DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x95, 0,
                                   g_party_movement_animation_frame + frame_base + frame,
-                                  right - 0xf, 0x142, VO_BLT_SRCTRANSPARENCY);
+                                  right - 0xf, 0x142);
     InvalidateRegion(right - 0xf, 0x142, right - 1, 0x150, 0);
     if (caption != -1) {
         g_party_movement_caption->RenderString(g_localized_strings[caption], g_wiz_text_font_secondary,

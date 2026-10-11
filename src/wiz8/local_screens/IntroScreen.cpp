@@ -4,7 +4,6 @@
 #include <string>
 
 #include "compat/compiler.h"
-#include "vsurface.h"
 #include "wiz8/bink_video.h"
 #include "wiz8/music_playlist.h"
 #include "wiz8/engine_code/Video2.h"
@@ -17,7 +16,6 @@
 #include "Font.h"
 #include "english.h"
 #include "input.h"
-#include "line.h"
 
 /* Local Screens\IntroScreen.cpp is named by the gpVideo assertion at line 98.
    The canonical state-zero row owns this enter/frame/leave bundle. */
@@ -49,7 +47,6 @@ unsigned char IntroScreenEnter(void)
     std::string path;
     char gzCdDirectory[4];
 
-    SetClippingRegionAndImageWidth(0x500, 0, 0, 0x280, 0x1e0);
     SetFontDestBuffer(GetFrameBufferSurface(), 0, 0, 0x280, 0x1e0, 0);
     ClearSurfaceRect(0, 0, 0x280, 0x1e0);
     if (g_intro_video_index == 0 && g_settings.intro_seen && !g_status.intro_shown) {

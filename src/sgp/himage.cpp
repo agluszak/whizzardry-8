@@ -27,7 +27,7 @@
 #include <span>
 #include <cstddef>
 
-#include "wiz8/compat/surfaces.h"
+#include "wiz8/surface_storage.h"
 #include "wiz8/filesystem.h"
 #include "himage.h"
 #include "imgfmt.h"
@@ -171,6 +171,7 @@ BitmapImage load_ordinary_image(wiz8::File& file, ImageFormat format)
     decoded.width = surface->w;
     decoded.height = surface->h;
     decoded.bitDepth = indexed ? 8 : rgb555 ? 16 : 24;
+    decoded.format = surface->format;
     const std::size_t row_bytes = surface->w * (decoded.bitDepth / 8);
     decoded.pixels.resize(row_bytes * surface->h);
     for (int y = 0; y < surface->h; ++y)
@@ -284,6 +285,10 @@ DecodedImage load_sti(wiz8::File& file)
     decoded.width = header.usWidth;
     decoded.height = header.usHeight;
     decoded.bitDepth = header.ubDepth;
+    if (!rgb)
+        decoded.format = SDL_PIXELFORMAT_INDEX8;
+    else if (header.ubDepth == 24)
+        decoded.format = SDL_PIXELFORMAT_RGB24;
 
     // FUNCTION: WIZ8 0x004153f0
     if (!rgb) {
@@ -328,15 +333,16 @@ DecodedImage load_sti(wiz8::File& file)
     const auto* target_details = SDL_GetPixelFormatDetails(g_sgp_pixel_format);
     if (!target_details)
         throw std::runtime_error("Unsupported SGP pixel format");
-    if (rgb && header.ubDepth == 16 &&
-        (header.RGB.uiRedMask != target_details->Rmask ||
-         header.RGB.uiGreenMask != target_details->Gmask ||
-         header.RGB.uiBlueMask != target_details->Bmask)) {
+    if (rgb && header.ubDepth == 16) {
         const auto source_format = SDL_GetPixelFormatForMasks(
             16, header.RGB.uiRedMask, header.RGB.uiGreenMask, header.RGB.uiBlueMask, 0);
-        // Keep zero transparent while encoding an opaque alpha marker on nonzero pixels.
+        if (source_format == SDL_PIXELFORMAT_UNKNOWN)
+            throw std::runtime_error("Unsupported STI pixel format");
         const auto target_format = SDL_GetPixelFormatForMasks(
             16, target_details->Rmask, target_details->Gmask, target_details->Bmask, 0);
+        if (target_format == SDL_PIXELFORMAT_UNKNOWN)
+            throw std::runtime_error("Unsupported SGP pixel format");
+        // Keep zero transparent while encoding an opaque alpha marker on nonzero pixels.
         std::vector<std::uint8_t> converted(decoded.pixels.size());
         if (!SDL_ConvertPixels(header.usWidth, header.usHeight, source_format,
                                decoded.pixels.data(), header.usWidth * 2, target_format,
@@ -351,6 +357,7 @@ DecodedImage load_sti(wiz8::File& file)
             }
         }
         decoded.pixels = std::move(converted);
+        decoded.format = target_format;
     }
     return decoded;
 }

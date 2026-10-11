@@ -305,16 +305,16 @@ void ResetGameplaySlot(unsigned int slot)
     *record = {};
     record->portrait_event_active = false;
     record->voice_sound_handle = nullptr;
-    record->previous_portrait_frame = -1;
+    record->rendered_portrait_frame = -1;
     record->portrait_frame = 6;
-    record->portrait_pose_animation_active = false;
+    record->portrait_blink_closing = false;
     tier = 1;
     if (g_status.buffers.Char[slot].highest_condition >= W8_CONDITION_ASLEEP) {
         tier = 2;
     }
     record->portrait_pose = tier;
     record->target_portrait_pose = tier;
-    record->previous_portrait_pose = -1;
+    record->rendered_portrait_pose = -1;
     record->portrait_pose_dirty = false;
     record->portrait_frame_dirty = false;
     record->portrait_frame_clock = w8_get_ticks() + (0);

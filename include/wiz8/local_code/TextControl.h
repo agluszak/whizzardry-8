@@ -1,9 +1,15 @@
-#include <string_view>
-#include <string>
 #pragma once
 
+#include <memory>
+#include <string>
+#include <string_view>
+
+#include "compat/compiler.h"
+#include "local_code/ControlsRect.h"
 #include "wiz8/local_code/Widget.h"
 #include "wiz8/local_code/TextBuffer.h"
+
+struct SpriteSheet;
 
 /* Shared declaration owner; implementation remains in Local Code\Controls.cpp. */
 
@@ -40,36 +46,9 @@ public:
                   int image_object, int image_frame, int normal_sprite, int pressed_sprite,
                   int alternate_normal_sprite, int alternate_pressed_sprite, int disabled_sprite);
 
-    void SetImage(int object, int frame = 0)
-    {
-        m_imageObject = object;
-        m_imageIsItem = false;
-        m_measured_w = -1;
-        m_measured_h = -1;
-        m_imageFrame = frame;
-        m_normalSprite = 0;
-        m_pressedSprite = 0;
-    }
-    void SetItemImage(int item_id)
-    {
-        m_imageObject = item_id;
-        m_imageIsItem = true;
-        m_measured_w = -1;
-        m_measured_h = -1;
-        m_imageFrame = 0;
-        m_normalSprite = 0;
-        m_pressedSprite = 0;
-    }
-    void ClearImage()
-    {
-        m_imageObject = -1;
-        m_imageIsItem = false;
-        m_measured_w = -1;
-        m_measured_h = -1;
-        m_imageFrame = -1;
-        m_normalSprite = -1;
-        m_pressedSprite = -1;
-    }
+    void SetImage(int object, int frame = 0);
+    void SetItemImage(int item_id);
+    void ClearImage();
 
     bool MeasureText();
     void GetTextOrigin(int* px, int* py);
@@ -102,10 +81,8 @@ public:
     unsigned int m_stateFlags;   /* paired state masks */
     unsigned int m_layoutFlags;  /* layout and input behavior masks */
     bool m_alternateTextEnabled; /* alternate text-selection flag */
-    bool m_imageIsItem;
-    unsigned char pad_3e[2];
-    int m_imageObject;
-    int m_imageFrame;
+    std::shared_ptr<const SpriteSheet> m_imageSprites;
+    int m_imageYOffset;
     int m_normalSprite;
     int m_pressedSprite;
     int m_alternatePressedSprite;
@@ -126,7 +103,7 @@ protected:
     void NotifyPrimaryActivation();
     void NotifySecondaryActivation();
 };
-W8_ABI_ASSERT(sizeof(W8TextControl) == 0xb8, "W8TextControl_size");
+W8_ABI_ASSERT(sizeof(W8TextControl) == 0xc0, "W8TextControl_size");
 
 // VTABLE: WIZ8 0x005ed758
 class W8HelpTextControl : public W8TextControl {

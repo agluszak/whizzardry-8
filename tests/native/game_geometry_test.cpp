@@ -1,3 +1,7 @@
+#include "glm/matrix.hpp"
+#include "wiz8/ground_shadow.h"
+#include "wiz8/layouts/world.h"
+#include "wiz8/engine_code/Camera.h"
 #include "wiz8/engine_code/LevelFile.h"
 #include "wiz8/surface_geometry.h"
 #include "wiz8/navigation_flags.h"
@@ -44,6 +48,8 @@
 #include "glm/ext/vector_float2.hpp"
 #include "surrender_test_fixture.h"
 #include "surrender/srBoundingBox.h"
+#include "surrender/srBounder.h"
+#include "surrender/model_view_scope.h"
 #include "surrender/srMaterial.h"
 #include "surrender/srVertexPipe.h"
 #include "surrender/srModeler.h"
@@ -613,14 +619,11 @@ static void triangle_visibility()
         {{1, 0, 0, 1}, {-1, 0, 0, 1}, {0, 1, 0, 1}, {0, -1, 0, 1}, {0, 0, 1, 1}, {0, 0, -1, 1}}};
     const glm::mat4 identity(1);
     std::array<w8_ulong, 3> indices;
-    srTriangleCuller::Input input{};
-    input.triangle_count = 3;
-    input.vertex_count = positions.size();
+    srTriangleCuller::Input input(identity, identity);
     input.cull_mode = 2;
-    input.triangles = triangles.data();
-    input.vertices = positions.data();
-    input.clip_planes = planes.data();
-    input.model_view = input.inverse_model_view = &identity;
+    input.triangles = triangles;
+    input.vertices = positions;
+    input.clip_planes = planes;
     input.clip_mask = 0x3f;
     auto output = srTriangleCuller::cull(input);
     REQUIRE((output.indices == std::vector<w8_ulong>{0, 2}));
@@ -631,18 +634,17 @@ static void triangle_visibility()
     // Active triangle filtering must keep source order without changing the input list.
     indices = {2, 1, 0};
     const std::array<glm::vec4, 3> facing{{{0, 0, 0, 1}, {0, 0, 0, -1}, {0, 0, 0, 1}}};
-    input.active_triangles = indices.data();
-    input.active_triangle_count = 3;
-    input.projected_vertices = facing.data();
+    input.active_triangles = indices;
+    input.polygon_planes = facing;
     input.cull_mode = 0;
     input.clip_mask = 0;
     output = srTriangleCuller::cull(input);
     REQUIRE((output.indices == std::vector<w8_ulong>{2, 0}));
     REQUIRE((indices == std::array<w8_ulong, 3>{2, 1, 0}));
-    input.active_triangle_count = 0;
+    input.active_triangles = std::span<const w8_ulong>{};
     output = srTriangleCuller::cull(input);
     REQUIRE((output.indices.empty() && output.avt.empty() && output.vertex_remap.empty()));
-    const auto clip = srTriangleCuller::getClipMask({1, 0, 0}, 0, planes.data(), 0x3f);
+    const auto clip = srTriangleCuller::getClipMask({1, 0, 0}, 0, planes, 0x3f);
     REQUIRE((clip.mask == (1u << 1) && std::isfinite(clip.depth)));
 }
 
@@ -848,6 +850,85 @@ TEST_CASE("Octree face run rejects invalid growth capacity", "[geometry]")
     REQUIRE(faces == nullptr);
     REQUIRE(geometry.CheckArrayLength(&faces, 65535, 5) == 0);
     REQUIRE(faces == nullptr);
+}
+
+TEST_CASE("Inclusive cell boxes retain order clipping and extreme endpoints", "[geometry][octree]")
+{
+    std::vector<glm::ivec3> cells;
+    const auto append = [&](const glm::ivec3& cell) { cells.push_back(cell); };
+    visitOctreeCellBox({-1, 2, 3}, {0, 3, 4}, append);
+    const std::vector<glm::ivec3> expected{{-1, 2, 3}, {-1, 2, 4}, {-1, 3, 3}, {-1, 3, 4},
+                                         {0, 2, 3}, {0, 2, 4}, {0, 3, 3}, {0, 3, 4}};
+    REQUIRE(cells == expected);
+    cells.clear();
+    visitClippedOctreeCellBox({-1, 2, 3}, {0, 3, 4}, {1, 4, 5}, append);
+    REQUIRE(cells == std::vector<glm::ivec3>(expected.begin() + 4, expected.end()));
+    cells.clear();
+    visitOctreeCellBox({1, 0, 0}, {0, 0, 0}, append);
+    visitClippedOctreeCellBox({0, 0, 0}, {0, 0, 0}, {0, 0, 0}, append);
+    REQUIRE(cells.empty());
+    const glm::ivec3 extreme(std::numeric_limits<int>::max());
+    visitOctreeCellBox(extreme, extreme, append);
+    REQUIRE(cells == std::vector<glm::ivec3>{extreme});
+}
+
+TEST_CASE("Ground shadow projection retains rotated scale center and coordinate axis order", "[geometry][rendering]")
+{
+    const glm::vec3 center(10, 0, 20), vertex(12, 4, 25);
+    for (float angle : {0.0f, 0.3f, glm::half_pi<float>()}) {
+        const GroundShadowProjection projection(center, 4, 2, angle);
+        const auto coordinates = projection.coordinates(vertex);
+        const float cosine = std::cos(-angle), sine = std::sin(-angle);
+        const glm::vec2 expected(0.125f * (5 * cosine - 2 * sine) + 0.5f,
+                                 0.25f * (2 * sine + 5 * cosine) + 0.5f);
+        REQUIRE(glm::distance(coordinates, expected) < 1e-5f);
+        REQUIRE(projection.coordinates(center) == glm::vec2(0.5f));
+    }
+}
+
+TEST_CASE_METHOD(SurRenderTestFixture, "Ground polygon queries return owned sorted runs beyond thirty faces", "[geometry][octree]")
+{
+    W8World world{};
+    const struct RestoreWorld {
+        W8World* previous;
+        ~RestoreWorld() { g_world = previous; }
+    } restore{g_world};
+    g_world = &world;
+    constexpr unsigned faces = 42;
+    auto mesh = std::make_shared<stMeshModel>(faces, 3);
+    mesh->getVertexLoc()[0] = {-1, 0, -1};
+    mesh->getVertexLoc()[1] = {0, 0, 1};
+    mesh->getVertexLoc()[2] = {1, 0, -1};
+    for (unsigned i = 0; i < faces; ++i) mesh->getPolyVertex()[i] = {0, 1, 2};
+    stModelInstance instance(nullptr);
+    instance.setModel(mesh);
+    world.psrMeshes = {nullptr, &instance};
+    W8Octree tree(nullptr, nullptr);
+    tree.m_meshCount = 2;
+    tree.m_alpha_bits.assign(2, false);
+    tree.m_current_regions.assign(2, false);
+    tree.m_visited_polygon_bits.assign(faces + 1, false);
+    tree.m_spatial.m_bounds.minimum = {-100, -100, -100};
+    tree.m_spatial.m_node_extent = 1000;
+    tree.m_leaf_grid_dimensions = {1, 1, 1};
+    tree.m_leaf_lookup = static_cast<w8_ulong*>(std::calloc(1, sizeof(w8_ulong)));
+    tree.m_leaf_lookup[0] = 1;
+    tree.m_leaves = static_cast<W8OctPreTreeLeaf*>(std::calloc(2, sizeof(W8OctPreTreeLeaf)));
+    tree.m_leaves[1].polygon_offset = 1;
+    tree.m_polygon_index_stream = static_cast<w8_ulong*>(std::calloc(faces + 2, sizeof(w8_ulong)));
+    tree.m_polygon_index_stream[1] = faces;
+    tree.m_aulPolyLookup = static_cast<w8_ulong*>(std::calloc(faces + 1, sizeof(w8_ulong)));
+    for (unsigned i = 0; i < faces; ++i) {
+        tree.m_polygon_index_stream[i + 2] = i + 1;
+        tree.m_aulPolyLookup[i + 1] = (1u << 16) | (faces - i - 1);
+    }
+    const auto polygons = tree.polygonsNearPoint({0, 1, 0}, 2, 2);
+    REQUIRE(polygons.size() == faces);
+    for (unsigned i = 0; i < faces; ++i) REQUIRE(polygons[i] == ((1u << 16) | i));
+    tree.m_alpha_bits[1] = true;
+    REQUIRE(tree.polygonsNearPoint({0, 1, 0}, 2, 2).empty());
+    REQUIRE(polygons.size() == faces);
+    REQUIRE(polygons.front() == (1u << 16));
 }
 
 TEST_CASE("Octree queries own dense results across later queries", "[geometry][octree]")
@@ -1132,6 +1213,40 @@ TEST_CASE("Representation transform queries preserve local and parent coordinate
     REQUIRE(local_copy == local);
 }
 
+TEST_CASE_METHOD(SurRenderTestFixture, "Navigator releases replaced and cleared paths", "[geometry][navigation]")
+{
+    struct TrackedPath : W8PathAI {
+        explicit TrackedPath(int& releases) : releases(releases) {}
+        ~TrackedPath() override { ++releases; }
+        int& releases;
+    };
+
+    int releases = 0;
+    {
+        W8Navigator navigator;
+        auto* first = new TrackedPath(releases);
+        navigator.SetPathAI(first);
+        navigator.SetPathAI(first);
+        REQUIRE(releases == 0);
+        REQUIRE(navigator.GetPathAI() == first);
+
+        navigator.SetPathAI(new TrackedPath(releases));
+        REQUIRE(releases == 1);
+        navigator.SetNavigationMode(1);
+        REQUIRE(releases == 2);
+        REQUIRE(navigator.GetPathAI()->animated);
+        navigator.SetPathAI(new TrackedPath(releases));
+        navigator.SetPathAI(nullptr);
+        REQUIRE(releases == 3);
+        REQUIRE(navigator.GetPathAI() == nullptr);
+        navigator.SetPathAI(nullptr);
+        REQUIRE(releases == 3);
+
+        navigator.SetPathAI(new TrackedPath(releases));
+    }
+    REQUIRE(releases == 4);
+}
+
 TEST_CASE_METHOD(SurRenderTestFixture, "Movement queries return velocity and waypoint snapshots", "[geometry][navigation]")
 {
     W8Navigator navigator;
@@ -1372,6 +1487,24 @@ TEST_CASE("Software backface selection preserves thresholds and active order", "
     REQUIRE(positive == std::vector<w8_ulong>{0, 2});
     mesh.active_polygons = std::span<const w8_ulong>{};
     REQUIRE(stMeshModel::facingPolygons(mesh, normals, glm::vec3(0), true, 0).empty());
+}
+
+TEST_CASE_METHOD(SurRenderTestFixture, "Clip plane normalization preserves consumer transform ordering and degenerate planes", "[geometry][rendering]")
+{
+    srGERD renderer(srCreateSDLGPUDevice(), "clip plane ordering");
+    renderer.matrixMode(srGERD::MATRIX_MODELVIEW);
+    const auto scale = glm::scale(glm::mat4(1), glm::vec3(2, 3, 4));
+    renderer.loadMatrix(scale);
+    renderer.pushClipPlane({2, 0, 0, -2}, srGERD::CLIPMODE_POSITIONAL_0);
+    // GERD normalizes in object space before the inverse-transpose transform.
+    REQUIRE(renderer.getClipPlanes().planes[6] == glm::vec4(0.5f, 0, 0, -1));
+    renderer.popClipPlane();
+    // The CPU culler normalizes after its supplied covector transform.
+    const auto plane = srTriangleCuller::transformClipPlane({2, 0, 0, -2},
+                                                           glm::transpose(glm::inverse(scale)));
+    REQUIRE(plane == glm::vec4(1, 0, 0, -2));
+    REQUIRE(srTriangleCuller::transformClipPlane({0, 0, 0, 4}, glm::mat4(1)) ==
+            glm::vec4(0, 0, 0, 4));
 }
 
 TEST_CASE_METHOD(SurRenderTestFixture, "Empty software backface selections skip mesh submission", "[geometry]")
@@ -2230,6 +2363,149 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Mesh permutations keep GLM channels corn
     REQUIRE_THROWS_AS(mesh.reindexVertices(polygon_order), std::invalid_argument);
     REQUIRE_THROWS_AS(mesh.reindexPolygons(vertex_order), std::invalid_argument);
     REQUIRE(mesh.getVertexLoc()[0] == positions[2]); // Invalid permutations change no tables.
+}
+
+TEST_CASE_METHOD(SurRenderTestFixture, "Model-view scopes reject overflow without taking another scope's stack entry", "[geometry][rendering]")
+{
+    srGERD renderer(srCreateSDLGPUDevice(), "matrix scope overflow");
+    renderer.matrixMode(srGERD::MATRIX_MODELVIEW);
+    renderer.loadIdentity();
+    std::vector<srModelViewScope> transforms;
+    transforms.reserve(32);
+    for (int i = 0; i < 32; ++i) {
+        transforms.emplace_back(renderer);
+        renderer.translate(1, 0, 0);
+    }
+    REQUIRE_THROWS_AS(srModelViewScope(renderer), std::overflow_error);
+    REQUIRE(renderer.getMatrix()[3].x == 32);
+    while (!transforms.empty()) {
+        transforms.pop_back();
+        REQUIRE(renderer.getMatrix()[3].x == static_cast<float>(transforms.size()));
+    }
+}
+
+TEST_CASE_METHOD(SurRenderTestFixture, "Linked main and highlight draws share the instance termination boundary", "[geometry][rendering]")
+{
+    struct ProbeMesh : stMeshModel {
+        ProbeMesh() : stMeshModel(0, 0) {}
+        int draws = 0;
+        int fail_on = 0;
+        std::shared_ptr<srTextureIFace> texture;
+        TriMesh getTriMesh() override {
+            if (++draws == fail_on) throw std::runtime_error("mesh acquisition failed");
+            TriMesh mesh;
+            mesh.poly_textures[0][0] = &texture; // A table enables the highlight path.
+            return mesh;
+        }
+    };
+    srGERD renderer(srCreateSDLGPUDevice(), "linked draw boundary");
+    auto model = std::make_shared<ProbeMesh>();
+    auto part = std::make_unique<ProbeMesh>();
+    auto& middle = *part;
+    model->AddPart(std::move(part));
+    part = std::make_unique<ProbeMesh>();
+    auto& last = *part;
+    model->AddPart(std::move(part));
+    model->enable(srMeshModel::CONTROL_SKIP_AUTO_SPHERE);
+    stModelInstance instance(nullptr);
+    instance.setModel(model);
+    instance.highlight_colour = {1, 0, 0, 1};
+    srNode termination(&instance, srNode::Ownership::independent);
+    termination.setFlag(srNode::FLAG_TERMINATE);
+    const glm::vec4 ambient(0.2f, 0.3f, 0.4f, 1);
+    renderer.setAmbientLight(ambient);
+    renderer.setWinding(srGERD::WINDING_POSITIONAL_0);
+    instance.RenderMeshes(renderer);
+    REQUIRE(model->draws == 2);
+    REQUIRE(middle.draws == 2);
+    REQUIRE(last.draws == 0);
+    REQUIRE(renderer.getAmbientLight() == ambient);
+    model->draws = 0;
+    model->fail_on = 2; // Fail after entering the reversed highlight pass.
+    REQUIRE_THROWS_AS(instance.RenderMeshes(renderer), std::runtime_error);
+    REQUIRE(renderer.getWinding() == srGERD::WINDING_POSITIONAL_0);
+    REQUIRE(renderer.getAmbientLight() == ambient);
+}
+
+TEST_CASE_METHOD(SurRenderTestFixture, "Failed instance materials restore picking lighting and material overrides", "[geometry][rendering]")
+{
+    struct FailingMaterial : srMaterial {
+        void preProcess(srVertexPipe&) override { throw std::runtime_error("material failed"); }
+    };
+    srGERD renderer(srCreateSDLGPUDevice(), "failed instance draw");
+    renderer.setWinding(srGERD::WINDING_POSITIONAL_0);
+    auto* batch = renderer.lockRenderer();
+    batch->sorted = 1;
+    renderer.unlockRenderer(batch, 0);
+    auto model = std::make_shared<stMeshModel>(1, 3);
+    model->getVertexLoc()[0] = {-0.5f, -0.5f, 0.5f};
+    model->getVertexLoc()[1] = {0.5f, -0.5f, 0.5f};
+    model->getVertexLoc()[2] = {0, 0.5f, 0.5f};
+    model->getPolyVertex()[0] = {0, 2, 1};
+    model->setMaterial(std::make_shared<FailingMaterial>(), 0, srMeshModel::SIDE_FRONT);
+    model->enable(srMeshModel::CONTROL_SKIP_AUTO_SPHERE);
+    stModelInstance instance(nullptr);
+    instance.setModel(model);
+    instance.render_flags = stModelInstance::RENDER_NO_PICK;
+    instance.diffuse_scale_enabled = true;
+    instance.diffuse_scale = 0.75f;
+    instance.emissive_override_enabled = true;
+    instance.emissive_override = 0.25f;
+    const auto diffuse_enabled = g_material_diffuse_scale_enabled;
+    const auto emissive_enabled = g_material_emissive_override_enabled;
+    const auto diffuse = g_material_diffuse_scale;
+    const auto emissive = g_material_emissive_override;
+    const glm::vec4 ambient(0.2f, 0.3f, 0.4f, 1);
+    renderer.setAmbientLight(ambient);
+    renderer.pushPick({{0, 0, 1}, nullptr, 7});
+    REQUIRE_THROWS_AS(instance.RenderMeshes(renderer), std::runtime_error);
+    REQUIRE(renderer.getAmbientLight() == ambient);
+    REQUIRE(g_material_diffuse_scale_enabled == diffuse_enabled);
+    REQUIRE(g_material_emissive_override_enabled == emissive_enabled);
+    REQUIRE(g_material_diffuse_scale == diffuse);
+    REQUIRE(g_material_emissive_override == emissive);
+    REQUIRE_FALSE(renderer.isPickStackEmpty());
+    srGERD::Pick pick;
+    renderer.popPick(pick);
+    REQUIRE(pick.triangle_index == 7);
+}
+
+TEST_CASE_METHOD(SurRenderTestFixture, "Bounds rejection restores transforms before returning or traversing children", "[geometry][rendering]")
+{
+    struct Child : srNode {
+        explicit Child(srNode& parent) : srNode(&parent, Ownership::independent) {}
+        bool visited = false;
+        glm::mat4 view{0};
+        void traverse(TraverseInfo& info) override {
+            visited = true;
+            view = info.renderer->getMatrix(srGERD::MATRIX_MODELVIEW);
+        }
+    };
+    srGERD renderer(srCreateSDLGPUDevice(), "bounder scope");
+    renderer.matrixMode(srGERD::MATRIX_PROJECTION);
+    renderer.loadIdentity();
+    renderer.matrixMode(srGERD::MATRIX_MODELVIEW);
+    renderer.loadIdentity();
+    srBounder bounder;
+    bounder.setLocation(0.25, 0, 0);
+    Child child(bounder);
+    renderer.pushClipPlane({1, 0, 0, 0}, srGERD::CLIPMODE_POSITIONAL_0);
+    srNode::TraverseInfo info;
+    info.renderer = &renderer;
+    const auto view = renderer.getMatrix(srGERD::MATRIX_MODELVIEW);
+    const std::array<srNode::BoundInfo, 3> bounds{{
+        {{-3, -1, -1}, {-2, 1, 1}, {-3, 0, 0}, 0.1f, 1}, // Sphere rejection.
+        {{-3, -1, -1}, {-2, 1, 1}, {0, 0, 0}, 4, 1},    // Box rejection.
+        {{0, -1, -1}, {1, 1, 1}, {0.5f, 0, 0}, 1, 1}}};
+    for (std::size_t i = 0; i < bounds.size(); ++i) {
+        bounder.setBounds(bounds[i]);
+        child.visited = false;
+        bounder.traverse(info);
+        REQUIRE(renderer.getMatrix(srGERD::MATRIX_MODELVIEW) == view);
+        REQUIRE(child.visited == (i == 2));
+        if (child.visited) REQUIRE(child.view == view);
+    }
+    renderer.popClipPlane();
 }
 
 TEST_CASE_METHOD(SurRenderTestFixture, "Model render scopes restore GLM transforms and exclusions after a failed draw", "[geometry][rendering]")

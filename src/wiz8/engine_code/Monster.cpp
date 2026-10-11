@@ -1,8 +1,9 @@
 #include "glm/ext/vector_float3.hpp"
 #include "surrender/srBoundingBox.h"
+#include <SDL3/SDL_surface.h>
+#include <SDL3/SDL_pixels.h>
 #include <fmt/format.h>
 #include <fmt/printf.h>
-#include <glm/ext/matrix_transform.hpp>
 #include <glm/ext/quaternion_trigonometric.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include <memory>
@@ -21,11 +22,11 @@
 
 #include "compat/native.h"
 #include "glm/ext/matrix_double3x3.hpp"
-#include "glm/ext/matrix_double4x4.hpp"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/matrix_float4x4.hpp"
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float4.hpp"
+#include "wiz8/surface_storage.h"
 #include "wiz8/containers.h"
 #include "wiz8/engine_code/AnimRep.hpp"
 #include "wiz8/engine_code/Camera.h"
@@ -3168,10 +3169,10 @@ void W8Monster::UpdateRepresentation(W8World* world)
         if (angle != g_float_zero) {
             {
                 if (static_cast<double>(angle) != 0.0) {
-                    rotation = rotation *
-                               glm::mat3(glm::rotate(
-                                   glm::dmat4(1), static_cast<double>(static_cast<double>(angle)),
-                                   glm::dvec3(1, 0, 0)));
+                    rotation =
+                        rotation * glm::mat3(glm::mat3_cast(glm::angleAxis(
+                                                  static_cast<double>(angle),
+                                                  glm::dvec3(1, 0, 0))));
                 }
             }
         }
@@ -4896,9 +4897,14 @@ void W8Monster::SpawnDamageNumber(unsigned int amount)
             SetFontDestClip(0, 0, surface->getWidth(), surface->getHeight());
             SetFont(g_monster_damage_font);
             text = fmt::format("{:d}", amount);
-            DrawFontTextToBuffer(data, surface->getPitch(), g_monster_damage_font,
-                                 0x80 - g_monster_damage_font.textWidth(text) / 2,
-                                 0x80 - g_monster_damage_font.height() / 2, text);
+            SDLSurfaceOwner text_surface{
+                SDL_CreateSurfaceFrom(surface->getWidth(), surface->getHeight(),
+                                      SDL_PIXELFORMAT_RGB565, data, surface->getPitch()),
+                SDL_DestroySurface};
+            if (text_surface)
+                DrawFontTextToSurface(*text_surface, g_monster_damage_font,
+                                      0x80 - g_monster_damage_font.textWidth(text) / 2,
+                                      0x80 - g_monster_damage_font.height() / 2, text);
 
         }
 

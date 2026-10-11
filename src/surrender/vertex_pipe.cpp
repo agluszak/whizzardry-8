@@ -1,3 +1,4 @@
+#include <stdexcept>
 #include "surrender/lighting_math.h"
 #include <cassert>
 #include "surrender/srBoundingSphere.h"
@@ -33,6 +34,15 @@ static void ScaleAndStoreCoverage(std::span<float> values, glm::vec4* colors,
     if (clamp_values) srChannelMath::clamp(values);
     srChannelMath::scale(values, scale);
     for (std::size_t index = 0; index < values.size(); ++index) colors[index].w = values[index];
+}
+
+// Attributes retain the original AVT even when geometry uses direct indices.
+static void MultiplyIndexedColors(std::span<glm::vec4> destination,
+                                  const glm::vec4* multipliers,
+                                  std::span<const w8_ulong> indices)
+{
+    for (std::size_t index = 0; index < destination.size(); ++index)
+        destination[index] *= multipliers[indices[index]];
 }
 
 // FUNCTION: SURRENDER 0x1002AA50
@@ -185,19 +195,20 @@ void srVertexPipe::process(const Input& input)
 {
     this->input = &input;
     active_processors.clear();
-    active_processors.reserve(input.processor_count);
-    for (w8_ulong index = 0; index < input.processor_count; ++index) {
-        srVertexProcessor* processor = input.processors[index];
+    active_processors.reserve(input.processors.size());
+    for (srVertexProcessor* processor : input.processors) {
         if (processor->isActive(*this)) {
             active_processors.push_back(processor);
         }
     }
     setMaterial(0);
-    eye_space_locations = input.vertex_arrays->eye_locations;
     batch_base = 0;
     w8_ulong vertex_count = input.vertex_count;
     if (vertex_count == 0)
         return;
+    if (input.vertex_arrays.size() < input.records.size() || input.vertex_arrays.empty())
+        throw std::invalid_argument("vertex pipeline requires an array for every render pass");
+    eye_space_locations = input.vertex_arrays.front().eye_locations;
     const auto model_view = (*input.model_view);
     while (vertex_count != 0) {
         vertex_count -= batch_base;
@@ -208,7 +219,7 @@ void srVertexPipe::process(const Input& input)
         avt = input.active_vertices + batch_base;
         scratch.flags = 0;
         for (w8_ulong i = 0; i < batch_count; ++i) {
-            const auto index = input.direct_vertex_indices ? batch_base + i : avt[i];
+            const auto index = input.geometryIndex(batch_base + i);
             eye_space_locations[batch_base + i] =
                 model_view * glm::vec4(input.positions[index], 1.0f);
         }
@@ -216,7 +227,7 @@ void srVertexPipe::process(const Input& input)
         for (record_index = 0; record_index < input.records.size(); ++record_index) {
             const Record* record = &input.records[record_index];
             current_record = record;
-            vertex_array = input.vertex_arrays + record_index;
+            vertex_array = &input.vertex_arrays[record_index];
             if ((record->flags & Record::HAS_VERTEX_MATERIALS) == 0) {
                 this->vertex_count = batch_count;
                 sub_batch_offset = 0;
@@ -345,9 +356,8 @@ void srVertexPipe::finishDiffuseAlpha()
     }
     if (((current_record->flags & srVertexPipe::Record::HAS_DIFFUSE_MULTIPLIERS) != 0) &&
         (vertex_count != 0))
-        for (std::size_t i = 0; i < vertex_count; ++i) {
-            diffuse[i] = diffuse[i] * current_record->spec_for_diffuse[avt[sub_batch_offset + i]];
-    }
+        MultiplyIndexedColors({diffuse, vertex_count}, current_record->spec_for_diffuse,
+                              {avt + sub_batch_offset, vertex_count});
 }
 
 // FUNCTION: SURRENDER 0x1002B5F0
@@ -398,10 +408,8 @@ void srVertexPipe::finishSpecularFog()
     }
     if (((current_record->flags & srVertexPipe::Record::HAS_SPECULAR_MULTIPLIERS) != 0) &&
         (vertex_count != 0))
-        for (std::size_t i = 0; i < vertex_count; ++i) {
-            destination[i] =
-                destination[i] * current_record->spec_for_specular[avt[sub_batch_offset + i]];
-    }
+        MultiplyIndexedColors({destination, vertex_count}, current_record->spec_for_specular,
+                              {avt + sub_batch_offset, vertex_count});
 }
 
 // FUNCTION: SURRENDER 0x1002B860
@@ -413,7 +421,7 @@ void srVertexPipe::setupEyeSpaceNormal()
     } else {
         const auto normal_transform = (*input->normal_matrix);
         for (w8_ulong i = 0; i < batch_count; ++i) {
-            const auto index = input->direct_vertex_indices ? batch_base + i : avt[i];
+            const auto index = input->geometryIndex(batch_base + i);
             scratch.normals[i] = glm::vec3(
                 normal_transform * glm::vec4(normals[index], 1.0f));
         }

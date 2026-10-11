@@ -753,6 +753,10 @@ void W8Navigator::SetHeightRange(float minimum, float maximum)
 // FUNCTION: WIZ8 0x004538b0
 void W8Navigator::SetPathAI(W8PathAI* path_ai)
 {
+    if (this->path_ai == path_ai) {
+        return;
+    }
+    delete this->path_ai;
     this->path_ai = path_ai;
 }
 
@@ -1982,10 +1986,7 @@ void W8Navigator::UpdateNavigation(unsigned char skip_movement, bool slowed)
                 target = next;
                 SetMovementTarget(&target, false);
             } else {
-                if (path_ai != 0) {
-                    PathAIClearOwned(path_ai);
-                    path_ai = 0;
-                }
+                SetPathAI(nullptr);
                 ClearMovement();
                 if (movement_kind == 6 && (flags & 0x20000000) != 0) {
                     ConfigureMovement(-1.0f, -1.0f);

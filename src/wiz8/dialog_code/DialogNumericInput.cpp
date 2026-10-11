@@ -1,3 +1,4 @@
+#include <SDL3/SDL_surface.h>
 #include <fmt/format.h>
 #include <SDL3/SDL_rect.h>
 #include <charconv>
@@ -6,13 +7,10 @@
 #include <cstddef>
 #include <string_view>
 
-#include "vsurface.h"
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
 #include "wiz8/engine_code/Video2.h"
 #include "Font.h"
 #include "input.h"
-#include "line.h"
-#include "vobject.h"
 #include "dialog_code/DialogBase.h"
 #include "dialog_code/DialogButton.h"
 #include "local_code/ControlsRect.h"
@@ -96,9 +94,8 @@ void W8DialogNumericInput::Draw(bool force)
     g_numeric_input_text = fmt::format("{:d}", m_value);
     size_t length = g_numeric_input_text.size();
     SetFont(*m_font);
-    auto& font_object = m_font->glyphs;
     g_numeric_input_text = fmt::format("{:d}", m_value);
-    SetObjectShade(font_object, 4);
+    m_font->setShade(Font::kNormalShade);
     SetFontDestBuffer(GetFrameBufferSurface(), m_bounds.left, m_bounds.top, m_bounds.right, m_bounds.bottom,
                       0);
     unsigned short font_height = m_font->height();
@@ -113,12 +110,12 @@ void W8DialogNumericInput::Draw(bool force)
             m_bounds.right - m_font->textWidth(std::string_view(g_numeric_input_text).substr(length - m_caret)) - 1;
         font_height = m_font->height();
         int caret_top = m_bounds.top + std::max(0, (m_bounds.bottom - m_bounds.top - font_height) / 2);
-        char* screen = static_cast<char*>(GetFrameBufferSurface().cpu().surface->pixels);
         int caret_bottom = m_bounds.bottom;
         if (caret_top + m_font->height() < caret_bottom) {
             caret_bottom = caret_top + m_font->height();
         }
-        LineDraw(0, caret_x, caret_top, caret_x, caret_bottom, -1, screen);
+        const SDL_Rect caret{caret_x, caret_top, 1, caret_bottom - caret_top + 1};
+        SDL_FillSurfaceRect(&GetFrameBufferSurface(), &caret, 0xffff);
     }
     SetFontDestBuffer(GetFrameBufferSurface(), 0, 0, 640, 480, 0);
     m_dirty = false;

@@ -47,7 +47,6 @@
 #include "wiz8/fact_state.h"
 #include "wiz8/local_screens/MGSKeyboard.h"
 #include "wiz8/engine_code/Video2.h"
-#include "vobject.h"
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/dialog_code/MessageDialogBase.h"
 #include "wiz8/dialog_code/NpcDialog.h"
@@ -91,7 +90,6 @@
 #include "mgs_commands.h"
 #include "npc_trade_price.h"
 #include "surrender/srMath.h"
-#include "vsurface.h"
 
 // GLOBAL: WIZ8 0x0068ee90
 static W8NpcInteractionState g_npc_interaction_storage;
@@ -174,11 +172,10 @@ void W8NpcTypedDialoguePanel::Redraw()
     if (m_fDirty) {
         if (m_catalogObject != -1) {
             DrawCatalogImage(GetFrameBufferSurface(), m_catalogObject, m_catalogFrame, m_catalogImage,
-                             m_bounds.left, m_bounds.top, VO_BLT_SRCTRANSPARENCY);
+                             m_bounds.left, m_bounds.top);
         }
         DrawCatalogImage(GetFrameBufferSurface(), 0x1a9, 0, 0x10, 0x1df,
-                         g_npc_interaction_state->where_is_query ? 0x19b : 0x18b,
-                         VO_BLT_SRCTRANSPARENCY);
+                         g_npc_interaction_state->where_is_query ? 0x19b : 0x18b);
         redrawn = 1;
     } else if (!m_fLayoutDirty) {
         return;
@@ -231,7 +228,7 @@ void W8NpcDialogueOptionsPanel::Redraw()
                                      W8_DIALOGUE_LAYOUT_MAIN_TEXT_BOX
                                  ? m_main_text_box_image
                                  : m_catalogImage,
-                             m_bounds.left, m_bounds.top, VO_BLT_SRCTRANSPARENCY);
+                             m_bounds.left, m_bounds.top);
         }
         redrawn = 1;
     } else if (!m_fLayoutDirty) {
@@ -2590,17 +2587,12 @@ void CloseNpcDialogueOptionLayout(void)
 void OpenNpcItemAssay(void)
 {
     W8AssayDialog* dialog;
+    auto* item_control = static_cast<W8TextControl*>(
+        g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_24]);
 
     if (g_npc_interaction_state->trade_item != 0 &&
-        static_cast<W8TextControl*>(
-            g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_24])
-                ->m_imageObject != -1 &&
-        (static_cast<W8TextControl*>(
-             g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_24])
-                 ->m_imageIsItem ||
-         static_cast<W8TextControl*>(
-             g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_24])
-                 ->m_imageObject != 0x1ac)) {
+        item_control->m_imageSprites &&
+        item_control->m_imageSprites != GetCatalogSpriteSheet(0x1ac, 0)) {
         dialog = new W8AssayDialog(g_npc_interaction_state->trade_item,
                                    &g_status.buffers.Char[g_status.selected_character]);
         dialog->SetText("");
