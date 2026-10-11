@@ -1,5 +1,8 @@
 #include <SDL3/SDL_pixels.h>
 #include <fmt/format.h>
+#include "surrender/lighting_math.h"
+#include "surrender/srMath.h"
+#include "surrender/srBoundingBox.h"
 #include <fmt/printf.h>
 #include <memory>
 #include <span>
@@ -384,9 +387,8 @@ static unsigned char PreprocessLevel(wiz8::File* handle, char* stem)
             redundant = 0;
             for (i = 1; i < mesh->num_vertices; ++i) {
                 const srVector3T<float>& source = mesh->pstVertices[i - 1];
-                vertices[i].position.Set(source.x * g_world_scale, source.y * g_world_scale,
-                                         source.z * g_world_scale);
-                vertices[i].m_original_position.Set(source.x, source.y, source.z);
+                vertices[i].position = source.glmValue() * g_world_scale;
+                vertices[i].m_original_position = source.glmValue();
                 vertices[i].m_visited = false;
                 for (j = 0; j < 3; ++j) {
                     float v = (&vertices[i].position.x)[j];
@@ -1125,10 +1127,9 @@ static int BuildRegionPolygons(W8LevelFile* level, W8OctPreTreeGeometry* geometr
     int ordinal;
     int last_percent;
     w8_ulong axis;
-    float length;
     float offset;
     bool opposing;
-    srVector3T<float> normal;
+    glm::vec3 normal;
     W8OctRegionPolygon* polygons;
     W8OctRegionPolygon* polygon;
     W8OctRegionPolygon* back;
@@ -1204,24 +1205,9 @@ static int BuildRegionPolygons(W8LevelFile* level, W8OctPreTreeGeometry* geometr
                 polygon->degenerate = 1;
             }
             if (polygon->degenerate == 0) {
-                normal.SetZero();
-                int step = 2;
-                for (corner = 0; corner < 3; ++corner) {
-                    const W8OctPreTreeVertex* prev = vertices + vertex_index[(step - 1) % 3];
-                    const W8OctPreTreeVertex* next = vertices + vertex_index[step % 3];
-                    const W8OctPreTreeVertex* cur = vertices + vertex_index[corner];
-                    ++step;
-                    normal.x += (prev->m_original_position.z - next->m_original_position.z) *
-                                cur->m_original_position.y;
-                    normal.y += (prev->m_original_position.x - next->m_original_position.x) *
-                                cur->m_original_position.z;
-                    normal.z += (prev->m_original_position.y - next->m_original_position.y) *
-                                cur->m_original_position.x;
-                }
-                length = sqrt(normal.LengthSquared());
-                normal.x /= length;
-                normal.y /= length;
-                normal.z /= length;
+                normal = trianglePlane(vertices[vertex_index[0]].m_original_position,
+                                       vertices[vertex_index[1]].m_original_position,
+                                       vertices[vertex_index[2]].m_original_position).normal.glmValue();
                 offset = 0.0f;
                 for (corner = 0; corner < 3; ++corner) {
                     current = vertices + vertex_index[corner];
@@ -1230,18 +1216,14 @@ static int BuildRegionPolygons(W8LevelFile* level, W8OctPreTreeGeometry* geometr
                 }
                 offset *= g_float_negative_one_third;
                 polygon->plane.normal = normal;
-                axis = dominantPlaneAxis(normal.glmValue());
+                axis = dominantPlaneAxis(normal);
                 polygon->plane.w = offset;
                 polygon->flags = axis;
                 opposing = false;
                 for (corner = 0; corner < 3; ++corner) {
                     current = vertices + vertex_index[corner];
                     if (current->m_normal_count != 0) {
-                        length = sqrt(glm::dot((current->m_normal).glmValue(),
-                                               (current->m_normal).glmValue()));
-                        if ((current->m_normal.z / length) * normal.z +
-                                (current->m_normal.y / length) * normal.y +
-                                (current->m_normal.x / length) * normal.x <
+                        if (glm::dot(normalizedOrZero(current->m_normal), normal) <
                             g_material_opposed_normal_threshold) {
                             opposing = true;
                         }
@@ -1277,7 +1259,7 @@ static int BuildRegionPolygons(W8LevelFile* level, W8OctPreTreeGeometry* geometr
                             vertex_index[corner] = mesh->num_vertices;
                             ++mesh->num_vertices;
                             created->flags |= W8OctPreTreeVertex::NORMAL_SPLIT;
-                            created->m_normal.SetZero();
+                            created->m_normal = glm::vec3(0);
                             created->m_normal_count = 0;
                         } else {
                             vertex_index[corner] = found - 1;
@@ -1383,7 +1365,7 @@ bool W8OctPreTreeGeometry::splitVerticesByMaterial()
 static int AccumulateVertexLight(OctPreTree* tree, W8OctPreTreeVertex* vertex, short light_count,
                                  W8LevelFileLight* lights, int* sun_map)
 {
-    srVector3T<float> delta;
+    glm::vec3 delta;
     float distance;
     float dot;
     float scale;
@@ -1399,17 +1381,15 @@ static int AccumulateVertexLight(OctPreTree* tree, W8OctPreTreeVertex* vertex, s
     sun = sun_map;
     do {
         if ((light->version < 2) || ((light->create == 0) && (light->visible != 0))) {
-            delta = light->position - vertex->position;
-            distance = delta.Length();
+            delta = light->position.glmValue() - vertex->position;
+            distance = glm::length(delta);
             if ((distance < light->range) || ((sun_map != 0) && (*sun != 0))) {
                 ++g_light_candidates;
-                dot = (delta.x / distance) * vertex->m_normal.x +
-                      (delta.y / distance) * vertex->m_normal.y +
-                      (delta.z / distance) * vertex->m_normal.z;
+                dot = glm::dot(delta / distance, vertex->m_normal);
                 if (g_float_zero < dot) {
                     ++g_lights_facing;
                     if (g_option_shadow_test) {
-                        if (!tree->SegmentClear(light->position.glmValue(), vertex->position.glmValue())) {
+                        if (!tree->SegmentClear(light->position.glmValue(), vertex->position)) {
                             goto next_light;
                         }
                     }
@@ -1417,9 +1397,8 @@ static int AccumulateVertexLight(OctPreTree* tree, W8OctPreTreeVertex* vertex, s
                     ++lit;
                     if ((sun_map == 0) || (*sun == 0)) {
                         scale = dot * light->intensity * (g_float_one - distance / light->range);
-                        vertex->m_light.x = scale * light->colour.x + vertex->m_light.x;
-                        vertex->m_light.y = scale * light->colour.y + vertex->m_light.y;
-                        vertex->m_light.z = scale * light->colour.z + vertex->m_light.z;
+                        srLightingMath::accumulateLight(std::span{&vertex->m_light, 1},
+                            light->colour.glmValue(), std::span{&scale, 1});
                     } else {
                         *vertex->m_sun_lights = dot * light->intensity + *vertex->m_sun_lights;
                     }
@@ -1443,39 +1422,14 @@ static int AccumulateVertexLight(OctPreTree* tree, W8OctPreTreeVertex* vertex, s
 static unsigned char PropReceivesLight(OctPreTree* tree, W8LevelFileProp* prop,
                                        W8LevelFileLight* light)
 {
-    int corner_x;
-    int corner_y;
-    int corner_z;
-    unsigned char bound;
-    srVector3T<float> bounds[2];
-    srVector3T<float> position;
-    srVector3T<float> corner;
-
-    position.Set(prop->position.x * g_world_scale, prop->position.y * g_world_scale,
-                 prop->position.z * g_world_scale);
-    if (tree->SegmentClear(light->position.glmValue(), position.glmValue())) {
-        return 1;
-    }
-    bound = 0;
-    if (prop->anim_obj.num_bound_box != 0) {
-        const W8LevelFileBounds* boxes = prop->anim_obj.pBoundBox;
-        do {
-            bounds[0] = boxes[bound].minimum;
-            bounds[1] = boxes[bound].maximum;
-            for (corner_x = 0; corner_x < 2; ++corner_x) {
-                float x = bounds[corner_x].x * g_world_scale;
-                for (corner_y = 0; corner_y < 2; ++corner_y) {
-                    float y = bounds[corner_y].y * g_world_scale;
-                    for (corner_z = 0; corner_z < 2; ++corner_z) {
-                        corner.Set(x, y, bounds[corner_z].z * g_world_scale);
-                        if (tree->SegmentClear(light->position.glmValue(), corner.glmValue())) {
-                            return 1;
-                        }
-                    }
-                }
-            }
-            ++bound;
-        } while (bound < prop->anim_obj.num_bound_box);
+    const auto origin = light->position.glmValue();
+    if (tree->SegmentClear(origin, prop->position.glmValue() * g_world_scale)) return 1;
+    for (const auto& box : std::span(prop->anim_obj.pBoundBox, prop->anim_obj.num_bound_box)) {
+        const srBoundingBox bounds{box.minimum.glmValue() * g_world_scale,
+                                   box.maximum.glmValue() * g_world_scale};
+        // Bounding-box corners retain the original x/y/z probe order.
+        for (unsigned corner = 0; corner < 8; ++corner)
+            if (tree->SegmentClear(origin, bounds.corner(corner))) return 1;
     }
     return 0;
 }

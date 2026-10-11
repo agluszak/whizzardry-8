@@ -285,8 +285,7 @@ bool W8OctPreTreeGeometry::compact()
 
     w8_ulong next = 1;
     for (auto& vertex : std::span(prepared).subspan(1)) {
-        const auto normal = vertex.m_normal.glmValue();
-        if (glm::dot(normal, normal) != 0) vertex.m_normal = glm::normalize(normal);
+        vertex.m_normal = normalizedOrZero(vertex.m_normal);
         if (!(vertex.flags & W8OctPreTreeVertex::EXCLUDED)) {
             if (!vertex.m_normal_count) vertex.flags |= W8OctPreTreeVertex::EXCLUDED;
             else vertex.m_vertex_index = next++;
@@ -360,9 +359,9 @@ unsigned char OctBuildPreTree::InsertSurfaceRecursive(W8OctSpatialState* working
 
     if (working->m_depth < 0x10) {
         if (working->m_depth < spatial.m_depth) {
-            const RuntimeTriangle vertices{polygon->vertices[0]->position.glmValue(),
-                                           polygon->vertices[1]->position.glmValue(),
-                                           polygon->vertices[2]->position.glmValue()};
+            const RuntimeTriangle vertices{polygon->vertices[0]->position,
+                                           polygon->vertices[1]->position,
+                                           polygon->vertices[2]->position};
             inserted = InsertBuildSurfaceChildren(
                 working, child, child.m_extent,
                 [&](W8OctSpatialState& candidate) {
@@ -671,7 +670,7 @@ unsigned char OctBuildPreTree::AssignPolygonRegions(W8OctPreTreeGeometry* geomet
             W8OctPreTreeVertex* vert = &geometry->m_vertices[vertex];
             unsigned short hits = 0;
             for (unsigned short region = 1; region < spatial.m_region_id_bound; ++region) {
-                if (PointInsideFrustum(vert->position.glmValue(),
+                if (PointInsideFrustum(vert->position,
                                        spatial.m_region_volumes[region].m_planes)) {
                     ++hits;
                     vert->m_region = region;
@@ -863,7 +862,7 @@ unsigned short OctBuildPreTree::SplitSharedPolygon(W8OctPreTreeGeometry* geometr
         if ((polygon->flags & W8OctRegionPolygon::CENTER_IN_REGION) == 0) {
             inside = 0;
             for (int corner = 0; corner < 3; ++corner) {
-                if (PointInsideFrustum(polygon->vertices[corner]->position.glmValue(),
+                if (PointInsideFrustum(polygon->vertices[corner]->position,
                                        spatial.m_region_volumes[region].m_planes)) {
                     inside = 1;
                     break;
@@ -988,9 +987,9 @@ void OctBuildPreTree::AssignInitialRegions(const W8OctSpatialState* arg_spatial)
                 auto* polygon = static_cast<W8OctRegionPolygon*>(surface);
                 if (polygon->region == this->spatial.m_region_id_bound) {
                     for (int vertex_index = 0; vertex_index != 3; ++vertex_index) {
-                        const srVector3T<float>& position =
+                        const glm::vec3& position =
                             polygon->vertices[vertex_index]->position;
-                        float distance = glm::distance(center, position.glmValue());
+                        float distance = glm::distance(center, position);
                         if (this->spatial.m_max_region_radius < distance) {
                             this->spatial.m_max_region_radius = distance;
                         }
@@ -1177,7 +1176,7 @@ void OctBuildPreTree::FinalizeRegionMapping()
         }
 
         for (const auto* vertex : polygon.vertices)
-            region_bounds[region].include(vertex->position.glmValue());
+            region_bounds[region].include(vertex->position);
     }
 
     for (const auto path : region_paths) {

@@ -842,7 +842,7 @@ void W8GameData::CompileGameData()
         srVector3T<float>* new_vertex = new_vertices;
         W8OctPreTreeVertex* gd_vertex = g_gd_vertices;
         for (i = 0; i < VerticesCount(); ++i) {
-            vertex->position = *source;
+            vertex->position = source->glmValue();
             unsigned int percent =
                 static_cast<unsigned int>(i * g_octree_cell_scale / VerticesCount());
             if (progress + 10 < percent) {

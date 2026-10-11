@@ -2240,7 +2240,7 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Material vertex splits preserve first-fa
     for (unsigned source = 1; source < 5; ++source) {
         auto& vertex = geometry.m_vertices[source];
         vertex.m_vertex_index = source;
-        vertex.position = srVector3(float(source), 2, 3);
+        vertex.position = glm::vec3(float(source), 2, 3);
         if (source < 4) {
             vertex.face_indices = faces.data();
             vertex.face_count = faces.size();
@@ -2312,9 +2312,9 @@ TEST_CASE("Geometry compaction preserves weld chains, stable faces and normalize
         record.m_vertex_index = vertex;
         record.position.x = static_cast<float>(vertex);
         record.m_normal_count = 30;
-        record.m_normal.Set(0, 3, 4);
+        record.m_normal = {0, 3, 4};
     }
-    geometry.m_vertices[2].m_normal.Set(-0.0f, 0, 0);
+    geometry.m_vertices[2].m_normal = {-0.0f, 0, 0};
     geometry.m_vertices[3].flags = W8OctPreTreeVertex::EXCLUDED;
     geometry.m_vertices[3].m_vertex_index = 1;
     geometry.m_vertices[5].flags = W8OctPreTreeVertex::EXCLUDED;
@@ -2336,7 +2336,7 @@ TEST_CASE("Geometry compaction preserves weld chains, stable faces and normalize
     REQUIRE(geometry.m_vertices[1].position.x == 1);
     REQUIRE(geometry.m_vertices[2].position.x == 2);
     REQUIRE(geometry.m_vertices[3].position.x == 6);
-    REQUIRE(geometry.m_vertices[1].m_normal.glmValue() == glm::vec3(0, 0.6f, 0.8f));
+    REQUIRE(geometry.m_vertices[1].m_normal == glm::vec3(0, 0.6f, 0.8f));
     REQUIRE(std::signbit(geometry.m_vertices[2].m_normal.x));
     REQUIRE(geometry.m_vertices[2].m_normal_count == 2);
     constexpr std::array<std::array<unsigned, 3>, 2> expected{{{1, 1, 2}, {1, 3, 2}}};

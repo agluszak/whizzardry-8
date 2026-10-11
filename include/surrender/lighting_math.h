@@ -25,14 +25,16 @@ inline void normalDots(std::span<float> destination, std::span<const glm::vec3> 
 }
 
 // Keep attenuation and angular weights separate to retain highlight rounding.
-inline void accumulateLight(std::span<glm::vec4> destination, const glm::vec4& color,
+template<glm::length_t Components>
+inline void accumulateLight(std::span<glm::vec<Components, float>> destination,
+                             const glm::vec<Components, float>& color,
                              std::span<const float> weights = {},
                              std::span<const float> attenuation = {})
 {
     assert(weights.empty() || weights.size() >= destination.size());
     assert(attenuation.empty() || attenuation.size() >= destination.size());
     for (std::size_t i = 0; i < destination.size(); ++i) {
-        glm::vec4 contribution = color;
+        glm::vec<Components, float> contribution = color;
         if (!attenuation.empty()) contribution *= attenuation[i];
         if (!weights.empty()) contribution *= weights[i];
         destination[i] = contribution + destination[i];

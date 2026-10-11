@@ -171,9 +171,9 @@ bool OctPreTree::TestCollectedPolygons(W8OctreeTrace* trace)
             {trace->start, trace->end, trace->step,
              trace->length, limit}, PlaneContactMode::Occlusion);
         if (contact) {
-            const RuntimeTriangle vertices{polygon->vertices[0]->position.glmValue(),
-                                           polygon->vertices[1]->position.glmValue(),
-                                           polygon->vertices[2]->position.glmValue()};
+            const RuntimeTriangle vertices{polygon->vertices[0]->position,
+                                           polygon->vertices[1]->position,
+                                           polygon->vertices[2]->position};
             if (PointInsideTriangle(vertices, polygon->flags & W8OctRegionPolygon::AXIS_MASK,
                                     contact->point)) {
                 blocked = true;
@@ -954,9 +954,9 @@ w8_ulong OctPreTree::AllocateSubMesh(W8OctSubmeshBuild* records)
                                 6, "One of your regions has more than 5000 polys in it!\n");
                         }
                         for (int corner = 0; corner < 3; ++corner) {
-                            const srVector3T<float>* position =
+                            const glm::vec3* position =
                                 &game_data->m_polygons[poly].vertices[corner]->position;
-                            bounds.include(position->glmValue());
+                            bounds.include(*position);
                         }
                     }
                 }
@@ -1038,9 +1038,9 @@ void OctPreTree::VerifyAutoMeshes(W8OctPreTreeGeometry* geometry, W8OctSubmeshBu
                 for (w8_ulong link = mesh; link != 0; link = records[link].m_next_link) {
                     W8OctSubmeshBuild* record = records + link;
                     for (w8_ulong i = 0; i < record->vertex_count; ++i) {
-                        const srVector3T<float>* position =
+                        const glm::vec3* position =
                             &geometry->m_vertices[record->m_vertex_ids[i]].position;
-                        bounds.include(position->glmValue());
+                        bounds.include(*position);
                     }
                 }
                 if (!m_spatial.regionCellBounds(packed).overlaps(bounds)) {
