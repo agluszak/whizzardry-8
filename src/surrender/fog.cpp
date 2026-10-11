@@ -52,15 +52,14 @@ void srFog::getRange(double& start, double& end)
 // FUNCTION: SURRENDER 0x1004B6F0
 int srFog::isActive(srVertexPipe& pipe)
 {
-    glm::vec3 center;
-    float radius;
     if ((group_mask & pipe.getExclusionMask()) != 0) {
         return 0;
     }
     if (density > 0.0f) {
-        pipe.getEyeSpaceBoundingSphere(center, radius);
-        if ((radius <= fog_start) &&
-            (glm::dot(center, center) < (fog_start - radius) * (fog_start - radius))) {
+        const auto sphere = pipe.getEyeSpaceBoundingSphere();
+        if ((sphere.radius <= fog_start) &&
+            (glm::dot(sphere.center, sphere.center) <
+             (fog_start - sphere.radius) * (fog_start - sphere.radius))) {
             return 0;
         }
         return 1;
@@ -94,12 +93,10 @@ void srFog::process(srVertexPipe& pipe)
     float scale;
     float density;
     if (pipe.isChannelAvailable(srVertexProcessor::CHANNEL_FOG)) {
-        glm::vec3 center;
-        float radius;
-        pipe.getEyeSpaceBoundingSphere(center, radius);
-        double limit = radius + fog_end;
+        const auto sphere = pipe.getEyeSpaceBoundingSphere();
+        double limit = sphere.radius + fog_end;
         w8_long count = (w8_long)pipe.getVertexCount();
-        if (glm::dot(center, center) <= limit * limit) {
+        if (glm::dot(sphere.center, sphere.center) <= limit * limit) {
             if (fog_end == fog_start) {
                 scale = 1e+08f;
             } else {
