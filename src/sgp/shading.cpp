@@ -1,13 +1,12 @@
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
    Distributed under the accompanying SFI Source Code license agreement. */
-#include <cstring>
+#include <algorithm>
+#include <iterator>
 
 #include "Types.h"
 #include "himage.h"
 #include "vobject.h"
 #include "shading.h"
-
-void FindMaskIndecies(UINT8*, UINT8*, UINT8*);
 
 // GLOBAL: WIZ8 0x0069da80
 UINT16 IntensityTable[65536];
@@ -48,7 +47,7 @@ void BuildShadeTable(void)
                     static_cast<UINT8>(blue * guiShadePercent), SDL_ALPHA_OPAQUE});
             }
 
-    memset(White16BPPPalette, 65535, sizeof(White16BPPPalette));
+    std::fill(std::begin(White16BPPPalette), std::end(White16BPPPalette), UINT16{0xffff});
 }
 
 // FUNCTION: WIZ8 0x00413e80
