@@ -1,3 +1,4 @@
+#include <SDL3/SDL_pixels.h>
 #include <tuple>
 #include <fmt/format.h>
 #include <memory>
