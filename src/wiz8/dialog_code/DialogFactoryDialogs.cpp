@@ -42,13 +42,6 @@
 
 void W8ListBoxDialog::ClearLines()
 {
-    int line_count = static_cast<int>(m_lines.size());
-    for (int index = 0; index < line_count; ++index) {
-        char* line = m_lines[index];
-        if (line != 0) {
-            free(line);
-        }
-    }
     m_lines.clear();
     m_field_064.clear();
     m_selected_line = -1;
@@ -66,23 +59,6 @@ W8ListBoxDialog::W8ListBoxDialog()
     m_field_084 = 0.75f;
     m_field_074 = 0;
     m_fill_colour = 0x6000;
-    m_text_button.reset();
-    m_second_text_button.reset();
-    area_inlay.reset();
-    m_area_button.reset();
-    m_up_button.reset();
-    m_up_image.reset();
-    m_down_button.reset();
-    m_down_image.reset();
-    third_btn_inlay.reset();
-    m_third_text_button.reset();
-    m_slider_button.reset();
-    m_slider_image.reset();
-    m_ok_button.reset();
-    m_ok_image.reset();
-    m_cancel_button.reset();
-    m_cancel_image.reset();
-    edge_inlay.reset();
     ClearLines();
 }
 
@@ -426,7 +402,7 @@ void W8ListBoxDialog::Draw()
         }
         for (index = 0; index < static_cast<int>(visible_lines); ++index) {
             line = m_first_visible_line + index;
-            char* text = m_lines[line];
+            const std::string& text = m_lines[line];
             if (line == m_selected_line) {
                 ColorFillVideoSurfaceArea(
                     GetFrameBufferSurface(), m_x + 3 + dx,

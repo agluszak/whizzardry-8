@@ -3,6 +3,7 @@
 
 #include <SDL3/SDL_rect.h>
 #include <vector>
+#include <string>
 #include <string_view>
 
 #include "wiz8/dialog_code/DialogBase.h"
@@ -96,8 +97,7 @@ private:
     static void SliderTrackButtonCallback(GUI_BUTTON* button, INT32 reason);
 
 public:
-    /* The displayed text lines; the dialog owns and frees each one. */
-    std::vector<char*> m_lines;
+    std::vector<std::string> m_lines;
     std::vector<void (*)(int)> m_field_064;
     int m_field_074;
     float m_field_078; /* 0.05 */
