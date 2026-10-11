@@ -15,6 +15,7 @@
 #include "surrender/srCore.h"
 #include "surrender/srDD_SDLGPU.h"
 #include "surrender/srGERD.h"
+#include "surrender/srFog.h"
 #include "surrender/srMaterialIFace.h"
 #include "surrender/srMaterial.h"
 #include "surrender/srNode.h"
@@ -320,6 +321,94 @@ bool coverageFinalization()
     return true;
 }
 
+class ProfileMaterial : public TestMaterial {
+public:
+    void getMaterialInfo(srVertexProcessor::MaterialInfo& info) override
+    {
+        TestMaterial::getMaterialInfo(info);
+        info.disabled_channels = 0;
+        info.fog_scale = 1;
+    }
+};
+
+class DistanceProfileProbe : public Counter {
+public:
+    srFog* fog = nullptr;
+    float minimum = 0, maximum = 100, low = .2f, high = .8f;
+    bool valid = true;
+    void process(srVertexPipe& pipe) override
+    {
+        ++calls;
+        const auto* indices = pipe.getAVT();
+        const auto* cue = pipe.getDepthCue();
+        for (unsigned index = 0; index < pipe.getVertexCount(); ++index) {
+            const float distance = float(indices[index] + 1);
+            float expected;
+            if (minimum == maximum) expected = distance < minimum ? 1 - low : 1 - high;
+            else {
+                float normalized = (maximum - distance) / (maximum - minimum);
+                normalized = normalized < 0 ? 0 : normalized > 1 ? 1 : normalized;
+                expected = low + (high - low) * normalized;
+            }
+            valid &= std::abs(cue[index] - expected) < 1e-6f;
+        }
+        fog->process(pipe);
+    }
+};
+
+bool distanceProfiles()
+{
+    std::array<srVector3, 65> positions;
+    std::array<w8_ulong, 65> indices;
+    std::array<glm::vec4, 65> eye, specular;
+    std::array<unsigned char, 65> attributes{};
+    for (unsigned index = 0; index < positions.size(); ++index) {
+        positions[index].Set(0, 0, float(index + 1));
+        indices[index] = index;
+    }
+    srVertexArray arrays{};
+    arrays.eye_locations = eye.data(); arrays.specular = specular.data();
+    arrays.attributes = attributes.data();
+    glm::mat4 identity(1);
+    ProfileMaterial material;
+    srVertexPipe::Record record{};
+    record.material = &material;
+    record.channels = ~(1u << srVertexProcessor::CHANNEL_FOG);
+    srVertexPipe::Input input{};
+    input.vertex_count = positions.size(); input.active_vertices = indices.data();
+    input.direct_vertex_indices = 1; input.positions = positions.data();
+    input.model_view = input.normal_matrix = &identity;
+    input.vertex_arrays = &arrays; input.records = {&record, 1};
+    input.eye_center = glm::vec3(0, 0, 33); input.eye_radius = 33;
+    input.environment_scale = .2f; input.environment_inverse_scale = .8f;
+    DistanceProfileProbe probe;
+    srVertexProcessor* processor = &probe;
+    input.processors = &processor; input.processor_count = 1;
+    srFog fog;
+    probe.fog = &fog;
+    for (auto range : {std::pair{0.f, 100.f}, std::pair{17.f, 43.f}, std::pair{32.f, 32.f}}) {
+        input.environment_minimum = probe.minimum = range.first;
+        input.environment_maximum = probe.maximum = range.second;
+        fog.setRange(range.first, range.second);
+        for (float density : {0.f, .5f, 1.f}) {
+            fog.setDensity(density);
+            srVertexPipe pipe;
+            pipe.process(input);
+            REQUIRE(probe.valid);
+            for (unsigned index = 0; index < positions.size(); ++index) {
+                const float distance = float(index + 1);
+                float normalized = range.first == range.second
+                    ? distance <= range.first ? 0 : 1
+                    : (distance - range.first) / (range.second - range.first);
+                normalized = normalized < 0 ? 0 : normalized > 1 ? 1 : normalized;
+                REQUIRE(std::abs(specular[index].w - density * normalized) < 1e-6f);
+            }
+        }
+    }
+    REQUIRE(probe.calls == 18); // Two batches for each range/density combination.
+    return true;
+}
+
 bool materialChannelOperations()
 {
     // Cross the 64-vertex batch boundary for every combination of material operations.
@@ -541,6 +630,7 @@ TEST_CASE("renderer_ownership_test")
         REQUIRE(rendererOwnership());
         REQUIRE(materialChannelOperations());
         REQUIRE(coverageFinalization());
+        REQUIRE(distanceProfiles());
         REQUIRE(pipelineRecordTexcoords());
         REQUIRE(srExit());
         REQUIRE(srGERD::getFirst() == nullptr);
