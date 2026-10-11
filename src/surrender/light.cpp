@@ -193,20 +193,21 @@ void srLight::process(const ProcessInfo& info, e_processType type)
     {
         const auto transform = scopedWorldSpaceMatrix(*renderer);
         const auto model_view = renderer->getMatrix();
-        derived_flags = 0;
         derived_flags = srLight::DERIVED_ACTIVE;
         channel_mask = 0;
-        if (ambient.x != 0.0f || ambient.y != 0.0f || ambient.z != 0.0f) {
-            channel_mask |= (1UL << srVertexProcessor::CHANNEL_LIGHT_AMBIENT);
-            scaled_ambient = glm::vec4(ambient * intensity, 0.0f);
-        }
-        if (diffuse.x != 0.0f || diffuse.y != 0.0f || diffuse.z != 0.0f) {
-            channel_mask |= (1UL << srVertexProcessor::CHANNEL_LIGHT_DIFFUSE);
-            scaled_diffuse = glm::vec4(diffuse * intensity, 0.0f);
-        }
-        if (specular.x != 0.0f || specular.y != 0.0f || specular.z != 0.0f) {
-            channel_mask |= (1UL << srVertexProcessor::CHANNEL_SPECULAR);
-            scaled_specular = glm::vec4(specular * intensity, 0.0f);
+        const struct Channel {
+            const glm::vec3& color;
+            glm::vec4& scaled;
+            srVertexProcessor::e_channel channel;
+        } channels[] = {
+            {ambient, scaled_ambient, srVertexProcessor::CHANNEL_LIGHT_AMBIENT},
+            {diffuse, scaled_diffuse, srVertexProcessor::CHANNEL_LIGHT_DIFFUSE},
+            {specular, scaled_specular, srVertexProcessor::CHANNEL_SPECULAR}};
+        for (const auto& channel : channels) {
+            if (channel.color != glm::vec3(0)) {
+                channel_mask |= 1UL << channel.channel;
+                channel.scaled = glm::vec4(channel.color * intensity, 0);
+            }
         }
         if (channel_mask == 0) {
             derived_flags &= ~srLight::DERIVED_ACTIVE;
@@ -324,11 +325,10 @@ void srLight::process(srVertexPipe& pipe)
 
     if ((derived_flags & srLight::DERIVED_DIRECTIONAL) == 0) {
         for (SRDWORD i = 0; i < count; ++i) {
-            directions[i] =
-                light_position -
-                glm::vec3(pipe.eye_space_locations[pipe.batch_base + pipe.sub_batch_offset + i]);
-            distances[i] = glm::length(directions[i]);
-            directions[i] = normalizedOrZero(directions[i]);
+            const auto sample = srLightingMath::directionAndDistance(light_position -
+                glm::vec3(pipe.eye_space_locations[pipe.batch_base + pipe.sub_batch_offset + i]));
+            directions[i] = sample.direction;
+            distances[i] = sample.distance;
         }
         if (attenuation_model == ATTENUATION_3DSTUDIO_MAX) {
             if ((enable_flags & (1UL << srLight::ENABLE_RANGE_NEAR)) != 0) {
@@ -378,7 +378,7 @@ void srLight::process(srVertexPipe& pipe)
                 return;
             }
             if (spot_exponent != 1.0f) {
-                srLight::specularPower({spot_factors, count}, {spot_factors, count}, spot_exponent);
+                srLightingMath::power({spot_factors, count}, {spot_factors, count}, spot_exponent);
             }
             if (!attenuation.empty()) {
                 srChannelMath::multiply(attenuation, spot_values);
@@ -424,14 +424,12 @@ void srLight::process(srVertexPipe& pipe)
     }
     const auto eye_directions = pipe.getEyeSpaceDir();
     for (std::size_t i = 0; i < count; ++i)
-        directions[i] = directions[i] - eye_directions[i];
-    for (std::size_t i = 0; i < count; ++i)
-        directions[i] = normalizedOrZero(directions[i]);
+        directions[i] = srLightingMath::directionAndDistance(directions[i] - eye_directions[i]).direction;
     const auto normals = pipe.getEyeSpaceNormal();
     srLightingMath::normalDots(distance_values, normals, direction_values,
                                srLightingMath::DotRange::nonnegative);
     if (pipe.material_info.shininess > 1.0f) {
-        srLight::specularPower({distances, count}, {distances, count},
+        srLightingMath::power({distances, count}, {distances, count},
                                pipe.material_info.shininess);
     }
     srChannelMath::multiply(distance_values, dot_values);
@@ -623,107 +621,4 @@ void srLight::setSafeRange(float range)
 float srLight::getSafeRange() const
 {
     return safe_range;
-}
-
-namespace
-{
-constexpr double coefficients[0x12][4] = {
-    {0, 1e-14, 1, 0},
-    {-0.068979736114850004, 0.18179573075354999, 0.88948269483362996, -0.0032237222793199999},
-    {-0.12576753110003999, 0.34382063299797, 0.78571136674362996, -0.0053941615606599999},
-    {-0.17092256892982999, 0.48661079671178997, 0.68891153819327, -0.0067378060870700003},
-    {-0.20507900130076001, 0.61089353418348002, 0.59915069732755, -0.0074389531232600002},
-    {-0.22891455983919001, 0.71752488060732, 0.51637759148530005, -0.0076474469703200001},
-    {-0.24312703917604001, 0.80744183884992005, 0.44045304108798999, -0.00748496029462},
-    {-0.24841687096368001, 0.88162612503694004, 0.37117406021430999, -0.0070501036072999996},
-    {-0.24547440268178, 0.94107687822182995, 0.30829269047641, -0.0064225898414199999},
-    {-0.23497080142249999, 0.98679034859172998, 0.25153065736378, -0.0056666352687399996},
-    {-0.21755174140842001, 1.01974500915189, 0.20059072482958001, -0.0048337418349100004},
-    {-0.19383321994641001, 1.04089087244265, 0.15516544047627001, -0.0039649773154400002},
-    {-0.16439899158457999, 1.05114205735211, 0.11494381932562001, -0.0030928469032899999},
-    {-0.12979922349142001, 1.0513718575920701, 0.079616400344480004, -0.0022428316857099999},
-    {-0.090550063549559995, 1.0424097253979201, 0.048879020037899998, -0.0014346549735899999},
-    {-0.047133881807620001, 1.0250397112049401, 0.022435576368620001, -0.00068332584966999997},
-    {-1e-14, 1.00000000000001, 0, 0},
-    {-1e-14, 1.00000000000001, 0, 0},
-};
-constexpr float points[0x12][7] = {
-    {0.000999900047f, 0.0316211991f, 0.177823499f, 0.421691209f, 0.649377584f, 0.805839717f,
-     0.897685707f},
-    {0.00474390015f, 0.0688759983f, 0.262442291f, 0.512291312f, 0.715745211f, 0.846017301f,
-     0.919791996f},
-    {0.0081093004f, 0.0900517032f, 0.300086111f, 0.547801077f, 0.740135908f, 0.860311508f,
-     0.927529812f},
-    {0.0111445002f, 0.1055675f, 0.324911505f, 0.570010126f, 0.75499022f, 0.86890173f, 0.932148993f},
-    {0.0138889998f, 0.1178516f, 0.343295187f, 0.585914016f, 0.76545018f, 0.874900103f,
-     0.935360909f},
-    {0.0163755994f, 0.127967194f, 0.357724994f, 0.598101199f, 0.773370028f, 0.879414618f,
-     0.937771082f},
-    {0.0186313f, 0.136496499f, 0.369454414f, 0.607827604f, 0.779632986f, 0.882968307f,
-     0.939663887f},
-    {0.0206783991f, 0.143799901f, 0.379209489f, 0.615799904f, 0.784729183f, 0.885849416f,
-     0.941195726f},
-    {0.0225352999f, 0.150117606f, 0.387450188f, 0.622454882f, 0.788958073f, 0.888233185f,
-     0.942461193f},
-    {0.0242167003f, 0.155617207f, 0.394483387f, 0.628079116f, 0.792514384f, 0.890232801f,
-     0.9435215f},
-    {0.0257344991f, 0.160419807f, 0.400524408f, 0.632869899f, 0.795531213f, 0.891925573f,
-     0.944418073f},
-    {0.0270971991f, 0.164612293f, 0.405724406f, 0.636964977f, 0.798100889f, 0.893364906f,
-     0.94517982f},
-    {0.0283103995f, 0.168256894f, 0.410191387f, 0.640461802f, 0.800288618f, 0.89458847f,
-     0.945826888f},
-    {0.0293761995f, 0.171394899f, 0.413998604f, 0.643427312f, 0.802139223f, 0.895622194f,
-     0.946373224f},
-    {0.0302920006f, 0.174045995f, 0.417188197f, 0.645901084f, 0.803679705f, 0.896481812f,
-     0.946827292f},
-    {0.0310484003f, 0.176205605f, 0.419768512f, 0.647895396f, 0.804919481f, 0.897173107f,
-     0.947192192f},
-    {0.0316227004f, 0.177827701f, 0.421696186f, 0.649381399f, 0.805842102f, 0.897687078f,
-     0.947463512f},
-    {0.0316227004f, 0.177827701f, 0.421696186f, 0.649381399f, 0.805842102f, 0.897687078f,
-     0.947463512f},
-};
-} // namespace
-
-// FUNCTION: SURRENDER 0x10068A80
-void srLight::specularPower(std::span<float> destination, std::span<const float> source,
-                            float exponent)
-{
-    assert(source.size() >= destination.size());
-    const std::size_t count = destination.size();
-    SRDWORD squarings = 0;
-    if (exponent > 127.0) {
-        exponent = 127.0f;
-    }
-    while (exponent >= 2.0f) {
-        exponent *= 0.5f;
-        ++squarings;
-    }
-    float index_value = (exponent - 1.0f) * 16.0f;
-    int index = static_cast<int>(index_value);
-    index_value -= index;
-    double complement = 1.0 - index_value;
-    float coefficient_0 =
-        (float)(index_value * coefficients[index + 1][0] + complement * coefficients[index][0]);
-    float coefficient_1 =
-        (float)(index_value * coefficients[index + 1][1] + complement * coefficients[index][1]);
-    float coefficient_2 =
-        (float)(index_value * coefficients[index + 1][2] + complement * coefficients[index][2]);
-    float coefficient_3 =
-        (float)(index_value * coefficients[index + 1][3] + complement * coefficients[index][3]);
-    float threshold = points[index + 1][squarings];
-    for (std::size_t element = 0; element < count; ++element) {
-        if (source[element] > threshold) {
-            float value = source[element];
-            for (SRDWORD square = 0; square < squarings; ++square) {
-                value *= value;
-            }
-            destination[element] =
-                ((value * coefficient_0 + coefficient_1) * value + coefficient_2) * value +
-                coefficient_3;
-        } else {
-            destination[element] = 0.0f;
-        }
-    }
 }
