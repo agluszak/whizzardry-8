@@ -3305,12 +3305,11 @@ void srGERD::evaluateTexturePixelFormat(Texture& texture,
     w8_ulong flags = dimensions.hints;
     srPixelConvert::PixelFormat format = dimensions.format;
     if ((flags & (1UL << srTextureIFace::HINT_INTENSITY)) != 0) {
-        srPixelConvert::mapPixelFormat(format.alpha_bits != 0 ? srPixelConvert::SURFACE_AL88
-                                                              : srPixelConvert::SURFACE_L8,
-                                       format);
+        format = srPixelConvert::pixelFormat(format.alpha_bits != 0 ? srPixelConvert::SURFACE_AL88
+                                                                  : srPixelConvert::SURFACE_L8);
     }
     if ((dimensions.hints & (1UL << srTextureIFace::HINT_ALPHA_ONLY)) != 0) {
-        srPixelConvert::mapPixelFormat(srPixelConvert::SURFACE_A8, format);
+        format = srPixelConvert::pixelFormat(srPixelConvert::SURFACE_A8);
     }
     flags = dimensions.hints;
     if ((flags & (1UL << srTextureIFace::HINT_NO_ALPHA)) == 0) {

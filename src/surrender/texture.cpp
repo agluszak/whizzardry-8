@@ -39,7 +39,7 @@ srTexture::srTexture()
     texture_dimensions_.filter = srCore.getFilter();
     texture_dimensions_.hints = 0;
     texture_dimensions_.compression = srTextureIFace::COMPRESSION_DEFAULT;
-    srPixelConvert::mapPixelFormat(srPixelConvert::SURFACE_ARGB4444, texture_dimensions_.format);
+    texture_dimensions_.format = srPixelConvert::pixelFormat(srPixelConvert::SURFACE_ARGB4444);
     texture_flags_ = 0;
     if (s_flag_names3 == 0) {
         s_flag_names3 = "GENERATESURFACE_FAILURE,DIRTY_DEFAULTS";

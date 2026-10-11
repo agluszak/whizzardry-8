@@ -639,8 +639,7 @@ srColorSurface::srColorSurface(const srPixelConvert::PixelFormat& format, w8_ulo
 srColorSurface::srColorSurface(srPixelConvert::e_surfaceType type, w8_ulong arg_width,
                                w8_ulong arg_height)
 {
-    srPixelConvert::PixelFormat format;
-    srPixelConvert::mapPixelFormat(type, format);
+    const auto format = srPixelConvert::pixelFormat(type);
     init(format, arg_width, arg_height, 0);
     allocate();
     const auto functions = srPixelConvert::selectFuncs(format);
@@ -654,8 +653,7 @@ srColorSurface::srColorSurface(srPixelConvert::e_surfaceType type, void* data,
                                w8_ulong arg_width, w8_ulong arg_height,
                                w8_ulong arg_pitch)
 {
-    srPixelConvert::PixelFormat format;
-    srPixelConvert::mapPixelFormat(type, format);
+    const auto format = srPixelConvert::pixelFormat(type);
     init(format, arg_width, arg_height, arg_pitch);
     adopt(CreateCpuStorage(arg_width, arg_height, StorageFormat(format), data, arg_pitch).release());
     const auto functions = srPixelConvert::selectFuncs(format);
@@ -677,8 +675,7 @@ srColorSurface::srColorSurface(const srPixelConvert::PixelFormat& format, void* 
 
 srColorSurface::srColorSurface(srPixelConvert::e_surfaceType type, SDL_Surface& shared)
 {
-    srPixelConvert::PixelFormat format;
-    srPixelConvert::mapPixelFormat(type, format);
+    const auto format = srPixelConvert::pixelFormat(type);
     init(format, shared.w, shared.h, shared.pitch);
     ++shared.refcount;
     adopt(&shared);
