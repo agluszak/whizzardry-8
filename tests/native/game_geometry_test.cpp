@@ -39,6 +39,7 @@
 #include "wiz8/engine_code/AnimObj.h"
 #include "wiz8/engine_code/AniMesh.h"
 #include "wiz8/engine_code/Monster.h"
+#include "wiz8/engine_code/Emitter.h"
 #include "wiz8/engine_code/PathAI.h"
 #include "wiz8/engine_code/stLight.hpp"
 #include "wiz8/engine_code/stMeshModel.h"
