@@ -339,7 +339,7 @@ void AddTextMessageBoxLine(W8NpcMessageKind kind, std::string text, W8QuoteNotic
    answer. No keyword match at all falls back to the role-2 entry. -1 when the
    quote has no usable reply. */
 // FUNCTION: WIZ8 0x00529300
-int FindNpcReplyQuote(std::string_view text)
+static int FindNpcReplyQuote(std::string_view text)
 {
     W8NpcScriptQuote* quote;
     W8NpcQuoteEntry* entry;
@@ -425,7 +425,7 @@ void CancelNpcDialogue(void)
 /* Run every kind-0x17 consequence entry of the given quote - the reply
    handler's decline path when the party refuses a price offer. */
 // FUNCTION: WIZ8 0x00529610
-void RunNpcQuoteDeclineActions(int quote_index)
+static void RunNpcQuoteDeclineActions(int quote_index)
 {
     W8NpcScriptQuote* quote;
     int index;

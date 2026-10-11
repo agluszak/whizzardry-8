@@ -81,10 +81,6 @@ void SpeakNpcSubquote(W8NpcScriptQuote* quote, unsigned char subquote_index, boo
                       bool force_npc_voice);
 /* Add a keyword a quote entry of `kind` teaches to the dialogue keyword lists. */
 void ApplyScriptedDialogueKeyword(int kind, const char* text);
-void ProcessMessageBoxQueue(void);
-/* Execute a queued quote entry's deferred effect; the
-   continuation quote is handed to the modal-dialog kinds (5/0x13 force -1). */
-void ProcessNpcQuoteEntry(W8NpcQuoteEntry* entry, int continuation_quote);
 /* Build a W8_NPC_MSG_QUOTE_ENTRY line for `entry` carrying
    `continuation_quote`; prepend != 0 inserts it at the queue front. */
 void QueueNpcQuoteEntry(int quote_index, int entry_index, int continuation_quote, bool prepend);
@@ -97,13 +93,6 @@ struct W8NpcScriptItemQuote {
     bool consumes_item;
 };
 std::optional<W8NpcScriptItemQuote> FindNpcScriptItemQuote(int item_id);
-void ResolveSedexusCapture(void);
-void NpcScriptHenchmanArrives(W8Monster* monster);
-void NpcScriptHenchmanDeparted(W8Monster* monster);
-void NpcScriptSavantHackDone(W8Monster* monster);
-void NpcScriptTurnToBook(void);
-void NpcScriptEndgameScreen(void);
-void OnNpcTravelConfirmationClosed(W8DialogBase* dialog);
 void UpdateNpcDialogueVoiceAndCursor(void);
 void ProcessNpcScriptingFrame(void);
 void SetNpcScriptEventActive(unsigned char value);
@@ -112,9 +101,7 @@ void QueueNpcMessageLine(W8NpcMessageKind kind, int argument);
 /* Resolves NPC-name, named-person, and region keywords to a quote
    id; returns -1 when nothing matches. */
 int FindNpcNameOrPlaceQuote(W8NpcState* npc, std::string_view text);
-int FindNpcReplyQuote(std::string_view text);
 void RestoreCurrentNpcQuoteBubble(void);
-void RunNpcQuoteDeclineActions(int quote_index);
 void QueueNpcScriptLine(int quote, bool mark_pending, bool prepend, bool suppress_entries);
 void BeginNpcScriptedScene(void);
 void SetScriptedSceneActive(void);

@@ -1,6 +1,6 @@
-#include <string>
-#include <string_view>
 #pragma once
+
+#include <string>
 
 #include "wiz8/local_code/NPCScripting.h"
 
@@ -21,4 +21,3 @@ void ClearNpcMessageQueue(void); /* 0x00524C50 */
 
 std::string FormatNpcVoiceSoundPath(W8NpcState* npc);
 void BeginNpcScriptDialogue(W8NpcState* npc, unsigned char preserve_state);
-void FinishNpcVoicePlayback(bool resume_script);

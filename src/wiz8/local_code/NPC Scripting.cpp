@@ -79,6 +79,14 @@
 #include "surrender/srMath.h"
 #include "audio_resources.h"
 
+static void FinishNpcVoicePlayback(bool resume_script);
+static void ProcessMessageBoxQueue(void);
+static void ResolveSedexusCapture(void);
+static void NpcScriptHenchmanArrives(W8Monster* monster);
+static void NpcScriptHenchmanDeparted(W8Monster* monster);
+static void NpcScriptSavantHackDone(W8Monster* monster);
+static void OnNpcTravelConfirmationClosed(W8DialogBase* dialog);
+
 class W8DialogBase;
 
 struct W8NpcScriptRegionName {
@@ -668,7 +676,7 @@ void SpeakNpcSubquote(W8NpcScriptQuote* quote, unsigned char subquote_index,
 }
 
 // FUNCTION: WIZ8 0x00525C50
-void FinishNpcVoicePlayback(bool resume_script)
+static void FinishNpcVoicePlayback(bool resume_script)
 {
     if (g_npc_scripting.portrait_message_active) {
         g_npc_scripting.portrait_message_active = false;
@@ -763,7 +771,7 @@ static void ShowNpcPortraitMessage(std::string_view text, W8QuoteNotice notice =
    modal dialog kinds. The party slot's pending portrait event clears once the
    entry has run. */
 // FUNCTION: WIZ8 0x00526810
-void ProcessNpcQuoteEntry(W8NpcQuoteEntry* entry, int continuation_quote)
+static void ProcessNpcQuoteEntry(W8NpcQuoteEntry* entry, int continuation_quote)
 {
     W8NpcState* target;
     W8ItemInstance item;
@@ -876,14 +884,14 @@ static void NpcScriptQueueEndgame(void)
 /* CameraPath4 swings the view to the ascension book; the endgame queue runs
    when the fade completes. */
 // FUNCTION: WIZ8 0x00526E40
-void NpcScriptTurnToBook(void)
+static void NpcScriptTurnToBook(void)
 {
     UpdateCameraPathStateByName(GetWorld(), "CameraPath4", 1);
     BeginScreenFade(0, 1, 1000, NpcScriptQueueEndgame, false, 0);
 }
 
 // FUNCTION: WIZ8 0x00526E70
-void NpcScriptEndgameScreen(void)
+static void NpcScriptEndgameScreen(void)
 {
     SetIntroVideoIndex(5);
     SetPendingScreenState(W8_SCREEN_INTRO);
@@ -902,7 +910,7 @@ static void SetMonsterGroupScript(int species, const char* script, int caller_li
 }
 
 // FUNCTION: WIZ8 0x00526E90
-void ProcessMessageBoxQueue(void)
+static void ProcessMessageBoxQueue(void)
 {
     W8NpcState* npc;
     int index;
@@ -1577,7 +1585,7 @@ void ProcessMessageBoxQueue(void)
 }
 
 // FUNCTION: WIZ8 0x0052a1b0
-void OnNpcTravelConfirmationClosed(W8DialogBase* dialog)
+static void OnNpcTravelConfirmationClosed(W8DialogBase* dialog)
 {
     if (GetDialogResult(dialog)) {
         QueueNpcTravelRefusals(g_pending_npc_travel_level);
@@ -1854,7 +1862,7 @@ void BeginSedexusCapture(void)
    spawned on np_al-adryian51 and given proximitytemplar.msf, and the two
    gate triggers fire while the lighting fades back up. */
 // FUNCTION: WIZ8 0x00529F90
-void ResolveSedexusCapture(void)
+static void ResolveSedexusCapture(void)
 {
     W8MonsterGroup* group;
     srVector3T<float> position;
@@ -1894,7 +1902,7 @@ bool IsSedexusCaptureActive(void)
    callback monster itself is parked at the origin with its position flagged
    dirty either way. */
 // FUNCTION: WIZ8 0x0052A080
-void NpcScriptHenchmanArrives(W8Monster* monster)
+static void NpcScriptHenchmanArrives(W8Monster* monster)
 {
     srVector3T<float> position;
     srVector3T<float> origin;
@@ -1924,7 +1932,7 @@ void NpcScriptHenchmanArrives(W8Monster* monster)
 /* Cycle-0x12 departure callback: park the monster at the origin and flag its
    position dirty. */
 // FUNCTION: WIZ8 0x0052A150
-void NpcScriptHenchmanDeparted(W8Monster* monster)
+static void NpcScriptHenchmanDeparted(W8Monster* monster)
 {
     srVector3T<float> origin;
 
@@ -1936,7 +1944,7 @@ void NpcScriptHenchmanDeparted(W8Monster* monster)
 /* Cycle-0x19 completion callback: stamping savant_hack_tick lets
    UpdateNpcEvents retire NPC group 0x1b3 fifty ticks later. */
 // FUNCTION: WIZ8 0x0052A190
-void NpcScriptSavantHackDone(W8Monster* monster)
+static void NpcScriptSavantHackDone(W8Monster* monster)
 {
     g_status.savant_hack_tick = int(uint32_t(w8_get_ticks()));
 }
