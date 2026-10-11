@@ -1,6 +1,8 @@
 #ifndef WIZ8_LAYOUTS_NPC_STATE_H
 #define WIZ8_LAYOUTS_NPC_STATE_H
 
+#include <optional>
+#include <type_traits>
 #include <vector>
 struct W8NpcItemEntry;
 
@@ -8,7 +10,7 @@ struct W8NpcItemEntry;
 #include "wiz8/layouts/item_instance.h"
 #include <algorithm>
 
-struct W8Character;
+#include "wiz8/layouts/character.h"
 struct W8NpcScriptFile;
 
 /* One entry in an NPC's stock list. */
@@ -19,7 +21,9 @@ struct W8NpcItemEntry {
     unsigned int available_at;
     W8ItemInstance item;    /* 0x04 */
     unsigned char quantity; /* 0x10: non-stack remaining quantity */
-}; /* 0x14 */
+};
+// Stock entries are saved whole.
+static_assert(sizeof(W8NpcItemEntry) == 0x14 && std::is_trivially_copyable_v<W8NpcItemEntry>);
 
 /* A live NPC. Saves store it as wiz8::retail::NpcState. */
 struct W8NpcState {
@@ -29,7 +33,7 @@ struct W8NpcState {
        sentinel normalized to zero on load. */
     unsigned short spawned;
     W8NpcDatabaseRecord* record; /* 0x06 */
-    std::vector<W8NpcItemEntry*>* items; /* 0x0a: W8NpcItemEntry* elements */
+    std::vector<W8NpcItemEntry> items; /* the NPC's stock */
     /* 0x0e and 0x12: two world-clock stamps, both set when the stock is first
        populated. The stock-rule pass reruns once the first is more than 0xa8c0
        old, and the decay and restock pass once the second is more than 0x15180
@@ -53,10 +57,9 @@ struct W8NpcState {
     unsigned char level_band;
     bool is_present; /* 0x25 */
     bool is_grouped; /* 0x26 */
-    /* 0x27: the NPC's group-member character. CreateNpcRuntimeNode allocates
-       the 0x1862-byte block only when the record belongs to a group, and the
-       state reset deletes it here. */
-    W8Character* character;
+    /* The NPC's group-member character, present only for records that
+       belong to a group. */
+    std::optional<W8Character> character;
     signed char group_index; /* 0x2b */
     /* 0x2c: this node's own slot in g_npc_states, written by
        CreateNpcRuntimeNode; the release pass follows the index a partner

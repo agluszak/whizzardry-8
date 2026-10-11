@@ -306,24 +306,17 @@ static bool npcStockOrdering()
     auto* previous_records = g_item_records;
     g_item_records = records.data();
 
-    auto* first = new W8NpcItemEntry{};
-    auto* second = new W8NpcItemEntry{};
-    auto* third = new W8NpcItemEntry{};
-    first->item.iItemNo = third->item.iItemNo = 0;
-    second->item.iItemNo = 1;
-    first->available_at = 100;
-    third->available_at = 200;
-    std::vector<W8NpcItemEntry*> items{first, second, third};
     W8NpcState npc{};
-    npc.items = &items;
+    npc.items.resize(3);
+    npc.items[0].available_at = 100;
+    npc.items[1].item.iItemNo = 1;
+    npc.items[2].available_at = 200;
     SortNpcItems(&npc);
-    REQUIRE((items == std::vector<W8NpcItemEntry*>{second, first, third}));
-    REQUIRE((first->available_at == 100 && third->available_at == 200));
+    // Item 1 sorts first; the two item-0 entries keep their order.
+    REQUIRE(npc.items[0].item.iItemNo == 1);
+    REQUIRE((npc.items[1].available_at == 100 && npc.items[2].available_at == 200));
     REQUIRE((GetNpcItemAt(&npc, -1) == nullptr && GetNpcItemAt(&npc, 3) == nullptr));
-    REQUIRE(GetNpcItemAt(&npc, 0) == second);
-    delete first;
-    delete second;
-    delete third;
+    REQUIRE(GetNpcItemAt(&npc, 0) == &npc.items[0]);
     g_item_records = previous_records;
     return true;
 }

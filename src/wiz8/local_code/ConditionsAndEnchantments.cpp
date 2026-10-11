@@ -824,7 +824,7 @@ unsigned char SetCharacterCondition(int party_slot, W8Condition condition, int d
    Condition seven carries an argument alongside its duration, so it is the one
    entry that is not just a duration. */
 // FUNCTION: WIZ8 0x005241e0
-void CopyCharacterConditionsToTarget(const W8Character* character, const int* target)
+void CopyCharacterConditionsToTarget(const W8Character& character, const int* target)
 {
     W8TargetSource target_block;
     unsigned int condition;
@@ -833,11 +833,11 @@ void CopyCharacterConditionsToTarget(const W8Character* character, const int* ta
 
     ResetTargetSource(&target_block);
     for (condition = 0; condition < W8_CONDITION_COUNT; ++condition) {
-        duration = character->uiCondition[condition];
+        duration = character.uiCondition[condition];
         if (duration != 0) {
             if (condition == W8_CONDITION_POISONED) {
-                argument = character->condition_argument;
-                duration = character->uiCondition[W8_CONDITION_POISONED];
+                argument = character.condition_argument;
+                duration = character.uiCondition[W8_CONDITION_POISONED];
             } else {
                 argument = 0;
             }

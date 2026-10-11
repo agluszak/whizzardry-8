@@ -1950,7 +1950,7 @@ void W8PartySelectionController::TogglePartyMemberSelection()
     W8PartySelectionCharacterCollection* collection = g_party_selection_character_collection;
     W8Character* character = collection->GetCharacter(selected);
     if (!character->fInParty) {
-        int slot = AddCharacterToParty(character, -1);
+        int slot = AddCharacterToParty(*character, -1);
         if (slot != -1) {
             delete character;
             collection->characters[selected] = &g_status.buffers.Char[slot];
