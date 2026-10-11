@@ -1,33 +1,32 @@
 #pragma once
 
-#include "srMath.h"
+#include "glm/ext/vector_float2.hpp"
+#include "glm/ext/vector_int3.hpp"
 #include <vector>
+#include <optional>
+#include <span>
 
 class srTriangulator {
 public:
-    srTriangulator(glm::vec2* points, int count);
+    explicit srTriangulator(std::span<const glm::vec2> points);
     srTriangulator(const srTriangulator&) = delete;
     srTriangulator& operator=(const srTriangulator&) = delete;
 
-    glm::ivec3 next();
+    std::optional<glm::ivec3> next();
 
 private:
     struct Node {
-        w8_long index;
+        int index;
         Node* next;
         Node* prev;
     };
 
-    int sameSide(const glm::vec2& first_point, const glm::vec2& second_point, const glm::vec2& a,
-                 const glm::vec2& b);
-    int isInsideTriangle(const glm::vec2& p, const glm::vec2& a, const glm::vec2& b,
-                         const glm::vec2& c);
     int satisfyConstraints(const Node* vertex);
 
     // Sized once: clipping only unlinks nodes, preserving every node address.
     std::vector<Node> nodes;
     Node* current = nullptr;
     int remaining;
-    const glm::vec2* points;
+    std::span<const glm::vec2> points;
 };
 
