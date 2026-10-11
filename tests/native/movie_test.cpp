@@ -170,7 +170,7 @@ static void exercise_movie(const char* retail_movie)
             REQUIRE(reusable.update(0) == W8NativeVideo::FrameReady);
             REQUIRE(matchesFrame(reusable.frame().pixels, golden.data()));
         }
-        auto target = CreateCpuSurface(640, 480, 16, 0x7c00, 0x3e0, 0x1f);
+        auto target = CreateCpuSurface(640, 480, SDL_PIXELFORMAT_XRGB1555);
         const auto& description = *target->surface;
         {
             W8BinkVideo movie;
