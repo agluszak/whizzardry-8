@@ -4,14 +4,18 @@
 #define WIZ8_REGIONS_H
 
 #include <stddef.h>
+#include <array>
 #include <deque>
 #include <vector>
 #include <span>
+#include <string>
 
 #include "Types.h"
 #include "input.h"
 
 class W8Widget;
+struct _GUI_BUTTON;
+struct TEXTINPUTNODE;
 
 extern bool g_dev_mode;
 
@@ -26,7 +30,8 @@ struct W8RegionSet {
     unsigned int enabled = 0;
     std::span<const unsigned int> Regions() const { return {region_ids.data(), active_count}; }
     void Reset() { active_count = 0; }
-    unsigned int AddRegion();
+    unsigned int AddRegion(int priority = 0);
+    bool RemoveRegion(unsigned int region_index);
 
 private:
     // Keep slots for screen rebuilds, without assuming contiguous allocation.
@@ -83,6 +88,30 @@ struct W8Region {
     int help_text_id;
     W8Widget* widget; // Non-owning callback target; cleared by widget teardown.
     uint64_t binding_generation = 0; // Detect replacement during callback dispatch.
+    int priority = 0;
+    std::string help_text;
+    _GUI_BUTTON* button = nullptr;
+    TEXTINPUTNODE* text_field = nullptr;
+};
+
+class ExclusiveRegionSet {
+public:
+    explicit ExclusiveRegionSet(unsigned int set);
+    ~ExclusiveRegionSet();
+    ExclusiveRegionSet(const ExclusiveRegionSet&) = delete;
+    ExclusiveRegionSet& operator=(const ExclusiveRegionSet&) = delete;
+
+private:
+    struct RegionState {
+        unsigned int index;
+        uint64_t generation;
+        unsigned int flags;
+    };
+    unsigned int set_;
+    std::array<RegionState, 3> saved_regions_{};
+    unsigned int saved_current_ = 0;
+    unsigned int saved_captured_ = 0;
+    unsigned int saved_hover_ = 0;
 };
 
 unsigned char InitializeRegionHelpState(void);
@@ -122,7 +151,8 @@ bool RegionContainsPoint(unsigned int region_index, unsigned short x, unsigned s
 bool RegionHasFlags(unsigned int region_index, unsigned int flags);
 unsigned int CreateRegionSet(void);
 void ResetRegionSet(unsigned int region_set_index);
-unsigned int AddRegionToSet(unsigned int region_set_index);
+unsigned int AddRegionToSet(unsigned int region_set_index, int priority = 0);
+void RemoveRegionFromSet(unsigned int region_set_index, unsigned int region_index);
 void SetRegionCallback(unsigned int region_index, W8RegionCallback callback,
                        unsigned short callback_id);
 void SetRegionHelp(unsigned int region_index, bool enabled, int help_text_id);
