@@ -1188,7 +1188,8 @@ void W8CharacterPersonalityPage::Redraw()
 
     if (m_portrait_dirty) {
         DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x11, m_character->portrait_index, 0,
-                                      m_bounds.left + 0x86, m_bounds.top + 5);
+                                      m_bounds.left + 0x86, m_bounds.top + 5,
+                                      {.color_key = false});
         m_portrait_dirty = false;
     }
 

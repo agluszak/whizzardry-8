@@ -818,7 +818,7 @@ void DrawCatalogImage(SDL_Surface& target, int object, int frame, short image, i
                        left, top, options);
     } else {
         BlitImage(target, left, top, CatalogBitmap(object, frame), nullptr,
-                  {.color_key = true, .mirror = options.mirror});
+                  {.color_key = options.color_key && !options.mirror, .mirror = options.mirror});
     }
 }
 
@@ -888,7 +888,7 @@ void DrawCatalogImageAndInvalidate(SDL_Surface& target, int object, int frame, i
 
     DrawCatalogImage(target, object, frame, static_cast<short>(image), left, top, options);
     InvalidateCatalogImageRect(object, frame, image, left, top,
-                               options.blend == SpriteBlend::Transparent);
+                               options.color_key && !options.mirror);
 }
 
 // FUNCTION: WIZ8 0x00549660

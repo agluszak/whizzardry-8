@@ -20,6 +20,7 @@ struct SpriteDraw {
     std::uint16_t shadow = 0;
     bool mirror = false;
     const Palette16* palette = nullptr;
+    bool color_key = true;
 };
 
 void DrawSprite(SDL_Surface& target, const SpriteSheet& sprites, std::size_t frame,
@@ -27,5 +28,5 @@ void DrawSprite(SDL_Surface& target, const SpriteSheet& sprites, std::size_t fra
 bool SpriteIsClipped(const SpriteSheet& sprites, std::size_t frame, int x, int y,
                      const SDL_Rect& clip);
 void TileSprite(SDL_Surface& target, const SDL_Rect& area, const SpriteSheet& sprites,
-                std::size_t frame, SDL_Point origin);
+                std::size_t frame, SDL_Point offset);
 SDLSurfaceOwner RenderSpriteToImage(const SpriteSheet& sprites, std::size_t frame);

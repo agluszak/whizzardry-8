@@ -192,7 +192,7 @@ TEST_CASE("sprite mirroring respects the target surface clip", "[blit]")
     REQUIRE(pixels(*target) == golden("sprite-mirror-clip"));
 }
 
-TEST_CASE("sprite tiling keeps a negative origin phase", "[blit]")
+TEST_CASE("sprite tiling keeps a negative offset phase", "[blit]")
 {
     auto target = surface(5, 5);
     REQUIRE(target);
@@ -202,6 +202,63 @@ TEST_CASE("sprite tiling keeps a negative origin phase", "[blit]")
     TileSprite(*target, area, sprites, 0, SDL_Point{-1, -1});
 
     REQUIRE(pixels(*target) == golden("sprite-negative-tile"));
+}
+
+TEST_CASE("sprite tiling phase is relative to its destination area", "[blit]")
+{
+    auto target = surface(5, 1);
+    REQUIRE(target);
+    REQUIRE(SDL_FillSurfaceRect(target.get(), nullptr, 0x7777));
+    const auto sprites = sprite_sheet(2, 1, {1, 2});
+    const SDL_Rect area{1, 0, 3, 1};
+
+    TileSprite(*target, area, sprites, 0, SDL_Point{0, 0});
+
+    REQUIRE(pixel(*target, 0, 0) == 0x7777);
+    REQUIRE(pixel(*target, 1, 0) == 0x1001);
+    REQUIRE(pixel(*target, 2, 0) == 0x1002);
+    REQUIRE(pixel(*target, 3, 0) == 0x1001);
+    REQUIRE(pixel(*target, 4, 0) == 0x7777);
+}
+
+TEST_CASE("sprite tiling period includes frame offsets", "[blit]")
+{
+    auto target = surface(7, 1);
+    REQUIRE(target);
+    REQUIRE(SDL_FillSurfaceRect(target.get(), nullptr, 0x7777));
+    auto sprites = sprite_sheet(2, 1, {1, 2});
+    sprites.frames[0].sOffsetX = 1;
+    const SDL_Rect area{0, 0, 7, 1};
+
+    TileSprite(*target, area, sprites, 0, SDL_Point{0, 0});
+
+    REQUIRE(pixel(*target, 0, 0) == 0x7777);
+    REQUIRE(pixel(*target, 1, 0) == 0x1001);
+    REQUIRE(pixel(*target, 2, 0) == 0x1002);
+    REQUIRE(pixel(*target, 3, 0) == 0x7777);
+    REQUIRE(pixel(*target, 4, 0) == 0x1001);
+    REQUIRE(pixel(*target, 5, 0) == 0x1002);
+    REQUIRE(pixel(*target, 6, 0) == 0x7777);
+}
+
+TEST_CASE("sprite tiling preserves negative-offset edge cells", "[blit]")
+{
+    auto target = surface(5, 5);
+    REQUIRE(target);
+    REQUIRE(SDL_FillSurfaceRect(target.get(), nullptr, 0x7777));
+    auto sprites = sprite_sheet(3, 3, {1, 2, 3, 4, 5, 6, 7, 8, 9});
+    sprites.frames[0].sOffsetX = -1;
+    sprites.frames[0].sOffsetY = -1;
+    const SDL_Rect area{0, 0, 5, 5};
+
+    TileSprite(*target, area, sprites, 0, SDL_Point{0, 0});
+
+    const std::uint16_t expected[]{0x1005, 0x1004, 0x1005, 0x1004, 0x1005,
+                                   0x1002, 0x1001, 0x1002, 0x1001, 0x1002,
+                                   0x1005, 0x1004, 0x1005, 0x1004, 0x1005,
+                                   0x1002, 0x1001, 0x1002, 0x1001, 0x1002,
+                                   0x1005, 0x1004, 0x1005, 0x1004, 0x1005};
+    REQUIRE(pixels(*target) == std::vector<std::uint16_t>(expected, expected + 25));
 }
 
 TEST_CASE("self blits preserve overlapping rows in either direction", "[blit]")

@@ -84,21 +84,24 @@ bool SpriteIsClipped(const SpriteSheet& sprites, std::size_t frame_index, int x,
 }
 
 void TileSprite(SDL_Surface& target, const SDL_Rect& area, const SpriteSheet& sprites,
-                std::size_t frame_index, SDL_Point origin)
+                std::size_t frame_index, SDL_Point offset)
 {
     if (frame_index >= sprites.frames.size() || SDL_RectEmpty(&area))
         return;
     const auto& frame = sprites.frames[frame_index];
-    if (!frame.indices || frame.usWidth == 0 || frame.usHeight == 0)
+    const int tile_width = frame.usWidth + frame.sOffsetX;
+    const int tile_height = frame.usHeight + frame.sOffsetY;
+    if (!frame.indices || tile_width <= 0 || tile_height <= 0)
         return;
 
     ScopedClipRect clip(target, area);
-    const int x_offset = ((area.x - origin.x) % frame.usWidth + frame.usWidth) % frame.usWidth;
-    const int y_offset = ((area.y - origin.y) % frame.usHeight + frame.usHeight) % frame.usHeight;
-    const int first_x = area.x - x_offset;
-    const int first_y = area.y - y_offset;
-    for (int y = first_y; y < area.y + area.h; y += frame.usHeight)
-        for (int x = first_x; x < area.x + area.w; x += frame.usWidth)
+    const auto modulo = [](int value, int period) {
+        return (value % period + period) % period;
+    };
+    const int first_x = area.x + modulo(offset.x, tile_width) - tile_width;
+    const int first_y = area.y + modulo(offset.y, tile_height) - tile_height;
+    for (int y = first_y; y < area.y + area.h; y += tile_height)
+        for (int x = first_x; x < area.x + area.w; x += tile_width)
             DrawSprite(target, sprites, frame_index, x, y);
 }
 
