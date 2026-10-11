@@ -676,22 +676,22 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Model bounds are independent values", "[
     mesh->getVertexLoc()[0] = srVector3(-4, -3, -2);
     mesh->getVertexLoc()[1] = srVector3(2, 3, 4);
     srModel& model = *mesh;
-    auto box = model.getBoundingBox();
-    const auto sphere = model.getBoundingSphere();
+    auto box = model.getBounds().box;
+    const auto sphere = model.getBounds().sphere;
     REQUIRE(box.minimum == glm::vec3(-4, -3, -2));
     REQUIRE(box.maximum == glm::vec3(2, 3, 4));
     REQUIRE(sphere.center == glm::vec3(-1, 0, 1));
     REQUIRE(std::abs(sphere.radius - std::sqrt(27.0f) * 1.00001f) < 1e-5f);
     box.minimum = glm::vec3(99);
-    REQUIRE(model.getBoundingBox().minimum == glm::vec3(-4, -3, -2));
+    REQUIRE(model.getBounds().box.minimum == glm::vec3(-4, -3, -2));
 
     srModelInstance instance;
     instance.setModel(mesh);
     srNode& node = instance;
     const auto local = node.getLocalBounds();
     REQUIRE(local.state == 1);
-    REQUIRE(local.minimum == model.getBoundingBox().minimum);
-    REQUIRE(local.maximum == model.getBoundingBox().maximum);
+    REQUIRE(local.minimum == model.getBounds().box.minimum);
+    REQUIRE(local.maximum == model.getBounds().box.maximum);
     REQUIRE(local.center == sphere.center);
     REQUIRE(local.radius == sphere.radius);
 
@@ -700,7 +700,7 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Model bounds are independent values", "[
     REQUIRE(mesh->getTriMesh().bounds_radius == sphere.radius);
     mesh->getVertexLoc()[1] = srVector3(4, 5, 6);
     mesh->setDirtyAll();
-    REQUIRE(model.getBoundingBox().maximum == glm::vec3(4, 5, 6));
+    REQUIRE(model.getBounds().box.maximum == glm::vec3(4, 5, 6));
     REQUIRE(node.getLocalBounds().maximum == glm::vec3(4, 5, 6));
 
     srNode empty;
@@ -727,10 +727,10 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Model bounds are independent values", "[
     part->getVertexLoc()[0] = srVector3(2, 4, 6);
     linked.AddPart(std::move(part));
     srModel& linked_model = linked;
-    REQUIRE(linked_model.getBoundingBox().minimum == glm::vec3(-2, -4, -6));
-    REQUIRE(linked_model.getBoundingBox().maximum == glm::vec3(2, 4, 6));
-    REQUIRE(linked_model.getBoundingSphere().center == glm::vec3(0));
-    REQUIRE(std::abs(linked_model.getBoundingSphere().radius - std::sqrt(56.0f)) < 1e-5f);
+    REQUIRE(linked_model.getBounds().box.minimum == glm::vec3(-2, -4, -6));
+    REQUIRE(linked_model.getBounds().box.maximum == glm::vec3(2, 4, 6));
+    REQUIRE(linked_model.getBounds().sphere.center == glm::vec3(0));
+    REQUIRE(std::abs(linked_model.getBounds().sphere.radius - std::sqrt(56.0f)) < 1e-5f);
 }
 
 TEST_CASE_METHOD(SurRenderTestFixture, "Material query overrides do not mutate the cache", "[geometry]")
