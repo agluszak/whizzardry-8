@@ -367,16 +367,16 @@ TEST_CASE("imports_test")
         srCamera source, copy;
         source.setViewPlane(2, 3);
         copy = source;
-        srCamera::Rect before, after;
-        double distance;
-        source.getViewPlane(before, distance);
-        copy.getViewPlane(after, distance);
-        REQUIRE((before.left == after.left && before.top == after.top));
+        const auto before = source.getViewPlane();
+        const auto after = copy.getViewPlane();
+        REQUIRE((before.rectangle.left == after.rectangle.left &&
+                 before.rectangle.top == after.rectangle.top &&
+                 before.distance == after.distance));
         const auto normalized = copy.getNormalizedViewPlane();
-        REQUIRE((normalized.left == after.left / distance &&
-                 normalized.bottom == after.bottom / distance &&
-                 normalized.right == after.right / distance &&
-                 normalized.top == after.top / distance));
+        REQUIRE((normalized.left == after.rectangle.left / after.distance &&
+                 normalized.bottom == after.rectangle.bottom / after.distance &&
+                 normalized.right == after.rectangle.right / after.distance &&
+                 normalized.top == after.rectangle.top / after.distance));
         copy.setClipRange(1000, 10);
         const auto [near_clip, far_clip] = copy.getClipRange();
         REQUIRE((near_clip == 10 && far_clip == 1000));
