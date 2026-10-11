@@ -122,8 +122,7 @@ void W8SpellInfoDialog::Draw()
         animation = &g_spell_realm_animations[realm];
         m_animation_frame += steps;
         m_animation_frame %= animation->frame_count;
-        DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), animation->image, 0, m_animation_frame,
-                                      m_x + 0xe, m_y + 0xe);
+        CatalogArtwork::Load(animation->image, 0).drawAndInvalidate(GetFrameBufferSurface(), m_animation_frame, m_x + 0xe, m_y + 0xe);
     }
 }
 

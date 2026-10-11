@@ -172,12 +172,11 @@ void W8NpcTypedDialoguePanel::Redraw()
         return;
     }
     if (m_fDirty) {
-        if (m_catalogObject != -1) {
-            DrawCatalogImage(GetFrameBufferSurface(), m_catalogObject, m_catalogFrame, m_catalogImage,
-                             m_bounds.left, m_bounds.top);
+        if (m_background) {
+            m_background->draw(GetFrameBufferSurface(), m_backgroundImage, m_bounds.left,
+                               m_bounds.top);
         }
-        DrawCatalogImage(GetFrameBufferSurface(), 0x1a9, 0, 0x10, 0x1df,
-                         g_npc_interaction_state->where_is_query ? 0x19b : 0x18b);
+        CatalogArtwork::Load(0x1a9, 0).draw(GetFrameBufferSurface(), 0x10, 0x1df, g_npc_interaction_state->where_is_query ? 0x19b : 0x18b);
         redrawn = 1;
     } else if (!m_fLayoutDirty) {
         return;
@@ -214,7 +213,7 @@ void W8NpcDialogueOptionsPanel::SetEnabled(bool enable)
 }
 
 /* Base redraw except the foreground catalog image is m_main_text_box_image rather than
-   m_catalogImage while the expanded dialogue layout is up. */
+   m_backgroundImage while the expanded dialogue layout is up. */
 // FUNCTION: WIZ8 0x0056BD30
 void W8NpcDialogueOptionsPanel::Redraw()
 {
@@ -224,13 +223,13 @@ void W8NpcDialogueOptionsPanel::Redraw()
         return;
     }
     if (m_fDirty) {
-        if (m_catalogObject != -1) {
-            DrawCatalogImage(GetFrameBufferSurface(), m_catalogObject, m_catalogFrame,
-                             g_npc_interaction_state->dialogue_layout ==
-                                     W8_DIALOGUE_LAYOUT_MAIN_TEXT_BOX
-                                 ? m_main_text_box_image
-                                 : m_catalogImage,
-                             m_bounds.left, m_bounds.top);
+        if (m_background) {
+            m_background->draw(
+                GetFrameBufferSurface(),
+                g_npc_interaction_state->dialogue_layout == W8_DIALOGUE_LAYOUT_MAIN_TEXT_BOX
+                    ? m_main_text_box_image
+                    : m_backgroundImage,
+                m_bounds.left, m_bounds.top);
         }
         redrawn = 1;
     } else if (!m_fLayoutDirty) {
@@ -729,53 +728,53 @@ void CreateNpcDialogueControls(void)
 
     state = g_npc_interaction_state;
     state->dialogue_panels[0] =
-        new W8NpcDialogueOptionsPanel(0x17, 0x166, 0xa4, 0x1c2, 0x1a9, 0, 0);
-    state->dialogue_panels[1] = new Controls(0xa4, 0x166, 0x1dc, 0x1c2, 0x1a9, 0, 1);
+        new W8NpcDialogueOptionsPanel(0x17, 0x166, 0xa4, 0x1c2,
+                                      CatalogArtwork::Load(0x1a9), 0);
+    state->dialogue_panels[1] = new Controls(0xa4, 0x166, 0x1dc, 0x1c2, CatalogArtwork::Load(0x1a9, 0), 1);
     state->dialogue_panels[2] =
-        new W8NpcDialogueTextController(0x1dc, 0x11b, 0x269, 0x140, 0x1a9, 0, 2, 4, 3);
-    state->dialogue_panels[3] = new Controls(0x1dc, 0x12f, 0x269, 0x1c2, 0x1a9, 0, 5);
-    state->dialogue_panels[4] = new Controls(0x1dc, 0x166, 0x269, 0x1c2, 0x1a9, 0, 7);
-    state->dialogue_panels[5] = new Controls(0x1dc, 0x166, 0x238, 499, 0x1a9, 0, 6);
+        new W8NpcDialogueTextController(0x1dc, 0x11b, 0x269, 0x140,
+                                        CatalogArtwork::Load(0x1a9), 2, 4, 3);
+    state->dialogue_panels[3] = new Controls(0x1dc, 0x12f, 0x269, 0x1c2, CatalogArtwork::Load(0x1a9, 0), 5);
+    state->dialogue_panels[4] = new Controls(0x1dc, 0x166, 0x269, 0x1c2, CatalogArtwork::Load(0x1a9, 0), 7);
+    state->dialogue_panels[5] = new Controls(0x1dc, 0x166, 0x238, 499, CatalogArtwork::Load(0x1a9, 0), 6);
     state->dialogue_panels[6] =
-        new W8NpcTypedDialoguePanel(0x1dc, 0x166, 0x269, 0x1c0, 0x1a9, 0, 0xd);
+        new W8NpcTypedDialoguePanel(0x1dc, 0x166, 0x269, 0x1c0,
+                                    CatalogArtwork::Load(0x1a9), 0xd);
 
     panel = static_cast<W8NpcDialogueOptionsPanel*>(state->dialogue_panels[0]);
     state->dialogue_controls[W8_NPC_CONTROL_NPC_NAME] =
-        new W8TextControl(panel, 0xffffffff, 5, 2, 0x89, 0x12, -1, -1, -1, -1, -1, -1, -1);
+        new W8TextControl(panel, 0xffffffff, 5, 2, 0x89, 0x12, std::nullopt, -1, -1, -1, -1, -1);
     static_cast<W8TextControl*>(state->dialogue_controls[W8_NPC_CONTROL_NPC_NAME])
         ->m_textBuffer.SetLayoutMode(g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
     state->dialogue_controls[W8_NPC_CONTROL_TEXT_38] =
-        new W8TextControl(panel, 0xffffffff, 5, 0x47, 0x89, 0x57, -1, -1, -1, -1, -1, -1, -1);
+        new W8TextControl(panel, 0xffffffff, 5, 0x47, 0x89, 0x57, std::nullopt, -1, -1, -1, -1, -1);
     static_cast<W8TextControl*>(state->dialogue_controls[W8_NPC_CONTROL_TEXT_38])
         ->m_textBuffer.SetLayoutMode(g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
     state->dialogue_controls[W8_NPC_CONTROL_TEXT_1] =
-        new W8TextControl(panel, 0x82, 2, 0x11, 0x45, 0x21, 0x1a9, 0, -1, 0xc, 10, 0xb, -1);
+        new W8TextControl(panel, 0x82, 2, 0x11, 0x45, 0x21, CatalogArtwork::Load(0x1a9, 0), -1, 0xc, 10, 0xb, -1);
     state->dialogue_controls[W8_NPC_CONTROL_TEXT_2] =
-        new W8TextControl(panel, 0x83, 0x44, 0x11, 0x87, 0x21, 0x1a9, 0, -1, 0xc, 10, 0xb, -1);
+        new W8TextControl(panel, 0x83, 0x44, 0x11, 0x87, 0x21, CatalogArtwork::Load(0x1a9, 0), -1, 0xc, 10, 0xb, -1);
     state->dialogue_controls[W8_NPC_CONTROL_TEXT_3] =
-        new W8TextControl(panel, 0x84, 2, 0x21, 0x45, 0x31, 0x1a9, 0, -1, 0xc, 10, 0xb, -1);
+        new W8TextControl(panel, 0x84, 2, 0x21, 0x45, 0x31, CatalogArtwork::Load(0x1a9, 0), -1, 0xc, 10, 0xb, -1);
     state->dialogue_controls[W8_NPC_CONTROL_TEXT_4] =
-        new W8TextControl(panel, 0x85, 0x44, 0x21, 0x87, 0x31, 0x1a9, 0, -1, 0xc, 10, 0xb, -1);
+        new W8TextControl(panel, 0x85, 0x44, 0x21, 0x87, 0x31, CatalogArtwork::Load(0x1a9, 0), -1, 0xc, 10, 0xb, -1);
     state->dialogue_controls[W8_NPC_CONTROL_TEXT_5] =
-        new W8TextControl(panel, 0x86, 2, 0x31, 0x45, 0x41, 0x1a9, 0, -1, 0xc, 10, 0xb, -1);
+        new W8TextControl(panel, 0x86, 2, 0x31, 0x45, 0x41, CatalogArtwork::Load(0x1a9, 0), -1, 0xc, 10, 0xb, -1);
     state->dialogue_controls[W8_NPC_CONTROL_TEXT_6] =
-        new W8TextControl(panel, 0x87, 0x44, 0x31, 0x87, 0x41, 0x1a9, 0, -1, 0xc, 10, 0xb, -1);
+        new W8TextControl(panel, 0x87, 0x44, 0x31, 0x87, 0x41, CatalogArtwork::Load(0x1a9, 0), -1, 0xc, 10, 0xb, -1);
     static_cast<W8TextControl*>(state->dialogue_controls[W8_NPC_CONTROL_TEXT_6])
         ->UpdateTextBounds(0x46, 0x31, 0x89, 0x41);
     state->dialogue_controls[W8_NPC_CONTROL_TEXT_7] =
-        new W8TextControl(panel, 0x88, 0x72, 0x47, 0x89, 0x57, 0x1aa, 0, 0, 4, 1, 2, 3);
+        new W8TextControl(panel, 0x88, 0x72, 0x47, 0x89, 0x57, CatalogArtwork::Load(0x1aa, 0), 0, 4, 1, 2, 3);
     state->dialogue_controls[W8_NPC_CONTROL_OPTION_BUTTONS + 0] =
-        new W8TextControl(panel, 0x75, 7, 0x46, 0x17, 0x56, 0x1ab, 0, 0, 1, 2, 4, 3);
+        new W8TextControl(panel, 0x75, 7, 0x46, 0x17, 0x56, CatalogArtwork::Load(0x1ab, 0), 0, 1, 2, 4, 3);
     state->dialogue_controls[W8_NPC_CONTROL_OPTION_BUTTONS + 1] =
-        new W8TextControl(panel, 0x76, 0x19, 0x46, 0x29, 0x56, 0x1ab, 0, 5, 6, 7, 9, 8);
+        new W8TextControl(panel, 0x76, 0x19, 0x46, 0x29, 0x56, CatalogArtwork::Load(0x1ab, 0), 5, 6, 7, 9, 8);
     state->dialogue_controls[W8_NPC_CONTROL_OPTION_BUTTONS + 2] =
-        new W8TextControl(panel, 0x77, 0x2b, 0x46, 0x3b, 0x56, 0x1ab, 0, 10, 0xb, 0xc, 0xe, 0xd);
-    state->dialogue_controls[W8_NPC_CONTROL_OPTION_BUTTONS + 3] = new W8TextControl(
-        panel, 0x78, 0x3e, 0x46, 0x4e, 0x56, 0x1ab, 0, 0xf, 0x10, 0x11, 0x13, 0x12);
-    state->dialogue_controls[W8_NPC_CONTROL_OPTION_BUTTONS + 4] = new W8TextControl(
-        panel, 0x79, 0x50, 0x46, 0x60, 0x56, 0x1ab, 0, 0x14, 0x15, 0x16, 0x18, 0x17);
-    state->dialogue_controls[W8_NPC_CONTROL_OPTION_BUTTONS + 5] = new W8TextControl(
-        panel, 0x7a, 0x62, 0x46, 0x72, 0x56, 0x1ab, 0, 0x19, 0x1a, 0x1b, 0x1d, 0x1c);
+        new W8TextControl(panel, 0x77, 0x2b, 0x46, 0x3b, 0x56, CatalogArtwork::Load(0x1ab, 0), 10, 0xb, 0xc, 0xe, 0xd);
+    state->dialogue_controls[W8_NPC_CONTROL_OPTION_BUTTONS + 3] = new W8TextControl(panel, 0x78, 0x3e, 0x46, 0x4e, 0x56, CatalogArtwork::Load(0x1ab, 0), 0xf, 0x10, 0x11, 0x13, 0x12);
+    state->dialogue_controls[W8_NPC_CONTROL_OPTION_BUTTONS + 4] = new W8TextControl(panel, 0x79, 0x50, 0x46, 0x60, 0x56, CatalogArtwork::Load(0x1ab, 0), 0x14, 0x15, 0x16, 0x18, 0x17);
+    state->dialogue_controls[W8_NPC_CONTROL_OPTION_BUTTONS + 5] = new W8TextControl(panel, 0x7a, 0x62, 0x46, 0x72, 0x56, CatalogArtwork::Load(0x1ab, 0), 0x19, 0x1a, 0x1b, 0x1d, 0x1c);
     state->dialogue_controls[W8_NPC_CONTROL_OPTION_BUTTONS + 0]->AddLayoutFlags(
         g_W8TextControlLayoutToggle);
     state->dialogue_controls[W8_NPC_CONTROL_OPTION_BUTTONS + 0]->EnableRegionHelp(0x7c2);
@@ -814,26 +813,25 @@ void CreateNpcDialogueControls(void)
     state->dialogue_controls[W8_NPC_CONTROL_SCROLL] =
         new W8NpcDialogueScrollWidget(panel, 0x65, 6, 6, 0x7c, 0x11);
     state->dialogue_controls[W8_NPC_CONTROL_SCROLL_UP_BUTTON] =
-        new W8TextControl(panel, 0x66, 0x7e, 3, 0x88, 0xb, 0x1aa, 0, 0x14, 0x18, 0x15, 0x16, 0x17);
-    state->dialogue_controls[W8_NPC_CONTROL_SCROLL_DOWN_BUTTON] = new W8TextControl(
-        panel, 0x67, 0x7e, 0xc, 0x88, 0x14, 0x1aa, 0, 0x19, 0x1d, 0x1a, 0x1b, 0x1c);
+        new W8TextControl(panel, 0x66, 0x7e, 3, 0x88, 0xb, CatalogArtwork::Load(0x1aa, 0), 0x14, 0x18, 0x15, 0x16, 0x17);
+    state->dialogue_controls[W8_NPC_CONTROL_SCROLL_DOWN_BUTTON] = new W8TextControl(panel, 0x67, 0x7e, 0xc, 0x88, 0x14, CatalogArtwork::Load(0x1aa, 0), 0x19, 0x1d, 0x1a, 0x1b, 0x1c);
 
     panel = static_cast<W8NpcTypedDialoguePanel*>(state->dialogue_panels[6]);
     state->dialogue_controls[W8_NPC_CONTROL_TEXT_12] =
-        new W8TextControl(panel, 0x68, 0x11, 0x23, 0x22, 0x30, 0x1aa, 0, 5, 9, 6, 7, 8);
+        new W8TextControl(panel, 0x68, 0x11, 0x23, 0x22, 0x30, CatalogArtwork::Load(0x1aa, 0), 5, 9, 6, 7, 8);
     state->dialogue_controls[W8_NPC_CONTROL_TEXT_12]->EnableRegionHelp(100);
     state->dialogue_controls[W8_NPC_CONTROL_TEXT_13] =
-        new W8TextControl(panel, 0x69, 0x26, 0x23, 0x37, 0x30, 0x1aa, 0, 10, 0xe, 0xb, 0xc, 0xd);
+        new W8TextControl(panel, 0x69, 0x26, 0x23, 0x37, 0x30, CatalogArtwork::Load(0x1aa, 0), 10, 0xe, 0xb, 0xc, 0xd);
     state->dialogue_controls[W8_NPC_CONTROL_TEXT_13]->EnableRegionHelp(0x65);
     state->dialogue_controls[W8_NPC_CONTROL_TEXT_23] =
-        new W8TextControl(panel, 0x73, 9, 0x33, 0x84, 0x44, 0x1a9, 0, -1, -1, 0xe, 0xf, -1);
+        new W8TextControl(panel, 0x73, 9, 0x33, 0x84, 0x44, CatalogArtwork::Load(0x1a9, 0), -1, -1, 0xe, 0xf, -1);
     static_cast<W8TextControl*>(state->dialogue_controls[W8_NPC_CONTROL_TEXT_23])
         ->m_textBuffer.SetText(g_localized_strings[0x741], g_wiz_text_font_secondary);
     state->dialogue_controls[W8_NPC_CONTROL_TEXT_23]->m_primaryActivationCallback =
         SubmitNpcDialogueInput;
     state->dialogue_controls[W8_NPC_CONTROL_TEXT_23]->EnableRegionHelp(0x66);
     state->dialogue_controls[W8_NPC_CONTROL_TEXT_22] =
-        new W8TextControl(panel, 0x72, 9, 0x43, 0x84, 0x52, 0x1a9, 0, -1, -1, 0xe, 0xf, -1);
+        new W8TextControl(panel, 0x72, 9, 0x43, 0x84, 0x52, CatalogArtwork::Load(0x1a9, 0), -1, -1, 0xe, 0xf, -1);
     static_cast<W8TextControl*>(state->dialogue_controls[W8_NPC_CONTROL_TEXT_22])
         ->m_textBuffer.SetText(g_localized_strings[0x742], g_wiz_text_font_secondary);
     state->dialogue_controls[W8_NPC_CONTROL_TEXT_22]->m_primaryActivationCallback =
@@ -842,68 +840,67 @@ void CreateNpcDialogueControls(void)
 
     panel = state->dialogue_panels[3];
     state->dialogue_controls[W8_NPC_CONTROL_SORT_BUTTON] =
-        new W8TextControl(panel, 0x6b, 6, 2, 0x89, 0xe, 0x1a9, 0, 8, 9, -1, -1, -1);
+        new W8TextControl(panel, 0x6b, 6, 2, 0x89, 0xe, CatalogArtwork::Load(0x1a9, 0), 8, 9, -1, -1, -1);
     state->dialogue_controls[W8_NPC_CONTROL_SORT_BUTTON]->AddLayoutFlags(
         g_W8TextControlLayoutImageLeft | g_W8TextControlLayoutTextBesideImage |
         g_W8TextControlLayoutToggle);
     state->dialogue_controls[W8_NPC_CONTROL_PEOPLE_BUTTON] =
-        new W8TextControl(panel, 0x6d, 6, 0xf, 0x41, 0x1b, 0x1a9, 0, 8, 9, -1, -1, -1);
+        new W8TextControl(panel, 0x6d, 6, 0xf, 0x41, 0x1b, CatalogArtwork::Load(0x1a9, 0), 8, 9, -1, -1, -1);
     state->dialogue_controls[W8_NPC_CONTROL_PEOPLE_BUTTON]->AddLayoutFlags(
         g_W8TextControlLayoutStayLatched | g_W8TextControlLayoutImageLeft |
         g_W8TextControlLayoutTextBesideImage | g_W8TextControlLayoutToggle);
     state->dialogue_controls[W8_NPC_CONTROL_PLACES_BUTTON] =
-        new W8TextControl(panel, 0x6e, 0x43, 0xf, 0x89, 0x1b, 0x1a9, 0, 8, 9, -1, -1, -1);
+        new W8TextControl(panel, 0x6e, 0x43, 0xf, 0x89, 0x1b, CatalogArtwork::Load(0x1a9, 0), 8, 9, -1, -1, -1);
     state->dialogue_controls[W8_NPC_CONTROL_PLACES_BUTTON]->AddLayoutFlags(
         g_W8TextControlLayoutStayLatched | g_W8TextControlLayoutImageLeft |
         g_W8TextControlLayoutTextBesideImage | g_W8TextControlLayoutToggle);
     state->dialogue_controls[W8_NPC_CONTROL_ITEMS_BUTTON] =
-        new W8TextControl(panel, 0x6f, 6, 0x1b, 0x41, 0x27, 0x1a9, 0, 8, 9, -1, -1, -1);
+        new W8TextControl(panel, 0x6f, 6, 0x1b, 0x41, 0x27, CatalogArtwork::Load(0x1a9, 0), 8, 9, -1, -1, -1);
     state->dialogue_controls[W8_NPC_CONTROL_ITEMS_BUTTON]->AddLayoutFlags(
         g_W8TextControlLayoutStayLatched | g_W8TextControlLayoutImageLeft |
         g_W8TextControlLayoutTextBesideImage | g_W8TextControlLayoutToggle);
     state->dialogue_controls[W8_NPC_CONTROL_MISC_BUTTON] =
-        new W8TextControl(panel, 0x70, 0x43, 0x1b, 0x89, 0x27, 0x1a9, 0, 8, 9, -1, -1, -1);
+        new W8TextControl(panel, 0x70, 0x43, 0x1b, 0x89, 0x27, CatalogArtwork::Load(0x1a9, 0), 8, 9, -1, -1, -1);
     state->dialogue_controls[W8_NPC_CONTROL_MISC_BUTTON]->AddLayoutFlags(
         g_W8TextControlLayoutStayLatched | g_W8TextControlLayoutImageLeft |
         g_W8TextControlLayoutTextBesideImage | g_W8TextControlLayoutToggle);
     state->dialogue_controls[W8_NPC_CONTROL_ALL_BUTTON] =
-        new W8TextControl(panel, 0x71, 6, 0x27, 0x41, 0x33, 0x1a9, 0, 8, 9, -1, -1, -1);
+        new W8TextControl(panel, 0x71, 6, 0x27, 0x41, 0x33, CatalogArtwork::Load(0x1a9, 0), 8, 9, -1, -1, -1);
     state->dialogue_controls[W8_NPC_CONTROL_ALL_BUTTON]->AddLayoutFlags(
         g_W8TextControlLayoutStayLatched | g_W8TextControlLayoutImageLeft |
         g_W8TextControlLayoutTextBesideImage | g_W8TextControlLayoutToggle);
 
     panel = state->dialogue_panels[5];
     state->dialogue_controls[W8_NPC_CONTROL_TEXT_24] =
-        new W8TextControl(panel, 0x74, 5, 0x14, 0x32, 0x49, -1, -1, -1, -1, -1, -1, -1);
+        new W8TextControl(panel, 0x74, 5, 0x14, 0x32, 0x49, std::nullopt, -1, -1, -1, -1, -1);
     static_cast<W8TextControl*>(state->dialogue_controls[W8_NPC_CONTROL_TEXT_24])
         ->m_textBuffer.SetLayoutMode(g_W8TextBufferAlignBottom | g_W8TextBufferAlignRight);
     state->dialogue_controls[W8_NPC_CONTROL_TEXT_24]->AddLayoutFlags(
         g_W8TextControlLayoutImageAtOrigin);
-    state->dialogue_controls[W8_NPC_CONTROL_TEXT_31] = new W8TextControl(
-        panel, 0x7b, 0x35, 0x36, 0x51, 0x46, 0x1aa, 0, 0x1e, 0x22, 0x1f, 0x20, 0x21);
+    state->dialogue_controls[W8_NPC_CONTROL_TEXT_31] = new W8TextControl(panel, 0x7b, 0x35, 0x36, 0x51, 0x46, CatalogArtwork::Load(0x1aa, 0), 0x1e, 0x22, 0x1f, 0x20, 0x21);
     state->dialogue_controls[W8_NPC_CONTROL_TEXT_31]->EnableRegionHelp(0x7c9);
     state->dialogue_controls[W8_NPC_CONTROL_TEXT_33] =
-        new W8TextControl(panel, 0x7d, 0x53, 0x4d, 0x86, 0x58, -1, -1, -1, -1, -1, -1, -1);
+        new W8TextControl(panel, 0x7d, 0x53, 0x4d, 0x86, 0x58, std::nullopt, -1, -1, -1, -1, -1);
     static_cast<W8TextControl*>(state->dialogue_controls[W8_NPC_CONTROL_TEXT_33])
         ->m_textBuffer.SetLayoutMode(g_W8TextBufferAlignRight | g_W8TextBufferAlignMiddle);
     state->dialogue_controls[W8_NPC_CONTROL_TEXT_33]->SetEnabled(false);
     state->dialogue_controls[W8_NPC_CONTROL_TEXT_34] =
-        new W8TextControl(panel, 0x7e, 5, 0x4d, 0x51, 0x58, -1, -1, -1, -1, -1, -1, -1);
+        new W8TextControl(panel, 0x7e, 5, 0x4d, 0x51, 0x58, std::nullopt, -1, -1, -1, -1, -1);
     static_cast<W8TextControl*>(state->dialogue_controls[W8_NPC_CONTROL_TEXT_34])
         ->m_textBuffer.SetLayoutMode(g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
     state->dialogue_controls[W8_NPC_CONTROL_TEXT_34]->SetEnabled(false);
     state->dialogue_controls[W8_NPC_CONTROL_TEXT_35] =
-        new W8TextControl(panel, 0x7f, 0x53, 0x3a, 0x86, 0x45, -1, -1, -1, -1, -1, -1, -1);
+        new W8TextControl(panel, 0x7f, 0x53, 0x3a, 0x86, 0x45, std::nullopt, -1, -1, -1, -1, -1);
     static_cast<W8TextControl*>(state->dialogue_controls[W8_NPC_CONTROL_TEXT_35])
         ->m_textBuffer.SetLayoutMode(g_W8TextBufferAlignRight | g_W8TextBufferAlignMiddle);
     state->dialogue_controls[W8_NPC_CONTROL_TEXT_35]->SetEnabled(false);
     state->dialogue_controls[W8_NPC_CONTROL_TEXT_36] =
-        new W8TextControl(panel, 0x80, 4, 4, 0x88, 0x11, -1, -1, -1, -1, -1, -1, -1);
+        new W8TextControl(panel, 0x80, 4, 4, 0x88, 0x11, std::nullopt, -1, -1, -1, -1, -1);
     static_cast<W8TextControl*>(state->dialogue_controls[W8_NPC_CONTROL_TEXT_36])
         ->m_textBuffer.SetLayoutMode(g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
     state->dialogue_controls[W8_NPC_CONTROL_TEXT_36]->SetEnabled(false);
     state->dialogue_controls[W8_NPC_CONTROL_TEXT_37] =
-        new W8TextControl(panel, 0x81, 0x38, 0x22, 0x88, 0x34, -1, -1, -1, -1, -1, -1, -1);
+        new W8TextControl(panel, 0x81, 0x38, 0x22, 0x88, 0x34, std::nullopt, -1, -1, -1, -1, -1);
     state->dialogue_controls[W8_NPC_CONTROL_TEXT_7]->m_primaryActivationCallback =
         BackOutNpcDialogue;
     state->dialogue_controls[W8_NPC_CONTROL_TEXT_7]->EnableRegionHelp(0x7c8);
@@ -2589,7 +2586,7 @@ void OpenNpcItemAssay(void)
 
     if (g_npc_interaction_state->trade_item != 0 &&
         item_control->m_imageSprites &&
-        item_control->m_imageSprites != GetCatalogSpriteSheet(0x1ac, 0)) {
+        item_control->m_imageSprites != CatalogArtwork::Load(0x1ac).spriteSheet()) {
         dialog = new W8AssayDialog(g_npc_interaction_state->trade_item,
                                    &g_status.buffers.Char[g_status.selected_character]);
         dialog->SetText("");
@@ -2762,7 +2759,7 @@ W8ItemInstance* ResolveNpcTradeRow(int index, bool pick, char decrement, char co
                 g_npc_interaction_state->trade_gold = g_status.party_gold;
                 static_cast<W8TextControl*>(
                     g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_24])
-                    ->SetImage(0x1ac);
+                    ->SetImage(CatalogArtwork::Load(0x1ac));
                 static_cast<W8TextControl*>(
                     g_npc_interaction_state->dialogue_controls[W8_NPC_CONTROL_TEXT_24])
                     ->m_textBuffer.SetText("", g_wiz_text_font_secondary);

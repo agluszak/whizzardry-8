@@ -2,6 +2,7 @@
 #pragma once
 
 #include <vector>
+#include <optional>
 #include <string_view>
 #include <string>
 
@@ -40,13 +41,13 @@ struct W8Region;
 
 /* The panel hosting the six option buttons. SetEnabled keeps them inactive
    unless the main-text-box dialogue layout is up, and Redraw substitutes
-   m_main_text_box_image for m_catalogImage in that layout. */
+   m_main_text_box_image for m_backgroundImage in that layout. */
 // VTABLE: WIZ8 0x005ee9f0
 class W8NpcDialogueOptionsPanel : public Controls {
 public:
-    W8NpcDialogueOptionsPanel(int left, int top, int new_right, int new_bottom, int catalog_object,
-                              int catalog_frame, int catalog_image)
-        : Controls(left, top, new_right, new_bottom, catalog_object, catalog_frame, catalog_image)
+    W8NpcDialogueOptionsPanel(int left, int top, int new_right, int new_bottom,
+                              std::optional<CatalogArtwork> background, int background_image)
+        : Controls(left, top, new_right, new_bottom, std::move(background), background_image)
     {
         m_main_text_box_image = 0x11;
     }
@@ -63,9 +64,9 @@ W8_ABI_ASSERT(sizeof(W8NpcDialogueOptionsPanel) == 0x50, "W8NpcDialogueOptionsPa
 // VTABLE: WIZ8 0x005ee9e4
 class W8NpcTypedDialoguePanel : public Controls {
 public:
-    W8NpcTypedDialoguePanel(int left, int top, int new_right, int new_bottom, int catalog_object,
-                            int catalog_frame, int catalog_image)
-        : Controls(left, top, new_right, new_bottom, catalog_object, catalog_frame, catalog_image)
+    W8NpcTypedDialoguePanel(int left, int top, int new_right, int new_bottom,
+                            std::optional<CatalogArtwork> background, int background_image)
+        : Controls(left, top, new_right, new_bottom, std::move(background), background_image)
     {
     }
     virtual void SetEnabled(bool enable) override;

@@ -3,6 +3,7 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
 #include <SDL3/SDL_filesystem.h>
+#include <SDL3/SDL_rect.h>
 #include <string_view>
 #include <string>
 #include <utility>
@@ -1890,7 +1891,7 @@ int UpdateCharacterEventState(void)
 void RenderPartyPortrait(int portrait, int left, int top, SpriteDraw options, unsigned char value,
                          int party_slot)
 {
-    DrawCatalogImage(GetFrameBufferSurface(), 0x12, portrait, 0, left, top, options);
+    CatalogArtwork::Load(0x12, portrait).draw(GetFrameBufferSurface(), 0, left, top, options);
     if (party_slot == -1) {
         return;
     }
@@ -1926,10 +1927,15 @@ bool BlitPartyPortraitAnimation(int portrait, int left, int top, SpriteDraw opti
     if (g_portrait_frame_flags[portrait] == 0) {
         return drawn;
     }
+    const auto artwork = CatalogArtwork::Load(0x12, portrait);
     if (state->portrait_pose_dirty || state->portrait_pose != state->rendered_portrait_pose ||
         (animate && state->portrait_pose != 1)) {
-        std::tie(width, height) = GetCatalogImageSize(0x12, portrait, state->portrait_pose);
-        GetCatalogImagePosition(0x12, portrait, state->portrait_pose, &image_x, &image_y);
+        const SDL_Point pose_size = artwork.size(state->portrait_pose);
+        width = pose_size.x;
+        height = pose_size.y;
+        const SDL_Point image_position = artwork.position(state->portrait_pose);
+        image_x = image_position.x;
+        image_y = image_position.y;
         rect.left = image_x + left;
         rect.top = image_y + top;
         rect.right = width + rect.left;
@@ -1941,13 +1947,15 @@ bool BlitPartyPortraitAnimation(int portrait, int left, int top, SpriteDraw opti
         if (g_status.buffers.Char[party_slot].hp_current == 0) {
             return true;
         }
-        DrawCatalogImage(GetFrameBufferSurface(), 0x12, portrait, state->portrait_pose, left, top,
-                         options);
+        artwork.draw(GetFrameBufferSurface(), state->portrait_pose, left, top, options);
         drawn = true;
         if (state->rendered_portrait_pose != -1) {
-            std::tie(width, height) = GetCatalogImageSize(0x12, portrait, state->rendered_portrait_pose);
-            GetCatalogImagePosition(0x12, portrait, state->rendered_portrait_pose, &image_x,
-                                    &image_y);
+            const SDL_Point previous_size = artwork.size(state->rendered_portrait_pose);
+            width = previous_size.x;
+            height = previous_size.y;
+            const SDL_Point image_position = artwork.position(state->rendered_portrait_pose);
+            image_x = image_position.x;
+            image_y = image_position.y;
             other.left = image_x + left;
             other.top = image_y + top;
             other.right = width + other.left;
@@ -1964,14 +1972,17 @@ bool BlitPartyPortraitAnimation(int portrait, int left, int top, SpriteDraw opti
             return false;
         }
     } else {
-        std::tie(width, height) = GetCatalogImageSize(0x12, portrait, state->portrait_frame);
-        GetCatalogImagePosition(0x12, portrait, state->portrait_frame, &image_x, &image_y);
+        const SDL_Point frame_size = artwork.size(state->portrait_frame);
+        width = frame_size.x;
+        height = frame_size.y;
+        const SDL_Point image_position = artwork.position(state->portrait_frame);
+        image_x = image_position.x;
+        image_y = image_position.y;
         if (!animate && !drawn && gXStatus.fCombatMode &&
             g_combat_state->characters[party_slot].dead) {
             RenderPartyPortrait(portrait, left, top, options, 0, party_slot);
         }
-        DrawCatalogImage(GetFrameBufferSurface(), 0x12, portrait, state->portrait_frame, left, top,
-                         options);
+        artwork.draw(GetFrameBufferSurface(), state->portrait_frame, left, top, options);
 #ifdef WIZ8_RUNTIME_TESTS
         RuntimeObserve(RUNTIME_PORTRAIT_BLIT, party_slot, state->portrait_frame, portrait);
 #endif
@@ -1981,9 +1992,12 @@ bool BlitPartyPortraitAnimation(int portrait, int left, int top, SpriteDraw opti
         rect.bottom = height + rect.top;
         drawn = true;
         if (state->rendered_portrait_frame != -1) {
-            std::tie(width, height) = GetCatalogImageSize(0x12, portrait, state->rendered_portrait_frame);
-            GetCatalogImagePosition(0x12, portrait, state->rendered_portrait_frame, &image_x,
-                                    &image_y);
+            const SDL_Point previous_size = artwork.size(state->rendered_portrait_frame);
+            width = previous_size.x;
+            height = previous_size.y;
+            const SDL_Point image_position = artwork.position(state->rendered_portrait_frame);
+            image_x = image_position.x;
+            image_y = image_position.y;
             other.left = image_x + left;
             other.top = image_y + top;
             other.right = width + other.left;

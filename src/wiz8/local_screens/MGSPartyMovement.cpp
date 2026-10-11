@@ -66,7 +66,7 @@ unsigned char CreatePartyMovementPanel(void)
     g_party_movement_buttons[0] = 0;
     g_party_movement_buttons[1] = 0;
 
-    g_party_movement_panel = new Controls(0xb1, 0x13f, 0x1cf, 0x153, 0x93, 0, 0);
+    g_party_movement_panel = new Controls(0xb1, 0x13f, 0x1cf, 0x153, CatalogArtwork::Load(0x93, 0), 0);
 
     bounds.left = 0xc3;
     bounds.right = 0x1b9;
@@ -75,10 +75,8 @@ unsigned char CreatePartyMovementPanel(void)
     g_party_movement_caption =
         new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
 
-    g_party_movement_buttons[0] = new W8TextControl(g_party_movement_panel, 200, 0x10a, 0, 0x11e,
-                                                    0x14, 0x94, 0, 4, 6, 5, 6, 7);
-    g_party_movement_buttons[1] = new W8TextControl(g_party_movement_panel, 0xc9, 0x10a, 0, 0x11e,
-                                                    0x14, 0x94, 0, 4, 6, 5, 6, 7);
+    g_party_movement_buttons[0] = new W8TextControl(g_party_movement_panel, 200, 0x10a, 0, 0x11e, 0x14, CatalogArtwork::Load(0x94, 0), 4, 6, 5, 6, 7);
+    g_party_movement_buttons[1] = new W8TextControl(g_party_movement_panel, 0xc9, 0x10a, 0, 0x11e, 0x14, CatalogArtwork::Load(0x94, 0), 4, 6, 5, 6, 7);
 
     if (g_party_movement_panel != 0 && g_party_movement_buttons[0] != 0 &&
         g_party_movement_buttons[1] != 0) {
@@ -193,7 +191,7 @@ void DrawPartyMovementPanel(void)
     if (panel_live) {
         clip = {right, 0, 0x1b9 - right, 0x1e0};
         ScopedClipRect clipped(GetFrameBufferSurface(), clip);
-        DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x96, 0, image, 0xc3, 0x144);
+        CatalogArtwork::Load(0x96, 0).drawAndInvalidate(GetFrameBufferSurface(), image, 0xc3, 0x144);
     }
     DrawPartyMovementGauge(right, image, panel_live, caption);
     if (panel_live) {
@@ -253,9 +251,7 @@ void DrawPartyMovementGauge(short right, short image, bool panel_live, int capti
         }
         return;
     }
-    DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x95, 0,
-                                  g_party_movement_animation_frame + frame_base + frame,
-                                  right - 0xf, 0x142);
+    CatalogArtwork::Load(0x95, 0).drawAndInvalidate(GetFrameBufferSurface(), g_party_movement_animation_frame + frame_base + frame, right - 0xf, 0x142);
     InvalidateRegion(right - 0xf, 0x142, right - 1, 0x150, 0);
     if (caption != -1) {
         g_party_movement_caption->RenderString(g_localized_strings[caption], g_wiz_text_font_secondary,

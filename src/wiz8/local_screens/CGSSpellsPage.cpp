@@ -117,7 +117,7 @@ void W8CharacterSpellList::Redraw(bool force)
         int right = m_right + m_pPanel->m_bounds.left;
         int bottom = m_bottom + m_pPanel->m_bounds.top;
         InvalidateRegion(left, top, right, bottom, 0);
-        BlitCatalogSurfaceRectTo16BPP(GetFrameBufferSurface(), left, top, right, bottom, 0x1b6, 0, 0);
+        CatalogArtwork::Load(0x1b6, 0).drawRect(GetFrameBufferSurface(), SDL_Rect{0, 0, (right) - (left), (bottom) - (top)}, left, top);
         int y = top + 1;
         g_wiz_text_font_secondary.resetPalette();
         g_wiz_text_font_secondary.setShade(Font::kNormalShade);
@@ -323,7 +323,7 @@ void W8CharacterSpellsPage::Redraw()
         bounds.top = 0x173;
         bounds.right = 0xbf;
         bounds.bottom = 0x18a;
-        DrawCatalogImage(GetFrameBufferSurface(), 0x107, 0, 5, 0x8f, 0x173);
+        CatalogArtwork::Load(0x107, 0).draw(GetFrameBufferSurface(), 5, 0x8f, 0x173);
         text.SetLayoutBounds(&bounds, true, true);
         text.RenderString(fmt::format("{:d}/{:d}", m_creation_state->spell_points_remaining,
                                       m_creation_state->spell_points_total),
@@ -377,10 +377,7 @@ void W8CharacterSpellsPage::Redraw()
                     (m_animation_frames[realm] + elapsed) % animation.frame_count;
             }
             if (!m_screen->HasDialog() || realm < 2) {
-                DrawCatalogImageAndInvalidate(
-                    GetFrameBufferSurface(), animation.image, 0, m_animation_frames[realm],
-                    m_bounds.left + 0x0f + (realm % 2) * 0xd7,
-                    m_bounds.top + 0x0a + (realm / 2) * 0x82);
+                CatalogArtwork::Load(animation.image, 0).drawAndInvalidate(GetFrameBufferSurface(), m_animation_frames[realm], m_bounds.left + 0x0f + (realm % 2) * 0xd7, m_bounds.top + 0x0a + (realm / 2) * 0x82);
             }
         }
     }

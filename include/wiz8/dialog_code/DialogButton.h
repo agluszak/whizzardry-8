@@ -68,6 +68,12 @@ public:
                    bool left_toggles, int priority, int tooltip_index,
                    W8DialogButtonCallback right_callback,
                              W8DialogButtonCallback double_click_callback);
+    bool Configure(std::shared_ptr<const SpriteSheet> sprites, int gray_frame,
+                   int off_normal_frame, int off_hover_frame, int on_normal_frame,
+                   int on_hover_frame, W8DialogButtonCallback left_callback,
+                   W8DialogButtonCallback move_callback, bool left_toggles, int priority,
+                   int tooltip_index, W8DialogButtonCallback right_callback,
+                   W8DialogButtonCallback double_click_callback);
     bool ConfigureIcon(const char* image_path, int disabled_frame, int normal_frame, int priority,
                        int tooltip_index)
     {

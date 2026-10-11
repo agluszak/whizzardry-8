@@ -1,5 +1,6 @@
 #include <fmt/format.h>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -127,7 +128,7 @@ W8_ABI_ASSERT(sizeof(W8CharacterStatsRecordControl) == 0xc4, "W8CharacterStatsRe
 // FUNCTION: WIZ8 0x005c8e70
 W8CharacterStatsValue::W8CharacterStatsValue(Controls* owner, int x, int y,
                                              const W8CharacterStatsRecord* default_record)
-    : W8TextControl(owner, 0xffffffff, x, y, 0, 0, 0x104, 0, 1, 1, 2, 2, 3),
+    : W8TextControl(owner, 0xffffffff, x, y, 0, 0, CatalogArtwork::Load(0x104, 0), 1, 1, 2, 2, 3),
       m_default_record(default_record)
 {
     m_textBuffer.SetText(g_localized_strings[default_record->name_id], g_options_detail_font);
@@ -160,7 +161,7 @@ void W8CharacterStatsValue::Redraw(bool full_redraw)
     int top = m_pPanel->m_bounds.top + m_top + 1;
     const W8CharacterStatsRecord* record = m_record;
     unsigned int image = m_enabled ? record->image_enabled : record->image_disabled;
-    DrawCatalogImage(GetFrameBufferSurface(), record->object, 0, image, left, top);
+    CatalogArtwork::Load(record->object, 0).draw(GetFrameBufferSurface(), image, left, top);
 }
 
 /* Force the control enabled while the base handles the right-button release,
@@ -178,7 +179,7 @@ void W8CharacterStatsValue::OnRightButtonUp(int event)
 W8CharacterStatsRecordControl::W8CharacterStatsRecordControl(Controls* owner, int top, int height,
                                                              const W8CharacterStatsRecord* record,
                                                              int variant)
-    : W8TextControl(owner, 0xffffffff, 0, top, 0x7e, top + height, 0x104, 0, 0, 0, 0, 0, 0)
+    : W8TextControl(owner, 0xffffffff, 0, top, 0x7e, top + height, CatalogArtwork::Load(0x104, 0), 0, 0, 0, 0, 0)
 {
     m_record = record;
     m_variant = static_cast<unsigned char>(variant);
@@ -219,7 +220,7 @@ void W8CharacterStatsRecordControl::Redraw(bool full_redraw)
     int top = m_pPanel->m_bounds.top + m_text_offset + m_top + 1;
     const W8CharacterStatsRecord* record = m_record;
     unsigned int image = m_enabled ? record->image_enabled : record->image_disabled;
-    DrawCatalogImage(GetFrameBufferSurface(), record->object, 0, image, left, top);
+    CatalogArtwork::Load(record->object, 0).draw(GetFrameBufferSurface(), image, left, top);
 }
 
 // FUNCTION: WIZ8 0x005c9290
@@ -266,12 +267,12 @@ void W8CharacterStatsRow::Initialize(Controls* owner, unsigned int* region_set, 
         srAssertFail("usItemsInList", CGS_STATS_PAGE_CPP, 0x1d6, 0);
     }
 
-    m_decrement = new W8TextControl(owner, 0xffffffff, x + 1, y + 4, 0, 0, 0x10a, 0, 0, 2, 1, 4, 3);
+    m_decrement = new W8TextControl(owner, 0xffffffff, x + 1, y + 4, 0, 0, CatalogArtwork::Load(0x10a, 0), 0, 2, 1, 4, 3);
     m_decrement->m_listener = this;
     m_decrement->EnableRegionHelp(help_first);
 
     m_increment =
-        new W8TextControl(owner, 0xffffffff, x + 0x9f, y + 4, 0, 0, 0x10a, 0, 5, 7, 6, 9, 8);
+        new W8TextControl(owner, 0xffffffff, x + 0x9f, y + 4, 0, 0, CatalogArtwork::Load(0x10a, 0), 5, 7, 6, 9, 8);
     m_increment->m_listener = this;
     m_increment->EnableRegionHelp(help_value);
 
@@ -292,7 +293,8 @@ void W8CharacterStatsRow::BuildSubpanel()
 {
     if (!m_subpanel) {
         m_subpanel = std::make_unique<Controls>(m_x + 0x9e, m_y + 1, m_x + 0x11c,
-                                  m_y + 5 + static_cast<unsigned int>(m_count) * 0x16, -1, 0, -1);
+                                                m_y + 5 + static_cast<unsigned int>(m_count) * 0x16,
+                                                std::nullopt, -1);
         m_subpanel->AcquireRegionSet(m_region_set);
         m_subpanel_entries.assign(m_count, nullptr);
 
@@ -805,8 +807,7 @@ void W8CharacterStatsPage::SetCharacter(W8Character* character,
 
     for (int control_index = 0; control_index < 5; ++control_index) {
         W8TextControl* control =
-            new W8TextControl(this, 0xffffffff, 0xf3, 0xba + control_index * 0xe, 0x195,
-                              0xba + control_index * 0xe + 0xc, -1, -1, -1, -1, -1, -1, -1);
+            new W8TextControl(this, 0xffffffff, 0xf3, 0xba + control_index * 0xe, 0x195, 0xba + control_index * 0xe + 0xc, std::nullopt, -1, -1, -1, -1, -1);
         m_attribute_controls[control_index] = control;
         control->SetActive(false);
         control->m_listener = this;
@@ -997,9 +998,7 @@ void W8CharacterStatsPage::Redraw()
         for (int realm_index = 0; realm_index < 6; ++realm_index) {
             bool first_column = (realm_index & 1) == 0;
             int frame_top = (first_column ? 0x155 : 0x16f) + top;
-            DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), g_character_resistance_images[realm_index],
-                                          0, g_spell_realm_animations[realm_index].initial_frame,
-                                          (realm_index / 2) * 0x3f + 0x23 + left, frame_top);
+            CatalogArtwork::Load(g_character_resistance_images[realm_index], 0).drawAndInvalidate(GetFrameBufferSurface(), g_spell_realm_animations[realm_index].initial_frame, (realm_index / 2) * 0x3f + 0x23 + left, frame_top);
         }
 
         text.SetLayoutMode(g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
@@ -1076,13 +1075,13 @@ void W8CharacterStatsPage::Redraw()
 
     if (m_dirty) {
         W8ControlsRect bounds = {0x8f, 0x162, 0xbf, 0x179};
-        DrawCatalogImage(GetFrameBufferSurface(), 0x107, 0, 5, 0x8f, 0x162);
+        CatalogArtwork::Load(0x107, 0).draw(GetFrameBufferSurface(), 5, 0x8f, 0x162);
         text.SetLayoutBounds(&bounds, true, true);
         text.RenderString(fmt::format("{:d}", m_creation_state->attribute_step_limit),
                           g_options_detail_font, true, GetFrameBufferSurface());
         bounds.top = 0x184;
         bounds.bottom = 0x19b;
-        DrawCatalogImage(GetFrameBufferSurface(), 0x107, 0, 5, 0x8f, 0x184);
+        CatalogArtwork::Load(0x107, 0).draw(GetFrameBufferSurface(), 5, 0x8f, 0x184);
         text.SetLayoutBounds(&bounds, true, true);
         int total = m_creation_state->attribute_points_total;
         std::string points_text =

@@ -150,15 +150,15 @@ void W8CampRangeListener::UpdateRange(bool range_changed)
 W8CampStatsControls::W8CampStatsControls()
 {
     AcquireRegionSet(&g_camp_stats_controls_region_set);
-    m_buttons[0] = new W8TextControl(this, -1, 0x13c, 0xbe, 0, 0, 0x145, 0, 0, 1, 2, 4, 3);
+    m_buttons[0] = new W8TextControl(this, -1, 0x13c, 0xbe, 0, 0, CatalogArtwork::Load(0x145, 0), 0, 1, 2, 4, 3);
     m_buttons[0]->AddLayoutFlags(g_W8TextControlLayoutLatchedImage | g_W8TextControlLayoutToggle);
     m_buttons[0]->m_listener = this;
     m_buttons[0]->EnableRegionHelp(0x954);
-    m_buttons[1] = new W8TextControl(this, -1, 0x13c, 0xd6, 0, 0, 0x145, 0, 5, 6, 7, 9, 8);
+    m_buttons[1] = new W8TextControl(this, -1, 0x13c, 0xd6, 0, 0, CatalogArtwork::Load(0x145, 0), 5, 6, 7, 9, 8);
     m_buttons[1]->AddLayoutFlags(g_W8TextControlLayoutLatchedImage | g_W8TextControlLayoutToggle);
     m_buttons[1]->m_listener = this;
     m_buttons[1]->EnableRegionHelp(0x955);
-    m_buttons[2] = new W8TextControl(this, -1, 0x13c, 0xf3, 0, 0, 0x145, 0, 10, 15, 12, 17, 13);
+    m_buttons[2] = new W8TextControl(this, -1, 0x13c, 0xf3, 0, 0, CatalogArtwork::Load(0x145, 0), 10, 15, 12, 17, 13);
     m_buttons[2]->AddLayoutFlags(g_W8TextControlLayoutLatchedImage | g_W8TextControlLayoutToggle);
     m_buttons[2]->m_listener = this;
     m_buttons[2]->EnableRegionHelp(0x956);
@@ -212,7 +212,7 @@ void W8CampStatsControls::OnPrimary(W8TextControl* control)
 void DrawCampStatsPage(void)
 {
     if (g_camp_screen->redraw_flags == W8_CAMP_REDRAW_ALL) {
-        DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x142, 0, 1, 0, 0xa5);
+        CatalogArtwork::Load(0x142, 0).drawAndInvalidate(GetFrameBufferSurface(), 1, 0, 0xa5);
         g_camp_stats_origin_x = 0;
         g_camp_stats_origin_y = 0xa5;
         int index;
@@ -267,7 +267,7 @@ void DrawCampStatsPage(void)
     }
     if ((g_camp_screen->redraw_flags & W8_CAMP_REDRAW_EFFECT_LIST) != 0) {
         InvalidateRegion(0x15d, 0xbe, 0x260, 0x1b5, 0);
-        BlitCatalogSurfaceRectTo16BPP(GetFrameBufferSurface(), 0x15d, 0xbe, 0x260, 0x1b5, 0x1b6, 0, 0);
+        CatalogArtwork::Load(0x1b6, 0).drawRect(GetFrameBufferSurface(), SDL_Rect{0, 0, (0x260) - (0x15d), (0x1b5) - (0xbe)}, 0x15d, 0xbe);
         DrawCampEffectList();
     }
     g_camp_screen->stats_range->m_range->Redraw();
@@ -729,8 +729,8 @@ void DrawCampSkillsPage(void)
                 break;
             }
         }
-        DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x141, 0, has_fifth, 0x136, 0);
-        DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x141, 0, 2, 0, 0xa5);
+        CatalogArtwork::Load(0x141, 0).drawAndInvalidate(GetFrameBufferSurface(), has_fifth, 0x136, 0);
+        CatalogArtwork::Load(0x141, 0).drawAndInvalidate(GetFrameBufferSurface(), 2, 0, 0xa5);
         for (int category = 0; category < 5; ++category) {
             if (category != 4 || has_fifth) {
                 int x = g_camp_skill_category_positions[category].x;
@@ -740,9 +740,7 @@ void DrawCampSkillsPage(void)
                 } else {
                     y += 0xa5;
                 }
-                DrawCatalogImage(GetFrameBufferSurface(), 0x144, 0,
-                                 static_cast<short>(g_camp_skill_category_images[category]),
-                                 x - 0x16, y - 3);
+                CatalogArtwork::Load(0x144, 0).draw(GetFrameBufferSurface(), static_cast<short>(g_camp_skill_category_images[category]), x - 0x16, y - 3);
             }
         }
         int category_count[5] = {0, 0, 0, 0, 0};
@@ -758,7 +756,7 @@ void DrawCampSkillsPage(void)
                     top += 0xa5;
                 }
                 top += category_count[category] * 0xe;
-                DrawCatalogImage(GetFrameBufferSurface(), 0x141, 0, 3, left, top);
+                CatalogArtwork::Load(0x141, 0).draw(GetFrameBufferSurface(), 3, left, top);
                 unsigned int level = value->level;
                 unsigned int base = value->points;
                 int gained;
@@ -778,21 +776,20 @@ void DrawCampSkillsPage(void)
                     clip.x = left + 0x6f;
                     clip.w = level;
                     ScopedClipRect clipped(GetFrameBufferSurface(), clip);
-                    DrawCatalogImage(GetFrameBufferSurface(), 0x143, 0, 0, left + 0x6f, top + 2);
+                    CatalogArtwork::Load(0x143, 0).draw(GetFrameBufferSurface(), 0, left + 0x6f, top + 2);
                 }
                 if (gained == 0) {
                     if (lost != 0) {
                         clip.x = level + 0x6f + left;
                         clip.w = lost;
                         ScopedClipRect clipped(GetFrameBufferSurface(), clip);
-                        DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x143, 0, 2, left + 0x6f,
-                                                      top + 2);
+                        CatalogArtwork::Load(0x143, 0).drawAndInvalidate(GetFrameBufferSurface(), 2, left + 0x6f, top + 2);
                     }
                 } else {
                     clip.x = level + 0x6f + left;
                     clip.w = gained;
                     ScopedClipRect clipped(GetFrameBufferSurface(), clip);
-                    DrawCatalogImage(GetFrameBufferSurface(), 0x143, 0, 1, left + 0x6f, top + 2);
+                    CatalogArtwork::Load(0x143, 0).draw(GetFrameBufferSurface(), 1, left + 0x6f, top + 2);
                 }
                 Palette16 palette;
                 if (!g_status.game_started || value->level == 0) {
@@ -901,19 +898,16 @@ void W8CharacterPersonalityPage::SetCharacter(W8Character* character,
     W8TextControl::Listener* action_listener = this;
 
     m_control5 =
-        new W8TextControl(this, 0xffffffff, 100, 0x19, 0, 0, 0x10a, 0, 10, 0xc, 0xb, 0xe, 0xd);
+        new W8TextControl(this, 0xffffffff, 100, 0x19, 0, 0, CatalogArtwork::Load(0x10a, 0), 10, 0xc, 0xb, 0xe, 0xd);
     m_control5->m_listener = action_listener;
-    m_control4 = new W8TextControl(this, 0xffffffff, 0x144, 0x19, 0, 0, 0x10a, 0, 0xf, 0x11, 0x10,
-                                   0x13, 0x12);
+    m_control4 = new W8TextControl(this, 0xffffffff, 0x144, 0x19, 0, 0, CatalogArtwork::Load(0x10a, 0), 0xf, 0x11, 0x10, 0x13, 0x12);
     m_control4->m_listener = action_listener;
     m_control7 =
-        new W8TextControl(this, 0xffffffff, 100, 0x67, 0, 0, 0x10a, 0, 10, 0xc, 0xb, 0xe, 0xd);
+        new W8TextControl(this, 0xffffffff, 100, 0x67, 0, 0, CatalogArtwork::Load(0x10a, 0), 10, 0xc, 0xb, 0xe, 0xd);
     m_control7->m_listener = action_listener;
-    m_control6 = new W8TextControl(this, 0xffffffff, 0x144, 0x67, 0, 0, 0x10a, 0, 0xf, 0x11, 0x10,
-                                   0x13, 0x12);
+    m_control6 = new W8TextControl(this, 0xffffffff, 0x144, 0x67, 0, 0, CatalogArtwork::Load(0x10a, 0), 0xf, 0x11, 0x10, 0x13, 0x12);
     m_control6->m_listener = action_listener;
-    m_randomize = new W8TextControl(this, 0xffffffff, 0x16d, 0x155, 0, 0, 0x10a, 0, 0x14, 0x16,
-                                    0x15, 0x18, 0x17);
+    m_randomize = new W8TextControl(this, 0xffffffff, 0x16d, 0x155, 0, 0, CatalogArtwork::Load(0x10a, 0), 0x14, 0x16, 0x15, 0x18, 0x17);
     m_randomize->m_listener = action_listener;
     m_randomize->EnableRegionHelp(0xf5);
 
@@ -922,8 +916,7 @@ void W8CharacterPersonalityPage::SetCharacter(W8Character* character,
         int column = index % 3;
         int row = index / 3;
         W8TextControl* entry =
-            new W8TextControl(this, 0xffffffff, column * 0x80 + 0x24, row * 0xe + 0x107,
-                              column * 0x80 + 0xa3, row * 0xe + 0x114, 0x105, 0, 5, 7, 6, 8, -1);
+            new W8TextControl(this, 0xffffffff, column * 0x80 + 0x24, row * 0xe + 0x107, column * 0x80 + 0xa3, row * 0xe + 0x114, CatalogArtwork::Load(0x105, 0), 5, 7, 6, 8, -1);
         entry->AddLayoutFlags(g_W8TextControlLayoutImageAtOrigin);
         m_personality_selection.AddEntry(entry);
     }
@@ -932,8 +925,7 @@ void W8CharacterPersonalityPage::SetCharacter(W8Character* character,
 
     for (index = 0; index < 2; ++index) {
         int top = index == 0 ? 0x140 : 0x15d;
-        W8TextControl* entry = new W8TextControl(this, 0xffffffff, 0x21, top, 0x69, top + 0xe,
-                                                 0x105, 0, 5, 7, 6, 8, -1);
+        W8TextControl* entry = new W8TextControl(this, 0xffffffff, 0x21, top, 0x69, top + 0xe, CatalogArtwork::Load(0x105, 0), 5, 7, 6, 8, -1);
         entry->AddLayoutFlags(g_W8TextControlLayoutImageAtOrigin);
         m_voice_selection.AddEntry(entry);
     }
@@ -1055,8 +1047,7 @@ void W8CharacterPersonalityPage::Redraw()
         int elapsed = static_cast<int>(anim_timer.GetProgress());
         if (elapsed > 0) {
             m_animation_frame = (m_animation_frame + elapsed) % 3;
-            DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x105, 0, m_animation_frame + 2,
-                                          m_bounds.left + 0x156, m_bounds.top + 0x137);
+            CatalogArtwork::Load(0x105, 0).drawAndInvalidate(GetFrameBufferSurface(), m_animation_frame + 2, m_bounds.left + 0x156, m_bounds.top + 0x137);
         }
     }
 
@@ -1143,9 +1134,7 @@ void W8CharacterPersonalityPage::Redraw()
     }
 
     if (m_portrait_dirty) {
-        DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x11, m_character->portrait_index, 0,
-                                      m_bounds.left + 0x86, m_bounds.top + 5,
-                                      {.color_key = false});
+        CatalogArtwork::Load(0x11, m_character->portrait_index).drawAndInvalidate(GetFrameBufferSurface(), 0, m_bounds.left + 0x86, m_bounds.top + 5, {.color_key = false});
         m_portrait_dirty = false;
     }
 
@@ -1332,15 +1321,12 @@ void W8CharacterSkillsPage::Redraw()
     if (redraw) {
         for (int category = 0; category < 5; ++category) {
             if (category != 4 || m_show_fifth_category) {
-                DrawCatalogImage(GetFrameBufferSurface(), 0x144, 0,
-                                 static_cast<short>(g_character_page2_category_frames[category]),
-                                 m_bounds.left + g_character_page2_category_geometry[category].x -
-                                     0x16,
-                                 m_bounds.top + g_character_page2_category_geometry[category].y - 3);
+                CatalogArtwork::Load(0x144, 0).draw(GetFrameBufferSurface(), static_cast<short>(g_character_page2_category_frames[category]), m_bounds.left + g_character_page2_category_geometry[category].x -
+                                     0x16, m_bounds.top + g_character_page2_category_geometry[category].y - 3);
             }
         }
         if (!m_show_fifth_category) {
-            DrawCatalogImage(GetFrameBufferSurface(), 0x108, 0, 1, m_bounds.left, m_bounds.top + 0x118);
+            CatalogArtwork::Load(0x108, 0).draw(GetFrameBufferSurface(), 1, m_bounds.left, m_bounds.top + 0x118);
         }
     }
 
@@ -1362,7 +1348,7 @@ void W8CharacterSkillsPage::Redraw()
         bounds.top = 0x162;
         bounds.right = 0xbf;
         bounds.bottom = 0x179;
-        DrawCatalogImage(GetFrameBufferSurface(), 0x107, 0, 5, 0x8f, 0x162);
+        CatalogArtwork::Load(0x107, 0).draw(GetFrameBufferSurface(), 5, 0x8f, 0x162);
         text.SetLayoutBounds(&bounds, true, true);
         text.RenderString(fmt::format("{:d}", m_creation_state->skill_step_limit),
                           g_options_detail_font, true, GetFrameBufferSurface());
@@ -1372,7 +1358,7 @@ void W8CharacterSkillsPage::Redraw()
     if (m_dirty) {
         W8TextBuffer text;
         W8ControlsRect bounds = {0x8f, 0x184, 0xbf, 0x19b};
-        DrawCatalogImage(GetFrameBufferSurface(), 0x107, 0, 5, 0x8f, 0x184);
+        CatalogArtwork::Load(0x107, 0).draw(GetFrameBufferSurface(), 5, 0x8f, 0x184);
         text.SetLayoutBounds(&bounds, true, true);
         text.RenderString(fmt::format("{:d}/{:d}", m_creation_state->skill_points_remaining,
                                       m_creation_state->skill_points_total),

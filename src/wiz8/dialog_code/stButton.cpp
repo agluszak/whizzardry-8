@@ -1,6 +1,7 @@
 #include "Font.h"
 #include <cstdint>
 #include <SDL3/SDL_mouse.h>
+#include <memory>
 #include <string_view>
 #include <utility>
 #include <algorithm>
@@ -241,6 +242,31 @@ bool W8DialogButton::Configure(const char* image_path, int gray_frame, int off_n
     if (!image) return false;
     m_appearance = {};
     m_appearance.bounds = {0, 0, static_cast<int>(image->MaxWidth), static_cast<int>(image->MaxHeight)};
+    m_appearance.quick_image = std::move(image);
+    m_left_callback = left_callback;
+    m_right_callback = right_callback;
+    m_move_callback = move_callback;
+    m_double_click_callback = double_click_callback;
+    m_left_toggles = left_toggles;
+    m_tooltip_index = tooltip_index;
+    ConfigureRegion(priority);
+    return true;
+}
+
+bool W8DialogButton::Configure(std::shared_ptr<const SpriteSheet> sprites, int gray_frame,
+                               int off_normal_frame, int off_hover_frame, int on_normal_frame,
+                               int on_hover_frame, W8DialogButtonCallback left_callback,
+                               W8DialogButtonCallback move_callback, bool left_toggles,
+                               int priority, int tooltip_index,
+                               W8DialogButtonCallback right_callback,
+                               W8DialogButtonCallback double_click_callback)
+{
+    auto image = ButtonGraphics::Load(std::move(sprites), gray_frame, off_normal_frame,
+                                      off_hover_frame, on_normal_frame, on_hover_frame);
+    if (!image) return false;
+    m_appearance = {};
+    m_appearance.bounds = {0, 0, static_cast<int>(image->MaxWidth),
+                           static_cast<int>(image->MaxHeight)};
     m_appearance.quick_image = std::move(image);
     m_left_callback = left_callback;
     m_right_callback = right_callback;

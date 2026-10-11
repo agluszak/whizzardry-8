@@ -471,8 +471,7 @@ struct Character {
        forces the field to one. */
     W8Gender gender;
     /* 0x0079: the portrait/catalog index. Looked up by gender, race and
-       profession together, drawn through
-       DrawCatalogImage(-14, ...) and RenderPartyPortrait, and reassigned from
+       profession together, drawn by RenderPartyPortrait, and reassigned from
        g_portrait_groups[].portraits[] when the portrait changes. */
     int portrait_index;
     /* 0x007d: cleared by DeriveCharacterPersonality in both of its branches and set to -1

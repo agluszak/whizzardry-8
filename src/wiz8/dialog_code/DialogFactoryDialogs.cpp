@@ -584,7 +584,7 @@ void W8SplitAmountDialog::Draw()
         numeric->m_dirty = true;
         numeric->m_button->m_dirty = true;
         W8DialogBase::Draw();
-        DrawCatalogImage(GetFrameBufferSurface(), 0x1ac, 0, 0, m_x + 0x18, m_y + 0x1a);
+        CatalogArtwork::Load(0x1ac, 0).draw(GetFrameBufferSurface(), 0, m_x + 0x18, m_y + 0x1a);
     }
     if (m_buttons[3]->m_dirty) {
         W8DialogNumericInput* numeric = m_split_input.get();

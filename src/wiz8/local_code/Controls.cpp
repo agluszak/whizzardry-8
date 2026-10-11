@@ -3,6 +3,7 @@
 #include <SDL3/SDL_rect.h>
 #include <algorithm>
 #include <memory>
+#include <optional>
 #include <string_view>
 #include <utility>
 #include <vector>
@@ -103,9 +104,7 @@ extern const unsigned int g_W8TextControlLayoutImageAtOrigin = 0x80;
 // FUNCTION: WIZ8 0x004f2c30
 Controls::Controls()
 {
-    m_catalogObject = -1;
-    m_catalogFrame = -1;
-    m_catalogImage = -1;
+    m_backgroundImage = -1;
     m_fEnabled = false;
     m_fDirty = false;
     m_fLayoutDirty = false;
@@ -119,17 +118,16 @@ Controls::Controls()
 }
 
 // FUNCTION: WIZ8 0x004f2ca0
-Controls::Controls(int left, int top, int right_bound, int bottom_bound, int catalog_object,
-                   int catalog_frame, int catalog_image)
+Controls::Controls(int left, int top, int right_bound, int bottom_bound,
+                   std::optional<CatalogArtwork> background, int background_image)
 {
     m_bounds.left = left;
     m_bounds.right = right_bound;
     m_fEnabled = false;
     m_fDirty = false;
     m_fLayoutDirty = false;
-    m_catalogObject = catalog_object;
-    m_catalogFrame = catalog_frame;
-    m_catalogImage = catalog_image;
+    m_background = std::move(background);
+    m_backgroundImage = background_image;
     m_bounds.top = top;
     m_bounds.bottom = bottom_bound;
     m_dirtyRect.left = -1;
@@ -726,11 +724,10 @@ W8TextControl::W8TextControl()
     m_textBuffer.MarkGeometryDirty(10);
 }
 
-void W8TextControl::SetImage(int object, int frame)
+void W8TextControl::SetImage(CatalogArtwork artwork)
 {
-    int y_offset = 0;
-    m_imageSprites = GetCatalogSpriteSheet(object, frame, &y_offset);
-    m_imageYOffset = y_offset;
+    m_imageSprites = artwork.spriteSheet();
+    m_imageYOffset = artwork.imageOffset();
     m_measured_w = -1;
     m_measured_h = -1;
     m_normalSprite = 0;
@@ -784,7 +781,7 @@ bool W8TextControl::MeasureText()
    establish overloads or default arguments. */
 // FUNCTION: WIZ8 0x004f4250
 W8TextControl::W8TextControl(Controls* panel, unsigned int region, int left, int top, int right,
-                             int bottom, int image_object, int image_frame, int normal_sprite,
+                             int bottom, std::optional<CatalogArtwork> image_artwork, int normal_sprite,
                              int pressed_sprite, int alternate_normal_sprite,
                              int alternate_pressed_sprite, int disabled_sprite)
     : W8Widget(panel, region, left, top, right, bottom)
@@ -800,8 +797,9 @@ W8TextControl::W8TextControl(Controls* panel, unsigned int region, int left, int
     m_listener = 0;
     m_pressedTextOffset = 1;
     m_imageYOffset = -1;
-    if (image_object >= 0 && image_frame >= 0) {
-        m_imageSprites = GetCatalogSpriteSheet(image_object, image_frame, &m_imageYOffset);
+    if (image_artwork) {
+        m_imageSprites = image_artwork->spriteSheet();
+        m_imageYOffset = image_artwork->imageOffset();
     }
 
     MeasureText();
@@ -1322,7 +1320,7 @@ void W8TextControl::SetAlternateTextEnabled(bool enabled)
 // FUNCTION: WIZ8 0x004f65e0
 W8HelpTextControl::W8HelpTextControl(Controls* panel, unsigned int region, int left, int top,
                                      int right, int bottom)
-    : W8TextControl(panel, region, left, top, right, bottom, -1, -1, -1, -1, -1, -1, -1)
+    : W8TextControl(panel, region, left, top, right, bottom, std::nullopt, -1, -1, -1, -1, -1)
 {
     m_regionHelp.clear();
 }
@@ -1331,7 +1329,7 @@ W8HelpTextControl::W8HelpTextControl(Controls* panel, unsigned int region, int l
 class W8VerticalRangeThumb : public W8Widget {
 public:
     W8VerticalRangeThumb(W8RangeControl* range, int left, int top, int right, int bottom,
-                         int render_arg, int normal_sprite, int hovered_sprite,
+                         CatalogArtwork artwork, int normal_sprite, int hovered_sprite,
                          int disabled_sprite);
     /* Retail ICF folds this onto W8HorizontalRangeThumb's deleting destructor
        at 0x004f69b0. */
@@ -1350,8 +1348,7 @@ public:
     }
 
 protected:
-    int m_catalogObject;
-    int m_catalogFrame;
+    CatalogArtwork m_artwork;
     int m_normalSprite;
     int m_hoveredSprite;
     int m_disabledSprite;
@@ -1373,11 +1370,12 @@ protected:
 };
 
 W8RangeButton::W8RangeButton(Controls* panel, unsigned int region, int left, int top, int right,
-                             int bottom, int image_object, int image_frame, int normal_sprite,
+                             int bottom, std::optional<CatalogArtwork> image_artwork,
+                             int normal_sprite,
                              int pressed_sprite, int alternate_normal_sprite,
                              int alternate_pressed_sprite, int disabled_sprite, short direction,
                              W8RangeControl* range)
-    : W8TextControl(panel, region, left, top, right, bottom, image_object, image_frame,
+    : W8TextControl(panel, region, left, top, right, bottom, std::move(image_artwork),
                     normal_sprite, pressed_sprite, alternate_normal_sprite,
                     alternate_pressed_sprite, disabled_sprite),
       m_direction(direction), m_range(range)
@@ -1396,7 +1394,7 @@ W8RangeButton::W8RangeButton(Controls* panel, unsigned int region, int left, int
 // FUNCTION: WIZ8 0x004f61f0
 W8RangeControl::W8RangeControl(int left, int top, int right, int bottom,
                                unsigned int* shared_region_set)
-    : Controls(left, top, right, bottom, -1, -1, -1), m_minimum(0), m_maximum(1), m_value(0),
+    : Controls(left, top, right, bottom, std::nullopt, -1), m_minimum(0), m_maximum(1), m_value(0),
       m_listener(0)
 {
     int height = bottom - top;
@@ -1404,10 +1402,11 @@ W8RangeControl::W8RangeControl(int left, int top, int right, int bottom,
     AcquireRegionSet(shared_region_set);
 
     m_decrement =
-        new W8RangeButton(this, 0xffffffff, 0, 0, 0x10, 0x10, 0x86, 0, 0, 2, 1, 2, 3, 0, this);
-    m_increment = new W8RangeButton(this, 0xffffffff, 0, height - 0x10, 0x10, height, 0x86, 0, 8,
+        new W8RangeButton(this, 0xffffffff, 0, 0, 0x10, 0x10, CatalogArtwork::Load(0x86), 0, 2, 1, 2, 3, 0, this);
+    m_increment = new W8RangeButton(this, 0xffffffff, 0, height - 0x10, 0x10, height, CatalogArtwork::Load(0x86), 8,
                                     10, 9, 10, 0xb, 1, this);
-    m_thumb = new W8VerticalRangeThumb(this, 0, 0x10, 0x10, height - 0x10, 0x86, 4, 5, -1);
+    m_thumb = new W8VerticalRangeThumb(this, 0, 0x10, 0x10, height - 0x10,
+                                       CatalogArtwork::Load(0x86), 4, 5, -1);
     m_enabled = false;
 }
 #pragma clang diagnostic pop
@@ -1516,24 +1515,24 @@ void W8VerticalRangeThumb::SynchronizeRangeValue()
 
 // FUNCTION: WIZ8 0x004f5b20
 W8VerticalRangeThumb::W8VerticalRangeThumb(W8RangeControl* range, int left, int top, int right,
-                                           int bottom, int render_arg, int normal_sprite,
+                                           int bottom, CatalogArtwork artwork, int normal_sprite,
                                            int hovered_sprite, int disabled_sprite)
-    : W8Widget(range, 0xffffffff, left, top, 0, bottom)
+    : W8Widget(range, 0xffffffff, left, top, 0, bottom), m_artwork(std::move(artwork))
 {
     short width;
     short height;
 
     m_hoveredSprite = hovered_sprite;
     m_disabledSprite = disabled_sprite;
-    m_catalogObject = render_arg;
-    m_catalogFrame = 0;
     m_normalSprite = normal_sprite;
     m_hovered = false;
     m_dragging = false;
     m_minimumPosition = 0.0f;
     m_maximumPosition = 1.0f;
     m_position = 0.0f;
-    std::tie(width, height) = GetCatalogImageSize(render_arg, 0, normal_sprite);
+    const SDL_Point sprite_size = m_artwork.size(normal_sprite);
+    width = sprite_size.x;
+    height = sprite_size.y;
     if (right - left < static_cast<unsigned short>(width)) {
         m_right = m_left + static_cast<unsigned short>(width);
         m_drawOffsetX = 0;
@@ -1642,9 +1641,9 @@ void W8VerticalRangeThumb::Redraw(bool full_redraw)
     } else if (!m_hovered || (sprite = m_hoveredSprite) == -1) {
         sprite = m_normalSprite;
     }
-    DrawCatalogImage(GetFrameBufferSurface(), m_catalogObject, m_catalogFrame, sprite,
-                     m_pPanel->m_bounds.left + m_drawOffsetX + m_left,
-                     m_pPanel->m_bounds.top + m_pixelPosition + m_top);
+    m_artwork.draw(GetFrameBufferSurface(), sprite,
+                   m_pPanel->m_bounds.left + m_drawOffsetX + m_left,
+                   m_pPanel->m_bounds.top + m_pixelPosition + m_top);
 }
 
 // FUNCTION: WIZ8 0x004f6050
@@ -1756,10 +1755,10 @@ void W8HorizontalRangeThumb::ClampPositionAndInvalidate()
 
 // FUNCTION: WIZ8 0x004f5620
 W8HorizontalRangeThumb::W8HorizontalRangeThumb(Controls* panel, unsigned int region, int left,
-                                               int top, int catalog_object, int catalog_frame,
+                                               int top, CatalogArtwork artwork,
                                                int background_sprite, int normal_thumb_sprite,
                                                int hovered_thumb_sprite, int disabled_thumb_sprite)
-    : W8Widget(panel, region, left, top, 0, 0)
+    : W8Widget(panel, region, left, top, 0, 0), m_artwork(std::move(artwork))
 {
     short width;
     short height;
@@ -1767,8 +1766,6 @@ W8HorizontalRangeThumb::W8HorizontalRangeThumb(Controls* panel, unsigned int reg
     m_normalThumbSprite = normal_thumb_sprite;
     m_hoveredThumbSprite = hovered_thumb_sprite;
     m_disabledThumbSprite = disabled_thumb_sprite;
-    m_catalogObject = catalog_object;
-    m_catalogFrame = catalog_frame;
     m_backgroundSprite = background_sprite;
     m_pixelPosition = 0;
     m_hovered = false;
@@ -1777,11 +1774,15 @@ W8HorizontalRangeThumb::W8HorizontalRangeThumb(Controls* panel, unsigned int reg
     m_maximumPosition = 1.0f;
     m_position = 0.0f;
     m_listener = 0;
-    std::tie(width, height) = GetCatalogImageSize(catalog_object, catalog_frame, background_sprite);
+    const SDL_Point background_size = m_artwork.size(background_sprite);
+    width = background_size.x;
+    height = background_size.y;
     m_right = static_cast<unsigned short>(width) + m_left;
     m_bottom = m_top + static_cast<unsigned short>(height);
     SetRegion(m_region);
-    std::tie(width, height) = GetCatalogImageSize(m_catalogObject, m_catalogFrame, m_normalThumbSprite);
+    const SDL_Point thumb_size = m_artwork.size(m_normalThumbSprite);
+    width = thumb_size.x;
+    height = thumb_size.y;
     m_thumbWidth = static_cast<unsigned short>(width);
     m_trackLength = (m_right - m_left) - static_cast<unsigned short>(width);
 }
@@ -1902,8 +1903,7 @@ void W8HorizontalRangeThumb::Redraw(bool full_redraw)
 
     int x = m_pPanel->m_bounds.left + m_left;
     int y = m_pPanel->m_bounds.top + m_top;
-    DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), m_catalogObject, m_catalogFrame, m_backgroundSprite,
-                                  x, y);
+    m_artwork.drawAndInvalidate(GetFrameBufferSurface(), m_backgroundSprite, x, y);
 
     int sprite;
     if (!m_enabled && m_disabledThumbSprite != -1) {
@@ -1913,7 +1913,7 @@ void W8HorizontalRangeThumb::Redraw(bool full_redraw)
     } else {
         sprite = m_normalThumbSprite;
     }
-    DrawCatalogImage(GetFrameBufferSurface(), m_catalogObject, m_catalogFrame, sprite, x + m_pixelPosition, y);
+    m_artwork.draw(GetFrameBufferSurface(), sprite, x + m_pixelPosition, y);
 }
 
 /* Enables or disables the whole panel: the panel's own flag, then every child's,
@@ -2002,9 +2002,8 @@ void Controls::RedrawControls(bool full_redraw)
 {
     if (full_redraw) {
         if (m_fWholeAreaDirty) {
-            if (m_catalogObject != -1) {
-                InvalidateCatalogImageRect(m_catalogObject, m_catalogFrame, m_catalogImage,
-                                           m_bounds.left, m_bounds.top, 2);
+            if (m_background) {
+                m_background->invalidate(m_backgroundImage, m_bounds.left, m_bounds.top, 2);
             }
         } else {
             InvalidateRegion(m_dirtyRect.left, m_dirtyRect.top, m_dirtyRect.right,
@@ -2028,9 +2027,9 @@ void Controls::Redraw()
         return;
     }
     if (m_fDirty) {
-        if (m_catalogObject != -1) {
-            DrawCatalogImage(GetFrameBufferSurface(), m_catalogObject, m_catalogFrame, m_catalogImage,
-                             m_bounds.left, m_bounds.top);
+        if (m_background) {
+            m_background->draw(GetFrameBufferSurface(), m_backgroundImage, m_bounds.left,
+                               m_bounds.top);
         }
         redrawn = true;
     } else if (!m_fLayoutDirty) {

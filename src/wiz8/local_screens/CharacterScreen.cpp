@@ -140,29 +140,26 @@ W8CharacterScreen::W8CharacterScreen(int mode, W8Character* character)
 // FUNCTION: WIZ8 0x005b0140
 void W8CharacterScreen::BuildControls()
 {
-    m_controls = new Controls(0, 0x1c2, 0, 0, 0x107, 0, 4);
+    m_controls = new Controls(0, 0x1c2, 0, 0, CatalogArtwork::Load(0x107, 0), 4);
     m_controls->AcquireRegionSet(&g_character_screen_region_set);
 
-    m_next = new W8TextControl(m_controls, 0xffffffff, 0x254, 0, 0, 0, 0x106, 0, 8, 10, 9, 10, 0xb);
+    m_next = new W8TextControl(m_controls, 0xffffffff, 0x254, 0, 0, 0, CatalogArtwork::Load(0x106, 0), 8, 10, 9, 10, 0xb);
     m_next->EnableRegionHelp(0xdc);
     m_next->m_listener = this;
 
-    m_previous = new W8TextControl(m_controls, 0xffffffff, 0x228, 0, 0, 0, 0x106, 0, 0xc, 0xe, 0xd,
-                                   0xe, 0xf);
+    m_previous = new W8TextControl(m_controls, 0xffffffff, 0x228, 0, 0, 0, CatalogArtwork::Load(0x106, 0), 0xc, 0xe, 0xd, 0xe, 0xf);
     m_previous->EnableRegionHelp(0xdd);
     m_previous->m_listener = this;
 
-    m_exit = new W8TextControl(m_controls, 0xffffffff, 0x1fc, 0, 0, 0, 0x106, 0, 0x14, 0x16, 0x15,
-                               0x16, 0x17);
+    m_exit = new W8TextControl(m_controls, 0xffffffff, 0x1fc, 0, 0, 0, CatalogArtwork::Load(0x106, 0), 0x14, 0x16, 0x15, 0x16, 0x17);
     m_exit->EnableRegionHelp(0xde);
     m_exit->m_listener = this;
 
-    m_accept = new W8TextControl(m_controls, 0xffffffff, 0x1d0, 0, 0, 0, 0x106, 0, 4, 6, 5, 6, 7);
+    m_accept = new W8TextControl(m_controls, 0xffffffff, 0x1d0, 0, 0, 0, CatalogArtwork::Load(0x106, 0), 4, 6, 5, 6, 7);
     m_accept->EnableRegionHelp(0xdf);
     m_accept->m_listener = this;
 
-    m_reset = new W8TextControl(m_controls, 0xffffffff, 0, 0, 0, 0, 0x106, 0, 0x1d, 0x1f, 0x1e,
-                                0x1f, 0x20);
+    m_reset = new W8TextControl(m_controls, 0xffffffff, 0, 0, 0, 0, CatalogArtwork::Load(0x106, 0), 0x1d, 0x1f, 0x1e, 0x1f, 0x20);
     m_reset->EnableRegionHelp(0xe1);
     m_reset->m_listener = this;
 
@@ -488,21 +485,21 @@ void W8CharacterScreen::SyncCharacterForPage(int index)
 void W8CharacterScreen::DrawHeader()
 {
     W8TextBuffer text;
-    DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x107, 0, 0, 0xc3, 0);
+    CatalogArtwork::Load(0x107, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, 0xc3, 0);
     W8ControlsRect bounds = {0xc3, 0, 0x285, 0x2c};
     text.RenderString(&bounds, g_localized_strings[g_character_page_title_ids[m_page_index]],
                       g_options_detail_font, true, GetFrameBufferSurface());
-    DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x107, 0, 1, 0, 0);
+    CatalogArtwork::Load(0x107, 0).drawAndInvalidate(GetFrameBufferSurface(), 1, 0, 0);
 
     if (m_mode == 0) {
-        DrawCatalogImage(GetFrameBufferSurface(), 0x107, 0, 2, 10, 0xc);
+        CatalogArtwork::Load(0x107, 0).draw(GetFrameBufferSurface(), 2, 10, 0xc);
     } else {
         int frame = m_original == 0 ? m_character.portrait_index : m_original->portrait_index;
-        DrawCatalogImage(GetFrameBufferSurface(), 0x11, frame, 0, 10, 0xc);
+        CatalogArtwork::Load(0x11, frame).draw(GetFrameBufferSurface(), 0, 10, 0xc);
     }
 
     if (m_mode == 0 && m_page_index == 0) {
-        DrawCatalogImage(GetFrameBufferSurface(), 0x107, 0, 3, 5, 0xa5);
+        CatalogArtwork::Load(0x107, 0).draw(GetFrameBufferSurface(), 3, 5, 0xa5);
     } else {
         bounds.left = 5;
         bounds.top = 0xa5;

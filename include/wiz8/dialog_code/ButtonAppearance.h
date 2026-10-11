@@ -71,6 +71,9 @@ struct ButtonGraphics {
     static ButtonImage Load(std::string_view filename, std::int32_t grayed,
                             std::int32_t off_normal, std::int32_t off_hilite,
                             std::int32_t on_normal, std::int32_t on_hilite);
+    static ButtonImage Load(std::shared_ptr<const SpriteSheet> sprites, std::int32_t grayed,
+                            std::int32_t off_normal, std::int32_t off_hilite,
+                            std::int32_t on_normal, std::int32_t on_hilite);
 
     const SpriteSheet& object() const { return *sprites; }
 

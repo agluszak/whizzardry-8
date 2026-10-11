@@ -36,6 +36,7 @@
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
+#include "wiz8/local_code/Controls.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/xstatus.h"
@@ -99,7 +100,8 @@ void frame() { ++screen_frames; }
 
 void button_image_fixture(const std::filesystem::path& root, std::string name, unsigned count = 9,
                           bool app_data = false, unsigned width = 1, unsigned height = 1,
-                          std::array<std::uint8_t, 5> frame_palette_indices = {});
+                          std::array<std::uint8_t, 5> frame_palette_indices = {},
+                          short offset_x = 0, short offset_y = 0);
 
 void initialize_test_framebuffer()
 {
@@ -171,10 +173,7 @@ void camp_effects()
     ScopedTemporaryDirectory directory{"wiz8-camp-effects"};
     const auto assets = directory.path / "assets";
     const auto previous_roots = w8_native::path_roots();
-    const auto catalog_path = GetCatalogVideoObjectPath(0x86);
-    const auto frame_count = static_cast<unsigned>(
-        std::max(12, GetCatalogVideoObjectYOffset(0x86) + 12));
-    button_image_fixture(assets, std::string(catalog_path), frame_count, false, 16, 8);
+    button_image_fixture(assets, "Data/Main Interface/main_scroll.sti", 12, false, 16, 8);
     g_image_assets.clear();
     w8_native::configure_paths({assets.string(), (directory.path / "user").string(), {}});
     struct Restore {
@@ -730,7 +729,8 @@ void formatted_strings()
 
 void button_image_fixture(const std::filesystem::path& root, std::string name, unsigned count,
                           bool app_data, unsigned width, unsigned height,
-                          std::array<std::uint8_t, 5> frame_palette_indices)
+                          std::array<std::uint8_t, 5> frame_palette_indices,
+                          short offset_x, short offset_y)
 {
     REQUIRE((width > 0 && width < 128 && height > 0));
     std::replace(name.begin(), name.end(), '\\', '/');
@@ -777,6 +777,8 @@ void button_image_fixture(const std::filesystem::path& root, std::string name, u
     for (unsigned index = 0; index < count; ++index) {
         regions[index].uiDataOffset = index * image_size;
         regions[index].uiDataLength = image_size;
+        regions[index].sOffsetX = offset_x;
+        regions[index].sOffsetY = offset_y;
         regions[index].usWidth = width;
         regions[index].usHeight = height;
     }
@@ -795,6 +797,63 @@ void button_image_fixture(const std::filesystem::path& root, std::string name, u
         write(bytes, sizeof(bytes));
     }
 }
+
+void bitmap_image_fixture(const std::filesystem::path& root, std::string name)
+{
+    std::replace(name.begin(), name.end(), '\\', '/');
+    const auto path = root / name;
+    std::filesystem::create_directories(path.parent_path());
+    std::ofstream file(path, std::ios::binary);
+    const auto write = [&file](const void* data, size_t size) {
+        file.write(static_cast<const char*>(data), size);
+        REQUIRE(file.good());
+    };
+    STCIHeader header{};
+    memcpy(header.cID, STCI_ID_STRING, STCI_ID_LEN);
+    header.uiOriginalSize = 2;
+    header.uiStoredSize = 2;
+    header.fFlags = STCI_INDEXED;
+    header.usWidth = 2;
+    header.usHeight = 1;
+    header.Indexed.uiNumberOfColours = 256;
+    header.ubDepth = 8;
+    write(&header, STCI_HEADER_SIZE);
+    std::array<STCIPaletteElement, 256> palette{};
+    palette[1].ubRed = 255;
+    write(palette.data(), STCI_8BIT_PALETTE_SIZE);
+    const std::uint8_t pixels[]{0, 1};
+    write(pixels, sizeof(pixels));
+}
+
+std::uint16_t surface_pixel(const SDL_Surface& surface, int x, int y)
+{
+    const auto* row = reinterpret_cast<const std::uint16_t*>(
+        static_cast<const std::uint8_t*>(surface.pixels) + y * surface.pitch);
+    return row[x];
+}
+
+class CatalogArtworkAssets {
+public:
+    CatalogArtworkAssets()
+        : previous_roots_(w8_native::path_roots())
+    {
+        const auto assets = directory_.path / "assets";
+        button_image_fixture(assets, "Data/Main Interface/main_scroll.sti", 12, false, 4, 2, {}, 2, 3);
+        bitmap_image_fixture(assets, "Data/Portraits/Large/Lhummf.sti");
+        g_image_assets.clear();
+        w8_native::configure_paths({assets.string(), (directory_.path / "user").string(), {}});
+    }
+
+    ~CatalogArtworkAssets()
+    {
+        g_image_assets.clear();
+        w8_native::configure_paths(previous_roots_);
+    }
+
+private:
+    ScopedTemporaryDirectory directory_{"wiz8-catalog-artwork"};
+    w8_native::Roots previous_roots_;
+};
 
 void generic_button_images()
 {
@@ -1743,6 +1802,76 @@ TEST_CASE("Image assets share normalized paths and retain resources across clear
     REQUIRE(bitmap->w == 1);
 }
 
+TEST_CASE("CatalogArtwork renders sprite storage", "[owner][image][catalog]")
+{
+    initialize_test_framebuffer();
+    CatalogArtworkAssets assets;
+
+    auto& framebuffer = GetFrameBufferSurface();
+    const auto sprites = CatalogArtwork::Load(0x86);
+    REQUIRE(sprites.spriteSheet());
+    REQUIRE_FALSE(sprites.bitmap());
+    REQUIRE((sprites.size(0).x == 4 && sprites.size(0).y == 2));
+    REQUIRE((sprites.position(0).x == 2 && sprites.position(0).y == 3));
+    REQUIRE(SDL_FillSurfaceRect(&framebuffer, nullptr, 0x07e0));
+    sprites.draw(framebuffer, 0, 10, 10);
+    REQUIRE(surface_pixel(framebuffer, 12, 13) == sprites.spriteSheet()->colors[1]);
+    const int sprite_dirty_before = g_dirty_tile_count;
+    sprites.drawAndInvalidate(framebuffer, 0, 20, 20);
+    REQUIRE(g_dirty_tile_count > sprite_dirty_before);
+    const int explicit_dirty_before = g_dirty_tile_count;
+    sprites.invalidate(0, 30, 30, 2);
+    REQUIRE(g_dirty_tile_count > explicit_dirty_before);
+    REQUIRE_THROWS_AS(sprites.drawRect(framebuffer, {0, 0, 1, 1}, 40, 40),
+                      std::logic_error);
+}
+
+TEST_CASE("CatalogArtwork renders bitmap storage with mirror key semantics", "[owner][image][catalog]")
+{
+    initialize_test_framebuffer();
+    CatalogArtworkAssets assets;
+    auto& framebuffer = GetFrameBufferSurface();
+    const auto bitmap = CatalogArtwork::Load(0x11);
+    REQUIRE_FALSE(bitmap.spriteSheet());
+    REQUIRE(bitmap.bitmap());
+    REQUIRE((bitmap.size(0).x == 2 && bitmap.size(0).y == 1));
+    REQUIRE((bitmap.position(0).x == 0 && bitmap.position(0).y == 0));
+    const auto red = Get16BPPColor({255, 0, 0, 255});
+    REQUIRE(SDL_FillSurfaceRect(&framebuffer, nullptr, 0x07e0));
+    bitmap.draw(framebuffer, 0, 50, 50);
+    REQUIRE(surface_pixel(framebuffer, 50, 50) == 0x07e0);
+    REQUIRE(surface_pixel(framebuffer, 51, 50) == red);
+    const int bitmap_dirty_before = g_dirty_tile_count;
+    bitmap.drawAndInvalidate(framebuffer, 0, 60, 60);
+    REQUIRE(g_dirty_tile_count > bitmap_dirty_before);
+
+    REQUIRE(SDL_FillSurfaceRect(&framebuffer, nullptr, 0x07e0));
+    bitmap.draw(framebuffer, 0, 70, 70, {.mirror = true, .color_key = true});
+    REQUIRE(surface_pixel(framebuffer, 70, 70) == red);
+    REQUIRE(surface_pixel(framebuffer, 71, 70) == 0);
+    bitmap.drawRect(framebuffer, {0, 0, 1, 1}, 80, 80);
+    REQUIRE(surface_pixel(framebuffer, 80, 80) == 0);
+}
+
+TEST_CASE("Controls draw optional CatalogArtwork backgrounds", "[owner][catalog]")
+{
+    initialize_test_framebuffer();
+    CatalogArtworkAssets assets;
+    auto& framebuffer = GetFrameBufferSurface();
+    const auto sprites = CatalogArtwork::Load(0x86);
+    REQUIRE(SDL_FillSurfaceRect(&framebuffer, nullptr, 0x07e0));
+    Controls with_background(100, 100, 140, 120, sprites, 0);
+    with_background.m_fEnabled = true;
+    with_background.m_fDirty = true;
+    with_background.Redraw();
+    REQUIRE(surface_pixel(framebuffer, 102, 103) == sprites.spriteSheet()->colors[1]);
+    Controls without_background(150, 100, 190, 120, std::nullopt, 0);
+    without_background.m_fEnabled = true;
+    without_background.m_fDirty = true;
+    without_background.Redraw();
+    REQUIRE(surface_pixel(framebuffer, 152, 103) == 0x07e0);
+}
+
 TEST_CASE("Item image cache owns shared sprite sheets", "[owner][catalog]")
 {
     ScopedTemporaryDirectory directory{"wiz8-item-cache"};
@@ -1791,9 +1920,9 @@ TEST_CASE("Item image cache owns shared sprite sheets", "[owner][catalog]")
     g_image_assets.clear();
     REQUIRE(held->frames.size() == 1);
     REQUIRE(&g_item_video_objects.Sprites(0) == held.get());
-    REQUIRE_THROWS_AS(GetCatalogVideoObject(-1, 0), std::out_of_range);
-    REQUIRE_THROWS_AS(GetCatalogVideoObject(0, -1), std::out_of_range);
-    REQUIRE_THROWS_AS(GetCatalogVideoObject(0x86, std::numeric_limits<int>::max()),
+    REQUIRE_THROWS_AS(CatalogArtwork::Load(-1, 0), std::out_of_range);
+    REQUIRE_THROWS_AS(CatalogArtwork::Load(0, -1), std::out_of_range);
+    REQUIRE_THROWS_AS(CatalogArtwork::Load(0x86, std::numeric_limits<int>::max()),
                       std::out_of_range);
 
     g_item_video_objects.Initialize(records.size());

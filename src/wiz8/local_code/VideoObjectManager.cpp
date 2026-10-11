@@ -6,6 +6,7 @@
 #include <stdexcept>
 #include <string_view>
 #include <utility>
+#include <variant>
 #include "himage.h"
 #include <fmt/format.h>
 #include <SDL3/SDL_rect.h>
@@ -17,6 +18,18 @@
 #include "image.h"
 #include "sprite.h"
 #include "compat/compiler.h"
+
+struct W8VideoObjectSlot {
+    int first_frame;
+    short y_offset;
+};
+
+enum W8VideoStorageKind { W8_VIDEO_STORAGE_OBJECT = 0, W8_VIDEO_STORAGE_SURFACE = 1 };
+
+struct W8CatalogArtwork {
+    std::string_view path;
+    W8VideoStorageKind storage_kind;
+};
 
 W8_ABI_ASSERT(sizeof(W8VideoObjectSlot) == 8, "W8VideoObjectSlot_size_must_be_8");
 
@@ -768,20 +781,6 @@ static void AssertCatalogLoadFailure(const W8CatalogArtwork& record)
                              fmt::underlying(record.storage_kind)));
 }
 
-static const SpriteSheet& CatalogSprites(int object, int frame)
-{
-    return *GetCatalogSpriteSheet(object, frame);
-}
-
-static SDL_Surface& CatalogBitmap(int object, int frame)
-{
-    const auto& record = CatalogFrame(object, frame);
-    auto bitmap = g_image_assets.bitmap(record.path);
-    if (!bitmap)
-        AssertCatalogLoadFailure(record);
-    return *bitmap;
-}
-
 // FUNCTION: WIZ8 0x00549250
 void ReleaseLoadedVideoFrames(void)
 {
@@ -806,136 +805,113 @@ std::pair<int, int> GetSpriteSize(const SpriteSheet& sprites, int image)
     return {sprite.usWidth, sprite.usHeight};
 }
 
-// FUNCTION: WIZ8 0x00548f90
-void DrawCatalogImage(SDL_Surface& target, int object, int frame, short image, int left, int top,
-                      SpriteDraw options)
+CatalogArtwork::CatalogArtwork(std::shared_ptr<const SpriteSheet> sprites, short image_offset)
+    : image_(std::move(sprites)), image_offset_(image_offset)
 {
-    const auto& slot = g_video_slots.at(object);
-    if (CatalogFrame(object, frame).storage_kind == W8_VIDEO_STORAGE_OBJECT) {
-        const int sprite = slot.y_offset + image;
-        if (sprite >= 0)
-            DrawSprite(target, CatalogSprites(object, frame), static_cast<std::size_t>(sprite),
-                       left, top, options);
-    } else {
-        BlitImage(target, left, top, CatalogBitmap(object, frame), nullptr,
-                  {.color_key = options.color_key && !options.mirror, .mirror = options.mirror});
-    }
 }
 
-// FUNCTION: WIZ8 0x005492e0
-Palette16 CopyCatalogImagePalette16BPP(int object, int frame)
+CatalogArtwork::CatalogArtwork(std::shared_ptr<SDL_Surface> bitmap, short image_offset)
+    : image_(std::move(bitmap)), image_offset_(image_offset)
 {
-    return GetCatalogVideoObject(object, frame).colors;
-}
-
-// FUNCTION: WIZ8 0x005493e0
-short GetCatalogVideoObjectYOffset(int object)
-{
-    return g_video_slots.at(object).y_offset;
-}
-
-std::string_view GetCatalogVideoObjectPath(int object)
-{
-    const auto& slot = g_video_slots.at(object);
-    return g_video_frames.at(slot.first_frame).path;
-}
-
-W8VideoStorageKind GetCatalogStorageKind(int object)
-{
-    const auto& slot = g_video_slots.at(object);
-    return g_video_frames.at(slot.first_frame).storage_kind;
 }
 
 // FUNCTION: WIZ8 0x00549420
-const SpriteSheet& GetCatalogVideoObject(int object, int frame, int* y_offset_out)
-{
-    return *GetCatalogSpriteSheet(object, frame, y_offset_out);
-}
-
-std::shared_ptr<const SpriteSheet> GetCatalogSpriteSheet(int object, int frame, int* y_offset_out)
+CatalogArtwork CatalogArtwork::Load(int object, int frame)
 {
     const auto& record = CatalogFrame(object, frame);
-    if (record.storage_kind != W8_VIDEO_STORAGE_OBJECT)
-        throw std::logic_error("Catalog frame is not a sprite object");
-    auto sprites = g_image_assets.sprites(record.path);
-    if (!sprites)
+    const short image_offset = g_video_slots.at(object).y_offset;
+    if (record.storage_kind == W8_VIDEO_STORAGE_OBJECT) {
+        auto sprites = g_image_assets.sprites(record.path);
+        if (!sprites)
+            AssertCatalogLoadFailure(record);
+        return CatalogArtwork(std::move(sprites), image_offset);
+    }
+    auto bitmap = g_image_assets.bitmap(record.path);
+    if (!bitmap)
         AssertCatalogLoadFailure(record);
-    if (y_offset_out)
-        *y_offset_out = g_video_slots.at(object).y_offset;
-    return sprites;
+    return CatalogArtwork(std::move(bitmap), image_offset);
+}
+
+// FUNCTION: WIZ8 0x005493e0
+short CatalogArtwork::imageOffset() const { return image_offset_; }
+
+// FUNCTION: WIZ8 0x00548f90
+void CatalogArtwork::draw(SDL_Surface& target, int image, int x, int y, SpriteDraw options) const
+{
+    if (const auto sprites = spriteSheet()) {
+        const int sprite = image_offset_ + static_cast<short>(image);
+        if (sprite >= 0)
+            DrawSprite(target, *sprites, static_cast<std::size_t>(sprite), x, y, options);
+        return;
+    }
+    if (const auto surface = bitmap())
+        BlitImage(target, x, y, *surface, nullptr,
+                  {.color_key = options.color_key && !options.mirror, .mirror = options.mirror});
 }
 
 // FUNCTION: WIZ8 0x005494f0
-void InvalidateCatalogImageRect(int object, int frame, int image, int left, int top, int flags)
+void CatalogArtwork::invalidate(int image, int x, int y, int flags) const
 {
-    const auto [width, height] = GetCatalogImageSize(object, frame, image);
-    if (width != 0 && height != 0)
-        InvalidateRegion(left, top, left + width, top + height, flags);
-}
-
-/* Draw a catalog video object, then mark the area it covered. The subimage
-   index is truncated to a short for the draw and passed whole to the mark,
-   and the seventh reaches the mark only as whether it equals two. */
-// FUNCTION: WIZ8 0x00549600
-void DrawCatalogImageAndInvalidate(SDL_Surface& target, int object, int frame, int image, int left,
-                                   int top, SpriteDraw options)
-{
-    if (CatalogFrame(object, frame).storage_kind == W8_VIDEO_STORAGE_OBJECT) {
-        DrawSpriteAndInvalidate(target, CatalogSprites(object, frame),
-                                g_video_slots.at(object).y_offset + image, left, top, options);
-        return;
-    }
-
-    DrawCatalogImage(target, object, frame, static_cast<short>(image), left, top, options);
-    InvalidateCatalogImageRect(object, frame, image, left, top,
-                               options.color_key && !options.mirror);
+    const SDL_Point extent = size(image);
+    if (extent.x != 0 && extent.y != 0)
+        InvalidateRegion(x, y, x + extent.x, y + extent.y, flags);
 }
 
 // FUNCTION: WIZ8 0x00549660
-std::pair<int, int> GetCatalogImageSize(int object, int frame, int image)
+SDL_Point CatalogArtwork::size(int image) const
 {
-    const auto& slot = g_video_slots.at(object);
-    const auto& record = CatalogFrame(object, frame);
-    if (record.storage_kind == W8_VIDEO_STORAGE_SURFACE) {
-        const auto& surface = CatalogBitmap(object, frame);
-        return {surface.w, surface.h};
+    if (const auto sprites = spriteSheet()) {
+        const auto [width, height] = GetSpriteSize(*sprites, image_offset_ + image);
+        return {width, height};
     }
-    return GetSpriteSize(CatalogSprites(object, frame), slot.y_offset + image);
+    if (const auto surface = bitmap())
+        return {surface->w, surface->h};
+    return {};
 }
 
-/* The image's own offset inside its frame, read from the video object's ETRLE
-   table; only uncompressed frames carry one. */
 // FUNCTION: WIZ8 0x00549700
-void GetCatalogImagePosition(int object, int frame, int image, short* x, short* y)
+SDL_Point CatalogArtwork::position(int image) const
 {
-    const auto& slot = g_video_slots.at(object);
-    const auto& record = CatalogFrame(object, frame);
-    if (record.storage_kind == W8_VIDEO_STORAGE_OBJECT) {
-        const auto& video_object = CatalogSprites(object, frame);
-        const auto subimage = slot.y_offset + image;
-        *x = video_object.frames.at(subimage).sOffsetX;
-        *y = video_object.frames.at(subimage).sOffsetY;
+    if (const auto sprites = spriteSheet()) {
+        const auto& frame = sprites->frames.at(image_offset_ + image);
+        return {frame.sOffsetX, frame.sOffsetY};
     }
+    return {};
 }
 
-/* Copy a rectangle from one catalog-owned 8-bit surface into a 16-bit target.
-   The source rectangle has the destination's extent and begins at the two
-   caller-provided source coordinates. Both surfaces remain locked for exactly
-   the pinned SGP conversion call. */
 // FUNCTION: WIZ8 0x005497c0
-unsigned char BlitCatalogSurfaceRectTo16BPP(SDL_Surface& target, int left, int top, int right, int bottom,
-                                            int object, int source_x, int source_y)
+void CatalogArtwork::drawRect(SDL_Surface& target, const SDL_Rect& source, int x, int y) const
 {
-    const SDL_Rect source_rect{source_x, source_y, right - left, bottom - top};
-    BlitImage(target, left, top, CatalogBitmap(object, 0), &source_rect);
-    return 1;
+    const auto surface = bitmap();
+    if (!surface)
+        throw std::logic_error("Catalog frame does not contain a surface");
+    BlitImage(target, x, y, *surface, &source);
 }
 
-/* Surface-backed catalog frames expose their storage directly. */
-// FUNCTION: WIZ8 0x005498a0
-SDL_Surface& GetCatalogFrameSurface(unsigned int object, unsigned int frame)
+std::shared_ptr<const SpriteSheet> CatalogArtwork::spriteSheet() const
 {
-    if (CatalogFrame(object, frame).storage_kind != W8_VIDEO_STORAGE_SURFACE)
-        throw std::logic_error("Catalog frame does not contain a surface");
-    return CatalogBitmap(object, frame);
+    if (const auto* sprites =
+            std::get_if<std::shared_ptr<const SpriteSheet>>(&image_))
+        return *sprites;
+    return {};
+}
+
+// FUNCTION: WIZ8 0x005498a0
+std::shared_ptr<SDL_Surface> CatalogArtwork::bitmap() const
+{
+    if (const auto* surface = std::get_if<std::shared_ptr<SDL_Surface>>(&image_))
+        return *surface;
+    return {};
+}
+
+// FUNCTION: WIZ8 0x00549600
+void CatalogArtwork::drawAndInvalidate(SDL_Surface& target, int image, int x, int y,
+                                       SpriteDraw options) const
+{
+    if (const auto sprites = spriteSheet()) {
+        DrawSpriteAndInvalidate(target, *sprites, image_offset_ + image, x, y, options);
+        return;
+    }
+    draw(target, static_cast<short>(image), x, y, options);
+    invalidate(image, x, y, options.color_key && !options.mirror);
 }
