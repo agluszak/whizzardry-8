@@ -471,8 +471,7 @@ void stModelInstance::RenderMeshes(srGERD& renderer)
     // c-style-cast-ok: the pick key is an opaque void* token
     SetPickKey((render_flags & RENDER_NO_PICK) != 0 ? (void*)0 : (void*)this);
 
-    glm::vec4 ambient;
-    renderer.getAmbientLight(ambient);
+    const auto ambient = renderer.getAmbientLight();
     srVector3T<float> ambient_color;
     ambient_color = glm::vec3(ambient);
 
