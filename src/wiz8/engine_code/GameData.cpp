@@ -263,7 +263,7 @@ float g_camera_motion_clamp = 1125.0f;
 // GLOBAL: WIZ8 0x00603ac4
 float g_camera_motion_divisor = 3000.0f;
 // GLOBAL: WIZ8 0x00603ad4
-SoundPlayback g_level_footstep_sound = nullptr;
+wiz8::sound::Playback g_level_footstep_sound = nullptr;
 // GLOBAL: WIZ8 0x00652dd0
 float g_level_footstep_time;
 // GLOBAL: WIZ8 0x005ebc50

@@ -75,7 +75,7 @@ struct W8CharacterEvent {
 
     /* The event owns the playback whose callback borrows this entry. The
        portrait's shared handle can change independently of this lifetime. */
-    SoundPlayback voice_playback;
+    wiz8::sound::Playback voice_playback;
 
     void DelayDispatch(int milliseconds)
     {

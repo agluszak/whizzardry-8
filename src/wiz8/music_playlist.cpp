@@ -20,7 +20,7 @@
 /* Original translation-unit ownership is unknown; surrounding anchors do not resolve it. */
 
 // GLOBAL: WIZ8 0x0060aae0
-SoundPlayback g_music_sample_handle = nullptr;
+wiz8::sound::Playback g_music_sample_handle = nullptr;
 // GLOBAL: WIZ8 0x0065BA74
 static stScript* g_music_playlist;
 // GLOBAL: WIZ8 0x0065BA78

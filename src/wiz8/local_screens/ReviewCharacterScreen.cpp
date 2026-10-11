@@ -130,7 +130,7 @@ stModelInstance2D* g_fade_overlay;
 // GLOBAL: WIZ8 0x0069c120
 int g_fade_out;
 // GLOBAL: WIZ8 0x0069c124
-SoundPlayback g_ending_sound;
+wiz8::sound::Playback g_ending_sound;
 // GLOBAL: WIZ8 0x0069c128
 bool g_ending_screen;
 // GLOBAL: WIZ8 0x0069c129

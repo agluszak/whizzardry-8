@@ -52,25 +52,25 @@ void service();
 // Retail never caches clips this large; play() rejects them, stream() accepts them.
 inline constexpr std::uint32_t kMaxCachedClipBytes = 0xc8000;
 
-SoundClip load(std::string_view path);
-SoundPlayback play(std::string_view path, PlayOptions options = {});
-SoundPlayback play(const SoundClip& clip, PlayOptions options = {});
-SoundPlayback stream(std::string_view path, PlayOptions options = {});
+Clip load(std::string_view path);
+Playback play(std::string_view path, PlayOptions options = {});
+Playback play(const Clip& clip, PlayOptions options = {});
+Playback stream(std::string_view path, PlayOptions options = {});
 // Stops effects and ambient playback and drops the clip cache; music continues.
 void release_cache();
 
-bool is_playing(const SoundPlayback& playback);
+bool is_playing(const Playback& playback);
 bool is_file_playing(std::string_view path);
 // Returns whether the playback was audible; a fade keeps it playing until silent.
-bool stop(const SoundPlayback& playback, std::uint32_t fade_out_ms = 0);
+bool stop(const Playback& playback, std::uint32_t fade_out_ms = 0);
 bool stop_group(Group group);
 
 void set_default_volume(std::uint32_t volume);
-bool set_volume(const SoundPlayback& playback, std::uint32_t volume);
-std::optional<std::uint32_t> volume(const SoundPlayback& playback);
-void set_position(const SoundPlayback& playback, glm::vec3 position);
+bool set_volume(const Playback& playback, std::uint32_t volume);
+std::optional<std::uint32_t> volume(const Playback& playback);
+void set_position(const Playback& playback, glm::vec3 position);
 
 // Wall-clock time since the playback started, as retail mouth-gap tracks expect.
-std::uint32_t elapsed_ms(const SoundPlayback& playback);
-std::optional<PlaybackTime> playback_time(const SoundPlayback& playback);
+std::uint32_t elapsed_ms(const Playback& playback);
+std::optional<PlaybackTime> playback_time(const Playback& playback);
 } // namespace wiz8::sound

@@ -699,7 +699,7 @@ unsigned char W8CharacterEvent::PlayEventSound()
     std::string voice_stem;
     std::string sound_path;
     std::string npc_sound_name;
-    SoundPlayback sound_handle;
+    wiz8::sound::Playback sound_handle;
     W8MonsterManagerEntry* record;
     W8NpcState* npc;
 

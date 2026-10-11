@@ -28,6 +28,8 @@
 #include "wiz8/filesystem.h"
 #include "wiz8/native_audio.h"
 
+namespace wiz8::sound
+{
 struct AudioClip
 {
     std::string name;
@@ -41,7 +43,7 @@ struct AudioPlayback
 {
     std::shared_ptr<MIX_Mixer> owner;
     // Track destruction synchronizes with mixing before closing its input.
-    SoundClip clip;
+    Clip clip;
     w8_native::AudioInput input;
     std::atomic<bool> stopped = false;
     w8_native::Track track;
@@ -53,8 +55,6 @@ struct AudioPlayback
     std::optional<glm::vec3> position;
 };
 
-namespace wiz8::sound
-{
 namespace
 {
 constexpr std::uint32_t kCacheBudgetBytes = 8048 * 1024;
@@ -64,9 +64,9 @@ struct Service
     bool enabled = false;
     std::uint32_t default_volume = 127;
     std::uint32_t cached_bytes = 0;
-    std::vector<SoundClip> cache;
+    std::vector<Clip> cache;
     // Retains fire-and-forget playback until completion; callers may share the same objects.
-    std::vector<SoundPlayback> active;
+    std::vector<Playback> active;
 } service_state;
 
 const char* tag_of(Group group)
@@ -79,12 +79,12 @@ const char* tag_of(Group group)
     return "effects";
 }
 
-bool live(const SoundPlayback& playback)
+bool live(const Playback& playback)
 {
     return service_state.enabled && playback && playback->track;
 }
 
-void finish(const SoundPlayback& playback)
+void finish(const Playback& playback)
 {
     if (!playback || !playback->track) return;
     auto callback = std::exchange(playback->on_finished, {});
@@ -137,7 +137,7 @@ bool apply_spatial(AudioPlayback& playback)
     return MIX_SetTrackStereo(playback.track.get(), &gains);
 }
 
-SoundPlayback create_playback(Group group)
+Playback create_playback(Group group)
 {
     finish_stopped();
     if (!service_state.enabled) return {};
@@ -152,7 +152,7 @@ SoundPlayback create_playback(Group group)
     return playback;
 }
 
-SoundPlayback start(SoundPlayback playback, SoundClip clip, PlayOptions options)
+Playback start(Playback playback, Clip clip, PlayOptions options)
 {
     auto& track = *playback->track;
     const auto natural_rate = MIX_TrackMSToFrames(&track, 1000);
@@ -201,7 +201,7 @@ bool evict_one()
     return true;
 }
 
-SoundClip load_resolved(const std::string& filename)
+Clip load_resolved(const std::string& filename)
 {
     for (const auto& clip : service_state.cache)
         if (SDL_strcasecmp(clip->name.c_str(), filename.c_str()) == 0) return clip;
@@ -223,7 +223,7 @@ SoundClip load_resolved(const std::string& filename)
     return clip;
 }
 
-SoundPlayback stream_resolved(const std::string& filename, PlayOptions options)
+Playback stream_resolved(const std::string& filename, PlayOptions options)
 {
     auto playback = create_playback(options.group);
     if (!playback) return {};
@@ -277,15 +277,15 @@ void service()
 }
 
 // FUNCTION: WIZ8 0x00409970
-SoundClip load(std::string_view path)
+Clip load(std::string_view path)
 {
     if (!service_state.enabled) return {};
     const auto filename = resolve_path(path);
-    return filename.empty() ? SoundClip{} : load_resolved(filename);
+    return filename.empty() ? Clip{} : load_resolved(filename);
 }
 
 // FUNCTION: WIZ8 0x00408860
-SoundPlayback play(std::string_view path, PlayOptions options)
+Playback play(std::string_view path, PlayOptions options)
 {
     if (!service_state.enabled) return {};
     const auto filename = resolve_path(path);
@@ -302,7 +302,7 @@ SoundPlayback play(std::string_view path, PlayOptions options)
     return play(clip, std::move(options));
 }
 
-SoundPlayback play(const SoundClip& clip, PlayOptions options)
+Playback play(const Clip& clip, PlayOptions options)
 {
     if (!service_state.enabled || !clip || !clip->audio) return {};
     auto playback = create_playback(options.group);
@@ -312,11 +312,11 @@ SoundPlayback play(const SoundClip& clip, PlayOptions options)
 }
 
 // FUNCTION: WIZ8 0x00408ad0
-SoundPlayback stream(std::string_view path, PlayOptions options)
+Playback stream(std::string_view path, PlayOptions options)
 {
     if (!service_state.enabled) return {};
     const auto filename = resolve_path(path);
-    return filename.empty() ? SoundPlayback{} : stream_resolved(filename, std::move(options));
+    return filename.empty() ? Playback{} : stream_resolved(filename, std::move(options));
 }
 
 // FUNCTION: WIZ8 0x004098f0
@@ -329,7 +329,7 @@ void release_cache()
 }
 
 // FUNCTION: WIZ8 0x00408ef0
-bool is_playing(const SoundPlayback& playback)
+bool is_playing(const Playback& playback)
 {
     return live(playback) && MIX_TrackPlaying(playback->track.get());
 }
@@ -337,7 +337,7 @@ bool is_playing(const SoundPlayback& playback)
 // FUNCTION: WIZ8 0x0040a910
 bool is_file_playing(std::string_view path)
 {
-    return std::ranges::any_of(service_state.active, [&](const SoundPlayback& playback) {
+    return std::ranges::any_of(service_state.active, [&](const Playback& playback) {
         const auto& clip = playback->clip;
         return clip && is_playing(playback) && clip->name.size() == path.size() &&
                SDL_strncasecmp(clip->name.c_str(), path.data(), path.size()) == 0;
@@ -345,7 +345,7 @@ bool is_file_playing(std::string_view path)
 }
 
 // FUNCTION: WIZ8 0x00408f70
-bool stop(const SoundPlayback& playback, std::uint32_t fade_out_ms)
+bool stop(const Playback& playback, std::uint32_t fade_out_ms)
 {
     const bool was_playing = is_playing(playback);
     if (was_playing && fade_out_ms != 0) {
@@ -384,19 +384,19 @@ void set_default_volume(std::uint32_t volume)
 }
 
 // FUNCTION: WIZ8 0x00409210
-bool set_volume(const SoundPlayback& playback, std::uint32_t volume)
+bool set_volume(const Playback& playback, std::uint32_t volume)
 {
     return live(playback) && set_gain(*playback, volume);
 }
 
 // FUNCTION: WIZ8 0x004092a0
-std::optional<std::uint32_t> volume(const SoundPlayback& playback)
+std::optional<std::uint32_t> volume(const Playback& playback)
 {
     return live(playback) ? std::optional(playback->volume) : std::nullopt;
 }
 
 // FUNCTION: WIZ8 0x0040ab20
-void set_position(const SoundPlayback& playback, glm::vec3 position)
+void set_position(const Playback& playback, glm::vec3 position)
 {
     if (!live(playback) || !playback->position) return;
     playback->position = position;
@@ -404,13 +404,13 @@ void set_position(const SoundPlayback& playback, glm::vec3 position)
 }
 
 // FUNCTION: WIZ8 0x004097f0
-std::uint32_t elapsed_ms(const SoundPlayback& playback)
+std::uint32_t elapsed_ms(const Playback& playback)
 {
     return live(playback) ? std::uint32_t(w8_get_ticks() - playback->started_at) : 0;
 }
 
 // FUNCTION: WIZ8 0x00409840
-std::optional<PlaybackTime> playback_time(const SoundPlayback& playback)
+std::optional<PlaybackTime> playback_time(const Playback& playback)
 {
     if (!live(playback)) return std::nullopt;
     auto* track = playback->track.get();

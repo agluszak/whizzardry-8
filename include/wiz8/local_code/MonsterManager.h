@@ -43,7 +43,7 @@ struct W8PortraitQuoteState {
 // Runtime-only state: natural alignment is required for the embedded vector.
 struct W8MonsterManagerEntry {
     bool portrait_event_active;
-    SoundPlayback voice_sound_handle;
+    wiz8::sound::Playback voice_sound_handle;
     W8MouthGapTrack mouth_gap;
     W8PortraitQuoteState quote;
     unsigned char unknown_025[0x4c];

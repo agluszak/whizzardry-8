@@ -405,7 +405,7 @@ public:
     unsigned char m_slot_attempted[8];
     int m_slot_columns[8][8];
     int m_target_difficulty;
-    SoundPlayback m_sound_handle;
+    wiz8::sound::Playback m_sound_handle;
     W8GameTimer m_timer;
 };
 W8_ABI_ASSERT(sizeof(W8MainGameScreen) == 0x178, "W8MainGameScreen_size");

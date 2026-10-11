@@ -226,7 +226,7 @@ struct W8CombatState {
     int eCombatActionStatus;                  /* Historical offset 0x7b0 */
     int iActionChar;                          /* Historical offset 0x7b4: -1 when nobody's turn */
     struct W8MonsterInfo* pActionMonsterInfo; /* Historical offset 0x7b8 */
-    SoundPlayback hit_sound;
+    wiz8::sound::Playback hit_sound;
     bool hit_sound_active;
     W8EffectSlot effect_slots[9];  /* Historical offset 0x7c1, 0x11 stride */
     W8EffectSlot effect_slots0[6]; /* Historical offset 0x85a..0x8bf */

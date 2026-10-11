@@ -43,21 +43,21 @@ const float g_ambient_sound_inner_radius_scale = 0.6000000238418579f;
    instance of each. */
 struct W8RandomAmbient
 {
-    SoundClip clip;
+    wiz8::sound::Clip clip;
     std::uint32_t time_min = 0, time_max = 0;
     std::uint32_t volume_min = 0, volume_max = 0;
     std::optional<std::pair<std::uint32_t, std::uint32_t>> speed;
     bool automatic = false;
     bool enabled = true;
     std::uint64_t next_at = 0;
-    SoundPlayback instance;
+    wiz8::sound::Playback instance;
 
     void Reschedule() { next_at = w8_get_ticks() + RandomRange(time_min, time_max); }
     bool Due() const
     {
         return enabled && next_at <= w8_get_ticks() && !wiz8::sound::is_playing(instance);
     }
-    SoundPlayback Fire(std::uint32_t volume, std::optional<glm::vec3> position)
+    wiz8::sound::Playback Fire(std::uint32_t volume, std::optional<glm::vec3> position)
     {
         auto playback = wiz8::sound::play(
             clip, {.volume = volume,
@@ -503,7 +503,7 @@ const char* g_footstep_scuff_name = "Scuff";
 /* Surface and material ids are range-checked against 1..9 / 1..25 before
    indexing the name tables. */
 // FUNCTION: WIZ8 0x0047a440
-SoundPlayback PlayFootstep(signed char surface, signed char material, W8FootstepKind kind)
+wiz8::sound::Playback PlayFootstep(signed char surface, signed char material, W8FootstepKind kind)
 {
     signed char selected_surface;
     signed char selected_material;

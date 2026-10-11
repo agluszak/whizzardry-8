@@ -50,7 +50,7 @@ public:
     unsigned char in_range;      /* 0x0b8: listener currently inside radius/region */
     unsigned char looping;       /* 0x0b9: continuous loop vs random one-shot */
     unsigned char padding_0ba[2];
-    SoundPlayback sound_handle;      // Current playback, shared during group handoff.
+    wiz8::sound::Playback sound_handle;      // Current playback, shared during group handoff.
     std::shared_ptr<W8RandomAmbient> random; // One-shot schedule; empty for looping sounds.
     unsigned char shared;  /* 0x0c4: shared 2D group sound; voices hand off by name */
     unsigned char bounded; /* 0x0c5: region test enabled (v2 trigger field) */
@@ -125,7 +125,7 @@ void StopAllAmbientSounds();
 
 void BuildFootstepPath(char* path, signed char surface, signed char material, char kind,
                        int variant);
-SoundPlayback PlayFootstep(signed char surface, signed char material, W8FootstepKind kind);
+wiz8::sound::Playback PlayFootstep(signed char surface, signed char material, W8FootstepKind kind);
 void UpdateAmbientSounds(W8World* world);
 void RepositionAmbientSounds(W8World* world);
 unsigned char ReadAmbientSoundListFile(char* filename);

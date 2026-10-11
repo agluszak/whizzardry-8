@@ -431,7 +431,7 @@ extern unsigned char g_level_motion_fast;
 extern bool g_level_footstep_pending;
 extern float g_camera_motion_clamp;
 extern float g_camera_motion_divisor;
-extern SoundPlayback g_level_footstep_sound;
+extern wiz8::sound::Playback g_level_footstep_sound;
 extern float g_level_footstep_time;
 extern const double g_motion_delta_epsilon;
 extern const double g_motion_vector_epsilon;

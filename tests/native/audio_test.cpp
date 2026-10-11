@@ -418,7 +418,7 @@ TEST_CASE_METHOD(AudioFixture, "Audio playback, spatialization and movie lifetim
         REQUIRE(wiz8::sound::stream(rejected) == nullptr);
         REQUIRE(wiz8::sound::load(rejected) == nullptr);
     }
-    REQUIRE(wiz8::sound::play(SoundClip{}) == nullptr);
+    REQUIRE(wiz8::sound::play(wiz8::sound::Clip{}) == nullptr);
     sound = wiz8::sound::stream(fallback, {.volume = 127});
     REQUIRE(sound != nullptr);
     samples = mix(8192);
@@ -426,7 +426,7 @@ TEST_CASE_METHOD(AudioFixture, "Audio playback, spatialization and movie lifetim
     wiz8::sound::service();
     REQUIRE(!wiz8::sound::is_playing(sound));
     unsigned restarts = 0;
-    SoundPlayback restarted;
+    wiz8::sound::Playback restarted;
     sound = wiz8::sound::play(path, {.volume = 127, .on_finished = [&] {
         ++restarts;
         restarted = wiz8::sound::play(path, {.volume = 127});
@@ -514,7 +514,7 @@ TEST_CASE_METHOD(AudioFixture, "Audio output device", "[.manual][audio]")
 TEST_CASE_METHOD(AudioFixture, "Audio clips outlive cache entries without slot reuse", "[audio][ownership]")
 {
     startOfflineAudio();
-    std::vector<SoundClip> clips;
+    std::vector<wiz8::sound::Clip> clips;
     for (unsigned i = 0; i < 140; ++i) {
         auto name = "clip" + std::to_string(i) + ".wav";
         write(asset / name, wave);
@@ -523,7 +523,7 @@ TEST_CASE_METHOD(AudioFixture, "Audio clips outlive cache entries without slot r
         REQUIRE(wiz8::sound::load(name) == clip);
         clips.push_back(std::move(clip));
     }
-    std::weak_ptr<AudioClip> retained = clips.front();
+    std::weak_ptr<wiz8::sound::AudioClip> retained = clips.front();
     wiz8::sound::release_cache();
     REQUIRE_FALSE(retained.expired());
     clips.clear();
@@ -546,7 +546,7 @@ TEST_CASE_METHOD(AudioFixture, "Owned clips retain the mixer across sound shutdo
     startOfflineAudio();
     auto clip = wiz8::sound::load("tone.wav");
     REQUIRE(clip);
-    std::weak_ptr<AudioClip> lifetime = clip;
+    std::weak_ptr<wiz8::sound::AudioClip> lifetime = clip;
     wiz8::sound::shutdown();
     REQUIRE_FALSE(lifetime.expired());
     REQUIRE(wiz8::sound::initialize(true));
@@ -579,7 +579,7 @@ TEST_CASE_METHOD(AudioFixture, "Playback references never alias replacement trac
 TEST_CASE_METHOD(AudioFixture, "Mixer service owns discarded playback until completion", "[audio][ownership]")
 {
     startOfflineAudio();
-    std::weak_ptr<AudioPlayback> lifetime;
+    std::weak_ptr<wiz8::sound::AudioPlayback> lifetime;
     {
         auto playback = wiz8::sound::play("tone.wav");
         REQUIRE(playback);
@@ -595,7 +595,7 @@ TEST_CASE_METHOD(AudioFixture, "Mixer service owns discarded playback until comp
 TEST_CASE_METHOD(AudioFixture, "Playback completion permits stop and shutdown reentry", "[audio][ownership]")
 {
     startOfflineAudio();
-    SoundPlayback other;
+    wiz8::sound::Playback other;
     unsigned calls = 0;
     auto first = wiz8::sound::play("tone.wav", {.on_finished = [&] {
         ++calls;
@@ -618,7 +618,7 @@ TEST_CASE_METHOD(AudioFixture, "Mixer tags stop only the original group before r
 {
     using wiz8::sound::Group;
     startOfflineAudio();
-    SoundPlayback replacement;
+    wiz8::sound::Playback replacement;
     unsigned calls = 0;
     auto first = wiz8::sound::play("tone.wav", {.loops = 0, .group = Group::ambient, .on_finished = [&] {
         ++calls;

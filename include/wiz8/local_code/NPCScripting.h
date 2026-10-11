@@ -49,7 +49,7 @@ struct W8NpcScriptingState {
     unsigned char unknown_72[6];
     W8NpcScriptFile* script_file;
     W8NpcState* npc;
-    SoundPlayback voice_handle;
+    wiz8::sound::Playback voice_handle;
     unsigned int message_duration_ms;
     uint64_t message_started_at;
     std::vector<W8MessageBoxLine*> message_lines;

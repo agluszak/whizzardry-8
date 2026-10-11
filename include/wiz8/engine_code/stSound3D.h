@@ -36,7 +36,7 @@ public:
     wiz8::sound::PlayOptions BuildSoundOptions(const srVector3T<float>& listener); /* 0x004AECC0 */
 
     int unknown_138;   /* 0x138: ctor zeroes it; no retail reader found */
-    SoundPlayback sound_handle;  // Current playback; empty when silent.
+    wiz8::sound::Playback sound_handle;  // Current playback; empty when silent.
     int volume;        /* 0x140: base volume before distance/effects scale */
     float falloff;     /* 0x144: audible range in world units */
     char* wave_name;   /* 0x148: owned copy of the wave filename */

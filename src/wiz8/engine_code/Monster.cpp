@@ -2894,7 +2894,7 @@ std::optional<srBoundingBox> MonsterGetWorldAnimationBounds(W8Monster* monster)
 }
 
 // FUNCTION: WIZ8 0x004ca6e0
-void W8Monster::TrackSound(SoundPlayback playback)
+void W8Monster::TrackSound(wiz8::sound::Playback playback)
 {
     if (sounds.size() > 6) {
         for (const auto& sound : sounds) wiz8::sound::stop(sound);

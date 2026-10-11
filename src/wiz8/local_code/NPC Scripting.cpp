@@ -351,7 +351,7 @@ bool g_message_queue_idle;
 static int g_pending_npc_travel_level;
 
 // GLOBAL: WIZ8 0x0061aea0
-static SoundPlayback g_sedexus_sound_handle = nullptr;
+static wiz8::sound::Playback g_sedexus_sound_handle = nullptr;
 // GLOBAL: WIZ8 0x0061c324
 static char g_sedexus_moaning_sound[] = "Data\\Sound\\Ambients\\Al_Sedexus Moaning.wav";
 

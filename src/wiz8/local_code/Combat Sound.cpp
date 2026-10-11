@@ -43,7 +43,7 @@ void PlayCombatSound(std::string_view sound_name, unsigned int variant_count, bo
                      int volume)
 {
     std::string zSoundFileName;
-    SoundPlayback handle;
+    wiz8::sound::Playback handle;
 
     if (sound_name.empty())
         return;
