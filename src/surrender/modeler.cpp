@@ -470,38 +470,6 @@ void srModeler::rotate(w8_ulong triangle, const glm::mat3& matrix)
             vertex.position = matrix * vertex.position;
 }
 
-// FUNCTION: SURRENDER 0x10039A90
-int srModeler::findVertex(const glm::vec3& position, w8_ulong& triangle, w8_ulong& vertex,
-                          w8_ulong start_triangle)
-{
-    for (w8_ulong index = start_triangle; index < triangles.size(); ++index)
-        for (w8_ulong slot = 0; slot < 3; ++slot)
-            if (triangles[index].vertices[slot].position == position) {
-                triangle = index;
-                vertex = slot;
-                return true;
-            }
-    return false;
-}
-
-// FUNCTION: SURRENDER 0x10039B40
-void srModeler::findClosestVertex(const glm::vec3& position, w8_ulong& triangle, w8_ulong& vertex)
-{
-    triangle = vertex = 0;
-    double best = std::numeric_limits<double>::infinity();
-    for (w8_ulong index = 0; index < triangles.size(); ++index)
-        for (w8_ulong slot = 0; slot < 3; ++slot) {
-            const auto offset =
-                glm::dvec3(triangles[index].vertices[slot].position) - glm::dvec3(position);
-            const double distance = glm::dot(offset, offset);
-            if (distance < best) {
-                triangle = index;
-                vertex = slot;
-                best = distance;
-            }
-        }
-}
-
 // FUNCTION: SURRENDER 0x1003AA80
 double srModeler::getMaxVertexDist()
 {
