@@ -879,14 +879,11 @@ void UpdateAllMonsterHighlights(int party_slot, int location_id)
         if (!monster_info->fActive) {
             continue;
         }
-        if (location_id == monster_info->location_id) {
-            tint = 1;
-        } else if (overridden &&
-                   ((1 << (owner & 0x1f)) & MonsterGetHighlightMask(monster_info->p3D)) != 0) {
-            tint = 1;
-        } else {
-            tint = 0;
-        }
+        tint = (location_id == monster_info->location_id ||
+                (overridden &&
+                 ((1 << (owner & 0x1f)) & MonsterGetHighlightMask(monster_info->p3D)) != 0))
+                   ? 1
+                   : 0;
         HighlightMonsterAsTarget(monster_info->location_id, owner, static_cast<char>(tint));
     }
 }
