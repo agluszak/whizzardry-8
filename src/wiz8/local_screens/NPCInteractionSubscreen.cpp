@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <fmt/format.h>
 #include <fmt/printf.h>
 #include <wiz8/filesystem.h>
@@ -1097,19 +1098,13 @@ void EndNpcDialogueSession(bool skip_exit_actions)
     ApplyMainGameModeFlag(gXStatus.fCampMode ? g_settings.main_ui_mode
                                              : g_npc_interaction_state->saved_main_ui_mode,
                           true);
-    /* Retail deleted the seven dialogue panels through a non-virtual Controls
-       destructor; the native one is virtual, so the derived panels' members
-       are released too. The members stay dangling until the next dialogue
-       rebuilds them. */
-    int i;
-    Controls** panel = g_npc_interaction_state->dialogue_panels;
-    for (i = 0; i < 7; i++) {
-        delete panel[i];
+    /* Each dialogue control is parented to one of the seven panels, which
+       owns it, so deleting the panels releases the controls too. */
+    for (Controls*& panel : g_npc_interaction_state->dialogue_panels) {
+        delete panel;
+        panel = 0;
     }
-    W8Widget** control = g_npc_interaction_state->dialogue_controls;
-    for (i = 0; i < 39; i++) {
-        delete control[i];
-    }
+    std::ranges::fill(g_npc_interaction_state->dialogue_controls, nullptr);
     RequestRedrawCombatBar();
     RequestRedraw(W8_MAIN_REDRAW_SUBMENU_BUTTONS);
     for (unsigned int index = 0;
