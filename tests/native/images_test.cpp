@@ -286,10 +286,9 @@ TEST_CASE_METHOD(ImageFixture, "Native image formats, palettes and archives", "[
         REQUIRE((palette->fFlags == IMAGE_PALETTE && palette->pImageData.empty() && palette->pPalette));
         REQUIRE((bitmap->fFlags == IMAGE_BITMAPDATA && !bitmap->pImageData.empty() && !bitmap->pPalette));
         REQUIRE((metadata->fFlags == 0 && metadata->pImageData.empty() && !metadata->pPalette));
-        REQUIRE(LoadImageData(metadata.get(), IMAGE_ALLIMAGEDATA));
-        check_pcx(*metadata);
-        REQUIRE(LoadImageData(metadata.get(), IMAGE_ALLIMAGEDATA));
-        check_pcx(*metadata);
+        auto complete = load("Dotted.dir/default.PCX", IMAGE_ALLIMAGEDATA);
+        REQUIRE(complete);
+        check_pcx(*complete);
         gusAlphaMask = 0x8000;
         gusRedMask = 0x001f;
         gusBlueMask = 0x7c00;
@@ -434,21 +433,12 @@ TEST_CASE_METHOD(ImageFixture, "Truncated images and rollback", "[image][validat
         REQUIRE(!load("invalid.tga"));
     }
     {
-        auto image = load("Dotted.dir/default.PCX");
-        REQUIRE(image);
-        auto* data = image->pImageData.data();
-        image->ImageFile = "invalid.pcx";
-        REQUIRE((!LoadImageData(image.get(), IMAGE_ALLIMAGEDATA) && image->pImageData.data() == data));
-        check_pcx(*image);
-        auto* palette = image->pPalette->data();
-        image->ImageFile = "invalid.tga";
-        REQUIRE(!LoadImageData(image.get(), IMAGE_ALLDATA));
-        REQUIRE((image->pImageData.data() == data && image->pPalette->data() == palette));
-        check_pcx(*image);
-        image->ImageFile = "test.tga";
-        REQUIRE(LoadImageData(image.get(), IMAGE_ALLDATA));
-        REQUIRE((image->ubBitDepth == 24 && !image->pPalette && !image->pui16BPPPalette));
-        REQUIRE((image->fFlags == IMAGE_BITMAPDATA && !image->pETRLEObject.size()));
+        // Failed loads do not publish partially decoded images.
+        REQUIRE(!load("invalid.pcx"));
+        REQUIRE(!load("invalid.tga"));
+        auto image = load("test.tga");
+        REQUIRE((image && image->ubBitDepth == 24 && !image->pPalette && !image->pui16BPPPalette));
+        REQUIRE((image->fFlags == IMAGE_BITMAPDATA && image->pETRLEObject.empty()));
     }
     fixture(assets / "invalid.jpg", {0xff, 0xd8, 0xff});
     REQUIRE((!load("invalid.jpg") && !load("missing.pcx") && !load("unsupported.png")));

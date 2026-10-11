@@ -629,31 +629,15 @@ void generic_button_images()
 
     button_image_fixture(assets, "metadata.sti", 3, true);
     {
-        char filename[] = "metadata.sti";
-        std::unique_ptr<image_type> image(CreateImage(filename, IMAGE_ALLDATA));
+        auto image = CreateImage("metadata.sti", IMAGE_ALLDATA);
         REQUIRE((image && image->pImageData.size() == 9 && image->pETRLEObject.size() == 3));
-        auto* pixels = image->pImageData.data();
-        auto* palette = image->pPalette->data();
-        REQUIRE(LoadImageData(image.get(), IMAGE_APPDATA));
-        REQUIRE((image->pImageData.data() == pixels && image->pPalette->data() == palette));
         REQUIRE((image->pAppData.size() == 4 && image->pAppData[0] == 7 && image->pAppData[3] == 10));
-        auto* app = image->pAppData.data();
-        REQUIRE(LoadImageData(image.get(), IMAGE_PALETTE));
-        REQUIRE((image->pImageData.data() == pixels && image->pAppData.data() == app));
-        REQUIRE(((*image->pPalette)[1].peRed == 255));
-        palette = image->pPalette->data();
-        REQUIRE(LoadImageData(image.get(), IMAGE_BITMAPDATA));
-        REQUIRE((image->pPalette->data() == palette && image->pAppData.data() == app));
-        REQUIRE((image->pImageData[1] == 1 && image->pETRLEObject.size() == 3));
-        pixels = image->pImageData.data();
-        auto* objects = image->pETRLEObject.data();
-        const auto flags = image->fFlags;
-        std::filesystem::resize_file(assets / "metadata.sti",
-            STCI_HEADER_SIZE + STCI_8BIT_PALETTE_SIZE + 3 * STCI_SUBIMAGE_SIZE + 7);
-        REQUIRE(!LoadImageData(image.get(), IMAGE_ALLDATA));
-        REQUIRE((image->pImageData.data() == pixels && image->pETRLEObject.data() == objects));
-        REQUIRE((image->pPalette->data() == palette && image->pAppData.data() == app));
-        REQUIRE((image->fFlags == flags && image->pAppData.size() == 4 && image->pImageData.size() == 9));
+        REQUIRE((image->pPalette && (*image->pPalette)[1].peRed == 255));
+
+        auto palette = CreateImage("metadata.sti", IMAGE_PALETTE);
+        REQUIRE((palette && palette->pPalette && palette->pImageData.empty()));
+        auto bitmap = CreateImage("metadata.sti", IMAGE_BITMAPDATA);
+        REQUIRE((bitmap && !bitmap->pPalette && bitmap->pImageData.size() == 9));
 
         const auto pixel_offset = STCI_HEADER_SIZE + STCI_8BIT_PALETTE_SIZE + 3 * STCI_SUBIMAGE_SIZE;
         for (std::uintmax_t cut : {0u, STCI_HEADER_SIZE - 1u,
@@ -661,16 +645,12 @@ void generic_button_images()
              pixel_offset - 1u, pixel_offset + 8u, pixel_offset + 12u}) {
             button_image_fixture(assets, "metadata.sti", 3, true);
             std::filesystem::resize_file(assets / "metadata.sti", cut);
-            REQUIRE(!LoadImageData(image.get(), IMAGE_ALLDATA));
-            REQUIRE((image->pImageData.data() == pixels && image->pETRLEObject.data() == objects));
-            REQUIRE((image->pPalette->data() == palette && image->pAppData.data() == app));
-            REQUIRE((image->fFlags == flags && image->pAppData.size() == 4 && image->pImageData[1] == 1));
+            REQUIRE(!CreateImage("metadata.sti", IMAGE_ALLDATA));
         }
         button_image_fixture(assets, "metadata.sti", 3, true);
         std::filesystem::resize_file(assets / "metadata.sti", pixel_offset);
-        REQUIRE(LoadImageData(image.get(), IMAGE_PALETTE));
-        REQUIRE((image->pImageData.data() == pixels && image->pAppData.data() == app));
-        REQUIRE(!LoadImageData(image.get(), IMAGE_BITMAPDATA));
+        REQUIRE(CreateImage("metadata.sti", IMAGE_PALETTE));
+        REQUIRE(!CreateImage("metadata.sti", IMAGE_BITMAPDATA));
     }
     std::string long_image_path;
     for (int i = 0; i < 8; ++i)

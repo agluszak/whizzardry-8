@@ -114,10 +114,6 @@ typedef struct {
 // Returns NULL on failure without retaining image allocations.
 std::unique_ptr<image_type> CreateImage(const char* ImageFile, UINT16 fContents);
 
-// This function will attept to Load data from an existing image object's filename
-// In this way, dynamic loading of image data can be done
-bool LoadImageData(HIMAGE hImage, UINT16 fContents);
-
 bool CopyImageToBuffer(const image_type& image, UINT32 buffer_type, std::span<UINT8> destination,
                        std::size_t dest_width, std::size_t dest_height, std::size_t x, std::size_t y,
                        const SDL_Rect& source_rect);

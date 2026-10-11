@@ -296,55 +296,29 @@ image_type load_sti(wiz8::File& file, UINT16 contents)
 
 // FUNCTION: WIZ8 0x0040f850
 std::unique_ptr<image_type> CreateImage(const char* filename, UINT16 contents)
-try
 {
-    if (!filename)
+    if (!filename || (contents & ~IMAGE_ALLDATA))
         return nullptr;
-    auto image = std::make_unique<image_type>();
-    image->ImageFile = filename;
-    const auto slash = image->ImageFile.find_last_of("/\\");
-    const auto dot = image->ImageFile.find_last_of('.');
-    if (dot == std::string::npos || (slash != std::string::npos && dot < slash))
-        image->ImageFile += ".PCX";
-    if (!LoadImageData(image.get(), contents))
+    try {
+        std::string path = filename;
+        const auto slash = path.find_last_of("/\\");
+        const auto dot = path.find_last_of('.');
+        if (dot == std::string::npos || (slash != std::string::npos && dot < slash))
+            path += ".PCX";
+
+        const auto format = image_format(path);
+        const auto file = wiz8::open_file(path);
+        auto decoded = format == ImageFormat::sti
+            ? load_sti(*file, contents) : load_ordinary_image(*file, format, contents);
+        if (decoded.pPalette)
+            decoded.pui16BPPPalette = Create16BPPPalette(*decoded.pPalette);
+        decoded.ImageFile = std::move(path);
+        return std::make_unique<image_type>(std::move(decoded));
+    } catch (const std::exception& error) {
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Loading image %s: %s",
+                     filename, error.what());
         return nullptr;
-    return image;
-}
-catch (const std::exception&) { return nullptr; }
-
-bool LoadImageData(HIMAGE image, UINT16 contents)
-try
-{
-    if (!image || (contents & ~IMAGE_ALLDATA))
-        return false;
-    const auto format = image_format(image->ImageFile);
-    const auto file = wiz8::open_file(image->ImageFile);
-    auto decoded = format == ImageFormat::sti ? load_sti(*file, contents) : load_ordinary_image(*file, format, contents);
-    if (decoded.pPalette)
-        decoded.pui16BPPPalette = Create16BPPPalette(*decoded.pPalette);
-
-    // Commit once after decoding. Unrequested buffers retain their owners.
-    if (contents & IMAGE_PALETTE) {
-        image->pPalette = std::move(decoded.pPalette);
-        image->pui16BPPPalette = std::move(decoded.pui16BPPPalette);
     }
-    if (contents & IMAGE_BITMAPDATA) {
-        image->pImageData = std::move(decoded.pImageData);
-        image->pETRLEObject = std::move(decoded.pETRLEObject);
-    }
-    if (contents & IMAGE_APPDATA)
-        image->pAppData = std::move(decoded.pAppData);
-    const auto replaced = contents | ((contents & IMAGE_BITMAPDATA) ? IMAGE_COMPRESSED | IMAGE_TRLECOMPRESSED : 0);
-    image->fFlags = (image->fFlags & ~replaced) | decoded.fFlags;
-    image->usWidth = decoded.usWidth;
-    image->usHeight = decoded.usHeight;
-    image->ubBitDepth = decoded.ubBitDepth;
-    return true;
-}
-catch (const std::exception& error)
-{
-    SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Loading image %s: %s", image->ImageFile.c_str(), error.what());
-    return false;
 }
 
 // FUNCTION: WIZ8 0x0040fad0
