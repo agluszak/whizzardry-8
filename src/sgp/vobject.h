@@ -20,9 +20,6 @@
 //
 // ************************************************************************************
 
-// This definition mimics what is found in WINDOWS.H ( for Direct Draw compatiblity )
-typedef UINT32 COLORVAL;
-
 // Defines for blitting
 #define VO_BLT_SRCTRANSPARENCY 0x000000002
 #define VO_BLT_DESTTRANSPARENCY 0x000000120
@@ -46,11 +43,6 @@ typedef struct {
     SDL_Rect ClipRect;
 
 } blt_fx;
-
-// This definition mimics what is found in WINDOWS.H ( for Direct Draw compatiblity )
-// From RGB to COLORVAL
-#define FROMRGB(r, g, b)                                                                           \
-    ((UINT32)(((UINT8)(r) | ((UINT16)(g) << 8)) | (((UINT32)(UINT8)(b)) << 16)))
 
 // Video object creation flags
 // Used in the VOBJECT_DESC structure to describe creation flags
