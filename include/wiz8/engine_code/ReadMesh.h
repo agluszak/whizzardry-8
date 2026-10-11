@@ -3,7 +3,7 @@
 #include <glm/glm.hpp>
 #include <vector>
 #include <memory>
-#include <span>
+#include <cstddef>
 
 #include "glm/fwd.hpp"
 
@@ -46,17 +46,13 @@ class srModelInstance;
 class stMeshModel;
 class srMeshModel;
 
-unsigned char ReadSingleLevelMesh(W8ReadLevelInfo* info, srModelInstance** instance,
-                                  int unused_first, int unused_second, const char* name,
-                                  bool load_materials);
-// Publishes scene-owned instances only after the complete mesh set loads.
-// The caller supplies empty slots; failure leaves all slots unchanged.
-unsigned char ReadMultipleLevelMeshes(W8ReadLevelInfo* info,
-                                      std::span<srModelInstance*> instances, const char* name);
+// Loaders return detached owned instances; failure returns an empty result.
+std::unique_ptr<stModelInstance> ReadSingleLevelMesh(W8ReadLevelInfo* info,
+                                                   const char* name, bool load_materials);
+std::vector<std::unique_ptr<stModelInstance>>
+ReadMultipleLevelMeshes(W8ReadLevelInfo* info, std::size_t expected_count, const char* name);
 unsigned char SkipSingleLevelMesh(W8ReadLevelInfo* info);
 void ReleaseReadMeshScratch();
-unsigned char ReadSingleLevelMeshBody(W8ReadLevelInfo* info, srModelInstance** instance, int, int,
-                                      const char* name, bool load_materials);
 std::shared_ptr<stMeshModel>
 BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count,
                      const std::vector<W8MeshMaterial>& materials, unsigned int* mesh_count, std::vector<std::vector<int>>& vertex_maps,

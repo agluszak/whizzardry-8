@@ -408,30 +408,22 @@ bool HasLineOfSightToBounds(const srVector3T<float>* origin, srVector3T<float>* 
 
 /* Build the concrete first-party instance used for an already-created mesh. */
 // FUNCTION: WIZ8 0x0046F5C0
-stModelInstance* CreateModelInstance(std::shared_ptr<stMeshModel> model)
+std::unique_ptr<stModelInstance> CreateModelInstance(std::shared_ptr<stMeshModel> model)
 {
     if (model == nullptr) {
         srAssertFail("pstMeshModel", THREE_D_CPP, 0x5bf, 0);
     }
-    auto instance = std::make_unique<stModelInstance>(nullptr);
+    auto instance = std::make_unique<stModelInstance>(nullptr, srNode::Ownership::independent);
     instance->setName("ST_CreateInstance");
     instance->setModel(model);
-    return instance.release();
+    return instance;
 }
 
 // FUNCTION: WIZ8 0x0046F680
-stModelInstance* DuplicateModelInstance(stModelInstance* instance)
+std::unique_ptr<stModelInstance> DuplicateModelInstance(const stModelInstance& instance)
 {
-    stModelInstance* copy;
-
-    if (instance == 0) {
-        srAssertFail("pstModelInstance", THREE_D_CPP, 0x5ce, 0);
-    }
-    copy = new stModelInstance(0);
-    if (copy == 0) {
-        srAssertFail("pstHeadInstance", THREE_D_CPP, 0x5d1, 0);
-    }
-    *copy = *instance;
+    auto copy = std::make_unique<stModelInstance>(nullptr, srNode::Ownership::independent);
+    *copy = instance;
     copy->setName("ST_CreateInstance");
     return copy;
 }

@@ -1635,8 +1635,7 @@ void W8Octree::ToggleUpdateSuspension(W8World* world)
     }
     memset(m_pfRegsVisited, 0, m_spatial.m_region_id_bound + 1);
     if (g_octree_trace_node == 0) {
-        g_octree_trace_node = g_octree_game_data->CreateTraceModel();
-        g_octree_trace_node->setParent(world->static_scene, 1);
+        g_octree_trace_node = world->static_scene->adoptChild(g_octree_game_data->CreateTraceModel(), 1);
         SetModelInstanceChainExclusionMask(g_octree_trace_node, 2);
     }
     g_octree_trace_node->clearFlag(srNode::FLAG_DISABLE);

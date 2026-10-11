@@ -84,7 +84,7 @@ W8AniMesh::W8AniMesh(const W8AniMesh& other)
 {
     meshes.reserve(other.meshes.size());
     for (const auto& source : other.meshes) {
-        auto copy = std::unique_ptr<stModelInstance>(source ? DuplicateModelInstance(source.get()) : nullptr);
+        auto copy = source ? DuplicateModelInstance(*source) : nullptr;
         if (copy) copy->setName("Ani Mesh Duplicate Instance");
         meshes.push_back(std::move(copy));
     }
@@ -141,7 +141,7 @@ try
     unsigned char frame_count;
     unsigned char frame_index;
     unsigned char loaded_count;
-    srModelInstance* loaded_instance = 0;
+    std::unique_ptr<stModelInstance> loaded_instance;
     W8ReadLevelInfo info;
 
     if (handle == 0) {
@@ -175,7 +175,7 @@ try
     }
 
     if (!(handle->read(&frame_index, sizeof(frame_index)).bytes == static_cast<std::size_t>(sizeof(frame_index))) ||
-        !ReadSingleLevelMesh(&info, &loaded_instance, 0, 0, instance_name.empty() ? nullptr : instance_name.c_str(), true)) {
+        !(loaded_instance = ReadSingleLevelMesh(&info, instance_name.empty() ? nullptr : instance_name.c_str(), true))) {
         srAssertFail("fSuccess", ANI_MESH_CPP, 0x1c5, 0);
 
         if (opened) opened->close();
@@ -184,7 +184,7 @@ try
     }
 
     loaded_instance->setName("AniMeshReallyReadFromFile");
-    auto instance = std::unique_ptr<stModelInstance>(static_cast<stModelInstance*>(loaded_instance));
+    auto instance = std::move(loaded_instance);
     stMeshModel* model = static_cast<stMeshModel*>(instance->getModel());
 
     if (model->frames.size() > 1) {
@@ -204,7 +204,7 @@ try
                                 "::" + std::to_string(mesh->list_index);
             }
             if (!load_all || !(handle->read(&frame_index, sizeof(frame_index)).bytes == static_cast<std::size_t>(sizeof(frame_index))) ||
-                !ReadSingleLevelMesh(&info, &loaded_instance, 0, 0, instance_name.empty() ? nullptr : instance_name.c_str(), load_all)) {
+                !(loaded_instance = ReadSingleLevelMesh(&info, instance_name.empty() ? nullptr : instance_name.c_str(), load_all))) {
                 srAssertFail("fSuccess", ANI_MESH_CPP, 0x1f1, 0);
 
                 if (opened) opened->close();
@@ -212,14 +212,13 @@ try
                 return 0;
             }
             if (frame_index >= frame_count) {
-                delete loaded_instance;
 
                 if (opened) opened->close();
                 opened.reset();
                 return 0;
             }
             loaded_instance->setName("AniMeshReallyReadFromFile");
-            mesh->meshes[frame_index].reset(static_cast<stModelInstance*>(loaded_instance));
+            mesh->meshes[frame_index] = std::move(loaded_instance);
             ++loaded_count;
         }
     }

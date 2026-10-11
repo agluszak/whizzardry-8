@@ -7,7 +7,6 @@
 #include <vector>
 #include <exception>
 #include <memory>
-#include <span>
 #include <iterator>
 #include <string>
 #include <utility>
@@ -1052,7 +1051,7 @@ unsigned char ReadLevel(W8World* world, wiz8::File* handle, bool use_octree, con
 try
 {
     W8ReadLevelInfo info;
-    srModelInstance* level_mesh;
+    std::unique_ptr<stModelInstance> level_mesh;
     glm::vec3 minimum;
     glm::vec3 maximum;
     srVector3T<float> environment_offset;
@@ -1085,25 +1084,22 @@ try
     w8_get_ticks();
 
     if (world->psrMeshes.empty() || world->octree == 0) {
-        if (!ReadSingleLevelMesh(&info, &level_mesh, 0, 0, 0, true)) {
+        level_mesh = ReadSingleLevelMesh(&info, nullptr, true);
+        if (!level_mesh) {
             return 0;
         }
-        if (level_mesh == 0) {
-            srAssertFail("psrMesh", READ_LEVEL_CPP, 0xfa, 0);
-        }
         level_mesh->setName("ReadLevel");
-        world->update_mesh_source = level_mesh;
-        level_mesh->setParent(world->level, 1);
-        SetModelInstanceChainExclusionMask(level_mesh, 1);
+        SetModelInstanceChainExclusionMask(level_mesh.get(), 1);
+        world->update_mesh_source = world->level->adoptChild(std::move(level_mesh), 1);
     } else {
-        if (!ReadMultipleLevelMeshes(&info,
-                std::span(world->psrMeshes).first(world->octree->GetMeshCount()), nullptr)) {
+        auto meshes = ReadMultipleLevelMeshes(&info, world->octree->GetMeshCount(), nullptr);
+        if (meshes.empty()) {
             ShutdownWithErrorBox("ReadLevel: Error reading multi-meshes.");
         }
         for (unsigned int mesh_index = 0; mesh_index < world->octree->m_meshCount; ++mesh_index) {
-            if (world->psrMeshes[mesh_index] != 0) {
-                world->psrMeshes[mesh_index]->setParent(world->level, 1);
-                SetModelInstanceChainExclusionMask(world->psrMeshes[mesh_index], 1);
+            if (meshes[mesh_index]) {
+                SetModelInstanceChainExclusionMask(meshes[mesh_index].get(), 1);
+                world->psrMeshes[mesh_index] = world->level->adoptChild(std::move(meshes[mesh_index]), 1);
             }
         }
     }
@@ -1176,9 +1172,9 @@ try
     CHECK_PVL_OFFSET("Wrong offset in .pvl file after Clipping Planes.");
 
     if (use_octree) {
-        srMeshModel* model = static_cast<srMeshModel*>(level_mesh->getModel());
+        srMeshModel* model = static_cast<srMeshModel*>(world->update_mesh_source->getModel());
         model->getBoundingBox(minimum, maximum);
-        world->quads = BuildWorldQuad(level_mesh, minimum, maximum);
+        world->quads = BuildWorldQuad(world->update_mesh_source, minimum, maximum);
     }
     RefreshEnvironment();
     FinalizeStaticScene(world->static_scene);

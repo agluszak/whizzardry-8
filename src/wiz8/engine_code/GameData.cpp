@@ -1375,7 +1375,7 @@ void W8GameData::ProcessCrossedSurface(W8GDSurface* surface)
    normal (flattened to point straight up when it tilts below 0.5), unmarked
    vertices get a scaled/biased horizontal direction renormalized to 0.3. */
 // FUNCTION: WIZ8 0x0041c930
-stModelInstance* W8GameData::CreateTraceModel()
+std::unique_ptr<stModelInstance> W8GameData::CreateTraceModel()
 {
     std::vector<bool> selected(SurfacesCount() * 3 + 10);
     auto mesh = std::make_shared<stMeshModel>(SurfacesCount(), SurfacesCount() * 3);
@@ -1446,7 +1446,7 @@ stModelInstance* W8GameData::CreateTraceModel()
     }
     mesh->setName("GameData Mesh");
     mesh->flags &= ~W8_MESH_VERTEX_LIGHTING_DIRTY;
-    stModelInstance* instance = CreateModelInstance(mesh);
+    auto instance = CreateModelInstance(mesh);
     instance->setName("GameData Mesh");
     return instance;
 }

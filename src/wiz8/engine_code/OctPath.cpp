@@ -3179,9 +3179,7 @@ W8PathingService::~W8PathingService()
     if (m_pFileWayPoints != 0) {
         free(m_pFileWayPoints);
     }
-    if (m_path_visualization != 0) {
-        delete m_path_visualization;
-    }
+    m_path_visualization.reset();
     delete m_pPathValues;
     delete m_pVisitedCells;
     delete path_heap;
@@ -4541,7 +4539,7 @@ void W8PathingService::UpdatePathVisualization(const srVector3T<float>* source,
                                                const srVector3T<float>* destination)
 {
     W8World* world = GetWorld();
-    srNode* node = m_path_visualization;
+    srNode* node = m_path_visualization.get();
 
     if (m_waypoint_editing) {
         srVector3T<float> adjusted = *source;
@@ -4556,8 +4554,8 @@ void W8PathingService::UpdatePathVisualization(const srVector3T<float>* source,
                 return;
             }
 
-            m_path_visualization = BuildPathVisualization();
-            node = m_path_visualization;
+            BuildPathVisualization();
+            node = m_path_visualization.get();
             if (node != 0) {
                 node->setParent(world->static_scene, 1);
                 node->clearFlag(srNode::FLAG_DISABLE);
@@ -4567,7 +4565,7 @@ void W8PathingService::UpdatePathVisualization(const srVector3T<float>* source,
             return;
         }
 
-        node = m_path_visualization;
+        node = m_path_visualization.get();
         if (node != 0) {
             node->setFlag(srNode::FLAG_DISABLE);
             node->setFlag(srNode::FLAG_TERMINATE);
@@ -4577,7 +4575,7 @@ void W8PathingService::UpdatePathVisualization(const srVector3T<float>* source,
 
     if (!draw_waypoints && !search_visualization) {
         DrawPathPosition(*source, 0);
-        node = m_path_visualization;
+        node = m_path_visualization.get();
         if (node != 0) {
             node->setFlag(srNode::FLAG_DISABLE);
             node->setFlag(srNode::FLAG_TERMINATE);
@@ -4588,7 +4586,7 @@ void W8PathingService::UpdatePathVisualization(const srVector3T<float>* source,
     if (search_visualization) {
         if (m_path_visualization == 0) {
             EnsurePathVisualization();
-            node = m_path_visualization;
+            node = m_path_visualization.get();
             node->setParent(world->static_scene, 1);
             node->setFlag(srNode::FLAG_TERMINATE);
             if (m_path_visualization == 0) {
@@ -4792,7 +4790,7 @@ stModelInstance* W8PathingService::BuildPathVisualization()
     model->setActivePolygonCount(active_count);
     model->setDirtyAll();
     model->flags &= ~W8_MESH_VERTEX_LIGHTING_DIRTY;
-    return m_path_visualization;
+    return m_path_visualization.get();
 }
 
 /* Rebuild the editor's bounded grid search when the cursor enters a new path
@@ -5125,15 +5123,17 @@ stModelInstance* W8PathingService::EnsurePathVisualization()
         colors[index].Set(0.0, 0.0, 1.0);
     }
 
-    m_path_visualization = CreateModelInstance(model);
-    if (m_path_visualization == 0) {
+    auto instance = CreateModelInstance(model);
+    if (!instance) {
         srAssertFail("m_path_visualization", OCTPATH_CPP, 0x1226,
                      "CreateWayPointMesh -- Could not create pstModelInstance.\n");
     }
-    m_path_visualization->setName("WayPoint Mesh");
-    m_path_visualization->setExclusionMask(3);
-    m_path_visualization->setFlag(srNode::FLAG_TERMINATE);
-    return m_path_visualization;
+    instance->setName("WayPoint Mesh");
+    instance->setExclusionMask(3);
+    instance->setFlag(srNode::FLAG_TERMINATE);
+    instance->setParent(GetWorld()->static_scene, 0);
+    m_path_visualization = std::move(instance);
+    return m_path_visualization.get();
 }
 
 /* Collect nearby waypoint surfaces and mark the subset directly visible from

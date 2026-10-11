@@ -24,8 +24,8 @@
 #include "surrender/srTypeRegistry.h"
 
 // FUNCTION: SURRENDER 0x1004F920
-srModelInstance::srModelInstance(srNode* parent)
-    : srClassSupport<srModelInstance, srNode, 0x1100>(static_cast<srNode*>(0))
+srModelInstance::srModelInstance(srNode* parent, Ownership ownership)
+    : srClassSupport<srModelInstance, srNode, 0x1100>(static_cast<srNode*>(nullptr), ownership)
 {
     alignment_flags.value = 0;
     align_angle = 0.0f;

@@ -371,8 +371,8 @@ void stModelInstance2D::SetGlowColors(const glm::vec4& first, const glm::vec4& s
 }
 
 // FUNCTION: WIZ8 0x0047EC80
-stModelInstance::stModelInstance(srNode* parent)
-    : srClassSupport<stModelInstance, srModelInstance, 0x10004>(static_cast<srNode*>(0))
+stModelInstance::stModelInstance(srNode* parent, Ownership ownership)
+    : srClassSupport<stModelInstance, srModelInstance, 0x10004>(static_cast<srNode*>(nullptr), ownership)
 {
     highlight_colour = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
     render_flags = 0;

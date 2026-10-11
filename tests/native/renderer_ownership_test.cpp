@@ -32,7 +32,8 @@
 namespace {
 class TestNode : public srNode {
 public:
-    explicit TestNode(srNode* parent = nullptr) : srNode(parent) {}
+    explicit TestNode(srNode* parent = nullptr, Ownership ownership = Ownership::parent)
+        : srNode(parent, ownership) {}
     ~TestNode() override { ++destroyed; }
     TestNode& operator=(const TestNode&) = default;
     static inline int destroyed = 0;
@@ -620,6 +621,41 @@ bool pipelineRecordTexcoords()
 }
 
 } // namespace
+
+TEST_CASE("Scene membership preserves independent node ownership")
+{
+    REQUIRE(srInit());
+    const int before = TestNode::destroyed;
+    const auto root_children = srCore.getRootNode()->getChildCount();
+    auto owned = std::make_unique<TestNode>(nullptr, srNode::Ownership::independent);
+    REQUIRE(srCore.getRootNode()->getChildCount() == root_children);
+    {
+        TestNode scene;
+        REQUIRE(owned->setParent(&scene, 0));
+        REQUIRE(scene.getChildCount() == 1);
+    }
+    REQUIRE(TestNode::destroyed == before + 1); // Only the scene was destroyed.
+    REQUIRE(owned->getParent() == nullptr);
+    owned.reset();
+    REQUIRE(TestNode::destroyed == before + 2);
+    REQUIRE(srExit());
+}
+
+TEST_CASE("Scene adoption transfers node destruction ownership")
+{
+    REQUIRE(srInit());
+    const int before = TestNode::destroyed;
+    {
+        TestNode scene;
+        auto owned = std::make_unique<TestNode>(nullptr, srNode::Ownership::independent);
+        auto* observed = scene.adoptChild(std::move(owned));
+        REQUIRE_FALSE(owned);
+        REQUIRE(observed->getParent() == &scene);
+        REQUIRE(scene.getChildCount() == 1);
+    }
+    REQUIRE(TestNode::destroyed == before + 2);
+    REQUIRE(srExit());
+}
 
 TEST_CASE("renderer_ownership_test")
 {
