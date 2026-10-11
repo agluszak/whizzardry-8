@@ -3,7 +3,6 @@
 
 #include "surrender/srMath.h"
 #include "surrender/srBoundingBox.h"
-#include "surrender/srBoundingBox.h"
 #include <span>
 #include "wiz8/geometry.h"
 #include "compat/compiler.h"
