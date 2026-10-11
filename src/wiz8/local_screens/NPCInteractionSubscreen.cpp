@@ -4160,11 +4160,12 @@ void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, W8NpcScriptQu
             }
             normalized += text[index];
         }
-        auto layout = LayoutPortraitQuoteBubble(
+        auto& bubble = g_npc_interaction_state->quote_bubble;
+        bubble = QuoteBubble::layout(
             normalized, 280,
             font_palette == 0xffffffff ? std::nullopt
                                        : std::optional<std::uint8_t>(font_palette));
-        if (!layout) {
+        if (!bubble) {
             if (g_npc_interaction_state->dialogue_npc != 0) {
                 error_text = fmt::format(
                     "Error creating box - most likely text too large: NPC {}, quote {:d}",
@@ -4172,12 +4173,11 @@ void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, W8NpcScriptQu
             } else {
                 error_text = "Error creating box - most likely text too large";
             }
-            layout = LayoutPortraitQuoteBubble(error_text, 300, std::nullopt);
+            bubble = QuoteBubble::layout(error_text, 300, std::nullopt);
             ShowNotice(W8_FONT_PALETTE_BEIGE, error_text, 0, GetTextBoxScrollRange());
         }
-        g_npc_interaction_state->quote_bubble = layout ? layout->handle : -1;
-        g_npc_interaction_state->quote_width = static_cast<short>(layout ? layout->width : 0);
-        g_npc_interaction_state->quote_height = static_cast<short>(layout ? layout->height : 0);
+        g_npc_interaction_state->quote_width = static_cast<short>(bubble ? bubble->width() : 0);
+        g_npc_interaction_state->quote_height = static_cast<short>(bubble ? bubble->height() : 0);
         g_npc_interaction_state->quote_x = 320 - g_npc_interaction_state->quote_width / 2;
         g_npc_interaction_state->quote_y = quote_id < 0 ? 350 - g_npc_interaction_state->quote_height : 20;
         SetRegionBounds(0x136, g_npc_interaction_state->quote_x, g_npc_interaction_state->quote_y,
@@ -4232,13 +4232,12 @@ void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, W8NpcScriptQu
         FlushPendingNoticeLines();
     }
     g_npc_interaction_state->quote_visible = false;
-    if (g_npc_interaction_state->quote_bubble != -1) {
-        ReleasePortraitQuoteBubble(g_npc_interaction_state->quote_bubble);
-    }
+    const bool had_bubble = g_npc_interaction_state->quote_bubble.has_value();
+    g_npc_interaction_state->quote_bubble.reset();
     RegionSetDisable(0x25);
     DisableRegionSetInput(0x25);
     if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME) {
-        if (g_npc_interaction_state->quote_bubble != -1) {
+        if (had_bubble) {
             ClearSurfaceRect(
                 g_npc_interaction_state->quote_x, g_npc_interaction_state->quote_y,
                 g_npc_interaction_state->quote_x + g_npc_interaction_state->quote_width,
@@ -4254,7 +4253,6 @@ void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, W8NpcScriptQu
     } else if (g_current_screen_state.id == W8_SCREEN_CAMP) {
         g_camp_screen->redraw_flags |= W8_CAMP_REDRAW_ALL;
     }
-    g_npc_interaction_state->quote_bubble = -1;
 }
 
 // FUNCTION: WIZ8 0x00576650
@@ -4271,10 +4269,10 @@ unsigned char NpcQuoteBubbleRegionEvent(const InputEvent* event, W8Region*)
 void DrawNpcQuoteBubble(void)
 {
     IsModalOpen();
-    if (g_npc_interaction_state->quote_visible) {
-        DrawPortraitQuoteBubble(g_npc_interaction_state->quote_bubble,
-                                g_npc_interaction_state->quote_x, g_npc_interaction_state->quote_y,
-                                GetFrameBufferSurface());
+    if (g_npc_interaction_state->quote_visible && g_npc_interaction_state->quote_bubble) {
+        g_npc_interaction_state->quote_bubble->draw(GetFrameBufferSurface(),
+                                                    g_npc_interaction_state->quote_x,
+                                                    g_npc_interaction_state->quote_y);
     }
 }
 

@@ -4094,7 +4094,7 @@ void RefreshSelectedPartyPortrait(unsigned int party_slot)
         party_slot == static_cast<unsigned int>(GetSelectedPartySlot()) &&
         !gXStatus.monster_manager_entries[party_slot].effect_icon_active &&
         !gXStatus.monster_manager_entries[party_slot].damage_splat_active) {
-        if (gXStatus.monster_manager_entries[party_slot].quote.quote_handle == -1 ||
+        if (!gXStatus.monster_manager_entries[party_slot].quote.bubble ||
             g_settings.pc_subtitles == 0) {
             return;
         }

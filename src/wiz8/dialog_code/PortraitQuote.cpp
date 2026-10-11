@@ -1,7 +1,6 @@
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>
 #include <algorithm>
-#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -10,7 +9,6 @@
 #include <string_view>
 #include <utility>
 
-#include "wiz8/surface_storage.h"
 #include "wiz8/unicode.h"
 #include "Font.h"
 #include "image.h"
@@ -43,21 +41,7 @@ constexpr std::uint8_t kDefaultTextColour = 0xd0;
 constexpr std::string_view kEdgeSprites = "data\\NPC Interaction\\npc_PopUp_edge.sti";
 constexpr std::string_view kBackground = "data\\NPC Interaction\\npc_popup_back.pcx";
 
-struct QuoteBubble {
-    SDLSurfaceOwner surface;
-    std::string text;
-};
-
-std::array<std::unique_ptr<QuoteBubble>, 10> g_quote_bubbles;
-
 bool IsMarkup(char32_t scalar) { return scalar >= kFontToggle && scalar <= kColourReset; }
-
-QuoteBubble* FindBubble(int handle)
-{
-    if (handle < 0 || handle >= static_cast<int>(g_quote_bubbles.size()))
-        return nullptr;
-    return g_quote_bubbles[handle].get();
-}
 
 void DrawQuoteLine(SDL_Surface& target, Font& font, SDL_Point at, std::string_view text,
                    std::uint8_t colour)
@@ -229,15 +213,17 @@ int WidestLine(std::string_view text)
 
 } // namespace
 
-std::optional<QuoteBubbleLayout> LayoutPortraitQuoteBubble(std::string_view text, int max_width,
-                                                           std::optional<std::uint8_t> text_colour)
+QuoteBubble::QuoteBubble(std::shared_ptr<SDL_Surface> surface, std::string_view text)
+    : surface_(std::move(surface)), text_(text)
+{
+}
+
+std::optional<QuoteBubble> QuoteBubble::layout(std::string_view text, int max_width,
+                                               std::optional<std::uint8_t> text_colour)
 {
     if (max_width > kMaxRequestedWidth)
         return std::nullopt;
     max_width = std::max(max_width, kMinRequestedWidth);
-    const auto slot = std::ranges::find_if(g_quote_bubbles, [](const auto& bubble) { return !bubble; });
-    if (slot == g_quote_bubbles.end())
-        return std::nullopt;
     const auto background = g_image_assets.bitmap(kBackground);
     const auto edges = g_image_assets.sprites(kEdgeSprites);
     if (!background || !edges)
@@ -261,9 +247,8 @@ std::optional<QuoteBubbleLayout> LayoutPortraitQuoteBubble(std::string_view text
     if (height > kMaxBubbleHeight)
         return std::nullopt;
 
-    auto bubble = std::make_unique<QuoteBubble>(
-        QuoteBubble{CreateFrameSurface(width, height), std::string(text)});
-    SDL_Surface& surface = *bubble->surface;
+    std::shared_ptr<SDL_Surface> rendered = CreateFrameSurface(width, height);
+    SDL_Surface& surface = *rendered;
     const SDL_Rect area{0, 0, width, height};
     BlitImage(surface, 0, 0, *background, &area);
     for (int x = kEdgeTile; x < width - kEdgeTile; x += kEdgeTile) {
@@ -281,29 +266,16 @@ std::optional<QuoteBubbleLayout> LayoutPortraitQuoteBubble(std::string_view text
     DrawWrappedText(surface, {kTextInset, kTextInset}, wrap_width, g_font12point1,
                     text_colour.value_or(kDefaultTextColour), text);
 
-    *slot = std::move(bubble);
-    return QuoteBubbleLayout{static_cast<int>(slot - g_quote_bubbles.begin()), width, height};
+    return QuoteBubble(std::move(rendered), text);
 }
 
-void DrawPortraitQuoteBubble(int handle, int x, int y, SDL_Surface& target)
+void QuoteBubble::draw(SDL_Surface& target, int x, int y) const
 {
-    const QuoteBubble* bubble = FindBubble(handle);
-    if (!bubble)
-        return;
-    SDL_Surface& surface = *bubble->surface;
-    BlitImage(target, x, y, surface, nullptr);
+    BlitImage(target, x, y, *surface_, nullptr);
     if (&target == &GetFrameBufferSurface())
-        InvalidateRegion(x, y, x + surface.w, y + surface.h, 0);
+        InvalidateRegion(x, y, x + width(), y + height(), 0);
 }
 
-void ReleasePortraitQuoteBubble(int handle)
-{
-    if (FindBubble(handle))
-        g_quote_bubbles[handle].reset();
-}
+int QuoteBubble::width() const { return surface_->w; }
 
-std::string_view GetPortraitQuoteText(int handle)
-{
-    const QuoteBubble* bubble = FindBubble(handle);
-    return bubble ? std::string_view(bubble->text) : std::string_view{};
-}
+int QuoteBubble::height() const { return surface_->h; }
