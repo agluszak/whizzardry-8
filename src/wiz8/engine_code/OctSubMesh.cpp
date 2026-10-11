@@ -1,3 +1,4 @@
+#include "surrender/srMath.h"
 #include <algorithm>
 #include <cstdlib>
 #include <stdexcept>
@@ -195,7 +196,6 @@ std::unique_ptr<stMeshModel> OctMeshModel::Read(wiz8::File* file,
     srVector3i* poly_uv_index;
     srVector3i* poly_vertices;
     srVector3T<float>* vertex_normals;
-    srVector3T<float>* vertex_lights;
     glm::vec4* poly_equations;
 
     auto model = std::make_unique<stMeshModel>(m_polygon_count, m_vertex_count);
@@ -269,21 +269,24 @@ std::unique_ptr<stMeshModel> OctMeshModel::Read(wiz8::File* file,
                   "OctMeshModel::Read -- Could not get vertex normal array.\n",
                   "OctMeshModel::Read -- Could not read m_pVertNorms.\n");
 
-    vertex_lights = model->GetVertexLights(true, -1);
-    ReadMeshArray(file, vertex_lights, m_vertex_count,
+    std::vector<srVector3> serialized_lights(m_vertex_count);
+    ReadMeshArray(file, serialized_lights.data(), m_vertex_count,
                   "OctMeshModel::Read -- Could not get static lighting array.\n",
                   "OctMeshModel::Read -- Could not read m_pVertLights.\n");
+    const auto lights = model->GetVertexLights(true, -1);
+    std::ranges::transform(serialized_lights, lights.begin(),
+                           [](const srVector3& color) { return color.glmValue(); });
 
     poly_equations = model->getPolyEq();
     ReadMeshArray(file, poly_equations, m_polygon_count,
                   "OctMeshModel::Read -- Could not get poly equation array.\n",
                   "OctMeshModel::Read -- Could not read m_psrPolyEqtns.\n");
 
-    float* weights = model->GetVertexSunlight(true);
-    if (weights == 0) {
+    const auto weights = model->GetVertexSunlight(true);
+    if (weights.empty()) {
         ShutdownWithErrorBox("OctMeshModel::Read -- Could not allocate intensity array.\n");
     }
-    if (version != 0 && !(file->read(weights, m_vertex_count * sizeof(float)).bytes == static_cast<std::size_t>(m_vertex_count * sizeof(float)))) {
+    if (version != 0 && !(file->read(weights.data(), weights.size_bytes()).bytes == static_cast<std::size_t>(m_vertex_count * sizeof(float)))) {
         ShutdownWithErrorBox("OctMeshModel::Read -- Could not read Sunlight array.\n");
     }
 

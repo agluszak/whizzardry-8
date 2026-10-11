@@ -726,9 +726,9 @@ void ActivateItem(W8WorldItem* item)
         mesh = static_cast<stModelInstance*>(item->p3D->GetMesh());
         if (mesh != 0) {
             if (g_octree->HasLineOfSight(&position, &sun_position, true)) {
-                mesh->light_scale = 1.0f;
+                mesh->light_scale = glm::vec3(1);
             } else {
-                mesh->light_scale = 0.0f;
+                mesh->light_scale = glm::vec3(0);
             }
         }
     }

@@ -1,6 +1,9 @@
 #pragma once
 
 #include <vector>
+#include "glm/ext/vector_float3.hpp"
+
+extern glm::vec3 g_environment_offset;
 
 namespace wiz8 { class File; }
 

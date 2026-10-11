@@ -961,7 +961,6 @@ void W8Prop::AttachAnimationInstances(W8World* world)
     stMeshModel* mesh;
     W8PathAI* path;
     srNode* node;
-    srVector3T<float> zero;
     srVector3T<float> position;
     srVector3T<float> current;
     srVector3T<float> next_pos;
@@ -984,7 +983,6 @@ void W8Prop::AttachAnimationInstances(W8World* world)
     }
     if (AnimationIsRunning(Rep()->animation) == 1) {
         has_scales = false;
-        zero.SetZero();
         count = static_cast<int>(AnimObjListCount(Rep()->animation, 2));
         for (index = 0; index < count; ++index) {
             instance = static_cast<stModelInstance*>(
@@ -994,7 +992,7 @@ void W8Prop::AttachAnimationInstances(W8World* world)
             }
             instance->clearFlag(srNode::FLAG_DISABLE);
             instance->setParent(world->dynamic_scene, 1);
-            instance->light_scale = zero;
+            instance->light_scale = glm::vec3(0);
             if (g_settings.smooth_world_animations != 0) {
                 instance->frame_interpolation = anim_frame_fraction;
             } else {
@@ -1072,7 +1070,7 @@ void W8Prop::AttachAnimationInstances(W8World* world)
         }
         instance->clearFlag(srNode::FLAG_DISABLE);
         instance->setParent(world->dynamic_scene, 1);
-        instance->light_scale.SetZero();
+        instance->light_scale = glm::vec3(0);
         if (g_settings.smooth_world_animations != 0) {
             instance->frame_interpolation = anim_frame_fraction;
         } else {

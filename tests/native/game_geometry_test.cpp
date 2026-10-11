@@ -1,3 +1,5 @@
+#include "wiz8/engine_code/ReadLevel.h"
+#include "wiz8/engine_code/Monster.h"
 #include "glm/ext/vector_double3.hpp"
 #include "wiz8/engine_code/particle_modes.h"
 #include "wiz8/engine_code/stParticle.h"
@@ -326,49 +328,49 @@ static void baked_lighting()
     REQUIRE(BakeInstanceVertexLighting(&instance, &light, false));
     const float first_contribution = 2 / std::sqrt(5.0f) * 0.6f;
     const float second_contribution = 0.6f * (1 - std::sqrt(20.0f) / 10);
-    auto* colors = mesh.GetVertexLights(false, -1);
-    REQUIRE(close(colors[0].glmValue(), glm::vec3(0.5f, 0.5f, 0.25f) * first_contribution));
-    REQUIRE(close(colors[1].glmValue(), glm::vec3(0.5f, 0.5f, 0.25f) * second_contribution));
+    const auto colors = mesh.GetVertexLights(false, -1);
+    REQUIRE(close(colors[0], glm::vec3(0.5f, 0.5f, 0.25f) * first_contribution));
+    REQUIRE(close(colors[1], glm::vec3(0.5f, 0.5f, 0.25f) * second_contribution));
     REQUIRE((mesh.vertex_lighting_ready && (mesh.flags & W8_MESH_VERTEX_LIGHTING_DIRTY)));
 
     mesh.setMaterial(nullptr, 0, srMeshModel::SIDE_FRONT);
-    colors[0].SetZero();
-    colors[1].SetZero();
+    colors[0] = glm::vec3(0);
+    colors[1] = glm::vec3(0);
     REQUIRE(BakeInstanceVertexLighting(&instance, &light, false));
-    REQUIRE(close(colors[0].glmValue(), light.diffuse * first_contribution));
-    REQUIRE(close(colors[1].glmValue(), light.diffuse * second_contribution));
+    REQUIRE(close(colors[0], light.diffuse * first_contribution));
+    REQUIRE(close(colors[1], light.diffuse * second_contribution));
     mesh.setMaterial(material, 0, srMeshModel::SIDE_FRONT);
 
-    colors[0].SetZero();
-    colors[1].SetZero();
+    colors[0] = glm::vec3(0);
+    colors[1] = glm::vec3(0);
     const auto world_normal = glm::normalize(glm::vec3(0, 2, -1));
     const auto position = glm::dvec3(glm::vec3(10, 0, -2) + world_normal * 0.5f);
     light.setLocation(glm::dvec3(position));
     light.setLinearAttenuation(1, 1.0f / 511);
     REQUIRE(BakeInstanceVertexLighting(&instance, &light, false));
-    REQUIRE(close(colors[0].glmValue(), glm::vec3(0.25f, 0.25f, 0.125f)));
-    REQUIRE(colors[1] == srVector3(0, 0, 0));
+    REQUIRE(close(colors[0], glm::vec3(0.25f, 0.25f, 0.125f)));
+    REQUIRE(colors[1] == glm::vec3(0, 0, 0));
 
-    colors[0].SetZero();
+    colors[0] = glm::vec3(0);
     light.setLocation(10, 0, -2); // Coincident light and vertex remain finite.
     REQUIRE(BakeInstanceVertexLighting(&instance, &light, false));
-    REQUIRE(colors[0] == srVector3(0, 0, 0));
+    REQUIRE(colors[0] == glm::vec3(0, 0, 0));
     light.setName("Sun");
     light.setLocation(glm::dvec3(position));
     REQUIRE(BakeInstanceVertexLighting(&instance, &light, true));
-    REQUIRE(colors[0] == srVector3(0, 0, 0));
+    REQUIRE(colors[0] == glm::vec3(0, 0, 0));
     auto world = instance.getWorldSpaceMatrix<glm::mat4>();
     mesh.flags &= ~W8_MESH_VERTEX_LIGHTING_DIRTY;
     mesh.RevealVerticesNear({10, 0, -2}, 0.25f, world);
-    REQUIRE((colors[0] == srVector3(1, 1, 1) && colors[1] == srVector3(0, 0, 0)));
+    REQUIRE((colors[0] == glm::vec3(1, 1, 1) && colors[1] == glm::vec3(0, 0, 0)));
     REQUIRE(mesh.flags & W8_MESH_VERTEX_LIGHTING_DIRTY);
     mesh.RevealVerticesNear({10, 0, -4}, 0.25f, world);
-    REQUIRE((colors[0] == srVector3(1, 1, 1) && colors[1] == srVector3(1, 1, 1)));
-    colors[1].SetZero();
+    REQUIRE((colors[0] == glm::vec3(1, 1, 1) && colors[1] == glm::vec3(1, 1, 1)));
+    colors[1] = glm::vec3(0);
     mesh.RevealVerticesNear({10, 0, -4}, -1, world);
-    REQUIRE(colors[1] == srVector3(0, 0, 0));
+    REQUIRE(colors[1] == glm::vec3(0, 0, 0));
     mesh.RevealVerticesNear(glm::vec3(std::numeric_limits<float>::quiet_NaN()), 1, world);
-    REQUIRE(colors[1] == srVector3(0, 0, 0));
+    REQUIRE(colors[1] == glm::vec3(0, 0, 0));
     instance.setModel(nullptr);
 }
 
@@ -1534,4 +1536,64 @@ TEST_CASE("Octree adjacent queries skip walk creation and retain early exits", "
         });
     REQUIRE(built == 1);
     REQUIRE(cells == std::vector<glm::ivec3>{{0, 0, 0}, {1, 0, 0}});
+}
+
+TEST_CASE_METHOD(SurRenderTestFixture, "Baked mesh colors preserve material and light-bank rules", "[geometry]")
+{
+    struct RestoreLighting {
+        glm::vec3 offset = g_environment_offset;
+        float scale = g_monster_light_scale;
+        bool unlit = g_render_unlit;
+        ~RestoreLighting() {
+            g_environment_offset = offset;
+            g_monster_light_scale = scale;
+            g_render_unlit = unlit;
+        }
+    } restore;
+    g_environment_offset = {0.25f, 0.5f, 0.75f};
+    g_monster_light_scale = 2;
+    g_render_unlit = false;
+    stMeshModel mesh(0, 4);
+    auto material = std::make_shared<srMaterial>();
+    material->setAmbient(glm::vec4(0.5f, 0.25f, 1, 1));
+    auto zero_material = std::make_shared<srMaterial>();
+    zero_material->setAmbient(glm::vec4(0));
+    mesh.setMaterial(material, 0, srMeshModel::SIDE_FRONT);
+    mesh.SetAmbientColor({2, 3, 4});
+    const auto sunlight = mesh.GetVertexSunlight(true);
+    const auto lights = mesh.GetVertexLights(true, 0);
+    for (unsigned vertex = 0; vertex < 4; ++vertex) {
+        sunlight[vertex] = 0.25f * (vertex + 1);
+        lights[vertex] = glm::vec3(vertex + 1);
+    }
+    const auto base = mesh.getTriMesh();
+    for (unsigned vertex = 0; vertex < 4; ++vertex)
+        REQUIRE(close(base.dig[0][vertex].glmValue(),
+            (glm::vec3(1, 0.75f, 4) * sunlight[vertex] + lights[vertex] + g_environment_offset) * 2.0f));
+
+    auto* materials = mesh.getVertexMaterial(0, srMeshModel::SIDE_FRONT, 1);
+    materials[0] = material;
+    materials[1] = zero_material;
+    materials[2] = nullptr;
+    materials[3] = material;
+    mesh.flags |= W8_MESH_VERTEX_LIGHTING_DIRTY;
+    const auto mixed = mesh.getTriMesh();
+    const std::array<glm::vec3, 4> ambient{{{1, 0.75f, 4}, {0, 0, 0}, {2, 3, 4}, {1, 0.75f, 4}}};
+    for (unsigned vertex = 0; vertex < 4; ++vertex)
+        REQUIRE(close(mixed.dig[0][vertex].glmValue(),
+            (ambient[vertex] * sunlight[vertex] + lights[vertex] + g_environment_offset) * 2.0f));
+
+    mesh.vertex_light_table = 1;
+    const auto alternate = mesh.GetVertexLights(true, 1);
+    std::ranges::fill(alternate, glm::vec3(3, 4, 5));
+    mesh.flags |= W8_MESH_VERTEX_LIGHTING_DIRTY;
+    const auto alternate_mesh = mesh.getTriMesh();
+    REQUIRE(alternate_mesh.dig[0][0].glmValue() == glm::vec3(6, 8, 10));
+    g_monster_light_scale = 0;
+    mesh.flags |= W8_MESH_VERTEX_LIGHTING_DIRTY;
+    REQUIRE(mesh.getTriMesh().dig[0][0].glmValue() == glm::vec3(0));
+    g_render_unlit = true;
+    mesh.flags |= W8_MESH_VERTEX_LIGHTING_DIRTY;
+    mesh.getTriMesh();
+    REQUIRE(mesh.flags & W8_MESH_VERTEX_LIGHTING_DIRTY);
 }

@@ -105,7 +105,7 @@ void stLevel::process(const ProcessInfo& info, e_processType)
     }
 
     const auto ambient = renderer.getAmbientLight();
-    srVector3T<float> ambient_color(ambient.x, ambient.y, ambient.z);
+    const glm::vec3 ambient_color(ambient);
     m_submitted_polygons = 0;
 
     for (srNode* child = first_child_; child != 0; child = child->next_sibling_) {
@@ -205,7 +205,7 @@ W8_ABI_ASSERT(sizeof(W8LevelLightRecord) == 0x28, "W8LevelLightRecord_size_must_
 // GLOBAL: WIZ8 0x005ec0b0
 const float g_environment_near_scale = 2.0f;
 // GLOBAL: WIZ8 0x00659cd0
-srVector3T<float> g_environment_offset;
+glm::vec3 g_environment_offset{0};
 
 // FUNCTION: WIZ8 0x004BC060
 void AssociateWorldLights(W8World* world)
@@ -417,7 +417,7 @@ try
         BuildEnvironmentColourRamp();
     }
 
-    g_environment_offset.SetZero();
+    g_environment_offset = glm::vec3(0);
     pWorld->view_distance = view_distance * g_world_scale;
     ApplyEnvironmentColour(pWorld, intensity, &white);
     WorldSetFarClip(pWorld, pWorld->view_distance);
@@ -1163,7 +1163,7 @@ try
     success = success && ReadAutomapNodes(handle);
     CHECK_PVL_OFFSET("Wrong offset in .pvl file after automap nodes.");
 
-    g_environment_offset = environment_offset;
+    g_environment_offset = environment_offset.glmValue();
     prop_count = world->plsProps.size();
     for (index = 0; index < static_cast<int>(prop_count); ++index) {
         W8Prop* prop = GetWorldProp(world, index);
@@ -1190,9 +1190,7 @@ try
                         copy->setName("Unsunlit Prop Material");
                         copy->parms.ambient = glm::vec4(0.0f);
                         copy->dirty = 1;
-                        copy->parms.emissive.x += g_environment_offset.x;
-                        copy->parms.emissive.y += g_environment_offset.y;
-                        copy->parms.emissive.z += g_environment_offset.z;
+                        copy->parms.emissive += glm::vec4(g_environment_offset, 0);
                         copy->dirty = 1;
                         mesh->setMaterial(std::move(copy), 0, srMeshModel::SIDE_FRONT);
                     }

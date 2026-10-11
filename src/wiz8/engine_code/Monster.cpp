@@ -1346,7 +1346,7 @@ void W8Monster::Update()
         CollectModelInstances(g_monster_model_instances);
         for (index = 0; index < static_cast<int>(g_monster_model_instances.size()); ++index) {
             stModelInstance* model = g_monster_model_instances[index];
-            model->light_scale = 0.75f;
+            model->light_scale = glm::vec3(0.75f);
         }
         target_scale = 0.75f;
         light_scale_timer.SetDuration(0.025f);
@@ -4689,7 +4689,7 @@ void W8Monster::RefreshModelLightScale()
     g_monster_model_instances.clear();
     CollectModelInstances(g_monster_model_instances);
     for (stModelInstance* model : g_monster_model_instances) {
-        model->light_scale = current_scale;
+        model->light_scale = glm::vec3(current_scale);
     }
 }
 
@@ -5122,7 +5122,7 @@ W8Item* CreateMonsterIconItem(W8World* world, const char* path, int flag)
     rep->m_psrMesh.reset(instance);
     rep->RefreshBounds();
     item->AttachMesh(world);
-    instance->light_scale.SetZero();
+    instance->light_scale = glm::vec3(0);
     return item;
 }
 

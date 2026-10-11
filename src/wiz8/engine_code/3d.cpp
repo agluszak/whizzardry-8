@@ -138,9 +138,9 @@ unsigned char BakeInstanceVertexLighting(stModelInstance* instance, srNode* ligh
         const auto count = mesh->vertex_location_count;
         if (count <= 0)
             continue;
-        auto* vertex_lights = mesh->GetVertexLights(true, -1);
+        const auto vertex_lights = mesh->GetVertexLights(true, -1);
         mesh->GetVertexSunlight(true);
-        if (!vertex_lights)
+        if (vertex_lights.empty())
             return 0;
         if (!lights)
             continue;
@@ -186,7 +186,7 @@ unsigned char BakeInstanceVertexLighting(stModelInstance* instance, srNode* ligh
                 const float facing = glm::dot(normalizedOrZero(direction), world_normals[i]);
                 if (facing < 0) {
                     const float contribution = -facing * light->intensity * (1 - distance / range);
-                    vertex_lights[i] = vertex_lights[i].glmValue() +
+                    vertex_lights[i] = vertex_lights[i] +
                                        material_colors[i] * light->diffuse * contribution;
                 }
             }

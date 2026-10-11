@@ -1,3 +1,4 @@
+#include "wiz8/engine_code/ReadLevel.h"
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
@@ -31,7 +32,6 @@
 
 #define ST_MODEL_INSTANCE_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\stModelInstance.cpp"
 
-extern srVector3T<float> g_environment_offset;
 extern float g_monster_light_scale;
 
 /* Scratch vertex store shared by every highlight shell submission; grown
@@ -334,7 +334,7 @@ stModelInstance::stModelInstance(srNode* parent, Ownership ownership)
         setParent(parent, 1);
     }
     damage_stage = -1;
-    light_scale = 1.0f;
+    light_scale = glm::vec3(1);
     diffuse_scale_enabled = false;
     diffuse_scale = 0.0f;
     emissive_override_enabled = false;
@@ -410,18 +410,13 @@ void stModelInstance::RenderMeshes(srGERD& renderer)
     SetPickKey((render_flags & RENDER_NO_PICK) != 0 ? (void*)0 : (void*)this);
 
     const auto ambient = renderer.getAmbientLight();
-    srVector3T<float> ambient_color;
-    ambient_color = glm::vec3(ambient);
+    const glm::vec3 ambient_color(ambient);
 
     glm::vec4 light;
     if (!model->vertex_lighting_ready) {
-        light.w = 1.0f;
-        light.x =
-            (ambient_color.x * light_scale.x + g_environment_offset.x) * g_monster_light_scale;
-        light.y =
-            (ambient_color.y * light_scale.y + g_environment_offset.y) * g_monster_light_scale;
-        light.z =
-            (ambient_color.z * light_scale.z + g_environment_offset.z) * g_monster_light_scale;
+        light = glm::vec4((ambient_color * light_scale + g_environment_offset) *
+                              g_monster_light_scale,
+                          1);
     } else {
         light = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
     }
