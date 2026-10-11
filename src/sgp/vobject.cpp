@@ -2,6 +2,7 @@
    Distributed under the accompanying SFI Source Code license agreement. */
 #include <SDL3/SDL_log.h>
 #include <memory>
+#include <string_view>
 #include <optional>
 
 #include "Types.h"
@@ -52,17 +53,9 @@ BOOLEAN BltVideoObject(SGPVSurface& uiDestVSurface, SGPVObject& hSrcVObject, UIN
 // *******************************************************************************
 
 // FUNCTION: WIZ8 0x00406180
-std::unique_ptr<SGPVObject> CreateVideoObject(const VOBJECT_DESC& VObjectDesc)
+std::unique_ptr<SGPVObject> CreateVideoObject(const image_type& image)
 {
-    std::unique_ptr<image_type> imageOwner;
-    if (VObjectDesc.fCreateFlags & VOBJECT_CREATE_FROMFILE) {
-        imageOwner = CreateImage(VObjectDesc.ImageFile.c_str(), IMAGE_ALLIMAGEDATA);
-        if (!imageOwner) return nullptr;
-    } else if (!(VObjectDesc.fCreateFlags & VOBJECT_CREATE_FROMHIMAGE) || !VObjectDesc.hImage) {
-        return nullptr;
-    }
-    const auto& image = imageOwner ? *imageOwner : *VObjectDesc.hImage;
-    if (!(image.fFlags & IMAGE_TRLECOMPRESSED))
+    if (!image.etrle)
         return nullptr;
     auto owner = std::make_unique<SGPVObject>();
     owner->ubBitDepth = image.ubBitDepth;
@@ -70,12 +63,16 @@ std::unique_ptr<SGPVObject> CreateVideoObject(const VOBJECT_DESC& VObjectDesc)
         if (!image.pPalette) return nullptr;
         owner->setPalette(*image.pPalette);
     }
-    // ETRLE data decodes once here; the compressed bytes are never kept
-    // on the video object.
-    if (!DecodeVideoObjectSprites(*owner, image.pETRLEObject, image.pImageData)) {
+    // Decode once; neither the source palette nor compressed bytes are retained.
+    if (!DecodeVideoObjectSprites(*owner, image.pETRLEObject, image.pImageData))
         return nullptr;
-    }
     return owner;
+}
+
+std::unique_ptr<SGPVObject> LoadVideoObject(std::string_view filename)
+{
+    auto image = LoadImage(filename);
+    return image ? CreateVideoObject(*image) : nullptr;
 }
 
 void SGPVObject::setPalette(const Palette8& colors)

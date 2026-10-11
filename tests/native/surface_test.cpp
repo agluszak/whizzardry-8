@@ -17,7 +17,6 @@
 #include "vsurface.h"
 #include "Types.h"
 
-BOOLEAN ClipReleatedSrcAndDestRectangles(SGPVSurface&, SGPVSurface&, SDL_Rect*, SDL_Rect*);
 
 
 namespace
@@ -175,23 +174,21 @@ void differential()
 
 void videoSurfaceClipping()
 {
-    VSURFACE_DESC desc{};
-    desc.fCreateFlags = VSURFACE_CREATE_DEFAULT;
-    desc.usWidth = 8;
-    desc.usHeight = 7;
-    desc.ubBitDepth = 16;
-    auto sourceView = CreateVideoSurface(desc);
-    auto destView = CreateVideoSurface(desc);
+    REQUIRE(!CreateVideoSurface(0, 7, 16));
+    REQUIRE(!CreateVideoSurface(8, 0, 16));
+    REQUIRE(!CreateVideoSurface(8, 7, 24));
+    auto sourceView = CreateVideoSurface(8, 7, 16);
+    auto destView = CreateVideoSurface(8, 7, 16);
     auto& source = sourceView->cpu();
     auto& dest = destView->cpu();
     SDL_Rect destination{-2, -1, 6, 5}, sample{1, 1, 6, 5};
-    REQUIRE(ClipReleatedSrcAndDestRectangles(*destView, *sourceView, &destination, &sample));
+    REQUIRE(ClipCpuBlit(destination, sample, {0, 0, 8, 7}, {0, 0, 8, 7}));
     const SDL_Rect expectedDest{0, 0, 4, 4}, expectedSource{3, 2, 4, 4};
     REQUIRE(SDL_RectsEqual(&destination, &expectedDest));
     REQUIRE(SDL_RectsEqual(&sample, &expectedSource));
     destination = {1, 1, 6, 5};
     sample = {-2, -1, 6, 5};
-    REQUIRE(ClipReleatedSrcAndDestRectangles(*destView, *sourceView, &destination, &sample));
+    REQUIRE(ClipCpuBlit(destination, sample, {0, 0, 8, 7}, {0, 0, 8, 7}));
     REQUIRE(SDL_RectsEqual(&destination, &expectedSource));
     REQUIRE(SDL_RectsEqual(&sample, &expectedDest));
     SDL_Rect clips[]{{2, 1, 3, 2}};
@@ -207,10 +204,8 @@ void videoSurfaceClipping()
                 seed(dest, 17);
                 const SDL_Rect sample{1, 1, 6, 5}, mapping{x, y, 6, 5};
                 const auto expected = reference(dest, mapping, source, sample);
-                blt_vs_fx effects{};
-                effects.SrcRect = sample;
                 REQUIRE((BltVideoSurfaceToVideoSurface(*destView, *sourceView,
-                                                    x, y, VS_BLT_SRCSUBRECT, &effects) ||
+                                                    x, y, 0, &sample) ||
                       x >= 8 || y >= 7));
                 REQUIRE(pixels(dest) == expected);
             }

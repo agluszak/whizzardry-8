@@ -86,11 +86,8 @@ TEST_CASE("game graphics")
         auto pipeline = srTriMeshPipeline::Get(g_gerd);
         REQUIRE(pipeline);
         pipeline->Flush();
-        VOBJECT_DESC image{};
-        image.fCreateFlags = VOBJECT_CREATE_FROMFILE;
         const char* image_path = SDL_getenv("WIZ8_GRAPHICS_IMAGE");
-        image.ImageFile = image_path ? image_path : "Data\\MAIN INTERFACE\\BOTTOM.STI";
-        auto image_object = CreateVideoObject(image);
+        auto image_object = LoadVideoObject(image_path ? image_path : "Data\\MAIN INTERFACE\\BOTTOM.STI");
         REQUIRE(image_object);
         REQUIRE(BltVideoObject(GetFrameBufferSurface(), *image_object, 0, 0, 0, VO_BLT_SRCTRANSPARENCY,
                                       nullptr));
@@ -101,8 +98,7 @@ TEST_CASE("game graphics")
         for (int y = 0; y < 480; ++y)
             memcpy(expected.data() + y * 640, pixels + y * pitch, 1280);
         REQUIRE(InitializeMouseCursorScene());
-        image.ImageFile = "Data\\CURSORS\\2D-CURSORS.STI";
-        auto cursor_object = CreateVideoObject(image);
+        auto cursor_object = LoadVideoObject("Data\\CURSORS\\2D-CURSORS.STI");
         REQUIRE(cursor_object);
         REQUIRE(SetMouseCursorFromVideoObject(*cursor_object, 0, 0, 0));
         PositionMouseCursor(480, 240, true);
