@@ -1,5 +1,12 @@
 Checks: >-
   -*,
+  readability-redundant-smartptr-get,
+  performance-noexcept-move-constructor,
+  performance-move-const-arg,
+  bugprone-virtual-near-miss,
+  bugprone-suspicious-memset-usage,
+  bugprone-sizeof-container,
+  bugprone-branch-clone,
   bugprone-dangling-handle,
   bugprone-sizeof-expression,
   bugprone-undefined-memory-manipulation,
@@ -12,6 +19,13 @@ Checks: >-
   bugprone-suspicious-include,
   modernize-deprecated-headers
 WarningsAsErrors: >-
+  readability-redundant-smartptr-get,
+  performance-noexcept-move-constructor,
+  performance-move-const-arg,
+  bugprone-virtual-near-miss,
+  bugprone-suspicious-memset-usage,
+  bugprone-sizeof-container,
+  bugprone-branch-clone,
   bugprone-dangling-handle,
   bugprone-sizeof-expression,
   bugprone-undefined-memory-manipulation,
