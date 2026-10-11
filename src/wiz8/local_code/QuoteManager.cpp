@@ -874,11 +874,10 @@ void SetPartyPortraitEventState(unsigned int party_slot, bool active, unsigned i
         if (gfCapturingVideo != 0) {
             return;
         }
-        record->previous_portrait_frame = record->portrait_frame;
         record->portrait_frame = 6;
         record->portrait_frame_dirty = true;
         int pc_slot = RPCPtrToPCSlot(record);
-        record->portrait_pose_animation_active = false;
+        record->portrait_blink_closing = false;
         W8Condition highest_condition = g_status.buffers.Char[pc_slot].highest_condition;
         if (highest_condition < W8_CONDITION_ASLEEP && !gXStatus.fSurprisePossible) {
             if (record->target_portrait_pose != 1) {
@@ -941,7 +940,6 @@ void SetPartyPortraitEventState(unsigned int party_slot, bool active, unsigned i
     if (gfCapturingVideo != 0) {
         return;
     }
-    record->previous_portrait_frame = record->portrait_frame;
     record->portrait_frame = 7;
     record->portrait_frame_dirty = true;
     record->portrait_frame_clock = w8_get_ticks() + (0x78);
@@ -956,7 +954,7 @@ void SetPartyPortraitEventState(unsigned int party_slot, bool active, unsigned i
         pose_category = g_character_event_descriptors[mapped_event].portrait_pose_category;
     }
     int pc_slot = RPCPtrToPCSlot(record);
-    record->portrait_pose_animation_active = false;
+    record->portrait_blink_closing = false;
     W8Condition highest_condition = g_status.buffers.Char[pc_slot].highest_condition;
     if (highest_condition < W8_CONDITION_ASLEEP && !gXStatus.fSurprisePossible) {
         if (record->target_portrait_pose != pose_category) {
@@ -1393,7 +1391,7 @@ void SetPortraitTargetPose(W8MonsterManagerEntry* slot, int pose)
 {
     int party_slot = RPCPtrToPCSlot(slot);
 
-    slot->portrait_pose_animation_active = false;
+    slot->portrait_blink_closing = false;
     if (g_status.buffers.Char[party_slot].highest_condition < W8_CONDITION_ASLEEP &&
         !gXStatus.fSurprisePossible) {
         if (slot->target_portrait_pose != pose) {
@@ -1729,6 +1727,14 @@ unsigned char PartyPortraitEventsIdle(void)
     return 1;
 }
 
+static void SetCurrentPortraitPose(W8MonsterManagerEntry& record, int pose)
+{
+    if (record.portrait_pose != pose) {
+        record.portrait_pose = pose;
+        record.portrait_pose_dirty = true;
+    }
+}
+
 /* Advance the eight character portrait/voice records. This is the complete
    per-frame state machine: it drains finished owned events, starts the
    incapacitation path when no record is active, advances facing and pose
@@ -1795,7 +1801,6 @@ int UpdateCharacterEventState(void)
                 if (sound_active == 0) {
                     if (TimeUntilDeadline(record->portrait_frame_clock) == 0) {
                         if (record->voice_time_remaining_ms < 120) {
-                            record->previous_portrait_frame = record->portrait_frame;
                             record->portrait_frame = 6;
                             record->portrait_frame_dirty = true;
                             record->voice_time_remaining_ms = 0;
@@ -1807,7 +1812,6 @@ int UpdateCharacterEventState(void)
                                 record->pending_event_type <= g_event_range_max) {
                                 direction = 8;
                             }
-                            record->previous_portrait_frame = record->portrait_frame;
                             record->portrait_frame = direction;
                             record->portrait_frame_dirty = true;
                             record->portrait_frame_clock = w8_get_ticks() + (120);
@@ -1815,7 +1819,6 @@ int UpdateCharacterEventState(void)
                         }
                     }
                 } else {
-                    record->previous_portrait_frame = record->portrait_frame;
                     record->portrait_frame = 6;
                     record->portrait_frame_dirty = true;
                 }
@@ -1840,31 +1843,30 @@ int UpdateCharacterEventState(void)
         }
         if (!record->damage_splat_active && !record->effect_icon_active &&
             (g_current_screen_state.id != W8_SCREEN_CHARACTER || record->portrait_event_active)) {
-            if (!record->portrait_pose_animation_active) {
+            if (!record->portrait_blink_closing) {
                 if (record->portrait_pose == record->target_portrait_pose) {
                     if (record->portrait_pose == 1 &&
                         TimeUntilDeadline(record->portrait_idle_clock) == 0) {
-                        record->portrait_pose_animation_active = true;
+                        record->portrait_blink_closing = true;
                         record->portrait_idle_clock = w8_get_ticks() + (Random(5000) + 5000);
                     }
                 } else if (TimeUntilDeadline(record->portrait_pose_clock) == 0) {
                     int pose = record->portrait_pose;
-                    record->previous_portrait_pose = pose;
-                    record->portrait_pose =
-                        g_portrait_pose_transition[pose - 1][record->target_portrait_pose - 1];
-                    record->portrait_pose_animation_active = true;
+                    SetCurrentPortraitPose(*record,
+                        g_portrait_pose_transition[pose - 1][record->target_portrait_pose - 1]);
+                    // Reopening and event-pose transitions continue toward the
+                    // target; only an idle blink enters the closing phase.
                     record->portrait_pose_clock = w8_get_ticks() + (Random(50) + 50);
                 }
             } else if (TimeUntilDeadline(record->portrait_pose_clock) == 0) {
                 int pose = record->portrait_pose;
                 if (pose != 2) {
-                    record->previous_portrait_pose = pose;
-                    record->portrait_pose = g_portrait_pose_transition[pose - 1][2 - 1];
-                    record->portrait_pose_animation_active = true;
+                    SetCurrentPortraitPose(*record, g_portrait_pose_transition[pose - 1][2 - 1]);
+                    record->portrait_blink_closing = true;
                     record->portrait_pose_clock = w8_get_ticks() + (Random(50) + 50);
                 }
                 if (record->portrait_pose == 2) {
-                    record->portrait_pose_animation_active = false;
+                    record->portrait_blink_closing = false;
                 }
             }
             if ((record->portrait_pose_dirty || record->portrait_frame_dirty) &&
@@ -1923,7 +1925,7 @@ bool BlitPartyPortraitAnimation(int portrait, int left, int top, SpriteDraw opti
     if (g_portrait_frame_flags[portrait] == 0) {
         return drawn;
     }
-    if (state->portrait_pose_dirty || state->portrait_pose != state->previous_portrait_pose ||
+    if (state->portrait_pose_dirty || state->portrait_pose != state->rendered_portrait_pose ||
         (animate && state->portrait_pose != 1)) {
         std::tie(width, height) = GetCatalogImageSize(0x12, portrait, state->portrait_pose);
         GetCatalogImagePosition(0x12, portrait, state->portrait_pose, &image_x, &image_y);
@@ -1941,9 +1943,9 @@ bool BlitPartyPortraitAnimation(int portrait, int left, int top, SpriteDraw opti
         DrawCatalogImage(GetFrameBufferSurface(), 0x12, portrait, state->portrait_pose, left, top,
                          options);
         drawn = true;
-        if (state->previous_portrait_pose != -1) {
-            std::tie(width, height) = GetCatalogImageSize(0x12, portrait, state->previous_portrait_pose);
-            GetCatalogImagePosition(0x12, portrait, state->previous_portrait_pose, &image_x,
+        if (state->rendered_portrait_pose != -1) {
+            std::tie(width, height) = GetCatalogImageSize(0x12, portrait, state->rendered_portrait_pose);
+            GetCatalogImagePosition(0x12, portrait, state->rendered_portrait_pose, &image_x,
                                     &image_y);
             other.left = image_x + left;
             other.top = image_y + top;
@@ -1952,10 +1954,10 @@ bool BlitPartyPortraitAnimation(int portrait, int left, int top, SpriteDraw opti
             rect = UnionScreenRects(other, rect);
         }
         InvalidateScreenRects(&rect, 1, 0);
-        state->previous_portrait_pose = state->portrait_pose;
+        state->rendered_portrait_pose = state->portrait_pose;
         state->portrait_pose_dirty = false;
     }
-    if (!state->portrait_frame_dirty && state->portrait_frame == state->previous_portrait_frame &&
+    if (!state->portrait_frame_dirty && state->portrait_frame == state->rendered_portrait_frame &&
         (!animate || state->portrait_frame == 6)) {
         if (!drawn) {
             return false;
@@ -1977,9 +1979,9 @@ bool BlitPartyPortraitAnimation(int portrait, int left, int top, SpriteDraw opti
         rect.right = width + rect.left;
         rect.bottom = height + rect.top;
         drawn = true;
-        if (state->previous_portrait_frame != -1) {
-            std::tie(width, height) = GetCatalogImageSize(0x12, portrait, state->previous_portrait_frame);
-            GetCatalogImagePosition(0x12, portrait, state->previous_portrait_frame, &image_x,
+        if (state->rendered_portrait_frame != -1) {
+            std::tie(width, height) = GetCatalogImageSize(0x12, portrait, state->rendered_portrait_frame);
+            GetCatalogImagePosition(0x12, portrait, state->rendered_portrait_frame, &image_x,
                                     &image_y);
             other.left = image_x + left;
             other.top = image_y + top;
@@ -1988,7 +1990,7 @@ bool BlitPartyPortraitAnimation(int portrait, int left, int top, SpriteDraw opti
             rect = UnionScreenRects(other, rect);
         }
         InvalidateScreenRects(&rect, 1, 0);
-        state->previous_portrait_frame = state->portrait_frame;
+        state->rendered_portrait_frame = state->portrait_frame;
         state->portrait_frame_dirty = false;
     }
     if (((gXStatus.fCombatMode && g_combat_state->characters[party_slot].dead) ||
