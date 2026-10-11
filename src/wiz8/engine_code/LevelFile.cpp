@@ -1305,6 +1305,76 @@ BOOLEAN WriteTriggerFile(wiz8::File* hFile, W8LevelFileTrigger* pTrigger)
     }
 }
 
+template<bool reading>
+struct LevelRecordIO {
+    wiz8::File* file;
+    void field(void* value, std::size_t size)
+    {
+        if constexpr (reading) file->read_exact(value, size);
+        else file->write(value, size);
+    }
+};
+
+// One field layout owns both directions; read-only validation stays at each field boundary.
+template<bool reading>
+static bool TransferSuperTriggerHeader(wiz8::File* hFile, W8LevelFileSuperTrigger* pSuper)
+{
+    LevelRecordIO<reading> io{hFile};
+    io.field(&pSuper->version, 1);
+    io.field(pSuper->name, sizeof(pSuper->name));
+    if constexpr (reading) {
+        if (!memchr(pSuper->name, '\0', sizeof(pSuper->name))) return false;
+    }
+    io.field(&pSuper->flags, 1);
+    io.field(&pSuper->active, 1);
+    io.field(&pSuper->kind, 1);
+    io.field(&pSuper->when_active, 1);
+    io.field(&pSuper->prop_index, 1);
+    io.field(&pSuper->activation_count, 1);
+    io.field(&pSuper->inactive_count, 1);
+    io.field(&pSuper->trigger, 4);
+    io.field(&pSuper->trigger_on, 4);
+    io.field(&pSuper->trigger_off, 4);
+    io.field(pSuper->recipients, sizeof(pSuper->recipients));
+    if constexpr (reading) {
+        if (!memchr(pSuper->recipients, '\0', sizeof(pSuper->recipients))) return false;
+    }
+    io.field(&pSuper->ataxia_or_cure, 1);
+    io.field(pSuper->ps_events, sizeof(pSuper->ps_events));
+    io.field(&pSuper->allow_save, 1);
+    io.field(&pSuper->price, 4);
+    io.field(&pSuper->door_kind, 1);
+    io.field(pSuper->animation, sizeof(pSuper->animation));
+
+    if constexpr (reading) ReportBuildStatus(
+        5, fmt::format("Super Trigger: {}, recipients: {}\n", pSuper->name, pSuper->recipients));
+    if (pSuper->version >= 2) {
+        io.field(pSuper->size, sizeof(pSuper->size));
+        io.field(&pSuper->direction, 4);
+        io.field(&pSuper->wait0, 1);
+        io.field(&pSuper->wait1, 1);
+        io.field(&pSuper->wait2, 1);
+        io.field(&pSuper->loop, 1);
+        io.field(&pSuper->speed, 0x10);
+    }
+    io.field(&pSuper->ignore, 1);
+    io.field(&pSuper->group, 1);
+    io.field(&pSuper->set_group, 1);
+    io.field(pSuper->groups, sizeof(pSuper->groups));
+    io.field(pSuper->objects, sizeof(pSuper->objects));
+    io.field(&pSuper->close_door, 1);
+
+    io.field(&pSuper->wait3, 4);
+    io.field(&pSuper->field, 4);
+    io.field(pSuper->event, sizeof(pSuper->event));
+    io.field(&pSuper->normal_scale, 4);
+
+    if (pSuper->version >= 3) {
+        io.field(pSuper->particle_system, sizeof(pSuper->particle_system));
+    }
+    return true;
+}
+
 // FUNCTION: WIZ8 0x004D2A30
 BOOLEAN ReadSuperTriggerFile(wiz8::File* hFile, W8LevelFileTrigger* pTrigger)
 try {
@@ -1322,56 +1392,7 @@ try {
         return FALSE;
     }
     pTrigger->pData = pSuper;
-    hFile->read_exact(&pSuper->version, 1);
-    hFile->read_exact(pSuper->name, sizeof(pSuper->name));
-    if (!memchr(pSuper->name, '\0', sizeof(pSuper->name)))
-        return FALSE;
-    hFile->read_exact(&pSuper->flags, 1);
-    hFile->read_exact(&pSuper->active, 1);
-    hFile->read_exact(&pSuper->kind, 1);
-    hFile->read_exact(&pSuper->when_active, 1);
-    hFile->read_exact(&pSuper->prop_index, 1);
-    hFile->read_exact(&pSuper->activation_count, 1);
-    hFile->read_exact(&pSuper->inactive_count, 1);
-    hFile->read_exact(&pSuper->trigger, 4);
-    hFile->read_exact(&pSuper->trigger_on, 4);
-    hFile->read_exact(&pSuper->trigger_off, 4);
-    hFile->read_exact(pSuper->recipients, sizeof(pSuper->recipients));
-    if (!memchr(pSuper->recipients, '\0', sizeof(pSuper->recipients)))
-        return FALSE;
-    hFile->read_exact(&pSuper->ataxia_or_cure, 1);
-    hFile->read_exact(pSuper->ps_events, sizeof(pSuper->ps_events));
-    hFile->read_exact(&pSuper->allow_save, 1);
-    hFile->read_exact(&pSuper->price, 4);
-    hFile->read_exact(&pSuper->door_kind, 1);
-    hFile->read_exact(pSuper->animation, sizeof(pSuper->animation));
-
-    ReportBuildStatus(
-        5, fmt::format("Super Trigger: {}, recipients: {}\n", pSuper->name, pSuper->recipients));
-    if (pSuper->version >= 2) {
-        hFile->read_exact(pSuper->size, sizeof(pSuper->size));
-        hFile->read_exact(&pSuper->direction, 4);
-        hFile->read_exact(&pSuper->wait0, 1);
-        hFile->read_exact(&pSuper->wait1, 1);
-        hFile->read_exact(&pSuper->wait2, 1);
-        hFile->read_exact(&pSuper->loop, 1);
-        hFile->read_exact(&pSuper->speed, 0x10);
-    }
-    hFile->read_exact(&pSuper->ignore, 1);
-    hFile->read_exact(&pSuper->group, 1);
-    hFile->read_exact(&pSuper->set_group, 1);
-    hFile->read_exact(pSuper->groups, sizeof(pSuper->groups));
-    hFile->read_exact(pSuper->objects, sizeof(pSuper->objects));
-    hFile->read_exact(&pSuper->close_door, 1);
-
-    hFile->read_exact(&pSuper->wait3, 4);
-    hFile->read_exact(&pSuper->field, 4);
-    hFile->read_exact(pSuper->event, sizeof(pSuper->event));
-    hFile->read_exact(&pSuper->normal_scale, 4);
-
-    if (pSuper->version >= 3) {
-        hFile->read_exact(pSuper->particle_system, sizeof(pSuper->particle_system));
-    }
+    if (!TransferSuperTriggerHeader<true>(hFile, pSuper)) return FALSE;
     if ((pSuper->flags & 1) == 0) {
         hFile->read_exact(&pSuper->placement_kind, 1);
         if (pSuper->placement_kind == 1) {
@@ -1460,50 +1481,7 @@ BOOLEAN WriteSuperTriggerFile(wiz8::File* hFile, W8LevelFileTrigger* pTrigger)
         ReportBuildStatus(7, "WriteSuperTrigger: Couldn't create SuperTrigger structure.\n");
         return 0;
     }
-    hFile->write(&pSuper->version, 1);
-    hFile->write(pSuper->name, sizeof(pSuper->name));
-    hFile->write(&pSuper->flags, 1);
-    hFile->write(&pSuper->active, 1);
-    hFile->write(&pSuper->kind, 1);
-    hFile->write(&pSuper->when_active, 1);
-    hFile->write(&pSuper->prop_index, 1);
-    hFile->write(&pSuper->activation_count, 1);
-    hFile->write(&pSuper->inactive_count, 1);
-    hFile->write(&pSuper->trigger, 4);
-    hFile->write(&pSuper->trigger_on, 4);
-    hFile->write(&pSuper->trigger_off, 4);
-    hFile->write(pSuper->recipients, sizeof(pSuper->recipients));
-    hFile->write(&pSuper->ataxia_or_cure, 1);
-    hFile->write(pSuper->ps_events, sizeof(pSuper->ps_events));
-    hFile->write(&pSuper->allow_save, 1);
-    hFile->write(&pSuper->price, 4);
-    hFile->write(&pSuper->door_kind, 1);
-    hFile->write(pSuper->animation, sizeof(pSuper->animation));
-
-    if (pSuper->version >= 2) {
-        hFile->write(pSuper->size, sizeof(pSuper->size));
-        hFile->write(&pSuper->direction, 4);
-        hFile->write(&pSuper->wait0, 1);
-        hFile->write(&pSuper->wait1, 1);
-        hFile->write(&pSuper->wait2, 1);
-        hFile->write(&pSuper->loop, 1);
-        hFile->write(&pSuper->speed, 0x10);
-    }
-    hFile->write(&pSuper->ignore, 1);
-    hFile->write(&pSuper->group, 1);
-    hFile->write(&pSuper->set_group, 1);
-    hFile->write(pSuper->groups, sizeof(pSuper->groups));
-    hFile->write(pSuper->objects, sizeof(pSuper->objects));
-    hFile->write(&pSuper->close_door, 1);
-
-    hFile->write(&pSuper->wait3, 4);
-    hFile->write(&pSuper->field, 4);
-    hFile->write(pSuper->event, sizeof(pSuper->event));
-    hFile->write(&pSuper->normal_scale, 4);
-
-    if (pSuper->version >= 3) {
-        hFile->write(pSuper->particle_system, sizeof(pSuper->particle_system));
-    }
+    if (!TransferSuperTriggerHeader<false>(hFile, pSuper)) return FALSE;
     if ((pSuper->flags & 1) == 0) {
         hFile->write(&pSuper->placement_kind, 1);
         if (pSuper->placement_kind == 1) {
@@ -2111,33 +2089,40 @@ BOOLEAN WriteParticleSystemFile(wiz8::File* hFile, W8LevelFileParticleSystem* pS
     return TRUE;
 }
 
+template<bool reading>
+static bool TransferLevelFileBlock(wiz8::File* hFile, W8LevelFileBlock* pBlock)
+{
+    LevelRecordIO<reading> io{hFile};
+    io.field(&pBlock->fog_enabled, 1);
+    io.field(&pBlock->environment_red, 4);
+    io.field(&pBlock->environment_green, 4);
+    io.field(&pBlock->environment_blue, 4);
+    io.field(&pBlock->intensity, 4);
+    io.field(&pBlock->view_distance, 4);
+    io.field(&pBlock->camera_mode, 1);
+    if (pBlock->camera_mode >= 1) {
+        io.field(&pBlock->camera_position, sizeof(pBlock->camera_position));
+    }
+    if (pBlock->camera_mode >= 2) {
+        io.field(&pBlock->camera_angle, 4);
+        io.field(&pBlock->camera_axis, sizeof(pBlock->camera_axis));
+    }
+    io.field(&pBlock->has_light_colours, 1);
+    if (pBlock->has_light_colours != 0) {
+        io.field(pBlock->light_colours, 0x300);
+    }
+    io.field(&pBlock->has_environment_colours, 1);
+    if (pBlock->has_environment_colours != 0) {
+        io.field(pBlock->environment_colours, 0x300);
+    }
+    return true;
+}
+
 // FUNCTION: WIZ8 0x004D5430
 BOOLEAN ReadLevelFileBlock(wiz8::File* hFile, W8LevelFileBlock* pBlock)
 try {
 
-    hFile->read_exact(&pBlock->fog_enabled, 1);
-    hFile->read_exact(&pBlock->environment_red, 4);
-    hFile->read_exact(&pBlock->environment_green, 4);
-    hFile->read_exact(&pBlock->environment_blue, 4);
-    hFile->read_exact(&pBlock->intensity, 4);
-    hFile->read_exact(&pBlock->view_distance, 4);
-    hFile->read_exact(&pBlock->camera_mode, 1);
-    if (pBlock->camera_mode >= 1) {
-        hFile->read_exact(&pBlock->camera_position, sizeof(pBlock->camera_position));
-    }
-    if (pBlock->camera_mode >= 2) {
-        hFile->read_exact(&pBlock->camera_angle, 4);
-        hFile->read_exact(&pBlock->camera_axis, sizeof(pBlock->camera_axis));
-    }
-    hFile->read_exact(&pBlock->has_light_colours, 1);
-    if (pBlock->has_light_colours != 0) {
-        hFile->read_exact(pBlock->light_colours, 0x300);
-    }
-    hFile->read_exact(&pBlock->has_environment_colours, 1);
-    if (pBlock->has_environment_colours != 0) {
-        hFile->read_exact(pBlock->environment_colours, 0x300);
-    }
-    return TRUE;
+    return TransferLevelFileBlock<true>(hFile, pBlock);
 } catch (const std::exception&) {
     return false;
 }
@@ -2146,27 +2131,5 @@ try {
 BOOLEAN WriteLevelFileBlock(wiz8::File* hFile, W8LevelFileBlock* pBlock)
 {
 
-    hFile->write(&pBlock->fog_enabled, 1);
-    hFile->write(&pBlock->environment_red, 4);
-    hFile->write(&pBlock->environment_green, 4);
-    hFile->write(&pBlock->environment_blue, 4);
-    hFile->write(&pBlock->intensity, 4);
-    hFile->write(&pBlock->view_distance, 4);
-    hFile->write(&pBlock->camera_mode, 1);
-    if (pBlock->camera_mode >= 1) {
-        hFile->write(&pBlock->camera_position, sizeof(pBlock->camera_position));
-    }
-    if (pBlock->camera_mode >= 2) {
-        hFile->write(&pBlock->camera_angle, 4);
-        hFile->write(&pBlock->camera_axis, sizeof(pBlock->camera_axis));
-    }
-    hFile->write(&pBlock->has_light_colours, 1);
-    if (pBlock->has_light_colours != 0) {
-        hFile->write(pBlock->light_colours, 0x300);
-    }
-    hFile->write(&pBlock->has_environment_colours, 1);
-    if (pBlock->has_environment_colours != 0) {
-        hFile->write(pBlock->environment_colours, 0x300);
-    }
-    return TRUE;
+    return TransferLevelFileBlock<false>(hFile, pBlock);
 }

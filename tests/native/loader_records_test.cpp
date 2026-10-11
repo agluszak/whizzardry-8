@@ -516,3 +516,109 @@ TEST_CASE_METHOD(LoaderFixture, "Malformed octree files", "[loader][records]")
 {
     malformed_octrees();
 }
+
+
+TEST_CASE_METHOD(LoaderFixture, "Versioned level record layouts", "[loader][records]")
+{
+    auto written_bytes = [](const char* path) {
+        auto file = wiz8::open_file(path);
+        std::string bytes(file->size(), '\0');
+        file->read_exact(bytes.data(), bytes.size());
+        return bytes;
+    };
+    // Build disk records independently of the in-memory padding and pointer fields.
+    for (unsigned char version : {1, 2, 3}) {
+        std::string bytes;
+        append(bytes, version);
+        std::array<char, 128> name{};
+        std::strcpy(name.data(), "fixture trigger");
+        append(bytes, name);
+        append(bytes, static_cast<unsigned char>(1)); // No placement or hotspot.
+        bytes.append(6, '\x12');
+        for (int value : {17, 29, 41}) append(bytes, value);
+        std::array<char, 256> recipients{};
+        std::strcpy(recipients.data(), "fixture recipients");
+        append(bytes, recipients);
+        bytes.append(1, '\x21');
+        bytes.append(256, '\x22');
+        bytes.append(1, '\x23');
+        append(bytes, 101);
+        bytes.append(1, '\x24');
+        bytes.append(128, '\x25');
+        if (version >= 2) {
+            for (float value : {1.f, 2.f, 3.f, 4.f}) append(bytes, value);
+            bytes.append(4, '\x32');
+            for (float value : {5.f, 6.f, 7.f, 8.f}) append(bytes, value);
+        }
+        bytes.append(3, '\x41');
+        bytes.append(256, '\x42');
+        bytes.append(256, '\x43');
+        bytes.append(1, '\x44');
+        append(bytes, 103);
+        append(bytes, 107);
+        bytes.append(256, '\x45');
+        append(bytes, 9.f);
+        if (version >= 3) bytes.append(128, '\x51');
+        bytes.append(1, '\0'); // No door.
+        REQUIRE(bytes.size() == (version == 1 ? 1580 : version == 2 ? 1616 : 1744));
+        store("super.bin", bytes);
+        auto file = wiz8::open_file("super.bin");
+        W8LevelFileTrigger trigger{};
+        REQUIRE(ReadSuperTriggerFile(file.get(), &trigger));
+        auto* record = static_cast<W8LevelFileSuperTrigger*>(trigger.pData);
+        REQUIRE(record->trigger_off == 41);
+        REQUIRE(record->normal_scale == 9.f);
+        REQUIRE(record->speed == (version >= 2 ? 5.f : 0.f));
+        REQUIRE(record->unknown_4b3[2] == (version >= 2 ? 8.f : 0.f));
+        auto output = wiz8::open_file("roundtrip.bin", wiz8::OpenMode::replace);
+        REQUIRE(WriteSuperTriggerFile(output.get(), &trigger));
+        output->close();
+        REQUIRE(trigger.pData == nullptr); // Writer consumes the record.
+        REQUIRE(written_bytes("roundtrip.bin") == bytes);
+        for (std::size_t end = 0; end < bytes.size(); ++end) {
+            store("super.bin", bytes.substr(0, end));
+            file = wiz8::open_file("super.bin");
+            trigger = {};
+            REQUIRE_FALSE(ReadSuperTriggerFile(file.get(), &trigger));
+            REQUIRE(trigger.pData == nullptr);
+        }
+        for (std::size_t offset : {std::size_t(1), std::size_t(148)}) {
+            auto invalid = bytes;
+            std::memset(invalid.data() + offset, 'x', offset == 1 ? 128 : 256);
+            store("super.bin", invalid);
+            file = wiz8::open_file("super.bin");
+            trigger = {};
+            REQUIRE_FALSE(ReadSuperTriggerFile(file.get(), &trigger));
+            REQUIRE(trigger.pData == nullptr);
+        }
+    }
+    for (unsigned char mode : {0, 1, 2}) {
+        for (unsigned char colours : {0, 1, 2, 3}) {
+            std::string bytes(1, '\1');
+            for (float value : {1.f, 2.f, 3.f, 4.f, 5.f}) append(bytes, value);
+            append(bytes, mode);
+            if (mode >= 1) for (float value : {6.f, 7.f, 8.f}) append(bytes, value);
+            if (mode >= 2) for (float value : {9.f, 10.f, 11.f, 12.f}) append(bytes, value);
+            append(bytes, static_cast<unsigned char>(colours & 1));
+            if (colours & 1) bytes.append(768, '\x61');
+            append(bytes, static_cast<unsigned char>(colours & 2));
+            if (colours & 2) bytes.append(768, '\x62');
+            store("block.bin", bytes);
+            auto file = wiz8::open_file("block.bin");
+            W8LevelFileBlock block{};
+            REQUIRE(ReadLevelFileBlock(file.get(), &block));
+            REQUIRE(block.view_distance == 5.f);
+            REQUIRE(block.camera_angle == (mode >= 2 ? 9.f : 0.f));
+            auto output = wiz8::open_file("roundtrip.bin", wiz8::OpenMode::replace);
+            REQUIRE(WriteLevelFileBlock(output.get(), &block));
+            output->close();
+            REQUIRE(written_bytes("roundtrip.bin") == bytes);
+            for (std::size_t end = 0; end < bytes.size(); ++end) {
+                store("block.bin", bytes.substr(0, end));
+                file = wiz8::open_file("block.bin");
+                block = {};
+                REQUIRE_FALSE(ReadLevelFileBlock(file.get(), &block));
+            }
+        }
+    }
+}
