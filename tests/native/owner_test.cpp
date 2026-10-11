@@ -115,7 +115,7 @@ void screen_stack()
 
 void camp_effects()
 {
-    std::array<SGPPaletteEntry, 256> palette{};
+    std::array<SDL_Color, 256> palette{};
     std::array<ETRLEObject, 12> images{};
     for (auto& image : images) { image.usWidth = 16; image.usHeight = 8; }
     image_type image{};
@@ -651,7 +651,7 @@ void generic_button_images()
         auto* app = image->pAppData.data();
         REQUIRE(LoadImageData(image.get(), IMAGE_PALETTE));
         REQUIRE((image->pImageData.data() == pixels && image->pAppData.data() == app));
-        REQUIRE(((*image->pPalette)[1].peRed == 255));
+        REQUIRE(((*image->pPalette)[1].r == 255));
         palette = image->pPalette->data();
         REQUIRE(LoadImageData(image.get(), IMAGE_BITMAPDATA));
         REQUIRE((image->pPalette->data() == palette && image->pAppData.data() == app));
@@ -696,7 +696,7 @@ void generic_button_images()
         std::unique_ptr<SGPVObject> sprite(CreateVideoObject(desc));
         REQUIRE((sprite && sprite->sprites.size() == 3));
         REQUIRE((sprite->sprites[2].usWidth == 1 && sprite->sprites[2].pixels[0] == 1));
-        REQUIRE(sprite->pPaletteEntry[1].peRed == 255);
+        REQUIRE(sprite->pPaletteEntry[1].r == 255);
     }
     for (bool corrupt_length : {false, true}) {
         button_image_fixture(assets, "bad-extent.sti", 3);
