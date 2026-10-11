@@ -4,6 +4,7 @@
 #include <fmt/format.h>
 #include <algorithm>
 #include <SDL3/SDL_rect.h>
+#include <span>
 #include <string_view>
 #include <string>
 #include <stdexcept>
