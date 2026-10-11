@@ -1750,13 +1750,12 @@ void SaveWorldProps(W8World* world, wiz8::File& handle)
         prop = GetWorldProp(world, index);
         strcpy(name, prop->m_name);
         handle.write(name, 0x40);
-        if ((handle.write(&prop->Rep()->subcycle, 1), true) != 0 &&
-            (handle.write(&prop->Rep()->first_frame, 1), true) != 0 &&
-            (handle.write(&prop->Rep()->last_frame, 1), true) != 0 &&
-            (handle.write(&prop->Rep()->frame_direction, 1), true) != 0 &&
-            (handle.write(&prop->Rep()->animation_playing, 1), true) != 0) {
-            handle.write(&prop->Rep()->active, 1);
-        }
+        handle.write(&prop->Rep()->subcycle, 1);
+        handle.write(&prop->Rep()->first_frame, 1);
+        handle.write(&prop->Rep()->last_frame, 1);
+        handle.write(&prop->Rep()->frame_direction, 1);
+        handle.write(&prop->Rep()->animation_playing, 1);
+        handle.write(&prop->Rep()->active, 1);
     }
 }
 

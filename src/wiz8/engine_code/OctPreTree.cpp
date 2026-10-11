@@ -193,7 +193,6 @@ bool OctPreTree::TestCollectedPolygons(W8OctreeTrace* trace)
 unsigned char OctPreTree::WriteOctFile(W8OctPreTreeGeometry* geometry, W8GameData* game_data)
 try
 {
-    unsigned char written;
     std::unique_ptr<wiz8::File> file;
     w8_ulong sentinel = 0xffffffff;
     W8OctFileHeader header;
@@ -252,65 +251,25 @@ try
         ReportBuildStatus(7, "WriteOctFile: Couldn't create file.\n");
         return 0;
     }
-    /* Every write-failure path below returns without FileClose: retail leaks
-       the handle on each of them (verified at 0x4686b4 et seq.). */
-    if ((file->write(&header, sizeof(header)), true) == 0) {
-        ReportBuildStatus(7, "WriteOctFile: Couldn't write tree info.\n");
-        return 0;
-    }
+    file->write(&header, sizeof(header));
     file->write(&sentinel, 4);
-    if ((file->write(m_branches, header.m_branch_count * sizeof(W8OctPreTreeBranch)), true) == 0) {
-        ReportBuildStatus(7, "WriteOctFile: Couldn't write Node info.\n");
-        return 0;
-    }
-    if ((file->write(m_leaves, header.m_leaf_count * sizeof(W8OctPreTreeLeaf)), true) == 0) {
-        ReportBuildStatus(7, "WriteOctFile: Couldn't write Leaves info.\n");
-        return 0;
-    }
-    if ((file->write(m_polygon_index_stream, header.m_leaf_polygon_stream_len * 4), true) == 0) {
-        ReportBuildStatus(7, "WriteOctFile: Couldn't write Poly List info.\n");
-        return 0;
-    }
+    file->write(m_branches, header.m_branch_count * sizeof(W8OctPreTreeBranch));
+    file->write(m_leaves, header.m_leaf_count * sizeof(W8OctPreTreeLeaf));
+    file->write(m_polygon_index_stream, header.m_leaf_polygon_stream_len * 4);
     unsigned int grid_cells =
         m_leaf_grid_dimensions.z * m_leaf_grid_dimensions.y * m_leaf_grid_dimensions.x;
-    if (grid_cells < 250000 && (file->write(m_leaf_lookup, grid_cells * 4), true) == 0) {
-        ReportBuildStatus(7, "WriteOctFile: Couldn't write uiLeafGrid info.\n");
-        return 0;
-    }
-    if ((file->write(m_aulPolyLookup, header.m_polygon_count * 4), true) == 0) {
-        ReportBuildStatus(7, "WriteOctFile: Couldn't write Poly Lookup table.\n");
-        return 0;
-    }
-    if (header.m_region_list_len != 0 &&
-        (file->write(m_region_index_stream, header.m_region_list_len * 2), true) == 0) {
-        ReportBuildStatus(7, "WriteOctFile: Couldn't write region list.\n");
-        return 0;
-    }
-    if (header.m_gd_surface_stream_len != 0 &&
-        (file->write(m_gd_surface_index_stream, header.m_gd_surface_stream_len * 4), true) == 0) {
-        ReportBuildStatus(7, "WriteOctFile: Couldn't write Game Data Poly List.\n");
-        return 0;
-    }
+    if (grid_cells < 250000) file->write(m_leaf_lookup, grid_cells * 4);
+    file->write(m_aulPolyLookup, header.m_polygon_count * 4);
+    if (header.m_region_list_len != 0) file->write(m_region_index_stream, header.m_region_list_len * 2);
+    if (header.m_gd_surface_stream_len != 0) file->write(m_gd_surface_index_stream, header.m_gd_surface_stream_len * 4);
     /* Retail writes this trigger list as 4-byte elements while ReadOctFile
        reads it back as 2-byte elements (0x4688c3 vs 0x42c351): the asymmetry
        is authentic.  In practice the count is always zero. */
-    if (header.m_trigger_count != 0 &&
-        (file->write(m_trigger_indices, header.m_trigger_count * 4), true) == 0) {
-        ReportBuildStatus(7, "WriteOctFile: Couldn't write Trigger list.\n");
-        return 0;
-    }
-    if (header.m_region_count > 1 &&
-        (file->write(m_spatial.m_region_volumes, header.m_region_count * sizeof(W8OctRegionVolume)), true) == 0) {
-        ReportBuildStatus(7, "WriteOctFile: Couldn't write Region array.\n");
-        return 0;
-    }
+    if (header.m_trigger_count != 0) file->write(m_trigger_indices, header.m_trigger_count * 4);
+    if (header.m_region_count > 1) file->write(m_spatial.m_region_volumes, header.m_region_count * sizeof(W8OctRegionVolume));
     file->write(&sentinel, 4);
     if (header.m_submesh_count != 0) {
-        if ((file->write(m_pSubmeshes, (header.m_submesh_count + 1) * sizeof(W8OctSubmesh)), true) ==
-            0) {
-            ReportBuildStatus(7, "WriteOctFile: Couldn't write submesh array.\n");
-            return 0;
-        }
+        file->write(m_pSubmeshes, (header.m_submesh_count + 1) * sizeof(W8OctSubmesh));
         if (m_meshCount != 0 && !m_alpha_bits.empty() &&
             !SavePackedBits(*file, m_alpha_bits)) {
             srAssertFail("m_pAlphaBits->Save(hOctFile)", OCTPRETREE_CPP, 0x224,
@@ -321,11 +280,7 @@ try
     }
     /* Every section terminator is the same 0xffffffff dword: retail keeps one
        -1 local for all of them (verified at 0x468406). */
-    if ((file->write(&sentinel, 4), true) == 0) {
-        ReportBuildStatus(7,
-                          "WriteOctFile: Couldn't write Terminator after Mesh Prop Link Table.\n");
-        return 0;
-    }
+    file->write(&sentinel, 4);
     if (pre_pathing != 0 && !pre_pathing->WritePathNodes(file.get())) {
         ReportBuildStatus(7, "WriteOctFile: Couldn't write Path Nodes.\n");
         return 0;
@@ -335,28 +290,19 @@ try
         ReportBuildStatus(7, "WriteOctFile: Couldn't write Prop Sunlight bits array.\n");
         return 0;
     }
-    written = (file->write(&sentinel, 4), true);
-    if (written == 0) {
-        ReportBuildStatus(7, "WriteOctFile: Couldn't write Terminator field.\n");
-        return 0;
-    }
+    file->write(&sentinel, 4);
     /* game_data was already dereferenced unconditionally filling the header
        above (verified at 0x468572); this null check is authentic but
        unreachable-with-null. */
     if (game_data != 0 && header.m_gd_surface_stream_len != 0) {
-        written = game_data->WriteGameData(file.get());
-        /* Retail bitwise-ORs the game-data and terminator results: a failed
-           game-data write followed by a successful four-byte write reports
-           success.  Verified at 0x468be0-0x468bec. */
-        written |= (file->write(&sentinel, 4), true);
-        if (written == 0) {
-            ReportBuildStatus(7, "WriteOctFile: Couldn't write final Terminator field.\n");
-            return 0;
-        }
+        /* Retail ORs the game-data result with the terminator write that
+           follows, so a failed game-data write still reports success
+           (0x468be0-0x468bec). */
+        game_data->WriteGameData(file.get());
+        file->write(&sentinel, 4);
     }
-    if (file) file->close();
-    file.reset();
-    return written;
+    file->close();
+    return 1;
 }
 catch (const std::exception&) { return false; }
 

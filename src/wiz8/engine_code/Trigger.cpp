@@ -392,7 +392,6 @@ bool Trigger::Save(wiz8::File& hFile)
 {
     unsigned char version = 5;
     int trigger_count = static_cast<int>(g_world->triggers.size());
-    bool header_ok;
     W8TriggerActionData* action_data;
     unsigned char has_action_data;
     unsigned char action_type;
@@ -401,14 +400,15 @@ bool Trigger::Save(wiz8::File& hFile)
     unsigned int progress_delay;
     unsigned char has_world_item;
 
-    header_ok = (hFile.write(&version, sizeof(version)), true) &&
-                (hFile.write(&trigger_count, sizeof(trigger_count)), true) &&
-                (hFile.write(name, 0x80), true) && (hFile.write(&flags, sizeof(flags)), true) &&
-                (hFile.write(&state_index, sizeof(state_index)), true) &&
-                (hFile.write(&state_direction, sizeof(state_direction)), true) &&
-                (hFile.write(&action, sizeof(action)), true) &&
-                (hFile.write(&action_state, sizeof(action_state)), true) &&
-                (hFile.write(&required_item_id, sizeof(required_item_id)), true);
+    hFile.write(&version, sizeof(version));
+    hFile.write(&trigger_count, sizeof(trigger_count));
+    hFile.write(name, 0x80);
+    hFile.write(&flags, sizeof(flags));
+    hFile.write(&state_index, sizeof(state_index));
+    hFile.write(&state_direction, sizeof(state_direction));
+    hFile.write(&action, sizeof(action));
+    hFile.write(&action_state, sizeof(action_state));
+    hFile.write(&required_item_id, sizeof(required_item_id));
     action_data = m_pActionData;
     has_action_data = action_data != 0;
     hFile.write(&has_action_data, sizeof(has_action_data));
@@ -478,7 +478,7 @@ bool Trigger::Save(wiz8::File& hFile)
     hFile.write(&item_group_seed, sizeof(item_group_seed));
     hFile.write(&gold, sizeof(gold));
     hFile.write(&uses_remaining, sizeof(uses_remaining));
-    return header_ok;
+    return true;
 }
 
 /* Read one trigger back from the save file. The version byte selects how much
@@ -3824,24 +3824,16 @@ int GetLocationVarValueByName(const char* name)
 // FUNCTION: WIZ8 0x004441e0
 void SaveLocationVariables(wiz8::File& handle)
 {
-    int variable_count = static_cast<int>(g_location_variable_names.size());
-    bool written;
-
-    written = (handle.write(&variable_count, sizeof(variable_count)), true) != 0;
+    const int variable_count = static_cast<int>(g_location_variable_names.size());
+    handle.write(&variable_count, sizeof(variable_count));
     for (int index = 0; index < variable_count; ++index) {
-        int value;
+        const int value = g_location_variable_values[index];
         char name[0x80];
-        int level;
-
-        if (!written) {
-            return;
-        }
-        value = g_location_variable_values[index];
         strcpy(name, g_location_variable_names[index]);
-        level = g_location_variable_levels[index];
-        written = (handle.write(&value, sizeof(value)), true) &&
-                  (handle.write(name, sizeof(name)), true) &&
-                  (handle.write(&level, sizeof(level)), true);
+        const int level = g_location_variable_levels[index];
+        handle.write(&value, sizeof(value));
+        handle.write(name, sizeof(name));
+        handle.write(&level, sizeof(level));
     }
 }
 

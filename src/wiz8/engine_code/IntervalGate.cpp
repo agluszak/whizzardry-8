@@ -65,20 +65,16 @@ catch (const std::exception&) { return false; }
 // FUNCTION: WIZ8 0x0043a770
 bool W8IntervalGate::Save(wiz8::File& handle)
 {
-    float elapsed;
     if (!m_flags.one_shot) {
         int sample = ReadClock();
-        float progress = static_cast<unsigned int>(sample - m_start) /
-                         static_cast<float>(static_cast<unsigned int>(m_end - m_start));
-        // The on-disk pair and its OR-combined result mirror W8GameTimer::Load.
-        bool saved = (handle.write(&progress, sizeof(progress)), true);
-        saved |= (handle.write(&m_duration_scale, sizeof(m_duration_scale)), true);
-        return saved;
+        const float progress = static_cast<unsigned int>(sample - m_start) /
+                               static_cast<float>(static_cast<unsigned int>(m_end - m_start));
+        // The on-disk pair mirrors W8GameTimer::Load.
+        handle.write(&progress, sizeof(progress));
+        handle.write(&m_duration_scale, sizeof(m_duration_scale));
+        return true;
     }
-    if (m_finished) {
-        elapsed = 0.0f;
-    } else {
-        elapsed = GetElapsedSeconds();
-    }
-    return (handle.write(&elapsed, sizeof(elapsed)), true);
+    const float elapsed = m_finished ? 0.0f : GetElapsedSeconds();
+    handle.write(&elapsed, sizeof(elapsed));
+    return true;
 }

@@ -815,35 +815,26 @@ void SetSoundEffectsMuted(unsigned char muted)
 // FUNCTION: WIZ8 0x0047b140
 void SaveAmbientSoundList(wiz8::File& handle)
 {
-    unsigned char version = 1;
-    unsigned int count;
-    unsigned char ok;
-    char empty_name[0x80];
-    int index;
-
+    const unsigned char version = 1;
+    char empty_name[0x80]{};
     memcpy(empty_name, &g_empty_ambient_name, 2);
-    memset(empty_name + 2, 0, sizeof(empty_name) - 2);
-    ok = (handle.write(&version, 1), true);
-    count = g_world->plsAmbientSounds.size();
-    ok = ok && (handle.write(&count, 4), true);
-    for (index = 0; index < static_cast<int>(count); ++index) {
+
+    handle.write(&version, 1);
+    const unsigned int count = g_world->plsAmbientSounds.size();
+    handle.write(&count, 4);
+    for (int index = 0; index < static_cast<int>(count); ++index) {
         W8AmbientSound* sound = GetWorldAmbientSound(g_world, index);
-        if (sound != 0) {
-            if (sound->pacSoundName == 0) {
-                if (ok) {
-                    ok = (handle.write(empty_name, sizeof(empty_name)), true);
-                }
-            } else if (ok) {
-                // The disk record is fixed width, but live names are strlen + 1
-                // allocations.
-                char name[0x80] = {};
-                strncpy(name, sound->pacSoundName, sizeof(name) - 1);
-                ok = (handle.write(name, sizeof(name)), true);
-            }
-            if (ok) {
-                ok = (handle.write(&sound->stopped, 1), true);
-            }
+        if (sound == 0) continue;
+        if (sound->pacSoundName == 0) {
+            handle.write(empty_name, sizeof(empty_name));
+        } else {
+            // The disk record is fixed width, but live names are strlen + 1
+            // allocations.
+            char name[0x80] = {};
+            strncpy(name, sound->pacSoundName, sizeof(name) - 1);
+            handle.write(name, sizeof(name));
         }
+        handle.write(&sound->stopped, 1);
     }
 }
 
