@@ -1,4 +1,5 @@
 #include "himage.h"
+#include <cstdint>
 #include <fmt/format.h>
 #include <fmt/printf.h>
 #include <SDL3/SDL_rect.h>
@@ -1259,7 +1260,7 @@ unsigned char CampScreenEnter(void)
     } else {
         g_camp_identifying_character = g_current_screen_state.parameter_4;
         initial_item_action = W8_CAMP_ITEM_ACTION_IDENTIFY_SPELL;
-        SoundPlay(s_general_magic_sound, 0);
+        wiz8::sound::play(s_general_magic_sound);
         SetTargetingMode(W8_TARGET_NEED_ITEM);
     }
     ClearItemDrag();
@@ -2445,14 +2446,14 @@ int CommitPartySlotSpell(int party_slot, int spell_id, int power_level, W8Combat
     SetPartySlotSpell(party_slot, spell_id, power_level, target);
     FatigueCharacter(party_slot, cost, true, 0);
     if (result != 1) {
-        SoundPlay("Data\\Sound\\Misc\\Spell Fizzle 01.wav", 0);
+        wiz8::sound::play("Data\\Sound\\Misc\\Spell Fizzle 01.wav");
         return result;
     }
     if (spell_id == W8_SPELL_IDENTIFY_ITEM && target->pPCItem->identified) {
-        SoundPlay("Data\\Sound\\Misc\\Spell Learned.wav", 0);
+        wiz8::sound::play("Data\\Sound\\Misc\\Spell Learned.wav");
         return 1;
     }
-    SoundPlay(s_general_magic_sound, 0);
+    wiz8::sound::play(s_general_magic_sound);
     return 1;
 }
 
@@ -2487,12 +2488,12 @@ int CommitPartySlotItemUse(int party_slot, W8ItemInstance* item, W8CombatSlot* t
     if (result == 1) {
         used = target->pPCItem;
         if (g_item_records[used->iItemNo].spell_id == W8_SPELL_IDENTIFY_ITEM && used->identified) {
-            SoundPlay("Data\\Sound\\Misc\\Spell Learned.wav", 0);
+            wiz8::sound::play("Data\\Sound\\Misc\\Spell Learned.wav");
         } else {
-            SoundPlay(s_general_magic_sound, 0);
+            wiz8::sound::play(s_general_magic_sound);
         }
     } else {
-        SoundPlay("Data\\Sound\\Misc\\Spell Fizzle 01.wav", 0);
+        wiz8::sound::play("Data\\Sound\\Misc\\Spell Fizzle 01.wav");
     }
     return result;
 }
@@ -2625,7 +2626,7 @@ void BeginPartyDeath(void)
         RestoreSurpriseView();
     }
     UpdateHeldItemCursor();
-    SoundPlay("Data\\Sound\\Misc\\PartyDead.wav", 0);
+    wiz8::sound::play("Data\\Sound\\Misc\\PartyDead.wav");
     StartMusicResource("CombatLose.MPL", 0, 1);
     ResetRegions();
     ActivateDialogRegion(0x138);
@@ -2707,7 +2708,7 @@ void EndReviewTransition(void)
 {
     ClearActiveRegionIfMatches(0x138);
     if (g_ending_sound != nullptr) {
-        SoundStop(g_ending_sound);
+        wiz8::sound::stop(g_ending_sound);
         g_ending_sound = nullptr;
     }
     g_world_render_enabled = 1;
@@ -2736,7 +2737,6 @@ void ShowEndingScreen(void)
     int image;
     std::string text;
     W8ControlsRect bounds;
-    SOUNDPARMS parms;
 
     fade_to_black = 0;
     schedule_fade = true;
@@ -2786,9 +2786,8 @@ void ShowEndingScreen(void)
         StartMusicResource(music, 0, 1);
     }
     if (*sound != 0) {
-        memset(&parms, 0xff, sizeof(SOUNDPARMS));
-        parms.uiVolume = g_settings.voice_volume * 0x7f / 0xff;
-        g_ending_sound = SoundPlayStreamedFile(sound, &parms);
+        g_ending_sound =
+            wiz8::sound::stream(sound, {.volume = std::uint32_t(g_settings.voice_volume * 0x7f / 0xff)});
     }
     if (schedule_fade) {
         BeginScreenFade(fade_to_black, 1, 0x4b0, 0, true, 1);

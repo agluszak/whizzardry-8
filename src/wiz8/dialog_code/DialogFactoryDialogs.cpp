@@ -976,7 +976,7 @@ void W8TriggerItemPickerDialog::TransferSelectedItems(int destination)
         }
     }
     if (failed) {
-        SoundPlay("Data\\Sound\\Misc\\beep2.wav", 0);
+        wiz8::sound::play("Data\\Sound\\Misc\\beep2.wav");
     }
     RefreshScrollButtons();
     if (items.empty()) {

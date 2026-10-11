@@ -325,15 +325,15 @@ void ReportCastResult(int party_slot)
     result = RevealCharacterItemBindingsByProfession(giReviewCharSlot, party_slot);
     character = g_status.buffers.Char + party_slot;
     if (result == 0) {
-        SoundPlay("Data\\Sound\\Misc\\Spell Fizzle 01.wav", 0);
+        wiz8::sound::play("Data\\Sound\\Misc\\Spell Fizzle 01.wav");
         text = fmt::sprintf(g_localized_strings[0x1be], character->name, 0, 1, 0);
         ShowCampNoticeLine(text, 0, true, false);
     } else if (result == 1) {
-        SoundPlay("Data\\Sound\\Misc\\GeneralMagic.wav", 0);
+        wiz8::sound::play("Data\\Sound\\Misc\\GeneralMagic.wav");
         text = fmt::sprintf(g_localized_strings[0x1bd], character->name, 0, 1, 0);
         ShowCampNoticeLine(text, 0, true, false);
     } else if (result == 2) {
-        SoundPlay("Data\\Sound\\Misc\\GeneralMagic.wav", 0);
+        wiz8::sound::play("Data\\Sound\\Misc\\GeneralMagic.wav");
         text = fmt::sprintf(g_localized_strings[0x1bc], character->name, 0, 1, 0);
         ShowCampNoticeLine(text, 0, true, false);
     }

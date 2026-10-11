@@ -848,7 +848,7 @@ void ResolveSpellMissileHit(W8Missile* missile)
     TargetSourceIsCharacter(source, 0);
     spell = &g_spell_records[MissileSpellId(missile->missile_table_index)];
     if (spell->sound_name.size() != 0) {
-        SoundPlay(fmt::format("Data\\Missiles\\Sounds\\{}.wav", spell->sound_name), 0);
+        wiz8::sound::play(fmt::format("Data\\Missiles\\Sounds\\{}.wav", spell->sound_name));
     }
 
     if (definition->radius > g_float_zero) {

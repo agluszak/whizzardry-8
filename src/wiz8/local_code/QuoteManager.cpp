@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <tuple>
 #include <fmt/format.h>
 #include <fmt/printf.h>
@@ -359,9 +360,8 @@ void SetVoiceMuted(unsigned char muted)
     }
 }
 
-static void CharacterEventSoundEndCallback(void* callback_data)
+static void CharacterEventSoundEndCallback(W8CharacterEvent* entry)
 {
-    W8CharacterEvent* entry = static_cast<W8CharacterEvent*>(callback_data);
     W8CharacterEventQueue* queue = gXStatus.character_event_queue;
 
     if (entry->sound_end_handled || queue == 0) {
@@ -567,9 +567,9 @@ void W8CharacterEvent::Complete()
     sound_end_handled = true;
     slot->active_character_event = 0;
     if (sound_was_active) {
-        if (SoundIsPlaying(slot->voice_sound_handle) != 0) {
+        if (wiz8::sound::is_playing(slot->voice_sound_handle)) {
             sound_end_handled = true;
-            SoundStop(slot->voice_sound_handle);
+            wiz8::sound::stop(slot->voice_sound_handle);
         }
         SetPartyPortraitEventState(party_slot, false, -1, {}, 1);
     }
@@ -696,7 +696,6 @@ unsigned char W8CharacterEvent::PlayEventSound()
     std::string voice_stem;
     std::string sound_path;
     std::string npc_sound_name;
-    SOUNDPARMS sound_parms;
     SoundPlayback sound_handle;
     W8MonsterManagerEntry* record;
     W8NpcState* npc;
@@ -721,11 +720,9 @@ unsigned char W8CharacterEvent::PlayEventSound()
                                      npc_sound_name, sound_event);
         }
     }
-    memset(&sound_parms, 0xff, sizeof(sound_parms));
-    sound_parms.uiVolume = (volume * (g_settings.voice_volume & 0xff)) / 0x7f;
-    sound_parms.EOSCallback = CharacterEventSoundEndCallback;
-    sound_parms.pCallbackData = this;
-    sound_handle = SoundPlay(sound_path, &sound_parms);
+    sound_handle = wiz8::sound::play(
+        sound_path, {.volume = std::uint32_t((volume * (g_settings.voice_volume & 0xff)) / 0x7f),
+                     .on_finished = [this] { CharacterEventSoundEndCallback(this); }});
     record = &gXStatus.monster_manager_entries[party_slot];
     record->voice_sound_handle = sound_handle;
     if (sound_handle == nullptr) {
@@ -737,7 +734,7 @@ unsigned char W8CharacterEvent::PlayEventSound()
         }
         return 1;
     }
-    const auto playback_time = SoundGetMilliSecondPosition(sound_handle).value_or(SoundPlaybackTime{});
+    const auto playback_time = wiz8::sound::playback_time(sound_handle).value_or(wiz8::sound::PlaybackTime{});
     record->voice_time_remaining_ms = playback_time.total_ms;
     LoadMouthGapTrack(sound_path, &record->mouth_gap);
 #ifdef WIZ8_RUNTIME_TESTS
@@ -1769,7 +1766,7 @@ int UpdateCharacterEventState(void)
 #ifdef WIZ8_RUNTIME_TESTS
                 if (sound_active != previous_mouth) {
                     RuntimeObserve(RUNTIME_MOUTH_CHANGED, party_slot,
-                                   SoundGetPosition(record->voice_sound_handle), sound_active);
+                                   wiz8::sound::elapsed_ms(record->voice_sound_handle), sound_active);
                 }
 #endif
             }

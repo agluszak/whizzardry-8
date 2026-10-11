@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <fmt/printf.h>
 #include <vector>
 #include <cmath>
@@ -385,11 +386,8 @@ void HandleLevelOverride(float fall)
 {
     unsigned int count = static_cast<unsigned int>(pow(fall + 0.7, 8.0));
     if (count > 0) {
-        SOUNDPARMS sound_parms;
-        memset(&sound_parms, 0xff, sizeof(sound_parms));
-        sound_parms.uiVolume = g_settings.sound_effects_volume;
         ShowNotice(W8_FONT_PALETTE_WHITE, g_localized_strings[0x252]);
-        SoundPlay(s_fall_impact_wav, &sound_parms);
+        wiz8::sound::play(s_fall_impact_wav, {.volume = std::uint32_t(g_settings.sound_effects_volume)});
         W8Dice dice;
         SetDice(&dice, static_cast<unsigned char>(count), 6, 0);
         ApplyRolledHealthChangeToParty(&dice, 0, 1);

@@ -86,7 +86,7 @@ void UpdateMouthGapTrack(SoundPlayback playback, W8MouthGapTrack* track)
 {
     if (track != 0) {
         if (track->range_count > 0) {
-            unsigned int position = SoundGetPosition(playback);
+            unsigned int position = wiz8::sound::elapsed_ms(playback);
             W8MouthGapRange* range = track->head;
             while (position > range->end_ms) {
                 range = range->next;

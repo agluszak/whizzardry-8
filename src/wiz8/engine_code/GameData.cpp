@@ -2731,7 +2731,7 @@ void UpdateLevelMovementAudio(void)
         g_level_data->motion_velocity.y != g_float_zero ||
         g_level_data->motion_velocity.z != g_float_zero) {
         if (g_level_footstep_sound != nullptr) {
-            SoundSetFadeVolume(g_level_footstep_sound, 0, 500, 1);
+            wiz8::sound::stop(g_level_footstep_sound, 500);
             g_level_footstep_sound = nullptr;
         }
         return;
@@ -2739,7 +2739,7 @@ void UpdateLevelMovementAudio(void)
     now = g_game_time_accumulator->GetElapsed();
     if (g_facing_tolerance0 < now - g_level_footstep_time &&
         (g_level_footstep_time = now,
-         g_level_footstep_sound == nullptr || SoundIsPlaying(g_level_footstep_sound) == 0)) {
+         g_level_footstep_sound == nullptr || !wiz8::sound::is_playing(g_level_footstep_sound))) {
         g_level_footstep_sound =
             PlayFootstep(g_level_data->sound_environment, g_level_data->sound_environment_alt,
                          W8_FOOTSTEP_KIND_SCUFF);

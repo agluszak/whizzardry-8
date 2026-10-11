@@ -1402,7 +1402,7 @@ void ResetLiveSessionForLoad(void)
 {
     if (g_status.current_level != -1) {
         UnloadLevel("");
-        SoundEmptyCache();
+        wiz8::sound::release_cache();
     }
     if (gXStatus.character_event_queue != 0) {
         gXStatus.character_event_queue->DestroyAllEvents();

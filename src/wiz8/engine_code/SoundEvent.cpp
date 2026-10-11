@@ -27,7 +27,7 @@
 W8SoundEvent::~W8SoundEvent()
 {
     if (looping && sound_handle != nullptr) {
-        SoundStop(sound_handle);
+        wiz8::sound::stop(sound_handle);
     }
 }
 
@@ -122,33 +122,10 @@ bool W8SoundEvent::Play(const srVector3T<float>& position, int cycle)
 
         srVector3T<float> offset = position - camera_position;
         srVector3T<float> transformed = rotation * offset.glmValue();
-        float x = transformed.x;
-        float y = transformed.y;
-        float z = transformed.z;
-        SOUND3DPARMS options;
-
-        memset(&options, 0xff, sizeof(options));
         unsigned int event_volume = static_cast<unsigned int>(
             (g_float_one - camera_offset.Length() / falloff) * base_volume);
         event_volume = (GetSoundEffectsVolume() * event_volume) / 0x7f;
         if (event_volume != 0) {
-            options.uiVolume = event_volume;
-            options.uiLoop = (!looping);
-            options.Pos.flX = x;
-            options.Pos.flY = y;
-            options.Pos.flZ = z;
-            options.Pos.flVelX = 0.0f;
-            options.Pos.flVelY = 0.0f;
-            options.Pos.flVelZ = 0.0f;
-            options.Pos.flFaceX = -x;
-            options.Pos.flFaceY = -y;
-            options.Pos.flFaceZ = -z;
-            options.Pos.flUpX = 0.0f;
-            options.Pos.flUpY = g_float_one;
-            options.Pos.flUpZ = 0.0f;
-            options.Pos.flFalloffMin = falloff;
-            options.Pos.flFalloffMax = falloff;
-            options.Pos.uiVolume = event_volume;
 
             if (kind == W8_SOUND_EVENT_FOOTSTEP) {
                 int variant;
@@ -170,12 +147,10 @@ bool W8SoundEvent::Play(const srVector3T<float>& position, int cycle)
                                   W8_FOOTSTEP_KIND_STEP, variant);
                 wave_name = path;
             }
-            options.uiPitchBend = wave_name.contains('!') ? 0 : 20;
-            if (wave_name.contains('+')) {
-                options.Pos.flFalloffMax += options.Pos.flFalloffMax;
-                options.Pos.flFalloffMin += options.Pos.flFalloffMin;
-            }
-            sound_handle = Sound3DPlay(wave_name.data(), &options);
+            sound_handle = wiz8::sound::play(wave_name, {.volume = event_volume,
+                                                         .loops = looping ? 0u : 1u,
+                                                         .pitch_bend_percent = wave_name.contains('!') ? 0u : 20u,
+                                                         .position = transformed.glmValue()});
             if (sound_handle == nullptr) {
                 return false;
             }

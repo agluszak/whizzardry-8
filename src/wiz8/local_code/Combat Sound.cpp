@@ -42,7 +42,6 @@ static std::array<std::array<std::string, 12>, 28> g_material_impact_sounds;
 void PlayCombatSound(std::string_view sound_name, unsigned int variant_count, bool store_handle,
                      int volume)
 {
-    SOUNDPARMS parms;
     std::string zSoundFileName;
     SoundPlayback handle;
 
@@ -57,11 +56,10 @@ void PlayCombatSound(std::string_view sound_name, unsigned int variant_count, bo
                      fmt::format("CombatSound: ERROR - Sound file {} not found", zSoundFileName));
     }
     if (volume > 0) {
-        memset(&parms, 0xff, sizeof(parms));
-        parms.uiVolume = static_cast<unsigned int>(g_settings.sound_effects_volume * volume) / 127;
-        handle = SoundPlay(zSoundFileName, &parms);
+        handle = wiz8::sound::play(
+            zSoundFileName, {.volume = static_cast<unsigned int>(g_settings.sound_effects_volume * volume) / 127});
     } else {
-        handle = SoundPlay(zSoundFileName, 0);
+        handle = wiz8::sound::play(zSoundFileName);
     }
     if (handle != nullptr && g_combat_state != 0 && store_handle) {
         g_combat_state->hit_sound = handle;

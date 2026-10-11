@@ -136,7 +136,7 @@ bool MartensBluff1FHandlock(Trigger* pTrigger)
     }
     SetDice(&dice, 2, 4, 1);
     ApplyRolledHealthChangeToParty(&dice, 0, 1);
-    SoundPlay("Data\\Sound\\Ambients\\Electricity 04.wav", 0);
+    wiz8::sound::play("Data\\Sound\\Ambients\\Electricity 04.wav");
     g_trigger_feedback = true;
     return false;
 }

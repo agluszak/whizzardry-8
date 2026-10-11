@@ -60,10 +60,7 @@ void PlayButtonSound(int sound_id)
         g_button_sound_cooldown = w8_get_ticks() + (200);
     }
 
-    SOUNDPARMS options;
-    memset(&options, -1, sizeof(options));
-    options.uiVolume = g_settings.sound_effects_volume >> 1;
-    SoundPlay((char*)path, &options);
+    wiz8::sound::play(path, {.volume = std::uint32_t(g_settings.sound_effects_volume >> 1)});
 }
 
 // FUNCTION: WIZ8 0x005587c0

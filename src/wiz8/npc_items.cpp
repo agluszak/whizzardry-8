@@ -519,7 +519,7 @@ unsigned char SellItemToNpc(W8NpcState* npc, W8ItemInstance* item, unsigned char
             if (!suppress_payment) {
                 AddPartyGold(amount, false);
             }
-            SoundPlay(g_sound_cash_transaction, 0);
+            wiz8::sound::play(g_sound_cash_transaction);
             if (item->stack_count == 0) {
                 item->stack_count = 1;
             }
@@ -781,7 +781,7 @@ bool CompleteNpcItemPurchase(W8NpcState* npc, int index, unsigned char quantity,
             ReplaceOrCreateItem(&stack, entry->item.iItemNo, false, true, false);
             stack.stack_count = moved;
             price = CalculateTradeStackPrice(npc, &stack, W8_TRADE_PRICE_PARTY_BUYS);
-            SoundPlay(g_sound_cash_transaction, 0);
+            wiz8::sound::play(g_sound_cash_transaction);
             if (ConsumeNpcItemQuantity(npc, index, moved) == 0) {
                 return false;
             }

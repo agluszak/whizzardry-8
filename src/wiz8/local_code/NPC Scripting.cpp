@@ -458,17 +458,13 @@ void ProcessNpcScriptingFrame(void)
     int environment;
     int party_slot;
     int sedexus_party_slot;
-    SOUNDPARMS local_sound_parms;
 
     if ((g_npc_scripting.sedexus_capture_pending || g_npc_scripting.sedexus_release_pending) &&
         ((environment = GetEnvironmentValue(), environment == 0) ||
          (environment = GetEnvironmentValue(), environment == 2))) {
         ClearScriptedSceneActive();
         if (!g_npc_scripting.sedexus_release_pending) {
-            memset(&local_sound_parms, 0xff, sizeof(SOUNDPARMS));
-            g_sedexus_sound_handle = SoundPlayStreamedFile(
-                // c-style-cast-ok: SGP spells filenames STR (UINT8*), the historical ABI boundary
-                (char*)g_sedexus_moaning_sound, &local_sound_parms);
+            g_sedexus_sound_handle = wiz8::sound::stream(g_sedexus_moaning_sound);
         } else {
             ClearMainGameTargetState();
             sedexus_party_slot = g_status.sedexus_party_slot;
@@ -489,7 +485,7 @@ void ProcessNpcScriptingFrame(void)
             }
             g_npc_scripting.sedexus_capture_active = false;
             if (g_sedexus_sound_handle != nullptr) {
-                SoundStop(g_sedexus_sound_handle);
+                wiz8::sound::stop(g_sedexus_sound_handle);
                 g_sedexus_sound_handle = nullptr;
             }
         }
@@ -554,12 +550,11 @@ void BeginNpcScriptDialogue(W8NpcState* npc, unsigned char preserve_state)
     g_npc_scripting.script_file = npc->script_file;
 }
 
-/* End-of-sound callback SOUNDPARMS arms on the NPC voice. A natural stream
-   end finishes the quote but leaves the session active for a 700 ms hold;
-   the guard keeps FinishNpcVoicePlayback's manual SoundStop from recursing
-   back through here. */
+/* Completion callback armed on the NPC voice. A natural stream end finishes
+   the quote but leaves the session active for a 700 ms hold; the guard keeps
+   FinishNpcVoicePlayback's manual stop from recursing back through here. */
 // FUNCTION: WIZ8 0x005251C0
-static void NpcVoiceEosCallback(void* callback_data)
+static void NpcVoiceEosCallback()
 {
     if (!g_npc_scripting.stopping_voice_playback) {
         FinishNpcVoicePlayback(false);
@@ -619,7 +614,6 @@ static void SpeakNpcSubquote(W8NpcScriptQuote* quote, unsigned char subquote_ind
     int length;
     int quote_index;
     std::string voice_dir;
-    SOUNDPARMS voice_parms;
     std::string voice_path;
     std::string voice_stem;
     std::string npc_name;
@@ -710,10 +704,9 @@ static void SpeakNpcSubquote(W8NpcScriptQuote* quote, unsigned char subquote_ind
                                      g_npc_scripting.staging_restore.current_quote_index, -1, 0,
                                      payload, g_npc_scripting.npc->partner_index);
         }
-        memset(&voice_parms, 0xff, sizeof(voice_parms));
-        voice_parms.uiVolume = g_settings.voice_volume * 70 / 100;
-        voice_parms.EOSCallback = NpcVoiceEosCallback;
-        g_npc_scripting.voice_handle = SoundPlay(voice_path, &voice_parms);
+        g_npc_scripting.voice_handle =
+            wiz8::sound::play(voice_path, {.volume = std::uint32_t(g_settings.voice_volume * 70 / 100),
+                                           .on_finished = NpcVoiceEosCallback});
         monster = GetNpcMonster(g_npc_scripting.npc);
         if (monster != 0) {
             monster->StartTalking(true);
@@ -740,8 +733,8 @@ static void SpeakNpcSubquote(W8NpcScriptQuote* quote, unsigned char subquote_ind
                                            display_text, 1);
                 entry->voice_sound_handle = g_npc_scripting.voice_handle;
                 const auto playback_time =
-                    SoundGetMilliSecondPosition(g_npc_scripting.voice_handle)
-                        .value_or(SoundPlaybackTime{});
+                    wiz8::sound::playback_time(g_npc_scripting.voice_handle)
+                        .value_or(wiz8::sound::PlaybackTime{});
                 entry->voice_time_remaining_ms = playback_time.total_ms;
                 LoadMouthGapTrack(
                     voice_path,
@@ -777,7 +770,7 @@ void FinishNpcVoicePlayback(bool resume_script)
             g_npc_scripting.voice_playing = false;
             if (g_npc_scripting.voice_handle != nullptr) {
                 g_npc_scripting.stopping_voice_playback = true;
-                SoundStop(g_npc_scripting.voice_handle);
+                wiz8::sound::stop(g_npc_scripting.voice_handle);
                 g_npc_scripting.stopping_voice_playback = false;
             }
             FreeMouthGapTrack(&g_npc_scripting.gap_track);
@@ -1466,8 +1459,7 @@ void ProcessMessageBoxQueue(void)
     case W8_NPC_MSG_JOURNAL_QUOTE:
         ShowNpcScriptNoticeBubble(g_localized_strings[0x74a]);
         g_npc_scripting.quote_active = 1;
-        SoundPlay((char*) "Data\\Sound\\Misc\\Journal Entry.wav",
-                  0); // c-style-cast-ok: released SGP textual API uses UINT8 pointer spelling
+        wiz8::sound::play("Data\\Sound\\Misc\\Journal Entry.wav");
         break;
     case W8_NPC_MSG_PORTRAIT_STRING: {
         int string_index = line->payload.argument;
@@ -1535,8 +1527,7 @@ void ProcessMessageBoxQueue(void)
         int party_slot = *line->extra.level_up_slot;
         g_status.buffers.XChar[party_slot].portrait_advance = 1;
         if (g_settings.skill_increase_messages == 0) {
-            SoundPlay((char*) "Data\\Sound\\Misc\\GainLevel.wav",
-                      0); // c-style-cast-ok: released SGP textual API uses UINT8 pointer spelling
+            wiz8::sound::play("Data\\Sound\\Misc\\GainLevel.wav");
             line->text.clear();
         } else {
             g_npc_scripting.portrait_message_active = true;
@@ -2187,15 +2178,12 @@ void CancelNpcDialogue(void)
 void DisplayNpcQuote(std::string_view text, bool play_sound)
 {
     std::string sound_path;
-    SOUNDPARMS sound_parms;
 
     ShowNpcScriptNoticeBubble(text);
     g_npc_scripting.quote_active = 1;
     if (play_sound) {
-        memset(&sound_parms, 0xff, sizeof(SOUNDPARMS));
         sound_path = "Data\\Sound\\misc\\startgame.wav";
-        sound_parms.EOSCallback = 0;
-        SoundPlay(sound_path, &sound_parms);
+        wiz8::sound::play(sound_path);
     }
 }
 

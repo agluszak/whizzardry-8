@@ -172,7 +172,6 @@ add_library(WIZ8_GAME_CORE STATIC
     startup_world.cpp
     startup_subsystems.cpp
     startup_ui_state.cpp
-    sound_man.cpp
     surface2d.cpp
     engine_code/Video2.cpp
     character_skills.cpp

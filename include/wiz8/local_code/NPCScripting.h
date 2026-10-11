@@ -43,7 +43,7 @@ struct W8NpcScriptingState {
     /* A quote is being presented - voice is playing or the text/EOS
        hold is counting down. Cleared by FinishNpcVoicePlayback. */
     unsigned char quote_active; // bool-byte-ok: staged-byte copy stays unnormalized
-    /* The quote's voice sound actually started; gates SoundStop and the
+    /* The quote's voice sound actually started; gates wiz8::sound::stop and the
        mouth-gap cleanup in FinishNpcVoicePlayback. */
     bool voice_playing;
     unsigned char unknown_72[6];

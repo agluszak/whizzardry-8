@@ -661,7 +661,7 @@ void StageMonsterCastIcon(unsigned int party_slot, W8SpellRealm realm, bool alte
         spell_id != W8_SPELL_NONE && g_spell_records[spell_id].sound_name[0] != 0
             ? fmt::format("Data\\Spells\\Sounds\\{}.wav", g_spell_records[spell_id].sound_name)
             : s_general_magic_sound;
-    SoundPlay(sound, 0);
+    wiz8::sound::play(sound);
     if (g_settings.main_ui_mode != W8_MAIN_UI_MODE_PORTRAITS &&
         g_level_block->portrait_refresh_pending[party_slot] == 0) {
         RefreshSelectedPartyPortrait(party_slot);

@@ -3069,7 +3069,6 @@ void ProcessSpellEffectTargets(W8SpellEffectEntry* effect)
     W8CameraShakeEffect* shake;
     W8WorldCameraState* camera_state;
     W8World* world;
-    SOUNDPARMS* parms;
     srVector3T<float> point;
     std::string sound_name;
     std::string path;
@@ -3422,9 +3421,8 @@ void ProcessSpellEffectTargets(W8SpellEffectEntry* effect)
         shake->flags.fade_out = false;
         sound_name = g_spell_records[spell_id].sound_name;
         if (sound_name[0] != 0) {
-            parms = 0;
             path = fmt::format("Data\\Spells\\Sounds\\{}.wav", sound_name);
-            SoundPlay(path, parms);
+            wiz8::sound::play(path);
         }
         [[fallthrough]];
     case W8_SPELL_FROST:

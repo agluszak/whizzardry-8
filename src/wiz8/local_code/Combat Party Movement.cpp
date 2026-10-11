@@ -456,7 +456,7 @@ void FinishPartyMovementAction(void)
         g_combat_state->uiCurrentPartyActionStatus == W8_PARTY_ACTION_PHASE_ENDED) {
         ShowNotice(W8_FONT_PALETTE_WHITE, g_localized_strings[0x21d]);
     }
-    SoundPlay("Data\\Sound\\Misc\\Movement_Bar_Pop_Up.wav", 0);
+    wiz8::sound::play("Data\\Sound\\Misc\\Movement_Bar_Pop_Up.wav");
     ClearLevelMovementStopped();
     if (g_combat_state->uiCurrentPartyAction == W8_PARTY_ACTION_RUN) {
         SetLevelFastMovement();

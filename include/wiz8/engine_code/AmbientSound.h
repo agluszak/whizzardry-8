@@ -1,10 +1,13 @@
 #pragma once
 
+#include <memory>
+
 #include "wiz8/audio_resources.h"
 #include "surrender/srMath.h"
 #include "wiz8/engine_code/game_timer.h"
 
 struct W8World;
+struct W8RandomAmbient;
 namespace wiz8 {
 class File;
 }  // namespace wiz8
@@ -48,7 +51,7 @@ public:
     unsigned char looping;       /* 0x0b9: continuous loop vs random one-shot */
     unsigned char padding_0ba[2];
     SoundPlayback sound_handle;      // Current playback, shared during group handoff.
-    SoundClip sample; // Shared with the cache and active tracks.
+    std::shared_ptr<W8RandomAmbient> random; // One-shot schedule; empty for looping sounds.
     unsigned char shared;  /* 0x0c4: shared 2D group sound; voices hand off by name */
     unsigned char bounded; /* 0x0c5: region test enabled (v2 trigger field) */
     unsigned char padding_0c6[2];
@@ -117,7 +120,7 @@ enum W8FootstepKind {
     W8_FOOTSTEP_KIND_SCUFF = 2,
 };
 
-/* 0x00479030: stop all random samples and the shared ambient priority group */
+/* 0x00479030: drop every random schedule and stop the ambient group */
 void StopAllAmbientSounds();
 
 void BuildFootstepPath(char* path, signed char surface, signed char material, char kind,

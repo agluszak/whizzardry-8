@@ -25,7 +25,6 @@
 #include "wiz8/local_code/CombatSound.h"
 #include "wiz8/local_code/GameplayInit.h"
 #include "wiz8/engine_code/Missile.h"
-#include "wiz8/sound_man.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "shading.h"
 #include "wiz8/application.h"
@@ -91,7 +90,6 @@ unsigned char InitializeGame(size_t& initialized_screens)
         return 0;
     }
     InitializeItemVideoObjects();
-    ConfigureSoundCache();
     SetPendingScreenState(W8_SCREEN_INTRO);
     g_status.current_level = -1;
     if (const auto save = gfLoadAtStartup ? FindStartupQuickSave() : std::nullopt) {

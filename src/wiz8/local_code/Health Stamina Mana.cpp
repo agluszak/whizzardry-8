@@ -1148,7 +1148,7 @@ void CharacterDies(int party_slot)
         RecordCharacterDeath(party_slot);
     }
     QueuePartyDeathReaction(party_slot);
-    SoundPlay("Data\\Sound\\Misc\\CharacterDead.wav", 0);
+    wiz8::sound::play("Data\\Sound\\Misc\\CharacterDead.wav");
 
     if (gXStatus.fCombatMode) {
         if (g_combat_state->iActionChar == party_slot) {

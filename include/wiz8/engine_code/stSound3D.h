@@ -30,11 +30,10 @@ public:
     virtual ~stSound3D() override;
     bool IsPlaying(); /* 0x004AEC70 */
     void Stop();      /* 0x004AEC90 */
-    /* loop forces the SGP voice to loop forever (AIL count 0); auto_release
+    /* loop repeats the playback until stopped; auto_release
        makes the update pass release the node once playback ends. */
     unsigned char Play(bool loop, bool auto_release); /* 0x004AEBF0 */
-    void BuildSoundOptions(const srVector3T<float>* listener,
-                           SOUND3DPARMS* options); /* 0x004AECC0 */
+    wiz8::sound::PlayOptions BuildSoundOptions(const srVector3T<float>& listener); /* 0x004AECC0 */
 
     int unknown_138;   /* 0x138: ctor zeroes it; no retail reader found */
     SoundPlayback sound_handle;  // Current playback; empty when silent.

@@ -122,7 +122,7 @@ void RecordFactChangeForJournal(W8FactId fact_id)
     }
     int range = GetTextBoxScrollRange();
     ShowNotice(W8_FONT_PALETTE_BLUE, g_localized_strings[0x74a], 2, range);
-    SoundPlay("Data\\Sound\\Misc\\Journal Entry.wav", 0);
+    wiz8::sound::play("Data\\Sound\\Misc\\Journal Entry.wav");
 }
 
 /* Write the JRNL format dword, entry count, then each 0x0c-byte entry. */

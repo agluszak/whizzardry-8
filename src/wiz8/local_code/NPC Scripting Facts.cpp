@@ -57,10 +57,10 @@
 
 /* Local Code\NPC Scripting Facts.cpp. Direct assertion ownership. */
 
-/* SOUNDPARMS EOS callback adapter: retail stores this JMP thunk rather than
+/* Potion explosion completion callback: retail stores this JMP thunk rather than
    ClearScriptedSceneActive's void() entry. */
 // FUNCTION: WIZ8 0x005092c0
-static void ClearPotionExplosionSoundFlag(void*)
+static void ClearPotionExplosionSoundFlag()
 {
     ClearScriptedSceneActive();
 }
@@ -84,7 +84,6 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
     stParticle* particle;
     W8MonsterInfo* monster_info;
     W8CameraShakeEffect* shake;
-    SOUNDPARMS sound;
     srVector3T<float> position;
     unsigned char fact_value;
     unsigned int added;
@@ -714,9 +713,8 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
         return;
     case W8_FACT_FUZZFAS_BOOM1:
     case W8_FACT_FUZZFAS_BOOM2:
-        memset(&sound, -1, sizeof(sound));
-        sound.EOSCallback = ClearPotionExplosionSoundFlag;
-        if (SoundPlay("Data\\Sound\\misc\\potion_exploding.wav", &sound) != nullptr) {
+        if (wiz8::sound::play("Data\\Sound\\misc\\potion_exploding.wav",
+                              {.on_finished = ClearPotionExplosionSoundFlag}) != nullptr) {
             SetScriptedSceneActive();
         }
         particle = FindParticleByName(g_world, "FuzzBlast");
@@ -824,7 +822,7 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
                 0x4b4, NPC_SCRIPTING_FACTS_CPP, group->leader_location_id, true));
             monster_info->p3D->SetScript("MoveSavantBoffo.msf", true);
         }
-        SoundPlayStreamedFile("Data\\Sound\\Misc\\Earthquake End.wav", 0);
+        wiz8::sound::stream("Data\\Sound\\Misc\\Earthquake End.wav");
         shake = CreateCameraShakeEffect(6.0f, false, 1.0f, 0, 0);
         shake->flags.fade_in = true;
         shake->completion_callback = ReplayEarthquakeShake;
