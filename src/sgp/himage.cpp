@@ -26,7 +26,6 @@
 #include <cstdlib>
 #include <exception>
 
-#include "Types.h"
 #include "wiz8/filesystem.h"
 #include "himage.h"
 #include "imgfmt.h"
@@ -37,19 +36,19 @@
 #define BLACK_SUBSTITUTE 0x0001
 
 // GLOBAL: WIZ8 0x00650f48
-UINT16 gusAlphaMask = 0;
+std::uint16_t gusAlphaMask = 0;
 // GLOBAL: WIZ8 0x00650f4a
-UINT16 gusRedMask = 0;
+std::uint16_t gusRedMask = 0;
 // GLOBAL: WIZ8 0x00650f4c
-UINT16 gusGreenMask = 0;
+std::uint16_t gusGreenMask = 0;
 // GLOBAL: WIZ8 0x00650f4e
-UINT16 gusBlueMask = 0;
+std::uint16_t gusBlueMask = 0;
 // GLOBAL: WIZ8 0x00650f50
-INT16 gusRedShift = 0;
+std::int16_t gusRedShift = 0;
 // GLOBAL: WIZ8 0x00650f52
-INT16 gusBlueShift = 0;
+std::int16_t gusBlueShift = 0;
 // GLOBAL: WIZ8 0x00650f54
-INT16 gusGreenShift = 0;
+std::int16_t gusGreenShift = 0;
 
 namespace
 {
@@ -77,17 +76,17 @@ ImageFormat image_format(const std::string& path)
 
 bool safe_dimensions(std::size_t width, std::size_t height)
 {
-    return width && height && width <= std::numeric_limits<UINT16>::max() &&
-           height <= std::numeric_limits<UINT16>::max() &&
+    return width && height && width <= std::numeric_limits<std::uint16_t>::max() &&
+           height <= std::numeric_limits<std::uint16_t>::max() &&
            width * height <= max_image_bytes / 4;
 }
 
-unsigned little_word(const UINT8* bytes)
+unsigned little_word(const std::uint8_t* bytes)
 {
     return bytes[0] | (unsigned(bytes[1]) << 8);
 }
 
-bool valid_image_header(const std::vector<UINT8>& bytes, ImageFormat format)
+bool valid_image_header(const std::vector<std::uint8_t>& bytes, ImageFormat format)
 {
     if (format == ImageFormat::pcx)
     {
@@ -153,7 +152,7 @@ image_type load_ordinary_image(wiz8::File& file, ImageFormat format)
     const auto size = file.size();
     if (size <= 0 || std::uint64_t(size) > max_image_bytes)
         throw std::runtime_error("Invalid image file size");
-    std::vector<UINT8> bytes(size);
+    std::vector<std::uint8_t> bytes(size);
     file.read_exact(bytes.data(), bytes.size());
     if (!valid_image_header(bytes, format))
         throw std::runtime_error("Invalid image header");
@@ -186,7 +185,7 @@ image_type load_ordinary_image(wiz8::File& file, ImageFormat format)
     const std::size_t row_bytes = surface->w * (decoded.ubBitDepth / 8);
     decoded.pImageData.resize(row_bytes * surface->h);
     for (int y = 0; y < surface->h; ++y)
-        std::copy_n(static_cast<const UINT8*>(surface->pixels) + y * surface->pitch, row_bytes,
+        std::copy_n(static_cast<const std::uint8_t*>(surface->pixels) + y * surface->pitch, row_bytes,
                     decoded.pImageData.data() + y * row_bytes);
     if (indexed) {
         decoded.pPalette.emplace();
@@ -265,14 +264,14 @@ image_type load_sti(wiz8::File& file)
         (header.RGB.uiRedMask != gusRedMask || header.RGB.uiGreenMask != gusGreenMask || header.RGB.uiBlueMask != gusBlueMask)) {
         const auto source_format = SDL_GetPixelFormatForMasks(16, header.RGB.uiRedMask, header.RGB.uiGreenMask, header.RGB.uiBlueMask, 0);
         const auto target_format = SDL_GetPixelFormatForMasks(16, gusRedMask, gusGreenMask, gusBlueMask, 0);
-        std::vector<UINT8> converted(decoded.pImageData.size());
+        std::vector<std::uint8_t> converted(decoded.pImageData.size());
         if (!SDL_ConvertPixels(header.usWidth, header.usHeight, source_format,
             decoded.pImageData.data(), header.usWidth * 2, target_format, converted.data(), header.usWidth * 2))
             throw std::runtime_error(SDL_GetError());
         // Zero is the game's transparent pixel, even when opaque colors use an alpha mask.
         if (gusAlphaMask) {
             for (std::size_t i = 0; i < std::size_t(header.usWidth) * header.usHeight * 2; i += 2) {
-                UINT16 pixel;
+                std::uint16_t pixel;
                 std::memcpy(&pixel, converted.data() + i, sizeof(pixel));
                 if (pixel) pixel |= gusAlphaMask;
                 std::memcpy(converted.data() + i, &pixel, sizeof(pixel));
@@ -311,7 +310,7 @@ std::optional<image_type> LoadImage(std::string_view filename)
 }
 
 // FUNCTION: WIZ8 0x0040fad0
-bool CopyImageToBuffer(const image_type& image, UINT32 buffer_type, std::span<UINT8> destination,
+bool CopyImageToBuffer(const image_type& image, std::uint32_t buffer_type, std::span<std::uint8_t> destination,
                        std::size_t dest_width, std::size_t dest_height, std::size_t x, std::size_t y,
                        const SDL_Rect& rect)
 {
@@ -340,8 +339,8 @@ bool CopyImageToBuffer(const image_type& image, UINT32 buffer_type, std::span<UI
     if (target_depth != source_depth && !image.pui16BPPPalette)
         return false;
 
-    std::span<const UINT8> source = image.pImageData;
-    std::vector<UINT8> unpacked;
+    std::span<const std::uint8_t> source = image.pImageData;
+    std::vector<std::uint8_t> unpacked;
     if (image.compressed) {
         if (source_depth != 1 || source.empty())
             return false;
@@ -367,7 +366,7 @@ bool CopyImageToBuffer(const image_type& image, UINT32 buffer_type, std::span<UI
             std::copy(input.begin(), input.end(), output.begin());
         } else {
             for (std::size_t column = 0; column < width; ++column) {
-                const UINT16 pixel = (*image.pui16BPPPalette)[input[column]];
+                const std::uint16_t pixel = (*image.pui16BPPPalette)[input[column]];
                 std::memcpy(output.data() + column * sizeof(pixel), &pixel, sizeof(pixel));
             }
         }
@@ -380,7 +379,7 @@ Palette16 Create16BPPPalette(const Palette8& palette)
 {
     Palette16 packed{};
     std::transform(palette.begin(), palette.end(), packed.begin(), [](const SGPPaletteEntry& color) {
-        return Get16BPPColor(UINT32(color.peRed) | (UINT32(color.peGreen) << 8) | (UINT32(color.peBlue) << 16));
+        return Get16BPPColor(std::uint32_t(color.peRed) | (std::uint32_t(color.peGreen) << 8) | (std::uint32_t(color.peBlue) << 16));
     });
     return packed;
 }
@@ -410,12 +409,12 @@ Palette16 Create16BPPPalette(const Palette8& palette)
 
 **********************************************************************************************/
 // FUNCTION: WIZ8 0x004102c0
-Palette16 Create16BPPPaletteShaded(const Palette8& palette, UINT32 rscale,
-                                                UINT32 gscale, UINT32 bscale, BOOLEAN mono)
+Palette16 Create16BPPPaletteShaded(const Palette8& palette, std::uint32_t rscale,
+                                                std::uint32_t gscale, std::uint32_t bscale, bool mono)
 {
     Palette16 packed{};
     std::transform(palette.begin(), palette.end(), packed.begin(), [=](const SGPPaletteEntry& color) {
-        const UINT32 luminance = color.peRed * 299 / 1000 + color.peGreen * 587 / 1000 + color.peBlue * 114 / 1000;
+        const std::uint32_t luminance = color.peRed * 299 / 1000 + color.peGreen * 587 / 1000 + color.peBlue * 114 / 1000;
         const auto red = std::min(rscale * (mono ? luminance : color.peRed) / 256, 255u);
         const auto green = std::min(gscale * (mono ? luminance : color.peGreen) / 256, 255u);
         const auto blue = std::min(bscale * (mono ? luminance : color.peBlue) / 256, 255u);
@@ -426,29 +425,29 @@ Palette16 Create16BPPPaletteShaded(const Palette8& palette, UINT32 rscale,
 
 // Convert from RGB to 16 bit value
 // FUNCTION: WIZ8 0x004104b0
-UINT16 Get16BPPColor(UINT32 RGBValue)
+std::uint16_t Get16BPPColor(std::uint32_t RGBValue)
 {
-    UINT16 r16, g16, b16, usColor;
-    UINT8 r, g, b;
+    std::uint16_t r16, g16, b16, usColor;
+    std::uint8_t r, g, b;
 
     r = SGPGetRValue(RGBValue);
     g = SGPGetGValue(RGBValue);
     b = SGPGetBValue(RGBValue);
 
     if (gusRedShift < 0)
-        r16 = ((UINT16)r >> abs(gusRedShift));
+        r16 = ((std::uint16_t)r >> abs(gusRedShift));
     else
-        r16 = ((UINT16)r << gusRedShift);
+        r16 = ((std::uint16_t)r << gusRedShift);
 
     if (gusGreenShift < 0)
-        g16 = ((UINT16)g >> abs(gusGreenShift));
+        g16 = ((std::uint16_t)g >> abs(gusGreenShift));
     else
-        g16 = ((UINT16)g << gusGreenShift);
+        g16 = ((std::uint16_t)g << gusGreenShift);
 
     if (gusBlueShift < 0)
-        b16 = ((UINT16)b >> abs(gusBlueShift));
+        b16 = ((std::uint16_t)b >> abs(gusBlueShift));
     else
-        b16 = ((UINT16)b << gusBlueShift);
+        b16 = ((std::uint16_t)b << gusBlueShift);
 
     usColor = (r16 & gusRedMask) | (g16 & gusGreenMask) | (b16 & gusBlueMask);
 

@@ -635,28 +635,28 @@ struct W8LevelFile {
 #pragma pack(pop)
 
 W8LevelFile* ReadLevelFile(wiz8::File* hFile);
-BOOLEAN WriteLevelFile(wiz8::File* hFile, wiz8::File* hFileIn, W8LevelFile* pLevel);
-BOOLEAN ReadMeshFile(wiz8::File* hFile, W8LevelFileMesh* pMesh);
-BOOLEAN WriteMeshFile(wiz8::File* hFile, W8LevelFileMesh* pMesh);
-BOOLEAN ReadLightFile(wiz8::File* hFile, W8LevelFileLight* pLight);
-BOOLEAN WriteLightFile(wiz8::File* hFile, W8LevelFileLight* pLight);
-BOOLEAN ReadAnimLightFile(wiz8::File* hFile, W8LevelFileAnimLight* pLight);
-BOOLEAN WriteAnimLightFile(wiz8::File* hFile, W8LevelFileAnimLight* pLight);
-BOOLEAN ReadTriggerFile(wiz8::File* hFile, W8LevelFileTrigger* pTrigger);
-BOOLEAN WriteTriggerFile(wiz8::File* hFile, W8LevelFileTrigger* pTrigger);
-BOOLEAN ReadSuperTriggerFile(wiz8::File* hFile, W8LevelFileTrigger* pTrigger);
-BOOLEAN WriteSuperTriggerFile(wiz8::File* hFile, W8LevelFileTrigger* pTrigger);
-BOOLEAN ReadDoorTriggerFile(wiz8::File* hFile, W8LevelFileDoorRef* pDoor);
-BOOLEAN WriteDoorTriggerFile(wiz8::File* hFile, W8LevelFileDoorRef* pDoor);
-BOOLEAN ReadPathAIFile(wiz8::File* hFile, W8LevelFilePathAI* pPathAI);
-BOOLEAN WritePathAIFile(wiz8::File* hFile, W8LevelFilePathAI* pPathAI);
-BOOLEAN ReadAnimObjFile(wiz8::File* hFile, W8LevelFileAnimObj* pAnimObj);
-BOOLEAN WriteAnimObjFile(wiz8::File* hFile, W8LevelFileAnimObj* pAnimObj);
+bool WriteLevelFile(wiz8::File* hFile, wiz8::File* hFileIn, W8LevelFile* pLevel);
+bool ReadMeshFile(wiz8::File* hFile, W8LevelFileMesh* pMesh);
+bool WriteMeshFile(wiz8::File* hFile, W8LevelFileMesh* pMesh);
+bool ReadLightFile(wiz8::File* hFile, W8LevelFileLight* pLight);
+bool WriteLightFile(wiz8::File* hFile, W8LevelFileLight* pLight);
+bool ReadAnimLightFile(wiz8::File* hFile, W8LevelFileAnimLight* pLight);
+bool WriteAnimLightFile(wiz8::File* hFile, W8LevelFileAnimLight* pLight);
+bool ReadTriggerFile(wiz8::File* hFile, W8LevelFileTrigger* pTrigger);
+bool WriteTriggerFile(wiz8::File* hFile, W8LevelFileTrigger* pTrigger);
+bool ReadSuperTriggerFile(wiz8::File* hFile, W8LevelFileTrigger* pTrigger);
+bool WriteSuperTriggerFile(wiz8::File* hFile, W8LevelFileTrigger* pTrigger);
+bool ReadDoorTriggerFile(wiz8::File* hFile, W8LevelFileDoorRef* pDoor);
+bool WriteDoorTriggerFile(wiz8::File* hFile, W8LevelFileDoorRef* pDoor);
+bool ReadPathAIFile(wiz8::File* hFile, W8LevelFilePathAI* pPathAI);
+bool WritePathAIFile(wiz8::File* hFile, W8LevelFilePathAI* pPathAI);
+bool ReadAnimObjFile(wiz8::File* hFile, W8LevelFileAnimObj* pAnimObj);
+bool WriteAnimObjFile(wiz8::File* hFile, W8LevelFileAnimObj* pAnimObj);
 W8LevelFileProp* ReadPropsFile(wiz8::File* hFile, int count);
-BOOLEAN WritePropsFile(wiz8::File* hFile, int count, W8LevelFileProp* pProps);
-BOOLEAN ReadParticleSystemFile(wiz8::File* hFile, W8LevelFileParticleSystem* pSystem);
-BOOLEAN WriteParticleSystemFile(wiz8::File* hFile, W8LevelFileParticleSystem* pSystem);
-BOOLEAN ReadLevelFileBlock(wiz8::File* hFile, W8LevelFileBlock* pBlock);
-BOOLEAN WriteLevelFileBlock(wiz8::File* hFile, W8LevelFileBlock* pBlock);
+bool WritePropsFile(wiz8::File* hFile, int count, W8LevelFileProp* pProps);
+bool ReadParticleSystemFile(wiz8::File* hFile, W8LevelFileParticleSystem* pSystem);
+bool WriteParticleSystemFile(wiz8::File* hFile, W8LevelFileParticleSystem* pSystem);
+bool ReadLevelFileBlock(wiz8::File* hFile, W8LevelFileBlock* pBlock);
+bool WriteLevelFileBlock(wiz8::File* hFile, W8LevelFileBlock* pBlock);
 
 #endif

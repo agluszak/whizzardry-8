@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <fmt/format.h>
 #include <SDL3/SDL_rect.h>
 #include <string_view>
@@ -6,7 +7,6 @@
 #include <cctype>
 #include <cstring>
 
-#include "Types.h"
 #include "wiz8/utility.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/layouts/character.h"
@@ -597,7 +597,7 @@ void CloseMessageBox(void)
     }
 }
 
-static void InvalidateMessageBoxButton(const GUIButton& button, INT32 reason)
+static void InvalidateMessageBoxButton(const GUIButton& button, std::int32_t reason)
 {
     if (reason & (MSYS_CALLBACK_REASON_GAIN_MOUSE | MSYS_CALLBACK_REASON_LOST_MOUSE)) {
         SDL_Rect rect;
@@ -606,7 +606,7 @@ static void InvalidateMessageBoxButton(const GUIButton& button, INT32 reason)
     }
 }
 
-static void ClickMessageBoxButton(GUI_BUTTON* button, INT32 reason, bool accepted)
+static void ClickMessageBoxButton(GUI_BUTTON* button, std::int32_t reason, bool accepted)
 {
     if (reason & MSYS_CALLBACK_REASON_LBUTTON_DWN) {
         button->uiFlags |= BUTTON_CLICKED_ON;
@@ -619,25 +619,25 @@ static void ClickMessageBoxButton(GUI_BUTTON* button, INT32 reason, bool accepte
 }
 
 // FUNCTION: WIZ8 0x005188c0
-void MessageBoxAcceptMoveCallback(GUI_BUTTON* button, INT32 reason)
+void MessageBoxAcceptMoveCallback(GUI_BUTTON* button, std::int32_t reason)
 {
     InvalidateMessageBoxButton(g_message_box_accept_button, reason);
 }
 
 // FUNCTION: WIZ8 0x00518900
-void MessageBoxAcceptClickCallback(GUI_BUTTON* button, INT32 reason)
+void MessageBoxAcceptClickCallback(GUI_BUTTON* button, std::int32_t reason)
 {
     ClickMessageBoxButton(button, reason, true);
 }
 
 // FUNCTION: WIZ8 0x00518930
-void MessageBoxCancelMoveCallback(GUI_BUTTON* button, INT32 reason)
+void MessageBoxCancelMoveCallback(GUI_BUTTON* button, std::int32_t reason)
 {
     InvalidateMessageBoxButton(g_message_box_cancel_button, reason);
 }
 
 // FUNCTION: WIZ8 0x00518970
-void MessageBoxCancelClickCallback(GUI_BUTTON* button, INT32 reason)
+void MessageBoxCancelClickCallback(GUI_BUTTON* button, std::int32_t reason)
 {
     ClickMessageBoxButton(button, reason, false);
 }

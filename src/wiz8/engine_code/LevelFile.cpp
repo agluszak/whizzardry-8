@@ -12,7 +12,6 @@
 #include <exception>
 #include <new>
 
-#include "Types.h"
 #include "wiz8/engine_code/stLight.hpp"
 #include "wiz8/engine_code/LevelFile.h"
 #include "wiz8/engine_code/ReadMesh.h"
@@ -279,7 +278,7 @@ try {
     if (material->version >= 4) {
         file->read_exact(material->texture_modes, 0x10);
     }
-    return TRUE;
+    return true;
 } catch (const std::exception&) {
     return false;
 }
@@ -290,7 +289,7 @@ static unsigned char WriteMaterialRecord(wiz8::File* file, W8MaterialRecord* mat
     if (material->version >= 4) {
         file->write(material->texture_modes, 0x10);
     }
-    return TRUE;
+    return true;
 }
 
 // FUNCTION: WIZ8 0x004CFDC0
@@ -488,7 +487,7 @@ try {
 }
 
 // FUNCTION: WIZ8 0x004D07C0
-BOOLEAN WriteLevelFile(wiz8::File* hFile, wiz8::File* hFileIn, W8LevelFile* pLevel)
+bool WriteLevelFile(wiz8::File* hFile, wiz8::File* hFileIn, W8LevelFile* pLevel)
 try {
     std::unique_ptr<W8LevelFile, decltype(&ReleaseLevelFile)> owner(pLevel, &ReleaseLevelFile);
 
@@ -510,13 +509,13 @@ try {
     hFile->write(&pLevel->nTextures, 2);
     iCount = pLevel->nTextures;
     if (iCount == 0) {
-        return FALSE;
+        return false;
     }
 
     for (i = 0; i < static_cast<short>(iCount); ++i) {
         W8MaterialRecord* pTexture = pLevel->pTextures + i;
         if (!WriteMaterialRecord(hFile, pTexture))
-            return FALSE;
+            return false;
     }
 
     hFile->write(&iCount, 4);
@@ -534,7 +533,7 @@ try {
     if (pLevel->nLights != 0) {
         for (i = 0; i < pLevel->nLights; ++i) {
             if (WriteLightFile(hFile, pLevel->pLights + i) == 0) {
-                return FALSE;
+                return false;
             }
         }
     }
@@ -562,13 +561,13 @@ try {
     hFile->write(&pLevel->nProps, 4);
     if ((pLevel->nProps != 0) &&
         (WritePropsFile(hFile, pLevel->nProps, std::exchange(pLevel->pProps, nullptr)) == 0)) {
-        return FALSE;
+        return false;
     }
     hFile->write(&iCount, 4);
     hFile->write(&pLevel->nBitmaps, 4);
     if ((pLevel->nBitmaps != 0) &&
         !WritePropsFile(hFile, pLevel->nBitmaps, std::exchange(pLevel->pBitmaps, nullptr))) {
-        return FALSE;
+        return false;
     }
     hFile->write(&iCount, 4);
     hFile->write(&pLevel->nCameras, 4);
@@ -586,14 +585,14 @@ try {
                 hFile->write(&pCamera->scale, 4);
             }
             if (!WritePathAIFile(hFile, &pCamera->pathAI))
-                return FALSE;
+                return false;
         }
     }
     hFile->write(&iCount, 4);
     hFile->write(&pLevel->has_block, 4);
     if (pLevel->has_block != 0) {
         if (!WriteLevelFileBlock(hFile, &pLevel->block))
-            return FALSE;
+            return false;
     }
     hFile->write(&iCount, 4);
     hFile->write(&pLevel->nTriggers, 4);
@@ -603,7 +602,7 @@ try {
         }
         for (i = 0; i < pLevel->nTriggers; ++i) {
             if (!WriteTriggerFile(hFile, pLevel->pTriggers + i))
-                return FALSE;
+                return false;
         }
     }
     hFile->write(&iCount, 4);
@@ -620,7 +619,7 @@ try {
     if (pLevel->nParticleSystems != 0) {
         for (i = 0; i < pLevel->nParticleSystems; ++i) {
             if (!WriteParticleSystemFile(hFile, pLevel->pParticleSystems + i))
-                return FALSE;
+                return false;
         }
     }
     hFile->write(&iCount, 4);
@@ -645,13 +644,13 @@ try {
             break;
     }
 
-    return TRUE;
+    return true;
 } catch (const std::exception&) {
-    return FALSE;
+    return false;
 }
 
 // FUNCTION: WIZ8 0x004D1110
-BOOLEAN ReadMeshFile(wiz8::File* hFile, W8LevelFileMesh* pMesh)
+bool ReadMeshFile(wiz8::File* hFile, W8LevelFileMesh* pMesh)
 try {
     memset(pMesh, 0, sizeof(*pMesh));
 
@@ -672,13 +671,13 @@ try {
     if (count >= 0x186a1 || count <= 0) {
         sprintf(g_level_file_error, "Invalid number of vertices in mesh (%d vertices).\n", count);
         ReportBuildStatus(7, g_level_file_error);
-        return FALSE;
+        return false;
     }
     count = pMesh->num_faces;
     if (count >= 0x30d41 || count <= 0) {
         sprintf(g_level_file_error, "Invalid number of faces in mesh (%d faces).\n", count);
         ReportBuildStatus(7, g_level_file_error);
-        return FALSE;
+        return false;
     }
     if (pMesh->version >= 3) {
         hFile->read_exact(&pMesh->flags, 1);
@@ -708,19 +707,19 @@ try {
         hFile->read_exact(&pMesh->lod_mode, 1);
         hFile->read_exact(&pMesh->num_lods, 2);
         ValidateRecordCount(pMesh->num_lods, sizeof(void*), hFile->size() - hFile->tell());
-        if (pMesh->num_lods == 0) return FALSE;
+        if (pMesh->num_lods == 0) return false;
         if ((pMesh->flags & W8_LEVEL_MESH_SHORT_LOD_VERTICES) == 0) {
             srVector3T<float>** pLods =
                 static_cast<srVector3T<float>**>(calloc(1, pMesh->num_lods * sizeof(*pLods)));
             if (pLods == 0) {
-                return FALSE;
+                return false;
             }
             pMesh->lods = pLods;
             for (i = 0; i < pMesh->num_lods; ++i) {
                 pLods[i] = static_cast<srVector3T<float>*>(
                     calloc(1, pMesh->num_vertices * sizeof(*pLods[i])));
                 if (pLods[i] == 0) {
-                    return FALSE;
+                    return false;
                 }
                 hFile->read_exact(pLods[i], pMesh->num_vertices * sizeof(*pLods[i]));
             }
@@ -728,17 +727,17 @@ try {
         } else {
             if (pMesh->lod_mode >= 2) {
                 hFile->read_exact(&pMesh->lod_scale, 4);
-                if (!std::isfinite(pMesh->lod_scale) || pMesh->lod_scale <= 0) return FALSE;
+                if (!std::isfinite(pMesh->lod_scale) || pMesh->lod_scale <= 0) return false;
             }
             short** pLods = static_cast<short**>(calloc(1, pMesh->num_lods * sizeof(short*)));
             if (pLods == 0) {
-                return FALSE;
+                return false;
             }
             pMesh->lod_shorts = pLods;
             for (i = 0; i < pMesh->num_lods; ++i) {
                 pLods[i] = static_cast<short*>(calloc(1, pMesh->num_vertices * 3 * sizeof(short)));
                 if (pLods[i] == 0) {
-                    return FALSE;
+                    return false;
                 }
                 hFile->read_exact(pLods[i], pMesh->num_vertices * 3 * sizeof(short));
             }
@@ -752,7 +751,7 @@ try {
                           pMesh->num_faces * sizeof(W8LevelFileCompressedFace));
         for (int face = 0; face < pMesh->num_faces; ++face) {
             for (auto vertex : pMesh->pstCompFaces[face].vertex_indices) {
-                if (vertex >= pMesh->num_vertices) return FALSE;
+                if (vertex >= pMesh->num_vertices) return false;
             }
         }
     } else {
@@ -761,24 +760,24 @@ try {
         hFile->read_exact(pMesh->pstFaces, pMesh->num_faces * sizeof(*pMesh->pstFaces));
         for (int face = 0; face < pMesh->num_faces; ++face) {
             for (int vertex : pMesh->pstFaces[face].vertices) {
-                if (vertex < 0 || vertex >= pMesh->num_vertices) return FALSE;
+                if (vertex < 0 || vertex >= pMesh->num_vertices) return false;
             }
         }
     }
     static_cast<void>(owner.release());
-    return TRUE;
+    return true;
 } catch (const std::exception&) {
     return false;
 }
 
 // FUNCTION: WIZ8 0x004D1510
-BOOLEAN WriteMeshFile(wiz8::File* hFile, W8LevelFileMesh* pMesh)
+bool WriteMeshFile(wiz8::File* hFile, W8LevelFileMesh* pMesh)
 {
     const auto cleanup = [](W8LevelFileMesh* record) { ReleaseLevelRecord(*record); };
     std::unique_ptr<W8LevelFileMesh, decltype(cleanup)> owner(pMesh, cleanup);
 
     if (pMesh->version >= 4 && (pMesh->mapping_count < 0 || pMesh->mapping_count > 1)) {
-        return FALSE;
+        return false;
     }
     hFile->write(&pMesh->version, 4);
     hFile->write(&pMesh->num_vertices, 4);
@@ -813,22 +812,22 @@ BOOLEAN WriteMeshFile(wiz8::File* hFile, W8LevelFileMesh* pMesh)
         if ((pMesh->flags & W8_LEVEL_MESH_SHORT_LOD_VERTICES) == 0) {
             srVector3T<float>** pLods = pMesh->lods;
             if (pLods == 0) {
-                return FALSE;
+                return false;
             }
             for (int i = 0; i < pMesh->num_lods; ++i) {
                 if (pLods[i] == 0) {
-                    return FALSE;
+                    return false;
                 }
                 hFile->write(pLods[i], pMesh->num_vertices * sizeof(*pLods[i]));
             }
         } else {
             short** pLods = pMesh->lod_shorts;
             if (pLods == 0) {
-                return FALSE;
+                return false;
             }
             for (int i = 0; i < pMesh->num_lods; ++i) {
                 if (pLods[i] == 0) {
-                    return FALSE;
+                    return false;
                 }
                 hFile->write(pLods[i], pMesh->num_vertices * 3 * sizeof(short));
             }
@@ -841,18 +840,18 @@ BOOLEAN WriteMeshFile(wiz8::File* hFile, W8LevelFileMesh* pMesh)
         }
         hFile->write(pMesh->pstCompFaces, pMesh->num_faces * sizeof(W8LevelFileCompressedFace));
 
-        return TRUE;
+        return true;
     }
     if (pMesh->pstFaces == 0) {
         throw std::bad_alloc();
     }
     hFile->write(pMesh->pstFaces, pMesh->num_faces * sizeof(*pMesh->pstFaces));
 
-    return TRUE;
+    return true;
 }
 
 // FUNCTION: WIZ8 0x004D1820
-BOOLEAN ReadLightFile(wiz8::File* hFile, W8LevelFileLight* pLight)
+bool ReadLightFile(wiz8::File* hFile, W8LevelFileLight* pLight)
 try {
     memset(pLight, 0, sizeof(*pLight));
     const auto cleanup = [](W8LevelFileLight* record) { ReleaseLevelRecord(*record); };
@@ -873,7 +872,7 @@ try {
             pLight->pExtra =
                 static_cast<W8LevelFileLightExtra*>(calloc(1, sizeof(W8LevelFileLightExtra)));
             if (pLight->pExtra == 0) {
-                return FALSE;
+                return false;
             }
             hFile->read_exact(pLight->pExtra, sizeof(W8LevelFileLightExtra));
 
@@ -881,21 +880,21 @@ try {
                 pLight->pPathAI =
                     static_cast<W8LevelFilePathAI*>(calloc(1, sizeof(W8LevelFilePathAI)));
                 if (pLight->pPathAI == 0) {
-                    return FALSE;
+                    return false;
                 }
                 if (!ReadPathAIFile(hFile, pLight->pPathAI))
-                    return FALSE;
+                    return false;
             }
         }
     }
     static_cast<void>(owner.release());
-    return TRUE;
+    return true;
 } catch (const std::exception&) {
     return false;
 }
 
 // FUNCTION: WIZ8 0x004D1960
-BOOLEAN WriteLightFile(wiz8::File* hFile, W8LevelFileLight* pLight)
+bool WriteLightFile(wiz8::File* hFile, W8LevelFileLight* pLight)
 {
     const auto cleanup = [](W8LevelFileLight* record) { ReleaseLevelRecord(*record); };
     std::unique_ptr<W8LevelFileLight, decltype(cleanup)> owner(pLight, cleanup);
@@ -916,15 +915,15 @@ BOOLEAN WriteLightFile(wiz8::File* hFile, W8LevelFileLight* pLight)
             if (((pLight->pExtra->flags & W8_PARAM_LIGHT_HAS_PATH) != 0) &&
                 (pLight->pPathAI != 0)) {
                 if (!WritePathAIFile(hFile, pLight->pPathAI))
-                    return FALSE;
+                    return false;
             }
         }
     }
-    return TRUE;
+    return true;
 }
 
 // FUNCTION: WIZ8 0x004D1A90
-BOOLEAN ReadAnimLightFile(wiz8::File* hFile, W8LevelFileAnimLight* pLight)
+bool ReadAnimLightFile(wiz8::File* hFile, W8LevelFileAnimLight* pLight)
 try {
     memset(pLight, 0, sizeof(*pLight));
     const auto cleanup = [](W8LevelFileAnimLight* record) { ReleaseLevelRecord(*record); };
@@ -940,18 +939,18 @@ try {
         pLight->pExtra =
             static_cast<W8LevelFileLightExtra*>(calloc(1, sizeof(W8LevelFileLightExtra)));
         if (pLight->pExtra == 0) {
-            return FALSE;
+            return false;
         }
         hFile->read_exact(pLight->pExtra, sizeof(W8LevelFileLightExtra));
     }
     static_cast<void>(owner.release());
-    return TRUE;
+    return true;
 } catch (const std::exception&) {
     return false;
 }
 
 // FUNCTION: WIZ8 0x004D1B50
-BOOLEAN WriteAnimLightFile(wiz8::File* hFile, W8LevelFileAnimLight* pLight)
+bool WriteAnimLightFile(wiz8::File* hFile, W8LevelFileAnimLight* pLight)
 {
     const auto cleanup = [](W8LevelFileAnimLight* record) { ReleaseLevelRecord(*record); };
     std::unique_ptr<W8LevelFileAnimLight, decltype(cleanup)> owner(pLight, cleanup);
@@ -965,7 +964,7 @@ BOOLEAN WriteAnimLightFile(wiz8::File* hFile, W8LevelFileAnimLight* pLight)
     if ((pLight->version >= 2) && (pLight->pExtra != 0)) {
         hFile->write(pLight->pExtra, sizeof(W8LevelFileLightExtra));
     }
-    return TRUE;
+    return true;
 }
 
 template<bool reading>
@@ -1108,7 +1107,7 @@ static bool TransferSoundTrigger(wiz8::File* hFile, W8LevelFileSound* pSound)
 
 
 // FUNCTION: WIZ8 0x004D1C10
-BOOLEAN ReadTriggerFile(wiz8::File* hFile, W8LevelFileTrigger* pTrigger)
+bool ReadTriggerFile(wiz8::File* hFile, W8LevelFileTrigger* pTrigger)
 try {
     LevelRegistryTransaction registries;
 
@@ -1127,16 +1126,16 @@ try {
         }
 
         pTrigger->pData = pSwitch;
-        if (!TransferSwitchTrigger<true>(hFile, pSwitch)) return FALSE;
+        if (!TransferSwitchTrigger<true>(hFile, pSwitch)) return false;
         pTrigger->pData = pSwitch;
         if (g_level_file) {
             if (g_level_file->num_switch_triggers >= 1000)
-                return FALSE;
+                return false;
             g_level_file->switch_triggers[g_level_file->num_switch_triggers++] = pSwitch;
         }
         registries.commit();
         static_cast<void>(owner.release());
-        return TRUE;
+        return true;
     }
     case 2: {
         W8LevelFileInvisible* pInvis =
@@ -1146,7 +1145,7 @@ try {
         }
 
         pTrigger->pData = pInvis;
-        if (!TransferInvisibleTrigger<true>(hFile, pInvis)) return FALSE;
+        if (!TransferInvisibleTrigger<true>(hFile, pInvis)) return false;
         if (pInvis->version > 4) {
             hFile->read_exact(&pInvis->has_legacy_geometry, 1);
             if (pInvis->has_legacy_geometry != 0) {
@@ -1162,26 +1161,26 @@ try {
                     hFile->read_exact(&pRecord->linked_face, 2);
                     if (g_level_file) {
                         if (g_level_file->num_linked_records >= 100)
-                            return FALSE;
+                            return false;
                         g_level_file->linked_records[g_level_file->num_linked_records++] = pRecord;
                     }
                     pRecord->normal_scale = pInvis->range;
                     pRecord->forward_scale = 1.0f;
                     registries.commit();
                     static_cast<void>(owner.release());
-                    return TRUE;
+                    return true;
                 }
             }
         }
         if (g_level_file) {
             if (g_level_file->num_invisible_planes >= 1000)
-                return FALSE;
+                return false;
             g_level_file->invisible_planes[g_level_file->num_invisible_planes++] = pInvis->pPlane;
         }
         pTrigger->pData = pInvis;
         registries.commit();
         static_cast<void>(owner.release());
-        return TRUE;
+        return true;
     }
     case 3: {
         W8LevelFileSound* pSound =
@@ -1191,29 +1190,29 @@ try {
         }
 
         pTrigger->pData = pSound;
-        if (!TransferSoundTrigger<true>(hFile, pSound)) return FALSE;
+        if (!TransferSoundTrigger<true>(hFile, pSound)) return false;
         pTrigger->pData = pSound;
         registries.commit();
         static_cast<void>(owner.release());
-        return TRUE;
+        return true;
     }
     case 4:
         if (!ReadSuperTriggerFile(hFile, pTrigger))
-            return FALSE;
+            return false;
         registries.commit();
         static_cast<void>(owner.release());
-        return TRUE;
+        return true;
     default:
         registries.commit();
         static_cast<void>(owner.release());
-        return TRUE;
+        return true;
     }
 } catch (const std::exception&) {
     return false;
 }
 
 // FUNCTION: WIZ8 0x004D23F0
-BOOLEAN WriteTriggerFile(wiz8::File* hFile, W8LevelFileTrigger* pTrigger)
+bool WriteTriggerFile(wiz8::File* hFile, W8LevelFileTrigger* pTrigger)
 {
     const auto cleanup = [](W8LevelFileTrigger* record) { ReleaseLevelRecord(*record); };
     std::unique_ptr<W8LevelFileTrigger, decltype(cleanup)> owner(pTrigger, cleanup);
@@ -1226,16 +1225,16 @@ BOOLEAN WriteTriggerFile(wiz8::File* hFile, W8LevelFileTrigger* pTrigger)
         if (pSwitch == 0) {
             throw std::bad_alloc();
         }
-        if (!TransferSwitchTrigger<false>(hFile, pSwitch)) return FALSE;
+        if (!TransferSwitchTrigger<false>(hFile, pSwitch)) return false;
 
-        return TRUE;
+        return true;
     }
     case 2: {
         W8LevelFileInvisible* pInvis = static_cast<W8LevelFileInvisible*>(pTrigger->pData);
         if (pInvis == 0) {
             throw std::bad_alloc();
         }
-        if (!TransferInvisibleTrigger<false>(hFile, pInvis)) return FALSE;
+        if (!TransferInvisibleTrigger<false>(hFile, pInvis)) return false;
         if (pInvis->version > 4) {
             hFile->write(&pInvis->has_legacy_geometry, 1);
             if (pInvis->has_legacy_geometry != 0) {
@@ -1251,21 +1250,21 @@ BOOLEAN WriteTriggerFile(wiz8::File* hFile, W8LevelFileTrigger* pTrigger)
             }
         }
 
-        return TRUE;
+        return true;
     }
     case 3: {
         W8LevelFileSound* pSound = static_cast<W8LevelFileSound*>(pTrigger->pData);
         if (pSound == 0) {
             throw std::bad_alloc();
         }
-        if (!TransferSoundTrigger<false>(hFile, pSound)) return FALSE;
+        if (!TransferSoundTrigger<false>(hFile, pSound)) return false;
 
-        return TRUE;
+        return true;
     }
     case 4:
         return WriteSuperTriggerFile(hFile, pTrigger);
     default:
-        return TRUE;
+        return true;
     }
 }
 
@@ -1324,7 +1323,7 @@ static bool TransferSuperTriggerHeader(wiz8::File* hFile, W8LevelFileSuperTrigge
 }
 
 // FUNCTION: WIZ8 0x004D2A30
-BOOLEAN ReadSuperTriggerFile(wiz8::File* hFile, W8LevelFileTrigger* pTrigger)
+bool ReadSuperTriggerFile(wiz8::File* hFile, W8LevelFileTrigger* pTrigger)
 try {
     LevelRegistryTransaction registries;
 
@@ -1337,10 +1336,10 @@ try {
         static_cast<W8LevelFileSuperTrigger*>(calloc(1, sizeof(W8LevelFileSuperTrigger)));
     if (pSuper == 0) {
         ReportBuildStatus(7, "ReadSuperTrigger: Could not allocate SuperTrigger strucutre.\n");
-        return FALSE;
+        return false;
     }
     pTrigger->pData = pSuper;
-    if (!TransferSuperTriggerHeader<true>(hFile, pSuper)) return FALSE;
+    if (!TransferSuperTriggerHeader<true>(hFile, pSuper)) return false;
     if ((pSuper->flags & 1) == 0) {
         hFile->read_exact(&pSuper->placement_kind, 1);
         if (pSuper->placement_kind == 1) {
@@ -1349,7 +1348,7 @@ try {
             if (pSuper->pPosition == 0) {
                 ReportBuildStatus(
                     7, "ReadSuperTrigger: Could not allocate Trigger Position structure.\n");
-                return FALSE;
+                return false;
             }
             hFile->read_exact(pSuper->pPosition, sizeof(W8LevelFileTriggerPosition));
         } else if (pSuper->placement_kind == 2) {
@@ -1357,12 +1356,12 @@ try {
             if (pSuper->pPlane == 0) {
                 ReportBuildStatus(
                     7, "ReadSuperTrigger: Could not allocate Trigger Plane structure.\n");
-                return FALSE;
+                return false;
             }
             hFile->read_exact(pSuper->pPlane, sizeof(W8LevelFilePlane));
             if (g_level_file) {
                 if (g_level_file->num_invisible_planes >= 1000)
-                    return FALSE;
+                    return false;
                 g_level_file->invisible_planes[g_level_file->num_invisible_planes++] =
                     pSuper->pPlane;
             }
@@ -1375,7 +1374,7 @@ try {
             if (pSuper->pHotSpot == 0) {
                 ReportBuildStatus(
                     7, "ReadSuperTrigger: Could not allocate Trigger HotSpot structure.\n");
-                return FALSE;
+                return false;
             }
             hFile->read_exact(pSuper->pHotSpot, sizeof(W8LevelFileTriggerHotSpot));
         }
@@ -1386,7 +1385,7 @@ try {
         hFile->read_exact(&pSuper->door.kind, 1);
         if (pSuper->door.kind == 1) {
             if (!ReadDoorTriggerFile(hFile, &pSuper->door))
-                return FALSE;
+                return false;
         } else if (pSuper->door.kind == 2) {
             W8LevelFileLinkedRecord* pRecord =
                 static_cast<W8LevelFileLinkedRecord*>(calloc(1, sizeof(W8LevelFileLinkedRecord)));
@@ -1400,7 +1399,7 @@ try {
                 hFile->read_exact(&pRecord->linked_face, 2);
                 if (g_level_file) {
                     if (g_level_file->num_linked_records >= 100)
-                        return FALSE;
+                        return false;
                     g_level_file->linked_records[g_level_file->num_linked_records++] = pRecord;
                 }
                 pSuper->pRecord = pRecord;
@@ -1413,13 +1412,13 @@ try {
     pTrigger->pData = pSuper;
     registries.commit();
     static_cast<void>(owner.release());
-    return TRUE;
+    return true;
 } catch (const std::exception&) {
     return false;
 }
 
 // FUNCTION: WIZ8 0x004D3000
-BOOLEAN WriteSuperTriggerFile(wiz8::File* hFile, W8LevelFileTrigger* pTrigger)
+bool WriteSuperTriggerFile(wiz8::File* hFile, W8LevelFileTrigger* pTrigger)
 {
     const auto cleanup = [](W8LevelFileTrigger* record) { ReleaseLevelRecord(*record); };
     std::unique_ptr<W8LevelFileTrigger, decltype(cleanup)> owner(pTrigger, cleanup);
@@ -1429,7 +1428,7 @@ BOOLEAN WriteSuperTriggerFile(wiz8::File* hFile, W8LevelFileTrigger* pTrigger)
         ReportBuildStatus(7, "WriteSuperTrigger: Couldn't create SuperTrigger structure.\n");
         return 0;
     }
-    if (!TransferSuperTriggerHeader<false>(hFile, pSuper)) return FALSE;
+    if (!TransferSuperTriggerHeader<false>(hFile, pSuper)) return false;
     if ((pSuper->flags & 1) == 0) {
         hFile->write(&pSuper->placement_kind, 1);
         if (pSuper->placement_kind == 1) {
@@ -1462,7 +1461,7 @@ BOOLEAN WriteSuperTriggerFile(wiz8::File* hFile, W8LevelFileTrigger* pTrigger)
         hFile->write(&pSuper->door.kind, 1);
         if (pSuper->door.kind == 1) {
             if (!WriteDoorTriggerFile(hFile, &pSuper->door))
-                return FALSE;
+                return false;
         } else if (pSuper->door.kind == 2) {
             W8LevelFileLinkedRecord* pRecord = pSuper->pRecord;
 
@@ -1476,7 +1475,7 @@ BOOLEAN WriteSuperTriggerFile(wiz8::File* hFile, W8LevelFileTrigger* pTrigger)
         }
     }
 
-    return TRUE;
+    return true;
 }
 
 template<bool reading>
@@ -1492,7 +1491,7 @@ static void TransferDoorTrigger(wiz8::File* hFile, W8LevelFileDoor* pDoor)
 }
 
 // FUNCTION: WIZ8 0x004D3540
-BOOLEAN ReadDoorTriggerFile(wiz8::File* hFile, W8LevelFileDoorRef* pDoor)
+bool ReadDoorTriggerFile(wiz8::File* hFile, W8LevelFileDoorRef* pDoor)
 try {
     pDoor->door = nullptr;
     const auto cleanup = [](W8LevelFileDoorRef* record) { ReleaseLevelRecord(*record); };
@@ -1506,13 +1505,13 @@ try {
     TransferDoorTrigger<true>(hFile, pDoorRec);
     pDoor->door = pDoorRec;
     static_cast<void>(owner.release());
-    return TRUE;
+    return true;
 } catch (const std::exception&) {
     return false;
 }
 
 // FUNCTION: WIZ8 0x004D3660
-BOOLEAN WriteDoorTriggerFile(wiz8::File* hFile, W8LevelFileDoorRef* pDoor)
+bool WriteDoorTriggerFile(wiz8::File* hFile, W8LevelFileDoorRef* pDoor)
 {
     const auto cleanup = [](W8LevelFileDoorRef* record) { ReleaseLevelRecord(*record); };
     std::unique_ptr<W8LevelFileDoorRef, decltype(cleanup)> owner(pDoor, cleanup);
@@ -1523,11 +1522,11 @@ BOOLEAN WriteDoorTriggerFile(wiz8::File* hFile, W8LevelFileDoorRef* pDoor)
     }
     TransferDoorTrigger<false>(hFile, pDoorRec);
 
-    return TRUE;
+    return true;
 }
 
 // FUNCTION: WIZ8 0x004D3770
-BOOLEAN ReadPathAIFile(wiz8::File* hFile, W8LevelFilePathAI* pPathAI)
+bool ReadPathAIFile(wiz8::File* hFile, W8LevelFilePathAI* pPathAI)
 try {
     memset(pPathAI, 0, sizeof(*pPathAI));
     const auto cleanup = [](W8LevelFilePathAI* record) { ReleaseLevelRecord(*record); };
@@ -1551,13 +1550,13 @@ try {
         hFile->read_exact(pPathAI->pPaths, pPathAI->path_count * sizeof(W8LevelFilePathNode));
     }
     static_cast<void>(owner.release());
-    return TRUE;
+    return true;
 } catch (const std::exception&) {
     return false;
 }
 
 // FUNCTION: WIZ8 0x004D38E0
-BOOLEAN WritePathAIFile(wiz8::File* hFile, W8LevelFilePathAI* pPathAI)
+bool WritePathAIFile(wiz8::File* hFile, W8LevelFilePathAI* pPathAI)
 {
     const auto cleanup = [](W8LevelFilePathAI* record) { ReleaseLevelRecord(*record); };
     std::unique_ptr<W8LevelFilePathAI, decltype(cleanup)> owner(pPathAI, cleanup);
@@ -1581,7 +1580,7 @@ BOOLEAN WritePathAIFile(wiz8::File* hFile, W8LevelFilePathAI* pPathAI)
         }
         hFile->write(pPathAI->pPaths, pPathAI->path_count * sizeof(W8LevelFilePathNode));
     }
-    return TRUE;
+    return true;
 }
 
 enum class AnimationFrameKind { morph, transform };
@@ -1639,7 +1638,7 @@ static bool WriteAnimationFrames(wiz8::File* file, W8LevelFileFrame* frames, int
 }
 
 // FUNCTION: WIZ8 0x004D3A10
-BOOLEAN ReadAnimObjFile(wiz8::File* hFile, W8LevelFileAnimObj* pAnimObj)
+bool ReadAnimObjFile(wiz8::File* hFile, W8LevelFileAnimObj* pAnimObj)
 try {
     memset(pAnimObj, 0, sizeof(*pAnimObj));
 
@@ -1702,13 +1701,13 @@ try {
             pAnimObj->pAnimLights = static_cast<W8LevelFileAnimLight*>(
                 calloc(1, pAnimObj->num_anim_lights * sizeof(W8LevelFileAnimLight)));
             if (pAnimObj->pAnimLights == 0) {
-                return FALSE;
+                return false;
             }
             memset(pAnimObj->pAnimLights, 0,
                    pAnimObj->num_anim_lights * sizeof(W8LevelFileAnimLight));
             for (i = 0; i < pAnimObj->num_anim_lights; ++i) {
                 if (!ReadAnimLightFile(hFile, pAnimObj->pAnimLights + i))
-                    return FALSE;
+                    return false;
             }
         }
     }
@@ -1720,10 +1719,10 @@ try {
             pAnimObj->pPathAI =
                 static_cast<W8LevelFilePathAI*>(calloc(1, sizeof(W8LevelFilePathAI)));
             if (pAnimObj->pPathAI == 0) {
-                return FALSE;
+                return false;
             }
             if (!ReadPathAIFile(hFile, pAnimObj->pPathAI))
-                return FALSE;
+                return false;
         }
         if (pAnimObj->num_anims != 0) {
             AllocateLevelRecords(pAnimObj->pMorphs, pAnimObj->num_anims);
@@ -1733,7 +1732,7 @@ try {
                 hFile->read_exact(&pMorph->channel, 1);
                 hFile->read_exact(&pMorph->num_frames, 1);
                 if (!ReadAnimationFrames(hFile, pMorph->LODMesh.pFrames, pMorph->num_frames,
-                                         AnimationFrameKind::morph)) return FALSE;
+                                         AnimationFrameKind::morph)) return false;
             }
         }
     } else {
@@ -1747,20 +1746,20 @@ try {
                 hFile->read_exact(&pTransform->channel, 1);
                 hFile->read_exact(&pTransform->num_frames, 1);
                 if (!ReadAnimationFrames(hFile, pTransform->LODMesh.pFrames, pTransform->num_frames,
-                                         AnimationFrameKind::transform)) return FALSE;
+                                         AnimationFrameKind::transform)) return false;
                 if (!ReadPathAIFile(hFile, &pTransform->pathAI))
-                    return FALSE;
+                    return false;
             }
         }
     }
     static_cast<void>(owner.release());
-    return TRUE;
+    return true;
 } catch (const std::exception&) {
     return false;
 }
 
 // FUNCTION: WIZ8 0x004D4480
-BOOLEAN WriteAnimObjFile(wiz8::File* hFile, W8LevelFileAnimObj* pAnimObj)
+bool WriteAnimObjFile(wiz8::File* hFile, W8LevelFileAnimObj* pAnimObj)
 {
     const auto cleanup = [](W8LevelFileAnimObj* record) { ReleaseLevelRecord(*record); };
     std::unique_ptr<W8LevelFileAnimObj, decltype(cleanup)> owner(pAnimObj, cleanup);
@@ -1806,7 +1805,7 @@ BOOLEAN WriteAnimObjFile(wiz8::File* hFile, W8LevelFileAnimObj* pAnimObj)
         if ((pAnimObj->num_anim_lights != 0) && (pAnimObj->pAnimLights != 0)) {
             for (i = 0; i < pAnimObj->num_anim_lights; ++i) {
                 if (!WriteAnimLightFile(hFile, pAnimObj->pAnimLights + i))
-                    return FALSE;
+                    return false;
             }
         }
     }
@@ -1815,7 +1814,7 @@ BOOLEAN WriteAnimObjFile(wiz8::File* hFile, W8LevelFileAnimObj* pAnimObj)
             hFile->write(&pAnimObj->has_path_ai, 1);
             if (pAnimObj->has_path_ai != 0 &&
                 (!pAnimObj->pPathAI || !WritePathAIFile(hFile, pAnimObj->pPathAI)))
-                return FALSE;
+                return false;
         }
         if (pAnimObj->num_anims != 0) {
             if (pAnimObj->pMorphs == 0) {
@@ -1826,10 +1825,10 @@ BOOLEAN WriteAnimObjFile(wiz8::File* hFile, W8LevelFileAnimObj* pAnimObj)
                 hFile->write(&pMorph->channel, 1);
                 hFile->write(&pMorph->num_frames, 1);
                 if (!WriteAnimationFrames(hFile, pMorph->LODMesh.pFrames, pMorph->num_frames,
-                                         AnimationFrameKind::morph)) return FALSE;
+                                         AnimationFrameKind::morph)) return false;
             }
 
-            return TRUE;
+            return true;
         }
     } else {
         hFile->write(&pAnimObj->num_transforms, 1);
@@ -1842,13 +1841,13 @@ BOOLEAN WriteAnimObjFile(wiz8::File* hFile, W8LevelFileAnimObj* pAnimObj)
                 hFile->write(&pTransform->channel, 1);
                 hFile->write(&pTransform->num_frames, 1);
                 if (!WriteAnimationFrames(hFile, pTransform->LODMesh.pFrames, pTransform->num_frames,
-                                         AnimationFrameKind::transform)) return FALSE;
+                                         AnimationFrameKind::transform)) return false;
                 if (!WritePathAIFile(hFile, &pTransform->pathAI))
-                    return FALSE;
+                    return false;
             }
         }
     }
-    return TRUE;
+    return true;
 }
 
 // FUNCTION: WIZ8 0x004D4CB0
@@ -1916,13 +1915,13 @@ try {
 }
 
 // FUNCTION: WIZ8 0x004D4FC0
-BOOLEAN WritePropsFile(wiz8::File* hFile, int count, W8LevelFileProp* pProps)
+bool WritePropsFile(wiz8::File* hFile, int count, W8LevelFileProp* pProps)
 try {
     const auto cleanup = [count](W8LevelFileProp* props) { ReleaseLevelProps(props, count); };
     std::unique_ptr<W8LevelFileProp, decltype(cleanup)> owner(pProps, cleanup);
 
     if (count == 0) {
-        return TRUE;
+        return true;
     }
     if (pProps == 0) {
         throw std::bad_alloc();
@@ -1951,11 +1950,11 @@ try {
             }
         }
         if (!WriteAnimObjFile(hFile, &pProp->anim_obj))
-            return FALSE;
+            return false;
         hFile->write(&pProp->has_trigger, 1);
         if (pProp->has_trigger != 0) {
             if (!WriteTriggerFile(hFile, pProp->pTrigger))
-                return FALSE;
+                return false;
         }
         if (pProp->version >= 9) {
             hFile->write(&pProp->has_footsteps, 1);
@@ -1966,13 +1965,13 @@ try {
         }
     }
 
-    return TRUE;
+    return true;
 } catch (const std::exception&) {
-    return FALSE;
+    return false;
 }
 
 // FUNCTION: WIZ8 0x004D5240
-BOOLEAN ReadParticleSystemFile(wiz8::File* hFile, W8LevelFileParticleSystem* pSystem)
+bool ReadParticleSystemFile(wiz8::File* hFile, W8LevelFileParticleSystem* pSystem)
 try {
 
     hFile->read_exact(pSystem, 0x217);
@@ -1999,13 +1998,13 @@ try {
                                       pSystem->particle.location.x * g_world_scale,
                                       pSystem->particle.location.y * g_world_scale,
                                       pSystem->particle.location.z * g_world_scale));
-    return TRUE;
+    return true;
 } catch (const std::exception&) {
     return false;
 }
 
 // FUNCTION: WIZ8 0x004D5370
-BOOLEAN WriteParticleSystemFile(wiz8::File* hFile, W8LevelFileParticleSystem* pSystem)
+bool WriteParticleSystemFile(wiz8::File* hFile, W8LevelFileParticleSystem* pSystem)
 {
 
     hFile->write(pSystem, 0x217);
@@ -2020,7 +2019,7 @@ BOOLEAN WriteParticleSystemFile(wiz8::File* hFile, W8LevelFileParticleSystem* pS
         hFile->write(&pSystem->particle.start_frame, 4);
         hFile->write(&pSystem->particle.end_frame, 4);
     }
-    return TRUE;
+    return true;
 }
 
 template<bool reading>
@@ -2053,7 +2052,7 @@ static bool TransferLevelFileBlock(wiz8::File* hFile, W8LevelFileBlock* pBlock)
 }
 
 // FUNCTION: WIZ8 0x004D5430
-BOOLEAN ReadLevelFileBlock(wiz8::File* hFile, W8LevelFileBlock* pBlock)
+bool ReadLevelFileBlock(wiz8::File* hFile, W8LevelFileBlock* pBlock)
 try {
 
     return TransferLevelFileBlock<true>(hFile, pBlock);
@@ -2062,7 +2061,7 @@ try {
 }
 
 // FUNCTION: WIZ8 0x004D5580
-BOOLEAN WriteLevelFileBlock(wiz8::File* hFile, W8LevelFileBlock* pBlock)
+bool WriteLevelFileBlock(wiz8::File* hFile, W8LevelFileBlock* pBlock)
 {
 
     return TransferLevelFileBlock<false>(hFile, pBlock);

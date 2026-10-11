@@ -1,8 +1,8 @@
+#include <cstdint>
 #include <SDL3/SDL_rect.h>
 #include <utility>
 
 #include "Button System.h"
-#include "Types.h"
 #include "wiz8/dialog_code/DialogButton.h"
 #include "wiz8/dialog_code/DialogScrollBar.h"
 #include "wiz8/dialog_code/ButtonUserData.h"
@@ -206,7 +206,7 @@ void W8DialogScrollBar::ScrollToMouse()
 }
 
 // FUNCTION: WIZ8 0x005e1280
-void W8DialogScrollBar::UpButtonCallback(GUI_BUTTON* button, INT32 reason)
+void W8DialogScrollBar::UpButtonCallback(GUI_BUTTON* button, std::int32_t reason)
 {
     W8DialogScrollBar* bar = GetButtonUserDataPointer<W8DialogScrollBar>(button);
     if (bar) {
@@ -220,7 +220,7 @@ void W8DialogScrollBar::UpButtonCallback(GUI_BUTTON* button, INT32 reason)
 }
 
 // FUNCTION: WIZ8 0x005e1320
-void W8DialogScrollBar::DownButtonCallback(GUI_BUTTON* button, INT32 reason)
+void W8DialogScrollBar::DownButtonCallback(GUI_BUTTON* button, std::int32_t reason)
 {
     W8DialogScrollBar* bar = GetButtonUserDataPointer<W8DialogScrollBar>(button);
     if (bar) {
@@ -234,7 +234,7 @@ void W8DialogScrollBar::DownButtonCallback(GUI_BUTTON* button, INT32 reason)
 }
 
 // FUNCTION: WIZ8 0x005e13d0
-void W8DialogScrollBar::TrackButtonCallback(GUI_BUTTON* button, INT32 reason)
+void W8DialogScrollBar::TrackButtonCallback(GUI_BUTTON* button, std::int32_t reason)
 {
     W8DialogScrollBar* bar = GetButtonUserDataPointer<W8DialogScrollBar>(button);
     if (bar && (reason & MSYS_CALLBACK_REASON_LBUTTON_DWN)) {

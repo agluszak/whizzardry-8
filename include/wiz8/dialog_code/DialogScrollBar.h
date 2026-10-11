@@ -1,8 +1,8 @@
 #pragma once
 
+#include <cstdint>
 #include "Button System.h"
 #include "wiz8/local_code/ControlsRect.h"
-#include "Types.h"
 #include "compat/compiler.h"
 
 class W8DialogBase;
@@ -29,9 +29,9 @@ public:
     void ScrollToMouse();
 
 private:
-    static void UpButtonCallback(GUI_BUTTON* button, INT32 reason);
-    static void DownButtonCallback(GUI_BUTTON* button, INT32 reason);
-    static void TrackButtonCallback(GUI_BUTTON* button, INT32 reason);
+    static void UpButtonCallback(GUI_BUTTON* button, std::int32_t reason);
+    static void DownButtonCallback(GUI_BUTTON* button, std::int32_t reason);
+    static void TrackButtonCallback(GUI_BUTTON* button, std::int32_t reason);
     bool m_initialized;
     bool m_visible;
 

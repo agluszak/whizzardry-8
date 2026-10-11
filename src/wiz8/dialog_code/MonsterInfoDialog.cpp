@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <fmt/format.h>
 #include <string>
 #include <cstring>
@@ -29,7 +30,6 @@
 #include "wiz8/startup_world.h"
 #include "wiz8/utility.h"
 #include "Font.h"
-#include "Types.h"
 #include "character_skills.h"
 #include "compat/ptr32.h"
 #include "conditions.h"
@@ -490,7 +490,7 @@ void W8MonsterInfoDialog::Draw()
             MonsterGetIndexByLocationID(0x1f1, MONSTER_INFO_DIALOG_CPP, m_location_id, true);
         W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(monster_list_index);
         auto name = GetMonsterName(monster_info, 0, 0);
-        INT16 width = g_wiz_text_font_secondary.textWidth(name);
+        std::int16_t width = g_wiz_text_font_secondary.textWidth(name);
         DrawFontText(m_x + 0xe + (0x112 - width) / 2, m_y + 0x11, name);
     }
     m_text_area.Draw(false);

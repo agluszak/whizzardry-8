@@ -1,7 +1,6 @@
 #include <cstddef>
 #include <exception>
 
-#include "Types.h"
 #include "surrender/srClock.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/engine_code/game_timer.h"
@@ -229,12 +228,12 @@ void W8GameTimer::SetProgress(float progress)
 }
 
 // FUNCTION: WIZ8 0x0043a330
-BOOLEAN W8GameTimer::Load(wiz8::File* handle)
+bool W8GameTimer::Load(wiz8::File* handle)
 try
 {
     float progress;
     // Retail performs both reads and combines their results with bitwise OR.
-    BOOLEAN loaded = (handle->read(&progress, sizeof(progress)).bytes == static_cast<std::size_t>(sizeof(progress)));
+    bool loaded = (handle->read(&progress, sizeof(progress)).bytes == static_cast<std::size_t>(sizeof(progress)));
     loaded |= (handle->read(&m_duration_scale, sizeof(m_duration_scale)).bytes == static_cast<std::size_t>(sizeof(m_duration_scale)));
     if (loaded != 0) {
         m_duration = static_cast<int>(m_duration_seconds * m_duration_scale * 10000.0f);

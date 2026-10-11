@@ -18,7 +18,6 @@
 #include "wiz8/engine_code/GameData.h"
 #include "native/input_events.h"
 #include "input.h"
-#include "Types.h"
 
 namespace
 {
@@ -34,7 +33,7 @@ void reset_held_input()
 {
     std::memset(gfKeyState, 0, sizeof(gfKeyState));
     gfShiftState = gfCtrlState = gfAltState = 0;
-    gfLeftButtonState = gfRightButtonState = FALSE;
+    gfLeftButtonState = gfRightButtonState = false;
     guiLeftButtonRepeatTimer = guiRightButtonRepeatTimer = 0;
     current_modifiers = SDL_KMOD_NONE;
     wheel_remainder = 0;
@@ -49,14 +48,14 @@ void set_mouse_position(float x, float y)
     gusMouseXPos = mouse_position.x;
     gusMouseYPos = mouse_position.y;
 }
-UINT32 packed_mouse_position()
+std::uint32_t packed_mouse_position()
 {
-    return (UINT32(mouse_position.y) << 16) | UINT32(mouse_position.x);
+    return (std::uint32_t(mouse_position.y) << 16) | std::uint32_t(mouse_position.x);
 }
 void set_modifiers(SDL_Keymod value)
 {
     const SDL_Keymod masks[] = {SDL_KMOD_SHIFT, SDL_KMOD_CTRL, SDL_KMOD_ALT};
-    const UINT32 keys[] = {VK_SHIFT, VK_CONTROL, VK_MENU};
+    const std::uint32_t keys[] = {VK_SHIFT, VK_CONTROL, VK_MENU};
     for (size_t i = 0; i < 3; ++i)
     {
         bool before = (current_modifiers & masks[i]) != 0, after = (value & masks[i]) != 0;
@@ -70,7 +69,7 @@ void set_modifiers(SDL_Keymod value)
     }
     current_modifiers = value;
 }
-UINT32 game_key(SDL_Keycode key, bool& extended)
+std::uint32_t game_key(SDL_Keycode key, bool& extended)
 {
     if (key >= SDLK_A && key <= SDLK_Z)
         return key - SDLK_A + 'A';
@@ -283,7 +282,7 @@ void HandleInputEvent(const SDL_Event& event)
         std::string_view text(event.text.text);
         std::size_t offset = 0;
         while (offset < text.size()) QueueEvent(KEY_DOWN, wiz8::text::next(text, offset), NATIVE_TEXT_INPUT_FLAG);
-        gfSGPInputReceived = TRUE;
+        gfSGPInputReceived = true;
         break;
     }
     case SDL_EVENT_KEY_DOWN:
@@ -291,16 +290,16 @@ void HandleInputEvent(const SDL_Event& event)
     {
         set_modifiers(event.key.mod);
         bool extended = false;
-        UINT32 key = game_key(event.key.key, extended);
+        std::uint32_t key = game_key(event.key.key, extended);
         if (!key || key == VK_SHIFT || key == VK_CONTROL || key == VK_MENU)
             break;
-        UINT32 flags = 1 | (extended ? 0x01000000u : 0);
+        std::uint32_t flags = 1 | (extended ? 0x01000000u : 0);
         if (event.key.repeat)
             flags |= 0x40000000u;
         if (event.type == SDL_EVENT_KEY_DOWN)
         {
             KeyDown(key, flags);
-            gfSGPInputReceived = TRUE;
+            gfSGPInputReceived = true;
         }
         else
             KeyUp(key, flags | 0xc0000000u);
@@ -308,7 +307,7 @@ void HandleInputEvent(const SDL_Event& event)
     }
     case SDL_EVENT_MOUSE_MOTION:
         set_mouse_position(event.motion.x, event.motion.y);
-        gfSGPInputReceived = TRUE;
+        gfSGPInputReceived = true;
         if (gfTrackMousePos)
             QueueEvent(MOUSE_POS, 0, packed_mouse_position());
         break;
@@ -331,7 +330,7 @@ void HandleInputEvent(const SDL_Event& event)
             gfRightButtonState = down;
             QueueEvent(down ? RIGHT_BUTTON_DOWN : RIGHT_BUTTON_UP, 0, packed_mouse_position());
         }
-        gfSGPInputReceived = TRUE;
+        gfSGPInputReceived = true;
         break;
     }
     case SDL_EVENT_MOUSE_WHEEL:
@@ -343,7 +342,7 @@ void HandleInputEvent(const SDL_Event& event)
         {
             int delta = wheel_remainder > 0 ? 120 : -120;
             wheel_remainder -= delta > 0 ? 1.f : -1.f;
-            QueueEvent(MOUSE_WHEEL, UINT32(uint16_t(delta)) << 16, packed_mouse_position());
+            QueueEvent(MOUSE_WHEEL, std::uint32_t(uint16_t(delta)) << 16, packed_mouse_position());
         }
         break;
     }
@@ -351,29 +350,29 @@ void HandleInputEvent(const SDL_Event& event)
 }
 
 // GLOBAL: WIZ8 0x006505a0
-BOOLEAN gfLoadAtStartup = FALSE;
+bool gfLoadAtStartup = false;
 // GLOBAL: WIZ8 0x006505a1
-BOOLEAN gfUsingBoundsChecker = FALSE;
+bool gfUsingBoundsChecker = false;
 // GLOBAL: WIZ8 0x006505a4
 std::string gzStringDataOverride;
 // GLOBAL: WIZ8 0x006505a8
-BOOLEAN gfCapturingVideo = FALSE;
+bool gfCapturingVideo = false;
 // GLOBAL: WIZ8 0x006f0630
-BOOLEAN gfApplicationActive = FALSE;
+bool gfApplicationActive = false;
 // GLOBAL: WIZ8 0x006f0628
-BOOLEAN gfProgramIsRunning = FALSE;
+bool gfProgramIsRunning = false;
 // GLOBAL: WIZ8 0x006505a9
-BOOLEAN gfGameInitialized = FALSE;
+bool gfGameInitialized = false;
 // GLOBAL: WIZ8 0x006505ac
 std::string gzErrorMsg;
 // GLOBAL: WIZ8 0x00650dac
-BOOLEAN gfIgnoreMessages = FALSE;
+bool gfIgnoreMessages = false;
 
 // FUNCTION: WIZ8 0x00401920
 [[noreturn]] void ShutdownWithErrorBox(std::string_view message)
 {
     gzErrorMsg = message;
-    gfIgnoreMessages = TRUE;
+    gfIgnoreMessages = true;
     throw std::runtime_error(gzErrorMsg);
 }
 
@@ -382,13 +381,13 @@ void HandleGameEvent(const SDL_Event& event)
 {
     if (event.type == SDL_EVENT_QUIT)
     {
-        gfProgramIsRunning = FALSE;
+        gfProgramIsRunning = false;
         return;
     }
     if (event.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED && ghWindow &&
         SDL_GetWindowFromEvent(&event) == reinterpret_cast<SDL_Window*>(ghWindow))
     {
-        gfProgramIsRunning = FALSE;
+        gfProgramIsRunning = false;
         return;
     }
     if (gfIgnoreMessages)
@@ -412,13 +411,13 @@ void HandleGameEvent(const SDL_Event& event)
             MoveTimer(TIMER_RESUME);
             restore_pending = false;
         }
-        gfApplicationActive = TRUE;
+        gfApplicationActive = true;
         break;
     case SDL_EVENT_WINDOW_FOCUS_LOST:
         if (!VideoInspectorIsEnabled())
             SuspendVideoManager();
         MoveTimer(TIMER_SUSPEND);
-        gfApplicationActive = FALSE;
+        gfApplicationActive = false;
         restore_pending = true;
         break;
     }

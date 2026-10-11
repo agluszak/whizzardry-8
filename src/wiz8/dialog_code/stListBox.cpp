@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <SDL3/SDL_rect.h>
 #include <vector>
 
@@ -9,7 +10,6 @@
 #include "Font.h"
 #include "mousesystem.h"
 #include "Button System.h"
-#include "Types.h"
 #include "Video2.h"
 #include "dialog_code/DialogBase.h"
 
@@ -22,7 +22,7 @@
    DialogFactoryDialogs.h for these call sites. */
 
 // FUNCTION: WIZ8 0x005cce70
-void W8ListBoxDialog::TextAreaButtonCallback(GUI_BUTTON* button, INT32 reason)
+void W8ListBoxDialog::TextAreaButtonCallback(GUI_BUTTON* button, std::int32_t reason)
 {
     W8ListBoxDialog* dialog = GetButtonUserDataPointer<W8ListBoxDialog>(button);
     if (reason & MSYS_CALLBACK_REASON_LBUTTON_DWN) {
@@ -52,7 +52,7 @@ void W8ListBoxDialog::TextAreaButtonCallback(GUI_BUTTON* button, INT32 reason)
 }
 
 // FUNCTION: WIZ8 0x005ccf30
-void W8ListBoxDialog::UpButtonCallback(GUI_BUTTON* button, INT32 reason)
+void W8ListBoxDialog::UpButtonCallback(GUI_BUTTON* button, std::int32_t reason)
 {
     W8ListBoxDialog* dialog = GetButtonUserDataPointer<W8ListBoxDialog>(button);
     if (dialog == 0) {
@@ -67,7 +67,7 @@ void W8ListBoxDialog::UpButtonCallback(GUI_BUTTON* button, INT32 reason)
 }
 
 // FUNCTION: WIZ8 0x005ccfe0
-void W8ListBoxDialog::DownButtonCallback(GUI_BUTTON* button, INT32 reason)
+void W8ListBoxDialog::DownButtonCallback(GUI_BUTTON* button, std::int32_t reason)
 {
     W8ListBoxDialog* dialog = GetButtonUserDataPointer<W8ListBoxDialog>(button);
     if (dialog == 0) {
@@ -82,7 +82,7 @@ void W8ListBoxDialog::DownButtonCallback(GUI_BUTTON* button, INT32 reason)
 }
 
 // FUNCTION: WIZ8 0x005cd090
-void W8ListBoxDialog::OkButtonCallback(GUI_BUTTON* button, INT32 reason)
+void W8ListBoxDialog::OkButtonCallback(GUI_BUTTON* button, std::int32_t reason)
 {
     W8ListBoxDialog* dialog = GetButtonUserDataPointer<W8ListBoxDialog>(button);
     if (dialog == 0) {
@@ -101,7 +101,7 @@ void W8ListBoxDialog::OkButtonCallback(GUI_BUTTON* button, INT32 reason)
 }
 
 // FUNCTION: WIZ8 0x005cd130
-void W8ListBoxDialog::CancelButtonCallback(GUI_BUTTON* button, INT32 reason)
+void W8ListBoxDialog::CancelButtonCallback(GUI_BUTTON* button, std::int32_t reason)
 {
     W8ListBoxDialog* dialog = GetButtonUserDataPointer<W8ListBoxDialog>(button);
     if (dialog == 0) {
@@ -121,7 +121,7 @@ void W8ListBoxDialog::CancelButtonCallback(GUI_BUTTON* button, INT32 reason)
 }
 
 // FUNCTION: WIZ8 0x005cd1e0
-void W8ListBoxDialog::SliderTrackButtonCallback(GUI_BUTTON* button, INT32 reason)
+void W8ListBoxDialog::SliderTrackButtonCallback(GUI_BUTTON* button, std::int32_t reason)
 {
     W8ListBoxDialog* dialog = GetButtonUserDataPointer<W8ListBoxDialog>(button);
     if (reason & MSYS_CALLBACK_REASON_LBUTTON_DWN) {

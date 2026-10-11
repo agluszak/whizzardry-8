@@ -6,7 +6,6 @@
 #include <memory>
 #include <vector>
 
-#include "Types.h"
 #include "compat/compiler.h"
 #include "surrender/srVertexProcessor.h"
 #include "wiz8/filesystem.h"
@@ -267,7 +266,7 @@ static void ClampEnvironmentComponent(float& component)
 }
 
 /* The two binary colour tables differ only in their destination array. */
-static BOOLEAN ReadColourTable(wiz8::File* file, EnvironmentColour (&colours)[256])
+static bool ReadColourTable(wiz8::File* file, EnvironmentColour (&colours)[256])
 try
 {
     unsigned char components[256 * 3];
@@ -289,13 +288,13 @@ try
 }
 
 // FUNCTION: WIZ8 0x00482F90
-BOOLEAN ReadLightColourTable(wiz8::File* file)
+bool ReadLightColourTable(wiz8::File* file)
 {
     return ReadColourTable(file, g_environment_colours1);
 }
 
 // FUNCTION: WIZ8 0x004830D0
-BOOLEAN ReadEnvironmentColourTable(wiz8::File* file)
+bool ReadEnvironmentColourTable(wiz8::File* file)
 {
     return ReadColourTable(file, g_environment_colours0);
 }

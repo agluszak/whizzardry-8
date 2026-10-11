@@ -7,7 +7,6 @@
 #include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/engine_code/Video2.h"
 #include "input.h"
-#include "Types.h"
 #include "mousesystem.h"
 
 /* Standard dialog button events: held left clicks repeat the press. Numeric
@@ -61,10 +60,10 @@ struct W8Character;
 /* ConfigureDialogFont writes these four; every dialog draw/text path reads
    them. Declared here because this unit owns their definitions. */
 extern Font* g_dialog_interface_font;
-extern BOOLEAN g_dialog_font_enabled;
+extern bool g_dialog_font_enabled;
 extern unsigned char g_dialog_font_foreground;
 extern unsigned char g_dialog_font_background;
-void ConfigureDialogFont(Font& font, BOOLEAN enabled, unsigned char foreground,
+void ConfigureDialogFont(Font& font, bool enabled, unsigned char foreground,
                          unsigned char background);
 W8DialogBase* CreateCharacterSummaryDialog(W8Character* character);
 W8DialogBase* CreateDialogByKind(W8DialogKind kind);

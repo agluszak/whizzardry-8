@@ -1,3 +1,4 @@
+#include <SDL3/SDL_surface.h>
 #include <catch2/catch_test_macros.hpp>
 #include <wiz8/filesystem.h>
 #include <SDL3/SDL_rect.h>
@@ -13,39 +14,40 @@
 // The same inputs run against the legacy assembly and the native C++ paths.
 // --capture emits per-case hashes of every destination byte, the return value
 // and the caller's rectangle (some legacy blitters modify it).
-#include "Types.h"
+#include "catch2/catch_message.hpp"
+#include "compat/surfaces.h"
 #include "vobject_blitters.h"
 #include "himage.h"
 #include "shading.h"
 #include "vobject.h"
 #include "vsurface.h"
 
-BOOLEAN Blt16BPPBufferShadowRectAlternateTable(UINT16*, UINT32, SDL_Rect*);
+bool Blt16BPPBufferShadowRectAlternateTable(std::uint16_t*, std::uint32_t, SDL_Rect*);
 
-UINT16 ShadeTable[65536];
-UINT16 IntensityTable[65536];
+std::uint16_t ShadeTable[65536];
+std::uint16_t IntensityTable[65536];
 
 static const unsigned pitch = 1296; // 640 pixels plus row padding
 static const unsigned rows = 20;
-static UINT16 destination[pitch * rows / 2];
-static UINT16 source[pitch * rows / 2];
-static UINT16 palette[256];
-static UINT8 encoded[4096];
+static std::uint16_t destination[pitch * rows / 2];
+static std::uint16_t source[pitch * rows / 2];
+static std::uint16_t palette[256];
+static std::uint8_t encoded[4096];
 static unsigned cases;
 static std::istringstream reference;
 
 static void reset()
 {
     for (unsigned i = 0; i < sizeof(destination) / sizeof(destination[0]); ++i) {
-        destination[i] = static_cast<UINT16>(i * 337 + 19);
-        source[i] = static_cast<UINT16>(i * 113 + 7);
+        destination[i] = static_cast<std::uint16_t>(i * 337 + 19);
+        source[i] = static_cast<std::uint16_t>(i * 113 + 7);
     }
 }
 
-static bool check(const char* name, int variant, BOOLEAN result, const SDL_Rect& rect)
+static bool check(const char* name, int variant, bool result, const SDL_Rect& rect)
 {
     uint64_t hash = UINT64_C(14695981039346656037);
-    const UINT8* bytes = reinterpret_cast<const UINT8*>(destination);
+    const std::uint8_t* bytes = reinterpret_cast<const std::uint8_t*>(destination);
     for (unsigned i = 0; i < sizeof(destination); ++i) {
         hash = (hash ^ bytes[i]) * UINT64_C(1099511628211);
     }
@@ -82,13 +84,13 @@ static void sprite_data(ETRLEObject& frame, int variant)
                 count = frame.usWidth - x;
             }
             const bool transparent = (run + y) % 3 == 1;
-            encoded[out++] = static_cast<UINT8>(count | (transparent ? 0x80 : 0));
+            encoded[out++] = static_cast<std::uint8_t>(count | (transparent ? 0x80 : 0));
             if (!transparent) {
                 for (unsigned i = 0; i < count; ++i) {
                     // Include font-mask zero only without right clipping;
                     // the assembly's clipped tail scans bytes for zero.
-                    encoded[out++] = variant == 1 ? static_cast<UINT8>((x + i + y) % 4) :
-                                                    static_cast<UINT8>((x + i + 11 * y) % 255 + 1);
+                    encoded[out++] = variant == 1 ? static_cast<std::uint8_t>((x + i + y) % 4) :
+                                                    static_cast<std::uint8_t>((x + i + 11 * y) % 255 + 1);
                 }
             }
             x += count;
@@ -106,16 +108,16 @@ TEST_CASE("blitter_test")
     REQUIRE(file->read(text.data(), text.size()).bytes == text.size());
     reference.str(text);
     for (unsigned i = 0; i < 65536; ++i) {
-        ShadeTable[i] = static_cast<UINT16>((i * 37) ^ 0x1234);
-        IntensityTable[i] = static_cast<UINT16>((i * 83) ^ 0x5678);
+        ShadeTable[i] = static_cast<std::uint16_t>((i * 37) ^ 0x1234);
+        IntensityTable[i] = static_cast<std::uint16_t>((i * 83) ^ 0x5678);
     }
     for (unsigned i = 0; i < 256; ++i) {
-        palette[i] = static_cast<UINT16>((i * 257) ^ 0x57ab);
+        palette[i] = static_cast<std::uint16_t>((i * 257) ^ 0x57ab);
     }
     SGPVObject object = {};
     ETRLEObject frame{};
     std::copy_n(palette, 256, object.palette.begin());
-    ClippingRect = {0, 0, 640, static_cast<INT32>(rows)};
+    ClippingRect = {0, 0, 640, static_cast<std::int32_t>(rows)};
     SDL_Rect full = ClippingRect;
     bool ok = true;
 
@@ -164,12 +166,12 @@ TEST_CASE("blitter_test")
             Blt16BPPTo16BPPTrans(destination, pitch, source, pitch, 3, 2, 1, 4, width, 5,
                 source[4 * pitch / 2 + 2]), full) && ok;
         reset(); ok = check("Blt8BPPTo8BPP", width,
-            Blt8BPPTo8BPP(reinterpret_cast<UINT8*>(destination), pitch, reinterpret_cast<UINT8*>(source), pitch,
+            Blt8BPPTo8BPP(reinterpret_cast<std::uint8_t*>(destination), pitch, reinterpret_cast<std::uint8_t*>(source), pitch,
                 3, 2, 1, 4, width, 5), full) && ok;
         reset(); ok = check("Blt16BPPTo16BPP-overlap", width,
             Blt16BPPTo16BPP(destination, pitch, destination, pitch, 2, 2, 1, 2, width, 5), full) && ok;
         reset(); ok = check("Blt8BPPTo8BPP-overlap", width,
-            Blt8BPPTo8BPP(reinterpret_cast<UINT8*>(destination), pitch, reinterpret_cast<UINT8*>(destination), pitch,
+            Blt8BPPTo8BPP(reinterpret_cast<std::uint8_t*>(destination), pitch, reinterpret_cast<std::uint8_t*>(destination), pitch,
                 2, 2, 1, 2, width, 5), full) && ok;
         // The mirror ignores source position and clips against 640x480.
         for (int x = -3; x <= 637; x += 320) {
@@ -180,15 +182,15 @@ TEST_CASE("blitter_test")
         surface.usWidth = pitch;
         surface.usHeight = rows;
         std::copy_n(palette, 256, surface.p16BPPPalette.begin());
-        SDL_Rect area = {2, 3, static_cast<INT32>(width), 4};
+        SDL_Rect area = {2, 3, static_cast<std::int32_t>(width), 4};
         reset(); ok = check("Blt8BPPDataSubTo16BPPBuffer", width,
-            Blt8BPPDataSubTo16BPPBuffer(destination, pitch, surface, reinterpret_cast<UINT8*>(source), pitch,
+            Blt8BPPDataSubTo16BPPBuffer(destination, pitch, surface, reinterpret_cast<std::uint8_t*>(source), pitch,
                 3, 2, &area), area) && ok;
     }
-    UINT8 pattern[8][8];
+    std::uint8_t pattern[8][8];
     for (unsigned y = 0; y < 8; ++y) {
         for (unsigned x = 0; x < 8; ++x) {
-            pattern[y][x] = static_cast<UINT8>((x + 3 * y) % 5);
+            pattern[y][x] = static_cast<std::uint8_t>((x + 3 * y) % 5);
         }
     }
     for (int variant = 0; variant < 6; ++variant) {
@@ -220,7 +222,7 @@ TEST_CASE("blitter_test")
         probe_frame.usHeight = 1;
         probe_frame.uiDataOffset = 0;
         // opaque literal 0, transparent run of 1, opaque literal 2
-        static const UINT8 probe_data[] = {1, 0, 0x81, 1, 2, 0};
+        static const std::uint8_t probe_data[] = {1, 0, 0x81, 1, 2, 0};
         probe_frame.uiDataLength = sizeof(probe_data);
         if (!DecodeVideoObjectSprites(probe, {&probe_frame, 1},
                                       {probe_data, sizeof(probe_data)})) {
@@ -232,7 +234,7 @@ TEST_CASE("blitter_test")
             BltSpriteTo16BPPBuffer(destination, pitch, sprite, probe.currentPalette().data(), 4, 4,
                                    nullptr, false, SpriteDrawOp::Transparent);
             auto untouched = [](unsigned i) {
-                return static_cast<UINT16>(i * 337 + 19);
+                return static_cast<std::uint16_t>(i * 337 + 19);
             };
             const unsigned base = 4 * pitch / 2;
             if (destination[base + 4] != palette[0] ||
@@ -263,7 +265,7 @@ TEST_CASE("blitter_test")
         ETRLEObject frame{};
         frame.usWidth = 1;
         frame.usHeight = 1;
-        const UINT8 data[] = {0x80, 1, 2, 0};
+        const std::uint8_t data[] = {0x80, 1, 2, 0};
         frame.uiDataLength = sizeof(data);
         auto rejected = [&] {
             return !DecodeVideoObjectSprites(object, {&frame, 1}, data) &&
@@ -315,7 +317,7 @@ TEST_CASE("SDL sprite surfaces preserve opaque palette words, shade changes and 
     ETRLEObject frame{};
     frame.usWidth = 4;
     frame.usHeight = 1;
-    const UINT8 data[]{2, 0, 255, 0x81, 1, 1, 0};
+    const std::uint8_t data[]{2, 0, 255, 0x81, 1, 1, 0};
     frame.uiDataLength = sizeof(data);
     REQUIRE(DecodeVideoObjectSprites(object, {&frame, 1}, data));
     auto& sprite = object.sprites[0];
@@ -327,17 +329,17 @@ TEST_CASE("SDL sprite surfaces preserve opaque palette words, shade changes and 
             object.palette[255] = 0x8000;
         }
         for (bool mirror : {false, true, false, true, false}) {
-            UINT16 pixels[]{0x1234, 0x1234, 0x1234, 0x1234, 0x1234, 0x1234};
+            std::uint16_t pixels[]{0x1234, 0x1234, 0x1234, 0x1234, 0x1234, 0x1234};
             const SDL_Rect clip{0, 0, 4, 1};
             REQUIRE(BltSpriteTo16BPPBuffer(pixels, sizeof(pixels), sprite, object.palette.data(),
                                           0, 0, &clip, mirror, SpriteDrawOp::Transparent));
-            const UINT16 expected[]{object.palette[0], object.palette[255], 0x1234, object.palette[1]};
+            const std::uint16_t expected[]{object.palette[0], object.palette[255], 0x1234, object.palette[1]};
             for (int x = 0; x < 4; ++x) REQUIRE(pixels[x] == expected[mirror ? 3 - x : x]);
             REQUIRE(pixels[4] == 0x1234);
             REQUIRE(pixels[5] == 0x1234);
             auto* surface = sprite.coloredSurface(object.palette, mirror);
             REQUIRE(SDL_SurfaceHasRLE(surface));
-            UINT32 key = 0;
+            std::uint32_t key = 0;
             REQUIRE(SDL_GetSurfaceColorKey(surface, &key));
             REQUIRE(std::find(object.palette.begin(), object.palette.end(), key) == object.palette.end());
         }
@@ -351,11 +353,12 @@ TEST_CASE("SDL tiled backgrounds preserve clipping, phase, transparent gaps and 
         ~RestoreClip() { ClippingRect = previous; }
     } restore;
     SGPVObject object{};
+    object.ubBitDepth = 8;
     for (unsigned i = 0; i < object.palette.size(); ++i) object.palette[i] = i;
     ETRLEObject frame{};
     frame.usWidth = 4;
     frame.usHeight = 3;
-    const UINT8 data[]{2, 0, 1, 0x81, 1, 2, 0,
+    const std::uint8_t data[]{2, 0, 1, 0x81, 1, 2, 0,
                        0x81, 3, 3, 4, 5, 0,
                        4, 6, 7, 8, 9, 0};
     frame.uiDataLength = sizeof(data);
@@ -395,8 +398,8 @@ TEST_CASE("SDL tiled backgrounds preserve clipping, phase, transparent gaps and 
                         const auto& a = *actual.cpu().surface;
                         const auto& b = *expected.cpu().surface;
                         for (int y = 0; y < a.h; ++y) {
-                            const auto* rowA = reinterpret_cast<const UINT16*>(static_cast<const UINT8*>(a.pixels) + y * a.pitch);
-                            const auto* rowB = reinterpret_cast<const UINT16*>(static_cast<const UINT8*>(b.pixels) + y * b.pitch);
+                            const auto* rowA = reinterpret_cast<const std::uint16_t*>(static_cast<const std::uint8_t*>(a.pixels) + y * a.pitch);
+                            const auto* rowB = reinterpret_cast<const std::uint16_t*>(static_cast<const std::uint8_t*>(b.pixels) + y * b.pitch);
                             for (int x = 0; x < a.w; ++x) {
                                 CAPTURE(x, y);
                                 REQUIRE(rowA[x] == rowB[x]);

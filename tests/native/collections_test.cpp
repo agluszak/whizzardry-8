@@ -530,10 +530,13 @@ TEST_CASE("SDL region rectangles keep inclusive edges and circle hit tests")
     REQUIRE_FALSE(RegionContainsPoint(size, 11, 20));
     region.x2 = 9;
     REQUIRE_FALSE(RegionContainsPoint(size, 10, 20));
-    region.x1 = region.y1 = 65535;
-    region.x2 = region.y2 = 65535;
-    REQUIRE(RegionContainsPoint(size, 65535, 65535));
+    region.x1 = region.y1 = 32767;
+    region.x2 = region.y2 = 32767;
+    REQUIRE(RegionContainsPoint(size, 32767, 32767));
     REQUIRE_FALSE(RegionContainsPoint(size, 0, 0));
+    region.x1 = region.y1 = -1;
+    region.x2 = region.y2 = -1;
+    REQUIRE_FALSE(RegionContainsPoint(size, 65535, 65535));
     region.flags = W8_REGION_CIRCLE;
     region.x1 = region.y1 = 20;
     region.x2 = 5;

@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <catch2/catch_test_macros.hpp>
 #include <zlib.h>
 #include <SDL3/SDL_rect.h>
@@ -10,7 +11,6 @@
 #include <span>
 
 #include "himage.h"
-#include "Types.h"
 
 
 TEST_CASE("compression_test")
@@ -20,11 +20,11 @@ TEST_CASE("compression_test")
     image.usHeight = 200;
     image.ubBitDepth = 8;
     image.compressed = true;
-    std::vector<UINT8> original(std::size_t(image.usWidth) * image.usHeight);
+    std::vector<std::uint8_t> original(std::size_t(image.usWidth) * image.usHeight);
     for (std::size_t i = 0; i < original.size(); ++i)
         original[i] = (i * 7) ^ (i >> 5);
     uLongf packed_size = compressBound(original.size());
-    std::vector<UINT8> packed(packed_size);
+    std::vector<std::uint8_t> packed(packed_size);
     REQUIRE(compress2(packed.data(), &packed_size, original.data(), original.size(), 9) == Z_OK);
     packed.resize(packed_size);
     image.pImageData = packed;
@@ -32,18 +32,18 @@ TEST_CASE("compression_test")
     for (unsigned i = 0; i < 256; ++i)
         (*image.pui16BPPPalette)[i] = 0x8000 | i;
     const SDL_Rect rect{3, 2, 10, 5};
-    std::array<UINT8, 200> destination8;
-    std::array<UINT8, 401> destination16;
+    std::array<std::uint8_t, 200> destination8;
+    std::array<std::uint8_t, 401> destination16;
     auto output16 = std::span(destination16).subspan(1);
     for (unsigned repeat = 0; repeat < 3; ++repeat) {
         destination8.fill(0xa5);
         destination16.fill(0xa5);
         REQUIRE(CopyImageToBuffer(image, BUFFER_8BPP, destination8, 20, 10, 1, 1, rect));
-        REQUIRE(std::all_of(destination8.begin(), destination8.end(), [](UINT8 value) { return value == 0xa5; }));
+        REQUIRE(std::all_of(destination8.begin(), destination8.end(), [](std::uint8_t value) { return value == 0xa5; }));
         REQUIRE(CopyImageToBuffer(image, BUFFER_16BPP, output16, 20, 10, 1, 1, rect));
         for (std::size_t y = 0; y < 10; ++y) {
             for (std::size_t x = 0; x < 20; ++x) {
-                UINT16 pixel;
+                std::uint16_t pixel;
                 std::memcpy(&pixel, output16.data() + (y * 20 + x) * 2, sizeof(pixel));
                 const auto expected = x >= 1 && x < 11 && y >= 1 && y < 6 ?
                     (*image.pui16BPPPalette)[original[(y + 1) * image.usWidth + x + 2]] : 0xa5a5;
@@ -61,7 +61,7 @@ TEST_CASE("compression_test")
         if (corrupt == 4) ++image.usHeight;
         destination16.fill(0xa5);
         REQUIRE(!CopyImageToBuffer(image, BUFFER_16BPP, output16, 20, 10, 1, 1, rect));
-        REQUIRE(std::all_of(destination16.begin(), destination16.end(), [](UINT8 value) { return value == 0xa5; }));
+        REQUIRE(std::all_of(destination16.begin(), destination16.end(), [](std::uint8_t value) { return value == 0xa5; }));
         REQUIRE(CopyImageToBuffer(image, BUFFER_8BPP, destination8, 20, 10, 1, 1, rect));
     }
     REQUIRE(!CopyImageToBuffer(image, BUFFER_8BPP, destination8, 20, 10, 20, 1, rect));

@@ -4,11 +4,11 @@
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
    Distributed under the accompanying SFI Source Code license agreement. */
 
+#include <cstdint>
 #include <SDL3/SDL_rect.h>
 
 #include "vsurface.h"
 #include "vobject.h"
-#include "Types.h"
 #include "himage.h"
 
 #ifdef __cplusplus
@@ -22,7 +22,7 @@ extern SDL_Rect ClippingRect;
 extern void SetClippingRect(SDL_Rect* clip);
 void GetClippingRect(SDL_Rect* clip);
 
-BOOLEAN BltIsClipped(SGPVObject& hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex, SDL_Rect* clipregion);
+bool BltIsClipped(SGPVObject& hSrcVObject, std::int32_t iX, std::int32_t iY, std::uint16_t usIndex, SDL_Rect* clipregion);
 
 // Per-pixel operation applied by BltSpriteTo16BPPBuffer to each opaque sprite
 // pixel. MonoShadow additionally paints mono_background into transparent
@@ -34,42 +34,42 @@ enum class SpriteDrawOp { Transparent, Shadow, MonoShadow };
 // global ClippingRect when clipregion is nullptr, so clipped, unclipped, and
 // mirrored draws all take the same path. mono_* colors apply only to
 // SpriteDrawOp::MonoShadow.
-BOOLEAN BltSpriteTo16BPPBuffer(UINT16* pBuffer, UINT32 uiDestPitchBYTES,
-                               const SpriteFrame& frame, const UINT16* palette, INT32 iX, INT32 iY,
+bool BltSpriteTo16BPPBuffer(std::uint16_t* pBuffer, std::uint32_t uiDestPitchBYTES,
+                               const SpriteFrame& frame, const std::uint16_t* palette, std::int32_t iX, std::int32_t iY,
                                const SDL_Rect* clipregion, bool fMirror, SpriteDrawOp op,
-                               UINT16 mono_foreground = 0, UINT16 mono_background = 0,
-                               UINT16 mono_shadow = 0);
+                               std::uint16_t mono_foreground = 0, std::uint16_t mono_background = 0,
+                               std::uint16_t mono_shadow = 0);
 
 
 
-BOOLEAN Blt8BPPTo8BPP(UINT8* pDest, UINT32 uiDestPitch, UINT8* pSrc, UINT32 uiSrcPitch,
-                      INT32 iDestXPos, INT32 iDestYPos, INT32 iSrcXPos, INT32 iSrcYPos,
-                      UINT32 uiWidth, UINT32 uiHeight);
-BOOLEAN Blt16BPPTo16BPP(UINT16* pDest, UINT32 uiDestPitch, UINT16* pSrc, UINT32 uiSrcPitch,
-                        INT32 iDestXPos, INT32 iDestYPos, INT32 iSrcXPos, INT32 iSrcYPos,
-                        UINT32 uiWidth, UINT32 uiHeight);
-BOOLEAN Blt16BPPTo16BPPTrans(UINT16* pDest, UINT32 uiDestPitch, UINT16* pSrc, UINT32 uiSrcPitch,
-                             INT32 iDestXPos, INT32 iDestYPos, INT32 iSrcXPos, INT32 iSrcYPos,
-                             UINT32 uiWidth, UINT32 uiHeight, UINT16 usTrans);
-BOOLEAN Blt16BPPTo16BPPMirror(UINT16* pDest, UINT32 uiDestPitch, UINT16* pSrc, UINT32 uiSrcPitch,
-                              INT32 iDestXPos, INT32 iDestYPos, INT32 iSrcXPos, INT32 iSrcYPos,
-                              UINT32 uiWidth, UINT32 uiHeight);
+bool Blt8BPPTo8BPP(std::uint8_t* pDest, std::uint32_t uiDestPitch, std::uint8_t* pSrc, std::uint32_t uiSrcPitch,
+                      std::int32_t iDestXPos, std::int32_t iDestYPos, std::int32_t iSrcXPos, std::int32_t iSrcYPos,
+                      std::uint32_t uiWidth, std::uint32_t uiHeight);
+bool Blt16BPPTo16BPP(std::uint16_t* pDest, std::uint32_t uiDestPitch, std::uint16_t* pSrc, std::uint32_t uiSrcPitch,
+                        std::int32_t iDestXPos, std::int32_t iDestYPos, std::int32_t iSrcXPos, std::int32_t iSrcYPos,
+                        std::uint32_t uiWidth, std::uint32_t uiHeight);
+bool Blt16BPPTo16BPPTrans(std::uint16_t* pDest, std::uint32_t uiDestPitch, std::uint16_t* pSrc, std::uint32_t uiSrcPitch,
+                             std::int32_t iDestXPos, std::int32_t iDestYPos, std::int32_t iSrcXPos, std::int32_t iSrcYPos,
+                             std::uint32_t uiWidth, std::uint32_t uiHeight, std::uint16_t usTrans);
+bool Blt16BPPTo16BPPMirror(std::uint16_t* pDest, std::uint32_t uiDestPitch, std::uint16_t* pSrc, std::uint32_t uiSrcPitch,
+                              std::int32_t iDestXPos, std::int32_t iDestYPos, std::int32_t iSrcXPos, std::int32_t iSrcYPos,
+                              std::uint32_t uiWidth, std::uint32_t uiHeight);
 
-BOOLEAN Blt16BPPBufferPixelateRectWithColor(UINT16* pBuffer, UINT32 uiDestPitchBYTES, SDL_Rect* area,
-                                            UINT8 Pattern[8][8], UINT16 usColor);
+bool Blt16BPPBufferPixelateRectWithColor(std::uint16_t* pBuffer, std::uint32_t uiDestPitchBYTES, SDL_Rect* area,
+                                            std::uint8_t Pattern[8][8], std::uint16_t usColor);
 //A wrapper for the Blt16BPPBufferPixelateRect that automatically passes a hatch pattern.
-BOOLEAN Blt16BPPBufferHatchRect(UINT16* pBuffer, UINT32 uiDestPitchBYTES, SDL_Rect* area);
-BOOLEAN Blt16BPPBufferShadowRect(UINT16* pBuffer, UINT32 uiDestPitchBYTES, SDL_Rect* area);
+bool Blt16BPPBufferHatchRect(std::uint16_t* pBuffer, std::uint32_t uiDestPitchBYTES, SDL_Rect* area);
+bool Blt16BPPBufferShadowRect(std::uint16_t* pBuffer, std::uint32_t uiDestPitchBYTES, SDL_Rect* area);
 
-BOOLEAN Blt8BPPDataSubTo16BPPBuffer(UINT16* pBuffer, UINT32 uiDestPitchBYTES,
-                                    SGPVSurface& hSrcVSurface, UINT8* pSrcBuffer, UINT32 uiSrcPitch,
-                                    INT32 iX, INT32 iY, SDL_Rect* pRect);
+bool Blt8BPPDataSubTo16BPPBuffer(std::uint16_t* pBuffer, std::uint32_t uiDestPitchBYTES,
+                                    SGPVSurface& hSrcVSurface, std::uint8_t* pSrcBuffer, std::uint32_t uiSrcPitch,
+                                    std::int32_t iX, std::int32_t iY, SDL_Rect* pRect);
 
 // ATE: New blitters for showing an outline at color 254
 
 // ATE: New blitter for included shadow, but pixellate if obscured by z
-BOOLEAN FillRect16BPP(UINT16* pBuffer, UINT32 uiDestPitchBYTES, INT32 x1, INT32 y1, INT32 x2,
-                      INT32 y2, UINT16 color);
+bool FillRect16BPP(std::uint16_t* pBuffer, std::uint32_t uiDestPitchBYTES, std::int32_t x1, std::int32_t y1, std::int32_t x2,
+                      std::int32_t y2, std::uint16_t color);
 
 #ifdef __cplusplus
 }
@@ -79,8 +79,8 @@ BOOLEAN FillRect16BPP(UINT16* pBuffer, UINT32 uiDestPitchBYTES, INT32 x1, INT32 
 // stays opaque). The object keeps only the decoded representation; decoding
 // is transactional, so hVObject.sprites is replaced only on success.
 // Returns FALSE on malformed or truncated data.
-BOOLEAN DecodeVideoObjectSprites(SGPVObject& hVObject, std::span<const ETRLEObject> frames,
-                                 std::span<const UINT8> data);
+bool DecodeVideoObjectSprites(SGPVObject& hVObject, std::span<const ETRLEObject> frames,
+                                 std::span<const std::uint8_t> data);
 #endif
 
 #endif

@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <catch2/catch_test_macros.hpp>
 #include <ios>
 #include <wiz8/asset_paths.h>
@@ -23,10 +24,9 @@
 #include "imgfmt.h"
 #include "wiz8/slf.h"
 #include "temporary_directory.h"
-#include "Types.h"
 
 
-using Bytes = std::vector<UINT8>;
+using Bytes = std::vector<std::uint8_t>;
 using Image = std::optional<image_type>;
 namespace fs = std::filesystem;
 
@@ -73,8 +73,8 @@ static Bytes tga(unsigned depth, bool top, bool rle)
     word(bytes, 14, 2);
     bytes[16] = depth;
     bytes[17] = top ? 0x20 : 0;
-    const std::array<UINT16, 6> packed{0, 1, 0x7c00, 0x03e0, 0x001f, 0x8000};
-    const std::array<std::array<UINT8, 3>, 6> colors{{
+    const std::array<std::uint16_t, 6> packed{0, 1, 0x7c00, 0x03e0, 0x001f, 0x8000};
+    const std::array<std::array<std::uint8_t, 3>, 6> colors{{
         {0, 0, 0}, {1, 1, 1}, {255, 0, 0}, {0, 255, 0}, {0, 0, 255}, {23, 45, 67}}};
     if (rle)
         bytes.push_back(5); // One raw RLE packet crossing the scan-line boundary.
@@ -109,7 +109,7 @@ static Bytes indexed_tga()
     return bytes;
 }
 
-static Bytes rgb_pcx(const UINT8* rgb)
+static Bytes rgb_pcx(const std::uint8_t* rgb)
 {
     auto bytes = pcx();
     bytes.resize(128);
@@ -137,8 +137,8 @@ static Bytes slf(const std::vector<std::pair<std::string, Bytes>>& files)
     strcpy(header.sPathToLibrary, "Data\\");
     header.iEntries = header.iUsed = files.size();
     header.iVersion = 0x200;
-    Bytes bytes(reinterpret_cast<const UINT8*>(&header),
-                reinterpret_cast<const UINT8*>(&header) + sizeof(header));
+    Bytes bytes(reinterpret_cast<const std::uint8_t*>(&header),
+                reinterpret_cast<const std::uint8_t*>(&header) + sizeof(header));
     std::vector<wiz8::SlfEntry> entries;
     for (const auto& [name, data] : files)
     {
@@ -150,7 +150,7 @@ static Bytes slf(const std::vector<std::pair<std::string, Bytes>>& files)
         entries.push_back(entry);
         bytes.insert(bytes.end(), data.begin(), data.end());
     }
-    const auto* directory = reinterpret_cast<const UINT8*>(entries.data());
+    const auto* directory = reinterpret_cast<const std::uint8_t*>(entries.data());
     bytes.insert(bytes.end(), directory, directory + entries.size() * sizeof(wiz8::SlfEntry));
     return bytes;
 }
@@ -175,7 +175,7 @@ static void check_pcx(const image_type& image)
 {
     REQUIRE((image.usWidth == 3 && image.usHeight == 2 && image.ubBitDepth == 8));
     REQUIRE((image.pPalette && !image.etrle && !image.compressed));
-    const UINT8 expected[]{0, 1, 1, 2, 3, 0xc1};
+    const std::uint8_t expected[]{0, 1, 1, 2, 3, 0xc1};
     REQUIRE(!memcmp(image.pImageData.data(), expected, sizeof(expected)));
     for (unsigned i = 0; i < 256; ++i)
     {
@@ -252,7 +252,7 @@ TEST_CASE_METHOD(ImageFixture, "Native image formats, palettes and archives", "[
         write_rgb();
         auto image = load("native-rgb.sti");
         REQUIRE((image && image->pImageData.size() == 4 && image->usWidth == 2));
-        const UINT8 expected[]{0, 0x7c, 0xe0, 3};
+        const std::uint8_t expected[]{0, 0x7c, 0xe0, 3};
         REQUIRE(!memcmp(image->pImageData.data(), expected, sizeof(expected)));
         header.RGB.uiRedMask = 0xf800;
         header.RGB.uiGreenMask = 0x07e0;
@@ -283,9 +283,9 @@ TEST_CASE_METHOD(ImageFixture, "Native image formats, palettes and archives", "[
         REQUIRE(surface);
         const auto& pixels = *surface->cpu().surface;
         REQUIRE((pixels.w == 3 && pixels.h == 2 && surface->ubBitDepth == 8));
-        const UINT8 expected[]{0, 1, 1, 2, 3, 0xc1};
+        const std::uint8_t expected[]{0, 1, 1, 2, 3, 0xc1};
         for (int y = 0; y < 2; ++y)
-            REQUIRE(!memcmp(static_cast<const UINT8*>(pixels.pixels) + y * pixels.pitch,
+            REQUIRE(!memcmp(static_cast<const std::uint8_t*>(pixels.pixels) + y * pixels.pitch,
                             expected + y * 3, 3));
     }
     {
@@ -311,11 +311,11 @@ TEST_CASE_METHOD(ImageFixture, "Native image formats, palettes and archives", "[
         palette[255] = {17, 121, 244, 0};
         const auto packed_palette = Create16BPPPalette(palette);
         REQUIRE((packed_palette[0] == 0 && packed_palette[1] == 1 && packed_palette[2] == 0x7c00));
-        const auto shaded = Create16BPPPaletteShaded(palette, 384, 0, 128, FALSE);
+        const auto shaded = Create16BPPPaletteShaded(palette, 384, 0, 128, false);
         REQUIRE((shaded[0] == 0 && shaded[255] == 0x0c0f));
-        const auto mono = Create16BPPPaletteShaded(palette, 384, 0, 128, TRUE);
+        const auto mono = Create16BPPPaletteShaded(palette, 384, 0, 128, true);
         REQUIRE((mono[0] == 0 && mono[255] == 0x4c06));
-        const auto clamped = Create16BPPPaletteShaded(palette, 4096, 4096, 4096, FALSE);
+        const auto clamped = Create16BPPPaletteShaded(palette, 4096, 4096, 4096, false);
         REQUIRE(clamped[255] == 0x7fff);
         gusAlphaMask = 0x8000;
         const auto opaque = Create16BPPPalette(palette);
@@ -323,8 +323,8 @@ TEST_CASE_METHOD(ImageFixture, "Native image formats, palettes and archives", "[
         rgb555();
     }
 
-    const UINT16 packed[]{0, 1, 0x7c00, 0x03e0, 0x001f, 0x8000};
-    const UINT8 rgb[]{0, 0, 0, 1, 1, 1, 255, 0, 0, 0, 255, 0, 0, 0, 255, 23, 45, 67};
+    const std::uint16_t packed[]{0, 1, 0x7c00, 0x03e0, 0x001f, 0x8000};
+    const std::uint8_t rgb[]{0, 0, 0, 1, 1, 1, 255, 0, 0, 0, 255, 0, 0, 0, 255, 23, 45, 67};
     {
         fixture(assets / "rgb.pcx", rgb_pcx(rgb));
         auto image = load("rgb.pcx");
@@ -347,7 +347,7 @@ TEST_CASE_METHOD(ImageFixture, "Native image formats, palettes and archives", "[
         fixture(assets / "indexed.tga", indexed_tga());
         auto image = load("indexed.tga");
         REQUIRE((image && image->ubBitDepth == 8 && image->pPalette));
-        const UINT8 indices[]{2, 2, 2, 2, 1, 0};
+        const std::uint8_t indices[]{2, 2, 2, 2, 1, 0};
         REQUIRE(!memcmp(image->pImageData.data(), indices, sizeof(indices)));
         REQUIRE(((*image->pPalette)[2].peRed == 255 && (*image->pPalette)[2].peBlue == 0));
         REQUIRE(((*image->pPalette)[3].peRed == 0 && (*image->pPalette)[255].peFlags == 0));
@@ -389,7 +389,7 @@ TEST_CASE_METHOD(ImageFixture, "Native image formats, palettes and archives", "[
         for (int y = 0; y < 8; ++y)
             for (int x = 0; x < 8; ++x)
             {
-                auto* pixel = static_cast<UINT8*>(surface->pixels) + y * surface->pitch + x * 3;
+                auto* pixel = static_cast<std::uint8_t*>(surface->pixels) + y * surface->pitch + x * 3;
                 pixel[0] = 240;
                 pixel[1] = 20;
                 pixel[2] = 40;
@@ -449,7 +449,7 @@ TEST_CASE_METHOD(ImageFixture, "Truncated images and rollback", "[image][validat
         0xff, 0xff, 3, 1, 0x11, 0, 2, 0x11, 1, 3, 0x11, 1});
     REQUIRE(!load("oversized.jpg"));
     REQUIRE(!load(wiz8::path_to_utf8(assets / "test.tga").c_str()));
-    const std::string long_path(SGPFILENAME_LEN + 10, 'x');
+    const std::string long_path(256, 'x');
     REQUIRE(!load(long_path.c_str()));
     REQUIRE(!LoadImage(""));
 

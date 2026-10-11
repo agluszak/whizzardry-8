@@ -4,11 +4,11 @@
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
    Distributed under the accompanying SFI Source Code license agreement. */
 
+#include <cstdint>
 #include <SDL3/SDL_rect.h>
 #include <string_view>
 #include <memory>
 
-#include "Types.h"
 #include "himage.h"
 #include "vobject.h"
 #include "compat/surfaces.h"
@@ -33,9 +33,9 @@
 //
 
 struct SGPVSurface {
-    UINT16 usHeight;  // Height of Video Surface
-    UINT16 usWidth;   // Width of Video Surface
-    UINT8 ubBitDepth; // 8 or 16 bits per pixel
+    std::uint16_t usHeight;  // Height of Video Surface
+    std::uint16_t usWidth;   // Width of Video Surface
+    std::uint8_t ubBitDepth; // 8 or 16 bits per pixel
     std::unique_ptr<CpuSurface> ownedSurface;
     CpuSurface& cpu() { return *ownedSurface; }
     Palette16 p16BPPPalette{};
@@ -53,12 +53,12 @@ struct SGPVSurface {
 // The renderer owns the framebuffer and its CPU storage.
 SGPVSurface& GetFrameBufferSurface();
 
-BOOLEAN ColorFillVideoSurfaceArea(SGPVSurface& uiDestVSurface, INT32 iDestX1, INT32 iDestY1,
-                                  INT32 iDestX2, INT32 iDestY2, UINT16 Color16BPP);
+bool ColorFillVideoSurfaceArea(SGPVSurface& uiDestVSurface, std::int32_t iDestX1, std::int32_t iDestY1,
+                                  std::int32_t iDestX2, std::int32_t iDestY2, std::uint16_t Color16BPP);
 
-BOOLEAN ImageFillVideoSurfaceArea(SGPVSurface& uiDestVSurface, INT32 iDestX1, INT32 iDestY1,
-                                  INT32 iDestX2, INT32 iDestY2, SGPVObject& BkgrndImg, UINT16 Index,
-                                  INT16 Ox, INT16 Oy);
+bool ImageFillVideoSurfaceArea(SGPVSurface& uiDestVSurface, std::int32_t iDestX1, std::int32_t iDestY1,
+                                  std::int32_t iDestX2, std::int32_t iDestY2, SGPVObject& BkgrndImg, std::uint16_t Index,
+                                  std::int16_t Ox, std::int16_t Oy);
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 //
@@ -67,7 +67,7 @@ BOOLEAN ImageFillVideoSurfaceArea(SGPVSurface& uiDestVSurface, INT32 iDestX1, IN
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Explicit factories for empty CPU surfaces and images from the virtual filesystem.
-std::unique_ptr<SGPVSurface> CreateVideoSurface(UINT16 width, UINT16 height, UINT8 bits);
+std::unique_ptr<SGPVSurface> CreateVideoSurface(std::uint16_t width, std::uint16_t height, std::uint8_t bits);
 std::unique_ptr<SGPVSurface> LoadVideoSurface(std::string_view filename);
 
 // Sets the packed source color key
@@ -82,14 +82,14 @@ void SetVideoSurfaceTransparencyColor(SGPVSurface& surface, COLORVAL color);
 // These blitting functions more-or less encapsolate all of the functionality of DirectDraw
 // Blitting, giving an API layer for portability.
 
-BOOLEAN BltVideoSurfaceToVideoSurface(SGPVSurface& hDestVSurface, SGPVSurface& hSrcVSurface,
-                                      INT32 iDestX, INT32 iDestY, INT32 fBltFlags,
+bool BltVideoSurfaceToVideoSurface(SGPVSurface& hDestVSurface, SGPVSurface& hSrcVSurface,
+                                      std::int32_t iDestX, std::int32_t iDestY, std::int32_t fBltFlags,
                                       const SDL_Rect* sourceRect = nullptr);
 
-BOOLEAN ShadowVideoSurfaceRect(SGPVSurface& uiDestVSurface, INT32 X1, INT32 Y1, INT32 X2, INT32 Y2);
+bool ShadowVideoSurfaceRect(SGPVSurface& uiDestVSurface, std::int32_t X1, std::int32_t Y1, std::int32_t X2, std::int32_t Y2);
 // If the Dest Rect and the source rect are not the same size, the source surface will be either
 //enlraged or shunk.
-std::unique_ptr<SGPVSurface> MakeVSurfaceFromVObject(SGPVObject& object, UINT16 subIndex);
+std::unique_ptr<SGPVSurface> MakeVSurfaceFromVObject(SGPVObject& object, std::uint16_t subIndex);
 
 
 #endif

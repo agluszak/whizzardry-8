@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "Font.h"
 #pragma once
 
@@ -9,7 +10,6 @@
 #include "wiz8/local_code/ControlsRect.h"
 #include "Button System.h"
 #include "input.h"
-#include "Types.h"
 #include "compat/compiler.h"
 
 struct W8WorldItem;
@@ -88,12 +88,12 @@ private:
 
     /* SGP move/click callbacks for the text area, the scroll arrow buttons and
        the confirmation buttons. */
-    static void TextAreaButtonCallback(GUI_BUTTON* button, INT32 reason);
-    static void UpButtonCallback(GUI_BUTTON* button, INT32 reason);
-    static void DownButtonCallback(GUI_BUTTON* button, INT32 reason);
-    static void OkButtonCallback(GUI_BUTTON* button, INT32 reason);
-    static void CancelButtonCallback(GUI_BUTTON* button, INT32 reason);
-    static void SliderTrackButtonCallback(GUI_BUTTON* button, INT32 reason);
+    static void TextAreaButtonCallback(GUI_BUTTON* button, std::int32_t reason);
+    static void UpButtonCallback(GUI_BUTTON* button, std::int32_t reason);
+    static void DownButtonCallback(GUI_BUTTON* button, std::int32_t reason);
+    static void OkButtonCallback(GUI_BUTTON* button, std::int32_t reason);
+    static void CancelButtonCallback(GUI_BUTTON* button, std::int32_t reason);
+    static void SliderTrackButtonCallback(GUI_BUTTON* button, std::int32_t reason);
 
 public:
     /* The displayed text lines; the dialog owns and frees each one. */

@@ -1,23 +1,23 @@
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
    Distributed under the accompanying SFI Source Code license agreement. */
+#include <cstdint>
 #include <cstring>
 
-#include "Types.h"
 #include "himage.h"
 #include "vobject.h"
 #include "shading.h"
 
-void FindMaskIndecies(UINT8*, UINT8*, UINT8*);
+void FindMaskIndecies(std::uint8_t*, std::uint8_t*, std::uint8_t*);
 
 // GLOBAL: WIZ8 0x0069da80
-UINT16 IntensityTable[65536];
+std::uint16_t IntensityTable[65536];
 // GLOBAL: WIZ8 0x006c0da0
-UINT16 ShadeTable[65536];
+std::uint16_t ShadeTable[65536];
 // GLOBAL: WIZ8 0x006e0da0
-UINT16 White16BPPPalette[256];
+std::uint16_t White16BPPPalette[256];
 // GLOBAL: WIZ8 0x006000ac
-FLOAT guiShadePercent = (FLOAT)0.48;
-FLOAT guiBrightPercent = (FLOAT)1.1;
+float guiShadePercent = (float)0.48;
+float guiBrightPercent = (float)1.1;
 
 /**********************************************************************************************
  BuildShadeTable
@@ -34,8 +34,8 @@ FLOAT guiBrightPercent = (FLOAT)1.1;
 // FUNCTION: WIZ8 0x00413d60
 void BuildShadeTable(void)
 {
-    UINT16 red, green, blue;
-    UINT16 index;
+    std::uint16_t red, green, blue;
+    std::uint16_t index;
 
     for (red = 0; red < 256; red += 4)
         for (green = 0; green < 256; green += 4)
@@ -49,7 +49,7 @@ void BuildShadeTable(void)
 }
 
 // FUNCTION: WIZ8 0x00413e80
-void SetShadeTablePercent(FLOAT uiShadePercent)
+void SetShadeTablePercent(float uiShadePercent)
 {
     guiShadePercent = uiShadePercent;
     BuildShadeTable();

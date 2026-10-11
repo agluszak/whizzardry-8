@@ -1,5 +1,6 @@
 #ifndef WIZ8_VIDEO_OBJECT_CATALOG_H
 #define WIZ8_VIDEO_OBJECT_CATALOG_H
+#include <cstdint>
 #include <memory>
 #include <utility>
 #include <string>
@@ -33,10 +34,10 @@ std::pair<int, int> GetCatalogImageSize(int object, int frame, int image);
    ETRLE subregion table. */
 void GetCatalogImagePosition(int object, int frame, int image, short* x, short* y);
 void DrawCatalogImage(SGPVSurface& target, int object, int frame, short image, int left, int top,
-                      UINT32 mode, blt_fx* effects);
+                      std::uint32_t mode, blt_fx* effects);
 void InvalidateCatalogImageRect(int object, int frame, int image, int left, int top, int flags);
 void DrawCatalogImageAndInvalidate(SGPVSurface& target, int object, int frame, int image, int left,
-                                   int top, UINT32 mode, blt_fx* effects);
+                                   int top, std::uint32_t mode, blt_fx* effects);
 unsigned char BlitCatalogSurfaceRectTo16BPP(SGPVSurface& target, int left, int top, int right, int bottom,
                                             int object, int source_x, int source_y);
 

@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "Font.h"
 #include <string_view>
 #pragma once
@@ -7,7 +8,7 @@
 
 /* Update the non-toggle dialog arrow's pressed/hover state. The caller
    retains its action and invalidates only when this operation reports a change. */
-bool UpdateDialogArrowState(GUI_BUTTON* button, INT32 reason);
+bool UpdateDialogArrowState(GUI_BUTTON* button, std::int32_t reason);
 
 /* Tooltip string-table sentinel; independent of the five frame indices. */
 enum { W8_DIALOG_BUTTON_NO_TOOLTIP = -1 };
@@ -19,7 +20,7 @@ class W8DialogButton;
    callback with the W8DialogButton, not the raw SGP button, as the subject. */
 typedef void (*W8DialogButtonCallback)(W8DialogButton* button);
 
-void DialogButtonCallback(GUI_BUTTON* button, INT32 reason);
+void DialogButtonCallback(GUI_BUTTON* button, std::int32_t reason);
 
 // VTABLE: WIZ8 0x005efa98
 class W8DialogButton {
@@ -77,7 +78,7 @@ public:
        enabled, push its text onto the SGP button. */
     void SetTooltipIndex(int tooltip_index);
 
-    friend void DialogButtonCallback(GUI_BUTTON* button, INT32 reason);
+    friend void DialogButtonCallback(GUI_BUTTON* button, std::int32_t reason);
 
 private:
     GUIButton m_button_handle; /* owns the underlying SGP button */
@@ -147,5 +148,4 @@ inline bool AllocateDialogButtons(W8DialogButton** buttons, int count)
 
 /* Dialog handles keep their sentinel until release finishes. Removal,
    ordinary images and generic borders have distinct SGP resource owners. */
-
 

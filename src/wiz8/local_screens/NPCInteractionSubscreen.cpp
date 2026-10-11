@@ -69,7 +69,6 @@
 #include "wiz8/xstatus.h"
 #include "Font.h"
 #include "input.h"
-#include "Types.h"
 #include "mousesystem.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
@@ -2268,7 +2267,7 @@ void AddNpcDialogueKeyword(std::string text, signed char category, int play_chim
                 SyncDialogueCategoryButtons();
             }
             if (play_chime != 0) {
-                SoundPlay(reinterpret_cast<STR>(const_cast<char*>( // reinterpret-ok: SGP text ABI
+                SoundPlay(reinterpret_cast<char*>(const_cast<char*>( // reinterpret-ok: SGP text ABI
                               "Data\\Sound\\Misc\\Keyword Chime.wav")),
                           0);
             }
@@ -4222,7 +4221,7 @@ void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, W8NpcScriptQu
         g_npc_interaction_state->quote_notice_kind = notice_kind;
         g_npc_interaction_state->quote_notice_payload = payload;
         if (g_npc_interaction_state->quote_notice_kind == W8_QUOTE_NOTICE_LEVEL_UP) {
-            SoundPlay(reinterpret_cast<STR>(const_cast<char*>( // reinterpret-ok: SGP text ABI
+            SoundPlay(reinterpret_cast<char*>(const_cast<char*>( // reinterpret-ok: SGP text ABI
                           "Data\\Sound\\Misc\\GainLevel.wav")),
                       0);
         }

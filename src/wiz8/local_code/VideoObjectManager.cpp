@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <utility>
 #include <cstddef>
 #include "himage.h"
@@ -13,7 +14,6 @@
 #include "vobject.h"
 #include "vobject_blitters.h"
 #include "vsurface.h"
-#include "Types.h"
 #include "compat/compiler.h"
 
 W8_ABI_ASSERT(sizeof(W8VideoObjectSlot) == 8, "W8VideoObjectSlot_size_must_be_8");
@@ -770,11 +770,11 @@ void ReleaseLoadedVideoFrames(void)
 
 // FUNCTION: WIZ8 0x00548f90
 void DrawCatalogImage(SGPVSurface& target, int object, int frame, short image, int left, int top,
-                      UINT32 mode, blt_fx* effects)
+                      std::uint32_t mode, blt_fx* effects)
 {
     W8VideoObjectSlot* slot;
     short row;
-    BOOLEAN ok;
+    bool ok;
 
     EnsureCatalogFrameLoaded(object, frame);
     slot = &g_video_slots[object];
@@ -797,7 +797,7 @@ void DrawCatalogImage(SGPVSurface& target, int object, int frame, short image, i
 void EnsureCatalogFrameLoaded(int object, int frame)
 {
     W8VideoFrame* record;
-    BOOLEAN loaded_ok;
+    bool loaded_ok;
 
     record = &g_video_frames[g_video_slots[object].first_frame + frame];
     if (!record->object && !record->surface) {
@@ -853,7 +853,7 @@ void InvalidateCatalogImageRect(int object, int frame, int image, int left, int 
    and the seventh reaches the mark only as whether it equals two. */
 // FUNCTION: WIZ8 0x00549600
 void DrawCatalogImageAndInvalidate(SGPVSurface& target, int object, int frame, int image, int left,
-                                   int top, UINT32 mode, blt_fx* effects)
+                                   int top, std::uint32_t mode, blt_fx* effects)
 {
     DrawCatalogImage(target, object, frame, static_cast<short>(image), left, top, mode, effects);
     InvalidateCatalogImageRect(object, frame, image, left, top, mode == VO_BLT_SRCTRANSPARENCY);
@@ -916,10 +916,10 @@ unsigned char BlitCatalogSurfaceRectTo16BPP(SGPVSurface& target, int left, int t
     auto& source_surface = *g_video_frames[g_video_slots[object].first_frame].surface;
     const auto& destination_storage = *target.cpu().surface;
     target_pitch = destination_storage.pitch;
-    target_pixels = static_cast<BYTE*>(destination_storage.pixels);
+    target_pixels = static_cast<std::uint8_t*>(destination_storage.pixels);
     const auto& source_storage = *source_surface.cpu().surface;
     source_pitch = source_storage.pitch;
-    source_pixels = static_cast<BYTE*>(source_storage.pixels);
+    source_pixels = static_cast<std::uint8_t*>(source_storage.pixels);
     Blt8BPPDataSubTo16BPPBuffer(reinterpret_cast<unsigned short*>(target_pixels), target_pitch,
                                 source_surface, source_pixels, source_pitch, left, top,
                                 &source_rect);

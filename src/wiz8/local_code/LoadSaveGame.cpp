@@ -86,7 +86,6 @@
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "AnimRep.hpp"
 #include "Item.h"
-#include "Types.h"
 #include "compat/native.h"
 #include "compat/ptr32.h"
 #include "conditions.h"
@@ -398,7 +397,7 @@ try
     for (region = 0; region != 4; ++region) {
         for (index = 0; index < g_status.text_box_lines_shown[region]; ++index) {
             g_message_storage[region][index].saved_remaining_ms =
-                UINT32(TimeUntilDeadline(g_message_storage[region][index].clock));
+                std::uint32_t(TimeUntilDeadline(g_message_storage[region][index].clock));
         }
     }
     gXStatus.gameplay_timer->Restart();

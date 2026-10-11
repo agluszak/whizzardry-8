@@ -4,6 +4,7 @@
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
    Distributed under the accompanying SFI Source Code license agreement. */
 
+#include <cstdint>
 #include <SDL3/SDL_rect.h>
 #include <memory>
 #include <array>
@@ -13,7 +14,6 @@
 #include <span>
 #include <cstddef>
 
-#include "Types.h"
 
 // The HIMAGE module provides a common interface for managing image data. This module
 // includes:
@@ -32,10 +32,10 @@
 
 // Palette structure, mimics that of Win32
 typedef struct tagSGPPaletteEntry {
-    UINT8 peRed;
-    UINT8 peGreen;
-    UINT8 peBlue;
-    UINT8 peFlags;
+    std::uint8_t peRed;
+    std::uint8_t peGreen;
+    std::uint8_t peBlue;
+    std::uint8_t peFlags;
 
 } SGPPaletteEntry;
 
@@ -47,51 +47,51 @@ typedef struct tagSGPPaletteEntry {
 #define AUX_USES_LAND_Z 0x20
 
 typedef struct {
-    UINT8 ubWallOrientation;
-    UINT8 ubNumberOfTiles;
-    UINT16 usTileLocIndex;
-    UINT8 ubUnused1[3];
-    UINT8 ubCurrentFrame;
-    UINT8 ubNumberOfFrames;
-    UINT8 fFlags;
-    UINT8 ubUnused[6];
+    std::uint8_t ubWallOrientation;
+    std::uint8_t ubNumberOfTiles;
+    std::uint16_t usTileLocIndex;
+    std::uint8_t ubUnused1[3];
+    std::uint8_t ubCurrentFrame;
+    std::uint8_t ubNumberOfFrames;
+    std::uint8_t fFlags;
+    std::uint8_t ubUnused[6];
 } AuxObjectData;
 
 typedef struct {
-    INT8 bTileOffsetX;
-    INT8 bTileOffsetY;
+    std::int8_t bTileOffsetX;
+    std::int8_t bTileOffsetY;
 } RelTileLoc; // relative tile location
 
 // TRLE subimage structure, mirroring that of ST(C)I
 typedef struct tagETRLEObject {
-    UINT32 uiDataOffset;
-    UINT32 uiDataLength;
-    INT16 sOffsetX;
-    INT16 sOffsetY;
-    UINT16 usHeight;
-    UINT16 usWidth;
+    std::uint32_t uiDataOffset;
+    std::uint32_t uiDataLength;
+    std::int16_t sOffsetX;
+    std::int16_t sOffsetY;
+    std::uint16_t usHeight;
+    std::uint16_t usWidth;
 } ETRLEObject;
 
 using Palette8 = std::array<SGPPaletteEntry, 256>;
-using Palette16 = std::array<UINT16, 256>;
+using Palette16 = std::array<std::uint16_t, 256>;
 
 // Image header structure
 struct image_type {
-    UINT16 usWidth;
-    UINT16 usHeight;
-    UINT8 ubBitDepth;
+    std::uint16_t usWidth;
+    std::uint16_t usHeight;
+    std::uint8_t ubBitDepth;
     bool compressed = false;
     bool etrle = false;
     std::optional<Palette8> pPalette;
     std::optional<Palette16> pui16BPPPalette;
-    std::vector<UINT8> pImageData;
+    std::vector<std::uint8_t> pImageData;
     std::vector<ETRLEObject> pETRLEObject;
 
 };
 
-#define SGPGetRValue(rgb) ((BYTE)(rgb))
-#define SGPGetBValue(rgb) ((BYTE)((rgb) >> 16))
-#define SGPGetGValue(rgb) ((BYTE)(((UINT16)(rgb)) >> 8))
+#define SGPGetRValue(rgb) ((std::uint8_t)(rgb))
+#define SGPGetBValue(rgb) ((std::uint8_t)((rgb) >> 16))
+#define SGPGetGValue(rgb) ((std::uint8_t)(((std::uint16_t)(rgb)) >> 8))
 
 // *****************************************************************************
 //
@@ -106,23 +106,23 @@ struct image_type {
 // Returns no image on failure.
 std::optional<image_type> LoadImage(std::string_view filename);
 
-bool CopyImageToBuffer(const image_type& image, UINT32 buffer_type, std::span<UINT8> destination,
+bool CopyImageToBuffer(const image_type& image, std::uint32_t buffer_type, std::span<std::uint8_t> destination,
                        std::size_t dest_width, std::size_t dest_height, std::size_t x, std::size_t y,
                        const SDL_Rect& source_rect);
 
 // UTILITY FUNCTIONS
 
 // Used to create a 16BPP Palette from an 8 bit palette, found in himage.c
-Palette16 Create16BPPPaletteShaded(const Palette8& pPalette, UINT32 rscale, UINT32 gscale,
-                                 UINT32 bscale, BOOLEAN mono);
+Palette16 Create16BPPPaletteShaded(const Palette8& pPalette, std::uint32_t rscale, std::uint32_t gscale,
+                                 std::uint32_t bscale, bool mono);
 Palette16 Create16BPPPalette(const Palette8& pPalette);
-UINT16 Get16BPPColor(UINT32 RGBValue);
-extern UINT16 gusAlphaMask;
-extern UINT16 gusRedMask;
-extern UINT16 gusGreenMask;
-extern UINT16 gusBlueMask;
-extern INT16 gusRedShift;
-extern INT16 gusBlueShift;
-extern INT16 gusGreenShift;
+std::uint16_t Get16BPPColor(std::uint32_t RGBValue);
+extern std::uint16_t gusAlphaMask;
+extern std::uint16_t gusRedMask;
+extern std::uint16_t gusGreenMask;
+extern std::uint16_t gusBlueMask;
+extern std::int16_t gusRedShift;
+extern std::int16_t gusBlueShift;
+extern std::int16_t gusGreenShift;
 
 #endif

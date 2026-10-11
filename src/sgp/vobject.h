@@ -4,6 +4,7 @@
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
    Distributed under the accompanying SFI Source Code license agreement. */
 
+#include <cstdint>
 #include <SDL3/SDL_rect.h>
 #include <string>
 #include <string_view>
@@ -13,7 +14,6 @@
 #include <optional>
 #include <span>
 
-#include "Types.h"
 #include "himage.h"
 #include "wiz8/compat/surfaces.h"
 
@@ -24,7 +24,7 @@
 // ************************************************************************************
 
 // This definition mimics what is found in WINDOWS.H ( for Direct Draw compatiblity )
-typedef UINT32 COLORVAL;
+typedef std::uint32_t COLORVAL;
 
 // Defines for blitting
 #define VO_BLT_SRCTRANSPARENCY 0x000000002
@@ -45,7 +45,7 @@ typedef UINT32 COLORVAL;
 
 // Effects structure for specialized blitting
 typedef struct {
-    UINT32 uiShadowLevel;
+    std::uint32_t uiShadowLevel;
     SDL_Rect ClipRect;
 
 } blt_fx;
@@ -53,7 +53,7 @@ typedef struct {
 // This definition mimics what is found in WINDOWS.H ( for Direct Draw compatiblity )
 // From RGB to COLORVAL
 #define FROMRGB(r, g, b)                                                                           \
-    ((UINT32)(((UINT8)(r) | ((UINT16)(g) << 8)) | (((UINT32)(UINT8)(b)) << 16)))
+    ((std::uint32_t)(((std::uint8_t)(r) | ((std::uint16_t)(g) << 8)) | (((std::uint32_t)(std::uint8_t)(b)) << 16)))
 
 // This structure is a video object.
 // One decoded sprite frame: pixels are palette indices 0-255 or
@@ -61,15 +61,15 @@ typedef struct {
 // stays distinguishable without a separate mask. Placement metadata
 // travels with the pixels; the compressed source is never retained.
 struct SpriteFrame {
-    static constexpr UINT16 kTransparent = 256;
+    static constexpr std::uint16_t kTransparent = 256;
 
     SDLSurfaceOwner indices{nullptr, SDL_DestroySurface};
-    std::optional<UINT8> paletteIndexAt(int x, int y) const;
-    SDL_Surface* coloredSurface(std::span<const UINT16, 256> palette, bool mirror = false) const;
-    INT16 sOffsetX = 0;
-    INT16 sOffsetY = 0;
-    UINT16 usHeight = 0;
-    UINT16 usWidth = 0;
+    std::optional<std::uint8_t> paletteIndexAt(int x, int y) const;
+    SDL_Surface* coloredSurface(std::span<const std::uint16_t, 256> palette, bool mirror = false) const;
+    std::int16_t sOffsetX = 0;
+    std::int16_t sOffsetY = 0;
+    std::uint16_t usHeight = 0;
+    std::uint16_t usWidth = 0;
 
 private:
     mutable SDLSurfaceOwner colored{nullptr, SDL_DestroySurface};
@@ -90,19 +90,19 @@ struct SGPVObject {
         return currentShade == 4 ? palette : pShades[currentShade].value();
     }
 
-    UINT8 ubBitDepth;         // BPP
+    std::uint8_t ubBitDepth;         // BPP
 
 };
 
 // Palette generation and shade selection preserve the game's RGB555 tables.
-UINT16 CreateObjectPaletteTables(SGPVObject& object, UINT32 type);
-UINT16 SetObjectShade(SGPVObject& object, UINT32 shade);
+std::uint16_t CreateObjectPaletteTables(SGPVObject& object, std::uint32_t type);
+bool SetObjectShade(SGPVObject& object, std::uint32_t shade);
 
 struct SGPVSurface;
-BOOLEAN BltVideoObject(SGPVSurface& destination, SGPVObject& source, UINT16 frame,
-                       INT32 x, INT32 y, UINT32 flags, blt_fx* effects);
-BOOLEAN BltVideoObjectToBuffer(UINT16* pixels, UINT32 pitch, SGPVObject& source,
-                               UINT16 frame, INT32 x, INT32 y, INT32 flags, blt_fx* effects);
+bool BltVideoObject(SGPVSurface& destination, SGPVObject& source, std::uint16_t frame,
+                       std::int32_t x, std::int32_t y, std::uint32_t flags, blt_fx* effects);
+bool BltVideoObjectToBuffer(std::uint16_t* pixels, std::uint32_t pitch, SGPVObject& source,
+                               std::uint16_t frame, std::int32_t x, std::int32_t y, std::int32_t flags, blt_fx* effects);
 
 // Decode borrowed STI data into owned sprite frames.
 std::unique_ptr<SGPVObject> CreateVideoObject(const image_type& image);

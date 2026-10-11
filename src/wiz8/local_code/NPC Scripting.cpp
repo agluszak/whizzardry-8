@@ -67,7 +67,6 @@
 #include "wiz8/regions.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/xstatus.h"
-#include "Types.h"
 #include "compat/native.h"
 #include "compat/ptr32.h"
 #include "layouts/item_instance.h"
@@ -469,7 +468,7 @@ void ProcessNpcScriptingFrame(void)
             memset(&local_sound_parms, 0xff, sizeof(SOUNDPARMS));
             g_sedexus_sound_handle = SoundPlayStreamedFile(
                 // c-style-cast-ok: SGP spells filenames STR (UINT8*), the historical ABI boundary
-                (STR)g_sedexus_moaning_sound, &local_sound_parms);
+                (char*)g_sedexus_moaning_sound, &local_sound_parms);
         } else {
             ClearMainGameTargetState();
             sedexus_party_slot = g_status.sedexus_party_slot;
@@ -1467,7 +1466,7 @@ void ProcessMessageBoxQueue(void)
     case W8_NPC_MSG_JOURNAL_QUOTE:
         ShowNpcScriptNoticeBubble(g_localized_strings[0x74a]);
         g_npc_scripting.quote_active = 1;
-        SoundPlay((STR) "Data\\Sound\\Misc\\Journal Entry.wav",
+        SoundPlay((char*) "Data\\Sound\\Misc\\Journal Entry.wav",
                   0); // c-style-cast-ok: released SGP textual API uses UINT8 pointer spelling
         break;
     case W8_NPC_MSG_PORTRAIT_STRING: {
@@ -1536,7 +1535,7 @@ void ProcessMessageBoxQueue(void)
         int party_slot = *line->extra.level_up_slot;
         g_status.buffers.XChar[party_slot].portrait_advance = 1;
         if (g_settings.skill_increase_messages == 0) {
-            SoundPlay((STR) "Data\\Sound\\Misc\\GainLevel.wav",
+            SoundPlay((char*) "Data\\Sound\\Misc\\GainLevel.wav",
                       0); // c-style-cast-ok: released SGP textual API uses UINT8 pointer spelling
             line->text.clear();
         } else {

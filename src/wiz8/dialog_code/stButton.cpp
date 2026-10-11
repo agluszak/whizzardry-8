@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "Font.h"
 #include <string_view>
 #include <utility>
@@ -14,9 +15,8 @@
 #include "Button System.h"
 #include "input.h"
 #include "mousesystem.h"
-#include "Types.h"
 
-bool UpdateDialogArrowState(GUI_BUTTON* button, INT32 reason)
+bool UpdateDialogArrowState(GUI_BUTTON* button, std::int32_t reason)
 {
     if (reason & MSYS_CALLBACK_REASON_LBUTTON_DWN) {
         if (!(button->uiFlags & BUTTON_CLICKED_ON)) {
@@ -258,7 +258,7 @@ bool W8DialogButton::Configure(const char* image_path, int gray_frame, int off_n
 }
 
 // FUNCTION: WIZ8 0x005db620
-void DialogButtonCallback(GUI_BUTTON* button, INT32 reason)
+void DialogButtonCallback(GUI_BUTTON* button, std::int32_t reason)
 {
     W8DialogButtonCallback left_callback;
     W8DialogButtonCallback right_callback;

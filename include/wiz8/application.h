@@ -2,18 +2,17 @@
 #include <string_view>
 #pragma once
 
-#include "Types.h"
 #include <span>
 
 extern "C" {
-extern BOOLEAN gfProgramIsRunning;
-extern BOOLEAN gfLoadAtStartup;
+extern bool gfProgramIsRunning;
+extern bool gfLoadAtStartup;
 extern std::string gzStringDataOverride;
-extern BOOLEAN gfUsingBoundsChecker;
-extern BOOLEAN gfCapturingVideo;
-extern BOOLEAN gfApplicationActive;
-extern BOOLEAN gfGameInitialized;
-extern BOOLEAN gfIgnoreMessages;
+extern bool gfUsingBoundsChecker;
+extern bool gfCapturingVideo;
+extern bool gfApplicationActive;
+extern bool gfGameInitialized;
+extern bool gfIgnoreMessages;
 extern std::string gzErrorMsg;
 
 union SDL_Event;

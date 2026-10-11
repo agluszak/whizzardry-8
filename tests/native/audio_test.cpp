@@ -29,7 +29,6 @@
 #include "native/movie_audio.h"
 #include "soundman.h"
 #include "temporary_directory.h"
-#include "Types.h"
 #include "catch2/catch_message.hpp"
 #include "audio_resources.h"
 
@@ -315,7 +314,7 @@ TEST_CASE_METHOD(AudioFixture, "Audio playback, spatialization and movie lifetim
     REQUIRE(!SoundIsPlaying(sound));
     sound = SoundPlay(path, &options);
     REQUIRE(sound != nullptr);
-    REQUIRE(SoundSetFadeVolume(sound, 0, 0, TRUE));
+    REQUIRE(SoundSetFadeVolume(sound, 0, 0, true));
     for (int i = 0; i < 130; ++i)
         SoundServiceStreams();
     REQUIRE(!SoundIsPlaying(sound));

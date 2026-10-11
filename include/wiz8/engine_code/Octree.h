@@ -6,7 +6,6 @@
 #include "surrender/srMath.h"
 #include "wiz8/engine_code/OctPreTree.h"
 #include "wiz8/geometry.h"
-#include "Types.h"
 #include "compat/compiler.h"
 #include "compat/native.h"
 #include "glm/ext/vector_float2.hpp"
@@ -64,9 +63,9 @@ struct W8OctreeTrace {
 W8_ABI_ASSERT(sizeof(W8OctreeTrace) == 0x30, "W8OctreeTrace_must_be_0x30");
 /* Bulk .oct vector I/O. Writers stage at most 0x100 records per FileWrite;
    the raw twelve-byte reader serves float vectors and polygon index triples. */
-BOOLEAN WriteVector4Array(wiz8::File* file, const glm::vec4* values, int count);
-BOOLEAN WriteVector3Array(wiz8::File* file, const srVector3T<float>* values, int count);
-BOOLEAN WriteVector2Array(wiz8::File* file, const glm::vec2* values, int count);
+bool WriteVector4Array(wiz8::File* file, const glm::vec4* values, int count);
+bool WriteVector3Array(wiz8::File* file, const srVector3T<float>* values, int count);
+bool WriteVector2Array(wiz8::File* file, const glm::vec2* values, int count);
 bool ReadVector4Array(wiz8::File* file, glm::vec4* values, int count);
 bool ReadVector3Array(wiz8::File* file, void* values, int count);
 bool ReadVector2Array(wiz8::File* file, glm::vec2* values, int count);
@@ -102,22 +101,22 @@ inline bool ReadVectorArray(wiz8::File* file, glm::vec2* values, int count)
 
 /* The polygon index triples serialize through the same canonical 12-byte
    float-vector writer. */
-inline BOOLEAN WriteVectorArray(wiz8::File* file, const srVector3i* values, int count)
+inline bool WriteVectorArray(wiz8::File* file, const srVector3i* values, int count)
 {
     return WriteVector3Array(
         file, reinterpret_cast<const srVector3T<float>*>(values), /* reinterpret-ok: the
             float writer's raw 12-byte record is the index-triple record */
         count);
 }
-inline BOOLEAN WriteVectorArray(wiz8::File* file, const srVector3T<float>* values, int count)
+inline bool WriteVectorArray(wiz8::File* file, const srVector3T<float>* values, int count)
 {
     return WriteVector3Array(file, values, count);
 }
-inline BOOLEAN WriteVectorArray(wiz8::File* file, const glm::vec4* values, int count)
+inline bool WriteVectorArray(wiz8::File* file, const glm::vec4* values, int count)
 {
     return WriteVector4Array(file, values, count);
 }
-inline BOOLEAN WriteVectorArray(wiz8::File* file, const glm::vec2* values, int count)
+inline bool WriteVectorArray(wiz8::File* file, const glm::vec2* values, int count)
 {
     return WriteVector2Array(file, values, count);
 }
@@ -418,7 +417,7 @@ public:
     /* Store `path` with its extension stripped into m_owned_0c0; the sibling
        data files are then derived from the stem. */
     bool SetPathStem(const char* path); /* 0x0042CF90 */
-    BOOLEAN SavePoints(char* path);
+    bool SavePoints(char* path);
     bool LoadPointFiles(const char* level_name);
     bool ReadRegionLinkFile(const char* level_name);
     /* Region containing `point` (1-based index into the volume array), else
@@ -436,7 +435,7 @@ public:
        `rebuild_all` sweeps every cell and discards the saved point list, a
        zero value samples a sparse checkerboard plus the stored points. */
     void BuildRegionLinks(bool rebuild_all); /* 0x004314C0 */
-    BOOLEAN SaveRegionLinks(char* path);
+    bool SaveRegionLinks(char* path);
     unsigned char ValidateRegionMeshLinks();
     /* Collect the live (mesh<<16)|polygon keys whose triangles overlap the
        (x±radius, y-height..y, z±radius) box, sorted and zero-terminated in

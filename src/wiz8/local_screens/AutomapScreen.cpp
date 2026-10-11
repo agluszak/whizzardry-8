@@ -63,7 +63,6 @@
 #include "wiz8/fonts.h"
 #include "wiz8/local_screens/MGSKeyboard.h"
 #include "input.h"
-#include "Types.h"
 #include "wiz8/filesystem.h"
 #include "mousesystem.h"
 #include "Font.h"
@@ -1920,7 +1919,7 @@ void RenderAutomapMarkers(void)
                         SetClippingRegionAndImageWidth(pitch, 0xc, 0x20, 0x1c7, 0x1b3);
                         int color = Get16BPPColor(0x569bef);
                         int length = g_wiz_text_font_secondary.textWidth(note->text);
-                        RectangleDraw(TRUE, x - 1, y, x + length + 2, y + (font_height & 0xffff),
+                        RectangleDraw(true, x - 1, y, x + length + 2, y + (font_height & 0xffff),
                                       color, buffer);
                     }
                 }

@@ -3,6 +3,7 @@
 #ifndef _MOUSE_SYSTEM_H_
 #define _MOUSE_SYSTEM_H_
 
+#include <cstdint>
 #include <string>
 #include <string_view>
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
@@ -27,7 +28,6 @@
 
 #include <memory>
 
-#include "Types.h"
 
 
 // *****************************************************************************
@@ -37,37 +37,37 @@
 // *****************************************************************************
 
 typedef void (*MOUSE_CALLBACK)(struct _MOUSE_REGION*,
-                               INT32);          // Define MOUSE_CALLBACK type as pointer to void
+                               std::int32_t);          // Define MOUSE_CALLBACK type as pointer to void
 typedef void (*MOUSE_HELPTEXT_DONE_CALLBACK)(); // the help is done callback
 
 typedef struct _MOUSE_REGION {
     _MOUSE_REGION();
-    void configure(UINT16 tlx, UINT16 tly, UINT16 brx, UINT16 bry, INT8 priority,
+    void configure(std::uint16_t tlx, std::uint16_t tly, std::uint16_t brx, std::uint16_t bry, std::int8_t priority,
                    MOUSE_CALLBACK move, MOUSE_CALLBACK button);
     ~_MOUSE_REGION();
     _MOUSE_REGION(const _MOUSE_REGION&) = delete;
     _MOUSE_REGION& operator=(const _MOUSE_REGION&) = delete;
-    INT8 PriorityLevel{};   // Region's Priority, set by system and/or caller
-    UINT32 uiFlags{};       // Region's state flags
-    INT16 RegionTopLeftX{}; // Screen area affected by this region (absolute coordinates)
-    INT16 RegionTopLeftY{};
-    INT16 RegionBottomRightX{};
-    INT16 RegionBottomRightY{};
-    INT16 MouseXPos{}; // Mouse's Coordinates in absolute screen coordinates
-    INT16 MouseYPos{};
-    INT16 RelativeXPos{}; // Mouse's Coordinates relative to the Top-Left corner of the region
-    INT16 RelativeYPos{};
-    UINT16 ButtonState{}; // Current state of the mouse buttons
+    std::int8_t PriorityLevel{};   // Region's Priority, set by system and/or caller
+    std::uint32_t uiFlags{};       // Region's state flags
+    std::int16_t RegionTopLeftX{}; // Screen area affected by this region (absolute coordinates)
+    std::int16_t RegionTopLeftY{};
+    std::int16_t RegionBottomRightX{};
+    std::int16_t RegionBottomRightY{};
+    std::int16_t MouseXPos{}; // Mouse's Coordinates in absolute screen coordinates
+    std::int16_t MouseYPos{};
+    std::int16_t RelativeXPos{}; // Mouse's Coordinates relative to the Top-Left corner of the region
+    std::int16_t RelativeYPos{};
+    std::uint16_t ButtonState{}; // Current state of the mouse buttons
     MOUSE_CALLBACK
     MovementCallback{}; // Pointer to callback function if movement occured in this region
     MOUSE_CALLBACK
     ButtonCallback{};    // Pointer to callback function if button action occured in this region
-    INT32 UserData[4]{}; // User Data, can be set to anything!
+    std::int32_t UserData[4]{}; // User Data, can be set to anything!
 
     //Fast help vars.
-    INT16 FastHelpTimer{};  // Countdown timer for FastHelp text
+    std::int16_t FastHelpTimer{};  // Countdown timer for FastHelp text
     std::string FastHelpText; // Text string for the FastHelp (describes buttons if left there a while)
-    INT32 FastHelpRect{};
+    std::int32_t FastHelpRect{};
     MOUSE_HELPTEXT_DONE_CALLBACK HelpDoneCallback{};
     struct _GUI_BUTTON* button = nullptr; // observer; callback dispatch never owns the control
 
@@ -77,7 +77,7 @@ private:
     static _MOUSE_REGION* first;
     void unlink();
     void clearDispatch();
-    friend INT32 MSYS_Init();
+    friend std::int32_t MSYS_Init();
     friend void MSYS_Shutdown();
     friend void MSYS_UpdateMouseRegion();
 
@@ -178,17 +178,17 @@ private:
 void MSYS_UpdateMouseRegion(void);
 
 // UI dispatch consumes events from the SDL-backed input stream.
-void DispatchMouseEvent(UINT16 type, UINT16 x, UINT16 y, BOOLEAN left, BOOLEAN right);
+void DispatchMouseEvent(std::uint16_t type, std::uint16_t x, std::uint16_t y, bool left, bool right);
 
 // External
-INT32 MSYS_Init(void);
+std::int32_t MSYS_Init(void);
 void MSYS_Shutdown(void);
 void MSYS_EnableRegion(MOUSE_REGION* region);
 void MSYS_DisableRegion(MOUSE_REGION* region);
-void MSYS_SetRegionUserData(MOUSE_REGION* region, INT32 index, INT32 userdata);
-INT32 MSYS_GetRegionUserData(MOUSE_REGION* region, INT32 index);
+void MSYS_SetRegionUserData(MOUSE_REGION* region, std::int32_t index, std::int32_t userdata);
+std::int32_t MSYS_GetRegionUserData(MOUSE_REGION* region, std::int32_t index);
 
-INT32 MSYS_GrabMouse(MOUSE_REGION* region);
+std::int32_t MSYS_GrabMouse(MOUSE_REGION* region);
 void MSYS_ReleaseMouse(MOUSE_REGION* region);
 // This function will force a re-evaluation of mous regions
 // Usually used to force change of mouse cursor if panels switch, etc
@@ -198,7 +198,7 @@ void SetRegionFastHelpText(MOUSE_REGION* region, std::string_view szText);
 void DisplayFastHelp(MOUSE_REGION* region);
 void RenderFastHelp();
 
-void SetFastHelpDelay(INT16 sFastHelpDelay);
+void SetFastHelpDelay(std::int16_t sFastHelpDelay);
 void EnableMouseFastHelp(void);
 void DisableMouseFastHelp(void);
 

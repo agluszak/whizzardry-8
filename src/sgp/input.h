@@ -6,14 +6,13 @@
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
    Distributed under the accompanying SFI Source Code license agreement. */
 
-#include "Types.h"
 
 #define SCAN_CODE_MASK 0xff0000
 #define EXT_CODE_MASK 0x01000000
 #define TRANSITION_MASK 0x80000000
 
 #define KEY_DOWN 0x0001
-inline constexpr UINT32 NATIVE_TEXT_INPUT_FLAG = 0x80000000u;
+inline constexpr std::uint32_t NATIVE_TEXT_INPUT_FLAG = 0x80000000u;
 #define KEY_UP 0x0002
 #define KEY_REPEAT 0x0004
 #define LEFT_BUTTON_DOWN 0x0008
@@ -56,10 +55,10 @@ inline constexpr UINT32 NATIVE_TEXT_INPUT_FLAG = 0x80000000u;
 
 typedef struct {
     uint64_t uiTimeStamp;
-    UINT16 usKeyState;
-    UINT16 usEvent;
-    UINT32 usParam;
-    UINT32 uiParam;
+    std::uint16_t usKeyState;
+    std::uint16_t usEvent;
+    std::uint32_t usParam;
+    std::uint32_t uiParam;
 
 } InputAtom;
 
@@ -74,42 +73,42 @@ typedef struct {
 extern "C" {
 #endif
 
-extern UINT16 gfShiftState;
-extern UINT16 gfCtrlState;
-extern UINT16 gfAltState;
-extern BOOLEAN gfTrackMousePos;
+extern std::uint16_t gfShiftState;
+extern std::uint16_t gfCtrlState;
+extern std::uint16_t gfAltState;
+extern bool gfTrackMousePos;
 extern uint64_t guiLeftButtonRepeatTimer;
 extern uint64_t guiRightButtonRepeatTimer;
 
-void KeyChange(UINT32 key, UINT32 flags, UINT8 pressed);
-UINT16 TranslateKeyToCharacter(UINT16 key, UINT8 modifiers);
-UINT16 TranslateCharacterToKey(UINT16 character);
-BOOLEAN IsUppercaseCharacter(UINT32 character);
-BOOLEAN IsLowercaseCharacter(UINT32 character);
-BOOLEAN IsPunctuationCharacter(UINT32 character);
-INT32 ToUppercaseCharacter(INT32 character);
-INT32 ToLowercaseCharacter(INT32 character);
-INT32 CompareTextIgnoreAsciiCase(std::string_view first, std::string_view second);
+void KeyChange(std::uint32_t key, std::uint32_t flags, std::uint8_t pressed);
+std::uint16_t TranslateKeyToCharacter(std::uint16_t key, std::uint8_t modifiers);
+std::uint16_t TranslateCharacterToKey(std::uint16_t character);
+bool IsUppercaseCharacter(std::uint32_t character);
+bool IsLowercaseCharacter(std::uint32_t character);
+bool IsPunctuationCharacter(std::uint32_t character);
+std::int32_t ToUppercaseCharacter(std::int32_t character);
+std::int32_t ToLowercaseCharacter(std::int32_t character);
+std::int32_t CompareTextIgnoreAsciiCase(std::string_view first, std::string_view second);
 
-extern BOOLEAN InitializeInputManager(void);
-extern BOOLEAN DequeueEvent(InputAtom* Event);
-extern void QueueEvent(UINT16 ubInputEvent, UINT32 usParam, UINT32 uiParam);
+extern bool InitializeInputManager(void);
+extern bool DequeueEvent(InputAtom* Event);
+extern void QueueEvent(std::uint16_t ubInputEvent, std::uint32_t usParam, std::uint32_t uiParam);
 
-extern void KeyDown(UINT32 usParam, UINT32 uiParam);
-extern void KeyUp(UINT32 usParam, UINT32 uiParam);
+extern void KeyDown(std::uint32_t usParam, std::uint32_t uiParam);
+extern void KeyUp(std::uint32_t usParam, std::uint32_t uiParam);
 
 extern void FreeMouseCursor(void);
 
-INT16 GetMouseWheelDeltaValue(UINT32 wParam);
+std::int16_t GetMouseWheelDeltaValue(std::uint32_t wParam);
 
-extern BOOLEAN gfKeyState[256]; // TRUE = Pressed, FALSE = Not Pressed
+extern bool gfKeyState[256]; // TRUE = Pressed, FALSE = Not Pressed
 
-extern UINT16 gusMouseXPos;        // X position of the mouse on screen
-extern UINT16 gusMouseYPos;        // y position of the mouse on screen
-extern BOOLEAN gfLeftButtonState;  // TRUE = Pressed, FALSE = Not Pressed
-extern BOOLEAN gfRightButtonState; // TRUE = Pressed, FALSE = Not Pressed
+extern std::uint16_t gusMouseXPos;        // X position of the mouse on screen
+extern std::uint16_t gusMouseYPos;        // y position of the mouse on screen
+extern bool gfLeftButtonState;  // TRUE = Pressed, FALSE = Not Pressed
+extern bool gfRightButtonState; // TRUE = Pressed, FALSE = Not Pressed
 
-extern BOOLEAN gfSGPInputReceived;
+extern bool gfSGPInputReceived;
 
 #define _KeyDown(a) gfKeyState[(a)]
 #define _LeftButtonDown gfLeftButtonState
@@ -124,8 +123,8 @@ extern BOOLEAN gfSGPInputReceived;
 #define _EvType(a) ((InputAtom*)(a))->usEvent
 #define _EvTimeStamp(a) ((InputAtom*)(a))->uiTimeStamp
 #define _EvKey(a) ((InputAtom*)(a))->usParam
-#define _EvMouseX(a) (UINT16)(((InputAtom*)(a))->uiParam & 0x0000ffff)
-#define _EvMouseY(a) (UINT16)((((InputAtom*)(a))->uiParam & 0xffff0000) >> 16)
+#define _EvMouseX(a) (std::uint16_t)(((InputAtom*)(a))->uiParam & 0x0000ffff)
+#define _EvMouseY(a) (std::uint16_t)((((InputAtom*)(a))->uiParam & 0xffff0000) >> 16)
 #define _EvShiftDown(a) (((InputAtom*)(a))->usKeyState & SHIFT_DOWN)
 #define _EvCtrlDown(a) (((InputAtom*)(a))->usKeyState & CTRL_DOWN)
 #define _EvAltDown(a) (((InputAtom*)(a))->usKeyState & ALT_DOWN)

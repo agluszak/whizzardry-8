@@ -1,4 +1,5 @@
 #include <utility>
+#include <SDL3/SDL_surface.h>
 #include <catch2/catch_test_macros.hpp>
 #include <fmt/format.h>
 #include <fmt/printf.h>
@@ -193,11 +194,11 @@ void camp_effects()
 
 int clicks, click_reason;
 MOUSE_REGION* clicked_region;
-void region_click(MOUSE_REGION* region, INT32) { clicked_region = region; }
-void click(GUI_BUTTON*, INT32 reason) { ++clicks; click_reason = reason; }
+void region_click(MOUSE_REGION* region, std::int32_t) { clicked_region = region; }
+void click(GUI_BUTTON*, std::int32_t reason) { ++clicks; click_reason = reason; }
 
 GUIButton nested_outer, nested_inner, removable_button;
-void nested_click(GUI_BUTTON* button, INT32 reason)
+void nested_click(GUI_BUTTON* button, std::int32_t reason)
 {
     if (button == nested_inner.get()) {
         // Destroy the outer control while its callback is on the stack.
@@ -211,20 +212,20 @@ void nested_click(GUI_BUTTON* button, INT32 reason)
     nested_inner.reset();
 }
 std::unique_ptr<MOUSE_REGION> temporary_region;
-void remove_on_move(MOUSE_REGION*, INT32 reason)
+void remove_on_move(MOUSE_REGION*, std::int32_t reason)
 {
     if (reason & MSYS_CALLBACK_REASON_GAIN_MOUSE)
         temporary_region.reset();
 }
-void remove_button_on_callback(GUI_BUTTON* button, INT32)
+void remove_button_on_callback(GUI_BUTTON* button, std::int32_t)
 {
     removable_button.reset();
     // Dispatch observers do not prolong the control lifetime.
     REQUIRE(!removable_button);
 }
 
-std::vector<INT32> nested_mouse_order;
-void dispatch_nested_mouse(MOUSE_REGION* region, INT32 reason)
+std::vector<std::int32_t> nested_mouse_order;
+void dispatch_nested_mouse(MOUSE_REGION* region, std::int32_t reason)
 {
     nested_mouse_order.push_back(reason);
     if (reason == MSYS_CALLBACK_REASON_LBUTTON_DWN) {
@@ -235,7 +236,7 @@ void dispatch_nested_mouse(MOUSE_REGION* region, INT32 reason)
     }
 }
 std::unique_ptr<MOUSE_REGION> nested_deleted_region;
-void delete_region_in_nested_input(MOUSE_REGION*, INT32 reason)
+void delete_region_in_nested_input(MOUSE_REGION*, std::int32_t reason)
 {
     if (reason == MSYS_CALLBACK_REASON_LBUTTON_DWN) {
         DispatchMouseEvent(LEFT_BUTTON_UP, 12, 13, false, false);
@@ -251,7 +252,7 @@ void region_nested_input()
     region.configure(0, 0, 40, 40, MSYS_PRIORITY_NORMAL, nullptr, dispatch_nested_mouse);
     nested_mouse_order.clear();
     DispatchMouseEvent(LEFT_BUTTON_DOWN, 10, 10, true, false);
-    REQUIRE(nested_mouse_order == std::vector<INT32>{MSYS_CALLBACK_REASON_LBUTTON_DWN,
+    REQUIRE(nested_mouse_order == std::vector<std::int32_t>{MSYS_CALLBACK_REASON_LBUTTON_DWN,
                                                   MSYS_CALLBACK_REASON_LBUTTON_UP});
     REQUIRE(region.MouseXPos == 12);
     REQUIRE(region.MouseYPos == 13);
@@ -264,10 +265,10 @@ void region_nested_input()
     MSYS_Shutdown();
 }
 
-std::vector<std::pair<int, INT32>> hover_order;
-INT32 nested_hover_reason;
+std::vector<std::pair<int, std::int32_t>> hover_order;
+std::int32_t nested_hover_reason;
 bool nested_hover_armed;
-void nested_hover(MOUSE_REGION* region, INT32 reason)
+void nested_hover(MOUSE_REGION* region, std::int32_t reason)
 {
     hover_order.emplace_back(region->UserData[0], reason);
     if (nested_hover_armed && reason == nested_hover_reason) {
@@ -290,7 +291,7 @@ void nested_hover_transitions()
         nested_hover_reason = trigger;
         nested_hover_armed = true;
         DispatchMouseEvent(MOUSE_POS, 25, 5, false, false);
-        std::vector<std::pair<int, INT32>> expected{{1, MSYS_CALLBACK_REASON_LOST_MOUSE}};
+        std::vector<std::pair<int, std::int32_t>> expected{{1, MSYS_CALLBACK_REASON_LOST_MOUSE}};
         if (trigger == MSYS_CALLBACK_REASON_GAIN_MOUSE) {
             expected.emplace_back(2, MSYS_CALLBACK_REASON_GAIN_MOUSE);
             expected.emplace_back(2, MSYS_CALLBACK_REASON_LOST_MOUSE);
@@ -469,8 +470,8 @@ void image_and_sprite_ownership()
     for (unsigned i = 0; i < objects.size(); ++i) {
         objects[i] = CreateVideoObject(image);
         REQUIRE(objects[i]);
-        REQUIRE((objects[i]->sprites.size() == 1 && objects[i]->sprites[0].pixels.size() == 1));
-        REQUIRE(reinterpret_cast<const UINT8*>(objects[i]->sprites[0].pixels.data()) !=
+        REQUIRE((objects[i]->sprites.size() == 1 && objects[i]->sprites[0].indices->w == 1 && objects[i]->sprites[0].indices->h == 1));
+        REQUIRE(objects[i]->sprites[0].indices->pixels !=
               image.pImageData.data());
         REQUIRE(objects[i]->pPaletteEntry.data() != image.pPalette->data());
         (void)CreateObjectPaletteTables(*objects[i], HVOBJECT_GLOW_GREEN);
@@ -487,7 +488,7 @@ void image_and_sprite_ownership()
     }
     image.pImageData[1] = 2;
     image.pETRLEObject[0].usWidth = 2;
-    REQUIRE((objects[0]->sprites[0].pixels[0] == 1 && objects[0]->sprites[0].usWidth == 1));
+    REQUIRE((objects[0]->sprites[0].paletteIndexAt(0, 0) == 1 && objects[0]->sprites[0].usWidth == 1));
     image.pETRLEObject[0].uiDataOffset = 0xffffffffu;
     REQUIRE(!CreateVideoObject(image));
     REQUIRE((image.pImageData[1] == 2 && image.pETRLEObject[0].uiDataOffset == 0xffffffffu));
@@ -497,7 +498,7 @@ void image_and_sprite_ownership()
         objects[index].reset();
     }
     auto& surviving = *objects[32];
-    REQUIRE((surviving.sprites[0].pixels[0] == 1 && surviving.sprites[0].usWidth == 1));
+    REQUIRE((surviving.sprites[0].paletteIndexAt(0, 0) == 1 && surviving.sprites[0].usWidth == 1));
     std::array<std::unique_ptr<SGPVSurface>, 64> surfaces{};
     for (auto& surface : surfaces) {
         surface = CreateVideoSurface(8, 8, 16);
@@ -609,11 +610,11 @@ void button_image_fixture(const std::filesystem::path& root, std::string name, u
     }
     write(regions.data(), regions.size() * sizeof(STCISubImage));
     for (unsigned index = 0; index < count; ++index) {
-        const UINT8 pixels[]{1, 1, 0};
+        const std::uint8_t pixels[]{1, 1, 0};
         write(pixels, sizeof(pixels));
     }
     if (app_data) {
-        const UINT8 bytes[]{7, 8, 9, 10};
+        const std::uint8_t bytes[]{7, 8, 9, 10};
         write(bytes, sizeof(bytes));
     }
 }
@@ -651,7 +652,7 @@ void generic_button_images()
     {
         auto sprite = LoadVideoObject(long_image_path);
         REQUIRE((sprite && sprite->sprites.size() == 3));
-        REQUIRE((sprite->sprites[2].usWidth == 1 && sprite->sprites[2].pixels[0] == 1));
+        REQUIRE((sprite->sprites[2].usWidth == 1 && sprite->sprites[2].paletteIndexAt(0, 0) == 1));
         REQUIRE(sprite->pPaletteEntry[1].peRed == 255);
     }
     for (bool corrupt_length : {false, true}) {
@@ -700,7 +701,7 @@ void generic_button_images()
     // button kinds, including checkbox-only mouse-down highlights.
     auto& sprite = graphics->object();
     for (unsigned frame = 0; frame < 5; ++frame) {
-        sprite.sprites[frame].pixels[0] = frame + 1;
+        REQUIRE(SDL_FillSurfaceRect(sprite.sprites[frame].indices.get(), nullptr, frame + 1));
         sprite.palette[frame + 1] = 0x1000 + frame;
     }
     auto target_owner = CreateVideoSurface(8, 8, 16);
@@ -722,7 +723,7 @@ void generic_button_images()
                         else first_button->Area.uiFlags &= ~MSYS_MOUSE_IN_AREA;
                         gfLeftButtonState = mouse_down;
                         DrawButton(first_button);
-                        auto* pixels = static_cast<UINT16*>(target.cpu().surface->pixels);
+                        auto* pixels = static_cast<std::uint16_t*>(target.cpu().surface->pixels);
                         REQUIRE(pixels);
                         const auto color = pixels[0];
                         const bool highlight = hover && (!checkbox || mouse_down);
@@ -742,7 +743,7 @@ void generic_button_images()
     ShutdownButtonImageManager();
     REQUIRE(!lifetime.expired());
     first_button.reset();
-    REQUIRE(second_button->quick_image->object().sprites[4].pixels[0] == 5);
+    REQUIRE(second_button->quick_image->object().sprites[4].paletteIndexAt(0, 0) == 5);
     second_button.reset();
     REQUIRE(lifetime.expired());
     REQUIRE(RegisteredButtonCount() == 0);
@@ -942,7 +943,7 @@ void generic_button_images()
         }
     }
     REQUIRE(g_font_render_state.font == nullptr);
-    ConfigureFontRendering(std::vector<UINT16>{'?', 0x00e9, 0x4e2d, 'e', 0x0301, 'a', 'b', ' ', 'c'});
+    ConfigureFontRendering(std::vector<std::uint16_t>{'?', 0x00e9, 0x4e2d, 'e', 0x0301, 'a', 'b', ' ', 'c'});
     Font primary;
     REQUIRE(primary.load(filename));
     REQUIRE(primary.textWidth("é") > 0);
@@ -952,10 +953,10 @@ void generic_button_images()
     // accidentally consuming the next glyph in the backing string.
     SetFont(primary);
     g_font_render_state.clip = {0, 0, 64, 32};
-    std::vector<UINT16> expected_pixels(64 * 32), view_pixels(64 * 32);
-    DrawFontTextToBuffer(reinterpret_cast<UINT8*>(expected_pixels.data()), 64 * 2, primary, 0, 0, "é");
+    std::vector<std::uint16_t> expected_pixels(64 * 32), view_pixels(64 * 32);
+    DrawFontTextToBuffer(reinterpret_cast<std::uint8_t*>(expected_pixels.data()), 64 * 2, primary, 0, 0, "é");
     const std::string backing = "é中";
-    DrawFontTextToBuffer(reinterpret_cast<UINT8*>(view_pixels.data()), 64 * 2, primary, 0, 0,
+    DrawFontTextToBuffer(reinterpret_cast<std::uint8_t*>(view_pixels.data()), 64 * 2, primary, 0, 0,
                          std::string_view(backing).substr(0, 2));
     REQUIRE(view_pixels == expected_pixels);
     REQUIRE(
@@ -970,9 +971,9 @@ void generic_button_images()
     std::fill(expected_pixels.begin(), expected_pixels.end(), 0);
     std::fill(view_pixels.begin(), view_pixels.end(), 0);
     SetFont(secondary);
-    DrawFontTextToBuffer(reinterpret_cast<UINT8*>(expected_pixels.data()), 128, secondary, 0, 0, "é中");
+    DrawFontTextToBuffer(reinterpret_cast<std::uint8_t*>(expected_pixels.data()), 128, secondary, 0, 0, "é中");
     SetFont(primary);
-    DrawFontTextToBuffer(reinterpret_cast<UINT8*>(view_pixels.data()), 128, secondary, 0, 0, "é中");
+    DrawFontTextToBuffer(reinterpret_cast<std::uint8_t*>(view_pixels.data()), 128, secondary, 0, 0, "é中");
     REQUIRE(view_pixels == expected_pixels);
     // Rebuilding word ranges preserves UTF-8 byte boundaries and discards
     // old hover state, including when a line becomes empty.
