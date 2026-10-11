@@ -1,3 +1,4 @@
+#include "glm/ext/vector_float3.hpp"
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/catch_approx.hpp>
 #include <algorithm>
@@ -77,17 +78,17 @@ static bool frame_storage()
         REQUIRE(g_decompressed_mesh_bytes == initial_bytes); // Normal-builder scratch is not a cache.
 
         auto bounds = mesh.GetFrameBounds(1);
-        REQUIRE(bounds.minimum == srVector3T<float>(2.0f, 0.0f, 0.0f));
-        REQUIRE(bounds.maximum == srVector3T<float>(3.0f, 1.0f, 0.0f));
+        REQUIRE(bounds.minimum == glm::vec3(2.0f, 0.0f, 0.0f));
+        REQUIRE(bounds.maximum == glm::vec3(3.0f, 1.0f, 0.0f));
         REQUIRE(!mesh.frames[1].locations);
         REQUIRE(g_decompressed_mesh_bytes == initial_bytes); // Bounds must not make a frame resident.
         auto* positions = mesh.GetVertexLocations(0, true, 0.0f);
-        REQUIRE(positions[1] == srVector3T<float>(1.0f, 0.0f, 0.0f));
-        REQUIRE(g_decompressed_mesh_bytes == initial_bytes + 3 * sizeof(srVector3T<float>));
+        REQUIRE(positions[1] == glm::vec3(1.0f, 0.0f, 0.0f));
+        REQUIRE(g_decompressed_mesh_bytes == initial_bytes + 3 * sizeof(glm::vec3));
         REQUIRE(mesh.GetVertexLocations(0, true, 0.0f) == positions);
         auto* normals = mesh.GetVertexNormals(0, true);
         auto* polygon_normals = mesh.GetPolygonNormals(0, true);
-        REQUIRE(normals[2] == srVector3T<float>(0.0f, 0.0f, 1.0f));
+        REQUIRE(normals[2] == glm::vec3(0.0f, 0.0f, 1.0f));
         REQUIRE(polygon_normals[0] == normals[2]);
         REQUIRE(mesh.GetVertexLocations(0, true, 0.0f) == positions);
         auto* shade_indices = mesh.getVertexShadeIndex(1);
@@ -100,15 +101,15 @@ static bool frame_storage()
         REQUIRE(lerp[0].x == Catch::Approx(0.5f).margin(1e-6));
         REQUIRE(lerp[1].x == Catch::Approx(1.5f).margin(1e-6));
         REQUIRE(mesh.GetVertexLocations(0, true, 1.0f) == lerp);
-        REQUIRE(lerp[0] == srVector3T<float>(2.0f, 0.0f, 0.0f));
+        REQUIRE(lerp[0] == glm::vec3(2.0f, 0.0f, 0.0f));
         REQUIRE(mesh.GetVertexLocations(1, true, 0.75f) == mesh.frames[1].locations->data());
         bounds = mesh.GetFrameBounds(0);
-        REQUIRE(bounds.minimum == srVector3T<float>(0.0f, 0.0f, 0.0f));
-        REQUIRE(bounds.maximum == srVector3T<float>(1.0f, 1.0f, 0.0f));
+        REQUIRE(bounds.minimum == glm::vec3(0.0f, 0.0f, 0.0f));
+        REQUIRE(bounds.maximum == glm::vec3(1.0f, 1.0f, 0.0f));
         bounds = mesh.GetFrameBounds(-1);
-        REQUIRE((bounds.minimum == srVector3T<float>(0.0f, 0.0f, 0.0f) &&
+        REQUIRE((bounds.minimum == glm::vec3(0.0f, 0.0f, 0.0f) &&
                  bounds.minimum == bounds.maximum));
-        const int cache_bytes = (3 + 3 + 3 + 1) * sizeof(srVector3T<float>);
+        const int cache_bytes = (3 + 3 + 3 + 1) * sizeof(glm::vec3);
         REQUIRE(g_decompressed_mesh_bytes == initial_bytes + cache_bytes);
         REQUIRE(mesh.ReleaseDecompressedFrames() == cache_bytes);
         REQUIRE(mesh.ReleaseDecompressedFrames() == 0);
@@ -125,7 +126,7 @@ static bool frame_storage()
         REQUIRE(mesh.GetVertexNormals(2, true) == nullptr);
         REQUIRE(mesh.GetPolygonNormals(2, true) == nullptr);
         REQUIRE(!mesh.AllocateFrameBuffers(2, W8_MESH_FRAME_LOCATIONS));
-        REQUIRE(!mesh.DecompressFrame(-1, W8_MESH_FRAME_LOCATIONS, positions));
+        REQUIRE(!mesh.DecompressFrame(-1, W8_MESH_FRAME_LOCATIONS, std::span(positions, 3)));
     }
     REQUIRE(g_mesh_models.size() == registered);
     REQUIRE(g_decompressed_mesh_bytes == initial_bytes);
@@ -144,12 +145,12 @@ static bool writable_and_empty_caches()
         source[1] = 32767;
         source[2] = -1;
         auto* locations = mesh.GetVertexLocations(0, false, 0.0f);
-        locations[0] = srVector3T<float>(7.0f, 8.0f, 9.0f);
+        locations[0] = glm::vec3(7.0f, 8.0f, 9.0f);
         REQUIRE(mesh.GetVertexLocations(0, true, 0.0f) == locations);
-        REQUIRE(locations[0] == srVector3T<float>(7.0f, 8.0f, 9.0f)); // Do not overwrite active data.
-        REQUIRE(mesh.ReleaseDecompressedFrames() == sizeof(srVector3T<float>));
+        REQUIRE(locations[0] == glm::vec3(7.0f, 8.0f, 9.0f)); // Do not overwrite active data.
+        REQUIRE(mesh.ReleaseDecompressedFrames() == sizeof(glm::vec3));
         locations = mesh.GetVertexLocations(0, true, 0.0f);
-        REQUIRE(locations[0] == srVector3T<float>(-8192.0f, 8191.75f, -0.25f));
+        REQUIRE(locations[0] == glm::vec3(-8192.0f, 8191.75f, -0.25f));
         mesh.frames[0].compressed_vertex_normals = {128, 255, 127};
         auto* normals = mesh.GetVertexNormals(0, true);
         REQUIRE(normals[0].x == -1.0f);
@@ -157,7 +158,7 @@ static bool writable_and_empty_caches()
         REQUIRE(normals[0].z == 1.0f);
         REQUIRE(mesh.GetPolygonNormals(0, true) == nullptr);
         REQUIRE(mesh.frames[0].polygon_normals.has_value()); // Active zero-sized cache, not absent.
-        REQUIRE(mesh.ReleaseDecompressedFrames() == 2 * sizeof(srVector3T<float>));
+        REQUIRE(mesh.ReleaseDecompressedFrames() == 2 * sizeof(glm::vec3));
         REQUIRE(!mesh.frames[0].polygon_normals);
     }
     {
@@ -188,7 +189,7 @@ static bool eviction_and_borrowed_outputs()
         old_mesh.last_decompress_release_tick = 1;
         recent_mesh.last_decompress_release_tick = 2;
         drained_mesh.last_decompress_release_tick = 0;
-        REQUIRE(ReclaimDecompressedBytes(sizeof(srVector3T<float>)));
+        REQUIRE(ReclaimDecompressedBytes(sizeof(glm::vec3)));
         REQUIRE((!old_mesh.frames[0].locations && recent_mesh.frames[0].locations));
         REQUIRE(!ReclaimDecompressedBytes(1, &recent_mesh));
         REQUIRE(recent_mesh.frames[0].locations);
@@ -214,8 +215,8 @@ static bool eviction_and_borrowed_outputs()
         REQUIRE((mesh.GetVertexLocations(0, true, 0.0f) == positions && positions[0].x == 2.0f));
         REQUIRE((mesh.GetVertexLocations(0, true, 0.5f) == lerp && lerp[0].x == 4.0f));
         REQUIRE(!other.frames[0].locations);
-        REQUIRE(g_decompressed_mesh_bytes == initial_bytes + 3 * vertices * sizeof(srVector3T<float>));
-        REQUIRE(mesh.ReleaseDecompressedFrames() == 3 * vertices * sizeof(srVector3T<float>));
+        REQUIRE(g_decompressed_mesh_bytes == initial_bytes + 3 * vertices * sizeof(glm::vec3));
+        REQUIRE(mesh.ReleaseDecompressedFrames() == 3 * vertices * sizeof(glm::vec3));
         REQUIRE(mesh.lerp_buffer.data() == lerp);
     }
     REQUIRE(g_decompressed_mesh_bytes == initial_bytes);
@@ -237,7 +238,7 @@ static bool part_ownership()
         REQUIRE((original.head == nullptr && original.parts[0]->head == &original));
         REQUIRE((original.Next() == original.parts[0].get() && original.parts[0]->Next() == nullptr));
         REQUIRE(g_mesh_models.size() == registered + 2);
-        REQUIRE(g_decompressed_mesh_bytes == initial_bytes + 2 * sizeof(srVector3T<float>));
+        REQUIRE(g_decompressed_mesh_bytes == initial_bytes + 2 * sizeof(glm::vec3));
     }
     REQUIRE(g_mesh_models.size() == registered);
     REQUIRE(g_decompressed_mesh_bytes == initial_bytes);

@@ -1,3 +1,4 @@
+#include "glm/ext/vector_float3.hpp"
 #include "wiz8/engine_code/quad.h"
 
 #include <cmath>
@@ -24,7 +25,7 @@ std::unique_ptr<W8Quad> BuildWorldQuad(srModelInstance* instance, const srVector
 
     srMeshModel* model = static_cast<srMeshModel*>(instance->getModel());
     srVector3i* polygon_vertices = model->getPolyVertex();
-    srVector3T<float>* vertices = model->getVertexLoc();
+    glm::vec3* vertices = model->getVertexLoc();
     for (int polygon = 0; polygon < model->polygon_count; ++polygon) {
         const srVector3i& corners = polygon_vertices[polygon];
         srVector3T<float> center = vertices[corners.x] + vertices[corners.y] + vertices[corners.z];

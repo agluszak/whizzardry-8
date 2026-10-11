@@ -1,3 +1,5 @@
+#include "surrender/channel_math.h"
+#include "surrender/lighting_math.h"
 #include <catch2/catch_test_macros.hpp>
 #include <glm/ext/matrix_transform.hpp>
 #include <array>
@@ -114,4 +116,45 @@ TEST_CASE("vector_math_test")
     VectorMethods();
     ClippingAndLighting();
     std::puts("ok: packed storage, guarded vector methods, rotations, clipping and lighting");
+}
+
+TEST_CASE("Lighting kernels share bounded ramps and preserve normal-dot clamp policies", "[math][lighting]")
+{
+    using srChannelMath::RampDirection;
+    std::array<float, 5> distances{-1, 0, 5, 10, 20}, ramp{};
+    srChannelMath::distanceRamp(ramp, distances, 0, .1f, .5f, RampDirection::increasing);
+    REQUIRE(ramp == std::array<float, 5>{0, 0, .25f, .5f, .5f});
+    srChannelMath::distanceRamp(ramp, distances, 10, .1f, .5f, RampDirection::decreasing);
+    REQUIRE(ramp == std::array<float, 5>{.5f, .5f, .25f, 0, 0});
+    srChannelMath::distanceRamp(distances, distances, 0, .1f, 2, RampDirection::increasing);
+    REQUIRE(distances == std::array<float, 5>{0, 0, 1, 2, 2});
+    srChannelMath::multiply(ramp, distances);
+    REQUIRE(ramp == std::array<float, 5>{0, 0, .25f, 0, 0});
+    srChannelMath::add(ramp, .5f);
+    REQUIRE(ramp[2] == .75f);
+    srChannelMath::distanceRamp({}, {}, 0, 0, 0, RampDirection::increasing);
+    const float nan = std::numeric_limits<float>::quiet_NaN();
+    const std::array<glm::vec3, 4> normals{glm::vec3(0, 0, -1), glm::vec3(0),
+                                         glm::vec3(0, 0, 2), glm::vec3(0, 0, nan)};
+    const glm::vec3 direction(0, 0, 1);
+    std::array<float, 4> dots{};
+    srLightingMath::normalDots(dots, normals, {&direction, 1}, srLightingMath::DotRange::nonnegative);
+    REQUIRE(dots[0] == 0);
+    REQUIRE(dots[1] == 0);
+    REQUIRE(dots[2] == 2);
+    REQUIRE(std::isnan(dots[3]));
+    srLightingMath::normalDots(dots, normals, {&direction, 1}, srLightingMath::DotRange::unit);
+    REQUIRE(dots[2] == 1);
+    const std::array<glm::vec3, 4> directions{direction, direction, -direction, direction};
+    srLightingMath::normalDots(dots, normals, directions, srLightingMath::DotRange::nonnegative);
+    REQUIRE(dots[2] == 0);
+    srLightingMath::normalDots({}, {}, {}, srLightingMath::DotRange::unit);
+    std::array<glm::vec4, 2> colors{glm::vec4(1), glm::vec4(2)};
+    const std::array<float, 2> weights{.5f, 2}, attenuation{.25f, .5f};
+    srLightingMath::accumulateLight(colors, glm::vec4(4), weights, attenuation);
+    REQUIRE(colors[0] == glm::vec4(1.5f));
+    REQUIRE(colors[1] == glm::vec4(6));
+    srLightingMath::accumulateLight(colors, glm::vec4(1));
+    REQUIRE(colors[0] == glm::vec4(2.5f));
+    srLightingMath::accumulateLight({}, glm::vec4(1));
 }

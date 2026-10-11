@@ -1,9 +1,14 @@
+#include "surrender/pixel_math.h"
 #include <catch2/catch_test_macros.hpp>
 #include <SDL3/SDL_surface.h>
 #include <SDL3/SDL_pixels.h>
 #include <cstdio>
 #include <cstring>
 #include <vector>
+#include <array>
+#include "surrender/srPalette.h"
+#include "surrender/srARGB.h"
+#include "surrender_test_fixture.h"
 #include <cstdint>
 
 #include "surrender/srPixelConvert.h"
@@ -163,8 +168,7 @@ TEST_CASE("pixel conversions")
 
 TEST_CASE("pixel format names are owned values")
 {
-    srPixelConvert::PixelFormat format;
-    srPixelConvert::mapPixelFormat(srPixelConvert::SURFACE_RGB565, format);
+    auto format = srPixelConvert::pixelFormat(srPixelConvert::SURFACE_RGB565);
     REQUIRE(format.getName() == "RGB565/16");
 
     format.fourcc = 0x34333231;
@@ -229,8 +233,7 @@ TEST_CASE("generic rounded RGB conversion remains exact")
                      srPixelConvert::SURFACE_ARGB4444, srPixelConvert::SURFACE_BGR565,
                      srPixelConvert::SURFACE_BGR555, srPixelConvert::SURFACE_BGR24,
                      srPixelConvert::SURFACE_ARGB32, srPixelConvert::SURFACE_RGBA32}) {
-        srPixelConvert::PixelFormat f;
-        srPixelConvert::mapPixelFormat(type, f);
+        const auto f = srPixelConvert::pixelFormat(type);
         const auto functions = srPixelConvert::selectFuncs(f);
         for (unsigned value = 0; value < 256; ++value) {
             const w8_ulong input = value * 0x01010101u;
@@ -294,4 +297,91 @@ TEST_CASE("filtered copies preserve SurRender sampling")
             }
     REQUIRE(checksum == 16051822824179383716ull);
     REQUIRE(srExit());
+}
+
+TEST_CASE("Pixel format lookup returns complete independent values")
+{
+    for (int index = 0; index < 25; ++index) {
+        const auto type = static_cast<srPixelConvert::e_surfaceType>(index);
+        auto format = srPixelConvert::pixelFormat(type);
+        REQUIRE(srPixelConvert::mapPixelFormat(format) == type);
+        format.fourcc = 0x34333231;
+        REQUIRE(srPixelConvert::pixelFormat(type).fourcc == 0);
+    }
+    REQUIRE(srPixelConvert::pixelFormat(srPixelConvert::SURFACE_INVALID) ==
+            srPixelConvert::pixelFormat(srPixelConvert::SURFACE_BGRA32));
+}
+
+TEST_CASE("YUV conversion preserves scatter destinations and untouched storage")
+{
+    initPixelTables();
+    const std::array<w8_ulong, 8> input{0, 0x00ff0000, 0x0000ff00, 0x000000ff,
+                                       0xffffffff, 0x7f123456, 0x80010203, 0x01000000};
+    const std::array formats{srPixelConvert::SURFACE_Y4U2V2, srPixelConvert::SURFACE_A8Y4U2V2};
+    // Full-buffer checksums from the previous conversion bodies, including untouched bytes.
+    const std::array<uint64_t, 2> expected{8152149035273351469ull, 13038364476061159287ull};
+    for (unsigned index = 0; index < formats.size(); ++index) {
+        const auto format = srPixelConvert::pixelFormat(formats[index]);
+        const auto functions = srPixelConvert::selectFuncs(format);
+        std::array<unsigned char, 2048> encoded, decoded;
+        encoded.fill(0x6a);
+        decoded.fill(0x6a);
+        srPixelConvert::ConversionInfo info{encoded.data(), input.data(), input.size(), nullptr, &format};
+        functions.write(info);
+        info = {decoded.data(), encoded.data(), input.size(), nullptr, &format};
+        functions.read(info);
+        uint64_t checksum = 14695981039346656037ull;
+        for (auto byte : encoded) checksum = (checksum ^ byte) * 1099511628211ull;
+        for (auto byte : decoded) checksum = (checksum ^ byte) * 1099511628211ull;
+        REQUIRE(checksum == expected[index]);
+    }
+}
+
+TEST_CASE_METHOD(SurRenderTestFixture, "Intensity and indexed decoding support unaligned packed storage", "[pixels]")
+{
+    initPixelTables();
+    std::array<srARGB, 256> colors;
+    for (unsigned index = 0; index < colors.size(); ++index) {
+        colors[index].red = index;
+        colors[index].green = 255 - index;
+        colors[index].blue = index ^ 0x55;
+        colors[index].alpha = 0;
+    }
+    srPalette palette(colors.data(), colors.size());
+    for (auto type : {srPixelConvert::SURFACE_AL44, srPixelConvert::SURFACE_AL88,
+                      srPixelConvert::SURFACE_L8, srPixelConvert::SURFACE_AP44,
+                      srPixelConvert::SURFACE_AP88}) {
+        const auto format = srPixelConvert::pixelFormat(type);
+        const auto functions = srPixelConvert::selectFuncs(format);
+        for (unsigned value = 0; value < 256; ++value) {
+            std::array<unsigned char, 6> input{}, output;
+            output.fill(0x6a);
+            const w8_ulong packed = value * 0x010101u;
+            std::memcpy(input.data() + 1, &packed, format.pixel_size + 1);
+            srPixelConvert::ConversionInfo info{output.data() + 1, input.data() + 1, 1, &palette, &format};
+            functions.read(info);
+            const unsigned mask = (1u << format.red_bits) - 1;
+            const unsigned component = (packed >> format.red_shift) & mask;
+            const unsigned alpha = format.alpha_bits == 4 ? ((packed >> format.alpha_shift) & 15) * 17
+                                                          : (packed >> format.alpha_shift) & 255;
+            const unsigned gray = format.red_bits == 4 ? component * 17 : component;
+            const auto& color = colors[component];
+            const w8_ulong rgb = format.color_model == srPixelConvert::COLOR_INDEXED
+                ? (w8_ulong(color.red) << 16 | w8_ulong(color.green) << 8 | color.blue)
+                : gray * 0x010101u;
+            w8_ulong actual;
+            std::memcpy(&actual, output.data() + 1, sizeof(actual));
+            REQUIRE(actual == (rgb | (format.alpha_bits ? alpha : 255u) << 24));
+            REQUIRE(output.front() == 0x6a);
+            REQUIRE(output.back() == 0x6a);
+        }
+    }
+}
+
+TEST_CASE("Mipmap averages retain per-input floor and four-sample ceiling")
+{
+    REQUIRE(srPixels::average(0xffffffffu, 0x01010101u) == 0x7f7f7f7fu);
+    REQUIRE(srPixels::average(0u, 0u, 0u, 0xfefefefeu) == 0x40404040u);
+    REQUIRE(srPixels::average(0x0004080cu, 0x10182028u, 0x30384048u, 0x50586068u) ==
+            0x242b3239u);
 }

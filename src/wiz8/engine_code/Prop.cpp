@@ -1,3 +1,4 @@
+#include "glm/ext/vector_double3.hpp"
 #include <array>
 #include "surrender/srBoundingBox.h"
 #include <optional>
@@ -960,7 +961,6 @@ void W8Prop::AttachAnimationInstances(W8World* world)
     stMeshModel* mesh;
     W8PathAI* path;
     srNode* node;
-    srVector3T<float> zero;
     srVector3T<float> position;
     srVector3T<float> current;
     srVector3T<float> next_pos;
@@ -968,8 +968,8 @@ void W8Prop::AttachAnimationInstances(W8World* world)
     srVector3T<float> next_scale;
     srVector3T<float> scale_vector;
     srVector3T<float> rep_position;
-    srVector3T<double> location;
-    srVector3T<double> scale_location;
+    glm::dvec3 location;
+    glm::dvec3 scale_location;
     glm::mat3 rotation;
     glm::mat3 next;
     glm::mat3 rep_rotation;
@@ -983,7 +983,6 @@ void W8Prop::AttachAnimationInstances(W8World* world)
     }
     if (AnimationIsRunning(Rep()->animation) == 1) {
         has_scales = false;
-        zero.SetZero();
         count = static_cast<int>(AnimObjListCount(Rep()->animation, 2));
         for (index = 0; index < count; ++index) {
             instance = static_cast<stModelInstance*>(
@@ -993,7 +992,7 @@ void W8Prop::AttachAnimationInstances(W8World* world)
             }
             instance->clearFlag(srNode::FLAG_DISABLE);
             instance->setParent(world->dynamic_scene, 1);
-            instance->light_scale = zero;
+            instance->light_scale = glm::vec3(0);
             if (g_settings.smooth_world_animations != 0) {
                 instance->frame_interpolation = anim_frame_fraction;
             } else {
@@ -1071,7 +1070,7 @@ void W8Prop::AttachAnimationInstances(W8World* world)
         }
         instance->clearFlag(srNode::FLAG_DISABLE);
         instance->setParent(world->dynamic_scene, 1);
-        instance->light_scale.SetZero();
+        instance->light_scale = glm::vec3(0);
         if (g_settings.smooth_world_animations != 0) {
             instance->frame_interpolation = anim_frame_fraction;
         } else {
@@ -1316,13 +1315,8 @@ bool W8Prop::IsTriggerInView(srVector3T<float>* position)
     const float distance = (center - *position).Length();
     if (!(distance < trigger->range_maximum && trigger->range_minimum <= distance))
         return false;
-    for (const auto& point : std::array{bounds->center(), bounds->minimum, bounds->maximum}) {
-        srVector3T<float> projected;
-        const srVector3T<double> input{glm::dvec3(point)};
-        if (g_world->camera->project(projected, input) == srCamera::PROJECTION_RESULT_ACCEPTED)
-            return true;
-    }
-    return false;
+    const std::array points{bounds->center(), bounds->minimum, bounds->maximum};
+    return g_world->camera->projectsAny(points);
 }
 
 // FUNCTION: WIZ8 0x0044bf50
@@ -1534,9 +1528,7 @@ try
             }
             if (option_byte != 0) {
                 srNode* child;
-                srVector3T<float> axis;
-
-                axis.Set(0.0f, 1.0f, 0.0f);
+                const glm::vec3 axis(0, 1, 0);
                 instance->setAlignment(1);
                 instance->setAlignAxis(axis);
                 child = instance->first_child_;
@@ -1577,21 +1569,22 @@ try
         W8AniMesh* mesh = AnimObjEntry(animation, 2, 0);
         unsigned char value_count = AniMeshValue(mesh);
         stModelInstance* frame = GetAniMeshFrame(mesh, 0);
+        unsigned int frame_i;
 
         if (frame == 0) {
             srAssertFail("psrMesh", PROP_CPP, 0x182, 0);
         }
-        auto bounds = frame->getModel()->getBoundingBox();
-        for (unsigned int frame_i = 0; frame_i < value_count; ++frame_i) {
+        auto box = frame->getModel()->getBounds().box;
+        for (frame_i = 0; frame_i < value_count; ++frame_i) {
             frame = GetAniMeshFrame(mesh, frame_i);
             if (frame == 0) {
                 srAssertFail("psrMesh", PROP_CPP, 0x192, 0);
             }
-            bounds.include(frame->getModel()->getBoundingBox());
+            box.include(frame->getModel()->getBounds().box);
         }
-        bounds_min = bounds.minimum;
-        bounds_max = bounds.maximum;
-        const auto size = bounds.maximum - bounds.minimum;
+        bounds_min = box.minimum;
+        bounds_max = box.maximum;
+        const auto size = box.maximum - box.minimum;
         bounds_extent = std::max({size.x, size.y, size.z}) * g_float_half;
     }
 

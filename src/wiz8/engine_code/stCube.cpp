@@ -1,3 +1,4 @@
+#include "glm/ext/vector_double3.hpp"
 #include "glm/geometric.hpp"
 #include <fmt/format.h>
 #include <string>
@@ -34,7 +35,6 @@
 #include "Font.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/filesystem.h"
-#include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
@@ -205,7 +205,7 @@ void MoveWorldCursorNode(W8WorldCursorNode* entry, srVector3T<float>* position)
         srAssertFail("pCube", ST_CUBE_CPP, 0x10b, 0);
     }
     if (entry->node != 0) {
-        entry->node->setLocation(srVector3T<double>(static_cast<double>(location.x),
+        entry->node->setLocation(glm::dvec3(static_cast<double>(location.x),
                                                     static_cast<double>(location.y),
                                                     static_cast<double>(location.z)));
     }
@@ -260,7 +260,7 @@ void DrawWorldCursorNodeLabel(W8WorldCursorNode* entry)
 // FUNCTION: WIZ8 0x0048de40
 void ScaleWorldCursorNodeX(W8WorldCursorNode* entry, double scale)
 {
-    srVector3T<float> factors(static_cast<float>(scale), 1.0f, 1.0f);
+    glm::vec3 factors(static_cast<float>(scale), 1.0f, 1.0f);
     if (entry != 0) {
         stMeshModel* model =
             static_cast<stMeshModel*>(static_cast<stModelInstance*>(entry->node)->getModel());
@@ -273,7 +273,7 @@ void ScaleWorldCursorNodeX(W8WorldCursorNode* entry, double scale)
 // FUNCTION: WIZ8 0x0048de90
 void ScaleWorldCursorNodeY(W8WorldCursorNode* entry, double scale)
 {
-    srVector3T<float> factors(1.0f, static_cast<float>(scale), 1.0f);
+    glm::vec3 factors(1.0f, static_cast<float>(scale), 1.0f);
     if (entry != 0) {
         stMeshModel* model =
             static_cast<stMeshModel*>(static_cast<stModelInstance*>(entry->node)->getModel());
@@ -286,7 +286,7 @@ void ScaleWorldCursorNodeY(W8WorldCursorNode* entry, double scale)
 // FUNCTION: WIZ8 0x0048dee0
 void ScaleWorldCursorNodeZ(W8WorldCursorNode* entry, double scale)
 {
-    srVector3T<float> factors(1.0f, 1.0f, static_cast<float>(scale));
+    glm::vec3 factors(1.0f, 1.0f, static_cast<float>(scale));
     if (entry != 0) {
         stMeshModel* model =
             static_cast<stMeshModel*>(static_cast<stModelInstance*>(entry->node)->getModel());
@@ -323,12 +323,9 @@ void DrawWorldBox(W8World* world, srVector3T<float> minimum, srVector3T<float> m
 
     w8_long screen[8][2];
     for (int index = 0; index < 8; ++index) {
-        srVector3T<float> projected;
-        srVector3T<double> position(corners[index].x, corners[index].y, corners[index].z);
-        if (world->camera->project(projected, position) ==
-            static_cast<srCamera::e_projectionResult>(-1)) {
-            return;
-        }
+        const auto projection = world->camera->project(glm::dvec3(corners[index].glmValue()));
+        if (projection.result == srCamera::PROJECTION_RESULT_OUTSIDE_CLIP_RANGE) return;
+        const auto projected = projection.position;
         screen[index][0] =
             static_cast<w8_long>((projected.x * viewport_width + viewport.minimum.x) * 640.0f);
         screen[index][1] =
@@ -586,7 +583,7 @@ unsigned int LoadWorldCursorNodes(wiz8::File* handle)
             }
         }
 
-        srVector3T<float> scale((maximum.x - minimum.x) * static_cast<float>(g_world_cursor_scale),
+        glm::vec3 scale((maximum.x - minimum.x) * static_cast<float>(g_world_cursor_scale),
                                 (maximum.y - minimum.y) * static_cast<float>(g_world_cursor_scale),
                                 (maximum.z - minimum.z) * static_cast<float>(g_world_cursor_scale));
         if (cube != 0) {
@@ -610,7 +607,7 @@ unsigned int LoadWorldCursorNodes(wiz8::File* handle)
             srAssertFail("pCube", ST_CUBE_CPP, 0x10b, 0);
         }
         if (cube->node != 0) {
-            srVector3T<double> node_location(static_cast<double>(location.x),
+            glm::dvec3 node_location(static_cast<double>(location.x),
                                              static_cast<double>(location.y),
                                              static_cast<double>(location.z));
             cube->node->setLocation(node_location);

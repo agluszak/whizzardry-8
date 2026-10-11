@@ -173,7 +173,7 @@ void InitializeWorldCursor(void)
                 gp3DCursor->particle->rotateX(-1.5707963);
                 gp3DCursor->particle->particle_size = 100.0;
                 gp3DCursor->particle->emission_interval = 300;
-                gp3DCursor->particle->acceleration.Set(0.0f, -1000.0f, 0.0f);
+                gp3DCursor->particle->acceleration = {0.0f, -1000.0f, 0.0f};
                 gp3DCursor->particle->has_acceleration = 1;
                 gp3DCursor->particle->initial_speed = 500.0f;
                 gp3DCursor->particle->speed_mode = W8_PARTICLE_SPEED_RANDOM;
@@ -335,7 +335,7 @@ void GetWorldCursorAnchor(srVector3T<float>* position)
 void ApplyWorldCursorInput(void)
 {
     glm::mat3 rotation;
-    srVector3T<double> node_location;
+    glm::dvec3 node_location;
     srVector3T<float> camera;
     srVector3T<float> delta;
     srVector3T<float> lifted;
@@ -375,7 +375,7 @@ void ApplyWorldCursorInput(void)
         gp3DCursor->position = rotation * (gp3DCursor->cam_rel_offset).glmValue();
         node_location = g_world->dynamic_scene->getLocation();
         srVector3T<float> scene_location;
-        scene_location = glm::vec3(node_location.glmValue());
+        scene_location = glm::vec3(node_location);
         gp3DCursor->position += scene_location;
         if (gp3DCursor->track_ground) {
             if (gp3DCursor->position.y < saved_y) {

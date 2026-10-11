@@ -1,7 +1,12 @@
+#include "surrender/srMath.h"
 #include <algorithm>
 #include <cstdlib>
 #include <stdexcept>
+#include <exception>
+#include <type_traits>
 #include <vector>
+#include <span>
+#include "glm/ext/vector_float3.hpp"
 #include <memory>
 #include <cstdint>
 #include <utility>
@@ -9,7 +14,6 @@
 #include "wiz8/filesystem.h"
 #include "wiz8/binary_reader.h"
 #include "wiz8/engine_code/OctMeshModel.h"
-#include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/materials.h"
 #include "wiz8/engine_code/stMeshModel.h"
 #include "wiz8/sr_api.h"
@@ -43,15 +47,27 @@ void ReleaseOctMeshDefaults()
 /* The loader verifies every array the same way: a null getter result and a
    failed bulk read each stop with the call site's own diagnostic. */
 template <class T>
-void ReadMeshArray(wiz8::File* file, T* values, int count, const char* get_message,
+void ReadMeshArray(wiz8::File& file, std::span<T> values, const char* get_message,
                    const char* read_message)
 {
-    if (values == 0) {
-        ShutdownWithErrorBox(get_message);
-    }
-    if (!ReadVectorArray(file, values, count)) {
+    static_assert(std::is_trivially_copyable_v<T>);
+    if (!values.data()) ShutdownWithErrorBox(get_message);
+    try {
+        file.read_exact(values.data(), values.size_bytes());
+    } catch (const std::exception&) {
         ShutdownWithErrorBox(read_message);
     }
+}
+
+// Native mesh streams convert from the explicit three-float asset record.
+static void ReadMeshVectors(wiz8::File& file, std::span<glm::vec3> values,
+                            const char* get_message, const char* read_message)
+{
+    if (!values.data()) ShutdownWithErrorBox(get_message);
+    std::vector<srVector3> records(values.size());
+    ReadMeshArray(file, std::span(records), get_message, read_message);
+    std::ranges::transform(records, values.begin(),
+                           [](const srVector3& value) { return value.glmValue(); });
 }
 
 template<class T>
@@ -68,20 +84,26 @@ static void ReleaseMeshSunLights(float**& banks, short count)
     ReleaseMeshArray(banks);
 }
 
-// Vector writers report failure; raw integer writes throw. Release ownership
-// only after either kind of write succeeds, as the original field sequences do.
+// Keep raw integer write exceptions and vector diagnostics distinct. Both
+// release their source only after successful I/O, in the field's disk order.
 template<class T>
-static void WriteAndConsumeMeshArray(wiz8::File* file, T*& values, int count,
+static void WriteAndConsumeMeshArray(wiz8::File& file, T*& values, int count,
                                     int line, const char* message)
 {
-    bool written = true;
-    if constexpr (requires { WriteVectorArray(file, values, count); }) {
-        written = WriteVectorArray(file, values, count);
+    static_assert(std::is_trivially_copyable_v<T>);
+    const auto write = [&] {
+        if (count < 0) throw std::runtime_error("Negative mesh record count");
+        const auto records = std::span<const T>(values, static_cast<std::size_t>(count));
+        file.write(records.data(), records.size_bytes());
+    };
+    if constexpr (std::is_same_v<T, int>) {
+        write();
     } else {
-        file->write(values, count * sizeof(T));
-    }
-    if (!written) {
-        srAssertFail("fSuccess", "C:\\Projects\\Wizardry 8\\Engine Code\\OctSubMesh.cpp", line, message);
+        try {
+            write();
+        } catch (const std::exception&) {
+            srAssertFail("fSuccess", "C:\\Projects\\Wizardry 8\\Engine Code\\OctSubMesh.cpp", line, message);
+        }
     }
     ReleaseMeshArray(values);
 }
@@ -123,27 +145,27 @@ bool OctMeshModel::Write(wiz8::File* hFile)
     hFile->write(&next_link, 4);
     hFile->write(&m_material_index, 4);
 
-    WriteAndConsumeMeshArray(hFile, m_vertex_locations, m_vertex_count, 0x109,
+    WriteAndConsumeMeshArray(*hFile, m_vertex_locations, m_vertex_count, 0x109,
                              "OctMeshModel::Write -- Could not write m_psrVertLoc.\n");
-    WriteAndConsumeMeshArray(hFile, m_vertex_map, m_map_count, 0x10f,
+    WriteAndConsumeMeshArray(*hFile, m_vertex_map, m_map_count, 0x10f,
                              "OctMeshModel::Write -- Could not write m_psrMap.\n");
     if (m_material_index < 0) {
-        WriteAndConsumeMeshArray(hFile, m_vertex_materials, m_vertex_count, 0x116,
+        WriteAndConsumeMeshArray(*hFile, m_vertex_materials, m_vertex_count, 0x116,
                                  "OctMeshModel::Write -- Could not write m_plVertMats.\n");
     } else {
         ReleaseMeshArray(m_vertex_materials);
     }
-    WriteAndConsumeMeshArray(hFile, m_poly_uv_index, m_polygon_count, 0x11f,
+    WriteAndConsumeMeshArray(*hFile, m_poly_uv_index, m_polygon_count, 0x11f,
                              "OctMeshModel::Write -- Could not write m_psrPolyUVIndex.\n");
-    WriteAndConsumeMeshArray(hFile, m_poly_vertices, m_polygon_count, 0x125,
+    WriteAndConsumeMeshArray(*hFile, m_poly_vertices, m_polygon_count, 0x125,
                              "OctMeshModel::Write -- Could not write m_psrPolyVertex.\n");
-    WriteAndConsumeMeshArray(hFile, m_poly_textures, m_polygon_count, 0x12a,
+    WriteAndConsumeMeshArray(*hFile, m_poly_textures, m_polygon_count, 0x12a,
                              "OctMeshModel::Write -- Could not write m_plPolyTextures.\n");
-    WriteAndConsumeMeshArray(hFile, m_vertex_normals, m_vertex_count, 0x130,
+    WriteAndConsumeMeshArray(*hFile, m_vertex_normals, m_vertex_count, 0x130,
                              "OctMeshModel::Write -- Could not write m_pVertNorms.\n");
-    WriteAndConsumeMeshArray(hFile, m_vertex_lights, m_vertex_count, 0x136,
+    WriteAndConsumeMeshArray(*hFile, m_vertex_lights, m_vertex_count, 0x136,
                              "OctMeshModel::Write -- Could not write m_pVertLights.\n");
-    WriteAndConsumeMeshArray(hFile, m_poly_equations, m_polygon_count, 0x13c,
+    WriteAndConsumeMeshArray(*hFile, m_poly_equations, m_polygon_count, 0x13c,
                              "OctMeshModel::Write -- Could not write m_psrPolyEqtns.\n");
 
     if (version != 0) {
@@ -190,12 +212,11 @@ std::unique_ptr<stMeshModel> OctMeshModel::Read(wiz8::File* file,
     // reader-owned Write workspace, including when a read throws midway.
     std::vector<int> material_indices(std::max(m_vertex_count, m_polygon_count));
     int* indices = material_indices.data();
-    srVector3T<float>* vertex_locations;
+    glm::vec3* vertex_locations;
     glm::vec2* vertex_map;
     srVector3i* poly_uv_index;
     srVector3i* poly_vertices;
-    srVector3T<float>* vertex_normals;
-    srVector3T<float>* vertex_lights;
+    glm::vec3* vertex_normals;
     glm::vec4* poly_equations;
 
     auto model = std::make_unique<stMeshModel>(m_polygon_count, m_vertex_count);
@@ -206,13 +227,13 @@ std::unique_ptr<stMeshModel> OctMeshModel::Read(wiz8::File* file,
     }
 
     vertex_locations = model->getVertexLoc();
-    ReadMeshArray(file, vertex_locations, m_vertex_count,
+    ReadMeshVectors(*file, std::span(vertex_locations, m_vertex_count),
                   "OctMeshModel::Read -- Could not get vertex location array.\n",
                   "OctMeshModel::Read -- Could not read Integer fields.\n");
 
     model->setUVCount(m_map_count);
     vertex_map = model->getVertexTexCoords(0, 0, 1);
-    ReadMeshArray(file, vertex_map, m_map_count,
+    ReadMeshArray(*file, std::span(vertex_map, static_cast<std::size_t>(m_map_count)),
                   "OctMeshModel::Read -- Could not get vertex mapping array.\n",
                   "OctMeshModel::Read -- Could not read m_psrMap.");
 
@@ -240,12 +261,12 @@ std::unique_ptr<stMeshModel> OctMeshModel::Read(wiz8::File* file,
     }
 
     poly_uv_index = model->getPolyUVIndex(0, 1);
-    ReadMeshArray(file, poly_uv_index, m_polygon_count,
+    ReadMeshArray(*file, std::span(poly_uv_index, static_cast<std::size_t>(m_polygon_count)),
                   "OctMeshModel::Read -- Could not get poly-UV array.\n",
                   "OctMeshModel::Read -- Could not read m_psrPolyUVIndex.\n");
 
     poly_vertices = model->getPolyVertex();
-    ReadMeshArray(file, poly_vertices, m_polygon_count,
+    ReadMeshArray(*file, std::span(poly_vertices, static_cast<std::size_t>(m_polygon_count)),
                   "OctMeshModel::Read -- Could not get poly-vertex array.\n",
                   "OctMeshModel::Read -- Could not read m_psrPolyVertex.\n");
 
@@ -265,25 +286,24 @@ std::unique_ptr<stMeshModel> OctMeshModel::Read(wiz8::File* file,
     }
 
     vertex_normals = model->getVertexNormal();
-    ReadMeshArray(file, vertex_normals, m_vertex_count,
+    ReadMeshVectors(*file, std::span(vertex_normals, m_vertex_count),
                   "OctMeshModel::Read -- Could not get vertex normal array.\n",
                   "OctMeshModel::Read -- Could not read m_pVertNorms.\n");
 
-    vertex_lights = model->GetVertexLights(true, -1);
-    ReadMeshArray(file, vertex_lights, m_vertex_count,
-                  "OctMeshModel::Read -- Could not get static lighting array.\n",
-                  "OctMeshModel::Read -- Could not read m_pVertLights.\n");
+    ReadMeshVectors(*file, model->GetVertexLights(true, -1),
+                    "OctMeshModel::Read -- Could not get static lighting array.\n",
+                    "OctMeshModel::Read -- Could not read m_pVertLights.\n");
 
     poly_equations = model->getPolyEq();
-    ReadMeshArray(file, poly_equations, m_polygon_count,
+    ReadMeshArray(*file, std::span(poly_equations, static_cast<std::size_t>(m_polygon_count)),
                   "OctMeshModel::Read -- Could not get poly equation array.\n",
                   "OctMeshModel::Read -- Could not read m_psrPolyEqtns.\n");
 
-    float* weights = model->GetVertexSunlight(true);
-    if (weights == 0) {
+    const auto weights = model->GetVertexSunlight(true);
+    if (weights.empty()) {
         ShutdownWithErrorBox("OctMeshModel::Read -- Could not allocate intensity array.\n");
     }
-    if (version != 0 && !(file->read(weights, m_vertex_count * sizeof(float)).bytes == static_cast<std::size_t>(m_vertex_count * sizeof(float)))) {
+    if (version != 0 && !(file->read(weights.data(), weights.size_bytes()).bytes == static_cast<std::size_t>(m_vertex_count * sizeof(float)))) {
         ShutdownWithErrorBox("OctMeshModel::Read -- Could not read Sunlight array.\n");
     }
 

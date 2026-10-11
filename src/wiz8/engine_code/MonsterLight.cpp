@@ -1,3 +1,4 @@
+#include "glm/ext/vector_double3.hpp"
 #include "wiz8/engine_code/MonsterLight.h"
 
 #include <cmath>
@@ -102,8 +103,8 @@ void MonsterLight::Update(const srVector3T<float>* position)
         diffuse = glm::mix(m_color_second.glmValue(), m_color_first.glmValue(), first_weight);
     }
 
-    srVector3T<double> location;
-    location.Set(position->x, position->y + m_vertical_offset, position->z);
+    glm::dvec3 location;
+    location = glm::dvec3(position->x, position->y + m_vertical_offset, position->z);
     setLocation(location);
 }
 

@@ -1,15 +1,14 @@
+#include "wiz8/engine_code/ReadLevel.h"
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <iterator>
 #include <memory>
+#include <span>
 #include <string>
 #include <vector>
 
-#include "compat/compiler.h"
 #include "glm/ext/vector_float4.hpp"
-#include "glm/geometric.hpp"
-#include "glm/matrix.hpp"
 #include "surrender/srModel.h"
 #include "surrender/srTypeRegistry.h"
 #include "wiz8/engine_code/stTextureFile.h"
@@ -27,21 +26,18 @@
 #include "surrender/srMath.h"
 #include "AnimRep.hpp"
 #include "compat/native.h"
-#include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_float3.hpp"
-#include "surrender/srFlags.h"
 #include "surrender/srShader.h"
 #include "surrender/srTextureIFace.h"
 
 #define ST_MODEL_INSTANCE_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\stModelInstance.cpp"
 
-extern srVector3T<float> g_environment_offset;
 extern float g_monster_light_scale;
 
 /* Scratch vertex store shared by every highlight shell submission; grown
    on demand and kept between frames. */
 // GLOBAL: WIZ8 0x0065A148
-static std::vector<srVector3T<float>> g_vertex_scratch;
+static std::vector<glm::vec3> g_vertex_scratch;
 
 // VTABLE: WIZ8 0x005ec89c srClassSupport<srModelInstance, class srNode, 4352>
 // class srClassSupport<stModelInstance2D, class srModelInstance, 65541>
@@ -237,48 +233,6 @@ void stModelInstance2D::SetModel(std::shared_ptr<srModel> model)
     }
 }
 
-static void ApplyModelViewMatrix(srModelInstance* instance, srGERD* renderer, float align_angle,
-                                 const srVector3T<float>& align_axis)
-{
-    if ((instance->alignment_flags.value & 1) == 0) {
-        instance->applyWorldSpaceMatrix(*renderer);
-    } else {
-        srVector3T<double> world_location;
-        srVector3T<double> world_scale;
-        glm::vec4 transformed_location;
-        srVector3T<float> translation;
-        float basis_x;
-        float basis_y;
-        float basis_z;
-
-        renderer->matrixMode(srGERD::MATRIX_MODELVIEW);
-        renderer->pushMatrix();
-        const auto view = renderer->getMatrix(srGERD::MATRIX_MODELVIEW);
-        world_location = instance->getWorldSpaceLocation();
-        world_scale = instance->getWorldSpaceScale();
-
-        srVector3T<float> location;
-        location = world_location;
-        srVector3T<float> scale;
-        scale = world_scale;
-        transformed_location = view * glm::vec4(location.glmValue(), 1);
-        const glm::mat3 view_basis(view);
-        glm::vec3 basis(glm::length(view_basis[0]), glm::length(view_basis[1]),
-                        glm::length(view_basis[2]));
-        if (glm::determinant(view_basis) > 0)
-            basis = -basis;
-        scale *= srVector3(basis);
-
-        renderer->loadIdentity();
-        translation = glm::vec3(transformed_location);
-        renderer->translate(translation);
-        if (align_angle != g_float_zero) {
-            renderer->rotate(align_angle, align_axis);
-        }
-        renderer->scale(scale.x, scale.y, -scale.z);
-    }
-}
-
 /* Render the instance through SurRender's detached TriMesh value. Aligned
    instances retain their screen-facing orientation while preserving the
    current view matrix's translation, scale and handedness. The optional glow
@@ -287,13 +241,12 @@ static void ApplyModelViewMatrix(srModelInstance* instance, srGERD* renderer, fl
 // FUNCTION: WIZ8 0x00480920
 void stModelInstance2D::process(const ProcessInfo& info, e_processType)
 {
-    srMeshModel::TriMesh mesh;
     srGERD* renderer = info.renderer;
 
-    ApplyModelViewMatrix(this, renderer, align_angle, align_axis);
+    const auto scope = scopedRender(*renderer, false);
 
     srMeshModel* model = static_cast<srMeshModel*>(getModel());
-    mesh = model->getTriMesh();
+    auto mesh = model->getTriMesh();
 
     if (render_state.glow_enabled) {
         if (glow_material == 0) {
@@ -319,7 +272,6 @@ void stModelInstance2D::process(const ProcessInfo& info, e_processType)
     }
 
     model->renderTriMesh(*renderer, mesh);
-    renderer->popMatrix();
 }
 
 /* Disabling the glow releases the retained glow material; the render-state
@@ -381,7 +333,7 @@ stModelInstance::stModelInstance(srNode* parent, Ownership ownership)
         setParent(parent, 1);
     }
     damage_stage = -1;
-    light_scale = 1.0f;
+    light_scale = glm::vec3(1);
     diffuse_scale_enabled = false;
     diffuse_scale = 0.0f;
     emissive_override_enabled = false;
@@ -418,20 +370,8 @@ stModelInstance& stModelInstance::operator=(const stModelInstance& other)
 // FUNCTION: WIZ8 0x0047F560
 void stModelInstance::process(const ProcessInfo& info, e_processType)
 {
-    srGERD* renderer = info.renderer;
-
-    ApplyModelViewMatrix(this, renderer, align_angle, align_axis);
-
-    if (exclusion_mask != 0) {
-        w8_ulong previous_mask = renderer->getExclusionMask();
-        renderer->setExclusionMask(exclusion_mask | previous_mask);
-        RenderMeshes(*renderer);
-        renderer->setExclusionMask(previous_mask);
-        renderer->popMatrix();
-        return;
-    }
-    RenderMeshes(*renderer);
-    renderer->popMatrix();
+    const auto scope = scopedRender(*info.renderer);
+    RenderMeshes(*info.renderer);
 }
 
 /* Submit the instance's linked mesh chain. Pass one fills a detached TriMesh
@@ -450,34 +390,20 @@ void stModelInstance::RenderMeshes(srGERD& renderer)
     stMeshModel* model = static_cast<stMeshModel*>(getModel());
     stMeshModel* first_model = model;
 
-    const auto [center, radius] = model->getBoundingSphere();
-    if (((model->render_control.value & 0x20) == 0) &&
-        (renderer.testBoundingSphere(center, radius) == srGERD::VISIBILITY_OUTSIDE)) {
-        return;
-    }
-    if (((model->render_control.value & 0x10) == 0) && (model->vertex_location_count >= 8)) {
-        const auto [minimum, maximum] = model->getBoundingBox();
-        if (renderer.testBoundingBox(minimum, maximum) == srGERD::VISIBILITY_OUTSIDE) {
-            return;
-        }
-    }
+    const auto bounds = model->getBounds();
+    if (!model->isVisible(renderer)) return;
 
     // c-style-cast-ok: the pick key is an opaque void* token
     SetPickKey((render_flags & RENDER_NO_PICK) != 0 ? (void*)0 : (void*)this);
 
     const auto ambient = renderer.getAmbientLight();
-    srVector3T<float> ambient_color;
-    ambient_color = glm::vec3(ambient);
+    const glm::vec3 ambient_color(ambient);
 
     glm::vec4 light;
     if (!model->vertex_lighting_ready) {
-        light.w = 1.0f;
-        light.x =
-            (ambient_color.x * light_scale.x + g_environment_offset.x) * g_monster_light_scale;
-        light.y =
-            (ambient_color.y * light_scale.y + g_environment_offset.y) * g_monster_light_scale;
-        light.z =
-            (ambient_color.z * light_scale.z + g_environment_offset.z) * g_monster_light_scale;
+        light = glm::vec4((ambient_color * light_scale + g_environment_offset) *
+                              g_monster_light_scale,
+                          1);
     } else {
         light = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
     }
@@ -506,13 +432,12 @@ void stModelInstance::RenderMeshes(srGERD& renderer)
             RenderShadow(renderer, mesh);
         }
 
-        srVector3T<float>* poly_normals;
+        std::span<const glm::vec3> poly_normals;
         if ((model->flags & W8_MESH_HAS_FRAME_STORAGE) != 0) {
-            mesh.positions = model->GetVertexLocations(frame_index, true, frame_interpolation);
-            mesh.normals = model->GetVertexNormals(frame_index, true);
-            poly_normals = model->GetPolygonNormals(frame_index, true);
-        } else {
-            poly_normals = 0;
+            const auto frame = model->frameGeometry(frame_index, frame_interpolation);
+            mesh.positions = frame.positions.data();
+            mesh.normals = frame.normals.data();
+            poly_normals = frame.polygon_normals;
         }
 
         if (g_render_untextured) {
@@ -599,12 +524,12 @@ void stModelInstance::RenderMeshes(srGERD& renderer)
                      (_strnicmp("blank", mesh.textures[0][0]->getName().c_str(), 5) != 0))) {
                     g_vertex_scratch.resize(mesh.vertex_count);
 
-                    const srVector3T<float>* poly_normals = 0;
+                    std::span<const glm::vec3> poly_normals;
                     if ((model->flags & W8_MESH_HAS_FRAME_STORAGE) != 0) {
-                        mesh.dig[0] =
-                            model->GetVertexLocations(frame_index, true, frame_interpolation);
-                        mesh.dig[1] = model->GetVertexNormals(frame_index, true);
-                        poly_normals = model->GetPolygonNormals(frame_index, true);
+                        const auto frame = model->frameGeometry(frame_index, frame_interpolation);
+                        mesh.dig[0] = frame.positions.data();
+                        mesh.dig[1] = frame.normals.data();
+                        poly_normals = frame.polygon_normals;
                     }
                     std::shared_ptr<srTextureIFace>*(*poly_textures)[2] = mesh.poly_textures;
                     if (poly_textures != 0 && !mesh.active_polygons) {
@@ -628,15 +553,14 @@ void stModelInstance::RenderMeshes(srGERD& renderer)
 
                     double factor = g_double_one / getScale().y * g_double_fifteen_and_five_eighths;
                     float expand = static_cast<float>(
-                        (radius * getScale().y * g_double_one_thousandth + g_double_one) * factor);
-                    srVector3T<float> offsets;
-                    offsets = expand;
+                        (bounds.sphere.radius * getScale().y * g_double_one_thousandth + g_double_one) * factor);
+                    const glm::vec3 offsets(expand);
 
                     if (mesh.vertex_count != 0) {
                         if (offsets.x == g_float_zero && offsets.y == g_float_zero &&
                             offsets.z == g_float_zero) {
                             std::fill_n(g_vertex_scratch.data(), mesh.vertex_count,
-                                        srVector3T<float>(0.0f, 0.0f, 0.0f));
+                                        glm::vec3(0));
                         } else {
                             for (std::size_t i = 0; i < mesh.vertex_count; ++i)
                                 (g_vertex_scratch.data())[i] = offsets * mesh.normals[i];
@@ -684,7 +608,7 @@ const float g_shadow_extrusion_pitch_scale = 1.0f / 1500.0f;
    a dedicated material so the extruded shadow pass submits through the
    ordinary TriMesh pipeline. */
 static const srVector3i g_shadow_triangles[2] = {{0, 1, 2}, {3, 4, 5}};
-static const srVector3T<float> g_shadow_positions[6] = {
+static const glm::vec3 g_shadow_positions[6] = {
     {-250.0f, 250.0f, 0.0f}, {0.0f, -250.0f, 0.0f}, {250.0f, 250.0f, 0.0f},
     {0.0f, 250.0f, -250.0f}, {0.0f, -250.0f, 0.0f}, {0.0f, 250.0f, 250.0f}};
 

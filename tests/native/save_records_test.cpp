@@ -1,3 +1,4 @@
+#include "wiz8/geometry.h"
 #include "wiz8/engine_code/stModelInstance.h" // IWYU pragma: keep - complete model type for unique_ptr destruction.
 #include <catch2/catch_test_macros.hpp>
 #include <SDL3/SDL_filesystem.h>
@@ -1352,9 +1353,9 @@ TEST_CASE_METHOD(SaveFixture, "AI conditions and save slot naming", "[save][reco
     triangle.vertices[1].Set(0, 2, 0);
     triangle.vertices[2].Set(0, 0, 2);
     triangle.point.Set(0, 0.25f, 0.25f);
-    REQUIRE(PointInsideTriangle(triangle.vertices, 0, &triangle.point));
+    REQUIRE(PointInsideTriangle(runtimeTriangle(triangle.vertices), 0, triangle.point.glmValue()));
     triangle.point.Set(0, 3, 3);
-    REQUIRE(!PointInsideTriangle(triangle.vertices, 0, &triangle.point));
+    REQUIRE(!PointInsideTriangle(runtimeTriangle(triangle.vertices), 0, triangle.point.glmValue()));
     REQUIRE(BuildLevelStatusPath(56) == "Levels\\Test\\DefaultLevel.STS");
     for (int index = 0; index < 10; ++index) {
         const auto name = index == 0 ? std::string("Ending") : "Ending" + std::to_string(index);

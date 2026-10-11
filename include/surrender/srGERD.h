@@ -1,5 +1,7 @@
 #pragma once
 
+#include "srBoundingSphere.h"
+
 #include <condition_variable>
 #include <list>
 #include <memory>
@@ -9,6 +11,8 @@
 #include <thread>
 #include <utility>
 #include <vector>
+#include "glm/ext/vector_int4_sized.hpp"
+#include "glm/ext/vector_float3.hpp"
 
 #include <unordered_map>
 #include "srTexture.h"
@@ -152,7 +156,7 @@ public:
             w8_ulong count;
 
             IndexBatch() : count(0) {}
-            void alloc(IndexWrite& write, w8_ulong count);
+            IndexWrite alloc(w8_ulong count);
             void reset(int release);
         };
         /* Accumulated vertex streams. alloc() grows all streams and default-fills the new range
@@ -169,13 +173,13 @@ public:
             w8_long count;
 
             VertexArrays() : count(0) {}
-            void alloc(srVertexArray& arrays, w8_ulong count);
-            void bind(srVertexArray& arrays, w8_ulong base);
+            srVertexArray alloc(w8_ulong count);
+            srVertexArray bind(w8_ulong base);
             void reset(int release);
         };
 
         Renderer(const Parameters& parameters);
-        void allocVertexArray(srVertexArray& arrays, w8_ulong count);
+        srVertexArray allocVertexArray(w8_ulong count);
         /* intern the pass's {texture0,texture1,shader} key into
            texture_set, folding per-vertex texture/shader table transitions
            into the output ids. */
@@ -307,13 +311,9 @@ public:
         ACCUM_RETURN = 4
     };
     enum e_depthBuffer {};
-    /* accumulate()'s signed 16-bit accum-buffer pixel. */
-    struct AccumPixel {
-        short red;
-        short green;
-        short blue;
-        short alpha;
-    };
+    // Native accumulator channels retain the existing four signed 16-bit lanes.
+    using AccumPixel = glm::i16vec4;
+    static_assert(sizeof(AccumPixel) == 8);
 
     static const char* sGetClassName();
     static srRegistry::ClassNode* sGetClassNode();
@@ -437,8 +437,7 @@ public:
     e_matrixMode getMatrixMode() const;
     glm::mat4 getMatrix();
     glm::mat4 getMatrix(e_matrixMode mode);
-    srModel::BoundingSphere getEyeSpaceBounds(const glm::vec3& object_center,
-                                             float object_radius);
+    srBoundingSphere eyeSpaceBounds(const srBoundingSphere& sphere);
     glm::vec4 getEyeSpaceLocation(const glm::vec3& object_location);
     void pushVertexProcessor(srVertexProcessor& processor);
     void popVertexProcessor();
@@ -499,15 +498,12 @@ public:
     void multMatrix(const glm::mat4& matrix);
     void multMatrix(const glm::dmat4& matrix);
     void perspective(double fov_y, double aspect, double near_plane, double far_plane);
-    void rotate(double angle, const srVector3T<float>& axis);
-    void rotate(double angle, const srVector3T<double>& axis);
+    void rotate(double angle, const glm::vec3& axis);
     void rotate(double angle, double x, double y, double z);
     void scale(double x, double y, double z);
-    void scale(const srVector3T<float>& factors);
-    void scale(const srVector3T<double>& factors);
+    void scale(const glm::vec3& factors);
     void scale(double factor);
-    void translate(const srVector3T<float>& offset);
-    void translate(const srVector3T<double>& offset);
+    void translate(const glm::vec3& offset);
     void translate(double x, double y, double z);
     e_visibility testBoundingSphere(const glm::vec3& center, float radius);
     e_visibility testBoundingBox(const glm::vec3& minimum, const glm::vec3& maximum);
@@ -807,19 +803,10 @@ private:
     void accumAlloc();
     short accumConvert(float value) const;
     void accumClear();
-    /* MMX row kernels for accumulate(). */
-    static void __cdecl accumAccum_MMX(AccumPixel* accum, const srARGB* pixels, w8_long scale,
-                                       w8_long count);
-    static void __cdecl accumLoad_MMX(AccumPixel* accum, const srARGB* pixels, w8_long scale,
-                                      w8_long count);
-    static void __cdecl accumReturn_MMX(srARGB* pixels, const AccumPixel* accum, w8_long scale,
-                                        w8_long count);
-    static void __cdecl accumAdd_MMX(AccumPixel* accum, w8_long value, w8_long count);
-    static void __cdecl accumMult_MMX(AccumPixel* accum, w8_long value, w8_long count);
-    static void convertPixelFormat(srDD::PixelFormat& device,
-                                   const srPixelConvert::PixelFormat& format);
-    static void convertPixelFormat(srPixelConvert::PixelFormat& format,
-                                   const srDD::PixelFormat& device);
+    static srDD::PixelFormat convertPixelFormat(const srPixelConvert::PixelFormat& format);
+    static srPixelConvert::PixelFormat convertPixelFormat(const srDD::PixelFormat& device);
+    enum class RendererDrain { immediate, sorted, reset, statistics };
+    void drainRenderers(RendererDrain action);
     RendererEntry* createRenderer(int sorted);
     void flushNonBusyRenderers();
     void flushSort();

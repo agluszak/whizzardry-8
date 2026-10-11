@@ -2,6 +2,9 @@
 #define WIZ8_ENGINE_CODE_GDPROP_H
 
 #include <vector>
+#include <span>
+#include "glm/ext/vector_int2.hpp"
+#include "surrender/srBoundingBox.h"
 
 #include "wiz8/engine_code/OctPath.h"
 #include "compat/compiler.h"
@@ -56,8 +59,6 @@ public:
         m_pGDSurfaces = 0;
         m_pVertices = 0;
         m_trigger = 0;
-        m_path_edges = 0;
-        m_path_waypoints = 0;
         m_path_range.sentinel = -10000000.0f;
         m_path_bounds.max_z = 0;
         m_path_bounds.min_z = 0;
@@ -73,18 +74,19 @@ public:
     /* Rebuilds m_pVertices/m_pGDSurfaces for the given animation frame of the
        level prop's transforms. */
     void ApplyAnimFrame(unsigned short frame, W8LevelFileAnimObj* anim);
-    /* Computes the vertex AABB into m_bound_min/m_bound_max and copies
-       it to the out parameters. */
-    void ComputeBounds(srVector3T<float>* minimum, srVector3T<float>* maximum);
+    /* Rebuild the cached vertex and path bounds and return the complete box. */
+    srBoundingBox computeBounds();
     /* Box-vs-bound test used by the pre-tree path obstruction pass. */
-    char BoundsOverlap(const srVector3T<float>* minimum, const srVector3T<float>* maximum);
+    bool boundsOverlap(const srBoundingBox& box);
+    std::span<const unsigned short> conditionalEdges() const { return m_path_edges; }
+    std::span<const unsigned short> conditionalWaypoints() const { return m_path_waypoints; }
     /* Appends the index to the waypoint list when the grid point lies inside
-       the path bounds; the list grows ten entries at a time. */
-    unsigned char RegisterPathSurface(unsigned int index, const srVector2i* point);
+       the path bounds; the prop owns the counted list. */
+    unsigned char RegisterPathSurface(unsigned int index, const glm::ivec2& point);
     /* Appends the index to the link list when the segment touches the path
        bounds (one-cell tolerance on the crossed sides). */
-    unsigned char RegisterPathVertex(unsigned int index, const srVector2i* point,
-                                     const srVector2i* second);
+    unsigned char RegisterPathVertex(unsigned int index, const glm::ivec2& point,
+                                     const glm::ivec2& second);
 
 private:
     void Initialize(srModelInstance* instance, bool attach, unsigned short prop_number,
@@ -100,18 +102,16 @@ private:
     Flags m_flags;                        /* 0x00 */
     unsigned short m_prop_number;         /* 0x02 */
     unsigned int m_path_handle;           /* 0x04 */
-    unsigned short m_path_edge_count;     /* 0x08 */
-    unsigned short m_path_waypoint_count; /* 0x0a */
-    unsigned short* m_path_edges;         /* 0x0c; released by CRT free */
-    unsigned short* m_path_waypoints;     /* 0x10; released by CRT free */
+    std::vector<unsigned short> m_path_edges;
+    std::vector<unsigned short> m_path_waypoints;
     int m_surface_count;                  /* 0x14; m_pGDSurfaces count */
     int m_vertex_count;                   /* 0x18; m_pVertices count */
     W8GDSurface* m_pGDSurfaces;           /* 0x1c */
     srVector3T<float>* m_pVertices;       /* 0x20 */
     Trigger* m_trigger;                   /* 0x24: installed by 0x004B7470 */
     W8PathVerticalRange m_path_range;     /* 0x28 */
-    /* Vertex AABB cached by ComputeBounds and tested by
-       BoundsOverlap. */
+    /* Vertex AABB cached by computeBounds and tested by
+       boundsOverlap. */
     srVector3T<float> m_bound_min;  /* 0x34 */
     srVector3T<float> m_bound_max;  /* 0x40 */
     W8PathGridBounds m_path_bounds; /* 0x4c */

@@ -3,6 +3,9 @@
 struct srBoundingBox;
 
 #include <memory>
+#include <array>
+#include <span>
+#include "glm/ext/vector_float3.hpp"
 
 #include "compat/native.h"
 
@@ -10,6 +13,7 @@ class W8Monster;
 class W8Prop;
 struct W8World;
 class srScene;
+struct srBoundingBox;
 class srNode;
 class srModelInstance;
 class srLight;
@@ -52,29 +56,27 @@ void SetSceneMeshShaderLowBits(srNode* node, int argument);
    mark the mesh dirty for rebake (automap lighting uses table 1). */
 void SetWorldMeshVertexLightTable(W8World* world, int table);
 
-void BuildPlaneFromPoints(W8Plane* plane, const srVector3T<float>* first,
-                          const srVector3T<float>* second, const srVector3T<float>* third);
 /* Report whether a point satisfies all six frustum planes. */
-bool PointInsideFrustum(const srVector3T<float>* point, const W8Plane* planes);
+bool PointInsideFrustum(const glm::vec3& point, std::span<const W8Plane, 6> planes);
 /* Report whether a sphere of `radius` at `point` reaches all six frustum
    planes (each plane distance may be as low as -radius). */
-bool SphereInsideFrustum(const srVector3T<float>* point, float radius, const W8Plane* planes);
+bool SphereInsideFrustum(const glm::vec3& point, float radius, std::span<const W8Plane, 6> planes);
 /* Point-in-triangle test via dominant-axis projection: `axis` selects the two
    planar components used. */
-bool PointInsideTriangle(const srVector3T<float>* vertices, short axis,
-                         const srVector3T<float>* point);
+bool PointInsideTriangle(std::span<const glm::vec3, 3> vertices, unsigned axis,
+                         const glm::vec3& point);
 /* Build the six frustum planes from the eight sorted corner points. */
-void BuildFrustumPlanes(const srVector3T<float>* points, W8Plane* planes);
+std::array<W8Plane, 6> BuildFrustumPlanes(std::span<const glm::vec3, 8> points);
 /* Order a volume's eight corner points into the canonical (y,z,x)-sorted
    sequence the frustum plane builder expects. */
-void SortFrustumCorners(srVector3T<float>* points);
+std::array<glm::vec3, 8> sortedFrustumCorners(std::span<const glm::vec3, 8> points);
 /* Report whether the six-float bounds box (min xyz, max xyz) intersects the
    region volume's frustum: true when a bounds corner satisfies all six
    planes or a volume corner lands inside the bounds. */
-bool BoundsInsideFrustum(const W8OctRegionVolume* volume, const W8BoundingBox* bounds);
-char TraceLineOfSightToBounds(const srVector3T<float>* origin, const srBoundingBox& bounds);
-bool HasLineOfSightToBounds(const srVector3T<float>* origin, const srBoundingBox& bounds);
-unsigned char ShowTargetMarker(const srVector3T<float>* eye, const srBoundingBox& bounds); /* 0x0046F820 */
+bool BoundsInsideFrustum(const W8OctRegionVolume& volume, const srBoundingBox& bounds);
+bool traceLineOfSightToBounds(const glm::vec3& origin, const srBoundingBox& bounds);
+bool hasLineOfSightToBounds(const glm::vec3& origin, const srBoundingBox& bounds);
+bool targetMarkerVisible(const glm::vec3& eye, const srBoundingBox& bounds); /* 0x0046F820 */
 
 void WorldUpdateLights(W8World* world);
 float WorldGetRenderRange(W8World* world);

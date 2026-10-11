@@ -1,3 +1,6 @@
+#include <algorithm>
+#include <optional>
+#include <span>
 #include <unordered_set>
 #include <vector>
 #include <utility>
@@ -9,7 +12,6 @@
 #include "surrender/swept_bounds.h"
 
 #include "compat/compiler.h"
-#include "wiz8/compat/unaligned.h"
 #include "wiz8/engine_code/OctBuildTree.h"
 #include "wiz8/engine_code/oct_build_traversal.h"
 #include "wiz8/engine_code/GameData.h"
@@ -39,11 +41,9 @@ W8OctBuildNode::~W8OctBuildNode()
 }
 
 /* Build the cubic spatial domain used to insert processed GameData surfaces.
-   The caller supplies local copies of the level bounds because this constructor
-   deliberately expands them by half a leaf on every axis. */
+   The optional level bounds are expanded locally by half a leaf on every axis. */
 // FUNCTION: WIZ8 0x00446390
-W8OctBuildTree::W8OctBuildTree(float leaf_size, srVector3T<float>* minimum,
-                               srVector3T<float>* maximum, unsigned short item_limit,
+W8OctBuildTree::W8OctBuildTree(float leaf_size, std::optional<srBoundingBox> bounds, unsigned short item_limit,
                                short extent_mode)
     : spatial(0)
 {
@@ -71,24 +71,15 @@ W8OctBuildTree::W8OctBuildTree(float leaf_size, srVector3T<float>* minimum,
     spatial.m_triangle_vertices = 0;
     spatial.m_depth = 0;
 
-    if (minimum != 0 || maximum != 0) {
-        float half_leaf = leaf_size * g_float_half;
-        w8_unaligned_float* source_minimum = &minimum->x;
-        w8_unaligned_float* source_maximum = &maximum->x;
-        w8_unaligned_float* stored_minimum = &spatial.m_clipped_minimum.x;
-        for (int axis = 0; axis != 3; ++axis) {
-            source_minimum[axis] -= half_leaf;
-            source_maximum[axis] += half_leaf;
-            (&spatial.m_minimum.x)[axis] = source_minimum[axis];
-            stored_minimum[axis] = source_minimum[axis];
-            (&spatial.m_working_minimum.x)[axis] = source_minimum[axis];
-            (&spatial.m_clipped_maximum.x)[axis] = source_maximum[axis];
-            (&spatial.m_working_maximum.x)[axis] = source_maximum[axis];
-            float span = source_maximum[axis] - source_minimum[axis];
-            if (spatial.m_extent < span) {
-                spatial.m_extent = span;
-            }
-        }
+    if (bounds) {
+        const float half_leaf = leaf_size * g_float_half;
+        bounds->minimum -= half_leaf;
+        bounds->maximum += half_leaf;
+        spatial.m_bounds = *bounds;
+        spatial.m_clipped_bounds = *bounds;
+        spatial.m_working_bounds = *bounds;
+        const auto dimensions = bounds->maximum - bounds->minimum;
+        spatial.m_extent = std::max({0.0f, dimensions.x, dimensions.y, dimensions.z});
 
         spatial.m_depth = 0;
         if (extent_mode == 0) {
@@ -127,8 +118,7 @@ W8OctBuildTree::W8OctBuildTree(float leaf_size, srVector3T<float>* minimum,
         }
 
         spatial.m_cell_size = spatial.m_node_extent * g_octree_cell_extent_scale;
-        spatial.m_maximum.Set(minimum->x + spatial.m_extent, minimum->y + spatial.m_extent,
-                              minimum->z + spatial.m_extent);
+        spatial.m_bounds.maximum = bounds->minimum + spatial.m_extent;
         spatial.m_polygon_count = 1;
         spatial.m_item_count = 0;
         spatial.m_root = 0;
@@ -153,20 +143,13 @@ W8OctBuildTree::~W8OctBuildTree()
 unsigned char W8OctBuildTree::InsertSurface(W8GDSurface* surface, w8_ulong mode)
 {
     W8OctSpatialState working(&spatial);
-    srVector3T<float> vertices[3];
-    srVector3T<float> plane_point;
-    srVector3T<float>* plane = &plane_point;
-
-    if (static_cast<short>(mode) == 3) {
-        if (LoadSurfaceVertices(vertices, surface->vertex_indices) == 0) {
-            plane = 0;
-        } else {
-            plane_point = surface->plane.normal;
-        }
-    }
-    if (TestSpatialTriangle(&spatial.m_minimum, vertices, plane) == 0) {
-        return 0;
-    }
+    // Only physical surfaces have a vertex table in this builder.
+    if (static_cast<short>(mode) != 3) return 0;
+    const auto triangle = surfaceTriangle(surface->vertex_indices);
+    if (!triangle) return 0;
+    const auto normal = surface->plane.normal.glmValue();
+    if (!triangleIntersectsBox(spatial.bounds(),
+                               *triangle, normal)) return 0;
 
     if (spatial.m_root == 0) {
         if (!use_owned_nodes) {
@@ -176,10 +159,10 @@ unsigned char W8OctBuildTree::InsertSurface(W8GDSurface* surface, w8_ulong mode)
         }
     }
     working.m_root = spatial.m_root;
-    working.m_triangle_vertices = vertices;
+    working.m_triangle_vertices = triangle->data();
     working.m_depth = 0;
     working.m_level_kind = 1;
-    if (InsertSurfaceRecursive(&working, surface, &plane_point, mode) == 0) {
+    if (InsertSurfaceRecursive(&working, surface, normal, mode) == 0) {
         return 0;
     }
     ++spatial.m_item_count;
@@ -191,7 +174,7 @@ unsigned char W8OctBuildTree::InsertSurface(W8GDSurface* surface, w8_ulong mode)
 // FUNCTION: WIZ8 0x004469f0
 unsigned char W8OctBuildTree::InsertSurfaceRecursive(W8OctSpatialState* working,
                                                      W8GDSurface* surface,
-                                                     srVector3T<float>* plane_point,
+                                                     const glm::vec3& planeNormal,
                                                      w8_ulong mode)
 {
     W8OctSpatialState child(working);
@@ -213,8 +196,9 @@ unsigned char W8OctBuildTree::InsertSurfaceRecursive(W8OctSpatialState* working,
         inserted = InsertBuildSurfaceChildren(
             working, child, half_extent,
             [&](W8OctSpatialState& candidate) {
-                return TestSpatialTriangle(&candidate.m_minimum, working->m_triangle_vertices,
-                                           plane_point) != 0;
+                return triangleIntersectsBox(candidate.bounds(),
+                                             std::span<const glm::vec3, 3>(working->m_triangle_vertices, 3),
+                                             planeNormal);
             },
             [&]() -> W8OctBuildNode* {
                 if (use_owned_nodes) return new W8CountedOctBuildNode;
@@ -222,7 +206,7 @@ unsigned char W8OctBuildTree::InsertSurfaceRecursive(W8OctSpatialState* working,
             },
             [&](W8OctSpatialState& candidate) {
                 candidate.m_triangle_vertices = working->m_triangle_vertices;
-                return InsertSurfaceRecursive(&candidate, surface, plane_point, mode);
+                return InsertSurfaceRecursive(&candidate, surface, planeNormal, mode);
             });
     }
     return inserted;
@@ -330,18 +314,14 @@ void W8OctBuildTree::collectRecursive(const W8OctSpatialState& state, const srBo
 {
     const bool leaf = state.m_depth == spatial.m_depth;
     const int verdict = classifyBuildBox(
-        {state.m_minimum.glmValue(), state.m_maximum.glmValue()}, bounds, leaf);
+        state.bounds(), bounds, leaf);
     if (verdict == 2 || (verdict == 1 && leaf)) {
         collectLeaf(state.m_root, state.m_depth, kind, collector);
     } else if (verdict == 1) {
         W8OctSpatialState child(&state);
-        for (int octant = 0; octant < 8; ++octant) {
-            if (state.m_root->children[octant]) {
-                child.SetChildBounds(&state, octant >> 2, (octant >> 1) & 1, octant & 1);
-                child.m_root = state.m_root->children[octant];
-                collectRecursive(child, bounds, kind, collector);
-            }
-        }
+        visitBuildChildren(state, child, [&](W8OctSpatialState& candidate, unsigned) {
+            collectRecursive(candidate, bounds, kind, collector);
+        });
     }
 }
 

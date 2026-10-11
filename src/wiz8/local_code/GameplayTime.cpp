@@ -943,7 +943,7 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
 
             probe.y += g_float_one_thousand;
             camera = cameraLocation();
-            if (ProjectPointThroughCamera(&probe) == 0 &&
+            if (projectsToCamera(probe.glmValue()) == 0 &&
                 !g_octree->HasLineOfSight(&camera, &probe, true)) {
                 srVector3T<float> notify_position = last_seen;
                 unsigned int group_index = GetMonsterGroupIndexByID(
@@ -1009,7 +1009,7 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
                             srVector3T<float> probe = next_position;
 
                             camera = cameraLocation();
-                            if (ProjectPointThroughCamera(&probe) == 0 &&
+                            if (projectsToCamera(probe.glmValue()) == 0 &&
                                 !g_octree->HasLineOfSight(&camera, &probe, true)) {
                                 srVector3T<float> notify_position = next_position;
                                 unsigned int group_index = GetMonsterGroupIndexByID(
@@ -1047,7 +1047,7 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
                 probe.y += g_float_one_thousand;
                 /* Both on-screen tests take the representation location read at the top of
                    the watch block, not the navigator position (0x00503e90, 0x00503f40). */
-                if (ProjectPointThroughCamera(&location) == 0 &&
+                if (projectsToCamera(location.glmValue()) == 0 &&
                     !g_octree->HasLineOfSight(&camera, &probe, true)) {
                     if (monster->formation.x == g_float_zero &&
                         monster->formation.y == g_float_zero &&
@@ -1056,7 +1056,7 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
                     }
                     probe = monster->formation;
                     probe.y += g_float_one_thousand;
-                    if (ProjectPointThroughCamera(&location) == 0 &&
+                    if (projectsToCamera(location.glmValue()) == 0 &&
                         !g_octree->HasLineOfSight(&camera, &probe, true)) {
                         if (monster->formation.x == g_float_zero &&
                             monster->formation.y == g_float_zero &&

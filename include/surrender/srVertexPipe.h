@@ -1,5 +1,9 @@
 #pragma once
 
+#include "glm/ext/vector_float3.hpp"
+
+#include "srBoundingSphere.h"
+
 #include <span>
 #include <vector>
 
@@ -21,8 +25,8 @@ public:
         w8_ulong vertex_count;
         const w8_ulong* active_vertices;
         int direct_vertex_indices;
-        const srVector3T<float>* positions;
-        const srVector3T<float>* normals;
+        const glm::vec3* positions;
+        const glm::vec3* normals;
         glm::vec3 eye_center;
         float eye_radius;
         const glm::mat4* model_view;
@@ -44,8 +48,8 @@ public:
     srVertexPipe& operator=(const srVertexPipe&) = delete;
 
     SR_DLL_IMPORT void applyDiffuseLight(const glm::vec4& light);
-    SR_DLL_IMPORT void applyDiffuseLight(const float* values, const glm::vec4& light);
-    SR_DLL_IMPORT void applyFog(const float* values);
+    SR_DLL_IMPORT void applyDiffuseLight(std::span<const float> values, const glm::vec4& light);
+    SR_DLL_IMPORT void applyFog(std::span<const float> values);
     SR_DLL_IMPORT void copyDiffuseToSpecular();
     SR_DLL_IMPORT void copySpecularToDiffuse();
     // FUNCTION: SURRENDER 0x1002C310
@@ -58,23 +62,19 @@ public:
     {
         channel_mask |= 1u << channel;
     }
-    SR_DLL_IMPORT const w8_ulong* getAVT() const;
-    SR_DLL_IMPORT float* getAlpha();
+    SR_DLL_IMPORT std::span<const w8_ulong> getAVT() const;
+    SR_DLL_IMPORT std::span<float> getAlpha();
     SR_DLL_IMPORT srFlags<srVertexProcessor::e_channel> getChannelMask() const;
-    SR_DLL_IMPORT const float* getDepthCue();
-    SR_DLL_IMPORT glm::vec4* getDiffuse();
+    SR_DLL_IMPORT std::span<const float> getDepthCue();
+    SR_DLL_IMPORT std::span<glm::vec4> getDiffuse();
     SR_DLL_IMPORT w8_ulong getExclusionMask() const;
-    struct BoundingSphere {
-        glm::vec3 center;
-        float radius;
-    };
-    SR_DLL_IMPORT BoundingSphere getEyeSpaceBoundingSphere() const;
-    SR_DLL_IMPORT const glm::vec3* getEyeSpaceDir();
-    SR_DLL_IMPORT const float* getEyeSpaceDist();
-    SR_DLL_IMPORT const glm::vec4* getEyeSpaceLocation();
-    const glm::vec3* getEyeSpaceNormal();
-    SR_DLL_IMPORT const float* getEyeSpaceZDist();
-    SR_DLL_IMPORT float* getFog();
+    SR_DLL_IMPORT srBoundingSphere getEyeSpaceBoundingSphere() const;
+    SR_DLL_IMPORT std::span<const glm::vec3> getEyeSpaceDir();
+    SR_DLL_IMPORT std::span<const float> getEyeSpaceDist();
+    SR_DLL_IMPORT std::span<const glm::vec4> getEyeSpaceLocation();
+    std::span<const glm::vec3> getEyeSpaceNormal();
+    SR_DLL_IMPORT std::span<const float> getEyeSpaceZDist();
+    SR_DLL_IMPORT std::span<float> getFog();
     SR_DLL_IMPORT const srVertexProcessor::MaterialInfo& getMaterialInfo() const;
     SR_DLL_IMPORT float* getQ(w8_ulong index, int create);
     glm::vec2* getST(w8_ulong index, int create);
@@ -83,7 +83,7 @@ public:
     static SR_DLL_IMPORT srFlags<srVertexProcessor::e_channel>
     getShaderDisableMask(const srShader* shader, const w8_ulong* channels,
                          w8_ulong channel_count);
-    SR_DLL_IMPORT glm::vec4* getSpecular();
+    SR_DLL_IMPORT std::span<glm::vec4> getSpecular();
     SR_DLL_IMPORT void* getUserArray(w8_ulong index);
     w8_ulong getVertexCount() const;
     int isChannelAvailable(srVertexProcessor::e_channel channel) const;
@@ -190,6 +190,19 @@ private:
     w8_ulong sub_batch_offset;                /* 0x84 */
     w8_ulong vertex_count;                    /* 0x88 */
     w8_ulong batch_count;                     /* 0x8c */
+private:
+    using SetupChannel = void (srVertexPipe::*)();
+    template<class T, std::size_t Count>
+    std::span<const T> scratchChannel(const T (&values)[Count], w8_ulong ready, SetupChannel setup)
+    {
+        if ((scratch.flags & ready) == 0) (this->*setup)();
+        return std::span<const T>(values).subspan(sub_batch_offset, vertex_count);
+    }
+    void prepareOutputChannel(srVertexProcessor::e_channel channel, w8_ulong& operations,
+                              SetupChannel setup);
+    void copyColorChannel(std::span<const glm::vec4> source, glm::vec4* destination,
+                          srVertexProcessor::e_channel channel);
+
 };
 
 // FUNCTION: SURRENDER 0x1002C4B0 SYMBOL
@@ -208,16 +221,11 @@ inline int srVertexPipe::isChannelAvailable(srVertexProcessor::e_channel channel
 
 // FUNCTION: SURRENDER 0x1002C5C0 SYMBOL
 // RECOMP: ?getEyeSpaceNormal@srVertexPipe@@QAEPBV?$srVector3T@M@@XZ
-inline const glm::vec3* srVertexPipe::getEyeSpaceNormal()
+inline std::span<const glm::vec3> srVertexPipe::getEyeSpaceNormal()
 {
-    if ((scratch.flags & srVertexPipe::Scratch::READY_EYE_NORMALS) == 0) {
-        setupEyeSpaceNormal();
-    }
-    return scratch.normals + sub_batch_offset;
+    return scratchChannel(scratch.normals, Scratch::READY_EYE_NORMALS, &srVertexPipe::setupEyeSpaceNormal);
 }
 
-// FUNCTION: SURRENDER 0x1002C780 SYMBOL
-// RECOMP: ?getST@srVertexPipe@@QAEPAV?$srVector2T@M@@KH@Z
 inline glm::vec2* srVertexPipe::getST(w8_ulong index, int create)
 {
     srCore.getStatisticsManager()->statistics.texture_coordinate_operations += vertex_count;

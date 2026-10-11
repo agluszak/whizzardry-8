@@ -9,6 +9,7 @@
 #include "wiz8/engine_code/AnimRep.hpp"
 #include "compat/compiler.h"
 #include "glm/ext/vector_float4.hpp"
+#include "glm/ext/vector_float3.hpp"
 #include "surrender/srMath.h"
 #include "surrender/srModel.h"
 #include "surrender/srTypeRegistry.h"
@@ -66,7 +67,7 @@ public:
     int damage_stage;
     std::vector<int> damage_stage_tables;
     int highlight_pass_mode;
-    srVector3T<float> light_scale;
+    glm::vec3 light_scale;
     bool diffuse_scale_enabled;
     bool emissive_override_enabled;
     unsigned char padding_1a2[2];

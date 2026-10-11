@@ -3,6 +3,7 @@
 #include "wiz8/audio_resources.h"
 #include "wiz8/ground_probe.h"
 #include <memory>
+#include <optional>
 #include <span>
 #include <string>
 #include <vector>
@@ -362,7 +363,7 @@ extern W8EnvironRecord* g_environ;
 void ResetInactiveLevelDataVectors(void);
 void UpdateSharedGameDataObject();
 void UpdateGameDataRuntime();
-unsigned char LoadSurfaceVertices(srVector3T<float>* output, const int* vertex_indices);
+std::optional<RuntimeTriangle> surfaceTriangle(std::span<const int, 3> vertexIndices);
 
 void ClearLevelMovementStopped(void);
 void ResetLevelDataVectors(void);

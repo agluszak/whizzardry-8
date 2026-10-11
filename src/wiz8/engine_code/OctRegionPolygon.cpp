@@ -1,3 +1,4 @@
+#include "surrender/srBoundingBox.h"
 #include <cstdlib>
 #include <cstring>
 
@@ -28,15 +29,9 @@ bool W8OctRegionPolygon::InsideFrustumPlanes(const W8Plane* planes) const
 /* Test the polygon's representative point against an inclusive axis-aligned
    box. The method's original translation-unit owner is not yet proved. */
 // FUNCTION: WIZ8 0x004cfb30
-bool W8OctRegionPolygon::ContainsPoint(const srVector3T<float>* bounds) const
+bool W8OctRegionPolygon::containsPoint(const srBoundingBox& bounds) const
 {
-    for (short axis = 0; axis < 3; ++axis) {
-        float value = (&position.x)[axis];
-        if (value < (&bounds[0].x)[axis] || (&bounds[1].x)[axis] < value) {
-            return false;
-        }
-    }
-    return true;
+    return bounds.contains(position.glmValue());
 }
 
 /* Grow `*run` to (count + capacity) dwords when count lands on a capacity

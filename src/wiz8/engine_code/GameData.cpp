@@ -1,3 +1,4 @@
+#include <optional>
 #include <algorithm>
 #include <cmath>
 #include <cstring>
@@ -106,20 +107,16 @@ static bool g_level_override;
 // GLOBAL: WIZ8 0x00652dce
 bool g_shared_timers_paused;
 
-/* Resolve one surface's three vertex indices through the active processed
-   GameData vertex table.  The retail comparison is signed and accepts an index
-   equal to vertex_count, so that historical boundary behavior is preserved. */
+/* Resolve a complete triangle from the active processed vertex table. */
 // FUNCTION: WIZ8 0x004214d0
-unsigned char LoadSurfaceVertices(srVector3T<float>* output, const int* vertex_indices)
+std::optional<RuntimeTriangle> surfaceTriangle(std::span<const int, 3> vertexIndices)
 {
-    short index;
-    for (index = 0; index < 3; ++index) {
-        if (g_octree_game_data->VerticesCount() < vertex_indices[index]) {
-            return 0;
-        }
-        output[index] = g_octree_game_data->m_pVertices[vertex_indices[index]];
-    }
-    return 1;
+    if (!g_octree_game_data) return std::nullopt;
+    const auto& vertices = g_octree_game_data->m_pVertices;
+    for (const int index : vertexIndices)
+        if (index < 0 || static_cast<std::size_t>(index) >= vertices.size())
+            return std::nullopt;
+    return indexedTriangle(vertices, vertexIndices);
 }
 
 /* Ensure the shared game-data object exists, then run its update. */
@@ -1214,12 +1211,9 @@ bool W8GameData::TestGeometryTrace(std::span<W8GDSurface> surfaces,
                     } else {
                         contact = trace->start;
                     }
-                    srVector3T<float> vertices[3];
-                    vertices[0] = vertices_bank[surface->vertex_indices[0]];
-                    vertices[1] = vertices_bank[surface->vertex_indices[1]];
-                    vertices[2] = vertices_bank[surface->vertex_indices[2]];
+                    const auto vertices = indexedTriangle(vertices_bank, surface->vertex_indices);
                     if (PointInsideTriangle(vertices, surface->flags & W8_GD_SURFACE_AXIS_MASK,
-                                            &contact) &&
+                                            contact.glmValue()) &&
                         hit_distance < trace->hit_limit) {
                         last_hit_surface = surface->index;
                         hit = true;
@@ -1359,7 +1353,7 @@ std::unique_ptr<stModelInstance> W8GameData::CreateTraceModel()
     mesh->flags &= ~W8_MESH_SORTED_RENDERING;
     srVector3i* poly_vertices = mesh->getPolyVertex();
     std::shared_ptr<srTextureIFace>* poly_textures = mesh->getPolyTexture(0, 0, 1);
-    srVector3T<float>* vertex_locs = mesh->getVertexLoc();
+    glm::vec3* vertex_locs = mesh->getVertexLoc();
     glm::vec2* texcoords = mesh->getVertexTexCoords(0, 0, 1);
     std::shared_ptr<srMaterialIFace>* vertex_materials =
         mesh->getVertexMaterial(0, srMeshModel::SIDE_FRONT, 1);
@@ -1377,39 +1371,39 @@ std::unique_ptr<stModelInstance> W8GameData::CreateTraceModel()
         vertex_materials[vertex] = g_oct_mesh_default.material;
         poly_vertices[index].x = vertex;
         shade_indices[vertex] = vertex;
-        vertex_locs[vertex] = m_pVertices[surface->vertex_indices[0]];
+        vertex_locs[vertex] = m_pVertices[surface->vertex_indices[0]].glmValue();
         texcoords[vertex + 1] = glm::vec2(0);
         vertex_materials[vertex + 1] = g_oct_mesh_default.material;
         poly_vertices[index].y = vertex + 1;
         shade_indices[vertex + 1] = vertex + 1;
-        vertex_locs[vertex + 1] = m_pVertices[surface->vertex_indices[1]];
+        vertex_locs[vertex + 1] = m_pVertices[surface->vertex_indices[1]].glmValue();
         texcoords[vertex + 2] = glm::vec2(0);
         vertex_materials[vertex + 2] = g_oct_mesh_default.material;
         poly_vertices[index].z = vertex + 2;
         shade_indices[vertex + 2] = vertex + 2;
-        vertex_locs[vertex + 2] = m_pVertices[surface->vertex_indices[2]];
+        vertex_locs[vertex + 2] = m_pVertices[surface->vertex_indices[2]].glmValue();
         vertex += 3;
     }
     mesh->setShader(g_oct_mesh_default.render_flags, 0);
     mesh->setDirty(srMeshModel::DIRTY_TRI_MESH);
-    srVector3T<float>* normals = mesh->getVertexNormal();
-    srVector3T<float>* dig = mesh->getVertexDIG(0, 1);
+    glm::vec3* normals = mesh->getVertexNormal();
+    glm::vec3* dig = mesh->getVertexDIG(0, 1);
     for (int i = 0; i < vertex; ++i) {
         if (selected[i]) {
             dig[i] = normals[i];
             if (dig[i].y < g_float_half) {
                 dig[i].y = 0.0f;
-                dig[i].Normalize();
+                dig[i] = normalizedOrZero(dig[i]);
                 dig[i].y = 1.0f;
-                dig[i].Normalize();
+                dig[i] = normalizedOrZero(dig[i]);
             }
         } else {
-            dig[i].Set(normals[i].x * g_float_fifteen_hundredths + g_float_fifteen_hundredths, 0.0f,
+            dig[i] = glm::vec3(normals[i].x * g_float_fifteen_hundredths + g_float_fifteen_hundredths, 0.0f,
                        normals[i].z * g_float_fifteen_hundredths + g_float_fifteen_hundredths);
-            float length = dig[i].Length();
+            float length = glm::length(dig[i]);
             if (g_double_one_ten_thousandth <= length) {
                 if (length < 0.3) {
-                    dig[i].SetLength(0.3);
+                    dig[i] = normalizedOrZero(dig[i]) * 0.3f;
                 }
             } else {
                 dig[i].x = 0.15f;

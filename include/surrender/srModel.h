@@ -1,6 +1,7 @@
 #pragma once
 
 #include "srBoundingBox.h"
+#include "srBoundingSphere.h"
 #include <memory>
 #include "srTypeRegistry.h"
 
@@ -26,12 +27,11 @@ public:
     virtual ~srModel() override;
 
 public:
-    struct BoundingSphere {
-        glm::vec3 center;
-        float radius;
+    struct Bounds {
+        srBoundingBox box;
+        srBoundingSphere sphere;
     };
 
-    virtual BoundingSphere getBoundingSphere() = 0;
-    virtual srBoundingBox getBoundingBox() = 0;
+    virtual Bounds getBounds() = 0;
     virtual void render(class srGERD& renderer) = 0;
 };

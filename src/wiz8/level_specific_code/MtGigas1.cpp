@@ -102,8 +102,6 @@ bool MtGigas1Lift2(Trigger* pTrigger)
 // FUNCTION: WIZ8 0x004DBBD0
 bool MtGigas1PressurePlate(Trigger* pTrigger)
 {
-    srVector3T<float> minimum;
-    srVector3T<float> maximum;
     srVector3T<float> position;
 
     if (g_plate_prop == 0) {
@@ -112,9 +110,9 @@ bool MtGigas1PressurePlate(Trigger* pTrigger)
     srVector3T<double> camera_position = GetWorld()->camera->getLocation();
     position.x = static_cast<float>(camera_position.x);
     position.z = static_cast<float>(camera_position.z);
-    g_plate_prop->ComputeBounds(&minimum, &maximum);
-    if ((position.x >= minimum.x && position.x <= maximum.x && position.z >= minimum.z &&
-         position.z <= maximum.z) ||
+    const auto bounds = g_plate_prop->computeBounds();
+    if ((position.x >= bounds.minimum.x && position.x <= bounds.maximum.x &&
+         position.z >= bounds.minimum.z && position.z <= bounds.maximum.z) ||
         g_plate_prop->HasSupportedItems()) {
         if (g_plate_down) {
             return false;

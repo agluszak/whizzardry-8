@@ -544,7 +544,6 @@ void owned_region_move_and_teardown()
     REQUIRE(g_captured_region_index == 0);
     REQUIRE(g_hover_region_index == 0);
 }
-
 void owned_region_set_templates_and_teardown()
 {
     RegionStateSnapshot saved_state;

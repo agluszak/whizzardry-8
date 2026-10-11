@@ -3,6 +3,7 @@
 
 #include "surrender/srMath.h"
 #include "surrender/srBoundingBox.h"
+#include "glm/ext/vector_float3.hpp"
 #include <span>
 #include "wiz8/geometry.h"
 #include "compat/compiler.h"
@@ -32,10 +33,10 @@ struct W8OctRegionVolume {
     srVector3T<float> m_points[9];
     W8Plane m_planes[6];
 
-    bool ContainsPoint(const srVector3T<float>* point) const;
+    bool ContainsPoint(const glm::vec3& point) const;
 };
 
-/* A reusable, non-polymorphic 0x9c spatial record.  Octree.cpp constructs one
+/* Native spatial state derived from the retail 0x9c record. Octree.cpp constructs one
    at the start of its 0x29c owner, while OctBuildTree.cpp constructs the same
    value at the start of its 0xbc build tree and uses standalone copies while
    inserting surfaces.  Same-address construction proves the common value
@@ -45,28 +46,32 @@ struct W8OctRegionVolume {
 struct W8OctSpatialState {
     explicit W8OctSpatialState(const W8OctSpatialState* source = 0);
 
-    void SetChildBounds(const W8OctSpatialState* parent, int x, int y, int z)
+    srBoundingBox bounds() const { return m_bounds; }
+    void setChildBounds(const W8OctSpatialState& parent, unsigned octant, float extent)
     {
-        m_minimum.x = x * m_extent + parent->m_minimum.x;
-        m_maximum.x = m_minimum.x + m_extent;
-        m_minimum.y = y * m_extent + parent->m_minimum.y;
-        m_maximum.y = m_minimum.y + m_extent;
-        m_minimum.z = z * m_extent + parent->m_minimum.z;
-        m_maximum.z = m_minimum.z + m_extent;
+        const glm::vec3 offset(octant >> 2, (octant >> 1) & 1, octant & 1);
+        const auto minimum = parent.m_bounds.minimum + offset * extent;
+        m_bounds.minimum = minimum;
+        m_bounds.maximum = minimum + extent;
+    }
+
+    srBoundingBox regionCellBounds(w8_ulong path) const
+    {
+        const glm::vec3 cell((path >> 16) & 0xff, (path >> 8) & 0xff, path & 0xff);
+        const auto minimum = cell * m_region_grid_cell + m_bounds.minimum;
+        return {minimum, minimum + m_region_grid_cell};
     }
 
     void Reset();
     srBoundingBox GetClippedBounds() const;
     srBoundingBox GetWorkingBounds() const;
-    void SetWorkingBounds(const srVector3T<float>* minimum, const srVector3T<float>* maximum);
+    void setWorkingBounds(const srBoundingBox& bounds);
 
     w8_ulong flags;
     float m_extent;
     float m_cell_size;
-    srVector3T<float> m_minimum;
-    srVector3T<float> m_maximum;
-    srVector3T<float> m_clipped_minimum;
-    srVector3T<float> m_clipped_maximum;
+    srBoundingBox m_bounds;
+    srBoundingBox m_clipped_bounds;
     /* Mode-2 insertions increment this once per region polygon; the build
        conversion copies it to the pre-tree and sizes m_visited_polygon_bits from it. */
     w8_ulong m_polygon_count;
@@ -98,24 +103,20 @@ struct W8OctSpatialState {
     /* Emitted submesh record bound: the build packs kind-0 then kind-1
        records beneath it. */
     w8_ulong submesh_count;
-    srVector3T<float> m_working_minimum;
-    srVector3T<float> m_working_maximum;
+    srBoundingBox m_working_bounds;
     /* The build octree root: W8OctBuildNode or the counted subclass
        when the owning build tree counts surfaces per node. */
     W8OctBuildNode* m_root;
     w8_ulong m_node_index;
     /* The working triangle's three vertices, borrowed from the inserter's
        stack for the recursion's bounds tests. */
-    const srVector3T<float>* m_triangle_vertices;
+    const glm::vec3* m_triangle_vertices;
 };
 
-unsigned char TestSpatialTriangle(const srVector3T<float>* bounds,
-                                  const srVector3T<float>* vertices,
-                                  const srVector3T<float>* plane_normal);
+bool triangleIntersectsBox(const srBoundingBox& box, std::span<const glm::vec3, 3> vertices,
+                           const glm::vec3& normal);
 bool SurfaceIntersectsBox(const W8GDSurface& surface, std::span<const srVector3> vertices,
                           const srBoundingBox& box);
-bool BoundsOverlapStrict(const srVector3T<float>* first, const srVector3T<float>* second);
-bool PointInsideBoxBounds(const srVector3T<float>* bounds, const srVector3T<float>* point);
 
 struct W8OctRegionPolygon;
 
@@ -170,6 +171,7 @@ struct W8OctPreTreeVertex {
    the canonical material/texture group counts; +0x10/+0x14 hold an owned
    buffer the cleanup releases. */
 struct W8OctPreTreeGeometry {
+    bool splitVerticesByMaterial();
     w8_ulong vertex_count;
     W8OctPreTreeVertex* m_vertices;
     w8_ulong m_polygon_count;

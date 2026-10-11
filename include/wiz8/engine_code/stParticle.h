@@ -1,6 +1,8 @@
 #pragma once
 
 #include <memory>
+#include <optional>
+#include "glm/ext/vector_float3.hpp"
 #include <vector>
 
 #include "wiz8/engine_code/particle_modes.h"
@@ -29,8 +31,8 @@ public:
     void SetActive(unsigned char active);
     void SetTraversalEnabled(bool enabled);
     void DeactivateParticle(unsigned int index);
-    unsigned char ActivateParticle(unsigned int* out_index, bool replace_when_full);
-    void InitializeParticlePosition(srVector3T<float>* output);
+    std::optional<unsigned int> activateParticle(bool replaceWhenFull);
+    glm::vec3 emissionPosition();
     void SetTexture(std::shared_ptr<srTextureIFace> texture);
     void SetMaterial(std::shared_ptr<srMaterialIFace> material);
     void SetRenderFlags(srShader flags);
@@ -40,7 +42,7 @@ public:
     /* The per-particle age/cull/move step and billboard-corner expansion used
        by the submitted batch. Their retail names remain unavailable. */
     void Update();                                 /* 0x00499FA0 */
-    void PrepareRenderer(glm::mat4& view); /* 0x00498DD0 */
+    void PrepareRenderer(const glm::mat4& view); /* 0x00498DD0 */
     srShader GetRenderFlags() const;
     unsigned char ReplaceTexture(const char* old_name, std::shared_ptr<srTextureIFace> replacement);
     virtual void traverse(srNode::TraverseInfo& info) override; /* 0x00498C40 */
@@ -56,15 +58,15 @@ public:
     std::shared_ptr<srTextureIFace> texture;
     unsigned int particle_count = 0;
     /* Per-particle state. */
-    std::vector<srVector3T<float>> particle_positions;
-    std::vector<srVector3T<float>> velocities;
+    std::vector<glm::vec3> particle_positions;
+    std::vector<glm::vec3> velocities;
     /* Unsigned millisecond birth ticks. */
     std::vector<unsigned int> birth_ticks;
     std::vector<bool> particle_active;
     /* Flutter phase per particle; empty without flutter. */
     std::vector<float> flutter_angles;
     /* Billboard geometry: four vertices and two triangles per particle. */
-    std::vector<srVector3T<float>> vertex_positions;
+    std::vector<glm::vec3> vertex_positions;
     std::vector<glm::vec2> texcoords;
     std::vector<float> alphas;
     std::vector<srVector3i> triangles;
@@ -98,10 +100,10 @@ public:
     unsigned int emission_interval = 50;
     /* Lifetime added to each absolute unsigned birth tick. */
     unsigned int lifetime_ms = 1500;
-    srVector3T<float> emission_minimum{-250.0f, -250.0f, -250.0f};
-    srVector3T<float> emission_maximum{250.0f, 250.0f, 250.0f};
-    srVector3T<float> direction{0.0f, -1.0f, 0.0f};
-    srVector3T<float> acceleration{0.0f, -4905.0f, 0.0f};
+    glm::vec3 emission_minimum{-250.0f, -250.0f, -250.0f};
+    glm::vec3 emission_maximum{250.0f, 250.0f, 250.0f};
+    glm::vec3 direction{0.0f, -1.0f, 0.0f};
+    glm::vec3 acceleration{0.0f, -4905.0f, 0.0f};
     float flutter_amplitude = 0.0f;
     /* 0x00498DD0 uses this as an unsigned modulus period. */
     unsigned int flutter_period = 0;
@@ -110,13 +112,13 @@ public:
     float initial_speed = 500.0f;
     float speed_min = 1000.0f;
     float speed_max = 4000.0f;
-    srVector3T<float> lifetime_minimum{-1000.0f, -1000.0f, -1000.0f};
-    srVector3T<float> lifetime_maximum{1000.0f, 1000.0f, 1000.0f};
-    srVector3T<float> bounds_origin{0.0f, 0.0f, 0.0f};
+    glm::vec3 lifetime_minimum{-1000.0f, -1000.0f, -1000.0f};
+    glm::vec3 lifetime_maximum{1000.0f, 1000.0f, 1000.0f};
+    glm::vec3 bounds_origin{0.0f, 0.0f, 0.0f};
     float bounds_radius = 2000.0f;
     /* Added to the camera position when camera_relative selects camera-relative
        placement. */
-    srVector3T<float> camera_offset{0.0f, 0.0f, 0.0f};
+    glm::vec3 camera_offset{0.0f, 0.0f, 0.0f};
     unsigned int update_flags = 0;
     /* Last accepted particle-integration tick. */
     unsigned int last_integration_tick = 0;

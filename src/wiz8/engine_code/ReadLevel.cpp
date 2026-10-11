@@ -13,7 +13,6 @@
 
 #include "wiz8/filesystem.h"
 #include "wiz8/engine_code/3d.h"
-#include "wiz8/geometry.h"
 #include "wiz8/engine_code/AnimObj.h"
 #include "wiz8/engine_code/PathAI.h"
 #include "surrender/srClipPlane.h"
@@ -59,7 +58,6 @@
 #include "monster_actions.h"
 #include "named_position.h"
 #include "particle_modes.h"
-#include "surrender/srFlags.h"
 #include "surrender/srMath.h"
 #include "surrender/srMeshModel.h"
 #include "surrender/srModelInstance.h"
@@ -106,7 +104,7 @@ void stLevel::process(const ProcessInfo& info, e_processType)
     }
 
     const auto ambient = renderer.getAmbientLight();
-    srVector3T<float> ambient_color(ambient.x, ambient.y, ambient.z);
+    const glm::vec3 ambient_color(ambient);
     m_submitted_polygons = 0;
 
     for (srNode* child = first_child_; child != 0; child = child->next_sibling_) {
@@ -116,18 +114,7 @@ void stLevel::process(const ProcessInfo& info, e_processType)
             continue;
         }
 
-        if ((model->render_control.value & 0x20) == 0) {
-            const auto [center, radius] = model->getBoundingSphere();
-            if (renderer.testBoundingSphere(center, radius) == srGERD::VISIBILITY_OUTSIDE) {
-                continue;
-            }
-        }
-        if ((model->render_control.value & 0x10) == 0 && model->vertex_location_count >= 8) {
-            const auto [minimum, maximum] = model->getBoundingBox();
-            if (renderer.testBoundingBox(minimum, maximum) == srGERD::VISIBILITY_OUTSIDE) {
-                continue;
-            }
-        }
+        if (!model->isVisible(renderer)) continue;
 
         srNode* linked_child = child;
         while (model != 0) {
@@ -144,7 +131,8 @@ void stLevel::process(const ProcessInfo& info, e_processType)
                 model->SetAmbientColor(ambient_color);
             }
 
-            auto mesh = model->getTriMesh();
+            srMeshModel::TriMesh mesh;
+            mesh = model->getTriMesh();
             if (g_render_untextured) {
                 mesh.shaders[0].value &= 0xffff7fff;
                 mesh.poly_shaders[0] = 0;
@@ -216,7 +204,7 @@ W8_ABI_ASSERT(sizeof(W8LevelLightRecord) == 0x28, "W8LevelLightRecord_size_must_
 // GLOBAL: WIZ8 0x005ec0b0
 const float g_environment_near_scale = 2.0f;
 // GLOBAL: WIZ8 0x00659cd0
-srVector3T<float> g_environment_offset;
+glm::vec3 g_environment_offset{0};
 
 // FUNCTION: WIZ8 0x004BC060
 void AssociateWorldLights(W8World* world)
@@ -428,7 +416,7 @@ try
         BuildEnvironmentColourRamp();
     }
 
-    g_environment_offset.SetZero();
+    g_environment_offset = glm::vec3(0);
     pWorld->view_distance = view_distance * g_world_scale;
     ApplyEnvironmentColour(pWorld, intensity, &white);
     WorldSetFarClip(pWorld, pWorld->view_distance);
@@ -457,7 +445,7 @@ try
     std::vector<srClipPlane*> clip_planes;
     glm::vec4 plane;
     glm::vec4 serialized_position;
-    srVector3T<double> position;
+    glm::dvec3 position;
     srClipPlane* clip_plane;
     char name[64];
     int count;
@@ -499,8 +487,8 @@ try
         clip_plane->setName(name);
         clip_plane->setClipPlane(plane);
 
-        position.Set(serialized_position.x * g_world_scale, serialized_position.y * g_world_scale,
-                     serialized_position.z * g_world_scale);
+        position = glm::dvec3(serialized_position.x * g_world_scale, serialized_position.y * g_world_scale,
+                              serialized_position.z * g_world_scale);
         clip_plane->setLocation(position);
         clip_plane->setFlag(srNode::FLAG_GLOBAL);
         clip_plane->setClipType(srClipPlane::CLIP_POSITIONAL_0);
@@ -555,10 +543,9 @@ try
                 const auto prop_bounds = prop->GetBounds();
                 if (!prop_bounds)
                     return false;
-                const W8BoundingBox bounds{prop_bounds->minimum, prop_bounds->maximum};
                 pWorld->collidable_props.push_back(prop);
                 if (pWorld->octree != 0) {
-                    pWorld->octree->AddCollidablePropBounds(collidable_index, &bounds);
+                    pWorld->octree->AddCollidablePropBounds(collidable_index, *prop_bounds);
                     ++collidable_index;
                 }
             }
@@ -825,8 +812,8 @@ try
     for (index = 0; index < count; ++index) {
         unsigned char version;
         stParticle* particle;
-        srVector3T<double> axis;
-        srVector3T<double> location;
+        glm::dvec3 axis;
+        glm::dvec3 location;
 
         (pInfo->hFile->read(&version, sizeof(version)).bytes == static_cast<std::size_t>(sizeof(version)));
         if (version == 4) {
@@ -872,17 +859,14 @@ try
             record.bounds_origin.x = 0.0f;
         }
         if (record.bounds_mode == W8_PARTICLE_BOUNDS_BOX) {
-            srVector3T<float> center;
-            srVector3T<float> extent;
-
-            center = record.bounds_origin * g_world_scale;
-            extent = record.bounds_extent * 250.0f;
+            const auto center = record.bounds_origin.glmValue() * g_world_scale;
+            const auto extent = record.bounds_extent.glmValue() * 250.0f;
             particle->bounds_mode = W8_PARTICLE_BOUNDS_BOX;
             particle->lifetime_minimum = center - extent;
             particle->lifetime_maximum = center + extent;
         } else if (record.bounds_mode == W8_PARTICLE_BOUNDS_SPHERE && record.bounds_radius > 0.0f) {
             particle->bounds_mode = W8_PARTICLE_BOUNDS_SPHERE;
-            particle->bounds_origin = record.bounds_origin * g_world_scale;
+            particle->bounds_origin = record.bounds_origin.glmValue() * g_world_scale;
             particle->bounds_radius = record.bounds_radius * g_world_scale;
         } else {
             particle->bounds_mode = W8_PARTICLE_BOUNDS_NONE;
@@ -902,7 +886,7 @@ try
 
         if (record.has_acceleration != 0) {
             particle->has_acceleration = 1;
-            particle->acceleration = record.acceleration * g_world_scale;
+            particle->acceleration = record.acceleration.glmValue() * g_world_scale;
         }
 
         if (record.emission_mode == W8_PARTICLE_EMISSION_NONE) {
@@ -911,18 +895,15 @@ try
             particle->emission_mode = W8_PARTICLE_EMISSION_SINGLE;
         } else {
             particle->emission_mode = W8_PARTICLE_EMISSION_CATCH_UP;
-            particle->emission_minimum.Set(-record.spread.x * 250.0f, -record.spread.y * 250.0f,
-                                           0.0f);
-            particle->emission_maximum.Set(record.spread.x * 250.0f, record.spread.y * 250.0f,
-                                           record.spread.z * g_world_scale);
+            particle->emission_minimum = {-record.spread.x * 250.0f, -record.spread.y * 250.0f, 0};
+            particle->emission_maximum = {record.spread.x * 250.0f, record.spread.y * 250.0f,
+                                         record.spread.z * g_world_scale};
         }
 
         if (record.direction_mode == W8_PARTICLE_DIRECTION_STATIONARY) {
             particle->direction_mode = W8_PARTICLE_DIRECTION_STATIONARY;
         } else if (record.direction_mode == W8_PARTICLE_DIRECTION_FIXED) {
             glm::mat3 rotation;
-            srVector3T<float> direction;
-            srVector3T<float> transformed;
             double angle = -1.5707963;
 
             rotation = glm::mat3(1);
@@ -933,11 +914,8 @@ try
             }
             rotation *= glm::mat3_cast(glm::angleAxis(float(angle), glm::vec3(1, 0, 0)));
 
-            direction.Set(0.0, 0.0, -1.0);
-                transformed = rotation * direction.glmValue();
-                transformed.Unitize();
             particle->direction_mode = W8_PARTICLE_DIRECTION_FIXED;
-            particle->direction = transformed;
+            particle->direction = normalizedOrZero(rotation * glm::vec3(0, 0, -1));
         } else if (record.direction_mode == W8_PARTICLE_DIRECTION_NODE_FORWARD) {
             particle->direction_mode = W8_PARTICLE_DIRECTION_NODE_FORWARD;
         } else if (record.direction_mode == W8_PARTICLE_DIRECTION_CONE) {
@@ -979,8 +957,7 @@ try
         particle->SetTexture(std::move(material.texture));
 
         if (strncmp(record.name, "CLOUD", 5) == 0) {
-            srVector3T<double> current = particle->getLocation();
-            particle->camera_offset = current;
+            particle->camera_offset = glm::vec3(particle->getLocation());
             particle->camera_relative = 1;
             particle->SetActive(1);
         } else if (g_octree != 0) {
@@ -1165,7 +1142,7 @@ try
 
     if (use_octree) {
         srMeshModel* model = static_cast<srMeshModel*>(world->update_mesh_source->getModel());
-        const auto [minimum, maximum] = model->getBoundingBox();
+        const auto [minimum, maximum] = model->getBounds().box;
         world->quads = BuildWorldQuad(world->update_mesh_source, minimum, maximum);
     }
     RefreshEnvironment();
@@ -1184,7 +1161,7 @@ try
     success = success && ReadAutomapNodes(handle);
     CHECK_PVL_OFFSET("Wrong offset in .pvl file after automap nodes.");
 
-    g_environment_offset = environment_offset;
+    g_environment_offset = environment_offset.glmValue();
     prop_count = world->plsProps.size();
     for (index = 0; index < static_cast<int>(prop_count); ++index) {
         W8Prop* prop = GetWorldProp(world, index);
@@ -1211,9 +1188,7 @@ try
                         copy->setName("Unsunlit Prop Material");
                         copy->parms.ambient = glm::vec4(0.0f);
                         copy->dirty = 1;
-                        copy->parms.emissive.x += g_environment_offset.x;
-                        copy->parms.emissive.y += g_environment_offset.y;
-                        copy->parms.emissive.z += g_environment_offset.z;
+                        copy->parms.emissive += glm::vec4(g_environment_offset, 0);
                         copy->dirty = 1;
                         mesh->setMaterial(std::move(copy), 0, srMeshModel::SIDE_FRONT);
                     }

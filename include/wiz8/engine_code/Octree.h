@@ -1,4 +1,6 @@
 #pragma once
+
+#include "wiz8/engine_code/mesh_links.h"
 #include <memory>
 
 #include "wiz8/ground_probe.h"
@@ -75,56 +77,6 @@ struct W8OctreeTrace {
 };
 
 W8_ABI_ASSERT(sizeof(W8OctreeTrace) == 0x30, "W8OctreeTrace_must_be_0x30");
-/* Bulk .oct vector I/O. Writers stage at most 0x100 records per FileWrite;
-   the raw twelve-byte reader serves float vectors and polygon index triples. */
-bool WriteVector4Array(wiz8::File* file, const glm::vec4* values, int count);
-bool WriteVector3Array(wiz8::File* file, const srVector3T<float>* values, int count);
-bool WriteVector2Array(wiz8::File* file, const glm::vec2* values, int count);
-bool ReadVector4Array(wiz8::File* file, glm::vec4* values, int count);
-bool ReadVector3Array(wiz8::File* file, void* values, int count);
-bool ReadVector2Array(wiz8::File* file, glm::vec2* values, int count);
-/* Grow `minimum`/`maximum` to include `point`, returning whether any bound
-   moved. */
-char GrowBoundsByPoint(const srVector3T<float>* point, srVector3T<float>* minimum,
-                       srVector3T<float>* maximum); /* 0x004378F0 */
-/* Whether `point` lies within `radius` of the bounds box. */
-/* 0x004386A0 */
-
-inline bool ReadVectorArray(wiz8::File* file, void* values, int count)
-{
-    return ReadVector3Array(file, values, count);
-}
-inline bool ReadVectorArray(wiz8::File* file, glm::vec4* values, int count)
-{
-    return ReadVector4Array(file, values, count);
-}
-inline bool ReadVectorArray(wiz8::File* file, glm::vec2* values, int count)
-{
-    return ReadVector2Array(file, values, count);
-}
-
-/* The polygon index triples serialize through the same canonical 12-byte
-   float-vector writer. */
-inline bool WriteVectorArray(wiz8::File* file, const srVector3i* values, int count)
-{
-    return WriteVector3Array(
-        file, reinterpret_cast<const srVector3T<float>*>(values), /* reinterpret-ok: the
-            float writer's raw 12-byte record is the index-triple record */
-        count);
-}
-inline bool WriteVectorArray(wiz8::File* file, const srVector3T<float>* values, int count)
-{
-    return WriteVector3Array(file, values, count);
-}
-inline bool WriteVectorArray(wiz8::File* file, const glm::vec4* values, int count)
-{
-    return WriteVector4Array(file, values, count);
-}
-inline bool WriteVectorArray(wiz8::File* file, const glm::vec2* values, int count)
-{
-    return WriteVector2Array(file, values, count);
-}
-
 /* One 0x10-byte entry of the .oct file's submesh table. Field +4 is the index
    into W8World::psrMeshes; the visibility update and UpdateMonsterLocation both
    resolve a region through it, and the update's reset pass writes the owning
@@ -272,7 +224,7 @@ public:
     /* Whether prop `offset` past prop_sun_base has its sunlight bit; a
        negative offset checkpoints the shared index into the base. */
     bool TestPropSunBit(int offset);
-    void AddCollidablePropBounds(int index, const W8BoundingBox* bounds);
+    void AddCollidablePropBounds(int index, const srBoundingBox& bounds);
     void VisitPointCopy(unsigned short location_id, srVector3T<float>* position);
     /* Quantize relative to the spatial minimum, truncating toward zero. */
     glm::ivec3 cellAt(const glm::vec3& position) const; /* 0x00431440 */
@@ -459,18 +411,11 @@ public:
        polygon index to (kind<<16)|id object key. */
     w8_ulong* m_aulPolyLookup;
     W8OctSubmesh* m_pSubmeshes;
-    /* Retail m_pAlphaBits; empty without a mesh count. The m_pus names below
-       come from ReadOctFile's own assertion text, so the four lookup and link
-       tables are unsigned short arrays. */
+    /* Retail m_pAlphaBits; empty without a mesh count. Link tables retain
+       unsigned-short disk records but use native owned containers. */
     std::vector<bool> m_alpha_bits;
-    unsigned short* m_pusMeshParticleLookup; /* 0xe0 */
-    unsigned short* m_pusMeshParticles;      /* 0xe4 */
-    unsigned short m_usMeshParticlesLen;
-    unsigned short m_padding_0ea;
-    unsigned short* m_pusMeshPropLookup; /* 0xec */
-    unsigned short* m_pusMeshProps;      /* 0xf0 */
-    unsigned short m_usMeshPropsLen;
-    unsigned short m_padding_0f6;
+    OctreeMeshLinks m_particle_links;
+    OctreeMeshLinks m_prop_links;
     w8_ulong m_ulNumParticles;
     std::vector<bool> m_linked_particles;
     std::vector<bool> m_visible_particles;
@@ -555,7 +500,7 @@ public:
 
     /* Automesh index -> packed cell (z | y<<8 | x<<16 | mask<<24) map the
        verify passes walk to bound-check each automesh's vertices. */
-    std::unordered_multimap<unsigned short, w8_ulong>* automesh_cells;
+    std::unordered_multimap<unsigned short, w8_ulong> automesh_cells;
     PrePathing* pre_pathing;
     /* The path-node scratch block BuildPathLists/PathNodeObstructed fill:
        created-node count, then the runs of registered prop ids the node
@@ -605,12 +550,11 @@ public:
     unsigned char BuildPathLists(W8GameData* game_data, W8LevelFile* level,
                                  unsigned int min_component_percent);
     char PathNodeObstructed(const srVector3T<float>* node_position);
-    unsigned char InsertConditionalNodes(std::unordered_multimap<unsigned int, CondPathNode*>* nodes,
-                                         unsigned int cell, unsigned int node, W8PreProp* preprops,
-                                         int preprop_count);
+    unsigned char InsertConditionalNodes(std::unordered_multimap<unsigned int, CondPathNode*>& nodes,
+                                         unsigned int cell, unsigned int node, std::span<const W8PreProp> preprops);
     /* Tests the bounds box against static surfaces and registered props;
        0 clear, 1 blocked, 3 clear but prop ids were recorded in m_lBlocks. */
-    char TestPathPropBounds(const srVector3T<float>* minimum, const srVector3T<float>* maximum);
+    char TestPathPropBounds(const srBoundingBox& bounds);
     int CreatePathProps(W8LevelFile* level, W8PreProp** preprops);
     char PropFramesDiffer(W8LevelFileAnimObj* anim, unsigned short first, unsigned short last);
 };

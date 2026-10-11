@@ -1,5 +1,7 @@
 #pragma once
 
+#include "glm/ext/vector_float3.hpp"
+
 #include <memory>
 #include <vector>
 #include "srMaterialIFace.h"
@@ -32,6 +34,7 @@ public:
     using Record = srVertexPipe::Record;
 
     static srTriMeshPipeline* Get(srGERD* renderer);
+    static srTriMeshPipeline& beginMesh(srGERD& renderer, const srMeshModel::TriMesh& mesh);
     void SetFlags(srShader shader);
     void Reset(srGERD* renderer);
     void Flush();
@@ -51,7 +54,6 @@ public:
     virtual ~srTriMeshPipeline() = default;
 
     std::vector<srVertexProcessor*> vertex_processors;
-    std::vector<w8_ulong> culler_scratch;
     Record* current_record;
     Pass* current_pass;
     w8_ulong triangle_count;
@@ -63,8 +65,8 @@ public:
     const glm::vec4* projected_vertices;
     const srVector3i* triangles;
     /* stParticle stores its vertex positions here; Reset/Get null it. */
-    const srVector3T<float>* positions;
-    const srVector3T<float>* vertex_extras;
+    const glm::vec3* positions;
+    const glm::vec3* vertex_extras;
     float sort_bias;
     glm::vec3 bounds_minimum;
     glm::vec3 bounds_maximum;

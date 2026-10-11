@@ -57,7 +57,7 @@ public:
 
     virtual void dump(std::ostream& stream) override;
     virtual w8_ulong getTextureFrameHandle() override;     /* 0x0047C5F0 */
-    virtual void getMipmapData(MultiRequest& request) override; /* 0x0047CA50 */
+    virtual void getMipmapData(const MultiRequest& request) override; /* 0x0047CA50 */
     virtual void getMipmapLevelPartial(PartialRequest& request) override;
     virtual void invalidate() override; /* 0x0047C8B0 */
 

@@ -1,3 +1,4 @@
+#include "surrender/srBoundingBox.h"
 #include <array>
 #include <fmt/format.h>
 #include <vector>
@@ -55,7 +56,6 @@
 #include "compat/ptr32.h"
 #include "conditions.h"
 #include "equipment_slots.h"
-#include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float4.hpp"
 #include "layouts/item_instance.h"
 #include "layouts/main_game_screen.h"
@@ -575,7 +575,7 @@ unsigned char ShowMonsterTargetMarker(W8MonsterInfo* monster_info)
     }
     eye = cameraLocation();
     const auto bounds = MonsterGetWorldAnimationBounds(monster_info->p3D);
-    return bounds && ShowTargetMarker(&eye, *bounds);
+    return bounds && targetMarkerVisible(eye.glmValue(), *bounds);
 }
 
 /* Whether a recorded target is of the kind a caller needs. Each needed kind
@@ -2785,7 +2785,7 @@ void RefreshMonsterTargetCounts(void)
             }
             camera = cameraLocation();
             const auto bounds = MonsterGetWorldAnimationBounds(monster_info->p3D);
-            if (bounds && ShowTargetMarker(&camera, *bounds) != 0) {
+            if (bounds && targetMarkerVisible(camera.glmValue(), *bounds) != 0) {
                 on_screen_count += 1;
             }
             if (g_status.selected_character == -1 ||
@@ -2817,13 +2817,8 @@ bool IsMonsterVisibleWithinDistance(W8Monster* monster, const srVector3T<float>*
         return false;
     auto center = monster->movement.position;
     center.y += monster->movement.height_offset;
-    for (const auto& point : std::array{center.glmValue(), bounds->minimum, bounds->maximum}) {
-        srVector3T<float> projected;
-        const srVector3T<double> input{glm::dvec3(point)};
-        if (g_world->camera->project(projected, input) == srCamera::PROJECTION_RESULT_ACCEPTED)
-            return true;
-    }
-    return false;
+    const std::array points{center.glmValue(), bounds->minimum, bounds->maximum};
+    return g_world->camera->projectsAny(points);
 }
 
 /* Any live monster visible to the camera within the far-clip range, resuming

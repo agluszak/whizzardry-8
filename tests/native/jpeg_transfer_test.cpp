@@ -42,8 +42,7 @@ static Bytes fixture(const char* name)
 }
 static void checkFormat(const srColorSurfaceIFace& surface, srPixelConvert::e_surfaceType type)
 {
-    srPixelConvert::PixelFormat expected;
-    srPixelConvert::mapPixelFormat(type, expected);
+    const auto expected = srPixelConvert::pixelFormat(type);
     REQUIRE(surface.getPixelFormat() == expected);
     const auto description = surface.getSurfaceDesc();
     REQUIRE(description.pixel_format == expected);

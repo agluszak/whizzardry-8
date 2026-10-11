@@ -101,33 +101,20 @@ void srFog::process(srVertexPipe& pipe)
             } else {
                 scale = 1.0 / (fog_end - fog_start);
             }
-            const float* distances = pipe.getEyeSpaceDist();
-            float start = fog_start;
-            if (count != 0) {
-                if (start == 0.0f) {
-                    if (values != distances) {
-                        std::copy_n(distances, count, values);
-                    }
-                } else {
-                    for (std::size_t i = 0; i < count; ++i)
-                        values[i] = (-start) + distances[i];
-                }
-            }
-            density = this->density;
-            srChannelMath::normalize({values, static_cast<std::size_t>(count)}, scale, density);
-            pipe.applyFog(values);
+            const auto distances = pipe.getEyeSpaceDist();
+            srChannelMath::distanceRamp({values, static_cast<std::size_t>(count)}, distances,
+                                        fog_start, scale, this->density,
+                                        srChannelMath::RampDirection::increasing);
+            pipe.applyFog({values, static_cast<std::size_t>(count)});
         } else {
-            float* fog = pipe.getFog();
+            const auto fog = pipe.getFog();
             if (this->density >= 1.0f) {
-                std::fill_n(fog, count, 1.0f);
+                std::ranges::fill(fog, 1.0f);
                 return;
             }
             density = 1.0f - this->density;
-            srChannelMath::scale({fog, static_cast<std::size_t>(count)}, density);
-            if ((count != 0) && (this->density != 0.0f)) {
-                for (std::size_t i = 0; i < count; ++i)
-                    fog[i] = (this->density) + fog[i];
-            }
+            srChannelMath::scale(fog, density);
+            srChannelMath::add(fog, this->density);
         }
     }
 }

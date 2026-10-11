@@ -1,3 +1,12 @@
+#include "surrender/srTextureIFace.h"
+#include "surrender/srPixelConvert.h"
+#include "surrender/srColorSurface.h"
+#include "surrender/srTextureFile.h"
+#include "surrender/srTextureMap.h"
+#include "surrender_test_fixture.h"
+#include "glm/geometric.hpp"
+#include "surrender/srModelInstance.h"
+#include "glm/ext/matrix_transform.hpp"
 #include <catch2/catch_test_macros.hpp>
 #include <array>
 #include <chrono>
@@ -122,21 +131,25 @@ public:
     void process(srVertexPipe& pipe) override
     {
         ++calls;
-        const auto* indices = pipe.getAVT();
-        const auto* normals = pipe.getEyeSpaceNormal();
-        const auto* directions = pipe.getEyeSpaceDir();
-        const auto* distances = pipe.getEyeSpaceDist();
-        const auto* z_distances = pipe.getEyeSpaceZDist();
-        float* alpha = pipe.getAlpha();
-        float* fog = pipe.getFog();
+        const auto indices = pipe.getAVT();
+        const auto normals = pipe.getEyeSpaceNormal();
+        const auto directions = pipe.getEyeSpaceDir();
+        const auto distances = pipe.getEyeSpaceDist();
+        const auto z_distances = pipe.getEyeSpaceZDist();
+        const auto alpha = pipe.getAlpha();
+        const auto fog = pipe.getFog();
+        valid &= directions.size() == pipe.getVertexCount() && distances.size() == directions.size() &&
+                 z_distances.size() == directions.size() && normals.size() == directions.size() &&
+                 alpha.size() == directions.size() && fog.size() == directions.size() &&
+                 indices.size() == directions.size();
         if (indices[0] == 0) {
-            first_alpha = alpha;
-            valid &= reinterpret_cast<std::uintptr_t>(alpha) % 16 == 0;
-            valid &= reinterpret_cast<std::uintptr_t>(normals) % 16 == 0;
+            first_alpha = alpha.data();
+            valid &= reinterpret_cast<std::uintptr_t>(alpha.data()) % 16 == 0;
+            valid &= reinterpret_cast<std::uintptr_t>(normals.data()) % 16 == 0;
         }
         // First request is deliberately in a later material sub-batch. The
         // cache must fill the whole batch, not overread from that offset.
-        const float* depth = indices[0] == 0 ? nullptr : pipe.getDepthCue();
+        const auto depth = indices[0] == 0 ? std::span<const float>{} : pipe.getDepthCue();
         for (w8_ulong i = 0; i < pipe.getVertexCount(); ++i) {
             const float z = static_cast<float>(indices[i] + 1) + z_bias;
             valid &= normals[i].x == 0 && normals[i].y == 0 && normals[i].z == -1;
@@ -144,7 +157,7 @@ public:
             valid &= std::abs(distances[i] - z) < 1e-5f;
             valid &= z_distances[i] == z;
             valid &= alpha[i] == 1 && fog[i] == 0;
-            if (depth) {
+            if (!depth.empty()) {
                 valid &= std::abs(depth[i] - (1 - z / 100)) < 1e-5f;
             }
             alpha[i] = 0.25f;
@@ -161,13 +174,13 @@ bool processorOwnership()
     Counter active;
     Counter inactive;
     inactive.enabled = false;
-    std::array<srVector3, 65> positions;
+    std::array<glm::vec3, 65> positions;
     std::array<w8_ulong, 65> indices;
     std::array<std::shared_ptr<srMaterialIFace>, 65> materials;
     std::array<glm::vec4, 65> eye_locations;
     std::array<unsigned char, 65> attributes{};
     for (w8_ulong i = 0; i < positions.size(); ++i) {
-        positions[i].Set(0, 0, static_cast<float>(i + 1));
+        positions[i] = glm::vec3(0, 0, static_cast<float>(i + 1));
         indices[i] = i;
         materials[i] = i == 0 ? first_material : second_material;
     }
@@ -231,9 +244,9 @@ public:
     int isActive(srVertexPipe&) override { return 1; }
     void process(srVertexPipe& pipe) override
     {
-        auto* diffuse = pipe.getDiffuse();
-        auto* specular = pipe.getSpecular();
-        auto* alpha = pipe.getAlpha();
+        const auto diffuse = pipe.getDiffuse();
+        const auto specular = pipe.getSpecular();
+        const auto alpha = pipe.getAlpha();
         for (w8_ulong i = 0; i < pipe.getVertexCount(); ++i) {
             diffuse[i] = glm::vec4(0.25f);
             specular[i] = glm::vec4(0.5f);
@@ -258,11 +271,11 @@ public:
     int isActive(srVertexPipe&) override { return 1; }
     void process(srVertexPipe& pipe) override
     {
-        auto* diffuse = pipe.getDiffuse();
-        auto* specular = pipe.getSpecular();
-        auto* alpha = pipe.getAlpha();
-        auto* fog = pipe.getFog();
-        const auto* indices = pipe.getAVT();
+        const auto diffuse = pipe.getDiffuse();
+        const auto specular = pipe.getSpecular();
+        const auto alpha = pipe.getAlpha();
+        const auto fog = pipe.getFog();
+        const auto indices = pipe.getAVT();
         const float values[] = {-2.f, 0.f, .25f, 1.f, 2.f};
         for (w8_ulong index = 0; index < pipe.getVertexCount(); ++index) {
             diffuse[index] = specular[index] = glm::vec4(.5f);
@@ -273,12 +286,12 @@ public:
 
 bool coverageFinalization()
 {
-    std::array<srVector3, 65> positions;
+    std::array<glm::vec3, 65> positions;
     std::array<w8_ulong, 65> indices;
     std::array<glm::vec4, 65> eye, diffuse, specular;
     std::array<unsigned char, 65> attributes{};
     for (unsigned index = 0; index < positions.size(); ++index) {
-        positions[index].Set(0, 0, float(index + 1));
+        positions[index] = glm::vec3(0, 0, float(index + 1));
         indices[index] = index;
     }
     srVertexArray arrays{};
@@ -333,17 +346,18 @@ class SurfaceLightProbe : public Counter {
 public:
     srLight light;
     unsigned channels = 0, ready = 0;
-    bool attenuated = false, directional = false;
+    unsigned attenuation_kind = 0;
+    bool directional = false;
     void process(srVertexPipe& pipe) override
     {
         ++calls;
         const unsigned count = pipe.getVertexCount();
         if (ready & 1) {
-            auto* colors = pipe.getDiffuse();
+            const auto colors = pipe.getDiffuse();
             for (unsigned i = 0; i < count; ++i) colors[i] = glm::vec4(.25f);
         }
         if (ready & 2) {
-            auto* colors = pipe.getSpecular();
+            const auto colors = pipe.getSpecular();
             for (unsigned i = 0; i < count; ++i) colors[i] = glm::vec4(.5f);
         }
         auto& statistics = srCore.getStatisticsManager()->statistics;
@@ -352,15 +366,16 @@ public:
         light.process(pipe);
         REQUIRE(statistics.diffuse_operations - before_diffuse == (channels & 1 ? count : 0));
         REQUIRE(statistics.specular_operations - before_specular == (channels & 2 ? count : 0));
-        const float attenuation = attenuated && !directional ? .5f : 1.f;
+        const float attenuation = directional || attenuation_kind == 0 ? 1.f
+                                  : attenuation_kind == 4 ? .25f : .5f;
         if (channels & 1) {
-            const auto* colors = pipe.getDiffuse();
+            const auto colors = pipe.getDiffuse();
             const float expected = (ready & 1 ? .25f : .125f) + .25f * attenuation;
             for (unsigned i = 0; i < count; ++i)
                 for (unsigned c = 0; c < 4; ++c) REQUIRE(colors[i][c] == expected);
         }
         if (channels & 2) {
-            const auto* colors = pipe.getSpecular();
+            const auto colors = pipe.getSpecular();
             const float expected = (ready & 2 ? .5f : 0.f) + .0625f * attenuation;
             for (unsigned i = 0; i < count; ++i)
                 for (unsigned c = 0; c < 4; ++c) REQUIRE(colors[i][c] == expected);
@@ -382,12 +397,12 @@ public:
 
 bool surfaceLighting()
 {
-    std::array<srVector3, 65> positions, normals;
+    std::array<glm::vec3, 65> positions, normals;
     std::array<w8_ulong, 65> indices;
     std::array<glm::vec4, 65> diffuse, specular, eye;
     std::array<unsigned char, 65> attributes{};
     for (unsigned i = 0; i < 65; ++i) {
-        positions[i].Set(0, 0, -10); normals[i].Set(0, 0, 1); indices[i] = i;
+        positions[i] = glm::vec3(0, 0, -10); normals[i] = glm::vec3(0, 0, 1); indices[i] = i;
     }
     srVertexArray arrays{};
     arrays.diffuse = diffuse.data(); arrays.specular = specular.data();
@@ -407,20 +422,26 @@ bool surfaceLighting()
     for (unsigned channels = 1; channels < 4; ++channels)
     for (unsigned ready = 0; ready < 4; ++ready)
     for (bool directional : {false, true})
-    for (bool attenuated : {false, true})
+    for (unsigned attenuation_kind : {0u, 1u, 2u, 3u, 4u})
     for (unsigned count : {0u, 1u, 65u}) {
-        CAPTURE(channels, ready, directional, attenuated, count);
+        CAPTURE(channels, ready, directional, attenuation_kind, count);
         probe.channels = channels; probe.ready = ready;
-        probe.directional = directional; probe.attenuated = attenuated;
+        probe.directional = directional; probe.attenuation_kind = attenuation_kind;
         auto& light = probe.light;
         light.channel_mask = (channels & 1 ? 1u << srVertexProcessor::CHANNEL_LIGHT_DIFFUSE : 0) |
                              (channels & 2 ? 1u << srVertexProcessor::CHANNEL_SPECULAR : 0);
         light.derived_flags = directional ? srLight::DERIVED_DIRECTIONAL :
-            attenuated ? srLight::DERIVED_OPENGL_ATTENUATION |
+            attenuation_kind == 1 ? srLight::DERIVED_OPENGL_ATTENUATION |
                          srLight::DERIVED_CONSTANT_ATTENUATION : 0;
         light.eye_location = directional ? glm::vec3(0, 0, 1) : glm::vec3(0);
-        light.attenuation_model = attenuated ? srLight::ATTENUATION_OPENGL :
-                                             srLight::ATTENUATION_NONE;
+        light.attenuation_model = attenuation_kind == 0 ? srLight::ATTENUATION_NONE
+            : attenuation_kind == 1 ? srLight::ATTENUATION_OPENGL : srLight::ATTENUATION_3DSTUDIO_MAX;
+        light.enable_flags = (attenuation_kind == 2 || attenuation_kind == 4
+            ? 1u << srLight::ENABLE_RANGE_NEAR : 0) |
+            (attenuation_kind == 3 || attenuation_kind == 4 ? 1u << srLight::ENABLE_RANGE_FAR : 0);
+        light.scaled_near_start = 0;
+        light.scaled_far_end = 20;
+        light.near_attenuation = light.far_attenuation = .05f;
         light.opengl_attenuation = glm::vec3(2, 0, 0);
         light.scaled_diffuse = glm::vec4(.5f); light.scaled_specular = glm::vec4(.25f);
         input.vertex_count = count;
@@ -452,8 +473,8 @@ public:
     void process(srVertexPipe& pipe) override
     {
         ++calls;
-        const auto* indices = pipe.getAVT();
-        const auto* cue = pipe.getDepthCue();
+        const auto indices = pipe.getAVT();
+        const auto cue = pipe.getDepthCue();
         for (unsigned index = 0; index < pipe.getVertexCount(); ++index) {
             const float distance = float(indices[index] + 1);
             float expected;
@@ -471,12 +492,12 @@ public:
 
 bool distanceProfiles()
 {
-    std::array<srVector3, 65> positions;
+    std::array<glm::vec3, 65> positions;
     std::array<w8_ulong, 65> indices;
     std::array<glm::vec4, 65> eye, specular;
     std::array<unsigned char, 65> attributes{};
     for (unsigned index = 0; index < positions.size(); ++index) {
-        positions[index].Set(0, 0, float(index + 1));
+        positions[index] = glm::vec3(0, 0, float(index + 1));
         indices[index] = index;
     }
     srVertexArray arrays{};
@@ -525,12 +546,12 @@ bool distanceProfiles()
 bool materialChannelOperations()
 {
     // Cross the 64-vertex batch boundary for every combination of material operations.
-    std::array<srVector3, 65> positions;
+    std::array<glm::vec3, 65> positions;
     std::array<w8_ulong, 65> indices;
     std::array<glm::vec4, 65> eye, diffuse, specular;
     std::array<unsigned char, 65> attributes{};
     for (unsigned i = 0; i < positions.size(); ++i) {
-        positions[i].Set(0, 0, float(i + 1));
+        positions[i] = glm::vec3(0, 0, float(i + 1));
         indices[i] = i;
     }
     srVertexArray arrays{};
@@ -609,6 +630,38 @@ bool rendererOwnership()
     // No context or window is opened: these checks only exercise CPU ownership
     // and the renderer's owner-thread submission bookkeeping.
     srGERD gerd(srCreateSDLGPUDevice(), "ownership fixture");
+    struct TransformInstance : srModelInstance {
+        using srModelInstance::applyRenderTransform;
+    };
+    TransformInstance instance;
+    instance.setLocation(3, 4, 5);
+    instance.setScale(glm::dvec3(2, 3, 4));
+    for (float handedness : {-1.0f, 1.0f}) {
+        const auto view = glm::scale(glm::translate(glm::mat4(1), glm::vec3(7, 8, 9)),
+                                     glm::vec3(handedness * 2, 3, 4));
+        for (bool aligned : {false, true}) {
+            instance.setAlignAngle(0.5);
+            instance.setAlignAxis(glm::vec3(0, 0, 1));
+            instance.setAlignment(aligned);
+            gerd.matrixMode(srGERD::MATRIX_MODELVIEW);
+            gerd.loadMatrix(view);
+            instance.applyRenderTransform(gerd);
+            glm::mat4 expected;
+            if (aligned) {
+                expected = glm::translate(glm::mat4(1), glm::vec3(view * glm::vec4(3, 4, 5, 1)));
+                expected = glm::rotate(expected, 0.5f, glm::vec3(0, 0, 1));
+                const float sign = handedness > 0 ? -1 : 1;
+                expected = glm::scale(expected, sign * glm::vec3(4, 9, -16));
+            } else {
+                expected = view * instance.getWorldSpaceMatrix<glm::mat4>();
+            }
+            const auto actual = gerd.getMatrix(srGERD::MATRIX_MODELVIEW);
+            for (int column = 0; column < 4; ++column)
+                REQUIRE(glm::length(actual[column] - expected[column]) < 1e-5f);
+            gerd.popMatrix();
+            REQUIRE(gerd.getMatrix(srGERD::MATRIX_MODELVIEW) == view);
+        }
+    }
     auto* renderer = gerd.lockRenderer(); // nested flush/create locks
     gerd.unlockRenderer(renderer, 1);
     auto statistics = renderer->getStatistics();
@@ -660,10 +713,8 @@ bool rendererOwnership()
     contender.join();
     REQUIRE((waited && resumed == renderer));
 
-    srGERD::Renderer::IndexWrite write;
-    renderer->indices.alloc(write, 2);
-    srVertexArray arrays{};
-    renderer->vertices.alloc(arrays, 3);
+    renderer->indices.alloc(2);
+    renderer->vertices.alloc(3);
     const auto index_capacity = renderer->indices.triangles.capacity();
     const auto vertex_capacity = renderer->vertices.positions.capacity();
     renderer->reset(0);
@@ -681,8 +732,7 @@ bool rendererTextureStages()
     srGERD gerd(srCreateSDLGPUDevice(), "texture stage fixture");
     for (unsigned stages : {1u, 2u}) {
         srGERD::Renderer renderer({&gerd, 0, 256, stages});
-        srVertexArray arrays{};
-        renderer.allocVertexArray(arrays, 3);
+        auto arrays = renderer.allocVertexArray(3);
         for (unsigned stage = 0; stage < 2; ++stage)
             for (unsigned i = 0; i < 3; ++i) {
                 renderer.vertices.st[stage][i] = glm::vec2(10 * stage + i, 20 + i);
@@ -718,9 +768,8 @@ bool rendererCornerRemapping()
     for (unsigned changed = 0; changed < 8; ++changed) {
         for (int sorted : {0, 1}) {
             srGERD::Renderer renderer({nullptr, sorted, 256, 2});
-            srVertexArray arrays{};
-            renderer.vertices.alloc(arrays, 5);
-            renderer.allocVertexArray(arrays, 6);
+            renderer.vertices.alloc(5);
+            renderer.allocVertexArray(6);
             for (unsigned i = 5; i < 11; ++i) {
                 renderer.vertices.positions[i] = glm::vec4(float(i), 2, 3, 1);
                 renderer.vertices.diffuse[i] = glm::vec4(float(i) / 20);
@@ -785,7 +834,7 @@ bool pipelineRecordTexcoords()
     // both UV channels. A layout/stride mismatch used to crash menu rendering.
     srGERD renderer(srCreateSDLGPUDevice(), "record handoff");
     auto* pipeline = srTriMeshPipeline::Get(&renderer);
-    std::array<srVector3, 3> positions{{{0, 0, 1}, {1, 0, 1}, {0, 1, 1}}};
+    std::array<glm::vec3, 3> positions{{{0, 0, 1}, {1, 0, 1}, {0, 1, 1}}};
     std::array<w8_ulong, 3> indices{2, 0, 1};
     glm::mat4 identity;
     identity = glm::mat4(1);
@@ -888,4 +937,50 @@ TEST_CASE("renderer_ownership_test")
         REQUIRE(srExit());
         REQUIRE(srGERD::getFirst() == nullptr);
     }
+}
+
+TEST_CASE("Counted mipmap chains copy adjacent levels and preserve file cache policy")
+{
+    SurRenderTestFixture runtime;
+    constexpr w8_ulong color = 0xff102030;
+    const auto source = [] {
+        auto pixels = std::make_unique<srColorSurface>(srPixelConvert::SURFACE_BGRA32, 8, 8);
+        pixels->fill(color);
+        return pixels;
+    };
+    struct PreparedFile : srTextureFile {
+        PreparedFile(std::unique_ptr<srColorSurfaceIFace> pixels, int cache) : srTextureFile({}, cache)
+        {
+            surface = std::move(pixels);
+        }
+    };
+    srColorSurface first(srPixelConvert::SURFACE_BGRA32, 4, 4);
+    srColorSurface second(srPixelConvert::SURFACE_BGRA32, 2, 2);
+    srColorSurface third(srPixelConvert::SURFACE_BGRA32, 1, 1);
+    std::array<srColorSurfaceIFace*, 3> destinations{&first, &second, &third};
+    const srTextureIFace::MultiRequest request{3, destinations};
+    srTextureMap map{std::shared_ptr<srColorSurfaceIFace>(source())};
+    map.getMipmapData(request);
+    REQUIRE(first.getPixel(0, 0) == color);
+    REQUIRE(second.getPixel(1, 1) == color);
+    REQUIRE(third.getPixel(0, 0) == color);
+
+    PreparedFile uncached(source(), 0);
+    uncached.getMipmapData({3, {}});
+    REQUIRE(uncached.isSurfaceLoaded());
+    uncached.getMipmapData(request);
+    REQUIRE_FALSE(uncached.isSurfaceLoaded());
+    PreparedFile cached(source(), 1);
+    cached.getMipmapData(request);
+    REQUIRE(cached.isSurfaceLoaded());
+
+    third.fill(0xffabcdef);
+    destinations[1] = nullptr;
+    cached.getMipmapData(request);
+    REQUIRE(first.getPixel(0, 0) == color);
+    REQUIRE(third.getPixel(0, 0) == 0xffabcdef);
+    destinations[0] = nullptr;
+    PreparedFile missing_first(source(), 0);
+    missing_first.getMipmapData(request);
+    REQUIRE(missing_first.isSurfaceLoaded());
 }

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "glm/ext/vector_int3.hpp"
+#include "glm/common.hpp"
 
 /* Runtime state for the fixed-point 3D Bresenham walk. Axis ties retain the
    first axis; ties between the errors visit minor_axis1 before minor_axis0. */
@@ -47,3 +48,18 @@ struct W8OctreeWalk {
         }
     }
 };
+
+// Adjacent queries probe their quantized endpoints directly. Longer queries
+// lazily construct the fixed-point walk and can stop at the first blocked cell.
+template<class MakeWalk, class Visit>
+void visitOctreeSegment(const glm::ivec3& first, const glm::ivec3& last,
+                        MakeWalk makeWalk, Visit visit)
+{
+    const auto delta = glm::abs(last - first);
+    const auto distance = delta.x + delta.y + delta.z;
+    if (distance < 2) {
+        if (visit(first, true) && distance != 0) visit(last, true);
+    } else {
+        makeWalk().visitCells([&](const glm::ivec3& cell) { return visit(cell, false); });
+    }
+}

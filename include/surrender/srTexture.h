@@ -16,7 +16,7 @@ public:
     virtual float getPriority() override;
     Dimensions getDimensions() override;
     void setDimensions(const Dimensions& dimensions);
-    virtual void getMipmapData(MultiRequest& request) override;
+    virtual void getMipmapData(const MultiRequest& request) override;
     virtual void getMipmapLevelPartial(PartialRequest& request) override;
     Parameters getParameters() override;
     srFilter* getFilter() const;
@@ -43,6 +43,10 @@ public:
     e_wrap getWrapS() const;
     e_wrap getWrapT() const;
 
+protected:
+    static void copyMipmapChain(srColorSurfaceIFace& source, const MultiRequest& request);
+
+public:
     /* Bit indices into texture_flags_. */
     enum e_flag { FLAG_GENERATESURFACE_FAILURE = 0, FLAG_DIRTY_DEFAULTS = 1 };
 

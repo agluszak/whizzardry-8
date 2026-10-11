@@ -1338,7 +1338,6 @@ std::size_t LiveDynamicRegionCount(void)
     }
     return count;
 }
-
 // FUNCTION: WIZ8 0x004f28e0
 void ResetRegionSet(unsigned int region_set_index)
 {

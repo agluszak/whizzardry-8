@@ -1,7 +1,17 @@
 #ifndef WIZ8_ENGINE_CODE_OCT_BUILD_PRE_TREE_H
 #define WIZ8_ENGINE_CODE_OCT_BUILD_PRE_TREE_H
 
+#include "wiz8/engine_code/mesh_links.h"
+
+#include <optional>
+#include <span>
+#include <vector>
+#include <cstddef>
+
 #include <unordered_map>
+#include <variant>
+#include "glm/ext/vector_float3.hpp"
+#include "surrender/srBoundingBox.h"
 
 #include "wiz8/engine_code/OctBuildTree.h"
 #include "wiz8/engine_code/ReadMesh.h"
@@ -53,44 +63,46 @@ struct W8OctRegionPolygon {
     /* Tests the polygon's representative point against six frustum planes;
        inside means every plane distance is non-negative. */
     bool InsideFrustumPlanes(const W8Plane* planes) const;
-    bool ContainsPoint(const srVector3T<float>* bounds) const;
+    bool containsPoint(const srBoundingBox& bounds) const;
 };
 
 W8_ABI_ASSERT(sizeof(W8OctRegionPolygon) == 0x74, "W8OctRegionPolygon_must_be_0x74");
 
 extern int g_build_node_instances;
-extern w8_ulong g_poly_list_count;
-/* Build scratch carries mode-2 region polygons and mode-3 GD surfaces. */
-extern void** g_poly_list;
-extern W8GDSurface** g_gd_surface_list;
-extern unsigned short* g_region_id_list;
-extern unsigned short g_region_id_count;
+
+struct OctRegionObjectLinks {
+    std::unordered_multimap<unsigned short, short> regions;
+    std::vector<short> always_visible;
+
+    OctreeMeshLinks packedLinks(std::size_t region_count) const;
+    void clear() { regions.clear(); always_visible.clear(); }
+};
 
 /* Retail assertion text gives the class and member names directly:
    "OctBuildPreTree::m_ppPolyList too long.", "m_pulRegPaths" and
    "m_psrvRegCenters" in Engine Code\OctBuildPreTree.cpp. */
 struct OctBuildPreTree : W8OctBuildTree {
-    OctBuildPreTree(float leaf_size, srVector3T<float>* minimum, srVector3T<float>* maximum,
+    OctBuildPreTree(float leaf_size, std::optional<srBoundingBox> bounds,
                     unsigned short item_limit, w8_ulong path_capacity, short extent_mode);
     OctPreTree* BuildOctPreTree();
     unsigned short BuildRegions();
+    bool assignPointToVolumes(const glm::vec3& point, short object, OctRegionObjectLinks& links);
     unsigned char BuildParticleRegions(const W8LevelFileParticleSystem* particles,
                                        int particle_count);
     unsigned char BuildGeometryRegions(const W8LevelFileProp* records, int record_count,
                                        int base_index, bool finalize);
 
     void AssignInitialRegions(const W8OctSpatialState* spatial);
-    unsigned char UpdateRegionForGeometry(const srVector3T<float>* geometry, short value,
-                                          short mode);
-    unsigned char UpdateRegionMap(const W8OctSpatialState* spatial,
-                                  const srVector3T<float>* geometry, short value, short mode);
+    using RegionGeometry = std::variant<glm::vec3, srBoundingBox>;
+    bool updateRegionForGeometry(const RegionGeometry& geometry, short value);
+    bool updateRegionMap(const W8OctSpatialState& state, const RegionGeometry& geometry, short value);
     W8OctBuildNode* FindNode(unsigned int path);
     unsigned char MergeAdjacentRegion(W8OctBuildNode* node, unsigned int path);
     unsigned char MergeRegion(W8OctBuildNode* node, const int* cell);
     void FinalizeRegionMapping();
     void AssignRegionFromSurfaces(const W8OctSpatialState* spatial);
     void ValidatePolygonRegions();
-    void ValidateRegionBounds(const W8BoundingBox* region_bounds);
+    void ValidateRegionBounds(std::span<const srBoundingBox> region_bounds);
     /* SortGeometry: welds duplicate vertices, drops degenerate polygons,
        repacks both arrays and re-inserts every polygon with mode 2. */
     unsigned char SortGeometry(W8OctPreTreeGeometry* geometry);
@@ -106,8 +118,7 @@ struct OctBuildPreTree : W8OctBuildTree {
     void FindLeafRegions(W8OctBuildNode* node, const W8BoundingBox* bounds);
     /* Loads the .rlk region file beside the level and folds its bounds into
        the build. */
-    unsigned short LoadRegionFile(const char* stem, srVector3T<float>* minimum,
-                                  srVector3T<float>* maximum);
+    unsigned short LoadRegionFile(const char* stem);
     /* Walks the node tree remapping leaf region ids through region_remap. */
     void RemapNodeRegions(W8OctBuildNode* node, int depth);
     /* Assigns a polygon's region from the region volume containing its
@@ -129,30 +140,20 @@ struct OctBuildPreTree : W8OctBuildTree {
     unsigned short selected_depth;
     unsigned short padding_c2;
     w8_ulong level_counts[10];
-    w8_ulong* m_pulRegPaths;
-    w8_ulong region_path_count;
+    std::vector<w8_ulong> region_paths;
     bool mesh_linking;
     unsigned char padding_f5[3];
-    srVector3T<float>* m_psrvRegCenters;
+    std::vector<glm::vec3> region_centers;
     /* Region remap table indexed by old region id; RemapNodeRegions frees it
        after rewriting every leaf's region list through it. */
     unsigned short* region_remap;
-    unsigned short* mesh_particle_lookup;
-    unsigned short* mesh_particles;
-    unsigned short mesh_particle_count;
-    unsigned short padding_10e;
-    unsigned short* mesh_prop_lookup;
-    unsigned short* mesh_props;
-    unsigned short mesh_prop_count;
-    unsigned short padding_11a;
+    OctreeMeshLinks mesh_particle_links;
+    OctreeMeshLinks mesh_prop_links;
     w8_ulong particle_count;
     w8_ulong prop_count;
-    std::unordered_multimap<unsigned short, w8_ulong>* region_path_map;
-    /* Allocated next to region_path_map but never read, inserted into, or
-       freed in recovered code - dead table kept for layout fidelity. */
-    std::unordered_multimap<unsigned int, short>* positional;
-    std::unordered_multimap<unsigned short, short>* inside_region_map;
-    std::unordered_multimap<unsigned short, short>* overlap_region_map;
+    std::unordered_multimap<unsigned short, w8_ulong> region_path_map;
+    OctRegionObjectLinks particle_regions;
+    OctRegionObjectLinks prop_regions;
     W8OctPreTreeGeometry* game_data;
     w8_ulong unknown_138;
     w8_ulong unknown_13c;

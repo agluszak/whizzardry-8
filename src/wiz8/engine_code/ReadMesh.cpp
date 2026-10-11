@@ -1,3 +1,5 @@
+#include "glm/ext/vector_float3.hpp"
+#include "glm/ext/vector_double3.hpp"
 #include <glm/ext/quaternion_trigonometric.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include <algorithm>
@@ -166,8 +168,8 @@ void OptimizeMeshOrder(srMeshModel* model)
         return first_use[left] < first_use[right];
     });
 
-    model->reindexPolygons(polygons.data());
-    model->reindexVertices(vertices.data());
+    model->reindexPolygons(polygons);
+    model->reindexVertices(vertices);
 }
 
 // FUNCTION: WIZ8 0x00488650
@@ -615,9 +617,9 @@ try
     if ((flags & W8_LEVEL_MESH_LOD_VERTICES) == 0) {
         int mesh_index = 0;
         for (stMeshModel* model : stMeshModel::Meshes(first_model.get())) {
-            srVector3T<float>* model_vertices = model->getVertexLoc();
+            glm::vec3* model_vertices = model->getVertexLoc();
             for (int index = 0; index < model->vertex_location_count; ++index) {
-                model_vertices[index] = vertices[vertex_maps[mesh_index][index]];
+                model_vertices[index] = vertices[vertex_maps[mesh_index][index]].glmValue();
             }
             OptimizeMeshOrder(model);
             ++mesh_index;
@@ -642,7 +644,7 @@ try
     }
 
     if (first_model != 0) {
-        first_model->getBoundingBox();
+        first_model->getBounds();
     }
     if (first_model != 0) {
         first_model->setName(name ? name : "");
@@ -652,7 +654,7 @@ try
             const double angle = 3.1415926;
             rotation *= glm::mat3_cast(glm::angleAxis(float(angle), glm::vec3(1, 0, 0)));
 
-            srVector3T<double> translated(location.x * 500.0, location.y * 500.0,
+            glm::dvec3 translated(location.x * 500.0, location.y * 500.0,
                                           location.z * 500.0);
             loaded_instance->setLocation(translated);
             loaded_instance->setRotation(rotation);
@@ -726,7 +728,7 @@ try
         }
         meshes[mesh_index] = model;
         model->setDirty(srMeshModel::DIRTY_BOUNDS);
-        model->getBoundingBox();
+        model->getBounds();
     }
 
     info->hFile->read_exact(&terminator, sizeof(terminator));

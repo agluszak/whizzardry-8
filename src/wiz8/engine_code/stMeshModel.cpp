@@ -1,4 +1,7 @@
+#include "wiz8/engine_code/ReadLevel.h"
+#include "surrender/srModel.h"
 #include <cstddef>
+#include <stdexcept>
 #include <algorithm>
 #include <cctype>
 #include <memory>
@@ -8,6 +11,8 @@
 #include <string_view>
 #include <utility>
 #include <vector>
+#include <ranges>
+#include "surrender/triangle_selection.h"
 
 #include "compat/compiler.h"
 #include "compat/native.h"
@@ -18,7 +23,7 @@
 #include "surrender/srBoundingBox.h"
 #include "wiz8/engine_code/stMeshModel.h"
 #include "surrender/srMeshModel.h"
-#include "surrender/srModel.h"
+#include "surrender/mesh_math.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/sr_api.h"
 #include "surrender/srGERD.h"
@@ -35,7 +40,6 @@
 
 class srMaterialIFace;
 
-extern srVector3T<float> g_environment_offset;
 extern float g_monster_light_scale;
 
 // GLOBAL: WIZ8 0x00659cb8
@@ -43,11 +47,6 @@ std::vector<stMeshModel*> g_mesh_models;
 
 // GLOBAL: WIZ8 0x0065a0e8
 int g_decompressed_mesh_bytes;
-
-/* Active-polygon scratch for the optional software backface pass in
-   RenderTriMeshWithEquations. */
-// GLOBAL: WIZ8 0x00659ce0
-std::vector<w8_ulong> g_software_cull_active_polygons;
 
 /* Byte budget for the decompressed per-frame caches; AllocateFrameBuffers
    reclaims least-recently-used frames past it. */
@@ -60,7 +59,7 @@ stMeshModel::stMeshModel(w8_long polygons, w8_long vertices)
 {
     vertex_lighting_ready = false;
     flags = W8_MESH_VERTEX_LIGHTING_DIRTY;
-    ambient_color = -1.0f;
+    ambient_color = glm::vec3(-1);
     vertex_light_table = 0;
     vertex_compression_scale = 1.0f;
     last_decompress_release_tick = w8_get_ticks();
@@ -76,23 +75,14 @@ stMeshModel::~stMeshModel()
     std::erase(g_mesh_models, this);
 }
 
-// FUNCTION: WIZ8 0x00471dd0
-srModel::BoundingSphere stMeshModel::getBoundingSphere()
+srModel::Bounds stMeshModel::getBounds()
 {
-    if ((dirty_flags.value & 1) != 0) {
+    if ((dirty_flags.value & (1UL << DIRTY_BOUNDS)) != 0) {
         CalculateLinkedBounds();
     }
-    return {bounds_center, bounds_radius};
+    return {{bounds_minimum, bounds_maximum}, {bounds_center, bounds_radius}};
 }
 
-// FUNCTION: WIZ8 0x00471d80
-srBoundingBox stMeshModel::getBoundingBox()
-{
-    if ((dirty_flags.value & 1) != 0) {
-        CalculateLinkedBounds();
-    }
-    return {bounds_minimum, bounds_maximum};
-}
 
 /* Recompute the model's union bounds: clear this mesh's cached box,
    accumulate every frame's bounds from the head and all parts, then
@@ -114,7 +104,7 @@ void stMeshModel::CalculateLinkedBounds()
             if (model->flags & W8_MESH_HAS_FRAME_STORAGE)
                 frame_box = model->GetFrameBounds(frame);
             else
-                frame_box = model->srMeshModel::getBoundingBox();
+                frame_box = model->srMeshModel::getBounds().box;
             if (has_vertices)
                 box.include(frame_box);
             else
@@ -133,13 +123,13 @@ void stMeshModel::RevealVerticesNear(const glm::vec3& position, float range, con
 {
     if (vertex_location_count == 0 || !(range >= 0))
         return;
-    auto* lights = GetVertexLights(true, -1);
+    const auto lights = GetVertexLights(true, -1);
     const auto* vertices =
         (flags & W8_MESH_HAS_FRAME_STORAGE) ? GetVertexLocations(0, true, 0.0f) : getVertexLoc();
     for (int i = 0; i < vertex_location_count; ++i) {
-        const auto point = glm::vec3(world * glm::vec4(vertices[i].glmValue(), 1));
+        const auto point = glm::vec3(world * glm::vec4(vertices[i], 1));
         if (glm::distance(point, position) <= range) {
-            lights[i] = 1.0f;
+            lights[i] = glm::vec3(1);
             flags |= W8_MESH_VERTEX_LIGHTING_DIRTY;
         }
     }
@@ -150,181 +140,114 @@ srBoundingBox stMeshModel::GetFrameBounds(int frame)
     if (static_cast<unsigned int>(frame) >= frames.size() || vertex_location_count == 0) {
         return {};
     }
-    std::vector<srVector3T<float>> scratch;
+    std::vector<glm::vec3> scratch;
     const auto& cache = frames[frame].locations;
-    const srVector3T<float>* vertices;
+    const glm::vec3* vertices;
     if (cache) {
         vertices = cache->data();
     } else {
         scratch.resize(vertex_location_count);
-        DecompressFrame(frame, W8_MESH_FRAME_LOCATIONS, scratch.data());
+        DecompressFrame(frame, W8_MESH_FRAME_LOCATIONS, scratch);
         vertices = scratch.data();
     }
-    return boundingBox(std::span<const srVector3>(vertices, vertex_location_count));
+    return boundingBox(std::span<const glm::vec3>(vertices, vertex_location_count));
 }
 
 /* Apply pending vertex DIG lighting when flags bit 1 is set, then return
    the SurRender TriMesh cache. */
 // FUNCTION: WIZ8 0x00472270
-const srMeshModel::TriMesh& stMeshModel::getTriMesh()
+void stMeshModel::updateBakedLighting()
 {
-    float light_scale = g_monster_light_scale;
-    srVector3T<float>* dig;
-    srVector3T<float>* lights;
-    float* sunlight;
-    std::shared_ptr<srMaterialIFace>* vertex_materials;
-    int count;
-    int index;
-    int run;
-    int next_index;
-    srMaterialIFace* material_iface;
-    srMaterial* material;
-    srVector3T<float> scaled;
-    srVector3T<float> ambient_rgb;
+    const auto& lights = vertex_lights[vertex_light_table];
+    if (lights.empty() || vertex_sunlight.empty())
+        return;
+    auto* destination = getVertexDIG(0, 1);
+    const auto* materials = getVertexMaterial(0, SIDE_FRONT, 0);
+    const bool suppress_ambient = ambient_color == glm::vec3(0) || vertex_light_table == 1;
+    const glm::vec3 base_ambient = materials || suppress_ambient
+        ? glm::vec3(0)
+        : ambient_color * glm::vec3(static_cast<srMaterial*>(getMaterial(0, SIDE_FRONT))->parms.ambient);
+    const auto environment = g_environment_offset;
+    const bool add_environment = vertex_light_table != 1 && environment != glm::vec3(0);
+    const float light_scale = g_monster_light_scale;
+    const srMaterialIFace* previous_material = nullptr;
+    glm::vec3 material_ambient(0);
 
-    if ((flags & W8_MESH_VERTEX_LIGHTING_DIRTY) != 0 && !g_render_unlit) {
-        lights = vertex_lights[vertex_light_table].data();
-        sunlight = vertex_sunlight.data();
-        if (!vertex_lights[vertex_light_table].empty() && !vertex_sunlight.empty()) {
-            dig = getVertexDIG(0, 1);
-            vertex_materials = getVertexMaterial(0, SIDE_FRONT, 0);
-            if (vertex_materials == 0) {
-                if ((IsZeroVector(&ambient_color) != 0) || vertex_light_table == 1) {
-                    if (dig != lights) {
-                        std::copy_n(lights, vertex_location_count, dig);
-                    }
-                    if ((g_environment_offset.x != g_float_zero ||
-                         g_environment_offset.y != g_float_zero ||
-                         g_environment_offset.z != g_float_zero) &&
-                        vertex_light_table != 1 && (count = vertex_location_count, count != 0) &&
-                        IsZeroVector(&g_environment_offset) == 0) {
-                        for (int i = 0; i < count; ++i)
-                            dig[i] += g_environment_offset;
-                    }
-                } else {
-                    /* Retail indexes material ambient at +0x28; that is
-                       srMaterial::parms.ambient on the concrete type. */
-                    material = static_cast<srMaterial*>(getMaterial(0, SIDE_FRONT));
-                    ambient_rgb = glm::vec3(material->parms.ambient);
-                    count = vertex_location_count;
-                    scaled = ambient_color;
-                    scaled *= ambient_rgb;
-                    if (count != 0) {
-                        if (scaled.x == scaled.y && scaled.x == scaled.z) {
-                            std::fill_n(dig, count,
-                                        srVector3T<float>(scaled.x, scaled.x, scaled.x));
-                        } else {
-                            std::fill_n(dig, count, scaled);
-                        }
-                    }
-                    if (vertex_location_count != 0) {
-                        for (int i = 0; i < vertex_location_count; ++i)
-                            dig[i] *= sunlight[i];
-                    }
-                    for (int i = 0; i < vertex_location_count; ++i)
-                        dig[i] += lights[i];
-                    if ((g_environment_offset.x != g_float_zero ||
-                         g_environment_offset.y != g_float_zero ||
-                         g_environment_offset.z != g_float_zero) &&
-                        (count = vertex_location_count, count != 0) &&
-                        IsZeroVector(&g_environment_offset) == 0) {
-                        for (int i = 0; i < count; ++i)
-                            dig[i] += g_environment_offset;
-                    }
+    for (int vertex = 0; vertex < vertex_location_count; ++vertex) {
+        glm::vec3 color;
+        if (materials) {
+            color = suppress_ambient ? glm::vec3(0) : ambient_color * vertex_sunlight[vertex];
+            const auto* material = materials[vertex].get();
+            if (material) {
+                if (material != previous_material) {
+                    material_ambient = glm::vec3(static_cast<const srMaterial*>(material)->parms.ambient);
+                    previous_material = material;
                 }
-            } else {
-                if ((IsZeroVector(&ambient_color) != 0) || vertex_light_table == 1) {
-                    if (vertex_location_count != 0) {
-                        std::fill_n(dig, vertex_location_count,
-                                    srVector3T<float>(0.0f, 0.0f, 0.0f));
-                    }
-                } else {
-                    count = vertex_location_count;
-                    if (count != 0) {
-                        if (ambient_color.x == ambient_color.y &&
-                            ambient_color.x == ambient_color.z) {
-                            std::fill_n(dig, count,
-                                        srVector3T<float>(ambient_color.x, ambient_color.x,
-                                                          ambient_color.x));
-                        } else {
-                            std::fill_n(dig, count, ambient_color);
-                        }
-                    }
-                    if (vertex_location_count != 0) {
-                        for (int i = 0; i < vertex_location_count; ++i)
-                            dig[i] *= sunlight[i];
-                    }
-                }
-                index = 0;
-                do {
-                    next_index = index + 1;
-                    run = 1;
-                    if (next_index < vertex_location_count) {
-                        do {
-                            if (vertex_materials[index] != vertex_materials[next_index]) {
-                                break;
-                            }
-                            ++run;
-                            ++next_index;
-                        } while (next_index < vertex_location_count);
-                    }
-                    material_iface = vertex_materials[index].get();
-                    if (material_iface != 0) {
-                        material = static_cast<srMaterial*>(material_iface);
-                        scaled = glm::vec3(material->parms.ambient);
-                        if (run != 0) {
-                            if (IsZeroVector(&scaled) == 0) {
-                                for (int i = 0; i < run; ++i)
-                                    dig[index + i] *= scaled;
-                            } else {
-                                std::fill_n(dig + index, run,
-                                            srVector3T<float>(0.0f, 0.0f, 0.0f));
-                            }
-                        }
-                    }
-                    index += run;
-                } while (index < vertex_location_count);
-                for (int i = 0; i < vertex_location_count; ++i)
-                    dig[i] += lights[i];
-                if ((g_environment_offset.x != g_float_zero ||
-                     g_environment_offset.y != g_float_zero ||
-                     g_environment_offset.z != g_float_zero) &&
-                    vertex_light_table != 1 && (count = vertex_location_count, count != 0) &&
-                    IsZeroVector(&g_environment_offset) == 0) {
-                    for (int i = 0; i < count; ++i)
-                        dig[i] += g_environment_offset;
-                }
+                color = material_ambient == glm::vec3(0) ? glm::vec3(0) : color * material_ambient;
             }
-            if (light_scale != g_float_one && (count = vertex_location_count, count != 0)) {
-                if (light_scale == g_float_zero) {
-                    std::fill_n(dig, count, srVector3T<float>(0.0f, 0.0f, 0.0f));
-                } else {
-                    for (int i = 0; i < count; ++i)
-                        dig[i] *= light_scale;
-                }
-            }
+            color += lights[vertex];
+        } else if (suppress_ambient) {
+            color = lights[vertex];
+        } else {
+            color = base_ambient * vertex_sunlight[vertex];
+            color += lights[vertex];
         }
+        if (add_environment)
+            color += environment;
+        if (light_scale != 1)
+            color = light_scale == 0 ? glm::vec3(0) : color * light_scale;
+        destination[vertex] = color;
+    }
+}
+
+srMeshModel::TriMesh stMeshModel::getTriMesh()
+{
+    if ((flags & W8_MESH_VERTEX_LIGHTING_DIRTY) != 0 && !g_render_unlit) {
+        updateBakedLighting();
         flags &= ~static_cast<unsigned int>(W8_MESH_VERTEX_LIGHTING_DIRTY);
     }
     return srMeshModel::getTriMesh();
 }
 
-/* Thin vtable wrapper: submit with no external poly-equation table. */
 // FUNCTION: WIZ8 0x00470360
 void stMeshModel::renderTriMesh(srGERD& renderer, const TriMesh& mesh)
 {
-    RenderTriMeshWithEquations(renderer, mesh, 0);
+    RenderTriMeshWithEquations(renderer, mesh, {});
+}
+
+std::vector<w8_ulong> stMeshModel::facingPolygons(const TriMesh& mesh,
+                                                std::span<const glm::vec3> normals,
+                                                const glm::vec3& eye, bool positive_winding,
+                                                float threshold)
+{
+    const auto available = mesh.active_polygons ? mesh.active_polygons->size() : mesh.polygon_count;
+    if (available <= 0) return {};
+    const auto count = static_cast<w8_ulong>(available);
+    std::vector<w8_ulong> polygons(count);
+    const auto keep = [&](w8_ulong polygon) {
+        const auto position = mesh.positions[mesh.poly_vertices[polygon].y];
+        const float facing = glm::dot(eye - position, normals[polygon]);
+        return positive_winding ? threshold <= facing : facing <= threshold;
+    };
+    const auto kept = mesh.active_polygons
+        ? srRender::selectTriangles(polygons, *mesh.active_polygons, keep)
+        : srRender::selectTriangles(polygons, std::views::iota(w8_ulong{0}, count), keep);
+    polygons.resize(kept);
+    return polygons;
 }
 
 /* Wizardry-extended srMeshModel::renderTriMesh. Optional polygon normals enable
-   a software backface cull into g_software_cull_active_polygons and
+   a software backface cull into an owned active-polygon list and
    forces CULL_NONE; a null table leaves hardware cull at CULL_BACK unless
    g_render_cull_front already requested front culling. */
 // FUNCTION: WIZ8 0x00470380
 void stMeshModel::RenderTriMeshWithEquations(srGERD& renderer, const TriMesh& mesh,
-                                             const srVector3T<float>* arg_poly_equations)
+                                             std::span<const glm::vec3> arg_poly_equations)
 {
-    w8_ulong active_count = 0;
+    if (!arg_poly_equations.empty() &&
+        arg_poly_equations.size() < static_cast<std::size_t>(mesh.polygon_count))
+        throw std::invalid_argument("Incomplete mesh polygon normals");
+    std::vector<w8_ulong> software_polygons;
     srShader shader;
 
     if (mesh.polygon_count != 0 && mesh.vertex_count != 0) {
@@ -337,113 +260,35 @@ void stMeshModel::RenderTriMeshWithEquations(srGERD& renderer, const TriMesh& me
 
         if (g_render_cull_front) {
             renderer.setCullMode(srGERD::CULL_NONE);
-        } else if (arg_poly_equations != 0) {
+        } else if (!arg_poly_equations.empty()) {
             renderer.setCullMode(srGERD::CULL_NONE);
 
-            g_software_cull_active_polygons.resize(mesh.polygon_count);
-
-            const auto inverse_model_view = renderer.getInverseModelViewMatrix();
-            srVector3T<float> eye(inverse_model_view[3][0], inverse_model_view[3][1],
-                                  inverse_model_view[3][2]);
-
-            if (!mesh.active_polygons) {
-                if (renderer.getWinding() == srGERD::WINDING_POSITIONAL_0) {
-                    for (w8_long polygon = 0; polygon < mesh.polygon_count; ++polygon) {
-                        int vertex = mesh.poly_vertices[polygon].y;
-                        const srVector3T<float>& position = mesh.positions[vertex];
-                        const srVector3T<float>& equation = arg_poly_equations[polygon];
-                        float facing = (eye.x - position.x) * equation.x +
-                                       (eye.y - position.y) * equation.y +
-                                       (eye.z - position.z) * equation.z;
-                        if (static_cast<float>(g_double_zero) <= facing) {
-                            g_software_cull_active_polygons[active_count] =
-                                static_cast<w8_ulong>(polygon);
-                            ++active_count;
-                        }
-                    }
-                } else {
-                    for (w8_long polygon = 0; polygon < mesh.polygon_count; ++polygon) {
-                        int vertex = mesh.poly_vertices[polygon].y;
-                        const srVector3T<float>& position = mesh.positions[vertex];
-                        const srVector3T<float>& equation = arg_poly_equations[polygon];
-                        float facing = (eye.x - position.x) * equation.x +
-                                       (eye.y - position.y) * equation.y +
-                                       (eye.z - position.z) * equation.z;
-                        if (facing <= static_cast<float>(g_double_zero)) {
-                            g_software_cull_active_polygons[active_count] =
-                                static_cast<w8_ulong>(polygon);
-                            ++active_count;
-                        }
-                    }
-                }
-            } else if (renderer.getWinding() == srGERD::WINDING_POSITIONAL_0) {
-                for (const auto polygon : *mesh.active_polygons) {
-                    int vertex = mesh.poly_vertices[polygon].y;
-                    const srVector3T<float>& position = mesh.positions[vertex];
-                    const srVector3T<float>& equation = arg_poly_equations[polygon];
-                    float facing = (eye.x - position.x) * equation.x +
-                                   (eye.y - position.y) * equation.y +
-                                   (eye.z - position.z) * equation.z;
-                    if (static_cast<float>(g_double_zero) <= facing) {
-                        g_software_cull_active_polygons[active_count] = polygon;
-                        ++active_count;
-                    }
-                }
-            } else {
-                for (const auto polygon : *mesh.active_polygons) {
-                    int vertex = mesh.poly_vertices[polygon].y;
-                    const srVector3T<float>& position = mesh.positions[vertex];
-                    const srVector3T<float>& equation = arg_poly_equations[polygon];
-                    float facing = (eye.x - position.x) * equation.x +
-                                   (eye.y - position.y) * equation.y +
-                                   (eye.z - position.z) * equation.z;
-                    if (facing <= static_cast<float>(g_double_zero)) {
-                        g_software_cull_active_polygons[active_count] = polygon;
-                        ++active_count;
-                    }
-                }
-            }
+            software_polygons = facingPolygons(mesh,
+                arg_poly_equations,
+                glm::vec3(renderer.getInverseModelViewMatrix()[3]),
+                renderer.getWinding() == srGERD::WINDING_POSITIONAL_0,
+                static_cast<float>(g_double_zero));
         } else {
             renderer.setCullMode(srGERD::CULL_BACK);
         }
 
         for (int side = 1; side >= 0; --side) {
-            if ((mesh.control_flags & (1u << side)) != 0) {
-                srTriMeshPipeline* pipeline = srTriMeshPipeline::Get(&renderer);
-                pipeline->sort_bias = mesh.sort_bias;
-                pipeline->triangles = mesh.poly_vertices;
-                pipeline->triangle_count = static_cast<w8_ulong>(mesh.polygon_count);
-                pipeline->positions = mesh.positions;
-                pipeline->vertex_count = static_cast<w8_ulong>(mesh.vertex_count);
-                pipeline->vertex_extras = mesh.normals;
-
-                if (arg_poly_equations != 0) {
-                    pipeline->projected_vertices = 0;
-                } else {
-                    pipeline->projected_vertices = mesh.poly_equations;
+            if ((mesh.control_flags & (1u << side)) != 0 &&
+                (arg_poly_equations.empty() || !software_polygons.empty())) {
+                auto& pipeline = srTriMeshPipeline::beginMesh(renderer, mesh);
+                if (!arg_poly_equations.empty()) {
+                    pipeline.projected_vertices = nullptr;
+                    pipeline.active_triangles = std::span<const w8_ulong>(software_polygons);
                 }
-
-                if (arg_poly_equations != 0) {
-                    pipeline->active_triangles =
-                        std::span<const w8_ulong>(g_software_cull_active_polygons).first(active_count);
-                } else if (mesh.active_polygons) {
-                    pipeline->active_triangles = mesh.active_polygons;
-                }
-
-                pipeline->SetMeshBounds(mesh);
-
-                pipeline->records.resize(mesh.pass_count + 1);
-                pipeline->passes.resize(mesh.pass_count + 1);
-                pipeline->PrepareSlot();
                 for (w8_long pass = 0; pass < mesh.pass_count; ++pass) {
                     shader = mesh.shaders[pass];
                     if (g_inverted_depth_render) {
                         shader.value = (shader.value & 0xfffffffeUL) | 6UL;
                     }
-                    pipeline->AppendMeshPass(mesh, pass, side, shader);
+                    pipeline.AppendMeshPass(mesh, pass, side, shader);
                 }
 
-                pipeline->FlushIfCurrent();
+                pipeline.FlushIfCurrent();
             }
         }
 
@@ -612,7 +457,7 @@ int stMeshModel::ReleaseDecompressedFrames()
     for (auto& frame : frames) {
         for (auto* cache : {&frame.locations, &frame.vertex_normals, &frame.polygon_normals}) {
             if (*cache) {
-                released += (*cache)->capacity() * sizeof(srVector3T<float>);
+                released += (*cache)->capacity() * sizeof(glm::vec3);
                 cache->reset();
             }
         }
@@ -721,7 +566,7 @@ void stMeshModel::RemoveSkinTablesForCycle(std::string_view cycle_name)
 }
 
 static void DecompressMeshNormals(const unsigned char* normals, int count,
-                                  srVector3T<float>* destination)
+                                  glm::vec3* destination)
 {
     // The former lookup table (WIZ8 0x00659ce8, ready flag 0x0065a0ef) only decoded signed bytes.
     const auto expand = [](unsigned char component) {
@@ -729,7 +574,7 @@ static void DecompressMeshNormals(const unsigned char* normals, int count,
     };
     for (int index = 0; index < count; ++index) {
         const unsigned char* source = &normals[index * 3];
-        destination[index].Set(expand(source[0]), expand(source[1]), expand(source[2]));
+        destination[index] = glm::vec3(expand(source[0]), expand(source[1]), expand(source[2]));
     }
 }
 
@@ -737,16 +582,19 @@ static void DecompressMeshNormals(const unsigned char* normals, int count,
    locations, bit 2 the vertex normals, bit 4 the polygon normals. */
 // FUNCTION: WIZ8 0x00471930
 unsigned char stMeshModel::DecompressFrame(int frame, unsigned char flags,
-                                           srVector3T<float>* destination)
+                                           std::span<glm::vec3> destination)
 {
     if (static_cast<unsigned int>(frame) >= frames.size()) {
         return 0;
     }
     const auto& storage = frames[frame];
+    const auto count = flags & (W8_MESH_FRAME_LOCATIONS | W8_MESH_FRAME_VERTEX_NORMALS)
+                           ? vertex_location_count : polygon_count;
+    if (destination.size() < static_cast<std::size_t>(count)) return 0;
     if (flags & W8_MESH_FRAME_LOCATIONS) {
         for (int index = 0; index < vertex_location_count; ++index) {
             const short* source = &storage.compressed_locations[index * 3];
-            destination[index].Set(source[0] * vertex_compression_scale,
+            destination[index] = glm::vec3(source[0] * vertex_compression_scale,
                                    source[1] * vertex_compression_scale,
                                    source[2] * vertex_compression_scale);
         }
@@ -754,12 +602,12 @@ unsigned char stMeshModel::DecompressFrame(int frame, unsigned char flags,
     }
     if (flags & W8_MESH_FRAME_VERTEX_NORMALS) {
         DecompressMeshNormals(storage.compressed_vertex_normals.data(), vertex_location_count,
-                              destination);
+                              destination.data());
         return 1;
     }
     if (flags & W8_MESH_FRAME_POLYGON_NORMALS) {
         DecompressMeshNormals(storage.compressed_polygon_normals.data(), polygon_count,
-                              destination);
+                              destination.data());
         return 1;
     }
     return 0;
@@ -779,7 +627,7 @@ unsigned char stMeshModel::AllocateFrameBuffers(unsigned int uiFrame, unsigned c
         if ((flags & bit) == 0 || cache) {
             return;
         }
-        int needed = count * sizeof(srVector3T<float>);
+        int needed = count * sizeof(glm::vec3);
         if (g_decompressed_mesh_byte_limit <= g_decompressed_mesh_bytes + needed) {
             // Never evict this model between returning positions and normals,
             // or between loading the two frames of an interpolation. The budget
@@ -787,8 +635,8 @@ unsigned char stMeshModel::AllocateFrameBuffers(unsigned int uiFrame, unsigned c
             // models first even if they cannot supply the entire request.
             ReclaimDecompressedBytes(needed, this);
         }
-        cache.emplace(count, srVector3T<float>(0.0f, 0.0f, 0.0f));
-        g_decompressed_mesh_bytes += cache->capacity() * sizeof(srVector3T<float>);
+        cache.emplace(count, glm::vec3(0.0f, 0.0f, 0.0f));
+        g_decompressed_mesh_bytes += cache->capacity() * sizeof(glm::vec3);
     };
     allocate(frame.locations, vertex_location_count, W8_MESH_FRAME_LOCATIONS);
     allocate(frame.vertex_normals, vertex_location_count, W8_MESH_FRAME_VERTEX_NORMALS);
@@ -801,7 +649,7 @@ unsigned char stMeshModel::AllocateFrameBuffers(unsigned int uiFrame, unsigned c
    `interpolation` is positive and another frame follows, both frames are
    decompressed and lerped into lerp_buffer (m_pLerpBuffer). */
 // FUNCTION: WIZ8 0x00471AD0
-srVector3T<float>* stMeshModel::GetVertexLocations(unsigned int frame, bool load,
+glm::vec3* stMeshModel::GetVertexLocations(unsigned int frame, bool load,
                                                    float interpolation)
 {
     if (frame >= frames.size()) {
@@ -817,67 +665,59 @@ srVector3T<float>* stMeshModel::GetVertexLocations(unsigned int frame, bool load
             } else {
                 for (int i = 0; i < vertex_location_count; ++i)
                     lerp_buffer[i] =
-                        glm::mix(current[i].glmValue(), next[i].glmValue(), interpolation);
+                        glm::mix(current[i], next[i], interpolation);
             }
         }
         return lerp_buffer.data();
     }
-    auto& cache = frames[frame].locations;
-    if (!cache) {
-        AllocateFrameBuffers(frame, W8_MESH_FRAME_LOCATIONS);
-        if (load) {
-            DecompressFrame(frame, W8_MESH_FRAME_LOCATIONS, cache->data());
-        }
-    }
-    return cache->data();
+    return frameTable(frame, load, W8_MESH_FRAME_LOCATIONS);
 }
 
-/* Return frame `frame`'s vertex normals, decompressing on demand when `load`
-   is set. */
 // FUNCTION: WIZ8 0x00471CA0
-srVector3T<float>* stMeshModel::GetVertexNormals(unsigned int frame, bool load)
+glm::vec3* stMeshModel::GetVertexNormals(unsigned int frame, bool load)
 {
-    if (frame >= frames.size()) {
-        return nullptr;
-    }
-    auto& cache = frames[frame].vertex_normals;
-    if (!cache) {
-        AllocateFrameBuffers(frame, W8_MESH_FRAME_VERTEX_NORMALS);
-        if (load) {
-            DecompressFrame(frame, W8_MESH_FRAME_VERTEX_NORMALS, cache->data());
-        }
-    }
-    return cache->data();
+    return frameTable(frame, load, W8_MESH_FRAME_VERTEX_NORMALS);
 }
 
 // FUNCTION: WIZ8 0x00471D00
-srVector3T<float>* stMeshModel::GetPolygonNormals(unsigned int frame, bool load)
+glm::vec3* stMeshModel::GetPolygonNormals(unsigned int frame, bool load)
 {
-    if (frame >= frames.size()) {
-        return nullptr;
-    }
-    auto& cache = frames[frame].polygon_normals;
+    return frameTable(frame, load, W8_MESH_FRAME_POLYGON_NORMALS);
+}
+
+glm::vec3* stMeshModel::frameTable(unsigned int frame, bool load, unsigned char kind)
+{
+    if (frame >= frames.size()) return nullptr;
+    auto& storage = frames[frame];
+    auto& cache = kind == W8_MESH_FRAME_LOCATIONS ? storage.locations
+                : kind == W8_MESH_FRAME_VERTEX_NORMALS ? storage.vertex_normals
+                                                      : storage.polygon_normals;
     if (!cache) {
-        AllocateFrameBuffers(frame, W8_MESH_FRAME_POLYGON_NORMALS);
-        if (load) {
-            DecompressFrame(frame, W8_MESH_FRAME_POLYGON_NORMALS, cache->data());
-        }
+        AllocateFrameBuffers(frame, kind);
+        if (load) DecompressFrame(frame, kind, *cache);
     }
     return cache->data();
+}
+
+stMeshModel::FrameGeometry stMeshModel::frameGeometry(unsigned int frame, float interpolation)
+{
+    if (frame >= frames.size()) throw std::out_of_range("Mesh frame index out of range");
+    auto* positions = GetVertexLocations(frame, true, interpolation);
+    auto* normals = GetVertexNormals(frame, true);
+    const auto* polygon_normals = GetPolygonNormals(frame, true);
+    return {{positions, static_cast<std::size_t>(vertex_location_count)},
+            {normals, static_cast<std::size_t>(vertex_location_count)},
+            {polygon_normals, static_cast<std::size_t>(polygon_count)}};
 }
 
 void stMeshModel::ClearVertexLights()
 {
-    srVector3T<float>* lights = GetVertexLights(true, 1);
-    int count = vertex_location_count;
-    if (count != 0) {
-        std::fill_n(lights, count, srVector3T<float>(0.0f, 0.0f, 0.0f));
-    }
+    std::ranges::fill(GetVertexLights(true, 1), glm::vec3(0));
     flags |= W8_MESH_VERTEX_LIGHTING_DIRTY;
 }
 
 // FUNCTION: WIZ8 0x00472990
-void stMeshModel::SetAmbientColor(const srVector3T<float>& color)
+void stMeshModel::SetAmbientColor(const glm::vec3& color)
 {
     if (!(ambient_color == color)) {
         ambient_color = color;
@@ -923,78 +763,63 @@ void stMeshModel::ComputeFrameNormals(int frame)
     }
     std::vector<glm::vec3> pnorm(polygon_count);
     auto& storage = frames[frame];
-    std::vector<srVector3T<float>> scratch;
-    const srVector3T<float>* l;
+    std::vector<glm::vec3> scratch;
+    const glm::vec3* l;
     if (storage.locations) {
         l = storage.locations->data();
     } else {
         scratch.resize(vertex_location_count);
-        DecompressFrame(frame, W8_MESH_FRAME_LOCATIONS, scratch.data());
+        DecompressFrame(frame, W8_MESH_FRAME_LOCATIONS, scratch);
         l = scratch.data();
     }
 
-    for (int poly = 0; poly < polygon_count; ++poly) {
-        const auto origin = l[poly_vertex[poly].x].glmValue();
-        const auto edge_0 = l[poly_vertex[poly].y].glmValue() - origin;
-        const auto edge_1 = l[poly_vertex[poly].z].glmValue() - origin;
-        pnorm[poly] = glm::cross(edge_0, edge_1);
-    }
+    for (int poly = 0; poly < polygon_count; ++poly)
+        pnorm[poly] = srMeshMath::polygonNormal(
+            std::span<const glm::vec3>(l, vertex_location_count), poly_vertex[poly]);
 
-    std::vector<glm::vec3> vnorm(vertex_location_count, glm::vec3(0));
-    w8_ulong* shade_index = getVertexShadeIndex(0);
-    if (shade_index == 0) {
-        for (int corner_poly = 0; corner_poly < polygon_count; ++corner_poly) {
-            vnorm[poly_vertex[corner_poly].x] += pnorm[corner_poly];
-            vnorm[poly_vertex[corner_poly].y] += pnorm[corner_poly];
-            vnorm[poly_vertex[corner_poly].z] += pnorm[corner_poly];
-        }
-    } else {
-        std::vector<glm::vec3> shaded(vertex_location_count, glm::vec3(0));
-        for (int corner_poly = 0; corner_poly < polygon_count; ++corner_poly) {
-            shaded[shade_index[poly_vertex[corner_poly].x]] += pnorm[corner_poly];
-            shaded[shade_index[poly_vertex[corner_poly].y]] += pnorm[corner_poly];
-            shaded[shade_index[poly_vertex[corner_poly].z]] += pnorm[corner_poly];
-        }
-        for (int i = 0; i < vertex_location_count; ++i)
-            vnorm[i] = shaded[shade_index[i]];
-    }
+    const auto* shade_index = getVertexShadeIndex(0);
+    const auto vnorm = srMeshMath::vertexNormalSums(
+        std::span<const srVector3i>(poly_vertex, polygon_count),
+        std::span<const glm::vec3>(pnorm), vertex_location_count,
+        shade_index ? std::span<const w8_ulong>(shade_index, vertex_location_count)
+                    : std::span<const w8_ulong>{});
 
     CompressMeshNormals(vnorm, storage.compressed_vertex_normals);
     CompressMeshNormals(pnorm, storage.compressed_polygon_normals);
 
     if (storage.vertex_normals) {
-        DecompressFrame(frame, W8_MESH_FRAME_VERTEX_NORMALS, storage.vertex_normals->data());
+        DecompressFrame(frame, W8_MESH_FRAME_VERTEX_NORMALS, *storage.vertex_normals);
     }
     if (storage.polygon_normals) {
-        DecompressFrame(frame, W8_MESH_FRAME_POLYGON_NORMALS, storage.polygon_normals->data());
+        DecompressFrame(frame, W8_MESH_FRAME_POLYGON_NORMALS, *storage.polygon_normals);
     }
 }
 
 /* Thirteen-byte forwarder onto the per-frame normal builder. */
 // FUNCTION: WIZ8 0x00472100
-srVector3T<float>* stMeshModel::GetVertexLights(bool initialize, int table)
+std::span<glm::vec3> stMeshModel::GetVertexLights(bool initialize, int table)
 {
     if (table == -1) {
         table = vertex_light_table;
     }
     auto& lights = vertex_lights[table];
     if (lights.empty() && initialize) {
-        lights.resize(vertex_location_count, srVector3T<float>(0.0f, 0.0f, 0.0f));
+        lights.resize(vertex_location_count, glm::vec3(0));
         if (!vertex_sunlight.empty()) {
             vertex_lighting_ready = true;
         }
     }
-    return lights.empty() ? nullptr : lights.data();
+    return lights;
 }
 
 // FUNCTION: WIZ8 0x004721E0
-float* stMeshModel::GetVertexSunlight(bool initialize)
+std::span<float> stMeshModel::GetVertexSunlight(bool initialize)
 {
     if (vertex_sunlight.empty() && initialize) {
         vertex_sunlight.resize(vertex_location_count, 1.0f);
         vertex_lighting_ready = true;
     }
-    return vertex_sunlight.empty() ? nullptr : vertex_sunlight.data();
+    return vertex_sunlight;
 }
 
 // FUNCTION: WIZ8 0x00473180

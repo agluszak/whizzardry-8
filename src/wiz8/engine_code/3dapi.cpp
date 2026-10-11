@@ -440,7 +440,7 @@ void UpdateWorldCameraAndPaths(W8World* world, unsigned int flags)
     srVector3T<float> camera_position;
     srVector3T<float> navigator_position;
     srVector3T<float> delta;
-    srVector3T<double> render_position;
+    glm::dvec3 render_position;
     glm::mat3 rotation;
     glm::mat3 path_rotation;
     glm::mat3 motion_saved;
@@ -593,7 +593,7 @@ glm::vec3 cameraLocationOrZero(const W8World& world)
 void SetWorldScenePosition(W8World* world, const srVector3T<float>* location)
 {
     srVector3T<float> position;
-    srVector3T<double> render_position;
+    glm::dvec3 render_position;
 
     if (!world) {
         srAssertFail("pWorld", THREE_D_API_CPP, 1043, 0);
@@ -659,7 +659,7 @@ glm::mat3 cameraRotation(const W8World& world)
 // FUNCTION: WIZ8 0x00450420
 void WorldSetCameraLocation(W8World* world, const srVector3T<float>* location)
 {
-    srVector3T<double> position;
+    glm::dvec3 position;
 
     if (!world) {
         srAssertFail("pWorld", THREE_D_API_CPP, 0x422, 0);
@@ -682,7 +682,7 @@ void WorldSetCameraLocation(W8World* world, const srVector3T<float>* location)
 void SetWorldCameraState(W8World* world, W8World* source_world, W8WorldCameraState* state)
 {
     srVector3T<float> location;
-    srVector3T<double> position;
+    glm::dvec3 position;
     glm::mat3 rotation;
 
     if (!world) {

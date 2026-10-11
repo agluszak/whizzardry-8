@@ -1,5 +1,8 @@
+#include <algorithm>
+#include <utility>
 #include <array>
 #include <memory>
+#include <span>
 #include <vector>
 #include <string>
 
@@ -8,7 +11,6 @@
 #include "glm/matrix.hpp"
 #include "wiz8/containers.h"
 #include "surrender/srBoundingBox.h"
-#include "wiz8/compat/unaligned.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/Item.h"
 #include "wiz8/engine_code/Monster.h"
@@ -138,9 +140,9 @@ unsigned char BakeInstanceVertexLighting(stModelInstance* instance, srNode* ligh
         const auto count = mesh->vertex_location_count;
         if (count <= 0)
             continue;
-        auto* vertex_lights = mesh->GetVertexLights(true, -1);
+        const auto vertex_lights = mesh->GetVertexLights(true, -1);
         mesh->GetVertexSunlight(true);
-        if (!vertex_lights)
+        if (vertex_lights.empty())
             return 0;
         if (!lights)
             continue;
@@ -159,14 +161,13 @@ unsigned char BakeInstanceVertexLighting(stModelInstance* instance, srNode* ligh
         world_normals.resize(count);
         material_colors.resize(count);
         for (int i = 0; i < count; ++i) {
-            world_vertices[i] = glm::vec3(world * glm::vec4(vertices[i].glmValue(), 1));
-            world_normals[i] = normalizedOrZero(normal_matrix * normals[i].glmValue());
+            world_vertices[i] = glm::vec3(world * glm::vec4(vertices[i], 1));
+            world_normals[i] = normalizedOrZero(normal_matrix * normals[i]);
             auto* material =
                 vertex_materials ? static_cast<srMaterial*>(vertex_materials[i].get()) : nullptr;
             material_colors[i] = material ? glm::vec3(material->parms.diffuse) : base_color;
         }
-        const auto [minimum, maximum] = mesh->getBoundingBox();
-        const auto box = srBoundingBox{minimum, maximum}.transformed(world);
+        const auto box = mesh->getBounds().box.transformed(world);
         for (auto* node = lights; node; node = walk_chain ? node->next_sibling_ : nullptr) {
             const auto* light = sr_cast<stLight>(node);
             if (!light ||
@@ -187,7 +188,7 @@ unsigned char BakeInstanceVertexLighting(stModelInstance* instance, srNode* ligh
                 const float facing = glm::dot(normalizedOrZero(direction), world_normals[i]);
                 if (facing < 0) {
                     const float contribution = -facing * light->intensity * (1 - distance / range);
-                    vertex_lights[i] = vertex_lights[i].glmValue() +
+                    vertex_lights[i] = vertex_lights[i] +
                                        material_colors[i] * light->diffuse * contribution;
                 }
             }
@@ -252,53 +253,40 @@ void SetWorldMeshVertexLightTable(W8World* world, int table)
     }
 }
 
-static std::array<srVector3T<float>, 9> boundsProbePoints(const srBoundingBox& bounds)
-{
-    const auto& [lower, upper] = bounds;
-    return {bounds.center(), upper, lower,
-            srVector3T<float>(lower.x, upper.y, upper.z),
-            srVector3T<float>(lower.x, upper.y, lower.z),
-            srVector3T<float>(upper.x, upper.y, lower.z),
-            srVector3T<float>(upper.x, lower.y, upper.z),
-            srVector3T<float>(lower.x, lower.y, upper.z),
-            srVector3T<float>(upper.x, lower.y, lower.z)};
-}
-
-/* True when the camera projects the AABB midpoint or any of its eight corners
-   and the octree has line of sight from eye to that point. */
+/* Visibility queries share midpoint/corner generation and retain early-exit order. */
 // FUNCTION: WIZ8 0x0046F820
-unsigned char ShowTargetMarker(const srVector3T<float>* eye, const srBoundingBox& bounds)
+bool targetMarkerVisible(const glm::vec3& eye, const srBoundingBox& bounds)
 {
-    for (auto point : boundsProbePoints(bounds)) {
-        if (ProjectPointThroughCamera(&point) != 0 && g_octree->HasLineOfSight(eye, &point, true))
-            return 1;
-    }
-    return 0;
-}
-
-/* The world-trace variant of HasLineOfSightToBounds: same midpoint and
-   eight-corner probe, but through TraceLineOfSight, which reports a clear
-   trace as zero. */
-// FUNCTION: WIZ8 0x0046FAF0
-char TraceLineOfSightToBounds(const srVector3T<float>* origin, const srBoundingBox& bounds)
-{
-    for (auto point : boundsProbePoints(bounds)) {
-        if (g_octree->TraceLineOfSight(origin, &point, true, -3, -3, true, 0) == 0)
-            return 1;
-    }
-    return 0;
-}
-
-// FUNCTION: WIZ8 0x0046FD70
-bool HasLineOfSightToBounds(const srVector3T<float>* origin, const srBoundingBox& bounds)
-{
-    for (auto point : boundsProbePoints(bounds)) {
-        if (g_octree->HasLineOfSight(origin, &point, true))
-            return true;
+    const srVector3 from(eye);
+    for (const auto& sample : bounds.visibilitySamples()) {
+        if (!projectsToCamera(sample)) continue;
+        srVector3 point(sample);
+        if (g_octree->HasLineOfSight(&from, &point, true)) return true;
     }
     return false;
 }
 
+// FUNCTION: WIZ8 0x0046FAF0
+bool traceLineOfSightToBounds(const glm::vec3& origin, const srBoundingBox& bounds)
+{
+    const srVector3 from(origin);
+    for (const auto& sample : bounds.visibilitySamples()) {
+        srVector3 point(sample);
+        if (g_octree->TraceLineOfSight(&from, &point, true, -3, -3, true, 0) == 0) return true;
+    }
+    return false;
+}
+
+// FUNCTION: WIZ8 0x0046FD70
+bool hasLineOfSightToBounds(const glm::vec3& origin, const srBoundingBox& bounds)
+{
+    const srVector3 from(origin);
+    for (const auto& sample : bounds.visibilitySamples()) {
+        srVector3 point(sample);
+        if (g_octree->HasLineOfSight(&from, &point, true)) return true;
+    }
+    return false;
+}
 
 /* Build the concrete first-party instance used for an already-created mesh. */
 // FUNCTION: WIZ8 0x0046F5C0
@@ -666,25 +654,9 @@ void __stdcall SetOctreeGameData(W8GameData* value)
 }
 
 // FUNCTION: WIZ8 0x0046d880
-bool PointInsideFrustum(const srVector3T<float>* point, const W8Plane* planes)
+bool PointInsideFrustum(const glm::vec3& point, std::span<const W8Plane, 6> planes)
 {
-    for (short index = 0; index < 6; ++index) {
-        float distance = SignedPlaneDistance(planes[index], *point);
-
-        if (distance < g_float_zero) {
-            return false;
-        }
-    }
-    return true;
-}
-
-/* Header-visible SetPlaneFromThreePoints. This TU lowers the three-point
-   copy as a component countdown; 0x00449A40 unrolls the same assignments. */
-// FUNCTION: WIZ8 0x0046d660
-void BuildPlaneFromPoints(W8Plane* plane, const srVector3T<float>* first,
-                          const srVector3T<float>* second, const srVector3T<float>* third)
-{
-    SetPlaneFromThreePoints(plane, first, second, third);
+    return SphereInsideFrustum(point, 0.0f, planes);
 }
 
 /* Point-in-triangle test by even-odd crossing on the plane perpendicular to
@@ -693,20 +665,19 @@ void BuildPlaneFromPoints(W8Plane* plane, const srVector3T<float>* first,
    coordinate toggles the inside flag when its interpolation crosses the
    first. */
 // FUNCTION: WIZ8 0x0046d530
-bool PointInsideTriangle(const srVector3T<float>* vertices, short axis,
-                         const srVector3T<float>* point)
+bool PointInsideTriangle(std::span<const glm::vec3, 3> vertices, unsigned axis,
+                         const glm::vec3& point)
 {
-    const w8_unaligned_float* p = &point->x;
-    short u = static_cast<short>(axis + 1) % 3;
-    short v = static_cast<short>(axis + 2) % 3;
+    const unsigned u = (axis + 1) % 3;
+    const unsigned v = (axis + 2) % 3;
     bool inside = false;
-
-    for (int i = 0; i < 3; ++i) {
-        const w8_unaligned_float* first = &vertices[i].x;
-        const w8_unaligned_float* second = &vertices[(i + 1) % 3].x;
-        if ((first[v] < p[v] && p[v] < second[v]) || (second[v] < p[v] && p[v] < first[v])) {
-            if (p[u] <=
-                (p[v] - first[v]) * (second[u] - first[u]) / (second[v] - first[v]) + first[u]) {
+    for (unsigned i = 0; i < vertices.size(); ++i) {
+        const auto& first = vertices[i];
+        const auto& second = vertices[(i + 1) % 3];
+        if ((first[v] < point[v] && point[v] < second[v]) ||
+            (second[v] < point[v] && point[v] < first[v])) {
+            if (point[u] <= (point[v] - first[v]) * (second[u] - first[u]) /
+                                (second[v] - first[v]) + first[u]) {
                 inside = !inside;
             }
         }
@@ -715,122 +686,47 @@ bool PointInsideTriangle(const srVector3T<float>* vertices, short axis,
 }
 
 // FUNCTION: WIZ8 0x0046d7e0
-void BuildFrustumPlanes(const srVector3T<float>* points, W8Plane* planes)
+std::array<W8Plane, 6> BuildFrustumPlanes(std::span<const glm::vec3, 8> points)
 {
-    BuildPlaneFromPoints(&planes[0], &points[1], &points[5], &points[4]);
-    BuildPlaneFromPoints(&planes[1], &points[6], &points[7], &points[3]);
-    BuildPlaneFromPoints(&planes[2], &points[0], &points[2], &points[3]);
-    BuildPlaneFromPoints(&planes[3], &points[4], &points[5], &points[7]);
-    BuildPlaneFromPoints(&planes[4], &points[4], &points[6], &points[2]);
-    BuildPlaneFromPoints(&planes[5], &points[1], &points[3], &points[7]);
+    constexpr std::array<std::array<unsigned, 3>, 6> corners{{
+        {1, 5, 4}, {6, 7, 3}, {0, 2, 3}, {4, 5, 7}, {4, 6, 2}, {1, 3, 7}}};
+    std::array<W8Plane, 6> planes;
+    for (unsigned plane = 0; plane < planes.size(); ++plane) {
+        const auto& indices = corners[plane];
+        planes[plane] = trianglePlane(points[indices[0]], points[indices[1]], points[indices[2]]);
+    }
+    return planes;
 }
 
-/* Sort `points` in place into the canonical corner order: an index array is
-   insertion-sorted by y, then each four-entry run is re-sorted by z and each
-   two-entry run by x, and the points are permuted through a temporary copy. */
+/* Return a canonical y/z/x corner ordering, preserving ties within each run. */
 // FUNCTION: WIZ8 0x0046da20
-void SortFrustumCorners(srVector3T<float>* points)
+std::array<glm::vec3, 8> sortedFrustumCorners(std::span<const glm::vec3, 8> points)
 {
-    short order[8];
-    srVector3T<float> sorted[8];
-
-    for (short i = 0; i < 8; ++i) {
-        short index = i;
-        short slot = 0;
-        if (i > 0) {
-            for (short j = 0; j < i; ++j) {
-                slot = order[j];
-                if (points[index].y < points[slot].y) {
-                    order[j] = index;
-                    index = slot;
-                }
-            }
-            slot = i;
-        }
-        order[slot] = index;
-    }
-    short axis = 2;
-    short run = 4;
-    short start = 0;
-    short end = run;
-    do {
-        if (start < end) {
-            for (short at = start; at < end; ++at) {
-                short value = order[at];
-                for (short k = start; k < at; ++k) {
-                    if ((&points[value].x)[axis] < (&points[order[k]].x)[axis]) {
-                        order[k] = value;
-                        value = order[k];
-                    }
-                }
-                order[at] = value;
-            }
-        }
-        if (end < 8) {
-            start += run;
-            end += run;
-        } else {
-            run /= 2;
-            axis = (axis + 1) % 3;
-            start = 0;
-            end = run;
-        }
-    } while (run > 1);
-    short point;
-    for (point = 0; point < 8; ++point) {
-        sorted[point] = points[order[point]];
-    }
-    for (point = 0; point < 8; ++point) {
-        points[point] = sorted[point];
-    }
+    std::array<glm::vec3, 8> sorted;
+    std::ranges::copy(points, sorted.begin());
+    constexpr std::array<std::pair<unsigned, unsigned>, 3> passes{{{1, 8}, {2, 4}, {0, 2}}};
+    for (const auto [axis, run] : passes)
+        for (unsigned start = 0; start < sorted.size(); start += run)
+            std::stable_sort(sorted.begin() + start, sorted.begin() + start + run,
+                             [axis](const auto& a, const auto& b) { return a[axis] < b[axis]; });
+    return sorted;
 }
 
-/* Sphere test generalised to a bounds box: accept when any box corner is
-   inside every frustum plane or any volume corner sits inside the box. */
 // FUNCTION: WIZ8 0x0046d8d0
-bool SphereInsideFrustum(const srVector3T<float>* point, float radius, const W8Plane* planes)
+bool SphereInsideFrustum(const glm::vec3& point, float radius, std::span<const W8Plane, 6> planes)
 {
-    bool inside = true;
-
-    for (short plane = 0; plane < 6 && inside; ++plane) {
-        if (glm::dot(point->glmValue(), planes[plane].normal.glmValue()) + planes[plane].w <
-            -radius) {
-            inside = false;
-        }
-    }
-    return inside;
+    return std::ranges::none_of(planes, [&](const W8Plane& plane) {
+        return glm::dot(point, plane.normal.glmValue()) + plane.w < -radius;
+    });
 }
 
 // FUNCTION: WIZ8 0x0046d920
-bool BoundsInsideFrustum(const W8OctRegionVolume* volume, const W8BoundingBox* bounds)
+bool BoundsInsideFrustum(const W8OctRegionVolume& volume, const srBoundingBox& bounds)
 {
-    for (short x = 0; x < 2; ++x) {
-        for (short y = 0; y < 2; ++y) {
-            for (short z = 0; z < 2; ++z) {
-                short plane = 0;
-                while (true) {
-                    if ((&bounds->minimum)[x].x * volume->m_planes[plane].normal.x +
-                            (&bounds->minimum)[y].y * volume->m_planes[plane].normal.y +
-                            (&bounds->minimum)[z].z * volume->m_planes[plane].normal.z +
-                            volume->m_planes[plane].w <
-                        g_float_zero) {
-                        break;
-                    }
-                    if (++plane > 5) {
-                        return true;
-                    }
-                }
-            }
-        }
-    }
-    for (short corner = 0; corner < 8; ++corner) {
-        const srVector3T<float>* point = &volume->m_points[corner + 1];
-        if (bounds->minimum.x <= point->x && point->x < bounds->maximum.x &&
-            bounds->minimum.y <= point->y && point->y < bounds->maximum.y &&
-            bounds->minimum.z <= point->z && point->z < bounds->maximum.z) {
-            return true;
-        }
-    }
+    for (unsigned corner = 0; corner < 8; ++corner)
+        if (PointInsideFrustum(bounds.corner(corner), volume.m_planes)) return true;
+    for (unsigned corner = 1; corner < 9; ++corner)
+        if (bounds.containsHalfOpen(volume.m_points[corner].glmValue())) return true;
     return false;
 }
 

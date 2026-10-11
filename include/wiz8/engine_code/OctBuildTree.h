@@ -1,6 +1,8 @@
 #ifndef WIZ8_ENGINE_CODE_OCT_BUILD_TREE_H
 #define WIZ8_ENGINE_CODE_OCT_BUILD_TREE_H
 
+#include <optional>
+
 #include <deque>
 #include <vector>
 #include "glm/ext/vector_float3.hpp"
@@ -24,8 +26,8 @@ struct W8OctBuildNode {
     ~W8OctBuildNode();
 
     unsigned char RearrangeNodePolys(short current_depth, short target_depth);
-    int CollectLinkedSurfaces(short current_depth, short target_depth, short mode);
-    int CollectSurfaceArray(short mode);
+    std::vector<void*> linkedSurfaces(short current_depth, short target_depth, short mode) const;
+    std::vector<void*> storedSurfaces(short mode) const;
     w8_ulong ConvertToOctPreTree(unsigned short depth, OctPreTree* tree);
 
     union {
@@ -55,13 +57,13 @@ struct W8CountedOctBuildNode : W8OctBuildNode {
    the vtables emitted near this TU belong to vector/template material, not to
    this type. */
 struct W8OctBuildTree {
-    W8OctBuildTree(float leaf_size, srVector3T<float>* minimum, srVector3T<float>* maximum,
+    W8OctBuildTree(float leaf_size, std::optional<srBoundingBox> bounds,
                    unsigned short item_limit, short extent_mode);
     ~W8OctBuildTree();
 
     unsigned char InsertSurface(W8GDSurface* surface, w8_ulong mode);
     unsigned char InsertSurfaceRecursive(W8OctSpatialState* working, W8GDSurface* surface,
-                                         srVector3T<float>* plane_point, w8_ulong mode);
+                                         const glm::vec3& planeNormal, w8_ulong mode);
     std::vector<W8GDSurface*> queryAlongSegment(const glm::vec3& origin,
                                                const glm::vec3& delta, float extent,
                                                unsigned short kind);

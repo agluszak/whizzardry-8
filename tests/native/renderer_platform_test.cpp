@@ -10,6 +10,7 @@
 #include "surrender/srDD_SDLGPU.h"
 #include "surrender/srDD.h"
 #include "surrender/srGERD.h"
+#include "surrender/srBoundingSphere.h"
 
 
 TEST_CASE("renderer platform")
@@ -28,15 +29,15 @@ TEST_CASE("renderer platform")
             srGERD gerd(device, "SDLGPU");
             gerd.matrixMode(srGERD::MATRIX_MODELVIEW);
             gerd.loadIdentity();
-            const auto sphere = gerd.getEyeSpaceBounds({1, 2, 3}, 2);
+            const auto sphere = gerd.eyeSpaceBounds(srBoundingSphere{{1, 2, 3}, 2});
             REQUIRE(sphere.center == glm::vec3(1, 2, 3));
             REQUIRE(sphere.radius == 2);
             gerd.translate(5, 6, 7);
             gerd.scale(2, -3, 4);
-            const auto scaled = gerd.getEyeSpaceBounds({1, 2, 3}, 2);
+            const auto scaled = gerd.eyeSpaceBounds(srBoundingSphere{{1, 2, 3}, 2});
             REQUIRE(scaled.center == glm::vec3(7, 0, 19));
             REQUIRE(scaled.radius == 8);
-            REQUIRE(gerd.getEyeSpaceBounds({0, 0, 0}, 0).radius == 0);
+            REQUIRE(gerd.eyeSpaceBounds(srBoundingSphere{{0, 0, 0}, 0}).radius == 0);
             REQUIRE(sphere.center == glm::vec3(1, 2, 3));
             REQUIRE(sphere.radius == 2);
             gerd.loadIdentity();

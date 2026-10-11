@@ -1,3 +1,4 @@
+#include <cstddef>
 #include <ios>
 #include <ostream>
 #include <memory>
@@ -39,7 +40,7 @@ srTexture::srTexture()
     texture_dimensions_.filter = srCore.getFilter();
     texture_dimensions_.hints = 0;
     texture_dimensions_.compression = srTextureIFace::COMPRESSION_DEFAULT;
-    srPixelConvert::mapPixelFormat(srPixelConvert::SURFACE_ARGB4444, texture_dimensions_.format);
+    texture_dimensions_.format = srPixelConvert::pixelFormat(srPixelConvert::SURFACE_ARGB4444);
     texture_flags_ = 0;
     if (s_flag_names3 == 0) {
         s_flag_names3 = "GENERATESURFACE_FAILURE,DIRTY_DEFAULTS";
@@ -383,7 +384,7 @@ srTextureIFace::Dimensions srTexture::getDimensions()
 }
 
 // FUNCTION: SURRENDER 0x1005EE90
-void srTexture::getMipmapData(MultiRequest& request) {}
+void srTexture::getMipmapData(const MultiRequest& request) {}
 
 // FUNCTION: SURRENDER 0x1005EEA0
 void srTexture::getMipmapLevelPartial(PartialRequest& request) {}
@@ -403,4 +404,15 @@ srTextureIFace::~srTextureIFace()
 const char* srTextureIFace::getTextureName()
 {
     return getName().c_str();
+}
+
+void srTexture::copyMipmapChain(srColorSurfaceIFace& source, const MultiRequest& request)
+{
+    if (request.destinations.empty()) return;
+    if (auto* first = request.destinations.front()) first->copy(source);
+    for (std::size_t level = 1; level < request.destinations.size(); ++level) {
+        auto* destination = request.destinations[level];
+        auto* previous = request.destinations[level - 1];
+        if (destination && previous) destination->copy(*previous);
+    }
 }

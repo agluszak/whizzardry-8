@@ -1,3 +1,4 @@
+#include "surrender/srBoundingBox.h"
 #include <SDL3/SDL_pixels.h>
 #include "surrender/srScene.h" // IWYU pragma: keep - complete scene type for conversion to srNode.
 #include <fmt/format.h>
@@ -27,6 +28,7 @@
 #include "compat/compiler.h"
 #include "compat/native.h"
 #include "glm/ext/vector_float2.hpp"
+#include "glm/ext/vector_int2.hpp"
 #include "glm/ext/vector_uint2.hpp"
 #include "glm/geometric.hpp"
 #include "glm/common.hpp"
@@ -623,33 +625,12 @@ try
 }
 catch (const std::exception&) { return false; }
 
-/* The path-linking callers share this conversion. Retail computes Z before
-   testing the optional destination, then writes X and Z together. */
-static void PositionToPathPoint(const W8PathingService* pathing, const srVector3T<float>* position,
-                                srVector2i* point)
+// Convert X/Z once; truncation toward zero also applies below the bounds.
+PathCellCoordinates W8PathingService::pathCell(const glm::vec3& position) const
 {
-    int converted =
-        static_cast<int>((position->z - pathing->level_bounds.minimum.z) / pathing->grid_scale);
-    if (point != 0) {
-        point->x =
-            static_cast<int>((position->x - pathing->level_bounds.minimum.x) / pathing->grid_scale);
-        point->y = converted;
-    }
-}
-
-/* Retail also packs the converted coordinates into a path-cell key before
-   conditionally returning the individual coordinates to its caller. */
-static unsigned int PositionToPathKey(const W8PathingService* pathing,
-                                      const srVector3T<float>* position, srVector2i* cell)
-{
-    int x = static_cast<int>((position->x - pathing->level_bounds.minimum.x) / pathing->grid_scale);
-    int z = static_cast<int>((position->z - pathing->level_bounds.minimum.z) / pathing->grid_scale);
-    unsigned int key = static_cast<unsigned int>(z) * 0x10000 + static_cast<unsigned int>(x);
-    if (cell != 0) {
-        cell->x = x;
-        cell->y = z;
-    }
-    return key;
+    const glm::ivec2 cell((glm::vec2(position.x, position.z) -
+                          glm::vec2(level_bounds.minimum.x, level_bounds.minimum.z)) / grid_scale);
+    return {cell, static_cast<unsigned>(cell.y) * 0x10000u + static_cast<unsigned>(cell.x)};
 }
 
 /* Offer every flagged surface to the path builder.
@@ -663,7 +644,6 @@ static unsigned int PositionToPathKey(const W8PathingService* pathing,
 void W8PathingService::LinkSurfaces(GDProp* prop)
 {
     unsigned int index = 1;
-    srVector2i point;
     W8PathSurface* surface;
 
     if (m_ulNumWayPoints <= index) {
@@ -672,8 +652,7 @@ void W8PathingService::LinkSurfaces(GDProp* prop)
     do {
         surface = &m_waypoints[index];
         if ((surface->flags & W8_WAYPOINT_CONDITIONAL) != 0) {
-            PositionToPathPoint(this, &surface->position, &point);
-            prop->RegisterPathSurface(index, &point);
+            prop->RegisterPathSurface(index, pathCell(surface->position.glmValue()).coordinates);
         }
         ++index;
     } while (index < m_ulNumWayPoints);
@@ -687,8 +666,6 @@ void W8PathingService::LinkSurfaces(GDProp* prop)
 void W8PathingService::LinkEdges(GDProp* prop)
 {
     unsigned int index = 1;
-    srVector2i first;
-    srVector2i second;
     W8PathEdge* edge;
     W8PathSurface* surface;
 
@@ -699,11 +676,11 @@ void W8PathingService::LinkEdges(GDProp* prop)
         edge = &m_pEdges[index];
         if ((edge->flags & W8_PATH_EDGE_CONDITIONAL) != 0) {
             surface = &m_waypoints[edge->source];
-            PositionToPathPoint(this, &surface->position, &first);
+            const auto first = pathCell(surface->position.glmValue()).coordinates;
 
             surface = &m_waypoints[edge->destination];
-            PositionToPathPoint(this, &surface->position, &second);
-            prop->RegisterPathVertex(index, &first, &second);
+            const auto second = pathCell(surface->position.glmValue()).coordinates;
+            prop->RegisterPathVertex(index, first, second);
         }
         ++index;
     } while (index < m_ulNumWayPtLinks);
@@ -850,10 +827,9 @@ unsigned int W8PathingService::FindConditionalPathValue(unsigned int key, unsign
 
 /* Refresh the disabled bit for a conditional list of waypoints. */
 // FUNCTION: WIZ8 0x004601b0
-void W8PathingService::CheckConditionalWayPtStatus(unsigned short count, unsigned short* waypoints)
+void W8PathingService::CheckConditionalWayPtStatus(std::span<const unsigned short> waypoints)
 {
-    while (count != 0) {
-        unsigned short waypoint = *waypoints;
+    for (const auto waypoint : waypoints) {
         if (waypoint >= static_cast<unsigned short>(m_ulNumWayPoints)) {
             srAssertFail("pusWayPts[i] < (UINT16)m_ulNumWayPoints", OCTPATH_CPP, 0x1a4e,
                          "Pathing::CheckConditionalWayPtStatus: WayPt Index out of range.");
@@ -865,8 +841,6 @@ void W8PathingService::CheckConditionalWayPtStatus(unsigned short count, unsigne
         } else {
             surface->flags |= W8_WAYPOINT_DISABLED;
         }
-        ++waypoints;
-        --count;
     }
 }
 
@@ -874,10 +848,9 @@ void W8PathingService::CheckConditionalWayPtStatus(unsigned short count, unsigne
    the conditional-span flag participate. A disabled source always disables
    its edge; otherwise the current span test decides the bit. */
 // FUNCTION: WIZ8 0x00460250
-void W8PathingService::CheckConditionalLinkStatus(unsigned short count, unsigned short* edges)
+void W8PathingService::CheckConditionalLinkStatus(std::span<const unsigned short> edges)
 {
-    while (count != 0) {
-        unsigned short edge_index = *edges;
+    for (const auto edge_index : edges) {
         if (edge_index >= static_cast<unsigned short>(m_ulNumWayPtLinks)) {
             srAssertFail("pusLinks[i] < (UINT16)m_ulNumWayPtLinks", OCTPATH_CPP, 0x1a6c,
                          "Pathing::CheckConditionalLinkStatus: Link Index out of range.");
@@ -893,8 +866,6 @@ void W8PathingService::CheckConditionalLinkStatus(unsigned short count, unsigned
                 edge->flags &= ~W8_PATH_EDGE_DISABLED;
             }
         }
-        ++edges;
-        --count;
     }
 }
 
@@ -1023,12 +994,11 @@ bool W8PathingService::TestAttachmentHopDoor(W8NavigatorAttachment* attachment)
         }
         if (edge_index != 0 && (m_pEdges[edge_index].flags & W8_NAV_THROUGH_DOORS) != 0 &&
             (m_pEdges[edge_index].flags & W8_PATH_EDGE_DISABLED) != 0) {
-            srVector3T<float> lower = source_surface->position;
-            srVector3T<float> upper = source_surface->position;
-            GrowBoundsByPoint(&m_waypoints[destination].position, &lower, &upper);
+            srBoundingBox bounds{source_surface->position.glmValue(), source_surface->position.glmValue()};
+            bounds.include(m_waypoints[destination].position.glmValue());
             std::vector<w8_ulong> candidates;
             Trigger* selected = 0;
-            candidates = g_octree->queryObjects({lower.glmValue(), upper.glmValue()}, W8_OCTREE_KIND_PROP, -1);
+            candidates = g_octree->queryObjects(bounds, W8_OCTREE_KIND_PROP, -1);
             int count = candidates.size();
             if (count > 0) {
                 if (count == 1) {
@@ -1039,15 +1009,14 @@ bool W8PathingService::TestAttachmentHopDoor(W8NavigatorAttachment* attachment)
                     }
                 } else {
                     double nearest_distance = 1e32;
-                    srVector3T<float> center = (upper - lower) * g_double_half + lower;
+                    const glm::vec3 center = bounds.center();
                     for (int index = 0; index < count; ++index) {
                         W8Prop* prop = g_world->collidable_props[candidates[index]];
                         Trigger* trigger = prop->GetGDPropOwnerTrigger();
                         if (trigger != 0) {
-                            srVector3T<float> position;
-                            position = prop->GetPosition();
-                            float distance = glm::dot((position - center).glmValue(),
-                                                      (position - center).glmValue());
+                            const glm::vec3 position = prop->GetPosition().glmValue();
+                            const auto offset = position - center;
+                            const float distance = glm::dot(offset, offset);
                             if (distance < nearest_distance) {
                                 nearest_distance = distance;
                                 selected = trigger;
@@ -1806,7 +1775,7 @@ bool W8PathingService::CanReachSearchNode(const srVector3T<float>* position,
     bool blocked = false;
 
     while (1) {
-        unsigned int key = PositionToPathKey(this, &probe, 0);
+        unsigned int key = pathCell(probe.glmValue()).key;
         unsigned int node_index = LookupIndexValue(*visited, key);
 
         if (static_cast<unsigned short>(node_index) == target_node || blocked) {
@@ -2109,7 +2078,9 @@ unsigned short W8PathingService::PlanMovement(W8NavigatorMovementState* movement
     }
 
     srVector2i root_cell;
-    unsigned int root_key = PositionToPathKey(this, &start, &root_cell);
+    const auto converted_cell = pathCell(start.glmValue());
+    root_cell = {converted_cell.coordinates.x, converted_cell.coordinates.y};
+    unsigned int root_key = converted_cell.key;
     unsigned short root_index = AllocateSearchNode();
     W8PathSearchNode* root = &m_search_nodes[root_index];
     root->flags = 0;
@@ -2820,7 +2791,9 @@ bool W8PathingService::GetNeighborSlideDirection(const srVector3T<float>* positi
     range = cell_count * 2;
     in_range = false;
     height = static_cast<int>((position->y - level_bounds.minimum.y) / span) + 1;
-    key = PositionToPathKey(this, position, &cell);
+    const auto converted_cell = pathCell(position->glmValue());
+    cell = {converted_cell.coordinates.x, converted_cell.coordinates.y};
+    key = converted_cell.key;
     index = m_pPathValues;
     value = 0;
     auto slot = index->equal_range(key).first;
@@ -3279,13 +3252,13 @@ W8PathingService::W8PathingService()
    1.25 grid cells, plus one, and bounds the vertical band the height lookups accept. */
 // FUNCTION: WIZ8 0x00458a50
 void W8PathingService::ConfigureForLevel(int size, float grid_scale, float path_clearance,
-                                         const srVector3T<float>* bounds, const char* name)
+                                         const srBoundingBox& bounds, const char* name)
 {
     path_node_count = size;
     this->grid_scale = grid_scale;
     this->path_clearance = path_clearance;
-    level_bounds.minimum = bounds[0];
-    level_bounds.maximum = bounds[1];
+    level_bounds.minimum = bounds.minimum;
+    level_bounds.maximum = bounds.maximum;
     span = (level_bounds.maximum.y - level_bounds.minimum.y) * g_path_span_scale;
     cell_count = static_cast<short>(static_cast<int>(grid_scale * 1.25f / span) + 1);
     level_name = name;
@@ -3299,7 +3272,7 @@ void W8PathingService::ConfigureForLevel(int size, float grid_scale, float path_
 // FUNCTION: WIZ8 0x00459c00
 unsigned int W8PathingService::ClassifyWaypoint(const srVector3T<float>* position)
 {
-    unsigned int key = PositionToPathKey(this, position, 0);
+    unsigned int key = pathCell(position->glmValue()).key;
     unsigned int result = 0;
 
     if (key != 0) {
@@ -3330,7 +3303,9 @@ unsigned int W8PathingService::FindPathCell(srVector3T<float>* position, glm::uv
 {
     int path_height = static_cast<int>((position->y - level_bounds.minimum.y) / span) + 1;
     srVector2i source_cell;
-    unsigned int key = PositionToPathKey(this, position, &source_cell);
+    const auto converted_cell = pathCell(position->glmValue());
+    source_cell = {converted_cell.coordinates.x, converted_cell.coordinates.y};
+    unsigned int key = converted_cell.key;
     unsigned int source_x = source_cell.x;
     unsigned int source_z = source_cell.y;
     unsigned int selected_x = source_x;
@@ -3430,7 +3405,9 @@ bool W8PathingService::FindNearbyPathCell(srVector3T<float>* position, bool snap
     const unsigned int height = static_cast<unsigned int>(
         static_cast<int>((position->y - level_bounds.minimum.y) / span)) + 1;
     srVector2i cell;
-    const unsigned int key = PositionToPathKey(this, position, &cell);
+    const auto converted_cell = pathCell(position->glmValue());
+    cell = {converted_cell.coordinates.x, converted_cell.coordinates.y};
+    const unsigned int key = converted_cell.key;
     auto slot = m_pPathValues->equal_range(key).first;
 
     while (slot != m_pPathValues->end()) {
@@ -3496,7 +3473,9 @@ bool W8PathingService::SnapToLowerPathCell(srVector3T<float>* position, bool all
                               static_cast<int>(((position->y - level_bounds.minimum.y) / span))) +
                           1;
     srVector2i cell;
-    unsigned int key = PositionToPathKey(this, position, &cell);
+    const auto converted_cell = pathCell(position->glmValue());
+    cell = {converted_cell.coordinates.x, converted_cell.coordinates.y};
+    unsigned int key = converted_cell.key;
     unsigned int matched_height = 0;
     std::unordered_multimap<unsigned int, unsigned int>* index = m_pPathValues;
     auto slot = index->equal_range(key).first;
@@ -3730,7 +3709,8 @@ bool W8PathingService::ProbeWaypointSegment(const srVector3T<float>* from,
     W8PathGridWalk walk;
     int directions[2];
 
-    PositionToPathKey(this, from, &cell);
+    const auto converted_cell = pathCell(from->glmValue());
+    cell = {converted_cell.coordinates.x, converted_cell.coordinates.y};
     walk_from = from->xz();
     walk_to = to->xz();
     origin = level_bounds.minimum.xz();
@@ -3922,8 +3902,10 @@ bool W8PathingService::TestWaypointSpan(const srVector3T<float>* source,
 
     span_blocked = false;
     srVector2i cell;
-    unsigned int cell_key = PositionToPathKey(this, source, &cell);
-    unsigned int destination_key = PositionToPathKey(this, destination, 0);
+    const auto converted_cell = pathCell(source->glmValue());
+    cell = {converted_cell.coordinates.x, converted_cell.coordinates.y};
+    unsigned int cell_key = converted_cell.key;
+    unsigned int destination_key = pathCell(destination->glmValue()).key;
     m_waypoint_neighbor_mask = 0;
 
     std::unordered_multimap<unsigned int, unsigned int>* path_index = m_pPathValues;
@@ -4141,7 +4123,8 @@ float W8PathingService::CompareDirectionalClearance(const srVector3T<float>* pos
     }
 
     srVector2i cell;
-    PositionToPathKey(this, position, &cell);
+    const auto converted_cell = pathCell(position->glmValue());
+    cell = {converted_cell.coordinates.x, converted_cell.coordinates.y};
     unsigned int height = static_cast<unsigned int>(
                               static_cast<int>(((position->y - level_bounds.minimum.y) / span))) +
                           1;
@@ -4360,7 +4343,7 @@ unsigned short W8PathingService::FindWaypoint(const srVector3T<float>* position,
 // FUNCTION: WIZ8 0x0045b5a0
 void W8PathingService::SnapPathHeight(srVector3T<float>* position)
 {
-    unsigned int key = PositionToPathKey(this, position, 0);
+    unsigned int key = pathCell(position->glmValue()).key;
 
     if (key == 0) {
         return;
@@ -4616,8 +4599,8 @@ stModelInstance* W8PathingService::BuildPathVisualization()
     int index;
 
     stMeshModel* model = static_cast<stMeshModel*>(m_path_visualization->getModel());
-    srVector3T<float>* colors = model->getVertexDIG(0, 1);
-    srVector3T<float>* vertices = model->getVertexLoc();
+    glm::vec3* colors = model->getVertexDIG(0, 1);
+    glm::vec3* vertices = model->getVertexLoc();
     srVector3i* polygons = model->getPolyVertex();
     const auto write_marker = [&](unsigned short waypoint, int base, unsigned appearance_flags) {
         const auto& surface = m_waypoints[waypoint];
@@ -4704,19 +4687,19 @@ stModelInstance* W8PathingService::BuildPathVisualization()
                 polygons[base_polygon + 5].y = base_vertex + 5;
                 polygons[base_polygon + 5].z = base_vertex;
 
-                vertices[base_vertex] = source->position;
+                vertices[base_vertex] = source->position.glmValue();
                 vertices[base_vertex].y += g_waypoint_marker_height;
-                vertices[base_vertex + 3] = destination->position;
+                vertices[base_vertex + 3] = destination->position.glmValue();
                 vertices[base_vertex + 3].y += g_waypoint_marker_height;
                 srVector3T<float> offset;
                 offset.Set(perpendicular_x, g_world_scale, perpendicular_z);
-                vertices[base_vertex + 1] = source->position + offset;
-                vertices[base_vertex + 2] = source->position - offset;
-                vertices[base_vertex + 4] = destination->position + offset;
-                vertices[base_vertex + 5] = destination->position - offset;
+                vertices[base_vertex + 1] = (source->position + offset).glmValue();
+                vertices[base_vertex + 2] = (source->position - offset).glmValue();
+                vertices[base_vertex + 4] = (destination->position + offset).glmValue();
+                vertices[base_vertex + 5] = (destination->position - offset).glmValue();
 
                 for (index = 0; index < 6; ++index) {
-                    colors[base_vertex + index].SetZero();
+                    colors[base_vertex + index] = glm::vec3(0);
                 }
                 if ((edge->flags & W8_PATH_EDGE_DISABLED) == 0) {
                     for (index = 0; index < 3; ++index) {
@@ -4772,7 +4755,9 @@ void W8PathingService::DrawPathPosition(srVector3T<float> position, unsigned cha
     }
 
     srVector2i root_cell;
-    unsigned int root_key = PositionToPathKey(this, &position, &root_cell);
+    const auto converted_cell = pathCell(position.glmValue());
+    root_cell = {converted_cell.coordinates.x, converted_cell.coordinates.y};
+    unsigned int root_key = converted_cell.key;
     if (root_key == g_path_visualization_cell) {
         return;
     }
@@ -4900,8 +4885,8 @@ void W8PathingService::BuildSearchVisualization()
         srVector3T<float>(-62.5f, 0.0f, 62.5f), srVector3T<float>(62.5f, 0.0f, 62.5f),
         srVector3T<float>(62.5f, 0.0f, -62.5f)};
     stMeshModel* model = static_cast<stMeshModel*>(m_path_visualization->getModel());
-    srVector3T<float>* colors = model->getVertexDIG(0, 1);
-    srVector3T<float>* vertices = model->getVertexLoc();
+    glm::vec3* colors = model->getVertexDIG(0, 1);
+    glm::vec3* vertices = model->getVertexLoc();
     model->getActivePolygonTable(1);
     srVector3i* polygons = model->getPolyVertex();
     /* 0x0045D3BD tests this bound signed even though m_search_node_count is
@@ -4950,8 +4935,8 @@ void W8PathingService::BuildSearchVisualization()
         }
 
         for (int offset_index = 0; offset_index < 5; ++offset_index) {
-            vertices[vertex_index + offset_index] = marker_offsets[offset_index] + node->position;
-            colors[vertex_index + offset_index] = color;
+            vertices[vertex_index + offset_index] = (marker_offsets[offset_index] + node->position).glmValue();
+            colors[vertex_index + offset_index] = color.glmValue();
         }
     }
 
@@ -5059,12 +5044,12 @@ stModelInstance* W8PathingService::EnsurePathVisualization()
         polygon_index += 6;
     } while (vertex_index < 0x30d8);
 
-    srVector3T<float>* colors = model->getVertexDIG(0, 1);
+    glm::vec3* colors = model->getVertexDIG(0, 1);
     for (index = 0; index < 5; ++index) {
-        colors[index].Set(1.0f, 0.0f, 0.0f);
+        colors[index] = glm::vec3(1.0f, 0.0f, 0.0f);
     }
     for (index = 5; index < 500; ++index) {
-        colors[index].Set(0.0, 0.0, 1.0);
+        colors[index] = glm::vec3(0.0, 0.0, 1.0);
     }
 
     auto instance = CreateModelInstance(model);

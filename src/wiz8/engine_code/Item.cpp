@@ -72,7 +72,7 @@ void W8Item::DetachMesh(W8World* world)
 void W8Item::ApplyRepTransform()
 {
     srVector3T<float> location;
-    srVector3T<double> widened;
+    glm::dvec3 widened;
     glm::mat3 rotation;
     srNode* mesh;
 
@@ -94,7 +94,7 @@ void W8Item::AttachMesh(W8World* world)
     srNode* mesh;
     srNode* child;
     srVector3T<float> location;
-    srVector3T<double> widened;
+    glm::dvec3 widened;
     glm::mat3 rotation;
 
     if (world == 0) {
@@ -192,9 +192,9 @@ bool W8ItemRep::ReadFromFile(W8ReadLevelInfo* info, W8Item* item, bool anonymous
 // FUNCTION: WIZ8 0x0049F2B0
 void W8ItemRep::RefreshBounds()
 {
-    const auto bounds = m_psrMesh->getModel()->getBoundingBox();
-    bounds_minimum = bounds.minimum;
-    bounds_maximum = bounds.maximum;
+    const auto box = m_psrMesh->getModel()->getBounds().box;
+    bounds_minimum = box.minimum;
+    bounds_maximum = box.maximum;
     bounds_radius = static_cast<float>(glm::distance(bounds_maximum, bounds_minimum) * 0.5);
 }
 
