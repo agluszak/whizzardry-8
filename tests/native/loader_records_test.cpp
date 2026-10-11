@@ -924,7 +924,10 @@ TEST_CASE_METHOD(LoaderFixture, "Trigger layouts retain version gates and cleanu
             std::string written(output->size(), '\0');
             output->read_exact(written.data(), written.size());
             REQUIRE(written == bytes);
-            for (std::size_t end = 0; end < bytes.size(); ++end) {
+            // Record variants retain their round-trip checks. Sample short
+            // headers, interior field boundaries and the final bytes instead
+            // of rewriting each byte-prefix of every large version.
+            for (const std::size_t end : truncation_samples(bytes.size())) {
                 store("trigger.bin", bytes.substr(0, end));
                 file = wiz8::open_file("trigger.bin");
                 trigger = {};

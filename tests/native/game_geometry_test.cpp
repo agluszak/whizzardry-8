@@ -947,8 +947,15 @@ TEST_CASE("Octree queries own dense results across later queries", "[geometry][o
     tree.object_registry = new W8OctreeObjectRegistry;
     tree.m_visited_object_bits.assign(10001, false);
     const glm::ivec3 cell(0, 0, 0);
-    for (int id = 1; id <= 10001; ++id)
-        tree.object_registry->RegisterObjectCell(W8_OCTREE_KIND_LOCATION, id, cell);
+    // Populate the query index directly. RegisterObjectCell also updates the
+    // reverse index, navigator entries and de-duplicates one insertion at a
+    // time; none of those operations is under test here. With 10k objects in
+    // one cell, repeating those updates dominates this query regression.
+    auto& by_cell = *tree.object_registry->by_cell;
+    by_cell.reserve(10001);
+    const auto cell_key = PackOctreeCellKey(cell.x, cell.y, cell.z);
+    for (unsigned id = 1; id <= 10001; ++id)
+        by_cell.emplace(cell_key, PackOctreeObjectKey(W8_OCTREE_KIND_LOCATION, id));
     const srBoundingBox bounds{{0, 0, 0}, {999, 999, 999}};
     const auto dense = tree.queryObjects(bounds, W8_OCTREE_KIND_LOCATION, -1);
     REQUIRE(dense.size() == 10000);
