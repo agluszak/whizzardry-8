@@ -887,13 +887,13 @@ void W8Navigator::UpdateLinkedNavigator()
     srVector3T<float> camera = cameraLocation();
     if (static_cast<W8Monster*>(linked_navigator)->IsWithinWorldRange() != 0) {
         const auto bounds = MonsterGetWorldAnimationBounds(static_cast<W8Monster*>(linked_navigator));
-        if (bounds && ShowTargetMarker(&camera, *bounds) != 0) {
+        if (bounds && targetMarkerVisible(camera.glmValue(), *bounds) != 0) {
             goto follow_path;
         }
     }
     if (static_cast<W8Monster*>(this)->IsWithinWorldRange() != 0) {
         const auto bounds = MonsterGetWorldAnimationBounds(static_cast<W8Monster*>(this));
-        if (bounds && ShowTargetMarker(&camera, *bounds) != 0) {
+        if (bounds && targetMarkerVisible(camera.glmValue(), *bounds) != 0) {
             goto follow_path;
         }
     }

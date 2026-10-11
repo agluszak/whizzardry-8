@@ -1,6 +1,8 @@
 #ifndef WIZ8_POLYPICK_H
 #define WIZ8_POLYPICK_H
 
+#include "glm/ext/vector_float3.hpp"
+
 template <class T> class srVector3T;
 
 /* Engine Code\PolyPick.cpp: world-space pick-angle and bounds helpers. */
@@ -24,6 +26,6 @@ float MonsterDistanceToCamera(W8World* world, W8Monster* monster);
 float ItemDistanceToCamera(W8World* world, W8Item* item);
 bool PointInsideBounds(const srVector3T<float>* point, const srVector3T<float>* minimum,
                        const srVector3T<float>* maximum);
-unsigned char ProjectPointThroughCamera(const srVector3T<float>* position);
+bool projectsToCamera(const glm::vec3& position);
 
 #endif

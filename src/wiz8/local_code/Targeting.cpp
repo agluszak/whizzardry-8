@@ -1,3 +1,4 @@
+#include "surrender/srBoundingBox.h"
 #include <array>
 #include <fmt/format.h>
 #include <vector>
@@ -574,7 +575,7 @@ unsigned char ShowMonsterTargetMarker(W8MonsterInfo* monster_info)
     }
     eye = cameraLocation();
     const auto bounds = MonsterGetWorldAnimationBounds(monster_info->p3D);
-    return bounds && ShowTargetMarker(&eye, *bounds);
+    return bounds && targetMarkerVisible(eye.glmValue(), *bounds);
 }
 
 /* Whether a recorded target is of the kind a caller needs. Each needed kind
@@ -2784,7 +2785,7 @@ void RefreshMonsterTargetCounts(void)
             }
             camera = cameraLocation();
             const auto bounds = MonsterGetWorldAnimationBounds(monster_info->p3D);
-            if (bounds && ShowTargetMarker(&camera, *bounds) != 0) {
+            if (bounds && targetMarkerVisible(camera.glmValue(), *bounds) != 0) {
                 on_screen_count += 1;
             }
             if (g_status.selected_character == -1 ||

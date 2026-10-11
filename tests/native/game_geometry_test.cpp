@@ -1442,3 +1442,61 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Particle activation values and billboard
             REQUIRE(particles.vertex_positions[particle * 4 + corner].glmValue() ==
                     particles.particle_positions[particle] + offsets[corner]);
 }
+
+TEST_CASE("Bounds probes retain ordering across reversed and degenerate extents", "[geometry]")
+{
+    const srBoundingBox bounds{{1, 2, 3}, {5, 8, 13}};
+    const std::array<glm::vec3, 9> expected{{
+        {3, 5, 8}, {5, 8, 13}, {1, 2, 3}, {1, 8, 13}, {1, 8, 3},
+        {5, 8, 3}, {5, 2, 13}, {1, 2, 13}, {5, 2, 3}}};
+    REQUIRE(bounds.visibilitySamples() == expected);
+    const auto reversed = srBoundingBox{bounds.maximum, bounds.minimum}.visibilitySamples();
+    REQUIRE(reversed[0] == expected[0]);
+    REQUIRE(reversed[1] == bounds.minimum);
+    REQUIRE(reversed[2] == bounds.maximum);
+    const auto point = srBoundingBox{{4, 5, 6}, {4, 5, 6}}.visibilitySamples();
+    REQUIRE(std::ranges::all_of(point, [](const auto& p) { return p == glm::vec3(4, 5, 6); }));
+}
+
+TEST_CASE("Octree adjacent queries skip walk creation and retain early exits", "[geometry]")
+{
+    unsigned built = 0;
+    const auto makeWalk = [&] {
+        ++built;
+        W8OctreeWalk walk{};
+        walk.cell = {0, 0, 0};
+        walk.step = {1, 0, 0};
+        walk.major_axis = 0;
+        walk.minor_axis0 = 1;
+        walk.minor_axis1 = 2;
+        walk.count = 3;
+        return walk;
+    };
+    std::vector<glm::ivec3> cells;
+    visitOctreeSegment({0, 0, 0}, {0, 0, 1}, makeWalk,
+        [&](const auto& cell, bool adjacent) {
+            REQUIRE(adjacent);
+            cells.push_back(cell);
+            return true;
+        });
+    REQUIRE(built == 0);
+    REQUIRE(cells == std::vector<glm::ivec3>{{0, 0, 0}, {0, 0, 1}});
+    cells.clear();
+    visitOctreeSegment({0, 0, 0}, {1, 0, 0}, makeWalk,
+        [&](const auto& cell, bool adjacent) {
+            REQUIRE(adjacent);
+            cells.push_back(cell);
+            return false;
+        });
+    REQUIRE(built == 0);
+    REQUIRE(cells.size() == 1);
+    cells.clear();
+    visitOctreeSegment({0, 0, 0}, {2, 0, 0}, makeWalk,
+        [&](const auto& cell, bool adjacent) {
+            REQUIRE(!adjacent);
+            cells.push_back(cell);
+            return cells.size() < 2;
+        });
+    REQUIRE(built == 1);
+    REQUIRE(cells == std::vector<glm::ivec3>{{0, 0, 0}, {1, 0, 0}});
+}

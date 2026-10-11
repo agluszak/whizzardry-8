@@ -13,6 +13,7 @@ class W8Monster;
 class W8Prop;
 struct W8World;
 class srScene;
+struct srBoundingBox;
 class srNode;
 class srModelInstance;
 class srLight;
@@ -73,9 +74,9 @@ void SortFrustumCorners(srVector3T<float>* points);
    region volume's frustum: true when a bounds corner satisfies all six
    planes or a volume corner lands inside the bounds. */
 bool BoundsInsideFrustum(const W8OctRegionVolume* volume, const W8BoundingBox* bounds);
-char TraceLineOfSightToBounds(const srVector3T<float>* origin, const srBoundingBox& bounds);
-bool HasLineOfSightToBounds(const srVector3T<float>* origin, const srBoundingBox& bounds);
-unsigned char ShowTargetMarker(const srVector3T<float>* eye, const srBoundingBox& bounds); /* 0x0046F820 */
+bool traceLineOfSightToBounds(const glm::vec3& origin, const srBoundingBox& bounds);
+bool hasLineOfSightToBounds(const glm::vec3& origin, const srBoundingBox& bounds);
+bool targetMarkerVisible(const glm::vec3& eye, const srBoundingBox& bounds); /* 0x0046F820 */
 
 void WorldUpdateLights(W8World* world);
 float WorldGetRenderRange(W8World* world);

@@ -1,3 +1,4 @@
+#include "wiz8/octree_walk.h"
 #include <fmt/format.h>
 #include <SDL3/SDL_filesystem.h>
 #include <glm/ext/quaternion_trigonometric.hpp>
@@ -1955,7 +1956,6 @@ bool W8Octree::HasLineOfSight(const srVector3T<float>* from, srVector3T<float>* 
     glm::ivec3 cell;
     glm::ivec3 end_cell;
     unsigned char blocked = 0;
-    int span;
 
     W8OctreeTrace trace(from, to);
 
@@ -1964,22 +1964,14 @@ bool W8Octree::HasLineOfSight(const srVector3T<float>* from, srVector3T<float>* 
     std::ranges::fill(m_current_regions, false);
     cell = cellAt(from->glmValue());
     end_cell = cellAt(to->glmValue());
-    span = abs(cell.z - end_cell.z) + abs(cell.y - end_cell.y) + abs(cell.x - end_cell.x);
 
-    if (span < 2) {
-        ProbeCellForBlockers(cell);
-        blocked = TestProbeResult(&trace);
-        if (blocked == 0 && span != 0) {
-            ProbeCellForBlockers(end_cell);
-            blocked = TestProbeResult(&trace);
-        }
-    } else {
-        cellWalk(from->glmValue(), to->glmValue()).visitCells([&](const glm::ivec3& current) {
-            if (ProbeCellForBlockers(current) != 0)
+    visitOctreeSegment(cell, end_cell,
+        [&] { return cellWalk(from->glmValue(), to->glmValue()); },
+        [&](const glm::ivec3& current, bool adjacent) {
+            if (ProbeCellForBlockers(current) != 0 || adjacent)
                 blocked = TestProbeResult(&trace);
             return blocked == 0;
         });
-    }
     if (blocked != 0) {
         *to = trace.end;
     } else if (allow_fallback && TraceAgainstProps(from, to, 1, 1) != 0) {
@@ -1997,7 +1989,6 @@ short W8Octree::TraceLineOfSight(const srVector3T<float>* from, srVector3T<float
     glm::ivec3 end_cell;
 
     bool blocked = false;
-    int span;
     int result;
 
     W8OctreeTrace trace(from, to);
@@ -2008,26 +1999,15 @@ short W8Octree::TraceLineOfSight(const srVector3T<float>* from, srVector3T<float
         std::ranges::fill(m_visited_object_bits, false);
         cell = cellAt(from->glmValue());
         end_cell = cellAt(to->glmValue());
-        span = abs(cell.z - end_cell.z) + abs(cell.y - end_cell.y) + abs(cell.x - end_cell.x);
 
-        if (span < 2) {
-            ProbeCellForTrace(cell);
-            blocked = g_octree_game_data->TestTraceResult(m_gd_result_count, m_aulGDObjs, &trace,
-                                                          m_trace_skip_flag, 0);
-
-            if (!blocked && span != 0) {
-                ProbeCellForTrace(end_cell);
-                blocked = g_octree_game_data->TestTraceResult(m_gd_result_count, m_aulGDObjs,
-                                                              &trace, m_trace_skip_flag, 0);
-            }
-        } else {
-            cellWalk(from->glmValue(), to->glmValue()).visitCells([&](const glm::ivec3& current) {
-                if (ProbeCellForTrace(current) != 0)
+        visitOctreeSegment(cell, end_cell,
+            [&] { return cellWalk(from->glmValue(), to->glmValue()); },
+            [&](const glm::ivec3& current, bool adjacent) {
+                if (ProbeCellForTrace(current) != 0 || adjacent)
                     blocked = g_octree_game_data->TestTraceResult(
                         m_gd_result_count, m_aulGDObjs, &trace, m_trace_skip_flag, 0);
                 return !blocked;
             });
-        }
         if (!trace_world || TraceAgainstProps(from, &trace.end, 0, 0) == 0) {
             if (!blocked) {
                 goto resolve;
@@ -2373,7 +2353,6 @@ int W8Octree::TraceAgainstProps(const srVector3T<float>* from, srVector3T<float>
 {
     glm::ivec3 cell;
     glm::ivec3 end_cell;
-    int span;
 
     W8OctreeTrace trace(from, to);
     g_octree_state = m_aulGDObjs;
@@ -2381,21 +2360,13 @@ int W8Octree::TraceAgainstProps(const srVector3T<float>* from, srVector3T<float>
     std::ranges::fill(m_visited_object_bits, false);
     cell = cellAt(from->glmValue());
     end_cell = cellAt(to->glmValue());
-    span = abs(cell.z - end_cell.z) + abs(cell.y - end_cell.y) + abs(cell.x - end_cell.x);
-    if (span < 2) {
-        g_octree_state = m_aulGDObjs;
-        CollectObjectsInCell(cell, W8_OCTREE_KIND_PROP);
-        if (span != 0) {
-            g_octree_state = m_aulGDObjs;
-            CollectObjectsInCell(end_cell, W8_OCTREE_KIND_PROP);
-        }
-    } else {
-        cellWalk(from->glmValue(), to->glmValue()).visitCells([&](const glm::ivec3& current) {
+    visitOctreeSegment(cell, end_cell,
+        [&] { return cellWalk(from->glmValue(), to->glmValue()); },
+        [&](const glm::ivec3& current, bool) {
             g_octree_state = m_aulGDObjs;
             CollectObjectsInCell(current, W8_OCTREE_KIND_PROP);
             return true;
         });
-    }
     current_prop = g_octree_game_data->TestPropSurfaces(m_gd_result_count, m_aulGDObjs, &trace,
                                                         skip_flag, gate);
     if (current_prop < 0) {

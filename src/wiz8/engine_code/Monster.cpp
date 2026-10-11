@@ -2574,7 +2574,7 @@ bool W8Monster::IsVisibleToPlayer(bool use_bounds)
     srVector3T<float> player_position = cameraLocation();
     if (use_bounds) {
         const auto bounds = MonsterGetWorldAnimationBounds(this);
-        return bounds && HasLineOfSightToBounds(&player_position, *bounds);
+        return bounds && hasLineOfSightToBounds(player_position.glmValue(), *bounds);
     }
 
     srVector3T<float> monster_position = movement.position;

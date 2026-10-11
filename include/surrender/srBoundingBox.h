@@ -2,6 +2,7 @@
 
 #include "srMath.h"
 #include <span>
+#include <array>
 
 struct srBoundingBox {
     glm::vec3 minimum{0};
@@ -44,15 +45,25 @@ struct srBoundingBox {
         return (minimum + maximum) * 0.5f;
     }
 
+    glm::vec3 corner(unsigned index) const
+    {
+        return glm::mix(minimum, maximum, glm::bvec3(index & 4, index & 2, index & 1));
+    }
+
+    // Visibility probes test the midpoint first, then these ordered corners.
+    std::array<glm::vec3, 9> visibilitySamples() const
+    {
+        return {center(), corner(7), corner(0), corner(3), corner(2),
+                corner(6), corner(5), corner(1), corner(4)};
+    }
+
     template<class TransformPoint>
     srBoundingBox transformedBy(TransformPoint transform) const
     {
         const glm::vec3 first = transform(minimum);
         srBoundingBox result{first, first};
         for (unsigned corner = 1; corner < 8; ++corner) {
-            const auto point =
-                glm::mix(minimum, maximum, glm::bvec3(corner & 4, corner & 2, corner & 1));
-            result.include(transform(point));
+            result.include(transform(this->corner(corner)));
         }
         return result;
     }

@@ -1,3 +1,4 @@
+#include "surrender/srBoundingBox.h"
 #include <tuple>
 #include "himage.h"
 #include "surrender/srScene.h" // IWYU pragma: keep - complete scene type for conversion to srNode.
@@ -6606,7 +6607,7 @@ void SetCombatSelection(int value)
         camera = cameraLocation();
         monster = GetMonsterByLocationID(value);
         const auto bounds = MonsterGetWorldAnimationBounds(monster);
-        if (bounds && TraceLineOfSightToBounds(&camera, *bounds) != 0) {
+        if (bounds && traceLineOfSightToBounds(camera.glmValue(), *bounds) != 0) {
             g_level_block->highlighted_item = value;
             g_level_block->target_highlight_ok[0] =
                 HighlightMonsterAsTarget(value, g_status.selected_character, 1);
@@ -6652,7 +6653,7 @@ void SetCombatTarget(int value)
             if (item != 0) {
                 if (const auto bounds = GetItemWorldBounds(item->p3D)) {
                     const srVector3T<float> camera(cameraLocation());
-                    if (TraceLineOfSightToBounds(&camera, *bounds) != 0) {
+                    if (traceLineOfSightToBounds(camera.glmValue(), *bounds) != 0) {
                         g_level_block->selected_item = value;
                         SetWorldItemHighlight(value, true);
                     }

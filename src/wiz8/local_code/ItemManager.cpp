@@ -1,3 +1,4 @@
+#include "surrender/srBoundingBox.h"
 #include <fmt/format.h>
 #include <glm/gtx/rotate_vector.hpp>
 #include <SDL3/SDL_filesystem.h>
@@ -1031,7 +1032,7 @@ bool IsWorldItemWithinReach(W8Item* owner, const srVector3T<float>* from, float 
         auto bounds = owner->GetCachedLocalBounds();
         bounds.minimum += position.glmValue();
         bounds.maximum += position.glmValue();
-        if (ShowTargetMarker(&eye, bounds)) {
+        if (targetMarkerVisible(eye.glmValue(), bounds)) {
             return true;
         }
     }
@@ -1054,7 +1055,7 @@ static bool IsWorldItemMarkerVisible(W8WorldItem* item, const srVector3T<float>&
             auto bounds = item->p3D->GetCachedLocalBounds();
             bounds.minimum += position.glmValue();
             bounds.maximum += position.glmValue();
-            return ShowTargetMarker(&eye, bounds) != 0;
+            return targetMarkerVisible(eye.glmValue(), bounds) != 0;
         }
     }
     return false;

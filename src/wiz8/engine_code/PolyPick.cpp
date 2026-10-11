@@ -107,8 +107,8 @@ bool PointInsideBounds(const srVector3T<float>* point, const srVector3T<float>* 
 /* Project one world point through the active world's camera and report
    whether it stays in front of it. */
 // FUNCTION: WIZ8 0x004BE940
-unsigned char ProjectPointThroughCamera(const srVector3T<float>* position)
+bool projectsToCamera(const glm::vec3& position)
 {
-    return g_world->camera->project(glm::dvec3(position->glmValue())).result ==
+    return g_world->camera->project(glm::dvec3(position)).result ==
            srCamera::PROJECTION_RESULT_ACCEPTED;
 }

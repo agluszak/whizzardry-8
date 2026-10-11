@@ -252,53 +252,40 @@ void SetWorldMeshVertexLightTable(W8World* world, int table)
     }
 }
 
-static std::array<srVector3T<float>, 9> boundsProbePoints(const srBoundingBox& bounds)
-{
-    const auto& [lower, upper] = bounds;
-    return {bounds.center(), upper, lower,
-            srVector3T<float>(lower.x, upper.y, upper.z),
-            srVector3T<float>(lower.x, upper.y, lower.z),
-            srVector3T<float>(upper.x, upper.y, lower.z),
-            srVector3T<float>(upper.x, lower.y, upper.z),
-            srVector3T<float>(lower.x, lower.y, upper.z),
-            srVector3T<float>(upper.x, lower.y, lower.z)};
-}
-
-/* True when the camera projects the AABB midpoint or any of its eight corners
-   and the octree has line of sight from eye to that point. */
+/* Visibility queries share midpoint/corner generation and retain early-exit order. */
 // FUNCTION: WIZ8 0x0046F820
-unsigned char ShowTargetMarker(const srVector3T<float>* eye, const srBoundingBox& bounds)
+bool targetMarkerVisible(const glm::vec3& eye, const srBoundingBox& bounds)
 {
-    for (auto point : boundsProbePoints(bounds)) {
-        if (ProjectPointThroughCamera(&point) != 0 && g_octree->HasLineOfSight(eye, &point, true))
-            return 1;
-    }
-    return 0;
-}
-
-/* The world-trace variant of HasLineOfSightToBounds: same midpoint and
-   eight-corner probe, but through TraceLineOfSight, which reports a clear
-   trace as zero. */
-// FUNCTION: WIZ8 0x0046FAF0
-char TraceLineOfSightToBounds(const srVector3T<float>* origin, const srBoundingBox& bounds)
-{
-    for (auto point : boundsProbePoints(bounds)) {
-        if (g_octree->TraceLineOfSight(origin, &point, true, -3, -3, true, 0) == 0)
-            return 1;
-    }
-    return 0;
-}
-
-// FUNCTION: WIZ8 0x0046FD70
-bool HasLineOfSightToBounds(const srVector3T<float>* origin, const srBoundingBox& bounds)
-{
-    for (auto point : boundsProbePoints(bounds)) {
-        if (g_octree->HasLineOfSight(origin, &point, true))
-            return true;
+    const srVector3 from(eye);
+    for (const auto& sample : bounds.visibilitySamples()) {
+        if (!projectsToCamera(sample)) continue;
+        srVector3 point(sample);
+        if (g_octree->HasLineOfSight(&from, &point, true)) return true;
     }
     return false;
 }
 
+// FUNCTION: WIZ8 0x0046FAF0
+bool traceLineOfSightToBounds(const glm::vec3& origin, const srBoundingBox& bounds)
+{
+    const srVector3 from(origin);
+    for (const auto& sample : bounds.visibilitySamples()) {
+        srVector3 point(sample);
+        if (g_octree->TraceLineOfSight(&from, &point, true, -3, -3, true, 0) == 0) return true;
+    }
+    return false;
+}
+
+// FUNCTION: WIZ8 0x0046FD70
+bool hasLineOfSightToBounds(const glm::vec3& origin, const srBoundingBox& bounds)
+{
+    const srVector3 from(origin);
+    for (const auto& sample : bounds.visibilitySamples()) {
+        srVector3 point(sample);
+        if (g_octree->HasLineOfSight(&from, &point, true)) return true;
+    }
+    return false;
+}
 
 /* Build the concrete first-party instance used for an already-created mesh. */
 // FUNCTION: WIZ8 0x0046F5C0

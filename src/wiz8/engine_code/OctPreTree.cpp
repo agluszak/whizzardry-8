@@ -138,31 +138,23 @@ bool OctPreTree::SegmentClear(const srVector3T<float>* from, const srVector3T<fl
     W8OctreeTrace trace;
     const auto cell = cellAt(from->glmValue());
     const auto end_cell = cellAt(to->glmValue());
-    const auto difference = glm::abs(cell - end_cell);
-    const int span = difference.x + difference.y + difference.z;
     bool blocked = false;
 
     trace.Seed(from, to);
     m_gd_result_count = 0;
     std::ranges::fill(m_visited_polygon_bits, false);
-    if (span < 2) {
-        CollectLeafPolygons(cell);
-        blocked = TestCollectedPolygons(&trace);
-        if (!blocked && span != 0) {
-            CollectLeafPolygons(end_cell);
-            blocked = TestCollectedPolygons(&trace);
-        }
-    } else {
-        auto walk = cellWalk(from->glmValue(), to->glmValue());
-        // Preprocessing starts at the world-quantized cell, which can differ
-        // from the fixed-point cursor near a cell boundary.
-        walk.cell = cell;
-        walk.visitCells([&](const glm::ivec3& current) {
+    visitOctreeSegment(cell, end_cell,
+        [&] {
+            auto walk = cellWalk(from->glmValue(), to->glmValue());
+            // Preprocessing uses its world-quantized starting cell.
+            walk.cell = cell;
+            return walk;
+        },
+        [&](const glm::ivec3& current, bool adjacent) {
             CollectLeafPolygons(current);
-            if (m_gd_result_count != 0) blocked = TestCollectedPolygons(&trace);
+            if (m_gd_result_count != 0 || adjacent) blocked = TestCollectedPolygons(&trace);
             return !blocked;
         });
-    }
     return !blocked;
 }
 
