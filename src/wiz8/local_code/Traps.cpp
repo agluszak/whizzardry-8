@@ -1,4 +1,5 @@
 #include <fmt/format.h>
+#include <bit>
 #include <vector>
 #include <cctype>
 #include <cstdint>
@@ -98,14 +99,12 @@ void WriteRecordModeEntry(void)
         line = fmt::format(
             "{:f} {:f} {:f} {:f} {:f} {:d}\n", state.pitch[0], state.pitch[1], state.pitch[2],
             state.pitch[3],
-            state.pitch[4], // reinterpret-ok: raw low byte of the angle record's trailing slot
-            *reinterpret_cast<unsigned int*>(&state.pitch[5]) & 0xff);
+            state.pitch[4], std::bit_cast<std::uint32_t>(state.pitch[5]) & 0xffu);
         file->write(line.data(), line.size());
         line = fmt::format(
             "{:f} {:f} {:f} {:f} {:f} {:d}\n", state.yaw[0], state.yaw[1], state.yaw[2],
             state.yaw[3],
-            state.yaw[4], // reinterpret-ok: raw low byte of the angle record's trailing slot
-            *reinterpret_cast<unsigned int*>(&state.yaw[5]) & 0xff);
+            state.yaw[4], std::bit_cast<std::uint32_t>(state.yaw[5]) & 0xffu);
         file->write(line.data(), line.size());
         if (GetLevelLocationCode(g_status.current_level, location_code) == 0) {
             strcpy(location_code, s_record_mode_default_location);
