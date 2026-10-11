@@ -544,6 +544,76 @@ void owned_region_move_and_teardown()
     REQUIRE(g_captured_region_index == 0);
     REQUIRE(g_hover_region_index == 0);
 }
+
+void owned_region_set_templates_and_teardown()
+{
+    RegionStateSnapshot saved_state;
+    ResetRegions();
+
+    constexpr std::array<RegionTemplate, 3> templates{{
+        {W8_REGION_RECTANGLE, 10, 10, 30, 30, record_region_event, 11, true, 101},
+        {W8_REGION_RECTANGLE, 40, 10, 60, 30, record_region_event, 12, false, -1},
+        {W8_REGION_RECTANGLE, 70, 10, 90, 30, record_region_event, 13, true, 103},
+    }};
+
+    const auto baseline_region_count = LiveDynamicRegionCount();
+    unsigned int released_set_index;
+    {
+        std::optional<OwnedRegionSet> regions;
+        regions.emplace(templates);
+        released_set_index = regions->set();
+        REQUIRE(regions->size() == templates.size());
+        REQUIRE(g_region_sets[regions->set()].Regions().size() == templates.size());
+
+        for (std::size_t index = 0; index < templates.size(); ++index) {
+            const auto& region = (*regions)[index];
+            const auto& entry = templates[index];
+            REQUIRE(region.flags == entry.flags);
+            REQUIRE(region.x1 == entry.x1);
+            REQUIRE(region.y1 == entry.y1);
+            REQUIRE(region.x2 == entry.x2);
+            REQUIRE(region.y2 == entry.y2);
+            REQUIRE(region.callback == entry.callback);
+            REQUIRE(region.callback_id == entry.callback_id);
+            REQUIRE(region.help_enabled == entry.help_enabled);
+            REQUIRE(region.help_text_id == entry.help_text_id);
+            REQUIRE(regions->index(index) < g_regions.size());
+        }
+
+        std::optional<ExclusiveRegionSet> scope;
+        scope.emplace(regions->set());
+        regions->Enable();
+        region_events.clear();
+        dispatch_mouse(LEFT_BUTTON_DOWN, 45, 15, true);
+        REQUIRE(g_captured_region_index == regions->index(1));
+        REQUIRE(std::find(region_events.begin(), region_events.end(),
+                          std::pair<int, int>{12, LEFT_BUTTON_DOWN}) != region_events.end());
+        dispatch_mouse(LEFT_BUTTON_UP, 45, 15);
+
+        regions->Disable();
+        region_events.clear();
+        dispatch_mouse(LEFT_BUTTON_DOWN, 45, 15, true);
+        REQUIRE(region_events.empty());
+
+        regions->Enable();
+        UpdateRegionMousePosition(45, 15);
+        REQUIRE(g_hover_region_index == regions->index(1));
+        dispatch_mouse(LEFT_BUTTON_DOWN, 45, 15, true);
+        REQUIRE(g_captured_region_index == regions->index(1));
+        regions.reset();
+        REQUIRE(g_hover_region_index == 0);
+        REQUIRE(g_captured_region_index == 0);
+        scope.reset();
+    }
+
+    REQUIRE(LiveDynamicRegionCount() == baseline_region_count);
+    {
+        OwnedRegionSet reused_set(templates);
+        REQUIRE(reused_set.set() == released_set_index);
+    }
+    REQUIRE(LiveDynamicRegionCount() == baseline_region_count);
+}
+
 void region_registration_and_callback_lifetimes()
 {
     const auto set = new_test_region_set();
@@ -1568,6 +1638,11 @@ TEST_CASE("Owned regions use SDL click counts", "[owner]")
         const auto up = mouse_atom(LEFT_BUTTON_UP, 10, 10);
         DispatchRegionInput(&up);
     }
+}
+
+TEST_CASE("Owned region sets copy templates and release dynamic slots", "[owner]")
+{
+    owned_region_set_templates_and_teardown();
 }
 
 TEST_CASE("assert-plain", "[.death]")
