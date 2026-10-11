@@ -17,7 +17,6 @@
 #include "vsurface.h"
 #include "Types.h"
 
-BOOLEAN ClipReleatedSrcAndDestRectangles(SGPVSurface&, SGPVSurface&, SDL_Rect*, SDL_Rect*);
 
 
 namespace
@@ -183,13 +182,13 @@ void videoSurfaceClipping()
     auto& source = sourceView->cpu();
     auto& dest = destView->cpu();
     SDL_Rect destination{-2, -1, 6, 5}, sample{1, 1, 6, 5};
-    REQUIRE(ClipReleatedSrcAndDestRectangles(*destView, *sourceView, &destination, &sample));
+    REQUIRE(ClipCpuBlit(destination, sample, {0, 0, 8, 7}, {0, 0, 8, 7}));
     const SDL_Rect expectedDest{0, 0, 4, 4}, expectedSource{3, 2, 4, 4};
     REQUIRE(SDL_RectsEqual(&destination, &expectedDest));
     REQUIRE(SDL_RectsEqual(&sample, &expectedSource));
     destination = {1, 1, 6, 5};
     sample = {-2, -1, 6, 5};
-    REQUIRE(ClipReleatedSrcAndDestRectangles(*destView, *sourceView, &destination, &sample));
+    REQUIRE(ClipCpuBlit(destination, sample, {0, 0, 8, 7}, {0, 0, 8, 7}));
     REQUIRE(SDL_RectsEqual(&destination, &expectedSource));
     REQUIRE(SDL_RectsEqual(&sample, &expectedDest));
     SDL_Rect clips[]{{2, 1, 3, 2}};

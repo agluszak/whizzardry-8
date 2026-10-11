@@ -25,12 +25,6 @@ extern void GetClippingRect(SDL_Rect* clip);
 // Defines
 // LOCAL functions
 
-BOOLEAN ClipReleatedSrcAndDestRectangles(SGPVSurface& hDestVSurface, SGPVSurface& hSrcVSurface,
-                                         SDL_Rect* DestRect, SDL_Rect* SrcRect);
-BOOLEAN FillSurface(SGPVSurface& hDestVSurface, blt_vs_fx* pBltFx);
-BOOLEAN FillSurfaceRect(SGPVSurface& hDestVSurface, blt_vs_fx* pBltFx);
-BOOLEAN BltVSurfaceUsingSDL(SGPVSurface& hDestVSurface, SGPVSurface& hSrcVSurface, UINT32 fBltFlags,
-                           INT32 iDestX, INT32 iDestY, SDL_Rect* SrcRect);
 static BOOLEAN SetVideoSurfacePalette(SGPVSurface& surface, const Palette8& colors);
 
 // Fills an rectangular area with a specified color value.
@@ -49,7 +43,8 @@ BOOLEAN ColorFillVideoSurfaceArea(SGPVSurface& uiDestVSurface, INT32 iDestX1, IN
     if (!SDL_GetRectIntersection(&BltFx.FillRect, &Clip, &BltFx.FillRect))
         return FALSE;
     BltFx.ColorFill = Color16BPP;
-    return FillSurfaceRect(hDestVSurface, &BltFx);
+    FillCpuSurface(hDestVSurface.cpu(), BltFx.ColorFill, &BltFx.FillRect);
+    return TRUE;
 }
 // Fills an rectangular area with a specified image value.
 
@@ -196,12 +191,16 @@ BOOLEAN BltVideoSurfaceToVideoSurface(SGPVSurface& hDestVSurface, SGPVSurface& h
 
     // Check for fill, if true, fill entire region with color
     if (fBltFlags & VS_BLT_COLORFILL) {
-        return (FillSurface(hDestVSurface, pBltFx));
+        CHECKF(pBltFx);
+        FillCpuSurface(hDestVSurface.cpu(), pBltFx->ColorFill);
+        return TRUE;
     }
 
     // Check for colorfill rectangle
     if (fBltFlags & VS_BLT_COLORFILLRECT) {
-        return (FillSurfaceRect(hDestVSurface, pBltFx));
+        CHECKF(pBltFx);
+        FillCpuSurface(hDestVSurface.cpu(), pBltFx->ColorFill, &pBltFx->FillRect);
+        return TRUE;
     }
 
 
@@ -238,51 +237,20 @@ BOOLEAN BltVideoSurfaceToVideoSurface(SGPVSurface& hDestVSurface, SGPVSurface& h
                              iDestX, iDestY, SrcRect.x, SrcRect.y, SrcRect.w, SrcRect.h);
         return TRUE;
     }
-    return BltVSurfaceUsingSDL(hDestVSurface, hSrcVSurface, fBltFlags, iDestX, iDestY, &SrcRect);
-}
-
-// UTILITY FUNCTIONS FOR BLITTING
-
-// Clip an unscaled blit while keeping source and destination pixels aligned.
-BOOLEAN ClipReleatedSrcAndDestRectangles(SGPVSurface& hDestVSurface, SGPVSurface& hSrcVSurface,
-                                         SDL_Rect* DestRect, SDL_Rect* SrcRect)
-{
-
-    return ClipCpuBlit(*DestRect, *SrcRect,
-                       {0, 0, hDestVSurface.usWidth, hDestVSurface.usHeight},
-                       {0, 0, hSrcVSurface.usWidth, hSrcVSurface.usHeight});
-}
-
-BOOLEAN FillSurface(SGPVSurface& hDestVSurface, blt_vs_fx* pBltFx)
-{
-    CHECKF(pBltFx);
-    FillCpuSurface(hDestVSurface.cpu(), pBltFx->ColorFill);
-    return TRUE;
-}
-
-BOOLEAN FillSurfaceRect(SGPVSurface& hDestVSurface, blt_vs_fx* pBltFx)
-{
-    CHECKF(pBltFx);
-    FillCpuSurface(hDestVSurface.cpu(), pBltFx->ColorFill, &pBltFx->FillRect);
-    return TRUE;
-}
-
-BOOLEAN BltVSurfaceUsingSDL(SGPVSurface& hDestVSurface, SGPVSurface& hSrcVSurface, UINT32 fBltFlags,
-                           INT32 iDestX, INT32 iDestY, SDL_Rect* SrcRect)
-{
-    SDL_Rect destination{iDestX, iDestY, SrcRect->w, SrcRect->h};
+    SDL_Rect clippedDestination = destination;
     if (fBltFlags & VS_BLT_FAST) {
         CHECKF(iDestX >= 0 && iDestY >= 0);
         CHECKF(!hDestVSurface.cpu().clipRegions);
         CHECKF((destination.x + destination.w) <= hDestVSurface.usWidth &&
                (destination.y + destination.h) <= hDestVSurface.usHeight);
-    } else if (!ClipReleatedSrcAndDestRectangles(hDestVSurface, hSrcVSurface,
-                                               &destination, SrcRect)) {
+    } else if (!ClipCpuBlit(clippedDestination, SrcRect,
+                            {0, 0, hDestVSurface.usWidth, hDestVSurface.usHeight},
+                            {0, 0, hSrcVSurface.usWidth, hSrcVSurface.usHeight})) {
         return TRUE;
     }
-    if (destination.w == 0 || destination.h == 0)
+    if (clippedDestination.w == 0 || clippedDestination.h == 0)
         return TRUE;
-    BlitCpuSurface(hDestVSurface.cpu(), &destination, hSrcVSurface.cpu(), SrcRect,
+    BlitCpuSurface(hDestVSurface.cpu(), &clippedDestination, hSrcVSurface.cpu(), &SrcRect,
                    fBltFlags & VS_BLT_USECOLORKEY, fBltFlags & VS_BLT_USEDESTCOLORKEY);
     return TRUE;
 }
