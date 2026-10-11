@@ -181,36 +181,17 @@ bool OctPreTree::TestCollectedPolygons(W8OctreeTrace* trace)
         }
         W8OctRegionPolygon* polygon = &game_data->m_polygons[m_aulGDObjs[index]];
         const W8Plane* plane = &polygon->plane;
-        if (plane->normal.x * trace->step.x + trace->step.y * plane->normal.y +
-                trace->step.z * plane->normal.z <=
-            g_float_zero) {
-            float front = SignedPlaneDistance(*plane, trace->start);
-            if (front <= limit && g_float_zero < front) {
-                srVector3T<float> contact;
-                if (g_float_one <= front) {
-                    float back = SignedPlaneDistance(*plane, trace->end);
-                    if (g_float_five <= back) {
-                        continue;
-                    }
-                    back = -back;
-                    if (back < g_float_five) {
-                        continue;
-                    }
-                    front = front / (back + front) * trace->length;
-                    contact.Set(trace->step.x * front + trace->start.x,
-                                trace->step.y * front + trace->start.y,
-                                trace->step.z * front + trace->start.z);
-                } else {
-                    contact = trace->start;
-                }
-                srVector3T<float> vertices[3];
-                vertices[0] = polygon->vertices[0]->position;
-                vertices[1] = polygon->vertices[1]->position;
-                vertices[2] = polygon->vertices[2]->position;
-                if (PointInsideTriangle(vertices, polygon->flags & W8OctRegionPolygon::AXIS_MASK,
-                                        &contact)) {
-                    blocked = true;
-                }
+        const auto contact = planeContact(glm::vec4(plane->normal.glmValue(), plane->w),
+            {trace->start.glmValue(), trace->end.glmValue(), trace->step.glmValue(),
+             trace->length, limit}, PlaneContactMode::Occlusion);
+        if (contact) {
+            srVector3T<float> vertices[3];
+            vertices[0] = polygon->vertices[0]->position;
+            vertices[1] = polygon->vertices[1]->position;
+            vertices[2] = polygon->vertices[2]->position;
+            if (PointInsideTriangle(vertices, polygon->flags & W8OctRegionPolygon::AXIS_MASK,
+                                    contact->point)) {
+                blocked = true;
             }
         }
     }

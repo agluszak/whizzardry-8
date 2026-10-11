@@ -774,10 +774,14 @@ void W8Octree::BuildFrustumPlanes()
         (&view.frustum_planes[5].normal.x)[axis] = -dof;
         view.frustum_planes[5].w -= -dof * (&corners[4].x)[axis];
     }
-    BuildPlaneFromPoints(&view.frustum_planes[0], &corners[0], &corners[5], &corners[4]);
-    BuildPlaneFromPoints(&view.frustum_planes[1], &corners[0], &corners[4], &corners[6]);
-    BuildPlaneFromPoints(&view.frustum_planes[2], &corners[0], &corners[7], &corners[5]);
-    BuildPlaneFromPoints(&view.frustum_planes[3], &corners[0], &corners[6], &corners[7]);
+    view.frustum_planes[0] = trianglePlane(corners[0].glmValue(),
+        corners[5].glmValue(), corners[4].glmValue());
+    view.frustum_planes[1] = trianglePlane(corners[0].glmValue(),
+        corners[4].glmValue(), corners[6].glmValue());
+    view.frustum_planes[2] = trianglePlane(corners[0].glmValue(),
+        corners[7].glmValue(), corners[5].glmValue());
+    view.frustum_planes[3] = trianglePlane(corners[0].glmValue(),
+        corners[6].glmValue(), corners[7].glmValue());
     for (int index = 0; index < 6; ++index) {
         view.frustum_planes[index].w += m_spatial.m_region_grid_cell;
     }
@@ -2481,7 +2485,7 @@ int W8Octree::ProbeCellForBlockersAppend(const glm::ivec3& cell)
 unsigned char W8Octree::TestProbeResult(W8OctreeTrace* trace)
 {
     bool hit = false;
-    srVector3T<float> contact;
+    srVector3T<float> best_contact;
 
     for (unsigned int index = 0; index < m_gd_result_count; ++index) {
         unsigned int mesh_index = m_aulGDObjs[index] >> 0x10;
@@ -2492,64 +2496,28 @@ unsigned char W8Octree::TestProbeResult(W8OctreeTrace* trace)
             const glm::vec4* planes = model->getPolyEq();
             unsigned int polygon = m_aulGDObjs[index] & 0xffff;
             const glm::vec4* plane = planes + polygon;
-            float t;
-            float distance;
-            srVector3T<float> point;
-            if (plane->x * trace->step.x + trace->step.y * plane->y + trace->step.z * plane->z <=
-                    g_float_zero &&
-                (distance = plane->y * trace->start.y + plane->x * trace->start.x +
-                            plane->z * trace->start.z + plane->w,
-                 distance <= trace->hit_limit) &&
-                g_float_zero < distance) {
-                if (g_float_one <= distance) {
-                    float back = plane->x * trace->end.x + trace->end.y * plane->y +
-                                 trace->end.z * plane->z + plane->w;
-                    if (g_float_one <= back) {
-                        continue;
-                    }
-                    back = -back;
-                    if (g_float_one <= back || trace->hit_limit < trace->length) {
-                        t = (distance / (back + distance)) * trace->length;
-                        point.x = trace->step.x * t;
-                        point.y = trace->step.y * t;
-                        point.x += trace->start.x;
-                        point.y += trace->start.y;
-                        point.z = t * trace->step.z + trace->start.z;
-                    } else {
-                        point = trace->end;
-                        t = trace->length;
-                    }
-                } else {
-                    point = trace->start;
-                    t = 0.0f;
-                }
-                float abs_x = fabsf(plane->x);
-                float abs_y = fabsf(plane->y);
-                float widest = abs_x;
-                int axis = 0;
-                if (abs_x < abs_y) {
-                    widest = abs_y;
-                    axis = 1;
-                }
-                if (widest < fabsf(plane->z)) {
-                    axis = 2;
-                }
+            const auto contact = planeContact(*plane,
+                {trace->start.glmValue(), trace->end.glmValue(), trace->step.glmValue(),
+                 trace->length, trace->hit_limit}, PlaneContactMode::Collision);
+            if (contact) {
+                const auto axis = dominantPlaneAxis(glm::vec3(*plane));
                 const srVector3i* poly_vertex = model->getPolyVertex() + polygon;
                 const srVector3T<float>* vertices = model->getVertexLoc();
                 srVector3T<float> triangle[3];
                 triangle[0] = vertices[poly_vertex->x];
                 triangle[1] = vertices[poly_vertex->y];
                 triangle[2] = vertices[poly_vertex->z];
-                if (PointInsideTriangle(triangle, axis, &point) && t < trace->hit_limit) {
-                    trace->hit_limit = t;
+                if (PointInsideTriangle(triangle, axis, contact->point) &&
+                    contact->distance < trace->hit_limit) {
+                    trace->hit_limit = contact->distance;
                     hit = true;
-                    contact = point;
+                    best_contact = contact->point;
                 }
             }
         }
     }
     if (hit) {
-        trace->end = contact;
+        trace->end = best_contact;
     }
     return hit;
 }

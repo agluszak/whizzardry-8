@@ -715,21 +715,12 @@ unsigned char InitializeGameData(W8GameData* game_data)
 // FUNCTION: WIZ8 0x004498c0
 void ClassifySurfacePlane(const srVector3T<float>* vertices, W8GDSurface* surface)
 {
-    BuildTrianglePlane(&surface->plane, &vertices[surface->vertex_indices[0]],
-                       &vertices[surface->vertex_indices[1]],
-                       &vertices[surface->vertex_indices[2]]);
+    surface->plane = trianglePlane(vertices[surface->vertex_indices[0]].glmValue(),
+        vertices[surface->vertex_indices[1]].glmValue(), vertices[surface->vertex_indices[2]].glmValue());
 
     unsigned int flags = surface->flags;
     if ((flags & W8_GD_SURFACE_CROSSING) != 0) {
-        float largest = g_float_zero;
-        unsigned int dominant_axis = 0;
-        for (int axis = 0; axis < 3; ++axis) {
-            float magnitude = static_cast<float>(fabs((&surface->plane.normal.x)[axis]));
-            if (largest < magnitude) {
-                largest = magnitude;
-                dominant_axis = axis;
-            }
-        }
+        const auto dominant_axis = dominantPlaneAxis(surface->plane.normal.glmValue());
         flags |= dominant_axis;
         surface->flags = flags;
     }
@@ -769,14 +760,7 @@ void ClassifySurfacePlane(const srVector3T<float>* vertices, W8GDSurface* surfac
     surface->flags = flags & ~W8_GD_SURFACE_COLLISION_PROCESSED;
 }
 
-/* Header-visible SetPlaneFromThreePoints. This TU unrolls the three-point
-   copy; 0x0046D660 lowers the same assignments as a component countdown. */
-// FUNCTION: WIZ8 0x00449a40
-void BuildTrianglePlane(W8Plane* plane, const srVector3T<float>* first,
-                        const srVector3T<float>* second, const srVector3T<float>* third)
-{
-    SetPlaneFromThreePoints(plane, first, second, third);
-}
+
 
 /* Release level globals; member owners release the runtime banks. */
 // FUNCTION: WIZ8 0x00449BB0

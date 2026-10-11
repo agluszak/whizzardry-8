@@ -3,6 +3,9 @@
 struct srBoundingBox;
 
 #include <memory>
+#include <array>
+#include <span>
+#include "glm/ext/vector_float3.hpp"
 
 #include "compat/native.h"
 
@@ -52,8 +55,6 @@ void SetSceneMeshShaderLowBits(srNode* node, int argument);
    mark the mesh dirty for rebake (automap lighting uses table 1). */
 void SetWorldMeshVertexLightTable(W8World* world, int table);
 
-void BuildPlaneFromPoints(W8Plane* plane, const srVector3T<float>* first,
-                          const srVector3T<float>* second, const srVector3T<float>* third);
 /* Report whether a point satisfies all six frustum planes. */
 bool PointInsideFrustum(const srVector3T<float>* point, const W8Plane* planes);
 /* Report whether a sphere of `radius` at `point` reaches all six frustum
@@ -61,10 +62,10 @@ bool PointInsideFrustum(const srVector3T<float>* point, const W8Plane* planes);
 bool SphereInsideFrustum(const srVector3T<float>* point, float radius, const W8Plane* planes);
 /* Point-in-triangle test via dominant-axis projection: `axis` selects the two
    planar components used. */
-bool PointInsideTriangle(const srVector3T<float>* vertices, short axis,
-                         const srVector3T<float>* point);
+bool PointInsideTriangle(std::span<const srVector3T<float>, 3> vertices, unsigned axis,
+                         const glm::vec3& point);
 /* Build the six frustum planes from the eight sorted corner points. */
-void BuildFrustumPlanes(const srVector3T<float>* points, W8Plane* planes);
+std::array<W8Plane, 6> BuildFrustumPlanes(std::span<const srVector3T<float>, 8> points);
 /* Order a volume's eight corner points into the canonical (y,z,x)-sorted
    sequence the frustum plane builder expects. */
 void SortFrustumCorners(srVector3T<float>* points);

@@ -1,5 +1,6 @@
 #include "glm/ext/vector_int3.hpp"
 #include "glm/ext/vector_float3.hpp"
+#include "glm/ext/vector_float4.hpp"
 #include "wiz8/octree_walk.h"
 #include "wiz8/engine_code/UpdateMesh.h"
 #include "glm/ext/vector_int2.hpp"
@@ -125,10 +126,10 @@ static void planes_and_segments()
     REQUIRE(surface.height == 2);
     REQUIRE((surface.surface == 0 && surface.material == 0));
     W8Plane plane{};
-    SetPlaneFromThreePoints(&plane, &a, &b, &c);
+    plane = trianglePlane(a.glmValue(), b.glmValue(), c.glmValue());
     REQUIRE(close(plane.normal.glmValue(), {0, 1, 0}));
     REQUIRE(std::abs(SignedPlaneDistance(plane, {5, 4, 7}) - 2) < 1e-5f);
-    SetPlaneFromThreePoints(&plane, &a, &a, &a);
+    plane = trianglePlane(a.glmValue(), a.glmValue(), a.glmValue());
     REQUIRE((plane.normal == srVector3(0, 0, 0) && plane.w == 0));
 
     const glm::vec3 start(0, 0, 0), end(2, 0, 2);
@@ -1321,4 +1322,47 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Empty software backface selections skip 
     const auto before = pipeline->triangle_count;
     model.RenderTriMeshWithEquations(renderer, mesh, normals.data());
     REQUIRE(pipeline->triangle_count == before);
+}
+
+TEST_CASE("Plane contacts retain collision skin and occluder clearance", "[geometry]")
+{
+    const glm::vec4 plane(1, 0, 0, 0);
+    const PlaneSegment crossing{{3, 4, 5}, {-7, 4, 5}, {-1, 0, 0}, 10, 10};
+    for (auto mode : {PlaneContactMode::Collision, PlaneContactMode::Occlusion}) {
+        const auto hit = planeContact(plane, crossing, mode);
+        REQUIRE(hit.has_value());
+        REQUIRE(hit->point == glm::vec3(0, 4, 5));
+        REQUIRE(hit->distance == 3);
+    }
+    const PlaneSegment skin{{3, 4, 5}, {0.5f, 4, 5}, {-1, 0, 0}, 2.5f, 4};
+    const auto endpoint = planeContact(plane, skin, PlaneContactMode::Collision);
+    REQUIRE(endpoint.has_value());
+    REQUIRE(endpoint->point == skin.end);
+    REQUIRE(endpoint->distance == skin.length);
+    REQUIRE_FALSE(planeContact(plane, skin, PlaneContactMode::Occlusion));
+    const PlaneSegment nearer{{1.1f, 0, 0}, {-0.1f, 0, 0}, {-1, 0, 0}, 1.2f, 1.15f};
+    const auto closest = planeContact(plane, nearer, PlaneContactMode::Collision);
+    REQUIRE(closest.has_value());
+    REQUIRE(std::abs(closest->distance - 1.1f) < 1e-6f);
+    auto exit = crossing;
+    exit.end.x = -5;
+    exit.length = 8;
+    REQUIRE(planeContact(plane, exit, PlaneContactMode::Occlusion));
+    exit.end.x = -4.99f;
+    REQUIRE_FALSE(planeContact(plane, exit, PlaneContactMode::Occlusion));
+    auto inside_skin = crossing;
+    inside_skin.start.x = 0.5f;
+    const auto start = planeContact(plane, inside_skin, PlaneContactMode::Collision);
+    REQUIRE(start.has_value());
+    REQUIRE(start->point == inside_skin.start);
+    REQUIRE(start->distance == 0);
+    inside_skin.start.x = 0;
+    REQUIRE_FALSE(planeContact(plane, inside_skin, PlaneContactMode::Collision));
+    REQUIRE_FALSE(planeContact(-plane, crossing, PlaneContactMode::Collision));
+    auto limited = crossing;
+    limited.limit = 2;
+    REQUIRE_FALSE(planeContact(plane, limited, PlaneContactMode::Collision));
+    REQUIRE(dominantPlaneAxis({-2, 2, 2}) == 0);
+    REQUIRE(dominantPlaneAxis({0, -3, 3}) == 1);
+    REQUIRE(dominantPlaneAxis({0, 0, 0}) == 0);
 }

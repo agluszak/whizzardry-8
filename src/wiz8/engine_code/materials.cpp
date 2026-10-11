@@ -1118,7 +1118,6 @@ static int BuildRegionPolygons(W8LevelFile* level, W8OctPreTreeGeometry* geometr
     int ordinal;
     int last_percent;
     w8_ulong axis;
-    float largest;
     float length;
     float offset;
     bool opposing;
@@ -1223,16 +1222,8 @@ static int BuildRegionPolygons(W8LevelFile* level, W8OctPreTreeGeometry* geometr
                              normal.x * current->position.x + offset;
                 }
                 offset *= g_float_negative_one_third;
-                axis = 0;
-                largest = 0.0f;
                 polygon->plane.normal = normal;
-                for (corner = 0; corner < 3; ++corner) {
-                    float component = (&polygon->plane.normal.x)[corner];
-                    if (largest < fabs(component)) {
-                        largest = fabs(component);
-                        axis = corner;
-                    }
-                }
+                axis = dominantPlaneAxis(normal.glmValue());
                 polygon->plane.w = offset;
                 polygon->flags = axis;
                 opposing = false;
