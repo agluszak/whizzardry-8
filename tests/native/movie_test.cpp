@@ -25,6 +25,7 @@
 #include "soundman.h"
 #include "wiz8/bink_video.h"
 #include "temporary_directory.h"
+#include "scoped_asset_roots.h"
 
 std::vector<unsigned char> read(const char* path)
 {
@@ -43,15 +44,6 @@ void write(const std::filesystem::path& path, const std::vector<unsigned char>& 
     if (!file.write(reinterpret_cast<const char*>(bytes.data()), bytes.size()))
         throw std::runtime_error("Cannot create fixture");
 }
-struct Temporary
-{
-    std::filesystem::path path;
-    ~Temporary()
-    {
-        std::error_code error;
-        std::filesystem::remove_all(path, error);
-    }
-};
 bool matchesFrame(const std::vector<uint16_t>& pixels, const unsigned char* golden)
 {
     unsigned largest_difference = 0;
@@ -73,12 +65,11 @@ bool matchesFrame(const std::vector<uint16_t>& pixels, const unsigned char* gold
 }
 static void exercise_movie(const char* retail_movie)
 {
-        const auto temporary = make_temporary_directory("wiz8-movie");
-        Temporary fixture{temporary};
+        ScopedTemporaryDirectory fixture{"wiz8-movie"};
         auto assets = fixture.path / "assets", user = fixture.path / "user";
         std::filesystem::create_directories(assets / "Data");
         std::filesystem::create_directories(user);
-        w8_native::configure_paths({assets.string(), user.string(), {}});
+        ScopedAssetRoots roots{{assets.string(), user.string(), {}}};
         auto encoded = read(WIZ8_MOVIE_FIXTURE), golden = read(WIZ8_MOVIE_GOLDEN);
         REQUIRE(golden.size() == 5 * 1536);
         write(assets / "Movie.mkv", encoded);

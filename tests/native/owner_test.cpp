@@ -59,6 +59,7 @@
 #include "wiz8/regions.h"
 #include "imgfmt.h"
 #include "temporary_directory.h"
+#include "scoped_asset_roots.h"
 #include "wiz8/asset_paths.h"
 #include "wiz8/text_input.h"
 #include "Types.h"
@@ -860,13 +861,14 @@ void generic_button_images()
     initialize_test_framebuffer();
     RegionStateSnapshot saved_regions;
     ResetRegions();
-    const std::filesystem::path root = make_temporary_directory("wiz8-button-images");
+    ScopedTemporaryDirectory temporary{"wiz8-button-images"};
+    const auto& root = temporary.path;
     const auto assets = root / "assets";
     button_image_fixture(assets, std::string(DEFAULT_GENERIC_BUTTON_OFF));
     button_image_fixture(assets, "button.sti", 9, false, 1, 1, {1, 2, 3, 4, 5});
     button_image_fixture(assets, "short.sti", 8);
     g_image_assets.clear();
-    w8_native::configure_paths({assets.string(), (root / "user").string(), {"", "", ""}});
+    ScopedAssetRoots scoped_roots{{assets.string(), (root / "user").string(), {"", "", ""}}};
 
     button_image_fixture(assets, "metadata.sti", 3, true);
     {
@@ -1313,7 +1315,6 @@ void generic_button_images()
     ShutdownButtonImageManager();
 
     g_image_assets.clear();
-    std::filesystem::remove_all(root);
 }
 }
 
@@ -1511,7 +1512,8 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
     RegionStateSnapshot saved_state;
     ResetRegions();
     ExclusiveRegionSet button_scope(ControlRegionSetIndex());
-    const std::filesystem::path root = make_temporary_directory("wiz8-modal-controls");
+    ScopedTemporaryDirectory temporary{"wiz8-modal-controls"};
+    const auto& root = temporary.path;
     const auto assets = root / "assets";
     for (const auto* image : {"DialogBorder.STI", "DialogEdge.STI", "DialogConfirmation.STI"})
         button_image_fixture(assets / "Data" / "Dialogs", image);
@@ -1523,7 +1525,7 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
     button_image_fixture(assets, "arrows.sti", 12, false, 2, 3);
     button_image_fixture(assets, "track.sti", 1, false, 5, 100);
     g_image_assets.clear();
-    w8_native::configure_paths({assets.string(), (root / "user").string(), {"", "", ""}});
+    ScopedAssetRoots scoped_roots{{assets.string(), (root / "user").string(), {"", "", ""}}};
     PushButtonSoundScheme(0, true);
     std::vector<int> positions;
     ScrollPositionCapture position_capture(positions);
@@ -1623,7 +1625,6 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
     }
     g_dialog_interface_font = old_font;
     g_image_assets.clear();
-    std::filesystem::remove_all(root);
 }
 
 namespace {

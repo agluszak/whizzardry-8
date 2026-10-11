@@ -47,6 +47,7 @@
    movies skipped through WIZ8_TEST_HOOK. Exit code 77 means assets are absent. */
 #include "wiz8/application.h"
 #include "temporary_directory.h"
+#include "scoped_asset_roots.h"
 #include "surrender/srGERD.h"
 #include "surrender/srModelInstance.h"
 #include "wiz8/engine_code/stMeshModel.h"
@@ -192,11 +193,10 @@ class Game
         const char* assets = SDL_getenv("WIZ8_ASSET_ROOT");
         if (!assets || !fs::is_directory(assets))
             throw std::invalid_argument("WIZ8_ASSET_ROOT is not set");
-        user_ = make_temporary_directory("wiz8-runtime");
         auto roots = w8_native::path_roots();
         roots.assets = assets;
-        roots.user = user_.string();
-        w8_native::configure_paths(roots);
+        roots.user = user_.path.string();
+        roots_.emplace(std::move(roots));
         auto config = wiz8::open_file("C:\\3DVideo.CFG", wiz8::OpenMode::replace);
         const std::string settings = "SDLGPU\n640\n480\n16\nSDL mixer spatial\n";
         config->write(settings.data(), settings.size());
@@ -225,16 +225,14 @@ class Game
         SDL_SetLogOutputFunction(g_default_log, g_default_log_data);
         if (SDL_getenv("WIZ8_RUNTIME_KEEP_USER_ROOT"))
         {
-            std::fprintf(stderr, "kept user root %s\n", user_.string().c_str());
-            return;
+            std::fprintf(stderr, "kept user root %s\n", user_.path.string().c_str());
+            user_.keep();
         }
-        std::error_code ignored;
-        fs::remove_all(user_, ignored);
     }
     Game(const Game&) = delete;
     Game& operator=(const Game&) = delete;
 
-    const fs::path& user_root() const { return user_; }
+    const fs::path& user_root() const { return user_.path; }
 
     /* One iteration of the shipped main loop. */
     void frame()
@@ -390,7 +388,7 @@ class Game
     /* Copies a file into the writable user root before the game reads it. */
     void install(const fs::path& source, const fs::path& relative)
     {
-        const fs::path target = user_ / relative;
+        const fs::path target = user_.path / relative;
         fs::create_directories(target.parent_path());
         fs::copy_file(source, target, fs::copy_options::overwrite_existing);
     }
@@ -443,7 +441,8 @@ class Game
         HandleGameEvent(button);
     }
 
-    fs::path user_;
+    ScopedTemporaryDirectory user_{"wiz8-runtime"};
+    std::optional<ScopedAssetRoots> roots_;
     std::optional<wiz8::Application> application_;
     SDL_Window* window_ = nullptr;
     unsigned long frames_ = 0;
@@ -1230,65 +1229,55 @@ static void CheckGameErrors()
     REQUIRE(g_logged_errors.empty());
 }
 
-TEST_CASE("main-menu-ui", "[runtime]")
+template<class Scenario>
+void RunScenario(Scenario scenario)
 {
     RequireAssets();
-    MainMenuUiScenario();
+    scenario();
     CheckGameErrors();
+}
+
+TEST_CASE("main-menu-ui", "[runtime]")
+{
+    RunScenario(MainMenuUiScenario);
 }
 
 TEST_CASE("video", "[runtime]")
 {
-    RequireAssets();
-    VideoScenario(false);
-    CheckGameErrors();
+    RunScenario([&] { VideoScenario(false); });
 }
 
 TEST_CASE("video-seen", "[runtime]")
 {
-    RequireAssets();
-    VideoScenario(true);
-    CheckGameErrors();
+    RunScenario([&] { VideoScenario(true); });
 }
 
 TEST_CASE("game-start", "[runtime]")
 {
-    RequireAssets();
-    GameStartScenario();
-    CheckGameErrors();
+    RunScenario([&] { GameStartScenario(); });
 }
 
 TEST_CASE("resource-lifecycle", "[runtime]")
 {
-    RequireAssets();
-    ResourceLifecycleScenario();
-    CheckGameErrors();
+    RunScenario([&] { ResourceLifecycleScenario(); });
 }
 
 TEST_CASE("quick-save", "[runtime]")
 {
-    RequireAssets();
-    QuickSaveScenario();
-    CheckGameErrors();
+    RunScenario([&] { QuickSaveScenario(); });
 }
 
 TEST_CASE("combat", "[runtime]")
 {
-    RequireAssets();
-    CombatScenario();
-    CheckGameErrors();
+    RunScenario([&] { CombatScenario(); });
 }
 
 TEST_CASE("inventory-chest", "[runtime]")
 {
-    RequireAssets();
-    InventoryChestScenario();
-    CheckGameErrors();
+    RunScenario([&] { InventoryChestScenario(); });
 }
 
 TEST_CASE("load-game", "[runtime]")
 {
-    RequireAssets();
-    LoadGameScenario(WIZ8_RUNTIME_SAVE_FIXTURE);
-    CheckGameErrors();
+    RunScenario([&] { LoadGameScenario(WIZ8_RUNTIME_SAVE_FIXTURE); });
 }
