@@ -138,6 +138,12 @@ void UpdatePartyMovementPanel(void)
     g_party_movement_buttons[1]->SetActive(false);
 }
 
+// FUNCTION: WIZ8 0x005A19A0
+void DisablePartyMovementRegions(void)
+{
+    g_party_movement_regions.Disable();
+}
+
 // FUNCTION: WIZ8 0x005A19B0
 void DrawPartyMovementPanel(void)
 {

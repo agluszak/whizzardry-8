@@ -32,6 +32,15 @@ extern ScreenRegionSet g_camp_item_action_regions;
 extern ScreenRegionSet g_camp_automap_regions;
 extern ScreenRegionSet g_camp_overlay_regions;
 
+enum CampMainRegionOffset {
+    kCampPartyPortraitRegionOffset = 3,
+    kCampCharacterHeaderRegionOffset = 11
+};
+
+enum CampInventoryRegionOffset {
+    kCampEquipmentRegionOffset = 8
+};
+
 enum W8CampPage {
     W8_CAMP_PAGE_ITEMS = 0,
     W8_CAMP_PAGE_STATS = 1,

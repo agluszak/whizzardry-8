@@ -370,7 +370,7 @@ void DestroySubMenuControls(void)
     g_level_block->combat_end_notification = -1;
     g_submenu_entry_count = 0;
     g_main_submenu_regions.Disable();
-    g_main_submenu_regions->DisableInput();
+    g_main_submenu_regions.DisableInput();
     DestroySubMenuPanel();
     RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
 }

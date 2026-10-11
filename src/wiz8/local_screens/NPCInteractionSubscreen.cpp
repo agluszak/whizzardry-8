@@ -164,14 +164,14 @@ void ShowNpcQuoteBubbleRegion(int x1, int y1, int x2, int y2)
     SetRegionBounds(region_index, static_cast<unsigned short>(x1), static_cast<unsigned short>(y1),
                     static_cast<unsigned short>(x2), static_cast<unsigned short>(y2));
     g_npc_quote_bubble_regions->Enable();
-    g_npc_quote_bubble_regions->EnableInput();
+    g_npc_quote_bubble_regions.EnableInput();
 }
 
 void HideNpcQuoteBubbleRegion()
 {
     if (!g_npc_quote_bubble_regions) return;
     g_npc_quote_bubble_regions->Disable();
-    g_npc_quote_bubble_regions->DisableInput();
+    g_npc_quote_bubble_regions.DisableInput();
 }
 
 // GLOBAL: WIZ8 0x0068ee90
@@ -965,7 +965,7 @@ void CreateNpcDialogueControls(void)
         g_W8TextControlLayoutStayLatched | g_W8TextControlLayoutImageLeft |
         g_W8TextControlLayoutTextBesideImage | g_W8TextControlLayoutToggle);
     state->dialogue_controls[W8_NPC_CONTROL_MISC_BUTTON] =
-        new W8TextControl(panel, g_npc_dialogue_transcript_panel_regions->index(11), 0x43, 0x1b, 0x89,
+        new W8TextControl(panel, g_npc_dialogue_transcript_panel_regions->index(kNpcDialogueMiscButtonRegionOffset), 0x43, 0x1b, 0x89,
                           0x27, 0x1a9, 0, 8, 9, -1, -1, -1);
     state->dialogue_controls[W8_NPC_CONTROL_MISC_BUTTON]->AddLayoutFlags(
         g_W8TextControlLayoutStayLatched | g_W8TextControlLayoutImageLeft |
@@ -1002,7 +1002,7 @@ void CreateNpcDialogueControls(void)
         ->m_textBuffer.SetLayoutMode(g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
     state->dialogue_controls[W8_NPC_CONTROL_TEXT_34]->SetEnabled(false);
     state->dialogue_controls[W8_NPC_CONTROL_TEXT_35] =
-        new W8TextControl(panel, g_npc_dialogue_trade_panel_regions->index(11), 0x53, 0x3a, 0x86, 0x45,
+        new W8TextControl(panel, g_npc_dialogue_trade_panel_regions->index(kNpcDialogueText35RegionOffset), 0x53, 0x3a, 0x86, 0x45,
                           -1, -1, -1, -1, -1, -1, -1);
     static_cast<W8TextControl*>(state->dialogue_controls[W8_NPC_CONTROL_TEXT_35])
         ->m_textBuffer.SetLayoutMode(g_W8TextBufferAlignRight | g_W8TextBufferAlignMiddle);

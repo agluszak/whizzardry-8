@@ -2864,6 +2864,10 @@ std::array<std::optional<RegionSetView>, 8> g_main_portrait_slot_views;
 std::optional<RegionSetView> g_main_portrait_edge_view;
 
 namespace {
+enum MainPortraitRegionOffset {
+    kPortraitWorldRegionOffset = 2
+};
+
 // Retail set 0x01, regions 1-6
 static constexpr std::array<RegionTemplate, 6> g_main_party_controls_templates{{
     {0x00000001, 174, 138, 467, 182, nullptr, 0, false, -1},
@@ -3061,6 +3065,21 @@ ScreenRegionSet g_main_formation_board_regions{g_main_formation_board_templates}
 ScreenRegionSet g_main_submenu_regions{g_main_submenu_templates};
 ScreenRegionSet g_main_effect_regions{g_main_effect_templates};
 
+/* Put the main region set up, and take it down again with its mode reset -
+   the two are not symmetric, which is what the extra call shows. */
+// FUNCTION: WIZ8 0x00561fa0
+void EnableMainRegionSet(void)
+{
+    g_main_screen.Enable();
+}
+
+// FUNCTION: WIZ8 0x00561fb0
+void DisableMainRegionSet(void)
+{
+    g_main_screen.Disable();
+    g_main_screen.DisableInput();
+}
+
 void EnableMainGamePortraitSlot(unsigned int slot) {
     if (slot < g_main_portrait_slot_views.size() && g_main_portrait_slot_views[slot]) {
         g_main_portrait_slot_views[slot]->Enable();
@@ -3104,6 +3123,7 @@ unsigned char MainGameScreenEnter(void)
     g_main_formation_board_regions.Create();
     g_main_submenu_regions.Create();
     g_main_effect_regions.Create();
+    g_game_time_combat_bar_region.Create();
     CreateMainGameRegionViews();
     InitTextBoxRegions();
     g_npc_dialogue_transcript_panel_regions.Create();
@@ -3388,7 +3408,7 @@ update_screen:
             PauseMainGameWorld();
         }
         if (!ProcessDialogInput(g_modal_owner)) {
-            ClearActiveRegionIfMatches(0x138);
+            ReleaseInputSinkCapture();
             delete g_modal_owner;
             g_modal_owner = 0;
             if (g_pending_main_game_dialog) {
@@ -3454,7 +3474,8 @@ update_screen:
                                                             static_cast<unsigned short>(point.y));
             for (int portrait = 0; portrait < 8; ++portrait) {
                 if (g_status.buffers.XChar[portrait].fOccupied &&
-                    (g_level_block->hover_region == g_main_portrait_regions->index(portrait * 6 + 2) ||
+                    (g_level_block->hover_region ==
+                         g_main_portrait_regions->index(portrait * 6 + kPortraitWorldRegionOffset) ||
                      g_level_block->hover_region == g_main_portrait_edge_regions->index(portrait))) {
                     g_level_block->hover_region = UpdateRegionMousePosition(point.x, point.y);
                     break;
@@ -3661,7 +3682,7 @@ unsigned char MainGameScreenLeave(int leaving)
     ReleasePortraitControls();
     ReleaseConditionButtons();
     if (gXStatus.fPartyMovementUi)
-        g_party_movement_regions.Disable();
+        DisablePartyMovementRegions();
     RestoreCurrentNpcQuoteBubble();
     if (IsMipeActive())
         ToggleMipePanel();
@@ -3701,6 +3722,7 @@ unsigned char MainGameScreenLeave(int leaving)
         DestroyPartyPortraitEventRegions();
         DestroyMainGameRegionViews();
         g_main_effect_regions.Destroy();
+        g_game_time_combat_bar_region.Destroy();
         g_main_submenu_regions.Destroy();
         g_main_formation_board_regions.Destroy();
         g_main_radar_regions.Destroy();
@@ -4264,11 +4286,12 @@ void RedrawCombatMonsterList(void)
         g_main_game_invalidate_rects[17].right = max_text_width + 0xfa;
         g_main_game_invalidate_rects[17].bottom = row_y;
         if (live_row_count == 0) {
-            DisableRegionInput(g_main_effect_regions->index(24));
+            DisableRegionInput(g_main_effect_regions->index(kMonsterListRegionOffset));
         } else {
-            SetRegionBounds(g_main_effect_regions->index(24), 0xfa, 0x19, static_cast<unsigned short>(max_text_width) + 0xf9,
+            SetRegionBounds(g_main_effect_regions->index(kMonsterListRegionOffset), 0xfa, 0x19,
+                            static_cast<unsigned short>(max_text_width) + 0xf9,
                             static_cast<unsigned short>(live_row_count) * 0xb + 0x18);
-            EnableRegionInput(g_main_effect_regions->index(24));
+            EnableRegionInput(g_main_effect_regions->index(kMonsterListRegionOffset));
         }
         g_level_block->group_list_rows = live_row_count;
         g_level_block->group_list_width = max_text_width;
@@ -4870,7 +4893,7 @@ void ShowMainGameNoticeLine(std::string_view text, W8DialogDestroyCallback callb
     dialog->SetMessage(text, 1, 0x32, confirmation, cancel, true, true, 0, 0x15e);
     SetDialogDestroyCallback(dialog, callback);
     g_modal_owner = dialog;
-    ActivateDialogRegion(0x138);
+    CaptureInputSink();
 }
 
 /* Note that the party's state changed. The combat half is only asked for while
@@ -5083,7 +5106,7 @@ void RequestLevelTransition(int level, int entry, unsigned char flag)
                            0x15e);
         SetDialogDestroyCallback(dialog, OnEnterLevelDialogClosed);
         g_modal_owner = dialog;
-        ActivateDialogRegion(0x138);
+        CaptureInputSink();
         return;
     }
     BeginLevelTransition();
@@ -5100,7 +5123,8 @@ void SetViewportMode(int mode)
         return;
     }
     rect = &g_viewport_modes[mode];
-    SetRegionBounds(g_main_effect_regions->index(25), rect->left, rect->top, rect->right - 1, rect->bottom - 1);
+    SetRegionBounds(g_main_effect_regions->index(kWorldViewRegionOffset), rect->left, rect->top,
+                    rect->right - 1, rect->bottom - 1);
     W8MainGameInvalidateRect& viewport = g_main_game_invalidate_rects[15];
     viewport.left = rect->left;
     viewport.top = rect->top;
@@ -5429,7 +5453,7 @@ apply_mode_tail:
 void OpenModal(W8DialogBase* owner)
 {
     g_modal_owner = owner;
-    ActivateDialogRegion(0x138);
+    CaptureInputSink();
 }
 
 /* Re-sync each party slot's region set and portrait hit region with the
@@ -5491,9 +5515,9 @@ void SyncMainGameModeRegions(void)
     SyncSystemCursor();
     g_main_effect_regions.Enable();
     if (g_level_block->group_list_rows == 0) {
-        DisableRegionInput(g_main_effect_regions->index(24));
+        DisableRegionInput(g_main_effect_regions->index(kMonsterListRegionOffset));
     } else {
-        EnableRegionInput(g_main_effect_regions->index(24));
+        EnableRegionInput(g_main_effect_regions->index(kMonsterListRegionOffset));
     }
 
     if (g_settings.main_ui_mode == W8_MAIN_UI_MODE_PORTRAITS) {
@@ -5510,7 +5534,7 @@ void SyncMainGameModeRegions(void)
     RefreshPartySlotRegions();
     if (!gXStatus.fCombatMode) {
         g_main_combat_actions.Disable();
-        g_main_combat_actions->DisableInput();
+        g_main_combat_actions.DisableInput();
         EnablePortraitAdvanceRegions();
     } else {
         g_main_combat_actions.Enable();
@@ -7315,7 +7339,8 @@ unsigned char HitTestPartyPortrait(const InputEvent* event)
     int slot = 0;
 
     while (!g_status.buffers.XChar[slot].fOccupied ||
-           (g_level_block->hover_region != g_main_portrait_regions->index(slot * 6 + 2) &&
+           (g_level_block->hover_region !=
+                g_main_portrait_regions->index(slot * 6 + kPortraitWorldRegionOffset) &&
             g_level_block->hover_region != g_main_portrait_edge_regions->index(slot))) {
         region += 6;
         ++slot;
@@ -7410,13 +7435,13 @@ void PauseMainGameWorld(void)
 {
     gXStatus.world_update_blocked = true;
     if (gXStatus.fPartyMovementUi) {
-        g_party_movement_regions.Disable();
+        DisablePartyMovementRegions();
     }
     if (!gXStatus.fCombatMode) {
         if (gXStatus.world_paused) {
             MoveTimer(1);
-            EnableRegionInput(0x137);
-            ActivateDialogRegion(0x137);
+            EnableRegionInput(g_game_time_combat_bar_region->index(0));
+            ActivateDialogRegion(g_game_time_combat_bar_region->index(0));
         }
         SetEnvironmentTimeEnabled(false);
         MonsterStopAllNavigators();
@@ -7433,8 +7458,8 @@ void ResumeMainGameWorld(void)
         if (!gXStatus.fCombatMode) {
             if (gXStatus.world_paused) {
                 MoveTimer(4);
-                ClearActiveRegionIfMatches(0x137);
-                DisableRegionInput(0x137);
+                ClearActiveRegionIfMatches(g_game_time_combat_bar_region->index(0));
+                DisableRegionInput(g_game_time_combat_bar_region->index(0));
             }
             SetEnvironmentTimeEnabled(true);
             MonsterResumeAllNavigators();
@@ -7498,7 +7523,7 @@ void OpenMonsterInfoDialog(int location_id)
     dialog->SetText("");
     dialog->m_destroy_callback = InvalidateMainGameScreen;
     g_modal_owner = dialog;
-    ActivateDialogRegion(0x138);
+    CaptureInputSink();
 }
 
 /* Open the assay dialog over the main game screen. A live modal dialog is
@@ -7521,7 +7546,7 @@ void OpenAssayDialog(W8ItemInstance* item, int character_slot)
     dialog->SetOrigin(g_info_dialog_x, 0x48);
     dialog->m_destroy_callback = InvalidateMainGameScreen;
     g_modal_owner = dialog;
-    ActivateDialogRegion(0x138);
+    CaptureInputSink();
 }
 
 /* Queue `party_slot` for the pending screen and unwind whichever main-game

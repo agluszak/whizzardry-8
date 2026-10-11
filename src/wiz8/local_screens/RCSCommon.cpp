@@ -760,7 +760,7 @@ void DrawCampHeader(void)
     if ((state->redraw_flags & 0x200) != 0) {
         SetFont(g_wiz_text_bold_font);
         g_wiz_text_bold_font.setShade(Font::kNormalShade);
-        if (state->hover_region == g_camp_main_regions->index(11)) {
+        if (state->hover_region == g_camp_main_regions->index(kCampCharacterHeaderRegionOffset)) {
             g_wiz_text_bold_font.setPalette(g_font_state_palettes[W8_FONT_PALETTE_GREEN]);
         }
         state->text_buffer = character->name;
@@ -817,7 +817,8 @@ void DrawCampHeader(void)
                     ShadowRect(GetFrameBufferSurface(), bounds);
                     ShadowRect(GetFrameBufferSurface(), bounds);
                 }
-                if (state->hover_region == g_camp_main_regions->index(3 + slot)) {
+                if (state->hover_region ==
+                    g_camp_main_regions->index(kCampPartyPortraitRegionOffset + slot)) {
                     DrawCatalogImage(GetFrameBufferSurface(), g_camp_item_pool_regions->index(7), 0, 0, left, top);
                 } else if (static_cast<int>(slot) == giReviewCharSlot) {
                     DrawCatalogImage(GetFrameBufferSurface(), g_camp_item_pool_regions->index(7), 0, 1, left, top);

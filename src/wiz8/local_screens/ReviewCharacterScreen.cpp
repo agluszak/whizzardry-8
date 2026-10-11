@@ -879,7 +879,7 @@ void DrawCampEquipmentItems(void)
             DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x115, 0, region->frame + 2, region->x - 2,
                                           region->y - 2);
         }
-        if (state->hover_region == g_camp_inventory_regions->index(8 + slot)) {
+        if (state->hover_region == g_camp_inventory_regions->index(kCampEquipmentRegionOffset + slot)) {
             if (!g_status.item_in_cursor) {
                 if (character->EquippedItem[slot].iItemNo == -1) {
                     continue;
@@ -1322,7 +1322,8 @@ void CampScreenInitializeRegions(void)
     for (index = 0; index < 8; ++index) {
         unsigned short x = static_cast<unsigned short>((index & 1) * 0x30 + 6);
         unsigned short y = static_cast<unsigned short>((index >> 1) * 0x27 + 5);
-        SetRegionBounds(g_camp_main_regions->index(3 + index), x, y, x + 0x2d, y + 0x24);
+        SetRegionBounds(g_camp_main_regions->index(kCampPartyPortraitRegionOffset + index), x, y,
+                        x + 0x2d, y + 0x24);
     }
     for (index = 0; index < 8; ++index) {
         unsigned short x = static_cast<unsigned short>((index & 1) * 0x31 + 0xb);
@@ -1331,7 +1332,8 @@ void CampScreenInitializeRegions(void)
     }
     for (index = 0; index < 12; ++index) {
         const W8CampScreenRegion& region = g_camp_screen_regions[index];
-        SetRegionBounds(g_camp_inventory_regions->index(8 + index), static_cast<unsigned short>(region.x),
+        SetRegionBounds(g_camp_inventory_regions->index(kCampEquipmentRegionOffset + index),
+                        static_cast<unsigned short>(region.x),
                         static_cast<unsigned short>(region.y),
                         static_cast<unsigned short>(region.x + region.width),
                         static_cast<unsigned short>(region.y + region.height));
@@ -1484,7 +1486,7 @@ void CampScreenFrame(void)
     }
     ServiceMusicPlaylist();
     if (g_camp_screen->dialog && !ProcessDialogInput(g_camp_screen->dialog)) {
-        ClearActiveRegionIfMatches(0x138);
+        ReleaseInputSinkCapture();
         delete g_camp_screen->dialog;
         g_camp_screen->dialog = 0;
         g_camp_screen->redraw_flags |= W8_CAMP_REDRAW_ALL;
@@ -1572,7 +1574,7 @@ unsigned char CampScreenLeave(int)
     DestroyRcsDismissPanel();
     delete g_camp_screen->item_range;
     if (g_camp_screen->dialog) {
-        ClearActiveRegionIfMatches(0x138);
+        ReleaseInputSinkCapture();
         delete g_camp_screen->dialog;
     }
     for (int realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
@@ -1722,10 +1724,10 @@ done:
 void SyncReviewCharInputRegion(void)
 {
     if (giReviewCharSlot != -1 && g_status.buffers.XChar[giReviewCharSlot].npc_index != -1) {
-        DisableRegionInput(g_camp_main_regions->index(11));
+        DisableRegionInput(g_camp_main_regions->index(kCampCharacterHeaderRegionOffset));
         return;
     }
-    EnableRegionInput(g_camp_main_regions->index(11));
+    EnableRegionInput(g_camp_main_regions->index(kCampCharacterHeaderRegionOffset));
 }
 
 /* Switch the active camp page: tear the old page down, record the new index,
@@ -1754,12 +1756,12 @@ void ActivateCampPage(void)
     }
     if (giReviewCharSlot == -1) {
         for (index = 0; index < 8; ++index) {
-            DisableRegionInput(g_camp_main_regions->index(3 + index));
+            DisableRegionInput(g_camp_main_regions->index(kCampPartyPortraitRegionOffset + index));
         }
     } else if (g_status.buffers.XChar[giReviewCharSlot].npc_index == -1) {
-        EnableRegionInput(g_camp_main_regions->index(11));
+        EnableRegionInput(g_camp_main_regions->index(kCampCharacterHeaderRegionOffset));
     } else {
-        DisableRegionInput(g_camp_main_regions->index(11));
+        DisableRegionInput(g_camp_main_regions->index(kCampCharacterHeaderRegionOffset));
     }
     state->header_mode = W8_CAMP_HEADER_SUMMARY;
     state->redraw_flags |= 0x7ff;
@@ -1945,7 +1947,7 @@ void SetCampHeaderMode(W8CampHeaderMode mode)
 void DisplayCampDialog(W8DialogBase* dialog)
 {
     g_camp_screen->dialog = dialog;
-    ActivateDialogRegion(0x138);
+    CaptureInputSink();
 }
 
 // FUNCTION: WIZ8 0x005a4c00
@@ -2642,7 +2644,7 @@ void BeginEndgameSequence(void)
         endgame_variant = true;
     }
     ResetRegions();
-    ActivateDialogRegion(0x138);
+    CaptureInputSink();
     VideoRemoveToolTip();
     g_level_block->transition_pending = true;
     g_level_block->review_transition_active = true;
@@ -2757,7 +2759,7 @@ void BeginPartyDeath(void)
     wiz8::sound::play("Data\\Sound\\Misc\\PartyDead.wav");
     StartMusicResource("CombatLose.MPL", 0, 1);
     ResetRegions();
-    ActivateDialogRegion(0x138);
+    CaptureInputSink();
     VideoRemoveToolTip();
     g_level_block->transition_pending = true;
     BeginScreenFade(1, 0, 0x7d0, DrawPartyDeathScreen, true, 0);
@@ -2836,7 +2838,7 @@ void DrawPartyDeathScreen(void)
 // FUNCTION: WIZ8 0x005A6B20
 void EndReviewTransition(void)
 {
-    ClearActiveRegionIfMatches(0x138);
+    ReleaseInputSinkCapture();
     if (g_ending_sound != nullptr) {
         wiz8::sound::stop(g_ending_sound);
         g_ending_sound = nullptr;

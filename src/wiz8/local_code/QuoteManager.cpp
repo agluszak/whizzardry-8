@@ -891,14 +891,14 @@ void EnablePartyPortraitEvent(unsigned int slot)
 {
     if (slot < g_party_portrait_event_regions.size() && g_party_portrait_event_regions[slot]) {
         g_party_portrait_event_regions[slot].Enable();
-        g_party_portrait_event_regions[slot]->EnableInput();
+        g_party_portrait_event_regions[slot].EnableInput();
     }
 }
 void DisablePartyPortraitEvent(unsigned int slot)
 {
     if (slot < g_party_portrait_event_regions.size() && g_party_portrait_event_regions[slot]) {
         g_party_portrait_event_regions[slot].Disable();
-        g_party_portrait_event_regions[slot]->DisableInput();
+        g_party_portrait_event_regions[slot].DisableInput();
     }
 }
 

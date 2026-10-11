@@ -1818,7 +1818,7 @@ void W8PartySelectionController::OpenNotification(std::string_view message, bool
     m_dialog->SetClientExtent(0xfa, 200);
     m_dialog->SetMessage(message, 1, 0x32, true, allow_cancel, true, true, 0,
                          0x15e);
-    ActivateDialogRegion(0x138);
+    CaptureInputSink();
 }
 
 /* Apply the result of a party-selection confirmation dialog.  The dialog value selects
@@ -2073,7 +2073,7 @@ void PartySelectionScreenFrame(void)
             bool result = controller->m_dialog->accepted;
             delete controller->m_dialog;
             controller->m_dialog = 0;
-            ClearActiveRegionIfMatches(0x138);
+            ReleaseInputSinkCapture();
             controller->InvalidatePartySelectionComposition();
             controller->ApplyPartySelectionConfirmation(controller->m_confirmation_action, result);
         }

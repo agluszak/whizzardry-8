@@ -26,8 +26,14 @@ extern ScreenRegionSet g_main_radar_regions;
 extern ScreenRegionSet g_main_formation_board_regions;
 extern ScreenRegionSet g_main_submenu_regions;
 extern ScreenRegionSet g_main_effect_regions;
+enum MainEffectRegionOffset {
+    kMonsterListRegionOffset = 24,
+    kWorldViewRegionOffset = 25
+};
 extern std::array<std::optional<RegionSetView>, 8> g_main_portrait_slot_views;
 extern std::optional<RegionSetView> g_main_portrait_edge_view;
+void EnableMainRegionSet(void);
+void DisableMainRegionSet(void);
 void EnableMainGamePortraitSlot(unsigned int slot);
 void DisableMainGamePortraitSlot(unsigned int slot);
 struct W8ScreenRect;

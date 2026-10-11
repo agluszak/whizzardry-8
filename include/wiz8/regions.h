@@ -48,14 +48,7 @@ inline constexpr std::int32_t REGION_REASON_BUTTONS =
 
 struct W8RegionSet {
     W8RegionSet() = default;
-    W8RegionSet(unsigned int enabled, unsigned int first, unsigned int last)
-        : enabled(enabled)
-    {
-        for (auto index = first; index <= last; ++index) region_ids.push_back(index);
-        active_count = region_ids.size();
-    }
     unsigned int enabled = 0;
-    bool persistent = false;
     std::span<const unsigned int> Regions() const { return {region_ids.data(), active_count}; }
     void Reset() { active_count = 0; }
     unsigned int AddRegion(int priority = 0);
@@ -155,6 +148,8 @@ public:
     void reset();
 
 private:
+    friend void UnbindWidgetRegion(unsigned int region_index, W8Widget* widget, OwnedRegion* owner);
+
     unsigned int set_ = 0;
     unsigned int index_ = 0;
     uint64_t generation_ = 0;
@@ -193,6 +188,8 @@ public:
     OwnedRegionSet* operator->() { return &set_.value(); }
     void Enable();
     void Disable();
+    void EnableInput();
+    void DisableInput();
 
 private:
     std::span<const RegionTemplate> templates_;
@@ -288,6 +285,9 @@ void ResetRegionHelp(bool delayed);
 void SetRegionHelpDelay(int delay_ms);
 unsigned int ControlRegionSetIndex(void);
 std::size_t LiveDynamicRegionCount(void);
+void CaptureInputSink(void);
+void ReleaseInputSinkCapture(void);
+void UnbindWidgetRegion(unsigned int region_index, W8Widget* widget, OwnedRegion* owner);
 std::int32_t RegionReasonForInput(const W8Region& region, const InputEvent& input);
 void EnableRegionHelp(unsigned int region_index);
 void DisableRegionHelp(unsigned int region_index);

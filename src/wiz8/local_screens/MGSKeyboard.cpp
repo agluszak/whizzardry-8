@@ -742,7 +742,7 @@ void CloseKeyboardMenu(void)
         g_main_combat_actions.Enable();
     } else {
         g_main_combat_actions.Disable();
-        g_main_combat_actions->DisableInput();
+        g_main_combat_actions.DisableInput();
     }
     g_keyboard_menu_regions.Disable();
     if (g_keyboard_menu_regions) {

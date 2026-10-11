@@ -31,6 +31,7 @@
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_code/Gameloop.h"
+#include "wiz8/local_code/Controls.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
 #include "wiz8/character_event_queue.h"
@@ -276,7 +277,7 @@ struct RegionStateSnapshot {
             if (index < set_enabled.size()) {
                 g_region_sets[index].enabled = set_enabled[index];
             } else {
-                g_region_sets[index].enabled = g_region_sets[index].persistent ? 1 : 0;
+                g_region_sets[index].enabled = 0;
             }
         }
         for (std::size_t index = 0;
@@ -732,6 +733,8 @@ void screen_region_set_lifecycle()
     ScreenRegionSet regions{templates};
     regions.Enable();
     regions.Disable();
+    regions.EnableInput();
+    regions.DisableInput();
     REQUIRE_FALSE(regions);
 
     regions.Create();
@@ -751,6 +754,45 @@ void screen_region_set_lifecycle()
     regions.Destroy();
     REQUIRE_FALSE(regions);
     REQUIRE(LiveDynamicRegionCount() == baseline_region_count);
+}
+
+void widget_owned_regions_release_with_widget()
+{
+    RegionStateSnapshot saved_state;
+    ResetRegions();
+    const auto baseline_region_count = LiveDynamicRegionCount();
+    unsigned int shared_set = 0;
+    {
+        Controls panel;
+        panel.AcquireRegionSet(&shared_set);
+        auto widget = std::make_unique<W8Widget>();
+        widget->SetPanel(panel);
+        REQUIRE(LiveDynamicRegionCount() == baseline_region_count + 1);
+    }
+    REQUIRE(LiveDynamicRegionCount() == baseline_region_count);
+    DestroyRegionSet(shared_set);
+}
+
+void input_sink_capture_can_be_released()
+{
+    RegionStateSnapshot saved_state;
+    ResetRegions();
+    CaptureInputSink();
+    const auto sink_index = g_captured_region_index;
+    REQUIRE(sink_index != 0);
+    ReleaseInputSinkCapture();
+    REQUIRE(g_captured_region_index == 0);
+
+    constexpr std::array<RegionTemplate, 1> templates{{
+        {W8_REGION_RECTANGLE, 10, 10, 30, 30, record_region_event, 41, false, -1},
+    }};
+    OwnedRegionSet other{templates};
+    other.Enable();
+    ActivateDialogRegion(other.index(0));
+    REQUIRE(g_captured_region_index == other.index(0));
+    ReleaseInputSinkCapture();
+    REQUIRE(g_captured_region_index == other.index(0));
+    ClearActiveRegionIfMatches(other.index(0));
 }
 
 void region_registration_and_callback_lifetimes()
@@ -1821,6 +1863,16 @@ TEST_CASE("Region set views share owned regions", "[owner]")
 TEST_CASE("Screen region sets follow their screen lifecycle", "[owner]")
 {
     screen_region_set_lifecycle();
+}
+
+TEST_CASE("Widget-owned regions release with their widget", "[owner]")
+{
+    widget_owned_regions_release_with_widget();
+}
+
+TEST_CASE("Input sink capture releases only its own capture", "[owner]")
+{
+    input_sink_capture_can_be_released();
 }
 
 TEST_CASE("assert-plain", "[.death]")

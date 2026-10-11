@@ -1,5 +1,6 @@
 #include <cstddef>
 #include <cstdint>
+#include <array>
 #include <deque>
 #include <fmt/format.h>
 #include <algorithm>
@@ -25,9 +26,7 @@
 #include "wiz8/local_screens/MGSKeyboard.h"
 #include "wiz8/local_screens/MGSPartyMovement.h"
 #include "wiz8/local_screens/MGSPortraits.h"
-#include "wiz8/local_screens/MGSSpellIcons.h"
 #include "wiz8/local_screens/MGSUseItemSelect.h"
-#include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/local_screens/RCSCommon.h"
 #include "wiz8/local_screens/RCSItemsPage.h"
@@ -44,453 +43,45 @@
 enum { W8_SCREEN_WIDTH = 640, W8_SCREEN_HEIGHT = 480, W8_HELP_MARGIN = 2 };
 enum { W8_REGION_MODE_MASK = 0xf };
 
-/* The retail catalog retains 51 set slots and 313 region slots, with
-   placeholders for screen-owned regions. Dynamic controls append after it;
-   region zero is the template copied into each appended record. */
-// GLOBAL: WIZ8 0x0061f238
-std::deque<W8RegionSet> g_region_sets = {
-    {0, 0, 0},     {0, 0, 0},     {0, 0, 0},     {0, 0, 0},     {0, 0, 0},   {0, 0, 0},
-    {0, 0, 0},   {0, 0, 0},   {0, 0, 0},   {0, 0, 0},   {0, 0, 0},   {0, 0, 0},
-    {0, 0, 0},   {0, 0, 0},   {0, 0, 0},   {0, 0, 0},   {0, 0, 0},   {0, 0, 0},
-    {0, 0, 0},   {0, 0, 0},
-    // Sets 0x14-0x18 moved to text-box and NPC-dialogue owners.
-    {0, 0, 0}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0},
-    // Sets 0x19-0x1c moved to main-game subscreen owners.
-    {0, 0, 0}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0},
-    // Sets 0x1d-0x24 moved to QuoteManager portrait-event owners.
-    {0, 0, 0}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0},
-    {0, 0, 0}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0},
-    // Set 0x25 moved to the NPC quote-bubble owner.
-    {0, 0, 0},
-    // Set 0x26 moved to the keyboard-menu owner.
-    {0, 0, 0},
-    // Sets 0x27-0x30 moved to screen-owned tables.
-    {0, 0, 0}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0},
-    {0, 0, 0}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0},
-    {0, 0, 0}, {0, 0, 0}};
-/* The last catalog region reports every event as handled. Retail's linker
-   folded this body into ScreenLifecycleSuccess, which compiles to the same
-   bytes. */
 // bool-byte-ok: W8RegionCallback result
 static unsigned char ConsumeRegionInput(const InputEvent*, W8Region*)
 {
     return 1;
 }
 
+namespace {
+ScreenRegionSet& InputSinkRegion()
+{
+    static constexpr std::array<RegionTemplate, 1> templates{{
+        {0x00000001, 0, 0, 0, 0, ConsumeRegionInput, 0, false, 0},
+    }};
+    static ScreenRegionSet region{templates};
+    return region;
+}
+}
+
+void CaptureInputSink()
+{
+    auto& region = InputSinkRegion();
+    region.Create();
+    region.Enable();
+    region.EnableInput();
+    ActivateDialogRegion(region->index(0));
+}
+
+void ReleaseInputSinkCapture()
+{
+    auto& region = InputSinkRegion();
+    if (region) ClearActiveRegionIfMatches(region->index(0));
+}
+
+// Retail catalog at GLOBAL WIZ8 0x00620048 / 0x0061f238 contained 313 regions / 51 sets; records now live with owning screens.
 // GLOBAL: WIZ8 0x00620048
 std::deque<W8Region> g_regions = {
-    // Regions moved to screen-owned tables; indices remain stable.
-
     {0x00000001, 0, 0, 0, 0, 0, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0x00000001, 286, 382, 351, 402, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    // Moved to MGSTextBox.cpp (retail set 0x14, regions 82-89).
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    // Moved to NPCInteractionSubscreen.cpp (retail sets 0x16-0x18, regions 101-138).
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    // Moved to MGSSpellCasting.cpp (retail set 0x19, regions 139-155).
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    // Moved to MGSUseItemSelect.cpp (retail set 0x1a, regions 156-160).
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    // Moved to MGSFormation.cpp (retail set 0x1b, regions 161-179).
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    // Moved to MGSKeyboard.cpp (retail set 0x26, regions 180-193).
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    // Moved to MGSPartyMovement.cpp (retail set 0x1c, regions 200-201).
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0x00000001, 0, 0, 0, 0, PartyEffectIconRegionEvent, 11, true, 0, -1, 0},
-    {0x00000001, 0, 0, 0, 0, PartyEffectIconRegionEvent, 10, true, 0, -1, 0},
-
-    {0x00000001, 0, 0, 0, 0, PartyEffectIconRegionEvent, 9, true, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    // Moved to NPCInteractionSubscreen.cpp (retail set 0x25, region 310).
-    {0, 0, 0, 0, 0, nullptr, 0, false, 0, -1, 0},
-    {0x00000001, 0, 0, 0, 0, CombatBarRegionEvent, 0, false, 0, -1, 0},
-    {0x00000001, 0, 0, 0, 0, ConsumeRegionInput, 0, false, 0, -1, 0},
 };
+// GLOBAL: WIZ8 0x0061f238
+std::deque<W8RegionSet> g_region_sets = {W8RegionSet{}};
 // GLOBAL: WIZ8 0x00689B3C
 unsigned int g_current_region_index;
 // GLOBAL: WIZ8 0x00689B40
@@ -515,8 +106,8 @@ struct ExclusiveRegionScope {
 std::vector<ExclusiveRegionScope> g_exclusive_region_sets;
 std::vector<unsigned int> g_reusable_region_indices;
 std::vector<unsigned int> g_reusable_region_set_indices;
-const std::size_t g_static_region_count = g_regions.size();
-const std::size_t g_static_region_set_count = g_region_sets.size();
+constexpr std::size_t kFirstDynamicRegionIndex = 1;
+constexpr std::size_t kFirstDynamicRegionSetIndex = 1;
 unsigned int g_control_region_set = 0;
 
 bool RegionAllowedByExclusiveSet(unsigned int region_index)
@@ -623,13 +214,16 @@ static bool FindEnabledRegionAtPoint(unsigned short x, unsigned short y, unsigne
     const unsigned int first_set = exclusive ? g_exclusive_region_sets.back().set_index : 0;
     const unsigned int set_count = exclusive ? 1 : 2;
     for (unsigned int pass = 0; pass < set_count; ++pass) {
-        const bool persistent = pass != 0;
+        const bool control_set_pass = pass != 0;
         const unsigned int end_set =
             exclusive ? first_set + 1 : static_cast<unsigned int>(g_region_sets.size());
         for (unsigned int set_index = first_set; set_index < end_set; ++set_index) {
             if (set_index >= g_region_sets.size()) break;
             const auto& set = g_region_sets[set_index];
-            if (set.enabled != 1 || (!exclusive && set.persistent != persistent)) continue;
+            if (set.enabled != 1 ||
+                (!exclusive && (set_index == g_control_region_set) != control_set_pass)) {
+                continue;
+            }
             bool found_in_set = false;
             unsigned int best_region = 0;
             int best_priority = 0;
@@ -1282,7 +876,7 @@ unsigned int CreateRegionSet(void)
     while (!g_reusable_region_set_indices.empty()) {
         const auto set_index = g_reusable_region_set_indices.back();
         g_reusable_region_set_indices.pop_back();
-        if (set_index < g_static_region_set_count || set_index >= g_region_sets.size()) {
+        if (set_index < kFirstDynamicRegionSetIndex || set_index >= g_region_sets.size()) {
             continue;
         }
         g_region_sets[set_index] = W8RegionSet{};
@@ -1294,8 +888,8 @@ unsigned int CreateRegionSet(void)
 
 static void ReleaseRegionSetSlot(unsigned int region_set_index)
 {
-    if (region_set_index < g_static_region_set_count ||
-        region_set_index >= g_region_sets.size() || g_region_sets[region_set_index].persistent) {
+    if (region_set_index < kFirstDynamicRegionSetIndex ||
+        region_set_index >= g_region_sets.size() || region_set_index == g_control_region_set) {
         return;
     }
     g_region_sets[region_set_index] = W8RegionSet{};
@@ -1307,8 +901,8 @@ static void ReleaseRegionSetSlot(unsigned int region_set_index)
 
 void DestroyRegionSet(unsigned int region_set_index)
 {
-    if (region_set_index < g_static_region_set_count ||
-        region_set_index >= g_region_sets.size() || g_region_sets[region_set_index].persistent) {
+    if (region_set_index < kFirstDynamicRegionSetIndex ||
+        region_set_index >= g_region_sets.size() || region_set_index == g_control_region_set) {
         return;
     }
 
@@ -1325,7 +919,6 @@ unsigned int ControlRegionSetIndex(void)
 {
     if (g_control_region_set == 0) {
         g_control_region_set = CreateRegionSet();
-        g_region_sets[g_control_region_set].persistent = true;
     }
     RegionSetEnable(g_control_region_set);
     return g_control_region_set;
@@ -1334,7 +927,7 @@ unsigned int ControlRegionSetIndex(void)
 std::size_t LiveDynamicRegionCount(void)
 {
     std::size_t count = 0;
-    for (std::size_t index = g_static_region_count; index < g_regions.size(); ++index) {
+    for (std::size_t index = kFirstDynamicRegionIndex; index < g_regions.size(); ++index) {
         const bool registered = std::ranges::any_of(
             g_region_sets, [index](const W8RegionSet& set) {
                 const auto regions = set.Regions();
@@ -1535,6 +1128,20 @@ void ScreenRegionSet::Disable()
     }
 }
 
+void ScreenRegionSet::EnableInput()
+{
+    if (set_) {
+        set_->EnableInput();
+    }
+}
+
+void ScreenRegionSet::DisableInput()
+{
+    if (set_) {
+        set_->DisableInput();
+    }
+}
+
 RegionSetView::RegionSetView(const OwnedRegionSet& source, std::size_t first, std::size_t count)
 {
     if (first > source.size() || count > source.size() - first) {
@@ -1630,7 +1237,7 @@ void OwnedRegion::reset()
 void RemoveRegionFromSet(unsigned int region_set_index, unsigned int region_index)
 {
     if (!g_region_sets.at(region_set_index).RemoveRegion(region_index) ||
-        region_index < g_static_region_count || region_index >= g_regions.size()) {
+        region_index < kFirstDynamicRegionIndex || region_index >= g_regions.size()) {
         return;
     }
     auto& region = g_regions[region_index];
@@ -1644,6 +1251,29 @@ void RemoveRegionFromSet(unsigned int region_set_index, unsigned int region_inde
     g_reusable_region_indices.push_back(region_index);
     if (g_current_region_index == region_index) g_current_region_index = 0;
     if (g_captured_region_index == region_index) g_captured_region_index = 0;
+    if (g_hover_region_index == region_index) g_hover_region_index = 0;
+}
+
+void UnbindWidgetRegion(unsigned int region_index, W8Widget* widget, OwnedRegion* owner)
+{
+    if (region_index >= g_regions.size()) return;
+    auto& region = g_regions[region_index];
+    if (region.widget != widget) return;
+
+    DisableRegionInput(region_index);
+    if (region.flags & W8_REGION_HELP_SHOWN) VideoRemoveToolTip();
+    region.flags &= ~(W8_REGION_MOUSE_STATE_MASK | W8_REGION_HELP_SHOWN);
+    region.widget = nullptr;
+    region.text_field = nullptr;
+    region.help_enabled = false;
+    region.help_text_id = -1;
+    region.help_text.clear();
+    ++region.binding_generation;
+    if (owner && owner->index_ == region_index) {
+        owner->generation_ = region.binding_generation;
+    }
+    if (g_captured_region_index == region_index) g_captured_region_index = 0;
+    if (g_current_region_index == region_index) g_current_region_index = 0;
     if (g_hover_region_index == region_index) g_hover_region_index = 0;
 }
 
@@ -1743,13 +1373,13 @@ void ResetRegions(void)
         VideoRemoveToolTip();
         g_regions[index].flags &= ~W8_REGION_HELP_SHOWN;
     }
-    for (auto& set : g_region_sets) {
-        if (!set.persistent) {
-            set.enabled = 0;
-        }
+    for (std::size_t set_index = 0; set_index < g_region_sets.size(); ++set_index) {
+        auto& set = g_region_sets[set_index];
+        const bool control_set = g_control_region_set != 0 && set_index == g_control_region_set;
+        if (!control_set) set.enabled = 0;
         for (const auto region_index : set.Regions()) {
             auto& region = g_regions[region_index];
-            if (set.persistent) {
+            if (control_set) {
                 region.flags &= ~W8_REGION_MOUSE_STATE_MASK;
             } else {
                 region.flags &= (W8_REGION_RECTANGLE | W8_REGION_CIRCLE);

@@ -29,7 +29,7 @@ W8NotificationDialog::W8NotificationDialog(int message_index, bool cancel_allowe
     SetBackground("Data\\Dialogs\\DialogBackground.sti", 0);
     SetClientExtent(0xfa, 200);
     SetMessage(g_localized_strings[message_index], 1, 0x32, true, cancel_allowed, true, true, 0, 0x15e);
-    ActivateDialogRegion(0x138);
+    CaptureInputSink();
 }
 
 // FUNCTION: WIZ8 0x005a81a0
@@ -41,7 +41,7 @@ bool W8NotificationDialog::ProcessInput()
     W8MessageDialogBase::ProcessInput();
     handled = is_open;
     if (!handled) {
-        ClearActiveRegionIfMatches(0x138);
+        ReleaseInputSinkCapture();
         if (notify_target) {
             notify_target->OnDialogClosed(accepted, notification_value);
         }

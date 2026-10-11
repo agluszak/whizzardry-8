@@ -26,6 +26,7 @@ extern ScreenRegionSet g_party_movement_regions;
 void ReleasePartyMovement(void);
 void UpdatePartyMovementPanel(void);
 void DrawPartyMovementPanel(void);
+void DisablePartyMovementRegions(void);
 /* Per-frame movement/fatigue processing; the callers reuse unrelated storage
    for the two elapsed-time outputs. */
 unsigned char HandlePartyMovement(float* real_elapsed, float* frame_elapsed);
