@@ -147,14 +147,13 @@ std::unique_ptr<SGPVSurface> CreateVideoSurface(const VSURFACE_DESC& VSurfaceDes
     result->usHeight = height;
     result->ubBitDepth = bits;
     result->fFlags = VSURFACE_SYSTEM_MEM_USAGE;
-    result->TransparentColor = FROMRGB(0, 0, 0);
     if (image) {
         if (image->fFlags & IMAGE_PALETTE)
             SetVideoSurfacePalette(*result, *image->pPalette);
         SDL_Rect region{0, 0, width, height};
         SetVideoSurfaceDataFromHImage(*result, *image, 0, 0, &region);
     }
-    SetVideoSurfaceTransparencyColor(*result, result->TransparentColor);
+    result->cpu().sourceKey = SurfaceColorKey{0, 0};
 
     return result;
 }
@@ -228,23 +227,13 @@ BOOLEAN SetVideoSurfacePalette(SGPVSurface& hVSurface, const Palette8& pSrcPalet
     hVSurface.palette = pSrcPalette;
     hVSurface.hasPalette = true;
     if (hVSurface.ubBitDepth == 8) {
-        SDL_Color colors[256];
-        for (unsigned i = 0; i < 256; ++i)
-            colors[i] = {pSrcPalette[i].peRed, pSrcPalette[i].peGreen, pSrcPalette[i].peBlue, 255};
+        // Indexed colors are opaque; index-zero transparency uses the source key.
+        for (auto& color : hVSurface.palette)
+            color.a = SDL_ALPHA_OPAQUE;
         CHECKF(SDL_SetPaletteColors(SDL_GetSurfacePalette(hVSurface.cpu().surface.get()),
-                                   colors, 0, 256));
+                                    hVSurface.palette.data(), 0, hVSurface.palette.size()));
     }
     hVSurface.p16BPPPalette = Create16BPPPalette(pSrcPalette);
-    return TRUE;
-}
-
-// Transparency uses the game's packed source key.
-// colorkey value.
-BOOLEAN SetVideoSurfaceTransparencyColor(SGPVSurface& hVSurface, COLORVAL TransColor)
-{
-    hVSurface.TransparentColor = TransColor;
-    const UINT32 key = hVSurface.ubBitDepth == 16 ? Get16BPPColor(TransColor) : TransColor;
-    hVSurface.cpu().sourceKey = SurfaceColorKey{key, key};
     return TRUE;
 }
 
