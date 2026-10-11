@@ -1,6 +1,7 @@
 #include <SDL3/SDL_rect.h>
 #include <fmt/format.h>
 #include <string>
+#include <memory>
 #include <cctype>
 #include <cstdlib>
 #include <string_view>
@@ -519,7 +520,7 @@ W8SplitAmountDialog::~W8SplitAmountDialog() = default;
 // FUNCTION: WIZ8 0x005d99f0
 int W8SplitAmountDialog::CreateControls()
 {
-    W8DialogBase::CreateControls();
+    if (int error = W8DialogBase::CreateControls(); error != 0) return error;
     m_result = W8_SPLIT_RESULT_PENDING;
     if (!CreateButtons()) {
         m_error = 7;
