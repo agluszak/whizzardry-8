@@ -15,7 +15,6 @@
 #include "vobject.h"
 #include "vobject_blitters.h"
 #include "vsurface.h"
-#include "Types.h"
 #include "compat/compiler.h"
 
 W8_ABI_ASSERT(sizeof(W8VideoObjectSlot) == 8, "W8VideoObjectSlot_size_must_be_8");
