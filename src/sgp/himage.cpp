@@ -42,13 +42,6 @@ UINT16 gusRedMask = 0;
 UINT16 gusGreenMask = 0;
 // GLOBAL: WIZ8 0x00650f4e
 UINT16 gusBlueMask = 0;
-// GLOBAL: WIZ8 0x00650f50
-INT16 gusRedShift = 0;
-// GLOBAL: WIZ8 0x00650f52
-INT16 gusBlueShift = 0;
-// GLOBAL: WIZ8 0x00650f54
-INT16 gusGreenShift = 0;
-
 namespace
 {
 constexpr std::size_t max_image_bytes = 256 * 1024 * 1024;
@@ -191,11 +184,12 @@ image_type load_ordinary_image(wiz8::File& file, ImageFormat format, UINT16 cont
     }
     if (indexed && (contents & IMAGE_PALETTE)) {
         decoded.pPalette.emplace();
+        decoded.pPalette->fill({0, 0, 0, SDL_ALPHA_OPAQUE});
         const unsigned first_color = format == ImageFormat::tga &&
             (bytes[2] == 1 || bytes[2] == 9) ? little_word(bytes.data() + 3) : 0;
         std::transform(palette->colors, palette->colors + std::min(unsigned(palette->ncolors), 256 - first_color),
             decoded.pPalette->begin() + first_color, [](const SDL_Color& color) {
-                return SGPPaletteEntry{color.r, color.g, color.b, 0};
+                return SDL_Color{color.r, color.g, color.b, SDL_ALPHA_OPAQUE};
             });
         decoded.fFlags |= IMAGE_PALETTE;
     }
@@ -238,7 +232,7 @@ image_type load_sti(wiz8::File& file, UINT16 contents)
         decoded.pPalette.emplace();
         std::transform(palette.begin(), palette.end(), decoded.pPalette->begin(),
             [](const STCIPaletteElement& color) {
-                return SGPPaletteEntry{color.ubRed, color.ubGreen, color.ubBlue, 0};
+                return SDL_Color{color.ubRed, color.ubGreen, color.ubBlue, SDL_ALPHA_OPAQUE};
             });
         decoded.fFlags |= IMAGE_PALETTE;
     }
@@ -416,8 +410,8 @@ bool CopyImageToBuffer(const image_type& image, UINT32 buffer_type, std::span<UI
 Palette16 Create16BPPPalette(const Palette8& palette)
 {
     Palette16 packed{};
-    std::transform(palette.begin(), palette.end(), packed.begin(), [](const SGPPaletteEntry& color) {
-        return Get16BPPColor(UINT32(color.peRed) | (UINT32(color.peGreen) << 8) | (UINT32(color.peBlue) << 16));
+    std::transform(palette.begin(), palette.end(), packed.begin(), [](const SDL_Color& color) {
+        return Get16BPPColor(color);
     });
     return packed;
 }
@@ -451,58 +445,42 @@ Palette16 Create16BPPPaletteShaded(const Palette8& palette, UINT32 rscale,
                                                 UINT32 gscale, UINT32 bscale, BOOLEAN mono)
 {
     Palette16 packed{};
-    std::transform(palette.begin(), palette.end(), packed.begin(), [=](const SGPPaletteEntry& color) {
-        const UINT32 luminance = color.peRed * 299 / 1000 + color.peGreen * 587 / 1000 + color.peBlue * 114 / 1000;
-        const auto red = std::min(rscale * (mono ? luminance : color.peRed) / 256, 255u);
-        const auto green = std::min(gscale * (mono ? luminance : color.peGreen) / 256, 255u);
-        const auto blue = std::min(bscale * (mono ? luminance : color.peBlue) / 256, 255u);
-        return Get16BPPColor(red | (green << 8) | (blue << 16));
+    std::transform(palette.begin(), palette.end(), packed.begin(), [=](const SDL_Color& color) {
+        const UINT32 luminance = color.r * 299 / 1000 + color.g * 587 / 1000 + color.b * 114 / 1000;
+        const auto red = std::min(rscale * (mono ? luminance : color.r) / 256, 255u);
+        const auto green = std::min(gscale * (mono ? luminance : color.g) / 256, 255u);
+        const auto blue = std::min(bscale * (mono ? luminance : color.b) / 256, 255u);
+        return Get16BPPColor(SDL_Color{static_cast<UINT8>(red), static_cast<UINT8>(green),
+                                       static_cast<UINT8>(blue), SDL_ALPHA_OPAQUE});
     });
     return packed;
 }
 
 // Convert from RGB to 16 bit value
 // FUNCTION: WIZ8 0x004104b0
-UINT16 Get16BPPColor(UINT32 RGBValue)
+UINT16 Get16BPPColor(SDL_Color color)
 {
-    UINT16 r16, g16, b16, usColor;
-    UINT8 r, g, b;
+    // SGP treats packed zero as transparent, even when ARGB1555 has an alpha bit.
+    const auto format = SDL_GetPixelFormatForMasks(16, gusRedMask, gusGreenMask, gusBlueMask, 0);
+    const auto* details = SDL_GetPixelFormatDetails(format);
+    if (!details)
+        throw std::runtime_error("Unsupported 16-bit pixel format");
 
-    r = SGPGetRValue(RGBValue);
-    g = SGPGetGValue(RGBValue);
-    b = SGPGetBValue(RGBValue);
-
-    if (gusRedShift < 0)
-        r16 = ((UINT16)r >> abs(gusRedShift));
-    else
-        r16 = ((UINT16)r << gusRedShift);
-
-    if (gusGreenShift < 0)
-        g16 = ((UINT16)g >> abs(gusGreenShift));
-    else
-        g16 = ((UINT16)g << gusGreenShift);
-
-    if (gusBlueShift < 0)
-        b16 = ((UINT16)b >> abs(gusBlueShift));
-    else
-        b16 = ((UINT16)b << gusBlueShift);
-
-    usColor = (r16 & gusRedMask) | (g16 & gusGreenMask) | (b16 & gusBlueMask);
-
-    // if our color worked out to absolute black, and the original wasn't
-    // absolute black, convert it to a VERY dark grey to avoid transparency
-    // problems
-
-    if (usColor == 0) {
-        if (RGBValue != 0)
-            usColor = BLACK_SUBSTITUTE | gusAlphaMask;
-    } else
-        usColor |= gusAlphaMask;
-
-    return (usColor);
+    const UINT16 pixel = SDL_MapRGB(details, nullptr, color.r, color.g, color.b) &
+                         (gusRedMask | gusGreenMask | gusBlueMask);
+    if (!pixel)
+        return (color.r || color.g || color.b) ? (BLACK_SUBSTITUTE | gusAlphaMask) : 0;
+    return pixel | gusAlphaMask;
 }
+
+UINT16 Get16BPPColor(UINT32 rgb)
+{
+    return Get16BPPColor(SDL_Color{static_cast<UINT8>(rgb), static_cast<UINT8>(rgb >> 8),
+                                   static_cast<UINT8>(rgb >> 16), SDL_ALPHA_OPAQUE});
+}
+
 // ConvertToPaletteEntry
-// Parameter List : Converts from RGB to SGPPaletteEntry
-// Return Value  pointer to the SGPPaletteEntry
+// Parameter List : Converts from RGB to SDL_Color
+// Return Value  pointer to the SDL_Color
 // Modification History :
 // Dec 15th 1996 -> modified for use by Wizardry
