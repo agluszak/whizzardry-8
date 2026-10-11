@@ -5146,7 +5146,7 @@ W8Item* CreateMonsterIconItem(W8World* world, const char* path, int flag)
     W8Item* item = new W8Item();
     W8ItemRep* rep = static_cast<W8ItemRep*>(item->m_pRep);
     rep->flags |= 0x40;
-    rep->m_psrMesh = instance;
+    rep->m_psrMesh.reset(instance);
     rep->RefreshBounds();
     item->AttachMesh(world);
     instance->light_scale.SetZero();
