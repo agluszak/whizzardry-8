@@ -1,4 +1,8 @@
 #include <utility>
+#include <stdexcept>
+#include <limits>
+#include "wiz8/item_video_object_vector.h"
+#include "wiz8/layouts/item_tables.h"
 #include <variant>
 #include <catch2/catch_test_macros.hpp>
 #include <fmt/format.h>
@@ -1093,4 +1097,64 @@ TEST_CASE("assert-message", "[.death]")
     CreateTextButton("invalid", font, 0, 0, {}, -1, 0, 40, 20,
                      BUTTON_TOGGLE, MSYS_PRIORITY_NORMAL, nullptr, nullptr);
     FAIL("CreateTextButton did not abort");
+}
+
+TEST_CASE("Item image cache grows, reloads and rolls back failed loads", "[owner][catalog]")
+{
+    ScopedTemporaryDirectory directory{"wiz8-item-cache"};
+    const auto assets = directory.path / "assets";
+    button_image_fixture(assets, "Data/Items/icon.sti", 1);
+    button_image_fixture(assets, "Data/Items/Dagger.sti", 1);
+    w8_native::configure_paths({assets.string(), (directory.path / "user").string(), {}});
+    const auto slot_count = g_video_slots.size();
+    const auto frame_count = g_video_frames.size();
+    const auto fixed_tail = g_video_slots.back();
+    std::vector<W8ItemDatabaseRecord> records(1005);
+    for (auto& record : records)
+        record.video_object_name = "icon.sti";
+    struct Restore {
+        W8ItemDatabaseRecord* previous = g_item_records;
+        ~Restore() { g_item_video_objects.Clear(); g_item_records = previous; }
+    } restore;
+    g_item_records = records.data();
+    g_item_video_objects.Initialize(records.size());
+    REQUIRE_THROWS_AS(g_item_video_objects.GetOrCreateVideoObject(-1), std::out_of_range);
+    REQUIRE_THROWS_AS(g_item_video_objects.GetOrCreateVideoObject(records.size()), std::out_of_range);
+    records[0].video_object_name = "missing.sti";
+    REQUIRE_THROWS_AS(g_item_video_objects.GetOrCreateVideoObject(0), std::runtime_error);
+    REQUIRE(g_item_video_objects.LoadedImageCount() == 0);
+    REQUIRE(g_video_slots.size() == slot_count);
+    REQUIRE(g_video_frames.size() == frame_count);
+    records[0].video_object_name.clear(); // Checked fallback table.
+    records[0].unidentified_name_index = 145;
+    REQUIRE_THROWS_AS(g_item_video_objects.GetOrCreateVideoObject(0), std::out_of_range);
+    records[0].unidentified_name_index = 0;
+    for (unsigned i = 0; i < records.size(); ++i) {
+        const auto id = g_item_video_objects.GetOrCreateVideoObject(i);
+        REQUIRE(id == slot_count + i);
+        REQUIRE(GetCatalogVideoObject(id, 0).sprites.size() == 1);
+        REQUIRE(g_item_video_objects.GetOrCreateVideoObject(i) == id);
+    }
+    REQUIRE(g_item_video_objects.LoadedImageCount() == records.size());
+    REQUIRE(g_video_slots.size() == slot_count + records.size());
+    REQUIRE(g_video_frames.size() == frame_count + records.size());
+    REQUIRE(g_video_slots.at(slot_count - 1).first_frame == fixed_tail.first_frame);
+    REQUIRE_THROWS_AS(GetCatalogVideoObject(slot_count, -1), std::out_of_range);
+    REQUIRE_THROWS_AS(GetCatalogVideoObject(slot_count, std::numeric_limits<int>::max()),
+                      std::out_of_range);
+    ReleaseLoadedVideoFrames();
+    REQUIRE_FALSE(g_video_frames.at(frame_count).object);
+    REQUIRE(g_item_video_objects.GetOrCreateVideoObject(0) == slot_count);
+    REQUIRE(g_video_frames.at(frame_count).object);
+    // Reinitialization must release the prior images and remove their IDs.
+    g_item_video_objects.Initialize(records.size());
+    REQUIRE(g_item_video_objects.LoadedImageCount() == 0);
+    REQUIRE(g_video_slots.size() == slot_count);
+    REQUIRE(g_video_frames.size() == frame_count);
+    REQUIRE(g_item_video_objects.GetOrCreateVideoObject(1004) == slot_count);
+    g_item_video_objects.Clear();
+    g_item_video_objects.Clear();
+    REQUIRE(g_video_slots.size() == slot_count);
+    REQUIRE(g_video_frames.size() == frame_count);
+    REQUIRE_THROWS_AS(GetCatalogVideoObject(slot_count, 0), std::out_of_range);
 }
