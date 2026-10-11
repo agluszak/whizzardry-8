@@ -1,3 +1,4 @@
+#include <SDL3/SDL_log.h>
 #include <glm/ext/matrix_clip_space.hpp>
 #include <glm/ext/matrix_transform.hpp>
 #include <cstdlib>
@@ -220,7 +221,10 @@ srGERD::srGERD(srDD* device, const char* device_name)
     initTextureParameterMatrix();
     this->device.driver_info.api_version = 0x128;
     this->device.driver_info.dd_api_version = 0;
-    this->device.driver_info.debug_write = debugWrite;
+    this->device.driver_info.debug_write = [](const char* message) {
+        if (message && *message)
+            SDL_LogDebug(SDL_LOG_CATEGORY_RENDER, "%s", message);
+    };
     this->device.driver_info.flags = 0;
     getDD()->getDriverInfo(this->device.driver_info);
     initClearColors();
@@ -3593,14 +3597,6 @@ void srGERD::initGlobalPalette()
     }
     /* reinterpret-ok: the DD receives the palette entries as raw dwords. */
     getDD()->setGlobalPalette(reinterpret_cast<w8_ulong*>(global_palette), 0x100);
-}
-
-// FUNCTION: SURRENDER 0x10018E40
-void srGERD::debugWrite(const char* text)
-{
-    if (text != 0 && *text != '\0') {
-        srOut << text;
-    }
 }
 
 // FUNCTION: SURRENDER 0x10018E60

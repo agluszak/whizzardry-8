@@ -16,10 +16,6 @@ add_executable(native_binary_io_test native/binary_io_test.cpp)
 target_link_libraries(native_binary_io_test PRIVATE SURRENDER wiz8_native_settings)
 add_test(NAME native_binary_io COMMAND native_binary_io_test)
 
-add_executable(native_compression_test "${PROJECT_SOURCE_DIR}/tests/native/compression_test.cpp")
-target_link_libraries(native_compression_test PRIVATE WIZ8_GAME_CORE)
-add_test(NAME native_compression COMMAND native_compression_test)
-
 add_executable(native_images_test native/images_test.cpp)
 target_link_libraries(native_images_test PRIVATE WIZ8_GAME_CORE)
 catch_discover_tests(native_images_test TEST_PREFIX "native_images/")
@@ -196,9 +192,13 @@ catch_discover_tests(native_audio_test
     PROPERTIES ENVIRONMENT "SDL_AUDIO_DRIVER=wiz8-offline")
 
 # Standalone SDL/Vulkan lifetime control for diagnosing host leak reports.
-# Run manually: failures here are independent of game and SurRender ownership.
+# Failures here are independent of game and SurRender ownership.
 add_executable(native_gpu_lifecycle "${PROJECT_SOURCE_DIR}/tests/native/gpu_lifecycle.cpp")
 target_link_libraries(native_gpu_lifecycle PRIVATE SDL3::SDL3)
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    catch_discover_tests(native_gpu_lifecycle TEST_PREFIX "native_gpu/"
+        PROPERTIES ENVIRONMENT "SDL_VIDEODRIVER=offscreen" TIMEOUT 30)
+endif()
 
 add_executable(native_movie_test "${PROJECT_SOURCE_DIR}/tests/native/movie_test.cpp")
 target_compile_definitions(native_movie_test PRIVATE
@@ -236,7 +236,7 @@ set(WIZ8_RUNTIME_SAVE_FIXTURE "${CMAKE_CURRENT_BINARY_DIR}/runtime-fixtures")
 target_compile_definitions(native_runtime_test PRIVATE
     WIZ8_RUNTIME_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/runtime/fixtures"
     WIZ8_RUNTIME_SAVE_FIXTURE="${WIZ8_RUNTIME_SAVE_FIXTURE}")
-foreach(scenario video video-seen main-menu-ui game-start resource-lifecycle quick-save combat load-game)
+foreach(scenario video video-seen main-menu-ui game-start resource-lifecycle inventory-chest quick-save combat load-game)
     add_test(NAME runtime_${scenario} COMMAND native_runtime_test ${scenario})
     set_tests_properties(runtime_${scenario} PROPERTIES
         ENVIRONMENT "SDL_VIDEODRIVER=offscreen;SDL_AUDIO_DRIVER=dummy"

@@ -1649,7 +1649,7 @@ W8OptionsSelection::W8OptionsSelection(int* value) : m_value(value) {}
 /* The empty body still emits the m_lsButtons vector teardown over the
    W8ControlSelection base. */
 // FUNCTION: WIZ8 0x005A8B50
-W8OptionsSelection::~W8OptionsSelection() {}
+W8OptionsSelection::~W8OptionsSelection() = default;
 
 // FUNCTION: WIZ8 0x005a8080
 void W8OptionsSelection::OnPrimary(W8TextControl* control)

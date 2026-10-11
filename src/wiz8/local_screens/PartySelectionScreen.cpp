@@ -768,10 +768,7 @@ W8PartySelectionCharacterPanel::W8PartySelectionCharacterPanel()
 }
 
 // FUNCTION: WIZ8 0x005bedf0
-W8PartySelectionCharacterPanel::~W8PartySelectionCharacterPanel()
-{
-    DestroyAllControls();
-}
+W8PartySelectionCharacterPanel::~W8PartySelectionCharacterPanel() = default;
 
 // FUNCTION: WIZ8 0x005bee70
 void W8PartySelectionCharacterPanel::OnSelectionChanged(W8ControlSelection*, int selected)
@@ -969,16 +966,10 @@ void W8PartySelectionCharacterGridPanel::OnPrimary(W8TextControl* control)
 }
 
 // FUNCTION: WIZ8 0x005bf7e0
-W8PartySelectionCharacterGridPanel::~W8PartySelectionCharacterGridPanel()
-{
-    DestroyAllControls();
-}
+W8PartySelectionCharacterGridPanel::~W8PartySelectionCharacterGridPanel() = default;
 
 // FUNCTION: WIZ8 0x005bf640
-W8PartySelectionPartySlotPanel::~W8PartySelectionPartySlotPanel()
-{
-    DestroyAllControls();
-}
+W8PartySelectionPartySlotPanel::~W8PartySelectionPartySlotPanel() = default;
 
 /* Draw the selected character's portrait and complete summary card.  The
    seven attribute values and the four right-column derived values come from
@@ -1338,7 +1329,6 @@ void W8PartySelectionController::Setup()
 // FUNCTION: WIZ8 0x005c0480
 W8PartySelectionOptionPanel::~W8PartySelectionOptionPanel()
 {
-    DestroyAllControls();
     m_entries.clear();
 }
 
@@ -1348,15 +1338,12 @@ W8PartySelectionController::~W8PartySelectionController()
     delete m_text_buffer;
 
     if (m_bottom_panel) {
-        m_bottom_panel->DestroyAllControls();
         delete m_bottom_panel;
     }
     if (m_left_panel) {
-        m_left_panel->DestroyAllControls();
         delete m_left_panel;
     }
     if (m_import_panel) {
-        m_import_panel->DestroyAllControls();
         delete m_import_panel;
     }
 

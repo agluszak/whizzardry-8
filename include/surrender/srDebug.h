@@ -21,30 +21,3 @@ SR_DLL_IMPORT srAssertHandler __cdecl srAssertGetFunc();
 SR_DLL_IMPORT void __cdecl srAssertSetFunc(srAssertHandler handler);
 SR_DLL_IMPORT void __cdecl srDefaultAssertFailFunc(const char* expression, const char* source_path,
                                                    w8_long line, const char* message);
-
-/* Sink that discards every insertion. */
-// VTABLE: SURRENDER 0x10076C00 srDummyStreamBuf
-// class srDummyStreamBuf
-class srDummyStreamBuf : public std::streambuf {
-public:
-    srDummyStreamBuf();
-
-private:
-    int overflow(int ch) override;
-    int underflow() override;
-
-    /* The copy constructor reinitializes a fresh stream buffer rather than copying get/put state. */
-    srDummyStreamBuf(const srDummyStreamBuf& other);
-    srDummyStreamBuf& operator=(const srDummyStreamBuf& other);
-};
-
-// VTABLE: SURRENDER 0x10076C34 srOStream_withassign
-class srOStream_withassign : public std::ostream {
-public:
-    srOStream_withassign(std::streambuf* buffer);
-};
-
-extern SR_DLL_IMPORT class srOStream_withassign srDummyStream;
-extern SR_DLL_IMPORT class srOStream_withassign srErr;
-extern SR_DLL_IMPORT class srOStream_withassign srLog;
-extern SR_DLL_IMPORT class srOStream_withassign srOut;

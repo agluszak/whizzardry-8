@@ -1,4 +1,9 @@
 #include <utility>
+#include <stdexcept>
+#include <limits>
+#include "wiz8/item_video_object_vector.h"
+#include "wiz8/layouts/item_tables.h"
+#include <variant>
 #include <catch2/catch_test_macros.hpp>
 #include <fmt/format.h>
 #include <fmt/printf.h>
@@ -116,29 +121,14 @@ void screen_stack()
 
 void camp_effects()
 {
-    std::array<SGPPaletteEntry, 256> palette{};
-    std::array<ETRLEObject, 12> images{};
-    for (auto& image : images) { image.usWidth = 16; image.usHeight = 8; }
-    image_type image{};
-    image.ubBitDepth = 8;
-    image.etrle = true;
-    image.pPalette.emplace();
-    std::copy_n(palette.data(), palette.size(), image.pPalette->data());
-    // Each frame is eight scanlines of one transparent run of 16 then the
-    // row terminator: 0x90 0x00 repeated.
-    image.pImageData.resize(images.size() * 16);
-
-    image.pETRLEObject.resize(images.size());
-    std::copy_n(images.data(), images.size(), image.pETRLEObject.data());
-    for (std::size_t i = 0; i < images.size(); ++i) {
-        image.pETRLEObject[i].uiDataOffset = i * 16;
-        image.pETRLEObject[i].uiDataLength = 16;
-        for (unsigned row = 0; row < 8; ++row) {
-            image.pImageData[i * 16 + row * 2] = 0x90;
-        }
+    SpriteSheet image;
+    image.frames.resize(12);
+    for (auto& frame : image.frames) {
+        frame.usWidth = 16;
+        frame.usHeight = 8;
+        frame.pixels.assign(16 * 8, SpriteFrame::kTransparent);
     }
-
-    auto object = CreateVideoObject(image);
+    auto object = std::make_unique<SGPVObject>(std::move(image));
     REQUIRE(object);
     const auto saved_slot = g_video_slots[0x86];
     auto saved_frame = std::move(g_video_frames[0]);
@@ -650,45 +640,40 @@ void buttons_and_regions()
 
 void image_and_sprite_ownership()
 {
-    image_type image{};
-    image.ubBitDepth = 8;
-    image.etrle = true;
-    image.pPalette.emplace();
-    (*image.pPalette)[1] = {255, 0, 0, 0};
-    image.pImageData.resize(3);
-    image.pImageData[0] = 1;
-    image.pImageData[1] = 1;
-    image.pETRLEObject.resize(1);
-    image.pETRLEObject[0] = {0, 3, 0, 0, 1, 1};
+    SpriteSheet image;
+    image.palette[1] = {255, 0, 0, 0};
+    image.frames.resize(1);
+    image.frames[0].pixels = {1};
+    image.frames[0].usWidth = image.frames[0].usHeight = 1;
 
     std::array<std::unique_ptr<SGPVObject>, 64> objects{};
     for (unsigned i = 0; i < objects.size(); ++i) {
-        objects[i] = CreateVideoObject(image);
+        objects[i] = std::make_unique<SGPVObject>(image);
         REQUIRE(objects[i]);
         REQUIRE((objects[i]->sprites.size() == 1 && objects[i]->sprites[0].pixels.size() == 1));
-        REQUIRE(reinterpret_cast<const UINT8*>(objects[i]->sprites[0].pixels.data()) !=
-              image.pImageData.data());
-        REQUIRE(objects[i]->pPaletteEntry.data() != image.pPalette->data());
+        REQUIRE(objects[i]->sprites[0].pixels.data() != image.frames[0].pixels.data());
+        REQUIRE(objects[i]->pPaletteEntry.data() != image.palette.data());
         (void)CreateObjectPaletteTables(*objects[i], HVOBJECT_GLOW_GREEN);
         REQUIRE((objects[i]->pShades[0] && objects[i]->pShades[15]));
         REQUIRE(objects[i]->currentPalette() == objects[i]->palette);
         REQUIRE(SetObjectShade(*objects[i], 6));
         auto retained = objects[i]->palette;
-        objects[i]->setPalette(*image.pPalette);
+        objects[i]->setPalette(image.palette);
         REQUIRE(objects[i]->palette == retained);
         REQUIRE(objects[i]->currentPalette() == objects[i]->palette);
         REQUIRE(SetObjectShade(*objects[i], 4));
         (void)CreateObjectPaletteTables(*objects[i], HVOBJECT_GLOW_RED);
         REQUIRE(objects[i]->currentPalette() == objects[i]->palette);
     }
-    image.pImageData[1] = 2;
-    image.pETRLEObject[0].usWidth = 2;
+    image.frames[0].pixels[0] = 2;
+    image.frames[0].usWidth = 2;
     REQUIRE((objects[0]->sprites[0].pixels[0] == 1 && objects[0]->sprites[0].usWidth == 1));
-    image.pETRLEObject[0].uiDataOffset = 0xffffffffu;
-    REQUIRE(!CreateVideoObject(image));
-    REQUIRE((image.pImageData[1] == 2 && image.pETRLEObject[0].uiDataOffset == 0xffffffffu));
+    const auto* owned_pixels = image.frames[0].pixels.data();
+    SGPVObject moved(std::move(image));
+    REQUIRE(moved.sprites[0].pixels.data() == owned_pixels);
+    REQUIRE(moved.sprites[0].pixels[0] == 2);
     image = {};
-    REQUIRE((image.pImageData.empty() && !image.pPalette && image.pETRLEObject.empty()));
+    REQUIRE(image.frames.empty());
     for (unsigned index : {0u, 31u, 63u}) {
         objects[index].reset();
     }
@@ -837,8 +822,12 @@ void generic_button_images()
     button_image_fixture(assets, "metadata.sti", 3, true);
     {
         auto image = LoadImage("metadata.sti");
-        REQUIRE((image && image->pImageData.size() == 9 && image->pETRLEObject.size() == 3));
-        REQUIRE((image->pPalette && (*image->pPalette)[1].peRed == 255));
+        REQUIRE(image);
+        const auto* sheet = std::get_if<SpriteSheet>(&*image);
+        REQUIRE(sheet);
+        REQUIRE(sheet->frames.size() == 3);
+        REQUIRE(sheet->frames[2].pixels == std::vector<UINT16>{1});
+        REQUIRE(sheet->palette[1].peRed == 255);
 
         const auto pixel_offset = STCI_HEADER_SIZE + STCI_8BIT_PALETTE_SIZE + 3 * STCI_SUBIMAGE_SIZE;
         for (std::uintmax_t cut : {0u, STCI_HEADER_SIZE - 1u,
@@ -1318,4 +1307,64 @@ TEST_CASE("assert-message", "[.death]")
     CreateTextButton("invalid", font, 0, 0, {}, -1, 0, 40, 20,
                      BUTTON_TOGGLE, BUTTON_PRIORITY_NORMAL, nullptr, nullptr);
     FAIL("CreateTextButton did not abort");
+}
+
+TEST_CASE("Item image cache grows, reloads and rolls back failed loads", "[owner][catalog]")
+{
+    ScopedTemporaryDirectory directory{"wiz8-item-cache"};
+    const auto assets = directory.path / "assets";
+    button_image_fixture(assets, "Data/Items/icon.sti", 1);
+    button_image_fixture(assets, "Data/Items/Dagger.sti", 1);
+    w8_native::configure_paths({assets.string(), (directory.path / "user").string(), {}});
+    const auto slot_count = g_video_slots.size();
+    const auto frame_count = g_video_frames.size();
+    const auto fixed_tail = g_video_slots.back();
+    std::vector<W8ItemDatabaseRecord> records(1005);
+    for (auto& record : records)
+        record.video_object_name = "icon.sti";
+    struct Restore {
+        W8ItemDatabaseRecord* previous = g_item_records;
+        ~Restore() { g_item_video_objects.Clear(); g_item_records = previous; }
+    } restore;
+    g_item_records = records.data();
+    g_item_video_objects.Initialize(records.size());
+    REQUIRE_THROWS_AS(g_item_video_objects.GetOrCreateVideoObject(-1), std::out_of_range);
+    REQUIRE_THROWS_AS(g_item_video_objects.GetOrCreateVideoObject(records.size()), std::out_of_range);
+    records[0].video_object_name = "missing.sti";
+    REQUIRE_THROWS_AS(g_item_video_objects.GetOrCreateVideoObject(0), std::runtime_error);
+    REQUIRE(g_item_video_objects.LoadedImageCount() == 0);
+    REQUIRE(g_video_slots.size() == slot_count);
+    REQUIRE(g_video_frames.size() == frame_count);
+    records[0].video_object_name.clear(); // Checked fallback table.
+    records[0].unidentified_name_index = 145;
+    REQUIRE_THROWS_AS(g_item_video_objects.GetOrCreateVideoObject(0), std::out_of_range);
+    records[0].unidentified_name_index = 0;
+    for (unsigned i = 0; i < records.size(); ++i) {
+        const auto id = g_item_video_objects.GetOrCreateVideoObject(i);
+        REQUIRE(id == slot_count + i);
+        REQUIRE(GetCatalogVideoObject(id, 0).sprites.size() == 1);
+        REQUIRE(g_item_video_objects.GetOrCreateVideoObject(i) == id);
+    }
+    REQUIRE(g_item_video_objects.LoadedImageCount() == records.size());
+    REQUIRE(g_video_slots.size() == slot_count + records.size());
+    REQUIRE(g_video_frames.size() == frame_count + records.size());
+    REQUIRE(g_video_slots.at(slot_count - 1).first_frame == fixed_tail.first_frame);
+    REQUIRE_THROWS_AS(GetCatalogVideoObject(slot_count, -1), std::out_of_range);
+    REQUIRE_THROWS_AS(GetCatalogVideoObject(slot_count, std::numeric_limits<int>::max()),
+                      std::out_of_range);
+    ReleaseLoadedVideoFrames();
+    REQUIRE_FALSE(g_video_frames.at(frame_count).object);
+    REQUIRE(g_item_video_objects.GetOrCreateVideoObject(0) == slot_count);
+    REQUIRE(g_video_frames.at(frame_count).object);
+    // Reinitialization must release the prior images and remove their IDs.
+    g_item_video_objects.Initialize(records.size());
+    REQUIRE(g_item_video_objects.LoadedImageCount() == 0);
+    REQUIRE(g_video_slots.size() == slot_count);
+    REQUIRE(g_video_frames.size() == frame_count);
+    REQUIRE(g_item_video_objects.GetOrCreateVideoObject(1004) == slot_count);
+    g_item_video_objects.Clear();
+    g_item_video_objects.Clear();
+    REQUIRE(g_video_slots.size() == slot_count);
+    REQUIRE(g_video_frames.size() == frame_count);
+    REQUIRE_THROWS_AS(GetCatalogVideoObject(slot_count, 0), std::out_of_range);
 }
