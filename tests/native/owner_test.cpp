@@ -15,6 +15,8 @@
 #include <algorithm>
 #include <array>
 #include <cstring>
+#include <cstdio>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <ios>
@@ -45,6 +47,8 @@
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/utility.h"
+#include "wiz8/compat/compiler.h"
+#include "wiz8/sr_api.h"
 #include "Font.h"
 #include "input.h"
 #include "wiz8/regions.h"
@@ -1572,8 +1576,17 @@ TEST_CASE("assert-plain", "[.death]")
     FAIL("Assert did not abort");
 }
 
+namespace {
+void assertion_message_handler(const char* expression, const char*, w8_long, const char*)
+{
+    std::fprintf(stderr, "Assertion failed: %s\n", expression);
+    std::abort();
+}
+}
+
 TEST_CASE("assert-message", "[.death]")
 {
+    srAssertSetFunc(assertion_message_handler);
     SetRegionBounds(static_cast<unsigned int>(g_regions.size()), 0, 0, 1, 1);
     FAIL("SetRegionBounds did not abort");
 }
