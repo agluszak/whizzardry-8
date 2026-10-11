@@ -28,7 +28,6 @@
 #include "compat/compiler.h"
 #include "compat/native.h"
 #include "glm/common.hpp"
-#include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float4.hpp"
 #include "glm/geometric.hpp"
 #include "glm/vector_relational.hpp"
@@ -3488,78 +3487,6 @@ void W8Octree::AdjustPortalDestination(srVector3T<float>* destination,
 
 /* Release the location-variable names and empty their parallel value and
    level vectors. Trigger.cpp creates the names as copied character arrays. */
-
-// FUNCTION: WIZ8 0x004372E0
-bool WriteVector4Array(wiz8::File* file, const glm::vec4* values, int count)
-try
-{
-    if (count < 0) {
-        return false;
-    }
-    file->write(values, static_cast<std::size_t>(count) * sizeof(glm::vec4));
-    return true;
-}
-catch (const std::exception&) { return false; }
-
-// FUNCTION: WIZ8 0x00437390
-bool WriteVector3Array(wiz8::File* file, const srVector3T<float>* values, int count)
-try
-{
-    if (count < 0) {
-        return false;
-    }
-    file->write(values, static_cast<std::size_t>(count) * sizeof(srVector3T<float>));
-    return true;
-}
-catch (const std::exception&) { return false; }
-
-// FUNCTION: WIZ8 0x00437430
-bool WriteVector2Array(wiz8::File* file, const glm::vec2* values, int count)
-try
-{
-    if (count < 0) {
-        return false;
-    }
-    file->write(values, static_cast<std::size_t>(count) * sizeof(glm::vec2));
-    return true;
-}
-catch (const std::exception&) { return false; }
-
-// FUNCTION: WIZ8 0x004374C0
-bool ReadVector4Array(wiz8::File* file, glm::vec4* values, int count)
-try
-{
-    if (count < 0) {
-        return false;
-    }
-    file->read_exact(values, static_cast<std::size_t>(count) * sizeof(glm::vec4));
-    return true;
-}
-catch (const std::exception&) { return false; }
-
-// FUNCTION: WIZ8 0x004374E0
-bool ReadVector3Array(wiz8::File* file, void* values, int count)
-try
-{
-    if (count < 0) {
-        return false;
-    }
-    file->read_exact(values, static_cast<std::size_t>(count) * sizeof(srVector3T<float>));
-    return true;
-}
-catch (const std::exception&) { return false; }
-
-// FUNCTION: WIZ8 0x00437510
-bool ReadVector2Array(wiz8::File* file, glm::vec2* values, int count)
-try
-{
-    if (count < 0) {
-        return false;
-    }
-    file->read_exact(values, static_cast<std::size_t>(count) * sizeof(glm::vec2));
-    return true;
-}
-catch (const std::exception&) { return false; }
 
 std::vector<w8_ulong> W8Octree::nearbyLocations(const glm::vec3& position, float spacing)
 {
