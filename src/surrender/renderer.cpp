@@ -10,7 +10,6 @@
 
 #include "surrender/srMath.h"
 #include <bit>
-#include <cassert>
 #include "surrender/srGERD.h"
 #include "surrender/srClip.h"
 #include "surrender/triangle_selection.h"
