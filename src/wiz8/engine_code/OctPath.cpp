@@ -28,6 +28,8 @@
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_uint2.hpp"
 #include "glm/geometric.hpp"
+#include "glm/common.hpp"
+#include "glm/vector_relational.hpp"
 #include "surrender/srMath.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_code/CombatRange.h"
@@ -408,9 +410,8 @@ try
     m_ulNumWayPtLinks = link_count;
     edge_node_count = edge_nodes;
     for (unsigned int surface = 1; surface < waypoint_count; ++surface) {
-        srVector3T<int> point;
-        g_octree->WorldPositionToCell(&m_waypoints[surface].position, &point);
-        g_octree->object_registry->MoveObjectToCell(W8_OCTREE_KIND_WAYPOINT, surface + 1, &point);
+        const auto point = g_octree->cellAt(m_waypoints[surface].position.glmValue());
+        g_octree->object_registry->MoveObjectToCell(W8_OCTREE_KIND_WAYPOINT, surface + 1, point);
     }
 
     if (version <= 2) {
@@ -490,10 +491,9 @@ void W8PathingService::BuildWaypointFileData()
                 m_waypoints[next_surface].index = next_surface;
                 g_octree->object_registry->UnregisterObject(W8_OCTREE_KIND_WAYPOINT,
                                                             old_surface + 1);
-                srVector3T<int> point;
-                g_octree->WorldPositionToCell(&m_waypoints[next_surface].position, &point);
+                const auto point = g_octree->cellAt(m_waypoints[next_surface].position.glmValue());
                 g_octree->object_registry->MoveObjectToCell(W8_OCTREE_KIND_WAYPOINT,
-                                                            next_surface + 1, &point);
+                                                            next_surface + 1, point);
             }
             ++next_surface;
         }
@@ -1025,10 +1025,10 @@ bool W8PathingService::TestAttachmentHopDoor(W8NavigatorAttachment* attachment)
             srVector3T<float> lower = source_surface->position;
             srVector3T<float> upper = source_surface->position;
             GrowBoundsByPoint(&m_waypoints[destination].position, &lower, &upper);
-            w8_ulong* candidates = 0;
+            std::vector<w8_ulong> candidates;
             Trigger* selected = 0;
-            int count =
-                g_octree->QueryObjects(&candidates, &lower, &upper, W8_OCTREE_KIND_PROP, -1);
+            candidates = g_octree->queryObjects({lower.glmValue(), upper.glmValue()}, W8_OCTREE_KIND_PROP, -1);
+            int count = candidates.size();
             if (count > 0) {
                 if (count == 1) {
                     W8Prop* prop = (*g_world->collidable_props)[candidates[0]];
@@ -1934,9 +1934,8 @@ int W8PathingService::ProcessSearchNodeProps(unsigned short node_index, bool fir
     lower = node->position - lower_extent;
     upper = node->position + upper_extent;
 
-    w8_ulong* candidates = 0;
-    unsigned int count =
-        g_octree->QueryObjects(&candidates, &lower, &upper, W8_OCTREE_KIND_PROP, -1);
+    const auto candidates = g_octree->queryObjects({lower.glmValue(), upper.glmValue()}, W8_OCTREE_KIND_PROP, -1);
+    unsigned int count = candidates.size();
     for (unsigned int index = 0; index < count; ++index) {
         W8Prop* prop = (*g_world->collidable_props)[candidates[index]];
         prop->CanBeUsedFrom(node->cell_x, node->cell_z, true);
@@ -1965,9 +1964,7 @@ unsigned int W8PathingService::CollectPathProbes(W8NavigatorMovementState* movem
     lower = movement->position - half_extent;
     upper = movement->position + half_extent;
 
-    m_path_candidates = 0;
-    m_path_candidate_count =
-        g_octree->QueryLocationsInBox(&m_path_candidates, &lower, &upper, movement->location_id);
+    m_path_candidates = g_octree->locationsInBox({lower.glmValue(), upper.glmValue()}, movement->location_id);
 
     srVector3T<float> player_position = g_startup_world->GetPosition();
     srVector3T<float> delta = player_position - movement->position;
@@ -1985,7 +1982,7 @@ unsigned int W8PathingService::CollectPathProbes(W8NavigatorMovementState* movem
         ++m_path_probe_count;
     }
 
-    for (unsigned int index = 0; index < m_path_candidate_count && m_path_probe_count < 5;
+    for (unsigned int index = 0; index < m_path_candidates.size() && m_path_probe_count < 5;
          ++index) {
         int location_id = m_path_candidates[index];
         unsigned int monster_index =
@@ -2099,16 +2096,14 @@ unsigned short W8PathingService::PlanMovement(W8NavigatorMovementState* movement
         lower = start - half_extent;
         upper = start + half_extent;
         CollectPathProbes(movement, radius);
-        m_path_candidates = 0;
-        m_path_candidate_count = g_octree->QueryLocationsInBox(&m_path_candidates, &lower, &upper,
-                                                               movement->location_id);
+        m_path_candidates = g_octree->locationsInBox({lower.glmValue(), upper.glmValue()}, movement->location_id);
+
     } else {
         m_path_probe_count = 0;
         if (movement->target_location_id < 1) {
-            m_path_candidate_count = 0;
+            m_path_candidates.clear();
         } else {
-            m_path_candidate_count = 1;
-            m_path_candidates = movement->TargetLocationAsCandidate();
+            m_path_candidates = {static_cast<w8_ulong>(movement->target_location_id)};
         }
     }
 
@@ -2515,7 +2510,7 @@ unsigned short W8PathingService::ResolveSearchNodeCollisions(W8NavigatorMovement
         result = 3;
     }
 
-    for (unsigned int candidate = 0; candidate < m_path_candidate_count; ++candidate) {
+    for (unsigned int candidate = 0; candidate < m_path_candidates.size(); ++candidate) {
         int location_id = m_path_candidates[candidate];
         unsigned int monster_index =
             MonsterGetIndexByLocationID(0x2622, OCTPATH_CPP, location_id, false);
@@ -2660,7 +2655,7 @@ unsigned short W8PathingService::ConfigureMovementSearch(
         m_trace_target_location = target_location;
     }
 
-    g_octree->AdjustPosition(&movement->target_position, 1);
+    movement->target_position = g_octree->settleToGround(movement->target_position.glmValue(), true, 500).position;
 
     unsigned short result = 0;
     W8NavigatorAttachment* attachment = movement->attachment.get();
@@ -2918,7 +2913,7 @@ unsigned int W8PathingService::StepAlongPath(W8NavigatorMovementState* movement,
         unsigned short cursor = attachment->path_cursor;
         if (((cursor == 1) && (1 < attachment->path_position_index)) &&
             (attachment->path[2].value != 0)) {
-            if (attachment->CheckPositionHopHeight(&movement->position)) {
+            if (attachment->checkPositionHopHeight(movement->position.glmValue())) {
                 ActivateMovementTrigger(movement, true);
                 ++attachment->path_cursor;
             }
@@ -4274,8 +4269,8 @@ unsigned short W8PathingService::FindWaypoint(const srVector3T<float>* position,
     lower = query - half_extent;
     upper = query + half_extent;
 
-    w8_ulong* candidates = 0;
-    int count = g_octree->QueryObjects(&candidates, &lower, &upper, W8_OCTREE_KIND_WAYPOINT, -1);
+    auto candidates = g_octree->queryObjects({lower.glmValue(), upper.glmValue()}, W8_OCTREE_KIND_WAYPOINT, -1);
+    int count = candidates.size();
     if (count == 0) {
         return result;
     }
@@ -4487,8 +4482,8 @@ void W8PathingService::ActivateMovementTrigger(W8NavigatorMovementState* movemen
         upper.z = temporary;
     }
 
-    w8_ulong* candidates = 0;
-    int count = g_octree->QueryObjects(&candidates, &lower, &upper, W8_OCTREE_KIND_PROP, -1);
+    const auto candidates = g_octree->queryObjects({lower.glmValue(), upper.glmValue()}, W8_OCTREE_KIND_PROP, -1);
+    int count = candidates.size();
     if (count <= 0) {
         return;
     }
@@ -4546,7 +4541,7 @@ void W8PathingService::UpdatePathVisualization(const srVector3T<float>* source,
     if (m_waypoint_editing) {
         srVector3T<float> adjusted = *source;
         srVector3T<float> endpoint = *destination;
-        g_octree->AdjustPosition(&adjusted, 1);
+        adjusted = g_octree->settleToGround(adjusted.glmValue(), true, 500).position;
         PreparePathVisualization(&adjusted, &endpoint);
 
         if (CollectPathVisualization(&adjusted) != 0) {
@@ -4598,7 +4593,7 @@ void W8PathingService::UpdatePathVisualization(const srVector3T<float>* source,
         }
 
         srVector3T<float> adjusted = *source;
-        g_octree->AdjustPosition(&adjusted, 1);
+        adjusted = g_octree->settleToGround(adjusted.glmValue(), true, 500).position;
         DrawPathPosition(adjusted, 1);
     }
 
@@ -4612,25 +4607,38 @@ void W8PathingService::UpdatePathVisualization(const srVector3T<float>* source,
 // FUNCTION: WIZ8 0x0045BE30
 stModelInstance* W8PathingService::BuildPathVisualization()
 {
-    static srVector3T<float> marker_offsets[5];
+    if (m_path_visualization == nullptr) EnsurePathVisualization();
+    const std::array<glm::vec3, 5> marker_offsets{
+        glm::vec3(0, 0.5f, 0) * static_cast<float>(g_double_five_hundred),
+        glm::vec3(-0.25f, 0, -0.25f) * static_cast<float>(g_double_five_hundred),
+        glm::vec3(-0.25f, 0, 0.25f) * static_cast<float>(g_double_five_hundred),
+        glm::vec3(0.25f, 0, 0.25f) * static_cast<float>(g_double_five_hundred),
+        glm::vec3(0.25f, 0, -0.25f) * static_cast<float>(g_double_five_hundred)};
     int index;
-
-    if (m_path_visualization == 0) {
-        EnsurePathVisualization();
-    }
-    marker_offsets[0].Set(0.0, 0.5, 0.0);
-    marker_offsets[1].Set(-0.25, 0.0, -0.25);
-    marker_offsets[2].Set(-0.25, 0.0, 0.25);
-    marker_offsets[3].Set(0.25, 0.0, 0.25);
-    marker_offsets[4].Set(0.25, 0.0, -0.25);
-    for (index = 0; index < 5; ++index) {
-        marker_offsets[index] *= g_double_five_hundred;
-    }
 
     stMeshModel* model = static_cast<stMeshModel*>(m_path_visualization->getModel());
     srVector3T<float>* colors = model->getVertexDIG(0, 1);
     srVector3T<float>* vertices = model->getVertexLoc();
     srVector3i* polygons = model->getPolyVertex();
+    const auto write_marker = [&](unsigned short waypoint, int base, unsigned appearance_flags) {
+        const auto& surface = m_waypoints[waypoint];
+        const glm::vec3 scale((surface.flags >> 12) * g_waypoint_marker_scale,
+                              (surface.flags >> 12) * 0.5,
+                              (surface.flags >> 12) * g_waypoint_marker_scale);
+        const auto color = waypointVisualizationColor(waypoint);
+        for (unsigned corner = 0; corner < marker_offsets.size(); ++corner) {
+            auto offset = scale * marker_offsets[corner];
+            offset.y = static_cast<float>(offset.y + g_double_five_hundred);
+            vertices[base + corner] = offset + surface.position.glmValue();
+            colors[base + corner] = color;
+        }
+        if ((appearance_flags & 2) != 0) {
+            colors[base] = glm::mix(glm::vec3(0), glm::vec3(1),
+                glm::lessThanEqual(color, glm::vec3(g_float_zero)));
+        } else if ((appearance_flags & W8_WAYPOINT_CONDITIONAL) != 0) {
+            colors[base] = glm::vec3(0);
+        }
+    };
     int marker_count = 0;
     int link_count = 0;
     std::ranges::fill(m_visited_path_nodes, false);
@@ -4641,28 +4649,8 @@ stModelInstance* W8PathingService::BuildPathVisualization()
         }
         unsigned short source_index = static_cast<unsigned short>(marked);
         W8PathSurface* source = &m_waypoints[source_index];
-        srVector3T<float> marker_color;
-        srVector3T<float> marker_scale((source->flags >> 12) * g_waypoint_marker_scale,
-                                       (source->flags >> 12) * 0.5,
-                                       (source->flags >> 12) * g_waypoint_marker_scale);
-        int marker_vertex = marker_count * 5;
-
         SetGrowing(m_visited_path_nodes, source_index);
-        GetWaypointVisualizationColor(source_index, &marker_color);
-        for (index = 0; index < 5; ++index) {
-            srVector3T<float> offset = marker_offsets[index];
-            offset *= marker_scale;
-            offset.y += g_double_five_hundred;
-            vertices[marker_vertex + index] = offset + source->position;
-            colors[marker_vertex + index] = marker_color;
-        }
-        if ((source->flags & 2) != 0) {
-            colors[marker_vertex].x = colors[marker_vertex].x <= g_float_zero ? 1.0f : 0.0f;
-            colors[marker_vertex].y = colors[marker_vertex].y <= g_float_zero ? 1.0f : 0.0f;
-            colors[marker_vertex].z = colors[marker_vertex].z <= g_float_zero ? 1.0f : 0.0f;
-        } else if ((source->flags & W8_WAYPOINT_CONDITIONAL) != 0) {
-            colors[marker_vertex].SetZero();
-        }
+        write_marker(source_index, marker_count * 5, source->flags);
 
         unsigned short edge_index = source->first_edge;
         while (edge_index != 0 && link_count * 6 + 504 <= 0x30d1) {
@@ -4682,31 +4670,8 @@ stModelInstance* W8PathingService::BuildPathVisualization()
 
             if (!TestBit(m_visited_path_nodes, destination_index) &&
                 !TestBit(m_marked_path_nodes, destination_index)) {
-                srVector3T<float> destination_color;
-                srVector3T<float> destination_scale(
-                    (destination->flags >> 12) * g_waypoint_marker_scale,
-                    (destination->flags >> 12) * 0.5,
-                    (destination->flags >> 12) * g_waypoint_marker_scale);
-                int destination_vertex = (marker_count + 1) * 5;
-
-                GetWaypointVisualizationColor(destination_index, &destination_color);
-                for (index = 0; index < 5; ++index) {
-                    srVector3T<float> offset = marker_offsets[index];
-                    offset *= destination_scale;
-                    offset.y += g_double_five_hundred;
-                    vertices[destination_vertex + index] = offset + destination->position;
-                    colors[destination_vertex + index] = destination_color;
-                }
-                if ((source->flags & 2) != 0) {
-                    colors[destination_vertex].x =
-                        colors[destination_vertex].x <= g_float_zero ? 1.0f : 0.0f;
-                    colors[destination_vertex].y =
-                        colors[destination_vertex].y <= g_float_zero ? 1.0f : 0.0f;
-                    colors[destination_vertex].z =
-                        colors[destination_vertex].z <= g_float_zero ? 1.0f : 0.0f;
-                } else if ((source->flags & W8_WAYPOINT_CONDITIONAL) != 0) {
-                    colors[destination_vertex].SetZero();
-                }
+                // Neighbor markers inherit the source's highlight state.
+                write_marker(destination_index, (marker_count + 1) * 5, source->flags);
                 SetGrowing(m_visited_path_nodes, destination_index);
                 ++marker_count;
             }
@@ -5007,34 +4972,12 @@ void W8PathingService::BuildSearchVisualization()
    two current selection slots take yellow and either green or red; every other
    surface is blue. */
 // FUNCTION: WIZ8 0x0045d490
-void W8PathingService::GetWaypointVisualizationColor(unsigned short waypoint,
-                                                     srVector3T<float>* color)
+glm::vec3 W8PathingService::waypointVisualizationColor(unsigned short waypoint) const
 {
-    if ((m_waypoints[waypoint].flags & W8_WAYPOINT_DISABLED) != 0) {
-        color->SetZero();
-        return;
-    }
-    if (waypoint == start_waypoint) {
-        color->x = 1.0f;
-        color->y = 1.0f;
-        color->z = 0.0f;
-        return;
-    }
-    if (waypoint != destination_waypoint) {
-        color->x = 0.0f;
-        color->y = 0.0f;
-        color->z = 1.0f;
-        return;
-    }
-    if (path_direction_valid) {
-        color->x = 0.0f;
-        color->y = 1.0f;
-        color->z = 0.0f;
-        return;
-    }
-    color->x = 1.0f;
-    color->y = 0.0f;
-    color->z = 0.0f;
+    if ((m_waypoints[waypoint].flags & W8_WAYPOINT_DISABLED) != 0) return glm::vec3(0);
+    if (waypoint == start_waypoint) return {1, 1, 0};
+    if (waypoint != destination_waypoint) return {0, 0, 1};
+    return path_direction_valid ? glm::vec3(0, 1, 0) : glm::vec3(1, 0, 0);
 }
 
 /* Create the fixed-capacity editor mesh shared by waypoint and edge drawing.
@@ -5146,7 +5089,7 @@ short W8PathingService::CollectPathVisualization(const srVector3T<float>* positi
     unsigned short waypoints[500];
     w8_ulong distances[500];
     unsigned short waypoint_count = 0;
-    w8_ulong* query_results = 0;
+    std::vector<w8_ulong> query_results;
     int query_count;
     int index;
 
@@ -5169,8 +5112,8 @@ short W8PathingService::CollectPathVisualization(const srVector3T<float>* positi
     upper.Set(position->x + g_float_twelve_thousand_five_hundred,
               position->y + g_float_five_thousand,
               position->z + g_float_twelve_thousand_five_hundred);
-    query_count =
-        g_octree->QueryObjects(&query_results, &lower, &upper, W8_OCTREE_KIND_WAYPOINT, -1);
+    query_results = g_octree->queryObjects({lower.glmValue(), upper.glmValue()}, W8_OCTREE_KIND_WAYPOINT, -1);
+    query_count = query_results.size();
 
     for (index = 0; index < query_count; ++index) {
         unsigned short waypoint = static_cast<unsigned short>(query_results[index]);
@@ -5191,15 +5134,15 @@ short W8PathingService::CollectPathVisualization(const srVector3T<float>* positi
         }
     }
 
-    query_results = 0;
+    query_results.clear();
     lower.Set(position->x - g_waypoint_fallback_query_half_extent,
               position->y - g_float_twelve_thousand_five_hundred,
               position->z - g_waypoint_fallback_query_half_extent);
     upper.Set(position->x + g_waypoint_fallback_query_half_extent,
               position->y + g_float_twelve_thousand_five_hundred,
               position->z + g_waypoint_fallback_query_half_extent);
-    query_count =
-        g_octree->QueryObjects(&query_results, &lower, &upper, W8_OCTREE_KIND_WAYPOINT, -1);
+    query_results = g_octree->queryObjects({lower.glmValue(), upper.glmValue()}, W8_OCTREE_KIND_WAYPOINT, -1);
+    query_count = query_results.size();
 
     for (index = 0; index < query_count; ++index) {
         unsigned short waypoint = static_cast<unsigned short>(query_results[index]);
@@ -5268,7 +5211,6 @@ void W8PathingService::AddWaypoint(const srVector3T<float>* position)
     }
 
     W8PathSurface* surface = &m_waypoints[m_ulNumWayPoints];
-    srVector3T<int> point;
 
     surface->flags = 0x2000;
     surface->index = static_cast<unsigned short>(m_ulNumWayPoints);
@@ -5276,9 +5218,9 @@ void W8PathingService::AddWaypoint(const srVector3T<float>* position)
     if ((ClassifyWaypoint(&surface->position) & W8_PATH_CELL_CONDITIONAL) != 0) {
         surface->flags |= W8_WAYPOINT_CONDITIONAL;
     }
-    g_octree->WorldPositionToCell(position, &point);
+    const auto point = g_octree->cellAt(position->glmValue());
     g_octree->object_registry->MoveObjectToCell(
-        W8_OCTREE_KIND_WAYPOINT, static_cast<unsigned short>(m_ulNumWayPoints + 1), &point);
+        W8_OCTREE_KIND_WAYPOINT, static_cast<unsigned short>(m_ulNumWayPoints + 1), point);
     ++m_ulNumWayPoints;
 }
 
@@ -5290,7 +5232,7 @@ void W8PathingService::AddWaypoint(const srVector3T<float>* position)
 // FUNCTION: WIZ8 0x0045e030
 void W8PathingService::SetWaypointLinkFlags(unsigned short waypoint, unsigned int direction)
 {
-    w8_ulong* objects = 0;
+    std::vector<w8_ulong> objects;
     unsigned int link_flags[2];
     unsigned int index;
     unsigned int count;
@@ -5315,8 +5257,8 @@ void W8PathingService::SetWaypointLinkFlags(unsigned short waypoint, unsigned in
             upper.Set(surface->position.x + g_path_surface_query_half_extent,
                       surface->position.y + g_float_fifty_thousand,
                       surface->position.z + g_path_surface_query_half_extent);
-            count =
-                g_octree->QueryObjects(&objects, &lower, &upper, W8_OCTREE_KIND_WAYPOINT, waypoint);
+            objects = g_octree->queryObjects({lower.glmValue(), upper.glmValue()}, W8_OCTREE_KIND_WAYPOINT, waypoint);
+            count = objects.size();
             if (count != 0) {
                 distances = static_cast<w8_ulong*>(malloc(count * sizeof(w8_ulong)));
                 for (index = 0; index < count; ++index) {
@@ -5334,7 +5276,7 @@ void W8PathingService::SetWaypointLinkFlags(unsigned short waypoint, unsigned in
                     }
                 }
                 std::ranges::sort(
-                    std::views::zip(std::span(distances, count), std::span(objects, count)), {},
+                    std::views::zip(std::span(distances, count), std::span(objects).first(count)), {},
                     [](const auto& entry) { return std::get<0>(entry); });
                 for (index = 0; index < count; ++index) {
                     if (distances[index] == 0xffffffff) {
@@ -6159,7 +6101,7 @@ bool W8PathParameters::QueryNearbyNavigators()
     float extent;
 
     if (nearby_queried) {
-        return nearby_count != 0;
+        return !nearby_locations.empty();
     }
     extent = radius * g_float_five;
     nearby_queried = true;
@@ -6167,10 +6109,9 @@ bool W8PathParameters::QueryNearbyNavigators()
               movement->position.z - extent);
     upper.Set(extent + movement->position.x, extent + movement->position.y,
               extent + movement->position.z);
-    nearby_locations = 0;
-    nearby_count =
-        g_octree->QueryLocationsInBox(&nearby_locations, &lower, &upper, movement->location_id);
-    return nearby_count != 0;
+    nearby_locations = g_octree->locationsInBox({lower.glmValue(), upper.glmValue()}, movement->location_id);
+
+    return !nearby_locations.empty();
 }
 
 // FUNCTION: WIZ8 0x004cb090
@@ -6310,7 +6251,7 @@ bool W8PathParameters::PredictNavigatorCollision()
     lookahead = g_path_prediction_time * velocity_length + radius;
     nearest = lookahead + g_camera_snap_epsilon;
     if (QueryNearbyNavigators()) {
-        for (index = 0; index < nearby_count; ++index) {
+        for (index = 0; index < nearby_locations.size(); ++index) {
             monster = GetMonsterByLocationID(nearby_locations[index]);
             if (monster == 0) {
                 navigator = 0;
@@ -6520,7 +6461,7 @@ void W8PathParameters::AccumulateGroupRepulsion()
     float falloff;
 
     if (QueryNearbyNavigators()) {
-        for (index = 0; index < nearby_count; ++index) {
+        for (index = 0; index < nearby_locations.size(); ++index) {
             monster = GetMonsterByLocationID(nearby_locations[index]);
             if (monster == 0) {
                 navigator = 0;
@@ -6654,7 +6595,7 @@ bool W8PathParameters::SteerAlongPath(W8NavigatorMovementState* movement, bool a
         if (g_float_zero < velocity_length) {
             reach = g_path_prediction_time * velocity_length;
             ahead = this->movement->position + direction * reach;
-            if (!movement->attachment->CheckPredictedHopHeight(&ahead)) {
+            if (!movement->attachment->checkPredictedHopHeight(ahead.glmValue())) {
                 target = this->movement->position;
                 advanced = movement->attachment->AdvancePositionTowardWaypoint(&target, reach);
                 AccumulateSeekForce();

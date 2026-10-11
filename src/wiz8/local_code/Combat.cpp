@@ -2734,7 +2734,7 @@ void AimMonsterBreathAtTarget(W8MonsterInfo* monster_info)
     case W8_TARGET_KIND_ALL_ENEMIES:
         return;
     default:
-        GetCameraPosition(&position);
+        position = cameraLocation();
         monster_info->p3D->m_axis = position;
         monster_info->p3D->aim_set = true;
         return;
@@ -2840,7 +2840,7 @@ bool CreateCharacterBreathEffect(int party_slot)
         return false;
     }
     FaceCharacterTowardCombatTarget(party_slot, target);
-    GetCameraPosition(&camera);
+    camera = cameraLocation();
     aim = target->point - camera;
     direction = aim;
     aim.SetLength(1.0);

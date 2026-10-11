@@ -1,6 +1,13 @@
 #pragma once
 
+#include "wiz8/ground_probe.h"
+#include "wiz8/octree_walk.h"
+#include "glm/ext/vector_float3.hpp"
+#include "glm/ext/vector_int3.hpp"
+#include "surrender/srBoundingBox.h"
+
 #include <vector>
+#include <optional>
 #include <unordered_map>
 
 #include "surrender/srMath.h"
@@ -10,6 +17,12 @@
 #include "compat/native.h"
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float4.hpp"
+
+struct OctreeCellCoordinates {
+    glm::ivec3 cell;
+    glm::vec3 offset;
+    bool inside;
+};
 
 class GDProp;
 class W8Prop;
@@ -69,16 +82,6 @@ bool WriteVector2Array(wiz8::File* file, const glm::vec2* values, int count);
 bool ReadVector4Array(wiz8::File* file, glm::vec4* values, int count);
 bool ReadVector3Array(wiz8::File* file, void* values, int count);
 bool ReadVector2Array(wiz8::File* file, glm::vec2* values, int count);
-/* Distance from `point` to the `from`-`to` segment, shared by the trace
-   resolver and the GameData surface walk. When `clamp_point` is set the
-   closest segment point is written back over `point`; `out_t` returns the
-   clamped [0,1] projection fraction. */
-float PointToSegmentDistance(srVector3T<float>* point, const srVector3T<float>* from,
-                             const srVector3T<float>* to, bool clamp_point, float* out_t);
-/* XY-plane sibling over two-component vectors; the pathfinding code measures
-   edge distances in plan view. */
-float PointToSegmentDistance2D(glm::vec2* point, const glm::vec2* from, const glm::vec2* to, bool clamp_point,
-                               float* out_t); /* 0x00437760 */
 /* Grow `minimum`/`maximum` to include `point`, returning whether any bound
    moved. */
 char GrowBoundsByPoint(const srVector3T<float>* point, srVector3T<float>* minimum,
@@ -198,31 +201,10 @@ public:
 
     /* Returns whether the pairing ended up recorded; every recovered caller
        discards it. */
-    unsigned char RegisterObjectCell(W8OctreeObjectKind kind, int id, const srVector3T<int>* point);
-    unsigned char MoveObjectToCell(W8OctreeObjectKind kind, int id, const srVector3T<int>* point);
+    unsigned char RegisterObjectCell(W8OctreeObjectKind kind, int id, const glm::ivec3& point);
+    unsigned char MoveObjectToCell(W8OctreeObjectKind kind, int id, const glm::ivec3& point);
     unsigned char UnregisterObject(W8OctreeObjectKind kind, int id);
 };
-
-/* The cell walk 0x004362D0 builds and both line-of-sight bodies step: an
-   ordinary 3D Bresenham over octree cells. One axis drives; the other two each
-   carry a delta, an accumulator and the reset the accumulator takes when it
-   goes negative, which is what makes the two triples symmetric. */
-struct W8OctreeWalk {
-    srVector3T<int> cell; /* 0x00: the cell the walk starts in */
-    srVector3T<int> step; /* 0x0c: +1 or -1 per axis */
-    int major_axis;       /* 0x18 */
-    int minor_axis0;      /* 0x1c: (major + 1) % 3 */
-    int minor_axis1;      /* 0x20: (major + 2) % 3 */
-    int count;            /* 0x24: cells to visit */
-    int error_delta0;     /* 0x28 */
-    int error0;           /* 0x2c */
-    int error_reset0;     /* 0x30 */
-    int error_delta1;     /* 0x34 */
-    int error1;           /* 0x38 */
-    int error_reset1;     /* 0x3c */
-};
-
-W8_ABI_ASSERT(sizeof(W8OctreeWalk) == 0x40, "W8OctreeWalk_must_be_0x40");
 
 /* The two compact records stored in an OCT file.  A branch is its two shorts
    followed by eight child indices; a leaf retains offsets into the region and
@@ -291,11 +273,9 @@ public:
     bool TestPropSunBit(int offset);
     void AddCollidablePropBounds(int index, const W8BoundingBox* bounds);
     void VisitPointCopy(unsigned short location_id, srVector3T<float>* position);
-    /* Writes the cell coordinates and returns `point`, or null when the
-       position is outside the octree bounds. */
-    srVector3T<int>* WorldPositionToCell(const srVector3T<float>* position,
-                                         srVector3T<int>* point); /* 0x00431440 */
-    w8_ulong FindLeaf(const srVector3T<int>* point);
+    /* Quantize relative to the spatial minimum, truncating toward zero. */
+    glm::ivec3 cellAt(const glm::vec3& position) const; /* 0x00431440 */
+    w8_ulong FindLeaf(const glm::ivec3& point);
     void UpdateMonsterLocation(unsigned short location_id, const srVector3T<float>* position);
     /* Object-kind values the query machinery dispatches on: 3 = GD triangle,
        8 = collidable-prop polygon reference, 9 = path waypoint, 12 = location entry,
@@ -305,29 +285,22 @@ public:
     void UnregisterLocationObjects(unsigned int location_id); /* 0x0042E650 */
     void UnregisterLocationObject(unsigned int location_id,
                                   W8OctreeObjectKind kind); /* 0x0042E880 */
-    /* Collect object ids of `kind` under the segment from `origin` to
-       `origin + delta`, grown by `extent` (also at least the delta length).
-       `*results` carries the destination buffer in and out; a null
-       incoming buffer selects the internal m_aulGDObjs store. Returns the
-       entry count. */
-    int CollectObjectsAlongSegment(w8_ulong** results, const srVector3T<float>* origin,
-                                   const srVector3T<float>* delta, float extent,
-                                   unsigned short kind); /* 0x0042ED60 */
+    std::vector<w8_ulong> queryAlongSegment(const glm::vec3& origin, const glm::vec3& delta,
+                                           float extent, unsigned short kind);
     /* Kind-12 box query; `exclusion` 0 maps to none. */
-    int QueryLocationsInBox(w8_ulong** results, const srVector3T<float>* lower,
-                            const srVector3T<float>* upper,
-                            unsigned short exclusion); /* 0x0042EF00 */
+    std::vector<w8_ulong> locationsInBox(const srBoundingBox& bounds,
+                                       unsigned short exclusion); /* 0x0042EF00 */
     /* AABB occupancy test: GD triangles, kind-12 location objects (with each
        monster's navigator radius) and collidable-prop surfaces. */
     unsigned char TestBoxOccupied(const srVector3T<float>* lower,
                                   const srVector3T<float>* upper); /* 0x0042EF30 */
     /* Append the objects of `kind` inside one cell to the shared query
        buffer; the registry path deduplicates through m_visited_object_bits. */
-    unsigned int CollectObjectsInCell(const srVector3T<int>* cell,
+    unsigned int CollectObjectsInCell(const glm::ivec3& cell,
                                       unsigned short kind); /* 0x0042F400 */
     /* Bounds-checked cell -> leaf index: the direct leaf grid when present,
        else a masked descent through the branch tree. */
-    unsigned int LeafIndexForCell(const srVector3T<int>* cell); /* 0x00433730 */
+    unsigned int LeafIndexForCell(const glm::ivec3& cell); /* 0x00433730 */
     /* Descend the branch tree while `masked_cell`'s leading mask word keeps
        the current level bit set, choosing the octant from the three
        coordinate words. */
@@ -342,32 +315,30 @@ public:
                            int from_location_id, int to_location_id, bool visit_octree,
                            int trace_mode);
     void AdjustPortalDestination(srVector3T<float>* destination, const srVector3T<float>* source);
-    void BuildCellWalk(const srVector3T<float>* from, const srVector3T<float>* to,
-                       W8OctreeWalk* walk);
-    /* The by-value overload retail emits at 0x00436280. */
-    void BuildCellWalk(srVector3T<float> from, srVector3T<float> to,
-                       W8OctreeWalk* walk); /* 0x00436280 */
+    W8OctreeWalk cellWalk(const glm::vec3& from, const glm::vec3& to) const;
     /* Reset the shared buffer and collect one cell's leaf object ids. */
-    int ProbeCellForTrace(const srVector3T<int>* cell); /* 0x00435B00 */
+    int ProbeCellForTrace(const glm::ivec3& cell); /* 0x00435B00 */
     /* Reset vs append variants collecting one cell's leaf polygon references
        (mapped through m_aulPolyLookup into (mesh<<16)|polygon keys). */
-    int ProbeCellForBlockers(const srVector3T<int>* cell); /* 0x00435C40 */
+    int ProbeCellForBlockers(const glm::ivec3& cell); /* 0x00435C40 */
     void AppendBlockerStream(const w8_ulong* stream);
-    int ProbeCellForBlockersAppend(const srVector3T<int>* cell); /* 0x00435DA0 */
+    int ProbeCellForBlockersAppend(const glm::ivec3& cell); /* 0x00435DA0 */
     /* Test every buffered (mesh<<16)|polygon key's triangle against the trace
        ray; on a closer hit, end returns the contact point. */
     unsigned char TestProbeResult(W8OctreeTrace* trace); /* 0x00435F00 */
     int TraceAgainstProps(const srVector3T<float>* from, srVector3T<float>* to, int skip_flag,
                           int gate); /* 0x00436510 */
-    /* Nearest ray-vs-sphere hit across the kind-12 objects in the segment
-       box, then against the camera sphere; writes the hit position into `to`
-       and the hit location id into `hit_location` (or -1/0). `excluded`
-       skips one location id, `location` carries the in/out location id used
-       for the pathing-probe set, `flags` masks navigator trace_mask, and
-       `noise_adjust` applies the g_float_one_tenth/noise penalty. */
-    char ResolveTraceHit(const srVector3T<float>* from, srVector3T<float>* to, int excluded,
-                         int* hit_location, int location, unsigned int flags,
-                         char noise_adjust); /* 0x004353F0 */
+    struct SphereTraceHit {
+        glm::vec3 position;
+        int location_id;
+    };
+    /* Sphere contact and its location id; no value means the segment missed.
+       Target selects the probe set; excluded_location skips its endpoint.
+       The location winner and final collider offset retain the existing
+       selection behavior. */
+    std::optional<SphereTraceHit> traceSphereHit(const glm::vec3& from, const glm::vec3& to,
+        int excluded, int target, int excluded_location, unsigned int flags,
+        bool noise_adjust); /* 0x004353F0 */
     /* Navigator placement query: retail callers pass modes such as 5, 10, 20
        and 30; retail callers load the octree into ecx and the body returns
        with ret 0x28, so this is an ordinary member. `source`'s y may be
@@ -391,23 +362,17 @@ public:
     unsigned char LinkNavigatorTarget(W8NavigatorMovementState* movement,
                                       const srVector3T<float>* target, float separation);
     void GetPathSurfaceNormal(const srVector3T<float>* position, srVector3T<float>* normal);
-    float SettleToGround(srVector3T<float>* position, bool* out_hit, char mode,
-                         float limit); /* 0x00433820 */
+    GroundProbe settleToGround(const glm::vec3& position, bool test_props, float limit); /* 0x00433820 */
     /* Clamp `position` to the clipped ceiling, probe the ground one
        world-scale unit lower and keep the settled height on a hit. */
     /* Returns the ground-hit flag in AL; pathing callers test it. */
     bool SnapToGround(srVector3T<float>* position, char mode); /* 0x00431D20 */
     void RegisterNavigatorCell(int id, const srVector3T<float>* position);
-    /* Box query over the shared query buffer: `*objects` carries the
-       destination buffer in and out (null selects m_aulGDObjs), `excluded`
-       is an object id pre-marked in the dedupe set (-1 = none). Returns the
-       entry count. */
-    int QueryObjects(w8_ulong** objects, const srVector3T<float>* lower,
-                     const srVector3T<float>* upper, unsigned short kind,
-                     int excluded); /* 0x0042F280 */
-    unsigned int QueryNearbyLocations(const srVector3T<float>* position, float spacing,
-                                      w8_ulong** candidates);
-    void AdjustPosition(srVector3T<float>* position, unsigned int mode);
+    /* Owned query results remain valid across subsequent octree queries.
+       IDs retain cell traversal order and the existing 10,000-entry limit. */
+    std::vector<w8_ulong> queryObjects(const srBoundingBox& bounds, unsigned short kind,
+                                      int excluded); /* 0x0042F280 */
+    std::vector<w8_ulong> nearbyLocations(const glm::vec3& position, float spacing);
     /* Refresh the pathing service's debug preview from the world cursor,
        falling back to the camera eye when the cursor is unset. */
     void UpdatePathVisualization(); /* 0x00434170 */
@@ -450,8 +415,8 @@ public:
     int CollectModelsNearPoint(std::vector<stModelInstance*>& out, const srVector3T<float>* point,
                                float radius, unsigned int flags,
                                bool only_accumulated); /* 0x0042F9A0 */
-    unsigned char CollectVisibleRegions(srVector3T<float>* location, srVector3T<int>* cells,
-                                        srVector3T<float>* depth, unsigned char mode);
+    OctreeCellCoordinates cellCoordinates(const glm::vec3& location) const;
+    OctreeCellCoordinates projectRegionsAt(const glm::vec3& location);
     void CollectVisibleCells();
     /* Project every candidate region volume against the frustum planes and
        mark the visible ones in the current region set. */
@@ -621,7 +586,7 @@ public:
     bool SegmentClear(const srVector3T<float>* from, const srVector3T<float>* to);
     /* Resets the collected-id run and appends every not-yet-seen polygon id
        the leaf under `cell` lists. */
-    void CollectLeafPolygons(const srVector3T<int>* cell);
+    void CollectLeafPolygons(const glm::ivec3& cell);
     /* Tests the collected region polygons' planes against the trace segment;
        a polygon blocks only when the ray pierces at least 5.0f past its plane
        (or starts within 1.0f in front) and the contact lands inside it. */

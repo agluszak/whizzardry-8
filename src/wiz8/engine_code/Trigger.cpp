@@ -836,7 +836,7 @@ void UpdateWorldTriggers(W8World* world)
     bool activated = false;
     bool running = false;
 
-    GetCameraPosition(&camera);
+    camera = cameraLocation();
     int count = static_cast<int>(world->triggers->size());
     for (int index = 0; index < count; ++index) {
         Trigger* trigger = (*world->triggers)[index];
@@ -1022,13 +1022,13 @@ bool Trigger::HasActorWithinRadius(float radius, bool include_party)
         srVector3T<float> lower;
         srVector3T<float> upper;
         srVector3T<float> extent;
-        w8_ulong* locations = 0;
+        std::vector<w8_ulong> locations;
         extent.Set(radius, radius, radius);
         lower = center - extent;
         upper = center + extent;
 
-        unsigned int count =
-            g_octree->QueryObjects(&locations, &lower, &upper, W8_OCTREE_KIND_LOCATION, -1);
+        locations = g_octree->queryObjects({lower.glmValue(), upper.glmValue()}, W8_OCTREE_KIND_LOCATION, -1);
+        unsigned int count = locations.size();
         for (unsigned int index = 0; index < count; ++index) {
             int location_id = locations[index];
             if (location_id == 0) {
@@ -3070,7 +3070,7 @@ void Trigger::Run(int source)
         srVector3T<float> party_position;
         W8TriggerShakeEvent* event;
 
-        GetCameraPosition(&party_position);
+        party_position = cameraLocation();
         if (m_pEvent == 0) {
             event = new W8TriggerShakeEvent;
             m_pEvent = event;
@@ -3917,7 +3917,7 @@ bool AnyPropTriggerInView(W8World* world)
     if (world == 0) {
         srAssertFail("pWorld", "C:\\Projects\\Wizardry 8\\Engine Code\\Trigger.cpp", 0x1395, 0);
     }
-    GetCameraPosition(&position);
+    position = cameraLocation();
     prop_count = (world->plsProps ? world->plsProps->size() : 0);
     if (0 <= s_last_prop_index && s_last_prop_index < static_cast<int>(prop_count)) {
         W8Prop* prop = GetWorldProp(world, s_last_prop_index);

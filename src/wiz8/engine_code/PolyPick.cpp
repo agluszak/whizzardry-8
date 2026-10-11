@@ -35,16 +35,14 @@ float GetElevationAngle(const srVector3T<float>* source, const srVector3T<float>
 // FUNCTION: WIZ8 0x004BE520
 float ElevationToTargetCPP(const srVector3T<float>* target)
 {
-    srVector3 position;
-    GetCameraPosition(&position);
+    srVector3 position = cameraLocation();
     return GetElevationAngle(target, &position);
 }
 
 // FUNCTION: WIZ8 0x004BE5C0
 float GetCameraFacingYaw(const srVector3T<float>* position)
 {
-    srVector3 camera;
-    GetCameraPosition(&camera);
+    srVector3 camera = cameraLocation();
     return GetHeadingAngle(position, &camera);
 }
 

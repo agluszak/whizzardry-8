@@ -1392,10 +1392,11 @@ void srGERD::performPickTest(const PickInput& input)
                 v2y = -v2y;
                 v2z = -v2z;
             }
-            float a = (v1y - v0y) * (v2z - v0z) - (v1z - v0z) * (v2y - v0y);
-            float b = (v1z - v0z) * (v2x - v0x) - (v2z - v0z) * (v1x - v0x);
-            float c = (v2y - v0y) * (v1x - v0x) - (v1y - v0y) * (v2x - v0x);
-            float hit = -((a * pick_x + b * pick_y - (a * v0x + b * v0y + c * v0z)) / c);
+            const glm::vec3 first(v0x, v0y, v0z);
+            const glm::vec3 normal = glm::cross(glm::vec3(v1x, v1y, v1z) - first,
+                                                glm::vec3(v2x, v2y, v2z) - first);
+            float hit = -((normal.x * pick_x + normal.y * pick_y - glm::dot(normal, first)) /
+                          normal.z);
             if (hit >= -1.0f && hit < pick->position.z) {
                 pick->position.z = hit;
                 /* reinterpret-ok: the public pick key arrives as ulong bits

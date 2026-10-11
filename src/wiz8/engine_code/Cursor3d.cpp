@@ -193,7 +193,7 @@ void InitializeWorldCursor(void)
             }
             ApplyWorldCursorInput();
             if (gp3DCursor != 0) {
-                GetCameraPosition(&camera_position);
+                camera_position = cameraLocation();
                 if (!gp3DCursor->detached) {
                     gp3DCursor->cam_rel_offset += camera_position;
                 }
@@ -235,7 +235,7 @@ void ReleaseWorldCursor(void)
     if (cursor == 0) {
         return;
     }
-    GetCameraPosition(&camera);
+    camera = cameraLocation();
     camera.y = 0.0f;
     cursor->position.y = 0.0f;
     delta = cursor->position - camera;
@@ -335,7 +335,6 @@ void GetWorldCursorAnchor(srVector3T<float>* position)
 // FUNCTION: WIZ8 0x00490C60
 void ApplyWorldCursorInput(void)
 {
-    bool hit;
     glm::mat3 rotation;
     srVector3T<double> node_location;
     srVector3T<float> camera;
@@ -372,7 +371,7 @@ void ApplyWorldCursorInput(void)
         if (gp3DCursor->range > g_float_zero && gp3DCursor->range < lifted.Length()) {
             delta.SetLength(gp3DCursor->range);
         }
-        g_world->dynamic_scene->getRotation(rotation);
+        rotation = g_world->dynamic_scene->getRotation<glm::mat3>();
         gp3DCursor->cam_rel_offset += delta;
         gp3DCursor->position = rotation * (gp3DCursor->cam_rel_offset).glmValue();
         node_location = g_world->dynamic_scene->getLocation();
@@ -383,11 +382,11 @@ void ApplyWorldCursorInput(void)
             if (gp3DCursor->position.y < saved_y) {
                 gp3DCursor->position.y = saved_y;
             }
-            gp3DCursor->position.y =
-                g_octree->SettleToGround(&gp3DCursor->position, &hit, 1, 500.0f);
+            gp3DCursor->position = g_octree->settleToGround(
+                gp3DCursor->position.glmValue(), true, 500).position;
         }
     } else {
-        GetCameraPosition(&camera);
+        camera = cameraLocation();
         camera.y -= g_default_world_height;
         rotation = glm::mat3(1);
         rotation *= glm::mat3_cast(glm::angleAxis(float(g_gd_camera->m_yaw), glm::vec3(0, 1, 0)));
@@ -614,7 +613,7 @@ void UpdateWorldCursor(void)
     }
     if (gfLeftButtonState == 0) {
         if (gp3DCursor->left_held && gXStatus.iTargetingMode == W8_TARGET_NEED_PLACE) {
-            GetCameraPosition(&camera);
+            camera = cameraLocation();
             if (ResolveWorldCursorTarget(&resolved) != 0 &&
                 g_octree->TraceLineOfSight(&camera, &resolved, true, -3, -3, true, 0) == 0) {
                 box_min = resolved + gp3DCursor->extent_min;
@@ -656,7 +655,6 @@ char MarchWorldCursorTarget(srVector3T<float>* target)
     srVector3T<float> dir;
     srVector3T<float> scaled;
     srVector3T<float> probe;
-    bool hit;
     double dist;
     double step;
     float lower_best = -1e+10f;
@@ -693,7 +691,9 @@ char MarchWorldCursorTarget(srVector3T<float>* target)
                 probe = gp3DCursor->probe_offsets[i];
                 probe *= g_cursor_probe_shrink_scale;
                 probe += step_pos;
-                ground = g_octree->SettleToGround(&probe, &hit, 1, 500.0f);
+                const auto ground_probe = g_octree->settleToGround(probe.glmValue(), 1, 500.0f);
+                probe = ground_probe.position;
+                ground = ground_probe.position.y;
                 if (ground <= step_pos.y) {
                     if (ground < step_pos.y) {
                         lower_count++;
@@ -744,7 +744,7 @@ void UpdateWorldCursorPlacement(void)
     srVector3T<float> camera(0.0f, 1.0f, 0.0f);
     srVector3T<float> target;
     W8WorldCursorState* cursor;
-    GetCameraPosition(&camera);
+    camera = cameraLocation();
     camera.y -= g_default_world_height;
     cursor = gp3DCursor;
     cursor->last_published = -100000000.0f;
@@ -787,9 +787,7 @@ void SetWorldCursorExtents(const srVector3T<float>* minimum, const srVector3T<fl
 int ResolveWorldCursorTarget(srVector3T<float>* position)
 {
     W8WorldCursorState* cursor = gp3DCursor;
-    srVector3T<float> probe;
     float best = g_cursor_ground_height_sentinel;
-    int i;
 
     if (cursor == 0) {
         position->SetZero();
@@ -799,36 +797,25 @@ int ResolveWorldCursorTarget(srVector3T<float>* position)
     if (cursor == 0) {
         return 1;
     }
-    if (!cursor->footprint_mode) {
-        for (i = 0; i < 4; i++) {
-            probe = *position + cursor->probe_offsets[i + 4];
-            if (best <= g_octree->SettleToGround(&probe, 0, 1, 500.0f)) {
-                best = g_octree->SettleToGround(&probe, 0, 1, 500.0f);
+    for (int corner = 0; corner < 4; ++corner) {
+        glm::vec3 offset;
+        if (!cursor->footprint_mode) {
+            offset = cursor->probe_offsets[corner + 4].glmValue();
+        } else {
+            switch (corner) {
+            case 0: offset = cursor->extent_min.glmValue(); break;
+            case 1: offset = cursor->extent_max.glmValue(); break;
+            case 2: offset = {cursor->extent_min.x, 0, cursor->extent_max.z}; break;
+            default: offset = {cursor->extent_max.x, 0, cursor->extent_min.z}; break;
             }
         }
-    } else {
-        probe = *position + cursor->extent_min;
-        if (best <= g_octree->SettleToGround(&probe, 0, 1, 500.0f)) {
-            best = g_octree->SettleToGround(&probe, 0, 1, 500.0f);
-        }
-        probe = *position + cursor->extent_max;
-        if (best <= g_octree->SettleToGround(&probe, 0, 1, 500.0f)) {
-            best = g_octree->SettleToGround(&probe, 0, 1, 500.0f);
-        }
-        probe.Set(cursor->extent_min.x + position->x, position->y,
-                  cursor->extent_max.z + position->z);
-        if (best <= g_octree->SettleToGround(&probe, 0, 1, 500.0f)) {
-            best = g_octree->SettleToGround(&probe, 0, 1, 500.0f);
-        }
-        probe.Set(cursor->extent_max.x + position->x, position->y,
-                  cursor->extent_min.z + position->z);
-        if (best <= g_octree->SettleToGround(&probe, 0, 1, 500.0f)) {
-            best = g_octree->SettleToGround(&probe, 0, 1, 500.0f);
-        }
-        if (static_cast<float>(g_monster_poster_max_distance) <= fabs(best - position->y)) {
-            position->y = best + g_float_one_thousand;
-            return 0;
-        }
+        const auto ground = g_octree->settleToGround(position->glmValue() + offset, true, 500);
+        if (best <= ground.position.y) best = ground.position.y;
+    }
+    if (cursor->footprint_mode &&
+        static_cast<float>(g_monster_poster_max_distance) <= fabs(best - position->y)) {
+        position->y = best + g_float_one_thousand;
+        return 0;
     }
     position->y = best + g_float_one_thousand;
     return 1;

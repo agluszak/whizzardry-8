@@ -423,8 +423,7 @@ void ResetAutomapView(void)
     g_automap_position_initialized = false;
     g_automap_layer = 0;
 
-    srVector3T<float> camera;
-    GetCameraPosition(&camera);
+    srVector3T<float> camera = cameraLocation();
     srVector3T<float> relative = camera - g_automap_grid_origin;
     unsigned int key = AutomapNodeKey(&relative);
     int cell = LookupIndexValue(*g_automap_cell_index, key);
@@ -659,7 +658,7 @@ unsigned char AutomapScreenEnter(void)
     MSYS_Init();
     GetLightDirection(&g_automap_saved_light_direction);
     GetWorldLightValue(g_world, &g_automap_saved_ambient_light);
-    GetWorldCameraState(GetWorld(), &g_automap_saved_camera);
+    g_automap_saved_camera = cameraState(*GetWorld());
     g_automap_saved_far_clip = static_cast<float>(WorldGetFarClip(g_world));
     g_automap_saved_world_value = WorldGetRenderRange(g_world);
     g_automap_saved_sky = g_sky_enabled;
@@ -1408,8 +1407,7 @@ void LightAutomapCell(const srVector3T<float>* position)
     for (auto* instance : instances) {
         if (!instance)
             continue;
-        glm::mat4 world;
-        instance->getWorldSpaceMatrix(world);
+        auto world = instance->getWorldSpaceMatrix<glm::mat4>();
         for (auto* mesh = static_cast<stMeshModel*>(instance->getModel()); mesh; mesh = mesh->Next())
             mesh->RevealVerticesNear(center, g_automap_range, world);
     }
