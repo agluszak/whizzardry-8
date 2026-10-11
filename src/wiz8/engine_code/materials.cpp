@@ -1360,6 +1360,7 @@ static int AccumulateVertexLight(OctPreTree* tree, W8OctPreTreeVertex* vertex,
         const bool is_sun = sun_map && sun_map[index] != 0;
         if (light.version >= 2 && (light.create != 0 || light.visible == 0)) continue;
         const glm::vec3 delta = light.position.glmValue() - vertex->position;
+        // NOLINTNEXTLINE(misc-include-cleaner)
         const float distance = glm::length(delta);
         if (distance >= light.range && !is_sun) continue;
         ++g_light_candidates;
