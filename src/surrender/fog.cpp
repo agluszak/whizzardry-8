@@ -43,10 +43,9 @@ void srFog::setRange(double start, double end)
 }
 
 // FUNCTION: SURRENDER 0x1004C170
-void srFog::getRange(double& start, double& end)
+std::pair<double, double> srFog::getRange() const
 {
-    start = fog_start;
-    end = fog_end;
+    return {fog_start, fog_end};
 }
 
 // FUNCTION: SURRENDER 0x1004B6F0
