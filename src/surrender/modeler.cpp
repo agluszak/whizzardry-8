@@ -15,7 +15,6 @@
 #include "glm/geometric.hpp"
 #include "glm/vector_relational.hpp"
 #include "surrender/srModeler.h"
-#include "surrender/srDebug.h"
 #include "surrender/srTriangulator.h"
 #include "compat/compiler.h"
 #include "glm/ext/matrix_float3x3.hpp"
