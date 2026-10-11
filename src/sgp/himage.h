@@ -4,6 +4,7 @@
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
    Distributed under the accompanying SFI Source Code license agreement. */
 
+#include <SDL3/SDL_pixels.h>
 #include <array>
 #include <optional>
 #include <string_view>
@@ -12,16 +13,7 @@
 
 #include "Types.h"
 
-// Palette structure, mimics that of Win32
-typedef struct tagSGPPaletteEntry {
-    UINT8 peRed;
-    UINT8 peGreen;
-    UINT8 peBlue;
-    UINT8 peFlags;
-
-} SGPPaletteEntry;
-
-using Palette8 = std::array<SGPPaletteEntry, 256>;
+using Palette8 = std::array<SDL_Color, 256>;
 using Palette16 = std::array<UINT16, 256>;
 
 // Tight, top-down INDEX8, RGB555 or RGB24 pixels.
@@ -77,13 +69,8 @@ std::optional<DecodedImage> LoadImage(std::string_view filename);
 Palette16 Create16BPPPaletteShaded(const Palette8& pPalette, UINT32 rscale, UINT32 gscale,
                                  UINT32 bscale, BOOLEAN mono);
 Palette16 Create16BPPPalette(const Palette8& pPalette);
-UINT16 Get16BPPColor(UINT32 RGBValue);
-extern UINT16 gusAlphaMask;
-extern UINT16 gusRedMask;
-extern UINT16 gusGreenMask;
-extern UINT16 gusBlueMask;
-extern INT16 gusRedShift;
-extern INT16 gusBlueShift;
-extern INT16 gusGreenShift;
+UINT16 Get16BPPColor(SDL_Color color);
+// Selected SDL format for native 16-bit sprite and UI pixels.
+extern SDL_PixelFormat g_sgp_pixel_format;
 
 #endif

@@ -1,3 +1,4 @@
+#include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_rect.h>
 #include <fmt/format.h>
 #include <string>
@@ -55,7 +56,7 @@ W8ListBoxDialog::W8ListBoxDialog()
     m_field_080 = 0.9f;
     m_field_084 = 0.75f;
     m_field_074 = 0;
-    m_fill_colour = 0x6000;
+    m_fill_colour = {0, 0x60, 0, SDL_ALPHA_OPAQUE};
     ClearLines();
 }
 

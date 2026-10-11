@@ -1,3 +1,4 @@
+#include <SDL3/SDL_pixels.h>
 #include <fmt/format.h>
 #include <string>
 #include <array>
@@ -1081,7 +1082,7 @@ void ShadeStatusBarGap(int length, int left, int top)
         int rows = (g_settings.numeric_hit_points != 0 ? 2 : 0) + 3;
         char* screen = static_cast<char*>(GetFrameBufferSurface().cpu().surface->pixels);
         while (rows != 0) {
-            short color = Get16BPPColor(0x10101);
+            short color = Get16BPPColor(SDL_Color{1, 1, 1, SDL_ALPHA_OPAQUE});
             LineDraw(1, left, top, left, top + length, color, screen);
             ++left;
             --rows;

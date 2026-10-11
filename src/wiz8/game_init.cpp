@@ -64,7 +64,6 @@ unsigned char InitializeGame(size_t& initialized_screens)
         }
     }
     SetShadeTablePercent((FLOAT)0.66);
-    BuildShadeTable();
     if (!InitializeMenuFonts()) {
         return 0;
     }

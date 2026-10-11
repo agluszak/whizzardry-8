@@ -646,7 +646,7 @@ void generic_button_images()
         REQUIRE(sheet);
         REQUIRE(sheet->frames.size() == 3);
         REQUIRE(sheet->frames[2].pixels == std::vector<UINT16>{1});
-        REQUIRE(sheet->palette[1].peRed == 255);
+        REQUIRE(sheet->palette[1].r == 255);
 
         const auto pixel_offset = STCI_HEADER_SIZE + STCI_8BIT_PALETTE_SIZE + 3 * STCI_SUBIMAGE_SIZE;
         for (std::uintmax_t cut : {0u, STCI_HEADER_SIZE - 1u,
@@ -667,7 +667,7 @@ void generic_button_images()
         auto sprite = LoadVideoObject(long_image_path);
         REQUIRE((sprite && sprite->sprites.size() == 3));
         REQUIRE((sprite->sprites[2].usWidth == 1 && sprite->sprites[2].pixels[0] == 1));
-        REQUIRE(sprite->pPaletteEntry[1].peRed == 255);
+        REQUIRE(sprite->pPaletteEntry[1].r == 255);
     }
     for (bool corrupt_length : {false, true}) {
         button_image_fixture(assets, "bad-extent.sti", 3);
