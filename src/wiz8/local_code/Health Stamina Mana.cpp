@@ -4,7 +4,6 @@
 #include <memory>
 #include <utility>
 #include <cstdlib>
-#include <cstring>
 #include <string>
 
 #include "wiz8/engine_code/AnimRep.hpp"
