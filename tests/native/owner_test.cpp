@@ -194,6 +194,16 @@ void camp_effects()
     g_video_frames[0] = std::move(saved_frame);
 }
 
+void dispatch_mouse(UINT16 type, UINT16 x, UINT16 y, bool left, bool right, UINT8 clicks = 0)
+{
+    InputAtom event{};
+    event.usEvent = type;
+    event.uiParam = static_cast<UINT32>(x) | (static_cast<UINT32>(y) << 16);
+    event.mouseButtons = (left ? SDL_BUTTON_LMASK : 0) | (right ? SDL_BUTTON_RMASK : 0);
+    event.clicks = clicks;
+    DispatchMouseEvent(event);
+}
+
 int clicks, click_reason;
 MOUSE_REGION* clicked_region;
 void region_click(MOUSE_REGION* region, INT32) { clicked_region = region; }
@@ -231,7 +241,7 @@ void dispatch_nested_mouse(MOUSE_REGION* region, INT32 reason)
 {
     nested_mouse_order.push_back(reason);
     if (reason == MSYS_CALLBACK_REASON_LBUTTON_DWN) {
-        DispatchMouseEvent(LEFT_BUTTON_UP, 12, 13, false, false);
+        dispatch_mouse(LEFT_BUTTON_UP, 12, 13, false, false);
         REQUIRE(nested_mouse_order.size() == 2);
         REQUIRE(region->MouseXPos == 12);
         REQUIRE(region->ButtonState == 0);
@@ -241,7 +251,7 @@ std::unique_ptr<MOUSE_REGION> nested_deleted_region;
 void delete_region_in_nested_input(MOUSE_REGION*, INT32 reason)
 {
     if (reason == MSYS_CALLBACK_REASON_LBUTTON_DWN) {
-        DispatchMouseEvent(LEFT_BUTTON_UP, 12, 13, false, false);
+        dispatch_mouse(LEFT_BUTTON_UP, 12, 13, false, false);
         REQUIRE(!nested_deleted_region);
     } else if (reason == MSYS_CALLBACK_REASON_LBUTTON_UP) {
         nested_deleted_region.reset();
@@ -253,7 +263,7 @@ void region_nested_input()
     MOUSE_REGION region;
     region.configure(0, 0, 40, 40, MSYS_PRIORITY_NORMAL, nullptr, dispatch_nested_mouse);
     nested_mouse_order.clear();
-    DispatchMouseEvent(LEFT_BUTTON_DOWN, 10, 10, true, false);
+    dispatch_mouse(LEFT_BUTTON_DOWN, 10, 10, true, false);
     REQUIRE(nested_mouse_order == std::vector<INT32>{MSYS_CALLBACK_REASON_LBUTTON_DWN,
                                                   MSYS_CALLBACK_REASON_LBUTTON_UP});
     REQUIRE(region.MouseXPos == 12);
@@ -262,7 +272,7 @@ void region_nested_input()
     nested_deleted_region = std::make_unique<MOUSE_REGION>();
     nested_deleted_region->configure(0, 0, 40, 40, MSYS_PRIORITY_HIGH, nullptr,
                                      delete_region_in_nested_input);
-    DispatchMouseEvent(LEFT_BUTTON_DOWN, 10, 10, true, false);
+    dispatch_mouse(LEFT_BUTTON_DOWN, 10, 10, true, false);
     REQUIRE(!nested_deleted_region);
     MSYS_Shutdown();
 }
@@ -275,7 +285,7 @@ void nested_hover(MOUSE_REGION* region, INT32 reason)
     hover_order.emplace_back(region->UserData[0], reason);
     if (nested_hover_armed && reason == nested_hover_reason) {
         nested_hover_armed = false;
-        DispatchMouseEvent(MOUSE_POS, 45, 5, false, false);
+        dispatch_mouse(MOUSE_POS, 45, 5, false, false);
     }
 }
 void nested_hover_transitions()
@@ -288,11 +298,11 @@ void nested_hover_transitions()
         c.configure(40, 0, 50, 10, MSYS_PRIORITY_NORMAL, nested_hover, nullptr);
         a.UserData[0] = 1; b.UserData[0] = 2; c.UserData[0] = 3;
         nested_hover_armed = false;
-        DispatchMouseEvent(MOUSE_POS, 5, 5, false, false);
+        dispatch_mouse(MOUSE_POS, 5, 5, false, false);
         hover_order.clear();
         nested_hover_reason = trigger;
         nested_hover_armed = true;
-        DispatchMouseEvent(MOUSE_POS, 25, 5, false, false);
+        dispatch_mouse(MOUSE_POS, 25, 5, false, false);
         std::vector<std::pair<int, INT32>> expected{{1, MSYS_CALLBACK_REASON_LOST_MOUSE}};
         if (trigger == MSYS_CALLBACK_REASON_GAIN_MOUSE) {
             expected.emplace_back(2, MSYS_CALLBACK_REASON_GAIN_MOUSE);
@@ -314,10 +324,10 @@ void release_outside_controls()
     MOUSE_REGION left, right;
     left.configure(0, 0, 10, 10, MSYS_PRIORITY_NORMAL, nullptr, region_click);
     right.configure(20, 0, 30, 10, MSYS_PRIORITY_NORMAL, nullptr, region_click);
-    DispatchMouseEvent(LEFT_BUTTON_DOWN, 5, 5, true, false);
+    dispatch_mouse(LEFT_BUTTON_DOWN, 5, 5, true, false);
     REQUIRE(clicked_region == &left);
-    DispatchMouseEvent(LEFT_BUTTON_UP, 100, 100, false, false);
-    DispatchMouseEvent(LEFT_BUTTON_DOWN, 25, 5, true, false);
+    dispatch_mouse(LEFT_BUTTON_UP, 100, 100, false, false);
+    dispatch_mouse(LEFT_BUTTON_DOWN, 25, 5, true, false);
     REQUIRE(clicked_region == &right);
     MSYS_Shutdown();
 }
@@ -331,23 +341,23 @@ void region_registration_and_callback_lifetimes()
     {
         MOUSE_REGION scoped{};
         scoped.configure(0, 0, 40, 40, MSYS_PRIORITY_HIGH, nullptr, region_click);
-        DispatchMouseEvent(LEFT_BUTTON_DOWN, 10, 10, true, false);
+        dispatch_mouse(LEFT_BUTTON_DOWN, 10, 10, true, false);
         REQUIRE(clicked_region == &scoped);
     } // Registration and click capture expire with the control.
-    DispatchMouseEvent(LEFT_BUTTON_UP, 10, 10, false, false);
+    dispatch_mouse(LEFT_BUTTON_UP, 10, 10, false, false);
     REQUIRE(clicked_region == &first);
     latest.configure(0, 0, 40, 40, MSYS_PRIORITY_NORMAL, nullptr, region_click);
-    DispatchMouseEvent(LEFT_BUTTON_DOWN, 10, 10, true, false);
+    dispatch_mouse(LEFT_BUTTON_DOWN, 10, 10, true, false);
     REQUIRE(clicked_region == &latest);
-    DispatchMouseEvent(LEFT_BUTTON_UP, 10, 10, false, false);
+    dispatch_mouse(LEFT_BUTTON_UP, 10, 10, false, false);
     MSYS_DisableRegion(&latest);
     temporary_region = std::make_unique<MOUSE_REGION>();
     temporary_region->configure(0, 0, 40, 40, MSYS_PRIORITY_HIGH, remove_on_move, region_click);
-    DispatchMouseEvent(MOUSE_POS, 11, 11, false, false);
+    dispatch_mouse(MOUSE_POS, 11, 11, false, false);
     REQUIRE(!temporary_region);
-    DispatchMouseEvent(LEFT_BUTTON_DOWN, 11, 11, true, false);
+    dispatch_mouse(LEFT_BUTTON_DOWN, 11, 11, true, false);
     REQUIRE(clicked_region == &first);
-    DispatchMouseEvent(LEFT_BUTTON_UP, 11, 11, false, false);
+    dispatch_mouse(LEFT_BUTTON_UP, 11, 11, false, false);
     MSYS_DisableRegion(&first);
 
     nested_outer = CreateTextButton("nested", font, 0, 0, {}, 0, 0, 40, 20,
@@ -386,12 +396,12 @@ void buttons_and_regions()
     MOUSE_REGION low{}, high{};
     low.configure(0, 0, 40, 40, MSYS_PRIORITY_LOW, nullptr, region_click);
     high.configure(0, 0, 20, 20, MSYS_PRIORITY_HIGH, nullptr, region_click);
-    DispatchMouseEvent(LEFT_BUTTON_DOWN, 10, 10, true, false);
+    dispatch_mouse(LEFT_BUTTON_DOWN, 10, 10, true, false);
     REQUIRE(clicked_region == &high);
-    DispatchMouseEvent(LEFT_BUTTON_UP, 10, 10, false, false);
-    DispatchMouseEvent(LEFT_BUTTON_DOWN, 30, 30, true, false);
+    dispatch_mouse(LEFT_BUTTON_UP, 10, 10, false, false);
+    dispatch_mouse(LEFT_BUTTON_DOWN, 30, 30, true, false);
     REQUIRE(clicked_region == &low);
-    DispatchMouseEvent(LEFT_BUTTON_UP, 30, 30, false, false);
+    dispatch_mouse(LEFT_BUTTON_UP, 30, 30, false, false);
     MSYS_SetRegionUserData(&low, 0, 17);
     REQUIRE(MSYS_GetRegionUserData(&low, 0) == 17);
     REQUIRE(MSYS_GrabMouse(&high) == MSYS_GRABBED_OK);
@@ -770,7 +780,8 @@ void generic_button_images()
                             (enabled ? BUTTON_ENABLED : 0) | (pressed ? BUTTON_CLICKED_ON : 0);
                         if (hover) first_button->Area.uiFlags |= MSYS_MOUSE_IN_AREA;
                         else first_button->Area.uiFlags &= ~MSYS_MOUSE_IN_AREA;
-                        gfLeftButtonState = mouse_down;
+                        first_button->Area.ButtonState = mouse_down ? MSYS_LEFT_BUTTON : 0;
+                        gfLeftButtonState = !mouse_down;
                         DrawButton(first_button);
                         auto* pixels = static_cast<UINT16*>(target.cpu().surface->pixels);
                         REQUIRE(pixels);
@@ -822,7 +833,7 @@ void generic_button_images()
         REQUIRE(!dialog->ConfigureIcon("missing.sti", 0, 1, MSYS_PRIORITY_NORMAL,
                                        W8_DIALOG_BUTTON_NO_TOOLTIP));
         REQUIRE((dialog->GetX() == 12 && dialog->GetY() == 13 && dialog->GetWidth() == 1));
-        REQUIRE(RegisteredButtonCount() == 1);
+        REQUIRE(RegisteredButtonCount() == 0);
     }
     REQUIRE(RegisteredButtonCount() == 0);
     // A dialog's click callback can close it. The dispatcher must not read
@@ -831,11 +842,9 @@ void generic_button_images()
     REQUIRE(closing_dialog->Configure("button.sti", 0, 1, 2, 3, 4,
         [](W8DialogButton* dialog) { delete dialog; }, nullptr, false,
         MSYS_PRIORITY_NORMAL, W8_DIALOG_BUTTON_NO_TOOLTIP, nullptr, nullptr));
-    auto dispatch_button = std::make_shared<GUI_BUTTON>();
-    SetButtonUserDataPointer(dispatch_button, closing_dialog);
-    dispatch_button->uiFlags = BUTTON_CLICKED_ON;
     PushButtonSoundScheme(0, true);
-    DialogButtonCallback(dispatch_button.get(), MSYS_CALLBACK_REASON_LBUTTON_UP);
+    dispatch_mouse(LEFT_BUTTON_DOWN, 0, 0, true, false);
+    dispatch_mouse(LEFT_BUTTON_UP, 0, 0, false, false);
     REQUIRE(RegisteredButtonCount() == 0);
     MSYS_Shutdown();
 
@@ -1144,6 +1153,94 @@ TEST_CASE("Formatting contracts", "[owner]")
 TEST_CASE("Generic button image ownership", "[owner]")
 {
     generic_button_images();
+}
+
+TEST_CASE("Dialog controls own interaction without legacy GUI buttons", "[owner]")
+{
+    REQUIRE(MSYS_Init());
+    Font font{SGPVObject{}};
+    PushButtonSoundScheme(0, true);
+    int activations = 0;
+    {
+        W8DialogButton button;
+        REQUIRE(button.ConfigureTextButton("button", font, 0, 0, 10, 10, 40, 20,
+            [&](W8DialogButton* control) {
+                REQUIRE(control->GetUserData() == 42);
+                ++activations;
+            }, 42));
+        REQUIRE(RegisteredButtonCount() == 0);
+        // The event snapshot wins over contradictory current global state.
+        gfLeftButtonState = false;
+        gusMouseXPos = gusMouseYPos = 400;
+        dispatch_mouse(LEFT_BUTTON_DOWN, 15, 15, true, false, 1);
+        REQUIRE((button.IsPressed() && activations == 0));
+        REQUIRE((button.GetMousePosition().x == 15 && button.GetMousePosition().y == 15));
+        dispatch_mouse(LEFT_BUTTON_UP, 15, 15, false, false, 1);
+        REQUIRE((!button.IsPressed() && activations == 1));
+        // A release alone cannot activate an unarmed control.
+        dispatch_mouse(LEFT_BUTTON_UP, 15, 15, false, false);
+        REQUIRE(activations == 1);
+        // Drag-out and disable both cancel an armed release.
+        dispatch_mouse(LEFT_BUTTON_DOWN, 15, 15, true, false);
+        dispatch_mouse(MOUSE_POS, 80, 80, true, false);
+        dispatch_mouse(LEFT_BUTTON_UP, 15, 15, false, false);
+        REQUIRE((!button.IsPressed() && activations == 1));
+        dispatch_mouse(LEFT_BUTTON_DOWN, 15, 15, true, false);
+        button.SetEnabled(false);
+        button.SetEnabled(true);
+        dispatch_mouse(LEFT_BUTTON_UP, 15, 15, false, false);
+        REQUIRE((!button.IsPressed() && activations == 1));
+        dispatch_mouse(LEFT_BUTTON_DOWN, 15, 15, true, false);
+        button.SetVisible(false);
+        button.SetVisible(true);
+        dispatch_mouse(LEFT_BUTTON_UP, 15, 15, false, false);
+        REQUIRE(activations == 1);
+        // A spinner's repeated action is not duplicated on release.
+        button.m_repeat_enabled = true;
+        dispatch_mouse(LEFT_BUTTON_DOWN, 15, 15, true, false);
+        dispatch_mouse(LEFT_BUTTON_REPEAT, 15, 15, true, false);
+        dispatch_mouse(LEFT_BUTTON_REPEAT, 15, 15, true, false);
+        REQUIRE(activations == 3);
+        dispatch_mouse(LEFT_BUTTON_UP, 15, 15, false, false);
+        REQUIRE((!button.IsPressed() && activations == 3));
+        button.m_repeat_enabled = false;
+        button.m_activation = DialogButtonActivation::Press;
+        dispatch_mouse(LEFT_BUTTON_DOWN, 15, 15, true, false);
+        REQUIRE(activations == 4);
+        dispatch_mouse(LEFT_BUTTON_UP, 15, 15, false, false);
+        REQUIRE(activations == 4);
+        button.Reset();
+        REQUIRE((!button.IsEnabled() && !button.IsPressed() && button.GetWidth() == 0));
+        dispatch_mouse(LEFT_BUTTON_DOWN, 15, 15, true, false);
+        dispatch_mouse(LEFT_BUTTON_UP, 15, 15, false, false);
+        REQUIRE(activations == 4);
+    }
+    // Copy the owner-local closure before invoking it: it can delete itself.
+    auto closing = std::make_unique<W8DialogButton>();
+    closing->ConfigureTextButton("close", font, 0, 0, 10, 10, 40, 20,
+        [&](W8DialogButton*) { closing.reset(); }, 0);
+    dispatch_mouse(LEFT_BUTTON_DOWN, 15, 15, true, false);
+    dispatch_mouse(LEFT_BUTTON_UP, 15, 15, false, false);
+    REQUIRE(!closing);
+    MSYS_Shutdown();
+}
+
+TEST_CASE("Mouse regions use SDL click counts, not a local timer", "[owner]")
+{
+    REQUIRE(MSYS_Init());
+    MOUSE_REGION region;
+    region.configure(0, 0, 40, 40, MSYS_PRIORITY_NORMAL, nullptr,
+        [](MOUSE_REGION* target, INT32 reason) { target->UserData[0] = reason; });
+    for (UINT8 count : {0, 1, 2, 3, 4}) {
+        dispatch_mouse(LEFT_BUTTON_DOWN, 10, 10, true, false, count);
+        REQUIRE((region.UserData[0] & MSYS_CALLBACK_REASON_LBUTTON_DWN) != 0);
+        REQUIRE(((region.UserData[0] & MSYS_CALLBACK_REASON_LBUTTON_DOUBLECLICK) != 0) ==
+            (count != 0 && count % 2 == 0));
+        REQUIRE(region.ButtonState == MSYS_LEFT_BUTTON);
+        dispatch_mouse(LEFT_BUTTON_UP, 10, 10, false, false, count);
+        REQUIRE(region.ButtonState == 0);
+    }
+    MSYS_Shutdown();
 }
 
 TEST_CASE("assert-plain", "[.death]")

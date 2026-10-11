@@ -10,24 +10,21 @@
 #include "Types.h"
 #include "mousesystem.h"
 
-/* Standard dialog button events: held left clicks repeat the press. Numeric
-   dialogs forward their distinct repeat events before using this dispatcher. */
-inline bool DispatchDialogMouseInput(unsigned short event, unsigned short x, unsigned short y)
+/* The SDL-backed event retains its position, held buttons and click count. */
+inline bool DispatchDialogMouseInput(const InputAtom& event)
 {
-    switch (event) {
+    switch (event.usEvent) {
     case LEFT_BUTTON_REPEAT:
-        event = LEFT_BUTTON_DOWN;
-        break;
+    case RIGHT_BUTTON_REPEAT:
     case LEFT_BUTTON_DOWN:
     case LEFT_BUTTON_UP:
     case RIGHT_BUTTON_DOWN:
     case RIGHT_BUTTON_UP:
-        break;
+        DispatchMouseEvent(event);
+        return true;
     default:
         return false;
     }
-    DispatchMouseEvent(event, x, y, gfLeftButtonState, gfRightButtonState);
-    return true;
 }
 
 /* Numeric split dialogs release the active field before forwarding button-up,
@@ -37,19 +34,16 @@ template <class Dialog, class Field>
 void ProcessNumericDialogInputEvents(Dialog* dialog, Field*& active_field,
                                      bool (Dialog::*handle_event)(const InputAtom*))
 {
-    SDL_Point mouse;
     InputAtom input;
 
-    SGPMouseGetPos(&mouse);
-    DispatchMouseEvent(MOUSE_POS, mouse.x, mouse.y, gfLeftButtonState, gfRightButtonState);
+    RefreshMouseRegions();
     while (DequeueEvent(&input) == 1) {
         if (input.usEvent == LEFT_BUTTON_UP && active_field != 0) {
             active_field->SetActive(false);
         }
         if (input.usEvent == LEFT_BUTTON_REPEAT || input.usEvent == RIGHT_BUTTON_REPEAT) {
-            DispatchMouseEvent(input.usEvent, mouse.x, mouse.y, gfLeftButtonState,
-                                        gfRightButtonState);
-        } else if (!DispatchDialogMouseInput(input.usEvent, mouse.x, mouse.y)) {
+            DispatchMouseEvent(input);
+        } else if (!DispatchDialogMouseInput(input)) {
             (dialog->*handle_event)(&input);
         }
     }

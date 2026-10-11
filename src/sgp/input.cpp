@@ -65,7 +65,7 @@ static constexpr std::size_t max_input_events = 256;
 // GLOBAL: WIZ8 0x00650db9
 BOOLEAN gfSGPInputReceived = FALSE;
 
-void HandleSingleClicksAndButtonRepeats(void);
+void HandleButtonRepeats(void);
 
 // These are the hook functions for both keyboard and mouse
 
@@ -95,7 +95,7 @@ BOOLEAN InitializeInputManager(void)
 }
 
 // FUNCTION: WIZ8 0x00401f90
-void QueueEvent(UINT16 ubInputEvent, UINT32 usParam, UINT32 uiParam)
+void QueueEvent(UINT16 ubInputEvent, UINT32 usParam, UINT32 uiParam, UINT8 clicks)
 {
     if (gEventQueue.size() == max_input_events)
         return;
@@ -115,13 +115,15 @@ void QueueEvent(UINT16 ubInputEvent, UINT32 usParam, UINT32 uiParam)
         guiRightButtonRepeatTimer = 0;
         break;
     }
-    gEventQueue.push({uiTimer, usKeyState, ubInputEvent, usParam, uiParam});
+    const SDL_MouseButtonFlags buttons = (gfLeftButtonState ? SDL_BUTTON_LMASK : 0) |
+                                         (gfRightButtonState ? SDL_BUTTON_RMASK : 0);
+    gEventQueue.push({uiTimer, usKeyState, ubInputEvent, usParam, uiParam, buttons, clicks});
 }
 
 // FUNCTION: WIZ8 0x00402140
 BOOLEAN DequeueEvent(InputAtom* Event)
 {
-    HandleSingleClicksAndButtonRepeats();
+    HandleButtonRepeats();
     if (gEventQueue.empty())
         return FALSE;
     *Event = gEventQueue.front();
@@ -242,7 +244,7 @@ void FreeMouseCursor(void)
     fCursorWasClipped = FALSE;
 }
 
-void HandleSingleClicksAndButtonRepeats(void)
+void HandleButtonRepeats(void)
 {
     uint64_t uiTimer;
 

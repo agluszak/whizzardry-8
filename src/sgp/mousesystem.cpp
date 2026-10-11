@@ -24,17 +24,9 @@
 #include "Button System.h"
 
 namespace {
-constexpr uint64_t double_click_delay = 400;
-
 // UI dispatch state for events already translated by the SDL input backend.
 // Registrations themselves belong to each control's region.
 struct MouseState {
-    // GLOBAL: WIZ8 0x00650E6C
-    MOUSE_REGION* last_down = nullptr;
-    // GLOBAL: WIZ8 0x00650E70
-    MOUSE_REGION* last_up = nullptr;
-    // GLOBAL: WIZ8 0x00650E74
-    uint64_t last_down_time = 0;
     // GLOBAL: WIZ8 0x00650e80
     INT16 x = 0;
     // GLOBAL: WIZ8 0x00650e82
@@ -43,6 +35,7 @@ struct MouseState {
     INT16 buttons = 0;
     // GLOBAL: WIZ8 0x00650e86
     INT16 action = MSYS_NO_ACTION;
+    UINT8 clicks = 0;
     // GLOBAL: WIZ8 0x00650e88
     bool initialized = false;
     // GLOBAL: WIZ8 0x00650e8c
@@ -95,7 +88,7 @@ void MSYS_Shutdown(void)
 {
     mouse.initialized = false;
     for (auto* region = MOUSE_REGION::first; region; region = region->next)
-        region->clearDispatch();
+        region->reset();
 }
 
 namespace {
@@ -105,13 +98,14 @@ struct MouseDispatch {
     MOUSE_REGION* current = nullptr;
     MOUSE_REGION* previous;
     INT16 action, x, y, buttons;
+    UINT8 clicks;
     MouseDispatch* parent;
     unsigned long long generation;
     static MouseDispatch* active;
     static unsigned long long latest;
 
     MouseDispatch() : previous(mouse.previous), action(mouse.action),
-        x(mouse.x), y(mouse.y), buttons(mouse.buttons),
+        x(mouse.x), y(mouse.y), buttons(mouse.buttons), clicks(mouse.clicks),
         parent(active), generation(++latest) { active = this; }
     ~MouseDispatch() {
         // A nested event owns the final hover state if it ran during this event.
@@ -130,13 +124,20 @@ unsigned long long MouseDispatch::latest = 0;
 //	DispatchMouseEvent
 //	Hook to the SGP's mouse handler
 // FUNCTION: WIZ8 0x0040b510
-void DispatchMouseEvent(UINT16 Type, UINT16 Xcoord, UINT16 Ycoord, BOOLEAN LeftButton,
-                                 BOOLEAN RightButton)
+void DispatchMouseEvent(const InputAtom& input)
 {
     // If the mouse system isn't initialized, get out o' here
     if (!mouse.initialized)
         return;
 
+    const auto Type = input.usEvent;
+    const auto Xcoord = GETXPOS(&input);
+    const auto Ycoord = GETYPOS(&input);
+    const bool LeftButton = (input.mouseButtons & SDL_BUTTON_LMASK) != 0;
+    const bool RightButton = (input.mouseButtons & SDL_BUTTON_RMASK) != 0;
+    mouse.buttons = (LeftButton ? MSYS_LEFT_BUTTON : 0) |
+                    (RightButton ? MSYS_RIGHT_BUTTON : 0);
+    mouse.clicks = input.clicks;
     mouse.action = MSYS_NO_ACTION;
     switch (Type) {
     case LEFT_BUTTON_DOWN:
@@ -159,16 +160,6 @@ void DispatchMouseEvent(UINT16 Type, UINT16 Xcoord, UINT16 Ycoord, BOOLEAN LeftB
             mouse.action |= MSYS_DO_RBUTTON_DWN;
         else if (Type == RIGHT_BUTTON_UP)
             mouse.action |= MSYS_DO_RBUTTON_UP;
-
-        if (LeftButton)
-            mouse.buttons |= MSYS_LEFT_BUTTON;
-        else
-            mouse.buttons &= (~MSYS_LEFT_BUTTON);
-
-        if (RightButton)
-            mouse.buttons |= MSYS_RIGHT_BUTTON;
-        else
-            mouse.buttons &= (~MSYS_RIGHT_BUTTON);
 
         if ((Xcoord != mouse.x) || (Ycoord != mouse.y)) {
             mouse.action |= MSYS_DO_MOVE;
@@ -214,6 +205,18 @@ void DispatchMouseEvent(UINT16 Type, UINT16 Xcoord, UINT16 Ycoord, BOOLEAN LeftB
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "%s", "ERROR -- MSYS 2 SGP Mouse Hook got bad type");
         break;
     }
+}
+
+void RefreshMouseRegions()
+{
+    SDL_Point point;
+    SGPMouseGetPos(&point);
+    InputAtom input{};
+    input.usEvent = MOUSE_POS;
+    input.uiParam = static_cast<UINT32>(point.x) | (static_cast<UINT32>(point.y) << 16);
+    input.mouseButtons = (gfLeftButtonState ? SDL_BUTTON_LMASK : 0) |
+                         (gfRightButtonState ? SDL_BUTTON_RMASK : 0);
+    DispatchMouseEvent(input);
 }
 
 _MOUSE_REGION::_MOUSE_REGION()
@@ -403,37 +406,9 @@ void MSYS_UpdateMouseRegion(void)
                             VideoRemoveToolTip();
                         }
 
-                        //Kris: Nov 31, 1999 -- Added support for double click events.
-                        //This is where double clicks are checked and passed down.
-                        if (ButtonReason == MSYS_CALLBACK_REASON_LBUTTON_DWN) {
-                            uint64_t uiCurrTime = w8_get_ticks();
-                            if (mouse.last_down == event.current &&
-                                mouse.last_up == event.current &&
-                                uiCurrTime <=
-                                    mouse.last_down_time +
-                                        double_click_delay) { //Sequential left click on same button within the maximum time allowed for a double click
-                                //Double click check succeeded, set flag and reset double click globals.
-                                ButtonReason |= MSYS_CALLBACK_REASON_LBUTTON_DOUBLECLICK;
-                                mouse.last_down = nullptr;
-                                mouse.last_up = nullptr;
-                                mouse.last_down_time = 0;
-                            } else { //First click, record time and region pointer (to check if 2nd click detected later)
-                                mouse.last_down = event.current;
-                                mouse.last_down_time = w8_get_ticks();
-                            }
-                        } else if (ButtonReason == MSYS_CALLBACK_REASON_LBUTTON_UP) {
-                            uint64_t uiCurrTime = w8_get_ticks();
-                            if (mouse.last_down == event.current &&
-                                uiCurrTime <=
-                                    mouse.last_down_time +
-                                        double_click_delay) { //Double click is Left down, then left up, then left down.  We have just detected the left up here (step 2).
-                                mouse.last_up = event.current;
-                            } else { //User released mouse outside of current button, so kill any chance of a double click happening.
-                                mouse.last_down = nullptr;
-                                mouse.last_up = nullptr;
-                                mouse.last_down_time = 0;
-                            }
-                        }
+                        if ((event.action & MSYS_DO_LBUTTON_DWN) && event.clicks != 0 &&
+                            (event.clicks & 1) == 0)
+                            ButtonReason |= MSYS_CALLBACK_REASON_LBUTTON_DOUBLECLICK;
 
                         (*(event.current->ButtonCallback))(event.current, ButtonReason);
                     }
@@ -458,6 +433,7 @@ void MSYS_UpdateMouseRegion(void)
             event.current->RelativeXPos = event.x - event.current->RegionTopLeftX;
             event.current->RelativeYPos = event.y - event.current->RegionTopLeftY;
 
+            event.current->ButtonState = event.buttons;
             if ((event.current->uiFlags & MSYS_MOVE_CALLBACK) && (event.action & MSYS_DO_MOVE)) {
                 (*(event.current->MovementCallback))(event.current, MSYS_CALLBACK_REASON_MOVE);
                 if (!event.current || event.generation != MouseDispatch::latest)
@@ -482,7 +458,7 @@ void _MOUSE_REGION::configure(UINT16 tlx, UINT16 tly, UINT16 brx, UINT16 bry,
                                INT8 priority, MOUSE_CALLBACK movecallback,
                                MOUSE_CALLBACK buttoncallback)
 {
-    clearDispatch();
+    reset();
     // Most recently configured wins among equally prioritized controls.
     unlink();
     next = first;
@@ -534,7 +510,7 @@ void _MOUSE_REGION::configure(UINT16 tlx, UINT16 tly, UINT16 brx, UINT16 bry,
 
 // Clear dispatch observers before reconfiguration or destruction.
 // FUNCTION: WIZ8 0x0040bee0
-void _MOUSE_REGION::clearDispatch()
+void _MOUSE_REGION::reset()
 {
     // Get rid of the FastHelp text (if applicable)
     if (!FastHelpText.empty()) {
@@ -558,10 +534,6 @@ void _MOUSE_REGION::clearDispatch()
     //if the current region is the one that we are deleting, then clear it.
     if (mouse.current == this)
         mouse.current = nullptr;
-    if (mouse.last_down == this || mouse.last_up == this) {
-        mouse.last_down = mouse.last_up = nullptr;
-        mouse.last_down_time = 0;
-    }
 
     //dirty our update flag
     mouse.refresh = true;
@@ -768,6 +740,6 @@ void ResetClickedMode(void)
 
 _MOUSE_REGION::~_MOUSE_REGION()
 {
-    clearDispatch();
+    reset();
     unlink();
 }

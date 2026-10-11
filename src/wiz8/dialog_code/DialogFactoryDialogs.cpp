@@ -70,18 +70,13 @@ W8ListBoxDialog::W8ListBoxDialog()
     m_second_text_button.reset();
     area_inlay.reset();
     m_area_button.reset();
-    m_up_button.reset();
-    m_up_image.reset();
-    m_down_button.reset();
-    m_down_image.reset();
+    m_up_button.Reset();
+    m_down_button.Reset();
     third_btn_inlay.reset();
     m_third_text_button.reset();
-    m_slider_button.reset();
-    m_slider_image.reset();
-    m_ok_button.reset();
-    m_ok_image.reset();
-    m_cancel_button.reset();
-    m_cancel_image.reset();
+    m_slider_button.Reset();
+    m_ok_button.Reset();
+    m_cancel_button.Reset();
     edge_inlay.reset();
     ClearLines();
 }
@@ -246,67 +241,43 @@ int W8ListBoxDialog::CreateControls()
         return 7;
     }
     SetButtonUserDataPointer(m_area_button, this);
-    m_up_image = ButtonGraphics::Load("Data\\Dialogs\\DialogUpArrow.STI", 3, 0, 1, 2, 2);
-    if (m_up_image) {
-        m_up_button =
-            QuickCreateButton(m_up_image, 0, 0, BUTTON_NO_TOGGLE, MSYS_PRIORITY_HIGHEST - 1,
-                              UpButtonCallback, UpButtonCallback);
-    }
-    m_down_image =
-        ButtonGraphics::Load("Data\\Dialogs\\DialogDownArrow.STI", 3, 0, 1, 2, 2);
-    if (m_down_image) {
-        m_down_button =
-            QuickCreateButton(m_down_image, 0, 0, BUTTON_NO_TOGGLE, MSYS_PRIORITY_HIGHEST - 1,
-                              DownButtonCallback, DownButtonCallback);
-    }
-    m_slider_image =
-        ButtonGraphics::Load("Data\\Dialogs\\DialogSlideBar.STI", BUTTON_NO_IMAGE, 0,
-                        BUTTON_NO_IMAGE, BUTTON_NO_IMAGE, BUTTON_NO_IMAGE);
-    if (m_slider_image) {
-        m_slider_button =
-            QuickCreateButton(m_slider_image, 0, 0, BUTTON_NO_TOGGLE, MSYS_PRIORITY_HIGHEST - 2,
-                              BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
-    }
-    m_ok_image =
-        ButtonGraphics::Load("Data\\Dialogs\\DialogConfirmation.STI", 3, 0, 1, 2, 2);
-    if (m_ok_image) {
-        m_ok_button = QuickCreateButton(m_ok_image, 0, 0, BUTTON_NO_TOGGLE, MSYS_PRIORITY_HIGHEST,
-                                        OkButtonCallback, OkButtonCallback);
-    }
-    m_cancel_image =
-        ButtonGraphics::Load("Data\\Dialogs\\DialogConfirmation.STI", 7, 4, 5, 6, 6);
-    if (m_cancel_image) {
-        m_cancel_button =
-            QuickCreateButton(m_cancel_image, 0, 0, BUTTON_NO_TOGGLE, MSYS_PRIORITY_HIGHEST,
-                              CancelButtonCallback, CancelButtonCallback);
-    }
-    if (!m_up_button || !m_down_button || !m_slider_button || !m_ok_button ||
-        !m_cancel_button) {
+    const bool configured =
+        m_up_button.Configure("Data\\Dialogs\\DialogUpArrow.STI", 3, 0, 1, 2, 2,
+                              UpButtonCallback, nullptr, false, MSYS_PRIORITY_HIGHEST - 1,
+                              W8_DIALOG_BUTTON_NO_TOOLTIP, nullptr, nullptr) &&
+        m_down_button.Configure("Data\\Dialogs\\DialogDownArrow.STI", 3, 0, 1, 2, 2,
+                                DownButtonCallback, nullptr, false, MSYS_PRIORITY_HIGHEST - 1,
+                                W8_DIALOG_BUTTON_NO_TOOLTIP, nullptr, nullptr) &&
+        m_slider_button.ConfigureIcon("Data\\Dialogs\\DialogSlideBar.STI", BUTTON_NO_IMAGE, 0,
+                                     MSYS_PRIORITY_HIGHEST - 2, W8_DIALOG_BUTTON_NO_TOOLTIP) &&
+        m_ok_button.Configure("Data\\Dialogs\\DialogConfirmation.STI", 3, 0, 1, 2, 2,
+                              OkButtonCallback, nullptr, false, MSYS_PRIORITY_HIGHEST,
+                              W8_DIALOG_BUTTON_NO_TOOLTIP, nullptr, nullptr) &&
+        m_cancel_button.Configure("Data\\Dialogs\\DialogConfirmation.STI", 7, 4, 5, 6, 6,
+                                  CancelButtonCallback, nullptr, false, MSYS_PRIORITY_HIGHEST,
+                                  W8_DIALOG_BUTTON_NO_TOOLTIP, nullptr, nullptr);
+    if (!configured) {
         DestroyControls();
     } else {
-        SetButtonUserDataPointer(m_up_button, this);
-        SetButtonUserDataPointer(m_down_button, this);
-        SetButtonUserDataPointer(m_slider_button, this);
-        SetButtonUserDataPointer(m_ok_button, this);
-        SetButtonUserDataPointer(m_cancel_button, this);
+        m_up_button.m_owner = m_down_button.m_owner = m_ok_button.m_owner = m_cancel_button.m_owner = this;
+        m_up_button.m_activation = m_down_button.m_activation = DialogButtonActivation::Press;
         third_btn_inlay = LoadGenericButtonImages({}, "Data\\Dialogs\\DialogInlay.STI", {}, "Data\\Dialogs\\DialogInlay.STI", {}, "Data\\Dialogs\\DialogBackground_dark.STI", 0, 3, 3);
         if (third_btn_inlay) {
             m_third_text_button = CreateTextButton({}, *g_dialog_interface_font, g_dialog_font_foreground, g_dialog_font_background, third_btn_inlay, 0, 0, 1, 1, BUTTON_NO_TOGGLE, MSYS_PRIORITY_HIGHEST - 2, SliderTrackButtonCallback, SliderTrackButtonCallback);
             if (m_third_text_button) {
                 SetButtonUserDataPointer(m_third_text_button, this);
-                m_second_text_button = CreateTextButton({}, *g_dialog_interface_font, g_dialog_font_foreground, g_dialog_font_background, edge_inlay, static_cast<short>(m_x + 9), static_cast<short>((m_height - GetButtonHeight(m_ok_button) * 0x96 / 100) - 9 +
-                                       m_y), static_cast<short>(m_width - 0x12), static_cast<short>(GetButtonHeight(m_ok_button) * 0x96 / 100), BUTTON_NO_TOGGLE | BUTTON_IGNORE_CLICKS, MSYS_PRIORITY_HIGHEST - 1, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
-                SetButtonPosition(
-                    m_cancel_button,
-                    GetButtonX(m_second_text_button) - GetButtonWidth(m_cancel_button) +
+                m_second_text_button = CreateTextButton({}, *g_dialog_interface_font, g_dialog_font_foreground, g_dialog_font_background, edge_inlay, static_cast<short>(m_x + 9), static_cast<short>((m_height - m_ok_button.GetHeight() * 0x96 / 100) - 9 +
+                                       m_y), static_cast<short>(m_width - 0x12), static_cast<short>(m_ok_button.GetHeight() * 0x96 / 100), BUTTON_NO_TOGGLE | BUTTON_IGNORE_CLICKS, MSYS_PRIORITY_HIGHEST - 1, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
+                m_cancel_button.SetPosition(
+                    GetButtonX(m_second_text_button) - m_cancel_button.GetWidth() +
                         GetButtonWidth(m_second_text_button),
                     GetButtonHeight(m_second_text_button) / 2 -
-                        GetButtonHeight(m_cancel_button) / 2 + GetButtonY(m_second_text_button));
-                SetButtonPosition(m_ok_button,
-                                  GetButtonX(m_cancel_button) -
-                                      GetButtonWidth(m_cancel_button) / 2 -
-                                      GetButtonWidth(m_ok_button),
-                                  GetButtonY(m_cancel_button));
+                        m_cancel_button.GetHeight() / 2 + GetButtonY(m_second_text_button));
+                m_ok_button.SetPosition(
+                                  m_cancel_button.GetX() -
+                                      m_cancel_button.GetWidth() / 2 -
+                                      m_ok_button.GetWidth(),
+                                  m_cancel_button.GetY());
                 ResizeButton(m_area_button, static_cast<short>(GetButtonWidth(m_text_button)),
                              static_cast<short>(-6 - GetButtonY(m_text_button) -
                                                 GetButtonHeight(m_text_button) +
@@ -329,20 +300,15 @@ void W8ListBoxDialog::DestroyControls()
     m_text_button.reset();
     m_second_text_button.reset();
     m_area_button.reset();
-    m_up_button.reset();
-    m_down_button.reset();
-    m_slider_button.reset();
+    m_up_button.Reset();
+    m_down_button.Reset();
+    m_slider_button.Reset();
     m_third_text_button.reset();
-    m_ok_button.reset();
-    m_cancel_button.reset();
+    m_ok_button.Reset();
+    m_cancel_button.Reset();
     area_inlay.reset();
     third_btn_inlay.reset();
     edge_inlay.reset();
-    m_up_image.reset();
-    m_down_image.reset();
-    m_slider_image.reset();
-    m_ok_image.reset();
-    m_cancel_image.reset();
     ClearLines();
 }
 
@@ -355,9 +321,10 @@ void W8ListBoxDialog::Draw()
     int index;
     int line;
 
-    if ((m_dirty_flags & W8_DIALOG_DIRTY_REDRAW) == 0) {
-        return;
-    }
+    if (m_up_button.m_dirty || m_down_button.m_dirty || m_slider_button.m_dirty ||
+        m_ok_button.m_dirty || m_cancel_button.m_dirty)
+        m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
+    if ((m_dirty_flags & W8_DIALOG_DIRTY_REDRAW) == 0) return;
     W8DialogBase::Draw();
     DrawButton(m_text_button);
     DrawButton(m_second_text_button);
@@ -375,7 +342,7 @@ void W8ListBoxDialog::Draw()
         int rows = height / static_cast<int>(
                                 static_cast<unsigned int>(g_dialog_interface_font->height()));
         if (static_cast<int>(m_lines.size()) > rows) {
-            width = width + (-7 - GetButtonWidth(m_up_button));
+            width = width + (-7 - m_up_button.GetWidth());
             m_scrollable = true;
             visible_lines = rows;
         } else {
@@ -385,35 +352,44 @@ void W8ListBoxDialog::Draw()
     }
     ResizeButton(m_area_button, static_cast<short>(width), static_cast<short>(height));
     DrawButton(m_area_button);
+    m_up_button.SetVisible(m_scrollable);
+    m_down_button.SetVisible(m_scrollable);
+    m_slider_button.SetVisible(m_scrollable);
     if (m_scrollable) {
-        SetButtonPosition(m_up_button, m_x + dx + 4 + width, m_y + 4 + dy);
-        SetButtonPosition(m_down_button, m_x + dx + 4 + width,
-                          m_y + dy + height - GetButtonHeight(m_down_button) - 4);
-        SetButtonPosition(
-            m_slider_button, m_x + dx + 4 + width,
+        m_up_button.SetPosition( m_x + dx + 4 + width, m_y + 4 + dy);
+        m_down_button.SetPosition( m_x + dx + 4 + width,
+                          m_y + dy + height - m_down_button.GetHeight() - 4);
+        m_slider_button.SetPosition( m_x + dx + 4 + width,
             GetButtonHeight(m_area_button) +
-                ((height - GetButtonHeight(m_up_button) - GetButtonHeight(m_down_button) - 7) *
+                ((height - m_up_button.GetHeight() - m_down_button.GetHeight() - 7) *
                  m_selected_line) /
                     static_cast<int>(m_lines.size()) +
                 m_y + 3 + dy);
         ColorFillVideoSurfaceArea(
-            GetFrameBufferSurface(), m_x + width + dx, m_y + dy + GetButtonHeight(m_up_button),
-            m_x + width + dx + GetButtonWidth(m_up_button),
-            m_y + height + dy - GetButtonHeight(m_down_button), Get16BPPColor(m_fill_colour));
+            GetFrameBufferSurface(), m_x + width + dx, m_y + dy + m_up_button.GetHeight(),
+            m_x + width + dx + m_up_button.GetWidth(),
+            m_y + height + dy - m_down_button.GetHeight(), Get16BPPColor(m_fill_colour));
         SetButtonPosition(m_third_text_button, m_x + dx + width, m_y + dy);
-        ResizeButton(m_third_text_button, static_cast<short>(GetButtonWidth(m_up_button) + 7),
+        ResizeButton(m_third_text_button, static_cast<short>(m_up_button.GetWidth() + 7),
                      static_cast<short>(height));
         DrawButton(m_third_text_button);
-        DrawButton(m_up_button);
-        DrawButton(m_down_button);
-        DrawButton(m_slider_button);
+        m_up_button.m_dirty = true;
+        m_up_button.Draw();
+        m_down_button.m_dirty = true;
+        m_down_button.Draw();
+        m_slider_button.m_dirty = true;
+        m_slider_button.Draw();
     }
-    if (m_ok_button) {
-        DrawButton(m_ok_button);
+    if (m_ok_button.IsEnabled()) {
+        m_ok_button.m_dirty = true;
+        m_ok_button.Draw();
     }
-    if (m_cancel_button) {
-        DrawButton(m_cancel_button);
+    if (m_cancel_button.IsEnabled()) {
+        m_cancel_button.m_dirty = true;
+        m_cancel_button.Draw();
     }
+    if (!m_scrollable)
+        m_up_button.m_dirty = m_down_button.m_dirty = m_slider_button.m_dirty = false;
     SetFont(*g_dialog_interface_font);
     GetButtonArea(m_area_button, &rect);
     {
@@ -448,26 +424,11 @@ void W8ListBoxDialog::Draw()
 // FUNCTION: WIZ8 0x005cd470
 bool W8ListBoxDialog::ProcessInput()
 {
-    SDL_Point mouse;
     InputAtom input;
 
-    if (gfLeftButtonState != 0) {
-        if (m_selected_line != -1 &&
-            IsCursorInRectangle(m_ok_rect.left, m_ok_rect.top, m_ok_rect.right, m_ok_rect.bottom)) {
-            m_keep_open = false;
-            return false;
-        }
-        if (IsCursorInRectangle(m_cancel_rect.left, m_cancel_rect.top, m_cancel_rect.right,
-                                m_cancel_rect.bottom)) {
-            m_selected_line = -1;
-            m_keep_open = false;
-            return false;
-        }
-    }
-    SGPMouseGetPos(&mouse);
-    DispatchMouseEvent(MOUSE_POS, mouse.x, mouse.y, gfLeftButtonState, gfRightButtonState);
+    RefreshMouseRegions();
     while (DequeueEvent(&input) == 1) {
-        if (DispatchDialogMouseInput(input.usEvent, mouse.x, mouse.y)) {
+        if (DispatchDialogMouseInput(input)) {
             continue;
         }
         if (input.usEvent == MOUSE_WHEEL) {
@@ -624,8 +585,8 @@ bool W8SplitAmountDialog::CreateButtons()
     m_buttons[5]->Configure("Data\\Dialogs\\popup_confirmationbuttons.sti", 3, 5, 6, 9, 7,
                             SplitCancel, BUTTON_NO_CALLBACK, false, MSYS_PRIORITY_HIGHEST,
                             W8_DIALOG_BUTTON_NO_TOOLTIP, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
-    m_buttons[0]->m_fires_on_press = true;
-    m_buttons[1]->m_fires_on_press = true;
+    m_buttons[0]->m_repeat_enabled = true;
+    m_buttons[1]->m_repeat_enabled = true;
     for (index = 0; index < 6; ++index) {
         m_buttons[index]->SetPosition(g_split_amount_button_offsets[index].x + m_x,
                                       g_split_amount_button_offsets[index].y + m_y);
@@ -1458,11 +1419,9 @@ int W8TriggerItemPickerDialog::AddItem(W8WorldItem* item)
 // FUNCTION: WIZ8 0x005cef00
 bool W8TriggerItemPickerDialog::ProcessInput()
 {
-    SDL_Point mouse;
     InputAtom input;
 
-    SGPMouseGetPos(&mouse);
-    DispatchMouseEvent(MOUSE_POS, mouse.x, mouse.y, gfLeftButtonState, gfRightButtonState);
+    RefreshMouseRegions();
     while (DequeueEvent(&input) == 1) {
         if ((input.usEvent == LEFT_BUTTON_DOWN || input.usEvent == RIGHT_BUTTON_DOWN) &&
             ProcessPendingEvent()) {
@@ -1471,7 +1430,7 @@ bool W8TriggerItemPickerDialog::ProcessInput()
         if (HitTestPartyPortrait(&input) != 0) {
             continue;
         }
-        if (DispatchDialogMouseInput(input.usEvent, mouse.x, mouse.y)) {
+        if (DispatchDialogMouseInput(input)) {
             continue;
         }
         if (input.usEvent == MOUSE_WHEEL) {

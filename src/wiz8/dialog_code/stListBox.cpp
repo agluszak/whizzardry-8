@@ -30,8 +30,7 @@ void W8ListBoxDialog::TextAreaButtonCallback(GUI_BUTTON* button, INT32 reason)
             srAssertFail("pDialog", "C:\\Projects\\Wizardry 8\\Dialog Code\\stListBox.cpp", 0x2f5,
                          0);
         }
-        SDL_Point cursor;
-        SGPMouseGetPos(&cursor);
+        const SDL_Point cursor{button->Area.MouseXPos, button->Area.MouseYPos};
         /* Retail read this top edge uninitialized when the area button is
            absent (the leftover argument slot); natively it starts at zero. */
         int top = 0;
@@ -52,72 +51,34 @@ void W8ListBoxDialog::TextAreaButtonCallback(GUI_BUTTON* button, INT32 reason)
 }
 
 // FUNCTION: WIZ8 0x005ccf30
-void W8ListBoxDialog::UpButtonCallback(GUI_BUTTON* button, INT32 reason)
+void W8ListBoxDialog::UpButtonCallback(W8DialogButton* button)
 {
-    W8ListBoxDialog* dialog = GetButtonUserDataPointer<W8ListBoxDialog>(button);
-    if (dialog == 0) {
-        srAssertFail("pDialog", "C:\\Projects\\Wizardry 8\\Dialog Code\\stListBox.cpp", 0x305, 0);
-    }
-    if (reason & MSYS_CALLBACK_REASON_LBUTTON_DWN) {
-        dialog->SetCurrentLine(dialog->m_selected_line - 1);
-    }
-    if (UpdateDialogArrowState(button, reason)) {
-        dialog->m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
-    }
+    auto* dialog = static_cast<W8ListBoxDialog*>(button->m_owner);
+    dialog->SetCurrentLine(dialog->m_selected_line - 1);
 }
 
 // FUNCTION: WIZ8 0x005ccfe0
-void W8ListBoxDialog::DownButtonCallback(GUI_BUTTON* button, INT32 reason)
+void W8ListBoxDialog::DownButtonCallback(W8DialogButton* button)
 {
-    W8ListBoxDialog* dialog = GetButtonUserDataPointer<W8ListBoxDialog>(button);
-    if (dialog == 0) {
-        srAssertFail("pDialog", "C:\\Projects\\Wizardry 8\\Dialog Code\\stListBox.cpp", 0x32a, 0);
-    }
-    if (reason & MSYS_CALLBACK_REASON_LBUTTON_DWN) {
-        dialog->SetCurrentLine(dialog->m_selected_line + 1);
-    }
-    if (UpdateDialogArrowState(button, reason)) {
-        dialog->m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
-    }
+    auto* dialog = static_cast<W8ListBoxDialog*>(button->m_owner);
+    dialog->SetCurrentLine(dialog->m_selected_line + 1);
 }
 
 // FUNCTION: WIZ8 0x005cd090
-void W8ListBoxDialog::OkButtonCallback(GUI_BUTTON* button, INT32 reason)
+void W8ListBoxDialog::OkButtonCallback(W8DialogButton* button)
 {
-    W8ListBoxDialog* dialog = GetButtonUserDataPointer<W8ListBoxDialog>(button);
-    if (dialog == 0) {
-        srAssertFail("pDialog", "C:\\Projects\\Wizardry 8\\Dialog Code\\stListBox.cpp", 0x34c, 0);
-    }
-    if (!(reason & MSYS_CALLBACK_REASON_LBUTTON_DWN) &&
-        (reason & MSYS_CALLBACK_REASON_LBUTTON_UP)) {
-        if (button->uiFlags & BUTTON_CLICKED_ON) {
-            dialog->m_keep_open = false;
-            button->uiFlags &= ~BUTTON_CLICKED_ON;
-            dialog->m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
-        }
-    } else if (UpdateDialogArrowState(button, reason)) {
-        dialog->m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
-    }
+    auto* dialog = static_cast<W8ListBoxDialog*>(button->m_owner);
+    dialog->m_keep_open = false;
+    dialog->m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
 }
 
 // FUNCTION: WIZ8 0x005cd130
-void W8ListBoxDialog::CancelButtonCallback(GUI_BUTTON* button, INT32 reason)
+void W8ListBoxDialog::CancelButtonCallback(W8DialogButton* button)
 {
-    W8ListBoxDialog* dialog = GetButtonUserDataPointer<W8ListBoxDialog>(button);
-    if (dialog == 0) {
-        srAssertFail("pDialog", "C:\\Projects\\Wizardry 8\\Dialog Code\\stListBox.cpp", 0x36f, 0);
-    }
-    if (!(reason & MSYS_CALLBACK_REASON_LBUTTON_DWN) &&
-        (reason & MSYS_CALLBACK_REASON_LBUTTON_UP)) {
-        if (button->uiFlags & BUTTON_CLICKED_ON) {
-            dialog->m_keep_open = false;
-            dialog->SetCurrentLine(-1);
-            button->uiFlags &= ~BUTTON_CLICKED_ON;
-            dialog->m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
-        }
-    } else if (UpdateDialogArrowState(button, reason)) {
-        dialog->m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
-    }
+    auto* dialog = static_cast<W8ListBoxDialog*>(button->m_owner);
+    dialog->m_keep_open = false;
+    dialog->SetCurrentLine(-1);
+    dialog->m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
 }
 
 // FUNCTION: WIZ8 0x005cd1e0
@@ -129,8 +90,7 @@ void W8ListBoxDialog::SliderTrackButtonCallback(GUI_BUTTON* button, INT32 reason
             srAssertFail("pDialog", "C:\\Projects\\Wizardry 8\\Dialog Code\\stListBox.cpp", 0x398,
                          0);
         }
-        SDL_Point cursor;
-        SGPMouseGetPos(&cursor);
+        SDL_Point cursor{button->Area.MouseXPos, button->Area.MouseYPos};
         /* Retail read both track edges uninitialized when the text-area
            button is absent (the leftover argument slots); natively they start at zero. */
         int top = 0;
@@ -138,8 +98,8 @@ void W8ListBoxDialog::SliderTrackButtonCallback(GUI_BUTTON* button, INT32 reason
         if (dialog->m_third_text_button) {
             SDL_Rect area;
             GetButtonArea(dialog->m_third_text_button, &area);
-            top = area.y + GetButtonHeight(dialog->m_up_button);
-            bottom = (area.y + area.h) - GetButtonHeight(dialog->m_down_button);
+            top = area.y + dialog->m_up_button.GetHeight();
+            bottom = (area.y + area.h) - dialog->m_down_button.GetHeight();
         }
         if (cursor.y < top) {
             cursor.y = top;
@@ -147,6 +107,7 @@ void W8ListBoxDialog::SliderTrackButtonCallback(GUI_BUTTON* button, INT32 reason
         if (cursor.y > bottom) {
             cursor.y = bottom;
         }
+        if (bottom <= top) return;
         dialog->SetCurrentLine((cursor.y - top) * static_cast<int>(dialog->m_lines.size()) /
                                (bottom - top));
     }
