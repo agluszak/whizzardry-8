@@ -1,3 +1,4 @@
+#include "glm/ext/vector_int3.hpp"
 #include <stdexcept>
 #include <array>
 #include <vector>
@@ -27,7 +28,6 @@
 #include "surrender/srScene.h"
 #include "surrender/srTriangleCuller.h"
 #include "surrender/srVertexPipe.h"
-#include "surrender/srMath.h"
 #include "surrender/srNode.h"
 #include "glm/fwd.hpp"
 
@@ -265,7 +265,7 @@ TEST_CASE("surrender_test")
 
 TEST_CASE("Triangle culling owns ordered indices and vertex remapping", "[surrender][culling]")
 {
-    const std::array<srVector3i, 4> triangles{{{5, 1, 3}, {0, 2, 4}, {4, 3, 1}, {5, 0, 2}}};
+    const std::array<glm::ivec3, 4> triangles{{{5, 1, 3}, {0, 2, 4}, {4, 3, 1}, {5, 0, 2}}};
     const std::array<glm::vec3, 6> vertices{{{-2, 0, 0}, {2, 0, 0}, {-3, 0, 0},
                                            {3, 0, 0}, {-4, 0, 0}, {4, 0, 0}}};
     const std::array<glm::vec4, 4> equations{{{0, 0, 0, 1}, {0, 0, 0, -1},
@@ -309,7 +309,7 @@ TEST_CASE("Triangle culling owns ordered indices and vertex remapping", "[surren
 
 TEST_CASE("Renderer triangle clipping uses direct and remapped vertices", "[surrender][culling]")
 {
-    const std::array<srVector3i, 3> triangles{{{0, 1, 2}, {1, 2, 3}, {3, 4, 5}}};
+    const std::array<glm::ivec3, 3> triangles{{{0, 1, 2}, {1, 2, 3}, {3, 4, 5}}};
     const std::array<unsigned char, 6> flags{1, 1, 1, 2, 2, 2};
     const std::array<w8_ulong, 6> remap{3, 4, 5, 0, 1, 2};
     std::array<w8_ulong, 4> indices{2, 0, 1, 2};
@@ -324,7 +324,7 @@ TEST_CASE("Renderer triangle clipping uses direct and remapped vertices", "[surr
 
 TEST_CASE("Triangle culling rejects inconsistent spans and retains empty selection semantics", "[surrender][culling]")
 {
-    std::array<srVector3i, 1> triangles{{{0, 1, 2}}};
+    std::array<glm::ivec3, 1> triangles{{{0, 1, 2}}};
     const std::array<glm::vec3, 3> vertices{{{0, 0, 0}, {1, 0, 0}, {0, 1, 0}}};
     const std::array<glm::vec4, 1> planes{{{1, 0, 0, 1}}};
     const glm::mat4 identity(1);
@@ -361,7 +361,7 @@ TEST_CASE("Triangle culling rejects inconsistent spans and retains empty selecti
 TEST_CASE("Triangle clipping retains high plane bits across large meshes", "[surrender][culling]")
 {
     std::array<glm::vec3, 513> vertices;
-    std::array<srVector3i, 171> triangles;
+    std::array<glm::ivec3, 171> triangles;
     for (int vertex = 0; vertex < 513; ++vertex)
         vertices[vertex] = {vertex % 7 < 4 ? -1.0f : 1.0f, 0, 0};
     for (int triangle = 0; triangle < 171; ++triangle)

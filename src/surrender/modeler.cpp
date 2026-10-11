@@ -1,3 +1,4 @@
+#include "glm/ext/vector_int3.hpp"
 #include "surrender/bounding_radius.h"
 #include <ranges>
 #include <glm/gtc/constants.hpp>
@@ -28,7 +29,6 @@
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
-#include "surrender/srMath.h"
 #include "surrender/srMeshModel.h"
 #include "surrender/srShader.h"
 
@@ -973,7 +973,7 @@ void srModeler::convert(srMeshModel& model, int remove_degenerate)
     }
     auto* polygons = model.getPolyVertex();
     for (w8_ulong i = 0; i < triangle_count; ++i)
-        polygons[i] = srVector3i(hash->table[i * 3]->index, hash->table[i * 3 + 1]->index,
+        polygons[i] = glm::ivec3(hash->table[i * 3]->index, hash->table[i * 3 + 1]->index,
                                  hash->table[i * 3 + 2]->index);
     model.setDirtyAll();
 }

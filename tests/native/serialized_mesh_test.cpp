@@ -1,3 +1,4 @@
+#include "glm/ext/vector_int3.hpp"
 #include <catch2/catch_test_macros.hpp>
 #include <array>
 #include <algorithm>
@@ -347,8 +348,8 @@ TEST_CASE("Octree mesh writer consumes arrays in disk order")
         srVector3T<float>(1, 2, 3), srVector3T<float>(4, 5, 6), srVector3T<float>(7, 8, 9)};
     const std::array<glm::vec2, 3> uv{glm::vec2(1, 2), glm::vec2(3, 4), glm::vec2(5, 6)};
     const std::array<int, 3> materials{2, 3, 5};
-    const std::array<srVector3i, 1> uv_indices{srVector3i(0, 2, 1)};
-    const std::array<srVector3i, 1> vertices{srVector3i(2, 1, 0)};
+    const std::array<glm::ivec3, 1> uv_indices{glm::ivec3(0, 2, 1)};
+    const std::array<glm::ivec3, 1> vertices{glm::ivec3(2, 1, 0)};
     const std::array<int, 1> textures{7};
     const std::array<srVector3T<float>, 3> normals{
         srVector3T<float>(0, 0, 1), srVector3T<float>(0, 1, 0), srVector3T<float>(1, 0, 0)};
@@ -373,7 +374,9 @@ TEST_CASE("Octree mesh writer consumes arrays in disk order")
                 Write(*file, std::array<int, 7>{4 | (version << 8), 3, 3, 1, 11, 13, material});
                 Write(*file, locations); Write(*file, uv);
                 if (material < 0) Write(*file, materials);
-                Write(*file, uv_indices); Write(*file, vertices); Write(*file, textures);
+                Write(*file, std::array<std::int32_t, 3>{0, 2, 1});
+                Write(*file, std::array<std::int32_t, 3>{2, 1, 0});
+                Write(*file, textures);
                 Write(*file, normals); Write(*file, lights); Write(*file, equations);
                 if (version) Write(*file, sun); // Only the first bank is serialized.
                 Write(*file, -1);

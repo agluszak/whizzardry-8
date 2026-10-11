@@ -1,5 +1,7 @@
 #pragma once
 
+#include "glm/ext/vector_int3.hpp"
+
 #include "glm/ext/vector_float3.hpp"
 
 #include <memory>
@@ -28,7 +30,7 @@ public:
         const srShader* shaders = nullptr;
         const glm::vec2* texcoords = nullptr;
         /* The mesh's per-triangle poly-UV corner source table. */
-        const srVector3i* poly_uv = nullptr;
+        const glm::ivec3* poly_uv = nullptr;
     };
     enum e_boundsSource { BOUNDS_FROM_VERTICES = 0, BOUNDS_SPHERE = 1, BOUNDS_BOX = 2 };
     using Record = srVertexPipe::Record;
@@ -63,7 +65,7 @@ public:
     w8_ulong flags;
     srMeshModel::PolygonSelection active_triangles;
     const glm::vec4* projected_vertices;
-    const srVector3i* triangles;
+    const glm::ivec3* triangles;
     /* stParticle stores its vertex positions here; Reset/Get null it. */
     const glm::vec3* positions;
     const glm::vec3* vertex_extras;

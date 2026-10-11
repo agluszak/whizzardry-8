@@ -1,3 +1,4 @@
+#include "glm/ext/vector_int3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include <catch2/catch_test_macros.hpp>
 #include <array>
@@ -19,7 +20,7 @@
 #include "surrender/srVertexPipe.h"
 
 
-static_assert(std::is_same_v<decltype(srMeshModel::poly_vertices), std::vector<srVector3i>>);
+static_assert(std::is_same_v<decltype(srMeshModel::poly_vertices), std::vector<glm::ivec3>>);
 static_assert(std::is_same_v<decltype(srMeshModel::vertex_locations),
                              std::vector<glm::vec3>>);
 static_assert(std::is_same_v<decltype(srTriMeshPipeline::vertex_pipe),

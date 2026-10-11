@@ -1,3 +1,4 @@
+#include "glm/ext/vector_int3.hpp"
 #include "surrender/bounding_radius.h"
 #include <algorithm>
 #include <cmath>
@@ -76,13 +77,10 @@ public:
         for (std::size_t i = 0; i < order.size(); ++i) table[i] = original[order[i]];
     }
 
-    void remapCorners(std::span<srVector3i> triangles, bool retain_external) const
+    void remapCorners(std::span<glm::ivec3> triangles, bool retain_external) const
     {
         for (auto& triangle : triangles)
-            for (auto* corner : {&triangle.x, &triangle.y, &triangle.z}) {
-                if (static_cast<w8_ulong>(*corner) < inverse.size()) *corner = inverse[*corner];
-                else if (!retain_external) throw std::out_of_range("Mesh corner index out of range");
-            }
+            triangle = srMeshMath::remapTriangle(triangle, inverse, retain_external);
     }
 
     std::span<const w8_ulong> order;
@@ -258,15 +256,13 @@ w8_ulong* srMeshModel::getActivePolygonTable(int table)
 }
 
 // FUNCTION: SURRENDER 0x1003FED0
-srVector3i* srMeshModel::getPolyVertex()
+glm::ivec3* srMeshModel::getPolyVertex()
 {
     if (polygon_count == 0) {
         return 0;
     }
     if (poly_vertices.empty()) {
-        srVector3i zero;
-        zero.x = zero.y = zero.z = 0;
-        poly_vertices.resize(polygon_count, zero);
+        poly_vertices.resize(polygon_count, glm::ivec3(0));
         setDirty(DIRTY_TRI_MESH);
     }
     return poly_vertices.data();
@@ -311,7 +307,7 @@ srShader* srMeshModel::getPolyShader(w8_long polygon, int layer)
 }
 
 // FUNCTION: SURRENDER 0x10040720
-srVector3i* srMeshModel::getPolyUVIndex(w8_long layer, int table)
+glm::ivec3* srMeshModel::getPolyUVIndex(w8_long layer, int table)
 {
     if (layer < 0 || layer > 3) {
         return 0;
@@ -381,7 +377,7 @@ void srMeshModel::reset(w8_long polygons, w8_long vertices)
        This includes the former freeAll path at SURRENDER 0x1003DEA0. */
     tri_mesh = TriMesh{};
     active_polygons = std::vector<w8_ulong>{};
-    poly_vertices = std::vector<srVector3i>{};
+    poly_vertices = std::vector<glm::ivec3>{};
     poly_equations = std::vector<glm::vec4>{};
     vertex_locations = std::vector<glm::vec3>{};
     vertex_normals = std::vector<glm::vec3>{};
@@ -433,7 +429,7 @@ void srMeshModel::calculatePolygonNormals()
 {
     dirty_flags.value &= ~(1UL << DIRTY_POLYGON_NORMALS);
     glm::vec4* equations = getPolyEq();
-    srVector3i* polygons = getPolyVertex();
+    glm::ivec3* polygons = getPolyVertex();
     glm::vec3* vertices = getVertexLoc();
     for (w8_long polygon = 0; polygon < polygon_count; polygon++) {
         const auto first = vertices[polygons[polygon].x];
@@ -455,7 +451,7 @@ void srMeshModel::calculateVertexNormals()
     const auto* polygons = getPolyVertex();
     const auto* shade_indices = getVertexShadeIndex(0);
     const auto smooth = srMeshMath::vertexNormalSums(
-        std::span<const srVector3i>(polygons, polygon_count),
+        std::span<const glm::ivec3>(polygons, polygon_count),
         std::span<const glm::vec4>(equations, polygon_count), vertex_location_count,
         shade_indices ? std::span<const w8_ulong>(shade_indices, vertex_location_count)
                       : std::span<const w8_ulong>{});
@@ -542,7 +538,7 @@ void srMeshModel::scaleToMaxRadius(double radius)
 void srMeshModel::flipFaces()
 {
     if (polygon_count != 0) {
-        srVector3i* polygons = getPolyVertex();
+        glm::ivec3* polygons = getPolyVertex();
         for (w8_long polygon = 0; polygon < polygon_count; polygon++) {
             w8_long first = polygons[polygon].x;
             polygons[polygon].x = polygons[polygon].y;
@@ -797,9 +793,9 @@ void srMeshModel::verify(srRuntimeClass::e_verify mode)
             srAssertFail("t.pVertex", "D:\\srsdk1x\\sources\\corelib\\srMeshModel.cpp", 0x5e5, 0);
         }
         for (i = 0; i < t.polygon_count; ++i) {
-            int* component = &t.poly_vertices[i].x;
-            for (j = 0; j < 3; ++j, ++component) {
-                if (*component < 0 || t.vertex_count <= *component) {
+            const auto& triangle = t.poly_vertices[i];
+            for (j = 0; j < 3; ++j) {
+                if (triangle[j] < 0 || t.vertex_count <= triangle[j]) {
                     srAssertFail("t.pVertex[i][j] >= 0 && t.pVertex[i][j] < t.vnum",
                                  "D:\\srsdk1x\\sources\\corelib\\srMeshModel.cpp", 0x5ed, 0);
                 }
@@ -955,7 +951,7 @@ void srMeshModel::dump(std::ostream& stream)
     }
     for (pass = 0; pass < 4; ++pass) {
         srShader* shaders = getPolyShader(pass, 0);
-        srVector3i* uv = getPolyUVIndex(pass, 0);
+        glm::ivec3* uv = getPolyUVIndex(pass, 0);
         std::shared_ptr<srTextureIFace>* textures[2];
         bool defined = false;
         for (stage = 0; stage < 2; ++stage) {
@@ -1038,12 +1034,12 @@ void srMeshModel::dump(std::ostream& stream)
         }
     }
     stream << '\n';
-    srVector3i* vertices = getPolyVertex();
+    glm::ivec3* vertices = getPolyVertex();
     w8_ulong strips = 1;
     for (pass = 0; pass < pass_count; ++pass) {
         for (polygon = 1; polygon < polygon_count; ++polygon) {
-            int* next = &vertices[polygon].x;
-            int* previous = &vertices[polygon - 1].x;
+            const auto& next = vertices[polygon];
+            const auto& previous = vertices[polygon - 1];
             w8_long shared = 0;
             for (w8_long a = 0; a < 3; ++a) {
                 for (w8_long b = 0; b < 3; ++b) {

@@ -1,3 +1,4 @@
+#include "glm/ext/vector_int3.hpp"
 #include <stdexcept>
 #include "surrender/srBoundingBox.h"
 #include "surrender/plane_math.h"
@@ -3731,7 +3732,7 @@ void srGERD::enable(e_enable option)
 }
 
 // FUNCTION: SURRENDER 0x1001BBB0
-void srGERD::drawTriangle(const srVector3i& triangle)
+void srGERD::drawTriangle(const glm::ivec3& triangle)
 {
     drawElements(static_cast<srRendererDefs::e_primitive>(3), 3, srRendererDefs::INDEX_ULONG,
                  &triangle);

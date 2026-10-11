@@ -1,5 +1,7 @@
 #pragma once
 
+#include "glm/ext/vector_int3.hpp"
+
 #include "glm/ext/vector_float3.hpp"
 
 #include "srMath.h"
@@ -25,7 +27,7 @@ public:
             : model_view(model_view), inverse_model_view(inverse_model_view) {}
         const glm::mat4& model_view;
         const glm::mat4& inverse_model_view;
-        std::span<const srVector3i> triangles;
+        std::span<const glm::ivec3> triangles;
         std::span<const glm::vec3> vertices;
         std::span<const glm::vec4> polygon_planes;
         std::span<const glm::vec4> clip_planes;

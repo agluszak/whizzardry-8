@@ -1,5 +1,7 @@
 #pragma once
 
+#include "glm/ext/vector_int3.hpp"
+
 #include "glm/ext/vector_float3.hpp"
 
 #include <array>
@@ -56,7 +58,7 @@ public:
         w8_long polygon_count = 0;
         w8_long pass_count = 0;
         w8_ulong control_flags = 0;
-        srVector3i* poly_vertices = nullptr;
+        glm::ivec3* poly_vertices = nullptr;
         glm::vec4* poly_equations = nullptr;
         glm::vec2* texcoords[4][2]{};
         glm::vec3* positions = nullptr;
@@ -70,7 +72,7 @@ public:
         std::shared_ptr<srMaterialIFace>* vertex_materials[4][2]{};
         std::shared_ptr<srTextureIFace>* poly_textures[4][2]{};
         srShader* poly_shaders[4]{};
-        srVector3i* poly_uv[4]{};
+        glm::ivec3* poly_uv[4]{};
         glm::vec3 bounds_minimum{0.0f, 0.0f, 0.0f};
         glm::vec3 bounds_maximum{0.0f, 0.0f, 0.0f};
         glm::vec3 bounds_center{0.0f, 0.0f, 0.0f};
@@ -111,8 +113,8 @@ public:
     SR_DLL_IMPORT virtual TriMesh getTriMesh();
     SR_DLL_IMPORT virtual void renderTriMesh(class srGERD& renderer, const TriMesh& mesh);
     SR_DLL_IMPORT std::shared_ptr<srTextureIFace>* getPolyTexture(w8_long polygon, w8_long layer, int table);
-    SR_DLL_IMPORT srVector3i* getPolyVertex();
-    SR_DLL_IMPORT srVector3i* getPolyUVIndex(w8_long layer, int table);
+    SR_DLL_IMPORT glm::ivec3* getPolyVertex();
+    SR_DLL_IMPORT glm::ivec3* getPolyUVIndex(w8_long layer, int table);
     SR_DLL_IMPORT glm::vec2* getVertexTexCoords(w8_long vertex, w8_long layer, int table);
     SR_DLL_IMPORT std::shared_ptr<srMaterialIFace>* getVertexMaterial(w8_long vertex, e_side side, int table);
     SR_DLL_IMPORT w8_ulong* getVertexShadeIndex(int table);
@@ -206,8 +208,8 @@ public:
     std::array<std::array<std::vector<std::shared_ptr<srTextureIFace>>, 2>, MAX_PASSES> poly_textures;
     std::array<std::vector<srShader>, MAX_PASSES> poly_shaders;
     std::array<std::array<std::vector<std::shared_ptr<srMaterialIFace>>, 2>, MAX_PASSES> vertex_materials;
-    std::vector<srVector3i> poly_vertices;
-    std::array<std::vector<srVector3i>, MAX_PASSES> poly_uv_indices;
+    std::vector<glm::ivec3> poly_vertices;
+    std::array<std::vector<glm::ivec3>, MAX_PASSES> poly_uv_indices;
     std::vector<glm::vec4> poly_equations;
     std::array<std::array<std::vector<glm::vec2>, 2>, MAX_PASSES> texcoords;
     std::array<std::vector<glm::vec3>, MAX_PASSES> dig;
