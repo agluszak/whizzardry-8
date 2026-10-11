@@ -1,3 +1,4 @@
+#include <tuple>
 #include <SDL3/SDL_rect.h>
 #include <algorithm>
 #include <memory>
@@ -734,7 +735,7 @@ bool W8TextControl::MeasureText()
 
     if (m_imageObject != -1 && m_imageFrame != -1 &&
         ((handle = m_normalSprite) != -1 || (handle = m_pressedSprite) != -1)) {
-        GetCatalogImageSize(m_imageObject, m_imageFrame, handle, &m_measured_w, &m_measured_h);
+        std::tie(m_measured_w, m_measured_h) = GetCatalogImageSize(m_imageObject, m_imageFrame, handle);
         return true;
     }
     m_measured_w = -1;
@@ -865,7 +866,7 @@ void W8TextControl::Redraw(bool full_redraw)
         if (m_alternateTextEnabled) {
             short width;
             short height;
-            GetCatalogImageSize(m_imageObject, m_imageFrame, sprite, &width, &height);
+            std::tie(width, height) = GetCatalogImageSize(m_imageObject, m_imageFrame, sprite);
             int x_inset = m_left - m_right + static_cast<unsigned short>(width);
             int y_inset = m_top - m_bottom + static_cast<unsigned short>(height);
             if (x_inset > 0) {
@@ -903,8 +904,7 @@ void W8TextControl::UpdateTextLayout()
     int absolute_right = m_pPanel->m_bounds.left + m_right;
     int absolute_bottom = m_pPanel->m_bounds.top + m_bottom;
     if (m_imageObject != -1 && m_imageFrame != -1) {
-        GetCatalogImageSize(m_imageObject, m_imageFrame, m_normalSprite, &measured_width,
-                            &measured_height);
+        std::tie(measured_width, measured_height) = GetCatalogImageSize(m_imageObject, m_imageFrame, m_normalSprite);
         if ((m_layoutFlags & g_W8TextControlLayoutImageLeft) != 0) {
             absolute_left += 2 + static_cast<unsigned short>(measured_width);
         } else {
@@ -1496,7 +1496,7 @@ W8VerticalRangeThumb::W8VerticalRangeThumb(W8RangeControl* range, int left, int 
     m_minimumPosition = 0.0f;
     m_maximumPosition = 1.0f;
     m_position = 0.0f;
-    GetCatalogImageSize(render_arg, 0, normal_sprite, &width, &height);
+    std::tie(width, height) = GetCatalogImageSize(render_arg, 0, normal_sprite);
     if (right - left < static_cast<unsigned short>(width)) {
         m_right = m_left + static_cast<unsigned short>(width);
         m_drawOffsetX = 0;
@@ -1739,11 +1739,11 @@ W8HorizontalRangeThumb::W8HorizontalRangeThumb(Controls* panel, unsigned int reg
     m_maximumPosition = 1.0f;
     m_position = 0.0f;
     m_listener = 0;
-    GetCatalogImageSize(catalog_object, catalog_frame, background_sprite, &width, &height);
+    std::tie(width, height) = GetCatalogImageSize(catalog_object, catalog_frame, background_sprite);
     m_right = static_cast<unsigned short>(width) + m_left;
     m_bottom = m_top + static_cast<unsigned short>(height);
     SetRegion(m_region);
-    GetCatalogImageSize(m_catalogObject, m_catalogFrame, m_normalThumbSprite, &width, &height);
+    std::tie(width, height) = GetCatalogImageSize(m_catalogObject, m_catalogFrame, m_normalThumbSprite);
     m_thumbWidth = static_cast<unsigned short>(width);
     m_trackLength = (m_right - m_left) - static_cast<unsigned short>(width);
 }

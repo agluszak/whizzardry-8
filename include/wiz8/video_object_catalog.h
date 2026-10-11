@@ -1,6 +1,7 @@
 #ifndef WIZ8_VIDEO_OBJECT_CATALOG_H
 #define WIZ8_VIDEO_OBJECT_CATALOG_H
 #include <memory>
+#include <utility>
 #include <string>
 
 #include "vobject.h"
@@ -27,7 +28,7 @@ short GetCatalogVideoObjectYOffset(int object);
 /* 0x00549420: load the catalog frame and return its sprite object; optional out
    receives the slot y_offset. */
 SGPVObject& GetCatalogVideoObject(int object, int frame, int* y_offset_out = nullptr);
-void GetCatalogImageSize(int object, int frame, int image, short* width, short* height);
+std::pair<int, int> GetCatalogImageSize(int object, int frame, int image);
 /* 0x00549700: the image's own offset inside its frame, read from the video object's
    ETRLE subregion table. */
 void GetCatalogImagePosition(int object, int frame, int image, short* x, short* y);

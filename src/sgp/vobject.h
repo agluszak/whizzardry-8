@@ -68,6 +68,7 @@ struct SpriteFrame {
     static constexpr UINT16 kTransparent = 256;
 
     std::vector<UINT16> pixels;
+    std::optional<UINT8> paletteIndexAt(int x, int y) const;
     INT16 sOffsetX = 0;
     INT16 sOffsetY = 0;
     UINT16 usHeight = 0;
@@ -142,8 +143,6 @@ UINT16 SetObjectShade(SGPVObject& pObj, UINT32 uiShade);
 
 
 // Retrieves an SGPVObject& pixel value
-BOOLEAN GetETRLEPixelValue(UINT8* pDest, SGPVObject& hVObject, UINT16 usETLREIndex, UINT16 usX,
-                           UINT16 usY);
 
 // ****************************************************************************
 //
@@ -172,8 +171,6 @@ BOOLEAN BltVideoObjectToBuffer(UINT16* pBuffer, UINT32 uiDestPitchBYTES, SGPVObj
                                blt_fx* pBltFx);
 
 
-BOOLEAN GetVideoObjectETRLESubregionProperties(SGPVObject& hVObject, UINT16 usIndex,
-                                               UINT16* pusWidth, UINT16* pusHeight);
 
 
 

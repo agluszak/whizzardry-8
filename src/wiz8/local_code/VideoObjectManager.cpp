@@ -1,3 +1,4 @@
+#include <utility>
 #include "himage.h"
 #include <fmt/format.h>
 #include <SDL3/SDL_rect.h>
@@ -845,35 +846,12 @@ SGPVObject& GetCatalogVideoObject(int object, int frame, int* y_offset_out)
     return *record.object;
 }
 
-/* Mark the complete rectangle covered by one catalog image. ETRLE-backed
-   objects supply subimage dimensions through the canonical SGP object API;
-   surface-backed objects expose the dimensions on the canonical SGP surface
-   owned surface record. */
 // FUNCTION: WIZ8 0x005494f0
 void InvalidateCatalogImageRect(int object, int frame, int image, int left, int top, int flags)
 {
-    W8VideoObjectSlot* slot;
-    W8VideoFrame* record;
-    short subimage;
-    unsigned short width = 0;
-    unsigned short height = 0;
-
-    EnsureCatalogFrameLoaded(object, frame);
-    slot = &g_video_slots[object];
-    subimage = slot->y_offset + image;
-    record = &g_video_frames[slot->first_frame + frame];
-    if (record->storage_kind == W8_VIDEO_STORAGE_OBJECT) {
-        GetVideoObjectETRLESubregionProperties(*record->object, subimage, &width, &height);
-    } else {
-        if (record->surface) {
-            height = record->surface->usHeight;
-            width = record->surface->usWidth;
-        }
-    }
-
-    if (width != 0 && height != 0) {
+    const auto [width, height] = GetCatalogImageSize(object, frame, image);
+    if (width != 0 && height != 0)
         InvalidateRegion(left, top, left + width, top + height, flags);
-    }
 }
 
 /* Draw a catalog video object, then mark the area it covered. The subimage
@@ -887,24 +865,21 @@ void DrawCatalogImageAndInvalidate(SGPVSurface& target, int object, int frame, i
     InvalidateCatalogImageRect(object, frame, image, left, top, mode == VO_BLT_SRCTRANSPARENCY);
 }
 
-/* Loads the selected catalog frame and returns the dimensions of one of its
-   ETRLE subimages. Surface-backed records have no ETRLE table, so the retail
-   body intentionally leaves the caller's outputs untouched for them. */
 // FUNCTION: WIZ8 0x00549660
-void GetCatalogImageSize(int object, int frame, int image, short* width, short* height)
+std::pair<int, int> GetCatalogImageSize(int object, int frame, int image)
 {
-    W8VideoObjectSlot* slot;
-    W8VideoFrame* record;
-    short subimage;
-
     EnsureCatalogFrameLoaded(object, frame);
-    slot = &g_video_slots[object];
-    subimage = slot->y_offset + image;
-    record = &g_video_frames[slot->first_frame + frame];
-    if (record->storage_kind == W8_VIDEO_STORAGE_OBJECT) {
-        GetVideoObjectETRLESubregionProperties(*record->object, subimage, (unsigned short*)width,
-                                               (unsigned short*)height);
+    const auto& slot = g_video_slots[object];
+    const auto& record = g_video_frames[slot.first_frame + frame];
+    if (record.storage_kind == W8_VIDEO_STORAGE_SURFACE) {
+        const auto& surface = *record.surface->cpu().surface;
+        return {surface.w, surface.h};
     }
+    const auto subimage = slot.y_offset + image;
+    if (subimage < 0 || static_cast<std::size_t>(subimage) >= record.object->sprites.size())
+        return {};
+    const auto& sprite = record.object->sprites[subimage];
+    return {sprite.usWidth, sprite.usHeight};
 }
 
 /* The image's own offset inside its frame, read from the video object's ETRLE

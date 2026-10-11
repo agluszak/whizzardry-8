@@ -1,3 +1,4 @@
+#include <tuple>
 #include "himage.h"
 #include <fmt/format.h>
 #include <fmt/printf.h>
@@ -1090,7 +1091,7 @@ W8PartySelectionOptionPanel::W8PartySelectionOptionPanel()
 
     short width;
     short height;
-    GetCatalogImageSize(0x102, 0, 0, &width, &height);
+    std::tie(width, height) = GetCatalogImageSize(0x102, 0, 0);
     m_bounds.right = m_bounds.left + static_cast<unsigned short>(width);
     m_bounds.bottom = m_bounds.top + static_cast<unsigned short>(height);
 
@@ -1114,7 +1115,7 @@ W8PartySelectionOptionPanel::W8PartySelectionOptionPanel()
     m_toggle = new W8TextControl(this, 0xffffffff, 0x15b, 0xd6, 0, 0, 0xf1, 0, 2, 0, 3, 1, -1);
     m_toggle->AddLayoutFlags(g_W8TextControlLayoutLatchedImage | g_W8TextControlLayoutToggle);
 
-    GetCatalogImageSize(0x102, 0, 1, &m_image_width, &m_image_height);
+    std::tie(m_image_width, m_image_height) = GetCatalogImageSize(0x102, 0, 1);
     m_render_left = m_bounds.left + 0x18 + (0x160 - static_cast<unsigned short>(m_image_width)) / 2;
     m_render_top = m_bounds.top + 0x80;
 }

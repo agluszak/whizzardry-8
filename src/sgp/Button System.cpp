@@ -209,9 +209,9 @@ GenericButtonImage LoadGenericGraphics(const std::array<std::string_view, 6>& fi
             return {};
         }
     }
-    UINT8 pixel = 0;
-    if (!GetETRLEPixelValue(&pixel, *image->frames[0], 8, 0, 0)) return {};
-    image->fill_color = image->frames[0]->palette[pixel];
+    const auto pixel = image->frames[0]->sprites[8].paletteIndexAt(0, 0);
+    if (!pixel) return {};
+    image->fill_color = image->frames[0]->palette[*pixel];
     image->background_frame = background_frame;
     image->offset_x = offset_x;
     image->offset_y = offset_y;

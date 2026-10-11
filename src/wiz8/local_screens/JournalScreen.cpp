@@ -1,3 +1,4 @@
+#include <tuple>
 #include "himage.h"
 #include <fmt/format.h>
 #include <SDL3/SDL_rect.h>
@@ -288,7 +289,7 @@ W8JournalPanel::W8JournalPanel(unsigned int* region_set)
     short height;
 
     AcquireRegionSet(region_set);
-    GetCatalogImageSize(0xf3, 0, 0, &width, &height);
+    std::tie(width, height) = GetCatalogImageSize(0xf3, 0, 0);
     m_bounds.right = m_bounds.left + static_cast<unsigned short>(width);
     m_bounds.bottom = m_bounds.top + static_cast<unsigned short>(height);
 

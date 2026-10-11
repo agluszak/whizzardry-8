@@ -1,3 +1,4 @@
+#include <tuple>
 #include <fmt/format.h>
 #include <memory>
 #include <wiz8/filesystem.h>
@@ -1780,7 +1781,7 @@ W8OptionsPanel::W8OptionsPanel(int region_index)
 
     short width;
     short height;
-    GetCatalogImageSize(0xf2, 0, 0, &width, &height);
+    std::tie(width, height) = GetCatalogImageSize(0xf2, 0, 0);
     m_bounds.right = m_bounds.left + static_cast<unsigned short>(width);
     m_bounds.bottom = m_bounds.top + static_cast<unsigned short>(height);
 }
@@ -1797,7 +1798,7 @@ W8OptionsMenuSet::W8OptionsMenuSet(unsigned int* shared_region_set)
 
     short width;
     short height;
-    GetCatalogImageSize(0xf3, 0, 0, &width, &height);
+    std::tie(width, height) = GetCatalogImageSize(0xf3, 0, 0);
     m_bounds.right = m_bounds.left + static_cast<unsigned short>(width);
     m_bounds.bottom = m_bounds.top + static_cast<unsigned short>(height);
 

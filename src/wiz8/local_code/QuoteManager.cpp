@@ -1,3 +1,4 @@
+#include <tuple>
 #include <fmt/format.h>
 #include <fmt/printf.h>
 #include <SDL3/SDL_filesystem.h>
@@ -1925,7 +1926,7 @@ bool BlitPartyPortraitAnimation(int portrait, int left, int top, unsigned int fl
     }
     if (state->portrait_pose_dirty || state->portrait_pose != state->previous_portrait_pose ||
         (animate && state->portrait_pose != 1)) {
-        GetCatalogImageSize(0x12, portrait, state->portrait_pose, &width, &height);
+        std::tie(width, height) = GetCatalogImageSize(0x12, portrait, state->portrait_pose);
         GetCatalogImagePosition(0x12, portrait, state->portrait_pose, &image_x, &image_y);
         rect.left = image_x + left;
         rect.top = image_y + top;
@@ -1942,7 +1943,7 @@ bool BlitPartyPortraitAnimation(int portrait, int left, int top, unsigned int fl
                          flags | VO_BLT_SHADOW, 0);
         drawn = true;
         if (state->previous_portrait_pose != -1) {
-            GetCatalogImageSize(0x12, portrait, state->previous_portrait_pose, &width, &height);
+            std::tie(width, height) = GetCatalogImageSize(0x12, portrait, state->previous_portrait_pose);
             GetCatalogImagePosition(0x12, portrait, state->previous_portrait_pose, &image_x,
                                     &image_y);
             other.left = image_x + left;
@@ -1961,7 +1962,7 @@ bool BlitPartyPortraitAnimation(int portrait, int left, int top, unsigned int fl
             return false;
         }
     } else {
-        GetCatalogImageSize(0x12, portrait, state->portrait_frame, &width, &height);
+        std::tie(width, height) = GetCatalogImageSize(0x12, portrait, state->portrait_frame);
         GetCatalogImagePosition(0x12, portrait, state->portrait_frame, &image_x, &image_y);
         if (!animate && !drawn && gXStatus.fCombatMode &&
             g_combat_state->characters[party_slot].dead) {
@@ -1977,7 +1978,7 @@ bool BlitPartyPortraitAnimation(int portrait, int left, int top, unsigned int fl
         rect.bottom = height + rect.top;
         drawn = true;
         if (state->previous_portrait_frame != -1) {
-            GetCatalogImageSize(0x12, portrait, state->previous_portrait_frame, &width, &height);
+            std::tie(width, height) = GetCatalogImageSize(0x12, portrait, state->previous_portrait_frame);
             GetCatalogImagePosition(0x12, portrait, state->previous_portrait_frame, &image_x,
                                     &image_y);
             other.left = image_x + left;

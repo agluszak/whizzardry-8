@@ -186,36 +186,10 @@ UINT16 SetObjectShade(SGPVObject& pObj, UINT32 uiShade)
     return (TRUE);
 }
 
-/********************************************************************************************
-	GetETRLEPixelValue
-
-	Given a VOBJECT and ETRLE image index, retrieves the value of the pixel located at the
-	given image coordinates. The value returned is an 8-bit palette index
-********************************************************************************************/
 // FUNCTION: WIZ8 0x00406900
-BOOLEAN GetETRLEPixelValue(UINT8* pDest, SGPVObject& hVObject, UINT16 usETRLEIndex, UINT16 usX,
-                           UINT16 usY)
+std::optional<UINT8> SpriteFrame::paletteIndexAt(int x, int y) const
 {
-    // Do a bunch of checks
-    CHECKF(usETRLEIndex < hVObject.sprites.size());
-
-    const SpriteFrame& frame = hVObject.sprites[usETRLEIndex];
-
-    CHECKF(usX < frame.usWidth);
-    CHECKF(usY < frame.usHeight);
-    const UINT16 value = frame.pixels[usY * frame.usWidth + usX];
-    *pDest = (value == SpriteFrame::kTransparent) ? 0 : static_cast<UINT8>(value);
-    return (TRUE);
-}
-
-// FUNCTION: WIZ8 0x00406a50
-BOOLEAN GetVideoObjectETRLESubregionProperties(SGPVObject& hVObject, UINT16 usIndex,
-                                               UINT16* pusWidth, UINT16* pusHeight)
-{
-    CHECKF(usIndex < hVObject.sprites.size());
-
-    *pusWidth = hVObject.sprites[usIndex].usWidth;
-    *pusHeight = hVObject.sprites[usIndex].usHeight;
-
-    return (TRUE);
+    if (x < 0 || y < 0 || x >= usWidth || y >= usHeight) return std::nullopt;
+    const auto value = pixels[y * usWidth + x];
+    return value == kTransparent ? 0 : static_cast<UINT8>(value);
 }

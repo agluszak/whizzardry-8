@@ -1,3 +1,4 @@
+#include <tuple>
 #include "himage.h"
 #include "surrender/srScene.h" // IWYU pragma: keep - complete scene type for conversion to srNode.
 #include "wiz8/engine_code/stTextureAnim.h" // IWYU pragma: keep - complete animation type used through the owned pointer.
@@ -2488,10 +2489,10 @@ W8NpcDialogueTextController::W8NpcDialogueTextController(int panel_left, int pan
     margin_image = margin_image_id;
     line_image = line_image_id;
     visible = 0;
-    GetCatalogImageSize(m_catalogObject, m_catalogFrame, line_image, &width, &height);
+    std::tie(width, height) = GetCatalogImageSize(m_catalogObject, m_catalogFrame, line_image);
     line_height = height & 0xffff;
     scroll_height = height & 0xffff;
-    GetCatalogImageSize(m_catalogObject, m_catalogFrame, margin_image, &width, &height);
+    std::tie(width, height) = GetCatalogImageSize(m_catalogObject, m_catalogFrame, margin_image);
     margin = height & 0xffff;
     bounds.bottom = panel_top + 0x12;
     bounds.left = panel_left + 6;
