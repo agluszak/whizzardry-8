@@ -2516,10 +2516,10 @@ void W8Octree::AddCollidablePropBounds(int index, const W8BoundingBox* bounds)
                 cell_key = PackOctreeCellKey(x, y, z);
                 int cell_value = static_cast<int>(cell_key);
                 int prop_value = static_cast<int>(prop_key);
-                by_prop = object_registry->by_object;
+                by_prop = object_registry->by_object.get();
                 RemoveIndexValue(*by_prop, prop_key, cell_value);
                 InsertIndexValue(*by_prop, prop_key, cell_value);
-                by_cell = object_registry->by_cell;
+                by_cell = object_registry->by_cell.get();
                 RemoveIndexValue(*by_cell, cell_key, prop_value);
                 InsertIndexValue(*by_cell, cell_key, prop_value);
             }
