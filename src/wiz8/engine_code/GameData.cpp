@@ -762,9 +762,7 @@ unsigned char W8GameData::ProbeMonstersAlongMotion(srVector3T<float>* direction,
             if (monster_info->fInCombat) {
                 radius += g_world_scale;
             }
-            float abs_dy = delta.y;
-            // reinterpret-ok: retail clears the sign bit of the spilled delta.y float
-            *reinterpret_cast<unsigned int*>(&abs_dy) &= 0x7fffffffu;
+            const float abs_dy = std::abs(delta.y);
             if (abs_dy < g_float_one_thousand && planar < radius + g_world_scale) {
                 push = g_monster_motion_push - (planar - radius) * g_float_one_five_hundredth;
                 if (g_monster_motion_push < push) {
