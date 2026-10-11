@@ -13,10 +13,16 @@ inline glm::vec4 normalized(const glm::vec4& plane)
     const float length = glm::length(glm::vec3(plane));
     return length > 0 ? plane / length : plane;
 }
+inline glm::vec3 triangleNormal(const glm::vec3& first, const glm::vec3& second,
+                                const glm::vec3& third)
+{
+    return glm::cross(second - first, third - first);
+}
+
 inline glm::vec4 triangle(const glm::vec3& first, const glm::vec3& second,
                           const glm::vec3& third)
 {
-    const auto normal = normalizedOrZero(glm::cross(second - first, third - first));
+    const auto normal = normalizedOrZero(triangleNormal(first, second, third));
     return {normal, -glm::dot(normal, first)};
 }
 

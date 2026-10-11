@@ -2466,9 +2466,9 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Failed instance materials restore pickin
     REQUIRE(g_material_diffuse_scale == diffuse);
     REQUIRE(g_material_emissive_override == emissive);
     REQUIRE_FALSE(renderer.isPickStackEmpty());
-    srGERD::Pick pick;
-    renderer.popPick(pick);
-    REQUIRE(pick.triangle_index == 7);
+    const auto pick = renderer.popPick();
+    REQUIRE(pick);
+    REQUIRE(pick->triangle_index == 7);
 }
 
 TEST_CASE_METHOD(SurRenderTestFixture, "Bounds rejection restores transforms before returning or traversing children", "[geometry][rendering]")

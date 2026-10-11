@@ -59,24 +59,24 @@ static void offsetIndices(w8_ulong* destination, const w8_ulong* source,
 // Triangle storage stays compatible with mesh records; runtime index arithmetic
 // uses GLM's unsigned vector so rebasing has the same dword wrap behavior.
 static srVector3i remappedTriangle(const srVector3i& triangle,
-                                 const w8_ulong* vertices, w8_ulong vertex_base)
+                                 std::span<const w8_ulong> vertices, w8_ulong vertex_base)
 {
     const auto vertex = [vertices](int index) {
-        return vertices != nullptr ? vertices[index] : static_cast<w8_ulong>(index);
+        return !vertices.empty() ? vertices[index] : static_cast<w8_ulong>(index);
     };
     const glm::uvec3 indices = glm::uvec3(vertex(triangle.x), vertex(triangle.y),
                                          vertex(triangle.z)) + vertex_base;
     return {static_cast<int>(indices.x), static_cast<int>(indices.y), static_cast<int>(indices.z)};
 }
 
-// A null order denotes consecutive source triangles; a null vertex map denotes
+// An empty order denotes consecutive source triangles; an empty vertex map denotes
 // direct indices. Both gathers and pass replication use the same rebase kernel.
-static void gatherTriangles(std::span<srVector3i> destination, const srVector3i* source,
-                            const w8_ulong* order, w8_ulong vertex_base,
-                            const w8_ulong* vertices = nullptr)
+static void gatherTriangles(std::span<srVector3i> destination, std::span<const srVector3i> source,
+                            std::span<const w8_ulong> order, w8_ulong vertex_base,
+                            std::span<const w8_ulong> vertices = {})
 {
     for (std::size_t index = 0; index < destination.size(); ++index) {
-        const auto source_index = order != nullptr ? order[index] : index;
+        const auto source_index = !order.empty() ? order[index] : index;
         destination[index] = remappedTriangle(source[source_index], vertices, vertex_base);
     }
 }
@@ -326,7 +326,7 @@ static void sortKeys(std::span<w8_ulong> keys, std::span<const srVector3i> trian
 // FUNCTION: SURRENDER 0x10025260
 void srGERD::Renderer::expandTriangles(const TriInput& input, int sorted)
 {
-    const auto write = indices.alloc(input.triangle_count * input.record_count);
+    const auto write = indices.alloc(input.triangleCount() * input.record_count);
     const srTriMeshPipeline::Pass* passes = input.passes;
     w8_ulong record = 0;
     while (record < input.record_count && passes[record].poly_uv == 0) {
@@ -335,25 +335,25 @@ void srGERD::Renderer::expandTriangles(const TriInput& input, int sorted)
     if (record == input.record_count) {
         /* Flat path: gather the chunk once, then replicate it per record
        with the record's vertex offset. */
-        for (w8_ulong done = 0; done < input.triangle_count; done += 0x100) {
-            w8_ulong chunk = input.triangle_count - done;
+        for (w8_ulong done = 0; done < input.triangleCount(); done += 0x100) {
+            w8_ulong chunk = input.triangleCount() - done;
             if (chunk > 0x100) {
                 chunk = 0x100;
             }
             gatherTriangles({write.triangles + done, chunk}, input.triangles,
-                            input.indices + done, first_vertex,
-                            input.direct_vertex_indices ? nullptr : input.vertices);
+                            input.indices.subspan(done, chunk), first_vertex,
+                            input.direct_vertex_indices ? std::span<const w8_ulong>{} : input.vertices);
             if (sorted != 0) {
                 sortKeys({write.sort_key + done, chunk}, {write.triangles + done, chunk},
                          vertices.positions, input.sort_bias);
                 for (w8_ulong replica = 1; replica < input.record_count; replica++) {
-                    offsetIndices(write.sort_key + input.triangle_count * replica + done,
+                    offsetIndices(write.sort_key + input.triangleCount() * replica + done,
                                   write.sort_key + done, replica, chunk);
                 }
             }
             for (w8_ulong replica = 1; replica < input.record_count; replica++) {
-                gatherTriangles({write.triangles + input.triangle_count * replica + done, chunk},
-                                write.triangles + done, nullptr, replica * input.vertex_count);
+                gatherTriangles({write.triangles + input.triangleCount() * replica + done, chunk},
+                                std::span<const srVector3i>(write.triangles + done, chunk), {}, replica * input.vertex_count);
             }
         }
     } else {
@@ -362,9 +362,9 @@ void srGERD::Renderer::expandTriangles(const TriInput& input, int sorted)
            the others; remap carries six dwords per triangle — the new
            vertices' batch positions, then their corner-source indices. */
         w8_ulong free_vertex = input.record_count * input.vertex_count + first_vertex;
-        this->remap.resize(input.triangle_count * 6);
+        this->remap.resize(input.triangleCount() * 6);
         w8_ulong* remap = this->remap.data();
-        w8_ulong* corner_remap = remap + input.triangle_count * 3;
+        w8_ulong* corner_remap = remap + input.triangleCount() * 3;
         w8_ulong written = 0;
         for (record = 0; record < input.record_count; record++) {
             const srTriMeshPipeline::Pass& pass = passes[record];
@@ -376,7 +376,7 @@ void srGERD::Renderer::expandTriangles(const TriInput& input, int sorted)
                 w8_ulong base = free_vertex;
                 w8_ulong* remap_out = remap;
                 w8_ulong* corner_out = corner_remap;
-                for (w8_ulong index = 0; index < input.triangle_count; index++) {
+                for (w8_ulong index = 0; index < input.triangleCount(); index++) {
                     const srVector3i& triangle = input.triangles[input.indices[index]];
                     const srVector3i& uv = poly_uv[input.indices[index]];
                     srVector3i& out = write.triangles[written + index];
@@ -416,21 +416,21 @@ void srGERD::Renderer::expandTriangles(const TriInput& input, int sorted)
                 }
                 free_vertex = base + new_count;
             } else {
-                gatherTriangles({write.triangles + written, input.triangle_count}, input.triangles,
+                gatherTriangles({write.triangles + written, input.triangleCount()}, input.triangles,
                                 input.indices, vertex_base, input.vertices);
             }
             if (sorted != 0)
-                sortKeys({write.sort_key + written, input.triangle_count},
-                         {write.triangles + written, input.triangle_count},
+                sortKeys({write.sort_key + written, input.triangleCount()},
+                         {write.triangles + written, input.triangleCount()},
                          vertices.positions, input.sort_bias);
-            written += input.triangle_count;
+            written += input.triangleCount();
         }
     }
     w8_ulong texture_set_offset = 0;
     for (record = 0; record < input.record_count; record++) {
-        assignTextureSets(write.texture_set + texture_set_offset, input.indices,
-                          input.triangle_count, passes + record);
-        texture_set_offset += input.triangle_count;
+        assignTextureSets(write.texture_set + texture_set_offset, input.indices.data(),
+                          input.triangleCount(), passes + record);
+        texture_set_offset += input.triangleCount();
     }
 }
 
@@ -498,8 +498,8 @@ void srGERD::Renderer::drawTriangleRuns(std::span<const w8_ulong> order)
         bindTextureSet(run.texture_set, run.first == 0);
         const srVector3i* submitted = triangles.data() + run.first;
         if (!order.empty()) {
-            gatherTriangles(std::span{gathered}.first(run.count), triangles.data(),
-                            order.data() + run.first, 0);
+            gatherTriangles(std::span{gathered}.first(run.count), triangles,
+                            order.subspan(run.first, run.count), 0);
             submitted = gathered.data();
         }
         gerd->drawElements(srRendererDefs::PRIMITIVE_TRIANGLES,
@@ -629,9 +629,9 @@ void srGERD::Renderer::reset(int release_buffers)
 static w8_ulong filterTriangles(w8_ulong* destination, const unsigned char* flags,
                                      const srGERD::Renderer::TriInput& input)
 {
-    const auto* remap = input.direct_vertex_indices ? nullptr : input.vertices;
-    return srRender::selectTriangles({destination, input.triangle_count},
-        std::span{input.indices, input.triangle_count}, [&](w8_ulong index) {
+    const auto* remap = input.direct_vertex_indices ? nullptr : input.vertices.data();
+    return srRender::selectTriangles({destination, input.triangleCount()},
+        input.indices, [&](w8_ulong index) {
             return srRender::triangleVisible(input.triangles[index], flags, remap);
         });
 }
@@ -642,13 +642,13 @@ void srGERD::Renderer::render(const TriInput& input)
     if (first_vertex == -1) {
         return;
     }
-    if (input.triangle_count == 0) {
+    if (input.triangleCount() == 0) {
         vertices.count += first_vertex - vertices.count;
         first_vertex = -1;
         return;
     }
     statistics.triangle_chunks += 1;
-    statistics.input_triangles += input.triangle_count * input.record_count;
+    statistics.input_triangles += input.triangleCount() * input.record_count;
     statistics.input_vertices += input.vertex_count * input.record_count;
     bytes.resize(input.vertex_count);
     unsigned char* flags = bytes.data();
@@ -663,10 +663,9 @@ void srGERD::Renderer::render(const TriInput& input)
     w8_ulong mask = attributeMask(flags, input.vertex_count);
     if (mask != 0) {
         filtered = input;
-        dwords.resize(input.triangle_count);
-        filtered.indices = dwords.data();
-        filtered.triangle_count = filterTriangles(dwords.data(), flags, input);
-        if (filtered.triangle_count != 0) {
+        dwords.resize(input.triangleCount());
+        filtered.indices = std::span{dwords}.first(filterTriangles(dwords.data(), flags, input));
+        if (!filtered.indices.empty()) {
             clip_state |= mask;
             batch = &filtered;
         } else {
@@ -679,10 +678,8 @@ void srGERD::Renderer::render(const TriInput& input)
         PickInput pick;
         pick.indices = batch->indices;
         pick.triangles = batch->triangles;
-        pick.triangle_count = batch->triangle_count;
-        pick.vertices = batch->vertices;
-        pick.positions = &vertices.positions[first_vertex];
-        pick.vertex_count = batch->vertex_count;
+        pick.vertices = batch->direct_vertex_indices ? std::span<const w8_ulong>{} : batch->vertices;
+        pick.positions = std::span{vertices.positions}.subspan(first_vertex, batch->vertex_count);
         gerd->performPickTest(pick);
     }
     expandTriangles(*batch, sorted != 0);

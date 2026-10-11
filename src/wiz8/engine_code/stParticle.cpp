@@ -29,6 +29,7 @@
 #include "wiz8/float_constants.h"
 #include "wiz8/sr_api.h"
 #include "surrender/srGERD.h"
+#include "surrender/mesh_submission.h"
 #include "surrender/srNode.h"
 #include "surrender/srTriMeshPipeline.h"
 #include "wiz8/filesystem.h"
@@ -711,13 +712,8 @@ void stParticle::SubmitToRenderer(srGERD* renderer)
     ++pipeline->slot_count;
     pipeline->PrepareSlot();
 
-    if (!renderer->isPickStackEmpty()) {
-        srGERD::Pick pick;
-
-        renderer->popPick(pick);
-        pipeline->FlushIfCurrent();
-        renderer->pushPick(pick);
-    } else {
+    {
+        const srMeshSubmission::PickScope picking(*renderer, true);
         pipeline->FlushIfCurrent();
     }
     renderer->popEnable();

@@ -1,7 +1,9 @@
 #include "wiz8/navigation_math.h"
+#include "surrender/picking_math.h"
 #include "compat/compiler.h"
 #include "surrender/triangle_runs.h"
 #include <vector>
+#include <utility>
 #include "surrender/bounding_radius.h"
 #include "surrender/stream_scope.h"
 #include "surrender/srDebug.h"
@@ -265,4 +267,30 @@ TEST_CASE("Navigation slide math returns complete values for blocked headings")
     const auto cancelled = slideDirection(255u & ~((1u << 3) | (1u << 7)), {1, 0, 1});
     REQUIRE(cancelled);
     REQUIRE(*cancelled == glm::vec3(0));
+}
+
+TEST_CASE("Picking edge tests retain signed W, winding and clipping depth policy")
+{
+    const std::array<glm::vec4, 3> triangle{{{-1, -1, .25f, 2}, {1, -1, .25f, 2}, {0, 1, .25f, 2}}};
+    for (const float sign : {1.f, -1.f}) {
+        std::array<glm::vec4, 3> projected;
+        for (unsigned corner = 0; corner < projected.size(); ++corner) {
+            auto position = triangle[corner];
+            position.w *= sign;
+            projected[corner] = srPickingMath::projectedPosition(position);
+        }
+        const auto depth = srPickingMath::triangleDepth(projected, glm::vec3(0, 0, 1));
+        REQUIRE(depth);
+        REQUIRE(std::abs(*depth - sign * .125f) < 1e-6f);
+        REQUIRE_FALSE(srPickingMath::triangleDepth(projected, glm::vec3(2, 0, 1)));
+        std::swap(projected[0], projected[1]);
+        REQUIRE(srPickingMath::triangleDepth(projected, glm::vec3(0, 0, 1)));
+        REQUIRE_FALSE(srPickingMath::triangleDepth(projected, glm::vec3(0, 0, -1)));
+    }
+    const std::array<glm::vec4, 3> degenerate{};
+    REQUIRE_FALSE(srPickingMath::triangleDepth(degenerate, glm::vec3(0, 0, 1)));
+    std::array<glm::vec4, 3> near_plane{{{-1, -1, -1, 1}, {1, -1, -1, 1}, {0, 1, -1, 1}}};
+    REQUIRE(srPickingMath::triangleDepth(near_plane, glm::vec3(0, 0, 1)) == -1);
+    for (auto& corner : near_plane) corner.z = -1.1f;
+    REQUIRE_FALSE(srPickingMath::triangleDepth(near_plane, glm::vec3(0, 0, 1)));
 }

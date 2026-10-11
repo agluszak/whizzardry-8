@@ -7,13 +7,14 @@
 #include "glm/ext/vector_float3.hpp"
 #include "glm/geometric.hpp"
 #include "srMath.h"
+#include "surrender/plane_math.h"
 #include "compat/compiler.h"
 
 namespace srMeshMath {
 inline glm::vec3 polygonNormal(std::span<const glm::vec3> positions, const srVector3i& triangle)
 {
-    const auto origin = positions[triangle.x];
-    return glm::cross(positions[triangle.y] - origin, positions[triangle.z] - origin);
+    return srPlaneMath::triangleNormal(positions[triangle.x], positions[triangle.y],
+                                       positions[triangle.z]);
 }
 
 // Accumulate area-weighted polygon normals through optional shade groups. Keep
