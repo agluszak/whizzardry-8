@@ -1,6 +1,7 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
 #include <string>
+#include <memory>
 #include <cstdlib>
 #include <cstring>
 #include <string_view>
