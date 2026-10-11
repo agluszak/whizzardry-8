@@ -134,8 +134,6 @@ struct W8MonsterManagerEntry {
     unsigned int pending_event_type; /* last queued portrait event type */
 };
 
-
-
 W8MonsterRecord* MonsterDBFromSpecies(unsigned int monster_species);
 W8MonsterInfo* CreateMonsterInfo(W8MonsterGroup* group, W8MonsterRecord* record,
                                  srVector3T<float>* position);
