@@ -7,8 +7,8 @@
 #include <fmt/format.h>
 #include <SDL3/SDL_rect.h>
 #include <memory>
-#include <string>
 #include <vector>
+#include <string>
 
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/sr_api.h"
@@ -763,9 +763,8 @@ std::vector<W8VideoObjectSlot> g_video_slots = {
 static const std::size_t fixed_slot_count = g_video_slots.size();
 #pragma clang diagnostic pop
 
-/* The two loaders consume the released SGP object and surface request records.
-   Their 0x6c and 0x70 sizes account exactly for this function's 0xe0-byte pair
-   of stack objects. */
+/* Catalog records own the decoded sprite or CPU surface returned by the
+   shared virtual-filesystem loaders. */
 
 #define VIDEO_OBJECT_MANAGER_CPP "C:\\Projects\\Wizardry 8\\Local Code\\VideoObjectManager.cpp"
 
@@ -775,10 +774,7 @@ int RegisterItemVideoImage(std::string path)
         g_video_frames.size() >= static_cast<std::size_t>(std::numeric_limits<int>::max()))
         throw std::length_error("Video catalog exhausted its integer image IDs");
 
-    VOBJECT_DESC request;
-    request.fCreateFlags = VOBJECT_CREATE_FROMFILE;
-    request.ImageFile = path;
-    auto object = CreateVideoObject(request);
+    auto object = LoadVideoObject(path);
     if (!object)
         throw std::runtime_error(fmt::format("Cannot load item image {}", path));
 
@@ -849,22 +845,16 @@ void DrawCatalogImage(SGPVSurface& target, int object, int frame, short image, i
 // FUNCTION: WIZ8 0x00549090
 void EnsureCatalogFrameLoaded(int object, int frame)
 {
-    VOBJECT_DESC request_a;
-    VSURFACE_DESC request_b;
     W8VideoFrame* record;
     BOOLEAN loaded_ok;
 
     record = &CatalogFrame(object, frame);
     if (!record->object && !record->surface) {
         if (record->storage_kind == W8_VIDEO_STORAGE_OBJECT) {
-            request_a.fCreateFlags = VOBJECT_CREATE_FROMFILE;
-            request_a.ImageFile = record->path;
-            record->object = CreateVideoObject(request_a);
+            record->object = LoadVideoObject(record->path);
             loaded_ok = record->object != nullptr;
         } else {
-            request_b.fCreateFlags = VSURFACE_CREATE_FROMFILE;
-            request_b.ImageFile = record->path;
-            record->surface = CreateVideoSurface(request_b);
+            record->surface = LoadVideoSurface(record->path);
             loaded_ok = record->surface != nullptr;
         }
         if (loaded_ok == 0) {

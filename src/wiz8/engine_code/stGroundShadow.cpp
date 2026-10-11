@@ -1,4 +1,5 @@
 #include <glm/gtc/matrix_access.hpp>
+#include <glm/ext/vector_float3.hpp>
 #include <cmath>
 #include <memory>
 #include <string>
@@ -182,7 +183,7 @@ void stGroundShadow::renderGroundShadow(srGERD* renderer)
     w8_ulong mesh_index;
     stMeshModel* model;
 
-    getLocation(position);
+    position = glm::vec3(getLocation());
     position.y += g_world_scale;
     if (depth <= width) {
         radius = width;

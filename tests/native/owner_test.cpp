@@ -124,7 +124,7 @@ void camp_effects()
     for (auto& image : images) { image.usWidth = 16; image.usHeight = 8; }
     image_type image{};
     image.ubBitDepth = 8;
-    image.fFlags = IMAGE_TRLECOMPRESSED;
+    image.etrle = true;
     image.pPalette.emplace();
     std::copy_n(palette.data(), palette.size(), image.pPalette->data());
     // Each frame is eight scanlines of one transparent run of 16 then the
@@ -141,10 +141,7 @@ void camp_effects()
         }
     }
 
-    VOBJECT_DESC desc{};
-    desc.fCreateFlags = VOBJECT_CREATE_FROMHIMAGE;
-    desc.hImage = &image;
-    auto object = CreateVideoObject(desc);
+    auto object = CreateVideoObject(image);
     REQUIRE(object);
     const auto saved_slot = g_video_slots[0x86];
     auto saved_frame = std::move(g_video_frames[0]);
@@ -463,7 +460,7 @@ void image_and_sprite_ownership()
 {
     image_type image{};
     image.ubBitDepth = 8;
-    image.fFlags = IMAGE_TRLECOMPRESSED | IMAGE_BITMAPDATA | IMAGE_PALETTE;
+    image.etrle = true;
     image.pPalette.emplace();
     (*image.pPalette)[1] = {255, 0, 0, 0};
     image.pImageData.resize(3);
@@ -472,12 +469,9 @@ void image_and_sprite_ownership()
     image.pETRLEObject.resize(1);
     image.pETRLEObject[0] = {0, 3, 0, 0, 1, 1};
 
-    VOBJECT_DESC desc{};
-    desc.fCreateFlags = VOBJECT_CREATE_FROMHIMAGE;
-    desc.hImage = &image;
     std::array<std::unique_ptr<SGPVObject>, 64> objects{};
     for (unsigned i = 0; i < objects.size(); ++i) {
-        objects[i] = CreateVideoObject(desc);
+        objects[i] = CreateVideoObject(image);
         REQUIRE(objects[i]);
         REQUIRE((objects[i]->sprites.size() == 1 && objects[i]->sprites[0].pixels.size() == 1));
         REQUIRE(reinterpret_cast<const UINT8*>(objects[i]->sprites[0].pixels.data()) !=
@@ -499,7 +493,7 @@ void image_and_sprite_ownership()
     image.pETRLEObject[0].usWidth = 2;
     REQUIRE((objects[0]->sprites[0].pixels[0] == 1 && objects[0]->sprites[0].usWidth == 1));
     image.pETRLEObject[0].uiDataOffset = 0xffffffffu;
-    REQUIRE(!CreateVideoObject(desc));
+    REQUIRE(!CreateVideoObject(image));
     REQUIRE((image.pImageData[1] == 2 && image.pETRLEObject[0].uiDataOffset == 0xffffffffu));
     image = {};
     REQUIRE((image.pImageData.empty() && !image.pPalette && image.pETRLEObject.empty()));
@@ -508,14 +502,9 @@ void image_and_sprite_ownership()
     }
     auto& surviving = *objects[32];
     REQUIRE((surviving.sprites[0].pixels[0] == 1 && surviving.sprites[0].usWidth == 1));
-    VSURFACE_DESC surface_desc{};
-    surface_desc.fCreateFlags = VSURFACE_CREATE_DEFAULT;
-    surface_desc.usWidth = 8;
-    surface_desc.usHeight = 8;
-    surface_desc.ubBitDepth = 16;
     std::array<std::unique_ptr<SGPVSurface>, 64> surfaces{};
     for (auto& surface : surfaces) {
-        surface = CreateVideoSurface(surface_desc);
+        surface = CreateVideoSurface(8, 8, 16);
         REQUIRE(surface);
     }
     auto& surviving_surface = *surfaces[32];
@@ -644,31 +633,9 @@ void generic_button_images()
 
     button_image_fixture(assets, "metadata.sti", 3, true);
     {
-        char filename[] = "metadata.sti";
-        std::unique_ptr<image_type> image(CreateImage(filename, IMAGE_ALLDATA));
+        auto image = LoadImage("metadata.sti");
         REQUIRE((image && image->pImageData.size() == 9 && image->pETRLEObject.size() == 3));
-        auto* pixels = image->pImageData.data();
-        auto* palette = image->pPalette->data();
-        REQUIRE(LoadImageData(image.get(), IMAGE_APPDATA));
-        REQUIRE((image->pImageData.data() == pixels && image->pPalette->data() == palette));
-        REQUIRE((image->pAppData.size() == 4 && image->pAppData[0] == 7 && image->pAppData[3] == 10));
-        auto* app = image->pAppData.data();
-        REQUIRE(LoadImageData(image.get(), IMAGE_PALETTE));
-        REQUIRE((image->pImageData.data() == pixels && image->pAppData.data() == app));
-        REQUIRE(((*image->pPalette)[1].peRed == 255));
-        palette = image->pPalette->data();
-        REQUIRE(LoadImageData(image.get(), IMAGE_BITMAPDATA));
-        REQUIRE((image->pPalette->data() == palette && image->pAppData.data() == app));
-        REQUIRE((image->pImageData[1] == 1 && image->pETRLEObject.size() == 3));
-        pixels = image->pImageData.data();
-        auto* objects = image->pETRLEObject.data();
-        const auto flags = image->fFlags;
-        std::filesystem::resize_file(assets / "metadata.sti",
-            STCI_HEADER_SIZE + STCI_8BIT_PALETTE_SIZE + 3 * STCI_SUBIMAGE_SIZE + 7);
-        REQUIRE(!LoadImageData(image.get(), IMAGE_ALLDATA));
-        REQUIRE((image->pImageData.data() == pixels && image->pETRLEObject.data() == objects));
-        REQUIRE((image->pPalette->data() == palette && image->pAppData.data() == app));
-        REQUIRE((image->fFlags == flags && image->pAppData.size() == 4 && image->pImageData.size() == 9));
+        REQUIRE((image->pPalette && (*image->pPalette)[1].peRed == 255));
 
         const auto pixel_offset = STCI_HEADER_SIZE + STCI_8BIT_PALETTE_SIZE + 3 * STCI_SUBIMAGE_SIZE;
         for (std::uintmax_t cut : {0u, STCI_HEADER_SIZE - 1u,
@@ -676,16 +643,8 @@ void generic_button_images()
              pixel_offset - 1u, pixel_offset + 8u, pixel_offset + 12u}) {
             button_image_fixture(assets, "metadata.sti", 3, true);
             std::filesystem::resize_file(assets / "metadata.sti", cut);
-            REQUIRE(!LoadImageData(image.get(), IMAGE_ALLDATA));
-            REQUIRE((image->pImageData.data() == pixels && image->pETRLEObject.data() == objects));
-            REQUIRE((image->pPalette->data() == palette && image->pAppData.data() == app));
-            REQUIRE((image->fFlags == flags && image->pAppData.size() == 4 && image->pImageData[1] == 1));
+            REQUIRE(!LoadImage("metadata.sti"));
         }
-        button_image_fixture(assets, "metadata.sti", 3, true);
-        std::filesystem::resize_file(assets / "metadata.sti", pixel_offset);
-        REQUIRE(LoadImageData(image.get(), IMAGE_PALETTE));
-        REQUIRE((image->pImageData.data() == pixels && image->pAppData.data() == app));
-        REQUIRE(!LoadImageData(image.get(), IMAGE_BITMAPDATA));
     }
     std::string long_image_path;
     for (int i = 0; i < 8; ++i)
@@ -694,10 +653,7 @@ void generic_button_images()
     REQUIRE(long_image_path.size() > 260);
     button_image_fixture(assets, long_image_path, 3);
     {
-        VOBJECT_DESC desc{};
-        desc.fCreateFlags = VOBJECT_CREATE_FROMFILE;
-        desc.ImageFile = long_image_path;
-        std::unique_ptr<SGPVObject> sprite(CreateVideoObject(desc));
+        auto sprite = LoadVideoObject(long_image_path);
         REQUIRE((sprite && sprite->sprites.size() == 3));
         REQUIRE((sprite->sprites[2].usWidth == 1 && sprite->sprites[2].pixels[0] == 1));
         REQUIRE(sprite->pPaletteEntry[1].peRed == 255);
@@ -714,8 +670,7 @@ void generic_button_images()
             file.write(reinterpret_cast<const char*>(&region), STCI_SUBIMAGE_SIZE);
             REQUIRE(file.good());
         }
-        REQUIRE(!CreateImage("bad-extent.sti", IMAGE_ALLIMAGEDATA));
-        REQUIRE(CreateImage("bad-extent.sti", IMAGE_PALETTE));
+        REQUIRE(!LoadImage("bad-extent.sti"));
     }
     for (bool corrupt_app_data : {false, true}) {
         button_image_fixture(assets, "bad-size.sti", 3, true);
@@ -731,8 +686,7 @@ void generic_button_images()
             file.write(reinterpret_cast<const char*>(&header), STCI_HEADER_SIZE);
             REQUIRE(file.good());
         }
-        REQUIRE(!CreateImage("bad-size.sti", IMAGE_ALLDATA));
-        REQUIRE(CreateImage("bad-size.sti", IMAGE_PALETTE));
+        REQUIRE(!LoadImage("bad-size.sti"));
     }
     // A button retains its graphics after the loader's reference and the
     // image manager are released; the last button releases the resource.
@@ -753,11 +707,7 @@ void generic_button_images()
         sprite.sprites[frame].pixels[0] = frame + 1;
         sprite.palette[frame + 1] = 0x1000 + frame;
     }
-    VSURFACE_DESC target_desc{};
-    target_desc.fCreateFlags = VSURFACE_CREATE_DEFAULT;
-    target_desc.usWidth = target_desc.usHeight = 8;
-    target_desc.ubBitDepth = 16;
-    auto target_owner = CreateVideoSurface(target_desc);
+    auto target_owner = CreateVideoSurface(8, 8, 16);
     REQUIRE(target_owner);
     auto& target = *target_owner;
     const auto old_target = ButtonDestBuffer;

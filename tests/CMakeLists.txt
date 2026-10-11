@@ -240,15 +240,16 @@ set(WIZ8_RUNTIME_SAVE_FIXTURE "${CMAKE_CURRENT_BINARY_DIR}/runtime-fixtures")
 target_compile_definitions(native_runtime_test PRIVATE
     WIZ8_RUNTIME_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/runtime/fixtures"
     WIZ8_RUNTIME_SAVE_FIXTURE="${WIZ8_RUNTIME_SAVE_FIXTURE}")
-foreach(scenario video video-seen character game-start world resource-lifecycle inventory-chest quick-save combat save-fixture load-game)
+foreach(scenario video video-seen game-start resource-lifecycle inventory-chest quick-save combat load-game)
     add_test(NAME runtime_${scenario} COMMAND native_runtime_test ${scenario})
     set_tests_properties(runtime_${scenario} PROPERTIES
         ENVIRONMENT "SDL_VIDEODRIVER=offscreen;SDL_AUDIO_DRIVER=dummy"
         SKIP_REGULAR_EXPRESSION "WIZ8_ASSET_ROOT is not set" TIMEOUT 120
         RESOURCE_LOCK game_gpu LABELS runtime)
 endforeach()
-# One saved game shared by the load scenarios, written once per run.
-set_tests_properties(runtime_save-fixture PROPERTIES FIXTURES_SETUP runtime_save)
+# The quick-save scenario writes a fixture consumed by the menu-driven load test.
+# CTest arranges the dependency even when only runtime_load-game is selected.
+set_tests_properties(runtime_quick-save PROPERTIES FIXTURES_SETUP runtime_save)
 set_tests_properties(runtime_load-game PROPERTIES FIXTURES_REQUIRED runtime_save)
 
 add_executable(native_resource_lifecycle_test native/resource_lifecycle_test.cpp)

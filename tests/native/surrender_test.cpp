@@ -50,7 +50,7 @@ template <class T> static bool rotations()
             node.setRotation(angle, srVector3T<double>(axis));
             // Include-cleaner attributes this public template to GLM's private qualifier.hpp.
             glm::mat<3, 3, T> actual; // NOLINT(misc-include-cleaner)
-            node.getRotation(actual);
+            actual = node.getRotation<glm::mat<3, 3, T>>();
             // Independent Rodrigues reference checks angle sign and matrix orientation.
             const long double components[] = {axis.x, axis.y, axis.z};
             const long double sine = std::sin(static_cast<long double>(angle));
@@ -84,18 +84,45 @@ static bool transforms()
     parent.setRotation(0, 0, std::numbers::pi / 2);
     Node child(&parent);
     child.setLocation(1, 2, 3);
-    glm::dmat4 world;
-    child.getWorldSpaceMatrix(world);
+    auto world = child.getWorldSpaceMatrix<glm::dmat4>();
     REQUIRE(glm::length(glm::dvec3(world[3]) - glm::dvec3(-2, 0, 13)) < 1e-12);
     REQUIRE(glm::length(glm::dvec3(world * glm::dvec4(1, 0, 0, 1)) - glm::dvec3(-2, 2, 13)) < 1e-12);
-    glm::dmat4x3 affine;
-    child.getWorldSpaceMatrix(affine);
+    auto affine = child.getWorldSpaceMatrix<glm::dmat4x3>();
     REQUIRE(glm::dmat4(affine) == world);
+    REQUIRE(child.getWorldSpaceMatrix<glm::mat4>() == glm::mat4(world));
+    REQUIRE(child.getWorldSpaceMatrix<glm::mat4x3>() == glm::mat4x3(world));
+    const auto coordinates = child.getWorldSpaceCoordinates();
+    const auto float_coordinates = child.getWorldSpaceCoordinates<float>();
+    REQUIRE(coordinates.location == glm::dvec3(world[3]));
+    REQUIRE(float_coordinates.location == glm::vec3(world[3]));
+    REQUIRE(glm::length(coordinates.scale - glm::dvec3(2, 3, 4)) < 1e-12);
+    REQUIRE(glm::length(float_coordinates.scale - glm::vec3(2, 3, 4)) < 1e-6f);
+    for (int column = 0; column < 3; ++column) {
+        REQUIRE(glm::length(coordinates.rotation[column] -
+                            glm::normalize(glm::dvec3(world[column]))) < 1e-12);
+        REQUIRE(glm::length(float_coordinates.rotation[column] -
+                            glm::normalize(glm::vec3(world[column]))) < 1e-6f);
+    }
+
     const glm::dmat4 desired = glm::translate(glm::dmat4(1), glm::dvec3(7, 8, 9));
     child.setWorldSpaceMatrix(desired);
-    child.getWorldSpaceMatrix(world);
+    world = child.getWorldSpaceMatrix<glm::dmat4>();
     for (int column = 0; column < 4; ++column)
         REQUIRE(glm::length(world[column] - desired[column]) < 1e-12);
+
+    Node aiming;
+    aiming.setLocation(4, -2, 1);
+    aiming.yawAt(glm::dvec3(5, -2, 1), 1);
+    REQUIRE(glm::length(aiming.getWorldSpaceDOF() - glm::dvec3(1, 0, 0)) < 1e-12);
+    aiming.setRotation(glm::dmat3(1));
+    aiming.pitchAt(glm::dvec3(4, -1, 1), 1);
+    REQUIRE(glm::length(aiming.getWorldSpaceDOF() - glm::dvec3(0, 1, 0)) < 1e-12);
+    aiming.setRotation(glm::dmat3(1));
+    aiming.rollAt(glm::dvec3(1, 1, 0), .5);
+    const auto roll = glm::dmat3(glm::rotate(glm::dmat4(1), -std::numbers::pi / 8,
+                                           glm::dvec3(0, 0, 1)));
+    for (int column = 0; column < 3; ++column)
+        REQUIRE(glm::length(aiming.getRotation()[column] - roll[column]) < 1e-12);
 
     const glm::mat4 transform =
         glm::scale(glm::translate(glm::mat4(1), glm::vec3(3, 2, 0)), glm::vec3(2, 3, 4));
@@ -105,9 +132,12 @@ static bool transforms()
     REQUIRE(glm::dot(plane, glm::vec4(6, 0, 0, 1)) > 0);
     REQUIRE(glm::dot(plane, glm::vec4(4, 0, 0, 1)) < 0);
     parent.setRotation(0.3, srVector3T<double>(0, 0, 0));
-    glm::dmat3 rotation;
-    parent.getRotation(rotation);
+    auto rotation = parent.getRotation<glm::dmat3>();
     REQUIRE(rotation == glm::dmat3(1));
+    child.setScale(srVector3T<double>(0, 2, 3));
+    REQUIRE(child.getWorldSpaceRotation<glm::mat3>()[0] == glm::vec3(0));
+    REQUIRE(child.getWorldSpaceRotation<glm::dmat3>()[0] == glm::dvec3(0));
+
     return true;
 }
 
@@ -118,8 +148,7 @@ static bool interfaces()
         rotated.setRotation(0.71, srVector3T<double>{3, 4, 0});
         const auto reference =
             glm::dmat3(glm::rotate(glm::dmat4(1), 0.71, glm::dvec3(0.6, 0.8, 0)));
-        glm::dmat3 actual_rotation;
-        rotated.getRotation(actual_rotation);
+        auto actual_rotation = rotated.getRotation<glm::dmat3>();
         const auto delta = actual_rotation - reference;
         for (int col = 0; col < 3; ++col)
             for (int row = 0; row < 3; ++row)

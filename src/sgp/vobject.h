@@ -6,6 +6,7 @@
 
 #include <SDL3/SDL_rect.h>
 #include <string>
+#include <string_view>
 #include <array>
 #include <vector>
 #include <memory>
@@ -52,13 +53,6 @@ typedef struct {
 #define FROMRGB(r, g, b)                                                                           \
     ((UINT32)(((UINT8)(r) | ((UINT16)(g) << 8)) | (((UINT32)(UINT8)(b)) << 16)))
 
-// Video object creation flags
-// Used in the VOBJECT_DESC structure to describe creation flags
-
-#define VOBJECT_CREATE_DEFAULT 0x00000020 // Creates and empty object of given width, height and BPP
-#define VOBJECT_CREATE_FROMFILE 0x00000040   // Creates a video object from a file ( using HIMAGE )
-#define VOBJECT_CREATE_FROMHIMAGE 0x00000080 // Creates a video object from a pre-loaded hImage
-
 // This structure is a video object.
 // One decoded sprite frame: pixels are palette indices 0-255 or
 // kTransparent for ETRLE transparent runs, so opaque palette index 0
@@ -92,14 +86,6 @@ struct SGPVObject {
 
 };
 
-// This structure describes the creation parameters for a Video Object
-struct VOBJECT_DESC {
-    UINT32 fCreateFlags{};
-    std::string ImageFile;
-    HIMAGE hImage = nullptr;
-    UINT8 ubBitDepth{};
-};
-
 // Palette generation and shade selection preserve the game's RGB555 tables.
 UINT16 CreateObjectPaletteTables(SGPVObject& object, UINT32 type);
 UINT16 SetObjectShade(SGPVObject& object, UINT32 shade);
@@ -110,6 +96,9 @@ BOOLEAN BltVideoObject(SGPVSurface& destination, SGPVObject& source, UINT16 fram
 BOOLEAN BltVideoObjectToBuffer(UINT16* pixels, UINT32 pitch, SGPVObject& source,
                                UINT16 frame, INT32 x, INT32 y, INT32 flags, blt_fx* effects);
 
-std::unique_ptr<SGPVObject> CreateVideoObject(const VOBJECT_DESC& description);
+// Decode borrowed STI data into owned sprite frames.
+std::unique_ptr<SGPVObject> CreateVideoObject(const image_type& image);
+// Load an STI sprite sheet from the virtual filesystem.
+std::unique_ptr<SGPVObject> LoadVideoObject(std::string_view filename);
 
 #endif
