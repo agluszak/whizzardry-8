@@ -3,9 +3,11 @@
 
 #include <string_view>
 #include <cstdint>
+#include <SDL3/SDL_mouse.h>
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
    Distributed under the accompanying SFI Source Code license agreement. */
 
+#include "Types.h"
 
 #define SCAN_CODE_MASK 0xff0000
 #define EXT_CODE_MASK 0x01000000
@@ -53,14 +55,16 @@ inline constexpr std::uint32_t NATIVE_TEXT_INPUT_FLAG = 0x80000000u;
 #define VK_INSERT 0x2D
 #define VK_DELETE 0x2E
 
-typedef struct {
+struct InputAtom {
     uint64_t uiTimeStamp;
     std::uint16_t usKeyState;
     std::uint16_t usEvent;
     std::uint32_t usParam;
     std::uint32_t uiParam;
+    SDL_MouseButtonFlags mouseButtons = 0;
+    std::uint8_t clicks = 0;
 
-} InputAtom;
+};
 
 #define LOWORD(value) ((uint16_t)((uintptr_t)(value) & 0xffffu))
 #define HIWORD(value) ((uint16_t)(((uintptr_t)(value) >> 16) & 0xffffu))
@@ -92,7 +96,7 @@ std::int32_t CompareTextIgnoreAsciiCase(std::string_view first, std::string_view
 
 extern bool InitializeInputManager(void);
 extern bool DequeueEvent(InputAtom* Event);
-extern void QueueEvent(std::uint16_t ubInputEvent, std::uint32_t usParam, std::uint32_t uiParam);
+extern void QueueEvent(std::uint16_t ubInputEvent, std::uint32_t usParam, std::uint32_t uiParam, std::uint8_t clicks = 0);
 
 extern void KeyDown(std::uint32_t usParam, std::uint32_t uiParam);
 extern void KeyUp(std::uint32_t usParam, std::uint32_t uiParam);

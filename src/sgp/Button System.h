@@ -1,14 +1,15 @@
 #ifndef __BUTTON_SYSTEM_H
 #define __BUTTON_SYSTEM_H
 
-#include <cstdint>
 #include <SDL3/SDL_rect.h>
+#include <cstdint>
 #include "Font.h"
 #include <string>
 #include <string_view>
 #include <array>
 #include <cstddef>
 
+#include "Types.h"
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
    Distributed under the accompanying SFI Source Code license agreement. */
 //*****************************************************************************************************
@@ -100,23 +101,10 @@ struct GenericButtonImages;
 using ButtonImage = std::shared_ptr<const ButtonGraphics>;
 using GenericButtonImage = std::shared_ptr<GenericButtonImages>;
 
-typedef struct _GUI_BUTTON {
-    ~_GUI_BUTTON();
-    _GUI_BUTTON();
-    _GUI_BUTTON(const _GUI_BUTTON&) = delete;
-    _GUI_BUTTON& operator=(const _GUI_BUTTON&) = delete;
-
+struct ButtonAppearance {
     ButtonImage quick_image;
     GenericButtonImage generic_image;
-    MOUSE_REGION Area = {};          // Mouse System's mouse region to use for this button
-    GUI_CALLBACK ClickCallback = nullptr; // Button Callback when button is clicked
-    GUI_CALLBACK MoveCallback = nullptr;  // Button Callback when mouse moved on this region
-    std::uint32_t uiFlags = BUTTON_DIRTY;             // Button state flags etc.( 32-bit )
-    std::uint32_t uiOldFlags = 0;          // Old flags from previous render loop
-    std::int16_t XLoc = 0;                 // Coordinates where button is on the screen
-    std::int16_t YLoc = 0;
-    void* callback_context = nullptr; // Non-owning; the UI owner owns this button.
-    std::int32_t UserData[4] = {}; // Numeric callback payloads.
+    SDL_Rect bounds{};
     std::int8_t bDefaultStatus = DEFAULT_STATUS_NONE;
     //Button disabled style
     std::int8_t bDisabledStyle = DISABLED_STYLE_DEFAULT;
@@ -137,6 +125,30 @@ typedef struct _GUI_BUTTON {
     std::int8_t bTextYSubOffSet = 0;
     bool fShiftText = true;
     std::int16_t sWrappedWidth = -1;
+};
+struct ButtonVisualState {
+    bool enabled = true;
+    bool pressed = false;
+    bool hovered = false;
+    bool checkbox = false;
+    bool mouse_down = false;
+};
+
+void DrawButtonAppearance(const ButtonAppearance& appearance, const ButtonVisualState& state);
+GenericButtonImage DefaultGenericButtonImage();
+
+typedef struct _GUI_BUTTON : ButtonAppearance {
+    ~_GUI_BUTTON();
+    _GUI_BUTTON();
+    _GUI_BUTTON(const _GUI_BUTTON&) = delete;
+    _GUI_BUTTON& operator=(const _GUI_BUTTON&) = delete;
+    MOUSE_REGION Area = {};
+    GUI_CALLBACK ClickCallback = nullptr;
+    GUI_CALLBACK MoveCallback = nullptr;
+    std::uint32_t uiFlags = BUTTON_DIRTY;
+    std::uint32_t uiOldFlags = 0;
+    void* callback_context = nullptr;
+    std::int32_t UserData[4] = {};
 
     bool ubToggleButtonOldState = false; // Varibles for new toggle buttons that work
     bool ubToggleButtonActivated = false;
@@ -202,7 +214,6 @@ void DrawButtonFromPtr(GUI_BUTTON* b);
 
 //Base button types
 // Text can be overlaid on generic and quick buttons.
-void DrawTextOnButton(GUI_BUTTON* b);
 
 extern bool gfRenderHilights;
 #define EnableHilightsAndHelpText() gfRenderHilights = true;

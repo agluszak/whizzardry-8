@@ -1,3 +1,4 @@
+#include <SDL3/SDL_mouse.h>
 #include <cstdint>
 #include <utf8proc.h>
 #include <SDL3/SDL_rect.h>
@@ -64,7 +65,7 @@ static constexpr std::size_t max_input_events = 256;
 // GLOBAL: WIZ8 0x00650db9
 bool gfSGPInputReceived = false;
 
-void HandleSingleClicksAndButtonRepeats(void);
+void HandleButtonRepeats(void);
 
 // These are the hook functions for both keyboard and mouse
 
@@ -94,7 +95,7 @@ bool InitializeInputManager(void)
 }
 
 // FUNCTION: WIZ8 0x00401f90
-void QueueEvent(std::uint16_t ubInputEvent, std::uint32_t usParam, std::uint32_t uiParam)
+void QueueEvent(std::uint16_t ubInputEvent, std::uint32_t usParam, std::uint32_t uiParam, std::uint8_t clicks)
 {
     if (gEventQueue.size() == max_input_events)
         return;
@@ -114,13 +115,15 @@ void QueueEvent(std::uint16_t ubInputEvent, std::uint32_t usParam, std::uint32_t
         guiRightButtonRepeatTimer = 0;
         break;
     }
-    gEventQueue.push({uiTimer, usKeyState, ubInputEvent, usParam, uiParam});
+    const SDL_MouseButtonFlags buttons = (gfLeftButtonState ? SDL_BUTTON_LMASK : 0) |
+                                         (gfRightButtonState ? SDL_BUTTON_RMASK : 0);
+    gEventQueue.push({uiTimer, usKeyState, ubInputEvent, usParam, uiParam, buttons, clicks});
 }
 
 // FUNCTION: WIZ8 0x00402140
 bool DequeueEvent(InputAtom* Event)
 {
-    HandleSingleClicksAndButtonRepeats();
+    HandleButtonRepeats();
     if (gEventQueue.empty())
         return false;
     *Event = gEventQueue.front();
@@ -241,7 +244,7 @@ void FreeMouseCursor(void)
     fCursorWasClipped = false;
 }
 
-void HandleSingleClicksAndButtonRepeats(void)
+void HandleButtonRepeats(void)
 {
     uint64_t uiTimer;
 

@@ -3,8 +3,9 @@
 #ifndef _MOUSE_SYSTEM_H_
 #define _MOUSE_SYSTEM_H_
 
-#include <cstdint>
 #include <string>
+#include <cstdint>
+#include "input.h"
 #include <string_view>
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
    Distributed under the accompanying SFI Source Code license agreement. */
@@ -28,6 +29,7 @@
 
 #include <memory>
 
+#include "Types.h"
 
 
 // *****************************************************************************
@@ -44,6 +46,7 @@ typedef struct _MOUSE_REGION {
     _MOUSE_REGION();
     void configure(std::uint16_t tlx, std::uint16_t tly, std::uint16_t brx, std::uint16_t bry, std::int8_t priority,
                    MOUSE_CALLBACK move, MOUSE_CALLBACK button);
+    void reset();
     ~_MOUSE_REGION();
     _MOUSE_REGION(const _MOUSE_REGION&) = delete;
     _MOUSE_REGION& operator=(const _MOUSE_REGION&) = delete;
@@ -69,6 +72,7 @@ typedef struct _MOUSE_REGION {
     std::string FastHelpText; // Text string for the FastHelp (describes buttons if left there a while)
     std::int32_t FastHelpRect{};
     MOUSE_HELPTEXT_DONE_CALLBACK HelpDoneCallback{};
+    class W8DialogButton* dialog_button = nullptr;
     struct _GUI_BUTTON* button = nullptr; // observer; callback dispatch never owns the control
 
 private:
@@ -76,7 +80,6 @@ private:
     _MOUSE_REGION* next = nullptr;
     static _MOUSE_REGION* first;
     void unlink();
-    void clearDispatch();
     friend std::int32_t MSYS_Init();
     friend void MSYS_Shutdown();
     friend void MSYS_UpdateMouseRegion();
@@ -151,12 +154,7 @@ private:
 #define MSYS_CALLBACK_REASON_LBUTTON_REPEAT 256
 #define MSYS_CALLBACK_REASON_RBUTTON_REPEAT 512
 
-//Kris:  Nov 31, 1999
-//Added support for double clicks.  The DOUBLECLICK event is passed combined with
-//the LBUTTON_DWN event if two LBUTTON_DWN events are detected on the same button/region
-//within the delay defined by MSYS_DOUBLECLICK_DELAY (in milliseconds).  If your button/region
-//supports double clicks and single clicks, make sure the DOUBLECLICK event is checked first (rejecting
-//the LBUTTON_DWN event if detected)
+// Delivered with left-button down when SDL reports an even click count.
 #define MSYS_CALLBACK_REASON_LBUTTON_DOUBLECLICK 1024
 
 // Mouse grabbing return codes
@@ -178,7 +176,8 @@ private:
 void MSYS_UpdateMouseRegion(void);
 
 // UI dispatch consumes events from the SDL-backed input stream.
-void DispatchMouseEvent(std::uint16_t type, std::uint16_t x, std::uint16_t y, bool left, bool right);
+void DispatchMouseEvent(const InputAtom& event);
+void RefreshMouseRegions();
 
 // External
 std::int32_t MSYS_Init(void);

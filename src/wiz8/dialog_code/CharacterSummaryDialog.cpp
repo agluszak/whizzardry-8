@@ -1,4 +1,3 @@
-#include <SDL3/SDL_rect.h>
 #include <cctype>
 #include <cstring>
 
@@ -174,11 +173,9 @@ bool W8CharacterSummaryDialog::HandleInputEvent(const InputAtom* input)
 // FUNCTION: WIZ8 0x005e0920
 bool W8CharacterSummaryDialog::ProcessInput()
 {
-    SDL_Point mouse;
     InputAtom input;
 
-    SGPMouseGetPos(&mouse);
-    DispatchMouseEvent(MOUSE_POS, mouse.x, mouse.y, gfLeftButtonState, gfRightButtonState);
+    RefreshMouseRegions();
     if (!m_voice_started && m_portrait_clock + 750 < w8_get_ticks()) {
         m_voice_started = true;
         W8Character* character = m_use_original_character ? m_character : g_status.buffers.Char;
@@ -190,7 +187,7 @@ bool W8CharacterSummaryDialog::ProcessInput()
             input.usEvent == RIGHT_BUTTON_DOWN) {
             m_keep_open = false;
         }
-        if (!DispatchDialogMouseInput(input.usEvent, mouse.x, mouse.y)) {
+        if (!DispatchDialogMouseInput(input)) {
             return HandleInputEvent(&input);
         }
     }

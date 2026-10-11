@@ -219,10 +219,15 @@ TEST_CASE("events_test")
     expect(events[0], MOUSE_POS, 0);
     REQUIRE(events[0].uiParam == ((479u << 16) | 639u));
     expect(events[1], LEFT_BUTTON_DOWN, 0);
+    REQUIRE(events[0].mouseButtons == 0);
+    REQUIRE(events[1].mouseButtons == SDL_BUTTON_LMASK);
+    REQUIRE(events[1].clicks == 1);
     guiLeftButtonRepeatTimer = w8_get_ticks() - 1;
     events = input();
     REQUIRE(events.size() == 1);
     expect(events[0], LEFT_BUTTON_REPEAT, 0);
+    REQUIRE(events[0].mouseButtons == SDL_BUTTON_LMASK);
+    REQUIRE(events[0].clicks == 0);
     REQUIRE(events[0].uiParam == ((240u << 16) | 320u));
     mouse(SDL_EVENT_MOUSE_BUTTON_UP, SDL_BUTTON_LEFT, 640, 480);
     drain_events();
@@ -237,6 +242,10 @@ TEST_CASE("events_test")
     expect(events[0], LEFT_BUTTON_DOWN, 0);
     expect(events[1], LEFT_BUTTON_UP, 0);
     expect(events[2], LEFT_BUTTON_DBL_CLK, 0);
+    REQUIRE(events[0].mouseButtons == SDL_BUTTON_LMASK);
+    REQUIRE(events[1].mouseButtons == 0);
+    REQUIRE(events[2].mouseButtons == 0);
+    for (const auto& event : events) REQUIRE(event.clicks == 2);
 
     // Closely spaced clicks are not double-clicks unless SDL identifies them.
     mouse(SDL_EVENT_MOUSE_BUTTON_DOWN, SDL_BUTTON_LEFT, 640, 480);
@@ -246,6 +255,25 @@ TEST_CASE("events_test")
     REQUIRE(events.size() == 2);
     expect(events[0], LEFT_BUTTON_DOWN, 0);
     expect(events[1], LEFT_BUTTON_UP, 0);
+
+    // Pumping ahead must not overwrite queued button states or coordinates.
+    mouse(SDL_EVENT_MOUSE_BUTTON_DOWN, SDL_BUTTON_LEFT, 40, 60);
+    mouse(SDL_EVENT_MOUSE_BUTTON_DOWN, SDL_BUTTON_RIGHT, 80, 100, 3);
+    mouse(SDL_EVENT_MOUSE_BUTTON_UP, SDL_BUTTON_LEFT, 120, 140);
+    mouse(SDL_EVENT_MOUSE_BUTTON_UP, SDL_BUTTON_RIGHT, 160, 180, 3);
+    drain_events();
+    events = input();
+    REQUIRE(events.size() == 4);
+    REQUIRE((!gfLeftButtonState && !gfRightButtonState));
+    REQUIRE(events[0].mouseButtons == SDL_BUTTON_LMASK);
+    REQUIRE(events[1].mouseButtons == (SDL_BUTTON_LMASK | SDL_BUTTON_RMASK));
+    REQUIRE(events[2].mouseButtons == SDL_BUTTON_RMASK);
+    REQUIRE(events[3].mouseButtons == 0);
+    REQUIRE((events[1].clicks == 3 && events[3].clicks == 3));
+    for (unsigned i = 0; i < events.size(); ++i) {
+        REQUIRE(GETXPOS(&events[i]) == 20 + 20 * i);
+        REQUIRE(GETYPOS(&events[i]) == 30 + 20 * i);
+    }
 
     wheel(0.25f);
     wheel(0.5f);
