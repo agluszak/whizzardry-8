@@ -1,3 +1,4 @@
+#include <array>
 #include "wiz8/octree_walk.h"
 #include <fmt/format.h>
 #include <SDL3/SDL_filesystem.h>
@@ -436,7 +437,7 @@ int W8Octree::CollectModelsNearPoint(std::vector<stModelInstance*>& out,
 
     unsigned int region;
     for (region = 1; region < m_spatial.m_region_count; ++region) {
-        if (SphereInsideFrustum(point, radius, m_spatial.m_region_volumes[region].m_planes) &&
+        if (SphereInsideFrustum(point->glmValue(), radius, m_spatial.m_region_volumes[region].m_planes) &&
             m_spatial.m_region_volumes[region].m_region_bit != 0) {
             SetBit(m_current_regions, m_spatial.m_region_volumes[region].m_region_bit);
         }
@@ -548,7 +549,7 @@ short W8Octree::ProjectLinkedRegionsForLocation(srVector3T<float>* location,
             strcat(expected_regions, region_label);
 
             W8OctRegionVolume* volume = &m_spatial.m_region_volumes[region_index];
-            if (!PointInsideFrustum(location, volume->m_planes)) {
+            if (!PointInsideFrustum(location->glmValue(), volume->m_planes)) {
                 continue;
             }
             if (match_count == 0) {
@@ -582,7 +583,7 @@ short W8Octree::ProjectLinkedRegionsForLocation(srVector3T<float>* location,
             break;
         }
         W8OctRegionVolume* volume = &m_spatial.m_region_volumes[region_index];
-        if (!PointInsideFrustum(location, volume->m_planes)) {
+        if (!PointInsideFrustum(location->glmValue(), volume->m_planes)) {
             continue;
         }
         if (reported_region == 0 && region_index != g_octree_region_debug_last) {
@@ -615,7 +616,7 @@ unsigned int W8Octree::GetSectorForPosition(const srVector3T<float>* position)
 {
     srVector3T<float> point = *position;
     for (unsigned int region = 1; region < m_spatial.m_region_count; ++region) {
-        if (PointInsideFrustum(&point, m_spatial.m_region_volumes[region].m_planes)) {
+        if (PointInsideFrustum(point.glmValue(), m_spatial.m_region_volumes[region].m_planes)) {
             return m_spatial.m_region_volumes[region].m_region_bit;
         }
     }
@@ -723,10 +724,10 @@ void W8Octree::MarkVisibleRegions()
         if (delta.LengthSquared() >= radius_squared) {
             continue;
         }
-        bool visible = PointInsideFrustum(&volume->m_points[0], view.frustum_planes);
+        bool visible = PointInsideFrustum(volume->m_points[0].glmValue(), view.frustum_planes);
 
         for (int point = 1; !visible && point < 9; ++point) {
-            visible = PointInsideFrustum(&volume->m_points[point], view.frustum_planes);
+            visible = PointInsideFrustum(volume->m_points[point].glmValue(), view.frustum_planes);
         }
         if (visible && volume->m_region_bit != 0) {
             SetBit(m_current_regions, volume->m_region_bit);
@@ -746,43 +747,23 @@ void W8Octree::BuildFrustumPlanes()
     float ratio = extent / cos(fov);
     double tangent = tan(fov);
     double tangent_vertical = tan(view.vertical_fov * g_float_half);
-    srVector3T<float> corners[8];
-
-    view.frustum_planes[4].w = 0.0f;
-    view.frustum_planes[5].w = 0.0f;
-    for (int axis = 0; axis < 3; ++axis) {
-        float dof = (&view.camera_dof.x)[axis];
-        float column1 = (&view.rotation_column0.x)[axis];
-        float column2 = (&view.rotation_column1.x)[axis];
-        float w = far_clip * dof;
-        float a = (tangent * far_clip + ratio) * column1;
-        float b = (tangent_vertical * far_clip + ratio) * column2;
-
-        (&corners[0].x)[axis] = (&view.camera_location.x)[axis] - backoff * dof;
-        (&corners[1].x)[axis] = a;
-        (&corners[2].x)[axis] = b;
-        (&corners[3].x)[axis] = w;
-        (&corners[4].x)[axis] = (w - a) + b;
-        (&corners[5].x)[axis] = (w + b) + a;
-        (&corners[6].x)[axis] = (w - a) - b;
-        (&corners[7].x)[axis] = (w + a) - b;
-        (&corners[4].x)[axis] += (&view.camera_location.x)[axis];
-        (&corners[5].x)[axis] += (&view.camera_location.x)[axis];
-        (&corners[6].x)[axis] += (&view.camera_location.x)[axis];
-        (&corners[7].x)[axis] += (&view.camera_location.x)[axis];
-        (&view.frustum_planes[4].normal.x)[axis] = dof;
-        view.frustum_planes[4].w -= dof * (&corners[0].x)[axis];
-        (&view.frustum_planes[5].normal.x)[axis] = -dof;
-        view.frustum_planes[5].w -= -dof * (&corners[4].x)[axis];
-    }
-    view.frustum_planes[0] = trianglePlane(corners[0].glmValue(),
-        corners[5].glmValue(), corners[4].glmValue());
-    view.frustum_planes[1] = trianglePlane(corners[0].glmValue(),
-        corners[4].glmValue(), corners[6].glmValue());
-    view.frustum_planes[2] = trianglePlane(corners[0].glmValue(),
-        corners[7].glmValue(), corners[5].glmValue());
-    view.frustum_planes[3] = trianglePlane(corners[0].glmValue(),
-        corners[6].glmValue(), corners[7].glmValue());
+    const auto location = view.camera_location.glmValue();
+    const auto dof = view.camera_dof.glmValue();
+    const auto width = glm::vec3((tangent * far_clip + ratio) *
+                                glm::dvec3(view.rotation_column0.glmValue()));
+    const auto height = glm::vec3((tangent_vertical * far_clip + ratio) *
+                                 glm::dvec3(view.rotation_column1.glmValue()));
+    const auto forward = far_clip * dof;
+    const auto apex = location - backoff * dof;
+    const std::array<glm::vec3, 4> far_corners{{
+        (forward - width) + height + location, (forward + height) + width + location,
+        (forward - width) - height + location, (forward + width) - height + location}};
+    view.frustum_planes[4] = {srVector3(dof), -glm::dot(dof, apex)};
+    view.frustum_planes[5] = {srVector3(-dof), glm::dot(dof, far_corners[0])};
+    constexpr std::array<std::array<unsigned, 2>, 4> sides{{{1, 0}, {0, 2}, {3, 1}, {2, 3}}};
+    for (unsigned side = 0; side < sides.size(); ++side)
+        view.frustum_planes[side] = trianglePlane(apex, far_corners[sides[side][0]],
+                                                 far_corners[sides[side][1]]);
     for (int index = 0; index < 6; ++index) {
         view.frustum_planes[index].w += m_spatial.m_region_grid_cell;
     }
@@ -836,7 +817,7 @@ void W8Octree::CollectVisibleCells()
                         cell_y * m_spatial.m_region_grid_cell + m_spatial.m_bounds.minimum.y + offset;
                     point.z =
                         cell_z * m_spatial.m_region_grid_cell + m_spatial.m_bounds.minimum.z + offset;
-                    if (!PointInsideFrustum(&point, view.frustum_planes)) {
+                    if (!PointInsideFrustum(point.glmValue(), view.frustum_planes)) {
                         continue;
                     }
                 }
@@ -1000,7 +981,7 @@ unsigned int W8Octree::RegionKeyForPoint(const srVector3T<float>* point)
             if (region != 0) {
                 return region;
             }
-            if (m_spatial.m_region_volumes[index].ContainsPoint(point)) {
+            if (m_spatial.m_region_volumes[index].ContainsPoint(point->glmValue())) {
                 region = index;
             }
             ++index;

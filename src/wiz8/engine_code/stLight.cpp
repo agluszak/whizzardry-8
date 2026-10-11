@@ -420,7 +420,7 @@ void LoadLightStates(wiz8::File* handle)
 
 /* Test a point against the six inward-facing planes of one region volume. */
 // FUNCTION: WIZ8 0x0049e460
-bool W8OctRegionVolume::ContainsPoint(const srVector3T<float>* point) const
+bool W8OctRegionVolume::ContainsPoint(const glm::vec3& point) const
 {
     return PointInsideFrustum(point, m_planes);
 }

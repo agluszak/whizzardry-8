@@ -33,7 +33,7 @@ struct W8OctRegionVolume {
     srVector3T<float> m_points[9];
     W8Plane m_planes[6];
 
-    bool ContainsPoint(const srVector3T<float>* point) const;
+    bool ContainsPoint(const glm::vec3& point) const;
 };
 
 /* Native spatial state derived from the retail 0x9c record. Octree.cpp constructs one

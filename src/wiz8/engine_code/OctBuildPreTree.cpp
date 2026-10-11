@@ -1,3 +1,4 @@
+#include <array>
 #include <optional>
 #include <variant>
 #include "glm/ext/vector_float3.hpp"
@@ -589,9 +590,13 @@ unsigned short OctBuildPreTree::LoadRegionFile(const char* stem)
             volume->m_points[0] += record.corners[corner] * g_world_scale * 0.125f;
         }
         volume->value_18 = record.value_06;
-        SortFrustumCorners(&volume->m_points[1]);
-        const auto planes =
-            BuildFrustumPlanes(std::span<const srVector3T<float>, 8>{volume->m_points + 1, 8});
+        std::array<glm::vec3, 8> points;
+        for (unsigned corner = 0; corner < points.size(); ++corner)
+            points[corner] = volume->m_points[corner + 1].glmValue();
+        const auto sorted = sortedFrustumCorners(points);
+        for (unsigned corner = 0; corner < sorted.size(); ++corner)
+            volume->m_points[corner + 1] = sorted[corner];
+        const auto planes = BuildFrustumPlanes(sorted);
         std::ranges::copy(planes, volume->m_planes);
     }
     if (file) file->close();
@@ -611,7 +616,8 @@ void OctBuildPreTree::FindLeafRegions(W8OctBuildNode* node, const W8BoundingBox*
 {
     for (unsigned short region = 1; region < spatial.m_region_count; ++region) {
         if ((spatial.m_region_volumes[region].flags & 4) == 0 &&
-            BoundsInsideFrustum(&spatial.m_region_volumes[region], bounds)) {
+            BoundsInsideFrustum(spatial.m_region_volumes[region],
+                                {bounds->minimum.glmValue(), bounds->maximum.glmValue()})) {
             if (node->region_arrays[1] == 0) {
                 unsigned short* list = static_cast<unsigned short*>(malloc(50 * sizeof(*list)));
                 if (list == 0) {
@@ -732,7 +738,7 @@ unsigned char OctBuildPreTree::AssignPolygonRegions(W8OctPreTreeGeometry* geomet
             W8OctPreTreeVertex* vert = &geometry->m_vertices[vertex];
             unsigned short hits = 0;
             for (unsigned short region = 1; region < spatial.m_region_id_bound; ++region) {
-                if (PointInsideFrustum(&vert->position,
+                if (PointInsideFrustum(vert->position.glmValue(),
                                        spatial.m_region_volumes[region].m_planes)) {
                     ++hits;
                     vert->m_region = region;
@@ -924,7 +930,7 @@ unsigned short OctBuildPreTree::SplitSharedPolygon(W8OctPreTreeGeometry* geometr
         if ((polygon->flags & W8OctRegionPolygon::CENTER_IN_REGION) == 0) {
             inside = 0;
             for (int corner = 0; corner < 3; ++corner) {
-                if (PointInsideFrustum(&polygon->vertices[corner]->position,
+                if (PointInsideFrustum(polygon->vertices[corner]->position.glmValue(),
                                        spatial.m_region_volumes[region].m_planes)) {
                     inside = 1;
                     break;
@@ -1492,7 +1498,7 @@ unsigned char OctBuildPreTree::BuildParticleRegions(const W8LevelFileParticleSys
         for (unsigned short region_index = 1; region_index < spatial.m_region_count;
              ++region_index) {
             W8OctRegionVolume* volume = spatial.m_region_volumes + region_index;
-            if (volume->ContainsPoint(&position)) {
+            if (volume->ContainsPoint(position.glmValue())) {
                 unsigned short region = volume->m_region;
                 InsertUniqueIndexValue(*inside_region_map, region, particle_value);
                 mapped = true;
@@ -1531,7 +1537,7 @@ unsigned char OctBuildPreTree::BuildParticleRegions(const W8LevelFileParticleSys
                             for (unsigned short region_index = 1;
                                  region_index < spatial.m_region_count; ++region_index) {
                                 W8OctRegionVolume* volume = spatial.m_region_volumes + region_index;
-                                if (volume->ContainsPoint(&corner)) {
+                                if (volume->ContainsPoint(corner.glmValue())) {
                                     unsigned short region = volume->m_region;
                                     InsertUniqueIndexValue(*inside_region_map, region, particle_value);
                                     corner_mapped = true;
@@ -1593,7 +1599,7 @@ unsigned char OctBuildPreTree::BuildGeometryRegions(const W8LevelFileProp* recor
                                            stored.maximum.glmValue() * g_world_scale};
                 for (unsigned corner_index = 0; corner_index < 8; ++corner_index) {
                     const srVector3 corner(bounds.corner(corner_index));
-                    if (volume->ContainsPoint(&corner)) {
+                    if (volume->ContainsPoint(corner.glmValue())) {
                         InsertUniqueIndexValue(*overlap_region_map, volume->m_region, value);
                         mapped = true;
                     }

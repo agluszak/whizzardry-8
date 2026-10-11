@@ -1805,3 +1805,30 @@ TEST_CASE("Wizardry light inactivity and missing definitions have distinct trave
     REQUIRE(info.entries[1].node == child);
     REQUIRE(info.entries[2].node == &light);
 }
+
+TEST_CASE("Frustum corner ordering preserves every point and shares point sphere and box tests", "[geometry][frustum]")
+{
+    const srBoundingBox box{glm::vec3(-1), glm::vec3(1)};
+    std::array<glm::vec3, 8> shuffled;
+    constexpr std::array<unsigned, 8> permutation{7, 0, 5, 2, 6, 1, 4, 3};
+    for (unsigned i = 0; i < shuffled.size(); ++i) shuffled[i] = box.corner(permutation[i]);
+    const auto original = shuffled;
+    const auto sorted = sortedFrustumCorners(shuffled);
+    REQUIRE(shuffled == original);
+    for (unsigned i = 0; i < sorted.size(); ++i)
+        REQUIRE(sorted[i] == glm::vec3(i & 1 ? 1 : -1, i & 4 ? 1 : -1, i & 2 ? 1 : -1));
+    const auto planes = BuildFrustumPlanes(sorted);
+    REQUIRE(PointInsideFrustum(glm::vec3(0), planes));
+    for (const auto& corner : sorted) REQUIRE(PointInsideFrustum(corner, planes));
+    REQUIRE_FALSE(PointInsideFrustum({2, 0, 0}, planes));
+    REQUIRE(SphereInsideFrustum({2, 0, 0}, 1, planes));
+    REQUIRE_FALSE(SphereInsideFrustum({2, 0, 0}, 0.99f, planes));
+    W8OctRegionVolume volume{};
+    for (unsigned i = 0; i < planes.size(); ++i) volume.m_planes[i] = planes[i];
+    for (unsigned i = 0; i < sorted.size(); ++i) volume.m_points[i + 1] = sorted[i];
+    REQUIRE(volume.ContainsPoint(glm::vec3(0)));
+    REQUIRE(BoundsInsideFrustum(volume, {glm::vec3(-0.5f), glm::vec3(0.5f)}));
+    REQUIRE(BoundsInsideFrustum(volume, {glm::vec3(-2), glm::vec3(2)}));
+    REQUIRE(BoundsInsideFrustum(volume, {{1, -1, -1}, {2, 1, 1}}));
+    REQUIRE_FALSE(BoundsInsideFrustum(volume, {glm::vec3(2), glm::vec3(3)}));
+}
