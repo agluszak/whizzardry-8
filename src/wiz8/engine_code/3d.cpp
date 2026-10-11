@@ -1,6 +1,5 @@
 #include <array>
 #include <memory>
-#include <array>
 #include <span>
 #include <vector>
 #include <string>
