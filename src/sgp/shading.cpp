@@ -1,9 +1,9 @@
+#include <SDL3/SDL_pixels.h>
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
    Distributed under the accompanying SFI Source Code license agreement. */
 
 #include "Types.h"
 #include "himage.h"
-#include "vobject.h"
 #include "shading.h"
 
 // GLOBAL: WIZ8 0x0069da80
