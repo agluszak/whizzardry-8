@@ -1,5 +1,5 @@
 #include <memory>
-#include <string>
+#include <optional>
 #include <string_view>
 #include <utility>
 
@@ -179,12 +179,11 @@ bool W8DialogTextArea::ClearSelection()
 }
 
 // FUNCTION: WIZ8 0x005d2120
-bool W8DialogTextArea::CopyEntryText(unsigned int index, std::string& output)
+std::optional<std::string_view> W8DialogTextArea::GetEntryText(unsigned int index) const
 {
     if (index >= m_all_lines.size())
-        return false;
-    output = (m_all_lines[index])->GetText();
-    return true;
+        return std::nullopt;
+    return m_all_lines[index]->GetText();
 }
 
 /* Hit testing and point selection traverse the same visible entry lines.
@@ -237,12 +236,11 @@ bool W8DialogTextArea::ClearPointSelection()
 }
 
 // FUNCTION: WIZ8 0x005d20f0
-bool W8DialogTextArea::CopyVisibleEntryText(unsigned int index, std::string& output)
+std::optional<std::string_view> W8DialogTextArea::GetVisibleEntryText(unsigned int index) const
 {
     if (index >= m_visible_lines.size())
-        return false;
-    output = (m_visible_lines[index])->GetText();
-    return true;
+        return std::nullopt;
+    return m_visible_lines[index]->GetText();
 }
 
 // FUNCTION: WIZ8 0x005d2150
@@ -353,8 +351,6 @@ void W8DialogTextArea::RemoveEntry(unsigned int index)
 // FUNCTION: WIZ8 0x005d21f0
 void W8DialogTextArea::RebuildVisibleEntries()
 {
-    std::string text;
-    std::string other;
     ClearEntryHighlight();
     ClearSelection();
     m_visible_lines.clear();
@@ -364,12 +360,11 @@ void W8DialogTextArea::RebuildVisibleEntries()
             if (!m_sorted) {
                 m_visible_lines.push_back(m_all_lines[index].get());
             } else {
-                CopyEntryText(index, text);
+                const std::string_view text = *GetEntryText(index);
                 int position;
                 for (position = 0; position < static_cast<int>(m_visible_lines.size());
                      ++position) {
-                    CopyVisibleEntryText(position, other);
-                    if (CompareTextIgnoreAsciiCase(text, other) < 0)
+                    if (CompareTextIgnoreAsciiCase(text, *GetVisibleEntryText(position)) < 0)
                         break;
                 }
                 if (position == static_cast<int>(m_visible_lines.size())) {

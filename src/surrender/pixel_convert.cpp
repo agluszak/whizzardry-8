@@ -1,8 +1,8 @@
 #include <SDL3/SDL_pixels.h>
 #include <algorithm>
 #include <iterator>
+#include <string>
 #include <cstring>
-#include <cstdio>
 
 #include "glm/geometric.hpp"
 #include "surrender/srPixelConvert.h"
@@ -318,21 +318,16 @@ int srPixelConvert::PixelFormat::isValid() const
 }
 
 // FUNCTION: SURRENDER 0x10007E90
-void srPixelConvert::PixelFormat::getName(char* const name)
+std::string srPixelConvert::PixelFormat::getName() const
 {
     static const char channel_letters[] = "RGBAYUVAIXXAPXXA";
 
     if (fourcc != 0) {
-        name[0] = static_cast<char>(fourcc);
-        name[1] = static_cast<char>(fourcc >> 8);
-        name[2] = static_cast<char>(fourcc >> 0x10);
-        name[3] = static_cast<char>(fourcc >> 0x18);
-        name[4] = '\0';
-        return;
+        char code[5] = {static_cast<char>(fourcc), static_cast<char>(fourcc >> 8),
+                        static_cast<char>(fourcc >> 16), static_cast<char>(fourcc >> 24), 0};
+        return code;
     }
-    if (name == 0) {
-        return;
-    }
+
     w8_ulong shifts[4] = {red_shift, green_shift, blue_shift, alpha_shift};
     unsigned char bits[4] = {red_bits, green_bits, blue_bits, alpha_bits};
     unsigned char order[4] = {0, 1, 2, 3};
@@ -351,23 +346,17 @@ void srPixelConvert::PixelFormat::getName(char* const name)
             }
         }
     }
-    char text[16];
-    int length = 0;
-    for (int k = 0; k < 4; k++) {
-        if (bits[k] != 0) {
-            text[length++] = channel_letters[color_model * 4 + order[k]];
-        }
-    }
-    for (int j = 0; j < 4; j++) {
-        if (bits[j] != 0) {
-            text[length++] = static_cast<char>(bits[j] + '0');
-        }
-    }
-    text[length] = '\0';
-    char tail[8];
-    sprintf(tail, "/%d", pixel_size * 8 + 8);
-    strcat(text, tail);
-    strcpy(name, text);
+
+    std::string name;
+    for (int k = 0; k < 4; k++)
+        if (bits[k] != 0)
+            name.push_back(channel_letters[color_model * 4 + order[k]]);
+    for (int j = 0; j < 4; j++)
+        if (bits[j] != 0)
+            name.push_back(static_cast<char>(bits[j] + '0'));
+    name += '/';
+    name += std::to_string(pixel_size * 8 + 8);
+    return name;
 }
 
 // FUNCTION: SURRENDER 0x10008020
@@ -485,34 +474,25 @@ void srPixelConvert::mapPixelFormat(e_surfaceType type, PixelFormat& format)
 }
 
 // FUNCTION: SURRENDER 0x100087A0
-void srPixelConvert::selectFuncs(const PixelFormat& format, ConversionFunc& write,
-                                 ConversionFunc& read)
+srPixelConvert::ConversionFunctions srPixelConvert::selectFuncs(const PixelFormat& format)
 {
     initFormats();
     const auto entry = std::find_if(std::begin(format_table), std::end(format_table),
         [&](const FormatEntry& candidate) { return candidate.format == format; });
-    if (entry != std::end(format_table)) {
-        read = entry->read;
-        write = entry->write;
-        return;
-    }
+    if (entry != std::end(format_table))
+        return {entry->write, entry->read};
+
     switch (format.color_model) {
     case srPixelConvert::COLOR_RGB:
-        write = writeRGB;
-        read = readRGB;
-        return;
+        return {writeRGB, readRGB};
     case srPixelConvert::COLOR_YUV:
-        write = writeYUV;
-        read = readYUV;
-        return;
+        return {writeYUV, readYUV};
     case srPixelConvert::COLOR_INTENSITY:
-        write = writeIntensity;
-        read = readIntensity;
-        return;
+        return {writeIntensity, readIntensity};
     case srPixelConvert::COLOR_INDEXED:
-        write = writeIndexed;
-        read = readIndexed;
+        return {writeIndexed, readIndexed};
     }
+    return {};
 }
 
 /* Clamps a decoded YUV channel to a byte for the srARGB pack. */

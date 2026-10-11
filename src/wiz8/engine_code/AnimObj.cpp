@@ -18,6 +18,7 @@
 #include "wiz8/sr_api.h"
 #include "glm/ext/vector_float3.hpp"
 #include "surrender/srNode.h"
+#include "surrender/srBoundingBox.h"
 
 #define ANIM_OBJ_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\AnimObj.cpp"
 
@@ -382,7 +383,7 @@ bool AnimObjGetBounds(W8AnimObj* animation, signed char list_index, unsigned int
             PathAIApply(path, instance);
             PathAISetValue(path, saved);
         }
-        ((srNode*)instance)->getRotation(rotation);
+        rotation = ((srNode*)instance)->getRotation<glm::mat3>();
         srVector3T<double> node_location = ((srNode*)instance)->getLocation();
         translation = glm::vec3(node_location.glmValue());
         srVector3T<double> node_scale = ((srNode*)instance)->getScale();
@@ -425,48 +426,12 @@ void TransformBounds(const glm::mat3* rotation, const srVector3T<float>* transla
                      const srVector3T<float>* scale, srVector3T<float>* minimum,
                      srVector3T<float>* maximum)
 {
-    srVector3T<float> corner[2];
-    int i;
-    int j;
-    int k;
-
-    corner[0] = *minimum;
-    corner[1] = *maximum;
-    for (i = 0; i < 2; ++i) {
-        for (j = 0; j < 2; ++j) {
-            for (k = 0; k < 2; ++k) {
-                srVector3T<float> point(corner[i].x, corner[j].y, corner[k].z);
-                srVector3T<float> transformed = ((*rotation)) * point.glmValue();
-                float tx = (transformed.x + translation->x) * scale->x;
-                float ty = (transformed.y + translation->y) * scale->y;
-                float tz = (transformed.z + translation->z) * scale->z;
-
-                if (i == 0 && j == 0 && k == 0) {
-                    maximum->Set(tx, ty, tz);
-                    minimum->Set(tx, ty, tz);
-                } else {
-                    if (tx < minimum->x) {
-                        minimum->x = tx;
-                    }
-                    if (ty < minimum->y) {
-                        minimum->y = ty;
-                    }
-                    if (tz < minimum->z) {
-                        minimum->z = tz;
-                    }
-                    if (maximum->x < tx) {
-                        maximum->x = tx;
-                    }
-                    if (maximum->y < ty) {
-                        maximum->y = ty;
-                    }
-                    if (maximum->z < tz) {
-                        maximum->z = tz;
-                    }
-                }
-            }
-        }
-    }
+    const srBoundingBox bounds{minimum->glmValue(), maximum->glmValue()};
+    const auto transformed = bounds.transformedBy([&](const glm::vec3& point) {
+        return (*rotation * point + translation->glmValue()) * scale->glmValue();
+    });
+    *maximum = transformed.maximum;
+    *minimum = transformed.minimum;
 }
 
 // FUNCTION: WIZ8 0x004a01e0

@@ -4,6 +4,8 @@
 #ifndef __SOUNDMAN_
 #define __SOUNDMAN_
 
+#include <optional>
+
 #include "Types.h"
 #include "wiz8/audio_resources.h"
 
@@ -105,8 +107,11 @@ extern BOOLEAN SoundSetFadeVolume(SoundPlayback playback, UINT32 uiVolume, UINT3
 extern BOOLEAN SoundSetVolume(SoundPlayback playback, UINT32 uiVolume);
 extern UINT32 SoundGetVolume(SoundPlayback playback);
 extern UINT32 SoundGetPosition(SoundPlayback playback);
-extern BOOLEAN SoundGetMilliSecondPosition(SoundPlayback playback, UINT32* puiTotalMilliseconds,
-                                           UINT32* puiCurrentMilliseconds);
+struct SoundPlaybackTime {
+    UINT32 total_ms;
+    UINT32 current_ms;
+};
+extern std::optional<SoundPlaybackTime> SoundGetMilliSecondPosition(SoundPlayback playback);
 
 // Sound instance group functions
 extern BOOLEAN SoundStopGroup(UINT32 uiPriority);

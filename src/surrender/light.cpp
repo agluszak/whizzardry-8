@@ -19,12 +19,10 @@
 #include "surrender/srMath.h"
 #include "compat/compiler.h"
 #include "glm/ext/matrix_float3x3.hpp"
-#include "glm/ext/matrix_float4x4.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
 #include "surrender/srIlluminator.h"
 #include "surrender/srNode.h"
-#include "surrender/srStatisticsManager.h"
 #include "surrender/srTypeRegistry.h"
 #include "surrender/srVertexProcessor.h"
 
@@ -194,8 +192,7 @@ void srLight::process(const ProcessInfo& info, e_processType type)
         return;
     }
     applyWorldSpaceMatrix(*renderer);
-    glm::mat4 model_view;
-    renderer->getMatrix(model_view);
+    const auto model_view = renderer->getMatrix();
     derived_flags = 0;
     derived_flags = srLight::DERIVED_ACTIVE;
     channel_mask = 0;
@@ -220,8 +217,7 @@ void srLight::process(const ProcessInfo& info, e_processType type)
     } else {
         if ((enable_flags & (1UL << srLight::ENABLE_SPOT)) != 0 && spot_angle > 0.0f &&
             spot_exponent != 0.0f) {
-            glm::mat4 inverse;
-            renderer->getInverseModelViewMatrix(inverse);
+            const auto inverse = renderer->getInverseModelViewMatrix();
             derived_flags |= srLight::DERIVED_SPOT;
             spot_cutoff = (float)cos(spot_angle);
             spot_direction_eye =
@@ -298,6 +294,22 @@ int srLight::isActive(srVertexPipe& pipe)
     }
     return 1;
 }
+
+namespace {
+// Diffuse and specular use the same attenuated accumulation. Keep the two
+// multiplications separate so specular highlights retain their rounding.
+void AccumulateSurfaceLight(std::span<glm::vec4> destination, const glm::vec4& color,
+                            const float* weights, const float* attenuation)
+{
+    if (attenuation != nullptr) {
+        for (std::size_t i = 0; i < destination.size(); ++i)
+            destination[i] = color * attenuation[i] * weights[i] + destination[i];
+    } else {
+        for (std::size_t i = 0; i < destination.size(); ++i)
+            destination[i] = color * weights[i] + destination[i];
+    }
+}
+} // namespace
 
 // FUNCTION: SURRENDER 0x1004CE00
 void srLight::process(srVertexPipe& pipe)
@@ -430,23 +442,8 @@ void srLight::process(srVertexPipe& pipe)
         return;
     }
     if ((channels & (1UL << srVertexProcessor::CHANNEL_LIGHT_DIFFUSE)) != 0) {
-        glm::vec4 diffuse;
-        diffuse = scaled_diffuse * pipe.material_info.diffuse;
-        const auto diffuse_color = diffuse;
-        srCore.getStatisticsManager()->statistics.diffuse_operations += count;
-        if ((pipe.lazy_setup_mask & (1UL << srVertexProcessor::CHANNEL_DIFFUSE)) == 0) {
-            pipe.setupDiffuse();
-        }
-        glm::vec4* out =
-            pipe.vertex_array->diffuse + pipe.batch_base + pipe.sub_batch_offset;
-        if (attenuation != 0) {
-            for (std::size_t i = 0; i < count; ++i)
-                out[i] = diffuse_color * attenuation[i] * dots[i] + out[i];
-
-        } else {
-            for (std::size_t i = 0; i < count; ++i)
-                out[i] = diffuse_color * dots[i] + out[i];
-        }
+        const glm::vec4 color = scaled_diffuse * pipe.material_info.diffuse;
+        AccumulateSurfaceLight({pipe.getDiffuse(), count}, color, dots, attenuation);
     }
     if ((channels & (1UL << srVertexProcessor::CHANNEL_SPECULAR)) == 0) {
         return;
@@ -475,22 +472,8 @@ void srLight::process(srVertexPipe& pipe)
     }
     for (std::size_t i = 0; i < count; ++i)
         distances[i] = distances[i] * dots[i];
-    glm::vec4 specular;
-    specular = scaled_specular * pipe.material_info.specular;
-    const auto specular_color = specular;
-    srCore.getStatisticsManager()->statistics.specular_operations += count;
-    if ((pipe.lazy_setup_mask & (1UL << srVertexProcessor::CHANNEL_SPECULAR)) == 0) {
-        pipe.setupSpecular();
-    }
-    glm::vec4* out = pipe.vertex_array->specular + pipe.batch_base + pipe.sub_batch_offset;
-    if (attenuation != 0) {
-        for (std::size_t i = 0; i < count; ++i)
-            out[i] = specular_color * attenuation[i] * distances[i] + out[i];
-
-    } else {
-        for (std::size_t i = 0; i < count; ++i)
-            out[i] = specular_color * distances[i] + out[i];
-    }
+    const glm::vec4 color = scaled_specular * pipe.material_info.specular;
+    AccumulateSurfaceLight({pipe.getSpecular(), count}, color, distances, attenuation);
 }
 
 // FUNCTION: SURRENDER 0x1004DC80

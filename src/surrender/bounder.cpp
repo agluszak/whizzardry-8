@@ -148,7 +148,7 @@ void srBounder::updateBounds()
         bounds.radius = 0.0f;
         bounds.state = 0;
         glm::mat4 world;
-        getWorldSpaceMatrix(world);
+        world = getWorldSpaceMatrix<glm::mat4>();
         inverse_world = glm::inverse(world);
         for (srNode* child = first_child_; child != 0; child = child->getNext()) {
             getChildBoundingBox(child);
@@ -169,8 +169,7 @@ void srBounder::getChildBoundingBox(srNode* node)
         BoundInfo child_bounds;
         node->getLocalBounds(child_bounds);
         if (child_bounds.state == 1) {
-            glm::mat4 world;
-            node->getWorldSpaceMatrix(world);
+            auto world = node->getWorldSpaceMatrix<glm::mat4>();
             const srBoundingBox child_box{child_bounds.minimum, child_bounds.maximum};
             const auto transformed = child_box.transformed(inverse_world * world);
             if (bounds.state == 0) {

@@ -2554,14 +2554,11 @@ void W8NpcDialogueTextController::Redraw()
 unsigned char W8NpcDialogueTextController::AddTranscriptEntry(std::string_view text,
                                                               signed char category, char mark)
 {
-    std::string existing;
     int index;
     int added;
 
     for (index = 0; index < static_cast<int>(text_area.m_all_lines.size()); ++index) {
-        text_area.GetEntry(index);
-        text_area.CopyEntryText(index, existing);
-        if (CompareTextIgnoreAsciiCase(existing, text) == 0) {
+        if (CompareTextIgnoreAsciiCase(*text_area.GetEntryText(index), text) == 0) {
             return 0;
         }
     }
@@ -2572,9 +2569,7 @@ unsigned char W8NpcDialogueTextController::AddTranscriptEntry(std::string_view t
     }
     if (1u < static_cast<int>((unsigned)text_area.m_all_lines.size())) {
         for (index = 0; index < static_cast<int>(text_area.m_all_lines.size()); ++index) {
-            text_area.GetEntry(index);
-            text_area.CopyEntryText(index, existing);
-            if (CompareTextIgnoreAsciiCase(existing, " [No Keywords]") == 0) {
+            if (CompareTextIgnoreAsciiCase(*text_area.GetEntryText(index), " [No Keywords]") == 0) {
                 text_area.RemoveEntry(index);
                 Invalidate(0);
                 break;
@@ -6619,7 +6614,7 @@ void SetCombatSelection(int value)
         srVector3T<float> maximum;
         W8Monster* monster;
 
-        GetCameraPosition(&camera);
+        camera = cameraLocation();
         monster = GetMonsterByLocationID(value);
         MonsterGetWorldAnimationBounds(monster, &minimum, &maximum);
         if (TraceLineOfSightToBounds(&camera, &minimum, &maximum) != 0) {
@@ -6671,7 +6666,7 @@ void SetCombatTarget(int value)
                 srVector3T<float> camera;
 
                 GetItemWorldBounds(item->p3D, &minimum, &maximum);
-                GetCameraPosition(&camera);
+                camera = cameraLocation();
                 if (TraceLineOfSightToBounds(&camera, &minimum, &maximum) != 0) {
                     g_level_block->selected_item = value;
                     SetWorldItemHighlight(value, true);
@@ -7949,7 +7944,6 @@ bool AttemptNpcItemTrade(W8ItemInstance* item, unsigned char quantity, int index
 // FUNCTION: WIZ8 0x0055E490
 void W8NpcDialogueTextController::SelectTranscriptKeywordAtPoint(int x, int y)
 {
-    std::string keyword;
     unsigned int hit;
 
     if (g_npc_interaction_state->modal_dialog_open) {
@@ -7960,22 +7954,23 @@ void W8NpcDialogueTextController::SelectTranscriptKeywordAtPoint(int x, int y)
     if (hit == static_cast<unsigned int>(-1)) {
         return;
     }
+    const auto keyword = text_area.GetVisibleEntryText(hit);
+    if (!keyword)
+        return;
 
     if (text_area.m_highlighted_entry == static_cast<int>(hit)) {
-        text_area.CopyVisibleEntryText(hit, keyword);
         text_area.ClearEntryHighlight();
         text_area.HighlightVisibleEntry(static_cast<int>(hit));
-        SetDialogueFieldKeyword(keyword, false);
+        SetDialogueFieldKeyword(std::string(*keyword), false);
         HandleNpcDialogueInput();
         text_area.SetEntryMarked(text_area.GetOwningEntryIndex(static_cast<int>(hit)), false);
         InvalidateLayout();
         return;
     }
 
-    text_area.CopyVisibleEntryText(hit, keyword);
     text_area.ClearEntryHighlight();
     text_area.HighlightVisibleEntry(static_cast<int>(hit));
-    SetDialogueFieldKeyword(keyword, false);
+    SetDialogueFieldKeyword(std::string(*keyword), false);
     InvalidateLayout();
 }
 

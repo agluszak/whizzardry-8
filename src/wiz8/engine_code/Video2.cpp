@@ -510,7 +510,6 @@ unsigned char InitializePrimaryCpuSurface(void)
     primarySurface.usWidth = 640;
     primarySurface.usHeight = 480;
     primarySurface.ubBitDepth = 16;
-    primarySurface.fFlags = VSURFACE_SYSTEM_MEM_USAGE;
     return bool(primarySurface.ownedSurface);
 }
 
@@ -819,8 +818,7 @@ static RuntimeWorldRenderData ObserveWorldRenderState()
     srGERD::Statistics statistics;
     g_gerd->getStatistics(statistics);
     data.draw_calls = statistics.draw_calls;
-    srVector3T<float> camera;
-    GetCameraPosition(&camera);
+    srVector3T<float> camera = cameraLocation();
     data.camera[0] = camera.x;
     data.camera[1] = camera.y;
     data.camera[2] = camera.z;
@@ -857,7 +855,7 @@ void RenderFrame(void)
     }
 
     if (g_trigger_action_active && GetWorld() != 0) {
-        GetCameraPosition(&saved_world_position);
+        saved_world_position = cameraLocation();
         shifted_world_position = saved_world_position + g_trigger_action_scene_offset;
         SetWorldScenePosition(GetWorld(), &shifted_world_position);
     }
@@ -1776,15 +1774,7 @@ void SetAutomapScaledViewport(int left, int top, int right, int bottom)
     g_viewport.bottom = bottom;
 }
 
-/*
- * Sets the viewport and rebuilds the camera view plane to match it.
- *
- * The srCamera and srGERD entry points are declared to produce exactly the
- * decorated names Wiz8.exe imports, taken from its import table: two
- * setViewPlane overloads, the const getViewPlane, and srGERD::flush. The
- * dllimport is not decoration - without it VC6 emits a direct call to the
- * thunk where the canonical has an indirect call through the import table.
- */
+/* Sets the viewport and rebuilds the camera view plane to match it. */
 
 // FUNCTION: WIZ8 0x00426250
 void SetViewport(int left, int top, int right, int bottom)
@@ -1793,9 +1783,7 @@ void SetViewport(int left, int top, int right, int bottom)
     float fractional_top;
     float fractional_right;
     float fractional_bottom;
-    srCamera::Rect view;
     srCamera::Rect plane;
-    double depth;
 
     if (g_gerd != 0 && g_flush_pending) {
         g_gerd->flush();
@@ -1813,7 +1801,7 @@ void SetViewport(int left, int top, int right, int bottom)
         g_world->camera->setViewPlane(
             3.14159265358979323846 * g_float_inverse_half_turn_degrees * 85.0f,
             3.14159265358979323846 * g_float_inverse_half_turn_degrees * 71.0f);
-        g_world->camera->getViewPlane(view, depth);
+        const auto view = g_world->camera->getViewPlane().rectangle;
 
         plane.left = fractional_left * (view.right - view.left) + view.left;
         plane.right = fractional_right * (view.right - view.left) + view.left;
@@ -1908,7 +1896,7 @@ void DrawVideoInspector(int left, unsigned int top)
         if (g_video_inspector_mode == 3) {
             float scaled;
 
-            GetCameraPosition(&position);
+            position = cameraLocation();
             if (gfKeyState[0x70] != 0) {
                 position.x *= g_world_cursor_scale;
                 scaled = position.y * g_world_cursor_scale;
@@ -3091,7 +3079,7 @@ srNode* MakePosterQuad(std::shared_ptr<srTextureIFace> texture, float width, flo
     float extent_w = g_float_one / dimensions.width * g_surface_scale;
     float extent_h = g_float_one / dimensions.height * g_surface_scale;
     model->setName("VideoMakePoster");
-    texture->getDimensions(dimensions);
+    texture->getDimensions();
     g_modeler->createGrid(1, 1);
     srModeler::MappingInfo mapping(srModeler::AXIS_X, srModeler::AXIS_Y, g_float_one - extent_w,
                                    g_float_one - extent_h, extent_w, extent_h);

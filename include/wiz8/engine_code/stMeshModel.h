@@ -9,6 +9,7 @@
 #include <vector>
 #include <cstddef>
 
+#include "surrender/srBoundingBox.h"
 #include "surrender/srMeshModel.h"
 #include "surrender/srTypeRegistry.h"
 #include "compat/compiler.h"
@@ -87,9 +88,9 @@ public:
     void InitializeVertexFrames(int frames); /* 0x00473B00 */
     int ReleaseDecompressedFrames();         /* 0x004739E0 */
     void FinalizeVertexFrame(int frame);
-    /* Bounds `frame`'s vertex table into `minimum`/`maximum`, decompressing a
-       scratch copy when the frame is not resident. */
-    void GetFrameBounds(int frame, glm::vec3* minimum, glm::vec3* maximum);
+    /* Return `frame`'s vertex bounds, decompressing a scratch copy when the frame
+       is not resident. Invalid frames and empty meshes return zero bounds. */
+    srBoundingBox GetFrameBounds(int frame);
     unsigned char DecompressFrame(int frame, unsigned char flags,
                                   srVector3T<float>* destination); /* 0x00471930 */
     void ComputeFrameNormals(int frame);                           /* 0x004729F0 */

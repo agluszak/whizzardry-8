@@ -27,7 +27,6 @@ public:
 
     void setClipPlane(const glm::vec4& plane);
     void setClipType(e_clip type);
-    void getClipPlane(glm::vec4& plane) const;
     glm::vec4 getClipPlane() const;
     e_clip getClipType() const;
 

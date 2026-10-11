@@ -1,9 +1,13 @@
+#include "glm/ext/vector_int3.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include "wiz8/octree_walk.h"
 #include <catch2/catch_test_macros.hpp>
 #include <glm/gtc/constants.hpp>
 #include <glm/ext/matrix_clip_space.hpp>
 #include <glm/ext/matrix_transform.hpp>
 #include <glm/gtx/euler_angles.hpp>
 #include <array>
+#include <algorithm>
 #include <cmath>
 #include <limits>
 #include <cstddef>
@@ -12,6 +16,7 @@
 #include <span>
 #include <string>
 #include <vector>
+#include <utility>
 
 #include "glm/geometric.hpp"
 #include "surrender_test_fixture.h"
@@ -19,9 +24,13 @@
 #include "surrender/srMaterial.h"
 #include "surrender/srModeler.h"
 #include "surrender/srGERD.h"
+#include "surrender/srCamera.h"
+#include "wiz8/engine_code/World.h"
 #include "surrender/srTriangleCuller.h"
 #include "surrender/srDD_SDLGPU.h"
 #include "wiz8/engine_code/3d.h"
+#include "wiz8/engine_code/Octree.h"
+#include "wiz8/engine_code/AnimObj.h"
 #include "wiz8/engine_code/stLight.hpp"
 #include "wiz8/engine_code/stMeshModel.h"
 #include "wiz8/engine_code/stModelInstance.h"
@@ -29,6 +38,8 @@
 #include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/OctBuildPreTree.h"
+#include "wiz8/engine_code/OctBuildTree.h"
+#include "wiz8/engine_code/materials.h"
 #include "wiz8/engine_code/OctPreTree.h"
 #include "wiz8/engine_code/Navigator.h"
 #include "wiz8/engine_code/SoundEvent.h"
@@ -36,6 +47,7 @@
 #include "compat/compiler.h"
 #include "geometry.h"
 #include "surrender/srMath.h"
+#include "surrender/segment_math.h"
 #include "surrender/srMeshModel.h"
 #include "surrender/srShader.h"
 #include "glm/fwd.hpp"
@@ -69,14 +81,31 @@ static void bounds()
     const auto rotated = box.transformed(matrix);
     REQUIRE(close(rotated.minimum, {3, 22, 31}));
     REQUIRE(close(rotated.maximum, {9, 28, 34}));
+    // The animation transform scales the translated coordinates, including
+    // negative scale. It therefore differs from translating a scaled box.
+    glm::mat3 quarter_turn(0);
+    quarter_turn[0] = glm::vec3(0, 1, 0);
+    quarter_turn[1] = glm::vec3(-1, 0, 0);
+    quarter_turn[2] = glm::vec3(0, 0, 1);
+    const srVector3 translation(10, 20, 30), scale(-2, 3, .5f);
+    srVector3 minimum(-1, -2, -3), maximum(4, 5, 6);
+    TransformBounds(&quarter_turn, &translation, &scale, &minimum, &maximum);
+    REQUIRE(minimum == srVector3(-24, 57, 13.5f));
+    REQUIRE(maximum == srVector3(-10, 72, 18));
+    minimum = srVector3(0, 0, 0);
+    maximum = srVector3(0, 0, 0);
+    TransformBounds(&quarter_turn, &translation, &scale, &minimum, &maximum);
+    REQUIRE((minimum == srVector3(-20, 60, 15) && maximum == minimum));
 }
 
 static void planes_and_segments()
 {
     const srVector3 a(0, 2, 0), b(0, 2, 3), c(4, 2, 0);
-    char surface = 99, material = 99;
-    REQUIRE(GetGroundSurfaceInfo(&a, &surface, &material) == 2);
-    REQUIRE((surface == 0 && material == 0));
+    const auto ground = probeGround(a.glmValue());
+    REQUIRE((ground.position == a.glmValue() && !ground.hit));
+    const auto surface = groundSurfaceInfo(a.glmValue());
+    REQUIRE(surface.height == 2);
+    REQUIRE((surface.surface == 0 && surface.material == 0));
     W8Plane plane{};
     SetPlaneFromThreePoints(&plane, &a, &b, &c);
     REQUIRE(close(plane.normal.glmValue(), {0, 1, 0}));
@@ -95,6 +124,30 @@ static void planes_and_segments()
     REQUIRE(!SegmentCrossesEdge(start, end, beyond, away, 1));
     REQUIRE(SegmentCrossesEdge(on_line, on_line, start, end, 1));
     REQUIRE(!SegmentCrossesEdge(parallel_a, parallel_a, start, end, 1));
+
+    // The spatial and planar callers share endpoint clamping but measure
+    // different dimensions. Exercise before, within and beyond the segment.
+    const glm::vec3 segment_from(0), segment_to(4, 0, 0);
+    const glm::vec2 planar_from(0), planar_to(4, 0);
+    for (float x : {-2.f, 2.f, 6.f}) {
+        const glm::vec3 point(x, 3, 4);
+        const glm::vec2 planar(x, 3);
+        const auto projection = srSegmentMath::project(point, segment_from, segment_to);
+        const auto planar_projection = srSegmentMath::project(planar, planar_from, planar_to);
+        REQUIRE(std::abs(projection.distance - (x == 2 ? 5.f : std::sqrt(29.f))) < 1e-5f);
+        REQUIRE(std::abs(planar_projection.distance - (x == 2 ? 3.f : std::sqrt(13.f))) < 1e-5f);
+        const float expected_fraction = x < 0 ? 0 : x > 4 ? 1 : .5f;
+        REQUIRE(projection.fraction == expected_fraction);
+        REQUIRE(planar_projection.fraction == expected_fraction);
+        REQUIRE(projection.point == glm::vec3(expected_fraction * 4, 0, 0));
+        REQUIRE(planar_projection.point == glm::vec2(expected_fraction * 4, 0));
+    }
+    const auto degenerate = srSegmentMath::project(glm::vec3(0, 3, 4), segment_from, segment_from);
+    const auto degenerate_planar = srSegmentMath::project(glm::vec2(0, 3), planar_from, planar_from);
+    REQUIRE(degenerate.distance == 5);
+    REQUIRE((degenerate.point == segment_from && degenerate.fraction == 0));
+    REQUIRE(degenerate_planar.distance == 3);
+    REQUIRE((degenerate_planar.point == planar_from && degenerate_planar.fraction == 0));
 
     W8EnvironRecord environment;
     environment.scale = 2;
@@ -122,6 +175,31 @@ static void camera_and_throw()
     REQUIRE(close(position.glmValue(), {11, -3, 3}));
 
     GDCamera camera;
+    camera.m_position = glm::vec3(3, 4, 5);
+    camera.m_yaw = .25f;
+    camera.m_pitch = -.5f;
+    auto* previous_camera = g_gd_camera;
+    g_gd_camera = &camera;
+    W8World world{};
+    const auto empty_location = cameraLocationOrZero(world);
+    const auto empty_state = cameraState(world);
+    srCamera node;
+    node.setLocation(1.25, -2.5, 3.75);
+    world.camera = &node;
+    const auto live_location = cameraLocation();
+    const auto node_location = cameraLocation(world);
+    const auto state = cameraState(world);
+    const auto rotation = cameraRotation(world);
+    g_gd_camera = previous_camera;
+    REQUIRE(empty_location == glm::vec3(0));
+    REQUIRE(empty_state.position == srVector3(0, 0, 0));
+    REQUIRE(live_location == glm::vec3(3, 4, 5));
+    REQUIRE(node_location == glm::vec3(1.25f, -2.5f, 3.75f));
+    REQUIRE(state.position.glmValue() == node_location);
+    REQUIRE((state.yaw[0] == .25f && state.pitch[0] == -.5f));
+    for (int index = 1; index < 6; ++index)
+        REQUIRE((state.yaw[index] == 0 && state.pitch[index] == 0));
+    REQUIRE(rotation == glm::mat3(1));
     camera.SetOrientation(glm::half_pi<float>(), 0);
     srVector3 forward;
     camera.GetForwardPoint(10, &forward);
@@ -252,8 +330,7 @@ static void baked_lighting()
     light.setLocation(srVector3T<double>(position));
     REQUIRE(BakeInstanceVertexLighting(&instance, &light, true));
     REQUIRE(colors[0] == srVector3(0, 0, 0));
-    glm::mat4 world;
-    instance.getWorldSpaceMatrix(world);
+    auto world = instance.getWorldSpaceMatrix<glm::mat4>();
     mesh.flags &= ~W8_MESH_VERTEX_LIGHTING_DIRTY;
     mesh.RevealVerticesNear({10, 0, -2}, 0.25f, world);
     REQUIRE((colors[0] == srVector3(1, 1, 1) && colors[1] == srVector3(0, 0, 0)));
@@ -297,7 +374,7 @@ static void procedural_meshes()
     REQUIRE((std::abs(modeler.getMaxVertexDist() - std::sqrt(0.5)) < 1e-5));
     modeler.planarMap(0, 0, {});
     for (w8_ulong i = 0; i < modeler.getTriangleCount(); ++i) {
-        REQUIRE((modeler.getTriangle(i, triangle)));
+        triangle = *modeler.getTriangle(i);
         for (const auto& vertex : triangle.vertices)
             REQUIRE((glm::length(vertex.uv[0] - glm::vec2(vertex.position.x + 0.5f,
                                                        0.5f - vertex.position.y)) < 1e-5f));
@@ -308,27 +385,27 @@ static void procedural_meshes()
     }
     modeler.autoSmooth(0.3, 1);
     srModeler::Triangle first, second;
-    modeler.getTriangle(0, first);
-    modeler.getTriangle(1, second);
+    first = *modeler.getTriangle(0);
+    second = *modeler.getTriangle(1);
     REQUIRE(((first.flags & second.flags) != 0));
     second.shaders[0].value ^= 1;
     modeler.setTriangle(1, second);
     modeler.autoSmooth(0.3, 0);
-    modeler.getTriangle(0, first);
-    modeler.getTriangle(1, second);
+    first = *modeler.getTriangle(0);
+    second = *modeler.getTriangle(1);
     REQUIRE(((first.flags & second.flags) == 0));
     modeler.addFromModeler(modeler);
     REQUIRE((modeler.getTriangleCount() == 24));
     modeler.scale({2, 3, 1});
     modeler.move({10, 20, 30});
-    float lower, upper;
-    modeler.getAxialBounds(srModeler::AXIS_X, lower, upper);
-    REQUIRE((lower == 9 && upper == 11));
+    REQUIRE((modeler.getAxialBounds(srModeler::AXIS_X) == std::pair{9.f, 11.f}));
+
+    REQUIRE_FALSE(modeler.getTriangle(modeler.getTriangleCount()).has_value());
 
     modeler.createSphere(8);
     REQUIRE((modeler.getTriangleCount() == 128));
     for (w8_ulong i = 0; i < modeler.getTriangleCount(); ++i) {
-        modeler.getTriangle(i, triangle);
+        triangle = *modeler.getTriangle(i);
         for (const auto& vertex : triangle.vertices)
             REQUIRE((std::abs(glm::length(vertex.position) - 0.5f) < 1e-5f));
         const auto normal =
@@ -342,7 +419,7 @@ static void procedural_meshes()
     modeler.createTorus(8, 6, 0.4);
     REQUIRE((modeler.getTriangleCount() == 96));
     for (w8_ulong i = 0; i < modeler.getTriangleCount(); ++i) {
-        modeler.getTriangle(i, triangle);
+        triangle = *modeler.getTriangle(i);
         for (const auto& vertex : triangle.vertices) {
             const float ring = glm::length(glm::vec2(vertex.position)) - 0.5f;
             REQUIRE((std::abs(ring * ring + vertex.position.z * vertex.position.z - 0.04f) < 1e-5f));
@@ -365,7 +442,7 @@ static void procedural_meshes()
     modeler.tesselateEdges(1.1);
     double area = 0;
     for (w8_ulong i = 0; i < modeler.getTriangleCount(); ++i) {
-        modeler.getTriangle(i, triangle);
+        triangle = *modeler.getTriangle(i);
         for (int edge = 0; edge < 3; ++edge)
             REQUIRE((glm::distance(triangle.vertices[edge].position,
                                 triangle.vertices[(edge + 1) % 3].position) <= 1.10001f));
@@ -408,7 +485,7 @@ static void procedural_meshes()
             REQUIRE((modeler.getTriangleCount() == 3));
             area = 0;
             for (w8_ulong i = 0; i < modeler.getTriangleCount(); ++i) {
-                modeler.getTriangle(i, triangle);
+                triangle = *modeler.getTriangle(i);
                 area += glm::length(glm::cross(
                             triangle.vertices[1].position - triangle.vertices[0].position,
                             triangle.vertices[2].position - triangle.vertices[0].position)) *
@@ -514,9 +591,8 @@ static void triangle_visibility()
     input.active_triangle_count = 0;
     REQUIRE((!srTriangleCuller::cull(output, input)));
     REQUIRE((output.triangle_count == 0 && output.vertex_count == 0));
-    float depth;
-    const auto mask = srTriangleCuller::getClipMask({1, 0, 0}, 0, planes.data(), 0x3f, depth);
-    REQUIRE((mask == (1u << 1) && std::isfinite(depth)));
+    const auto clip = srTriangleCuller::getClipMask({1, 0, 0}, 0, planes.data(), 0x3f);
+    REQUIRE((clip.mask == (1u << 1) && std::isfinite(clip.depth)));
 }
 
 TEST_CASE_METHOD(SurRenderTestFixture, "Procedural meshes", "[geometry]")
@@ -636,4 +712,172 @@ TEST_CASE("Octree face run rejects invalid growth capacity", "[geometry]")
     REQUIRE(faces == nullptr);
     REQUIRE(geometry.CheckArrayLength(&faces, 65535, 5) == 0);
     REQUIRE(faces == nullptr);
+}
+
+TEST_CASE("Octree queries own dense results across later queries", "[geometry][octree]")
+{
+    W8Octree tree(nullptr, nullptr);
+    tree.m_spatial.m_minimum = {0, 0, 0};
+    tree.m_spatial.m_maximum = {1000, 1000, 1000};
+    tree.m_spatial.m_node_extent = 1000;
+    tree.m_leaf_grid_dimensions = {1, 1, 1};
+    tree.object_registry = new W8OctreeObjectRegistry;
+    tree.m_visited_object_bits.assign(11000, false);
+    const glm::ivec3 cell(0, 0, 0);
+    for (int id = 1; id <= 10500; ++id)
+        tree.object_registry->RegisterObjectCell(W8_OCTREE_KIND_LOCATION, id, cell);
+    const srBoundingBox bounds{{0, 0, 0}, {999, 999, 999}};
+    const auto dense = tree.queryObjects(bounds, W8_OCTREE_KIND_LOCATION, -1);
+    REQUIRE(dense.size() == 10000);
+    const auto original = dense;
+    const auto nearby = tree.nearbyLocations({500, 500, 500}, 1);
+    REQUIRE(nearby.size() == 10000);
+    REQUIRE(nearby == dense);
+    const auto absent = tree.queryObjects(bounds, W8_OCTREE_KIND_PROP, -1);
+    REQUIRE(absent.empty());
+    REQUIRE(dense == original);
+    REQUIRE(nearby == original);
+
+    tree.object_registry->by_cell->clear();
+    tree.object_registry->by_object->clear();
+    for (int id = 1; id <= 512; ++id)
+        tree.object_registry->RegisterObjectCell(W8_OCTREE_KIND_LOCATION, id, cell);
+    const auto locations = tree.locationsInBox(bounds, 7);
+    REQUIRE(locations.size() == 511);
+    REQUIRE(std::ranges::find(locations, 7u) == locations.end());
+    REQUIRE(tree.locationsInBox(bounds, 0).size() == 512);
+    REQUIRE(tree.locationsInBox({{2000, 2000, 2000}, {3000, 3000, 3000}}, 0).empty());
+    REQUIRE(tree.locationsInBox({{999, 999, 999}, {0, 0, 0}}, 0).size() == 512);
+}
+
+TEST_CASE("Octree walks retain ordered crossings, early exits and coordinate rounding", "[geometry][octree]")
+{
+    W8Octree tree(nullptr, nullptr);
+    tree.m_spatial.m_minimum = {0, 0, 0};
+    tree.m_spatial.m_node_extent = 100;
+    const std::vector<glm::ivec3> diagonal{
+        {0, 0, 0}, {1, 0, 0}, {1, 0, 1}, {1, 1, 1},
+        {2, 1, 1}, {2, 1, 2}, {2, 2, 2}};
+    for (int signs = 0; signs < 8; ++signs) {
+        glm::vec3 from(25), to(225);
+        for (int axis = 0; axis < 3; ++axis)
+            if ((signs & (1 << axis)) != 0) { from[axis] = 275; to[axis] = 75; }
+        const auto walk = tree.cellWalk(from, to);
+        auto expected = diagonal;
+        for (auto& cell : expected)
+            for (int axis = 0; axis < 3; ++axis)
+                if ((signs & (1 << axis)) != 0) cell[axis] = 2 - cell[axis];
+        std::vector<glm::ivec3> visited;
+        walk.visitCells([&](const glm::ivec3& cell) { visited.push_back(cell); return true; });
+        REQUIRE(visited == expected);
+        // Stop at every possible crossing, including either secondary axis.
+        for (std::size_t stop = 1; stop <= expected.size(); ++stop) {
+            visited.clear();
+            walk.visitCells([&](const glm::ivec3& cell) {
+                visited.push_back(cell);
+                return visited.size() < stop;
+            });
+            REQUIRE(visited == std::vector<glm::ivec3>(expected.begin(), expected.begin() + stop));
+        }
+    }
+    for (int axis = 0; axis < 3; ++axis) {
+        glm::vec3 from(25), to(25);
+        to[axis] = 225;
+        const auto walk = tree.cellWalk(from, to);
+        REQUIRE(walk.major_axis == axis);
+        std::vector<glm::ivec3> visited;
+        walk.visitCells([&](const glm::ivec3& cell) { visited.push_back(cell); return true; });
+        REQUIRE(visited.size() == 3);
+        for (int index = 0; index < 3; ++index) {
+            glm::ivec3 expected(0);
+            expected[axis] = index;
+            REQUIRE(visited[index] == expected);
+        }
+    }
+    REQUIRE(tree.cellAt({-99, -100, -199}) == glm::ivec3(0, -1, -1));
+    const auto stationary = tree.cellWalk({125, 225, 325}, {125, 225, 325});
+    std::vector<glm::ivec3> visited;
+    stationary.visitCells([&](const glm::ivec3& cell) { visited.push_back(cell); return true; });
+    REQUIRE((visited == std::vector<glm::ivec3>{{1, 2, 3}}));
+
+    // The preprocessing walk deliberately retains its world-quantized start.
+    tree.m_spatial.m_node_extent = 100.123f;
+    const glm::vec3 boundary{100.121f, 25, 25};
+    auto walk = tree.cellWalk(boundary, {350, 25, 25});
+    REQUIRE(walk.cell.x == 1);
+    REQUIRE(tree.cellAt(boundary).x == 0);
+    walk.cell = tree.cellAt(boundary);
+    visited.clear();
+    walk.visitCells([&](const glm::ivec3& cell) { visited.push_back(cell); return true; });
+    REQUIRE(visited.front().x == 0);
+}
+
+TEST_CASE("Build-tree queries own uncapped ordered results and independent state", "[geometry][octree]")
+{
+    W8OctBuildTree tree(1000, nullptr, nullptr, 16, 0);
+    REQUIRE(tree.queryAlongSegment({0, 0, 0}, {0, 0, 0}, 1, 3).empty());
+    tree.spatial.m_minimum = {0, 0, 0};
+    tree.spatial.m_maximum = {100, 100, 100};
+    tree.spatial.m_extent = 100;
+    tree.spatial.m_root = new W8OctBuildNode;
+    tree.spatial.m_root->leaf_kind = 1;
+    std::vector<W8GDSurface> surfaces(10050);
+    W8OctBuildLink* tail = nullptr;
+    for (auto& surface : surfaces) {
+        auto& link = tree.links.emplace_back(W8OctBuildLink{&surface, nullptr});
+        if (tail) tail->next = &link;
+        else tree.spatial.m_root->links[3] = &link;
+        tail = &link;
+    }
+    const auto hits = tree.queryAlongSegment({50, 50, 50}, {0, 0, 0}, 100, 3);
+    REQUIRE(hits.size() == surfaces.size());
+    for (std::size_t index = 0; index < hits.size(); ++index) {
+        REQUIRE(hits[index] == &surfaces[index]);
+        REQUIRE((surfaces[index].flags & W8_GD_SURFACE_QUERY_VISITED) == 0);
+    }
+
+    W8OctBuildTree other(1000, nullptr, nullptr, 16, 0);
+    other.spatial.m_minimum = {0, 0, 0};
+    other.spatial.m_maximum = {100, 100, 100};
+    other.spatial.m_extent = 100;
+    other.spatial.m_root = new W8OctBuildNode;
+    W8GDSurface separate{};
+    other.AppendLink(other.spatial.m_root, &separate, 3);
+    const auto other_hits = other.queryAlongSegment({50, 50, 50}, {0, 0, 0}, 100, 3);
+    REQUIRE(other_hits == std::vector<W8GDSurface*>{&separate});
+    REQUIRE(tree.queryAlongSegment({50, 50, 50}, {0, 0, 0}, 100, 3) == hits);
+    REQUIRE(other.queryAlongSegment({500, 500, 500}, {0, 0, 0}, 1, 3).empty());
+    REQUIRE(hits.front() == &surfaces.front());
+
+    // Kind 9 preserves list-3 order, then appends unseen list-4 surfaces.
+    tree.AppendLink(tree.spatial.m_root, &surfaces[0], 4);
+    tree.AppendLink(tree.spatial.m_root, &separate, 4);
+    surfaces[0].flags |= W8_GD_SURFACE_QUERY_VISITED;
+    const auto mixed = tree.queryAlongSegment({50, 50, 50}, {0, 0, 0}, 100, 9);
+    REQUIRE(mixed.size() == surfaces.size() + 1);
+    REQUIRE(mixed.front() == &surfaces[1]);
+    REQUIRE(mixed[mixed.size() - 2] == &surfaces[0]);
+    REQUIRE(mixed.back() == &separate);
+    REQUIRE((surfaces[0].flags & W8_GD_SURFACE_QUERY_VISITED) == 0);
+}
+
+TEST_CASE("Swept query coordinates retain negative-cell policy and complete offsets", "[geometry][octree]")
+{
+    W8Octree tree(nullptr, nullptr);
+    tree.m_spatial.m_minimum = {0, 0, 0};
+    tree.m_spatial.m_maximum = {100, 100, 100};
+    tree.m_spatial.m_node_extent = 100;
+    const auto below = tree.cellCoordinates({-99, -100, -199});
+    REQUIRE(below.cell == glm::ivec3(-1, -2, -2));
+    REQUIRE(close(below.offset, {-0.49f, 0.5f, -0.49f}));
+    REQUIRE_FALSE(below.inside);
+    const auto upper = tree.cellCoordinates({100, 100, 100});
+    REQUIRE(upper.cell == glm::ivec3(1));
+    REQUIRE(upper.offset == glm::vec3(-0.5f));
+    REQUIRE(upper.inside);
+    const auto lower = tree.cellCoordinates({0, 0, 0});
+    REQUIRE(lower.cell == glm::ivec3(0));
+    REQUIRE(lower.offset == glm::vec3(-0.5f));
+    REQUIRE(lower.inside);
+    REQUIRE(tree.projectRegionsAt({101, 50, 50}).cell == glm::ivec3(1, 0, 0));
 }

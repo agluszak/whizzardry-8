@@ -284,7 +284,7 @@ void UpdateRadarBlips(void)
     if (g_radar_frame != 0) {
         RotateNodeInDegrees(g_radar_frame, g_status.party_facing);
     }
-    GetCameraPosition(&camera);
+    camera = cameraLocation();
     detect_all = PartyHasCondition(0x40);
 
     W8WorldItem* world_item = GetNextWorldItem(true);

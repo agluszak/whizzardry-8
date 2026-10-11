@@ -2,7 +2,8 @@
    Distributed under the accompanying SFI Source Code license agreement. */
 #include "line.h"
 
-#include "Types.h"
+#include <SDL3/SDL_rect.h>
+
 //				Example Usage
 
 //	SEND THE PITCH IN BYTES
@@ -14,14 +15,10 @@
 
 // GLOBAL: WIZ8 0x00650f9c
 int giImageWidth = 0;
-// GLOBAL: WIZ8 0x00650fa0
-int giClipXMin = 0;
-// GLOBAL: WIZ8 0x00650fa4
-int giClipXMax = 0;
-// GLOBAL: WIZ8 0x00650fa8
-int giClipYMin = 0;
-// GLOBAL: WIZ8 0x00650fac
-int giClipYMax = 0;
+// The clipping rectangle uses SDL's half-open bounds. The original
+// min/max coordinates were inclusive, so the stored width/height match
+// the caller's dimensions without subtracting one.
+static SDL_Rect g_line_clip{};
 
 static void DrawPixelRun(char** screen, int length, int color, int pixel_step, int next_run_step);
 
@@ -30,89 +27,7 @@ void SetClippingRegionAndImageWidth(int iImageWidth, int iClipStartX, int iClipS
                                     int iClipWidth, int iClipHeight)
 {
     giImageWidth = iImageWidth;
-    giClipXMin = iClipStartX;
-    giClipXMax = iClipStartX + iClipWidth - 1;
-    giClipYMin = iClipStartY;
-    giClipYMax = iClipStartY + iClipHeight - 1;
-}
-
-bool Clipt(FLOAT denom, FLOAT num, FLOAT* tE, FLOAT* tL)
-{
-    FLOAT t;
-    bool accept;
-
-    accept = TRUE;
-
-    if (denom > 0.0f) {
-        t = num / denom;
-        if (t > *tL)
-            accept = FALSE;
-        else if (t > *tE)
-            *tE = t;
-    } else if (denom < 0.0f) {
-        t = num / denom;
-        if (t < *tE)
-            accept = FALSE;
-        else if (t < *tL)
-            *tL = t;
-    } else if (num > 0)
-        accept = FALSE;
-
-    return (accept);
-}
-
-bool ClipPoint(int x, int y)
-{
-    return (x <= giClipXMax && x >= giClipXMin && y <= giClipYMax && y >= giClipYMin);
-}
-
-// FUNCTION: WIZ8 0x00414010
-bool Clip2D(int* ix0, int* iy0, int* ix1, int* iy1)
-{
-    bool visible;
-    FLOAT te, tl;
-    FLOAT dx, dy;
-    FLOAT x0, y0, x1, y1;
-
-    x0 = (FLOAT)*ix0;
-    x1 = (FLOAT)*ix1;
-    y0 = (FLOAT)*iy0;
-    y1 = (FLOAT)*iy1;
-
-    dx = x1 - x0;
-    dy = y1 - y0;
-    visible = FALSE;
-
-    if (dx == 0.0 && dy == 0.0 && ClipPoint(*ix0, *iy0))
-        visible = TRUE;
-    else {
-        te = 0.0f;
-        tl = 1.0f;
-        if (Clipt(dx, (FLOAT)giClipXMin - x0, &te, &tl)) {
-            if (Clipt(-dx, x0 - (FLOAT)giClipXMax, &te, &tl)) {
-                if (Clipt(dy, (FLOAT)giClipYMin - y0, &te, &tl)) {
-                    if (Clipt(-dy, y0 - (FLOAT)giClipYMax, &te, &tl)) {
-                        visible = TRUE;
-                        if (tl < 1.0f) {
-                            x1 = x0 + tl * dx;
-                            y1 = y0 + tl * dy;
-                        }
-                        if (te > 0) {
-                            x0 = x0 + te * dx;
-                            y0 = y0 + te * dy;
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    *ix0 = (int)x0;
-    *ix1 = (int)x1;
-    *iy0 = (int)y0;
-    *iy1 = (int)y1;
-
-    return (visible);
+    g_line_clip = {iClipStartX, iClipStartY, iClipWidth, iClipHeight};
 }
 
 /* Draws a line between the specified endpoints in color Color. */
@@ -124,10 +39,9 @@ void LineDraw(bool fClip, int XStart, int YStart, int XEnd, int YEnd, short Colo
     char col2 = Color >> 8;
     char col1 = Color & 0x00FF;
 
-    if (fClip) {
-        if (!Clip2D(&XStart, &YStart, &XEnd, &YEnd))
-            return;
-    }
+    if (fClip && !SDL_GetRectAndLineIntersection(
+                     &g_line_clip, &XStart, &YStart, &XEnd, &YEnd))
+        return;
 
     /*	We'll always draw top to bottom, to reduce the number of cases we have to
 		handle, and to make lines between the same endpoints draw the same pixels */

@@ -30,7 +30,6 @@ inline constexpr UINT32 NATIVE_TEXT_INPUT_FLAG = 0x80000000u;
 #define CTRL_DOWN 0x02
 #define ALT_DOWN 0x04
 
-#define DBL_CLK_TIME 300 // Increased by Alex, Jun-10-97, 200 felt too short
 #define BUTTON_REPEAT_TIMEOUT 250
 #define BUTTON_REPEAT_TIME 50
 
@@ -78,12 +77,7 @@ extern "C" {
 extern UINT16 gfShiftState;
 extern UINT16 gfCtrlState;
 extern UINT16 gfAltState;
-extern UINT16 gusRecordedKeyState;
 extern BOOLEAN gfTrackMousePos;
-extern BOOLEAN gfTrackDblClick;
-extern BOOLEAN gfRecordedLeftButtonUp;
-extern UINT32 guiDoubleClkDelay;
-extern uint64_t guiSingleClickTimer;
 extern uint64_t guiLeftButtonRepeatTimer;
 extern uint64_t guiRightButtonRepeatTimer;
 

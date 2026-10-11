@@ -199,8 +199,8 @@ bool CharacterActionReachesTarget(int party_slot, int hand, W8TargetingContext c
         float distance;
         bool trace;
 
-        GetCameraPosition(&camera);
-        GetCameraPosition(&camera_top);
+        camera = cameraLocation();
+        camera_top = cameraLocation();
         point = target->point;
         unsigned int spell_id = GetActionSpellLikeId(party_slot, context);
         if (spell_id == W8_SPELL_NONE) {

@@ -47,10 +47,6 @@ void SetWorldCursorNodeParameter(W8WorldCursorNode* entry, int index, int value)
 /* Answer the next table node after `after` whose world-space bounds contain
    `point`; a null `after` starts the walk at the head of the table. */
 W8WorldCursorNode* FindWorldCursorNodeAtPoint(W8WorldCursorNode* after, srVector3T<float>* point);
-/* Copy the node's userdata pointer and size into the caller's slots; either
-   out pointer may be null. The userdata is the scratch the master-function
-   handlers flag per node. */
-void GetWorldCursorNodeUserdata(W8WorldCursorNode* entry, char** buffer, int* size);
 /* Allocate the node's userdata scratch, or release it when `size` is zero. */
 void SetWorldCursorNodeUserdataSize(W8WorldCursorNode* entry, int size);
 void ScaleWorldCursorNodeX(W8WorldCursorNode* entry, double scale);

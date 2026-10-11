@@ -1,5 +1,7 @@
 #pragma once
 
+#include <utility>
+
 #include "srIlluminator.h"
 
 // VTABLE: SURRENDER 0x10076FE8 srVertexProcessor
@@ -22,7 +24,7 @@ public:
     SR_DLL_IMPORT void setDensity(float density);
     SR_DLL_IMPORT float getDensity() const;
     SR_DLL_IMPORT void setRange(double start, double end);
-    SR_DLL_IMPORT void getRange(double& start, double& end);
+    SR_DLL_IMPORT std::pair<double, double> getRange() const;
 
     virtual SR_DLL_IMPORT void dump(std::ostream& stream) override;
     virtual SR_DLL_IMPORT void verify(srRuntimeClass::e_verify mode) override;
