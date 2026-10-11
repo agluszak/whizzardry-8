@@ -1110,7 +1110,7 @@ static void ClearConditionHighlight(void)
 // FUNCTION: WIZ8 0x0059BB40
 void DisablePortraitControls(void)
 {
-    RegionSetDisable(5);
+    g_main_portrait_controls.Disable();
     for (int slot = 0; slot < 8; ++slot) {
         g_portrait_controls[slot]->SetActive(false);
     }
@@ -1119,7 +1119,7 @@ void DisablePortraitControls(void)
 // FUNCTION: WIZ8 0x0059C030
 void DisableConditionButtons(void)
 {
-    RegionSetDisable(6);
+    g_main_conditions.Disable();
     g_condition_buttons_panel->SetEnabled(false);
     if (g_level_block->condition_highlight_party_slot != -1) {
         ClearConditionHighlight();
@@ -1133,7 +1133,7 @@ void EnableConditionButtons(void)
         srAssertFail("gConfig.uiCurrentLayout != LAYOUT_NORMAL",
                      "C:\\Projects\\Wizardry 8\\Local Screens\\MGSPortraits.cpp", 0xa0c, 0);
     }
-    RegionSetEnable(6);
+    g_main_conditions.Enable();
     g_condition_buttons_panel->SetEnabled(true);
     for (int slot = 0; slot < 8; ++slot) {
         g_condition_buttons[slot]->SetEnabled(true);
@@ -1144,13 +1144,13 @@ void EnableConditionButtons(void)
 // FUNCTION: WIZ8 0x0059BB70
 void EnablePortraitAdvanceRegions(void)
 {
-    RegionSetEnable(5);
+    g_main_portrait_controls.Enable();
     for (int party_slot = 0; party_slot < 8; ++party_slot) {
         if (!IsCharacterReadyToAdvance(party_slot) ||
             g_status.buffers.XChar[party_slot].portrait_advance == 0) {
-            DisableRegionInput(party_slot + 0x12);
+            DisableRegionInput(g_main_portrait_controls->index(party_slot));
         } else {
-            EnableRegionInput(party_slot + 0x12);
+            EnableRegionInput(g_main_portrait_controls->index(party_slot));
         }
     }
 }
@@ -1227,7 +1227,7 @@ void CreateLevelButtons(void)
         unsigned int column_x = (uiSlot & 1) != 0 ? 0x23b : 0;
         int row_y = (uiSlot >> 1) * 0x55;
         g_portrait_controls[uiSlot] =
-            new W8TextControl(g_portrait_panel, uiSlot + 0x12, column_x + 0x19, row_y + 0x46,
+            new W8TextControl(g_portrait_panel, g_main_portrait_controls->index(uiSlot), column_x + 0x19, row_y + 0x46,
                               column_x + 0x2b, row_y + 0x58, 0xa7, 0, 0, 2, 1, 4, 3);
         g_portrait_controls[uiSlot]->m_primaryActivationCallback = OnLevelButtonActivate;
         if (g_portrait_controls[uiSlot] == 0) {
@@ -1314,7 +1314,7 @@ void CreateConditionButtons(void)
         unsigned int column_x = (uiSlot & 1) != 0 ? 0x23f : 0;
         int row_y = (uiSlot >> 1) * 0x55;
         g_condition_buttons[uiSlot] = new W8ConditionButton(
-            g_condition_buttons_panel, uiSlot + 0x1a, column_x + 0x17, row_y + 0x13,
+            g_condition_buttons_panel, g_main_conditions->index(uiSlot), column_x + 0x17, row_y + 0x13,
             column_x + 0x2a, row_y + 0x26, 0xa8, 0, 0, 0, 1, 1, -1, uiSlot);
         if (g_condition_buttons[uiSlot] == 0) {
             srAssertFail("gpConditionButtons[uiSlot]",

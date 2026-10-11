@@ -1326,13 +1326,13 @@ void EnableSubMenuRegions(void)
 {
     int index;
 
-    RegionSetEnable(0x27);
-    EnableRegionInput(0xc7);
+    g_main_submenu_regions.Enable();
+    EnableRegionInput(g_main_submenu_regions->index(5));
     for (index = 0; index < g_submenu_entry_count; ++index) {
-        EnableRegionInput(index + 0xc2);
+        EnableRegionInput(g_main_submenu_regions->index(index));
     }
     for (index = g_submenu_entry_count; index < 5; ++index) {
-        DisableRegionInput(index + 0xc2);
+        DisableRegionInput(g_main_submenu_regions->index(index));
     }
 }
 
@@ -1423,7 +1423,7 @@ unsigned char BuildSubMenuPanel(short notification)
         break;
     }
     gpSubMenuPanel = new Controls(left, 0x1c3, icon_delta + left, 0x1df, 0x7f, 0, base);
-    SetRegionBounds(0xc7, left, 0x1c3, icon_delta + left, 0x1df);
+    SetRegionBounds(g_main_submenu_regions->index(5), left, 0x1c3, icon_delta + left, 0x1df);
     for (index = 0; index < built - 1; ++index) {
         entry = g_submenu_entries[index];
         state = g_submenu_entry_states[entry];
@@ -1456,7 +1456,7 @@ unsigned char BuildSubMenuPanel(short notification)
             break;
         }
         g_submenu_rows[index] = new W8TextControl(
-            gpSubMenuPanel, index + 0xc2, index * 19 + 5, 5, index * 19 + 0x17, 0x17, 0x89, 0,
+            gpSubMenuPanel, g_main_submenu_regions->index(index), index * 19 + 5, 5, index * 19 + 0x17, 0x17, 0x89, 0,
             message, message, message + icon_delta, message + icon_delta, -1);
         if (g_submenu_rows[index] == 0) {
             DestroySubMenuPanel();
@@ -1464,10 +1464,11 @@ unsigned char BuildSubMenuPanel(short notification)
         }
         AssignSubMenuCallback(g_submenu_rows[index], menu, entry);
         g_submenu_rows[index]->m_secondaryActivationCallback = DestroySubMenuControls;
-        SetRegionHelp(index + 0xc2, true, g_submenu_entry_help_ids[menu * 5 + entry]);
+        SetRegionHelp(g_main_submenu_regions->index(index), true, g_submenu_entry_help_ids[menu * 5 + entry]);
     }
     g_submenu_rows[built - 1] =
-        new W8TextControl(gpSubMenuPanel, built + 0xc1, built * 19 - 14, 5, built * 19 - 2, 0x17,
+        new W8TextControl(gpSubMenuPanel, g_main_submenu_regions->index(built - 1), built * 19 - 14, 5,
+                          built * 19 - 2, 0x17,
                           0x89, 0, 0xbd, 0xbd, 0xbf, 0xbf, -1);
     if (g_submenu_rows[built - 1] == 0) {
         DestroySubMenuPanel();
@@ -1475,8 +1476,8 @@ unsigned char BuildSubMenuPanel(short notification)
     }
     g_submenu_rows[built - 1]->m_primaryActivationCallback = DestroySubMenuControls;
     g_submenu_rows[built - 1]->m_secondaryActivationCallback = DestroySubMenuControls;
-    SetRegionHelp(built + 0xc1, true, 0x11);
-    RegionSetEnable(0x27);
+    SetRegionHelp(g_main_submenu_regions->index(built - 1), true, 0x11);
+    g_main_submenu_regions.Enable();
     gpSubMenuPanel->SetEnabled(true);
     g_level_block->combat_end_notification = notification;
     g_submenu_menu = menu;

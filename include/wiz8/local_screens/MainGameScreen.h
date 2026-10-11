@@ -3,6 +3,9 @@
 #include "wiz8/audio_resources.h"
 
 #include <string_view>
+#include <array>
+#include <optional>
+#include "wiz8/regions.h"
 
 #include "input.h"
 #include "wiz8/dialog_code/DialogBase.h"
@@ -10,6 +13,23 @@
 #include "layouts/targeting.h"
 
 class Trigger;
+
+extern ScreenRegionSet g_main_party_controls;
+extern ScreenRegionSet g_main_screen;
+extern ScreenRegionSet g_main_dialogue;
+extern ScreenRegionSet g_main_combat_actions;
+extern ScreenRegionSet g_main_portrait_controls;
+extern ScreenRegionSet g_main_conditions;
+extern ScreenRegionSet g_main_portrait_regions;
+extern ScreenRegionSet g_main_portrait_edge_regions;
+extern ScreenRegionSet g_main_radar_regions;
+extern ScreenRegionSet g_main_formation_board_regions;
+extern ScreenRegionSet g_main_submenu_regions;
+extern ScreenRegionSet g_main_effect_regions;
+extern std::array<std::optional<RegionSetView>, 8> g_main_portrait_slot_views;
+extern std::optional<RegionSetView> g_main_portrait_edge_view;
+void EnableMainGamePortraitSlot(unsigned int slot);
+void DisableMainGamePortraitSlot(unsigned int slot);
 struct W8ScreenRect;
 
 void RequestRedrawParty(void);
@@ -626,8 +646,6 @@ void CreateSurpriseFade(void);
 void ReverseSurpriseFade(void);
 void DestroySurpriseFade(void);
 unsigned char UpdateSurpriseFade(void);
-void DisableMainRegionSet(void);
-void EnableMainRegionSet(void);
 unsigned char OpenUseItemSelectView(int slot);
 
 unsigned char MainGameScreenInitialize(void);

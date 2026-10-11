@@ -2190,9 +2190,9 @@ void OpenNpcDialogueTranscriptLayout(void)
     RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
     for (index = 0; index < 8; ++index) {
         if (g_status.buffers.XChar[index].fOccupied) {
-            RegionSetDisable(7 + index);
-            DisableRegionSetInput(7 + index);
-            DisableRegionInput(0x5a + index);
+            DisableMainGamePortraitSlot(index);
+
+            DisableRegionInput(g_main_portrait_edge_regions->index(index));
         }
     }
     if (g_npc_interaction_state->dialogue_npc->record->merchant != 0) {
@@ -2233,9 +2233,9 @@ void CloseNpcDialogueTranscriptLayout(void)
     InvalidateRegion(0x1dc, 0x11b, 0x269, 0x1c2, 0);
     for (index = 0; index < 8; ++index) {
         if (g_status.buffers.XChar[index].fOccupied) {
-            RegionSetEnable(7 + index);
-            EnableRegionSetInput(7 + index);
-            EnableRegionInput(0x5a + index);
+            EnableMainGamePortraitSlot(index);
+
+            EnableRegionInput(g_main_portrait_edge_regions->index(index));
         }
     }
 }
@@ -4461,8 +4461,8 @@ void SetNpcDialogueHidden(char value)
         g_npc_interaction_state->dialogue_panels[3]->SetEnabled(false);
         for (index = 0; index < 8; ++index) {
             if (g_status.buffers.XChar[index].fOccupied) {
-                RegionSetEnable(index + 7);
-                EnableRegionSetInput(index + 7);
+                EnableMainGamePortraitSlot(index);
+
             }
         }
         g_npc_dialogue_transcript_panel_regions.Disable();
@@ -4482,8 +4482,8 @@ void SetNpcDialogueHidden(char value)
         ApplyMainGameModeFlag(g_npc_interaction_state->saved_mode, false);
         for (index = 0; index < 8; ++index) {
             if (g_status.buffers.XChar[index].fOccupied) {
-                RegionSetDisable(index + 7);
-                DisableRegionSetInput(index + 7);
+                DisableMainGamePortraitSlot(index);
+
             }
         }
         g_npc_dialogue_transcript_panel_regions.Enable();

@@ -369,8 +369,8 @@ void DestroySubMenuControls(void)
     SetSubMenuButtonTooltips(1);
     g_level_block->combat_end_notification = -1;
     g_submenu_entry_count = 0;
-    RegionSetDisable(0x27);
-    DisableRegionSetInput(0x27);
+    g_main_submenu_regions.Disable();
+    g_main_submenu_regions->DisableInput();
     DestroySubMenuPanel();
     RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
 }

@@ -77,12 +77,12 @@ W8SpellCastingView* gpSCSV;
 
 // Retail set 0x19, regions 139-155.
 static constexpr std::array<RegionTemplate, 17> g_spell_casting_region_templates{{
-    {0x00000001, 0, 0, 0, 0, SpellRealmButtonRegionEvent, 0, true, 0},
-    {0x00000001, 0, 0, 0, 0, SpellRealmButtonRegionEvent, 1, true, 0},
-    {0x00000001, 0, 0, 0, 0, SpellRealmButtonRegionEvent, 2, true, 0},
-    {0x00000001, 0, 0, 0, 0, SpellRealmButtonRegionEvent, 3, true, 0},
-    {0x00000001, 0, 0, 0, 0, SpellRealmButtonRegionEvent, 4, true, 0},
-    {0x00000001, 0, 0, 0, 0, SpellRealmButtonRegionEvent, 5, true, 0},
+    {0x00000001, 0, 0, 0, 0, SpellRealmButtonRegionEvent, 0, true, -1},
+    {0x00000001, 0, 0, 0, 0, SpellRealmButtonRegionEvent, 1, true, -1},
+    {0x00000001, 0, 0, 0, 0, SpellRealmButtonRegionEvent, 2, true, -1},
+    {0x00000001, 0, 0, 0, 0, SpellRealmButtonRegionEvent, 3, true, -1},
+    {0x00000001, 0, 0, 0, 0, SpellRealmButtonRegionEvent, 4, true, -1},
+    {0x00000001, 0, 0, 0, 0, SpellRealmButtonRegionEvent, 5, true, -1},
     {0x00000002, 0, 0, 0, 0, SpellPowerPipRegionEvent, 0, true, 46},
     {0x00000002, 0, 0, 0, 0, SpellPowerPipRegionEvent, 1, true, 47},
     {0x00000002, 0, 0, 0, 0, SpellPowerPipRegionEvent, 2, true, 48},
@@ -272,10 +272,12 @@ static void CreateSpellCastingViewControls(void)
     gpSCSV->panels[2]->SetEnabled(true);
 
     if (gXStatus.fCampMode) {
-        for (index = 7; index < 0xf; ++index) {
-            RegionSetDisable(index);
-            DisableRegionSetInput(index);
-            DisableRegionInput(index + 0x53);
+        for (index = 0; index < W8_PARTY_SLOT_COUNT; ++index) {
+            if (g_main_portrait_slot_views[index]) {
+                g_main_portrait_slot_views[index]->Disable();
+                DisableRegionSetInput(g_main_portrait_slot_views[index]->set());
+                DisableRegionInput(g_main_portrait_edge_regions->index(index));
+            }
         }
     }
 }

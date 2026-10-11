@@ -721,10 +721,10 @@ void OpenKeyboardMenuForSlot(int slot)
     }
     UpdateScreenOverlays(0);
     gXStatus.monster_manager_entries[slot].keyboard_menu_open = true;
-    RegionSetDisable(slot + 7);
-    DisableRegionSetInput(slot + 7);
-    DisableRegionInput(slot + 0x5a);
-    DisableRegionInput(slot + 0xa);
+    DisableMainGamePortraitSlot(slot);
+
+    DisableRegionInput(g_main_portrait_edge_regions->index(slot));
+    DisableRegionInput(g_main_combat_actions->index(slot));
     EnableKeyboardMenuInput();
     RequestRedraw(1 << slot);
 }
@@ -739,9 +739,10 @@ void CloseKeyboardMenu(void)
     g_level_block->cursor_grace = 0;
     RefreshPartySlotRegions();
     if (gXStatus.fCombatMode) {
-        EnableMainRegionSet();
+        g_main_combat_actions.Enable();
     } else {
-        DisableMainRegionSet();
+        g_main_combat_actions.Disable();
+        g_main_combat_actions->DisableInput();
     }
     g_keyboard_menu_regions.Disable();
     if (g_keyboard_menu_regions) {

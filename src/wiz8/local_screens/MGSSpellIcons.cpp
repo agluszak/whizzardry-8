@@ -95,7 +95,7 @@ static void ClearSpellIconHudRows()
     unsigned int index;
     DestroyEffectIconRows(g_spell_icon_strip, g_spell_icon_rows, g_spell_icon_count);
     for (index = 0; index < 0xc; ++index) {
-        DisableRegionInput(0xd5 - index);
+        DisableRegionInput(g_main_effect_regions->index(8 - index));
     }
     g_spell_icon_count = 0;
 }
@@ -152,11 +152,11 @@ void RebuildSpellIconHudRows(void)
             if (icon == -1) {
                 ReportAssertion("iSpellIcon != BAD_INDEX", MGSSPELLICONS_CPP, 0x108);
             }
-            control = new W8TextControl(g_spell_icon_strip, 0xd5 - g_spell_icon_count, left, 0,
+            control = new W8TextControl(g_spell_icon_strip, g_main_effect_regions->index(8 - g_spell_icon_count), left, 0,
                                         right, 0x12, icon, 0, 0, -1, -1, -1, -1);
             g_spell_icon_rows[g_spell_icon_count] = control;
             control->Invalidate(false);
-            EnableRegionInput(0xd5 - g_spell_icon_count);
+            EnableRegionInput(g_main_effect_regions->index(8 - g_spell_icon_count));
             ++g_spell_icon_count;
             right = left - 1;
             left -= 0x13;
@@ -215,11 +215,11 @@ static void RebuildCombatEffectHudRows(void)
                 ReportAssertion("iSpellIcon != BAD_INDEX", MGSSPELLICONS_CPP, 0x228);
             }
             control =
-                new W8TextControl(g_combat_effect_left_panel, g_combat_effect_left_count + 0xd6,
+                new W8TextControl(g_combat_effect_left_panel, g_main_effect_regions->index(9 + g_combat_effect_left_count),
                                   left, 0, right, 0x14, icon, 0, 0, -1, -1, -1, -1);
             g_combat_effect_left_rows[g_combat_effect_left_count] = control;
             control->Invalidate(false);
-            EnableRegionInput(g_combat_effect_left_count + 0xd6);
+            EnableRegionInput(g_main_effect_regions->index(9 + g_combat_effect_left_count));
             ++g_combat_effect_left_count;
             left = right + 1;
             right += 0x15;
@@ -237,11 +237,11 @@ static void RebuildCombatEffectHudRows(void)
                 ReportAssertion("iSpellIcon != BAD_INDEX", MGSSPELLICONS_CPP, 0x25e);
             }
             control =
-                new W8TextControl(g_combat_effect_right_panel, 0xe4 - g_combat_effect_right_count,
+                new W8TextControl(g_combat_effect_right_panel, g_main_effect_regions->index(23 - g_combat_effect_right_count),
                                   left, 0, right, 0x14, icon, 0, 0, -1, -1, -1, -1);
             g_combat_effect_right_rows[g_combat_effect_right_count] = control;
             control->Invalidate(false);
-            EnableRegionInput(0xe4 - g_combat_effect_right_count);
+            EnableRegionInput(g_main_effect_regions->index(23 - g_combat_effect_right_count));
             ++g_combat_effect_right_count;
             right = left - 1;
             left -= 0x15;
@@ -256,14 +256,14 @@ void DestroyCombatEffectHudRows(void)
     DestroyEffectIconRows(g_combat_effect_left_panel, g_combat_effect_left_rows,
                           g_combat_effect_left_count);
     for (index = 0; index < 9; ++index) {
-        DisableRegionInput(index + 0xd6);
+        DisableRegionInput(g_main_effect_regions->index(9 + index));
     }
     g_combat_effect_left_count = 0;
 
     DestroyEffectIconRows(g_combat_effect_right_panel, g_combat_effect_right_rows,
                           g_combat_effect_right_count);
     for (index = 0; index < 6; ++index) {
-        DisableRegionInput(0xe4 - index);
+        DisableRegionInput(g_main_effect_regions->index(23 - index));
     }
     g_combat_effect_right_count = 0;
 }

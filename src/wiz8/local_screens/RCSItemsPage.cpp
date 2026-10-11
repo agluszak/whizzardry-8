@@ -1278,8 +1278,8 @@ int CreateCampActionPanel(void)
         return 0;
     }
     g_camp_action_buttons[0] =
-        new W8TextControl(g_camp_action_panel, 0x117, 5, 0, 0x21, 0x18, 0x11e, 0, 0, 2, 1, 2, 3);
-    g_camp_action_buttons[1] = new W8TextControl(g_camp_action_panel, 0x118, 0x26, 0, 0x42, 0x18,
+        new W8TextControl(g_camp_action_panel, g_camp_item_pool_regions->index(7), 5, 0, 0x21, 0x18, 0x11e, 0, 0, 2, 1, 2, 3);
+    g_camp_action_buttons[1] = new W8TextControl(g_camp_action_panel, g_camp_item_pool_regions->index(8), 0x26, 0, 0x42, 0x18,
                                                  0x11e, 0, 8, 4, 9, 5, 0xb);
     index = 0;
     while (g_camp_action_buttons[index] != 0) {
@@ -1355,23 +1355,23 @@ int CreateItemsTabPanel(void)
     if (g_camp_item_filter_panel == 0) {
         return 0;
     }
-    g_camp_item_filter_buttons[0] = new W8TextControl(g_camp_item_filter_panel, 0x110, 0, 0, 0x18,
-                                                      0x18, 0x11f, 0, 0, 2, 1, 4, 3);
+    g_camp_item_filter_buttons[0] = new W8TextControl(g_camp_item_filter_panel, g_camp_item_pool_regions->index(0), 0, 0, 0x18,
+                                                      0x18, g_camp_page_regions->index(0), 0, 0, 2, 1, 4, 3);
     g_camp_item_filter_buttons[1] =
-        new W8TextControl(g_camp_item_filter_panel, 0x111, 0, 0x19, 0x18, 0x31, 0x11f, 0, 0xf, 0x11,
+        new W8TextControl(g_camp_item_filter_panel, g_camp_item_pool_regions->index(1), 0, 0x19, 0x18, 0x31, g_camp_page_regions->index(0), 0, 0xf, 0x11,
                           0x10, 0x13, 0x12);
     g_camp_item_filter_buttons[2] =
-        new W8TextControl(g_camp_item_filter_panel, 0x112, 0, 0x4b, 0x18, 0x63, 0x11f, 0, 0x14,
+        new W8TextControl(g_camp_item_filter_panel, g_camp_item_pool_regions->index(2), 0, 0x4b, 0x18, 0x63, g_camp_page_regions->index(0), 0, 0x14,
                           0x16, 0x15, 0x18, 0x17);
-    g_camp_item_filter_buttons[3] = new W8TextControl(g_camp_item_filter_panel, 0x113, 0, 0x32,
-                                                      0x18, 0x4a, 0x11f, 0, 5, 7, 6, 9, 8);
-    g_camp_item_filter_buttons[4] = new W8TextControl(g_camp_item_filter_panel, 0x114, 0, 0x6c,
-                                                      0x18, 0x84, 0x11f, 0, 10, 0xc, 0xb, 0xe, 0xd);
+    g_camp_item_filter_buttons[3] = new W8TextControl(g_camp_item_filter_panel, g_camp_item_pool_regions->index(3), 0, 0x32,
+                                                      0x18, 0x4a, g_camp_page_regions->index(0), 0, 5, 7, 6, 9, 8);
+    g_camp_item_filter_buttons[4] = new W8TextControl(g_camp_item_filter_panel, g_camp_item_pool_regions->index(4), 0, 0x6c,
+                                                      0x18, 0x84, g_camp_page_regions->index(0), 0, 10, 0xc, 0xb, 0xe, 0xd);
     g_camp_item_filter_buttons[5] =
-        new W8TextControl(g_camp_item_filter_panel, 0x115, 0, 0x8e, 0x18, 0xa6, 0x11f, 0, 0x28,
+        new W8TextControl(g_camp_item_filter_panel, g_camp_item_pool_regions->index(5), 0, 0x8e, 0x18, 0xa6, g_camp_page_regions->index(0), 0, 0x28,
                           0x2a, 0x29, 0x2c, 0x2b);
     g_camp_item_filter_buttons[6] =
-        new W8TextControl(g_camp_item_filter_panel, 0x116, 0, 0xb0, 0x18, 0xc8, 0x11f, 0, 0x1e,
+        new W8TextControl(g_camp_item_filter_panel, g_camp_item_pool_regions->index(6), 0, 0xb0, 0x18, 0xc8, g_camp_page_regions->index(0), 0, 0x1e,
                           0x20, 0x1f, 0x22, 0x21);
     index = 0;
     while (g_camp_item_filter_buttons[index] != 0) {
@@ -1499,15 +1499,15 @@ int CreateCampSecondaryPanel(void)
             g_camp_info_labels[index] = 0;
         }
     }
-    panel = new Controls(0x13c, 7, 0x154, 0x34, 0x120, 0, 0);
+    panel = new Controls(0x13c, 7, 0x154, 0x34, g_camp_page_regions->index(1), 0, 0);
     g_camp_secondary_panel = panel;
     if (panel == 0) {
         return 0;
     }
     panel->AcquireRegionSet(&g_camp_secondary_region_set);
-    g_camp_page_tabs[0] = new W8TextControl(panel, -1, 2, 2, 0x16, 0x16, 0x121, 0, 0, 2, 1, 4, 3);
+    g_camp_page_tabs[0] = new W8TextControl(panel, -1, 2, 2, 0x16, 0x16, g_camp_page_regions->index(2), 0, 0, 2, 1, 4, 3);
     g_camp_page_tabs[1] =
-        new W8TextControl(panel, -1, 2, 0x17, 0x16, 0x2b, 0x121, 0, 5, 7, 6, 9, 8);
+        new W8TextControl(panel, -1, 2, 0x17, 0x16, 0x2b, g_camp_page_regions->index(2), 0, 5, 7, 6, 9, 8);
     for (index = 0; index < 2; ++index) {
         if (g_camp_page_tabs[index] == 0) {
             return 0;

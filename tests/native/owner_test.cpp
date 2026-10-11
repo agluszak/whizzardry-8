@@ -669,6 +669,32 @@ void region_set_views_share_owned_regions()
                                  [](const auto& event) { return event.first == 23; }));
         }
 
+        {
+            RegionSetView view(source, 1, 2);
+            REQUIRE(g_region_sets[view.set()].Regions().size() == 2);
+            REQUIRE(g_region_sets[view.set()].Regions()[0] == source.index(1));
+            REQUIRE(g_region_sets[view.set()].Regions()[1] == source.index(2));
+
+            view.Enable();
+            region_events.clear();
+            dispatch_mouse(LEFT_BUTTON_DOWN, 45, 15, true);
+            REQUIRE(std::find(region_events.begin(), region_events.end(),
+                              std::pair<int, int>{22, LEFT_BUTTON_DOWN}) != region_events.end());
+            dispatch_mouse(LEFT_BUTTON_UP, 45, 15);
+
+            region_events.clear();
+            dispatch_mouse(LEFT_BUTTON_DOWN, 75, 15, true);
+            REQUIRE(std::find(region_events.begin(), region_events.end(),
+                              std::pair<int, int>{23, LEFT_BUTTON_DOWN}) != region_events.end());
+            dispatch_mouse(LEFT_BUTTON_UP, 75, 15);
+
+            region_events.clear();
+            dispatch_mouse(LEFT_BUTTON_DOWN, 15, 15, true);
+            REQUIRE(std::none_of(region_events.begin(), region_events.end(),
+                                 [](const auto& event) { return event.first == 21; }));
+        }
+        REQUIRE(LiveDynamicRegionCount() == baseline_with_source);
+
         REQUIRE(source.index(0) == source_index);
         REQUIRE(source[0].callback == record_region_event);
         REQUIRE(source[0].callback_id == 21);
