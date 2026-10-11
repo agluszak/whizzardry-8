@@ -32,7 +32,6 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y \
             clang \
-            lld \
             ninja-build \
             ccache \
             cmake \
@@ -69,16 +68,13 @@ jobs:
       - name: Configure
         run: |
           build_type=Debug
-          link_flags=-fuse-ld=lld
           if [[ "${{ matrix.preset }}" == "linux-asan" ]]; then
             build_type=RelWithDebInfo
-            link_flags="-fsanitize=address -fuse-ld=lld"
           fi
           cmake --preset "${{ matrix.preset }}" \
             -DCMAKE_BUILD_TYPE="$build_type" \
             -DCMAKE_C_FLAGS_DEBUG="-O0 -g1" \
             -DCMAKE_CXX_FLAGS_DEBUG="-O0 -g1" \
-            -DCMAKE_EXE_LINKER_FLAGS="$link_flags" \
             -DWIZ8_SURRENDER_UNITY_BUILD=ON \
             -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
       - name: Build native game and fixtures
