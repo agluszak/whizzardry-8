@@ -542,8 +542,10 @@ TEST_CASE_METHOD(ImageFixture, "Raw and zlib STI RGB masks normalize identically
             const std::array<std::uint16_t, 4> expected{0, std::uint16_t(0x7c00 | alpha),
                                                std::uint16_t(0x03e0 | alpha), std::uint16_t(0x001f | alpha)};
             const auto frame = ConvertBitmapToFrameSurface(*image);
-            REQUIRE((frame->w == 4 && frame->h == 1));
-            REQUIRE(!memcmp(frame->pixels, expected.data(), sizeof(expected)));
+            REQUIRE((frame->w == 2 && frame->h == 2));
+            for (int y = 0; y < 2; ++y)
+                REQUIRE(!memcmp(static_cast<const std::uint8_t*>(frame->pixels) + y * frame->pitch,
+                                expected.data() + y * 2, 2 * sizeof(std::uint16_t)));
         }
     }
     rgb555();
