@@ -71,7 +71,7 @@
 #include "wiz8/engine_code/World.h"
 #include "wiz8/layouts/screen_state.h"
 #include "input.h"
-#include "vsurface.h"
+#include "wiz8/engine_code/Video2.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
@@ -383,7 +383,7 @@ class Game
     {
         if (!g_gerd) {
             // Camp renders through SGP's CPU surface, without a world renderer.
-            const auto& surface = *GetFrameBufferSurface().cpu().surface;
+            const auto& surface = GetFrameBufferSurface();
             std::vector<unsigned> pixels(SCREEN_WIDTH * SCREEN_HEIGHT);
             REQUIRE(SDL_ConvertPixels(SCREEN_WIDTH, SCREEN_HEIGHT, surface.format,
                                       surface.pixels, surface.pitch, SDL_PIXELFORMAT_XRGB8888,
@@ -883,7 +883,7 @@ void InventoryChestScenario()
     REQUIRE_FALSE(g_status.item_in_cursor);
     game.click_at(320, 170); // Keep the cursor outside the grids for pixel comparisons.
     const auto rendered = game.read_frame();
-    const auto& surface = *GetFrameBufferSurface().cpu().surface;
+    const auto& surface = GetFrameBufferSurface();
     std::vector<unsigned> expected(SCREEN_WIDTH * SCREEN_HEIGHT);
     REQUIRE(SDL_ConvertPixels(SCREEN_WIDTH, SCREEN_HEIGHT, surface.format,
                               surface.pixels, surface.pitch, SDL_PIXELFORMAT_XRGB8888,

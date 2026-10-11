@@ -5,7 +5,7 @@
 #include <SDL3/SDL_init.h>
 #include <SDL3/SDL_stdinc.h>
 #include <SDL3/SDL_video.h>
-/* Real SLF/STI -> recovered SGP surfaces -> recovered stSurface2D -> SDL GPU.
+/* Real SLF/STI -> immutable sprites and SDL surfaces -> stSurface2D -> SDL GPU.
    Also checks a movie-owned surface and restoration of the game primary. */
 
 #include <wiz8/asset_paths.h>
@@ -31,11 +31,11 @@
 #include "wiz8/sr_api.h"
 #include "wiz8/surface2d.h"
 #include "wiz8/cursor.h"
+#include "image_assets.h"
+#include "sprite.h"
 #include "temporary_directory.h"
 #include "surrender/srColorSurfaceIFace.h"
 #include "surrender/srFlags.h"
-#include "vobject.h"
-#include "vsurface.h"
 
 class srScene;
 
@@ -76,7 +76,7 @@ TEST_CASE("game graphics")
         g_fullscreen = 0;
         Initialize16BitPixelFormatMasks();
         REQUIRE(CreateWizardryWindow());
-        REQUIRE(InitializePrimaryCpuSurface());
+        REQUIRE(InitializePrimarySurface());
         REQUIRE(InitializeVideoDevice());
         REQUIRE(InitializeRendererSceneObjects());
         auto targa = srImage::load("Data\\AUTOMAP\\MAP_MONSTERFRIENDLY_A.TGA");
@@ -86,17 +86,18 @@ TEST_CASE("game graphics")
         REQUIRE(pipeline);
         pipeline->Flush();
         const char* image_path = SDL_getenv("WIZ8_GRAPHICS_IMAGE");
-        auto image_object = LoadVideoObject(image_path ? image_path : "Data\\MAIN INTERFACE\\BOTTOM.STI");
+        auto image_object =
+            g_image_assets.sprites(image_path ? image_path : "Data\\MAIN INTERFACE\\BOTTOM.STI");
         REQUIRE(image_object);
-        REQUIRE(BltVideoObject(GetFrameBufferSurface(), *image_object, 0, 0, 0, VO_BLT_SRCTRANSPARENCY));
-        const auto& framebuffer = *GetFrameBufferSurface().cpu().surface;
+        DrawSprite(GetFrameBufferSurface(), *image_object, 0, 0, 0);
+        const auto& framebuffer = GetFrameBufferSurface();
         const auto pitch = framebuffer.pitch;
         const auto* pixels = static_cast<const std::uint8_t*>(framebuffer.pixels);
         std::vector<std::uint16_t> expected(640 * 480);
         for (int y = 0; y < 480; ++y)
             memcpy(expected.data() + y * 640, pixels + y * pitch, 1280);
         REQUIRE(InitializeMouseCursorScene());
-        auto cursor_object = LoadVideoObject("Data\\CURSORS\\2D-CURSORS.STI");
+        auto cursor_object = g_image_assets.sprites("Data\\CURSORS\\2D-CURSORS.STI");
         REQUIRE(cursor_object);
         REQUIRE(SetMouseCursorFromVideoObject(*cursor_object, 0, 0, 0));
         PositionMouseCursor(480, 240, true);
@@ -199,7 +200,7 @@ TEST_CASE("game graphics")
             printf("movie GPU: %u RGB555 pixels and black background match\n", movie_matches);
             REQUIRE((FinishVideoPresentation() && ghWindow == persistent_window));
         }
-        const auto& restored_framebuffer = *GetFrameBufferSurface().cpu().surface;
+        const auto& restored_framebuffer = GetFrameBufferSurface();
         const auto* restored_pixels = static_cast<const std::uint8_t*>(restored_framebuffer.pixels);
         REQUIRE(restored_pixels);
         for (int y = 0; y < 480; ++y)
@@ -216,7 +217,7 @@ TEST_CASE("game graphics")
             ShutdownVideoScenes();
         SDL_Window* window = ghWindow;
         srExit();
-        ReleasePrimaryCpuSurface();
+        ReleasePrimarySurface();
         W8DestroyGameWindow(window);
 
         wiz8::clear_asset_archives();
