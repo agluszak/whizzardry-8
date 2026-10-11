@@ -455,6 +455,7 @@ public:
     w8_ulong getVertexProcessorCount() const;
     const std::vector<srVertexProcessor*>& getVertexProcessors() const;
     glm::vec4 getAmbientLight() const;
+    glm::vec4 getFogColor() const;
     std::pair<float, float> getEnvironmentRange() const;
     std::pair<float, float> getEnvironmentScaleFactor() const;
     w8_ulong getExclusionMask() const;
