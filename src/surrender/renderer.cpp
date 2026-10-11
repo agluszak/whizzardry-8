@@ -9,6 +9,8 @@
 #include <unordered_map>
 
 #include "surrender/srMath.h"
+#include <bit>
+#include <cassert>
 #include "surrender/srGERD.h"
 #include "surrender/srClip.h"
 #include "surrender/triangle_selection.h"
@@ -368,28 +370,18 @@ void srGERD::Renderer::assignTextureSets(w8_ulong* texture_set, const w8_ulong* 
 /* Depth-sort keys: each triangle's key is the negated sum of its corner view-space z's plus the
    bias, mapped to a sortable unsigned value. */
 // FUNCTION: SURRENDER 0x100251E0
-static void sortKeys(w8_ulong* keys, const srVector3i* triangles,
-                     const glm::vec4* positions, float bias, w8_ulong count)
+static void sortKeys(std::span<w8_ulong> keys, std::span<const srVector3i> triangles,
+                     std::span<const glm::vec4> positions, float bias)
 {
-    if (count != 0) {
-        const srVector3i* triangle = triangles;
-        float scaled_bias = bias * 3.0f;
-        do {
-            float depth = -(positions[triangle->x].z + positions[triangle->y].z +
-                            positions[triangle->z].z + scaled_bias);
-            /* reinterpret-ok: the key maps the depth's IEEE sign bit onto a
-               sortable unsigned order. */
-            w8_ulong bits = reinterpret_cast<w8_ulong&>(depth);
-            if ((bits & 0x80000000UL) == 0) {
-                *keys = bits | 0x80000000UL;
-            } else {
-                *keys = 0x7fffffffUL - (bits & 0x7fffffffUL);
-            }
-            triangle++;
-            keys++;
-            count--;
-        } while (count != 0);
-    }
+    assert(keys.size() == triangles.size());
+    const float scaled_bias = bias * 3.0f;
+    std::ranges::transform(triangles, keys.begin(), [&](const srVector3i& triangle) {
+        const float depth = -(positions[triangle.x].z + positions[triangle.y].z +
+                              positions[triangle.z].z + scaled_bias);
+        const auto bits = std::bit_cast<w8_ulong>(depth);
+        return (bits & 0x80000000u) == 0 ? bits | 0x80000000u
+                                       : 0x7fffffffu - (bits & 0x7fffffffu);
+    });
 }
 
 // FUNCTION: SURRENDER 0x10025260
@@ -413,9 +405,8 @@ void srGERD::Renderer::expandTriangles(const TriInput& input, int sorted)
                             input.indices + done, first_vertex,
                             input.direct_vertex_indices ? nullptr : input.vertices);
             if (sorted != 0) {
-                const glm::vec4* positions = &vertices.positions[0];
-                sortKeys(write.sort_key + done, write.triangles + done, positions, input.sort_bias,
-                         chunk);
+                sortKeys({write.sort_key + done, chunk}, {write.triangles + done, chunk},
+                         vertices.positions, input.sort_bias);
                 for (w8_ulong replica = 1; replica < input.record_count; replica++) {
                     offsetIndices(write.sort_key + input.triangle_count * replica + done,
                                   write.sort_key + done, replica, chunk);
@@ -484,21 +475,15 @@ void srGERD::Renderer::expandTriangles(const TriInput& input, int sorted)
                         arrays.st0[base + i] = pass.texcoords[corner_remap[i]];
                     std::fill_n(arrays.q0 + base, new_count, 1.0f);
                 }
-                if (sorted != 0) {
-                    const glm::vec4* positions = &vertices.positions[0];
-                    sortKeys(write.sort_key + written, write.triangles + written, positions,
-                             input.sort_bias, input.triangle_count);
-                }
                 free_vertex = base + new_count;
             } else {
                 gatherTriangles({write.triangles + written, input.triangle_count}, input.triangles,
                                 input.indices, vertex_base, input.vertices);
-                if (sorted != 0) {
-                    const glm::vec4* positions = &vertices.positions[0];
-                    sortKeys(write.sort_key + written, write.triangles + written, positions,
-                             input.sort_bias, input.triangle_count);
-                }
             }
+            if (sorted != 0)
+                sortKeys({write.sort_key + written, input.triangle_count},
+                         {write.triangles + written, input.triangle_count},
+                         vertices.positions, input.sort_bias);
             written += input.triangle_count;
         }
     }

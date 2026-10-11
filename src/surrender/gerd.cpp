@@ -377,12 +377,7 @@ void srGERD::resetStatistics()
 {
     statistics = {};
     getDD()->resetStatistics();
-    std::unique_lock access(renderers_section);
-    for (auto& owned : renderers) {
-        auto* entry = &owned;
-        renderers_idle.wait(access, [entry] { return entry->busy == 0; });
-        entry->renderer->resetStatistics();
-    }
+    drainRenderers(RendererDrain::statistics);
     statistics.elapsed = srCore.getTimer()->seconds();
     frame_statistics = statistics;
 }
@@ -940,49 +935,42 @@ void srGERD::applyFrameStateChanges()
     statistics.frame_state_count++;
 }
 
+// Wait with the registry lock released, then perform the requested operation
+// on the same stable entry. Device submission and buffer resets are owner-only;
+// statistics retains its existing cross-thread wait policy.
+void srGERD::drainRenderers(RendererDrain action)
+{
+    if (action != RendererDrain::statistics && std::this_thread::get_id() != owner_thread) return;
+    std::unique_lock access(renderers_section);
+    for (auto& entry : renderers) {
+        if (action == RendererDrain::immediate && entry.renderer->sorted != 0) continue;
+        if (action == RendererDrain::sorted && entry.renderer->sorted != 1) continue;
+        renderers_idle.wait(access, [&entry] { return !entry.busy; });
+        if (action == RendererDrain::reset) entry.renderer->reset(0);
+        else if (action == RendererDrain::statistics) entry.renderer->resetStatistics();
+        else entry.renderer->submit();
+    }
+}
+
 // FUNCTION: SURRENDER 0x10019A40
 void srGERD::flushRenderers()
 {
-    if (std::this_thread::get_id() == owner_thread) {
-        flushImmediateRenderers();
-        flushSort();
-        std::unique_lock access(renderers_section);
-        for (auto& owned : renderers) {
-            auto* entry = &owned;
-            renderers_idle.wait(access, [entry] { return entry->busy == 0; });
-            entry->renderer->reset(0);
-        }
-    }
+    if (std::this_thread::get_id() != owner_thread) return;
+    flushImmediateRenderers();
+    flushSort();
+    drainRenderers(RendererDrain::reset);
 }
 
 // FUNCTION: SURRENDER 0x10019AD0
 void srGERD::flushSort()
 {
-    if (std::this_thread::get_id() == owner_thread) {
-        std::unique_lock access(renderers_section);
-        for (auto& owned : renderers) {
-            auto* entry = &owned;
-            if (entry->renderer->sorted == 1) {
-                renderers_idle.wait(access, [entry] { return entry->busy == 0; });
-                entry->renderer->submit();
-            }
-        }
-    }
+    drainRenderers(RendererDrain::sorted);
 }
 
 // FUNCTION: SURRENDER 0x10019B60
 void srGERD::flushImmediateRenderers()
 {
-    if (std::this_thread::get_id() == owner_thread) {
-        std::unique_lock access(renderers_section);
-        for (auto& owned : renderers) {
-            auto* entry = &owned;
-            if (entry->renderer->sorted == 0) {
-                renderers_idle.wait(access, [entry] { return entry->busy == 0; });
-                entry->renderer->submit();
-            }
-        }
-    }
+    drainRenderers(RendererDrain::immediate);
 }
 
 // FUNCTION: SURRENDER 0x10019BF0
@@ -1209,9 +1197,7 @@ std::optional<srPixelConvert::PixelFormat> srGERD::getPixelFormat() const
     if (isWindowOpen() == 0) {
         return std::nullopt;
     }
-    srPixelConvert::PixelFormat format;
-    convertPixelFormat(format, getDD()->getBufferPixelFormat());
-    return format;
+    return convertPixelFormat(getDD()->getBufferPixelFormat());
 }
 
 // FUNCTION: SURRENDER 0x1001D100
@@ -2625,36 +2611,35 @@ w8_ulong nextTextureDimension(w8_ulong value)
 
 } // namespace
 
-// FUNCTION: SURRENDER 0x10018E90
-void srGERD::convertPixelFormat(srPixelConvert::PixelFormat& format,
-                                const srDD::PixelFormat& device)
+// Both native/device representations carry the same component descriptors.
+// The surface result's constructor initializes its extra FourCC field.
+template<class Destination, class Source>
+static Destination ConvertedPixelFormat(const Source& source)
 {
-    format.red_bits = device.red_bits;
-    format.green_bits = device.green_bits;
-    format.blue_bits = device.blue_bits;
-    format.alpha_bits = device.alpha_bits;
-    format.red_shift = device.red_shift;
-    format.green_shift = device.green_shift;
-    format.blue_shift = device.blue_shift;
-    format.alpha_shift = device.alpha_shift;
-    format.color_model = device.color_model;
-    format.pixel_size = device.pixel_size;
+    Destination result{};
+    result.red_bits = source.red_bits;
+    result.green_bits = source.green_bits;
+    result.blue_bits = source.blue_bits;
+    result.alpha_bits = source.alpha_bits;
+    result.red_shift = source.red_shift;
+    result.green_shift = source.green_shift;
+    result.blue_shift = source.blue_shift;
+    result.alpha_shift = source.alpha_shift;
+    result.color_model = source.color_model;
+    result.pixel_size = source.pixel_size;
+    return result;
+}
+
+// FUNCTION: SURRENDER 0x10018E90
+srPixelConvert::PixelFormat srGERD::convertPixelFormat(const srDD::PixelFormat& device)
+{
+    return ConvertedPixelFormat<srPixelConvert::PixelFormat>(device);
 }
 
 // FUNCTION: SURRENDER 0x10018EE0
-void srGERD::convertPixelFormat(srDD::PixelFormat& device,
-                                const srPixelConvert::PixelFormat& format)
+srDD::PixelFormat srGERD::convertPixelFormat(const srPixelConvert::PixelFormat& format)
 {
-    device.red_bits = format.red_bits;
-    device.green_bits = format.green_bits;
-    device.blue_bits = format.blue_bits;
-    device.alpha_bits = format.alpha_bits;
-    device.red_shift = format.red_shift;
-    device.green_shift = format.green_shift;
-    device.blue_shift = format.blue_shift;
-    device.alpha_shift = format.alpha_shift;
-    device.color_model = format.color_model;
-    device.pixel_size = format.pixel_size;
+    return ConvertedPixelFormat<srDD::PixelFormat>(format);
 }
 
 // FUNCTION: SURRENDER 0x10018F30
@@ -2663,8 +2648,7 @@ void srGERD::initTextureFormats()
     const auto formats = getDD()->getTextureFormats();
     device.texture_formats.resize(formats.size());
     for (std::size_t i = 0; i < formats.size(); ++i) {
-        device.texture_formats[i].fourcc = 0;
-        convertPixelFormat(device.texture_formats[i], formats[i]);
+        device.texture_formats[i] = convertPixelFormat(formats[i]);
     }
 }
 
@@ -3306,7 +3290,7 @@ void srGERD::evaluateTexturePixelFormat(Texture& texture,
         texture.device.flags |= 1;
     }
     texture.device.resident = (dimensions.hints >> srTextureIFace::HINT_RESIDENT) & 1;
-    convertPixelFormat(texture.device.format, format);
+    texture.device.format = convertPixelFormat(format);
     w8_ulong index = format.match(device.texture_formats.data(),
                                  static_cast<w8_ulong>(device.texture_formats.size()));
     texture.device.format_index = index;
