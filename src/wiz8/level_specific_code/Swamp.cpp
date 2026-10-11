@@ -22,7 +22,6 @@
 #include "surrender/srCamera.h"
 #include "Item.h"
 #include "Navigator.h"
-#include "compat/ptr32.h"
 #include "glm/ext/vector_float3.hpp"
 #include "layouts/item_instance.h"
 #include "layouts/world.h"

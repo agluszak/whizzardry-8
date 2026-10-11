@@ -641,8 +641,16 @@ struct Character {
 };
 static_assert(std::is_trivially_copyable_v<Character>);
 static_assert(sizeof(Character) == 0x1862, "Character_must_be_0x1862");
+/* The status block's head: its version and two pointer words retail stored
+   but never used after loading. */
+struct StatusBuffers {
+    float save_version;
+    std::uint32_t characters;
+    std::uint32_t party_rows;
+};
+static_assert(sizeof(StatusBuffers) == 0x0c);
 struct GlobalStatus {
-    W8StatusBuffers buffers;
+    StatusBuffers buffers;
     bool game_started; /* 0x000c */
     /* 0x000d..0x0018: the three join counters the party-add entry advances:
        the regular-member, auxiliary and total counts. */

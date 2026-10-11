@@ -19,7 +19,6 @@
 #include "random.h"
 #include "soundman.h"
 #include "character_skills.h"
-#include "compat/ptr32.h"
 #include "local_code/ConditionsAndEnchantments.h"
 #include "npc_trade_price.h"
 #include "xstatus.h"

@@ -37,7 +37,6 @@
 #include "random.h"
 #include "timer.h"
 #include "compat/native.h"
-#include "compat/ptr32.h"
 #include "conditions.h"
 #include "gameplay_modifiers.h"
 #include "layouts/item_instance.h"

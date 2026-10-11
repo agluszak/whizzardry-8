@@ -49,7 +49,6 @@
 #include "AnimRep.hpp"
 #include "Monster.h"
 #include "compat/native.h"
-#include "compat/ptr32.h"
 #include "input.h"
 #include "layouts/gameplay_databases.h"
 #include "layouts/item_instance.h"

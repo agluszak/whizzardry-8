@@ -53,7 +53,6 @@
 #include "wiz8/engine_code/PolyPick.h"
 #include "Navigator.h"
 #include "compat/native.h"
-#include "compat/ptr32.h"
 #include "conditions.h"
 #include "equipment_slots.h"
 #include "glm/ext/vector_float4.hpp"
@@ -525,7 +524,7 @@ void ApplyTarget(W8CombatSlot* target, bool in_combat)
         }
         SetTargetSourceToCharacter(party_slot, &source);
         if (gXStatus.fCombatMode) {
-            if (memcmp(&row->target_in_combat, target, sizeof(W8CombatSlot)) == 0) {
+            if ((row->target_in_combat == *target)) {
                 action_targets_enemies = CharacterActionTargetsEnemies(
                     character, row->action, row->action_detail0, &row->action_detail1);
                 if (ShouldClearAimForAppliedTarget(&source, target, in_combat,
@@ -538,7 +537,7 @@ void ApplyTarget(W8CombatSlot* target, bool in_combat)
                 }
             }
         }
-        if (memcmp(&row->target_out_of_combat, target, sizeof(W8CombatSlot)) == 0) {
+        if ((row->target_out_of_combat == *target)) {
             action_targets_enemies = CharacterActionTargetsEnemies(
                 character, row->pending_action, row->attack_mode[0], &row->pending_action_detail);
             if (ShouldClearAimForAppliedTarget(&source, target, in_combat,
@@ -551,7 +550,7 @@ void ApplyTarget(W8CombatSlot* target, bool in_combat)
     for (unsigned int index = 0; index < gXStatus.monsters.size(); ++index) {
         monster_info = MonsterGetScriptPartByLocationIndex(index);
         SetTargetSourceToMonster(monster_info, &source);
-        if (memcmp(&monster_info->Target, target, sizeof(W8CombatSlot)) == 0) {
+        if ((monster_info->Target == *target)) {
             action_targets_enemies =
                 MonsterActionTargetsEnemies(monster_info->action_kind, monster_info->action_detail,
                                             &monster_info->spell_power_level);
@@ -2913,7 +2912,7 @@ void AimAtTarget(int actor, W8CombatSlot* target, W8TargetingContext context)
     W8CombatSlot* block = GetTargetBlockForContext(actor, context);
     W8TargetingContext resolved = ResolveTargetingContext(actor, context);
 
-    if (memcmp(block, target, sizeof(W8CombatSlot)) != 0) {
+    if ((*block != *target)) {
         if (context != W8_TARGETING_CONTEXT_OUT_OF_COMBAT) {
             ClearTargetHighlights(actor, block);
         }

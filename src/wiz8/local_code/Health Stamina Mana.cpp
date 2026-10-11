@@ -46,7 +46,6 @@
 #include "wiz8/layouts/game_status.h"
 #include "attack_modes.h"
 #include "compat/native.h"
-#include "compat/ptr32.h"
 #include "dice.h"
 #include "layouts/targeting.h"
 #include "local_code/Factions.h"

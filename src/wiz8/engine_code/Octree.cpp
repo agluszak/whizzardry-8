@@ -81,7 +81,6 @@
 #include "input.h"
 #include "surrender/srModelInstance.h"
 #include "OctPreTree.h"
-#include "compat/ptr32.h"
 #include "file_time.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/matrix_float4x4.hpp"

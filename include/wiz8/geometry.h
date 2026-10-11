@@ -1,7 +1,6 @@
 #ifndef WIZ8_GEOMETRY_H
 #define WIZ8_GEOMETRY_H
 
-#include "compat/ptr32.h"
 #include "glm/common.hpp"
 #include "glm/geometric.hpp"
 #include "glm/ext/vector_float3.hpp"
@@ -65,7 +64,7 @@ struct W8GDSurface {
     W8Plane plane;
     float distance;
     /* Hit plane ProbePropsAlongMotion fills for ResolveCollision. */
-    W8_PTR32(W8Plane) hit_plane;
+    const W8Plane* hit_plane;
     unsigned char footstep_surface;  /* W8FootstepSurface selector */
     unsigned char footstep_material; /* W8FootstepMaterial selector */
     unsigned char positional[2];
@@ -100,7 +99,6 @@ struct W8GDSurface {
     bool ApplyEnvironContact(glm::vec3& direction);
 };
 
-W8_ABI_ASSERT(sizeof(W8GDSurface) == 0x4c, "W8GDSurface_must_be_0x4c");
 
 using RuntimeTriangle = std::array<glm::vec3, 3>;
 

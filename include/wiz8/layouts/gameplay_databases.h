@@ -5,7 +5,6 @@
 #include <vector>
 struct W8NpcItemStockRule;
 
-#include "compat/ptr32.h"
 #include "wiz8/attack_modes.h"
 #include "wiz8/spell_ids.h"
 #include "wiz8/fact_state.h"
@@ -366,7 +365,7 @@ struct W8NpcDatabaseRecord {
        The wide RPC-character name at 0x0c4 bounds the string extent. */
     std::string display_name;
     W8NpcCharacterTemplate character; /* Retail offset 0x0c4 */
-    W8_PTR32(std::vector<W8NpcItemStockRule*>) item_stock_rules; /* Retail offset 0x2ca: W8NpcItemStockRule* elements */
+    std::vector<W8NpcItemStockRule*>* item_stock_rules; /* Retail offset 0x2ca: W8NpcItemStockRule* elements */
     /* Retail offset 0x2ce/0x2d2: the trade price factors. CalculateTradeStackPrice adds the
        bargained adjustment to buy_price_factor when the NPC buys from the
        party and subtracts it from sell_price_factor when the party buys. */

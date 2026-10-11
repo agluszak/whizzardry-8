@@ -78,7 +78,6 @@
 #include "random.h"
 #include "wiz8/layouts/game_status.h"
 #include "compat/native.h"
-#include "compat/ptr32.h"
 #include "dialog_code/DialogBase.h"
 #include "layouts/main_game_screen.h"
 #include "layouts/npc_dialogue.h"

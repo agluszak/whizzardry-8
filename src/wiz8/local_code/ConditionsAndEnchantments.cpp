@@ -41,7 +41,6 @@
 #include "wiz8/layouts/item_instance.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/game_status.h"
-#include "compat/ptr32.h"
 #include "layouts/main_game_screen.h"
 #include "layouts/targeting.h"
 #include "local_code/Factions.h"

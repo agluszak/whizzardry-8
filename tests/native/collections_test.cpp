@@ -27,7 +27,6 @@
 #include "wiz8/local_screens/JournalScreen.h"
 #include "wiz8/local_screens/MGSKeyboard.h"
 #include "temporary_directory.h"
-#include "compat/ptr32.h"
 #include "fact_state.h"
 #include "input.h"
 #include "layouts/item_instance.h"

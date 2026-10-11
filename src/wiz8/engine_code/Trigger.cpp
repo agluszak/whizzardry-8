@@ -69,7 +69,6 @@
 #include "surrender/srMath.h"
 #include "wiz8/local_code/character_events.h"
 #include "Item.h"
-#include "compat/ptr32.h"
 #include "dice.h"
 #include "float_constants.h"
 #include "game_timer.h"

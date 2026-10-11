@@ -8,8 +8,8 @@
 #include "wiz8/string_database.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/retail_text_records.h"
+#include "wiz8/retail_save_records.h"
 #include "catch2/catch_message.hpp"
-#include "compat/ptr32.h"
 #include "conditions.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_float3.hpp"
@@ -1105,10 +1105,8 @@ TEST_CASE_METHOD(SaveFixture, "NPC state versions and failure recovery", "[save]
     // All three database nodes are supplied by the serialized states below.
     gXStatus.uiNpcsInDatabase = 3;
     W8Character unrelated = {};
-    W8_PTR32(W8Character) live;
-    live = &unrelated;
-    unsigned int live_handle;
-    memcpy(&live_handle, &live, sizeof(live_handle));
+    // A small word that a process-local handle table could have resolved.
+    const unsigned int live_handle = 1;
     const unsigned char version = GENERATE(static_cast<unsigned char>(2), static_cast<unsigned char>(3));
     CAPTURE(version);
     {
@@ -1118,9 +1116,9 @@ TEST_CASE_METHOD(SaveFixture, "NPC state versions and failure recovery", "[save]
         const unsigned int markers[] = {0x12345678u, live_handle, 0};
         for (unsigned int i = 0; i < 3; ++i)
         {
-            W8NpcState disk = {};
+            wiz8::retail::NpcState disk = {};
             disk.name_style = static_cast<unsigned char>(i);
-            memcpy(&disk.character, &markers[i], sizeof(markers[i]));
+            disk.character = markers[i];
             write(out, disk);
             if (markers[i])
             {
@@ -1201,7 +1199,7 @@ TEST_CASE_METHOD(SaveFixture, "NPC state versions and failure recovery", "[save]
             std::ofstream bad(path, std::ios::binary | std::ios::trunc);
             write(bad, static_cast<unsigned char>(3));
             write(bad, malformed == 0 ? UINT32_MAX : 1u);
-            W8NpcState disk{};
+            wiz8::retail::NpcState disk{};
             disk.name_style = malformed == 1 ? 255 : 0;
             if (malformed != 2) write(bad, disk);
             if (malformed == 3) write(bad, UINT32_MAX); // Missing stock entries.
@@ -1246,11 +1244,8 @@ TEST_CASE_METHOD(SaveFixture, "Current-game character replacement", "[save][reco
 
 TEST_CASE_METHOD(SaveFixture, "NPC script records and truncated streams", "[save][npc]")
 {
-    W8Character unrelated{};
-    W8_PTR32(W8Character) live;
-    live = &unrelated;
-    unsigned int live_handle;
-    memcpy(&live_handle, &live, sizeof(live_handle));
+    // A small word that a process-local handle table could have resolved.
+    const unsigned int live_handle = 1;
     const auto script_path = user / "Saves" / "dialogue.nsf";
     const unsigned int marker = GENERATE_COPY(0x12345678u, live_handle, 0u);
     CAPTURE(marker);

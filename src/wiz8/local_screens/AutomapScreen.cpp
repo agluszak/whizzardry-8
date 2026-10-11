@@ -78,7 +78,6 @@
 #include "OctPreTree.h"
 #include "compat/compiler.h"
 #include "compat/native.h"
-#include "compat/ptr32.h"
 #include "environment_colour.h"
 #include "glm/ext/matrix_float4x4.hpp"
 #include "glm/ext/vector_float3.hpp"

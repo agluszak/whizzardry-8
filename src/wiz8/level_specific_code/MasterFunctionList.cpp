@@ -53,7 +53,6 @@
 #include "wiz8/character_skills.h"
 #include "wiz8/string_database.h"
 #include "wiz8/float_constants.h"
-#include "compat/ptr32.h"
 #include "gameplay_modifiers.h"
 #include "glm/ext/vector_double3.hpp"
 #include "item_spawning.h"

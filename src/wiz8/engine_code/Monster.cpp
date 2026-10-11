@@ -108,7 +108,6 @@
 #include "ReadMesh.h"
 #include "application.h"
 #include "attack_modes.h"
-#include "compat/ptr32.h"
 #include "conditions.h"
 #include "dice.h"
 #include "layouts/targeting.h"

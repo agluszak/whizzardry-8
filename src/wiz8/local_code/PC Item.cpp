@@ -58,7 +58,6 @@
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_screens/Screens.h"
 #include "compat/native.h"
-#include "compat/ptr32.h"
 #include "dialog_code/DialogBase.h"
 #include "dice.h"
 #include "equipment_slots.h"

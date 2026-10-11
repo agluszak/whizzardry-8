@@ -68,7 +68,6 @@
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/xstatus.h"
 #include "compat/native.h"
-#include "compat/ptr32.h"
 #include "layouts/item_instance.h"
 #include "layouts/npc_dialogue.h"
 #include "layouts/screen_state.h"

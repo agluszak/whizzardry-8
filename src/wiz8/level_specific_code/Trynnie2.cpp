@@ -23,7 +23,6 @@
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/string_database.h"
 #include "Item.h"
-#include "compat/ptr32.h"
 #include "conditions.h"
 #include "surrender/srMath.h"
 
