@@ -1,5 +1,7 @@
 #pragma once
 
+#include "glm/ext/vector_int3.hpp"
+
 #include <memory>
 #include <optional>
 #include "glm/ext/vector_float3.hpp"
@@ -69,7 +71,7 @@ public:
     std::vector<glm::vec3> vertex_positions;
     std::vector<glm::vec2> texcoords;
     std::vector<float> alphas;
-    std::vector<srVector3i> triangles;
+    std::vector<glm::ivec3> triangles;
     /* Per-triangle animated texture copies; both triangles of a particle share
        one. Empty unless the texture is animated. */
     std::vector<std::shared_ptr<srTextureIFace>> texture_frames;

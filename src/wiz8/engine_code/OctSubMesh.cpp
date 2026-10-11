@@ -1,5 +1,7 @@
+#include "glm/ext/vector_int3.hpp"
 #include "surrender/srMath.h"
 #include <algorithm>
+#include <array>
 #include <cstdlib>
 #include <stdexcept>
 #include <exception>
@@ -27,7 +29,6 @@
 #include "surrender/srTypeRegistry.h"
 
 class srTextureIFace;
-struct srVector3i;
 template <class T> class srVector3T;
 
 /* Engine Code\OctSubMesh.cpp. Read at 0x0049E9A0 asserts this unit
@@ -53,7 +54,15 @@ void ReadMeshArray(wiz8::File& file, std::span<T> values, const char* get_messag
     static_assert(std::is_trivially_copyable_v<T>);
     if (!values.data()) ShutdownWithErrorBox(get_message);
     try {
-        file.read_exact(values.data(), values.size_bytes());
+        if constexpr (std::is_same_v<T, glm::ivec3>) {
+            std::vector<std::array<std::int32_t, 3>> records(values.size());
+            file.read_exact(records.data(), records.size() * sizeof(records.front()));
+            std::ranges::transform(records, values.begin(), [](const auto& record) {
+                return glm::ivec3(record[0], record[1], record[2]);
+            });
+        } else {
+            file.read_exact(values.data(), values.size_bytes());
+        }
     } catch (const std::exception&) {
         ShutdownWithErrorBox(read_message);
     }
@@ -94,7 +103,15 @@ static void WriteAndConsumeMeshArray(wiz8::File& file, T*& values, int count,
     const auto write = [&] {
         if (count < 0) throw std::runtime_error("Negative mesh record count");
         const auto records = std::span<const T>(values, static_cast<std::size_t>(count));
-        file.write(records.data(), records.size_bytes());
+        if constexpr (std::is_same_v<T, glm::ivec3>) {
+            std::vector<std::array<std::int32_t, 3>> packed(records.size());
+            std::ranges::transform(records, packed.begin(), [](const auto& triangle) {
+                return std::array<std::int32_t, 3>{triangle.x, triangle.y, triangle.z};
+            });
+            file.write(packed.data(), packed.size() * sizeof(packed.front()));
+        } else {
+            file.write(records.data(), records.size_bytes());
+        }
     };
     if constexpr (std::is_same_v<T, int>) {
         write();
@@ -242,8 +259,8 @@ std::unique_ptr<stMeshModel> OctMeshModel::Read(wiz8::File* file,
     int* indices = material_indices.data();
     glm::vec3* vertex_locations;
     glm::vec2* vertex_map;
-    srVector3i* poly_uv_index;
-    srVector3i* poly_vertices;
+    glm::ivec3* poly_uv_index;
+    glm::ivec3* poly_vertices;
     glm::vec3* vertex_normals;
     glm::vec4* poly_equations;
 

@@ -36,7 +36,7 @@ add_library(WIZ8_GAME_CORE STATIC
     "local_code/Combat Attack.cpp"
     "local_code/Combat Hostility.cpp"
     "local_code/Magic Effects.cpp"
-    local_code/VideoObjectManager.cpp
+    local_code/CatalogArtwork.cpp
     "local_screens/IntroScreen.cpp"
     "local_screens/MainMenuScreen.cpp"
     local_code/InputMapper.cpp

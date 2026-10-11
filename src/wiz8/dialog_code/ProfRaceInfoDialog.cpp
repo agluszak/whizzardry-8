@@ -15,7 +15,7 @@
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/sr_api.h"
-#include "wiz8/video_object_catalog.h"
+#include "wiz8/catalog_artwork.h"
 #include "character_skills.h"
 #include "dialog_code/DialogBase.h"
 #include "dialog_code/DialogButton.h"

@@ -1,3 +1,4 @@
+#include "glm/ext/vector_int3.hpp"
 #include "surrender/bounding_radius.h"
 #include <ranges>
 #include <glm/gtc/constants.hpp>
@@ -19,6 +20,7 @@
 #include "glm/vector_relational.hpp"
 #include "surrender/srModeler.h"
 #include "surrender/plane_math.h"
+#include "surrender/triangle_projection.h"
 #include "surrender/srTriangulator.h"
 #include "compat/compiler.h"
 #include "glm/ext/matrix_float3x3.hpp"
@@ -27,7 +29,6 @@
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
-#include "surrender/srMath.h"
 #include "surrender/srMeshModel.h"
 #include "surrender/srShader.h"
 
@@ -588,13 +589,13 @@ w8_ulong srModeler::getUniqueVertexCount()
 }
 
 // FUNCTION: SURRENDER 0x1003A4A0
-int srModeler::isClockwise(glm::vec2* points, int count)
+bool srModeler::isClockwise(std::span<const glm::vec2> points)
 {
     // The signed polygon area gives the winding without normalizing every edge.
     double area = 0;
-    for (int i = 0; i < count; ++i) {
-        const glm::dvec2 a(points[i]), b(points[(i + 1) % count]);
-        area += a.x * b.y - a.y * b.x;
+    for (std::size_t i = 0; i < points.size(); ++i) {
+        const glm::dvec2 a(points[i]), b(points[(i + 1) % points.size()]);
+        area += srTriangleProjection::orientedArea(glm::dvec2(0), a, b);
     }
     return area <= 0;
 }
@@ -623,7 +624,7 @@ void srModeler::addPolygon(const Polygon& polygon)
         const auto& a = polygon.vertices[(i + count - 1) % count].position;
         const auto& b = polygon.vertices[i].position;
         const auto& c = polygon.vertices[(i + 1) % count].position;
-        normal += glm::abs(glm::cross(a - b, c - b));
+        normal += glm::abs(srPlaneMath::triangleNormal(b, a, c));
     }
     const int omitted_axis = normal.z >= normal.x && normal.z >= normal.y ? 2
                              : normal.y >= normal.x                       ? 1
@@ -633,13 +634,13 @@ void srModeler::addPolygon(const Polygon& polygon)
     std::vector<glm::vec2> points(count);
     for (int i = 0; i < count; ++i)
         points[i] = {polygon.vertices[i].position[u], polygon.vertices[i].position[v]};
-    if (isClockwise(points.data(), count))
+    if (isClockwise(points))
         for (auto& point : points)
             point.y = -point.y;
-    srTriangulator triangulator(points.data(), count);
-    for (auto indices = triangulator.next(); indices.x != -1; indices = triangulator.next()) {
+    srTriangulator triangulator(points);
+    while (const auto indices = triangulator.next()) {
         for (int i = 0; i < 3; ++i)
-            triangle.vertices[i] = polygon.vertices[indices[i]];
+            triangle.vertices[i] = polygon.vertices[(*indices)[i]];
         addTriangle(triangle);
     }
 }
@@ -972,7 +973,7 @@ void srModeler::convert(srMeshModel& model, int remove_degenerate)
     }
     auto* polygons = model.getPolyVertex();
     for (w8_ulong i = 0; i < triangle_count; ++i)
-        polygons[i] = srVector3i(hash->table[i * 3]->index, hash->table[i * 3 + 1]->index,
+        polygons[i] = glm::ivec3(hash->table[i * 3]->index, hash->table[i * 3 + 1]->index,
                                  hash->table[i * 3 + 2]->index);
     model.setDirtyAll();
 }

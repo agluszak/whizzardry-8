@@ -1,3 +1,4 @@
+#include "glm/ext/vector_int3.hpp"
 #include "wiz8/navigation_math.h"
 #include "surrender/srBoundingBox.h"
 #include <SDL3/SDL_pixels.h>
@@ -4538,7 +4539,7 @@ stModelInstance* W8PathingService::BuildPathVisualization()
     stMeshModel* model = static_cast<stMeshModel*>(m_path_visualization->getModel());
     glm::vec3* colors = model->getVertexDIG(0, 1);
     glm::vec3* vertices = model->getVertexLoc();
-    srVector3i* polygons = model->getPolyVertex();
+    glm::ivec3* polygons = model->getPolyVertex();
     const auto write_marker = [&](unsigned short waypoint, int base, unsigned appearance_flags) {
         const auto& surface = m_waypoints[waypoint];
         const glm::vec3 scale((surface.flags >> 12) * g_waypoint_marker_scale,
@@ -4826,7 +4827,7 @@ void W8PathingService::BuildSearchVisualization()
     glm::vec3* colors = model->getVertexDIG(0, 1);
     glm::vec3* vertices = model->getVertexLoc();
     model->getActivePolygonTable(1);
-    srVector3i* polygons = model->getPolyVertex();
+    glm::ivec3* polygons = model->getPolyVertex();
     /* 0x0045D3BD tests this bound signed even though m_search_node_count is
        stored unsigned. */
     int node_count = m_search_node_count;
@@ -4918,7 +4919,7 @@ stModelInstance* W8PathingService::EnsurePathVisualization()
     model->setShader(g_oct_mesh_default.render_flags, 0);
     model->setName("WayPoint Mesh");
 
-    srVector3i* polygons = model->getPolyVertex();
+    glm::ivec3* polygons = model->getPolyVertex();
     std::shared_ptr<srTextureIFace>* textures = model->getPolyTexture(0, 0, 1);
     glm::vec2* texture_coordinates = model->getVertexTexCoords(0, 0, 1);
     std::shared_ptr<srMaterialIFace>* materials = model->getVertexMaterial(0, srMeshModel::SIDE_FRONT, 1);

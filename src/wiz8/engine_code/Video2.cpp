@@ -1312,7 +1312,7 @@ bool SetMouseCursorFromVideoObject(const SpriteSheet& sprites, std::uint16_t reg
         return false;
     }
     const SpriteFrame& properties = sprites.frames[region];
-    if (!ResizeMouseCursorSurface(properties.usWidth + 1, properties.usHeight + 1)) {
+    if (!ResizeMouseCursorSurface(properties.width + 1, properties.height + 1)) {
         return false;
     }
     if (g_cursor_hotspot_x != offset_x || g_cursor_hotspot_y != offset_y) {
@@ -1323,8 +1323,8 @@ bool SetMouseCursorFromVideoObject(const SpriteSheet& sprites, std::uint16_t reg
         g_cursor_hotspot_x = offset_x;
         g_cursor_hotspot_y = offset_y;
     }
-    g_cursor_image_width = properties.usWidth;
-    g_cursor_image_height = properties.usHeight;
+    g_cursor_image_width = properties.width;
+    g_cursor_image_height = properties.height;
     g_cursor_image_u_extent = g_cursor_image_width * g_inverse_screen_width;
     g_cursor_image_v_extent = g_cursor_image_height * g_inverse_screen_height;
     ClearMouseSurface();
@@ -2868,9 +2868,9 @@ std::shared_ptr<stTextureAnim> VideoVObjectToTextureAnim(const SpriteSheet& spri
     while (frame < end_frame) {
         if (frame < sprites.frames.size()) {
             const SpriteFrame& properties = sprites.frames[frame];
-            largest = properties.usHeight;
-            if (properties.usHeight < properties.usWidth) {
-                largest = properties.usWidth;
+            largest = properties.height;
+            if (properties.height < properties.width) {
+                largest = properties.width;
             }
             if (largest < 0x101) {
                 if (largest < 0x81) {

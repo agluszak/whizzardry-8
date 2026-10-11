@@ -1,3 +1,4 @@
+#include "glm/ext/vector_int3.hpp"
 #include <glm/ext/quaternion_trigonometric.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include <algorithm>
@@ -146,7 +147,7 @@ void GDProp::Initialize(srModelInstance* instance, bool attach, unsigned short p
     stMeshModel* mesh = static_cast<stMeshModel*>(instance->getModel());
     while (mesh != 0) {
         unsigned int mesh_flags = mesh->flags;
-        srVector3i* polygon_vertices = mesh->getPolyVertex();
+        glm::ivec3* polygon_vertices = mesh->getPolyVertex();
         for (int polygon = 0; polygon < mesh->polygon_count; ++polygon) {
             W8GDSurface* surface = &m_pGDSurfaces[surface_total + polygon];
             surface->vertex_indices[0] = polygon_vertices[polygon].x + vertex_base;

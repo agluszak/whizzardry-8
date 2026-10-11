@@ -28,7 +28,7 @@
 #include "wiz8/local_screens/MGSSpellCasting.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
-#include "wiz8/video_object_catalog.h"
+#include "wiz8/catalog_artwork.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/level_specific_code/Trynnie2.h"

@@ -8,7 +8,7 @@
 
 #include "wiz8/fonts.h"
 #include "wiz8/dialog_code/DialogInterface.h"
-#include "wiz8/video_object_catalog.h"
+#include "wiz8/catalog_artwork.h"
 #include "wiz8/engine_code/Video2.h"
 #include "Font.h"
 

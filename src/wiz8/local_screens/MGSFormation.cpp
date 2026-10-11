@@ -26,7 +26,7 @@
 #include "wiz8/cursor.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/regions.h"
-#include "wiz8/video_object_catalog.h"
+#include "wiz8/catalog_artwork.h"
 #include "wiz8/xstatus.h"
 #include "input.h"
 #include "timer.h"

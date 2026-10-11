@@ -14,6 +14,7 @@
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include "himage.h"
@@ -77,18 +78,9 @@ SpriteSheet sprite_sheet(unsigned width, unsigned height, std::vector<std::uint1
 {
     SpriteSheet sprites;
     sprites.frames.resize(1);
-    sprites.frames[0].usWidth = width;
-    sprites.frames[0].usHeight = height;
-    sprites.frames[0].indices = CreateCpuStorage(width, height, SDL_PIXELFORMAT_RGB565);
-    if (sprites.frames[0].indices) {
-        for (unsigned y = 0; y < height; ++y) {
-            auto* row = reinterpret_cast<std::uint16_t*>(
-                static_cast<std::uint8_t*>(sprites.frames[0].indices->pixels) +
-                y * sprites.frames[0].indices->pitch);
-            for (unsigned x = 0; x < width; ++x)
-                row[x] = indices[y * width + x];
-        }
-    }
+    sprites.frames[0].width = static_cast<int>(width);
+    sprites.frames[0].height = static_cast<int>(height);
+    sprites.frames[0].indices = std::move(indices);
     for (std::size_t index = 0; index < sprites.colors.size(); ++index)
         sprites.colors[index] = static_cast<std::uint16_t>(0x1000 + index);
     return sprites;
@@ -112,17 +104,13 @@ SpriteSheet legacy_sprite(int data, const std::array<std::uint16_t, 256>& palett
     SpriteSheet sprites;
     sprites.frames.resize(1);
     SpriteFrame& frame = sprites.frames[0];
-    frame.usWidth = width;
-    frame.usHeight = height;
-    frame.sOffsetX = 1;
-    frame.sOffsetY = -1;
-    frame.indices = CreateCpuStorage(width, height, SDL_PIXELFORMAT_RGB565);
-    if (!frame.indices)
-        return sprites;
+    frame.width = static_cast<int>(width);
+    frame.height = static_cast<int>(height);
+    frame.offset = {1, -1};
+    frame.indices.assign(std::size_t(width) * height, 0);
 
     for (unsigned y = 0; y < height; ++y) {
-        auto* row = reinterpret_cast<std::uint16_t*>(
-            static_cast<std::uint8_t*>(frame.indices->pixels) + y * frame.indices->pitch);
+        std::uint16_t* row = frame.indices.data() + std::size_t(y) * width;
         unsigned x = 0;
         unsigned run = 0;
         constexpr unsigned lengths[]{1, 2, 4, 7, 127};
@@ -236,7 +224,7 @@ TEST_CASE("sprite tiling period includes frame offsets", "[blit]")
     REQUIRE(target);
     REQUIRE(SDL_FillSurfaceRect(target.get(), nullptr, 0x7777));
     auto sprites = sprite_sheet(2, 1, {1, 2});
-    sprites.frames[0].sOffsetX = 1;
+    sprites.frames[0].offset.x = 1;
     const SDL_Rect area{0, 0, 7, 1};
 
     TileSprite(*target, area, sprites, 0, SDL_Point{0, 0});
@@ -256,8 +244,7 @@ TEST_CASE("sprite tiling preserves negative-offset edge cells", "[blit]")
     REQUIRE(target);
     REQUIRE(SDL_FillSurfaceRect(target.get(), nullptr, 0x7777));
     auto sprites = sprite_sheet(3, 3, {1, 2, 3, 4, 5, 6, 7, 8, 9});
-    sprites.frames[0].sOffsetX = -1;
-    sprites.frames[0].sOffsetY = -1;
+    sprites.frames[0].offset = {-1, -1};
     const SDL_Rect area{0, 0, 5, 5};
 
     TileSprite(*target, area, sprites, 0, SDL_Point{0, 0});
@@ -503,7 +490,7 @@ TEST_CASE("SDL surface blits preserve equivalent legacy pixel goldens", "[blit]"
 
     for (int data = 0; data < 3; ++data) {
         const SpriteSheet sprites = legacy_sprite(data, palette);
-        REQUIRE(sprites.frames[0].indices);
+        REQUIRE(!sprites.frames[0].indices.empty());
         for (int variant = 0; variant < 8; ++variant) {
             SDL_Rect clip = (data == 1 || variant == 0 || variant == 6)
                 ? full : SDL_Rect{3, 3, 9, 4};
@@ -548,11 +535,9 @@ TEST_CASE("SDL surface blits preserve equivalent legacy pixel goldens", "[blit]"
         reset_surface(*target, 337, 19);
         reset_surface(*source, 113, 7);
         const std::uint16_t key = static_cast<const std::uint16_t*>(source->pixels)[4 * blitter_width + 2];
-        REQUIRE(SDL_SetSurfaceColorKey(source.get(), true, key));
         REQUIRE(SDL_SetSurfaceClipRect(target.get(), &full));
-        BlitImage(*target, 3, 2, *source, &source_rect, {.color_key = true});
+        BlitImage(*target, 3, 2, *source, &source_rect, {.color_key = key});
         check("Blt16BPPTo16BPPTrans", width, true, full, expected_index, expected);
-        REQUIRE(SDL_SetSurfaceColorKey(source.get(), false, 0));
 
         reset_surface(*target, 337, 19);
         reset_surface(*source, 113, 7);
@@ -587,24 +572,27 @@ TEST_CASE("SDL surface blits preserve equivalent legacy pixel goldens", "[blit]"
 
         reset_surface(*target, 337, 19);
         reset_surface(*source, 113, 7);
-        BitmapImage bitmap;
-        bitmap.width = blitter_pitch;
-        bitmap.height = blitter_height;
-        bitmap.bitDepth = 8;
-        bitmap.format = SDL_PIXELFORMAT_INDEX8;
-        bitmap.palette.emplace();
+        BitmapImage bitmap(SDL_CreateSurface(blitter_pitch, blitter_height, SDL_PIXELFORMAT_INDEX8),
+                           SDL_DestroySurface);
+        REQUIRE(bitmap);
+        Palette8 bitmap_palette{};
         const auto* details = SDL_GetPixelFormatDetails(target->format);
         REQUIRE(details);
         for (unsigned index = 0; index < palette.size(); ++index) {
             const std::uint16_t value = palette[index];
             SDL_Color color{0, 0, 0, SDL_ALPHA_OPAQUE};
             SDL_GetRGB(value, details, nullptr, &color.r, &color.g, &color.b);
-            (*bitmap.palette)[index] = color;
+            bitmap_palette[index] = color;
         }
-        bitmap.pixels.resize(static_cast<std::size_t>(bitmap.width) * bitmap.height);
-        std::memcpy(bitmap.pixels.data(), source->pixels, bitmap.pixels.size());
-        REQUIRE(Create16BPPPalette(*bitmap.palette) == palette);
-        auto indexed_surface = ConvertIndexedBitmapToSurface(bitmap, target->format);
+        auto* sdl_palette = SDL_CreateSurfacePalette(bitmap.get());
+        REQUIRE(sdl_palette);
+        REQUIRE(SDL_SetPaletteColors(sdl_palette, bitmap_palette.data(), 0, 256));
+        for (int y = 0; y < blitter_height; ++y)
+            std::memcpy(static_cast<std::uint8_t*>(bitmap->pixels) + y * bitmap->pitch,
+                        static_cast<const std::uint8_t*>(source->pixels) + y * blitter_pitch,
+                        blitter_pitch);
+        REQUIRE(Create16BPPPalette(bitmap_palette) == palette);
+        auto indexed_surface = ConvertBitmapToFrameSurface(*bitmap);
         REQUIRE(indexed_surface);
         const SDL_Rect subrect{2, 3, static_cast<int>(width), 4};
         BlitImage(*target, 3, 2, *indexed_surface, &subrect);

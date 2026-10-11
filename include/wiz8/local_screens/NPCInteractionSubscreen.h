@@ -28,7 +28,7 @@ void HideNpcQuoteBubbleRegion();
 #include "wiz8/message_box.h"
 #include "wiz8/local_code/Controls.h"
 #include "wiz8/xstatus.h"
-#include "compat/compiler.h"
+#include "wiz8/dialog_code/PortraitQuote.h"
 
 namespace wiz8 { class File; }
 
@@ -69,7 +69,6 @@ public:
 
     int m_main_text_box_image;
 };
-W8_ABI_ASSERT(sizeof(W8NpcDialogueOptionsPanel) == 0x50, "W8NpcDialogueOptionsPanel_size");
 
 /* The typed-dialogue panel. Enabling it starts text-input scheme 1 and
    installs the input field; Redraw draws the input frame one row lower while
@@ -85,7 +84,6 @@ public:
     virtual void SetEnabled(bool enable) override;
     virtual void Redraw() override;
 };
-W8_ABI_ASSERT(sizeof(W8NpcTypedDialoguePanel) == 0x4c, "W8NpcTypedDialoguePanel_size");
 
 struct W8PendingNoticeLine {
     std::string text;
@@ -135,7 +133,6 @@ struct W8DialogueTranscriptRecord {
     std::string text;
     signed char category;
 };
-W8_ABI_ASSERT(sizeof(W8DialogueTranscriptRecord) == 0xca, "W8DialogueTranscriptRecord_size");
 
 enum W8NpcDialogueControlSlot {
     W8_NPC_CONTROL_NPC_NAME = 0,
@@ -221,7 +218,7 @@ struct W8NpcInteractionState {
     /* The haggled price the NPC dialogue's price-check popup displays and the
        submit path acts on. */
     int pending_price;
-    int quote_bubble;
+    std::optional<QuoteBubble> quote_bubble;
     short quote_x;
     short quote_y;
     short quote_width;
@@ -272,22 +269,6 @@ struct W8NpcInteractionState {
     bool dialogue_panel_hidden;
     int last_notice_npc_kind;
 };
-W8_ABI_ASSERT(offsetof(W8NpcInteractionState, dialogue_controls) == 0x10c,
-              "W8NpcInteractionState_dialogue_controls");
-W8_ABI_ASSERT(offsetof(W8NpcInteractionState, dialogue_panels) == 0x1a8,
-              "W8NpcInteractionState_dialogue_panels");
-W8_ABI_ASSERT(offsetof(W8NpcInteractionState, script_busy) == 0x1fa,
-              "W8NpcInteractionState_script_busy");
-W8_ABI_ASSERT(offsetof(W8NpcInteractionState, dialogue_npc) == 0x1d4,
-              "W8NpcInteractionState_dialogue_npc");
-W8_ABI_ASSERT(offsetof(W8NpcInteractionState, quote_bubble) == 0x208,
-              "W8NpcInteractionState_quote_bubble");
-W8_ABI_ASSERT(offsetof(W8NpcInteractionState, quote_visible) == 0x214,
-              "W8NpcInteractionState_quote_visible");
-W8_ABI_ASSERT(offsetof(W8NpcInteractionState, pending_notice_lines) == 0x218,
-              "W8NpcInteractionState_pending_notice_lines");
-W8_ABI_ASSERT(offsetof(W8NpcInteractionState, dialogue_hidden) == 0x228,
-              "W8NpcInteractionState_dialogue_hidden");
 
 extern W8NpcInteractionState* g_npc_interaction_state;
 

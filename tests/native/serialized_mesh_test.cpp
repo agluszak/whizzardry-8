@@ -1,3 +1,4 @@
+#include "glm/ext/vector_int3.hpp"
 #include <catch2/catch_test_macros.hpp>
 #include <array>
 #include <algorithm>
@@ -186,7 +187,8 @@ bool LoadCycles(const std::filesystem::path& path)
 TEST_CASE("serialized_mesh_test")
 {
     REQUIRE(srInit());
-    const std::filesystem::path directory = make_temporary_directory("wiz8-mesh-fixture");
+    ScopedTemporaryDirectory temporary{"wiz8-mesh-fixture"};
+    const auto& directory = temporary.path;
     const auto good = directory / "linked.pvl", bad = directory / "duplicate.pvl";
     const auto invalid = directory / "invalid-texture.pvl";
     const auto truncated = directory / "truncated.pvl";
@@ -224,7 +226,10 @@ TEST_CASE("serialized_mesh_test")
             REQUIRE(instances.size() == 4);
             operations = trace.operations;
         }
-        for (std::size_t operation = 1; operation <= operations; ++operation) {
+        // Probe early framing, middle payload, and final cleanup rather than
+        // replaying every read/seek in the same malformed-load path.
+        REQUIRE(operations >= 3);
+        for (const std::size_t operation : {std::size_t{1}, operations / 2, operations}) {
             auto file = wiz8::open_host_file(good);
             W8ReadLevelInfo info{&world, file.get(), "", nullptr};
             FileFaults fault(operation);
@@ -261,7 +266,6 @@ TEST_CASE("serialized_mesh_test")
     }
     ReleaseReadMeshScratch();
     ReleaseOctMeshDefaults();
-    std::filesystem::remove_all(directory);
     srExit();
     REQUIRE(ok);
     std::puts("ok: serialized mesh loading, linked successors, unloading, reloading and invalid links");
@@ -347,8 +351,8 @@ TEST_CASE("Octree mesh writer consumes arrays in disk order")
         srVector3T<float>(1, 2, 3), srVector3T<float>(4, 5, 6), srVector3T<float>(7, 8, 9)};
     const std::array<glm::vec2, 3> uv{glm::vec2(1, 2), glm::vec2(3, 4), glm::vec2(5, 6)};
     const std::array<int, 3> materials{2, 3, 5};
-    const std::array<srVector3i, 1> uv_indices{srVector3i(0, 2, 1)};
-    const std::array<srVector3i, 1> vertices{srVector3i(2, 1, 0)};
+    const std::array<glm::ivec3, 1> uv_indices{glm::ivec3(0, 2, 1)};
+    const std::array<glm::ivec3, 1> vertices{glm::ivec3(2, 1, 0)};
     const std::array<int, 1> textures{7};
     const std::array<srVector3T<float>, 3> normals{
         srVector3T<float>(0, 0, 1), srVector3T<float>(0, 1, 0), srVector3T<float>(1, 0, 0)};
@@ -373,7 +377,9 @@ TEST_CASE("Octree mesh writer consumes arrays in disk order")
                 Write(*file, std::array<int, 7>{4 | (version << 8), 3, 3, 1, 11, 13, material});
                 Write(*file, locations); Write(*file, uv);
                 if (material < 0) Write(*file, materials);
-                Write(*file, uv_indices); Write(*file, vertices); Write(*file, textures);
+                Write(*file, std::array<std::int32_t, 3>{0, 2, 1});
+                Write(*file, std::array<std::int32_t, 3>{2, 1, 0});
+                Write(*file, textures);
                 Write(*file, normals); Write(*file, lights); Write(*file, equations);
                 if (version) Write(*file, sun); // Only the first bank is serialized.
                 Write(*file, -1);

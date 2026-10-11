@@ -1,3 +1,4 @@
+#include "glm/ext/vector_int3.hpp"
 #include <optional>
 #include <algorithm>
 #include <array>
@@ -1238,7 +1239,7 @@ std::unique_ptr<stModelInstance> W8GameData::CreateTraceModel()
                      "ModelGameData::Read -- Could not create pstMeshModel.\n");
     }
     mesh->flags &= ~W8_MESH_SORTED_RENDERING;
-    srVector3i* poly_vertices = mesh->getPolyVertex();
+    glm::ivec3* poly_vertices = mesh->getPolyVertex();
     std::shared_ptr<srTextureIFace>* poly_textures = mesh->getPolyTexture(0, 0, 1);
     glm::vec3* vertex_locs = mesh->getVertexLoc();
     glm::vec2* texcoords = mesh->getVertexTexCoords(0, 0, 1);

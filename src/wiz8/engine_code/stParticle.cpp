@@ -1,3 +1,4 @@
+#include "glm/ext/vector_int3.hpp"
 #include <algorithm>
 #include <array>
 #include <optional>
@@ -161,8 +162,8 @@ void stParticle::AllocateParticles(unsigned int count)
     triangles.resize(count * 2);
     for (unsigned int index = 0; index < count; ++index) {
         int vertex = static_cast<int>(index * 4);
-        triangles[index * 2] = srVector3i{vertex, vertex + 1, vertex + 2};
-        triangles[index * 2 + 1] = srVector3i{vertex + 2, vertex + 3, vertex};
+        triangles[index * 2] = glm::ivec3{vertex, vertex + 1, vertex + 2};
+        triangles[index * 2 + 1] = glm::ivec3{vertex + 2, vertex + 3, vertex};
         texcoords[vertex] = glm::vec2(0.0f, 0.0f);
         texcoords[vertex + 1] = glm::vec2(1.0f, 0.0f);
         texcoords[vertex + 2] = glm::vec2(1.0f, 1.0f);

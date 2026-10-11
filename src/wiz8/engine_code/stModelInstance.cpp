@@ -1,3 +1,4 @@
+#include "glm/ext/vector_int3.hpp"
 #include "wiz8/engine_code/ReadLevel.h"
 #include <algorithm>
 #include <cmath>
@@ -568,7 +569,7 @@ const float g_shadow_extrusion_pitch_scale = 1.0f / 1500.0f;
 /* Shared shadow quad: two upright triangles on a 500-unit ground span, lit by
    a dedicated material so the extruded shadow pass submits through the
    ordinary TriMesh pipeline. */
-static const srVector3i g_shadow_triangles[2] = {{0, 1, 2}, {3, 4, 5}};
+static const glm::ivec3 g_shadow_triangles[2] = {{0, 1, 2}, {3, 4, 5}};
 static const glm::vec3 g_shadow_positions[6] = {
     {-250.0f, 250.0f, 0.0f}, {0.0f, -250.0f, 0.0f}, {250.0f, 250.0f, 0.0f},
     {0.0f, 250.0f, -250.0f}, {0.0f, -250.0f, 0.0f}, {0.0f, 250.0f, 250.0f}};

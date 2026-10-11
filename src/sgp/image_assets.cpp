@@ -1,10 +1,7 @@
 #include "image_assets.h"
 
-#include <SDL3/SDL_error.h>
-#include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_surface.h>
 #include <memory>
-#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -32,8 +29,17 @@ std::string cache_key(std::string_view path)
 
 ImageAssets g_image_assets;
 
+void ImageAssets::useSessionFormat()
+{
+    if (format_ != g_sgp_pixel_format) {
+        clear();
+        format_ = g_sgp_pixel_format;
+    }
+}
+
 std::shared_ptr<const SpriteSheet> ImageAssets::sprites(std::string_view path)
 {
+    useSessionFormat();
     const auto key = cache_key(path);
     if (const auto found = sprites_.find(key); found != sprites_.end())
         return found->second;
@@ -51,6 +57,7 @@ std::shared_ptr<const SpriteSheet> ImageAssets::sprites(std::string_view path)
 
 std::shared_ptr<SDL_Surface> ImageAssets::bitmap(std::string_view path)
 {
+    useSessionFormat();
     const auto key = cache_key(path);
     if (const auto found = bitmaps_.find(key); found != bitmaps_.end())
         return found->second;
@@ -60,19 +67,7 @@ std::shared_ptr<SDL_Surface> ImageAssets::bitmap(std::string_view path)
     if (!image)
         return {};
 
-    auto bitmap_owner = image->bitDepth == 8
-        ? ConvertIndexedBitmapToSurface(*image, GetFrameBufferSurface().format)
-        : CreateFrameSurface(image->width, image->height);
-    if (image->bitDepth != 8) {
-        auto& framebuffer = GetFrameBufferSurface();
-        if (image->format == SDL_PIXELFORMAT_UNKNOWN ||
-            !SDL_ConvertPixels(image->width, image->height, image->format,
-                               image->pixels.data(), image->width * SDL_BYTESPERPIXEL(image->format),
-                               framebuffer.format, bitmap_owner->pixels, bitmap_owner->pitch))
-            throw std::runtime_error(SDL_GetError());
-    }
-    if (!SDL_SetSurfaceColorKey(bitmap_owner.get(), true, 0))
-        throw std::runtime_error(SDL_GetError());
+    auto bitmap_owner = ConvertBitmapToFrameSurface(**image);
     auto bitmap = std::shared_ptr<SDL_Surface>(bitmap_owner.release(), SDL_DestroySurface);
     bitmaps_.emplace(key, bitmap);
     return bitmap;

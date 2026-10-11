@@ -1,3 +1,4 @@
+#include "glm/ext/vector_int3.hpp"
 #include <stdexcept>
 #include <algorithm>
 #include "surrender/srTextureIFace.h"
@@ -35,7 +36,6 @@
 #include "surrender/srMaterial.h"
 #include "surrender/srNode.h"
 #include "surrender/srVertexPipe.h"
-#include "surrender/srMath.h"
 #include "compat/compiler.h"
 #include "glm/ext/matrix_float4x4.hpp"
 #include "glm/ext/vector_float2.hpp"
@@ -777,11 +777,11 @@ bool rendererCornerRemapping()
             }
             std::array<w8_ulong, 1> indices{0};
             std::array<w8_ulong, 3> vertices{2, 0, 1};
-            std::array<srVector3i, 1> triangles{{{0, 1, 2}}};
+            std::array<glm::ivec3, 1> triangles{{{0, 1, 2}}};
             std::array<int, 3> uv;
             for (unsigned corner = 0; corner < 3; ++corner)
                 uv[corner] = corner + ((changed & (1u << corner)) ? 3 : 0);
-            std::array<srVector3i, 1> poly_uv{{{uv[0], uv[1], uv[2]}}};
+            std::array<glm::ivec3, 1> poly_uv{{{uv[0], uv[1], uv[2]}}};
             std::array<glm::vec2, 6> texcoords;
             for (unsigned i = 0; i < texcoords.size(); ++i) texcoords[i] = glm::vec2(i, i + 10);
             std::array<srTriMeshPipeline::Pass, 2> passes{};
@@ -1049,7 +1049,7 @@ TEST_CASE("Picking honors counted selections, direct indices, nearest depth and 
     renderer.setPickKey(reinterpret_cast<w8_ulong_ptr>(&selected));
     REQUIRE_FALSE(renderer.popPick());
     const std::array<glm::vec4, 3> positions{{{-1, -1, .4f, 1}, {1, -1, .4f, 1}, {0, 1, .4f, 1}}};
-    const std::array<srVector3i, 2> triangles{{{0, 0, 0}, {1, 2, 0}}};
+    const std::array<glm::ivec3, 2> triangles{{{0, 0, 0}, {1, 2, 0}}};
     const std::array<w8_ulong, 1> indices{1};
     const std::array<w8_ulong, 3> remap{2, 0, 1};
     srGERD::Renderer batch({&renderer, 0, 256, 1});

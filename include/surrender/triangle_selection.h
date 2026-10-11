@@ -1,7 +1,8 @@
 #pragma once
 
+#include "glm/ext/vector_int3.hpp"
+
 #include <span>
-#include "srMath.h"
 #include "compat/compiler.h"
 
 namespace srRender {
@@ -17,7 +18,7 @@ w8_ulong selectTriangles(std::span<w8_ulong> destination, const Indices& indices
 
 // Clip flags may refer to original vertices or a compact active-vertex table.
 template<class Flag>
-bool triangleVisible(const srVector3i& triangle, const Flag* flags,
+bool triangleVisible(const glm::ivec3& triangle, const Flag* flags,
                      const w8_ulong* remap = nullptr)
 {
     const auto vertex = [remap](int index) { return remap ? remap[index] : index; };

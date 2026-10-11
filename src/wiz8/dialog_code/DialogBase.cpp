@@ -7,7 +7,7 @@
 #include "wiz8/dialog_code/DialogButton.h"
 #include "wiz8/dialog_code/DialogTextArea.h"
 #include "wiz8/regions.h"
-#include "wiz8/video_object_catalog.h"
+#include "wiz8/catalog_artwork.h"
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "input.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"

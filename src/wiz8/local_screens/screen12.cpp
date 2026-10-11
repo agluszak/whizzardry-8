@@ -2,7 +2,7 @@
 #include "wiz8/regions.h"
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_screens/Screens.h"
-#include "wiz8/video_object_catalog.h"
+#include "wiz8/catalog_artwork.h"
 #include "wiz8/cursor.h"
 #include "input.h"
 #include "wiz8/engine_code/Video2.h"

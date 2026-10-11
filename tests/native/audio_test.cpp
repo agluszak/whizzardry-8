@@ -2,7 +2,6 @@
 #include <ios>
 #include <wiz8/native_audio.h>
 #include <wiz8/filesystem.h>
-#include <wiz8/asset_paths.h>
 #include <SDL3/SDL_iostream.h>
 #include <SDL3/SDL_properties.h>
 #include <SDL3/SDL_stdinc.h>
@@ -30,6 +29,7 @@
 #include "native/movie_audio.h"
 #include "soundman.h"
 #include "temporary_directory.h"
+#include "scoped_asset_roots.h"
 #include "catch2/catch_message.hpp"
 #include "wiz8/audio_resources.h"
 #include <glm/ext/vector_float3.hpp>
@@ -108,13 +108,14 @@ struct AudioFixture
     std::filesystem::path asset = temporary / "assets";
     std::filesystem::path user = temporary / "user";
     std::vector<unsigned char> wave = wav();
+    ScopedAssetRoots asset_roots;
 
     AudioFixture()
     {
         callbacks = 0;
         std::filesystem::create_directories(asset);
         std::filesystem::create_directories(user);
-        w8_native::configure_paths({asset.string(), user.string(), {}});
+        asset_roots.configure({asset.string(), user.string(), {}});
         std::filesystem::copy_file(WIZ8_AUDIO_TEST_MP3, asset / "fallback.mp3");
         write(asset / "tone.wav", wave);
         write(asset / "stereo.wav", wav(true));

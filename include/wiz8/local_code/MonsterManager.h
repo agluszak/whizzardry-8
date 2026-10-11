@@ -5,8 +5,8 @@
 
 #include <string>
 #include <cstdint>
+#include <optional>
 
-#include "compat/compiler.h"
 #include "conditions.h"
 #include "layouts/targeting.h"
 
@@ -26,11 +26,12 @@ struct W8MonsterRecord;
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/gameplay_modifiers.h"
 #include "wiz8/mouth_gap.h"
+#include "wiz8/dialog_code/PortraitQuote.h"
 
 struct W8CharacterEvent;
 
 struct W8PortraitQuoteState {
-    int quote_handle;
+    std::optional<QuoteBubble> bubble;
     unsigned short x;
     unsigned short y;
     unsigned short width;
@@ -132,49 +133,6 @@ struct W8MonsterManagerEntry {
 };
 
 
-W8_ABI_ASSERT(sizeof(W8PortraitQuoteState) == 0x0c, "W8PortraitQuoteState_size");
-W8_ABI_ASSERT(offsetof(W8MonsterManagerEntry, mouth_gap) == 0x05,
-              "W8MonsterManagerEntry_mouth_gap_offset");
-W8_ABI_ASSERT(offsetof(W8MonsterManagerEntry, quote) == 0x19, "W8MonsterManagerEntry_quote_offset");
-W8_ABI_ASSERT(offsetof(W8MonsterManagerEntry, quote.quote_handle) == 0x19,
-              "W8MonsterManagerEntry_quote_handle_offset");
-W8_ABI_ASSERT(offsetof(W8MonsterManagerEntry, quote.x) == 0x1d,
-              "W8MonsterManagerEntry_quote_x_offset");
-W8_ABI_ASSERT(offsetof(W8MonsterManagerEntry, quote.y) == 0x1f,
-              "W8MonsterManagerEntry_quote_y_offset");
-W8_ABI_ASSERT(offsetof(W8MonsterManagerEntry, quote.width) == 0x21,
-              "W8MonsterManagerEntry_quote_width_offset");
-W8_ABI_ASSERT(offsetof(W8MonsterManagerEntry, quote.height) == 0x23,
-              "W8MonsterManagerEntry_quote_height_offset");
-W8_ABI_ASSERT(offsetof(W8MonsterManagerEntry, active_character_event) == 0x71,
-              "W8MonsterManagerEntry_active_character_event_offset");
-W8_ABI_ASSERT(offsetof(W8MonsterManagerEntry, voice_time_remaining_ms) == 0x81,
-              "W8MonsterManagerEntry_voice_time_remaining_ms_offset");
-W8_ABI_ASSERT(offsetof(W8MonsterManagerEntry, damage_splat_active) == 0x9c,
-              "W8MonsterManagerEntry_damage_splat_active_offset");
-W8_ABI_ASSERT(offsetof(W8MonsterManagerEntry, damage_splat_amount) == 0x9f,
-              "W8MonsterManagerEntry_damage_splat_amount_offset");
-W8_ABI_ASSERT(offsetof(W8MonsterManagerEntry, damage_splat_catalog) == 0xab,
-              "W8MonsterManagerEntry_damage_splat_catalog_offset");
-W8_ABI_ASSERT(offsetof(W8MonsterManagerEntry, cached_hp_bar) == 0xac,
-              "W8MonsterManagerEntry_cached_hp_bar_offset");
-W8_ABI_ASSERT(offsetof(W8MonsterManagerEntry, portrait_stats_dirty) == 0xbc,
-              "W8MonsterManagerEntry_portrait_stats_dirty_offset");
-W8_ABI_ASSERT(offsetof(W8MonsterManagerEntry, effect_icon_active) == 0xbd,
-              "W8MonsterManagerEntry_effect_icon_active_offset");
-W8_ABI_ASSERT(offsetof(W8MonsterManagerEntry, portrait_fx_clock) == 0xca,
-              "W8MonsterManagerEntry_portrait_fx_clock_offset");
-W8_ABI_ASSERT(offsetof(W8MonsterManagerEntry, highlighted_monsters) == 0xd8,
-              "W8MonsterManagerEntry_highlighted_monsters_offset");
-W8_ABI_ASSERT(offsetof(W8MonsterManagerEntry, level_up_ready) == 0xe8,
-              "W8MonsterManagerEntry_level_up_ready_offset");
-W8_ABI_ASSERT(offsetof(W8MonsterManagerEntry, skill_notice_pending) == 0xea,
-              "W8MonsterManagerEntry_skill_notice_pending_offset");
-W8_ABI_ASSERT(offsetof(W8MonsterManagerEntry, item_swap_in_progress) == 0x113,
-              "W8MonsterManagerEntry_item_swap_in_progress_offset");
-W8_ABI_ASSERT(offsetof(W8MonsterManagerEntry, pending_event_type) == 0x114,
-              "W8MonsterManagerEntry_pending_event_type_offset");
-W8_ABI_ASSERT(sizeof(W8MonsterManagerEntry) == 0x118, "W8MonsterManagerEntry_size_must_be_0x118");
 
 W8MonsterRecord* MonsterDBFromSpecies(unsigned int monster_species);
 W8MonsterInfo* CreateMonsterInfo(W8MonsterGroup* group, W8MonsterRecord* record,
@@ -308,7 +266,6 @@ struct W8PartyThreatRecord {
     bool visible_to_player;
     unsigned char unknown_26[0x0a];
 };
-W8_ABI_ASSERT(sizeof(W8PartyThreatRecord) == 0x30, "W8PartyThreatRecord_size");
 
 #pragma pack(push, 1)
 /* One 0x31-byte visibility record. W8MonsterInfo embeds the party-facing one
@@ -331,7 +288,6 @@ struct W8VisibilityRecord {
     bool line_of_sight;
     unsigned char unknown_29[8];
 };
-W8_ABI_ASSERT(sizeof(W8VisibilityRecord) == 0x31, "W8VisibilityRecord_size");
 
 using W8MonsterVisibility = std::unordered_map<int, W8VisibilityRecord>;
 

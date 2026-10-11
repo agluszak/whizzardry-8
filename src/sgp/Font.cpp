@@ -11,7 +11,6 @@
 #include "wiz8/unicode.h"
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07, 2026-10-09.
    Distributed under the accompanying SFI Source Code license agreement. */
-// font.c
 #include "Font.h"
 #include "Video2.h"
 #include "himage.h"
@@ -53,14 +52,12 @@ void Font::clear()
     currentShade = kNormalShade;
 }
 
-// FUNCTION: WIZ8 0x00406dc0
 void Font::setPalette(const Palette16& colors)
 {
     customPalette = colors;
     currentShade = kNormalShade;
 }
 
-// FUNCTION: WIZ8 0x00406de0
 const Palette16& Font::palette() const
 {
     static const Palette16 empty{};
@@ -78,7 +75,6 @@ void Font::resetPalette()
     customPalette.reset();
 }
 
-// FUNCTION: WIZ8 0x00406460
 std::uint16_t Font::createShades(std::uint32_t glow)
 {
     if (!glyphs)
@@ -118,7 +114,6 @@ std::uint16_t Font::createShades(std::uint32_t glow)
     return true;
 }
 
-// FUNCTION: WIZ8 0x004068e0
 std::uint16_t Font::setShade(std::uint32_t shade)
 {
     if (shade != kNormalShade && (shade >= shades.size() || !shades[shade]))
@@ -127,15 +122,11 @@ std::uint16_t Font::setShade(std::uint32_t shade)
     return true;
 }
 
-// FUNCTION: WIZ8 0x00406c20
-// FUNCTION: WIZ8 0x00406c90
-// FUNCTION: WIZ8 0x00406d10
 std::uint16_t Font::color(std::uint8_t index) const
 {
     return glyphs ? Get16BPPColor(glyphs->palette[index]) : 0;
 }
 
-// FUNCTION: WIZ8 0x00406e00
 bool Font::load(std::string_view filename)
 {
     auto sheet = g_image_assets.sprites(filename);
@@ -146,33 +137,23 @@ bool Font::load(std::string_view filename)
     return true;
 }
 
-// GetWidth
-//	Returns the width of a given character in the font.
 
 static std::uint32_t GetWidth(const SpriteSheet& sprites, std::int16_t ssIndex)
 {
     if (ssIndex < 0 || static_cast<std::size_t>(ssIndex) >= sprites.frames.size())
         return 0;
     const auto& glyph = sprites.frames[ssIndex];
-    return glyph.usWidth + glyph.sOffsetX;
+    return glyph.width + glyph.offset.x;
 }
 
 // Measure a prefix counted in Unicode scalar values.
 
-// FUNCTION: WIZ8 0x00406ea0
 std::int16_t Font::codepointPrefixWidth(std::string_view string, std::uint32_t uiCharCount) const
 {
 
     return textWidth(string.substr(0, wiz8::text::codepoint_prefix(string, uiCharCount)));
 }
-//  StringNPixLength
-//  Return the length of the of the string or count characters in the
-//  string, which ever comes first.
-//  Returns INT16
-//  Created by:     Gilles Beauparlant
-//  Created on:     12/1/99
 
-// FUNCTION: WIZ8 0x00406f90
 std::int16_t Font::prefixWidth(std::string_view string, std::size_t byte_end) const
 {
     if (!glyphs || glyphs->frames.empty()) return 0;
@@ -185,35 +166,26 @@ std::int16_t Font::prefixWidth(std::string_view string, std::size_t byte_end) co
     return static_cast<std::int16_t>(width);
 }
 
-// FUNCTION: WIZ8 0x00407010
 std::int16_t Font::textWidth(std::string_view string) const
 {
     return prefixWidth(string, string.size());
 }
-// GetHeight
-//	Returns the height of a given character in the font.
 
 static std::uint32_t GetHeight(const SpriteSheet& sprites, std::int16_t ssIndex)
 {
     if (ssIndex < 0 || static_cast<std::size_t>(ssIndex) >= sprites.frames.size())
         return 0;
     const auto& glyph = sprites.frames[ssIndex];
-    return glyph.usHeight + glyph.sOffsetY;
+    return glyph.height + glyph.offset.y;
 }
-// GetFontHeight
-//	Returns the height of the first character in a font.
 
-// FUNCTION: WIZ8 0x004071f0
 std::uint16_t Font::height() const
 {
     if (!glyphs || glyphs->frames.empty()) return 0;
     return static_cast<std::uint16_t>(GetHeight(*glyphs, 0));
 }
 
-// GetIndex
-//		Given a word-sized character, this function returns the index of the
-//	cell in the font to print to the screen. The conversion table is built by
-//	CreateEnglishTransTable()
+// Maps a character to its glyph frame using the table from CreateEnglishTransTable().
 
 std::int16_t GetIndex(char32_t siChar)
 {
@@ -224,23 +196,17 @@ std::int16_t GetIndex(char32_t siChar)
     return fallback == g_font_translation.end() ? 0 : static_cast<std::int16_t>(fallback - g_font_translation.begin());
 }
 
-// FUNCTION: WIZ8 0x00407420
 SDL_Point Font::rightAlignedPosition(const SDL_Rect& bounds, std::string_view text) const
 {
     return {bounds.x + bounds.w - textWidth(text), bounds.y + (bounds.h - height()) / 2};
 }
 
-// FUNCTION: WIZ8 0x00407530
 SDL_Point Font::centeredPosition(const SDL_Rect& bounds, std::string_view text) const
 {
     return {bounds.x + (bounds.w - textWidth(text) + 1) / 2,
             bounds.y + (bounds.h - height()) / 2};
 }
 
-// FUNCTION: WIZ8 0x00407260
-// FUNCTION: WIZ8 0x00407650
-// FUNCTION: WIZ8 0x00407a10
-// FUNCTION: WIZ8 0x00407b80
 void DrawText(SDL_Surface& target, Font& font, SDL_Point at, std::string_view text,
               TextOptions options)
 {
@@ -269,7 +235,6 @@ void DrawText(SDL_Surface& target, Font& font, SDL_Point at, std::string_view te
     }
 }
 
-// FUNCTION: WIZ8 0x004077d0
 void DrawTextAndInvalidate(SDL_Surface& target, Font& font, SDL_Point at,
                            std::string_view text, TextOptions options)
 {
@@ -278,23 +243,19 @@ void DrawTextAndInvalidate(SDL_Surface& target, Font& font, SDL_Point at,
                      INVAL_SRC_TRANS);
 }
 
-// FUNCTION: WIZ8 0x00407d30
 void ConfigureFontRendering(const std::vector<std::uint16_t>& translation)
 {
     ResetFontRendering();
     g_font_translation = translation;
 }
 
-// FUNCTION: WIZ8 0x00407e30
 void ResetFontRendering()
 {
     g_font_translation.clear();
 }
 
-// CreateEnglishTransTable
-// Creates the English text->font map table.
+// Builds the English character-to-glyph table.
 
-// FUNCTION: WIZ8 0x00407ec0
 std::vector<std::uint16_t> CreateEnglishTransTable()
 {
     return {

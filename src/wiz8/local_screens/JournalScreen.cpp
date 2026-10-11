@@ -28,7 +28,7 @@
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/regions.h"
-#include "wiz8/video_object_catalog.h"
+#include "wiz8/catalog_artwork.h"
 #include "Font.h"
 #include "soundman.h"
 #include "wiz8/filesystem.h"

@@ -25,7 +25,7 @@
 #include "wiz8/local_code/CombatPartyMovement.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/Controls.h"
-#include "wiz8/video_object_catalog.h"
+#include "wiz8/catalog_artwork.h"
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_code/GameplayTime.h"
 #include "wiz8/local_code/LoadSaveGame.h"

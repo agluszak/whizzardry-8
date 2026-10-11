@@ -30,7 +30,7 @@
 #include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/sr_api.h"
-#include "wiz8/video_object_catalog.h"
+#include "wiz8/catalog_artwork.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "dialog_code/DialogButton.h"
 #include "dialog_code/DialogScrollBar.h"

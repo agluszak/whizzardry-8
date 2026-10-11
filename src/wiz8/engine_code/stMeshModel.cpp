@@ -1,3 +1,4 @@
+#include "glm/ext/vector_int3.hpp"
 #include "wiz8/engine_code/ReadLevel.h"
 #include "surrender/srModel.h"
 #include <cstddef>
@@ -750,7 +751,7 @@ void stMeshModel::ComputeFrameNormals(int frame)
         return;
     }
 
-    srVector3i* poly_vertex = getPolyVertex();
+    glm::ivec3* poly_vertex = getPolyVertex();
     if (poly_vertex == nullptr) {
         return;
     }
@@ -772,7 +773,7 @@ void stMeshModel::ComputeFrameNormals(int frame)
 
     const auto* shade_index = getVertexShadeIndex(0);
     const auto vnorm = srMeshMath::vertexNormalSums(
-        std::span<const srVector3i>(poly_vertex, polygon_count),
+        std::span<const glm::ivec3>(poly_vertex, polygon_count),
         std::span<const glm::vec3>(pnorm), vertex_location_count,
         shade_index ? std::span<const w8_ulong>(shade_index, vertex_location_count)
                     : std::span<const w8_ulong>{});

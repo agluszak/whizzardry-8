@@ -28,7 +28,7 @@
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/Controls.h"
-#include "wiz8/video_object_catalog.h"
+#include "wiz8/catalog_artwork.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/TextControl.h"
 #include "wiz8/local_code/Widget.h"

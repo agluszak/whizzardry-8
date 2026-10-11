@@ -27,7 +27,7 @@
 #include "wiz8/regions.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/sr_api.h"
-#include "wiz8/video_object_catalog.h"
+#include "wiz8/catalog_artwork.h"
 #include "wiz8/item_video_object_vector.h"
 #include "Font.h"
 #include "input.h"

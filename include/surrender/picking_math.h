@@ -9,6 +9,7 @@
 #include "glm/ext/vector_float4.hpp"
 #include "glm/geometric.hpp"
 #include "surrender/plane_math.h"
+#include "surrender/triangle_projection.h"
 
 namespace srPickingMath {
 // Picking uses |1/w| for coverage and keeps the sign to recover plane depth.
@@ -25,8 +26,7 @@ inline std::optional<float> triangleDepth(std::span<const glm::vec4, 3> corners,
     for (unsigned edge = 0; edge < corners.size(); ++edge) {
         const glm::vec2 first(corners[edge]);
         const glm::vec2 second(corners[(edge + 1) % corners.size()]);
-        const auto area = glm::cross(glm::vec3(first - second, 0),
-                                     glm::vec3(first - glm::vec2(pick), 0)).z;
+        const auto area = srTriangleProjection::orientedArea(first, second, glm::vec2(pick));
         positive_edges += area > 0;
     }
     if (positive_edges != 0 && positive_edges != 3) return std::nullopt;

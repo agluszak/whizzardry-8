@@ -1,3 +1,4 @@
+#include "glm/ext/vector_int3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_double3.hpp"
 #include <glm/ext/quaternion_trigonometric.hpp>
@@ -147,7 +148,7 @@ void OptimizeMeshOrder(srMeshModel* model)
 
     std::vector<w8_ulong> first_use(vertex_count, 0);
     w8_ulong used = 0;
-    const srVector3i* polygon_vertices = model->getPolyVertex();
+    const glm::ivec3* polygon_vertices = model->getPolyVertex();
     for (w8_ulong polygon : polygons) {
         for (int vertex : {polygon_vertices[polygon].x, polygon_vertices[polygon].y,
                            polygon_vertices[polygon].z}) {
@@ -193,8 +194,8 @@ BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count,
     std::array<std::vector<std::shared_ptr<srTextureIFace>>, 8> polygon_textures;
     std::array<std::vector<glm::vec2>, 8> vertex_uvs;
     std::array<std::vector<glm::vec2>, 8> extra_uvs;
-    std::array<std::vector<srVector3i>, 8> polygon_vertices;
-    std::array<std::vector<srVector3i>, 8> polygon_shades;
+    std::array<std::vector<glm::ivec3>, 8> polygon_vertices;
+    std::array<std::vector<glm::ivec3>, 8> polygon_shades;
     std::array<std::vector<w8_ulong>, 8> vertex_shades;
     std::shared_ptr<stMeshModel> first_model;
     int type;
@@ -252,8 +253,8 @@ BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count,
             srAssertFail("iPolyType >=0", "C:\\Projects\\Wizardry 8\\Engine Code\\ReadMesh.cpp",
                          0x45b, 0);
         }
-        srVector3i& poly = polygon_vertices[type][polygon_counts[type]];
-        srVector3i& shade = polygon_shades[type][polygon_counts[type]];
+        glm::ivec3& poly = polygon_vertices[type][polygon_counts[type]];
+        glm::ivec3& shade = polygon_shades[type][polygon_counts[type]];
         for (int corner = 0; corner < 3; ++corner) {
             int original_vertex = face.vertices[corner];
             auto [found, inserted] = vertex_indices[type].try_emplace(
@@ -262,7 +263,7 @@ BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count,
             if (inserted) {
                 vertex_materials[type][vertex] = material.material;
                 vertex_uvs[type][vertex] = face.texture_coordinates[corner];
-                (corner == 0 ? poly.x : (corner == 1 ? poly.y : poly.z)) = vertex;
+                poly[corner] = vertex;
                 vertex_maps[type][vertex] = original_vertex;
                 vertex_shades[type][vertex] = vertex;
                 ++vertex_counts[type];
@@ -275,23 +276,22 @@ BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count,
                 }
             } else if (vertex_uvs[type][vertex].x == face.texture_coordinates[corner].x &&
                        vertex_uvs[type][vertex].y == face.texture_coordinates[corner].y) {
-                (corner == 0 ? poly.x : (corner == 1 ? poly.y : poly.z)) = vertex;
+                poly[corner] = vertex;
             } else {
-                (corner == 0 ? poly.x : (corner == 1 ? poly.y : poly.z)) =
-                    -1 - extra_uv_counts[type];
+                poly[corner] = -1 - extra_uv_counts[type];
                 extra_uvs[type][extra_uv_counts[type]] = face.texture_coordinates[corner];
                 ++extra_uv_counts[type];
             }
-            (corner == 0 ? shade.x : (corner == 1 ? shade.y : shade.z)) = vertex;
+            shade[corner] = vertex;
         }
         polygon_textures[type][polygon_counts[type]] = material.texture;
         ++polygon_counts[type];
 
         if (ReadMeshFaceNeedsSplit(face, materials)) {
-            srVector3i& split_poly = polygon_vertices[type][polygon_counts[type]];
-            srVector3i& split_shade = polygon_shades[type][polygon_counts[type]];
+            glm::ivec3& split_poly = polygon_vertices[type][polygon_counts[type]];
+            glm::ivec3& split_shade = polygon_shades[type][polygon_counts[type]];
             for (int corner = 0; corner < 3; ++corner) {
-                int source_vertex = corner == 0 ? shade.x : (corner == 1 ? shade.y : shade.z);
+                int source_vertex = shade[corner];
                 int vertex = vertex_counts[type];
                 vertex_materials[type][vertex] = vertex_materials[type][source_vertex];
                 vertex_shades[type][vertex] = vertex;
@@ -299,9 +299,8 @@ BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count,
                 vertex_uvs[type][vertex] = face.texture_coordinates[corner];
                 duplicated_from[type].push_back(source_vertex);
                 duplicated_to[type].push_back(vertex);
-                (corner == 0 ? split_poly.x : (corner == 1 ? split_poly.y : split_poly.z)) = vertex;
-                (corner == 0 ? split_shade.x : (corner == 1 ? split_shade.y : split_shade.z)) =
-                    vertex;
+                split_poly[corner] = vertex;
+                split_shade[corner] = vertex;
                 ++vertex_counts[type];
             }
             polygon_textures[type][polygon_counts[type]] =
@@ -351,29 +350,24 @@ BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count,
             }
         }
 
-        srVector3i* model_polygons = model->getPolyVertex();
+        glm::ivec3* model_polygons = model->getPolyVertex();
         model->setUVCount(vertex_counts[type] + extra_uv_counts[type]);
         glm::vec2* model_uvs = model->getVertexTexCoords(0, 0, 1);
         memcpy(model_uvs, vertex_uvs[type].data(), vertex_counts[type] * sizeof(glm::vec2));
         memcpy(model_uvs + vertex_counts[type], extra_uvs[type].data(),
                extra_uv_counts[type] * sizeof(glm::vec2));
-        srVector3i* model_uv_indices = model->getPolyUVIndex(0, 1);
+        glm::ivec3* model_uv_indices = model->getPolyUVIndex(0, 1);
         for (int uv_polygon = 0; uv_polygon < polygon_counts[type]; ++uv_polygon) {
             for (int uv_corner = 0; uv_corner < 3; ++uv_corner) {
-                int index = uv_corner == 0
-                                ? polygon_vertices[type][uv_polygon].x
-                                : (uv_corner == 1 ? polygon_vertices[type][uv_polygon].y
-                                                  : polygon_vertices[type][uv_polygon].z);
+                int index = polygon_vertices[type][uv_polygon][uv_corner];
                 if (index < 0) {
                     index = vertex_counts[type] + (-1 - index);
                 }
-                (uv_corner == 0 ? model_uv_indices[uv_polygon].x
-                                : (uv_corner == 1 ? model_uv_indices[uv_polygon].y
-                                                  : model_uv_indices[uv_polygon].z)) = index;
+                model_uv_indices[uv_polygon][uv_corner] = index;
             }
         }
         w8_ulong* model_shades = model->getVertexShadeIndex(1);
-        memcpy(model_polygons, polygon_shades[type].data(), polygon_counts[type] * sizeof(srVector3i));
+        memcpy(model_polygons, polygon_shades[type].data(), polygon_counts[type] * sizeof(glm::ivec3));
         memcpy(model_shades, vertex_shades[type].data(), vertex_counts[type] * sizeof(w8_ulong));
 
         srShader shader;

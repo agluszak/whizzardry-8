@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <span>
 #include <memory>
 #include <optional>
 #include <utility>
@@ -170,7 +171,7 @@ public:
 
 private:
     std::unique_ptr<VertexHash> getUniqueVertexList();
-    int isClockwise(glm::vec2* points, int count);
+    bool isClockwise(std::span<const glm::vec2> points);
 
     w8_ulong triangle_count;
     std::vector<Triangle> triangles;

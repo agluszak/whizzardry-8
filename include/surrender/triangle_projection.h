@@ -1,10 +1,29 @@
 #pragma once
 
 #include <span>
+#include "glm/matrix.hpp"
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
 
 namespace srTriangleProjection {
+template<class T, glm::qualifier Q>
+T orientedArea(const glm::vec<2, T, Q>& first, const glm::vec<2, T, Q>& second,
+               const glm::vec<2, T, Q>& point)
+{
+    return glm::determinant(glm::mat<2, 2, T, Q>(second - first, point - first));
+}
+
+inline bool containsClosed(std::span<const glm::vec2, 3> vertices, const glm::vec2& point)
+{
+    for (unsigned opposite = 0; opposite < vertices.size(); ++opposite) {
+        const auto& first = vertices[(opposite + 1) % vertices.size()];
+        const auto& second = vertices[(opposite + 2) % vertices.size()];
+        if (!(orientedArea(first, second, point) *
+              orientedArea(first, second, vertices[opposite]) >= 0)) return false;
+    }
+    return true;
+}
+
 inline glm::vec2 coordinates(const glm::vec3& point, unsigned axis)
 {
     return {point[(axis + 1) % 3], point[(axis + 2) % 3]};
@@ -28,10 +47,12 @@ inline bool contains(std::span<const glm::vec3, 3> vertices, unsigned axis,
             ? second.y < query.y && query.y < first.y
             : second.y <= query.y && query.y < first.y;
         if (!first_crosses && !second_crosses) continue;
-        const float crossing = (query.y - first.y) * (second.x - first.x) /
-                                (second.y - first.y) + first.x;
-        if (boundary == Boundary::visibility ? query.x <= crossing : query.x < crossing)
-            inside = !inside;
+        const auto area = orientedArea(first, second, query);
+        const bool upward = second.y > first.y;
+        const bool crosses = boundary == Boundary::visibility
+            ? (upward ? area >= 0 : area <= 0)
+            : (upward ? area > 0 : area < 0);
+        if (crosses) inside = !inside;
     }
     return inside;
 }
