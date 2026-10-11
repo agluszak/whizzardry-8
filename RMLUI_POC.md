@@ -41,9 +41,10 @@ loading and visual state decorators in the actual game, against PR #124's
 window, event pump or production UI framework.
 
 The POC currently uses the upstream SDL software renderer and restores a
-small CPU framebuffer rectangle between frames. Its decorators stretch the
-middle of the tiled-box sprites, while the old button system tiled its
-background and edges. If RmlUi is adopted, validate that difference against
+small CPU framebuffer rectangle between frames. The original dialog background
+pattern is **repeated**, with its underlying fill color taken from frame 8 of
+`DialogBorder.STI`. RmlUi's tiled-box edges still stretch, whereas retail tiled
+them. If RmlUi is adopted, validate that difference against
 retail and move the UI draw pass onto the existing SDL GPU pipeline.
 
 The bitmap text renderer is used for the message as a POC; a comprehensive

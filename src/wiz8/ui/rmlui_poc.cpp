@@ -30,7 +30,7 @@ namespace {
 // coordinates. Only layout is specified in RCSS; all visual assets are retail.
 constexpr SDL_Rect dialog_bounds{160, 145, 320, 190};
 constexpr int border_inset = 9;
-constexpr std::string_view message_text = "This is a Wizardry 8 dialog rendered by RmlUi.";
+constexpr std::string_view message_text = "Wizardry 8 dialog artwork";
 
 constexpr auto document_markup = R"rml(
 <rml>
@@ -46,9 +46,9 @@ body { margin: 0; }
     height: 190px;
     decorator: tiled-box(
         "wiz8-border-0.sti", "wiz8-border-1.sti", "wiz8-border-2.sti",
-        "wiz8-border-3.sti", "wiz8-background-0.sti", "wiz8-border-4.sti",
+        "wiz8-border-3.sti", "wiz8-transparent.sti", "wiz8-border-4.sti",
         "wiz8-border-5.sti", "wiz8-border-6.sti", "wiz8-border-7.sti"
-    );
+    ), image("wiz8-background-0.sti" repeat);
 }
 #inner {
     position: absolute;
@@ -58,7 +58,7 @@ body { margin: 0; }
     height: 172px;
     decorator: tiled-box(
         "wiz8-edge-0.sti", "wiz8-edge-1.sti", "wiz8-edge-2.sti",
-        "wiz8-edge-3.sti", "wiz8-background-0.sti", "wiz8-edge-4.sti",
+        "wiz8-edge-3.sti", "wiz8-transparent.sti", "wiz8-edge-4.sti",
         "wiz8-edge-5.sti", "wiz8-edge-6.sti", "wiz8-edge-7.sti"
     );
 }
@@ -123,6 +123,10 @@ public:
                 return false;
             }
         }
+        const auto fill_index = artwork[0]->sprites[8].paletteIndexAt(0, 0);
+        if (!fill_index)
+            return false;
+        fill = artwork[0]->pPaletteEntry[*fill_index];
         for (size_t i = 0; i < 8; ++i) {
             const auto& sprite = artwork[3]->sprites[i];
             button_width = std::max(button_width, int(sprite.usWidth) + sprite.sOffsetX);
@@ -133,11 +137,22 @@ public:
 
     int ButtonWidth() const { return button_width; }
     int ButtonHeight() const { return button_height; }
+    std::string FillColor() const
+    {
+        return "rgb(" + std::to_string(fill.peRed) + "," +
+               std::to_string(fill.peGreen) + "," +
+               std::to_string(fill.peBlue) + ")";
+    }
 
     Rml::TextureHandle LoadTexture(Rml::Vector2i& dimensions, const Rml::String& source) override
     {
         // RmlUi may prepend the RML source directory to the virtual filename.
         const std::string_view filename(source);
+        if (filename.find("wiz8-transparent.sti") != std::string_view::npos) {
+            dimensions = {1, 1};
+            constexpr std::array<Rml::byte, 4> transparent{};
+            return GenerateTexture({transparent.data(), transparent.size()}, dimensions);
+        }
         for (size_t i = 0; i < names.size(); ++i) {
             const std::string marker = "wiz8-" + std::string(names[i]) + "-";
             const auto begin = filename.rfind(marker);
@@ -190,6 +205,7 @@ private:
         "border", "edge", "background", "confirmation"
     };
     std::array<std::unique_ptr<SGPVObject>, 4> artwork;
+    SGPPaletteEntry fill{};
     int button_width = 0, button_height = 0;
 };
 
@@ -377,10 +393,15 @@ bool open()
     auto* document = dialog->context->LoadDocumentFromMemory(document_markup);
     if (!document || !document->GetElementById("accept") ||
         !document->GetElementById("cancel") || !document->GetElementById("actions") ||
-        !document->GetElementById("message")) {
+        !document->GetElementById("message") || !document->GetElementById("dialog")) {
         destroy_dialog();
         return false;
     }
+    // The original painter fills the dialog with the palette colour from
+    // Border.STI frame 8, then tiles the Background.STI pattern over it.
+    document->GetElementById("dialog")->SetProperty(
+        "background-color", dialog->render_interface->FillColor());
+
     // The original message dialog places its two buttons with one
     // button-width of space between them, 15 pixels above the bottom.
     const int width = dialog->render_interface->ButtonWidth();
