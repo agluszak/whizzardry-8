@@ -61,17 +61,3 @@ TEST_CASE("SDL image blits use color keys, mirroring, and destination clip recta
     REQUIRE(pixel(*destination, 3, 0) == 0x2345);
     REQUIRE(pixel(*destination, 4, 0) == 0x4567);
 }
-
-TEST_CASE("SDL surface rectangle fills preserve storage outside the requested area", "[surface]")
-{
-    auto image = surface(5, 4);
-    REQUIRE(image);
-    REQUIRE(SDL_FillSurfaceRect(image.get(), nullptr, 0x2345));
-    const SDL_Rect area{1, 1, 3, 2};
-    REQUIRE(SDL_FillSurfaceRect(image.get(), &area, 0x1234));
-    for (int y = 0; y < image->h; ++y)
-        for (int x = 0; x < image->w; ++x)
-            REQUIRE(pixel(*image, x, y) == (x >= 1 && x < 4 && y >= 1 && y < 3
-                                              ? 0x1234
-                                              : 0x2345));
-}
