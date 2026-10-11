@@ -1,3 +1,5 @@
+#include <SDL3/SDL_rect.h>
+#include "wiz8/compat/surfaces.h"
 #include <cstdint>
 #include <catch2/catch_test_macros.hpp>
 #include <ios>
@@ -752,4 +754,36 @@ TEST_CASE_METHOD(ImageFixture, "Truncated images and rollback", "[image][validat
     REQUIRE(!LoadImage(""));
 
 
+}
+
+TEST_CASE("SDL sprite cache preserves opaque pixels across native formats")
+{
+    const auto previous_format = g_sgp_pixel_format;
+    struct RestoreFormat {
+        SDL_PixelFormat format;
+        ~RestoreFormat() { g_sgp_pixel_format = format; }
+    } restore{previous_format};
+    SpriteFrame frame;
+    frame.usWidth = 2;
+    frame.usHeight = 1;
+    frame.indices = CreateCpuStorage(2, 1, SDL_PIXELFORMAT_RGB565);
+    REQUIRE(frame.indices);
+    REQUIRE(SDL_FillSurfaceRect(frame.indices.get(), nullptr, 0));
+    const SDL_Rect second{1, 0, 1, 1};
+    REQUIRE(SDL_FillSurfaceRect(frame.indices.get(), &second, 1));
+    Palette16 palette{};
+    palette[1] = 0xffff;
+    for (auto format : {SDL_PIXELFORMAT_XRGB1555, SDL_PIXELFORMAT_ARGB1555, SDL_PIXELFORMAT_RGB565}) {
+        g_sgp_pixel_format = format;
+        auto* source = frame.coloredSurface(palette);
+        REQUIRE(source);
+        REQUIRE(source->format == format);
+        auto target = CreateCpuStorage(2, 1, format);
+        REQUIRE(target);
+        REQUIRE(SDL_FillSurfaceRect(target.get(), nullptr, 0x1234));
+        REQUIRE(SDL_BlitSurface(source, nullptr, target.get(), nullptr));
+        const auto* pixels = static_cast<const std::uint16_t*>(target->pixels);
+        REQUIRE(pixels[0] == 0);
+        REQUIRE(pixels[1] == 0xffff);
+    }
 }

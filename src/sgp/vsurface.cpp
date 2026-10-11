@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <SDL3/SDL_pixels.h>
 #include <cstdint>
 #include <SDL3/SDL_rect.h>
@@ -49,70 +50,68 @@ bool ImageFillVideoSurfaceArea(SGPVSurface& uiDestVSurface, std::int32_t iDestX1
                                   std::int32_t iDestX2, std::int32_t iDestY2, SGPVObject& BkgrndImg, std::uint16_t Index,
                                   std::int16_t Ox, std::int16_t Oy)
 {
-    std::int16_t xc, yc, hblits, wblits, aw, pw, ah, ph, w, h, xo, yo;
-    SpriteFrame* pTrav;
-    SDL_Rect NewClip, OldClip;
-
-    pTrav = &(BkgrndImg.sprites[Index]);
-    ph = (std::int16_t)(pTrav->usHeight + pTrav->sOffsetY);
-    pw = (std::int16_t)(pTrav->usWidth + pTrav->sOffsetX);
-
-    ah = (std::int16_t)(iDestY2 - iDestY1);
-    aw = (std::int16_t)(iDestX2 - iDestX1);
-
-    Ox %= pw;
-    Oy %= ph;
-
-    if (Ox > 0)
-        Ox -= pw;
-    xo = (-Ox) % pw;
-
-    if (Oy > 0)
-        Oy -= ph;
-    yo = (-Oy) % ph;
-
-    if (Ox < 0)
-        xo = (-Ox) % pw;
-    else {
-        xo = pw - (Ox % pw);
-        Ox -= pw;
-    }
-
-    if (Oy < 0)
-        yo = (-Oy) % ph;
-    else {
-        yo = ph - (Oy % pw);
-        Oy -= ph;
-    }
-
-    hblits = ((ah + yo) / ph) + (((ah + yo) % ph) ? 1 : 0);
-    wblits = ((aw + xo) / pw) + (((aw + xo) % pw) ? 1 : 0);
-
-    if ((hblits == 0) || (wblits == 0))
-        return (false);
-    // Clip fill region coords
-
-    GetClippingRect(&OldClip);
-
-    NewClip = {iDestX1, iDestY1, iDestX2 - iDestX1, iDestY2 - iDestY1};
-    if (!SDL_GetRectIntersection(&NewClip, &OldClip, &NewClip))
-        return (false);
-
-    SetClippingRect(&NewClip);
-
-    yc = (std::int16_t)iDestY1;
-    for (h = 0; h < hblits; h++) {
-        xc = (std::int16_t)iDestX1;
-        for (w = 0; w < wblits; w++) {
-            BltVideoObject(uiDestVSurface, BkgrndImg, Index, xc + Ox, yc + Oy,
-                           VO_BLT_SRCTRANSPARENCY, nullptr);
-            xc += pw;
+    if (Index >= BkgrndImg.sprites.size()) return false;
+    const auto& frame = BkgrndImg.sprites[Index];
+    const int width = frame.usWidth + frame.sOffsetX;
+    const int height = frame.usHeight + frame.sOffsetY;
+    if (width <= 0 || height <= 0) return false;
+    SDL_Rect visible{iDestX1, iDestY1, iDestX2 - iDestX1, iDestY2 - iDestY1};
+    const auto& storage = *uiDestVSurface.cpu().surface;
+    const SDL_Rect bounds{0, 0, storage.w, storage.h};
+    if (!SDL_GetRectIntersection(&visible, &ClippingRect, &visible) ||
+        !SDL_GetRectIntersection(&visible, &bounds, &visible)) return false;
+    auto* source = frame.coloredSurface(BkgrndImg.currentPalette());
+    if (!source) return false;
+    std::uint32_t key;
+    if (!SDL_GetSurfaceColorKey(source, &key)) return false;
+    auto destination = CreateCpuStorage(storage.w, storage.h, g_sgp_pixel_format,
+                                        storage.pixels, storage.pitch);
+    if (!destination) return false;
+    const auto modulo = [](int value, int period) { return (value % period + period) % period; };
+    const int startX = iDestX1 + modulo(Ox, width) - width;
+    const int startY = iDestY1 + modulo(Oy, height) - height;
+    const int lastX = iDestX2 - 1 - modulo(iDestX2 - 1 - startX, width);
+    const int lastY = iDestY2 - 1 - modulo(iDestY2 - 1 - startY, height);
+    // Negative frame offsets overlap later tiles. At the finite grid's right
+    // and bottom edges those neighbors do not exist, so keep separate edge cells.
+    const int xs[]{visible.x,
+                   std::clamp(lastX + width + std::min<int>(frame.sOffsetX, 0),
+                              visible.x, visible.x + visible.w),
+                   visible.x + visible.w};
+    const int ys[]{visible.y,
+                   std::clamp(lastY + height + std::min<int>(frame.sOffsetY, 0),
+                              visible.y, visible.y + visible.h),
+                   visible.y + visible.h};
+    for (int row = 0; row < 2; ++row) {
+        for (int column = 0; column < 2; ++column) {
+            const SDL_Rect area{xs[column], ys[row],
+                                xs[column + 1] - xs[column], ys[row + 1] - ys[row]};
+            if (area.w == 0 || area.h == 0) continue;
+            const int cellWidth = column ? area.w : std::min(width, area.w);
+            const int cellHeight = row ? area.h : std::min(height, area.h);
+            auto tile = CreateCpuStorage(cellWidth, cellHeight, g_sgp_pixel_format);
+            if (!tile || !SDL_FillSurfaceRect(tile.get(), nullptr, key) ||
+                !SDL_SetSurfaceColorKey(tile.get(), true, key)) return false;
+            const int lowerX = area.x - frame.sOffsetX - frame.usWidth + 1;
+            const int lowerY = area.y - frame.sOffsetY - frame.usHeight + 1;
+            const int firstX = std::max(startX, lowerX + modulo(startX - lowerX, width));
+            const int firstY = std::max(startY, lowerY + modulo(startY - lowerY, height));
+            const int endX = std::min(lastX, area.x + cellWidth - 1 - frame.sOffsetX);
+            const int endY = std::min(lastY, area.y + cellHeight - 1 - frame.sOffsetY);
+            // Compose only one phase-aligned cell, including overlapping frames.
+            for (int y = firstY; y <= endY; y += height) {
+                for (int x = firstX; x <= endX; x += width) {
+                    const SDL_Rect position{x + frame.sOffsetX - area.x,
+                                            y + frame.sOffsetY - area.y,
+                                            frame.usWidth, frame.usHeight};
+                    if (!SDL_BlitSurface(source, nullptr, tile.get(), &position)) return false;
+                }
+            }
+            if (!SDL_SetSurfaceRLE(tile.get(), true) ||
+                !SDL_BlitSurfaceTiled(tile.get(), nullptr, destination.get(), &area)) return false;
         }
-        yc += ph;
     }
-
-    SetClippingRect(&OldClip);
-    return (true);
+    return true;
 }
 // Video Surface Manipulation Functions
 
