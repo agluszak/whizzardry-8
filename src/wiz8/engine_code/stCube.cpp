@@ -260,7 +260,7 @@ void DrawWorldCursorNodeLabel(W8WorldCursorNode* entry)
 // FUNCTION: WIZ8 0x0048de40
 void ScaleWorldCursorNodeX(W8WorldCursorNode* entry, double scale)
 {
-    srVector3T<float> factors(static_cast<float>(scale), 1.0f, 1.0f);
+    glm::vec3 factors(static_cast<float>(scale), 1.0f, 1.0f);
     if (entry != 0) {
         stMeshModel* model =
             static_cast<stMeshModel*>(static_cast<stModelInstance*>(entry->node)->getModel());
@@ -273,7 +273,7 @@ void ScaleWorldCursorNodeX(W8WorldCursorNode* entry, double scale)
 // FUNCTION: WIZ8 0x0048de90
 void ScaleWorldCursorNodeY(W8WorldCursorNode* entry, double scale)
 {
-    srVector3T<float> factors(1.0f, static_cast<float>(scale), 1.0f);
+    glm::vec3 factors(1.0f, static_cast<float>(scale), 1.0f);
     if (entry != 0) {
         stMeshModel* model =
             static_cast<stMeshModel*>(static_cast<stModelInstance*>(entry->node)->getModel());
@@ -286,7 +286,7 @@ void ScaleWorldCursorNodeY(W8WorldCursorNode* entry, double scale)
 // FUNCTION: WIZ8 0x0048dee0
 void ScaleWorldCursorNodeZ(W8WorldCursorNode* entry, double scale)
 {
-    srVector3T<float> factors(1.0f, 1.0f, static_cast<float>(scale));
+    glm::vec3 factors(1.0f, 1.0f, static_cast<float>(scale));
     if (entry != 0) {
         stMeshModel* model =
             static_cast<stMeshModel*>(static_cast<stModelInstance*>(entry->node)->getModel());
@@ -583,7 +583,7 @@ unsigned int LoadWorldCursorNodes(wiz8::File* handle)
             }
         }
 
-        srVector3T<float> scale((maximum.x - minimum.x) * static_cast<float>(g_world_cursor_scale),
+        glm::vec3 scale((maximum.x - minimum.x) * static_cast<float>(g_world_cursor_scale),
                                 (maximum.y - minimum.y) * static_cast<float>(g_world_cursor_scale),
                                 (maximum.z - minimum.z) * static_cast<float>(g_world_cursor_scale));
         if (cube != 0) {

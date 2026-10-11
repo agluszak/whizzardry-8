@@ -41,7 +41,7 @@ static ClipFlagsResult SetClipFlags(std::span<w8_ulong> flags,
         if (!(input.clip_mask & (1u << plane))) continue;
         const auto equation = srTriangleCuller::transformClipPlane(input.clip_planes[plane], plane_matrix);
         for (std::size_t vertex = 0; vertex < flags.size(); ++vertex) {
-            const float distance = glm::dot(input.vertices[vertex].glmValue(), glm::vec3(equation)) + equation.w;
+            const float distance = glm::dot(input.vertices[vertex], glm::vec3(equation)) + equation.w;
             const w8_ulong flag = std::signbit(distance) ? 1u << plane : 0;
             flags[vertex] = first ? flag : flags[vertex] | flag;
             clipped |= flag != 0;

@@ -330,13 +330,9 @@ void W8OctBuildTree::collectRecursive(const W8OctSpatialState& state, const srBo
         collectLeaf(state.m_root, state.m_depth, kind, collector);
     } else if (verdict == 1) {
         W8OctSpatialState child(&state);
-        for (int octant = 0; octant < 8; ++octant) {
-            if (state.m_root->children[octant]) {
-                child.SetChildBounds(&state, octant >> 2, (octant >> 1) & 1, octant & 1);
-                child.m_root = state.m_root->children[octant];
-                collectRecursive(child, bounds, kind, collector);
-            }
-        }
+        visitBuildChildren(state, child, [&](W8OctSpatialState& candidate, unsigned) {
+            collectRecursive(candidate, bounds, kind, collector);
+        });
     }
 }
 

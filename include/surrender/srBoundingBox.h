@@ -1,5 +1,7 @@
 #pragma once
 
+#include "glm/ext/vector_float3.hpp"
+
 #include "srMath.h"
 #include <span>
 #include <array>
@@ -24,6 +26,19 @@ struct srBoundingBox {
     {
         return glm::all(glm::greaterThanEqual(point, minimum)) &&
                glm::all(glm::lessThanEqual(point, maximum));
+    }
+
+    // Octree point ownership excludes the maximum face.
+    bool containsHalfOpen(const glm::vec3& point) const
+    {
+        return glm::all(glm::greaterThanEqual(point, minimum)) &&
+               glm::all(glm::lessThan(point, maximum));
+    }
+
+    bool overlapsStrict(const srBoundingBox& box) const
+    {
+        return glm::all(glm::greaterThan(maximum, box.minimum)) &&
+               glm::all(glm::greaterThan(box.maximum, minimum));
     }
 
     bool overlaps(const srBoundingBox& box) const
@@ -76,13 +91,13 @@ struct srBoundingBox {
     }
 };
 
-inline srBoundingBox boundingBox(std::span<const srVector3> points)
+template<class Point>
+inline srBoundingBox boundingBox(std::span<const Point> points)
 {
-    if (points.empty())
-        return {};
-    const auto first = points.front().glmValue();
+    if (points.empty()) return {};
+    const auto coordinates = [](const Point& point) { return glm::vec3(point.x, point.y, point.z); };
+    const auto first = coordinates(points.front());
     srBoundingBox result{first, first};
-    for (const auto& point : points.subspan(1))
-        result.include(point.glmValue());
+    for (const auto& point : points.subspan(1)) result.include(coordinates(point));
     return result;
 }

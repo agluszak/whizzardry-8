@@ -1,3 +1,4 @@
+#include "glm/ext/vector_float3.hpp"
 #include <catch2/catch_test_macros.hpp>
 #include <array>
 #include <cstddef>
@@ -20,7 +21,7 @@
 
 static_assert(std::is_same_v<decltype(srMeshModel::poly_vertices), std::vector<srVector3i>>);
 static_assert(std::is_same_v<decltype(srMeshModel::vertex_locations),
-                             std::vector<srVector3T<float>>>);
+                             std::vector<glm::vec3>>);
 static_assert(std::is_same_v<decltype(srTriMeshPipeline::vertex_pipe),
                              std::unique_ptr<srVertexPipe>>);
 static_assert(!std::is_copy_constructible_v<srTriMeshPipeline>);
@@ -36,9 +37,9 @@ static bool defaults()
     REQUIRE((mesh->control_flags == 0 && !mesh->active_polygons));
     REQUIRE((mesh->poly_vertices == nullptr && mesh->poly_equations == nullptr));
     REQUIRE((mesh->positions == nullptr && mesh->normals == nullptr && !mesh->active_polygons));
-    REQUIRE(mesh->bounds_minimum == srVector3T<float>(0, 0, 0));
-    REQUIRE(mesh->bounds_maximum == srVector3T<float>(0, 0, 0));
-    REQUIRE(mesh->bounds_center == srVector3T<float>(0, 0, 0));
+    REQUIRE(mesh->bounds_minimum == glm::vec3(0, 0, 0));
+    REQUIRE(mesh->bounds_maximum == glm::vec3(0, 0, 0));
+    REQUIRE(mesh->bounds_center == glm::vec3(0, 0, 0));
     REQUIRE((mesh->bounds_radius == 0 && mesh->sort_bias == 0));
     for (int pass = 0; pass < srMeshModel::MAX_PASSES; ++pass) {
         REQUIRE((mesh->dig[pass] == nullptr && mesh->dcg[pass] == nullptr && mesh->scg[pass] == nullptr));
@@ -96,8 +97,8 @@ static bool lazyTables()
     auto* locations = mesh.getVertexLoc();
     REQUIRE((locations == mesh.vertex_locations.data() && mesh.vertex_locations.size() == 3));
     REQUIRE(mesh.getVertexLoc() == locations);
-    for (const auto& value : mesh.vertex_locations) REQUIRE(value == srVector3T<float>(0, 0, 0));
-    for (const auto& value : mesh.vertex_normals) REQUIRE(value == srVector3T<float>(0, 0, 0));
+    for (const auto& value : mesh.vertex_locations) REQUIRE(value == glm::vec3(0, 0, 0));
+    for (const auto& value : mesh.vertex_normals) REQUIRE(value == glm::vec3(0, 0, 0));
     auto* corners = mesh.getPolyVertex();
     corners[0].x = 0;
     corners[0].y = 1;
@@ -114,7 +115,7 @@ static bool lazyTables()
     auto* dig = mesh.getVertexDIG(0, 1);
     REQUIRE(mesh.getTriMesh().dig[0] == dig);
     for (int index = 0; index < 3; ++index) {
-        REQUIRE(dig[index] == srVector3T<float>(0, 0, 0));
+        REQUIRE(dig[index] == glm::vec3(0, 0, 0));
         const auto& dcg = mesh.getVertexDCG(0, 1)[index];
         const auto& scg = mesh.getVertexSCG(0, 1)[index];
         REQUIRE((dcg.x == 1 && dcg.y == 1 && dcg.z == 1 && dcg.w == 1));
@@ -167,7 +168,7 @@ static bool reset()
     auto texture = std::make_shared<srTextureMap>();
     {
         srMeshModel mesh(1, 3);
-        mesh.getVertexLoc()[1].Set(1, 2, 3);
+        mesh.getVertexLoc()[1] = glm::vec3(1, 2, 3);
         mesh.setUVCount(7);
         mesh.getVertexTexCoords(2, 0, 1)[6] = glm::vec2(0.5f, 0.75f);
         mesh.getVertexMaterial(1, srMeshModel::SIDE_BACK, 1)[2] = material;
@@ -187,7 +188,7 @@ static bool reset()
         REQUIRE((mesh.tri_mesh.positions == nullptr && mesh.tri_mesh.texcoords[2][0] == nullptr));
         REQUIRE(mesh.getVertexMaterial(1, srMeshModel::SIDE_BACK, 0) == nullptr);
         REQUIRE((mesh.getPolyTexture(1, 0, 0) == nullptr && mesh.getActivePolygonTable(0) == nullptr));
-        REQUIRE(mesh.getVertexLoc()[1] == srVector3T<float>(0, 0, 0));
+        REQUIRE(mesh.getVertexLoc()[1] == glm::vec3(0, 0, 0));
     }
     REQUIRE((material.use_count() == 1 && texture.use_count() == 1));
     return true;
@@ -235,7 +236,7 @@ static bool pipelineSlots()
     REQUIRE((pipeline->slot_count == 0 && pipeline->current_record->st_source[0] == nullptr));
     REQUIRE((pipeline->current_pass->texture_tables[0] == nullptr && pipeline->current_pass->shaders == nullptr));
     REQUIRE(pipeline->current_record->materials == nullptr);
-    REQUIRE(pipeline->bounds_minimum == srVector3T<float>(0, 0, 0));
+    REQUIRE(pipeline->bounds_minimum == glm::vec3(0, 0, 0));
     // A per-polygon shader table wins over the caller's uniform override.
     srShader override_shader;
     override_shader.value ^= srShader::PASS_MASK;

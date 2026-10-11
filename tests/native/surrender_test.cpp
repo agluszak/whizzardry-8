@@ -265,7 +265,7 @@ TEST_CASE("surrender_test")
 TEST_CASE("Triangle culling owns ordered indices and vertex remapping", "[surrender][culling]")
 {
     const std::array<srVector3i, 4> triangles{{{5, 1, 3}, {0, 2, 4}, {4, 3, 1}, {5, 0, 2}}};
-    const std::array<srVector3, 6> vertices{{{-2, 0, 0}, {2, 0, 0}, {-3, 0, 0},
+    const std::array<glm::vec3, 6> vertices{{{-2, 0, 0}, {2, 0, 0}, {-3, 0, 0},
                                            {3, 0, 0}, {-4, 0, 0}, {4, 0, 0}}};
     const std::array<glm::vec4, 4> equations{{{0, 0, 0, 1}, {0, 0, 0, -1},
                                             {0, 0, 0, 1}, {0, 0, 0, -1}}};
@@ -328,7 +328,7 @@ TEST_CASE("Renderer triangle clipping uses direct and remapped vertices", "[surr
 
 TEST_CASE("Triangle clipping retains high plane bits across large meshes", "[surrender][culling]")
 {
-    std::array<srVector3, 513> vertices;
+    std::array<glm::vec3, 513> vertices;
     std::array<srVector3i, 171> triangles;
     for (int vertex = 0; vertex < 513; ++vertex)
         vertices[vertex] = {vertex % 7 < 4 ? -1.0f : 1.0f, 0, 0};

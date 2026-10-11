@@ -1,3 +1,6 @@
+#include <variant>
+#include "glm/ext/vector_float3.hpp"
+#include "surrender/srMath.h"
 #include "glm/ext/vector_int3.hpp"
 #include <unordered_map>
 #include <span>
@@ -462,102 +465,50 @@ unsigned char OctBuildPreTree::InsertSurfaceRecursive(W8OctSpatialState* working
     return inserted;
 }
 
-/* Seed a temporary root when the build tree is still empty, account for the
-   inserted geometry kind, and route the point or box through the ordinary
-   recursive region-map walk. */
+/* Region geometry is a point (particle membership) or a box (prop overlap).
+   The query type selects its map and intersection rule throughout recursion. */
 // FUNCTION: WIZ8 0x004b06e0
-unsigned char OctBuildPreTree::UpdateRegionForGeometry(const srVector3T<float>* geometry,
-                                                       short value, short mode)
+bool OctBuildPreTree::updateRegionForGeometry(const RegionGeometry& geometry, short value)
 {
     W8OctSpatialState working(&spatial);
-    if (spatial.m_root == 0) {
+    if (!spatial.m_root) {
         working.m_root = new W8CountedOctBuildNode;
         spatial.m_root = working.m_root;
     }
-    if (mode == 2) {
-        ++spatial.m_polygon_count;
-    } else if (mode == 3) {
-        ++spatial.m_item_count;
-    }
     working.m_depth = 0;
     working.m_level_kind = 1;
-    return UpdateRegionMap(&working, geometry, value, mode);
+    return updateRegionMap(working, geometry, value);
 }
 
-/* Walk the build tree against either a point or an axis-aligned volume and
-   refresh the selected region-to-short association for every intersected
-   leaf. The temporary child record carries the exact subcell bounds into the
-   recursive call. */
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored                                                                   \
-    "-Wsometimes-uninitialized" // uninit-ok: retail tests the unset intersects byte for modes other
-                                // than 5/6; that value controls region-map updates.
-#pragma clang diagnostic ignored                                                                   \
-    "-Wuninitialized" // uninit-ok: retail tests the unset intersects byte for modes other than 5/6;
-                      // that value controls region-map updates.
 // FUNCTION: WIZ8 0x004b07e0
-unsigned char OctBuildPreTree::UpdateRegionMap(const W8OctSpatialState* arg_spatial,
-                                               const srVector3T<float>* geometry, short value,
-                                               short mode)
+bool OctBuildPreTree::updateRegionMap(const W8OctSpatialState& state,
+                                    const RegionGeometry& geometry, short value)
 {
-    W8OctSpatialState child(arg_spatial);
+    if (state.m_depth >= 16) return false;
     bool changed = false;
-    const auto updateRegion = [this, mode, value](unsigned short region) {
-        if (mode == 6) {
-            RemoveIndexValue(*inside_region_map, region, value);
-            InsertIndexValue(*inside_region_map, region, value);
-        } else if (mode == 5) {
-            RemoveIndexValue(*overlap_region_map, region, value);
-            InsertIndexValue(*overlap_region_map, region, value);
-        }
+    const auto* point = std::get_if<glm::vec3>(&geometry);
+    auto& map = point ? *inside_region_map : *overlap_region_map;
+    const auto updateRegion = [&](unsigned short region) {
+        if (region == 0) return;
+        RemoveIndexValue(map, region, value);
+        InsertIndexValue(map, region, value);
+        changed = true;
     };
-
-    if (arg_spatial->m_depth >= 16) {
-        return 0;
-    }
-
-    if (arg_spatial->m_depth < this->spatial.m_depth) {
-        int child_index = 0;
-        for (int x = 0; x != 2; ++x) {
-            for (int y = 0; y != 2; ++y) {
-                for (int z = 0; z != 2; ++z, ++child_index) {
-                    child.SetChildBounds(arg_spatial, x, y, z);
-
-                    /* Retail leaves this unset for modes outside 5/6. */
-                    bool intersects;
-                    if (mode == 6) {
-                        intersects = PointInsideBoxBounds(&child.m_minimum, geometry);
-                    } else if (mode == 5) {
-                        intersects = BoundsOverlapStrict(&child.m_minimum, geometry);
-                    }
-
-                    W8OctBuildNode* parent = arg_spatial->m_root;
-                    child.m_root = parent->children[child_index];
-                    if (intersects && child.m_root != 0) {
-                        W8OctBuildNode* node = child.m_root;
-                        unsigned short region = node->region;
-                        if (region != 0) {
-                            updateRegion(region);
-                            changed = true;
-                        }
-                        if (UpdateRegionMap(&child, geometry, value, mode) != 0) {
-                            changed = true;
-                        }
-                    }
-                }
-            }
-        }
+    if (state.m_depth < spatial.m_depth) {
+        W8OctSpatialState child(&state);
+        visitBuildChildren(state, child, [&](W8OctSpatialState& candidate, unsigned) {
+            const auto box = candidate.bounds();
+            const bool intersects = point ? box.containsHalfOpen(*point)
+                                         : box.overlapsStrict(std::get<srBoundingBox>(geometry));
+            if (!intersects) return;
+            updateRegion(candidate.m_root->region);
+            if (updateRegionMap(candidate, geometry, value)) changed = true;
+        });
     } else {
-        W8OctBuildNode* node = arg_spatial->m_root;
-        unsigned short region = node->region;
-        if (region != 0) {
-            updateRegion(region);
-            changed = true;
-        }
+        updateRegion(state.m_root->region);
     }
     return changed;
 }
-#pragma clang diagnostic pop
 
 #pragma pack(push, 1)
 /* One 0x6a record in the .cub region file: a dword copied to the volume's
@@ -1156,19 +1107,14 @@ void OctBuildPreTree::AssignInitialRegions(const W8OctSpatialState* arg_spatial)
     int x_base = static_cast<int>(static_cast<signed char>(path >> 15)) & ~1;
     int y_base = static_cast<int>(static_cast<signed char>(path >> 7)) & ~1;
     signed char z_base = static_cast<signed char>(static_cast<signed char>(path) << 1);
-    for (int child_index = 0; child_index < 8; ++child_index) {
-        const int x = child_index >> 2;
-        const int y = (child_index >> 1) & 1;
-        const int z = child_index & 1;
-        W8OctBuildNode* node = arg_spatial->m_root->children[child_index];
-        if (node != nullptr) {
-            child.SetChildBounds(arg_spatial, x, y, z);
-            child.m_node_index =
-                ((high * 0x100 + x_base + x) * 0x100 + y_base + y) * 0x100 + z_base + z;
-            child.m_root = node;
-            AssignInitialRegions(&child);
-        }
-    }
+    visitBuildChildren(*arg_spatial, child, [&](W8OctSpatialState& candidate, unsigned octant) {
+        const int x = octant >> 2;
+        const int y = (octant >> 1) & 1;
+        const int z = octant & 1;
+        candidate.m_node_index =
+            ((high * 0x100 + x_base + x) * 0x100 + y_base + y) * 0x100 + z_base + z;
+        AssignInitialRegions(&candidate);
+    });
 }
 
 /* Follow the active depth bits in a packed octree path. Each active bit
@@ -1374,17 +1320,9 @@ void OctBuildPreTree::AssignRegionFromSurfaces(const W8OctSpatialState* arg_spat
     }
 
     if (arg_spatial->m_depth != this->spatial.m_leaf_level) {
-        for (int child_index = 0; child_index < 8; ++child_index) {
-            const int x = child_index >> 2;
-            const int y = (child_index >> 1) & 1;
-            const int z = child_index & 1;
-            W8OctBuildNode* node = arg_spatial->m_root->children[child_index];
-            if (node != nullptr) {
-                child.SetChildBounds(arg_spatial, x, y, z);
-                child.m_root = node;
-                AssignRegionFromSurfaces(&child);
-            }
-        }
+        visitBuildChildren(*arg_spatial, child, [&](W8OctSpatialState& candidate, unsigned) {
+            AssignRegionFromSurfaces(&candidate);
+        });
         return;
     }
 
@@ -1593,7 +1531,7 @@ unsigned char OctBuildPreTree::BuildParticleRegions(const W8LevelFileParticleSys
             continue;
         }
 
-        if (UpdateRegionForGeometry(&position, particle_value, 6) == 0) {
+        if (updateRegionForGeometry(position.glmValue(), particle_value) == 0) {
             srVector3T<float> extent;
             bool has_bounds = false;
             if (particle.bounds_mode == 1) {
@@ -1630,7 +1568,7 @@ unsigned char OctBuildPreTree::BuildParticleRegions(const W8LevelFileParticleSys
                                 }
                             }
                             if (!corner_mapped &&
-                                UpdateRegionForGeometry(&corner, particle_value, 6) != 0) {
+                                updateRegionForGeometry(corner.glmValue(), particle_value) != 0) {
                                 mapped = true;
                             }
                         }
@@ -1679,45 +1617,27 @@ unsigned char OctBuildPreTree::BuildGeometryRegions(const W8LevelFileProp* recor
             W8OctRegionVolume* volume = spatial.m_region_volumes + region_index;
             for (unsigned char bounds_index = 0; bounds_index < record.anim_obj.num_bound_box;
                  ++bounds_index) {
-                const srVector3T<float>* bounds = &record.anim_obj.pBoundBox[bounds_index].minimum;
-                for (int x = 0; x != 2; ++x) {
-                    for (int y = 0; y != 2; ++y) {
-                        for (int z = 0; z != 2; ++z) {
-                            srVector3T<float> corner;
-                            corner.Set(bounds[x].x * g_world_scale, bounds[y].y * g_world_scale,
-                                       bounds[z].z * g_world_scale);
-                            if (volume->ContainsPoint(&corner)) {
-                                unsigned short region = volume->m_region;
-                                InsertUniqueIndexValue(*overlap_region_map, region, value);
-                                mapped = true;
-                            }
-                        }
+                const auto& stored = record.anim_obj.pBoundBox[bounds_index];
+                const srBoundingBox bounds{stored.minimum.glmValue() * g_world_scale,
+                                           stored.maximum.glmValue() * g_world_scale};
+                for (unsigned corner_index = 0; corner_index < 8; ++corner_index) {
+                    const srVector3 corner(bounds.corner(corner_index));
+                    if (volume->ContainsPoint(&corner)) {
+                        InsertUniqueIndexValue(*overlap_region_map, volume->m_region, value);
+                        mapped = true;
                     }
                 }
             }
         }
 
-        srVector3T<float> aggregate[2];
-        aggregate[0] = 1000000.0f;
-        aggregate[1] = -1000000.0f;
-        for (unsigned char bounds_index = 0; bounds_index < record.anim_obj.num_bound_box;
-             ++bounds_index) {
-            const srVector3T<float>* bounds = &record.anim_obj.pBoundBox[bounds_index].minimum;
-            for (int endpoint = 0; endpoint != 2; ++endpoint) {
-                srVector3T<float> point;
-                point = bounds[endpoint] * g_world_scale;
-                for (int axis = 0; axis != 3; ++axis) {
-                    if ((&point.x)[axis] < (&aggregate[0].x)[axis]) {
-                        (&aggregate[0].x)[axis] = (&point.x)[axis];
-                    }
-                    if ((&aggregate[1].x)[axis] < (&point.x)[axis]) {
-                        (&aggregate[1].x)[axis] = (&point.x)[axis];
-                    }
-                }
-            }
+        srBoundingBox aggregate{glm::vec3(1000000.0f), glm::vec3(-1000000.0f)};
+        for (unsigned char bounds_index = 0; bounds_index < record.anim_obj.num_bound_box; ++bounds_index) {
+            const auto& bounds = record.anim_obj.pBoundBox[bounds_index];
+            aggregate.include(bounds.minimum.glmValue() * g_world_scale);
+            aggregate.include(bounds.maximum.glmValue() * g_world_scale);
         }
 
-        if (UpdateRegionForGeometry(aggregate, value, 5) == 0 && !mapped) {
+        if (updateRegionForGeometry(aggregate, value) == 0 && !mapped) {
             g_region_id_list[g_region_id_count++] = value;
         }
     }

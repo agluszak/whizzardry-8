@@ -164,13 +164,13 @@ bool processorOwnership()
     Counter active;
     Counter inactive;
     inactive.enabled = false;
-    std::array<srVector3, 65> positions;
+    std::array<glm::vec3, 65> positions;
     std::array<w8_ulong, 65> indices;
     std::array<std::shared_ptr<srMaterialIFace>, 65> materials;
     std::array<glm::vec4, 65> eye_locations;
     std::array<unsigned char, 65> attributes{};
     for (w8_ulong i = 0; i < positions.size(); ++i) {
-        positions[i].Set(0, 0, static_cast<float>(i + 1));
+        positions[i] = glm::vec3(0, 0, static_cast<float>(i + 1));
         indices[i] = i;
         materials[i] = i == 0 ? first_material : second_material;
     }
@@ -276,12 +276,12 @@ public:
 
 bool coverageFinalization()
 {
-    std::array<srVector3, 65> positions;
+    std::array<glm::vec3, 65> positions;
     std::array<w8_ulong, 65> indices;
     std::array<glm::vec4, 65> eye, diffuse, specular;
     std::array<unsigned char, 65> attributes{};
     for (unsigned index = 0; index < positions.size(); ++index) {
-        positions[index].Set(0, 0, float(index + 1));
+        positions[index] = glm::vec3(0, 0, float(index + 1));
         indices[index] = index;
     }
     srVertexArray arrays{};
@@ -385,12 +385,12 @@ public:
 
 bool surfaceLighting()
 {
-    std::array<srVector3, 65> positions, normals;
+    std::array<glm::vec3, 65> positions, normals;
     std::array<w8_ulong, 65> indices;
     std::array<glm::vec4, 65> diffuse, specular, eye;
     std::array<unsigned char, 65> attributes{};
     for (unsigned i = 0; i < 65; ++i) {
-        positions[i].Set(0, 0, -10); normals[i].Set(0, 0, 1); indices[i] = i;
+        positions[i] = glm::vec3(0, 0, -10); normals[i] = glm::vec3(0, 0, 1); indices[i] = i;
     }
     srVertexArray arrays{};
     arrays.diffuse = diffuse.data(); arrays.specular = specular.data();
@@ -474,12 +474,12 @@ public:
 
 bool distanceProfiles()
 {
-    std::array<srVector3, 65> positions;
+    std::array<glm::vec3, 65> positions;
     std::array<w8_ulong, 65> indices;
     std::array<glm::vec4, 65> eye, specular;
     std::array<unsigned char, 65> attributes{};
     for (unsigned index = 0; index < positions.size(); ++index) {
-        positions[index].Set(0, 0, float(index + 1));
+        positions[index] = glm::vec3(0, 0, float(index + 1));
         indices[index] = index;
     }
     srVertexArray arrays{};
@@ -528,12 +528,12 @@ bool distanceProfiles()
 bool materialChannelOperations()
 {
     // Cross the 64-vertex batch boundary for every combination of material operations.
-    std::array<srVector3, 65> positions;
+    std::array<glm::vec3, 65> positions;
     std::array<w8_ulong, 65> indices;
     std::array<glm::vec4, 65> eye, diffuse, specular;
     std::array<unsigned char, 65> attributes{};
     for (unsigned i = 0; i < positions.size(); ++i) {
-        positions[i].Set(0, 0, float(i + 1));
+        positions[i] = glm::vec3(0, 0, float(i + 1));
         indices[i] = i;
     }
     srVertexArray arrays{};
@@ -816,7 +816,7 @@ bool pipelineRecordTexcoords()
     // both UV channels. A layout/stride mismatch used to crash menu rendering.
     srGERD renderer(srCreateSDLGPUDevice(), "record handoff");
     auto* pipeline = srTriMeshPipeline::Get(&renderer);
-    std::array<srVector3, 3> positions{{{0, 0, 1}, {1, 0, 1}, {0, 1, 1}}};
+    std::array<glm::vec3, 3> positions{{{0, 0, 1}, {1, 0, 1}, {0, 1, 1}}};
     std::array<w8_ulong, 3> indices{2, 0, 1};
     glm::mat4 identity;
     identity = glm::mat4(1);

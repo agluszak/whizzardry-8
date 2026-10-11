@@ -1353,7 +1353,7 @@ std::unique_ptr<stModelInstance> W8GameData::CreateTraceModel()
     mesh->flags &= ~W8_MESH_SORTED_RENDERING;
     srVector3i* poly_vertices = mesh->getPolyVertex();
     std::shared_ptr<srTextureIFace>* poly_textures = mesh->getPolyTexture(0, 0, 1);
-    srVector3T<float>* vertex_locs = mesh->getVertexLoc();
+    glm::vec3* vertex_locs = mesh->getVertexLoc();
     glm::vec2* texcoords = mesh->getVertexTexCoords(0, 0, 1);
     std::shared_ptr<srMaterialIFace>* vertex_materials =
         mesh->getVertexMaterial(0, srMeshModel::SIDE_FRONT, 1);
@@ -1371,39 +1371,39 @@ std::unique_ptr<stModelInstance> W8GameData::CreateTraceModel()
         vertex_materials[vertex] = g_oct_mesh_default.material;
         poly_vertices[index].x = vertex;
         shade_indices[vertex] = vertex;
-        vertex_locs[vertex] = m_pVertices[surface->vertex_indices[0]];
+        vertex_locs[vertex] = m_pVertices[surface->vertex_indices[0]].glmValue();
         texcoords[vertex + 1] = glm::vec2(0);
         vertex_materials[vertex + 1] = g_oct_mesh_default.material;
         poly_vertices[index].y = vertex + 1;
         shade_indices[vertex + 1] = vertex + 1;
-        vertex_locs[vertex + 1] = m_pVertices[surface->vertex_indices[1]];
+        vertex_locs[vertex + 1] = m_pVertices[surface->vertex_indices[1]].glmValue();
         texcoords[vertex + 2] = glm::vec2(0);
         vertex_materials[vertex + 2] = g_oct_mesh_default.material;
         poly_vertices[index].z = vertex + 2;
         shade_indices[vertex + 2] = vertex + 2;
-        vertex_locs[vertex + 2] = m_pVertices[surface->vertex_indices[2]];
+        vertex_locs[vertex + 2] = m_pVertices[surface->vertex_indices[2]].glmValue();
         vertex += 3;
     }
     mesh->setShader(g_oct_mesh_default.render_flags, 0);
     mesh->setDirty(srMeshModel::DIRTY_TRI_MESH);
-    srVector3T<float>* normals = mesh->getVertexNormal();
-    srVector3T<float>* dig = mesh->getVertexDIG(0, 1);
+    glm::vec3* normals = mesh->getVertexNormal();
+    glm::vec3* dig = mesh->getVertexDIG(0, 1);
     for (int i = 0; i < vertex; ++i) {
         if (selected[i]) {
             dig[i] = normals[i];
             if (dig[i].y < g_float_half) {
                 dig[i].y = 0.0f;
-                dig[i].Normalize();
+                dig[i] = normalizedOrZero(dig[i]);
                 dig[i].y = 1.0f;
-                dig[i].Normalize();
+                dig[i] = normalizedOrZero(dig[i]);
             }
         } else {
-            dig[i].Set(normals[i].x * g_float_fifteen_hundredths + g_float_fifteen_hundredths, 0.0f,
+            dig[i] = glm::vec3(normals[i].x * g_float_fifteen_hundredths + g_float_fifteen_hundredths, 0.0f,
                        normals[i].z * g_float_fifteen_hundredths + g_float_fifteen_hundredths);
-            float length = dig[i].Length();
+            float length = glm::length(dig[i]);
             if (g_double_one_ten_thousandth <= length) {
                 if (length < 0.3) {
-                    dig[i].SetLength(0.3);
+                    dig[i] = normalizedOrZero(dig[i]) * 0.3f;
                 }
             } else {
                 dig[i].x = 0.15f;

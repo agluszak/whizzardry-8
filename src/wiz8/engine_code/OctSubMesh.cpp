@@ -3,6 +3,8 @@
 #include <cstdlib>
 #include <stdexcept>
 #include <vector>
+#include <span>
+#include "glm/ext/vector_float3.hpp"
 #include <memory>
 #include <cstdint>
 #include <utility>
@@ -53,6 +55,16 @@ void ReadMeshArray(wiz8::File* file, T* values, int count, const char* get_messa
     if (!ReadVectorArray(file, values, count)) {
         ShutdownWithErrorBox(read_message);
     }
+}
+
+// Native mesh streams convert from the explicit three-float asset record.
+static void ReadMeshVectors(wiz8::File* file, std::span<glm::vec3> values,
+                            const char* get_message, const char* read_message)
+{
+    std::vector<srVector3> records(values.size());
+    ReadMeshArray(file, records.data(), static_cast<int>(records.size()), get_message, read_message);
+    std::ranges::transform(records, values.begin(),
+                           [](const srVector3& value) { return value.glmValue(); });
 }
 
 template<class T>
@@ -191,11 +203,11 @@ std::unique_ptr<stMeshModel> OctMeshModel::Read(wiz8::File* file,
     // reader-owned Write workspace, including when a read throws midway.
     std::vector<int> material_indices(std::max(m_vertex_count, m_polygon_count));
     int* indices = material_indices.data();
-    srVector3T<float>* vertex_locations;
+    glm::vec3* vertex_locations;
     glm::vec2* vertex_map;
     srVector3i* poly_uv_index;
     srVector3i* poly_vertices;
-    srVector3T<float>* vertex_normals;
+    glm::vec3* vertex_normals;
     glm::vec4* poly_equations;
 
     auto model = std::make_unique<stMeshModel>(m_polygon_count, m_vertex_count);
@@ -206,7 +218,7 @@ std::unique_ptr<stMeshModel> OctMeshModel::Read(wiz8::File* file,
     }
 
     vertex_locations = model->getVertexLoc();
-    ReadMeshArray(file, vertex_locations, m_vertex_count,
+    ReadMeshVectors(file, std::span(vertex_locations, m_vertex_count),
                   "OctMeshModel::Read -- Could not get vertex location array.\n",
                   "OctMeshModel::Read -- Could not read Integer fields.\n");
 
@@ -265,17 +277,13 @@ std::unique_ptr<stMeshModel> OctMeshModel::Read(wiz8::File* file,
     }
 
     vertex_normals = model->getVertexNormal();
-    ReadMeshArray(file, vertex_normals, m_vertex_count,
+    ReadMeshVectors(file, std::span(vertex_normals, m_vertex_count),
                   "OctMeshModel::Read -- Could not get vertex normal array.\n",
                   "OctMeshModel::Read -- Could not read m_pVertNorms.\n");
 
-    std::vector<srVector3> serialized_lights(m_vertex_count);
-    ReadMeshArray(file, serialized_lights.data(), m_vertex_count,
-                  "OctMeshModel::Read -- Could not get static lighting array.\n",
-                  "OctMeshModel::Read -- Could not read m_pVertLights.\n");
-    const auto lights = model->GetVertexLights(true, -1);
-    std::ranges::transform(serialized_lights, lights.begin(),
-                           [](const srVector3& color) { return color.glmValue(); });
+    ReadMeshVectors(file, model->GetVertexLights(true, -1),
+                    "OctMeshModel::Read -- Could not get static lighting array.\n",
+                    "OctMeshModel::Read -- Could not read m_pVertLights.\n");
 
     poly_equations = model->getPolyEq();
     ReadMeshArray(file, poly_equations, m_polygon_count,

@@ -46,14 +46,13 @@ struct W8OctRegionVolume {
 struct W8OctSpatialState {
     explicit W8OctSpatialState(const W8OctSpatialState* source = 0);
 
-    void SetChildBounds(const W8OctSpatialState* parent, int x, int y, int z)
+    srBoundingBox bounds() const { return {m_minimum.glmValue(), m_maximum.glmValue()}; }
+    void setChildBounds(const W8OctSpatialState& parent, unsigned octant, float extent)
     {
-        m_minimum.x = x * m_extent + parent->m_minimum.x;
-        m_maximum.x = m_minimum.x + m_extent;
-        m_minimum.y = y * m_extent + parent->m_minimum.y;
-        m_maximum.y = m_minimum.y + m_extent;
-        m_minimum.z = z * m_extent + parent->m_minimum.z;
-        m_maximum.z = m_minimum.z + m_extent;
+        const glm::vec3 offset(octant >> 2, (octant >> 1) & 1, octant & 1);
+        const auto minimum = parent.m_minimum.glmValue() + offset * extent;
+        m_minimum = minimum;
+        m_maximum = minimum + extent;
     }
 
     void Reset();
@@ -114,8 +113,6 @@ bool triangleIntersectsBox(const srBoundingBox& box, std::span<const glm::vec3, 
                            const glm::vec3& normal);
 bool SurfaceIntersectsBox(const W8GDSurface& surface, std::span<const srVector3> vertices,
                           const srBoundingBox& box);
-bool BoundsOverlapStrict(const srVector3T<float>* first, const srVector3T<float>* second);
-bool PointInsideBoxBounds(const srVector3T<float>* bounds, const srVector3T<float>* point);
 
 struct W8OctRegionPolygon;
 

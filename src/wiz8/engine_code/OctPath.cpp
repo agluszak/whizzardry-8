@@ -4616,8 +4616,8 @@ stModelInstance* W8PathingService::BuildPathVisualization()
     int index;
 
     stMeshModel* model = static_cast<stMeshModel*>(m_path_visualization->getModel());
-    srVector3T<float>* colors = model->getVertexDIG(0, 1);
-    srVector3T<float>* vertices = model->getVertexLoc();
+    glm::vec3* colors = model->getVertexDIG(0, 1);
+    glm::vec3* vertices = model->getVertexLoc();
     srVector3i* polygons = model->getPolyVertex();
     const auto write_marker = [&](unsigned short waypoint, int base, unsigned appearance_flags) {
         const auto& surface = m_waypoints[waypoint];
@@ -4704,19 +4704,19 @@ stModelInstance* W8PathingService::BuildPathVisualization()
                 polygons[base_polygon + 5].y = base_vertex + 5;
                 polygons[base_polygon + 5].z = base_vertex;
 
-                vertices[base_vertex] = source->position;
+                vertices[base_vertex] = source->position.glmValue();
                 vertices[base_vertex].y += g_waypoint_marker_height;
-                vertices[base_vertex + 3] = destination->position;
+                vertices[base_vertex + 3] = destination->position.glmValue();
                 vertices[base_vertex + 3].y += g_waypoint_marker_height;
                 srVector3T<float> offset;
                 offset.Set(perpendicular_x, g_world_scale, perpendicular_z);
-                vertices[base_vertex + 1] = source->position + offset;
-                vertices[base_vertex + 2] = source->position - offset;
-                vertices[base_vertex + 4] = destination->position + offset;
-                vertices[base_vertex + 5] = destination->position - offset;
+                vertices[base_vertex + 1] = (source->position + offset).glmValue();
+                vertices[base_vertex + 2] = (source->position - offset).glmValue();
+                vertices[base_vertex + 4] = (destination->position + offset).glmValue();
+                vertices[base_vertex + 5] = (destination->position - offset).glmValue();
 
                 for (index = 0; index < 6; ++index) {
-                    colors[base_vertex + index].SetZero();
+                    colors[base_vertex + index] = glm::vec3(0);
                 }
                 if ((edge->flags & W8_PATH_EDGE_DISABLED) == 0) {
                     for (index = 0; index < 3; ++index) {
@@ -4900,8 +4900,8 @@ void W8PathingService::BuildSearchVisualization()
         srVector3T<float>(-62.5f, 0.0f, 62.5f), srVector3T<float>(62.5f, 0.0f, 62.5f),
         srVector3T<float>(62.5f, 0.0f, -62.5f)};
     stMeshModel* model = static_cast<stMeshModel*>(m_path_visualization->getModel());
-    srVector3T<float>* colors = model->getVertexDIG(0, 1);
-    srVector3T<float>* vertices = model->getVertexLoc();
+    glm::vec3* colors = model->getVertexDIG(0, 1);
+    glm::vec3* vertices = model->getVertexLoc();
     model->getActivePolygonTable(1);
     srVector3i* polygons = model->getPolyVertex();
     /* 0x0045D3BD tests this bound signed even though m_search_node_count is
@@ -4950,8 +4950,8 @@ void W8PathingService::BuildSearchVisualization()
         }
 
         for (int offset_index = 0; offset_index < 5; ++offset_index) {
-            vertices[vertex_index + offset_index] = marker_offsets[offset_index] + node->position;
-            colors[vertex_index + offset_index] = color;
+            vertices[vertex_index + offset_index] = (marker_offsets[offset_index] + node->position).glmValue();
+            colors[vertex_index + offset_index] = color.glmValue();
         }
     }
 
@@ -5059,12 +5059,12 @@ stModelInstance* W8PathingService::EnsurePathVisualization()
         polygon_index += 6;
     } while (vertex_index < 0x30d8);
 
-    srVector3T<float>* colors = model->getVertexDIG(0, 1);
+    glm::vec3* colors = model->getVertexDIG(0, 1);
     for (index = 0; index < 5; ++index) {
-        colors[index].Set(1.0f, 0.0f, 0.0f);
+        colors[index] = glm::vec3(1.0f, 0.0f, 0.0f);
     }
     for (index = 5; index < 500; ++index) {
-        colors[index].Set(0.0, 0.0, 1.0);
+        colors[index] = glm::vec3(0.0, 0.0, 1.0);
     }
 
     auto instance = CreateModelInstance(model);

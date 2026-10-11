@@ -2473,10 +2473,10 @@ unsigned char W8Octree::TestProbeResult(W8OctreeTrace* trace)
             if (contact) {
                 const auto axis = dominantPlaneAxis(glm::vec3(*plane));
                 const srVector3i* poly_vertex = model->getPolyVertex() + polygon;
-                const srVector3T<float>* vertices = model->getVertexLoc();
-                const RuntimeTriangle triangle{vertices[poly_vertex->x].glmValue(),
-                                               vertices[poly_vertex->y].glmValue(),
-                                               vertices[poly_vertex->z].glmValue()};
+                const glm::vec3* vertices = model->getVertexLoc();
+                const RuntimeTriangle triangle{vertices[poly_vertex->x],
+                                               vertices[poly_vertex->y],
+                                               vertices[poly_vertex->z]};
                 if (PointInsideTriangle(triangle, axis, contact->point) &&
                     contact->distance < trace->hit_limit) {
                     trace->hit_limit = contact->distance;
@@ -2539,10 +2539,10 @@ w8_ulong* W8Octree::CollectPolygonsNearPoint(srVector3T<float>* center, float ra
         if (m_aulGDObjs[index] != 0) {
             const auto normal = glm::vec3(*plane);
             const srVector3i* poly_vertex = model->getPolyVertex() + (m_aulGDObjs[index] & 0xffff);
-            const srVector3T<float>* vertices = model->getVertexLoc();
-            const RuntimeTriangle triangle{vertices[poly_vertex->x].glmValue(),
-                                           vertices[poly_vertex->y].glmValue(),
-                                           vertices[poly_vertex->z].glmValue()};
+            const glm::vec3* vertices = model->getVertexLoc();
+            const RuntimeTriangle triangle{vertices[poly_vertex->x],
+                                           vertices[poly_vertex->y],
+                                           vertices[poly_vertex->z]};
             if (!triangleIntersectsBox(box, triangle, normal)) {
                 m_aulGDObjs[index] = 0;
             }

@@ -1,3 +1,4 @@
+#include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_double3.hpp"
 #include <glm/ext/quaternion_trigonometric.hpp>
 #include <glm/gtc/quaternion.hpp>
@@ -616,9 +617,9 @@ try
     if ((flags & W8_LEVEL_MESH_LOD_VERTICES) == 0) {
         int mesh_index = 0;
         for (stMeshModel* model : stMeshModel::Meshes(first_model.get())) {
-            srVector3T<float>* model_vertices = model->getVertexLoc();
+            glm::vec3* model_vertices = model->getVertexLoc();
             for (int index = 0; index < model->vertex_location_count; ++index) {
-                model_vertices[index] = vertices[vertex_maps[mesh_index][index]];
+                model_vertices[index] = vertices[vertex_maps[mesh_index][index]].glmValue();
             }
             OptimizeMeshOrder(model);
             ++mesh_index;
