@@ -6,7 +6,7 @@
 #include <memory>
 #include <optional>
 #include <string>
-# NOT PRESENT#include "wiz8/unicode.h"
+#include "wiz8/unicode.h"
 #include "wiz8/fonts.h"
 #include "cursor.h"
 #include "random.h"
