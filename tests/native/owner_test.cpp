@@ -1124,9 +1124,11 @@ void generic_button_images()
     REQUIRE(many_fonts.back().height() > 0);
     many_fonts.clear();
     // Failed loads retain resources; moves preserve their ownership.
+    // Font's move operations explicitly leave the source empty, so checking its
+    // moved-from state is part of the contract rather than an accidental use.
     {
         Font source, moved;
-        REQUIRE(source.height() == 0);
+        REQUIRE(source.height() == 0); // NOLINT(bugprone-use-after-move)
         REQUIRE(source.textWidth("empty") == 0);
         REQUIRE(source.load(filename));
         const auto height = source.height();
@@ -1137,11 +1139,11 @@ void generic_button_images()
         REQUIRE(source.height() == 0);
         moved = std::move(temporary);
         REQUIRE(moved.height() == height);
-        REQUIRE(temporary.height() == 0);
+        REQUIRE(temporary.height() == 0); // NOLINT(bugprone-use-after-move)
         REQUIRE(moved.load(filename));
         source = std::move(moved);
         REQUIRE(source.height() == height);
-        REQUIRE(moved.height() == 0);
+        REQUIRE(moved.height() == 0); // NOLINT(bugprone-use-after-move)
     }
     ConfigureFontRendering(std::vector<std::uint16_t>{'?', 0x00e9, 0x4e2d, 'e', 0x0301, 'a', 'b', ' ', 'c'});
     Font primary;
