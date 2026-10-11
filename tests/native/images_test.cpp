@@ -304,6 +304,14 @@ TEST_CASE_METHOD(ImageFixture, "Native image formats, palettes and archives", "[
         palette[255] = {17, 121, 244, 0};
         const auto packed_palette = Create16BPPPalette(palette);
         REQUIRE((packed_palette[0] == 0 && packed_palette[1] == 1 && packed_palette[2] == 0x7c00));
+        // SDL maps the supported native 16-bit channel layouts, including RGB565.
+        gusRedMask = 0xf800;
+        gusGreenMask = 0x07e0;
+        REQUIRE(Get16BPPColor(SDL_Color{255, 0, 0, 255}) == 0xf800);
+        REQUIRE(Get16BPPColor(SDL_Color{0, 255, 0, 255}) == 0x07e0);
+        REQUIRE(Get16BPPColor(SDL_Color{0, 0, 255, 255}) == 0x001f);
+        REQUIRE(Get16BPPColor(SDL_Color{1, 1, 1, 255}) == 1);
+        rgb555();
         const auto shaded = Create16BPPPaletteShaded(palette, 384, 0, 128, FALSE);
         REQUIRE((shaded[0] == 0 && shaded[255] == 0x0c0f));
         const auto mono = Create16BPPPaletteShaded(palette, 384, 0, 128, TRUE);
