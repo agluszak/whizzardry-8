@@ -2192,29 +2192,17 @@ unsigned char W8OctreeObjectRegistry::RegisterObjectCell(W8OctreeObjectKind kind
    packs x, y and z into one dword a byte apart, and the prop key carries its id
    in the low half with a tag above it. */
 // FUNCTION: WIZ8 0x0042eab0
-void W8Octree::AddCollidablePropBounds(int index, const W8BoundingBox* bounds)
+void W8Octree::AddCollidablePropBounds(int index, const srBoundingBox& bounds)
 {
-    srVector3T<int> minimum;
-    srVector3T<int> maximum;
+    const auto minimum = cellAt(bounds.minimum);
+    const auto maximum = cellAt(bounds.maximum);
     W8OctreeIndex* by_prop;
     W8OctreeIndex* by_cell;
     unsigned int prop_key;
     unsigned int cell_key;
-    int axis;
     int x;
     int y;
     int z;
-
-    for (axis = 0; axis < 3; ++axis) {
-        (&minimum.x)[axis] =
-            static_cast<int>(((&bounds->minimum.x)[axis] - m_spatial.m_bounds.minimum[axis]) /
-                             m_spatial.m_node_extent);
-    }
-    for (axis = 0; axis < 3; ++axis) {
-        (&maximum.x)[axis] =
-            static_cast<int>(((&bounds->maximum.x)[axis] - m_spatial.m_bounds.minimum[axis]) /
-                             m_spatial.m_node_extent);
-    }
 
     prop_key = PackOctreeObjectKey(W8_OCTREE_KIND_PROP, index + 1);
     for (x = minimum.x; x <= maximum.x; ++x) {
@@ -3572,41 +3560,6 @@ try
     return true;
 }
 catch (const std::exception&) { return false; }
-
-/* Grow `minimum`/`maximum` to include `point`, returning whether any bound
-   moved. Retail's second comparison tests point->z where point->y is meant
-   (0x0043790F FCOMPs [ECX+8]) - the proven quirk stays. */
-// FUNCTION: WIZ8 0x004378f0
-char GrowBoundsByPoint(const srVector3T<float>* point, srVector3T<float>* minimum,
-                       srVector3T<float>* maximum)
-{
-    bool changed = false;
-    if (minimum->x > point->x) {
-        minimum->x = point->x;
-        changed = true;
-    }
-    if (minimum->y > point->z) {
-        minimum->y = point->y;
-        changed = true;
-    }
-    if (minimum->z > point->z) {
-        minimum->z = point->z;
-        changed = true;
-    }
-    if (maximum->x < point->x) {
-        maximum->x = point->x;
-        changed = true;
-    }
-    if (maximum->y < point->y) {
-        maximum->y = point->y;
-        changed = true;
-    }
-    if (maximum->z < point->z) {
-        maximum->z = point->z;
-        return 1;
-    }
-    return changed;
-}
 
 std::vector<w8_ulong> W8Octree::nearbyLocations(const glm::vec3& position, float spacing)
 {

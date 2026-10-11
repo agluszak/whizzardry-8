@@ -1136,8 +1136,8 @@ unsigned char OctPreTree::BuildPathLists(W8GameData* game_data, W8LevelFile* lev
                             static_cast<unsigned int>(
                                 static_cast<int>((node.y - m_spatial.m_bounds.minimum.y) / level_height)) +
                             1;
-                        if (InsertConditionalNodes(&cond_map, cell, record->level_flags, preprops,
-                                                   prop_count)) {
+                        if (InsertConditionalNodes(cond_map, cell, record->level_flags,
+                                                   {preprops, static_cast<std::size_t>(prop_count)})) {
                             record->level_flags |= W8_PATH_CELL_CONDITIONAL;
                         }
                         auto slot = node_map.equal_range(cell).first;
@@ -1208,7 +1208,7 @@ char OctPreTree::PathNodeObstructed(const srVector3T<float>* node)
     bounds_min.z = node->z - half;
     bounds_max.z = bounds_min.z + half + half;
 
-    result = TestPathPropBounds(&bounds_min, &bounds_max);
+    result = TestPathPropBounds({bounds_min.glmValue(), bounds_max.glmValue()});
     if (result != 1) {
         for (int i = 0; i < 4; ++i) {
             char out = 1;
@@ -1284,83 +1284,48 @@ char OctPreTree::PathNodeObstructed(const srVector3T<float>* node)
    conditional-node map keyed by (stop-mesh frame << 16 | preprop index + 1).
    Blocker nodes are flagged 0x2000000. */
 // FUNCTION: WIZ8 0x0046b9d0
-unsigned char OctPreTree::InsertConditionalNodes(std::unordered_multimap<unsigned int, CondPathNode*>* nodes,
+unsigned char OctPreTree::InsertConditionalNodes(std::unordered_multimap<unsigned int, CondPathNode*>& nodes,
                                                  unsigned int cell, unsigned int node,
-                                                 W8PreProp* preprops, int preprop_count)
+                                                 std::span<const W8PreProp> preprops)
 {
     if (m_lNumSupports == 0 && m_lNumBlocks == 0)
         return 0;
 
-    for (int s = 0; s < m_lNumSupports; ++s) {
-        int prop_id = m_lSupports[s];
-        bool found = false;
-        for (int p = 0; p < preprop_count && !found; ++p) {
-            W8PreProp* pp = preprops + p;
-            if (pp->num_stop_meshes != 0 && static_cast<int>(pp->first_prop_number) <= prop_id &&
-                prop_id < static_cast<int>(pp->first_prop_number + pp->num_stop_meshes)) {
-                unsigned int key =
-                    (static_cast<unsigned int>(
-                         pp->pStopMeshes[prop_id - pp->first_prop_number].m_prop_number)
-                     << 16) |
-                    static_cast<unsigned int>(p + 1);
-                CondPathNode* cond_node = static_cast<CondPathNode*>(malloc(sizeof(CondPathNode)));
-                if (cond_node == 0) {
-                    srAssertFail(
-                        "pCondNode", OCTPRETREE_CPP, 0x7e0,
-                        "InsertConditionalNodes: Could not allocate CondPathNode stucture.");
-                }
-                cond_node->value = node;
-                cond_node->cell = cell;
-                InsertIndexValue(*nodes, key, cond_node);
+    const auto insert = [&](std::span<const int> ids, unsigned flags) {
+        for (const int prop_id : ids) {
+            bool found = false;
+            for (std::size_t index = 0; index < preprops.size(); ++index) {
+                const auto& prop = preprops[index];
+                if (prop.num_stop_meshes == 0 || prop_id < prop.first_prop_number ||
+                    prop_id >= prop.first_prop_number + prop.num_stop_meshes) continue;
+                const unsigned key = (static_cast<unsigned>(
+                    prop.pStopMeshes[prop_id - prop.first_prop_number].m_prop_number) << 16) |
+                    static_cast<unsigned>(index + 1);
+                auto* entry = static_cast<CondPathNode*>(malloc(sizeof(CondPathNode)));
+                if (!entry) srAssertFail("pCondNode", OCTPRETREE_CPP, 0x7e0,
+                    "InsertConditionalNodes: Could not allocate CondPathNode stucture.");
+                entry->value = node | flags;
+                entry->cell = cell;
+                InsertIndexValue(nodes, key, entry);
                 found = true;
+                break;
             }
+            if (!found) srAssertFail("FALSE", OCTPRETREE_CPP, 0x7e8,
+                "Could not find prop and frame for conditional node.");
         }
-        if (!found) {
-            srAssertFail("FALSE", OCTPRETREE_CPP, 0x7e8,
-                         "Could not find prop and frame for conditional node.");
-        }
-    }
-    for (int s2 = 0; s2 < m_lNumBlocks; ++s2) {
-        int prop_id = m_lBlocks[s2];
-        bool found = false;
-        for (int p2 = 0; p2 < preprop_count && !found; ++p2) {
-            W8PreProp* pp = preprops + p2;
-            if (pp->num_stop_meshes != 0 && static_cast<int>(pp->first_prop_number) <= prop_id &&
-                prop_id < static_cast<int>(pp->first_prop_number + pp->num_stop_meshes)) {
-                unsigned int key =
-                    (static_cast<unsigned int>(
-                         pp->pStopMeshes[prop_id - pp->first_prop_number].m_prop_number)
-                     << 16) |
-                    static_cast<unsigned int>(p2 + 1);
-                CondPathNode* cond_node = static_cast<CondPathNode*>(malloc(sizeof(CondPathNode)));
-                if (cond_node == 0) {
-                    srAssertFail(
-                        "pCondNode", OCTPRETREE_CPP, 0x7fc,
-                        "InsertConditionalNodes: Could not allocate CondPathNode stucture.");
-                }
-                cond_node->value = node | W8_PATH_CELL_BLOCKING_FRAME;
-                cond_node->cell = cell;
-                InsertIndexValue(*nodes, key, cond_node);
-                found = true;
-            }
-        }
-        if (!found) {
-            srAssertFail("FALSE", OCTPRETREE_CPP, 0x804,
-                         "Could not find prop and frame for conditional node.");
-        }
-    }
+    };
+    insert({m_lSupports, static_cast<std::size_t>(m_lNumSupports)}, 0);
+    insert({m_lBlocks, static_cast<std::size_t>(m_lNumBlocks)}, W8_PATH_CELL_BLOCKING_FRAME);
     return 1;
 }
 
 // FUNCTION: WIZ8 0x0046bec0
-char OctPreTree::TestPathPropBounds(const srVector3T<float>* minimum,
-                                    const srVector3T<float>* maximum)
+char OctPreTree::TestPathPropBounds(const srBoundingBox& bounds)
 {
     std::vector<w8_ulong> ids;
-    const srBoundingBox bounds{minimum->glmValue(), maximum->glmValue()};
     unsigned char hit = 0;
 
-    ids = queryObjects({minimum->glmValue(), maximum->glmValue()}, 3, -1);
+    ids = queryObjects(bounds, 3, -1);
     int count = ids.size();
     for (int i = 0; i < count && hit == 0; ++i) {
         W8GDSurface* surface = g_octree_game_data->m_pSurfaces.data() + ids[i];
@@ -1372,13 +1337,13 @@ char OctPreTree::TestPathPropBounds(const srVector3T<float>* minimum,
     if (hit != 0)
         return 1;
 
-    ids = queryObjects({minimum->glmValue(), maximum->glmValue()}, 8, -1);
+    ids = queryObjects(bounds, 8, -1);
     count = ids.size();
     bool prop_hit = false;
     for (int k = 0; k < count; ++k) {
         int id = ids[k];
         GDProp* prop = (*props)[id];
-        if (prop->BoundsOverlap(minimum, maximum) != 0) {
+        if (prop->boundsOverlap(bounds)) {
             prop_hit = true;
             if (prop->m_flags.always_blocks_path)
                 return 1;
@@ -1410,12 +1375,18 @@ int OctPreTree::CreatePathProps(W8LevelFile* level, W8PreProp** preprops)
     if (count < 1) {
         *preprops = records;
     } else {
-        W8BoundingBox bounds;
         for (int i = 0; i < count; ++i) {
             W8LevelFileProp* prop = level->pProps + i;
             W8PreProp* record = records + i;
             if ((prop->flags & W8_PROP_COLLIDABLE) == 0)
                 continue;
+            const auto registerFrame = [&](unsigned mesh_index, unsigned short frame) {
+                auto& mesh = record->pStopMeshes[mesh_index];
+                mesh.ApplyAnimFrame(frame, &prop->anim_obj);
+                AddCollidablePropBounds(static_cast<unsigned short>(prop_number + mesh_index),
+                                        mesh.computeBounds());
+                props->push_back(&mesh);
+            };
             if (prop->num_frame_pos == 0) {
                 record->num_stop_meshes = PropFramesDiffer(&prop->anim_obj, 0, 0xffff) ? 2 : 1;
                 record->first_prop_number = prop_number;
@@ -1425,15 +1396,9 @@ int OctPreTree::CreatePathProps(W8LevelFile* level, W8PreProp** preprops)
                                  "CreatePathProps: Couldn't allocate GDPreProp objects.");
                 }
                 strcpy(record->name, prop->name);
-                record->pStopMeshes[0].ApplyAnimFrame(0, &prop->anim_obj);
-                record->pStopMeshes[0].ComputeBounds(&bounds.minimum, &bounds.maximum);
-                AddCollidablePropBounds(prop_number, &bounds);
-                props->push_back(record->pStopMeshes);
+                registerFrame(0, 0);
                 if (record->num_stop_meshes == 2) {
-                    record->pStopMeshes[1].ApplyAnimFrame(0xffff, &prop->anim_obj);
-                    record->pStopMeshes[1].ComputeBounds(&bounds.minimum, &bounds.maximum);
-                    AddCollidablePropBounds(static_cast<unsigned short>(prop_number + 1), &bounds);
-                    props->push_back(record->pStopMeshes + 1);
+                    registerFrame(1, 0xffff);
                     prop_number += 2;
                 } else {
                     record->pStopMeshes[0].m_flags.always_blocks_path = true;
@@ -1469,12 +1434,9 @@ int OctPreTree::CreatePathProps(W8LevelFile* level, W8PreProp** preprops)
                             fmt::format("{} Prop Error:Segment frame number {:d} is out of range",
                                         prop->name, frame));
                     }
-                    record->pStopMeshes[j].ApplyAnimFrame(frame, &prop->anim_obj);
-                    record->pStopMeshes[j].ComputeBounds(&bounds.minimum, &bounds.maximum);
-                    AddCollidablePropBounds(prop_number, &bounds);
-                    ++prop_number;
-                    props->push_back(record->pStopMeshes + j);
+                    registerFrame(j, frame);
                 }
+                prop_number += record->num_stop_meshes;
             }
         }
         *preprops = records;

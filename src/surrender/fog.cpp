@@ -102,20 +102,10 @@ void srFog::process(srVertexPipe& pipe)
                 scale = 1.0 / (fog_end - fog_start);
             }
             const auto distances = pipe.getEyeSpaceDist();
-            float start = fog_start;
-            if (count != 0) {
-                if (start == 0.0f) {
-                    if (values != distances.data()) {
-                        std::ranges::copy(distances, values);
-                    }
-                } else {
-                    for (std::size_t i = 0; i < count; ++i)
-                        values[i] = (-start) + distances[i];
-                }
-            }
-            density = this->density;
-            srChannelMath::normalize({values, static_cast<std::size_t>(count)}, scale, density);
-            pipe.applyFog(values);
+            srChannelMath::distanceRamp({values, static_cast<std::size_t>(count)}, distances,
+                                        fog_start, scale, this->density,
+                                        srChannelMath::RampDirection::increasing);
+            pipe.applyFog({values, static_cast<std::size_t>(count)});
         } else {
             const auto fog = pipe.getFog();
             if (this->density >= 1.0f) {
@@ -124,10 +114,7 @@ void srFog::process(srVertexPipe& pipe)
             }
             density = 1.0f - this->density;
             srChannelMath::scale(fog, density);
-            if ((count != 0) && (this->density != 0.0f)) {
-                for (std::size_t i = 0; i < count; ++i)
-                    fog[i] = (this->density) + fog[i];
-            }
+            srChannelMath::add(fog, this->density);
         }
     }
 }

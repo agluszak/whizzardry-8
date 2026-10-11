@@ -1,3 +1,7 @@
+#include "wiz8/engine_code/LevelFile.h"
+#include "wiz8/navigation_flags.h"
+#include "wiz8/engine_code/GDProp.h"
+#include <stdexcept>
 #include "wiz8/engine_code/mesh_links.h"
 #include "surrender/srClipPlane.h"
 #include "surrender/srIlluminator.h"
@@ -1656,21 +1660,9 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Static and frame normals share area weig
 
 TEST_CASE("Region geometry preserves octant order and point versus box boundaries", "[geometry][octree]")
 {
-    struct RestoreBuildScratch {
-        void** polygons = g_poly_list;
-        W8GDSurface** surfaces = g_gd_surface_list;
-        ~RestoreBuildScratch()
-        {
-            std::free(g_poly_list);
-            std::free(g_gd_surface_list);
-            g_poly_list = polygons;
-            g_gd_surface_list = surfaces;
-        }
-    } restore;
     OctBuildPreTree tree(1, std::nullopt, 16, 0, 0);
-    std::unordered_multimap<unsigned short, short> points, boxes;
-    tree.inside_region_map = &points;
-    tree.overlap_region_map = &boxes;
+    auto& points = tree.particle_regions.regions;
+    auto& boxes = tree.prop_regions.regions;
     tree.spatial.m_extent = 2;
     tree.spatial.m_bounds.minimum = glm::vec3(0);
     tree.spatial.m_bounds.maximum = glm::vec3(2);
@@ -1707,6 +1699,22 @@ TEST_CASE("Region geometry preserves octant order and point versus box boundarie
         REQUIRE(candidate.bounds().maximum == minimum + 1.0f);
     });
     REQUIRE(order == std::vector<unsigned>{0, 1, 2, 3, 4, 5, 6, 7});
+    std::array<W8OctRegionVolume, 3> volumes{};
+    volumes[1].m_region = 11;
+    volumes[2].m_region = 12;
+    tree.spatial.m_region_volumes = volumes.data();
+    tree.spatial.m_region_count = volumes.size();
+    tree.particle_regions.clear();
+    REQUIRE(tree.assignPointToVolumes(glm::vec3(0), 5, tree.particle_regions));
+    REQUIRE(tree.assignPointToVolumes(glm::vec3(1), 5, tree.particle_regions));
+    REQUIRE(points.count(11) == 1);
+    REQUIRE(points.count(12) == 1);
+    REQUIRE(points.size() == 2);
+    REQUIRE(boxes.size() == 9);
+    tree.spatial.m_region_count = 1;
+    REQUIRE_FALSE(tree.assignPointToVolumes(glm::vec3(0), 6, tree.particle_regions));
+    tree.spatial.m_region_volumes = nullptr;
+    tree.spatial.m_region_count = 0;
 }
 
 namespace {
@@ -1858,4 +1866,208 @@ TEST_CASE("Octree mesh links own bounded runs and mark one-based object ids", "[
     visible.assign(1, false);
     links.markVisible(1, std::span<int* const>(loaded), visible);
     REQUIRE_FALSE(visible[0]);
+}
+
+TEST_CASE("Region link builders return independent packed runs and enforce disk limits", "[geometry][octree]")
+{
+    OctRegionObjectLinks particles, props;
+    particles.always_visible = {2};
+    particles.regions.emplace(1, 1);
+    particles.regions.emplace(1, 3);
+    props.always_visible.assign(6000, 4); // Beyond the former fixed scratch capacity.
+    const auto packed = particles.packedLinks(3);
+    REQUIRE(packed.lookup.size() == 3);
+    REQUIRE(packed.lookup[0] == 0);
+    REQUIRE(packed.lookup[2] == 0);
+    REQUIRE(packed.alwaysVisible().size() == 1);
+    REQUIRE(packed.alwaysVisible()[0] == 2);
+    REQUIRE(packed.forMesh(1).size() == 2);
+    const auto [first, last] = particles.regions.equal_range(1);
+    auto run = packed.forMesh(1);
+    unsigned index = 0;
+    for (auto entry = first; entry != last; ++entry) REQUIRE(run[index++] == entry->second);
+    particles.clear();
+    REQUIRE(particles.regions.empty());
+    REQUIRE(particles.always_visible.empty());
+    REQUIRE(packed.forMesh(1).size() == 2);
+    REQUIRE(props.packedLinks(3).alwaysVisible().size() == 6000);
+    props.always_visible.assign(65535, 4);
+    REQUIRE_THROWS_AS(props.packedLinks(3), std::length_error);
+    REQUIRE_THROWS_AS(particles.packedLinks(65536), std::length_error);
+    REQUIRE(particles.packedLinks(3).records == std::vector<unsigned short>{0});
+}
+
+TEST_CASE("Build surface collections own results preserve order and exceed old scratch limits", "[geometry][octree]")
+{
+    std::array<int, 3> surfaces{1, 2, 3};
+    W8OctBuildNode leaf;
+    leaf.leaf_kind = 1;
+    std::array<W8OctBuildLink, 6> links{{
+        {&surfaces[0], nullptr}, {&surfaces[0], nullptr}, {&surfaces[1], nullptr},
+        {&surfaces[0], nullptr}, {&surfaces[2], nullptr}, {&surfaces[1], nullptr}}};
+    for (unsigned i = 1; i < links.size(); ++i) links[i - 1].next = &links[i];
+    leaf.links[2] = links.data();
+    const auto collected = leaf.linkedSurfaces(2, 2, 2);
+    REQUIRE(collected == std::vector<void*>{&surfaces[0], &surfaces[1], &surfaces[2]});
+    REQUIRE(leaf.linkedSurfaces(3, 2, 2).empty());
+    REQUIRE(leaf.linkedSurfaces(2, 2, 1).empty());
+    std::array<void*, 5> stored{&surfaces[2], &surfaces[1], &surfaces[2], &surfaces[0], nullptr};
+    leaf.surface_arrays[2] = stored.data();
+    REQUIRE(leaf.storedSurfaces(2) == std::vector<void*>{&surfaces[2], &surfaces[1], &surfaces[0]});
+    REQUIRE(collected[0] == &surfaces[0]); // Subsequent collection does not overwrite a prior result.
+    leaf.surface_arrays[2] = nullptr;
+    std::vector<int> many(11000);
+    std::vector<W8OctBuildLink> many_links(many.size());
+    for (unsigned i = 0; i < many.size(); ++i)
+        many_links[i] = {&many[i], i + 1 == many.size() ? nullptr : &many_links[i + 1]};
+    leaf.links[2] = many_links.data();
+    const auto large = leaf.linkedSurfaces(0, 0, 2);
+    REQUIRE(large.size() == many.size());
+    REQUIRE(large.front() == &many.front());
+    REQUIRE(large.back() == &many.back());
+    leaf.links[2] = nullptr;
+
+    W8OctBuildNode root;
+    root.children[0] = new W8OctBuildNode;
+    root.children[7] = new W8OctBuildNode;
+    root.children[0]->leaf_kind = root.children[7]->leaf_kind = 1;
+    root.children[0]->links[2] = &links[0];
+    root.children[7]->links[2] = &links[4];
+    REQUIRE(root.linkedSurfaces(0, 1, 2) == collected);
+    root.children[0]->links[2] = root.children[7]->links[2] = nullptr;
+}
+
+TEST_CASE("Pre-tree leaf conversion packs polygon and terrain runs with independent offsets", "[geometry][octree]")
+{
+    OctPreTree tree;
+    tree.m_spatial.m_depth = 0;
+    tree.m_leaf_count = 1;
+    tree.m_leaves = static_cast<W8OctPreTreeLeaf*>(std::calloc(2, sizeof(W8OctPreTreeLeaf)));
+    tree.m_polygon_index_stream = static_cast<w8_ulong*>(std::calloc(8, sizeof(w8_ulong)));
+    tree.m_gd_surface_index_stream = static_cast<w8_ulong*>(std::calloc(8, sizeof(w8_ulong)));
+    tree.polygon_cursor = 1;
+    tree.m_gd_surface_stream_len = 2;
+    W8OctRegionPolygon polygon{};
+    polygon.ordinal = 17;
+    W8GDSurface terrain{};
+    terrain.index = 23;
+    W8OctBuildNode leaf;
+    leaf.leaf_kind = 1;
+    const auto makeRun = [](void* surface) {
+        auto** run = static_cast<void**>(std::malloc(3 * sizeof(void*)));
+        run[0] = run[1] = surface;
+        run[2] = nullptr;
+        return run;
+    };
+    leaf.surface_arrays[2] = makeRun(&polygon);
+    leaf.surface_arrays[3] = makeRun(&terrain);
+    REQUIRE(leaf.ConvertToOctPreTree(0, &tree) == 1);
+    REQUIRE(tree.m_leaves[1].polygon_offset == 1);
+    REQUIRE(tree.m_leaves[1].gd_polygon_offset == 2);
+    REQUIRE(tree.polygon_cursor == 3);
+    REQUIRE(tree.m_gd_surface_stream_len == 4);
+    REQUIRE(tree.m_polygon_index_stream[1] == 1);
+    REQUIRE(tree.m_polygon_index_stream[2] == 17);
+    REQUIRE(tree.m_gd_surface_index_stream[2] == 1);
+    REQUIRE(tree.m_gd_surface_index_stream[3] == 23);
+    REQUIRE(leaf.surface_arrays[2] == nullptr);
+    REQUIRE(leaf.surface_arrays[3] == nullptr);
+}
+
+TEST_CASE_METHOD(SurRenderTestFixture, "Prop bounds return complete boxes and register inclusive octree cells", "[geometry][octree]")
+{
+    GDProp empty;
+    REQUIRE(empty.computeBounds().minimum == glm::vec3(0));
+    W8Octree tree(0, 0);
+    struct RestoreOctree {
+        W8Octree* previous;
+        ~RestoreOctree() { g_octree = previous; }
+    } restore{g_octree};
+    g_octree = &tree;
+    auto mesh = std::make_shared<stMeshModel>(1, 3);
+    mesh->getVertexLoc()[0] = {-2, -3, 4};
+    mesh->getVertexLoc()[1] = {5, 6, -7};
+    mesh->getVertexLoc()[2] = {1, 2, 3};
+    mesh->getPolyVertex()[0] = {0, 1, 2};
+    srModelInstance instance;
+    instance.setModel(mesh);
+    GDProp prop(&instance, "", 4, 0, 0);
+    const auto bounds = prop.computeBounds();
+    REQUIRE(bounds.minimum == glm::vec3(-2, -3, -7));
+    REQUIRE(bounds.maximum == glm::vec3(5, 6, 4));
+    REQUIRE(prop.computeBounds().minimum == bounds.minimum);
+    tree.object_registry = new W8OctreeObjectRegistry;
+    tree.m_spatial.m_bounds.minimum = glm::vec3(10);
+    tree.m_spatial.m_node_extent = 2;
+    const srBoundingBox cells{{9, 10, 10}, {12, 10, 10}};
+    tree.AddCollidablePropBounds(4, cells);
+    REQUIRE(tree.object_registry->by_cell->size() == 2);
+    REQUIRE(tree.object_registry->by_object->size() == 2);
+    tree.AddCollidablePropBounds(4, cells);
+    REQUIRE(tree.object_registry->by_cell->size() == 2);
+    REQUIRE(tree.object_registry->by_object->size() == 2);
+    srBoundingBox endpoints{{0, 10, 0}, {0, 10, 0}};
+    endpoints.include({1, -2, 20});
+    REQUIRE(endpoints.minimum.y == -2); // Y is compared with Y even when Z lies above the start.
+    REQUIRE(endpoints.maximum.z == 20);
+}
+
+TEST_CASE("Conditional path prop links share matching while retaining blocker flags", "[geometry][octree]")
+{
+    OctPreTree tree;
+    std::array<GDPreProp, 2> meshes;
+    W8LevelFileAnimObj empty{};
+    meshes[0].ApplyAnimFrame(7, &empty);
+    meshes[1].ApplyAnimFrame(8, &empty);
+    std::array<W8PreProp, 2> props{};
+    props[1].first_prop_number = 20;
+    props[1].num_stop_meshes = meshes.size();
+    props[1].pStopMeshes = meshes.data();
+    tree.m_lNumSupports = tree.m_lNumBlocks = 1;
+    tree.m_lSupports[0] = 20;
+    tree.m_lBlocks[0] = 21;
+    std::unordered_multimap<unsigned, CondPathNode*> links;
+    REQUIRE(tree.InsertConditionalNodes(links, 123, 5, props));
+    REQUIRE(links.size() == 2);
+    const auto* support = links.find((7u << 16) | 2u)->second;
+    const auto* blocker = links.find((8u << 16) | 2u)->second;
+    REQUIRE(support->cell == 123);
+    REQUIRE(support->value == 5);
+    REQUIRE(blocker->cell == 123);
+    REQUIRE(blocker->value == (5 | W8_PATH_CELL_BLOCKING_FRAME));
+    for (const auto& [key, value] : links) std::free(value);
+    links.clear();
+    tree.m_lNumSupports = tree.m_lNumBlocks = 0;
+    REQUIRE_FALSE(tree.InsertConditionalNodes(links, 123, 5, props));
+    REQUIRE(links.empty());
+}
+
+TEST_CASE("Conditional prop channels grow independently and path cells return coordinates with keys", "[geometry][octree]")
+{
+    GDProp prop;
+    for (unsigned index = 1; index <= 35; ++index) {
+        REQUIRE(prop.RegisterPathSurface(index, {0, 0}));
+        REQUIRE(prop.RegisterPathVertex(index + 100, {0, 0}, {1, 0}));
+    }
+    REQUIRE(prop.conditionalWaypoints().size() == 35);
+    REQUIRE(prop.conditionalEdges().size() == 35);
+    REQUIRE(prop.conditionalWaypoints().front() == 1);
+    REQUIRE(prop.conditionalWaypoints().back() == 35);
+    REQUIRE(prop.conditionalEdges().front() == 101);
+    REQUIRE(prop.conditionalEdges().back() == 135);
+    REQUIRE_FALSE(prop.RegisterPathSurface(77, {1, 0}));
+    REQUIRE_FALSE(prop.RegisterPathVertex(77, {0, 0}, {0, 0}));
+    REQUIRE(prop.RegisterPathSurface(1, {0, 0})); // Repeated ids retain their caller order.
+    REQUIRE(prop.conditionalWaypoints().back() == 1);
+    REQUIRE(prop.conditionalEdges().size() == 35);
+    W8PathingService pathing;
+    pathing.level_bounds.minimum = glm::vec3(10);
+    pathing.grid_scale = 2;
+    const auto cell = pathing.pathCell({14, 900, 16});
+    REQUIRE(cell.coordinates == glm::ivec2(2, 3));
+    REQUIRE(cell.key == 0x30002);
+    REQUIRE(pathing.pathCell({9, 0, 9}).coordinates == glm::ivec2(0));
+    const auto negative = pathing.pathCell({6, 0, 8});
+    REQUIRE(negative.coordinates == glm::ivec2(-2, -1));
+    REQUIRE(negative.key == static_cast<unsigned>(-1) * 0x10000u + static_cast<unsigned>(-2));
 }

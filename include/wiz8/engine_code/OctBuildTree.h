@@ -26,8 +26,8 @@ struct W8OctBuildNode {
     ~W8OctBuildNode();
 
     unsigned char RearrangeNodePolys(short current_depth, short target_depth);
-    int CollectLinkedSurfaces(short current_depth, short target_depth, short mode);
-    int CollectSurfaceArray(short mode);
+    std::vector<void*> linkedSurfaces(short current_depth, short target_depth, short mode) const;
+    std::vector<void*> storedSurfaces(short mode) const;
     w8_ulong ConvertToOctPreTree(unsigned short depth, OctPreTree* tree);
 
     union {
