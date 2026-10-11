@@ -759,7 +759,7 @@ void stParticle::SubmitToRenderer(srGERD* renderer)
     renderer->pushEnable();
     renderer->matrixMode(srGERD::MATRIX_MODELVIEW);
 
-    const auto view = glm::inverse(renderer->getMatrix(srGERD::MATRIX_MODELVIEW));
+    auto view = glm::inverse(renderer->getMatrix(srGERD::MATRIX_MODELVIEW));
     PrepareRenderer(view);
 
     if (requires_sorted_renderer != 0 && !renderer->isEnabled(srGERD::ENABLE_SORTED_RENDERING)) {
