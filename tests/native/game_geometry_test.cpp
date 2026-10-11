@@ -1105,13 +1105,17 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Movement queries return velocity and way
     REQUIRE(start == srVector3(1, 2, 3));
 }
 
+namespace {
+struct SharedClock {
+    srClock clock;
+    srClock* saved = std::exchange(g_shared_timer_base, &clock);
+    ~SharedClock() { g_shared_timer_base = saved; }
+};
+}
+
 TEST_CASE_METHOD(SurRenderTestFixture, "Prop position and delta queries preserve animation stepping", "[geometry][animation]")
 {
-    struct SharedClock {
-        srClock clock;
-        srClock* saved = std::exchange(g_shared_timer_base, &clock);
-        ~SharedClock() { g_shared_timer_base = saved; }
-    } shared_clock;
+    SharedClock shared_clock;
     W8Prop prop;
     prop.Rep()->animation = std::make_unique<W8AnimObj>().release();
     auto& animation = *prop.Rep()->animation;
@@ -1164,6 +1168,7 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Animation bounds retain composite cachin
         auto path = std::make_unique<W8PathAI>();
         PathAIAddPoint(*path, srVector3(100, 200, 300));
         PathAIAddPoint(*path, srVector3(400, 500, 600));
+        path->rotations.resize(path->nodes.size(), glm::mat3(1));
         PathAISetValue(path.get(), 0.75f);
         animation.paths[0].push_back(std::move(path));
     }
@@ -1191,6 +1196,7 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Animation bounds retain composite cachin
 
 TEST_CASE_METHOD(SurRenderTestFixture, "Prop bounds aggregate frames without changing the current frame", "[geometry][animation]")
 {
+    SharedClock shared_clock;
     W8Prop prop;
     prop.Rep()->animation = std::make_unique<W8AnimObj>().release();
     auto& animation = *prop.Rep()->animation;

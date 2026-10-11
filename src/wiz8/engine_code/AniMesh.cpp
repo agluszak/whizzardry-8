@@ -18,7 +18,6 @@
 #include "wiz8/sr_api.h"
 #include "wiz8/filesystem.h"
 #include "ReadMesh.h"
-#include "surrender/srMath.h"
 #include "surrender/srModel.h"
 #include "surrender/srNode.h"
 

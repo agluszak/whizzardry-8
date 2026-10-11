@@ -19,7 +19,6 @@
 #include "wiz8/engine_code/stModelInstance.h"
 #include "wiz8/sr_api.h"
 #include "glm/ext/vector_float3.hpp"
-#include "surrender/srNode.h"
 #include "surrender/srBoundingBox.h"
 
 #define ANIM_OBJ_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\AnimObj.cpp"
