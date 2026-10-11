@@ -21,7 +21,6 @@
 #include <utility>
 
 #include "compat/native.h"
-#include "surrender/srBoundingBox.h"
 #include "glm/ext/matrix_double3x3.hpp"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/matrix_float4x4.hpp"
