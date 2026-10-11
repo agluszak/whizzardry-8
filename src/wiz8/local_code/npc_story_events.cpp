@@ -1,6 +1,5 @@
 #include <fmt/chrono.h> // IWYU pragma: keep - std::tm formatter specialization.
 #include <fmt/format.h>
-#include <ctime>
 #include <string>
 #include <cstdint>
 
