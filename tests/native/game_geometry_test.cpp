@@ -2215,3 +2215,56 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Model render scopes restore GLM transfor
         }
     }
 }
+
+TEST_CASE_METHOD(SurRenderTestFixture, "Material vertex splits preserve first-face attributes without a fixed scratch limit", "[geometry][rendering]")
+{
+    constexpr unsigned materials = 80;
+    constexpr unsigned faces_count = 120;
+    W8OctPreTreeGeometry geometry{};
+    geometry.vertex_count = 5; // Three used vertices and one unused vertex after the sentinel.
+    geometry.m_vertices = static_cast<W8OctPreTreeVertex*>(std::calloc(geometry.vertex_count, sizeof(W8OctPreTreeVertex)));
+    REQUIRE(geometry.m_vertices);
+    struct ReleaseVertices {
+        W8OctPreTreeGeometry& geometry;
+        ~ReleaseVertices() { std::free(geometry.m_vertices); }
+    } release{geometry};
+    std::vector<W8OctRegionPolygon> polygons(faces_count + 1);
+    std::vector<int> faces(faces_count);
+    geometry.m_polygon_count = polygons.size();
+    geometry.m_polygons = polygons.data();
+    for (unsigned source = 1; source < 5; ++source) {
+        auto& vertex = geometry.m_vertices[source];
+        vertex.m_vertex_index = source;
+        vertex.position = srVector3(float(source), 2, 3);
+        if (source < 4) {
+            vertex.face_indices = faces.data();
+            vertex.face_count = faces.size();
+        }
+    }
+    for (unsigned face = 1; face <= faces_count; ++face) {
+        faces[face - 1] = face;
+        auto& polygon = polygons[face];
+        polygon.material = (face - 1) % materials;
+        polygon.kind = face % 3;
+        for (unsigned corner = 0; corner < 3; ++corner) {
+            polygon.vertices[corner] = &geometry.m_vertices[corner + 1];
+            polygon.face.texture_coordinates[corner] = glm::vec2(face, corner);
+        }
+    }
+    REQUIRE(geometry.splitVerticesByMaterial());
+    REQUIRE(geometry.vertex_count == 3 * materials + 1);
+    REQUIRE(geometry.vertex_count > 4 * 5); // Exceeds the former four-times allocation.
+    for (unsigned face = 1; face <= faces_count; ++face) {
+        const auto& polygon = polygons[face];
+        for (unsigned corner = 0; corner < 3; ++corner) {
+            const auto index = corner * materials + polygon.material + 1;
+            const auto* vertex = polygon.vertices[corner];
+            REQUIRE(vertex == &geometry.m_vertices[index]);
+            REQUIRE(vertex->m_vertex_index == index);
+            REQUIRE(vertex->m_material == static_cast<int>(polygon.material));
+            REQUIRE(vertex->m_kind == (polygon.material + 1) % 3);
+            REQUIRE(vertex->m_uv == glm::vec2(polygon.material + 1, corner));
+            REQUIRE(vertex->position.x == float(corner + 1));
+        }
+    }
+}

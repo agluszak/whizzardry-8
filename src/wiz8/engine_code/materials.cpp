@@ -2,6 +2,8 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
 #include <memory>
+#include <ranges>
+#include <span>
 #include <wiz8/filesystem.h>
 #include <SDL3/SDL_filesystem.h>
 #include <SDL3/SDL_stdinc.h>
@@ -242,7 +244,6 @@ static unsigned char PropReceivesLight(OctPreTree* tree, W8LevelFileProp* prop,
                                        W8LevelFileLight* light);
 static int BuildRegionPolygons(W8LevelFile* level, W8OctPreTreeGeometry* geometry,
                                unsigned char* classify);
-static unsigned char SplitVerticesByMaterial(W8OctPreTreeGeometry* geometry);
 static unsigned char* ClassifyTextures(W8MaterialRecord* textures, int count, char* stem);
 static unsigned char MaterialSort(W8OctPreTreeGeometry* geometry, W8MaterialRecord* textures,
                                   int count, unsigned char* classify);
@@ -719,10 +720,16 @@ static unsigned char PreprocessLevel(wiz8::File* handle, char* stem)
                                 static_cast<int>(geometry.m_texture_count),
                                 static_cast<int>(geometry.m_material_count));
                         ReportBuildStatus(6, message);
-                        result = SplitVerticesByMaterial(&geometry);
+                        const auto original_vertex_count = geometry.vertex_count;
+                        ReportBuildStatus(6, "Splitting vertices by Material...\n");
+                        result = geometry.splitVerticesByMaterial();
                         if (result == 0) {
-                            ReportBuildStatus(7, "Could not generate polygon list by regions.\n");
+                            ReportBuildStatus(7, "Could not allocate material-split vertex table.\n");
                         } else {
+                            snprintf(message, sizeof(message), "Split %d vertices into %d new vertices--ratio is 1 to %.1f.\n\n",
+                                     static_cast<int>(original_vertex_count), static_cast<int>(geometry.vertex_count),
+                                     geometry.vertex_count / static_cast<double>(original_vertex_count));
+                            ReportBuildStatus(6, message);
                             ReportBuildStatus(6, "\nCreating Submeshes ------------------------\n");
                             submeshes = tree->CreateSubMeshes(&geometry);
                             snprintf(message, sizeof(message), "Number of Submeshes: %d\n",
@@ -1335,119 +1342,45 @@ invalid:
    polygon corner can point at a vertex carrying that polygon's material and
    uv, then repacks the vertex array and repoints the corners. */
 // FUNCTION: WIZ8 0x00495860
-static unsigned char SplitVerticesByMaterial(W8OctPreTreeGeometry* geometry)
+bool W8OctPreTreeGeometry::splitVerticesByMaterial()
 {
-    char message[1024];
-    unsigned int source;
-    unsigned int slot;
-    unsigned int next;
-    int corner;
-    int remaining;
-    bool fresh;
-    int* faces;
-    W8OctPreTreeVertex* split;
-    W8OctPreTreeVertex* vertices;
-    W8OctPreTreeVertex* record;
-    W8OctPreTreeVertex* candidate;
-    W8OctPreTreeVertex** corner_vertex;
-    W8OctRegionPolygon* polygon;
-
-    ReportBuildStatus(6, "Splitting vertices by Material...\n");
-    split = static_cast<W8OctPreTreeVertex*>(
-        malloc(geometry->vertex_count * 4 * sizeof(W8OctPreTreeVertex)));
-    if (split == 0) {
-        ReportBuildStatus(7, "SplitVertices: Could not allocate pSplitVerts.\n");
-        return 0;
-    }
-    memset(split, 0, geometry->vertex_count * 4 * sizeof(W8OctPreTreeVertex));
-    for (source = 1; source < geometry->vertex_count; ++source) {
-        geometry->m_vertices[source].m_visited = false;
-    }
-    next = 1;
-    for (source = 1; source < geometry->vertex_count; ++source, ++next) {
-        unsigned int first = next;
-        record = split + next;
-        *record = geometry->m_vertices[source];
-        record->m_vertex_index = next;
-        record->m_visited = true;
-        faces = geometry->m_vertices[source].face_indices;
-        remaining = geometry->m_vertices[source].face_count - 1;
-        polygon = geometry->m_polygons + *faces;
-        record->m_material = polygon->material;
-        record->m_kind = polygon->kind;
-        for (corner = 0; corner < 3; ++corner) {
-            corner_vertex = polygon->vertices + corner;
-            if ((*corner_vertex)->m_vertex_index == source && (*corner_vertex)->m_visited == 0) {
-                *corner_vertex = record;
-                record->m_uv = polygon->face.texture_coordinates[corner];
-            }
-        }
-        while (remaining != 0) {
-            ++faces;
-            polygon = geometry->m_polygons + *faces;
-            fresh = true;
-            slot = first;
-            candidate = split + first;
-            while (slot <= next) {
-                if (!fresh) {
-                    break;
-                }
-                for (corner = 0; corner < 3; ++corner) {
-                    corner_vertex = polygon->vertices + corner;
-                    if ((*corner_vertex)->m_vertex_index == source &&
-                        (*corner_vertex)->m_visited == 0 &&
-                        candidate->m_material == static_cast<int>(polygon->material)) {
-                        *corner_vertex = candidate;
-                        fresh = false;
-                    }
-                }
-                ++slot;
-                ++candidate;
-            }
+    // Keep indices, rather than temporary pointers, until the complete table
+    // is allocated. Material runs retain first-face ordering and UV selection.
+    std::vector<W8OctPreTreeVertex> splits(1);
+    std::vector<std::array<w8_ulong, 3>> corners(m_polygon_count);
+    for (w8_ulong source = 1; source < vertex_count; ++source) {
+        const auto& original = m_vertices[source];
+        std::unordered_map<w8_ulong, w8_ulong> material_splits;
+        for (const auto face : std::span(original.face_indices, original.face_count)) {
+            auto& polygon = m_polygons[face];
+            const auto [entry, fresh] = material_splits.try_emplace(polygon.material, static_cast<w8_ulong>(splits.size()));
             if (fresh) {
-                ++next;
-                record = split + next;
-                *record = geometry->m_vertices[source];
-                record->m_vertex_index = next;
-                record->m_visited = true;
-                record->m_material = polygon->material;
-                record->m_kind = polygon->kind;
-                for (corner = 0; corner < 3; ++corner) {
-                    corner_vertex = polygon->vertices + corner;
-                    if ((*corner_vertex)->m_vertex_index == source &&
-                        (*corner_vertex)->m_visited == 0) {
-                        *corner_vertex = record;
-                        record->m_uv = polygon->face.texture_coordinates[corner];
-                    }
+                auto record = original;
+                record.m_vertex_index = entry->second;
+                record.m_visited = true;
+                record.m_material = polygon.material;
+                record.m_kind = polygon.kind;
+                splits.push_back(record);
+            }
+            for (unsigned corner = 0; corner < 3; ++corner) {
+                if (polygon.vertices[corner] == &original) {
+                    corners[face][corner] = entry->second;
+                    if (fresh) splits[entry->second].m_uv = polygon.face.texture_coordinates[corner];
                 }
             }
-            --remaining;
         }
     }
-    free(geometry->m_vertices);
-    slot = next + 1;
-    vertices = static_cast<W8OctPreTreeVertex*>(malloc(slot * sizeof(*vertices)));
-    geometry->m_vertices = vertices;
-    if (vertices == 0) {
-        ReportBuildStatus(7, "SplitVertices: Could not allocate pGeom->pVerts.\n");
-    }
-    memset(vertices, 0, slot * sizeof(*vertices));
-    memcpy(vertices, split, slot * sizeof(*vertices));
-    snprintf(message, sizeof(message), "Split %d vertices into %d new vertices--ratio is 1 to %.1f.\n\n",
-            static_cast<int>(geometry->vertex_count), next,
-            next / static_cast<double>(geometry->vertex_count));
-    ReportBuildStatus(6, message);
-    geometry->vertex_count = next;
-    if (1 < geometry->m_polygon_count) {
-        polygon = geometry->m_polygons + 1;
-        for (source = 1; source < geometry->m_polygon_count; ++source, ++polygon) {
-            for (corner = 0; corner < 3; ++corner) {
-                polygon->vertices[corner] = vertices + polygon->vertices[corner]->m_vertex_index;
-            }
-        }
-    }
-    free(split);
-    return 1;
+    auto* vertices = static_cast<W8OctPreTreeVertex*>(
+        std::calloc(splits.size() + 1, sizeof(W8OctPreTreeVertex)));
+    if (!vertices) return false;
+    std::ranges::copy(splits, vertices);
+    for (w8_ulong face = 1; face < m_polygon_count; ++face)
+        for (unsigned corner = 0; corner < 3; ++corner)
+            m_polygons[face].vertices[corner] = vertices + corners[face][corner];
+    std::free(m_vertices);
+    m_vertices = vertices;
+    vertex_count = static_cast<w8_ulong>(splits.size());
+    return true;
 }
 
 // FUNCTION: WIZ8 0x00495CF0
