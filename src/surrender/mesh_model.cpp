@@ -1364,13 +1364,6 @@ void srTriMeshPipeline::FlushSlots()
         }
     }
 
-    culler_scratch.resize(batch_limit + vertex_count * 2);
-    w8_ulong* scratch = culler_scratch.data();
-    srTriangleCuller::Output culler_output;
-    culler_output.indices = scratch;
-    culler_output.avt = scratch + batch_limit;
-    culler_output.vertex_remap = culler_output.avt + vertex_count;
-
     w8_ulong processed = 0;
     while (processed < total) {
         w8_ulong batch_count = total - processed;
@@ -1392,22 +1385,23 @@ void srTriMeshPipeline::FlushSlots()
             culler_input.triangles = triangles;
         }
 
-        if (srTriangleCuller::cull(culler_output, culler_input)) {
+        auto culler_output = srTriangleCuller::cull(culler_input);
+        if (!culler_output.indices.empty()) {
             srCore.getStatisticsManager()->statistics.triangles_after_culling +=
-                slot_count * culler_output.triangle_count;
+                slot_count * culler_output.triangleCount();
             srCore.getStatisticsManager()->statistics.vertices_after_culling +=
-                slot_count * culler_output.vertex_count;
+                slot_count * culler_output.vertexCount();
 
             srGERD::Renderer* renderer = this->renderer->lockRenderer();
 
             this->vertex_arrays.resize(slot_count);
             srVertexArray* vertex_arrays = this->vertex_arrays.data();
-            renderer->allocVertexArray(vertex_arrays[0], slot_count * culler_output.vertex_count);
+            renderer->allocVertexArray(vertex_arrays[0], slot_count * culler_output.vertexCount());
 
             /* The left side re-reads vertex_arrays[slot] while the right side keeps the snapshot
                taken before the loop. */
             for (w8_ulong slot = 1; slot < slot_count; ++slot) {
-                w8_ulong offset = slot * culler_output.vertex_count;
+                w8_ulong offset = slot * culler_output.vertexCount();
                 this->vertex_arrays[slot].eye_locations = vertex_arrays[0].eye_locations + offset;
                 this->vertex_arrays[slot].diffuse = vertex_arrays[0].diffuse + offset;
                 this->vertex_arrays[slot].specular = vertex_arrays[0].specular + offset;
@@ -1433,9 +1427,9 @@ void srTriMeshPipeline::FlushSlots()
             w8_ulong exclusion_mask = this->renderer->getExclusionMask();
 
             srVertexPipe::Input pipe_input;
-            pipe_input.vertex_count = culler_output.vertex_count;
-            pipe_input.active_vertices = culler_output.avt;
-            pipe_input.direct_vertex_indices = culler_output.linear == 0;
+            pipe_input.vertex_count = culler_output.vertexCount();
+            pipe_input.active_vertices = culler_output.avt.data();
+            pipe_input.direct_vertex_indices = false;
             pipe_input.positions = positions;
             pipe_input.normals = vertex_extras;
             pipe_input.eye_center = eye_bounds.center;
@@ -1454,9 +1448,7 @@ void srTriMeshPipeline::FlushSlots()
             pipe_input.environment_inverse_scale = environment_inverse_scale;
 
             if (!active_triangles && processed != 0) {
-                for (w8_ulong index = 0; index < batch_count; ++index) {
-                    culler_output.indices[index] += processed;
-                }
+                for (auto& index : culler_output.indices) index += processed;
             }
 
             w8_ulong renderer_disable_mask = 0;
@@ -1472,8 +1464,8 @@ void srTriMeshPipeline::FlushSlots()
                 if (passes[pass_index].shaders != 0) {
                     srFlags<srVertexProcessor::e_channel> flags =
                         srVertexPipe::getShaderDisableMask(passes[pass_index].shaders,
-                                                           culler_output.indices,
-                                                           culler_output.triangle_count);
+                                                           culler_output.indices.data(),
+                                                           culler_output.triangleCount());
                     disable_mask = flags.value;
                 } else {
                     srFlags<srVertexProcessor::e_channel> flags =
@@ -1486,14 +1478,14 @@ void srTriMeshPipeline::FlushSlots()
             vertex_pipe->process(pipe_input);
 
             srGERD::Renderer::TriInput render_input;
-            render_input.triangle_count = culler_output.triangle_count;
+            render_input.triangle_count = culler_output.triangleCount();
             render_input.record_count = slot_count;
-            render_input.vertex_count = culler_output.vertex_count;
-            render_input.indices = culler_output.indices;
+            render_input.vertex_count = culler_output.vertexCount();
+            render_input.indices = culler_output.indices.data();
             render_input.triangles = triangles;
-            render_input.vertices = culler_output.vertex_remap;
+            render_input.vertices = culler_output.vertex_remap.data();
             render_input.passes = &passes[0];
-            render_input.direct_vertex_indices = culler_output.linear == 0;
+            render_input.direct_vertex_indices = false;
             render_input.project_clip_near = &project_clip_near;
             render_input.sort_bias = sort_bias;
             renderer->render(render_input);

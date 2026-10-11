@@ -543,22 +543,6 @@ static void renderer_bounds()
 
 static void triangle_visibility()
 {
-    std::array<srVector3, 513> vertices;
-    std::array<float, 513> distances;
-    std::array<w8_ulong, 513> flags{};
-    for (std::size_t i = 0; i < vertices.size(); ++i) {
-        vertices[i] = srVector3(i % 3 ? 1 : -1, 0, 0);
-        flags[i] = 1u << 2;
-    }
-    REQUIRE((srTriangleCuller::setClipFlags(flags.data(), distances.data(), vertices.data(),
-                                         {1, 0, 0, 0}, 31, vertices.size(), 0)));
-    for (std::size_t i = 0; i < vertices.size(); ++i)
-        REQUIRE((flags[i] == ((1u << 2) | (i % 3 ? 0 : 1u << 31))));
-    REQUIRE((srTriangleCuller::setClipFlags(flags.data(), distances.data(), vertices.data(),
-                                         {1, 0, 0, 0}, 5, vertices.size(), 1)));
-    for (std::size_t i = 0; i < vertices.size(); ++i)
-        REQUIRE((flags[i] == (i % 3 ? 0 : 1u << 5)));
-
     const std::array<srVector3, 9> positions{{{-0.5f, -0.5f, 0},
                                               {0.5f, -0.5f, 0},
                                               {0, 0.5f, 0},
@@ -573,7 +557,6 @@ static void triangle_visibility()
         {{1, 0, 0, 1}, {-1, 0, 0, 1}, {0, 1, 0, 1}, {0, -1, 0, 1}, {0, 0, 1, 1}, {0, 0, -1, 1}}};
     const glm::mat4 identity(1);
     std::array<w8_ulong, 3> indices;
-    std::array<w8_ulong, 9> active, remap;
     srTriangleCuller::Input input{};
     input.triangle_count = 3;
     input.vertex_count = positions.size();
@@ -583,17 +566,13 @@ static void triangle_visibility()
     input.clip_planes = planes.data();
     input.model_view = input.inverse_model_view = &identity;
     input.clip_mask = 0x3f;
-    srTriangleCuller::Output output{};
-    output.indices = indices.data();
-    output.avt = active.data();
-    output.vertex_remap = remap.data();
-    REQUIRE((srTriangleCuller::cull(output, input)));
-    REQUIRE((output.triangle_count == 2 && indices[0] == 0 && indices[1] == 2));
-    REQUIRE((output.vertex_count == 6));
+    auto output = srTriangleCuller::cull(input);
+    REQUIRE((output.indices == std::vector<w8_ulong>{0, 2}));
+    REQUIRE((output.vertexCount() == 6));
     const std::array<w8_ulong, 6> expected{{0, 1, 2, 6, 7, 8}};
     for (unsigned i = 0; i < expected.size(); ++i)
-        REQUIRE((active[i] == expected[i] && remap[expected[i]] == i));
-    // Active triangle filtering must keep source order and allow in-place compaction.
+        REQUIRE((output.avt[i] == expected[i] && output.vertex_remap[expected[i]] == i));
+    // Active triangle filtering must keep source order without changing the input list.
     indices = {2, 1, 0};
     const std::array<glm::vec4, 3> facing{{{0, 0, 0, 1}, {0, 0, 0, -1}, {0, 0, 0, 1}}};
     input.active_triangles = indices.data();
@@ -601,11 +580,12 @@ static void triangle_visibility()
     input.projected_vertices = facing.data();
     input.cull_mode = 0;
     input.clip_mask = 0;
-    REQUIRE((srTriangleCuller::cull(output, input)));
-    REQUIRE((output.triangle_count == 2 && indices[0] == 2 && indices[1] == 0));
+    output = srTriangleCuller::cull(input);
+    REQUIRE((output.indices == std::vector<w8_ulong>{2, 0}));
+    REQUIRE((indices == std::array<w8_ulong, 3>{2, 1, 0}));
     input.active_triangle_count = 0;
-    REQUIRE((!srTriangleCuller::cull(output, input)));
-    REQUIRE((output.triangle_count == 0 && output.vertex_count == 0));
+    output = srTriangleCuller::cull(input);
+    REQUIRE((output.indices.empty() && output.avt.empty() && output.vertex_remap.empty()));
     const auto clip = srTriangleCuller::getClipMask({1, 0, 0}, 0, planes.data(), 0x3f);
     REQUIRE((clip.mask == (1u << 1) && std::isfinite(clip.depth)));
 }

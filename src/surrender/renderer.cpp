@@ -11,6 +11,7 @@
 #include "surrender/srMath.h"
 #include "surrender/srGERD.h"
 #include "surrender/srClip.h"
+#include "surrender/triangle_selection.h"
 #include "compat/compiler.h"
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float4.hpp"
@@ -864,28 +865,11 @@ void srGERD::Renderer::reset(int release_buffers)
 static w8_ulong filterTriangles(w8_ulong* destination, const unsigned char* flags,
                                      const srGERD::Renderer::TriInput& input)
 {
-    w8_ulong kept = 0;
-    if (input.direct_vertex_indices == 0) {
-        for (w8_ulong index = 0; index < input.triangle_count; index++) {
-            const srVector3i& triangle = input.triangles[input.indices[index]];
-            unsigned char flag = flags[input.vertices[triangle.x]];
-            if (flag == 0 || (flag & flags[input.vertices[triangle.z]] &
-                              flags[input.vertices[triangle.y]]) == 0) {
-                destination[kept] = input.indices[index];
-                kept++;
-            }
-        }
-    } else {
-        for (w8_ulong index = 0; index < input.triangle_count; index++) {
-            const srVector3i& triangle = input.triangles[input.indices[index]];
-            unsigned char flag = flags[triangle.x];
-            if (flag == 0 || (flag & flags[triangle.z] & flags[triangle.y]) == 0) {
-                destination[kept] = input.indices[index];
-                kept++;
-            }
-        }
-    }
-    return kept;
+    const auto* remap = input.direct_vertex_indices ? nullptr : input.vertices;
+    return srRender::selectTriangles({destination, input.triangle_count},
+        std::span{input.indices, input.triangle_count}, [&](w8_ulong index) {
+            return srRender::triangleVisible(input.triangles[index], flags, remap);
+        });
 }
 
 // FUNCTION: SURRENDER 0x10026B30

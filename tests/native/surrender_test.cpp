@@ -1,4 +1,8 @@
 #include <array>
+#include <vector>
+#include <span>
+#include "surrender/triangle_selection.h"
+#include "compat/compiler.h"
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include <catch2/catch_test_macros.hpp>
@@ -239,4 +243,100 @@ TEST_CASE("surrender_test")
     REQUIRE(rotations<double>());
     REQUIRE(transforms());
     REQUIRE(interfaces());
+}
+
+TEST_CASE("Triangle culling owns ordered indices and vertex remapping", "[surrender][culling]")
+{
+    const std::array<srVector3i, 4> triangles{{{5, 1, 3}, {0, 2, 4}, {4, 3, 1}, {5, 0, 2}}};
+    const std::array<srVector3, 6> vertices{{{-2, 0, 0}, {2, 0, 0}, {-3, 0, 0},
+                                           {3, 0, 0}, {-4, 0, 0}, {4, 0, 0}}};
+    const std::array<glm::vec4, 4> equations{{{0, 0, 0, 1}, {0, 0, 0, -1},
+                                            {0, 0, 0, 1}, {0, 0, 0, -1}}};
+    std::array<glm::vec4, 32> planes{};
+    planes[7] = {1, 0, 0, 0};
+    const glm::mat4 identity(1);
+    srTriangleCuller::Input input{};
+    input.triangle_count = triangles.size();
+    input.vertex_count = vertices.size();
+    input.triangles = triangles.data();
+    input.vertices = vertices.data();
+    input.projected_vertices = equations.data();
+    input.clip_planes = planes.data();
+    input.model_view = &identity;
+    input.inverse_model_view = &identity;
+    input.cull_mode = 0;
+    input.clip_mask = 1u << 7;
+    auto result = srTriangleCuller::cull(input);
+    REQUIRE(result.indices == std::vector<w8_ulong>{0, 2});
+    REQUIRE(result.avt == std::vector<w8_ulong>{1, 3, 4, 5});
+    REQUIRE(result.vertex_remap == std::vector<w8_ulong>{0, 0, 0, 1, 2, 3});
+
+    // Active lists retain their order and bypass the already-applied clip test.
+    const std::array<w8_ulong, 3> active{3, 1, 3};
+    input.active_triangles = active.data();
+    input.active_triangle_count = active.size();
+    input.cull_mode = 2;
+    const auto active_result = srTriangleCuller::cull(input);
+    REQUIRE(active_result.indices == std::vector<w8_ulong>{3, 1, 3});
+    REQUIRE(active_result.avt == std::vector<w8_ulong>{0, 2, 4, 5});
+    REQUIRE(result.indices == std::vector<w8_ulong>{0, 2});
+
+    input.active_triangles = nullptr;
+    input.cull_mode = 1;
+    const auto opposite = srTriangleCuller::cull(input);
+    REQUIRE(opposite.indices == std::vector<w8_ulong>{3});
+    input.clip_mask = 0;
+    REQUIRE(srTriangleCuller::cull(input).indices == std::vector<w8_ulong>{1, 3});
+    input.triangle_count = 0;
+    const auto empty = srTriangleCuller::cull(input);
+    REQUIRE(empty.indices.empty());
+    REQUIRE(empty.avt.empty());
+    REQUIRE(empty.vertex_remap.empty());
+}
+
+TEST_CASE("Renderer triangle clipping uses direct and remapped vertices", "[surrender][culling]")
+{
+    const std::array<srVector3i, 3> triangles{{{0, 1, 2}, {1, 2, 3}, {3, 4, 5}}};
+    const std::array<unsigned char, 6> flags{1, 1, 1, 2, 2, 2};
+    const std::array<w8_ulong, 6> remap{3, 4, 5, 0, 1, 2};
+    std::array<w8_ulong, 4> indices{2, 0, 1, 2};
+    const auto count = srRender::selectTriangles(indices, std::span{indices}, [&](w8_ulong index) {
+        return srRender::triangleVisible(triangles[index], flags.data(), remap.data());
+    });
+    REQUIRE(count == 1);
+    REQUIRE(indices[0] == 1);
+    REQUIRE_FALSE(srRender::triangleVisible(triangles[0], flags.data()));
+    REQUIRE(srRender::triangleVisible(triangles[1], flags.data()));
+}
+
+TEST_CASE("Triangle clipping retains high plane bits across large meshes", "[surrender][culling]")
+{
+    std::array<srVector3, 513> vertices;
+    std::array<srVector3i, 171> triangles;
+    for (int vertex = 0; vertex < 513; ++vertex)
+        vertices[vertex] = {vertex % 7 < 4 ? -1.0f : 1.0f, 0, 0};
+    for (int triangle = 0; triangle < 171; ++triangle)
+        triangles[triangle] = {3 * triangle, 3 * triangle + 1, 3 * triangle + 2};
+    std::array<glm::vec4, 32> planes{};
+    planes[31] = {1, 0, 0, 0};
+    planes[5] = {0, 1, 0, 1};
+    const glm::mat4 identity(1);
+    srTriangleCuller::Input input{};
+    input.triangle_count = triangles.size();
+    input.vertex_count = vertices.size();
+    input.triangles = triangles.data();
+    input.vertices = vertices.data();
+    input.clip_planes = planes.data();
+    input.model_view = input.inverse_model_view = &identity;
+    input.cull_mode = 2;
+    input.clip_mask = (1u << 31) | (1u << 5);
+    const auto result = srTriangleCuller::cull(input);
+    std::vector<w8_ulong> expected;
+    for (w8_ulong index = 0; index < triangles.size(); ++index) {
+        const auto& triangle = triangles[index];
+        if (vertices[triangle.x].x >= 0 || vertices[triangle.y].x >= 0 || vertices[triangle.z].x >= 0)
+            expected.push_back(index);
+    }
+    REQUIRE(result.indices == expected);
+    REQUIRE(result.indices.size() < triangles.size());
 }
