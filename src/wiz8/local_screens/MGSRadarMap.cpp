@@ -1,9 +1,10 @@
+#include "sprite.h"
 #include "surrender/srScene.h" // IWYU pragma: keep - complete scene type for conversion to srNode.
 #include <glm/gtx/rotate_vector.hpp>
-#include <vector>
 #include <cmath>
+#include <numbers>
+#include <vector>
 
-#include "glm/trigonometric.hpp"
 #include "wiz8/containers.h"
 #include "wiz8/local_screens/MGSRadarMap.h"
 #include "surrender/srMath.h"
@@ -33,8 +34,6 @@
 #include "layouts/main_game_screen.h"
 #include "layouts/party_formation.h"
 #include "sight_state.h"
-#include "vobject.h"
-#include "vsurface.h"
 
 /* The blip palette, six classes of three distance rings. Items
    take class 4 and missiles class 5; monsters take their disposition-mapped
@@ -214,7 +213,8 @@ void RefreshRadarMap(void)
     }
     ReleaseRadarMap();
 
-    auto map_surface = MakeVSurfaceFromVObject(GetCatalogVideoObject(g_radar_zoomed ? 0xa3 : 0xa4, 0), 0);
+    auto map_surface =
+        RenderSpriteToImage(GetCatalogVideoObject(g_radar_zoomed ? 0xa3 : 0xa4, 0), 0);
     if (!map_surface) return;
     if (g_radar_zoomed) {
         for (int slot = 0; slot < 8; ++slot) {
@@ -224,16 +224,16 @@ void RefreshRadarMap(void)
             if (row->fOccupied && position->bQuadrant != -1) {
                 int cell = position->bQuadrant * 3 + position->bQuadrantSlot;
                 DrawCatalogImage(*map_surface, 0xa5, 0, row->party_order_index,
-                                 g_radar_cell_offsets[cell].x, g_radar_cell_offsets[cell].y,
-                                 VO_BLT_SRCTRANSPARENCY);
+                                 g_radar_cell_offsets[cell].x, g_radar_cell_offsets[cell].y);
             }
         }
     }
 
-    auto frame_surface = MakeVSurfaceFromVObject(
-        GetCatalogVideoObject(g_level_block->radar_map_alternate ? 0xa2 : 0xa1, 0), 0);
+    auto frame_surface =
+        RenderSpriteToImage(GetCatalogVideoObject(g_level_block->radar_map_alternate ? 0xa2 : 0xa1, 0),
+                            0);
     if (!frame_surface) return;
-    auto compass_surface = MakeVSurfaceFromVObject(GetCatalogVideoObject(0x9b, 0), 0);
+    auto compass_surface = RenderSpriteToImage(GetCatalogVideoObject(0x9b, 0), 0);
     if (!compass_surface) return;
 
     g_radar_compass = CreateSpriteFromSurface(*compass_surface, 0, 1, 0, 1);
@@ -422,7 +422,8 @@ static unsigned char PlaceRadarBlip(srVector3T<float>* delta, int group, bool li
         ring = 1;
     }
 
-    const float angle = glm::radians(static_cast<float>(360 - g_status.party_facing));
+    const float angle = static_cast<float>(360 - g_status.party_facing) *
+                        (std::numbers::pi_v<float> / 180.0f);
     *delta = glm::rotateY(delta->glmValue(), angle);
     delta->y = 0.0f;
 

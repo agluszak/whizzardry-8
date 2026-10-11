@@ -1,5 +1,7 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
+#include <memory>
+#include <stdexcept>
 #include <string>
 #include <algorithm>
 #include <array>
@@ -403,7 +405,12 @@ static const std::array<std::string_view, 145> g_item_video_object_fallback_name
                                                              "rocketlauncher.sti"};
 
 // FUNCTION: WIZ8 0x0055ce80
-SGPVObject& W8ItemVideoObjectCache::Sprites(int item_id)
+const SpriteSheet& W8ItemVideoObjectCache::Sprites(int item_id)
+{
+    return *SharedSprites(item_id);
+}
+
+std::shared_ptr<const SpriteSheet> W8ItemVideoObjectCache::SharedSprites(int item_id)
 {
     auto& image = images_.at(item_id);
     if (!image) {
@@ -418,7 +425,7 @@ SGPVObject& W8ItemVideoObjectCache::Sprites(int item_id)
         if (!image)
             throw std::runtime_error(fmt::format("Cannot load item image {}", path));
     }
-    return *image;
+    return image;
 }
 
 // GLOBAL: WIZ8 0x00652da6

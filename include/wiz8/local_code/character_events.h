@@ -4,7 +4,7 @@
 #include "wiz8/conditions.h"
 
 #include "input.h"
-#include "wiz8/integer_constants.h"
+#include "sprite.h"
 
 bool IsVoiceMuted(void);
 /* The audio panels pass the raw W8TextControl mask bit (0 or 2) through. */
@@ -64,11 +64,11 @@ void RedrawPortraitQuoteBubbles(void);
 /* Queue the character's breath/idle event unless a spell or item
    is being aimed; `force` queues it regardless. */
 void StartBreathCycle(int party_slot, bool force);
-void RenderPartyPortrait(int portrait, int left, int top, unsigned int flags, unsigned char value,
+void RenderPartyPortrait(int portrait, int left, int top, SpriteDraw options, unsigned char value,
                          int party_slot);
 /* Blit one animated portrait frame and its transition, returning
    whether a frame was drawn. */
-bool BlitPartyPortraitAnimation(int portrait, int left, int top, unsigned int flags, int party_slot,
+bool BlitPartyPortraitAnimation(int portrait, int left, int top, SpriteDraw options, int party_slot,
                                 bool animate);
 
 void SetPartyPortraitEventState(unsigned int party_slot, bool active, unsigned int event_type,

@@ -1,4 +1,6 @@
 #include "himage.h"
+#include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_surface.h>
 #include <fmt/format.h>
 #include <fmt/printf.h>
 #include <string_view>
@@ -6,8 +8,9 @@
 #include <array>
 #include <vector>
 
+#include "image.h"
 #include "input.h"
-#include "vobject.h"
+#include "sprite.h"
 #include "wiz8/spell_ids.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/integer_constants.h"
@@ -52,7 +55,6 @@
 #include "wiz8/item_video_object_vector.h"
 #include "wiz8/learned_spells.h"
 #include "Font.h"
-#include "vsurface.h"
 #include "conditions.h"
 #include "dialog_code/DialogBase.h"
 #include "equipment_slots.h"
@@ -688,8 +690,9 @@ void DrawCampHeader(void)
     if (state->header_mode != W8_CAMP_HEADER_SUMMARY) {
         if ((state->redraw_flags & 0x7ff) != 0) {
             InvalidateRegion(0, 0, 0x136, 0xa5, 0);
-            ColorFillVideoSurfaceArea(GetFrameBufferSurface(), 0, 0, 0x136, 0xa5, 0x8000);
-            DrawCatalogImage(GetFrameBufferSurface(), 0x123, 0, 0, 0, 0, VO_BLT_SRCTRANSPARENCY);
+            const SDL_Rect bounds{0, 0, 0x136, 0xa5};
+            SDL_FillSurfaceRect(&GetFrameBufferSurface(), &bounds, 0x8000);
+            DrawCatalogImage(GetFrameBufferSurface(), 0x123, 0, 0, 0, 0);
             DrawRcsText(g_localized_strings[0x8c2], 0xb, 0xd, 0x11e,
                         g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
             row = 0;
@@ -719,37 +722,36 @@ void DrawCampHeader(void)
 
     if ((state->redraw_flags & 0x400) != 0) {
         InvalidateRegion(0, 0, 0x136, 0xa5, 0);
-        ColorFillVideoSurfaceArea(GetFrameBufferSurface(), 0, 0, 0x136, 0xa5, 0x8000);
-        DrawCatalogImage(GetFrameBufferSurface(), 0x10f, 0, 0, 0, 0, VO_BLT_SRCTRANSPARENCY);
+        const SDL_Rect bounds{0, 0, 0x136, 0xa5};
+        SDL_FillSurfaceRect(&GetFrameBufferSurface(), &bounds, 0x8000);
+        DrawCatalogImage(GetFrameBufferSurface(), 0x10f, 0, 0, 0, 0);
     }
     if ((state->redraw_flags & W8_CAMP_REDRAW_PORTRAIT) != 0) {
         if (character->hp_current == 0) {
             DrawCatalogImage(GetFrameBufferSurface(), g_dead_portrait_catalog_ids[character->iRace][1], 0, 0,
-                             0xa4, 0xc, VO_BLT_SRCTRANSPARENCY);
+                             0xa4, 0xc);
         } else {
-            RenderPartyPortrait(character->portrait_index, 0xa4, 0xc, 2, 1, giReviewCharSlot);
+            RenderPartyPortrait(character->portrait_index, 0xa4, 0xc, {}, 1, giReviewCharSlot);
         }
-        DrawCatalogImage(GetFrameBufferSurface(), 0x10f, 0, 9, 0xa4, 0xc, VO_BLT_SRCTRANSPARENCY);
+        DrawCatalogImage(GetFrameBufferSurface(), 0x10f, 0, 9, 0xa4, 0xc);
         if (state->portrait_hovered[0] != 0) {
-            DrawCatalogImage(GetFrameBufferSurface(), 0x116, 0, 0, 0xa4, 0xc, VO_BLT_SRCTRANSPARENCY);
+            DrawCatalogImage(GetFrameBufferSurface(), 0x116, 0, 0, 0xa4, 0xc);
         }
         if (!gXStatus.fCombatMode) {
             RedrawRcsLevelUpPanel();
             RedrawRcsDismissPanel();
         }
         if (character->highest_condition == W8_CONDITION_NONE) {
-            DrawCatalogImage(GetFrameBufferSurface(), 0x2f, 0, 0, 0xa5, 0xe, VO_BLT_SRCTRANSPARENCY);
+            DrawCatalogImage(GetFrameBufferSurface(), 0x2f, 0, 0, 0xa5, 0xe);
         } else {
-            DrawCatalogImage(GetFrameBufferSurface(), character->highest_condition + 0xb6, 0, 0, 0xa5, 0xe,
-                             VO_BLT_SRCTRANSPARENCY);
-            DrawCatalogImage(GetFrameBufferSurface(), 0x61, 0, 0, 0xa4, 0xd, VO_BLT_SRCTRANSPARENCY);
+            DrawCatalogImage(GetFrameBufferSurface(), character->highest_condition + 0xb6, 0, 0, 0xa5, 0xe);
+            DrawCatalogImage(GetFrameBufferSurface(), 0x61, 0, 0, 0xa4, 0xd);
         }
         if (character->enchantment_top == W8_ENCHANTMENT_NONE) {
-            DrawCatalogImage(GetFrameBufferSurface(), 0x30, 0, 0, 0xee, 0xe, VO_BLT_SRCTRANSPARENCY);
+            DrawCatalogImage(GetFrameBufferSurface(), 0x30, 0, 0, 0xee, 0xe);
         } else {
-            DrawCatalogImage(GetFrameBufferSurface(), character->enchantment_top + 0xc9, 0, 0, 0xee, 0xe,
-                             VO_BLT_SRCTRANSPARENCY);
-            DrawCatalogImage(GetFrameBufferSurface(), 0x61, 0, 0, 0xed, 0xd, VO_BLT_SRCTRANSPARENCY);
+            DrawCatalogImage(GetFrameBufferSurface(), character->enchantment_top + 0xc9, 0, 0, 0xee, 0xe);
+            DrawCatalogImage(GetFrameBufferSurface(), 0x61, 0, 0, 0xed, 0xd);
         }
         InvalidateRegion(0xa4, 0xc, 0xfe, 0x54, 1);
         DrawCampVitals();
@@ -757,7 +759,7 @@ void DrawCampHeader(void)
     }
     if ((state->redraw_flags & 0x200) != 0) {
         SetFont(g_wiz_text_bold_font);
-        SetObjectShade(g_wiz_text_bold_font.glyphs, 4);
+        g_wiz_text_bold_font.setShade(4);
         if (state->hover_region == 0xf2) {
             g_wiz_text_bold_font.setPalette(g_font_state_palettes[W8_FONT_PALETTE_GREEN]);
         }
@@ -767,7 +769,7 @@ void DrawCampHeader(void)
                           0x60, state->text_buffer);
         g_wiz_text_bold_font.resetPalette();
         SetFont(g_wiz_text_font_secondary);
-        SetObjectShade(g_wiz_text_font_secondary.glyphs, 4);
+        g_wiz_text_font_secondary.setShade(4);
         state->text_buffer = g_localized_strings[g_gender_name_message_rows[character->gender][0]];
         state->text_buffer += " ";
         state->text_buffer += g_localized_strings[g_race_name_message_ids[character->iRace]];
@@ -783,7 +785,7 @@ void DrawCampHeader(void)
             0x7c, state->text_buffer);
         g_wiz_text_font_secondary.resetPalette();
         SetFont(g_wiz_text_font_secondary);
-        SetObjectShade(g_wiz_text_font_secondary.glyphs, 4);
+        g_wiz_text_font_secondary.setShade(4);
         state->text_buffer = fmt::format(
             "{} {:d} ({})", g_localized_strings[0x91a], character->uiExpLevel,
             g_localized_strings[g_profession_level_name_message_ids[character->iProfession]
@@ -799,8 +801,7 @@ void DrawCampHeader(void)
             left = band_x + 6;
             top = band_y + 5;
             if (giReviewCharSlot == -1 || !g_status.buffers.XChar[slot].fOccupied) {
-                DrawCatalogImage(GetFrameBufferSurface(), 0x10f, 0, slot + 1, band_x + 5, band_y + 4,
-                                 VO_BLT_SRCTRANSPARENCY);
+                DrawCatalogImage(GetFrameBufferSurface(), 0x10f, 0, slot + 1, band_x + 5, band_y + 4);
             } else {
                 W8Character* member = &g_status.buffers.Char[slot];
                 if (member->hp_current == 0) {
@@ -810,16 +811,16 @@ void DrawCampHeader(void)
                     sub_image = member->portrait_index;
                     image = 0x13;
                 }
-                DrawCatalogImage(GetFrameBufferSurface(), image, sub_image, 0, left, top,
-                                 VO_BLT_SRCTRANSPARENCY);
+                DrawCatalogImage(GetFrameBufferSurface(), image, sub_image, 0, left, top);
                 if (!CanSelectRcsPartySlot(slot)) {
-                    ShadowVideoSurfaceRect(GetFrameBufferSurface(), left, top, band_x + 0x32, band_y + 0x28);
-                    ShadowVideoSurfaceRect(GetFrameBufferSurface(), left, top, band_x + 0x32, band_y + 0x28);
+                    const SDL_Rect bounds{left, top, band_x + 0x32 - left + 1, band_y + 0x28 - top + 1};
+                    ShadowRect(GetFrameBufferSurface(), bounds);
+                    ShadowRect(GetFrameBufferSurface(), bounds);
                 }
                 if (state->hover_region == slot + 0xea) {
-                    DrawCatalogImage(GetFrameBufferSurface(), 0x117, 0, 0, left, top, VO_BLT_SRCTRANSPARENCY);
+                    DrawCatalogImage(GetFrameBufferSurface(), 0x117, 0, 0, left, top);
                 } else if (static_cast<int>(slot) == giReviewCharSlot) {
-                    DrawCatalogImage(GetFrameBufferSurface(), 0x117, 0, 1, left, top, VO_BLT_SRCTRANSPARENCY);
+                    DrawCatalogImage(GetFrameBufferSurface(), 0x117, 0, 1, left, top);
                 }
             }
             InvalidateRegion(left, top, band_x + 0x33, band_y + 0x29, 0);
@@ -857,7 +858,7 @@ void DrawCampVitals(void)
     } else {
         image = 3;
     }
-    DrawCatalogImage(GetFrameBufferSurface(), 0x80, 0, image, 0x10c, 0xb, VO_BLT_SRCTRANSPARENCY);
+    DrawCatalogImage(GetFrameBufferSurface(), 0x80, 0, image, 0x10c, 0xb);
     if (g_review_character->hp_current == 0) {
         return;
     }
@@ -903,20 +904,18 @@ void DrawCampVitals(void)
         spell_fill = spell_left * 0x2d / SumCharacterSpellPoints(g_review_character);
     }
     bar_top = frame_column + 0xb;
-    DrawCatalogImage(GetFrameBufferSurface(), hp_frame, 0, 0, hp_row + 0x10c, bar_top, VO_BLT_SRCTRANSPARENCY);
+    DrawCatalogImage(GetFrameBufferSurface(), hp_frame, 0, 0, hp_row + 0x10c, bar_top);
     gap = 0x2d - hp_fill;
     if (gap != 0) {
         ShadeStatusBarGap(gap, hp_row + 0x10c, frame_column - numeric + 0xb);
     }
-    DrawCatalogImage(GetFrameBufferSurface(), stamina_frame, 0, 0, stamina_row + 0x10c, bar_top,
-                     VO_BLT_SRCTRANSPARENCY);
+    DrawCatalogImage(GetFrameBufferSurface(), stamina_frame, 0, 0, stamina_row + 0x10c, bar_top);
     gap = 0x2d - stamina_fill;
     if (gap != 0) {
         ShadeStatusBarGap(gap, stamina_row + 0x10c, frame_column - numeric + 0xb);
     }
     if (SumCharacterSpellPoints(g_review_character) != 0) {
-        DrawCatalogImage(GetFrameBufferSurface(), spell_frame, 0, 0, spell_column + 0x10c, bar_top,
-                         VO_BLT_SRCTRANSPARENCY);
+        DrawCatalogImage(GetFrameBufferSurface(), spell_frame, 0, 0, spell_column + 0x10c, bar_top);
         gap = 0x2d - spell_fill;
         if (gap != 0) {
             ShadeStatusBarGap(gap, spell_column + 0x10c, frame_column - numeric + 0xb);
@@ -959,10 +958,9 @@ static void DrawCampHand(W8EquipSlot slot, int hand_index, int top, int count_ce
         DrawCatalogImage(
             GetFrameBufferSurface(),
             g_empty_hand_catalog_ids[g_review_character->iRace * W8_RACE_DWARF + hand_index], 0, 0,
-            0x85, top, VO_BLT_SRCTRANSPARENCY);
+            0x85, top);
     } else {
-        DrawSprite(GetFrameBufferSurface(), g_item_video_objects.Sprites(item_id), 2, 0x84, top,
-                   VO_BLT_SRCTRANSPARENCY);
+        DrawSprite(GetFrameBufferSurface(), g_item_video_objects.Sprites(item_id), 2, 0x84, top);
         unsigned char count = g_review_character->EquippedItem[slot].stack_count;
         if (count != 0) {
             std::string text;
@@ -996,14 +994,14 @@ void DrawCampHands(void)
         two_handed = true;
         hand_image = 2;
     }
-    DrawCatalogImage(GetFrameBufferSurface(), 0x80, 0, hand_image, 0x81, 0xb, VO_BLT_SRCTRANSPARENCY);
+    DrawCatalogImage(GetFrameBufferSurface(), 0x80, 0, hand_image, 0x81, 0xb);
     DrawCampHand(W8_EQUIP_SLOT_PRIMARY_WEAPON, 0, 0x22, 0x89);
     if (!two_handed) {
         DrawCampHand(W8_EQUIP_SLOT_SECONDARY_WEAPON, 1, 0x3a, 0x8c);
     }
     SetFont(g_smfnt_font);
     text = fmt::format("{:d}", g_review_character->armor_class_average);
-    palette = g_smfnt_font.glyphs.palette;
+    palette = g_smfnt_font.glyphs->colors;
     if (g_review_character->load_category != 0) {
         palette =
             g_font_state_palettes[g_load_category_palettes[g_review_character->load_category]];

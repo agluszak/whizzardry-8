@@ -2,6 +2,7 @@
 #include "Types.h"
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_mouse.h>
+#include <SDL3/SDL_surface.h>
 #include <string>
 #include <algorithm>
 #include <memory>
@@ -23,8 +24,7 @@
 #include "wiz8/text_input.h"
 #include "wiz8/local_screens/Screens.h"
 #include "himage.h"
-#include "vobject_blitters.h"
-#include "vsurface.h"
+#include "image.h"
 #include "compat/native.h"
 
 /*
@@ -1027,9 +1027,10 @@ void RenderBackgroundField(TEXTINPUTNODE* field)
     int bottom = TextFieldRegion(field).y2;
 
     if (style->fBevelling) {
-        ColorFillVideoSurfaceArea(GetFrameBufferSurface(), left, top, right, bottom, style->usDarkerColor);
-        ColorFillVideoSurfaceArea(GetFrameBufferSurface(), left + 1, top + 1, right, bottom,
-                                  style->usBrighterColor);
+        const SDL_Rect darker{left, top, right - left, bottom - top};
+        const SDL_Rect brighter{left + 1, top + 1, right - left - 1, bottom - top - 1};
+        SDL_FillSurfaceRect(&GetFrameBufferSurface(), &darker, style->usDarkerColor);
+        SDL_FillSurfaceRect(&GetFrameBufferSurface(), &brighter, style->usBrighterColor);
     }
 
     unsigned short colour;
@@ -1040,7 +1041,8 @@ void RenderBackgroundField(TEXTINPUTNODE* field)
     if (field->fUseInactiveTextFieldColor && field != gpActive)
         colour = style->usInactiveTextFieldColor;
 
-    ColorFillVideoSurfaceArea(GetFrameBufferSurface(), left, top, right, bottom, colour);
+    const SDL_Rect area{left, top, right - left, bottom - top};
+    SDL_FillSurfaceRect(&GetFrameBufferSurface(), &area, colour);
     InvalidateRegion(left, top, right, bottom, 0);
 }
 
@@ -1121,8 +1123,8 @@ void RenderActiveTextField(void)
             w8_get_ticks() % 1000 < 500) {
             int left = TextFieldRegion(field).x1 + gsCursorX;
             int top = TextFieldRegion(field).y1 + vertical_offset;
-            ColorFillVideoSurfaceArea(GetFrameBufferSurface(), left, top, left + 1, top + font_height,
-                                      pColors->usCursorColor);
+            const SDL_Rect cursor{left, top, 1, font_height};
+            SDL_FillSurfaceRect(&GetFrameBufferSurface(), &cursor, pColors->usCursorColor);
         }
 
     }
@@ -1175,8 +1177,7 @@ void RenderInactiveTextFieldNode(TEXTINPUTNODE* field)
             TextFieldRegion(field).x2 - TextFieldRegion(field).x1,
             TextFieldRegion(field).y2 - TextFieldRegion(field).y1,
         };
-        const auto& surface = *GetFrameBufferSurface().cpu().surface;
-        Blt16BPPBufferShadowRect(static_cast<unsigned short*>(surface.pixels), surface.pitch, &rectangle);
+        ShadowRect(GetFrameBufferSurface(), rectangle);
     }
 }
 

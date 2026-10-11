@@ -1,5 +1,6 @@
 #include "surrender/pixel_math.h"
 #include "glm/ext/vector_uint4.hpp"
+#include <SDL3/SDL_error.h>
 #include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>
@@ -13,6 +14,7 @@
 #include <memory>
 #include <new>
 #include <span>
+#include <stdexcept>
 #include <utility>
 #include <ostream>
 #include <cmath>
@@ -20,7 +22,7 @@
 #include <vector>
 
 #include "surrender/srMath.h"
-#include "wiz8/compat/surfaces.h"
+#include "wiz8/surface_storage.h"
 #include "surrender/srColorSurface.h"
 #include "surrender/srCore.h"
 #include "surrender/srFilter.h"
@@ -980,8 +982,11 @@ void srColorSurface::flipRectangle(const Rectangle& rectangle)
     const auto flip = SDL_FlipMode((rectangle.right < rectangle.left ? SDL_FLIP_HORIZONTAL : 0) |
                                   (rectangle.bottom < rectangle.top ? SDL_FLIP_VERTICAL : 0));
     if (flip != SDL_FLIP_NONE) {
-        auto surface = ShareCpuSurface(*storage);
-        FlipCpuSurface(surface, flip, &region);
+        auto flipped = CreateCpuStorage(region.w, region.h, storage->format);
+        if (!SDL_BlitSurface(storage.get(), &region, flipped.get(), nullptr) ||
+            !SDL_FlipSurface(flipped.get(), flip) ||
+            !SDL_BlitSurface(flipped.get(), nullptr, storage.get(), &region))
+            throw std::runtime_error(SDL_GetError());
     }
 
 }
@@ -994,8 +999,8 @@ void srColorSurface::fillRectangle(SDL_Rect rect, w8_ulong pixel)
     // Convert through the surface format and palette before the raw SDL fill.
     setPixel(rect.x, rect.y, pixel);
     const auto raw = getPixelRaw(rect.x, rect.y);
-    auto destination = ShareCpuSurface(*storage);
-    FillCpuSurface(destination, raw, &rect);
+    if (!SDL_FillSurfaceRect(storage.get(), &rect, raw))
+        throw std::runtime_error(SDL_GetError());
 }
 
 // FUNCTION: SURRENDER 0x1005C560
@@ -1044,9 +1049,9 @@ void srColorSurface::blit(w8_long x, w8_long y, srColorSurfaceIFace& source, w8_
     SDL_Rect dest{x, y, sample.w, sample.h};
     if (!ClipCpuBlit(dest, sample, {0, 0, width, height}, {0, 0, source.width, source.height}))
         return;
-    auto destination = ShareCpuSurface(*storage);
-    auto input = ShareCpuSurface(*static_cast<srColorSurface&>(source).storage);
-    BlitCpuSurface(destination, &dest, input, &sample);
+    auto& input = *static_cast<srColorSurface&>(source).storage;
+    if (!SDL_BlitSurface(&input, &sample, storage.get(), &dest))
+        throw std::runtime_error(SDL_GetError());
 }
 
 // FUNCTION: SURRENDER 0x1005D010
@@ -1102,9 +1107,10 @@ void srColorSurface::scaleFast(srColorSurfaceIFace& source)
     }
     if (width <= 0 || height <= 0 || source.width <= 0 || source.height <= 0)
         return;
-    auto destination = ShareCpuSurface(*storage);
-    auto input = ShareCpuSurface(*static_cast<srColorSurface&>(source).storage);
-    BlitCpuSurface(destination, nullptr, input);
+    auto& input = *static_cast<srColorSurface&>(source).storage;
+    const SDL_Rect destination{0, 0, width, height};
+    if (!SDL_BlitSurfaceScaled(&input, nullptr, storage.get(), &destination, SDL_SCALEMODE_NEAREST))
+        throw std::runtime_error(SDL_GetError());
 }
 
 // SDL does not implement SurRender's filter kernels, wrapping, or asymmetric

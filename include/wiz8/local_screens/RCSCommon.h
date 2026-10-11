@@ -3,11 +3,9 @@
 #include <SDL3/SDL_rect.h>
 #include <string_view>
 
+#include "image.h"
 #include "wiz8/video_object_catalog.h"
-#include "vobject_blitters.h"
 #include "input.h"
-#include "vobject.h"
-#include "vsurface.h"
 
 struct Controls;
 class W8TextControl;
@@ -43,29 +41,26 @@ inline void DrawCampValueBar(unsigned int value, unsigned int base, int left, in
         extra = value - base;
         missing = 0;
     }
-    SDL_Rect saved_clip;
-    GetClippingRect(&saved_clip);
     SDL_Rect clip;
     clip.y = 0;
     clip.h = 0x1e0;
     if (filled != 0) {
         clip.x = left;
         clip.w = filled;
-        SetClippingRect(&clip);
-        DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x143, 0, 0, left, top, VO_BLT_SRCTRANSPARENCY);
+        ScopedClipRect clipped(GetFrameBufferSurface(), clip);
+        DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x143, 0, 0, left, top);
     }
     if (extra != 0) {
         clip.x = left + filled;
         clip.w = extra;
-        SetClippingRect(&clip);
-        DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x143, 0, 1, left, top, VO_BLT_SRCTRANSPARENCY);
+        ScopedClipRect clipped(GetFrameBufferSurface(), clip);
+        DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x143, 0, 1, left, top);
     } else if (missing != 0) {
         clip.x = left + filled;
         clip.w = missing;
-        SetClippingRect(&clip);
-        DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x143, 0, 2, left, top, VO_BLT_SRCTRANSPARENCY);
+        ScopedClipRect clipped(GetFrameBufferSurface(), clip);
+        DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x143, 0, 2, left, top);
     }
-    SetClippingRect(&saved_clip);
 }
 
 void DrawCampHeader(void);

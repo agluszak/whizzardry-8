@@ -1,8 +1,9 @@
 #include "himage.h"
 #include <utility>
-#include <tuple>
 #include <array>
 #include <cstddef>
+#include <cstdint>
+#include <tuple>
 #include "wiz8/local_screens/PleaseWaitScreen.h"
 
 #include "wiz8/fonts.h"
@@ -10,7 +11,6 @@
 #include "wiz8/video_object_catalog.h"
 #include "wiz8/engine_code/Video2.h"
 #include "Font.h"
-#include "vobject.h"
 
 /* Original translation-unit ownership is unknown; surrounding anchors do not resolve it. */
 
@@ -67,27 +67,29 @@ std::array<Palette16, 15> g_font_state_palettes;
 unsigned char InitializeMenuFonts(void)
 {
     const std::array fonts{
-        std::tuple{&g_large_font, "Data\\Fonts\\LargeFont.sti", HVOBJECT_GLOW_GREEN},
-        std::tuple{&g_small_font, "Data\\Fonts\\SmallFont.sti", HVOBJECT_GLOW_GREEN},
-        std::tuple{&g_small_font_secondary, "Data\\Fonts\\SmallFont.sti", HVOBJECT_GLOW_RED},
-        std::tuple{&g_wiz_text_font, "Data\\Fonts\\Wiz_Text_Font.sti", HVOBJECT_GLOW_GREEN},
-        std::tuple{&g_calligraphy_font, "Data\\Fonts\\CalligraphyFont.sti", HVOBJECT_GLOW_GREEN},
-        std::tuple{&g_calligraphy_shadow_font, "Data\\Fonts\\CalligraphyFontFullShadow.sti", HVOBJECT_GLOW_GREEN},
-        std::tuple{&g_smfnt_font, "Data\\Fonts\\SmFnt.sti", HVOBJECT_GLOW_GREEN},
-        std::tuple{&ghTinyMonoFont, "Data\\Fonts\\TinyMonoFont.sti", HVOBJECT_GLOW_GREEN},
-        std::tuple{&g_button_font, "Data\\Fonts\\ButtonFont.sti", HVOBJECT_GLOW_GREEN},
-        std::tuple{&g_engraved_font, "Data\\Fonts\\Engraved.sti", HVOBJECT_GLOW_GREEN},
-        std::tuple{&g_embossed_font, "Data\\Fonts\\Embossed.sti", HVOBJECT_GLOW_GREEN},
-        std::tuple{&g_wiz_text_font_secondary, "Data\\Fonts\\Wiz_Text_Font.sti", HVOBJECT_GLOW_GREEN},
-        std::tuple{&g_wiz_text_bold_font, "Data\\Fonts\\Wiz_Text_Font_Bold.sti", HVOBJECT_GLOW_GREEN},
-        std::tuple{&g_wiz_text_mono_font, "Data\\Fonts\\wiz_text_font_monopalette.sti", 0},
-        std::tuple{&g_options_title_font, "Data\\Fonts\\Opt_title_font.sti", HVOBJECT_GLOW_GREEN},
-        std::tuple{&g_options_detail_font, "Data\\Fonts\\Opt_detail_font.sti", HVOBJECT_GLOW_GREEN},
-        std::tuple{&g_profession_font, "Data\\Fonts\\Profession.sti", HVOBJECT_GLOW_YELLOW},
-        std::tuple{&g_font10arial, "Data\\Fonts\\Font10Arial.sti", 0},
-        std::tuple{&g_wiz_dialog_font, "Data\\Fonts\\dialog_font.sti", HVOBJECT_GLOW_GREEN},
-        std::tuple{&g_monster_damage_font, "Data\\Fonts\\monsterdamage_font.sti", 0},
-        std::tuple{&g_font12point1, "Data\\Fonts\\FONT12POINT1.sti", HVOBJECT_GLOW_GREEN}
+        std::tuple{&g_large_font, "Data\\Fonts\\LargeFont.sti", FONT_GLOW_GREEN},
+        std::tuple{&g_small_font, "Data\\Fonts\\SmallFont.sti", FONT_GLOW_GREEN},
+        std::tuple{&g_small_font_secondary, "Data\\Fonts\\SmallFont.sti", FONT_GLOW_RED},
+        std::tuple{&g_wiz_text_font, "Data\\Fonts\\Wiz_Text_Font.sti", FONT_GLOW_GREEN},
+        std::tuple{&g_calligraphy_font, "Data\\Fonts\\CalligraphyFont.sti", FONT_GLOW_GREEN},
+        std::tuple{&g_calligraphy_shadow_font, "Data\\Fonts\\CalligraphyFontFullShadow.sti", FONT_GLOW_GREEN},
+        std::tuple{&g_smfnt_font, "Data\\Fonts\\SmFnt.sti", FONT_GLOW_GREEN},
+        std::tuple{&ghTinyMonoFont, "Data\\Fonts\\TinyMonoFont.sti", FONT_GLOW_GREEN},
+        std::tuple{&g_button_font, "Data\\Fonts\\ButtonFont.sti", FONT_GLOW_GREEN},
+        std::tuple{&g_engraved_font, "Data\\Fonts\\Engraved.sti", FONT_GLOW_GREEN},
+        std::tuple{&g_embossed_font, "Data\\Fonts\\Embossed.sti", FONT_GLOW_GREEN},
+        std::tuple{&g_wiz_text_font_secondary, "Data\\Fonts\\Wiz_Text_Font.sti", FONT_GLOW_GREEN},
+        std::tuple{&g_wiz_text_bold_font, "Data\\Fonts\\Wiz_Text_Font_Bold.sti", FONT_GLOW_GREEN},
+        std::tuple{&g_wiz_text_mono_font, "Data\\Fonts\\wiz_text_font_monopalette.sti",
+                   std::uint32_t{0}},
+        std::tuple{&g_options_title_font, "Data\\Fonts\\Opt_title_font.sti", FONT_GLOW_GREEN},
+        std::tuple{&g_options_detail_font, "Data\\Fonts\\Opt_detail_font.sti", FONT_GLOW_GREEN},
+        std::tuple{&g_profession_font, "Data\\Fonts\\Profession.sti", FONT_GLOW_YELLOW},
+        std::tuple{&g_font10arial, "Data\\Fonts\\Font10Arial.sti", std::uint32_t{0}},
+        std::tuple{&g_wiz_dialog_font, "Data\\Fonts\\dialog_font.sti", FONT_GLOW_GREEN},
+        std::tuple{&g_monster_damage_font, "Data\\Fonts\\monsterdamage_font.sti",
+                   std::uint32_t{0}},
+        std::tuple{&g_font12point1, "Data\\Fonts\\FONT12POINT1.sti", FONT_GLOW_GREEN}
     };
     std::array<Font, fonts.size()> loaded;
     for (size_t index = 0; index < fonts.size(); ++index) {
@@ -98,8 +100,7 @@ unsigned char InitializeMenuFonts(void)
     }
     for (size_t index = 0; index < fonts.size(); ++index) {
         const auto shade = std::get<2>(fonts[index]);
-        if (shade)
-            CreateObjectPaletteTables(loaded[index].glyphs, shade);
+        loaded[index].createShades(shade);
     }
     decltype(g_font_state_palettes) palettes;
     for (size_t index = 0; index < palettes.size(); ++index) {

@@ -454,7 +454,7 @@ static void UseItemSelectFilterToggle(void)
 // FUNCTION: WIZ8 0x0059D860
 static void UseItemSelectAssayButton(void)
 {
-    if (g_use_item_detail_item != 0 && g_use_item_select_controls[0]->m_imageObject != -1) {
+    if (g_use_item_detail_item != 0 && g_use_item_select_controls[0]->m_imageSprites) {
         OpenUseItemAssayDialog(g_use_item_detail_item);
     }
 }

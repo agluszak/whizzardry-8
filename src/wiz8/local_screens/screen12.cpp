@@ -7,9 +7,9 @@
 #include "input.h"
 #include "wiz8/engine_code/Video2.h"
 #include "himage.h"
-#include "vsurface.h"
 #include "wiz8/application.h"
-#include "vobject.h"
+#include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_surface.h>
 
 /* Lifecycle record 12 is the exit screen selected by Main Menu's Exit row and
    its Escape/E/X shortcuts. Live query: 0x00591780 sits in the gap between
@@ -42,8 +42,9 @@ unsigned char ExitScreenEnter(void)
     ResetVideoFrameState();
     UpdateHeldItemCursor();
     colour = Get16BPPColor(SDL_Color{1, 1, 1, SDL_ALPHA_OPAQUE});
-    ColorFillVideoSurfaceArea(GetFrameBufferSurface(), 0, 0, 0x280, 0x1e0, colour);
-    DrawCatalogImage(GetFrameBufferSurface(), 0x1e4, 0, 0, 0, 0, VO_BLT_SRCTRANSPARENCY);
+    const SDL_Rect bounds{0, 0, 0x280, 0x1e0};
+    SDL_FillSurfaceRect(&GetFrameBufferSurface(), &bounds, colour);
+    DrawCatalogImage(GetFrameBufferSurface(), 0x1e4, 0, 0, 0, 0);
     ResetTransientRenderScenes();
     return 1;
 }

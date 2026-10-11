@@ -1,3 +1,6 @@
+#include <SDL3/SDL_surface.h>
+#include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_stdinc.h>
 #include <fmt/format.h>
 #include <fmt/printf.h>
 #include <string>
@@ -38,8 +41,6 @@
 #include "input.h"
 #include "soundman.h"
 #include "Font.h"
-#include "vsurface.h"
-#include "line.h"
 #include "conditions.h"
 #include "dialog_code/DialogBase.h"
 #include "equipment_slots.h"
@@ -1168,8 +1169,6 @@ static void DrawCampItemLabel(W8ItemInstance* item, int left, int top, char flag
     W8TextBuffer* text;
     int width;
     int height;
-    unsigned int pitch;
-    char* buffer;
 
     name = FormatItemDisplayName(item, false);
     g_camp_screen->text_buffer = name;
@@ -1188,20 +1187,21 @@ static void DrawCampItemLabel(W8ItemInstance* item, int left, int top, char flag
             bounds.left -= width;
             text->SetLayoutBounds(&bounds, true, true);
         }
-        ColorFillVideoSurfaceArea(GetFrameBufferSurface(), bounds.left, bounds.top, bounds.left + width,
-                                  bounds.top + height, 0x8000);
-        const auto& destination_storage = *GetFrameBufferSurface().cpu().surface;
-        pitch = destination_storage.pitch;
-        buffer = static_cast<char*>(destination_storage.pixels);
-        if (buffer != 0) {
+        SDL_Surface& framebuffer = GetFrameBufferSurface();
+        const SDL_Rect fill{bounds.left, bounds.top, width, height};
+        SDL_FillSurfaceRect(&framebuffer, &fill, 0x8000);
+        if (framebuffer.pixels != nullptr) {
             // reinterpret-ok: SGP frame-buffer bytes to W8TextBuffer's byte view
-            text->RenderText(reinterpret_cast<unsigned char*>(buffer), pitch, 2, 1, true);
-            LineDraw(0, bounds.left, bounds.top, bounds.left + width, bounds.top, -0x6613, buffer);
-            LineDraw(0, bounds.left + width, bounds.top, bounds.left + width, bounds.top + height,
-                     -0x6613, buffer);
-            LineDraw(0, bounds.left + width, bounds.top + height, bounds.left, bounds.top + height,
-                     -0x6613, buffer);
-            LineDraw(0, bounds.left, bounds.top + height, bounds.left, bounds.top, -0x6613, buffer);
+            text->RenderText(framebuffer, 2, 1, true);
+            const Uint16 outline = static_cast<Uint16>(-0x6613);
+            const SDL_Rect top_edge{bounds.left, bounds.top, width + 1, 1};
+            const SDL_Rect right_edge{bounds.left + width, bounds.top, 1, height + 1};
+            const SDL_Rect bottom_edge{bounds.left, bounds.top + height, width + 1, 1};
+            const SDL_Rect left_edge{bounds.left, bounds.top, 1, height + 1};
+            SDL_FillSurfaceRect(&framebuffer, &top_edge, outline);
+            SDL_FillSurfaceRect(&framebuffer, &right_edge, outline);
+            SDL_FillSurfaceRect(&framebuffer, &bottom_edge, outline);
+            SDL_FillSurfaceRect(&framebuffer, &left_edge, outline);
             delete text;
         }
     }

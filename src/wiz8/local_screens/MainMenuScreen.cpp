@@ -1,5 +1,6 @@
 #include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_surface.h>
 #include <string_view>
 #include <string>
 #include <array>
@@ -34,9 +35,8 @@
 #include "english.h"
 #include "Font.h"
 #include "himage.h"
-#include "vsurface.h"
+#include "image.h"
 #include "dialog_code/DialogBase.h"
-#include "vobject.h"
 
 
 /* The screen's own state. */
@@ -51,7 +51,7 @@ bool g_main_menu_warning_shown;
 // GLOBAL: WIZ8 0x0069c4bb
 bool g_main_menu_overlay_enabled;
 // GLOBAL: WIZ8 0x0069c4ac
-SGPVSurface* g_main_menu_overlay_surface;
+SDL_Surface* g_main_menu_overlay_surface;
 // GLOBAL: WIZ8 0x0069c4bc
 std::string g_pending_main_menu_message;
 // The modal dialog belongs to this screen, not a global registry.
@@ -77,8 +77,7 @@ unsigned char DrawMainMenuItem(short item, short state)
     const auto& bounds = main_menu_item_bounds[item];
     if (state >= 0 && static_cast<std::size_t>(state) < main_menu_sprite_objects.size())
         DrawCatalogImage(GetFrameBufferSurface(), main_menu_sprite_objects[state], 0, item, 0x98,
-                         bounds.top, VO_BLT_SRCTRANSPARENCY);
-
+                         bounds.top);
     InvalidateRegion(0x98, bounds.top, 0x1f2, bounds.bottom, 0);
     return 1;
 }
@@ -216,10 +215,11 @@ unsigned char MainMenuScreenEnter(void)
     g_main_menu_redraw = true;
     ClearPrimarySurface();
     colour = Get16BPPColor(SDL_Color{1, 1, 1, SDL_ALPHA_OPAQUE});
-    ColorFillVideoSurfaceArea(GetFrameBufferSurface(), 0, 0, 0x280, 0x1e0, colour);
+    const SDL_Rect bounds{0, 0, 0x280, 0x1e0};
+    SDL_FillSurfaceRect(&GetFrameBufferSurface(), &bounds, colour);
     SetViewport(0, 0, 0x280, 0x1e0);
     g_main_menu_selected_item = 0;
-    DrawCatalogImage(GetFrameBufferSurface(), 0xe8, 0, 0, 0, 0, VO_BLT_SRCTRANSPARENCY);
+    DrawCatalogImage(GetFrameBufferSurface(), 0xe8, 0, 0, 0, 0);
 
     DrawMainMenuItems();
 
@@ -290,7 +290,7 @@ void MainMenuScreenFrame()
         if (!ProcessDialogInput(main_menu_dialog.get())) {
             main_menu_dialog.reset();
             g_main_menu_redraw = true;
-            DrawCatalogImage(GetFrameBufferSurface(), 0xe8, 0, 0, 0, 0, VO_BLT_SRCTRANSPARENCY);
+            DrawCatalogImage(GetFrameBufferSurface(), 0xe8, 0, 0, 0, 0);
             DrawMainMenuItems();
         }
     } else if (IsMessageBoxActive()) {
@@ -362,7 +362,8 @@ void MainMenuScreenFrame()
             DrawDialog(main_menu_dialog.get());
         }
         if (g_main_menu_overlay_enabled && g_main_menu_overlay_surface) {
-            BltVideoSurfaceToVideoSurface(GetFrameBufferSurface(), *g_main_menu_overlay_surface, 0, 0x1d1, 6, 0);
+            BlitImage(GetFrameBufferSurface(), 0, 0x1d1, *g_main_menu_overlay_surface, nullptr,
+                      ImageBlit{.color_key = true});
         }
         RenderMessageBox();
         ResetTransientRenderScenes();

@@ -3,14 +3,17 @@
 #include <fmt/format.h>
 #include <string>
 #include <array>
+#include <cmath>
 #include <vector>
+#include <SDL3/SDL_pixels.h>
+#include <SDL3/SDL_surface.h>
 #include <cstdlib>
 #include <cstring>
 #include <memory>
-#include <span>
 #include <utility>
 
 #include "compat/compiler.h"
+#include "wiz8/surface_storage.h"
 #include "wiz8/unicode.h"
 #include "surrender/srBoundingBox.h"
 #include "wiz8/containers.h"
@@ -246,11 +249,17 @@ void DrawWorldCursorNodeLabel(W8WorldCursorNode* entry)
             SetFontDestClip(0, 0, surface->getWidth(), surface->getHeight());
             SetFont(g_smfnt_font);
             g_smfnt_font.resetPalette();
-            for (int index = 0; index < 3; ++index) {
-                std::string text;
-                text = fmt::format("{:d}", entry->parameters[index]);
-                DrawFontTextToBuffer(data, surface->getPitch(), g_smfnt_font, 0,
-                                     g_smfnt_font.height() * index, text);
+            SDLSurfaceOwner text_surface{
+                SDL_CreateSurfaceFrom(surface->getWidth(), surface->getHeight(),
+                                      SDL_PIXELFORMAT_RGB565, data, surface->getPitch()),
+                SDL_DestroySurface};
+            if (text_surface) {
+                for (int index = 0; index < 3; ++index) {
+                    std::string text;
+                    text = fmt::format("{:d}", entry->parameters[index]);
+                    DrawFontTextToSurface(*text_surface, g_smfnt_font, 0,
+                                          g_smfnt_font.height() * index, text);
+                }
             }
             texture->invalidate();
         }
@@ -391,7 +400,8 @@ W8WorldCursorNode* FindNearestWorldCursorNode(int x, int y)
         if (entry != 0 && entry->node != 0 && entry->node == GetPickedModelInstance()) {
             const auto camera = g_world->camera->getLocation();
             const auto node = entry->node->getLocation();
-            float distance = static_cast<float>(glm::distance(node, camera));
+            float distance = static_cast<float>(
+                std::hypot(node.x - camera.x, node.y - camera.y, node.z - camera.z));
             if (distance < nearest) {
                 nearest = distance;
                 result = entry;

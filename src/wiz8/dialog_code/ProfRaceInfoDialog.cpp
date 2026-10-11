@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "wiz8/dialog_code/ProfRaceInfoDialog.h"
+#include "image.h"
 #include "wiz8/fonts.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/item_tables.h"
@@ -22,8 +23,6 @@
 #include "dialog_code/DialogTextArea.h"
 #include "layouts/gameplay_databases.h"
 #include "local_code/ControlsRect.h"
-#include "vobject.h"
-#include "vsurface.h"
 
 // GLOBAL: WIZ8 0x00614cf0
 W8AttributeMinimums g_race_attribute_minimums[W8_RACE_PLAYABLE_COUNT] = {
@@ -118,7 +117,7 @@ void W8ProfRaceInfoDialogBase::Draw()
         m_button.m_dirty = true;
         W8DialogBase::Draw();
         DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), m_uiTitleId, 0, m_uiSummaryId, m_x + 0xd,
-                                      m_y + 0xd, VO_BLT_SRCTRANSPARENCY);
+                                      m_y + 0xd);
         DrawTextLine(g_W8TextBufferAlignLeft, 0x25, 0xb, 0x147, 0x18, g_localized_strings[m_uiNameId],
                      g_options_detail_font);
         DrawTextLine(g_W8TextBufferAlignCenter, 0xd, 0x29, 0x8e, 0xc, g_localized_strings[m_uiHeadingId],

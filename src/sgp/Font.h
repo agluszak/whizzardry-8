@@ -4,18 +4,17 @@
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
    Distributed under the accompanying SFI Source Code license agreement. */
 
+#include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_surface.h>
 #include <cstdint>
 #include <vector>
 #include <string_view>
 #include <cstddef>
-#include <utility>
 #include <optional>
+#include <memory>
 
 #include "himage.h"
-
-#include "Types.h"
-#include "vobject.h"
 
 // font glyphs for spell targeting types
 inline constexpr char32_t FONT_GLYPH_TARGET_POINT = 0xFFF0;
@@ -24,10 +23,18 @@ inline constexpr char32_t FONT_GLYPH_TARGET_SINGLE = 0xFFF2;
 inline constexpr char32_t FONT_GLYPH_TARGET_GROUP = 0xFFF3;
 inline constexpr char32_t FONT_GLYPH_TARGET_NONE = 0xFFF4;
 
-struct SGPVSurface;
+inline constexpr std::uint32_t FONT_GLOW_GREEN = 0;
+inline constexpr std::uint32_t FONT_GLOW_BLUE = 1;
+inline constexpr std::uint32_t FONT_GLOW_YELLOW = 2;
+inline constexpr std::uint32_t FONT_GLOW_RED = 3;
+
+struct SDL_Surface;
+struct SpriteSheet;
 struct Font {
-    SGPVObject glyphs{};
+    std::shared_ptr<const SpriteSheet> glyphs;
     std::optional<Palette16> customPalette;
+    std::vector<std::optional<Palette16>> shades;
+    std::uint32_t currentShade = 4;
     Font() = default;
     Font(Font&& other) noexcept;
     Font& operator=(Font&& other) noexcept;
@@ -39,19 +46,20 @@ struct Font {
     const Palette16& palette() const;
     const Palette16& currentPalette() const;
     void resetPalette();
+    std::uint16_t createShades(std::uint32_t glow);
+    std::uint16_t setShade(std::uint32_t shade);
     SDL_Point rightAlignedPosition(const SDL_Rect& bounds, std::string_view text) const;
     SDL_Point centeredPosition(const SDL_Rect& bounds, std::string_view text) const;
     std::uint16_t height() const;
     std::int16_t textWidth(std::string_view text) const;
     std::int16_t prefixWidth(std::string_view text, std::size_t byte_end) const;
     std::int16_t codepointPrefixWidth(std::string_view text, std::uint32_t count) const;
-    explicit Font(SGPVObject object) : glyphs(std::move(object)) {}
     ~Font();
 };
 
 struct FontRenderState {
     Font* font = nullptr;
-    SGPVSurface* destination = nullptr;
+    SDL_Surface* destination = nullptr;
     SDL_Rect clip = {0, 0, 640, 480};
     bool wrap = false;
     std::uint16_t foreground = 0;
@@ -74,13 +82,14 @@ void SetRGBFontShadow(SDL_Color color);
 void DrawFontText(std::int32_t x, std::int32_t y, std::string_view text);
 void DrawFontTextDirty(std::int32_t x, std::int32_t y, std::string_view text);
 void DrawMonoFontText(std::int32_t x, std::int32_t y, std::string_view text);
-void DrawFontTextToBuffer(std::uint8_t* pDestBuf, std::uint32_t uiDestPitchBYTES, Font& FontType, std::int32_t x,
-                            std::int32_t y, std::string_view text);
-void DrawMonoFontTextToBuffer(std::uint8_t* pDestBuf, std::uint32_t uiDestPitchBYTES, Font& FontType, std::int32_t x,
-                                std::int32_t y, std::string_view text);
+void DrawFontTextToSurface(SDL_Surface& target, Font& font, std::int32_t x, std::int32_t y,
+                           std::string_view text);
+void DrawMonoFontTextToSurface(SDL_Surface& target, Font& font, std::int32_t x, std::int32_t y,
+                               std::string_view text);
 
-void SetFontDestBuffer(SGPVSurface& DestBuffer, std::int32_t x1, std::int32_t y1, std::int32_t x2, std::int32_t y2,
-                                 bool wrap);
+void SetFontDestBuffer(SDL_Surface& destination, std::int32_t x1, std::int32_t y1,
+                       std::int32_t x2, std::int32_t y2,
+                       bool wrap);
 void SetFont(Font& font);
 
 void ConfigureFontRendering(const std::vector<std::uint16_t>& translation);

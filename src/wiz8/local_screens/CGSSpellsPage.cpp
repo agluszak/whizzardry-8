@@ -24,8 +24,6 @@
 #include "local_code/ControlsRect.h"
 #include "local_code/HealthStaminaMana.h"
 #include "local_code/TextBuffer.h"
-#include "vobject.h"
-#include "vsurface.h"
 
 // GLOBAL: WIZ8 0x0069c534
 static unsigned int g_character_spells_region_set;
@@ -123,13 +121,13 @@ void W8CharacterSpellList::Redraw(bool force)
         int y = top + 1;
         SetFont(g_wiz_text_font_secondary);
         g_wiz_text_font_secondary.resetPalette();
-        SetObjectShade(g_wiz_text_font_secondary.glyphs, 4);
+        g_wiz_text_font_secondary.setShade(4);
         for (int index = m_first_entry + m_scroll_offset;
              index < m_first_entry + m_scroll_offset + 7; ++index) {
             if (index >= m_first_entry + m_entry_count)
                 break;
             if (!m_entries[index].fSelectable) {
-                SetObjectShade(g_wiz_text_font_secondary.glyphs, 6);
+                g_wiz_text_font_secondary.setShade(6);
             } else if (m_entries[index].selected) {
                 g_wiz_text_font_secondary.setPalette(g_font_state_palettes[W8_FONT_PALETTE_BLUE]);
             } else if (index == m_hovered_entry) {
@@ -141,7 +139,7 @@ void W8CharacterSpellList::Redraw(bool force)
             DrawFontText(right - g_wiz_text_font_secondary.textWidth(cost) - 2, y, cost);
             y += 13;
             g_wiz_text_font_secondary.resetPalette();
-            SetObjectShade(g_wiz_text_font_secondary.glyphs, 4);
+            g_wiz_text_font_secondary.setShade(4);
         }
         m_range->Invalidate(0);
         m_dirty = false;
@@ -324,7 +322,7 @@ void W8CharacterSpellsPage::Redraw()
         bounds.top = 0x173;
         bounds.right = 0xbf;
         bounds.bottom = 0x18a;
-        DrawCatalogImage(GetFrameBufferSurface(), 0x107, 0, 5, 0x8f, 0x173, VO_BLT_SRCTRANSPARENCY);
+        DrawCatalogImage(GetFrameBufferSurface(), 0x107, 0, 5, 0x8f, 0x173);
         text.SetLayoutBounds(&bounds, true, true);
         text.RenderString(fmt::format("{:d}/{:d}", m_creation_state->spell_points_remaining,
                                       m_creation_state->spell_points_total),
@@ -381,7 +379,7 @@ void W8CharacterSpellsPage::Redraw()
                 DrawCatalogImageAndInvalidate(
                     GetFrameBufferSurface(), animation.image, 0, m_animation_frames[realm],
                     m_bounds.left + 0x0f + (realm % 2) * 0xd7,
-                    m_bounds.top + 0x0a + (realm / 2) * 0x82, VO_BLT_SRCTRANSPARENCY);
+                    m_bounds.top + 0x0a + (realm / 2) * 0x82);
             }
         }
     }

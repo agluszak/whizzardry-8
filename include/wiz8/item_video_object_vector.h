@@ -5,7 +5,7 @@
 #include <memory>
 #include <vector>
 
-struct SGPVObject;
+struct SpriteSheet;
 
 class W8ItemVideoObjectCache {
 public:
@@ -14,11 +14,12 @@ public:
     W8ItemVideoObjectCache& operator=(const W8ItemVideoObjectCache&) = delete;
     void Initialize(std::size_t item_count);
     void Clear();
-    SGPVObject& Sprites(int item_id);
+    const SpriteSheet& Sprites(int item_id);
+    std::shared_ptr<const SpriteSheet> SharedSprites(int item_id);
     std::size_t LoadedImageCount() const;
 
 private:
-    std::vector<std::shared_ptr<SGPVObject>> images_;
+    std::vector<std::shared_ptr<const SpriteSheet>> images_;
 };
 
 extern W8ItemVideoObjectCache g_item_video_objects;

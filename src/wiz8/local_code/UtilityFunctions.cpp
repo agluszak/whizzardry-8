@@ -28,7 +28,6 @@
 #include "compat/native.h"
 #include "conditions.h"
 #include "dice.h"
-#include "vobject.h"
 
 struct MessageBoxState {
     W8DialogButton background;
@@ -630,7 +629,7 @@ void RenderMessageBox(void)
             : message_box.font == &g_small_font_secondary ? g_small_font_secondary
             : message_box.font == &g_wiz_text_font ? g_wiz_text_font
             : g_wiz_text_font_secondary;
-        SetObjectShade(shade_font.glyphs, message_box.shade);
+        shade_font.setShade(message_box.shade);
         message_box.background.Draw();
         if (message_box.has_accept) message_box.accept.Draw();
         if (message_box.has_cancel) message_box.cancel.Draw();

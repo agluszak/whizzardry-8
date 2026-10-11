@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "compat/compiler.h"
+#include "image.h"
 #include "wiz8/conditions.h"
 #include "wiz8/local_screens/RCSStatsPage.h"
 #include "wiz8/local_screens/RCSCommon.h"
@@ -40,14 +41,11 @@
 #include "wiz8/dialog_code/StatInfoDialogs.h"
 #include "Font.h"
 #include "input.h"
-#include "vobject_blitters.h"
 #include "game_timer.h"
 #include "local_code/CombatAttack.h"
 #include "local_code/Controls.h"
 #include "local_code/RangeControl.h"
 #include "surrender/srMath.h"
-#include "vobject.h"
-#include "vsurface.h"
 
 /* 0x0069C514/0x0069C518: the stats page's text origin, initialized by the
    page renderer before every full redraw. */
@@ -215,7 +213,7 @@ void DrawCampStatsPage(void)
 {
     SetFont(g_wiz_text_font_secondary);
     if (g_camp_screen->redraw_flags == W8_CAMP_REDRAW_ALL) {
-        DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x142, 0, 1, 0, 0xa5, VO_BLT_SRCTRANSPARENCY);
+        DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x142, 0, 1, 0, 0xa5);
         g_camp_stats_origin_x = 0;
         g_camp_stats_origin_y = 0xa5;
         int index;
@@ -772,9 +770,8 @@ void DrawCampSkillsPage(void)
                 break;
             }
         }
-        DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x141, 0, has_fifth, 0x136, 0,
-                                      VO_BLT_SRCTRANSPARENCY);
-        DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x141, 0, 2, 0, 0xa5, VO_BLT_SRCTRANSPARENCY);
+        DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x141, 0, has_fifth, 0x136, 0);
+        DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x141, 0, 2, 0, 0xa5);
         for (int category = 0; category < 5; ++category) {
             if (category != 4 || has_fifth) {
                 int x = g_camp_skill_category_positions[category].x;
@@ -786,7 +783,7 @@ void DrawCampSkillsPage(void)
                 }
                 DrawCatalogImage(GetFrameBufferSurface(), 0x144, 0,
                                  static_cast<short>(g_camp_skill_category_images[category]),
-                                 x - 0x16, y - 3, VO_BLT_SRCTRANSPARENCY);
+                                 x - 0x16, y - 3);
             }
         }
         int category_count[5] = {0, 0, 0, 0, 0};
@@ -802,7 +799,7 @@ void DrawCampSkillsPage(void)
                     top += 0xa5;
                 }
                 top += category_count[category] * 0xe;
-                DrawCatalogImage(GetFrameBufferSurface(), 0x141, 0, 3, left, top, VO_BLT_SRCTRANSPARENCY);
+                DrawCatalogImage(GetFrameBufferSurface(), 0x141, 0, 3, left, top);
                 unsigned int level = value->level;
                 unsigned int base = value->points;
                 int gained;
@@ -815,46 +812,41 @@ void DrawCampSkillsPage(void)
                     lost = 0;
                     level = base;
                 }
-                SDL_Rect saved_clip;
-                GetClippingRect(&saved_clip);
                 SDL_Rect clip;
                 clip.y = 0;
                 clip.h = 0x1e0;
                 if (level != 0) {
                     clip.x = left + 0x6f;
                     clip.w = level;
-                    SetClippingRect(&clip);
-                    DrawCatalogImage(GetFrameBufferSurface(), 0x143, 0, 0, left + 0x6f, top + 2,
-                                     VO_BLT_SRCTRANSPARENCY);
+                    ScopedClipRect clipped(GetFrameBufferSurface(), clip);
+                    DrawCatalogImage(GetFrameBufferSurface(), 0x143, 0, 0, left + 0x6f, top + 2);
                 }
                 if (gained == 0) {
                     if (lost != 0) {
                         clip.x = level + 0x6f + left;
                         clip.w = lost;
-                        SetClippingRect(&clip);
+                        ScopedClipRect clipped(GetFrameBufferSurface(), clip);
                         DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x143, 0, 2, left + 0x6f,
-                                                      top + 2, VO_BLT_SRCTRANSPARENCY);
+                                                      top + 2);
                     }
                 } else {
                     clip.x = level + 0x6f + left;
                     clip.w = gained;
-                    SetClippingRect(&clip);
-                    DrawCatalogImage(GetFrameBufferSurface(), 0x143, 0, 1, left + 0x6f, top + 2,
-                                     VO_BLT_SRCTRANSPARENCY);
+                    ScopedClipRect clipped(GetFrameBufferSurface(), clip);
+                    DrawCatalogImage(GetFrameBufferSurface(), 0x143, 0, 1, left + 0x6f, top + 2);
                 }
-                SetClippingRect(&saved_clip);
                 Palette16 palette;
                 if (!g_status.game_started || value->level == 0) {
                     palette = g_font_state_palettes[W8_FONT_PALETTE_GRAY];
                     if (value->active) {
-                        palette = g_wiz_text_font_secondary.glyphs.palette;
+                    palette = g_wiz_text_font_secondary.glyphs->colors;
                     }
                 } else {
                     bool best = IsBestCampSkillLevel(static_cast<W8Skill>(skill), value->level);
                     if (!best) {
                         palette = g_font_state_palettes[W8_FONT_PALETTE_GRAY];
                         if (value->active) {
-                            palette = g_wiz_text_font_secondary.glyphs.palette;
+                            palette = g_wiz_text_font_secondary.glyphs->colors;
                         }
                     } else {
                         palette = g_font_state_palettes[W8_FONT_PALETTE_BEIGE];
@@ -867,7 +859,7 @@ void DrawCampSkillsPage(void)
                 short width = g_wiz_text_font_secondary.textWidth(g_localized_strings[g_character_skill_name_ids[skill]]);
                 DrawFontText((0x6b - width) / 2 + 2 + left, top + 1,
                              g_localized_strings[g_character_skill_name_ids[skill]]);
-                palette = g_wiz_text_font_secondary.glyphs.palette;
+                palette = g_wiz_text_font_secondary.glyphs->colors;
                 if (value->improved) {
                     palette = g_font_state_palettes[W8_FONT_PALETTE_GREEN];
                 }
@@ -876,7 +868,7 @@ void DrawCampSkillsPage(void)
                 DrawFontTextDirty((0x24 - value_width) / 2 + 0xee + left, top + 1,
                                   fmt::format("{:d}", value->level));
                 g_wiz_text_font_secondary.resetPalette();
-                SetObjectShade(g_wiz_text_font_secondary.glyphs, 4);
+                g_wiz_text_font_secondary.setShade(4);
                 ++category_count[category];
             }
         }
@@ -1108,8 +1100,7 @@ void W8CharacterPersonalityPage::Redraw()
         if (elapsed > 0) {
             m_animation_frame = (m_animation_frame + elapsed) % 3;
             DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x105, 0, m_animation_frame + 2,
-                                          m_bounds.left + 0x156, m_bounds.top + 0x137,
-                                          VO_BLT_SRCTRANSPARENCY);
+                                          m_bounds.left + 0x156, m_bounds.top + 0x137);
         }
     }
 
@@ -1197,7 +1188,7 @@ void W8CharacterPersonalityPage::Redraw()
 
     if (m_portrait_dirty) {
         DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x11, m_character->portrait_index, 0,
-                                      m_bounds.left + 0x86, m_bounds.top + 5, 0);
+                                      m_bounds.left + 0x86, m_bounds.top + 5);
         m_portrait_dirty = false;
     }
 
@@ -1265,7 +1256,7 @@ void W8CharacterPersonalityPage::OnPrimary(W8TextControl* control)
         m_animation_active = true;
         m_animation_frame = 2;
         anim_timer.Restart();
-        ShadowVideoSurfaceRect(GetFrameBufferSurface(), 0, 0, 0x280, 0x1e0);
+        ShadowRect(GetFrameBufferSurface(), {0, 0, 0x281, 0x1e1});
         ResetTransientRenderScenes();
         m_screen->ShowCharacterSummary();
     }
@@ -1388,13 +1379,11 @@ void W8CharacterSkillsPage::Redraw()
                                  static_cast<short>(g_character_page2_category_frames[category]),
                                  m_bounds.left + g_character_page2_category_geometry[category].x -
                                      0x16,
-                                 m_bounds.top + g_character_page2_category_geometry[category].y - 3,
-                                 VO_BLT_SRCTRANSPARENCY);
+                                 m_bounds.top + g_character_page2_category_geometry[category].y - 3);
             }
         }
         if (!m_show_fifth_category) {
-            DrawCatalogImage(GetFrameBufferSurface(), 0x108, 0, 1, m_bounds.left, m_bounds.top + 0x118,
-                             VO_BLT_SRCTRANSPARENCY);
+            DrawCatalogImage(GetFrameBufferSurface(), 0x108, 0, 1, m_bounds.left, m_bounds.top + 0x118);
         }
     }
 
@@ -1416,7 +1405,7 @@ void W8CharacterSkillsPage::Redraw()
         bounds.top = 0x162;
         bounds.right = 0xbf;
         bounds.bottom = 0x179;
-        DrawCatalogImage(GetFrameBufferSurface(), 0x107, 0, 5, 0x8f, 0x162, VO_BLT_SRCTRANSPARENCY);
+        DrawCatalogImage(GetFrameBufferSurface(), 0x107, 0, 5, 0x8f, 0x162);
         text.SetLayoutBounds(&bounds, true, true);
         text.RenderString(fmt::format("{:d}", m_creation_state->skill_step_limit),
                           g_options_detail_font, true, GetFrameBufferSurface());
@@ -1426,7 +1415,7 @@ void W8CharacterSkillsPage::Redraw()
     if (m_dirty) {
         W8TextBuffer text;
         W8ControlsRect bounds = {0x8f, 0x184, 0xbf, 0x19b};
-        DrawCatalogImage(GetFrameBufferSurface(), 0x107, 0, 5, 0x8f, 0x184, VO_BLT_SRCTRANSPARENCY);
+        DrawCatalogImage(GetFrameBufferSurface(), 0x107, 0, 5, 0x8f, 0x184);
         text.SetLayoutBounds(&bounds, true, true);
         text.RenderString(fmt::format("{:d}/{:d}", m_creation_state->skill_points_remaining,
                                       m_creation_state->skill_points_total),

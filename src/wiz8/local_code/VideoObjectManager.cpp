@@ -1,6 +1,8 @@
+#include <SDL3/SDL_surface.h>
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <stdexcept>
 #include <string_view>
 #include <utility>
@@ -12,9 +14,8 @@
 #include "wiz8/sr_api.h"
 #include "wiz8/video_object_catalog.h"
 #include "image_assets.h"
-#include "vobject.h"
-#include "vobject_blitters.h"
-#include "vsurface.h"
+#include "image.h"
+#include "sprite.h"
 #include "compat/compiler.h"
 
 W8_ABI_ASSERT(sizeof(W8VideoObjectSlot) == 8, "W8VideoObjectSlot_size_must_be_8");
@@ -767,16 +768,12 @@ static void AssertCatalogLoadFailure(const W8CatalogArtwork& record)
                              fmt::underlying(record.storage_kind)));
 }
 
-static SGPVObject& CatalogSprites(int object, int frame)
+static const SpriteSheet& CatalogSprites(int object, int frame)
 {
-    const auto& record = CatalogFrame(object, frame);
-    auto sprites = g_image_assets.sprites(record.path);
-    if (!sprites)
-        AssertCatalogLoadFailure(record);
-    return *sprites;
+    return *GetCatalogSpriteSheet(object, frame);
 }
 
-static SGPVSurface& CatalogBitmap(int object, int frame)
+static SDL_Surface& CatalogBitmap(int object, int frame)
 {
     const auto& record = CatalogFrame(object, frame);
     auto bitmap = g_image_assets.bitmap(record.path);
@@ -791,46 +788,44 @@ void ReleaseLoadedVideoFrames(void)
     g_image_assets.clear();
 }
 
-void DrawSprite(SGPVSurface& target, SGPVObject& sprites, short image, int left, int top,
-                std::uint32_t mode)
+void DrawSpriteAndInvalidate(SDL_Surface& target, const SpriteSheet& sprites, int image,
+                             int left, int top, SpriteDraw options)
 {
-    if (!BltVideoObject(target, sprites, image, left, top, mode))
-        srAssertFail("fReturnCode", VIDEO_OBJECT_MANAGER_CPP, 0x3e, 0);
-}
-
-void DrawSpriteAndInvalidate(SGPVSurface& target, SGPVObject& sprites, int image, int left, int top,
-                             std::uint32_t mode)
-{
-    DrawSprite(target, sprites, static_cast<short>(image), left, top, mode);
+    DrawSprite(target, sprites, static_cast<std::size_t>(image), left, top, options);
     const auto [width, height] = GetSpriteSize(sprites, image);
     if (width != 0 && height != 0)
-        InvalidateRegion(left, top, left + width, top + height, mode == VO_BLT_SRCTRANSPARENCY);
+        InvalidateRegion(left, top, left + width, top + height,
+                         options.blend == SpriteBlend::Transparent);
 }
 
-std::pair<int, int> GetSpriteSize(const SGPVObject& sprites, int image)
+std::pair<int, int> GetSpriteSize(const SpriteSheet& sprites, int image)
 {
-    if (image < 0 || static_cast<std::size_t>(image) >= sprites.sprites.size())
+    if (image < 0 || static_cast<std::size_t>(image) >= sprites.frames.size())
         return {};
-    const auto& sprite = sprites.sprites[image];
+    const auto& sprite = sprites.frames[image];
     return {sprite.usWidth, sprite.usHeight};
 }
 
 // FUNCTION: WIZ8 0x00548f90
-void DrawCatalogImage(SGPVSurface& target, int object, int frame, short image, int left, int top,
-                      std::uint32_t mode)
+void DrawCatalogImage(SDL_Surface& target, int object, int frame, short image, int left, int top,
+                      SpriteDraw options)
 {
     const auto& slot = g_video_slots.at(object);
-    if (CatalogFrame(object, frame).storage_kind == W8_VIDEO_STORAGE_OBJECT)
-        DrawSprite(target, CatalogSprites(object, frame),
-                   static_cast<short>(slot.y_offset + image), left, top, mode);
-    else if (!BltVideoSurfaceToVideoSurface(target, CatalogBitmap(object, frame), left, top, mode, 0))
-        srAssertFail("fReturnCode", VIDEO_OBJECT_MANAGER_CPP, 0x3e, 0);
+    if (CatalogFrame(object, frame).storage_kind == W8_VIDEO_STORAGE_OBJECT) {
+        const int sprite = slot.y_offset + image;
+        if (sprite >= 0)
+            DrawSprite(target, CatalogSprites(object, frame), static_cast<std::size_t>(sprite),
+                       left, top, options);
+    } else {
+        BlitImage(target, left, top, CatalogBitmap(object, frame), nullptr,
+                  {.color_key = true, .mirror = options.mirror});
+    }
 }
 
 // FUNCTION: WIZ8 0x005492e0
 Palette16 CopyCatalogImagePalette16BPP(int object, int frame)
 {
-    return GetCatalogVideoObject(object, frame).palette;
+    return GetCatalogVideoObject(object, frame).colors;
 }
 
 // FUNCTION: WIZ8 0x005493e0
@@ -852,12 +847,19 @@ W8VideoStorageKind GetCatalogStorageKind(int object)
 }
 
 // FUNCTION: WIZ8 0x00549420
-SGPVObject& GetCatalogVideoObject(int object, int frame, int* y_offset_out)
+const SpriteSheet& GetCatalogVideoObject(int object, int frame, int* y_offset_out)
+{
+    return *GetCatalogSpriteSheet(object, frame, y_offset_out);
+}
+
+std::shared_ptr<const SpriteSheet> GetCatalogSpriteSheet(int object, int frame, int* y_offset_out)
 {
     const auto& record = CatalogFrame(object, frame);
     if (record.storage_kind != W8_VIDEO_STORAGE_OBJECT)
         throw std::logic_error("Catalog frame is not a sprite object");
-    auto& sprites = CatalogSprites(object, frame);
+    auto sprites = g_image_assets.sprites(record.path);
+    if (!sprites)
+        AssertCatalogLoadFailure(record);
     if (y_offset_out)
         *y_offset_out = g_video_slots.at(object).y_offset;
     return sprites;
@@ -875,17 +877,18 @@ void InvalidateCatalogImageRect(int object, int frame, int image, int left, int 
    index is truncated to a short for the draw and passed whole to the mark,
    and the seventh reaches the mark only as whether it equals two. */
 // FUNCTION: WIZ8 0x00549600
-void DrawCatalogImageAndInvalidate(SGPVSurface& target, int object, int frame, int image, int left,
-                                   int top, std::uint32_t mode)
+void DrawCatalogImageAndInvalidate(SDL_Surface& target, int object, int frame, int image, int left,
+                                   int top, SpriteDraw options)
 {
     if (CatalogFrame(object, frame).storage_kind == W8_VIDEO_STORAGE_OBJECT) {
         DrawSpriteAndInvalidate(target, CatalogSprites(object, frame),
-                                g_video_slots.at(object).y_offset + image, left, top, mode);
+                                g_video_slots.at(object).y_offset + image, left, top, options);
         return;
     }
 
-    DrawCatalogImage(target, object, frame, static_cast<short>(image), left, top, mode);
-    InvalidateCatalogImageRect(object, frame, image, left, top, mode == VO_BLT_SRCTRANSPARENCY);
+    DrawCatalogImage(target, object, frame, static_cast<short>(image), left, top, options);
+    InvalidateCatalogImageRect(object, frame, image, left, top,
+                               options.blend == SpriteBlend::Transparent);
 }
 
 // FUNCTION: WIZ8 0x00549660
@@ -894,7 +897,7 @@ std::pair<int, int> GetCatalogImageSize(int object, int frame, int image)
     const auto& slot = g_video_slots.at(object);
     const auto& record = CatalogFrame(object, frame);
     if (record.storage_kind == W8_VIDEO_STORAGE_SURFACE) {
-        const auto& surface = *CatalogBitmap(object, frame).cpu().surface;
+        const auto& surface = CatalogBitmap(object, frame);
         return {surface.w, surface.h};
     }
     return GetSpriteSize(CatalogSprites(object, frame), slot.y_offset + image);
@@ -910,8 +913,8 @@ void GetCatalogImagePosition(int object, int frame, int image, short* x, short* 
     if (record.storage_kind == W8_VIDEO_STORAGE_OBJECT) {
         const auto& video_object = CatalogSprites(object, frame);
         const auto subimage = slot.y_offset + image;
-        *x = video_object.sprites.at(subimage).sOffsetX;
-        *y = video_object.sprites.at(subimage).sOffsetY;
+        *x = video_object.frames.at(subimage).sOffsetX;
+        *y = video_object.frames.at(subimage).sOffsetY;
     }
 }
 
@@ -920,33 +923,17 @@ void GetCatalogImagePosition(int object, int frame, int image, short* x, short* 
    caller-provided source coordinates. Both surfaces remain locked for exactly
    the pinned SGP conversion call. */
 // FUNCTION: WIZ8 0x005497c0
-unsigned char BlitCatalogSurfaceRectTo16BPP(SGPVSurface& target, int left, int top, int right, int bottom,
+unsigned char BlitCatalogSurfaceRectTo16BPP(SDL_Surface& target, int left, int top, int right, int bottom,
                                             int object, int source_x, int source_y)
 {
-    SDL_Rect source_rect;
-    unsigned int target_pitch;
-    unsigned int source_pitch;
-    unsigned char* target_pixels;
-    unsigned char* source_pixels;
-
-    source_rect = {source_x, source_y, right - left, bottom - top};
-
-    auto& source_surface = CatalogBitmap(object, 0);
-    const auto& destination_storage = *target.cpu().surface;
-    target_pitch = destination_storage.pitch;
-    target_pixels = static_cast<std::uint8_t*>(destination_storage.pixels);
-    const auto& source_storage = *source_surface.cpu().surface;
-    source_pitch = source_storage.pitch;
-    source_pixels = static_cast<std::uint8_t*>(source_storage.pixels);
-    Blt8BPPDataSubTo16BPPBuffer(reinterpret_cast<unsigned short*>(target_pixels), target_pitch,
-                                source_surface.packedPalette(), source_pixels, source_pitch,
-                                left, top, source_rect);
+    const SDL_Rect source_rect{source_x, source_y, right - left, bottom - top};
+    BlitImage(target, left, top, CatalogBitmap(object, 0), &source_rect);
     return 1;
 }
 
 /* Surface-backed catalog frames expose their storage directly. */
 // FUNCTION: WIZ8 0x005498a0
-SGPVSurface& GetCatalogFrameSurface(unsigned int object, unsigned int frame)
+SDL_Surface& GetCatalogFrameSurface(unsigned int object, unsigned int frame)
 {
     if (CatalogFrame(object, frame).storage_kind != W8_VIDEO_STORAGE_SURFACE)
         throw std::logic_error("Catalog frame does not contain a surface");
