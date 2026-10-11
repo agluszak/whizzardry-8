@@ -89,6 +89,7 @@ jobs:
             -DCMAKE_BUILD_TYPE=Debug \
             -DCMAKE_C_COMPILER=clang-21 -DCMAKE_CXX_COMPILER=clang++-21 \
             -DWIZ8_PRECOMPILE_HEADERS=OFF -DWIZ8_SURRENDER_UNITY_BUILD=OFF
+          cmake --build build/linux-tidy --target surrender_shader_headers
       - name: Check first-party include hygiene
         if: matrix.preset == 'linux'
         env:

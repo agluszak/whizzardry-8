@@ -78,5 +78,7 @@ foreach(shader vertex fragment)
     )
     list(APPEND SDL_GPU_SHADER_HEADERS "${header}")
 endforeach()
+# Lint-only configurations need generated shader headers without compiling SurRender.
+add_custom_target(surrender_shader_headers DEPENDS ${SDL_GPU_SHADER_HEADERS})
 target_sources(SURRENDER PRIVATE devices/sdl_gpu/sdl_gpu_device.cpp ${SDL_GPU_SHADER_HEADERS})
 target_include_directories(SURRENDER PRIVATE "${SDL_GPU_SHADER_DIR}")
