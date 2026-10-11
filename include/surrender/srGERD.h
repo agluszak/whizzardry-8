@@ -749,7 +749,6 @@ private:
     srGERD& operator=(const srGERD& other);
     srDD* getDD() const;
 
-    static void debugWrite(const char* text);
     void fenceVertexArrays();
     void dumpTextureCache(std::ostream& stream);
     void setDataPtr(srRendererDefs::e_vertexArray index, w8_long components,
