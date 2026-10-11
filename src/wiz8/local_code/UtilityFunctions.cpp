@@ -2,6 +2,7 @@
 #include <SDL3/SDL_rect.h>
 #include <string_view>
 #include <string>
+#include <algorithm>
 #include <cctype>
 #include <cstring>
 
@@ -231,12 +232,10 @@ float ShortestAngleDistance(float first, float second)
 }
 
 // FUNCTION: WIZ8 0x00517e20
-void UnionScreenRects(const W8ScreenRect* first, const W8ScreenRect* second, W8ScreenRect* result)
+W8ScreenRect UnionScreenRects(const W8ScreenRect& first, const W8ScreenRect& second)
 {
-    result->left = first->left < second->left ? first->left : second->left;
-    result->top = first->top < second->top ? first->top : second->top;
-    result->right = first->right > second->right ? first->right : second->right;
-    result->bottom = first->bottom > second->bottom ? first->bottom : second->bottom;
+    return {std::min(first.left, second.left), std::min(first.top, second.top),
+            std::max(first.right, second.right), std::max(first.bottom, second.bottom)};
 }
 
 // FUNCTION: WIZ8 0x00517e70
