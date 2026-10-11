@@ -2041,3 +2041,33 @@ TEST_CASE("Conditional path prop links share matching while retaining blocker fl
     REQUIRE_FALSE(tree.InsertConditionalNodes(links, 123, 5, props));
     REQUIRE(links.empty());
 }
+
+TEST_CASE("Conditional prop channels grow independently and path cells return coordinates with keys", "[geometry][octree]")
+{
+    GDProp prop;
+    for (unsigned index = 1; index <= 35; ++index) {
+        REQUIRE(prop.RegisterPathSurface(index, {0, 0}));
+        REQUIRE(prop.RegisterPathVertex(index + 100, {0, 0}, {1, 0}));
+    }
+    REQUIRE(prop.conditionalWaypoints().size() == 35);
+    REQUIRE(prop.conditionalEdges().size() == 35);
+    REQUIRE(prop.conditionalWaypoints().front() == 1);
+    REQUIRE(prop.conditionalWaypoints().back() == 35);
+    REQUIRE(prop.conditionalEdges().front() == 101);
+    REQUIRE(prop.conditionalEdges().back() == 135);
+    REQUIRE_FALSE(prop.RegisterPathSurface(77, {1, 0}));
+    REQUIRE_FALSE(prop.RegisterPathVertex(77, {0, 0}, {0, 0}));
+    REQUIRE(prop.RegisterPathSurface(1, {0, 0})); // Repeated ids retain their caller order.
+    REQUIRE(prop.conditionalWaypoints().back() == 1);
+    REQUIRE(prop.conditionalEdges().size() == 35);
+    W8PathingService pathing;
+    pathing.level_bounds.minimum = glm::vec3(10);
+    pathing.grid_scale = 2;
+    const auto cell = pathing.pathCell({14, 900, 16});
+    REQUIRE(cell.coordinates == glm::ivec2(2, 3));
+    REQUIRE(cell.key == 0x30002);
+    REQUIRE(pathing.pathCell({9, 0, 9}).coordinates == glm::ivec2(0));
+    const auto negative = pathing.pathCell({6, 0, 8});
+    REQUIRE(negative.coordinates == glm::ivec2(-2, -1));
+    REQUIRE(negative.key == static_cast<unsigned>(-1) * 0x10000u + static_cast<unsigned>(-2));
+}

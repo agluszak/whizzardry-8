@@ -3,6 +3,8 @@
 #include "surrender/srBoundingBox.h"
 
 #include <queue>
+#include <span>
+#include "glm/ext/vector_int2.hpp"
 #include <memory>
 #include <vector>
 #include <unordered_map>
@@ -299,8 +301,11 @@ W8_ABI_ASSERT(sizeof(W8PathSearchNode) == 0x2c, "W8PathSearchNode_must_be_0x2c")
    constructor at 0x004578E0 initialises through 0x238 and ReadOctFile allocates
    0x240, which is what fixes the extent; only the fields those two bodies and
    the path lookup reach are named. */
+struct PathCellCoordinates { glm::ivec2 coordinates; unsigned int key; };
+
 class W8PathingService {
 public:
+    PathCellCoordinates pathCell(const glm::vec3& position) const;
     W8PathingService(); /* 0x004578E0 */
     unsigned int FindPathHandle(const char* path_name, W8PathGridBounds* path_bounds,
                                 W8PathVerticalRange* path_range); /* 0x00457CF0 */
@@ -314,8 +319,8 @@ public:
                                       float separation);
     void LinkSurfaces(GDProp* prop); /* 0x00460020 */
     void LinkEdges(GDProp* prop);    /* 0x004600B0 */
-    void CheckConditionalWayPtStatus(unsigned short count, unsigned short* waypoints);
-    void CheckConditionalLinkStatus(unsigned short count, unsigned short* edges);
+    void CheckConditionalWayPtStatus(std::span<const unsigned short> waypoints);
+    void CheckConditionalLinkStatus(std::span<const unsigned short> edges);
     void SetConditionalPathFrame(unsigned int path_handle, unsigned short frame);
     unsigned int FindConditionalPathValue(unsigned int key, unsigned int value);
     void

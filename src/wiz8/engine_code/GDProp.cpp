@@ -16,6 +16,8 @@
 #include "glm/ext/matrix_float4x3.hpp"
 #include "glm/ext/matrix_float4x4.hpp"
 #include "glm/ext/vector_float3.hpp"
+#include "glm/ext/vector_float2.hpp"
+#include "glm/ext/vector_int2.hpp"
 #include "glm/ext/vector_float4.hpp"
 #include "navigation_flags.h"
 #include "sr_api.h"
@@ -50,10 +52,6 @@ GDProp::GDProp(srModelInstance* instance, const char* path_name, unsigned short 
     m_pGDSurfaces = 0;
     m_pVertices = 0;
     m_trigger = 0;
-    m_path_edge_count = 0;
-    m_path_waypoint_count = 0;
-    m_path_edges = 0;
-    m_path_waypoints = 0;
     m_path_range.sentinel = -10000000.0f;
     m_path_bounds.max_z = 0;
     m_path_bounds.min_z = 0;
@@ -81,12 +79,6 @@ GDProp::~GDProp()
     }
     if (m_pVertices != 0) {
         delete[] m_pVertices;
-    }
-    if (m_path_edges != 0) {
-        free(m_path_edges);
-    }
-    if (m_path_waypoints != 0) {
-        free(m_path_waypoints);
     }
 }
 
@@ -209,11 +201,11 @@ void GDProp::Initialize(srModelInstance* instance, bool attach, unsigned short p
             }
         } else {
             pathing->SetConditionalPathFrame(m_path_handle, m_prop_number);
-            if (m_path_waypoint_count != 0) {
-                pathing->CheckConditionalWayPtStatus(m_path_waypoint_count, m_path_waypoints);
+            if (!m_path_waypoints.empty()) {
+                pathing->CheckConditionalWayPtStatus(m_path_waypoints);
             }
-            if (m_path_edge_count != 0) {
-                pathing->CheckConditionalLinkStatus(m_path_edge_count, m_path_edges);
+            if (!m_path_edges.empty()) {
+                pathing->CheckConditionalLinkStatus(m_path_edges);
             }
         }
     }
@@ -317,35 +309,19 @@ bool GDProp::boundsOverlap(const srBoundingBox& box)
 }
 
 /* Record a waypoint index for a grid point that lies inside the path bounds.
-   The waypoint list grows in blocks of ten shorts; the allocation message
-   names CheckConditionalWayPt because the list is consumed by
+   The prop owns a counted waypoint list consumed by
    CheckConditionalWayPtStatus. */
 // FUNCTION: WIZ8 0x004b7730
-unsigned char GDProp::RegisterPathSurface(unsigned int index, const srVector2i* point)
+unsigned char GDProp::RegisterPathSurface(unsigned int index, const glm::ivec2& point)
 {
-    if (static_cast<unsigned short>(point->x) < m_path_bounds.min_x ||
-        static_cast<unsigned short>(point->x) > m_path_bounds.max_x ||
-        static_cast<unsigned short>(point->y) < m_path_bounds.min_z ||
-        static_cast<unsigned short>(point->y) > m_path_bounds.max_z) {
+    if (static_cast<unsigned short>(point.x) < m_path_bounds.min_x ||
+        static_cast<unsigned short>(point.x) > m_path_bounds.max_x ||
+        static_cast<unsigned short>(point.y) < m_path_bounds.min_z ||
+        static_cast<unsigned short>(point.y) > m_path_bounds.max_z) {
         return 0;
     }
 
-    if (m_path_waypoint_count % 10 == 0) {
-        unsigned short* pusNewList = static_cast<unsigned short*>(
-            malloc((m_path_waypoint_count + 10) * sizeof(unsigned short)));
-        if (pusNewList == 0) {
-            srAssertFail("pusNewList", "C:\\Projects\\Wizardry 8\\Engine Code\\GDProp.cpp", 0x242,
-                         "CheckConditionalWayPt: Couldn't allocate new waypt list.");
-        }
-        memset(pusNewList, 0, (m_path_waypoint_count + 10) * sizeof(unsigned short));
-        if (m_path_waypoints != 0) {
-            memcpy(pusNewList, m_path_waypoints, m_path_waypoint_count * sizeof(unsigned short));
-            free(m_path_waypoints);
-        }
-        m_path_waypoints = pusNewList;
-    }
-    m_path_waypoints[m_path_waypoint_count] = static_cast<unsigned short>(index);
-    ++m_path_waypoint_count;
+    m_path_waypoints.push_back(static_cast<unsigned short>(index));
     return 1;
 }
 
@@ -355,57 +331,24 @@ unsigned char GDProp::RegisterPathSurface(unsigned int index, const srVector2i* 
    cell of the rectangle. The vertical branch re-tests its first crossing
    instead of interpolating the second — a faithful retail oddity. */
 // FUNCTION: WIZ8 0x004b7830
-unsigned char GDProp::RegisterPathVertex(unsigned int index, const srVector2i* point,
-                                         const srVector2i* second)
+unsigned char GDProp::RegisterPathVertex(unsigned int index, const glm::ivec2& point,
+                                      const glm::ivec2& second)
 {
-    unsigned short x0 = static_cast<unsigned short>(point->x);
-    unsigned short y0 = static_cast<unsigned short>(point->y);
-    unsigned short x1 = static_cast<unsigned short>(second->x);
-    unsigned short y1 = static_cast<unsigned short>(second->y);
-    float dx = static_cast<float>(x1 - x0);
-    float dy = static_cast<float>(y1 - y0);
+    const glm::vec2 from(static_cast<unsigned short>(point.x), static_cast<unsigned short>(point.y));
+    const glm::vec2 to(static_cast<unsigned short>(second.x), static_cast<unsigned short>(second.y));
+    const auto delta = to - from;
+    const int major = std::abs(delta.x) > std::abs(delta.y) ? 0 : 1;
+    const int minor = 1 - major;
+    const glm::vec2 minimum(m_path_bounds.min_x, m_path_bounds.min_z);
+    const glm::vec2 maximum(m_path_bounds.max_x, m_path_bounds.max_z);
+    // The vertical policy tests the first boundary twice, as before.
+    const glm::vec2 boundaries(minimum[major], major == 0 ? maximum.x : minimum.y);
+    const auto crossings = (boundaries - from[major]) * (delta[minor] / delta[major]) + from[minor];
     bool found = false;
-
-    if (fabs(dx) > fabs(dy)) {
-        float slope = dy / dx;
-        float cross = (m_path_bounds.min_x - x0) * slope + y0;
-        if (cross > m_path_bounds.min_z - 1 && cross < m_path_bounds.max_z + 1) {
-            found = true;
-        }
-        cross = (m_path_bounds.max_x - x0) * slope + y0;
-        if (cross > m_path_bounds.min_z - 1 && cross < m_path_bounds.max_z + 1) {
-            found = true;
-        }
-    } else {
-        float slope = dx / dy;
-        float cross = (m_path_bounds.min_z - y0) * slope + x0;
-        if (cross > m_path_bounds.min_x - 1 && cross < m_path_bounds.max_x + 1) {
-            found = true;
-        }
-        if (cross > m_path_bounds.min_x - 1 && cross < m_path_bounds.max_x + 1) {
-            found = true;
-        }
-    }
-    if (!found) {
-        return 0;
-    }
-
-    if (m_path_edge_count % 10 == 0) {
-        unsigned short* pusNewList =
-            static_cast<unsigned short*>(malloc((m_path_edge_count + 10) * sizeof(unsigned short)));
-        if (pusNewList == 0) {
-            srAssertFail("pusNewList", "C:\\Projects\\Wizardry 8\\Engine Code\\GDProp.cpp", 0x28d,
-                         "CheckConditionalWayPt: Couldn't allocate new waypt list.");
-        }
-        memset(pusNewList, 0, (m_path_edge_count + 10) * sizeof(unsigned short));
-        if (m_path_edges != 0) {
-            memcpy(pusNewList, m_path_edges, m_path_edge_count * sizeof(unsigned short));
-            free(m_path_edges);
-        }
-        m_path_edges = pusNewList;
-    }
-    m_path_edges[m_path_edge_count] = static_cast<unsigned short>(index);
-    ++m_path_edge_count;
+    for (float cross : {crossings.x, crossings.y})
+        found |= cross > minimum[minor] - 1 && cross < maximum[minor] + 1;
+    if (!found) return 0;
+    m_path_edges.push_back(static_cast<unsigned short>(index));
     return 1;
 }
 
