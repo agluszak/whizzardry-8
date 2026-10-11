@@ -1,3 +1,5 @@
+#include <optional>
+#include "surrender/srBoundingBox.h"
 #include <fmt/format.h>
 #include <string_view>
 #include <vector>
@@ -770,14 +772,11 @@ void W8GrCycle::UpdateLights()
 }
 
 // FUNCTION: WIZ8 0x004a7dd0
-unsigned char W8GrCycle::GetAnimationBounds(srVector3T<float>* arg_minimum,
-                                            srVector3T<float>* arg_maximum)
+std::optional<srBoundingBox> W8GrCycle::GetAnimationBounds()
 {
-    W8AnimObj* animation = GetCurrentAnimation();
-    W8EmitterHost* representation = GetRepresentation();
-
-    return AnimObjGetBounds(animation, representation->m_bLOD, representation->subcycle,
-                            (srVector3T<float>*)arg_minimum, (srVector3T<float>*)arg_maximum);
+    auto* representation = GetRepresentation();
+    return AnimObjGetBounds(GetCurrentAnimation(), representation->m_bLOD,
+                            representation->subcycle);
 }
 
 // FUNCTION: WIZ8 0x004a7e10

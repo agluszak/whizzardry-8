@@ -1,3 +1,4 @@
+#include "surrender/srBoundingBox.h"
 #include "surrender/segment_math.h"
 #include <memory>
 #include <vector>
@@ -527,10 +528,10 @@ void W8Navigator::SetNavigationMode(int mode)
 /* Replace the collision bounds and keep the broad-phase radius synchronized
    with the movement state's alternate radius. */
 // FUNCTION: WIZ8 0x00452f10
-void W8Navigator::SetBounds(const srVector3T<float>* minimum, const srVector3T<float>* maximum)
+void W8Navigator::SetBounds(const srBoundingBox& bounds)
 {
-    this->minimum = *minimum;
-    this->maximum = *maximum;
+    minimum = bounds.minimum;
+    maximum = bounds.maximum;
     radius = movement.alternate_radius;
 }
 
@@ -885,16 +886,14 @@ void W8Navigator::UpdateLinkedNavigator()
     linked_update_time = tick;
     srVector3T<float> camera = cameraLocation();
     if (static_cast<W8Monster*>(linked_navigator)->IsWithinWorldRange() != 0) {
-        MonsterGetWorldAnimationBounds(static_cast<W8Monster*>(linked_navigator), &linked_position,
-                                       &own_position);
-        if (ShowTargetMarker(&camera, &linked_position, &own_position) != 0) {
+        const auto bounds = MonsterGetWorldAnimationBounds(static_cast<W8Monster*>(linked_navigator));
+        if (bounds && ShowTargetMarker(&camera, *bounds) != 0) {
             goto follow_path;
         }
     }
     if (static_cast<W8Monster*>(this)->IsWithinWorldRange() != 0) {
-        MonsterGetWorldAnimationBounds(static_cast<W8Monster*>(this), &linked_position,
-                                       &own_position);
-        if (ShowTargetMarker(&camera, &linked_position, &own_position) != 0) {
+        const auto bounds = MonsterGetWorldAnimationBounds(static_cast<W8Monster*>(this));
+        if (bounds && ShowTargetMarker(&camera, *bounds) != 0) {
             goto follow_path;
         }
     }

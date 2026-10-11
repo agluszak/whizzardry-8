@@ -111,8 +111,6 @@ void InitializeWorldCursor(void)
 {
     W8GrCycleLoadContext context;
     srVector3T<float> position;
-    srVector3T<float> minimum;
-    srVector3T<float> maximum;
     srVector3T<float> camera_position;
     glm::vec4 colour;
     srShader shader;
@@ -201,10 +199,11 @@ void InitializeWorldCursor(void)
                 gp3DCursor->detached = true;
             }
             ClearCombatSelection();
-            gp3DCursor->monster->GetAnimationBounds(&minimum, &maximum);
-            gp3DCursor->probe_center.Set((maximum.x + minimum.x) * g_double_half,
-                                         (minimum.y + maximum.y) * g_double_half,
-                                         (minimum.z + maximum.z) * g_double_half);
+            const auto bounds = gp3DCursor->monster->GetAnimationBounds();
+            if (!bounds)
+                return;
+            const auto& [minimum, maximum] = *bounds;
+            gp3DCursor->probe_center = bounds->center();
             gp3DCursor->probe_offsets[0] = maximum;
             gp3DCursor->probe_offsets[1].Set(minimum.x, maximum.y, maximum.z);
             gp3DCursor->probe_offsets[2].Set(minimum.x, maximum.y, minimum.z);

@@ -1,3 +1,4 @@
+#include <optional>
 #include <fmt/format.h>
 #include <memory>
 #include <string>
@@ -268,23 +269,12 @@ try
    not been. Touching it also stamps the storage clock, so asking for bounds
    counts as a use for the memory-pressure walk. */
 // FUNCTION: WIZ8 0x004b6640
-bool GetAniMeshBounds(W8AniMesh* mesh, srVector3T<float>* minimum,
-                               srVector3T<float>* maximum)
+std::optional<srBoundingBox> GetAniMeshBounds(W8AniMesh* mesh)
 {
-    if (mesh == 0) {
-        srAssertFail("pAniMesh", ANI_MESH_CPP, 0x317, 0);
-        return 0;
-    }
-    if (!mesh->flags.radius_loaded) {
-        if (LoadAniMesh(0, mesh, true) == 0) {
-            srAssertFail("0", ANI_MESH_CPP, 0x31f, 0);
-            return 0;
-        }
-    }
-    *minimum = mesh->bounds_minimum;
-    *maximum = mesh->bounds_maximum;
+    if (!mesh || (!mesh->flags.radius_loaded && !LoadAniMesh(0, mesh, true)))
+        return std::nullopt;
     mesh->last_used = g_animesh_cache_stamp++;
-    return 1;
+    return srBoundingBox{mesh->bounds_minimum, mesh->bounds_maximum};
 }
 
 // FUNCTION: WIZ8 0x004b5880

@@ -326,8 +326,6 @@ void ResolveSprungTrap(Trigger* trigger)
     std::string text;
     srVector3T<float> point;
     srVector3T<float> camera;
-    srVector3T<float> minimum;
-    srVector3T<float> maximum;
 
     devices = trigger->lock_state.difficulty;
     ClampInteger(&devices, 1, 7);
@@ -354,9 +352,10 @@ void ResolveSprungTrap(Trigger* trigger)
     if (prop == 0) {
         GetCameraForwardPoint(1000.0f, &point);
     } else {
-        prop->PlayRepAnimation(&minimum, &maximum);
-        point.Set((minimum.x + maximum.x) * g_double_half, (minimum.y + maximum.y) * g_double_half,
-                  (minimum.z + maximum.z) * g_double_half);
+        const auto center = prop->GetCenterPosition();
+        if (!center)
+            return;
+        point = *center;
     }
     camera = cameraLocation();
     g_octree->TraceLineOfSight(&camera, &point, true, -3, -3, true, 0);

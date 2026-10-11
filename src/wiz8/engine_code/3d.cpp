@@ -1,3 +1,4 @@
+#include <array>
 #include <memory>
 #include <vector>
 #include <string>
@@ -251,67 +252,26 @@ void SetWorldMeshVertexLightTable(W8World* world, int table)
     }
 }
 
+static std::array<srVector3T<float>, 9> boundsProbePoints(const srBoundingBox& bounds)
+{
+    const auto& [lower, upper] = bounds;
+    return {bounds.center(), upper, lower,
+            srVector3T<float>(lower.x, upper.y, upper.z),
+            srVector3T<float>(lower.x, upper.y, lower.z),
+            srVector3T<float>(upper.x, upper.y, lower.z),
+            srVector3T<float>(upper.x, lower.y, upper.z),
+            srVector3T<float>(lower.x, lower.y, upper.z),
+            srVector3T<float>(upper.x, lower.y, lower.z)};
+}
+
 /* True when the camera projects the AABB midpoint or any of its eight corners
    and the octree has line of sight from eye to that point. */
 // FUNCTION: WIZ8 0x0046F820
-unsigned char ShowTargetMarker(const srVector3T<float>* eye, const srVector3T<float>* lower,
-                               const srVector3T<float>* upper)
+unsigned char ShowTargetMarker(const srVector3T<float>* eye, const srBoundingBox& bounds)
 {
-    srVector3T<float> point;
-
-    point = (*lower + *upper) * g_double_half;
-    if (ProjectPointThroughCamera(&point) != 0) {
-        if (g_octree->HasLineOfSight(eye, &point, true)) {
+    for (auto point : boundsProbePoints(bounds)) {
+        if (ProjectPointThroughCamera(&point) != 0 && g_octree->HasLineOfSight(eye, &point, true))
             return 1;
-        }
-    }
-    point = *upper;
-    if (ProjectPointThroughCamera(&point) != 0) {
-        if (g_octree->HasLineOfSight(eye, &point, true)) {
-            return 1;
-        }
-    }
-    point = *lower;
-    if (ProjectPointThroughCamera(&point) != 0) {
-        if (g_octree->HasLineOfSight(eye, &point, true)) {
-            return 1;
-        }
-    }
-    point.Set(lower->x, upper->y, upper->z);
-    if (ProjectPointThroughCamera(&point) != 0) {
-        if (g_octree->HasLineOfSight(eye, &point, true)) {
-            return 1;
-        }
-    }
-    point.Set(lower->x, upper->y, lower->z);
-    if (ProjectPointThroughCamera(&point) != 0) {
-        if (g_octree->HasLineOfSight(eye, &point, true)) {
-            return 1;
-        }
-    }
-    point.Set(upper->x, upper->y, lower->z);
-    if (ProjectPointThroughCamera(&point) != 0) {
-        if (g_octree->HasLineOfSight(eye, &point, true)) {
-            return 1;
-        }
-    }
-    point.Set(upper->x, lower->y, upper->z);
-    if (ProjectPointThroughCamera(&point) != 0) {
-        if (g_octree->HasLineOfSight(eye, &point, true)) {
-            return 1;
-        }
-    }
-    point.Set(lower->x, lower->y, upper->z);
-    if (ProjectPointThroughCamera(&point) != 0) {
-        if (g_octree->HasLineOfSight(eye, &point, true)) {
-            return 1;
-        }
-    }
-    point.Set(upper->x, lower->y, lower->z);
-    if (ProjectPointThroughCamera(&point) != 0) {
-        if (g_octree->HasLineOfSight(eye, &point, true)) {
-            return 1;
-        }
     }
     return 0;
 }
@@ -320,87 +280,23 @@ unsigned char ShowTargetMarker(const srVector3T<float>* eye, const srVector3T<fl
    eight-corner probe, but through TraceLineOfSight, which reports a clear
    trace as zero. */
 // FUNCTION: WIZ8 0x0046FAF0
-char TraceLineOfSightToBounds(const srVector3T<float>* origin, srVector3T<float>* minimum,
-                              srVector3T<float>* maximum)
+char TraceLineOfSightToBounds(const srVector3T<float>* origin, const srBoundingBox& bounds)
 {
-    srVector3T<float> point;
-
-    point = (*minimum + *maximum) * g_double_half;
-    if (g_octree->TraceLineOfSight(origin, &point, true, -3, -3, true, 0) == 0) {
-        return 1;
+    for (auto point : boundsProbePoints(bounds)) {
+        if (g_octree->TraceLineOfSight(origin, &point, true, -3, -3, true, 0) == 0)
+            return 1;
     }
-    point = *maximum;
-    if (g_octree->TraceLineOfSight(origin, &point, true, -3, -3, true, 0) == 0) {
-        return 1;
-    }
-    point = *minimum;
-    if (g_octree->TraceLineOfSight(origin, &point, true, -3, -3, true, 0) == 0) {
-        return 1;
-    }
-    point.Set(minimum->x, maximum->y, maximum->z);
-    if (g_octree->TraceLineOfSight(origin, &point, true, -3, -3, true, 0) == 0) {
-        return 1;
-    }
-    point.Set(minimum->x, maximum->y, minimum->z);
-    if (g_octree->TraceLineOfSight(origin, &point, true, -3, -3, true, 0) == 0) {
-        return 1;
-    }
-    point.Set(maximum->x, maximum->y, minimum->z);
-    if (g_octree->TraceLineOfSight(origin, &point, true, -3, -3, true, 0) == 0) {
-        return 1;
-    }
-    point.Set(maximum->x, minimum->y, maximum->z);
-    if (g_octree->TraceLineOfSight(origin, &point, true, -3, -3, true, 0) == 0) {
-        return 1;
-    }
-    point.Set(minimum->x, minimum->y, maximum->z);
-    if (g_octree->TraceLineOfSight(origin, &point, true, -3, -3, true, 0) == 0) {
-        return 1;
-    }
-    point.Set(maximum->x, minimum->y, minimum->z);
-    return g_octree->TraceLineOfSight(origin, &point, true, -3, -3, true, 0) == 0;
+    return 0;
 }
 
 // FUNCTION: WIZ8 0x0046FD70
-bool HasLineOfSightToBounds(const srVector3T<float>* origin, srVector3T<float>* minimum,
-                            srVector3T<float>* maximum)
+bool HasLineOfSightToBounds(const srVector3T<float>* origin, const srBoundingBox& bounds)
 {
-    srVector3T<float> point;
-
-    point = (*minimum + *maximum) * g_double_half;
-    if (g_octree->HasLineOfSight(origin, &point, true)) {
-        return true;
+    for (auto point : boundsProbePoints(bounds)) {
+        if (g_octree->HasLineOfSight(origin, &point, true))
+            return true;
     }
-    point = *maximum;
-    if (g_octree->HasLineOfSight(origin, &point, true)) {
-        return true;
-    }
-    point = *minimum;
-    if (g_octree->HasLineOfSight(origin, &point, true)) {
-        return true;
-    }
-    point.Set(minimum->x, maximum->y, maximum->z);
-    if (g_octree->HasLineOfSight(origin, &point, true)) {
-        return true;
-    }
-    point.Set(minimum->x, maximum->y, minimum->z);
-    if (g_octree->HasLineOfSight(origin, &point, true)) {
-        return true;
-    }
-    point.Set(maximum->x, maximum->y, minimum->z);
-    if (g_octree->HasLineOfSight(origin, &point, true)) {
-        return true;
-    }
-    point.Set(maximum->x, minimum->y, maximum->z);
-    if (g_octree->HasLineOfSight(origin, &point, true)) {
-        return true;
-    }
-    point.Set(minimum->x, minimum->y, maximum->z);
-    if (g_octree->HasLineOfSight(origin, &point, true)) {
-        return true;
-    }
-    point.Set(maximum->x, minimum->y, minimum->z);
-    return g_octree->HasLineOfSight(origin, &point, true);
+    return false;
 }
 
 

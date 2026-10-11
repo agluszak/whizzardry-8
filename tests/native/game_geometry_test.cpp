@@ -37,6 +37,9 @@
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/AnimObj.h"
+#include "wiz8/engine_code/AniMesh.h"
+#include "wiz8/engine_code/Monster.h"
+#include "wiz8/engine_code/PathAI.h"
 #include "wiz8/engine_code/stLight.hpp"
 #include "wiz8/engine_code/stMeshModel.h"
 #include "wiz8/engine_code/stModelInstance.h"
@@ -1138,4 +1141,111 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Prop position and delta queries preserve
     prop.Rep()->frame_direction = W8_ANIMATION_REVERSE;
     prop.Rep()->subcycle = 1;
     REQUIRE(prop.GetDelta() == delta);
+}
+
+TEST_CASE_METHOD(SurRenderTestFixture, "Animation bounds retain composite caching and path values", "[geometry][animation]")
+{
+    W8AnimObj animation;
+    animation.path_lists = true;
+    animation.frame_count = 2;
+    REQUIRE_FALSE(AnimObjGetBounds(&animation, 0, 2));
+    REQUIRE_FALSE(AnimObjGetBounds(&animation, 0, 1));
+    REQUIRE(animation.frame_bounds.size() == 2);
+    REQUIRE_FALSE(animation.frame_bounds[1].known);
+    for (int index = 0; index < 2; ++index) {
+        auto mesh = std::make_unique<W8AniMesh>();
+        mesh->flags.loaded = true;
+        mesh->flags.radius_loaded = true;
+        mesh->frame_count = 1;
+        mesh->bounds_minimum = index == 0 ? glm::vec3(-1, -2, -3) : glm::vec3(-4, -1, -2);
+        mesh->bounds_maximum = index == 0 ? glm::vec3(4, 5, 6) : glm::vec3(2, 8, 3);
+        mesh->meshes.push_back(std::make_unique<stModelInstance>(nullptr, srNode::Ownership::independent));
+        animation.meshes[0].push_back(std::move(mesh));
+        auto path = std::make_unique<W8PathAI>();
+        PathAIAddPoint(*path, srVector3(100, 200, 300));
+        PathAIAddPoint(*path, srVector3(400, 500, 600));
+        PathAISetValue(path.get(), 0.75f);
+        animation.paths[0].push_back(std::move(path));
+    }
+    const auto bounds = AnimObjGetBounds(&animation, 0, 1);
+    REQUIRE(bounds);
+    REQUIRE(bounds->minimum == glm::vec3(-4, -2, -3));
+    REQUIRE(bounds->maximum == glm::vec3(4, 8, 6));
+    REQUIRE(animation.frame_bounds[1].known);
+    for (const auto& path : animation.paths[0])
+        REQUIRE(PathAIGetValue(path.get()) == 0.75f);
+    const auto stamp = g_animesh_cache_stamp;
+    animation.meshes[0][0]->bounds_minimum = {-10, -20, -30};
+    const auto cached = AnimObjGetBounds(&animation, 0, 1);
+    REQUIRE(cached);
+    REQUIRE(cached->minimum == bounds->minimum);
+    REQUIRE(cached->maximum == bounds->maximum);
+    REQUIRE(g_animesh_cache_stamp == stamp);
+    animation.frame_bounds[1].known = false;
+    const auto refreshed = AnimObjGetBounds(&animation, 0, 1);
+    REQUIRE(refreshed);
+    REQUIRE(refreshed->minimum == glm::vec3(-10, -20, -30));
+    for (const auto& path : animation.paths[0])
+        REQUIRE(PathAIGetValue(path.get()) == 0.75f);
+}
+
+TEST_CASE_METHOD(SurRenderTestFixture, "Prop bounds aggregate frames without changing the current frame", "[geometry][animation]")
+{
+    W8Prop prop;
+    prop.Rep()->animation = std::make_unique<W8AnimObj>().release();
+    auto& animation = *prop.Rep()->animation;
+    animation.path_lists = true;
+    animation.frame_count = 3;
+    animation.frame_bounds = {{true, {-4, -2, -8}, {3, 5, 6}},
+                              {true, {-1, -9, -3}, {12, 2, 5}},
+                              {true, {-3, -5, -6}, {4, 8, 9}}};
+    prop.Rep()->subcycle = 1;
+    const auto center = prop.GetCenterPosition();
+    REQUIRE(center);
+    REQUIRE(*center == srVector3(5.5f, -3.5f, 1));
+    const auto bounds = prop.GetBounds();
+    REQUIRE(bounds);
+    REQUIRE(bounds->minimum == glm::vec3(-4, -9, -8));
+    REQUIRE(bounds->maximum == glm::vec3(12, 8, 9));
+    REQUIRE(prop.Rep()->subcycle == 1);
+    animation.frame_bounds[2].known = false;
+    REQUIRE_FALSE(prop.GetBounds());
+    REQUIRE(prop.Rep()->subcycle == 1);
+    animation.frame_bounds[1].known = false;
+    REQUIRE_FALSE(prop.GetFrameBounds());
+    REQUIRE_FALSE(prop.GetCenterPosition());
+    REQUIRE(bounds->maximum == glm::vec3(12, 8, 9));
+}
+
+TEST_CASE_METHOD(SurRenderTestFixture, "Monster bounds scale and translate independent optional values", "[geometry][animation]")
+{
+    W8AnimObj animation;
+    animation.frame_bounds = {{true, {-1, -2, -3}, {4, 5, 6}}};
+    struct Monster : W8Monster {
+        W8AnimObj* animation = nullptr;
+        W8AnimObj* GetCurrentAnimation() override { return animation; }
+    } monster;
+    monster.animation = &animation;
+    monster.m_pRep->m_bLOD = 2;
+    monster.m_pRep->subcycle = 0;
+    monster.m_pRep->scale = 2;
+    monster.movement.position = {10, 20, 30};
+    const auto bounds = monster.GetAnimationBounds();
+    REQUIRE(bounds);
+    REQUIRE(bounds->minimum == glm::vec3(-2, -4, -6));
+    REQUIRE(bounds->maximum == glm::vec3(8, 10, 12));
+    const auto world = MonsterGetWorldAnimationBounds(&monster);
+    REQUIRE(world);
+    REQUIRE(world->minimum == bounds->minimum + monster.GetPosition().glmValue());
+    REQUIRE(world->maximum == bounds->maximum + monster.GetPosition().glmValue());
+    const auto center = monster.GetAnimationCenter();
+    REQUIRE(center);
+    REQUIRE(std::abs(center->y - monster.GetPosition().y - 14 * 0.66f) < 0.0001f);
+    monster.animation = nullptr;
+    REQUIRE_FALSE(monster.GetAnimationBounds());
+    REQUIRE_FALSE(monster.GetAnimationCenter());
+    REQUIRE_FALSE(MonsterGetWorldAnimationBounds(&monster));
+    REQUIRE_FALSE(MonsterGetWorldAnimationBounds(nullptr));
+    REQUIRE(bounds->minimum == glm::vec3(-2, -4, -6));
+    REQUIRE(animation.frame_bounds[0].minimum == srVector3(-1, -2, -3));
 }

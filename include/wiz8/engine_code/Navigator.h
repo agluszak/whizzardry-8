@@ -4,6 +4,8 @@
 
 /* Engine Code\Navigator.cpp owns these declarations. */
 
+struct srBoundingBox;
+
 #include <vector>
 #include <memory>
 
@@ -338,8 +340,7 @@ public:
        both. Mode 4 keeps the existing path; the other named modes build a
        fresh animated path. Later facing logic distinguishes 2/3 from 5/6. */
     void SetNavigationMode(int mode); /* 0x00452E50 */
-    void SetBounds(const srVector3T<float>* minimum,
-                   const srVector3T<float>* maximum); /* 0x00452F10 */
+    void SetBounds(const srBoundingBox& bounds); /* 0x00452F10 */
     void SetTurnRate(float turn_rate);                /* 0x00453C90 */
 
 public:

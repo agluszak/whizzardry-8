@@ -1,5 +1,7 @@
 #pragma once
 
+#include <optional>
+#include "surrender/srBoundingBox.h"
 #include <string_view>
 
 /* Engine Code\GrCycle.cpp owns these declarations. The two bases keep their
@@ -143,8 +145,7 @@ public:
     /* Registry-wide lookups answered from this cycle's identity. */
     const char* GetRegisteredName() const;     /* 0x004A8650 */
     bool IsSoleRegisteredCycleForName() const; /* 0x004A8700 */
-    virtual unsigned char GetAnimationBounds(srVector3T<float>* minimum,
-                                             srVector3T<float>* maximum);
+    virtual std::optional<srBoundingBox> GetAnimationBounds();
     virtual unsigned char GetAnimationRadius(float* radius);
     virtual void SetCycle(signed char cycle) = 0;
     virtual W8AnimObj* GetCurrentAnimation() = 0;

@@ -1,3 +1,4 @@
+#include <optional>
 #include "wiz8/engine_code/emitter_cycles.h"
 #include <fmt/format.h>
 #include <glm/ext/quaternion_trigonometric.hpp>
@@ -255,15 +256,12 @@ void W8SpellVisual::UpdateRepresentation(W8World* world)
                 instance = static_cast<srModelInstance*>(instance->first_child_);
             }
 
-            srVector3T<float> minimum;
-            srVector3T<float> maximum;
-            srVector3T<float> monster_position = monster->GetPosition();
-
-            monster->GetAnimationBounds(&minimum, &maximum);
-            position.x = monster_position.x;
-            position.y = monster_position.y + (maximum.y - minimum.y) * g_float_half;
-            position.z = monster_position.z;
-            SetCyclePosition(&position);
+            const auto monster_position = monster->GetPosition();
+            if (const auto bounds = monster->GetAnimationBounds()) {
+                position = monster_position;
+                position.y += (bounds->maximum.y - bounds->minimum.y) * g_float_half;
+                SetCyclePosition(&position);
+            }
         }
     } else if (mode == W8_SPELL_VISUAL_CONE) {
         GetCurrentModelInstance();
@@ -733,18 +731,19 @@ W8SpellVisual* CreateMonsterSpellEffect(std::string_view mls_name, int power_lev
     if (monster == 0) {
         srAssertFail("pMonster", "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp", 0x8ea, 0);
     }
+    const auto bounds = monster->GetAnimationBounds();
+    if (!bounds)
+        return nullptr;
     W8SpellVisual* visual = CreateSpellVisual(mls_name, W8_SPELL_VISUAL_TARGET,
                                               power_level, value, flags);
     if (visual != 0) {
-        srVector3T<float> minimum;
-        srVector3T<float> maximum;
+        const auto& [minimum, maximum] = *bounds;
         srVector3T<float> position;
         float height;
         float width;
 
         visual->host->billboard = true;
         visual->location_id = monster->location_id;
-        monster->GetAnimationBounds(&minimum, &maximum);
         position = monster->GetPosition();
         position.y += (maximum.y - minimum.y) * g_float_half;
         visual->SetCyclePosition(&position);
@@ -772,18 +771,19 @@ W8SpellVisual* CreateAttachedSpellEffect(std::string_view mls_name, int power_le
         srAssertFail("pMLS && strlen(pMLS)", "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp",
                      0x93f, 0);
     }
+    const auto bounds = parent ? parent->GetAnimationBounds() : std::nullopt;
+    if (parent && !bounds)
+        return nullptr;
     W8SpellVisual* visual = CreateSpellVisual(mls_name, W8_SPELL_VISUAL_CONE, power_level, value, flags);
     if (visual != 0) {
         srVector3T<float> position;
 
         if (parent != 0) {
-            srVector3T<float> minimum;
-            srVector3T<float> maximum;
+            const auto& [minimum, maximum] = *bounds;
             float height;
             float width;
 
             visual->location_id = parent->location_id;
-            parent->GetAnimationBounds(&minimum, &maximum);
             height = maximum.y - minimum.y;
             width = maximum.x - minimum.x;
             if (height <= width) {

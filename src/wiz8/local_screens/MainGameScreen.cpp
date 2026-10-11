@@ -6605,14 +6605,12 @@ void SetCombatSelection(int value)
         g_level_block->highlighted_item = -1;
     } else {
         srVector3T<float> camera;
-        srVector3T<float> minimum;
-        srVector3T<float> maximum;
         W8Monster* monster;
 
         camera = cameraLocation();
         monster = GetMonsterByLocationID(value);
-        MonsterGetWorldAnimationBounds(monster, &minimum, &maximum);
-        if (TraceLineOfSightToBounds(&camera, &minimum, &maximum) != 0) {
+        const auto bounds = MonsterGetWorldAnimationBounds(monster);
+        if (bounds && TraceLineOfSightToBounds(&camera, *bounds) != 0) {
             g_level_block->highlighted_item = value;
             g_level_block->target_highlight_ok[0] =
                 HighlightMonsterAsTarget(value, g_status.selected_character, 1);
@@ -6657,10 +6655,8 @@ void SetCombatTarget(int value)
             W8WorldItem* item = ItemInfo(ItemIndex(value));
             if (item != 0) {
                 if (const auto bounds = GetItemWorldBounds(item->p3D)) {
-                    srVector3T<float> minimum(bounds->minimum);
-                    srVector3T<float> maximum(bounds->maximum);
                     const srVector3T<float> camera(cameraLocation());
-                    if (TraceLineOfSightToBounds(&camera, &minimum, &maximum) != 0) {
+                    if (TraceLineOfSightToBounds(&camera, *bounds) != 0) {
                         g_level_block->selected_item = value;
                         SetWorldItemHighlight(value, true);
                     }

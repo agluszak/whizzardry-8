@@ -522,7 +522,6 @@ try
        this one vector across the complete prop loop. */
     std::vector<stModelInstance*> model_instances;
     W8Prop* prop;
-    W8BoundingBox bounds;
     int count;
     int index;
     int collidable_index;
@@ -555,7 +554,10 @@ try
             }
             pWorld->plsProps.push_back(prop);
             if ((prop->flags & W8_PROP_COLLIDABLE) != 0) {
-                prop->GetBounds(&bounds.minimum, &bounds.maximum);
+                const auto prop_bounds = prop->GetBounds();
+                if (!prop_bounds)
+                    return false;
+                const W8BoundingBox bounds{prop_bounds->minimum, prop_bounds->maximum};
                 pWorld->collidable_props.push_back(prop);
                 if (pWorld->octree != 0) {
                     pWorld->octree->AddCollidablePropBounds(collidable_index, &bounds);
