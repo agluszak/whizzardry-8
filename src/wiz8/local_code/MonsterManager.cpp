@@ -1436,10 +1436,11 @@ void ProcessMonsterManagerFrame(void)
                 DestroyMonsterListEntry(monster_list_index);
                 --monster_list_index;
             }
-        } else if ((monster->runtime_flags & W8_MONSTER_REMOVE_NOW) != 0) {
+        } else if ((monster->runtime_flags &
+                     (W8_MONSTER_REMOVE_NOW | W8_MONSTER_SCRIPT_WAIT)) != 0) {
             RemoveMonsterAt(monster_list_index, true);
             --monster_list_index;
-        } else if ((monster->runtime_flags & W8_MONSTER_SCRIPT_WAIT) == 0) {
+        } else {
             if ((monster->runtime_flags & W8_MONSTER_PARKED) == 0) {
                 int query_state = MonsterQuery(monster, W8_MONSTER_QUERY_CYCLE);
                 TryStartMonsterCycle2(monster_info, monster, query_state);
@@ -1482,9 +1483,6 @@ void ProcessMonsterManagerFrame(void)
                     }
                 }
             }
-        } else {
-            RemoveMonsterAt(monster_list_index, true);
-            --monster_list_index;
         }
     }
 }
