@@ -1,4 +1,7 @@
 #include <utility>
+#include <iterator>
+#include <cstdint>
+#include <limits>
 #include <cstddef>
 #include "himage.h"
 #include <fmt/format.h>
@@ -24,7 +27,8 @@ W8_ABI_ASSERT(sizeof(W8VideoObjectSlot) == 8, "W8VideoObjectSlot_size_must_be_8"
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wmissing-field-initializers"
 // GLOBAL: WIZ8 0x0062c430
-W8VideoFrame g_video_frames[1658] = {
+std::vector<W8VideoFrame> g_video_frames = [] {
+    W8VideoFrame fixed_frames[] = {
     {"Data\\Cursors\\2D-Cursors.sti", W8_VIDEO_STORAGE_OBJECT},
     {"Data\\Portraits\\Large\\Lhummf.sti", W8_VIDEO_STORAGE_SURFACE},
     {"Data\\Portraits\\Large\\Lhummn.sti", W8_VIDEO_STORAGE_SURFACE},
@@ -683,12 +687,16 @@ W8VideoFrame g_video_frames[1658] = {
     {"Data\\Level Load\\BlowOut.sti", W8_VIDEO_STORAGE_SURFACE},
     {"Data\\Options\\Falcon.sti", W8_VIDEO_STORAGE_OBJECT},
 };
+    return std::vector<W8VideoFrame>(std::make_move_iterator(std::begin(fixed_frames)),
+                                     std::make_move_iterator(std::end(fixed_frames)));
+}();
+static const std::size_t fixed_frame_count = g_video_frames.size();
 #pragma clang diagnostic pop
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wmissing-field-initializers"
 // GLOBAL: WIZ8 0x006448c8
-W8VideoObjectSlot g_video_slots[W8_ITEM_VIDEO_SLOT_BEGIN + W8_ITEM_VIDEO_CACHE_LIMIT] = {
+std::vector<W8VideoObjectSlot> g_video_slots = {
     {0, 0},    {0, 1},    {0, 2},    {0, 7},    {0, 12},   {0, 13},   {0, 14},   {0, 18},
     {0, 22},   {0, 23},   {0, 24},   {0, 29},   {0, 30},   {0, 31},   {0, 35},   {0, 36},
     {0, 37},   {1, 0},    {81, 0},   {161, 0},  {241, 0},  {242, 0},  {243, 0},  {244, 0},
@@ -752,6 +760,7 @@ W8VideoObjectSlot g_video_slots[W8_ITEM_VIDEO_SLOT_BEGIN + W8_ITEM_VIDEO_CACHE_L
     {652, 0},  {653, 0},  {654, 0},  {655, 0},  {656, 0},  {551, 0},  {566, 0},  {567, 0},
     {568, 0},  {569, 0},  {570, 0},  {571, 0},
 };
+static const std::size_t fixed_slot_count = g_video_slots.size();
 #pragma clang diagnostic pop
 
 /* The two loaders consume the released SGP object and surface request records.
@@ -759,6 +768,49 @@ W8VideoObjectSlot g_video_slots[W8_ITEM_VIDEO_SLOT_BEGIN + W8_ITEM_VIDEO_CACHE_L
    of stack objects. */
 
 #define VIDEO_OBJECT_MANAGER_CPP "C:\\Projects\\Wizardry 8\\Local Code\\VideoObjectManager.cpp"
+
+int RegisterItemVideoImage(std::string path)
+{
+    if (g_video_slots.size() >= static_cast<std::size_t>(std::numeric_limits<int>::max()) ||
+        g_video_frames.size() >= static_cast<std::size_t>(std::numeric_limits<int>::max()))
+        throw std::length_error("Video catalog exhausted its integer image IDs");
+
+    VOBJECT_DESC request;
+    request.fCreateFlags = VOBJECT_CREATE_FROMFILE;
+    request.ImageFile = path;
+    auto object = CreateVideoObject(request);
+    if (!object)
+        throw std::runtime_error(fmt::format("Cannot load item image {}", path));
+
+    const int slot = static_cast<int>(g_video_slots.size());
+    const int frame = static_cast<int>(g_video_frames.size());
+    W8VideoFrame record;
+    record.path = std::move(path);
+    record.storage_kind = W8_VIDEO_STORAGE_OBJECT;
+    record.object = std::move(object);
+    g_video_frames.push_back(std::move(record));
+    try {
+        g_video_slots.push_back({frame, 0});
+    } catch (...) {
+        g_video_frames.pop_back();
+        throw;
+    }
+    return slot;
+}
+
+void ReleaseItemVideoImages()
+{
+    g_video_slots.resize(fixed_slot_count);
+    g_video_frames.resize(fixed_frame_count);
+}
+
+static W8VideoFrame& CatalogFrame(int object, int frame)
+{
+    if (frame < 0)
+        throw std::out_of_range("Negative catalog frame offset");
+    const auto index = std::int64_t{g_video_slots.at(object).first_frame} + frame;
+    return g_video_frames.at(index);
+}
 
 // FUNCTION: WIZ8 0x00549250
 void ReleaseLoadedVideoFrames(void)
@@ -778,12 +830,12 @@ void DrawCatalogImage(SGPVSurface& target, int object, int frame, short image, i
     BOOLEAN ok;
 
     EnsureCatalogFrameLoaded(object, frame);
-    slot = &g_video_slots[object];
+    slot = &g_video_slots.at(object);
     row = slot->y_offset + image;
-    if (g_video_frames[slot->first_frame + frame].storage_kind == W8_VIDEO_STORAGE_OBJECT) {
-        ok = BltVideoObject(target, *g_video_frames[slot->first_frame + frame].object, row, left, top, mode, effects);
+    if (CatalogFrame(object, frame).storage_kind == W8_VIDEO_STORAGE_OBJECT) {
+        ok = BltVideoObject(target, *CatalogFrame(object, frame).object, row, left, top, mode, effects);
     } else {
-        ok = BltVideoSurfaceToVideoSurface(target, *g_video_frames[slot->first_frame + frame].surface, left, top, mode, 0);
+        ok = BltVideoSurfaceToVideoSurface(target, *CatalogFrame(object, frame).surface, left, top, mode, 0);
     }
     if (!ok) {
         srAssertFail("fReturnCode", VIDEO_OBJECT_MANAGER_CPP, 0x3e, 0);
@@ -802,7 +854,7 @@ void EnsureCatalogFrameLoaded(int object, int frame)
     W8VideoFrame* record;
     BOOLEAN loaded_ok;
 
-    record = &g_video_frames[g_video_slots[object].first_frame + frame];
+    record = &CatalogFrame(object, frame);
     if (!record->object && !record->surface) {
         if (record->storage_kind == W8_VIDEO_STORAGE_OBJECT) {
             request_a.fCreateFlags = VOBJECT_CREATE_FROMFILE;
@@ -832,18 +884,18 @@ Palette16 CopyCatalogImagePalette16BPP(int object, int frame)
 // FUNCTION: WIZ8 0x005493e0
 short GetCatalogVideoObjectYOffset(int object)
 {
-    return g_video_slots[object].y_offset;
+    return g_video_slots.at(object).y_offset;
 }
 
 // FUNCTION: WIZ8 0x00549420
 SGPVObject& GetCatalogVideoObject(int object, int frame, int* y_offset_out)
 {
     EnsureCatalogFrameLoaded(object, frame);
-    auto& record = g_video_frames[g_video_slots[object].first_frame + frame];
+    auto& record = CatalogFrame(object, frame);
     if (!record.object)
         throw std::logic_error("Catalog frame is not a sprite object");
     if (y_offset_out)
-        *y_offset_out = g_video_slots[object].y_offset;
+        *y_offset_out = g_video_slots.at(object).y_offset;
     return *record.object;
 }
 
@@ -870,8 +922,8 @@ void DrawCatalogImageAndInvalidate(SGPVSurface& target, int object, int frame, i
 std::pair<int, int> GetCatalogImageSize(int object, int frame, int image)
 {
     EnsureCatalogFrameLoaded(object, frame);
-    const auto& slot = g_video_slots[object];
-    const auto& record = g_video_frames[slot.first_frame + frame];
+    const auto& slot = g_video_slots.at(object);
+    const auto& record = CatalogFrame(object, frame);
     if (record.storage_kind == W8_VIDEO_STORAGE_SURFACE) {
         const auto& surface = *record.surface->cpu().surface;
         return {surface.w, surface.h};
@@ -893,13 +945,13 @@ void GetCatalogImagePosition(int object, int frame, int image, short* x, short* 
     short subimage;
 
     EnsureCatalogFrameLoaded(object, frame);
-    slot = &g_video_slots[object];
+    slot = &g_video_slots.at(object);
     subimage = slot->y_offset + image;
-    record = &g_video_frames[slot->first_frame + frame];
+    record = &CatalogFrame(object, frame);
     if (record->storage_kind == W8_VIDEO_STORAGE_OBJECT) {
         const auto& video_object = *record->object;
-        *x = video_object.sprites[subimage].sOffsetX;
-        *y = video_object.sprites[subimage].sOffsetY;
+        *x = video_object.sprites.at(subimage).sOffsetX;
+        *y = video_object.sprites.at(subimage).sOffsetY;
     }
 }
 
@@ -920,7 +972,7 @@ unsigned char BlitCatalogSurfaceRectTo16BPP(SGPVSurface& target, int left, int t
     source_rect = {source_x, source_y, right - left, bottom - top};
 
     EnsureCatalogFrameLoaded(object, 0);
-    auto& source_surface = *g_video_frames[g_video_slots[object].first_frame].surface;
+    auto& source_surface = *CatalogFrame(object, 0).surface;
     const auto& destination_storage = *target.cpu().surface;
     target_pitch = destination_storage.pitch;
     target_pixels = static_cast<BYTE*>(destination_storage.pixels);
@@ -938,7 +990,7 @@ unsigned char BlitCatalogSurfaceRectTo16BPP(SGPVSurface& target, int left, int t
 SGPVSurface& GetCatalogFrameSurface(unsigned int object, unsigned int frame)
 {
     EnsureCatalogFrameLoaded(object, frame);
-    auto& surface = g_video_frames[g_video_slots[object].first_frame + frame].surface;
+    auto& surface = CatalogFrame(object, frame).surface;
     if (!surface)
         throw std::logic_error("Catalog frame does not contain a surface");
     return *surface;

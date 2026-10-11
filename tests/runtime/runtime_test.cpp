@@ -60,6 +60,8 @@
 #include "wiz8/item_video_object_vector.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/layouts/item_tables.h"
+#include "wiz8/local_code/PC_Item.h"
+#include "wiz8/local_code/party_encumbrance.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/Video2.h"
@@ -751,6 +753,49 @@ void InventoryChestScenario()
         game.click_at(button.GetX() + button.GetWidth() / 2,
                       button.GetY() + button.GetHeight() / 2);
     };
+    // A full pool can still absorb part of an ammunition stack. The picker
+    // must retain only the remainder, including after a second failed attempt.
+    const auto pool = std::vector<W8ItemInstance>(std::begin(g_status.party_item_pool),
+                                                 std::end(g_status.party_item_pool));
+    const auto pool_count = g_status.party_item_count;
+    const auto original_item = picker->items.front()->item;
+    const auto picker_count = picker->items.size();
+    int stack_id = -1, nonstack_id = -1;
+    for (unsigned i = 0; i < gXStatus.uiItemsInDatabase; ++i) {
+        const auto& record = g_item_records[i];
+        if (record.quantity_kind == W8_ITEM_QUANTITY_STACK && record.maximum_quantity >= 5)
+            stack_id = i;
+        else if (record.quantity_kind != W8_ITEM_QUANTITY_STACK)
+            nonstack_id = i;
+        if (stack_id >= 0 && nonstack_id >= 0)
+            break;
+    }
+    REQUIRE(stack_id >= 0);
+    REQUIRE(nonstack_id >= 0);
+    auto& remainder = picker->items.front()->item;
+    ReplaceOrCreateItem(&remainder, stack_id, true, false, false);
+    remainder.stack_count = 5;
+    W8ItemInstance filler{};
+    ReplaceOrCreateItem(&filler, nonstack_id, true, false, false);
+    std::fill(std::begin(g_status.party_item_pool), std::end(g_status.party_item_pool), filler);
+    g_status.party_item_count = 500;
+    g_status.party_item_pool[0] = remainder;
+    const auto maximum = g_item_records[stack_id].maximum_quantity;
+    g_status.party_item_pool[0].stack_count = maximum - 2;
+    std::fill(picker->flags.begin(), picker->flags.end(), 0);
+    picker->flags.front() = 1;
+    click_button(1);
+    REQUIRE(picker->items.size() == picker_count);
+    REQUIRE(g_status.party_item_count == 500);
+    REQUIRE(g_status.party_item_pool[0].stack_count == maximum);
+    REQUIRE(remainder.stack_count == 3);
+    click_button(1);
+    REQUIRE(remainder.stack_count == 3);
+    remainder = original_item;
+    std::copy(pool.begin(), pool.end(), std::begin(g_status.party_item_pool));
+    g_status.party_item_count = pool_count;
+    RedistributePartyEncumbrance();
+    std::fill(picker->flags.begin(), picker->flags.end(), 0);
     click_button(0); // Select all.
     click_button(1); // Take selected items into the party pool.
     game.wait("close-chest-picker", [] { return g_modal_owner == nullptr; });
@@ -772,7 +817,7 @@ void InventoryChestScenario()
     g_status.party_item_pool[potion_slot].identified = false;
     game.command(W8_MGS_COMMAND_INVENTORY);
     game.wait_screen("inventory", W8_SCREEN_CAMP);
-    REQUIRE(g_item_video_objects.loaded_count > 2);
+    REQUIRE(g_item_video_objects.LoadedImageCount() > 2);
     REQUIRE(g_camera_motion_clamp == motion_clamp);
     REQUIRE(g_camera_motion_divisor == motion_divisor);
     REQUIRE(g_pending_main_menu_message.empty());

@@ -1093,7 +1093,7 @@ void W8TriggerItemPickerDialog::TransferSelectedItems(int destination)
 
     for (index = 0; index < static_cast<int>(items.size()); ++index) {
         if (flags[index] != 0) {
-            W8ItemInstance instance = items[index]->item;
+            W8ItemInstance& instance = items[index]->item;
             bool added;
             if (destination == -1) {
                 added = AddItemToParty(&instance, true, false);
@@ -1108,13 +1108,15 @@ void W8TriggerItemPickerDialog::TransferSelectedItems(int destination)
                 --index;
                 m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
             } else {
+                // A full destination can accept part of a stack. Keep the
+                // remainder in this owned world item instead of duplicating it.
                 failed = true;
+                m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
             }
         }
     }
     if (failed) {
-        /* "\b" here is a backspace, not a path separator. */
-        SoundPlay("Data\\Sound\\Misc\beep2.wav", 0);
+        SoundPlay("Data\\Sound\\Misc\\beep2.wav", 0);
     }
     RefreshScrollButtons();
     if (items.empty()) {

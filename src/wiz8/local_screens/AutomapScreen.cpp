@@ -499,8 +499,8 @@ void CreateAutomapButtons(void)
 {
     std::vector<std::unique_ptr<W8DialogButton>> buttons(16);
     for (size_t index = 0; index < buttons.size(); ++index) {
-        const auto& slot = g_video_slots[g_automap_button_catalogs[index]];
-        const auto& frame = g_video_frames[slot.first_frame];
+        const auto& slot = g_video_slots.at(g_automap_button_catalogs[index]);
+        const auto& frame = g_video_frames.at(slot.first_frame);
         const int base_frame = slot.y_offset;
         if (frame.storage_kind != W8_VIDEO_STORAGE_OBJECT) continue;
         auto button = std::make_unique<W8DialogButton>();

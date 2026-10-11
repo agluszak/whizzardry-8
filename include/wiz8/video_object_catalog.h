@@ -3,6 +3,7 @@
 #include <memory>
 #include <utility>
 #include <string>
+#include <vector>
 
 #include "vobject.h"
 #include "vsurface.h"
@@ -21,13 +22,12 @@ struct W8VideoFrame {
     std::unique_ptr<SGPVSurface> surface;
 };
 
-// Item images append up to 1000 slots after the fixed UI catalog. The last
-// two initialized slots share this range and are replaced by the item cache.
-inline constexpr int W8_ITEM_VIDEO_SLOT_BEGIN = 0x1ec;
-inline constexpr int W8_ITEM_VIDEO_FRAME_BEGIN = 0x291;
-inline constexpr int W8_ITEM_VIDEO_CACHE_LIMIT = 1000;
-extern W8VideoObjectSlot g_video_slots[W8_ITEM_VIDEO_SLOT_BEGIN + W8_ITEM_VIDEO_CACHE_LIMIT];
-extern W8VideoFrame g_video_frames[1658];
+extern std::vector<W8VideoObjectSlot> g_video_slots;
+extern std::vector<W8VideoFrame> g_video_frames;
+
+// Load first, then publish an item image without changing the fixed UI catalog.
+int RegisterItemVideoImage(std::string path);
+void ReleaseItemVideoImages();
 
 short GetCatalogVideoObjectYOffset(int object);
 /* 0x00549420: load the catalog frame and return its sprite object; optional out
