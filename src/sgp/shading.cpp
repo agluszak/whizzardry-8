@@ -1,7 +1,5 @@
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
    Distributed under the accompanying SFI Source Code license agreement. */
-#include <algorithm>
-#include <iterator>
 
 #include "Types.h"
 #include "himage.h"
@@ -12,11 +10,8 @@
 UINT16 IntensityTable[65536];
 // GLOBAL: WIZ8 0x006c0da0
 UINT16 ShadeTable[65536];
-// GLOBAL: WIZ8 0x006e0da0
-UINT16 White16BPPPalette[256];
 // GLOBAL: WIZ8 0x006000ac
 FLOAT guiShadePercent = (FLOAT)0.48;
-FLOAT guiBrightPercent = (FLOAT)1.1;
 
 /**********************************************************************************************
  BuildShadeTable
@@ -47,7 +42,6 @@ void BuildShadeTable(void)
                     static_cast<UINT8>(blue * guiShadePercent), SDL_ALPHA_OPAQUE});
             }
 
-    std::fill(std::begin(White16BPPPalette), std::end(White16BPPPalette), UINT16{0xffff});
 }
 
 // FUNCTION: WIZ8 0x00413e80
