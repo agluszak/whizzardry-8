@@ -41,15 +41,6 @@
       }
     },
     {
-      "name": "linux-profile",
-      "inherits": "linux-dev",
-      "cacheVariables": {
-        "WIZ8_PRECOMPILE_HEADERS": "OFF",
-        "WIZ8_UNITY_BUILD": "OFF",
-        "CMAKE_CXX_FLAGS_DEBUG": "-O0 -g1 -ftime-trace"
-      }
-    },
-    {
       "name": "linux-asan",
       "inherits": "linux",
       "cacheVariables": {
@@ -112,10 +103,6 @@
     {
       "name": "linux-dev",
       "configurePreset": "linux-dev"
-    },
-    {
-      "name": "linux-profile",
-      "configurePreset": "linux-profile"
     },
     {
       "name": "macos-arm64",

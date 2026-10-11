@@ -5,6 +5,11 @@ on:
     branches: [main]
   pull_request:
 
+# Superseded revisions need neither compilation nor runtime asset extraction.
+concurrency:
+  group: native-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   native:
     strategy:
@@ -27,6 +32,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y \
             clang \
+            lld \
             ninja-build \
             ccache \
             cmake \
@@ -57,16 +63,23 @@ jobs:
           path: ${{ env.CCACHE_DIR }}
           key: linux-ccache-${{ matrix.preset }}-${{ github.run_id }}
           restore-keys: |
-            linux-ccache-
+            linux-ccache-${{ matrix.preset }}-
       - name: Reset compiler cache statistics
         run: ccache --zero-stats
       - name: Configure
         run: |
           build_type=Debug
+          link_flags=-fuse-ld=lld
           if [[ "${{ matrix.preset }}" == "linux-asan" ]]; then
             build_type=RelWithDebInfo
+            link_flags="-fsanitize=address -fuse-ld=lld"
           fi
-          cmake --preset "${{ matrix.preset }}" -DCMAKE_BUILD_TYPE="$build_type" \
+          cmake --preset "${{ matrix.preset }}" \
+            -DCMAKE_BUILD_TYPE="$build_type" \
+            -DCMAKE_C_FLAGS_DEBUG="-O0 -g1" \
+            -DCMAKE_CXX_FLAGS_DEBUG="-O0 -g1" \
+            -DCMAKE_EXE_LINKER_FLAGS="$link_flags" \
+            -DWIZ8_SURRENDER_UNITY_BUILD=ON \
             -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
       - name: Build native game and fixtures
         run: cmake --build --preset ${{ matrix.preset }} --parallel "$(nproc)"
@@ -157,7 +170,7 @@ jobs:
             # allocations retain their real roots. Project leak checks stay on.
             export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libvulkan_lvp.so
           fi
-          ctest --preset ${{ matrix.preset }} --output-on-failure
+          ctest --preset ${{ matrix.preset }} --output-on-failure --parallel "$(nproc)"
 
       - name: Remove decrypted game assets
         if: always() && steps.game-assets.outputs.enabled == 'true'

@@ -27,6 +27,7 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 # builds because single-file edits otherwise rebuild whole compilation batches.
 option(WIZ8_PRECOMPILE_HEADERS "Precompile stable C++ dependencies" ON)
 option(WIZ8_UNITY_BUILD "Compile game and renderer sources in batches" OFF)
+option(WIZ8_SURRENDER_UNITY_BUILD "Unity-build SurRender independently of the game" OFF)
 set(WIZ8_UNITY_BATCH_SIZE 4 CACHE STRING "Sources per unity compilation batch")
 if(WIZ8_UNITY_BUILD AND NOT WIZ8_UNITY_BATCH_SIZE MATCHES "^[1-9][0-9]*$")
     message(FATAL_ERROR "WIZ8_UNITY_BATCH_SIZE must be a positive integer")
