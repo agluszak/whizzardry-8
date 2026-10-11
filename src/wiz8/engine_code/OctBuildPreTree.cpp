@@ -1,3 +1,4 @@
+#include "glm/ext/vector_int3.hpp"
 #include <unordered_map>
 #include <wiz8/filesystem.h>
 #include <cmath>
@@ -1855,12 +1856,12 @@ OctPreTree* OctBuildPreTree::BuildOctPreTree()
         malloc(tree->m_leaf_grid_dimensions.z * tree->m_leaf_grid_dimensions.x *
                tree->m_leaf_grid_dimensions.y * sizeof(w8_ulong)));
     w8_ulong cell_index = 0;
-    srVector3T<int> point;
+    glm::ivec3 point;
     for (point.x = 0; point.x < static_cast<int>(tree->m_leaf_grid_dimensions.x); ++point.x) {
         for (point.y = 0; point.y < static_cast<int>(tree->m_leaf_grid_dimensions.y); ++point.y) {
             for (point.z = 0; point.z < static_cast<int>(tree->m_leaf_grid_dimensions.z);
                  ++point.z) {
-                tree->m_leaf_lookup[cell_index] = tree->FindLeaf(&point);
+                tree->m_leaf_lookup[cell_index] = tree->FindLeaf(point);
                 if (tree->m_leaf_count < tree->m_leaf_lookup[cell_index]) {
                     tree->m_leaf_lookup[cell_index] = 0;
                 }

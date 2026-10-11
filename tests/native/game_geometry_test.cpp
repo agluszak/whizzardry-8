@@ -1,3 +1,6 @@
+#include "glm/ext/vector_int3.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include "wiz8/octree_walk.h"
 #include <catch2/catch_test_macros.hpp>
 #include <glm/gtc/constants.hpp>
 #include <glm/ext/matrix_clip_space.hpp>
@@ -718,9 +721,9 @@ TEST_CASE("Octree queries own dense results across later queries", "[geometry][o
     tree.m_leaf_grid_dimensions = {1, 1, 1};
     tree.object_registry = new W8OctreeObjectRegistry;
     tree.m_visited_object_bits.assign(11000, false);
-    const srVector3T<int> cell(0, 0, 0);
+    const glm::ivec3 cell(0, 0, 0);
     for (int id = 1; id <= 10500; ++id)
-        tree.object_registry->RegisterObjectCell(W8_OCTREE_KIND_LOCATION, id, &cell);
+        tree.object_registry->RegisterObjectCell(W8_OCTREE_KIND_LOCATION, id, cell);
     const srBoundingBox bounds{{0, 0, 0}, {999, 999, 999}};
     const auto dense = tree.queryObjects(bounds, W8_OCTREE_KIND_LOCATION, -1);
     REQUIRE(dense.size() == 10000);
@@ -736,11 +739,73 @@ TEST_CASE("Octree queries own dense results across later queries", "[geometry][o
     tree.object_registry->by_cell->clear();
     tree.object_registry->by_object->clear();
     for (int id = 1; id <= 512; ++id)
-        tree.object_registry->RegisterObjectCell(W8_OCTREE_KIND_LOCATION, id, &cell);
+        tree.object_registry->RegisterObjectCell(W8_OCTREE_KIND_LOCATION, id, cell);
     const auto locations = tree.locationsInBox(bounds, 7);
     REQUIRE(locations.size() == 511);
     REQUIRE(std::ranges::find(locations, 7u) == locations.end());
     REQUIRE(tree.locationsInBox(bounds, 0).size() == 512);
     REQUIRE(tree.locationsInBox({{2000, 2000, 2000}, {3000, 3000, 3000}}, 0).empty());
     REQUIRE(tree.locationsInBox({{999, 999, 999}, {0, 0, 0}}, 0).size() == 512);
+}
+
+TEST_CASE("Octree walks retain ordered crossings, early exits and coordinate rounding", "[geometry][octree]")
+{
+    W8Octree tree(nullptr, nullptr);
+    tree.m_spatial.m_minimum = {0, 0, 0};
+    tree.m_spatial.m_node_extent = 100;
+    const std::vector<glm::ivec3> diagonal{
+        {0, 0, 0}, {1, 0, 0}, {1, 0, 1}, {1, 1, 1},
+        {2, 1, 1}, {2, 1, 2}, {2, 2, 2}};
+    for (int signs = 0; signs < 8; ++signs) {
+        glm::vec3 from(25), to(225);
+        for (int axis = 0; axis < 3; ++axis)
+            if ((signs & (1 << axis)) != 0) { from[axis] = 275; to[axis] = 75; }
+        const auto walk = tree.cellWalk(from, to);
+        auto expected = diagonal;
+        for (auto& cell : expected)
+            for (int axis = 0; axis < 3; ++axis)
+                if ((signs & (1 << axis)) != 0) cell[axis] = 2 - cell[axis];
+        std::vector<glm::ivec3> visited;
+        walk.visitCells([&](const glm::ivec3& cell) { visited.push_back(cell); return true; });
+        REQUIRE(visited == expected);
+        // Stop at every possible crossing, including either secondary axis.
+        for (std::size_t stop = 1; stop <= expected.size(); ++stop) {
+            visited.clear();
+            walk.visitCells([&](const glm::ivec3& cell) {
+                visited.push_back(cell);
+                return visited.size() < stop;
+            });
+            REQUIRE(visited == std::vector<glm::ivec3>(expected.begin(), expected.begin() + stop));
+        }
+    }
+    for (int axis = 0; axis < 3; ++axis) {
+        glm::vec3 from(25), to(25);
+        to[axis] = 225;
+        const auto walk = tree.cellWalk(from, to);
+        REQUIRE(walk.major_axis == axis);
+        std::vector<glm::ivec3> visited;
+        walk.visitCells([&](const glm::ivec3& cell) { visited.push_back(cell); return true; });
+        REQUIRE(visited.size() == 3);
+        for (int index = 0; index < 3; ++index) {
+            glm::ivec3 expected(0);
+            expected[axis] = index;
+            REQUIRE(visited[index] == expected);
+        }
+    }
+    REQUIRE(tree.cellAt({-99, -100, -199}) == glm::ivec3(0, -1, -1));
+    const auto stationary = tree.cellWalk({125, 225, 325}, {125, 225, 325});
+    std::vector<glm::ivec3> visited;
+    stationary.visitCells([&](const glm::ivec3& cell) { visited.push_back(cell); return true; });
+    REQUIRE((visited == std::vector<glm::ivec3>{{1, 2, 3}}));
+
+    // The preprocessing walk deliberately retains its world-quantized start.
+    tree.m_spatial.m_node_extent = 100.123f;
+    const glm::vec3 boundary{100.121f, 25, 25};
+    auto walk = tree.cellWalk(boundary, {350, 25, 25});
+    REQUIRE(walk.cell.x == 1);
+    REQUIRE(tree.cellAt(boundary).x == 0);
+    walk.cell = tree.cellAt(boundary);
+    visited.clear();
+    walk.visitCells([&](const glm::ivec3& cell) { visited.push_back(cell); return true; });
+    REQUIRE(visited.front().x == 0);
 }

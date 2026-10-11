@@ -410,9 +410,8 @@ try
     m_ulNumWayPtLinks = link_count;
     edge_node_count = edge_nodes;
     for (unsigned int surface = 1; surface < waypoint_count; ++surface) {
-        srVector3T<int> point;
-        g_octree->WorldPositionToCell(&m_waypoints[surface].position, &point);
-        g_octree->object_registry->MoveObjectToCell(W8_OCTREE_KIND_WAYPOINT, surface + 1, &point);
+        const auto point = g_octree->cellAt(m_waypoints[surface].position.glmValue());
+        g_octree->object_registry->MoveObjectToCell(W8_OCTREE_KIND_WAYPOINT, surface + 1, point);
     }
 
     if (version <= 2) {
@@ -492,10 +491,9 @@ void W8PathingService::BuildWaypointFileData()
                 m_waypoints[next_surface].index = next_surface;
                 g_octree->object_registry->UnregisterObject(W8_OCTREE_KIND_WAYPOINT,
                                                             old_surface + 1);
-                srVector3T<int> point;
-                g_octree->WorldPositionToCell(&m_waypoints[next_surface].position, &point);
+                const auto point = g_octree->cellAt(m_waypoints[next_surface].position.glmValue());
                 g_octree->object_registry->MoveObjectToCell(W8_OCTREE_KIND_WAYPOINT,
-                                                            next_surface + 1, &point);
+                                                            next_surface + 1, point);
             }
             ++next_surface;
         }
@@ -5213,7 +5211,6 @@ void W8PathingService::AddWaypoint(const srVector3T<float>* position)
     }
 
     W8PathSurface* surface = &m_waypoints[m_ulNumWayPoints];
-    srVector3T<int> point;
 
     surface->flags = 0x2000;
     surface->index = static_cast<unsigned short>(m_ulNumWayPoints);
@@ -5221,9 +5218,9 @@ void W8PathingService::AddWaypoint(const srVector3T<float>* position)
     if ((ClassifyWaypoint(&surface->position) & W8_PATH_CELL_CONDITIONAL) != 0) {
         surface->flags |= W8_WAYPOINT_CONDITIONAL;
     }
-    g_octree->WorldPositionToCell(position, &point);
+    const auto point = g_octree->cellAt(position->glmValue());
     g_octree->object_registry->MoveObjectToCell(
-        W8_OCTREE_KIND_WAYPOINT, static_cast<unsigned short>(m_ulNumWayPoints + 1), &point);
+        W8_OCTREE_KIND_WAYPOINT, static_cast<unsigned short>(m_ulNumWayPoints + 1), point);
     ++m_ulNumWayPoints;
 }
 

@@ -15,6 +15,9 @@
 #include "compat/compiler.h"
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
+#include "glm/ext/vector_int3.hpp"
+#include "glm/common.hpp"
+#include "wiz8/octree_walk.h"
 #include "surrender/srMath.h"
 #include "surrender/srBoundingBox.h"
 #include "wiz8/sr_api.h"
@@ -107,7 +110,7 @@ void W8OctSpatialState::SetWorkingBounds(const srVector3T<float>* minimum,
 /* Resets the collected-id run and appends every not-yet-seen polygon id the
    leaf under `cell` lists.  The trace walk inlines this sequence at each of
    the six cells it probes. */
-void OctPreTree::CollectLeafPolygons(const srVector3T<int>* cell)
+void OctPreTree::CollectLeafPolygons(const glm::ivec3& cell)
 {
     m_gd_result_count = 0;
     unsigned int leaf_index = LeafIndexForCell(cell);
@@ -131,85 +134,32 @@ void OctPreTree::CollectLeafPolygons(const srVector3T<int>* cell)
 bool OctPreTree::SegmentClear(const srVector3T<float>* from, const srVector3T<float>* to)
 {
     W8OctreeTrace trace;
-    W8OctreeWalk walk;
-    srVector3T<int> cell;
-    srVector3T<int> end_cell;
-    int span = 0;
+    const auto cell = cellAt(from->glmValue());
+    const auto end_cell = cellAt(to->glmValue());
+    const auto difference = glm::abs(cell - end_cell);
+    const int span = difference.x + difference.y + difference.z;
     bool blocked = false;
 
     trace.Seed(from, to);
     m_gd_result_count = 0;
     std::ranges::fill(m_visited_polygon_bits, false);
-    for (int axis = 0; axis < 3; ++axis) {
-        (&cell.x)[axis] = static_cast<int>(((&from->x)[axis] - (&m_spatial.m_minimum.x)[axis]) /
-                                           m_spatial.m_node_extent);
-        (&end_cell.x)[axis] = static_cast<int>(((&to->x)[axis] - (&m_spatial.m_minimum.x)[axis]) /
-                                               m_spatial.m_node_extent);
-        int difference = (&cell.x)[axis] - (&end_cell.x)[axis];
-        if (difference < 0) {
-            span -= difference;
-        } else {
-            span += difference;
-        }
-    }
     if (span < 2) {
-        CollectLeafPolygons(&cell);
+        CollectLeafPolygons(cell);
         blocked = TestCollectedPolygons(&trace);
         if (!blocked && span != 0) {
-            CollectLeafPolygons(&end_cell);
+            CollectLeafPolygons(end_cell);
             blocked = TestCollectedPolygons(&trace);
         }
     } else {
-        BuildCellWalk(*from, *to, &walk);
-        int error_a = walk.error0;
-        int error_b = walk.error1;
-        for (int index = 0; index < walk.count; ++index) {
-            if (blocked) {
-                break;
-            }
-            CollectLeafPolygons(&cell);
-            if (m_gd_result_count != 0) {
-                blocked = TestCollectedPolygons(&trace);
-            }
-            if (error_a < error_b) {
-                if (error_a < 0 && !blocked) {
-                    (&cell.x)[walk.minor_axis0] += (&walk.step.x)[walk.minor_axis0];
-                    error_a += walk.error_reset0;
-                    CollectLeafPolygons(&cell);
-                    if (m_gd_result_count != 0) {
-                        blocked = TestCollectedPolygons(&trace);
-                    }
-                    if (error_b < 0 && !blocked) {
-                        (&cell.x)[walk.minor_axis1] += (&walk.step.x)[walk.minor_axis1];
-                        error_b += walk.error_reset1;
-                        CollectLeafPolygons(&cell);
-                        if (m_gd_result_count != 0) {
-                            blocked = TestCollectedPolygons(&trace);
-                        }
-                    }
-                }
-            } else {
-                if (error_b < 0 && !blocked) {
-                    (&cell.x)[walk.minor_axis1] += (&walk.step.x)[walk.minor_axis1];
-                    error_b += walk.error_reset1;
-                    CollectLeafPolygons(&cell);
-                    if (m_gd_result_count != 0) {
-                        blocked = TestCollectedPolygons(&trace);
-                    }
-                    if (error_a < 0 && !blocked) {
-                        (&cell.x)[walk.minor_axis0] += (&walk.step.x)[walk.minor_axis0];
-                        error_a += walk.error_reset0;
-                        CollectLeafPolygons(&cell);
-                        if (m_gd_result_count != 0) {
-                            blocked = TestCollectedPolygons(&trace);
-                        }
-                    }
-                }
-            }
-            (&cell.x)[walk.major_axis] += (&walk.step.x)[walk.major_axis];
-            error_a -= walk.error_delta0;
-            error_b -= walk.error_delta1;
-        }
+        auto walk = cellWalk(from->glmValue(), to->glmValue());
+        // Preprocessing starts at the world-quantized cell, which can differ
+        // from the fixed-point cursor near a cell boundary.
+        walk.cell = cell;
+        walk.visitCells([&](const glm::ivec3& current) {
+            CollectLeafPolygons(current);
+            if (m_gd_result_count != 0) blocked = TestCollectedPolygons(&trace);
+            return !blocked;
+        });
     }
     return !blocked;
 }
