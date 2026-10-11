@@ -368,19 +368,20 @@ TEST_CASE("events_test")
         REQUIRE(InitializeInputManager());
         for (unsigned i = 0; i < queued; ++i)
             QueueEvent(KEY_DOWN, i, 0);
-        guiSingleClickTimer = w8_get_ticks();
-        gusRecordedKeyState = SHIFT_DOWN;
-        QueueEvent(LEFT_BUTTON_UP, 17, 23);
+        gfShiftState = SHIFT_DOWN;
+        mouse(SDL_EVENT_MOUSE_BUTTON_UP, SDL_BUTTON_LEFT, 640, 480, 2);
+        drain_events();
         events = input();
         REQUIRE(events.size() == 256);
         for (unsigned i = 0; i < queued; ++i)
             expect(events[i], KEY_DOWN, i);
         if (queued < 256) {
-            expect(events[queued], LEFT_BUTTON_UP, 17, SHIFT_DOWN);
-            REQUIRE(events[queued].uiParam == 23);
+            expect(events[queued], LEFT_BUTTON_UP, 0, SHIFT_DOWN);
+            REQUIRE(events[queued].uiParam == ((240u << 16) | 320u));
         }
         if (queued == 254)
-            expect(events.back(), LEFT_BUTTON_DBL_CLK, 17, SHIFT_DOWN);
+            expect(events.back(), LEFT_BUTTON_DBL_CLK, 0, SHIFT_DOWN);
+        gfShiftState = 0;
         QueueEvent(KEY_UP, 999, 0);
         events = input();
         REQUIRE(events.size() == 1);
