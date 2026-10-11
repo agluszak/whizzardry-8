@@ -1229,7 +1229,12 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Monster bounds scale and translate indep
     animation.frame_bounds = {{true, {-1, -2, -3}, {4, 5, 6}}};
     struct Monster : W8Monster {
         W8AnimObj* animation = nullptr;
+        bool detached = false;
         W8AnimObj* GetCurrentAnimation() override { return animation; }
+        W8EmitterHost* GetRepresentation() override
+        {
+            return detached ? nullptr : W8Monster::GetRepresentation();
+        }
     } monster;
     monster.animation = &animation;
     monster.m_pRep->m_bLOD = 2;
@@ -1247,6 +1252,11 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Monster bounds scale and translate indep
     const auto center = monster.GetAnimationCenter();
     REQUIRE(center);
     REQUIRE(std::abs(center->y - monster.GetPosition().y - 14 * 0.66f) < 0.0001f);
+    monster.detached = true;
+    REQUIRE_FALSE(monster.GetAnimationBounds());
+    REQUIRE_FALSE(monster.GetAnimationCenter());
+    REQUIRE_FALSE(MonsterGetWorldAnimationBounds(&monster));
+    monster.detached = false;
     monster.animation = nullptr;
     REQUIRE_FALSE(monster.GetAnimationBounds());
     REQUIRE_FALSE(monster.GetAnimationCenter());

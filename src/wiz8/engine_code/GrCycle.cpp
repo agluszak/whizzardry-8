@@ -775,6 +775,8 @@ void W8GrCycle::UpdateLights()
 std::optional<srBoundingBox> W8GrCycle::GetAnimationBounds()
 {
     auto* representation = GetRepresentation();
+    if (!representation)
+        return std::nullopt;
     return AnimObjGetBounds(GetCurrentAnimation(), representation->m_bLOD,
                             representation->subcycle);
 }
