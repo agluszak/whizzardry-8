@@ -1,6 +1,8 @@
 #include "glm/ext/vector_int3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/octree_walk.h"
+#include "wiz8/engine_code/UpdateMesh.h"
+#include "glm/ext/vector_int2.hpp"
 #include <catch2/catch_test_macros.hpp>
 #include <glm/gtc/constants.hpp>
 #include <glm/ext/matrix_clip_space.hpp>
@@ -24,6 +26,7 @@
 #include "surrender/srBoundingBox.h"
 #include "surrender/srMaterial.h"
 #include "surrender/srModeler.h"
+#include "surrender/srTriMeshPipeline.h"
 #include "surrender/srGERD.h"
 #include "surrender/srCamera.h"
 #include "surrender/srClock.h"
@@ -1245,4 +1248,77 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Monster bounds scale and translate indep
     REQUIRE_FALSE(MonsterGetWorldAnimationBounds(nullptr));
     REQUIRE(bounds->minimum == glm::vec3(-2, -4, -6));
     REQUIRE(animation.frame_bounds[0].minimum == srVector3(-1, -2, -3));
+}
+
+TEST_CASE("Quad visibility owns ordered cells without a fixed capacity", "[geometry]")
+{
+    const auto cells = rasterizeQuadTriangle({256, 256}, {{{0, 0}, {255, 0}, {128, 255}}});
+    REQUIRE(cells.size() > 20000);
+    for (std::size_t index = 0; index < cells.size(); ++index) {
+        REQUIRE(cells[index].x >= 0);
+        REQUIRE(cells[index].x < 256);
+        REQUIRE(cells[index].y >= 0);
+        REQUIRE(cells[index].y < 256);
+        if (index) {
+            REQUIRE(cells[index].y >= cells[index - 1].y);
+            if (cells[index].y == cells[index - 1].y)
+                REQUIRE(cells[index].x == cells[index - 1].x + 1);
+        }
+    }
+    REQUIRE(rasterizeQuadTriangle({256, 256}, {{{128, 255}, {255, 0}, {0, 0}}}) == cells);
+    const auto clipped = rasterizeQuadTriangle({8, 8}, {{{-10, -10}, {15, 2}, {3, 20}}});
+    REQUIRE_FALSE(clipped.empty());
+    for (const auto& cell : clipped) {
+        REQUIRE(cell.x >= 0);
+        REQUIRE(cell.x < 8);
+        REQUIRE(cell.y >= 0);
+        REQUIRE(cell.y < 8);
+    }
+    REQUIRE(rasterizeQuadTriangle({8, 8}, {{{1, 1}, {2, 1}, {3, 1}}}).empty());
+    REQUIRE(rasterizeQuadTriangle({8, 8}, {{{1, 1}, {1, 2}, {1, 3}}}).empty());
+    REQUIRE(rasterizeQuadTriangle({0, 0}, {{{0, 0}, {10, 2}, {3, 20}}}).empty());
+}
+
+TEST_CASE("Software backface selection preserves thresholds and active order", "[geometry]")
+{
+    std::array<srVector3, 3> positions{{{0, 0, 0}, {0, 0, 2}, {0, 0, -2}}};
+    std::array<srVector3i, 3> triangles{{{0, 0, 0}, {1, 1, 1}, {2, 2, 2}}};
+    const std::array<srVector3, 3> normals{{{0, 0, 1}, {0, 0, 1}, {0, 0, 1}}};
+    srMeshModel::TriMesh mesh;
+    mesh.polygon_count = triangles.size();
+    mesh.positions = positions.data();
+    mesh.poly_vertices = triangles.data();
+    const auto positive = stMeshModel::facingPolygons(mesh, normals, glm::vec3(0), true, 0);
+    REQUIRE(positive == std::vector<w8_ulong>{0, 2});
+    REQUIRE(stMeshModel::facingPolygons(mesh, normals, glm::vec3(0), false, 0) ==
+            std::vector<w8_ulong>{0, 1});
+    REQUIRE(stMeshModel::facingPolygons(mesh, normals, glm::vec3(0), true, 1) ==
+            std::vector<w8_ulong>{2});
+    std::array<w8_ulong, 4> active{2, 1, 0, 2};
+    mesh.active_polygons = std::span<const w8_ulong>(active);
+    REQUIRE(stMeshModel::facingPolygons(mesh, normals, glm::vec3(0), true, 0) ==
+            std::vector<w8_ulong>{2, 0, 2});
+    REQUIRE(positive == std::vector<w8_ulong>{0, 2});
+    mesh.active_polygons = std::span<const w8_ulong>{};
+    REQUIRE(stMeshModel::facingPolygons(mesh, normals, glm::vec3(0), true, 0).empty());
+}
+
+TEST_CASE_METHOD(SurRenderTestFixture, "Empty software backface selections skip mesh submission", "[geometry]")
+{
+    srGERD renderer(srCreateSDLGPUDevice(), "empty software selection");
+    renderer.setWinding(srGERD::WINDING_POSITIONAL_0);
+    stMeshModel model(1, 3);
+    auto* pipeline = srTriMeshPipeline::Get(&renderer);
+    std::array<srVector3, 3> positions{{{0, 0, 2}, {0, 0, 2}, {0, 0, 2}}};
+    std::array<srVector3i, 1> triangles{{{0, 1, 2}}};
+    const std::array<srVector3, 1> normals{{{0, 0, 1}}};
+    srMeshModel::TriMesh mesh;
+    mesh.vertex_count = positions.size();
+    mesh.polygon_count = triangles.size();
+    mesh.positions = positions.data();
+    mesh.poly_vertices = triangles.data();
+    mesh.control_flags = (1u << srMeshModel::CONTROL_FRONT) | (1u << srMeshModel::CONTROL_BACK);
+    const auto before = pipeline->triangle_count;
+    model.RenderTriMeshWithEquations(renderer, mesh, normals.data());
+    REQUIRE(pipeline->triangle_count == before);
 }

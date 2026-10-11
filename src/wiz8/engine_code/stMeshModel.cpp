@@ -8,6 +8,8 @@
 #include <string_view>
 #include <utility>
 #include <vector>
+#include <ranges>
+#include "surrender/triangle_selection.h"
 
 #include "compat/compiler.h"
 #include "compat/native.h"
@@ -43,11 +45,6 @@ std::vector<stMeshModel*> g_mesh_models;
 
 // GLOBAL: WIZ8 0x0065a0e8
 int g_decompressed_mesh_bytes;
-
-/* Active-polygon scratch for the optional software backface pass in
-   RenderTriMeshWithEquations. */
-// GLOBAL: WIZ8 0x00659ce0
-std::vector<w8_ulong> g_software_cull_active_polygons;
 
 /* Byte budget for the decompressed per-frame caches; AllocateFrameBuffers
    reclaims least-recently-used frames past it. */
@@ -316,15 +313,36 @@ void stMeshModel::renderTriMesh(srGERD& renderer, const TriMesh& mesh)
     RenderTriMeshWithEquations(renderer, mesh, 0);
 }
 
+std::vector<w8_ulong> stMeshModel::facingPolygons(const TriMesh& mesh,
+                                                std::span<const srVector3T<float>> normals,
+                                                const glm::vec3& eye, bool positive_winding,
+                                                float threshold)
+{
+    const auto available = mesh.active_polygons ? mesh.active_polygons->size() : mesh.polygon_count;
+    if (available <= 0) return {};
+    const auto count = static_cast<w8_ulong>(available);
+    std::vector<w8_ulong> polygons(count);
+    const auto keep = [&](w8_ulong polygon) {
+        const auto position = mesh.positions[mesh.poly_vertices[polygon].y].glmValue();
+        const float facing = glm::dot(eye - position, normals[polygon].glmValue());
+        return positive_winding ? threshold <= facing : facing <= threshold;
+    };
+    const auto kept = mesh.active_polygons
+        ? srRender::selectTriangles(polygons, *mesh.active_polygons, keep)
+        : srRender::selectTriangles(polygons, std::views::iota(w8_ulong{0}, count), keep);
+    polygons.resize(kept);
+    return polygons;
+}
+
 /* Wizardry-extended srMeshModel::renderTriMesh. Optional polygon normals enable
-   a software backface cull into g_software_cull_active_polygons and
+   a software backface cull into an owned active-polygon list and
    forces CULL_NONE; a null table leaves hardware cull at CULL_BACK unless
    g_render_cull_front already requested front culling. */
 // FUNCTION: WIZ8 0x00470380
 void stMeshModel::RenderTriMeshWithEquations(srGERD& renderer, const TriMesh& mesh,
                                              const srVector3T<float>* arg_poly_equations)
 {
-    w8_ulong active_count = 0;
+    std::vector<w8_ulong> software_polygons;
     srShader shader;
 
     if (mesh.polygon_count != 0 && mesh.vertex_count != 0) {
@@ -340,75 +358,18 @@ void stMeshModel::RenderTriMeshWithEquations(srGERD& renderer, const TriMesh& me
         } else if (arg_poly_equations != 0) {
             renderer.setCullMode(srGERD::CULL_NONE);
 
-            g_software_cull_active_polygons.resize(mesh.polygon_count);
-
-            const auto inverse_model_view = renderer.getInverseModelViewMatrix();
-            srVector3T<float> eye(inverse_model_view[3][0], inverse_model_view[3][1],
-                                  inverse_model_view[3][2]);
-
-            if (!mesh.active_polygons) {
-                if (renderer.getWinding() == srGERD::WINDING_POSITIONAL_0) {
-                    for (w8_long polygon = 0; polygon < mesh.polygon_count; ++polygon) {
-                        int vertex = mesh.poly_vertices[polygon].y;
-                        const srVector3T<float>& position = mesh.positions[vertex];
-                        const srVector3T<float>& equation = arg_poly_equations[polygon];
-                        float facing = (eye.x - position.x) * equation.x +
-                                       (eye.y - position.y) * equation.y +
-                                       (eye.z - position.z) * equation.z;
-                        if (static_cast<float>(g_double_zero) <= facing) {
-                            g_software_cull_active_polygons[active_count] =
-                                static_cast<w8_ulong>(polygon);
-                            ++active_count;
-                        }
-                    }
-                } else {
-                    for (w8_long polygon = 0; polygon < mesh.polygon_count; ++polygon) {
-                        int vertex = mesh.poly_vertices[polygon].y;
-                        const srVector3T<float>& position = mesh.positions[vertex];
-                        const srVector3T<float>& equation = arg_poly_equations[polygon];
-                        float facing = (eye.x - position.x) * equation.x +
-                                       (eye.y - position.y) * equation.y +
-                                       (eye.z - position.z) * equation.z;
-                        if (facing <= static_cast<float>(g_double_zero)) {
-                            g_software_cull_active_polygons[active_count] =
-                                static_cast<w8_ulong>(polygon);
-                            ++active_count;
-                        }
-                    }
-                }
-            } else if (renderer.getWinding() == srGERD::WINDING_POSITIONAL_0) {
-                for (const auto polygon : *mesh.active_polygons) {
-                    int vertex = mesh.poly_vertices[polygon].y;
-                    const srVector3T<float>& position = mesh.positions[vertex];
-                    const srVector3T<float>& equation = arg_poly_equations[polygon];
-                    float facing = (eye.x - position.x) * equation.x +
-                                   (eye.y - position.y) * equation.y +
-                                   (eye.z - position.z) * equation.z;
-                    if (static_cast<float>(g_double_zero) <= facing) {
-                        g_software_cull_active_polygons[active_count] = polygon;
-                        ++active_count;
-                    }
-                }
-            } else {
-                for (const auto polygon : *mesh.active_polygons) {
-                    int vertex = mesh.poly_vertices[polygon].y;
-                    const srVector3T<float>& position = mesh.positions[vertex];
-                    const srVector3T<float>& equation = arg_poly_equations[polygon];
-                    float facing = (eye.x - position.x) * equation.x +
-                                   (eye.y - position.y) * equation.y +
-                                   (eye.z - position.z) * equation.z;
-                    if (facing <= static_cast<float>(g_double_zero)) {
-                        g_software_cull_active_polygons[active_count] = polygon;
-                        ++active_count;
-                    }
-                }
-            }
+            software_polygons = facingPolygons(mesh,
+                {arg_poly_equations, static_cast<std::size_t>(mesh.polygon_count)},
+                glm::vec3(renderer.getInverseModelViewMatrix()[3]),
+                renderer.getWinding() == srGERD::WINDING_POSITIONAL_0,
+                static_cast<float>(g_double_zero));
         } else {
             renderer.setCullMode(srGERD::CULL_BACK);
         }
 
         for (int side = 1; side >= 0; --side) {
-            if ((mesh.control_flags & (1u << side)) != 0) {
+            if ((mesh.control_flags & (1u << side)) != 0 &&
+                (arg_poly_equations == nullptr || !software_polygons.empty())) {
                 srTriMeshPipeline* pipeline = srTriMeshPipeline::Get(&renderer);
                 pipeline->sort_bias = mesh.sort_bias;
                 pipeline->triangles = mesh.poly_vertices;
@@ -424,9 +385,8 @@ void stMeshModel::RenderTriMeshWithEquations(srGERD& renderer, const TriMesh& me
                 }
 
                 if (arg_poly_equations != 0) {
-                    pipeline->active_triangles =
-                        std::span<const w8_ulong>(g_software_cull_active_polygons).first(active_count);
-                } else if (mesh.active_polygons) {
+                    pipeline->active_triangles = std::span<const w8_ulong>(software_polygons);
+                } else if (mesh.active_polygons.has_value()) {
                     pipeline->active_triangles = mesh.active_polygons;
                 }
 
