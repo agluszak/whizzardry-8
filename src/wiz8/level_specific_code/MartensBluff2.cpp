@@ -443,8 +443,6 @@ void MartensBluff2MonsterCrusher(int command)
     srVector3T<float> lower;
     srVector3T<float> upper;
     srVector3T<float> centre;
-    srVector3T<float> bounds_min;
-    srVector3T<float> bounds_max;
     srVector3T<float> position;
     std::vector<w8_ulong> location_ids;
     unsigned int count;
@@ -554,10 +552,8 @@ void MartensBluff2MonsterCrusher(int command)
         g_crusher_state = 2;
         return;
     }
-    g_squisher3_prop->m_gd_prop->ComputeBounds(&bounds_min, &bounds_max);
-    left = bounds_max.x;
-    g_squisher4_prop->m_gd_prop->ComputeBounds(&bounds_min, &bounds_max);
-    right = bounds_min.x;
+    left = g_squisher3_prop->m_gd_prop->computeBounds().maximum.x;
+    right = g_squisher4_prop->m_gd_prop->computeBounds().minimum.x;
     location_ids = g_octree->locationsInBox({crusher_lower.glmValue(), crusher_upper.glmValue()}, 0);
     count = location_ids.size();
     if (count == 0) {

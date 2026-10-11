@@ -13,7 +13,6 @@
 
 #include "wiz8/filesystem.h"
 #include "wiz8/engine_code/3d.h"
-#include "wiz8/geometry.h"
 #include "wiz8/engine_code/AnimObj.h"
 #include "wiz8/engine_code/PathAI.h"
 #include "surrender/srClipPlane.h"
@@ -544,10 +543,9 @@ try
                 const auto prop_bounds = prop->GetBounds();
                 if (!prop_bounds)
                     return false;
-                const W8BoundingBox bounds{prop_bounds->minimum, prop_bounds->maximum};
                 pWorld->collidable_props.push_back(prop);
                 if (pWorld->octree != 0) {
-                    pWorld->octree->AddCollidablePropBounds(collidable_index, &bounds);
+                    pWorld->octree->AddCollidablePropBounds(collidable_index, *prop_bounds);
                     ++collidable_index;
                 }
             }

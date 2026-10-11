@@ -85,13 +85,6 @@ bool WriteVector2Array(wiz8::File* file, const glm::vec2* values, int count);
 bool ReadVector4Array(wiz8::File* file, glm::vec4* values, int count);
 bool ReadVector3Array(wiz8::File* file, void* values, int count);
 bool ReadVector2Array(wiz8::File* file, glm::vec2* values, int count);
-/* Grow `minimum`/`maximum` to include `point`, returning whether any bound
-   moved. */
-char GrowBoundsByPoint(const srVector3T<float>* point, srVector3T<float>* minimum,
-                       srVector3T<float>* maximum); /* 0x004378F0 */
-/* Whether `point` lies within `radius` of the bounds box. */
-/* 0x004386A0 */
-
 inline bool ReadVectorArray(wiz8::File* file, void* values, int count)
 {
     return ReadVector3Array(file, values, count);
@@ -274,7 +267,7 @@ public:
     /* Whether prop `offset` past prop_sun_base has its sunlight bit; a
        negative offset checkpoints the shared index into the base. */
     bool TestPropSunBit(int offset);
-    void AddCollidablePropBounds(int index, const W8BoundingBox* bounds);
+    void AddCollidablePropBounds(int index, const srBoundingBox& bounds);
     void VisitPointCopy(unsigned short location_id, srVector3T<float>* position);
     /* Quantize relative to the spatial minimum, truncating toward zero. */
     glm::ivec3 cellAt(const glm::vec3& position) const; /* 0x00431440 */
@@ -600,12 +593,11 @@ public:
     unsigned char BuildPathLists(W8GameData* game_data, W8LevelFile* level,
                                  unsigned int min_component_percent);
     char PathNodeObstructed(const srVector3T<float>* node_position);
-    unsigned char InsertConditionalNodes(std::unordered_multimap<unsigned int, CondPathNode*>* nodes,
-                                         unsigned int cell, unsigned int node, W8PreProp* preprops,
-                                         int preprop_count);
+    unsigned char InsertConditionalNodes(std::unordered_multimap<unsigned int, CondPathNode*>& nodes,
+                                         unsigned int cell, unsigned int node, std::span<const W8PreProp> preprops);
     /* Tests the bounds box against static surfaces and registered props;
        0 clear, 1 blocked, 3 clear but prop ids were recorded in m_lBlocks. */
-    char TestPathPropBounds(const srVector3T<float>* minimum, const srVector3T<float>* maximum);
+    char TestPathPropBounds(const srBoundingBox& bounds);
     int CreatePathProps(W8LevelFile* level, W8PreProp** preprops);
     char PropFramesDiffer(W8LevelFileAnimObj* anim, unsigned short first, unsigned short last);
 };

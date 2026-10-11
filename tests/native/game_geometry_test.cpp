@@ -1,3 +1,6 @@
+#include "wiz8/engine_code/LevelFile.h"
+#include "wiz8/navigation_flags.h"
+#include "wiz8/engine_code/GDProp.h"
 #include <stdexcept>
 #include "wiz8/engine_code/mesh_links.h"
 #include "surrender/srClipPlane.h"
@@ -1969,4 +1972,72 @@ TEST_CASE("Pre-tree leaf conversion packs polygon and terrain runs with independ
     REQUIRE(tree.m_gd_surface_index_stream[3] == 23);
     REQUIRE(leaf.surface_arrays[2] == nullptr);
     REQUIRE(leaf.surface_arrays[3] == nullptr);
+}
+
+TEST_CASE_METHOD(SurRenderTestFixture, "Prop bounds return complete boxes and register inclusive octree cells", "[geometry][octree]")
+{
+    GDProp empty;
+    REQUIRE(empty.computeBounds().minimum == glm::vec3(0));
+    W8Octree tree(0, 0);
+    struct RestoreOctree {
+        W8Octree* previous;
+        ~RestoreOctree() { g_octree = previous; }
+    } restore{g_octree};
+    g_octree = &tree;
+    auto mesh = std::make_shared<stMeshModel>(1, 3);
+    mesh->getVertexLoc()[0] = {-2, -3, 4};
+    mesh->getVertexLoc()[1] = {5, 6, -7};
+    mesh->getVertexLoc()[2] = {1, 2, 3};
+    mesh->getPolyVertex()[0] = {0, 1, 2};
+    srModelInstance instance;
+    instance.setModel(mesh);
+    GDProp prop(&instance, "", 4, 0, 0);
+    const auto bounds = prop.computeBounds();
+    REQUIRE(bounds.minimum == glm::vec3(-2, -3, -7));
+    REQUIRE(bounds.maximum == glm::vec3(5, 6, 4));
+    REQUIRE(prop.computeBounds().minimum == bounds.minimum);
+    tree.object_registry = new W8OctreeObjectRegistry;
+    tree.m_spatial.m_bounds.minimum = glm::vec3(10);
+    tree.m_spatial.m_node_extent = 2;
+    const srBoundingBox cells{{9, 10, 10}, {12, 10, 10}};
+    tree.AddCollidablePropBounds(4, cells);
+    REQUIRE(tree.object_registry->by_cell->size() == 2);
+    REQUIRE(tree.object_registry->by_object->size() == 2);
+    tree.AddCollidablePropBounds(4, cells);
+    REQUIRE(tree.object_registry->by_cell->size() == 2);
+    REQUIRE(tree.object_registry->by_object->size() == 2);
+    srBoundingBox endpoints{{0, 10, 0}, {0, 10, 0}};
+    endpoints.include({1, -2, 20});
+    REQUIRE(endpoints.minimum.y == -2); // Y is compared with Y even when Z lies above the start.
+    REQUIRE(endpoints.maximum.z == 20);
+}
+
+TEST_CASE("Conditional path prop links share matching while retaining blocker flags", "[geometry][octree]")
+{
+    OctPreTree tree;
+    std::array<GDPreProp, 2> meshes;
+    W8LevelFileAnimObj empty{};
+    meshes[0].ApplyAnimFrame(7, &empty);
+    meshes[1].ApplyAnimFrame(8, &empty);
+    std::array<W8PreProp, 2> props{};
+    props[1].first_prop_number = 20;
+    props[1].num_stop_meshes = meshes.size();
+    props[1].pStopMeshes = meshes.data();
+    tree.m_lNumSupports = tree.m_lNumBlocks = 1;
+    tree.m_lSupports[0] = 20;
+    tree.m_lBlocks[0] = 21;
+    std::unordered_multimap<unsigned, CondPathNode*> links;
+    REQUIRE(tree.InsertConditionalNodes(links, 123, 5, props));
+    REQUIRE(links.size() == 2);
+    const auto* support = links.find((7u << 16) | 2u)->second;
+    const auto* blocker = links.find((8u << 16) | 2u)->second;
+    REQUIRE(support->cell == 123);
+    REQUIRE(support->value == 5);
+    REQUIRE(blocker->cell == 123);
+    REQUIRE(blocker->value == (5 | W8_PATH_CELL_BLOCKING_FRAME));
+    for (const auto& [key, value] : links) std::free(value);
+    links.clear();
+    tree.m_lNumSupports = tree.m_lNumBlocks = 0;
+    REQUIRE_FALSE(tree.InsertConditionalNodes(links, 123, 5, props));
+    REQUIRE(links.empty());
 }

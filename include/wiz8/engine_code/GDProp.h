@@ -2,6 +2,7 @@
 #define WIZ8_ENGINE_CODE_GDPROP_H
 
 #include <vector>
+#include "surrender/srBoundingBox.h"
 
 #include "wiz8/engine_code/OctPath.h"
 #include "compat/compiler.h"
@@ -73,11 +74,10 @@ public:
     /* Rebuilds m_pVertices/m_pGDSurfaces for the given animation frame of the
        level prop's transforms. */
     void ApplyAnimFrame(unsigned short frame, W8LevelFileAnimObj* anim);
-    /* Computes the vertex AABB into m_bound_min/m_bound_max and copies
-       it to the out parameters. */
-    void ComputeBounds(srVector3T<float>* minimum, srVector3T<float>* maximum);
+    /* Rebuild the cached vertex and path bounds and return the complete box. */
+    srBoundingBox computeBounds();
     /* Box-vs-bound test used by the pre-tree path obstruction pass. */
-    char BoundsOverlap(const srVector3T<float>* minimum, const srVector3T<float>* maximum);
+    bool boundsOverlap(const srBoundingBox& box);
     /* Appends the index to the waypoint list when the grid point lies inside
        the path bounds; the list grows ten entries at a time. */
     unsigned char RegisterPathSurface(unsigned int index, const srVector2i* point);
@@ -110,8 +110,8 @@ private:
     srVector3T<float>* m_pVertices;       /* 0x20 */
     Trigger* m_trigger;                   /* 0x24: installed by 0x004B7470 */
     W8PathVerticalRange m_path_range;     /* 0x28 */
-    /* Vertex AABB cached by ComputeBounds and tested by
-       BoundsOverlap. */
+    /* Vertex AABB cached by computeBounds and tested by
+       boundsOverlap. */
     srVector3T<float> m_bound_min;  /* 0x34 */
     srVector3T<float> m_bound_max;  /* 0x40 */
     W8PathGridBounds m_path_bounds; /* 0x4c */

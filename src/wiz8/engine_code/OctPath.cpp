@@ -1024,12 +1024,11 @@ bool W8PathingService::TestAttachmentHopDoor(W8NavigatorAttachment* attachment)
         }
         if (edge_index != 0 && (m_pEdges[edge_index].flags & W8_NAV_THROUGH_DOORS) != 0 &&
             (m_pEdges[edge_index].flags & W8_PATH_EDGE_DISABLED) != 0) {
-            srVector3T<float> lower = source_surface->position;
-            srVector3T<float> upper = source_surface->position;
-            GrowBoundsByPoint(&m_waypoints[destination].position, &lower, &upper);
+            srBoundingBox bounds{source_surface->position.glmValue(), source_surface->position.glmValue()};
+            bounds.include(m_waypoints[destination].position.glmValue());
             std::vector<w8_ulong> candidates;
             Trigger* selected = 0;
-            candidates = g_octree->queryObjects({lower.glmValue(), upper.glmValue()}, W8_OCTREE_KIND_PROP, -1);
+            candidates = g_octree->queryObjects(bounds, W8_OCTREE_KIND_PROP, -1);
             int count = candidates.size();
             if (count > 0) {
                 if (count == 1) {
@@ -1040,15 +1039,14 @@ bool W8PathingService::TestAttachmentHopDoor(W8NavigatorAttachment* attachment)
                     }
                 } else {
                     double nearest_distance = 1e32;
-                    srVector3T<float> center = (upper - lower) * g_double_half + lower;
+                    const glm::vec3 center = bounds.center();
                     for (int index = 0; index < count; ++index) {
                         W8Prop* prop = g_world->collidable_props[candidates[index]];
                         Trigger* trigger = prop->GetGDPropOwnerTrigger();
                         if (trigger != 0) {
-                            srVector3T<float> position;
-                            position = prop->GetPosition();
-                            float distance = glm::dot((position - center).glmValue(),
-                                                      (position - center).glmValue());
+                            const glm::vec3 position = prop->GetPosition().glmValue();
+                            const auto offset = position - center;
+                            const float distance = glm::dot(offset, offset);
                             if (distance < nearest_distance) {
                                 nearest_distance = distance;
                                 selected = trigger;

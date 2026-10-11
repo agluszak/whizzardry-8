@@ -274,10 +274,9 @@ void GDProp::BindTrigger(Trigger* owner)
 }
 
 /* Scan the transformed vertices for the axis-aligned bounds. The cached box
-   feeds the path bookkeeping range/sentinel and is also copied out for the
-   caller. */
+   feeds the path bookkeeping range/sentinel and is returned as a native value. */
 // FUNCTION: WIZ8 0x004b7500
-void GDProp::ComputeBounds(srVector3T<float>* minimum, srVector3T<float>* maximum)
+srBoundingBox GDProp::computeBounds()
 {
     const auto bounds = boundingBox(std::span<const srVector3T<float>>{
         m_pVertices, static_cast<std::size_t>(m_vertex_count)});
@@ -288,8 +287,7 @@ void GDProp::ComputeBounds(srVector3T<float>* minimum, srVector3T<float>* maximu
     m_path_range.maximum = m_bound_max.y;
     m_path_range.sentinel = (m_bound_min.y + m_bound_max.y) * g_float_half;
 
-    *minimum = m_bound_min;
-    *maximum = m_bound_max;
+    return bounds;
 }
 
 /* The pathing record supplies inclusive unsigned coordinate bounds at
@@ -306,9 +304,8 @@ bool GDProp::ContainsPathCoordinate(unsigned short x, unsigned short y) const
 
 /* Test each surface's runtime triangle against the query box. */
 // FUNCTION: WIZ8 0x004b7620
-char GDProp::BoundsOverlap(const srVector3T<float>* minimum, const srVector3T<float>* maximum)
+bool GDProp::boundsOverlap(const srBoundingBox& box)
 {
-    const srBoundingBox box{minimum->glmValue(), maximum->glmValue()};
     bool hit = false;
     for (int index = 0; index < m_surface_count && hit == 0; ++index) {
         W8GDSurface* surface = &m_pGDSurfaces[index];
