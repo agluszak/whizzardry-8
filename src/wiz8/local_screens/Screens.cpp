@@ -34,7 +34,6 @@
 #include "layouts/targeting.h"
 
 /* Query whether scrolling is possible, or scroll and invalidate the transcript. */
-// FUNCTION: WIZ8 0x0055EBB0
 bool W8NpcDialogueTextController::HandleScrollDownCommand(bool check_only)
 {
     if (text_area.ScrollDown(check_only)) {
@@ -46,7 +45,6 @@ bool W8NpcDialogueTextController::HandleScrollDownCommand(bool check_only)
     return false;
 }
 
-// FUNCTION: WIZ8 0x0055EBE0
 bool W8NpcDialogueTextController::HandleScrollUpCommand(bool check_only)
 {
     if (text_area.ScrollUp(check_only)) {
@@ -60,7 +58,6 @@ bool W8NpcDialogueTextController::HandleScrollUpCommand(bool check_only)
 
 /* Return the requested screen id, falling back to the state at the top of the
    return stack when there is no explicit pending state. */
-// FUNCTION: WIZ8 0x0055EC10
 W8ScreenId GetPendingScreenState(void)
 {
     if (g_pending_screen_state.id != W8_SCREEN_NONE) {
@@ -72,19 +69,16 @@ W8ScreenId GetPendingScreenState(void)
     return W8_SCREEN_NONE;
 }
 
-// FUNCTION: WIZ8 0x0055ec50
 void SetPendingScreenState(W8ScreenId value)
 {
     g_pending_screen_state.id = value;
 }
 
-// FUNCTION: WIZ8 0x0055ec60
 void RequestScreenTransition(void)
 {
     g_screen_return_requested = true;
 }
 
-// FUNCTION: WIZ8 0x0055EC70
 bool IsScreenTransitionPending(void)
 {
     if (g_pending_screen_state.id == W8_SCREEN_NONE && !g_screen_return_requested) {
@@ -95,7 +89,6 @@ bool IsScreenTransitionPending(void)
 
 /* Route one redraw bit to the active camp or main-game screen state. The slot
    travels as an int: the body only ever reads its low byte for the shift. */
-// FUNCTION: WIZ8 0x0055EE30
 void RequestPartySlotRedraw(int bit)
 {
     if (g_current_screen_state.id == W8_SCREEN_CAMP) {
@@ -108,7 +101,6 @@ void RequestPartySlotRedraw(int bit)
 /* Refresh one party slot's on-screen presentation for the active screen:
    character and party-selection forward into their own helpers; camp marks
    the review panels dirty; main game redraws the portrait overlay. */
-// FUNCTION: WIZ8 0x0055EC90
 void RefreshPartySlotDisplay(unsigned int party_slot)
 {
     unsigned int top;
@@ -184,7 +176,6 @@ void RefreshPartySlotDisplay(unsigned int party_slot)
 
 /* Text-input mode installs cursor id 8. Lives here because the address sits
    in the Screens translation unit. */
-// FUNCTION: WIZ8 0x0055EF80
 int GetTextInputCursor(void)
 {
     return W8_CURSOR_TEXT_INPUT;
@@ -193,7 +184,6 @@ int GetTextInputCursor(void)
 /* Install a named cursor, or restore the held-item / default cursor when the
    caller passes W8_CURSOR_NONE (-1). Unchanged ids are ignored; a new id resets
    the frame and applies through ApplyCurrentCursor. */
-// FUNCTION: WIZ8 0x0055EE70
 void SetTargetCursor(int cursor)
 {
     if (cursor == gXStatus.iCurrentCursor) {
@@ -208,7 +198,6 @@ void SetTargetCursor(int cursor)
     }
 }
 
-// FUNCTION: WIZ8 0x0055ef90
 void UpdateHeldItemCursor(void)
 {
     if ((g_current_screen_state.id == W8_SCREEN_MAIN_GAME ||
@@ -238,12 +227,11 @@ void UpdateHeldItemCursor(void)
    resource-slot table: resize, install the slot's texture anim, select the
    current frame, and refresh the hotspot. Multi-frame cursors also arm the
    animation countdown. */
-// FUNCTION: WIZ8 0x0055F080
 void ApplyCurrentCursor(void)
 {
     if (gXStatus.iCurrentCursor == W8_CURSOR_NONE) {
         srAssertFail("gXStatus.iCurrentCursor != -1",
-                     "C:\\Projects\\Wizardry 8\\Local Screens\\Screens.cpp", 0x18d, 0);
+                     __FILE__, 0x18d, 0);
     }
     if (g_main_game_resource_slots[gXStatus.iCurrentCursor].object != 0) {
         ResizeMouseCursorSurface(g_main_game_resource_slots[gXStatus.iCurrentCursor].size_x,
@@ -262,7 +250,6 @@ void ApplyCurrentCursor(void)
 /* Empty the item-in-hand record and restore the normal cursor. The held item is
    the 0x0c-byte record at g_status.item_in_hand; the
    byte directly before it is item_in_cursor. */
-// FUNCTION: WIZ8 0x0055f1e0
 void ClearHeldItemDisplay(void)
 {
     memset(&g_status.item_in_hand, 0, sizeof(g_status.item_in_hand));
@@ -284,7 +271,6 @@ void ClearHeldItemDisplay(void)
 // GLOBAL: WIZ8 0x00647ccc
 static unsigned char g_party_order_text_colors[8] = {7, 4, 6, 2, 5, 8, 9, 3};
 
-// FUNCTION: WIZ8 0x0055F2B0
 unsigned char GetPartyOrderTextColor(signed char party_order)
 {
     return g_party_order_text_colors[party_order];
@@ -292,7 +278,6 @@ unsigned char GetPartyOrderTextColor(signed char party_order)
 
 /* Draw the held item as the cursor, then blit the supplied catalog video
    object over it. A negative held item id leaves the cursor unchanged. */
-// FUNCTION: WIZ8 0x0055F160
 void SetItemCursor(int overlay_video_object)
 {
     if (g_status.item_in_hand.iItemNo != -1) {
@@ -307,7 +292,6 @@ void SetItemCursor(int overlay_video_object)
 }
 
 /* Dispatch one already-built notice line to the camp or main-game dialog. */
-// FUNCTION: WIZ8 0x0055F260
 void ShowNoticeLine(std::string_view text, W8DialogDestroyCallback callback, bool confirmation, bool cancel)
 {
     switch (g_current_screen_state.id) {
@@ -325,7 +309,6 @@ void ShowNoticeLine(std::string_view text, W8DialogDestroyCallback callback, boo
 /* Default the live main-game level block after ResetMainGameScreenState: clear
    selection and text-box state, arm the timers, size the text regions, and
    reset message storage. */
-// FUNCTION: WIZ8 0x0055F2C0
 void InitializeMainGameLevelBlock(void)
 {
     W8MainUiMode previous_mode;

@@ -73,7 +73,7 @@ static std::string_view MipeCategoryName(const std::vector<W8MipeCategoryEntry>*
     return {};
 }
 
-#define MIPE_CPP "C:\\Projects\\Wizardry 8\\Local Screens\\mipe.cpp"
+#define MIPE_CPP __FILE__
 
 /* Local Screens\mipe.cpp. The MIPE state is a diagnostic monster/item
    selection panel used while the debug flag is active. */
@@ -127,7 +127,6 @@ static void ShowMipeNamedCategory(std::vector<W8MipeCategoryEntry>* list,
 /* The MIPE toggle: leaving the panel restores the level flags and combat
    state and tears the editor state down; entering it clears combat flags,
    prints the mode menu and builds the monster entry list. */
-// FUNCTION: WIZ8 0x0057d740
 static void ShowMipeMenu(std::string_view title, std::initializer_list<std::string_view> rows)
 {
     ResetEditorStatusLine(-1);
@@ -279,7 +278,6 @@ static const char* g_lock_type_names[4] = {"None", "Pickable Lock", "Trap", "Key
 
 /* Mode-1 status: monster being placed, count being accumulated and the
    creation method. */
-// FUNCTION: WIZ8 0x00577bf0
 static void ShowMipeMonsterStatus(void)
 {
     std::string name;
@@ -308,7 +306,6 @@ static void ShowMipeMonsterStatus(void)
 }
 
 /* Mode-2 status: item being placed, count and the hidden/visible toggles. */
-// FUNCTION: WIZ8 0x00577cb0
 static void ShowMipeItemStatus(void)
 {
     std::string name;
@@ -342,7 +339,6 @@ static void ShowMipeItemStatus(void)
 
 /* Six visible rows of `list` starting at the table base; the selected row is
    palette 3, the rest 0xf, and short lists blank the remainder. */
-// FUNCTION: WIZ8 0x00577d80
 void ShowMipeTableRows(std::vector<W8MipeCategoryEntry>* list)
 {
     std::string_view entry;
@@ -380,14 +376,12 @@ static void ShowMipeSelectionMenu(const char* title)
     ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "Choosing: One");
 }
 
-// FUNCTION: WIZ8 0x00577de0
 void ShowMipeChooseMenu(void)
 {
     ShowMipeSelectionMenu("Choose monster or item to edit.");
 }
 
 /* Mode-5 menu: which kind of object to edit. */
-// FUNCTION: WIZ8 0x00577e60
 void ShowMipeEditMenu(void)
 {
     ShowMipeMenu("What do you want to edit?.", {
@@ -409,7 +403,6 @@ static void ShowMipeMonsterEditMenu()
 }
 
 /* Mode-0xd menu: prop field-editing choices (locks & traps, treasure table). */
-// FUNCTION: WIZ8 0x00577eb0
 void ShowMipePropMenu(void)
 {
     ShowMipeMenu("Choose how you want to edit prop.", {
@@ -423,7 +416,6 @@ void ShowMipePropMenu(void)
 
 /* Mode-0xc menu: trigger actions plus the selected trigger's kind and the
    armed "selecting" notice. */
-// FUNCTION: WIZ8 0x00578000
 static void ShowMipeTriggerMenu(void)
 {
     const char* status;
@@ -469,7 +461,6 @@ static void ShowMipeTriggerMenu(void)
 }
 
 /* The status line block the ','/'.' and 'k'/'l' handlers repaint. */
-// FUNCTION: WIZ8 0x00577f10
 void ShowMonsterSpeedStatus(void)
 {
     W8PathAI* path;
@@ -500,7 +491,6 @@ void ShowMonsterSpeedStatus(void)
 }
 
 /* The "Parameters" pane for the selected volume cube. */
-// FUNCTION: WIZ8 0x005780f0
 void ShowCubeParameters(void)
 {
     ResetEditorStatusLine(-1);
@@ -533,7 +523,6 @@ void ShowCubeParameters(void)
 }
 
 /* The monster generator top menu plus its selection status line. */
-// FUNCTION: WIZ8 0x005781f0
 void ShowMonsterGeneratorStatus(void)
 {
     const char* state;
@@ -570,7 +559,6 @@ void ShowMonsterGeneratorStatus(void)
 }
 
 /* The "Edit Monster Generator" pane. */
-// FUNCTION: WIZ8 0x005782d0
 void ShowMonsterGeneratorEditor(void)
 {
     MonGen* generator;
@@ -628,7 +616,6 @@ template <class Entry> static void ShowMipeNamedTableRows(std::vector<W8MipeCate
 }
 
 /* Mode-0x17 menu: current encounter-table category plus its six rows. */
-// FUNCTION: WIZ8 0x005783c0
 void ShowMipeEncounterCategory(void)
 {
     ResetEditorStatusLine(-1);
@@ -638,7 +625,6 @@ void ShowMipeEncounterCategory(void)
 }
 
 /* Mode-0x1d menu: current item-table category plus its six rows. */
-// FUNCTION: WIZ8 0x00578470
 void ShowMipeItemTableCategory(void)
 {
     ResetEditorStatusLine(-1);
@@ -672,7 +658,6 @@ static unsigned int FindMipeVisibleMonster(int visible)
     return monster_index;
 }
 
-// FUNCTION: WIZ8 0x00578500
 unsigned char HandleMipeMonsterCreateKey(unsigned short key)
 {
     std::vector<W8MipeCategoryEntry>* list;
@@ -871,7 +856,6 @@ static void RebuildMipeMonsterCategory(std::vector<W8MipeCategoryEntry>* list)
 /* Mode-7 key handler: the item-category picker. Enter resolves the highlighted
    record back to a database index and drops into item-create mode; the arrows
    page and walk the six-row view and cycle categories. */
-// FUNCTION: WIZ8 0x00578850
 void HandleMipeItemCategoryKey(unsigned short key)
 {
     std::vector<W8MipeCategoryEntry>* list;
@@ -927,7 +911,6 @@ void HandleMipeItemCategoryKey(unsigned short key)
    the selected item at the world cursor, 'A' flips the invisible-item display
    and activates/deactivates the flagged items, 'C' opens the item category
    picker and 'H' toggles the spawned item's hidden flag. */
-// FUNCTION: WIZ8 0x00578d00
 unsigned char HandleMipeItemCreateKey(unsigned short key)
 {
     std::vector<W8MipeCategoryEntry>* list;
@@ -1028,7 +1011,6 @@ unsigned char HandleMipeItemCreateKey(unsigned short key)
    highlighted entry to a monster record, seeds the spawn count from the
    creation method and drops back to mode 1; the arrows page/walk rows and
    cycle through non-empty categories. */
-// FUNCTION: WIZ8 0x00579300
 void HandleMipeMonsterCategoryKey(unsigned short key)
 {
     std::vector<W8MipeCategoryEntry>* list;
@@ -1112,7 +1094,6 @@ void HandleMipeMonsterCategoryKey(unsigned short key)
 /* '1' halves the selected monster's animation scale, '2' doubles it, '3'
    arms speed editing, '4' sends it to the world cursor, '5' advances it one
    subcycle. */
-// FUNCTION: WIZ8 0x00579900
 void HandleMonsterDebugKey(unsigned short key)
 {
     W8Monster* monster;
@@ -1208,7 +1189,6 @@ void HandleMonsterDebugKey(unsigned short key)
 }
 
 /* The ',', '.', 'k' and 'l' keys while speed editing the debug monster. */
-// FUNCTION: WIZ8 0x00579bf0
 void AdjustMonsterSpeed(unsigned short key)
 {
     W8PathAI* path;
@@ -1300,7 +1280,6 @@ static void ShowMipeLockTrapStatus()
 }
 
 /* 'C' drops a waypoint monster at the cursor, 'X' removes the newest one. */
-// FUNCTION: WIZ8 0x00579df0
 void HandleWaypointKey(unsigned short key)
 {
     W8Monster* monster;
@@ -1344,7 +1323,6 @@ void HandleWaypointKey(unsigned short key)
 /* Mode-0xd key handler: scans the world's props for the picked one with a
    trigger, stores it as the edit target and opens the locks & traps ('1') or
    treasure-table ('2') editors. */
-// FUNCTION: WIZ8 0x00579ff0
 void HandleMipePropEditKey(unsigned short key)
 {
     std::vector<W8MipeCategoryEntry>* list;
@@ -1446,7 +1424,6 @@ static void ShowMipeCubeMenu()
 
 /* The volume cube top menu: create, delete, edit parameters, move, scale and
    select. */
-// FUNCTION: WIZ8 0x0057a310
 int HandleCubeMenuKey(unsigned int key)
 {
     const char* prompt;
@@ -1546,7 +1523,6 @@ int HandleCubeMenuKey(unsigned int key)
 
 /* The digit keys editing the selected cube parameter, plus the arrow keys
    stepping between Message, Search and Function. */
-// FUNCTION: WIZ8 0x0057a630
 int HandleCubeParameterKey(unsigned int key)
 {
     int value;
@@ -1605,7 +1581,6 @@ int HandleCubeParameterKey(unsigned int key)
 
 /* The scale editor's keys: arrows resize the current plane and X/Y/Z pick the
    plane. */
-// FUNCTION: WIZ8 0x0057a800
 int HandleCubeScaleKey(unsigned short key)
 {
     char scale_planes[8];
@@ -1674,7 +1649,6 @@ int HandleCubeScaleKey(unsigned short key)
 }
 
 /* The monster generator top-menu keys. */
-// FUNCTION: WIZ8 0x0057aa00
 static int HandleMonsterGeneratorKey(unsigned short key)
 {
     MonGen* generator;
@@ -1775,7 +1749,6 @@ static void RebuildMipeEncounterCategory(std::vector<W8MipeCategoryEntry>* list)
     }
 }
 
-// FUNCTION: WIZ8 0x0057ad10
 int HandleMonsterGeneratorEditKey(unsigned short key)
 {
     std::vector<W8MipeCategoryEntry>* list;
@@ -1921,7 +1894,6 @@ int HandleMonsterGeneratorEditKey(unsigned short key)
 /* Mode-0x17 key handler: the generator's encounter-table picker. Enter binds
    the highlighted table to the selected generator; the arrows page/walk the
    rows and cycle through the categories. */
-// FUNCTION: WIZ8 0x0057b1a0
 void HandleMipeGeneratorTableKey(unsigned short key)
 {
     std::vector<W8MipeCategoryEntry>* list;
@@ -2016,7 +1988,6 @@ void HandleMipeGeneratorTableKey(unsigned short key)
 }
 
 /* Character entry for the generator name, capped at the 32-byte field. */
-// FUNCTION: WIZ8 0x0057b7e0
 void EditMonsterGeneratorName(unsigned short key)
 {
     std::string name;
@@ -2044,7 +2015,6 @@ void EditMonsterGeneratorName(unsigned short key)
 /* Mode-0x1b key handler: the selected prop trigger's locks & traps editor.
    '1' cycles the lock type and re-rolls the pin state, '2' enters key-id
    input, '3'/'4' bump the difficulty, and every path repaints the menu. */
-// FUNCTION: WIZ8 0x0057b880
 void HandleMipeLockTrapKey(unsigned short key)
 {
     Trigger* trigger;
@@ -2109,7 +2079,6 @@ void HandleMipeLockTrapKey(unsigned short key)
 }
 
 /* The digit keys editing the selected prop trigger's key id. */
-// FUNCTION: WIZ8 0x0057ba60
 void EditTriggerKeyID(unsigned int key)
 {
     Trigger* trigger;
@@ -2170,7 +2139,6 @@ void EditTriggerKeyID(unsigned int key)
    copies the highlighted table's name into the trigger's inline action data
    and returns to the prop menu; the arrows page/walk rows and cycle the item
    table categories. */
-// FUNCTION: WIZ8 0x0057bbd0
 void HandleMipeItemTableKey(unsigned short key)
 {
     std::vector<W8MipeCategoryEntry>* list;
@@ -2260,7 +2228,6 @@ void HandleMipeItemTableKey(unsigned short key)
    early Escape block unwinds the mode stack, the combat-timer shortcut keeps
    only 'V'/'X' live, and the mode switch routes everything else into the
    per-mode handlers above. */
-// FUNCTION: WIZ8 0x0057c230
 unsigned char HandleMipeKey(const InputEvent* event)
 {
     bool handled;
@@ -2754,12 +2721,10 @@ unsigned char HandleMipeKey(const InputEvent* event)
     return handled;
 }
 
-// FUNCTION: WIZ8 0x0057dbb0
 bool IsMipeActive(void)
 {
     return g_mipe_active;
 }
-// FUNCTION: WIZ8 0x0057dbc0
 bool IsMipeMenuActive(void)
 {
     return g_mipe_menu_active;
@@ -2767,7 +2732,6 @@ bool IsMipeMenuActive(void)
 
 /* Index of the `ordinal`-th item table in `category`, or the table count when
    fewer than `ordinal` tables match. */
-// FUNCTION: WIZ8 0x0057dbd0
 int FindCategoryItemTable(unsigned int category, int ordinal)
 {
     int found = 0;
@@ -2789,7 +2753,6 @@ int FindCategoryItemTable(unsigned int category, int ordinal)
    marker highlights and the generator status; otherwise it picks the monster
    under the cursor. The group-choose flag collects every active monster of the
    pick's group into monster_ids; the single-monster path keeps at most one. */
-// FUNCTION: WIZ8 0x0057dc20
 void UpdateMipeSelection(void)
 {
     SDL_Point point;
@@ -2902,7 +2865,6 @@ void UpdateMipeSelection(void)
 
 /* Drag the selected monsters, or the selected trigger, by the world cursor's
    delta from the drag anchor. */
-// FUNCTION: WIZ8 0x0057df80
 void DragSelectionWithCursor(void)
 {
     srVector3T<float> cursor;
@@ -2936,7 +2898,6 @@ void DragSelectionWithCursor(void)
    the trigger's item, right-up leaves cube selection for the action menu, and
    mouse motion drags or tracks the cube. Returns whether it consumed the
    event. */
-// FUNCTION: WIZ8 0x0057e0e0
 bool MipeWorldViewEvent(InputEventType event, const SDL_Point* point)
 {
     bool result;
@@ -3034,7 +2995,6 @@ static int g_last_reachable_mongen_marker = -1;
 
 /* Any monster-generator marker item within reach of the camera (radius
    250000), resuming the scan at the last match. */
-// FUNCTION: WIZ8 0x0057E3C0
 bool AnyMonsterGeneratorMarkerWithinReach(void)
 {
     srVector3T<float> camera;

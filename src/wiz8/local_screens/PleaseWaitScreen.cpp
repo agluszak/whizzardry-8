@@ -77,12 +77,11 @@ static int g_level_backdrops[W8_LEVEL_COUNT] = {
     0x1da, 0x1db, 0x1dc, 0xe4,  0,     0,     0,     0,     0,     0,     0,
 };
 /* The path the five assertions carry. */
-#define PLEASE_WAIT_SCREEN_CPP "C:\\Projects\\Wizardry 8\\Local Screens\\PleaseWaitScreen.cpp"
+#define PLEASE_WAIT_SCREEN_CPP __FILE__
 
 /* Lifecycle record 4's initializer. The marker write is guarded, so a missing
    CD.ROM leaves the flag at its BSS zero rather than storing a comparison
    result. */
-// FUNCTION: WIZ8 0x00590db0
 unsigned char PleaseWaitScreenInitialize(void)
 {
     if ([&]() { const auto status = wiz8::file_status("CD.ROM"); return status && !status->archived && status->info.type == SDL_PATHTYPE_FILE; }()) {
@@ -98,7 +97,6 @@ unsigned char PleaseWaitScreenInitialize(void)
    save; modes 1 and 2 carry a name; mode 3 carries two parameters and no name.
 
    The handler accesses the shared descriptor through g_load_descriptor. */
-// FUNCTION: WIZ8 0x00590de0
 unsigned char PleaseWaitScreenEnter(void)
 {
     if (!g_load_descriptor) {
@@ -144,7 +142,6 @@ unsigned char PleaseWaitScreenEnter(void)
    check clears, reports 1.
 
    The swap-disc dialog is constructed once and retained. */
-// FUNCTION: WIZ8 0x00591620
 static bool PleaseWaitScreenEnsureLevelArchive(int level)
 {
     if (![&]() { const auto status = wiz8::file_status("Levels\\Levels.slf"); return status && !status->archived && status->info.type == SDL_PATHTYPE_FILE; }() && g_cd_marker_present) {
@@ -191,7 +188,6 @@ static void DrawPleaseWaitScreen()
 
    Both passes fall through to the same trailing 0x00426790, which is why the
    parked path returns through it rather than around it. */
-// FUNCTION: WIZ8 0x00590fa0
 void PleaseWaitScreenFrame(void)
 {
     if (g_load_descriptor->waiting) {
@@ -332,7 +328,6 @@ void PleaseWaitScreenFrame(void)
    allocated; the ordinary pass only tears the frame down. Both passes run the
    teardown, which is why the release sits under the flag rather than the whole
    body. */
-// FUNCTION: WIZ8 0x00591560
 unsigned char PleaseWaitScreenLeave(int leaving)
 {
     if (leaving) {
@@ -347,7 +342,6 @@ unsigned char PleaseWaitScreenLeave(int leaving)
 /* Texture loads performed while screen four is active keep audio and the
    animated please-wait glyph moving. The descriptor fields and the draw call
    are the same private state used by PleaseWaitScreenFrame above. */
-// FUNCTION: WIZ8 0x005915A0
 void UpdatePleaseWaitLoadFrame(void)
 {
     w8_ulong tick;
