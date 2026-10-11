@@ -86,7 +86,9 @@ Do not invent widget subclasses where simple screen input suffices.
 - Opening and closing a modal dialog does not route clicks to the menu.
 - Leaving and re-entering the main menu leaves no widget or region callbacks
   pointing into a destroyed screen.
-- Native build and the existing runtime screen tests pass.
+- Run CTest `runtime_main-menu-ui` to check disabled Load, release outside a
+  button, mouse-dismissed Credits, and clean re-entry.
+- Native build and existing runtime screen tests pass.
 
 The POC intentionally does not introduce a new UI framework or alter SGP
 buttons. Those are separate removal steps once the Controls dispatch path

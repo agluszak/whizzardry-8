@@ -44,7 +44,7 @@ bool g_main_menu_has_save_games;
 // GLOBAL: WIZ8 0x0069c4b6
 bool g_main_menu_redraw;
 // GLOBAL: WIZ8 0x0069c4b4
-unsigned short g_main_menu_selected_item;
+static short g_main_menu_selected_item;
 // GLOBAL: WIZ8 0x0069c4c4
 bool g_main_menu_warning_shown;
 // GLOBAL: WIZ8 0x0069c4bb
@@ -52,7 +52,6 @@ bool g_main_menu_overlay_enabled;
 // GLOBAL: WIZ8 0x0069c4ac
 SGPVSurface* g_main_menu_overlay_surface;
 // GLOBAL: WIZ8 0x0069c4b0
-unsigned int g_main_menu_hover_region;
 // GLOBAL: WIZ8 0x0069c4bc
 std::string g_pending_main_menu_message;
 // GLOBAL: WIZ8 0x0069c4c0
@@ -188,7 +187,7 @@ public:
     void OnMouseLeave(int) override
     {
         DrawMainMenuItem(g_main_menu_selected_item, 0);
-        g_main_menu_selected_item = static_cast<unsigned short>(-1);
+        g_main_menu_selected_item = -1;
     }
 
     void OnLeftButtonDown(int) override
@@ -346,7 +345,7 @@ void MainMenuScreenFrame()
         ProcessMessageBoxInput();
     } else {
         SGPMouseGetPos(&point);
-        g_main_menu_hover_region = UpdateRegionMousePosition(point.x, point.y);
+        UpdateRegionMousePosition(point.x, point.y);
         while (DequeueEvent(&input) == 1) {
             if (!DispatchRegionInput(&input) && input.usEvent == KEY_DOWN) {
                 if (HandleDeveloperModeKey(&input)) {

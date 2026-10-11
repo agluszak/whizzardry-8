@@ -276,9 +276,14 @@ class Game
         if (region < 0)
             Fail(step, "target region is not live");
         const W8Region& bounds = g_regions[region];
-        mouse_button((bounds.x1 + bounds.x2) / 2, (bounds.y1 + bounds.y2) / 2, true);
+        click_at((bounds.x1 + bounds.x2) / 2, (bounds.y1 + bounds.y2) / 2);
+    }
+
+    void click_at(int x, int y)
+    {
+        mouse_button(x, y, true);
         frame();
-        mouse_button((bounds.x1 + bounds.x2) / 2, (bounds.y1 + bounds.y2) / 2, false);
+        mouse_button(x, y, false);
         frame();
     }
 
@@ -455,7 +460,11 @@ void MainMenuUiScenario()
     REQUIRE(game.settled());
     game.click("credits", RegionInSetAt(1, 3));
     game.wait_screen("credits", W8_SCREEN_CREDITS);
-    game.key(SDLK_ESCAPE);
+    for (auto region : g_region_sets[1].Regions()) {
+        REQUIRE(g_regions[region].widget == nullptr);
+        REQUIRE(g_regions[region].callback == nullptr);
+    }
+    game.click_at(320, 240);
     game.wait_screen("main-menu-return", W8_SCREEN_MAIN_MENU);
     verify_controls();
 }
@@ -1031,6 +1040,13 @@ static void CheckGameErrors()
     REQUIRE(g_logged_errors.empty());
 }
 
+TEST_CASE("main-menu-ui", "[runtime]")
+{
+    RequireAssets();
+    MainMenuUiScenario();
+    CheckGameErrors();
+}
+
 TEST_CASE("video", "[runtime]")
 {
     RequireAssets();
@@ -1042,13 +1058,6 @@ TEST_CASE("video-seen", "[runtime]")
 {
     RequireAssets();
     VideoScenario(true);
-    CheckGameErrors();
-}
-
-TEST_CASE("main-menu-ui", "[runtime]")
-{
-    RequireAssets();
-    MainMenuUiScenario();
     CheckGameErrors();
 }
 
