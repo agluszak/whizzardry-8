@@ -2,7 +2,6 @@
    Distributed under the accompanying SFI Source Code license agreement. */
 #include <SDL3/SDL_log.h>
 #include <memory>
-#include <string>
 #include <string_view>
 #include <optional>
 

@@ -4,7 +4,6 @@
 #include <SDL3/SDL_surface.h>
 #include <cstddef>
 #include <memory>
-#include <string>
 #include <string_view>
 #include <optional>
 

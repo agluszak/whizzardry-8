@@ -1,7 +1,6 @@
 #include <utility>
 #include <SDL3/SDL_rect.h>
 #include <cstddef>
-#include <string>
 #include <algorithm>
 #include <memory>
 #include <string_view>

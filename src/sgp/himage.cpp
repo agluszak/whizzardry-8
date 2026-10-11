@@ -13,6 +13,8 @@
 #include <algorithm>
 #include <limits>
 #include <memory>
+#include <optional>
+#include <string_view>
 #include <string>
 #include <vector>
 #include <utility>
@@ -239,6 +241,10 @@ image_type load_sti(wiz8::File& file)
     }
     if (file_size < 0 || app_offset > std::uint64_t(file_size) || header.uiStoredSize > max_image_bytes)
         throw std::runtime_error("STI pixel data exceeds file bounds");
+    // Even though the native renderer doesn't use application data, a declared
+    // section extending past EOF means this STI is truncated.
+    if (header.uiAppDataSize > std::uint64_t(file_size) - app_offset)
+        throw std::runtime_error("STI application data exceeds file bounds");
     if (!etrle && !compressed &&
         std::size_t(header.usWidth) * header.usHeight * (header.ubDepth / 8) > header.uiStoredSize)
         throw std::runtime_error("STI bitmap is shorter than its dimensions");
