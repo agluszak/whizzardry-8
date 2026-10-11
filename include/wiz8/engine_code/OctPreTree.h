@@ -172,6 +172,7 @@ struct W8OctPreTreeVertex {
    buffer the cleanup releases. */
 struct W8OctPreTreeGeometry {
     bool splitVerticesByMaterial();
+    bool compact();
     w8_ulong vertex_count;
     W8OctPreTreeVertex* m_vertices;
     w8_ulong m_polygon_count;

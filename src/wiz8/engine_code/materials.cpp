@@ -2,8 +2,8 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
 #include <memory>
-#include <ranges>
 #include <span>
+#include "wiz8/engine_code/geometry_repack.h"
 #include <wiz8/filesystem.h>
 #include <SDL3/SDL_filesystem.h>
 #include <SDL3/SDL_stdinc.h>
@@ -1347,7 +1347,7 @@ bool W8OctPreTreeGeometry::splitVerticesByMaterial()
     // Keep indices, rather than temporary pointers, until the complete table
     // is allocated. Material runs retain first-face ordering and UV selection.
     std::vector<W8OctPreTreeVertex> splits(1);
-    std::vector<std::array<w8_ulong, 3>> corners(m_polygon_count);
+    std::vector<geometryRepack::CornerIndices> corners(m_polygon_count);
     for (w8_ulong source = 1; source < vertex_count; ++source) {
         const auto& original = m_vertices[source];
         std::unordered_map<w8_ulong, w8_ulong> material_splits;
@@ -1370,15 +1370,11 @@ bool W8OctPreTreeGeometry::splitVerticesByMaterial()
             }
         }
     }
-    auto* vertices = static_cast<W8OctPreTreeVertex*>(
-        std::calloc(splits.size() + 1, sizeof(W8OctPreTreeVertex)));
+    auto vertices = geometryRepack::copyTable<W8OctPreTreeVertex>(splits);
     if (!vertices) return false;
-    std::ranges::copy(splits, vertices);
-    for (w8_ulong face = 1; face < m_polygon_count; ++face)
-        for (unsigned corner = 0; corner < 3; ++corner)
-            m_polygons[face].vertices[corner] = vertices + corners[face][corner];
+    geometryRepack::repointCorners({m_polygons, m_polygon_count}, corners, vertices.get());
     std::free(m_vertices);
-    m_vertices = vertices;
+    m_vertices = vertices.release();
     vertex_count = static_cast<w8_ulong>(splits.size());
     return true;
 }

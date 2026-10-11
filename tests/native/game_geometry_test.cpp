@@ -2292,3 +2292,62 @@ TEST_CASE("Native octree trace reset snapshots aliased endpoints and clears hit 
     REQUIRE(trace.hit_limit == 5);
     REQUIRE(trace.state == 0);
 }
+
+TEST_CASE("Geometry compaction preserves weld chains, stable faces and normalized attributes", "[geometry][octree]")
+{
+    W8OctPreTreeGeometry geometry{};
+    geometry.vertex_count = 7;
+    geometry.m_polygon_count = 4;
+    geometry.m_vertices = static_cast<W8OctPreTreeVertex*>(std::calloc(7, sizeof(W8OctPreTreeVertex)));
+    geometry.m_polygons = static_cast<W8OctRegionPolygon*>(std::calloc(4, sizeof(W8OctRegionPolygon)));
+    struct ReleaseGeometry {
+        W8OctPreTreeGeometry& geometry;
+        ~ReleaseGeometry() { std::free(geometry.m_vertices); std::free(geometry.m_polygons); }
+    } release{geometry};
+    REQUIRE(geometry.m_vertices);
+    REQUIRE(geometry.m_polygons);
+    for (w8_ulong vertex = 1; vertex < 7; ++vertex) {
+        auto& record = geometry.m_vertices[vertex];
+        record.m_vertex_index = vertex;
+        record.position.x = static_cast<float>(vertex);
+        record.m_normal_count = 30;
+        record.m_normal.Set(0, 3, 4);
+    }
+    geometry.m_vertices[2].m_normal.Set(-0.0f, 0, 0);
+    geometry.m_vertices[3].flags = W8OctPreTreeVertex::EXCLUDED;
+    geometry.m_vertices[3].m_vertex_index = 1;
+    geometry.m_vertices[5].flags = W8OctPreTreeVertex::EXCLUDED;
+    geometry.m_vertices[5].m_vertex_index = 3;
+    constexpr std::array<std::array<unsigned, 3>, 3> source_corners{{{1, 3, 2}, {2, 4, 2}, {5, 6, 2}}};
+    for (unsigned face = 1; face < 4; ++face) {
+        auto& polygon = geometry.m_polygons[face];
+        polygon.ordinal = face + 10;
+        polygon.material = face * 10;
+        for (unsigned corner = 0; corner < 3; ++corner) {
+            polygon.vertices[corner] = geometry.m_vertices + source_corners[face - 1][corner];
+            polygon.face.texture_coordinates[corner] = glm::vec2(face, corner);
+        }
+    }
+    geometry.m_polygons[2].degenerate = true;
+    REQUIRE(geometry.compact());
+    REQUIRE(geometry.vertex_count == 4);
+    REQUIRE(geometry.m_polygon_count == 3);
+    REQUIRE(geometry.m_vertices[1].position.x == 1);
+    REQUIRE(geometry.m_vertices[2].position.x == 2);
+    REQUIRE(geometry.m_vertices[3].position.x == 6);
+    REQUIRE(geometry.m_vertices[1].m_normal.glmValue() == glm::vec3(0, 0.6f, 0.8f));
+    REQUIRE(std::signbit(geometry.m_vertices[2].m_normal.x));
+    REQUIRE(geometry.m_vertices[2].m_normal_count == 2);
+    constexpr std::array<std::array<unsigned, 3>, 2> expected{{{1, 1, 2}, {1, 3, 2}}};
+    for (unsigned face = 1; face < 3; ++face) {
+        const auto& polygon = geometry.m_polygons[face];
+        const unsigned original = face == 1 ? 1 : 3;
+        REQUIRE(polygon.ordinal == face);
+        REQUIRE(polygon.material == original * 10);
+        for (unsigned corner = 0; corner < 3; ++corner) {
+            REQUIRE(polygon.vertices[corner] == geometry.m_vertices + expected[face - 1][corner]);
+            REQUIRE(polygon.face.vertices[corner] == expected[face - 1][corner]);
+            REQUIRE(polygon.face.texture_coordinates[corner] == glm::vec2(original, corner));
+        }
+    }
+}
