@@ -1,27 +1,21 @@
+#include <cstdint>
 #include <fmt/format.h>
 #include <string>
+#include <array>
+#include <vector>
+
 #include "wiz8/local_screens/MGSButtons.h"
+#include "input.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/engine_code/GameData.h"
-#include "wiz8/local_code/CharGeneration.h"
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/Configuration.h"
-#include "wiz8/local_code/Search.h"
-#include "wiz8/local_code/CombatAttack.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
-#include "wiz8/local_code/GameplayCode.h"
-#include "wiz8/local_code/GameplayMods.h"
-#include "wiz8/local_code/GameplayTime.h"
-#include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/local_code/Magic.h"
-#include "wiz8/local_code/MagicEffects.h"
-#include "wiz8/local_code/party_encumbrance.h"
 #include "wiz8/local_code/PC_Item.h"
-#include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/screen_state.h"
-#include "wiz8/local_code/CombatRange.h"
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/dialog_code/DialogButton.h"
 #include "wiz8/fonts.h"
@@ -38,20 +32,29 @@
 #include "wiz8/local_screens/MGSFormation.h"
 #include "wiz8/local_screens/MGSPortraitCombat.h"
 #include "wiz8/local_screens/MGSSpellCasting.h"
-#include "wiz8/local_screens/MGSUseItemSelect.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/regions.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/local_code/Targeting.h"
-#include "wiz8/utility.h"
 #include "wiz8/video_object_catalog.h"
 #include "wiz8/xstatus.h"
-
 #include "Font.h"
 #include "timer.h"
-
-#include <stdio.h>
+#include "Button System.h"
+#include "Types.h"
+#include "compat/native.h"
+#include "compat/ptr32.h"
+#include "conditions.h"
+#include "equipment_slots.h"
+#include "layouts/item_instance.h"
+#include "layouts/main_game_screen.h"
+#include "layouts/targeting.h"
+#include "local_code/ControlsRect.h"
+#include "mousesystem.h"
+#include "surrender/srMath.h"
+#include "vobject.h"
+#include "vsurface.h"
 
 #define MGSBUTTONS_CPP "C:\\Projects\\Wizardry 8\\Local Screens\\MGSButtons.cpp"
 

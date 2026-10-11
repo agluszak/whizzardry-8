@@ -1,44 +1,35 @@
+#include <fmt/chrono.h> // IWYU pragma: keep - std::tm formatter specialization.
 #include <fmt/format.h>
 #include <fmt/printf.h>
-#include <fmt/chrono.h>
-#include "wiz8/unicode.h"
-#include "wiz8/unicode.h"
 #include <string_view>
-#include "wiz8/utility.h"
+#include <vector>
+#include <ctime>
+#include <memory>
+#include <string>
+#include <cstdint>
+#include <cstring>
+#include <exception>
+#include <utility>
+
+#include "wiz8/unicode.h"
 #include "wiz8/containers.h"
 #include "wiz8/engine_code/AnimRep.hpp"
 #include "wiz8/conditions.h"
 #include "wiz8/monster_cycles.h"
 #include "wiz8/fonts.h"
-#include "wiz8/cursor.h"
-#include "wiz8/bink_video.h"
 #include "wiz8/integer_constants.h"
-
 #include "cursor.h"
 #include "input.h"
 #include "random.h"
 #include "soundman.h"
-
 #include "wiz8/layouts/character.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/fact_state.h"
-#include "wiz8/local_code/CharGeneration.h"
-#include "wiz8/local_code/Combat.h"
-#include "wiz8/local_code/CombatAttack.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/GameplayCode.h"
-#include "wiz8/local_code/GameplayMods.h"
-#include "wiz8/local_code/HealthStaminaMana.h"
-#include "wiz8/local_code/Magic.h"
-#include "wiz8/local_code/MagicEffects.h"
-#include "wiz8/local_code/party_encumbrance.h"
 #include "wiz8/local_code/PC_Item.h"
-#include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/layouts/combat_state.h"
-#include "wiz8/local_code/CombatRange.h"
 #include "wiz8/local_code/Gameloop.h"
-#include <vector>
-#include <algorithm>
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/Camera.h"
 #include "wiz8/engine_code/Environment.h"
@@ -49,7 +40,6 @@
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/dialog_code/DialogInterface.h"
-#include "wiz8/dialog_code/NpcDialog.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/CombatHostility.h"
@@ -61,21 +51,15 @@
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/local_screens/IntroScreen.h"
-#include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/level_specific_code/Ascension.h"
 #include "wiz8/message_box.h"
-#include "wiz8/engine_code/Spells.h"
-#include "wiz8/notices.h"
 #include "wiz8/location_variables.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/npc_script_file.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/file_time.h"
-#include <ctime>
-#include <memory>
-#include <string>
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/character_event_queue.h"
@@ -83,11 +67,21 @@
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/sr_api.h"
+#include "Types.h"
+#include "compat/native.h"
+#include "compat/ptr32.h"
+#include "layouts/item_instance.h"
+#include "layouts/npc_dialogue.h"
+#include "layouts/screen_state.h"
+#include "layouts/targeting.h"
+#include "local_code/Factions.h"
+#include "local_code/MonsterManager.h"
+#include "monster_actions.h"
+#include "mouth_gap.h"
+#include "surrender/srMath.h"
+#include "audio_resources.h"
 
-#include "wiz8/filesystem.h"
-
-#include <stdio.h>
-#include <string.h>
+class W8DialogBase;
 
 struct W8NpcScriptRegionName {
     std::string name;
@@ -368,7 +362,7 @@ bool g_message_queue_idle;
 static int g_pending_npc_travel_level;
 
 // GLOBAL: WIZ8 0x0061aea0
-static int g_sedexus_sound_handle = -1;
+static SoundPlayback g_sedexus_sound_handle = nullptr;
 // GLOBAL: WIZ8 0x0061c324
 static char g_sedexus_moaning_sound[] = "Data\\Sound\\Ambients\\Al_Sedexus Moaning.wav";
 
@@ -482,9 +476,9 @@ void ProcessNpcScriptingFrame(void)
         ClearScriptedSceneActive();
         if (!g_npc_scripting.sedexus_release_pending) {
             memset(&local_sound_parms, 0xff, sizeof(SOUNDPARMS));
-            g_sedexus_sound_handle = static_cast<int>(SoundPlayStreamedFile(
+            g_sedexus_sound_handle = SoundPlayStreamedFile(
                 // c-style-cast-ok: SGP spells filenames STR (UINT8*), the historical ABI boundary
-                (STR)g_sedexus_moaning_sound, &local_sound_parms));
+                (STR)g_sedexus_moaning_sound, &local_sound_parms);
         } else {
             ClearMainGameTargetState();
             sedexus_party_slot = g_status.sedexus_party_slot;
@@ -504,9 +498,9 @@ void ProcessNpcScriptingFrame(void)
                                     g_character_event_full_volume);
             }
             g_npc_scripting.sedexus_capture_active = false;
-            if (g_sedexus_sound_handle != -1) {
-                SoundStop(static_cast<unsigned int>(g_sedexus_sound_handle));
-                g_sedexus_sound_handle = -1;
+            if (g_sedexus_sound_handle != nullptr) {
+                SoundStop(g_sedexus_sound_handle);
+                g_sedexus_sound_handle = nullptr;
             }
         }
         g_npc_scripting.sedexus_capture_pending = false;
@@ -737,7 +731,7 @@ static void SpeakNpcSubquote(W8NpcScriptQuote* quote, unsigned char subquote_ind
             monster->StartTalking(true);
         }
         g_npc_scripting.last_tick = w8_get_ticks();
-        if (g_npc_scripting.voice_handle == SOUND_ERROR) {
+        if (g_npc_scripting.voice_handle == nullptr) {
             g_npc_scripting.voice_playing = false;
             g_npc_scripting.message_duration_ms = wiz8::text::grapheme_count(display_text) * 60 + 2000;
             g_npc_scripting.message_started_at = w8_get_ticks();
@@ -746,7 +740,7 @@ static void SpeakNpcSubquote(W8NpcScriptQuote* quote, unsigned char subquote_ind
                 SetPartyPortraitEventState(g_npc_scripting.npc->group_index, true,
                                            g_npc_scripting.staging_restore.current_quote_index,
                                            display_text, 1);
-                entry->voice_sound_handle = SOUND_ERROR;
+                entry->voice_sound_handle = nullptr;
                 entry->voice_time_remaining_ms = g_npc_scripting.message_duration_ms;
             }
         } else {
@@ -792,7 +786,7 @@ void FinishNpcVoicePlayback(bool resume_script)
     if (g_npc_scripting.quote_active != 0) {
         if (g_npc_scripting.voice_playing) {
             g_npc_scripting.voice_playing = false;
-            if (g_npc_scripting.voice_handle != SOUND_ERROR) {
+            if (g_npc_scripting.voice_handle != nullptr) {
                 g_npc_scripting.stopping_voice_playback = true;
                 SoundStop(g_npc_scripting.voice_handle);
                 g_npc_scripting.stopping_voice_playback = false;
@@ -812,7 +806,7 @@ void FinishNpcVoicePlayback(bool resume_script)
             }
         }
         g_npc_scripting.quote_active = 0;
-        g_npc_scripting.voice_handle = SOUND_ERROR;
+        g_npc_scripting.voice_handle = nullptr;
         g_npc_scripting.staging_restore.finished_quote_index =
             g_npc_scripting.staging_restore.current_quote_index;
         if (g_npc_interaction_state->script_busy == 0 && resume_script) {

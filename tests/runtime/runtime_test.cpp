@@ -1,4 +1,32 @@
+#include <algorithm>
 #include <catch2/catch_test_macros.hpp>
+#include <SDL3/SDL_events.h>
+#include <SDL3/SDL_keycode.h>
+#include <SDL3/SDL_log.h>
+#include <SDL3/SDL_mouse.h>
+#include <SDL3/SDL_pixels.h>
+#include <SDL3/SDL_stdinc.h>
+#include <SDL3/SDL_surface.h>
+#include <SDL3/SDL_video.h>
+#include <chrono>
+#include <cmath>
+#include <cstdio>
+#include <filesystem>
+#include <fstream>
+#include <functional>
+#include <iomanip>
+#include <limits>
+#include <optional>
+#include <stdexcept>
+#include <string>
+#include <vector>
+#include <cstdint>
+#include <iterator>
+#include <memory>
+#include <string_view>
+#include <system_error>
+#include <utility>
+
 /* Runtime scenarios against installed retail assets.
 
    The scenario drives the real game loop on this thread: it injects SDL input
@@ -16,11 +44,9 @@
 #include "wiz8/application.h"
 #include "native/input_events.h"
 #include "temporary_directory.h"
-#include "file_faults.h"
 #include "surrender/srGERD.h"
 #include "surrender/srModelInstance.h"
 #include "wiz8/engine_code/stMeshModel.h"
-#include "wiz8/engine_code/stModelInstance.h"
 #include "wiz8/engine_code/materials.h"
 #include "wiz8/asset_paths.h"
 #include "wiz8/filesystem.h"
@@ -50,24 +76,23 @@
 #include "wiz8/xstatus.h"
 #include "wiz8/local_code/TextControl.h"
 #include "wiz8/local_screens/CharacterScreen.h"
-#include "wiz8/local_screens/IntroScreen.h"
 #include "wiz8/local_screens/MainMenuScreen.h"
 #include "wiz8/local_screens/PartySelectionScreen.h"
 #include "wiz8/local_screens/Screens.h"
-#include <SDL3/SDL.h>
-#include <chrono>
-#include <cmath>
-#include <cstdio>
-#include <cstring>
-#include <filesystem>
-#include <fstream>
-#include <functional>
-#include <iomanip>
-#include <limits>
-#include <optional>
-#include <stdexcept>
-#include <string>
-#include <vector>
+#include "Types.h"
+#include "catch2/catch_message.hpp"
+#include "conditions.h"
+#include "layouts/gameplay_databases.h"
+#include "layouts/targeting.h"
+#include "layouts/world.h"
+#include "local_code/CharGeneration.h"
+#include "local_code/ControlSelection.h"
+#include "local_code/Factions.h"
+#include "local_code/SpellEffect.h"
+#include "mgs_commands.h"
+#include "surrender/srColorSurfaceIFace.h"
+#include "surrender/srMath.h"
+#include "surrender/srNode.h"
 
 W8RuntimeTestHooks g_runtime_test_hooks;
 
@@ -103,18 +128,19 @@ const char* ScreenName(int id)
 
 bool RegionLive(unsigned region)
 {
-    if (region >= g_region_count || (g_regions[region].flags & W8_REGION_INPUT_DISABLED))
+    if (region >= g_regions.size() || (g_regions[region].flags & W8_REGION_INPUT_DISABLED))
         return false;
-    for (unsigned set = 0; set < g_region_set_count; ++set)
-        if (g_region_sets[set].enabled && g_region_sets[set].first_region <= region &&
-            region <= g_region_sets[set].last_region)
+    for (unsigned set = 0; set < g_region_sets.size(); ++set)
+        if (g_region_sets[set].enabled &&
+            std::ranges::find(g_region_sets[set].Regions(), region) !=
+                g_region_sets[set].Regions().end())
             return true;
     return false;
 }
 
 int RegionByCallback(W8RegionCallback callback)
 {
-    for (unsigned region = 0; region < g_region_count; ++region)
+    for (unsigned region = 0; region < g_regions.size(); ++region)
         if (g_regions[region].callback == callback && RegionLive(region))
             return int(region);
     return -1;
@@ -122,10 +148,9 @@ int RegionByCallback(W8RegionCallback callback)
 
 int RegionInSet(unsigned set, int help_text_id)
 {
-    if (!set || set >= g_region_set_count || !g_region_sets[set].enabled)
+    if (!set || set >= g_region_sets.size() || !g_region_sets[set].enabled)
         return -1;
-    for (unsigned region = g_region_sets[set].first_region;
-         region <= g_region_sets[set].last_region && region < g_region_count; ++region)
+    for (auto region : g_region_sets[set].Regions())
         if ((help_text_id < 0 || g_regions[region].help_text_id == help_text_id) &&
             RegionLive(region))
             return int(region);

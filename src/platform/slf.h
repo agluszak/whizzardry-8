@@ -1,5 +1,11 @@
 #pragma once
-#include "wiz8/filesystem.h"
+
+#include <cstdint>
+#include <filesystem>
+#include <optional>
+#include <string_view>
+
+#include "wiz8/file_time.h"
 
 namespace wiz8
 {

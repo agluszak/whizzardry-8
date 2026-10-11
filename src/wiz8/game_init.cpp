@@ -1,19 +1,19 @@
-#include "wiz8/unicode.h"
+#include <cstring>
+#include <optional>
+#include <string>
+#include <vector>
+
 #include "wiz8/version.h"
 #include "wiz8/music_playlist.h"
 #include "wiz8/cursor.h"
 #include "wiz8/local_code/LoadSaveGame.h"
 #include "wiz8/local_code/PC_Item.h"
-#include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/Spells.h"
 #include "wiz8/local_code/GameplayDatabase.h"
-#include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_screens/MGSTextBox.h"
-#include "wiz8/monster_runtime.h"
 #include "wiz8/monster_generators.h"
-#include "wiz8/utility.h"
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/game_init.h"
@@ -25,14 +25,12 @@
 #include "wiz8/local_code/CombatSound.h"
 #include "wiz8/local_code/GameplayInit.h"
 #include "wiz8/engine_code/Missile.h"
-
 #include "wiz8/sound_man.h"
 #include "Button System.h"
 #include "shading.h"
 #include "wiz8/application.h"
-
-#include <string.h>
-#include <stdlib.h>
+#include "Types.h"
+#include "mousesystem.h"
 
 /* Original translation unit is not established by the Arnika/Gameloop source anchors. */
 

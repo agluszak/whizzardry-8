@@ -1,17 +1,25 @@
-#include "wiz8/unicode.h"
+#include <SDL3/SDL_events.h>
+#include <SDL3/SDL_keyboard.h>
+#include <SDL3/SDL_keycode.h>
+#include <SDL3/SDL_mouse.h>
+#include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_video.h>
 #include <string>
 #include <string_view>
-#include "wiz8/application.h"
-#include "wiz8/engine_code/Video2.h"
-#include "wiz8/engine_code/GameData.h"
 #include <stdexcept>
-
-#include "native/input_events.h"
-#include "input.h"
-
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <cstdint>
+
+#include "wiz8/unicode.h"
+#include "wiz8/application.h"
+#include "wiz8/engine_code/Video2.h"
+#include "wiz8/engine_code/GameData.h"
+#include "native/input_events.h"
+#include "input.h"
+#include "Types.h"
+#include "vsurface.h"
 
 namespace
 {

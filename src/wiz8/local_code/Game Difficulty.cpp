@@ -2,8 +2,8 @@
 
 #include "wiz8/local_code/MagicEffects.h"
 #include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/Configuration.h"
+#include "local_code/Factions.h"
 
 /* The monster-side counterpart: a hostile monster scales like a turncoated
    character and a friendly one like a party character. */

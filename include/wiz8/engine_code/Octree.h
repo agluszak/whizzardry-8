@@ -1,21 +1,23 @@
 #pragma once
 
-#include "wiz8/filesystem.h"
+#include <vector>
+#include <unordered_map>
 
 #include "surrender/srMath.h"
-#include "wiz8/packed_bits.h"
 #include "wiz8/engine_code/OctPreTree.h"
-#include "wiz8/index_algorithms.h"
 #include "wiz8/geometry.h"
-#include <vector>
-#include <algorithm>
 #include "Types.h"
+#include "compat/compiler.h"
+#include "compat/native.h"
+#include "glm/ext/vector_float2.hpp"
+#include "glm/ext/vector_float4.hpp"
 
 class GDProp;
 class W8Prop;
 class stParticle;
 class stModelInstance;
-class srNode;
+namespace wiz8 { class File; }
+
 typedef std::unordered_multimap<unsigned int, int> W8OctreeIndex;
 
 class W8PathingService;
@@ -28,9 +30,6 @@ struct W8PreProp;
 struct W8World;
 struct W8GameData;
 struct W8NavigatorMovementState;
-struct W8OctBuildNode;
-struct W8OctPreTreeGeometry;
-struct W8BoundingBox;
 
 /* The 0x30-byte ray state the octree line/probe walks share: a segment
    (start, end), a fixed-length march step (end-start scaled by

@@ -1,6 +1,8 @@
 #include <fmt/format.h>
-#include "wiz8/unicode.h"
 #include <string>
+#include <cstring>
+#include <vector>
+
 #include "random.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/engine_code/AnimRep.hpp"
@@ -10,25 +12,11 @@
 #include "wiz8/integer_constants.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_code/Targeting.h"
-
 #include "soundman.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/character_skills.h"
-#include "wiz8/local_code/CharGeneration.h"
-#include "wiz8/local_code/Combat.h"
-#include "wiz8/local_code/CombatAttack.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
-#include "wiz8/local_code/GameplayCode.h"
-#include "wiz8/local_code/GameplayMods.h"
-#include "wiz8/local_code/HealthStaminaMana.h"
-#include "wiz8/local_code/Magic.h"
-#include "wiz8/local_code/MagicEffects.h"
-#include "wiz8/local_code/party_encumbrance.h"
-#include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/layouts/combat_state.h"
-#include "wiz8/local_code/Combat.h"
-#include "wiz8/local_code/CombatAttack.h"
-#include "wiz8/local_code/CombatRange.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/GrCycle.h"
 #include "wiz8/engine_code/Monster.h"
@@ -38,7 +26,6 @@
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/layouts/gameplay_databases.h"
-#include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/CombatHostility.h"
 #include "wiz8/local_code/MonsterManager.h"
@@ -46,28 +33,25 @@
 #include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/character_events.h"
-#include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
 #include "wiz8/location_variables.h"
-#include "wiz8/local_code/Magic.h"
-#include "wiz8/local_code/MagicEffects.h"
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/npc_items.h"
-#include "wiz8/npc_script_file.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/string_database.h"
-#include "wiz8/local_code/Targeting.h"
-#include "wiz8/utility.h"
-
-#include <string.h>
-#include "wiz8/local_code/ItemManager.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/PartyImport.h"
 #include "wiz8/local_screens/JournalScreen.h"
-#include "wiz8/virtual_file.h"
-#include <stdio.h>
+#include "Item.h"
+#include "compat/ptr32.h"
+#include "conditions.h"
+#include "layouts/targeting.h"
+#include "layouts/world.h"
+#include "message_box.h"
+#include "surrender/srMath.h"
+#include "xstatus.h"
 
 #define NPC_SCRIPTING_FACTS_CPP "C:\\Projects\\Wizardry 8\\Local Code\\NPC Scripting Facts.cpp"
 
@@ -735,7 +719,7 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
     case W8_FACT_FUZZFAS_BOOM2:
         memset(&sound, -1, sizeof(sound));
         sound.EOSCallback = ClearPotionExplosionSoundFlag;
-        if (SoundPlay("Data\\Sound\\misc\\potion_exploding.wav", &sound) != 0xffffffff) {
+        if (SoundPlay("Data\\Sound\\misc\\potion_exploding.wav", &sound) != nullptr) {
             SetScriptedSceneActive();
         }
         particle = FindParticleByName(g_world, "FuzzBlast");

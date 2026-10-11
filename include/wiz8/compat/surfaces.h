@@ -1,10 +1,13 @@
 #pragma once
-#include <cstdint>
 #include <SDL3/SDL_surface.h>
+#include <SDL3/SDL_pixels.h>
+#include <SDL3/SDL_rect.h>
+#include <cstdint>
 #include <memory>
 #include <optional>
 #include <span>
 #include <vector>
+#include <cstddef>
 
 using SDLSurfaceOwner = std::unique_ptr<SDL_Surface, decltype(&SDL_DestroySurface)>;
 

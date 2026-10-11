@@ -1,10 +1,14 @@
-#include "surrender/srTextureFile.h"
-
+#include <ios>
 #include <ostream>
 #include <utility>
+#include <memory>
+#include <string>
 
-#include "surrender/srCore.h"
+#include "surrender/srTextureFile.h"
 #include "surrender/srImageIO.h"
+#include "compat/compiler.h"
+#include "surrender/srColorSurfaceIFace.h"
+#include "surrender/srTexture.h"
 
 // FUNCTION: SURRENDER 0x1005F8E0
 srTextureFile::srTextureFile(std::string file_name, int cached)

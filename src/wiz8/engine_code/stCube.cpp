@@ -1,31 +1,27 @@
 #include <fmt/format.h>
-#include "wiz8/unicode.h"
 #include <string>
-#include "surrender/srBoundingBox.h"
 #include <array>
+#include <vector>
+#include <cstdlib>
+#include <cstring>
+#include <memory>
+#include <span>
+#include <utility>
+
+#include "compat/compiler.h"
+#include "wiz8/unicode.h"
+#include "surrender/srBoundingBox.h"
 #include "wiz8/containers.h"
 #include "surrender/srMath.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/world_cursor.h"
-#include "wiz8/engine_code/World.h"
-#include "wiz8/engine_code/Monster.h"
-#include "wiz8/engine_code/GDCamera.h"
-#include <vector>
-#include <algorithm>
-#include "wiz8/engine_code/Environment.h"
 #include "wiz8/engine_code/Video2.h"
-#include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/local_screens/mipe.h"
-#include "wiz8/engine_code/stParticle.h"
 #include "wiz8/engine_code/stCube.h"
 #include "wiz8/engine_code/stMeshModel.h"
 #include "wiz8/engine_code/stModelInstance.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/fonts.h"
-#include "wiz8/local_code/Controls.h"
 #include "wiz8/sr_api.h"
-#include "wiz8/utility.h"
-#include "wiz8/geometry.h"
 #include "surrender/srNode.h"
 #include "surrender/srCamera.h"
 #include "surrender/srModeler.h"
@@ -35,16 +31,17 @@
 #include "surrender/srPixelConvert.h"
 #include "surrender/srFilter.h"
 #include "Font.h"
-
-#include <math.h>
-#include <new>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include "wiz8/engine_code/GameData.h"
-#include "wiz8/engine_code/PolyPick.h"
-#include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/filesystem.h"
+#include "glm/ext/vector_double3.hpp"
+#include "glm/ext/vector_float2.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include "glm/ext/vector_float4.hpp"
+#include "layouts/world.h"
+#include "surrender/srColorSurfaceIFace.h"
+#include "surrender/srMeshModel.h"
+#include "surrender/srShader.h"
+#include "surrender/srTextureIFace.h"
 
 #define ST_CUBE_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\stCube.cpp"
 

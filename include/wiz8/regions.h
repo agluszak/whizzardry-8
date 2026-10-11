@@ -4,6 +4,9 @@
 #define WIZ8_REGIONS_H
 
 #include <stddef.h>
+#include <deque>
+#include <vector>
+#include <span>
 
 #include "Types.h"
 #include "input.h"
@@ -13,10 +16,23 @@ class W8Widget;
 extern bool g_dev_mode;
 
 struct W8RegionSet {
-    unsigned int enabled;
-    unsigned int first_region;
-    unsigned int last_region;
-}; /* 0x0c */
+    W8RegionSet() = default;
+    W8RegionSet(unsigned int enabled, unsigned int first, unsigned int last)
+        : enabled(enabled)
+    {
+        for (auto index = first; index <= last; ++index) region_ids.push_back(index);
+        active_count = region_ids.size();
+    }
+    unsigned int enabled = 0;
+    std::span<const unsigned int> Regions() const { return {region_ids.data(), active_count}; }
+    void Reset() { active_count = 0; }
+    unsigned int AddRegion();
+
+private:
+    // Keep slots for screen rebuilds, without assuming contiguous allocation.
+    std::vector<unsigned int> region_ids;
+    size_t active_count = 0;
+};
 
 /* Region callbacks receive SGP's input atom unchanged. Wheel rotation uses
    usParam; uiParam carries the packed cursor position. */
@@ -80,10 +96,8 @@ unsigned char TextBoxBodyRegionEvent(const InputAtom*, W8Region*);        /* 0x0
 unsigned char TextBoxChannelTabRegionEvent(const InputAtom*, W8Region*);  /* 0x0058EFD0 */
 unsigned char TextBoxMuteRegionEvent(const InputAtom*, W8Region*);        /* 0x0058F240 */
 
-extern unsigned int g_region_set_count; /* guiRegsetCount */
-extern W8RegionSet g_region_sets[];
-extern unsigned int g_region_count; /* guiRegionCount */
-extern W8Region g_regions[];
+extern std::deque<W8RegionSet> g_region_sets;
+extern std::deque<W8Region> g_regions;
 extern int g_region_help_delay;
 extern uint64_t g_region_help_clock;
 extern unsigned int g_current_region_index;

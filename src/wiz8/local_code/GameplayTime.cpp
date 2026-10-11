@@ -1,29 +1,27 @@
 #include <fmt/printf.h>
+#include <vector>
+#include <memory>
+#include <string>
+
 #include "wiz8/conditions.h"
 #include "wiz8/fonts.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/integer_constants.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
-#include "wiz8/local_code/CharGeneration.h"
 #include "wiz8/local_code/Combat.h"
-#include "wiz8/local_code/CombatAttack.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/GameplayCode.h"
-#include "wiz8/local_code/GameplayMods.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/MagicEffects.h"
-#include "wiz8/local_code/party_encumbrance.h"
 #include "wiz8/local_code/PC_Item.h"
-#include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/local_code/SpellEffect.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_code/GameplayTime.h"
 #include "wiz8/engine_code/Environment.h"
-#include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/Navigator.h"
 #include "wiz8/engine_code/OctPath.h"
@@ -36,7 +34,6 @@
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/monster_runtime.h"
 #include "wiz8/monster_generators.h"
-#include "wiz8/engine_code/Spells.h"
 #include "wiz8/engine_code/Levels.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
@@ -47,8 +44,6 @@
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/combat_state.h"
-#include <vector>
-#include <algorithm>
 #include "wiz8/dice.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/utility.h"
@@ -63,7 +58,14 @@
 #include "wiz8/sr_api.h"
 #include "random.h"
 #include "soundman.h"
-#include "timer.h"
+#include "compat/native.h"
+#include "compat/ptr32.h"
+#include "gameplay_modifiers.h"
+#include "layouts/item_instance.h"
+#include "layouts/main_game_screen.h"
+#include "layouts/targeting.h"
+#include "monster_actions.h"
+#include "surrender/srMath.h"
 
 #define GAMEPLAYTIME_CPP "C:\\Projects\\Wizardry 8\\Local Code\\GameplayTime.cpp"
 

@@ -1,6 +1,9 @@
-#include <string_view>
+#include <SDL3/SDL_rect.h>
+#include <cstddef>
 #include <fmt/format.h>
 #include <SDL3/SDL_log.h>
+#include <string_view>
+#include <utility>
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
    Distributed under the accompanying SFI Source Code license agreement. */
 /***********************************************************************************************
@@ -9,21 +12,20 @@
 	Rewritten mostly by Kris Morness
 ***********************************************************************************************/
 
-#include "Types.h"
-#include "input.h"
 #include <array>
 #include <memory>
 #include <vector>
 #include <algorithm>
-#include "english.h"
+
+#include "Types.h"
+#include "input.h"
+#include "mousesystem.h"
 #include "vobject.h"
 #include "vobject_blitters.h"
-#include "soundman.h"
 #include "Button System.h"
 #include "Font.h"
-#include "wiz8/application.h"
 #include "line.h"
-#include "Video2.h"
+#include "vsurface.h"
 
 #define FONT_MCOLOR_BLACK 0
 
@@ -108,7 +110,6 @@ size_t RegisteredButtonCount()
 
 _GUI_BUTTON::~_GUI_BUTTON()
 {
-    if (Area.uiFlags & MSYS_REGION_EXISTS) MSYS_RemoveRegion(&Area);
     if (gpAnchoredButton == this) gpAnchoredButton = nullptr;
     if (gpPrevAnchoredButton == this) gpPrevAnchoredButton = nullptr;
 }

@@ -1,18 +1,24 @@
+#ifndef WIZ8_VIDEO2_H
+#define WIZ8_VIDEO2_H
+
+#include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_video.h>
 #include <string_view>
 #include <memory>
+
+#include "compat/compiler.h"
+#include "compat/native.h"
+#include "glm/ext/vector_float2.hpp"
+#include "glm/ext/vector_float4.hpp"
+#include "vobject.h"
 /* Modified for the Wizardry 8 reconstruction, 2026-09-10.
    Reconstructed Wizardry Video2 interface.
    Remove the artificial SGP C boundary and unused local configuration include, 2026-10-04.
    Distributed under the accompanying SFI Source Code license agreement. */
-#ifndef WIZ8_VIDEO2_H
-#define WIZ8_VIDEO2_H
 
-#include <glm/glm.hpp>
-
-#include "compat/surfaces.h"
+struct CpuSurface; // IWYU pragma: keep - pointer declarations in this API.
 
 #include "Types.h"
-#include "vsurface.h"
 
 #define BUFFER_READY 0x00
 #define BUFFER_BUSY 0x01
@@ -23,7 +29,6 @@
 #define MAX_CURSOR_HEIGHT 64
 #define VIDEO_NO_CURSOR 0xFFFF
 
-struct SDL_Window;
 extern SDL_Window* ghWindow;
 
 extern BOOLEAN InitializeVideoManager(void);
@@ -78,6 +83,7 @@ void SGPMouseGetPos(SDL_Point* point);
 bool HasScreenTransitionObjects(void); /* 0x004297D0 */
 /* 0x00422EC0: invalidate each rectangle in a run. */
 struct W8ScreenRect;
+
 void InvalidateScreenRects(W8ScreenRect* rects, unsigned int count, int flags);
 
 /* Renderer state and helpers shared by the product C++ consumers. */
@@ -100,6 +106,7 @@ class srNode;
 class srTextureIFace;
 class stModelInstance2D;
 template <class T> class srVector3T;
+
 srNode* MakePosterQuad(std::shared_ptr<srTextureIFace> texture, float width, float height,
                        bool additive);
 /* 0x00425190: build a 2D marker model instance over a texture. */
@@ -112,6 +119,7 @@ unsigned char RenderWorldToSurface(srColorSurface* target, W8ScreenRect* rect,
 void SetPickKey(void* key);
 
 struct W8ControlsRect;
+
 /* 0x00424790: build a solid-color quad sprite; width/height are pixel counts
    and `color` becomes the material's emissive vector. MGSRadarMap's blip
    templates are its observed callers. */
@@ -161,6 +169,7 @@ BOOLEAN BlitVideoObjectToColorSurface(UINT32 video_object, UINT16 region,
 BOOLEAN BlitHVObjectToColorSurface(HVOBJECT object, UINT16 region, srColorSurface* destination,
                                    int x, int y);
 class stTextureAnim;
+
 /* 0x00428E90: build an stTextureAnim whose frames are VObject subimages. */
 std::shared_ptr<stTextureAnim> VideoVObjectToTextureAnim(HVOBJECT object, unsigned short start_frame,
                                          unsigned short frame_count, bool use_argb1555);
@@ -177,18 +186,13 @@ void EndRenderProbe(void);
 
 void WarpSystemCursor(int x, int y); /* 0x004280C0: fullscreen-safe */
 
-class srColorSurface;
 class srCamera;
-class srClass;
 class srModeler;
 class srGERD;
 class srMaterial;
-class srModelInstance;
-class srNode;
 class srScene;
 class stSurface2D;
 struct EnvironmentColour;
-template <class T> class srVector3T;
 
 extern int g_pixel_format;
 extern unsigned char g_fullscreen;

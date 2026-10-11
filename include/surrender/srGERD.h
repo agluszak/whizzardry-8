@@ -20,7 +20,6 @@
 #include "srDD.h"
 #include "srTriMeshPipeline.h"
 #include "srColorSurfaceIFace.h"
-#include <memory>
 #include "srARGB.h"
 class srColorSurface;
 class srModelInstance;

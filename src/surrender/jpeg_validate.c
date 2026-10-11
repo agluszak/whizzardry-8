@@ -1,9 +1,10 @@
 #include "jpeg_validate.h"
-#include <stdio.h>
+
 #include <jpeglib.h>
 #include <setjmp.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <jmorecfg.h>
 
 struct Validation {
     struct jpeg_decompress_struct image;

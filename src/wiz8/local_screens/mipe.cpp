@@ -1,22 +1,17 @@
+#include <SDL3/SDL_rect.h>
 #include <fmt/format.h>
-#include "wiz8/unicode.h"
 #include <string>
-#include "wiz8/fonts.h"
-#include "wiz8/local_screens/mipe.h"
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
-#include "input.h"
-
 #include <vector>
 #include <algorithm>
+#include <variant>
+#include <cstring>
+#include <string_view>
+
+#include "wiz8/fonts.h"
+#include "wiz8/local_screens/mipe.h"
+#include "input.h"
 #include "wiz8/dialog_code/AssayDialog.h"
-#include "wiz8/dialog_code/NpcDialog.h"
-#include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/engine_code/3d.h"
-#include "wiz8/engine_code/3dapi.h"
 #include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/GrCycle.h"
@@ -35,7 +30,6 @@
 #include "wiz8/layouts/item_tables.h"
 #include "wiz8/local_code/CombatAttack.h"
 #include "wiz8/local_code/GameplayDatabase.h"
-#include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/local_code/ItemManager.h"
 #include "wiz8/local_code/Search.h"
 #include "wiz8/local_code/Strings.h"
@@ -48,13 +42,13 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/monster_generators.h"
 #include "wiz8/sr_api.h"
-#include "wiz8/utility.h"
 #include "wiz8/world_cursor.h"
 #include "wiz8/xstatus.h"
-#include "wiz8/local_screens/CharacterScreen.h"
-#include "wiz8/local_screens/OptionsScreen.h"
-
-#include <variant>
+#include "compat/ptr32.h"
+#include "dice.h"
+#include "layouts/gameplay_databases.h"
+#include "layouts/main_game_screen.h"
+#include "layouts/world.h"
 
 // The editor reuses its category view for four concrete borrowed row types.
 using W8MipeCategoryEntry = std::variant<std::monostate, W8MipeMonsterEntry*, W8ItemDatabaseRecord*,

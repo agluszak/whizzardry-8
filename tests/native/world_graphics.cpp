@@ -1,22 +1,30 @@
 #include <catch2/catch_test_macros.hpp>
 #include <wiz8/filesystem.h>
+#include <wiz8/asset_paths.h>
+#include <SDL3/SDL_stdinc.h>
+#include <SDL3/SDL_timer.h>
+#include <cstdio>
+#include <filesystem>
+#include <stdexcept>
+#include <vector>
+#include <array>
+#include <cstring>
+#include <memory>
+#include <string>
+#include <string_view>
+
 /* Installed character and level assets through the recovered game loop. */
 #include "wiz8/application.h"
-#include <wiz8/asset_paths.h>
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/GameplayInit.h"
 #include "wiz8/local_code/LoadSaveGame.h"
 #include "wiz8/engine_code/GDCamera.h"
-#include "wiz8/engine_code/GameData.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/local_code/UtilityFunctions.h"
-#include "wiz8/local_screens/OptionsScreen.h"
-#include "wiz8/utility.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/layouts/screen_state.h"
@@ -25,16 +33,14 @@
 #include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/Level.h"
-#include "surrender/srCamera.h"
 #include "surrender/srGERD.h"
 #include "surrender/srModelInstance.h"
-#include <SDL3/SDL.h>
-#include <cstdio>
-#include <exception>
-#include <filesystem>
-#include <stdexcept>
-#include <vector>
 #include "temporary_directory.h"
+#include "layouts/targeting.h"
+#include "layouts/world.h"
+#include "surrender/srColorSurfaceIFace.h"
+#include "surrender/srMath.h"
+#include "surrender/srNode.h"
 
 static void Check(bool condition, const char* expression)
 {

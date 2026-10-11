@@ -1,13 +1,14 @@
 #include <fmt/format.h>
-#include "wiz8/unicode.h"
 #include <string>
-#include <stdarg.h>
+#include <cstdarg>
+#include <cstdlib>
+#include <vector>
+
 #include "wiz8/integer_constants.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/level_specific_code/Arnika.h"
 #include "wiz8/level_specific_code/Monastery1.h"
 #include "wiz8/level_specific_code/Monastery2.h"
-#include "wiz8/level_specific_code/Trynnie1.h"
 #include "wiz8/level_specific_code/Trynnie2.h"
 #include "wiz8/level_specific_code/Swamp.h"
 #include "wiz8/level_specific_code/SeaCaves.h"
@@ -31,7 +32,6 @@
 #include "wiz8/engine_code/stCube.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/stSound3D.h"
-#include "wiz8/engine_code/Navigator.h"
 #include "wiz8/engine_code/Levels.h"
 #include "wiz8/layouts/world.h"
 #include "wiz8/layouts/game_status.h"
@@ -41,8 +41,6 @@
 #include "wiz8/sr_api.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/layouts/screen_state.h"
-#include "wiz8/local_screens/Screens.h"
-#include "wiz8/local_screens/MGSSpellCasting.h"
 #include "wiz8/local_screens/mipe.h"
 #include "wiz8/local_code/CombatHostility.h"
 #include "wiz8/local_code/MonsterGroup.h"
@@ -55,10 +53,12 @@
 #include "wiz8/character_skills.h"
 #include "wiz8/string_database.h"
 #include "wiz8/float_constants.h"
-#include "wiz8/utility.h"
-
-#include <stdio.h>
-#include <stdlib.h>
+#include "compat/ptr32.h"
+#include "gameplay_modifiers.h"
+#include "glm/ext/vector_double3.hpp"
+#include "item_spawning.h"
+#include "layouts/gameplay_databases.h"
+#include "surrender/srMath.h"
 
 
 /* The world-cursor node the party is standing in, tracked across the

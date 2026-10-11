@@ -1,23 +1,14 @@
-#include <fmt/format.h>
-#include <utility>
+#include <vector>
+#include <cstring>
+#include <span>
+#include <unordered_map>
+
 #include "wiz8/fonts.h"
 #include "wiz8/local_code/Sight.h"
 #include "wiz8/integer_constants.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/character_skills.h"
-#include "wiz8/local_code/CharGeneration.h"
-#include "wiz8/local_code/Combat.h"
-#include "wiz8/local_code/CombatAttack.h"
-#include "wiz8/local_code/GameplayCode.h"
-#include "wiz8/local_code/GameplayMods.h"
-#include "wiz8/local_code/HealthStaminaMana.h"
-#include "wiz8/local_code/Magic.h"
-#include "wiz8/local_code/MagicEffects.h"
-#include "wiz8/local_code/party_encumbrance.h"
-#include "wiz8/local_code/PC_Item.h"
-#include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/engine_code/Environment.h"
-#include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/World.h"
@@ -25,27 +16,16 @@
 #include "wiz8/engine_code/GameTimeAccumulator.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/engine_code/Navigator.h"
-#include "wiz8/engine_code/OctPath.h"
-#include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/GameplayTime.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/notices.h"
-#include "wiz8/engine_code/Levels.h"
 #include "wiz8/engine_code/Monster.h"
-#include "wiz8/engine_code/quad.h"
 #include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/engine_code/Spells.h"
 #include "wiz8/monster_generators.h"
-#include "wiz8/monster_runtime.h"
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/local_code/NPCManager.h"
-#include "wiz8/local_code/NPCScripting.h"
-#include "wiz8/npc_script_file.h"
-#include <vector>
-#include <algorithm>
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/character_event_queue.h"
 #include "random.h"
@@ -57,14 +37,18 @@
 #include "wiz8/utility.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/layouts/combat_state.h"
-#include "wiz8/local_code/CombatRange.h"
-
-#include <stdlib.h>
-#include <string.h>
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/PolyPick.h"
 #include "wiz8/local_screens/MGSTextBox.h"
+#include "compat/ptr32.h"
+#include "conditions.h"
+#include "gameplay_modifiers.h"
+#include "layouts/levels.h"
+#include "local_code/Factions.h"
+#include "sight_state.h"
+
+struct W8World;
 
 #define SIGHT_CPP "C:\\Projects\\Wizardry 8\\Local Code\\Sight.cpp"
 

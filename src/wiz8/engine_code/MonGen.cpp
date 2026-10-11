@@ -1,40 +1,52 @@
 #include <fmt/format.h>
+#include <vector>
+#include <algorithm>
+#include <cmath>
+#include <cstring>
+#include <exception>
+#include <iterator>
+#include <memory>
+#include <string>
+#include <utility>
+
 #include "wiz8/containers.h"
 #include "wiz8/fonts.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_code/Sight.h"
 #include "wiz8/local_code/MonsterGroup.h"
-#include "wiz8/engine_code/GDCamera.h"
-#include "wiz8/engine_code/Levels.h"
 #include "wiz8/engine_code/ReadLevel.h"
-#include "wiz8/engine_code/World.h"
 #include "wiz8/local_code/MonsterGenerator.h"
 #include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/monster_runtime.h"
 #include "wiz8/monster_generators.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/Gameloop.h"
-#include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/mipe.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/regions.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/utility.h"
 #include "random.h"
-#include <math.h>
-#include <vector>
-#include <algorithm>
 #include "wiz8/sr_api.h"
-#include "wiz8/virtual_file.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/application.h"
 #include "wiz8/engine_code/Item.h"
 #include "wiz8/engine_code/MonGen.h"
-
-#include <string.h>
-#include <stdlib.h>
 #include "wiz8/engine_code/GameData.h"
+#include "IntervalGate.h"
+#include "Monster.h"
+#include "Octree.h"
+#include "compat/compiler.h"
+#include "compat/native.h"
+#include "dice.h"
+#include "difficulty.h"
+#include "layouts/encounter_tables.h"
+#include "layouts/gameplay_databases.h"
+#include "layouts/levels.h"
+#include "layouts/screen_state.h"
+#include "layouts/world.h"
+#include "local_code/Factions.h"
+#include "surrender/srMath.h"
 
 /* These are recovered in their owning Local Code units. Retail MonGen calls
    them out of line, so keep the cross-TU seams rather than cloning their logic. */

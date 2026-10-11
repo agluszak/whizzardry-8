@@ -1,5 +1,11 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
+#include <vector>
+#include <cmath>
+#include <cstdlib>
+#include <cstring>
+#include <string>
+
 #include "wiz8/conditions.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/spell_ids.h"
@@ -8,29 +14,21 @@
 #include "wiz8/integer_constants.h"
 #include "wiz8/engine_code/Spells.h"
 #include "wiz8/engine_code/World.h"
-#include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/PolyPick.h"
 #include "wiz8/engine_code/Octree.h"
-#include "wiz8/engine_code/quad.h"
 #include "wiz8/engine_code/Levels.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/local_code/Sight.h"
 #include "wiz8/layouts/combat_state.h"
-#include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/CombatAttack.h"
 #include "wiz8/local_code/CombatHostility.h"
 #include "wiz8/local_code/CombatRange.h"
 #include "wiz8/layouts/game_status.h"
-#include <vector>
-#include <algorithm>
 #include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/local_screens/MGSPortraits.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/xstatus.h"
-#include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/Gameloop.h"
-#include "wiz8/engine_code/Spells.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/MagicEffects.h"
 #include "wiz8/local_code/SpellEffect.h"
@@ -44,7 +42,6 @@
 #include "random.h"
 #include "wiz8/local_code/GameplayMods.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
-#include "wiz8/local_code/MagicEffects.h"
 #include "wiz8/local_screens/MGSSpellIcons.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_code/MonsterGroup.h"
@@ -57,20 +54,27 @@
 #include "wiz8/layouts/item_tables.h"
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/NPCScripting.h"
-#include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/startup_world.h"
 #include "wiz8/engine_code/Navigator.h"
-#include "wiz8/engine_code/Octree.h"
-#include "wiz8/engine_code/Levels.h"
-#include "wiz8/engine_code/quad.h"
-#include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/GrCycle.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/float_constants.h"
-#include "wiz8/geometry.h"
 #include "wiz8/local_code/Noise.h"
-#include "wiz8/local_code/Sight.h"
 #include "soundman.h"
+#include "compat/compiler.h"
+#include "compat/ptr32.h"
+#include "dice.h"
+#include "layouts/character.h"
+#include "layouts/item_instance.h"
+#include "layouts/main_game_screen.h"
+#include "layouts/npc_state.h"
+#include "layouts/targeting.h"
+#include "layouts/world.h"
+#include "local_code/Factions.h"
+#include "local_code/UtilityFunctions.h"
+#include "monster_actions.h"
+#include "monster_spell_icons.h"
+#include "surrender/srMath.h"
 
 #define MAGIC_EFFECTS_CPP "C:\\Projects\\Wizardry 8\\Local Code\\Magic Effects.cpp"
 
@@ -788,29 +792,16 @@ void ApplySummonElementalEffect(W8SpellEffectEntry* effect)
     summon->p3D->SetAngles(
         HeadingTowardNearestMonster(effect->target.point, disposition, summon->location_id));
     SetMonsterGroupHostility(group, disposition, false);
-    if (disposition == W8_DISPOSITION_FRIENDLY) {
-        for (index = 0; index < group->member_count; ++index) {
-            member =
-                MonsterInfoFromID(0xfdb, MAGIC_EFFECTS_CPP, group->MemberLocationId(index), true);
-            if (member == 0) {
-                srAssertFail("pMonsterInfo", MAGIC_EFFECTS_CPP, 0xfdc, 0);
-            }
-            if (member->summoned == W8_MONSTER_SUMMON_NONE) {
-                member->summoned = W8_MONSTER_SUMMON_FRIENDLY;
-                SetMonsterSpellIcon(member->p3D, SPELL_ICON_SUMMONED, true);
-            }
-        }
-    } else {
-        for (index = 0; index < group->member_count; ++index) {
-            member =
-                MonsterInfoFromID(0xfdb, MAGIC_EFFECTS_CPP, group->MemberLocationId(index), true);
-            if (member == 0) {
-                srAssertFail("pMonsterInfo", MAGIC_EFFECTS_CPP, 0xfdc, 0);
-            }
-            if (member->summoned == W8_MONSTER_SUMMON_NONE) {
-                member->summoned = W8_MONSTER_SUMMON_HOSTILE;
-                SetMonsterSpellIcon(member->p3D, SPELL_ICON_SUMMONED, true);
-            }
+    const auto summoned_state = disposition == W8_DISPOSITION_FRIENDLY
+                                    ? W8_MONSTER_SUMMON_FRIENDLY : W8_MONSTER_SUMMON_HOSTILE;
+    for (index = 0; index < group->member_count; ++index) {
+        member =
+            MonsterInfoFromID(0xfdb, MAGIC_EFFECTS_CPP, group->MemberLocationId(index), true);
+        if (member == 0)
+            srAssertFail("pMonsterInfo", MAGIC_EFFECTS_CPP, 0xfdc, 0);
+        if (member->summoned == W8_MONSTER_SUMMON_NONE) {
+            member->summoned = summoned_state;
+            SetMonsterSpellIcon(member->p3D, SPELL_ICON_SUMMONED, true);
         }
     }
     RefreshAllSight();
@@ -2035,48 +2026,33 @@ void AttackThenInflictCondition(W8SpellEffectEntry* effect, W8Condition attack_c
                                 W8Condition condition, int chance, int attack_argument,
                                 int condition_argument)
 {
-    W8MonsterInfo* monster_info;
     W8CombatSlot target;
-    unsigned int duration;
-    int source_character;
-    int character_index;
-    int index;
+    const int source_character = TargetSourceIsCharacter(&effect->Source, 0)
+                                     ? effect->Source.iChar : -1;
+    const std::size_t character_count = effect->target_indices.size();
+    const std::size_t total = character_count + effect->monster_ids.size();
 
-    if (!TargetSourceIsCharacter(&effect->Source, 0)) {
-        source_character = -1;
-    } else {
-        source_character = effect->Source.iChar;
-    }
-    for (index = 0; index < static_cast<int>(effect->target_indices.size()); ++index) {
-        if (Random(100) >= static_cast<unsigned int>(chance)) {
+    for (std::size_t index = 0; index < total; ++index) {
+        if (Random(100) >= static_cast<unsigned int>(chance))
             continue;
+
+        const unsigned int duration = RollEffectDuration(&effect->definition);
+        if (index < character_count) {
+            const int character_index = effect->target_indices[index];
+            if (character_index == -1)
+                srAssertFail("iChar != -1", MAGIC_EFFECTS_CPP, 0x4bf, 0);
+            target.iType = W8_TARGET_KIND_CHARACTER;
+            target.iChar = character_index;
+        } else {
+            W8MonsterInfo* monster = GetEffectMonsterTarget(
+                effect->monster_ids[index - character_count], 0x4d8, 0x4d9);
+            target.iType = W8_TARGET_KIND_MONSTER;
+            target.iMonsterID = monster->location_id;
         }
-        duration = RollEffectDuration(&effect->definition);
-        character_index = effect->target_indices[index];
-        if (character_index == -1) {
-            srAssertFail("iChar != -1", MAGIC_EFFECTS_CPP, 0x4bf, 0);
-        }
-        target.iType = W8_TARGET_KIND_CHARACTER;
-        target.iChar = character_index;
-        if (ResolveAttackOnTarget(
-                &effect->Source, &target, attack_condition, g_spell_records[effect->kind].realm,
-                effect->definition.power_level, attack_argument, duration, false, true, 0)) {
-            InflictConditionOnTarget(&target, condition, g_spell_records[effect->kind].realm,
-                                     effect->definition.power_level, condition_argument, duration,
-                                     source_character, 0, true);
-        }
-    }
-    for (index = 0; index < static_cast<int>(effect->monster_ids.size()); ++index) {
-        if (Random(100) >= static_cast<unsigned int>(chance)) {
-            continue;
-        }
-        duration = RollEffectDuration(&effect->definition);
-        monster_info = GetEffectMonsterTarget(effect->monster_ids[index], 0x4d8, 0x4d9);
-        target.iType = W8_TARGET_KIND_MONSTER;
-        target.iMonsterID = monster_info->location_id;
-        if (ResolveAttackOnTarget(
-                &effect->Source, &target, attack_condition, g_spell_records[effect->kind].realm,
-                effect->definition.power_level, attack_argument, duration, false, true, 0)) {
+        if (ResolveAttackOnTarget(&effect->Source, &target, attack_condition,
+                                  g_spell_records[effect->kind].realm,
+                                  effect->definition.power_level, attack_argument,
+                                  duration, false, true, 0)) {
             InflictConditionOnTarget(&target, condition, g_spell_records[effect->kind].realm,
                                      effect->definition.power_level, condition_argument, duration,
                                      source_character, 0, true);

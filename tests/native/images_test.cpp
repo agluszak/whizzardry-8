@@ -1,14 +1,11 @@
 #include <catch2/catch_test_macros.hpp>
-#include "himage.h"
-#include "imgfmt.h"
-#include "wiz8/slf.h"
-#include "temporary_directory.h"
+#include <ios>
 #include <wiz8/asset_paths.h>
 #include <wiz8/filesystem.h>
 #include <SDL3_image/SDL_image.h>
-
+#include <SDL3/SDL_pixels.h>
+#include <SDL3/SDL_surface.h>
 #include <array>
-#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
@@ -16,6 +13,15 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <cstddef>
+#include <exception>
+#include <utility>
+
+#include "himage.h"
+#include "imgfmt.h"
+#include "wiz8/slf.h"
+#include "temporary_directory.h"
+#include "Types.h"
 
 
 using Bytes = std::vector<UINT8>;

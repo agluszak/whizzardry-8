@@ -3,8 +3,8 @@
 
 #include "surrender/srMath.h"
 #include "wiz8/geometry.h"
-
-#include <stddef.h>
+#include "compat/compiler.h"
+#include "glm/ext/vector_float2.hpp"
 
 struct W8OctBuildNode;
 
@@ -282,7 +282,5 @@ struct W8OctFileHeader {
     unsigned char pad_c9[0x2c];
 };
 #pragma pack(pop)
-
-#include "wiz8/evidence/OctPreTree_layout.inc"
 
 #endif

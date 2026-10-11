@@ -1,15 +1,14 @@
 #include <catch2/catch_test_macros.hpp>
+#include <unordered_map>
+#include <vector>
+
 #include "wiz8/index_algorithms.h"
 #include "wiz8/engine_code/OctPath.h"
 #include "wiz8/engine_code/Octree.h"
 #include "surrender/srGERD.h"
 #include "surrender/srHuffman.h"
-
-#include <array>
-#include <cstdint>
-#include <cstdio>
-#include <unordered_map>
-#include <vector>
+#include "surrender/srMath.h"
+#include "surrender/srShader.h"
 
 
 static bool candidateOrdering()

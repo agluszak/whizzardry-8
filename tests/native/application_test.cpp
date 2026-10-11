@@ -1,16 +1,18 @@
 #include <catch2/catch_test_macros.hpp>
+#include <SDL3/SDL_init.h>
+#include <SDL3/SDL_stdinc.h>
+#include <array>
+#include <filesystem>
+#include <stdexcept>
+#include <span>
+#include <string>
+#include <string_view>
+
 #include "wiz8/application.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/asset_paths.h"
 #include "temporary_directory.h"
 #include "Button System.h"
-#include <SDL3/SDL.h>
-#include <algorithm>
-#include <array>
-#include <cstdio>
-#include <cstdlib>
-#include <filesystem>
-#include <stdexcept>
 
 
 static void CheckStopped()

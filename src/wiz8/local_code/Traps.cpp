@@ -1,5 +1,12 @@
 #include <fmt/format.h>
-#include "wiz8/unicode.h"
+#include <vector>
+#include <cctype>
+#include <cstdint>
+#include <cstring>
+#include <exception>
+#include <memory>
+#include <string>
+
 #include "wiz8/fonts.h"
 #include "wiz8/local_code/Traps.h"
 #include "wiz8/integer_constants.h"
@@ -12,20 +19,14 @@
 #include "wiz8/engine_code/Spells.h"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/Levels.h"
-#include "wiz8/engine_code/3dapi.h"
 #include "input.h"
 #include "wiz8/startup_world.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/character.h"
-#include "wiz8/layouts/combat_state.h"
 #include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/local_screens/MGSTextBox.h"
-#include <vector>
-#include <algorithm>
 #include "wiz8/utility.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/string_database.h"
@@ -33,9 +34,11 @@
 #include "wiz8/sr_api.h"
 #include "wiz8/filesystem.h"
 #include "random.h"
-#include <ctype.h>
-#include <stdio.h>
-#include <string.h>
+#include "compat/native.h"
+#include "layouts/gameplay_databases.h"
+#include "layouts/targeting.h"
+#include "layouts/world.h"
+#include "surrender/srMath.h"
 
 #define TRAPS_CPP "C:\\Projects\\Wizardry 8\\Local Code\\Traps.cpp"
 

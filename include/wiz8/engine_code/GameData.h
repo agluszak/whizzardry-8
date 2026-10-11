@@ -1,19 +1,20 @@
 #pragma once
+
+#include "wiz8/audio_resources.h"
 #include <memory>
 #include <span>
 #include <string>
 #include <vector>
 
-#include "wiz8/filesystem.h"
-
-#include "wiz8/camera_motion.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/Levels.h"
 #include "wiz8/engine_code/Navigator.h"
-
-#include "Types.h"
 #include "wiz8/engine_code/IntervalGate.h"
+#include "compat/compiler.h"
+#include "glm/ext/matrix_float3x3.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include "surrender/srMath.h"
 
 namespace wiz8 { class File; }
 
@@ -44,7 +45,6 @@ float MoveTimer(int action);
 void ResetLevelMovement(float movement_limit, bool reset, bool fast_move); /* 0x0041EEE0 */
 
 #include "wiz8/geometry.h"
-#include "wiz8/layouts/world.h"
 
 /* The current level-data record at 0x00652DAC — a 0xf4-byte allocation whose
    first 0xac bytes mix flag, counter and camera-vector state. GameData.cpp
@@ -358,8 +358,6 @@ extern bool g_level_data_teardown_flag;
    GDFileIO.cpp. */
 extern W8EnvironRecord* g_environ;
 
-#include "wiz8/engine_code/GDFileIO.h"
-
 void ResetInactiveLevelDataVectors(void);
 void UpdateSharedGameDataObject();
 void UpdateGameDataRuntime();
@@ -434,7 +432,7 @@ extern unsigned char g_level_motion_fast;
 extern bool g_level_footstep_pending;
 extern float g_camera_motion_clamp;
 extern float g_camera_motion_divisor;
-extern int g_level_footstep_sound;
+extern SoundPlayback g_level_footstep_sound;
 extern float g_level_footstep_time;
 extern const double g_motion_delta_epsilon;
 extern const double g_motion_vector_epsilon;

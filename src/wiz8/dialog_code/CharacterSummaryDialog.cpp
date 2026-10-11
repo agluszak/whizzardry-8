@@ -1,26 +1,29 @@
+#include <SDL3/SDL_rect.h>
+#include <cctype>
+#include <cstring>
+
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "vsurface.h"
 #include "wiz8/dialog_code/CharacterSummaryDialog.h"
 #include "wiz8/integer_constants.h"
-
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/fonts.h"
-#include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/GameplayInit.h"
-#include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_code/character_events.h"
-#include "wiz8/local_screens/PartySelectionScreen.h"
 #include "wiz8/xstatus.h"
-
 #include "input.h"
 #include "english.h"
 #include "mousesystem_macros.h"
-#include "timer.h"
-
-#include <ctype.h>
-#include <string.h>
+#include "character_event_queue.h"
+#include "compat/native.h"
+#include "dialog_code/DialogBase.h"
+#include "layouts/character.h"
+#include "layouts/combat_state.h"
+#include "layouts/game_status.h"
+#include "local_code/ControlsRect.h"
+#include "local_code/MonsterManager.h"
 
 /* The bodies from 0x005E0320 through 0x005E0C30 form one dialog lifecycle
    cluster immediately after StatInfoDialogs.cpp.  Retail does not expose its

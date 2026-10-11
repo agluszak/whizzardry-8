@@ -1,12 +1,13 @@
+#pragma once
+
 #include <string_view>
 #include <string>
 #include <optional>
-#pragma once
 
-#include <stddef.h>
-#include "wiz8/file_time.h"
 #include <vector>
-#include <algorithm>
+
+#include "wiz8/file_time.h"
+#include "compat/compiler.h"
 
 bool VerifyDataSubdirs(void);
 std::optional<std::string> FindStartupQuickSave();
@@ -53,6 +54,7 @@ bool EnumerateSaveSlots(std::vector<W8SaveSlot*>& slots);
 bool SaveGame(std::string_view name, W8SaveScreenshot* screenshot);
 
 struct W8Character;
+
 bool SaveCharacter(W8Character* character, int slot, bool report_failure,
                    void (*continuation)(void));
 
@@ -62,6 +64,7 @@ bool TakePendingSaveFlag(void);
 
 struct W8Chunk;
 struct W8GlobalStatus;
+
 unsigned char SaveSlotFileExists(std::string_view slot_name);
 bool LoadCharacter(std::string_view name, W8Character* character, int slot, bool report_failure);
 std::string BuildCharacterFilePath(std::string_view filename, int slot);

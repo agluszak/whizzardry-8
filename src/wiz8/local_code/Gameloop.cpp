@@ -1,4 +1,10 @@
+#include <cstddef>
+#include <memory>
+#include <vector>
+
 #include "wiz8/music_playlist.h"
+#include "layouts/game_status.h"
+#include "soundman.h"
 #ifdef WIZ8_RUNTIME_TESTS
 #include "runtime_instrumentation.h"
 #endif
@@ -16,7 +22,6 @@
 #include "wiz8/local_screens/PartySelectionScreen.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
 #include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/local_screens/AutomapScreen.h"
 #include "wiz8/local_screens/CreditsScreen.h"
 #include "wiz8/local_screens/OptionsScreen.h"
@@ -28,12 +33,6 @@
 #include "wiz8/application.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/engine_code/ReadMesh.h"
-#include "wiz8/character_event_queue.h"
-#include "wiz8/npc_interaction.h"
-#include "wiz8/local_screens/MGSTextBox.h"
-#include "surrender/srTypeRegistry.h"
-
-#include <string.h>
 #include "wiz8/local_code/CombatSound.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/engine_code/Missile.h"
@@ -46,9 +45,6 @@
 #include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/monster_generators.h"
 #include "wiz8/regions.h"
-#include "Button System.h"
-
-#include <stdlib.h>
 
 /* GameloopExit names this unit; GameLoop is placed with that companion. */
 

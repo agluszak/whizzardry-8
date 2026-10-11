@@ -1,7 +1,19 @@
+#include <filesystem>
 #include <fmt/format.h>
-#include "wiz8/unicode.h"
-#include "wiz8/utility.h"
 #include <cstdlib>
+#include <algorithm>
+#include <memory>
+#include <limits>
+#include <stdexcept>
+#include <vector>
+#include <cmath>
+#include <cstdint>
+#include <cstdio>
+#include <cstring>
+#include <exception>
+#include <iterator>
+#include <unordered_map>
+#include <utility>
 
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/OctBuildTree.h"
@@ -11,32 +23,20 @@
 #include "wiz8/engine_code/LevelFile.h"
 #include "wiz8/index_algorithms.h"
 #include "wiz8/engine_code/GameTimeAccumulator.h"
-#include "wiz8/engine_code/game_timer.h"
-#include "wiz8/engine_code/Trigger.hpp"
-#include "wiz8/engine_code/Levels.h"
 #include "wiz8/engine_code/GDCamera.h"
-#include "wiz8/engine_code/Navigator.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/engine_code/GDFileIO.h"
 #include "wiz8/engine_code/materials.h"
-
 #include "wiz8/filesystem.h"
 #include "wiz8/binary_reader.h"
-#include <algorithm>
-#include <array>
-#include <map>
-
-#include <math.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <new>
 #include "wiz8/engine_code/3d.h"
-#include <memory>
-#include <limits>
-#include <stdexcept>
-#include <vector>
+#include "compat/compiler.h"
+#include "compat/ptr32.h"
+#include "geometry.h"
+#include "surrender/srMath.h"
+
+class Trigger;
 
 // GLOBAL: WIZ8 0x005ec1a8
 const float g_float_negative_one_third = -0.3333333432674408f;

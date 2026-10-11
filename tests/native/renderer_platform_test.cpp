@@ -1,12 +1,13 @@
 #include <catch2/catch_test_macros.hpp>
+#include <chrono>
+#include <cstdio>
+#include <thread>
+
 #include "surrender/srClock.h"
 #include "surrender/srCore.h"
 #include "surrender/srDD_SDLGPU.h"
 #include "surrender/srGERD.h"
-
-#include <chrono>
-#include <cstdio>
-#include <thread>
+#include "compat/compiler.h"
 
 
 TEST_CASE("renderer platform")

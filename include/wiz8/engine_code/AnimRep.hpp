@@ -2,8 +2,9 @@
 #define WIZ8_ENGINE_CODE_ANIM_REP_H
 
 #include "surrender/srMath.h"
-
-#include <stddef.h>
+#include "compat/compiler.h"
+#include "glm/ext/matrix_float3x3.hpp"
+#include "glm/ext/vector_float4.hpp"
 
 /* Direction state at AnimRep+0x6e. Props record completion at either
    endpoint; GrCycle advances only the two running directions. Byte storage

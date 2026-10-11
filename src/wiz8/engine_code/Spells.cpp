@@ -1,18 +1,25 @@
 #include <fmt/format.h>
+#include <glm/ext/quaternion_trigonometric.hpp>
+#include <glm/gtc/quaternion.hpp>
 #include <string_view>
-#include "wiz8/unicode.h"
+#include <vector>
+#include <cmath>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <exception>
+#include <memory>
+#include <string>
+#include <utility>
+
+#include "glm/ext/matrix_float3x3.hpp"
 #include "wiz8/retail_text_records.h"
 #include "wiz8/containers.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/engine_code/AnimRep.hpp"
 #include "wiz8/float_constants.h"
-
 #include "wiz8/engine_code/Spells.h"
-#include "wiz8/local_code/MagicEffects.h"
 #include "wiz8/layouts/gameplay_databases.h"
-#include "wiz8/layouts/character.h"
-#include "wiz8/local_code/HealthStaminaMana.h"
-#include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/engine_code/Emitter.h"
 #include "wiz8/engine_code/AnimObj.h"
 #include "wiz8/engine_code/AmbientSound.h"
@@ -22,36 +29,34 @@
 #include "wiz8/engine_code/game_timer.h"
 #include "wiz8/engine_code/Item.h"
 #include "wiz8/engine_code/Monster.h"
-#include "wiz8/engine_code/quad.h"
 #include "wiz8/engine_code/ReadLevel.h"
 #include "wiz8/engine_code/stLight.hpp"
-#include "wiz8/engine_code/stParticle.h"
 #include "wiz8/engine_code/SoundEvent.h"
 #include "wiz8/engine_code/SpellEmitterHost.h"
 #include "wiz8/engine_code/SpellVisual.h"
 #include "wiz8/engine_code/stSound3D.h"
 #include "wiz8/engine_code/stModelInstance.h"
-#include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/3d.h"
-#include <vector>
-#include <algorithm>
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/engine_code/Environment.h"
-#include "wiz8/engine_code/Quality.h"
-#include "wiz8/engine_code/Video2.h"
 #include "wiz8/sr_api.h"
-#include "wiz8/utility.h"
-#include "surrender/srCamera.h"
 #include "soundman.h"
-#include <math.h>
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/PolyPick.h"
-#include <glm/gtc/matrix_transform.hpp>
+#include "GrCycle.h"
+#include "Types.h"
+#include "compat/native.h"
+#include "glm/ext/vector_float3.hpp"
+#include "layouts/world.h"
+#include "monster_cycles.h"
+#include "monster_spell_icons.h"
+#include "retail_records.h"
+#include "spell_ids.h"
+#include "surrender/srClock.h"
+#include "surrender/srMath.h"
+#include "surrender/srModelInstance.h"
+#include "surrender/srNode.h"
+#include "surrender/srTypeRegistry.h"
 
 // GLOBAL: WIZ8 0x0065BE40
 std::vector<stSound3D*> g_sound3d_instances;
@@ -1254,7 +1259,7 @@ stSound3D::stSound3D(const char* name, srNode* parent)
         strcpy(wave_name, name);
     }
     unknown_138 = 0;
-    sound_handle = -1;
+    sound_handle = nullptr;
     volume = 0x7f;
     falloff = 25000.0f;
     auto_release = false;
@@ -1267,7 +1272,7 @@ stSound3D::~stSound3D()
     if (wave_name != nullptr) {
         free(wave_name);
     }
-    if (sound_handle != -1) {
+    if (sound_handle != nullptr) {
         SoundStop(sound_handle);
     }
     wiz8::erase_first(g_sound3d_instances, this);
@@ -1289,7 +1294,7 @@ unsigned char stSound3D::Play(bool loop, bool release_when_done)
     }
     sound_handle = Sound3DPlay(wave_name, &options);
     auto_release = release_when_done;
-    return sound_handle != -1;
+    return sound_handle != nullptr;
 }
 
 // FUNCTION: WIZ8 0x004AECC0
@@ -1336,7 +1341,7 @@ void stSound3D::BuildSoundOptions(const srVector3T<float>* listener, SOUND3DPARM
 // FUNCTION: WIZ8 0x004AEC70
 bool stSound3D::IsPlaying()
 {
-    if (sound_handle != -1 && SoundIsPlaying(sound_handle) != 0) {
+    if (sound_handle != nullptr && SoundIsPlaying(sound_handle) != 0) {
         return true;
     }
     return false;
@@ -1345,9 +1350,9 @@ bool stSound3D::IsPlaying()
 // FUNCTION: WIZ8 0x004AEC90
 void stSound3D::Stop()
 {
-    if (sound_handle != -1) {
+    if (sound_handle != nullptr) {
         SoundStop(sound_handle);
-        sound_handle = -1;
+        sound_handle = nullptr;
     }
 }
 
@@ -1367,11 +1372,11 @@ void Update3DSounds()
     if (count > 0) {
         do {
             stSound3D* sound = g_sound3d_instances[index];
-            if (sound->sound_handle != -1) {
+            if (sound->sound_handle != nullptr) {
                 srVector3T<double> world = sound->getWorldSpaceLocation();
                 if (SoundIsPlaying(sound->sound_handle) == 0) {
                     bool dead = sound->auto_release;
-                    sound->sound_handle = -1;
+                    sound->sound_handle = nullptr;
                     if (dead) {
                         delete sound;
                         --count;

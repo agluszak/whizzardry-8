@@ -1,8 +1,13 @@
 #include "wiz8/level_specific_code/MartensBluff2.h"
+
+#include <glm/ext/quaternion_trigonometric.hpp>
+#include <glm/gtc/quaternion.hpp>
+#include <vector>
+#include <cmath>
+#include <string>
+
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/engine_code/World.h"
-#include <vector>
-#include <algorithm>
 #include "wiz8/cursor.h"
 #include "wiz8/engine_code/Environment.h"
 #include "wiz8/engine_code/GDProp.h"
@@ -23,19 +28,25 @@
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/GameplayTime.h"
-#include "wiz8/local_code/MagicEffects.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/location_variables.h"
-#include "wiz8/sr_api.h"
 #include "wiz8/string_database.h"
 #include "surrender/srMath.h"
 #include "random.h"
-
-#include <math.h>
+#include "Navigator.h"
+#include "compat/compiler.h"
+#include "compat/ptr32.h"
+#include "conditions.h"
+#include "dice.h"
+#include "glm/ext/matrix_float3x3.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include "layouts/gameplay_databases.h"
+#include "layouts/world.h"
+#include "local_code/SpellEffect.h"
 
 #define MARTENSBLUFF2_CPP "C:\\Projects\\Wizardry 8\\Level Specific Code\\MartensBluff2.cpp"
 

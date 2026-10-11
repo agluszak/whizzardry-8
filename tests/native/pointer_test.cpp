@@ -1,8 +1,14 @@
 #include <catch2/catch_test_macros.hpp>
+#include <memory>
+
 #include "wiz8/dialog_code/ButtonUserData.h"
 #include "compat/ptr32.h"
+#include "Button System.h"
+#include "mousesystem.h"
 
 // This test links only the callback adapter, not the platform/video shell.
+// These stubs never register a mouse region; owner_test covers real teardown.
+_MOUSE_REGION::~_MOUSE_REGION() = default;
 GUI_BUTTON::~_GUI_BUTTON() = default;
 
 TEST_CASE("pointer_test")

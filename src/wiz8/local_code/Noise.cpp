@@ -1,19 +1,21 @@
 #include "wiz8/local_code/Noise.h"
 
 #include <vector>
-#include <algorithm>
+
 #include "wiz8/engine_code/GrCycle.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/Octree.h"
-#include "wiz8/engine_code/World.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/startup_world.h"
 #include "wiz8/xstatus.h"
-
 #include "random.h"
+#include "Navigator.h"
+#include "compat/ptr32.h"
+#include "local_code/Factions.h"
+#include "surrender/srMath.h"
 
 /* Retail Local Code\Noise.cpp. */
 

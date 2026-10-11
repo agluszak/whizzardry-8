@@ -1,11 +1,25 @@
+#include <SDL3_image/SDL_image.h>
+#include <SDL3/SDL_begin_code.h>
+#include <SDL3/SDL_error.h>
+#include <SDL3/SDL_iostream.h>
+#include <SDL3/SDL_stdinc.h>
+#include <SDL3/SDL_surface.h>
+#include <array>
+#include <vector>
+#include <algorithm>
+#include <cstddef>
+#include <memory>
+#include <string>
+#include <utility>
+
 #include "image_helpers.h"
 #include "surrender/srIO.h"
 #include "surrender/srImageIO.h"
 #include "surrender/srCore.h"
 #include "surrender/srColorSurface.h"
-#include <SDL3_image/SDL_image.h>
-#include <array>
-#include <vector>
+#include "surrender/srARGB.h"
+#include "surrender/srPalette.h"
+#include "surrender/srPixelConvert.h"
 
 namespace srImage {
 namespace tga {

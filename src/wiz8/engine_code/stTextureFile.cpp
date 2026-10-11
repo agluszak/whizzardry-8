@@ -1,11 +1,16 @@
-#include "wiz8/engine_code/Video2.h"
-#include "wiz8/engine_code/ReadMesh.h"
-#include "wiz8/engine_code/stTextureFile.h"
+#include <cstring>
+#include <exception>
+#include <memory>
+#include <ostream>
+#include <string>
 
+#include "wiz8/engine_code/stTextureFile.h"
+#include "compat/compiler.h"
+#include "compat/native.h"
+#include "surrender/srTexture.h"
 #include "wiz8/filesystem.h"
 #include "surrender/srImageIO.h"
-
-#include <cstring>
+#include "surrender/srColorSurfaceIFace.h"
 
 std::unique_ptr<srColorSurface> __stdcall LoadSurface(wiz8::File* handle, w8_long*)
 {

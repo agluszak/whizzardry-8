@@ -1,8 +1,21 @@
+#include "surrender/srScene.h" // IWYU pragma: keep - complete scene type for conversion to srNode.
+#include "wiz8/engine_code/stTextureAnim.h" // IWYU pragma: keep - complete animation type used through the owned pointer.
 #include <fmt/format.h>
 #include <fmt/printf.h>
+#include <SDL3/SDL_filesystem.h>
+#include <SDL3/SDL_rect.h>
 #include <string_view>
-#include "wiz8/unicode.h"
 #include <string>
+#include <vector>
+#include <array>
+#include <cmath>
+#include <cstdint>
+#include <cstring>
+#include <memory>
+#include <optional>
+
+#include "compat/compiler.h"
+#include "layouts/targeting.h"
 #include "wiz8/spell_ids.h"
 #include "wiz8/conditions.h"
 #include "line.h"
@@ -34,7 +47,6 @@
 #include "wiz8/local_code/CombatRange.h"
 #include "wiz8/local_code/CombatAttack.h"
 #include "wiz8/engine_code/GameData.h"
-#include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/MGSPortraitCombat.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
@@ -44,66 +56,50 @@
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/npc_items.h"
 #include "wiz8/local_code/NPCScripting.h"
-#include "wiz8/npc_script_file.h"
 #include "wiz8/layouts/item_instance.h"
 #include "wiz8/layouts/item_tables.h"
 #include "wiz8/layouts/gameplay_databases.h"
-#include "wiz8/fact_state.h"
 #include "wiz8/local_screens/MGSKeyboard.h"
 #include "wiz8/engine_code/Environment.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/engine_code/3dapi.h"
 #include "wiz8/engine_code/Prop.h"
 #include "wiz8/engine_code/World.h"
-#include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/stModelInstance.h"
-#include "wiz8/engine_code/stTextureAnim.h"
 #include "vobject.h"
 #include "vsurface.h"
-#include "wiz8/local_screens/RCSCommon.h"
 #include "wiz8/local_code/LoadSaveGame.h"
 #include "wiz8/local_code/MonsterAI.h"
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/dialog_code/MessageDialogBase.h"
-#include "wiz8/dialog_code/NpcDialog.h"
-#include <vector>
-#include <algorithm>
 #include "wiz8/cursor.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/Navigator.h"
 #include "wiz8/engine_code/3d.h"
-#include "wiz8/engine_code/World.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/GameplayTime.h"
 #include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/music_playlist.h"
 #include "wiz8/sr_api.h"
-#include "surrender/srScene.h"
 #include "surrender/srColorSurface.h"
 #include "surrender/srMaterial.h"
 #include "surrender/srMeshModel.h"
 #include "surrender/srShader.h"
 #include "wiz8/surface2d.h"
 #include "wiz8/utility.h"
-#include "wiz8/notices.h"
 #include "wiz8/regions.h"
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/fonts.h"
-#include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_screens/MGSUseItemSelect.h"
-#include "wiz8/local_screens/RCSItemsPage.h"
 #include "wiz8/dialog_code/AssayDialog.h"
 #include "wiz8/dialog_code/MonsterInfoDialog.h"
-#include "wiz8/dialog_code/PortraitQuote.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/world_cursor.h"
 #include "wiz8/local_code/MonsterGroup.h"
-
 #include "Font.h"
 #include "wiz8/filesystem.h"
 #include "input.h"
@@ -113,24 +109,18 @@
 #include "mousesystem_macros.h"
 #include "surrender/srTypeRegistry.h"
 #include "wiz8/engine_code/Trigger.hpp"
-#include "wiz8/engine_code/3dapi.h"
 #include "wiz8/local_code/ItemManager.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/local_screens/MGSPartyMovement.h"
 #include "wiz8/engine_code/Cursor3d.h"
 #include "wiz8/local_screens/Screens.h"
-#include "wiz8/local_screens/MGSPortraits.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
 #include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/string_database.h"
 #include "wiz8/local_screens/MGSSpellIcons.h"
-#include "wiz8/local_screens/JournalScreen.h"
-#include "wiz8/engine_code/Prop.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/character_skills.h"
-#include "wiz8/local_code/CharGeneration.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
-#include "wiz8/local_code/GameplayMods.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/UtilityFunctions.h"
@@ -142,13 +132,39 @@
 #include "wiz8/local_code/GameplayInit.h"
 #include "vobject_blitters.h"
 #include "random.h"
-
-#include <math.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/local_screens/OptionsScreen.h"
+#include "Item.h"
+#include "application.h"
+#include "camera_motion.h"
+#include "compat/native.h"
+#include "compat/ptr32.h"
+#include "dialog_code/DialogBase.h"
+#include "dialog_code/DialogTextArea.h"
+#include "dialog_code/DialogTextEntry.h"
+#include "difficulty.h"
+#include "equipment_slots.h"
+#include "game_timer.h"
+#include "glm/ext/vector_float4.hpp"
+#include "layouts/levels.h"
+#include "layouts/main_game_screen.h"
+#include "layouts/npc_dialogue.h"
+#include "layouts/world.h"
+#include "local_code/Controls.h"
+#include "local_code/ControlsRect.h"
+#include "local_code/Factions.h"
+#include "local_code/RangeControl.h"
+#include "local_code/TextBuffer.h"
+#include "local_code/TextControl.h"
+#include "local_code/Widget.h"
+#include "mgs_commands.h"
+#include "monster_cycles.h"
+#include "npc_trade_price.h"
+#include "surrender/srMath.h"
+#include "surrender/srNode.h"
+#include "surrender/srPixelConvert.h"
+#include "texture_animation.h"
+
+class srColorSurfaceIFace;
 
 /* Every redraw request checks the screen state first, so a request made from
    another screen is simply dropped. */
@@ -1529,7 +1545,7 @@ W8MainGameTextEntry::W8MainGameTextEntry(Controls* panel, int index)
     m_right = m_measured_w + left;
     m_bottom = m_measured_h + top;
     m_top = top;
-    SetPanel(panel);
+    SetPanel(*panel);
     AddLayoutFlags(g_W8TextControlLayoutLatchedImage | g_W8TextControlLayoutToggle);
 }
 
@@ -1883,7 +1899,7 @@ void W8MainGameStatusPanel::Redraw()
 
 // FUNCTION: WIZ8 0x00589160
 W8MainGameScreen::W8MainGameScreen(Trigger* owner)
-    : m_owner(owner), m_disarm_state(0), m_target_difficulty(0), m_sound_handle(0)
+    : m_owner(owner), m_disarm_state(0), m_target_difficulty(0), m_sound_handle()
 {
     m_device_id = owner->lock_state.device_id;
     m_difficulty = owner->lock_state.difficulty;
@@ -1978,8 +1994,7 @@ void W8MainGameScreen::SelectTextEntry(int index)
     m_action_controls[4]->SetEnabled(false);
     m_action_panel->Invalidate(0);
     m_text_panel->BeginProgress(g_localized_strings[0x7b5], duration, hold);
-    m_sound_handle = static_cast<int>(
-        SoundPlay((STR)g_trap_sounds[index] /* c-style-cast-ok: SGP STR boundary */, 0));
+    m_sound_handle = SoundPlay((STR)g_trap_sounds[index] /* c-style-cast-ok: SGP STR boundary */, 0);
 }
 
 int W8MainGameScreen::GetTrapInteractionChance() const
@@ -2052,8 +2067,8 @@ void W8MainGameScreen::OnPrimary(W8TextControl* control)
     m_action_controls[4]->SetEnabled(false);
     m_action_panel->Invalidate(0);
     m_text_panel->BeginProgress(g_localized_strings[0x7b6], duration, hold);
-    m_sound_handle = static_cast<int>(SoundPlayStreamedFile(
-        (STR)g_trap_inspection_sound /* c-style-cast-ok: SGP STR boundary */, 0));
+    m_sound_handle = SoundPlayStreamedFile(
+        (STR)g_trap_inspection_sound /* c-style-cast-ok: SGP STR boundary */, 0);
 }
 
 // FUNCTION: WIZ8 0x00589a80
@@ -2107,7 +2122,7 @@ void W8MainGameScreen::Update()
         return;
     case 2:
         m_disarm_state = 0;
-        m_sound_handle = 0;
+        m_sound_handle = nullptr;
         PracticeCharacterSkill(&g_status.buffers.Char[m_selected_character], W8_SKILL_LOCKS_TRAPS,
                                1, false);
         RefreshActionPanel();
@@ -2127,9 +2142,9 @@ void W8MainGameScreen::Update()
         EndTrapInteractMode(0);
         return;
     case 4:
-        if (m_sound_handle != 0) {
+        if (m_sound_handle != nullptr) {
             SoundStop(m_sound_handle);
-            m_sound_handle = 0;
+            m_sound_handle = nullptr;
         }
         // c-style-cast-ok: SGP spells filenames STR (UINT8*), the historical ABI boundary
         SoundPlay((STR)g_trap_sprung_sound, 0);
@@ -2239,7 +2254,7 @@ void W8MainGameScreen::ApplyInspectSuccess()
     int* values;
     int roll;
 
-    m_sound_handle = 0;
+    m_sound_handle = nullptr;
     PracticeCharacterSkill(&g_status.buffers.Char[m_selected_character], W8_SKILL_LOCKS_TRAPS, 1,
                            false);
     RefreshActionPanel();

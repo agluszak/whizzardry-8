@@ -1,10 +1,17 @@
-#include "surrender/srTexture.h"
+#include <ios>
+#include <ostream>
+#include <memory>
+#include <string>
 
+#include "surrender/srTexture.h"
 #include "surrender/srCore.h"
 #include "surrender/srGERD.h"
 #include "surrender/srPixelConvert.h"
-
-#include <ostream>
+#include "compat/compiler.h"
+#include "surrender/srColorSurfaceIFace.h"
+#include "surrender/srFilter.h"
+#include "surrender/srTextureIFace.h"
+#include "surrender/srTypeRegistry.h"
 
 // GLOBAL: SURRENDER 0x100A4A20
 // Lazy e_flag names, "GENERATESURFACE_FAILURE,DIRTY_DEFAULTS"

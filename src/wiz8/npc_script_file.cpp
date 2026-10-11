@@ -1,7 +1,19 @@
 #include "wiz8/npc_script_file.h"
-#include "wiz8/unicode.h"
+
 #include <algorithm>
+#include <cstdint>
 #include <memory>
+#include <cstddef>
+#include <exception>
+#include <iterator>
+#include <span>
+#include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
+
+#include "wiz8/unicode.h"
+#include "filesystem.h"
 
 /* Original translation-unit ownership is unknown; surrounding anchors do not resolve it. */
 // FUNCTION: WIZ8 0x0055a0a0

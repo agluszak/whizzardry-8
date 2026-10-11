@@ -1,7 +1,11 @@
-#include "surrender/srIlluminator.h"
+#include <vector>
 
-#include "surrender/srCore.h"
+#include "surrender/srIlluminator.h"
 #include "surrender/srGERD.h"
+#include "compat/compiler.h"
+#include "glm/ext/vector_float3.hpp"
+#include "glm/ext/vector_float4.hpp"
+#include "surrender/srNode.h"
 
 // FUNCTION: SURRENDER 0x1004C7D0
 srIlluminator::srIlluminator(srNode* parent)

@@ -1,5 +1,7 @@
 #include "wiz8/engine_code/GameTimeAccumulator.h"
 
+#include "game_timer.h"
+
 /* A W8GameTimer specialization constructed at 0x0043A910 over the base built
    by 0x00439550: it scales real elapsed time into accumulated game time.
    Nothing in the image names it - its constructor sits in a gap between

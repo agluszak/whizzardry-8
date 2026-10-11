@@ -1,6 +1,8 @@
 #pragma once
-#include "Types.h"
-#include <SDL3/SDL.h>
+
+#include <SDL3/SDL_events.h>
+#include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_video.h>
 
 void SetInputWindow(SDL_Window* window);
 void HandleInputEvent(const SDL_Event& event);

@@ -1,10 +1,13 @@
+#include <ostream>
+#include <vector>
+
 #include "surrender/srClipPlane.h"
 #include "surrender/srStreamFlags.h"
-
 #include "surrender/srGERD.h"
 #include "surrender/srTypeRegistry.h"
-
-#include <ostream>
+#include "compat/compiler.h"
+#include "glm/ext/vector_float4.hpp"
+#include "surrender/srNode.h"
 
 // FUNCTION: SURRENDER 0x10049B90
 srClipPlane::srClipPlane(srNode* parent)
@@ -103,4 +106,3 @@ glm::vec4 srClipPlane::getClipPlane() const
 {
     return clip_plane_;
 }
-

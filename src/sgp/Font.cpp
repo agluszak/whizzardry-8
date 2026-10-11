@@ -1,23 +1,24 @@
-#include <string>
-#include "wiz8/unicode.h"
 #include <SDL3/SDL_log.h>
+#include <SDL3/SDL_rect.h>
+#include <cstddef>
+#include <string>
+#include <algorithm>
+#include <array>
+#include <memory>
+#include <string_view>
+#include <vector>
+
+#include "wiz8/unicode.h"
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07, 2026-10-09.
    Distributed under the accompanying SFI Source Code license agreement. */
 // font.c
 #include "Types.h"
-#include <stdio.h>
-#include <stdarg.h>
-#include <stdarg.h>
-#include <algorithm>
-#include "wiz8/application.h"
-#include "wiz8/filesystem.h"
 #include "Font.h"
-
 #include "Video2.h"
-
 #include "himage.h"
 #include "vobject.h"
 #include "vobject_blitters.h"
+#include "vsurface.h"
 //   Defines
 
 #define PALETTE_SIZE 768

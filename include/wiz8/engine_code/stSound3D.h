@@ -1,5 +1,7 @@
 #pragma once
 
+#include "wiz8/audio_resources.h"
+
 #include "surrender/srNode.h"
 #include "wiz8/geometry.h"
 #include <vector>
@@ -35,7 +37,7 @@ public:
                            SOUND3DPARMS* options); /* 0x004AECC0 */
 
     int unknown_138;   /* 0x138: ctor zeroes it; no retail reader found */
-    int sound_handle;  /* 0x13c: live SGP voice id, -1 when silent */
+    SoundPlayback sound_handle;  // Current playback; empty when silent.
     int volume;        /* 0x140: base volume before distance/effects scale */
     float falloff;     /* 0x144: audible range in world units */
     char* wave_name;   /* 0x148: owned copy of the wave filename */
@@ -58,7 +60,7 @@ public:
             strcpy(wave_name, source_name);
         }
 
-        sound_handle = -1;
+        sound_handle = nullptr;
         falloff = other.falloff;
         volume = other.volume;
         auto_release = other.auto_release;

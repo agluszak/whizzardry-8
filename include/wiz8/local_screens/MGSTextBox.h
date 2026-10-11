@@ -1,24 +1,16 @@
 #pragma once
 
 #include <cstddef>
+#include <vector>
+#include <cstdint>
+#include <string>
+#include <string_view>
 
 #include "Types.h"
-#include <vector>
-struct W8NoticeWord;
-
-#include "wiz8/filesystem.h"
-
-class Trigger;
-
 #include "input.h"
-#include "wiz8/fonts.h"
-#include "wiz8/dialog_code/DialogBase.h"
-
-#include <vector>
-#include <algorithm>
 
 struct W8MonsterInfo;
-struct W8Region;
+namespace wiz8 { class File; }
 
 enum W8NoticeWordState {
     W8_NOTICE_WORD_NORMAL = 0,

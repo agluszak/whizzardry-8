@@ -1,6 +1,18 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
 #include <string_view>
+#include <vector>
+#include <limits>
+#include <memory>
+#include <stdexcept>
+#include <cstdint>
+#include <cstdlib>
+#include <cstring>
+#include <exception>
+#include <span>
+#include <string>
+#include <utility>
+
 #include "wiz8/unicode.h"
 #include "wiz8/retail_text_records.h"
 #include "wiz8/containers.h"
@@ -13,14 +25,10 @@
 #include "wiz8/integer_constants.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/character_skills.h"
-#include "wiz8/local_code/CharGeneration.h"
-#include "wiz8/local_code/Combat.h"
-#include "wiz8/local_code/CombatAttack.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/GameplayMods.h"
-#include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/MagicEffects.h"
 #include "wiz8/local_code/party_encumbrance.h"
@@ -35,10 +43,8 @@
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/character_events.h"
-#include "wiz8/engine_code/Spells.h"
 #include "random.h"
 #include "wiz8/layouts/combat_state.h"
-#include "wiz8/local_code/CombatRange.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/location_variables.h"
 #include "wiz8/layouts/npc_state.h"
@@ -54,30 +60,26 @@
 #include "wiz8/engine_code/Levels.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/local_code/GameplayDatabase.h"
-#include "wiz8/local_code/Factions.h"
-#include "wiz8/local_code/Sight.h"
-#include <vector>
-#include <algorithm>
 #include "wiz8/chunk.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/engine_code/World.h"
-#include "wiz8/utility.h"
-#include "wiz8/chunk.h"
-#include "wiz8/filesystem.h"
-
-#include <limits>
-#include <memory>
-#include <stdexcept>
-#include <vector>
-
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/engine_code/GameData.h"
+#include "Item.h"
+#include "compat/native.h"
+#include "compat/ptr32.h"
+#include "dice.h"
+#include "equipment_slots.h"
+#include "float_constants.h"
+#include "gameplay_modifiers.h"
+#include "input.h"
+#include "layouts/main_game_screen.h"
+#include "message_box.h"
+#include "retail_records.h"
+#include "surrender/srMath.h"
 
 #define NPC_MANAGER_CPP "C:\\Projects\\Wizardry 8\\Local Code\\NPC Manager.cpp"
 

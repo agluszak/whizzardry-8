@@ -1,5 +1,13 @@
-#include "wiz8/utility.h"
-#include "wiz8/unicode.h"
+#include <cstdlib>
+#include <cstdio>
+#include <cstring>
+#include <vector>
+#include <cmath>
+#include <exception>
+#include <memory>
+#include <string>
+
+#include "compat/compiler.h"
 #include "wiz8/containers.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/3dapi.h"
@@ -12,15 +20,9 @@
 #include "wiz8/local_code/MonsterGenerator.h"
 #include "wiz8/engine_code/Environment.h"
 #include "wiz8/engine_code/Video2.h"
-#include <cstdlib>
-#include <cstdio>
-#include <cstring>
-
 #include "wiz8/engine_code/Level.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/local_code/NPCManager.h"
-#include <vector>
-#include <algorithm>
 #include "wiz8/engine_code/Camera.h"
 #include "wiz8/engine_code/Item.h"
 #include "wiz8/engine_code/GDCamera.h"
@@ -42,28 +44,32 @@
 #include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/UpdateMesh.h"
 #include "wiz8/engine_code/stLight.hpp"
-#include "wiz8/engine_code/stModelInstance.h"
 #include "wiz8/engine_code/stParticle.h"
 #include "wiz8/engine_code/Levels.h"
 #include "wiz8/engine_code/Navigator.h"
 #include "wiz8/startup_world.h"
 #include "wiz8/local_code/SpellEffect.h"
 #include "wiz8/layouts/combat_state.h"
-#include "wiz8/local_code/CombatAttack.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/sr_api.h"
-#include "wiz8/virtual_file.h"
 #include "wiz8/world_cursor.h"
-#include "surrender/srColorSurface.h"
-#include "surrender/srMaterial.h"
-#include "surrender/srMeshModel.h"
 #include "surrender/srNode.h"
 #include "surrender/srCamera.h"
 #include "surrender/srScene.h"
-
 #include "wiz8/filesystem.h"
 #include "input.h"
 #include "soundman.h"
+#include "camera_motion.h"
+#include "compat/native.h"
+#include "environment_colour.h"
+#include "glm/ext/matrix_float3x3.hpp"
+#include "glm/ext/vector_double3.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include "layouts/world.h"
+#include "named_position.h"
+#include "surrender/srMath.h"
+
+class srModelInstance;
 
 #define THREE_D_API_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\3dapi.cpp"
 
@@ -75,8 +81,6 @@ static int g_game_data_runtime_pending = 1;
 
 // GLOBAL: WIZ8 0x005ec240
 const double g_automap_refresh_distance_squared = 250000.0;
-
-class W8AmbientSound;
 
 // GLOBAL: WIZ8 0x00659757
 bool g_world_cleanup_flag;

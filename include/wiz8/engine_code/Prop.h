@@ -1,14 +1,12 @@
 #pragma once
 
-#include "wiz8/filesystem.h"
+#include <vector>
 
 #include "wiz8/engine_code/AnimRep.hpp"
 #include "wiz8/engine_code/GrObject.h"
-#include "wiz8/engine_code/game_timer.h"
-#include <vector>
-#include <algorithm>
-
 #include "surrender/srMath.h"
+#include "compat/compiler.h"
+#include "glm/fwd.hpp"
 
 class GDProp;
 struct W8AnimObj;
@@ -19,6 +17,8 @@ class stModelInstance;
 class Trigger;
 class W8Prop;
 struct W8AIMissile;
+class W8GameTimer;
+namespace wiz8 { class File; }
 
 extern bool g_animated_prop_present;
 

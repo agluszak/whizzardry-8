@@ -1,15 +1,21 @@
 #include <fmt/format.h>
 #include <string>
 #include <utility>
+#include <cctype>
+#include <cstdlib>
+#include <cstring>
+#include <exception>
+#include <memory>
+#include <optional>
+#include <unordered_map>
+#include <vector>
+
 #include "wiz8/local_screens/MGSKeyboard.h"
 #include "input.h"
 #include "wiz8/local_screens/CreditsScreen.h"
 #include "wiz8/sr_api.h"
-#include "wiz8/utility.h"
-#include "wiz8/virtual_file.h"
-
 #include "wiz8/filesystem.h"
-#include "input.h"
+#include "mgs_commands.h"
 
 
 /* Local Code\InputMapper.cpp. MGSKeyboard::LoadDefaults at 0x0055D800

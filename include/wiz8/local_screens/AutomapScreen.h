@@ -1,18 +1,18 @@
-#include <string>
 #pragma once
 
-#include "wiz8/filesystem.h"
+#include <string>
 
 extern float g_automap_grid_cell_size;
 
-#include "input.h"
-#include "wiz8/geometry.h"
-#include "wiz8/layouts/main_game_screen.h"
-
-#include "surrender/srMath.h"
 #include <vector>
 #include <memory>
-#include <algorithm>
+
+#include "input.h"
+#include "wiz8/layouts/main_game_screen.h"
+#include "glm/ext/vector_float2.hpp"
+
+namespace wiz8 { class File; }
+template <class T> class srVector3T;
 
 /* One map note with owned UTF-8 text. */
 struct W8AutomapNote {
@@ -28,6 +28,7 @@ void SetCurrentAutomapUiMode(W8MainUiMode value);
 void SetSavedAutomapUiMode(W8MainUiMode value);
 
 class W8DialogButton;
+
 extern std::vector<std::unique_ptr<W8DialogButton>> g_automap_buttons;
 extern int g_automap_zoom_mode;
 

@@ -1,5 +1,22 @@
+#include <glm/ext/quaternion_trigonometric.hpp>
+#include <glm/gtc/quaternion.hpp>
+#include <algorithm>
+#include <cmath>
+#include <cstdlib>
+#include <cstring>
+
+#include "surrender/srMath.h"
 #include "wiz8/containers.h"
 #include "wiz8/local_code/ItemManager.h"
+#include "compat/ptr32.h"
+#include "geometry.h"
+#include "glm/ext/matrix_float3x3.hpp"
+#include "glm/ext/matrix_float4x3.hpp"
+#include "glm/ext/matrix_float4x4.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include "glm/ext/vector_float4.hpp"
+#include "navigation_flags.h"
+#include "sr_api.h"
 /* Engine Code\GDProp.cpp */
 
 #include "wiz8/engine_code/GDProp.h"
@@ -12,12 +29,9 @@
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/float_constants.h"
 #include "wiz8/layouts/world.h"
-#include "wiz8/item_spawning.h"
 #include "wiz8/engine_code/stMeshModel.h"
 #include "surrender/srModelInstance.h"
-#include <math.h>
-#include <stdlib.h>
-#include <string.h>
+
 // GLOBAL: WIZ8 0x005ebccc
 const float g_float_three_quarters = 0.75f;
 

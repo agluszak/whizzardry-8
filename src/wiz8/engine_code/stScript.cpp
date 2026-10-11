@@ -1,16 +1,17 @@
 #include <sstream>
-#include "input.h"
 #include <string_view>
-#include "wiz8/engine_code/stScript.h"
-#include "wiz8/virtual_file.h"
-
 #include <limits>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
+#include <cstddef>
+#include <exception>
 
-#include <stdlib.h>
-#include <string.h>
+#include "input.h"
+#include "wiz8/engine_code/stScript.h"
+#include "wiz8/virtual_file.h"
+#include "filesystem.h"
 
 /* Read one byte at a time through the virtual-file layer.  End-of-file after
    at least one byte still returns a line, while an empty end-of-file clears

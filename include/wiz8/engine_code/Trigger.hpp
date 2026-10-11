@@ -1,21 +1,19 @@
 #pragma once
 
-#include "wiz8/filesystem.h"
-
-class stLight;
-
 #include "surrender/srMath.h"
 #include "surrender/srTypeRegistry.h"
-#include "wiz8/dice.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/engine_code/game_timer.h"
-#include "wiz8/integer_constants.h"
+#include "compat/compiler.h"
+#include "compat/native.h"
 
+class stLight;
 struct W8Item;
 class W8Prop;
 class Trigger;
 struct W8World;
 struct W8WorldItem;
+namespace wiz8 { class File; }
 
 /* Timed Trigger actions are ordinary polymorphic objects owned by Trigger.cpp.
    The 0x38-byte event owns its embedded timer, but not m_pCountdown;

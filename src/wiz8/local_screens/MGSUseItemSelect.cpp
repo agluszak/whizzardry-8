@@ -1,13 +1,15 @@
 #include <fmt/format.h>
 #include <string>
+#include <cstring>
+#include <vector>
+
+#include "input.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/integer_constants.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/local_code/Controls.h"
 #include "wiz8/local_screens/MGSUseItemSelect.h"
-#include "wiz8/character_event_queue.h"
 #include "wiz8/dialog_code/AssayDialog.h"
-#include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/engine_code/Spells.h"
 #include "wiz8/item_video_object_vector.h"
 #include "wiz8/layouts/item_tables.h"
@@ -20,22 +22,28 @@
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/TextControl.h"
-#include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/MGSPortraitCombat.h"
 #include "wiz8/local_screens/MGSSpellCasting.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/npc_interaction.h"
-#include "wiz8/local_screens/OptionsScreen.h"
-#include "wiz8/local_screens/RCSItemsPage.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/level_specific_code/Trynnie2.h"
 #include "wiz8/regions.h"
 #include "wiz8/sr_api.h"
-#include "wiz8/utility.h"
 #include "wiz8/fonts.h"
 #include "wiz8/xstatus.h"
+#include "conditions.h"
+#include "layouts/character.h"
+#include "layouts/gameplay_databases.h"
+#include "layouts/item_instance.h"
+#include "layouts/main_game_screen.h"
+#include "layouts/screen_state.h"
+#include "layouts/targeting.h"
+#include "local_code/TextBuffer.h"
+
+struct W8NpcState;
 
 #define MGSUSEITEMSELECT_CPP "C:\\Projects\\Wizardry 8\\Local Screens\\MGSUseItemSelect.cpp"
 
@@ -271,7 +279,6 @@ void CloseUseItemSelectView(void)
 void RefreshUseItemSelectionForSlot(int party_slot)
 {
     W8ItemInstance* item;
-    int mode;
 
     if (!IsPartySlotEligible(party_slot)) {
         CloseUseItemSelectView();
@@ -280,19 +287,12 @@ void RefreshUseItemSelectionForSlot(int party_slot)
     g_use_item_owner_index = party_slot;
     if (gXStatus.item_drag_active) {
         if (!g_status.item_in_cursor) {
-            if (gXStatus.dragged_item_origin == W8_ITEM_ORIGIN_PARTY_POOL) {
-                if (gXStatus.fCombatMode) {
-                    srAssertFail("!gXStatus.fCombatMode", MGSUSEITEMSELECT_CPP, 0x1f0, 0);
-                }
-                g_use_item_select_scroll_buttons[1]->EnableSecondaryState(false);
-                g_use_item_select_scroll_buttons[0]->DisableSecondaryState(false);
-                mode = 1;
-            } else {
-                g_use_item_select_scroll_buttons[1]->DisableSecondaryState(false);
-                g_use_item_select_scroll_buttons[0]->EnableSecondaryState(false);
-                mode = 0;
-            }
-            RebuildUseItemSelectList(mode, gXStatus.dragged_item);
+            const bool party_pool = gXStatus.dragged_item_origin == W8_ITEM_ORIGIN_PARTY_POOL;
+            if (party_pool && gXStatus.fCombatMode)
+                srAssertFail("!gXStatus.fCombatMode", MGSUSEITEMSELECT_CPP, 0x1f0, 0);
+            g_use_item_select_scroll_buttons[party_pool ? 1 : 0]->EnableSecondaryState(false);
+            g_use_item_select_scroll_buttons[party_pool ? 0 : 1]->DisableSecondaryState(false);
+            RebuildUseItemSelectList(party_pool ? 1 : 0, gXStatus.dragged_item);
         } else {
             ResetEditorStatusLine(2);
             g_use_item_select_controls[3]->SetEnabled(true);
@@ -314,19 +314,12 @@ void RefreshUseItemSelectionForSlot(int party_slot)
         item = FindCharacterItemAt(party_slot, g_status.buffers.XChar[party_slot].item_origin,
                                    g_status.buffers.XChar[party_slot].item_slot);
         if (CanUseItemForAction(g_use_item_owner_index, item)) {
-            if (g_status.buffers.XChar[party_slot].item_origin == W8_ITEM_ORIGIN_PARTY_POOL) {
-                if (gXStatus.fCombatMode) {
-                    srAssertFail("!gXStatus.fCombatMode", MGSUSEITEMSELECT_CPP, 0x216, 0);
-                }
-                g_use_item_select_scroll_buttons[1]->EnableSecondaryState(false);
-                g_use_item_select_scroll_buttons[0]->DisableSecondaryState(false);
-                mode = 1;
-            } else {
-                g_use_item_select_scroll_buttons[1]->DisableSecondaryState(false);
-                g_use_item_select_scroll_buttons[0]->EnableSecondaryState(false);
-                mode = 0;
-            }
-            RebuildUseItemSelectList(mode, item);
+            const bool party_pool = g_status.buffers.XChar[party_slot].item_origin == W8_ITEM_ORIGIN_PARTY_POOL;
+            if (party_pool && gXStatus.fCombatMode)
+                srAssertFail("!gXStatus.fCombatMode", MGSUSEITEMSELECT_CPP, 0x216, 0);
+            g_use_item_select_scroll_buttons[party_pool ? 1 : 0]->EnableSecondaryState(false);
+            g_use_item_select_scroll_buttons[party_pool ? 0 : 1]->DisableSecondaryState(false);
+            RebuildUseItemSelectList(party_pool ? 1 : 0, item);
             if (g_selected_use_item_line == -1) {
                 srAssertFail("giReuseItemLineNumber != -1", MGSUSEITEMSELECT_CPP, 0x221, 0);
             }
@@ -386,20 +379,26 @@ void UpdateUseItemSelect(bool active)
     CommitSelectedItemUse();
 }
 
+/* The two scroll buttons are mutually exclusive views of the same list. */
+static void SelectUseItemScrollMode(int mode)
+{
+    W8TextControl* selected = g_use_item_select_scroll_buttons[mode];
+    W8TextControl* other = g_use_item_select_scroll_buttons[1 - mode];
+    if ((selected->m_stateFlags & g_W8TextControlStateSecondary) != 0) {
+        if ((other->m_stateFlags & g_W8TextControlStateSecondary) != 0) {
+            other->DisableSecondaryState(false);
+            other->Invalidate(false);
+        }
+        RebuildUseItemSelectList(mode, 0);
+    } else {
+        selected->EnableSecondaryState(false);
+    }
+}
+
 // FUNCTION: WIZ8 0x0059D790
 static void UseItemSelectScrollUp(void)
 {
-    if (static_cast<unsigned char>(g_use_item_select_scroll_buttons[0]->m_stateFlags &
-                                   g_W8TextControlStateSecondary) != 0) {
-        if (static_cast<unsigned char>(g_use_item_select_scroll_buttons[1]->m_stateFlags &
-                                       g_W8TextControlStateSecondary) != 0) {
-            g_use_item_select_scroll_buttons[1]->DisableSecondaryState(false);
-            g_use_item_select_scroll_buttons[1]->Invalidate(false);
-        }
-        RebuildUseItemSelectList(0, 0);
-        return;
-    }
-    g_use_item_select_scroll_buttons[0]->EnableSecondaryState(false);
+    SelectUseItemScrollMode(0);
 }
 
 /* Keep the scroll buttons' enabled and secondary states in step with the
@@ -439,17 +438,7 @@ void UpdateUseItemScrollButtons(void)
 // FUNCTION: WIZ8 0x0059D7E0
 static void UseItemSelectScrollDown(void)
 {
-    if (static_cast<unsigned char>(g_use_item_select_scroll_buttons[1]->m_stateFlags &
-                                   g_W8TextControlStateSecondary) != 0) {
-        if (static_cast<unsigned char>(g_use_item_select_scroll_buttons[0]->m_stateFlags &
-                                       g_W8TextControlStateSecondary) != 0) {
-            g_use_item_select_scroll_buttons[0]->DisableSecondaryState(false);
-            g_use_item_select_scroll_buttons[0]->Invalidate(false);
-        }
-        RebuildUseItemSelectList(1, 0);
-        return;
-    }
-    g_use_item_select_scroll_buttons[1]->EnableSecondaryState(false);
+    SelectUseItemScrollMode(1);
 }
 
 // FUNCTION: WIZ8 0x0059D830

@@ -1,33 +1,20 @@
+#include <cstring>
+#include <vector>
+
 #include "wiz8/filesystem.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/local_code/PC_Item.h"
-#include "wiz8/local_code/PartyImport.h"
-#include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/local_code/Strings.h"
-#include "wiz8/local_screens/JournalScreen.h"
-#include "wiz8/local_screens/MGSTextBox.h"
-#include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
-#include "wiz8/utility.h"
 #include "wiz8/layouts/npc_state.h"
-#include "wiz8/npc_script_file.h"
-#include "wiz8/virtual_file.h"
-#include "wiz8/xstatus.h"
-
-#include "soundman.h"
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/local_screens/PartySelectionScreen.h"
-#include "wiz8/local_code/PartyImport.h"
+#include "conditions.h"
 
 /* Runs once the new-game level has finished loading: records the two starting
    transcript keywords from string-table entries 0x7e7/0x7e8 and

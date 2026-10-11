@@ -1,19 +1,19 @@
-#include <algorithm>
-#include <fmt/format.h>
-#include "wiz8/utility.h"
-#include <SDL3/SDL_log.h>
-#include <SDL3/SDL_surface.h>
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
    Distributed under the accompanying SFI Source Code license agreement. */
-#include <stdio.h>
+#include <SDL3/SDL_log.h>
+#include <algorithm>
 #include <map>
-#include "Video2.h"
+#include <cstring>
+#include <memory>
+#include <span>
+#include <utility>
+
+#include "Types.h"
 #include "himage.h"
 #include "vobject.h"
-#include <cstdint>
 #include "WCheck.h"
 #include "vobject_blitters.h"
-#include "wiz8/application.h"
+#include "vsurface.h"
 
 // ******************************************************************************
 // Video Object SGP Module

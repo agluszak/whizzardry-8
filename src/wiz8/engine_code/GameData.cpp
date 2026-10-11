@@ -1,3 +1,18 @@
+#include <algorithm>
+#include <cmath>
+#include <cstring>
+#include <memory>
+#include <span>
+#include <vector>
+
+#include "compat/compiler.h"
+#include "glm/common.hpp"
+#include "glm/ext/matrix_float3x3.hpp"
+#include "glm/geometric.hpp"
+#include "glm/matrix.hpp"
+#include "glm/trigonometric.hpp"
+#include "glm/vector_relational.hpp"
+#include "surrender/srMath.h"
 #include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/OctMeshModel.h"
@@ -32,20 +47,25 @@
 #include "wiz8/engine_code/Prop.h"
 #include "wiz8/engine_code/GDProp.h"
 #include "wiz8/float_constants.h"
-#include "wiz8/engine_code/OctPath.h"
 #include "wiz8/engine_code/stMeshModel.h"
 #include "wiz8/engine_code/stModelInstance.h"
 #include "surrender/srShader.h"
 #include "wiz8/sr_api.h"
-#include "wiz8/utility.h"
-#include "surrender/srCamera.h"
 #include "random.h"
-#include <math.h>
-
-#include <stdlib.h>
-#include <string.h>
-#include <new>
 #include "wiz8/engine_code/3d.h"
+#include "application.h"
+#include "camera_motion.h"
+#include "compat/ptr32.h"
+#include "geometry.h"
+#include "glm/ext/matrix_float2x2.hpp"
+#include "glm/ext/vector_float2.hpp"
+#include "layouts/world.h"
+#include "local_code/Combat.h"
+#include "surrender/srMeshModel.h"
+#include "audio_resources.h"
+
+class srMaterialIFace;
+class srTextureIFace;
 
 // GLOBAL: WIZ8 0x00652da8
 unsigned int* g_level_flags;
@@ -255,7 +275,7 @@ float g_camera_motion_clamp = 1125.0f;
 // GLOBAL: WIZ8 0x00603ac4
 float g_camera_motion_divisor = 3000.0f;
 // GLOBAL: WIZ8 0x00603ad4
-int g_level_footstep_sound = -1;
+SoundPlayback g_level_footstep_sound = nullptr;
 // GLOBAL: WIZ8 0x00652dd0
 float g_level_footstep_time;
 // GLOBAL: WIZ8 0x005ebc50
@@ -2761,16 +2781,16 @@ void UpdateLevelMovementAudio(void)
         g_level_data->motion_velocity.x != g_float_zero ||
         g_level_data->motion_velocity.y != g_float_zero ||
         g_level_data->motion_velocity.z != g_float_zero) {
-        if (g_level_footstep_sound != -1) {
+        if (g_level_footstep_sound != nullptr) {
             SoundSetFadeVolume(g_level_footstep_sound, 0, 500, 1);
-            g_level_footstep_sound = -1;
+            g_level_footstep_sound = nullptr;
         }
         return;
     }
     now = g_game_time_accumulator->GetElapsed();
     if (g_facing_tolerance0 < now - g_level_footstep_time &&
         (g_level_footstep_time = now,
-         g_level_footstep_sound == -1 || SoundIsPlaying(g_level_footstep_sound) == 0)) {
+         g_level_footstep_sound == nullptr || SoundIsPlaying(g_level_footstep_sound) == 0)) {
         g_level_footstep_sound =
             PlayFootstep(g_level_data->sound_environment, g_level_data->sound_environment_alt,
                          W8_FOOTSTEP_KIND_SCUFF);

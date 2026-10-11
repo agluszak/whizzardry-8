@@ -1,17 +1,13 @@
 #include <fmt/format.h>
+#include <vector>
+#include <cmath>
+#include <span>
+
 #include "wiz8/spell_ids.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/integer_constants.h"
-#include "wiz8/character_skills.h"
-#include "wiz8/local_code/CharGeneration.h"
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/CombatAttack.h"
-#include "wiz8/local_code/GameplayCode.h"
-#include "wiz8/local_code/GameplayMods.h"
-#include "wiz8/local_code/HealthStaminaMana.h"
-#include "wiz8/local_code/Magic.h"
-#include "wiz8/local_code/MagicEffects.h"
-#include "wiz8/local_code/party_encumbrance.h"
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/local_code/CombatRange.h"
@@ -26,15 +22,8 @@
 #include "wiz8/utility.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/layouts/combat_state.h"
-
-#include "wiz8/local_code/Combat.h"
-#include "wiz8/local_code/CombatAttack.h"
-#include "wiz8/local_code/CombatRange.h"
 #include "wiz8/float_constants.h"
-#include "wiz8/local_code/Magic.h"
-#include "wiz8/local_code/MagicEffects.h"
 #include "wiz8/sr_api.h"
-#include "wiz8/local_code/CombatRange.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/startup_world.h"
 #include "wiz8/engine_code/Navigator.h"
@@ -43,9 +32,18 @@
 #include "wiz8/engine_code/Spells.h"
 #include "wiz8/engine_code/Levels.h"
 #include "wiz8/engine_code/Monster.h"
-#include <vector>
-#include <algorithm>
 #include "random.h"
+#include "compat/ptr32.h"
+#include "conditions.h"
+#include "gameplay_modifiers.h"
+#include "layouts/gameplay_databases.h"
+#include "layouts/item_instance.h"
+#include "layouts/party_formation.h"
+#include "layouts/targeting.h"
+#include "local_code/Factions.h"
+#include "monster_actions.h"
+#include "sight_state.h"
+#include "surrender/srMath.h"
 
 // GLOBAL: WIZ8 0x0068C518
 int g_event_sight_blocked = g_first_remapped_event + 30;

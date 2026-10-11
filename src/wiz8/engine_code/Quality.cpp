@@ -1,12 +1,14 @@
 #include "wiz8/engine_code/Quality.h"
+
+#include <cstdlib>
+#include <cstring>
+#include <exception>
+
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/sr_api.h"
-#include "wiz8/virtual_file.h"
 #include "surrender/srGERD.h"
 #include "wiz8/filesystem.h"
-
-#include <stdlib.h>
-#include <string.h>
+#include "surrender/srTextureIFace.h"
 
 /* Engine Code\Quality.cpp allocates one 0x34-byte process-wide record.  Its
    leading fields are still unnamed, but the allocation, clear and reviewed

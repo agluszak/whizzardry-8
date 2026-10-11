@@ -1,18 +1,28 @@
-#include "wiz8/utility.h"
-#include "wiz8/unicode.h"
+#include <unordered_map>
+#include <wiz8/filesystem.h>
+#include <cmath>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <exception>
+#include <memory>
+#include <vector>
+
 #include "wiz8/engine_code/OctBuildPreTree.h"
+#include "compat/compiler.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/materials.h"
 #include "wiz8/engine_code/Octree.h"
-#include "wiz8/engine_code/ReadLevel.h"
 #include "wiz8/engine_code/LevelFile.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/sr_api.h"
-#include <math.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <wiz8/filesystem.h>
+#include "OctBuildTree.h"
+#include "OctPreTree.h"
+#include "ReadMesh.h"
+#include "compat/native.h"
+#include "geometry.h"
+#include "index_algorithms.h"
+
 // GLOBAL: WIZ8 0x0065be60
 int g_build_node_instances;
 // GLOBAL: WIZ8 0x0065be58
@@ -1143,20 +1153,17 @@ void OctBuildPreTree::AssignInitialRegions(const W8OctSpatialState* arg_spatial)
     int x_base = static_cast<int>(static_cast<signed char>(path >> 15)) & ~1;
     int y_base = static_cast<int>(static_cast<signed char>(path >> 7)) & ~1;
     signed char z_base = static_cast<signed char>(static_cast<signed char>(path) << 1);
-    short child_index = 0;
-    for (int x = 0; x != 2; ++x) {
-        for (int y = 0; y != 2; ++y) {
-            for (int z = 0; z != 2; ++z, ++child_index) {
-                W8OctBuildNode* parent = arg_spatial->m_root;
-                W8OctBuildNode* node = parent->children[child_index];
-                if (node != 0) {
-                    child.SetChildBounds(arg_spatial, x, y, z);
-                    child.m_node_index =
-                        ((high * 0x100 + x_base + x) * 0x100 + y_base + y) * 0x100 + z_base + z;
-                    child.m_root = node;
-                    AssignInitialRegions(&child);
-                }
-            }
+    for (int child_index = 0; child_index < 8; ++child_index) {
+        const int x = child_index >> 2;
+        const int y = (child_index >> 1) & 1;
+        const int z = child_index & 1;
+        W8OctBuildNode* node = arg_spatial->m_root->children[child_index];
+        if (node != nullptr) {
+            child.SetChildBounds(arg_spatial, x, y, z);
+            child.m_node_index =
+                ((high * 0x100 + x_base + x) * 0x100 + y_base + y) * 0x100 + z_base + z;
+            child.m_root = node;
+            AssignInitialRegions(&child);
         }
     }
 }
@@ -1390,18 +1397,15 @@ void OctBuildPreTree::AssignRegionFromSurfaces(const W8OctSpatialState* arg_spat
     }
 
     if (arg_spatial->m_depth != this->spatial.m_leaf_level) {
-        short child_index = 0;
-        for (int x = 0; x != 2; ++x) {
-            for (int y = 0; y != 2; ++y) {
-                for (int z = 0; z != 2; ++z, ++child_index) {
-                    W8OctBuildNode* parent = arg_spatial->m_root;
-                    W8OctBuildNode* node = parent->children[child_index];
-                    if (node != 0) {
-                        child.SetChildBounds(arg_spatial, x, y, z);
-                        child.m_root = node;
-                        AssignRegionFromSurfaces(&child);
-                    }
-                }
+        for (int child_index = 0; child_index < 8; ++child_index) {
+            const int x = child_index >> 2;
+            const int y = (child_index >> 1) & 1;
+            const int z = child_index & 1;
+            W8OctBuildNode* node = arg_spatial->m_root->children[child_index];
+            if (node != nullptr) {
+                child.SetChildBounds(arg_spatial, x, y, z);
+                child.m_root = node;
+                AssignRegionFromSurfaces(&child);
             }
         }
         return;

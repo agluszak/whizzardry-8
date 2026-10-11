@@ -1,88 +1,69 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
-#include "wiz8/unicode.h"
+#include <SDL3/SDL_filesystem.h>
 #include <string_view>
 #include <string>
-#include "wiz8/containers.h"
 #include <utility>
+#include <cstring>
+#include <optional>
+
+#include "wiz8/unicode.h"
+#include "wiz8/containers.h"
 #include "wiz8/fonts.h"
-#include "wiz8/engine_code/Camera.h"
 #include "wiz8/integer_constants.h"
+#include "compat/compiler.h"
+#include "compat/native.h"
+#include "conditions.h"
+#include "input.h"
+#include "layouts/main_game_screen.h"
+#include "message_box.h"
+#include "vobject.h"
+#include "vsurface.h"
+#include "audio_resources.h"
 #ifdef WIZ8_RUNTIME_TESTS
 #include "runtime_instrumentation.h"
 #endif
+#include <vector>
+
 #include "wiz8/local_screens/Screens.h"
 #include "soundman.h"
-#include "wiz8/local_code/ConditionsAndEnchantments.h"
-#include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/layouts/character.h"
-#include "wiz8/character_skills.h"
-#include "wiz8/local_code/CharGeneration.h"
-#include "wiz8/local_code/Combat.h"
-#include "wiz8/local_code/CombatAttack.h"
-#include "wiz8/local_code/GameplayCode.h"
-#include "wiz8/local_code/GameplayMods.h"
-#include "wiz8/local_code/Magic.h"
-#include "wiz8/local_code/MagicEffects.h"
-#include "wiz8/local_code/party_encumbrance.h"
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/layouts/combat_state.h"
-#include "wiz8/local_code/CombatRange.h"
-#include "wiz8/layouts/item_tables.h"
-#include "wiz8/float_constants.h"
 #include "wiz8/local_code/Strings.h"
-#include "wiz8/local_code/CombatHostility.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/NPCScripting.h"
-#include "wiz8/npc_script_file.h"
 #include "wiz8/layouts/item_instance.h"
 #include "wiz8/layouts/gameplay_databases.h"
-#include "wiz8/local_code/SpellEffect.h"
-#include "wiz8/sr_api.h"
-#include "wiz8/local_code/Targeting.h"
 #include "wiz8/utility.h"
-#include "wiz8/sound_man.h"
 #include "random.h"
 #include "wiz8/local_code/character_events.h"
-#include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/local_screens/MGSTextBox.h"
-#include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/engine_code/Monster.h"
-#include "wiz8/music_playlist.h"
-#include <vector>
-#include <algorithm>
-#include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/string_database.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/npc_interaction.h"
 #include "timer.h"
-#include "wiz8/local_screens/MGSPortraits.h"
 #include "wiz8/dialog_code/PortraitQuote.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
-#include "wiz8/notices.h"
 #include "wiz8/regions.h"
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/engine_code/Environment.h"
 #include "wiz8/local_screens/mipe.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/application.h"
-#include "wiz8/bink_video.h"
 #include "wiz8/mouth_gap.h"
 #include "wiz8/filesystem.h"
-
-#include <stdio.h>
-#include <stdlib.h>
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/local_screens/OptionsScreen.h"
 #include "wiz8/local_screens/PartySelectionScreen.h"
 #include "wiz8/video_object_catalog.h"
 
@@ -715,7 +696,7 @@ unsigned char W8CharacterEvent::PlayEventSound()
     std::string sound_path;
     std::string npc_sound_name;
     SOUNDPARMS sound_parms;
-    unsigned int sound_handle;
+    SoundPlayback sound_handle;
     unsigned int total_ms;
     unsigned int current_ms;
     W8MonsterManagerEntry* record;
@@ -748,7 +729,7 @@ unsigned char W8CharacterEvent::PlayEventSound()
     sound_handle = SoundPlay(sound_path, &sound_parms);
     record = &gXStatus.monster_manager_entries[party_slot];
     record->voice_sound_handle = sound_handle;
-    if (sound_handle == SOUND_ERROR) {
+    if (sound_handle == nullptr) {
         if (event_type > 0x91) {
             char fallback_text[] = FALLBACK_VOICE_TEXT;
             record->voice_time_remaining_ms = ComputePortraitMessageDuration(fallback_text);
@@ -761,7 +742,7 @@ unsigned char W8CharacterEvent::PlayEventSound()
     record->voice_time_remaining_ms = total_ms;
     LoadMouthGapTrack(sound_path, &record->mouth_gap);
 #ifdef WIZ8_RUNTIME_TESTS
-    RuntimeObserve(RUNTIME_VOICE_STARTED, party_slot, sound_handle, record->mouth_gap.range_count);
+    RuntimeObserve(RUNTIME_VOICE_STARTED, party_slot, bool(sound_handle), record->mouth_gap.range_count);
     RuntimeObserve(RUNTIME_VOICE_TIMING, party_slot, total_ms, current_ms);
 #endif
     return 1;
@@ -1770,7 +1751,7 @@ int UpdateCharacterEventState(void)
             continue;
         }
         if (record->portrait_event_active) {
-            if (record->voice_sound_handle == SOUND_ERROR) {
+            if (record->voice_sound_handle == nullptr) {
                 if (record->voice_time_remaining_ms == 0) {
                     if (record->active_character_event == 0) {
                         SetPartyPortraitEventState(party_slot, false, -1, {}, 1);

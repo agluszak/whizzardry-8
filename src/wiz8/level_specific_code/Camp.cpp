@@ -1,7 +1,6 @@
 #include "wiz8/level_specific_code/Camp.h"
-#include "wiz8/engine_code/Trigger.hpp"
+
 #include "wiz8/fact_state.h"
-#include "wiz8/level_specific_code/MasterFunctionList.h"
 
 /* Level Specific Code for Camp.LVL (level 0x10) — the Rapax away camp.
 

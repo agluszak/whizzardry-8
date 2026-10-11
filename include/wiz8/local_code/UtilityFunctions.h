@@ -1,7 +1,10 @@
-#include <string_view>
 #pragma once
 
+#include <string_view>
+#include <string>
+
 #include "Button System.h"
+#include "Types.h"
 
 struct W8MonsterManagerEntry;
 struct W8Character;

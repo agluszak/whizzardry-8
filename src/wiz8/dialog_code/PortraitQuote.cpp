@@ -1,22 +1,20 @@
-#include "wiz8/unicode.h"
+#include <SDL3/SDL_rect.h>
 #include <string_view>
-#include "wiz8/utility.h"
 #include <string>
+#include <algorithm>
+#include <cstring>
 
+#include "wiz8/unicode.h"
 #include "Types.h"
 #include "Font.h"
 #include "himage.h"
 #include "vobject.h"
 #include "vobject_blitters.h"
 #include "vsurface.h"
-#include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/dialog_code/PortraitQuote.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/fonts.h"
-#include "wiz8/local_screens/OptionsScreen.h"
-
-#include <stdlib.h>
-#include <string.h>
+#include "compat/compiler.h"
 
 enum {
     WRAPPED_TEXT_LEFT = 0x01,

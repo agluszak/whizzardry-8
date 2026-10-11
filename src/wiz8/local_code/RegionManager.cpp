@@ -1,10 +1,20 @@
+#include <cstddef>
+#include <deque>
 #include <fmt/format.h>
+#include <algorithm>
+#include <SDL3/SDL_rect.h>
 #include <string_view>
+#include <string>
+#include <vector>
+
 #include "wiz8/regions.h"
+#include "Video2.h"
+#include "compat/native.h"
 #ifdef WIZ8_RUNTIME_TESTS
+#include <string.h>
+
 #include "runtime_instrumentation.h"
 #include "wiz8/local_code/Gameloop.h"
-#include <string.h>
 #endif
 #include "wiz8/local_screens/AutomapScreen.h"
 #include "wiz8/local_screens/CreditsScreen.h"
@@ -23,18 +33,13 @@
 #include "wiz8/local_screens/RCSItemsPage.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
 #include "wiz8/cursor.h"
-#include "wiz8/layouts/screen_state.h"
-#include "wiz8/local_screens/Screens.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/character_events.h"
-#include "wiz8/utility.h"
 #include "wiz8/sr_api.h"
 #include "input.h"
 #include "timer.h"
-
-#include <new>
 #include "wiz8/local_screens/IntroScreen.h"
 
 enum { W8_SCREEN_WIDTH = 640, W8_SCREEN_HEIGHT = 480, W8_HELP_MARGIN = 2 };
@@ -43,10 +48,8 @@ enum { W8_REGION_MODE_MASK = 0xf };
 /* The retail catalog contains 51 statically declared sets and 313 statically
    declared regions.  Dynamically constructed controls append after that
    catalog; region zero is the template copied into each appended record. */
-// GLOBAL: WIZ8 0x00617b18
-unsigned int g_region_set_count = 51;
 // GLOBAL: WIZ8 0x0061f238
-W8RegionSet g_region_sets[300] = {
+std::deque<W8RegionSet> g_region_sets = {
     {0, 0, 0},     {0, 1, 6},     {0, 8, 8},     {0, 9, 9},     {0, 10, 17},   {0, 18, 25},
     {0, 26, 33},   {0, 34, 39},   {0, 40, 45},   {0, 46, 51},   {0, 52, 57},   {0, 58, 63},
     {0, 64, 69},   {0, 70, 75},   {0, 76, 81},   {0, 34, 81},   {0, 90, 97},   {0, 90, 97},
@@ -56,8 +59,6 @@ W8RegionSet g_region_sets[300] = {
     {0, 309, 309}, {0, 310, 310}, {0, 180, 193}, {0, 194, 199}, {0, 205, 230}, {0, 231, 243},
     {0, 244, 263}, {0, 264, 280}, {0, 281, 286}, {0, 287, 291}, {0, 292, 299}, {0, 300, 300},
     {0, 301, 301}, {0, 0, 0},     {0, 0, 0}};
-// GLOBAL: WIZ8 0x00617b1c
-unsigned int g_region_count = 313;
 /* The last catalog region reports every event as handled. Retail's linker
    folded this body into ScreenLifecycleSuccess, which compiles to the same
    bytes. */
@@ -68,7 +69,7 @@ static unsigned char ConsumeRegionInput(const InputAtom*, W8Region*)
 }
 
 // GLOBAL: WIZ8 0x00620048
-W8Region g_regions[1500] = {
+std::deque<W8Region> g_regions = {
 
     {0x00000001, 0, 0, 0, 0, 0, 0, false, 0, -1, 0},
     {0x00000001, 174, 138, 467, 182, MainMenuIntroduction, 0, false, 0, -1, 0},
@@ -534,13 +535,12 @@ void ReleaseDefaultHelpText(void)
 
 static bool FindEnabledRegionAtPoint(unsigned short x, unsigned short y, unsigned int* found_region)
 {
-    for (unsigned int set_index = 0; set_index < g_region_set_count; ++set_index) {
+    for (unsigned int set_index = 0; set_index < g_region_sets.size(); ++set_index) {
         W8RegionSet* set = &g_region_sets[set_index];
-        if (set->enabled != 1 || set->first_region > set->last_region) {
+        if (set->enabled != 1) {
             continue;
         }
-        for (unsigned int region_index = set->first_region; region_index <= set->last_region;
-             ++region_index) {
+        for (auto region_index : set->Regions()) {
             if (RegionContainsPoint(region_index, x, y)) {
                 *found_region = region_index;
                 return true;
@@ -815,7 +815,7 @@ void ShowRegionHelp(unsigned int region_index)
 // FUNCTION: WIZ8 0x004f2040
 void ActivateDialogRegion(unsigned int region_index)
 {
-    if (region_index >= g_region_count) {
+    if (region_index >= g_regions.size()) {
         srAssertFail("uiRegionIndex < guiRegionCount",
                      "C:\\Projects\\Wizardry 8\\Local Code\\RegionManager.cpp", 0x1d6, 0);
     }
@@ -859,7 +859,7 @@ unsigned int GetForcedRegion(void)
 // FUNCTION: WIZ8 0x004f21e0
 void RegionSetEnable(unsigned int region_set_index)
 {
-    if (region_set_index >= g_region_set_count) {
+    if (region_set_index >= g_region_sets.size()) {
         srAssertFail("uiRegionSetIndex < guiRegsetCount",
                      "C:\\Projects\\Wizardry 8\\Local Code\\RegionManager.cpp", 0x22b, 0);
     }
@@ -869,7 +869,7 @@ void RegionSetEnable(unsigned int region_set_index)
 // FUNCTION: WIZ8 0x004f2220
 void RegionSetDisable(unsigned int region_set_index)
 {
-    if (region_set_index >= g_region_set_count) {
+    if (region_set_index >= g_region_sets.size()) {
         srAssertFail("uiRegionSetIndex < guiRegsetCount",
                      "C:\\Projects\\Wizardry 8\\Local Code\\RegionManager.cpp", 0x234, 0);
     }
@@ -879,57 +879,21 @@ void RegionSetDisable(unsigned int region_set_index)
 // FUNCTION: WIZ8 0x004f2260
 void EnableRegionSetInput(unsigned int region_set_index)
 {
-    unsigned int region_index;
-    W8Region* region;
-
-    if (region_set_index >= g_region_set_count) {
-        srAssertFail("uiRegionSetIndex < guiRegsetCount",
-                     "C:\\Projects\\Wizardry 8\\Local Code\\RegionManager.cpp", 0x23f, 0);
-    }
-    region_index = g_region_sets[region_set_index].first_region;
-    if (region_index <= g_region_sets[region_set_index].last_region) {
-        region = &g_regions[region_index];
-        do {
-            if (region_index >= g_region_count) {
-                srAssertFail("uiRegionIndex < guiRegionCount",
-                             "C:\\Projects\\Wizardry 8\\Local Code\\RegionManager.cpp", 0x259, 0);
-            }
-            region->flags &= 0xfff3;
-            ++region_index;
-            ++region;
-        } while (region_index <= g_region_sets[region_set_index].last_region);
-    }
+    for (auto index : g_region_sets.at(region_set_index).Regions())
+        g_regions[index].flags &= ~W8_REGION_INPUT_MODE_MASK;
 }
 
 // FUNCTION: WIZ8 0x004f22f0
 void DisableRegionSetInput(unsigned int region_set_index)
 {
-    unsigned int region_index;
-    unsigned int last_region;
-
-    if (region_set_index >= g_region_set_count) {
-        srAssertFail("uiRegionSetIndex < guiRegsetCount",
-                     "C:\\Projects\\Wizardry 8\\Local Code\\RegionManager.cpp", 0x24d, 0);
-    }
-    region_index = g_region_sets[region_set_index].first_region;
-    if (region_index <= g_region_sets[region_set_index].last_region) {
-        do {
-            if (region_index >= g_region_count) {
-                srAssertFail("uiRegionIndex < guiRegionCount",
-                             "C:\\Projects\\Wizardry 8\\Local Code\\RegionManager.cpp", 0x262, 0);
-            }
-            last_region = g_region_sets[region_set_index].last_region;
-            g_regions[region_index].flags =
-                (g_regions[region_index].flags & 0xfff3) | W8_REGION_INPUT_DISABLED;
-            ++region_index;
-        } while (region_index <= last_region);
-    }
+    for (auto index : g_region_sets.at(region_set_index).Regions())
+        g_regions[index].flags = (g_regions[index].flags & ~W8_REGION_INPUT_MODE_MASK) | W8_REGION_INPUT_DISABLED;
 }
 
 // FUNCTION: WIZ8 0x004f2380
 void EnableRegionInput(unsigned int region_index)
 {
-    if (region_index >= g_region_count) {
+    if (region_index >= g_regions.size()) {
         srAssertFail("uiRegionIndex < guiRegionCount",
                      "C:\\Projects\\Wizardry 8\\Local Code\\RegionManager.cpp", 0x259, 0);
     }
@@ -939,7 +903,7 @@ void EnableRegionInput(unsigned int region_index)
 // FUNCTION: WIZ8 0x004f23d0
 void DisableRegionInput(unsigned int region_index)
 {
-    if (region_index >= g_region_count) {
+    if (region_index >= g_regions.size()) {
         srAssertFail("uiRegionIndex < guiRegionCount",
                      "C:\\Projects\\Wizardry 8\\Local Code\\RegionManager.cpp", 0x262, 0);
     }
@@ -953,7 +917,7 @@ void DisableRegionInput(unsigned int region_index)
 void SetRegionBounds(unsigned int region_index, unsigned short x1, unsigned short y1,
                      unsigned short x2, unsigned short y2)
 {
-    if (region_index >= g_region_count) {
+    if (region_index >= g_regions.size()) {
         srAssertFail("uiRegionIndex < guiRegionCount",
                      "C:\\Projects\\Wizardry 8\\Local Code\\RegionManager.cpp", 0x27d, 0);
     }
@@ -968,7 +932,7 @@ bool RegionContainsPoint(unsigned int region_index, unsigned short x, unsigned s
 {
     W8Region* region;
 
-    if (region_index >= g_region_count) {
+    if (region_index >= g_regions.size()) {
         srAssertFail("uiRegionIndex < guiRegionCount",
                      "C:\\Projects\\Wizardry 8\\Local Code\\RegionManager.cpp", 0x2a4, 0);
     }
@@ -996,7 +960,7 @@ bool RegionHasFlags(unsigned int region_index, unsigned int flags)
 {
     bool has_flags;
 
-    if (region_index >= g_region_count) {
+    if (region_index >= g_regions.size()) {
         srAssertFail("uiRegionIndex < guiRegionCount",
                      "C:\\Projects\\Wizardry 8\\Local Code\\RegionManager.cpp", 0x2c6, 0);
     }
@@ -1045,60 +1009,41 @@ void ResetRegionHelp(bool delayed)
 // FUNCTION: WIZ8 0x004f2880
 unsigned int CreateRegionSet(void)
 {
-    unsigned int region_set_index = g_region_set_count++;
-
-    if (g_region_set_count > 300) {
-        srAssertFail("guiRegsetCount <= REGSET_LIMIT",
-                     "C:\\Projects\\Wizardry 8\\Local Code\\RegionManager.cpp", 0x487, 0);
-    }
-    g_region_sets[region_set_index].enabled = 0;
-    g_region_sets[region_set_index].first_region = g_region_count;
-    g_region_sets[region_set_index].last_region = 0;
-    return region_set_index;
+    g_region_sets.emplace_back();
+    return static_cast<unsigned int>(g_region_sets.size() - 1);
 }
 
 // FUNCTION: WIZ8 0x004f28e0
 void ResetRegionSet(unsigned int region_set_index)
 {
-    if (region_set_index >= g_region_set_count) {
-        srAssertFail("uiRegionSet < guiRegsetCount",
-                     "C:\\Projects\\Wizardry 8\\Local Code\\RegionManager.cpp", 0x4a0, 0);
+    g_region_sets.at(region_set_index).Reset();
+}
+
+unsigned int W8RegionSet::AddRegion()
+{
+    if (active_count == region_ids.size()) {
+        // Reserve first so a failed allocation cannot orphan a region.
+        if (region_ids.size() == region_ids.capacity())
+            region_ids.reserve(std::max(size_t{8}, region_ids.capacity() * 2));
+        const auto index = static_cast<unsigned int>(g_regions.size());
+        g_regions.push_back(g_regions.front());
+        region_ids.push_back(index);
     }
-    g_region_sets[region_set_index].last_region = 0;
+    return region_ids[active_count++];
 }
 
 // FUNCTION: WIZ8 0x004f2920
 unsigned int AddRegionToSet(unsigned int region_set_index)
 {
-    unsigned int region_index;
-
-    if (region_set_index >= g_region_set_count) {
-        srAssertFail("uiRegionSet < guiRegsetCount",
-                     "C:\\Projects\\Wizardry 8\\Local Code\\RegionManager.cpp", 0x4b7, 0);
-    }
-    if (g_region_sets[region_set_index].last_region == 0) {
-        region_index = g_region_sets[region_set_index].first_region;
-    } else {
-        region_index = g_region_sets[region_set_index].last_region + 1;
-    }
-    g_region_sets[region_set_index].last_region = region_index;
-    if (region_index == g_region_count) {
-        ++g_region_count;
-        if (g_region_count > 1500) {
-            srAssertFail("guiRegionCount <= REGION_LIMIT",
-                         "C:\\Projects\\Wizardry 8\\Local Code\\RegionManager.cpp", 0x4c7, 0);
-        }
-        g_regions[region_index] = g_regions[0];
-    }
-    return region_index;
+    return g_region_sets.at(region_set_index).AddRegion();
 }
 
 // FUNCTION: WIZ8 0x004f29c0
 void SetRegionCallback(unsigned int region_index, W8RegionCallback callback,
                        unsigned short callback_id)
 {
-    if (region_index > g_region_count) {
-        srAssertFail("uiRegionIndex <= guiRegionCount",
+    if (region_index >= g_regions.size()) {
+        srAssertFail("uiRegionIndex < guiRegionCount",
                      "C:\\Projects\\Wizardry 8\\Local Code\\RegionManager.cpp", 0x4df, 0);
     }
     ++g_regions[region_index].binding_generation;
@@ -1109,8 +1054,8 @@ void SetRegionCallback(unsigned int region_index, W8RegionCallback callback,
 // FUNCTION: WIZ8 0x004f2a30
 void SetRegionHelp(unsigned int region_index, bool enabled, int help_text_id)
 {
-    if (region_index > g_region_count) {
-        srAssertFail("uiRegionIndex <= guiRegionCount",
+    if (region_index >= g_regions.size()) {
+        srAssertFail("uiRegionIndex < guiRegionCount",
                      "C:\\Projects\\Wizardry 8\\Local Code\\RegionManager.cpp", 0x506, 0);
     }
     g_regions[region_index].help_enabled = enabled;
@@ -1145,8 +1090,8 @@ void ClearHotRegion(void)
 // FUNCTION: WIZ8 0x004f2bb0
 void EnableRegionHelp(unsigned int region_index)
 {
-    if (region_index > g_region_count) {
-        srAssertFail("uiRegionIndex <= guiRegionCount",
+    if (region_index >= g_regions.size()) {
+        srAssertFail("uiRegionIndex < guiRegionCount",
                      "C:\\Projects\\Wizardry 8\\Local Code\\RegionManager.cpp", 0x558, 0);
     }
     g_regions[region_index].help_enabled = true;
@@ -1155,8 +1100,8 @@ void EnableRegionHelp(unsigned int region_index)
 // FUNCTION: WIZ8 0x004f2bf0
 void DisableRegionHelp(unsigned int region_index)
 {
-    if (region_index > g_region_count) {
-        srAssertFail("uiRegionIndex <= guiRegionCount",
+    if (region_index >= g_regions.size()) {
+        srAssertFail("uiRegionIndex < guiRegionCount",
                      "C:\\Projects\\Wizardry 8\\Local Code\\RegionManager.cpp", 0x55f, 0);
     }
     g_regions[region_index].help_enabled = false;
@@ -1171,9 +1116,6 @@ void DisableRegionHelp(unsigned int region_index)
 void ResetRegions(void)
 {
     unsigned int index;
-    W8RegionSet* set;
-    W8Region* region;
-    unsigned int remaining;
 
     index = g_current_region_index;
     if (g_current_region_index != 0 &&
@@ -1193,24 +1135,8 @@ void ResetRegions(void)
         VideoRemoveToolTip();
         g_regions[index].flags &= ~W8_REGION_HELP_SHOWN;
     }
-    if (g_region_set_count != 0) {
-        set = g_region_sets;
-        remaining = g_region_set_count;
-        do {
-            set->enabled = 0;
-            ++set;
-            --remaining;
-        } while (remaining != 0);
-    }
-    if (g_region_count != 0) {
-        region = g_regions;
-        remaining = g_region_count;
-        do {
-            region->flags &= 3;
-            ++region;
-            --remaining;
-        } while (remaining != 0);
-    }
+    for (auto& set : g_region_sets) set.enabled = 0;
+    for (auto& region : g_regions) region.flags &= (W8_REGION_RECTANGLE | W8_REGION_CIRCLE);
     g_current_region_index = 0;
     g_hover_region_index = 0;
     g_captured_region_index = 0;

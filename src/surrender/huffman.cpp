@@ -1,9 +1,19 @@
-#include "surrender/srHuffman.h"
-
+#include <SDL3/SDL_endian.h>
+#include <SDL3/SDL_error.h>
+#include <SDL3/SDL_iostream.h>
+#include <SDL3/SDL_stdinc.h>
 #include <algorithm>
 #include <limits>
 #include <utility>
-#include <string.h>
+#include <cstring>
+#include <iterator>
+#include <stdexcept>
+#include <unordered_map>
+#include <vector>
+
+#include "surrender/srHuffman.h"
+#include "compat/compiler.h"
+#include "surrender/srIO.h"
 
 static void sortSymbolPairs(srHuffman::Sampler::Symbol* pairs, w8_ulong count);
 

@@ -1,4 +1,7 @@
+#include <mutex>
+
 #include "surrender/srGERD.h"
+#include "surrender/srTextureIFace.h"
 
 // FUNCTION: SURRENDER 0x10018550
 void srGERD::setTextureDefaultCorrection(srTextureIFace::e_correction correction)

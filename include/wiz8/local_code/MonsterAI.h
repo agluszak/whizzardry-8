@@ -1,7 +1,7 @@
-#include <vector>
 #pragma once
 
-#include "wiz8/monster_actions.h"
+#include <vector>
+
 #include "wiz8/sight_state.h"
 
 /* Disposition matches plus two wildcard selectors used by visibility scans. */
@@ -17,6 +17,7 @@ struct W8MonsterInfo;
 struct W8MonsterRecord;
 struct W8CombatSlot;
 struct W8MonsterGroup;
+
 /* The timed sight service: clears the sight-dirty flag, refreshes what
    monsters can see, and reruns group detection in combat when allowed. */
 void UpdateMonsterSight(void);

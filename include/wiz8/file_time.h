@@ -1,7 +1,7 @@
 #pragma once
 
 #include <SDL3/SDL_time.h>
-
+#include <SDL3/SDL_stdinc.h>
 #include <cstdint>
 #include <optional>
 

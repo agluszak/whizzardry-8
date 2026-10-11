@@ -1,12 +1,8 @@
 #pragma once
 
-#include "surrender/srMath.h"
-
+class srVector2i;
 /* The portrait combat sub-menu's bank buttons and the shared (menu, entry)
    state tables. */
-
-class W8TextControl;
-class W8DialogButton;
 
 /* The five sub-menu pages the bank buttons open; the entry message and help
    tables are indexed page * 5 + entry, and the keyboard menu keys its pages

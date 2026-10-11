@@ -1,12 +1,13 @@
 #include <fmt/format.h>
-#include "wiz8/unicode.h"
+#include <SDL3/SDL_filesystem.h>
 #include <string>
+#include <optional>
+#include <vector>
+
 #include "wiz8/fonts.h"
-#include "Types.h"
 #include "mousesystem.h"
 #include "wiz8/regions.h"
 #include "wiz8/local_screens/MGSTextBox.h"
-#include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/Levels.h"
@@ -22,19 +23,18 @@
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/LoadSaveGame.h"
 #include "wiz8/music_playlist.h"
-#include "wiz8/notices.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/video_object_catalog.h"
-#include "wiz8/utility.h"
-
 #include "Font.h"
 #include "wiz8/filesystem.h"
 #include "soundman.h"
-
-#include <stdlib.h>
-#include <string.h>
 #include "line.h"
 #include "wiz8/local_code/NPCManager.h"
+#include "compat/compiler.h"
+#include "compat/native.h"
+#include "layouts/levels.h"
+#include "vobject.h"
+#include "vsurface.h"
 
 
 /* The screen's descriptor. The entry handler mallocs it, clears it and fills the

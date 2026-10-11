@@ -1,11 +1,11 @@
 #pragma once
 
-#include "wiz8/filesystem.h"
-
 #include "surrender/srMath.h"
-#include "surrender/srNode.h"
+#include "compat/compiler.h"
 
 struct W8World;
+class srNode;
+namespace wiz8 { class File; }
 
 /* One world-cursor node: the scene node at +0x04, the three label parameters at
    +0x0c/+0x10/+0x14, the text scratch buffer at +0x18 and its length at +0x1c,

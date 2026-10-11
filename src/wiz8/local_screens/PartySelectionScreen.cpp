@@ -1,15 +1,20 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
+#include <SDL3/SDL_filesystem.h>
+#include <SDL3/SDL_rect.h>
 #include <string_view>
-#include "wiz8/unicode.h"
 #include <string>
-#include "wiz8/containers.h"
 #include <utility>
-#include "Types.h"
+#include <memory>
+#include <vector>
+#include <array>
+#include <cstring>
+#include <exception>
+#include <optional>
+
 #include "mousesystem.h"
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/Gameloop.h"
-#include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/LoadSaveGame.h"
 #include "wiz8/local_code/character_events.h"
@@ -20,22 +25,11 @@
 #include "wiz8/local_code/TextControl.h"
 #include "wiz8/local_code/RangeControl.h"
 #include "wiz8/local_code/ControlSelection.h"
-#include "wiz8/local_code/GameplayDatabase.h"
-#include "wiz8/local_code/Sight.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/character_skills.h"
-#include "wiz8/local_code/CharGeneration.h"
-#include "wiz8/local_code/Combat.h"
-#include "wiz8/local_code/CombatAttack.h"
-#include "wiz8/local_code/GameplayMods.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
-#include "wiz8/local_code/Magic.h"
-#include "wiz8/local_code/MagicEffects.h"
-#include "wiz8/local_code/party_encumbrance.h"
 #include "wiz8/local_code/PartyImport.h"
-#include "wiz8/local_code/UtilityFunctions.h"
-#include "wiz8/xstatus.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/cursor.h"
 #include "wiz8/local_screens/Screens.h"
@@ -44,31 +38,23 @@
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/Configuration.h"
-#include "wiz8/geometry.h"
 #include "wiz8/local_code/Controls.h"
 #include "wiz8/local_code/GameplayInit.h"
-#include "wiz8/local_code/PartyImport.h"
 #include "wiz8/local_screens/PartySelectionScreen.h"
-#include "wiz8/local_code/PartyImport.h"
 #include "wiz8/local_screens/CharacterScreen.h"
-#include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/music_playlist.h"
 #include "wiz8/regions.h"
 #include "wiz8/fonts.h"
-#include "wiz8/engine_code/Environment.h"
 #include "wiz8/text_input.h"
-#include <memory>
-#include <vector>
-#include <algorithm>
 #include "wiz8/video_object_catalog.h"
-#include "wiz8/virtual_file.h"
-#include "wiz8/utility.h"
 #include "wiz8/filesystem.h"
 #include "Font.h"
 #include "vsurface.h"
-
-#include <stdio.h>
-#include <string.h>
+#include "compat/compiler.h"
+#include "difficulty.h"
+#include "file_time.h"
+#include "mousesystem_macros.h"
+#include "vobject.h"
 
 /* Party-selection and imported-character UI. The original translation-unit
    spelling is not established; this descriptive name is provisional. */
@@ -472,8 +458,6 @@ public:
 };
 W8_ABI_ASSERT(sizeof(W8PartySelectionInputHandler) == 8, "W8PartySelectionInputHandler_size");
 
-class W8PartySelectionController;
-
 /* Controls owns the six row widgets. The three callback bases occupy +0x4c,
    +0x50 and +0x54; the complete W8Control member at +0x58 owns their selection
    vector. The selected absolute row at +0x80 is read directly by the party-selection
@@ -744,7 +728,7 @@ void W8PartySelectionCharacterRow::OnLeftButtonDoubleClick(int event)
 
 void W8PartySelectionCharacterPanel::RefreshVisibleRows()
 {
-    for (int index = 0; index < static_cast<int>(m_controls.size()); ++index) {
+    for (int index = 0; index < static_cast<int>(ControlCount()); ++index) {
         W8PartySelectionCharacterRow* row =
             static_cast<W8PartySelectionCharacterRow*>(ControlAt(index));
         row->m_character_index = g_party_selection_character_collection->first_visible + row->m_row;
@@ -1200,7 +1184,7 @@ void W8PartySelectionOptionPanel::SetOptionPanelMode(W8PartyCreationPage page)
 {
     m_page = page;
     m_entries.clear();
-    for (int index = 0; index < static_cast<int>(m_controls.size()); ++index) {
+    for (int index = 0; index < static_cast<int>(ControlCount()); ++index) {
         ControlAt(index)->SetActive(page == W8_PARTY_CREATION_OPTIONS);
     }
 
@@ -1429,7 +1413,7 @@ void W8PartySelectionController::SetMode(W8PartySelectionMode mode)
         }
         m_character_panel->m_control.SetSelected(selected);
         m_character_panel->m_control.m_selectionListener = m_character_panel;
-        for (int index = 0; index < static_cast<int>(m_character_panel->m_controls.size());
+        for (int index = 0; index < static_cast<int>(m_character_panel->ControlCount());
              ++index) {
             W8PartySelectionCharacterRow* row =
                 static_cast<W8PartySelectionCharacterRow*>(m_character_panel->ControlAt(index));

@@ -2,26 +2,23 @@
 
 #include <string_view>
 #include <string>
-#include "Types.h"
+#include <vector>
+#include <cstdint>
+
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/item_instance.h"
-
 #include "wiz8/local_code/RangeControl.h"
 #include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/layouts/learned_spells.h"
-#include "wiz8/integer_constants.h"
 #include "wiz8/local_screens/RCSStatsPage.h"
 #include "input.h"
-#include <vector>
+#include "compat/compiler.h"
+#include "local_code/Controls.h"
+#include "local_code/TextControl.h"
 
-class W8DialogBase;
-struct Controls;
-class W8HelpTextControl;
-class W8TextControl;
 class W8Widget;
 struct W8Character;
 struct W8CombatSlot;
-struct W8ItemInstance;
 struct W8Region;
 
 enum W8CampPage {

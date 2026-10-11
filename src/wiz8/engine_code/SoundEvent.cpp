@@ -1,22 +1,24 @@
 #include "wiz8/engine_code/SoundEvent.h"
+
+#include <glm/ext/quaternion_trigonometric.hpp>
+#include <glm/gtc/quaternion.hpp>
+#include <memory>
+#include <string>
+#include <vector>
+#include <cstring>
+#include <utility>
+
+#include "surrender/srMath.h"
 #include "wiz8/engine_code/AmbientSound.h"
-#include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/float_constants.h"
-#include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/sr_api.h"
-#include <vector>
-#include <algorithm>
 #include "random.h"
 #include "soundman.h"
-#include <math.h>
-
-#include <new>
-#include <string.h>
 #include "wiz8/engine_code/GameData.h"
-#include <glm/gtc/matrix_transform.hpp>
+#include "glm/ext/matrix_float3x3.hpp"
+#include "glm/ext/vector_float3.hpp"
 
 #define SOUNDEVENT_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\SoundEvent.cpp"
 
@@ -24,7 +26,7 @@
 // FUNCTION: WIZ8 0x004d5770
 W8SoundEvent::~W8SoundEvent()
 {
-    if (looping && sound_handle != -1) {
+    if (looping && sound_handle != nullptr) {
         SoundStop(sound_handle);
     }
 }
@@ -178,11 +180,11 @@ bool W8SoundEvent::Play(const srVector3T<float>& position, int cycle)
                 options.Pos.flFalloffMin += options.Pos.flFalloffMin;
             }
             sound_handle = Sound3DPlay(wave_name.data(), &options);
-            if (sound_handle == -1) {
+            if (sound_handle == nullptr) {
                 return false;
             }
             if (track_sound && monster != 0) {
-                monster->TrackSoundHandle(sound_handle);
+                monster->TrackSound(sound_handle);
             }
         }
     }

@@ -1,11 +1,13 @@
-#include <string_view>
 #pragma once
+
+#include <string_view>
 
 #include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/dialog_code/DialogButton.h"
 #include "wiz8/dialog_code/DialogScrollBar.h"
 #include "wiz8/dialog_code/DialogTextArea.h"
 #include "wiz8/layouts/gameplay_databases.h"
+#include "compat/compiler.h"
 
 enum { W8_DIALOG_ATTRIBUTE_COUNT = 7 };
 

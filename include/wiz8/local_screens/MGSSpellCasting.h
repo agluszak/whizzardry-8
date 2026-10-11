@@ -1,11 +1,13 @@
 #pragma once
 
-#include "Types.h"
+#include <cstdint>
+
 #include "input.h"
 #include "wiz8/layouts/learned_spells.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/main_game_screen.h"
 #include "wiz8/layouts/npc_dialogue.h"
+#include "compat/compiler.h"
 
 class W8TextControl;
 struct Controls;
@@ -69,6 +71,7 @@ int GetSpellCastingSelection(void);
 
 struct W8Region;
 class W8DialogBase;
+
 /* Destroy callback for the spell/use-item reason notices. */
 void SpellCastingNoticeClosed(W8DialogBase* dialog);
 unsigned char SpellRealmButtonRegionEvent(const InputAtom* event, W8Region* region);

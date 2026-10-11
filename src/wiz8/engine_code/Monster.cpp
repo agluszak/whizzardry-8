@@ -1,28 +1,44 @@
-#include <sstream>
-#include <optional>
 #include <fmt/format.h>
 #include <fmt/printf.h>
+#include <glm/ext/matrix_transform.hpp>
+#include <glm/ext/quaternion_trigonometric.hpp>
+#include <glm/gtc/quaternion.hpp>
+#include <memory>
+#include <sstream>
+#include <optional>
 #include <string_view>
-#include "wiz8/unicode.h"
 #include <string>
+#include <vector>
+#include <cmath>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <exception>
+#include <span>
+#include <utility>
+
+#include "compat/native.h"
+#include "glm/ext/matrix_double3x3.hpp"
+#include "glm/ext/matrix_double4x4.hpp"
+#include "glm/ext/matrix_float3x3.hpp"
+#include "glm/ext/matrix_float4x4.hpp"
+#include "glm/ext/vector_double3.hpp"
+#include "glm/ext/vector_float4.hpp"
 #include "wiz8/containers.h"
 #include "wiz8/engine_code/AnimRep.hpp"
 #include "wiz8/engine_code/Camera.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/CombatHostility.h"
 #include "wiz8/engine_code/3d.h"
-#include "wiz8/engine_code/3dapi.h"
 #include "wiz8/engine_code/PolyPick.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/Spells.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
-#include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/engine_code/Navigator.h"
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/Configuration.h"
-#include "wiz8/engine_code/Environment.h"
 #include "wiz8/engine_code/Levels.h"
 #include "wiz8/engine_code/Quality.h"
 #include "wiz8/engine_code/Video2.h"
@@ -30,16 +46,11 @@
 #include "wiz8/startup_world.h"
 #include "wiz8/engine_code/SoundEvent.h"
 #include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/local_screens/AutomapScreen.h"
 #include "wiz8/local_screens/mipe.h"
-#include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/CombatAttack.h"
-#include "wiz8/local_code/CombatRange.h"
 #include "wiz8/xstatus.h"
-#include <vector>
-#include <algorithm>
 #include "wiz8/engine_code/AniMesh.h"
 #include "wiz8/engine_code/AnimObj.h"
 #include "wiz8/engine_code/GDCamera.h"
@@ -68,10 +79,8 @@
 #include "wiz8/engine_code/PathAI.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/local_code/Magic.h"
-#include "wiz8/local_code/MagicEffects.h"
 #include "wiz8/engine_code/stMeshModel.h"
 #include "wiz8/engine_code/stTextureFile.h"
-#include "wiz8/monster_runtime.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/npc_interaction.h"
@@ -81,9 +90,7 @@
 #include "wiz8/virtual_file.h"
 #include "wiz8/fonts.h"
 #include "surrender/srCamera.h"
-#include "surrender/srScene.h"
 #include "surrender/srModelInstance.h"
-#include "surrender/srCore.h"
 #include "surrender/srColorSurface.h"
 #include "surrender/srPixelConvert.h"
 #include "surrender/srMaterial.h"
@@ -92,17 +99,34 @@
 #include "Font.h"
 #include "wiz8/filesystem.h"
 #include "soundman.h"
-#include "wiz8/music_playlist.h"
-#include "wiz8/layouts/npc_state.h"
-#include "wiz8/local_code/NPCScripting.h"
-#include <string.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <math.h>
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/GrCycle.h"
 #include "input.h"
-#include <glm/gtc/matrix_transform.hpp>
+#include "Emitter.h"
+#include "ReadMesh.h"
+#include "application.h"
+#include "attack_modes.h"
+#include "compat/ptr32.h"
+#include "conditions.h"
+#include "dice.h"
+#include "layouts/targeting.h"
+#include "layouts/world.h"
+#include "local_code/SpellEffect.h"
+#include "monster_actions.h"
+#include "monster_cycles.h"
+#include "particle_modes.h"
+#include "surrender/srClock.h"
+#include "surrender/srFlags.h"
+#include "surrender/srMeshModel.h"
+#include "surrender/srModel.h"
+#include "surrender/srNode.h"
+#include "surrender/srTextureIFace.h"
+#include "surrender/srTypeRegistry.h"
+#include "texture_animation.h"
+#include "audio_resources.h"
+
+struct W8NpcState;
+
 // GLOBAL: WIZ8 0x00659c14
 int g_combat_round_counter;
 
@@ -1496,9 +1520,9 @@ void W8Monster::Update()
                             Query(W8_MONSTER_QUERY_FRAME) < Query(W8_MONSTER_QUERY_FRAME_COUNT) / 2;
                     }
                     if (transition) {
-                        while (!values.empty()) {
-                            SoundStop(values[0]);
-                            values.erase(values.begin());
+                        while (!sounds.empty()) {
+                            SoundStop(sounds[0]);
+                            sounds.erase(sounds.begin());
                         }
                         if (!IsCycleSupported(3)) {
                             m_pRep->pending_behaviour = W8_ANIMATION_NEVER_STOP;
@@ -1884,6 +1908,15 @@ void W8Monster::ProcessScript()
             continue;
         }
 
+        const auto resolveNamedPosition = [&](srVector3T<float>& position) {
+            if (ResolveScriptPosition(token.c_str(), &position))
+                return true;
+            ShutdownWithErrorBox(fmt::format(
+                "MonScript {} Line {:d}: Unknown location {}", script->getName(),
+                script->GetSourceLine(script_line - 1), token));
+            return false;
+        };
+
         if (!defining_orders) {
             switch (command) {
             case MONSCR_GOTO: {
@@ -1904,10 +1937,7 @@ void W8Monster::ProcessScript()
                 if (!tokens) {
                     break;
                 }
-                if (!ResolveScriptPosition(token.c_str(), &position)) {
-                    ShutdownWithErrorBox(fmt::format(
-                        "MonScript {} Line {:d}: Unknown location {}", script->getName(),
-                        script->GetSourceLine(script_line - 1), token));
+                if (!resolveNamedPosition(position)) {
                     break;
                 }
                 if (_stricmp(token.c_str(), "PARTY") == 0) {
@@ -1929,10 +1959,7 @@ void W8Monster::ProcessScript()
                 if (!tokens) {
                     break;
                 }
-                if (!ResolveScriptPosition(token.c_str(), &position)) {
-                    ShutdownWithErrorBox(fmt::format(
-                        "MonScript {} Line {:d}: Unknown location {}", script->getName(),
-                        script->GetSourceLine(script_line - 1), token));
+                if (!resolveNamedPosition(position)) {
                     break;
                 }
                 AimAtPosition(&position);
@@ -2034,10 +2061,7 @@ void W8Monster::ProcessScript()
                 srVector3T<float> position;
                 tokens >> token;
                 if (tokens) {
-                    if (!ResolveScriptPosition(token.c_str(), &position)) {
-                        ShutdownWithErrorBox(fmt::format(
-                            "MonScript {} Line {:d}: Unknown location {}", script->getName(),
-                            script->GetSourceLine(script_line - 1), token));
+                    if (!resolveNamedPosition(position)) {
                         break;
                     }
                     SetPositionInternal(&position);
@@ -2328,10 +2352,7 @@ void W8Monster::ProcessScript()
                 tokens >> token;
                 if (tokens) {
                     srVector3T<float> position;
-                    if (!ResolveScriptPosition(token.c_str(), &position)) {
-                        ShutdownWithErrorBox(fmt::format(
-                            "MonScript {} Line {:d}: Unknown location {}", script->getName(),
-                            script->GetSourceLine(script_line - 1), token));
+                    if (!resolveNamedPosition(position)) {
                         break;
                     }
                     vector.clear();
@@ -2343,10 +2364,7 @@ void W8Monster::ProcessScript()
             case MONSCR_RANDOMPOINTPATROL: {
                 while (tokens >> token) {
                     srVector3T<float> position;
-                    if (!ResolveScriptPosition(token.c_str(), &position)) {
-                        ShutdownWithErrorBox(fmt::format(
-                            "MonScript {} Line {:d}: Unknown location {}", script->getName(),
-                            script->GetSourceLine(script_line - 1), token));
+                    if (!resolveNamedPosition(position)) {
                         continue;
                     }
                     if (patrol_points == 0) {
@@ -2890,29 +2908,15 @@ bool MonsterGetWorldAnimationBounds(W8Monster* monster, srVector3T<float>* minim
     return false;
 }
 
-/* Keep only the short live-sound queue owned by the monster.  The growable
-   vector's normal Add/GetAt/RemoveAt methods reproduce the original inline
-   template operations; no address-shaped container wrapper is involved. */
 // FUNCTION: WIZ8 0x004ca6e0
-void W8Monster::TrackSoundHandle(int handle)
+void W8Monster::TrackSound(SoundPlayback playback)
 {
-    int count;
-    int index;
-
-    if (static_cast<int>(values.size()) > 6) {
-        while (!values.empty()) {
-            SoundStop(values[0]);
-            values.erase(values.begin());
-        }
+    if (sounds.size() > 6) {
+        for (const auto& sound : sounds) SoundStop(sound);
+        sounds.clear();
     }
-    values.push_back(handle);
-    count = static_cast<int>(values.size());
-    for (index = 0; index < count; ++index) {
-        if (SoundIsPlaying(values[index]) == 0) {
-            values.erase(values.begin() + index);
-            --count;
-        }
-    }
+    sounds.push_back(std::move(playback));
+    std::erase_if(sounds, [](const auto& sound) { return !SoundIsPlaying(sound); });
 }
 
 /* Mark the closest live member of each loaded group inside the selection

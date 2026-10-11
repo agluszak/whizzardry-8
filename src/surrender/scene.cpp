@@ -1,12 +1,19 @@
 
+#include <ostream>
+#include <vector>
+
 #include "surrender/srScene.h"
 #include "surrender/srStreamFlags.h"
-
 #include "surrender/srCamera.h"
 #include "surrender/srCore.h"
 #include "surrender/srGERD.h"
-
-#include <ostream>
+#include "compat/compiler.h"
+#include "glm/ext/vector_float3.hpp"
+#include "glm/ext/vector_float4.hpp"
+#include "surrender/srClock.h"
+#include "surrender/srFlags.h"
+#include "surrender/srNode.h"
+#include "surrender/srTypeRegistry.h"
 
 // FUNCTION: SURRENDER 0x100565D0
 srScene::srScene(srNode* parent)

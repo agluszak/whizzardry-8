@@ -1,3 +1,4 @@
+#include "wiz8/audio_resources.h"
 #include <string_view>
 #pragma once
 
@@ -37,4 +38,4 @@ W8_ABI_ASSERT(sizeof(W8MouthGapTrack) == 0x14, "W8MouthGapTrack_size");
 void LoadMouthGapTrack(std::string_view path, W8MouthGapTrack* track);              /* 0x005E2D10 */
 // Tracks must initially be zero-initialized; loading replaces their ranges.
 void FreeMouthGapTrack(W8MouthGapTrack* track);                          /* 0x005E2EF0 */
-void UpdateMouthGapTrack(unsigned int sound_id, W8MouthGapTrack* track); /* 0x005E2F40 */
+void UpdateMouthGapTrack(SoundPlayback playback, W8MouthGapTrack* track); /* 0x005E2F40 */

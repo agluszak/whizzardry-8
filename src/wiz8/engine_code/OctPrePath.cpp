@@ -1,5 +1,12 @@
-#include "wiz8/unicode.h"
-#include "wiz8/utility.h"
+#include <vector>
+#include <algorithm>
+#include <cmath>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <unordered_map>
+#include <utility>
+
 #include "wiz8/engine_code/OctPath.h"
 #include "wiz8/engine_code/GDProp.h"
 #include "wiz8/engine_code/LevelFile.h"
@@ -7,14 +14,13 @@
 #include "wiz8/engine_code/materials.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/local_screens/AutomapScreen.h"
-#include <vector>
 #include "wiz8/sr_api.h"
-
-#include <algorithm>
-#include <math.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include "compat/compiler.h"
+#include "geometry.h"
+#include "index_algorithms.h"
+#include "navigation_flags.h"
+#include "packed_bits.h"
+#include "surrender/srMath.h"
 
 #define OCTPREPATH_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\OctPrePath.cpp"
 

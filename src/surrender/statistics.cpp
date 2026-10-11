@@ -1,8 +1,9 @@
 #include <ostream>
-#include <string.h>
+#include <cstring>
 
 #include "surrender/srStatisticsManager.h"
 #include "surrender/srCore.h"
+#include "surrender/srClock.h"
 
 // FUNCTION: SURRENDER 0x100148A0
 void srStatisticsManager::reset()

@@ -1,6 +1,9 @@
 #include <fmt/format.h>
-#include "wiz8/utility.h"
-#include "wiz8/unicode.h"
+#include <SDL3/SDL_filesystem.h>
+#include <optional>
+#include <string>
+
+#include "compat/compiler.h"
 #include "vsurface.h"
 #include "wiz8/bink_video.h"
 #include "wiz8/music_playlist.h"
@@ -11,22 +14,17 @@
 #include "wiz8/local_screens/IntroScreen.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/sr_api.h"
-
 #include "wiz8/filesystem.h"
-
 #include "Font.h"
 #include "english.h"
 #include "input.h"
 #include "line.h"
-
-#include <stdio.h>
 
 /* Local Screens\IntroScreen.cpp is named by the gpVideo assertion at line 98.
    The canonical state-zero row owns this enter/frame/leave bundle. */
 
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/engine_code/Levels.h"
-#include "wiz8/local_screens/OptionsScreen.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
 #include "wiz8/layouts/game_status.h"
 

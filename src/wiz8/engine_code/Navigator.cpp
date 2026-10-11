@@ -1,3 +1,11 @@
+#include <memory>
+#include <vector>
+#include <algorithm>
+#include <cmath>
+#include <cstddef>
+#include <exception>
+
+#include "glm/geometric.hpp"
 #include "wiz8/containers.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/engine_code/Navigator.h"
@@ -9,25 +17,20 @@
 #include "wiz8/xstatus.h"
 #include "wiz8/float_constants.h"
 #include "surrender/srNode.h"
-#include <vector>
-#include <algorithm>
 #include "wiz8/engine_code/GameTimeAccumulator.h"
 #include "wiz8/engine_code/PathAI.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/OctPath.h"
 #include "wiz8/engine_code/Monster.h"
-#include "wiz8/engine_code/quad.h"
-#include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/utility.h"
-#include "wiz8/sr_api.h"
-#include <stdlib.h>
-#include <string.h>
-#include <math.h>
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/PolyPick.h"
+#include "compat/ptr32.h"
+#include "glm/ext/vector_double3.hpp"
+#include "glm/ext/vector_float2.hpp"
 
 // STRING: WIZ8 0x006081fc
 #define NAVIGATOR_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\Navigator.cpp"
@@ -431,15 +434,8 @@ W8Navigator::W8Navigator(const W8Navigator& other)
     movement.scale = other.movement.scale;
     minimum = other.minimum;
     maximum = other.maximum;
-    if (g_runtime_world_scale < movement.collision_radius) {
-        g_runtime_world_scale = movement.collision_radius;
-    }
-    if (g_runtime_world_scale < movement.alternate_radius) {
-        g_runtime_world_scale = movement.alternate_radius;
-    }
-    if (g_runtime_world_scale < radius) {
-        g_runtime_world_scale = radius;
-    }
+    g_runtime_world_scale = std::max({g_runtime_world_scale, movement.collision_radius,
+                                      movement.alternate_radius, radius});
     movement.CopySettingsFrom(other.movement);
     movement.height_offset -= other.movement.vertical_base;
     movement.secondary_height_offset -= other.movement.vertical_base;
@@ -1443,15 +1439,8 @@ void W8Navigator::SetScale(float scale)
     movement.height_offset *= ratio;
     movement.secondary_height_offset *= ratio;
     movement.movement_scale *= ratio;
-    if (g_runtime_world_scale < movement.collision_radius) {
-        g_runtime_world_scale = movement.collision_radius;
-    }
-    if (g_runtime_world_scale < movement.alternate_radius) {
-        g_runtime_world_scale = movement.alternate_radius;
-    }
-    if (g_runtime_world_scale < radius) {
-        g_runtime_world_scale = radius;
-    }
+    g_runtime_world_scale = std::max({g_runtime_world_scale, movement.collision_radius,
+                                      movement.alternate_radius, radius});
 }
 
 // FUNCTION: WIZ8 0x00452630

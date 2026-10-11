@@ -1,17 +1,15 @@
 #pragma once
 
-#include "wiz8/filesystem.h"
-
-#include "wiz8/navigation_flags.h"
-
-#include "surrender/srMath.h"
-#include "wiz8/packed_bits.h"
 #include <queue>
 #include <vector>
-#include "wiz8/index_algorithms.h"
-#include "wiz8/geometry.h"
+#include <unordered_map>
 
-#include <stddef.h>
+#include "surrender/srMath.h"
+#include "wiz8/geometry.h"
+#include "compat/compiler.h"
+#include "compat/native.h"
+#include "glm/ext/vector_float2.hpp"
+#include "glm/ext/vector_uint2.hpp"
 
 class stModelInstance;
 class GDProp;
@@ -22,6 +20,7 @@ class OctPreTree;
 class W8Monster;
 struct W8LevelFile;
 struct W8LevelFileNamedPosition;
+namespace wiz8 { class File; }
 
 /* The .oct path hash array: one packed X/Z key and its height/state word.
    Build-time producers and the loader agree on an eight-byte stride. */
@@ -369,6 +368,8 @@ public:
                                   const srVector3T<float>* direction);
     void AddWaypoint(const srVector3T<float>* position);
     unsigned int ClassifyWaypoint(const srVector3T<float>* position);
+    bool FindNearbyPathCell(srVector3T<float>* position, bool snap_to_cell,
+                            bool require_active, unsigned int* packed_out);
     bool SnapWaypointPosition(srVector3T<float>* position, bool snap_to_cell);
     bool TestPathCellClearance(srVector3T<float>* position, float clearance, bool snap_to_cell);
     bool SnapToLowerPathCell(srVector3T<float>* position, bool allow_directional);
@@ -377,6 +378,7 @@ public:
                               bool adjust);
     void AppendScratchPath(W8NavigatorAttachment* attachment, unsigned int count);
     bool BuildAttachmentPath(W8NavigatorAttachment* attachment, unsigned int flags);
+    void ResolveLinkedNavigatorAttachment(W8NavigatorMovementState* movement, bool enabled);
     bool PrepareLinkedNavigator(W8NavigatorMovementState* movement);
     bool LinkAttachmentTarget(W8NavigatorAttachment* attachment, unsigned int flags,
                               const srVector3T<float>* target, float separation);

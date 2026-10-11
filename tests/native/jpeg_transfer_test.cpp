@@ -1,19 +1,34 @@
 #include <catch2/catch_test_macros.hpp>
+#include <SDL3_image/SDL_image.h>
+#include <SDL3/SDL_begin_code.h>
+#include <SDL3/SDL_iostream.h>
+#include <SDL3/SDL_pixels.h>
+#include <SDL3/SDL_properties.h>
+#include <SDL3/SDL_stdinc.h>
+#include <SDL3/SDL_surface.h>
+#include <cstdio>
+#include <cstring>
+#include <filesystem>
+#include <fstream>
+#include <ios>
+#include <vector>
+#include <cstdlib>
+#include <iterator>
+#include <memory>
+#include <utility>
+
 #include "surrender_test_fixture.h"
 #include "surrender/srIO.h"
 /* Actual SDL_image decoding and byte-exact transfer. gray.jpg/cmyk.jpg are
    synthetic 3x2, quality-100 JPEGs with samples 20 + 9*i. */
 #include "surrender/srImageIO.h"
 #include "image_helpers.h"
-#include <SDL3_image/SDL_image.h>
-#include "wiz8/sr_api.h"
-#include <array>
-#include <cstdio>
-#include <cstring>
-#include <filesystem>
-#include <fstream>
-#include <stdexcept>
-#include <vector>
+#include "surrender/srARGB.h"
+#include "surrender/srColorSurface.h"
+#include "surrender/srColorSurfaceIFace.h"
+#include "surrender/srCore.h"
+#include "surrender/srPalette.h"
+#include "surrender/srPixelConvert.h"
 
 using Bytes = std::vector<Uint8>;
 using OwnedSurface = std::unique_ptr<srColorSurfaceIFace>;
@@ -425,4 +440,3 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Image stream boundaries", "[image][trans
 {
     streamTests();
 }
-

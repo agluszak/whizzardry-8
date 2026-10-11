@@ -1,13 +1,21 @@
 #include <fmt/format.h>
-#include "wiz8/unicode.h"
-#include "wiz8/utility.h"
-#include "wiz8/sr_api.h"
 #include <algorithm>
 #include <ranges>
 #include <span>
-#include <tuple>
 #include <cstdlib>
+#include <vector>
+#include <cmath>
+#include <cstdio>
+#include <cstring>
+#include <exception>
+#include <memory>
+#include <unordered_map>
+#include <utility>
 
+#include "compat/compiler.h"
+#include "glm/ext/vector_float2.hpp"
+#include "surrender/srMath.h"
+#include "wiz8/sr_api.h"
 #include "wiz8/engine_code/OctPreTree.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/GDProp.h"
@@ -20,15 +28,13 @@
 #include "wiz8/engine_code/Prop.h"
 #include "wiz8/engine_code/materials.h"
 #include "wiz8/float_constants.h"
-#include <vector>
-#include <algorithm>
-
 #include "wiz8/filesystem.h"
-
-#include <math.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include "ReadMesh.h"
+#include "geometry.h"
+#include "glm/ext/vector_float4.hpp"
+#include "index_algorithms.h"
+#include "navigation_flags.h"
+#include "packed_bits.h"
 
 #define OCTPRETREE_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\OctPreTree.cpp"
 

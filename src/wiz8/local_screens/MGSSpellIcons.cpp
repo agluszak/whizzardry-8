@@ -1,13 +1,14 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
+#include <string>
+#include <vector>
+
 #include "wiz8/local_screens/MGSSpellIcons.h"
-#include "wiz8/sr_api.h"
-#include "wiz8/utility.h"
+#include "input.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/combat_state.h"
-#include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/screen_state.h"
@@ -19,6 +20,8 @@
 #include "wiz8/regions.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/engine_code/3dapi.h"
+#include "gameplay_modifiers.h"
+#include "layouts/main_game_screen.h"
 
 // GLOBAL: WIZ8 0x0069c260
 static unsigned int g_effect_icon_help_duration;
@@ -78,14 +81,12 @@ unsigned char CreateSpellIconHudControls(void)
 }
 
 /* Strip rows are detached before destruction. Destruction can change the
-   live panel/count, so each iteration reads them again; slots stay dangling. */
+   live panel/count, so each iteration reads them again and clears the observer slot. */
 static void DestroyEffectIconRows(Controls*& panel, W8TextControl** rows, const unsigned int& count)
 {
     for (unsigned int index = 0; index < count; ++index) {
-        panel->RemoveControl(rows[index]);
-        if (rows[index] != 0) {
-            delete rows[index];
-        }
+        auto row = panel->TakeControl(rows[index]);
+        rows[index] = nullptr;
     }
 }
 

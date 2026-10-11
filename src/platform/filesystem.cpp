@@ -1,23 +1,35 @@
 #include "wiz8/filesystem.h"
+#include <SDL3/SDL_filesystem.h>
+#include <SDL3/SDL_iostream.h>
+#include <SDL3/SDL_stdinc.h>
+#include <cstddef>
+#include <cstdint>
+#include <filesystem>
+#include <memory>
+#include <optional>
+#include <string>
+#include <string_view>
+#include <vector>
 #ifdef WIZ8_FILE_FAULTS
 #include "file_operations.h"
+
 #define WIZ8_FILE_OPERATION(op) testing::before_operation(testing::FileOperation::op)
 #else
 #define WIZ8_FILE_OPERATION(op) ((void)0)
 #endif
-#include "path_resolver.h"
-#include "slf.h"
-
 #include <SDL3/SDL_error.h>
-
+#include <SDL3/SDL_begin_code.h>
 #include <algorithm>
 #include <array>
-#include <cerrno>
 #include <limits>
 #include <random>
 #include <stdexcept>
 #include <system_error>
 #include <utility>
+
+#include "path_resolver.h"
+#include "slf.h"
+#include "wiz8/file_time.h"
 
 #ifdef WIZ8_FILE_FAULTS
 namespace wiz8::testing {

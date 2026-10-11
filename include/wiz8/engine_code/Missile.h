@@ -1,6 +1,7 @@
+#pragma once
+
 #include <string>
 #include <vector>
-#pragma once
 
 unsigned char LoadMissileDatabase(void);
 void ReleaseMissileDatabase(void);
@@ -8,14 +9,17 @@ void ReleaseMissileDatabase(void);
 #include "wiz8/attack_modes.h"
 #include "wiz8/engine_code/GrCycle.h"
 #include "wiz8/engine_code/PathAI.h"
-#include "wiz8/local_code/MagicEffects.h"
 #include "wiz8/local_code/SpellEffect.h"
-#include "wiz8/local_code/Targeting.h"
+#include "Emitter.h"
+#include "compat/compiler.h"
+#include "layouts/targeting.h"
 
 struct W8ReadLevelInfo;
 struct W8World;
 class stLight;
 class W8Missile;
+struct W8AnimObj;
+template <class T> class srVector3T;
 
 /* The kind-3 record of the tagged AI family W8GrObject holds at +0x0c (the
    path record is kind 0). UpdateMissileAI ticks it: +0x04 is the

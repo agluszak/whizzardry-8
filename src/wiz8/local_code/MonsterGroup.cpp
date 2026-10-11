@@ -1,9 +1,14 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
 #include <string>
+#include <vector>
+#include <cmath>
+#include <cstdlib>
+#include <cstring>
+#include <memory>
+
 #include "wiz8/containers.h"
 #include "wiz8/fonts.h"
-#include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/integer_constants.h"
 #include "wiz8/local_code/CombatHostility.h"
 #include "wiz8/local_code/Targeting.h"
@@ -14,24 +19,10 @@
 #include "wiz8/engine_code/stScript.h"
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/xstatus.h"
-#include <vector>
-#include <algorithm>
 #include "wiz8/layouts/combat_state.h"
-#include "wiz8/local_code/Combat.h"
-#include "wiz8/local_code/CombatAttack.h"
-#include "wiz8/local_code/CombatRange.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/layouts/character.h"
-#include "wiz8/character_skills.h"
-#include "wiz8/local_code/HealthStaminaMana.h"
-#include "wiz8/local_code/Magic.h"
-#include "wiz8/local_code/MagicEffects.h"
-#include "wiz8/local_code/UtilityFunctions.h"
-#include "wiz8/monster_generators.h"
-#include "wiz8/monster_runtime.h"
-#include "wiz8/layouts/npc_state.h"
 #include "wiz8/local_code/NPCManager.h"
-#include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/utility.h"
 #include "wiz8/local_code/MonsterManager.h"
@@ -39,7 +30,6 @@
 #include "wiz8/engine_code/Navigator.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/engine_code/Video2.h"
 #include "wiz8/engine_code/PolyPick.h"
 #include "wiz8/regions.h"
 #include "wiz8/startup_world.h"
@@ -48,15 +38,13 @@
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/Sight.h"
-#include "wiz8/dialog_code/SpellInfoDialog.h"
 #include "wiz8/engine_code/GameData.h"
-
-#include <string.h>
-#include <math.h>
-
-#include <stdlib.h>
-
 #include "random.h"
+#include "Monster.h"
+#include "conditions.h"
+#include "monster_actions.h"
+
+struct W8NpcState;
 
 // STRING: WIZ8 0x00619FDC
 #define MONSTER_GROUP_CPP "C:\\Projects\\Wizardry 8\\Local Code\\MonsterGroup.cpp"

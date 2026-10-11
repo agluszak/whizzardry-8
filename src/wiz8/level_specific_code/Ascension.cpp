@@ -1,10 +1,11 @@
 #include "wiz8/level_specific_code/Ascension.h"
-#include "wiz8/level_specific_code/MasterFunctionList.h"
+
 #include <vector>
-#include <algorithm>
+#include <string>
+
+#include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/engine_code/IntervalGate.h"
 #include "wiz8/engine_code/Monster.h"
-#include "wiz8/engine_code/Prop.h"
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/fact_state.h"
@@ -15,13 +16,18 @@
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/local_code/PC_Item.h"
-#include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/location_variables.h"
 #include "wiz8/message_box.h"
 #include "wiz8/xstatus.h"
 #include "soundman.h"
 #include "surrender/srCamera.h"
+#include "compat/ptr32.h"
+#include "glm/ext/vector_float3.hpp"
+#include "layouts/npc_state.h"
+#include "layouts/world.h"
+#include "local_code/Factions.h"
+#include "surrender/srMath.h"
 
 /* Level Specific Code\Ascension.cpp.
 

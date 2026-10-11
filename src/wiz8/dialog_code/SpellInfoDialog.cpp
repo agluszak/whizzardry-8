@@ -1,20 +1,28 @@
 #include <fmt/format.h>
 #include <string>
+#include <memory>
+#include <vector>
+
 #include "wiz8/dialog_code/SpellInfoDialog.h"
 #include "wiz8/dialog_code/DialogBase.h"
-#include "wiz8/engine_code/Video2.h"
 #include "wiz8/fonts.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_screens/CharacterScreen.h"
-#include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/engine_code/Spells.h"
-#include "wiz8/layouts/screen_state.h"
-#include "wiz8/local_screens/Screens.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/string_database.h"
-#include "wiz8/utility.h"
 #include "wiz8/video_object_catalog.h"
 #include "Font.h"
+#include "Types.h"
+#include "dialog_code/DialogButton.h"
+#include "dialog_code/DialogScrollBar.h"
+#include "dialog_code/DialogTextArea.h"
+#include "dice.h"
+#include "game_timer.h"
+#include "layouts/gameplay_databases.h"
+#include "local_code/ControlsRect.h"
+#include "vobject.h"
+#include "vsurface.h"
 
 
 // GLOBAL: WIZ8 0x0064fccc
