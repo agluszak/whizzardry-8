@@ -38,6 +38,8 @@
 #include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/OctBuildPreTree.h"
+#include "wiz8/engine_code/OctBuildTree.h"
+#include "wiz8/engine_code/materials.h"
 #include "wiz8/engine_code/OctPreTree.h"
 #include "wiz8/engine_code/Navigator.h"
 #include "wiz8/engine_code/SoundEvent.h"
@@ -808,4 +810,74 @@ TEST_CASE("Octree walks retain ordered crossings, early exits and coordinate rou
     visited.clear();
     walk.visitCells([&](const glm::ivec3& cell) { visited.push_back(cell); return true; });
     REQUIRE(visited.front().x == 0);
+}
+
+TEST_CASE("Build-tree queries own uncapped ordered results and independent state", "[geometry][octree]")
+{
+    W8OctBuildTree tree(1000, nullptr, nullptr, 16, 0);
+    REQUIRE(tree.queryAlongSegment({0, 0, 0}, {0, 0, 0}, 1, 3).empty());
+    tree.spatial.m_minimum = {0, 0, 0};
+    tree.spatial.m_maximum = {100, 100, 100};
+    tree.spatial.m_extent = 100;
+    tree.spatial.m_root = new W8OctBuildNode;
+    tree.spatial.m_root->leaf_kind = 1;
+    std::vector<W8GDSurface> surfaces(10050);
+    W8OctBuildLink* tail = nullptr;
+    for (auto& surface : surfaces) {
+        auto& link = tree.links.emplace_back(W8OctBuildLink{&surface, nullptr});
+        if (tail) tail->next = &link;
+        else tree.spatial.m_root->links[3] = &link;
+        tail = &link;
+    }
+    const auto hits = tree.queryAlongSegment({50, 50, 50}, {0, 0, 0}, 100, 3);
+    REQUIRE(hits.size() == surfaces.size());
+    for (std::size_t index = 0; index < hits.size(); ++index) {
+        REQUIRE(hits[index] == &surfaces[index]);
+        REQUIRE((surfaces[index].flags & W8_GD_SURFACE_QUERY_VISITED) == 0);
+    }
+
+    W8OctBuildTree other(1000, nullptr, nullptr, 16, 0);
+    other.spatial.m_minimum = {0, 0, 0};
+    other.spatial.m_maximum = {100, 100, 100};
+    other.spatial.m_extent = 100;
+    other.spatial.m_root = new W8OctBuildNode;
+    W8GDSurface separate{};
+    other.AppendLink(other.spatial.m_root, &separate, 3);
+    const auto other_hits = other.queryAlongSegment({50, 50, 50}, {0, 0, 0}, 100, 3);
+    REQUIRE(other_hits == std::vector<W8GDSurface*>{&separate});
+    REQUIRE(tree.queryAlongSegment({50, 50, 50}, {0, 0, 0}, 100, 3) == hits);
+    REQUIRE(other.queryAlongSegment({500, 500, 500}, {0, 0, 0}, 1, 3).empty());
+    REQUIRE(hits.front() == &surfaces.front());
+
+    // Kind 9 preserves list-3 order, then appends unseen list-4 surfaces.
+    tree.AppendLink(tree.spatial.m_root, &surfaces[0], 4);
+    tree.AppendLink(tree.spatial.m_root, &separate, 4);
+    surfaces[0].flags |= W8_GD_SURFACE_QUERY_VISITED;
+    const auto mixed = tree.queryAlongSegment({50, 50, 50}, {0, 0, 0}, 100, 9);
+    REQUIRE(mixed.size() == surfaces.size() + 1);
+    REQUIRE(mixed.front() == &surfaces[1]);
+    REQUIRE(mixed[mixed.size() - 2] == &surfaces[0]);
+    REQUIRE(mixed.back() == &separate);
+    REQUIRE((surfaces[0].flags & W8_GD_SURFACE_QUERY_VISITED) == 0);
+}
+
+TEST_CASE("Swept query coordinates retain negative-cell policy and complete offsets", "[geometry][octree]")
+{
+    W8Octree tree(nullptr, nullptr);
+    tree.m_spatial.m_minimum = {0, 0, 0};
+    tree.m_spatial.m_maximum = {100, 100, 100};
+    tree.m_spatial.m_node_extent = 100;
+    const auto below = tree.cellCoordinates({-99, -100, -199});
+    REQUIRE(below.cell == glm::ivec3(-1, -2, -2));
+    REQUIRE(close(below.offset, {-0.49f, 0.5f, -0.49f}));
+    REQUIRE_FALSE(below.inside);
+    const auto upper = tree.cellCoordinates({100, 100, 100});
+    REQUIRE(upper.cell == glm::ivec3(1));
+    REQUIRE(upper.offset == glm::vec3(-0.5f));
+    REQUIRE(upper.inside);
+    const auto lower = tree.cellCoordinates({0, 0, 0});
+    REQUIRE(lower.cell == glm::ivec3(0));
+    REQUIRE(lower.offset == glm::vec3(-0.5f));
+    REQUIRE(lower.inside);
+    REQUIRE(tree.projectRegionsAt({101, 50, 50}).cell == glm::ivec3(1, 0, 0));
 }

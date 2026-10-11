@@ -19,6 +19,12 @@
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float4.hpp"
 
+struct OctreeCellCoordinates {
+    glm::ivec3 cell;
+    glm::vec3 offset;
+    bool inside;
+};
+
 class GDProp;
 class W8Prop;
 class stParticle;
@@ -280,14 +286,8 @@ public:
     void UnregisterLocationObjects(unsigned int location_id); /* 0x0042E650 */
     void UnregisterLocationObject(unsigned int location_id,
                                   W8OctreeObjectKind kind); /* 0x0042E880 */
-    /* Collect object ids of `kind` under the segment from `origin` to
-       `origin + delta`, grown by `extent` (also at least the delta length).
-       `*results` carries the destination buffer in and out; a null
-       incoming buffer selects the internal m_aulGDObjs store. Returns the
-       entry count. */
-    int CollectObjectsAlongSegment(w8_ulong** results, const srVector3T<float>* origin,
-                                   const srVector3T<float>* delta, float extent,
-                                   unsigned short kind); /* 0x0042ED60 */
+    std::vector<w8_ulong> queryAlongSegment(const glm::vec3& origin, const glm::vec3& delta,
+                                           float extent, unsigned short kind);
     /* Kind-12 box query; `exclusion` 0 maps to none. */
     std::vector<w8_ulong> locationsInBox(const srBoundingBox& bounds,
                                        unsigned short exclusion); /* 0x0042EF00 */
@@ -416,8 +416,8 @@ public:
     int CollectModelsNearPoint(std::vector<stModelInstance*>& out, const srVector3T<float>* point,
                                float radius, unsigned int flags,
                                bool only_accumulated); /* 0x0042F9A0 */
-    unsigned char CollectVisibleRegions(srVector3T<float>* location, srVector3T<int>* cells,
-                                        srVector3T<float>* depth, unsigned char mode);
+    OctreeCellCoordinates cellCoordinates(const glm::vec3& location) const;
+    OctreeCellCoordinates projectRegionsAt(const glm::vec3& location);
     void CollectVisibleCells();
     /* Project every candidate region volume against the frustum planes and
        mark the visible ones in the current region set. */

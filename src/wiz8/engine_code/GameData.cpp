@@ -574,8 +574,6 @@ W8GDSurface* W8GameData::ProbePropsAlongMotion(srVector3T<float>* direction,
     W8Prop* prop;
     GDProp* gd_prop;
     W8LevelDataRecord* level;
-    w8_ulong* objects;
-    unsigned int count;
     unsigned int index;
     int surface_index;
     int hit_prop_id;
@@ -603,10 +601,8 @@ W8GDSurface* W8GameData::ProbePropsAlongMotion(srVector3T<float>* direction,
        atexit thunk at 0x0041BD50. Declared after the early-out so the guard
        matches retail control flow. */
     static W8Plane s_prop_hit_plane;
-    objects = 0;
-    count = static_cast<unsigned int>(
-        octree->CollectObjectsAlongSegment(&objects, position, direction, 504.0f, 8));
-    for (index = 0; index < count; ++index) {
+    const auto objects = octree->queryAlongSegment(position->glmValue(), direction->glmValue(), 504.0f, 8);
+    for (index = 0; index < objects.size(); ++index) {
         prop = (*g_world->collidable_props)[objects[index]];
         if (prop->GetActivationState() != 0) {
             gd_prop = prop->m_gd_prop;
@@ -793,9 +789,9 @@ unsigned char W8GameData::AdvanceEnvironmentMotion()
     W8GDSurface* nearest_surface;
     W8GDSurface* surface;
     W8GDSurface* collisions[101];
-    w8_ulong* octree_hits;
-    W8GDSurface** geometry_hits;
-    int hit_count;
+    std::vector<w8_ulong> octree_hits;
+    std::vector<W8GDSurface*> geometry_hits;
+    int hit_count = 0;
     int collision_count;
     int attempt;
     int index;
@@ -812,8 +808,6 @@ unsigned char W8GameData::AdvanceEnvironmentMotion()
     srVector3T<float> geometry_from;
     srVector3T<float> geometry_to;
 
-    octree_hits = 0;
-    geometry_hits = 0;
     prop_hit = false;
     if (g_level_data->ClampCameraToBounds(&minimum, &maximum) != 0) {
         return 0;
@@ -894,6 +888,18 @@ unsigned char W8GameData::AdvanceEnvironmentMotion()
     exhausted = false;
     attempt = 0;
 
+    const auto probe_octree_motion = [&] {
+        if (attempt < 3) ProbeMonstersAlongMotion(&motion_delta, &probe_position, 1);
+        nearest_surface = ProbePropsAlongMotion(&motion_delta, &probe_position,
+                                                &scratch, &nearest_distance);
+        prop_hit = nearest_surface != nullptr;
+        if (prop_hit) hit_position = probe_position;
+        probe_position = camera_position;
+        octree_hits = octree->queryAlongSegment(camera_position.glmValue(),
+                                                motion_delta.glmValue(), 1000.0f, 3);
+        hit_count = octree_hits.size();
+    };
+
     for (;;) {
         ++attempt;
         if (attempt < 6) {
@@ -904,18 +910,7 @@ unsigned char W8GameData::AdvanceEnvironmentMotion()
             nearest_distance = 1.0e8f;
             if (geometry_index == 0) {
                 if (octree != 0) {
-                    if (attempt < 3) {
-                        ProbeMonstersAlongMotion(&motion_delta, &probe_position, 1);
-                    }
-                    nearest_surface = ProbePropsAlongMotion(&motion_delta, &probe_position,
-                                                            &scratch, &nearest_distance);
-                    prop_hit = nearest_surface != 0;
-                    if (prop_hit) {
-                        hit_position = probe_position;
-                    }
-                    probe_position = camera_position;
-                    hit_count = octree->CollectObjectsAlongSegment(&octree_hits, &camera_position,
-                                                                   &motion_delta, 1000.0f, 3);
+                    probe_octree_motion();
                 } else {
                     hit_count = 0;
                 }
@@ -923,8 +918,9 @@ unsigned char W8GameData::AdvanceEnvironmentMotion()
                 geometry_to = motion_delta;
                 geometry_from = camera_position;
                 nearest_surface = 0;
-                hit_count = geometry_index->CollectObjectsAlongSegment(
-                    &geometry_hits, &geometry_from, &geometry_to, 1.57079637f, 2000.0f, 3);
+                geometry_hits = geometry_index->queryAlongSegment(
+                    geometry_from.glmValue(), geometry_to.glmValue(), 2000.0f, 3);
+                hit_count = geometry_hits.size();
             }
             if (((hit_count == 0 && !prop_hit) || g_environment_motion_active == 0)) {
                 exhausted = true;
@@ -994,26 +990,14 @@ unsigned char W8GameData::AdvanceEnvironmentMotion()
                     nearest_distance = 1.0e8f;
                     if (octree == 0) {
                         if (geometry_index != 0) {
-                            geometry_hits = 0;
-                            hit_count = geometry_index->CollectObjectsAlongSegment(
-                                &geometry_hits, &geometry_from, &geometry_to, 1.57079637f, 2000.0f,
-                                3);
+                            geometry_hits = geometry_index->queryAlongSegment(
+                                geometry_from.glmValue(), geometry_to.glmValue(), 2000.0f, 3);
+                            hit_count = geometry_hits.size();
                         } else {
                             hit_count = 0;
                         }
                     } else {
-                        if (attempt < 3) {
-                            ProbeMonstersAlongMotion(&motion_delta, &probe_position, 1);
-                        }
-                        nearest_surface = ProbePropsAlongMotion(&motion_delta, &probe_position,
-                                                                &scratch, &nearest_distance);
-                        prop_hit = nearest_surface != 0;
-                        if (prop_hit) {
-                            hit_position = probe_position;
-                        }
-                        probe_position = camera_position;
-                        hit_count = octree->CollectObjectsAlongSegment(
-                            &octree_hits, &camera_position, &motion_delta, 1000.0f, 3);
+                        probe_octree_motion();
                     }
                 }
             }
@@ -1023,8 +1007,9 @@ unsigned char W8GameData::AdvanceEnvironmentMotion()
             if (octree != 0) {
                 probe_position = adjusted_position;
                 motion_delta = environ_delta;
-                hit_count = octree->CollectObjectsAlongSegment(&octree_hits, &adjusted_position,
-                                                               &environ_delta, 1000.0f, 3);
+                octree_hits = octree->queryAlongSegment(
+                    adjusted_position.glmValue(), environ_delta.glmValue(), 1000.0f, 3);
+                hit_count = octree_hits.size();
                 crossed_count = 0;
                 for (index = 0; index < hit_count; ++index) {
                     surface = &m_pSurfaces[octree_hits[index]];

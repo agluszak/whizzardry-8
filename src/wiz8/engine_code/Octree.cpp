@@ -32,6 +32,7 @@
 #include "glm/vector_relational.hpp"
 #include "surrender/srBoundingBox.h"
 #include "surrender/segment_math.h"
+#include "surrender/swept_bounds.h"
 #include "wiz8/application.h"
 #include "wiz8/engine_code/Video2.h"
 #include "surrender/srCamera.h"
@@ -309,7 +310,7 @@ void W8Octree::UpdateVisibility()
     }
     m_projected_regions_valid = false;
     m_location_region_matched = 0;
-    CollectVisibleRegions(&view.camera_location, &view.visible_cells, 0, 1);
+    view.visible_cells = projectRegionsAt(view.camera_location.glmValue()).cell;
     CollectVisibleCells();
     if (pathing != 0) {
         srVector3T<float> dof;
@@ -638,43 +639,32 @@ unsigned int W8Octree::GetSectorForPosition(const srVector3T<float>* position)
     return m_branches[node].region;
 }
 
-// FUNCTION: WIZ8 0x00430d50
-unsigned char W8Octree::CollectVisibleRegions(srVector3T<float>* location, srVector3T<int>* cells,
-                                              srVector3T<float>* depth, unsigned char mode)
+OctreeCellCoordinates W8Octree::cellCoordinates(const glm::vec3& location) const
 {
-    srVector3T<int> link_cell;
-    srVector3T<float> box_min;
-    srVector3T<float> box_max;
-    bool inside = true;
+    const auto minimum = m_spatial.m_minimum.glmValue();
+    auto cell = cellAt(location);
+    // Retain the visibility/swept-query policy even at exact negative cell
+    // multiples; it is intentionally different from truncating cellAt().
+    for (int axis = 0; axis < 3; ++axis)
+        if (location[axis] < minimum[axis]) --cell[axis];
+    const auto offset = (location - (glm::vec3(cell) * m_spatial.m_node_extent + minimum)) /
+                       m_spatial.m_node_extent - g_float_half;
+    const bool inside = !glm::any(glm::lessThan(location, minimum)) &&
+                        !glm::any(glm::greaterThan(location, m_spatial.m_maximum.glmValue()));
+    return {cell, offset, inside};
+}
 
-    for (int axis = 0; axis < 3; ++axis) {
-        (&box_min.x)[axis] = (&m_spatial.m_minimum.x)[axis];
-        (&box_max.x)[axis] = (&m_spatial.m_maximum.x)[axis];
-        (&cells->x)[axis] = static_cast<int>(
-            (((&location->x)[axis] - (&box_min.x)[axis]) / m_spatial.m_node_extent));
-        (&link_cell.x)[axis] = static_cast<int>(
-            (((&location->x)[axis] - (&box_min.x)[axis]) / m_spatial.m_region_grid_cell));
-        if ((&location->x)[axis] < (&box_min.x)[axis]) {
-            --(&cells->x)[axis];
-            inside = false;
-        }
-        if ((&location->x)[axis] > (&box_max.x)[axis]) {
-            inside = false;
-        }
-        if (depth != 0) {
-            (&depth->x)[axis] =
-                ((&location->x)[axis] -
-                 ((&cells->x)[axis] * m_spatial.m_node_extent + (&box_min.x)[axis])) /
-                    m_spatial.m_node_extent -
-                g_float_half;
-        }
-    }
-    if (!inside) {
-        return 0;
-    }
-    if (mode == 0) {
-        return 1;
-    }
+// FUNCTION: WIZ8 0x00430d50
+OctreeCellCoordinates W8Octree::projectRegionsAt(const glm::vec3& position)
+{
+    const auto coordinates = cellCoordinates(position);
+    if (!coordinates.inside) return coordinates;
+    const glm::ivec3 link_cell((position - m_spatial.m_minimum.glmValue()) /
+                               m_spatial.m_region_grid_cell);
+    srVector3T<float> box_min = m_spatial.m_minimum;
+    srVector3T<float> box_max = m_spatial.m_maximum;
+    srVector3T<float> location_record(position);
+    auto* location = &location_record;
     float span = m_spatial.m_extent * g_float_half;
     int node = 1;
     for (short level = 0; level < m_spatial.m_depth; ++level) {
@@ -707,11 +697,11 @@ unsigned char W8Octree::CollectVisibleRegions(srVector3T<float>* location, srVec
         w8_ulong region_offset = m_leaves[node].region_offset;
         if (region_offset != 0) {
             ProjectLinkedRegionsForLocation(location, m_region_index_stream + region_offset);
-            return 1;
+            return coordinates;
         }
     }
     ProjectLinkedRegionsForLocation(location, 0);
-    return 1;
+    return coordinates;
 }
 
 /* Project each candidate region volume against the camera frustum and add the
@@ -3442,48 +3432,22 @@ static void ForEachQueryCell(const glm::ivec3& start, const glm::ivec3& end,
                 visit(cell);
 }
 
-/* Collect object ids of `kind` from every cell under the `origin`-swept
-   `delta` segment grown by `extent`; the extent takes the segment length as a
-   floor. `*results` carries the destination buffer in and out. */
+/* Query the expanded segment box and own its ordered, deduplicated IDs. */
 // FUNCTION: WIZ8 0x0042ed60
-int W8Octree::CollectObjectsAlongSegment(w8_ulong** results, const srVector3T<float>* origin,
-                                         const srVector3T<float>* delta, float extent,
-                                         unsigned short kind)
+std::vector<w8_ulong> W8Octree::queryAlongSegment(const glm::vec3& origin,
+                                                const glm::vec3& delta, float extent,
+                                                unsigned short kind)
 {
-    srVector3T<float> low;
-    srVector3T<float> high;
-    srVector3T<int> low_cell;
-    srVector3T<int> high_cell;
-    g_octree_state = *results;
-    if (g_octree_state == 0) {
-        g_octree_state = m_aulGDObjs;
-        *results = g_octree_state;
-    }
+    const auto bounds = srSegmentMath::sweptBounds(origin, delta, extent);
+    const auto lower = cellCoordinates(bounds.minimum).cell;
+    const auto upper = cellCoordinates(bounds.maximum).cell;
+    g_octree_state = m_aulGDObjs;
     m_gd_result_count = 0;
-    float radius = delta->Length();
-    if (extent < radius) {
-        extent = radius;
-    }
-    for (int axis = 0; axis < 3; ++axis) {
-        float bound = (&origin->x)[axis] - extent;
-        if ((&delta->x)[axis] <= g_float_zero) {
-            (&low.x)[axis] = bound + (&delta->x)[axis];
-            bound = extent + (&origin->x)[axis];
-        } else {
-            (&low.x)[axis] = bound;
-            bound = extent + (&origin->x)[axis] + (&delta->x)[axis];
-        }
-        (&high.x)[axis] = bound;
-    }
     std::ranges::fill(m_visited_object_bits, false);
-    CollectVisibleRegions(&low, &low_cell, 0, 0);
-    CollectVisibleRegions(&high, &high_cell, 0, 0);
-    ForEachQueryCell(low_cell.glmValue(), high_cell.glmValue(),
-        glm::ivec3(m_leaf_grid_dimensions.glmValue()),
+    ForEachQueryCell(lower, upper, glm::ivec3(m_leaf_grid_dimensions.glmValue()),
         [&](const glm::ivec3& cell) { CollectObjectsInCell(cell, kind); });
-    g_octree_state = 0;
-    return static_cast<int>(m_gd_result_count); /* c-style-cast-ok: the shared count field is
-        stored unsigned */
+    g_octree_state = nullptr;
+    return {m_aulGDObjs, m_aulGDObjs + m_gd_result_count};
 }
 
 /* The kind-12 convenience query: a zero exclusion maps to -1 (none). OctPath
