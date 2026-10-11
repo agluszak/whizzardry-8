@@ -1093,15 +1093,16 @@ void W8TriggerItemPickerDialog::TransferSelectedItems(int destination)
 
     for (index = 0; index < static_cast<int>(items.size()); ++index) {
         if (flags[index] != 0) {
-            W8ItemInstance* instance = CopyWorldItemInstance(items[index]);
+            W8ItemInstance instance = items[index]->item;
             bool added;
             if (destination == -1) {
-                added = AddItemToParty(instance, true, false);
+                added = AddItemToParty(&instance, true, false);
             } else {
-                added = AddItemToCharacter(&g_status.buffers.Char[destination], instance, false,
+                added = AddItemToCharacter(&g_status.buffers.Char[destination], &instance, false,
                                            true, false);
             }
             if (added) {
+                FreeWorldItemGroup(items[index]);
                 items.erase(items.begin() + index);
                 flags.erase(flags.begin() + index);
                 --index;

@@ -21,7 +21,12 @@ struct W8VideoFrame {
     std::unique_ptr<SGPVSurface> surface;
 };
 
-extern W8VideoObjectSlot g_video_slots[494];
+// Item images append up to 1000 slots after the fixed UI catalog. The last
+// two initialized slots share this range and are replaced by the item cache.
+inline constexpr int W8_ITEM_VIDEO_SLOT_BEGIN = 0x1ec;
+inline constexpr int W8_ITEM_VIDEO_FRAME_BEGIN = 0x291;
+inline constexpr int W8_ITEM_VIDEO_CACHE_LIMIT = 1000;
+extern W8VideoObjectSlot g_video_slots[W8_ITEM_VIDEO_SLOT_BEGIN + W8_ITEM_VIDEO_CACHE_LIMIT];
 extern W8VideoFrame g_video_frames[1658];
 
 short GetCatalogVideoObjectYOffset(int object);

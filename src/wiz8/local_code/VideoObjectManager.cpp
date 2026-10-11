@@ -688,7 +688,7 @@ W8VideoFrame g_video_frames[1658] = {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wmissing-field-initializers"
 // GLOBAL: WIZ8 0x006448c8
-W8VideoObjectSlot g_video_slots[494] = {
+W8VideoObjectSlot g_video_slots[W8_ITEM_VIDEO_SLOT_BEGIN + W8_ITEM_VIDEO_CACHE_LIMIT] = {
     {0, 0},    {0, 1},    {0, 2},    {0, 7},    {0, 12},   {0, 13},   {0, 14},   {0, 18},
     {0, 22},   {0, 23},   {0, 24},   {0, 29},   {0, 30},   {0, 31},   {0, 35},   {0, 36},
     {0, 37},   {1, 0},    {81, 0},   {161, 0},  {241, 0},  {242, 0},  {243, 0},  {244, 0},

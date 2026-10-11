@@ -419,11 +419,11 @@ int W8ItemVideoObjectCache::GetOrCreateVideoObject(int item_id)
     if (entry->initialized) {
         return entry->video_object;
     }
-    if (loaded_count == capacity || loaded_count == 1000) {
+    if (loaded_count == capacity || loaded_count == W8_ITEM_VIDEO_CACHE_LIMIT) {
         return 0;
     }
-    object = loaded_count + 0x291;
-    frame = loaded_count + 0x1ec;
+    object = loaded_count + W8_ITEM_VIDEO_FRAME_BEGIN;
+    frame = loaded_count + W8_ITEM_VIDEO_SLOT_BEGIN;
     if (name.empty()) {
         name = g_item_video_object_fallback_names[record->unidentified_name_index];
     }
