@@ -148,8 +148,14 @@ std::unique_ptr<SGPVSurface> CreateVideoSurface(const VSURFACE_DESC& VSurfaceDes
     result->ubBitDepth = bits;
     result->fFlags = VSURFACE_SYSTEM_MEM_USAGE;
     if (image) {
-        if (image->fFlags & IMAGE_PALETTE)
-            SetVideoSurfacePalette(*result, *image->pPalette);
+        if (image->pPalette) {
+            // SDL owns the indexed palette. Software 8-to-16-bit blitters
+            // still require the packed lookup table.
+            CHECKN(bits == 8);
+            CHECKN(SDL_SetPaletteColors(SDL_GetSurfacePalette(result->cpu().surface.get()),
+                                        image->pPalette->data(), 0, 256));
+            result->p16BPPPalette = Create16BPPPalette(*image->pPalette);
+        }
         SDL_Rect region{0, 0, width, height};
         SetVideoSurfaceDataFromHImage(*result, *image, 0, 0, &region);
     }
@@ -219,22 +225,6 @@ BOOLEAN SetVideoSurfaceDataFromHImage(SGPVSurface& hVSurface, const image_type& 
     }
 
     return (TRUE);
-}
-
-// Indexed surfaces use SDL palettes; custom RGB555 blitters retain their table.
-BOOLEAN SetVideoSurfacePalette(SGPVSurface& hVSurface, const Palette8& pSrcPalette)
-{
-    hVSurface.palette = pSrcPalette;
-    hVSurface.hasPalette = true;
-    if (hVSurface.ubBitDepth == 8) {
-        // Indexed colors are opaque; index-zero transparency uses the source key.
-        for (auto& color : hVSurface.palette)
-            color.a = SDL_ALPHA_OPAQUE;
-        CHECKF(SDL_SetPaletteColors(SDL_GetSurfacePalette(hVSurface.cpu().surface.get()),
-                                    hVSurface.palette.data(), 0, 256));
-    }
-    hVSurface.p16BPPPalette = Create16BPPPalette(pSrcPalette);
-    return TRUE;
 }
 
 // FUNCTION: WIZ8 0x00403b10
