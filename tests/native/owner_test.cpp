@@ -104,7 +104,6 @@ void initialize_test_framebuffer()
     g_pixel_format = 9;
     Initialize16BitPixelFormatMasks();
     REQUIRE(InitializePrimarySurface());
-    ButtonDestBuffer = &GetFrameBufferSurface();
 }
 
 void screen_stack()
@@ -884,16 +883,14 @@ void generic_button_images()
     auto target_owner = CreateCpuStorage(8, 8, SDL_PIXELFORMAT_RGB565);
     REQUIRE(target_owner);
     auto& target = *target_owner;
-    const auto old_target = ButtonDestBuffer;
     const auto old_hilights = gfRenderHilights;
-    ButtonDestBuffer = &target;
     gfRenderHilights = true;
     for (bool checkbox : {false, true}) {
         for (bool enabled : {false, true}) {
             for (bool pressed : {false, true}) {
                 for (bool hover : {false, true}) {
                     for (bool mouse_down : {false, true}) {
-                        DrawButtonAppearance(first_appearance,
+                        DrawButtonAppearance(target, first_appearance,
                                               {enabled, pressed, hover, checkbox, mouse_down});
                         auto* pixels = static_cast<std::uint16_t*>(target.pixels);
                         REQUIRE(pixels);
@@ -907,7 +904,6 @@ void generic_button_images()
             }
         }
     }
-    ButtonDestBuffer = old_target;
     gfRenderHilights = old_hilights;
     target_owner.reset();
     graphics.reset();
@@ -917,6 +913,26 @@ void generic_button_images()
     REQUIRE(!lifetime.expired());
     second_appearance.quick_image.reset();
     REQUIRE(lifetime.expired());
+
+    auto border_target_owner = CreateCpuStorage(12, 12, SDL_PIXELFORMAT_RGB565);
+    REQUIRE(border_target_owner);
+    auto& border_target = *border_target_owner;
+    REQUIRE(SDL_FillSurfaceRect(&border_target, nullptr, 0xffff));
+    ButtonAppearance bordered;
+    bordered.bounds = {3, 3, 4, 4};
+    bordered.bDefaultStatus = DEFAULT_STATUS_DARKBORDER;
+    DrawButtonAppearance(border_target, bordered, {});
+    const auto* border_pixels = static_cast<const std::uint16_t*>(border_target.pixels);
+    REQUIRE(border_pixels);
+    for (int coordinate = 2; coordinate <= 8; ++coordinate) {
+        REQUIRE(border_pixels[2 * 12 + coordinate] == 0);
+        REQUIRE(border_pixels[7 * 12 + coordinate] == 0);
+        REQUIRE(border_pixels[8 * 12 + coordinate] == 0);
+        REQUIRE(border_pixels[coordinate * 12 + 2] == 0);
+        REQUIRE(border_pixels[coordinate * 12 + 7] == 0);
+        REQUIRE(border_pixels[coordinate * 12 + 8] == 0);
+    }
+    REQUIRE(border_pixels[5 * 12 + 5] == 0xffff);
     // Validate each of the five states, including invalid negative indices.
     for (int bad : {-2, 9, 65536}) {
         for (size_t state = 0; state < 5; ++state) {
@@ -1052,14 +1068,7 @@ void generic_button_images()
         REQUIRE(secondary.load(filename));
         REQUIRE(secondary.createShades(FONT_GLOW_RED));
         REQUIRE(secondary.shades[0] != primary.shades[0]);
-        SetFont(primary);
-        {
-            FontRenderScope outer;
-            FontRenderScope inner;
-            primary.clear();
-            REQUIRE(g_font_render_state.font == nullptr);
-        }
-        REQUIRE(g_font_render_state.font == nullptr);
+        primary.clear();
         ResetFontRendering();
     }
     // Font lifetime is independent of rendering setup and has no slot limit.
@@ -1071,72 +1080,26 @@ void generic_button_images()
     ResetFontRendering();
     REQUIRE(many_fonts.back().height() > 0);
     many_fonts.clear();
-    // Nested drawing restores each caller's state, not a single shared slot.
-    {
-        Font first, second;
-        SetFont(first);
-        g_font_render_state.clip = {1, 2, 3, 4};
-        {
-            FontRenderScope outer;
-            SetFont(second);
-            g_font_render_state.clip = {5, 6, 7, 8};
-            {
-                FontRenderScope inner;
-                SetFont(first);
-                g_font_render_state.clip = {9, 10, 11, 12};
-            }
-            REQUIRE(g_font_render_state.font == &second);
-            REQUIRE(g_font_render_state.clip.x == 5);
-        }
-        REQUIRE(g_font_render_state.font == &first);
-        REQUIRE(g_font_render_state.clip.x == 1);
-    }
-    // Failed loads retain selection; moves/reloads invalidate saved selections.
+    // Failed loads retain resources; moves preserve their ownership.
     {
         Font source, moved;
         REQUIRE(source.height() == 0);
         REQUIRE(source.textWidth("empty") == 0);
         REQUIRE(source.load(filename));
         const auto height = source.height();
-        SetFont(source);
-        {
-            FontRenderScope scope;
-            REQUIRE_FALSE(source.load("missing-font.sti"));
-            REQUIRE(source.height() == height);
-            REQUIRE(g_font_render_state.font == &source);
-            Font temporary(std::move(source));
-            REQUIRE(temporary.height() == height);
-            REQUIRE(source.height() == 0);
-            REQUIRE(g_font_render_state.font == nullptr);
-            moved = std::move(temporary);
-        }
-        REQUIRE(g_font_render_state.font == nullptr);
-        SetFont(moved);
-        {
-            FontRenderScope scope;
-            REQUIRE(moved.load(filename));
-            REQUIRE(g_font_render_state.font == nullptr);
-        }
-        REQUIRE(g_font_render_state.font == nullptr);
-        SetFont(moved);
-        {
-            FontRenderScope scope;
-            source = std::move(moved);
-            REQUIRE(source.height() == height);
-            REQUIRE(moved.height() == 0);
-        }
-        REQUIRE(g_font_render_state.font == nullptr);
+        REQUIRE_FALSE(source.load("missing-font.sti"));
+        REQUIRE(source.height() == height);
+        Font temporary(std::move(source));
+        REQUIRE(temporary.height() == height);
+        REQUIRE(source.height() == 0);
+        moved = std::move(temporary);
+        REQUIRE(moved.height() == height);
+        REQUIRE(temporary.height() == 0);
+        REQUIRE(moved.load(filename));
+        source = std::move(moved);
+        REQUIRE(source.height() == height);
+        REQUIRE(moved.height() == 0);
     }
-    {
-        FontRenderScope outer;
-        {
-            Font source;
-            SetFont(source);
-            FontRenderScope inner;
-            source.clear();
-        }
-    }
-    REQUIRE(g_font_render_state.font == nullptr);
     ConfigureFontRendering(std::vector<std::uint16_t>{'?', 0x00e9, 0x4e2d, 'e', 0x0301, 'a', 'b', ' ', 'c'});
     Font primary;
     REQUIRE(primary.load(filename));
@@ -1145,17 +1108,15 @@ void generic_button_images()
     REQUIRE(primary.codepointPrefixWidth("é中", 2) == primary.textWidth("é中"));
     // Render borrowed substrings without depending on a trailing NUL or
     // accidentally consuming the next glyph in the backing string.
-    SetFont(primary);
-    g_font_render_state.clip = {0, 0, 64, 32};
     auto expected_surface = CreateCpuStorage(64, 32, SDL_PIXELFORMAT_RGB565);
     auto view_surface = CreateCpuStorage(64, 32, SDL_PIXELFORMAT_RGB565);
     REQUIRE(expected_surface);
     REQUIRE(view_surface);
     REQUIRE(SDL_FillSurfaceRect(expected_surface.get(), nullptr, 0));
     REQUIRE(SDL_FillSurfaceRect(view_surface.get(), nullptr, 0));
-    DrawFontTextToSurface(*expected_surface, primary, 0, 0, "é");
+    DrawText(*expected_surface, primary, {0, 0}, "é");
     const std::string backing = "é中";
-    DrawFontTextToSurface(*view_surface, primary, 0, 0, std::string_view(backing).substr(0, 2));
+    DrawText(*view_surface, primary, {0, 0}, std::string_view(backing).substr(0, 2));
     const auto surface_pixels = [](const SDL_Surface& surface) {
         std::vector<std::uint16_t> pixels(static_cast<std::size_t>(surface.w * surface.h));
         const auto* bytes = static_cast<const std::uint8_t*>(surface.pixels);
@@ -1170,6 +1131,63 @@ void generic_button_images()
     REQUIRE(view_pixels == expected_pixels);
     REQUIRE(
         std::any_of(view_pixels.begin(), view_pixels.end(), [](auto pixel) { return pixel != 0; }));
+    auto clipped_surface = CreateCpuStorage(64, 32, SDL_PIXELFORMAT_RGB565);
+    REQUIRE(clipped_surface);
+    REQUIRE(SDL_FillSurfaceRect(clipped_surface.get(), nullptr, 0));
+    const auto first_drawn = std::find_if(
+        expected_pixels.begin(), expected_pixels.end(), [](auto pixel) { return pixel != 0; });
+    REQUIRE(first_drawn != expected_pixels.end());
+    const int first_drawn_x = static_cast<int>(first_drawn - expected_pixels.begin()) % 64;
+    const SDL_Rect text_clip{first_drawn_x + 1, 0, 64 - first_drawn_x - 1, 32};
+    {
+        ScopedClipRect clipping(*clipped_surface, text_clip);
+        DrawText(*clipped_surface, primary, {0, 0}, "é");
+    }
+    const auto clipped_pixels = surface_pixels(*clipped_surface);
+    REQUIRE(clipped_pixels[first_drawn - expected_pixels.begin()] == 0);
+    for (int y = 0; y < 32; ++y) {
+        for (int x = text_clip.x; x < 64; ++x) {
+            REQUIRE(clipped_pixels[static_cast<std::size_t>(y * 64 + x)] ==
+                    expected_pixels[static_cast<std::size_t>(y * 64 + x)]);
+        }
+    }
+
+    auto wrapped_surface = CreateCpuStorage(64, 32, SDL_PIXELFORMAT_RGB565);
+    REQUIRE(wrapped_surface);
+    REQUIRE(primary.height() < 32);
+    REQUIRE(SDL_FillSurfaceRect(wrapped_surface.get(), nullptr, 0));
+    const int glyph_width = primary.textWidth("é");
+    const SDL_Rect wrap_clip{0, 0, glyph_width, 32};
+    {
+        ScopedClipRect clipping(*wrapped_surface, wrap_clip);
+        DrawText(*wrapped_surface, primary, {0, 0}, "éé", {.wrap = true});
+    }
+    const auto wrapped_pixels = surface_pixels(*wrapped_surface);
+    REQUIRE(std::any_of(wrapped_pixels.begin() + primary.height() * 64, wrapped_pixels.end(),
+                        [](auto pixel) { return pixel != 0; }));
+
+    auto mono_surface = CreateCpuStorage(64, 32, SDL_PIXELFORMAT_RGB565);
+    REQUIRE(mono_surface);
+    REQUIRE(SDL_FillSurfaceRect(mono_surface.get(), nullptr, 0));
+    DrawText(*mono_surface, primary, {0, 0}, "é",
+             {.mono = true, .colors = {.foreground = 0xf81f, .background = 0, .shadow = 0x07e0}});
+    const auto mono_pixels = surface_pixels(*mono_surface);
+    REQUIRE(std::find(mono_pixels.begin(), mono_pixels.end(), 0xf81f) != mono_pixels.end());
+
+    initialize_test_framebuffer();
+    ConfigureFontRendering(CreateEnglishTransTable());
+    const int dirty_before = g_dirty_tile_count;
+    const SDL_Point invalidation_at{16, 16};
+    const int invalidated_width = primary.textWidth("A");
+    const int invalidated_height = primary.height();
+    REQUIRE(invalidated_width > 0);
+    REQUIRE(invalidated_height > 0);
+    const int expected_dirty_tiles =
+        ((invalidation_at.x + invalidated_width + 7) / 8 - invalidation_at.x / 8) *
+        ((invalidation_at.y + invalidated_height + 7) / 8 - invalidation_at.y / 8);
+    DrawTextAndInvalidate(GetFrameBufferSurface(), primary, invalidation_at, "A");
+    REQUIRE(g_dirty_tile_count - dirty_before == expected_dirty_tiles);
+
     // Explicit-buffer rendering must use its font argument, even when the
     // current surface font has a different palette.
     Font secondary;
@@ -1179,10 +1197,8 @@ void generic_button_images()
     secondary.setPalette(alternate);
     REQUIRE(SDL_FillSurfaceRect(expected_surface.get(), nullptr, 0));
     REQUIRE(SDL_FillSurfaceRect(view_surface.get(), nullptr, 0));
-    SetFont(secondary);
-    DrawFontTextToSurface(*expected_surface, secondary, 0, 0, "é中");
-    SetFont(primary);
-    DrawFontTextToSurface(*view_surface, secondary, 0, 0, "é中");
+    DrawText(*expected_surface, secondary, {0, 0}, "é中");
+    DrawText(*view_surface, secondary, {0, 0}, "é中");
     expected_pixels = surface_pixels(*expected_surface);
     view_pixels = surface_pixels(*view_surface);
     REQUIRE(view_pixels == expected_pixels);
@@ -1436,7 +1452,6 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
         REQUIRE(positions.back() == 6);
     }
 
-    auto* old_target = std::exchange(ButtonDestBuffer, &GetFrameBufferSurface());
     Font font{};
     auto* old_font = std::exchange(g_dialog_interface_font, &font);
     class MessageDialog final : public W8MessageDialogBase {
@@ -1508,7 +1523,6 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
         }
     }
     g_dialog_interface_font = old_font;
-    ButtonDestBuffer = old_target;
     g_image_assets.clear();
     std::filesystem::remove_all(root);
 }
@@ -1538,11 +1552,8 @@ TEST_CASE("Message box owns its buttons and isolates modal input", "[owner]")
     button_image_fixture(assets / "Data" / "Dialogs", "DialogBackground.STI");
     g_image_assets.clear();
     w8_native::configure_paths({assets.string(), (directory.path / "user").string(), {}});
-    auto* const previous_destination = ButtonDestBuffer;
-
     struct Restore {
         w8_native::Roots roots;
-        SDL_Surface* destination;
         ~Restore()
         {
             if (IsMessageBoxActive()) {
@@ -1551,13 +1562,10 @@ TEST_CASE("Message box owns its buttons and isolates modal input", "[owner]")
                 RenderMessageBox();
             }
             ShutdownButtonImageManager();
-            ButtonDestBuffer = destination;
             g_image_assets.clear();
             w8_native::configure_paths(roots);
         }
-    } restore{previous_roots, previous_destination};
-
-    ButtonDestBuffer = &GetFrameBufferSurface();
+    } restore{previous_roots};
 
     REQUIRE(InitializeButtonImageManager());
     TestOwnedRegionHandler screen_handler;

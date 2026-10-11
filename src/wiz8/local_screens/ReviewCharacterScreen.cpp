@@ -277,7 +277,6 @@ void DrawCampSpellPages(void)
     unsigned int visible;
     Palette16 palette;
 
-    SetFont(g_wiz_text_font_secondary);
     if ((g_camp_screen->redraw_flags & W8_CAMP_REDRAW_RESISTANCES) != 0 &&
         !gXStatus.fSpellCastMode) {
         DrawCampResistances();
@@ -294,19 +293,16 @@ void DrawCampSpellPages(void)
         if (character->skill_unlocks[0x1c + realm] != 0) {
             DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x140, 0, 3, left, top);
             g_wiz_text_font_secondary.setPalette(g_font_state_palettes[W8_FONT_PALETTE_GREEN]);
-            DrawFontText(left + 0x1b, top + 8, fmt::format("{}:", g_localized_strings[0x8c7]));
-            DrawFontText(left + 0x72, top + 8, g_localized_strings[0x8c9]);
+            DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {left + 0x1b, top + 8}, fmt::format("{}:", g_localized_strings[0x8c7]));
+            DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {left + 0x72, top + 8}, g_localized_strings[0x8c9]);
             g_wiz_text_font_secondary.resetPalette();
             width = g_wiz_text_font_secondary.textWidth(fmt::format("{}: ", g_localized_strings[0x8c7]));
-            DrawFontText(
-                left + 0x1b + width, top + 8,
-                fmt::format("{:3d}", character->skills[W8_SKILL_FIRE_MAGIC + realm].level));
+            DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {left + 0x1b + width, top + 8}, fmt::format("{:3d}", character->skills[W8_SKILL_FIRE_MAGIC + realm].level));
             width = g_wiz_text_font_secondary.codepointPrefixWidth(fmt::format(
                     "{:d}/{:d}",
                     GetCharacterRealmSpellPoints(character, static_cast<W8SpellRealm>(realm)),
                     character->sp_max[realm]), 7);
-            DrawFontText(left + 0xc8 - width, top + 8,
-                         fmt::format("{:d}/{:d}",
+            DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {left + 0xc8 - width, top + 8}, fmt::format("{:d}/{:d}",
                                      GetCharacterRealmSpellPoints(character,
                                                                   static_cast<W8SpellRealm>(realm)),
                                      character->sp_max[realm]));
@@ -332,9 +328,8 @@ void DrawCampSpellPages(void)
                 }
                 g_wiz_text_font_secondary.setPalette(palette);
                 width = g_wiz_text_font_secondary.codepointPrefixWidth(fmt::format("{:03d}", g_spell_records[spell_id].spell_point_cost), 3);
-                DrawFontText(left + 0x1c, row_top, g_spell_records[spell_id].display_name);
-                DrawFontText(left + 0xb1 - width, row_top,
-                             fmt::format("{:3d}", g_spell_records[spell_id].spell_point_cost));
+                DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {left + 0x1c, row_top}, g_spell_records[spell_id].display_name);
+                DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {left + 0xb1 - width, row_top}, fmt::format("{:3d}", g_spell_records[spell_id].spell_point_cost));
                 row_top += 0xd;
             }
             g_wiz_text_font_secondary.resetPalette();
@@ -380,7 +375,7 @@ void DrawCampResistances(void)
     DrawCatalogImageAndInvalidate(GetFrameBufferSurface(), 0x140, 0, 0, 0x136, 0);
     text = g_localized_strings[0x8ca];
     width = g_wiz_text_font_secondary.codepointPrefixWidth(text, text.size());
-    DrawFontText((0x134 - width) / 2 + 0x144, 0x1e, text);
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {(0x134 - width) / 2 + 0x144, 0x1e}, text);
     for (index = 0; index < 6; ++index) {
         animation = &g_spell_realm_animations[index];
         left = (index & 1) * 156 + 0x144;
@@ -389,8 +384,7 @@ void DrawCampResistances(void)
         DrawCampValueBar(character->resistances[index].total, character->resistances[index].base,
                          left + 0x18, top + 4);
         width = g_wiz_text_font_secondary.codepointPrefixWidth(fmt::format("{:d}", character->resistances[index].total), 5);
-        DrawFontText(left + 0x93 - width, top + 3,
-                     fmt::format("{:d}", character->resistances[index].total));
+        DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {left + 0x93 - width, top + 3}, fmt::format("{:d}", character->resistances[index].total));
     }
 }
 
@@ -489,7 +483,6 @@ void OpenSpellInfoDialog(unsigned int spell_id)
 // FUNCTION: WIZ8 0x005b7d10
 void RedrawCampItemsPage(void)
 {
-    SetFont(g_wiz_text_font_secondary);
     g_wiz_text_font_secondary.setShade(Font::kNormalShade);
     if ((g_camp_screen->redraw_flags & W8_CAMP_REDRAW_CHARACTER_INFO) != 0) {
         DrawCampCharacterInfo();
@@ -1535,7 +1528,6 @@ void DrawCampScreen(void)
             break;
         }
         RefreshCampItemActions((state->redraw_flags & W8_CAMP_REDRAW_ITEM_ACTIONS) != 0);
-        SetFont(g_calligraphy_font);
         g_calligraphy_font.setShade(Font::kNormalShade);
         state->item_redraw_flags = 0;
         state->redraw_flags = 0;
@@ -1718,23 +1710,22 @@ void DrawCampRegenStats(void)
 {
     unsigned int index;
 
-    SetFont(g_calligraphy_font);
     g_calligraphy_font.setShade(Font::kNormalShade);
     g_calligraphy_font.setShade(0);
-    DrawFontTextDirty(0x14a, 5, g_localized_strings[0x8ce]);
+    DrawTextAndInvalidate(GetFrameBufferSurface(), g_calligraphy_font, {0x14a, 5}, g_localized_strings[0x8ce]);
     g_calligraphy_font.setShade(Font::kNormalShade);
-    DrawFontTextDirty(0x221, 5, fmt::format("{:6.3f}", g_review_character->health_regen_rate));
+    DrawTextAndInvalidate(GetFrameBufferSurface(), g_calligraphy_font, {0x221, 5}, fmt::format("{:6.3f}", g_review_character->health_regen_rate));
     g_calligraphy_font.setShade(0);
-    DrawFontTextDirty(0x14a, 0x14, g_localized_strings[0x8cd]);
+    DrawTextAndInvalidate(GetFrameBufferSurface(), g_calligraphy_font, {0x14a, 0x14}, g_localized_strings[0x8cd]);
     g_calligraphy_font.setShade(Font::kNormalShade);
-    DrawFontTextDirty(0x221, 0x14, fmt::format("{:6.3f}", g_review_character->stamina_regen_rate));
+    DrawTextAndInvalidate(GetFrameBufferSurface(), g_calligraphy_font, {0x221, 0x14}, fmt::format("{:6.3f}", g_review_character->stamina_regen_rate));
     g_calligraphy_font.setShade(0);
-    DrawFontTextDirty(0x14a, 0x23, g_localized_strings[0x8d0]);
+    DrawTextAndInvalidate(GetFrameBufferSurface(), g_calligraphy_font, {0x14a, 0x23}, g_localized_strings[0x8d0]);
     g_calligraphy_font.setShade(Font::kNormalShade);
     for (index = 0; index < 6; ++index) {
-        DrawFontTextDirty(
-            index * 0x14 + 0x1fe, 0x23,
-            fmt::format("{:6.3f}/", g_review_character->spell_regen_rates[index * 2]));
+        DrawTextAndInvalidate(GetFrameBufferSurface(), g_calligraphy_font,
+                              {static_cast<int>(index * 0x14 + 0x1fe), 0x23},
+                              fmt::format("{:6.3f}/", g_review_character->spell_regen_rates[index * 2]));
     }
 }
 
@@ -2689,8 +2680,7 @@ void DrawPartyDeathScreen(void)
     } else {
         text = g_localized_strings[0x778];
     }
-    SetFont(g_level_load_font);
-    DrawFontText(0x276 - g_level_load_font.textWidth(text), 0x1c7, text);
+    DrawText(GetFrameBufferSurface(), g_level_load_font, {0x276 - g_level_load_font.textWidth(text), 0x1c7}, text);
     SetRadarMapVisible(false);
     SetFormationBoardVisible(false);
     VideoRemoveToolTip();

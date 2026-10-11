@@ -102,10 +102,10 @@ struct GenericButtonImages {
     std::int16_t offset_y = 0;
 };
 
-extern SDL_Surface* ButtonDestBuffer;
 extern bool gfRenderHilights;
 
-void DrawButtonAppearance(const ButtonAppearance& appearance, const ButtonVisualState& state);
+void DrawButtonAppearance(SDL_Surface& target, const ButtonAppearance& appearance,
+                          const ButtonVisualState& state);
 GenericButtonImage DefaultGenericButtonImage();
 bool InitializeButtonImageManager();
 void ShutdownButtonImageManager();

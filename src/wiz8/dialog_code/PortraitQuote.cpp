@@ -84,14 +84,15 @@ static unsigned int g_quote_bubble_flags;
 static int MeasureWrappedText(int x, int y, unsigned int wrap_width, int line_spacing, Font& font,
                               std::string_view text, int, int, int,
                               unsigned int* out_edge);
-int DrawWrappedText(int x, int y, unsigned int wrap_width, int line_spacing, Font& font,
-                    unsigned char colour, std::string_view text, int background, int dirty,
-                    int flags);
+int DrawWrappedText(SDL_Surface& target, int x, int y, unsigned int wrap_width, int line_spacing,
+                    Font& font, unsigned char colour, std::string_view text, int background,
+                    int dirty, int flags, unsigned char shadow_index);
 
 // FUNCTION: WIZ8 0x005d0590
-static int DrawWrappedTextLine(std::string_view text, int x, int top, int width, Font& font,
+static int DrawWrappedTextLine(SDL_Surface& target, std::string_view text, int x, int top,
+                               int width, Font& font,
                                unsigned char foreground, unsigned char background, bool dirty,
-                               unsigned int flags)
+                               unsigned int flags, unsigned char shadow_index)
 {
     if (flags & WRAPPED_TEXT_MEASURE_ONLY) return 1;
     if (flags == 0) flags = WRAPPED_TEXT_LEFT;
@@ -105,20 +106,21 @@ static int DrawWrappedTextLine(std::string_view text, int x, int top, int width,
     }
     const auto [draw_x, draw_y] = position;
 
-    SetFont(font);
-    SetFontForeground(foreground);
-    SetFontBackground(background);
+    auto shadow = font.color(shadow_index);
+    if (shadow_index != 0 && shadow == 0) {
+        shadow = 1;
+    }
+    const TextOptions options{.mono = true,
+                              .colors = {font.color(foreground), font.color(background), shadow}};
     if (flags & WRAPPED_TEXT_SHADOW_RECT) {
         ShadowRect(GetFrameBufferSurface(),
                    {draw_x - 1, draw_y - 1, font.textWidth(text) + 2, font.height() + 2});
     }
     if (dirty) {
-        DrawFontTextDirty(draw_x, draw_y, text);
+        DrawTextAndInvalidate(target, font, {draw_x, draw_y}, text,
+                              {.colors = options.colors});
     }
-    DrawMonoFontText(draw_x, draw_y, text);
-    if (flags & WRAPPED_TEXT_MEASURE_ONLY) {
-        SetFontShadow(2);
-    }
+    DrawText(target, font, {draw_x, draw_y}, text, options);
     if (flags & WRAPPED_TEXT_INVALIDATE) {
         InvalidateRegion(draw_x, draw_y, draw_x + font.textWidth(text),
                          draw_y + font.height(), 0);
@@ -126,22 +128,19 @@ static int DrawWrappedTextLine(std::string_view text, int x, int top, int width,
     return 1;
 }
 
-static void RenderWrappedTextLine(std::string_view text, int x, int top, int width, Font& font,
+static void RenderWrappedTextLine(SDL_Surface& target, std::string_view text, int x, int top,
+                                  int width, Font& font,
                                   unsigned char foreground, unsigned char background, bool dirty,
-                                  unsigned int flags)
+                                  unsigned int flags, unsigned char shadow_index)
 {
-    if (flags & WRAPPED_TEXT_MEASURE_ONLY) {
-        SetFontShadow(0);
-    }
-    DrawWrappedTextLine(text, x, top, width, font, foreground, background, dirty, flags);
-    if (flags & WRAPPED_TEXT_MEASURE_ONLY) {
-        SetFontShadow(2);
-    }
+    DrawWrappedTextLine(target, text, x, top, width, font, foreground, background, dirty, flags,
+                        shadow_index);
 }
 
 // FUNCTION: WIZ8 0x005d0770
-int DrawWrappedText(int x, int y, unsigned int wrap_width, int line_spacing, Font& font,
-                    unsigned char colour, std::string_view text, int background, int dirty, int flags)
+int DrawWrappedText(SDL_Surface& target, int x, int y, unsigned int wrap_width, int line_spacing, Font& font,
+                    unsigned char colour, std::string_view text, int background, int dirty, int flags,
+                    unsigned char shadow_index)
 {
     std::string line;
     std::string word;
@@ -173,9 +172,9 @@ int DrawWrappedText(int x, int y, unsigned int wrap_width, int line_spacing, Fon
             word += ' ';
 
             if ((wrap_width & 0xffff) < word_width + line_width) {
-                RenderWrappedTextLine(line, draw_x, draw_y, remaining_width, *active_font,
+                RenderWrappedTextLine(target, line, draw_x, draw_y, remaining_width, *active_font,
                                       active_colour, static_cast<unsigned char>(background),
-                                      section != 0, flags);
+                                      section != 0, flags, shadow_index);
                 draw_y += active_font->height() + (line_spacing & 0xff);
                 ++line_count;
                 line = word;
@@ -189,9 +188,9 @@ int DrawWrappedText(int x, int y, unsigned int wrap_width, int line_spacing, Fon
             word.clear();
         } else {
             if (word_code == '\n') {
-                RenderWrappedTextLine(line, draw_x, draw_y, remaining_width, *active_font,
+                RenderWrappedTextLine(target, line, draw_x, draw_y, remaining_width, *active_font,
                                       active_colour, static_cast<unsigned char>(background),
-                                      section != 0, flags);
+                                      section != 0, flags, shadow_index);
                 draw_y += active_font->height() + (line_spacing & 0xff);
                 ++line_count;
                 line.clear();
@@ -200,9 +199,9 @@ int DrawWrappedText(int x, int y, unsigned int wrap_width, int line_spacing, Fon
                 remaining_width = wrap_width;
                 draw_x = x;
             } else if (word_code == 0xb2) {
-                RenderWrappedTextLine(line, draw_x, draw_y, remaining_width, *active_font,
+                RenderWrappedTextLine(target, line, draw_x, draw_y, remaining_width, *active_font,
                                       active_colour, static_cast<unsigned char>(background),
-                                      section != 0, flags);
+                                      section != 0, flags, shadow_index);
                 if (alternate) {
                     int span = active_font->textWidth(line);
                     remaining_width -= line_width;
@@ -217,15 +216,15 @@ int DrawWrappedText(int x, int y, unsigned int wrap_width, int line_spacing, Fon
                     remaining_width -= line_width;
                     line.clear();
                     word.clear();
-                    SetFontShadow(0);
                     alternate = true;
+                    shadow_index = 0;
                     draw_x += span;
                 }
             } else if (word_code == 0xb3) {
                 if (section == 2) {
-                    RenderWrappedTextLine(line, draw_x, draw_y, remaining_width, *active_font,
+                    RenderWrappedTextLine(target, line, draw_x, draw_y, remaining_width, *active_font,
                                           active_colour, static_cast<unsigned char>(background),
-                                          true, flags);
+                                          true, flags, shadow_index);
                     section = 1;
                     draw_y += active_font->height() + (line_spacing & 0xff);
                     ++line_count;
@@ -240,9 +239,9 @@ int DrawWrappedText(int x, int y, unsigned int wrap_width, int line_spacing, Fon
                     line_width = 0;
                 }
             } else if (word_code == 0xb4 || word_code == 0xb5) {
-                RenderWrappedTextLine(line, draw_x, draw_y, remaining_width, *active_font,
+                RenderWrappedTextLine(target, line, draw_x, draw_y, remaining_width, *active_font,
                                       active_colour, static_cast<unsigned char>(background),
-                                      section != 0, flags);
+                                      section != 0, flags, shadow_index);
                 if (word_code == 0xb4 && word_cursor < word.size() && word[word_cursor] != ' ') {
                     active_colour = static_cast<unsigned char>(wiz8::text::next(word, word_cursor));
                 }
@@ -259,8 +258,9 @@ int DrawWrappedText(int x, int y, unsigned int wrap_width, int line_spacing, Fon
         }
 
         if (ch == '\0') {
-            RenderWrappedTextLine(line, draw_x, draw_y, remaining_width, *active_font, active_colour,
-                                  static_cast<unsigned char>(background), section != 0, flags);
+            RenderWrappedTextLine(target, line, draw_x, draw_y, remaining_width, *active_font, active_colour,
+                                  static_cast<unsigned char>(background), section != 0, flags,
+                                  shadow_index);
             return (font.height() + (line_spacing & 0xff)) * line_count;
         }
     }
@@ -346,7 +346,6 @@ static int MeasureWrappedText(int x, int y, unsigned int wrap_width, int line_sp
                     active_font = &g_font12point1;
                     line.clear();
                     word.clear();
-                    SetFontShadow(0);
                     alternate = true;
                 }
                 break;
@@ -555,21 +554,8 @@ int LayoutPortraitQuoteBubble(int quote_handle, unsigned char background_index,
         if (bubble.palette != 0xffffffff) {
             colour = static_cast<unsigned char>(bubble.palette);
         }
-        SetFont(g_font12point1);
-        /* Retail 0x005cfe87 and 0x005cfefd call SetFontShadow (0x00406C90):
-           the bubble text drops its shadow on a plain background, and the
-           default shadow index 2 is restored afterwards. */
-        SetFontShadow(shadow);
-        SetFontDestBuffer(*bubble.surface, 0, 0, width_px, height_px, 0);
-        try {
-            DrawWrappedText(margin_x + 0xc, margin_top + 0xc, max_line, 2, g_font12point1, colour, text,
-                        0, 0, 1);
-        } catch (...) {
-            SetFontDestBuffer(GetFrameBufferSurface(), 0, 0, 0x280, 0x1e0, 0);
-            throw;
-        }
-        SetFontDestBuffer(GetFrameBufferSurface(), 0, 0, 0x280, 0x1e0, 0);
-        SetFontShadow(2);
+        DrawWrappedText(*bubble.surface, margin_x + 0xc, margin_top + 0xc, max_line, 2,
+                        g_font12point1, colour, text, 0, 0, 1, shadow ? 2 : 0);
         if (quote_handle == -1) {
             for (index = 0; index < 10; ++index) {
                 if (g_portrait_quotes[index] == 0) {

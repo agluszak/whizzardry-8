@@ -31,9 +31,10 @@
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_int2.hpp"
 #include "glm/ext/vector_uint2.hpp"
-#include "glm/geometric.hpp"
-#include "glm/common.hpp"
-#include "glm/vector_relational.hpp"
+#include "glm/geometric.hpp" // NOLINT(misc-include-cleaner)
+#include "glm/common.hpp" // NOLINT(misc-include-cleaner)
+#include "glm/vector_relational.hpp" // NOLINT(misc-include-cleaner)
+#include "himage.h"
 #include "surrender/srMath.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_code/CombatRange.h"
@@ -1016,6 +1017,7 @@ bool W8PathingService::TestAttachmentHopDoor(W8NavigatorAttachment* attachment)
                         if (trigger != 0) {
                             const glm::vec3 position = prop->GetPosition().glmValue();
                             const auto offset = position - center;
+                            // NOLINTNEXTLINE(misc-include-cleaner)
                             const float distance = glm::dot(offset, offset);
                             if (distance < nearest_distance) {
                                 nearest_distance = distance;
@@ -2633,6 +2635,7 @@ unsigned short W8PathingService::ConfigureMovementSearch(
     W8NavigatorAttachment* attachment = movement->attachment.get();
     if ((attachment->flags & W8_NAV_ATTACHMENT_FOLLOW_PATH) != 0) {
         srVector3T<float> delta = movement->target_position - movement->position;
+        // NOLINTNEXTLINE(misc-include-cleaner)
         float horizontal_clearance = glm::length(((delta.xz()))) - radius;
         float target_radius;
         if (target_location == 0) {
@@ -4324,7 +4327,7 @@ void W8PathingService::GetPathSurfaceNormal(const srVector3T<float>* position,
     SnapPathHeight(&z_sample);
 
     *normal =
-        srVector3T{glm::cross((z_sample - origin).glmValue(), (x_sample - origin).glmValue())};
+        srVector3T{glm::cross((z_sample - origin).glmValue(), (x_sample - origin).glmValue())}; // NOLINT(misc-include-cleaner)
     normal->Normalize();
 }
 
@@ -4552,8 +4555,9 @@ stModelInstance* W8PathingService::BuildPathVisualization()
             colors[base + corner] = color;
         }
         if ((appearance_flags & 2) != 0) {
+            // NOLINTNEXTLINE(misc-include-cleaner)
             colors[base] = glm::mix(glm::vec3(0), glm::vec3(1),
-                glm::lessThanEqual(color, glm::vec3(g_float_zero)));
+                                    glm::lessThanEqual(color, glm::vec3(g_float_zero))); // NOLINT(misc-include-cleaner)
         } else if ((appearance_flags & W8_WAYPOINT_CONDITIONAL) != 0) {
             colors[base] = glm::vec3(0);
         }
@@ -5640,9 +5644,9 @@ unsigned int W8PathingService::EditWaypointLinkFlags(const char* title, unsigned
     colour_backup.SetZero();
     GetWorldColour(&colour_backup);
     PublishLightDirection(&colour_saved);
-    SetFont(g_smfnt_font);
-    SetRGBFontShadow(SDL_Color{0, 0, 0, SDL_ALPHA_OPAQUE});
     g_smfnt_font.setPalette(g_font_state_palettes[W8_FONT_PALETTE_YELLOW]);
+    const TextOptions text_options{
+        .colors = {.shadow = Get16BPPColor(SDL_Color{0, 0, 0, SDL_ALPHA_OPAQUE})}};
     if (direction == 0 || (waypoint_editor_flags & 2) != 0) {
         direction = 3;
     }
@@ -5745,7 +5749,9 @@ unsigned int W8PathingService::EditWaypointLinkFlags(const char* title, unsigned
                 ++length;
             }
             wide[line][length] = 0;
-            DrawFontTextDirty(0x1f, 0x65 + line * 0xd, wide[line]);
+            DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font,
+                                  {0x1f, 0x65 + static_cast<int>(line) * 0xd}, wide[line],
+                                  text_options);
         }
         InvalidateRegion(0x1e, 0x64, 0x262, 0xcc, 4);
         if (DequeueEvent(&atom) == 0) {
@@ -5872,7 +5878,9 @@ unsigned int W8PathingService::EditWaypointLinkFlags(const char* title, unsigned
             wide[line][length] = 0x20;
         }
         wide[line][0x50] = 0;
-        DrawFontTextDirty(0x1f, 0x65 + line * 0xd, wide[line]);
+        DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font,
+                              {0x1f, 0x65 + static_cast<int>(line) * 0xd}, wide[line],
+                              text_options);
     }
     InvalidateRegion(0x1e, 0x64, 0x262, 0xd9, 4);
     RenderFrame();

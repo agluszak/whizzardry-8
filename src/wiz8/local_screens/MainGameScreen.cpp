@@ -1395,7 +1395,6 @@ void W8MainGameTextKeyHandler::Redraw(bool full_redraw)
     bottom = m_pPanel->m_bounds.top + m_bottom;
     InvalidateRegion(left, top, right, bottom, 0);
     BlitCatalogSurfaceRectTo16BPP(GetFrameBufferSurface(), left, top, right, bottom, 0x1b6, 0, 0);
-    SetFont(g_wiz_text_font_secondary);
     last = m_first_visible_line + m_visible_lines;
     left += 2;
     top += 1;
@@ -1408,7 +1407,7 @@ void W8MainGameTextKeyHandler::Redraw(bool full_redraw)
             colour = g_wiz_text_font_secondary.glyphs->colors;
         }
         g_wiz_text_font_secondary.setPalette(colour);
-        DrawFontText(left, top, g_localized_strings[m_line_string_ids[line]]);
+        DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {left, top}, g_localized_strings[m_line_string_ids[line]]);
         top += 0xe;
     }
     g_wiz_text_font_secondary.resetPalette();
@@ -2887,7 +2886,6 @@ unsigned char MainGameScreenEnter(void)
     CreateConditionButtons();
     InitializeMainGameLevelBlock();
     ScrollTextBoxToCursor();
-    SetFontDestBuffer(GetFrameBufferSurface(), 0, 0, 0x280, 0x1e0, 0);
     g_world_render_enabled = 1;
     g_monster_shadow_updates_enabled = 1;
     ClearPrimarySurface();
@@ -3297,12 +3295,10 @@ render_world:
             W8Monster* monster = GetMonsterByLocationID(g_mipe_state->SelectedMonsterLocationId());
             if (monster) {
                 ClearSurfaceRect(0x122, 0x159, 0x226, 0x168);
-                SetFont(g_wiz_text_font_secondary);
                 unsigned char frame = monster->m_pRep->subcycle;
                 const char* cycle = g_cycle_names[monster->Query(W8_MONSTER_QUERY_CYCLE)].name;
                 unsigned char subcycles = static_cast<unsigned char>(monster->GetNumSubCycles());
-                DrawFontTextDirty(0x122, 0x159,
-                                  fmt::format("{:2d}/{:2d} {}", frame, subcycles, cycle));
+                DrawTextAndInvalidate(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x122, 0x159}, fmt::format("{:2d}/{:2d} {}", frame, subcycles, cycle));
             }
         }
         if (!gXStatus.fCombatMode) {
@@ -3810,11 +3806,8 @@ void DrawMainGameScreen(void)
         RenderAllTextFields();
         if (g_level_block->mouselook_debug != 0) {
             ClearSurfaceRect(0xdc, 0x1e, 0x154, 0x26);
-            SetFont(g_smfnt_font);
             g_smfnt_font.resetPalette();
-            DrawFontTextDirty(
-                0xdc, 0x1e,
-                fmt::format("{:.3f}, {:.3f}", g_mouselook_pending_pitch, g_mouselook_pending_yaw));
+            DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font, {0xdc, 0x1e}, fmt::format("{:.3f}, {:.3f}", g_mouselook_pending_pitch, g_mouselook_pending_yaw));
         }
         if (w8_get_ticks() - g_level_block->tick > 499) {
             if (g_level_block->inspector_enabled && !gXStatus.fSpellCastMode &&
@@ -3929,7 +3922,6 @@ void RedrawCombatMonsterList(void)
         InvalidateRegion(0xfa, 0x19, clear_right, clear_bottom, 1);
     }
     if (gXStatus.active_monster_count != 0) {
-        SetFont(g_wiz_text_font_secondary);
         group_list_index = 0;
         list_length = gXStatus.monster_groups.size();
         if (list_length != 0) {
@@ -3981,7 +3973,7 @@ void RedrawCombatMonsterList(void)
                         }
                     }
                     g_wiz_text_font_secondary.setPalette(palette);
-                    DrawFontTextDirty(0xfa, row_y, scratch_text);
+                    DrawTextAndInvalidate(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0xfa, row_y}, scratch_text);
                     row_y += 0xb;
                     ++live_row_count;
                     if (max_text_width < static_cast<unsigned int>(text_width)) {
@@ -4261,12 +4253,10 @@ void DrawHighlightOverlay(unsigned int party_slot, int row_count, unsigned int m
         row_y_pos += 6;
     }
 
-    SetFont(g_wiz_text_font);
     g_wiz_text_font.setPalette(g_font_state_palettes[g_status.buffers.XChar[party_slot].party_order_index]);
     int font_height = g_wiz_text_font.height();
     int name_width = g_wiz_text_font.textWidth(name);
-    DrawFontText(left + static_cast<int>(panel_width >> 1) - name_width / 2,
-                 (0xc - font_height) / 2 + top + 6, name);
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font, {left + static_cast<int>(panel_width >> 1) - name_width / 2, (0xc - font_height) / 2 + top + 6}, name);
     g_wiz_text_font.resetPalette();
 
     row_y_pos = top + 0x12;
@@ -4330,8 +4320,9 @@ static void DrawPortraitConditionRow(int condition, int text_x, int row_y, unsig
     g_level_block->text_paint_scratch =
         fmt::format("{}", g_localized_strings[g_condition_notices[condition].name]);
     int text_width = g_wiz_text_font.textWidth(g_level_block->text_paint_scratch);
-    DrawFontText(((width >> 1) - text_width / 2) + 0x1a + text_x, row_y,
-                 g_level_block->text_paint_scratch);
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font,
+             {static_cast<int>(((width >> 1) - text_width / 2) + 0x1a + text_x), row_y},
+             g_level_block->text_paint_scratch);
 }
 
 static void DrawPortraitEnchantmentRow(const W8Character* character, int slot, int text_x,
@@ -4342,8 +4333,9 @@ static void DrawPortraitEnchantmentRow(const W8Character* character, int slot, i
         fmt::format("{} ({:d})", g_localized_strings[g_enchantment_notices[slot]],
                     character->enchantments[slot].power);
     int text_width = g_wiz_text_font.textWidth(g_level_block->text_paint_scratch);
-    DrawFontText(((width >> 1) - text_width / 2) + 0x1a + text_x, row_y,
-                 g_level_block->text_paint_scratch);
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font,
+             {static_cast<int>(((width >> 1) - text_width / 2) + 0x1a + text_x), row_y},
+             g_level_block->text_paint_scratch);
 }
 
 /* The portrait overlay's vitals content: "HP:"/"Stamina:" label rows then one
@@ -4399,22 +4391,24 @@ void DrawPortraitVitalsOverlay(int party_slot)
     int row_y = g_level_block->dialogue_row_y;
 
     g_level_block->text_paint_scratch = fmt::format("{}: ", g_localized_strings[0x282]);
-    DrawFontText(text_x, row_y, g_level_block->text_paint_scratch);
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font, {text_x, row_y}, g_level_block->text_paint_scratch);
     g_level_block->text_paint_scratch =
         fmt::format("{:d}/{:d}", character->hp_current, character->uiHPMax);
     unsigned int value_center = (text_width - label_width) >> 1;
     width = g_wiz_text_font.textWidth(g_level_block->text_paint_scratch);
-    DrawFontText(value_center - width / 2 + text_x + label_width, row_y,
-                 g_level_block->text_paint_scratch);
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font,
+             {static_cast<int>(value_center - width / 2 + text_x + label_width), row_y},
+             g_level_block->text_paint_scratch);
     row_y += 0x12;
 
     g_level_block->text_paint_scratch = fmt::format("{}: ", g_localized_strings[0x283]);
-    DrawFontText(text_x, row_y, g_level_block->text_paint_scratch);
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font, {text_x, row_y}, g_level_block->text_paint_scratch);
     g_level_block->text_paint_scratch =
         fmt::format("{:d}/{:d}", character->stamina, character->uiStaminaMax);
     width = g_wiz_text_font.textWidth(g_level_block->text_paint_scratch);
-    DrawFontText(value_center - width / 2 + text_x + label_width, row_y,
-                 g_level_block->text_paint_scratch);
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font,
+             {static_cast<int>(value_center - width / 2 + text_x + label_width), row_y},
+             g_level_block->text_paint_scratch);
     row_y += 0x12;
 
     for (realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
@@ -4426,8 +4420,9 @@ void DrawPortraitVitalsOverlay(int party_slot)
             character->sp_max[realm]);
         int text_y = (0x12 - g_wiz_text_font.height()) / 2 + row_y;
         width = g_wiz_text_font.textWidth(g_level_block->text_paint_scratch);
-        DrawFontText(value_center - width / 2 + text_x + label_width, text_y,
-                     g_level_block->text_paint_scratch);
+        DrawText(GetFrameBufferSurface(), g_wiz_text_font,
+                 {static_cast<int>(value_center - width / 2 + text_x + label_width), text_y},
+                 g_level_block->text_paint_scratch);
         row_y += 0x12;
     }
 }
@@ -4549,8 +4544,9 @@ void DrawPortraitStatusOverlay(int party_slot)
         if (rows_drawn == 0x13 && truncated) {
             g_level_block->text_paint_scratch = g_localized_strings[0x7d8];
             int width = g_wiz_text_font.textWidth(g_level_block->text_paint_scratch);
-            DrawFontText((((text_width - width) + 0x1a) >> 1) + text_x, row_y,
-                         g_level_block->text_paint_scratch);
+            DrawText(GetFrameBufferSurface(), g_wiz_text_font,
+                     {static_cast<int>((((text_width - width) + 0x1a) >> 1) + text_x), row_y},
+                     g_level_block->text_paint_scratch);
             return;
         }
         if (character->enchantments[slot].turns != 0) {

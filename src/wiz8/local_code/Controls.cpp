@@ -591,16 +591,16 @@ void W8TextBuffer::RenderText(SDL_Surface& target, int x_offset, int y_offset, b
         return;
     }
 
-    SetFont(*m_font);
     m_font->setShade(m_renderMode);
     const auto previous_state = m_font->palette();
     if (m_fontStateIndex != -1) {
         m_font->setPalette(g_font_state_palettes[m_fontStateIndex]);
     }
     {
-        FontRenderScope font_scope;
-        SetFontDestClip(m_pendingBounds.left, m_pendingBounds.top,
-                          m_pendingBounds.right, m_pendingBounds.bottom);
+        SDL_Rect clip{m_pendingBounds.left, m_pendingBounds.top,
+                      m_pendingBounds.right - m_pendingBounds.left,
+                      m_pendingBounds.bottom - m_pendingBounds.top};
+        ScopedClipRect clipping(target, clip);
 
         int y = GetVerticalPosition();
         for (;;) {
@@ -608,10 +608,8 @@ void W8TextBuffer::RenderText(SDL_Surface& target, int x_offset, int y_offset, b
             const auto line = remaining.substr(0, end);
 
             const int x = GetHorizontalPosition(m_font->textWidth(line));
-            if (m_alternateRenderer == 0)
-                DrawFontTextToSurface(target, *m_font, x + x_offset, y + y_offset, line);
-            else
-                DrawMonoFontTextToSurface(target, *m_font, x + x_offset, y + y_offset, line);
+            DrawText(target, *m_font, {x + x_offset, y + y_offset}, line,
+                     {.mono = m_alternateRenderer != 0});
 
             if (end == std::string_view::npos)
                 break;
@@ -637,10 +635,11 @@ void W8TextBuffer::RenderToTarget(int offset, bool force, SDL_Surface& target)
         return;
     }
 
-    SetFont(*m_font);
     m_font->setShade(m_renderMode);
-    SetFontDestBuffer(target, m_pendingBounds.left, m_pendingBounds.top, m_pendingBounds.right,
-                      m_pendingBounds.bottom, 0);
+    SDL_Rect clip{m_pendingBounds.left, m_pendingBounds.top,
+                  m_pendingBounds.right - m_pendingBounds.left,
+                  m_pendingBounds.bottom - m_pendingBounds.top};
+    ScopedClipRect clipping(target, clip);
     const auto previous_state = m_font->palette();
     if (m_fontStateIndex != -1) {
         m_font->setPalette(g_font_state_palettes[m_fontStateIndex]);
@@ -655,7 +654,7 @@ void W8TextBuffer::RenderToTarget(int offset, bool force, SDL_Surface& target)
         const auto line = remaining.substr(0, end);
 
         const int x = GetHorizontalPosition(m_font->textWidth(line));
-        DrawFontText(x + offset, y + offset, line);
+        DrawText(target, *m_font, {x + offset, y + offset}, line);
 
         if (end == std::string_view::npos)
             break;
@@ -668,7 +667,6 @@ void W8TextBuffer::RenderToTarget(int offset, bool force, SDL_Surface& target)
     m_font->setPalette(previous_state);
     InvalidateRegion(m_layoutBounds.left, m_layoutBounds.top, m_layoutBounds.right,
                      m_layoutBounds.bottom, 0);
-    SetFontDestBuffer(GetFrameBufferSurface(), 0, 0, 640, 480, 0);
     m_geometryDirty = false;
 }
 

@@ -22,7 +22,7 @@ void W8DialogButton::Draw()
         (m_region.region().flags & W8_REGION_INPUT_DISABLED) == 0) {
         m_visual.hovered = (m_region.region().flags & W8_REGION_MOUSE_ENTER) != 0 ||
                            g_hover_region_index == m_region.index();
-        DrawButtonAppearance(m_appearance, m_visual);
+        DrawButtonAppearance(GetFrameBufferSurface(), m_appearance, m_visual);
         const auto& bounds = m_appearance.bounds;
         InvalidateRegion(bounds.x, bounds.y, bounds.x + bounds.w, bounds.y + bounds.h, 0);
         m_dirty = false;

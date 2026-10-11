@@ -630,23 +630,25 @@ void W8OptionsSaveRow::Redraw(bool full_redraw)
                             m_save->timestamp.month, m_save->timestamp.day, m_save->timestamp.hour,
                             m_save->timestamp.minute);
 
-    SetFont(g_wiz_text_font_secondary);
     int text_x = x + 0x5e;
     if (m_save->version_major + m_save->version_minor * 0.1f + m_save->version_patch * 0.01f <=
         1.24f) {
-        DrawFontText(text_x, y + 9, level_name);
-        DrawFontText(text_x, y + 0x16,
-                     fmt::format("{} {:3d}, {:2d}:{:02d}", g_localized_strings[0x826],
-                                 m_save->game_time_days, m_save->game_time_ms / 3600000,
-                                 (m_save->game_time_ms / 60000) % 60));
-        DrawFontText(text_x, y + 0x23, timestamp);
+        DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {text_x, y + 9}, level_name);
+        DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {text_x, y + 0x16},
+                 fmt::format("{} {:3d}, {:2d}:{:02d}", g_localized_strings[0x826],
+                             m_save->game_time_days, m_save->game_time_ms / 3600000,
+                             (m_save->game_time_ms / 60000) % 60));
+        DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {text_x, y + 0x23}, timestamp);
     } else {
-        DrawFontText(text_x, y + 9, g_localized_strings[0x830]);
-        DrawFontText(text_x, y + 0x16, g_localized_strings[0x831]);
+        DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {text_x, y + 9},
+                 g_localized_strings[0x830]);
+        DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {text_x, y + 0x16},
+                 g_localized_strings[0x831]);
     }
-    DrawFontText(text_x, y + 0x34, m_save->name);
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {text_x, y + 0x34}, m_save->name);
     if (m_save->iron_man) {
-        DrawFontText(x + 0x156, y + 9, g_localized_strings[0x827]);
+        DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {x + 0x156, y + 9},
+                 g_localized_strings[0x827]);
     }
 }
 

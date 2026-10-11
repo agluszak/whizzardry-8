@@ -10,6 +10,7 @@
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
 #include "wiz8/engine_code/Video2.h"
 #include "Font.h"
+#include "image.h"
 #include "input.h"
 #include "dialog_code/DialogBase.h"
 #include "dialog_code/DialogButton.h"
@@ -93,18 +94,19 @@ void W8DialogNumericInput::Draw(bool force)
     }
     g_numeric_input_text = fmt::format("{:d}", m_value);
     size_t length = g_numeric_input_text.size();
-    SetFont(*m_font);
     g_numeric_input_text = fmt::format("{:d}", m_value);
     m_font->setShade(Font::kNormalShade);
-    SetFontDestBuffer(GetFrameBufferSurface(), m_bounds.left, m_bounds.top, m_bounds.right, m_bounds.bottom,
-                      0);
+    SDL_Rect text_clip{m_bounds.left, m_bounds.top, m_bounds.right - m_bounds.left,
+                       m_bounds.bottom - m_bounds.top};
+    ScopedClipRect clipping(GetFrameBufferSurface(), text_clip);
     unsigned short font_height = m_font->height();
     int text_y = m_bounds.top + std::max(0, (m_bounds.bottom - m_bounds.top - font_height) / 2);
     int text_x = m_bounds.right - m_font->textWidth(g_numeric_input_text);
     if (text_x <= m_bounds.left) {
         text_x = m_bounds.left;
     }
-    DrawFontTextDirty(text_x, text_y, g_numeric_input_text);
+    DrawTextAndInvalidate(GetFrameBufferSurface(), *m_font, {text_x, text_y},
+                          g_numeric_input_text);
     if (m_active && m_caret != -1) {
         int caret_x =
             m_bounds.right - m_font->textWidth(std::string_view(g_numeric_input_text).substr(length - m_caret)) - 1;
@@ -117,7 +119,6 @@ void W8DialogNumericInput::Draw(bool force)
         const SDL_Rect caret{caret_x, caret_top, 1, caret_bottom - caret_top + 1};
         SDL_FillSurfaceRect(&GetFrameBufferSurface(), &caret, 0xffff);
     }
-    SetFontDestBuffer(GetFrameBufferSurface(), 0, 0, 640, 480, 0);
     m_dirty = false;
 }
 

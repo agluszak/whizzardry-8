@@ -119,7 +119,6 @@ void W8CharacterSpellList::Redraw(bool force)
         InvalidateRegion(left, top, right, bottom, 0);
         BlitCatalogSurfaceRectTo16BPP(GetFrameBufferSurface(), left, top, right, bottom, 0x1b6, 0, 0);
         int y = top + 1;
-        SetFont(g_wiz_text_font_secondary);
         g_wiz_text_font_secondary.resetPalette();
         g_wiz_text_font_secondary.setShade(Font::kNormalShade);
         for (int index = m_first_entry + m_scroll_offset;
@@ -133,10 +132,12 @@ void W8CharacterSpellList::Redraw(bool force)
             } else if (index == m_hovered_entry) {
                 g_wiz_text_font_secondary.setPalette(g_font_state_palettes[W8_FONT_PALETTE_YELLOW]);
             }
-            DrawFontText(left + 2, y, g_spell_records[m_entries[index].spell].display_name);
+            DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {left + 2, y},
+                     g_spell_records[m_entries[index].spell].display_name);
             std::string cost;
             cost = fmt::format("{:d}", g_spell_records[m_entries[index].spell].spell_point_cost);
-            DrawFontText(right - g_wiz_text_font_secondary.textWidth(cost) - 2, y, cost);
+            DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary,
+                     {right - g_wiz_text_font_secondary.textWidth(cost) - 2, y}, cost);
             y += 13;
             g_wiz_text_font_secondary.resetPalette();
             g_wiz_text_font_secondary.setShade(Font::kNormalShade);

@@ -1852,31 +1852,36 @@ void DrawVideoInspector(int left, unsigned int top)
     InvalidateRegion(left, top, left + 0x113, bottom, 0);
     if (g_gerd != 0) {
         const auto statistics = g_gerd->getStatistics();
-        SetFont(g_smfnt_font);
         g_smfnt_font.setPalette(g_font_state_palettes[W8_FONT_PALETTE_YELLOW]);
-        DrawFontTextDirty(left, top, fmt::format("FR: {:4.1f}", g_frames_per_second));
+        const int text_left = static_cast<int>(left);
+        const int text_top = static_cast<int>(top);
+        DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font, {text_left, text_top},
+                              fmt::format("FR: {:4.1f}", g_frames_per_second));
         if (g_video_inspector_mode == 2) {
-            DrawFontTextDirty(left, top + 0xa,
-                              fmt::format("OC: {:d}", g_world->level->m_submitted_polygons));
-            DrawFontTextDirty(left, top + 0x14,
-                              fmt::format("PI: {:d}", statistics.input_triangles));
-            DrawFontTextDirty(left, top + 0x1e,
-                              fmt::format("PO: {:d}", statistics.device_triangles));
-            DrawFontTextDirty(left, top + 0x28, fmt::format("VI: {:d}", statistics.input_vertices));
-            DrawFontTextDirty(left, top + 0x32,
-                              fmt::format("VO: {:d}", statistics.device_vertices));
-            DrawFontTextDirty(left, top + 0x3c, fmt::format("DD: {:d}", statistics.device_calls));
-            DrawFontTextDirty(left, top + 0x46, fmt::format("TC: {:d}", statistics.texture_binds));
-            DrawFontTextDirty(left, top + 0x50,
-                              fmt::format("TT: {:.0f}", statistics.texture_transfer));
-            DrawFontTextDirty(left, top + 0x5a,
-                              fmt::format("RM: {:d}K", g_gerd->getResidentTextureMemUsed() >> 10));
-            DrawFontTextDirty(left, top + 0x64,
-                              fmt::format("TM: {:d}K", g_gerd->getTextureCacheUsed()));
-            DrawFontTextDirty(left, top + 0x6e,
-                              fmt::format("DR: {:3d}", GetCameraYawAndRotation(0)));
-            DrawFontTextDirty(
-                left, top + 0x78,
+            DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font, {text_left, text_top + 0xa},
+                                  fmt::format("OC: {:d}", g_world->level->m_submitted_polygons));
+            DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font, {text_left, text_top + 0x14},
+                                  fmt::format("PI: {:d}", statistics.input_triangles));
+            DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font, {text_left, text_top + 0x1e},
+                                  fmt::format("PO: {:d}", statistics.device_triangles));
+            DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font, {text_left, text_top + 0x28},
+                                  fmt::format("VI: {:d}", statistics.input_vertices));
+            DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font, {text_left, text_top + 0x32},
+                                  fmt::format("VO: {:d}", statistics.device_vertices));
+            DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font, {text_left, text_top + 0x3c},
+                                  fmt::format("DD: {:d}", statistics.device_calls));
+            DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font, {text_left, text_top + 0x46},
+                                  fmt::format("TC: {:d}", statistics.texture_binds));
+            DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font, {text_left, text_top + 0x50},
+                                  fmt::format("TT: {:.0f}", statistics.texture_transfer));
+            DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font, {text_left, text_top + 0x5a},
+                                  fmt::format("RM: {:d}K", g_gerd->getResidentTextureMemUsed() >> 10));
+            DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font, {text_left, text_top + 0x64},
+                                  fmt::format("TM: {:d}K", g_gerd->getTextureCacheUsed()));
+            DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font, {text_left, text_top + 0x6e},
+                                  fmt::format("DR: {:3d}", GetCameraYawAndRotation(0)));
+            DrawTextAndInvalidate(
+                GetFrameBufferSurface(), g_smfnt_font, {text_left, text_top + 0x78},
                 fmt::format("MM: {:d}K",
                             static_cast<unsigned int>(g_decompressed_mesh_bytes) >> 10));
             return;
@@ -1891,9 +1896,12 @@ void DrawVideoInspector(int left, unsigned int top)
                 position.y = position.z * g_world_cursor_scale;
                 position.z = scaled;
             }
-            DrawFontTextDirty(left, top + 0xa, fmt::format(" X: {:.2f}", position.x));
-            DrawFontTextDirty(left, top + 0x14, fmt::format(" Y: {:.2f}", position.y));
-            DrawFontTextDirty(left, top + 0x1e, fmt::format(" Z: {:.2f}", position.z));
+            DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font, {text_left, text_top + 0xa},
+                                  fmt::format(" X: {:.2f}", position.x));
+            DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font, {text_left, text_top + 0x14},
+                                  fmt::format(" Y: {:.2f}", position.y));
+            DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font, {text_left, text_top + 0x1e},
+                                  fmt::format(" Z: {:.2f}", position.z));
         }
     }
 }

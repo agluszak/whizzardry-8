@@ -956,10 +956,10 @@ void DrawDialogueTextInputLines(int x, int y, unsigned int first_line)
         auto text = std::string_view(input->text).substr(start, end - start);
         int draw_x = x;
         if (line == 0 && !input->first_line_prefix.empty()) {
-            DrawFontText(draw_x, y, input->first_line_prefix);
+            DrawText(GetFrameBufferSurface(), *g_level_block->text_box_font, {draw_x, y}, input->first_line_prefix);
             draw_x += g_level_block->text_box_font->textWidth(input->first_line_prefix);
         }
-        DrawFontText(draw_x, y, text);
+        DrawText(GetFrameBufferSurface(), *g_level_block->text_box_font, {draw_x, y}, text);
         maximum_width = std::max(maximum_width, draw_x - x + g_level_block->text_box_font->textWidth(text));
         y += 11;
         if (y >= g_level_block->text_box_bottom) break;
@@ -979,11 +979,11 @@ void RedrawDialogueTextInput(void)
         int offset = g_status.text_box_lines_shown[text_box] - g_level_block->text_lines[text_box];
         if (offset < 7) {
             {
-                FontRenderScope font_scope;
-                SetFontDestBuffer(GetFrameBufferSurface(), g_level_block->text_box_left, g_level_block->text_box_top,
-                                  g_level_block->text_box_right, g_level_block->text_box_bottom, 0);
+                SDL_Rect clip{g_level_block->text_box_left, g_level_block->text_box_top,
+                              g_level_block->text_box_right - g_level_block->text_box_left,
+                              g_level_block->text_box_bottom - g_level_block->text_box_top};
+                ScopedClipRect clipping(GetFrameBufferSurface(), clip);
                 g_level_block->text_box_font->setPalette(g_level_block->palette);
-                SetFont(*g_level_block->text_box_font);
 
                 int y = g_level_block->text_box_top + offset * 0xb;
                 if (y < g_level_block->text_box_top) {
@@ -1425,7 +1425,7 @@ static void DrawMessageLineText(const W8MessageStorageRecord* line, int x, int y
 {
     auto text = std::string_view(line->text);
     if (line->length >= 0) text = text.substr(0, wiz8::text::byte_prefix(text, line->length));
-    DrawFontTextDirty(x, y, text);
+    DrawTextAndInvalidate(GetFrameBufferSurface(), *g_level_block->text_box_font, {x, y}, text);
 }
 
 /* Paint one message-storage line at (x, y). hovered_line / selected_line
@@ -1444,7 +1444,7 @@ static void DrawTextBoxLine(W8MessageStorageRecord* line, int x, int y, bool hov
     };
     auto draw = [&](std::string_view span, unsigned int palette) {
         set_palette(palette);
-        DrawFontTextDirty(x, y, span);
+        DrawTextAndInvalidate(GetFrameBufferSurface(), *g_level_block->text_box_font, {x, y}, span);
         x += g_level_block->text_box_font->textWidth(span);
     };
     auto end = line->length < 0 ? text.size() : wiz8::text::byte_prefix(text, line->length);
@@ -1459,9 +1459,8 @@ static void DrawTextBoxLine(W8MessageStorageRecord* line, int x, int y, bool hov
     if (line->length >= 0) {
         const auto suffix = text.substr(end);
         set_palette(foreground);
-        DrawFontTextDirty(g_level_block->text_box_right -
-                              g_level_block->text_box_font->textWidth(suffix),
-                          y, suffix);
+        DrawTextAndInvalidate(GetFrameBufferSurface(), *g_level_block->text_box_font, {g_level_block->text_box_right -
+                              g_level_block->text_box_font->textWidth(suffix), y}, suffix);
     }
     DrawNoticeWordOverlays(line, x, y);
 }
@@ -1524,11 +1523,11 @@ void RedrawTextBoxBody(bool skip_invalidate)
 
     {
 
-        FontRenderScope font_scope;
-        SetFontDestBuffer(GetFrameBufferSurface(), g_level_block->text_box_left, g_level_block->text_box_top,
-                          g_level_block->text_box_right, g_level_block->text_box_bottom, 0);
+        SDL_Rect clip{g_level_block->text_box_left, g_level_block->text_box_top,
+                      g_level_block->text_box_right - g_level_block->text_box_left,
+                      g_level_block->text_box_bottom - g_level_block->text_box_top};
+        ScopedClipRect clipping(GetFrameBufferSurface(), clip);
         g_level_block->text_box_font->setPalette(g_level_block->palette);
-        SetFont(*g_level_block->text_box_font);
 
         y_offset = 0;
         for (row = 0; row < rows; ++row) {
@@ -1801,7 +1800,7 @@ static void DrawNoticeWordOverlay(const W8MessageStorageRecord* line, W8NoticeWo
 {
     std::string word_text;
     word_text = line->text.substr(word->start, word->end - word->start + 1);
-    DrawFontTextDirty(word->x_start + x, y, word_text);
+    DrawTextAndInvalidate(GetFrameBufferSurface(), *g_level_block->text_box_font, {word->x_start + x, y}, word_text);
     word->redraw = false;
 }
 
