@@ -154,7 +154,7 @@ static std::uint32_t GetWidth(const SpriteSheet& sprites, std::int16_t ssIndex)
     if (ssIndex < 0 || static_cast<std::size_t>(ssIndex) >= sprites.frames.size())
         return 0;
     const auto& glyph = sprites.frames[ssIndex];
-    return glyph.usWidth + glyph.sOffsetX;
+    return glyph.width + glyph.offset.x;
 }
 
 // Measure a prefix counted in Unicode scalar values.
@@ -198,7 +198,7 @@ static std::uint32_t GetHeight(const SpriteSheet& sprites, std::int16_t ssIndex)
     if (ssIndex < 0 || static_cast<std::size_t>(ssIndex) >= sprites.frames.size())
         return 0;
     const auto& glyph = sprites.frames[ssIndex];
-    return glyph.usHeight + glyph.sOffsetY;
+    return glyph.height + glyph.offset.y;
 }
 // GetFontHeight
 //	Returns the height of the first character in a font.

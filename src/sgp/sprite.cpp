@@ -17,8 +17,8 @@ namespace {
 
 SDL_Rect sprite_rect(const SpriteFrame& frame, int x, int y, bool mirror)
 {
-    return {mirror ? x - frame.sOffsetX : x + frame.sOffsetX,
-            y + frame.sOffsetY, frame.usWidth, frame.usHeight};
+    return {mirror ? x - frame.offset.x : x + frame.offset.x,
+            y + frame.offset.y, frame.width, frame.height};
 }
 
 }
@@ -32,7 +32,7 @@ void DrawSprite(SDL_Surface& target, const SpriteSheet& sprites, std::size_t fra
         throw std::invalid_argument("Sprite target must be 16-bit");
 
     const auto& frame = sprites.frames[frame_index];
-    if (!frame.indices)
+    if (frame.indices.empty())
         return;
     const SDL_Rect requested = sprite_rect(frame, x, y, options.mirror);
     SDL_Rect clip{};
@@ -44,13 +44,12 @@ void DrawSprite(SDL_Surface& target, const SpriteSheet& sprites, std::size_t fra
     const auto& palette = options.palette ? *options.palette : sprites.colors;
     for (int destination_y = visible.y; destination_y < visible.y + visible.h; ++destination_y) {
         const int source_y = destination_y - requested.y;
-        const auto* input = reinterpret_cast<const std::uint16_t*>(
-            static_cast<const std::uint8_t*>(frame.indices->pixels) + source_y * frame.indices->pitch);
+        const std::uint16_t* input = frame.indices.data() + std::size_t(source_y) * frame.width;
         auto* output = reinterpret_cast<std::uint16_t*>(
             static_cast<std::uint8_t*>(target.pixels) + destination_y * target.pitch);
         for (int destination_x = visible.x; destination_x < visible.x + visible.w; ++destination_x) {
             const int relative_x = destination_x - requested.x;
-            const int source_x = options.mirror ? frame.usWidth - 1 - relative_x : relative_x;
+            const int source_x = options.mirror ? frame.width - 1 - relative_x : relative_x;
             const std::uint16_t index = input[source_x];
             if (options.blend == SpriteBlend::Mono) {
                 if (index == 1) {
@@ -76,7 +75,7 @@ bool SpriteIsClipped(const SpriteSheet& sprites, std::size_t frame_index, int x,
     if (frame_index >= sprites.frames.size())
         return false;
     const auto& frame = sprites.frames[frame_index];
-    if (!frame.indices || frame.usWidth == 0 || frame.usHeight == 0)
+    if (frame.indices.empty())
         return false;
     const SDL_Rect requested = sprite_rect(frame, x, y, false);
     SDL_Rect visible{};
@@ -90,9 +89,9 @@ void TileSprite(SDL_Surface& target, const SDL_Rect& area, const SpriteSheet& sp
     if (frame_index >= sprites.frames.size() || SDL_RectEmpty(&area))
         return;
     const auto& frame = sprites.frames[frame_index];
-    const int tile_width = frame.usWidth + frame.sOffsetX;
-    const int tile_height = frame.usHeight + frame.sOffsetY;
-    if (!frame.indices || tile_width <= 0 || tile_height <= 0)
+    const int tile_width = frame.width + frame.offset.x;
+    const int tile_height = frame.height + frame.offset.y;
+    if (frame.indices.empty() || tile_width <= 0 || tile_height <= 0)
         return;
 
     ScopedClipRect clip(target, area);
@@ -111,9 +110,9 @@ SDLSurfaceOwner RenderSpriteToImage(const SpriteSheet& sprites, std::size_t fram
     if (frame_index >= sprites.frames.size())
         return {nullptr, SDL_DestroySurface};
     const auto& frame = sprites.frames[frame_index];
-    if (!frame.indices || frame.usWidth == 0 || frame.usHeight == 0)
+    if (frame.indices.empty())
         return {nullptr, SDL_DestroySurface};
-    auto image = CreateFrameSurface(frame.usWidth, frame.usHeight);
+    auto image = CreateFrameSurface(frame.width, frame.height);
     // SDL color keys compare RGB only. A zero key aliases opaque black
     // (0x8000 in ARGB1555), so reserve an RGB value absent from the palette.
     const auto* format = SDL_GetPixelFormatDetails(image->format);

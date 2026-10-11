@@ -20,7 +20,6 @@ struct SpriteDraw {
     std::uint16_t shadow = 0;
     bool mirror = false;
     const Palette16* palette = nullptr;
-    bool color_key = true;
 };
 
 void DrawSprite(SDL_Surface& target, const SpriteSheet& sprites, std::size_t frame,

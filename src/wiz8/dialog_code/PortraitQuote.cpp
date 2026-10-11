@@ -1,8 +1,8 @@
 #include <SDL3/SDL_pixels.h>
-#include <SDL3/SDL_stdinc.h>
 #include <SDL3/SDL_surface.h>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <SDL3/SDL_rect.h>
 #include <string_view>
 #include <string>
@@ -51,6 +51,12 @@ struct W8PortraitQuoteBubble {
     std::string text;
     std::uint32_t palette;
 };
+
+// Flat bubbles fill with yellow and draw with yellow as their transparent key.
+static std::uint16_t QuoteBubbleFlatFill()
+{
+    return Get16BPPColor(SDL_Color{255, 255, 0, SDL_ALPHA_OPAQUE});
+}
 
 // GLOBAL: WIZ8 0x0069C598
 static W8PortraitQuoteBubble* g_portrait_quotes[10];
@@ -394,7 +400,9 @@ unsigned char DrawPortraitQuoteBubble(int quote_handle, short x, short y, SDL_Su
     }
     g_current_portrait_quote = bubble;
     BlitImage(surface, x, y, *bubble->surface, nullptr,
-              {.color_key = (bubble->flags & QUOTE_BUBBLE_FLAT_BACKGROUND) != 0});
+              {.color_key = (bubble->flags & QUOTE_BUBBLE_FLAT_BACKGROUND)
+                                ? std::optional<std::uint32_t>{QuoteBubbleFlatFill()}
+                                : std::nullopt});
     if (&surface == &GetFrameBufferSurface()) {
         InvalidateRegion(x, y, static_cast<short>(x + bubble->width),
                          static_cast<short>(y + bubble->height), 0);
@@ -528,9 +536,7 @@ int LayoutPortraitQuoteBubble(int quote_handle, unsigned char background_index,
         *out_height = static_cast<unsigned short>(height);
         rect = {0, 0, width_px, height_px};
         if (bubble.flags & QUOTE_BUBBLE_FLAT_BACKGROUND) {
-            const Uint16 fill = Get16BPPColor(SDL_Color{255, 255, 0, SDL_ALPHA_OPAQUE});
-            SDL_SetSurfaceColorKey(bubble.surface.get(), true, fill);
-            SDL_FillSurfaceRect(bubble.surface.get(), nullptr, fill);
+            SDL_FillSurfaceRect(bubble.surface.get(), nullptr, QuoteBubbleFlatFill());
         } else {
             BlitImage(*bubble.surface, 0, 0, *bubble.background_surface, &rect);
         }

@@ -34,9 +34,7 @@ TEST_CASE("SDL image blits use color keys, mirroring, and destination clip recta
     pixel(*source, 2, 0) = 0x2345;
     for (int x = 0; x < 5; ++x)
         pixel(*destination, x, 0) = 0x4567;
-    REQUIRE(SDL_SetSurfaceColorKey(source.get(), true, 0));
-
-    BlitImage(*destination, 1, 0, *source, nullptr, {.color_key = true});
+    BlitImage(*destination, 1, 0, *source, nullptr, {.color_key = 0});
     REQUIRE(pixel(*destination, 0, 0) == 0x4567);
     REQUIRE(pixel(*destination, 1, 0) == 0x4567);
     REQUIRE(pixel(*destination, 2, 0) == 0x1234);
@@ -46,7 +44,7 @@ TEST_CASE("SDL image blits use color keys, mirroring, and destination clip recta
     const SDL_Rect clip{1, 0, 2, 1};
     {
         ScopedClipRect scoped_clip(*destination, clip);
-        BlitImage(*destination, 0, 0, *source, nullptr, {.color_key = true, .mirror = true});
+        BlitImage(*destination, 0, 0, *source, nullptr, {.color_key = 0, .mirror = true});
         SDL_Rect active{};
         REQUIRE(SDL_GetSurfaceClipRect(destination.get(), &active));
         REQUIRE((active.x == clip.x && active.y == clip.y && active.w == clip.w &&

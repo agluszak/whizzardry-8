@@ -1,0 +1,920 @@
+#include <SDL3/SDL_surface.h>
+#include <array>
+#include <cstddef>
+#include <cstdint>
+#include <memory>
+#include <optional>
+#include <stdexcept>
+#include <string_view>
+#include <utility>
+#include <variant>
+#include "himage.h"
+#include <fmt/format.h>
+#include <SDL3/SDL_rect.h>
+
+#include "wiz8/engine_code/Video2.h"
+#include "wiz8/sr_api.h"
+#include "wiz8/catalog_artwork.h"
+#include "image_assets.h"
+#include "image.h"
+#include "sprite.h"
+
+// A catalog object names a run of entries; its image offset selects the first sprite frame.
+struct CatalogSlot {
+    int first_entry;
+    short image_offset;
+};
+
+enum class CatalogStorage { Sprites = 0, Bitmap = 1 };
+
+struct CatalogEntry {
+    std::string_view path;
+    CatalogStorage storage;
+};
+
+/* Asset paths and storage kinds retain their retail catalog order. */
+// GLOBAL: WIZ8 0x0062c430
+static constexpr std::array<CatalogEntry, 657> g_catalog_entries = {{
+    {"Data\\Cursors\\2D-Cursors.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Large\\Lhummf.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Large\\Lhummn.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Large\\Lhummm.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Large\\Lhumm1.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Large\\Lhumm2.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Large\\Lhumm3.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Large\\Lhumff.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Large\\Lhumfn.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Large\\Lhumfm.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Large\\Lhumf1.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Large\\Lhumf2.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Large\\Lhumf3.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Large\\Lelfmf.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Large\\Lelfmn.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Large\\Lelfmm.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Large\\Lelfff.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Large\\Lelffn.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Large\\Lelffm.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Large\\Ldwarfmf.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Large\\Ldwarfmn.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Large\\Ldwarfmm.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Large\\Ldwarfff.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Large\\Ldwarffn.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Large\\Ldwarffm.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Large\\Lgnomemn.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Large\\Lgnomemm.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Large\\Lgnomeff.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Large\\Lgnomefn.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Large\\Lhobmf.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Large\\Lhobmn.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Large\\Lhobff.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Large\\Lhobfn.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Large\\Lfairymf.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Large\\Lfairymm.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Large\\Lfairyff.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Large\\Lfairyfn.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Large\\Llizmf.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Large\\Llizmn.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Large\\Llizff.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Large\\Llizfn.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Large\\Ldracmf.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Large\\Ldracmn.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Large\\Ldracff.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Large\\Ldracfn.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Large\\Lfelpmf.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Large\\Lfelpmn.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Large\\Lfelpff.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Large\\Lfelpfn.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Large\\Lrawmn.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Large\\Lrawmm.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Large\\Lrawff.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Large\\Lrawfn.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Large\\Lmookmf.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Large\\Lmookmn.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Large\\Lmookff.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Large\\Lmookfn.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Large\\Lninmf.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Large\\Lninff.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Large\\Lmook.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Large\\Ltrynm1.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Large\\Ltrynm2.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Large\\Ltrynm3.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Large\\Ltrang.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Large\\Lumpani.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Large\\Lsexus.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Large\\Lurq.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Large\\LRFS-81.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Large\\Lmadras.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Large\\Lsparkle.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Large\\Lmyles.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Large\\LVi.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Large\\Ldrazic.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Large\\Ltantris.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Large\\Lrodan.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Large\\Lglumph.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Large\\Lsaxx.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Large\\Lhumm4.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Large\\Lhumf4.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Large\\Lelfm1.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Large\\Lelff1.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Medium\\Mhummf.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\Mhummn.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\Mhummm.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\mhumm1.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\mhumm2.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\mhumm3.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\Mhumff.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\Mhumfn.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\Mhumfm.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\mhumf1.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\mhumf2.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\mhumf3.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\Melfmf.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\Melfmn.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\Melfmm.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\Melfff.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\Melffn.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\Melffm.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\Mdwarfmf.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\Mdwarfmn.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\Mdwarfmm.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\Mdwarfff.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\Mdwarffn.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\Mdwarffm.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\Mgnomemn.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\Mgnomemm.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\Mgnomeff.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\Mgnomefn.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\Mhobmf.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\Mhobmn.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\Mhobff.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\Mhobfn.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\Mfairymf.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\Mfairymm.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\Mfairyff.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\Mfairyfn.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\Mlizmf.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\Mlizmn.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\Mlizff.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\Mlizfn.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\Mdracmf.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\Mdracmn.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\Mdracff.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\Mdracfn.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\Mfelpmf.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\Mfelpmn.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\Mfelpff.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\Mfelpfn.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\Mrawmn.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\Mrawmm.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\Mrawff.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\Mrawfn.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\Mmookmf.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\Mmookmn.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\Mmookff.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\Mmookfn.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\Mninmf.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\Mninff.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\mmook.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\mtrynm1.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\mtrynm2.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\mtrynm3.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\Mtrang.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\Mumpani.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\asexus.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\aurq.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\aRFS-81.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\amadras.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\asparkle.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\amyles.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\aVi.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\adrazic.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\atantris.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\arodan.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\aglumph.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\asaxx.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\mhumm4.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\mhumf4.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\Melfm1.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\Melff1.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Small\\Shummf.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Small\\Shummn.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Small\\Shummm.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Small\\shumm1.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Small\\shumm2.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Small\\shumm3.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Small\\Shumff.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Small\\Shumfn.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Small\\Shumfm.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Small\\shumf1.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Small\\shumf2.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Small\\shumf3.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Small\\Selfmf.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Small\\Selfmn.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Small\\Selfmm.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Small\\Selfff.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Small\\Selffn.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Small\\Selffm.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Small\\Sdwarfmf.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Small\\Sdwarfmn.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Small\\Sdwarfmm.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Small\\Sdwarfff.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Small\\Sdwarffn.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Small\\Sdwarffm.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Small\\Sgnomemn.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Small\\Sgnomemm.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Small\\Sgnomeff.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Small\\Sgnomefn.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Small\\Shobmf.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Small\\Shobmn.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Small\\Shobff.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Small\\Shobfn.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Small\\Sfairymf.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Small\\Sfairymm.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Small\\Sfairyff.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Small\\Sfairyfn.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Small\\Slizmf.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Small\\Slizmn.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Small\\Slizff.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Small\\Slizfn.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Small\\Sdracmf.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Small\\Sdracmn.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Small\\Sdracff.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Small\\Sdracfn.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Small\\Sfelpmf.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Small\\Sfelpmn.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Small\\Sfelpff.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Small\\Sfelpfn.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Small\\Srawmn.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Small\\Srawmm.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Small\\Srawff.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Small\\Srawfn.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Small\\Smookmf.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Small\\Smookmn.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Small\\Smookff.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Small\\Smookfn.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Small\\Sninmf.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Small\\Sninff.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Small\\smook.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Small\\strynm1.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Small\\strynm2.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Small\\strynm3.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Small\\strang.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Small\\sumpani.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Small\\ssexus.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Small\\surq.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Small\\sRFS-81.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Small\\smadras.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Small\\ssparkle.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Small\\smyles.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Small\\sVi.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Small\\sdrazic.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Small\\stantris.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Small\\srodan.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Small\\sglumph.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Small\\ssaxx.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Small\\shumm4.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Small\\shumf4.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Small\\Selfm1.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Small\\Selff1.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Small\\SSkull.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Small\\SSkull_drac.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Small\\SSkull_felp.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Small\\SSkull_liz.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Small\\SSkull_mook.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Small\\SSkull_raw.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Small\\SSkull_trang.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Small\\SSkull_tryn.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Small\\SSkull_ump.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Small\\SSkull_rap.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Small\\SSkull_and.sti", CatalogStorage::Bitmap},
+    {"Data\\Portraits\\Medium\\MSkull.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\MSkull_drac.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\MSkull_felp.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\MSkull_liz.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\MSkull_mook.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\MSkull_raw.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\MSkull_trang.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\MSkull_tryn.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\MSkull_ump.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\MSkull_rap.sti", CatalogStorage::Sprites},
+    {"Data\\Portraits\\Medium\\MSkull_and.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\option2G.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\option2H.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\option2N.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\party2G.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\party2H.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\party2N.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\search2G.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\search2H.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\search2N.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\camp2G.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\camp2H.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\camp2N.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\bottom.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\bottomB.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\roof.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\layout.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\leftcorner.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\rightcorner.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\leftplug.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\rightplug.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\pback.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\CharHighlight.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\CharSelect.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\dragons.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\Inside.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\Outside.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\Outside2.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\lefttop.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\leftside1.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\leftside2.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\leftside3.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\leftside4.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\righttop.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\rightside1.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\rightside2.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\rightside3.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\rightside4.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\HealthBar.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\StaminaBar.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\MagicBar.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\HealthBarWide.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\StaminaBarWide.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\MagicBarWide.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\GoldBar.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\TextUpArrowOff.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\TextUpArrowOn.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\TextUpArrowHigh.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\TextDownArrowOff.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\TextDownArrowOn.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\TextDownArrowHigh.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\SliderBar.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\SliderNut.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\EdgeHighlight.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\EdgeSelect.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\CornerSelect.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\condition_highlight.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\NameSelect.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\WeaponSelect.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\StatsSelect.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\StatsSelectWide.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\HandLeft.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\HandRight.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\FHandLeft.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\FHandRight.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\PawLeft.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\PawRight.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\ClawLeft.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\ClawRight.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\RHandLeft.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\RHandRight.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\popup_edge.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\popup_divider.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\PopupHighlight.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\Weapon2Select.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\LeftWingTip.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\RightWingTip.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\LeftStrip.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\RightStrip.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\BottomStrip.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\FormationJewels.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\FormationJewelsH.sti", CatalogStorage::Sprites},
+    {"Data\\Flics\\FormationSymbol.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\Compass.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\ViewCone.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\main_bottom_bar.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\main_submenu_bar.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\main_column_info_normal.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\main_columns_hit.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\main_columns_normal.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\small_formation_back.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\main_radar_back.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\main_roof.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\main_scroll.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\main_textbox_back.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\main_textbox_tabs.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\icons_submenu.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\icons_portrait.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\icons_portrait_shield.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\icons_portrait_jewels.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\progressbar.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\confirmation_buttons.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\undo_button.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\damage_splat_anim.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\damage_splat_anim2.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\death_splat_anim.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\partymovement_back.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\partymovement_buttons.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\partymovement_man.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\partymovement_bars.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\item_bottompanel.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\item_inventorypool.sti", CatalogStorage::Sprites},
+    {"Data\\Party Formation\\small_formation_cage.sti", CatalogStorage::Sprites},
+    {"Data\\Party Formation\\small_form_cage_high.sti", CatalogStorage::Sprites},
+    {"Data\\Party Formation\\small_formation_cone.sti", CatalogStorage::Sprites},
+    {"Data\\Party Formation\\small_formation_symbol.sti", CatalogStorage::Sprites},
+    {"Data\\Party Formation\\small_formation_jewels.sti", CatalogStorage::Sprites},
+    {"Data\\Party Formation\\large_formation_panel.sti", CatalogStorage::Sprites},
+    {"Data\\Party Formation\\large_formation_symbol.sti", CatalogStorage::Sprites},
+    {"Data\\Party Formation\\large_formation_jewels.sti", CatalogStorage::Sprites},
+    {"Data\\Radar Compass\\compass_rim.sti", CatalogStorage::Sprites},
+    {"Data\\Radar Compass\\compass_rim_high.sti", CatalogStorage::Sprites},
+    {"Data\\Radar Compass\\formation_dot_large.sti", CatalogStorage::Sprites},
+    {"Data\\Radar Compass\\formation_dot_small.sti", CatalogStorage::Sprites},
+    {"Data\\Radar Compass\\formation_jewels.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\CombatPortraitPanel.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\leveling_button.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\cond_icon_rim_wide.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\paused_background.sti", CatalogStorage::Sprites},
+    {"Data\\Spells\\Bitmaps\\default_2D_anim.sti", CatalogStorage::Sprites},
+    {"Data\\Spells\\Bitmaps\\fire_positive.sti", CatalogStorage::Sprites},
+    {"Data\\Spells\\Bitmaps\\fire_negative.sti", CatalogStorage::Sprites},
+    {"Data\\Spells\\Bitmaps\\water_positive.sti", CatalogStorage::Sprites},
+    {"Data\\Spells\\Bitmaps\\water_negative.sti", CatalogStorage::Sprites},
+    {"Data\\Spells\\Bitmaps\\air_positive.sti", CatalogStorage::Sprites},
+    {"Data\\Spells\\Bitmaps\\air_negative.sti", CatalogStorage::Sprites},
+    {"Data\\Spells\\Bitmaps\\earth_positive.sti", CatalogStorage::Sprites},
+    {"Data\\Spells\\Bitmaps\\earth_negative.sti", CatalogStorage::Sprites},
+    {"Data\\Spells\\Bitmaps\\mental_positive.sti", CatalogStorage::Sprites},
+    {"Data\\Spells\\Bitmaps\\mental_negative.sti", CatalogStorage::Sprites},
+    {"Data\\Spells\\Bitmaps\\divine_positive.sti", CatalogStorage::Sprites},
+    {"Data\\Spells\\Bitmaps\\divine_negative.sti", CatalogStorage::Sprites},
+    {"Data\\Icons\\Conditions\\Drained.sti", CatalogStorage::Sprites},
+    {"Data\\Icons\\Conditions\\Diseased.sti", CatalogStorage::Sprites},
+    {"Data\\Icons\\Conditions\\Irritated.sti", CatalogStorage::Sprites},
+    {"Data\\Icons\\Conditions\\Nauseated.sti", CatalogStorage::Sprites},
+    {"Data\\Icons\\Conditions\\Slowed.sti", CatalogStorage::Sprites},
+    {"Data\\Icons\\Conditions\\Afraid.sti", CatalogStorage::Sprites},
+    {"Data\\Icons\\Conditions\\Poisoned.sti", CatalogStorage::Sprites},
+    {"Data\\Icons\\Conditions\\Silenced.sti", CatalogStorage::Sprites},
+    {"Data\\Icons\\Conditions\\Hexed.sti", CatalogStorage::Sprites},
+    {"Data\\Icons\\Conditions\\Infatuated.sti", CatalogStorage::Sprites},
+    {"Data\\Icons\\Conditions\\Insane.sti", CatalogStorage::Sprites},
+    {"Data\\Icons\\Conditions\\Blind.sti", CatalogStorage::Sprites},
+    {"Data\\Icons\\Conditions\\Turncoat.sti", CatalogStorage::Sprites},
+    {"Data\\Icons\\Conditions\\Webbed.sti", CatalogStorage::Sprites},
+    {"Data\\Icons\\Conditions\\Asleep.sti", CatalogStorage::Sprites},
+    {"Data\\Icons\\Conditions\\Paralyzed.sti", CatalogStorage::Sprites},
+    {"Data\\Icons\\Conditions\\Unconscious.sti", CatalogStorage::Sprites},
+    {"Data\\Icons\\Conditions\\Dead.sti", CatalogStorage::Sprites},
+    {"Data\\Icons\\Conditions\\Missing.sti", CatalogStorage::Sprites},
+    {"Data\\Icons\\Enchantments\\Dracon_Breath.sti", CatalogStorage::Sprites},
+    {"Data\\Icons\\Enchantments\\Guardian_Angel.sti", CatalogStorage::Sprites},
+    {"Data\\Icons\\Enchantments\\Razor_Cloak.sti", CatalogStorage::Sprites},
+    {"Data\\Icons\\Enchantments\\Eye4Eye.sti", CatalogStorage::Sprites},
+    {"Data\\Icons\\Enchantments\\Haste.sti", CatalogStorage::Sprites},
+    {"Data\\Icons\\Enchantments\\Super_Man.sti", CatalogStorage::Sprites},
+    {"Data\\Icons\\Enchantments\\Body_Stone.sti", CatalogStorage::Sprites},
+    {"Data\\Icons\\TravelingSpells\\armor_plate.sti", CatalogStorage::Sprites},
+    {"Data\\Icons\\TravelingSpells\\chameleon.sti", CatalogStorage::Sprites},
+    {"Data\\Icons\\TravelingSpells\\detect_secret.sti", CatalogStorage::Sprites},
+    {"Data\\Icons\\TravelingSpells\\enchanted_blade.sti", CatalogStorage::Sprites},
+    {"Data\\Icons\\TravelingSpells\\light.sti", CatalogStorage::Sprites},
+    {"Data\\Icons\\TravelingSpells\\magic_screen.sti", CatalogStorage::Sprites},
+    {"Data\\Icons\\TravelingSpells\\missile_shield.sti", CatalogStorage::Sprites},
+    {"Data\\Icons\\TravelingSpells\\shadow_hound.sti", CatalogStorage::Sprites},
+    {"Data\\Icons\\TravelingSpells\\x_ray.sti", CatalogStorage::Sprites},
+    {"Data\\Icons\\PartySpells\\Armor_Melt.sti", CatalogStorage::Sprites},
+    {"Data\\Icons\\PartySpells\\Acid_Cloud.sti", CatalogStorage::Sprites},
+    {"Data\\Icons\\PartySpells\\Toxic_Cloud.sti", CatalogStorage::Sprites},
+    {"Data\\Icons\\PartySpells\\Fire_Storm.sti", CatalogStorage::Sprites},
+    {"Data\\Icons\\PartySpells\\Death_Cloud.sti", CatalogStorage::Sprites},
+    {"Data\\Icons\\PartySpells\\Draining_Cloud.sti", CatalogStorage::Sprites},
+    {"Data\\Icons\\PartySpells\\Bless.sti", CatalogStorage::Sprites},
+    {"Data\\Icons\\PartySpells\\Element_Shield.sti", CatalogStorage::Sprites},
+    {"Data\\Icons\\PartySpells\\Soul_Shield.sti", CatalogStorage::Sprites},
+    {"Data\\Icons\\PartySpells\\Ring_Of_Fire.sti", CatalogStorage::Sprites},
+    {"Data\\Options\\intro_bg.sti", CatalogStorage::Bitmap},
+    {"Data\\Options\\intro_bg_menu.sti", CatalogStorage::Bitmap},
+    {"Data\\Options\\intro_menu.sti", CatalogStorage::Sprites},
+    {"Data\\Options\\opt_menu.sti", CatalogStorage::Sprites},
+    {"Data\\Options\\intro_bg_text.sti", CatalogStorage::Bitmap},
+    {"Data\\Options\\intro_bg_credits.sti", CatalogStorage::Bitmap},
+    {"Data\\Options\\introtext_normal.sti", CatalogStorage::Sprites},
+    {"Data\\Options\\introtext_depressed.sti", CatalogStorage::Sprites},
+    {"Data\\Options\\introtext_highlight.sti", CatalogStorage::Sprites},
+    {"Data\\Options\\introtext_unavailable.sti", CatalogStorage::Sprites},
+    {"Data\\Options\\options_base.sti", CatalogStorage::Sprites},
+    {"Data\\Options\\options_buttons.sti", CatalogStorage::Sprites},
+    {"Data\\Options\\options_computer.sti", CatalogStorage::Sprites},
+    {"Data\\Options\\options_controls.sti", CatalogStorage::Sprites},
+    {"Data\\Options\\options_submenu.sti", CatalogStorage::Sprites},
+    {"Data\\Options\\options_pagingbase.sti", CatalogStorage::Sprites},
+    {"Data\\Options\\options_navigation_arrows.sti", CatalogStorage::Sprites},
+    {"Data\\Options\\options_slider.sti", CatalogStorage::Sprites},
+    {"Data\\Options\\save_load_defaultscreen.sti", CatalogStorage::Sprites},
+    {"Data\\Options\\save_load_back.sti", CatalogStorage::Sprites},
+    {"Data\\Options\\save_load_buttons.sti", CatalogStorage::Sprites},
+    {"Data\\Options\\save_load_gamelists.sti", CatalogStorage::Sprites},
+    {"Data\\Party Generation\\back.sti", CatalogStorage::Sprites},
+    {"Data\\Party Generation\\listboxes.sti", CatalogStorage::Sprites},
+    {"Data\\Party Generation\\detailbox.sti", CatalogStorage::Sprites},
+    {"Data\\Party Generation\\bottombuttons.sti", CatalogStorage::Sprites},
+    {"Data\\Party Generation\\listbuttons.sti", CatalogStorage::Sprites},
+    {"Data\\Party Generation\\scrollbuttons.sti", CatalogStorage::Sprites},
+    {"Data\\Party Generation\\portraitborder.sti", CatalogStorage::Sprites},
+    {"Data\\Party Generation\\portraithighlight.sti", CatalogStorage::Sprites},
+    {"Data\\Party Generation\\options_back.sti", CatalogStorage::Sprites},
+    {"Data\\Party Generation\\import_addon.sti", CatalogStorage::Sprites},
+    {"Data\\Char Generation\\CG_Profession.sti", CatalogStorage::Sprites},
+    {"Data\\Char Generation\\CG_Personality.sti", CatalogStorage::Sprites},
+    {"Data\\Char Generation\\CG_BottomButtons.sti", CatalogStorage::Sprites},
+    {"Data\\Char Generation\\CG_Pieces.sti", CatalogStorage::Sprites},
+    {"Data\\Char Generation\\CG_Skills.sti", CatalogStorage::Sprites},
+    {"Data\\Char Generation\\CG_Magic.sti", CatalogStorage::Sprites},
+    {"Data\\Char Generation\\CG_Buttons.sti", CatalogStorage::Sprites},
+    {"Data\\Char Generation\\CG_Icons_Profession.sti", CatalogStorage::Sprites},
+    {"Data\\Char Generation\\CG_Icons_Race.sti", CatalogStorage::Sprites},
+    {"Data\\Char Generation\\CG_Icons_Gender.sti", CatalogStorage::Sprites},
+    {"Data\\Char Generation\\CG_Icons_Base.sti", CatalogStorage::Sprites},
+    {"Data\\Review\\CommonCorner.sti", CatalogStorage::Sprites},
+    {"Data\\Review\\BottomButtonBar.sti", CatalogStorage::Sprites},
+    {"Data\\Review\\ReviewPageButtons.sti", CatalogStorage::Sprites},
+    {"Data\\Review\\ReviewItemButtons.sti", CatalogStorage::Sprites},
+    {"Data\\Review\\dismiss_button.sti", CatalogStorage::Sprites},
+    {"Data\\Review\\ReviewItemPage.sti", CatalogStorage::Sprites},
+    {"Data\\Review\\ReviewItemHighlights.sti", CatalogStorage::Sprites},
+    {"Data\\Review\\PortraitExit.sti", CatalogStorage::Sprites},
+    {"Data\\Review\\SmallPortraitHighlight.sti", CatalogStorage::Sprites},
+    {"Data\\Review\\ReviewGoldIcon.sti", CatalogStorage::Sprites},
+    {"Data\\Review\\BoxesOnly.sti", CatalogStorage::Sprites},
+    {"Data\\Review\\ItemUsableBackground.sti", CatalogStorage::Sprites},
+    {"Data\\Review\\ItemUnidentifiedOverlay.sti", CatalogStorage::Sprites},
+    {"Data\\Review\\AC_Ovals.sti", CatalogStorage::Sprites},
+    {"Data\\Review\\Leveling_bar.sti", CatalogStorage::Sprites},
+    {"Data\\Review\\InventorySwapButtons.sti", CatalogStorage::Sprites},
+    {"Data\\Review\\InventoryFilterButtons.sti", CatalogStorage::Sprites},
+    {"Data\\Review\\commod_button_bar.sti", CatalogStorage::Sprites},
+    {"Data\\Review\\commod_buttons.sti", CatalogStorage::Sprites},
+    {"Data\\Review\\commod_back.sti", CatalogStorage::Sprites},
+    {"Data\\Review\\reviewscreen_popups.sti", CatalogStorage::Sprites},
+    {"Data\\Review\\InvCursedHighlight.sti", CatalogStorage::Sprites},
+    {"Data\\Review\\statue_human_m.sti", CatalogStorage::Sprites},
+    {"Data\\Review\\statue_human_f.sti", CatalogStorage::Sprites},
+    {"Data\\Review\\statue_elf_m.sti", CatalogStorage::Sprites},
+    {"Data\\Review\\statue_elf_f.sti", CatalogStorage::Sprites},
+    {"Data\\Review\\statue_dwarf_m.sti", CatalogStorage::Sprites},
+    {"Data\\Review\\statue_dwarf_f.sti", CatalogStorage::Sprites},
+    {"Data\\Review\\statue_gnome_m.sti", CatalogStorage::Sprites},
+    {"Data\\Review\\statue_gnome_f.sti", CatalogStorage::Sprites},
+    {"Data\\Review\\statue_hobbit_m.sti", CatalogStorage::Sprites},
+    {"Data\\Review\\statue_hobbit_f.sti", CatalogStorage::Sprites},
+    {"Data\\Review\\statue_fairy_m.sti", CatalogStorage::Sprites},
+    {"Data\\Review\\statue_fairy_f.sti", CatalogStorage::Sprites},
+    {"Data\\Review\\statue_lizard_m.sti", CatalogStorage::Sprites},
+    {"Data\\Review\\statue_lizard_f.sti", CatalogStorage::Sprites},
+    {"Data\\Review\\statue_dracon_m.sti", CatalogStorage::Sprites},
+    {"Data\\Review\\statue_dracon_f.sti", CatalogStorage::Sprites},
+    {"Data\\Review\\statue_felpurr_m.sti", CatalogStorage::Sprites},
+    {"Data\\Review\\statue_felpurr_f.sti", CatalogStorage::Sprites},
+    {"Data\\Review\\statue_rawulf_m.sti", CatalogStorage::Sprites},
+    {"Data\\Review\\statue_rawulf_f.sti", CatalogStorage::Sprites},
+    {"Data\\Review\\statue_mook_m.sti", CatalogStorage::Sprites},
+    {"Data\\Review\\statue_mook_f.sti", CatalogStorage::Sprites},
+    {"Data\\Review\\statue_Trynnie.sti", CatalogStorage::Sprites},
+    {"Data\\Review\\statue_Trang.sti", CatalogStorage::Sprites},
+    {"Data\\Review\\statue_Umpani.sti", CatalogStorage::Sprites},
+    {"Data\\Review\\statue_Rapax.sti", CatalogStorage::Sprites},
+    {"Data\\Review\\statue_Android.sti", CatalogStorage::Sprites},
+    {"Data\\Review\\ReviewMagicPage.sti", CatalogStorage::Sprites},
+    {"Data\\Review\\ReviewSkillsPage.sti", CatalogStorage::Sprites},
+    {"Data\\Review\\ReviewStatsPage.sti", CatalogStorage::Sprites},
+    {"Data\\Review\\ReviewSliderbar.sti", CatalogStorage::Sprites},
+    {"Data\\Review\\ReviewSkillsIcons.sti", CatalogStorage::Sprites},
+    {"Data\\Review\\ReviewFXFilters.sti", CatalogStorage::Sprites},
+    {"Data\\Review\\SecondaryOccupied.sti", CatalogStorage::Sprites},
+    {"Data\\Review\\ButtonBackgroundOff.sti", CatalogStorage::Sprites},
+    {"Data\\Review\\ButtonBackgroundOn.sti", CatalogStorage::Sprites},
+    {"Data\\Review\\ButtonHighlight.sti", CatalogStorage::Sprites},
+    {"Data\\Fonts\\PaletteRed.sti", CatalogStorage::Sprites},
+    {"Data\\Fonts\\PaletteGreen.sti", CatalogStorage::Sprites},
+    {"Data\\Fonts\\PalettePurple.sti", CatalogStorage::Sprites},
+    {"Data\\Fonts\\PaletteBlue.sti", CatalogStorage::Sprites},
+    {"Data\\Fonts\\PaletteOrange.sti", CatalogStorage::Sprites},
+    {"Data\\Fonts\\PaletteYellow.sti", CatalogStorage::Sprites},
+    {"Data\\Fonts\\PalettePink.sti", CatalogStorage::Sprites},
+    {"Data\\Fonts\\PaletteBrown.sti", CatalogStorage::Sprites},
+    {"Data\\Fonts\\PaletteWhite.sti", CatalogStorage::Sprites},
+    {"Data\\Fonts\\PaletteRust.sti", CatalogStorage::Sprites},
+    {"Data\\Fonts\\PaletteBronze.sti", CatalogStorage::Sprites},
+    {"Data\\Fonts\\PaletteGray.sti", CatalogStorage::Sprites},
+    {"Data\\Fonts\\PaletteBeige.sti", CatalogStorage::Sprites},
+    {"Data\\Fonts\\PaletteOptGreen.sti", CatalogStorage::Sprites},
+    {"Data\\Fonts\\PaletteOptWhite.sti", CatalogStorage::Sprites},
+    {"Data\\Flics\\Realms\\Fire.sti", CatalogStorage::Sprites},
+    {"Data\\Flics\\Realms\\Water.sti", CatalogStorage::Sprites},
+    {"Data\\Flics\\Realms\\Air.sti", CatalogStorage::Sprites},
+    {"Data\\Flics\\Realms\\Earth.sti", CatalogStorage::Sprites},
+    {"Data\\Flics\\Realms\\Mental.sti", CatalogStorage::Sprites},
+    {"Data\\Flics\\Realms\\Divine.sti", CatalogStorage::Sprites},
+    {"Data\\Automap\\map_border.sti", CatalogStorage::Sprites},
+    {"Data\\Automap\\map_cursors.sti", CatalogStorage::Sprites},
+    {"Data\\Automap\\map_exitbutton.sti", CatalogStorage::Sprites},
+    {"Data\\Automap\\map_layerbuttons.sti", CatalogStorage::Sprites},
+    {"Data\\Automap\\map_markerbuttons.sti", CatalogStorage::Sprites},
+    {"Data\\Automap\\map_movementbuttons.sti", CatalogStorage::Sprites},
+    {"Data\\Automap\\map_notebuttons.sti", CatalogStorage::Sprites},
+    {"Data\\Automap\\map_zoombuttons.sti", CatalogStorage::Sprites},
+    {"Data\\Spell Casting\\MagicBottomNew.sti", CatalogStorage::Sprites},
+    {"Data\\Spell Casting\\RealmHighlightNew.sti", CatalogStorage::Sprites},
+    {"Data\\Spell Casting\\PowerButtons.sti", CatalogStorage::Sprites},
+    {"Data\\Spell Casting\\fire_realm.sti", CatalogStorage::Sprites},
+    {"Data\\Spell Casting\\water_realm.sti", CatalogStorage::Sprites},
+    {"Data\\Spell Casting\\air_realm.sti", CatalogStorage::Sprites},
+    {"Data\\Spell Casting\\earth_realm.sti", CatalogStorage::Sprites},
+    {"Data\\Spell Casting\\mental_realm.sti", CatalogStorage::Sprites},
+    {"Data\\Spell Casting\\divine_realm.sti", CatalogStorage::Sprites},
+    {"Data\\Spell Casting\\MagicBottom.sti", CatalogStorage::Sprites},
+    {"Data\\Spell Casting\\ReviewSpellCast.sti", CatalogStorage::Sprites},
+    {"Data\\Spell Casting\\SmallPowerBalls.sti", CatalogStorage::Sprites},
+    {"Data\\Spell Casting\\SmallPowerRings.sti", CatalogStorage::Sprites},
+    {"Data\\Spell Casting\\LargePowerBalls.sti", CatalogStorage::Sprites},
+    {"Data\\Spell Casting\\LargePowerRings.sti", CatalogStorage::Sprites},
+    {"Data\\Spell Casting\\CastCancelButtons.sti", CatalogStorage::Sprites},
+    {"Data\\Spell Casting\\RealmHighlight.sti", CatalogStorage::Sprites},
+    {"Data\\NPC Interaction\\Npc_bottompanel.sti", CatalogStorage::Sprites},
+    {"Data\\NPC Interaction\\Npc_buttons.sti", CatalogStorage::Sprites},
+    {"Data\\NPC Interaction\\Npc_itemfilters.sti", CatalogStorage::Sprites},
+    {"Data\\NPC Interaction\\Npc_gold.sti", CatalogStorage::Sprites},
+    {"Data\\Locks And Traps\\LockPickMockup.sti", CatalogStorage::Sprites},
+    {"Data\\Locks And Traps\\lockpick_tumblers.sti", CatalogStorage::Sprites},
+    {"Data\\Locks And Traps\\lockpick_bottompanel.sti", CatalogStorage::Sprites},
+    {"Data\\Locks And Traps\\lockpick_bashbutton.sti", CatalogStorage::Sprites},
+    {"Data\\Locks And Traps\\traps_bottompanel.sti", CatalogStorage::Sprites},
+    {"Data\\Locks And Traps\\traps_deviceicons.sti", CatalogStorage::Sprites},
+    {"Data\\Locks And Traps\\traps_devicehighlight.sti", CatalogStorage::Sprites},
+    {"Data\\Locks And Traps\\traps_buttonglow.sti", CatalogStorage::Sprites},
+    {"Data\\Locks And Traps\\inspecting_bar.sti", CatalogStorage::Sprites},
+    {"Data\\Main Interface\\basic_fill_texture.pcx", CatalogStorage::Bitmap},
+    {"Data\\Journal\\journal_base.sti", CatalogStorage::Sprites},
+    {"Data\\Journal\\journal_parchment.sti", CatalogStorage::Sprites},
+    {"Data\\Journal\\journal_whitepal.sti", CatalogStorage::Sprites},
+    {"Data\\Journal\\journal_redpal.sti", CatalogStorage::Sprites},
+    {"Data\\Journal\\Faction_ratings_button.sti", CatalogStorage::Sprites},
+    {"Data\\Level Load\\Arnika.sti", CatalogStorage::Bitmap},
+    {"Data\\Level Load\\Ascension Peak.sti", CatalogStorage::Bitmap},
+    {"Data\\Level Load\\Bayjin.sti", CatalogStorage::Bitmap},
+    {"Data\\Level Load\\Bayjin Shallows.sti", CatalogStorage::Bitmap},
+    {"Data\\Level Load\\Cosmic Circle.sti", CatalogStorage::Bitmap},
+    {"Data\\Level Load\\Marten's Bluff.sti", CatalogStorage::Bitmap},
+    {"Data\\Level Load\\Marten's Underground.sti", CatalogStorage::Bitmap},
+    {"Data\\Level Load\\Mine Tunnels.sti", CatalogStorage::Bitmap},
+    {"Data\\Level Load\\LowerMonastery.sti", CatalogStorage::Bitmap},
+    {"Data\\Level Load\\UpperMonastery.sti", CatalogStorage::Bitmap},
+    {"Data\\Level Load\\MtGigas Water Caves.sti", CatalogStorage::Bitmap},
+    {"Data\\Level Load\\MtGigas Caves.sti", CatalogStorage::Bitmap},
+    {"Data\\Level Load\\MtGigas Upper Caves.sti", CatalogStorage::Bitmap},
+    {"Data\\Level Load\\Umpani Base Camp.sti", CatalogStorage::Bitmap},
+    {"Data\\Level Load\\MtGigas Peak.sti", CatalogStorage::Bitmap},
+    {"Data\\Level Load\\Wilderness Clearing.sti", CatalogStorage::Bitmap},
+    {"Data\\Level Load\\Rapax Castle Cellar.sti", CatalogStorage::Bitmap},
+    {"Data\\Level Load\\Rapax Castle Main Level.sti", CatalogStorage::Bitmap},
+    {"Data\\Level Load\\Upper Rapax Castle.sti", CatalogStorage::Bitmap},
+    {"Data\\Level Load\\Rapax Courtyard.sti", CatalogStorage::Bitmap},
+    {"Data\\Level Load\\Rapax Rift.sti", CatalogStorage::Bitmap},
+    {"Data\\Level Load\\Sea Caves.sti", CatalogStorage::Bitmap},
+    {"Data\\Level Load\\Swamp.sti", CatalogStorage::Bitmap},
+    {"Data\\Level Load\\Trynton.sti", CatalogStorage::Bitmap},
+    {"Data\\Level Load\\Trynton Upper Branches.sti", CatalogStorage::Bitmap},
+    {"Data\\Level Load\\Arnika-Trynton Road.sti", CatalogStorage::Bitmap},
+    {"Data\\Level Load\\South East Wilderness.sti", CatalogStorage::Bitmap},
+    {"Data\\Level Load\\Mountain Wilderness.sti", CatalogStorage::Bitmap},
+    {"Data\\Level Load\\Northern Wilderness.sti", CatalogStorage::Bitmap},
+    {"Data\\Level Load\\Arnika Road.sti", CatalogStorage::Bitmap},
+    {"Data\\Level Load\\SavantTower.sti", CatalogStorage::Bitmap},
+    {"Data\\Level Load\\Rattkin Tree.sti", CatalogStorage::Bitmap},
+    {"Data\\Level Load\\Wilderness Clearing2.sti", CatalogStorage::Bitmap},
+    {"Data\\Level Load\\levelload_gears.sti", CatalogStorage::Sprites},
+    {"Data\\Level Load\\levelload_textbar.sti", CatalogStorage::Sprites},
+    {"Data\\Level Load\\DeathScreen.sti", CatalogStorage::Bitmap},
+    {"Data\\Level Load\\Camping Screen.sti", CatalogStorage::Bitmap},
+    {"Data\\Level Load\\DarkLord.sti", CatalogStorage::Bitmap},
+    {"Data\\Level Load\\Cosmic ending.sti", CatalogStorage::Bitmap},
+    {"Data\\Level Load\\BlowOut.sti", CatalogStorage::Bitmap},
+    {"Data\\Options\\Falcon.sti", CatalogStorage::Sprites},
+}};
+
+// GLOBAL: WIZ8 0x006448c8
+static constexpr std::array<CatalogSlot, 492> g_catalog_slots = {{
+    {0, 0},    {0, 1},    {0, 2},    {0, 7},    {0, 12},   {0, 13},   {0, 14},   {0, 18},
+    {0, 22},   {0, 23},   {0, 24},   {0, 29},   {0, 30},   {0, 31},   {0, 35},   {0, 36},
+    {0, 37},   {1, 0},    {81, 0},   {161, 0},  {241, 0},  {242, 0},  {243, 0},  {244, 0},
+    {245, 0},  {246, 0},  {247, 0},  {248, 0},  {249, 0},  {250, 0},  {251, 0},  {252, 0},
+    {253, 0},  {254, 0},  {255, 0},  {256, 0},  {257, 0},  {258, 0},  {259, 0},  {260, 0},
+    {261, 0},  {262, 0},  {277, 0},  {275, 0},  {276, 0},  {279, 0},  {280, 0},  {281, 0},
+    {282, 0},  {283, 0},  {284, 0},  {285, 0},  {286, 0},  {265, 0},  {264, 0},  {263, 0},
+    {268, 0},  {267, 0},  {266, 0},  {271, 0},  {270, 0},  {269, 0},  {274, 0},  {273, 0},
+    {272, 0},  {278, 0},  {287, 0},  {288, 0},  {289, 0},  {290, 0},  {291, 0},  {292, 0},
+    {293, 0},  {294, 0},  {295, 0},  {296, 0},  {297, 0},  {298, 0},  {299, 0},  {300, 0},
+    {301, 0},  {302, 0},  {303, 0},  {304, 0},  {305, 0},  {306, 0},  {307, 0},  {308, 0},
+    {309, 0},  {310, 0},  {311, 0},  {312, 0},  {313, 0},  {314, 0},  {315, 0},  {316, 0},
+    {317, 0},  {318, 0},  {319, 0},  {320, 0},  {321, 0},  {322, 0},  {323, 0},  {324, 0},
+    {325, 0},  {326, 0},  {327, 0},  {328, 0},  {329, 0},  {330, 0},  {331, 0},  {332, 0},
+    {333, 0},  {334, 0},  {335, 0},  {336, 0},  {337, 0},  {338, 0},  {339, 0},  {340, 0},
+    {341, 0},  {345, 0},  {346, 0},  {344, 0},  {342, 0},  {343, 0},  {347, 0},  {348, 0},
+    {349, 0},  {350, 0},  {351, 0},  {352, 0},  {353, 0},  {354, 0},  {355, 0},  {356, 0},
+    {357, 0},  {358, 0},  {359, 0},  {360, 0},  {361, 0},  {362, 0},  {363, 0},  {364, 0},
+    {365, 0},  {366, 0},  {367, 0},  {368, 0},  {369, 0},  {370, 0},  {371, 0},  {372, 0},
+    {373, 0},  {374, 0},  {375, 0},  {376, 0},  {377, 0},  {378, 0},  {379, 0},  {380, 0},
+    {381, 0},  {382, 0},  {383, 0},  {384, 0},  {385, 0},  {386, 0},  {387, 0},  {388, 0},
+    {389, 0},  {390, 0},  {391, 0},  {392, 0},  {393, 0},  {394, 0},  {395, 0},  {396, 0},
+    {397, 0},  {398, 0},  {399, 0},  {400, 0},  {401, 0},  {402, 0},  {403, 0},  {404, 0},
+    {405, 0},  {406, 0},  {407, 0},  {408, 0},  {409, 0},  {410, 0},  {411, 0},  {412, 0},
+    {413, 0},  {414, 0},  {415, 0},  {416, 0},  {417, 0},  {418, 0},  {419, 0},  {420, 0},
+    {421, 0},  {422, 0},  {423, 0},  {424, 0},  {425, 0},  {426, 0},  {427, 0},  {428, 0},
+    {429, 0},  {430, 0},  {431, 0},  {432, 0},  {433, 0},  {434, 0},  {435, 0},  {436, 0},
+    {437, 0},  {438, 0},  {439, 0},  {440, 0},  {441, 0},  {442, 0},  {443, 0},  {444, 0},
+    {445, 0},  {446, 0},  {447, 0},  {448, 0},  {449, 0},  {450, 0},  {451, 0},  {452, 0},
+    {453, 0},  {454, 0},  {455, 0},  {456, 0},  {457, 0},  {458, 0},  {459, 0},  {460, 0},
+    {461, 0},  {462, 0},  {463, 0},  {464, 0},  {465, 0},  {466, 0},  {467, 0},  {468, 0},
+    {469, 0},  {470, 0},  {471, 0},  {472, 0},  {473, 0},  {474, 0},  {475, 0},  {476, 0},
+    {477, 0},  {478, 0},  {479, 0},  {480, 0},  {481, 0},  {482, 0},  {483, 0},  {484, 0},
+    {485, 0},  {486, 0},  {487, 0},  {488, 0},  {489, 0},  {490, 0},  {491, 0},  {492, 0},
+    {493, 0},  {494, 0},  {495, 0},  {496, 0},  {497, 0},  {498, 0},  {499, 0},  {500, 0},
+    {501, 0},  {502, 0},  {503, 0},  {504, 0},  {505, 0},  {506, 0},  {507, 0},  {508, 0},
+    {509, 0},  {510, 0},  {511, 0},  {512, 0},  {513, 0},  {514, 0},  {515, 0},  {516, 0},
+    {517, 0},  {518, 0},  {519, 0},  {520, 0},  {521, 0},  {522, 0},  {523, 0},  {524, 0},
+    {525, 0},  {526, 0},  {527, 0},  {528, 0},  {529, 0},  {530, 0},  {531, 0},  {532, 0},
+    {533, 0},  {534, 0},  {535, 0},  {536, 0},  {537, 0},  {538, 0},  {539, 0},  {540, 0},
+    {541, 0},  {542, 0},  {543, 0},  {544, 0},  {545, 0},  {546, 0},  {547, 0},  {548, 0},
+    {549, 0},  {550, 0},  {572, 0},  {573, 0},  {573, 1},  {573, 2},  {573, 3},  {573, 4},
+    {574, 0},  {574, 1},  {574, 2},  {574, 3},  {575, 0},  {575, 1},  {575, 2},  {575, 3},
+    {575, 4},  {575, 5},  {575, 6},  {575, 7},  {576, 0},  {576, 1},  {576, 2},  {576, 3},
+    {576, 4},  {576, 5},  {576, 6},  {576, 7},  {576, 8},  {576, 9},  {576, 10}, {576, 11},
+    {577, 0},  {577, 1},  {577, 2},  {577, 3},  {577, 4},  {577, 5},  {577, 6},  {577, 7},
+    {577, 8},  {577, 9},  {577, 10}, {577, 11}, {577, 12}, {577, 13}, {577, 14}, {577, 15},
+    {577, 16}, {577, 17}, {577, 18}, {577, 19}, {578, 0},  {578, 1},  {578, 2},  {578, 3},
+    {578, 4},  {578, 5},  {578, 6},  {578, 7},  {579, 0},  {579, 1},  {579, 2},  {579, 3},
+    {579, 4},  {579, 5},  {579, 6},  {579, 7},  {579, 8},  {579, 9},  {579, 10}, {579, 11},
+    {580, 0},  {581, 0},  {582, 0},  {583, 0},  {584, 0},  {585, 0},  {586, 0},  {587, 0},
+    {588, 0},  {589, 0},  {590, 0},  {591, 0},  {591, 8},  {592, 0},  {593, 0},  {593, 8},
+    {594, 0},  {595, 0},  {595, 1},  {595, 2},  {595, 3},  {595, 4},  {595, 5},  {596, 0},
+    {596, 1},  {597, 0},  {598, 0},  {599, 0},  {600, 0},  {601, 0},  {602, 0},  {603, 0},
+    {604, 0},  {605, 0},  {606, 0},  {607, 0},  {608, 0},  {609, 0},  {610, 0},  {611, 0},
+    {612, 0},  {613, 0},  {614, 0},  {615, 0},  {616, 0},  {617, 0},  {618, 0},  {619, 0},
+    {620, 0},  {621, 0},  {622, 0},  {623, 0},  {624, 0},  {625, 0},  {626, 0},  {627, 0},
+    {628, 0},  {629, 0},  {630, 0},  {631, 0},  {632, 0},  {633, 0},  {634, 0},  {635, 0},
+    {636, 0},  {637, 0},  {638, 0},  {639, 0},  {640, 0},  {641, 0},  {642, 0},  {643, 0},
+    {644, 0},  {645, 0},  {646, 0},  {647, 0},  {648, 0},  {649, 0},  {650, 0},  {651, 0},
+    {652, 0},  {653, 0},  {654, 0},  {655, 0},  {656, 0},  {551, 0},  {566, 0},  {567, 0},
+    {568, 0},  {569, 0},  {570, 0},  {571, 0},
+}};
+
+/* Catalog records identify paths decoded by the shared virtual-filesystem loaders. */
+
+static constexpr char VIDEO_OBJECT_MANAGER_CPP[] =
+    "C:\\Projects\\Wizardry 8\\Local Code\\VideoObjectManager.cpp";
+
+static const CatalogEntry& CatalogEntryFor(int object, int frame)
+{
+    if (frame < 0)
+        throw std::out_of_range("Negative catalog frame offset");
+    const auto index = std::int64_t{g_catalog_slots.at(object).first_entry} + frame;
+    return g_catalog_entries.at(index);
+}
+
+static void AssertCatalogLoadFailure(const CatalogEntry& record)
+{
+    srAssertFail("fReturnCode", VIDEO_OBJECT_MANAGER_CPP, 0x68,
+                 fmt::format("LoadVideoObject: ERROR - Add {} failed, type {:d}", record.path,
+                             fmt::underlying(record.storage)));
+}
+
+// FUNCTION: WIZ8 0x00549250
+void ReleaseCatalogArtwork()
+{
+    g_image_assets.clear();
+}
+
+void DrawSpriteAndInvalidate(SDL_Surface& target, const SpriteSheet& sprites, int image,
+                             int left, int top, SpriteDraw options)
+{
+    DrawSprite(target, sprites, static_cast<std::size_t>(image), left, top, options);
+    const auto [width, height] = GetSpriteSize(sprites, image);
+    if (width != 0 && height != 0)
+        InvalidateRegion(left, top, left + width, top + height,
+                         options.blend == SpriteBlend::Transparent);
+}
+
+std::pair<int, int> GetSpriteSize(const SpriteSheet& sprites, int image)
+{
+    if (image < 0 || static_cast<std::size_t>(image) >= sprites.frames.size())
+        return {};
+    const auto& sprite = sprites.frames[image];
+    return {sprite.width, sprite.height};
+}
+
+CatalogArtwork::CatalogArtwork(std::shared_ptr<const SpriteSheet> sprites, short image_offset)
+    : image_(std::move(sprites)), image_offset_(image_offset)
+{
+}
+
+CatalogArtwork::CatalogArtwork(std::shared_ptr<SDL_Surface> bitmap, short image_offset)
+    : image_(std::move(bitmap)), image_offset_(image_offset)
+{
+}
+
+// FUNCTION: WIZ8 0x00549420
+CatalogArtwork CatalogArtwork::Load(int object, int frame)
+{
+    const auto& record = CatalogEntryFor(object, frame);
+    const short image_offset = g_catalog_slots.at(object).image_offset;
+    if (record.storage == CatalogStorage::Sprites) {
+        auto sprites = g_image_assets.sprites(record.path);
+        if (!sprites)
+            AssertCatalogLoadFailure(record);
+        return CatalogArtwork(std::move(sprites), image_offset);
+    }
+    auto bitmap = g_image_assets.bitmap(record.path);
+    if (!bitmap)
+        AssertCatalogLoadFailure(record);
+    return CatalogArtwork(std::move(bitmap), image_offset);
+}
+
+// FUNCTION: WIZ8 0x005493e0
+short CatalogArtwork::imageOffset() const { return image_offset_; }
+
+// FUNCTION: WIZ8 0x00548f90
+void CatalogArtwork::draw(SDL_Surface& target, int image, int x, int y, SpriteDraw options,
+                          BitmapKey key) const
+{
+    if (const auto sprites = spriteSheet()) {
+        const int sprite = image_offset_ + static_cast<short>(image);
+        if (sprite >= 0)
+            DrawSprite(target, *sprites, static_cast<std::size_t>(sprite), x, y, options);
+        return;
+    }
+    if (const auto surface = bitmap())
+        BlitImage(target, x, y, *surface, nullptr,
+                  {.color_key = key == BitmapKey::Transparent && !options.mirror
+                                    ? std::optional<std::uint32_t>{kBitmapTransparentPixel}
+                                    : std::nullopt,
+                   .mirror = options.mirror});
+}
+
+// FUNCTION: WIZ8 0x005494f0
+void CatalogArtwork::invalidate(int image, int x, int y, int flags) const
+{
+    const SDL_Point extent = size(image);
+    if (extent.x != 0 && extent.y != 0)
+        InvalidateRegion(x, y, x + extent.x, y + extent.y, flags);
+}
+
+// FUNCTION: WIZ8 0x00549660
+SDL_Point CatalogArtwork::size(int image) const
+{
+    if (const auto sprites = spriteSheet()) {
+        const auto [width, height] = GetSpriteSize(*sprites, image_offset_ + image);
+        return {width, height};
+    }
+    if (const auto surface = bitmap())
+        return {surface->w, surface->h};
+    return {};
+}
+
+// FUNCTION: WIZ8 0x00549700
+SDL_Point CatalogArtwork::position(int image) const
+{
+    if (const auto sprites = spriteSheet()) {
+        const auto& frame = sprites->frames.at(image_offset_ + image);
+        return frame.offset;
+    }
+    return {};
+}
+
+// FUNCTION: WIZ8 0x005497c0
+void CatalogArtwork::drawRect(SDL_Surface& target, const SDL_Rect& source, int x, int y) const
+{
+    const auto surface = bitmap();
+    if (!surface)
+        throw std::logic_error("Catalog frame does not contain a surface");
+    BlitImage(target, x, y, *surface, &source);
+}
+
+std::shared_ptr<const SpriteSheet> CatalogArtwork::spriteSheet() const
+{
+    if (const auto* sprites =
+            std::get_if<std::shared_ptr<const SpriteSheet>>(&image_))
+        return *sprites;
+    return {};
+}
+
+// FUNCTION: WIZ8 0x005498a0
+std::shared_ptr<SDL_Surface> CatalogArtwork::bitmap() const
+{
+    if (const auto* surface = std::get_if<std::shared_ptr<SDL_Surface>>(&image_))
+        return *surface;
+    return {};
+}
+
+// FUNCTION: WIZ8 0x00549600
+void CatalogArtwork::drawAndInvalidate(SDL_Surface& target, int image, int x, int y,
+                                       SpriteDraw options, BitmapKey key) const
+{
+    if (const auto sprites = spriteSheet()) {
+        DrawSpriteAndInvalidate(target, *sprites, image_offset_ + image, x, y, options);
+        return;
+    }
+    draw(target, static_cast<short>(image), x, y, options, key);
+    invalidate(image, x, y, key == BitmapKey::Transparent && !options.mirror);
+}

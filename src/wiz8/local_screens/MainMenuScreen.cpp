@@ -26,7 +26,7 @@
 #include "wiz8/music_playlist.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/sr_api.h"
-#include "wiz8/video_object_catalog.h"
+#include "wiz8/catalog_artwork.h"
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/dialog_code/MessageDialogBase.h"
 #include "wiz8/utility.h"
@@ -47,10 +47,6 @@ bool g_main_menu_redraw;
 static short g_main_menu_selected_item;
 // GLOBAL: WIZ8 0x0069c4c4
 bool g_main_menu_warning_shown;
-// GLOBAL: WIZ8 0x0069c4bb
-bool g_main_menu_overlay_enabled;
-// GLOBAL: WIZ8 0x0069c4ac
-SDL_Surface* g_main_menu_overlay_surface;
 // GLOBAL: WIZ8 0x0069c4bc
 std::string g_pending_main_menu_message;
 // The modal dialog belongs to this screen, not a global registry.
@@ -358,10 +354,6 @@ void MainMenuScreenFrame()
         if (main_menu_dialog != nullptr) {
             DrawDialog(main_menu_dialog.get());
         }
-        if (g_main_menu_overlay_enabled && g_main_menu_overlay_surface) {
-            BlitImage(GetFrameBufferSurface(), 0, 0x1d1, *g_main_menu_overlay_surface, nullptr,
-                      ImageBlit{.color_key = true});
-        }
         RenderMessageBox();
         ResetTransientRenderScenes();
         g_main_menu_redraw = false;
@@ -374,7 +366,7 @@ unsigned char MainMenuScreenLeave(int)
 {
     main_menu_dialog.reset();
     main_menu_controls.reset();
-    ReleaseLoadedVideoFrames();
+    ReleaseCatalogArtwork();
     ResetRegions();
     return 1;
 }

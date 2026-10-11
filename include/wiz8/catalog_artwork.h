@@ -1,5 +1,5 @@
-#ifndef WIZ8_VIDEO_OBJECT_CATALOG_H
-#define WIZ8_VIDEO_OBJECT_CATALOG_H
+#ifndef WIZ8_CATALOG_ARTWORK_H
+#define WIZ8_CATALOG_ARTWORK_H
 #include <memory>
 #include <utility>
 #include <variant>
@@ -8,12 +8,16 @@
 
 #include "sprite.h"
 
+// Whether a bitmap draw skips transparent (zero) pixels; sprites carry their own transparency.
+enum class BitmapKey : bool { Opaque, Transparent };
+
 class CatalogArtwork {
 public:
     static CatalogArtwork Load(int object, int frame = 0);
-    void draw(SDL_Surface& target, int image, int x, int y, SpriteDraw options = {}) const;
-    void drawAndInvalidate(SDL_Surface& target, int image, int x, int y,
-                           SpriteDraw options = {}) const;
+    void draw(SDL_Surface& target, int image, int x, int y, SpriteDraw options = {},
+              BitmapKey key = BitmapKey::Transparent) const;
+    void drawAndInvalidate(SDL_Surface& target, int image, int x, int y, SpriteDraw options = {},
+                           BitmapKey key = BitmapKey::Transparent) const;
     void invalidate(int image, int x, int y, int flags) const;
     SDL_Point size(int image) const;
     SDL_Point position(int image) const;
@@ -34,6 +38,6 @@ std::pair<int, int> GetSpriteSize(const SpriteSheet& sprites, int image);
 void DrawSpriteAndInvalidate(SDL_Surface& target, const SpriteSheet& sprites, int image,
                              int left, int top, SpriteDraw options = {});
 
-void ReleaseLoadedVideoFrames(void);
+void ReleaseCatalogArtwork();
 
 #endif

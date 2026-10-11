@@ -40,7 +40,7 @@
 #include "wiz8/music_playlist.h"
 #include "wiz8/regions.h"
 #include "wiz8/fonts.h"
-#include "wiz8/video_object_catalog.h"
+#include "wiz8/catalog_artwork.h"
 #include "input.h"
 #include "Font.h"
 #include "wiz8/filesystem.h"

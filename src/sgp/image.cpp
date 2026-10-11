@@ -4,7 +4,6 @@
 #include <SDL3/SDL_error.h>
 #include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_rect.h>
-#include <SDL3/SDL_stdinc.h>
 #include <SDL3/SDL_surface.h>
 #include <algorithm>
 #include <cstdint>
@@ -48,30 +47,44 @@ SDLSurfaceOwner CreateFrameSurface(int width, int height)
 {
     if (width <= 0 || height <= 0)
         throw std::invalid_argument("Frame surface dimensions");
-    SDL_Surface& framebuffer = GetFrameBufferSurface();
-    SDLSurfaceOwner result{SDL_CreateSurface(width, height, framebuffer.format), SDL_DestroySurface};
+    SDLSurfaceOwner result{SDL_CreateSurface(width, height, g_sgp_pixel_format), SDL_DestroySurface};
     if (!result)
         throw std::runtime_error(SDL_GetError());
     require_sdl(SDL_SetSurfaceBlendMode(result.get(), SDL_BLENDMODE_NONE));
     return result;
 }
 
-SDLSurfaceOwner ConvertIndexedBitmapToSurface(const BitmapImage& bitmap, SDL_PixelFormat format)
+SDLSurfaceOwner ConvertBitmapToFrameSurface(const SDL_Surface& bitmap)
 {
-    if (bitmap.bitDepth != 8 || !bitmap.palette || format == SDL_PIXELFORMAT_UNKNOWN)
-        throw std::invalid_argument("Indexed bitmap format");
-    SDLSurfaceOwner result{SDL_CreateSurface(bitmap.width, bitmap.height, format), SDL_DestroySurface};
-    if (!result)
-        throw std::runtime_error(SDL_GetError());
-    require_sdl(SDL_SetSurfaceBlendMode(result.get(), SDL_BLENDMODE_NONE));
-
-    const Palette16 palette = Create16BPPPalette(*bitmap.palette);
-    for (int y = 0; y < bitmap.height; ++y) {
-        const auto* input = bitmap.pixels.data() + y * bitmap.width;
-        auto* output = reinterpret_cast<std::uint16_t*>(
+    auto result = CreateFrameSurface(bitmap.w, bitmap.h);
+    if (SDL_BYTESPERPIXEL(result->format) != 2)
+        throw std::invalid_argument("Frame surfaces must be 16-bit");
+    if (SDL_ISPIXELFORMAT_INDEXED(bitmap.format)) {
+        const auto* colors = SDL_GetSurfacePalette(const_cast<SDL_Surface*>(&bitmap));
+        if (bitmap.format != SDL_PIXELFORMAT_INDEX8 || !colors)
+            throw std::invalid_argument("Indexed bitmap format");
+        Palette8 palette{};
+        std::copy_n(colors->colors, std::min(colors->ncolors, int(palette.size())), palette.begin());
+        const Palette16 packed = Create16BPPPalette(palette);
+        for (int y = 0; y < bitmap.h; ++y) {
+            const auto* input = static_cast<const std::uint8_t*>(bitmap.pixels) + y * bitmap.pitch;
+            auto* output = reinterpret_cast<std::uint16_t*>(
+                static_cast<std::uint8_t*>(result->pixels) + y * result->pitch);
+            for (int x = 0; x < bitmap.w; ++x)
+                output[x] = packed[input[x]];
+        }
+        return result;
+    }
+    require_sdl(SDL_ConvertPixels(bitmap.w, bitmap.h, bitmap.format, bitmap.pixels, bitmap.pitch,
+                                  result->format, result->pixels, result->pitch));
+    const auto* details = SDL_GetPixelFormatDetails(result->format);
+    const auto rgb_mask = details->Rmask | details->Gmask | details->Bmask;
+    for (int y = 0; y < result->h; ++y) {
+        auto* row = reinterpret_cast<std::uint16_t*>(
             static_cast<std::uint8_t*>(result->pixels) + y * result->pitch);
-        for (int x = 0; x < bitmap.width; ++x)
-            output[x] = palette[input[x]];
+        for (int x = 0; x < result->w; ++x)
+            row[x] = (row[x] & rgb_mask) ? std::uint16_t(row[x] | details->Amask)
+                                         : std::uint16_t(kBitmapTransparentPixel);
     }
     return result;
 }
@@ -83,13 +96,10 @@ void BlitImage(SDL_Surface& destination, int x, int y, SDL_Surface& source,
     if (SDL_RectEmpty(&source_area))
         return;
     SDL_Rect destination_area{x, y, source_area.w, source_area.h};
-    Uint32 color_key = 0;
-    const bool has_color_key = SDL_GetSurfaceColorKey(&source, &color_key);
     const unsigned bytes_per_pixel = SDL_BYTESPERPIXEL(destination.format);
     const bool shares_pixels = destination.pixels == source.pixels;
-    const bool keyed_copy = options.color_key && has_color_key;
 
-    if (shares_pixels && !options.mirror && !keyed_copy &&
+    if (shares_pixels && !options.mirror && !options.color_key &&
         destination.format == source.format && bytes_per_pixel != 0) {
         SDL_Rect visible{};
         SDL_Rect clip{};
@@ -124,8 +134,20 @@ void BlitImage(SDL_Surface& destination, int x, int y, SDL_Surface& source,
         return;
     }
 
-    if (!options.mirror && (!has_color_key || options.color_key) && !shares_pixels) {
-        require_sdl(SDL_BlitSurface(&source, &source_area, &destination, &destination_area));
+    if (!options.mirror && !shares_pixels) {
+        SDLSurfaceOwner view{SDL_CreateSurfaceFrom(source.w, source.h, source.format, source.pixels,
+                                                   source.pitch),
+                             SDL_DestroySurface};
+        if (!view)
+            throw std::runtime_error(SDL_GetError());
+        if (auto* palette = SDL_GetSurfacePalette(&source))
+            require_sdl(SDL_SetSurfacePalette(view.get(), palette));
+        SDL_BlendMode blend = SDL_BLENDMODE_NONE;
+        require_sdl(SDL_GetSurfaceBlendMode(&source, &blend) &&
+                    SDL_SetSurfaceBlendMode(view.get(), blend));
+        if (options.color_key)
+            require_sdl(SDL_SetSurfaceColorKey(view.get(), true, *options.color_key));
+        require_sdl(SDL_BlitSurface(view.get(), &source_area, &destination, &destination_area));
         return;
     }
 
@@ -138,6 +160,8 @@ void BlitImage(SDL_Surface& destination, int x, int y, SDL_Surface& source,
     if (!SDL_GetRectIntersection(&destination_area, &clip, &visible))
         return;
 
+    const auto* details = SDL_GetPixelFormatDetails(source.format);
+    const std::uint32_t rgb_mask = details->Rmask | details->Gmask | details->Bmask;
     std::vector<std::uint16_t> source_row;
     std::vector<std::uint8_t> source_valid;
     if (shares_pixels) {
@@ -179,7 +203,7 @@ void BlitImage(SDL_Surface& destination, int x, int y, SDL_Surface& source,
             if (shares_pixels ? !source_valid[column] : source_x < 0 || source_x >= source.w)
                 continue;
             const std::uint16_t pixel = shares_pixels ? source_row[column] : input[source_x];
-            if (options.color_key && has_color_key && pixel == color_key)
+            if (options.color_key && (pixel & rgb_mask) == (*options.color_key & rgb_mask))
                 continue;
             output[destination_x] = pixel;
         }

@@ -1,7 +1,6 @@
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
    Distributed under the accompanying SFI Source Code license agreement. */
 #include <SDL3/SDL_log.h>
-#include <new>
 #include <SDL3_image/SDL_image.h>
 #include <zlib.h>
 #include <SDL3/SDL_error.h>
@@ -27,7 +26,6 @@
 #include <span>
 #include <cstddef>
 
-#include "wiz8/surface_storage.h"
 #include "wiz8/filesystem.h"
 #include "himage.h"
 #include "imgfmt.h"
@@ -42,8 +40,6 @@ SDL_PixelFormat g_sgp_pixel_format = SDL_PIXELFORMAT_XRGB1555;
 namespace
 {
 constexpr std::size_t max_image_bytes = 256 * 1024 * 1024;
-
-using Surface = std::unique_ptr<SDL_Surface, decltype(&SDL_DestroySurface)>;
 
 enum class ImageFormat { pcx, tga, jpeg, sti };
 
@@ -73,6 +69,28 @@ bool safe_dimensions(std::size_t width, std::size_t height)
 unsigned little_word(const std::uint8_t* bytes)
 {
     return bytes[0] | (unsigned(bytes[1]) << 8);
+}
+
+void set_palette(SDL_Surface& surface, const Palette8& colors)
+{
+    std::unique_ptr<SDL_Palette, decltype(&SDL_DestroyPalette)> palette(
+        SDL_CreatePalette(int(colors.size())), SDL_DestroyPalette);
+    if (!palette || !SDL_SetPaletteColors(palette.get(), colors.data(), 0, int(colors.size())) ||
+        !SDL_SetSurfacePalette(&surface, palette.get()))
+        throw std::runtime_error(SDL_GetError());
+}
+
+BitmapImage bitmap_from_pixels(int width, int height, SDL_PixelFormat format,
+                               std::span<const std::uint8_t> pixels)
+{
+    BitmapImage surface(SDL_CreateSurface(width, height, format), SDL_DestroySurface);
+    if (!surface)
+        throw std::runtime_error(SDL_GetError());
+    const std::size_t row_bytes = std::size_t(width) * SDL_BYTESPERPIXEL(format);
+    for (int y = 0; y < height; ++y)
+        std::copy_n(pixels.data() + y * row_bytes, row_bytes,
+                    static_cast<std::uint8_t*>(surface->pixels) + y * surface->pitch);
+    return surface;
 }
 
 bool valid_image_header(const std::vector<std::uint8_t>& bytes, ImageFormat format)
@@ -152,42 +170,28 @@ BitmapImage load_ordinary_image(wiz8::File& file, ImageFormat format)
     if (!stream)
         throw std::runtime_error(SDL_GetError());
     const char* type = format == ImageFormat::pcx ? "PCX" : format == ImageFormat::tga ? "TGA" : "JPG";
-    Surface surface(IMG_LoadTyped_IO(stream.get(), false, type), SDL_DestroySurface);
+    BitmapImage surface(IMG_LoadTyped_IO(stream.get(), false, type), SDL_DestroySurface);
     if (!surface)
         throw std::runtime_error(SDL_GetError());
     if (!safe_dimensions(surface->w, surface->h))
         throw std::runtime_error("Invalid image dimensions");
 
     const auto* palette = SDL_GetSurfacePalette(surface.get());
-    const bool indexed = surface->format == SDL_PIXELFORMAT_INDEX8 && palette;
-    const bool rgb555 = surface->format == SDL_PIXELFORMAT_XRGB1555;
-    if (!indexed && !rgb555) {
-        Surface converted(SDL_ConvertSurface(surface.get(), SDL_PIXELFORMAT_RGB24), SDL_DestroySurface);
-        if (!converted)
-            throw std::runtime_error(SDL_GetError());
-        surface = std::move(converted);
-    }
-    BitmapImage decoded{};
-    decoded.width = surface->w;
-    decoded.height = surface->h;
-    decoded.bitDepth = indexed ? 8 : rgb555 ? 16 : 24;
-    decoded.format = surface->format;
-    const std::size_t row_bytes = surface->w * (decoded.bitDepth / 8);
-    decoded.pixels.resize(row_bytes * surface->h);
-    for (int y = 0; y < surface->h; ++y)
-        std::copy_n(static_cast<const std::uint8_t*>(surface->pixels) + y * surface->pitch, row_bytes,
-                    decoded.pixels.data() + y * row_bytes);
-    if (indexed) {
-        decoded.palette.emplace();
-        decoded.palette->fill({0, 0, 0, SDL_ALPHA_OPAQUE});
+    if (SDL_ISPIXELFORMAT_INDEXED(surface->format)) {
+        if (surface->format != SDL_PIXELFORMAT_INDEX8 || !palette)
+            throw std::runtime_error("Unsupported indexed image format");
+        // Colour-mapped TGA palettes start at their declared first entry.
+        Palette8 colors{};
+        colors.fill({0, 0, 0, SDL_ALPHA_OPAQUE});
         const unsigned first_color = format == ImageFormat::tga &&
             (bytes[2] == 1 || bytes[2] == 9) ? little_word(bytes.data() + 3) : 0;
         std::transform(palette->colors, palette->colors + std::min(unsigned(palette->ncolors), 256 - first_color),
-            decoded.palette->begin() + first_color, [](const SDL_Color& color) {
+            colors.begin() + first_color, [](const SDL_Color& color) {
                 return SDL_Color{color.r, color.g, color.b, SDL_ALPHA_OPAQUE};
             });
+        set_palette(*surface, colors);
     }
-    return decoded;
+    return surface;
 }
 
 std::vector<SpriteFrame> decode_sti_frames(std::span<const STCISubImage> frames,
@@ -202,10 +206,9 @@ std::vector<SpriteFrame> decode_sti_frames(std::span<const STCISubImage> frames,
     size_t remaining_pixels = max_pixels;
     for (const STCISubImage& frame : frames) {
         SpriteFrame& out = decoded.emplace_back();
-        out.sOffsetX = frame.sOffsetX;
-        out.sOffsetY = frame.sOffsetY;
-        out.usWidth = frame.usWidth;
-        out.usHeight = frame.usHeight;
+        out.offset = {frame.sOffsetX, frame.sOffsetY};
+        out.width = frame.usWidth;
+        out.height = frame.usHeight;
         if (frame.uiDataOffset > data.size() ||
             frame.uiDataLength > data.size() - frame.uiDataOffset)
             throw std::runtime_error("Invalid STI sprite data");
@@ -217,11 +220,9 @@ std::vector<SpriteFrame> decode_sti_frames(std::span<const STCISubImage> frames,
             continue;
         const std::uint8_t* src = data.data() + frame.uiDataOffset;
         const std::uint8_t* const end = src + frame.uiDataLength;
-        out.indices = CreateCpuStorage(frame.usWidth, frame.usHeight, SDL_PIXELFORMAT_RGB565);
-        if (!out.indices || !SDL_FillSurfaceRect(out.indices.get(), nullptr, SpriteFrame::kTransparent))
-            throw std::runtime_error("Unable to allocate STI sprite surface");
+        out.indices.assign(pixel_count, SpriteFrame::kTransparent);
         for (std::uint32_t y = 0; y < frame.usHeight; ++y) {
-            auto* row = reinterpret_cast<std::uint16_t*>(static_cast<std::uint8_t*>(out.indices->pixels) + y * out.indices->pitch);
+            std::uint16_t* row = out.indices.data() + std::size_t(y) * frame.usWidth;
             std::uint32_t x = 0;
             for (;;) {
                 if (src >= end) {
@@ -281,23 +282,14 @@ DecodedImage load_sti(wiz8::File& file)
     const auto pixels_offset = frames_offset + frame_count * sizeof(STCISubImage);
     const auto app_offset = pixels_offset + header.uiStoredSize;
     const auto file_size = file.size();
-    BitmapImage decoded{};
-    decoded.width = header.usWidth;
-    decoded.height = header.usHeight;
-    decoded.bitDepth = header.ubDepth;
-    if (!rgb)
-        decoded.format = SDL_PIXELFORMAT_INDEX8;
-    else if (header.ubDepth == 24)
-        decoded.format = SDL_PIXELFORMAT_RGB24;
-
+    Palette8 palette{};
     // FUNCTION: WIZ8 0x004153f0
     if (!rgb) {
         if (header.Indexed.uiNumberOfColours != 256)
             throw std::runtime_error("STI requires a 256-color palette");
-        std::array<STCIPaletteElement, 256> palette{};
-        file.read_exact(palette.data(), sizeof(palette));
-        decoded.palette.emplace();
-        std::transform(palette.begin(), palette.end(), decoded.palette->begin(),
+        std::array<STCIPaletteElement, 256> stored_palette{};
+        file.read_exact(stored_palette.data(), sizeof(stored_palette));
+        std::transform(stored_palette.begin(), stored_palette.end(), palette.begin(),
             [](const STCIPaletteElement& color) {
                 return SDL_Color{color.ubRed, color.ubGreen, color.ubBlue, SDL_ALPHA_OPAQUE};
             });
@@ -313,53 +305,33 @@ DecodedImage load_sti(wiz8::File& file)
     file.seek(frames_offset, wiz8::SeekOrigin::begin);
     std::vector<STCISubImage> frames(frame_count);
     file.read_exact(frames.data(), frame_count * sizeof(STCISubImage));
-    decoded.pixels.resize(header.uiStoredSize);
-    file.read_exact(decoded.pixels.data(), decoded.pixels.size());
+    std::vector<std::uint8_t> pixels(header.uiStoredSize);
+    file.read_exact(pixels.data(), pixels.size());
     if (etrle)
-        return SpriteSheet{*decoded.palette, decode_sti_frames(frames, decoded.pixels)};
+        return SpriteSheet{palette, decode_sti_frames(frames, pixels)};
     // FUNCTION: WIZ8 0x0040fca0
     if (compressed) {
         std::vector<std::uint8_t> unpacked(bitmap_bytes);
         uLongf output_size = unpacked.size();
-        uLong input_size = decoded.pixels.size();
-        if (uncompress2(unpacked.data(), &output_size, decoded.pixels.data(), &input_size) != Z_OK ||
-            output_size != unpacked.size() || input_size != decoded.pixels.size())
+        uLong input_size = pixels.size();
+        if (uncompress2(unpacked.data(), &output_size, pixels.data(), &input_size) != Z_OK ||
+            output_size != unpacked.size() || input_size != pixels.size())
             throw std::runtime_error("Invalid STI zlib payload");
-        decoded.pixels = std::move(unpacked);
-    } else {
-        decoded.pixels.resize(bitmap_bytes);
+        pixels = std::move(unpacked);
+    }
+    if (!rgb) {
+        auto bitmap = bitmap_from_pixels(header.usWidth, header.usHeight, SDL_PIXELFORMAT_INDEX8, pixels);
+        set_palette(*bitmap, palette);
+        return bitmap;
     }
     // FUNCTION: WIZ8 0x00415250
-    const auto* target_details = SDL_GetPixelFormatDetails(g_sgp_pixel_format);
-    if (!target_details)
-        throw std::runtime_error("Unsupported SGP pixel format");
-    if (rgb && header.ubDepth == 16) {
-        const auto source_format = SDL_GetPixelFormatForMasks(
-            16, header.RGB.uiRedMask, header.RGB.uiGreenMask, header.RGB.uiBlueMask, 0);
-        if (source_format == SDL_PIXELFORMAT_UNKNOWN)
-            throw std::runtime_error("Unsupported STI pixel format");
-        const auto target_format = SDL_GetPixelFormatForMasks(
-            16, target_details->Rmask, target_details->Gmask, target_details->Bmask, 0);
-        if (target_format == SDL_PIXELFORMAT_UNKNOWN)
-            throw std::runtime_error("Unsupported SGP pixel format");
-        // Keep zero transparent while encoding an opaque alpha marker on nonzero pixels.
-        std::vector<std::uint8_t> converted(decoded.pixels.size());
-        if (!SDL_ConvertPixels(header.usWidth, header.usHeight, source_format,
-                               decoded.pixels.data(), header.usWidth * 2, target_format,
-                               converted.data(), header.usWidth * 2))
-            throw std::runtime_error(SDL_GetError());
-        if (target_details->Amask) {
-            for (std::size_t i = 0; i < std::size_t(header.usWidth) * header.usHeight * 2; i += 2) {
-                std::uint16_t pixel;
-                std::memcpy(&pixel, converted.data() + i, sizeof(pixel));
-                if (pixel) pixel |= target_details->Amask;
-                std::memcpy(converted.data() + i, &pixel, sizeof(pixel));
-            }
-        }
-        decoded.pixels = std::move(converted);
-        decoded.format = target_format;
-    }
-    return decoded;
+    const auto format = header.ubDepth == 24
+        ? SDL_PIXELFORMAT_RGB24
+        : SDL_GetPixelFormatForMasks(16, header.RGB.uiRedMask, header.RGB.uiGreenMask,
+                                     header.RGB.uiBlueMask, 0);
+    if (format == SDL_PIXELFORMAT_UNKNOWN)
+        throw std::runtime_error("Unsupported STI pixel format");
+    return bitmap_from_pixels(header.usWidth, header.usHeight, format, pixels);
 }
 }
 
@@ -460,22 +432,7 @@ std::uint16_t Get16BPPColor(SDL_Color color)
 // FUNCTION: WIZ8 0x00406900
 std::optional<std::uint8_t> SpriteFrame::paletteIndexAt(int x, int y) const
 {
-    if (x < 0 || y < 0 || x >= usWidth || y >= usHeight) return std::nullopt;
-    if (!indices) return std::nullopt;
-    const auto* row = reinterpret_cast<const std::uint16_t*>(static_cast<const std::uint8_t*>(indices->pixels) + y * indices->pitch);
-    const auto value = row[x];
+    if (x < 0 || y < 0 || x >= width || y >= height || indices.empty()) return std::nullopt;
+    const auto value = indices[std::size_t(y) * width + x];
     return value == kTransparent ? 0 : static_cast<std::uint8_t>(value);
-}
-
-SpriteFrame::SpriteFrame(const SpriteFrame& other)
-    : indices(other.indices ? SDL_DuplicateSurface(other.indices.get()) : nullptr, SDL_DestroySurface),
-      sOffsetX(other.sOffsetX), sOffsetY(other.sOffsetY), usHeight(other.usHeight), usWidth(other.usWidth)
-{
-    if (other.indices && !indices) throw std::bad_alloc();
-}
-
-SpriteFrame& SpriteFrame::operator=(const SpriteFrame& other)
-{
-    if (this != &other) *this = SpriteFrame(other);
-    return *this;
 }

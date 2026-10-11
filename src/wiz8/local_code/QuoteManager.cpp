@@ -67,7 +67,7 @@
 #include "wiz8/filesystem.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_screens/PartySelectionScreen.h"
-#include "wiz8/video_object_catalog.h"
+#include "wiz8/catalog_artwork.h"
 
 /* TU attribution follows the demo __FILE__ and quote-personality strings. */
 

@@ -5,7 +5,7 @@
 
 #include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/local_code/Widget.h"
-#include "wiz8/video_object_catalog.h"
+#include "wiz8/catalog_artwork.h"
 #include "wiz8/regions.h"
 #include <memory>
 #include <algorithm>

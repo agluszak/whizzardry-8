@@ -37,7 +37,7 @@
 #include "wiz8/local_code/party_encumbrance.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/text_input.h"
-#include "wiz8/video_object_catalog.h"
+#include "wiz8/catalog_artwork.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/engine_code/Levels.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
@@ -3463,7 +3463,7 @@ unsigned char MainGameScreenLeave(int leaving)
         wiz8::sound::release_cache();
         delete g_level_block;
         g_level_block = 0;
-        ReleaseLoadedVideoFrames();
+        ReleaseCatalogArtwork();
     }
     NoOp();
     ResetRegions();
@@ -7099,8 +7099,8 @@ void LoadMainGameCursorResources(void)
         const auto sprites = artwork.spriteSheet();
         short frame = artwork.imageOffset();
         if (frame < sprites->frames.size()) {
-            slot->size_x = sprites->frames[frame].usWidth;
-            slot->size_y = sprites->frames[frame].usHeight;
+            slot->size_x = sprites->frames[frame].width;
+            slot->size_y = sprites->frames[frame].height;
         }
         slot->object =
             VideoVObjectToTextureAnim(*sprites, static_cast<unsigned short>(frame),

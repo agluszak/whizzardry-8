@@ -27,7 +27,7 @@
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/text_input.h"
-#include "wiz8/video_object_catalog.h"
+#include "wiz8/catalog_artwork.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/engine_code/Levels.h"
 #include "wiz8/local_screens/MGSSpellCasting.h"

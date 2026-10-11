@@ -25,7 +25,7 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/startup_world.h"
-#include "wiz8/video_object_catalog.h"
+#include "wiz8/catalog_artwork.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/engine_code/GameData.h"
 #include "AnimRep.hpp"

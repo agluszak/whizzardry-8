@@ -23,7 +23,7 @@
 #include "wiz8/engine_code/3dapi.h"
 #include "gameplay_modifiers.h"
 #include "layouts/main_game_screen.h"
-#include "wiz8/video_object_catalog.h"
+#include "wiz8/catalog_artwork.h"
 
 // GLOBAL: WIZ8 0x0069c260
 static unsigned int g_effect_icon_help_duration;

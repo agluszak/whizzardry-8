@@ -59,7 +59,7 @@
 #include "wiz8/engine_code/Quality.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/utility.h"
-#include "wiz8/video_object_catalog.h"
+#include "wiz8/catalog_artwork.h"
 #include "wiz8/item_video_object_vector.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/regions.h"
@@ -1936,8 +1936,8 @@ stModelInstance2D* CreateAutomapItemMarker(int item_id)
     auto surface = std::make_shared<srColorSurface>(srPixelConvert::SURFACE_ARGB1555, 0x40, 0x40);
     surface->fill(0);
     surface->setFilter(&srBSplineFilter);
-    int y = (0x40 - properties.usHeight) / 2;
-    int x = (0x40 - properties.usWidth) / 2;
+    int y = (0x40 - properties.height) / 2;
+    int x = (0x40 - properties.width) / 2;
     BlitVideoObjectToColorSurface(video_object, 0, *surface, x, y);
     float factor = (g_float_one / (g_automap_zoom * 0.00004f)) * 0.44f;
     stModelInstance2D* marker = static_cast<stModelInstance2D*>(
