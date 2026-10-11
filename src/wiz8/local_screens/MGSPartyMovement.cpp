@@ -37,7 +37,7 @@
 #include "layouts/main_game_screen.h"
 #include "layouts/targeting.h"
 
-#define PARTY_MOVEMENT_CPP "C:\\Projects\\Wizardry 8\\Local Screens\\MGSPartyMovement.cpp"
+#define PARTY_MOVEMENT_CPP __FILE__
 
 /* Retail callback IDs 0 and 1 index this base, and ReleasePartyMovement walks
    the two-pointer span. */
@@ -64,7 +64,6 @@ const float g_movement_fatigue_tick_scale = 0.0004f;
 
 void DrawPartyMovementGauge(short right, short image, bool panel_live, int caption);
 
-// FUNCTION: WIZ8 0x005A1640
 unsigned char CreatePartyMovementPanel(void)
 {
     W8ControlsRect bounds;
@@ -109,7 +108,6 @@ unsigned char CreatePartyMovementPanel(void)
     return 0;
 }
 
-// FUNCTION: WIZ8 0x005A1890
 void ReleasePartyMovement(void)
 {
     if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME) {
@@ -127,7 +125,6 @@ void ReleasePartyMovement(void)
     gXStatus.fPartyMovementUi = false;
 }
 
-// FUNCTION: WIZ8 0x005A1950
 void UpdatePartyMovementPanel(void)
 {
     g_party_movement_regions.Enable();
@@ -140,13 +137,11 @@ void UpdatePartyMovementPanel(void)
     g_party_movement_buttons[1]->SetActive(false);
 }
 
-// FUNCTION: WIZ8 0x005A19A0
 void DisablePartyMovementRegions(void)
 {
     g_party_movement_regions.Disable();
 }
 
-// FUNCTION: WIZ8 0x005A19B0
 void DrawPartyMovementPanel(void)
 {
     SDL_Rect clip;
@@ -221,7 +216,6 @@ void DrawPartyMovementPanel(void)
 
 /* The movement gauge: a static end frame for the empty/full states and the
    twelve-frame animated bar otherwise, rearming its own countdown each tick. */
-// FUNCTION: WIZ8 0x005A1C40
 void DrawPartyMovementGauge(short right, short image, bool panel_live, int caption)
 {
     bool rearm;
@@ -279,13 +273,11 @@ void DrawPartyMovementGauge(short right, short image, bool panel_live, int capti
     }
 }
 
-// FUNCTION: WIZ8 0x005A1DD0
 void InvalidatePartyMovementPanel(void)
 {
     g_party_movement_panel->Invalidate(0);
 }
 
-// FUNCTION: WIZ8 0x005A1DE0
 unsigned char FreeTurnButtonRegionEvent(const InputEvent* event, W8Region* region)
 {
     if (!gXStatus.fPartyMovementUi) {
@@ -294,13 +286,11 @@ unsigned char FreeTurnButtonRegionEvent(const InputEvent* event, W8Region* regio
     return DispatchButtonRegionEvent(event, region, g_party_movement_buttons[region->callback_id]);
 }
 
-// FUNCTION: WIZ8 0x005A1E90
 void DisableFreeTurnButton(void)
 {
     g_party_movement_buttons[0]->SetEnabled(false);
 }
 
-// FUNCTION: WIZ8 0x005A1EA0
 void EnableFreeTurnButton(void)
 {
     g_party_movement_buttons[0]->SetEnabled(true);
@@ -310,7 +300,6 @@ void EnableFreeTurnButton(void)
    and a bearable load accumulates distance scaled by load, doubled in combat
    and raised again while the second condition runs, until the accumulator
    crosses 2500 and converts into real fatigue. */
-// FUNCTION: WIZ8 0x005A1EB0
 unsigned char HandlePartyMovement(float* real_elapsed, float* frame_elapsed)
 {
     int party_slot;
