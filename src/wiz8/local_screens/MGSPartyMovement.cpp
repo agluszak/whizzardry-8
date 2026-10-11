@@ -48,7 +48,7 @@ uint64_t g_party_movement_animation_clock;
 // GLOBAL: WIZ8 0x0069BF4C
 std::unique_ptr<Controls> g_party_movement_panel;
 // GLOBAL: WIZ8 0x0069BF50
-W8TextBuffer* g_party_movement_caption;
+std::unique_ptr<W8TextBuffer> g_party_movement_caption;
 // GLOBAL: WIZ8 0x0069BF54
 unsigned int g_party_movement_animation_frame;
 
@@ -71,7 +71,7 @@ unsigned char CreatePartyMovementPanel(void)
 
     g_party_movement_animation_frame = 0;
     g_party_movement_panel.reset();
-    g_party_movement_caption = 0;
+    g_party_movement_caption.reset();
     g_party_movement_buttons[0] = 0;
     g_party_movement_buttons[1] = 0;
 
@@ -82,7 +82,8 @@ unsigned char CreatePartyMovementPanel(void)
     bounds.top = 0x13f;
     bounds.bottom = 0x153;
     g_party_movement_caption =
-        new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
+        std::make_unique<W8TextBuffer>(&bounds, std::string_view{}, g_wiz_text_font_secondary,
+                                       g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
 
     g_party_movement_buttons[0] =
         new W8TextControl(g_party_movement_panel.get(), g_party_movement_regions->index(0), 0x10a, 0, 0x11e,

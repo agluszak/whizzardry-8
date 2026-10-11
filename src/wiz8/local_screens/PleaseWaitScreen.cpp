@@ -57,7 +57,7 @@ Font g_level_load_font;
 // GLOBAL: WIZ8 0x0069B7C4
 static int g_swap_disc_dialog_poll_count;
 // GLOBAL: WIZ8 0x0069B7C8
-W8LevelLoadDescriptor* g_load_descriptor;
+std::unique_ptr<W8LevelLoadDescriptor> g_load_descriptor;
 // GLOBAL: WIZ8 0x0069B7CC
 static std::unique_ptr<W8MessageDialogBase> g_swap_disc_dialog;
 // GLOBAL: WIZ8 0x0069B7D0
@@ -102,11 +102,7 @@ unsigned char PleaseWaitScreenInitialize(void)
 unsigned char PleaseWaitScreenEnter(void)
 {
     if (!g_load_descriptor) {
-        g_load_descriptor =
-            new W8LevelLoadDescriptor{};
-        if (!g_load_descriptor) {
-            return 0;
-        }
+        g_load_descriptor = std::make_unique<W8LevelLoadDescriptor>();
         g_load_descriptor->mode = g_current_screen_state.mode;
         switch (g_load_descriptor->mode) {
         case 0:
@@ -340,8 +336,7 @@ void PleaseWaitScreenFrame(void)
 unsigned char PleaseWaitScreenLeave(int leaving)
 {
     if (leaving) {
-        delete g_load_descriptor;
-        g_load_descriptor = 0;
+        g_load_descriptor.reset();
     }
     NoOp();
     ResetRegions();

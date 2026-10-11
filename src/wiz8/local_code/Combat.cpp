@@ -2,7 +2,7 @@
 #include <fmt/printf.h>
 #include <glm/ext/quaternion_trigonometric.hpp>
 #include <glm/gtc/quaternion.hpp>
-#include <new>
+#include <memory>
 #include <string_view>
 #include <vector>
 #include <cmath>
@@ -107,7 +107,7 @@
 #include "surrender/srMath.h"
 
 // GLOBAL: WIZ8 0x006836a8
-W8CombatState* g_combat_state;
+std::unique_ptr<W8CombatState> g_combat_state;
 /* A friendly NPC's combat-entry script notice was queued by
    StartCombat; while it is set the next call checks the dialogue and script
    deferral gates before clearing it and proceeding. */
@@ -188,10 +188,7 @@ bool StartCombat(int surprise)
         SelectTextBox(1);
     }
     ResetEditorStatusLine(1);
-    g_combat_state = new (std::nothrow) W8CombatState{};
-    if (g_combat_state == 0) {
-        return false;
-    }
+    g_combat_state = std::make_unique<W8CombatState>();
     g_combat_state->round_count = 0;
     g_combat_state->combat_result = 0;
     g_combat_state->experience_pool = 0;
@@ -1147,8 +1144,7 @@ void EndCombat(bool forced_cleanup)
     if (!gXStatus.fNpcDialogueMode && !gXStatus.fSpellCastMode && !gXStatus.fItemSelectMode) {
         SelectTextBox(0);
     }
-    delete g_combat_state;
-    g_combat_state = 0;
+    g_combat_state.reset();
     SetCombatInactiveFlag(1);
     MonsterResumeAllNavigators();
     if (!forced_cleanup) {

@@ -3,6 +3,8 @@
 #ifndef WIZ8_LAYOUTS_COMBAT_STATE_H
 #define WIZ8_LAYOUTS_COMBAT_STATE_H
 
+#include <memory>
+
 #include "wiz8/character_skills.h"
 #include "wiz8/equipment_slots.h"
 #include "wiz8/gameplay_modifiers.h"
@@ -309,6 +311,6 @@ struct W8CombatState {
 }; /* Historical offset 0xa64 */
 
 
-extern W8CombatState* g_combat_state;
+extern std::unique_ptr<W8CombatState> g_combat_state;
 
 #endif
