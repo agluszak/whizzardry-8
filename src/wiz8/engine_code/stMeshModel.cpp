@@ -113,12 +113,11 @@ void stMeshModel::CalculateLinkedBounds()
         if (model->vertex_location_count == 0)
             continue;
         for (std::size_t frame = 0; frame < std::max(size_t{1}, model->frames.size()); ++frame) {
-            glm::vec3 minimum, maximum;
+            srBoundingBox frame_box;
             if (model->flags & W8_MESH_HAS_FRAME_STORAGE)
-                model->GetFrameBounds(frame, &minimum, &maximum);
+                frame_box = model->GetFrameBounds(frame);
             else
-                model->srMeshModel::getBoundingBox(minimum, maximum);
-            const srBoundingBox frame_box{minimum, maximum};
+                model->srMeshModel::getBoundingBox(frame_box.minimum, frame_box.maximum);
             if (has_vertices)
                 box.include(frame_box);
             else
@@ -149,12 +148,10 @@ void stMeshModel::RevealVerticesNear(const glm::vec3& position, float range, con
     }
 }
 // FUNCTION: WIZ8 0x00473190
-void stMeshModel::GetFrameBounds(int frame, glm::vec3* minimum, glm::vec3* maximum)
+srBoundingBox stMeshModel::GetFrameBounds(int frame)
 {
-    *minimum = glm::vec3(0);
-    *maximum = glm::vec3(0);
     if (static_cast<unsigned int>(frame) >= frames.size() || vertex_location_count == 0) {
-        return;
+        return {};
     }
     std::vector<srVector3T<float>> scratch;
     const auto& cache = frames[frame].locations;
@@ -166,9 +163,7 @@ void stMeshModel::GetFrameBounds(int frame, glm::vec3* minimum, glm::vec3* maxim
         DecompressFrame(frame, W8_MESH_FRAME_LOCATIONS, scratch.data());
         vertices = scratch.data();
     }
-    const auto bounds = boundingBox(std::span<const srVector3>(vertices, vertex_location_count));
-    *minimum = bounds.minimum;
-    *maximum = bounds.maximum;
+    return boundingBox(std::span<const srVector3>(vertices, vertex_location_count));
 }
 
 /* Apply pending vertex DIG lighting when flags bit 1 is set, then return
