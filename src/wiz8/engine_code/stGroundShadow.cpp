@@ -236,7 +236,7 @@ void stGroundShadow::renderGroundShadow(srGERD* renderer)
         mesh.shaders[0] = g_ground_shadow_shader;
         mesh.poly_uv[0] = 0;
         g_ground_shadow_material_parameters.vertices = model->getVertexLoc();
-        model->RenderTriMeshWithEquations(*renderer, mesh, 0);
+        model->RenderTriMeshWithEquations(*renderer, mesh, {});
     }
     renderer->setPolygonOffset(saved_offset);
 }

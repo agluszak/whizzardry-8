@@ -100,22 +100,35 @@ void srModelInstance::applyRenderTransform(srGERD& renderer) const
     }
 }
 
+srModelInstance::RenderScope::RenderScope(const srModelInstance& instance, srGERD& renderer,
+                                          bool apply_exclusion) : renderer(renderer)
+{
+    instance.applyRenderTransform(renderer);
+    restore_mask = apply_exclusion && instance.exclusion_mask != 0;
+    if (restore_mask) {
+        previous_mask = renderer.getExclusionMask();
+        renderer.setExclusionMask(previous_mask | instance.exclusion_mask);
+    }
+}
+
+srModelInstance::RenderScope::~RenderScope()
+{
+    if (restore_mask) renderer.setExclusionMask(previous_mask);
+    renderer.matrixMode(srGERD::MATRIX_MODELVIEW);
+    renderer.popMatrix();
+}
+
+srModelInstance::RenderScope srModelInstance::scopedRender(srGERD& renderer, bool apply_exclusion) const
+{
+    return RenderScope(*this, renderer, apply_exclusion);
+}
+
 // FUNCTION: SURRENDER 0x1004F4B0
 void srModelInstance::process(const ProcessInfo& info, e_processType type)
 {
-    srGERD* renderer = info.renderer;
     ++srCore.getStatisticsManager()->statistics.meshes_traversed;
-    applyRenderTransform(*renderer);
-    if (exclusion_mask != 0) {
-        w8_ulong mask = renderer->getExclusionMask();
-        renderer->setExclusionMask(mask | exclusion_mask);
-        getModel()->render(*renderer);
-        renderer->setExclusionMask(mask);
-    } else {
-        getModel()->render(*renderer);
-    }
-    renderer->matrixMode(srGERD::MATRIX_MODELVIEW);
-    renderer->popMatrix();
+    const auto scope = scopedRender(*info.renderer);
+    getModel()->render(*info.renderer);
 }
 
 // FUNCTION: SURRENDER 0x1004FB20

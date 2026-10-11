@@ -4,10 +4,10 @@
 #include <cstddef>
 #include <iterator>
 #include <memory>
+#include <span>
 #include <string>
 #include <vector>
 
-#include "compat/compiler.h"
 #include "glm/ext/vector_float4.hpp"
 #include "surrender/srModel.h"
 #include "surrender/srTypeRegistry.h"
@@ -243,7 +243,7 @@ void stModelInstance2D::process(const ProcessInfo& info, e_processType)
 {
     srGERD* renderer = info.renderer;
 
-    applyRenderTransform(*renderer);
+    const auto scope = scopedRender(*renderer, false);
 
     srMeshModel* model = static_cast<srMeshModel*>(getModel());
     auto mesh = model->getTriMesh();
@@ -272,7 +272,6 @@ void stModelInstance2D::process(const ProcessInfo& info, e_processType)
     }
 
     model->renderTriMesh(*renderer, mesh);
-    renderer->popMatrix();
 }
 
 /* Disabling the glow releases the retained glow material; the render-state
@@ -371,20 +370,8 @@ stModelInstance& stModelInstance::operator=(const stModelInstance& other)
 // FUNCTION: WIZ8 0x0047F560
 void stModelInstance::process(const ProcessInfo& info, e_processType)
 {
-    srGERD* renderer = info.renderer;
-
-    applyRenderTransform(*renderer);
-
-    if (exclusion_mask != 0) {
-        w8_ulong previous_mask = renderer->getExclusionMask();
-        renderer->setExclusionMask(exclusion_mask | previous_mask);
-        RenderMeshes(*renderer);
-        renderer->setExclusionMask(previous_mask);
-        renderer->popMatrix();
-        return;
-    }
-    RenderMeshes(*renderer);
-    renderer->popMatrix();
+    const auto scope = scopedRender(*info.renderer);
+    RenderMeshes(*info.renderer);
 }
 
 /* Submit the instance's linked mesh chain. Pass one fills a detached TriMesh
@@ -445,13 +432,12 @@ void stModelInstance::RenderMeshes(srGERD& renderer)
             RenderShadow(renderer, mesh);
         }
 
-        glm::vec3* poly_normals;
+        std::span<const glm::vec3> poly_normals;
         if ((model->flags & W8_MESH_HAS_FRAME_STORAGE) != 0) {
-            mesh.positions = model->GetVertexLocations(frame_index, true, frame_interpolation);
-            mesh.normals = model->GetVertexNormals(frame_index, true);
-            poly_normals = model->GetPolygonNormals(frame_index, true);
-        } else {
-            poly_normals = 0;
+            const auto frame = model->frameGeometry(frame_index, frame_interpolation);
+            mesh.positions = frame.positions.data();
+            mesh.normals = frame.normals.data();
+            poly_normals = frame.polygon_normals;
         }
 
         if (g_render_untextured) {
@@ -538,12 +524,12 @@ void stModelInstance::RenderMeshes(srGERD& renderer)
                      (_strnicmp("blank", mesh.textures[0][0]->getName().c_str(), 5) != 0))) {
                     g_vertex_scratch.resize(mesh.vertex_count);
 
-                    const glm::vec3* poly_normals = 0;
+                    std::span<const glm::vec3> poly_normals;
                     if ((model->flags & W8_MESH_HAS_FRAME_STORAGE) != 0) {
-                        mesh.dig[0] =
-                            model->GetVertexLocations(frame_index, true, frame_interpolation);
-                        mesh.dig[1] = model->GetVertexNormals(frame_index, true);
-                        poly_normals = model->GetPolygonNormals(frame_index, true);
+                        const auto frame = model->frameGeometry(frame_index, frame_interpolation);
+                        mesh.dig[0] = frame.positions.data();
+                        mesh.dig[1] = frame.normals.data();
+                        poly_normals = frame.polygon_normals;
                     }
                     std::shared_ptr<srTextureIFace>*(*poly_textures)[2] = mesh.poly_textures;
                     if (poly_textures != 0 && !mesh.active_polygons) {

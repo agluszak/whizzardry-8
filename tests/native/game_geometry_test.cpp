@@ -1387,7 +1387,10 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Empty software backface selections skip 
     mesh.poly_vertices = triangles.data();
     mesh.control_flags = (1u << srMeshModel::CONTROL_FRONT) | (1u << srMeshModel::CONTROL_BACK);
     const auto before = pipeline->triangle_count;
-    model.RenderTriMeshWithEquations(renderer, mesh, normals.data());
+    model.RenderTriMeshWithEquations(renderer, mesh, normals);
+    REQUIRE(pipeline->triangle_count == before);
+    mesh.polygon_count = 2;
+    REQUIRE_THROWS_AS(model.RenderTriMeshWithEquations(renderer, mesh, normals), std::invalid_argument);
     REQUIRE(pipeline->triangle_count == before);
 }
 
@@ -1649,6 +1652,14 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Static and frame normals share area weig
         for (int axis = 0; axis < 3; ++axis)
             compressed[vertex * 3 + axis] = static_cast<short>(positions[vertex][axis]);
     mesh.FinalizeVertexFrame(0);
+    const auto sampled = mesh.frameGeometry(0, 0.0f);
+    REQUIRE(sampled.positions.size() == positions.size());
+    REQUIRE(sampled.normals.size() == positions.size());
+    REQUIRE(sampled.polygon_normals.size() == triangles.size());
+    REQUIRE(sampled.positions[1] == positions[1]);
+    REQUIRE(sampled.normals.data() == mesh.GetVertexNormals(0, true));
+    REQUIRE(sampled.polygon_normals.data() == mesh.GetPolygonNormals(0, true));
+    REQUIRE_THROWS_AS(mesh.frameGeometry(1, 0.0f), std::out_of_range);
     const auto* frame_normals = mesh.GetVertexNormals(0, true);
     REQUIRE(frame_normals[4] == frame_normals[0]);
     for (std::size_t vertex = 0; vertex < positions.size(); ++vertex)
@@ -2163,4 +2174,44 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Mesh permutations keep GLM channels corn
     REQUIRE_THROWS_AS(mesh.reindexVertices(polygon_order), std::invalid_argument);
     REQUIRE_THROWS_AS(mesh.reindexPolygons(vertex_order), std::invalid_argument);
     REQUIRE(mesh.getVertexLoc()[0] == positions[2]); // Invalid permutations change no tables.
+}
+
+TEST_CASE_METHOD(SurRenderTestFixture, "Model render scopes restore GLM transforms and exclusions after a failed draw", "[geometry][rendering]")
+{
+    struct Probe : srModel {
+        bool fail = false;
+        w8_ulong mask = 0;
+        glm::mat4 transform{1};
+        Bounds getBounds() override { return {}; }
+        void render(srGERD& renderer) override {
+            mask = renderer.getExclusionMask();
+            transform = renderer.getMatrix(srGERD::MATRIX_MODELVIEW);
+            renderer.matrixMode(srGERD::MATRIX_PROJECTION);
+            if (fail) throw std::runtime_error("injected model draw failure");
+        }
+    };
+    srGERD renderer(srCreateSDLGPUDevice(), "render scope");
+    auto model = std::make_shared<Probe>();
+    srModelInstance instance;
+    instance.setModel(model);
+    instance.setLocation(3, 4, 5);
+    instance.setExclusionMask(4);
+    const glm::mat4 view = glm::translate(glm::mat4(1), glm::vec3(7, 8, 9));
+    for (bool aligned : {false, true}) {
+        instance.setAlignment(aligned);
+        for (bool fail : {false, true}) {
+            renderer.matrixMode(srGERD::MATRIX_MODELVIEW);
+            renderer.loadMatrix(view);
+            renderer.setExclusionMask(16);
+            model->fail = fail;
+            const srNode::ProcessInfo info{&renderer};
+            if (fail) REQUIRE_THROWS_AS(instance.process(info, srNode::PROCESS_RENDER), std::runtime_error);
+            else instance.process(info, srNode::PROCESS_RENDER);
+            REQUIRE(model->mask == 20);
+            REQUIRE(renderer.getExclusionMask() == 16);
+            REQUIRE(renderer.getMatrixMode() == srGERD::MATRIX_MODELVIEW);
+            REQUIRE(renderer.getMatrix(srGERD::MATRIX_MODELVIEW) == view);
+            REQUIRE(model->transform != view);
+        }
+    }
 }
