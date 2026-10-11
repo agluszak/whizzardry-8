@@ -114,12 +114,11 @@ void SetFontBackground(UINT8 ubBackground)
 }
 
 // FUNCTION: WIZ8 0x00406d80
-void SetRGBFontShadow(UINT32 uiRed, UINT32 uiGreen, UINT32 uiBlue)
+void SetRGBFontShadow(SDL_Color color)
 {
     if (!g_font_render_state.font)
         return;
-    g_font_render_state.shadow = Get16BPPColor(SDL_Color{static_cast<UINT8>(uiRed),
-        static_cast<UINT8>(uiGreen), static_cast<UINT8>(uiBlue), SDL_ALPHA_OPAQUE});
+    g_font_render_state.shadow = Get16BPPColor(color);
 }
 //end Kris
 
