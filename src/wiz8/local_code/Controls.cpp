@@ -1930,40 +1930,27 @@ void Controls::DestroyAllControls()
 // FUNCTION: WIZ8 0x004f2e50
 void Controls::Invalidate(const W8ControlsRect* rect)
 {
-    int edge;
-
     m_fDirty = true;
-    if (rect == 0) {
+    if (!rect) {
         m_fWholeAreaDirty = true;
         RequestRedraw(W8_MAIN_REDRAW_FRAME);
         return;
     }
-    edge = m_dirtyRect.left;
+
     m_fWholeAreaDirty = false;
-    if (edge == -1) {
+    if (m_dirtyRect.left == -1) {
         m_dirtyRect = *rect;
-        RequestRedraw(W8_MAIN_REDRAW_FRAME);
-        return;
+    } else {
+        const SDL_Rect dirty{m_dirtyRect.left, m_dirtyRect.top,
+                             m_dirtyRect.right - m_dirtyRect.left,
+                             m_dirtyRect.bottom - m_dirtyRect.top};
+        const SDL_Rect requested{rect->left, rect->top,
+                                 rect->right - rect->left, rect->bottom - rect->top};
+        SDL_Rect combined{};
+        SDL_GetRectUnion(&dirty, &requested, &combined);
+        m_dirtyRect = {combined.x, combined.y, combined.x + combined.w,
+                       combined.y + combined.h};
     }
-    if (rect->left <= edge) {
-        edge = rect->left;
-    }
-    m_dirtyRect.left = edge;
-    edge = m_dirtyRect.top;
-    if (rect->top <= m_dirtyRect.top) {
-        edge = rect->top;
-    }
-    m_dirtyRect.top = edge;
-    edge = m_dirtyRect.right;
-    if (m_dirtyRect.right <= rect->right) {
-        edge = rect->right;
-    }
-    m_dirtyRect.right = edge;
-    edge = rect->bottom;
-    if (rect->bottom < m_dirtyRect.bottom) {
-        edge = m_dirtyRect.bottom;
-    }
-    m_dirtyRect.bottom = edge;
     RequestRedraw(W8_MAIN_REDRAW_FRAME);
 }
 
