@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <cstddef>
 #include <exception>
 #include <iterator>
@@ -30,7 +31,7 @@ static std::string ReadNarrowText(wiz8::File& file)
 }
 
 // FUNCTION: WIZ8 0x0055a140
-unsigned char ReadNpcScriptQuote(wiz8::File* file, W8NpcScriptQuote* output)
+std::optional<W8NpcScriptQuote> ReadNpcScriptQuote(wiz8::File* file)
 try
 {
     wiz8::retail::nsf::Quote disk;
@@ -73,10 +74,9 @@ try
         }
         quote.entries.push_back(std::move(entry));
     }
-    *output = std::move(quote);
-    return true;
+    return quote;
 }
-catch (const std::exception&) { return false; }
+catch (const std::exception&) { return std::nullopt; }
 
 // FUNCTION: WIZ8 0x0055a480
 W8NpcScriptFile* LoadNpcScriptFile(std::string_view path)
@@ -90,9 +90,11 @@ try
     script->quote_count = disk.quote_count;
     if (disk.name) script->name = ReadNarrowText(*file);
     if (script->quote_count > (file->size() - file->tell()) / sizeof(wiz8::retail::nsf::Quote)) return nullptr;
-    script->quotes.resize(script->quote_count);
-    for (auto& quote : script->quotes) {
-        if (!ReadNpcScriptQuote(file.get(), &quote)) return nullptr;
+    script->quotes.reserve(script->quote_count);
+    for (unsigned int i = 0; i < script->quote_count; ++i) {
+        auto quote = ReadNpcScriptQuote(file.get());
+        if (!quote) return nullptr;
+        script->quotes.push_back(std::move(*quote));
     }
     return script.release();
 }
