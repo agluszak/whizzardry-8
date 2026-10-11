@@ -161,6 +161,16 @@ TEST_CASE("pixel conversions")
              "custom RGB555 passed");
         }
 
+TEST_CASE("pixel format names are owned values")
+{
+    srPixelConvert::PixelFormat format;
+    srPixelConvert::mapPixelFormat(srPixelConvert::SURFACE_RGB565, format);
+    REQUIRE(format.getName() == "RGB565/16");
+
+    format.fourcc = 0x34333231;
+    REQUIRE(format.getName() == "1234");
+}
+
 TEST_CASE("SurRender uses shared packed surface operations")
 {
     REQUIRE(srInit());
