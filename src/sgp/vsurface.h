@@ -73,8 +73,6 @@ struct SGPVSurface {
     std::unique_ptr<CpuSurface> ownedSurface;
     CpuSurface& cpu() { return *ownedSurface; }
     UINT32 fFlags;
-    Palette8 palette{};
-    bool hasPalette = false;
     Palette16 p16BPPPalette{};
 
 };
@@ -122,9 +120,6 @@ std::unique_ptr<SGPVSurface> CreateVideoSurface(const VSURFACE_DESC& VSurfaceDes
 // Set data from HIMAGE.
 BOOLEAN SetVideoSurfaceDataFromHImage(SGPVSurface& hVSurface, const image_type& hImage, UINT16 usX, UINT16 usY,
                                       SDL_Rect* pSrcRect);
-
-// Sets HVSurface palette, creates if nessessary. Also sets 16BPP palette
-BOOLEAN SetVideoSurfacePalette(SGPVSurface& hVSurface, const Palette8& pSrcPalette);
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////
 //
