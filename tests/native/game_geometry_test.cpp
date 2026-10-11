@@ -318,9 +318,7 @@ static void procedural_meshes()
     REQUIRE((modeler.getTriangleCount() == 24));
     modeler.scale({2, 3, 1});
     modeler.move({10, 20, 30});
-    float lower, upper;
-    modeler.getAxialBounds(srModeler::AXIS_X, lower, upper);
-    REQUIRE((lower == 9 && upper == 11));
+    REQUIRE((modeler.getAxialBounds(srModeler::AXIS_X) == std::pair{9.f, 11.f}));
 
     modeler.createSphere(8);
     REQUIRE((modeler.getTriangleCount() == 128));
