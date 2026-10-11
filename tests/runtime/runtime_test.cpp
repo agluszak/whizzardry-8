@@ -820,7 +820,8 @@ void WriteSaveFixture(const fs::path& output, const fs::path& save,
     std::ofstream metadata(output / "Fixture.txt");
     metadata << std::setprecision(std::numeric_limits<float>::max_digits10)
              << anchor.x << ' ' << anchor.y << ' ' << anchor.z << ' '
-             << g_status.current_level << ' ' << g_status.buffers.Char[PremadeSlot()].experience << '\n';
+             << g_status.current_level << ' ' << g_status.buffers.Char[PremadeSlot()].experience << ' '
+             << g_status.buffers.Char[PremadeSlot()].hp_current << '\n';
     metadata.close();
     REQUIRE(metadata);
     std::printf("save-fixture: wrote %s (%ju bytes)\n", (output / "Fixture.SAV").string().c_str(),
@@ -871,8 +872,9 @@ void LoadGameScenario(const fs::path& fixture)
     srVector3T<float> anchor{};
     int level = -1;
     unsigned experience = 0;
+    unsigned health = 0;
     std::ifstream metadata(fixture / "Fixture.txt");
-    REQUIRE(metadata >> anchor.x >> anchor.y >> anchor.z >> level >> experience);
+    REQUIRE(metadata >> anchor.x >> anchor.y >> anchor.z >> level >> experience >> health);
     REQUIRE((std::isfinite(anchor.x) && std::isfinite(anchor.y) && std::isfinite(anchor.z)));
     REQUIRE(fs::is_regular_file(fixture / "Fixture.SAV"));
     game.install(fixture / "Fixture.SAV", "Saves/Fixture.SAV");
@@ -901,6 +903,7 @@ void LoadGameScenario(const fs::path& fixture)
     REQUIRE(CountActiveCharacters() == 1);
     REQUIRE(g_status.current_level == level);
     REQUIRE(g_status.buffers.Char[PremadeSlot()].experience == experience);
+    REQUIRE(g_status.buffers.Char[PremadeSlot()].hp_current == health);
     std::printf("load-game: loaded the fixture after %lu frames\n", game.frames());
 }
 
