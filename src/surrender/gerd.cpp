@@ -3644,14 +3644,6 @@ void srGERD::initGlobalPalette()
     getDD()->setGlobalPalette(reinterpret_cast<w8_ulong*>(global_palette), 0x100);
 }
 
-// FUNCTION: SURRENDER 0x10018E40
-void srGERD::debugWrite(const char* text)
-{
-    if (text != 0 && *text != '\0') {
-        srOut << text;
-    }
-}
-
 // FUNCTION: SURRENDER 0x10018E60
 void srGERD::releaseAll()
 {
