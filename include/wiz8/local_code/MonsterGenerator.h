@@ -37,10 +37,10 @@ struct MonGen {
     /* Arms or disarms the generator, loading its marker on the way in. */
     void SetActive(unsigned char active, W8Item* node);
     /* The save pair. Both are __thiscall in the image. */
-    void Save(wiz8::File* handle);
-    unsigned char Load(wiz8::File* handle);
+    void Save(wiz8::File& handle);
+    unsigned char Load(wiz8::File& handle);
     /* The MONG chunk loader. */
-    static unsigned char LoadAll(wiz8::File* save_handle);
+    static unsigned char LoadAll(wiz8::File& save_handle);
     /* Moves the generator, notifying the scene when the generator has a marker. */
     void SetState(const srVector3T<float>* state);
     /* Loads the marker unconditionally, then applies the armed state. */

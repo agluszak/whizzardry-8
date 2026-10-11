@@ -158,17 +158,17 @@ unsigned char GetRenderOptionState(W8RenderOption option)
 }
 
 // FUNCTION: WIZ8 0x0047b890
-unsigned char LoadRenderOptions(wiz8::File* handle)
+unsigned char LoadRenderOptions(wiz8::File& handle)
 try
 {
     int version;
     unsigned char options[W8_RENDER_OPTION_COUNT];
 
-    handle->read_exact(&version, sizeof(version));
+    handle.read_exact(&version, sizeof(version));
     if (version != 1) {
         return 0;
     }
-    handle->read_exact(options, sizeof(options));
+    handle.read_exact(options, sizeof(options));
     for (int option = 0; option < W8_RENDER_OPTION_COUNT; ++option) {
         SetRenderOption(static_cast<W8RenderOption>(option), options[option] != 0);
     }
@@ -177,11 +177,11 @@ try
 catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x0047b920
-bool SaveRenderOptions(wiz8::File* handle)
+bool SaveRenderOptions(wiz8::File& handle)
 {
     int version = 1;
 
-    handle->write(&version, sizeof(version));
-    handle->write(g_render_options->option_states, W8_RENDER_OPTION_COUNT);
+    handle.write(&version, sizeof(version));
+    handle.write(g_render_options->option_states, W8_RENDER_OPTION_COUNT);
     return true;
 }

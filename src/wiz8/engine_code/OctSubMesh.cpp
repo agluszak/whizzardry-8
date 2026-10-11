@@ -118,6 +118,34 @@ OctMeshModel::OctMeshModel()
 {
 }
 
+OctMeshModel::OctMeshModel(OctMeshModel&& other) noexcept : OctMeshModel()
+{
+    *this = std::move(other);
+}
+
+OctMeshModel& OctMeshModel::operator=(OctMeshModel&& other) noexcept
+{
+    std::swap(version, other.version);
+    std::swap(m_link_index, other.m_link_index);
+    std::swap(next_link, other.next_link);
+    std::swap(m_material_index, other.m_material_index);
+    std::swap(m_map_count, other.m_map_count);
+    std::swap(m_vertex_locations, other.m_vertex_locations);
+    std::swap(m_vertex_map, other.m_vertex_map);
+    std::swap(m_vertex_materials, other.m_vertex_materials);
+    std::swap(m_poly_vertices, other.m_poly_vertices);
+    std::swap(m_poly_uv_index, other.m_poly_uv_index);
+    std::swap(m_poly_textures, other.m_poly_textures);
+    std::swap(m_vertex_normals, other.m_vertex_normals);
+    std::swap(m_vertex_lights, other.m_vertex_lights);
+    std::swap(m_poly_equations, other.m_poly_equations);
+    std::swap(m_sun_lights, other.m_sun_lights);
+    std::swap(m_packed_header, other.m_packed_header);
+    std::swap(m_vertex_count, other.m_vertex_count);
+    std::swap(m_polygon_count, other.m_polygon_count);
+    return *this;
+}
+
 // FUNCTION: WIZ8 0x0049E500
 OctMeshModel::~OctMeshModel()
 {
@@ -134,47 +162,47 @@ OctMeshModel::~OctMeshModel()
 }
 
 // FUNCTION: WIZ8 0x0049E5D0
-bool OctMeshModel::Write(wiz8::File* hFile)
+bool OctMeshModel::Write(wiz8::File& hFile)
 {
     m_packed_header |= static_cast<unsigned int>(version) << 8;
-    hFile->write(&m_packed_header, 4);
-    hFile->write(&m_vertex_count, 4);
-    hFile->write(&m_map_count, 4);
-    hFile->write(&m_polygon_count, 4);
-    hFile->write(&m_link_index, 4);
-    hFile->write(&next_link, 4);
-    hFile->write(&m_material_index, 4);
+    hFile.write(&m_packed_header, 4);
+    hFile.write(&m_vertex_count, 4);
+    hFile.write(&m_map_count, 4);
+    hFile.write(&m_polygon_count, 4);
+    hFile.write(&m_link_index, 4);
+    hFile.write(&next_link, 4);
+    hFile.write(&m_material_index, 4);
 
-    WriteAndConsumeMeshArray(*hFile, m_vertex_locations, m_vertex_count, 0x109,
+    WriteAndConsumeMeshArray(hFile, m_vertex_locations, m_vertex_count, 0x109,
                              "OctMeshModel::Write -- Could not write m_psrVertLoc.\n");
-    WriteAndConsumeMeshArray(*hFile, m_vertex_map, m_map_count, 0x10f,
+    WriteAndConsumeMeshArray(hFile, m_vertex_map, m_map_count, 0x10f,
                              "OctMeshModel::Write -- Could not write m_psrMap.\n");
     if (m_material_index < 0) {
-        WriteAndConsumeMeshArray(*hFile, m_vertex_materials, m_vertex_count, 0x116,
+        WriteAndConsumeMeshArray(hFile, m_vertex_materials, m_vertex_count, 0x116,
                                  "OctMeshModel::Write -- Could not write m_plVertMats.\n");
     } else {
         ReleaseMeshArray(m_vertex_materials);
     }
-    WriteAndConsumeMeshArray(*hFile, m_poly_uv_index, m_polygon_count, 0x11f,
+    WriteAndConsumeMeshArray(hFile, m_poly_uv_index, m_polygon_count, 0x11f,
                              "OctMeshModel::Write -- Could not write m_psrPolyUVIndex.\n");
-    WriteAndConsumeMeshArray(*hFile, m_poly_vertices, m_polygon_count, 0x125,
+    WriteAndConsumeMeshArray(hFile, m_poly_vertices, m_polygon_count, 0x125,
                              "OctMeshModel::Write -- Could not write m_psrPolyVertex.\n");
-    WriteAndConsumeMeshArray(*hFile, m_poly_textures, m_polygon_count, 0x12a,
+    WriteAndConsumeMeshArray(hFile, m_poly_textures, m_polygon_count, 0x12a,
                              "OctMeshModel::Write -- Could not write m_plPolyTextures.\n");
-    WriteAndConsumeMeshArray(*hFile, m_vertex_normals, m_vertex_count, 0x130,
+    WriteAndConsumeMeshArray(hFile, m_vertex_normals, m_vertex_count, 0x130,
                              "OctMeshModel::Write -- Could not write m_pVertNorms.\n");
-    WriteAndConsumeMeshArray(*hFile, m_vertex_lights, m_vertex_count, 0x136,
+    WriteAndConsumeMeshArray(hFile, m_vertex_lights, m_vertex_count, 0x136,
                              "OctMeshModel::Write -- Could not write m_pVertLights.\n");
-    WriteAndConsumeMeshArray(*hFile, m_poly_equations, m_polygon_count, 0x13c,
+    WriteAndConsumeMeshArray(hFile, m_poly_equations, m_polygon_count, 0x13c,
                              "OctMeshModel::Write -- Could not write m_psrPolyEqtns.\n");
 
     if (version != 0) {
-        hFile->write(m_sun_lights[0], m_vertex_count * sizeof(float));
+        hFile.write(m_sun_lights[0], m_vertex_count * sizeof(float));
     }
     ReleaseMeshSunLights(m_sun_lights, version);
 
     int terminator = -1;
-    hFile->write(&terminator, 4);
+    hFile.write(&terminator, 4);
     return true;
 }
 

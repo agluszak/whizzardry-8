@@ -63,7 +63,7 @@ public:
     void SetProgress(float progress);
     void SetDurationScale(float scale);
     void ResetDurationScale();
-    bool Load(wiz8::File* handle);
+    bool Load(wiz8::File& handle);
     float GetElapsedSeconds();
 
     W8TimerClock m_clock_mode; /* 0x04: 1 reads the game clock */

@@ -433,20 +433,20 @@ void SetWorldCursorNodeColorComponents(W8WorldCursorNode* entry, float red, floa
 }
 
 // FUNCTION: WIZ8 0x0048e470
-unsigned int LoadWorldCursorNodeStates(wiz8::File* handle)
+unsigned int LoadWorldCursorNodeStates(wiz8::File& handle)
 {
     int version;
     unsigned int count;
     unsigned int index;
     bool success = true;
 
-    if (!(handle->read(&version, 4).bytes == static_cast<std::size_t>(4))) {
+    if (!(handle.read(&version, 4).bytes == static_cast<std::size_t>(4))) {
         return 0;
     }
     if (version == 0x21122112) {
         version = 1;
     }
-    if (!(handle->read(&count, 4).bytes == static_cast<std::size_t>(4))) {
+    if (!(handle.read(&count, 4).bytes == static_cast<std::size_t>(4))) {
         return 0;
     }
 
@@ -460,7 +460,7 @@ unsigned int LoadWorldCursorNodeStates(wiz8::File* handle)
             char name[0x20];
             int cube_index;
 
-            handle->read_exact(name, sizeof(name));
+            handle.read_exact(name, sizeof(name));
             for (cube_index = 0; cube_index < static_cast<int>(g_world_cursor_nodes.size());
                  ++cube_index) {
                 W8WorldCursorNode* candidate = g_world_cursor_nodes[cube_index];
@@ -475,7 +475,7 @@ unsigned int LoadWorldCursorNodeStates(wiz8::File* handle)
             }
         }
 
-        if (success && (handle->read(&cube->userdata_size, 4).bytes == static_cast<std::size_t>(4))) {
+        if (success && (handle.read(&cube->userdata_size, 4).bytes == static_cast<std::size_t>(4))) {
             success = true;
         } else {
             success = false;
@@ -486,7 +486,7 @@ unsigned int LoadWorldCursorNodeStates(wiz8::File* handle)
                 srAssertFail("pCube->pUserdata", ST_CUBE_CPP, 0x3c8, 0);
             }
             memset(cube->pUserdata, 0, cube->userdata_size);
-            if (success && (handle->read(cube->pUserdata, cube->userdata_size).bytes == static_cast<std::size_t>(cube->userdata_size))) {
+            if (success && (handle.read(cube->pUserdata, cube->userdata_size).bytes == static_cast<std::size_t>(cube->userdata_size))) {
                 success = true;
             } else {
                 success = false;
@@ -505,7 +505,7 @@ unsigned int LoadWorldCursorNodeStates(wiz8::File* handle)
 }
 
 // FUNCTION: WIZ8 0x0048e6d0
-unsigned char SaveWorldCursorNodeStates(wiz8::File* handle)
+unsigned char SaveWorldCursorNodeStates(wiz8::File& handle)
 {
     bool ok = true;
     int version = 2;
@@ -513,44 +513,44 @@ unsigned char SaveWorldCursorNodeStates(wiz8::File* handle)
     unsigned int index;
     W8WorldCursorNode* node;
 
-    if (!(handle->write(&version, 4), true)) {
+    if (!(handle.write(&version, 4), true)) {
         return 0;
     }
     count = static_cast<int>(g_world_cursor_nodes.size());
-    if (!(handle->write(&count, 4), true)) {
+    if (!(handle.write(&count, 4), true)) {
         return 0;
     }
     for (index = 0; index < count && ok; ++index) {
         node = g_world_cursor_nodes[index];
-        ok = (handle->write(node->name, sizeof(node->name)), true) &&
-             (handle->write(&node->userdata_size, 4), true);
+        ok = (handle.write(node->name, sizeof(node->name)), true) &&
+             (handle.write(&node->userdata_size, 4), true);
         if (node->userdata_size != 0) {
-            ok = ok && (handle->write(node->pUserdata, node->userdata_size), true);
+            ok = ok && (handle.write(node->pUserdata, node->userdata_size), true);
         }
     }
     return ok;
 }
 
 // FUNCTION: WIZ8 0x0048e7b0
-unsigned int LoadWorldCursorNodes(wiz8::File* handle)
+unsigned int LoadWorldCursorNodes(wiz8::File& handle)
 {
     int version;
     unsigned int count;
     unsigned int index;
     bool success = true;
 
-    if (!(handle->read(&version, 4).bytes == static_cast<std::size_t>(4))) {
+    if (!(handle.read(&version, 4).bytes == static_cast<std::size_t>(4))) {
         return 0;
     }
     if (static_cast<unsigned int>(version) == 0xdeadd00d) {
         version = 1;
     }
     if (version > 2) {
-        handle->read_exact(&gXStatus.mipe_cube_serial, 4);
+        handle.read_exact(&gXStatus.mipe_cube_serial, 4);
     } else {
         gXStatus.mipe_cube_serial = 100;
     }
-    if (!(handle->read(&count, 4).bytes == static_cast<std::size_t>(4))) {
+    if (!(handle.read(&count, 4).bytes == static_cast<std::size_t>(4))) {
         return 0;
     }
 
@@ -562,7 +562,7 @@ unsigned int LoadWorldCursorNodes(wiz8::File* handle)
         int component;
 
         if (version >= 2) {
-            handle->read_exact(cube->name, 0x20);
+            handle.read_exact(cube->name, 0x20);
             if (cube->name[0] == 0) {
                 wiz8::text::write_utf8_field(fmt::format("Cube{:03d}", gXStatus.mipe_cube_serial++),
                                              cube->name);
@@ -571,21 +571,21 @@ unsigned int LoadWorldCursorNodes(wiz8::File* handle)
             wiz8::text::write_utf8_field(fmt::format("Cube{:d}", index), cube->name);
         }
         for (component = 0; component < 3; ++component) {
-            if (success && (handle->read(&cube->parameters[component], 4).bytes == static_cast<std::size_t>(4))) {
+            if (success && (handle.read(&cube->parameters[component], 4).bytes == static_cast<std::size_t>(4))) {
                 success = true;
             } else {
                 success = false;
             }
         }
         for (component = 0; component < 3; ++component) {
-            if (success && (handle->read(&(&minimum.x)[component], 4).bytes == static_cast<std::size_t>(4))) {
+            if (success && (handle.read(&(&minimum.x)[component], 4).bytes == static_cast<std::size_t>(4))) {
                 success = true;
             } else {
                 success = false;
             }
         }
         for (component = 0; component < 3; ++component) {
-            if (success && (handle->read(&(&maximum.x)[component], 4).bytes == static_cast<std::size_t>(4))) {
+            if (success && (handle.read(&(&maximum.x)[component], 4).bytes == static_cast<std::size_t>(4))) {
                 success = true;
             } else {
                 success = false;
@@ -606,7 +606,7 @@ unsigned int LoadWorldCursorNodes(wiz8::File* handle)
         }
 
         for (component = 0; component < 3; ++component) {
-            if (success && (handle->read(&(&location.x)[component], 4).bytes == static_cast<std::size_t>(4))) {
+            if (success && (handle.read(&(&location.x)[component], 4).bytes == static_cast<std::size_t>(4))) {
                 success = true;
             } else {
                 success = false;
@@ -621,7 +621,7 @@ unsigned int LoadWorldCursorNodes(wiz8::File* handle)
                                              static_cast<double>(location.z));
             cube->node->setLocation(node_location);
         }
-        if (success && (handle->read(&cube->value_08, 4).bytes == static_cast<std::size_t>(4))) {
+        if (success && (handle.read(&cube->value_08, 4).bytes == static_cast<std::size_t>(4))) {
             success = true;
         } else {
             success = false;
@@ -632,7 +632,7 @@ unsigned int LoadWorldCursorNodes(wiz8::File* handle)
 }
 
 // FUNCTION: WIZ8 0x0048ead0
-unsigned char SaveWorldCursorNodes(wiz8::File* handle)
+unsigned char SaveWorldCursorNodes(wiz8::File& handle)
 {
     bool ok = true;
     int version = 3;
@@ -642,30 +642,30 @@ unsigned char SaveWorldCursorNodes(wiz8::File* handle)
     srVector3T<float> location;
     W8WorldCursorNode* node;
 
-    if (!(handle->write(&version, 4), true)) {
+    if (!(handle.write(&version, 4), true)) {
         return 0;
     }
-    handle->write(&gXStatus.mipe_cube_serial, 4);
+    handle.write(&gXStatus.mipe_cube_serial, 4);
     count = static_cast<int>(g_world_cursor_nodes.size());
-    if (!(handle->write(&count, 4), true)) {
+    if (!(handle.write(&count, 4), true)) {
         return 0;
     }
     for (index = 0; index < count && ok; ++index) {
         node = g_world_cursor_nodes[index];
-        handle->write(node->name, sizeof(node->name));
+        handle.write(node->name, sizeof(node->name));
         for (component = 0; component < 3 && ok; ++component) {
-            ok = (handle->write(&node->parameters[component], 4), true);
+            ok = (handle.write(&node->parameters[component], 4), true);
         }
         const auto bounds = node->node->getLocalBounds();
         location = glm::vec3(node->node->getLocation());
-        ok = ok && (handle->write(&bounds.minimum.x, 4), true) &&
-             (handle->write(&bounds.minimum.y, 4), true) &&
-             (handle->write(&bounds.minimum.z, 4), true) &&
-             (handle->write(&bounds.maximum.x, 4), true) &&
-             (handle->write(&bounds.maximum.y, 4), true) &&
-             (handle->write(&bounds.maximum.z, 4), true) && (handle->write(&location.x, 4), true) &&
-             (handle->write(&location.y, 4), true) && (handle->write(&location.z, 4), true) &&
-             (handle->write(&node->value_08, 4), true);
+        ok = ok && (handle.write(&bounds.minimum.x, 4), true) &&
+             (handle.write(&bounds.minimum.y, 4), true) &&
+             (handle.write(&bounds.minimum.z, 4), true) &&
+             (handle.write(&bounds.maximum.x, 4), true) &&
+             (handle.write(&bounds.maximum.y, 4), true) &&
+             (handle.write(&bounds.maximum.z, 4), true) && (handle.write(&location.x, 4), true) &&
+             (handle.write(&location.y, 4), true) && (handle.write(&location.z, 4), true) &&
+             (handle.write(&node->value_08, 4), true);
     }
     return ok;
 }

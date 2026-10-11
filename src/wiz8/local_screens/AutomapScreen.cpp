@@ -1537,52 +1537,52 @@ unsigned char ShowAutomapNoteTooltip(W8AutomapNote* note)
 /* Persist the visited-cell bitmap and every note's position, layer and text.
    A 0xF00DF00D signature brackets the note records. */
 // FUNCTION: WIZ8 0x00581CE0
-bool SaveAutomapNotes(wiz8::File* handle)
+bool SaveAutomapNotes(wiz8::File& handle)
 {
     int signature = 0xf00df00d;
     unsigned char saved;
     if (!g_automap_visited_cells.empty()) {
         saved = SavePackedBits(handle, g_automap_visited_cells);
     } else {
-        saved = handle != nullptr;
+        saved = true;
     }
     if (saved == 0) {
         return false;
     }
-    if ((handle->write(&signature, 4), true) == 0) {
+    if ((handle.write(&signature, 4), true) == 0) {
         return false;
     }
     unsigned int count = static_cast<int>(g_automap_notes->size());
-    if ((handle->write(&count, 4), true) == 0) {
+    if ((handle.write(&count, 4), true) == 0) {
         return false;
     }
     for (unsigned int index = 0; index < count; ++index) {
         W8AutomapNote* note = (*g_automap_notes)[index];
         if (note != 0) {
-            bool ok = (handle->write(&note->position.x, 4), true) != 0 &&
-                      (handle->write(&note->position.y, 4), true) != 0 &&
-                      (handle->write(&note->layer, 4), true) != 0;
+            bool ok = (handle.write(&note->position.x, 4), true) != 0 &&
+                      (handle.write(&note->position.y, 4), true) != 0 &&
+                      (handle.write(&note->layer, 4), true) != 0;
             const std::uint32_t length = wiz8::text::to_utf16(note->text).size() + 1;
             std::vector<std::byte> bytes(length * 2);
             wiz8::text::to_utf16le(note->text, bytes);
             if (!ok) {
                 return false;
             }
-            if ((handle->write(&length, 4), true) == 0) {
+            if ((handle.write(&length, 4), true) == 0) {
                 return false;
             }
-            if ((handle->write(bytes.data(), bytes.size()), true) == 0) {
+            if ((handle.write(bytes.data(), bytes.size()), true) == 0) {
                 return false;
             }
         }
     }
-    return (handle->write(&signature, 4), true) != 0;
+    return (handle.write(&signature, 4), true) != 0;
 }
 
 /* Release every note, restore the visited-cell bitmap for the loaded level,
    then rebuild the notes from the saved records. */
 // FUNCTION: WIZ8 0x00581E60
-bool LoadAutomapNotes(wiz8::File* handle)
+bool LoadAutomapNotes(wiz8::File& handle)
 try
 {
     int signature = 0;
@@ -1597,24 +1597,24 @@ try
         }
         g_automap_bounds_dirty = true;
         unsigned int count;
-        if ((handle->read(&signature, 4).bytes == static_cast<std::size_t>(4)) != 0 && signature == static_cast<int>(0xf00df00d) &&
-            (handle->read(&count, 4).bytes == static_cast<std::size_t>(4)) != 0) {
+        if ((handle.read(&signature, 4).bytes == static_cast<std::size_t>(4)) != 0 && signature == static_cast<int>(0xf00df00d) &&
+            (handle.read(&count, 4).bytes == static_cast<std::size_t>(4)) != 0) {
             for (unsigned int index = 0; index < count; ++index) {
                 glm::vec2 position;
                 int layer = 0;
                 int length = 0;
                 /* Retail fed `length` to malloc even when the FileRead chain
                    short-circuited before filling it; natively it starts at zero. */
-                bool ok = (handle->read(&position.x, 4).bytes == static_cast<std::size_t>(4)) != 0 &&
-                          (handle->read(&position.y, 4).bytes == static_cast<std::size_t>(4)) != 0 &&
-                          (handle->read(&layer, 4).bytes == static_cast<std::size_t>(4)) != 0 &&
-                          (handle->read(&length, 4).bytes == static_cast<std::size_t>(4)) != 0;
+                bool ok = (handle.read(&position.x, 4).bytes == static_cast<std::size_t>(4)) != 0 &&
+                          (handle.read(&position.y, 4).bytes == static_cast<std::size_t>(4)) != 0 &&
+                          (handle.read(&layer, 4).bytes == static_cast<std::size_t>(4)) != 0 &&
+                          (handle.read(&length, 4).bytes == static_cast<std::size_t>(4)) != 0;
                 if (!ok || length < 1 || length > 40) return false;
                 std::vector<std::byte> bytes(static_cast<std::size_t>(length) * 2);
-                if (handle->read(bytes.data(), bytes.size()).bytes != bytes.size()) return false;
+                if (handle.read(bytes.data(), bytes.size()).bytes != bytes.size()) return false;
                 CreateAutomapNote(&position, layer, wiz8::text::from_utf16le(bytes));
             }
-            return (handle->read(&signature, 4).bytes == static_cast<std::size_t>(4)) != 0;
+            return (handle.read(&signature, 4).bytes == static_cast<std::size_t>(4)) != 0;
         }
     }
     return false;

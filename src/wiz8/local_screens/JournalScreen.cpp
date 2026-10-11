@@ -127,32 +127,32 @@ void RecordFactChangeForJournal(W8FactId fact_id)
 
 /* Write the JRNL format dword, entry count, then each 0x0c-byte entry. */
 // FUNCTION: WIZ8 0x00558A90
-void SaveFactJournal(wiz8::File* file)
+void SaveFactJournal(wiz8::File& file)
 {
     int format = 1;
     int count;
 
     count = static_cast<int>(g_fact_journal_entries.size());
-    file->write(&format, 4);
-    file->write(&count, 4);
+    file.write(&format, 4);
+    file.write(&count, 4);
     for (const auto& entry : g_fact_journal_entries) {
-        file->write(&entry, sizeof(entry));
+        file.write(&entry, sizeof(entry));
     }
 }
 
 /* Resize the live journal entries before reading the JRNL records. */
 // FUNCTION: WIZ8 0x00558B20
-void LoadJournalEntries(wiz8::File* file)
+void LoadJournalEntries(wiz8::File& file)
 {
     int format;
     int count;
 
     InitializeFactJournal();
-    file->read_exact(&format, 4);
-    file->read_exact(&count, 4);
+    file.read_exact(&format, 4);
+    file.read_exact(&count, 4);
     g_fact_journal_entries.resize(count);
     for (auto& entry : g_fact_journal_entries) {
-        file->read_exact(&entry, sizeof(entry));
+        file.read_exact(&entry, sizeof(entry));
     }
 }
 

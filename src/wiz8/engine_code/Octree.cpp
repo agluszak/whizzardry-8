@@ -2678,7 +2678,7 @@ W8Octree::W8Octree(const char* path, W8GameData** game_data)
                 g_octree_storage_[index] = index;
             }
             if (m_meshCount != 0) {
-                    if (!LoadPackedBits(hOctFile.get(), m_alpha_bits)) {
+                    if (!LoadPackedBits(*hOctFile, m_alpha_bits)) {
                     throw std::runtime_error("Could not read octree alpha bits.");
                 }
             }
@@ -2699,7 +2699,7 @@ W8Octree::W8Octree(const char* path, W8GameData** game_data)
             }
         }
         if (m_ulNumProps != 0 && header.m_prop_sun_bits != 0) {
-            if (!LoadPackedBits(hOctFile.get(), m_sunlit_props)) {
+            if (!LoadPackedBits(*hOctFile, m_sunlit_props)) {
                 throw std::runtime_error("Could not read octree prop sun bits.");
             }
         }

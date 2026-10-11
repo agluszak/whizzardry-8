@@ -168,10 +168,10 @@ void ReleaseNpcMonsterByKind(int kind);
 /* Record that the NPC has told the party the given fact. */
 void TellNpcFact(W8NpcState* npc, short fact);
 struct W8Chunk;
-bool SaveNpcStates(W8Chunk* chunks);
-void LoadNpcStates(W8Chunk* chunks);
-bool SaveNpcItemLists(wiz8::File* file);
-bool LoadNpcItemLists(wiz8::File* file);
+bool SaveNpcStates(wiz8::File& file);
+void LoadNpcStates(wiz8::File& file);
+bool SaveNpcItemLists(wiz8::File& file);
+bool LoadNpcItemLists(wiz8::File& file);
 char ScoreNpcTheft(W8Character* character, W8NpcState* npc, int item_id, int count);
 char AttemptNpcItemTheft(W8Character* character, W8NpcState* npc, int item_id, int count);
 void UpdateNpcPartyMember(int party_slot);

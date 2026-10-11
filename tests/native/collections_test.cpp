@@ -348,7 +348,7 @@ static bool keyboardBindingReplacement()
     REQUIRE(keyboard.GetBinding(0) == nullptr);
     {
         auto file = wiz8::open_host_file(path);
-        REQUIRE(keyboard.Load(file.get(), true));
+        REQUIRE(keyboard.Load(*file, true));
     }
     // A duplicate command replaces its record and moves to the end of the
     // ordered bindings. The command index must refer to that replacement.
@@ -392,7 +392,7 @@ static bool journalSerialization()
     }
     {
         auto file = wiz8::open_host_file(input_path);
-        LoadJournalEntries(file.get());
+        LoadJournalEntries(*file);
     }
     REQUIRE(g_fact_journal_entries.size() == count);
     for (int i = 0; i < count; ++i) {
@@ -402,7 +402,7 @@ static bool journalSerialization()
     }
     {
         auto file = wiz8::open_host_file(output_path, wiz8::OpenMode::replace);
-        SaveFactJournal(file.get());
+        SaveFactJournal(*file);
     }
     std::ifstream input(input_path, std::ios::binary), output(output_path, std::ios::binary);
     const std::vector<char> original{std::istreambuf_iterator<char>(input),
@@ -419,7 +419,7 @@ static bool journalSerialization()
     }
     {
         auto file = wiz8::open_host_file(input_path);
-        LoadJournalEntries(file.get());
+        LoadJournalEntries(*file);
     }
     REQUIRE(g_fact_journal_entries.empty());
     std::filesystem::remove_all(root);

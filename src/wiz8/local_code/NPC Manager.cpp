@@ -60,7 +60,6 @@
 #include "wiz8/engine_code/Levels.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/local_code/GameplayDatabase.h"
-#include "wiz8/chunk.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/MGSTextBox.h"
@@ -1172,7 +1171,7 @@ void ReleaseNpcStates(void)
    state block followed by its 0x1862 character block when the NPC carries one.
    The per-state stock lists trail through the section's file handle. */
 // FUNCTION: WIZ8 0x00509F00
-bool SaveNpcStates(W8Chunk* chunks)
+bool SaveNpcStates(wiz8::File& file)
 try
 {
     unsigned char version = 3;
@@ -1181,19 +1180,19 @@ try
     unsigned int index;
     int size;
 
-    chunks->m_hFile->write(&version, 1);
+    file.write(&version, 1);
     count = g_npc_states.size();
-    chunks->m_hFile->write(&count, 4);
+    file.write(&count, 4);
     for (index = 0; index < count; ++index) {
         npc = g_npc_states[index];
-        chunks->m_hFile->write(npc, sizeof(*npc));
+        file.write(npc, sizeof(*npc));
         if (npc->character != 0) {
             size = wiz8::retail::kCharacterBytes;
-            chunks->m_hFile->write(&size, 4);
-            wiz8::retail::write(*chunks->m_hFile, *npc->character);
+            file.write(&size, 4);
+            wiz8::retail::write(file, *npc->character);
         }
     }
-    return SaveNpcItemLists(chunks->m_hFile.get());
+    return SaveNpcItemLists(file);
 }
 catch (const std::exception&) { return false; }
 
@@ -1205,16 +1204,16 @@ catch (const std::exception&) { return false; }
 /* The stock-list tail of the NPCT section: for every NPC state the entry
    count, then each 0x14-byte stock entry in list order. */
 // FUNCTION: WIZ8 0x0050AA10
-bool SaveNpcItemLists(wiz8::File* file)
+bool SaveNpcItemLists(wiz8::File& file)
 try
 {
     for (int npc_index = 0; npc_index < g_npc_states.size(); ++npc_index) {
         W8NpcState* npc = g_npc_states[npc_index];
         const unsigned int item_count = npc->items != nullptr ? npc->items->size() : 0;
-        file->write(&item_count, sizeof(item_count));
+        file.write(&item_count, sizeof(item_count));
         for (unsigned int index = 0; index < item_count; ++index) {
             auto* entry = (*npc->items)[index];
-            file->write(entry, sizeof(*entry));
+            file.write(entry, sizeof(*entry));
         }
     }
     return true;
@@ -1443,7 +1442,7 @@ void ReleaseNpcBinding(int value)
    and later append the item lists through the second pass. The walk ends by
    backfilling runtime nodes for database records no loaded state claims. */
 // FUNCTION: WIZ8 0x00509FC0
-void LoadNpcStates(W8Chunk* chunks)
+void LoadNpcStates(wiz8::File& file)
 {
     unsigned char version = 3;
     unsigned int count;
@@ -1461,15 +1460,15 @@ void LoadNpcStates(W8Chunk* chunks)
             for (auto* state : previous) DestroyNpcState(state);
         }
     } rollback;
-    chunks->m_hFile->read_exact(&version, 1);
-    chunks->m_hFile->read_exact(&count, 4);
+    file.read_exact(&version, 1);
+    file.read_exact(&count, 4);
     if (count > static_cast<unsigned int>(std::numeric_limits<int>::max()) ||
-        count > (chunks->m_hFile->size() - chunks->m_hFile->tell()) / sizeof(W8NpcState)) {
+        count > (file.size() - file.tell()) / sizeof(W8NpcState)) {
         throw std::runtime_error("invalid NPC state count");
     }
     for (loaded = 0; loaded < count; ++loaded) {
         W8NpcState disk_state;
-        chunks->m_hFile->read_exact(&disk_state, sizeof(disk_state));
+        file.read_exact(&disk_state, sizeof(disk_state));
         const bool has_character = W8SerializedPointerPresent(disk_state.character);
         disk_state.script_file = nullptr;
         disk_state.items = nullptr;
@@ -1487,12 +1486,12 @@ void LoadNpcStates(W8Chunk* chunks)
         npc = owner.get();
         if (has_character) {
             size = 0x185c;
-            if (version >= 3) chunks->m_hFile->read_exact(&size, sizeof(size));
+            if (version >= 3) file.read_exact(&size, sizeof(size));
             if (size > wiz8::retail::kCharacterBytes) {
                 throw std::runtime_error("invalid NPC character size");
             }
             auto character = std::make_unique<W8Character>();
-            wiz8::retail::read_exact(*chunks->m_hFile, *character, size);
+            wiz8::retail::read_exact(file, *character, size);
             npc->character = character.get();
             (void)character.release();
         }
@@ -1518,7 +1517,7 @@ void LoadNpcStates(W8Chunk* chunks)
         }
     }
     if (version > 1) {
-        if (!LoadNpcItemLists(chunks->m_hFile.get())) {
+        if (!LoadNpcItemLists(file)) {
             throw std::runtime_error("invalid NPC stock lists");
         }
     }
@@ -1539,7 +1538,7 @@ static void DestroyNpcItemList(std::vector<W8NpcItemEntry*>* items)
 
 /* Stage all stock lists before replacing any live NPC's inventory. */
 // FUNCTION: WIZ8 0x0050AAF0
-bool LoadNpcItemLists(wiz8::File* file)
+bool LoadNpcItemLists(wiz8::File& file)
 try
 {
     using ItemListOwner = std::unique_ptr<std::vector<W8NpcItemEntry*>, decltype(&DestroyNpcItemList)>;
@@ -1547,9 +1546,9 @@ try
     pending.reserve(g_npc_states.size());
     for (int npc_index = 0; npc_index < g_npc_states.size(); ++npc_index) {
         unsigned int item_count;
-        file->read_exact(&item_count, sizeof(item_count));
+        file.read_exact(&item_count, sizeof(item_count));
         if (item_count > static_cast<unsigned int>(std::numeric_limits<int>::max()) ||
-            item_count > (file->size() - file->tell()) / sizeof(W8NpcItemEntry)) {
+            item_count > (file.size() - file.tell()) / sizeof(W8NpcItemEntry)) {
             return false;
         }
         ItemListOwner items(nullptr, DestroyNpcItemList);
@@ -1558,7 +1557,7 @@ try
             items->reserve(item_count);
             for (unsigned int index = 0; index < item_count; ++index) {
                 auto entry = std::make_unique<W8NpcItemEntry>();
-                file->read_exact(entry.get(), sizeof(*entry));
+                file.read_exact(entry.get(), sizeof(*entry));
                 items->push_back(entry.get());
                 (void)entry.release();
             }

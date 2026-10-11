@@ -23,7 +23,7 @@ TEST_CASE("packed bit IO")
         original[bit] = (words[bit / 32] >> (bit % 32)) & 1;
     {
         auto file = wiz8::open_host_file(path, wiz8::OpenMode::replace);
-        REQUIRE((SavePackedBits(file.get(), original)));
+        REQUIRE((SavePackedBits(*file, original)));
         REQUIRE((file->seek(0, wiz8::SeekOrigin::begin) == 0));
         Uint32 magic;
         REQUIRE((SDL_ReadU32LE(file->io(), &magic) && magic == 0xdeadd00d));
@@ -47,7 +47,7 @@ TEST_CASE("packed bit IO")
     REQUIRE((encoded == legacy));
     file->seek(0, wiz8::SeekOrigin::begin);
     std::vector<bool> restored(1);
-    REQUIRE((LoadPackedBits(file.get(), restored) && restored.size() == 64));
+    REQUIRE((LoadPackedBits(*file, restored) && restored.size() == 64));
     REQUIRE((restored == original));
     file->close();
     ClearBit(restored, 7);
@@ -64,7 +64,7 @@ TEST_CASE("packed bit IO")
         auto truncated = wiz8::open_host_file(path);
         std::vector<bool> destination(32);
         SetBit(destination, 7);
-        REQUIRE((!LoadPackedBits(truncated.get(), destination)));
+        REQUIRE((!LoadPackedBits(*truncated, destination)));
         REQUIRE((destination.size() == 32 && TestBit(destination, 7)));
     }
     // Counts near 2^24 exposed the old float divide rounding into the next
@@ -73,9 +73,9 @@ TEST_CASE("packed bit IO")
         std::vector<bool> source(count), resized(1);
         SetBit(source, count - 1);
         auto output = wiz8::open_host_file(path, wiz8::OpenMode::replace);
-        REQUIRE((SavePackedBits(output.get(), source)));
+        REQUIRE((SavePackedBits(*output, source)));
         output->seek(0, wiz8::SeekOrigin::begin);
-        REQUIRE((LoadPackedBits(output.get(), resized) && resized.size() == count));
+        REQUIRE((LoadPackedBits(*output, resized) && resized.size() == count));
         REQUIRE((resized == source));
     }
     // Mismatched serialized bit count and Huffman word count cannot commit.
@@ -86,7 +86,7 @@ TEST_CASE("packed bit IO")
         output->seek(0, wiz8::SeekOrigin::begin);
         std::vector<bool> destination(32);
         SetBit(destination, 7);
-        REQUIRE((!LoadPackedBits(output.get(), destination) && TestBit(destination, 7)));
+        REQUIRE((!LoadPackedBits(*output, destination) && TestBit(destination, 7)));
     }
     std::filesystem::remove_all(root);
     puts("ok: legacy packed-bit bytes, Huffman round trip and truncation");

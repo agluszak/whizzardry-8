@@ -11,7 +11,6 @@
 #include <cctype>
 #include <cstring>
 
-#include "wiz8/containers.h"
 #include "soundman.h"
 #include "Font.h"
 #include "wiz8/engine_code/Quality.h"
@@ -241,10 +240,17 @@ W8OptionsUnavailablePanel::W8OptionsUnavailablePanel(int message)
 {
 }
 
-void W8OptionsSaveRow::SetSave(W8SaveSlot* save)
+void W8OptionsSaveRow::SetSave(W8SaveSlot& save)
 {
-    m_save = save;
-    SetEnabled(save != 0);
+    m_save = &save;
+    SetEnabled(true);
+    Invalidate(false);
+}
+
+void W8OptionsSaveRow::ClearSave()
+{
+    m_save = nullptr;
+    SetEnabled(false);
     Invalidate(false);
 }
 
@@ -331,13 +337,10 @@ void W8OptionsSaveLoadPanel::SetCurrent(int current)
         limit = first + 5;
     }
     for (int slot = first; slot < limit; ++slot) {
-        W8SaveSlot* save = g_options_screen->m_save_slots[slot];
-        W8OptionsSaveRow* row = m_rows[slot - first];
-        row->SetSave(save);
+        m_rows[slot - first]->SetSave(*g_options_screen->m_save_slots[slot]);
     }
     for (; limit < first + 5; ++limit) {
-        W8OptionsSaveRow* row = m_rows[limit - first];
-        row->SetSave(0);
+        m_rows[limit - first]->ClearSave();
     }
     m_selection.SetSelected(0);
     if (g_options_screen->m_text_editor == 0 && m_panel == 12 && m_selection.m_selectedIndex == 0 &&
@@ -385,7 +388,7 @@ void W8OptionsSaveLoadPanel::OnDialogClosed(bool accepted, int value)
             selected_slot = m_current * 5 + m_selection.m_selectedIndex;
             (g_options_screen->m_save_slots[selected_slot])->name = m_previous_name;
             W8OptionsSaveRow* row = m_rows[m_selection.m_selectedIndex];
-            row->SetSave(g_options_screen->m_save_slots[selected_slot]);
+            row->SetSave(*g_options_screen->m_save_slots[selected_slot]);
             if (g_options_screen->m_text_editor != 0 || m_panel != 12 ||
                 m_selection.m_selectedIndex != 0) {
                 return;
@@ -431,11 +434,11 @@ void W8OptionsSaveLoadPanel::OnTextEditComplete(W8OptionsTextEditor*, unsigned c
         return;
     }
 
-    W8SaveSlot* slot = g_options_screen->m_save_slots[selected_slot];
-    m_previous_name = slot->name;
-    slot->name = GetTextFromField(0);
-    if (slot->name.size() == 0) {
-        slot->name = m_previous_name;
+    W8SaveSlot& slot = *g_options_screen->m_save_slots[selected_slot];
+    m_previous_name = slot.name;
+    slot.name = GetTextFromField(0);
+    if (slot.name.size() == 0) {
+        slot.name = m_previous_name;
         g_options_screen->ShowNotification(this, false, 0x82a, 4);
         return;
     }
@@ -443,7 +446,7 @@ void W8OptionsSaveLoadPanel::OnTextEditComplete(W8OptionsTextEditor*, unsigned c
     W8OptionsSaveRow* row = m_rows[m_selection.m_selectedIndex];
     row->SetSave(slot);
     if (m_current == 0 && m_selection.m_selectedIndex == 0) {
-        if (SaveSlotFileExists(slot->name) == 0) {
+        if (SaveSlotFileExists(slot.name) == 0) {
             SaveSelectedSave();
         } else {
             g_options_screen->ShowNotification(this, true, 0x829, 2);
@@ -482,9 +485,9 @@ void W8OptionsSaveLoadPanel::OnSelectionChanged(W8ControlSelection*, int)
 void W8OptionsSaveLoadPanel::DeleteSelectedSave()
 {
     int selected_slot = m_current * 5 + 1 + m_selection.m_selectedIndex;
-    W8SaveSlot* slot = g_options_screen->m_save_slots[selected_slot];
+    W8SaveSlot& slot = *g_options_screen->m_save_slots[selected_slot];
     std::string path;
-    path = fmt::format("{}\\{}.{}", "Saves", slot->name, g_save_extension);
+    path = fmt::format("{}\\{}.{}", "Saves", slot.name, g_save_extension);
     if (wiz8::remove_file(path) == 0) {
         g_options_screen->ShowNotification(this, false, 0x82f, 0);
         return;
@@ -520,16 +523,16 @@ void W8OptionsSaveLoadPanel::DeleteSelectedSave()
 void W8OptionsSaveLoadPanel::LoadSelectedSave()
 {
     int selected_slot = m_current * 5 + 1 + m_selection.m_selectedIndex;
-    W8SaveSlot* slot = g_options_screen->m_save_slots[selected_slot];
-    if (slot->version_major + slot->version_minor * 0.1f + slot->version_patch * 0.01f <= 1.24f) {
-        SetLastSaveName(slot->name);
+    W8SaveSlot& slot = *g_options_screen->m_save_slots[selected_slot];
+    if (slot.version_major + slot.version_minor * 0.1f + slot.version_patch * 0.01f <= 1.24f) {
+        SetLastSaveName(slot.name);
         if (g_status.game_started) {
             ClearHeldItemDisplay();
         }
         RequestScreenTransition();
         g_pending_screen_state.mode = 1;
-        g_pending_screen_state.parameter = slot->level_id;
-        g_pending_screen_state.name = slot->name;
+        g_pending_screen_state.parameter = slot.level_id;
+        g_pending_screen_state.name = slot.name;
         SetPendingScreenState(W8_SCREEN_PLEASE_WAIT);
     }
 }
@@ -538,21 +541,21 @@ void W8OptionsSaveLoadPanel::LoadSelectedSave()
 void W8OptionsSaveLoadPanel::SaveSelectedSave(std::string_view previous_name)
 {
     int selected_slot = m_current * 5 + m_selection.m_selectedIndex;
-    W8SaveSlot* slot = g_options_screen->m_save_slots[selected_slot];
-    if (slot->name.size() == 0) {
+    W8SaveSlot& slot = *g_options_screen->m_save_slots[selected_slot];
+    if (slot.name.size() == 0) {
         g_options_screen->ShowNotification(this, false, 0x82a, 0);
         return;
     }
 
-    SetLastSaveName(slot->name);
+    SetLastSaveName(slot.name);
     RequestScreenTransition();
     g_pending_screen_state.mode = 2;
-    g_pending_screen_state.name = slot->name;
+    g_pending_screen_state.name = slot.name;
     const std::string old_name(previous_name);
     // Game save paths resolve ASCII names case-insensitively. Never remove the
     // new file when a rename changes only capitalization.
     g_pending_screen_state.previous_save_name =
-        SDL_strcasecmp(old_name.c_str(), slot->name.c_str()) == 0
+        SDL_strcasecmp(old_name.c_str(), slot.name.c_str()) == 0
             ? std::string()
             : old_name;
     g_pending_screen_state.parameter_3 =
@@ -1274,10 +1277,9 @@ W8OptionsScreen::W8OptionsScreen()
     for (int index = 0; index < 8; ++index) {
         m_panel[index] = 0;
     }
-    W8SaveSlot* current = new W8SaveSlot;
-    m_save_slots.push_back(current);
+    auto& current = m_save_slots.emplace_back(std::make_unique<W8SaveSlot>());
     if (g_status.game_started) {
-        FillCurrentSaveSlot(current);
+        FillCurrentSaveSlot(*current);
     }
     EnumerateSaveSlots(m_save_slots);
 }
@@ -1318,7 +1320,6 @@ W8OptionsScreen::~W8OptionsScreen()
 {
     int index;
     SelectPanel(-1, true);
-    wiz8::remove_all_and_delete(m_save_slots);
     delete m_controls;
     delete m_menu_set;
     delete m_menu_selection;

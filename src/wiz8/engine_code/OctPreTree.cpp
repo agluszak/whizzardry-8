@@ -312,7 +312,7 @@ try
             return 0;
         }
         if (m_meshCount != 0 && !m_alpha_bits.empty() &&
-            !SavePackedBits(file.get(), m_alpha_bits)) {
+            !SavePackedBits(*file, m_alpha_bits)) {
             srAssertFail("m_pAlphaBits->Save(hOctFile)", OCTPRETREE_CPP, 0x224,
                          "ReadOctFile: Failure writing Alpha Bits.");
         }
@@ -331,7 +331,7 @@ try
         return 0;
     }
     if (m_ulNumProps != 0 && !m_sunlit_props.empty() &&
-        !SavePackedBits(file.get(), m_sunlit_props)) {
+        !SavePackedBits(*file, m_sunlit_props)) {
         ReportBuildStatus(7, "WriteOctFile: Couldn't write Prop Sunlight bits array.\n");
         return 0;
     }
@@ -379,9 +379,8 @@ static void FreeSubmeshBuildArrays(W8OctSubmeshBuild* records, w8_ulong count)
    vertex/polygon data, counts the per-kind totals and marks the alpha-bit
    rows whose packed header is nonzero. */
 // FUNCTION: WIZ8 0x00468c30
-OctMeshModel* OctPreTree::CreateSubMeshes(W8OctPreTreeGeometry* geometry)
+std::vector<OctMeshModel> OctPreTree::CreateSubMeshes(W8OctPreTreeGeometry* geometry)
 {
-    OctMeshModel* models;
     W8OctSubmeshBuild* records;
     unsigned int kind_counts[4];
     unsigned int root_count;
@@ -389,7 +388,7 @@ OctMeshModel* OctPreTree::CreateSubMeshes(W8OctPreTreeGeometry* geometry)
     unsigned int model_index;
 
     if (m_spatial.submesh_count == 0) {
-        return 0;
+        return {};
     }
     m_vertex_count = geometry->vertex_count;
     VerifyPolygonRegions();
@@ -412,8 +411,8 @@ OctMeshModel* OctPreTree::CreateSubMeshes(W8OctPreTreeGeometry* geometry)
         } else {
             m_pSubmeshes = static_cast<W8OctSubmesh*>(
                 malloc((m_spatial.submesh_count + 1) * sizeof(W8OctSubmesh)));
-            models = new OctMeshModel[m_spatial.submesh_count + 1];
-            if (m_pSubmeshes != 0 && models != 0) {
+            std::vector<OctMeshModel> models(m_spatial.submesh_count + 1);
+            if (m_pSubmeshes != 0) {
                 memset(m_pSubmeshes, 0, (m_spatial.submesh_count + 1) * sizeof(W8OctSubmesh));
                 root_count = 0;
                 kind_counts[3] = 0;
@@ -428,7 +427,7 @@ OctMeshModel* OctPreTree::CreateSubMeshes(W8OctPreTreeGeometry* geometry)
                     /* Retail writes models from index 0: records[1..] and
                        submeshes[1..] are one-based, but the model cursor
                        starts at models[0]. */
-                    OctMeshModel* model = models;
+                    OctMeshModel* model = models.data();
                     do {
                         if (record->m_polygon_count == 0) {
                             ReportBuildStatus(7, "CreateSubMeshes: Found mesh with no polys.\n");
@@ -549,6 +548,7 @@ OctMeshModel* OctPreTree::CreateSubMeshes(W8OctPreTreeGeometry* geometry)
                    and leaks the final record's vertex/polygon id arrays. */
                 FreeSubmeshBuildArrays(records, m_spatial.submesh_count);
                 free(records);
+                models.resize(model_index);
                 return models;
             }
             ReportBuildStatus(7, "\nCreateSubMeshes: Could not allocate mesh arrays.\n");
@@ -557,7 +557,7 @@ OctMeshModel* OctPreTree::CreateSubMeshes(W8OctPreTreeGeometry* geometry)
     cleanup:
         free(records);
     }
-    return 0;
+    return {};
 }
 
 /* Second CreateSubMeshes phase: partitions every non-empty automesh record's
@@ -1058,7 +1058,7 @@ void OctPreTree::VerifyAutoMeshes(W8OctPreTreeGeometry* geometry, W8OctSubmeshBu
    keys each (z<<16 | x) cell so one pass emits at most one node per cell
    unless a duplicate key arrives with an empty value. */
 // FUNCTION: WIZ8 0x0046b060
-unsigned char OctPreTree::BuildPathLists(W8GameData* game_data, W8LevelFile* level,
+unsigned char OctPreTree::BuildPathLists(W8GameData* game_data, W8LevelFile& level,
                                          unsigned int min_component_percent)
 {
     std::unordered_map<unsigned int, int> node_map;
@@ -1071,8 +1071,7 @@ unsigned char OctPreTree::BuildPathLists(W8GameData* game_data, W8LevelFile* lev
     SetOctreeGameData(game_data);
     m_visited_object_bits.assign(m_spatial.m_item_count + 0x14, false);
     pre_pathing = new PrePathing;
-    pre_pathing->SnapNamedPositions(level->pNamedPositions, level->nNamedPositions,
-                                    min_component_percent, this);
+    pre_pathing->SnapNamedPositions(level.named_positions, min_component_percent, this);
     ReportBuildStatus(6, "\nBuilding Path Lists:\n=======================\n");
     path_node_extent = m_region_cell + m_region_cell;
     float level_height = (m_spatial.m_bounds.maximum.y - m_spatial.m_bounds.minimum.y) * g_path_span_scale;
@@ -1353,9 +1352,9 @@ char OctPreTree::TestPathPropBounds(const srBoundingBox& bounds)
    and registers every element in props. Returns the record count and the
    malloc'd array through `preprops`. */
 // FUNCTION: WIZ8 0x0046c0f0
-int OctPreTree::CreatePathProps(W8LevelFile* level, W8PreProp** preprops)
+int OctPreTree::CreatePathProps(const W8LevelFile& level, W8PreProp** preprops)
 {
-    int count = level->nProps;
+    int count = static_cast<int>(level.props.size());
     unsigned short prop_number = 0;
     W8PreProp* records = static_cast<W8PreProp*>(malloc(count * sizeof(W8PreProp)));
     memset(records, 0, count * sizeof(W8PreProp));
@@ -1363,19 +1362,19 @@ int OctPreTree::CreatePathProps(W8LevelFile* level, W8PreProp** preprops)
         *preprops = records;
     } else {
         for (int i = 0; i < count; ++i) {
-            W8LevelFileProp* prop = level->pProps + i;
+            const W8LevelFileProp* prop = &level.props[i];
             W8PreProp* record = records + i;
             if ((prop->flags & W8_PROP_COLLIDABLE) == 0)
                 continue;
             const auto registerFrame = [&](unsigned mesh_index, unsigned short frame) {
                 auto& mesh = record->pStopMeshes[mesh_index];
-                mesh.ApplyAnimFrame(frame, &prop->anim_obj);
+                mesh.ApplyAnimFrame(frame, prop->anim_obj);
                 AddCollidablePropBounds(static_cast<unsigned short>(prop_number + mesh_index),
                                         mesh.computeBounds());
                 props->push_back(&mesh);
             };
-            if (prop->num_frame_pos == 0) {
-                record->num_stop_meshes = PropFramesDiffer(&prop->anim_obj, 0, 0xffff) ? 2 : 1;
+            if (prop->frame_positions.empty()) {
+                record->num_stop_meshes = PropFramesDiffer(prop->anim_obj, 0, 0xffff) ? 2 : 1;
                 record->first_prop_number = prop_number;
                 record->pStopMeshes = new GDPreProp[record->num_stop_meshes];
                 if (record->pStopMeshes == 0) {
@@ -1389,20 +1388,11 @@ int OctPreTree::CreatePathProps(W8LevelFile* level, W8PreProp** preprops)
                     prop_number += 2;
                 } else {
                     record->pStopMeshes[0].m_flags.always_blocks_path = true;
-                    unsigned short last = 0xffff;
-                    if (prop->anim_obj.num_transforms > 0) {
-                        W8LevelFileTransform* t = prop->anim_obj.pTransforms;
-                        for (int t_i = prop->anim_obj.num_transforms; t_i != 0; --t_i, ++t) {
-                            if (t->pathAI.path_count <= static_cast<int>(last)) {
-                                last = static_cast<unsigned short>(t->pathAI.path_count - 1);
-                            }
-                        }
-                    }
-                    record->pStopMeshes[0].last_frame = last;
+                    record->pStopMeshes[0].last_frame = prop->anim_obj.ClampFrame(0xffff);
                     ++prop_number;
                 }
             } else {
-                record->num_stop_meshes = static_cast<unsigned short>(prop->num_frame_pos);
+                record->num_stop_meshes = static_cast<unsigned short>(prop->frame_positions.size());
                 record->first_prop_number = prop_number;
                 strcpy(record->name, prop->name);
                 record->pStopMeshes = new GDPreProp[record->num_stop_meshes];
@@ -1411,8 +1401,8 @@ int OctPreTree::CreatePathProps(W8LevelFile* level, W8PreProp** preprops)
                                  "CreatePathProps: Couldn't allocate GDPreProp objects.");
                 }
                 for (unsigned short j = 0; j < record->num_stop_meshes; ++j) {
-                    unsigned short frame = prop->usFrame_Pos[j].frame;
-                    if (static_cast<unsigned short>(prop->bNumFrames) <= frame) {
+                    unsigned short frame = prop->frame_positions[j].frame;
+                    if (static_cast<unsigned short>(prop->frame_count) <= frame) {
                         srAssertFail(
                             "(pLVL->pProps[i].usFrame_Pos[j*2] < "
                             "(UINT16)(pLVL->pProps[i].bNumFrames))", /* c-style-cast-ok: verbatim
@@ -1436,51 +1426,35 @@ int OctPreTree::CreatePathProps(W8LevelFile* level, W8PreProp** preprops)
    quaternions disagree beyond the snap epsilon (unless they are the mirrored
    same rotation), or scaled-path tails drift. */
 // FUNCTION: WIZ8 0x0046c6a0
-char OctPreTree::PropFramesDiffer(W8LevelFileAnimObj* anim, unsigned short first,
+char OctPreTree::PropFramesDiffer(const W8LevelFileAnimObj& anim, unsigned short first,
                                   unsigned short last)
 {
-    char count = anim->num_transforms;
-    if (count > 0) {
-        W8LevelFileTransform* t = anim->pTransforms;
-        for (int i = count; i != 0; --i, ++t) {
-            if (t->pathAI.path_count <= static_cast<int>(last)) {
-                last = static_cast<unsigned short>(t->pathAI.path_count - 1);
-            }
-        }
-    }
+    last = anim.ClampFrame(last);
     bool differ = false;
-    if (count > 0) {
-        W8LevelFileTransform* t = anim->pTransforms;
-        for (int i = count; i != 0; --i, ++t) {
-            W8LevelFileScaledPathNode a, b;
-            if (t->pathAI.scaled == 2) {
-                a = t->pathAI.pScaledPaths[first];
-                b = t->pathAI.pScaledPaths[last];
-                if (g_camera_snap_epsilon < fabsf(a.scale.x - b.scale.x) ||
-                    g_camera_snap_epsilon < fabsf(a.scale.y - b.scale.y) ||
-                    g_camera_snap_epsilon < fabsf(a.scale.z - b.scale.z)) {
-                    differ = true;
-                }
-            } else {
-                a.path = t->pathAI.pPaths[first];
-                b.path = t->pathAI.pPaths[last];
-            }
-            if (g_float_half < fabsf(a.path.position.x - b.path.position.x) ||
-                g_float_half < fabsf(a.path.position.y - b.path.position.y) ||
-                g_float_half < fabsf(a.path.position.z - b.path.position.z)) {
+    for (const auto& transform : anim.transforms) {
+        const auto a = transform.pathAI.Node(first);
+        const auto b = transform.pathAI.Node(last);
+        if (transform.pathAI.IsScaled() &&
+            (g_camera_snap_epsilon < fabsf(a.scale.x - b.scale.x) ||
+             g_camera_snap_epsilon < fabsf(a.scale.y - b.scale.y) ||
+             g_camera_snap_epsilon < fabsf(a.scale.z - b.scale.z))) {
+            differ = true;
+        }
+        if (g_float_half < fabsf(a.path.position.x - b.path.position.x) ||
+            g_float_half < fabsf(a.path.position.y - b.path.position.y) ||
+            g_float_half < fabsf(a.path.position.z - b.path.position.z)) {
+            differ = true;
+        }
+        if (g_camera_snap_epsilon < fabsf(a.path.angle - b.path.angle) ||
+            g_camera_snap_epsilon < fabsf(a.path.axis.x - b.path.axis.x) ||
+            g_camera_snap_epsilon < fabsf(a.path.axis.y - b.path.axis.y) ||
+            g_camera_snap_epsilon < fabsf(a.path.axis.z - b.path.axis.z)) {
+            // A mirrored axis with complementary angles is the same rotation.
+            if (!(fabsf((b.path.angle + a.path.angle) - g_camera_half_pi) <= g_float_one_tenth &&
+                  fabsf(b.path.axis.x + a.path.axis.x) <= g_camera_snap_epsilon &&
+                  fabsf(b.path.axis.y + a.path.axis.y) <= g_camera_snap_epsilon &&
+                  fabsf(b.path.axis.z + a.path.axis.z) <= g_camera_snap_epsilon)) {
                 differ = true;
-            }
-            if (g_camera_snap_epsilon < fabsf(a.path.angle - b.path.angle) ||
-                g_camera_snap_epsilon < fabsf(a.path.axis.x - b.path.axis.x) ||
-                g_camera_snap_epsilon < fabsf(a.path.axis.y - b.path.axis.y) ||
-                g_camera_snap_epsilon < fabsf(a.path.axis.z - b.path.axis.z)) {
-                if (!(fabsf((b.path.angle + a.path.angle) - g_camera_half_pi) <=
-                          g_float_one_tenth &&
-                      fabsf(b.path.axis.x + a.path.axis.x) <= g_camera_snap_epsilon &&
-                      fabsf(b.path.axis.y + a.path.axis.y) <= g_camera_snap_epsilon &&
-                      fabsf(b.path.axis.z + a.path.axis.z) <= g_camera_snap_epsilon)) {
-                    differ = true;
-                }
             }
         }
     }

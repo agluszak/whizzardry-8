@@ -67,7 +67,7 @@ void SetWorldCursorNodeColor(W8WorldCursorNode* entry, w8_ulong color);
 W8WorldCursorNode* PickWorldCursorNodeAtScreenPoint(int x, int y);
 void DrawWorldBox(W8World* world, srVector3T<float> minimum, srVector3T<float> maximum,
                   w8_ulong color);
-unsigned char SaveWorldCursorNodeStates(wiz8::File* handle);
-unsigned char SaveWorldCursorNodes(wiz8::File* handle);
-unsigned int LoadWorldCursorNodes(wiz8::File* handle);
-unsigned int LoadWorldCursorNodeStates(wiz8::File* handle);
+unsigned char SaveWorldCursorNodeStates(wiz8::File& handle);
+unsigned char SaveWorldCursorNodes(wiz8::File& handle);
+unsigned int LoadWorldCursorNodes(wiz8::File& handle);
+unsigned int LoadWorldCursorNodeStates(wiz8::File& handle);

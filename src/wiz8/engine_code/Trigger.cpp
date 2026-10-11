@@ -259,7 +259,7 @@ bool InsideDestinationTrigger(float x, float y, float z)
 }
 
 // FUNCTION: WIZ8 0x0043cb30
-void SaveTriggerRuntimeStates(W8World* world, wiz8::File* handle, bool restoring)
+void SaveTriggerRuntimeStates(W8World* world, wiz8::File& handle, bool restoring)
 {
     int trigger_count = static_cast<int>(world->triggers.size());
     int saved_count = 0;
@@ -274,55 +274,55 @@ void SaveTriggerRuntimeStates(W8World* world, wiz8::File* handle, bool restoring
         }
     }
 
-    handle->write(&version, sizeof(version));
-    handle->write(&saved_count, sizeof(saved_count));
-    handle->write(&restoring_value, sizeof(restoring_value));
+    handle.write(&version, sizeof(version));
+    handle.write(&saved_count, sizeof(saved_count));
+    handle.write(&restoring_value, sizeof(restoring_value));
 
     for (index = 0; index < trigger_count; ++index) {
         Trigger* trigger = world->triggers[index];
         if (trigger->lock_state.lock_type != 0) {
-            handle->write(trigger->name, 0x80);
-            handle->write(&version, sizeof(version));
+            handle.write(trigger->name, 0x80);
+            handle.write(&version, sizeof(version));
             if (restoring) {
-                handle->write(&trigger->lock_state.lock_type, sizeof(trigger->lock_state.lock_type));
-                handle->write(&trigger->lock_state.difficulty, sizeof(trigger->lock_state.difficulty));
-                handle->write(&trigger->lock_state.device_state.completed, sizeof(trigger->lock_state.device_state.completed));
-                handle->write(trigger->lock_state.device_state.pins, sizeof(trigger->lock_state.device_state.pins));
-                handle->write(&trigger->lock_state.device_id, sizeof(trigger->lock_state.device_id));
-                handle->write(&trigger->lock_state.key_id, sizeof(trigger->lock_state.key_id));
-                handle->write(&trigger->lock_state.lock_countdown, sizeof(trigger->lock_state.lock_countdown));
+                handle.write(&trigger->lock_state.lock_type, sizeof(trigger->lock_state.lock_type));
+                handle.write(&trigger->lock_state.difficulty, sizeof(trigger->lock_state.difficulty));
+                handle.write(&trigger->lock_state.device_state.completed, sizeof(trigger->lock_state.device_state.completed));
+                handle.write(trigger->lock_state.device_state.pins, sizeof(trigger->lock_state.device_state.pins));
+                handle.write(&trigger->lock_state.device_id, sizeof(trigger->lock_state.device_id));
+                handle.write(&trigger->lock_state.key_id, sizeof(trigger->lock_state.key_id));
+                handle.write(&trigger->lock_state.lock_countdown, sizeof(trigger->lock_state.lock_countdown));
             } else {
-                handle->write(&trigger->lock_state.device_state.completed, sizeof(trigger->lock_state.device_state.completed));
-                handle->write(trigger->lock_state.device_state.pins, sizeof(trigger->lock_state.device_state.pins));
-                handle->write(&trigger->lock_state.lock_countdown, sizeof(trigger->lock_state.lock_countdown));
-                handle->write(&trigger->lock_state.last_interaction_clock, sizeof(trigger->lock_state.last_interaction_clock));
+                handle.write(&trigger->lock_state.device_state.completed, sizeof(trigger->lock_state.device_state.completed));
+                handle.write(trigger->lock_state.device_state.pins, sizeof(trigger->lock_state.device_state.pins));
+                handle.write(&trigger->lock_state.lock_countdown, sizeof(trigger->lock_state.lock_countdown));
+                handle.write(&trigger->lock_state.last_interaction_clock, sizeof(trigger->lock_state.last_interaction_clock));
             }
         }
     }
 }
 
-void W8LockState::ReadRuntimeRecord(wiz8::File* handle, int version, int restoring)
+void W8LockState::ReadRuntimeRecord(wiz8::File& handle, int version, int restoring)
 {
     int record_version;
 
     if (restoring == 0 && version > 1) {
-        handle->read_exact(&record_version, sizeof(record_version));
-        handle->read_exact(&device_state.completed, sizeof(device_state.completed));
-        handle->read_exact(device_state.pins, sizeof(device_state.pins));
-        handle->read_exact(&lock_countdown, sizeof(lock_countdown));
+        handle.read_exact(&record_version, sizeof(record_version));
+        handle.read_exact(&device_state.completed, sizeof(device_state.completed));
+        handle.read_exact(device_state.pins, sizeof(device_state.pins));
+        handle.read_exact(&lock_countdown, sizeof(lock_countdown));
         if (record_version > 1) {
-            handle->read_exact(&last_interaction_clock, sizeof(last_interaction_clock));
+            handle.read_exact(&last_interaction_clock, sizeof(last_interaction_clock));
         }
     } else {
-        handle->read_exact(&record_version, sizeof(record_version));
-        handle->read_exact(&lock_type, sizeof(lock_type));
-        handle->read_exact(&difficulty, sizeof(difficulty));
-        handle->read_exact(&device_state.completed, sizeof(device_state.completed));
-        handle->read_exact(device_state.pins, sizeof(device_state.pins));
-        handle->read_exact(&device_id, sizeof(device_id));
-        handle->read_exact(&key_id, sizeof(key_id));
+        handle.read_exact(&record_version, sizeof(record_version));
+        handle.read_exact(&lock_type, sizeof(lock_type));
+        handle.read_exact(&difficulty, sizeof(difficulty));
+        handle.read_exact(&device_state.completed, sizeof(device_state.completed));
+        handle.read_exact(device_state.pins, sizeof(device_state.pins));
+        handle.read_exact(&device_id, sizeof(device_id));
+        handle.read_exact(&key_id, sizeof(key_id));
         if (record_version > 1) {
-            handle->read_exact(&lock_countdown, sizeof(lock_countdown));
+            handle.read_exact(&lock_countdown, sizeof(lock_countdown));
         }
     }
 }
@@ -333,7 +333,7 @@ void W8LockState::ReadRuntimeRecord(wiz8::File* handle, int version, int restori
    restoring, a state byte block is re-randomized and the type-10 action data is
    re-linked to the stored item. */
 // FUNCTION: WIZ8 0x0043ccf0
-bool LoadTriggerRuntimeStates(wiz8::File* handle)
+bool LoadTriggerRuntimeStates(wiz8::File& handle)
 try
 {
     int version;
@@ -341,9 +341,9 @@ try
     int restoring;
     int index = 0;
 
-    handle->read_exact(&version, sizeof(version));
-    handle->read_exact(&saved_count, sizeof(saved_count));
-    handle->read_exact(&restoring, sizeof(restoring));
+    handle.read_exact(&version, sizeof(version));
+    handle.read_exact(&saved_count, sizeof(saved_count));
+    handle.read_exact(&restoring, sizeof(restoring));
     if (saved_count < 1) {
         return true;
     }
@@ -351,7 +351,7 @@ try
         char name[0x80];
         Trigger* trigger;
 
-        handle->read_exact(name, sizeof(name));
+        handle.read_exact(name, sizeof(name));
         trigger = FindTriggerByName(name);
         if (trigger == 0) {
             Trigger* scratch = new Trigger;
@@ -389,7 +389,7 @@ try
    attached, with its flag bits packed and the timed-event delay resolved from
    the live event queue. Returns whether the header went out completely. */
 // FUNCTION: WIZ8 0x0043BE60
-bool Trigger::Save(wiz8::File* hFile)
+bool Trigger::Save(wiz8::File& hFile)
 {
     unsigned char version = 5;
     int trigger_count = static_cast<int>(g_world->triggers.size());
@@ -402,28 +402,25 @@ bool Trigger::Save(wiz8::File* hFile)
     unsigned int progress_delay;
     unsigned char has_world_item;
 
-    if (hFile == 0) {
-        srAssertFail("hFile", "C:\\Projects\\Wizardry 8\\Engine Code\\Trigger.cpp", 0x183, 0);
-    }
-    header_ok = (hFile->write(&version, sizeof(version)), true) &&
-                (hFile->write(&trigger_count, sizeof(trigger_count)), true) &&
-                (hFile->write(name, 0x80), true) && (hFile->write(&flags, sizeof(flags)), true) &&
-                (hFile->write(&state_index, sizeof(state_index)), true) &&
-                (hFile->write(&state_direction, sizeof(state_direction)), true) &&
-                (hFile->write(&action, sizeof(action)), true) &&
-                (hFile->write(&action_state, sizeof(action_state)), true) &&
-                (hFile->write(&required_item_id, sizeof(required_item_id)), true);
+    header_ok = (hFile.write(&version, sizeof(version)), true) &&
+                (hFile.write(&trigger_count, sizeof(trigger_count)), true) &&
+                (hFile.write(name, 0x80), true) && (hFile.write(&flags, sizeof(flags)), true) &&
+                (hFile.write(&state_index, sizeof(state_index)), true) &&
+                (hFile.write(&state_direction, sizeof(state_direction)), true) &&
+                (hFile.write(&action, sizeof(action)), true) &&
+                (hFile.write(&action_state, sizeof(action_state)), true) &&
+                (hFile.write(&required_item_id, sizeof(required_item_id)), true);
     action_data = m_pActionData;
     has_action_data = action_data != 0;
-    hFile->write(&has_action_data, sizeof(has_action_data));
+    hFile.write(&has_action_data, sizeof(has_action_data));
     if (action_data != 0) {
         action_type = action_data->type;
-        hFile->write(&action_type, sizeof(action_type));
+        hFile.write(&action_type, sizeof(action_type));
         if (action_type == W8_TRIGGER_PAYLOAD_DOOR) {
             action_flags = 0;
             progress_delay = 0;
             action_kind = 2;
-            hFile->write(&action_kind, sizeof(action_kind));
+            hFile.write(&action_kind, sizeof(action_kind));
             if (static_cast<W8DoorTriggerActionData*>(action_data)->open) {
                 action_flags |= 1;
             }
@@ -454,7 +451,7 @@ bool Trigger::Save(wiz8::File* hFile)
             if (static_cast<W8DoorTriggerActionData*>(action_data)->item != 0) {
                 action_flags |= 0x200;
             }
-            hFile->write(&action_flags, sizeof(action_flags));
+            hFile.write(&action_flags, sizeof(action_flags));
             if (m_lData1 != 0 && m_pEvent != 0 &&
                 std::ranges::contains(g_timed_events, m_pEvent)) {
                 float progress = m_pEvent->timer.GetProgress();
@@ -465,23 +462,23 @@ bool Trigger::Save(wiz8::File* hFile)
                     progress_delay = 64000;
                 }
             }
-            hFile->write(&progress_delay, 2);
+            hFile.write(&progress_delay, 2);
             {
                 unsigned int item = static_cast<unsigned short>(
                     static_cast<W8DoorTriggerActionData*>(action_data)->item);
-                hFile->write(&item, 2);
+                hFile.write(&item, 2);
             }
         }
     }
     has_world_item = world_item_group != 0;
-    hFile->write(&has_world_item, sizeof(has_world_item));
+    hFile.write(&has_world_item, sizeof(has_world_item));
     if (has_world_item != 0) {
         SaveItemFile(hFile, world_item_group);
     }
-    hFile->write(&items_generated, sizeof(items_generated));
-    hFile->write(&item_group_seed, sizeof(item_group_seed));
-    hFile->write(&gold, sizeof(gold));
-    hFile->write(&uses_remaining, sizeof(uses_remaining));
+    hFile.write(&items_generated, sizeof(items_generated));
+    hFile.write(&item_group_seed, sizeof(item_group_seed));
+    hFile.write(&gold, sizeof(gold));
+    hFile.write(&uses_remaining, sizeof(uses_remaining));
     return header_ok;
 }
 
@@ -489,7 +486,7 @@ bool Trigger::Save(wiz8::File* hFile)
    of the trailing block is present; a type-10 action payload rebuilds its
    action data and re-queues the delayed timed event from the saved progress. */
 // FUNCTION: WIZ8 0x0043c1b0
-bool Trigger::Load(wiz8::File* hFile, char version)
+bool Trigger::Load(wiz8::File& hFile, char version)
 try
 {
     bool header_ok;
@@ -498,21 +495,18 @@ try
     unsigned char flag_mode;
     unsigned char flag;
 
-    if (hFile == 0) {
-        srAssertFail("hFile", "C:\\Projects\\Wizardry 8\\Engine Code\\Trigger.cpp", 0x1f0, 0);
-    }
-    header_ok = (hFile->read(&flags, sizeof(flags)).bytes == static_cast<std::size_t>(sizeof(flags))) &&
-                (hFile->read(&state_index, sizeof(state_index)).bytes == static_cast<std::size_t>(sizeof(state_index))) &&
-                (hFile->read(&state_direction, sizeof(state_direction)).bytes == static_cast<std::size_t>(sizeof(state_direction))) &&
-                (hFile->read(&action, sizeof(action)).bytes == static_cast<std::size_t>(sizeof(action))) &&
-                (hFile->read(&action_state, sizeof(action_state)).bytes == static_cast<std::size_t>(sizeof(action_state))) &&
-                (hFile->read(&required_item_id, sizeof(required_item_id)).bytes == static_cast<std::size_t>(sizeof(required_item_id)));
+    header_ok = (hFile.read(&flags, sizeof(flags)).bytes == static_cast<std::size_t>(sizeof(flags))) &&
+                (hFile.read(&state_index, sizeof(state_index)).bytes == static_cast<std::size_t>(sizeof(state_index))) &&
+                (hFile.read(&state_direction, sizeof(state_direction)).bytes == static_cast<std::size_t>(sizeof(state_direction))) &&
+                (hFile.read(&action, sizeof(action)).bytes == static_cast<std::size_t>(sizeof(action))) &&
+                (hFile.read(&action_state, sizeof(action_state)).bytes == static_cast<std::size_t>(sizeof(action_state))) &&
+                (hFile.read(&required_item_id, sizeof(required_item_id)).bytes == static_cast<std::size_t>(sizeof(required_item_id)));
     if ((flags & W8_TRIGGER_SEARCHED) != 0) {
         UnregisterSearchableTrigger(this);
     }
-    hFile->read_exact(&has_action_data, sizeof(has_action_data));
+    hFile.read_exact(&has_action_data, sizeof(has_action_data));
     if (has_action_data != 0) {
-        hFile->read_exact(&action_type, sizeof(action_type));
+        hFile.read_exact(&action_type, sizeof(action_type));
         if (action_type == W8_TRIGGER_PAYLOAD_DOOR) {
             W8DoorTriggerActionData* pDoor = new W8DoorTriggerActionData;
             unsigned short action_flags;
@@ -526,30 +520,30 @@ try
             delete m_pActionData;
             m_pActionData = pDoor;
             pDoor->type = W8_TRIGGER_PAYLOAD_DOOR;
-            hFile->read_exact(&flag_mode, 1);
+            hFile.read_exact(&flag_mode, 1);
             if (flag_mode == 1) {
-                hFile->read_exact(&flag, 1);
+                hFile.read_exact(&flag, 1);
                 pDoor->open = (flag & 1) != 0;
-                hFile->read_exact(&flag, 1);
+                hFile.read_exact(&flag, 1);
                 pDoor->lockable = (flag & 1) != 0;
-                hFile->read_exact(&flag, 1);
+                hFile.read_exact(&flag, 1);
                 pDoor->locked = (flag & 1) != 0;
-                hFile->read_exact(&flag, 1);
+                hFile.read_exact(&flag, 1);
                 pDoor->auto_locking = (flag & 1) != 0;
-                hFile->read_exact(&flag, 1);
+                hFile.read_exact(&flag, 1);
                 pDoor->one_way = (flag & 1) != 0;
-                hFile->read_exact(&flag, 1);
+                hFile.read_exact(&flag, 1);
                 pDoor->secret = (flag & 1) != 0;
-                hFile->read_exact(&flag, 1);
+                hFile.read_exact(&flag, 1);
                 pDoor->found = (flag & 1) != 0;
-                hFile->read_exact(&flag, 1);
+                hFile.read_exact(&flag, 1);
                 pDoor->jammable = (flag & 1) != 0;
-                hFile->read_exact(&flag, 1);
+                hFile.read_exact(&flag, 1);
                 pDoor->jammed = (flag & 1) != 0;
             } else {
                 action_flags = 0;
                 progress_delay = 0;
-                hFile->read_exact(&action_flags, 2);
+                hFile.read_exact(&action_flags, 2);
                 if ((action_flags & 1) != 0) {
                     pDoor->open = true;
                 } else {
@@ -595,7 +589,7 @@ try
                 } else {
                     pDoor->jammed = false;
                 }
-                hFile->read_exact(&progress_delay, 2);
+                hFile.read_exact(&progress_delay, 2);
                 if (m_lData1 != 0 && progress_delay != 0) {
                     if (m_pEvent == 0) {
                         float duration;
@@ -617,7 +611,7 @@ try
                         g_timed_events.push_back(m_pEvent);
                     }
                 }
-                hFile->read_exact(&item, 2);
+                hFile.read_exact(&item, 2);
                 pDoor->item = static_cast<short>(item);
             }
         }
@@ -626,17 +620,17 @@ try
     if (version > 1) {
         unsigned char has_world_item;
 
-        hFile->read_exact(&has_world_item, sizeof(has_world_item));
+        hFile.read_exact(&has_world_item, sizeof(has_world_item));
         if (has_world_item != 0) {
             world_item_group = LoadItem(hFile, false);
         }
-        hFile->read_exact(&items_generated, sizeof(items_generated));
-        hFile->read_exact(&item_group_seed, sizeof(item_group_seed));
-        hFile->read_exact(&gold, sizeof(gold));
-        hFile->read_exact(&uses_remaining, sizeof(uses_remaining));
+        hFile.read_exact(&items_generated, sizeof(items_generated));
+        hFile.read_exact(&item_group_seed, sizeof(item_group_seed));
+        hFile.read_exact(&gold, sizeof(gold));
+        hFile.read_exact(&uses_remaining, sizeof(uses_remaining));
     }
     if (version == 3) {
-        hFile->seek(0x1d, wiz8::SeekOrigin::current);
+        hFile.seek(0x1d, wiz8::SeekOrigin::current);
     }
     return header_ok;
 } catch (const std::exception&) {
@@ -648,7 +642,7 @@ try
    through a scratch trigger when the name is gone, and anything else pushes
    the tag byte back and ends the walk. */
 // FUNCTION: WIZ8 0x0043c860
-bool LoadWorldTriggers(W8World* world, wiz8::File* hFile)
+bool LoadWorldTriggers(W8World* world, wiz8::File& hFile)
 try
 {
     int trigger_count = static_cast<int>(world->triggers.size());
@@ -664,14 +658,14 @@ try
         if (finished || trigger_count <= index) {
             return header_ok;
         }
-        if (!header_ok || !(hFile->read(&tag, 1).bytes == static_cast<std::size_t>(1))) {
+        if (!header_ok || !(hFile.read(&tag, 1).bytes == static_cast<std::size_t>(1))) {
             header_ok = false;
         } else {
             header_ok = true;
         }
         if (tag < 1 || tag > 5) {
             finished = true;
-            hFile->seek(-1, wiz8::SeekOrigin::current);
+            hFile.seek(-1, wiz8::SeekOrigin::current);
         } else if (tag < 5) {
             Trigger* trigger = world->triggers[index];
 
@@ -685,8 +679,8 @@ try
             char name[0x80] = {0};
             Trigger* trigger;
 
-            if (!header_ok || !(hFile->read(&trigger_id, sizeof(trigger_id)).bytes == static_cast<std::size_t>(sizeof(trigger_id))) ||
-                !(hFile->read(name, sizeof(name)).bytes == static_cast<std::size_t>(sizeof(name)))) {
+            if (!header_ok || !(hFile.read(&trigger_id, sizeof(trigger_id)).bytes == static_cast<std::size_t>(sizeof(trigger_id))) ||
+                !(hFile.read(name, sizeof(name)).bytes == static_cast<std::size_t>(sizeof(name)))) {
                 header_ok = false;
             } else {
                 header_ok = true;
@@ -718,7 +712,7 @@ try
 /* Write every trigger of a world for the save file's trigger chunk. A trigger
    whose own serialization reports failure stops the walk. */
 // FUNCTION: WIZ8 0x0043C810
-void SaveWorldTriggers(W8World* world, wiz8::File* hFile)
+void SaveWorldTriggers(W8World* world, wiz8::File& hFile)
 {
     std::vector<Trigger*>* triggers = &world->triggers;
 
@@ -730,7 +724,7 @@ void SaveWorldTriggers(W8World* world, wiz8::File* hFile)
 }
 
 // FUNCTION: WIZ8 0x0043d120
-void SaveTriggerActionData(W8World* world, wiz8::File* handle)
+void SaveTriggerActionData(W8World* world, wiz8::File& handle)
 {
     int trigger_count = static_cast<int>(world->triggers.size());
     int saved_count = 0;
@@ -744,14 +738,14 @@ void SaveTriggerActionData(W8World* world, wiz8::File* handle)
         }
     }
 
-    handle->write(&version, sizeof(version));
-    handle->write(&saved_count, sizeof(saved_count));
+    handle.write(&version, sizeof(version));
+    handle.write(&saved_count, sizeof(saved_count));
 
     for (index = 0; index < trigger_count; ++index) {
         Trigger* trigger = world->triggers[index];
         if (trigger->inline_action_data[0] != '\0') {
-            handle->write(trigger->name, 0x80);
-            handle->write(trigger->inline_action_data, sizeof(trigger->inline_action_data));
+            handle.write(trigger->name, 0x80);
+            handle.write(trigger->inline_action_data, sizeof(trigger->inline_action_data));
         }
     }
 }
@@ -760,15 +754,15 @@ void SaveTriggerActionData(W8World* world, wiz8::File* handle)
    a version/count header, then per record the trigger name and its 0x100-byte
    payload. Records for missing triggers are skipped with a seek. */
 // FUNCTION: WIZ8 0x0043d1f0
-bool LoadTriggerActionData(wiz8::File* handle)
+bool LoadTriggerActionData(wiz8::File& handle)
 try
 {
     int version;
     int saved_count;
     int index = 0;
 
-    handle->read_exact(&version, sizeof(version));
-    handle->read_exact(&saved_count, sizeof(saved_count));
+    handle.read_exact(&version, sizeof(version));
+    handle.read_exact(&saved_count, sizeof(saved_count));
     if (saved_count < 1) {
         return true;
     }
@@ -776,12 +770,12 @@ try
         char name[0x80];
         Trigger* trigger;
 
-        handle->read_exact(name, sizeof(name));
+        handle.read_exact(name, sizeof(name));
         trigger = FindTriggerByName(name);
         if (trigger != 0) {
-            handle->read_exact(trigger->inline_action_data, sizeof(trigger->inline_action_data));
+            handle.read_exact(trigger->inline_action_data, sizeof(trigger->inline_action_data));
         } else {
-            handle->seek(0x100, wiz8::SeekOrigin::current);
+            handle.seek(0x100, wiz8::SeekOrigin::current);
         }
         ++index;
         if (saved_count <= index) {
@@ -3829,12 +3823,12 @@ int GetLocationVarValueByName(const char* name)
 
 /* Write the count then each location variable's value, name and level. */
 // FUNCTION: WIZ8 0x004441e0
-void SaveLocationVariables(wiz8::File* handle)
+void SaveLocationVariables(wiz8::File& handle)
 {
     int variable_count = static_cast<int>(g_location_variable_names.size());
     bool written;
 
-    written = (handle->write(&variable_count, sizeof(variable_count)), true) != 0;
+    written = (handle.write(&variable_count, sizeof(variable_count)), true) != 0;
     for (int index = 0; index < variable_count; ++index) {
         int value;
         char name[0x80];
@@ -3846,16 +3840,16 @@ void SaveLocationVariables(wiz8::File* handle)
         value = g_location_variable_values[index];
         strcpy(name, g_location_variable_names[index]);
         level = g_location_variable_levels[index];
-        written = (handle->write(&value, sizeof(value)), true) &&
-                  (handle->write(name, sizeof(name)), true) &&
-                  (handle->write(&level, sizeof(level)), true);
+        written = (handle.write(&value, sizeof(value)), true) &&
+                  (handle.write(name, sizeof(name)), true) &&
+                  (handle.write(&level, sizeof(level)), true);
     }
 }
 
 /* Read the location-variable count then each value/name/level record,
    appending a heap copy of the name to the variable vectors. */
 // FUNCTION: WIZ8 0x00444310
-bool LoadLocationVariables(wiz8::File* handle)
+bool LoadLocationVariables(wiz8::File& handle)
 try
 {
     /* Retail read these uninitialised when a FileRead short-circuited; the recovery keeps that
@@ -3864,7 +3858,7 @@ try
     int index;
     bool read_ok;
 
-    read_ok = (handle->read(&variable_count, sizeof(variable_count)).bytes == static_cast<std::size_t>(sizeof(variable_count))) != 0;
+    read_ok = (handle.read(&variable_count, sizeof(variable_count)).bytes == static_cast<std::size_t>(sizeof(variable_count))) != 0;
     for (index = 0; index < variable_count; ++index) {
         int value;
         char name[0x80];
@@ -3874,9 +3868,9 @@ try
         if (!read_ok) {
             break;
         }
-        read_ok = (handle->read(&value, sizeof(value)).bytes == static_cast<std::size_t>(sizeof(value))) &&
-                  (handle->read(name, sizeof(name)).bytes == static_cast<std::size_t>(sizeof(name))) &&
-                  (handle->read(&level, sizeof(level)).bytes == static_cast<std::size_t>(sizeof(level)));
+        read_ok = (handle.read(&value, sizeof(value)).bytes == static_cast<std::size_t>(sizeof(value))) &&
+                  (handle.read(name, sizeof(name)).bytes == static_cast<std::size_t>(sizeof(name))) &&
+                  (handle.read(&level, sizeof(level)).bytes == static_cast<std::size_t>(sizeof(level)));
         copy = new char[strlen(name) + 1];
         if (copy == 0) {
             srAssertFail("pacName", "C:\\Projects\\Wizardry 8\\Engine Code\\Trigger.cpp", 0x1143,

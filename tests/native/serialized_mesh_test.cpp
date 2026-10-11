@@ -314,17 +314,15 @@ TEST_CASE("Animation frame streams retain morph and transform formats")
         W8LevelFileAnimObj animation{};
         {
             auto file = wiz8::open_host_file(input);
-            REQUIRE(ReadAnimObjFile(file.get(), &animation));
+            REQUIRE(ReadAnimObjFile(*file, animation));
             REQUIRE(file->tell() == static_cast<std::int64_t>(bytes.size()));
         }
         {
             auto file = wiz8::open_host_file(output, wiz8::OpenMode::replace);
-            REQUIRE(WriteAnimObjFile(file.get(), &animation)); // Writer releases the loaded record.
+            REQUIRE(WriteAnimObjFile(*file, animation));
         }
         REQUIRE(bytes_at(output) == bytes);
-        REQUIRE(animation.pMorphs == nullptr);
-        REQUIRE(animation.pTransforms == nullptr);
-        // Every incomplete stream must fail and release any partially loaded frames.
+        // Every incomplete stream must fail and leave the record empty.
         for (std::size_t end = 0; end < bytes.size(); ++end) {
             {
                 std::ofstream file(input, std::ios::binary | std::ios::trunc);
@@ -332,9 +330,9 @@ TEST_CASE("Animation frame streams retain morph and transform formats")
             }
             auto file = wiz8::open_host_file(input);
             W8LevelFileAnimObj partial{};
-            REQUIRE_FALSE(ReadAnimObjFile(file.get(), &partial));
-            REQUIRE(partial.pMorphs == nullptr);
-            REQUIRE(partial.pTransforms == nullptr);
+            REQUIRE_FALSE(ReadAnimObjFile(*file, partial));
+            REQUIRE(partial.morphs.empty());
+            REQUIRE(partial.transforms.empty());
         }
     }
 }
@@ -404,7 +402,7 @@ TEST_CASE("Octree mesh writer consumes arrays in disk order")
                     // Raw texture-array failure occurs after the index arrays have
                     // transferred, while normals, lights, and equations remain owned.
                     FileFaults fault(material < 0 ? 13 : 12);
-                    REQUIRE_THROWS(mesh.Write(file.get()));
+                    REQUIRE_THROWS(mesh.Write(*file));
                     REQUIRE(fault.fired);
                     REQUIRE(mesh.m_poly_textures);
                     REQUIRE(mesh.m_vertex_normals);
@@ -412,7 +410,7 @@ TEST_CASE("Octree mesh writer consumes arrays in disk order")
                     REQUIRE(mesh.m_poly_equations);
 
                 } else {
-                    REQUIRE(mesh.Write(file.get()));
+                    REQUIRE(mesh.Write(*file));
                     file->close();
                     REQUIRE(bytes_at(output_path) == bytes_at(expected_path));
                     REQUIRE_FALSE(mesh.m_poly_textures);

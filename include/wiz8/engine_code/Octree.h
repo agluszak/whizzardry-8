@@ -528,13 +528,13 @@ public:
     unsigned char WriteOctFile(W8OctPreTreeGeometry* geometry, W8GameData* game_data);
     /* Partitions the geometry into submesh records, emits the OctMeshModel
        array and fills m_pSubmeshes/m_aulPolyLookup. */
-    OctMeshModel* CreateSubMeshes(W8OctPreTreeGeometry* geometry);
+    std::vector<OctMeshModel> CreateSubMeshes(W8OctPreTreeGeometry* geometry);
     w8_ulong SplitMeshes(W8OctPreTreeGeometry* geometry, W8OctSubmeshBuild* records);
     w8_ulong AllocateSubMesh(W8OctSubmeshBuild* records);
     w8_ulong SplitUVMaps(W8OctSubmeshBuild* record, W8OctPreTreeGeometry* geometry);
     void VerifyPolygonRegions();
     void VerifyAutoMeshes(W8OctPreTreeGeometry* geometry, W8OctSubmeshBuild* records);
-    unsigned char BuildPathLists(W8GameData* game_data, W8LevelFile* level,
+    unsigned char BuildPathLists(W8GameData* game_data, W8LevelFile& level,
                                  unsigned int min_component_percent);
     char PathNodeObstructed(const srVector3T<float>* node_position);
     unsigned char InsertConditionalNodes(std::unordered_multimap<unsigned int, CondPathNode*>& nodes,
@@ -542,8 +542,8 @@ public:
     /* Tests the bounds box against static surfaces and registered props;
        0 clear, 1 blocked, 3 clear but prop ids were recorded in m_lBlocks. */
     char TestPathPropBounds(const srBoundingBox& bounds);
-    int CreatePathProps(W8LevelFile* level, W8PreProp** preprops);
-    char PropFramesDiffer(W8LevelFileAnimObj* anim, unsigned short first, unsigned short last);
+    int CreatePathProps(const W8LevelFile& level, W8PreProp** preprops);
+    char PropFramesDiffer(const W8LevelFileAnimObj& anim, unsigned short first, unsigned short last);
 };
 
 W8_ABI_ASSERT(sizeof(OctPreTree) == 0x3bc, "OctPreTree_must_be_0x3bc");

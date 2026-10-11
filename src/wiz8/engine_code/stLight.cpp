@@ -360,13 +360,13 @@ void stLight::Reset()
 /* Serialize the trigger-toggled lights of the loaded worlds: a version byte and
    count followed by each light's 0x80-byte name and its enable flag. */
 // FUNCTION: WIZ8 0x0049D120
-void SaveLightStates(wiz8::File* handle)
+void SaveLightStates(wiz8::File& handle)
 {
     char name[0x80] = {0};
     memcpy(name, &g_empty_ambient_name, sizeof(g_empty_ambient_name));
     unsigned char version = 1;
 
-    handle->write(&version, sizeof(version));
+    handle.write(&version, sizeof(version));
 
     std::vector<stLight*> marked;
     ForEachWorldNode<stLight>([&](stLight* light) {
@@ -375,13 +375,13 @@ void SaveLightStates(wiz8::File* handle)
         }
     });
     int count = static_cast<int>(marked.size());
-    handle->write(&count, sizeof(count));
+    handle.write(&count, sizeof(count));
 
     for (stLight* light : marked) {
         strcpy(name, light->getName().c_str());
-        handle->write(name, sizeof(name));
+        handle.write(name, sizeof(name));
         unsigned char enabled = light->testFlag(srNode::FLAG_DISABLE) == 0;
-        handle->write(&enabled, sizeof(enabled));
+        handle.write(&enabled, sizeof(enabled));
     }
 }
 
@@ -389,20 +389,20 @@ void SaveLightStates(wiz8::File* handle)
    followed by each light's 0x80-byte name and its enable flag, applied to the
    light found by name in the loaded worlds. */
 // FUNCTION: WIZ8 0x0049D390
-void LoadLightStates(wiz8::File* handle)
+void LoadLightStates(wiz8::File& handle)
 {
     char name[0x80] = {0};
     memcpy(name, &g_empty_ambient_name, sizeof(g_empty_ambient_name));
     unsigned char version;
     int count = 0;
 
-    handle->read_exact(&version, sizeof(version));
-    handle->read_exact(&count, sizeof(count));
+    handle.read_exact(&version, sizeof(version));
+    handle.read_exact(&count, sizeof(count));
 
     for (int index = 0; index < count; ++index) {
         unsigned char enabled;
-        handle->read_exact(name, sizeof(name));
-        handle->read_exact(&enabled, sizeof(enabled));
+        handle.read_exact(name, sizeof(name));
+        handle.read_exact(&enabled, sizeof(enabled));
 
         stLight* light = FindWorldNode<stLight>(name);
         if (light != 0) {

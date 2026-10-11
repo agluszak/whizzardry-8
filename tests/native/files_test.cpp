@@ -19,6 +19,7 @@
 #include <exception>
 #include <iterator>
 #include <optional>
+#include <stdexcept>
 #include <string_view>
 #include <system_error>
 #include <utility>
@@ -182,7 +183,7 @@ TEST_CASE_METHOD(FileFixture, "Host paths, overlays and streams", "[filesystem][
         char path[] = "Saves/Native.SAV";
         fixture(user / "Saves" / "Native.SAV", "RIFF");
         W8Chunk chunk;
-        REQUIRE((!chunk.OpenRead(path) && !chunk.m_hFile));
+        REQUIRE((!chunk.OpenRead(path) && !chunk.IsOpen()));
         REQUIRE(chunk.OpenWrite(path));
         const unsigned word = 0x12345678;
         REQUIRE(chunk.OpenChunk(0x54534554, false));
@@ -197,6 +198,57 @@ TEST_CASE_METHOD(FileFixture, "Host paths, overlays and streams", "[filesystem][
         chunk.Close();
         // Destruction owns pending headers as well as the stream, even without Close.
         REQUIRE(chunk.OpenRead(path));
+    }
+    {
+        // Scoped chunk writers patch extents and group counts; the bytes are
+        // the established RIFF framing, independent of the helper API.
+        char path[] = "Saves/Scoped.SAV";
+        {
+            // A body that leaves a nested chunk open cannot be finalized.
+            W8Chunk unbalanced;
+            REQUIRE(unbalanced.OpenWrite(path));
+            REQUIRE_THROWS_AS(unbalanced.WriteChunk(W8ChunkId("BUNK"), [&] { unbalanced.OpenChunk(W8ChunkId("BUNK"), 0); }),
+                              std::logic_error);
+        }
+        W8Chunk chunk;
+        REQUIRE(chunk.OpenWrite(path));
+        chunk.WriteGroup(W8ChunkId("GRP1"), [&] {
+            chunk.WriteValue(7);
+            chunk.WriteChunk(W8ChunkId("LEAF"), [&] { chunk.WriteValue(std::uint16_t{0xbeef}); });
+        });
+        chunk.WriteChunk(W8ChunkId("TAIL"), [] {});
+        chunk.Close();
+        const unsigned char golden[] = {
+            'R', 'I', 'F', 'F', 1, 0, 44, 0, 0, 0, 2, 0, 0, 0,
+            'G', 'R', 'P', '1', 1, 0, 20, 0, 0, 0, 1, 0, 0, 0, 7, 0, 0, 0,
+            'L', 'E', 'A', 'F', 0, 0, 2, 0, 0, 0, 0xef, 0xbe,
+            'T', 'A', 'I', 'L', 0, 0, 0, 0, 0, 0};
+        REQUIRE(contents(user / "Saves" / "Scoped.SAV") ==
+                std::string(reinterpret_cast<const char*>(golden), sizeof(golden)));
+
+        std::vector<unsigned> visited;
+        REQUIRE(chunk.OpenRead(path));
+        chunk.ForEachChunk([&](unsigned id) {
+            visited.push_back(id);
+            if (id != W8ChunkId("GRP1")) return;
+            chunk.ReadGroup([&] {
+                REQUIRE(chunk.ReadValue<int>() == 7);
+                chunk.ForEachChunk([&](unsigned leaf) {
+                    visited.push_back(leaf);
+                    REQUIRE(chunk.RemainingBytes() == 2);
+                    REQUIRE_THROWS_AS(chunk.ReadValue<std::uint32_t>(), std::runtime_error);
+                    REQUIRE(chunk.ReadValue<std::uint16_t>() == 0xbeef);
+                });
+            });
+        });
+        chunk.Close();
+        REQUIRE(visited == std::vector<unsigned>{W8ChunkId("GRP1"), W8ChunkId("LEAF"), W8ChunkId("TAIL")});
+        // A visitor returning false ends the walk after releasing its chunk.
+        visited.clear();
+        REQUIRE(chunk.OpenRead(path));
+        chunk.ForEachChunk([&](unsigned id) { visited.push_back(id); return false; });
+        chunk.Close();
+        REQUIRE(visited == std::vector<unsigned>{W8ChunkId("GRP1")});
     }
 #if defined(__unix__) || defined(__APPLE__)
     const auto limited_path = root / "write-limit.bin";
