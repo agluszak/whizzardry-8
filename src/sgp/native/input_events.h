@@ -12,3 +12,8 @@ bool WarpGameMouse(SDL_Window* window, int x, int y);
 
 void SetNativeTextInputEnabled(bool enabled);
 bool NativeTextInputEnabled();
+
+#ifdef WIZ8_RMLUI_POC
+// Optional screen-owned interception; native input must not depend on UI code.
+void SetRmlUiPocInputHandler(bool (*handler)(const SDL_Event&));
+#endif

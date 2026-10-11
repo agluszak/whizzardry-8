@@ -1,5 +1,8 @@
 #include <SDL3/SDL_rect.h>
 #ifdef WIZ8_RMLUI_POC
+#include <SDL3/SDL_events.h>
+#include <SDL3/SDL_keycode.h>
+#include "native/input_events.h"
 #include "wiz8/ui/rmlui_poc.h"
 #endif
 #include <string_view>
@@ -58,6 +61,18 @@ unsigned int g_main_menu_hover_region;
 std::string g_pending_main_menu_message;
 // GLOBAL: WIZ8 0x0069c4c0
 W8MessageDialogBase* g_main_menu_dialog;
+
+#ifdef WIZ8_RMLUI_POC
+static bool HandleMainMenuPocInput(const SDL_Event& event)
+{
+    if (wiz8::ui_poc::active())
+        return wiz8::ui_poc::handle_event(event);
+    return event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat &&
+           event.key.key == SDLK_F9 && !g_main_menu_dialog &&
+           ghWindow && SDL_GetWindowFromEvent(&event) == ghWindow &&
+           wiz8::ui_poc::open();
+}
+#endif
 
 /* Draws one of the six menu items. The first switch turns the item index into
    its sprite slot and its top and bottom rows; the second turns the requested
@@ -160,6 +175,9 @@ unsigned char MainMenuScreenEnter(void)
 
     ResetVideoFrameState();
     MSYS_Init();
+#ifdef WIZ8_RMLUI_POC
+    SetRmlUiPocInputHandler(HandleMainMenuPocInput);
+#endif
     g_status.game_started = false;
     g_main_menu_has_save_games = SaveGameExists();
     g_main_menu_redraw = true;
@@ -377,6 +395,7 @@ void MainMenuScreenFrame()
 unsigned char MainMenuScreenLeave(int)
 {
 #ifdef WIZ8_RMLUI_POC
+    SetRmlUiPocInputHandler(nullptr);
     wiz8::ui_poc::close();
 #endif
     ReleaseLoadedVideoFrames();

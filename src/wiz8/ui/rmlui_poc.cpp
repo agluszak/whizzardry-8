@@ -21,7 +21,7 @@
 namespace wiz8::ui_poc {
 namespace {
 
-constexpr SDL_Rect dialog_bounds{110, 90, 420, 310};
+constexpr SDL_Rect dialog_bounds{96, 80, 448, 336};
 constexpr auto document_markup = R"rml(
 <rml>
 <head>
@@ -40,7 +40,7 @@ body {
     width: 350px;
     padding: 20px;
     background-color: #20242d;
-    border: 2px #aa9068;
+    border: 2px solid #aa9068;
 }
 h1 {
     font-size: 21px;
@@ -53,7 +53,7 @@ button {
     min-width: 100px;
     padding: 8px 12px;
     background-color: #373e4c;
-    border: 1px #bcaa86;
+    border: 1px solid #bcaa86;
     color: #f5e9d0;
     font-family: PocFont;
     font-size: 16px;
@@ -94,6 +94,8 @@ struct Dialog {
         void ProcessEvent(Rml::Event&) override {
             dialog_.accepted = accepted_;
             dialog_.finished = true;
+            SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "RmlUi POC: %s",
+                        accepted_ ? "confirmed" : "cancelled");
         }
 
     private:
@@ -336,8 +338,6 @@ bool frame()
     dialog->context->Update();
     dialog->context->Render();
     SDL_RenderPresent(dialog->renderer.get());
-    InvalidateRegion(dialog_bounds.x, dialog_bounds.y,
-                     dialog_bounds.x + dialog_bounds.w, dialog_bounds.y + dialog_bounds.h, 0);
     return true;
 }
 

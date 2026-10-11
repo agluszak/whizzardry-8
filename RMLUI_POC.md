@@ -6,14 +6,15 @@ second application/window.
 
 Build with:
 
-`cmake --preset linux -DWIZ8_RMLUI_POC=ON
+```sh
+cmake --preset linux -DWIZ8_RMLUI_POC=ON
 cmake --build --preset linux
-`
+```
 
 Press **F9** on the main menu to open an RmlUi modal with working mouse hover,
 click handling, keyboard focus, Enter, Tab, Escape and cancellation. It uses
 RmlUi's element hierarchy, CSS layout, event listeners and FreeType fonts. The
-native SDL input mapper supplies window coordinates, and the renderer targets
+modal maps native SDL window coordinates to 640×480, and the renderer targets
 the *existing* 640×480 CPU framebuffer before the SurRender SDL GPU upload.
 There is no second window, GPU device or independent event pump.
 
