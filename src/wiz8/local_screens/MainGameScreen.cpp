@@ -6598,7 +6598,7 @@ void SetCombatSelection(int value)
         srVector3T<float> maximum;
         W8Monster* monster;
 
-        GetCameraPosition(&camera);
+        camera = cameraLocation();
         monster = GetMonsterByLocationID(value);
         MonsterGetWorldAnimationBounds(monster, &minimum, &maximum);
         if (TraceLineOfSightToBounds(&camera, &minimum, &maximum) != 0) {
@@ -6650,7 +6650,7 @@ void SetCombatTarget(int value)
                 srVector3T<float> camera;
 
                 GetItemWorldBounds(item->p3D, &minimum, &maximum);
-                GetCameraPosition(&camera);
+                camera = cameraLocation();
                 if (TraceLineOfSightToBounds(&camera, &minimum, &maximum) != 0) {
                     g_level_block->selected_item = value;
                     SetWorldItemHighlight(value, true);

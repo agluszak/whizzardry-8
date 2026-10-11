@@ -2,7 +2,6 @@
 
 
 
-
 /* Engine Code\Navigator.cpp owns these declarations. */
 
 #include <vector>
@@ -105,10 +104,10 @@ struct W8NavigatorAttachment {
     bool AdvanceAlongPathPositions(float distance, srVector3T<float>* position); /* 0x00456830 */
     /* Whether `position`'s plan-view distance to the hop leaving the current
        index stays under the path height interpolated along that segment. */
-    bool CheckPositionHopHeight(const srVector3T<float>* position); /* 0x00456CB0 */
+    bool checkPositionHopHeight(const glm::vec3& position) const; /* 0x00456CB0 */
     /* The two-segment form of the hop-height check used on predicted
        positions: the nearer of the current or following segment wins. */
-    bool CheckPredictedHopHeight(const srVector3T<float>* position); /* 0x00456DD0 */
+    bool checkPredictedHopHeight(const glm::vec3& position) const; /* 0x00456DD0 */
     /* Move `position` toward the route's next waypoint by up to `distance`,
        spilling into the following segment; returns nonzero once `distance`
        exceeded the remainder of the live segment. */
@@ -125,6 +124,9 @@ struct W8NavigatorAttachment {
        the final waypoint is reached. */
     bool AdvancePositionWithDirection(srVector3T<float>* position, float distance,
                                       srVector3T<float>* direction); /* 0x00457150 */
+
+private:
+    bool withinHopHeight(const glm::vec2& point, unsigned base, bool include_next) const;
 };
 
 /* The polymorphic object the navigator owns at +0xa0. 0x00452120 deletes it
@@ -149,7 +151,7 @@ struct W8NavigatorMovementState {
     /* -1 means no resolved target. Navigation and OctPath use this as the
        location id of the tracked target; OctPath's single-candidate path
        search aliases the slot itself as its one-element candidate array
-       (LEA [movement+0x10]) — see TargetLocationAsCandidate(). */
+       (LEA [movement+0x10]); native path queries copy this ID into their owned candidate vector. */
     int target_location_id;
     float yaw;
     float target_yaw;
@@ -204,16 +206,6 @@ struct W8NavigatorMovementState {
        movement tail and invalidates target_location_id. It returns nothing, so it is a
        named member rather than an assignment operator. */
     void CopySettingsFrom(const W8NavigatorMovementState& other);
-
-    /* OctPath's single-candidate path search points its unsigned-long
-       candidate array at this slot rather than allocating a one-element
-       list (PlanMovement emits LEA [movement+0x10]); this accessor
-       keeps the int/unsigned-long reinterpretation inside the type. */
-    w8_ulong* TargetLocationAsCandidate()
-    {
-        // reinterpret-ok: candidate array aliases the one target-location slot
-        return reinterpret_cast<w8_ulong*>(&target_location_id);
-    }
 };
 
 /* 0x004572C0 allocates one with operator new(0x60) before running its
@@ -386,11 +378,11 @@ public:
     float radius;
     /* Whether the navigator participates in world queries: cleared when the
        owner deactivates (monster despawn, cursor teardown), restored on
-       activation; ResolveTraceHit and GameData skip navigators with it zero. */
+       activation; traceSphereHit and GameData skip navigators with it zero. */
     bool active;
     unsigned char padding_089[3];
     void(__cdecl* movement_callback)(W8Navigator* navigator);
-    /* Trace-hit exclusion mask: ResolveTraceHit skips monsters whose
+    /* Trace-hit exclusion mask: traceSphereHit skips monsters whose
        (trace_mask & flags) is nonzero; configureStartupRange raises bit 0. */
     unsigned int trace_mask;
     unsigned int unknown_094;
