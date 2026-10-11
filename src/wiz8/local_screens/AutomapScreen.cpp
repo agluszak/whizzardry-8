@@ -1392,10 +1392,8 @@ void UpdateAutomapBounds(void)
 // FUNCTION: WIZ8 0x005809F0
 void LightAutomapCell(const srVector3T<float>* position)
 {
-    std::vector<stModelInstance*> instances;
-    if (!g_world->octree->CollectModelsNearPoint(instances, position, g_automap_range, 0, false))
-        return;
     const auto center = position->glmValue();
+    const auto instances = g_world->octree->modelsNearPoint(center, g_automap_range, 0, false);
     for (auto* instance : instances) {
         if (!instance)
             continue;

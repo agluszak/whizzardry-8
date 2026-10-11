@@ -1,3 +1,6 @@
+#include "wiz8/ground_shadow.h"
+#include "wiz8/layouts/world.h"
+#include "wiz8/engine_code/Camera.h"
 #include "wiz8/engine_code/LevelFile.h"
 #include "wiz8/surface_geometry.h"
 #include "wiz8/navigation_flags.h"
@@ -849,6 +852,85 @@ TEST_CASE("Octree face run rejects invalid growth capacity", "[geometry]")
     REQUIRE(faces == nullptr);
     REQUIRE(geometry.CheckArrayLength(&faces, 65535, 5) == 0);
     REQUIRE(faces == nullptr);
+}
+
+TEST_CASE("Inclusive cell boxes retain order clipping and extreme endpoints", "[geometry][octree]")
+{
+    std::vector<glm::ivec3> cells;
+    const auto append = [&](const glm::ivec3& cell) { cells.push_back(cell); };
+    visitOctreeCellBox({-1, 2, 3}, {0, 3, 4}, append);
+    const std::vector<glm::ivec3> expected{{-1, 2, 3}, {-1, 2, 4}, {-1, 3, 3}, {-1, 3, 4},
+                                         {0, 2, 3}, {0, 2, 4}, {0, 3, 3}, {0, 3, 4}};
+    REQUIRE(cells == expected);
+    cells.clear();
+    visitClippedOctreeCellBox({-1, 2, 3}, {0, 3, 4}, {1, 4, 5}, append);
+    REQUIRE(cells == std::vector<glm::ivec3>(expected.begin() + 4, expected.end()));
+    cells.clear();
+    visitOctreeCellBox({1, 0, 0}, {0, 0, 0}, append);
+    visitClippedOctreeCellBox({0, 0, 0}, {0, 0, 0}, {0, 0, 0}, append);
+    REQUIRE(cells.empty());
+    const glm::ivec3 extreme(std::numeric_limits<int>::max());
+    visitOctreeCellBox(extreme, extreme, append);
+    REQUIRE(cells == std::vector<glm::ivec3>{extreme});
+}
+
+TEST_CASE("Ground shadow projection retains rotated scale center and coordinate axis order", "[geometry][rendering]")
+{
+    const glm::vec3 center(10, 0, 20), vertex(12, 4, 25);
+    for (float angle : {0.0f, 0.3f, glm::half_pi<float>()}) {
+        const GroundShadowProjection projection(center, 4, 2, angle);
+        const auto coordinates = projection.coordinates(vertex);
+        const float cosine = std::cos(-angle), sine = std::sin(-angle);
+        const glm::vec2 expected(0.125f * (5 * cosine - 2 * sine) + 0.5f,
+                                 0.25f * (2 * sine + 5 * cosine) + 0.5f);
+        REQUIRE(glm::distance(coordinates, expected) < 1e-5f);
+        REQUIRE(projection.coordinates(center) == glm::vec2(0.5f));
+    }
+}
+
+TEST_CASE_METHOD(SurRenderTestFixture, "Ground polygon queries return owned sorted runs beyond thirty faces", "[geometry][octree]")
+{
+    W8World world{};
+    const struct RestoreWorld {
+        W8World* previous;
+        ~RestoreWorld() { g_world = previous; }
+    } restore{g_world};
+    g_world = &world;
+    constexpr unsigned faces = 42;
+    auto mesh = std::make_shared<stMeshModel>(faces, 3);
+    mesh->getVertexLoc()[0] = {-1, 0, -1};
+    mesh->getVertexLoc()[1] = {0, 0, 1};
+    mesh->getVertexLoc()[2] = {1, 0, -1};
+    for (unsigned i = 0; i < faces; ++i) mesh->getPolyVertex()[i] = {0, 1, 2};
+    stModelInstance instance(nullptr);
+    instance.setModel(mesh);
+    world.psrMeshes = {nullptr, &instance};
+    W8Octree tree(nullptr, nullptr);
+    tree.m_meshCount = 2;
+    tree.m_alpha_bits.assign(2, false);
+    tree.m_current_regions.assign(2, false);
+    tree.m_visited_polygon_bits.assign(faces + 1, false);
+    tree.m_spatial.m_bounds.minimum = {-100, -100, -100};
+    tree.m_spatial.m_node_extent = 1000;
+    tree.m_leaf_grid_dimensions = {1, 1, 1};
+    tree.m_leaf_lookup = static_cast<w8_ulong*>(std::calloc(1, sizeof(w8_ulong)));
+    tree.m_leaf_lookup[0] = 1;
+    tree.m_leaves = static_cast<W8OctPreTreeLeaf*>(std::calloc(2, sizeof(W8OctPreTreeLeaf)));
+    tree.m_leaves[1].polygon_offset = 1;
+    tree.m_polygon_index_stream = static_cast<w8_ulong*>(std::calloc(faces + 2, sizeof(w8_ulong)));
+    tree.m_polygon_index_stream[1] = faces;
+    tree.m_aulPolyLookup = static_cast<w8_ulong*>(std::calloc(faces + 1, sizeof(w8_ulong)));
+    for (unsigned i = 0; i < faces; ++i) {
+        tree.m_polygon_index_stream[i + 2] = i + 1;
+        tree.m_aulPolyLookup[i + 1] = (1u << 16) | (faces - i - 1);
+    }
+    const auto polygons = tree.polygonsNearPoint({0, 1, 0}, 2, 2);
+    REQUIRE(polygons.size() == faces);
+    for (unsigned i = 0; i < faces; ++i) REQUIRE(polygons[i] == ((1u << 16) | i));
+    tree.m_alpha_bits[1] = true;
+    REQUIRE(tree.polygonsNearPoint({0, 1, 0}, 2, 2).empty());
+    REQUIRE(polygons.size() == faces);
+    REQUIRE(polygons.front() == (1u << 16));
 }
 
 TEST_CASE("Octree queries own dense results across later queries", "[geometry][octree]")
