@@ -1,31 +1,27 @@
-#include "surrender/srPixelConvert.h"
-#include <algorithm>
-#include <cstring>
-#include <SDL3/SDL_surface.h>
+#include "glm/common.hpp"
+#include "glm/ext/vector_float4.hpp"
+#include "glm/vector_relational.hpp"
 #include <limits>
-#include <stdexcept>
-#include <vector>
+#include <optional>
+#include <span>
+#include <cstddef>
+#include "surrender/pixel_math.h"
+#include <SDL3/SDL_pixels.h>
+#include "glm/ext/vector_uint4.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include <algorithm>
+#include <iterator>
+#include <string>
+#include <cstring>
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-
+#include "glm/geometric.hpp"
+#include "surrender/srPixelConvert.h"
+#include "wiz8/surface_storage.h"
 #include "surrender/srARGB.h"
 #include "surrender/srMath.h"
 #include "surrender/srPalette.h"
-
-/* RGB24 rows contain a word at every third byte, including odd addresses. */
-static inline unsigned short readPackedWord(const unsigned char* bytes)
-{
-    unsigned short value;
-    memcpy(&value, bytes, sizeof(value));
-    return value;
-}
-
-static inline void writePackedWord(unsigned char* bytes, unsigned short value)
-{
-    memcpy(bytes, &value, sizeof(value));
-}
+#include "compat/compiler.h"
+#include "compat/native.h"
 
 /* Conversion routines stored in the format table. The generic pair is
    selected by PixelFormat::color_model; the per-entry overrides cover
@@ -42,60 +38,32 @@ void __cdecl writeRGB555(const srPixelConvert::ConversionInfo& info);
 void __cdecl readRGB555(const srPixelConvert::ConversionInfo& info);
 void __cdecl writeBGRX(const srPixelConvert::ConversionInfo& info);
 void __cdecl readBGRX(const srPixelConvert::ConversionInfo& info);
-void __cdecl writeBGRA(const srPixelConvert::ConversionInfo& info);
-void __cdecl readBGRA(const srPixelConvert::ConversionInfo& info);
+void __cdecl copyBGRA(const srPixelConvert::ConversionInfo& info);
 void __cdecl writeABGR(const srPixelConvert::ConversionInfo& info);
 void __cdecl readABGR(const srPixelConvert::ConversionInfo& info);
 void __cdecl writeRGB24(const srPixelConvert::ConversionInfo& info);
 void __cdecl readRGB24(const srPixelConvert::ConversionInfo& info);
 
-/* Shared conversion kernels the generic dispatchers route through, by
-   destination/source byte width: pack writes BGRA source pixels through
-   the reduction tables, unpack expands packed source records through the
-   expansion tables, packIntensity routes the luma ramps plus optional
-   alpha. */
-static void packIntensity16(unsigned short* dest, const srARGB* source,
-                            const unsigned char* alpha_lut, const unsigned char* intensity_lut,
-                            unsigned char alpha_shift, unsigned char intensity_shift,
-                            w8_ulong count, int has_alpha);
-static void packIntensity24(unsigned char* dest, const srARGB* source,
-                            const unsigned char* alpha_lut, const unsigned char* intensity_lut,
-                            unsigned char alpha_shift, unsigned char intensity_shift,
-                            w8_ulong count, int has_alpha);
-static void packIntensity32(w8_ulong* dest, const srARGB* source,
-                            const unsigned char* alpha_lut, const unsigned char* intensity_lut,
-                            unsigned char alpha_shift, unsigned char intensity_shift,
-                            w8_ulong count, int has_alpha);
-static void pack8(unsigned char* dest, const srARGB* source, const unsigned char* const* luts,
-                  const unsigned char* shifts, w8_ulong count, int has_alpha);
-static void pack16(unsigned short* dest, const srARGB* source, const unsigned char* const* luts,
-                   const unsigned char* shifts, w8_ulong count, int has_alpha);
-static void pack24(unsigned char* dest, const srARGB* source, const unsigned char* const* luts,
-                   const unsigned char* shifts, w8_ulong count, int has_alpha);
-static void pack32(w8_ulong* dest, const srARGB* source, const unsigned char* const* luts,
-                   const unsigned char* shifts, w8_ulong count, int has_alpha);
-static void unpack16(w8_ulong* dest, const unsigned short* source,
-                     const unsigned char* const* luts, const unsigned char* shifts,
-                     const w8_ulong* masks, w8_ulong count);
-static void unpack24(w8_ulong* dest, const unsigned char* source,
-                     const unsigned char* const* luts, const unsigned char* shifts,
-                     const w8_ulong* masks, w8_ulong count);
-static void unpack32(w8_ulong* dest, const w8_ulong* source,
-                     const unsigned char* const* luts, const unsigned char* shifts,
-                     const w8_ulong* masks, w8_ulong count);
-
 namespace {
+
+static srPixelConvert::ConversionFunctions GenericConversionFunctions(srPixelConvert::e_colorModel model)
+{
+    switch (model) {
+    case srPixelConvert::COLOR_RGB: return {writeRGB, readRGB};
+    case srPixelConvert::COLOR_YUV: return {writeYUV, readYUV};
+    case srPixelConvert::COLOR_INTENSITY: return {writeIntensity, readIntensity};
+    case srPixelConvert::COLOR_INDEXED: return {writeIndexed, readIndexed};
+    }
+    return {};
+}
 
 struct FormatEntry {
     srPixelConvert::PixelFormat format;
     srPixelConvert::ConversionFunc write;
     srPixelConvert::ConversionFunc read;
-    FormatEntry* next;
 };
 
-/* Lookup tables built by initPixelTables(): n-bit channel expansion (round(i * 255 / (2^n - 1))),
-   8-bit channel reduction, the ordered-dither bias cube, the packed-chroma decode table and the
-   fixed-point channel weight ramps. */
+/* Rounded channel expansion/reduction and fixed-point luma tables. */
 // GLOBAL: SURRENDER 0x100A1AB0
 unsigned char lutExpand1[1];
 // GLOBAL: SURRENDER 0x100A1AB4
@@ -141,34 +109,26 @@ FormatEntry format_table[25];
 /* YUV conversion matrices: rgbToYUV rows are the Y, U and V weights applied to the source pixel's
    float channels; yuvToRGB rows decode the expanded Y, U and V back to R, G and B. */
 // GLOBAL: SURRENDER 0x100A2758
-srVector3T<float> yuvToRGB[3] = {
-    srVector3T<float>(1.0f, 0.956f, 0.620f),
-    srVector3T<float>(1.0f, -0.272f, -0.647f),
-    srVector3T<float>(1.0f, -1.108f, 1.705f),
+const glm::vec3 yuvToRGB[3] = {
+    glm::vec3(1.0f, 0.956f, 0.620f),
+    glm::vec3(1.0f, -0.272f, -0.647f),
+    glm::vec3(1.0f, -1.108f, 1.705f),
 };
 
-// GLOBAL: SURRENDER 0x100A277C
-unsigned char lutDecode[256][4];
 
-// GLOBAL: SURRENDER 0x100A2B7C
-FormatEntry* format_hash[32];
 
 // GLOBAL: SURRENDER 0x100A2BFC
 unsigned char lutExpand128[128];
 // GLOBAL: SURRENDER 0x100A2C7C
 w8_long lutRamp18[256];
-// GLOBAL: SURRENDER 0x100A307C
-int lutDither[9][4][4][4];
 // GLOBAL: SURRENDER 0x100A397C
 w8_long lutRamp54[256];
 // GLOBAL: SURRENDER 0x100A3D80
-srVector3T<float> rgbToYUV[3] = {
-    srVector3T<float>(0.299f, 0.587f, 0.114f),
-    srVector3T<float>(0.596f, -0.275f, -0.321f),
-    srVector3T<float>(0.212f, -0.528f, 0.311f),
+const glm::vec3 rgbToYUV[3] = {
+    glm::vec3(0.299f, 0.587f, 0.114f),
+    glm::vec3(0.596f, -0.275f, -0.321f),
+    glm::vec3(0.212f, -0.528f, 0.311f),
 };
-// GLOBAL: SURRENDER 0x100A3DA4
-unsigned char lutGray[256][4];
 // GLOBAL: SURRENDER 0x100A41A4
 w8_long lutRamp183[256];
 
@@ -218,35 +178,15 @@ void initFormat(w8_ulong index, unsigned char red_bits, unsigned char red_shift,
     format.fourcc = fourcc;
     format_table[index].write = 0;
     format_table[index].read = 0;
-    format_table[index].next = 0;
 }
 
 } // namespace
 
-/* Library-init table builder: channel expansion/reduction ramps, the
-   ordered-dither bias cube, fixed-point channel weights and the packed
-   decode/grayscale palettes. */
+/* Rounded channel expansion/reduction and fixed-point luma weights. */
 // FUNCTION: SURRENDER 0x10007850
 void __cdecl initPixelTables(void)
 {
     int i;
-    int ditherKernel[4][4][4] = {
-        {{0, 7, 2, 7}, {4, 5, 2, 5}, {6, 1, 7, 1}, {6, 3, 4, 3}},
-        {{0, 6, 3, 7}, {4, 6, 1, 5}, {5, 1, 7, 2}, {7, 3, 4, 2}},
-        {{3, 4, 3, 6}, {1, 7, 1, 6}, {5, 2, 5, 4}, {7, 2, 7, 0}},
-        {{6, 1, 5, 3}, {6, 2, 6, 1}, {2, 5, 2, 7}, {2, 5, 2, 3}},
-    };
-    for (int level = 0; level < 9; ++level) {
-        for (int a = 0; a < 4; ++a) {
-            for (int b = 0; b < 4; ++b) {
-                for (int c = 0; c < 4; ++c) {
-                    lutDither[level][a][b][c] = static_cast<w8_long>(
-                        (ditherKernel[a][b][c] - 3.5f) * (255.0f / 7.0f) / (1 << level) + 0.5f);
-                }
-            }
-        }
-    }
-
     lutExpand1[0] = 0xff;
     for (i = 0; i < 2; ++i) {
         lutExpand2[i] = static_cast<unsigned char>(i * 255.0f + 0.5f);
@@ -274,10 +214,6 @@ void __cdecl initPixelTables(void)
         lutRamp54[i] = static_cast<w8_long>(i * 54.4 + 0.5);
         lutRamp183[i] = static_cast<w8_long>(i * 183.1424 + 0.5);
         lutRamp18[i] = static_cast<w8_long>(i * 18.4576 + 0.5);
-        lutGray[i][0] = static_cast<unsigned char>(i);
-        lutGray[i][1] = static_cast<unsigned char>(i);
-        lutGray[i][2] = static_cast<unsigned char>(i);
-        lutGray[i][3] = 0;
     }
 
     memset(lutZero, 0, sizeof(lutZero));
@@ -294,33 +230,7 @@ void __cdecl initPixelTables(void)
         lutReduce2[i] = static_cast<unsigned char>(value * 1.0 + 0.5);
     }
 
-    for (i = 0; i < 256; ++i) {
-        int luma = lutExpand16[(i >> 4) & 0xf];
-        int chroma1 = lutExpand4[(i >> 2) & 3];
-        int chroma2 = lutExpand4[i & 3];
-        lutDecode[i][3] = 0xff;
-        int value = static_cast<int>(luma + chroma1 * 0.956f + chroma2 * 0.620f);
-        if (value < 0) {
-            value = 0;
-        } else if (value > 0xff) {
-            value = 0xff;
-        }
-        lutDecode[i][2] = static_cast<unsigned char>(value);
-        value = static_cast<int>(luma - chroma1 * 0.272f - chroma2 * 0.647f);
-        if (value < 0) {
-            value = 0;
-        } else if (value > 0xff) {
-            value = 0xff;
-        }
-        lutDecode[i][1] = static_cast<unsigned char>(value);
-        value = static_cast<int>(luma - chroma1 * 1.108f + chroma2 * 1.705f);
-        if (value < 0) {
-            value = 0;
-        } else if (value > 0xff) {
-            value = 0xff;
-        }
-        lutDecode[i][0] = static_cast<unsigned char>(value);
-    }
+
 }
 
 namespace {
@@ -381,45 +291,21 @@ void initFormats()
                srPixelConvert::COLOR_RGB, srPixelConvert::PIXEL_SIZE_32, 0);
     initFormat(srPixelConvert::SURFACE_RGB24, 8, 0, 8, 8, 8, 0x10, 0, 0, srPixelConvert::COLOR_RGB,
                srPixelConvert::PIXEL_SIZE_24, 0);
-    for (FormatEntry* entry = format_table; entry < format_table + 25; entry++) {
-        switch (entry->format.color_model) {
-        case srPixelConvert::COLOR_RGB:
-            entry->write = writeRGB;
-            entry->read = readRGB;
-            break;
-        case srPixelConvert::COLOR_YUV:
-            entry->write = writeYUV;
-            entry->read = readYUV;
-            break;
-        case srPixelConvert::COLOR_INTENSITY:
-            entry->write = writeIntensity;
-            entry->read = readIntensity;
-            break;
-        case srPixelConvert::COLOR_INDEXED:
-            entry->write = writeIndexed;
-            entry->read = readIndexed;
-        }
+    for (auto& entry : format_table) {
+        const auto functions = GenericConversionFunctions(entry.format.color_model);
+        entry.write = functions.write;
+        entry.read = functions.read;
     }
     format_table[srPixelConvert::SURFACE_RGB555].write = writeRGB555;
     format_table[srPixelConvert::SURFACE_RGB555].read = readRGB555;
     format_table[srPixelConvert::SURFACE_BGRX32].write = writeBGRX;
     format_table[srPixelConvert::SURFACE_BGRX32].read = readBGRX;
-    format_table[srPixelConvert::SURFACE_BGRA32].write = writeBGRA;
-    format_table[srPixelConvert::SURFACE_BGRA32].read = readBGRA;
+    format_table[srPixelConvert::SURFACE_BGRA32].write = copyBGRA;
+    format_table[srPixelConvert::SURFACE_BGRA32].read = copyBGRA;
     format_table[srPixelConvert::SURFACE_ABGR32].write = writeABGR;
     format_table[srPixelConvert::SURFACE_ABGR32].read = readABGR;
     format_table[srPixelConvert::SURFACE_RGB24].write = writeRGB24;
     format_table[srPixelConvert::SURFACE_RGB24].read = readRGB24;
-    memset(format_hash, 0, sizeof(format_hash));
-    for (FormatEntry* hashed = format_table; hashed < format_table + 25; hashed++) {
-        const srPixelConvert::PixelFormat& format = hashed->format;
-        w8_ulong hash =
-            (format.alpha_shift + format.alpha_bits) ^ (format.blue_shift + format.blue_bits) * 4 ^
-            (format.red_shift + format.red_bits) ^ (format.color_model << 3) ^ format.pixel_size;
-        hash = (hash >> 5 & 0x1f) ^ (hash & 0x1f);
-        hashed->next = format_hash[hash];
-        format_hash[hash] = hashed;
-    }
     formats_initialized = 1;
 }
 
@@ -438,21 +324,16 @@ int srPixelConvert::PixelFormat::isValid() const
 }
 
 // FUNCTION: SURRENDER 0x10007E90
-void srPixelConvert::PixelFormat::getName(char* const name)
+std::string srPixelConvert::PixelFormat::getName() const
 {
     static const char channel_letters[] = "RGBAYUVAIXXAPXXA";
 
     if (fourcc != 0) {
-        name[0] = static_cast<char>(fourcc);
-        name[1] = static_cast<char>(fourcc >> 8);
-        name[2] = static_cast<char>(fourcc >> 0x10);
-        name[3] = static_cast<char>(fourcc >> 0x18);
-        name[4] = '\0';
-        return;
+        char code[5] = {static_cast<char>(fourcc), static_cast<char>(fourcc >> 8),
+                        static_cast<char>(fourcc >> 16), static_cast<char>(fourcc >> 24), 0};
+        return code;
     }
-    if (name == 0) {
-        return;
-    }
+
     w8_ulong shifts[4] = {red_shift, green_shift, blue_shift, alpha_shift};
     unsigned char bits[4] = {red_bits, green_bits, blue_bits, alpha_bits};
     unsigned char order[4] = {0, 1, 2, 3};
@@ -471,115 +352,57 @@ void srPixelConvert::PixelFormat::getName(char* const name)
             }
         }
     }
-    char text[16];
-    int length = 0;
-    for (int k = 0; k < 4; k++) {
-        if (bits[k] != 0) {
-            text[length++] = channel_letters[color_model * 4 + order[k]];
-        }
-    }
-    for (int j = 0; j < 4; j++) {
-        if (bits[j] != 0) {
-            text[length++] = static_cast<char>(bits[j] + '0');
-        }
-    }
-    text[length] = '\0';
-    char tail[8];
-    sprintf(tail, "/%d", pixel_size * 8 + 8);
-    strcat(text, tail);
-    strcpy(name, text);
+
+    std::string name;
+    for (int k = 0; k < 4; k++)
+        if (bits[k] != 0)
+            name.push_back(channel_letters[color_model * 4 + order[k]]);
+    for (int j = 0; j < 4; j++)
+        if (bits[j] != 0)
+            name.push_back(static_cast<char>(bits[j] + '0'));
+    name += '/';
+    name += std::to_string(pixel_size * 8 + 8);
+    return name;
+}
+
+static glm::vec4 channelBitCounts(const srPixelConvert::PixelFormat& format)
+{
+    return glm::vec4(format.red_bits, format.green_bits, format.blue_bits, format.alpha_bits);
 }
 
 // FUNCTION: SURRENDER 0x10008020
-w8_ulong srPixelConvert::PixelFormat::match(const PixelFormat* formats,
-                                                 w8_ulong count) const
+std::optional<std::size_t> srPixelConvert::PixelFormat::match(
+    std::span<const PixelFormat> formats) const
 {
-    if (count < 2) {
-        return 0;
-    }
+    if (formats.empty()) return std::nullopt;
+    if (formats.size() == 1) return 0;
     if (fourcc != 0) {
-        for (w8_ulong i = 0; i < count; i++) {
-            if (formats[i].fourcc == fourcc) {
-                return i;
-            }
-        }
+        const auto exact = std::ranges::find(formats, fourcc, &PixelFormat::fourcc);
+        if (exact != formats.end()) return exact - formats.begin();
     }
-    w8_ulong wanted = 0;
-    if (red_bits != 0) {
-        wanted |= 1;
-    }
-    if (green_bits != 0) {
-        wanted |= 2;
-    }
-    if (blue_bits != 0) {
-        wanted |= 4;
-    }
-    if (alpha_bits != 0) {
-        wanted |= 8;
-    }
-    w8_ulong best = 0;
-    int best_distance = 0x7fffffff;
+    const auto wanted = channelBitCounts(*this);
+    const auto required = glm::min(wanted, glm::vec4(1));
+    std::optional<std::size_t> best;
+    float best_distance = std::numeric_limits<float>::infinity();
     int best_bytes = 5;
-    for (w8_ulong c = 0; c < count; c++) {
-        const PixelFormat& candidate = formats[c];
-        if (candidate.color_model != color_model) {
+    for (std::size_t index = 0; index < formats.size(); ++index) {
+        const auto& candidate = formats[index];
+        const auto bits = channelBitCounts(candidate);
+        if (candidate.color_model != color_model || glm::any(glm::lessThan(bits, required)))
             continue;
-        }
-        w8_ulong have = 0;
-        if (candidate.red_bits != 0) {
-            have |= 1;
-        }
-        if (candidate.green_bits != 0) {
-            have |= 2;
-        }
-        if (candidate.blue_bits != 0) {
-            have |= 4;
-        }
-        if (candidate.alpha_bits != 0) {
-            have |= 8;
-        }
-        if ((have & wanted) != wanted) {
-            continue;
-        }
-        /* Only channel shortfall costs distance: a candidate with extra bits
-           in a wanted channel scores the same as an exact bit count. */
-        int dr = candidate.red_bits - red_bits;
-        if (dr > 0) {
-            dr = 0;
-        }
-        int dg = candidate.green_bits - green_bits;
-        if (dg > 0) {
-            dg = 0;
-        }
-        int db = candidate.blue_bits - blue_bits;
-        if (db > 0) {
-            db = 0;
-        }
-        int da = candidate.alpha_bits - alpha_bits;
-        if (da > 0) {
-            da = 0;
-        }
-        int distance = dr * dr + dg * dg + db * db + da * da;
+        // Only shortfall costs distance; byte-sized channel counts score exactly in float.
+        const auto shortfall = glm::min(bits - wanted, glm::vec4(0));
+        const auto distance = glm::dot(shortfall, shortfall);
         if (distance < best_distance ||
             (distance == best_distance && candidate.pixel_size < best_bytes)) {
-            best = c;
+            best = index;
             best_distance = distance;
             best_bytes = candidate.pixel_size;
         }
     }
-    if (best_distance < 0x7fffffff) {
-        return best;
-    }
-    /* No class-compatible candidate: pick the widest pixel format. */
-    w8_ulong widest = 0;
-    int widest_bytes = -1;
-    for (w8_ulong w = 0; w < count; w++) {
-        if (widest_bytes < formats[w].pixel_size) {
-            widest = w;
-            widest_bytes = formats[w].pixel_size;
-        }
-    }
-    return widest;
+    if (best) return best;
+    // No compatible class: retain the first widest format.
+    return std::ranges::max_element(formats, {}, &PixelFormat::pixel_size) - formats.begin();
 }
 
 // FUNCTION: SURRENDER 0x10008240
@@ -595,50 +418,75 @@ srPixelConvert::e_surfaceType srPixelConvert::mapPixelFormat(const PixelFormat& 
 }
 
 // FUNCTION: SURRENDER 0x10008290
-void srPixelConvert::mapPixelFormat(e_surfaceType type, PixelFormat& format)
+srPixelConvert::PixelFormat srPixelConvert::pixelFormat(e_surfaceType type)
 {
     initFormats();
     if (static_cast<int>(type) < 0 || static_cast<int>(type) > 0x18) {
         type = SURFACE_BGRA32;
     }
-    format = format_table[type].format;
+    return format_table[type].format;
 }
 
 // FUNCTION: SURRENDER 0x100087A0
-void srPixelConvert::selectFuncs(const PixelFormat& format, ConversionFunc& write,
-                                 ConversionFunc& read)
+srPixelConvert::ConversionFunctions srPixelConvert::selectFuncs(const PixelFormat& format)
 {
     initFormats();
-    w8_ulong hash =
-        (format.alpha_shift + format.alpha_bits) ^ (format.blue_shift + format.blue_bits) * 4 ^
-        (format.red_shift + format.red_bits) ^ (format.color_model << 3) ^ format.pixel_size;
-    FormatEntry* entry = format_hash[(hash >> 5 & 0x1f) ^ (hash & 0x1f)];
-    while (entry != 0) {
-        if (entry->format == format) {
-            read = entry->read;
-            write = entry->write;
-            return;
-        }
-        entry = entry->next;
-    }
-    switch (format.color_model) {
-    case srPixelConvert::COLOR_RGB:
-        write = writeRGB;
-        read = readRGB;
-        return;
-    case srPixelConvert::COLOR_YUV:
-        write = writeYUV;
-        read = readYUV;
-        return;
-    case srPixelConvert::COLOR_INTENSITY:
-        write = writeIntensity;
-        read = readIntensity;
-        return;
-    case srPixelConvert::COLOR_INDEXED:
-        write = writeIndexed;
-        read = readIndexed;
+    const auto entry = std::find_if(std::begin(format_table), std::end(format_table),
+        [&](const FormatEntry& candidate) { return candidate.format == format; });
+    if (entry != std::end(format_table))
+        return {entry->write, entry->read};
+
+    return GenericConversionFunctions(format.color_model);
+}
+
+// Packed storage is byte-addressed, including unaligned 24-bit pixels.
+struct PixelAt {
+    w8_ulong value;
+    w8_ulong index;
+};
+
+template<class Convert>
+static void ConvertPixelRun(const srPixelConvert::ConversionInfo& info, unsigned source_bytes,
+                            unsigned destination_bytes, Convert convert)
+{
+    const auto* source = static_cast<const unsigned char*>(info.source);
+    auto* destination = static_cast<unsigned char*>(info.dest);
+    for (w8_ulong index = 0; index < info.count; ++index) {
+        w8_ulong pixel = 0;
+        std::memcpy(&pixel, source + index * source_bytes, source_bytes);
+        const auto output = convert(pixel, index);
+        std::memcpy(destination + output.index * destination_bytes, &output.value, destination_bytes);
     }
 }
+
+struct PackedChannel {
+    unsigned shift;
+    w8_ulong mask;
+    const unsigned char* expand_table;
+    const unsigned char* reduce_table;
+
+    PackedChannel(unsigned bits, unsigned shift)
+        : shift(shift), mask((1u << bits) - 1),
+          expand_table(channel_expand[bits]), reduce_table(channel_reduce[bits]) {}
+    w8_ulong extract(w8_ulong pixel) const { return (pixel >> shift) & mask; }
+    w8_ulong expand(w8_ulong pixel) const { return expand_table[extract(pixel)]; }
+    w8_ulong reduce(unsigned value) const { return w8_ulong(reduce_table[value]) << shift; }
+};
+
+struct PackedChannels {
+    PackedChannel red, green, blue, alpha;
+    explicit PackedChannels(const srPixelConvert::PixelFormat& format)
+        : red(format.red_bits, format.red_shift), green(format.green_bits, format.green_shift),
+          blue(format.blue_bits, format.blue_shift), alpha(format.alpha_bits, format.alpha_shift) {}
+    glm::uvec4 expand(w8_ulong pixel) const
+    {
+        return {red.expand(pixel), green.expand(pixel), blue.expand(pixel), alpha.expand(pixel)};
+    }
+    w8_ulong reduce(const glm::uvec4& value) const
+    {
+        return red.reduce(value.r) | green.reduce(value.g) | blue.reduce(value.b) | alpha.reduce(value.a);
+    }
+};
 
 /* Clamps a decoded YUV channel to a byte for the srARGB pack. */
 static int clampChannel(float value)
@@ -659,96 +507,18 @@ static int clampChannel(float value)
 // FUNCTION: SURRENDER 0x100088D0
 void __cdecl writeYUV(const srPixelConvert::ConversionInfo& info)
 {
-    const srPixelConvert::PixelFormat* format = info.format;
-    const unsigned char* luts[4];
-    unsigned char shifts[4];
-    luts[0] = channel_reduce[format->red_bits];
-    luts[1] = channel_reduce[format->green_bits];
-    luts[2] = channel_reduce[format->blue_bits];
-    luts[3] = channel_reduce[format->alpha_bits];
-    shifts[0] = format->red_shift;
-    shifts[1] = format->green_shift;
-    shifts[2] = format->blue_shift;
-    shifts[3] = format->alpha_shift;
-    const srARGB* source = static_cast<const srARGB*>(info.source);
-    switch (format->pixel_size) {
-    case srPixelConvert::PIXEL_SIZE_8: {
-        unsigned char* dest = static_cast<unsigned char*>(info.dest);
-        for (w8_ulong i = info.count; i != 0; --i, ++source) {
-            srARGB pixel = *source;
-            srVector3T<float> rgb((float)pixel.red, (float)pixel.green, (float)pixel.blue);
-            srVector3T<float> yuv(glm::dot(rgbToYUV[0].glmValue(), rgb.glmValue()),
-                                  glm::dot(rgbToYUV[1].glmValue(), rgb.glmValue()),
-                                  glm::dot(rgbToYUV[2].glmValue(), rgb.glmValue()));
-            int y = srFloatToInt(yuv.x);
-            int u = srFloatToInt(yuv.y);
-            int v = srFloatToInt(yuv.z);
-            w8_ulong index = luts[1][(u >> 8) & 0xff] << shifts[1];
-            dest[index] = luts[0][(y >> 16) & 0xff] << shifts[0] |
-                          luts[3][pixel.alpha] << shifts[3] | luts[2][v & 0xff] << shifts[2] |
-                          index;
-        }
-        return;
-    }
-    case srPixelConvert::PIXEL_SIZE_16: {
-        unsigned short* dest = static_cast<unsigned short*>(info.dest);
-        for (w8_ulong i = info.count; i != 0; --i, ++source) {
-            srARGB pixel = *source;
-            srVector3T<float> rgb((float)pixel.red, (float)pixel.green, (float)pixel.blue);
-            srVector3T<float> yuv(glm::dot(rgbToYUV[0].glmValue(), rgb.glmValue()),
-                                  glm::dot(rgbToYUV[1].glmValue(), rgb.glmValue()),
-                                  glm::dot(rgbToYUV[2].glmValue(), rgb.glmValue()));
-            int y = srFloatToInt(yuv.x);
-            int u = srFloatToInt(yuv.y);
-            int v = srFloatToInt(yuv.z);
-            w8_ulong index = luts[1][(u >> 8) & 0xff] << shifts[1];
-            dest[index] = luts[0][(y >> 16) & 0xff] << shifts[0] |
-                          luts[3][pixel.alpha] << shifts[3] | luts[2][v & 0xff] << shifts[2] |
-                          index;
-        }
-        return;
-    }
-    case srPixelConvert::PIXEL_SIZE_24: {
-        unsigned char* dest = static_cast<unsigned char*>(info.dest);
-        for (w8_ulong i = info.count; i != 0; --i, ++source) {
-            srARGB pixel = *source;
-            srVector3T<float> rgb((float)pixel.red, (float)pixel.green, (float)pixel.blue);
-            srVector3T<float> yuv(glm::dot(rgbToYUV[0].glmValue(), rgb.glmValue()),
-                                  glm::dot(rgbToYUV[1].glmValue(), rgb.glmValue()),
-                                  glm::dot(rgbToYUV[2].glmValue(), rgb.glmValue()));
-            int y = srFloatToInt(yuv.x);
-            int u = srFloatToInt(yuv.y);
-            int v = srFloatToInt(yuv.z);
-            w8_ulong index = luts[1][(u >> 8) & 0xff] << shifts[1];
-            w8_ulong packed = luts[0][(y >> 16) & 0xff] << shifts[0] |
-                                   luts[3][pixel.alpha] << shifts[3] |
-                                   luts[2][v & 0xff] << shifts[2] | index;
-            unsigned char* dst = dest + index * 3;
-            dst[0] = static_cast<unsigned char>(packed);
-            dst[1] = static_cast<unsigned char>(packed >> 8);
-            dst[2] = static_cast<unsigned char>(packed >> 16);
-        }
-        return;
-    }
-    case srPixelConvert::PIXEL_SIZE_32: {
-        w8_ulong* dest = static_cast<w8_ulong*>(info.dest);
-        for (w8_ulong i = info.count; i != 0; --i, ++source) {
-            srARGB pixel = *source;
-            srVector3T<float> rgb((float)pixel.red, (float)pixel.green, (float)pixel.blue);
-            srVector3T<float> yuv(glm::dot(rgbToYUV[0].glmValue(), rgb.glmValue()),
-                                  glm::dot(rgbToYUV[1].glmValue(), rgb.glmValue()),
-                                  glm::dot(rgbToYUV[2].glmValue(), rgb.glmValue()));
-            int y = srFloatToInt(yuv.x);
-            int u = srFloatToInt(yuv.y);
-            int v = srFloatToInt(yuv.z);
-            w8_ulong index = luts[1][(u >> 8) & 0xff] << shifts[1];
-            dest[index] = luts[0][(y >> 16) & 0xff] << shifts[0] |
-                          luts[3][pixel.alpha] << shifts[3] | luts[2][v & 0xff] << shifts[2] |
-                          index;
-        }
-        return;
-    }
-    }
+    const auto& format = *info.format;
+    const PackedChannels channels(format);
+    ConvertPixelRun(info, 4, format.pixel_size + 1, [&](w8_ulong pixel, w8_ulong) {
+        const auto color = srPixels::channels(pixel);
+        const glm::vec3 rgb(color);
+        const glm::vec3 yuv(glm::dot(rgbToYUV[0], rgb), glm::dot(rgbToYUV[1], rgb),
+                            glm::dot(rgbToYUV[2], rgb));
+        const auto y = srFloatToInt(yuv.x), u = srFloatToInt(yuv.y), v = srFloatToInt(yuv.z);
+        const auto index = channels.green.reduce((u >> 8) & 255);
+        return PixelAt{channels.red.reduce((y >> 16) & 255) | index |
+                       channels.blue.reduce(v & 255) | channels.alpha.reduce(color.a), index};
+    });
 }
 
 /* YUVA read dispatcher: every case expands the packed Y, U and V channels through the format's
@@ -758,96 +528,16 @@ void __cdecl writeYUV(const srPixelConvert::ConversionInfo& info)
 // FUNCTION: SURRENDER 0x10008F70
 void __cdecl readYUV(const srPixelConvert::ConversionInfo& info)
 {
-    const srPixelConvert::PixelFormat* format = info.format;
-    w8_ulong masks[4];
-    unsigned char shifts[4];
-    const unsigned char* luts[4];
-    masks[0] = (1ul << format->red_bits) - 1;
-    masks[1] = (1ul << format->green_bits) - 1;
-    masks[2] = (1ul << format->blue_bits) - 1;
-    masks[3] = (1ul << format->alpha_bits) - 1;
-    shifts[0] = format->red_shift;
-    shifts[1] = format->green_shift;
-    shifts[2] = format->blue_shift;
-    shifts[3] = format->alpha_shift;
-    luts[0] = channel_expand[format->red_bits];
-    luts[1] = channel_expand[format->green_bits];
-    luts[2] = channel_expand[format->blue_bits];
-    luts[3] = channel_expand[format->alpha_bits];
-    w8_ulong* dest = static_cast<w8_ulong*>(info.dest);
-    switch (format->pixel_size) {
-    case srPixelConvert::PIXEL_SIZE_8: {
-        const unsigned char* source = static_cast<const unsigned char*>(info.source);
-        for (w8_ulong i = 0; i < info.count; i++) {
-            w8_ulong pixel = source[i];
-            srVector3T<float> yuv((float)luts[0][(pixel >> shifts[0]) & masks[0]],
-                                  (float)luts[1][(pixel >> shifts[1]) & masks[1]],
-                                  (float)luts[2][(pixel >> shifts[2]) & masks[2]]);
-            srVector3T<float> rgb(glm::dot(yuvToRGB[0].glmValue(), yuv.glmValue()),
-                                  glm::dot(yuvToRGB[1].glmValue(), yuv.glmValue()),
-                                  glm::dot(yuvToRGB[2].glmValue(), yuv.glmValue()));
-            w8_ulong index = luts[1][(pixel >> shifts[1]) & masks[1]];
-            dest[index] = luts[3][(pixel >> shifts[3]) & masks[3]] << 24 |
-                          clampChannel(rgb.x) << 16 | clampChannel(rgb.y) << 8 |
-                          clampChannel(rgb.z);
-        }
-        return;
-    }
-    case srPixelConvert::PIXEL_SIZE_16: {
-        const unsigned short* source = static_cast<const unsigned short*>(info.source);
-        for (w8_ulong i = 0; i < info.count; i++) {
-            w8_ulong pixel = source[i];
-            srVector3T<float> yuv((float)luts[0][(pixel >> shifts[0]) & masks[0]],
-                                  (float)luts[1][(pixel >> shifts[1]) & masks[1]],
-                                  (float)luts[2][(pixel >> shifts[2]) & masks[2]]);
-            srVector3T<float> rgb(glm::dot(yuvToRGB[0].glmValue(), yuv.glmValue()),
-                                  glm::dot(yuvToRGB[1].glmValue(), yuv.glmValue()),
-                                  glm::dot(yuvToRGB[2].glmValue(), yuv.glmValue()));
-            w8_ulong index = luts[1][(pixel >> shifts[1]) & masks[1]];
-            dest[index] = luts[3][(pixel >> shifts[3]) & masks[3]] << 24 |
-                          clampChannel(rgb.x) << 16 | clampChannel(rgb.y) << 8 |
-                          clampChannel(rgb.z);
-        }
-        return;
-    }
-    case srPixelConvert::PIXEL_SIZE_24: {
-        const unsigned char* source = static_cast<const unsigned char*>(info.source);
-        for (w8_ulong i = 0; i < info.count; i++) {
-            /* reinterpret-ok: 24-bit records load their high two bytes as a word. */
-            w8_ulong pixel =
-                readPackedWord(source + 1) * 0x100 + source[0];
-            srVector3T<float> yuv((float)luts[0][(pixel >> shifts[0]) & masks[0]],
-                                  (float)luts[1][(pixel >> shifts[1]) & masks[1]],
-                                  (float)luts[2][(pixel >> shifts[2]) & masks[2]]);
-            srVector3T<float> rgb(glm::dot(yuvToRGB[0].glmValue(), yuv.glmValue()),
-                                  glm::dot(yuvToRGB[1].glmValue(), yuv.glmValue()),
-                                  glm::dot(yuvToRGB[2].glmValue(), yuv.glmValue()));
-            w8_ulong index = luts[1][(pixel >> shifts[1]) & masks[1]];
-            dest[index] = luts[3][(pixel >> shifts[3]) & masks[3]] << 24 |
-                          clampChannel(rgb.x) << 16 | clampChannel(rgb.y) << 8 |
-                          clampChannel(rgb.z);
-            source += 3;
-        }
-        return;
-    }
-    case srPixelConvert::PIXEL_SIZE_32: {
-        const w8_ulong* source = static_cast<const w8_ulong*>(info.source);
-        for (w8_ulong i = 0; i < info.count; i++) {
-            w8_ulong pixel = source[i];
-            srVector3T<float> yuv((float)luts[0][(pixel >> shifts[0]) & masks[0]],
-                                  (float)luts[1][(pixel >> shifts[1]) & masks[1]],
-                                  (float)luts[2][(pixel >> shifts[2]) & masks[2]]);
-            srVector3T<float> rgb(glm::dot(yuvToRGB[0].glmValue(), yuv.glmValue()),
-                                  glm::dot(yuvToRGB[1].glmValue(), yuv.glmValue()),
-                                  glm::dot(yuvToRGB[2].glmValue(), yuv.glmValue()));
-            w8_ulong index = luts[1][(pixel >> shifts[1]) & masks[1]];
-            dest[index] = luts[3][(pixel >> shifts[3]) & masks[3]] << 24 |
-                          clampChannel(rgb.x) << 16 | clampChannel(rgb.y) << 8 |
-                          clampChannel(rgb.z);
-        }
-        return;
-    }
-    }
+    const auto& format = *info.format;
+    const PackedChannels channels(format);
+    ConvertPixelRun(info, format.pixel_size + 1, 4, [&](w8_ulong pixel, w8_ulong) {
+        const auto color = channels.expand(pixel);
+        const glm::vec3 yuv(color);
+        const glm::vec3 rgb(glm::dot(yuvToRGB[0], yuv), glm::dot(yuvToRGB[1], yuv),
+                            glm::dot(yuvToRGB[2], yuv));
+        return PixelAt{srPixels::pack({clampChannel(rgb.x), clampChannel(rgb.y), clampChannel(rgb.z), color.a}),
+                       color.g};
+    });
 }
 
 /* PXXA (palette index + optional alpha) write dispatcher: every case
@@ -856,59 +546,19 @@ void __cdecl readYUV(const srPixelConvert::ConversionInfo& info)
 // FUNCTION: SURRENDER 0x10009890
 void __cdecl writeIndexed(const srPixelConvert::ConversionInfo& info)
 {
-    const srPixelConvert::PixelFormat* format = info.format;
-    const unsigned char* alpha_lut = channel_reduce[format->alpha_bits];
-    unsigned char alpha_shift = format->alpha_shift;
-    unsigned char index_shift = format->red_shift;
-    const w8_ulong* source = static_cast<const w8_ulong*>(info.source);
-    w8_ulong count = info.count;
-    switch (format->pixel_size) {
-    case srPixelConvert::PIXEL_SIZE_8: {
-        unsigned char* dest = static_cast<unsigned char*>(info.dest);
-        for (w8_ulong i = 0; i < count; i++) {
-            w8_ulong color = source[i] & 0xffffff;
-            /* reinterpret-ok: packed BGR color. */
-            unsigned char index = info.palette->quantize(*reinterpret_cast<const srARGB*>(&color));
-            dest[i] = static_cast<unsigned char>(index << index_shift | alpha_lut[source[i] >> 24]
-                                                                            << alpha_shift);
-        }
-        return;
-    }
-    case srPixelConvert::PIXEL_SIZE_16: {
-        unsigned short* dest = static_cast<unsigned short*>(info.dest);
-        for (w8_ulong i = 0; i < count; i++) {
-            w8_ulong color = source[i] & 0xffffff;
-            /* reinterpret-ok: packed BGR color. */
-            unsigned char index = info.palette->quantize(*reinterpret_cast<const srARGB*>(&color));
-            dest[i] = static_cast<unsigned short>(index << index_shift | alpha_lut[source[i] >> 24]
-                                                                             << alpha_shift);
-        }
-        return;
-    }
-    case srPixelConvert::PIXEL_SIZE_24: {
-        unsigned char* dest = static_cast<unsigned char*>(info.dest);
-        for (w8_ulong i = 0; i < count; i++) {
-            w8_ulong color = source[i];
-            /* reinterpret-ok: packed BGR color. */
-            unsigned char index = info.palette->quantize(*reinterpret_cast<const srARGB*>(&color));
-            w8_ulong pixel = index << index_shift | alpha_lut[source[i] >> 24] << alpha_shift;
-            dest[0] = static_cast<unsigned char>(pixel);
-            dest[1] = static_cast<unsigned char>(pixel >> 8);
-            dest[2] = static_cast<unsigned char>(pixel >> 16);
-            dest += 3;
-        }
-        return;
-    }
-    case srPixelConvert::PIXEL_SIZE_32: {
-        w8_ulong* dest = static_cast<w8_ulong*>(info.dest);
-        for (w8_ulong i = 0; i < count; i++) {
-            w8_ulong color = source[i];
-            /* reinterpret-ok: packed BGR color. */
-            unsigned char index = info.palette->quantize(*reinterpret_cast<const srARGB*>(&color));
-            dest[i] = index << index_shift | alpha_lut[source[i] >> 24] << alpha_shift;
-        }
-    }
-    }
+    const auto& format = *info.format;
+    const PackedChannel alpha(format.alpha_bits, format.alpha_shift);
+    const unsigned bytes = format.pixel_size + 1;
+    ConvertPixelRun(info, 4, bytes, [&](w8_ulong pixel, w8_ulong index) {
+        const auto color = srPixels::channels(pixel);
+        srARGB quantized;
+        quantized.red = color.r;
+        quantized.green = color.g;
+        quantized.blue = color.b;
+        quantized.alpha = bytes <= 2 ? 0 : color.a;
+        return PixelAt{w8_ulong(info.palette->quantize(quantized)) << format.red_shift |
+                       alpha.reduce(color.a), index};
+    });
 }
 
 /* PXXA read dispatcher: the packed index selects a palette entry whose
@@ -916,306 +566,79 @@ void __cdecl writeIndexed(const srPixelConvert::ConversionInfo& info)
 // FUNCTION: SURRENDER 0x10009B00
 void __cdecl readIndexed(const srPixelConvert::ConversionInfo& info)
 {
-    const srPixelConvert::PixelFormat* format = info.format;
-    unsigned char index_shift = format->red_shift;
-    w8_ulong index_mask = (1ul << format->red_bits) - 1;
-    w8_ulong alpha_mask = (1ul << format->alpha_bits) - 1;
-    unsigned char alpha_shift = format->alpha_shift;
-    const unsigned char* alpha_lut = channel_expand[format->alpha_bits];
+    const auto& format = *info.format;
+    const PackedChannel palette_index(format.red_bits, format.red_shift);
+    const PackedChannel alpha(format.alpha_bits, format.alpha_shift);
     /* reinterpret-ok: palette entries are packed srARGB dwords. */
-    const w8_ulong* palette =
-        reinterpret_cast<const w8_ulong*>(info.palette->getPaletteDataPtr());
-    w8_ulong* dest = static_cast<w8_ulong*>(info.dest);
-    w8_ulong count = info.count;
-    switch (format->pixel_size) {
-    case srPixelConvert::PIXEL_SIZE_8: {
-        const unsigned char* source = static_cast<const unsigned char*>(info.source);
-        for (w8_ulong i = 0; i < count; i++) {
-            w8_ulong pixel = source[i];
-            dest[i] = (palette[(pixel >> index_shift) & index_mask] & 0xffffff) |
-                      static_cast<w8_ulong>(alpha_lut[(pixel >> alpha_shift) & alpha_mask])
-                          << 24;
-        }
-        return;
-    }
-    case srPixelConvert::PIXEL_SIZE_16: {
-        const unsigned short* source = static_cast<const unsigned short*>(info.source);
-        for (w8_ulong i = 0; i < count; i++) {
-            w8_ulong pixel = source[i];
-            dest[i] = (palette[(pixel >> index_shift) & index_mask] & 0xffffff) |
-                      static_cast<w8_ulong>(alpha_lut[(pixel >> alpha_shift) & alpha_mask])
-                          << 24;
-        }
-        return;
-    }
-    case srPixelConvert::PIXEL_SIZE_24: {
-        const unsigned char* source = static_cast<const unsigned char*>(info.source);
-        for (w8_ulong i = 0; i < count; i++) {
-            w8_ulong pixel = source[0] | source[1] << 8 | source[2] << 16;
-            dest[i] = (palette[(pixel >> index_shift) & index_mask] & 0xffffff) |
-                      static_cast<w8_ulong>(alpha_lut[(pixel >> alpha_shift) & alpha_mask])
-                          << 24;
-            source += 3;
-        }
-        return;
-    }
-    case srPixelConvert::PIXEL_SIZE_32: {
-        const w8_ulong* source = static_cast<const w8_ulong*>(info.source);
-        for (w8_ulong i = 0; i < count; i++) {
-            w8_ulong pixel = source[i];
-            dest[i] = (palette[(pixel >> index_shift) & index_mask] & 0xffffff) |
-                      static_cast<w8_ulong>(alpha_lut[(pixel >> alpha_shift) & alpha_mask])
-                          << 24;
-        }
-    }
-    }
+    const auto* palette = reinterpret_cast<const w8_ulong*>(info.palette->getPaletteDataPtr());
+    ConvertPixelRun(info, format.pixel_size + 1, 4, [&](w8_ulong pixel, w8_ulong index) {
+        return PixelAt{(palette[palette_index.extract(pixel)] & 0xffffff) | alpha.expand(pixel) << 24, index};
+    });
 }
 
-/* IXXA (intensity + optional alpha) write dispatcher: 8-bit destinations
-   compute the luma index inline, wider destinations go through the shared
-   intensity kernels. */
+/* Game-specific fixed-point luma and rounded channel reduction. */
 // FUNCTION: SURRENDER 0x10009DB0
 void __cdecl writeIntensity(const srPixelConvert::ConversionInfo& info)
 {
-    const srPixelConvert::PixelFormat* format = info.format;
-    const unsigned char* intensity_lut = channel_reduce[format->red_bits];
-    const unsigned char* alpha_lut = channel_reduce[format->alpha_bits];
-    int has_alpha = format->alpha_bits != 0;
-    const srARGB* source = static_cast<const srARGB*>(info.source);
-    srARGB pixel;
-    w8_ulong count = info.count;
-    switch (format->pixel_size) {
-    case srPixelConvert::PIXEL_SIZE_8: {
-        unsigned char* dest = static_cast<unsigned char*>(info.dest);
-        w8_ulong i = 0;
-        if (has_alpha != 0) {
-            for (; i < (count & ~1UL); i += 2) {
-                pixel = source[i];
-                w8_ulong luma =
-                    (lutRamp54[pixel.red] + lutRamp183[pixel.green] + lutRamp18[pixel.blue]) >> 8;
-                dest[i] = intensity_lut[luma] << format->red_shift | alpha_lut[pixel.alpha]
-                                                                         << format->alpha_shift;
-                pixel = source[i + 1];
-                luma =
-                    (lutRamp54[pixel.red] + lutRamp183[pixel.green] + lutRamp18[pixel.blue]) >> 8;
-                dest[i + 1] = intensity_lut[luma] << format->red_shift | alpha_lut[pixel.alpha]
-                                                                             << format->alpha_shift;
-            }
-            for (; i < count; i++) {
-                pixel = source[i];
-                w8_ulong luma =
-                    (lutRamp54[pixel.red] + lutRamp183[pixel.green] + lutRamp18[pixel.blue]) >> 8;
-                dest[i] = intensity_lut[luma] << format->red_shift | alpha_lut[pixel.alpha]
-                                                                         << format->alpha_shift;
-            }
-        } else {
-            for (; i < (count & ~1UL); i += 2) {
-                pixel = source[i];
-                w8_ulong luma =
-                    (lutRamp54[pixel.red] + lutRamp183[pixel.green] + lutRamp18[pixel.blue]) >> 8;
-                dest[i] = intensity_lut[luma] << format->red_shift;
-                pixel = source[i + 1];
-                luma =
-                    (lutRamp54[pixel.red] + lutRamp183[pixel.green] + lutRamp18[pixel.blue]) >> 8;
-                dest[i + 1] = intensity_lut[luma] << format->red_shift;
-            }
-            for (; i < count; i++) {
-                pixel = source[i];
-                w8_ulong luma =
-                    (lutRamp54[pixel.red] + lutRamp183[pixel.green] + lutRamp18[pixel.blue]) >> 8;
-                dest[i] = intensity_lut[luma] << format->red_shift;
-            }
-        }
-        return;
-    }
-    case srPixelConvert::PIXEL_SIZE_16:
-        packIntensity16(static_cast<unsigned short*>(info.dest), source, alpha_lut, intensity_lut,
-                        format->alpha_shift, format->red_shift, count, has_alpha);
-        return;
-    case srPixelConvert::PIXEL_SIZE_24:
-        packIntensity24(static_cast<unsigned char*>(info.dest), source, alpha_lut, intensity_lut,
-                        format->alpha_shift, format->red_shift, count, has_alpha);
-        return;
-    case srPixelConvert::PIXEL_SIZE_32:
-        packIntensity32(static_cast<w8_ulong*>(info.dest), source, alpha_lut, intensity_lut,
-                        format->alpha_shift, format->red_shift, count, has_alpha);
-    }
+    const auto& format = *info.format;
+    const PackedChannel intensity(format.red_bits, format.red_shift);
+    const PackedChannel alpha(format.alpha_bits, format.alpha_shift);
+    ConvertPixelRun(info, 4, format.pixel_size + 1, [&](w8_ulong pixel, w8_ulong index) {
+        const auto color = srPixels::channels(pixel);
+        const unsigned luma = (lutRamp54[color.r] + lutRamp183[color.g] + lutRamp18[color.b]) >> 8;
+        return PixelAt{intensity.reduce(luma) | alpha.reduce(color.a), index};
+    });
 }
 
-/* IXXA read dispatcher: every source width expands inline through the
-   intensity and alpha luts, producing grayscale pixels via lutGray with
-   the alpha channel overlaid in the top byte. */
+/* Expand game intensity and alpha channels to ARGB. */
 // FUNCTION: SURRENDER 0x1000A0D0
 void __cdecl readIntensity(const srPixelConvert::ConversionInfo& info)
 {
-    const srPixelConvert::PixelFormat* format = info.format;
-    w8_ulong intensity_mask = (1ul << format->red_bits) - 1;
-    w8_ulong alpha_mask = (1ul << format->alpha_bits) - 1;
-    const unsigned char* intensity_lut = channel_expand[format->red_bits];
-    const unsigned char* alpha_lut = channel_expand[format->alpha_bits];
-    w8_ulong* dest = static_cast<w8_ulong*>(info.dest);
-    w8_ulong count = info.count;
-    switch (format->pixel_size) {
-    case srPixelConvert::PIXEL_SIZE_8: {
-        const unsigned char* source = static_cast<const unsigned char*>(info.source);
-        for (w8_ulong i = 0; i < count; i++) {
-            w8_ulong pixel = source[i];
-            const unsigned char* gray =
-                lutGray[intensity_lut[(pixel >> format->red_shift) & intensity_mask]];
-            /* reinterpret-ok: packed BGRA gray entry. */
-            dest[i] =
-                *reinterpret_cast<const w8_ulong*>(gray) |
-                static_cast<w8_ulong>(alpha_lut[(pixel >> format->alpha_shift) & alpha_mask])
-                    << 24;
-        }
-        return;
-    }
-    case srPixelConvert::PIXEL_SIZE_16: {
-        const unsigned short* source = static_cast<const unsigned short*>(info.source);
-        for (w8_ulong i = 0; i < count; i++) {
-            w8_ulong pixel = source[i];
-            const unsigned char* gray =
-                lutGray[intensity_lut[(pixel >> format->red_shift) & intensity_mask]];
-            /* reinterpret-ok: packed BGRA gray entry. */
-            dest[i] =
-                *reinterpret_cast<const w8_ulong*>(gray) |
-                static_cast<w8_ulong>(alpha_lut[(pixel >> format->alpha_shift) & alpha_mask])
-                    << 24;
-        }
-        return;
-    }
-    case srPixelConvert::PIXEL_SIZE_24: {
-        const unsigned char* source = static_cast<const unsigned char*>(info.source);
-        for (w8_ulong i = 0; i < count; i++) {
-            /* reinterpret-ok: 24-bit records load their high two bytes as a word. */
-            w8_ulong pixel =
-                readPackedWord(source + 1) * 0x100 + source[0];
-            const unsigned char* gray =
-                lutGray[intensity_lut[(pixel >> format->red_shift) & intensity_mask]];
-            /* reinterpret-ok: packed BGRA gray entry. */
-            dest[i] =
-                *reinterpret_cast<const w8_ulong*>(gray) |
-                static_cast<w8_ulong>(alpha_lut[(pixel >> format->alpha_shift) & alpha_mask])
-                    << 24;
-            source += 3;
-        }
-        return;
-    }
-    case srPixelConvert::PIXEL_SIZE_32: {
-        const w8_ulong* source = static_cast<const w8_ulong*>(info.source);
-        for (w8_ulong i = 0; i < count; i++) {
-            w8_ulong pixel = source[i];
-            const unsigned char* gray =
-                lutGray[intensity_lut[(pixel >> format->red_shift) & intensity_mask]];
-            /* reinterpret-ok: packed BGRA gray entry. */
-            dest[i] =
-                *reinterpret_cast<const w8_ulong*>(gray) |
-                static_cast<w8_ulong>(alpha_lut[(pixel >> format->alpha_shift) & alpha_mask])
-                    << 24;
-        }
-    }
-    }
+    const auto& format = *info.format;
+    const PackedChannel intensity(format.red_bits, format.red_shift);
+    const PackedChannel alpha(format.alpha_bits, format.alpha_shift);
+    ConvertPixelRun(info, format.pixel_size + 1, 4, [&](w8_ulong pixel, w8_ulong index) {
+        return PixelAt{intensity.expand(pixel) * 0x010101u | alpha.expand(pixel) << 24, index};
+    });
 }
 
-// FUNCTION: SURRENDER 0x1000A3B0
+// Byte-channel layouts are exact SDL conversions. Rounded low-bit channels and
+// nonstandard masks retain the game's lookup tables.
+static SDL_PixelFormat byteChannelFormat(const srPixelConvert::PixelFormat& f)
+{
+    if (f.red_bits != 8 || f.green_bits != 8 || f.blue_bits != 8 ||
+        !((f.pixel_size == srPixelConvert::PIXEL_SIZE_24 && f.alpha_bits == 0) ||
+          (f.pixel_size == srPixelConvert::PIXEL_SIZE_32 && f.alpha_bits == 8)))
+        return SDL_PIXELFORMAT_UNKNOWN;
+    return SDL_GetPixelFormatForMasks((f.pixel_size + 1) * 8,
+        255u << f.red_shift, 255u << f.green_shift, 255u << f.blue_shift,
+        f.alpha_bits ? 255u << f.alpha_shift : 0);
+}
+
 void __cdecl writeRGB(const srPixelConvert::ConversionInfo& info)
 {
-    const srPixelConvert::PixelFormat* format = info.format;
-    const unsigned char* luts[4];
-    unsigned char shifts[4];
-    luts[0] = channel_reduce[format->red_bits];
-    luts[1] = channel_reduce[format->green_bits];
-    luts[2] = channel_reduce[format->blue_bits];
-    luts[3] = channel_reduce[format->alpha_bits];
-    shifts[0] = format->red_shift;
-    shifts[1] = format->green_shift;
-    shifts[2] = format->blue_shift;
-    shifts[3] = format->alpha_shift;
-    int has_alpha = format->alpha_bits != 0;
-    const srARGB* source = static_cast<const srARGB*>(info.source);
-    switch (format->pixel_size) {
-    case srPixelConvert::PIXEL_SIZE_8:
-        pack8(static_cast<unsigned char*>(info.dest), source, luts, shifts, info.count, has_alpha);
+    const auto& format = *info.format;
+    if (const auto sdl_format = byteChannelFormat(format); sdl_format != SDL_PIXELFORMAT_UNKNOWN) {
+        ConvertCpuPixels(info.dest, info.source, info.count, SDL_PIXELFORMAT_ARGB8888, sdl_format);
         return;
-    case srPixelConvert::PIXEL_SIZE_16:
-        pack16(static_cast<unsigned short*>(info.dest), source, luts, shifts, info.count,
-               has_alpha);
-        return;
-    case srPixelConvert::PIXEL_SIZE_24:
-        pack24(static_cast<unsigned char*>(info.dest), source, luts, shifts, info.count, has_alpha);
-        return;
-    case srPixelConvert::PIXEL_SIZE_32:
-        pack32(static_cast<w8_ulong*>(info.dest), source, luts, shifts, info.count, has_alpha);
     }
+    const PackedChannels channels(format);
+    ConvertPixelRun(info, 4, format.pixel_size + 1, [&](w8_ulong pixel, w8_ulong index) {
+        return PixelAt{channels.reduce(srPixels::channels(pixel)), index};
+    });
 }
 
-// FUNCTION: SURRENDER 0x1000A4D0
 void __cdecl readRGB(const srPixelConvert::ConversionInfo& info)
 {
-    const srPixelConvert::PixelFormat* format = info.format;
-    w8_ulong masks[4];
-    unsigned char shifts[4];
-    const unsigned char* luts[4];
-    masks[0] = (1ul << format->red_bits) - 1;
-    masks[1] = (1ul << format->green_bits) - 1;
-    masks[2] = (1ul << format->blue_bits) - 1;
-    masks[3] = (1ul << format->alpha_bits) - 1;
-    shifts[0] = format->red_shift;
-    shifts[1] = format->green_shift;
-    shifts[2] = format->blue_shift;
-    shifts[3] = format->alpha_shift;
-    luts[0] = channel_expand[format->red_bits];
-    luts[1] = channel_expand[format->green_bits];
-    luts[2] = channel_expand[format->blue_bits];
-    luts[3] = channel_expand[format->alpha_bits];
-    w8_ulong* dest = static_cast<w8_ulong*>(info.dest);
-    switch (format->pixel_size) {
-    case srPixelConvert::PIXEL_SIZE_8: {
-        const unsigned char* source = static_cast<const unsigned char*>(info.source);
-        w8_ulong i = 0;
-        for (; i < (info.count & ~3UL); i += 4) {
-            w8_ulong pixel = source[i];
-            dest[i] = luts[0][(pixel >> shifts[0]) & masks[0]] << 16 |
-                      luts[1][(pixel >> shifts[1]) & masks[1]] << 8 |
-                      luts[2][(pixel >> shifts[2]) & masks[2]] |
-                      luts[3][(pixel >> shifts[3]) & masks[3]] << 24;
-            pixel = source[i + 1];
-            dest[i + 1] = luts[0][(pixel >> shifts[0]) & masks[0]] << 16 |
-                          luts[1][(pixel >> shifts[1]) & masks[1]] << 8 |
-                          luts[2][(pixel >> shifts[2]) & masks[2]] |
-                          luts[3][(pixel >> shifts[3]) & masks[3]] << 24;
-            pixel = source[i + 2];
-            dest[i + 2] = luts[0][(pixel >> shifts[0]) & masks[0]] << 16 |
-                          luts[1][(pixel >> shifts[1]) & masks[1]] << 8 |
-                          luts[2][(pixel >> shifts[2]) & masks[2]] |
-                          luts[3][(pixel >> shifts[3]) & masks[3]] << 24;
-            pixel = source[i + 3];
-            dest[i + 3] = luts[0][(pixel >> shifts[0]) & masks[0]] << 16 |
-                          luts[1][(pixel >> shifts[1]) & masks[1]] << 8 |
-                          luts[2][(pixel >> shifts[2]) & masks[2]] |
-                          luts[3][(pixel >> shifts[3]) & masks[3]] << 24;
-        }
-        for (; i < info.count; i++) {
-            w8_ulong pixel = source[i];
-            dest[i] = luts[0][(pixel >> shifts[0]) & masks[0]] << 16 |
-                      luts[1][(pixel >> shifts[1]) & masks[1]] << 8 |
-                      luts[2][(pixel >> shifts[2]) & masks[2]] |
-                      luts[3][(pixel >> shifts[3]) & masks[3]] << 24;
-        }
+    const auto& format = *info.format;
+    if (const auto sdl_format = byteChannelFormat(format); sdl_format != SDL_PIXELFORMAT_UNKNOWN) {
+        ConvertCpuPixels(info.dest, info.source, info.count, sdl_format, SDL_PIXELFORMAT_ARGB8888);
         return;
     }
-    case srPixelConvert::PIXEL_SIZE_16:
-        unpack16(dest, static_cast<const unsigned short*>(info.source), luts, shifts, masks,
-                 info.count);
-        return;
-    case srPixelConvert::PIXEL_SIZE_24:
-        unpack24(dest, static_cast<const unsigned char*>(info.source), luts, shifts, masks,
-                 info.count);
-        return;
-    case srPixelConvert::PIXEL_SIZE_32:
-        unpack32(dest, static_cast<const w8_ulong*>(info.source), luts, shifts, masks,
-                 info.count);
-    }
+    const PackedChannels channels(format);
+    ConvertPixelRun(info, format.pixel_size + 1, 4, [&](w8_ulong pixel, w8_ulong index) {
+        return PixelAt{srPixels::pack(channels.expand(pixel)), index};
+    });
 }
 
 /* Per-format overrides installed by initFormats() for formats whose
@@ -1225,22 +648,7 @@ void __cdecl readRGB(const srPixelConvert::ConversionInfo& info)
 static void convertByteChannels(const srPixelConvert::ConversionInfo& info,
                                 SDL_PixelFormat sourceFormat, SDL_PixelFormat destFormat)
 {
-    if (!info.count)
-        return;
-    if (info.count > static_cast<w8_ulong>(std::numeric_limits<int>::max() / 4))
-        throw std::length_error("Pixel conversion row is too large");
-    const int sourcePitch = int(info.count) * SDL_BYTESPERPIXEL(sourceFormat);
-    const int destPitch = int(info.count) * SDL_BYTESPERPIXEL(destFormat);
-    std::vector<unsigned char> snapshot;
-    const void* source = info.source;
-    if (info.dest == info.source) {
-        const auto* bytes = static_cast<const unsigned char*>(source);
-        snapshot.assign(bytes, bytes + sourcePitch);
-        source = snapshot.data();
-    }
-    if (!SDL_ConvertPixels(int(info.count), 1, sourceFormat, source, sourcePitch,
-                           destFormat, info.dest, destPitch))
-        throw std::runtime_error(SDL_GetError());
+    ConvertCpuPixels(info.dest, info.source, info.count, sourceFormat, destFormat);
 }
 
 // FUNCTION: SURRENDER 0x1000A8C0
@@ -1257,15 +665,7 @@ void __cdecl readRGB24(const srPixelConvert::ConversionInfo& info)
 
 /* format_table[srPixelConvert::SURFACE_BGRA32] write/read: straight dword copy for BGRA32. */
 // FUNCTION: SURRENDER 0x1000A950
-void __cdecl writeBGRA(const srPixelConvert::ConversionInfo& info)
-{
-    if (info.count != 0 && info.dest != info.source) {
-        std::memmove(info.dest, info.source, info.count * sizeof(w8_ulong));
-    }
-}
-
-// FUNCTION: SURRENDER 0x1000A980
-void __cdecl readBGRA(const srPixelConvert::ConversionInfo& info)
+void __cdecl copyBGRA(const srPixelConvert::ConversionInfo& info)
 {
     if (info.count != 0 && info.dest != info.source) {
         std::memmove(info.dest, info.source, info.count * sizeof(w8_ulong));
@@ -1276,15 +676,9 @@ void __cdecl readBGRA(const srPixelConvert::ConversionInfo& info)
 void __cdecl writeBGRX(const srPixelConvert::ConversionInfo& info)
 {
     // SDL writes an opaque X byte; this storage format requires zero instead.
-    // SDL writes an opaque X byte; this storage format requires zero instead.
-    auto* destination = static_cast<unsigned char*>(info.dest);
-    const auto* source = static_cast<const unsigned char*>(info.source);
-    for (std::size_t index = 0; index < info.count; ++index) {
-        w8_ulong pixel;
-        std::memcpy(&pixel, source + index * sizeof(pixel), sizeof(pixel));
-        pixel &= 0x00ffffff;
-        std::memcpy(destination + index * sizeof(pixel), &pixel, sizeof(pixel));
-    }
+    ConvertPixelRun(info, 4, 4, [](w8_ulong pixel, w8_ulong index) {
+        return PixelAt{pixel & 0x00ffffff, index};
+    });
 }
 
 // FUNCTION: SURRENDER 0x1000A9E0
@@ -1312,28 +706,11 @@ void __cdecl readABGR(const srPixelConvert::ConversionInfo& info)
 // FUNCTION: SURRENDER 0x1000ACD0
 void __cdecl writeRGB555(const srPixelConvert::ConversionInfo& info)
 {
-    unsigned short* dest = static_cast<unsigned short*>(info.dest);
-    const srARGB* source = static_cast<const srARGB*>(info.source);
-    w8_ulong i = 0;
-    for (; i < (info.count & ~3UL); i += 4) {
-        srARGB pixel = source[i];
-        dest[i] =
-            lutReduce32[pixel.red] << 10 | lutReduce32[pixel.green] << 5 | lutReduce32[pixel.blue];
-        pixel = source[i + 1];
-        dest[i + 1] =
-            lutReduce32[pixel.red] << 10 | lutReduce32[pixel.green] << 5 | lutReduce32[pixel.blue];
-        pixel = source[i + 2];
-        dest[i + 2] =
-            lutReduce32[pixel.red] << 10 | lutReduce32[pixel.green] << 5 | lutReduce32[pixel.blue];
-        pixel = source[i + 3];
-        dest[i + 3] =
-            lutReduce32[pixel.red] << 10 | lutReduce32[pixel.green] << 5 | lutReduce32[pixel.blue];
-    }
-    for (; i < info.count; i++) {
-        srARGB pixel = source[i];
-        dest[i] =
-            lutReduce32[pixel.red] << 10 | lutReduce32[pixel.green] << 5 | lutReduce32[pixel.blue];
-    }
+    ConvertPixelRun(info, 4, 2, [](w8_ulong pixel, w8_ulong index) {
+        const auto color = srPixels::channels(pixel);
+        return PixelAt{w8_ulong(lutReduce32[color.r]) << 10 |
+                       w8_ulong(lutReduce32[color.g]) << 5 | lutReduce32[color.b], index};
+    });
 }
 
 // FUNCTION: SURRENDER 0x1000AE80
@@ -1345,559 +722,9 @@ static unsigned char expandRGB555Red(w8_ulong word)
 
 void __cdecl readRGB555(const srPixelConvert::ConversionInfo& info)
 {
-    w8_ulong* dest = static_cast<w8_ulong*>(info.dest);
-    const unsigned short* source = static_cast<const unsigned short*>(info.source);
-    w8_ulong i = 0;
-    for (; i < (info.count & ~3UL); i += 4) {
-        w8_ulong pixel = source[i];
-        dest[i] = 0xff000000 | expandRGB555Red(pixel) << 16 |
-                  lutExpand5And6.expand32[pixel >> 5 & 0x1f] << 8 |
-                  lutExpand5And6.expand32[pixel & 0x1f];
-        pixel = source[i + 1];
-        dest[i + 1] = 0xff000000 | expandRGB555Red(pixel) << 16 |
-                      lutExpand5And6.expand32[pixel >> 5 & 0x1f] << 8 |
-                      lutExpand5And6.expand32[pixel & 0x1f];
-        pixel = source[i + 2];
-        dest[i + 2] = 0xff000000 | expandRGB555Red(pixel) << 16 |
-                      lutExpand5And6.expand32[pixel >> 5 & 0x1f] << 8 |
-                      lutExpand5And6.expand32[pixel & 0x1f];
-        pixel = source[i + 3];
-        dest[i + 3] = 0xff000000 | expandRGB555Red(pixel) << 16 |
-                      lutExpand5And6.expand32[pixel >> 5 & 0x1f] << 8 |
-                      lutExpand5And6.expand32[pixel & 0x1f];
-    }
-    for (; i < info.count; i++) {
-        w8_ulong pixel = source[i];
-        dest[i] = 0xff000000 | expandRGB555Red(pixel) << 16 |
-                  lutExpand5And6.expand32[pixel >> 5 & 0x1f] << 8 |
-                  lutExpand5And6.expand32[pixel & 0x1f];
-    }
-}
-
-/* Intensity write kernels: 32-bit BGRA source to 16/24/32-bit IXXA
-   records. The luma index sums the fixed-point channel weight ramps. */
-// FUNCTION: SURRENDER 0x1000BAD0
-static void packIntensity16(unsigned short* dest, const srARGB* source,
-                            const unsigned char* alpha_lut, const unsigned char* intensity_lut,
-                            unsigned char alpha_shift, unsigned char intensity_shift,
-                            w8_ulong count, int has_alpha)
-{
-    srARGB pixel;
-    w8_ulong i = 0;
-    if (has_alpha == 0) {
-        for (; i < (count & ~1UL); i += 2) {
-            pixel = source[i];
-            dest[i] = intensity_lut[(lutRamp54[pixel.red] + lutRamp183[pixel.green] +
-                                     lutRamp18[pixel.blue]) >>
-                                    8]
-                      << intensity_shift;
-            pixel = source[i + 1];
-            dest[i + 1] = intensity_lut[(lutRamp54[pixel.red] + lutRamp183[pixel.green] +
-                                         lutRamp18[pixel.blue]) >>
-                                        8]
-                          << intensity_shift;
-        }
-        for (; i < count; i++) {
-            pixel = source[i];
-            dest[i] = intensity_lut[(lutRamp54[pixel.red] + lutRamp183[pixel.green] +
-                                     lutRamp18[pixel.blue]) >>
-                                    8]
-                      << intensity_shift;
-        }
-    } else {
-        for (; i < (count & ~1UL); i += 2) {
-            pixel = source[i];
-            dest[i] = intensity_lut[(lutRamp54[pixel.red] + lutRamp183[pixel.green] +
-                                     lutRamp18[pixel.blue]) >>
-                                    8]
-                          << intensity_shift |
-                      alpha_lut[pixel.alpha] << alpha_shift;
-            pixel = source[i + 1];
-            dest[i + 1] = intensity_lut[(lutRamp54[pixel.red] + lutRamp183[pixel.green] +
-                                         lutRamp18[pixel.blue]) >>
-                                        8]
-                              << intensity_shift |
-                          alpha_lut[pixel.alpha] << alpha_shift;
-        }
-        for (; i < count; i++) {
-            pixel = source[i];
-            dest[i] = intensity_lut[(lutRamp54[pixel.red] + lutRamp183[pixel.green] +
-                                     lutRamp18[pixel.blue]) >>
-                                    8]
-                          << intensity_shift |
-                      alpha_lut[pixel.alpha] << alpha_shift;
-        }
-    }
-}
-
-// FUNCTION: SURRENDER 0x1000BD60
-static void packIntensity24(unsigned char* dest, const srARGB* source,
-                            const unsigned char* alpha_lut, const unsigned char* intensity_lut,
-                            unsigned char alpha_shift, unsigned char intensity_shift,
-                            w8_ulong count, int has_alpha)
-{
-    srARGB pixel;
-    w8_ulong i = 0;
-    if (has_alpha == 0) {
-        for (; i < (count & ~1UL); i += 2) {
-            pixel = source[i];
-            w8_ulong value = intensity_lut[(lutRamp54[pixel.red] + lutRamp183[pixel.green] +
-                                                 lutRamp18[pixel.blue]) >>
-                                                8]
-                                  << intensity_shift;
-            /* reinterpret-ok: 24-bit records store their low word separately. */
-            writePackedWord(dest, static_cast<unsigned short>(value));
-            dest[2] = static_cast<unsigned char>(value >> 16);
-            pixel = source[i + 1];
-            value = intensity_lut[(lutRamp54[pixel.red] + lutRamp183[pixel.green] +
-                                   lutRamp18[pixel.blue]) >>
-                                  8]
-                    << intensity_shift;
-            writePackedWord(dest + 3, static_cast<unsigned short>(value));
-            dest[5] = static_cast<unsigned char>(value >> 16);
-            dest += 6;
-        }
-        for (; i < count; i++) {
-            pixel = source[i];
-            w8_ulong value = intensity_lut[(lutRamp54[pixel.red] + lutRamp183[pixel.green] +
-                                                 lutRamp18[pixel.blue]) >>
-                                                8]
-                                  << intensity_shift;
-            writePackedWord(dest, static_cast<unsigned short>(value));
-            dest[2] = static_cast<unsigned char>(value >> 16);
-            dest += 3;
-        }
-    } else {
-        for (; i < (count & ~1UL); i += 2) {
-            pixel = source[i];
-            w8_ulong value = intensity_lut[(lutRamp54[pixel.red] + lutRamp183[pixel.green] +
-                                                 lutRamp18[pixel.blue]) >>
-                                                8]
-                                      << intensity_shift |
-                                  alpha_lut[pixel.alpha] << alpha_shift;
-            /* reinterpret-ok: 24-bit records store their low word separately. */
-            writePackedWord(dest, static_cast<unsigned short>(value));
-            dest[2] = static_cast<unsigned char>(value >> 16);
-            pixel = source[i + 1];
-            value = intensity_lut[(lutRamp54[pixel.red] + lutRamp183[pixel.green] +
-                                   lutRamp18[pixel.blue]) >>
-                                  8]
-                        << intensity_shift |
-                    alpha_lut[pixel.alpha] << alpha_shift;
-            writePackedWord(dest + 3, static_cast<unsigned short>(value));
-            dest[5] = static_cast<unsigned char>(value >> 16);
-            dest += 6;
-        }
-        for (; i < count; i++) {
-            pixel = source[i];
-            w8_ulong value = intensity_lut[(lutRamp54[pixel.red] + lutRamp183[pixel.green] +
-                                                 lutRamp18[pixel.blue]) >>
-                                                8]
-                                      << intensity_shift |
-                                  alpha_lut[pixel.alpha] << alpha_shift;
-            writePackedWord(dest, static_cast<unsigned short>(value));
-            dest[2] = static_cast<unsigned char>(value >> 16);
-            dest += 3;
-        }
-    }
-}
-
-// FUNCTION: SURRENDER 0x1000C0A0
-static void packIntensity32(w8_ulong* dest, const srARGB* source,
-                            const unsigned char* alpha_lut, const unsigned char* intensity_lut,
-                            unsigned char alpha_shift, unsigned char intensity_shift,
-                            w8_ulong count, int has_alpha)
-{
-    srARGB pixel;
-    w8_ulong i = 0;
-    if (has_alpha == 0) {
-        for (; i < (count & ~1UL); i += 2) {
-            pixel = source[i];
-            dest[i] = intensity_lut[(lutRamp54[pixel.red] + lutRamp183[pixel.green] +
-                                     lutRamp18[pixel.blue]) >>
-                                    8]
-                      << intensity_shift;
-            pixel = source[i + 1];
-            dest[i + 1] = intensity_lut[(lutRamp54[pixel.red] + lutRamp183[pixel.green] +
-                                         lutRamp18[pixel.blue]) >>
-                                        8]
-                          << intensity_shift;
-        }
-        for (; i < count; i++) {
-            pixel = source[i];
-            dest[i] = intensity_lut[(lutRamp54[pixel.red] + lutRamp183[pixel.green] +
-                                     lutRamp18[pixel.blue]) >>
-                                    8]
-                      << intensity_shift;
-        }
-    } else {
-        for (; i < (count & ~1UL); i += 2) {
-            pixel = source[i];
-            dest[i] = intensity_lut[(lutRamp54[pixel.red] + lutRamp183[pixel.green] +
-                                     lutRamp18[pixel.blue]) >>
-                                    8]
-                          << intensity_shift |
-                      alpha_lut[pixel.alpha] << alpha_shift;
-            pixel = source[i + 1];
-            dest[i + 1] = intensity_lut[(lutRamp54[pixel.red] + lutRamp183[pixel.green] +
-                                         lutRamp18[pixel.blue]) >>
-                                        8]
-                              << intensity_shift |
-                          alpha_lut[pixel.alpha] << alpha_shift;
-        }
-        for (; i < count; i++) {
-            pixel = source[i];
-            dest[i] = intensity_lut[(lutRamp54[pixel.red] + lutRamp183[pixel.green] +
-                                     lutRamp18[pixel.blue]) >>
-                                    8]
-                          << intensity_shift |
-                      alpha_lut[pixel.alpha] << alpha_shift;
-        }
-    }
-}
-
-/* Generic write kernels: 32-bit BGRA source packed through the channel
-   reduction luts into 8/16/24/32-bit records. */
-// FUNCTION: SURRENDER 0x1000C350
-static void pack8(unsigned char* dest, const srARGB* source, const unsigned char* const* luts,
-                  const unsigned char* shifts, w8_ulong count, int has_alpha)
-{
-    srARGB pixel;
-    w8_ulong i = 0;
-    if (has_alpha == 0) {
-        for (; i < (count & ~3UL); i += 4) {
-            pixel = source[i];
-            dest[i] = luts[0][pixel.red] << shifts[0] | luts[1][pixel.green] << shifts[1] |
-                      luts[2][pixel.blue] << shifts[2];
-            pixel = source[i + 1];
-            dest[i + 1] = luts[0][pixel.red] << shifts[0] | luts[1][pixel.green] << shifts[1] |
-                          luts[2][pixel.blue] << shifts[2];
-            pixel = source[i + 2];
-            dest[i + 2] = luts[0][pixel.red] << shifts[0] | luts[1][pixel.green] << shifts[1] |
-                          luts[2][pixel.blue] << shifts[2];
-            pixel = source[i + 3];
-            dest[i + 3] = luts[0][pixel.red] << shifts[0] | luts[1][pixel.green] << shifts[1] |
-                          luts[2][pixel.blue] << shifts[2];
-        }
-        for (; i < count; i++) {
-            pixel = source[i];
-            dest[i] = luts[0][pixel.red] << shifts[0] | luts[1][pixel.green] << shifts[1] |
-                      luts[2][pixel.blue] << shifts[2];
-        }
-    } else {
-        for (; i < (count & ~3UL); i += 4) {
-            pixel = source[i];
-            dest[i] = luts[0][pixel.red] << shifts[0] | luts[1][pixel.green] << shifts[1] |
-                      luts[3][pixel.alpha] << shifts[3] | luts[2][pixel.blue] << shifts[2];
-            pixel = source[i + 1];
-            dest[i + 1] = luts[0][pixel.red] << shifts[0] | luts[1][pixel.green] << shifts[1] |
-                          luts[3][pixel.alpha] << shifts[3] | luts[2][pixel.blue] << shifts[2];
-            pixel = source[i + 2];
-            dest[i + 2] = luts[0][pixel.red] << shifts[0] | luts[1][pixel.green] << shifts[1] |
-                          luts[3][pixel.alpha] << shifts[3] | luts[2][pixel.blue] << shifts[2];
-            pixel = source[i + 3];
-            dest[i + 3] = luts[0][pixel.red] << shifts[0] | luts[1][pixel.green] << shifts[1] |
-                          luts[3][pixel.alpha] << shifts[3] | luts[2][pixel.blue] << shifts[2];
-        }
-        for (; i < count; i++) {
-            pixel = source[i];
-            dest[i] = luts[0][pixel.red] << shifts[0] | luts[1][pixel.green] << shifts[1] |
-                      luts[3][pixel.alpha] << shifts[3] | luts[2][pixel.blue] << shifts[2];
-        }
-    }
-}
-
-// FUNCTION: SURRENDER 0x1000C800
-static void pack16(unsigned short* dest, const srARGB* source, const unsigned char* const* luts,
-                   const unsigned char* shifts, w8_ulong count, int has_alpha)
-{
-    srARGB pixel;
-    w8_ulong i = 0;
-    if (has_alpha == 0) {
-        for (; i < (count & ~3UL); i += 4) {
-            pixel = source[i];
-            dest[i] = luts[0][pixel.red] << shifts[0] | luts[1][pixel.green] << shifts[1] |
-                      luts[2][pixel.blue] << shifts[2];
-            pixel = source[i + 1];
-            dest[i + 1] = luts[0][pixel.red] << shifts[0] | luts[1][pixel.green] << shifts[1] |
-                          luts[2][pixel.blue] << shifts[2];
-            pixel = source[i + 2];
-            dest[i + 2] = luts[0][pixel.red] << shifts[0] | luts[1][pixel.green] << shifts[1] |
-                          luts[2][pixel.blue] << shifts[2];
-            pixel = source[i + 3];
-            dest[i + 3] = luts[0][pixel.red] << shifts[0] | luts[1][pixel.green] << shifts[1] |
-                          luts[2][pixel.blue] << shifts[2];
-        }
-        for (; i < count; i++) {
-            pixel = source[i];
-            dest[i] = luts[0][pixel.red] << shifts[0] | luts[1][pixel.green] << shifts[1] |
-                      luts[2][pixel.blue] << shifts[2];
-        }
-    } else {
-        for (; i < (count & ~3UL); i += 4) {
-            pixel = source[i];
-            dest[i] = luts[0][pixel.red] << shifts[0] | luts[1][pixel.green] << shifts[1] |
-                      luts[3][pixel.alpha] << shifts[3] | luts[2][pixel.blue] << shifts[2];
-            pixel = source[i + 1];
-            dest[i + 1] = luts[0][pixel.red] << shifts[0] | luts[1][pixel.green] << shifts[1] |
-                          luts[3][pixel.alpha] << shifts[3] | luts[2][pixel.blue] << shifts[2];
-            pixel = source[i + 2];
-            dest[i + 2] = luts[0][pixel.red] << shifts[0] | luts[1][pixel.green] << shifts[1] |
-                          luts[3][pixel.alpha] << shifts[3] | luts[2][pixel.blue] << shifts[2];
-            pixel = source[i + 3];
-            dest[i + 3] = luts[0][pixel.red] << shifts[0] | luts[1][pixel.green] << shifts[1] |
-                          luts[3][pixel.alpha] << shifts[3] | luts[2][pixel.blue] << shifts[2];
-        }
-        for (; i < count; i++) {
-            pixel = source[i];
-            dest[i] = luts[0][pixel.red] << shifts[0] | luts[1][pixel.green] << shifts[1] |
-                      luts[3][pixel.alpha] << shifts[3] | luts[2][pixel.blue] << shifts[2];
-        }
-    }
-}
-
-// FUNCTION: SURRENDER 0x1000CC90
-static void pack24(unsigned char* dest, const srARGB* source, const unsigned char* const* luts,
-                   const unsigned char* shifts, w8_ulong count, int has_alpha)
-{
-    srARGB pixel;
-    w8_ulong i = 0;
-    if (has_alpha == 0) {
-        for (; i < (count & ~3UL); i += 4) {
-            pixel = source[i];
-            w8_ulong value = luts[0][pixel.red] << shifts[0] |
-                                  luts[1][pixel.green] << shifts[1] |
-                                  luts[2][pixel.blue] << shifts[2];
-            /* reinterpret-ok: 24-bit records store their low word separately. */
-            writePackedWord(dest, static_cast<unsigned short>(value));
-            dest[2] = static_cast<unsigned char>(value >> 16);
-            pixel = source[i + 1];
-            value = luts[0][pixel.red] << shifts[0] | luts[1][pixel.green] << shifts[1] |
-                    luts[2][pixel.blue] << shifts[2];
-            writePackedWord(dest + 3, static_cast<unsigned short>(value));
-            dest[5] = static_cast<unsigned char>(value >> 16);
-            pixel = source[i + 2];
-            value = luts[0][pixel.red] << shifts[0] | luts[1][pixel.green] << shifts[1] |
-                    luts[2][pixel.blue] << shifts[2];
-            writePackedWord(dest + 6, static_cast<unsigned short>(value));
-            dest[8] = static_cast<unsigned char>(value >> 16);
-            pixel = source[i + 3];
-            value = luts[0][pixel.red] << shifts[0] | luts[1][pixel.green] << shifts[1] |
-                    luts[2][pixel.blue] << shifts[2];
-            writePackedWord(dest + 9, static_cast<unsigned short>(value));
-            dest[11] = static_cast<unsigned char>(value >> 16);
-            dest += 12;
-        }
-        for (; i < count; i++) {
-            pixel = source[i];
-            w8_ulong value = luts[0][pixel.red] << shifts[0] |
-                                  luts[1][pixel.green] << shifts[1] |
-                                  luts[2][pixel.blue] << shifts[2];
-            writePackedWord(dest, static_cast<unsigned short>(value));
-            dest[2] = static_cast<unsigned char>(value >> 16);
-            dest += 3;
-        }
-    } else {
-        for (; i < (count & ~3UL); i += 4) {
-            pixel = source[i];
-            w8_ulong value =
-                luts[0][pixel.red] << shifts[0] | luts[1][pixel.green] << shifts[1] |
-                luts[3][pixel.alpha] << shifts[3] | luts[2][pixel.blue] << shifts[2];
-            /* reinterpret-ok: 24-bit records store their low word separately. */
-            writePackedWord(dest, static_cast<unsigned short>(value));
-            dest[2] = static_cast<unsigned char>(value >> 16);
-            pixel = source[i + 1];
-            value = luts[0][pixel.red] << shifts[0] | luts[1][pixel.green] << shifts[1] |
-                    luts[3][pixel.alpha] << shifts[3] | luts[2][pixel.blue] << shifts[2];
-            writePackedWord(dest + 3, static_cast<unsigned short>(value));
-            dest[5] = static_cast<unsigned char>(value >> 16);
-            pixel = source[i + 2];
-            value = luts[0][pixel.red] << shifts[0] | luts[1][pixel.green] << shifts[1] |
-                    luts[3][pixel.alpha] << shifts[3] | luts[2][pixel.blue] << shifts[2];
-            writePackedWord(dest + 6, static_cast<unsigned short>(value));
-            dest[8] = static_cast<unsigned char>(value >> 16);
-            pixel = source[i + 3];
-            value = luts[0][pixel.red] << shifts[0] | luts[1][pixel.green] << shifts[1] |
-                    luts[3][pixel.alpha] << shifts[3] | luts[2][pixel.blue] << shifts[2];
-            writePackedWord(dest + 9, static_cast<unsigned short>(value));
-            dest[11] = static_cast<unsigned char>(value >> 16);
-            dest += 12;
-        }
-        for (; i < count; i++) {
-            pixel = source[i];
-            w8_ulong value =
-                luts[0][pixel.red] << shifts[0] | luts[1][pixel.green] << shifts[1] |
-                luts[3][pixel.alpha] << shifts[3] | luts[2][pixel.blue] << shifts[2];
-            writePackedWord(dest, static_cast<unsigned short>(value));
-            dest[2] = static_cast<unsigned char>(value >> 16);
-            dest += 3;
-        }
-    }
-}
-
-// FUNCTION: SURRENDER 0x1000D280
-static void pack32(w8_ulong* dest, const srARGB* source, const unsigned char* const* luts,
-                   const unsigned char* shifts, w8_ulong count, int has_alpha)
-{
-    srARGB pixel;
-    w8_ulong i = 0;
-    if (has_alpha == 0) {
-        for (; i < (count & ~3UL); i += 4) {
-            pixel = source[i];
-            dest[i] = luts[0][pixel.red] << shifts[0] | luts[1][pixel.green] << shifts[1] |
-                      luts[2][pixel.blue] << shifts[2];
-            pixel = source[i + 1];
-            dest[i + 1] = luts[0][pixel.red] << shifts[0] | luts[1][pixel.green] << shifts[1] |
-                          luts[2][pixel.blue] << shifts[2];
-            pixel = source[i + 2];
-            dest[i + 2] = luts[0][pixel.red] << shifts[0] | luts[1][pixel.green] << shifts[1] |
-                          luts[2][pixel.blue] << shifts[2];
-            pixel = source[i + 3];
-            dest[i + 3] = luts[0][pixel.red] << shifts[0] | luts[1][pixel.green] << shifts[1] |
-                          luts[2][pixel.blue] << shifts[2];
-        }
-        for (; i < count; i++) {
-            pixel = source[i];
-            dest[i] = luts[0][pixel.red] << shifts[0] | luts[1][pixel.green] << shifts[1] |
-                      luts[2][pixel.blue] << shifts[2];
-        }
-    } else {
-        for (; i < (count & ~3UL); i += 4) {
-            pixel = source[i];
-            dest[i] = luts[0][pixel.red] << shifts[0] | luts[1][pixel.green] << shifts[1] |
-                      luts[3][pixel.alpha] << shifts[3] | luts[2][pixel.blue] << shifts[2];
-            pixel = source[i + 1];
-            dest[i + 1] = luts[0][pixel.red] << shifts[0] | luts[1][pixel.green] << shifts[1] |
-                          luts[3][pixel.alpha] << shifts[3] | luts[2][pixel.blue] << shifts[2];
-            pixel = source[i + 2];
-            dest[i + 2] = luts[0][pixel.red] << shifts[0] | luts[1][pixel.green] << shifts[1] |
-                          luts[3][pixel.alpha] << shifts[3] | luts[2][pixel.blue] << shifts[2];
-            pixel = source[i + 3];
-            dest[i + 3] = luts[0][pixel.red] << shifts[0] | luts[1][pixel.green] << shifts[1] |
-                          luts[3][pixel.alpha] << shifts[3] | luts[2][pixel.blue] << shifts[2];
-        }
-        for (; i < count; i++) {
-            pixel = source[i];
-            dest[i] = luts[0][pixel.red] << shifts[0] | luts[1][pixel.green] << shifts[1] |
-                      luts[3][pixel.alpha] << shifts[3] | luts[2][pixel.blue] << shifts[2];
-        }
-    }
-}
-
-/* Generic read kernels: packed 16/24/32-bit source records expanded to
-   32-bit BGRA through the channel expansion luts, shifts and masks. */
-// FUNCTION: SURRENDER 0x1000D740
-static void unpack16(w8_ulong* dest, const unsigned short* source,
-                     const unsigned char* const* luts, const unsigned char* shifts,
-                     const w8_ulong* masks, w8_ulong count)
-{
-    w8_ulong i = 0;
-    for (; i < (count & ~3UL); i += 4) {
-        w8_ulong pixel = source[i];
-        dest[i] = luts[0][(pixel >> shifts[0]) & masks[0]] << 16 |
-                  luts[1][(pixel >> shifts[1]) & masks[1]] << 8 |
-                  luts[2][(pixel >> shifts[2]) & masks[2]] |
-                  luts[3][(pixel >> shifts[3]) & masks[3]] << 24;
-        pixel = source[i + 1];
-        dest[i + 1] = luts[0][(pixel >> shifts[0]) & masks[0]] << 16 |
-                      luts[1][(pixel >> shifts[1]) & masks[1]] << 8 |
-                      luts[2][(pixel >> shifts[2]) & masks[2]] |
-                      luts[3][(pixel >> shifts[3]) & masks[3]] << 24;
-        pixel = source[i + 2];
-        dest[i + 2] = luts[0][(pixel >> shifts[0]) & masks[0]] << 16 |
-                      luts[1][(pixel >> shifts[1]) & masks[1]] << 8 |
-                      luts[2][(pixel >> shifts[2]) & masks[2]] |
-                      luts[3][(pixel >> shifts[3]) & masks[3]] << 24;
-        pixel = source[i + 3];
-        dest[i + 3] = luts[0][(pixel >> shifts[0]) & masks[0]] << 16 |
-                      luts[1][(pixel >> shifts[1]) & masks[1]] << 8 |
-                      luts[2][(pixel >> shifts[2]) & masks[2]] |
-                      luts[3][(pixel >> shifts[3]) & masks[3]] << 24;
-    }
-    for (; i < count; i++) {
-        w8_ulong pixel = source[i];
-        dest[i] = luts[0][(pixel >> shifts[0]) & masks[0]] << 16 |
-                  luts[1][(pixel >> shifts[1]) & masks[1]] << 8 |
-                  luts[2][(pixel >> shifts[2]) & masks[2]] |
-                  luts[3][(pixel >> shifts[3]) & masks[3]] << 24;
-    }
-}
-
-// FUNCTION: SURRENDER 0x1000DA20
-static void unpack24(w8_ulong* dest, const unsigned char* source,
-                     const unsigned char* const* luts, const unsigned char* shifts,
-                     const w8_ulong* masks, w8_ulong count)
-{
-    w8_ulong i = 0;
-    for (; i < (count & ~3UL); i += 4) {
-        /* reinterpret-ok: 24-bit records load their high two bytes as a word. */
-        w8_ulong pixel =
-            readPackedWord(source + 1) * 0x100 + source[0];
-        dest[i] = luts[0][(pixel >> shifts[0]) & masks[0]] << 16 |
-                  luts[1][(pixel >> shifts[1]) & masks[1]] << 8 |
-                  luts[2][(pixel >> shifts[2]) & masks[2]] |
-                  luts[3][(pixel >> shifts[3]) & masks[3]] << 24;
-        pixel = readPackedWord(source + 4) * 0x100 + source[3];
-        dest[i + 1] = luts[0][(pixel >> shifts[0]) & masks[0]] << 16 |
-                      luts[1][(pixel >> shifts[1]) & masks[1]] << 8 |
-                      luts[2][(pixel >> shifts[2]) & masks[2]] |
-                      luts[3][(pixel >> shifts[3]) & masks[3]] << 24;
-        pixel = readPackedWord(source + 7) * 0x100 + source[6];
-        dest[i + 2] = luts[0][(pixel >> shifts[0]) & masks[0]] << 16 |
-                      luts[1][(pixel >> shifts[1]) & masks[1]] << 8 |
-                      luts[2][(pixel >> shifts[2]) & masks[2]] |
-                      luts[3][(pixel >> shifts[3]) & masks[3]] << 24;
-        pixel = readPackedWord(source + 10) * 0x100 + source[9];
-        dest[i + 3] = luts[0][(pixel >> shifts[0]) & masks[0]] << 16 |
-                      luts[1][(pixel >> shifts[1]) & masks[1]] << 8 |
-                      luts[2][(pixel >> shifts[2]) & masks[2]] |
-                      luts[3][(pixel >> shifts[3]) & masks[3]] << 24;
-        source += 12;
-    }
-    for (; i < count; i++) {
-        w8_ulong pixel =
-            readPackedWord(source + 1) * 0x100 + source[0];
-        dest[i] = luts[0][(pixel >> shifts[0]) & masks[0]] << 16 |
-                  luts[1][(pixel >> shifts[1]) & masks[1]] << 8 |
-                  luts[2][(pixel >> shifts[2]) & masks[2]] |
-                  luts[3][(pixel >> shifts[3]) & masks[3]] << 24;
-        source += 3;
-    }
-}
-
-// FUNCTION: SURRENDER 0x1000DD60
-static void unpack32(w8_ulong* dest, const w8_ulong* source,
-                     const unsigned char* const* luts, const unsigned char* shifts,
-                     const w8_ulong* masks, w8_ulong count)
-{
-    w8_ulong i = 0;
-    for (; i < (count & ~3UL); i += 4) {
-        w8_ulong pixel = source[i];
-        dest[i] = luts[0][(pixel >> shifts[0]) & masks[0]] << 16 |
-                  luts[1][(pixel >> shifts[1]) & masks[1]] << 8 |
-                  luts[2][(pixel >> shifts[2]) & masks[2]] |
-                  luts[3][(pixel >> shifts[3]) & masks[3]] << 24;
-        pixel = source[i + 1];
-        dest[i + 1] = luts[0][(pixel >> shifts[0]) & masks[0]] << 16 |
-                      luts[1][(pixel >> shifts[1]) & masks[1]] << 8 |
-                      luts[2][(pixel >> shifts[2]) & masks[2]] |
-                      luts[3][(pixel >> shifts[3]) & masks[3]] << 24;
-        pixel = source[i + 2];
-        dest[i + 2] = luts[0][(pixel >> shifts[0]) & masks[0]] << 16 |
-                      luts[1][(pixel >> shifts[1]) & masks[1]] << 8 |
-                      luts[2][(pixel >> shifts[2]) & masks[2]] |
-                      luts[3][(pixel >> shifts[3]) & masks[3]] << 24;
-        pixel = source[i + 3];
-        dest[i + 3] = luts[0][(pixel >> shifts[0]) & masks[0]] << 16 |
-                      luts[1][(pixel >> shifts[1]) & masks[1]] << 8 |
-                      luts[2][(pixel >> shifts[2]) & masks[2]] |
-                      luts[3][(pixel >> shifts[3]) & masks[3]] << 24;
-    }
-    for (; i < count; i++) {
-        w8_ulong pixel = source[i];
-        dest[i] = luts[0][(pixel >> shifts[0]) & masks[0]] << 16 |
-                  luts[1][(pixel >> shifts[1]) & masks[1]] << 8 |
-                  luts[2][(pixel >> shifts[2]) & masks[2]] |
-                  luts[3][(pixel >> shifts[3]) & masks[3]] << 24;
-    }
+    ConvertPixelRun(info, 2, 4, [](w8_ulong pixel, w8_ulong index) {
+        return PixelAt{0xff000000 | w8_ulong(expandRGB555Red(pixel)) << 16 |
+                       w8_ulong(lutExpand5And6.expand32[pixel >> 5 & 0x1f]) << 8 |
+                       lutExpand5And6.expand32[pixel & 0x1f], index};
+    });
 }

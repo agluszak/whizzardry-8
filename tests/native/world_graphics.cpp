@@ -1,22 +1,36 @@
 #include <catch2/catch_test_macros.hpp>
 #include <wiz8/filesystem.h>
+#include <wiz8/asset_paths.h>
+#include <SDL3/SDL_stdinc.h>
+#include <SDL3/SDL_timer.h>
+#include <cstdio>
+#include <filesystem>
+#include <stdexcept>
+#include <vector>
+#include <array>
+#include <cstring>
+#include <memory>
+#include <string>
+#include <string_view>
+
 /* Installed character and level assets through the recovered game loop. */
 #include "wiz8/application.h"
-#include <wiz8/asset_paths.h>
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/GameplayInit.h"
 #include "wiz8/local_code/LoadSaveGame.h"
 #include "wiz8/engine_code/GDCamera.h"
-#include "wiz8/engine_code/GameData.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/Combat.h"
+#include "wiz8/local_code/character_events.h"
+#include "wiz8/local_screens/MainGameScreen.h"
+#include "wiz8/layouts/main_game_screen.h"
+#include "wiz8/local_screens/MGSButtons.h"
+#include "image.h"
+#include <SDL3/SDL_surface.h>
 #include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/local_code/UtilityFunctions.h"
-#include "wiz8/local_screens/OptionsScreen.h"
-#include "wiz8/utility.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/layouts/screen_state.h"
@@ -25,16 +39,19 @@
 #include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/Level.h"
-#include "surrender/srCamera.h"
 #include "surrender/srGERD.h"
 #include "surrender/srModelInstance.h"
-#include <SDL3/SDL.h>
-#include <cstdio>
-#include <exception>
-#include <filesystem>
-#include <stdexcept>
-#include <vector>
 #include "temporary_directory.h"
+#include "layouts/targeting.h"
+#include "layouts/world.h"
+#include "surrender/srColorSurfaceIFace.h"
+#include "surrender/srMath.h"
+#include "surrender/srNode.h"
+#include "surrender/srScene.h"
+#include "surrender/srMeshModel.h"
+#include "surrender/srTextureMap.h"
+
+extern srScene* g_cursor_scene;
 
 static void Check(bool condition, const char* expression)
 {
@@ -109,9 +126,89 @@ TEST_CASE("world graphics")
         }
         REQUIRE(g_current_screen_state.id == W8_SCREEN_MAIN_GAME);
         auto world = GetWorld();
-        REQUIRE((world && world->octree && world->camera && world->level && world->psrMeshes));
+        REQUIRE((world && world->octree && world->camera && world->level && !world->psrMeshes.empty()));
+        if (mode && strcmp(mode, "ui") == 0)
+        {
+            ApplyMainGameModeFlag(W8_MAIN_UI_MODE_PORTRAITS, true);
+            for (int frame = 0; frame < 100; ++frame) {
+                SDL_Delay(16);
+                GameLoop();
+            }
+            int slot = 0;
+            while (!g_status.buffers.XChar[slot].fOccupied) ++slot;
+            auto& portrait = gXStatus.monster_manager_entries[slot];
+            portrait.portrait_event_active = false;
+            portrait.damage_splat_active = portrait.effect_icon_active = false;
+            portrait.keyboard_menu_open = false;
+            portrait.portrait_pose = portrait.rendered_portrait_pose = 2;
+            portrait.target_portrait_pose = 1;
+            portrait.portrait_blink_closing = false;
+            portrait.portrait_pose_dirty = portrait.portrait_frame_dirty = false;
+            for (int frame = 0; frame < 10 && portrait.portrait_pose != 1; ++frame) {
+                portrait.portrait_pose_clock = 0;
+                UpdateCharacterEventState();
+                REQUIRE(portrait.rendered_portrait_pose == portrait.portrait_pose);
+            }
+            REQUIRE(portrait.portrait_pose == 1);
+            REQUIRE(portrait.rendered_portrait_pose == 1);
+            // A complete blink must paint both the closed and reopened eyes.
+            portrait.portrait_blink_closing = true;
+            for (int frame = 0; frame < 10 && portrait.portrait_pose != 2; ++frame) {
+                portrait.portrait_pose_clock = 0;
+                UpdateCharacterEventState();
+                REQUIRE(portrait.rendered_portrait_pose == portrait.portrait_pose);
+            }
+            REQUIRE(portrait.rendered_portrait_pose == 2);
+            for (int frame = 0; frame < 10 && portrait.portrait_pose != 1; ++frame) {
+                portrait.portrait_pose_clock = 0;
+                UpdateCharacterEventState();
+                REQUIRE(portrait.rendered_portrait_pose == portrait.portrait_pose);
+            }
+            REQUIRE(portrait.rendered_portrait_pose == 1);
+            if (!gXStatus.fCombatMode) StartCombat(0);
+            GameLoop();
+            REQUIRE(gXStatus.fCombatMode);
+            DrawSubMenuCharacterAction();
+            const auto& framebuffer = GetFrameBufferSurface();
+            const auto caption = [&] {
+                std::vector<unsigned char> result;
+                auto* pixels = static_cast<const unsigned char*>(framebuffer.pixels);
+                for (int y = 450; y < 480; ++y)
+                    result.insert(result.end(), pixels + y * framebuffer.pitch + 343 * 2,
+                                  pixels + y * framebuffer.pitch + 528 * 2);
+                return result;
+            };
+            const auto first = caption();
+            // Deliberately stain the panel to model obsolete text from another action.
+            for (int y = 450; y < 480; ++y)
+                memset(static_cast<unsigned char*>(framebuffer.pixels) + y * framebuffer.pitch + 343 * 2,
+                       0xff, 185 * 2);
+            DrawSubMenuCharacterAction();
+            REQUIRE(caption() == first);
+            VideoRemoveToolTip();
+            VideoToolTip("Swap Weapons");
+            VideoPositionToolTip(300, 200);
+            RenderFrame();
+            const auto tooltip = ReadFrame();
+            auto* tooltip_node = static_cast<srModelInstance*>(
+                g_cursor_scene->findChild("Video2DRectToPolygon"));
+            REQUIRE(tooltip_node);
+            auto* mesh = static_cast<srMeshModel*>(tooltip_node->getModel());
+            auto* texture = static_cast<srTextureMap*>(mesh->getTexture(0, 0));
+            auto* surface = texture->getSurfacePtr();
+            REQUIRE(surface);
+            for (int y = 0; y < g_help_box_height; ++y)
+                for (int x = 0; x < g_help_box_width; ++x)
+                    REQUIRE((surface->getPixelRaw(x + 1, y + 1) & 0x8000) != 0);
+            REQUIRE((surface->getPixelRaw(g_help_box_width + 2, 2) & 0x8000) == 0);
+            const char* output = SDL_getenv("WIZ8_WORLD_OUTPUT");
+            const std::string ui_output = std::string(output ? output : "/tmp/wiz8-native-world.ppm") + ".ui.ppm";
+            SaveFrame(ui_output.c_str(), tooltip);
+            VideoRemoveToolTip();
+        }
+
         W8WorldCameraState state{};
-        GetWorldCameraState(world, &state);
+        state = cameraState(*world);
         fprintf(stderr, "world: camera (%g %g %g) yaw %g pitch %g\n", state.position.x,
                 state.position.y, state.position.z, state.yaw[0], state.pitch[0]);
         unsigned enabled = 0;
@@ -123,14 +220,12 @@ TEST_CASE("world graphics")
         // Same scene and UI, with only the actual world pass switched off.
         REQUIRE((g_world_render_enabled && !g_world_blacked_out));
         RenderFrame();
-        srGERD::Statistics with_world{};
-        g_gerd->getStatistics(with_world);
+        const auto with_world = g_gerd->getStatistics();
         unsigned polygons = world->level->m_submitted_polygons;
         auto visible = ReadFrame();
         g_world_render_enabled = 0;
         RenderFrame();
-        srGERD::Statistics without_world{};
-        g_gerd->getStatistics(without_world);
+        const auto without_world = g_gerd->getStatistics();
         auto control = ReadFrame();
         g_world_render_enabled = 1;
         RenderFrame();

@@ -2,7 +2,10 @@
 #define WIZ8_NPC_ITEMS_H
 
 #include "wiz8/npc_trade_price.h"
-#include "wiz8/layouts/npc_state.h"
+
+struct W8ItemInstance;
+struct W8NpcItemEntry;
+struct W8NpcState;
 
 /* NPC stock and trade interface. The implementing source, src/wiz8/
    npc_items.cpp, sits in an unresolved-fragment gap, so original-TU ownership

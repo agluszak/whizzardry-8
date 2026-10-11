@@ -1,6 +1,7 @@
+#pragma once
+
 #include <string>
 #include <vector>
-#pragma once
 
 unsigned char LoadMissileDatabase(void);
 void ReleaseMissileDatabase(void);
@@ -8,14 +9,17 @@ void ReleaseMissileDatabase(void);
 #include "wiz8/attack_modes.h"
 #include "wiz8/engine_code/GrCycle.h"
 #include "wiz8/engine_code/PathAI.h"
-#include "wiz8/local_code/MagicEffects.h"
 #include "wiz8/local_code/SpellEffect.h"
-#include "wiz8/local_code/Targeting.h"
+#include "Emitter.h"
+#include "compat/compiler.h"
+#include "layouts/targeting.h"
 
 struct W8ReadLevelInfo;
 struct W8World;
 class stLight;
 class W8Missile;
+struct W8AnimObj;
+template <class T> class srVector3T;
 
 /* The kind-3 record of the tagged AI family W8GrObject holds at +0x0c (the
    path record is kind 0). UpdateMissileAI ticks it: +0x04 is the
@@ -71,8 +75,6 @@ public:
     float emitter_playback_scales[2];
     std::vector<std::vector<stLight*>*> light_lists[2];
 };
-
-W8_ABI_ASSERT(sizeof(W8MissileRep) == 0x108, "W8MissileRep_size_must_be_0x108");
 
 /* The copy path allocates 0x328 bytes and invokes W8GrCycle's copy constructor
    on the same receiver before installing the missile's primary and navigator
@@ -151,9 +153,7 @@ public:
     unsigned char padding_323[5];
 };
 
-W8_ABI_ASSERT(sizeof(W8Missile) == 0x328, "W8Missile_size_must_be_0x328");
 /* Secondary vftable 0x005ecdf4 keeps the W8Navigator subobject at +0x18. */
-W8_ASSERT_BASE_OFFSET(W8Missile, W8Navigator, navigation_mode, 0x18);
 
 W8Missile* FireMissile(unsigned int missile_table_index, srVector3T<float>* source,
                        srVector3T<float>* target, float flight_speed, unsigned int trace_mask,
@@ -190,7 +190,6 @@ struct W8MissileTableRecord {
     int weapon_sound_class;
     unsigned char unknown_169[0x7c];
 };
-
 
 extern W8MissileTableRecord* g_missile_table;
 

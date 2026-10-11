@@ -1,6 +1,13 @@
+#include <cstdint>
 #include <fmt/printf.h>
-#include <utf8.h>
-#include "wiz8/unicode.h"
+#include <vector>
+#include <cmath>
+#include <cstring>
+#include <iterator>
+#include <string>
+#include <utility>
+
+#include "utf8/checked.h"
 #include "wiz8/fonts.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/character_skills.h"
@@ -8,21 +15,16 @@
 #include "wiz8/local_code/CharGeneration.h"
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/Configuration.h"
-#include "wiz8/local_code/CombatAttack.h"
-#include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/GameplayMods.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
-#include "wiz8/local_code/Magic.h"
-#include "wiz8/local_code/MagicEffects.h"
 #include "wiz8/local_code/party_encumbrance.h"
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/utility.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/FormationAndFacing.h"
-#include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/LoadSaveGame.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/Strings.h"
@@ -32,7 +34,6 @@
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/layouts/combat_state.h"
-#include "wiz8/local_code/CombatRange.h"
 #include "wiz8/local_code/GameplayInit.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/fact_state.h"
@@ -40,8 +41,6 @@
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/NPCScripting.h"
-#include <vector>
-#include <algorithm>
 #include "wiz8/layouts/item_instance.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/local_screens/Screens.h"
@@ -50,12 +49,16 @@
 #include "wiz8/engine_code/Levels.h"
 #include "wiz8/dice.h"
 #include "random.h"
-
-#include <math.h>
-#include <new>
-#include <string.h>
-
 #include "soundman.h"
+#include "attack_modes.h"
+#include "conditions.h"
+#include "equipment_slots.h"
+#include "gameplay_modifiers.h"
+#include "layouts/levels.h"
+#include "layouts/party_formation.h"
+#include "layouts/targeting.h"
+#include "load_category.h"
+#include "local_code/Factions.h"
 
 #define GAMEPLAY_CODE_CPP "C:\\Projects\\Wizardry 8\\Local Code\\GameplayCode.cpp"
 
@@ -271,13 +274,9 @@ void RefreshLevelUpReadyNotices(void)
                         utf8::append(0xb5, std::back_inserter(text));
                         text += " ";
                         text = fmt::sprintf(g_localized_strings[0x773], text);
-                        int* extra;
                         *ready_flag = 1;
-                        extra = new int;
-                        *extra = party_slot;
-                        W8MessageBoxPayload level_up_extra;
-                        level_up_extra.level_up_slot = extra;
-                        AddTextMessageBoxLine(W8_NPC_MSG_LEVEL_UP, std::move(text), level_up_extra);
+                        AddTextMessageBoxLine(W8_NPC_MSG_LEVEL_UP, std::move(text),
+                                              W8LevelUpNotice{party_slot});
                         QueueNpcMessageLine(W8_NPC_MSG_PARTY_MEMBER_EVENT, party_slot);
                     } else {
                         *ready_flag = 1;
@@ -383,11 +382,8 @@ void HandleLevelOverride(float fall)
 {
     unsigned int count = static_cast<unsigned int>(pow(fall + 0.7, 8.0));
     if (count > 0) {
-        SOUNDPARMS sound_parms;
-        memset(&sound_parms, 0xff, sizeof(sound_parms));
-        sound_parms.uiVolume = g_settings.sound_effects_volume;
         ShowNotice(W8_FONT_PALETTE_WHITE, g_localized_strings[0x252]);
-        SoundPlay(s_fall_impact_wav, &sound_parms);
+        wiz8::sound::play(s_fall_impact_wav, {.volume = std::uint32_t(g_settings.sound_effects_volume)});
         W8Dice dice;
         SetDice(&dice, static_cast<unsigned char>(count), 6, 0);
         ApplyRolledHealthChangeToParty(&dice, 0, 1);
@@ -1214,10 +1210,7 @@ void AwardPartyExperience(int amount, int alternate_message)
         }
     }
     auto text = fmt::sprintf(g_localized_strings[alternate_message ? 0x231 : 0x232], amount);
-    W8ExperienceNoticePayload* payload = new W8ExperienceNoticePayload;
-    payload->amount = amount;
-    payload->alternate_message = static_cast<unsigned char>(alternate_message);
-    W8MessageBoxPayload portrait_extra_extra;
-    portrait_extra_extra.experience = payload;
-    AddTextMessageBoxLine(W8_NPC_MSG_PORTRAIT_EXTRA, std::move(text), portrait_extra_extra);
+    AddTextMessageBoxLine(W8_NPC_MSG_PORTRAIT_EXTRA, std::move(text),
+                          W8ExperienceNoticePayload{static_cast<unsigned int>(amount),
+                                                    static_cast<unsigned char>(alternate_message)});
 }

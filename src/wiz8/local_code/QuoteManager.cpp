@@ -1,90 +1,75 @@
+#include <array>
+#include <cstdint>
 #include <fmt/format.h>
 #include <fmt/printf.h>
-#include "wiz8/unicode.h"
+#include <SDL3/SDL_filesystem.h>
+#include <span>
+#include <SDL3/SDL_rect.h>
 #include <string_view>
 #include <string>
-#include "wiz8/containers.h"
 #include <utility>
+#include <cstring>
+#include <optional>
+
+#include "sprite.h"
+#include "image.h"
+#include "wiz8/unicode.h"
+#include "wiz8/containers.h"
 #include "wiz8/fonts.h"
-#include "wiz8/engine_code/Camera.h"
 #include "wiz8/integer_constants.h"
+#include "compat/native.h"
+#include "conditions.h"
+#include "input.h"
+#include "layouts/main_game_screen.h"
+#include "message_box.h"
+#include "audio_resources.h"
 #ifdef WIZ8_RUNTIME_TESTS
 #include "runtime_instrumentation.h"
 #endif
+#include <vector>
+
 #include "wiz8/local_screens/Screens.h"
 #include "soundman.h"
-#include "wiz8/local_code/ConditionsAndEnchantments.h"
-#include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/layouts/character.h"
-#include "wiz8/character_skills.h"
-#include "wiz8/local_code/CharGeneration.h"
-#include "wiz8/local_code/Combat.h"
-#include "wiz8/local_code/CombatAttack.h"
-#include "wiz8/local_code/GameplayCode.h"
-#include "wiz8/local_code/GameplayMods.h"
-#include "wiz8/local_code/Magic.h"
-#include "wiz8/local_code/MagicEffects.h"
-#include "wiz8/local_code/party_encumbrance.h"
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/layouts/combat_state.h"
-#include "wiz8/local_code/CombatRange.h"
-#include "wiz8/layouts/item_tables.h"
-#include "wiz8/float_constants.h"
 #include "wiz8/local_code/Strings.h"
-#include "wiz8/local_code/CombatHostility.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/NPCScripting.h"
-#include "wiz8/npc_script_file.h"
+#include "wiz8/npc_speech.h"
 #include "wiz8/layouts/item_instance.h"
 #include "wiz8/layouts/gameplay_databases.h"
-#include "wiz8/local_code/SpellEffect.h"
-#include "wiz8/sr_api.h"
-#include "wiz8/local_code/Targeting.h"
 #include "wiz8/utility.h"
-#include "wiz8/sound_man.h"
 #include "random.h"
 #include "wiz8/local_code/character_events.h"
-#include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/local_screens/MGSTextBox.h"
-#include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/engine_code/Monster.h"
-#include "wiz8/music_playlist.h"
-#include <vector>
-#include <algorithm>
-#include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/string_database.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/npc_interaction.h"
 #include "timer.h"
-#include "wiz8/local_screens/MGSPortraits.h"
 #include "wiz8/dialog_code/PortraitQuote.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
-#include "wiz8/notices.h"
 #include "wiz8/regions.h"
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/engine_code/Environment.h"
 #include "wiz8/local_screens/mipe.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/application.h"
-#include "wiz8/bink_video.h"
 #include "wiz8/mouth_gap.h"
 #include "wiz8/filesystem.h"
-
-#include <stdio.h>
-#include <stdlib.h>
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/local_screens/OptionsScreen.h"
 #include "wiz8/local_screens/PartySelectionScreen.h"
-#include "wiz8/video_object_catalog.h"
+#include "wiz8/catalog_artwork.h"
 
 /* TU attribution follows the demo __FILE__ and quote-personality strings. */
 
@@ -106,7 +91,8 @@ void RedrawPortraitQuoteBubbles(void)
             !slot->portrait_event_active) {
             continue;
         }
-        DrawPortraitQuoteBubble(slot->quote.quote_handle, slot->quote.x, slot->quote.y, -0xe);
+        if (slot->quote.bubble)
+            slot->quote.bubble->draw(GetFrameBufferSurface(), slot->quote.x, slot->quote.y);
     }
 }
 
@@ -201,7 +187,6 @@ struct W8CharacterEventDescriptor {
     unsigned char log_quote_on_finish;
     unsigned char unknown_07;
 };
-W8_ABI_ASSERT(sizeof(W8CharacterEventDescriptor) == 8, "W8CharacterEventDescriptor_must_be_8");
 // GLOBAL: WIZ8 0x005EE000
 const W8CharacterEventDescriptor g_character_event_descriptors[0xb1] = {
     {0x00000001, 0x00, 0x00, 0x00, 0x00}, {0x00000005, 0x00, 0x01, 0x00, 0x00},
@@ -377,9 +362,8 @@ void SetVoiceMuted(unsigned char muted)
     }
 }
 
-static void CharacterEventSoundEndCallback(void* callback_data)
+static void CharacterEventSoundEndCallback(W8CharacterEvent* entry)
 {
-    W8CharacterEvent* entry = static_cast<W8CharacterEvent*>(callback_data);
     W8CharacterEventQueue* queue = gXStatus.character_event_queue;
 
     if (entry->sound_end_handled || queue == 0) {
@@ -419,6 +403,12 @@ W8CharacterEvent::W8CharacterEvent(W8Character* character, unsigned int event_ty
         trigger_value_2 = character->highest_condition;
         break;
     }
+}
+
+W8CharacterEvent::~W8CharacterEvent()
+{
+    sound_end_handled = true;
+    wiz8::sound::stop(voice_playback);
 }
 
 /* Format one character quote for the given event type into the
@@ -583,15 +573,12 @@ void W8CharacterEvent::Complete()
     slot = &gXStatus.monster_manager_entries[party_slot];
     sound_was_active = slot->portrait_event_active;
     sound_end_handled = true;
+    wiz8::sound::stop(voice_playback);
     slot->active_character_event = 0;
     if (sound_was_active) {
-        if (SoundIsPlaying(slot->voice_sound_handle) != 0) {
-            sound_end_handled = true;
-            SoundStop(slot->voice_sound_handle);
-        }
         SetPartyPortraitEventState(party_slot, false, -1, {}, 1);
     }
-    FreeMouthGapTrack(&slot->mouth_gap);
+    slot->mouth_gap = {};
     if (event_type == 23 || event_type == 24) {
         if ((flags & W8_EVENT_NPC_SCRIPT) == 0) {
             if (item.iItemNo == -1) {
@@ -714,10 +701,7 @@ unsigned char W8CharacterEvent::PlayEventSound()
     std::string voice_stem;
     std::string sound_path;
     std::string npc_sound_name;
-    SOUNDPARMS sound_parms;
-    unsigned int sound_handle;
-    unsigned int total_ms;
-    unsigned int current_ms;
+    wiz8::sound::Playback sound_handle;
     W8MonsterManagerEntry* record;
     W8NpcState* npc;
 
@@ -741,14 +725,13 @@ unsigned char W8CharacterEvent::PlayEventSound()
                                      npc_sound_name, sound_event);
         }
     }
-    memset(&sound_parms, 0xff, sizeof(sound_parms));
-    sound_parms.uiVolume = (volume * (g_settings.voice_volume & 0xff)) / 0x7f;
-    sound_parms.EOSCallback = CharacterEventSoundEndCallback;
-    sound_parms.pCallbackData = this;
-    sound_handle = SoundPlay(sound_path, &sound_parms);
+    sound_handle = wiz8::sound::play(
+        sound_path, {.volume = std::uint32_t((volume * (g_settings.voice_volume & 0xff)) / 0x7f),
+                     .on_finished = [this] { CharacterEventSoundEndCallback(this); }});
+    voice_playback = sound_handle;
     record = &gXStatus.monster_manager_entries[party_slot];
     record->voice_sound_handle = sound_handle;
-    if (sound_handle == SOUND_ERROR) {
+    if (sound_handle == nullptr) {
         if (event_type > 0x91) {
             char fallback_text[] = FALLBACK_VOICE_TEXT;
             record->voice_time_remaining_ms = ComputePortraitMessageDuration(fallback_text);
@@ -757,12 +740,13 @@ unsigned char W8CharacterEvent::PlayEventSound()
         }
         return 1;
     }
-    SoundGetMilliSecondPosition(sound_handle, &total_ms, &current_ms);
-    record->voice_time_remaining_ms = total_ms;
-    LoadMouthGapTrack(sound_path, &record->mouth_gap);
+    const auto playback_time = wiz8::sound::playback_time(sound_handle).value_or(wiz8::sound::PlaybackTime{});
+    record->voice_time_remaining_ms = playback_time.total_ms;
+    record->mouth_gap = LoadMouthGapTrack(sound_path);
 #ifdef WIZ8_RUNTIME_TESTS
-    RuntimeObserve(RUNTIME_VOICE_STARTED, party_slot, sound_handle, record->mouth_gap.range_count);
-    RuntimeObserve(RUNTIME_VOICE_TIMING, party_slot, total_ms, current_ms);
+    RuntimeObserve(RUNTIME_VOICE_STARTED, party_slot, bool(sound_handle), static_cast<int>(record->mouth_gap.ranges.size()));
+    RuntimeObserve(RUNTIME_VOICE_TIMING, party_slot, playback_time.total_ms,
+                   playback_time.current_ms);
 #endif
     return 1;
 }
@@ -876,6 +860,72 @@ finish_without_dispatch:
     return 0;
 }
 
+// Retail sets 0x1d-0x24, regions 302-309
+static constexpr std::array<RegionTemplate, 8> g_party_portrait_event_templates{{
+    {0x00000001, 0, 0, 0, 0, PartyPortraitEventRegionEvent, 0, false, -1},
+    {0x00000001, 0, 0, 0, 0, PartyPortraitEventRegionEvent, 1, false, -1},
+    {0x00000001, 0, 0, 0, 0, PartyPortraitEventRegionEvent, 2, false, -1},
+    {0x00000001, 0, 0, 0, 0, PartyPortraitEventRegionEvent, 3, false, -1},
+    {0x00000001, 0, 0, 0, 0, PartyPortraitEventRegionEvent, 4, false, -1},
+    {0x00000001, 0, 0, 0, 0, PartyPortraitEventRegionEvent, 5, false, -1},
+    {0x00000001, 0, 0, 0, 0, PartyPortraitEventRegionEvent, 6, false, -1},
+    {0x00000001, 0, 0, 0, 0, PartyPortraitEventRegionEvent, 7, false, -1},
+}};
+/* Retail kept these eight single-region sets for the whole process; the main
+   game and camp both drive them while the other screen is suspended, so no
+   screen owns them. They are created on first use and never torn down. */
+static std::array<ScreenRegionSet, 8>& PartyPortraitEventRegions()
+{
+    static std::array<ScreenRegionSet, 8> regions{
+        ScreenRegionSet{std::span<const RegionTemplate>(g_party_portrait_event_templates.data() + 0, 1),
+                        0x1d + 0},
+        ScreenRegionSet{std::span<const RegionTemplate>(g_party_portrait_event_templates.data() + 1, 1),
+                        0x1d + 1},
+        ScreenRegionSet{std::span<const RegionTemplate>(g_party_portrait_event_templates.data() + 2, 1),
+                        0x1d + 2},
+        ScreenRegionSet{std::span<const RegionTemplate>(g_party_portrait_event_templates.data() + 3, 1),
+                        0x1d + 3},
+        ScreenRegionSet{std::span<const RegionTemplate>(g_party_portrait_event_templates.data() + 4, 1),
+                        0x1d + 4},
+        ScreenRegionSet{std::span<const RegionTemplate>(g_party_portrait_event_templates.data() + 5, 1),
+                        0x1d + 5},
+        ScreenRegionSet{std::span<const RegionTemplate>(g_party_portrait_event_templates.data() + 6, 1),
+                        0x1d + 6},
+        ScreenRegionSet{std::span<const RegionTemplate>(g_party_portrait_event_templates.data() + 7, 1),
+                        0x1d + 7},
+    };
+    return regions;
+}
+void SetPartyPortraitEventBounds(unsigned int slot, unsigned short x, unsigned short y,
+                                 unsigned short right, unsigned short bottom)
+{
+    auto& regions = PartyPortraitEventRegions();
+    if (slot >= regions.size()) return;
+    regions[slot].Create();
+    SetRegionBounds(regions[slot]->index(0), x, y, right, bottom);
+}
+void EnablePartyPortraitEvent(unsigned int slot)
+{
+    auto& regions = PartyPortraitEventRegions();
+    if (slot >= regions.size()) return;
+    regions[slot].Create();
+    regions[slot].Enable();
+    regions[slot].EnableInput();
+}
+void DisablePartyPortraitEvent(unsigned int slot)
+{
+    auto& regions = PartyPortraitEventRegions();
+    if (slot < regions.size() && regions[slot]) {
+        regions[slot].Disable();
+        regions[slot].DisableInput();
+    }
+}
+
+void CreatePartyPortraitEventRegions()
+{
+    for (auto& region_set : PartyPortraitEventRegions()) region_set.Create();
+}
+
 /* Turn a party-slot portrait/voice event on or off, optionally
    laying out the quote bubble and posting subtitle notices when one ends. */
 // FUNCTION: WIZ8 0x0052F890
@@ -893,11 +943,10 @@ void SetPartyPortraitEventState(unsigned int party_slot, bool active, unsigned i
         if (gfCapturingVideo != 0) {
             return;
         }
-        record->previous_portrait_frame = record->portrait_frame;
         record->portrait_frame = 6;
         record->portrait_frame_dirty = true;
         int pc_slot = RPCPtrToPCSlot(record);
-        record->portrait_pose_animation_active = false;
+        record->portrait_blink_closing = false;
         W8Condition highest_condition = g_status.buffers.Char[pc_slot].highest_condition;
         if (highest_condition < W8_CONDITION_ASLEEP && !gXStatus.fSurprisePossible) {
             if (record->target_portrait_pose != 1) {
@@ -906,7 +955,7 @@ void SetPartyPortraitEventState(unsigned int party_slot, bool active, unsigned i
         } else {
             record->target_portrait_pose = 2;
         }
-        if (quote->quote_handle == -1) {
+        if (!quote->bubble) {
             record->portrait_event_active = active;
             return;
         }
@@ -922,7 +971,7 @@ void SetPartyPortraitEventState(unsigned int party_slot, bool active, unsigned i
             /* Retail 0x0052fc82..0x0052fc9b: the quote line follows the
                speaker's name into the dialogue box (3) with the same scroll
                width, not the mode-selected box. */
-            ShowNotice(W8_FONT_PALETTE_TEXT_BOX, GetPortraitQuoteText(quote->quote_handle), 3,
+            ShowNotice(W8_FONT_PALETTE_TEXT_BOX, quote->bubble->text(), 3,
                        GetTextBoxScrollRange());
         } else {
             if (g_first_remapped_event <= mapped_event) {
@@ -932,7 +981,7 @@ void SetPartyPortraitEventState(unsigned int party_slot, bool active, unsigned i
                 goto show_deactivate_quote;
             }
         }
-        ReleasePortraitQuoteBubble(quote->quote_handle);
+        quote->bubble.reset();
         if (g_current_screen_state.id == W8_SCREEN_CAMP ||
             (g_current_screen_state.id == W8_SCREEN_MAIN_GAME &&
              !g_level_block->review_transition_active)) {
@@ -941,8 +990,7 @@ void SetPartyPortraitEventState(unsigned int party_slot, bool active, unsigned i
             ClearSurfaceRect(left, top, quote->width + left, quote->height + top);
             InvalidateRegion(left, top, quote->width + left, quote->height + top, 0);
         }
-        RegionSetDisable(party_slot + 0x1d);
-        DisableRegionSetInput(party_slot + 0x1d);
+        DisablePartyPortraitEvent(party_slot);
         if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME) {
             RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
             RequestRedrawParty();
@@ -960,7 +1008,6 @@ void SetPartyPortraitEventState(unsigned int party_slot, bool active, unsigned i
     if (gfCapturingVideo != 0) {
         return;
     }
-    record->previous_portrait_frame = record->portrait_frame;
     record->portrait_frame = 7;
     record->portrait_frame_dirty = true;
     record->portrait_frame_clock = w8_get_ticks() + (0x78);
@@ -975,7 +1022,7 @@ void SetPartyPortraitEventState(unsigned int party_slot, bool active, unsigned i
         pose_category = g_character_event_descriptors[mapped_event].portrait_pose_category;
     }
     int pc_slot = RPCPtrToPCSlot(record);
-    record->portrait_pose_animation_active = false;
+    record->portrait_blink_closing = false;
     W8Condition highest_condition = g_status.buffers.Char[pc_slot].highest_condition;
     if (highest_condition < W8_CONDITION_ASLEEP && !gXStatus.fSurprisePossible) {
         if (record->target_portrait_pose != pose_category) {
@@ -985,7 +1032,7 @@ void SetPartyPortraitEventState(unsigned int party_slot, bool active, unsigned i
         record->target_portrait_pose = 2;
     }
     if (quote_text.empty() || show_quote == 0) {
-        quote->quote_handle = -1;
+        quote->bubble.reset();
     } else {
         bool layout_quote = false;
         bool use_modal_gate = false;
@@ -1008,14 +1055,11 @@ void SetPartyPortraitEventState(unsigned int party_slot, bool active, unsigned i
             layout_quote = true;
         }
         if (!layout_quote || g_settings.pc_subtitles == 0) {
-            quote->quote_handle = -1;
+            quote->bubble.reset();
         } else {
-            unsigned short width;
-            unsigned short height;
-            quote->quote_handle = LayoutPortraitQuoteBubble(-1, 0, 0, quote_text, 200, 0, 0, 0,
-                                                            &width, &height, 0xffffffff);
-            quote->width = width;
-            quote->height = height;
+            quote->bubble = QuoteBubble::layout(quote_text, 200, std::nullopt);
+            quote->width = static_cast<unsigned short>(quote->bubble ? quote->bubble->width() : 0);
+            quote->height = static_cast<unsigned short>(quote->bubble ? quote->bubble->height() : 0);
             if (g_current_screen_state.id == W8_SCREEN_CAMP) {
                 if (static_cast<int>(party_slot) == giReviewCharSlot) {
                     quote->x = 10;
@@ -1038,9 +1082,8 @@ void SetPartyPortraitEventState(unsigned int party_slot, bool active, unsigned i
             }
             unsigned short x = quote->x;
             unsigned short y = quote->y;
-            SetRegionBounds(party_slot + 0x12e, x, y, x + quote->width, quote->height + y);
-            RegionSetEnable(party_slot + 0x1d);
-            EnableRegionSetInput(party_slot + 0x1d);
+            SetPartyPortraitEventBounds(party_slot, x, y, x + quote->width, quote->height + y);
+            EnablePartyPortraitEvent(party_slot);
         }
     }
     if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME &&
@@ -1412,7 +1455,7 @@ void SetPortraitTargetPose(W8MonsterManagerEntry* slot, int pose)
 {
     int party_slot = RPCPtrToPCSlot(slot);
 
-    slot->portrait_pose_animation_active = false;
+    slot->portrait_blink_closing = false;
     if (g_status.buffers.Char[party_slot].highest_condition < W8_CONDITION_ASLEEP &&
         !gXStatus.fSurprisePossible) {
         if (slot->target_portrait_pose != pose) {
@@ -1748,6 +1791,14 @@ unsigned char PartyPortraitEventsIdle(void)
     return 1;
 }
 
+static void SetCurrentPortraitPose(W8MonsterManagerEntry& record, int pose)
+{
+    if (record.portrait_pose != pose) {
+        record.portrait_pose = pose;
+        record.portrait_pose_dirty = true;
+    }
+}
+
 /* Advance the eight character portrait/voice records. This is the complete
    per-frame state machine: it drains finished owned events, starts the
    incapacitation path when no record is active, advances facing and pose
@@ -1761,7 +1812,7 @@ int UpdateCharacterEventState(void)
 
     for (party_slot = 0; party_slot < 8; ++party_slot) {
         W8MonsterManagerEntry* record = &gXStatus.monster_manager_entries[party_slot];
-        unsigned char sound_active = 0; // bool-byte-ok: copied raw from the C gap track byte
+        bool sound_active = false;
 #ifdef WIZ8_RUNTIME_TESTS
         int previous_frame = record->portrait_frame;
 #endif
@@ -1770,7 +1821,7 @@ int UpdateCharacterEventState(void)
             continue;
         }
         if (record->portrait_event_active) {
-            if (record->voice_sound_handle == SOUND_ERROR) {
+            if (record->voice_sound_handle == nullptr) {
                 if (record->voice_time_remaining_ms == 0) {
                     if (record->active_character_event == 0) {
                         SetPartyPortraitEventState(party_slot, false, -1, {}, 1);
@@ -1781,14 +1832,14 @@ int UpdateCharacterEventState(void)
                 }
             } else {
 #ifdef WIZ8_RUNTIME_TESTS
-                unsigned char previous_mouth = record->mouth_gap.mouth_open;
+                bool previous_mouth = record->mouth_gap.mouth_open;
 #endif
-                UpdateMouthGapTrack(record->voice_sound_handle, &record->mouth_gap);
+                UpdateMouthGapTrack(record->voice_sound_handle, record->mouth_gap);
                 sound_active = record->mouth_gap.mouth_open;
 #ifdef WIZ8_RUNTIME_TESTS
                 if (sound_active != previous_mouth) {
                     RuntimeObserve(RUNTIME_MOUTH_CHANGED, party_slot,
-                                   SoundGetPosition(record->voice_sound_handle), sound_active);
+                                   wiz8::sound::elapsed_ms(record->voice_sound_handle), sound_active);
                 }
 #endif
             }
@@ -1814,7 +1865,6 @@ int UpdateCharacterEventState(void)
                 if (sound_active == 0) {
                     if (TimeUntilDeadline(record->portrait_frame_clock) == 0) {
                         if (record->voice_time_remaining_ms < 120) {
-                            record->previous_portrait_frame = record->portrait_frame;
                             record->portrait_frame = 6;
                             record->portrait_frame_dirty = true;
                             record->voice_time_remaining_ms = 0;
@@ -1826,7 +1876,6 @@ int UpdateCharacterEventState(void)
                                 record->pending_event_type <= g_event_range_max) {
                                 direction = 8;
                             }
-                            record->previous_portrait_frame = record->portrait_frame;
                             record->portrait_frame = direction;
                             record->portrait_frame_dirty = true;
                             record->portrait_frame_clock = w8_get_ticks() + (120);
@@ -1834,7 +1883,6 @@ int UpdateCharacterEventState(void)
                         }
                     }
                 } else {
-                    record->previous_portrait_frame = record->portrait_frame;
                     record->portrait_frame = 6;
                     record->portrait_frame_dirty = true;
                 }
@@ -1859,31 +1907,30 @@ int UpdateCharacterEventState(void)
         }
         if (!record->damage_splat_active && !record->effect_icon_active &&
             (g_current_screen_state.id != W8_SCREEN_CHARACTER || record->portrait_event_active)) {
-            if (!record->portrait_pose_animation_active) {
+            if (!record->portrait_blink_closing) {
                 if (record->portrait_pose == record->target_portrait_pose) {
                     if (record->portrait_pose == 1 &&
                         TimeUntilDeadline(record->portrait_idle_clock) == 0) {
-                        record->portrait_pose_animation_active = true;
+                        record->portrait_blink_closing = true;
                         record->portrait_idle_clock = w8_get_ticks() + (Random(5000) + 5000);
                     }
                 } else if (TimeUntilDeadline(record->portrait_pose_clock) == 0) {
                     int pose = record->portrait_pose;
-                    record->previous_portrait_pose = pose;
-                    record->portrait_pose =
-                        g_portrait_pose_transition[pose - 1][record->target_portrait_pose - 1];
-                    record->portrait_pose_animation_active = true;
+                    SetCurrentPortraitPose(*record,
+                        g_portrait_pose_transition[pose - 1][record->target_portrait_pose - 1]);
+                    // Reopening and event-pose transitions continue toward the
+                    // target; only an idle blink enters the closing phase.
                     record->portrait_pose_clock = w8_get_ticks() + (Random(50) + 50);
                 }
             } else if (TimeUntilDeadline(record->portrait_pose_clock) == 0) {
                 int pose = record->portrait_pose;
                 if (pose != 2) {
-                    record->previous_portrait_pose = pose;
-                    record->portrait_pose = g_portrait_pose_transition[pose - 1][2 - 1];
-                    record->portrait_pose_animation_active = true;
+                    SetCurrentPortraitPose(*record, g_portrait_pose_transition[pose - 1][2 - 1]);
+                    record->portrait_blink_closing = true;
                     record->portrait_pose_clock = w8_get_ticks() + (Random(50) + 50);
                 }
                 if (record->portrait_pose == 2) {
-                    record->portrait_pose_animation_active = false;
+                    record->portrait_blink_closing = false;
                 }
             }
             if ((record->portrait_pose_dirty || record->portrait_frame_dirty) &&
@@ -1903,22 +1950,22 @@ int UpdateCharacterEventState(void)
    for the animated form the frame blitter runs first, and the death,
    in-combat or exhausted state adds the darkened overlay. */
 // FUNCTION: WIZ8 0x0052eb00
-void RenderPartyPortrait(int portrait, int left, int top, unsigned int flags, unsigned char value,
+void RenderPartyPortrait(int portrait, int left, int top, SpriteDraw options, unsigned char value,
                          int party_slot)
 {
-    DrawCatalogImage(FRAME_BUFFER, 0x12, portrait, 0, left, top, flags | VO_BLT_SHADOW, 0);
+    CatalogArtwork::Load(0x12, portrait).draw(GetFrameBufferSurface(), 0, left, top, options);
     if (party_slot == -1) {
         return;
     }
     if (value != 0 && g_portrait_frame_flags[portrait] != 0) {
-        bool drawn = BlitPartyPortraitAnimation(portrait, left, top, flags, party_slot, true);
+        bool drawn = BlitPartyPortraitAnimation(portrait, left, top, options, party_slot, true);
         value = !drawn;
     }
     if ((((gXStatus.fCombatMode && g_combat_state->characters[party_slot].dead) ||
           gXStatus.fSurprisePossible) ||
          g_status.buffers.Char[party_slot].highest_condition == W8_CONDITION_MISSING) &&
         value != 0) {
-        ShadowVideoSurfaceRect(FRAME_BUFFER, left, top, left + 0x59, top + 0x47);
+        ShadowRect(GetFrameBufferSurface(), {left, top, 0x5a, 0x48});
     }
 }
 
@@ -1927,7 +1974,7 @@ void RenderPartyPortrait(int portrait, int left, int top, unsigned int flags, un
    frame and its blend predecessor; the A track draws the frame the animation
    is moving to, and a dead character stops after the B track. */
 // FUNCTION: WIZ8 0x0052ebe0
-bool BlitPartyPortraitAnimation(int portrait, int left, int top, unsigned int flags, int party_slot,
+bool BlitPartyPortraitAnimation(int portrait, int left, int top, SpriteDraw options, int party_slot,
                                 bool animate)
 {
     W8MonsterManagerEntry* state = &gXStatus.monster_manager_entries[party_slot];
@@ -1942,51 +1989,62 @@ bool BlitPartyPortraitAnimation(int portrait, int left, int top, unsigned int fl
     if (g_portrait_frame_flags[portrait] == 0) {
         return drawn;
     }
-    if (state->portrait_pose_dirty || state->portrait_pose != state->previous_portrait_pose ||
+    const auto artwork = CatalogArtwork::Load(0x12, portrait);
+    if (state->portrait_pose_dirty || state->portrait_pose != state->rendered_portrait_pose ||
         (animate && state->portrait_pose != 1)) {
-        GetCatalogImageSize(0x12, portrait, state->portrait_pose, &width, &height);
-        GetCatalogImagePosition(0x12, portrait, state->portrait_pose, &image_x, &image_y);
+        const SDL_Point pose_size = artwork.size(state->portrait_pose);
+        width = pose_size.x;
+        height = pose_size.y;
+        const SDL_Point image_position = artwork.position(state->portrait_pose);
+        image_x = image_position.x;
+        image_y = image_position.y;
         rect.left = image_x + left;
         rect.top = image_y + top;
         rect.right = width + rect.left;
         rect.bottom = height + rect.top;
         if (!animate && ((gXStatus.fCombatMode && g_combat_state->characters[party_slot].dead) ||
                          gXStatus.fSurprisePossible)) {
-            RenderPartyPortrait(portrait, left, top, flags, 0, party_slot);
+            RenderPartyPortrait(portrait, left, top, options, 0, party_slot);
         }
         if (g_status.buffers.Char[party_slot].hp_current == 0) {
             return true;
         }
-        DrawCatalogImage(FRAME_BUFFER, 0x12, portrait, state->portrait_pose, left, top,
-                         flags | VO_BLT_SHADOW, 0);
+        artwork.draw(GetFrameBufferSurface(), state->portrait_pose, left, top, options);
         drawn = true;
-        if (state->previous_portrait_pose != -1) {
-            GetCatalogImageSize(0x12, portrait, state->previous_portrait_pose, &width, &height);
-            GetCatalogImagePosition(0x12, portrait, state->previous_portrait_pose, &image_x,
-                                    &image_y);
+        if (state->rendered_portrait_pose != -1) {
+            const SDL_Point previous_size = artwork.size(state->rendered_portrait_pose);
+            width = previous_size.x;
+            height = previous_size.y;
+            const SDL_Point image_position = artwork.position(state->rendered_portrait_pose);
+            image_x = image_position.x;
+            image_y = image_position.y;
             other.left = image_x + left;
             other.top = image_y + top;
             other.right = width + other.left;
             other.bottom = height + other.top;
-            UnionScreenRects(&other, &rect, &rect);
+            rect = UnionScreenRects(other, rect);
         }
         InvalidateScreenRects(&rect, 1, 0);
-        state->previous_portrait_pose = state->portrait_pose;
+        state->rendered_portrait_pose = state->portrait_pose;
         state->portrait_pose_dirty = false;
     }
-    if (!state->portrait_frame_dirty && state->portrait_frame == state->previous_portrait_frame &&
+    if (!state->portrait_frame_dirty && state->portrait_frame == state->rendered_portrait_frame &&
         (!animate || state->portrait_frame == 6)) {
         if (!drawn) {
             return false;
         }
     } else {
-        GetCatalogImageSize(0x12, portrait, state->portrait_frame, &width, &height);
-        GetCatalogImagePosition(0x12, portrait, state->portrait_frame, &image_x, &image_y);
+        const SDL_Point frame_size = artwork.size(state->portrait_frame);
+        width = frame_size.x;
+        height = frame_size.y;
+        const SDL_Point image_position = artwork.position(state->portrait_frame);
+        image_x = image_position.x;
+        image_y = image_position.y;
         if (!animate && !drawn && gXStatus.fCombatMode &&
             g_combat_state->characters[party_slot].dead) {
-            RenderPartyPortrait(portrait, left, top, flags, 0, party_slot);
+            RenderPartyPortrait(portrait, left, top, options, 0, party_slot);
         }
-        DrawCatalogImage(FRAME_BUFFER, 0x12, portrait, state->portrait_frame, left, top, flags, 0);
+        artwork.draw(GetFrameBufferSurface(), state->portrait_frame, left, top, options);
 #ifdef WIZ8_RUNTIME_TESTS
         RuntimeObserve(RUNTIME_PORTRAIT_BLIT, party_slot, state->portrait_frame, portrait);
 #endif
@@ -1995,40 +2053,43 @@ bool BlitPartyPortraitAnimation(int portrait, int left, int top, unsigned int fl
         rect.right = width + rect.left;
         rect.bottom = height + rect.top;
         drawn = true;
-        if (state->previous_portrait_frame != -1) {
-            GetCatalogImageSize(0x12, portrait, state->previous_portrait_frame, &width, &height);
-            GetCatalogImagePosition(0x12, portrait, state->previous_portrait_frame, &image_x,
-                                    &image_y);
+        if (state->rendered_portrait_frame != -1) {
+            const SDL_Point previous_size = artwork.size(state->rendered_portrait_frame);
+            width = previous_size.x;
+            height = previous_size.y;
+            const SDL_Point image_position = artwork.position(state->rendered_portrait_frame);
+            image_x = image_position.x;
+            image_y = image_position.y;
             other.left = image_x + left;
             other.top = image_y + top;
             other.right = width + other.left;
             other.bottom = height + other.top;
-            UnionScreenRects(&other, &rect, &rect);
+            rect = UnionScreenRects(other, rect);
         }
         InvalidateScreenRects(&rect, 1, 0);
-        state->previous_portrait_frame = state->portrait_frame;
+        state->rendered_portrait_frame = state->portrait_frame;
         state->portrait_frame_dirty = false;
     }
     if (((gXStatus.fCombatMode && g_combat_state->characters[party_slot].dead) ||
          gXStatus.fSurprisePossible) ||
         g_status.buffers.Char[party_slot].highest_condition == W8_CONDITION_MISSING) {
-        ShadowVideoSurfaceRect(FRAME_BUFFER, left, top, left + 0x59, top + 0x47);
+        ShadowRect(GetFrameBufferSurface(), {left, top, 0x5a, 0x48});
     }
     return drawn;
 }
 
 // FUNCTION: WIZ8 0x0052FD80
-unsigned char PartyPortraitEventRegionEvent(const InputAtom* event, W8Region* region)
+unsigned char PartyPortraitEventRegionEvent(const InputEvent* event, W8Region* region)
 {
     unsigned short callback_id = region->callback_id;
     W8MonsterManagerEntry* entry = &gXStatus.monster_manager_entries[callback_id];
     W8CharacterEvent* active;
 
-    switch (event->usEvent) {
-    case LEFT_BUTTON_DOWN:
+    switch (event->type) {
+    case InputEventType::LeftButtonDown:
         region->flags |= W8_REGION_LEFT_BUTTON_HELD;
         break;
-    case LEFT_BUTTON_UP:
+    case InputEventType::LeftButtonUp:
         if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) != 0) {
             if (callback_id != 0 && callback_id != 1) {
                 active = entry->active_character_event;

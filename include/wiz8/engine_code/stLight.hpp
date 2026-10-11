@@ -1,18 +1,20 @@
 #pragma once
 
-#include "wiz8/filesystem.h"
+#include <vector>
 
 #include "surrender/srLight.h"
 #include "wiz8/sr_api.h"
-#include <vector>
-#include <algorithm>
 #include "wiz8/layouts/world.h"
-
-#include <stddef.h>
+#include "compat/compiler.h"
+#include "glm/ext/vector_float3.hpp"
+#include "surrender/srMath.h"
+#include "surrender/srNode.h"
+#include "surrender/srTypeRegistry.h"
 
 class W8Prop;
-class Trigger;
 struct W8PathAI;
+namespace wiz8 { class File; }
+
 extern unsigned int g_light_update_flags;
 
 enum W8ParametricLightFlag {
@@ -30,7 +32,6 @@ enum W8LightDefinitionKind {
     W8_LIGHT_DEFINITION_PARAMETRIC = 1,
     W8_LIGHT_DEFINITION_KEYFRAMED = 2
 };
-W8_ABI_ASSERT(sizeof(W8LightDefinitionKind) == 4, "W8LightDefinitionKind_size");
 
 class stLightDefinition {
 public:
@@ -41,8 +42,6 @@ public:
 
     W8LightDefinitionKind kind;
 };
-
-W8_ABI_ASSERT(sizeof(stLightDefinition) == 0x8, "stLightDefinition_size_must_be_0x8");
 
 /* Type 1: a light animated from parameters (flicker chance, colour and
    intensity ranges, period and rate) over a subcycle window. */
@@ -106,31 +105,6 @@ public:
     int subcycle_max;
 };
 
-W8_ABI_ASSERT(sizeof(stParametricLightDefinition) == 0x44,
-              "stParametricLightDefinition_size_must_be_0x44");
-W8_ABI_ASSERT(offsetof(stParametricLightDefinition, flags) == 0x08,
-              "stParametricLightDefinition_flags");
-W8_ABI_ASSERT(offsetof(stParametricLightDefinition, flicker_chance) == 0x0c,
-              "stParametricLightDefinition_flicker_chance");
-W8_ABI_ASSERT(offsetof(stParametricLightDefinition, color) == 0x10,
-              "stParametricLightDefinition_color");
-W8_ABI_ASSERT(offsetof(stParametricLightDefinition, color_to) == 0x1c,
-              "stParametricLightDefinition_color_to");
-W8_ABI_ASSERT(offsetof(stParametricLightDefinition, intensity) == 0x28,
-              "stParametricLightDefinition_intensity");
-W8_ABI_ASSERT(offsetof(stParametricLightDefinition, intensity_to) == 0x2c,
-              "stParametricLightDefinition_intensity_to");
-W8_ABI_ASSERT(offsetof(stParametricLightDefinition, period) == 0x30,
-              "stParametricLightDefinition_period");
-W8_ABI_ASSERT(offsetof(stParametricLightDefinition, rate) == 0x34,
-              "stParametricLightDefinition_rate");
-W8_ABI_ASSERT(offsetof(stParametricLightDefinition, path_speed) == 0x38,
-              "stParametricLightDefinition_path_speed");
-W8_ABI_ASSERT(offsetof(stParametricLightDefinition, subcycle_min) == 0x3c,
-              "stParametricLightDefinition_subcycle_min");
-W8_ABI_ASSERT(offsetof(stParametricLightDefinition, subcycle_max) == 0x40,
-              "stParametricLightDefinition_subcycle_max");
-
 /* Type 2: a light driven by keyframe tables stepped by keyframe_index. */
 // VTABLE: WIZ8 0x005ecda0
 class stKeyframedLightDefinition : public stLightDefinition {
@@ -151,25 +125,6 @@ public:
     int start_frame;
     float end_frame;
 };
-
-W8_ABI_ASSERT(sizeof(stKeyframedLightDefinition) == 0x58,
-              "stKeyframedLightDefinition_size_must_be_0x58");
-W8_ABI_ASSERT(offsetof(stKeyframedLightDefinition, frame_sums) == 0x08,
-              "stKeyframedLightDefinition_values_08");
-W8_ABI_ASSERT(offsetof(stKeyframedLightDefinition, key_frames) == 0x18,
-              "stKeyframedLightDefinition_values_18");
-W8_ABI_ASSERT(offsetof(stKeyframedLightDefinition, key_intensities) == 0x28,
-              "stKeyframedLightDefinition_values_28");
-W8_ABI_ASSERT(offsetof(stKeyframedLightDefinition, key_colors) == 0x38,
-              "stKeyframedLightDefinition_values_38");
-W8_ABI_ASSERT(offsetof(stKeyframedLightDefinition, keyframe_index) == 0x48,
-              "stKeyframedLightDefinition_keyframe_index");
-W8_ABI_ASSERT(offsetof(stKeyframedLightDefinition, time) == 0x4c,
-              "stKeyframedLightDefinition_time_4c");
-W8_ABI_ASSERT(offsetof(stKeyframedLightDefinition, start_frame) == 0x50,
-              "stKeyframedLightDefinition_start_frame");
-W8_ABI_ASSERT(offsetof(stKeyframedLightDefinition, end_frame) == 0x54,
-              "stKeyframedLightDefinition_end_frame_54");
 
 // VTABLE: WIZ8 0x005ecc64 stLight
 // VTABLE: WIZ8 0x005ecc58 srVertexProcessor
@@ -246,10 +201,8 @@ public:
     W8Prop* m_prop; /* 0x254 */
 };
 
-W8_ABI_ASSERT(sizeof(stLight) == 0x258, "stLight_must_be_0x258");
-
-void SaveLightStates(wiz8::File* handle);
-void LoadLightStates(wiz8::File* handle);
+void SaveLightStates(wiz8::File& handle);
+void LoadLightStates(wiz8::File& handle);
 
 /* Animation copies retain per-light position before assignment, detach the new
    light and register it with the world before adding it to the owned list. */

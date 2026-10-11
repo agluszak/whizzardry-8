@@ -1,9 +1,10 @@
 #include "wiz8/local_code/CharGeneration.h"
+
+#include <cstdlib>
+#include <cstring>
+
 #include "wiz8/layouts/character.h"
 #include "wiz8/character_skills.h"
-#include "wiz8/local_code/Combat.h"
-#include "wiz8/local_code/CombatAttack.h"
-#include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/GameplayMods.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
@@ -11,13 +12,13 @@
 #include "wiz8/local_code/MagicEffects.h"
 #include "wiz8/local_code/party_encumbrance.h"
 #include "wiz8/local_code/PC_Item.h"
-#include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/dialog_code/ProfRaceInfoDialog.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/utility.h"
-
-#include <stdlib.h>
-#include <string.h>
+#include "conditions.h"
+#include "layouts/game_status.h"
+#include "layouts/gameplay_databases.h"
+#include "layouts/item_instance.h"
 
 #define CHAR_GENERATION_CPP "C:\\Projects\\Wizardry 8\\Local Code\\CharGeneration.cpp"
 

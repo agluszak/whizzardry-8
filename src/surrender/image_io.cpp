@@ -1,13 +1,48 @@
+#include <SDL3_image/SDL_image.h>
+#include <SDL3/SDL_iostream.h>
+#include <SDL3/SDL_pixels.h>
+#include <SDL3/SDL_properties.h>
+#include <SDL3/SDL_stdinc.h>
+#include <SDL3/SDL_surface.h>
+#include <stdexcept>
+#include <algorithm>
+#include <cstddef>
+#include <memory>
+
 #include "surrender/srImageIO.h"
 #include "surrender/srCore.h"
 #include "image_helpers.h"
 #include "jpeg_validate.h"
 #include "surrender/srIO.h"
 #include "wiz8/filesystem.h"
+#include "surrender/srColorSurface.h"
+#include "surrender/srColorSurfaceIFace.h"
+#include "surrender/srPixelConvert.h"
 
-#include <SDL3_image/SDL_image.h>
-#include <stdexcept>
-#include <cstring>
+namespace srImage {
+bool copyRows(const SDL_Surface& source, srColorSurfaceIFace& destination,
+                     unsigned bytes_per_pixel, bool mirror)
+{
+    const size_t row_bytes = size_t(source.w) * bytes_per_pixel;
+    if (source.w <= 0 || source.h <= 0 || !source.pixels || !destination.getDataPtr() ||
+        destination.getWidth() != source.w || destination.getHeight() != source.h ||
+        source.pitch < 0 || size_t(source.pitch) < row_bytes ||
+        size_t(destination.getPitch()) < row_bytes)
+        return false;
+    for (int y = 0; y < source.h; ++y) {
+        const auto* src = static_cast<const unsigned char*>(source.pixels) + size_t(y) * source.pitch;
+        auto* dst = static_cast<unsigned char*>(destination.getDataPtr()) + size_t(y) * destination.getPitch();
+        if (!mirror) {
+            SDL_memcpy(dst, src, row_bytes);
+        } else {
+            for (int x = 0; x < source.w; ++x)
+                SDL_memcpy(dst + size_t(x) * bytes_per_pixel,
+                           src + size_t(source.w - 1 - x) * bytes_per_pixel, bytes_per_pixel);
+        }
+    }
+    return true;
+}
+} // namespace srImage
 
 namespace {
 struct JpegHeader {
@@ -86,8 +121,7 @@ OutputFormat outputFormat(const char* path)
 void saveImage(OutputFormat output, SDL_IOStream* io, srColorSurfaceIFace& source, int quality)
 {
     if (!srCore.isInitialized()) throw std::runtime_error("Image I/O requires SurRender initialization");
-    srPixelConvert::PixelFormat format;
-    source.getPixelFormat(format);
+    const auto& format = source.getPixelFormat();
     if (!source.getWidth() || !source.getHeight() || source.getWidth() > 65535 ||
         source.getHeight() > 65535 ||
         source.getPitch() <= 0 || Uint64(source.getPitch()) <
@@ -184,7 +218,7 @@ bool describe(srColorSurfaceIFace::SurfaceDesc& description, const char* path, S
     std::unique_ptr<srColorSurfaceIFace> surface;
     try { surface = load(path, stream); } catch (...) {}
     if (surface) {
-        surface->getSurfaceDesc(description);
+        description = surface->getSurfaceDesc();
     }
     return SDL_SeekIO(stream, position, SDL_IO_SEEK_SET) == position && surface != nullptr;
 }
@@ -198,7 +232,7 @@ bool describe(srColorSurfaceIFace::SurfaceDesc& description, const char* path, w
 void describe(srColorSurfaceIFace::SurfaceDesc& description, const char* path)
 {
     auto surface = load(path);
-    surface->getSurfaceDesc(description);
+    description = surface->getSurfaceDesc();
 }
 
 // FUNCTION: SURRENDER 0x1002DCD0

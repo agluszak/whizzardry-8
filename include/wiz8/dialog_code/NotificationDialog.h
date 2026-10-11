@@ -1,6 +1,7 @@
 #pragma once
 
 #include "wiz8/dialog_code/MessageDialogBase.h"
+#include "compat/compiler.h"
 
 struct W8DialogCloseListener {
     virtual void OnDialogClosed(bool accepted, int value) = 0;
@@ -19,5 +20,3 @@ public:
     int notification_value;
     W8DialogCloseListener* notify_target;
 };
-
-W8_ABI_ASSERT(sizeof(W8NotificationDialog) == 0xa0, "W8NotificationDialog_must_be_0xa0");

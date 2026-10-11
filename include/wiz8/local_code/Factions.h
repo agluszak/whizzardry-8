@@ -1,6 +1,9 @@
-#include "wiz8/filesystem.h"
 #ifndef WIZ8_LOCAL_CODE_FACTIONS_H
 #define WIZ8_LOCAL_CODE_FACTIONS_H
+
+namespace wiz8 {
+class File;
+}
 
 /* The factions. The name table, the runtime score array and the relationship
    matrix keep one row per id. The last two ids name no faction. */
@@ -86,6 +89,6 @@ void RecordFactionOffense(signed char faction, unsigned int victim_location_inde
    when the band moved, and post the worsened/improved notice. */
 void AdjustFactionDisposition(signed char faction, char delta);
 /* FATA section save and load. */
-void SaveFactionState(wiz8::File* file);
-void LoadFactionState(wiz8::File* file);
+void SaveFactionState(wiz8::File& file);
+void LoadFactionState(wiz8::File& file);
 #endif

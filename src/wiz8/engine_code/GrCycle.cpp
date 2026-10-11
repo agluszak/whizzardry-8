@@ -1,17 +1,25 @@
-#include <fmt/format.h>
-#include "input.h"
-#include <string_view>
+#include <optional>
 #include "wiz8/unicode.h"
+#include "surrender/srBoundingBox.h"
+#include <fmt/format.h>
+#include <string_view>
+#include <vector>
+#include <algorithm>
+#include <cmath>
+#include <cstdio>
+#include <cstring>
+#include <exception>
+#include <memory>
+#include <string>
+
 #include "wiz8/containers.h"
 #include "wiz8/engine_code/AnimRep.hpp"
 #include "wiz8/engine_code/SoundEvent.h"
 #include "wiz8/engine_code/GrObject.h"
 #include "wiz8/engine_code/GrCycle.h"
-#include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/float_constants.h"
 #include "random.h"
-#include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/stLight.hpp"
 #include "wiz8/engine_code/stModelInstance.h"
@@ -26,22 +34,24 @@
 #include "wiz8/engine_code/AnimObj.h"
 #include "wiz8/engine_code/AniMesh.h"
 #include "wiz8/engine_code/game_timer.h"
-#include "wiz8/engine_code/Environment.h"
 #include "wiz8/engine_code/Quality.h"
-#include "wiz8/engine_code/Video2.h"
 #include "wiz8/sr_api.h"
-#include "wiz8/utility.h"
-#include <vector>
-#include <algorithm>
-#include "wiz8/virtual_file.h"
 #include "surrender/srModelInstance.h"
 #include "surrender/srCore.h"
 #include "wiz8/filesystem.h"
-#include <math.h>
-#include <new>
-#include <stdio.h>
-#include <string.h>
 #include "wiz8/engine_code/GameData.h"
+#include "Emitter.h"
+#include "Navigator.h"
+#include "SpellEmitterHost.h"
+#include "application.h"
+#include "glm/ext/matrix_double3x3.hpp"
+#include "glm/ext/vector_double3.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include "layouts/world.h"
+#include "particle_modes.h"
+#include "surrender/srClock.h"
+#include "surrender/srNode.h"
+
 // GLOBAL: WIZ8 0x005ebc3c
 const float g_float_one_tenth = 0.10000000149011612f;
 // GLOBAL: WIZ8 0x005ec390
@@ -185,8 +195,7 @@ void UpdateShakeEffects()
     }
     if (!g_shake_effects->empty()) {
         float intensity = 0.0f;
-        srVector3T<float> camera;
-        GetCameraPosition(&camera);
+        srVector3T<float> camera = cameraLocation();
         for (int index = 0; index < static_cast<int>(g_shake_effects->size()); ++index) {
             W8CameraShakeEffect* effect = (*g_shake_effects)[index];
             float amount;
@@ -383,7 +392,7 @@ try
             for (index = 0; index < static_cast<int>(particles.size()); ++index) {
                 stParticle* particle = particles[index];
                 W8GrCycleParticleAttachment* event = new W8GrCycleParticleAttachment;
-                srVector3T<double> location;
+                glm::dvec3 location;
 
                 if (event == 0) {
                     srAssertFail("pPartSys", "C:\\Projects\\Wizardry 8\\Engine Code\\GrCycle.cpp",
@@ -393,8 +402,8 @@ try
                 event->subcycle = -1;
                 event->m_pstParticles = particle;
                 location = particle->getLocation();
-                event->position = location;
-                particle->getRotation(event->rotation);
+                event->position = glm::vec3(location);
+                event->rotation = particle->getRotation<glm::mat3>();
                 (*cycle)->m_plsParticles->push_back(event);
             }
         }
@@ -489,7 +498,7 @@ W8GrCycle::W8GrCycle(const W8GrCycle& other) : W8GrObject(other), W8Navigator(ot
             copied_light->setGroupMask(2);
             g_world->transient_lights.push_back(copied_light);
             if (copied_light->definition() != 0) {
-                g_world->lights_to_update->push_back(copied_light);
+                g_world->lights_to_update.push_back(copied_light);
             }
             m_plsLights->push_back(copied_light);
         }
@@ -763,14 +772,13 @@ void W8GrCycle::UpdateLights()
 }
 
 // FUNCTION: WIZ8 0x004a7dd0
-unsigned char W8GrCycle::GetAnimationBounds(srVector3T<float>* arg_minimum,
-                                            srVector3T<float>* arg_maximum)
+std::optional<srBoundingBox> W8GrCycle::GetAnimationBounds()
 {
-    W8AnimObj* animation = GetCurrentAnimation();
-    W8EmitterHost* representation = GetRepresentation();
-
-    return AnimObjGetBounds(animation, representation->m_bLOD, representation->subcycle,
-                            (srVector3T<float>*)arg_minimum, (srVector3T<float>*)arg_maximum);
+    auto* representation = GetRepresentation();
+    if (!representation)
+        return std::nullopt;
+    return AnimObjGetBounds(GetCurrentAnimation(), representation->m_bLOD,
+                            representation->subcycle);
 }
 
 // FUNCTION: WIZ8 0x004a7e10
@@ -876,7 +884,7 @@ void W8GrCycle::UpdateRepresentation(W8World* pWorld)
     W8EmitterHost* pRep = GetRepresentation();
     W8AnimObj* animation;
     glm::mat3 rotation;
-    srVector3T<double> location;
+    glm::dvec3 location;
     srVector3T<float> vecPos;
     int index;
 
@@ -919,8 +927,8 @@ void W8GrCycle::UpdateRepresentation(W8World* pWorld)
             location = glm::dvec3(vecPos.glmValue());
             location.y += movement.vertical_offset;
             psrMesh->setLocation(location);
-            pRep->GetRotation(&rotation);
-            psrMesh->getRotation(current);
+            rotation = pRep->GetRotation();
+            current = psrMesh->getRotation<glm::mat3>();
             rotation = rotation * current;
             psrMesh->setRotation(rotation);
             current_model_instance = psrMesh;
@@ -946,7 +954,7 @@ void W8GrCycle::UpdateRepresentation(W8World* pWorld)
         vecPos = movement.position;
         location = glm::dvec3(vecPos.glmValue());
         location.y += movement.vertical_offset;
-        pRep->GetRotation(&rotation);
+        rotation = pRep->GetRotation();
         child = psrMesh->first_child_;
         if (child == 0) {
             psrMesh->setLocation(location);
@@ -978,13 +986,13 @@ void W8GrCycle::UpdateRepresentation(W8World* pWorld)
         srVector3T<float> origin;
 
         if (AnimationIsRunning(animation) == 1) {
-            pRep->GetLocation(&origin);
+            origin = pRep->GetLocation();
         } else {
             vecPos = movement.position;
             origin = vecPos;
             origin.y += movement.vertical_offset;
         }
-        pRep->GetRotation(&rotation);
+        rotation = pRep->GetRotation();
         for (index = 0; index < count; ++index) {
             stLight* light = (*m_plsLights)[index];
             srVector3T<float> offset = light->m_position;
@@ -1056,10 +1064,10 @@ void W8GrCycle::UpdateParticleAttachments()
     W8EmitterHost* pRep;
     stMeshModel* pMeshModel;
     glm::mat3 rotation;
-    srVector3T<double> scale;
-    srVector3T<double> location;
-    srVector3T<double> target;
-    srVector3T<double> axis;
+    glm::dvec3 scale;
+    glm::dvec3 location;
+    glm::dvec3 target;
+    glm::dvec3 axis;
     glm::mat3 combined;
     glm::dmat3 world;
     srVector3T<float> offset;
@@ -1094,7 +1102,7 @@ void W8GrCycle::UpdateParticleAttachments()
         pMeshModel = static_cast<stMeshModel*>(psrMesh->getModel());
     }
 
-    current_model_instance->getRotation(rotation);
+    rotation = current_model_instance->getRotation<glm::mat3>();
     scale = current_model_instance->getScale();
     scale_x = static_cast<float>(scale.x);
     scale_y = static_cast<float>(scale.y);
@@ -1129,7 +1137,7 @@ void W8GrCycle::UpdateParticleAttachments()
         if (pMeshModel == 0 || vertex == -1) {
             offset = attachment->position;
         } else {
-            srVector3T<float>* locations;
+            glm::vec3* locations;
 
             if ((pMeshModel->flags & W8_MESH_HAS_FRAME_STORAGE) == 0) {
                 locations = pMeshModel->getVertexLoc();
@@ -1147,7 +1155,7 @@ void W8GrCycle::UpdateParticleAttachments()
         placed = rotation * offset.glmValue();
         location = current_model_instance->getLocation();
         srVector3T<float> anchor;
-        anchor = glm::vec3(location.glmValue());
+        anchor = glm::vec3(location);
         placed += anchor;
 
         if (aim_set && particle->direction_mode == W8_PARTICLE_DIRECTION_CONE) {
@@ -1338,7 +1346,7 @@ void W8GrCycle::DetachCycleLights(std::vector<stLight*>* lights)
 
             light->setParent(0, 1);
             if (light->definition() != 0) {
-                wiz8::erase_first(*g_world->lights_to_update, light);
+                wiz8::erase_first(g_world->lights_to_update, light);
             }
         }
     }
@@ -1351,7 +1359,7 @@ void W8GrCycle::AttachCycleLights(std::vector<stLight*>* lights)
 
             light->setParent(g_world->dynamic_scene, 1);
             if (light->definition() != 0) {
-                g_world->lights_to_update->push_back(light);
+                g_world->lights_to_update.push_back(light);
             }
         }
     }
@@ -1494,7 +1502,7 @@ void DestroyLightVector(std::vector<stLight*>* vector)
             stLight* light = (*vector)[index];
 
             if (light->definition() != 0) {
-                wiz8::erase_first(*g_world->lights_to_update, light);
+                wiz8::erase_first(g_world->lights_to_update, light);
             }
             light->setParent(0, 1);
             WorldRemoveLight(g_world, light);

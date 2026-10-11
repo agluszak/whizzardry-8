@@ -33,7 +33,7 @@ public:
     virtual void dump(std::ostream& stream) override;
     virtual void verify(srRuntimeClass::e_verify mode) override;
 
-    virtual void getMaterialInfo(srVertexProcessor::MaterialInfo& info) override;
+    virtual srVertexProcessor::MaterialInfo getMaterialInfo() override;
     virtual void preProcess(srVertexPipe& pipe) override;
     virtual void postProcess(srVertexPipe& pipe) override;
 
@@ -47,16 +47,12 @@ public:
     void disable(e_oper operation);
     void enable(e_oper operation);
     glm::vec4 getAmbient() const;
-    void getAmbient(glm::vec4& ambient) const;
     glm::vec4 getDiffuse() const;
-    void getDiffuse(glm::vec4& diffuse) const;
     glm::vec4 getEmissive() const;
-    void getEmissive(glm::vec4& emissive) const;
     srVertexProcessor* getMapper() const;
     float getOpacity() const;
     float getShininess() const;
     glm::vec4 getSpecular() const;
-    void getSpecular(glm::vec4& specular) const;
     float getTranslucency() const;
     int isEnabled(e_oper operation) const;
     // FUNCTION: SURRENDER 0x10034930 SYMBOL
@@ -109,4 +105,3 @@ public:
     srVertexProcessor* mapper;             /* 0x70 */
     int dirty;                             /* 0x74 */
 };
-

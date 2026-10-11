@@ -1,10 +1,14 @@
 #pragma once
 
+#include "glm/ext/vector_int3.hpp"
+
+#include "glm/ext/vector_float3.hpp"
+
 #include <memory>
 #include <vector>
 #include "srMaterialIFace.h"
 #include "srMath.h"
-#include <memory>
+#include "srMeshModel.h"
 #include "srShader.h"
 #include "srTextureIFace.h"
 #include "srVertexPipe.h"
@@ -26,16 +30,20 @@ public:
         const srShader* shaders = nullptr;
         const glm::vec2* texcoords = nullptr;
         /* The mesh's per-triangle poly-UV corner source table. */
-        const srVector3i* poly_uv = nullptr;
+        const glm::ivec3* poly_uv = nullptr;
     };
     enum e_boundsSource { BOUNDS_FROM_VERTICES = 0, BOUNDS_SPHERE = 1, BOUNDS_BOX = 2 };
     using Record = srVertexPipe::Record;
 
     static srTriMeshPipeline* Get(srGERD* renderer);
+    static srTriMeshPipeline& beginMesh(srGERD& renderer, const srMeshModel::TriMesh& mesh);
     void SetFlags(srShader shader);
     void Reset(srGERD* renderer);
     void Flush();
     void PrepareSlot();
+    void SetMeshBounds(const srMeshModel::TriMesh& mesh);
+    void AppendMeshPass(const srMeshModel::TriMesh& mesh, w8_long pass,
+                        w8_long material_side, srShader pass_shader);
 
     inline void FlushIfCurrent()
     {
@@ -48,21 +56,19 @@ public:
     virtual ~srTriMeshPipeline() = default;
 
     std::vector<srVertexProcessor*> vertex_processors;
-    std::vector<w8_ulong> culler_scratch;
     Record* current_record;
     Pass* current_pass;
     w8_ulong triangle_count;
     w8_ulong vertex_count;
-    w8_ulong active_triangle_count;
     /* Bit 0: run getClipMask (frustum 0x3f plus user planes in bits 6+).
        Bit 1: vertex/triangle batch-limit path. Reset/Get always set both. */
     w8_ulong flags;
-    const w8_ulong* active_triangles;
+    srMeshModel::PolygonSelection active_triangles;
     const glm::vec4* projected_vertices;
-    const srVector3i* triangles;
+    const glm::ivec3* triangles;
     /* stParticle stores its vertex positions here; Reset/Get null it. */
-    const srVector3T<float>* positions;
-    const srVector3T<float>* vertex_extras;
+    const glm::vec3* positions;
+    const glm::vec3* vertex_extras;
     float sort_bias;
     glm::vec3 bounds_minimum;
     glm::vec3 bounds_maximum;
@@ -91,4 +97,3 @@ protected:
 private:
     srTriMeshPipeline();
 };
-

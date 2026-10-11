@@ -1,13 +1,19 @@
 #pragma once
 
-#include <memory>
+struct srBoundingBox;
 
-#include "wiz8/geometry.h"
+#include <memory>
+#include <array>
+#include <span>
+#include "glm/ext/vector_float3.hpp"
+
+#include "compat/native.h"
 
 class W8Monster;
 class W8Prop;
 struct W8World;
 class srScene;
+struct srBoundingBox;
 class srNode;
 class srModelInstance;
 class srLight;
@@ -17,6 +23,9 @@ class stModelInstance;
 struct W8Item;
 struct W8GameData;
 struct W8OctRegionVolume;
+struct W8BoundingBox;
+struct W8Plane;
+template <class T> class srVector3T;
 
 void SetSceneAmbientLightWhite(srScene* scene);
 void RemoveMonsterFromWorldList(W8World*, W8Monster* monster);
@@ -24,7 +33,7 @@ void AddMonsterToWorld(W8World*, W8Monster* monster);
 void AddItemToWorld(W8World*, W8Item* item);
 void RemoveItemFromWorld(W8World*, W8Item* item);
 void SetModelInstanceChainExclusionMask(srModelInstance* node, int value);
-stModelInstance* DuplicateModelInstance(stModelInstance* instance);
+std::unique_ptr<stModelInstance> DuplicateModelInstance(const stModelInstance& instance);
 void UpdateWorldMonsters(W8World* world);
 void WorldUpdateProps(W8World* world);
 int WorldGetPropCount(W8World*);             /* 0x0046E600 */
@@ -32,7 +41,8 @@ W8Prop* WorldGetPropAt(W8World*, int index); /* 0x0046E620 */
 void SetWorldSceneMeshShaderLowBits(W8World* owner, int argument);
 void SetWorldSceneMeshShaderBit3(W8World* owner, int argument);
 void FinalizeStaticScene(srScene* scene);
-stModelInstance* CreateModelInstance(std::shared_ptr<stMeshModel> model);
+// Factories return detached instances. Scene ownership requires explicit adoption.
+std::unique_ptr<stModelInstance> CreateModelInstance(std::shared_ptr<stMeshModel> model);
 
 unsigned char FinalizeWorldScenes(srNode* node, srNode* dynamic_scene);
 /* Mark an instance lit and bake dynamic-scene lights once (render_flags bit 1). */
@@ -46,32 +56,27 @@ void SetSceneMeshShaderLowBits(srNode* node, int argument);
    mark the mesh dirty for rebake (automap lighting uses table 1). */
 void SetWorldMeshVertexLightTable(W8World* world, int table);
 
-void BuildPlaneFromPoints(W8Plane* plane, const srVector3T<float>* first,
-                          const srVector3T<float>* second, const srVector3T<float>* third);
 /* Report whether a point satisfies all six frustum planes. */
-bool PointInsideFrustum(const srVector3T<float>* point, const W8Plane* planes);
+bool PointInsideFrustum(const glm::vec3& point, std::span<const W8Plane, 6> planes);
 /* Report whether a sphere of `radius` at `point` reaches all six frustum
    planes (each plane distance may be as low as -radius). */
-bool SphereInsideFrustum(const srVector3T<float>* point, float radius, const W8Plane* planes);
+bool SphereInsideFrustum(const glm::vec3& point, float radius, std::span<const W8Plane, 6> planes);
 /* Point-in-triangle test via dominant-axis projection: `axis` selects the two
    planar components used. */
-bool PointInsideTriangle(const srVector3T<float>* vertices, short axis,
-                         const srVector3T<float>* point);
+bool PointInsideTriangle(std::span<const glm::vec3, 3> vertices, unsigned axis,
+                         const glm::vec3& point);
 /* Build the six frustum planes from the eight sorted corner points. */
-void BuildFrustumPlanes(const srVector3T<float>* points, W8Plane* planes);
+std::array<W8Plane, 6> BuildFrustumPlanes(std::span<const glm::vec3, 8> points);
 /* Order a volume's eight corner points into the canonical (y,z,x)-sorted
    sequence the frustum plane builder expects. */
-void SortFrustumCorners(srVector3T<float>* points);
+std::array<glm::vec3, 8> sortedFrustumCorners(std::span<const glm::vec3, 8> points);
 /* Report whether the six-float bounds box (min xyz, max xyz) intersects the
    region volume's frustum: true when a bounds corner satisfies all six
    planes or a volume corner lands inside the bounds. */
-bool BoundsInsideFrustum(const W8OctRegionVolume* volume, const W8BoundingBox* bounds);
-char TraceLineOfSightToBounds(const srVector3T<float>* origin, srVector3T<float>* minimum,
-                              srVector3T<float>* maximum);
-bool HasLineOfSightToBounds(const srVector3T<float>* origin, srVector3T<float>* minimum,
-                            srVector3T<float>* maximum);
-unsigned char ShowTargetMarker(const srVector3T<float>* eye, const srVector3T<float>* lower,
-                               const srVector3T<float>* upper); /* 0x0046F820 */
+bool BoundsInsideFrustum(const W8OctRegionVolume& volume, const srBoundingBox& bounds);
+bool traceLineOfSightToBounds(const glm::vec3& origin, const srBoundingBox& bounds);
+bool hasLineOfSightToBounds(const glm::vec3& origin, const srBoundingBox& bounds);
+bool targetMarkerVisible(const glm::vec3& eye, const srBoundingBox& bounds); /* 0x0046F820 */
 
 void WorldUpdateLights(W8World* world);
 float WorldGetRenderRange(W8World* world);

@@ -1,25 +1,11 @@
-#include "wiz8/containers.h"
+
 #include "wiz8/layouts/character.h"
-#include "wiz8/character_skills.h"
-#include "wiz8/local_code/CharGeneration.h"
-#include "wiz8/local_code/Combat.h"
-#include "wiz8/local_code/CombatAttack.h"
-#include "wiz8/local_code/ConditionsAndEnchantments.h"
-#include "wiz8/local_code/GameplayCode.h"
-#include "wiz8/local_code/GameplayMods.h"
-#include "wiz8/local_code/HealthStaminaMana.h"
-#include "wiz8/local_code/Magic.h"
-#include "wiz8/local_code/MagicEffects.h"
-#include "wiz8/local_code/party_encumbrance.h"
-#include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/npc_interaction.h"
-#include "wiz8/layouts/npc_state.h"
 #include "wiz8/local_code/NPCScripting.h"
-#include "wiz8/message_box.h"
-#include "soundman.h"
+#include "conditions.h"
+#include "wiz8/npc_speech.h"
 
 // GLOBAL: WIZ8 0x0068C430
 W8NpcScriptingState g_npc_scripting;
@@ -57,28 +43,6 @@ bool IsPartySlotEligible(int slot)
 void ClearNpcMessageQueue(void)
 {
 
-    if (g_npc_scripting.voice_playing) {
-        g_npc_scripting.voice_playing = false;
-        g_npc_scripting.stopping_voice_playback = true;
-        SoundStop(g_npc_scripting.voice_handle);
-    }
-    FreeMouthGapTrack(&g_npc_scripting.gap_track);
-    for (auto* line : g_npc_scripting.message_lines) {
-        // These payloads have not been handed to a portrait bubble yet.
-        switch (line->type) {
-        case W8_NPC_MSG_SKILL_NOTICES:
-            delete line->extra.skill_notices;
-            break;
-        case W8_NPC_MSG_PORTRAIT_EXTRA:
-            delete line->extra.experience;
-            break;
-        case W8_NPC_MSG_LEVEL_UP:
-            delete line->extra.level_up_slot;
-            break;
-        default:
-            break;
-        }
-        delete line;
-    }
+    StopNpcVoice(g_npc_scripting.speech);
     g_npc_scripting = {};
 }

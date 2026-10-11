@@ -1,6 +1,10 @@
 #include <fmt/format.h>
 #include <string_view>
 #include <string>
+#include <cstring>
+#include <vector>
+
+#include "image.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/dialog_code/AssayDialog.h"
 #include "wiz8/dialog_code/SpellInfoDialog.h"
@@ -9,36 +13,34 @@
 #include "wiz8/character_skills.h"
 #include "wiz8/engine_code/Spells.h"
 #include "wiz8/string_database.h"
-#include "wiz8/local_code/CharGeneration.h"
-#include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/CombatAttack.h"
-#include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/GameplayCode.h"
-#include "wiz8/local_code/GameplayMods.h"
-#include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/local_code/Magic.h"
-#include "wiz8/local_code/MagicEffects.h"
-#include "wiz8/local_code/party_encumbrance.h"
 #include "wiz8/local_code/PC_Item.h"
-#include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
-#include "wiz8/engine_code/Video2.h"
+#include "wiz8/regions.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/fonts.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/item_video_object_vector.h"
 #include "wiz8/layouts/item_tables.h"
 #include "wiz8/local_code/Strings.h"
-#include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/local_screens/OptionsScreen.h"
 #include "wiz8/local_screens/RCSItemsPage.h"
 #include "wiz8/local_screens/CharacterScreen.h"
-#include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/sr_api.h"
-#include "wiz8/utility.h"
-#include "wiz8/video_object_catalog.h"
+#include "wiz8/catalog_artwork.h"
+#include "wiz8/dialog_code/ButtonAppearance.h"
+#include "wiz8/local_code/ButtonWidget.h"
+#include "dialog_code/DialogScrollBar.h"
+#include "dialog_code/DialogTextArea.h"
+#include "dice.h"
+#include "layouts/item_instance.h"
+#include "local_code/ControlsRect.h"
+#include "local_code/TextBuffer.h"
+#include "retail_item_payloads.h"
+#include "spell_ids.h"
 
 // GLOBAL: WIZ8 0x0064f908
 static W8DialogScrollBar::Resources g_assay_scroll_resources = {
@@ -104,9 +106,6 @@ W8AssayDialog::W8AssayDialog(W8ItemInstance* item, W8Character* character)
 
     SetExtent(0x180, 0x11d);
     SetBackground("Data\\Dialogs\\popup_iteminfo.sti", 0);
-    for (index = 0; index < W8_ASSAY_BUTTON_COUNT; ++index) {
-        m_buttons[index] = 0;
-    }
     for (index = 0; index < W8_ASSAY_TEXT_BUFFER_COUNT; ++index) {
         m_text_buffers[index] = 0;
     }
@@ -141,18 +140,18 @@ int W8AssayDialog::CreateControls()
             return 7;
         }
         if (CreateTextBuffers()) {
-            m_buttons[0]->SetVisible(gXStatus.assay_professions_tab);
+            m_buttons[0].SetVisible(gXStatus.assay_professions_tab);
             SetProfessionIconsVisible(gXStatus.assay_professions_tab);
-            m_buttons[1]->SetVisible(!gXStatus.assay_professions_tab);
+            m_buttons[1].SetVisible(!gXStatus.assay_professions_tab);
             SetRaceIconsVisible(!gXStatus.assay_professions_tab);
             if (gXStatus.assay_professions_tab) {
-                m_buttons[2]->SetPressed(true);
+                m_buttons[2].SetPressed(true);
                 return 0;
             }
-            m_buttons[3]->SetPressed(true);
+            m_buttons[3].SetPressed(true);
             return 0;
         }
-        DestroyDialogButtons(m_buttons, W8_ASSAY_BUTTON_COUNT);
+        for (auto& button : m_buttons) button.Reset();
     }
     m_error = 7;
     return 7;
@@ -162,8 +161,7 @@ int W8AssayDialog::CreateControls()
 void W8AssayDialog::DestroyControls()
 {
     W8DialogBase::DestroyControls();
-    m_scroll_bar.DestroyControls();
-    DestroyDialogButtons(m_buttons, W8_ASSAY_BUTTON_COUNT);
+    for (auto& button : m_buttons) button.Reset();
     DestroyDialogTextBuffers(m_text_buffers, W8_ASSAY_TEXT_BUFFER_COUNT);
 }
 
@@ -553,7 +551,7 @@ void W8AssayDialog::Draw()
         m_text_area.m_dirty = true;
         m_scroll_bar.m_dirty = true;
         for (index = 0; index < W8_ASSAY_BUTTON_COUNT; ++index) {
-            m_buttons[index]->m_dirty = true;
+            m_buttons[index].m_dirty = true;
         }
         for (index = 0; index < W8_ASSAY_TEXT_BUFFER_COUNT; ++index) {
             m_text_buffers[index]->SetGeometryDirty();
@@ -561,23 +559,22 @@ void W8AssayDialog::Draw()
         W8DialogBase::Draw();
     }
     if (m_item_portrait_dirty) {
-        DrawCatalogImageAndInvalidate(FRAME_BUFFER,
-                                      g_item_video_objects.GetOrCreateVideoObject(m_item->iItemNo),
-                                      0, 0, m_x + 0x45, m_y + 0xe, VO_BLT_SRCTRANSPARENCY, 0);
+        DrawSpriteAndInvalidate(GetFrameBufferSurface(),
+                                g_item_video_objects.Sprites(m_item->iItemNo), 0, m_x + 0x45,
+                                m_y + 0xe);
         if (!m_item->identified) {
-            DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x11b, 0, 0, m_x + 0x45, m_y + 0xe,
-                                          VO_BLT_SRCTRANSPARENCY, 0);
+            CatalogArtwork::Load(0x11b, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, m_x + 0x45, m_y + 0xe);
         }
         m_item_portrait_dirty = false;
     }
     for (index = 0; index < W8_ASSAY_BUTTON_COUNT; ++index) {
-        if (m_buttons[index] != 0) {
-            m_buttons[index]->Draw();
+        if (m_buttons[index].IsConfigured()) {
+            m_buttons[index].Draw();
         }
     }
     for (index = 0; index < W8_ASSAY_TEXT_BUFFER_COUNT; ++index) {
         if (m_text_buffers[index] != 0) {
-            m_text_buffers[index]->RenderToTarget(0, false, FRAME_BUFFER);
+            m_text_buffers[index]->RenderToTarget(0, false, GetFrameBufferSurface());
         }
     }
     m_text_area.Draw(false);
@@ -599,50 +596,34 @@ void W8AssayDialog::OnMouseWheel(int delta)
     m_scroll_bar.ScrollBy(delta);
 }
 
+void W8AssayDialog::ShowTab(bool professions)
+{
+    m_buttons[2].SetPressed(professions);
+    m_buttons[3].SetPressed(!professions);
+    gXStatus.assay_professions_tab = professions;
+    m_buttons[0].SetVisible(professions);
+    SetProfessionIconsVisible(professions);
+    m_buttons[1].SetVisible(!professions);
+    SetRaceIconsVisible(!professions);
+    for (int i = 0; i < 4; ++i) {
+        m_buttons[i].m_dirty = true;
+    }
+}
+
 // FUNCTION: WIZ8 0x005d9620
 void W8AssayDialog::ShowPrimaryTab()
 {
-    if (m_buttons[2]->IsPressed() == 0) {
-        m_buttons[2]->SetPressed(true);
-        m_buttons[2]->m_dirty = true;
-    }
-    if (m_buttons[3]->IsPressed() != 0) {
-        m_buttons[3]->SetPressed(false);
-        m_buttons[3]->m_dirty = true;
-    }
-    gXStatus.assay_professions_tab = true;
-    m_buttons[0]->SetVisible(true);
-    SetProfessionIconsVisible(true);
-    m_buttons[1]->SetVisible(false);
-    SetRaceIconsVisible(false);
-    m_buttons[0]->m_dirty = true;
-    m_buttons[1]->m_dirty = true;
-    m_buttons[3]->m_dirty = true;
+    ShowTab(true);
 }
 
 // FUNCTION: WIZ8 0x005d96a0
 void W8AssayDialog::ShowSecondaryTab()
 {
-    if (m_buttons[3]->IsPressed() == 0) {
-        m_buttons[3]->SetPressed(true);
-        m_buttons[3]->m_dirty = true;
-    }
-    if (m_buttons[2]->IsPressed() != 0) {
-        m_buttons[2]->SetPressed(false);
-        m_buttons[2]->m_dirty = true;
-    }
-    gXStatus.assay_professions_tab = false;
-    m_buttons[0]->SetVisible(false);
-    SetProfessionIconsVisible(false);
-    m_buttons[1]->SetVisible(true);
-    SetRaceIconsVisible(true);
-    m_buttons[0]->m_dirty = true;
-    m_buttons[1]->m_dirty = true;
-    m_buttons[2]->m_dirty = true;
+    ShowTab(false);
 }
 
 // FUNCTION: WIZ8 0x005d9760
-void W8AssayDialog::PrimaryTabCallback(W8DialogButton* button)
+void W8AssayDialog::PrimaryTabCallback(W8ButtonWidget* button)
 {
     if (button != 0) {
         static_cast<W8AssayDialog*>(button->m_owner)->ShowPrimaryTab();
@@ -650,7 +631,7 @@ void W8AssayDialog::PrimaryTabCallback(W8DialogButton* button)
 }
 
 // FUNCTION: WIZ8 0x005d9780
-void W8AssayDialog::SecondaryTabCallback(W8DialogButton* button)
+void W8AssayDialog::SecondaryTabCallback(W8ButtonWidget* button)
 {
     if (button != 0) {
         static_cast<W8AssayDialog*>(button->m_owner)->ShowSecondaryTab();
@@ -664,7 +645,7 @@ void W8AssayDialog::ScrollCallback(W8DialogScrollBar* scroll_bar, int first_visi
     if (scroll_bar != 0) {
         dialog = static_cast<W8AssayDialog*>(scroll_bar->m_owner);
         dialog->m_text_area.SetFirstVisibleLine(first_visible_entry);
-        dialog->m_buttons[4]->m_dirty = true;
+        dialog->m_buttons[4].m_dirty = true;
         dialog->m_text_area.m_dirty = true;
     }
 }
@@ -678,79 +659,76 @@ bool W8AssayDialog::PopulateRequirements()
     int frame;
     int tooltip_index;
 
-    if (!AllocateDialogButtons(m_buttons, W8_ASSAY_BUTTON_COUNT)) {
-        return false;
-    }
 
-    m_buttons[0]->Configure("Data\\Dialogs\\popup_iteminfo.sti", BUTTON_NO_IMAGE, 1, 1, 1, 1,
-                            BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK, false, MSYS_PRIORITY_LOWEST,
+    m_buttons[0].Configure("Data\\Dialogs\\popup_iteminfo.sti", BUTTON_NO_IMAGE, 1, 1, 1, 1,
+                            BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK, false, REGION_PRIORITY_LOWEST,
                             W8_DIALOG_BUTTON_NO_TOOLTIP, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
-    m_buttons[1]->Configure("Data\\Dialogs\\popup_iteminfo.sti", BUTTON_NO_IMAGE, 2, 2, 2, 2,
-                            BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK, false, MSYS_PRIORITY_LOWEST,
+    m_buttons[1].Configure("Data\\Dialogs\\popup_iteminfo.sti", BUTTON_NO_IMAGE, 2, 2, 2, 2,
+                            BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK, false, REGION_PRIORITY_LOWEST,
                             W8_DIALOG_BUTTON_NO_TOOLTIP, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
-    m_buttons[2]->Configure("Data\\Dialogs\\iteminfo_tabbutton.sti", 3, 0, 1, 4, 2,
-                            PrimaryTabCallback, BUTTON_NO_CALLBACK, true, MSYS_PRIORITY_HIGHEST,
+    m_buttons[2].Configure("Data\\Dialogs\\iteminfo_tabbutton.sti", 3, 0, 1, 4, 2,
+                            PrimaryTabCallback, BUTTON_NO_CALLBACK, true, REGION_PRIORITY_HIGHEST,
                             0x115, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
-    m_buttons[3]->Configure("Data\\Dialogs\\iteminfo_tabbutton.sti", 8, 5, 6, 9, 7,
-                            SecondaryTabCallback, BUTTON_NO_CALLBACK, true, MSYS_PRIORITY_HIGHEST,
+    m_buttons[3].Configure("Data\\Dialogs\\iteminfo_tabbutton.sti", 8, 5, 6, 9, 7,
+                            SecondaryTabCallback, BUTTON_NO_CALLBACK, true, REGION_PRIORITY_HIGHEST,
                             0x116, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
-    m_buttons[4]->Configure("Data\\Dialogs\\popup_iteminfo.sti", BUTTON_NO_IMAGE, 3, 3, 3, 3,
-                            BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK, false, MSYS_PRIORITY_LOWEST,
+    m_buttons[4].Configure("Data\\Dialogs\\popup_iteminfo.sti", BUTTON_NO_IMAGE, 3, 3, 3, 3,
+                            BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK, false, REGION_PRIORITY_LOWEST,
                             W8_DIALOG_BUTTON_NO_TOOLTIP, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
-    m_buttons[5]->Configure("Data\\Dialogs\\popup_confirmationbuttons.sti", 3, 0, 1, 2, 2,
+    m_buttons[5].Configure("Data\\Dialogs\\popup_confirmationbuttons.sti", 3, 0, 1, 2, 2,
                             W8TriggerItemPickerDialog::CloseOwningDialog, BUTTON_NO_CALLBACK, false,
-                            MSYS_PRIORITY_HIGHEST, 0x12, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
-    m_buttons[6]->ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 1, 0, MSYS_PRIORITY_HIGHEST,
+                            REGION_PRIORITY_HIGHEST, 0x12, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
+    m_buttons[6].ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 1, 0, REGION_PRIORITY_HIGHEST,
                                 0x2ad);
-    m_buttons[7]->ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 3, 2, MSYS_PRIORITY_HIGHEST,
+    m_buttons[7].ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 3, 2, REGION_PRIORITY_HIGHEST,
                                 0x2a7);
-    m_buttons[8]->ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 5, 4, MSYS_PRIORITY_HIGHEST,
+    m_buttons[8].ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 5, 4, REGION_PRIORITY_HIGHEST,
                                 0x2b0);
-    m_buttons[9]->ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 7, 6, MSYS_PRIORITY_HIGHEST,
+    m_buttons[9].ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 7, 6, REGION_PRIORITY_HIGHEST,
                                 0x2ac);
-    m_buttons[10]->ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 9, 8, MSYS_PRIORITY_HIGHEST,
+    m_buttons[10].ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 9, 8, REGION_PRIORITY_HIGHEST,
                                  0x2a6);
-    m_buttons[11]->ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 0xb, 10,
-                                 MSYS_PRIORITY_HIGHEST, 0x2a4);
-    m_buttons[12]->ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 0xd, 0xc,
-                                 MSYS_PRIORITY_HIGHEST, 0x2aa);
-    m_buttons[13]->ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 0xf, 0xe,
-                                 MSYS_PRIORITY_HIGHEST, 0x2b1);
-    m_buttons[14]->ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 0x11, 0x10,
-                                 MSYS_PRIORITY_HIGHEST, 0x2a8);
-    m_buttons[15]->ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 0x13, 0x12,
-                                 MSYS_PRIORITY_HIGHEST, 0x2ae);
-    m_buttons[16]->ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 0x15, 0x14,
-                                 MSYS_PRIORITY_HIGHEST, 0x2a9);
-    m_buttons[17]->ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 0x17, 0x16,
-                                 MSYS_PRIORITY_HIGHEST, 0x2af);
-    m_buttons[18]->ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 0x19, 0x18,
-                                 MSYS_PRIORITY_HIGHEST, 0x2a5);
-    m_buttons[19]->ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 0x1b, 0x1a,
-                                 MSYS_PRIORITY_HIGHEST, 0x2b2);
-    m_buttons[20]->ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 0x1d, 0x1c,
-                                 MSYS_PRIORITY_HIGHEST, 0x2ab);
-    m_buttons[21]->ConfigureIcon("Data\\Dialogs\\icons_race.sti", 1, 0, MSYS_PRIORITY_HIGHEST,
+    m_buttons[11].ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 0xb, 10,
+                                 REGION_PRIORITY_HIGHEST, 0x2a4);
+    m_buttons[12].ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 0xd, 0xc,
+                                 REGION_PRIORITY_HIGHEST, 0x2aa);
+    m_buttons[13].ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 0xf, 0xe,
+                                 REGION_PRIORITY_HIGHEST, 0x2b1);
+    m_buttons[14].ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 0x11, 0x10,
+                                 REGION_PRIORITY_HIGHEST, 0x2a8);
+    m_buttons[15].ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 0x13, 0x12,
+                                 REGION_PRIORITY_HIGHEST, 0x2ae);
+    m_buttons[16].ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 0x15, 0x14,
+                                 REGION_PRIORITY_HIGHEST, 0x2a9);
+    m_buttons[17].ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 0x17, 0x16,
+                                 REGION_PRIORITY_HIGHEST, 0x2af);
+    m_buttons[18].ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 0x19, 0x18,
+                                 REGION_PRIORITY_HIGHEST, 0x2a5);
+    m_buttons[19].ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 0x1b, 0x1a,
+                                 REGION_PRIORITY_HIGHEST, 0x2b2);
+    m_buttons[20].ConfigureIcon("Data\\Dialogs\\icons_profession.sti", 0x1d, 0x1c,
+                                 REGION_PRIORITY_HIGHEST, 0x2ab);
+    m_buttons[21].ConfigureIcon("Data\\Dialogs\\icons_race.sti", 1, 0, REGION_PRIORITY_HIGHEST,
                                  0x28a);
-    m_buttons[22]->ConfigureIcon("Data\\Dialogs\\icons_race.sti", 3, 2, MSYS_PRIORITY_HIGHEST,
+    m_buttons[22].ConfigureIcon("Data\\Dialogs\\icons_race.sti", 3, 2, REGION_PRIORITY_HIGHEST,
                                  0x28c);
-    m_buttons[23]->ConfigureIcon("Data\\Dialogs\\icons_race.sti", 5, 4, MSYS_PRIORITY_HIGHEST,
+    m_buttons[23].ConfigureIcon("Data\\Dialogs\\icons_race.sti", 5, 4, REGION_PRIORITY_HIGHEST,
                                  0x285);
-    m_buttons[24]->ConfigureIcon("Data\\Dialogs\\icons_race.sti", 7, 6, MSYS_PRIORITY_HIGHEST,
+    m_buttons[24].ConfigureIcon("Data\\Dialogs\\icons_race.sti", 7, 6, REGION_PRIORITY_HIGHEST,
                                  0x28e);
-    m_buttons[25]->ConfigureIcon("Data\\Dialogs\\icons_race.sti", 9, 8, MSYS_PRIORITY_HIGHEST,
+    m_buttons[25].ConfigureIcon("Data\\Dialogs\\icons_race.sti", 9, 8, REGION_PRIORITY_HIGHEST,
                                  0x284);
-    m_buttons[26]->ConfigureIcon("Data\\Dialogs\\icons_race.sti", 0xb, 10, MSYS_PRIORITY_HIGHEST,
+    m_buttons[26].ConfigureIcon("Data\\Dialogs\\icons_race.sti", 0xb, 10, REGION_PRIORITY_HIGHEST,
                                  0x28b);
-    m_buttons[27]->ConfigureIcon("Data\\Dialogs\\icons_race.sti", 0xd, 0xc, MSYS_PRIORITY_HIGHEST,
+    m_buttons[27].ConfigureIcon("Data\\Dialogs\\icons_race.sti", 0xd, 0xc, REGION_PRIORITY_HIGHEST,
                                  0x286);
-    m_buttons[28]->ConfigureIcon("Data\\Dialogs\\icons_race.sti", 0xf, 0xe, MSYS_PRIORITY_HIGHEST,
+    m_buttons[28].ConfigureIcon("Data\\Dialogs\\icons_race.sti", 0xf, 0xe, REGION_PRIORITY_HIGHEST,
                                  0x288);
-    m_buttons[29]->ConfigureIcon("Data\\Dialogs\\icons_race.sti", 0x11, 0x10, MSYS_PRIORITY_HIGHEST,
+    m_buttons[29].ConfigureIcon("Data\\Dialogs\\icons_race.sti", 0x11, 0x10, REGION_PRIORITY_HIGHEST,
                                  0x287);
-    m_buttons[30]->ConfigureIcon("Data\\Dialogs\\icons_race.sti", 0x13, 0x12, MSYS_PRIORITY_HIGHEST,
+    m_buttons[30].ConfigureIcon("Data\\Dialogs\\icons_race.sti", 0x13, 0x12, REGION_PRIORITY_HIGHEST,
                                  0x28d);
-    m_buttons[31]->ConfigureIcon("Data\\Dialogs\\icons_race.sti", 0x15, 0x14, MSYS_PRIORITY_HIGHEST,
+    m_buttons[31].ConfigureIcon("Data\\Dialogs\\icons_race.sti", 0x15, 0x14, REGION_PRIORITY_HIGHEST,
                                  0x289);
 
     for (us_index = 0; us_index < NUM_RPC_RACES; ++us_index) {
@@ -804,15 +782,15 @@ bool W8AssayDialog::PopulateRequirements()
             tooltip_index = 0x284;
             break;
         }
-        m_buttons[button_index]->ConfigureIcon("Data\\Dialogs\\icons_race.sti", frame + 1, frame,
-                                               MSYS_PRIORITY_HIGHEST, tooltip_index);
-        m_buttons[button_index]->SetVisible(false);
+        m_buttons[button_index].ConfigureIcon("Data\\Dialogs\\icons_race.sti", frame + 1, frame,
+                                               REGION_PRIORITY_HIGHEST, tooltip_index);
+        m_buttons[button_index].SetVisible(false);
     }
 
     for (index = 0; index < W8_ASSAY_BUTTON_COUNT; ++index) {
-        m_buttons[index]->SetPosition(m_x + g_assay_button_offsets[index].x,
+        m_buttons[index].SetPosition(m_x + g_assay_button_offsets[index].x,
                                       m_y + g_assay_button_offsets[index].y);
-        m_buttons[index]->m_owner = this;
+        m_buttons[index].m_owner = this;
     }
     return true;
 }
@@ -915,12 +893,12 @@ void W8AssayDialog::SetProfessionIconsVisible(bool show)
         default:
             continue;
         }
-        m_buttons[button_index]->SetVisible(show);
+        m_buttons[button_index].SetVisible(show);
         if (show) {
-            m_buttons[button_index]->SetEnabled(
+            m_buttons[button_index].SetEnabled(
                 (record->profession_mask & (1 << (profession & 0x1f))) != 0);
         }
-        m_buttons[button_index]->m_dirty = true;
+        m_buttons[button_index].m_dirty = true;
     }
 }
 
@@ -1005,10 +983,10 @@ void W8AssayDialog::SetRaceIconsVisible(bool show)
         default:
             continue;
         }
-        m_buttons[button_index]->SetVisible(show);
+        m_buttons[button_index].SetVisible(show);
         if (show) {
-            m_buttons[button_index]->SetEnabled((record->race_mask & (1 << (race & 0x1f))) != 0);
+            m_buttons[button_index].SetEnabled((record->race_mask & (1 << (race & 0x1f))) != 0);
         }
-        m_buttons[button_index]->m_dirty = true;
+        m_buttons[button_index].m_dirty = true;
     }
 }

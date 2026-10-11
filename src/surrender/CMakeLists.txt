@@ -47,6 +47,15 @@ if(UNIX AND NOT APPLE)
 endif()
 set_target_properties(SURRENDER PROPERTIES OUTPUT_NAME sr)
 
+if(WIZ8_PRECOMPILE_HEADERS)
+    target_precompile_headers(SURRENDER PRIVATE
+        "$<$<COMPILE_LANGUAGE:CXX>:${PROJECT_SOURCE_DIR}/src/surrender/pch.h>")
+endif()
+if(WIZ8_UNITY_BUILD OR WIZ8_SURRENDER_UNITY_BUILD)
+    set_target_properties(SURRENDER PROPERTIES
+        UNITY_BUILD ON UNITY_BUILD_BATCH_SIZE ${WIZ8_UNITY_BATCH_SIZE})
+endif()
+
 # SDL3 GPU device: GLSL compiled to SPIR-V headers at build time.
 find_program(GLSLANG_VALIDATOR NAMES glslangValidator glslangValidator.exe REQUIRED)
 set(SDL_GPU_DEVICE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/devices/sdl_gpu")
@@ -69,5 +78,7 @@ foreach(shader vertex fragment)
     )
     list(APPEND SDL_GPU_SHADER_HEADERS "${header}")
 endforeach()
+# Lint-only configurations need generated shader headers without compiling SurRender.
+add_custom_target(surrender_shader_headers DEPENDS ${SDL_GPU_SHADER_HEADERS})
 target_sources(SURRENDER PRIVATE devices/sdl_gpu/sdl_gpu_device.cpp ${SDL_GPU_SHADER_HEADERS})
 target_include_directories(SURRENDER PRIVATE "${SDL_GPU_SHADER_DIR}")

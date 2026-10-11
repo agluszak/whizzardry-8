@@ -1,7 +1,7 @@
+#include <vector>
+
 #include "random.h"
 #include "wiz8/level_specific_code/Trynnie1.h"
-#include "wiz8/engine_code/Monster.h"
-#include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/location_variables.h"
@@ -9,8 +9,6 @@
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/item_instance.h"
 #include "wiz8/layouts/world.h"
-#include <vector>
-#include <algorithm>
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/local_code/MonsterGenerator.h"
@@ -20,6 +18,11 @@
 #include "wiz8/utility.h"
 #include "wiz8/xstatus.h"
 #include "soundman.h"
+#include "conditions.h"
+#include "layouts/gameplay_databases.h"
+#include "surrender/srMath.h"
+
+class Trigger;
 
 /* Level Specific Code\Trynnie1.cpp (level 0x19).
 
@@ -82,12 +85,12 @@ bool Trynnie1FountRandomFX(Trigger* pTrigger)
         slot = GetRandomCharacter(0, 0, -1, -1);
         if (slot != -1) {
             SetCharacterCondition(slot, W8_CONDITION_HEXED, Random(5) + 10, 0, 0, 1);
-            SoundPlay("Data\\Sound\\misc\\fountain_magic.wav", 0);
+            wiz8::sound::play("Data\\Sound\\misc\\fountain_magic.wav");
             return true;
         }
     } else if (roll < 50) {
         RestorePartySpellPoints(-1);
-        SoundPlay("Data\\Sound\\misc\\fountain_magic.wav", 0);
+        wiz8::sound::play("Data\\Sound\\misc\\fountain_magic.wav");
         return true;
     } else if (roll < 75) {
         for (i = 0; i < W8_PARTY_SLOT_COUNT; ++i) {
@@ -95,7 +98,7 @@ bool Trynnie1FountRandomFX(Trigger* pTrigger)
                 HealCharacter(i, 100, false);
             }
         }
-        SoundPlay("Data\\Sound\\misc\\fountain_magic.wav", 0);
+        wiz8::sound::play("Data\\Sound\\misc\\fountain_magic.wav");
         return true;
     } else {
         for (i = 0; i < W8_PARTY_SLOT_COUNT; ++i) {
@@ -104,7 +107,7 @@ bool Trynnie1FountRandomFX(Trigger* pTrigger)
             }
         }
     }
-    SoundPlay("Data\\Sound\\misc\\fountain_magic.wav", 0);
+    wiz8::sound::play("Data\\Sound\\misc\\fountain_magic.wav");
     return true;
 }
 
@@ -140,8 +143,8 @@ void KillTrynnieGroups(void)
         srAssertFail("iNewTable!=(-1)", TRYNNIE1_CPP, 0x69,
                      "Can't find monster table 'Dead Trynnies'");
     }
-    for (index = 0; index < static_cast<int>(g_world->monster_generators->size()); ++index) {
-        generator = (*g_world->monster_generators)[index];
+    for (index = 0; index < static_cast<int>(g_world->monster_generators.size()); ++index) {
+        generator = g_world->monster_generators[index];
         if (generator->encounter_table_index == iOldTable) {
             generator->SetEncounterTable(iNewTable);
         }

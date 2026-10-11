@@ -1,5 +1,13 @@
-#include "wiz8/unicode.h"
-#include "wiz8/utility.h"
+#include <span>
+#include <vector>
+#include <algorithm>
+#include <cmath>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <unordered_map>
+#include <utility>
+
 #include "wiz8/engine_code/OctPath.h"
 #include "wiz8/engine_code/GDProp.h"
 #include "wiz8/engine_code/LevelFile.h"
@@ -7,14 +15,12 @@
 #include "wiz8/engine_code/materials.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/local_screens/AutomapScreen.h"
-#include <vector>
 #include "wiz8/sr_api.h"
-
-#include <algorithm>
-#include <math.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include "geometry.h"
+#include "index_algorithms.h"
+#include "navigation_flags.h"
+#include "packed_bits.h"
+#include "surrender/srMath.h"
 
 #define OCTPREPATH_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\OctPrePath.cpp"
 
@@ -39,8 +45,6 @@ public:
     char** m_pPathStrings;
     char** m_pLinkStrings;
 };
-
-W8_ABI_ASSERT(sizeof(OctPrePathLog) == 0x20, "OctPrePathLog_must_be_0x20");
 
 // FUNCTION: WIZ8 0x004CCE00
 OctPrePathLog::OctPrePathLog(float scale, const W8BoundingBox* bounds)
@@ -144,13 +148,13 @@ PrePathing::~PrePathing()
 }
 
 // FUNCTION: WIZ8 0x004CD130
-int PrePathing::SnapNamedPositions(W8LevelFileNamedPosition* positions, int count,
+int PrePathing::SnapNamedPositions(std::span<const W8LevelFileNamedPosition> positions,
                                    unsigned int min_component_percent, OctPreTree* octree)
 {
     this->min_component_percent = min_component_percent;
-    named_position_count = count;
-    if (count != 0) {
-        named_positions = new srVector3T<float>[count];
+    named_position_count = static_cast<int>(positions.size());
+    if (named_position_count != 0) {
+        named_positions = new srVector3T<float>[named_position_count];
         for (int i = 0; i < named_position_count; ++i) {
             named_positions[i].Set(positions[i].position.x * g_world_scale,
                                    positions[i].position.y * g_world_scale,
@@ -339,9 +343,10 @@ unsigned int PrePathing::DeleteUnreachableAreas()
         }
         minimum = static_cast<unsigned int>(path_node_count * min_component_percent) / 100;
     }
-    m_marked_path_nodes = new BitArray(path_node_count);
-    m_visited_path_nodes = new BitArray(path_node_count);
-    m_collected_path_nodes = new BitArray(path_node_count);
+    m_marked_path_nodes.assign(path_node_count, false);
+    m_visited_path_nodes.assign(path_node_count, false);
+    m_collected_path_nodes.assign(path_node_count, false);
+    std::vector<unsigned int> pending;
     ReportBuildStatus(6, "Deleting Unreacheable Areas.\n");
     ReportBuildStatus(6, "Deleting Nodes: \t");
     for (unsigned int i = 1; i < static_cast<unsigned int>(path_node_count); ++i) {
@@ -352,19 +357,20 @@ unsigned int PrePathing::DeleteUnreachableAreas()
                     deleted);
             ReportStartupMessage(message);
         }
-        if (m_visited_path_nodes->Test(i)) {
+        if (TestBit(m_visited_path_nodes, i)) {
             continue;
         }
         int component_size = 0;
-        m_marked_path_nodes->ClearAll();
-        m_collected_path_nodes->ClearAll();
-        int pending = i + 1;
-        while (pending != 0) {
-            do {
-                unsigned int index = pending - 1;
+        std::ranges::fill(m_marked_path_nodes, false);
+        std::ranges::fill(m_collected_path_nodes, false);
+        // Flood the component reachable from i; marked nodes are queued once.
+        pending.assign(1, i);
+        while (!pending.empty()) {
+            {
+                unsigned int index = pending.back();
+                pending.pop_back();
                 if (path_node_list[index] != 0) {
-                    m_marked_path_nodes->Clear(index);
-                    m_collected_path_nodes->Set(index);
+                    SetBit(m_collected_path_nodes, index);
                     ++component_size;
                     for (int direction = 0; direction < 8; ++direction) {
                         W8PrePathNode* node = path_node_list[index];
@@ -406,28 +412,25 @@ unsigned int PrePathing::DeleteUnreachableAreas()
                                 }
                             }
                         }
-                        if (neighbor != 0 && !m_collected_path_nodes->Test(next_index)) {
-                            if (!m_visited_path_nodes->Test(next_index)) {
-                                m_marked_path_nodes->Set(next_index);
+                        if (neighbor != 0 && !TestBit(m_collected_path_nodes, next_index)) {
+                            if (!TestBit(m_visited_path_nodes, next_index)) {
+                                if (!SetBit(m_marked_path_nodes, next_index)) {
+                                    pending.push_back(next_index);
+                                }
                             } else {
                                 component_size = minimum + 1;
                             }
                         }
                     }
                 }
-                pending = m_marked_path_nodes->NextSetBit(false);
-            } while (pending != 0);
-            pending = m_marked_path_nodes->NextSetBit(true);
+            }
         }
         if (component_size < static_cast<int>(minimum)) {
             bool clear_of_named = true;
-            pending = m_collected_path_nodes->NextSetBit(true);
-            if (pending != 0) {
-                do {
-                    if (!clear_of_named) {
-                        goto component_done;
-                    }
-                    W8PrePathNode* node = path_node_list[pending - 1];
+            for (unsigned int collected = 0;
+                 collected < m_collected_path_nodes.size() && clear_of_named; ++collected) {
+                if (m_collected_path_nodes[collected]) {
+                    W8PrePathNode* node = path_node_list[collected];
                     unsigned int cell = node->cell;
                     float world_y = node->y;
                     float world_x =
@@ -442,21 +445,21 @@ unsigned int PrePathing::DeleteUnreachableAreas()
                             clear_of_named = false;
                         }
                     }
-                    pending = m_collected_path_nodes->NextSetBit(false);
-                } while (pending != 0);
-                if (!clear_of_named) {
-                    goto component_done;
                 }
             }
-            pending = m_collected_path_nodes->NextSetBit(true);
-            while (pending != 0) {
-                path_node_list[pending - 1]->level_flags |= W8_PREPATH_NODE_PRUNED;
-                ++deleted;
-                pending = m_collected_path_nodes->NextSetBit(false);
+            for (unsigned int collected = 0;
+                 collected < m_collected_path_nodes.size() && clear_of_named; ++collected) {
+                if (m_collected_path_nodes[collected]) {
+                    path_node_list[collected]->level_flags |= W8_PREPATH_NODE_PRUNED;
+                    ++deleted;
+                }
             }
         }
-    component_done:
-        m_visited_path_nodes->UnionWith(*m_collected_path_nodes);
+        for (std::size_t node = 0; node < m_visited_path_nodes.size(); ++node) {
+            if (m_collected_path_nodes[node]) {
+                m_visited_path_nodes[node] = true;
+            }
+        }
     }
     cell_map->clear();
     int kept = 1;
@@ -471,12 +474,9 @@ unsigned int PrePathing::DeleteUnreachableAreas()
             ++kept;
         }
     }
-    delete m_marked_path_nodes;
-    m_marked_path_nodes = 0;
-    delete m_visited_path_nodes;
-    m_visited_path_nodes = 0;
-    delete m_collected_path_nodes;
-    m_collected_path_nodes = 0;
+    m_marked_path_nodes.clear();
+    m_visited_path_nodes.clear();
+    m_collected_path_nodes.clear();
     sprintf(message, "Nodes Deleted: %d\n", path_node_count - kept);
     ReportBuildStatus(6, message);
     path_node_count = kept;
@@ -521,7 +521,7 @@ int PrePathing::CreatePathNodeArray()
 }
 
 // FUNCTION: WIZ8 0x004CE070
-unsigned char PrePathing::CreateAutomapNodes(W8LevelFile* level)
+unsigned char PrePathing::CreateAutomapNodes(W8LevelFile& level)
 {
     int last_percent = 0;
     std::vector<int> node_keys;
@@ -556,21 +556,13 @@ unsigned char PrePathing::CreateAutomapNodes(W8LevelFile* level)
         }
     }
     used_keys.clear();
-    level->num_automap_nodes = static_cast<int>(node_keys.size());
     sprintf(message, "Creating Automap Nodes:  100%% Complete:  %d Automap Nodes created  \n",
             static_cast<int>(node_keys.size()));
     ReportStartupMessage(message);
-    sprintf(message, "  %d Total Automap Nodes.\n", level->num_automap_nodes);
+    sprintf(message, "  %d Total Automap Nodes.\n", static_cast<int>(node_keys.size()));
     ReportBuildStatus(6, message);
-    level->automap_nodes = static_cast<w8_ulong*>(malloc(level->num_automap_nodes * sizeof(*level->automap_nodes)));
-    if (level->automap_nodes == 0) {
-        level->num_automap_nodes = 0;
-    } else {
-        for (i = 0; i < static_cast<unsigned int>(level->num_automap_nodes); ++i) {
-            level->automap_nodes[i] = node_keys[i];
-        }
-        std::sort(level->automap_nodes, level->automap_nodes + level->num_automap_nodes);
-    }
+    level.automap_nodes.assign(node_keys.begin(), node_keys.end());
+    std::ranges::sort(level.automap_nodes);
     for (i = 1; i < static_cast<unsigned int>(path_node_count); ++i) {
         path_node_list[i] = 0;
     }

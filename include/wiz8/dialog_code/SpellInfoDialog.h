@@ -1,10 +1,11 @@
 #pragma once
 
 #include "wiz8/dialog_code/DialogBase.h"
-#include "wiz8/dialog_code/DialogButton.h"
+#include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/dialog_code/DialogScrollBar.h"
 #include "wiz8/dialog_code/DialogTextArea.h"
 #include "wiz8/engine_code/game_timer.h"
+#include "compat/compiler.h"
 
 /* Dialog Code\SpellInfoDialog.cpp. The constructor stores the spell id; Draw
    and DrawLabels index g_spell_records with it. CreateControls, the close
@@ -13,9 +14,7 @@
 class W8SpellInfoDialog : public W8DialogBase {
 public:
     W8SpellInfoDialog(unsigned int spell);
-    virtual ~W8SpellInfoDialog() override;
     virtual int CreateControls() override;
-    virtual void DestroyControls() override;
     virtual void Draw() override;
     virtual void OnRightButtonUp() override;
     virtual void OnMouseWheel(int delta) override;
@@ -27,12 +26,11 @@ private:
 
     unsigned int m_spell;
     W8DialogScrollBar m_scroll_bar;
-    W8DialogButton m_button;
+    W8ButtonWidget m_button;
     W8DialogTextArea m_text_area;
     W8GameTimer m_timer;
     unsigned int m_animation_frame;
 };
-W8_ABI_ASSERT(sizeof(W8SpellInfoDialog) == 0x16c, "W8SpellInfoDialog_size");
 
 /* The "(on ...)" parenthetical per spell target type. */
 extern const char* g_spell_target_parentheticals[11];

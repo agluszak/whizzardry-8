@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "surrender/srMath.h"
+#include "glm/ext/vector_float2.hpp"
 
 class srModelInstance;
 

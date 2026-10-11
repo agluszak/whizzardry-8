@@ -1,8 +1,10 @@
 #include "wiz8/engine_code/AnimRep.hpp"
+
+#include "surrender/srMath.h"
 #include "wiz8/engine_code/Emitter.h"
 #include "wiz8/engine_code/game_timer.h"
-#include "wiz8/geometry.h"
 #include "wiz8/sr_api.h"
+#include "surrender/srClock.h"
 
 // GLOBAL: WIZ8 0x0060e608
 float g_lod_range_default0 = 3500.0f;
@@ -65,15 +67,15 @@ void W8AnimRepBase::SetLocation(const srVector3T<float>* location)
 }
 
 // FUNCTION: WIZ8 0x004b8890
-void W8AnimRepBase::GetLocation(srVector3T<float>* location) const
+srVector3T<float> W8AnimRepBase::GetLocation() const
 {
-    *location = this->location;
+    return location;
 }
 
 // FUNCTION: WIZ8 0x004b88b0
-void W8AnimRepBase::GetLocalLocation(srVector3T<float>* location) const
+srVector3T<float> W8AnimRepBase::GetLocalLocation() const
 {
-    *location = local_location;
+    return local_location;
 }
 
 // FUNCTION: WIZ8 0x004b88d0
@@ -83,9 +85,9 @@ void W8AnimRepBase::SetRotation(const glm::mat3* rotation)
 }
 
 // FUNCTION: WIZ8 0x004b88f0
-void W8AnimRepBase::GetRotation(glm::mat3* rotation)
+glm::mat3 W8AnimRepBase::GetRotation() const
 {
-    *rotation = this->rotation;
+    return rotation;
 }
 
 // FUNCTION: WIZ8 0x004b53d0

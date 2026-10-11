@@ -1,33 +1,21 @@
 #pragma once
 
 #include <string_view>
-#include "wiz8/layouts/screen_state.h"
+#include <memory>
+#include <vector>
 
-#include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_code/TextControl.h"
 #include "wiz8/local_code/ControlSelection.h"
-#include <stddef.h>
-
 #include "wiz8/layouts/character.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/local_code/CharGeneration.h"
-#include "wiz8/local_code/Combat.h"
-#include "wiz8/local_code/CombatAttack.h"
-#include "wiz8/local_code/GameplayCode.h"
-#include "wiz8/local_code/GameplayMods.h"
-#include "wiz8/local_code/HealthStaminaMana.h"
-#include "wiz8/local_code/Magic.h"
-#include "wiz8/local_code/MagicEffects.h"
-#include "wiz8/local_code/party_encumbrance.h"
-#include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/compat/compiler.h"
 #include "wiz8/engine_code/game_timer.h"
 #include "wiz8/local_code/Controls.h"
-#include <vector>
-#include <algorithm>
-
+#include "wiz8/local_code/ControlsRect.h"
 #include "input.h"
+#include "layouts/gameplay_databases.h"
 
 class W8DialogBase;
 class W8CharacterScreen;
@@ -83,7 +71,7 @@ public:
 /* Common base of the four character screen pages. */
 class W8CharacterPage : public Controls {
 public:
-    W8CharacterPage(int catalog_object);
+    W8CharacterPage(CatalogArtwork background);
     virtual ~W8CharacterPage();
     virtual void Invalidate(const W8ControlsRect* rect) override;
     virtual void Redraw() override;
@@ -93,10 +81,10 @@ public:
     virtual void Deactivate() = 0;
     virtual void Accept() = 0;
     virtual void GetNavigationState(bool* next_enabled, bool* exit_enabled) = 0;
-    virtual void HandleInput(InputAtom* input);
+    virtual void HandleInput(InputEvent* input);
     virtual void Refresh();
     virtual void Prepare();
-    std::vector<W8CharacterPageEntry*> m_entries;
+    std::vector<std::unique_ptr<W8CharacterPageEntry>> m_entries;
     W8CharacterScreen* m_screen;
     W8Character* m_character;
     W8CharacterCreationState* m_creation_state;
@@ -114,8 +102,7 @@ class W8CharacterStatsRow;
    0x00 is the catalogue object id, 0x04/0x08 its two images, 0x0C the name
    message id and 0x0E the selectable flag. */
 struct W8CharacterStatsRecord {
-    /* The video-object catalog id handed to DrawCatalogImage's
-       `object` argument. */
+    /* Catalog object id resolved when drawing the selected row. */
     unsigned int object;
     /* Catalog image ids drawn while the control is enabled and
        disabled respectively. */
@@ -156,19 +143,9 @@ public:
 class W8CharacterStatsRow final : public W8TextControl::Listener {
 public:
     W8CharacterStatsRow();
-    ~W8CharacterStatsRow()
-    {
-        delete m_subpanel;
-        if (m_subpanel_entries != 0) {
-            for (unsigned short index = 0; index < m_count; ++index) {
-                delete m_subpanel_entries[index];
-            }
-            delete[] m_subpanel_entries;
-        }
-    }
     virtual void OnPrimary(W8TextControl* control) override;
     virtual void OnSecondary(W8TextControl* control) override;
-    void Initialize(Controls* owner, unsigned int* region_set, int x, int y, int count,
+    void Initialize(Controls* owner, int x, int y, int count,
                     const W8CharacterStatsRecord* table,
                     const W8CharacterStatsRecord* default_record, int help_first, int help_second,
                     int help_value);
@@ -184,13 +161,13 @@ public:
     unsigned char pad_00a[2];
     int m_x;
     int m_y;
-    unsigned int* m_region_set;
     const W8CharacterStatsRecord* m_table;
     W8TextControl* m_decrement;
     W8TextControl* m_increment;
     W8CharacterStatsValue* m_value_control;
-    Controls* m_subpanel;
-    W8TextControl** m_subpanel_entries;
+    std::unique_ptr<Controls> m_subpanel;
+    // Owned by m_subpanel.
+    std::vector<W8TextControl*> m_subpanel_entries;
     W8CharacterStatsRowListener* m_listener;
 };
 
@@ -200,7 +177,7 @@ class W8CharacterStatsPage : public W8CharacterPage,
                              public W8CharacterPageEntryListener,
                              public W8TextControl::Listener {
 public:
-    W8CharacterStatsPage() : W8CharacterPage(0x104) {}
+    W8CharacterStatsPage() : W8CharacterPage(CatalogArtwork::Load(0x104)) {}
     virtual ~W8CharacterStatsPage() override;
     virtual void Redraw() override;
     virtual void SetCharacter(W8Character*, W8CharacterCreationState*, int) override;
@@ -208,7 +185,7 @@ public:
     virtual void Deactivate() override;
     virtual void Accept() override;
     virtual void GetNavigationState(bool*, bool*) override;
-    virtual void HandleInput(InputAtom*) override;
+    virtual void HandleInput(InputEvent*) override;
     virtual void Refresh() override;
     virtual void Prepare() override;
     virtual void OnRowValueChanged(W8CharacterStatsRow* row, int value) override;
@@ -233,7 +210,6 @@ public:
     unsigned char pad_08a[2];
     W8TextControl* m_attribute_controls[5];
 };
-W8_ASSERT_BASE_END(W8CharacterStatsPage, W8TextControl::Listener, m_profession_row, 0x78);
 
 struct W8CharacterSpellEntry {
     W8SpellRealm realm;
@@ -252,7 +228,7 @@ class W8CharacterSpellList;
 
 class W8CharacterSpellsPage : public W8CharacterPage, public W8CharacterSpellListListener {
 public:
-    W8CharacterSpellsPage() : W8CharacterPage(0x109), anim_timer(0.05f, 1)
+    W8CharacterSpellsPage() : W8CharacterPage(CatalogArtwork::Load(0x109)), anim_timer(0.05f, 1)
     {
         for (int realm = 0; realm < 6; ++realm) {
             m_realms[realm] = 0;
@@ -279,7 +255,7 @@ private:
 
 class W8CharacterSkillsPage : public W8CharacterPage, public W8CharacterPageEntryListener {
 public:
-    W8CharacterSkillsPage() : W8CharacterPage(0x108) {}
+    W8CharacterSkillsPage() : W8CharacterPage(CatalogArtwork::Load(0x108)) {}
     virtual void Redraw() override;
     virtual void SetCharacter(W8Character*, W8CharacterCreationState*, int) override;
     virtual void Activate() override;
@@ -302,7 +278,7 @@ class W8CharacterPersonalityPage : public W8CharacterPage,
                                    public W8TextControl::Listener {
 public:
     W8CharacterPersonalityPage()
-        : W8CharacterPage(0x105), anim_timer(0.4f, 1), m_animation_active(0)
+        : W8CharacterPage(CatalogArtwork::Load(0x105)), anim_timer(0.4f, 1), m_animation_active(0)
     {
     }
     virtual void Redraw() override;
@@ -311,7 +287,7 @@ public:
     virtual void Deactivate() override;
     virtual void Accept() override;
     virtual void GetNavigationState(bool*, bool*) override;
-    virtual void HandleInput(InputAtom*) override;
+    virtual void HandleInput(InputEvent*) override;
     virtual void Refresh() override;
     virtual void OnSelectionChanged(W8ControlSelection*, int) override;
     virtual void OnPrimary(W8TextControl*) override;
@@ -335,7 +311,6 @@ W8CharacterStatsPage* CreateCharacterStatsPage();
 W8CharacterSpellsPage* CreateCharacterSpellsPage();
 W8CharacterSkillsPage* CreateCharacterSkillsPage();
 W8CharacterPersonalityPage* CreateCharacterPersonalityPage();
-extern unsigned int g_character_page4_region_set;
 
 /* Realm animation records shared by the stats page's resistance icons and the
    spells page's realm list. The stats page reads only initial_frame, through
@@ -365,9 +340,6 @@ extern unsigned short g_gender_name_message_rows[4][4];
    keeps its ten-entry extent. */
 extern unsigned short g_personality_message_ids[10];
 
-/* Page and per-row region sets. */
-extern unsigned int g_character_stats_region_set;
-
 /* Skill-availability bookkeeping raised by RefreshCharacterSkillAvailability while the character
    screen is open: adjust the named page-2 entry and refresh that page. */
 void ResetCharacterScreenSkill(W8Skill skill_id);
@@ -393,6 +365,7 @@ public:
 class W8CharacterScreen final : public W8CharacterPageHost, public W8TextControl::Listener {
 public:
     W8CharacterScreen(int mode, W8Character* character);
+    ~W8CharacterScreen();
     void BuildControls();
     void UpdateDialog();
     void AdvancePage(bool forward);
@@ -430,22 +403,21 @@ public:
     bool m_confirm_profession;
     bool m_force_transition;
     unsigned char pad_1aef;
-    Controls* m_controls;
+    std::unique_ptr<Controls> m_controls;
     W8TextControl* m_previous;
     W8TextControl* m_next;
     W8TextControl* m_exit;
     W8TextControl* m_accept;
     W8TextControl* m_reset;
     bool m_page_enabled[4];
-    W8CharacterPage* m_pages[4];
+    std::unique_ptr<W8CharacterPage> m_pages[4];
     W8DialogBase* m_dialog;
     unsigned int m_dialog_response;
     bool m_capture_dialog_result;
     unsigned char pad_1b25[3];
 };
-W8_ASSERT_BASE_END(W8CharacterScreen, W8TextControl::Listener, m_mode, 0x4);
 
-extern W8CharacterScreen* g_character_screen;
+extern std::unique_ptr<W8CharacterScreen> g_character_screen;
 
 /* Per-profession message indexes. */
 extern unsigned short g_profession_name_message_ids[32];

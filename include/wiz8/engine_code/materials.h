@@ -1,21 +1,24 @@
-#include <string_view>
 #pragma once
 
-#include "surrender/srMaterial.h"
-#include "surrender/srShader.h"
-#include "wiz8/resource_cache.h"
-#include "wiz8/texture_animation.h"
+#include <string_view>
 
 #include <memory>
 
+#include "surrender/srMaterial.h"
+#include "surrender/srShader.h"
+#include "wiz8/texture_animation.h"
+#include "compat/compiler.h"
+#include "surrender/srMath.h"
+#include "surrender/srTypeRegistry.h"
+#include "surrender/srVertexProcessor.h"
+
 class srMaterialIFace;
 class srMeshModel;
-class srShader;
 class srModelInstance;
 class srTexture;
 class srTextureIFace;
-class srShader;
 class stTextureAnim;
+template <class T> class ResourceCache;
 
 /* Combinable flags in level materials; distinct from srShader's packed word. */
 enum { W8_MATERIAL_TWO_SIDED = 1u, W8_MATERIAL_NORMAL_TEXCOORD_MASK = 0x1feu };
@@ -42,7 +45,7 @@ public:
     }
 
     stMaterial();
-    virtual void getMaterialInfo(srVertexProcessor::MaterialInfo& info) override;
+    virtual srVertexProcessor::MaterialInfo getMaterialInfo() override;
 
 public:
     stMaterial& operator=(const stMaterial&) = default;
@@ -119,5 +122,3 @@ extern W8OctRegionPolygon* g_gd_polygons;
 void ReportBuildStatus(short channel, std::string_view message);
 void ReportStartupMessage(std::string_view message);
 char* TrimAndLowercaseString(char* text);
-struct W8OctPreTreeVertex;
-struct W8OctRegionPolygon;

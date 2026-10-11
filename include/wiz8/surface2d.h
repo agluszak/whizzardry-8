@@ -3,9 +3,13 @@
 #include <memory>
 #include <vector>
 
-#include "surrender/srColorSurface.h"
 #include "surrender/srNode.h"
 #include "surrender/srTexture.h"
+#include "compat/compiler.h"
+#include "surrender/srColorSurfaceIFace.h"
+#include "surrender/srTypeRegistry.h"
+
+class srGERD;
 
 // VTABLE: WIZ8 0x005EC6C0 stTexture2D
 // VTABLE: WIZ8 0x005EC704 srClassSupport<stTexture2D, srTexture, 65551>
@@ -20,7 +24,7 @@ public:
     virtual ~stTexture2D() override;
     stTexture2D& operator=(const stTexture2D&) = default;
     virtual w8_ulong getTextureFrameHandle() override;
-    virtual void getMipmapData(MultiRequest& request) override;
+    virtual void getMipmapData(const MultiRequest& request) override;
     virtual void getMipmapLevelPartial(PartialRequest& request) override;
     virtual void invalidate() override;
 
@@ -79,5 +83,3 @@ public:
     float scale;                     /* 0x190 */
     int texture_update_flags;
 };
-
-

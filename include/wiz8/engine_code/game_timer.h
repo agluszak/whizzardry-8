@@ -1,10 +1,10 @@
 #pragma once
 
-#include "wiz8/filesystem.h"
-
-#include "Types.h"
 #include "wiz8/layouts/game_status.h"
 #include "surrender/srClock.h"
+#include "compat/compiler.h"
+
+namespace wiz8 { class File; }
 
 extern int g_shared_timer_pause_base;
 extern int g_shared_timer_pause_time;
@@ -63,7 +63,7 @@ public:
     void SetProgress(float progress);
     void SetDurationScale(float scale);
     void ResetDurationScale();
-    BOOLEAN Load(wiz8::File* handle);
+    bool Load(wiz8::File& handle);
     float GetElapsedSeconds();
 
     W8TimerClock m_clock_mode; /* 0x04: 1 reads the game clock */
@@ -75,7 +75,3 @@ public:
     float m_duration_seconds;  /* 0x1c */
     float m_duration_scale;    /* 0x20 */
 };
-
-
-W8_ABI_ASSERT(sizeof(W8GameTimer::Flags) == 2, "W8GameTimer_flags_size");
-W8_ABI_ASSERT(sizeof(W8GameTimer) == 0x24, "W8GameTimer_must_be_0x24");

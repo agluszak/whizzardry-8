@@ -2,8 +2,12 @@
 #define WIZ8_ENGINE_CODE_ANIM_OBJ_H
 
 #include <memory>
+#include <optional>
 #include <vector>
+
 #include "surrender/srMath.h"
+#include "surrender/srBoundingBox.h"
+#include "glm/ext/matrix_float3x3.hpp"
 
 struct W8AniMesh;
 struct W8PathAI;
@@ -57,7 +61,7 @@ srModelInstance* AnimObjDispatch(W8AnimObj* animation, signed char list_index, u
 srModelInstance* AnimObjDispatchList(W8AnimObj* animation, signed char list_index,
                                      signed char entry_index);
 W8AniMesh* AnimObjEntry(W8AnimObj* animation, signed char list_index, unsigned int entry_index);
-bool AnimObjGetBounds(W8AnimObj* animation, signed char list_index, unsigned int frame,
-                               srVector3T<float>* minimum, srVector3T<float>* maximum);
+std::optional<srBoundingBox> AnimObjGetBounds(W8AnimObj* animation, signed char list_index,
+                                            unsigned int frame);
 
 #endif

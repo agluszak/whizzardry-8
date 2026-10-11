@@ -1,23 +1,52 @@
+#include "glm/ext/vector_double3.hpp"
+#include <SDL3/SDL_blendmode.h>
+#include <SDL3/SDL_pixels.h>
+#include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_video.h>
+#include <SDL3/SDL_surface.h>
 #include <fmt/format.h>
-#include <string_view>
-#include "wiz8/unicode.h"
-#include <memory>
-#include "surrender/srMath.h"
+#include <ios>
 #include <wiz8/filesystem.h>
+#include <string_view>
+#include <memory>
 #include <sstream>
+#include <cmath>
+#include <cstdint>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <exception>
+#include <stdexcept>
+#include <string>
+#include <utility>
+#include <vector>
+
+#include "compat/compiler.h"
+#include "compat/native.h"
+#include "glm/common.hpp" // IWYU pragma: keep
+#include "glm/ext/vector_float2.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include "glm/ext/vector_float4.hpp"
+#include "wiz8/surface_storage.h"
+#include "surrender/srMath.h"
 #include "wiz8/xstatus.h"
-#include "native/input_events.h"
+#include "AnimRep.hpp"
+#include "environment_colour.h"
+#include "layouts/world.h"
+#include "surrender/srColorSurfaceIFace.h"
+#include "surrender/srFlags.h"
+#include "surrender/srNode.h"
+#include "surrender/srTextureIFace.h"
+#include "surrender/srTypeRegistry.h"
 #ifdef WIZ8_RUNTIME_TESTS
 #include "runtime_instrumentation.h"
 #endif
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/Gameloop.h"
-#include "wiz8/local_screens/Screens.h"
 #include "wiz8/cursor.h"
 #include "wiz8/engine_code/3dapi.h"
 #include "wiz8/engine_code/Environment.h"
-#include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/Prop.h"
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/engine_code/World.h"
@@ -29,7 +58,6 @@
 #include "wiz8/float_constants.h"
 #include "wiz8/fonts.h"
 #include "wiz8/local_code/TextBuffer.h"
-#include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/regions.h"
 #include "wiz8/engine_code/Quality.h"
@@ -47,7 +75,6 @@
 #include "surrender/srModeler.h"
 #include "surrender/srModelInstance.h"
 #include "surrender/srPixelConvert.h"
-#include "surrender/srPalette.h"
 #include "surrender/srCamera.h"
 #include "surrender/srTextureMap.h"
 #include "wiz8/engine_code/stTextureAnim.h"
@@ -55,36 +82,25 @@
 #include "surrender/srShader.h"
 #include "surrender/srStatisticsManager.h"
 #include "surrender/srTexture.h"
-#include "surrender/srVertexProcessor.h"
-#include "compat/surfaces.h"
-#include "Types.h"
 #include "himage.h"
 #include "Font.h"
+#include "image.h"
+#include "sprite.h"
 #include "input.h"
-#include "mousesystem.h"
 #include "wiz8/application.h"
-#include "soundman.h"
-#include "vobject.h"
-#include "vobject_blitters.h"
-#include "vsurface.h"
 #include "wiz8/local_code/ControlsRect.h"
 #include "compat/video.h"
-#include <SDL3/SDL.h>
-#include <math.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/Octree.h"
 
-srModelInstance* Video2DRectToSquarePolygon(const W8ControlsRect* rect, void* source,
-                                            int source_pitch, srNode* parent,
+srModelInstance* Video2DRectToSquarePolygon(const W8ControlsRect* rect, SDL_Surface& source,
+                                            srNode* parent,
                                             unsigned char overlay);
-srModelInstance* Video2DRectToPolygon(const W8ControlsRect* rect, void* source, int source_pitch,
+srModelInstance* Video2DRectToPolygon(const W8ControlsRect* rect, SDL_Surface& source,
                                       srNode* parent, unsigned char overlay);
 unsigned char CopySurfaceWithBorder(srColorSurface* surface, const W8ControlsRect* rect,
-                                    void* source, int source_pitch, float* scale_x, float* scale_y,
+                                    SDL_Surface& source, float* scale_x, float* scale_y,
                                     float* mapping_x, float* mapping_y);
 void SaveJpegScreenshot(void);
 void FlushDirtyTiles(void);
@@ -152,11 +168,10 @@ srGERD* g_secondary_gerd;
 // GLOBAL: WIZ8 0x6596a0
 // GLOBAL: WIZ8 0x6596a4
 // GLOBAL: WIZ8 0x6596a8
-std::unique_ptr<CpuSurface> primarySurfaceOwner;
-CpuSurface* g_primary_surface;
+static SDLSurfaceOwner primarySurface{nullptr, SDL_DestroySurface};
 // GLOBAL: WIZ8 0x6596ac
 // GLOBAL: WIZ8 0x6596b0
-std::unique_ptr<CpuSurface> videoSurfaceOwner;
+SDLSurfaceOwner videoSurfaceOwner{nullptr, SDL_DestroySurface};
 
 // GLOBAL: WIZ8 0x600088
 unsigned int g_color_key = 0x3def;
@@ -289,14 +304,20 @@ void AssertFailureHandler(const char* expression, const char* file, w8_long line
     ShutdownWithErrorBox(text);
 }
 
-// FUNCTION: WIZ8 0x00421f70
-PTR LockPrimarySurface(UINT32* pitch)
+/* Reset both framebuffer pages and discard transient scene instances.
+   Callers select whether to invalidate all dirty blocks or the normal region. */
+static void ResetVideoDirtyState(int invalidate_flag)
 {
-    SurfaceLock description{};
-
-    description = LockCpuSurface(*g_primary_surface);
-    *pitch = description.pitch;
-    return description.pixels;
+    memset(g_tile_dirty_flags, 0, sizeof(g_tile_dirty_flags));
+    const unsigned int active = g_active_page;
+    g_page_full_redraw[active ^ 1] = 0;
+    g_page_full_redraw[active] = 0;
+    g_dirty_tile_count = 0;
+    PurgeInactiveSceneInstances(g_scene_prerender0);
+    PurgeInactiveSceneInstances(g_scene_overlay0);
+    PurgeInactiveSceneInstances(g_scene_prerender1);
+    PurgeInactiveSceneInstances(g_scene_overlay1);
+    InvalidateRegion(0, 0, 640, 480, invalidate_flag);
 }
 
 /* Clear the software-facing frame and retire every transient 2D overlay.
@@ -306,23 +327,10 @@ PTR LockPrimarySurface(UINT32* pitch)
 // FUNCTION: WIZ8 0x00422b10
 void ResetVideoFrameState(void)
 {
-    SurfaceLock description{};
-    unsigned int active;
-
-    description = LockCpuSurface(*g_primary_surface);
+    const auto& description = *primarySurface;
     memset(description.pixels, 0, description.pitch * 480);
-    UnlockCpuSurface(*g_primary_surface);
-    memset(g_tile_dirty_flags, 0, sizeof(g_tile_dirty_flags));
     memset(g_surface_nodes, 0, sizeof(g_surface_nodes));
-    active = g_active_page;
-    g_page_full_redraw[active ^ 1] = 0;
-    g_page_full_redraw[active] = 0;
-    g_dirty_tile_count = 0;
-    PurgeInactiveSceneInstances(g_scene_prerender0);
-    PurgeInactiveSceneInstances(g_scene_overlay0);
-    PurgeInactiveSceneInstances(g_scene_prerender1);
-    PurgeInactiveSceneInstances(g_scene_overlay1);
-    InvalidateRegion(0, 0, 640, 480, 0);
+    ResetVideoDirtyState(0);
 }
 
 /* Brings the renderer up, shows the window and, when the INSPECTOR switch was
@@ -330,9 +338,8 @@ void ResetVideoFrameState(void)
    original working directory. Each gate that fails returns straight out with
    the callee's own false still in AL. */
 // FUNCTION: WIZ8 0x00421bb0
-unsigned char InitializeVideoManager(void)
+bool InitializeVideoManager(void)
 {
-    unsigned int active;
     g_world_pick_enabled = true;
     SetPickedModelInstance(0);
     g_fps_frame_count = 0;
@@ -345,7 +352,7 @@ unsigned char InitializeVideoManager(void)
     if (!CreateWizardryWindow()) {
         return 0;
     }
-    if (!InitializePrimaryCpuSurface()) {
+    if (!InitializePrimarySurface()) {
         return 0;
     }
     if (!InitializeVideoDevice()) {
@@ -366,16 +373,7 @@ unsigned char InitializeVideoManager(void)
             SDL_ShowWindow(ghWindow);
             SDL_RestoreWindow(ghWindow);
             SDL_RaiseWindow(ghWindow);
-            memset(g_tile_dirty_flags, 0, sizeof(g_tile_dirty_flags));
-            active = g_active_page;
-            g_page_full_redraw[g_active_page ^ 1] = 0;
-            g_dirty_tile_count = 0;
-            g_page_full_redraw[active] = 0;
-            PurgeInactiveSceneInstances(g_scene_prerender0);
-            PurgeInactiveSceneInstances(g_scene_overlay0);
-            PurgeInactiveSceneInstances(g_scene_prerender1);
-            PurgeInactiveSceneInstances(g_scene_overlay1);
-            InvalidateRegion(0, 0, 0x280, 0x1e0, 0);
+            ResetVideoDirtyState(0);
             SetRendererModePair();
         }
     }
@@ -397,7 +395,7 @@ void ShutdownVideoManager(void)
     ShutdownStartupNavigation();
     SuspendVideoManager();
     SDL_Window* native_window = ghWindow;
-    ReleasePrimaryCpuSurface();
+    ReleasePrimarySurface();
     videoSurfaceOwner.reset();
     if (ghWindow) {
         SDL_HideWindow(ghWindow);
@@ -443,45 +441,25 @@ void ShutdownVideoScenes(void)
     g_primary_color_surface.reset();
 }
 
-/* Derives the 16-bit channel masks and their leading-bit positions from the
-   renderer's reviewed pixel-format selector.  The startup configuration uses
-   format 9, RGB 5:5:5 with the high bit reserved. */
+/* Selects the SDL packed format for SGP's 16-bit framebuffer and sprites.
+   The startup configuration uses ARGB1555; the high bit is an opaque-pixel
+   marker, while zero is the software blitters' transparent pixel. */
 // FUNCTION: WIZ8 0x004265c0
 void Initialize16BitPixelFormatMasks(void)
 {
-    unsigned short bit;
-
-    if (g_pixel_format == 7) {
-        gusAlphaMask = 0;
-        gusRedMask = 0xf800;
-        gusGreenMask = 0x07e0;
+    switch (g_pixel_format) {
+    case 7:
+        g_sgp_pixel_format = SDL_PIXELFORMAT_RGB565;
         g_color_key = 0x7bef;
-    } else if (g_pixel_format == 8) {
-        gusAlphaMask = 0;
-        gusRedMask = 0x7c00;
-        gusGreenMask = 0x03e0;
+        break;
+    case 8:
+        g_sgp_pixel_format = SDL_PIXELFORMAT_XRGB1555;
         g_color_key = 0x3def;
-    } else if (g_pixel_format == 9) {
-        gusAlphaMask = 0x8000;
-        gusRedMask = 0x7c00;
-        gusGreenMask = 0x03e0;
+        break;
+    case 9:
+        g_sgp_pixel_format = SDL_PIXELFORMAT_ARGB1555;
         g_color_key = 0x3def;
-    } else {
-        return;
-    }
-
-    gusBlueMask = 0x001f;
-    gusRedShift = 8;
-    for (bit = 0x8000; (gusRedMask & bit) == 0; bit >>= 1) {
-        --gusRedShift;
-    }
-    gusGreenShift = 8;
-    for (bit = 0x8000; (gusGreenMask & bit) == 0; bit >>= 1) {
-        --gusGreenShift;
-    }
-    gusBlueShift = 8;
-    for (bit = 0x8000; (0x001f & bit) == 0; bit >>= 1) {
-        --gusBlueShift;
+        break;
     }
 }
 
@@ -498,17 +476,20 @@ unsigned char CreateWizardryWindow(void)
 
 /* SDL owns the 640x480 CPU frame used as SurRender color output. */
 // FUNCTION: WIZ8 0x00426080
-void ReleasePrimaryCpuSurface(void)
+void ReleasePrimarySurface(void)
 {
-    primarySurfaceOwner.reset();
-    g_primary_surface = nullptr;
+    primarySurface.reset();
 }
 
-unsigned char InitializePrimaryCpuSurface(void)
+unsigned char InitializePrimarySurface(void)
 {
-    primarySurfaceOwner = CreateCpuSurface(640, 480, 16, gusRedMask, gusGreenMask, gusBlueMask);
-    g_primary_surface = primarySurfaceOwner.get();
-    return g_primary_surface != nullptr;
+    if (g_sgp_pixel_format == SDL_PIXELFORMAT_UNKNOWN)
+        return 0;
+    primarySurface.reset(SDL_CreateSurface(640, 480, g_sgp_pixel_format));
+    if (!primarySurface)
+        return 0;
+    SDL_SetSurfaceBlendMode(primarySurface.get(), SDL_BLENDMODE_NONE);
+    return 1;
 }
 
 /* Selects and starts the configured SurRender display driver, binds it to the
@@ -516,6 +497,14 @@ unsigned char InitializePrimaryCpuSurface(void)
    audio; other historical device names use the native mixer. Driver and API names
    come from the SR export table and retail strings; the file format is the
    five-line format emitted by 3DSetup.exe. */
+// The 3DSetup configuration's audio device line; "none" disables sound.
+static bool s_setup_disables_audio = false;
+
+bool SetupDisablesAudio()
+{
+    return s_setup_disables_audio;
+}
+
 // FUNCTION: WIZ8 0x00422240
 unsigned char InitializeVideoDevice(void)
 try
@@ -577,9 +566,7 @@ try
     if (g_gerd->createContext(reinterpret_cast<w8_ulong_ptr>(ghWindow)) != srGERD::ERROR_NONE ||
         !OpenRendererWindow()) return 0;
     srAssertSetFunc(AssertFailureHandler);
-    if (_strnicmp(audio_setting, "none", 4) == 0) {
-        gfEnableStartup = FALSE;
-    }
+    s_setup_disables_audio = _strnicmp(audio_setting, "none", 4) == 0;
     return 1;
 }
 catch (const std::exception&) { return false; }
@@ -598,11 +585,10 @@ unsigned char OpenRendererWindow(void)
 }
 
 // FUNCTION: WIZ8 0x00423390
-CpuSurface* BeginVideoPresentation(void)
+SDL_Surface* BeginVideoPresentation(void)
 {
-    const auto& source = *g_primary_surface;
-    videoSurfaceOwner = CreateCpuSurface(source.surface->w, source.surface->h, 16,
-                                        source.redMask, source.greenMask, source.blueMask);
+    const auto& source = *primarySurface;
+    videoSurfaceOwner.reset(SDL_CreateSurface(source.w, source.h, source.format));
     g_flush_pending = false;
     return videoSurfaceOwner.get();
 }
@@ -620,7 +606,7 @@ unsigned char FinishVideoPresentation(void)
    startup receives the same Windows notification while the device already
    owns its configured 640x480 mode, so there is no resize operation to do. */
 // FUNCTION: WIZ8 0x00422550
-unsigned char VideoResizeWindow(void)
+bool VideoResizeWindow(void)
 {
     if (g_fullscreen || !ghWindow || !g_gerd || !g_flush_pending) {
         return 0;
@@ -637,7 +623,7 @@ unsigned char VideoResizeWindow(void)
 }
 
 // FUNCTION: WIZ8 0x00422970
-void VideoFullScreen(unsigned char enabled)
+void VideoFullScreen(bool enabled)
 {
     g_fullscreen = enabled;
     if (ghWindow && g_gerd && g_flush_pending) {
@@ -650,16 +636,7 @@ void VideoFullScreen(unsigned char enabled)
 // FUNCTION: WIZ8 0x00422f10
 void ResetTransientRenderScenes(void)
 {
-    memset(g_tile_dirty_flags, 0, sizeof(g_tile_dirty_flags));
-    unsigned int active = g_active_page;
-    g_page_full_redraw[active ^ 1] = 0;
-    g_page_full_redraw[active] = 0;
-    g_dirty_tile_count = 0;
-    PurgeInactiveSceneInstances(g_scene_prerender0);
-    PurgeInactiveSceneInstances(g_scene_overlay0);
-    PurgeInactiveSceneInstances(g_scene_prerender1);
-    PurgeInactiveSceneInstances(g_scene_overlay1);
-    InvalidateRegion(0, 0, 640, 480, 0);
+    ResetVideoDirtyState(0);
 }
 
 /* Same dirty-block / transient-scene reset as ResetTransientRenderScenes, but
@@ -667,20 +644,11 @@ void ResetTransientRenderScenes(void)
 // FUNCTION: WIZ8 0x00423150
 void ClearVideoDirtyBlocks(void)
 {
-    memset(g_tile_dirty_flags, 0, sizeof(g_tile_dirty_flags));
-    unsigned int active = g_active_page;
-    g_page_full_redraw[active ^ 1] = 0;
-    g_page_full_redraw[active] = 0;
-    g_dirty_tile_count = 0;
-    PurgeInactiveSceneInstances(g_scene_prerender0);
-    PurgeInactiveSceneInstances(g_scene_overlay0);
-    PurgeInactiveSceneInstances(g_scene_prerender1);
-    PurgeInactiveSceneInstances(g_scene_overlay1);
-    InvalidateRegion(0, 0, 640, 480, 1);
+    ResetVideoDirtyState(1);
 }
 
 // FUNCTION: WIZ8 0x004277e0
-unsigned char VideoInspectorIsEnabled(void)
+bool VideoInspectorIsEnabled(void)
 {
     return g_video_inspector_enabled;
 }
@@ -701,7 +669,7 @@ void SuspendVideoManager(void)
 }
 
 // FUNCTION: WIZ8 0x004220b0
-unsigned char RestoreVideoManager(void)
+bool RestoreVideoManager(void)
 {
     if (g_video_active) {
         return 1;
@@ -715,28 +683,11 @@ unsigned char RestoreVideoManager(void)
         SDL_RestoreWindow(ghWindow);
         if (g_gerd->isWindowOpen() != 0 || OpenRendererWindow()) {
             SDL_RaiseWindow(ghWindow);
-            memset(g_tile_dirty_flags, 0, sizeof(g_tile_dirty_flags));
-            g_dirty_tile_count = 0;
-            g_page_full_redraw[g_active_page ^ 1] = 0;
-            g_page_full_redraw[g_active_page] = 0;
-            PurgeInactiveSceneInstances(g_scene_prerender0);
-            PurgeInactiveSceneInstances(g_scene_overlay0);
-            PurgeInactiveSceneInstances(g_scene_prerender1);
-            PurgeInactiveSceneInstances(g_scene_overlay1);
-            InvalidateRegion(0, 0, 0x280, 0x1e0, 0);
+            ResetVideoDirtyState(0);
             SetRendererModePair();
         }
     }
     return 0;
-}
-
-/* Releases the lock the frame tick takes on the primary surface. The second
-   argument is the locked pointer SGP's wrapper wants; the original passes null
-   because it unlocks the whole surface. */
-// FUNCTION: WIZ8 0x00421fb0
-void UnlockPrimarySurface(void)
-{
-    UnlockCpuSurface(*g_primary_surface);
 }
 
 /* The mode the engine falls back to: 640x480 at 16bpp, reported height first.
@@ -752,7 +703,7 @@ void GetCurrentVideoSettings(unsigned short* height, unsigned short* width, unsi
 // FUNCTION: WIZ8 0x00421ff0
 unsigned char ClearPrimarySurface(void)
 {
-    FillCpuSurface(*g_primary_surface, 0);
+    SDL_FillSurfaceRect(primarySurface.get(), nullptr, 0);
     return 1;
 }
 
@@ -814,6 +765,7 @@ void RenderScene(srScene* scene, srCamera* camera, const int* viewport, bool pre
     }
     if (!preserve_fog) {
         const auto fog = g_world ? g_world->static_scene->getFogColor() : glm::vec3(0);
+        // NOLINTNEXTLINE(misc-include-cleaner)
         scene->setFogColor(glm::clamp(fog, 0.0f, 1.0f));
     }
     scene->render(*g_gerd, camera);
@@ -834,7 +786,7 @@ static RuntimeWorldRenderData ObserveWorldRenderState()
                  (g_video_active ? 4UL : 0UL) | (g_monster_shadow_updates_enabled ? 8UL : 0UL) |
                  (g_render_mesh_sky ? 16UL : 0UL) | (g_world_pick_enabled ? 32UL : 0UL);
     data.scene_children = g_world->static_scene->getChildCount();
-    if (g_world->octree != 0 && g_world->psrMeshes != 0) {
+    if (g_world->octree != 0 && !g_world->psrMeshes.empty()) {
         for (w8_ulong index = 0; index < g_world->octree->m_meshCount; ++index) {
             srModelInstance* instance = g_world->psrMeshes[index];
             if (instance != 0 && !instance->testFlag(srNode::FLAG_DISABLE)) {
@@ -848,11 +800,9 @@ static RuntimeWorldRenderData ObserveWorldRenderState()
     data.viewport[3] = g_viewport.bottom;
     data.renderer_size[0] = g_gerd->getWidth();
     data.renderer_size[1] = g_gerd->getHeight();
-    srGERD::Statistics statistics;
-    g_gerd->getStatistics(statistics);
+    const auto statistics = g_gerd->getStatistics();
     data.draw_calls = statistics.draw_calls;
-    srVector3T<float> camera;
-    GetCameraPosition(&camera);
+    srVector3T<float> camera = cameraLocation();
     data.camera[0] = camera.x;
     data.camera[1] = camera.y;
     data.camera[2] = camera.z;
@@ -889,7 +839,7 @@ void RenderFrame(void)
     }
 
     if (g_trigger_action_active && GetWorld() != 0) {
-        GetCameraPosition(&saved_world_position);
+        saved_world_position = cameraLocation();
         shifted_world_position = saved_world_position + g_trigger_action_scene_offset;
         SetWorldScenePosition(GetWorld(), &shifted_world_position);
     }
@@ -898,13 +848,13 @@ void RenderFrame(void)
             GetWorldLightValue(g_world, &clear_color);
         } else {
             static_cast<srVector3&>(clear_color) =
+                // NOLINTNEXTLINE(misc-include-cleaner)
                 glm::clamp(g_world->static_scene->getFogColor(), 0.0f, 1.0f);
         }
     }
 
     g_gerd->setClearColor(clear_color.x, clear_color.y, clear_color.z, 1.0f);
     SyncSystemCursor();
-    RenderFastHelp();
     UpdateRegionHelp();
     FlushDirtyTiles();
     if (g_gerd != 0) {
@@ -970,7 +920,7 @@ void RenderFrame(void)
             g_gerd->setPickKey(0);
             g_gerd->pushPick(pick);
             RenderScene(g_world->static_scene, g_world->camera, &g_viewport.left, true);
-            g_gerd->popPick(pick);
+            pick = *g_gerd->popPick();
             SetPickedModelInstance(pick.selected_model);
             ResolvePickedProp(g_world);
         }
@@ -1143,6 +1093,7 @@ void GetWorldColour(EnvironmentColour* colour)
 {
     if (g_world != 0) {
         static_cast<srVector3&>(*colour) =
+            // NOLINTNEXTLINE(misc-include-cleaner)
             glm::clamp(g_world->static_scene->getFogColor(), 0.0f, 1.0f);
         return;
     }
@@ -1265,35 +1216,23 @@ stModelInstance2D* CreateSpriteFromTexture(std::shared_ptr<srTextureIFace> textu
 }
 
 // FUNCTION: WIZ8 0x00484A40
-BOOLEAN BlitVideoObjectToColorSurface(UINT32 video_object, UINT16 region,
-                                      srColorSurface* destination, UINT16 x, UINT16 y)
+bool BlitVideoObjectToColorSurface(const SpriteSheet& sprites, std::uint16_t region,
+                                   srColorSurface& destination, int x, int y)
 {
-    HVOBJECT object;
-
-    if (!GetVideoObject(&object, video_object)) {
-        return FALSE;
+    if (region >= sprites.frames.size()) {
+        return false;
     }
-    if (region >= object->sprites.size()) {
-        return FALSE;
-    }
-    BltVideoObjectToBuffer(static_cast<UINT16*>(destination->getDataPtr()), destination->getPitch(),
-                           object, region, x, y, VO_BLT_SRCTRANSPARENCY, 0);
-    return TRUE;
-}
-
-/* Same blit as BlitVideoObjectToColorSurface with an already-resolved handle.
-   Returns TRUE whenever the ETRLE properties lookup succeeds; the buffer blit
-   result is not forwarded. */
-// FUNCTION: WIZ8 0x00484AC0
-BOOLEAN BlitHVObjectToColorSurface(HVOBJECT object, UINT16 region, srColorSurface* destination,
-                                   int x, int y)
-{
-    if (region >= object->sprites.size()) {
-        return FALSE;
-    }
-    BltVideoObjectToBuffer(static_cast<UINT16*>(destination->getDataPtr()), destination->getPitch(),
-                           object, region, x, y, VO_BLT_SRCTRANSPARENCY, 0);
-    return TRUE;
+    const auto& pixel_format = destination.getPixelFormat();
+    const auto format = pixel_format.alpha_bits ? SDL_PIXELFORMAT_ARGB1555
+                                                : SDL_PIXELFORMAT_XRGB1555;
+    SDLSurfaceOwner view{
+        SDL_CreateSurfaceFrom(destination.getWidth(), destination.getHeight(), format,
+                              destination.getDataPtr(), destination.getPitch()),
+        SDL_DestroySurface};
+    if (!view)
+        return false;
+    DrawSprite(*view, sprites, region, x, y);
+    return true;
 }
 
 static void MoveSystemCursor(int x, int y)
@@ -1304,13 +1243,13 @@ static void MoveSystemCursor(int x, int y)
 }
 
 // FUNCTION: WIZ8 0x00427c90
-BOOLEAN ResizeMouseCursorSurface(int width, int height)
+bool ResizeMouseCursorSurface(int width, int height)
 {
     int extent;
     float mapping_scale;
 
     if (g_cursor_image_width == width && g_cursor_image_height == height) {
-        return TRUE;
+        return true;
     }
     extent = width > height ? width : height;
     if (extent <= 16)
@@ -1326,7 +1265,7 @@ BOOLEAN ResizeMouseCursorSurface(int width, int height)
     else
         extent = -1;
     if (!g_mouse_surface->resize(extent, extent)) {
-        return FALSE;
+        return false;
     }
     delete g_cursor_node;
     mapping_scale = g_surface_scale / extent;
@@ -1341,7 +1280,7 @@ BOOLEAN ResizeMouseCursorSurface(int width, int height)
     g_cursor_texture = std::static_pointer_cast<srTexture>(g_cursor_model->textures[0][0]);
     g_cursor_texture->setWrapS(srTextureIFace::WRAP_CLAMP);
     g_cursor_texture->setWrapT(srTextureIFace::WRAP_CLAMP);
-    return TRUE;
+    return true;
 }
 
 /* Move the OS/system cursor when the hotspot changes, then resync the rendered
@@ -1363,22 +1302,18 @@ void SetMouseCursorHotspot(short hotspot_x, short hotspot_y)
 }
 
 // FUNCTION: WIZ8 0x00427ab0
-BOOLEAN SetMouseCursorFromVideoObject(UINT32 video_object, UINT16 region, INT16 offset_x,
-                                      INT16 offset_y)
+bool SetMouseCursorFromVideoObject(const SpriteSheet& sprites, std::uint16_t region,
+                                   std::int16_t offset_x, std::int16_t offset_y)
 {
-    HVOBJECT object;
     int x;
     int y;
 
-    if (!gfVideoObjectsInit) {
-        return FALSE;
+    if (region >= sprites.frames.size()) {
+        return false;
     }
-    if (!GetVideoObject(&object, video_object) || region >= object->sprites.size()) {
-        return FALSE;
-    }
-    const SpriteFrame& properties = object->sprites[region];
-    if (!ResizeMouseCursorSurface(properties.usWidth + 1, properties.usHeight + 1)) {
-        return FALSE;
+    const SpriteFrame& properties = sprites.frames[region];
+    if (!ResizeMouseCursorSurface(properties.width + 1, properties.height + 1)) {
+        return false;
     }
     if (g_cursor_hotspot_x != offset_x || g_cursor_hotspot_y != offset_y) {
         x = g_cursor_width - offset_x + g_cursor_hotspot_x;
@@ -1388,18 +1323,19 @@ BOOLEAN SetMouseCursorFromVideoObject(UINT32 video_object, UINT16 region, INT16 
         g_cursor_hotspot_x = offset_x;
         g_cursor_hotspot_y = offset_y;
     }
-    g_cursor_image_width = properties.usWidth;
-    g_cursor_image_height = properties.usHeight;
+    g_cursor_image_width = properties.width;
+    g_cursor_image_height = properties.height;
     g_cursor_image_u_extent = g_cursor_image_width * g_inverse_screen_width;
     g_cursor_image_v_extent = g_cursor_image_height * g_inverse_screen_height;
     ClearMouseSurface();
-    return BlitVideoObjectToColorSurface(video_object, region, g_mouse_surface.get(), 0, 0);
+    return BlitVideoObjectToColorSurface(sprites, region, *g_mouse_surface, 0, 0);
 }
 
 // FUNCTION: WIZ8 0x00427fc0
-void BlitToMouseCursor(UINT32 video_object, UINT16 region, UINT16 x, UINT16 y)
+void BlitToMouseCursor(const SpriteSheet& sprites, std::uint16_t region,
+                       std::uint16_t x, std::uint16_t y)
 {
-    BlitVideoObjectToColorSurface(video_object, region, g_mouse_surface.get(), x, y);
+    BlitVideoObjectToColorSurface(sprites, region, *g_mouse_surface, x, y);
 }
 
 // FUNCTION: WIZ8 0x00427ff0
@@ -1449,7 +1385,7 @@ void WarpSystemCursor(int x, int y)
 // FUNCTION: WIZ8 0x00428140
 void PositionMouseCursor(int width, int height, bool reset_tick)
 {
-    srVector3T<double> location;
+    glm::dvec3 location;
 
     if (g_mouse_surface) {
         g_cursor_width = width < 641 ? width : 640;
@@ -1507,9 +1443,7 @@ glm::vec2 GetCursorScaledPosition()
 // FUNCTION: WIZ8 0x00428340
 void SyncSystemCursor(void)
 {
-    SDL_Point cursor;
-
-    GetGameMousePosition(&cursor);
+    SDL_Point cursor = GetGameMousePosition();
     if (!g_fullscreen) {
         /* GetGameMousePosition already returns design-space coordinates. */
         if (cursor.x != g_cursor_width || cursor.y != g_cursor_height) {
@@ -1557,15 +1491,15 @@ bool IsCursorInRectangle(int left, int top, int right, int bottom)
 /* The atom's packed mouse position plus the cursor hotspot, split into the
    screen-space x and y region input works in. */
 // FUNCTION: WIZ8 0x00428580
-int GetAtomCursorX(const InputAtom* atom)
+int GetEventCursorX(const InputEvent* atom)
 {
-    return static_cast<unsigned short>(atom->uiParam) + g_cursor_hotspot_x;
+    return atom->position.x + g_cursor_hotspot_x;
 }
 
 // FUNCTION: WIZ8 0x004285a0
-int GetAtomCursorY(const InputAtom* atom)
+int GetEventCursorY(const InputEvent* atom)
 {
-    return static_cast<int>(atom->uiParam >> 16) + g_cursor_hotspot_y;
+    return atom->position.y + g_cursor_hotspot_y;
 }
 
 /* Creates the shipped 128x128 mouse polygon inside its dedicated scene. */
@@ -1768,18 +1702,16 @@ void InvalidateScreenRects(W8ScreenRect* rects, unsigned int count, int flags)
     }
 }
 
-/* Coalesces dirty 8x8 cells into rectangular texture updates. Retail keeps the
-   software surface locked for the complete batch and clears only the uploaded
-   bit, preserving the lower per-cell state for the page lifecycle. */
+/* Coalesces dirty 8x8 cells into rectangular texture updates, clearing only
+   the uploaded bit and preserving the lower per-cell state for each page. */
 // FUNCTION: WIZ8 0x00425b40
 void FlushDirtyTiles(void)
 {
-    SurfaceLock description{};
 
     if (g_dirty_tile_count == 0) {
         return;
     }
-    description = LockCpuSurface(*g_primary_surface);
+    const auto& description = *primarySurface;
     for (int row = 0; row != 60; ++row) {
         int column = 0;
         while (column < 80) {
@@ -1809,7 +1741,6 @@ void FlushDirtyTiles(void)
             column += width;
         }
     }
-    UnlockCpuSurface(*g_primary_surface);
     g_dirty_tile_count = 0;
 }
 
@@ -1832,15 +1763,7 @@ void SetAutomapScaledViewport(int left, int top, int right, int bottom)
     g_viewport.bottom = bottom;
 }
 
-/*
- * Sets the viewport and rebuilds the camera view plane to match it.
- *
- * The srCamera and srGERD entry points are declared to produce exactly the
- * decorated names Wiz8.exe imports, taken from its import table: two
- * setViewPlane overloads, the const getViewPlane, and srGERD::flush. The
- * dllimport is not decoration - without it VC6 emits a direct call to the
- * thunk where the canonical has an indirect call through the import table.
- */
+/* Sets the viewport and rebuilds the camera view plane to match it. */
 
 // FUNCTION: WIZ8 0x00426250
 void SetViewport(int left, int top, int right, int bottom)
@@ -1849,9 +1772,7 @@ void SetViewport(int left, int top, int right, int bottom)
     float fractional_top;
     float fractional_right;
     float fractional_bottom;
-    srCamera::Rect view;
     srCamera::Rect plane;
-    double depth;
 
     if (g_gerd != 0 && g_flush_pending) {
         g_gerd->flush();
@@ -1869,7 +1790,7 @@ void SetViewport(int left, int top, int right, int bottom)
         g_world->camera->setViewPlane(
             3.14159265358979323846 * g_float_inverse_half_turn_degrees * 85.0f,
             3.14159265358979323846 * g_float_inverse_half_turn_degrees * 71.0f);
-        g_world->camera->getViewPlane(view, depth);
+        const auto view = g_world->camera->getViewPlane().rectangle;
 
         plane.left = fractional_left * (view.right - view.left) + view.left;
         plane.right = fractional_right * (view.right - view.left) + view.left;
@@ -1901,8 +1822,6 @@ void PrintScreen(void)
 // FUNCTION: WIZ8 0x00427460
 void DrawVideoInspector(int left, unsigned int top)
 {
-    SurfaceLock description{};
-    srGERD::Statistics statistics;
     srVector3T<float> position;
     unsigned int bottom;
     unsigned char* row;
@@ -1919,7 +1838,7 @@ void DrawVideoInspector(int left, unsigned int top)
         height = 0x2c;
     }
     bottom = top + height;
-    description = LockCpuSurface(*g_primary_surface);
+    const auto& description = *primarySurface;
     if (description.pixels != 0) {
         if (top < bottom) {
             row = static_cast<unsigned char*>(description.pixels) + description.pitch * top +
@@ -1929,36 +1848,40 @@ void DrawVideoInspector(int left, unsigned int top)
                 row += description.pitch;
             }
         }
-        UnlockCpuSurface(*g_primary_surface);
     }
     InvalidateRegion(left, top, left + 0x113, bottom, 0);
     if (g_gerd != 0) {
-        g_gerd->getStatistics(statistics);
-        SetFont(g_smfnt_font);
-        SetFontObjectPalette16BPP(g_smfnt_font, g_font_state_palettes[W8_FONT_PALETTE_YELLOW].get());
-        DrawFontTextDirty(left, top, fmt::format("FR: {:4.1f}", g_frames_per_second));
+        const auto statistics = g_gerd->getStatistics();
+        g_smfnt_font.setPalette(g_font_state_palettes[W8_FONT_PALETTE_YELLOW]);
+        const int text_left = static_cast<int>(left);
+        const int text_top = static_cast<int>(top);
+        DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font, {text_left, text_top},
+                              fmt::format("FR: {:4.1f}", g_frames_per_second));
         if (g_video_inspector_mode == 2) {
-            DrawFontTextDirty(left, top + 0xa,
-                              fmt::format("OC: {:d}", g_world->level->m_submitted_polygons));
-            DrawFontTextDirty(left, top + 0x14,
-                              fmt::format("PI: {:d}", statistics.input_triangles));
-            DrawFontTextDirty(left, top + 0x1e,
-                              fmt::format("PO: {:d}", statistics.device_triangles));
-            DrawFontTextDirty(left, top + 0x28, fmt::format("VI: {:d}", statistics.input_vertices));
-            DrawFontTextDirty(left, top + 0x32,
-                              fmt::format("VO: {:d}", statistics.device_vertices));
-            DrawFontTextDirty(left, top + 0x3c, fmt::format("DD: {:d}", statistics.device_calls));
-            DrawFontTextDirty(left, top + 0x46, fmt::format("TC: {:d}", statistics.texture_binds));
-            DrawFontTextDirty(left, top + 0x50,
-                              fmt::format("TT: {:.0f}", statistics.texture_transfer));
-            DrawFontTextDirty(left, top + 0x5a,
-                              fmt::format("RM: {:d}K", g_gerd->getResidentTextureMemUsed() >> 10));
-            DrawFontTextDirty(left, top + 0x64,
-                              fmt::format("TM: {:d}K", g_gerd->getTextureCacheUsed()));
-            DrawFontTextDirty(left, top + 0x6e,
-                              fmt::format("DR: {:3d}", GetCameraYawAndRotation(0)));
-            DrawFontTextDirty(
-                left, top + 0x78,
+            DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font, {text_left, text_top + 0xa},
+                                  fmt::format("OC: {:d}", g_world->level->m_submitted_polygons));
+            DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font, {text_left, text_top + 0x14},
+                                  fmt::format("PI: {:d}", statistics.input_triangles));
+            DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font, {text_left, text_top + 0x1e},
+                                  fmt::format("PO: {:d}", statistics.device_triangles));
+            DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font, {text_left, text_top + 0x28},
+                                  fmt::format("VI: {:d}", statistics.input_vertices));
+            DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font, {text_left, text_top + 0x32},
+                                  fmt::format("VO: {:d}", statistics.device_vertices));
+            DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font, {text_left, text_top + 0x3c},
+                                  fmt::format("DD: {:d}", statistics.device_calls));
+            DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font, {text_left, text_top + 0x46},
+                                  fmt::format("TC: {:d}", statistics.texture_binds));
+            DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font, {text_left, text_top + 0x50},
+                                  fmt::format("TT: {:.0f}", statistics.texture_transfer));
+            DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font, {text_left, text_top + 0x5a},
+                                  fmt::format("RM: {:d}K", g_gerd->getResidentTextureMemUsed() >> 10));
+            DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font, {text_left, text_top + 0x64},
+                                  fmt::format("TM: {:d}K", g_gerd->getTextureCacheUsed()));
+            DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font, {text_left, text_top + 0x6e},
+                                  fmt::format("DR: {:3d}", GetCameraYawAndRotation(0)));
+            DrawTextAndInvalidate(
+                GetFrameBufferSurface(), g_smfnt_font, {text_left, text_top + 0x78},
                 fmt::format("MM: {:d}K",
                             static_cast<unsigned int>(g_decompressed_mesh_bytes) >> 10));
             return;
@@ -1966,16 +1889,19 @@ void DrawVideoInspector(int left, unsigned int top)
         if (g_video_inspector_mode == 3) {
             float scaled;
 
-            GetCameraPosition(&position);
-            if (gfKeyState[0x70] != 0) {
+            position = cameraLocation();
+            if (IsKeyHeld(0x70)) {
                 position.x *= g_world_cursor_scale;
                 scaled = position.y * g_world_cursor_scale;
                 position.y = position.z * g_world_cursor_scale;
                 position.z = scaled;
             }
-            DrawFontTextDirty(left, top + 0xa, fmt::format(" X: {:.2f}", position.x));
-            DrawFontTextDirty(left, top + 0x14, fmt::format(" Y: {:.2f}", position.y));
-            DrawFontTextDirty(left, top + 0x1e, fmt::format(" Z: {:.2f}", position.z));
+            DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font, {text_left, text_top + 0xa},
+                                  fmt::format(" X: {:.2f}", position.x));
+            DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font, {text_left, text_top + 0x14},
+                                  fmt::format(" Y: {:.2f}", position.y));
+            DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font, {text_left, text_top + 0x1e},
+                                  fmt::format(" Z: {:.2f}", position.z));
         }
     }
 }
@@ -1987,9 +1913,9 @@ void VideoInspectorEnable(void)
 }
 
 // GLOBAL: WIZ8 0x006548a0
-INT32 g_help_box_width;
+std::int32_t g_help_box_width;
 // GLOBAL: WIZ8 0x00654acc
-INT32 g_help_box_height;
+std::int32_t g_help_box_height;
 
 /* Live tooltip sprites, left to right. */
 static std::vector<stModelInstance2D*> g_tooltip_nodes;
@@ -2154,8 +2080,8 @@ unsigned char InitializeRendererSceneObjects(void)
     g_viewport.bottom = 0;
 
     /* Shares the CPU surface's pixels, so they outlive its recreation. */
-    g_primary_color_surface = std::make_shared<srColorSurface>(srPixelConvert::SURFACE_ARGB1555,
-                                                               *g_primary_surface->surface);
+    g_primary_color_surface =
+        std::make_shared<srColorSurface>(srPixelConvert::SURFACE_ARGB1555, *primarySurface);
 
     g_surface_node = new stSurface2D(g_primary_color_surface, 640, 480, g_scene_overlay0, 128);
     if (!g_surface_node)
@@ -2177,9 +2103,9 @@ void ClearSurfaceRect(int left, unsigned int top, int right, unsigned int bottom
 {
     if (top >= bottom || left >= right)
         return;
-    const SDL_Rect rectangle{left, static_cast<INT32>(top), right - left,
-                             static_cast<INT32>(bottom - top)};
-    FillCpuSurface(*g_primary_surface, 0, &rectangle);
+    const SDL_Rect rectangle{left, static_cast<int>(top), right - left,
+                             static_cast<int>(bottom - top)};
+    SDL_FillSurfaceRect(primarySurface.get(), &rectangle, 0);
 }
 
 // FUNCTION: WIZ8 0x00426500
@@ -2343,7 +2269,7 @@ char* VideoGetConfigFile(void)
 }
 
 // FUNCTION: WIZ8 0x004229b0
-unsigned char VideoIsFullScreen(void)
+bool VideoIsFullScreen(void)
 {
     return g_fullscreen;
 }
@@ -2358,9 +2284,9 @@ int VideoDumpMemoryLeaks(void)
    0x42B830 address sits past the proven Video2 hull, so its placement stays
    provisional. */
 // FUNCTION: WIZ8 0x0042b830
-BOOLEAN CheckCdPresent(void)
+bool CheckCdPresent(void)
 {
-    return TRUE;
+    return true;
 }
 
 // FUNCTION: WIZ8 0x00427a70
@@ -2369,31 +2295,10 @@ void VideoGetClientRect(SDL_Rect* rect)
     *rect = {0, 0, 640, 480};
 }
 
-// FUNCTION: WIZ8 0x00421f20
-CpuSurface* GetFrameBufferObject(void)
+SDL_Surface& GetFrameBufferSurface()
 {
-    return g_primary_surface;
+    return *primarySurface;
 }
-
-// FUNCTION: WIZ8 0x00421f40
-unsigned char GetPrimaryRGBDistributionMasks(unsigned int* red, unsigned int* green,
-                                             unsigned int* blue)
-{
-    *red = gusRedMask;
-    *green = gusGreenMask;
-    *blue = gusBlueMask;
-    return 1;
-}
-
-// FUNCTION: WIZ8 0x00421fd0
-void* LockMouseBuffer(unsigned int* pitch)
-{
-    *pitch = g_mouse_surface->getPitch();
-    return g_mouse_surface->getDataPtr();
-}
-
-/* The retail linker folds this empty body with other empty C functions. */
-void UnlockMouseBuffer(void) {}
 
 /* The retail empty video-capture entry folds with the shared 0x4023a0 ret. */
 void VideoCaptureToggle(void) {}
@@ -2479,7 +2384,7 @@ void PositionToolTipNode(srNode* node, int x, int y, bool positional)
     int height = instance->GetScaledHeight();
     double half_height = height * g_inverse_screen_height * g_double_half;
 
-    srVector3T<double> location;
+    glm::dvec3 location;
     location.x = half_width + position_x;
     location.z = -0.0001;
     if ((instance->overlay_scene_flag & 1U) == 0) {
@@ -2499,8 +2404,8 @@ void PositionToolTipNode(srNode* node, int x, int y, bool positional)
    then CopySurfaceWithBorder / MakePolygonBrush install it on the square
    overlay scene. */
 // FUNCTION: WIZ8 0x00424560
-srModelInstance* Video2DRectToSquarePolygon(const W8ControlsRect* rect, void* source,
-                                            int source_pitch, srNode* parent, unsigned char overlay)
+srModelInstance* Video2DRectToSquarePolygon(const W8ControlsRect* rect, SDL_Surface& source,
+                                            srNode* parent, unsigned char overlay)
 {
     int extent = (rect->bottom - rect->top) + 2;
     int width_extent = (rect->right - rect->left) + 2;
@@ -2528,8 +2433,8 @@ srModelInstance* Video2DRectToSquarePolygon(const W8ControlsRect* rect, void* so
         float scale_y;
         float mapping_x;
         float mapping_y;
-        if (CopySurfaceWithBorder(surface.get(), rect, source, source_pitch, &scale_x, &scale_y,
-                                  &mapping_x, &mapping_y)) {
+        if (CopySurfaceWithBorder(surface.get(), rect, source, &scale_x, &scale_y, &mapping_x,
+                                  &mapping_y)) {
             srModelInstance* node = MakePolygonBrush(parent, surface, width, width, scale_x,
                                                      scale_y, mapping_x, mapping_y, overlay);
             node->setName("Video2DRectToSquarePolygon");
@@ -2545,33 +2450,26 @@ srModelInstance* Video2DRectToSquarePolygon(const W8ControlsRect* rect, void* so
     return 0;
 }
 
-/* Locks a video surface (or negative target id), copies the requested rectangle
-   into either the user overlay polygon path or the square overlay path, and
+/* Copies a surface rectangle into the user or square overlay path, and
    records the resulting 2D instance extents. */
 // FUNCTION: WIZ8 0x004253F0
-stModelInstance2D* CreateSpriteFromVideoSurface(int target, const W8ControlsRect* bounds,
+stModelInstance2D* CreateSpriteFromVideoSurface(SDL_Surface& surface, const W8ControlsRect* bounds,
                                                 int square, int, char overlay)
 {
-    HVSURFACE surface;
     unsigned short width;
     unsigned short height;
     W8ControlsRect source_rect;
-    UINT32 pitch;
-    BYTE* pixels;
     srModelInstance* node;
     stModelInstance2D* instance;
     char mode = static_cast<char>(square);
 
-    if (!GetVideoSurface(&surface, static_cast<UINT32>(target))) {
-        return 0;
-    }
     if (bounds == 0) {
         source_rect.left = 0;
         source_rect.top = 0;
-        source_rect.right = surface->usWidth;
-        source_rect.bottom = surface->usHeight;
-        width = surface->usWidth;
-        height = surface->usHeight;
+        source_rect.right = surface.w;
+        source_rect.bottom = surface.h;
+        width = surface.w;
+        height = surface.h;
     } else {
         width = static_cast<unsigned short>(static_cast<short>(bounds->right) -
                                             static_cast<short>(bounds->left));
@@ -2581,30 +2479,26 @@ stModelInstance2D* CreateSpriteFromVideoSurface(int target, const W8ControlsRect
         source_rect.top = bounds->top;
         source_rect.right = bounds->right;
         source_rect.bottom = bounds->bottom;
-        if (width > surface->usWidth) {
+        if (width > surface.w) {
             return 0;
         }
-        if (height > surface->usHeight) {
+        if (height > surface.h) {
             return 0;
         }
     }
     if (width > 0x100 || height > 0x100) {
         return 0;
     }
-    pixels = LockVideoSurface(static_cast<UINT32>(target), &pitch);
-    if (pixels == 0) {
+    if (surface.pixels == 0) {
         return 0;
     }
     if (mode != 0) {
-        node = Video2DRectToSquarePolygon(&source_rect, pixels, static_cast<int>(pitch),
-                                          g_scene_square, overlay);
+        node = Video2DRectToSquarePolygon(&source_rect, surface, g_scene_square, overlay);
     } else {
-        node = Video2DRectToPolygon(&source_rect, pixels, static_cast<int>(pitch), g_scene_user,
-                                    overlay);
+        node = Video2DRectToPolygon(&source_rect, surface, g_scene_user, overlay);
         g_paired_render_mode = 2;
     }
     SetOverlayRenderMode();
-    UnLockVideoSurface(static_cast<UINT32>(target));
     instance = static_cast<stModelInstance2D*>(node);
     if (instance != 0) {
         if (mode != 0) {
@@ -2671,7 +2565,7 @@ stModelInstance2D* CreateColoredPolygonSprite(int width, int height, const glm::
 }
 
 // FUNCTION: WIZ8 0x004255c0
-stModelInstance2D* CreateSpriteFromSurface(unsigned int image, const W8ControlsRect* rect, int mode,
+stModelInstance2D* CreateSpriteFromSurface(SDL_Surface& image, const W8ControlsRect* rect, int mode,
                                            int unused, int overlay)
 {
     return CreateSpriteFromVideoSurface(image, rect, mode, unused, overlay);
@@ -2693,10 +2587,10 @@ void SetModelInstance2DDisplayState(stModelInstance2D* object, unsigned char sta
    the cursor by each node's scaled width. With no live objects, just record
    the requested position. */
 // FUNCTION: WIZ8 0x00429210
-void VideoPositionToolTip(INT32 x, INT32 y)
+void VideoPositionToolTip(std::int32_t x, std::int32_t y)
 {
     if (!g_tooltip_nodes.empty()) {
-        INT32 offset = x;
+        std::int32_t offset = x;
         for (auto* node : g_tooltip_nodes) {
             PositionToolTipNode(node, offset, y, true);
             offset += node->GetScaledWidth();
@@ -2714,36 +2608,56 @@ void VideoPositionToolTip(INT32 x, INT32 y)
    scales for the resulting polygon brush. */
 // FUNCTION: WIZ8 0x00428B90
 unsigned char CopySurfaceWithBorder(srColorSurface* surface, const W8ControlsRect* rect,
-                                    void* source, int source_pitch, float* scale_x, float* scale_y,
+                                    SDL_Surface& source, float* scale_x, float* scale_y,
                                     float* mapping_x, float* mapping_y)
 {
-    if (surface == 0 || rect == 0 || source == 0 || source_pitch == 0 || scale_x == 0 ||
-        scale_y == 0 || mapping_x == 0 || mapping_y == 0) {
+    if (surface == 0 || rect == 0 || source.pixels == 0 || scale_x == 0 || scale_y == 0 ||
+        mapping_x == 0 || mapping_y == 0) {
         return 0;
     }
     int width = (rect->right > 0x27f ? 0x280 : rect->right) - rect->left;
     int height = (rect->bottom > 0x1df ? 0x1e0 : rect->bottom) - rect->top;
-    UINT16* dest = (UINT16*)surface->getDataPtr();
-    UINT32 dest_pitch = static_cast<UINT32>(surface->getPitch());
-    UINT16* src = (UINT16*)source;
-    UINT32 src_pitch = static_cast<UINT32>(source_pitch);
     int right = width + 1;
     int bottom = height + 1;
 
-    Blt16BPPTo16BPP(dest, dest_pitch, src, src_pitch, 1, 1, rect->left, rect->top, width, height);
-    Blt16BPPTo16BPP(dest, dest_pitch, src, src_pitch, 1, 0, rect->left, rect->top, width, 1);
-    Blt16BPPTo16BPP(dest, dest_pitch, src, src_pitch, 1, bottom, rect->left, rect->top - 1 + height,
-                    width, 1);
-    Blt16BPPTo16BPP(dest, dest_pitch, src, src_pitch, 0, 1, rect->left, rect->top, 1, height);
-    Blt16BPPTo16BPP(dest, dest_pitch, src, src_pitch, right, 1, rect->left - 1 + width, rect->top,
-                    1, height);
-    Blt16BPPTo16BPP(dest, dest_pitch, src, src_pitch, 0, 0, rect->left, rect->top, 1, 1);
-    Blt16BPPTo16BPP(dest, dest_pitch, src, src_pitch, right, 0, rect->left - 1 + width, rect->top,
-                    1, 1);
-    Blt16BPPTo16BPP(dest, dest_pitch, src, src_pitch, 0, bottom, rect->left, rect->top - 1 + height,
-                    1, 1);
-    Blt16BPPTo16BPP(dest, dest_pitch, src, src_pitch, right, bottom, rect->left - 1 + width,
-                    rect->top - 1 + height, 1, 1);
+    const int source_width = rect->left + width;
+    const int source_height = rect->top + height;
+    if (rect->left < 0 || rect->top < 0 || width <= 0 || height <= 0 ||
+        source_width > source.w || source_height > source.h) {
+        return 0;
+    }
+    SDLSurfaceOwner source_view{
+        SDL_CreateSurfaceFrom(source_width, source_height, source.format,
+                              source.pixels, source.pitch),
+        SDL_DestroySurface};
+    SDLSurfaceOwner destination_view{
+        SDL_CreateSurfaceFrom(surface->getWidth(), surface->getHeight(), source.format,
+                              surface->getDataPtr(), surface->getPitch()),
+        SDL_DestroySurface};
+    if (!source_view || !destination_view ||
+        !SDL_SetSurfaceBlendMode(source_view.get(), SDL_BLENDMODE_NONE) ||
+        !SDL_SetSurfaceColorKey(source_view.get(), false, 0) ||
+        !SDL_SetSurfaceBlendMode(destination_view.get(), SDL_BLENDMODE_NONE)) {
+        return 0;
+    }
+    const auto copy = [&](int destination_x, int destination_y, int source_x, int source_y,
+                          int copy_width, int copy_height) {
+        SDL_Rect source_rect{source_x, source_y, copy_width, copy_height};
+        SDL_Rect destination_rect{destination_x, destination_y, copy_width, copy_height};
+        return SDL_BlitSurface(source_view.get(), &source_rect, destination_view.get(),
+                               &destination_rect);
+    };
+    if (!copy(1, 1, rect->left, rect->top, width, height) ||
+        !copy(1, 0, rect->left, rect->top, width, 1) ||
+        !copy(1, bottom, rect->left, rect->top - 1 + height, width, 1) ||
+        !copy(0, 1, rect->left, rect->top, 1, height) ||
+        !copy(right, 1, rect->left - 1 + width, rect->top, 1, height) ||
+        !copy(0, 0, rect->left, rect->top, 1, 1) ||
+        !copy(right, 0, rect->left - 1 + width, rect->top, 1, 1) ||
+        !copy(0, bottom, rect->left, rect->top - 1 + height, 1, 1) ||
+        !copy(right, bottom, rect->left - 1 + width, rect->top - 1 + height, 1, 1)) {
+        return 0;
+    }
 
     float scale = 1.0f / surface->getWidth();
     *scale_x = scale;
@@ -2760,7 +2674,7 @@ unsigned char CopySurfaceWithBorder(srColorSurface* surface, const W8ControlsRec
    extent is rounded up to the next power of two between 16 and 256, the copy
    repeats its border, and the node records the rectangle extents. */
 // FUNCTION: WIZ8 0x00424280
-srModelInstance* Video2DRectToPolygon(const W8ControlsRect* rect, void* source, int source_pitch,
+srModelInstance* Video2DRectToPolygon(const W8ControlsRect* rect, SDL_Surface& source,
                                       srNode* parent, unsigned char overlay)
 {
     double left = rect->left * g_inverse_screen_width;
@@ -2803,7 +2717,7 @@ srModelInstance* Video2DRectToPolygon(const W8ControlsRect* rect, void* source, 
     float scale_y;
     float mapping_x;
     float mapping_y;
-    if (!CopySurfaceWithBorder(surface.get(), rect, source, source_pitch, &scale_x, &scale_y, &mapping_x,
+    if (!CopySurfaceWithBorder(surface.get(), rect, source, &scale_x, &scale_y, &mapping_x,
                                &mapping_y)) {
         return 0;
     }
@@ -2817,8 +2731,8 @@ srModelInstance* Video2DRectToPolygon(const W8ControlsRect* rect, void* source, 
         instance->render_state.height = static_cast<unsigned short>(rect->bottom - rect->top);
         instance->render_state.position_x = static_cast<short>(rect->left);
         instance->render_state.position_y = static_cast<short>(rect->top);
-        srVector3T<double> location;
-        location.Set(width * g_double_half + left, g_double_one - (height * g_double_half + top),
+        glm::dvec3 location;
+        location = glm::dvec3(width * g_double_half + left, g_double_one - (height * g_double_half + top),
                      -0.0001);
         node->setLocation(location);
         instance->setName("Video2DRectToPolygon");
@@ -2848,24 +2762,22 @@ void VideoToolTip(std::string_view text)
         return;
     }
     g_help_box_width = static_cast<int>(buffer->m_maxLineWidth) + 4;
-    g_help_box_height = GetFontHeight(g_font10arial) * buffer->m_lineCount + 2;
+    g_help_box_height = g_font10arial.height() * buffer->m_lineCount + 2;
     surface->fill(0);
     void* data = surface->getDataPtr();
-    unsigned char colour[4];
-    for (int y = 0; y < g_help_box_height; ++y) {
-        PackColourBytes(colour, 1.0, 0.0, 0.0, 0.0);
-        surface->setHLine(0, y, g_help_box_width, *(w8_ulong*)colour);
-    }
-    buffer->RenderText(static_cast<unsigned char*>(data),
-                       static_cast<unsigned int>(surface->getPitch()), 2, 1, true);
+    for (int y = 0; y < g_help_box_height; ++y)
+        surface->setHLine(y, 0, g_help_box_width, 0xff000000u);
+    SDLSurfaceOwner text_surface{
+        SDL_CreateSurfaceFrom(surface->getWidth(), surface->getHeight(), SDL_PIXELFORMAT_RGB565,
+                              data, surface->getPitch()),
+        SDL_DestroySurface};
+    if (text_surface)
+        buffer->RenderText(*text_surface, 2, 1, true);
     w8_ulong border_colour;
     PackColourToLong(&border_colour, 1.0, 0.93, 0.6, 0.33);
     surface->setHLine(0, 0, g_help_box_width, border_colour);
-    PackColourToLong(&border_colour, 1.0, 0.93, 0.6, 0.33);
-    surface->setHLine(0, g_help_box_height - 1, g_help_box_width, border_colour);
-    PackColourToLong(&border_colour, 1.0, 0.93, 0.6, 0.33);
+    surface->setHLine(g_help_box_height - 1, 0, g_help_box_width, border_colour);
     surface->setVLine(0, 0, g_help_box_height, border_colour);
-    PackColourToLong(&border_colour, 1.0, 0.93, 0.6, 0.33);
     surface->setVLine(g_help_box_width - 1, 0, g_help_box_height, border_colour);
 
     W8ControlsRect rect;
@@ -2873,8 +2785,10 @@ void VideoToolTip(std::string_view text)
     rect.top = 0;
     rect.right = 0xfe;
     rect.bottom = 0xfe;
-    srModelInstance* node =
-        Video2DRectToPolygon(&rect, data, static_cast<int>(surface->getPitch()), g_cursor_scene, 1);
+    if (!text_surface) {
+        return;
+    }
+    srModelInstance* node = Video2DRectToPolygon(&rect, *text_surface, g_cursor_scene, 1);
     if (node != 0) {
         g_tooltip_nodes.push_back(static_cast<stModelInstance2D*>(node));
     }
@@ -2936,7 +2850,7 @@ unsigned int GetTotalPhysicalMemory(void)
    at start_frame. use_argb1555 selects SURFACE_ARGB1555 versus SURFACE_RGB555 for
    each frame surface. The setName string is the retail identity. */
 // FUNCTION: WIZ8 0x00428E90
-std::shared_ptr<stTextureAnim> VideoVObjectToTextureAnim(HVOBJECT object, unsigned short start_frame,
+std::shared_ptr<stTextureAnim> VideoVObjectToTextureAnim(const SpriteSheet& sprites, unsigned short start_frame,
                                          unsigned short frame_count, bool use_argb1555)
 {
     unsigned short frame;
@@ -2944,9 +2858,6 @@ std::shared_ptr<stTextureAnim> VideoVObjectToTextureAnim(HVOBJECT object, unsign
     w8_ulong extent;
     unsigned short largest;
 
-    if (!gfVideoObjectsInit) {
-        return 0;
-    }
 
     auto animation = std::make_shared<stTextureAnim>();
     animation->setName("VideoVObjecttoTextureAnim");
@@ -2955,11 +2866,11 @@ std::shared_ptr<stTextureAnim> VideoVObjectToTextureAnim(HVOBJECT object, unsign
     frame = start_frame;
     end_frame = static_cast<unsigned short>(start_frame + frame_count);
     while (frame < end_frame) {
-        if (frame < object->sprites.size()) {
-            const SpriteFrame& properties = object->sprites[frame];
-            largest = properties.usHeight;
-            if (properties.usHeight < properties.usWidth) {
-                largest = properties.usWidth;
+        if (frame < sprites.frames.size()) {
+            const SpriteFrame& properties = sprites.frames[frame];
+            largest = properties.height;
+            if (properties.height < properties.width) {
+                largest = properties.width;
             }
             if (largest < 0x101) {
                 if (largest < 0x81) {
@@ -2987,7 +2898,7 @@ std::shared_ptr<stTextureAnim> VideoVObjectToTextureAnim(HVOBJECT object, unsign
             }
             surface->setName("VideoVObjecttoTextureAnim:srColorSurface");
             surface->fill(0);
-            if (BlitHVObjectToColorSurface(object, frame, surface.get(), 0, 0)) {
+            if (BlitVideoObjectToColorSurface(sprites, frame, *surface, 0, 0)) {
                 auto texture = std::make_shared<srTextureMap>();
                 texture->setName("VideoVObjecttoTextureAnim");
                 texture->setMipmapBias(-8.0f);
@@ -3073,7 +2984,6 @@ void BeginRenderProbe(void)
 // FUNCTION: WIZ8 0x004289e0
 unsigned int MeasureNodeRender(srNode* node)
 {
-    srGERD::Statistics statistics;
     srNode::ProcessInfo process;
 
     g_gerd->flushRenderers();
@@ -3087,7 +2997,7 @@ unsigned int MeasureNodeRender(srNode* node)
     srNode::unlockSceneGraph();
     g_gerd->endFrame();
     g_gerd->flushRenderers();
-    g_gerd->getStatistics(statistics);
+    const auto statistics = g_gerd->getStatistics();
     return static_cast<unsigned int>(statistics.pixels_drawn);
 }
 
@@ -3167,7 +3077,7 @@ srNode* MakePosterQuad(std::shared_ptr<srTextureIFace> texture, float width, flo
     float extent_w = g_float_one / dimensions.width * g_surface_scale;
     float extent_h = g_float_one / dimensions.height * g_surface_scale;
     model->setName("VideoMakePoster");
-    texture->getDimensions(dimensions);
+    texture->getDimensions();
     g_modeler->createGrid(1, 1);
     srModeler::MappingInfo mapping(srModeler::AXIS_X, srModeler::AXIS_Y, g_float_one - extent_w,
                                    g_float_one - extent_h, extent_w, extent_h);
@@ -3235,12 +3145,10 @@ void DrawBufferLine(w8_long x0, w8_long y0, w8_long x1, w8_long y1, w8_ulong* pi
 }
 
 // FUNCTION: WIZ8 0x004273F0
-void GetScaledViewportBounds(glm::vec2* left_top, glm::vec2* right_bottom)
+ViewportBounds GetScaledViewportBounds()
 {
-    left_top->x = g_viewport.left * g_viewport_x_scale;
-    left_top->y = g_viewport.top * g_viewport_y_scale;
-    right_bottom->x = g_viewport.right * g_viewport_x_scale;
-    right_bottom->y = g_viewport.bottom * g_viewport_y_scale;
+    return {{g_viewport.left * g_viewport_x_scale, g_viewport.top * g_viewport_y_scale},
+            {g_viewport.right * g_viewport_x_scale, g_viewport.bottom * g_viewport_y_scale}};
 }
 
 // FUNCTION: WIZ8 0x004277F0

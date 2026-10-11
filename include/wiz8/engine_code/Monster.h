@@ -1,23 +1,33 @@
-#include <string_view>
 #ifndef WIZ8_ENGINE_CODE_MONSTER_H
 #define WIZ8_ENGINE_CODE_MONSTER_H
 
-#include <vector>
-struct W8MonsterSpellIcon;
+#include <optional>
+#include "surrender/srBoundingBox.h"
+#include "wiz8/audio_resources.h"
 
+#include <string_view>
+#include <cstdint>
+
+#include "compat/compiler.h"
+#include "compat/native.h"
+#include "glm/fwd.hpp"
+
+class srNode;
+struct W8AIRecord;
+struct W8PathAI;
+struct W8World;
+
+#include <vector>
 #include <memory>
-#include "wiz8/monster_spell_icons.h"
-#include "wiz8/monster_actions.h"
-#include <stddef.h>
 #include <string>
 
+#include "wiz8/monster_spell_icons.h"
+#include "wiz8/monster_actions.h"
 #include "surrender/srMath.h"
-#include "surrender/srTypeRegistry.h"
 #include "wiz8/engine_code/Emitter.h"
 #include "wiz8/engine_code/game_timer.h"
-#include "wiz8/geometry.h"
 #include "wiz8/engine_code/GrCycle.h"
-#include "wiz8/local_code/MonsterGroup.h"
+#include "wiz8/monster_cycles.h"
 
 struct W8AnimObj;
 struct W8ReadLevelInfo;
@@ -29,10 +39,6 @@ class stScript;
 class stSound3D;
 class Trigger;
 class W8Monster;
-
-struct W8MonsterRep;
-
-#include "wiz8/monster_cycles.h"
 
 enum W8MonsterFlag {
     W8_MONSTER_KEEP_FRAME_DIRECTION = 0x1,
@@ -140,12 +146,6 @@ struct W8MonsterRep : public W8EmitterHost {
 /* The constructor at 0x004BEA20 initializes through 0x624; the observed
    allocation is 0x628 bytes. These bound the modeled extent, not the roles
    of every byte or the complete set of callers. */
-W8_ABI_ASSERT(sizeof(W8MonsterRep) == 0x628, "W8MonsterRep_size_must_be_0x628");
-W8_ABI_ASSERT(offsetof(W8MonsterRep, random_idle_fps_min) == 0x608,
-              "W8MonsterRep_idle_fps_min_offset");
-W8_ABI_ASSERT(offsetof(W8MonsterRep, random_idle_fps_max) == 0x60c,
-              "W8MonsterRep_idle_fps_max_offset");
-
 
 /* The GrCycle factory allocates 0x348 bytes and calls the constructor at
    0x004BFB00 for object type zero. Both constructors and the destructor install
@@ -165,8 +165,7 @@ public:
     virtual signed char GetTotalAnimationCount() override;
     virtual float GetCurrentAnimationScale() override;
     virtual W8EmitterHost* GetRepresentation() override;
-    virtual unsigned char GetAnimationBounds(srVector3T<float>* minimum,
-                                             srVector3T<float>* maximum) override;
+    virtual std::optional<srBoundingBox> GetAnimationBounds() override;
     virtual unsigned char GetAnimationRadius(float* radius) override;
     virtual void SetCycle(signed char cycle) override;
     virtual W8AnimObj* GetCurrentAnimation() override;
@@ -175,7 +174,7 @@ public:
     virtual void Update();
     virtual void SetCurrentAnimationScale(float scale);
     virtual void GetMappedPosition(srVector3T<float>* position);
-    virtual bool GetAnimationCenter(srVector3T<float>* center);
+    virtual std::optional<srVector3T<float>> GetAnimationCenter();
     virtual void SetPosition(const srVector3T<float>* position) override;
 
     int Query(W8MonsterQueryKind query);         /* 0x004C4660 */
@@ -185,6 +184,7 @@ public:
     bool IsCycleInterruptable(signed char cycle);
     void ApplyRemovalStateEffects();
     void CollectModelInstances(std::vector<stModelInstance*>& instances);
+    void RefreshModelLightScale();
     void SetDamageStage(int stage);
     int GetDamageStageCount();
     bool ReplaceSkinTexture(int stage, const char* old_name, const char* new_name);
@@ -206,7 +206,7 @@ public:
     void StopTalking();
     void SetCycleCallback(int cycle, CycleCallback callback);
     bool GetPatrolPoint(srVector3T<float>* point);
-    void TrackSoundHandle(int handle);
+    void TrackSound(wiz8::sound::Playback playback);
     float GetDistanceToPlayer();
     float GetPointDistanceToPlayer(srVector3T<float> point);
     float GetDistanceToMonster(W8Monster* monster);
@@ -275,9 +275,9 @@ public:
     uint64_t talk_start;
     unsigned int talk_duration;
     int talk_state;
-    /* 0x214: the current mouth state the dialogue update copies out of the
-       active W8MouthGapTrack; forces mouth frame 0 while open. */
-    unsigned char mouth_open; // bool-byte-ok: copied raw from the C gap track byte
+    /* The mouth state the dialogue update copies out of the active
+       W8MouthGapTrack; forces mouth frame 0 while open. */
+    bool mouth_open;
     /* 0x215: set while the monster is deactivated (active cleared). */
     bool inactive;
     /* 0x216: raised at construction; cleared once AddMonsterToWorld and the
@@ -358,7 +358,7 @@ public:
     bool hostility_preserved;
     unsigned char padding_333;
     stSound3D* sound;
-    std::vector<int> values;
+    std::vector<wiz8::sound::Playback> sounds;
 };
 
 W8MonsterCycle ParseMonsterCycleName(const char* name, signed char* subcycle = 0);
@@ -369,16 +369,15 @@ unsigned char MonsterReadAllCycles(const W8GrCycleLoadContext* context, std::str
                                    W8Monster** monster, int load_value, int location_id);
 unsigned short ChooseDifferentMonsterDirection(unsigned short previous_direction);
 
-bool MonsterGetWorldAnimationBounds(W8Monster* monster, srVector3T<float>* minimum,
-                                    srVector3T<float>* maximum);
+std::optional<srBoundingBox> MonsterGetWorldAnimationBounds(W8Monster* monster);
 unsigned char LoadMonsterCycle(const W8GrCycleLoadContext* context, const char* mon_name,
                                W8Monster** monster, int cycle, int value);
 
 bool MonsterUsesCurrentModelInstance(W8GrCycle* cycle);
-void MonsterGetLocation(W8Monster* monster, srVector3T<float>* location);
+srVector3T<float> MonsterGetLocation(const W8Monster* monster);
 /* Expose the first Navigator angle through the enclosing Monster. */
 float MonsterGetYaw(W8Monster* monster); /* 0x004C5770 */
-void MonsterGetLocalLocation(W8Monster* monster, srVector3T<float>* location);
+srVector3T<float> MonsterGetLocalLocation(const W8Monster* monster);
 void UpdateMonster(W8Monster* monster);
 bool MonsterIsCycleSupported(W8Monster* monster, signed char cycle);
 unsigned char MonsterReplacePath(W8Monster* monster, W8PathAI* path);
@@ -408,9 +407,7 @@ void SetCombatInactiveFlag(unsigned char value);
 void UpdateNearestMonsterGroupMembers();
 void ApplyMonsterRepresentationScale(W8Monster* monster);
 
-W8_ABI_ASSERT(sizeof(W8Monster) == 0x348, "W8Monster_size_must_be_0x348");
 /* Secondary vftable 0x005ed218 keeps the W8Navigator subobject at +0x18. */
-W8_ASSERT_BASE_OFFSET(W8Monster, W8Navigator, navigation_mode, 0x18);
 
 /* A particle temporarily takes over a monster animation while its shake event
    runs. The derived callback restores the saved representation state when the
@@ -437,8 +434,6 @@ public:
     signed char saved_frame_method;
     unsigned char padding_0e[2];
 };
-
-W8_ABI_ASSERT(sizeof(W8MonsterShakeCallback) == 0x10, "W8MonsterShakeCallback_size_must_be_0x10");
 
 void MonsterStopAllNavigators(void);
 unsigned char MonsterGetHighlightMask(W8Monster* monster);

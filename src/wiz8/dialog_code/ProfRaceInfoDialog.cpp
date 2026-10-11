@@ -1,21 +1,28 @@
+#include "Font.h"
 #include <fmt/format.h>
 #include <fmt/printf.h>
 #include <string_view>
+#include <string>
+#include <vector>
+
 #include "wiz8/dialog_code/ProfRaceInfoDialog.h"
-#include "wiz8/engine_code/Video2.h"
+#include "image.h"
 #include "wiz8/fonts.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/item_tables.h"
-#include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/CharGeneration.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_screens/CharacterScreen.h"
-#include "wiz8/local_screens/OptionsScreen.h"
-#include "wiz8/local_screens/Screens.h"
 #include "wiz8/sr_api.h"
-#include "wiz8/utility.h"
-#include "wiz8/video_object_catalog.h"
+#include "wiz8/catalog_artwork.h"
+#include "character_skills.h"
+#include "dialog_code/DialogBase.h"
+#include "wiz8/local_code/ButtonWidget.h"
+#include "dialog_code/DialogScrollBar.h"
+#include "dialog_code/DialogTextArea.h"
+#include "layouts/gameplay_databases.h"
+#include "local_code/ControlsRect.h"
 
 // GLOBAL: WIZ8 0x00614cf0
 W8AttributeMinimums g_race_attribute_minimums[W8_RACE_PLAYABLE_COUNT] = {
@@ -98,13 +105,6 @@ int W8ProfRaceInfoDialogBase::CreateControls()
     return 0;
 }
 
-// FUNCTION: WIZ8 0x005DED40
-void W8ProfRaceInfoDialogBase::DestroyControls()
-{
-    m_scroll_bar.DestroyControls();
-    W8DialogBase::DestroyControls();
-}
-
 // FUNCTION: WIZ8 0x005DED60
 void W8ProfRaceInfoDialogBase::Draw()
 {
@@ -116,8 +116,8 @@ void W8ProfRaceInfoDialogBase::Draw()
         m_scroll_bar.m_dirty = true;
         m_button.m_dirty = true;
         W8DialogBase::Draw();
-        DrawCatalogImageAndInvalidate(FRAME_BUFFER, m_uiTitleId, 0, m_uiSummaryId, m_x + 0xd,
-                                      m_y + 0xd, VO_BLT_SRCTRANSPARENCY, 0);
+        m_uiArtwork->drawAndInvalidate(GetFrameBufferSurface(), m_uiSummaryImage,
+                                       m_x + 0xd, m_y + 0xd);
         DrawTextLine(g_W8TextBufferAlignLeft, 0x25, 0xb, 0x147, 0x18, g_localized_strings[m_uiNameId],
                      g_options_detail_font);
         DrawTextLine(g_W8TextBufferAlignCenter, 0xd, 0x29, 0x8e, 0xc, g_localized_strings[m_uiHeadingId],
@@ -145,7 +145,7 @@ void W8ProfRaceInfoDialogBase::Draw()
 
 // FUNCTION: WIZ8 0x005DEEE0
 void W8ProfRaceInfoDialogBase::DrawTextLine(unsigned int layout_mode, int left, int top, int width,
-                                            int height, std::string_view text, int font)
+                                            int height, std::string_view text, Font& font)
 {
     W8TextBuffer buffer;
     buffer.SetLayoutMode(g_W8TextBufferAlignMiddle | layout_mode);
@@ -154,7 +154,7 @@ void W8ProfRaceInfoDialogBase::DrawTextLine(unsigned int layout_mode, int left, 
     bounds.right = bounds.left + width;
     bounds.top = m_y + top;
     bounds.bottom = bounds.top + height;
-    buffer.RenderString(&bounds, text, font, false, FRAME_BUFFER);
+    buffer.RenderString(&bounds, text, font, false, GetFrameBufferSurface());
 }
 
 // FUNCTION: WIZ8 0x005DEFB0
@@ -204,9 +204,9 @@ W8ProfessionInfoDialog::W8ProfessionInfoDialog(W8Profession uiIndex)
         srAssertFail("uiIndex < PROF_COUNT", PROF_RACE_INFO_DIALOG_CPP, 0x123, 0);
     }
     m_uiIndex = uiIndex;
-    m_uiTitleId = 0x10b;
+    m_uiArtwork = CatalogArtwork::Load(0x10b);
     m_uiHeadingId = 0x14c;
-    m_uiSummaryId = g_profession_info_rows[uiIndex].image_id;
+    m_uiSummaryImage = g_profession_info_rows[uiIndex].image_id;
     m_uiNameId = g_profession_info_rows[uiIndex].name_id;
     m_uiDetailId = g_profession_info_rows[uiIndex].detail_id;
     for (int attribute = 0; attribute < ATTR_COUNT; ++attribute) {
@@ -285,9 +285,9 @@ W8RaceInfoDialog::W8RaceInfoDialog(W8Race uiIndex)
         srAssertFail("uiIndex < RACE_COUNT", PROF_RACE_INFO_DIALOG_CPP, 0x199, 0);
     }
     m_uiIndex = uiIndex;
-    m_uiTitleId = 0x10c;
+    m_uiArtwork = CatalogArtwork::Load(0x10c);
     m_uiHeadingId = 0x152;
-    m_uiSummaryId = g_race_info_rows[uiIndex].image_id;
+    m_uiSummaryImage = g_race_info_rows[uiIndex].image_id;
     m_uiNameId = g_race_info_rows[uiIndex].name_id;
     m_uiDetailId = g_race_info_rows[uiIndex].detail_id;
     for (unsigned int attribute = 0; attribute < ATTR_COUNT; ++attribute) {

@@ -1,6 +1,10 @@
 #include "wiz8/dialog_code/NotificationDialog.h"
+
+#include <vector>
+
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/regions.h"
+#include "dialog_code/MessageDialogBase.h"
 
 /* Dialog Code. W8NotificationDialog is a modal popup built on the unnamed base
    constructed by 0x005D25B0 and destroyed by 0x005D2610. The source owns the
@@ -25,7 +29,7 @@ W8NotificationDialog::W8NotificationDialog(int message_index, bool cancel_allowe
     SetBackground("Data\\Dialogs\\DialogBackground.sti", 0);
     SetClientExtent(0xfa, 200);
     SetMessage(g_localized_strings[message_index], 1, 0x32, true, cancel_allowed, true, true, 0, 0x15e);
-    ActivateDialogRegion(0x138);
+    CaptureInputSink();
 }
 
 // FUNCTION: WIZ8 0x005a81a0
@@ -33,13 +37,17 @@ bool W8NotificationDialog::ProcessInput()
 {
     bool handled;
 
+    BeginModalInput();
     W8MessageDialogBase::ProcessInput();
     handled = is_open;
     if (!handled) {
-        ClearActiveRegionIfMatches(0x138);
+        ReleaseInputSinkCapture();
         if (notify_target) {
             notify_target->OnDialogClosed(accepted, notification_value);
         }
+    }
+    if (!handled) {
+        EndModalInput();
     }
     return handled;
 }

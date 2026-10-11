@@ -1,13 +1,17 @@
 #pragma once
 
-#include "Types.h"
+#include <cstdint>
+#include <memory>
+
 #include "input.h"
 #include "wiz8/layouts/learned_spells.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/main_game_screen.h"
 #include "wiz8/layouts/npc_dialogue.h"
+#include "compat/compiler.h"
 
 class W8TextControl;
+class ScreenRegionSet;
 struct Controls;
 struct W8Character;
 
@@ -34,7 +38,7 @@ struct W8SpellCastingView {
     int uiSpellIndex; /* clicked list row */
     int selected_spell_index;
     int field_500;
-    Controls* panels[3];
+    std::unique_ptr<Controls> panels[3];
     W8TextControl* realm_buttons[6];
     W8TextControl* realm_icons[6];
     /* Indexed by region callback id. */
@@ -52,10 +56,12 @@ struct W8SpellCastingView {
     bool dialog_confirmed;
 };
 
-W8_ABI_ASSERT(sizeof(W8SpellCastingView) == 0xc5c, "W8SpellCastingView_must_be_0xc5c");
-
 unsigned char OpenSpellCastingView(int party_slot);
 void CloseSpellCastingView(void);
+extern ScreenRegionSet g_spell_casting_regions;
+enum SpellCastingRegionOffset {
+    kSpellPowerPipRegionOffset = 11,
+};
 void RestoreSpellCastingRegions(void);
 void SelectSpellCastingCharacter(int party_slot);
 void BeginSpellCast(int spell_id, int location_id, W8NpcDialogueLayout interact_id);
@@ -69,15 +75,16 @@ int GetSpellCastingSelection(void);
 
 struct W8Region;
 class W8DialogBase;
+
 /* Destroy callback for the spell/use-item reason notices. */
 void SpellCastingNoticeClosed(W8DialogBase* dialog);
-unsigned char SpellRealmButtonRegionEvent(const InputAtom* event, W8Region* region);
-unsigned char SpellPowerPipRegionEvent(const InputAtom* event, W8Region* region);
-unsigned char IgnoreSpellCastingInput(const InputAtom* event, W8Region* region);
+unsigned char SpellRealmButtonRegionEvent(const InputEvent* event, W8Region* region);
+unsigned char SpellPowerPipRegionEvent(const InputEvent* event, W8Region* region);
+unsigned char IgnoreSpellCastingInput(const InputEvent* event, W8Region* region);
 /* Text-box body callback while spell casting is active. */
-unsigned char SpellCastTextBoxRegionEvent(const InputAtom* event, W8Region* region);
+unsigned char SpellCastTextBoxRegionEvent(const InputEvent* event, W8Region* region);
 
 /* Live spell-casting view, or null when the panel is closed. */
-extern W8SpellCastingView* gpSCSV;
+extern std::unique_ptr<W8SpellCastingView> gpSCSV;
 /* gpSCSV->iSpellPower, or -1 when the view is closed. */
 int GetSpellCastingPowerIndex(void);

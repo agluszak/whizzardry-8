@@ -1,66 +1,75 @@
 #include <fmt/format.h>
+#include <SDL3/SDL_rect.h>
 #include <string_view>
 #include <string>
+#include <algorithm>
+#include <cctype>
+#include <cstring>
+#include <optional>
+
 #include "wiz8/utility.h"
+#include "wiz8/dialog_code/DialogBase.h"
+#include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/layouts/character.h"
-#include "wiz8/character_skills.h"
-#include "wiz8/local_code/CharGeneration.h"
-#include "wiz8/local_code/Combat.h"
-#include "wiz8/local_code/CombatAttack.h"
-#include "wiz8/local_code/GameplayCode.h"
-#include "wiz8/local_code/GameplayMods.h"
-#include "wiz8/local_code/HealthStaminaMana.h"
-#include "wiz8/local_code/Magic.h"
-#include "wiz8/local_code/MagicEffects.h"
-#include "wiz8/local_code/party_encumbrance.h"
 #include "wiz8/local_code/UtilityFunctions.h"
-#include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/layouts/screen_state.h"
-#include "wiz8/local_screens/OptionsScreen.h"
 #include "wiz8/fonts.h"
 #include "wiz8/sr_api.h"
-#include "wiz8/cursor.h"
 #include "wiz8/engine_code/Video2.h"
-#include "Button System.h"
+#include "wiz8/dialog_code/ButtonAppearance.h"
 #include "input.h"
+#include "wiz8/regions.h"
 #include "random.h"
-
-#include <stdarg.h>
-#include <ctype.h>
-#include <float.h>
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
 #include "wiz8/layouts/game_status.h"
+#include "Font.h"
+#include "compat/native.h"
+#include "conditions.h"
+#include "dice.h"
 
-// GLOBAL: WIZ8 0x0068c0a4
-static int g_message_box_state;
-// GLOBAL: WIZ8 0x0061a548
-static short g_message_box_background_image = -1;
-// GLOBAL: WIZ8 0x0061a54c
-static int g_message_box_background_button = -1;
-// GLOBAL: WIZ8 0x0061a550
-static int g_message_box_accept_button = -1;
-// GLOBAL: WIZ8 0x0061a554
-static int g_message_box_cancel_button = -1;
-// GLOBAL: WIZ8 0x0061a558
-static int g_message_box_accept_image = -1;
-// GLOBAL: WIZ8 0x0061a55c
-static int g_message_box_cancel_image = -1;
-// GLOBAL: WIZ8 0x0068c0a0
-void (*g_message_box_callback)(void);
-// GLOBAL: WIZ8 0x0068c0a8
-static int g_message_box_font;
-// GLOBAL: WIZ8 0x0068c0ac
-static unsigned int g_message_box_shade;
-// GLOBAL: WIZ8 0x0068c0b0
-static bool g_message_box_accepted;
+struct MessageBoxState {
+    W8ButtonWidget background;
+    W8ButtonWidget accept;
+    W8ButtonWidget cancel;
+    std::optional<ExclusiveRegionSet> input_scope;
+
+    int state = 0;
+    void (*callback)(void) = nullptr;
+    Font* font = nullptr;
+    unsigned int shade = 0;
+    bool accepted = false;
+    bool has_accept = false;
+    bool has_cancel = false;
+};
+
+static std::optional<MessageBoxState> g_message_box;
 // GLOBAL: WIZ8 0x0068BFD0
 // GLOBAL: WIZ8 0x00689FD0
+
+static SDL_Rect MessageBoxBounds(const MessageBoxState& message_box)
+{
+    auto bounds = message_box.background.GetBounds();
+    const auto include = [&bounds](SDL_Rect control) {
+        const int left = std::min(bounds.x, control.x);
+        const int top = std::min(bounds.y, control.y);
+        const int right = std::max(bounds.x + bounds.w, control.x + control.w);
+        const int bottom = std::max(bounds.y + bounds.h, control.y + control.h);
+        bounds = {left, top, right - left, bottom - top};
+    };
+
+    if (message_box.accept.IsConfigured()) include(message_box.accept.GetBounds());
+    if (message_box.cancel.IsConfigured()) include(message_box.cancel.GetBounds());
+    return bounds;
+}
+
+static void SetMessageBoxResult(bool accepted)
+{
+    if (!g_message_box) return;
+    g_message_box->state = 1;
+    g_message_box->accepted = accepted;
+}
 
 // FUNCTION: WIZ8 0x00517950
 void SetDice(W8Dice* dice, unsigned char count, unsigned char sides, short base)
@@ -240,12 +249,10 @@ float ShortestAngleDistance(float first, float second)
 }
 
 // FUNCTION: WIZ8 0x00517e20
-void UnionScreenRects(const W8ScreenRect* first, const W8ScreenRect* second, W8ScreenRect* result)
+W8ScreenRect UnionScreenRects(const W8ScreenRect& first, const W8ScreenRect& second)
 {
-    result->left = first->left < second->left ? first->left : second->left;
-    result->top = first->top < second->top ? first->top : second->top;
-    result->right = first->right > second->right ? first->right : second->right;
-    result->bottom = first->bottom > second->bottom ? first->bottom : second->bottom;
+    return {std::min(first.left, second.left), std::min(first.top, second.top),
+            std::max(first.right, second.right), std::max(first.bottom, second.bottom)};
 }
 
 // FUNCTION: WIZ8 0x00517e70
@@ -504,95 +511,87 @@ void FreeStringTable(void)
 }
 
 // FUNCTION: WIZ8 0x00518510
-bool CreateMessageBox(std::string_view text, int font, unsigned int shade, bool has_accept, bool has_cancel,
+bool CreateMessageBox(std::string_view text, Font& font, unsigned int shade, bool has_accept, bool has_cancel,
                       void (*callback)(void))
 {
-    SDL_Rect rect;
-    char filename[32];
-    if (g_message_box_state != 0) {
-        return false;
-    }
+    if (g_message_box) return false;
+
+    auto& message_box = g_message_box.emplace();
     unsigned short height = 0x58;
     if (has_accept || has_cancel) {
         height = 0x6c;
     }
-    unsigned short width = StringPixLength(text, font) + 10;
+    unsigned short width = font.textWidth(text) + 10;
     if (width > 0x258) {
         width = 0x258;
     } else if (width < 0x64) {
         width = 0x78;
     }
-    g_message_box_background_image = LoadGenericButtonImages({}, DEFAULT_GENERIC_BUTTON_OFF, {}, DEFAULT_GENERIC_BUTTON_ON, {}, "Data\\Dialogs\\DialogBackground.STI", 0, 0, 0);
-    int yloc = (0x1e0 - height) / 2;
-    g_message_box_background_button = CreateTextButton(
-        text, static_cast<unsigned short>(font), 0xff, 0, g_message_box_background_image,
-        (0x280 - width) / 2, yloc, width, height, 4, 0x7d, 0, MessageBoxAcceptClickCallback);
-    if (g_message_box_background_button < 0) {
+    const int y = (0x1e0 - height) / 2;
+    const auto background_image = LoadGenericButtonImages(
+        {}, DEFAULT_GENERIC_BUTTON_OFF, {}, DEFAULT_GENERIC_BUTTON_ON, {},
+        "Data\\Dialogs\\DialogBackground.STI", 0, 0, 0);
+    const auto fail_creation = [] {
+        g_message_box.reset();
         return false;
+    };
+
+    if (!message_box.background.ConfigureTextButton(
+            text, font, 0xff, 0, (0x280 - width) / 2, y, width, height,
+            [](W8ButtonWidget*) { SetMessageBoxResult(true); },
+            0, background_image, REGION_PRIORITY_BACKGROUND)) {
+        return fail_creation();
     }
-    SpecifyButtonMultiColorFont(g_message_box_background_button, 1);
+    message_box.background.SetMultiColor(true);
+
+    message_box.has_accept = has_accept;
+    message_box.has_cancel = has_cancel;
     if (has_accept) {
-        strcpy(filename, "Data\\Message Box\\Ok.sti");
-        g_message_box_accept_image = LoadButtonImage(filename, 0, 1, 2, 3, 4);
-        if (g_message_box_accept_image < 0) {
-            return false;
+        if (!message_box.accept.Configure(
+                "Data\\Message Box\\Ok.sti", 0, 1, 2, 3, 4,
+                [](W8ButtonWidget*) { SetMessageBoxResult(true); },
+                nullptr, false, REGION_PRIORITY_HIGHEST - 1,
+                W8_DIALOG_BUTTON_NO_TOOLTIP, nullptr, nullptr)) {
+            return fail_creation();
         }
-        g_message_box_accept_button = QuickCreateButton(
-            g_message_box_accept_image, 0x131 - (has_cancel ? 0x1e : 0), yloc + 0x46, 4, 0x7e,
-            MessageBoxAcceptMoveCallback, MessageBoxAcceptClickCallback);
-        if (g_message_box_accept_button < 0) {
-            return false;
-        }
-    } else {
-        g_message_box_accept_button = -1;
+        message_box.accept.SetPosition(0x131 - (has_cancel ? 0x1e : 0), y + 0x46);
     }
     if (has_cancel) {
-        strcpy(filename, "Data\\Message Box\\Cancel.sti");
-        g_message_box_cancel_image = LoadButtonImage(filename, 0, 1, 2, 3, 4);
-        if (g_message_box_cancel_image < 0) {
-            return false;
+        if (!message_box.cancel.Configure(
+                "Data\\Message Box\\Cancel.sti", 0, 1, 2, 3, 4,
+                [](W8ButtonWidget*) { SetMessageBoxResult(false); },
+                nullptr, false, REGION_PRIORITY_HIGHEST - 1,
+                W8_DIALOG_BUTTON_NO_TOOLTIP, nullptr, nullptr)) {
+            return fail_creation();
         }
-        g_message_box_cancel_button = QuickCreateButton(
-            g_message_box_cancel_image, 0x131 + (has_accept ? 0x1e : 0), yloc + 0x46, 4, 0x7e,
-            MessageBoxCancelMoveCallback, MessageBoxCancelClickCallback);
-        if (g_message_box_cancel_button < 0) {
-            return false;
-        }
-    } else {
-        g_message_box_cancel_button = -1;
+        message_box.cancel.SetPosition(0x131 + (has_accept ? 0x1e : 0), y + 0x46);
     }
     if (has_accept || has_cancel) {
-        DisableButton(g_message_box_background_button);
+        message_box.background.SetEnabled(false);
     }
-    g_message_box_font = font;
-    g_message_box_shade = shade;
-    g_message_box_state = 2;
-    g_message_box_callback = callback;
-    GetButtonArea(g_message_box_background_button, &rect);
-    InvalidateRegion(rect.x, rect.y, (rect.x + rect.w), (rect.y + rect.h), 0x11);
+    message_box.font = &font;
+    message_box.shade = shade;
+    message_box.state = 2;
+    message_box.callback = callback;
+    message_box.input_scope.emplace(ControlRegionSetIndex());
+    const auto bounds = MessageBoxBounds(message_box);
+    InvalidateRegion(bounds.x, bounds.y, bounds.x + bounds.w, bounds.y + bounds.h, 0x11);
     return true;
 }
 
 static void ReleaseMessageBoxControls()
 {
-    SDL_Rect rect;
-    if (g_message_box_accept_button != -1) {
-        RemoveButton(g_message_box_accept_button);
-        UnloadButtonImage(g_message_box_accept_image);
-    }
-    if (g_message_box_cancel_button != -1) {
-        RemoveButton(g_message_box_cancel_button);
-        UnloadButtonImage(g_message_box_cancel_image);
-    }
-    if (g_message_box_background_button != -1) {
-        GetButtonArea(g_message_box_background_button, &rect);
-        ClearSurfaceRect(rect.x, rect.y, (rect.x + rect.w), (rect.y + rect.h));
-        InvalidateRegion(rect.x, rect.y, (rect.x + rect.w), (rect.y + rect.h), 1);
-        RemoveButton(g_message_box_background_button);
-    }
-    if (g_message_box_background_image != -1) {
-        UnloadGenericButtonImage(g_message_box_background_image);
-        g_message_box_background_image = -1;
+    if (!g_message_box) return;
+
+    auto& message_box = *g_message_box;
+    message_box.input_scope.reset();
+    const auto bounds = MessageBoxBounds(message_box);
+    message_box.accept.Reset();
+    message_box.cancel.Reset();
+    message_box.background.Reset();
+    if (bounds.w > 0 && bounds.h > 0) {
+        ClearSurfaceRect(bounds.x, bounds.y, bounds.x + bounds.w, bounds.y + bounds.h);
+        InvalidateRegion(bounds.x, bounds.y, bounds.x + bounds.w, bounds.y + bounds.h, 1);
     }
 }
 
@@ -602,92 +601,43 @@ static void ReleaseMessageBoxControls()
 // FUNCTION: WIZ8 0x005187E0
 void CloseMessageBox(void)
 {
-    if (g_message_box_state == 2) {
+    if (g_message_box && g_message_box->state == 2) {
         ReleaseMessageBoxControls();
-        g_message_box_state = 3;
-        g_message_box_accepted = false;
-    }
-}
-
-// FUNCTION: WIZ8 0x005188c0
-void MessageBoxAcceptMoveCallback(GUI_BUTTON* button, INT32 reason)
-{
-    if (reason & (MSYS_CALLBACK_REASON_GAIN_MOUSE | MSYS_CALLBACK_REASON_LOST_MOUSE)) {
-        SDL_Rect rect;
-        GetButtonArea(g_message_box_accept_button, &rect);
-        InvalidateRegion(rect.x, rect.y, (rect.x + rect.w), (rect.y + rect.h), 1);
-    }
-}
-
-// FUNCTION: WIZ8 0x00518900
-void MessageBoxAcceptClickCallback(GUI_BUTTON* button, INT32 reason)
-{
-    if (reason & MSYS_CALLBACK_REASON_LBUTTON_DWN) {
-        button->uiFlags |= BUTTON_CLICKED_ON;
-    } else if (reason & MSYS_CALLBACK_REASON_LBUTTON_UP) {
-        if (button->uiFlags & BUTTON_CLICKED_ON) {
-            g_message_box_state = 1;
-            g_message_box_accepted = true;
-        }
-    }
-}
-
-// FUNCTION: WIZ8 0x00518930
-void MessageBoxCancelMoveCallback(GUI_BUTTON* button, INT32 reason)
-{
-    if (reason & (MSYS_CALLBACK_REASON_GAIN_MOUSE | MSYS_CALLBACK_REASON_LOST_MOUSE)) {
-        SDL_Rect rect;
-        GetButtonArea(g_message_box_cancel_button, &rect);
-        InvalidateRegion(rect.x, rect.y, (rect.x + rect.w), (rect.y + rect.h), 1);
-    }
-}
-
-// FUNCTION: WIZ8 0x00518970
-void MessageBoxCancelClickCallback(GUI_BUTTON* button, INT32 reason)
-{
-    if (reason & MSYS_CALLBACK_REASON_LBUTTON_DWN) {
-        button->uiFlags |= BUTTON_CLICKED_ON;
-    } else if (reason & MSYS_CALLBACK_REASON_LBUTTON_UP) {
-        if (button->uiFlags & BUTTON_CLICKED_ON) {
-            g_message_box_state = 1;
-            g_message_box_accepted = false;
-        }
+        g_message_box->state = 3;
+        g_message_box->accepted = false;
     }
 }
 
 // FUNCTION: WIZ8 0x00518b20
 bool IsMessageBoxActive(void)
 {
-    return g_message_box_state != 0;
+    return g_message_box.has_value();
 }
 
 // FUNCTION: WIZ8 0x005189b0
 void RenderMessageBox(void)
 {
-    if (g_message_box_state == 1) {
+    if (!g_message_box) return;
+
+    auto& message_box = *g_message_box;
+    if (message_box.state == 1) {
         ReleaseMessageBoxControls();
-        g_message_box_state = 3;
-    } else if (g_message_box_state == 2) {
-        HVOBJECT font;
-        if (g_message_box_font == g_large_font) {
-            font = GetFontObject(g_large_font);
-        } else if (g_message_box_font == g_small_font) {
-            font = GetFontObject(g_small_font);
-        } else if (g_message_box_font == g_small_font_secondary) {
-            font = GetFontObject(g_small_font_secondary);
-        } else if (g_message_box_font == g_wiz_text_font) {
-            font = GetFontObject(g_wiz_text_font);
-        } else {
-            font = GetFontObject(g_wiz_text_font_secondary);
-        }
-        SetObjectShade(font, g_message_box_shade);
-        MarkButtonsDirty();
-        RenderButtons();
-    } else if (g_message_box_state == 3) {
-        g_message_box_state = 0;
-        if (g_message_box_accepted && g_message_box_callback != 0) {
-            void (*callback)(void) = g_message_box_callback;
-            g_message_box_callback = 0;
+        message_box.state = 3;
+    } else if (message_box.state == 2) {
+        Font& shade_font = message_box.font == &g_large_font ? g_large_font
+            : message_box.font == &g_small_font ? g_small_font
+            : message_box.font == &g_small_font_secondary ? g_small_font_secondary
+            : message_box.font == &g_wiz_text_font ? g_wiz_text_font
+            : g_wiz_text_font_secondary;
+        shade_font.setShade(message_box.shade);
+        message_box.background.Draw();
+        if (message_box.has_accept) message_box.accept.Draw();
+        if (message_box.has_cancel) message_box.cancel.Draw();
+    } else if (message_box.state == 3) {
+        const bool accepted = message_box.accepted;
+        const auto callback = message_box.callback;
+        g_message_box.reset();
+        if (accepted && callback != nullptr) {
             callback();
         }
     }
@@ -696,34 +646,36 @@ void RenderMessageBox(void)
 // FUNCTION: WIZ8 0x00518b30
 void ProcessMessageBoxInput(void)
 {
-    SDL_Point point;
-    InputAtom input;
-    SGPMouseGetPos(&point);
-    MSYS_SGP_Mouse_Handler_Hook(MOUSE_POS, point.x, point.y, gfLeftButtonState, gfRightButtonState);
-    while (DequeueEvent(&input) == 1) {
-        switch (input.usEvent) {
-        case LEFT_BUTTON_DOWN:
-        case LEFT_BUTTON_UP:
-        case RIGHT_BUTTON_DOWN:
-        case RIGHT_BUTTON_UP:
-            MSYS_SGP_Mouse_Handler_Hook(input.usEvent, point.x, point.y, gfLeftButtonState,
-                                        gfRightButtonState);
+    if (!g_message_box || g_message_box->state != 2) return;
+
+    W8DialogBase::DrainModalInput([](const InputEvent& input) {
+        switch (input.type) {
+        case InputEventType::LeftButtonDown:
+        case InputEventType::LeftButtonUp:
+        case InputEventType::LeftButtonRepeat:
+        case InputEventType::RightButtonDown:
+        case InputEventType::RightButtonUp:
+        case InputEventType::RightButtonRepeat:
+            DispatchRegionInput(&input);
             break;
-        case KEY_DOWN:
-            switch (toupper(input.usParam)) {
+        case InputEventType::KeyDown:
+            switch (toupper(input.key)) {
             case '\r':
             case ' ':
             case 'Y':
-                g_message_box_state = 1;
-                g_message_box_accepted = true;
+                g_message_box->state = 1;
+                g_message_box->accepted = true;
                 break;
             case 27:
             case 'N':
-                g_message_box_accepted = g_message_box_cancel_button == -1;
-                g_message_box_state = 1;
+                g_message_box->accepted = !g_message_box->has_cancel;
+                g_message_box->state = 1;
                 break;
             }
             break;
+        default:
+            break;
         }
-    }
+        return true;
+    });
 }

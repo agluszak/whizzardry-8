@@ -1,27 +1,31 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
+#include <source_location>
 #include <string>
+#include <vector>
+#include <algorithm>
+#include <cctype>
+#include <cmath>
+#include <cstdlib>
+#include <cstring>
+
+#include "conditions.h"
 #include "wiz8/containers.h"
 #include "wiz8/engine_code/AnimRep.hpp"
 #include "timer.h"
 #include "wiz8/monster_cycles.h"
 #include "wiz8/fonts.h"
-#include <stdio.h>
 #include "wiz8/integer_constants.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/GameplayMods.h"
 #include "wiz8/local_code/Sight.h"
 #include "wiz8/engine_code/Quality.h"
-#include "wiz8/engine_code/Video2.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/xstatus.h"
-#include <vector>
-#include <algorithm>
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/local_code/Combat.h"
-#include "wiz8/local_code/CombatAttack.h"
 #include "wiz8/local_code/CombatRange.h"
 #include "wiz8/local_code/MonsterAI.h"
 #include "wiz8/local_code/MonsterManager.h"
@@ -32,7 +36,6 @@
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/local_code/NPCManager.h"
-#include "wiz8/local_screens/MGSButtons.h"
 #include "wiz8/local_screens/MGSPortraitCombat.h"
 #include "wiz8/engine_code/OctBuildPreTree.h"
 #include "wiz8/regions.h"
@@ -40,12 +43,9 @@
 #include "wiz8/local_code/FormationAndFacing.h"
 #include "wiz8/engine_code/Spells.h"
 #include "wiz8/local_code/Configuration.h"
-#include "wiz8/local_screens/AutomapScreen.h"
-#include "wiz8/local_screens/mipe.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/monster_runtime.h"
 #include "wiz8/engine_code/Missile.h"
 #include "wiz8/notices.h"
@@ -56,8 +56,6 @@
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/character_skills.h"
-#include "wiz8/local_code/NPCManager.h"
-#include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/sr_api.h"
 #include "random.h"
@@ -65,11 +63,20 @@
 #include "wiz8/engine_code/PolyPick.h"
 #include "wiz8/local_code/ItemManager.h"
 #include "wiz8/local_screens/MGSTextBox.h"
-#include <math.h>
-#include <new>
-#include <stdlib.h>
-#include <string.h>
 #include "wiz8/local_code/ThingEditorShared.h"
+#include "GrCycle.h"
+#include "Navigator.h"
+#include "dice.h"
+#include "gameplay_modifiers.h"
+#include "layouts/character.h"
+#include "layouts/levels.h"
+#include "layouts/main_game_screen.h"
+#include "local_code/HealthStaminaMana.h"
+#include "local_code/MagicEffects.h"
+#include "monster_actions.h"
+#include "navigation_flags.h"
+#include "sight_state.h"
+
 // GLOBAL: WIZ8 0x005ed4f0
 const float g_monster_record_float_scale = 20.0f;
 // GLOBAL: WIZ8 0x00683698
@@ -84,6 +91,8 @@ void DestroyMonsterActionQueue(W8MonsterInfo* monster_info);
    cycle a motionless monster is still allowed to enter, and 0x15 is death. */
 enum { W8_CYCLE_NONE = 0xff, W8_CYCLE_STOP = 0x14, W8_CYCLE_DEATH = 0x15 };
 /* The character array the alternate-name form indexes, and the slot it uses. */
+
+static bool RemoveMonsterAt(unsigned int monster_list_index, bool destroy_monster);
 
 // FUNCTION: WIZ8 0x004e3930
 W8MonsterInfo* CreateMonsterInfo(W8MonsterGroup* group, W8MonsterRecord* record,
@@ -211,7 +220,7 @@ void ActivateMonsterInWorld(W8MonsterInfo* monster_info)
                                            MonsterDBFromSpecies(monster_info->monster_species));
     }
 
-    WorldGetCameraLocation(GetWorld(), &camera_position);
+    camera_position = cameraLocation(*GetWorld());
     MonsterSelectLOD(monster_info->p3D, &camera_position);
     UpdateCycleRepresentation(monster_info->p3D, GetWorld());
     g_octree->VisitPointCopy(static_cast<unsigned short>(monster_info->location_id),
@@ -327,8 +336,7 @@ void MonsterStartsDying(W8MonsterInfo* monster_info, bool display_message)
         StartMonsterCycle(monster_info, W8_MONSTER_CYCLE_DIE, W8_ANIMATION_PLAY_ONCE);
         DeactivateMonster(monster_info);
         RecordMonsterKill(monster_info, display_message);
-        RemoveMonster(MonsterGetIndexByLocationID(0x31f, MONSTER_MANAGER_CPP,
-                                                  monster_info->location_id, true),
+        RemoveMonster(monster_info,
                       false);
     }
 }
@@ -360,8 +368,7 @@ void RecordMonsterKill(W8MonsterInfo* monster_info, bool announce)
             }
         }
     }
-    unsigned int monster_list_index =
-        MonsterGetIndexByLocationID(0x34f, MONSTER_MANAGER_CPP, monster_info->location_id, true);
+    unsigned int monster_list_index = MonsterGetIndexByLocationID(monster_info->location_id);
     unsigned int notice_channel;
     if (TargetSourceIsCharacter(&monster_info->condition_target, 0)) {
         killer_party_slot = monster_info->condition_target.iChar;
@@ -394,12 +401,10 @@ void RecordMonsterKill(W8MonsterInfo* monster_info, bool announce)
         if (!TargetSourceIsMonster(&monster_info->condition_target, 0)) {
             goto done;
         }
-        unsigned int killer_index = MonsterGetIndexByLocationID(
-            0x37d, MONSTER_MANAGER_CPP, monster_info->condition_target.iMonsterID, false);
-        if (killer_index == 0xffffffff) {
+        W8MonsterInfo* killer_info = FindMonster(monster_info->condition_target.iMonsterID, false);
+        if (killer_info == nullptr) {
             goto done;
         }
-        W8MonsterInfo* killer_info = MonsterGetScriptPartByLocationIndex(killer_index);
         if (killer_info == 0) {
             srAssertFail("pKillerMonsterInfo != NULL", MONSTER_MANAGER_CPP, 0x381, 0);
         }
@@ -454,8 +459,8 @@ done:
 }
 
 // FUNCTION: WIZ8 0x004e5550
-unsigned int MonsterGetIndexByLocationID(int caller_line, const char* caller_file, int location_id,
-                                         bool assert_on_failure)
+unsigned int MonsterGetIndexByLocationID(int location_id, bool assert_on_failure,
+                                         std::source_location caller)
 {
     unsigned int index;
     W8MonsterInfo* monster;
@@ -477,7 +482,7 @@ unsigned int MonsterGetIndexByLocationID(int caller_line, const char* caller_fil
     if (assert_on_failure) {
         srAssertFail("FALSE", MONSTER_MANAGER_CPP, 0x5c1,
                      fmt::format("MonsterIndex: ID {:d} not found ({} line {:d})", location_id,
-                                 caller_file, caller_line));
+                                 caller.file_name(), caller.line()));
     }
     return 0xffffffff;
 }
@@ -554,20 +559,20 @@ W8MonsterRecord* GetMonsterDataForInfo(W8MonsterInfo* monster_info)
 }
 
 // FUNCTION: WIZ8 0x004e5840
-W8MonsterInfo* MonsterInfoFromID(int caller_line, const char* caller_file, int location_id,
-                                 bool assert_on_failure)
+W8MonsterInfo* FindMonster(int location_id, bool assert_on_failure,
+                                 std::source_location caller)
 {
     W8MonsterInfo* monster = 0;
     unsigned int index;
 
-    index = MonsterGetIndexByLocationID(0x61d, MONSTER_MANAGER_CPP, location_id, false);
+    index = MonsterGetIndexByLocationID(location_id, false);
     if (index != 0xffffffff) {
         monster = MonsterGetScriptPartByLocationIndex(index);
     }
     if (monster == 0 && assert_on_failure) {
         srAssertFail("FALSE", MONSTER_MANAGER_CPP, 0x626,
-                     fmt::format("MonsterInfoFromID: ID {:d} not found ({} line {:d})", location_id,
-                                 caller_file, caller_line));
+                     fmt::format("FindMonster: ID {:d} not found ({} line {:d})", location_id,
+                                 caller.file_name(), caller.line()));
     }
     return monster;
 }
@@ -576,10 +581,8 @@ W8MonsterInfo* MonsterInfoFromID(int caller_line, const char* caller_file, int l
 W8MonsterRecord* GetMonsterDataByLocationID(int location_id)
 {
     W8MonsterInfo* monster;
-    unsigned int index;
 
-    index = MonsterGetIndexByLocationID(0x632, MONSTER_MANAGER_CPP, location_id, true);
-    monster = MonsterGetScriptPartByLocationIndex(index);
+    monster = FindMonster(location_id);
     if (monster == 0) {
         return 0;
     }
@@ -589,16 +592,9 @@ W8MonsterRecord* GetMonsterDataByLocationID(int location_id)
 // FUNCTION: WIZ8 0x004e5950
 W8Monster* GetMonsterByLocationID(int location_id)
 {
-    W8MonsterInfo* monster_info;
-    unsigned int index;
-
     if (location_id != -1) {
-        index = MonsterGetIndexByLocationID(0x64f, MONSTER_MANAGER_CPP, location_id, false);
-        if (index != 0xffffffff) {
-            monster_info = MonsterGetScriptPartByLocationIndex(index);
-            if (monster_info != 0) {
-                return monster_info->p3D;
-            }
+        if (W8MonsterInfo* monster_info = FindMonster(location_id, false)) {
+            return monster_info->p3D;
         }
     }
     return 0;
@@ -854,8 +850,7 @@ void SetMonsterControlState(W8MonsterInfo* monster_info, W8MonsterControlState c
         break;
     }
     monster_info->control_state = control_state;
-    RecountActiveMonsterGroupMembers(GetMonsterGroupByListIndex(GetMonsterGroupIndexByID(
-        0x872, MONSTER_MANAGER_CPP, monster_info->monster_group_id, true)));
+    RecountActiveMonsterGroupMembers(FindMonsterGroup(monster_info->monster_group_id));
 }
 
 // FUNCTION: WIZ8 0x004e60b0
@@ -919,29 +914,18 @@ static double DistanceBetweenPositions(const srVector3T<float>* first,
 // FUNCTION: WIZ8 0x004e61e0
 W8MonsterInfo* FindNearestMonsterInfo(const srVector3T<float>* position, double maximum_distance)
 {
-    W8MonsterInfo* nearest = 0;
+    W8MonsterInfo* nearest = nullptr;
     double nearest_distance = 1.0e11;
-    unsigned int index;
 
-    for (index = 0; index < gXStatus.monsters.size(); ++index) {
-        W8MonsterInfo* monster_info = GetMonsterListEntry(index);
-        double distance = DistanceBetweenPositions(position, monster_info->p3D->GetPosition());
-
-        if (distance < nearest_distance &&
-            (maximum_distance == 0.0 || distance < maximum_distance)) {
-            nearest = monster_info;
-            nearest_distance = distance;
-        }
-    }
-
-    for (index = 0; index < gXStatus.unborn_monsters.size(); ++index) {
-        W8MonsterInfo* monster_info = GetUnbornMonsterEntry(index);
-        double distance = DistanceBetweenPositions(position, monster_info->p3D->GetPosition());
-
-        if (distance < nearest_distance &&
-            (maximum_distance == 0.0 || distance < maximum_distance)) {
-            nearest = monster_info;
-            nearest_distance = distance;
+    for (const auto* monsters : {&gXStatus.monsters, &gXStatus.unborn_monsters}) {
+        for (W8MonsterInfo* monster_info : *monsters) {
+            const double distance =
+                DistanceBetweenPositions(position, monster_info->p3D->GetPosition());
+            if (distance < nearest_distance &&
+                (maximum_distance == 0.0 || distance < maximum_distance)) {
+                nearest = monster_info;
+                nearest_distance = distance;
+            }
         }
     }
     return nearest;
@@ -1027,8 +1011,7 @@ void TryStartMonsterCycle2(W8MonsterInfo* monster_info, W8Monster* monster, int 
                      g_combat_state->pActionMonsterInfo == monster_info)) {
                     return;
                 }
-                W8MonsterGroup* group = GetMonsterGroupByListIndex(GetMonsterGroupIndexByID(
-                    0x987, MONSTER_MANAGER_CPP, monster_info->monster_group_id, true));
+                W8MonsterGroup* group = FindMonsterGroup(monster_info->monster_group_id);
                 unsigned int chance = group->member_count * 20;
 
                 if (!gXStatus.fNpcDialogueMode && Random(chance) == 0) {
@@ -1098,7 +1081,7 @@ unsigned char ShutdownMonsterManager(void)
 {
 
     while (!gXStatus.monsters.empty()) {
-        if (!RemoveMonster(0, true)) {
+        if (!RemoveMonsterAt(0, true)) {
             return 0;
         }
     }
@@ -1117,7 +1100,7 @@ unsigned char ShutdownMonsterManager(void)
 }
 
 // FUNCTION: WIZ8 0x004e3af0
-bool RemoveMonster(unsigned int monster_list_index, bool destroy_monster)
+static bool RemoveMonsterAt(unsigned int monster_list_index, bool destroy_monster)
 {
     W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(monster_list_index);
 
@@ -1125,8 +1108,7 @@ bool RemoveMonster(unsigned int monster_list_index, bool destroy_monster)
         MonsterInfoLeaveCombat(monster_info);
     }
     if (monster_info->monster_group_id != 0) {
-        W8MonsterGroup* monster_group = GetMonsterGroupByListIndex(GetMonsterGroupIndexByID(
-            0x125, MONSTER_MANAGER_CPP, monster_info->monster_group_id, true));
+        W8MonsterGroup* monster_group = FindMonsterGroup(monster_info->monster_group_id);
 
         wiz8::erase_first(*monster_group->monsters, monster_info->location_id);
         --monster_group->member_count;
@@ -1149,6 +1131,11 @@ bool RemoveMonster(unsigned int monster_list_index, bool destroy_monster)
         DestroyMonsterListEntry(monster_list_index);
     }
     return true;
+}
+
+bool RemoveMonster(W8MonsterInfo* monster_info, bool destroy_monster)
+{
+    return RemoveMonsterAt(MonsterGetIndexByLocationID(monster_info->location_id), destroy_monster);
 }
 
 /* Retires one entry from the live world: it parks the entry at the sentinel
@@ -1177,7 +1164,7 @@ void DeactivateMonster(W8MonsterInfo* monster_info)
         monster_info->p3D->flags = 0x200000;
         ClearMonsterSpellIcons(monster_info->p3D);
         ReleaseMonToMonVisibilityList(monster_info);
-        MonsterGetLocalLocation(monster_info->p3D, &position);
+        position = MonsterGetLocalLocation(monster_info->p3D);
         monster_info->position = position;
         monster_info->fActive = false;
         --gXStatus.active_monster_count;
@@ -1450,7 +1437,7 @@ void ProcessMonsterManagerFrame(void)
                 --monster_list_index;
             }
         } else if ((monster->runtime_flags & W8_MONSTER_REMOVE_NOW) != 0) {
-            RemoveMonster(monster_list_index, true);
+            RemoveMonsterAt(monster_list_index, true);
             --monster_list_index;
         } else if ((monster->runtime_flags & W8_MONSTER_SCRIPT_WAIT) == 0) {
             if ((monster->runtime_flags & W8_MONSTER_PARKED) == 0) {
@@ -1472,7 +1459,7 @@ void ProcessMonsterManagerFrame(void)
                             monster_info = MonsterGetScriptPartByLocationIndex(monster_list_index);
                             HandleScriptedNpcDeath(monster_list_index);
                             if (monster_info->monster_group_id != 0) {
-                                RemoveMonster(monster_list_index, false);
+                                RemoveMonsterAt(monster_list_index, false);
                             }
                             DropMonsterLoot(monster_info, -1);
                             monster_info->p3D->BeginDelayedRemoval();
@@ -1496,7 +1483,7 @@ void ProcessMonsterManagerFrame(void)
                 }
             }
         } else {
-            RemoveMonster(monster_list_index, true);
+            RemoveMonsterAt(monster_list_index, true);
             --monster_list_index;
         }
     }
@@ -1533,8 +1520,7 @@ std::string GetMonsterName(W8MonsterInfo* monster_info, W8MonsterRecord* record,
                 1, fmt::format("ERROR: Monster ID {:d} has no group", monster_info->location_id));
         }
     } else {
-        monster_group = GetMonsterGroupByListIndex(GetMonsterGroupIndexByID(
-            0x54c, MONSTER_MANAGER_CPP, monster_info->monster_group_id, true));
+        monster_group = FindMonsterGroup(monster_info->monster_group_id);
         if (monster_group == 0) {
             srAssertFail("pMonsterGroup", MONSTER_MANAGER_CPP, 0x54d, 0);
         }
@@ -1635,6 +1621,15 @@ std::string FormatMonsterHealth(W8MonsterInfo* monster_info)
     return fmt::format("{}/{}", current, maximum);
 }
 
+/* Blind, incapacitated and unoccupied party members cannot sense monsters. */
+static bool CanNoticeMonsterGroup(unsigned int slot)
+{
+    const W8Character& character = g_status.buffers.Char[slot];
+    return g_status.buffers.XChar[slot].fOccupied && character.hp_current != 0 &&
+           character.highest_condition < W8_CONDITION_INSANE &&
+           character.uiCondition[W8_CONDITION_BLIND] == 0;
+}
+
 // FUNCTION: WIZ8 0x004e4ab0
 void DetectMonsterGroups(void)
 {
@@ -1652,12 +1647,9 @@ void DetectMonsterGroups(void)
             int best_slot = -1;
             unsigned int best_margin = 0;
             for (unsigned int slot = 0; slot < 8; ++slot) {
-                W8Character* character = &g_status.buffers.Char[slot];
-                if (!g_status.buffers.XChar[slot].fOccupied || character->hp_current == 0 ||
-                    character->highest_condition >= W8_CONDITION_INSANE ||
-                    character->uiCondition[W8_CONDITION_BLIND] != 0) {
+                if (!CanNoticeMonsterGroup(slot))
                     continue;
-                }
+                W8Character* character = &g_status.buffers.Char[slot];
                 int score =
                     (character->monster_awareness[group->monster_id] - record->effective_level) *
                         3 +
@@ -1706,12 +1698,9 @@ void DetectMonsterGroups(void)
         }
         if (group->group_state[0] == 0) {
             for (unsigned int slot = 0; slot < 8; ++slot) {
-                W8Character* character = &g_status.buffers.Char[slot];
-                if (!g_status.buffers.XChar[slot].fOccupied || character->hp_current == 0 ||
-                    character->highest_condition >= W8_CONDITION_INSANE ||
-                    character->uiCondition[W8_CONDITION_BLIND] != 0) {
+                if (!CanNoticeMonsterGroup(slot))
                     continue;
-                }
+                W8Character* character = &g_status.buffers.Char[slot];
                 unsigned int awareness =
                     character->monster_awareness[group->monster_id] + group->member_count;
                 if (awareness > 0xff) {

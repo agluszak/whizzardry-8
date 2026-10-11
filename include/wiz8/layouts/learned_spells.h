@@ -8,8 +8,3 @@ struct W8LearnedSpellState {
     int scroll[6];
     int learned_total;
 };
-
-W8_ABI_ASSERT(sizeof(W8LearnedSpellState) == 0x3dc, "W8LearnedSpellState_size");
-W8_ABI_ASSERT(offsetof(W8LearnedSpellState, scroll) == 0x3c0, "W8LearnedSpellState_scroll_offset");
-W8_ABI_ASSERT(offsetof(W8LearnedSpellState, learned_total) == 0x3d8,
-              "W8LearnedSpellState_total_offset");

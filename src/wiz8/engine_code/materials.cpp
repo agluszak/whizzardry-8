@@ -1,8 +1,37 @@
-#include <sstream>
+#include <SDL3/SDL_pixels.h>
 #include <fmt/format.h>
+#include "surrender/lighting_math.h"
+#include "surrender/srMath.h"
+#include "surrender/srBoundingBox.h"
 #include <fmt/printf.h>
-#include "wiz8/unicode.h"
+#include <memory>
+#include <span>
+#include "wiz8/engine_code/geometry_repack.h"
+#include <wiz8/filesystem.h>
+#include <SDL3/SDL_filesystem.h>
+#include <SDL3/SDL_stdinc.h>
+#include <sstream>
 #include <string_view>
+#include <algorithm>
+#include <cstdio>
+#include <cstring>
+#include <cmath>
+#include <array>
+#include <cctype>
+#include <cstdlib>
+#include <exception>
+#include <iterator>
+#include <optional>
+#include <string>
+#include <unordered_map>
+#include <utility>
+#include <vector>
+
+#include "compat/compiler.h"
+#include "glm/geometric.hpp" // NOLINT(misc-include-cleaner)
+#include "himage.h"
+#include "surrender/srTypeRegistry.h"
+#include "wiz8/unicode.h"
 #include "surrender/srCore.h"
 #include "surrender/srGERD.h"
 #include "surrender/srMaterial.h"
@@ -12,7 +41,7 @@
 #include "surrender/srVertexPipe.h"
 #include "wiz8/engine_code/materials.h"
 #include "wiz8/engine_code/3d.h"
-#include "wiz8/engine_code/BitArray.h"
+#include "wiz8/packed_bits.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/GDFileIO.h"
@@ -20,34 +49,32 @@
 #include "wiz8/engine_code/OctBuildPreTree.h"
 #include "wiz8/engine_code/OctPreTree.h"
 #include "wiz8/engine_code/Octree.h"
-#include "wiz8/engine_code/ReadLevel.h"
 #include "wiz8/engine_code/ReadMesh.h"
 #include "wiz8/index_algorithms.h"
 #include "wiz8/engine_code/stTextureAnim.h"
 #include "wiz8/engine_code/stTextureFile.h"
 #include "wiz8/resource_cache.h"
 #include "wiz8/float_constants.h"
-#include "wiz8/engine_code/Environment.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/environment_colour.h"
 #include "wiz8/fonts.h"
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/PleaseWaitScreen.h"
-#include "wiz8/sr_api.h"
-#include "wiz8/utility.h"
 #include "wiz8/virtual_file.h"
-
 #include "Font.h"
 #include "input.h"
 #include "wiz8/application.h"
 #include "wiz8/local_code/Gameloop.h"
-
-#include <cstdio>
-#include <cstring>
-#include <cmath>
-#include <new>
-#include <wiz8/filesystem.h>
+#include "OctBuildTree.h"
+#include "OctMeshModel.h"
+#include "compat/native.h"
+#include "geometry.h"
+#include "glm/ext/vector_float2.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include "glm/ext/vector_float4.hpp"
+#include "surrender/srTexture.h"
+#include "surrender/srTextureIFace.h"
 
 #define MATERIALS_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\materials.cpp"
 
@@ -68,8 +95,6 @@ public:
     virtual void process(srVertexPipe& pipe) override;
 };
 
-W8_ABI_ASSERT(sizeof(W8NormalTexcoordMapper) == 4, "W8NormalTexcoordMapper004B89A0_must_be_4");
-
 // GLOBAL: WIZ8 0x0065BEA8
 static W8NormalTexcoordMapper g_normal_texcoord_mapper;
 
@@ -88,7 +113,6 @@ float g_material_emissive_override;
 // FUNCTION: WIZ8 0x004B89B0
 void W8NormalTexcoordMapper::process(srVertexPipe& pipe)
 {
-    const glm::vec3* normals;
     glm::vec2* coordinates;
     w8_ulong count;
     w8_ulong index;
@@ -96,7 +120,7 @@ void W8NormalTexcoordMapper::process(srVertexPipe& pipe)
     if (!pipe.isChannelAvailable(srVertexProcessor::CHANNEL_ST0)) {
         return;
     }
-    normals = pipe.getEyeSpaceNormal();
+    const auto normals = pipe.getEyeSpaceNormal();
     coordinates = pipe.getST(0, 1);
     count = pipe.getVertexCount();
     srCore.getStatisticsManager()->statistics.texture_coordinate_operations += count;
@@ -113,9 +137,9 @@ stMaterial::stMaterial()
 }
 
 // FUNCTION: WIZ8 0x004928F0
-void stMaterial::getMaterialInfo(srVertexProcessor::MaterialInfo& info)
+srVertexProcessor::MaterialInfo stMaterial::getMaterialInfo()
 {
-    srMaterial::getMaterialInfo(info);
+    auto info = srMaterial::getMaterialInfo();
     if (g_material_diffuse_scale_enabled) {
         info.diffuse.w *= g_material_diffuse_scale;
     }
@@ -123,8 +147,8 @@ void stMaterial::getMaterialInfo(srVertexProcessor::MaterialInfo& info)
         info.emissive = glm::vec4(g_material_emissive_override, g_material_emissive_override,
                           g_material_emissive_override, 1.0f);
     }
+    return info;
 }
-
 
 /* ===== OctBuild level preprocessing =====
    The retail level preprocessor lives in this TU between the stMaterial
@@ -189,7 +213,8 @@ W8OctPreTreeVertex* g_gd_vertices;
 // GLOBAL: WIZ8 0x0065BD38
 W8OctRegionPolygon* g_gd_polygons;
 // GLOBAL: WIZ8 0x0065BD3C
-static BitArray* g_prop_sun_bits;
+/* Material slots whose texture file is missing. */
+static std::vector<bool> g_missing_textures;
 // GLOBAL: WIZ8 0x0065BD44
 static short g_status_cursor;
 // GLOBAL: WIZ8 0x0065BD48
@@ -208,22 +233,21 @@ const float g_weld_position_tolerance = 2.5f;
 // GLOBAL: WIZ8 0x005ECBBC
 const float g_material_opposed_normal_threshold = -0.995f;
 
-static unsigned char PreprocessLevel(wiz8::File* handle, char* stem);
+static unsigned char PreprocessLevel(wiz8::File& handle, char* stem);
 /* The following helpers retain distinct retail call boundaries. Their source
    names, internal linkage and placement here are provisional; lack of /Ob2
    PDB procedures does not establish that they were authored inline. */
 static int WeldVertex(std::unordered_multimap<unsigned int, int>* table, W8OctPreTreeVertex* vertices,
                       unsigned int index, unsigned int link);
-static int AccumulateVertexLight(OctPreTree* tree, W8OctPreTreeVertex* vertex, short light_count,
-                                 W8LevelFileLight* lights, int* sun_map);
-static unsigned char PropReceivesLight(OctPreTree* tree, W8LevelFileProp* prop,
-                                       W8LevelFileLight* light);
-static int BuildRegionPolygons(W8LevelFile* level, W8OctPreTreeGeometry* geometry,
+static int AccumulateVertexLight(OctPreTree* tree, W8OctPreTreeVertex* vertex,
+                                 std::span<const W8LevelFileLight> lights, int* sun_map);
+static unsigned char PropReceivesLight(OctPreTree* tree, const W8LevelFileProp& prop,
+                                       const W8LevelFileLight& light);
+static int BuildRegionPolygons(W8LevelFile& level, W8OctPreTreeGeometry* geometry,
                                unsigned char* classify);
-static unsigned char SplitVerticesByMaterial(W8OctPreTreeGeometry* geometry);
-static unsigned char* ClassifyTextures(W8MaterialRecord* textures, int count, char* stem);
-static unsigned char MaterialSort(W8OctPreTreeGeometry* geometry, W8MaterialRecord* textures,
-                                  int count, unsigned char* classify);
+static unsigned char* ClassifyTextures(std::span<W8MaterialRecord> textures, char* stem);
+static unsigned char MaterialSort(W8OctPreTreeGeometry* geometry, std::span<W8MaterialRecord> textures,
+                                  unsigned char* classify);
 
 // FUNCTION: WIZ8 0x00492E60
 char W8Octree::BuildPreprocessedFiles(const char* level_path)
@@ -257,7 +281,7 @@ char W8Octree::BuildPreprocessedFiles(const char* level_path)
     if (handle == 0) {
         ReportBuildStatus(7, "Could not find and\\or open level file.\n");
     } else {
-        unsigned char built = PreprocessLevel(handle.get(), stem);
+        unsigned char built = PreprocessLevel(*handle, stem);
         if (handle) handle->close();
         handle.reset();
         if (built != 0) {
@@ -301,26 +325,23 @@ char W8Octree::BuildPreprocessedFiles(const char* level_path)
    computes vertex lighting and sun visibility, sorts materials, splits
    vertices, writes NewLevel.lvl/.oct and releases everything it made. */
 // FUNCTION: WIZ8 0x00493120
-static unsigned char PreprocessLevel(wiz8::File* handle, char* stem)
+static unsigned char PreprocessLevel(wiz8::File& handle, char* stem)
 {
     char message[1024];
     char name[20];
     srVector3T<float> minimum;
     srVector3T<float> maximum;
-    srVector3T<float> bound_min;
-    srVector3T<float> bound_max;
     W8OctPreTreeGeometry geometry;
-    W8LevelFileLight* lights;
+    std::vector<W8LevelFileLight> lights;
     int* sun_map;
     float* sun_pool;
     unsigned char* classify;
     W8OctPreTreeVertex* vertices;
-    W8LevelFile* level;
+    std::unique_ptr<W8LevelFile> level;
     W8GameData* value;
     OctBuildPreTree* build_tree;
     OctPreTree* tree;
-    OctMeshModel* submeshes;
-    BitArray* sun_bits;
+    std::vector<OctMeshModel> submeshes;
     unsigned char result;
     bool report;
     int redundant;
@@ -334,12 +355,9 @@ static unsigned char PreprocessLevel(wiz8::File* handle, char* stem)
     int lit;
     std::unique_ptr<wiz8::File> file;
     W8LevelFileMesh* mesh;
-    W8LevelFileLight* src_light;
 
     result = 0;
-    submeshes = 0;
     sun_map = 0;
-    lights = 0;
     {
         std::unordered_multimap<unsigned int, int> weld;
         sun_pool = 0;
@@ -349,12 +367,12 @@ static unsigned char PreprocessLevel(wiz8::File* handle, char* stem)
             return 0;
         }
         memset(&geometry, 0, sizeof(geometry));
-        mesh = level->pMeshes;
+        mesh = &level->mesh;
         if (mesh->num_vertices < 1 || mesh->num_faces < 1) {
             return 0;
         }
         ++mesh->num_vertices;
-        classify = ClassifyTextures(level->pTextures, level->nTextures, stem);
+        classify = ClassifyTextures(level->textures, stem);
         vertices =
             static_cast<W8OctPreTreeVertex*>(malloc(mesh->num_vertices * 2 * sizeof(*vertices)));
         if (vertices != 0) {
@@ -363,10 +381,9 @@ static unsigned char PreprocessLevel(wiz8::File* handle, char* stem)
             maximum = -1e7f;
             redundant = 0;
             for (i = 1; i < mesh->num_vertices; ++i) {
-                const srVector3T<float>& source = mesh->pstVertices[i - 1];
-                vertices[i].position.Set(source.x * g_world_scale, source.y * g_world_scale,
-                                         source.z * g_world_scale);
-                vertices[i].m_original_position.Set(source.x, source.y, source.z);
+                const srVector3T<float>& source = mesh->vertices[i - 1];
+                vertices[i].position = source.glmValue() * g_world_scale;
+                vertices[i].m_original_position = source.glmValue();
                 vertices[i].m_visited = false;
                 for (j = 0; j < 3; ++j) {
                     float v = (&vertices[i].position.x)[j];
@@ -433,30 +450,30 @@ static unsigned char PreprocessLevel(wiz8::File* handle, char* stem)
                 }
                 ReportBuildStatus(6, "\nBuilding OctBuildPreTree ---------------------\n");
                 build_tree =
-                    new OctBuildPreTree(g_option_min_leaf_size, &minimum, &maximum,
+                    new OctBuildPreTree(g_option_min_leaf_size,
+                                        srBoundingBox{minimum.glmValue(), maximum.glmValue()},
                                         g_option_max_path_nodes, g_option_max_leaf_count, 0);
                 if (build_tree != 0) {
-                    build_tree->LoadRegionFile(stem, &minimum, &maximum);
+                    build_tree->LoadRegionFile(stem);
                     if (!g_option_mesh_linking) {
                         build_tree->mesh_linking = false;
                     }
                     build_tree->spatial.m_region_grid_cell = g_option_auto_region_size;
-                    int alpha_polys = BuildRegionPolygons(level, &geometry, classify);
+                    int alpha_polys = BuildRegionPolygons(*level, &geometry, classify);
                     build_tree->SortGeometry(&geometry);
-                    short light_total = level->nLights;
+                    short light_total = static_cast<short>(level->lights.size());
                     last_sun = -1;
                     if (light_total != 0) {
-                        lights = static_cast<W8LevelFileLight*>(
-                            malloc(light_total * sizeof(W8LevelFileLight)));
-                        memcpy(lights, level->pLights, light_total * sizeof(W8LevelFileLight));
+                        // The bake works on world-scaled copies of the lights.
+                        lights = level->lights;
                         sun_map = static_cast<int*>(malloc(light_total * sizeof(int)));
                         memset(sun_map, 0, light_total * sizeof(int));
                         sun_count = 1;
                         for (i = 0; i < static_cast<int>(light_total); ++i) {
-                            src_light = lights + i;
-                            src_light->position *= g_world_scale;
-                            src_light->colour.x = src_light->colour.x * g_world_scale;
-                            strcpy(name, src_light->name);
+                            auto& light = lights[i];
+                            light.position *= g_world_scale;
+                            light.colour.x = light.colour.x * g_world_scale;
+                            strcpy(name, light.name);
                             name[19] = 0;
                             TrimAndLowercaseString(name);
                             if (strstr(name, "sun") != 0 || strstr(name, "moon") != 0 ||
@@ -497,35 +514,35 @@ static unsigned char PreprocessLevel(wiz8::File* handle, char* stem)
                     g_oct_max_objects = build_tree->deepest_link_list;
                     ReportBuildStatus(3, message);
                     snprintf(message, sizeof(message), "World Minimum Corner: \t%f  \t%f  \t%f\n",
-                            build_tree->spatial.m_minimum.x, build_tree->spatial.m_minimum.y,
-                            build_tree->spatial.m_minimum.z);
+                            build_tree->spatial.m_bounds.minimum.x, build_tree->spatial.m_bounds.minimum.y,
+                            build_tree->spatial.m_bounds.minimum.z);
                     ReportBuildStatus(6, message);
                     snprintf(message, sizeof(message), "World Maximum Corner: \t%f  \t%f  \t%f\n",
-                            build_tree->spatial.m_maximum.x, build_tree->spatial.m_maximum.y,
-                            build_tree->spatial.m_maximum.z);
+                            build_tree->spatial.m_bounds.maximum.x, build_tree->spatial.m_bounds.maximum.y,
+                            build_tree->spatial.m_bounds.maximum.z);
                     ReportBuildStatus(6, message);
                     snprintf(message, sizeof(message), "World Dimensions:\n\tX: %fm  \tY: %fm  \tZ: %fm\n",
-                            ((build_tree->spatial.m_clipped_maximum.x -
-                              build_tree->spatial.m_clipped_minimum.x) *
+                            ((build_tree->spatial.m_clipped_bounds.maximum.x -
+                              build_tree->spatial.m_clipped_bounds.minimum.x) *
                              g_float_one_five_hundredth),
-                            ((build_tree->spatial.m_clipped_maximum.y -
-                              build_tree->spatial.m_clipped_minimum.y) *
+                            ((build_tree->spatial.m_clipped_bounds.maximum.y -
+                              build_tree->spatial.m_clipped_bounds.minimum.y) *
                              g_float_one_five_hundredth),
-                            ((build_tree->spatial.m_clipped_maximum.z -
-                              build_tree->spatial.m_clipped_minimum.z) *
+                            ((build_tree->spatial.m_clipped_bounds.maximum.z -
+                              build_tree->spatial.m_clipped_bounds.minimum.z) *
                              g_float_one_five_hundredth));
                     ReportBuildStatus(6, message);
-                    for (i = 0; i < level->num_switch_triggers; ++i) {
-                        int slot =
-                            value->FindPointerByName(level->switch_triggers[i]->surface_id + 1);
-                        level->switch_triggers[i]->surface_id[0] = '\0';
-                        sprintf(level->switch_triggers[i]->surface_id + 1, "%d", slot);
+                    const auto trigger_parts = CollectTriggerParts(*level);
+                    for (auto* trigger : trigger_parts.switches) {
+                        // The switch's surface name is replaced by its surface slot.
+                        int slot = value->FindPointerByName(trigger->surface_id + 1);
+                        trigger->surface_id[0] = '\0';
+                        sprintf(trigger->surface_id + 1, "%d", slot);
                     }
-                    for (i = 0; i < level->num_invisible_planes; ++i) {
-                        value->AddLevelPlane(level->invisible_planes[i]);
+                    for (const auto* plane : trigger_parts.planes) {
+                        value->AddLevelPlane(*plane);
                     }
-                    for (i = 0; i < level->num_linked_records; ++i) {
-                        W8LevelFileLinkedRecord* record = level->linked_records[i];
+                    for (auto* record : trigger_parts.linked_records) {
                         value->AddLinkedRecord(record->vertices, record->normal_scale,
                                                record->forward_scale, &record->linked_face);
                     }
@@ -556,11 +573,10 @@ static unsigned char PreprocessLevel(wiz8::File* handle, char* stem)
                     }
                     build_tree->RemapNodeRegions(0, 0);
                     ReportBuildStatus(6, "\nInserting props and particles into regions... \n");
-                    build_tree->BuildParticleRegions(level->pParticleSystems,
-                                                     level->nParticleSystems);
-                    build_tree->BuildGeometryRegions(level->pProps, level->nProps, 0, false);
-                    build_tree->BuildGeometryRegions(level->pBitmaps, level->nBitmaps,
-                                                     level->nProps, true);
+                    build_tree->BuildParticleRegions(level->particle_systems);
+                    build_tree->BuildGeometryRegions(level->props, 0, false);
+                    build_tree->BuildGeometryRegions(level->bitmaps, static_cast<int>(level->props.size()),
+                                                     true);
                     build_tree->spatial.m_root->RearrangeNodePolys(0, build_tree->spatial.m_depth);
                     /* Both of these walk their count unsigned - the retail
                        guards with jbe at 0x00493D24 and 0x00493D45 and closes
@@ -582,7 +598,7 @@ static unsigned char PreprocessLevel(wiz8::File* handle, char* stem)
                         return 0;
                     }
                     tree->SetPathStem(stem);
-                    tree->m_spatial.SetWorkingBounds(&g_weld_min, &g_weld_max);
+                    tree->m_spatial.setWorkingBounds({g_weld_min.glmValue(), g_weld_max.glmValue()});
                     tree->m_alpha_polygon_count = alpha_polys;
                     value->octree = tree;
                     snprintf(message, sizeof(message), "Poly List Len: %d\n", static_cast<int>(tree->polygon_cursor));
@@ -602,22 +618,17 @@ static unsigned char PreprocessLevel(wiz8::File* handle, char* stem)
                                 snprintf(message, sizeof(message), "  %d%% Complete:  %d Vertices Lit \r", mark, i);
                                 ReportStartupMessage(message);
                             }
-                            if (AccumulateVertexLight(tree, vertices + i, light_total, lights,
-                                                      sun_map) != 0) {
+                            if (AccumulateVertexLight(tree, vertices + i, lights, sun_map) != 0) {
                                 ++lit_vertices;
                             }
                         }
                         short live_lights = 0;
-                        if (0 < light_total) {
-                            src_light = lights;
-                            for (i = light_total; i != 0; --i) {
-                                if (src_light->version < 2 ||
-                                    (src_light->create == 0 && src_light->visible != 0)) {
-                                    ++live_lights;
-                                }
-                                ++src_light;
+                        for (const auto& light : lights) {
+                            if (light.version < 2 || (light.create == 0 && light.visible != 0)) {
+                                ++live_lights;
                             }
                         }
+                        i = 0;
                         int combinations = live_lights * i;
                         snprintf(message, sizeof(message), "\n\n%d vertices, %d lights\n",
                                 static_cast<int>(geometry.vertex_count), light_total);
@@ -657,8 +668,9 @@ static unsigned char PreprocessLevel(wiz8::File* handle, char* stem)
                                     lit_vertices * 100 / static_cast<int>(geometry.vertex_count));
                             ReportBuildStatus(6, message);
                         }
-                        sun_bits = new BitArray(level->nBitmaps + level->nProps);
-                        if (level->nProps != 0 && last_sun >= 0) {
+                        const int prop_count = static_cast<int>(level->props.size());
+                        std::vector<bool> sun_bits(level->bitmaps.size() + level->props.size());
+                        if (prop_count != 0 && last_sun >= 0) {
                             int* read_entry = sun_map;
                             int* write_entry = sun_map;
                             for (i = light_total; i > 0; --i) {
@@ -670,28 +682,27 @@ static unsigned char PreprocessLevel(wiz8::File* handle, char* stem)
                                 ++read_entry;
                             }
                             for (int* sun_entry = sun_map; sun_count-- > 0; ++sun_entry) {
-                                for (i = 0; i < level->nProps; ++i) {
-                                    if (PropReceivesLight(tree, level->pProps + i,
-                                                          lights + *sun_entry) != 0) {
-                                        sun_bits->Set(i);
+                                const auto& sun = lights[*sun_entry];
+                                for (i = 0; i < prop_count; ++i) {
+                                    if (PropReceivesLight(tree, level->props[i], sun) != 0) {
+                                        SetBit(sun_bits, i);
                                     }
                                 }
-                                for (i = 0; i < level->nBitmaps; ++i) {
-                                    if (PropReceivesLight(tree, level->pBitmaps + i,
-                                                          lights + *sun_entry) != 0) {
-                                        sun_bits->Set(level->nProps + i);
+                                for (i = 0; i < static_cast<int>(level->bitmaps.size()); ++i) {
+                                    if (PropReceivesLight(tree, level->bitmaps[i], sun) != 0) {
+                                        SetBit(sun_bits, prop_count + i);
                                     }
                                 }
                             }
                             snprintf(message, sizeof(message), "%d of %d props receive sunlight\n",
-                                    sun_bits->CountSetBits(),
-                                    static_cast<char>((level->nProps << 1)));
+                                    static_cast<int>(std::ranges::count(sun_bits, true)),
+                                    static_cast<char>((prop_count << 1)));
                             ReportBuildStatus(6, message);
                         }
-                        tree->SetPropSunBits(sun_bits);
+                        tree->SetPropSunBits(std::move(sun_bits));
                     }
                     ReportBuildStatus(6, "\nSorting Materials and Textures...\n");
-                    result = MaterialSort(&geometry, level->pTextures, level->nTextures, classify);
+                    result = MaterialSort(&geometry, level->textures, classify);
                     if (result == 0) {
                         ReportBuildStatus(7, "Could not generate polygon list by regions.\n");
                     } else {
@@ -699,10 +710,16 @@ static unsigned char PreprocessLevel(wiz8::File* handle, char* stem)
                                 static_cast<int>(geometry.m_texture_count),
                                 static_cast<int>(geometry.m_material_count));
                         ReportBuildStatus(6, message);
-                        result = SplitVerticesByMaterial(&geometry);
+                        const auto original_vertex_count = geometry.vertex_count;
+                        ReportBuildStatus(6, "Splitting vertices by Material...\n");
+                        result = geometry.splitVerticesByMaterial();
                         if (result == 0) {
-                            ReportBuildStatus(7, "Could not generate polygon list by regions.\n");
+                            ReportBuildStatus(7, "Could not allocate material-split vertex table.\n");
                         } else {
+                            snprintf(message, sizeof(message), "Split %d vertices into %d new vertices--ratio is 1 to %.1f.\n\n",
+                                     static_cast<int>(original_vertex_count), static_cast<int>(geometry.vertex_count),
+                                     geometry.vertex_count / static_cast<double>(original_vertex_count));
+                            ReportBuildStatus(6, message);
                             ReportBuildStatus(6, "\nCreating Submeshes ------------------------\n");
                             submeshes = tree->CreateSubMeshes(&geometry);
                             snprintf(message, sizeof(message), "Number of Submeshes: %d\n",
@@ -720,9 +737,9 @@ static unsigned char PreprocessLevel(wiz8::File* handle, char* stem)
                             if (g_option_pathing) {
                                 tree->m_region_cell = g_option_path_node_spacing;
                                 tree->m_path_clearance = g_option_path_head_room;
-                                tree->BuildPathLists(value, level, g_option_delete_percentage);
+                                tree->BuildPathLists(value, *level, g_option_delete_percentage);
                             }
-                            if (submeshes == 0) {
+                            if (submeshes.empty()) {
                                 if (tree->GetMeshCount() == 0) {
                                     ReportBuildStatus(7, "Could not create submesh data.\n");
                                     result = 0;
@@ -731,13 +748,13 @@ static unsigned char PreprocessLevel(wiz8::File* handle, char* stem)
                                 ReportBuildStatus(7, "Could not create submesh data.\n");
                                 result = 0;
                             } else {
-                                tree->m_spatial.GetWorkingBounds(&bound_min, &bound_max);
+                                const auto bounds = tree->m_spatial.GetWorkingBounds();
                                 ReportBuildStatus(6, "Graphic Data Bounding Box:\n");
-                                snprintf(message, sizeof(message), "     Minimum: %f   %f   %f\n", bound_min.x,
-                                        bound_min.y, bound_min.z);
+                                snprintf(message, sizeof(message), "     Minimum: %f   %f   %f\n", bounds.minimum.x,
+                                        bounds.minimum.y, bounds.minimum.z);
                                 ReportBuildStatus(6, message);
-                                snprintf(message, sizeof(message), "     Maximum: %f   %f   %f\n\n", bound_max.x,
-                                        bound_max.y, bound_max.z);
+                                snprintf(message, sizeof(message), "     Maximum: %f   %f   %f\n\n", bounds.maximum.x,
+                                        bounds.maximum.y, bounds.maximum.z);
                                 ReportBuildStatus(6, message);
                                 ReportBuildStatus(6, "\nWriting Oct File...\n");
                                 result = tree->WriteOctFile(&geometry, value);
@@ -780,11 +797,8 @@ static unsigned char PreprocessLevel(wiz8::File* handle, char* stem)
                             ReportBuildStatus(7, "Could not open new level file.\n");
                             result = 0;
                         } else {
-                            level->submesh_count = tree->GetMeshCount();
-                            level->mesh_count = tree->m_meshCount;
-                            level->pModels = submeshes;
                             ReportBuildStatus(6, "\nWriting PVL File...\n");
-                            result = result & WriteLevelFile(file.get(), handle, level);
+                            result = result & WriteLevelFile(*file, handle, *level, submeshes, tree->m_meshCount);
                             if (file) file->close();
                             file.reset();
                             if (result != 0) {
@@ -811,16 +825,12 @@ static unsigned char PreprocessLevel(wiz8::File* handle, char* stem)
                     }
                     delete tree;
                     delete value;
-                    delete g_prop_sun_bits;
-                    g_prop_sun_bits = 0;
+                    g_missing_textures.clear();
                     if (sun_pool != 0) {
                         free(sun_pool);
                     }
                     if (sun_map != 0) {
                         free(sun_map);
-                    }
-                    if (lights != 0) {
-                        free(lights);
                     }
                     return result;
                 }
@@ -964,14 +974,16 @@ void ReportStartupMessage(std::string_view message)
     for (const unsigned char byte : message) {
         if (byte > 0x1f) line->push_back(static_cast<char>(byte));
     }
-    SetFont(g_smfnt_font);
-    SetRGBFontShadow(0, 0, 0);
-    SetFontObjectPalette16BPP(g_smfnt_font, g_font_state_palettes[W8_FONT_PALETTE_YELLOW].get());
+    g_smfnt_font.setPalette(g_font_state_palettes[W8_FONT_PALETTE_YELLOW]);
+    const TextOptions text_options{
+        .colors = {.shadow = Get16BPPColor(SDL_Color{0, 0, 0, SDL_ALPHA_OPAQUE})}};
     if (scrolled) {
         ClearSurfaceRect(0, 400, 0x27f, 0x1df);
         index = 0x191;
         for (top = 0; top < 6; ++top) {
-            DrawFontTextDirty(1, index, fmt::sprintf(const_cast<char*>("%s"), g_status_lines[top]));
+            DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font, {1, index},
+                                  fmt::sprintf(const_cast<char*>("%s"), g_status_lines[top]),
+                                  text_options);
             index += 0xd;
         }
         InvalidateRegion(0, 400, 0x27f, 0x1df, 4);
@@ -979,7 +991,8 @@ void ReportStartupMessage(std::string_view message)
         index = (g_status_cursor - 1) * 0xd;
         top = index + 400;
         ClearSurfaceRect(0, top, 0x27f, g_status_cursor * 0xd + 400);
-        DrawFontTextDirty(1, index + 0x191, *line);
+        DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font, {1, index + 0x191}, *line,
+                              text_options);
         InvalidateRegion(0, top, 0x27f, g_status_cursor * 0xd + 400, 4);
     }
     g_status_scroll = scroll;
@@ -1085,11 +1098,11 @@ static int WeldVertex(std::unordered_multimap<unsigned int, int>* table, W8OctPr
    two-sided or opposing-normal polygons weld their corners and emit a mirrored
    backface. Returns the alpha polygon count. */
 // FUNCTION: WIZ8 0x00494B90
-static int BuildRegionPolygons(W8LevelFile* level, W8OctPreTreeGeometry* geometry,
+static int BuildRegionPolygons(W8LevelFile& level, W8OctPreTreeGeometry* geometry,
                                unsigned char* classify)
 {
-    W8LevelFileMesh* mesh = level->pMeshes;
-    W8MaterialRecord* materials = level->pTextures;
+    W8LevelFileMesh* mesh = &level.mesh;
+    W8MaterialRecord* materials = level.textures.data();
     W8OctPreTreeVertex* vertices = geometry->m_vertices;
     char message[1024];
     int vertex_index[3];
@@ -1099,11 +1112,9 @@ static int BuildRegionPolygons(W8LevelFile* level, W8OctPreTreeGeometry* geometr
     int ordinal;
     int last_percent;
     w8_ulong axis;
-    float largest;
-    float length;
     float offset;
     bool opposing;
-    srVector3T<float> normal;
+    glm::vec3 normal;
     W8OctRegionPolygon* polygons;
     W8OctRegionPolygon* polygon;
     W8OctRegionPolygon* back;
@@ -1129,7 +1140,7 @@ static int BuildRegionPolygons(W8LevelFile* level, W8OctPreTreeGeometry* geometr
     ordinal = 1;
     if (1 < poly_total) {
         polygon = polygons + 1;
-        face = mesh->pstFaces;
+        face = mesh->faces.data();
         do {
             if (last_percent < static_cast<int>((ordinal * 100.0f / poly_total))) {
                 ++last_percent;
@@ -1179,24 +1190,9 @@ static int BuildRegionPolygons(W8LevelFile* level, W8OctPreTreeGeometry* geometr
                 polygon->degenerate = 1;
             }
             if (polygon->degenerate == 0) {
-                normal.SetZero();
-                int step = 2;
-                for (corner = 0; corner < 3; ++corner) {
-                    const W8OctPreTreeVertex* prev = vertices + vertex_index[(step - 1) % 3];
-                    const W8OctPreTreeVertex* next = vertices + vertex_index[step % 3];
-                    const W8OctPreTreeVertex* cur = vertices + vertex_index[corner];
-                    ++step;
-                    normal.x += (prev->m_original_position.z - next->m_original_position.z) *
-                                cur->m_original_position.y;
-                    normal.y += (prev->m_original_position.x - next->m_original_position.x) *
-                                cur->m_original_position.z;
-                    normal.z += (prev->m_original_position.y - next->m_original_position.y) *
-                                cur->m_original_position.x;
-                }
-                length = sqrt(normal.LengthSquared());
-                normal.x /= length;
-                normal.y /= length;
-                normal.z /= length;
+                normal = trianglePlane(vertices[vertex_index[0]].m_original_position,
+                                       vertices[vertex_index[1]].m_original_position,
+                                       vertices[vertex_index[2]].m_original_position).normal.glmValue();
                 offset = 0.0f;
                 for (corner = 0; corner < 3; ++corner) {
                     current = vertices + vertex_index[corner];
@@ -1204,27 +1200,16 @@ static int BuildRegionPolygons(W8LevelFile* level, W8OctPreTreeGeometry* geometr
                              normal.x * current->position.x + offset;
                 }
                 offset *= g_float_negative_one_third;
-                axis = 0;
-                largest = 0.0f;
                 polygon->plane.normal = normal;
-                for (corner = 0; corner < 3; ++corner) {
-                    float component = (&polygon->plane.normal.x)[corner];
-                    if (largest < fabs(component)) {
-                        largest = fabs(component);
-                        axis = corner;
-                    }
-                }
+                axis = dominantPlaneAxis(normal);
                 polygon->plane.w = offset;
                 polygon->flags = axis;
                 opposing = false;
                 for (corner = 0; corner < 3; ++corner) {
                     current = vertices + vertex_index[corner];
                     if (current->m_normal_count != 0) {
-                        length = sqrt(glm::dot((current->m_normal).glmValue(),
-                                               (current->m_normal).glmValue()));
-                        if ((current->m_normal.z / length) * normal.z +
-                                (current->m_normal.y / length) * normal.y +
-                                (current->m_normal.x / length) * normal.x <
+                        // NOLINTNEXTLINE(misc-include-cleaner)
+                        if (glm::dot(normalizedOrZero(current->m_normal), normal) <
                             g_material_opposed_normal_threshold) {
                             opposing = true;
                         }
@@ -1260,7 +1245,7 @@ static int BuildRegionPolygons(W8LevelFile* level, W8OctPreTreeGeometry* geometr
                             vertex_index[corner] = mesh->num_vertices;
                             ++mesh->num_vertices;
                             created->flags |= W8OctPreTreeVertex::NORMAL_SPLIT;
-                            created->m_normal.SetZero();
+                            created->m_normal = glm::vec3(0);
                             created->m_normal_count = 0;
                         } else {
                             vertex_index[corner] = found - 1;
@@ -1325,218 +1310,89 @@ invalid:
    polygon corner can point at a vertex carrying that polygon's material and
    uv, then repacks the vertex array and repoints the corners. */
 // FUNCTION: WIZ8 0x00495860
-static unsigned char SplitVerticesByMaterial(W8OctPreTreeGeometry* geometry)
+bool W8OctPreTreeGeometry::splitVerticesByMaterial()
 {
-    char message[1024];
-    unsigned int source;
-    unsigned int slot;
-    unsigned int next;
-    int corner;
-    int remaining;
-    bool fresh;
-    int* faces;
-    W8OctPreTreeVertex* split;
-    W8OctPreTreeVertex* vertices;
-    W8OctPreTreeVertex* record;
-    W8OctPreTreeVertex* candidate;
-    W8OctPreTreeVertex** corner_vertex;
-    W8OctRegionPolygon* polygon;
-
-    ReportBuildStatus(6, "Splitting vertices by Material...\n");
-    split = static_cast<W8OctPreTreeVertex*>(
-        malloc(geometry->vertex_count * 4 * sizeof(W8OctPreTreeVertex)));
-    if (split == 0) {
-        ReportBuildStatus(7, "SplitVertices: Could not allocate pSplitVerts.\n");
-        return 0;
-    }
-    memset(split, 0, geometry->vertex_count * 4 * sizeof(W8OctPreTreeVertex));
-    for (source = 1; source < geometry->vertex_count; ++source) {
-        geometry->m_vertices[source].m_visited = false;
-    }
-    next = 1;
-    for (source = 1; source < geometry->vertex_count; ++source, ++next) {
-        unsigned int first = next;
-        record = split + next;
-        *record = geometry->m_vertices[source];
-        record->m_vertex_index = next;
-        record->m_visited = true;
-        faces = geometry->m_vertices[source].face_indices;
-        remaining = geometry->m_vertices[source].face_count - 1;
-        polygon = geometry->m_polygons + *faces;
-        record->m_material = polygon->material;
-        record->m_kind = polygon->kind;
-        for (corner = 0; corner < 3; ++corner) {
-            corner_vertex = polygon->vertices + corner;
-            if ((*corner_vertex)->m_vertex_index == source && (*corner_vertex)->m_visited == 0) {
-                *corner_vertex = record;
-                record->m_uv = polygon->face.texture_coordinates[corner];
-            }
-        }
-        while (remaining != 0) {
-            ++faces;
-            polygon = geometry->m_polygons + *faces;
-            fresh = true;
-            slot = first;
-            candidate = split + first;
-            while (slot <= next) {
-                if (!fresh) {
-                    break;
-                }
-                for (corner = 0; corner < 3; ++corner) {
-                    corner_vertex = polygon->vertices + corner;
-                    if ((*corner_vertex)->m_vertex_index == source &&
-                        (*corner_vertex)->m_visited == 0 &&
-                        candidate->m_material == static_cast<int>(polygon->material)) {
-                        *corner_vertex = candidate;
-                        fresh = false;
-                    }
-                }
-                ++slot;
-                ++candidate;
-            }
+    // Keep indices, rather than temporary pointers, until the complete table
+    // is allocated. Material runs retain first-face ordering and UV selection.
+    std::vector<W8OctPreTreeVertex> splits(1);
+    std::vector<geometryRepack::CornerIndices> corners(m_polygon_count);
+    for (w8_ulong source = 1; source < vertex_count; ++source) {
+        const auto& original = m_vertices[source];
+        std::unordered_map<w8_ulong, w8_ulong> material_splits;
+        for (const auto face : std::span(original.face_indices, original.face_count)) {
+            auto& polygon = m_polygons[face];
+            const auto [entry, fresh] = material_splits.try_emplace(polygon.material, static_cast<w8_ulong>(splits.size()));
             if (fresh) {
-                ++next;
-                record = split + next;
-                *record = geometry->m_vertices[source];
-                record->m_vertex_index = next;
-                record->m_visited = true;
-                record->m_material = polygon->material;
-                record->m_kind = polygon->kind;
-                for (corner = 0; corner < 3; ++corner) {
-                    corner_vertex = polygon->vertices + corner;
-                    if ((*corner_vertex)->m_vertex_index == source &&
-                        (*corner_vertex)->m_visited == 0) {
-                        *corner_vertex = record;
-                        record->m_uv = polygon->face.texture_coordinates[corner];
-                    }
+                auto record = original;
+                record.m_vertex_index = entry->second;
+                record.m_visited = true;
+                record.m_material = polygon.material;
+                record.m_kind = polygon.kind;
+                splits.push_back(record);
+            }
+            for (unsigned corner = 0; corner < 3; ++corner) {
+                if (polygon.vertices[corner] == &original) {
+                    corners[face][corner] = entry->second;
+                    if (fresh) splits[entry->second].m_uv = polygon.face.texture_coordinates[corner];
                 }
             }
-            --remaining;
         }
     }
-    free(geometry->m_vertices);
-    slot = next + 1;
-    vertices = static_cast<W8OctPreTreeVertex*>(malloc(slot * sizeof(*vertices)));
-    geometry->m_vertices = vertices;
-    if (vertices == 0) {
-        ReportBuildStatus(7, "SplitVertices: Could not allocate pGeom->pVerts.\n");
-    }
-    memset(vertices, 0, slot * sizeof(*vertices));
-    memcpy(vertices, split, slot * sizeof(*vertices));
-    snprintf(message, sizeof(message), "Split %d vertices into %d new vertices--ratio is 1 to %.1f.\n\n",
-            static_cast<int>(geometry->vertex_count), next,
-            next / static_cast<double>(geometry->vertex_count));
-    ReportBuildStatus(6, message);
-    geometry->vertex_count = next;
-    if (1 < geometry->m_polygon_count) {
-        polygon = geometry->m_polygons + 1;
-        for (source = 1; source < geometry->m_polygon_count; ++source, ++polygon) {
-            for (corner = 0; corner < 3; ++corner) {
-                polygon->vertices[corner] = vertices + polygon->vertices[corner]->m_vertex_index;
-            }
-        }
-    }
-    free(split);
-    return 1;
+    auto vertices = geometryRepack::copyTable<W8OctPreTreeVertex>(splits);
+    if (!vertices) return false;
+    geometryRepack::repointCorners({m_polygons, m_polygon_count}, corners, vertices.get());
+    std::free(m_vertices);
+    m_vertices = vertices.release();
+    vertex_count = static_cast<w8_ulong>(splits.size());
+    return true;
 }
 
 // FUNCTION: WIZ8 0x00495CF0
-static int AccumulateVertexLight(OctPreTree* tree, W8OctPreTreeVertex* vertex, short light_count,
-                                 W8LevelFileLight* lights, int* sun_map)
+static int AccumulateVertexLight(OctPreTree* tree, W8OctPreTreeVertex* vertex,
+                                 std::span<const W8LevelFileLight> lights, int* sun_map)
 {
-    srVector3T<float> delta;
-    float distance;
-    float dot;
-    float scale;
-    short lit;
-    int* sun;
-    W8LevelFileLight* light;
-
-    lit = 0;
-    if (light_count < 1) {
-        return 0;
+    short lit = 0;
+    for (std::size_t index = 0; index < lights.size(); ++index) {
+        const auto& light = lights[index];
+        const bool is_sun = sun_map && sun_map[index] != 0;
+        if (light.version >= 2 && (light.create != 0 || light.visible == 0)) continue;
+        const glm::vec3 delta = light.position.glmValue() - vertex->position;
+        // NOLINTNEXTLINE(misc-include-cleaner)
+        const float distance = glm::length(delta);
+        if (distance >= light.range && !is_sun) continue;
+        ++g_light_candidates;
+        const float dot = glm::dot(delta / distance, vertex->m_normal);
+        if (dot <= g_float_zero) continue;
+        ++g_lights_facing;
+        if (g_option_shadow_test && !tree->SegmentClear(light.position.glmValue(), vertex->position)) continue;
+        ++g_lights_unblocked;
+        ++lit;
+        if (is_sun) {
+            *vertex->m_sun_lights = dot * light.intensity + *vertex->m_sun_lights;
+        } else {
+            float scale = dot * light.intensity * (g_float_one - distance / light.range);
+            srLightingMath::accumulateLight(std::span{&vertex->m_light, 1}, light.colour.glmValue(),
+                                            std::span{&scale, 1});
+        }
     }
-    light = lights;
-    sun = sun_map;
-    do {
-        if ((light->version < 2) || ((light->create == 0) && (light->visible != 0))) {
-            delta = light->position - vertex->position;
-            distance = delta.Length();
-            if ((distance < light->range) || ((sun_map != 0) && (*sun != 0))) {
-                ++g_light_candidates;
-                dot = (delta.x / distance) * vertex->m_normal.x +
-                      (delta.y / distance) * vertex->m_normal.y +
-                      (delta.z / distance) * vertex->m_normal.z;
-                if (g_float_zero < dot) {
-                    ++g_lights_facing;
-                    if (g_option_shadow_test) {
-                        if (!tree->SegmentClear(&light->position, &vertex->position)) {
-                            goto next_light;
-                        }
-                    }
-                    ++g_lights_unblocked;
-                    ++lit;
-                    if ((sun_map == 0) || (*sun == 0)) {
-                        scale = dot * light->intensity * (g_float_one - distance / light->range);
-                        vertex->m_light.x = scale * light->colour.x + vertex->m_light.x;
-                        vertex->m_light.y = scale * light->colour.y + vertex->m_light.y;
-                        vertex->m_light.z = scale * light->colour.z + vertex->m_light.z;
-                    } else {
-                        *vertex->m_sun_lights = dot * light->intensity + *vertex->m_sun_lights;
-                    }
-                }
-            }
-        }
-    next_light:
-        ++sun;
-        ++light;
-        --light_count;
-        if (light_count == 0) {
-            return lit;
-        }
-    } while (true);
+    return lit;
 }
 
 /* Tests whether a prop/bitmap record sees a given sun light: the segment from
    the light to the record position must be clear, else each corner of each
    recorded bounds pair is tried. */
 // FUNCTION: WIZ8 0x00495E90
-static unsigned char PropReceivesLight(OctPreTree* tree, W8LevelFileProp* prop,
-                                       W8LevelFileLight* light)
+static unsigned char PropReceivesLight(OctPreTree* tree, const W8LevelFileProp& prop,
+                                       const W8LevelFileLight& light)
 {
-    int corner_x;
-    int corner_y;
-    int corner_z;
-    unsigned char bound;
-    srVector3T<float> bounds[2];
-    srVector3T<float> position;
-    srVector3T<float> corner;
-
-    position.Set(prop->position.x * g_world_scale, prop->position.y * g_world_scale,
-                 prop->position.z * g_world_scale);
-    if (tree->SegmentClear(&light->position, &position)) {
-        return 1;
-    }
-    bound = 0;
-    if (prop->anim_obj.num_bound_box != 0) {
-        const W8LevelFileBounds* boxes = prop->anim_obj.pBoundBox;
-        do {
-            bounds[0] = boxes[bound].minimum;
-            bounds[1] = boxes[bound].maximum;
-            for (corner_x = 0; corner_x < 2; ++corner_x) {
-                float x = bounds[corner_x].x * g_world_scale;
-                for (corner_y = 0; corner_y < 2; ++corner_y) {
-                    float y = bounds[corner_y].y * g_world_scale;
-                    for (corner_z = 0; corner_z < 2; ++corner_z) {
-                        corner.Set(x, y, bounds[corner_z].z * g_world_scale);
-                        if (tree->SegmentClear(&light->position, &corner)) {
-                            return 1;
-                        }
-                    }
-                }
-            }
-            ++bound;
-        } while (bound < prop->anim_obj.num_bound_box);
+    const auto origin = light.position.glmValue();
+    if (tree->SegmentClear(origin, prop.position.glmValue() * g_world_scale)) return 1;
+    for (const auto& box : prop.anim_obj.bounds) {
+        const srBoundingBox bounds{box.minimum.glmValue() * g_world_scale,
+                                   box.maximum.glmValue() * g_world_scale};
+        // Bounding-box corners retain the original x/y/z probe order.
+        for (unsigned corner = 0; corner < 8; ++corner)
+            if (tree->SegmentClear(origin, bounds.corner(corner))) return 1;
     }
     return 0;
 }
@@ -1546,8 +1402,9 @@ static unsigned char PropReceivesLight(OctPreTree* tree, W8LevelFileProp* prop,
    when the record claims full opacity, and records missing textures in the
    prop/sun bit array. Returns the per-material kind byte array. */
 // FUNCTION: WIZ8 0x00496000
-static unsigned char* ClassifyTextures(W8MaterialRecord* textures, int count, char* stem)
+static unsigned char* ClassifyTextures(std::span<W8MaterialRecord> textures, char* stem)
 {
+    const int count = static_cast<int>(textures.size());
     char folder[1024];
     char texture[1024];
     std::string path;
@@ -1574,9 +1431,9 @@ static unsigned char* ClassifyTextures(W8MaterialRecord* textures, int count, ch
         ReportBuildStatus(7, "Couldn't find bitmaps directory--cannot check texture types.\n\n");
         kinds = 0;
     } else {
-        g_prop_sun_bits = new BitArray(count);
+        g_missing_textures.assign(count, false);
         for (index = 0; index < count; ++index) {
-            W8MaterialRecord* record = textures + index;
+            W8MaterialRecord* record = &textures[index];
             bool opaque = 1.0f <= record->opacity;
             texture[0] = '\0';
             if (record->texture_name[0] != 0) {
@@ -1614,7 +1471,7 @@ static unsigned char* ClassifyTextures(W8MaterialRecord* textures, int count, ch
                 path = fmt::format("{}{}", folder, texture);
                 file = [&]() { try { return wiz8::open_file(path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
                 if (file == 0) {
-                    g_prop_sun_bits->Set(index);
+                    SetBit(g_missing_textures, index);
                     ++missing;
                     snprintf(message, sizeof(message), "Could not find texture file %s.\n", path.c_str());
                     ReportBuildStatus(5, message);
@@ -1627,7 +1484,7 @@ static unsigned char* ClassifyTextures(W8MaterialRecord* textures, int count, ch
                         file = [&]() { try { return wiz8::open_file(path, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
                     }
                     if (file == 0) {
-                        g_prop_sun_bits->Set(index);
+                        SetBit(g_missing_textures, index);
                         ++missing;
                         snprintf(message, sizeof(message), "Could not find texture file %s.\n", path.c_str());
                         ReportBuildStatus(5, message);
@@ -1665,9 +1522,10 @@ static unsigned char* ClassifyTextures(W8MaterialRecord* textures, int count, ch
    string, remaps each polygon's material index at its group's representative
    and moves the old index into the texture slot. */
 // FUNCTION: WIZ8 0x00496500
-static unsigned char MaterialSort(W8OctPreTreeGeometry* geometry, W8MaterialRecord* textures,
-                                  int count, unsigned char* classify)
+static unsigned char MaterialSort(W8OctPreTreeGeometry* geometry, std::span<W8MaterialRecord> textures,
+                                  unsigned char* classify)
 {
+    const int count = static_cast<int>(textures.size());
     char name[516];
     char* material_names;
     char* texture_names;
@@ -1710,7 +1568,7 @@ static unsigned char MaterialSort(W8OctPreTreeGeometry* geometry, W8MaterialReco
     material_count = 0;
     texture_count = 0;
     if (1 < count) {
-        W8MaterialRecord* record = textures + 1;
+        W8MaterialRecord* record = &textures[1];
         int* material_slot = material_lookup;
         for (index = 1; index < count; ++index, ++record) {
             ++material_slot;
@@ -1777,7 +1635,7 @@ static unsigned char MaterialSort(W8OctPreTreeGeometry* geometry, W8MaterialReco
     if (1 < static_cast<int>(geometry->m_polygon_count)) {
         polygon = geometry->m_polygons + 1;
         for (index = 1; index < static_cast<int>(geometry->m_polygon_count); ++index, ++polygon) {
-            if (g_prop_sun_bits->Test(index)) {
+            if (TestBit(g_missing_textures, index)) {
                 ++missing;
             }
             polygon->texture = polygon->material;
@@ -1814,7 +1672,7 @@ void W8Octree::OctBuildOptions(char* stem)
     char spare_state[8];
     char edit_buffer[20];
     char edit_char[8];
-    InputAtom atom;
+    InputEvent atom;
     int edit_mode;
     int line;
     int index;
@@ -1824,9 +1682,9 @@ void W8Octree::OctBuildOptions(char* stem)
     colour_backup.SetZero();
     GetWorldColour(&colour_backup);
     PublishLightDirection(&colour_saved);
-    SetFont(g_smfnt_font);
-    SetRGBFontShadow(0, 0, 0);
-    SetFontObjectPalette16BPP(g_smfnt_font, g_font_state_palettes[W8_FONT_PALETTE_YELLOW].get());
+    g_smfnt_font.setPalette(g_font_state_palettes[W8_FONT_PALETTE_YELLOW]);
+    const TextOptions text_options{
+        .colors = {.shadow = Get16BPPColor(SDL_Color{0, 0, 0, SDL_ALPHA_OPAQUE})}};
     edit_char[0] = 0;
     edit_char[4] = 0;
     strcpy(log_state, "OFF");
@@ -1892,7 +1750,8 @@ void W8Octree::OctBuildOptions(char* stem)
             for (line = 0; line < 7; ++line) {
                 auto display = lines[line].substr(0, wiz8::text::codepoint_prefix(lines[line], 90));
                 if (display.size() < 90) display.append(90 - display.size(), ' ');
-                DrawFontTextDirty(1, 0x184 + line * 0xd, display);
+                DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font,
+                                      {1, 0x184 + line * 0xd}, display, text_options);
             }
             InvalidateRegion(0, 0x183, 0x27f, 0x1df, 4);
             while (gfProgramIsRunning && DequeueEvent(&atom) == 0) {
@@ -1903,18 +1762,18 @@ void W8Octree::OctBuildOptions(char* stem)
             if (!gfProgramIsRunning) {
                 goto accepted;
             }
-            if (atom.usEvent != KEY_DOWN) {
+            if (atom.type != InputEventType::KeyDown) {
                 continue;
             }
-            if (atom.usParam == VK_ESCAPE) {
+            if (atom.key == VK_ESCAPE) {
                 ShutdownWithErrorBox("Cancelled--Program exiting.\n");
                 goto accepted;
             }
-            if (atom.usParam == VK_RETURN) {
+            if (atom.key == VK_RETURN) {
                 break;
             }
             if (edit_mode == 0) {
-                switch (toupper(atom.usParam)) {
+                switch (toupper(atom.key)) {
                 case 0x41:
                     edit_mode = 3;
                     break;
@@ -1975,7 +1834,7 @@ void W8Octree::OctBuildOptions(char* stem)
                     break;
                 }
             } else {
-                char key = static_cast<char>(toupper(atom.usParam));
+                char key = static_cast<char>(toupper(atom.key));
                 if ((key < '0' || '9' < key) && key != '.') {
                     if (key == '\b') {
                         edit_buffer[strlen(edit_buffer) - 1] = '\0';
@@ -2008,7 +1867,8 @@ accepted:
     lines[1] = fmt::format("OCTBUILD VERSION {:d} -- Preprocessing {}: ", 0x22, stem);
     auto display = lines[1].substr(0, wiz8::text::codepoint_prefix(lines[1], 90));
     if (display.size() < 90) display.append(90 - display.size(), ' ');
-    DrawFontTextDirty(1, 0x184, display);
+    DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font, {1, 0x184}, display,
+                          text_options);
     InvalidateRegion(0, 0x183, 0x27f, 0x1df, 4);
     RenderFrame();
     RenderFrame();

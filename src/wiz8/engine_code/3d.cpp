@@ -1,17 +1,25 @@
+#include <algorithm>
+#include <ranges>
+#include "surrender/plane_math.h"
+#include "surrender/triangle_projection.h"
+#include <utility>
+#include <array>
+#include <memory>
+#include <span>
+#include <vector>
+#include <string>
+
+#include "compat/native.h"
+#include "glm/geometric.hpp"
+#include "glm/matrix.hpp"
 #include "wiz8/containers.h"
 #include "surrender/srBoundingBox.h"
-#include "wiz8/compat/unaligned.h"
-#include <vector>
-#include <algorithm>
 #include "wiz8/engine_code/3d.h"
-#include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/Item.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/OctPreTree.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/Prop.h"
-#include "wiz8/engine_code/GameData.h"
-#include "wiz8/index_algorithms.h"
 #include "wiz8/engine_code/stModelInstance.h"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/Environment.h"
@@ -22,16 +30,21 @@
 #include "wiz8/geometry.h"
 #include "wiz8/sr_api.h"
 #include "surrender/srCamera.h"
-#include "surrender/srIlluminator.h"
 #include "surrender/srMaterial.h"
 #include "surrender/srScene.h"
-#include <algorithm>
-#include <new>
-#include <stdlib.h>
-
-#include <string.h>
 #include "surrender/srMath.h"
-#include <cassert>
+#include "compat/compiler.h"
+#include "glm/ext/matrix_float3x3.hpp"
+#include "glm/ext/matrix_float4x4.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include "glm/ext/vector_float4.hpp"
+#include "layouts/world.h"
+#include "surrender/srLight.h"
+#include "surrender/srMeshModel.h"
+#include "surrender/srModelInstance.h"
+#include "surrender/srNode.h"
+#include "surrender/srShader.h"
+#include "surrender/srTypeRegistry.h"
 
 #define THREE_D_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\3d.cpp"
 
@@ -46,18 +59,15 @@ void UpdateWorldMonsters(W8World* world)
     if (world == 0) {
         srAssertFail("pWorld", THREE_D_CPP, 0x10d, 0);
     }
-    if (world->plsMonsters == 0) {
-        srAssertFail("pWorld->plsMonsters", THREE_D_CPP, 0x10e, 0);
-    }
 
     srVector3T<double> camera_location = world->camera->getLocation();
     srVector3T<float> position;
     position = camera_location;
 
-    unsigned int count = (world->plsMonsters ? world->plsMonsters->size() : 0);
+    unsigned int count = world->plsMonsters.size();
     UpdateNearestMonsterGroupMembers();
     for (int index = 0; index < static_cast<int>(count); ++index) {
-        W8Monster* monster = (*world->plsMonsters)[index];
+        W8Monster* monster = world->plsMonsters[index];
         if (monster != 0) {
             monster->DetachRepresentation(world);
             monster->SelectLOD(&position);
@@ -75,12 +85,9 @@ void DetachWorldItemMeshes(W8World* world)
     if (world == 0) {
         srAssertFail("pWorld", THREE_D_CPP, 0x135, 0);
     }
-    if (world->plsItems == 0) {
-        srAssertFail("pWorld->plsItems", THREE_D_CPP, 0x136, 0);
-    }
-    unsigned int count = (world->plsItems ? world->plsItems->size() : 0);
+    unsigned int count = world->plsItems.size();
     for (int index = 0; index < static_cast<int>(count); ++index) {
-        W8Item* item = (*world->plsItems)[index];
+        W8Item* item = world->plsItems[index];
         if (item != 0) {
             item->DetachMesh(world);
             item->UpdateAnimation();
@@ -128,8 +135,7 @@ void FinalizeStaticScene(srScene* scene)
 // FUNCTION: WIZ8 0x0046E8A0
 unsigned char BakeInstanceVertexLighting(stModelInstance* instance, srNode* lights, bool walk_chain)
 {
-    glm::mat4 world;
-    instance->getWorldSpaceMatrix(world);
+    auto world = instance->getWorldSpaceMatrix<glm::mat4>();
     const auto normal_matrix = glm::transpose(glm::inverse(glm::mat3(world)));
     std::vector<glm::vec3> world_vertices, world_normals, material_colors;
 
@@ -137,9 +143,9 @@ unsigned char BakeInstanceVertexLighting(stModelInstance* instance, srNode* ligh
         const auto count = mesh->vertex_location_count;
         if (count <= 0)
             continue;
-        auto* vertex_lights = mesh->GetVertexLights(true, -1);
+        const auto vertex_lights = mesh->GetVertexLights(true, -1);
         mesh->GetVertexSunlight(true);
-        if (!vertex_lights)
+        if (vertex_lights.empty())
             return 0;
         if (!lights)
             continue;
@@ -158,15 +164,13 @@ unsigned char BakeInstanceVertexLighting(stModelInstance* instance, srNode* ligh
         world_normals.resize(count);
         material_colors.resize(count);
         for (int i = 0; i < count; ++i) {
-            world_vertices[i] = glm::vec3(world * glm::vec4(vertices[i].glmValue(), 1));
-            world_normals[i] = normalizedOrZero(normal_matrix * normals[i].glmValue());
+            world_vertices[i] = glm::vec3(world * glm::vec4(vertices[i], 1));
+            world_normals[i] = normalizedOrZero(normal_matrix * normals[i]);
             auto* material =
                 vertex_materials ? static_cast<srMaterial*>(vertex_materials[i].get()) : nullptr;
             material_colors[i] = material ? glm::vec3(material->parms.diffuse) : base_color;
         }
-        glm::vec3 minimum, maximum;
-        mesh->getBoundingBox(minimum, maximum);
-        const auto box = srBoundingBox{minimum, maximum}.transformed(world);
+        const auto box = mesh->getBounds().box.transformed(world);
         for (auto* node = lights; node; node = walk_chain ? node->next_sibling_ : nullptr) {
             const auto* light = sr_cast<stLight>(node);
             if (!light ||
@@ -187,7 +191,7 @@ unsigned char BakeInstanceVertexLighting(stModelInstance* instance, srNode* ligh
                 const float facing = glm::dot(normalizedOrZero(direction), world_normals[i]);
                 if (facing < 0) {
                     const float contribution = -facing * light->intensity * (1 - distance / range);
-                    vertex_lights[i] = vertex_lights[i].glmValue() +
+                    vertex_lights[i] = vertex_lights[i] +
                                        material_colors[i] * light->diffuse * contribution;
                 }
             }
@@ -252,190 +256,59 @@ void SetWorldMeshVertexLightTable(W8World* world, int table)
     }
 }
 
-/* True when the camera projects the AABB midpoint or any of its eight corners
-   and the octree has line of sight from eye to that point. */
+/* Visibility queries share midpoint/corner generation and retain early-exit order. */
 // FUNCTION: WIZ8 0x0046F820
-unsigned char ShowTargetMarker(const srVector3T<float>* eye, const srVector3T<float>* lower,
-                               const srVector3T<float>* upper)
+bool targetMarkerVisible(const glm::vec3& eye, const srBoundingBox& bounds)
 {
-    srVector3T<float> point;
-
-    point = (*lower + *upper) * g_double_half;
-    if (ProjectPointThroughCamera(&point) != 0) {
-        if (g_octree->HasLineOfSight(eye, &point, true)) {
-            return 1;
-        }
+    const srVector3 from(eye);
+    for (const auto& sample : bounds.visibilitySamples()) {
+        if (!projectsToCamera(sample)) continue;
+        srVector3 point(sample);
+        if (g_octree->HasLineOfSight(&from, &point, true)) return true;
     }
-    point = *upper;
-    if (ProjectPointThroughCamera(&point) != 0) {
-        if (g_octree->HasLineOfSight(eye, &point, true)) {
-            return 1;
-        }
-    }
-    point = *lower;
-    if (ProjectPointThroughCamera(&point) != 0) {
-        if (g_octree->HasLineOfSight(eye, &point, true)) {
-            return 1;
-        }
-    }
-    point.Set(lower->x, upper->y, upper->z);
-    if (ProjectPointThroughCamera(&point) != 0) {
-        if (g_octree->HasLineOfSight(eye, &point, true)) {
-            return 1;
-        }
-    }
-    point.Set(lower->x, upper->y, lower->z);
-    if (ProjectPointThroughCamera(&point) != 0) {
-        if (g_octree->HasLineOfSight(eye, &point, true)) {
-            return 1;
-        }
-    }
-    point.Set(upper->x, upper->y, lower->z);
-    if (ProjectPointThroughCamera(&point) != 0) {
-        if (g_octree->HasLineOfSight(eye, &point, true)) {
-            return 1;
-        }
-    }
-    point.Set(upper->x, lower->y, upper->z);
-    if (ProjectPointThroughCamera(&point) != 0) {
-        if (g_octree->HasLineOfSight(eye, &point, true)) {
-            return 1;
-        }
-    }
-    point.Set(lower->x, lower->y, upper->z);
-    if (ProjectPointThroughCamera(&point) != 0) {
-        if (g_octree->HasLineOfSight(eye, &point, true)) {
-            return 1;
-        }
-    }
-    point.Set(upper->x, lower->y, lower->z);
-    if (ProjectPointThroughCamera(&point) != 0) {
-        if (g_octree->HasLineOfSight(eye, &point, true)) {
-            return 1;
-        }
-    }
-    return 0;
+    return false;
 }
 
-/* The world-trace variant of HasLineOfSightToBounds: same midpoint and
-   eight-corner probe, but through TraceLineOfSight, which reports a clear
-   trace as zero. */
 // FUNCTION: WIZ8 0x0046FAF0
-char TraceLineOfSightToBounds(const srVector3T<float>* origin, srVector3T<float>* minimum,
-                              srVector3T<float>* maximum)
+bool traceLineOfSightToBounds(const glm::vec3& origin, const srBoundingBox& bounds)
 {
-    srVector3T<float> point;
-
-    point = (*minimum + *maximum) * g_double_half;
-    if (g_octree->TraceLineOfSight(origin, &point, true, -3, -3, true, 0) == 0) {
-        return 1;
+    const srVector3 from(origin);
+    for (const auto& sample : bounds.visibilitySamples()) {
+        srVector3 point(sample);
+        if (g_octree->TraceLineOfSight(&from, &point, true, -3, -3, true, 0) == 0) return true;
     }
-    point = *maximum;
-    if (g_octree->TraceLineOfSight(origin, &point, true, -3, -3, true, 0) == 0) {
-        return 1;
-    }
-    point = *minimum;
-    if (g_octree->TraceLineOfSight(origin, &point, true, -3, -3, true, 0) == 0) {
-        return 1;
-    }
-    point.Set(minimum->x, maximum->y, maximum->z);
-    if (g_octree->TraceLineOfSight(origin, &point, true, -3, -3, true, 0) == 0) {
-        return 1;
-    }
-    point.Set(minimum->x, maximum->y, minimum->z);
-    if (g_octree->TraceLineOfSight(origin, &point, true, -3, -3, true, 0) == 0) {
-        return 1;
-    }
-    point.Set(maximum->x, maximum->y, minimum->z);
-    if (g_octree->TraceLineOfSight(origin, &point, true, -3, -3, true, 0) == 0) {
-        return 1;
-    }
-    point.Set(maximum->x, minimum->y, maximum->z);
-    if (g_octree->TraceLineOfSight(origin, &point, true, -3, -3, true, 0) == 0) {
-        return 1;
-    }
-    point.Set(minimum->x, minimum->y, maximum->z);
-    if (g_octree->TraceLineOfSight(origin, &point, true, -3, -3, true, 0) == 0) {
-        return 1;
-    }
-    point.Set(maximum->x, minimum->y, minimum->z);
-    return g_octree->TraceLineOfSight(origin, &point, true, -3, -3, true, 0) == 0;
+    return false;
 }
 
 // FUNCTION: WIZ8 0x0046FD70
-bool HasLineOfSightToBounds(const srVector3T<float>* origin, srVector3T<float>* minimum,
-                            srVector3T<float>* maximum)
+bool hasLineOfSightToBounds(const glm::vec3& origin, const srBoundingBox& bounds)
 {
-    srVector3T<float> point;
-
-    point = (*minimum + *maximum) * g_double_half;
-    if (g_octree->HasLineOfSight(origin, &point, true)) {
-        return true;
+    const srVector3 from(origin);
+    for (const auto& sample : bounds.visibilitySamples()) {
+        srVector3 point(sample);
+        if (g_octree->HasLineOfSight(&from, &point, true)) return true;
     }
-    point = *maximum;
-    if (g_octree->HasLineOfSight(origin, &point, true)) {
-        return true;
-    }
-    point = *minimum;
-    if (g_octree->HasLineOfSight(origin, &point, true)) {
-        return true;
-    }
-    point.Set(minimum->x, maximum->y, maximum->z);
-    if (g_octree->HasLineOfSight(origin, &point, true)) {
-        return true;
-    }
-    point.Set(minimum->x, maximum->y, minimum->z);
-    if (g_octree->HasLineOfSight(origin, &point, true)) {
-        return true;
-    }
-    point.Set(maximum->x, maximum->y, minimum->z);
-    if (g_octree->HasLineOfSight(origin, &point, true)) {
-        return true;
-    }
-    point.Set(maximum->x, minimum->y, maximum->z);
-    if (g_octree->HasLineOfSight(origin, &point, true)) {
-        return true;
-    }
-    point.Set(minimum->x, minimum->y, maximum->z);
-    if (g_octree->HasLineOfSight(origin, &point, true)) {
-        return true;
-    }
-    point.Set(maximum->x, minimum->y, minimum->z);
-    return g_octree->HasLineOfSight(origin, &point, true);
+    return false;
 }
-
 
 /* Build the concrete first-party instance used for an already-created mesh. */
 // FUNCTION: WIZ8 0x0046F5C0
-stModelInstance* CreateModelInstance(std::shared_ptr<stMeshModel> model)
+std::unique_ptr<stModelInstance> CreateModelInstance(std::shared_ptr<stMeshModel> model)
 {
-    stModelInstance* instance;
-
-    if (model == 0) {
+    if (model == nullptr) {
         srAssertFail("pstMeshModel", THREE_D_CPP, 0x5bf, 0);
     }
-    instance = new stModelInstance(0);
-    if (instance == 0) {
-        srAssertFail("pstHeadInstance", THREE_D_CPP, 0x5c2, 0);
-    }
+    auto instance = std::make_unique<stModelInstance>(nullptr, srNode::Ownership::independent);
     instance->setName("ST_CreateInstance");
     instance->setModel(model);
     return instance;
 }
 
 // FUNCTION: WIZ8 0x0046F680
-stModelInstance* DuplicateModelInstance(stModelInstance* instance)
+std::unique_ptr<stModelInstance> DuplicateModelInstance(const stModelInstance& instance)
 {
-    stModelInstance* copy;
-
-    if (instance == 0) {
-        srAssertFail("pstModelInstance", THREE_D_CPP, 0x5ce, 0);
-    }
-    copy = new stModelInstance(0);
-    if (copy == 0) {
-        srAssertFail("pstHeadInstance", THREE_D_CPP, 0x5d1, 0);
-    }
-    *copy = *instance;
+    auto copy = std::make_unique<stModelInstance>(nullptr, srNode::Ownership::independent);
+    *copy = instance;
     copy->setName("ST_CreateInstance");
     return copy;
 }
@@ -525,7 +398,7 @@ void WorldRemoveLight(W8World* world, stLight* light)
         srAssertFail("pLight", THREE_D_CPP, 0x279, 0);
     }
     wiz8::erase_first(world->transient_lights, light);
-    wiz8::erase_first(*world->lights_to_update, light);
+    wiz8::erase_first(world->lights_to_update, light);
     if (light != 0) {
         delete light;
     }
@@ -551,11 +424,11 @@ void WorldUpdateProps(W8World* world)
     int index;
     W8Prop* prop;
 
-    if (!world || !world->plsProps) {
-        srAssertFail("pWorld && pWorld->plsProps", "C:\\Projects\\Wizardry 8\\Engine Code\\3d.cpp",
+    if (!world) {
+        srAssertFail("pWorld", "C:\\Projects\\Wizardry 8\\Engine Code\\3d.cpp",
                      0x158, 0);
     }
-    count = static_cast<int>((world->plsProps ? world->plsProps->size() : 0));
+    count = static_cast<int>(world->plsProps.size());
     for (index = 0; index < count; index++) {
         prop = GetWorldProp(world, index);
         if (prop) {
@@ -569,10 +442,10 @@ void WorldUpdateProps(W8World* world)
 // FUNCTION: WIZ8 0x0046df50
 void WorldUpdateLights(W8World* world)
 {
-    int count = static_cast<int>(world->lights_to_update->size());
+    int count = static_cast<int>(world->lights_to_update.size());
 
     for (int index = 0; index < count; ++index) {
-        (*world->lights_to_update)[index]->Update();
+        world->lights_to_update[index]->Update();
     }
 }
 
@@ -581,22 +454,22 @@ void WorldUpdateLights(W8World* world)
    this global instead. */
 
 // FUNCTION: WIZ8 0x0046e580
-void AddMonsterToWorld(W8World*, W8Monster* monster) { g_world->plsMonsters->push_back(monster); }
+void AddMonsterToWorld(W8World*, W8Monster* monster) { g_world->plsMonsters.push_back(monster); }
 
 // FUNCTION: WIZ8 0x0046e5c0
-void AddItemToWorld(W8World*, W8Item* item) { g_world->plsItems->push_back(item); }
+void AddItemToWorld(W8World*, W8Item* item) { g_world->plsItems.push_back(item); }
 
 // FUNCTION: WIZ8 0x0046e5e0
 void RemoveItemFromWorld(W8World*, W8Item* item)
 {
-    wiz8::erase_first(*g_world->plsItems, item);
+    wiz8::erase_first(g_world->plsItems, item);
 }
 
 /* How many props the world holds, and the one at a position - both answers
    discarded by the wrapper itself, which is what makes these thin forwarders
    rather than accessors. */
 // FUNCTION: WIZ8 0x0046e600
-int WorldGetPropCount(W8World*) { return (g_world->plsProps ? g_world->plsProps->size() : 0); }
+int WorldGetPropCount(W8World*) { return g_world->plsProps.size(); }
 
 // FUNCTION: WIZ8 0x0046e620
 W8Prop* WorldGetPropAt(W8World*, int index)
@@ -752,19 +625,15 @@ void WorldSetFarClip(W8World* world, float distance)
 // FUNCTION: WIZ8 0x0046e440
 double WorldGetFarClip(W8World* world)
 {
-    double near_plane = 0;
-    double far_plane = 0;
-
-    if (world != 0 && world->camera != 0) {
-        world->camera->getClipRange(near_plane, far_plane);
-    }
-    return far_plane;
+    if (world != nullptr && world->camera != nullptr)
+        return world->camera->getClipRange().second;
+    return 0;
 }
 
 // FUNCTION: WIZ8 0x0046E5A0
 void RemoveMonsterFromWorldList(W8World*, W8Monster* monster)
 {
-    wiz8::erase_first(*g_world->plsMonsters, monster);
+    wiz8::erase_first(g_world->plsMonsters, monster);
 }
 
 // FUNCTION: WIZ8 0x0046DC90
@@ -788,25 +657,9 @@ void __stdcall SetOctreeGameData(W8GameData* value)
 }
 
 // FUNCTION: WIZ8 0x0046d880
-bool PointInsideFrustum(const srVector3T<float>* point, const W8Plane* planes)
+bool PointInsideFrustum(const glm::vec3& point, std::span<const W8Plane, 6> planes)
 {
-    for (short index = 0; index < 6; ++index) {
-        float distance = SignedPlaneDistance(planes[index], *point);
-
-        if (distance < g_float_zero) {
-            return false;
-        }
-    }
-    return true;
-}
-
-/* Header-visible SetPlaneFromThreePoints. This TU lowers the three-point
-   copy as a component countdown; 0x00449A40 unrolls the same assignments. */
-// FUNCTION: WIZ8 0x0046d660
-void BuildPlaneFromPoints(W8Plane* plane, const srVector3T<float>* first,
-                          const srVector3T<float>* second, const srVector3T<float>* third)
-{
-    SetPlaneFromThreePoints(plane, first, second, third);
+    return SphereInsideFrustum(point, 0.0f, planes);
 }
 
 /* Point-in-triangle test by even-odd crossing on the plane perpendicular to
@@ -815,144 +668,56 @@ void BuildPlaneFromPoints(W8Plane* plane, const srVector3T<float>* first,
    coordinate toggles the inside flag when its interpolation crosses the
    first. */
 // FUNCTION: WIZ8 0x0046d530
-bool PointInsideTriangle(const srVector3T<float>* vertices, short axis,
-                         const srVector3T<float>* point)
+bool PointInsideTriangle(std::span<const glm::vec3, 3> vertices, unsigned axis,
+                         const glm::vec3& point)
 {
-    const w8_unaligned_float* p = &point->x;
-    short u = static_cast<short>(axis + 1) % 3;
-    short v = static_cast<short>(axis + 2) % 3;
-    bool inside = false;
-
-    for (int i = 0; i < 3; ++i) {
-        const w8_unaligned_float* first = &vertices[i].x;
-        const w8_unaligned_float* second = &vertices[(i + 1) % 3].x;
-        if ((first[v] < p[v] && p[v] < second[v]) || (second[v] < p[v] && p[v] < first[v])) {
-            if (p[u] <=
-                (p[v] - first[v]) * (second[u] - first[u]) / (second[v] - first[v]) + first[u]) {
-                inside = !inside;
-            }
-        }
-    }
-    return inside;
+    return srTriangleProjection::contains(vertices, axis, point,
+                                           srTriangleProjection::Boundary::visibility);
 }
 
 // FUNCTION: WIZ8 0x0046d7e0
-void BuildFrustumPlanes(const srVector3T<float>* points, W8Plane* planes)
+std::array<W8Plane, 6> BuildFrustumPlanes(std::span<const glm::vec3, 8> points)
 {
-    BuildPlaneFromPoints(&planes[0], &points[1], &points[5], &points[4]);
-    BuildPlaneFromPoints(&planes[1], &points[6], &points[7], &points[3]);
-    BuildPlaneFromPoints(&planes[2], &points[0], &points[2], &points[3]);
-    BuildPlaneFromPoints(&planes[3], &points[4], &points[5], &points[7]);
-    BuildPlaneFromPoints(&planes[4], &points[4], &points[6], &points[2]);
-    BuildPlaneFromPoints(&planes[5], &points[1], &points[3], &points[7]);
+    constexpr std::array<std::array<unsigned, 3>, 6> corners{{
+        {1, 5, 4}, {6, 7, 3}, {0, 2, 3}, {4, 5, 7}, {4, 6, 2}, {1, 3, 7}}};
+    std::array<W8Plane, 6> planes;
+    for (unsigned plane = 0; plane < planes.size(); ++plane) {
+        const auto& indices = corners[plane];
+        planes[plane] = trianglePlane(points[indices[0]], points[indices[1]], points[indices[2]]);
+    }
+    return planes;
 }
 
-/* Sort `points` in place into the canonical corner order: an index array is
-   insertion-sorted by y, then each four-entry run is re-sorted by z and each
-   two-entry run by x, and the points are permuted through a temporary copy. */
+/* Return a canonical y/z/x corner ordering, preserving ties within each run. */
 // FUNCTION: WIZ8 0x0046da20
-void SortFrustumCorners(srVector3T<float>* points)
+std::array<glm::vec3, 8> sortedFrustumCorners(std::span<const glm::vec3, 8> points)
 {
-    short order[8];
-    srVector3T<float> sorted[8];
-
-    for (short i = 0; i < 8; ++i) {
-        short index = i;
-        short slot = 0;
-        if (i > 0) {
-            for (short j = 0; j < i; ++j) {
-                slot = order[j];
-                if (points[index].y < points[slot].y) {
-                    order[j] = index;
-                    index = slot;
-                }
-            }
-            slot = i;
-        }
-        order[slot] = index;
-    }
-    short axis = 2;
-    short run = 4;
-    short start = 0;
-    short end = run;
-    do {
-        if (start < end) {
-            for (short at = start; at < end; ++at) {
-                short value = order[at];
-                for (short k = start; k < at; ++k) {
-                    if ((&points[value].x)[axis] < (&points[order[k]].x)[axis]) {
-                        order[k] = value;
-                        value = order[k];
-                    }
-                }
-                order[at] = value;
-            }
-        }
-        if (end < 8) {
-            start += run;
-            end += run;
-        } else {
-            run /= 2;
-            axis = (axis + 1) % 3;
-            start = 0;
-            end = run;
-        }
-    } while (run > 1);
-    short point;
-    for (point = 0; point < 8; ++point) {
-        sorted[point] = points[order[point]];
-    }
-    for (point = 0; point < 8; ++point) {
-        points[point] = sorted[point];
-    }
+    std::array<glm::vec3, 8> sorted;
+    std::ranges::copy(points, sorted.begin());
+    constexpr std::array<std::pair<unsigned, unsigned>, 3> passes{{{1, 8}, {2, 4}, {0, 2}}};
+    for (const auto [axis, run] : passes)
+        for (unsigned start = 0; start < sorted.size(); start += run)
+            std::stable_sort(sorted.begin() + start, sorted.begin() + start + run,
+                             [axis](const auto& a, const auto& b) { return a[axis] < b[axis]; });
+    return sorted;
 }
 
-/* Sphere test generalised to a bounds box: accept when any box corner is
-   inside every frustum plane or any volume corner sits inside the box. */
 // FUNCTION: WIZ8 0x0046d8d0
-bool SphereInsideFrustum(const srVector3T<float>* point, float radius, const W8Plane* planes)
+bool SphereInsideFrustum(const glm::vec3& point, float radius, std::span<const W8Plane, 6> planes)
 {
-    bool inside = true;
-
-    for (short plane = 0; plane < 6 && inside; ++plane) {
-        if (glm::dot(point->glmValue(), planes[plane].normal.glmValue()) + planes[plane].w <
-            -radius) {
-            inside = false;
-        }
-    }
-    return inside;
+    const auto coefficients = planes | std::views::transform([](const W8Plane& plane) {
+        return glm::vec4(plane.normal.glmValue(), plane.w);
+    });
+    return srPlaneMath::containsSphere(coefficients, point, radius);
 }
 
 // FUNCTION: WIZ8 0x0046d920
-bool BoundsInsideFrustum(const W8OctRegionVolume* volume, const W8BoundingBox* bounds)
+bool BoundsInsideFrustum(const W8OctRegionVolume& volume, const srBoundingBox& bounds)
 {
-    for (short x = 0; x < 2; ++x) {
-        for (short y = 0; y < 2; ++y) {
-            for (short z = 0; z < 2; ++z) {
-                short plane = 0;
-                while (true) {
-                    if ((&bounds->minimum)[x].x * volume->m_planes[plane].normal.x +
-                            (&bounds->minimum)[y].y * volume->m_planes[plane].normal.y +
-                            (&bounds->minimum)[z].z * volume->m_planes[plane].normal.z +
-                            volume->m_planes[plane].w <
-                        g_float_zero) {
-                        break;
-                    }
-                    if (++plane > 5) {
-                        return true;
-                    }
-                }
-            }
-        }
-    }
-    for (short corner = 0; corner < 8; ++corner) {
-        const srVector3T<float>* point = &volume->m_points[corner + 1];
-        if (bounds->minimum.x <= point->x && point->x < bounds->maximum.x &&
-            bounds->minimum.y <= point->y && point->y < bounds->maximum.y &&
-            bounds->minimum.z <= point->z && point->z < bounds->maximum.z) {
-            return true;
-        }
-    }
+    for (unsigned corner = 0; corner < 8; ++corner)
+        if (PointInsideFrustum(bounds.corner(corner), volume.m_planes)) return true;
+    for (unsigned corner = 1; corner < 9; ++corner)
+        if (bounds.containsHalfOpen(volume.m_points[corner].glmValue())) return true;
     return false;
 }
 

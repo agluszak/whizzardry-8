@@ -1,11 +1,29 @@
+#include <SDL3/SDL_surface.h>
+#include "wiz8/unicode.h"
+#include "himage.h"
+#include "image.h"
+#include "sprite.h"
+#include "surrender/srScene.h" // IWYU pragma: keep - complete scene type for conversion to srNode.
+#include "wiz8/engine_code/stTextureAnim.h" // IWYU pragma: keep - complete animation type used through the owned pointer.
 #include <fmt/format.h>
 #include <fmt/printf.h>
+#include <SDL3/SDL_filesystem.h>
+#include <SDL3/SDL_rect.h>
 #include <string_view>
-#include "wiz8/unicode.h"
 #include <string>
+#include <vector>
+#include <array>
+#include <cmath>
+#include <cstdint>
+#include <cstring>
+#include <memory>
+#include <optional>
+#include <utility>
+
+#include "compat/compiler.h"
+#include "layouts/targeting.h"
 #include "wiz8/spell_ids.h"
 #include "wiz8/conditions.h"
-#include "line.h"
 #include "wiz8/integer_constants.h"
 #include "wiz8/local_screens/MGSFormation.h"
 #include "wiz8/local_screens/MGSPortraits.h"
@@ -19,7 +37,7 @@
 #include "wiz8/local_code/party_encumbrance.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/text_input.h"
-#include "wiz8/video_object_catalog.h"
+#include "wiz8/catalog_artwork.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/engine_code/Levels.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
@@ -34,7 +52,6 @@
 #include "wiz8/local_code/CombatRange.h"
 #include "wiz8/local_code/CombatAttack.h"
 #include "wiz8/engine_code/GameData.h"
-#include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/MGSPortraitCombat.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
@@ -44,93 +61,67 @@
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/npc_items.h"
 #include "wiz8/local_code/NPCScripting.h"
-#include "wiz8/npc_script_file.h"
+#include "wiz8/local_code/npc_story_events.h"
 #include "wiz8/layouts/item_instance.h"
 #include "wiz8/layouts/item_tables.h"
 #include "wiz8/layouts/gameplay_databases.h"
-#include "wiz8/fact_state.h"
 #include "wiz8/local_screens/MGSKeyboard.h"
 #include "wiz8/engine_code/Environment.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/engine_code/3dapi.h"
 #include "wiz8/engine_code/Prop.h"
 #include "wiz8/engine_code/World.h"
-#include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/stModelInstance.h"
-#include "wiz8/engine_code/stTextureAnim.h"
-#include "vobject.h"
-#include "vsurface.h"
-#include "wiz8/local_screens/RCSCommon.h"
 #include "wiz8/local_code/LoadSaveGame.h"
 #include "wiz8/local_code/MonsterAI.h"
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/dialog_code/MessageDialogBase.h"
-#include "wiz8/dialog_code/NpcDialog.h"
-#include <vector>
-#include <algorithm>
 #include "wiz8/cursor.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/Navigator.h"
 #include "wiz8/engine_code/3d.h"
-#include "wiz8/engine_code/World.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/GameplayTime.h"
 #include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/music_playlist.h"
 #include "wiz8/sr_api.h"
-#include "surrender/srScene.h"
 #include "surrender/srColorSurface.h"
 #include "surrender/srMaterial.h"
 #include "surrender/srMeshModel.h"
 #include "surrender/srShader.h"
 #include "wiz8/surface2d.h"
 #include "wiz8/utility.h"
-#include "wiz8/notices.h"
 #include "wiz8/regions.h"
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/fonts.h"
-#include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_screens/MGSUseItemSelect.h"
-#include "wiz8/local_screens/RCSItemsPage.h"
 #include "wiz8/dialog_code/AssayDialog.h"
 #include "wiz8/dialog_code/MonsterInfoDialog.h"
-#include "wiz8/dialog_code/PortraitQuote.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/world_cursor.h"
 #include "wiz8/local_code/MonsterGroup.h"
-
 #include "Font.h"
 #include "wiz8/filesystem.h"
 #include "input.h"
 #include "timer.h"
-#include "Types.h"
-#include "mousesystem.h"
-#include "mousesystem_macros.h"
 #include "surrender/srTypeRegistry.h"
 #include "wiz8/engine_code/Trigger.hpp"
-#include "wiz8/engine_code/3dapi.h"
 #include "wiz8/local_code/ItemManager.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/local_screens/MGSPartyMovement.h"
 #include "wiz8/engine_code/Cursor3d.h"
 #include "wiz8/local_screens/Screens.h"
-#include "wiz8/local_screens/MGSPortraits.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
 #include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/string_database.h"
 #include "wiz8/local_screens/MGSSpellIcons.h"
-#include "wiz8/local_screens/JournalScreen.h"
-#include "wiz8/engine_code/Prop.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/character_skills.h"
-#include "wiz8/local_code/CharGeneration.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
-#include "wiz8/local_code/GameplayMods.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/UtilityFunctions.h"
@@ -140,21 +131,44 @@
 #include "wiz8/local_code/Traps.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/GameplayInit.h"
-#include "vobject_blitters.h"
 #include "random.h"
-
-#include <math.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/local_screens/OptionsScreen.h"
+#include "Item.h"
+#include "application.h"
+#include "camera_motion.h"
+#include "compat/native.h"
+#include "dialog_code/DialogBase.h"
+#include "dialog_code/DialogTextArea.h"
+#include "dialog_code/DialogTextEntry.h"
+#include "difficulty.h"
+#include "equipment_slots.h"
+#include "game_timer.h"
+#include "glm/ext/vector_float4.hpp"
+#include "layouts/levels.h"
+#include "layouts/main_game_screen.h"
+#include "layouts/npc_dialogue.h"
+#include "layouts/world.h"
+#include "local_code/Controls.h"
+#include "local_code/ControlsRect.h"
+#include "local_code/Factions.h"
+#include "local_code/RangeControl.h"
+#include "local_code/TextBuffer.h"
+#include "local_code/TextControl.h"
+#include "local_code/Widget.h"
+#include "mgs_commands.h"
+#include "monster_cycles.h"
+#include "npc_trade_price.h"
+#include "surrender/srMath.h"
+#include "surrender/srNode.h"
+#include "surrender/srPixelConvert.h"
+#include "texture_animation.h"
+
+class srColorSurfaceIFace;
 
 /* Every redraw request checks the screen state first, so a request made from
    another screen is simply dropped. */
 
 /* The region set the two enable/disable wrappers below own. */
-enum { W8_REGION_SET_MAIN = 4 };
 // GLOBAL: WIZ8 0x0068edcc
 W8LevelRuntimeBlock* g_level_block;
 // GLOBAL: WIZ8 0x0068edd0
@@ -219,12 +233,6 @@ bool g_mouselook_left_held;
 bool g_node_cull_pending;
 
 
-// GLOBAL: WIZ8 0x0068f2c8
-static unsigned int g_main_game_text_panel_region_set;
-// GLOBAL: WIZ8 0x0068f2cc
-static unsigned int g_main_game_text_key_region_set;
-// GLOBAL: WIZ8 0x0068f2d0
-static unsigned int g_main_game_action_panel_region_set;
 
 // GLOBAL: WIZ8 0x0061e9ec
 unsigned short g_trap_name_string_ids[] = {
@@ -287,7 +295,7 @@ static void DrawMainGamePrompt(void);
 void InvalidateLockInteractionPanels(void);
 unsigned char GetOpenDialogueFlag(void);
 void RedrawTextBoxComplete(void);
-unsigned char HandleMouselookInput(const InputAtom* input);
+unsigned char HandleMouselookInput(const InputEvent* input);
 
 static bool IsPartyPortraitUnderCursor(unsigned int party_slot);
 void UpdateFormationPortraitRefresh(void);
@@ -324,12 +332,8 @@ static char s_lock_forcing_fail[] = "Data\\Sound\\Misc\\Lock_Forcing_Fail.wav";
 static char s_lock_forcing_success[] = "Data\\Sound\\Misc\\Lock_Forcing_Successful.wav";
 // GLOBAL: WIZ8 0x0068F2B4
 static int g_lock_phase;
-// GLOBAL: WIZ8 0x0068F2B8
-static unsigned int g_lock_tumbler_region_set;
-// GLOBAL: WIZ8 0x0068F2BC
-static unsigned int g_lock_action_region_set;
 // GLOBAL: WIZ8 0x0068F2C0
-static W8LockInteraction* g_lock_interaction;
+static std::unique_ptr<W8LockInteraction> g_lock_interaction;
 /* The selected slot's effective power with spell 0x27. */
 int GetKnockKnockSpellPower(int slot);
 void CancelMouselook()
@@ -337,7 +341,7 @@ void CancelMouselook()
     if (g_mouselook_active) {
         EnableCursorScene();
         g_mouselook_active = false;
-        gfTrackMousePos = 0;
+        SetMouseMoveEventsEnabled(0);
     }
 }
 
@@ -357,15 +361,10 @@ static void QueueInteractionNotice(int event_type)
 static void EnableActionPanelRegions()
 {
     if (g_level_block->action_panel_visible != 0) {
-        RegionSetEnable(0x14);
-        EnableRegionInput(0x59);
-        EnableRegionInput(0x52);
-        EnableRegionInput(0x53);
-        EnableRegionInput(0x54);
-        EnableRegionInput(0x55);
-        EnableRegionInput(0x56);
-        EnableRegionInput(0x57);
-        EnableRegionInput(0x58);
+        g_text_box_regions.Enable();
+        SetTextBoxMuteInput(true);
+        SetTextBoxScrollInput(true);
+        SetTextBoxChannelTabInput(true);
     }
 }
 
@@ -386,12 +385,12 @@ int OpenLockInteraction(Trigger* trigger)
     }
     if (gXStatus.fLockInteractMode || (gXStatus.fLockInteract && trigger != 0)) {
         QueueInteractionNotice(g_lock_notice_event);
-        SoundPlay(s_lock_open_fail, 0);
+        wiz8::sound::play(s_lock_open_fail);
         return 1;
     }
     if (gXStatus.fCombatMode) {
         QueueInteractionNotice(g_lock_notice_event);
-        SoundPlay(s_lock_open_fail, 0);
+        wiz8::sound::play(s_lock_open_fail);
         return 1;
     }
     gXStatus.fLockInteractMode = true;
@@ -409,8 +408,8 @@ int OpenLockInteraction(Trigger* trigger)
     RequestRedraw(W8_MAIN_REDRAW_SUBMENU_BUTTONS);
     if (!gXStatus.fLockInteract) {
         QueueInteractionNotice(g_lock_notice_event);
-        SoundPlay(s_lock_open_fail, 0);
-        g_lock_interaction = new W8LockInteraction(trigger);
+        wiz8::sound::play(s_lock_open_fail);
+        g_lock_interaction = std::make_unique<W8LockInteraction>(trigger);
         gXStatus.fLockInteract = false;
         return 1;
     }
@@ -419,7 +418,7 @@ int OpenLockInteraction(Trigger* trigger)
     g_lock_interaction->m_info_panel->RefreshInfo();
     g_lock_interaction->m_action_panel->Invalidate(0);
     skill = GetPartySlotLocksTrapsLevel(g_status.selected_character);
-    panel = g_lock_interaction->m_tumbler_panel;
+    panel = g_lock_interaction->m_tumbler_panel.get();
     for (i = 0; i < panel->m_tumbler_count; ++i) {
         panel->m_tumblers[i]->SetEnabled(skill > -1);
     }
@@ -467,16 +466,13 @@ void RedrawLockInteractionPanels(void)
 // FUNCTION: WIZ8 0x005879A0
 void EndLockInteractMode(char suspend)
 {
-    W8LockInteraction* interaction = g_lock_interaction;
+    W8LockInteraction* interaction = g_lock_interaction.get();
     gXStatus.fLockInteractMode = false;
     if (suspend != 0) {
         interaction->EnablePanels(0);
         gXStatus.fLockInteract = true;
     } else {
-        if (g_lock_interaction != 0) {
-            delete g_lock_interaction;
-        }
-        g_lock_interaction = 0;
+        g_lock_interaction.reset();
         ClearLevelMovementStopped();
     }
     SelectTextBox(0);
@@ -511,7 +507,7 @@ static unsigned int CanSelectedCharacterCastKnockKnock(W8Character* character)
 // FUNCTION: WIZ8 0x00587A30
 void RefreshLockInteractionControls(void)
 {
-    W8LockInteraction* interaction = g_lock_interaction;
+    W8LockInteraction* interaction = g_lock_interaction.get();
     W8Character* character;
     int level;
     unsigned int figure;
@@ -548,7 +544,7 @@ void RefreshLockInteractionControls(void)
 // FUNCTION: WIZ8 0x00587C20
 void EnableLockInteractionPanels(void)
 {
-    if (g_lock_interaction != 0) {
+    if (g_lock_interaction) {
         g_lock_interaction->EnablePanels(1);
     }
 }
@@ -559,7 +555,7 @@ void EnableLockInteractionPanels(void)
 // FUNCTION: WIZ8 0x00587C50
 void InvalidateLockInteractionPanels(void)
 {
-    W8LockInteraction* interaction = g_lock_interaction;
+    W8LockInteraction* interaction = g_lock_interaction.get();
 
     interaction->m_tumbler_panel->Invalidate(0);
     interaction->m_info_panel->RefreshInfo();
@@ -586,19 +582,20 @@ void W8LockTumbler::Redraw(bool full_redraw)
     top = m_top + m_pPanel->m_bounds.top;
     bottom = m_bottom + m_pPanel->m_bounds.top;
     InvalidateRegion(left - 3, top, right + 3, bottom, 0);
-    ColorFillVideoSurfaceArea(FRAME_BUFFER, left, top, right, top + 0x24, 0x8000);
-    ColorFillVideoSurfaceArea(FRAME_BUFFER, left - 3, top + 0x24, right + 3, bottom, 0x8000);
-    DrawCatalogImage(FRAME_BUFFER, 0x1ae, 0, 0, left + 3, top, VO_BLT_SRCTRANSPARENCY, 0);
+    const SDL_Rect top_fill{left, top, right - left, 0x24};
+    const SDL_Rect bottom_fill{left - 3, top + 0x24, right - left + 6, bottom - top - 0x24};
+    SDL_FillSurfaceRect(&GetFrameBufferSurface(), &top_fill, 0x8000);
+    SDL_FillSurfaceRect(&GetFrameBufferSurface(), &bottom_fill, 0x8000);
+    CatalogArtwork::Load(0x1ae, 0).draw(GetFrameBufferSurface(), 0, left + 3, top);
     frame = m_pin_index * 4 + 1;
     if (m_pin_set) {
         frame += m_at_top ? 2 : 1;
     } else if (m_hovered && !m_rising && !m_falling) {
         frame += 3;
     }
-    DrawCatalogImage(FRAME_BUFFER, 0x1ae, 0, frame, left, top, VO_BLT_SRCTRANSPARENCY, 0);
+    CatalogArtwork::Load(0x1ae, 0).draw(GetFrameBufferSurface(), frame, left, top);
     if (m_at_top) {
-        DrawCatalogImage(FRAME_BUFFER, 0x1ae, 0, g_lock_phase + 0x11, right, top - 4,
-                         VO_BLT_SRCTRANSPARENCY, 0);
+        CatalogArtwork::Load(0x1ae, 0).draw(GetFrameBufferSurface(), g_lock_phase + 0x11, right, top - 4);
     }
     m_dirty = false;
 }
@@ -641,7 +638,7 @@ void W8LockTumbler::OnLeftButtonUp(int event)
 
 // FUNCTION: WIZ8 0x005856E0
 W8LockTumblerPanel::W8LockTumblerPanel(int tumbler_count, const unsigned char* pin_data)
-    : Controls(0xd3, 0x166, 0, 0, 0x1af, 0, 1), m_phase_timer(0.04f, 0), m_rise_timer(0.03f, 0),
+    : Controls(0xd3, 0x166, 0, 0, CatalogArtwork::Load(0x1af, 0), 1), m_phase_timer(0.04f, 0), m_rise_timer(0.03f, 0),
       m_fall_timer(0.01f, 0)
 {
     int i;
@@ -651,7 +648,7 @@ W8LockTumblerPanel::W8LockTumblerPanel(int tumbler_count, const unsigned char* p
     m_animating = false;
     m_phase = 0;
     m_listener = 0;
-    AcquireRegionSet(&g_lock_tumbler_region_set);
+    CreateRegionSet();
     for (i = 0, x = 0x28; x < 0x108; i++, x += 0x1c) {
         m_tumblers[i] = new W8LockTumbler(this, x, 8, x + 0x14, 0x52, pin_data[i]);
         m_tumblers[i]->m_listener = this;
@@ -744,7 +741,8 @@ void W8LockTumblerPanel::UpdateTumblerAnimation()
 }
 
 // FUNCTION: WIZ8 0x00585B00
-W8LockInfoPanel::W8LockInfoPanel(int tumbler_count) : Controls(0x17, 0x166, 0, 0, 0x1af, 0, 0)
+W8LockInfoPanel::W8LockInfoPanel(int tumbler_count)
+    : Controls(0x17, 0x166, 0, 0, CatalogArtwork::Load(0x1af, 0), 0)
 {
     W8ControlsRect bounds;
 
@@ -753,44 +751,32 @@ W8LockInfoPanel::W8LockInfoPanel(int tumbler_count) : Controls(0x17, 0x166, 0, 0
     bounds.top = m_bounds.top + 7;
     bounds.right = m_bounds.left + 0xb4;
     bounds.bottom = m_bounds.top + 0x11;
-    m_text0 = new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, g_W8TextBufferAlignCenter, 4);
+    m_text0.reset(new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, g_W8TextBufferAlignCenter, 4));
     bounds.top += 0xe;
     bounds.bottom += 0xe;
-    m_text1 = new W8TextBuffer(&bounds, g_localized_strings[0x7a9], g_wiz_text_font_secondary,
+    m_text1 = std::make_unique<W8TextBuffer>(&bounds, g_localized_strings[0x7a9], g_wiz_text_font_secondary,
                                g_W8TextBufferAlignLeft, 4);
     bounds.top += 0xe;
     bounds.bottom += 0xe;
-    m_text3 = new W8TextBuffer(&bounds, g_localized_strings[0x7aa], g_wiz_text_font_secondary,
+    m_text3 = std::make_unique<W8TextBuffer>(&bounds, g_localized_strings[0x7aa], g_wiz_text_font_secondary,
                                g_W8TextBufferAlignLeft, 4);
     bounds.top += 0xe;
     bounds.bottom += 0xe;
-    m_text5 = new W8TextBuffer(&bounds, g_localized_strings[0x7ab], g_wiz_text_font_secondary,
+    m_text5 = std::make_unique<W8TextBuffer>(&bounds, g_localized_strings[0x7ab], g_wiz_text_font_secondary,
                                g_W8TextBufferAlignLeft, 4);
     bounds.left = m_bounds.left + 0x98;
     bounds.top = m_bounds.top + 0x15;
     bounds.right = m_bounds.left + 0xb5;
     bounds.bottom = m_bounds.top + 0x1f;
-    m_text2 = new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, g_W8TextBufferAlignCenter, 4);
+    m_text2.reset(new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, g_W8TextBufferAlignCenter, 4));
     bounds.top += 0xe;
     bounds.bottom += 0xe;
-    m_text4 = new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, g_W8TextBufferAlignCenter, 4);
+    m_text4.reset(new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, g_W8TextBufferAlignCenter, 4));
     bounds.top += 0xe;
     bounds.bottom += 0xe;
-    m_text = new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, g_W8TextBufferAlignCenter, 4);
+    m_text.reset(new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, g_W8TextBufferAlignCenter, 4));
     SetEnabled(true);
     Invalidate(0);
-}
-
-// FUNCTION: WIZ8 0x00585E20
-W8LockInfoPanel::~W8LockInfoPanel()
-{
-    delete m_text0;
-    delete m_text1;
-    delete m_text2;
-    delete m_text3;
-    delete m_text4;
-    delete m_text5;
-    delete m_text;
 }
 
 // FUNCTION: WIZ8 0x00585ED0
@@ -852,13 +838,13 @@ void W8LockInfoPanel::Redraw()
 {
     if (m_fEnabled && m_fDirty) {
         Controls::Redraw();
-        m_text0->RenderToTarget(0, false, FRAME_BUFFER);
-        m_text1->RenderToTarget(0, false, FRAME_BUFFER);
-        m_text2->RenderToTarget(0, false, FRAME_BUFFER);
-        m_text3->RenderToTarget(0, false, FRAME_BUFFER);
-        m_text4->RenderToTarget(0, false, FRAME_BUFFER);
-        m_text5->RenderToTarget(0, false, FRAME_BUFFER);
-        m_text->RenderToTarget(0, false, FRAME_BUFFER);
+        m_text0->RenderToTarget(0, false, GetFrameBufferSurface());
+        m_text1->RenderToTarget(0, false, GetFrameBufferSurface());
+        m_text2->RenderToTarget(0, false, GetFrameBufferSurface());
+        m_text3->RenderToTarget(0, false, GetFrameBufferSurface());
+        m_text4->RenderToTarget(0, false, GetFrameBufferSurface());
+        m_text5->RenderToTarget(0, false, GetFrameBufferSurface());
+        m_text->RenderToTarget(0, false, GetFrameBufferSurface());
     }
 }
 
@@ -879,23 +865,22 @@ W8LockInteraction::W8LockInteraction(Trigger* trigger) : m_timer()
     } else if (m_tumbler_count > 8) {
         m_tumbler_count = 8;
     }
-    m_tumbler_panel =
-        new W8LockTumblerPanel(m_tumbler_count, trigger->lock_state.device_state.pins);
+    m_tumbler_panel = std::make_unique<W8LockTumblerPanel>(m_tumbler_count, trigger->lock_state.device_state.pins);
     m_tumbler_panel->m_listener = this;
-    m_info_panel = new W8LockInfoPanel(m_tumbler_count);
-    m_action_panel = new Controls(0x1e7, 0x166, 0, 0, 0x1af, 0, 2);
-    m_action_panel->AcquireRegionSet(&g_lock_action_region_set);
+    m_info_panel = std::make_unique<W8LockInfoPanel>(m_tumbler_count);
+    m_action_panel = std::make_unique<Controls>(0x1e7, 0x166, 0, 0, CatalogArtwork::Load(0x1af, 0), 2);
+    m_action_panel->CreateRegionSet();
     m_spell_button =
-        new W8TextControl(m_action_panel, 0xffffffff, 6, 6, 0, 0, 0x1b0, 0, 8, 10, 9, 10, 0xb);
+        new W8TextControl(m_action_panel.get(), 0xffffffff, 6, 6, 0, 0, CatalogArtwork::Load(0x1b0, 0), 8, 10, 9, 10, 0xb);
     m_spell_button->m_listener = this;
     m_force_button =
-        new W8TextControl(m_action_panel, 0xffffffff, 0x24, 6, 0, 0, 0x1b0, 0, 0, 2, 1, 2, 3);
+        new W8TextControl(m_action_panel.get(), 0xffffffff, 0x24, 6, 0, 0, CatalogArtwork::Load(0x1b0, 0), 0, 2, 1, 2, 3);
     m_force_button->m_listener = this;
     m_cancel_button =
-        new W8TextControl(m_action_panel, 0xffffffff, 6, 0x24, 0, 0, 0x1b0, 0, 4, 6, 5, 6, 7);
+        new W8TextControl(m_action_panel.get(), 0xffffffff, 6, 0x24, 0, 0, CatalogArtwork::Load(0x1b0, 0), 4, 6, 5, 6, 7);
     m_cancel_button->m_listener = this;
     m_done_button =
-        new W8TextControl(m_action_panel, 0xffffffff, 0x44, 6, 0, 0, 0x8e, 0, 4, 6, 5, 6, 7);
+        new W8TextControl(m_action_panel.get(), 0xffffffff, 0x44, 6, 0, 0, CatalogArtwork::Load(0x8e, 0), 4, 6, 5, 6, 7);
     m_done_button->m_listener = this;
     m_spell_button->EnableRegionHelp(0x7cb);
     m_force_button->EnableRegionHelp(0x7cd);
@@ -930,16 +915,6 @@ W8LockInteraction::W8LockInteraction(Trigger* trigger) : m_timer()
     m_force_button->SetEnabled(static_cast<int>(figure) > -1);
     m_info_panel->RefreshInfo();
     m_action_panel->Invalidate(0);
-}
-
-// FUNCTION: WIZ8 0x005866A0
-W8LockInteraction::~W8LockInteraction()
-{
-    delete m_tumbler_panel;
-    delete m_info_panel;
-    m_action_panel->EnableRegionSet(false);
-    m_action_panel->DestroyAllControls();
-    delete m_action_panel;
 }
 
 int W8LockInteraction::ReleaseOwnedTumblers(int slot)
@@ -1010,7 +985,7 @@ void W8LockInteraction::Process()
         dropped = ReleaseOwnedTumblers(g_status.selected_character);
     lock_release_done:
         if (dropped) {
-            SoundPlay(s_lock_pin_falling, 0);
+            wiz8::sound::play(s_lock_pin_falling);
             return;
         }
         break;
@@ -1027,7 +1002,7 @@ void W8LockInteraction::Process()
                 return;
             }
         }
-        SoundPlay(s_lock_picking_success, 0);
+        wiz8::sound::play(s_lock_picking_success);
         ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x7ac]);
         BeginUnlock();
         break;
@@ -1092,7 +1067,7 @@ void W8LockInteraction::OnTumblerPicked(int index)
     m_tumbler_panel->m_tumblers[index]->m_hovered = false;
     m_tumbler_panel->m_tumblers[index]->m_rising = true;
     m_tumbler_panel->m_animating = true;
-    SoundPlay(s_lock_pin_rising, 0);
+    wiz8::sound::play(s_lock_pin_rising);
 }
 
 // FUNCTION: WIZ8 0x00586C00
@@ -1149,14 +1124,14 @@ void W8LockInteraction::ResolvePick()
         }
     }
     if (dropped) {
-        SoundPlay(s_lock_pin_falling, 0);
+        wiz8::sound::play(s_lock_pin_falling);
     }
     for (i = 0; i < m_tumbler_count; i++) {
         if (m_tumbler_owner[i] == -1) {
             return;
         }
     }
-    SoundPlay(s_lock_picking_success, 0);
+    wiz8::sound::play(s_lock_picking_success);
     ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x7ac]);
     BeginUnlock();
 }
@@ -1182,12 +1157,12 @@ void W8LockInteraction::AttemptForce()
         if (static_cast<int>(chance) > -1) {
             FatigueCharacter(g_status.selected_character, 0x50, false, 0);
             if (static_cast<int>(Random(100)) < static_cast<int>(chance)) {
-                SoundPlay(s_lock_forcing_success, 0);
+                wiz8::sound::play(s_lock_forcing_success);
                 ShowString(fmt::format("{} {}", character->name, g_localized_strings[0x7ae]));
                 BeginUnlock();
                 return;
             }
-            SoundPlay(s_lock_forcing_fail, 0);
+            wiz8::sound::play(s_lock_forcing_fail);
             ShowString(fmt::format("{} {}", character->name, g_localized_strings[0x7ad]));
             if (!IsPartySlotEligible(g_status.selected_character)) {
                 level = -1;
@@ -1274,7 +1249,7 @@ void W8LockInteraction::ApplyKnockKnock(int level, int /*flag*/, char backfire)
     for (i = 0; i < pins; ++i) {
         if (Random(1000) < chance) {
             pin = order[i];
-            panel = m_tumbler_panel;
+            panel = m_tumbler_panel.get();
             if (backfire == 0) {
                 if (m_tumbler_owner[pin] == -1) {
                     tumbler = panel->m_tumblers[pin];
@@ -1302,9 +1277,9 @@ void W8LockInteraction::ApplyKnockKnock(int level, int /*flag*/, char backfire)
     }
     if (rolled) {
         if (backfire == 0) {
-            SoundPlay(s_lock_pin_rising, 0);
+            wiz8::sound::play(s_lock_pin_rising);
         } else {
-            SoundPlay(s_lock_pin_falling, 0);
+            wiz8::sound::play(s_lock_pin_falling);
             m_tumbler_panel->Invalidate(0);
         }
     }
@@ -1338,11 +1313,10 @@ void CastSpellAtLockInteraction(unsigned int level, int flag, int backfire)
 // FUNCTION: WIZ8 0x00587cf0
 W8MainGameTextKeyHandler::W8MainGameTextKeyHandler(Controls* panel, int left, int top, int right,
                                                    int bottom, int line_count,
-                                                   const unsigned short* line_string_ids,
-                                                   unsigned int* region_set)
+                                                   const unsigned short* line_string_ids)
     : W8Widget(panel, 0xffffffff, left, top, right - 0x13, bottom),
       m_range(panel->m_bounds.left - 0x12 + right, panel->m_bounds.top + top,
-              right + panel->m_bounds.left, panel->m_bounds.top + bottom, region_set)
+              right + panel->m_bounds.left, panel->m_bounds.top + bottom)
 {
     m_line_count = line_count;
     m_visible_lines = (bottom - top) / 0xe;
@@ -1367,7 +1341,7 @@ void W8MainGameTextKeyHandler::Redraw(bool full_redraw)
     int bottom;
     int line;
     int last;
-    unsigned short* colour;
+    Palette16 colour;
 
     if (!m_active) {
         return;
@@ -1380,24 +1354,23 @@ void W8MainGameTextKeyHandler::Redraw(bool full_redraw)
     right = m_pPanel->m_bounds.left + m_right;
     bottom = m_pPanel->m_bounds.top + m_bottom;
     InvalidateRegion(left, top, right, bottom, 0);
-    BlitCatalogSurfaceRectTo16BPP(FRAME_BUFFER, left, top, right, bottom, 0x1b6, 0, 0);
-    SetFont(g_wiz_text_font_secondary);
+    CatalogArtwork::Load(0x1b6, 0).drawRect(GetFrameBufferSurface(), SDL_Rect{0, 0, (right) - (left), (bottom) - (top)}, left, top);
     last = m_first_visible_line + m_visible_lines;
     left += 2;
     top += 1;
     for (line = m_first_visible_line; line < last; ++line) {
         if (line == m_selected_line) {
-            colour = g_font_state_palettes[W8_FONT_PALETTE_BLUE].get();
+            colour = g_font_state_palettes[W8_FONT_PALETTE_BLUE];
         } else if (line == m_hover_line) {
-            colour = g_font_state_palettes[W8_FONT_PALETTE_YELLOW].get();
+            colour = g_font_state_palettes[W8_FONT_PALETTE_YELLOW];
         } else {
-            colour = GetFontObject(g_wiz_text_font_secondary)->ownedPalette.get();
+            colour = g_wiz_text_font_secondary.glyphs->colors;
         }
-        SetFontObjectPalette16BPP(g_wiz_text_font_secondary, colour);
-        DrawFontText(left, top, g_localized_strings[m_line_string_ids[line]]);
+        g_wiz_text_font_secondary.setPalette(colour);
+        DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {left, top}, g_localized_strings[m_line_string_ids[line]]);
         top += 0xe;
     }
-    SetFontObjectPalette16BPP(g_wiz_text_font_secondary, GetFontObject(g_wiz_text_font_secondary)->ownedPalette.get());
+    g_wiz_text_font_secondary.resetPalette();
     m_range.Invalidate(0);
     m_dirty = false;
 }
@@ -1515,12 +1488,11 @@ W8MainGameTextEntry::W8MainGameTextEntry(Controls* panel, int index)
     int top;
 
     m_input_blocked = false;
-    m_imageFrame = 0;
     m_image = -1;
     m_alternatePressedSprite = -1;
     m_normalSprite = sprites;
     m_pressedSprite = sprites + 2;
-    m_imageObject = 0x1b2;
+    SetImage(CatalogArtwork::Load(0x1b2));
     m_alternateNormalSprite = sprites + 1;
     m_disabledSprite = sprites + 3;
     MeasureText();
@@ -1530,7 +1502,7 @@ W8MainGameTextEntry::W8MainGameTextEntry(Controls* panel, int index)
     m_right = m_measured_w + left;
     m_bottom = m_measured_h + top;
     m_top = top;
-    SetPanel(panel);
+    SetPanel(*panel);
     AddLayoutFlags(g_W8TextControlLayoutLatchedImage | g_W8TextControlLayoutToggle);
 }
 
@@ -1553,11 +1525,11 @@ void W8MainGameTextEntry::Redraw(bool full_redraw)
     left = m_pPanel->m_bounds.left + m_left;
     top = m_pPanel->m_bounds.top + m_top;
     if (image == 0) {
-        DrawCatalogImage(FRAME_BUFFER, 0x1b3, 0, 2, left, top, VO_BLT_SRCTRANSPARENCY, 0);
+        CatalogArtwork::Load(0x1b3, 0).draw(GetFrameBufferSurface(), 2, left, top);
     } else if (image == 1) {
-        DrawCatalogImage(FRAME_BUFFER, 0x1b3, 0, 0, left, top, VO_BLT_SRCTRANSPARENCY, 0);
+        CatalogArtwork::Load(0x1b3, 0).draw(GetFrameBufferSurface(), 0, left, top);
     } else if (image == 2) {
-        DrawCatalogImage(FRAME_BUFFER, 0x1b3, 0, 1, left, top, VO_BLT_SRCTRANSPARENCY, 0);
+        CatalogArtwork::Load(0x1b3, 0).draw(GetFrameBufferSurface(), 1, left, top);
     }
 }
 
@@ -1610,7 +1582,7 @@ void W8MainGameTextEntry::OnMouseEnter(int event)
 
 // FUNCTION: WIZ8 0x005884d0
 W8MainGameTextPanel::W8MainGameTextPanel()
-    : Controls(0xd3, 0x166, 0, 0, 0x1b1, 0, 1), m_selection(0), m_screen(0), m_values(0),
+    : Controls(0xd3, 0x166, 0, 0, CatalogArtwork::Load(0x1b1, 0), 1), m_selection(0), m_screen(0), m_values(0),
       m_progress_display(0), m_timer1(0.04f, 0)
 {
     int index;
@@ -1618,14 +1590,14 @@ W8MainGameTextPanel::W8MainGameTextPanel()
     m_marker_anim_time = 0;
     m_target_changed = false;
     m_target_marker_pending = false;
-    AcquireRegionSet(&g_main_game_text_panel_region_set);
+    CreateRegionSet();
     for (index = 0; index < 8; ++index) {
         m_entries[index] = new W8MainGameTextEntry(this, index);
         m_entries[index]->m_listener = this;
         m_entries[index]->EnableRegionHelp(0x7d1);
     }
     m_key_handler = new W8MainGameTextKeyHandler(
-        this, 0x8e, 5, 0x10f, 0x59, 0xf, g_trap_name_string_ids, &g_main_game_text_key_region_set);
+        this, 0x8e, 5, 0x10f, 0x59, 0xf, g_trap_name_string_ids);
     m_key_handler->m_range_listener = this;
     m_text_bounds.left = m_bounds.left + 0xc;
     m_text_bounds.top = m_bounds.top + 0x29;
@@ -1664,7 +1636,6 @@ W8MainGameTextPanel::~W8MainGameTextPanel()
 // FUNCTION: WIZ8 0x00588830
 void W8MainGameTextPanel::Redraw()
 {
-    SDL_Rect previous;
     SDL_Rect clip;
     int progress;
 
@@ -1682,14 +1653,12 @@ void W8MainGameTextPanel::Redraw()
             m_progress_drawn = progress;
             InvalidateRegion(m_text_bounds.left, m_text_bounds.top, m_text_bounds.right,
                              m_text_bounds.bottom, 0);
-            GetClippingRect(&previous);
-            clip = previous;
+            auto& framebuffer = GetFrameBufferSurface();
+            SDL_GetSurfaceClipRect(&framebuffer, &clip);
             clip.h = (m_text_bounds.left + m_progress_drawn) - clip.y;
-            SetClippingRect(&clip);
-            DrawCatalogImage(FRAME_BUFFER, 0x1b5, 0, 0, m_text_bounds.left, m_text_bounds.top,
-                             VO_BLT_SRCTRANSPARENCY, 0);
-            SetClippingRect(&previous);
-            m_text_buffer.RenderToTarget(0, true, FRAME_BUFFER);
+            ScopedClipRect clipped(framebuffer, clip);
+            CatalogArtwork::Load(0x1b5, 0).draw(GetFrameBufferSurface(), 0, m_text_bounds.left, m_text_bounds.top);
+            m_text_buffer.RenderToTarget(0, true, GetFrameBufferSurface());
         }
     }
     if (m_fEnabled && m_target_changed && m_target_marker_pending) {
@@ -1697,8 +1666,7 @@ void W8MainGameTextPanel::Redraw()
         if (frame >= 7) {
             frame = 12 - frame;
         }
-        DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x1b4, 0, frame, m_bounds.left + 1,
-                                      m_bounds.top + 2, VO_BLT_SRCTRANSPARENCY, 0);
+        CatalogArtwork::Load(0x1b4, 0).drawAndInvalidate(GetFrameBufferSurface(), frame, m_bounds.left + 1, m_bounds.top + 2);
         m_target_marker_pending = false;
     }
 }
@@ -1747,7 +1715,8 @@ void W8MainGameTextPanel::OnRangeChanged(W8RangeControl* control)
 }
 
 // FUNCTION: WIZ8 0x00588a90
-W8MainGameStatusPanel::W8MainGameStatusPanel() : Controls(0x17, 0x166, 0, 0, 0x1b1, 0, 0)
+W8MainGameStatusPanel::W8MainGameStatusPanel()
+    : Controls(0x17, 0x166, 0, 0, CatalogArtwork::Load(0x1b1, 0), 0)
 {
     W8ControlsRect bounds;
 
@@ -1755,45 +1724,33 @@ W8MainGameStatusPanel::W8MainGameStatusPanel() : Controls(0x17, 0x166, 0, 0, 0x1
     bounds.top = m_bounds.top + 7;
     bounds.right = m_bounds.left + 0xb4;
     bounds.bottom = m_bounds.top + 0x11;
-    m_text = new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, g_W8TextBufferAlignCenter, 4);
+    m_text.reset(new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, g_W8TextBufferAlignCenter, 4));
     bounds.top += 0xe;
     bounds.bottom += 0xe;
-    m_text0 = new W8TextBuffer(&bounds, g_localized_strings[0x7a9], g_wiz_text_font_secondary,
+    m_text0 = std::make_unique<W8TextBuffer>(&bounds, g_localized_strings[0x7a9], g_wiz_text_font_secondary,
                                g_W8TextBufferAlignLeft, 4);
     bounds.top += 0xe;
     bounds.bottom += 0xe;
-    m_text2 = new W8TextBuffer(&bounds, g_localized_strings[0x7aa], g_wiz_text_font_secondary,
+    m_text2 = std::make_unique<W8TextBuffer>(&bounds, g_localized_strings[0x7aa], g_wiz_text_font_secondary,
                                g_W8TextBufferAlignLeft, 4);
     bounds.top += 0xe;
     bounds.bottom += 0xe;
-    m_text4 = new W8TextBuffer(&bounds, g_localized_strings[0x7b0], g_wiz_text_font_secondary,
+    m_text4 = std::make_unique<W8TextBuffer>(&bounds, g_localized_strings[0x7b0], g_wiz_text_font_secondary,
                                g_W8TextBufferAlignLeft, 4);
     bounds.left = m_bounds.left + 0x98;
     bounds.top = m_bounds.top + 0x15;
     bounds.right = m_bounds.left + 0xb5;
     bounds.bottom = m_bounds.top + 0x1f;
-    m_text1 = new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, g_W8TextBufferAlignCenter, 4);
+    m_text1.reset(new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, g_W8TextBufferAlignCenter, 4));
     bounds.top += 0xe;
     bounds.bottom += 0xe;
-    m_text3 = new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, g_W8TextBufferAlignCenter, 4);
+    m_text3.reset(new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, g_W8TextBufferAlignCenter, 4));
     bounds.top += 0xe;
     bounds.bottom += 0xe;
-    m_text5 = new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, g_W8TextBufferAlignCenter, 4);
+    m_text5.reset(new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, g_W8TextBufferAlignCenter, 4));
     m_target = 0;
     SetEnabled(true);
     Invalidate(0);
-}
-
-// FUNCTION: WIZ8 0x00588db0
-W8MainGameStatusPanel::~W8MainGameStatusPanel()
-{
-    delete m_text;
-    delete m_text0;
-    delete m_text1;
-    delete m_text2;
-    delete m_text3;
-    delete m_text4;
-    delete m_text5;
 }
 
 // FUNCTION: WIZ8 0x00588e60
@@ -1872,41 +1829,40 @@ void W8MainGameStatusPanel::Redraw()
 {
     if (m_fEnabled && m_fDirty) {
         Controls::Redraw();
-        m_text->RenderToTarget(0, false, FRAME_BUFFER);
-        m_text0->RenderToTarget(0, false, FRAME_BUFFER);
-        m_text1->RenderToTarget(0, false, FRAME_BUFFER);
-        m_text2->RenderToTarget(0, false, FRAME_BUFFER);
-        m_text3->RenderToTarget(0, false, FRAME_BUFFER);
-        m_text4->RenderToTarget(0, false, FRAME_BUFFER);
-        m_text5->RenderToTarget(0, false, FRAME_BUFFER);
+        m_text->RenderToTarget(0, false, GetFrameBufferSurface());
+        m_text0->RenderToTarget(0, false, GetFrameBufferSurface());
+        m_text1->RenderToTarget(0, false, GetFrameBufferSurface());
+        m_text2->RenderToTarget(0, false, GetFrameBufferSurface());
+        m_text3->RenderToTarget(0, false, GetFrameBufferSurface());
+        m_text4->RenderToTarget(0, false, GetFrameBufferSurface());
+        m_text5->RenderToTarget(0, false, GetFrameBufferSurface());
     }
 }
 
 // FUNCTION: WIZ8 0x00589160
 W8MainGameScreen::W8MainGameScreen(Trigger* owner)
-    : m_owner(owner), m_disarm_state(0), m_target_difficulty(0), m_sound_handle(0)
+    : m_owner(owner), m_disarm_state(0), m_target_difficulty(0), m_sound_handle()
 {
     m_device_id = owner->lock_state.device_id;
     m_difficulty = owner->lock_state.difficulty;
-    m_text_panel = new W8MainGameTextPanel();
+    m_text_panel = std::make_unique<W8MainGameTextPanel>();
     m_text_panel->m_screen = this;
-    m_status_panel = new W8MainGameStatusPanel();
-    m_action_panel = new Controls(0x1e7, 0x166, 0, 0, 0x1b1, 0, 2);
-    m_action_panel->AcquireRegionSet(&g_main_game_action_panel_region_set);
+    m_status_panel = std::make_unique<W8MainGameStatusPanel>();
+    m_action_panel = std::make_unique<Controls>(0x1e7, 0x166, 0, 0, CatalogArtwork::Load(0x1b1, 0), 2);
+    m_action_panel->CreateRegionSet();
     m_action_controls[1] =
-        new W8TextControl(m_action_panel, 0xffffffff, 6, 6, 0, 0, 0x1b0, 0, 8, 10, 9, 10, 0xb);
+        new W8TextControl(m_action_panel.get(), 0xffffffff, 6, 6, 0, 0, CatalogArtwork::Load(0x1b0, 0), 8, 10, 9, 10, 0xb);
     m_action_controls[1]->m_listener = this;
     m_action_controls[2] =
-        new W8TextControl(m_action_panel, 0xffffffff, 0x24, 6, 0, 0, 0x1b0, 0, 0, 2, 1, 2, 3);
+        new W8TextControl(m_action_panel.get(), 0xffffffff, 0x24, 6, 0, 0, CatalogArtwork::Load(0x1b0, 0), 0, 2, 1, 2, 3);
     m_action_controls[2]->m_listener = this;
     m_action_controls[3] =
-        new W8TextControl(m_action_panel, 0xffffffff, 6, 0x24, 0, 0, 0x1b0, 0, 4, 6, 5, 6, 7);
+        new W8TextControl(m_action_panel.get(), 0xffffffff, 6, 0x24, 0, 0, CatalogArtwork::Load(0x1b0, 0), 4, 6, 5, 6, 7);
     m_action_controls[3]->m_listener = this;
-    m_action_controls[4] = new W8TextControl(m_action_panel, 0xffffffff, 0x24, 0x24, 0, 0, 0x1b0, 0,
-                                             0xc, 0xe, 0xd, 0xe, 0xf);
+    m_action_controls[4] = new W8TextControl(m_action_panel.get(), 0xffffffff, 0x24, 0x24, 0, 0, CatalogArtwork::Load(0x1b0, 0), 0xc, 0xe, 0xd, 0xe, 0xf);
     m_action_controls[4]->m_listener = this;
     m_action_controls[0] =
-        new W8TextControl(m_action_panel, 0xffffffff, 0x44, 6, 0, 0, 0x8e, 0, 4, 6, 5, 6, 7);
+        new W8TextControl(m_action_panel.get(), 0xffffffff, 0x44, 6, 0, 0, CatalogArtwork::Load(0x8e, 0), 4, 6, 5, 6, 7);
     m_action_controls[0]->m_listener = this;
     m_action_controls[1]->EnableRegionHelp(0x7ce);
     m_action_controls[2]->EnableRegionHelp(0x7cf);
@@ -1920,16 +1876,6 @@ W8MainGameScreen::W8MainGameScreen(Trigger* owner)
         m_slot_attempted[i] = 0;
     }
     RefreshActionPanel();
-}
-
-// FUNCTION: WIZ8 0x005894b0
-W8MainGameScreen::~W8MainGameScreen()
-{
-    delete m_text_panel;
-    delete m_status_panel;
-    m_action_panel->EnableRegionSet(false);
-    m_action_panel->DestroyAllControls();
-    delete m_action_panel;
 }
 
 // FUNCTION: WIZ8 0x00589550
@@ -1980,8 +1926,7 @@ void W8MainGameScreen::SelectTextEntry(int index)
     m_action_controls[4]->SetEnabled(false);
     m_action_panel->Invalidate(0);
     m_text_panel->BeginProgress(g_localized_strings[0x7b5], duration, hold);
-    m_sound_handle = static_cast<int>(
-        SoundPlay((STR)g_trap_sounds[index] /* c-style-cast-ok: SGP STR boundary */, 0));
+    m_sound_handle = wiz8::sound::play(g_trap_sounds[index]);
 }
 
 int W8MainGameScreen::GetTrapInteractionChance() const
@@ -2054,8 +1999,7 @@ void W8MainGameScreen::OnPrimary(W8TextControl* control)
     m_action_controls[4]->SetEnabled(false);
     m_action_panel->Invalidate(0);
     m_text_panel->BeginProgress(g_localized_strings[0x7b6], duration, hold);
-    m_sound_handle = static_cast<int>(SoundPlayStreamedFile(
-        (STR)g_trap_inspection_sound /* c-style-cast-ok: SGP STR boundary */, 0));
+    m_sound_handle = wiz8::sound::stream(g_trap_inspection_sound);
 }
 
 // FUNCTION: WIZ8 0x00589a80
@@ -2076,7 +2020,7 @@ void W8MainGameScreen::Update()
         return;
     }
 
-    panel = m_text_panel;
+    panel = m_text_panel.get();
     if (panel->m_target_changed) {
         elapsed = static_cast<int>(panel->m_timer1.GetProgress());
         if (elapsed != 0) {
@@ -2085,7 +2029,7 @@ void W8MainGameScreen::Update()
         }
     }
 
-    panel = m_text_panel;
+    panel = m_text_panel.get();
     if (panel->m_progress_display) {
         progress = panel->m_timer0.GetProgress();
         if (progress < panel->m_progress_duration) {
@@ -2109,7 +2053,7 @@ void W8MainGameScreen::Update()
         return;
     case 2:
         m_disarm_state = 0;
-        m_sound_handle = 0;
+        m_sound_handle = nullptr;
         PracticeCharacterSkill(&g_status.buffers.Char[m_selected_character], W8_SKILL_LOCKS_TRAPS,
                                1, false);
         RefreshActionPanel();
@@ -2121,7 +2065,7 @@ void W8MainGameScreen::Update()
         m_disarm_state = 3;
         return;
     case 3:
-        panel = m_text_panel;
+        panel = m_text_panel.get();
         panel->EnableRegionSet(false);
         panel->m_key_handler->m_range.EnableRegionSet(false);
         m_action_panel->EnableRegionSet(false);
@@ -2129,12 +2073,12 @@ void W8MainGameScreen::Update()
         EndTrapInteractMode(0);
         return;
     case 4:
-        if (m_sound_handle != 0) {
-            SoundStop(m_sound_handle);
-            m_sound_handle = 0;
+        if (m_sound_handle != nullptr) {
+            wiz8::sound::stop(m_sound_handle);
+            m_sound_handle = nullptr;
         }
         // c-style-cast-ok: SGP spells filenames STR (UINT8*), the historical ABI boundary
-        SoundPlay((STR)g_trap_sprung_sound, 0);
+        wiz8::sound::play(g_trap_sprung_sound);
         EnablePanelRegionSets(false);
         ResolveSprungTrap(m_owner);
         m_disarm_state = 9;
@@ -2217,7 +2161,7 @@ void W8MainGameScreen::RefreshActionPanel()
 // FUNCTION: WIZ8 0x0058a030
 void W8MainGameScreen::EnablePanelRegionSets(bool enable)
 {
-    W8MainGameTextPanel* panel = m_text_panel;
+    W8MainGameTextPanel* panel = m_text_panel.get();
 
     panel->EnableRegionSet(enable);
     panel->m_key_handler->m_range.EnableRegionSet(enable);
@@ -2228,7 +2172,7 @@ void W8MainGameScreen::EnablePanelRegionSets(bool enable)
 // FUNCTION: WIZ8 0x0058A880
 void EnableTrapInteractionPanelRegions(void)
 {
-    if (g_main_game_screen != 0) {
+    if (g_main_game_screen) {
         g_main_game_screen->EnablePanelRegionSets(true);
     }
 }
@@ -2241,7 +2185,7 @@ void W8MainGameScreen::ApplyInspectSuccess()
     int* values;
     int roll;
 
-    m_sound_handle = 0;
+    m_sound_handle = nullptr;
     PracticeCharacterSkill(&g_status.buffers.Char[m_selected_character], W8_SKILL_LOCKS_TRAPS, 1,
                            false);
     RefreshActionPanel();
@@ -2272,9 +2216,9 @@ static void BeginTrapTargetAction()
 {
     W8MainGameScreen* screen;
     W8MainGameTextPanel* panel;
-    screen = g_main_game_screen;
+    screen = g_main_game_screen.get();
     gXStatus.fTrapInteractMode = false;
-    panel = screen->m_text_panel;
+    panel = screen->m_text_panel.get();
     panel->EnableRegionSet(false);
     panel->m_key_handler->m_range.EnableRegionSet(false);
     screen->m_action_panel->EnableRegionSet(false);
@@ -2354,12 +2298,12 @@ int OpenTrapInteraction(Trigger* trigger)
             return 1;
         }
         QueueInteractionNotice(g_trap_notice_event);
-        SoundPlay(s_trap_detect, 0);
+        wiz8::sound::play(s_trap_detect);
         return 1;
     }
     if (gXStatus.fCombatMode) {
         QueueInteractionNotice(g_trap_notice_event);
-        SoundPlay(s_trap_detect, 0);
+        wiz8::sound::play(s_trap_detect);
         return 1;
     }
     gXStatus.fTrapInteractMode = true;
@@ -2376,8 +2320,8 @@ int OpenTrapInteraction(Trigger* trigger)
     RequestRedrawCombatBar();
     RequestRedraw(W8_MAIN_REDRAW_SUBMENU_BUTTONS);
     if (gXStatus.fTrapInteract) {
-        screen = g_main_game_screen;
-        panel = screen->m_text_panel;
+        screen = g_main_game_screen.get();
+        panel = screen->m_text_panel.get();
         panel->EnableRegionSet(true);
         panel->m_key_handler->m_range.EnableRegionSet(true);
         screen->m_action_panel->EnableRegionSet(true);
@@ -2391,7 +2335,7 @@ int OpenTrapInteraction(Trigger* trigger)
     if (trigger->lock_state.device_id == -1) {
         SelectTrapType(trigger);
     }
-    g_main_game_screen = new W8MainGameScreen(trigger);
+    g_main_game_screen = std::make_unique<W8MainGameScreen>(trigger);
     if (trigger->lock_state.last_interaction_clock == -1 ||
         0x3840 < static_cast<unsigned int>(g_status.world_clock -
                                            trigger->lock_state.last_interaction_clock)) {
@@ -2402,7 +2346,7 @@ int OpenTrapInteraction(Trigger* trigger)
         QueueInteractionNotice(event_type);
     }
     trigger->lock_state.last_interaction_clock = g_status.world_clock;
-    SoundPlay(s_trap_detect, 0);
+    wiz8::sound::play(s_trap_detect);
     gXStatus.fTrapInteract = false;
     return 1;
 }
@@ -2431,17 +2375,14 @@ void EndTrapInteractMode(char suspend)
 {
     gXStatus.fTrapInteractMode = false;
     if (suspend != 0) {
-        W8MainGameTextPanel* panel = g_main_game_screen->m_text_panel;
-        W8MainGameScreen* screen = g_main_game_screen;
+        W8MainGameTextPanel* panel = g_main_game_screen->m_text_panel.get();
+        W8MainGameScreen* screen = g_main_game_screen.get();
         panel->EnableRegionSet(false);
         panel->m_key_handler->m_range.EnableRegionSet(false);
         screen->m_action_panel->EnableRegionSet(false);
         gXStatus.fTrapInteract = true;
     } else {
-        if (g_main_game_screen != 0) {
-            delete g_main_game_screen;
-        }
-        g_main_game_screen = 0;
+        g_main_game_screen.reset();
         ClearLevelMovementStopped();
     }
     SelectTextBox(0);
@@ -2461,11 +2402,11 @@ void RefreshMainGameActionPanel(void)
 // FUNCTION: WIZ8 0x0055DE40
 W8NpcDialogueTextController::W8NpcDialogueTextController(int panel_left, int panel_top,
                                                          int panel_right, int panel_bottom,
-                                                         int catalog_object, int catalog_frame,
-                                                         int catalog_image, int margin_image_id,
+                                                         CatalogArtwork artwork,
+                                                         int background_image, int margin_image_id,
                                                          int line_image_id)
-    : Controls(panel_left, panel_top, panel_right, panel_bottom, catalog_object, catalog_frame,
-               catalog_image),
+    : Controls(panel_left, panel_top, panel_right, panel_bottom, std::move(artwork),
+               background_image),
       text_area()
 {
     W8ControlsRect bounds;
@@ -2475,10 +2416,14 @@ W8NpcDialogueTextController::W8NpcDialogueTextController(int panel_left, int pan
     margin_image = margin_image_id;
     line_image = line_image_id;
     visible = 0;
-    GetCatalogImageSize(m_catalogObject, m_catalogFrame, line_image, &width, &height);
+    const SDL_Point line_size = m_background->size(line_image);
+    width = line_size.x;
+    height = line_size.y;
     line_height = height & 0xffff;
     scroll_height = height & 0xffff;
-    GetCatalogImageSize(m_catalogObject, m_catalogFrame, margin_image, &width, &height);
+    const SDL_Point margin_size = m_background->size(margin_image);
+    width = margin_size.x;
+    height = margin_size.y;
     margin = height & 0xffff;
     bounds.bottom = panel_top + 0x12;
     bounds.left = panel_left + 6;
@@ -2505,9 +2450,8 @@ void W8NpcDialogueTextController::Redraw()
     if (m_fEnabled) {
         force = was_dirty;
         if (force) {
-            DrawCatalogImageAndInvalidate(FRAME_BUFFER, m_catalogObject, m_catalogFrame,
-                                          m_catalogImage, m_bounds.left, m_bounds.top,
-                                          VO_BLT_SRCTRANSPARENCY, 0);
+            m_background->drawAndInvalidate(GetFrameBufferSurface(), m_backgroundImage,
+                                            m_bounds.left, m_bounds.top);
             m_fDirty = false;
         }
         if (line_image != -1 && margin_image != -1) {
@@ -2516,16 +2460,15 @@ void W8NpcDialogueTextController::Redraw()
                 top = (m_bounds.top - height) + margin;
                 if (height < scroll_height) {
                     do {
-                        DrawCatalogImageAndInvalidate(FRAME_BUFFER, m_catalogObject, m_catalogFrame,
-                                                      line_image, m_bounds.left, top,
-                                                      VO_BLT_SRCTRANSPARENCY, 0);
+                        m_background->drawAndInvalidate(GetFrameBufferSurface(), line_image,
+                                                        m_bounds.left, top);
                         top -= line_height;
                         height += line_height;
                     } while (height < scroll_height);
                 }
-                DrawCatalogImageAndInvalidate(
-                    FRAME_BUFFER, m_catalogObject, m_catalogFrame, margin_image, m_bounds.left,
-                    (line_height - margin) + top, VO_BLT_SRCTRANSPARENCY, 0);
+                m_background->drawAndInvalidate(GetFrameBufferSurface(), margin_image,
+                                                m_bounds.left,
+                                                (line_height - margin) + top);
                 force = true;
             } else if (!force && !m_fLayoutDirty) {
                 return;
@@ -2540,14 +2483,11 @@ void W8NpcDialogueTextController::Redraw()
 unsigned char W8NpcDialogueTextController::AddTranscriptEntry(std::string_view text,
                                                               signed char category, char mark)
 {
-    std::string existing;
     int index;
     int added;
 
     for (index = 0; index < static_cast<int>(text_area.m_all_lines.size()); ++index) {
-        text_area.GetEntry(index);
-        text_area.CopyEntryText(index, existing);
-        if (CompareTextIgnoreAsciiCase(existing, text) == 0) {
+        if (CompareTextIgnoreAsciiCase(*text_area.GetEntryText(index), text) == 0) {
             return 0;
         }
     }
@@ -2558,9 +2498,7 @@ unsigned char W8NpcDialogueTextController::AddTranscriptEntry(std::string_view t
     }
     if (1u < static_cast<int>((unsigned)text_area.m_all_lines.size())) {
         for (index = 0; index < static_cast<int>(text_area.m_all_lines.size()); ++index) {
-            text_area.GetEntry(index);
-            text_area.CopyEntryText(index, existing);
-            if (CompareTextIgnoreAsciiCase(existing, " [No Keywords]") == 0) {
+            if (CompareTextIgnoreAsciiCase(*text_area.GetEntryText(index), " [No Keywords]") == 0) {
                 text_area.RemoveEntry(index);
                 Invalidate(0);
                 break;
@@ -2634,8 +2572,8 @@ void W8NpcDialogueTextController::Collapse()
     text_area.Configure(&bounds, g_wiz_text_font_secondary,
                         g_W8DialogTextAreaNoWrap | g_W8DialogTextAreaPointSelection |
                             g_W8DialogTextAreaShortenText);
-    RegionSetDisable(3);
-    DisableRegionInput(9);
+    g_main_dialogue.Disable();
+    DisableRegionInput(g_main_dialogue->index(0));
     g_npc_interaction_state->dialogue_panels[3]->Invalidate(0);
 }
 
@@ -2664,10 +2602,11 @@ void W8NpcDialogueTextController::Expand()
         text_area.SetFirstVisibleEntry(0);
     }
     SetRegionBounds(
-        9, static_cast<unsigned short>(bounds.left), static_cast<unsigned short>(bounds.top),
+        g_main_dialogue->index(0), static_cast<unsigned short>(bounds.left),
+        static_cast<unsigned short>(bounds.top),
         static_cast<unsigned short>(bounds.right), static_cast<unsigned short>(bounds.bottom));
-    RegionSetEnable(3);
-    EnableRegionInput(9);
+    g_main_dialogue.Enable();
+    EnableRegionInput(g_main_dialogue->index(0));
     Invalidate(0);
 }
 
@@ -2864,6 +2803,227 @@ void ResetMainGameScreenState(void)
     }
 }
 
+
+std::array<std::optional<RegionSetView>, 8> g_main_portrait_slot_views;
+std::optional<RegionSetView> g_main_portrait_edge_view;
+
+namespace {
+enum MainPortraitRegionOffset {
+    kPortraitWorldRegionOffset = 2
+};
+
+// Retail set 0x01, regions 1-6
+static constexpr std::array<RegionTemplate, 6> g_main_party_controls_templates{{
+    {0x00000001, 174, 138, 467, 182, nullptr, 0, false, -1},
+    {0x00000001, 140, 187, 501, 231, nullptr, 0, false, -1},
+    {0x00000001, 204, 235, 436, 279, nullptr, 0, false, -1},
+    {0x00000001, 239, 284, 403, 328, nullptr, 0, false, -1},
+    {0x00000001, 234, 335, 408, 379, nullptr, 0, false, -1},
+    {0x00000001, 279, 423, 364, 467, nullptr, 0, false, -1},
+}};
+
+// Retail set 0x02, region 8
+static constexpr std::array<RegionTemplate, 1> g_main_screen_template{{
+    {0x00000001, 0, 0, 639, 479, nullptr, 0, false, 0},
+}};
+
+// Retail set 0x03, region 9
+static constexpr std::array<RegionTemplate, 1> g_main_dialogue_template{{
+    {0x00000001, 0, 0, 0, 0, DialogueTranscriptRegionEvent, 0, false, -1},
+}};
+
+// Retail set 0x04, regions 10-17
+static constexpr std::array<RegionTemplate, 8> g_main_combat_action_templates{{
+    {0x00000001, 24, 68, 42, 85, PartyCombatActionRegionEvent, 0, false, -1},
+    {0x00000001, 595, 68, 613, 85, PartyCombatActionRegionEvent, 1, false, -1},
+    {0x00000001, 24, 153, 42, 170, PartyCombatActionRegionEvent, 2, false, -1},
+    {0x00000001, 595, 153, 613, 170, PartyCombatActionRegionEvent, 3, false, -1},
+    {0x00000001, 24, 238, 42, 255, PartyCombatActionRegionEvent, 4, false, -1},
+    {0x00000001, 595, 238, 613, 255, PartyCombatActionRegionEvent, 5, false, -1},
+    {0x00000001, 24, 323, 42, 340, PartyCombatActionRegionEvent, 6, false, -1},
+    {0x00000001, 595, 323, 613, 340, PartyCombatActionRegionEvent, 7, false, -1},
+}};
+
+// Retail set 0x05, regions 18-25
+static constexpr std::array<RegionTemplate, 8> g_main_portrait_control_templates{{
+    {0x00000001, 0, 0, 0, 0, PortraitControlRegionEvent, 0, true, 1984},
+    {0x00000001, 0, 0, 0, 0, PortraitControlRegionEvent, 1, true, 1984},
+    {0x00000001, 0, 0, 0, 0, PortraitControlRegionEvent, 2, true, 1984},
+    {0x00000001, 0, 0, 0, 0, PortraitControlRegionEvent, 3, true, 1984},
+    {0x00000001, 0, 0, 0, 0, PortraitControlRegionEvent, 4, true, 1984},
+    {0x00000001, 0, 0, 0, 0, PortraitControlRegionEvent, 5, true, 1984},
+    {0x00000001, 0, 0, 0, 0, PortraitControlRegionEvent, 6, true, 1984},
+    {0x00000001, 0, 0, 0, 0, PortraitControlRegionEvent, 7, true, 1984},
+}};
+
+// Retail set 0x06, regions 26-33
+static constexpr std::array<RegionTemplate, 8> g_main_condition_templates{{
+    {0x00000001, 0, 0, 0, 0, ConditionButtonRegionEvent, 0, true, 1985},
+    {0x00000001, 0, 0, 0, 0, ConditionButtonRegionEvent, 1, true, 1985},
+    {0x00000001, 0, 0, 0, 0, ConditionButtonRegionEvent, 2, true, 1985},
+    {0x00000001, 0, 0, 0, 0, ConditionButtonRegionEvent, 3, true, 1985},
+    {0x00000001, 0, 0, 0, 0, ConditionButtonRegionEvent, 4, true, 1985},
+    {0x00000001, 0, 0, 0, 0, ConditionButtonRegionEvent, 5, true, 1985},
+    {0x00000001, 0, 0, 0, 0, ConditionButtonRegionEvent, 6, true, 1985},
+    {0x00000001, 0, 0, 0, 0, ConditionButtonRegionEvent, 7, true, 1985},
+}};
+
+// Retail set 0x0f, regions 34-81
+static constexpr std::array<RegionTemplate, 48> g_main_portrait_templates{{
+    {0x00000002, 32, 27, 8, 0, PortraitConditionOrbRegionEvent, 0, true, 25},
+    {0x00000002, 95, 27, 8, 0, PortraitEnchantmentOrbRegionEvent, 0, true, 26},
+    {0x00000001, 23, 18, 104, 89, PortraitSelectRegionEvent, 0, false, -1},
+    {0x00000001, 21, 91, 105, 101, TextBoxMuteRegionEvent, 0, false, -1},
+    {0x00000001, 4, 42, 19, 90, PortraitAssaySidebarRegionEvent, 0, true, 28},
+    {0x00000001, 109, 42, 123, 90, PortraitOverlayHoverRegionEvent, 0, true, 24},
+    {0x00000002, 608, 27, 8, 0, PortraitConditionOrbRegionEvent, 1, true, 25},
+    {0x00000002, 544, 27, 8, 0, PortraitEnchantmentOrbRegionEvent, 1, true, 26},
+    {0x00000001, 535, 18, 616, 89, PortraitSelectRegionEvent, 1, false, -1},
+    {0x00000001, 539, 91, 612, 101, TextBoxMuteRegionEvent, 1, false, -1},
+    {0x00000001, 621, 42, 635, 90, PortraitAssaySidebarRegionEvent, 1, true, 28},
+    {0x00000001, 517, 42, 531, 90, PortraitOverlayHoverRegionEvent, 1, true, 24},
+    {0x00000002, 32, 112, 8, 0, PortraitConditionOrbRegionEvent, 2, true, 25},
+    {0x00000002, 95, 112, 8, 0, PortraitEnchantmentOrbRegionEvent, 2, true, 26},
+    {0x00000001, 23, 103, 104, 174, PortraitSelectRegionEvent, 2, false, -1},
+    {0x00000001, 21, 176, 105, 186, TextBoxMuteRegionEvent, 2, false, -1},
+    {0x00000001, 4, 125, 19, 173, PortraitAssaySidebarRegionEvent, 2, true, 28},
+    {0x00000001, 109, 125, 123, 173, PortraitOverlayHoverRegionEvent, 2, true, 24},
+    {0x00000002, 608, 112, 8, 0, PortraitConditionOrbRegionEvent, 3, true, 25},
+    {0x00000002, 544, 112, 8, 0, PortraitEnchantmentOrbRegionEvent, 3, true, 26},
+    {0x00000001, 535, 103, 616, 174, PortraitSelectRegionEvent, 3, false, -1},
+    {0x00000001, 539, 176, 612, 186, TextBoxMuteRegionEvent, 3, false, -1},
+    {0x00000001, 621, 125, 635, 173, PortraitAssaySidebarRegionEvent, 3, true, 28},
+    {0x00000001, 517, 125, 531, 173, PortraitOverlayHoverRegionEvent, 3, true, 24},
+    {0x00000002, 32, 198, 8, 0, PortraitConditionOrbRegionEvent, 4, true, 25},
+    {0x00000002, 95, 198, 8, 0, PortraitEnchantmentOrbRegionEvent, 4, true, 26},
+    {0x00000001, 23, 189, 104, 255, PortraitSelectRegionEvent, 4, false, -1},
+    {0x00000001, 21, 261, 105, 271, TextBoxMuteRegionEvent, 4, false, -1},
+    {0x00000001, 4, 210, 19, 258, PortraitAssaySidebarRegionEvent, 4, true, 28},
+    {0x00000001, 109, 210, 123, 258, PortraitOverlayHoverRegionEvent, 4, true, 24},
+    {0x00000002, 608, 198, 8, 0, PortraitConditionOrbRegionEvent, 5, true, 25},
+    {0x00000002, 544, 198, 8, 0, PortraitEnchantmentOrbRegionEvent, 5, true, 26},
+    {0x00000001, 535, 189, 616, 255, PortraitSelectRegionEvent, 5, false, -1},
+    {0x00000001, 539, 261, 612, 271, TextBoxMuteRegionEvent, 5, false, -1},
+    {0x00000001, 621, 210, 635, 258, PortraitAssaySidebarRegionEvent, 5, true, 28},
+    {0x00000001, 517, 210, 531, 258, PortraitOverlayHoverRegionEvent, 5, true, 24},
+    {0x00000002, 32, 283, 8, 0, PortraitConditionOrbRegionEvent, 6, true, 25},
+    {0x00000002, 95, 283, 8, 0, PortraitEnchantmentOrbRegionEvent, 6, true, 26},
+    {0x00000001, 23, 274, 104, 344, PortraitSelectRegionEvent, 6, false, -1},
+    {0x00000001, 21, 346, 105, 356, TextBoxMuteRegionEvent, 6, false, -1},
+    {0x00000001, 4, 295, 19, 343, PortraitAssaySidebarRegionEvent, 6, true, 28},
+    {0x00000001, 109, 295, 123, 343, PortraitOverlayHoverRegionEvent, 6, true, 24},
+    {0x00000002, 608, 283, 8, 0, PortraitConditionOrbRegionEvent, 7, true, 25},
+    {0x00000002, 544, 283, 8, 0, PortraitEnchantmentOrbRegionEvent, 7, true, 26},
+    {0x00000001, 535, 274, 616, 344, PortraitSelectRegionEvent, 7, false, -1},
+    {0x00000001, 539, 346, 612, 356, TextBoxMuteRegionEvent, 7, false, -1},
+    {0x00000001, 621, 295, 635, 343, PortraitAssaySidebarRegionEvent, 7, true, 28},
+    {0x00000001, 517, 295, 531, 343, PortraitOverlayHoverRegionEvent, 7, true, 24},
+}};
+
+// Retail set 0x10, regions 90-97
+static constexpr std::array<RegionTemplate, 8> g_main_portrait_edge_templates{{
+    {0x00000001, 0, 18, 21, 102, PortraitSelectRegionEvent, 0, true, -1},
+    {0x00000001, 617, 18, 639, 102, PortraitSelectRegionEvent, 1, true, -1},
+    {0x00000001, 0, 103, 21, 187, PortraitSelectRegionEvent, 2, true, -1},
+    {0x00000001, 617, 103, 639, 187, PortraitSelectRegionEvent, 3, true, -1},
+    {0x00000001, 0, 188, 21, 272, PortraitSelectRegionEvent, 4, true, -1},
+    {0x00000001, 617, 188, 639, 272, PortraitSelectRegionEvent, 5, true, -1},
+    {0x00000001, 0, 273, 21, 357, PortraitSelectRegionEvent, 6, true, -1},
+    {0x00000001, 617, 273, 639, 357, PortraitSelectRegionEvent, 7, true, -1},
+}};
+
+// Retail set 0x12, region 98
+static constexpr std::array<RegionTemplate, 1> g_main_radar_template{{
+    {0x00000002, 75, 402, 46, 0, RadarMapButtonRegionEvent, 0, true, 31},
+}};
+
+// Retail set 0x13, regions 99-100
+static constexpr std::array<RegionTemplate, 2> g_main_formation_board_templates{{
+    {0x00000002, 564, 402, 40, 0, FormationBoardRegionEvent, 0, true, 32},
+    {0x00000001, 512, 358, 617, 450, TextBoxMuteRegionEvent, 0, false, -1},
+}};
+
+// Retail set 0x27, regions 194-199
+static constexpr std::array<RegionTemplate, 6> g_main_submenu_templates{{
+    {0x00000001, 0, 0, 0, 0, SubMenuRowRegionEvent, 0, true, -1},
+    {0x00000001, 0, 0, 0, 0, SubMenuRowRegionEvent, 1, true, -1},
+    {0x00000001, 0, 0, 0, 0, SubMenuRowRegionEvent, 2, true, -1},
+    {0x00000001, 0, 0, 0, 0, SubMenuRowRegionEvent, 3, true, -1},
+    {0x00000001, 0, 0, 0, 0, SubMenuRowRegionEvent, 4, true, -1},
+    {0x00000001, 0, 0, 0, 0, SubMenuBackgroundRegionEvent, 0, false, -1},
+}};
+
+// Retail set 0x28, regions 205-230
+static constexpr std::array<RegionTemplate, 26> g_main_effect_templates{{
+    {0x00000001, 0, 0, 0, 0, PartyEffectIconRegionEvent, 8, true, -1},
+    {0x00000001, 0, 0, 0, 0, PartyEffectIconRegionEvent, 7, true, -1},
+    {0x00000001, 0, 0, 0, 0, PartyEffectIconRegionEvent, 6, true, -1},
+    {0x00000001, 0, 0, 0, 0, PartyEffectIconRegionEvent, 5, true, -1},
+    {0x00000001, 0, 0, 0, 0, PartyEffectIconRegionEvent, 4, true, -1},
+    {0x00000001, 0, 0, 0, 0, PartyEffectIconRegionEvent, 3, true, -1},
+    {0x00000001, 0, 0, 0, 0, PartyEffectIconRegionEvent, 2, true, -1},
+    {0x00000001, 0, 0, 0, 0, PartyEffectIconRegionEvent, 1, true, -1},
+    {0x00000001, 0, 0, 0, 0, PartyEffectIconRegionEvent, 0, true, -1},
+    {0x00000001, 0, 0, 0, 0, CombatLeftEffectIconRegionEvent, 0, true, -1},
+    {0x00000001, 0, 0, 0, 0, CombatLeftEffectIconRegionEvent, 1, true, -1},
+    {0x00000001, 0, 0, 0, 0, CombatLeftEffectIconRegionEvent, 2, true, -1},
+    {0x00000001, 0, 0, 0, 0, CombatLeftEffectIconRegionEvent, 3, true, -1},
+    {0x00000001, 0, 0, 0, 0, CombatLeftEffectIconRegionEvent, 4, true, -1},
+    {0x00000001, 0, 0, 0, 0, CombatLeftEffectIconRegionEvent, 5, true, -1},
+    {0x00000001, 0, 0, 0, 0, CombatLeftEffectIconRegionEvent, 6, true, -1},
+    {0x00000001, 0, 0, 0, 0, CombatLeftEffectIconRegionEvent, 7, true, -1},
+    {0x00000001, 0, 0, 0, 0, CombatLeftEffectIconRegionEvent, 8, true, -1},
+    {0x00000001, 0, 0, 0, 0, CombatRightEffectIconRegionEvent, 5, true, -1},
+    {0x00000001, 0, 0, 0, 0, CombatRightEffectIconRegionEvent, 4, true, -1},
+    {0x00000001, 0, 0, 0, 0, CombatRightEffectIconRegionEvent, 3, true, -1},
+    {0x00000001, 0, 0, 0, 0, CombatRightEffectIconRegionEvent, 2, true, -1},
+    {0x00000001, 0, 0, 0, 0, CombatRightEffectIconRegionEvent, 1, true, -1},
+    {0x00000001, 0, 0, 0, 0, CombatRightEffectIconRegionEvent, 0, true, -1},
+    {0x00000001, 0, 0, 0, 0, MonsterListRegionEvent, 0, true, 36},
+    {0x00000001, 0, 0, 0, 0, WorldViewRegionEvent, 0, false, 23},
+}};
+
+// Retail sets 0x07-0x0e (one per party slot) and 0x11.
+void CreateMainGameRegionViews()
+{
+    for (unsigned int slot = 0; slot < 8; ++slot) {
+        g_main_portrait_slot_views[slot].emplace(*g_main_portrait_regions, slot * 6, 6,
+                                                 0x07 + static_cast<int>(slot));
+    }
+    g_main_portrait_edge_view.emplace(*g_main_portrait_edge_regions, 0, 8, 0x11);
+}
+void DestroyMainGameRegionViews()
+{
+    g_main_portrait_edge_view.reset();
+    for (auto& view : g_main_portrait_slot_views) view.reset();
+}
+}
+ScreenRegionSet g_main_party_controls{g_main_party_controls_templates, 0x01};
+ScreenRegionSet g_main_screen{g_main_screen_template, 0x02};
+ScreenRegionSet g_main_dialogue{g_main_dialogue_template, 0x03};
+ScreenRegionSet g_main_combat_actions{g_main_combat_action_templates, 0x04};
+ScreenRegionSet g_main_portrait_controls{g_main_portrait_control_templates, 0x05};
+ScreenRegionSet g_main_conditions{g_main_condition_templates, 0x06};
+ScreenRegionSet g_main_portrait_regions{g_main_portrait_templates, 0x0f};
+ScreenRegionSet g_main_portrait_edge_regions{g_main_portrait_edge_templates, 0x10};
+ScreenRegionSet g_main_radar_regions{g_main_radar_template, 0x12};
+ScreenRegionSet g_main_formation_board_regions{g_main_formation_board_templates, 0x13};
+ScreenRegionSet g_main_submenu_regions{g_main_submenu_templates, 0x27};
+ScreenRegionSet g_main_effect_regions{g_main_effect_templates, 0x28};
+
+void EnableMainGamePortraitSlot(unsigned int slot) {
+    if (slot < g_main_portrait_slot_views.size() && g_main_portrait_slot_views[slot]) {
+        g_main_portrait_slot_views[slot]->Enable();
+        EnableRegionSetInput(g_main_portrait_slot_views[slot]->set());
+    }
+}
+void DisableMainGamePortraitSlot(unsigned int slot) {
+    if (slot < g_main_portrait_slot_views.size() && g_main_portrait_slot_views[slot]) {
+        g_main_portrait_slot_views[slot]->Disable();
+        DisableRegionSetInput(g_main_portrait_slot_views[slot]->set());
+    }
+}
+
 /* Enter the live game screen, constructing its owned native state on first entry. */
 // FUNCTION: WIZ8 0x0055f8c0
 unsigned char MainGameScreenEnter(void)
@@ -2880,16 +3040,38 @@ unsigned char MainGameScreenEnter(void)
         LoadMainGameCursorResources();
     }
     gXStatus.level_up_notice = true;
-    MSYS_Init();
     ResetRegions();
+    CreatePartyPortraitEventRegions();
+    g_main_party_controls.Create();
+    g_main_screen.Create();
+    g_main_dialogue.Create();
+    g_main_combat_actions.Create();
+    g_main_portrait_controls.Create();
+    g_main_conditions.Create();
+    g_main_portrait_regions.Create();
+    g_main_portrait_edge_regions.Create();
+    g_main_radar_regions.Create();
+    g_main_formation_board_regions.Create();
+    g_main_submenu_regions.Create();
+    g_main_effect_regions.Create();
+    g_game_time_combat_bar_region.Create();
+    CreateMainGameRegionViews();
+    InitTextBoxRegions();
+    g_npc_dialogue_transcript_panel_regions.Create();
+    g_npc_dialogue_trade_panel_regions.Create();
+    g_npc_dialogue_options_panel_regions.Create();
+    g_npc_quote_bubble_regions.Create();
+    g_spell_casting_regions.Create();
+    g_use_item_select_regions.Create();
+    g_formation_regions.Create();
+    g_keyboard_menu_regions.Create();
+    g_party_movement_regions.Create();
     CreateMainGameInterfaceButtons();
     CreateSpellIconHudControls();
     CreateLevelButtons();
     CreateConditionButtons();
     InitializeMainGameLevelBlock();
     ScrollTextBoxToCursor();
-    SetClippingRegionAndImageWidth(0x500, 0, 0, 0x280, 0x1e0);
-    SetFontDestBuffer(FRAME_BUFFER, 0, 0, 0x280, 0x1e0, 0);
     g_world_render_enabled = 1;
     g_monster_shadow_updates_enabled = 1;
     ClearPrimarySurface();
@@ -3056,27 +3238,24 @@ unsigned char ProcessMainGameInput(void)
     SDL_Point mouse;
     SGPMouseGetPos(&mouse);
     if (GetForcedRegion() == 0) {
-        MSYS_SGP_Mouse_Handler_Hook(MOUSE_POS, mouse.x, mouse.y, gfLeftButtonState,
-                                    gfRightButtonState);
+        UpdateRegionMousePosition(mouse.x, mouse.y);
     }
 
     bool handled = false;
-    InputAtom input;
+    InputEvent input;
     while (DequeueEvent(&input)) {
         handled = true;
         if ((!g_mouselook_active || HandleMouselookInput(&input) == 0) &&
             DispatchRegionInput(&input) == 0 && GetForcedRegion() == 0) {
-            SGPMouseGetPos(&mouse);
-            switch (input.usEvent) {
-            case LEFT_BUTTON_DOWN:
-            case LEFT_BUTTON_UP:
-            case RIGHT_BUTTON_DOWN:
-            case RIGHT_BUTTON_UP:
-                MSYS_SGP_Mouse_Handler_Hook(input.usEvent, mouse.x, mouse.y, gfLeftButtonState,
-                                            gfRightButtonState);
+            switch (input.type) {
+            case InputEventType::LeftButtonDown:
+            case InputEventType::LeftButtonUp:
+            case InputEventType::RightButtonDown:
+            case InputEventType::RightButtonUp:
                 break;
             default:
-                if (HandleDialogueTextInput(&input) == 0 && HandleMainGameInputEvent(&input) == 0) {
+                if (HandleDialogueTextInput(&input) == 0 &&
+                    HandleMainGameInputEvent(&input) == 0) {
                     ResetMainGameMode();
                     return 1;
                 }
@@ -3159,7 +3338,7 @@ update_screen:
             PauseMainGameWorld();
         }
         if (!ProcessDialogInput(g_modal_owner)) {
-            ClearActiveRegionIfMatches(0x138);
+            ReleaseInputSinkCapture();
             delete g_modal_owner;
             g_modal_owner = 0;
             if (g_pending_main_game_dialog) {
@@ -3190,9 +3369,9 @@ update_screen:
             if (!g_status.buffers.XChar[slot].fOccupied ||
                 g_status.buffers.Char[slot].highest_condition > W8_CONDITION_UNCONSCIOUS ||
                 (g_level_block->keyboard_menu_open && g_level_block->combat_slot == slot)) {
-                DisableRegionInput(slot + 10);
+                DisableRegionInput(g_main_combat_actions->index(slot));
             } else {
-                EnableRegionInput(slot + 10);
+                EnableRegionInput(g_main_combat_actions->index(slot));
             }
         }
     }
@@ -3225,8 +3404,9 @@ update_screen:
                                                             static_cast<unsigned short>(point.y));
             for (int portrait = 0; portrait < 8; ++portrait) {
                 if (g_status.buffers.XChar[portrait].fOccupied &&
-                    (g_level_block->hover_region == portrait * 6 + 0x24U ||
-                     g_level_block->hover_region == portrait + 0x5aU)) {
+                    (g_level_block->hover_region ==
+                         g_main_portrait_regions->index(portrait * 6 + kPortraitWorldRegionOffset) ||
+                     g_level_block->hover_region == g_main_portrait_edge_regions->index(portrait))) {
                     g_level_block->hover_region = UpdateRegionMousePosition(point.x, point.y);
                     break;
                 }
@@ -3236,7 +3416,8 @@ update_screen:
         UpdateWorldCursor();
     }
     if (!g_level_block->keyboard_menu_open && g_level_block->hover_combat_slot != -1 &&
-        g_level_block->hover_region != g_level_block->hover_combat_slot + 10U) {
+        g_level_block->hover_region !=
+            g_main_combat_actions->index(g_level_block->hover_combat_slot)) {
         g_level_block->hover_combat_slot = -1;
     }
     TickAmbientFollowUpIdle(ProcessMainGameInput());
@@ -3250,7 +3431,7 @@ update_screen:
     if (!g_camera_path_active) {
         if (g_mouselook_active) {
             if (g_mouselook_left_held) {
-                if (!gfKeyState[VK_SHIFT]) {
+                if (!IsKeyHeld(VK_SHIFT)) {
                     g_level_block->camera_motion_flags |= W8_CAMERA_MOTION_FORWARD;
                 } else {
                     g_level_block->camera_motion_flags |=
@@ -3261,9 +3442,9 @@ update_screen:
                 goto render_world;
             }
         }
-        if (gfLeftButtonState && !g_modal_owner && IsMipeActive()) {
+        if (IsLeftButtonHeld() && !g_modal_owner && IsMipeActive()) {
             SGPMouseGetPos(&current);
-            MipeWorldViewEvent(MOUSE_POS, &current);
+            MipeWorldViewEvent(InputEventType::MouseMove, &current);
         }
     }
 render_world:
@@ -3302,12 +3483,10 @@ render_world:
             W8Monster* monster = GetMonsterByLocationID(g_mipe_state->SelectedMonsterLocationId());
             if (monster) {
                 ClearSurfaceRect(0x122, 0x159, 0x226, 0x168);
-                SetFont(g_wiz_text_font_secondary);
                 unsigned char frame = monster->m_pRep->subcycle;
                 const char* cycle = g_cycle_names[monster->Query(W8_MONSTER_QUERY_CYCLE)].name;
                 unsigned char subcycles = static_cast<unsigned char>(monster->GetNumSubCycles());
-                DrawFontTextDirty(0x122, 0x159,
-                                  fmt::format("{:2d}/{:2d} {}", frame, subcycles, cycle));
+                DrawTextAndInvalidate(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x122, 0x159}, fmt::format("{:2d}/{:2d} {}", frame, subcycles, cycle));
             }
         }
         if (!gXStatus.fCombatMode) {
@@ -3465,13 +3644,39 @@ unsigned char MainGameScreenLeave(int leaving)
                 return 0;
             }
         }
-        SoundEmptyCache();
+        if (gXStatus.fPartyMovementUi) {
+            ReleasePartyMovement();
+        }
+        DestroyMainGameRegionViews();
+        g_main_effect_regions.Destroy();
+        g_game_time_combat_bar_region.Destroy();
+        g_main_submenu_regions.Destroy();
+        g_main_formation_board_regions.Destroy();
+        g_main_radar_regions.Destroy();
+        g_main_portrait_edge_regions.Destroy();
+        g_main_portrait_regions.Destroy();
+        g_main_conditions.Destroy();
+        g_main_portrait_controls.Destroy();
+        g_main_combat_actions.Destroy();
+        g_main_dialogue.Destroy();
+        g_main_screen.Destroy();
+        g_main_party_controls.Destroy();
+        g_npc_quote_bubble_regions.Destroy();
+        g_npc_dialogue_options_panel_regions.Destroy();
+        g_npc_dialogue_trade_panel_regions.Destroy();
+        g_npc_dialogue_transcript_panel_regions.Destroy();
+        ShutdownTextBoxRegions();
+        g_spell_casting_regions.Destroy();
+        g_use_item_select_regions.Destroy();
+        g_formation_regions.Destroy();
+        g_keyboard_menu_regions.Destroy();
+        g_party_movement_regions.Destroy();
+        wiz8::sound::release_cache();
         delete g_level_block;
         g_level_block = 0;
-        ReleaseLoadedVideoFrames();
+        ReleaseCatalogArtwork();
     }
     NoOp();
-    MSYS_Shutdown();
     ResetRegions();
     g_world_render_enabled = 0;
     g_monster_shadow_updates_enabled = 0;
@@ -3529,7 +3734,6 @@ void ApplyMainGameRedrawFlags(void)
     int text_box_variant;
     unsigned char text_box_mode;
     bool show_portraits;
-    SDL_Rect saved_clip;
     SDL_Rect combat_clip;
     short health_percent;
     W8MainGameInvalidateRect* portrait_rect;
@@ -3584,11 +3788,9 @@ void ApplyMainGameRedrawFlags(void)
     if ((g_level_block->redraw_flags & W8_MAIN_REDRAW_COMBAT_PROGRESS) != 0 &&
         gXStatus.fCombatMode && g_combat_state->round_active) {
         health_percent = GetCombatActionProgress(0);
-        GetClippingRect(&saved_clip);
         combat_clip = {0, 0, health_percent * 0x11e / 100 + 0xb1, 0x1e0};
-        SetClippingRect(&combat_clip);
-        DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x8d, 0, 0, 0xb1, 2, VO_BLT_SRCTRANSPARENCY, 0);
-        SetClippingRect(&saved_clip);
+        ScopedClipRect clipped(GetFrameBufferSurface(), combat_clip);
+        CatalogArtwork::Load(0x8d, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, 0xb1, 2);
     }
     if (gXStatus.fReviewCharacterMode) {
         if (((g_level_block->redraw_flags & W8_MAIN_REDRAW_PORTRAIT_PANEL) == 0) ||
@@ -3631,8 +3833,7 @@ void ApplyMainGameRedrawFlags(void)
     }
     if ((g_level_block->redraw_flags & W8_MAIN_REDRAW_LAYOUT) != 0) {
         RedrawLayoutArrowButtons();
-        DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x7e, 0, 1, 0x269, 0x166,
-                                      VO_BLT_SRCTRANSPARENCY, 0);
+        CatalogArtwork::Load(0x7e, 0).drawAndInvalidate(GetFrameBufferSurface(), 1, 0x269, 0x166);
         InvalidateRegion(0x269, 0x166, 0x27f, 0x1c1, 0);
     }
     if (gXStatus.fSpellCastMode) {
@@ -3676,8 +3877,7 @@ void ApplyMainGameRedrawFlags(void)
                 ClearSurfaceRect(0x17, 0x166, 0x80, 0x1c2);
             }
         } else {
-            DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x84, 0, 0, 0x17, 0x166,
-                                          VO_BLT_SRCTRANSPARENCY, 0);
+            CatalogArtwork::Load(0x84, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, 0x17, 0x166);
         }
         redraw_flags = g_level_block->redraw_flags & W8_MAIN_REDRAW_TEXT_BOX;
         if (redraw_flags == 0 || g_level_block->action_panel_visible == 0) {
@@ -3685,8 +3885,7 @@ void ApplyMainGameRedrawFlags(void)
                 ClearSurfaceRect(0x80, 0x166, 0x200, 0x1c2);
             }
         } else {
-            DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x87, 0, 0, 0x80, 0x166,
-                                          VO_BLT_SRCTRANSPARENCY, 0);
+            CatalogArtwork::Load(0x87, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, 0x80, 0x166);
             text_box_mode = GetTextBoxMode();
             if (text_box_mode == 0 || text_box_mode == 1) {
                 text_box_variant = text_box_mode;
@@ -3698,8 +3897,7 @@ void ApplyMainGameRedrawFlags(void)
                                    text_box_mode));
                 goto draw_formation_panel;
             }
-            DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x88, 0, text_box_variant, 0x8a, 0x168,
-                                          VO_BLT_SRCTRANSPARENCY, 0);
+            CatalogArtwork::Load(0x88, 0).drawAndInvalidate(GetFrameBufferSurface(), text_box_variant, 0x8a, 0x168);
         }
     draw_formation_panel:
         redraw_flags = g_level_block->redraw_flags & W8_MAIN_REDRAW_FORMATION;
@@ -3708,8 +3906,7 @@ void ApplyMainGameRedrawFlags(void)
                 ClearSurfaceRect(0x200, 0x166, 0x268, 0x1c2);
             }
         } else {
-            DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x83, 0, 0, 0x200, 0x166,
-                                          VO_BLT_SRCTRANSPARENCY, 0);
+            CatalogArtwork::Load(0x83, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, 0x200, 0x166);
         }
         goto finish_mode_overlays;
     }
@@ -3824,11 +4021,8 @@ void DrawMainGameScreen(void)
         RenderAllTextFields();
         if (g_level_block->mouselook_debug != 0) {
             ClearSurfaceRect(0xdc, 0x1e, 0x154, 0x26);
-            SetFont(g_smfnt_font);
-            SetFontObjectPalette16BPP(g_smfnt_font, GetFontObject(g_smfnt_font)->ownedPalette.get());
-            DrawFontTextDirty(
-                0xdc, 0x1e,
-                fmt::format("{:.3f}, {:.3f}", g_mouselook_pending_pitch, g_mouselook_pending_yaw));
+            g_smfnt_font.resetPalette();
+            DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font, {0xdc, 0x1e}, fmt::format("{:.3f}, {:.3f}", g_mouselook_pending_pitch, g_mouselook_pending_yaw));
         }
         if (w8_get_ticks() - g_level_block->tick > 499) {
             if (g_level_block->inspector_enabled && !gXStatus.fSpellCastMode &&
@@ -3927,8 +4121,7 @@ void RedrawCombatMonsterList(void)
     bool is_target_group;
     int context_slot;
     W8CombatSlot* target;
-    unsigned short* palette;
-    unsigned int monster_index;
+    Palette16 palette;
     W8MonsterInfo* monster_info;
     std::string scratch_text;
 
@@ -3943,7 +4136,6 @@ void RedrawCombatMonsterList(void)
         InvalidateRegion(0xfa, 0x19, clear_right, clear_bottom, 1);
     }
     if (gXStatus.active_monster_count != 0) {
-        SetFont(g_wiz_text_font_secondary);
         group_list_index = 0;
         list_length = gXStatus.monster_groups.size();
         if (list_length != 0) {
@@ -3955,14 +4147,12 @@ void RedrawCombatMonsterList(void)
                         GetMonsterGroupName(monster_group), monster_group->active_member_count,
                         monster_group->selectable_member_count,
                         monster_group->visible_member_count);
-                    text_width = StringPixLength(scratch_text, g_wiz_text_font_secondary);
+                    text_width = g_wiz_text_font_secondary.textWidth(scratch_text);
                     is_action_group = false;
                     if (monster_group->group_id == g_level_block->action_group) {
                         is_action_group = true;
                     } else if (g_level_block->highlighted_item != -1) {
-                        monster_index = MonsterGetIndexByLocationID(
-                            0xfc8, MAIN_GAME_SCREEN_CPP, g_level_block->highlighted_item, true);
-                        monster_info = MonsterGetScriptPartByLocationIndex(monster_index);
+                        monster_info = FindMonster(g_level_block->highlighted_item);
                         is_action_group = monster_group->group_id == monster_info->monster_group_id;
                     }
                     is_target_group = false;
@@ -3975,27 +4165,25 @@ void RedrawCombatMonsterList(void)
                         monster_group->group_id == target->iGroupID) {
                         is_target_group = true;
                     } else if (target->iType == W8_TARGET_KIND_MONSTER) {
-                        monster_index = MonsterGetIndexByLocationID(0xfe4, MAIN_GAME_SCREEN_CPP,
-                                                                    target->iMonsterID, false);
-                        if (monster_index != 0xffffffff) {
-                            monster_info = MonsterGetScriptPartByLocationIndex(monster_index);
+                        monster_info = FindMonster(target->iMonsterID, false);
+                        if (monster_info != 0) {
                             is_target_group =
                                 monster_group->group_id == monster_info->monster_group_id;
                         }
                     }
                     if (is_action_group) {
-                        palette = g_font_state_palettes[W8_FONT_PALETTE_RED].get();
+                        palette = g_font_state_palettes[W8_FONT_PALETTE_RED];
                         if (g_level_block->target_highlight_ok[0] != 0) {
-                            palette = g_font_state_palettes[W8_FONT_PALETTE_GREEN].get();
+                            palette = g_font_state_palettes[W8_FONT_PALETTE_GREEN];
                         }
                     } else {
-                        palette = g_font_state_palettes[W8_FONT_PALETTE_BLUE].get();
+                        palette = g_font_state_palettes[W8_FONT_PALETTE_BLUE];
                         if (!is_target_group) {
-                            palette = GetFontObject(g_wiz_text_font_secondary)->ownedPalette.get();
+                            palette = g_wiz_text_font_secondary.glyphs->colors;
                         }
                     }
-                    SetFontObjectPalette16BPP(g_wiz_text_font_secondary, palette);
-                    DrawFontTextDirty(0xfa, row_y, scratch_text);
+                    g_wiz_text_font_secondary.setPalette(palette);
+                    DrawTextAndInvalidate(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0xfa, row_y}, scratch_text);
                     row_y += 0xb;
                     ++live_row_count;
                     if (max_text_width < static_cast<unsigned int>(text_width)) {
@@ -4016,11 +4204,12 @@ void RedrawCombatMonsterList(void)
         g_main_game_invalidate_rects[17].right = max_text_width + 0xfa;
         g_main_game_invalidate_rects[17].bottom = row_y;
         if (live_row_count == 0) {
-            DisableRegionInput(0xe5);
+            DisableRegionInput(g_main_effect_regions->index(kMonsterListRegionOffset));
         } else {
-            SetRegionBounds(0xe5, 0xfa, 0x19, static_cast<unsigned short>(max_text_width) + 0xf9,
+            SetRegionBounds(g_main_effect_regions->index(kMonsterListRegionOffset), 0xfa, 0x19,
+                            static_cast<unsigned short>(max_text_width) + 0xf9,
                             static_cast<unsigned short>(live_row_count) * 0xb + 0x18);
-            EnableRegionInput(0xe5);
+            EnableRegionInput(g_main_effect_regions->index(kMonsterListRegionOffset));
         }
         g_level_block->group_list_rows = live_row_count;
         g_level_block->group_list_width = max_text_width;
@@ -4112,7 +4301,7 @@ void RefreshSelectedPartyPortrait(unsigned int party_slot)
         party_slot == static_cast<unsigned int>(GetSelectedPartySlot()) &&
         !gXStatus.monster_manager_entries[party_slot].effect_icon_active &&
         !gXStatus.monster_manager_entries[party_slot].damage_splat_active) {
-        if (gXStatus.monster_manager_entries[party_slot].quote.quote_handle == -1 ||
+        if (!gXStatus.monster_manager_entries[party_slot].quote.bubble ||
             g_settings.pc_subtitles == 0) {
             return;
         }
@@ -4158,10 +4347,10 @@ void RefreshSelectedPartyPortrait(unsigned int party_slot)
     g_level_block->portrait_refresh_image[party_slot] = 0x69;
     g_level_block->portrait_refresh_mode[party_slot] = 6;
     RequestRedraw(1u << (party_slot & 0x1f));
-    DisableRegionInput(party_slot + 0x5a);
+    DisableRegionInput(g_main_portrait_edge_regions->index(party_slot));
     if (!gXStatus.monster_manager_entries[party_slot].keyboard_menu_open) {
-        RegionSetEnable(party_slot + 7);
-        EnableRegionSetInput(party_slot + 7);
+        EnableMainGamePortraitSlot(party_slot);
+
     }
 }
 
@@ -4182,13 +4371,13 @@ void DismissHighlightOverlay(void)
 
 static void DrawHighlightFrameRow(int left, int right, int y, unsigned int tiles)
 {
-    DrawCatalogImage(FRAME_BUFFER, 0x70, 0, 3, left, y, VO_BLT_SRCTRANSPARENCY, 0);
+    CatalogArtwork::Load(0x70, 0).draw(GetFrameBufferSurface(), 3, left, y);
     int inner = left + 6;
     for (unsigned int tile = tiles; tile != 0; --tile) {
-        DrawCatalogImage(FRAME_BUFFER, 0x70, 0, 8, inner, y, VO_BLT_SRCTRANSPARENCY, 0);
+        CatalogArtwork::Load(0x70, 0).draw(GetFrameBufferSurface(), 8, inner, y);
         inner += 6;
     }
-    DrawCatalogImage(FRAME_BUFFER, 0x70, 0, 4, right, y, VO_BLT_SRCTRANSPARENCY, 0);
+    CatalogArtwork::Load(0x70, 0).draw(GetFrameBufferSurface(), 4, right, y);
 }
 
 /* Build the mode-6 hover panel over a portrait: the framed plate carrying the
@@ -4203,9 +4392,9 @@ void DrawHighlightOverlay(unsigned int party_slot, int row_count, unsigned int m
     SetMainGameMode(W8_MAIN_GAME_HIGHLIGHT_OVERLAY);
 
     std::string name = g_status.buffers.Char[party_slot].name;
-    int width = StringPixLength(name, g_wiz_text_font);
+    int width = g_wiz_text_font.textWidth(name);
     if (min_width < static_cast<unsigned int>(width)) {
-        width = StringPixLength(name, g_wiz_text_font);
+        width = g_wiz_text_font.textWidth(name);
         min_width = width;
     }
     min_width += 6;
@@ -4261,43 +4450,38 @@ void DrawHighlightOverlay(unsigned int party_slot, int row_count, unsigned int m
     unsigned int tile;
     int row;
     int inner;
-    DrawCatalogImage(FRAME_BUFFER, 0x70, 0, 0, left, top, VO_BLT_SRCTRANSPARENCY, 0);
+    CatalogArtwork::Load(0x70, 0).draw(GetFrameBufferSurface(), 0, left, top);
     inner = left + 6;
     for (tile = tiles; tile != 0; --tile) {
-        DrawCatalogImage(FRAME_BUFFER, 0x70, 0, 1, inner, top, VO_BLT_SRCTRANSPARENCY, 0);
+        CatalogArtwork::Load(0x70, 0).draw(GetFrameBufferSurface(), 1, inner, top);
         inner += 6;
     }
     int right = left + (tiles * 3 + 3) * 2;
-    DrawCatalogImage(FRAME_BUFFER, 0x70, 0, 2, right, top, VO_BLT_SRCTRANSPARENCY, 0);
+    CatalogArtwork::Load(0x70, 0).draw(GetFrameBufferSurface(), 2, right, top);
     int row_y_pos = top + 6;
     for (row = 0; row < 2; ++row) {
         DrawHighlightFrameRow(left, right, row_y_pos, tiles);
         row_y_pos += 6;
     }
 
-    SetFont(g_wiz_text_font);
-    SetFontObjectPalette16BPP(
-        g_wiz_text_font,
-        g_font_state_palettes[g_status.buffers.XChar[party_slot].party_order_index].get());
-    int font_height = GetFontHeight(g_wiz_text_font);
-    int name_width = StringPixLength(name, g_wiz_text_font);
-    DrawFontText(left + static_cast<int>(panel_width >> 1) - name_width / 2,
-                 (0xc - font_height) / 2 + top + 6, name);
-    SetFontObjectPalette16BPP(g_wiz_text_font, GetFontObject(g_wiz_text_font)->ownedPalette.get());
+    g_wiz_text_font.setPalette(g_font_state_palettes[g_status.buffers.XChar[party_slot].party_order_index]);
+    int font_height = g_wiz_text_font.height();
+    int name_width = g_wiz_text_font.textWidth(name);
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font, {left + static_cast<int>(panel_width >> 1) - name_width / 2, (0xc - font_height) / 2 + top + 6}, name);
+    g_wiz_text_font.resetPalette();
 
     row_y_pos = top + 0x12;
-    DrawCatalogImage(FRAME_BUFFER, 0x70, 0, 3, left, row_y_pos, VO_BLT_SRCTRANSPARENCY, 0);
-    DrawCatalogImage(FRAME_BUFFER, 0x71, 0, 0, left + 6, row_y_pos, VO_BLT_SRCTRANSPARENCY, 0);
+    CatalogArtwork::Load(0x70, 0).draw(GetFrameBufferSurface(), 3, left, row_y_pos);
+    CatalogArtwork::Load(0x71, 0).draw(GetFrameBufferSurface(), 0, left + 6, row_y_pos);
     if (tiles > 2) {
         inner = left + 0xc;
         for (tile = 0; tile < tiles - 2; ++tile) {
-            DrawCatalogImage(FRAME_BUFFER, 0x71, 0, 1, inner, row_y_pos, VO_BLT_SRCTRANSPARENCY, 0);
+            CatalogArtwork::Load(0x71, 0).draw(GetFrameBufferSurface(), 1, inner, row_y_pos);
             inner += 6;
         }
     }
-    DrawCatalogImage(FRAME_BUFFER, 0x71, 0, 2, left + tiles * 6, row_y_pos, VO_BLT_SRCTRANSPARENCY,
-                     0);
-    DrawCatalogImage(FRAME_BUFFER, 0x70, 0, 4, right, row_y_pos, VO_BLT_SRCTRANSPARENCY, 0);
+    CatalogArtwork::Load(0x71, 0).draw(GetFrameBufferSurface(), 2, left + tiles * 6, row_y_pos);
+    CatalogArtwork::Load(0x70, 0).draw(GetFrameBufferSurface(), 4, right, row_y_pos);
 
     row_y_pos += 6;
     g_level_block->dialogue_row_y = row_y_pos + 6;
@@ -4305,22 +4489,18 @@ void DrawHighlightOverlay(unsigned int party_slot, int row_count, unsigned int m
         DrawHighlightFrameRow(left, right, row_y_pos, tiles);
         row_y_pos += 6;
     }
-    DrawCatalogImage(FRAME_BUFFER, 0x70, 0, 5, left, row_y_pos, VO_BLT_SRCTRANSPARENCY, 0);
+    CatalogArtwork::Load(0x70, 0).draw(GetFrameBufferSurface(), 5, left, row_y_pos);
     inner = left + 6;
     for (tile = tiles; tile != 0; --tile) {
-        DrawCatalogImage(FRAME_BUFFER, 0x70, 0, 6, inner, row_y_pos, VO_BLT_SRCTRANSPARENCY, 0);
+        CatalogArtwork::Load(0x70, 0).draw(GetFrameBufferSurface(), 6, inner, row_y_pos);
         inner += 6;
     }
-    DrawCatalogImage(FRAME_BUFFER, 0x70, 0, 7, right, row_y_pos, VO_BLT_SRCTRANSPARENCY, 0);
+    CatalogArtwork::Load(0x70, 0).draw(GetFrameBufferSurface(), 7, right, row_y_pos);
 
     if (g_level_block->highlight_graphic == 0) {
-        unsigned int video_object = GetCatalogVideoObjectHandle(0x72, 0);
-        if (video_object != 0) {
-            unsigned int surface;
-            if (MakeVSurfaceFromVObject(video_object, 0, &surface) != 0) {
-                g_level_block->highlight_graphic = CreateSpriteFromSurface(surface, 0, 0, 0, 1);
-                DeleteVideoSurfaceFromIndex(surface);
-            }
+        const auto artwork = CatalogArtwork::Load(0x72);
+        if (auto surface = RenderSpriteToImage(*artwork.spriteSheet(), 0)) {
+            g_level_block->highlight_graphic = CreateSpriteFromSurface(*surface, 0, 0, 0, 1);
         }
     }
     if (g_level_block->highlight_graphic == 0) {
@@ -4347,25 +4527,26 @@ static void BeginPortraitOverlay(unsigned int party_slot, int row_count, unsigne
 
 static void DrawPortraitConditionRow(int condition, int text_x, int row_y, unsigned int width)
 {
-    DrawCatalogImage(FRAME_BUFFER, condition + 0xb6, 0, 0, text_x, row_y, VO_BLT_SRCTRANSPARENCY,
-                     0);
+    CatalogArtwork::Load(condition + 0xb6, 0).draw(GetFrameBufferSurface(), 0, text_x, row_y);
     g_level_block->text_paint_scratch =
         fmt::format("{}", g_localized_strings[g_condition_notices[condition].name]);
-    int text_width = StringPixLength(g_level_block->text_paint_scratch, g_wiz_text_font);
-    DrawFontText(((width >> 1) - text_width / 2) + 0x1a + text_x, row_y,
-                 g_level_block->text_paint_scratch);
+    int text_width = g_wiz_text_font.textWidth(g_level_block->text_paint_scratch);
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font,
+             {static_cast<int>(((width >> 1) - text_width / 2) + 0x1a + text_x), row_y},
+             g_level_block->text_paint_scratch);
 }
 
 static void DrawPortraitEnchantmentRow(const W8Character* character, int slot, int text_x,
                                        int row_y, unsigned int width)
 {
-    DrawCatalogImage(FRAME_BUFFER, slot + 0xc9, 0, 0, text_x, row_y, VO_BLT_SRCTRANSPARENCY, 0);
+    CatalogArtwork::Load(slot + 0xc9, 0).draw(GetFrameBufferSurface(), 0, text_x, row_y);
     g_level_block->text_paint_scratch =
         fmt::format("{} ({:d})", g_localized_strings[g_enchantment_notices[slot]],
                     character->enchantments[slot].power);
-    int text_width = StringPixLength(g_level_block->text_paint_scratch, g_wiz_text_font);
-    DrawFontText(((width >> 1) - text_width / 2) + 0x1a + text_x, row_y,
-                 g_level_block->text_paint_scratch);
+    int text_width = g_wiz_text_font.textWidth(g_level_block->text_paint_scratch);
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font,
+             {static_cast<int>(((width >> 1) - text_width / 2) + 0x1a + text_x), row_y},
+             g_level_block->text_paint_scratch);
 }
 
 /* The portrait overlay's vitals content: "HP:"/"Stamina:" label rows then one
@@ -4380,11 +4561,11 @@ void DrawPortraitVitalsOverlay(int party_slot)
     W8Character* character = &g_status.buffers.Char[party_slot];
 
     g_level_block->text_paint_scratch = fmt::format("{}: ", g_localized_strings[0x282]);
-    unsigned int label_width = StringPixLength(g_level_block->text_paint_scratch, g_wiz_text_font);
+    unsigned int label_width = g_wiz_text_font.textWidth(g_level_block->text_paint_scratch);
     g_level_block->text_paint_scratch = fmt::format("{}: ", g_localized_strings[0x283]);
-    int width = StringPixLength(g_level_block->text_paint_scratch, g_wiz_text_font);
+    int width = g_wiz_text_font.textWidth(g_level_block->text_paint_scratch);
     if (label_width < static_cast<unsigned int>(width)) {
-        width = StringPixLength(g_level_block->text_paint_scratch, g_wiz_text_font);
+        width = g_wiz_text_font.textWidth(g_level_block->text_paint_scratch);
         label_width = width;
     }
     if (label_width < 0x12) {
@@ -4394,12 +4575,12 @@ void DrawPortraitVitalsOverlay(int party_slot)
 
     g_level_block->text_paint_scratch =
         fmt::format("{:d}/{:d}", character->hp_current, character->uiHPMax);
-    unsigned int value_width = StringPixLength(g_level_block->text_paint_scratch, g_wiz_text_font);
+    unsigned int value_width = g_wiz_text_font.textWidth(g_level_block->text_paint_scratch);
     g_level_block->text_paint_scratch =
         fmt::format("{:d}/{:d}", character->stamina, character->uiStaminaMax);
-    width = StringPixLength(g_level_block->text_paint_scratch, g_wiz_text_font);
+    width = g_wiz_text_font.textWidth(g_level_block->text_paint_scratch);
     if (value_width < static_cast<unsigned int>(width)) {
-        width = StringPixLength(g_level_block->text_paint_scratch, g_wiz_text_font);
+        width = g_wiz_text_font.textWidth(g_level_block->text_paint_scratch);
         value_width = width;
     }
     int realm;
@@ -4407,9 +4588,9 @@ void DrawPortraitVitalsOverlay(int party_slot)
         g_level_block->text_paint_scratch = fmt::format(
             "{:d}/{:d}", GetCharacterRealmSpellPoints(character, static_cast<W8SpellRealm>(realm)),
             character->sp_max[realm]);
-        width = StringPixLength(g_level_block->text_paint_scratch, g_wiz_text_font);
+        width = g_wiz_text_font.textWidth(g_level_block->text_paint_scratch);
         if (label_width < static_cast<unsigned int>(width)) {
-            width = StringPixLength(g_level_block->text_paint_scratch, g_wiz_text_font);
+            width = g_wiz_text_font.textWidth(g_level_block->text_paint_scratch);
             value_width = width;
         }
     }
@@ -4421,35 +4602,36 @@ void DrawPortraitVitalsOverlay(int party_slot)
     int row_y = g_level_block->dialogue_row_y;
 
     g_level_block->text_paint_scratch = fmt::format("{}: ", g_localized_strings[0x282]);
-    DrawFontText(text_x, row_y, g_level_block->text_paint_scratch);
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font, {text_x, row_y}, g_level_block->text_paint_scratch);
     g_level_block->text_paint_scratch =
         fmt::format("{:d}/{:d}", character->hp_current, character->uiHPMax);
     unsigned int value_center = (text_width - label_width) >> 1;
-    width = StringPixLength(g_level_block->text_paint_scratch, g_wiz_text_font);
-    DrawFontText(value_center - width / 2 + text_x + label_width, row_y,
-                 g_level_block->text_paint_scratch);
+    width = g_wiz_text_font.textWidth(g_level_block->text_paint_scratch);
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font,
+             {static_cast<int>(value_center - width / 2 + text_x + label_width), row_y},
+             g_level_block->text_paint_scratch);
     row_y += 0x12;
 
     g_level_block->text_paint_scratch = fmt::format("{}: ", g_localized_strings[0x283]);
-    DrawFontText(text_x, row_y, g_level_block->text_paint_scratch);
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font, {text_x, row_y}, g_level_block->text_paint_scratch);
     g_level_block->text_paint_scratch =
         fmt::format("{:d}/{:d}", character->stamina, character->uiStaminaMax);
-    width = StringPixLength(g_level_block->text_paint_scratch, g_wiz_text_font);
-    DrawFontText(value_center - width / 2 + text_x + label_width, row_y,
-                 g_level_block->text_paint_scratch);
+    width = g_wiz_text_font.textWidth(g_level_block->text_paint_scratch);
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font,
+             {static_cast<int>(value_center - width / 2 + text_x + label_width), row_y},
+             g_level_block->text_paint_scratch);
     row_y += 0x12;
 
     for (realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
-        DrawCatalogImage(FRAME_BUFFER, realm_icons[realm], 0,
-                         static_cast<short>(g_spell_realm_animations[realm].initial_frame), text_x,
-                         row_y, VO_BLT_SRCTRANSPARENCY, 0);
+        CatalogArtwork::Load(realm_icons[realm], 0).draw(GetFrameBufferSurface(), static_cast<short>(g_spell_realm_animations[realm].initial_frame), text_x, row_y);
         g_level_block->text_paint_scratch = fmt::format(
             "{:d}/{:d}", GetCharacterRealmSpellPoints(character, static_cast<W8SpellRealm>(realm)),
             character->sp_max[realm]);
-        int text_y = (0x12 - GetFontHeight(g_wiz_text_font)) / 2 + row_y;
-        width = StringPixLength(g_level_block->text_paint_scratch, g_wiz_text_font);
-        DrawFontText(value_center - width / 2 + text_x + label_width, text_y,
-                     g_level_block->text_paint_scratch);
+        int text_y = (0x12 - g_wiz_text_font.height()) / 2 + row_y;
+        width = g_wiz_text_font.textWidth(g_level_block->text_paint_scratch);
+        DrawText(GetFrameBufferSurface(), g_wiz_text_font,
+                 {static_cast<int>(value_center - width / 2 + text_x + label_width), text_y},
+                 g_level_block->text_paint_scratch);
         row_y += 0x12;
     }
 }
@@ -4467,9 +4649,8 @@ static int MeasurePortraitConditions(const W8Character* character, unsigned int&
         if (character->uiCondition[condition] != 0) {
             g_level_block->text_paint_scratch =
                 fmt::format("{}", g_localized_strings[g_condition_notices[condition].name]);
-            int width = StringPixLength(g_level_block->text_paint_scratch, g_wiz_text_font);
+            int width = g_wiz_text_font.textWidth(g_level_block->text_paint_scratch);
             if (max_width < static_cast<unsigned int>(width)) {
-                width = StringPixLength(g_level_block->text_paint_scratch, g_wiz_text_font);
                 max_width = width;
             }
         }
@@ -4492,9 +4673,8 @@ static int MeasurePortraitEnchantments(const W8Character* character, unsigned in
             g_level_block->text_paint_scratch =
                 fmt::format("{} ({:d})", g_localized_strings[g_enchantment_notices[slot]],
                             character->enchantments[slot].power);
-            int width = StringPixLength(g_level_block->text_paint_scratch, g_wiz_text_font);
+            int width = g_wiz_text_font.textWidth(g_level_block->text_paint_scratch);
             if (max_width < static_cast<unsigned int>(width)) {
-                width = StringPixLength(g_level_block->text_paint_scratch, g_wiz_text_font);
                 max_width = width;
             }
         }
@@ -4549,9 +4729,9 @@ void DrawPortraitStatusOverlay(int party_slot)
     if (0x14 < row_count) {
         row_count = 0x14;
         truncated = true;
-        int width = StringPixLength(g_localized_strings[0x7d8], g_wiz_text_font);
+        int width = g_wiz_text_font.textWidth(g_localized_strings[0x7d8]);
         if (max_width < static_cast<unsigned int>(width - 0x1a)) {
-            width = StringPixLength(g_level_block->text_paint_scratch, g_wiz_text_font);
+            width = g_wiz_text_font.textWidth(g_level_block->text_paint_scratch);
             max_width = width - 0x1a;
         }
     }
@@ -4572,9 +4752,10 @@ void DrawPortraitStatusOverlay(int party_slot)
     for (slot = 7; slot > 0; --slot) {
         if (rows_drawn == 0x13 && truncated) {
             g_level_block->text_paint_scratch = g_localized_strings[0x7d8];
-            int width = StringPixLength(g_level_block->text_paint_scratch, g_wiz_text_font);
-            DrawFontText((((text_width - width) + 0x1a) >> 1) + text_x, row_y,
-                         g_level_block->text_paint_scratch);
+            int width = g_wiz_text_font.textWidth(g_level_block->text_paint_scratch);
+            DrawText(GetFrameBufferSurface(), g_wiz_text_font,
+                     {static_cast<int>((((text_width - width) + 0x1a) >> 1) + text_x), row_y},
+                     g_level_block->text_paint_scratch);
             return;
         }
         if (character->enchantments[slot].turns != 0) {
@@ -4632,7 +4813,7 @@ void ShowMainGameNoticeLine(std::string_view text, W8DialogDestroyCallback callb
     dialog->SetMessage(text, 1, 0x32, confirmation, cancel, true, true, 0, 0x15e);
     SetDialogDestroyCallback(dialog, callback);
     g_modal_owner = dialog;
-    ActivateDialogRegion(0x138);
+    CaptureInputSink();
 }
 
 /* Note that the party's state changed. The combat half is only asked for while
@@ -4672,48 +4853,39 @@ void FallbackFromUnreachableAction(int party_slot)
         }
         break;
     case W8_ACTION_CAST_SPELL:
-        if (CharacterHasCastableSpell(&g_status.buffers.Char[party_slot]) &&
-            ActionNeedsExplicitTarget(party_slot)) {
-            if (!g_combat_state->round_active) {
-                if (gXStatus.fPartyMovementMode &&
-                    (SelectPartyCharacter(party_slot), party_slot == g_status.selected_character)) {
-                    int spell_id = row->action_detail0;
-                    W8TargetNeed needed_kind = GetTargetNeededForSpellFriendly(
-                        spell_id, false, W8_TARGETING_CONTEXT_CURRENT);
-                    ConfigureSpellTargetFilter(GetSpellTargetType(spell_id, false), needed_kind);
-                    return;
-                }
-            } else {
-                SelectPartyCharacter(party_slot);
-                if (party_slot == g_status.selected_character) {
+    case W8_ACTION_USE_ITEM: {
+        const bool casting = row->action == W8_ACTION_CAST_SPELL;
+        if (!(casting
+                  ? CharacterHasCastableSpell(&g_status.buffers.Char[party_slot]) &&
+                        ActionNeedsExplicitTarget(party_slot)
+                  : ItemUseNeedsTarget(party_slot))) {
+            break;
+        }
+        if (!g_combat_state->round_active) {
+            if (gXStatus.fPartyMovementMode &&
+                (SelectPartyCharacter(party_slot), party_slot == g_status.selected_character)) {
+                const int spell_id = casting ? row->action_detail0
+                                             : GetItemSpell(row->action_detail1.item_use.item);
+                const W8TargetNeed needed_kind =
+                    GetTargetNeededForSpellFriendly(spell_id, false, W8_TARGETING_CONTEXT_CURRENT);
+                ConfigureSpellTargetFilter(GetSpellTargetType(spell_id, false), needed_kind);
+                return;
+            }
+        } else {
+            SelectPartyCharacter(party_slot);
+            if (party_slot == g_status.selected_character) {
+                if (casting) {
                     OpenSpellCastingView(party_slot);
                     SelectSpellPowerLevel(row->action_detail1.spell.power_level - 1);
-                    return;
-                }
-            }
-        }
-        break;
-    case W8_ACTION_USE_ITEM:
-        if (ItemUseNeedsTarget(party_slot)) {
-            if (!g_combat_state->round_active) {
-                if (gXStatus.fPartyMovementMode &&
-                    (SelectPartyCharacter(party_slot), party_slot == g_status.selected_character)) {
-                    int spell_id = GetItemSpell(row->action_detail1.item_use.item);
-                    W8TargetNeed needed_kind = GetTargetNeededForSpellFriendly(
-                        spell_id, false, W8_TARGETING_CONTEXT_CURRENT);
-                    ConfigureSpellTargetFilter(GetSpellTargetType(spell_id, false), needed_kind);
-                    return;
-                }
-            } else {
-                SelectPartyCharacter(party_slot);
-                if (party_slot == g_status.selected_character) {
+                } else {
                     OpenUseItemSelectView(party_slot);
                     SelectCurrentUseItemLine();
-                    return;
                 }
+                return;
             }
         }
         break;
+    }
     case W8_ACTION_PROTECT:
         if (CanCharacterAttack(party_slot) &&
             (g_combat_state->round_active || gXStatus.fPartyMovementMode)) {
@@ -4854,7 +5026,7 @@ void RequestLevelTransition(int level, int entry, unsigned char flag)
                            0x15e);
         SetDialogDestroyCallback(dialog, OnEnterLevelDialogClosed);
         g_modal_owner = dialog;
-        ActivateDialogRegion(0x138);
+        CaptureInputSink();
         return;
     }
     BeginLevelTransition();
@@ -4871,7 +5043,8 @@ void SetViewportMode(int mode)
         return;
     }
     rect = &g_viewport_modes[mode];
-    SetRegionBounds(0xe6, rect->left, rect->top, rect->right - 1, rect->bottom - 1);
+    SetRegionBounds(g_main_effect_regions->index(kWorldViewRegionOffset), rect->left, rect->top,
+                    rect->right - 1, rect->bottom - 1);
     W8MainGameInvalidateRect& viewport = g_main_game_invalidate_rects[15];
     viewport.left = rect->left;
     viewport.top = rect->top;
@@ -5036,7 +5209,7 @@ void UpdateFormationPortraitRefresh(void)
         } else if (!g_status.buffers.XChar[party_slot].fOccupied) {
             ClearPortraitRefreshSlot(static_cast<int>(party_slot));
             entry->auto_portrait_refresh = false;
-            DisableRegionInput(party_slot + 0x5a);
+            DisableRegionInput(g_main_portrait_edge_regions->index(party_slot));
         } else if (!entry->portrait_refresh_pinned && !entry->damage_splat_active &&
                    !entry->effect_icon_active && !entry->portrait_event_active) {
             if (!IsPartyPortraitUnderCursor(party_slot) || entry->auto_portrait_refresh) {
@@ -5067,9 +5240,9 @@ void ClearPortraitRefreshSlot(int slot)
         ClearSurfaceRect(row->left - 1, row->top, row->right + 1, row->bottom);
         InvalidateRegion(row->left - 1, row->top, row->right + 1, row->bottom, 1);
         RequestRedraw(1 << (slot & 0x1f));
-        EnableRegionInput(slot + 0x5a);
-        RegionSetDisable(slot + 7U);
-        DisableRegionSetInput(slot + 7U);
+        EnableRegionInput(g_main_portrait_edge_regions->index(slot));
+        DisableMainGamePortraitSlot(slot);
+
         RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
     }
 }
@@ -5200,7 +5373,7 @@ apply_mode_tail:
 void OpenModal(W8DialogBase* owner)
 {
     g_modal_owner = owner;
-    ActivateDialogRegion(0x138);
+    CaptureInputSink();
 }
 
 /* Re-sync each party slot's region set and portrait hit region with the
@@ -5210,57 +5383,45 @@ void OpenModal(W8DialogBase* owner)
 // FUNCTION: WIZ8 0x00561ec0
 void RefreshPartySlotRegions(void)
 {
-    int region_set;
     int slot;
 
     for (slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
-        region_set = slot + 7;
+        if (!g_main_portrait_slot_views[slot]) {
+            continue;
+        }
+        RegionSetView& slot_view = *g_main_portrait_slot_views[slot];
+        unsigned int edge_region = g_main_portrait_edge_regions->index(slot);
         if (!g_status.buffers.XChar[slot].fOccupied) {
             if (g_settings.main_ui_mode == W8_MAIN_UI_MODE_PORTRAITS) {
-                DisableRegionSetInput(region_set);
+                DisableRegionSetInput(slot_view.set());
             } else if (static_cast<unsigned int>(g_settings.main_ui_mode) <=
                        static_cast<unsigned int>(W8_MAIN_UI_MODE_RADAR)) {
-                DisableRegionInput(region_set + 0x53);
+                DisableRegionInput(edge_region);
             }
         } else if (g_settings.main_ui_mode == W8_MAIN_UI_MODE_PORTRAITS) {
             if (!gXStatus.monster_manager_entries[slot].keyboard_menu_open) {
-                EnableRegionSetInput(region_set);
+                EnableRegionSetInput(slot_view.set());
             } else {
-                DisableRegionSetInput(region_set);
+                DisableRegionSetInput(slot_view.set());
             }
         } else if (static_cast<unsigned int>(g_settings.main_ui_mode) <=
                    static_cast<unsigned int>(W8_MAIN_UI_MODE_RADAR)) {
             if (!gXStatus.monster_manager_entries[slot].keyboard_menu_open) {
                 if (g_level_block->portrait_refresh_pending[slot] == 0) {
-                    EnableRegionInput(region_set + 0x53);
-                    RegionSetDisable(region_set);
+                    EnableRegionInput(edge_region);
+                    slot_view.Disable();
                 } else {
-                    DisableRegionInput(region_set + 0x53);
-                    RegionSetEnable(region_set);
-                    EnableRegionSetInput(region_set);
+                    DisableRegionInput(edge_region);
+                    slot_view.Enable();
+                    EnableRegionSetInput(slot_view.set());
                 }
             } else {
-                DisableRegionInput(region_set + 0x53);
-                RegionSetDisable(region_set);
-                DisableRegionSetInput(region_set);
+                DisableRegionInput(edge_region);
+                slot_view.Disable();
+                DisableRegionSetInput(slot_view.set());
             }
         }
     }
-}
-
-/* Put the main region set up, and take it down again with its mode reset -
-   the two are not symmetric, which is what the extra call shows. */
-// FUNCTION: WIZ8 0x00561fa0
-void EnableMainRegionSet(void)
-{
-    RegionSetEnable(W8_REGION_SET_MAIN);
-}
-
-// FUNCTION: WIZ8 0x00561fb0
-void DisableMainRegionSet(void)
-{
-    RegionSetDisable(W8_REGION_SET_MAIN);
-    DisableRegionSetInput(W8_REGION_SET_MAIN);
 }
 
 /* Re-arm the main-game region sets after ResetRegions: pick the viewport and
@@ -5272,31 +5433,31 @@ void SyncMainGameModeRegions(void)
 {
     SetMouseCursorHotspot(0, 0);
     SyncSystemCursor();
-    RegionSetEnable(0x28);
+    g_main_effect_regions.Enable();
     if (g_level_block->group_list_rows == 0) {
-        DisableRegionInput(0xe5);
+        DisableRegionInput(g_main_effect_regions->index(kMonsterListRegionOffset));
     } else {
-        EnableRegionInput(0xe5);
+        EnableRegionInput(g_main_effect_regions->index(kMonsterListRegionOffset));
     }
 
     if (g_settings.main_ui_mode == W8_MAIN_UI_MODE_PORTRAITS) {
         SetViewportMode(GetMainGameViewportMode());
-        RegionSetEnable(0xf);
+        g_main_portrait_regions.Enable();
     } else if (g_settings.main_ui_mode == W8_MAIN_UI_MODE_FORMATION) {
         SetViewportMode(GetMainGameViewportMode());
-        RegionSetEnable(0x10);
+        g_main_portrait_edge_regions.Enable();
     } else if (g_settings.main_ui_mode == W8_MAIN_UI_MODE_RADAR) {
         SetViewportMode(GetMainGameViewportMode());
-        RegionSetEnable(0x11);
+        if (g_main_portrait_edge_view) g_main_portrait_edge_view->Enable();
     }
 
     RefreshPartySlotRegions();
     if (!gXStatus.fCombatMode) {
-        RegionSetDisable(4);
-        DisableRegionSetInput(4);
+        g_main_combat_actions.Disable();
+        g_main_combat_actions.DisableInput();
         EnablePortraitAdvanceRegions();
     } else {
-        RegionSetEnable(4);
+        g_main_combat_actions.Enable();
         DisablePortraitControls();
     }
     if (g_settings.main_ui_mode == W8_MAIN_UI_MODE_PORTRAITS) {
@@ -5308,12 +5469,12 @@ void SyncMainGameModeRegions(void)
     if (g_settings.main_ui_mode != W8_MAIN_UI_MODE_RADAR) {
         EnableActionPanelRegions();
         if (gXStatus.fSpellCastMode) {
-            RegionSetEnable(0x19);
+            g_spell_casting_regions.Enable();
             RestoreSpellCastingRegions();
         } else if (gXStatus.fNpcDialogueMode && !CanOpenNpcDialogue()) {
-            RegionSetEnable(0x18);
+            g_npc_dialogue_options_panel_regions.Enable();
         } else if (gXStatus.fItemSelectMode) {
-            RegionSetEnable(0x1a);
+            g_use_item_select_regions.Enable();
             RestoreSpellCastingRegions();
         } else if (gXStatus.fLockInteractMode) {
             EnableLockInteractionPanels();
@@ -5321,10 +5482,10 @@ void SyncMainGameModeRegions(void)
             EnableTrapInteractionPanelRegions();
         } else {
             if (g_level_block->formation_board_visible) {
-                RegionSetEnable(0x13);
+                g_main_formation_board_regions.Enable();
             }
             if (g_level_block->radar_map_visible != 0) {
-                RegionSetEnable(0x12);
+                g_main_radar_regions.Enable();
             }
         }
     }
@@ -5333,7 +5494,7 @@ void SyncMainGameModeRegions(void)
         UpdatePartyMovementPanel();
     }
     if (gXStatus.fReviewCharacterMode) {
-        RegionSetEnable(0x1b);
+        g_formation_regions.Enable();
     }
     if (g_level_block->keyboard_menu_open) {
         EnableKeyboardMenuInput();
@@ -5351,10 +5512,10 @@ void SyncMainGameModeRegions(void)
 }
 
 /* Party portrait hit region: left-click selects / aims, right-hold opens camp,
-   drag-hover arms the mode-6 overlay, and MOUSE_POS drives help plus targeting
+   drag-hover arms the mode-6 overlay, and InputEventType::MouseMove drives help plus targeting
    cursor. Skips the slot parked in gXStatus.review_character_slot. */
 // FUNCTION: WIZ8 0x00565990
-unsigned char PortraitSelectRegionEvent(const InputAtom* event, W8Region* region)
+unsigned char PortraitSelectRegionEvent(const InputEvent* event, W8Region* region)
 {
     int slot = region->callback_id;
     bool targeting = false;
@@ -5362,7 +5523,7 @@ unsigned char PortraitSelectRegionEvent(const InputAtom* event, W8Region* region
     bool front_rank = false;
     W8TargetNeed needed;
     W8ActionKind action_kind;
-    unsigned int us_event;
+    InputEventType us_event;
     std::string help_text;
 
     if (slot == static_cast<short>(gXStatus.review_character_slot)) {
@@ -5371,7 +5532,7 @@ unsigned char PortraitSelectRegionEvent(const InputAtom* event, W8Region* region
 
     needed = GetTargetNeededForCurrentAction(g_status.selected_character);
     if (gXStatus.iTargetingMode == W8_TARGET_NEED_ALLY ||
-        (needed == W8_TARGET_NEED_ALLY && (event->usKeyState & CTRL_DOWN) != 0)) {
+        (needed == W8_TARGET_NEED_ALLY && (event->modifiers & CTRL_DOWN) != 0)) {
         targeting = true;
         if (CanPartySlotParticipate(slot)) {
             front_rank = false;
@@ -5390,14 +5551,14 @@ unsigned char PortraitSelectRegionEvent(const InputAtom* event, W8Region* region
         }
     } else if (gXStatus.iTargetingMode == W8_TARGET_NEED_CHARACTER_INDIRECT ||
                (needed == W8_TARGET_NEED_CHARACTER_INDIRECT &&
-                (event->usKeyState & CTRL_DOWN) != 0)) {
+                (event->modifiers & CTRL_DOWN) != 0)) {
         targeting = true;
         IsDeadCharacterTargetable(slot);
     }
 
-    us_event = event->usEvent;
-    if (us_event < LEFT_BUTTON_REPEAT + 1) {
-        if (us_event == LEFT_BUTTON_REPEAT) {
+    us_event = event->type;
+    if (IsLeftButtonEvent(us_event)) {
+        if (us_event == InputEventType::LeftButtonRepeat) {
             if (g_level_block->portrait_refresh_pending[slot] == 0 &&
                 g_settings.main_ui_mode != W8_MAIN_UI_MODE_PORTRAITS &&
                 g_level_block->portrait_overlay_party_slot == -1 &&
@@ -5411,7 +5572,7 @@ unsigned char PortraitSelectRegionEvent(const InputAtom* event, W8Region* region
             }
             /* retail falls through to return 1 at the end when the arm did not
                redraw */
-        } else if (us_event == LEFT_BUTTON_DOWN) {
+        } else if (us_event == InputEventType::LeftButtonDown) {
             region->flags |= W8_REGION_LEFT_BUTTON_HELD;
             if (g_level_block->portrait_refresh_pending[slot] == 0 &&
                 g_settings.main_ui_mode != W8_MAIN_UI_MODE_PORTRAITS &&
@@ -5419,7 +5580,7 @@ unsigned char PortraitSelectRegionEvent(const InputAtom* event, W8Region* region
                 g_level_block->countdown5 = w8_get_ticks() + (500);
                 return 1;
             }
-        } else if (us_event == LEFT_BUTTON_UP) {
+        } else if (us_event == InputEventType::LeftButtonUp) {
             if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) != 0) {
                 if (g_level_block->portrait_overlay_party_slot == slot) {
                     g_level_block->portrait_overlay_party_slot = -1;
@@ -5499,7 +5660,7 @@ unsigned char PortraitSelectRegionEvent(const InputAtom* event, W8Region* region
                 }
             }
         } else {
-            if (us_event != LEFT_BUTTON_DBL_CLK) {
+            if (us_event != InputEventType::LeftButtonDoubleClick) {
                 return 0;
             }
             if (IsNpcDialogueCursorActive() == 0 && !gXStatus.scripted_scene) {
@@ -5507,7 +5668,7 @@ unsigned char PortraitSelectRegionEvent(const InputAtom* event, W8Region* region
                 return 1;
             }
         }
-    } else if (us_event == RIGHT_BUTTON_DOWN) {
+    } else if (us_event == InputEventType::RightButtonDown) {
         region->flags |= W8_REGION_RIGHT_BUTTON_HELD;
         if (!targeting && IsNpcDialogueCursorActive() == 0 && !gXStatus.scripted_scene &&
             !g_level_block->portrait_right_hold_armed) {
@@ -5515,8 +5676,8 @@ unsigned char PortraitSelectRegionEvent(const InputAtom* event, W8Region* region
             g_level_block->portrait_right_hold_armed = true;
         }
     } else {
-        if (us_event != RIGHT_BUTTON_UP) {
-            if (us_event != MOUSE_POS) {
+        if (us_event != InputEventType::RightButtonUp) {
+            if (us_event != InputEventType::MouseMove) {
                 return 0;
             }
             if (g_level_block->portrait_right_hold_armed &&
@@ -5586,7 +5747,7 @@ unsigned char PortraitSelectRegionEvent(const InputAtom* event, W8Region* region
         if ((region->flags & W8_REGION_RIGHT_BUTTON_HELD) != 0 && !targeting &&
             IsNpcDialogueCursorActive() == 0 && !gXStatus.scripted_scene) {
             g_level_block->portrait_right_hold_armed = false;
-            if (!g_status.item_in_cursor || gfKeyState[VK_CONTROL]) {
+            if (!g_status.item_in_cursor || IsKeyHeld(VK_CONTROL)) {
                 OpenCharacterScreenForPartySlot(slot, false);
                 return 1;
             }
@@ -5603,23 +5764,23 @@ unsigned char PortraitSelectRegionEvent(const InputAtom* event, W8Region* region
 /* Both portrait orbs share this event policy. Member pointers retain their
    distinct enum fields and reload the live overlay owner after callbacks. */
 template <class Effect>
-static unsigned char DispatchPortraitOrbRegionEvent(const InputAtom* event, W8Region* region,
+static unsigned char DispatchPortraitOrbRegionEvent(const InputEvent* event, W8Region* region,
                                                     Effect W8Character::* effect, Effect none,
                                                     int W8LevelRuntimeBlock::* selection,
                                                     int tooltip_kind)
 {
     int slot = region->callback_id;
     W8Character* character = &g_status.buffers.Char[slot];
-    unsigned int us_event;
+    InputEventType us_event;
 
     if ((character->*effect) == none) {
         PushButtonSoundScheme(0, true);
     }
 
-    us_event = event->usEvent;
-    if (us_event != LEFT_BUTTON_DOWN) {
-        if (us_event != LEFT_BUTTON_UP) {
-            if (us_event != MOUSE_POS) {
+    us_event = event->type;
+    if (us_event != InputEventType::LeftButtonDown) {
+        if (us_event != InputEventType::LeftButtonUp) {
+            if (us_event != InputEventType::MouseMove) {
                 return 0;
             }
             if ((region->flags & W8_REGION_MOUSE_LEAVE) != 0) {
@@ -5633,7 +5794,7 @@ static unsigned char DispatchPortraitOrbRegionEvent(const InputAtom* event, W8Re
                 if ((region->flags & W8_REGION_MOUSE_ENTER) != 0) {
                     if ((character->*effect) != none) {
                         SetTooltipSubject(tooltip_kind, slot);
-                        if (gfLeftButtonState != 0 && (character->*effect) != none) {
+                        if (IsLeftButtonHeld() && (character->*effect) != none) {
                             (g_level_block->*selection) = slot;
                             if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME &&
                                 g_level_block != 0) {
@@ -5671,7 +5832,7 @@ static unsigned char DispatchPortraitOrbRegionEvent(const InputAtom* event, W8Re
    is set arms the overlay slot; release and leave dismiss the hover plate;
    enter drives tooltip kind 1 and region help. */
 // FUNCTION: WIZ8 0x005667A0
-unsigned char PortraitConditionOrbRegionEvent(const InputAtom* event, W8Region* region)
+unsigned char PortraitConditionOrbRegionEvent(const InputEvent* event, W8Region* region)
 {
     return DispatchPortraitOrbRegionEvent(event, region, &W8Character::highest_condition,
                                           W8_CONDITION_NONE,
@@ -5681,7 +5842,7 @@ unsigned char PortraitConditionOrbRegionEvent(const InputAtom* event, W8Region* 
 /* Enchantment orb on a party portrait (help 26): near-clone of the condition
    orb against enchantment_top and tooltip kind 2. */
 // FUNCTION: WIZ8 0x00566AE0
-unsigned char PortraitEnchantmentOrbRegionEvent(const InputAtom* event, W8Region* region)
+unsigned char PortraitEnchantmentOrbRegionEvent(const InputEvent* event, W8Region* region)
 {
     return DispatchPortraitOrbRegionEvent(event, region, &W8Character::enchantment_top,
                                           W8_ENCHANTMENT_NONE,
@@ -5691,14 +5852,14 @@ unsigned char PortraitEnchantmentOrbRegionEvent(const InputAtom* event, W8Region
 /* Help 28: portrait side bar — hover picks upper/lower weapon or assayable
    item; click opens Assay or binds items with Shift. */
 // FUNCTION: WIZ8 0x00566E20
-unsigned char PortraitAssaySidebarRegionEvent(const InputAtom* event, W8Region* region)
+unsigned char PortraitAssaySidebarRegionEvent(const InputEvent* event, W8Region* region)
 {
     int previous_mode = g_level_block->portrait_assay_hover_mode;
     int slot = region->callback_id;
     W8Character* character;
     W8ItemInstance* item;
     int item_id;
-    unsigned int us_event;
+    InputEventType us_event;
 
     if (!IsPartySlotEligible(slot)) {
         return 0;
@@ -5707,7 +5868,7 @@ unsigned char PortraitAssaySidebarRegionEvent(const InputAtom* event, W8Region* 
     character = &g_status.buffers.Char[slot];
     item_id = character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo;
     if (item_id == -1 || (g_item_records[item_id].flags & W8_ITEM_FLAG_TWO_HANDED) == 0) {
-        if (GetAtomCursorY(event) - region->y1 < 0x19) {
+        if (GetEventCursorY(event) - region->y1 < 0x19) {
             g_level_block->portrait_assay_hover_mode = 1;
         } else {
             g_level_block->portrait_assay_hover_mode = 2;
@@ -5720,26 +5881,26 @@ unsigned char PortraitAssaySidebarRegionEvent(const InputAtom* event, W8Region* 
         RequestRedraw(1 << (slot & 0x1f));
     }
 
-    us_event = event->usEvent;
-    if (us_event < RIGHT_BUTTON_UP) {
+    us_event = event->type;
+    if (IsLeftButtonEvent(us_event) || us_event == InputEventType::RightButtonDown) {
         if (region->CaptureButtonDown(us_event)) {
             return 1;
         }
-        if (us_event != LEFT_BUTTON_UP) {
+        if (us_event != InputEventType::LeftButtonUp) {
             return 0;
         }
         if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) == 0) {
             return 1;
         }
-        if ((event->usKeyState & SHIFT_DOWN) == 0) {
+        if ((event->modifiers & SHIFT_DOWN) == 0) {
             BindCharacterItems(slot, true);
             return 1;
         }
         BindEveryPartyItem();
         return 1;
     }
-    if (us_event != RIGHT_BUTTON_UP) {
-        if (us_event != MOUSE_POS) {
+    if (us_event != InputEventType::RightButtonUp) {
+        if (us_event != InputEventType::MouseMove) {
             return 0;
         }
         if ((region->flags & W8_REGION_MOUSE_LEAVE) == 0) {
@@ -5779,16 +5940,16 @@ unsigned char PortraitAssaySidebarRegionEvent(const InputAtom* event, W8Region* 
 /* Help 24: portrait overlay hover strip; left-down and enter (while held)
    set portrait_overlay_party_slot, leave and up dismiss the mode-6 plate. */
 // FUNCTION: WIZ8 0x005670C0
-unsigned char PortraitOverlayHoverRegionEvent(const InputAtom* event, W8Region* region)
+unsigned char PortraitOverlayHoverRegionEvent(const InputEvent* event, W8Region* region)
 {
-    unsigned int us_event = event->usEvent;
+    const InputEventType us_event = event->type;
     int slot = region->callback_id;
 
-    if (us_event == LEFT_BUTTON_DOWN) {
+    if (us_event == InputEventType::LeftButtonDown) {
         g_level_block->portrait_overlay_party_slot = slot;
     } else {
-        if (us_event != LEFT_BUTTON_UP) {
-            if (us_event != MOUSE_POS) {
+        if (us_event != InputEventType::LeftButtonUp) {
+            if (us_event != InputEventType::MouseMove) {
                 return 0;
             }
             if ((region->flags & W8_REGION_MOUSE_LEAVE) == 0) {
@@ -5797,7 +5958,7 @@ unsigned char PortraitOverlayHoverRegionEvent(const InputAtom* event, W8Region* 
                 }
                 PushButtonSoundScheme(0, true);
                 SetTooltipSubject(4, slot);
-                if (gfLeftButtonState == 0) {
+                if (!IsLeftButtonHeld()) {
                     return 0;
                 }
                 g_level_block->portrait_overlay_party_slot = slot;
@@ -5824,21 +5985,21 @@ unsigned char PortraitOverlayHoverRegionEvent(const InputAtom* event, W8Region* 
    help for a queued spell/item, and right-click falls back when an action is
    unreachable. */
 // FUNCTION: WIZ8 0x005673B0
-unsigned char PartyCombatActionRegionEvent(const InputAtom* event, W8Region* region)
+unsigned char PartyCombatActionRegionEvent(const InputEvent* event, W8Region* region)
 {
     int slot = region->callback_id;
     if (!IsPartySlotEligible(slot)) {
         return 0;
     }
 
-    switch (event->usEvent) {
-    case RIGHT_BUTTON_DOWN:
+    switch (event->type) {
+    case InputEventType::RightButtonDown:
         region->flags |= W8_REGION_RIGHT_BUTTON_HELD;
         return 1;
-    case LEFT_BUTTON_DOWN:
+    case InputEventType::LeftButtonDown:
         region->flags |= W8_REGION_LEFT_BUTTON_HELD;
         return 1;
-    case LEFT_BUTTON_UP:
+    case InputEventType::LeftButtonUp:
         if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) != 0 &&
             g_status.buffers.XChar[slot].fOccupied) {
             if (g_level_block->keyboard_menu_open && slot != g_level_block->combat_slot) {
@@ -5851,13 +6012,13 @@ unsigned char PartyCombatActionRegionEvent(const InputAtom* event, W8Region* reg
             }
         }
         return 1;
-    case RIGHT_BUTTON_UP:
+    case InputEventType::RightButtonUp:
         if ((region->flags & W8_REGION_RIGHT_BUTTON_HELD) != 0 && !gXStatus.fSpellCastMode &&
             !gXStatus.fItemSelectMode) {
             FallbackFromUnreachableAction(slot);
         }
         return 1;
-    case MOUSE_POS:
+    case InputEventType::MouseMove:
         if ((region->flags & W8_REGION_MOUSE_LEAVE) != 0) {
             if (!g_level_block->keyboard_menu_open) {
                 g_level_block->combat_slot = -1;
@@ -5895,6 +6056,8 @@ unsigned char PartyCombatActionRegionEvent(const InputAtom* event, W8Region* reg
         }
         DisableRegionHelpFlag(region);
         return 0;
+    default:
+        break;
     }
     return 0;
 }
@@ -5903,15 +6066,15 @@ unsigned char PartyCombatActionRegionEvent(const InputAtom* event, W8Region* reg
    tearing down mode 3/5/6 overlays; right-up toggles zoom; enter/leave hover
    the map button art. */
 // FUNCTION: WIZ8 0x00567600
-unsigned char RadarMapButtonRegionEvent(const InputAtom* event, W8Region* region)
+unsigned char RadarMapButtonRegionEvent(const InputEvent* event, W8Region* region)
 {
-    unsigned int us_event = event->usEvent;
+    const InputEventType us_event = event->type;
 
-    if (us_event <= RIGHT_BUTTON_DOWN) {
+    if (IsLeftButtonEvent(us_event) || us_event == InputEventType::RightButtonDown) {
         if (region->CaptureButtonDown(us_event)) {
             return 1;
         }
-        if (us_event != LEFT_BUTTON_UP) {
+        if (us_event != InputEventType::LeftButtonUp) {
             return 0;
         }
         if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) != 0) {
@@ -5919,12 +6082,12 @@ unsigned char RadarMapButtonRegionEvent(const InputAtom* event, W8Region* region
             SetPendingScreenState(W8_SCREEN_AUTOMAP);
             return 1;
         }
-    } else if (us_event == RIGHT_BUTTON_UP) {
+    } else if (us_event == InputEventType::RightButtonUp) {
         if ((region->flags & W8_REGION_RIGHT_BUTTON_HELD) != 0) {
             ToggleRadarMapZoom();
         }
     } else {
-        if (us_event != MOUSE_POS) {
+        if (us_event != InputEventType::MouseMove) {
             return 0;
         }
         if ((region->flags & W8_REGION_MOUSE_LEAVE) != 0) {
@@ -5941,49 +6104,55 @@ unsigned char RadarMapButtonRegionEvent(const InputAtom* event, W8Region* region
     return 1;
 }
 
+/* Restore the cursor and clear the mouse-look state on both exit paths. */
+static void StopWorldMouseLook()
+{
+    WarpSystemCursor(g_mouselook_cursor_pos.x, g_mouselook_cursor_pos.y);
+    EnableCursorScene();
+    g_mouselook_active = false;
+    g_mouselook_left_held = false;
+    SetMouseMoveEventsEnabled(0);
+    g_mouselook_manual = false;
+}
+
 /* Region 23: the 3D world view. Mouse-move refreshes the combat hover, the
    world-item hover and the portrait strip; left-up runs the targeting, item
    and monster dispatch; right-down opens monster info or the assay dialog or
    toggles the mouselook latch. */
 // FUNCTION: WIZ8 0x00567800
-unsigned char WorldViewRegionEvent(const InputAtom* event, W8Region* region)
+unsigned char WorldViewRegionEvent(const InputEvent* event, W8Region* region)
 {
     SDL_Point cursor_pos;
     int cursor_x;
     int cursor_y;
     W8TargetNeed needed;
     int slot;
-    unsigned int us_event;
+    InputEventType us_event;
 
     PushButtonSoundScheme(0, true);
     if (IsMessageBoxActive() || gXStatus.fReviewCharacterMode || g_camera_path_active) {
         return 0;
     }
     needed = GetTargetNeededForCurrentAction(g_status.selected_character);
-    us_event = event->usEvent;
-    if (us_event > RIGHT_BUTTON_DOWN) {
-        if (us_event == RIGHT_BUTTON_UP) {
+    us_event = event->type;
+    if (!IsLeftButtonEvent(us_event) && us_event != InputEventType::RightButtonDown) {
+        if (us_event == InputEventType::RightButtonUp) {
             if (g_mouselook_active && g_settings.mouselook_toggle == 0) {
-                WarpSystemCursor(g_mouselook_cursor_pos.x, g_mouselook_cursor_pos.y);
-                EnableCursorScene();
-                g_mouselook_active = false;
-                g_mouselook_left_held = false;
-                gfTrackMousePos = 0;
-                g_mouselook_manual = false;
+                StopWorldMouseLook();
                 return 1;
             }
             if (!IsMipeActive()) {
                 return 1;
             }
             SGPMouseGetPos(&cursor_pos);
-            MipeWorldViewEvent(RIGHT_BUTTON_UP, &cursor_pos);
+            MipeWorldViewEvent(InputEventType::RightButtonUp, &cursor_pos);
             return 1;
         }
-        if (us_event != MOUSE_POS) {
+        if (us_event != InputEventType::MouseMove) {
             return 0;
         }
-        cursor_y = GetAtomCursorY(event);
-        cursor_x = GetAtomCursorX(event);
+        cursor_y = GetEventCursorY(event);
+        cursor_x = GetEventCursorX(event);
         if (IsMipeActive()) {
             UpdateMipeSelection();
         } else {
@@ -6022,24 +6191,24 @@ unsigned char WorldViewRegionEvent(const InputAtom* event, W8Region* region)
         ClearCombatSelection();
         return 1;
     }
-    if (us_event == RIGHT_BUTTON_DOWN) {
+    if (us_event == InputEventType::RightButtonDown) {
         region->flags |= W8_REGION_RIGHT_BUTTON_HELD;
         if (IsMipeActive()) {
             SGPMouseGetPos(&cursor_pos);
-            MipeWorldViewEvent(RIGHT_BUTTON_DOWN, &cursor_pos);
+            MipeWorldViewEvent(InputEventType::RightButtonDown, &cursor_pos);
             return 1;
         }
         if (g_level_block->highlighted_item != -1 && !gXStatus.fSpellCastMode &&
             !gXStatus.fNpcDialogueMode && !gXStatus.fItemSelectMode &&
             !gXStatus.fLockInteractMode && !gXStatus.fTrapInteractMode &&
-            (g_settings.ctrl_right_click_info == 0 || gfKeyState[VK_CONTROL] != 0)) {
+            (g_settings.ctrl_right_click_info == 0 || IsKeyHeld(VK_CONTROL))) {
             OpenMonsterInfoDialog(g_level_block->highlighted_item);
             return 1;
         }
         if (!g_status.item_in_cursor && g_level_block->selected_item != -1 &&
             !gXStatus.fSpellCastMode && !gXStatus.fNpcDialogueMode && !gXStatus.fItemSelectMode &&
             !gXStatus.fLockInteractMode && !gXStatus.fTrapInteractMode &&
-            (g_settings.ctrl_right_click_info == 0 || gfKeyState[VK_CONTROL] != 0)) {
+            (g_settings.ctrl_right_click_info == 0 || IsKeyHeld(VK_CONTROL))) {
             W8WorldItem* world_item = ItemInfo(ItemIndex(g_level_block->selected_item));
             PartyAttemptsToIdentifyItem(&world_item->item, 0);
             OpenAssayDialog(&world_item->item, -1);
@@ -6048,12 +6217,7 @@ unsigned char WorldViewRegionEvent(const InputAtom* event, W8Region* region)
         if (!IsWorldCursorVisible() && !gXStatus.fNpcDialogueMode) {
             if (g_settings.mouselook_toggle != 0) {
                 if (g_mouselook_active) {
-                    WarpSystemCursor(g_mouselook_cursor_pos.x, g_mouselook_cursor_pos.y);
-                    EnableCursorScene();
-                    g_mouselook_active = false;
-                    g_mouselook_left_held = false;
-                    gfTrackMousePos = 0;
-                    g_mouselook_manual = false;
+                    StopWorldMouseLook();
                     return 1;
                 }
             } else if (g_mouselook_active) {
@@ -6066,11 +6230,11 @@ unsigned char WorldViewRegionEvent(const InputAtom* event, W8Region* region)
             g_mouselook_active = true;
             g_mouselook_left_held = false;
             g_mouselook_manual = true;
-            gfTrackMousePos = 1;
+            SetMouseMoveEventsEnabled(1);
         }
         return 1;
     }
-    if (us_event == LEFT_BUTTON_DOWN) {
+    if (us_event == InputEventType::LeftButtonDown) {
         if (g_mouselook_active) {
             return 0;
         }
@@ -6079,10 +6243,10 @@ unsigned char WorldViewRegionEvent(const InputAtom* event, W8Region* region)
             return 1;
         }
         SGPMouseGetPos(&cursor_pos);
-        MipeWorldViewEvent(LEFT_BUTTON_DOWN, &cursor_pos);
+        MipeWorldViewEvent(InputEventType::LeftButtonDown, &cursor_pos);
         return 1;
     }
-    if (us_event != LEFT_BUTTON_UP) {
+    if (us_event != InputEventType::LeftButtonUp) {
         return 0;
     }
     if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) == 0) {
@@ -6096,13 +6260,13 @@ unsigned char WorldViewRegionEvent(const InputAtom* event, W8Region* region)
         return 1;
     }
     if (gXStatus.iTargetingMode == W8_TARGET_NEED_PLACE ||
-        (needed == W8_TARGET_NEED_PLACE && (event->usKeyState & CTRL_DOWN) != 0)) {
+        (needed == W8_TARGET_NEED_PLACE && (event->modifiers & CTRL_DOWN) != 0)) {
         if (!IsWorldCursorVisible()) {
             InitializeWorldCursor();
         }
         SetWorldCursorRange(CalcRangeDistanceFromParty(
             GetCharActionRange(g_status.selected_character, 0, W8_TARGETING_CONTEXT_CURRENT)));
-        if (gpSCSV != 0 && GetActionSpellLikeId(g_status.selected_character,
+        if (gpSCSV && GetActionSpellLikeId(g_status.selected_character,
                                                 W8_TARGETING_CONTEXT_CURRENT) == 0x3c) {
             signed char extent_index;
             srVector3T<float> minimum;
@@ -6121,11 +6285,11 @@ unsigned char WorldViewRegionEvent(const InputAtom* event, W8Region* region)
             SetWorldCursorExtents(&minimum, &maximum);
         }
     } else if (gXStatus.iTargetingMode == W8_TARGET_NEED_CONE ||
-               (needed == W8_TARGET_NEED_CONE && (event->usKeyState & CTRL_DOWN) != 0)) {
+               (needed == W8_TARGET_NEED_CONE && (event->modifiers & CTRL_DOWN) != 0)) {
         AimAtGroundTarget(g_status.selected_character);
     } else if (g_level_block->highlighted_item == -1) {
-        if (g_status.item_in_cursor && ForwardSelectedPropIndex(GetWorld(), GetAtomCursorX(event),
-                                                                GetAtomCursorY(event)) == -1) {
+        if (g_status.item_in_cursor && ForwardSelectedPropIndex(GetWorld(), GetEventCursorX(event),
+                                                                GetEventCursorY(event)) == -1) {
             if (!gXStatus.world_update_blocked) {
                 DropItemInHand(1);
             }
@@ -6137,13 +6301,11 @@ unsigned char WorldViewRegionEvent(const InputAtom* event, W8Region* region)
                 SetTargetingMode(W8_TARGET_NEED_NONE);
             }
         } else if (!gXStatus.world_update_blocked) {
-            ForwardActivateSelectedProp(GetWorld(), 2, GetAtomCursorX(event),
-                                        GetAtomCursorY(event));
+            ForwardActivateSelectedProp(GetWorld(), 2, GetEventCursorX(event),
+                                        GetEventCursorY(event));
         }
     } else {
-        unsigned int monster_index = MonsterGetIndexByLocationID(
-            0x16c2, MAIN_GAME_SCREEN_CPP, g_level_block->highlighted_item, true);
-        W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(monster_index);
+        W8MonsterInfo* monster_info = FindMonster(g_level_block->highlighted_item);
         bool assign = true;
         if (!gXStatus.fCombatMode) {
             if (needed != W8_TARGET_NEED_ENEMY && needed != W8_TARGET_NEED_ALLY &&
@@ -6162,9 +6324,7 @@ unsigned char WorldViewRegionEvent(const InputAtom* event, W8Region* region)
                             item = &g_status.item_in_hand;
                         }
                         if (monster_info->highest_condition < W8_CONDITION_ASLEEP) {
-                            W8NpcState* npc = FindNpcBindingForMonster(
-                                MonsterGetIndexByLocationID(0x16fe, MAIN_GAME_SCREEN_CPP,
-                                                            g_level_block->highlighted_item, true));
+                            W8NpcState* npc = FindNpcBindingForMonster(FindMonster(g_level_block->highlighted_item));
                             QueueNpcScriptNotice(npc, item, -1, false, 0);
                             SetCombatSelection(-1);
                         } else {
@@ -6176,7 +6336,7 @@ unsigned char WorldViewRegionEvent(const InputAtom* event, W8Region* region)
         } else if (!g_combat_state->round_active && !gXStatus.fPartyMovementMode) {
             ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x7dd]);
             assign = false;
-        } else if (gfKeyState[VK_SHIFT] != 0) {
+        } else if (IsKeyHeld(VK_SHIFT)) {
             for (slot = 0; slot < 8; ++slot) {
                 if (g_status.buffers.XChar[slot].fOccupied &&
                     g_status.buffers.Char[slot].hp_current != 0) {
@@ -6197,14 +6357,14 @@ unsigned char WorldViewRegionEvent(const InputAtom* event, W8Region* region)
         return 1;
     }
     SGPMouseGetPos(&cursor_pos);
-    MipeWorldViewEvent(LEFT_BUTTON_UP, &cursor_pos);
+    MipeWorldViewEvent(InputEventType::LeftButtonUp, &cursor_pos);
     return 1;
 }
 
 /* Help 36: combat monster-list rows. Hit-test by 11-pixel row, hover via
    SetCombatAction, left-up aims, right-up posts the group info notice. */
 // FUNCTION: WIZ8 0x00568100
-unsigned char MonsterListRegionEvent(const InputAtom* event, W8Region* region)
+unsigned char MonsterListRegionEvent(const InputEvent* event, W8Region* region)
 {
     int row = -1;
     W8MonsterGroup* group = 0;
@@ -6215,7 +6375,7 @@ unsigned char MonsterListRegionEvent(const InputAtom* event, W8Region* region)
         gXStatus.iTargetingMode != W8_TARGET_NEED_CONE &&
         gXStatus.iTargetingMode != W8_TARGET_NEED_ITEM && gXStatus.active_monster_count != 0 &&
         !IsWorldCursorVisible() && !g_mouselook_active) {
-        row = (GetAtomCursorY(event) - region->y1) / 0xb;
+        row = (GetEventCursorY(event) - region->y1) / 0xb;
         group = GetLiveMonsterGroupAtIndex(row);
         if (group == 0) {
             row = -1;
@@ -6224,21 +6384,21 @@ unsigned char MonsterListRegionEvent(const InputAtom* event, W8Region* region)
         }
     }
     SetCombatAction(group_id);
-    switch (event->usEvent) {
-    case LEFT_BUTTON_DOWN:
+    switch (event->type) {
+    case InputEventType::LeftButtonDown:
         region->flags |= W8_REGION_LEFT_BUTTON_HELD;
         return 1;
-    case LEFT_BUTTON_UP:
+    case InputEventType::LeftButtonUp:
         if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) != 0 &&
             g_status.selected_character != -1 && group_id != -1 &&
             g_level_block->target_highlight_ok[0] != 0) {
             AimAtMonsterGroupMember(g_status.selected_character, group);
         }
         return 1;
-    case RIGHT_BUTTON_DOWN:
+    case InputEventType::RightButtonDown:
         region->flags |= W8_REGION_RIGHT_BUTTON_HELD;
         return 1;
-    case RIGHT_BUTTON_UP:
+    case InputEventType::RightButtonUp:
         if ((region->flags & W8_REGION_RIGHT_BUTTON_HELD) != 0 && group_id != -1 &&
             !gXStatus.fSpellCastMode && !gXStatus.fNpcDialogueMode && !gXStatus.fItemSelectMode &&
             !gXStatus.fLockInteractMode && !gXStatus.fTrapInteractMode) {
@@ -6266,7 +6426,7 @@ void ClearCombatSelection(void)
    checks whether its trigger takes the in-cursor item or shows a message;
    otherwise the cursor comes from the current targeting state. */
 // FUNCTION: WIZ8 0x0056a5d0
-void UpdateWorldViewCursor(const InputAtom* event, W8TargetNeed target_needed)
+void UpdateWorldViewCursor(const InputEvent* event, W8TargetNeed target_needed)
 {
     int cursor = gXStatus.iCurrentCursor;
     if (cursor == W8_CURSOR_INVALID_TARGET) {
@@ -6282,8 +6442,8 @@ void UpdateWorldViewCursor(const InputAtom* event, W8TargetNeed target_needed)
                 SetTargetCursor(cursor);
                 return;
             }
-            int cursor_y = GetAtomCursorY(event);
-            int cursor_x = GetAtomCursorX(event);
+            int cursor_y = GetEventCursorY(event);
+            int cursor_x = GetEventCursorX(event);
             int prop_index = ForwardSelectedPropIndex(g_world, cursor_x, cursor_y);
             if (prop_index > -1) {
                 W8Prop* prop = GetWorldProp(g_world, prop_index);
@@ -6305,9 +6465,7 @@ void UpdateWorldViewCursor(const InputAtom* event, W8TargetNeed target_needed)
         }
         cursor = 0;
     } else {
-        unsigned int monster_index = MonsterGetIndexByLocationID(
-            0x1e1a, MAIN_GAME_SCREEN_CPP, g_level_block->highlighted_item, true);
-        MonsterGetScriptPartByLocationIndex(monster_index);
+        FindMonster(g_level_block->highlighted_item);
         if (!CanTargetMonster(g_status.selected_character, g_level_block->highlighted_item, true,
                               false)) {
             SetTargetCursor(cursor);
@@ -6399,16 +6557,11 @@ bool LoadCurrentLevelData(void)
 // FUNCTION: WIZ8 0x005690c0
 void DisableCombatRegions(void)
 {
-    DisableRegionInput(0x52);
-    DisableRegionInput(0x53);
-    DisableRegionInput(0x54);
-    DisableRegionInput(0x55);
-    DisableRegionInput(0x56);
-    DisableRegionInput(0x57);
-    DisableRegionInput(0x58);
+    SetTextBoxScrollInput(false);
+    SetTextBoxChannelTabInput(false);
     if (g_level_block->action_panel_visible == 0) {
-        DisableRegionInput(0x59);
-        RegionSetDisable(0x14);
+        SetTextBoxMuteInput(false);
+        g_text_box_regions.Disable();
     }
 }
 
@@ -6584,9 +6737,7 @@ void SetCombatSelection(int value)
             std::string health;
 
             SGPMouseGetPos(&point);
-            unsigned int monster_index = MonsterGetIndexByLocationID(
-                0x1d38, MAIN_GAME_SCREEN_CPP, g_level_block->highlighted_item, true);
-            W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(monster_index);
+            W8MonsterInfo* monster_info = FindMonster(g_level_block->highlighted_item);
             if (monster_info != 0) {
                 text = GetMonsterName(monster_info, 0, 0);
                 text += " (";
@@ -6601,8 +6752,7 @@ void SetCombatSelection(int value)
     }
     if (current != -1) {
         if (GetTargetNeededForCurrentAction(g_status.selected_character) == W8_TARGET_NEED_GROUP) {
-            W8MonsterInfo* monster_info = MonsterInfoFromID(0x1cf9, MAIN_GAME_SCREEN_CPP,
-                                                            g_level_block->highlighted_item, true);
+            W8MonsterInfo* monster_info = FindMonster(g_level_block->highlighted_item);
             ModifyGroupColor(monster_info->monster_group_id, W8_TARGET_HIGHLIGHT_NONE);
         } else {
             HighlightMonsterAsTarget(g_level_block->highlighted_item, g_status.selected_character,
@@ -6617,21 +6767,19 @@ void SetCombatSelection(int value)
         g_level_block->highlighted_item = -1;
     } else {
         srVector3T<float> camera;
-        srVector3T<float> minimum;
-        srVector3T<float> maximum;
         W8Monster* monster;
 
-        GetCameraPosition(&camera);
+        camera = cameraLocation();
         monster = GetMonsterByLocationID(value);
-        MonsterGetWorldAnimationBounds(monster, &minimum, &maximum);
-        if (TraceLineOfSightToBounds(&camera, &minimum, &maximum) != 0) {
+        const auto bounds = MonsterGetWorldAnimationBounds(monster);
+        if (bounds && traceLineOfSightToBounds(camera.glmValue(), *bounds) != 0) {
             g_level_block->highlighted_item = value;
             g_level_block->target_highlight_ok[0] =
                 HighlightMonsterAsTarget(value, g_status.selected_character, 1);
             if (GetTargetNeededForCurrentAction(g_status.selected_character) ==
                 W8_TARGET_NEED_GROUP) {
                 W8MonsterInfo* monster_info =
-                    MonsterInfoFromID(0x1d19, MAIN_GAME_SCREEN_CPP, value, true);
+                    FindMonster(value);
                 ModifyGroupColor(monster_info->monster_group_id,
                                  g_level_block->target_highlight_ok[0] == 0
                                      ? W8_TARGET_HIGHLIGHT_RED
@@ -6668,15 +6816,12 @@ void SetCombatTarget(int value)
         } else {
             W8WorldItem* item = ItemInfo(ItemIndex(value));
             if (item != 0) {
-                srVector3T<float> minimum;
-                srVector3T<float> maximum;
-                srVector3T<float> camera;
-
-                GetItemWorldBounds(item->p3D, &minimum, &maximum);
-                GetCameraPosition(&camera);
-                if (TraceLineOfSightToBounds(&camera, &minimum, &maximum) != 0) {
-                    g_level_block->selected_item = value;
-                    SetWorldItemHighlight(value, true);
+                if (const auto bounds = GetItemWorldBounds(item->p3D)) {
+                    const srVector3T<float> camera(cameraLocation());
+                    if (traceLineOfSightToBounds(camera.glmValue(), *bounds) != 0) {
+                        g_level_block->selected_item = value;
+                        SetWorldItemHighlight(value, true);
+                    }
                 }
             }
         }
@@ -6723,9 +6868,7 @@ void SetCombatAction(int value)
     if (value == -1) {
         g_level_block->target_highlight_ok[0] = 0;
     } else {
-        unsigned int group_index =
-            GetMonsterGroupIndexByID(0x1dcf, MAIN_GAME_SCREEN_CPP, value, true);
-        W8MonsterGroup* group = GetMonsterGroupByListIndex(group_index);
+        W8MonsterGroup* group = FindMonsterGroup(value);
 
         g_level_block->target_highlight_ok[0] =
             CanTargetMonsterGroup(g_status.selected_character, group);
@@ -6752,15 +6895,14 @@ static void DrawMainGamePrompt(void)
     W8TextBuffer* buffer;
 
     if (g_modal_owner == 0 && !gXStatus.fNpcDialogueMode) {
-        DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0xa9, 0, 0, 0xb1, 0x13f, VO_BLT_SRCTRANSPARENCY,
-                                      0);
+        CatalogArtwork::Load(0xa9, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, 0xb1, 0x13f);
         bounds.left = 0xb1;
         bounds.top = 0x13f;
         bounds.right = 0x1cf;
         bounds.bottom = 0x153;
-        buffer = new W8TextBuffer(&bounds, {}, g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 0, 4);
+        buffer = new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
         buffer->RenderString(g_localized_strings[gXStatus.fCombatMode ? 0x780 : 0x77f],
-                             g_wiz_text_font_secondary, false, FRAME_BUFFER);
+                             g_wiz_text_font_secondary, false, GetFrameBufferSurface());
         delete buffer;
     }
 }
@@ -6773,8 +6915,8 @@ void SetRadarMapVisible(bool visible)
     if (visible) {
         g_level_block->radar_map_visible = visible;
         g_level_block->radar_map_alternate = 0;
-        RegionSetEnable(0x12);
-        EnableRegionInput(0x62);
+        g_main_radar_regions.Enable();
+        EnableRegionInput(g_main_radar_regions->index(0));
         EnableRadarMap(true);
         if (gXStatus.fCombatMode) {
             ZoomRadarMapIn();
@@ -6784,8 +6926,8 @@ void SetRadarMapVisible(bool visible)
         RequestRedraw(W8_MAIN_REDRAW_LAYOUT | W8_MAIN_REDRAW_PORTRAIT_PANEL);
     } else {
         g_level_block->radar_map_visible = 0;
-        DisableRegionInput(0x62);
-        RegionSetDisable(0x12);
+        DisableRegionInput(g_main_radar_regions->index(0));
+        g_main_radar_regions.Disable();
         EnableRadarMap(false);
         ReleaseRadarMap();
         RequestRedraw(W8_MAIN_REDRAW_LAYOUT | W8_MAIN_REDRAW_PORTRAIT_PANEL);
@@ -6824,11 +6966,11 @@ void SetFormationBoardVisible(bool visible)
     if (visible) {
         g_level_block->formation_board_visible = true;
         g_level_block->formation_board_alternate = 0;
-        RegionSetEnable(0x13);
+        g_main_formation_board_regions.Enable();
         RefreshFormationBoard();
     } else {
         g_level_block->formation_board_visible = false;
-        RegionSetDisable(0x13);
+        g_main_formation_board_regions.Disable();
         ReleaseFormationBoard();
     }
     RequestRedraw(W8_MAIN_REDRAW_LAYOUT | W8_MAIN_REDRAW_PORTRAIT_PANEL);
@@ -6889,10 +7031,10 @@ bool IsMGSActionKeyEnabled(unsigned short command)
     if (gXStatus.fSurprisePossible || gXStatus.fCampMode) {
         return false;
     }
-    if (!gXStatus.fCombatMode) {
-        switch (command) {
-        case W8_MGS_ACTION_JOURNAL:
-            return true;
+    if (gXStatus.fCombatMode && !g_combat_state->round_active) {
+        return false;
+    }
+    switch (command) {
         case W8_MGS_ACTION_USE_ITEM_VIEW:
             state = GetSubMenuEntryState(W8_SUBMENU_ITEMS, 1, g_status.selected_character);
             break;
@@ -6905,28 +7047,13 @@ bool IsMGSActionKeyEnabled(unsigned short command)
         case W8_MGS_ACTION_CAST_RECORDED_SPELL:
             state = GetSubMenuEntryState(W8_SUBMENU_SPELLS, 1, g_status.selected_character);
             break;
-        default:
-            return false;
-        }
-    } else {
-        if (!g_combat_state->round_active) {
-            return false;
+    default:
+        if (!gXStatus.fCombatMode) {
+            return command == W8_MGS_ACTION_JOURNAL;
         }
         switch (command) {
         case W8_MGS_ACTION_JOURNAL:
             return false;
-        case W8_MGS_ACTION_USE_ITEM_VIEW:
-            state = GetSubMenuEntryState(W8_SUBMENU_ITEMS, 1, g_status.selected_character);
-            break;
-        case W8_MGS_ACTION_USE_RECORDED_ITEM:
-            state = GetSubMenuEntryState(W8_SUBMENU_ITEMS, 2, g_status.selected_character);
-            break;
-        case W8_MGS_ACTION_SPELL_VIEW:
-            state = GetSubMenuEntryState(W8_SUBMENU_SPELLS, 0, g_status.selected_character);
-            break;
-        case W8_MGS_ACTION_CAST_RECORDED_SPELL:
-            state = GetSubMenuEntryState(W8_SUBMENU_SPELLS, 1, g_status.selected_character);
-            break;
         case W8_MGS_ACTION_BREATHE:
             state = GetSubMenuEntryState(W8_SUBMENU_ATTACK, 2, g_status.selected_character);
             break;
@@ -7115,23 +7242,22 @@ void TryMGSActionKey(W8MGSAction command)
    against two runs of region numbers at once - one starting at 0x24 six apart
    and one at 0x5a one apart - and only two event kinds are answered. */
 // FUNCTION: WIZ8 0x00569c00
-unsigned char HitTestPartyPortrait(const InputAtom* event)
+unsigned char HitTestPartyPortrait(const InputEvent* event)
 {
     unsigned int region = 0x24;
     int slot = 0;
-    unsigned int kind;
 
     while (!g_status.buffers.XChar[slot].fOccupied ||
-           (g_level_block->hover_region != region &&
-            g_level_block->hover_region != static_cast<unsigned int>(slot + 0x5a))) {
+           (g_level_block->hover_region !=
+                g_main_portrait_regions->index(slot * 6 + kPortraitWorldRegionOffset) &&
+            g_level_block->hover_region != g_main_portrait_edge_regions->index(slot))) {
         region += 6;
         ++slot;
         if (region > 0x53) {
             return 0;
         }
     }
-    kind = event->usEvent;
-    if (kind == 8 || kind == 0x10) {
+    if (event->type == InputEventType::LeftButtonDown || event->type == InputEventType::LeftButtonUp) {
         return DispatchRegionInput(event);
     }
     return 0;
@@ -7146,67 +7272,60 @@ unsigned char HitTestPartyPortrait(const InputAtom* event)
 // FUNCTION: WIZ8 0x00568E10
 void LoadMainGameCursorResources(void)
 {
-    HVOBJECT video_object;
     W8MainGameResourceSlot* slot = g_main_game_resource_slots;
     W8MainGameResourceSlot* end = g_main_game_resource_slots + 17;
 
     for (; slot < end; ++slot) {
-        unsigned int handle = GetCatalogVideoObjectHandle(slot->image_id, 0);
-        short frame = GetCatalogVideoObjectYOffset(slot->image_id);
-        if (GetVideoObject(&video_object, handle)) {
-            if (frame < video_object->sprites.size()) {
-                slot->size_x = video_object->sprites[frame].usWidth;
-                slot->size_y = video_object->sprites[frame].usHeight;
-            }
-            slot->object =
-                VideoVObjectToTextureAnim(video_object, static_cast<unsigned short>(frame),
-                                          static_cast<unsigned short>(slot->frame_count), true);
-            slot->object->animation_mode = W8_TEXTURE_ANIM_MANUAL;
+        const auto artwork = CatalogArtwork::Load(slot->image_id);
+        const auto sprites = artwork.spriteSheet();
+        short frame = artwork.imageOffset();
+        if (frame < sprites->frames.size()) {
+            slot->size_x = sprites->frames[frame].width;
+            slot->size_y = sprites->frames[frame].height;
         }
+        slot->object =
+            VideoVObjectToTextureAnim(*sprites, static_cast<unsigned short>(frame),
+                                      static_cast<unsigned short>(slot->frame_count), true);
+        slot->object->animation_mode = W8_TEXTURE_ANIM_MANUAL;
     }
 }
 
 // FUNCTION: WIZ8 0x00568950
-unsigned int DispatchMainGameMouseButtons(const InputAtom* input)
+unsigned int DispatchMainGameMouseButtons(const InputEvent* input)
 {
-    SDL_Point point;
-    SGPMouseGetPos(&point);
-    switch (input->usEvent) {
-    case LEFT_BUTTON_DOWN:
-    case LEFT_BUTTON_UP:
-    case RIGHT_BUTTON_DOWN:
-    case RIGHT_BUTTON_UP:
-        MSYS_SGP_Mouse_Handler_Hook(input->usEvent, static_cast<unsigned short>(point.x),
-                                    static_cast<unsigned short>(point.y), gfLeftButtonState,
-                                    gfRightButtonState);
+    switch (input->type) {
+    case InputEventType::LeftButtonDown:
+    case InputEventType::LeftButtonUp:
+    case InputEventType::RightButtonDown:
+    case InputEventType::RightButtonUp:
+        DispatchRegionInput(input);
         return 1;
     default:
         return 0;
     }
 }
-
 /* Input routed here while mouselook is latched: the left button arms the
    look flag, and each mouse move accumulates yaw/pitch from the offset off
    the 320x240 anchor before recentering the cursor. Smoothing defers the
    apply to the frame tick; otherwise it applies immediately. */
 // FUNCTION: WIZ8 0x00568B50
-unsigned char HandleMouselookInput(const InputAtom* input)
+unsigned char HandleMouselookInput(const InputEvent* input)
 {
     if (!g_camera_path_active && (!gXStatus.world_paused || gXStatus.fCombatMode)) {
-        unsigned int us_event = input->usEvent;
+        const InputEventType us_event = input->type;
         switch (us_event) {
-        case LEFT_BUTTON_DOWN:
+        case InputEventType::LeftButtonDown:
             g_mouselook_left_held = true;
             return 1;
-        case LEFT_BUTTON_UP:
+        case InputEventType::LeftButtonUp:
             g_mouselook_left_held = false;
             return 1;
-        case MOUSE_POS:
+        case InputEventType::MouseMove:
             g_mouselook_pending_yaw =
-                (static_cast<int>(input->uiParam & 0xffff) - 0x140) * g_mouselook_yaw_scale +
+                (input->position.x - 0x140) * g_mouselook_yaw_scale +
                 g_mouselook_pending_yaw;
             g_mouselook_pending_pitch =
-                g_mouselook_pending_pitch + (static_cast<int>(input->uiParam >> 16) - 0xf0) *
+                g_mouselook_pending_pitch + (input->position.y - 0xf0) *
                                                 (g_settings.invert_mouse_y != 0 ? -1 : 1) *
                                                 g_mouselook_pitch_scale;
             WarpSystemCursor(0x140, 0xf0);
@@ -7214,6 +7333,8 @@ unsigned char HandleMouselookInput(const InputAtom* input)
                 ApplyPendingMouselook();
             }
             return 1;
+        default:
+            break;
         }
     }
     return 0;
@@ -7229,8 +7350,8 @@ void PauseMainGameWorld(void)
     if (!gXStatus.fCombatMode) {
         if (gXStatus.world_paused) {
             MoveTimer(1);
-            EnableRegionInput(0x137);
-            ActivateDialogRegion(0x137);
+            EnableRegionInput(g_game_time_combat_bar_region->index(0));
+            ActivateDialogRegion(g_game_time_combat_bar_region->index(0));
         }
         SetEnvironmentTimeEnabled(false);
         MonsterStopAllNavigators();
@@ -7247,8 +7368,8 @@ void ResumeMainGameWorld(void)
         if (!gXStatus.fCombatMode) {
             if (gXStatus.world_paused) {
                 MoveTimer(4);
-                ClearActiveRegionIfMatches(0x137);
-                DisableRegionInput(0x137);
+                ClearActiveRegionIfMatches(g_game_time_combat_bar_region->index(0));
+                DisableRegionInput(g_game_time_combat_bar_region->index(0));
             }
             SetEnvironmentTimeEnabled(true);
             MonsterResumeAllNavigators();
@@ -7302,9 +7423,7 @@ static void InvalidateMainGameScreen(W8DialogBase* dialog)
 // FUNCTION: WIZ8 0x0056ad60
 void OpenMonsterInfoDialog(int location_id)
 {
-    unsigned int monster_index =
-        MonsterGetIndexByLocationID(0x1fa3, MAIN_GAME_SCREEN_CPP, location_id, true);
-    W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(monster_index);
+    W8MonsterInfo* monster_info = FindMonster(location_id);
     if (!monster_info->fActive || monster_info->p3D->IsDying() || monster_info->hp_current == 0) {
         return;
     }
@@ -7312,7 +7431,7 @@ void OpenMonsterInfoDialog(int location_id)
     dialog->SetText("");
     dialog->m_destroy_callback = InvalidateMainGameScreen;
     g_modal_owner = dialog;
-    ActivateDialogRegion(0x138);
+    CaptureInputSink();
 }
 
 /* Open the assay dialog over the main game screen. A live modal dialog is
@@ -7335,7 +7454,7 @@ void OpenAssayDialog(W8ItemInstance* item, int character_slot)
     dialog->SetOrigin(g_info_dialog_x, 0x48);
     dialog->m_destroy_callback = InvalidateMainGameScreen;
     g_modal_owner = dialog;
-    ActivateDialogRegion(0x138);
+    CaptureInputSink();
 }
 
 /* Queue `party_slot` for the pending screen and unwind whichever main-game
@@ -7668,7 +7787,7 @@ void ShowNpcTradeItemNotice(W8ItemInstance* item)
     g_level_block->text_paint_scratch = fmt::format("{:d}{}", price, g_localized_strings[0x797]);
     ShowNotice(font_palette, FormatItemDisplayName(item, true), 2,
                GetTextBoxScrollRange() -
-                   StringPixLength(g_level_block->text_paint_scratch, GetTextBoxFont()));
+                   GetTextBoxFont().textWidth(g_level_block->text_paint_scratch));
     AppendTextBoxLine(g_level_block->text_paint_scratch, 2);
 }
 
@@ -7739,7 +7858,7 @@ static void ShowNpcPlayerTradeItem(W8ItemInstance* item, bool acceptable, unsign
         }
         ShowNotice(font_palette, FormatItemDisplayName(item, true), 2,
                    GetTextBoxScrollRange() -
-                       StringPixLength(g_level_block->text_paint_scratch, GetTextBoxFont()));
+                       GetTextBoxFont().textWidth(g_level_block->text_paint_scratch));
         AppendTextBoxLine(g_level_block->text_paint_scratch, 2);
     } else {
         ShowNotice(font_palette, FormatItemDisplayName(item, true), 2);
@@ -7760,7 +7879,7 @@ void PopulateNpcTradeList(void)
             fmt::format("{:d}{}", g_status.party_gold, g_localized_strings[0x797]);
         ShowNotice(W8_FONT_PALETTE_TEXT_BOX, g_localized_strings[0x72d], 2,
                    GetTextBoxScrollRange() -
-                       StringPixLength(g_level_block->text_paint_scratch, GetTextBoxFont()));
+                       GetTextBoxFont().textWidth(g_level_block->text_paint_scratch));
         AppendTextBoxLine(g_level_block->text_paint_scratch, 2);
     }
     if ((static_cast<W8TextControl*>(
@@ -7969,7 +8088,6 @@ bool AttemptNpcItemTrade(W8ItemInstance* item, unsigned char quantity, int index
 // FUNCTION: WIZ8 0x0055E490
 void W8NpcDialogueTextController::SelectTranscriptKeywordAtPoint(int x, int y)
 {
-    std::string keyword;
     unsigned int hit;
 
     if (g_npc_interaction_state->modal_dialog_open) {
@@ -7980,54 +8098,55 @@ void W8NpcDialogueTextController::SelectTranscriptKeywordAtPoint(int x, int y)
     if (hit == static_cast<unsigned int>(-1)) {
         return;
     }
+    const auto keyword = text_area.GetVisibleEntryText(hit);
+    if (!keyword)
+        return;
 
     if (text_area.m_highlighted_entry == static_cast<int>(hit)) {
-        text_area.CopyVisibleEntryText(hit, keyword);
         text_area.ClearEntryHighlight();
         text_area.HighlightVisibleEntry(static_cast<int>(hit));
-        SetDialogueFieldKeyword(keyword, false);
+        SetDialogueFieldKeyword(std::string(*keyword), false);
         HandleNpcDialogueInput();
         text_area.SetEntryMarked(text_area.GetOwningEntryIndex(static_cast<int>(hit)), false);
         InvalidateLayout();
         return;
     }
 
-    text_area.CopyVisibleEntryText(hit, keyword);
     text_area.ClearEntryHighlight();
     text_area.HighlightVisibleEntry(static_cast<int>(hit));
-    SetDialogueFieldKeyword(keyword, false);
+    SetDialogueFieldKeyword(std::string(*keyword), false);
     InvalidateLayout();
 }
 
 // FUNCTION: WIZ8 0x0055E690
-unsigned char DialogueTranscriptRegionEvent(const InputAtom* event, W8Region* region)
+unsigned char DialogueTranscriptRegionEvent(const InputEvent* event, W8Region* region)
 {
-    int us_event = event->usEvent;
+    const InputEventType us_event = event->type;
     W8NpcDialogueTextController* controller;
     bool scrolled;
     short delta;
 
-    if (us_event <= LEFT_BUTTON_REPEAT) {
-        if (us_event == LEFT_BUTTON_REPEAT || us_event == LEFT_BUTTON_DOWN) {
+    if (IsLeftButtonEvent(us_event)) {
+        if (us_event == InputEventType::LeftButtonRepeat || us_event == InputEventType::LeftButtonDown) {
             region->flags |= W8_REGION_LEFT_BUTTON_HELD;
             return 1;
         }
-        if (us_event != LEFT_BUTTON_UP) {
+        if (us_event != InputEventType::LeftButtonUp) {
             return 0;
         }
         if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) != 0) {
             region->flags &= ~W8_REGION_LEFT_BUTTON_HELD;
             static_cast<W8NpcDialogueTextController*>(g_npc_interaction_state->dialogue_panels[2])
-                ->SelectTranscriptKeywordAtPoint(static_cast<unsigned short>(event->uiParam),
-                                                 static_cast<unsigned short>(event->uiParam >> 16));
+                ->SelectTranscriptKeywordAtPoint(event->position.x,
+                                                 event->position.y);
             return 1;
         }
     } else {
-        if (us_event != MOUSE_POS) {
-            if (us_event != MOUSE_WHEEL) {
+        if (us_event != InputEventType::MouseMove) {
+            if (us_event != InputEventType::MouseWheel) {
                 return 0;
             }
-            delta = GetMouseWheelDeltaValue(event->usParam);
+            delta = event->wheel;
             if (delta > 0) {
                 controller = static_cast<W8NpcDialogueTextController*>(
                     g_npc_interaction_state->dialogue_panels[2]);
@@ -8052,8 +8171,8 @@ unsigned char DialogueTranscriptRegionEvent(const InputAtom* event, W8Region* re
                 controller = static_cast<W8NpcDialogueTextController*>(
                     g_npc_interaction_state->dialogue_panels[2]);
                 if (controller->text_area.UpdateSelectionFromPoint(
-                        static_cast<unsigned short>(event->uiParam),
-                        static_cast<unsigned short>(event->uiParam >> 16))) {
+                        event->position.x,
+                        event->position.y)) {
                     controller->InvalidateLayout();
                 }
             }
@@ -8070,20 +8189,20 @@ unsigned char DialogueTranscriptRegionEvent(const InputAtom* event, W8Region* re
 }
 
 // FUNCTION: WIZ8 0x005699D0
-unsigned char CombatBarRegionEvent(const InputAtom* event, W8Region*)
+unsigned char CombatBarRegionEvent(const InputEvent* event, W8Region*)
 {
-    int us_event = event->usEvent;
+    const InputEventType us_event = event->type;
 
-    if (us_event <= RIGHT_BUTTON_DOWN) {
-        if (us_event == RIGHT_BUTTON_DOWN || us_event == LEFT_BUTTON_DOWN ||
-            us_event == LEFT_BUTTON_UP) {
+    if (IsLeftButtonEvent(us_event) || us_event == InputEventType::RightButtonDown) {
+        if (us_event == InputEventType::RightButtonDown || us_event == InputEventType::LeftButtonDown ||
+            us_event == InputEventType::LeftButtonUp) {
             goto resume_world;
         }
     } else {
-        if (us_event == RIGHT_BUTTON_UP) {
+        if (us_event == InputEventType::RightButtonUp) {
             goto resume_world;
         }
-        if (us_event == MOUSE_POS) {
+        if (us_event == InputEventType::MouseMove) {
             return 1;
         }
     }
@@ -8224,15 +8343,15 @@ unsigned char UpdateSurpriseFade(void)
 
     if (boundary) {
         if (gXStatus.surprise_phase == 0) {
-            w8_long pitch;
-            void* pixels = LockCatalogFrameSurface(0x1e0, 0, &pitch);
+            const auto snapshot = CatalogArtwork::Load(0x1e0).bitmap();
+            const auto pitch = snapshot->pitch;
+            void* pixels = snapshot->pixels;
             auto surface = std::make_shared<srColorSurface>(srPixelConvert::SURFACE_ARGB1555,
                                                              pixels, 0x280, 0x1e0, pitch);
             g_surprise_snapshot_surface = surface;
             g_surprise_snapshot_overlay = new stSurface2D(g_surprise_snapshot_surface, 0x280, 0x1e0,
                                                           g_scene_fullscreen, 0x80);
             g_surprise_snapshot_overlay->updateRectangle(g_gerd, pixels, pitch, 0, 0, 0x280, 0x1e0);
-            UnlockCatalogFrameSurface(0x1e0, 0);
             g_world_render_enabled = 0;
             g_surprise_fade_tick_base = w8_get_ticks();
         } else {

@@ -1,24 +1,25 @@
+#include <optional>
+#include <iterator>
 #include <memory>
 #include <utility>
+#include <vector>
+#include <cstddef>
+#include <exception>
+
+#include "glm/ext/matrix_float3x3.hpp"
 #include "wiz8/filesystem.h"
 #include "wiz8/compat/debug_heap.h"
 #include "wiz8/engine_code/AnimObj.h"
 #include "wiz8/engine_code/AniMesh.h"
 #include "wiz8/engine_code/PathAI.h"
 #include "wiz8/engine_code/ReadLevel.h"
-#include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/float_constants.h"
-#include <vector>
-#include <algorithm>
 #include "wiz8/engine_code/stLight.hpp"
 #include "wiz8/engine_code/stModelInstance.h"
-#include "surrender/srModelInstance.h"
 #include "wiz8/sr_api.h"
-#include "wiz8/virtual_file.h"
-
-#include <stdlib.h>
-#include <string.h>
+#include "glm/ext/vector_float3.hpp"
+#include "surrender/srBoundingBox.h"
 
 #define ANIM_OBJ_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\AnimObj.cpp"
 
@@ -320,101 +321,52 @@ W8AnimObj::W8AnimObj(const W8AnimObj& other)
     }
 }
 
-/* The animation's bounding box for one frame, cached per frame once computed.
-   The fast path is the cache; the single-mesh form defers to the mesh's own
-   box; the per-frame form walks every mesh in the list, places each through its
-   path, and takes the extent.
-
-   The transformed box goes into locals the body never reads back - the merge
-   below compares against the untransformed values instead. That is what the
-   original does. */
+/* Cache the frame's mesh bounds. Retail applies each path but merges the
+   untransformed mesh boxes; the discarded transformed box is not part of the result. */
 // FUNCTION: WIZ8 0x004a1710
-bool AnimObjGetBounds(W8AnimObj* animation, signed char list_index, unsigned int frame,
-                               srVector3T<float>* minimum, srVector3T<float>* maximum)
+std::optional<srBoundingBox> AnimObjGetBounds(W8AnimObj* animation, signed char list_index,
+                                            unsigned int frame)
 {
-    glm::mat3 rotation;
-    srVector3T<float> translation;
-    srVector3T<float> scale;
-    srVector3T<float> transformed_minimum;
-    srVector3T<float> transformed_maximum;
-    srVector3T<float> mesh_minimum;
-    srVector3T<float> mesh_maximum;
-    stModelInstance* instance;
-    W8PathAI* path;
-    unsigned int count;
-    int index;
-
-    if (animation == 0) {
-        srAssertFail("pao", ANIM_OBJ_CPP, 0x2ff, 0);
-    }
+    if (!animation || list_index < 0 ||
+        std::cmp_greater_equal(list_index, std::size(animation->entries)))
+        return std::nullopt;
     frame &= 0xff;
     if (frame < animation->frame_bounds.size() && animation->frame_bounds[frame].known) {
         const auto& bounds = animation->frame_bounds[frame];
-        *minimum = bounds.minimum;
-        *maximum = bounds.maximum;
-        return true;
+        return srBoundingBox{bounds.minimum.glmValue(), bounds.maximum.glmValue()};
     }
-    if (!animation->path_lists) {
-        return GetAniMeshBounds(animation->entries[list_index].get(), minimum, maximum);
-    }
-    if (frame >= animation->frame_count) return false;
-    if (animation->frame_bounds.size() < animation->frame_count) {
+    if (!animation->path_lists)
+        return GetAniMeshBounds(animation->entries[list_index].get());
+    if (frame >= animation->frame_count)
+        return std::nullopt;
+    if (animation->frame_bounds.size() < animation->frame_count)
         animation->frame_bounds.resize(animation->frame_count);
-    }
-    count = animation->meshes[list_index].size();
     auto* first_mesh = AnimObjEntry(animation, list_index, 0);
-    if (!first_mesh) return false;
-    GetAniMeshBounds(first_mesh, minimum, maximum);
-    for (index = 0; static_cast<unsigned int>(index) < count; ++index) {
+    if (!first_mesh)
+        return std::nullopt;
+    auto bounds = GetAniMeshBounds(first_mesh);
+    if (!bounds)
+        return std::nullopt;
+    const auto count = animation->meshes[list_index].size();
+    for (std::size_t index = 0; index < count; ++index) {
         if (index != 0) {
-            GetAniMeshBounds(AnimObjEntry(animation, list_index, index), &mesh_minimum,
-                             &mesh_maximum);
+            const auto mesh_bounds = GetAniMeshBounds(AnimObjEntry(animation, list_index, index));
+            if (!mesh_bounds)
+                return std::nullopt;
+            bounds->include(*mesh_bounds);
         }
-        if (animation == 0) {
-            srAssertFail("pao", ANIM_OBJ_CPP, 0x26c, 0);
-        }
-        instance = static_cast<stModelInstance*>(
-            AnimObjDispatchList(animation, list_index, static_cast<signed char>(index)));
-        path = AnimObjListEntry(animation, list_index, static_cast<signed char>(index));
-        if (path) {
-            float saved = PathAIGetValue(path);
-
+        auto* instance = AnimObjDispatchList(animation, list_index, static_cast<signed char>(index));
+        if (!instance)
+            return std::nullopt;
+        if (auto* path = AnimObjListEntry(animation, list_index, static_cast<signed char>(index))) {
+            const float saved = PathAIGetValue(path);
             PathAISetValue(path, static_cast<float>(index));
-            PathAIApply(path, instance);
+            PathAIApply(path, static_cast<stModelInstance*>(instance));
             PathAISetValue(path, saved);
         }
-        ((srNode*)instance)->getRotation(rotation);
-        srVector3T<double> node_location = ((srNode*)instance)->getLocation();
-        translation = glm::vec3(node_location.glmValue());
-        srVector3T<double> node_scale = ((srNode*)instance)->getScale();
-        scale = glm::vec3(node_scale.glmValue());
-        transformed_minimum = *minimum;
-        transformed_maximum = *maximum;
-        TransformBounds(&rotation, &translation, &scale, &transformed_minimum,
-                        &transformed_maximum);
-        if (index != 0) {
-            if (mesh_minimum.x < minimum->x) {
-                minimum->x = mesh_minimum.x;
-            }
-            if (mesh_minimum.y < minimum->y) {
-                minimum->y = mesh_minimum.y;
-            }
-            if (mesh_minimum.z < minimum->z) {
-                minimum->z = mesh_minimum.z;
-            }
-            if (maximum->x < mesh_maximum.x) {
-                maximum->x = mesh_maximum.x;
-            }
-            if (maximum->y < mesh_maximum.y) {
-                maximum->y = mesh_maximum.y;
-            }
-            if (maximum->z < mesh_maximum.z) {
-                maximum->z = mesh_maximum.z;
-            }
-        }
     }
-    animation->frame_bounds[frame] = {true, *minimum, *maximum};
-    return true;
+    animation->frame_bounds[frame] = {true, bounds->minimum, bounds->maximum};
+    return bounds;
 }
 
 /* Rotate, translate and scale the eight corners of a box and take the extent of
@@ -426,48 +378,12 @@ void TransformBounds(const glm::mat3* rotation, const srVector3T<float>* transla
                      const srVector3T<float>* scale, srVector3T<float>* minimum,
                      srVector3T<float>* maximum)
 {
-    srVector3T<float> corner[2];
-    int i;
-    int j;
-    int k;
-
-    corner[0] = *minimum;
-    corner[1] = *maximum;
-    for (i = 0; i < 2; ++i) {
-        for (j = 0; j < 2; ++j) {
-            for (k = 0; k < 2; ++k) {
-                srVector3T<float> point(corner[i].x, corner[j].y, corner[k].z);
-                srVector3T<float> transformed = ((*rotation)) * point.glmValue();
-                float tx = (transformed.x + translation->x) * scale->x;
-                float ty = (transformed.y + translation->y) * scale->y;
-                float tz = (transformed.z + translation->z) * scale->z;
-
-                if (i == 0 && j == 0 && k == 0) {
-                    maximum->Set(tx, ty, tz);
-                    minimum->Set(tx, ty, tz);
-                } else {
-                    if (tx < minimum->x) {
-                        minimum->x = tx;
-                    }
-                    if (ty < minimum->y) {
-                        minimum->y = ty;
-                    }
-                    if (tz < minimum->z) {
-                        minimum->z = tz;
-                    }
-                    if (maximum->x < tx) {
-                        maximum->x = tx;
-                    }
-                    if (maximum->y < ty) {
-                        maximum->y = ty;
-                    }
-                    if (maximum->z < tz) {
-                        maximum->z = tz;
-                    }
-                }
-            }
-        }
-    }
+    const srBoundingBox bounds{minimum->glmValue(), maximum->glmValue()};
+    const auto transformed = bounds.transformedBy([&](const glm::vec3& point) {
+        return (*rotation * point + translation->glmValue()) * scale->glmValue();
+    });
+    *maximum = transformed.maximum;
+    *minimum = transformed.minimum;
 }
 
 // FUNCTION: WIZ8 0x004a01e0
@@ -584,7 +500,7 @@ W8AniMesh* AnimObjEntry(W8AnimObj* animation, signed char list_index, unsigned i
 }
 
 // FUNCTION: WIZ8 0x004A2220
-stLightDefinition::~stLightDefinition() {}
+stLightDefinition::~stLightDefinition() = default;
 
 /* Type-two light definitions own four synchronized keyframe vectors.  The
    clone iterates the second vector's count, which is the retail authority for

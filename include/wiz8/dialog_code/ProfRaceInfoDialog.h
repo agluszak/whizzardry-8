@@ -1,11 +1,16 @@
-#include <string_view>
+#include "Font.h"
 #pragma once
 
+#include <optional>
+#include <string_view>
+
+#include "wiz8/catalog_artwork.h"
 #include "wiz8/dialog_code/DialogBase.h"
-#include "wiz8/dialog_code/DialogButton.h"
+#include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/dialog_code/DialogScrollBar.h"
 #include "wiz8/dialog_code/DialogTextArea.h"
 #include "wiz8/layouts/gameplay_databases.h"
+#include "compat/compiler.h"
 
 enum { W8_DIALOG_ATTRIBUTE_COUNT = 7 };
 
@@ -33,14 +38,7 @@ extern W8ProfRaceInfoRow g_race_info_rows[W8_RACE_COUNT];
 class W8ProfRaceInfoDialogBase : public W8DialogBase {
 public:
     W8ProfRaceInfoDialogBase();
-    // FUNCTION: WIZ8 0x005DEBB0
-    virtual ~W8ProfRaceInfoDialogBase() override
-    {
-        m_scroll_bar.DestroyControls();
-        W8DialogBase::DestroyControls();
-    }
     virtual int CreateControls() override;
-    virtual void DestroyControls() override;
     virtual void Draw() override;
     virtual void OnRightButtonUp() override;
     virtual void OnMouseWheel(int delta) override;
@@ -53,17 +51,17 @@ private:
     /* Renders one text line at a dialog-relative rectangle through a scratch
        W8TextBuffer. */
     void DrawTextLine(unsigned int layout_mode, int left, int top, int width, int height,
-                      std::string_view text, int font);
+                      std::string_view text, Font& font);
 
 protected:
-    unsigned int m_uiTitleId;   /* video object catalog id */
-    unsigned int m_uiSummaryId; /* image inside the catalog object */
+    std::optional<CatalogArtwork> m_uiArtwork;
+    unsigned int m_uiSummaryImage;
     unsigned int m_uiNameId;    /* g_localized_strings index */
     unsigned int m_uiHeadingId; /* g_localized_strings index */
     unsigned int m_uiDetailId;  /* g_localized_strings index */
     int m_minimums[W8_DIALOG_ATTRIBUTE_COUNT];
     W8DialogScrollBar m_scroll_bar;
-    W8DialogButton m_button;
+    W8ButtonWidget m_button;
     W8DialogTextArea m_text_area;
 };
 
@@ -88,9 +86,3 @@ private:
 
     W8Race m_uiIndex;
 };
-
-W8_ABI_ASSERT(sizeof(W8AttributeMinimums) == 0x1c, "W8AttributeMinimums_must_be_0x1c");
-W8_ABI_ASSERT(sizeof(W8ProfRaceInfoRow) == 0x0c, "W8ProfRaceInfoRow_must_be_0x0c");
-W8_ABI_ASSERT(sizeof(W8ProfRaceInfoDialogBase) == 0x170, "W8ProfRaceInfoDialogBase_must_be_0x170");
-W8_ABI_ASSERT(sizeof(W8ProfessionInfoDialog) == 0x174, "W8ProfessionInfoDialog_must_be_0x174");
-W8_ABI_ASSERT(sizeof(W8RaceInfoDialog) == 0x174, "W8RaceInfoDialog_must_be_0x174");

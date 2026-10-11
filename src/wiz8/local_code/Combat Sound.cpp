@@ -1,26 +1,33 @@
+#include <fmt/format.h>
+#include <SDL3/SDL_filesystem.h>
 #include <array>
 #include <sstream>
-#include <fmt/format.h>
-#include "wiz8/unicode.h"
+#include <cstring>
+#include <exception>
+#include <memory>
+#include <optional>
+#include <string>
+#include <string_view>
+#include <utility>
+
 #include "wiz8/local_code/CombatSound.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/local_code/PC_Item.h"
 #include "wiz8/engine_code/Missile.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/item_tables.h"
 #include "wiz8/sr_api.h"
-#include "wiz8/utility.h"
 #include "wiz8/filesystem.h"
 #include "random.h"
 #include "soundman.h"
-
-#include <ctype.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include "attack_modes.h"
+#include "equipment_slots.h"
+#include "layouts/character.h"
+#include "layouts/item_instance.h"
+#include "layouts/targeting.h"
+#include "audio_resources.h"
 
 #define COMBAT_SOUND_CPP "C:\\Projects\\Wizardry 8\\Local Code\\Combat Sound.cpp"
 
@@ -35,9 +42,8 @@ static std::array<std::array<std::string, 12>, 28> g_material_impact_sounds;
 void PlayCombatSound(std::string_view sound_name, unsigned int variant_count, bool store_handle,
                      int volume)
 {
-    SOUNDPARMS parms;
     std::string zSoundFileName;
-    unsigned int handle;
+    wiz8::sound::Playback handle;
 
     if (sound_name.empty())
         return;
@@ -50,13 +56,12 @@ void PlayCombatSound(std::string_view sound_name, unsigned int variant_count, bo
                      fmt::format("CombatSound: ERROR - Sound file {} not found", zSoundFileName));
     }
     if (volume > 0) {
-        memset(&parms, 0xff, sizeof(parms));
-        parms.uiVolume = static_cast<unsigned int>(g_settings.sound_effects_volume * volume) / 127;
-        handle = SoundPlay(zSoundFileName, &parms);
+        handle = wiz8::sound::play(
+            zSoundFileName, {.volume = static_cast<unsigned int>(g_settings.sound_effects_volume * volume) / 127});
     } else {
-        handle = SoundPlay(zSoundFileName, 0);
+        handle = wiz8::sound::play(zSoundFileName);
     }
-    if (handle != 0xffffffff && g_combat_state != 0 && store_handle) {
+    if (handle != nullptr && g_combat_state != 0 && store_handle) {
         g_combat_state->hit_sound = handle;
         g_combat_state->hit_sound_active = true;
     }

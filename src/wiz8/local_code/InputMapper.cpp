@@ -1,15 +1,21 @@
 #include <fmt/format.h>
 #include <string>
 #include <utility>
+#include <cctype>
+#include <cstdlib>
+#include <cstring>
+#include <exception>
+#include <memory>
+#include <optional>
+#include <unordered_map>
+#include <vector>
+
 #include "wiz8/local_screens/MGSKeyboard.h"
 #include "input.h"
 #include "wiz8/local_screens/CreditsScreen.h"
 #include "wiz8/sr_api.h"
-#include "wiz8/utility.h"
-#include "wiz8/virtual_file.h"
-
 #include "wiz8/filesystem.h"
-#include "input.h"
+#include "mgs_commands.h"
 
 
 /* Local Code\InputMapper.cpp. MGSKeyboard::LoadDefaults at 0x0055D800
@@ -95,7 +101,7 @@ unsigned char MGSKeyboard::LoadDefaults(const char* path)
             }
         }
 
-        MGSKeyBinding* binding = new MGSKeyBinding;
+        auto binding = std::make_unique<MGSKeyBinding>();
         binding->key = key;
         binding->modifiers = modifiers;
         binding->active = 1;
@@ -103,13 +109,12 @@ unsigned char MGSKeyboard::LoadDefaults(const char* path)
 
         int old_index = FindBinding(command);
         if (old_index != -1) {
-            auto* object = m_bindings[old_index];
-            m_bindings.erase(m_bindings.begin() + old_index);
-            delete object;
             m_command_index.erase(command);
+            m_bindings.erase(m_bindings.begin() + old_index);
         }
-        m_bindings.push_back(binding);
-        m_command_index.emplace(command, binding);
+        auto* borrowed = binding.get();
+        m_bindings.push_back(std::move(binding));
+        m_command_index.emplace(command, borrowed);
         loaded_binding = true;
     }
     if (handle) handle->close();

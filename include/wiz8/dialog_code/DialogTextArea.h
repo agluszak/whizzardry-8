@@ -1,9 +1,15 @@
+#include "Font.h"
 #pragma once
 
-#include "wiz8/local_code/ControlsRect.h"
+#include <memory>
+#include <optional>
 #include <vector>
-#include <algorithm>
+#include <string>
+#include <string_view>
+
+#include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/dialog_code/DialogTextEntry.h"
+#include "compat/compiler.h"
 
 extern const unsigned int g_W8DialogTextAreaNoWrap;
 extern const unsigned int g_W8DialogTextAreaPointSelection;
@@ -11,7 +17,6 @@ extern const unsigned int g_W8DialogTextAreaShortenText;
 
 /* Two instances of this pointer-vector specialization are embedded in
    W8DialogTextArea. */
-
 
 /* Nonpolymorphic scrolling-text helper contained by dialogs, not a widget or
    text-buffer base. Both vectors belong to this object; only all_lines owns
@@ -22,8 +27,8 @@ class W8DialogTextArea {
 
 public:
     W8DialogTextArea();
-    ~W8DialogTextArea();
-    void Configure(const W8ControlsRect* bounds, int font, unsigned int flags);
+    ~W8DialogTextArea() = default;
+    void Configure(const W8ControlsRect* bounds, Font& font, unsigned int flags);
     void Draw(bool force);
     void SetFirstVisibleLine(int line);
     int GetTotalLineCount();
@@ -32,11 +37,11 @@ public:
     void SetLineHeight(unsigned int height);
     bool SelectEntry(int index);
     bool ClearSelection();
-    bool CopyEntryText(unsigned int index, std::string& output);
+    std::optional<std::string_view> GetEntryText(unsigned int index) const;
     unsigned int HitTestEntry(int x, int y);
     bool UpdateSelectionFromPoint(int x, int y);
     bool ClearPointSelection();
-    bool CopyVisibleEntryText(unsigned int index, std::string& output);
+    std::optional<std::string_view> GetVisibleEntryText(unsigned int index) const;
     bool HighlightVisibleEntry(int index);
     bool ClearEntryHighlight();
     W8DialogTextEntry* GetEntry(unsigned int index);
@@ -56,10 +61,10 @@ private:
     unsigned int FindVisibleEntryAtLine(unsigned int target, unsigned int spacing);
 
     W8ControlsRect m_bounds; /* passed to entry construction */
-    int m_font;
+    Font* m_font;
     int m_first_visible_entry;
     int m_first_visible_line;
-    std::vector<W8DialogTextEntry*> m_all_lines;     /* owns entries */
+    std::vector<std::unique_ptr<W8DialogTextEntry>> m_all_lines; /* owns entries */
     std::vector<W8DialogTextEntry*> m_visible_lines; /* non-owning view */
     bool m_layout_initialized;
 
@@ -81,4 +86,3 @@ private:
     bool m_sorted;
     unsigned char unknown_057;
 };
-W8_ABI_ASSERT(sizeof(W8DialogTextArea) == 0x58, "W8DialogTextArea_size");

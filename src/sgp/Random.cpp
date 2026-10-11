@@ -1,11 +1,29 @@
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
    Distributed under the accompanying SFI Source Code license agreement. */
+#include <cstdint>
+#include <cstdlib>
+#include <ctime>
+
 #include "random.h"
+
+namespace
+{
+// Retail used MSVC rand(), whose RAND_MAX is 0x7fff. Host rand() ranges are
+// wider (glibc: 2^31 - 1), which overflowed the 32-bit scaling and confined
+// Random() to 0..2, so reduce every roll to the retail 15-bit range.
+constexpr std::uint64_t kRetailRandMax = 0x7fff;
+
+std::uint32_t ScaleRoll(int roll, std::uint32_t range)
+{
+    return static_cast<std::uint32_t>((static_cast<std::uint64_t>(roll) & kRetailRandMax) * range /
+                                      kRetailRandMax % range);
+}
+} // namespace
 
 #ifdef PRERANDOM_GENERATOR
 
-UINT32 guiPreRandomIndex = 0;
-UINT32 guiPreRandomNums[MAX_PREGENERATED_NUMS];
+std::uint32_t guiPreRandomIndex = 0;
+std::uint32_t guiPreRandomNums[MAX_PREGENERATED_NUMS];
 
 #endif
 
@@ -26,30 +44,30 @@ void InitializeRandom()
 
 // Returns a pseudo-random integer between 0 and uiRange
 // FUNCTION: WIZ8 0x0040efa0
-UINT32 Random(UINT32 uiRange)
+std::uint32_t Random(std::uint32_t uiRange)
 {
     // Always return 0, if no range given (it's not an error)
 
     if (uiRange == 0)
         return (0);
-    return rand() * uiRange / RAND_MAX % uiRange;
+    return ScaleRoll(rand(), uiRange);
 }
 
 // FUNCTION: WIZ8 0x0040efe0
-BOOLEAN Chance(UINT32 uiChance)
+bool Chance(std::uint32_t uiChance)
 {
-    return (BOOLEAN)(Random(100) < uiChance);
+    return (bool)(Random(100) < uiChance);
 }
 
 #ifdef PRERANDOM_GENERATOR
 
-UINT32 PreRandom(UINT32 uiRange)
+std::uint32_t PreRandom(std::uint32_t uiRange)
 {
-    UINT32 uiNum;
+    std::uint32_t uiNum;
     if (!uiRange)
         return 0;
     //Extract the current pregenerated number
-    uiNum = guiPreRandomNums[guiPreRandomIndex] * uiRange / RAND_MAX % uiRange;
+    uiNum = ScaleRoll(static_cast<int>(guiPreRandomNums[guiPreRandomIndex]), uiRange);
     //Replace the current pregenerated number with a new one.
 
     //This was removed in the name of optimization.  Uncomment if you hate recycling.
@@ -57,14 +75,14 @@ UINT32 PreRandom(UINT32 uiRange)
 
     //Go to the next index.
     guiPreRandomIndex++;
-    if (guiPreRandomIndex >= (UINT32)MAX_PREGENERATED_NUMS)
+    if (guiPreRandomIndex >= (std::uint32_t)MAX_PREGENERATED_NUMS)
         guiPreRandomIndex = 0;
     return uiNum;
 }
 
-BOOLEAN PreChance(UINT32 uiChance)
+bool PreChance(std::uint32_t uiChance)
 {
-    return (BOOLEAN)(PreRandom(100) < uiChance);
+    return (bool)(PreRandom(100) < uiChance);
 }
 
 #endif

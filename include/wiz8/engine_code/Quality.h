@@ -1,7 +1,8 @@
 #pragma once
 
-#include "wiz8/filesystem.h"
+#include "compat/compiler.h"
 
+namespace wiz8 { class File; }
 /* Engine Code\Quality.cpp. The startup constructor at 0x0047B500 asserts this
    unit (Quality.cpp:159) where it allocates the shared render-options record. */
 
@@ -45,7 +46,6 @@ struct W8RenderQuality {
     unsigned char unknown_30[4];
 };
 
-W8_ABI_ASSERT(sizeof(W8RenderQuality) == 0x34, "W8RenderQuality_size");
 extern W8RenderQuality* g_render_options;
 
 void InitializeRenderQuality(void);
@@ -56,8 +56,8 @@ void DisableRenderOption(W8RenderOption option);
 void DisableAllRenderOptions(void);
 void EnableAllRenderOptions(void);
 unsigned char GetRenderOptionState(W8RenderOption option);
-unsigned char LoadRenderOptions(wiz8::File* handle);
-bool SaveRenderOptions(wiz8::File* handle);
+unsigned char LoadRenderOptions(wiz8::File& handle);
+bool SaveRenderOptions(wiz8::File& handle);
 
 extern float g_render_brightness;
 extern float g_render_fog_distance;

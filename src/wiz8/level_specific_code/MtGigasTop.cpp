@@ -1,13 +1,14 @@
 #include "wiz8/level_specific_code/MtGigasTop.h"
+
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
-#include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/utility.h"
 #include "wiz8/dice.h"
 #include "wiz8/fact_state.h"
-#include "wiz8/layouts/game_status.h"
+
+struct W8ItemInstance;
+struct W8NpcState;
 
 /* Level Specific Code\MtGigasTop.cpp (level 0x0f).
 
@@ -21,13 +22,7 @@
 // FUNCTION: WIZ8 0x004DC6B0
 bool OnEwaxxCannon1Activated(Trigger* trigger)
 {
-    W8NpcState* npc = GetNpcStateByKind(0x58);
-    W8ItemInstance* item = 0;
-
-    if (g_status.item_in_cursor) {
-        item = &g_status.item_in_hand;
-    }
-    QueueNpcScriptNotice(npc, item, -1, false, 0);
+    QueueNpcHeldItemNotice(0x58);
     return true;
 }
 
@@ -36,13 +31,7 @@ bool OnEwaxxCannon1Activated(Trigger* trigger)
 // FUNCTION: WIZ8 0x004DC6E0
 bool OnEwaxxLandingActivated(Trigger* trigger)
 {
-    W8NpcState* npc = GetNpcStateByKind(0x7f);
-    W8ItemInstance* item = 0;
-
-    if (g_status.item_in_cursor) {
-        item = &g_status.item_in_hand;
-    }
-    QueueNpcScriptNotice(npc, item, -1, false, 0);
+    QueueNpcHeldItemNotice(0x7f);
     return true;
 }
 
@@ -60,13 +49,7 @@ bool OnCatchCordActivated(Trigger* trigger)
 // FUNCTION: WIZ8 0x004DC730
 bool OnEwaxxTopDoor2Activated(Trigger* trigger)
 {
-    W8NpcState* npc = GetNpcStateByKind(0x60);
-    W8ItemInstance* item = 0;
-
-    if (g_status.item_in_cursor) {
-        item = &g_status.item_in_hand;
-    }
-    QueueNpcScriptNotice(npc, item, -1, false, 0);
+    QueueNpcHeldItemNotice(0x60);
     g_trigger_feedback = true;
     return false;
 }

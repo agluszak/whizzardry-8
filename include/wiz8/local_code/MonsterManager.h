@@ -1,45 +1,39 @@
-#include <string>
 #ifndef WIZ8_LOCAL_CODE_MONSTER_MANAGER_H
 #define WIZ8_LOCAL_CODE_MONSTER_MANAGER_H
 
-#include <unordered_map>
-#include "Types.h"
-#include <vector>
-struct W8MonsterAction;
-struct W8VisibilityRecord;
+#include <source_location>
 
-#include "compat/ptr32.h"
-#include <stddef.h>
+#include "wiz8/audio_resources.h"
+
+#include <string>
+#include <cstdint>
+#include <optional>
+
+#include "conditions.h"
+#include "layouts/targeting.h"
+
+class W8Monster;
+struct W8MonsterGroup;
+struct W8MonsterInfo;
+struct W8MonsterRecord;
+
+#include <unordered_map>
+#include <vector>
 
 #include "wiz8/monster_actions.h"
 #include "wiz8/sight_state.h"
-
-
 #include "surrender/srMath.h"
-#include <algorithm>
 #include "wiz8/layouts/character.h"
 #include "wiz8/character_skills.h"
-#include "wiz8/local_code/CharGeneration.h"
-#include "wiz8/local_code/Combat.h"
-#include "wiz8/local_code/CombatAttack.h"
-#include "wiz8/local_code/ConditionsAndEnchantments.h"
-#include "wiz8/local_code/GameplayMods.h"
-#include "wiz8/local_code/HealthStaminaMana.h"
-#include "wiz8/local_code/Magic.h"
-#include "wiz8/local_code/MagicEffects.h"
-#include "wiz8/local_code/UtilityFunctions.h"
-#include "wiz8/engine_code/Monster.h"
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/gameplay_modifiers.h"
-#include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/mouth_gap.h"
-#include "wiz8/local_code/Targeting.h"
+#include "wiz8/dialog_code/PortraitQuote.h"
 
 struct W8CharacterEvent;
-struct W8NpcState;
 
 struct W8PortraitQuoteState {
-    int quote_handle;
+    std::optional<QuoteBubble> bubble;
     unsigned short x;
     unsigned short y;
     unsigned short width;
@@ -51,21 +45,22 @@ struct W8PortraitQuoteState {
 // Runtime-only state: natural alignment is required for the embedded vector.
 struct W8MonsterManagerEntry {
     bool portrait_event_active;
-    unsigned int voice_sound_handle;
+    wiz8::sound::Playback voice_sound_handle;
     W8MouthGapTrack mouth_gap;
     W8PortraitQuoteState quote;
     unsigned char unknown_025[0x4c];
     W8CharacterEvent* active_character_event;
-    int previous_portrait_frame;
+    // These are the frames last painted, not the preceding animation states.
+    int rendered_portrait_frame;
     int portrait_frame;
     uint64_t portrait_frame_clock;
     unsigned int voice_time_remaining_ms;
-    int previous_portrait_pose;
+    int rendered_portrait_pose;
     int portrait_pose;
     int target_portrait_pose;
     uint64_t portrait_pose_clock;
     uint64_t portrait_idle_clock;
-    bool portrait_pose_animation_active;
+    bool portrait_blink_closing;
     bool portrait_pose_dirty;
     bool portrait_frame_dirty;
     /* The floating damage-number splat animation. Posting a hit opens it with
@@ -138,51 +133,6 @@ struct W8MonsterManagerEntry {
     bool item_swap_in_progress;
     unsigned int pending_event_type; /* last queued portrait event type */
 };
-
-
-W8_ABI_ASSERT(sizeof(W8PortraitQuoteState) == 0x0c, "W8PortraitQuoteState_size");
-W8_ABI_ASSERT(offsetof(W8MonsterManagerEntry, mouth_gap) == 0x05,
-              "W8MonsterManagerEntry_mouth_gap_offset");
-W8_ABI_ASSERT(offsetof(W8MonsterManagerEntry, quote) == 0x19, "W8MonsterManagerEntry_quote_offset");
-W8_ABI_ASSERT(offsetof(W8MonsterManagerEntry, quote.quote_handle) == 0x19,
-              "W8MonsterManagerEntry_quote_handle_offset");
-W8_ABI_ASSERT(offsetof(W8MonsterManagerEntry, quote.x) == 0x1d,
-              "W8MonsterManagerEntry_quote_x_offset");
-W8_ABI_ASSERT(offsetof(W8MonsterManagerEntry, quote.y) == 0x1f,
-              "W8MonsterManagerEntry_quote_y_offset");
-W8_ABI_ASSERT(offsetof(W8MonsterManagerEntry, quote.width) == 0x21,
-              "W8MonsterManagerEntry_quote_width_offset");
-W8_ABI_ASSERT(offsetof(W8MonsterManagerEntry, quote.height) == 0x23,
-              "W8MonsterManagerEntry_quote_height_offset");
-W8_ABI_ASSERT(offsetof(W8MonsterManagerEntry, active_character_event) == 0x71,
-              "W8MonsterManagerEntry_active_character_event_offset");
-W8_ABI_ASSERT(offsetof(W8MonsterManagerEntry, voice_time_remaining_ms) == 0x81,
-              "W8MonsterManagerEntry_voice_time_remaining_ms_offset");
-W8_ABI_ASSERT(offsetof(W8MonsterManagerEntry, damage_splat_active) == 0x9c,
-              "W8MonsterManagerEntry_damage_splat_active_offset");
-W8_ABI_ASSERT(offsetof(W8MonsterManagerEntry, damage_splat_amount) == 0x9f,
-              "W8MonsterManagerEntry_damage_splat_amount_offset");
-W8_ABI_ASSERT(offsetof(W8MonsterManagerEntry, damage_splat_catalog) == 0xab,
-              "W8MonsterManagerEntry_damage_splat_catalog_offset");
-W8_ABI_ASSERT(offsetof(W8MonsterManagerEntry, cached_hp_bar) == 0xac,
-              "W8MonsterManagerEntry_cached_hp_bar_offset");
-W8_ABI_ASSERT(offsetof(W8MonsterManagerEntry, portrait_stats_dirty) == 0xbc,
-              "W8MonsterManagerEntry_portrait_stats_dirty_offset");
-W8_ABI_ASSERT(offsetof(W8MonsterManagerEntry, effect_icon_active) == 0xbd,
-              "W8MonsterManagerEntry_effect_icon_active_offset");
-W8_ABI_ASSERT(offsetof(W8MonsterManagerEntry, portrait_fx_clock) == 0xca,
-              "W8MonsterManagerEntry_portrait_fx_clock_offset");
-W8_ABI_ASSERT(offsetof(W8MonsterManagerEntry, highlighted_monsters) == 0xd8,
-              "W8MonsterManagerEntry_highlighted_monsters_offset");
-W8_ABI_ASSERT(offsetof(W8MonsterManagerEntry, level_up_ready) == 0xe8,
-              "W8MonsterManagerEntry_level_up_ready_offset");
-W8_ABI_ASSERT(offsetof(W8MonsterManagerEntry, skill_notice_pending) == 0xea,
-              "W8MonsterManagerEntry_skill_notice_pending_offset");
-W8_ABI_ASSERT(offsetof(W8MonsterManagerEntry, item_swap_in_progress) == 0x113,
-              "W8MonsterManagerEntry_item_swap_in_progress_offset");
-W8_ABI_ASSERT(offsetof(W8MonsterManagerEntry, pending_event_type) == 0x114,
-              "W8MonsterManagerEntry_pending_event_type_offset");
-W8_ABI_ASSERT(sizeof(W8MonsterManagerEntry) == 0x118, "W8MonsterManagerEntry_size_must_be_0x118");
 
 W8MonsterRecord* MonsterDBFromSpecies(unsigned int monster_species);
 W8MonsterInfo* CreateMonsterInfo(W8MonsterGroup* group, W8MonsterRecord* record,
@@ -316,7 +266,6 @@ struct W8PartyThreatRecord {
     bool visible_to_player;
     unsigned char unknown_26[0x0a];
 };
-W8_ABI_ASSERT(sizeof(W8PartyThreatRecord) == 0x30, "W8PartyThreatRecord_size");
 
 #pragma pack(push, 1)
 /* One 0x31-byte visibility record. W8MonsterInfo embeds the party-facing one
@@ -339,17 +288,19 @@ struct W8VisibilityRecord {
     bool line_of_sight;
     unsigned char unknown_29[8];
 };
-W8_ABI_ASSERT(sizeof(W8VisibilityRecord) == 0x31, "W8VisibilityRecord_size");
 
 using W8MonsterVisibility = std::unordered_map<int, W8VisibilityRecord>;
 
+#pragma pack(pop)
+
+/* A live monster. Saves store it as wiz8::retail::MonsterInfo. */
 struct W8MonsterInfo {
     int location_id;
     int monster_group_id;
     unsigned int monster_species;
-    W8_PTR32(W8Monster) p3D;
+    W8Monster* p3D;
     /* Allocated while the monster is in combat. */
-    W8_PTR32(W8MonsterCombatState) pCombat;
+    W8MonsterCombatState* pCombat;
     bool fActive;
     bool fInCombat;
     /* Copied from the group's ubDisposition when the entry is created. */
@@ -409,7 +360,7 @@ struct W8MonsterInfo {
        other monster. The two release paths own it: one drops every record
        about a departing monster, the other empties and destroys the whole
        list. */
-    W8_PTR32(W8MonsterVisibility) monster_visibility;
+    W8MonsterVisibility* monster_visibility;
     W8CombatSlot Target;
     /* Summon marker - 0 ordinary, 1 friendly summon, 2 hostile summon;
        nonzero raises the summoned spell icon and feeds the slain cleanup. */
@@ -461,13 +412,6 @@ struct W8MonsterInfo {
     bool has_spell_origin;
     unsigned char unknown_37d[0xa8];
 };
-#pragma pack(pop)
-
-W8_ABI_ASSERT(sizeof(W8MonsterInfo) == 0x425, "W8MonsterInfo_size_must_be_0x425");
-W8_ABI_ASSERT(offsetof(W8MonsterInfo, modifiers) == 0x1db, "W8MonsterInfo_modifiers_offset");
-W8_ABI_ASSERT(offsetof(W8MonsterInfo, heard_noise_margin) == 0x2f5,
-              "W8MonsterInfo_heard_noise_margin_offset");
-W8_ABI_ASSERT(offsetof(W8MonsterInfo, spell_points) == 0x2f9, "W8MonsterInfo_spell_points_offset");
 
 W8MonsterInfo* MonsterGetScriptPartByLocationIndex(unsigned int monster_list_index);
 bool InitializeMonsterManagerState(void);
@@ -476,10 +420,10 @@ void ActivateMonster(W8MonsterInfo* monster_info, W8MonsterActivationMode mode);
 void ClearMonsterPathAndResume(W8MonsterInfo* monster_info);
 void MonsterStartsDying(W8MonsterInfo* monster_info, bool display_message);
 W8MonsterRecord* GetMonsterDataForInfo(W8MonsterInfo* monster_info);
-unsigned int MonsterGetIndexByLocationID(int caller_line, const char* caller_file, int location_id,
-                                         bool assert_on_failure);
-W8MonsterInfo* MonsterInfoFromID(int caller_line, const char* caller_file, int location_id,
-                                 bool assert_on_failure);
+unsigned int MonsterGetIndexByLocationID(int location_id, bool assert_on_failure = true,
+                                         std::source_location caller = std::source_location::current());
+W8MonsterInfo* FindMonster(int location_id, bool assert_on_failure = true,
+                                 std::source_location caller = std::source_location::current());
 W8MonsterRecord* GetMonsterDataByLocationID(int location_id);
 W8Monster* GetMonsterByLocationID(int location_id);
 float GetMonsterCombatMoveRange(W8MonsterInfo* monster_info);
@@ -514,7 +458,7 @@ unsigned char ShutdownMonsterManager(void);
 
 std::string GetMonsterName(W8MonsterInfo* monster_info, W8MonsterRecord* record,
                         unsigned char name_form);
-bool RemoveMonster(unsigned int monster_list_index, bool destroy_monster);
+bool RemoveMonster(W8MonsterInfo* monster_info, bool destroy_monster);
 void MonsterInfoEnterCombat(W8MonsterInfo* monster_info);
 void DeactivateMonster(W8MonsterInfo* monster_info);
 void ToggleCombatMode(void);

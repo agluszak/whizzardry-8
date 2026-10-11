@@ -1,10 +1,15 @@
-#include "surrender/srMath.h"
 #pragma once
 
-#include "wiz8/geometry.h"
-#include "wiz8/float_constants.h"
-#include "wiz8/engine_code/World.h"
 #include <glm/gtx/euler_angles.hpp>
+#include <glm/glm.hpp>
+#include <cmath>
+
+#include "wiz8/engine_code/World.h"
+#include "compat/compiler.h"
+#include "glm/ext/matrix_float3x3.hpp"
+#include "glm/ext/vector_float3.hpp"
+
+template <class T> class srVector3T;
 
 /* Orientation limits shared by the inline setters and GDCamera.cpp. */
 extern const float g_camera_angle_period0;
@@ -16,8 +21,6 @@ class srNode;
 class srCamera;
 class W8IntervalGate;
 struct W8LevelDataRecord;
-
-W8_ABI_ASSERT(sizeof(glm::mat3) == 0x24, "srMatrix3T_float_must_be_0x24");
 
 /* Reconstructed owner with unproven TU identity. The cluster 0x476140-
    0x478EB0 sits in the gap between stMeshModel.cpp and AmbientSound.cpp and
@@ -71,7 +74,7 @@ public:
         MarkRendererReady();
     }
     void SetOrientation(float angle, float pitch);                   /* 0x004788E0 */
-    void GetRotationMatrix(glm::mat3* output);               /* 0x00478BD0 */
+    glm::mat3 rotationMatrix();               /* 0x00478BD0 */
     void BeginLeveling();                                            /* 0x00478CC0 */
     void GetForwardPoint(float distance, srVector3T<float>* output); /* 0x00478CE0 */
     void SetManualControlActive(bool enabled);                       /* 0x00478E00 */
@@ -122,7 +125,5 @@ extern const double g_camera_pi;
 extern const float g_camera_transition_epsilon;
 extern float g_camera_default_forward_scale;
 extern float g_camera_forward_scale;
-
-W8_ABI_ASSERT(sizeof(GDCamera) == 0xc0, "GDCamera_must_be_0xc0");
 
 bool IsCameraTransitionActive(void);

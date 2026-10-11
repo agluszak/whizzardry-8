@@ -1,7 +1,21 @@
-#include <fmt/format.h>
 #include "wiz8/unicode.h"
-#include "wiz8/containers.h"
+#include "surrender/srBoundingBox.h"
+#include <fmt/format.h>
 #include <glm/gtx/rotate_vector.hpp>
+#include <SDL3/SDL_filesystem.h>
+#include <vector>
+#include <cmath>
+#include <cstdlib>
+#include <cstring>
+#include <optional>
+#include <string>
+
+#include "glm/common.hpp"
+#include "glm/ext/matrix_float3x3.hpp"
+#include "glm/ext/vector_float2.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include "glm/trigonometric.hpp"
+#include "wiz8/containers.h"
 #include "wiz8/local_code/ItemManager.h"
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/layouts/game_status.h"
@@ -9,21 +23,13 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/3d.h"
-#include "wiz8/local_code/Combat.h"
-#include "wiz8/layouts/character.h"
-#include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/GameplayCode.h"
-#include "wiz8/local_code/Magic.h"
-#include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/Item.h"
-#include <vector>
-#include <algorithm>
 #include "wiz8/item_spawning.h"
 #include "wiz8/item_tables.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
-#include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/sr_api.h"
@@ -33,22 +39,28 @@
 #include "wiz8/float_constants.h"
 #include "wiz8/engine_code/ReadLevel.h"
 #include "wiz8/engine_code/stModelInstance.h"
-#include "surrender/srCore.h"
 #include "wiz8/filesystem.h"
-
-#include <math.h>
-#include <string.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/GameTimeAccumulator.h"
 #include "wiz8/engine_code/PolyPick.h"
-#include "wiz8/geometry.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/cursor.h"
 #include "soundman.h"
-#include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
+#include "AnimRep.hpp"
+#include "Monster.h"
+#include "compat/native.h"
+#include "layouts/gameplay_databases.h"
+#include "layouts/item_instance.h"
+#include "layouts/item_tables.h"
+#include "layouts/main_game_screen.h"
+#include "layouts/npc_state.h"
+#include "layouts/world.h"
+#include "surrender/srMath.h"
+#include "surrender/srNode.h"
+#include "surrender/srTypeRegistry.h"
+
+class W8DialogBase;
 
 /* The level runtime block, which also carries the interface
    selection the item manager resets. */
@@ -97,7 +109,7 @@ bool InitializeItemManagerState()
 }
 
 // FUNCTION: WIZ8 0x004f8130
-bool ItemHasFlags(W8WorldItem* item, unsigned int mask)
+bool ItemHasFlags(const W8WorldItem* item, unsigned int mask)
 {
     if (item == 0) {
         srAssertFail("pItemInfo", ITEM_MANAGER_CPP, 998, 0);
@@ -713,9 +725,9 @@ void ActivateItem(W8WorldItem* item)
         mesh = static_cast<stModelInstance*>(item->p3D->GetMesh());
         if (mesh != 0) {
             if (g_octree->HasLineOfSight(&position, &sun_position, true)) {
-                mesh->light_scale = 1.0f;
+                mesh->light_scale = glm::vec3(1);
             } else {
-                mesh->light_scale = 0.0f;
+                mesh->light_scale = glm::vec3(0);
             }
         }
     }
@@ -744,7 +756,7 @@ void DeactivateWorldItem(W8WorldItem* item)
         g_level_block->selected_item = -1;
     }
 
-    item->p3D->m_pRep->GetLocation(&position);
+    position = item->p3D->m_pRep->GetLocation();
     item->position = position;
     item->entity_flags = static_cast<W8ItemRep*>(item->p3D->m_pRep)->flags;
 
@@ -820,7 +832,7 @@ void UpdateNearbyWorldItems(void)
     unsigned int index;
     unsigned int count;
 
-    WorldGetCameraLocation(GetWorld(), &camera);
+    camera = cameraLocation(*GetWorld());
     count = gXStatus.world_items.size();
     for (index = 0; index < count; ++index) {
         W8WorldItem* item = ItemInfo(index);
@@ -847,7 +859,7 @@ void UpdateNearbyWorldItems(void)
         } else {
             srVector3T<float> location;
 
-            item->p3D->m_pRep->GetLocation(&location);
+            location = item->p3D->m_pRep->GetLocation();
             if (DistanceBetweenPoints(&location, &camera) > g_float_twenty_five_thousand) {
                 DeactivateWorldItem(item);
             }
@@ -875,11 +887,10 @@ glm::vec3 ItemThrowDirection(const glm::vec2& cursor, const glm::mat3& camera_ro
 void DropHeldItem(int)
 {
     glm::mat3 rotation;
-    WorldGetCameraRotation(g_world, &rotation);
+    rotation = cameraRotation(*g_world);
     srVector3 direction = ItemThrowDirection(GetCursorScaledPosition(), rotation);
 
-    srVector3T<float> camera;
-    GetCameraPosition(&camera);
+    srVector3T<float> camera = cameraLocation();
     direction += camera;
     g_octree->TraceLineOfSight(&camera, &direction, true, -3, -3, true, 0);
 
@@ -888,7 +899,7 @@ void DropHeldItem(int)
 
     srVector3T<float> position = camera + delta;
     position.y =
-        g_octree->SettleToGround(&position, 0, 1, 250.0f) + g_float_one_hundred_twenty_five;
+        g_octree->settleToGround(position.glmValue(), true, 250).position.y + g_float_one_hundred_twenty_five;
     if (FindNearbyFreePosition(250.0f, &position, true, true) != 0) {
         W8WorldItem* item = CreateWorldItem(&g_status.item_in_hand, &position,
                                             W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE, true);
@@ -900,7 +911,7 @@ void DropHeldItem(int)
         }
         return;
     }
-    SoundPlay("Data\\Sound\\Misc\\CantDrop.WAV", 0);
+    wiz8::sound::play("Data\\Sound\\Misc\\CantDrop.WAV");
 }
 
 /* Destroy callback the item picker installs: the items still held by the
@@ -1010,19 +1021,17 @@ unsigned char ReleaseItemLists(void)
 bool IsWorldItemWithinReach(W8Item* owner, const srVector3T<float>* from, float radius)
 {
     srVector3T<float> position;
-    srVector3T<float> lower;
-    srVector3T<float> upper;
     srVector3T<float> eye;
 
-    owner->m_pRep->GetLocation(&position);
-    GetCameraPosition(&eye);
+    position = owner->m_pRep->GetLocation();
+    eye = cameraLocation();
 
     srVector3T<float> delta = position - *from;
     if (delta.Length() < radius) {
-        owner->GetCachedLocalBounds(&lower, &upper);
-        lower += position;
-        upper += position;
-        if (ShowTargetMarker(&eye, &lower, &upper)) {
+        auto bounds = owner->GetCachedLocalBounds();
+        bounds.minimum += position.glmValue();
+        bounds.maximum += position.glmValue();
+        if (targetMarkerVisible(eye.glmValue(), bounds)) {
             return true;
         }
     }
@@ -1038,16 +1047,14 @@ static bool IsWorldItemMarkerVisible(W8WorldItem* item, const srVector3T<float>&
     if (item->p3D != 0) {
         srVector3T<float> position;
         srVector3T<float> eye;
-        srVector3T<float> lower;
-        srVector3T<float> upper;
-        item->p3D->m_pRep->GetLocation(&position);
-        GetCameraPosition(&eye);
+        position = item->p3D->m_pRep->GetLocation();
+        eye = cameraLocation();
         srVector3T<float> delta = position - camera;
         if (delta.Length() < static_cast<float>(g_double_twenty_five_hundred)) {
-            item->p3D->GetCachedLocalBounds(&lower, &upper);
-            lower += position;
-            upper += position;
-            return ShowTargetMarker(&eye, &lower, &upper) != 0;
+            auto bounds = item->p3D->GetCachedLocalBounds();
+            bounds.minimum += position.glmValue();
+            bounds.maximum += position.glmValue();
+            return targetMarkerVisible(eye.glmValue(), bounds) != 0;
         }
     }
     return false;
@@ -1065,7 +1072,7 @@ bool AnyWorldItemVisible(void)
     if (g_world == 0 || g_world->camera == 0) {
         return false;
     }
-    GetCameraPosition(&camera);
+    camera = cameraLocation();
     count = gXStatus.world_items.size();
     if (0 <= g_last_visible_world_item && g_last_visible_world_item < count) {
         W8WorldItem* item = GetWorldItemListEntry(g_last_visible_world_item);
@@ -1107,7 +1114,10 @@ unsigned char AdvanceFallingWorldItem(W8WorldItem* item)
         probe.y = dt * item->vertical_velocity + probe.y;
     }
 
-    ground = g_octree->SettleToGround(&probe, &hit, 1, 250.0f);
+    const auto ground_probe = g_octree->settleToGround(probe.glmValue(), 1, 250.0f);
+    probe = ground_probe.position;
+    hit = ground_probe.hit;
+    ground = ground_probe.position.y;
     if (!hit || fabs(ground - previous_y) < g_camera_snap_epsilon) {
         item->flags &= ~W8_WORLD_ITEM_FALLING;
         item->vertical_velocity = 0.0f;
@@ -1158,7 +1168,9 @@ unsigned char SettleWorldItem(W8WorldItem* item)
     item->flags &= ~W8_WORLD_ITEM_FALLING;
     item->vertical_velocity = 0.0f;
 
-    g_octree->SettleToGround(&start, &hit, 1, 250.0f);
+    const auto ground_probe = g_octree->settleToGround(start.glmValue(), 1, 250.0f);
+    start = ground_probe.position;
+    hit = ground_probe.hit;
     if (!hit) {
         return 0;
     }

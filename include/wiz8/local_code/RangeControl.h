@@ -11,7 +11,7 @@ class W8RangeControl;
 class W8RangeButton : public W8TextControl {
 public:
     W8RangeButton(Controls* panel, unsigned int region, int left, int top, int right, int bottom,
-                  int image_object, int image_frame, int normal_sprite, int pressed_sprite,
+                  std::optional<CatalogArtwork> image_artwork, int normal_sprite, int pressed_sprite,
                   int alternate_normal_sprite, int alternate_pressed_sprite, int disabled_sprite,
                   short direction, W8RangeControl* range);
 
@@ -24,7 +24,6 @@ protected:
     unsigned short pad_ba;
     W8RangeControl* m_range;
 };
-W8_ABI_ASSERT(sizeof(W8RangeButton) == 0xc0, "W8RangeButton_size");
 
 class W8VerticalRangeThumb;
 
@@ -48,7 +47,7 @@ class W8RangeControl : public Controls {
 public:
     friend class W8VerticalRangeThumb;
 
-    W8RangeControl(int left, int top, int right, int bottom, unsigned int* shared_region_set);
+    W8RangeControl(int left, int top, int right, int bottom);
     ~W8RangeControl();
 
     void SetRange(int first, int second);
@@ -59,18 +58,10 @@ public:
 
     void AdjustValue(int steps)
     {
-        if (steps > 0) {
-            do {
-                Decrement();
-                --steps;
-            } while (steps != 0);
-        } else if (steps < 0) {
-            steps = -steps;
-            do {
-                Increment();
-                --steps;
-            } while (steps != 0);
-        }
+        for (; steps > 0; --steps)
+            Decrement();
+        for (; steps < 0; ++steps)
+            Increment();
     }
 
     int m_minimum;
@@ -82,7 +73,6 @@ public:
     W8RangeListener* m_listener;
     bool m_enabled; /* binary enable gating Decrement/Increment */
 };
-W8_ABI_ASSERT(sizeof(W8RangeControl) == 0x6c, "W8RangeControl_size");
 
 class W8HorizontalRangeThumb;
 
@@ -96,7 +86,7 @@ public:
 class W8HorizontalRangeThumb : public W8Widget {
 public:
     W8HorizontalRangeThumb(Controls* panel, unsigned int region, int left, int top,
-                           int catalog_object, int catalog_frame, int background_sprite,
+                           CatalogArtwork artwork, int background_sprite,
                            int normal_thumb_sprite, int hovered_thumb_sprite,
                            int disabled_thumb_sprite);
     virtual void Redraw(bool full_redraw) override;
@@ -108,8 +98,7 @@ public:
     virtual void OnMouseMove(int event) override;
 
 protected:
-    int m_catalogObject;
-    int m_catalogFrame;
+    CatalogArtwork m_artwork;
     int m_backgroundSprite;
     int m_normalThumbSprite;
     int m_hoveredThumbSprite;
@@ -132,5 +121,3 @@ public:
 protected:
     void ClampPositionAndInvalidate();
 };
-
-W8_ABI_ASSERT(sizeof(W8HorizontalRangeThumb) == 0x70, "W8HorizontalRangeThumb_size");

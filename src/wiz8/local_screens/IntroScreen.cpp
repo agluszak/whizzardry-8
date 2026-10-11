@@ -1,32 +1,25 @@
 #include <fmt/format.h>
-#include "wiz8/utility.h"
-#include "wiz8/unicode.h"
-#include "vsurface.h"
+#include <SDL3/SDL_filesystem.h>
+#include <optional>
+#include <string>
+
+#include "compat/compiler.h"
 #include "wiz8/bink_video.h"
 #include "wiz8/music_playlist.h"
-#include "wiz8/regions.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_screens/IntroScreen.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/sr_api.h"
-
 #include "wiz8/filesystem.h"
-
-#include "Font.h"
-#include "english.h"
 #include "input.h"
-#include "line.h"
-
-#include <stdio.h>
 
 /* Local Screens\IntroScreen.cpp is named by the gpVideo assertion at line 98.
    The canonical state-zero row owns this enter/frame/leave bundle. */
 
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/engine_code/Levels.h"
-#include "wiz8/local_screens/OptionsScreen.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
 #include "wiz8/layouts/game_status.h"
 
@@ -52,8 +45,6 @@ unsigned char IntroScreenEnter(void)
     std::string path;
     char gzCdDirectory[4];
 
-    SetClippingRegionAndImageWidth(0x500, 0, 0, 0x280, 0x1e0);
-    SetFontDestBuffer(FRAME_BUFFER, 0, 0, 0x280, 0x1e0, 0);
     ClearSurfaceRect(0, 0, 0x280, 0x1e0);
     if (g_intro_video_index == 0 && g_settings.intro_seen && !g_status.intro_shown) {
         return 1;
@@ -91,22 +82,20 @@ static void AdvanceIntroScreen(void);
 // FUNCTION: WIZ8 0x005ae6f0
 void IntroScreenFrame(void)
 {
-    InputAtom input;
+    InputEvent input;
 
     while (DequeueEvent(&input) == 1) {
-        if (!DispatchRegionInput(&input)) {
-            switch (input.usEvent) {
-            case KEY_DOWN:
-                if (input.usParam != ESC) {
-                    break;
-                }
-                AdvanceIntroScreen();
-                return;
-            case LEFT_BUTTON_UP:
-            case RIGHT_BUTTON_UP:
-                AdvanceIntroScreen();
-                return;
-            }
+        switch (input.type) {
+        case InputEventType::KeyDown:
+            if (input.key != VK_ESCAPE) break;
+            AdvanceIntroScreen();
+            return;
+        case InputEventType::LeftButtonUp:
+        case InputEventType::RightButtonUp:
+            AdvanceIntroScreen();
+            return;
+        default:
+            break;
         }
     }
     if (gpVideo == 0 || gpVideo->UpdateFrame()) {
@@ -176,24 +165,6 @@ unsigned char IntroScreenLeave(int)
         delete gpVideo;
     }
     gpVideo = 0;
-    return 1;
-}
-
-// FUNCTION: WIZ8 0x005ae980
-unsigned char IntroScreenRegionEvent(const InputAtom* event, W8Region* region)
-{
-    switch (event->usEvent) {
-    case LEFT_BUTTON_DOWN:
-        region->flags |= W8_REGION_LEFT_BUTTON_HELD;
-        break;
-    case LEFT_BUTTON_UP:
-        if (region->flags & W8_REGION_LEFT_BUTTON_HELD) {
-            AdvanceIntroScreen();
-        }
-        break;
-    default:
-        return 0;
-    }
     return 1;
 }
 

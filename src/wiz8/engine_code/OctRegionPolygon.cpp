@@ -1,38 +1,31 @@
+#include "wiz8/engine_code/3d.h"
+#include <array>
+#include <span>
+#include <cstddef>
+#include "surrender/srBoundingBox.h"
+#include <cstdlib>
+#include <cstring>
+
 #include "wiz8/engine_code/OctBuildPreTree.h"
 #include "wiz8/engine_code/OctPreTree.h"
 #include "wiz8/engine_code/materials.h"
-#include "wiz8/float_constants.h"
-
-#include <stdlib.h>
-#include <string.h>
+#include "geometry.h"
+#include "surrender/srMath.h"
 
 /* Test the polygon's representative point against six frustum planes; inside
    means every plane distance is non-negative. */
 // FUNCTION: WIZ8 0x004cfae0
-bool W8OctRegionPolygon::InsideFrustumPlanes(const W8Plane* planes) const
+bool W8OctRegionPolygon::InsideFrustumPlanes(std::span<const W8Plane, 6> planes) const
 {
-    for (short plane = 0; plane < 6; ++plane) {
-        float distance =
-            glm::dot(planes[plane].normal.glmValue(), position.glmValue()) + planes[plane].w;
-        if (distance < g_float_zero) {
-            return false;
-        }
-    }
-    return true;
+    return PointInsideFrustum(position.glmValue(), planes);
 }
 
 /* Test the polygon's representative point against an inclusive axis-aligned
    box. The method's original translation-unit owner is not yet proved. */
 // FUNCTION: WIZ8 0x004cfb30
-bool W8OctRegionPolygon::ContainsPoint(const srVector3T<float>* bounds) const
+bool W8OctRegionPolygon::containsPoint(const srBoundingBox& bounds) const
 {
-    for (short axis = 0; axis < 3; ++axis) {
-        float value = (&position.x)[axis];
-        if (value < (&bounds[0].x)[axis] || (&bounds[1].x)[axis] < value) {
-            return false;
-        }
-    }
-    return true;
+    return bounds.contains(position.glmValue());
 }
 
 /* Grow `*run` to (count + capacity) dwords when count lands on a capacity
@@ -41,8 +34,14 @@ bool W8OctRegionPolygon::ContainsPoint(const srVector3T<float>* bounds) const
 unsigned char W8OctPreTreeGeometry::CheckArrayLength(int** run, unsigned short count,
                                                      unsigned short capacity)
 {
+    if (capacity == 0) {
+        return 0;
+    }
     if (count % capacity == 0) {
-        unsigned short total = count + capacity;
+        if (unsigned(count) + capacity > 65535) {
+            return 0;
+        }
+        const unsigned short total = count + capacity;
         int* grown = static_cast<int*>(malloc(total * sizeof(int)));
         if (grown != 0) {
             memset(grown, 0, total * sizeof(*grown));
@@ -58,6 +57,28 @@ unsigned char W8OctPreTreeGeometry::CheckArrayLength(int** run, unsigned short c
     return 0;
 }
 
+// Records reserve index zero. Keep channel frees interleaved in record order.
+template<class Record, std::size_t Channels>
+static void ReleaseSharedRuns(std::span<Record> records,
+                              const std::array<int* Record::*, Channels>& fields)
+{
+    if (records.empty()) return;
+    std::array<int*, Channels> previous;
+    for (std::size_t channel = 0; channel < Channels; ++channel)
+        previous[channel] = records.front().*fields[channel];
+    for (auto& record : records) {
+        for (std::size_t channel = 0; channel < Channels; ++channel) {
+            auto& run = record.*fields[channel];
+            if (run && run != previous[channel]) {
+                std::free(previous[channel]);
+                previous[channel] = run;
+                run = nullptr;
+            }
+        }
+    }
+    for (auto* run : previous) std::free(run);
+}
+
 /* Free every run the geometry owns: per-vertex face-index and owned arrays
    (consecutive vertices may share one allocation, so each distinct pointer is
    freed once when it changes), the vertex and polygon arrays themselves, and
@@ -66,51 +87,21 @@ unsigned char W8OctPreTreeGeometry::CheckArrayLength(int** run, unsigned short c
 void W8OctPreTreeGeometry::Release()
 {
     if (m_vertices != 0) {
-        int* last_faces = m_vertices[1].face_indices;
-        int* last_owned = m_vertices[1].owned;
-        for (w8_ulong index = 1; index < vertex_count; ++index) {
-            W8OctPreTreeVertex* vertex = &m_vertices[index];
-            if (vertex->face_indices != 0 && vertex->face_indices != last_faces) {
-                if (last_faces != 0) {
-                    free(last_faces);
-                }
-                last_faces = vertex->face_indices;
-                vertex->face_indices = 0;
-            }
-            if (vertex->owned != 0 && vertex->owned != last_owned) {
-                if (last_owned != 0) {
-                    free(last_owned);
-                }
-                last_owned = vertex->owned;
-                vertex->owned = 0;
-            }
-        }
-        if (last_faces != 0) {
-            free(last_faces);
-        }
-        if (last_owned != 0) {
-            free(last_owned);
-        }
+        if (vertex_count > 1)
+            ReleaseSharedRuns(std::span{m_vertices + 1, vertex_count - 1},
+                std::array{&W8OctPreTreeVertex::face_indices, &W8OctPreTreeVertex::owned});
         free(m_vertices);
+        m_vertices = nullptr;
     }
+    vertex_count = 0;
     if (m_polygons != 0) {
-        int* last_faces = m_polygons[1].face_indices;
-        for (w8_ulong index = 1; index < m_polygon_count; ++index) {
-            W8OctRegionPolygon* polygon = &m_polygons[index];
-            if (polygon->face_indices != 0 && polygon->face_indices != last_faces) {
-                if (last_faces != 0) {
-                    free(last_faces);
-                }
-                last_faces = polygon->face_indices;
-                polygon->face_indices = 0;
-            }
-        }
-        if (last_faces != 0) {
-            free(last_faces);
-        }
+        if (m_polygon_count > 1)
+            ReleaseSharedRuns(std::span{m_polygons + 1, m_polygon_count - 1},
+                std::array{&W8OctRegionPolygon::face_indices});
         free(m_polygons);
+        m_polygons = nullptr;
     }
-    if (owned != 0) {
-        free(owned);
-    }
+    m_polygon_count = 0;
+    free(owned);
+    owned = nullptr;
 }

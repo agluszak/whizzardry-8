@@ -1,16 +1,22 @@
 #include <array>
-#include <fmt/format.h>
-#include "wiz8/unicode.h"
+#include <vector>
+#include <iterator>
+#include <limits>
+#include <memory>
+#include <cstdint>
+#include <cstring>
+#include <exception>
+#include <string_view>
+#include <utility>
+
 #include "wiz8/retail_text_records.h"
 #include "wiz8/layouts/screen_state.h"
-#include "soundman.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/engine_code/Environment.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/engine_code/Quality.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/local_code/PC_Item.h"
-#include "wiz8/local_code/Strings.h"
 #include "wiz8/engine_code/game_timer.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/fact_state.h"
@@ -20,55 +26,28 @@
 #include "wiz8/local_code/FormationAndFacing.h"
 #include "wiz8/local_screens/OptionsScreen.h"
 #include "wiz8/local_screens/JournalScreen.h"
-#include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/local_code/Factions.h"
-#include "wiz8/layouts/npc_state.h"
 #include "wiz8/local_code/NPCManager.h"
-#include "wiz8/local_code/NPCScripting.h"
-#include <vector>
-#include <algorithm>
 #include "wiz8/layouts/item_instance.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/layouts/character.h"
-#include "wiz8/character_skills.h"
-#include "wiz8/local_code/CharGeneration.h"
 #include "wiz8/local_code/Combat.h"
-#include "wiz8/local_code/CombatAttack.h"
-#include "wiz8/monster_generators.h"
-#include "wiz8/monster_runtime.h"
-#include "wiz8/engine_code/Trigger.hpp"
-#include "wiz8/local_code/LoadSaveGame.h"
-#include "wiz8/local_screens/mipe.h"
-#include "wiz8/local_code/ConditionsAndEnchantments.h"
-#include "wiz8/local_code/GameplayCode.h"
-#include "wiz8/local_code/GameplayMods.h"
-#include "wiz8/local_code/HealthStaminaMana.h"
-#include "wiz8/local_code/Magic.h"
-#include "wiz8/local_code/MagicEffects.h"
-#include "wiz8/local_code/party_encumbrance.h"
 #include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/layouts/combat_state.h"
-#include "wiz8/local_code/CombatRange.h"
-#include "wiz8/item_tables.h"
-#include "wiz8/item_spawning.h"
-#include "wiz8/local_code/Targeting.h"
-#include "wiz8/utility.h"
-#include "wiz8/sr_api.h"
-#include "wiz8/virtual_file.h"
 #include "wiz8/filesystem.h"
 #include "random.h"
-#include "timer.h"
-#include "wiz8/local_code/character_events.h"
-#include <string.h>
-#include <stdlib.h>
-#include <iterator>
-#include <limits>
-#include <memory>
-#include <vector>
+#include "compat/native.h"
+#include "conditions.h"
+#include "difficulty.h"
+#include "layouts/main_game_screen.h"
+#include "layouts/targeting.h"
+#include "mouth_gap.h"
+#include "retail_records.h"
+#include "spell_ids.h"
 /* TU attribution follows the 2001-08-14 demo __FILE__ and link-order evidence. */
 
 namespace {
@@ -139,13 +118,7 @@ try
 {
     auto handle = wiz8::open_file("Data\\Databases\\FACT.DBS", wiz8::OpenMode::read);
     unsigned int count;
-    handle->read_exact(&count, sizeof(count));
-    if (count > std::size(g_fact_values) ||
-        count > (handle->size() - handle->tell()) / std::int64_t(wiz8::retail::kFactDatabaseRecordBytes)) {
-        return 0;
-    }
-    auto records = count ? std::make_unique<W8FactDatabaseRecord[]>(count) : nullptr;
-    for (unsigned i = 0; i < count; ++i) wiz8::retail::read_exact(*handle, records[i]);
+    auto records = wiz8::retail::read_database<W8FactDatabaseRecord>(*handle, count, std::size(g_fact_values));
     fact_records = std::move(records);
     g_fact_records = fact_records.get();
     gXStatus.uiFactsInDatabase = count;
@@ -167,12 +140,7 @@ try
 {
     auto handle = wiz8::open_file("Data\\Databases\\LEVELS.DBS", wiz8::OpenMode::read);
     unsigned int count;
-    handle->read_exact(&count, sizeof(count));
-    if (count > (handle->size() - handle->tell()) / std::int64_t(wiz8::retail::kLevelDatabaseRecordBytes)) {
-        return 0;
-    }
-    auto records = count ? std::make_unique<W8LevelDatabaseRecord[]>(count) : nullptr;
-    for (unsigned i = 0; i < count; ++i) wiz8::retail::read_exact(*handle, records[i]);
+    auto records = wiz8::retail::read_database<W8LevelDatabaseRecord>(*handle, count);
     level_records = std::move(records);
     g_level_records = level_records.get();
     gXStatus.uiLevelsInDatabase = count;
@@ -240,7 +208,7 @@ void DestroyGameplayObjects(void)
         gXStatus.character_event_queue = 0;
     }
     for (auto& slot : gXStatus.monster_manager_entries)
-        FreeMouthGapTrack(&slot.mouth_gap);
+        slot.mouth_gap = {};
     if (gXStatus.gameplay_timer) {
         delete gXStatus.gameplay_timer;
         gXStatus.gameplay_timer = 0;
@@ -336,17 +304,17 @@ void ResetGameplaySlot(unsigned int slot)
 
     *record = {};
     record->portrait_event_active = false;
-    record->voice_sound_handle = SOUND_ERROR;
-    record->previous_portrait_frame = -1;
+    record->voice_sound_handle = nullptr;
+    record->rendered_portrait_frame = -1;
     record->portrait_frame = 6;
-    record->portrait_pose_animation_active = false;
+    record->portrait_blink_closing = false;
     tier = 1;
     if (g_status.buffers.Char[slot].highest_condition >= W8_CONDITION_ASLEEP) {
         tier = 2;
     }
     record->portrait_pose = tier;
     record->target_portrait_pose = tier;
-    record->previous_portrait_pose = -1;
+    record->rendered_portrait_pose = -1;
     record->portrait_pose_dirty = false;
     record->portrait_frame_dirty = false;
     record->portrait_frame_clock = w8_get_ticks() + (0);

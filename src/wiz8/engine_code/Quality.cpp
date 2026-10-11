@@ -1,12 +1,14 @@
 #include "wiz8/engine_code/Quality.h"
+
+#include <cstdlib>
+#include <cstring>
+#include <exception>
+
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/sr_api.h"
-#include "wiz8/virtual_file.h"
 #include "surrender/srGERD.h"
 #include "wiz8/filesystem.h"
-
-#include <stdlib.h>
-#include <string.h>
+#include "surrender/srTextureIFace.h"
 
 /* Engine Code\Quality.cpp allocates one 0x34-byte process-wide record.  Its
    leading fields are still unnamed, but the allocation, clear and reviewed
@@ -156,17 +158,17 @@ unsigned char GetRenderOptionState(W8RenderOption option)
 }
 
 // FUNCTION: WIZ8 0x0047b890
-unsigned char LoadRenderOptions(wiz8::File* handle)
+unsigned char LoadRenderOptions(wiz8::File& handle)
 try
 {
     int version;
     unsigned char options[W8_RENDER_OPTION_COUNT];
 
-    handle->read_exact(&version, sizeof(version));
+    handle.read_exact(&version, sizeof(version));
     if (version != 1) {
         return 0;
     }
-    handle->read_exact(options, sizeof(options));
+    handle.read_exact(options, sizeof(options));
     for (int option = 0; option < W8_RENDER_OPTION_COUNT; ++option) {
         SetRenderOption(static_cast<W8RenderOption>(option), options[option] != 0);
     }
@@ -175,11 +177,11 @@ try
 catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x0047b920
-bool SaveRenderOptions(wiz8::File* handle)
+bool SaveRenderOptions(wiz8::File& handle)
 {
     int version = 1;
 
-    handle->write(&version, sizeof(version));
-    handle->write(g_render_options->option_states, W8_RENDER_OPTION_COUNT);
+    handle.write(&version, sizeof(version));
+    handle.write(g_render_options->option_states, W8_RENDER_OPTION_COUNT);
     return true;
 }

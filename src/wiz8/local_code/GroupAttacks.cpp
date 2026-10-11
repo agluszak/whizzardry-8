@@ -1,16 +1,14 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
+#include <string>
+#include <vector>
+
 #include "wiz8/fonts.h"
 #include "wiz8/local_code/GroupAttacks.h"
 #include "wiz8/layouts/character.h"
-#include "wiz8/character_skills.h"
-#include "wiz8/local_code/Combat.h"
-#include "wiz8/local_code/CombatAttack.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
-#include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/MagicEffects.h"
-#include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/MonsterAI.h"
@@ -18,15 +16,20 @@
 #include "wiz8/local_code/CombatHostility.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/Sight.h"
-#include "wiz8/notices.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/utility.h"
-
 #include "random.h"
 #include "wiz8/engine_code/PolyPick.h"
+#include "conditions.h"
+#include "layouts/gameplay_databases.h"
+#include "layouts/targeting.h"
+#include "local_code/Factions.h"
+#include "sight_state.h"
+
+template <class T> class srVector3T;
 
 #define GROUP_ATTACKS_CPP "C:\\Projects\\Wizardry 8\\Local Code\\GroupAttacks.cpp"
 
@@ -148,7 +151,7 @@ void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
     } else if (pSource->iType == W8_TARGET_SOURCE_MONSTER) {
         unsigned int value;
 
-        monster_info = MonsterInfoFromID(0xb0, GROUP_ATTACKS_CPP, pSource->iMonsterID, true);
+        monster_info = FindMonster(pSource->iMonsterID);
         record = GetMonsterDataForInfo(monster_info);
         if (record->effective_level < 0x10) {
             value = record->effective_level;
@@ -296,7 +299,7 @@ void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
             ResetCombatSlot(&target);
             target.iType = W8_TARGET_KIND_MONSTER;
             target.iMonsterID = iMonsterID;
-            monster_info = MonsterInfoFromID(0x170, GROUP_ATTACKS_CPP, iMonsterID, true);
+            monster_info = FindMonster(iMonsterID);
             for (i = 0; i < 2; ++i) {
                 if (i == 0) {
                     if (Random(100) <= 9) {
@@ -494,8 +497,8 @@ void SpawnSummonedMonsterGroup(int special_attack_kind, W8TargetSource* pSource,
     if (group == 0) {
         srAssertFail("pGroup", GROUP_ATTACKS_CPP, 600, 0);
     }
-    MonsterInfoFromID(0x25a, GROUP_ATTACKS_CPP, group->leader_location_id, true);
-    monster_info = MonsterInfoFromID(0x25b, GROUP_ATTACKS_CPP, pAttackerSlot->iMonsterID, true);
+    FindMonster(group->leader_location_id);
+    monster_info = FindMonster(pAttackerSlot->iMonsterID);
     if (monster_info->ubDisposition == W8_DISPOSITION_FRIENDLY) {
         disposition = 2;
     } else {

@@ -28,8 +28,8 @@ struct W8LevelProgressRow {
 
 #pragma pack(pop)
 
-W8_ABI_ASSERT(sizeof(W8LevelFolderRecord) == 0x6b, "W8LevelFolderRecord_must_be_0x6b");
-W8_ABI_ASSERT(sizeof(W8LevelProgressRow) == 0x21, "W8LevelProgressRow_must_be_0x21");
+static_assert(sizeof(W8LevelFolderRecord) == 0x6b, "W8LevelFolderRecord_must_be_0x6b");
+static_assert(sizeof(W8LevelProgressRow) == 0x21, "W8LevelProgressRow_must_be_0x21");
 
 /* LevelBuildInfoByID fills eight consecutive path buffers. LoadLevel passes
    the first three to LoadWorld as the level folder,
@@ -45,8 +45,6 @@ struct W8LevelInfo {
     char sky_bitmap_folder[0x64];
     char sky_path[0x100];
 };
-
-W8_ABI_ASSERT(sizeof(W8LevelInfo) == 0x458, "W8LevelInfo_must_be_0x458");
 
 /* The forty-seven real levels. Level ids 47..56 are the test-level slots the
    LoadLevel assert (TEST_LEVEL_COUNT) still admits. */

@@ -1,26 +1,26 @@
+#include <cctype>
+#include <cstring>
+
 #include "wiz8/dialog_code/DialogInterface.h"
-#include "vsurface.h"
 #include "wiz8/dialog_code/CharacterSummaryDialog.h"
 #include "wiz8/integer_constants.h"
-
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/fonts.h"
-#include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/GameplayInit.h"
-#include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_code/character_events.h"
-#include "wiz8/local_screens/PartySelectionScreen.h"
 #include "wiz8/xstatus.h"
-
 #include "input.h"
-#include "english.h"
-#include "mousesystem_macros.h"
-#include "timer.h"
-
-#include <ctype.h>
-#include <string.h>
+#include "character_event_queue.h"
+#include "compat/native.h"
+#include "dialog_code/DialogBase.h"
+#include "layouts/character.h"
+#include "layouts/combat_state.h"
+#include "layouts/game_status.h"
+#include "local_code/ControlsRect.h"
+#include "local_code/MonsterManager.h"
+#include "wiz8/regions.h"
 
 /* The bodies from 0x005E0320 through 0x005E0C30 form one dialog lifecycle
    cluster immediately after StatInfoDialogs.cpp.  Retail does not expose its
@@ -119,9 +119,9 @@ void W8CharacterSummaryDialog::Draw()
         W8DialogBase::Draw();
     }
     if (m_quote_text != 0) {
-        m_quote_text->RenderToTarget(0, false, FRAME_BUFFER);
+        m_quote_text->RenderToTarget(0, false, GetFrameBufferSurface());
     }
-    RenderPartyPortrait(m_character->portrait_index, m_x + 11, m_y + 11, 2, 1, 0);
+    RenderPartyPortrait(m_character->portrait_index, m_x + 11, m_y + 11, {}, 1, 0);
     if (!m_portrait_clock_started) {
         m_portrait_clock_started = true;
         m_portrait_clock = w8_get_ticks();
@@ -131,7 +131,7 @@ void W8CharacterSummaryDialog::Draw()
 // FUNCTION: WIZ8 0x005e0830
 void W8CharacterSummaryDialog::DrawPortraitAnimationFrame()
 {
-    BlitPartyPortraitAnimation(m_character->portrait_index, m_x + 11, m_y + 11, 2, 0, false);
+    BlitPartyPortraitAnimation(m_character->portrait_index, m_x + 11, m_y + 11, {}, 0, false);
 }
 
 // FUNCTION: WIZ8 0x005e0860
@@ -144,7 +144,7 @@ void W8CharacterSummaryDialog::OnNumericInputChanged(int value)
 }
 
 // FUNCTION: WIZ8 0x005e0880
-bool W8CharacterSummaryDialog::HandleInputEvent(const InputAtom* input)
+bool W8CharacterSummaryDialog::HandleInputEvent(const InputEvent* input)
 {
     W8DialogNumericInput* inputs[] = {m_numeric_input};
     for (int index = 0; index < 1; ++index) {
@@ -155,12 +155,12 @@ bool W8CharacterSummaryDialog::HandleInputEvent(const InputAtom* input)
             break;
         }
     }
-    if (input->usEvent == KEY_DOWN || input->usEvent == KEY_REPEAT) {
-        switch (toupper(input->usParam)) {
-        case BACKSPACE:
-        case ENTER:
-        case ESC:
-        case SPACE:
+    if (input->type == InputEventType::KeyDown || input->type == InputEventType::KeyRepeat) {
+        switch (toupper(input->key)) {
+        case VK_BACK:
+        case VK_RETURN:
+        case VK_ESCAPE:
+        case VK_SPACE:
             m_keep_open = false;
             break;
         }
@@ -171,27 +171,29 @@ bool W8CharacterSummaryDialog::HandleInputEvent(const InputAtom* input)
 // FUNCTION: WIZ8 0x005e0920
 bool W8CharacterSummaryDialog::ProcessInput()
 {
-    SDL_Point mouse;
-    InputAtom input;
-
-    SGPMouseGetPos(&mouse);
-    MSYS_SGP_Mouse_Handler_Hook(MOUSE_POS, mouse.x, mouse.y, gfLeftButtonState, gfRightButtonState);
+    BeginModalInput();
     if (!m_voice_started && m_portrait_clock + 750 < w8_get_ticks()) {
         m_voice_started = true;
         W8Character* character = m_use_original_character ? m_character : g_status.buffers.Char;
         QueueCharacterEvent(character, g_effect0, 0, g_character_event_no_flags,
                             g_character_event_full_volume);
     }
-    while (DequeueEvent(&input) == 1) {
-        if (input.usEvent == LEFT_BUTTON_DOWN || input.usEvent == LEFT_BUTTON_REPEAT ||
-            input.usEvent == RIGHT_BUTTON_DOWN) {
+    bool keep_open = m_keep_open;
+    DrainModalInput([this, &keep_open](const InputEvent& input) {
+        if (input.type == InputEventType::LeftButtonDown || input.type == InputEventType::LeftButtonRepeat ||
+            input.type == InputEventType::RightButtonDown) {
             m_keep_open = false;
         }
-        if (!DispatchDialogMouseInput(input.usEvent, mouse.x, mouse.y)) {
-            return HandleInputEvent(&input);
+        if (!DispatchRegionInput(&input)) {
+            keep_open = HandleInputEvent(&input);
+            if (!keep_open) EndModalInput();
+            return false;
         }
-    }
-    return m_keep_open;
+        keep_open = m_keep_open;
+        return true;
+    });
+    if (!keep_open) EndModalInput();
+    return keep_open;
 }
 
 // FUNCTION: WIZ8 0x005e0c30

@@ -1,6 +1,7 @@
-#include "surrender/srWindowOut.h"
-
 #include <iostream>
+
+#include "surrender/srWindowOut.h"
+#include "compat/compiler.h"
 
 /* The Windows build opens a RichEdit diagnostic console; natively the stream
    writes to standard error. */
@@ -9,4 +10,4 @@ srWindowOut::srWindowOut(w8_ulong, const char*, w8_long, w8_ulong)
 {
 }
 
-srWindowOut::~srWindowOut() {}
+srWindowOut::~srWindowOut() = default;

@@ -1,4 +1,5 @@
 #include "wiz8/level_specific_code/MtGigas1.h"
+
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/location_variables.h"
 #include "wiz8/engine_code/Trigger.hpp"
@@ -6,14 +7,15 @@
 #include "wiz8/engine_code/GDProp.h"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/local_code/NPCManager.h"
-#include "wiz8/local_code/MonsterGroup.h"
-#include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/local_screens/NPCInteractionSubscreen.h"
-#include "wiz8/layouts/game_status.h"
 #include "wiz8/xstatus.h"
-#include "wiz8/sr_api.h"
 #include "surrender/srCamera.h"
 #include "soundman.h"
+#include "AnimRep.hpp"
+#include "layouts/world.h"
+#include "surrender/srMath.h"
+
+struct W8ItemInstance;
+struct W8NpcState;
 
 /* Level Specific Code\MtGigas1.cpp (level 0x0c).
 
@@ -74,13 +76,7 @@ bool MtGigas1Lift1(Trigger* pTrigger)
     if (gXStatus.fNpcDialogueMode) {
         return false;
     }
-    W8NpcState* npc = GetNpcStateByKind(0x5d);
-    W8ItemInstance* item = 0;
-
-    if (g_status.item_in_cursor) {
-        item = &g_status.item_in_hand;
-    }
-    QueueNpcScriptNotice(npc, item, -1, false, 0);
+    QueueNpcHeldItemNotice(0x5d);
     g_trigger_feedback = true;
     return false;
 }
@@ -93,13 +89,7 @@ bool MtGigas1Lift2(Trigger* pTrigger)
     if (gXStatus.fNpcDialogueMode) {
         return false;
     }
-    W8NpcState* npc = GetNpcStateByKind(0x5e);
-    W8ItemInstance* item = 0;
-
-    if (g_status.item_in_cursor) {
-        item = &g_status.item_in_hand;
-    }
-    QueueNpcScriptNotice(npc, item, -1, false, 0);
+    QueueNpcHeldItemNotice(0x5e);
     g_trigger_feedback = true;
     return false;
 }
@@ -112,8 +102,6 @@ bool MtGigas1Lift2(Trigger* pTrigger)
 // FUNCTION: WIZ8 0x004DBBD0
 bool MtGigas1PressurePlate(Trigger* pTrigger)
 {
-    srVector3T<float> minimum;
-    srVector3T<float> maximum;
     srVector3T<float> position;
 
     if (g_plate_prop == 0) {
@@ -122,9 +110,9 @@ bool MtGigas1PressurePlate(Trigger* pTrigger)
     srVector3T<double> camera_position = GetWorld()->camera->getLocation();
     position.x = static_cast<float>(camera_position.x);
     position.z = static_cast<float>(camera_position.z);
-    g_plate_prop->ComputeBounds(&minimum, &maximum);
-    if ((position.x >= minimum.x && position.x <= maximum.x && position.z >= minimum.z &&
-         position.z <= maximum.z) ||
+    const auto bounds = g_plate_prop->computeBounds();
+    if ((position.x >= bounds.minimum.x && position.x <= bounds.maximum.x &&
+         position.z >= bounds.minimum.z && position.z <= bounds.maximum.z) ||
         g_plate_prop->HasSupportedItems()) {
         if (g_plate_down) {
             return false;
@@ -133,8 +121,8 @@ bool MtGigas1PressurePlate(Trigger* pTrigger)
         RunPlateTrigger("plate", W8_ANIMATION_FORWARD);
         g_plate_down = true;
         SetTriggerVariableByName("PPlateDown", 1);
-        SoundPlay("Data\\Sound\\Ambients\\Door Stone Open.wav", 0);
-        SoundPlay("Data\\Sound\\Ambients\\Amb Rumble Very Low.wav", 0);
+        wiz8::sound::play("Data\\Sound\\Ambients\\Door Stone Open.wav");
+        wiz8::sound::play("Data\\Sound\\Ambients\\Amb Rumble Very Low.wav");
         return false;
     }
     if (!g_plate_down) {
@@ -144,8 +132,8 @@ bool MtGigas1PressurePlate(Trigger* pTrigger)
     RunPlateTrigger("plate", W8_ANIMATION_REVERSE);
     g_plate_down = false;
     SetTriggerVariableByName("PPlateDown", 0);
-    SoundPlay("Data\\Sound\\Ambients\\Door Stone Close 01.wav", 0);
-    SoundPlay("Data\\Sound\\Ambients\\Amb Rumble Very Low.wav", 0);
+    wiz8::sound::play("Data\\Sound\\Ambients\\Door Stone Close 01.wav");
+    wiz8::sound::play("Data\\Sound\\Ambients\\Amb Rumble Very Low.wav");
     return false;
 }
 

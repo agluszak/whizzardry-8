@@ -5,15 +5,16 @@
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/local_code/Combat.h"
-#include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
-#include <vector>
-#include <algorithm>
 #include "wiz8/sr_api.h"
+#include "surrender/srMath.h"
+#include "wiz8/npc_interaction.h"
+
+struct W8NpcState;
 
 #define COSMIC_CIRCLE_CPP "C:\\Projects\\Wizardry 8\\Level Specific Code\\Cosmic Circle.cpp"
 
@@ -81,8 +82,7 @@ void CosmicCircleSetup(void)
                 srAssertFail("uiMonsterID", COSMIC_CIRCLE_CPP, 0x41,
                              "Invalid Monster ID for CC end");
             } else {
-                index = MonsterGetIndexByLocationID(0x45, COSMIC_CIRCLE_CPP, uiMonsterID, true);
-                pMonsterInfoAltheides = MonsterGetScriptPartByLocationIndex(index);
+                pMonsterInfoAltheides = FindMonster(uiMonsterID);
             }
         }
         if (FindEntityByName("NP_DSARENA", &positionDs, 0, 0)) {
@@ -92,8 +92,7 @@ void CosmicCircleSetup(void)
                 srAssertFail("uiMonsterID", COSMIC_CIRCLE_CPP, 0x53,
                              "Invalid Monster ID for CC end");
             } else {
-                index = MonsterGetIndexByLocationID(0x57, COSMIC_CIRCLE_CPP, uiMonsterID, true);
-                pMonsterInfoDs = MonsterGetScriptPartByLocationIndex(index);
+                pMonsterInfoDs = FindMonster(uiMonsterID);
             }
         }
         if (FindEntityByName("NP_BELASTART", &positionBela, 0, 0)) {

@@ -1,12 +1,19 @@
 
-#include "surrender/srScene.h"
-#include "surrender/srStreamFlags.h"
+#include <ostream>
+#include <vector>
 
+#include "surrender/srScene.h"
+#include "surrender/stream_scope.h"
 #include "surrender/srCamera.h"
 #include "surrender/srCore.h"
 #include "surrender/srGERD.h"
-
-#include <ostream>
+#include "compat/compiler.h"
+#include "glm/ext/vector_float3.hpp"
+#include "glm/ext/vector_float4.hpp"
+#include "surrender/srClock.h"
+#include "surrender/srFlags.h"
+#include "surrender/srNode.h"
+#include "surrender/srTypeRegistry.h"
 
 // FUNCTION: SURRENDER 0x100565D0
 srScene::srScene(srNode* parent)
@@ -61,10 +68,8 @@ void srScene::process(const ProcessInfo& info, e_processType type)
     const auto entry_count = static_cast<w8_long>(traversal.entries.size());
     srGERD* renderer = info.renderer;
     w8_ulong_ptr pick_key = renderer->getPickKey();
-    glm::vec4 fog_color;
-    glm::vec4 ambient_light;
-    renderer->getFogColor(fog_color);
-    renderer->getAmbientLight(ambient_light);
+    const auto fog_color = renderer->getFogColor();
+    const auto ambient_light = renderer->getAmbientLight();
     renderer->setFogColor(glm::vec4(this->fog_color, 0));
     renderer->setAmbientLight(glm::vec4(this->ambient_light, 0));
     ProcessInfo process_info = info;
@@ -114,11 +119,11 @@ void srScene::render(srGERD& renderer, srCamera* camera)
 }
 
 // FUNCTION: SURRENDER 0x10056520
-void srScene::getStatistics(Statistics& statistics)
+srScene::Statistics srScene::getStatistics() const
 {
-    statistics = this->statistics;
-    statistics.elapsed =
-        srCore.getTimer()->seconds() - statistics.elapsed;
+    Statistics result = statistics;
+    result.elapsed = srCore.getTimer()->seconds() - result.elapsed;
+    return result;
 }
 
 // FUNCTION: SURRENDER 0x10056550
@@ -132,8 +137,7 @@ void srScene::resetStatistics()
 void srScene::dump(std::ostream& stream)
 {
     srNode::dump(stream);
-    w8_long flags = srGetStreamFlags(stream);
-    srSetStreamFlags(stream, (flags & 0xfffffe7fL) | 0x40);
+    const srDumpStreamScope formatting(stream);
     stream.width(0x20);
     stream << "  Ambient light: ";
     stream << '{' << ambient_light.x << ',' << ambient_light.y << ',' << ambient_light.z << '}'
@@ -141,8 +145,7 @@ void srScene::dump(std::ostream& stream)
     stream.width(0x20);
     stream << "  Fog color: ";
     stream << '{' << fog_color.x << ',' << fog_color.y << ',' << fog_color.z << '}' << '\n';
-    Statistics statistics;
-    getStatistics(statistics);
+    const auto statistics = getStatistics();
     stream.width(0x20);
     stream << "  Time since stat reset: " << statistics.elapsed << '\n';
     stream.width(0x20);
@@ -151,7 +154,6 @@ void srScene::dump(std::ostream& stream)
     stream << "  Global calls/sec: " << statistics.node_calls / statistics.elapsed << '\n';
     stream.width(0x20);
     stream << "  Process calls/sec: " << statistics.process_calls / statistics.elapsed << '\n';
-    srSetStreamFlags(stream, flags & 0x7fff);
 }
 
 // FUNCTION: SURRENDER 0x10056B50

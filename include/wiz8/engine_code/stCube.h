@@ -1,11 +1,11 @@
 #pragma once
 
-#include "wiz8/filesystem.h"
-
 #include "surrender/srMath.h"
-#include "surrender/srNode.h"
+#include "compat/compiler.h"
 
 struct W8World;
+class srNode;
+namespace wiz8 { class File; }
 
 /* One world-cursor node: the scene node at +0x04, the three label parameters at
    +0x0c/+0x10/+0x14, the text scratch buffer at +0x18 and its length at +0x1c,
@@ -34,7 +34,6 @@ public:
     w8_ulong color; /* 0x20 */
     char name[0x20];
 };
-W8_ABI_ASSERT(sizeof(W8WorldCursorNode) == 0x44, "W8WorldCursorNode_size");
 
 extern const double g_world_cursor_scale;
 
@@ -47,10 +46,6 @@ void SetWorldCursorNodeParameter(W8WorldCursorNode* entry, int index, int value)
 /* Answer the next table node after `after` whose world-space bounds contain
    `point`; a null `after` starts the walk at the head of the table. */
 W8WorldCursorNode* FindWorldCursorNodeAtPoint(W8WorldCursorNode* after, srVector3T<float>* point);
-/* Copy the node's userdata pointer and size into the caller's slots; either
-   out pointer may be null. The userdata is the scratch the master-function
-   handlers flag per node. */
-void GetWorldCursorNodeUserdata(W8WorldCursorNode* entry, char** buffer, int* size);
 /* Allocate the node's userdata scratch, or release it when `size` is zero. */
 void SetWorldCursorNodeUserdataSize(W8WorldCursorNode* entry, int size);
 void ScaleWorldCursorNodeX(W8WorldCursorNode* entry, double scale);
@@ -71,7 +66,7 @@ void SetWorldCursorNodeColor(W8WorldCursorNode* entry, w8_ulong color);
 W8WorldCursorNode* PickWorldCursorNodeAtScreenPoint(int x, int y);
 void DrawWorldBox(W8World* world, srVector3T<float> minimum, srVector3T<float> maximum,
                   w8_ulong color);
-unsigned char SaveWorldCursorNodeStates(wiz8::File* handle);
-unsigned char SaveWorldCursorNodes(wiz8::File* handle);
-unsigned int LoadWorldCursorNodes(wiz8::File* handle);
-unsigned int LoadWorldCursorNodeStates(wiz8::File* handle);
+unsigned char SaveWorldCursorNodeStates(wiz8::File& handle);
+unsigned char SaveWorldCursorNodes(wiz8::File& handle);
+unsigned int LoadWorldCursorNodes(wiz8::File& handle);
+unsigned int LoadWorldCursorNodeStates(wiz8::File& handle);

@@ -1,35 +1,34 @@
 #include "wiz8/bink_video.h"
-#include "compat/surfaces.h"
-#include "movie.h"
-#include "wiz8/engine_code/Video2.h"
-#include "wiz8/runtime_test_hooks.h"
+
+#include <SDL3/SDL_pixels.h>
+#include <SDL3/SDL_surface.h>
 #include <cstdio>
 #include <cstring>
 #include <memory>
 #include <stdexcept>
+#include <exception>
+#include <vector>
+
+#include "movie.h"
+#include "wiz8/engine_code/Video2.h"
+#include "wiz8/runtime_test_hooks.h"
 
 namespace
 {
-bool copy(const W8NativeVideo::Frame& frame, CpuSurface* target)
+bool copy(const W8NativeVideo::Frame& frame, SDL_Surface* target)
 {
     if (!target || frame.pixels.empty())
         return false;
-    SurfaceLock description{};
-    description.width = target->surface->w;
-    description.height = target->surface->h;
-    if (description.width < frame.width || description.height < frame.height ||
-        SDL_BYTESPERPIXEL(target->surface->format) != 2 ||
-        target->redMask != 0x7c00 ||
-        target->greenMask != 0x3e0 ||
-        target->blueMask != 0x1f)
+    const SDL_PixelFormatDetails* format = SDL_GetPixelFormatDetails(target->format);
+    if (!format || target->w < frame.width || target->h < frame.height ||
+        SDL_BYTESPERPIXEL(target->format) != 2 || format->Rmask != 0x7c00 ||
+        format->Gmask != 0x3e0 || format->Bmask != 0x1f)
         return false;
-    description = LockCpuSurface(*target);
-    if (!description.pixels)
+    if (!target->pixels)
         return false;
     for (int y = 0; y < frame.height; ++y)
-        memcpy(static_cast<unsigned char*>(description.pixels) + y * description.pitch,
+        memcpy(static_cast<unsigned char*>(target->pixels) + y * target->pitch,
                frame.pixels.data() + y * frame.width, frame.width * 2);
-    UnlockCpuSurface(*target);
     return true;
 }
 
@@ -75,7 +74,7 @@ unsigned char W8BinkVideo::UpdateFrame()
         {
             if (!(m_target ? CopyFrameToTargetSurface() : CopyFrameToPrimarySurface()))
                 throw std::runtime_error("Movie surface does not support RGB555 output");
-            m_handle->present(m_target ? m_target : g_primary_surface);
+            m_handle->present(m_target ? m_target : &GetFrameBufferSurface());
             WIZ8_TEST_HOOK(++g_runtime_test_hooks.movie_frames_presented;)
         }
         return 0;
@@ -88,7 +87,7 @@ unsigned char W8BinkVideo::UpdateFrame()
 }
 unsigned char W8BinkVideo::CopyFrameToPrimarySurface()
 {
-    if (!m_handle || !copy(m_handle->frame(), g_primary_surface))
+    if (!m_handle || !copy(m_handle->frame(), &GetFrameBufferSurface()))
         return 0;
     InvalidateRegion(0, 0, m_handle->frame().width, m_handle->frame().height, 0);
     return 1;
@@ -97,10 +96,10 @@ unsigned char W8BinkVideo::CopyFrameToTargetSurface()
 {
     return m_handle && copy(m_handle->frame(), m_target);
 }
-void W8BinkVideo::SetTarget(CpuSurface* target)
+void W8BinkVideo::SetTarget(SDL_Surface* target)
 {
     if (!target)
         return;
     m_target = target;
-    FillCpuSurface(*target, 0);
+    SDL_FillSurfaceRect(target, nullptr, 0);
 }

@@ -1,12 +1,18 @@
 #include <catch2/catch_test_macros.hpp>
+#include <SDL3/SDL_iostream.h>
+#include <SDL3/SDL_properties.h>
+#include <SDL3/SDL_stdinc.h>
+#include <cstdio>
+#include <cstdint>
+#include <vector>
+
 #include "surrender/srHuffman.h"
 #include "surrender/srGERD.h"
 #include "surrender/srCore.h"
-
-#include <cstdio>
-#include <cstdint>
-#include <stdexcept>
-#include <vector>
+#include "compat/compiler.h"
+#include "surrender/srIO.h"
+#include "surrender/srShader.h"
+#include "surrender/srTexture.h"
 
 
 static void checkConsumers()

@@ -1,17 +1,13 @@
 #include <fmt/format.h>
+#include <vector>
+#include <cmath>
+#include <span>
+
 #include "wiz8/spell_ids.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/integer_constants.h"
-#include "wiz8/character_skills.h"
-#include "wiz8/local_code/CharGeneration.h"
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/CombatAttack.h"
-#include "wiz8/local_code/GameplayCode.h"
-#include "wiz8/local_code/GameplayMods.h"
-#include "wiz8/local_code/HealthStaminaMana.h"
-#include "wiz8/local_code/Magic.h"
-#include "wiz8/local_code/MagicEffects.h"
-#include "wiz8/local_code/party_encumbrance.h"
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/local_code/CombatRange.h"
@@ -26,15 +22,8 @@
 #include "wiz8/utility.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/layouts/combat_state.h"
-
-#include "wiz8/local_code/Combat.h"
-#include "wiz8/local_code/CombatAttack.h"
-#include "wiz8/local_code/CombatRange.h"
 #include "wiz8/float_constants.h"
-#include "wiz8/local_code/Magic.h"
-#include "wiz8/local_code/MagicEffects.h"
 #include "wiz8/sr_api.h"
-#include "wiz8/local_code/CombatRange.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/startup_world.h"
 #include "wiz8/engine_code/Navigator.h"
@@ -43,9 +32,17 @@
 #include "wiz8/engine_code/Spells.h"
 #include "wiz8/engine_code/Levels.h"
 #include "wiz8/engine_code/Monster.h"
-#include <vector>
-#include <algorithm>
 #include "random.h"
+#include "conditions.h"
+#include "gameplay_modifiers.h"
+#include "layouts/gameplay_databases.h"
+#include "layouts/item_instance.h"
+#include "layouts/party_formation.h"
+#include "layouts/targeting.h"
+#include "local_code/Factions.h"
+#include "monster_actions.h"
+#include "sight_state.h"
+#include "surrender/srMath.h"
 
 // GLOBAL: WIZ8 0x0068C518
 int g_event_sight_blocked = g_first_remapped_event + 30;
@@ -173,12 +170,10 @@ bool CharacterActionReachesTarget(int party_slot, int hand, W8TargetingContext c
     W8CombatSlot* target = GetTargetBlockForContext(party_slot, context);
     context = ResolveTargetingContext(party_slot, context);
     if (target->iType == W8_TARGET_KIND_MONSTER) {
-        unsigned int monster_list_index =
-            MonsterGetIndexByLocationID(0xcb, COMBAT_RANGE_CPP, target->iMonsterID, false);
-        if (monster_list_index == 0xffffffff) {
+        W8MonsterInfo* monster_info = FindMonster(target->iMonsterID, false);
+        if (monster_info == nullptr) {
             return false;
         }
-        W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(monster_list_index);
         GetMonsterDataForInfo(monster_info);
         return CanPartyMemberAimAtMonster(party_slot, hand, monster_info, context, false);
     }
@@ -201,8 +196,8 @@ bool CharacterActionReachesTarget(int party_slot, int hand, W8TargetingContext c
         float distance;
         bool trace;
 
-        GetCameraPosition(&camera);
-        GetCameraPosition(&camera_top);
+        camera = cameraLocation();
+        camera_top = cameraLocation();
         point = target->point;
         unsigned int spell_id = GetActionSpellLikeId(party_slot, context);
         if (spell_id == W8_SPELL_NONE) {
@@ -234,12 +229,10 @@ bool CharacterActionReachesTarget(int party_slot, int hand, W8TargetingContext c
             return g_octree->TraceLineOfSight(&camera_top, &point, true, -3, -3, true, 0) == 0;
         }
     } else if (target->iType == W8_TARGET_KIND_GROUP) {
-        unsigned int group_list_index =
-            GetMonsterGroupIndexByID(0x197, COMBAT_RANGE_CPP, target->iGroupID, false);
-        if (group_list_index == 0xffffffff) {
+        W8MonsterGroup* group = FindMonsterGroup(target->iGroupID, false);
+        if (group == nullptr) {
             return false;
         }
-        W8MonsterGroup* group = GetMonsterGroupByListIndex(group_list_index);
         if (group == 0) {
             srAssertFail("pMonsterGroup != NULL", COMBAT_RANGE_CPP, 0x1a0, 0);
         }
@@ -404,13 +397,11 @@ bool IsSlotInRangeOfGroup(int party_slot, int group_id, W8TargetingContext conte
 {
     W8TargetSource source;
     W8MonsterGroup* group;
-    unsigned int index;
 
-    index = GetMonsterGroupIndexByID(0x197, COMBAT_RANGE_CPP, group_id, false);
-    if (index == 0xffffffff) {
+    group = FindMonsterGroup(group_id, false);
+    if (group == nullptr) {
         return false;
     }
-    group = GetMonsterGroupByListIndex(index);
     if (group == 0) {
         srAssertFail("pMonsterGroup != NULL", COMBAT_RANGE_CPP, 0x1a0, 0);
     }
@@ -839,9 +830,7 @@ float CalcRangeDistance(W8RangeCategory range_category, W8TargetSource* source)
         if (source->iMonsterID == -1) {
             srAssertFail("pSource->iMonsterID != -1", COMBAT_RANGE_CPP, 0x483, 0);
         }
-        unsigned int monster_list_index =
-            MonsterGetIndexByLocationID(0x484, COMBAT_RANGE_CPP, source->iMonsterID, true);
-        W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(monster_list_index);
+        W8MonsterInfo* monster_info = FindMonster(source->iMonsterID);
         return monster_info->p3D->movement.alternate_radius + distance;
     }
     return distance;
@@ -1143,9 +1132,7 @@ bool MonsterActionReachesTarget(W8MonsterInfo* monster_info, W8MonsterRecord* re
             return false;
         }
     } else if (target->iType == W8_TARGET_KIND_MONSTER) {
-        unsigned int index =
-            MonsterGetIndexByLocationID(0x310, COMBAT_RANGE_CPP, target->iMonsterID, true);
-        W8MonsterInfo* target_monster = MonsterGetScriptPartByLocationIndex(index);
+        W8MonsterInfo* target_monster = FindMonster(target->iMonsterID);
         return MonsterAttackReachesMonster(monster_info, record, attack, target_monster);
     } else if (target->iType == W8_TARGET_KIND_PARTY) {
         int party_slot = GetRandomCharacter(1, 1, -1, -1);
@@ -1159,9 +1146,7 @@ bool MonsterActionReachesTarget(W8MonsterInfo* monster_info, W8MonsterRecord* re
     } else if (target->iType == W8_TARGET_KIND_GROUP) {
         W8TargetSource source;
         SetTargetSourceToMonster(monster_info, &source);
-        unsigned int index =
-            GetMonsterGroupIndexByID(0x39e, COMBAT_RANGE_CPP, target->iGroupID, true);
-        W8MonsterGroup* group = GetMonsterGroupByListIndex(index);
+        W8MonsterGroup* group = FindMonsterGroup(target->iGroupID);
         return IsTargetSourceInRangeOfGroup(&source, group, W8_TARGETING_CONTEXT_CURRENT);
     }
     return true;
@@ -1172,13 +1157,10 @@ int FindNearestVisibleGroupMonster(W8MonsterInfo* monster_info, int group_id, in
 {
     int best_id = -1;
     float best = 999999.0f;
-    unsigned int index = GetMonsterGroupIndexByID(0x520, COMBAT_RANGE_CPP, group_id, true);
-    W8MonsterGroup* group = GetMonsterGroupByListIndex(index);
-    for (index = 0; index < group->MemberIds().size(); ++index) {
+    W8MonsterGroup* group = FindMonsterGroup(group_id);
+    for (unsigned int index = 0; index < group->MemberIds().size(); ++index) {
         int location_id = group->MemberLocationId(index);
-        unsigned int list_index =
-            MonsterGetIndexByLocationID(0x525, COMBAT_RANGE_CPP, location_id, true);
-        W8MonsterInfo* target = MonsterGetScriptPartByLocationIndex(list_index);
+        W8MonsterInfo* target = FindMonster(location_id);
         if (target->fActive && target->hp_current != 0 && target->fInCombat) {
             W8VisibilityRecord* row = FindMonToMonVisibility(monster_info, target);
             if (IsVisibleUnderConditions(monster_info, row, kind)) {
@@ -1226,9 +1208,7 @@ bool SourceActionReachesTarget(W8TargetSource* source, W8CombatSlot* target)
         return CharacterActionReachesTarget(source->iChar, 0, W8_TARGETING_CONTEXT_CURRENT);
     }
     if (TargetSourceIsMonster(source, 0)) {
-        unsigned int monster_list_index =
-            MonsterGetIndexByLocationID(0x69e, COMBAT_RANGE_CPP, source->iMonsterID, true);
-        W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(monster_list_index);
+        W8MonsterInfo* monster_info = FindMonster(source->iMonsterID);
         W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
         return MonsterActionReachesTarget(monster_info, record, 0, target);
     }

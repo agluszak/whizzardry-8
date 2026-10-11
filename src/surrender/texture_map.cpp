@@ -1,6 +1,12 @@
-#include "surrender/srTextureMap.h"
-
+#include "surrender/stream_scope.h"
 #include <ostream>
+#include <memory>
+#include <utility>
+
+#include "surrender/srTextureMap.h"
+#include "compat/compiler.h"
+#include "surrender/srColorSurfaceIFace.h"
+#include "surrender/srTexture.h"
 
 // FUNCTION: SURRENDER 0x10060270
 srTextureMap::srTextureMap(std::shared_ptr<srColorSurfaceIFace> surface)
@@ -26,17 +32,9 @@ srTextureMap::~srTextureMap()
 }
 
 // FUNCTION: SURRENDER 0x100601C0
-void srTextureMap::getMipmapData(MultiRequest& request)
+void srTextureMap::getMipmapData(const MultiRequest& request)
 {
-    if (surface != 0) {
-        request.destinations[request.mipmap_level]->copy(*surface.get());
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wsign-compare"
-        for (w8_long level = request.mipmap_level + 1; level <= request.last_level; ++level) {
-            request.destinations[level]->copy(*request.destinations[level - 1]);
-        }
-#pragma clang diagnostic pop
-    }
+    if (surface) copyMipmapChain(*surface, request);
 }
 
 // FUNCTION: SURRENDER 0x100604E0
@@ -78,10 +76,7 @@ void srTextureMap::setupDefaultValues()
 void srTextureMap::dump(std::ostream& stream)
 {
     srTexture::dump(stream);
-    std::ios::fmtflags flags = stream.flags();
-    stream.setf(std::ios::left, std::ios::adjustfield);
+    const srDumpStreamScope formatting(stream);
     stream.width(0x20);
     stream << "  Surface: " << surface->getName() << '\n';
-    stream.flags(static_cast<std::ios::fmtflags>(flags & 0x7fff));
 }
-

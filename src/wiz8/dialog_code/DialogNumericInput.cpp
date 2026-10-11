@@ -1,18 +1,20 @@
+#include <SDL3/SDL_surface.h>
 #include <fmt/format.h>
+#include <SDL3/SDL_rect.h>
 #include <charconv>
-#include "wiz8/utility.h"
 #include <string>
-#include "vsurface.h"
+#include <algorithm>
+#include <cstddef>
+#include <string_view>
+
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
 #include "wiz8/engine_code/Video2.h"
-#include "wiz8/local_screens/CharacterScreen.h"
-#include "wiz8/local_screens/MainGameScreen.h"
-
 #include "Font.h"
+#include "image.h"
 #include "input.h"
-#include "line.h"
-#include <algorithm>
-#include "vobject.h"
+#include "dialog_code/DialogBase.h"
+#include "wiz8/local_code/ButtonWidget.h"
+#include "local_code/ControlsRect.h"
 
 
 /* Dialog Code numeric entry field, reconstructed logical owner: the original
@@ -26,9 +28,9 @@ static std::string g_numeric_input_text;
 
 // FUNCTION: WIZ8 0x005e1460
 W8DialogNumericInput::W8DialogNumericInput(int control_id, const W8ControlsRect* bounds, int value,
-                                           int font, W8DialogBase* dialog, W8DialogButton* button)
+                                           Font& font, W8DialogBase* dialog, W8ButtonWidget* button)
 {
-    m_font = font;
+    m_font = &font;
     m_value = value;
     m_dialog = dialog;
     m_caret = -1;
@@ -71,7 +73,7 @@ void W8DialogNumericInput::SetActive(bool active, const SDL_Point* point)
     m_caret = -1;
     std::size_t suffix = length - 1;
     for (; count < length; ++count, --suffix) {
-        short suffix_width = StringPixLength(std::string_view(g_numeric_input_text).substr(suffix), m_font);
+        short suffix_width = m_font->textWidth(std::string_view(g_numeric_input_text).substr(suffix));
         if ((m_bounds.right - point->x) - m_bounds.left < suffix_width) {
             m_caret = count;
             break;
@@ -92,37 +94,31 @@ void W8DialogNumericInput::Draw(bool force)
     }
     g_numeric_input_text = fmt::format("{:d}", m_value);
     size_t length = g_numeric_input_text.size();
-    SetFont(m_font);
-    HVOBJECT font_object = GetFontObject(m_font);
-    if (font_object == 0) {
-        return;
-    }
     g_numeric_input_text = fmt::format("{:d}", m_value);
-    SetObjectShade(font_object, 4);
-    SetFontDestBuffer(FRAME_BUFFER, m_bounds.left, m_bounds.top, m_bounds.right, m_bounds.bottom,
-                      0);
-    unsigned short font_height = GetFontHeight(m_font);
+    m_font->setShade(Font::kNormalShade);
+    SDL_Rect text_clip{m_bounds.left, m_bounds.top, m_bounds.right - m_bounds.left,
+                       m_bounds.bottom - m_bounds.top};
+    ScopedClipRect clipping(GetFrameBufferSurface(), text_clip);
+    unsigned short font_height = m_font->height();
     int text_y = m_bounds.top + std::max(0, (m_bounds.bottom - m_bounds.top - font_height) / 2);
-    int text_x = m_bounds.right - StringPixLength(g_numeric_input_text, m_font);
+    int text_x = m_bounds.right - m_font->textWidth(g_numeric_input_text);
     if (text_x <= m_bounds.left) {
         text_x = m_bounds.left;
     }
-    DrawFontTextDirty(text_x, text_y, g_numeric_input_text);
+    DrawTextAndInvalidate(GetFrameBufferSurface(), *m_font, {text_x, text_y},
+                          g_numeric_input_text);
     if (m_active && m_caret != -1) {
         int caret_x =
-            m_bounds.right - StringPixLength(std::string_view(g_numeric_input_text).substr(length - m_caret), m_font) - 1;
-        font_height = GetFontHeight(m_font);
+            m_bounds.right - m_font->textWidth(std::string_view(g_numeric_input_text).substr(length - m_caret)) - 1;
+        font_height = m_font->height();
         int caret_top = m_bounds.top + std::max(0, (m_bounds.bottom - m_bounds.top - font_height) / 2);
-        UINT32 pitch;
-        char* screen = static_cast<char*>(LockPrimarySurface(&pitch));
         int caret_bottom = m_bounds.bottom;
-        if (caret_top + GetFontHeight(m_font) < caret_bottom) {
-            caret_bottom = caret_top + GetFontHeight(m_font);
+        if (caret_top + m_font->height() < caret_bottom) {
+            caret_bottom = caret_top + m_font->height();
         }
-        LineDraw(0, caret_x, caret_top, caret_x, caret_bottom, -1, screen);
-        UnlockPrimarySurface();
+        const SDL_Rect caret{caret_x, caret_top, 1, caret_bottom - caret_top + 1};
+        SDL_FillSurfaceRect(&GetFrameBufferSurface(), &caret, 0xffff);
     }
-    SetFontDestBuffer(FRAME_BUFFER, 0, 0, 640, 480, 0);
     m_dirty = false;
 }
 
@@ -201,12 +197,12 @@ void W8DialogNumericInput::Backspace()
 }
 
 // FUNCTION: WIZ8 0x005e19a0
-bool W8DialogNumericInput::HandleInput(const InputAtom* input)
+bool W8DialogNumericInput::HandleInput(const InputEvent* input)
 {
-    if (input->usEvent != KEY_DOWN && input->usEvent != KEY_REPEAT) {
+    if (input->type != InputEventType::KeyDown && input->type != InputEventType::KeyRepeat) {
         return false;
     }
-    switch (input->usParam) {
+    switch (input->key) {
     case 0x30:
     case 0x31:
     case 0x32:
@@ -218,7 +214,7 @@ bool W8DialogNumericInput::HandleInput(const InputAtom* input)
     case 0x38:
     case 0x39:
         if (m_active && m_caret != -1) {
-            TypeDigit(static_cast<char>(input->usParam));
+            TypeDigit(static_cast<char>(input->key));
             return true;
         }
         break;
@@ -233,7 +229,7 @@ bool W8DialogNumericInput::HandleInput(const InputAtom* input)
     case 0x68:
     case 0x69:
         if (m_active && m_caret != -1) {
-            TypeDigit(static_cast<char>(input->usParam - 0x30));
+            TypeDigit(static_cast<char>(input->key - 0x30));
             return true;
         }
         break;

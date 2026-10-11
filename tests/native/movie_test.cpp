@@ -1,21 +1,30 @@
+#include <SDL3/SDL_surface.h>
+#include <SDL3/SDL_pixels.h>
 #include <catch2/catch_test_macros.hpp>
-#include "../../src/native/movie.h"
-#include "wiz8/filesystem.h"
-#include "wiz8/slf.h"
-#include "compat/surfaces.h"
-#include "native/audio_test.h"
-#include <wiz8/asset_paths.h>
-#include "soundman.h"
-#include "wiz8/bink_video.h"
+#include <ios>
+#include <SDL3/SDL_stdinc.h>
 #include <algorithm>
-#include <cmath>
 #include <cstdio>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <stdexcept>
-#include "temporary_directory.h"
 #include <vector>
+#include <cstdint>
+#include <cstdlib>
+#include <exception>
+#include <memory>
+
+#include "../../src/native/movie.h"
+#include "wiz8/filesystem.h"
+#include "wiz8/slf.h"
+#include "wiz8/surface_storage.h"
+#include "native/audio_test.h"
+#include "soundman.h"
+#include "wiz8/bink_video.h"
+#include "temporary_directory.h"
+#include "scoped_asset_roots.h"
+
 std::vector<unsigned char> read(const char* path)
 {
     std::ifstream file(path, std::ios::binary | std::ios::ate);
@@ -33,15 +42,6 @@ void write(const std::filesystem::path& path, const std::vector<unsigned char>& 
     if (!file.write(reinterpret_cast<const char*>(bytes.data()), bytes.size()))
         throw std::runtime_error("Cannot create fixture");
 }
-struct Temporary
-{
-    std::filesystem::path path;
-    ~Temporary()
-    {
-        std::error_code error;
-        std::filesystem::remove_all(path, error);
-    }
-};
 bool matchesFrame(const std::vector<uint16_t>& pixels, const unsigned char* golden)
 {
     unsigned largest_difference = 0;
@@ -63,12 +63,11 @@ bool matchesFrame(const std::vector<uint16_t>& pixels, const unsigned char* gold
 }
 static void exercise_movie(const char* retail_movie)
 {
-        const auto temporary = make_temporary_directory("wiz8-movie");
-        Temporary fixture{temporary};
+        ScopedTemporaryDirectory fixture{"wiz8-movie"};
         auto assets = fixture.path / "assets", user = fixture.path / "user";
         std::filesystem::create_directories(assets / "Data");
         std::filesystem::create_directories(user);
-        w8_native::configure_paths({assets.string(), user.string(), {}});
+        ScopedAssetRoots roots{{assets.string(), user.string(), {}}};
         auto encoded = read(WIZ8_MOVIE_FIXTURE), golden = read(WIZ8_MOVIE_GOLDEN);
         REQUIRE(golden.size() == 5 * 1536);
         write(assets / "Movie.mkv", encoded);
@@ -94,7 +93,7 @@ static void exercise_movie(const char* retail_movie)
 
         wiz8::mount_slf("Data\\Data.slf");
         w8_native::audio_offline_for_test(true);
-        REQUIRE(InitializeSoundManager());
+        REQUIRE(wiz8::sound::initialize(true));
         double energy = 0;
         std::vector<uint16_t> first_frame;
         {
@@ -162,19 +161,19 @@ static void exercise_movie(const char* retail_movie)
             REQUIRE(reusable.update(0) == W8NativeVideo::FrameReady);
             REQUIRE(matchesFrame(reusable.frame().pixels, golden.data()));
         }
-        auto target = CreateCpuSurface(640, 480, 16, 0x7c00, 0x3e0, 0x1f);
-        SurfaceLock description{};
+        SDLSurfaceOwner target{SDL_CreateSurface(640, 480, SDL_PIXELFORMAT_XRGB1555),
+                               SDL_DestroySurface};
+        REQUIRE(target);
+        const auto& description = *target;
         {
             W8BinkVideo movie;
             movie.SetTarget(target.get());
             REQUIRE(movie.Open("Movie.mkv", 0));
             REQUIRE(!movie.UpdateFrame());
-            description = LockCpuSurface(*target);
             for (int y = 0; y < 24; ++y)
                 REQUIRE(std::memcmp(static_cast<unsigned char*>(description.pixels) +
                                       y * description.pitch,
                                   first_frame.data() + y * 32, 64) == 0);
-            UnlockCpuSurface(*target);
             REQUIRE(movie.Open("Data\\Packed.mkv",
                              0)); // Reopen stops the preceding PCM voice.
             REQUIRE(!movie.UpdateFrame());
@@ -219,7 +218,7 @@ static void exercise_movie(const char* retail_movie)
             printf("retail movie: %u frames, %llu PCM frames, RGB555 FNV64 %016llx\n", shown,
                    (unsigned long long)retail.decoded_audio_frames(), (unsigned long long)hash);
         }
-        ShutdownSoundManager();
+        wiz8::sound::shutdown();
         wiz8::clear_asset_archives();
 
         printf("movie: loose/SLF RGB555 golden frames, timed EOF, PCM audio, "

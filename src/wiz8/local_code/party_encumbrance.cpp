@@ -2,8 +2,6 @@
 #include "wiz8/integer_constants.h"
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/layouts/combat_state.h"
-#include "wiz8/local_code/Combat.h"
-#include "wiz8/local_code/CombatAttack.h"
 #include "wiz8/local_code/party_encumbrance.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/character_events.h"
@@ -11,17 +9,20 @@
 #include "wiz8/local_code/GameplayTime.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/local_screens/Screens.h"
-#include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/MagicEffects.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/layouts/character.h"
-#include "wiz8/local_code/CharGeneration.h"
-#include "wiz8/local_code/GameplayMods.h"
 #include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
+#include "conditions.h"
+#include "equipment_slots.h"
+#include "gameplay_modifiers.h"
+#include "layouts/gameplay_databases.h"
+#include "layouts/main_game_screen.h"
+#include "load_category.h"
 
 /* Party encumbrance redistribution. Live query: 0x004ED9D0 is a gap between
    Local Code\Combat.cpp (upper 0x004ED390) and Local Code\GameplayCode.cpp
@@ -242,7 +243,7 @@ void RedistributePartyEncumbrance(void)
             gXStatus.fEncumbranceDirty = false;
             return;
         }
-    } else if (g_current_screen_state.id == W8_SCREEN_CAMP && g_camp_screen != 0) {
+    } else if (g_current_screen_state.id == W8_SCREEN_CAMP && g_camp_screen) {
         g_camp_screen->redraw_flags |= W8_CAMP_REDRAW_CHARACTER_INFO | W8_CAMP_REDRAW_PORTRAIT;
     }
     gXStatus.fEncumbranceDirty = false;

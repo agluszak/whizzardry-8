@@ -1,29 +1,30 @@
 #include <fmt/printf.h>
+#include <array>
+#include <vector>
+#include <memory>
+#include <string>
+
+#include "input.h"
 #include "wiz8/conditions.h"
 #include "wiz8/fonts.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/integer_constants.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
-#include "wiz8/local_code/CharGeneration.h"
 #include "wiz8/local_code/Combat.h"
-#include "wiz8/local_code/CombatAttack.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/GameplayCode.h"
-#include "wiz8/local_code/GameplayMods.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/MagicEffects.h"
-#include "wiz8/local_code/party_encumbrance.h"
 #include "wiz8/local_code/PC_Item.h"
-#include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/local_code/SpellEffect.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_code/GameplayTime.h"
+#include "wiz8/regions.h"
 #include "wiz8/engine_code/Environment.h"
-#include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/Navigator.h"
 #include "wiz8/engine_code/OctPath.h"
@@ -36,7 +37,6 @@
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/monster_runtime.h"
 #include "wiz8/monster_generators.h"
-#include "wiz8/engine_code/Spells.h"
 #include "wiz8/engine_code/Levels.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
@@ -46,9 +46,17 @@
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/gameplay_databases.h"
+
+unsigned char CombatBarRegionEvent(const InputEvent* event, W8Region* region);
+
+namespace {
+static constexpr std::array<RegionTemplate, 1> g_game_time_combat_bar_template{{
+    {0x00000001, 0, 0, 0, 0, CombatBarRegionEvent, 0, false, 0},
+}};
+}
+
+ScreenRegionSet g_game_time_combat_bar_region{g_game_time_combat_bar_template};
 #include "wiz8/layouts/combat_state.h"
-#include <vector>
-#include <algorithm>
 #include "wiz8/dice.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/utility.h"
@@ -59,11 +67,16 @@
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/music_playlist.h"
-#include "wiz8/regions.h"
 #include "wiz8/sr_api.h"
 #include "random.h"
 #include "soundman.h"
-#include "timer.h"
+#include "compat/native.h"
+#include "gameplay_modifiers.h"
+#include "layouts/item_instance.h"
+#include "layouts/main_game_screen.h"
+#include "layouts/targeting.h"
+#include "monster_actions.h"
+#include "surrender/srMath.h"
 
 #define GAMEPLAYTIME_CPP "C:\\Projects\\Wizardry 8\\Local Code\\GameplayTime.cpp"
 
@@ -82,8 +95,8 @@ static void BeginPartyCamping()
     SetNpcQuoteBubbleVisible(false, {}, 0, -1, 0xffffffff);
     BeginSurprise();
     gXStatus.fSurprisePossible = true;
-    EnableRegionInput(0x137);
-    ActivateDialogRegion(0x137);
+    EnableRegionInput(g_game_time_combat_bar_region->index(0));
+    ActivateDialogRegion(g_game_time_combat_bar_region->index(0));
     gXStatus.surprise_deadline_turns = 0;
     CreateSurpriseFade();
     gXStatus.surprise_phase = 0;
@@ -326,8 +339,8 @@ void EndSurprise(void)
 {
     gXStatus.fSurprisePossible = false;
     ResolveSurpriseWake();
-    ClearActiveRegionIfMatches(0x137);
-    DisableRegionInput(0x137);
+    ClearActiveRegionIfMatches(g_game_time_combat_bar_region->index(0));
+    DisableRegionInput(g_game_time_combat_bar_region->index(0));
 
     std::string text;
     if (!gXStatus.surprise_unengaged) {
@@ -491,7 +504,7 @@ static bool AgePartyEffectSlot(W8EffectSlot* slot, unsigned int minutes)
     ShowNotice(W8_FONT_PALETTE_BEIGE, fmt::sprintf(g_localized_strings[0x1b4],
                                                    g_spell_records[slot->effect_id].display_name));
     if (GetViewDistance() != g_encounter_culling_rate) {
-        SoundPlay("Data\\Sound\\Misc\\Spell Expiry.wav", 0);
+        wiz8::sound::play("Data\\Sound\\Misc\\Spell Expiry.wav");
     }
     ResetPartyEffectBlock(slot);
     return true;
@@ -579,7 +592,7 @@ void AdvanceTimedEffects(unsigned int minutes)
         ApplyMonsterControlToNearbyMonsters(control);
     }
     if (party_changed || combat_changed) {
-        SoundPlay("Data\\Sound\\Misc\\GeneralMagic.wav", 0);
+        wiz8::sound::play("Data\\Sound\\Misc\\GeneralMagic.wav");
     }
     if (!gXStatus.fSurprisePossible) {
         DetectMonsterGroups();
@@ -928,7 +941,7 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
         srVector3T<float> last_seen;
         srVector3T<float> delta;
 
-        MonsterGetLocation(monster, &location);
+        location = MonsterGetLocation(monster);
         if (monster->formation.x == g_float_zero && monster->formation.y == g_float_zero &&
             monster->formation.z == g_float_zero) {
             monster->formation = monster->GetPosition();
@@ -940,21 +953,17 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
             srVector3T<float> camera;
 
             probe.y += g_float_one_thousand;
-            GetCameraPosition(&camera);
-            if (ProjectPointThroughCamera(&probe) == 0 &&
+            camera = cameraLocation();
+            if (projectsToCamera(probe.glmValue()) == 0 &&
                 !g_octree->HasLineOfSight(&camera, &probe, true)) {
                 srVector3T<float> notify_position = last_seen;
-                unsigned int group_index = GetMonsterGroupIndexByID(
-                    0x4d2, GAMEPLAYTIME_CPP, monster_info->monster_group_id, true);
-                W8MonsterGroup* group = GetMonsterGroupByListIndex(group_index);
+                W8MonsterGroup* group = FindMonsterGroup(monster_info->monster_group_id);
 
                 MoveMonsterGroupToPosition(group, &notify_position, monster->GetYaw(), false, false,
                                            false, false);
                 for (int index = 0; index < 4; ++index) {
                     if (group->allied_group_ids[index] != 0) {
-                        group_index = GetMonsterGroupIndexByID(
-                            0x4d9, GAMEPLAYTIME_CPP, group->allied_group_ids[index], true);
-                        group = GetMonsterGroupByListIndex(group_index);
+                        group = FindMonsterGroup(group->allied_group_ids[index]);
                         MoveMonsterGroupToPosition(group, &notify_position, monster->GetYaw(),
                                                    false, false, false, false);
                     }
@@ -973,7 +982,7 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
         srVector3T<float> delta;
         unsigned char cycle;
 
-        MonsterGetLocation(monster, &location);
+        location = MonsterGetLocation(monster);
         previous = monster_info->movement_watch_position;
         monster_info->position.y = location.y;
         cycle = monster_info->movement_stall_ticks;
@@ -998,7 +1007,7 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
                         !monster_info->party_threat.visible_to_player) {
                         srVector3T<float> next_position;
 
-                        monster->movement.attachment->GetNextPosition(&next_position);
+                        next_position = monster->movement.attachment->GetNextPosition();
                         if (next_position.Length() == static_cast<float>(g_double_zero)) {
                             next_position = monster->GetPosition();
                         }
@@ -1006,23 +1015,18 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
                             srVector3T<float> camera;
                             srVector3T<float> probe = next_position;
 
-                            GetCameraPosition(&camera);
-                            if (ProjectPointThroughCamera(&probe) == 0 &&
+                            camera = cameraLocation();
+                            if (projectsToCamera(probe.glmValue()) == 0 &&
                                 !g_octree->HasLineOfSight(&camera, &probe, true)) {
                                 srVector3T<float> notify_position = next_position;
-                                unsigned int group_index = GetMonsterGroupIndexByID(
-                                    0x50f, GAMEPLAYTIME_CPP, monster_info->monster_group_id, true);
-                                W8MonsterGroup* group = GetMonsterGroupByListIndex(group_index);
+                                W8MonsterGroup* group = FindMonsterGroup(monster_info->monster_group_id);
 
                                 MoveMonsterGroupToPosition(group, &notify_position,
                                                            monster->GetYaw(), false, false, false,
                                                            false);
                                 for (int index = 0; index < 4; ++index) {
                                     if (group->allied_group_ids[index] != 0) {
-                                        group_index = GetMonsterGroupIndexByID(
-                                            0x516, GAMEPLAYTIME_CPP, group->allied_group_ids[index],
-                                            true);
-                                        group = GetMonsterGroupByListIndex(group_index);
+                                        group = FindMonsterGroup(group->allied_group_ids[index]);
                                         MoveMonsterGroupToPosition(group, &notify_position,
                                                                    monster->GetYaw(), false, false,
                                                                    false, false);
@@ -1039,13 +1043,13 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
                 srVector3T<float> probe;
                 srVector3T<float> location2;
 
-                GetCameraPosition(&camera);
+                camera = cameraLocation();
                 location2 = monster->GetPosition();
                 probe = location2;
                 probe.y += g_float_one_thousand;
                 /* Both on-screen tests take the representation location read at the top of
                    the watch block, not the navigator position (0x00503e90, 0x00503f40). */
-                if (ProjectPointThroughCamera(&location) == 0 &&
+                if (projectsToCamera(location.glmValue()) == 0 &&
                     !g_octree->HasLineOfSight(&camera, &probe, true)) {
                     if (monster->formation.x == g_float_zero &&
                         monster->formation.y == g_float_zero &&
@@ -1054,7 +1058,7 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
                     }
                     probe = monster->formation;
                     probe.y += g_float_one_thousand;
-                    if (ProjectPointThroughCamera(&location) == 0 &&
+                    if (projectsToCamera(location.glmValue()) == 0 &&
                         !g_octree->HasLineOfSight(&camera, &probe, true)) {
                         if (monster->formation.x == g_float_zero &&
                             monster->formation.y == g_float_zero &&
@@ -1063,18 +1067,13 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
                         }
                         {
                             srVector3T<float> notify_position = monster->formation;
-                            unsigned int group_index = GetMonsterGroupIndexByID(
-                                0x53b, GAMEPLAYTIME_CPP, monster_info->monster_group_id, true);
-                            W8MonsterGroup* group = GetMonsterGroupByListIndex(group_index);
+                            W8MonsterGroup* group = FindMonsterGroup(monster_info->monster_group_id);
 
                             MoveMonsterGroupToPosition(group, &notify_position, monster->GetYaw(),
                                                        false, false, false, false);
                             for (int index = 0; index < 4; ++index) {
                                 if (group->allied_group_ids[index] != 0) {
-                                    group_index = GetMonsterGroupIndexByID(
-                                        0x542, GAMEPLAYTIME_CPP, group->allied_group_ids[index],
-                                        true);
-                                    group = GetMonsterGroupByListIndex(group_index);
+                                    group = FindMonsterGroup(group->allied_group_ids[index]);
                                     MoveMonsterGroupToPosition(group, &notify_position,
                                                                monster->GetYaw(), false, false,
                                                                false, false);

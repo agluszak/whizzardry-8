@@ -1,19 +1,20 @@
 #include "wiz8/local_code/Noise.h"
 
 #include <vector>
-#include <algorithm>
+
 #include "wiz8/engine_code/GrCycle.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/Octree.h"
-#include "wiz8/engine_code/World.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/startup_world.h"
 #include "wiz8/xstatus.h"
-
 #include "random.h"
+#include "Navigator.h"
+#include "local_code/Factions.h"
+#include "surrender/srMath.h"
 
 /* Retail Local Code\Noise.cpp. */
 
@@ -35,8 +36,7 @@ void AlertMonsterGroupsToNoise(const srVector3T<float>* position, int radius, in
     for (unsigned int group_index = 0; group_index < gXStatus.monster_groups.size(); ++group_index) {
         W8MonsterGroup* group = GetMonsterGroupByListIndex(group_index);
         W8MonsterInfo* info =
-            MonsterInfoFromID(0x2e, "C:\\Projects\\Wizardry 8\\Local Code\\Noise.cpp",
-                              group->leader_location_id, true);
+            FindMonster(group->leader_location_id);
         if (info->p3D->deaf) {
             continue;
         }
@@ -58,12 +58,8 @@ void AlertMonsterGroupsToNoise(const srVector3T<float>* position, int radius, in
             continue;
         }
         if (group->leader_group_id != 0) {
-            unsigned int leader_index =
-                GetMonsterGroupIndexByID(0x54, "C:\\Projects\\Wizardry 8\\Local Code\\Noise.cpp",
-                                         group->leader_group_id, true);
-            W8MonsterGroup* leader = GetMonsterGroupByListIndex(leader_index);
-            info = MonsterInfoFromID(0x55, "C:\\Projects\\Wizardry 8\\Local Code\\Noise.cpp",
-                                     leader->leader_location_id, true);
+            W8MonsterGroup* leader = FindMonsterGroup(group->leader_group_id);
+            info = FindMonster(leader->leader_location_id);
             if (info->p3D->deaf) {
                 continue;
             }

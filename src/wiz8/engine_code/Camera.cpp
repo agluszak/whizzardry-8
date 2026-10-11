@@ -1,7 +1,7 @@
 #include "wiz8/engine_code/Camera.h"
 
 #include <vector>
-#include <algorithm>
+
 #include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/engine_code/GameData.h"
@@ -14,15 +14,22 @@
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCScripting.h"
-#include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
-#include "wiz8/music_playlist.h"
 #include "surrender/srCamera.h"
-#include "wiz8/layouts/npc_state.h"
 #include "wiz8/local_code/NPCManager.h"
-#include "wiz8/startup_world.h"
+#include "Navigator.h"
+#include "compat/native.h"
+#include "glm/ext/matrix_float3x3.hpp"
+#include "layouts/targeting.h"
+#include "layouts/world.h"
+#include "message_box.h"
+#include "surrender/srMath.h"
+#include "wiz8/npc_interaction.h"
 
-#include <string.h>
+struct W8NpcState;
+
+W8CameraPath::W8CameraPath() = default;
+W8CameraPath::~W8CameraPath() = default;
 
 /* Retail Engine Code\Camera.cpp. The TU's single anchored function is
    0x0048F2F0 below; the only other evidence is the path string and it owns no
@@ -41,8 +48,8 @@ static int g_saved_environment_flag = 1;
 // FUNCTION: WIZ8 0x0048F280
 void UpdateCameraPathStateByName(W8World* world, const char* name, int active)
 {
-    unsigned int count = (world->plsCameras ? world->plsCameras->size() : 0);
-    if (world->plsCameras != 0 && count != 0) {
+    unsigned int count = world->plsCameras.size();
+    if (count != 0) {
         for (int index = 0; index < static_cast<int>(count); ++index) {
             W8CameraPath* path = GetWorldCameraPath(world, index);
             if (_stricmp(path->name0, name) == 0) {
@@ -69,8 +76,8 @@ void UpdateCameraPathState(W8World* world, W8CameraPath* path, int active)
     if (!path->active && active != 0) {
         g_camera_path_active = true;
         path->active = true;
-        PathAISetValue(path->path, 0.0f);
-        PathAIResetTick(path->path);
+        PathAISetValue(path->path.get(), 0.0f);
+        PathAIResetTick(path->path.get());
         path->path->distance_travelled = 0.0f;
         path->path->upright = 1;
         g_saved_environment_flag = SetEnvironmentLoadFlag(0);
@@ -82,7 +89,7 @@ void UpdateCameraPathState(W8World* world, W8CameraPath* path, int active)
     g_camera_path_active = false;
     rotation = glm::mat3(1);
     target.Set(0.0f, 0.0f, 1.0f);
-    world->camera->getRotation(rotation);
+    rotation = world->camera->getRotation<glm::mat3>();
     ApplyCameraRotation(&rotation);
     path->active = false;
     SetEnvironmentLoadFlag(g_saved_environment_flag);
@@ -100,10 +107,7 @@ void UpdateCameraPathState(W8World* world, W8CameraPath* path, int active)
             }
             group = FindFirstMonsterByID(0x18c);
             if (group != 0) {
-                index = MonsterGetIndexByLocationID(
-                    0x100, "C:\\Projects\\Wizardry 8\\Engine Code\\Camera.cpp",
-                    group->leader_location_id, true);
-                monster_info = MonsterGetScriptPartByLocationIndex(index);
+                monster_info = FindMonster(group->leader_location_id);
                 PointCameraAtMonster(monster_info, true, true);
                 position = monster_info->p3D->GetPosition();
                 target = position;
@@ -132,10 +136,7 @@ void UpdateCameraPathState(W8World* world, W8CameraPath* path, int active)
             ClearMainGameTargetState();
             group = FindFirstMonsterByID(0x1b4);
             if (group != 0) {
-                index = MonsterGetIndexByLocationID(
-                    0xd0, "C:\\Projects\\Wizardry 8\\Engine Code\\Camera.cpp",
-                    group->leader_location_id, true);
-                monster_info = MonsterGetScriptPartByLocationIndex(index);
+                monster_info = FindMonster(group->leader_location_id);
                 MonsterForwardReferencePosition(monster_info->p3D, 0);
                 return;
             }

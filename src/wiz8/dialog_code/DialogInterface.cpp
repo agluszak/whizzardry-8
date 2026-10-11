@@ -1,10 +1,12 @@
+#include "Font.h"
 #include <string_view>
+
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
 #include "wiz8/dialog_code/CharacterSummaryDialog.h"
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/dialog_code/MessageDialogBase.h"
 #include "wiz8/sr_api.h"
-#include "wiz8/local_screens/OptionsScreen.h"
+#include "dialog_code/DialogBase.h"
 
 /*
  * Dialog Code\DialogInterface.cpp, named by the assertion this body embeds at
@@ -17,9 +19,9 @@
  */
 
 // GLOBAL: WIZ8 0x0064fde8
-int g_dialog_interface_font = -1;
+Font* g_dialog_interface_font = nullptr;
 // GLOBAL: WIZ8 0x0069ca32
-BOOLEAN g_dialog_font_enabled;
+bool g_dialog_font_enabled;
 // GLOBAL: WIZ8 0x0064fdec
 unsigned char g_dialog_font_foreground = 255;
 // GLOBAL: WIZ8 0x0064fded
@@ -71,10 +73,10 @@ W8DialogBase* CreateDialogByKind(W8DialogKind kind)
 }
 
 // FUNCTION: WIZ8 0x005cf250
-void ConfigureDialogFont(int font, BOOLEAN enabled, unsigned char foreground,
+void ConfigureDialogFont(Font& font, bool enabled, unsigned char foreground,
                          unsigned char background)
 {
-    g_dialog_interface_font = font;
+    g_dialog_interface_font = &font;
     g_dialog_font_enabled = enabled;
     g_dialog_font_foreground = foreground;
     g_dialog_font_background = background;

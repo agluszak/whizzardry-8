@@ -1,6 +1,8 @@
 #include <fmt/format.h>
-#include "wiz8/unicode.h"
 #include <string>
+#include <cstring>
+#include <vector>
+
 #include "random.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/engine_code/AnimRep.hpp"
@@ -10,25 +12,11 @@
 #include "wiz8/integer_constants.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_code/Targeting.h"
-
 #include "soundman.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/character_skills.h"
-#include "wiz8/local_code/CharGeneration.h"
-#include "wiz8/local_code/Combat.h"
-#include "wiz8/local_code/CombatAttack.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
-#include "wiz8/local_code/GameplayCode.h"
-#include "wiz8/local_code/GameplayMods.h"
-#include "wiz8/local_code/HealthStaminaMana.h"
-#include "wiz8/local_code/Magic.h"
-#include "wiz8/local_code/MagicEffects.h"
-#include "wiz8/local_code/party_encumbrance.h"
-#include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/layouts/combat_state.h"
-#include "wiz8/local_code/Combat.h"
-#include "wiz8/local_code/CombatAttack.h"
-#include "wiz8/local_code/CombatRange.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/GrCycle.h"
 #include "wiz8/engine_code/Monster.h"
@@ -38,45 +26,38 @@
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/layouts/gameplay_databases.h"
-#include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/CombatHostility.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/NPCScripting.h"
+#include "wiz8/local_code/npc_story_events.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/character_events.h"
-#include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
 #include "wiz8/location_variables.h"
-#include "wiz8/local_code/Magic.h"
-#include "wiz8/local_code/MagicEffects.h"
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/npc_items.h"
-#include "wiz8/npc_script_file.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/string_database.h"
-#include "wiz8/local_code/Targeting.h"
-#include "wiz8/utility.h"
-
-#include <string.h>
-#include "wiz8/local_code/ItemManager.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/PartyImport.h"
 #include "wiz8/local_screens/JournalScreen.h"
-#include "wiz8/virtual_file.h"
-#include <stdio.h>
+#include "Item.h"
+#include "conditions.h"
+#include "layouts/targeting.h"
+#include "layouts/world.h"
+#include "message_box.h"
+#include "surrender/srMath.h"
+#include "xstatus.h"
+#include "wiz8/npc_interaction.h"
 
-#define NPC_SCRIPTING_FACTS_CPP "C:\\Projects\\Wizardry 8\\Local Code\\NPC Scripting Facts.cpp"
-
-/* Local Code\NPC Scripting Facts.cpp. Direct assertion ownership. */
-
-/* SOUNDPARMS EOS callback adapter: retail stores this JMP thunk rather than
+/* Potion explosion completion callback: retail stores this JMP thunk rather than
    ClearScriptedSceneActive's void() entry. */
 // FUNCTION: WIZ8 0x005092c0
-static void ClearPotionExplosionSoundFlag(void*)
+static void ClearPotionExplosionSoundFlag()
 {
     ClearScriptedSceneActive();
 }
@@ -100,7 +81,6 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
     stParticle* particle;
     W8MonsterInfo* monster_info;
     W8CameraShakeEffect* shake;
-    SOUNDPARMS sound;
     srVector3T<float> position;
     unsigned char fact_value;
     unsigned int added;
@@ -159,7 +139,7 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
         }
         npc = GetNpcStateByKind(0x48);
         if (npc == 0) {
-            srAssertFail("pNPC", NPC_SCRIPTING_FACTS_CPP, 0x614, 0);
+            srAssertFail("npc", __FILE__, __LINE__, 0);
         }
         ClearNpcScheduledItem(npc, 0x242, 0);
         return;
@@ -196,10 +176,7 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
         }
         return;
     case W8_FACT_ALIGNMENT_TRANG:
-        trigger = FindTriggerByName("ZaHealthDoor");
-        if (trigger == 0) {
-            srAssertFail("pTrigger", NPC_SCRIPTING_FACTS_CPP, 0x640, 0);
-        }
+        trigger = FindRequiredTriggerByName("ZaHealthDoor");
         trigger->Run(-1);
         return;
     case W8_FACT_RFS81_HAS_BEEN_FIXED:
@@ -246,7 +223,7 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
         }
         npc = GetNpcStateByKind(0x29);
         if (npc == 0) {
-            srAssertFail("pNPC", NPC_SCRIPTING_FACTS_CPP, 0x636, 0);
+            srAssertFail("npc", __FILE__, __LINE__, 0);
         }
         MarkNpcOfKind(0x29);
         return;
@@ -666,7 +643,7 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
         }
         npc = GetNpcStateByKind(0x29);
         if (npc == 0) {
-            srAssertFail("pNPC", NPC_SCRIPTING_FACTS_CPP, 0x62c, 0);
+            srAssertFail("npc", __FILE__, __LINE__, 0);
         }
         MarkNpcOfKind(0x29);
         return;
@@ -733,9 +710,8 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
         return;
     case W8_FACT_FUZZFAS_BOOM1:
     case W8_FACT_FUZZFAS_BOOM2:
-        memset(&sound, -1, sizeof(sound));
-        sound.EOSCallback = ClearPotionExplosionSoundFlag;
-        if (SoundPlay("Data\\Sound\\misc\\potion_exploding.wav", &sound) != 0xffffffff) {
+        if (wiz8::sound::play("Data\\Sound\\misc\\potion_exploding.wav",
+                              {.on_finished = ClearPotionExplosionSoundFlag}) != nullptr) {
             SetScriptedSceneActive();
         }
         particle = FindParticleByName(g_world, "FuzzBlast");
@@ -839,11 +815,10 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
         ResetLevelDataVectors();
         group = FindFirstMonsterByID(0xc2);
         if (group != 0) {
-            monster_info = MonsterGetScriptPartByLocationIndex(MonsterGetIndexByLocationID(
-                0x4b4, NPC_SCRIPTING_FACTS_CPP, group->leader_location_id, true));
+            monster_info = FindMonster(group->leader_location_id);
             monster_info->p3D->SetScript("MoveSavantBoffo.msf", true);
         }
-        SoundPlayStreamedFile("Data\\Sound\\Misc\\Earthquake End.wav", 0);
+        wiz8::sound::stream("Data\\Sound\\Misc\\Earthquake End.wav");
         shake = CreateCameraShakeEffect(6.0f, false, 1.0f, 0, 0);
         shake->flags.fade_in = true;
         shake->completion_callback = ReplayEarthquakeShake;
@@ -1064,15 +1039,10 @@ void SetFact(W8FactId fact_id, unsigned char value, bool suppress_side_effects)
     }
 }
 
-/* The whole 1001-byte fact array minus its last entry goes to the save file in
-   one write. Retail passes the handle's own dead stack slot as the
-   bytes-written out-parameter; that is VC6 reusing the slot for this local. */
 // FUNCTION: WIZ8 0x00506480
-void SaveFactState(wiz8::File* save_handle)
+void SaveFactState(wiz8::File& save_handle)
 {
-    unsigned int bytes_written;
-
-    (save_handle->write(g_fact_values, 1000), bytes_written = 1000, true);
+    save_handle.write(g_fact_values, sizeof(g_fact_values));
 }
 
 /* Clears every fact, then seeds the ones a fresh party starts with. A party

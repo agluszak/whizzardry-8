@@ -1,9 +1,9 @@
+#include <vector>
+
 #include "wiz8/spell_ids.h"
 #include "wiz8/level_specific_code/Swamp.h"
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/engine_code/World.h"
-#include <vector>
-#include <algorithm>
 #include "wiz8/cursor.h"
 #include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/GameData.h"
@@ -13,17 +13,23 @@
 #include "wiz8/item_spawning.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
-#include "wiz8/local_code/ItemManager.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/PC_Item.h"
-#include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "surrender/srCamera.h"
+#include "Item.h"
+#include "Navigator.h"
+#include "glm/ext/vector_float3.hpp"
+#include "layouts/item_instance.h"
+#include "layouts/world.h"
+#include "monster_actions.h"
+#include "surrender/srMath.h"
 
-#define SWAMP_CPP "C:\\Projects\\Wizardry 8\\Level Specific Code\\Swamp.cpp"
+struct W8NpcState;
+
 
 // GLOBAL: WIZ8 0x006834e4
 static W8Monster* g_swamp_spawned_monster;
@@ -123,8 +129,7 @@ static bool SwampGasFireSpawn(Trigger* pTrigger)
     group = SpawnMonsters(0x1b5, 1, &position, 0, true, false, false);
     index = group->MemberLocationId(0);
     if (index != 0) {
-        monster_info = MonsterGetScriptPartByLocationIndex(
-            MonsterGetIndexByLocationID(0x8f, SWAMP_CPP, index, true));
+        monster_info = FindMonster(index);
         if (monster_info != 0) {
             g_swamp_spawned_monster = monster_info->p3D;
             monster_info->p3D->m_pRep->instance_scale = 1.0f;
@@ -138,7 +143,7 @@ static bool SwampGasFireSpawn(Trigger* pTrigger)
             g_master_functions.push_back(SwampGasFireItemDrop);
         }
     }
-    npc = FindNpcBindingForMonster(MonsterGetIndexByLocationID(0xa3, SWAMP_CPP, index, true));
+    npc = FindNpcBindingForMonster(FindMonster(index));
     QueueNpcScriptNotice(npc, 0, -1, false, 0);
     return true;
 }

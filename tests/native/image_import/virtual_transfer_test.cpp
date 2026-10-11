@@ -1,18 +1,30 @@
 #include <catch2/catch_test_macros.hpp>
-#include "surrender/srImageIO.h"
-#include "image_helpers.h"
-#include "wiz8/engine_code/stTextureFile.h"
-#include "wiz8/sr_api.h"
-#include "wiz8/slf.h"
-#include "../temporary_directory.h"
+#include <ios>
 #include <wiz8/filesystem.h>
 #include <wiz8/asset_paths.h>
+#include <SDL3/SDL_iostream.h>
+#include <SDL3/SDL_stdinc.h>
 #include <cstdio>
 #include <cstring>
 #include <fstream>
 #include <limits>
 #include <memory>
 #include <vector>
+#include <cstdlib>
+#include <exception>
+#include <filesystem>
+#include <iterator>
+#include <stdexcept>
+#include <string>
+#include <utility>
+
+#include "surrender/srImageIO.h"
+#include "wiz8/engine_code/stTextureFile.h"
+#include "wiz8/sr_api.h"
+#include "wiz8/slf.h"
+#include "../temporary_directory.h"
+#include "surrender/srColorSurface.h"
+#include "surrender/srColorSurfaceIFace.h"
 
 using Bytes = std::vector<unsigned char>;
 namespace fs = std::filesystem;

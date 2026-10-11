@@ -1,7 +1,21 @@
+#include "surrender/srBoundingBox.h"
+#include "wiz8/surface_geometry.h"
+#include <filesystem>
 #include <fmt/format.h>
-#include "wiz8/unicode.h"
-#include "wiz8/utility.h"
 #include <cstdlib>
+#include <algorithm>
+#include <memory>
+#include <limits>
+#include <stdexcept>
+#include <vector>
+#include <cmath>
+#include <cstdint>
+#include <cstdio>
+#include <cstring>
+#include <exception>
+#include <iterator>
+#include <unordered_map>
+#include <utility>
 
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/OctBuildTree.h"
@@ -11,33 +25,20 @@
 #include "wiz8/engine_code/LevelFile.h"
 #include "wiz8/index_algorithms.h"
 #include "wiz8/engine_code/GameTimeAccumulator.h"
-#include "wiz8/engine_code/BitArray.h"
-#include "wiz8/engine_code/game_timer.h"
-#include "wiz8/engine_code/Trigger.hpp"
-#include "wiz8/engine_code/Levels.h"
 #include "wiz8/engine_code/GDCamera.h"
-#include "wiz8/engine_code/Navigator.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/engine_code/GDFileIO.h"
 #include "wiz8/engine_code/materials.h"
-
 #include "wiz8/filesystem.h"
 #include "wiz8/binary_reader.h"
-#include <algorithm>
-#include <array>
-#include <map>
-
-#include <math.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <new>
+#include "wiz8/retail_geometry_records.h"
+#include "wiz8/retail_text_records.h"
 #include "wiz8/engine_code/3d.h"
-#include <memory>
-#include <limits>
-#include <stdexcept>
-#include <vector>
+#include "geometry.h"
+#include "surrender/srMath.h"
+
+class Trigger;
 
 // GLOBAL: WIZ8 0x005ec1a8
 const float g_float_negative_one_third = -0.3333333432674408f;
@@ -115,8 +116,6 @@ struct W8GDFaceHeader { /* 0x1c */
     int version;
 };
 
-W8_ABI_ASSERT(sizeof(W8GDFaceHeader) == 0x1c, "W8GDFaceHeader_must_be_0x1c");
-
 /* The WGD face record's tail: classification flag, slope/value pair, footstep
    selectors, trace chance, and the trigger index the writer overrode. */
 struct W8GDFaceData { /* 0x18 */
@@ -130,16 +129,12 @@ struct W8GDFaceData { /* 0x18 */
     int trigger_index;
 };
 
-W8_ABI_ASSERT(sizeof(W8GDFaceData) == 0x18, "W8GDFaceData_must_be_0x18");
-
 /* The conditional-face record following a non-primary face: the group key the
    interface compiler buckets on and the interface's name. */
 struct W8GDExtendedFace { /* 0x44 */
     int group;
     char name[0x40];
 };
-
-W8_ABI_ASSERT(sizeof(W8GDExtendedFace) == 0x44, "W8GDExtendedFace_must_be_0x44");
 
 namespace {
 struct ConditionalFace { int interface_id, surface, group; };
@@ -357,10 +352,10 @@ void W8GameData::AddTriggerPlane(const srVector3T<float>* trigger_vertices, Trig
 /* Registers a level-file plane's two triangles (vertices 0,1,2 and 2,3,0) as
    a trigger-surface pair under the auto-numbered trigger index. */
 // FUNCTION: WIZ8 0x004485F0
-void W8GameData::AddLevelPlane(W8LevelFilePlane* plane)
+void W8GameData::AddLevelPlane(const W8LevelFilePlane& plane)
 {
     int index;
-    const srVector3T<float>* vertices = plane->vertices;
+    const srVector3T<float>* vertices = plane.vertices;
 
     if (TrigSurfacesCount() >= 500) {
         srAssertFail("(TrigSurfacesCount() < MAX_TRIG_SURFACES)",
@@ -400,8 +395,8 @@ void W8GameData::IntegrateTriggers()
             index < SurfacesCount() ? &m_pSurfaces[index] : &m_pTrigSurfaces[index - SurfacesCount()];
         geometry_index->InsertSurface(surface, 3);
     }
-    pending_trigger_bits = std::make_unique<BitArray>(m_iNumTriggers);
-    active_trigger_bits = std::make_unique<BitArray>(m_iNumTriggers);
+    pending_trigger_bits.assign(m_iNumTriggers, false);
+    active_trigger_bits.assign(m_iNumTriggers, false);
 }
 
 /* The CompileGameData counterpart of IntegrateTriggers: folds the
@@ -509,8 +504,6 @@ struct W8ProcessedGameDataHeader {
     unsigned char reserved[0x24];
 };
 
-W8_ABI_ASSERT(sizeof(W8ProcessedGameDataHeader) == 0x68, "W8ProcessedGameDataHeader_must_be_0x68");
-
 // FUNCTION: WIZ8 0x0041a820
 unsigned char W8EnvironRecord::RescaleToReference(const W8EnvironRecord* reference)
 {
@@ -562,7 +555,7 @@ void W8GameData::ReadProcessedGameData(wiz8::File* handle)
         bytes += static_cast<std::uint64_t>(count) * stride;
     };
     count_bytes(header.vertex_count, sizeof(srVector3T<float>));
-    count_bytes(header.surface_count, sizeof(W8GDSurface));
+    count_bytes(header.surface_count, sizeof(wiz8::retail::GDSurface));
     count_bytes(header.interface_count, sizeof(W8GDInterface));
     count_bytes(header.state_count, sizeof(W8GDInterfaceState));
     count_bytes(header.cond_poly_count, sizeof(int));
@@ -579,7 +572,10 @@ void W8GameData::ReadProcessedGameData(wiz8::File* handle)
     }
 
     auto vertices = reader.array<srVector3T<float>>(header.vertex_count);
-    auto surfaces = reader.array<W8GDSurface>(header.surface_count);
+    std::vector<W8GDSurface> surfaces;
+    surfaces.reserve(header.surface_count);
+    for (const auto& image : reader.array<wiz8::retail::GDSurface>(header.surface_count))
+        wiz8::retail::decode_image(image, surfaces.emplace_back());
     auto interfaces = reader.array<W8GDInterface>(header.interface_count);
     auto states = reader.array<W8GDInterfaceState>(header.state_count);
     auto cond_polys = reader.array<int>(header.cond_poly_count);
@@ -605,8 +601,8 @@ void W8GameData::ReadProcessedGameData(wiz8::File* handle)
                 throw std::runtime_error("invalid processed conditional surface");
         }
     }
-    auto pending_bits = std::make_unique<BitArray>(header.trigger_count);
-    auto active_bits = std::make_unique<BitArray>(header.trigger_count);
+    std::vector<bool> pending_bits(header.trigger_count);
+    std::vector<bool> active_bits(header.trigger_count);
     if (!environs.empty() && environs[0].RescaleToReference(0) != 0) {
         for (std::size_t index = 1; index < environs.size(); ++index) {
             environs[index].RescaleToReference(&environs[0]);
@@ -655,10 +651,7 @@ W8GameData::W8GameData(wiz8::File* handle, bool secondary)
     trigger_surface_count = 0;
     trigger_surface_base = 0;
 
-
     m_iNumTriggers = 0;
-    pending_trigger_bits = 0;
-    active_trigger_bits = 0;
     last_hit_surface = 0;
 
     trace_flag4_gate = false;
@@ -701,7 +694,7 @@ unsigned char InitializeGameData(W8GameData* game_data)
     srVector3T<float> minimum = game_data->minimum;
     srVector3T<float> maximum = game_data->maximum;
     if (game_data->geometry_index == 0) {
-        game_data->geometry_index = std::make_unique<W8OctBuildTree>(2000.0f, &minimum, &maximum, 0x40, 0);
+        game_data->geometry_index = std::make_unique<W8OctBuildTree>(2000.0f, srBoundingBox{minimum.glmValue(), maximum.glmValue()}, 0x40, 0);
     }
 
     for (int index = 0; index < game_data->SurfacesCount(); ++index) {
@@ -718,21 +711,12 @@ unsigned char InitializeGameData(W8GameData* game_data)
 // FUNCTION: WIZ8 0x004498c0
 void ClassifySurfacePlane(const srVector3T<float>* vertices, W8GDSurface* surface)
 {
-    BuildTrianglePlane(&surface->plane, &vertices[surface->vertex_indices[0]],
-                       &vertices[surface->vertex_indices[1]],
-                       &vertices[surface->vertex_indices[2]]);
+    surface->plane = trianglePlane(vertices[surface->vertex_indices[0]].glmValue(),
+        vertices[surface->vertex_indices[1]].glmValue(), vertices[surface->vertex_indices[2]].glmValue());
 
     unsigned int flags = surface->flags;
     if ((flags & W8_GD_SURFACE_CROSSING) != 0) {
-        float largest = g_float_zero;
-        unsigned int dominant_axis = 0;
-        for (int axis = 0; axis < 3; ++axis) {
-            float magnitude = static_cast<float>(fabs((&surface->plane.normal.x)[axis]));
-            if (largest < magnitude) {
-                largest = magnitude;
-                dominant_axis = axis;
-            }
-        }
+        const auto dominant_axis = dominantPlaneAxis(surface->plane.normal.glmValue());
         flags |= dominant_axis;
         surface->flags = flags;
     }
@@ -770,15 +754,6 @@ void ClassifySurfacePlane(const srVector3T<float>* vertices, W8GDSurface* surfac
         surface->slope = upper_value;
     }
     surface->flags = flags & ~W8_GD_SURFACE_COLLISION_PROCESSED;
-}
-
-/* Header-visible SetPlaneFromThreePoints. This TU unrolls the three-point
-   copy; 0x0046D660 lowers the same assignments as a component countdown. */
-// FUNCTION: WIZ8 0x00449a40
-void BuildTrianglePlane(W8Plane* plane, const srVector3T<float>* first,
-                        const srVector3T<float>* second, const srVector3T<float>* third)
-{
-    SetPlaneFromThreePoints(plane, first, second, third);
 }
 
 /* Release level globals; member owners release the runtime banks. */
@@ -859,7 +834,7 @@ void W8GameData::CompileGameData()
         srVector3T<float>* new_vertex = new_vertices;
         W8OctPreTreeVertex* gd_vertex = g_gd_vertices;
         for (i = 0; i < VerticesCount(); ++i) {
-            vertex->position = *source;
+            vertex->position = source->glmValue();
             unsigned int percent =
                 static_cast<unsigned int>(i * g_octree_cell_scale / VerticesCount());
             if (progress + 10 < percent) {
@@ -939,53 +914,19 @@ void W8GameData::CompileGameData()
     auto* new_surfaces = compiled_surfaces.data();
 
     int polygon_count = 0;
-    int old_index;
-    int old_surface_count;
-    for (old_index = 0; old_index < SurfacesCount(); ++old_index) {
-        W8GDSurface* surface = m_pSurfaces.data() + old_index;
-        if (surface->vertex_indices[0] != surface->vertex_indices[1] &&
-            surface->vertex_indices[0] != surface->vertex_indices[2] &&
-            surface->vertex_indices[1] != surface->vertex_indices[2] &&
-            (surface->flags & W8_GD_SURFACE_WALKABLE) != 0) {
-            surface->index = polygon_count;
-            W8GDSurface* compiled = new_surfaces + polygon_count;
-            InitializeCompiledSurface(compiled, surface, polygon_count);
-            for (j = 0; j < 3; ++j) {
-                LinkSurfaceEdge(polygon_count, j, &edge_table, new_surfaces, multiplier,
-                                new_vertices);
-            }
-            for (j = 0; j < CondPolysCount(); ++j) {
-                if (m_piCondPolys[j] == old_index) {
-                    cond_polys[j] = polygon_count;
-                }
-            }
-            ++polygon_count;
-        }
+    const auto order = surfaceGeometry::compilationOrder(m_pSurfaces);
+    for (const auto old_index : order.indices) {
+        auto& surface = m_pSurfaces[old_index];
+        surface.index = polygon_count;
+        if (!(surface.flags & W8_GD_SURFACE_WALKABLE)) surface.slope = 0;
+        InitializeCompiledSurface(new_surfaces + polygon_count, &surface, polygon_count);
+        for (int edge = 0; edge < 3; ++edge)
+            LinkSurfaceEdge(polygon_count, edge, &edge_table, new_surfaces, multiplier, new_vertices);
+        for (int conditional = 0; conditional < CondPolysCount(); ++conditional)
+            if (m_piCondPolys[conditional] == old_index) cond_polys[conditional] = polygon_count;
+        ++polygon_count;
     }
-    old_surface_count = SurfacesCount();
-    const int walkable_count = polygon_count;
-    for (old_index = 0; old_index < old_surface_count; ++old_index) {
-        W8GDSurface* surface = m_pSurfaces.data() + old_index;
-        if (surface->vertex_indices[0] != surface->vertex_indices[1] &&
-            surface->vertex_indices[0] != surface->vertex_indices[2] &&
-            surface->vertex_indices[1] != surface->vertex_indices[2] &&
-            (surface->flags & W8_GD_SURFACE_WALKABLE) == 0) {
-            surface->index = polygon_count;
-            surface->slope = 0;
-            W8GDSurface* compiled = new_surfaces + polygon_count;
-            InitializeCompiledSurface(compiled, surface, polygon_count);
-            for (j = 0; j < 3; ++j) {
-                LinkSurfaceEdge(polygon_count, j, &edge_table, new_surfaces, multiplier,
-                                new_vertices);
-            }
-            for (j = 0; j < CondPolysCount(); ++j) {
-                if (m_piCondPolys[j] == old_index) {
-                    cond_polys[j] = polygon_count;
-                }
-            }
-            ++polygon_count;
-        }
-    }
+    const int walkable_count = order.walkable_count;
     trigger_surface_count = polygon_count - walkable_count;
     trigger_surface_base = walkable_count;
     compiled_surfaces.resize(polygon_count);
@@ -1094,7 +1035,7 @@ unsigned char W8GameData::WriteGameData(wiz8::File* handle)
     handle->write(&header, sizeof(header));
     handle->write(m_pVertices.data(),
                   static_cast<std::size_t>(VerticesCount()) * sizeof(srVector3T<float>));
-    handle->write(m_pSurfaces.data(), static_cast<std::size_t>(SurfacesCount()) * sizeof(W8GDSurface));
+    for (const auto& surface : m_pSurfaces) wiz8::retail::write(*handle, surface);
     handle->write(m_pInterfaces.data(),
                   static_cast<std::size_t>(InterfacesCount()) * sizeof(W8GDInterface));
     handle->write(m_pStates.data(), static_cast<std::size_t>(StatesCount()) * sizeof(W8GDInterfaceState));

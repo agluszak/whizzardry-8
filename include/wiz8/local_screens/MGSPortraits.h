@@ -1,13 +1,15 @@
 #pragma once
 
+#include <utility>
+
 #include "input.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/targeting.h"
 #include "wiz8/local_code/TextControl.h"
-
-#include <cstddef>
+#include "compat/compiler.h"
 
 struct W8Region;
+struct Controls;
 
 extern char s_general_magic_sound[];
 
@@ -20,10 +22,10 @@ extern char s_general_magic_sound[];
 class W8ConditionButton : public W8TextControl {
 public:
     W8ConditionButton(Controls* panel, unsigned int region, int left, int top, int right,
-                      int bottom, int image_object, int image_frame, int normal_sprite,
+                      int bottom, CatalogArtwork artwork, int normal_sprite,
                       int pressed_sprite, int alternate_normal_sprite, int alternate_pressed_sprite,
                       int disabled_sprite, int ui_slot)
-        : W8TextControl(panel, region, left, top, right, bottom, image_object, image_frame,
+        : W8TextControl(panel, region, left, top, right, bottom, std::move(artwork),
                         normal_sprite, pressed_sprite, alternate_normal_sprite,
                         alternate_pressed_sprite, disabled_sprite),
           m_condition(0xff), m_ui_slot(ui_slot)
@@ -43,11 +45,6 @@ public:
     int m_image_object;
     int m_ui_slot; /* party slot the button tracks */
 };
-W8_ABI_ASSERT(sizeof(W8ConditionButton) == 0xc4, "W8ConditionButton_size");
-W8_ABI_ASSERT(offsetof(W8ConditionButton, m_condition) == 0xb8, "W8ConditionButton_condition_b8");
-W8_ABI_ASSERT(offsetof(W8ConditionButton, m_image_object) == 0xbc,
-              "W8ConditionButton_image_object_bc");
-W8_ABI_ASSERT(offsetof(W8ConditionButton, m_ui_slot) == 0xc0, "W8ConditionButton_ui_slot_c0");
 
 void ReleasePortraitControls(void);
 void ReleaseConditionButtons(void);
@@ -85,8 +82,8 @@ void EnableConditionButtons(void);
 
 /* Region callbacks the eight portrait level-up buttons and condition buttons
    share. */
-unsigned char PortraitControlRegionEvent(const InputAtom* event, W8Region* region);
-unsigned char ConditionButtonRegionEvent(const InputAtom* event, W8Region* region);
+unsigned char PortraitControlRegionEvent(const InputEvent* event, W8Region* region);
+unsigned char ConditionButtonRegionEvent(const InputEvent* event, W8Region* region);
 
 /* Main-game portrait overlay helpers used when a party slot refreshes. */
 bool PreparePartyPortraitOverlay(unsigned int party_slot, unsigned int flags, unsigned int top);

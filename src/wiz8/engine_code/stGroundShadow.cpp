@@ -1,3 +1,11 @@
+#include <glm/ext/vector_float3.hpp>
+#include <cstddef>
+#include <algorithm>
+#include <memory>
+#include <span>
+#include <string>
+#include <vector>
+
 #include "wiz8/engine_code/materials.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/stMeshModel.h"
@@ -5,16 +13,23 @@
 #include "wiz8/ground_shadow.h"
 #include "wiz8/layouts/world.h"
 #include "wiz8/local_code/Configuration.h"
-
 #include "surrender/srCore.h"
 #include "surrender/srMaterial.h"
 #include "surrender/srModelInstance.h"
 #include "surrender/srStatisticsManager.h"
 #include "surrender/srTexture.h"
 #include "surrender/srVertexPipe.h"
-
-#include <math.h>
-#include <new>
+#include "compat/compiler.h"
+#include "glm/ext/vector_float2.hpp"
+#include "surrender/srGERD.h"
+#include "surrender/mesh_submission.h"
+#include <optional>
+#include "surrender/srMeshModel.h"
+#include "surrender/srNode.h"
+#include "surrender/srShader.h"
+#include "surrender/srTextureIFace.h"
+#include "surrender/srTypeRegistry.h"
+#include "surrender/srVertexProcessor.h"
 
 /* The SR.DLL registry string is the original runtime class identity. */
 
@@ -30,10 +45,9 @@ static srShader g_ground_shadow_shader;
 
 /* The material mapper installed for ground shadows: process projects each
    indexed vertex's world x/z through a rotated scale matrix into the first
-   texture-coordinate set. transform starts as the 1/width,1/depth scale
-   and is rotated by the shadow's facing each render; center_14/center_18 are
-   the shadow's world z/x origins and polygons carries the selected
-   triangle indices for the active mesh. No source name survives, so the
+   texture-coordinate set. The native projection combines the rotated scale
+   and world z/x center; owned polygons carries every selected triangle
+   index for the active mesh. No source name survives, so the
    mapper keeps a descriptive name anchored at its constructor. */
 // VTABLE: WIZ8 0x005ED3B8
 // class W8GroundShadowMapper
@@ -47,14 +61,10 @@ public:
     }
     virtual void process(srVertexPipe& pipe) override;
 
-    glm::mat2 transform;
-    float center_z;
-    float center_x;
-    srVector3T<float>* vertices;
-    w8_ulong polygons[0x1e];
+    std::optional<GroundShadowProjection> projection;
+    std::span<const glm::vec3> vertices;
+    std::vector<w8_ulong> polygons;
 };
-
-W8_ABI_ASSERT(sizeof(W8GroundShadowMapper) == 0x98, "W8GroundShadowMapper004D6180_must_be_0x98");
 
 // GLOBAL: WIZ8 0x00683430
 static W8GroundShadowMapper g_ground_shadow_material_parameters;
@@ -68,22 +78,12 @@ void W8GroundShadowMapper::process(srVertexPipe& pipe)
     srCore.getStatisticsManager()->statistics.texture_coordinate_operations += pipe.vertex_count;
     pipe.lazy_setup_mask |= 1 << CHANNEL_ST0;
 
-    const w8_ulong* index = pipe.avt + pipe.sub_batch_offset;
-    glm::vec2* output = pipe.vertex_array->st0 + pipe.batch_base + pipe.sub_batch_offset;
-    w8_ulong count = pipe.vertex_count;
-    if (count == 0) {
-        return;
-    }
-    do {
-        const srVector3T<float>* vertex = vertices + *index;
-        float dz = vertex->z - center_z;
-        float dx = vertex->x - center_x;
-        glm::vec2 coordinate;
-        coordinate = glm::vec2(dz * transform[0][0] + dx * transform[1][0] + g_float_half,
-                               dx * transform[0][1] + dz * transform[1][1] + g_float_half);
-        ++index;
-        *output++ = coordinate;
-    } while (--count != 0);
+    if (pipe.vertex_count == 0) return;
+    const std::span<const w8_ulong> indices(pipe.avt + pipe.sub_batch_offset, pipe.vertex_count);
+    const std::span<glm::vec2> output(
+        pipe.vertex_array->st0 + pipe.batch_base + pipe.sub_batch_offset, pipe.vertex_count);
+    for (std::size_t i = 0; i < output.size(); ++i)
+        output[i] = projection->coordinates(vertices[indices[i]]);
 }
 
 // VTABLE: WIZ8 0x005ed3f8
@@ -144,85 +144,47 @@ void stGroundShadow::traverse(TraverseInfo& info)
 void stGroundShadow::process(const ProcessInfo& info, e_processType)
 {
     if (g_settings.monster_shadows != 0) {
-        if (!info.renderer->isPickStackEmpty()) {
-            srGERD::Pick pick;
-            info.renderer->popPick(pick);
-            renderGroundShadow(info.renderer);
-            info.renderer->pushPick(pick);
-            return;
-        }
-        renderGroundShadow(info.renderer);
+        const srMeshSubmission::PickScope picking(*info.renderer, true);
+        renderGroundShadow(*info.renderer);
     }
 }
 
 // FUNCTION: WIZ8 0x004D66A0
-void stGroundShadow::renderGroundShadow(srGERD* renderer)
+void stGroundShadow::renderGroundShadow(srGERD& renderer)
 {
-    srMeshModel::TriMesh mesh;
-    srVector3T<float> position;
-    glm::mat2 rotation;
-    float radius;
-    float cosine;
-    float sine;
-    w8_long saved_offset;
-    w8_ulong* polygons;
-    w8_ulong mesh_index;
-    stMeshModel* model;
-
-    getLocation(position);
+    auto position = glm::vec3(getLocation());
     position.y += g_world_scale;
-    if (depth <= width) {
-        radius = width;
-    } else {
-        radius = depth;
-    }
-    polygons =
-        g_octree->CollectPolygonsNearPoint(&position, radius, radius + radius + g_world_scale);
-    if (*polygons == 0) {
-        return;
-    }
+    const float radius = std::max(width, depth);
+    const auto polygons = g_octree->polygonsNearPoint(position, radius, radius * 2 + g_world_scale);
+    if (polygons.empty()) return;
 
-    saved_offset = renderer->getPolygonOffset();
-    renderer->setPolygonOffset(2);
+    const struct OffsetScope {
+        srGERD& renderer;
+        w8_long previous;
+        ~OffsetScope() { renderer.setPolygonOffset(previous); }
+    } offset{renderer, renderer.getPolygonOffset()};
+    renderer.setPolygonOffset(2);
+    g_ground_shadow_material_parameters.projection.emplace(position, width, depth, angle);
 
-    g_ground_shadow_material_parameters.transform = glm::row(
-        g_ground_shadow_material_parameters.transform, 0, glm::vec2(g_float_half / width, 0));
-    g_ground_shadow_material_parameters.transform = glm::row(
-        g_ground_shadow_material_parameters.transform, 1, glm::vec2(0, g_float_half / depth));
-    cosine = cos(-angle);
-    sine = sin(-angle);
-    rotation = glm::row(rotation, 0, glm::vec2(cosine, -sine));
-    rotation = glm::row(rotation, 1, glm::vec2(sine, cosine));
-    (g_ground_shadow_material_parameters.transform) =
-        g_ground_shadow_material_parameters.transform * rotation;
-    g_ground_shadow_material_parameters.center_z = position.z;
-    g_ground_shadow_material_parameters.center_x = position.x;
-
-    while (*polygons != 0) {
-        mesh_index = *polygons >> 0x10;
-        model = static_cast<stMeshModel*>(g_world->psrMeshes[mesh_index]->getModel());
-        model->getTriMesh(mesh);
-        /* Only the collected polygons (up to 30 per mesh) receive the shadow:
-           the selection list is the TriMesh's active-polygon list. */
-        mesh.active_polygons = g_ground_shadow_material_parameters.polygons;
-        mesh.active_polygon_count = 0;
-        while (*polygons != 0 && (*polygons >> 0x10) == mesh_index) {
-            if (mesh.active_polygon_count < 0x1e) {
-                mesh.active_polygons[mesh.active_polygon_count] = *polygons & 0xffff;
-                ++mesh.active_polygon_count;
-            }
-            ++polygons;
-        }
+    for (std::size_t first = 0; first < polygons.size();) {
+        const auto mesh_index = polygons[first] >> 16;
+        auto& model = *static_cast<stMeshModel*>(g_world->psrMeshes[mesh_index]->getModel());
+        auto mesh = model.getTriMesh();
+        auto& selected = g_ground_shadow_material_parameters.polygons;
+        selected.clear();
+        do {
+            selected.push_back(polygons[first++] & 0xffff);
+        } while (first < polygons.size() && (polygons[first] >> 16) == mesh_index);
+        mesh.active_polygons = std::span<const w8_ulong>(selected);
         mesh.materials[0][0] = g_ground_shadow_material;
-        mesh.poly_textures[0][0] = 0;
+        mesh.poly_textures[0][0] = nullptr;
         mesh.textures[0][0] = g_ground_shadow_texture;
-        mesh.vertex_materials[0][0] = 0;
-        mesh.poly_shaders[0] = 0;
+        mesh.vertex_materials[0][0] = nullptr;
+        mesh.poly_shaders[0] = nullptr;
         mesh.shaders[0] = g_ground_shadow_shader;
-        mesh.poly_uv[0] = 0;
-        g_ground_shadow_material_parameters.vertices = model->getVertexLoc();
-        model->RenderTriMeshWithEquations(*renderer, mesh, 0);
+        mesh.poly_uv[0] = nullptr;
+        g_ground_shadow_material_parameters.vertices = {model.getVertexLoc(),
+            static_cast<std::size_t>(mesh.vertex_count)};
+        model.RenderTriMeshWithEquations(renderer, mesh, {});
     }
-    renderer->setPolygonOffset(saved_offset);
 }
-

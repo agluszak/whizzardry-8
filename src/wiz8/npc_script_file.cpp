@@ -1,7 +1,20 @@
 #include "wiz8/npc_script_file.h"
-#include "wiz8/unicode.h"
+
 #include <algorithm>
+#include <cstdint>
 #include <memory>
+#include <optional>
+#include <cstddef>
+#include <exception>
+#include <iterator>
+#include <span>
+#include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
+
+#include "wiz8/unicode.h"
+#include "filesystem.h"
 
 /* Original translation-unit ownership is unknown; surrounding anchors do not resolve it. */
 // FUNCTION: WIZ8 0x0055a0a0
@@ -18,7 +31,7 @@ static std::string ReadNarrowText(wiz8::File& file)
 }
 
 // FUNCTION: WIZ8 0x0055a140
-unsigned char ReadNpcScriptQuote(wiz8::File* file, W8NpcScriptQuote* output)
+std::optional<W8NpcScriptQuote> ReadNpcScriptQuote(wiz8::File* file)
 try
 {
     wiz8::retail::nsf::Quote disk;
@@ -38,7 +51,9 @@ try
             quote.subquotes.push_back(wiz8::text::from_utf16le(bytes));
         }
     }
-    if (quote.entry_count > (file->size() - file->tell()) / sizeof(wiz8::retail::nsf::Entry)) return false;
+    if (quote.entry_count >
+        (file->size() - file->tell()) / sizeof(wiz8::retail::nsf::Entry))
+        return std::nullopt;
     quote.entries.reserve(quote.entry_count);
     for (unsigned i = 0; i < quote.entry_count; ++i) {
         wiz8::retail::nsf::Entry stored;
@@ -49,7 +64,9 @@ try
         entry.operand1 = stored.operand1;
         entry.operand2 = stored.operand2;
         entry.sub_entry_count = stored.sub_entry_count;
-        if (entry.sub_entry_count > (file->size() - file->tell()) / sizeof(wiz8::retail::nsf::SubEntry)) return false;
+        if (entry.sub_entry_count >
+            (file->size() - file->tell()) / sizeof(wiz8::retail::nsf::SubEntry))
+            return std::nullopt;
         entry.sub_entries.reserve(entry.sub_entry_count);
         for (unsigned j = 0; j < entry.sub_entry_count; ++j) {
             wiz8::retail::nsf::SubEntry part;
@@ -61,10 +78,9 @@ try
         }
         quote.entries.push_back(std::move(entry));
     }
-    *output = std::move(quote);
-    return true;
+    return quote;
 }
-catch (const std::exception&) { return false; }
+catch (const std::exception&) { return std::nullopt; }
 
 // FUNCTION: WIZ8 0x0055a480
 W8NpcScriptFile* LoadNpcScriptFile(std::string_view path)
@@ -78,9 +94,11 @@ try
     script->quote_count = disk.quote_count;
     if (disk.name) script->name = ReadNarrowText(*file);
     if (script->quote_count > (file->size() - file->tell()) / sizeof(wiz8::retail::nsf::Quote)) return nullptr;
-    script->quotes.resize(script->quote_count);
-    for (auto& quote : script->quotes) {
-        if (!ReadNpcScriptQuote(file.get(), &quote)) return nullptr;
+    script->quotes.reserve(script->quote_count);
+    for (unsigned int i = 0; i < script->quote_count; ++i) {
+        auto quote = ReadNpcScriptQuote(file.get());
+        if (!quote) return nullptr;
+        script->quotes.push_back(std::move(*quote));
     }
     return script.release();
 }

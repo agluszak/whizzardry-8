@@ -1,5 +1,7 @@
 #pragma once
 
+#include "glm/ext/vector_int3.hpp"
+
 #include "surrender/srMath.h"
 
 class W8Monster;
@@ -21,7 +23,7 @@ struct W8WorldCursorState {
     /* 0x0c: accumulated cursor input - screen dx, right-drag dy and screen
        dy - scaled by g_float_ten into the movement vector each update,
        then cleared. The group-bind paths also bump .z. */
-    srVector3i input_delta;
+    glm::ivec3 input_delta;
     /* 0x18: camera-relative offset the placement update derives from
        position. */
     srVector3T<float> cam_rel_offset;
@@ -81,8 +83,6 @@ struct W8WorldCursorState {
        it to the cursor position and releases it when shift lifts. */
     W8MonsterInfo* dragged_info;
 };
-
-W8_ABI_ASSERT(sizeof(W8WorldCursorState) == 0xe0, "W8WorldCursorState_size");
 
 /* 0x65ba8c: authored name gp3DCursor - the cursor update asserts it. */
 extern W8WorldCursorState* gp3DCursor;

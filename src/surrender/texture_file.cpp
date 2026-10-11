@@ -1,10 +1,14 @@
-#include "surrender/srTextureFile.h"
-
+#include "surrender/stream_scope.h"
 #include <ostream>
 #include <utility>
+#include <memory>
+#include <string>
 
-#include "surrender/srCore.h"
+#include "surrender/srTextureFile.h"
 #include "surrender/srImageIO.h"
+#include "compat/compiler.h"
+#include "surrender/srColorSurfaceIFace.h"
+#include "surrender/srTexture.h"
 
 // FUNCTION: SURRENDER 0x1005F8E0
 srTextureFile::srTextureFile(std::string file_name, int cached)
@@ -126,25 +130,12 @@ void srTextureFile::setupDefaultValues()
 }
 
 // FUNCTION: SURRENDER 0x1005FCB0
-void srTextureFile::getMipmapData(MultiRequest& request)
+void srTextureFile::getMipmapData(const MultiRequest& request)
 {
-    if (surface == 0) {
-        loadSurface();
-    }
-    if (surface != 0 && request.destinations[request.mipmap_level] != 0) {
-        request.destinations[request.mipmap_level]->copy(*surface);
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wsign-compare"
-        for (w8_long level = request.mipmap_level + 1; level <= request.last_level; ++level) {
-            if (request.destinations[level] != 0 && request.destinations[level - 1] != 0) {
-                request.destinations[level]->copy(*request.destinations[level - 1]);
-            }
-        }
-#pragma clang diagnostic pop
-        if ((cached & 1) == 0) {
-            releaseSurface();
-        }
-    }
+    if (!surface) loadSurface();
+    if (!surface || request.destinations.empty() || !request.destinations.front()) return;
+    copyMipmapChain(*surface, request);
+    if ((cached & 1) == 0) releaseSurface();
 }
 
 // FUNCTION: SURRENDER 0x1005FD30
@@ -154,13 +145,11 @@ void srTextureFile::getMipmapLevelPartial(PartialRequest& request) {}
 void srTextureFile::dump(std::ostream& stream)
 {
     srTexture::dump(stream);
-    std::ios::fmtflags flags = stream.flags();
-    stream.setf(std::ios::left, std::ios::adjustfield);
+    const srDumpStreamScope formatting(stream);
     stream.width(0x20);
     stream << "  Filename: " << file_name << '\n';
     stream.width(0x20);
     stream << "  Caching enabled: " << ((cached & 1) != 0 ? "yes\n" : "no\n");
     stream.width(0x20);
     stream << "  Cached: " << (surface != 0 ? "yes\n" : "no\n");
-    stream.flags(static_cast<std::ios::fmtflags>(flags & 0x7fff));
 }

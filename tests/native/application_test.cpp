@@ -1,16 +1,19 @@
 #include <catch2/catch_test_macros.hpp>
+#include <SDL3/SDL_init.h>
+#include <SDL3/SDL_stdinc.h>
+#include <array>
+#include <filesystem>
+#include <stdexcept>
+#include <span>
+#include <string>
+#include <string_view>
+
 #include "wiz8/application.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/asset_paths.h"
 #include "temporary_directory.h"
-#include "Button System.h"
-#include <SDL3/SDL.h>
-#include <algorithm>
-#include <array>
-#include <cstdio>
-#include <cstdlib>
-#include <filesystem>
-#include <stdexcept>
+#include "scoped_asset_roots.h"
+#include "wiz8/regions.h"
 
 
 static void CheckStopped()
@@ -18,18 +21,16 @@ static void CheckStopped()
     REQUIRE(SDL_WasInit(0) == 0);
     REQUIRE((!gfProgramIsRunning && !gfGameInitialized && !gfApplicationActive));
     REQUIRE(ghWindow == nullptr);
-    REQUIRE(std::all_of(ButtonList.begin(), ButtonList.end(), [](const auto& button) {
-        return !button;
-    }));
+    REQUIRE(LiveDynamicRegionCount() == 0);
 }
 
 TEST_CASE("application_test")
 {
-    const auto temporary = make_temporary_directory("wiz8-application");
+    ScopedTemporaryDirectory directory{"wiz8-application"};
     auto roots = w8_native::path_roots();
-    roots.assets = temporary + "/missing-assets";
-    roots.user = temporary;
-    w8_native::configure_paths(roots);
+    roots.assets = (directory.path / "missing-assets").string();
+    roots.user = directory.path.string();
+    ScopedAssetRoots scoped_roots{roots};
 
     for (const auto option : {"/VIDEOCFG", "/STRINGDATA", "/VIDEOCFG="}) {
         const std::array<std::string_view, 1> arguments{option};
@@ -79,7 +80,6 @@ TEST_CASE("application_test")
     }
     REQUIRE((reported && gfIgnoreMessages));
     CheckStopped();
-    std::filesystem::remove_all(temporary);
 
 
 }

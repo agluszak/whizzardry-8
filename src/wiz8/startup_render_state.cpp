@@ -1,12 +1,14 @@
-#include "wiz8/engine_code/Environment.h"
-#include "wiz8/engine_code/Prop.h"
-#include "wiz8/engine_code/stLight.hpp"
-#include "wiz8/engine_code/stTextureAnim.h"
-#include "wiz8/engine_code/Video2.h"
-#include "wiz8/sr_api.h"
+#include <cstdint>
+#include <memory>
+#include <vector>
 
-#include <stdlib.h>
-#include <string.h>
+#include "wiz8/engine_code/Environment.h"
+#include "compat/native.h"
+#include "environment_colour.h"
+#include "surrender/srMath.h"
+
+class W8Prop;
+class stTextureAnim;
 
 // GLOBAL: WIZ8 0x0065a154
 uint64_t g_frame_tick;

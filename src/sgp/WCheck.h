@@ -5,7 +5,7 @@
 
 #define CHECKF(exp)                                                                                \
     if (!(exp)) {                                                                                  \
-        return (FALSE);                                                                            \
+        return (false);                                                                            \
     }
 #define CHECKV(exp)                                                                                \
     if (!(exp)) {                                                                                  \
@@ -23,7 +23,7 @@
 #define CHECKASSERTF(exp)                                                                          \
     if (!(exp)) {                                                                                  \
         ASSERT(0);                                                                                 \
-        return (FALSE);                                                                            \
+        return (false);                                                                            \
     }
 #define CHECKASSERTV(exp)                                                                          \
     if (!(exp)) {                                                                                  \

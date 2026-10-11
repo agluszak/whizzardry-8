@@ -1,12 +1,15 @@
 #include <catch2/catch_test_macros.hpp>
-#include "wiz8/file_time.h"
-
+#include <catch2/generators/catch_generators.hpp>
 #include <SDL3/SDL_init.h>
-#include <cstdio>
-#include <cstdlib>
+#include <SDL3/SDL_stdinc.h>
 #include <limits>
 #include <random>
-#include <stdexcept>
+#include <cstdint>
+#include <exception>
+#include <optional>
+
+#include "wiz8/file_time.h"
+#include "catch2/catch_message.hpp"
 
 
 using namespace wiz8;
@@ -42,12 +45,6 @@ TEST_CASE("file_time_test")
     rejects([] { file_time_from_utc({2020, 257, 1, 0, 0, 0, 0, 0}); });
     rejects([] { file_time_from_utc({2020, 1, 257, 0, 0, 0, 0, 0}); });
     rejects([] { file_time_from_utc({60056, 12, 31, 23, 59, 59, 0, 0}); });
-    std::mt19937_64 random(8);
-    for (unsigned i = 0; i < 50000; ++i)
-    {
-        const auto ticks = random();
-        REQUIRE(file_time_from_utc(file_time_to_utc(DiskFileTime::from_ticks(ticks))).ticks() == ticks);
-    }
     const auto sdl_max = std::numeric_limits<SDL_Time>::max();
     const auto sdl_min = std::numeric_limits<SDL_Time>::min();
     REQUIRE(*file_time_to_sdl(file_time_from_sdl(sdl_max)) == sdl_max / 100 * 100);
@@ -61,4 +58,29 @@ TEST_CASE("file_time_test")
     REQUIRE((local.year >= 2025 && local.month >= 1 && local.month <= 12));
     REQUIRE(current_utc_offset_seconds() == local.utc_offset);
     SDL_Quit();
+}
+
+TEST_CASE("FILETIME representative 100ns ticks round-trip", "[time][serialization]")
+{
+    const std::uint64_t ticks = GENERATE(
+        std::uint64_t{0},
+        std::uint64_t{1},
+        std::uint64_t{116444736000000000ULL},
+        std::uint64_t{125962560000000001ULL},
+        std::uint64_t{2650467743999999999ULL},
+        std::numeric_limits<std::uint64_t>::max());
+    CAPTURE(ticks);
+    const auto original = DiskFileTime::from_ticks(ticks);
+    CHECK(file_time_from_utc(file_time_to_utc(original)).ticks() == ticks);
+}
+
+TEST_CASE("FILETIME seeded random round-trip", "[time][serialization]")
+{
+    std::mt19937_64 random(8);
+    for (unsigned i = 0; i < 50000; ++i)
+    {
+        const auto ticks = random();
+        REQUIRE(file_time_from_utc(file_time_to_utc(DiskFileTime::from_ticks(ticks))).ticks() == ticks);
+    }
+
 }

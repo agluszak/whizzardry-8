@@ -1,76 +1,54 @@
-#include "wiz8/dialog_code/DialogButton.h"
+#include <SDL3/SDL_rect.h>
+#include <algorithm>
+
+#include "wiz8/dialog_code/ButtonAppearance.h"
+#include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/dialog_code/DialogScrollBar.h"
-#include "wiz8/dialog_code/ButtonUserData.h"
-#include "wiz8/cursor.h"
-#include "wiz8/utility.h"
+#include "wiz8/regions.h"
+#include "Video2.h"
+#include "local_code/ControlsRect.h"
 
 /* Reconstructed logical owner; original translation-unit identity is unproven.
    Live query: 0x005E0C40 sits in the gap after StatInfoDialogs.cpp (upper
    0x005E0180) and before 3D Code\PList.cpp (lower 0x005E22C0). It is not
    stListBox.cpp. */
 
-/* The owning dialog performs DestroyControls separately. Its member teardown
-   (0x005DBCC4, also 0x005D5F00's teardown) calls the shared ret at 0x004023A0
-   with the scrollbar receiver; the scrollbar destructor itself is empty. */
-W8DialogScrollBar::~W8DialogScrollBar() {}
-
-// FUNCTION: WIZ8 0x005e0e00
-void W8DialogScrollBar::DestroyControls()
-{
-    ReleaseDialogButtonHandle(m_up_button);
-    ReleaseDialogButtonImage(m_up_image);
-    ReleaseDialogButtonHandle(m_down_button);
-    ReleaseDialogButtonImage(m_down_image);
-    ReleaseDialogButtonHandle(m_thumb_button);
-    ReleaseDialogButtonImage(m_thumb_image);
-    ReleaseDialogButtonHandle(m_track_button);
-    ReleaseDialogButtonImage(m_track_image);
-    m_on_scroll = 0;
-    m_initialized = false;
-}
-
 // FUNCTION: WIZ8 0x005e0ca0
 bool W8DialogScrollBar::CreateControls(const Resources* resources)
 {
-    m_up_image = LoadButtonImage(resources->arrows_path, 3, 0, 1, 2, 2);
-    if (m_up_image != -1) {
-        m_up_button =
-            QuickCreateButton(m_up_image, 0, 0, BUTTON_NO_TOGGLE, MSYS_PRIORITY_HIGHEST - 1,
-                              UpButtonCallback, UpButtonCallback);
+    if (m_initialized) return true;
+    const bool configured =
+        // FUNCTION: WIZ8 0x005e1280
+        m_up_button.Configure(resources->arrows_path, 3, 0, 1, 2, 2,
+                              [this](W8ButtonWidget*) { ScrollUp(); }, nullptr, false,
+                              REGION_PRIORITY_HIGHEST - 1, W8_DIALOG_BUTTON_NO_TOOLTIP, nullptr, nullptr) &&
+        // FUNCTION: WIZ8 0x005e1320
+        m_down_button.Configure(resources->arrows_path, 11, 8, 9, 10, 10,
+                                [this](W8ButtonWidget*) { ScrollDown(); }, nullptr, false,
+                                REGION_PRIORITY_HIGHEST - 1, W8_DIALOG_BUTTON_NO_TOOLTIP, nullptr, nullptr) &&
+        m_thumb_button.Configure(resources->arrows_path, 7, 4, 5, 6, 6, nullptr, nullptr, false,
+                                 REGION_PRIORITY_HIGHEST - 2, W8_DIALOG_BUTTON_NO_TOOLTIP, nullptr, nullptr) &&
+        // FUNCTION: WIZ8 0x005e13d0
+        m_track_button.Configure(resources->track_path, BUTTON_NO_IMAGE, resources->track_frame,
+                                 BUTTON_NO_IMAGE, resources->track_frame, BUTTON_NO_IMAGE,
+                                 [this](W8ButtonWidget* button) { ScrollToMouse(button->GetMousePosition().y); },
+                                 nullptr, false, REGION_PRIORITY_HIGHEST - 2,
+                                 W8_DIALOG_BUTTON_NO_TOOLTIP, nullptr, nullptr);
+    if (!configured) {
+        m_up_button.Reset();
+        m_down_button.Reset();
+        m_thumb_button.Reset();
+        m_track_button.Reset();
+        return false;
     }
-    m_down_image = LoadButtonImage(resources->arrows_path, 11, 8, 9, 10, 10);
-    if (m_down_image != -1) {
-        m_down_button =
-            QuickCreateButton(m_down_image, 0, 0, BUTTON_NO_TOGGLE, MSYS_PRIORITY_HIGHEST - 1,
-                              DownButtonCallback, DownButtonCallback);
-    }
-    m_thumb_image = LoadButtonImage(resources->arrows_path, 7, 4, 5, 6, 6);
-    if (m_thumb_image != -1) {
-        m_thumb_button =
-            QuickCreateButton(m_thumb_image, 0, 0, BUTTON_NO_TOGGLE, MSYS_PRIORITY_HIGHEST - 2,
-                              BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
-    }
-    m_track_image = LoadButtonImage(resources->track_path, BUTTON_NO_IMAGE,
-                                    resources->track_frame, BUTTON_NO_IMAGE, resources->track_frame,
-                                    BUTTON_NO_IMAGE);
-    if (m_track_image != -1) {
-        m_track_button =
-            QuickCreateButton(m_track_image, 0, 0, BUTTON_NO_TOGGLE, MSYS_PRIORITY_HIGHEST - 2,
-                              TrackButtonCallback, TrackButtonCallback);
-    }
-    if (m_track_button != -1 && m_thumb_button != -1 && m_down_button != -1 && m_up_button != -1) {
-        SetButtonUserDataPointer(m_up_button, this);
-        SetButtonUserDataPointer(m_down_button, this);
-        SetButtonUserDataPointer(m_thumb_button, this);
-        SetButtonUserDataPointer(m_track_button, this);
-        m_on_scroll = resources->on_scroll;
-        m_initialized = true;
-        m_visible = false;
-        m_dirty = true;
-        return true;
-    }
-    DestroyControls();
-    return false;
+    m_up_button.m_activation = m_down_button.m_activation = m_track_button.m_activation =
+        DialogButtonActivation::Press;
+    m_up_button.m_repeat_enabled = m_down_button.m_repeat_enabled = m_track_button.m_repeat_enabled = true;
+    m_on_scroll = resources->on_scroll;
+    m_initialized = true;
+    m_visible = false;
+    m_dirty = true;
+    return true;
 }
 
 // FUNCTION: WIZ8 0x005e0eb0
@@ -78,35 +56,28 @@ void W8DialogScrollBar::SetLayout(int x, int y, int entry_count, int first_visib
                                   int entry_height, int view_height)
 {
     if (m_initialized) {
-        int track_width = GetButtonWidth(m_track_button);
-        int arrow_width = GetButtonWidth(m_up_button);
-        SetButtonPosition(m_track_button, static_cast<short>(x), static_cast<short>(y));
+        int track_width = m_track_button.GetWidth();
+        int arrow_width = m_up_button.GetWidth();
+        m_track_button.SetPosition( static_cast<short>(x), static_cast<short>(y));
         int arrow_x = x + (track_width - arrow_width) / 2;
-        SetButtonPosition(m_up_button, static_cast<short>(arrow_x), static_cast<short>(y));
-        SetButtonPosition(m_down_button, static_cast<short>(arrow_x),
-                          static_cast<short>(y - GetButtonHeight(m_down_button) +
-                                             GetButtonHeight(m_track_button)));
+        m_up_button.SetPosition( static_cast<short>(arrow_x), static_cast<short>(y));
+        m_down_button.SetPosition( static_cast<short>(arrow_x),
+                          static_cast<short>(y - m_down_button.GetHeight() +
+                                             m_track_button.GetHeight()));
         m_track_bounds.left = x;
-        m_track_bounds.top = y + GetButtonHeight(m_up_button);
-        m_track_bounds.right = x + GetButtonWidth(m_track_button);
+        m_track_bounds.top = y + m_up_button.GetHeight();
+        m_track_bounds.right = x + m_track_button.GetWidth();
         m_track_bounds.bottom =
-            y - GetButtonHeight(m_down_button) + GetButtonHeight(m_track_button);
+            y - m_down_button.GetHeight() + m_track_button.GetHeight();
         m_entry_count = entry_count;
         m_first_visible_entry = first_visible_entry;
         m_entry_height = entry_height;
         m_view_height = view_height;
         UpdateThumb();
-        if (m_entry_count <= m_view_height / m_entry_height) {
-            GUI_BUTTON* button = GetButtonPtr(m_up_button);
-            if (button && (button->uiFlags & BUTTON_ENABLED)) {
-                button->uiFlags &= ~BUTTON_ENABLED;
-            }
-            button = GetButtonPtr(m_down_button);
-            if (button && (button->uiFlags & BUTTON_ENABLED)) {
-                button->uiFlags &= ~BUTTON_ENABLED;
-            }
-            HideButton(m_thumb_button);
-        }
+        const bool scrollable = m_entry_count > m_view_height / m_entry_height;
+        m_up_button.SetEnabled(scrollable);
+        m_down_button.SetEnabled(scrollable);
+        m_thumb_button.SetVisible(scrollable);
         m_visible = true;
         m_dirty = true;
     }
@@ -117,15 +88,15 @@ void W8DialogScrollBar::UpdateThumb()
 {
     if (m_initialized && m_entry_count != -1 && m_first_visible_entry != -1) {
         int x = m_track_bounds.left +
-                (m_track_bounds.right - m_track_bounds.left - GetButtonWidth(m_thumb_button)) / 2;
+                (m_track_bounds.right - m_track_bounds.left - m_thumb_button.GetWidth()) / 2;
         int offset = 0;
         if (m_entry_count > m_view_height / m_entry_height) {
             offset =
-                ((m_track_bounds.bottom - m_track_bounds.top - GetButtonHeight(m_thumb_button)) *
+                ((m_track_bounds.bottom - m_track_bounds.top - m_thumb_button.GetHeight()) *
                  m_first_visible_entry) /
                 (m_entry_count - m_view_height / m_entry_height);
         }
-        SetButtonPosition(m_thumb_button, static_cast<short>(x),
+        m_thumb_button.SetPosition( static_cast<short>(x),
                           static_cast<short>(m_track_bounds.top + offset));
         m_dirty = true;
     }
@@ -134,14 +105,19 @@ void W8DialogScrollBar::UpdateThumb()
 // FUNCTION: WIZ8 0x005e10b0
 void W8DialogScrollBar::Draw(bool force)
 {
-    if (m_initialized && m_visible && (force || m_dirty)) {
-        DrawButton(m_track_button);
-        DrawButton(m_up_button);
-        DrawButton(m_down_button);
-        DrawButton(m_thumb_button);
-        InvalidateRegion(GetButtonX(m_track_button), GetButtonY(m_track_button),
-                         GetButtonX(m_track_button) + GetButtonWidth(m_track_button),
-                         GetButtonY(m_track_button) + GetButtonHeight(m_track_button), 0);
+    if (m_initialized && m_visible && (force || m_dirty || m_up_button.m_dirty || m_down_button.m_dirty ||
+        m_track_button.m_dirty || m_thumb_button.m_dirty)) {
+        m_track_button.m_dirty = true;
+        m_track_button.Draw();
+        m_up_button.m_dirty = true;
+        m_up_button.Draw();
+        m_down_button.m_dirty = true;
+        m_down_button.Draw();
+        m_thumb_button.m_dirty = true;
+        m_thumb_button.Draw();
+        InvalidateRegion(m_track_button.GetX(), m_track_button.GetY(),
+                         m_track_button.GetX() + m_track_button.GetWidth(),
+                         m_track_button.GetY() + m_track_button.GetHeight(), 0);
         m_dirty = false;
     }
 }
@@ -186,61 +162,19 @@ void W8DialogScrollBar::ScrollDown()
 }
 
 // FUNCTION: WIZ8 0x005e11e0
-void W8DialogScrollBar::ScrollToMouse()
+void W8DialogScrollBar::ScrollToMouse(int mouse_y)
 {
     if (m_view_height / m_entry_height < m_entry_count && m_entry_count != -1 &&
         m_first_visible_entry != -1) {
-        SDL_Point mouse;
-        SGPMouseGetPos(&mouse);
-        if (mouse.y < m_track_bounds.top)
-            mouse.y = m_track_bounds.top;
-        if (mouse.y > m_track_bounds.bottom)
-            mouse.y = m_track_bounds.bottom;
         int top = m_track_bounds.top;
-        int range = m_track_bounds.bottom - top - GetButtonHeight(m_thumb_button);
-        m_first_visible_entry =
-            (m_entry_count - m_view_height / m_entry_height) * (mouse.y - top) / range;
+        int range = m_track_bounds.bottom - top - m_thumb_button.GetHeight();
+        if (range <= 0) return;
+        const int last_entry = m_entry_count - m_view_height / m_entry_height;
+        m_first_visible_entry = last_entry * std::clamp(mouse_y - top, 0, range) / range;
         if (m_on_scroll) {
             m_on_scroll(this, m_first_visible_entry);
         }
         UpdateThumb();
-    }
-}
-
-// FUNCTION: WIZ8 0x005e1280
-void W8DialogScrollBar::UpButtonCallback(GUI_BUTTON* button, INT32 reason)
-{
-    W8DialogScrollBar* bar = GetButtonUserDataPointer<W8DialogScrollBar>(button);
-    if (bar) {
-        if (reason & MSYS_CALLBACK_REASON_LBUTTON_DWN) {
-            bar->ScrollUp();
-        }
-        if (UpdateDialogArrowState(button, reason)) {
-            bar->m_dirty = true;
-        }
-    }
-}
-
-// FUNCTION: WIZ8 0x005e1320
-void W8DialogScrollBar::DownButtonCallback(GUI_BUTTON* button, INT32 reason)
-{
-    W8DialogScrollBar* bar = GetButtonUserDataPointer<W8DialogScrollBar>(button);
-    if (bar) {
-        if (reason & MSYS_CALLBACK_REASON_LBUTTON_DWN) {
-            bar->ScrollDown();
-        }
-        if (UpdateDialogArrowState(button, reason)) {
-            bar->m_dirty = true;
-        }
-    }
-}
-
-// FUNCTION: WIZ8 0x005e13d0
-void W8DialogScrollBar::TrackButtonCallback(GUI_BUTTON* button, INT32 reason)
-{
-    W8DialogScrollBar* bar = GetButtonUserDataPointer<W8DialogScrollBar>(button);
-    if (bar && (reason & MSYS_CALLBACK_REASON_LBUTTON_DWN)) {
-        bar->ScrollToMouse();
     }
 }
 
@@ -259,13 +193,5 @@ W8DialogScrollBar::W8DialogScrollBar()
     m_track_bounds.top = 0;
     m_track_bounds.right = 0;
     m_track_bounds.bottom = 0;
-    m_up_image = -1;
-    m_up_button = -1;
-    m_down_image = -1;
-    m_down_button = -1;
-    m_thumb_image = -1;
-    m_thumb_button = -1;
-    m_track_image = -1;
-    m_track_button = -1;
     m_on_scroll = 0;
 }

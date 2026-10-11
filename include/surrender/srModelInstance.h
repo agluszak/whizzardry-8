@@ -1,6 +1,9 @@
 #pragma once
 
+#include "model_view_scope.h"
+
 #include "srModel.h"
+#include "glm/ext/vector_float3.hpp"
 #include "srNode.h"
 
 #include <math.h>
@@ -13,7 +16,7 @@
 class srModelInstance : public srClassSupport<srModelInstance, srNode, 0x1100> {
 public:
     SR_DLL_IMPORT virtual ~srModelInstance() override;
-    SR_DLL_IMPORT srModelInstance(srNode* parent = 0);
+    SR_DLL_IMPORT srModelInstance(srNode* parent = nullptr, Ownership ownership = Ownership::parent);
 
     SR_DLL_IMPORT srModelInstance& operator=(const srModelInstance& other);
 
@@ -26,7 +29,7 @@ public:
     SR_DLL_IMPORT virtual void dump(std::ostream& stream) override;
     SR_DLL_IMPORT virtual void traverse(TraverseInfo& info) override;
     SR_DLL_IMPORT virtual void process(const ProcessInfo& info, e_processType type) override;
-    SR_DLL_IMPORT virtual void getLocalBounds(BoundInfo& bounds) override;
+    SR_DLL_IMPORT virtual BoundInfo getLocalBounds() override;
 
     // The instance shares ownership of its model; renderers borrow it.
     srModel* getModel() const
@@ -39,23 +42,39 @@ public:
     }
 
     double getAlignAngle() const;
-    srVector3T<float> getAlignAxis() const;
+    glm::vec3 getAlignAxis() const;
     w8_ulong getExclusionMask() const;
     int isAligned() const;
     void setAlignAngle(double angle);
-    void setAlignAxis(srVector3T<float> axis);
+    void setAlignAxis(const glm::vec3& axis);
     void setAlignment(int enabled);
     void setExclusionMask(w8_ulong mask);
 
     srFlags<int> alignment_flags;
 
 protected:
+    class RenderScope {
+    public:
+        ~RenderScope();
+        RenderScope(const RenderScope&) = delete;
+        RenderScope& operator=(const RenderScope&) = delete;
+    private:
+        friend class srModelInstance;
+        RenderScope(const srModelInstance& instance, srGERD& renderer, bool apply_exclusion);
+        srGERD& renderer;
+        srModelViewScope transform;
+        w8_ulong previous_mask = 0;
+        bool restore_mask = false;
+    };
+    RenderScope scopedRender(srGERD& renderer, bool apply_exclusion = true) const;
 
-    srVector3T<float> align_axis;
+    // Push the transform used by both ordinary and screen-facing model draws.
+    srModelViewScope scopedRenderTransform(srGERD& renderer) const;
+
+    glm::vec3 align_axis;
     float align_angle;
     w8_ulong exclusion_mask;
 
 private:
     std::shared_ptr<srModel> model_;
 };
-

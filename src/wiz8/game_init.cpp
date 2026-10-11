@@ -1,19 +1,19 @@
-#include "wiz8/unicode.h"
+#include <cstring>
+#include <optional>
+#include <string>
+#include <vector>
+
 #include "wiz8/version.h"
 #include "wiz8/music_playlist.h"
 #include "wiz8/cursor.h"
 #include "wiz8/local_code/LoadSaveGame.h"
 #include "wiz8/local_code/PC_Item.h"
-#include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/Spells.h"
 #include "wiz8/local_code/GameplayDatabase.h"
-#include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_screens/MGSTextBox.h"
-#include "wiz8/monster_runtime.h"
 #include "wiz8/monster_generators.h"
-#include "wiz8/utility.h"
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/game_init.h"
@@ -25,14 +25,9 @@
 #include "wiz8/local_code/CombatSound.h"
 #include "wiz8/local_code/GameplayInit.h"
 #include "wiz8/engine_code/Missile.h"
-
-#include "wiz8/sound_man.h"
-#include "Button System.h"
+#include "wiz8/dialog_code/ButtonAppearance.h"
 #include "shading.h"
 #include "wiz8/application.h"
-
-#include <string.h>
-#include <stdlib.h>
 
 /* Original translation unit is not established by the Arnika/Gameloop source anchors. */
 
@@ -48,15 +43,12 @@
 unsigned char InitializeGame(size_t& initialized_screens)
 {
     const auto version = FormatVersionBanner(true, true, true);
-    void* buffer;
-    UINT32 count;
     bool ok;
 
     LoadLocalizedStrings(!gzStringDataOverride.empty() ? gzStringDataOverride.c_str()
                                               : "Data\\Strings\\StringData.DAT");
-    buffer = LockPrimarySurface(&count);
-    memset(buffer, 0, count * 0x1e0);
-    UnlockPrimarySurface();
+    const auto& framebuffer = GetFrameBufferSurface();
+    memset(framebuffer.pixels, 0, framebuffer.pitch * framebuffer.h);
     LoadGameConfiguration();
     g_current_screen_state.id = W8_SCREEN_NONE;
     g_pending_screen_state.id = W8_SCREEN_NONE;
@@ -67,19 +59,12 @@ unsigned char InitializeGame(size_t& initialized_screens)
             return 0;
         }
     }
-    SetShadeTablePercent((FLOAT)0.66);
-    BuildShadeTable();
+    SetShadeTablePercent((float)0.66);
     if (!InitializeMenuFonts()) {
         return 0;
     }
-    InitButtonSystem();
+    InitializeButtonImageManager();
     InitializeRegionHelpState();
-    if (g_settings.tooltips_enabled) {
-        EnableMouseFastHelp();
-    } else {
-        DisableMouseFastHelp();
-    }
-    SetFastHelpDelay(static_cast<unsigned short>(g_settings.tooltip_delay_ms));
     ResetGameStatus(false);
     InitializeGameplayRuntimeObjects();
     UpdateHeldItemCursor();
@@ -105,7 +90,6 @@ unsigned char InitializeGame(size_t& initialized_screens)
         return 0;
     }
     InitializeItemVideoObjects();
-    ConfigureSoundCache();
     SetPendingScreenState(W8_SCREEN_INTRO);
     g_status.current_level = -1;
     if (const auto save = gfLoadAtStartup ? FindStartupQuickSave() : std::nullopt) {

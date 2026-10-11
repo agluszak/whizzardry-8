@@ -250,12 +250,6 @@ public:
     int y;
 };
 
-struct srVector3i {
-    int x;
-    int y;
-    int z;
-};
-
 using SRBYTE = unsigned char;
 using SRDWORD = w8_ulong;
 using srVector3 = srVector3T<float>;

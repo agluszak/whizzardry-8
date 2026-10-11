@@ -1,8 +1,12 @@
+#include "glm/ext/vector_int3.hpp"
+#include "glm/ext/vector_float3.hpp"
 #include "wiz8/engine_code/quad.h"
-#include "wiz8/float_constants.h"
 
 #include <cmath>
+#include <cstddef>
+#include <memory>
 
+#include "surrender/srMath.h"
 #include "surrender/srMeshModel.h"
 #include "surrender/srModelInstance.h"
 
@@ -21,10 +25,10 @@ std::unique_ptr<W8Quad> BuildWorldQuad(srModelInstance* instance, const srVector
     quad->cells.resize(static_cast<std::size_t>(quad->row_count) * quad->column_count);
 
     srMeshModel* model = static_cast<srMeshModel*>(instance->getModel());
-    srVector3i* polygon_vertices = model->getPolyVertex();
-    srVector3T<float>* vertices = model->getVertexLoc();
+    glm::ivec3* polygon_vertices = model->getPolyVertex();
+    glm::vec3* vertices = model->getVertexLoc();
     for (int polygon = 0; polygon < model->polygon_count; ++polygon) {
-        const srVector3i& corners = polygon_vertices[polygon];
+        const glm::ivec3& corners = polygon_vertices[polygon];
         srVector3T<float> center = vertices[corners.x] + vertices[corners.y] + vertices[corners.z];
         unsigned int row = static_cast<unsigned int>(
             fabs((center.x * 0.33333334f - minimum.x) / g_quad_cell_size));

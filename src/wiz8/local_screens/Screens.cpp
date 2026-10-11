@@ -1,4 +1,9 @@
+#include "wiz8/engine_code/stTextureAnim.h" // IWYU pragma: keep - complete animation type for cursor texture conversion and frame access.
 #include <string_view>
+#include <cstring>
+#include <memory>
+#include <vector>
+
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/MonsterManager.h"
@@ -12,22 +17,21 @@
 #include "wiz8/local_screens/MGSPortraits.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/RCSCommon.h"
-#include "wiz8/notices.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/cursor.h"
 #include "wiz8/item_video_object_vector.h"
-#include "wiz8/video_object_catalog.h"
+#include "wiz8/catalog_artwork.h"
 #include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/dialog_code/DialogTextArea.h"
-#include "wiz8/local_code/Controls.h"
-#include "wiz8/engine_code/stTextureAnim.h"
 #include "wiz8/fonts.h"
 #include "wiz8/regions.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/utility.h"
-#include "timer.h"
-
-#include <string.h>
+#include "Font.h"
+#include "compat/native.h"
+#include "layouts/item_instance.h"
+#include "layouts/main_game_screen.h"
+#include "layouts/targeting.h"
 
 /* Query whether scrolling is possible, or scroll and invalidate the transcript. */
 // FUNCTION: WIZ8 0x0055EBB0
@@ -207,25 +211,22 @@ void SetTargetCursor(int cursor)
 // FUNCTION: WIZ8 0x0055ef90
 void UpdateHeldItemCursor(void)
 {
-    int object;
-
     if ((g_current_screen_state.id == W8_SCREEN_MAIN_GAME ||
          g_current_screen_state.id == W8_SCREEN_CAMP) &&
         g_status.item_in_cursor) {
         if (g_status.item_in_hand.iItemNo != -1) {
             g_status.item_in_cursor = true;
-            object = g_item_video_objects.GetOrCreateVideoObject(g_status.item_in_hand.iItemNo);
-            SetMouseCursorFromVideoObject(GetCatalogVideoObjectHandle(object, 0),
-                                          GetCatalogVideoObjectYOffset(object), 0, 0);
-            BlitToMouseCursor(GetCatalogVideoObjectHandle(0, 0), GetCatalogVideoObjectYOffset(0), 0,
-                              0);
+            auto& sprites = g_item_video_objects.Sprites(g_status.item_in_hand.iItemNo);
+            SetMouseCursorFromVideoObject(sprites, 0, 0, 0);
+            const auto cursor = CatalogArtwork::Load(0);
+            BlitToMouseCursor(*cursor.spriteSheet(), cursor.imageOffset(), 0, 0);
             RefreshMouseCursorTexture();
             gXStatus.iCurrentCursor = W8_CURSOR_INVALID_TARGET;
             return;
         }
     } else if (gXStatus.iCurrentCursor != W8_CURSOR_NONE) {
-        SetMouseCursorFromVideoObject(GetCatalogVideoObjectHandle(0, 0),
-                                      GetCatalogVideoObjectYOffset(0), 0, 0);
+        const auto cursor = CatalogArtwork::Load(0);
+        SetMouseCursorFromVideoObject(*cursor.spriteSheet(), cursor.imageOffset(), 0, 0);
         RefreshMouseCursorTexture();
         gXStatus.iCurrentCursor = W8_CURSOR_NONE;
         gXStatus.current_cursor_frame = 0;
@@ -269,8 +270,8 @@ void ClearHeldItemDisplay(void)
     g_status.item_in_hand.iItemNo = -1;
 
     if (gXStatus.iCurrentCursor != W8_CURSOR_NONE) {
-        SetMouseCursorFromVideoObject(GetCatalogVideoObjectHandle(0, 0),
-                                      GetCatalogVideoObjectYOffset(0), 0, 0);
+        const auto cursor = CatalogArtwork::Load(0);
+        SetMouseCursorFromVideoObject(*cursor.spriteSheet(), cursor.imageOffset(), 0, 0);
         RefreshMouseCursorTexture();
         gXStatus.iCurrentCursor = W8_CURSOR_NONE;
         gXStatus.current_cursor_frame = 0;
@@ -294,19 +295,12 @@ unsigned char GetPartyOrderTextColor(signed char party_order)
 // FUNCTION: WIZ8 0x0055F160
 void SetItemCursor(int overlay_video_object)
 {
-    int object;
-    unsigned short y_offset;
-    unsigned int handle;
-
     if (g_status.item_in_hand.iItemNo != -1) {
         g_status.item_in_cursor = true;
-        object = g_item_video_objects.GetOrCreateVideoObject(g_status.item_in_hand.iItemNo);
-        y_offset = GetCatalogVideoObjectYOffset(object);
-        handle = GetCatalogVideoObjectHandle(object, 0);
-        SetMouseCursorFromVideoObject(handle, y_offset, 0, 0);
-        y_offset = GetCatalogVideoObjectYOffset(overlay_video_object);
-        handle = GetCatalogVideoObjectHandle(overlay_video_object, 0);
-        BlitToMouseCursor(handle, y_offset, 0, 0);
+        auto& sprites = g_item_video_objects.Sprites(g_status.item_in_hand.iItemNo);
+        SetMouseCursorFromVideoObject(sprites, 0, 0, 0);
+        const auto overlay = CatalogArtwork::Load(overlay_video_object);
+        BlitToMouseCursor(*overlay.spriteSheet(), overlay.imageOffset(), 0, 0);
         RefreshMouseCursorTexture();
         gXStatus.iCurrentCursor = W8_CURSOR_INVALID_TARGET;
     }
@@ -363,8 +357,8 @@ void InitializeMainGameLevelBlock(void)
     g_level_block->condition_orb_party_slot = -1;
     g_level_block->enchantment_orb_party_slot = -1;
     g_level_block->condition_highlight_party_slot = -1;
-    g_level_block->text_content_region = CurrentTextLineHasContent() ? 0x57 : -1;
-    g_level_block->dialogue_content_region = CurrentDialogueLineHasContent() ? 0x5a : -1;
+    g_level_block->text_content_region = CurrentTextLineHasContent() ? kUpArrowEnabled : -1;
+    g_level_block->dialogue_content_region = CurrentDialogueLineHasContent() ? kDownArrowEnabled : -1;
     g_level_block->world_update_flags = 0;
     g_level_block->camera_motion_flags = 0;
     g_level_block->highlighted_item = -1;
@@ -394,7 +388,7 @@ void InitializeMainGameLevelBlock(void)
     g_level_block->tick = w8_get_ticks();
     g_level_block->group_list_rows = 0;
     g_level_block->group_list_width = 0;
-    DisableRegionInput(0xe5);
+    DisableRegionInput(g_main_effect_regions->index(kMonsterListRegionOffset));
     g_level_block->action_group = -1;
     g_level_block->value_2ac = 0;
     g_level_block->value_2b4 = 0;
@@ -413,8 +407,8 @@ void InitializeMainGameLevelBlock(void)
         g_level_block->selected_text_lines[slot_index] = -1;
     }
     g_level_block->unknown_2e4[0] = 0;
-    g_level_block->text_box_font = g_wiz_text_font_secondary;
-    g_level_block->palette = GetFontObject(g_wiz_text_font_secondary)->ownedPalette.get();
+    g_level_block->text_box_font = &g_wiz_text_font_secondary;
+    g_level_block->palette = g_wiz_text_font_secondary.glyphs->colors;
     g_level_block->selection_kind = W8_ACTION_NONE;
     g_level_block->pending_action = -1;
     g_level_block->selection_settled = false;

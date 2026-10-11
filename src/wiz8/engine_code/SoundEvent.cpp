@@ -1,22 +1,23 @@
 #include "wiz8/engine_code/SoundEvent.h"
+
+#include <glm/ext/quaternion_trigonometric.hpp>
+#include <glm/gtc/quaternion.hpp>
+#include <memory>
+#include <string>
+#include <vector>
+#include <utility>
+
+#include "surrender/srMath.h"
 #include "wiz8/engine_code/AmbientSound.h"
-#include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/float_constants.h"
-#include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/sr_api.h"
-#include <vector>
-#include <algorithm>
 #include "random.h"
 #include "soundman.h"
-#include <math.h>
-
-#include <new>
-#include <string.h>
 #include "wiz8/engine_code/GameData.h"
-#include <glm/gtc/matrix_transform.hpp>
+#include "glm/ext/matrix_float3x3.hpp"
+#include "glm/ext/vector_float3.hpp"
 
 #define SOUNDEVENT_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\SoundEvent.cpp"
 
@@ -24,8 +25,8 @@
 // FUNCTION: WIZ8 0x004d5770
 W8SoundEvent::~W8SoundEvent()
 {
-    if (looping && sound_handle != -1) {
-        SoundStop(sound_handle);
+    if (looping && sound_handle != nullptr) {
+        wiz8::sound::stop(sound_handle);
     }
 }
 
@@ -91,9 +92,7 @@ bool W8SoundEvent::Play(const srVector3T<float>& position, int cycle)
     }
     float angle = -GetCameraYawRadians();
     unsigned int base_volume = 0x78;
-    srVector3T<float> camera_position;
-
-    GetCameraPosition(&camera_position);
+    srVector3T<float> camera_position = cameraLocation();
     srVector3T<float> camera_offset = camera_position - position;
     if (camera_offset.Length() < falloff) {
         if (kind == W8_SOUND_EVENT_FOOTSTEP || wave_name.contains("step") ||
@@ -122,33 +121,10 @@ bool W8SoundEvent::Play(const srVector3T<float>& position, int cycle)
 
         srVector3T<float> offset = position - camera_position;
         srVector3T<float> transformed = rotation * offset.glmValue();
-        float x = transformed.x;
-        float y = transformed.y;
-        float z = transformed.z;
-        SOUND3DPARMS options;
-
-        memset(&options, 0xff, sizeof(options));
         unsigned int event_volume = static_cast<unsigned int>(
             (g_float_one - camera_offset.Length() / falloff) * base_volume);
         event_volume = (GetSoundEffectsVolume() * event_volume) / 0x7f;
         if (event_volume != 0) {
-            options.uiVolume = event_volume;
-            options.uiLoop = (!looping);
-            options.Pos.flX = x;
-            options.Pos.flY = y;
-            options.Pos.flZ = z;
-            options.Pos.flVelX = 0.0f;
-            options.Pos.flVelY = 0.0f;
-            options.Pos.flVelZ = 0.0f;
-            options.Pos.flFaceX = -x;
-            options.Pos.flFaceY = -y;
-            options.Pos.flFaceZ = -z;
-            options.Pos.flUpX = 0.0f;
-            options.Pos.flUpY = g_float_one;
-            options.Pos.flUpZ = 0.0f;
-            options.Pos.flFalloffMin = falloff;
-            options.Pos.flFalloffMax = falloff;
-            options.Pos.uiVolume = event_volume;
 
             if (kind == W8_SOUND_EVENT_FOOTSTEP) {
                 int variant;
@@ -163,26 +139,22 @@ bool W8SoundEvent::Play(const srVector3T<float>& position, int cycle)
                 g_previous_footstep_variant = variant;
 
                 char path[260];
-                char surface;
-                char material;
-                GetGroundSurfaceInfo(&position, &surface, &material);
+                const auto ground = groundSurfaceInfo(position.glmValue());
                 /* Retail hardcodes the surface to OutdoorsFlat here: the query
                    result that matters for the path is the material. */
-                BuildFootstepPath(path, W8_FOOTSTEP_SURFACE_OUTDOORS_FLAT, material,
+                BuildFootstepPath(path, W8_FOOTSTEP_SURFACE_OUTDOORS_FLAT, ground.material,
                                   W8_FOOTSTEP_KIND_STEP, variant);
                 wave_name = path;
             }
-            options.uiPitchBend = wave_name.contains('!') ? 0 : 20;
-            if (wave_name.contains('+')) {
-                options.Pos.flFalloffMax += options.Pos.flFalloffMax;
-                options.Pos.flFalloffMin += options.Pos.flFalloffMin;
-            }
-            sound_handle = Sound3DPlay(wave_name.data(), &options);
-            if (sound_handle == -1) {
+            sound_handle = wiz8::sound::play(wave_name, {.volume = event_volume,
+                                                         .loops = looping ? 0u : 1u,
+                                                         .pitch_bend_percent = wave_name.contains('!') ? 0u : 20u,
+                                                         .position = transformed.glmValue()});
+            if (sound_handle == nullptr) {
                 return false;
             }
             if (track_sound && monster != 0) {
-                monster->TrackSoundHandle(sound_handle);
+                monster->TrackSound(sound_handle);
             }
         }
     }

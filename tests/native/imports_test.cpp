@@ -1,4 +1,23 @@
 #include <catch2/catch_test_macros.hpp>
+#include <SDL3/SDL_iostream.h>
+#include <SDL3/SDL_pixels.h>
+#include <SDL3/SDL_properties.h>
+#include <SDL3/SDL_surface.h>
+#include <cfenv>
+#include <algorithm>
+#include <array>
+#include <limits>
+#include <cstdio>
+#include <cstring>
+#include <cassert>
+#include <cstddef>
+#include <cstdint>
+#include <cstdlib>
+#include <iterator>
+#include <memory>
+#include <string>
+#include <utility>
+
 #include "surrender/srIO.h"
 #include "surrender/srMath.h"
 /* Native consumer-side linking and lifetime for the renderer contracts used
@@ -16,17 +35,19 @@
 #include "surrender/srScene.h"
 #include "surrender/srTextureFile.h"
 #include "surrender/srTextureMap.h"
-#include <cfenv>
-#include <algorithm>
-#include <array>
-#include <string_view>
-#include <cmath>
-#include <initializer_list>
-#include <limits>
 #include "wiz8/sr_api.h"
-#include <cstdio>
-#include <cstring>
-#include <cassert>
+#include "compat/compiler.h"
+#include "glm/ext/vector_float3.hpp"
+#include "glm/ext/vector_float4.hpp"
+#include "surrender/srARGB.h"
+#include "surrender/srColorSurface.h"
+#include "surrender/srColorSurfaceIFace.h"
+#include "surrender/srNode.h"
+#include "surrender/srPalette.h"
+#include "surrender/srPixelConvert.h"
+#include "surrender/srTextureIFace.h"
+
+class srModel;
 
 static int assertions = 0;
 static void assertion(const char* expression, const char* path, w8_long line, const char* message)
@@ -88,8 +109,7 @@ static int surface_storage()
         borrowed.setPalette(palette);
         REQUIRE((borrowed.getDataPtr() == pixels.data() && borrowed.getDataSize() == 40));
         REQUIRE((!borrowed.resize(4, 3) && !borrowed.rescale(4, 3)));
-        srPixelConvert::PixelFormat format;
-        srPixelConvert::mapPixelFormat(srPixelConvert::SURFACE_RGB24, format);
+        const auto format = srPixelConvert::pixelFormat(srPixelConvert::SURFACE_RGB24);
         REQUIRE(!borrowed.changePixelFormat(format, 1));
 
         srColorSurface copied(borrowed);
@@ -186,7 +206,7 @@ static int shared_surface_lifetimes()
         surface_lifetime = surface;
         Map first(surface), second;
         second = first;
-        first.getDimensions(dimensions);
+        dimensions = first.getDimensions();
         surface.reset();
         palette.reset();
         first.setSurfacePtr(nullptr);
@@ -213,13 +233,10 @@ TEST_CASE("imports_test")
                     glm::vec3(row * 10 + vertex, row * 20 + vertex, -vertex);
             modeler.addTriangle(triangle);
         }
-        float minimum, maximum;
-        modeler.getAxialBounds(srModeler::AXIS_X, minimum, maximum);
-        REQUIRE((minimum == 0 && maximum == 12));
-        modeler.getAxialBounds(srModeler::AXIS_Y, minimum, maximum);
-        REQUIRE((minimum == 0 && maximum == 22));
-        modeler.getAxialBounds(srModeler::AXIS_Z, minimum, maximum);
-        REQUIRE((minimum == -2 && maximum == 0));
+        REQUIRE((modeler.getAxialBounds(srModeler::AXIS_X) == std::pair{0.f, 12.f}));
+        REQUIRE((modeler.getAxialBounds(srModeler::AXIS_Y) == std::pair{0.f, 22.f}));
+        REQUIRE((modeler.getAxialBounds(srModeler::AXIS_Z) == std::pair{-2.f, 0.f}));
+        REQUIRE_FALSE(modeler.getAxialBounds(static_cast<srModeler::e_axis>(-1)));
     }
     struct alignas(8) WordPair
     {
@@ -349,11 +366,25 @@ TEST_CASE("imports_test")
         srCamera source, copy;
         source.setViewPlane(2, 3);
         copy = source;
-        srCamera::Rect before, after;
-        double distance;
-        source.getViewPlane(before, distance);
-        copy.getViewPlane(after, distance);
-        REQUIRE((before.left == after.left && before.top == after.top));
+        const auto before = source.getViewPlane();
+        const auto after = copy.getViewPlane();
+        REQUIRE((before.rectangle.left == after.rectangle.left &&
+                 before.rectangle.top == after.rectangle.top &&
+                 before.distance == after.distance));
+        const auto normalized = copy.getNormalizedViewPlane();
+        REQUIRE((normalized.left == after.rectangle.left / after.distance &&
+                 normalized.bottom == after.rectangle.bottom / after.distance &&
+                 normalized.right == after.rectangle.right / after.distance &&
+                 normalized.top == after.rectangle.top / after.distance));
+        copy.setClipRange(1000, 10);
+        const auto [near_clip, far_clip] = copy.getClipRange();
+        REQUIRE((near_clip == 10 && far_clip == 1000));
+        copy.setEnvironmentRange(3, 9);
+        const auto [near_range, far_range] = copy.getEnvironmentRange();
+        REQUIRE((near_range == 3 && far_range == 9));
+        copy.setEnvironmentScale(0.5f, 2);
+        const auto [near_scale, far_scale] = copy.getEnvironmentScale();
+        REQUIRE((near_scale == 0.5f && far_scale == 2));
         srClipPlane plane, plane_copy;
         glm::vec4 plane_value;
         plane_value.x = 1;

@@ -1,16 +1,38 @@
-#include "wiz8/utility.h"
-#include "surrender/srDD_SDLGPU.h"
-
-#include <SDL3/SDL.h>
 #include <glm/gtc/type_ptr.hpp>
-#include <stdint.h>
-#include <string.h>
-
+#include <SDL3/SDL_error.h>
+#include <SDL3/SDL_gpu.h>
+#include <SDL3/SDL_log.h>
+#include <SDL3/SDL_pixels.h>
+#include <SDL3/SDL_platform.h>
+#include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_stdinc.h>
+#include <SDL3/SDL_video.h>
 #include <map>
+#include <span>
 #include <vector>
+#include <cstddef>
+#include <cstdint>
+#include <cstring>
+#include <utility>
 
+#include "glm/matrix.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include "glm/ext/vector_float4.hpp"
+#include "glm/ext/vector_int4.hpp"
+#include "glm/ext/vector_float1.hpp"
+#include "glm/ext/vector_int2.hpp"
+#include "glm/common.hpp"
+#include "glm/vector_relational.hpp"
+#include "surrender/srDD_SDLGPU.h"
 #include "sr_fragment.spv.h"
 #include "sr_vertex.spv.h"
+#include "compat/compiler.h"
+#include "surrender/srDD.h"
+#include "surrender/srFlags.h"
+#include "surrender/srPixelConvert.h"
+#include "surrender/srRendererDefs.h"
+#include "surrender/srShader.h"
+#include "glm/fwd.hpp"
 
 /* SurRender drives a device the way it drove OpenGL 1.x: state setters,
    client-side vertex arrays and immediate draws, interleaved with clears and
@@ -21,33 +43,45 @@ namespace {
 
 /* One interleaved vertex in the device's own stream. */
 struct Vertex {
-    float position[4];
-    float diffuse[4];
-    float specular[4];
-    float texcoord0[3];
-    float texcoord1[3];
+    glm::vec4 position;
+    glm::vec4 diffuse;
+    glm::vec4 specular;
+    glm::vec3 texcoord0;
+    glm::vec3 texcoord1;
     float fog;
 };
+
+// SDL vertex attributes below consume this exact packed GPU layout.
+static_assert(sizeof(Vertex) == 76);
+static_assert(offsetof(Vertex, diffuse) == 16 && offsetof(Vertex, specular) == 32);
+static_assert(offsetof(Vertex, texcoord0) == 48 && offsetof(Vertex, texcoord1) == 60);
+static_assert(offsetof(Vertex, fog) == 72);
 
 struct VertexUniforms {
     glm::mat4 projection;
 };
 
 struct FragmentUniforms {
-    float fog_color[4];
-    int32_t mode[4];
-    float alpha[4];
+    glm::vec4 fog_color;
+    glm::ivec4 mode;
+    glm::vec4 alpha;
 };
+
+static_assert(sizeof(FragmentUniforms) == 48);
+static_assert(offsetof(FragmentUniforms, mode) == 16 && offsetof(FragmentUniforms, alpha) == 32);
 
 enum PrimitiveClass { PRIMITIVE_CLASS_TRIANGLES, PRIMITIVE_CLASS_LINES, PRIMITIVE_CLASS_POINTS };
 
 /* Fixed-function state that SDL GPU bakes into a pipeline. */
 struct PipelineKey {
-    uint32_t value;
+    uint32_t value = 0;
+    w8_long offset = 0;
 
+    PipelineKey() = default;
     PipelineKey(const srShader& shader, srDD::e_cullMode cull, srDD::e_polygonMode polygon,
-                PrimitiveClass primitive)
+                PrimitiveClass primitive, w8_long bias)
     {
+        offset = bias;
         const uint32_t packed_shader =
             shader.value & (srShader::PASS_MASK | srShader::MASK_DEPTH_WRITE |
                             srShader::MASK_COLOR_WRITE | 0x7u << srShader::DSTBLEND_SHIFT |
@@ -58,7 +92,7 @@ struct PipelineKey {
 
     bool operator<(const PipelineKey& other) const
     {
-        return value < other.value;
+        return value != other.value ? value < other.value : offset < other.offset;
     }
 };
 
@@ -66,11 +100,11 @@ struct DrawCommand {
     enum Kind { DRAW, CLEAR };
     Kind kind;
     /* DRAW */
-    uint32_t pipeline_key;
+    PipelineKey pipeline_key;
     uint32_t first_vertex;
     uint32_t vertex_count;
     uint32_t textures[2];
-    uint32_t samplers[2];
+    SDL_GPUSampler* samplers[2];
     VertexUniforms vertex_uniforms;
     FragmentUniforms fragment_uniforms;
     /* DRAW and CLEAR */
@@ -155,12 +189,11 @@ public:
         {
         projection.projection = glm::mat4(1);
             memset(&clear_values, 0, sizeof(clear_values));
-            memset(fog_color, 0, sizeof(fog_color));
+            fog_color = glm::vec4(0);
             memset(&scissor, 0, sizeof(scissor));
             memset(&viewport, 0, sizeof(viewport));
             bound[0] = bound[1] = 0;
-            parameters[0] = parameters[1] = 0;
-            samplers[0] = samplers[1] = 0;
+            parameters[0] = parameters[1] = {};
         }
 
     ~SDLGPUDevice() override
@@ -168,8 +201,19 @@ public:
         deleteContext();
     }
 
-    void getInfo(Info& info) override
+    Info getInfo() override
     {
+        Info info{};
+        info.unknown_08_ = 4;
+        info.unknown_0c_ = 0x10;
+        info.unknown_10_ = 1.0f;
+        info.unknown_14_ = 65536.0f;
+        info.renderer_batch_limit = 0x100;
+        info.unknown_20_ = 0x3b808081;
+        info.hardware_id = 1;
+        for (auto& text : info.text) {
+            strcpy(text, "Unknown");
+        }
         info.max_back_buffer_width = 8192;
         info.max_back_buffer_height = 8192;
         info.max_texture_stages = 2;
@@ -182,24 +226,23 @@ public:
         strcpy(info.text[1], "SDL");
         strcpy(info.text[2], SDL_GetPlatform());
         strcpy(info.text[3], device != 0 ? SDL_GetGPUDeviceDriver(device) : "none");
+        return info;
     }
 
-    void getWindowList(WindowInfoList& list) override
+    std::span<const WindowInfo> getWindowList() override
     {
-        list.entries = 0;
-        list.count = 0;
+        return {};
     }
 
-    void getTextureFormats(PixelFormatList& list) override
+    std::span<const PixelFormat> getTextureFormats() override
     {
-        static PixelFormat formats[1] = {argb8888Format()};
-        list.formats = formats;
-        list.count = 1;
+        static const PixelFormat formats[] = {argb8888Format()};
+        return formats;
     }
 
-    void getStatistics(Statistics& stats) override
+    Statistics getStatistics() override
     {
-        memset(&stats, 0, sizeof(stats));
+        return {};
     }
 
     void resetStatistics() override {}
@@ -302,11 +345,11 @@ public:
         case 2:
         case 3:
         case 4:
-            row(command);
+            transferPixels(command, false);
             break;
         case 6:
         case 7:
-            column(command);
+            transferPixels(command, true);
             break;
         }
         return ERROR_NONE;
@@ -353,10 +396,7 @@ public:
 
     void setFogColor(const glm::vec4& color) override
     {
-        fog_color[0] = color.x;
-        fog_color[1] = color.y;
-        fog_color[2] = color.z;
-        fog_color[3] = color.w;
+        fog_color = color;
     }
 
     void setShader(const srShader& value) override
@@ -367,7 +407,7 @@ public:
     void setTextureParameters(w8_ulong stage, const TexParms& parms) override
     {
         if (stage < 2) {
-            parameters[stage] = parms.packed;
+            parameters[stage] = parms;
         }
     }
 
@@ -453,17 +493,6 @@ public:
                                      SDL_GPU_SHADERSTAGE_VERTEX, 0);
         fragment_shader = createShader(sr_fragment_spv, sizeof(sr_fragment_spv),
                                        SDL_GPU_SHADERSTAGE_FRAGMENT, 2);
-        for (int filter = 0; filter < 2; ++filter) {
-            SDL_GPUSamplerCreateInfo sampler = {};
-            sampler.min_filter = filter != 0 ? SDL_GPU_FILTER_LINEAR : SDL_GPU_FILTER_NEAREST;
-            sampler.mag_filter = sampler.min_filter;
-            sampler.mipmap_mode = SDL_GPU_SAMPLERMIPMAPMODE_LINEAR;
-            sampler.address_mode_u = SDL_GPU_SAMPLERADDRESSMODE_REPEAT;
-            sampler.address_mode_v = SDL_GPU_SAMPLERADDRESSMODE_REPEAT;
-            sampler.address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_REPEAT;
-            sampler.max_lod = 16.0f;
-            samplers[filter] = SDL_CreateGPUSampler(device, &sampler);
-        }
         /* Handle 1 is the white texture unbound stages sample. */
         DeviceTexture white = createTexture(1, 1, 1);
         textures.push_back(white);
@@ -489,11 +518,10 @@ public:
             SDL_ReleaseGPUGraphicsPipeline(device, it->second);
         }
         pipelines.clear();
-        for (int index = 0; index < 2; ++index) {
-            if (samplers[index] != 0) {
-                SDL_ReleaseGPUSampler(device, samplers[index]);
-            }
+        for (const auto& entry : samplers) {
+            SDL_ReleaseGPUSampler(device, entry.second);
         }
+        samplers.clear();
         if (vertex_buffer != 0) {
             SDL_ReleaseGPUBuffer(device, vertex_buffer);
         }
@@ -508,19 +536,21 @@ public:
         vertex_buffer_size = 0;
     }
 
-    void getDriverInfo(DriverInfo& info) override
+    DriverInfo getDriverInfo() override
     {
+        DriverInfo info{};
         info.dd_api_version = SR_DD_MIN_API_VERSION;
         info.driver_id = 0;
         strcpy(info.name, "SDLGPU");
         strcpy(info.api_name, "SDL GPU");
+        return info;
     }
 
     void fence() override {}
 
-    void getBufferPixelFormat(PixelFormat& format) override
+    PixelFormat getBufferPixelFormat() override
     {
-        format = argb8888Format();
+        return argb8888Format();
     }
 
     void preBindTexture(w8_ulong, Texture&) override {}
@@ -649,42 +679,30 @@ private:
         uploads.push_back(upload);
     }
 
-    void fetch(float* out, const srRendererDefs::VertexArrayInfo& arrays, int slot, uint32_t index,
-               int size, const float* fallback) const
+    template<class Vector>
+    Vector fetch(srRendererDefs::e_vertexArray slot, uint32_t index,
+                 Vector fallback) const
     {
-        memcpy(out, fallback, size * sizeof(float));
-        if (((arrays.mask.value >> slot) & 1) == 0 && slot != 0) {
-            return;
-        }
-        const int components = SDL_min((int)arrays.components[slot], size);
-        const uint32_t stride =
-            arrays.strides[slot] != 0 ? arrays.strides[slot] : arrays.components[slot] * 4;
-        const float* source = reinterpret_cast<const float*>(
-            static_cast<const char*>(arrays.arrays[slot]) + (size_t)index * stride);
-        if (arrays.arrays[slot] != 0) {
-            memcpy(out, source, components * sizeof(float));
-        }
+        if (((vertex_arrays.mask.value >> slot) & 1) == 0 &&
+            slot != srRendererDefs::VERTEX_ARRAY_POSITIONS) return fallback;
+        if (vertex_arrays.arrays[slot] == nullptr) return fallback;
+        const int components = SDL_min(static_cast<int>(vertex_arrays.components[slot]), Vector::length());
+        const uint32_t stride = vertex_arrays.strides[slot] != 0
+            ? vertex_arrays.strides[slot] : vertex_arrays.components[slot] * sizeof(float);
+        const auto* source = static_cast<const char*>(vertex_arrays.arrays[slot]) + size_t(index) * stride;
+        std::memcpy(glm::value_ptr(fallback), source, components * sizeof(float));
+        return fallback;
     }
 
     void appendVertex(uint32_t index)
     {
-        static const float origin[4] = {0.0f, 0.0f, 0.0f, 1.0f};
-        static const float white[4] = {1.0f, 1.0f, 1.0f, 1.0f};
-        static const float black[4] = {0.0f, 0.0f, 0.0f, 0.0f};
-        static const float texcoord[3] = {0.0f, 0.0f, 1.0f};
-        static const float no_fog[1] = {0.0f};
-        Vertex vertex;
-        fetch(vertex.position, vertex_arrays, srRendererDefs::VERTEX_ARRAY_POSITIONS, index, 4,
-              origin);
-        fetch(vertex.diffuse, vertex_arrays, srRendererDefs::VERTEX_ARRAY_DIFFUSE, index, 4, white);
-        fetch(vertex.specular, vertex_arrays, srRendererDefs::VERTEX_ARRAY_SPECULAR, index, 4, black);
-        fetch(&vertex.fog, vertex_arrays, srRendererDefs::VERTEX_ARRAY_SPECULAR_ALPHA, index, 1,
-              no_fog);
-        fetch(vertex.texcoord0, vertex_arrays, srRendererDefs::VERTEX_ARRAY_TEXCOORD0, index, 3,
-              texcoord);
-        fetch(vertex.texcoord1, vertex_arrays, srRendererDefs::VERTEX_ARRAY_TEXCOORD1, index, 3,
-              texcoord);
-        vertices.push_back(vertex);
+        using enum srRendererDefs::e_vertexArray;
+        vertices.push_back({fetch(VERTEX_ARRAY_POSITIONS, index, glm::vec4(0, 0, 0, 1)),
+                            fetch(VERTEX_ARRAY_DIFFUSE, index, glm::vec4(1)),
+                            fetch(VERTEX_ARRAY_SPECULAR, index, glm::vec4(0)),
+                            fetch(VERTEX_ARRAY_TEXCOORD0, index, glm::vec3(0, 0, 1)),
+                            fetch(VERTEX_ARRAY_TEXCOORD1, index, glm::vec3(0, 0, 1)),
+                            fetch(VERTEX_ARRAY_SPECULAR_ALPHA, index, glm::vec1(0)).x});
     }
 
     /* Expands every primitive to a list: SDL GPU has no fans, and lists let
@@ -770,33 +788,58 @@ private:
         }
         DrawCommand command = {};
         command.kind = DrawCommand::DRAW;
-        command.pipeline_key = PipelineKey(shader, cull_mode, polygon_mode, primitive_class).value;
+        command.pipeline_key = PipelineKey(shader, cull_mode, polygon_mode, primitive_class, polygon_offset);
         command.first_vertex = start;
         command.vertex_count = (uint32_t)vertices.size() - start;
         const bool texturing = (shader.value & srShader::MASK_TEXTURING) != 0;
         for (int stage = 0; stage < 2; ++stage) {
             command.textures[stage] = texturing && bound[stage] != 0 ? bound[stage] : 1;
-            // srGERD packs magnification at bits 4..5; low bits are correction.
-            command.samplers[stage] = ((parameters[stage] >> 4) & 3) >= 2 ? 1 : 0;
+            command.samplers[stage] = sampler(parameters[stage]);
         }
         command.vertex_uniforms = projection;
         FragmentUniforms& fragment = command.fragment_uniforms;
-        memcpy(fragment.fog_color, fog_color, sizeof(fog_color));
-        fragment.mode[0] = texturing ? 1 : 0;
-        fragment.mode[1] = (shader.value & srShader::MASK_GRADIENT) >> srShader::GRADIENT_SHIFT;
-        fragment.mode[2] = (shader.value & srShader::MASK_SECONDARY_GRADIENT) != 0;
-        fragment.mode[3] = (shader.value & srShader::MASK_FOG) >> srShader::FOG_SHIFT;
-        fragment.alpha[0] = (shader.value & srShader::MASK_ALPHATEST) != 0 ? 1.0f : 0.0f;
-        fragment.alpha[1] = 0.0f;
+        fragment.fog_color = fog_color;
+        fragment.mode = glm::ivec4(texturing ? 1 : 0,
+            (shader.value & srShader::MASK_GRADIENT) >> srShader::GRADIENT_SHIFT,
+            (shader.value & srShader::MASK_SECONDARY_GRADIENT) != 0,
+            (shader.value & srShader::MASK_FOG) >> srShader::FOG_SHIFT);
+        fragment.alpha = glm::vec4((shader.value & srShader::MASK_ALPHATEST) != 0 ? 1.0f : 0.0f,
+                                  0, 0, 0);
         command.scissor = scissor;
         command.viewport = viewport;
         commands.push_back(command);
     }
 
-    SDL_GPUGraphicsPipeline* pipeline(uint32_t key_value)
+    SDL_GPUSampler* sampler(const TexParms& parameters)
     {
-        PipelineKey key = PipelineKey(srShader(), CULL_NONE, POLYGON_FILL, PRIMITIVE_CLASS_TRIANGLES);
-        key.value = key_value;
+        const auto key = std::make_pair(parameters.packed, parameters.mipmap_bias);
+        const auto found = samplers.find(key);
+        if (found != samplers.end()) return found->second;
+        SDL_GPUSamplerCreateInfo info = {};
+        info.mag_filter = ((parameters.packed >> 4) & 3) >= 2
+                              ? SDL_GPU_FILTER_LINEAR : SDL_GPU_FILTER_NEAREST;
+        info.min_filter = ((parameters.packed >> 6) & 3) >= 2
+                              ? SDL_GPU_FILTER_LINEAR : SDL_GPU_FILTER_NEAREST;
+        const auto mip = (parameters.packed >> 8) & 3;
+        info.mipmap_mode = mip == 2 ? SDL_GPU_SAMPLERMIPMAPMODE_LINEAR
+                                   : SDL_GPU_SAMPLERMIPMAPMODE_NEAREST;
+        info.address_mode_u = ((parameters.packed >> 10) & 3) == 1
+                                  ? SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE
+                                  : SDL_GPU_SAMPLERADDRESSMODE_REPEAT;
+        info.address_mode_v = ((parameters.packed >> 12) & 3) == 1
+                                  ? SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE
+                                  : SDL_GPU_SAMPLERADDRESSMODE_REPEAT;
+        info.address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_REPEAT;
+        info.mip_lod_bias = parameters.mipmap_bias;
+        info.max_lod = mip == 0 ? 0.0f : 16.0f;
+        auto* created = SDL_CreateGPUSampler(device, &info);
+        samplers.emplace(key, created);
+        return created;
+    }
+
+    SDL_GPUGraphicsPipeline* pipeline(const PipelineKey& key)
+    {
+        const uint32_t key_value = key.value;
         std::map<PipelineKey, SDL_GPUGraphicsPipeline*>::iterator found = pipelines.find(key);
         if (found != pipelines.end()) {
             return found->second;
@@ -855,6 +898,10 @@ private:
                                                                : SDL_GPU_CULLMODE_NONE;
         info.rasterizer_state.front_face = SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE;
         info.rasterizer_state.enable_depth_clip = true;
+        // Surrender's positive offset pulls overlays toward the camera.
+        info.rasterizer_state.enable_depth_bias = key.offset != 0;
+        info.rasterizer_state.depth_bias_constant_factor = -float(key.offset);
+        info.rasterizer_state.depth_bias_slope_factor = -float(key.offset);
         info.depth_stencil_state.compare_op = compareOp(pass);
         info.depth_stencil_state.enable_depth_test = pass != srShader::PASS_ALWAYS || depth_write;
         info.depth_stencil_state.enable_depth_write = depth_write;
@@ -989,7 +1036,7 @@ private:
             for (int stage = 0; stage < 2; ++stage) {
                 SDL_GPUTexture* texture = textures[entry.textures[stage] - 1].texture;
                 bindings[stage].texture = texture != 0 ? texture : textures[0].texture;
-                bindings[stage].sampler = samplers[entry.samplers[stage]];
+                bindings[stage].sampler = entry.samplers[stage];
             }
             SDL_BindGPUFragmentSamplers(pass, 0, bindings, 2);
             SDL_PushGPUVertexUniformData(command, 0, &entry.vertex_uniforms,
@@ -1140,40 +1187,25 @@ private:
         readback_dirty = 0;
     }
 
-    void row(const BufferCommand& command)
+    void transferPixels(const BufferCommand& command, bool vertical)
     {
-        if (command.y < 0 || command.y >= (w8_long)height || command.x < 0) {
-            return;
-        }
-        const w8_long count = SDL_min(command.count, (w8_long)width - command.x);
-        uint32_t* line = &readback[(size_t)command.y * width + command.x];
-        uint32_t* data = static_cast<uint32_t*>(command.data);
+        const glm::ivec2 position(command.x, command.y);
+        const glm::ivec2 dimensions(width, height);
+        if (glm::any(glm::lessThan(position, glm::ivec2(0))) ||
+            glm::any(glm::greaterThanEqual(position, dimensions))) return;
+        const unsigned axis = vertical ? 1 : 0;
+        const auto count = glm::min(command.count, dimensions[axis] - position[axis]);
+        if (count <= 0) return;
+        const bool read = command.opcode == 2 || command.opcode == 6;
+        const bool fill = command.opcode == 4;
+        const size_t stride = vertical ? width : 1;
+        auto* line = readback.data() + size_t(command.y) * width + command.x;
+        auto* data = static_cast<uint32_t*>(command.data);
         for (w8_long index = 0; index < count; ++index) {
-            if (command.opcode == 2) {
-                data[index] = line[index];
-            } else {
-                line[index] = command.opcode == 3 ? data[index] : data[0];
-            }
+            if (read) data[index] = line[size_t(index) * stride];
+            else line[size_t(index) * stride] = data[fill ? 0 : index];
         }
-        readback_dirty |= command.opcode != 2;
-    }
-
-    void column(const BufferCommand& command)
-    {
-        if (command.x < 0 || command.x >= (w8_long)width || command.y < 0) {
-            return;
-        }
-        const w8_long count = SDL_min(command.count, (w8_long)height - command.y);
-        uint32_t* data = static_cast<uint32_t*>(command.data);
-        for (w8_long index = 0; index < count; ++index) {
-            uint32_t& pixel = readback[(size_t)(command.y + index) * width + command.x];
-            if (command.opcode == 6) {
-                data[index] = pixel;
-            } else {
-                pixel = data[index];
-            }
-        }
-        readback_dirty |= command.opcode != 6;
+        readback_dirty |= !read;
     }
 
     SDL_GPUDevice* device;
@@ -1183,7 +1215,7 @@ private:
     SDL_GPUTextureFormat depth_format;
     SDL_GPUShader* vertex_shader;
     SDL_GPUShader* fragment_shader;
-    SDL_GPUSampler* samplers[2];
+    std::map<std::pair<w8_ulong, float>, SDL_GPUSampler*> samplers;
     SDL_GPUBuffer* vertex_buffer;
     uint32_t vertex_buffer_size;
     SDL_GPUCommandBuffer* command_buffer;
@@ -1196,12 +1228,12 @@ private:
     w8_long polygon_offset;
     VertexUniforms projection;
     ClearValues clear_values;
-    float fog_color[4];
+    glm::vec4 fog_color;
     SDL_Rect scissor;
     SDL_GPUViewport viewport;
     srRendererDefs::VertexArrayInfo vertex_arrays;
     uint32_t bound[2];
-    uint32_t parameters[2];
+    TexParms parameters[2];
 
     std::map<PipelineKey, SDL_GPUGraphicsPipeline*> pipelines;
     std::vector<DeviceTexture> textures;

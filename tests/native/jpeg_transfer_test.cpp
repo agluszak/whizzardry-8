@@ -1,18 +1,35 @@
 #include <catch2/catch_test_macros.hpp>
+#include <SDL3_image/SDL_image.h>
+#include <SDL3/SDL_begin_code.h>
+#include <SDL3/SDL_iostream.h>
+#include <SDL3/SDL_pixels.h>
+#include <SDL3/SDL_properties.h>
+#include <SDL3/SDL_stdinc.h>
+#include <SDL3/SDL_surface.h>
+#include <cstdio>
+#include <cstring>
+#include <filesystem>
+#include <fstream>
+#include <ios>
+#include <vector>
+#include <cstdlib>
+#include <iterator>
+#include <memory>
+#include <utility>
+
+#include "surrender_test_fixture.h"
+#include "compat/compiler.h"
 #include "surrender/srIO.h"
 /* Actual SDL_image decoding and byte-exact transfer. gray.jpg/cmyk.jpg are
    synthetic 3x2, quality-100 JPEGs with samples 20 + 9*i. */
 #include "surrender/srImageIO.h"
 #include "image_helpers.h"
-#include <SDL3_image/SDL_image.h>
-#include "wiz8/sr_api.h"
-#include <array>
-#include <cstdio>
-#include <cstring>
-#include <filesystem>
-#include <fstream>
-#include <stdexcept>
-#include <vector>
+#include "surrender/srARGB.h"
+#include "surrender/srColorSurface.h"
+#include "surrender/srColorSurfaceIFace.h"
+#include "surrender/srCore.h"
+#include "surrender/srPalette.h"
+#include "surrender/srPixelConvert.h"
 
 using Bytes = std::vector<Uint8>;
 using OwnedSurface = std::unique_ptr<srColorSurfaceIFace>;
@@ -25,11 +42,12 @@ static Bytes fixture(const char* name)
 }
 static void checkFormat(const srColorSurfaceIFace& surface, srPixelConvert::e_surfaceType type)
 {
-    srPixelConvert::PixelFormat expected;
-    srPixelConvert::mapPixelFormat(type, expected);
-    srPixelConvert::PixelFormat actual;
-    surface.getPixelFormat(actual);
-    REQUIRE(actual == expected);
+    const auto expected = srPixelConvert::pixelFormat(type);
+    REQUIRE(surface.getPixelFormat() == expected);
+    const auto description = surface.getSurfaceDesc();
+    REQUIRE(description.pixel_format == expected);
+    REQUIRE(description.width == static_cast<w8_ulong>(surface.getWidth()));
+    REQUIRE(description.height == static_cast<w8_ulong>(surface.getHeight()));
 }
 static OwnedSurface loadJpeg(const Bytes& data)
 {
@@ -400,16 +418,27 @@ static void streamTests()
         REQUIRE(rejected);
     }
 }
-TEST_CASE("jpeg_transfer_test")
+TEST_CASE_METHOD(SurRenderTestFixture, "JPEG decoding and transfer", "[image][transfer]")
 {
-    REQUIRE(srInit());
     jpegTests();
+}
+
+TEST_CASE_METHOD(SurRenderTestFixture, "JPEG validation", "[image][transfer]")
+{
     jpegValidationTests();
+}
+
+TEST_CASE_METHOD(SurRenderTestFixture, "Pixel transfer pitch", "[image][transfer]")
+{
     pitchTests();
+}
+
+TEST_CASE_METHOD(SurRenderTestFixture, "TGA orientation and RLE", "[image][transfer]")
+{
     tgaTests();
+}
+
+TEST_CASE_METHOD(SurRenderTestFixture, "Image stream boundaries", "[image][transfer]")
+{
     streamTests();
-    srExit();
-    puts("SDL_image JPEG/TGA formats, transfer, origins/RLE/palettes, pitch and checked streams passed");
-
-
 }

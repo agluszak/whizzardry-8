@@ -1,4 +1,9 @@
+#include <cstddef>
+#include <vector>
+
 #include "wiz8/music_playlist.h"
+#include "layouts/game_status.h"
+#include "soundman.h"
 #ifdef WIZ8_RUNTIME_TESTS
 #include "runtime_instrumentation.h"
 #endif
@@ -16,7 +21,6 @@
 #include "wiz8/local_screens/PartySelectionScreen.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
 #include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/local_screens/AutomapScreen.h"
 #include "wiz8/local_screens/CreditsScreen.h"
 #include "wiz8/local_screens/OptionsScreen.h"
@@ -28,12 +32,6 @@
 #include "wiz8/application.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/engine_code/ReadMesh.h"
-#include "wiz8/character_event_queue.h"
-#include "wiz8/npc_interaction.h"
-#include "wiz8/local_screens/MGSTextBox.h"
-#include "surrender/srTypeRegistry.h"
-
-#include <string.h>
 #include "wiz8/local_code/CombatSound.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/engine_code/Missile.h"
@@ -46,9 +44,6 @@
 #include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/monster_generators.h"
 #include "wiz8/regions.h"
-#include "Button System.h"
-
-#include <stdlib.h>
 
 /* GameloopExit names this unit; GameLoop is placed with that companion. */
 
@@ -79,12 +74,12 @@ W8ScreenStateHandlers g_screen_handlers[W8_SCREEN_COUNT] = {
      ScreenLifecycleSuccess},
     {MainGameScreenInitialize, MainGameScreenEnter, MainGameScreenFrame, MainGameScreenLeave,
      ScreenLifecycleSuccess},
-    {AutomapScreenInitialize, AutomapScreenEnter, AutomapScreenFrame, AutomapScreenLeave,
+    {ScreenLifecycleSuccess, AutomapScreenEnter, AutomapScreenFrame, AutomapScreenLeave,
      AutomapScreenFinalize},
     {ScreenLifecycleSuccess, CreditsScreenEnter, CreditsScreenFrame, CreditsScreenLeave,
      ScreenLifecycleSuccess},
-    {OptionsScreenInitialize, OptionsScreenEnter, OptionsScreenFrame, OptionsScreenLeave,
-     OptionsScreenFinalize},
+    {ScreenLifecycleSuccess, OptionsScreenEnter, OptionsScreenFrame, OptionsScreenLeave,
+     ScreenLifecycleSuccess},
     {JournalScreenInitialize, JournalScreenEnter, JournalScreenFrame, JournalScreenLeave,
      JournalScreenFinalize},
     {ScreenLifecycleSuccess, ExitScreenEnter, ExitScreenFrame, MainMenuScreenLeave,
@@ -113,8 +108,7 @@ void ShutdownGame(size_t initialized_screens, bool save_configuration)
     DestroyNpcDatabase();
     DestroyFactDatabase();
     DestroyLevelDatabase();
-    for (auto& palette : g_font_state_palettes)
-        palette.reset();
+    g_font_state_palettes = {};
     ReleaseDefaultHelpText();
     for (index = 0; index < static_cast<int>(initialized_screens); ++index) {
         g_screen_handlers[index].finalize();
@@ -137,7 +131,7 @@ void GameLoop(void)
 {
     W8ScreenId state;
 
-    SoundServiceStreams();
+    wiz8::sound::service();
     ServiceMusicPlaylist();
     state = g_current_screen_state.id;
     if (g_screen_return_requested) {
@@ -211,14 +205,14 @@ void GameloopExit(unsigned char release_screens)
     if (gXStatus.character_event_queue)
         gXStatus.character_event_queue->DestroyAllEvents();
 
-    SetFontObjectPalette16BPP(g_smfnt_font, GetFontObject(g_smfnt_font)->ownedPalette.get());
-    SetFontObjectPalette16BPP(g_calligraphy_font, GetFontObject(g_calligraphy_font)->ownedPalette.get());
-    SetFontObjectPalette16BPP(g_calligraphy_shadow_font, GetFontObject(g_calligraphy_shadow_font)->ownedPalette.get());
-    SetFontObjectPalette16BPP(g_wiz_text_font, GetFontObject(g_wiz_text_font)->ownedPalette.get());
-    SetFontObjectPalette16BPP(g_button_font, GetFontObject(g_button_font)->ownedPalette.get());
-    SetFontObjectPalette16BPP(g_wiz_text_font_secondary, GetFontObject(g_wiz_text_font_secondary)->ownedPalette.get());
-    SetFontObjectPalette16BPP(g_wiz_text_bold_font, GetFontObject(g_wiz_text_bold_font)->ownedPalette.get());
-    SetFontObjectPalette16BPP(g_options_detail_font, GetFontObject(g_options_detail_font)->ownedPalette.get());
+    g_smfnt_font.resetPalette();
+    g_calligraphy_font.resetPalette();
+    g_calligraphy_shadow_font.resetPalette();
+    g_wiz_text_font.resetPalette();
+    g_button_font.resetPalette();
+    g_wiz_text_font_secondary.resetPalette();
+    g_wiz_text_bold_font.resetPalette();
+    g_options_detail_font.resetPalette();
     if (!release_screens) {
         return;
     }

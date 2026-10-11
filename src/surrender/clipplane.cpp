@@ -1,10 +1,11 @@
-#include "surrender/srClipPlane.h"
-#include "surrender/srStreamFlags.h"
+#include <ostream>
 
+#include "surrender/srClipPlane.h"
+#include "surrender/stream_scope.h"
 #include "surrender/srGERD.h"
 #include "surrender/srTypeRegistry.h"
-
-#include <ostream>
+#include "glm/ext/vector_float4.hpp"
+#include "surrender/srNode.h"
 
 // FUNCTION: SURRENDER 0x10049B90
 srClipPlane::srClipPlane(srNode* parent)
@@ -22,10 +23,8 @@ void srClipPlane::process(const ProcessInfo& info, e_processType type)
 {
     srGERD* renderer = info.renderer;
     if (type == PROCESS_PUSH || type == PROCESS_PUSH_GLOBAL) {
-        applyWorldSpaceMatrix(*renderer);
-        renderer->matrixMode(srGERD::MATRIX_MODELVIEW);
+        const auto transform = scopedWorldSpaceMatrix(*renderer);
         renderer->pushClipPlane(clip_plane_, static_cast<srGERD::e_clipMode>(clip_type_));
-        renderer->popMatrix();
     } else if (type == PROCESS_POP || type == PROCESS_POP_GLOBAL) {
         renderer->popClipPlane();
     }
@@ -34,36 +33,14 @@ void srClipPlane::process(const ProcessInfo& info, e_processType type)
 // FUNCTION: SURRENDER 0x10049D40
 void srClipPlane::traverse(TraverseInfo& info)
 {
-    if (next_sibling_ != 0) {
-        next_sibling_->traverse(info);
-    }
-    if (testFlag(FLAG_TERMINATE) == 0) {
-        if (testFlag(FLAG_DISABLE) == 0) {
-            if (testFlag(FLAG_GLOBAL) == 0) {
-                info.entries.push_back({this, 1});
-            } else {
-                info.nodes.push_back(this);
-            }
-            if (first_child_ != 0) {
-                first_child_->traverse(info);
-            }
-            if (testFlag(FLAG_GLOBAL) == 0) {
-                info.entries.push_back({this, 2});
-            }
-        } else if (first_child_ != 0) {
-            first_child_->traverse(info);
-        }
-    }
+    traverseEffect(info);
 }
 
 // FUNCTION: SURRENDER 0x10049E40
 void srClipPlane::dump(std::ostream& stream)
 {
-    w8_long flags;
-
     srNode::dump(stream);
-    flags = srGetStreamFlags(stream);
-    srSetStreamFlags(stream, (flags & 0xfffffe7fL) | 0x40);
+    const srDumpStreamScope formatting(stream);
     stream.width(0x20);
     stream << "  Plane equation: ";
     stream << '{' << clip_plane_.x << ',' << clip_plane_.y << ',' << clip_plane_.z << ','
@@ -71,7 +48,6 @@ void srClipPlane::dump(std::ostream& stream)
     stream << '\n';
     stream.width(0x20);
     stream << "  Clip type: " << clip_type_ << '\n';
-    srSetStreamFlags(stream, flags & 0x7fff);
 }
 
 // FUNCTION: SURRENDER 0x1004A0A0
@@ -92,15 +68,8 @@ void srClipPlane::setClipPlane(const glm::vec4& plane)
     clip_plane_ = plane;
 }
 
-// FUNCTION: SURRENDER 0x1004A0F0
-void srClipPlane::getClipPlane(glm::vec4& plane) const
-{
-    plane = clip_plane_;
-}
-
 // FUNCTION: SURRENDER 0x1004A120
 glm::vec4 srClipPlane::getClipPlane() const
 {
     return clip_plane_;
 }
-

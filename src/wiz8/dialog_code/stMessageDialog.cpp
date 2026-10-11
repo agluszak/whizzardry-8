@@ -1,23 +1,22 @@
 #include <fmt/format.h>
-#include "wiz8/unicode.h"
 #include <algorithm>
 #include <string_view>
 #include <vector>
-#include "wiz8/dialog_code/DialogButton.h"
+#include <cctype>
+#include <cstddef>
+#include <string>
+#include <utility>
+
+#include "wiz8/unicode.h"
+#include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/dialog_code/MessageDialogBase.h"
 #include "wiz8/dialog_code/DialogInterface.h"
-#include "wiz8/dialog_code/ButtonUserData.h"
-#include "wiz8/sr_api.h"
-#include "wiz8/cursor.h"
-#include "wiz8/utility.h"
-
-#include "english.h"
-#include "mousesystem_macros.h"
-#include "Button System.h"
+#include "wiz8/regions.h"
+#include "wiz8/dialog_code/ButtonAppearance.h"
 #include "Font.h"
-
-#include <ctype.h>
-#include <stdlib.h>
+#include "dialog_code/DialogBase.h"
+#include "Video2.h"
+#include "input.h"
 
 /* Dialog Code\stMessageDialog.cpp. SetMessage and WrapMessage assert this
    unit (lines 131 and 213); the two button callbacks are proven by their
@@ -25,23 +24,13 @@
    destructor, draw and input bodies are the surrounding attribution gaps
    placed with them provisionally. */
 
-/* Dialog Code. The shared dialog base at vtable 0x005EF8B0. Its lifetime
-   bodies are what every derived dialog runs before and after its own. */
+/* Dialog Code. The base dialog releases its graphics in its destructor;
+   the message dialog's shared button and sprite resources are RAII members. */
 
 // FUNCTION: WIZ8 0x005d25b0
 W8MessageDialogBase::W8MessageDialogBase()
-    : accepted(false), is_open(true), m_edge_image(-1), m_message_button(-1), m_confirm_button(-1),
-      m_confirm_image(-1), m_cancel_button(-1), m_cancel_image(-1), m_line_count(0)
+    : accepted(false), is_open(true), m_line_count(0), m_show_confirm(false), allow_cancel(false)
 {
-}
-
-/* A virtual called from a destructor has a fixed dynamic type, so the
-   compiler dispatches it directly; that direct call is slot 2. */
-
-// FUNCTION: WIZ8 0x005d2610
-W8MessageDialogBase::~W8MessageDialogBase()
-{
-    DestroyControls();
 }
 
 // FUNCTION: WIZ8 0x005d2660
@@ -51,32 +40,36 @@ void W8MessageDialogBase::Draw()
     unsigned int index;
 
     W8DialogBase::Draw();
-    DrawButton(m_message_button);
+    m_message_button.m_dirty = true;
+    m_message_button.Draw();
     if (!m_show_confirm && !allow_cancel) {
-        y = m_y + m_height / 2 - (GetFontHeight(g_dialog_interface_font) * m_line_count >> 1);
+        y = m_y + m_height / 2 - (g_dialog_interface_font->height() * m_line_count >> 1);
     } else {
         y = m_y + (m_height - 0x21) / 2 -
-            (GetFontHeight(g_dialog_interface_font) * m_line_count >> 1);
+            (g_dialog_interface_font->height() * m_line_count >> 1);
     }
     if (!m_lines.empty()) {
-        SaveFontSettings();
-        SetFont(g_dialog_interface_font);
-        SetFontForeground(g_dialog_font_foreground);
-        SetFontBackground(g_dialog_font_background);
-        for (index = 0; index < m_line_count; ++index) {
-            const auto& line = m_lines[index];
-            short width = StringPixLength(line, g_dialog_interface_font);
-            DrawFontText(m_x + (m_width - width) / 2, y, line);
-            y += GetFontHeight(g_dialog_interface_font);
+        {
+            TextOptions options;
+            options.colors.foreground =
+                g_dialog_interface_font->color(g_dialog_font_foreground);
+            options.colors.background =
+                g_dialog_interface_font->color(g_dialog_font_background);
+            for (index = 0; index < m_line_count; ++index) {
+                const auto& line = m_lines[index];
+                short width = g_dialog_interface_font->textWidth(line);
+                DrawText(GetFrameBufferSurface(), *g_dialog_interface_font,
+                         {m_x + (m_width - width) / 2, y}, line, options);
+                y += g_dialog_interface_font->height();
+            }
         }
-        RestoreFontSettings();
     }
     if (m_show_confirm) {
-        if (m_confirm_button != -1) {
-            DrawButton(m_confirm_button);
-        }
-        if (allow_cancel && m_cancel_button != -1) {
-            DrawButton(m_cancel_button);
+        m_confirm_button.m_dirty = true;
+        m_confirm_button.Draw();
+        if (allow_cancel) {
+            m_cancel_button.m_dirty = true;
+            m_cancel_button.Draw();
         }
     }
 }
@@ -110,7 +103,7 @@ void W8MessageDialogBase::SetMessage(std::string_view message, int line_count,
         int height;
 
         for (index = 0; index < m_line_count; ++index) {
-            short line_width = StringPixLength(m_lines[index], g_dialog_interface_font);
+            short line_width = g_dialog_interface_font->textWidth(m_lines[index]);
             if (width < line_width) {
                 width = line_width;
             }
@@ -119,13 +112,13 @@ void W8MessageDialogBase::SetMessage(std::string_view message, int line_count,
         if (width < 0xaa) {
             width = 0xaa;
         }
-        GetFontHeight(g_dialog_interface_font);
-        height = GetFontHeight(g_dialog_interface_font) * m_line_count + 0x1e;
+        g_dialog_interface_font->height();
+        height = g_dialog_interface_font->height() * m_line_count + 0x1e;
         if (m_show_confirm || allow_cancel) {
-            height = GetFontHeight(g_dialog_interface_font) * m_line_count + 0x3f;
+            height = g_dialog_interface_font->height() * m_line_count + 0x3f;
         }
-        if (height < GetFontHeight(g_dialog_interface_font) * 7) {
-            height = GetFontHeight(g_dialog_interface_font) * 7;
+        if (height < g_dialog_interface_font->height() * 7) {
+            height = g_dialog_interface_font->height() * 7;
         }
         if (maximum_width && maximum_width < width) {
             width = maximum_width;
@@ -153,7 +146,7 @@ unsigned int W8MessageDialogBase::WrapMessage(std::string_view message)
         const auto stop = end == std::string_view::npos ? message.size() : end;
         const auto word = message.substr(start, stop - start);
         auto candidate = line.empty() ? std::string(word) : fmt::format("{} {}", line, word);
-        if (!line.empty() && StringPixLength(candidate, g_dialog_interface_font) > maximum_width) {
+        if (!line.empty() && g_dialog_interface_font->textWidth(candidate) > maximum_width) {
             m_lines.push_back(std::move(line));
             line.assign(word);
         } else line = std::move(candidate);
@@ -177,46 +170,33 @@ void W8MessageDialogBase::SetClientExtent(int width, int height)
 // FUNCTION: WIZ8 0x005d2d00
 int W8MessageDialogBase::CreateControls()
 {
-    W8DialogBase::CreateControls();
-    if (m_edge_image == -1) {
+    if (int error = W8DialogBase::CreateControls(); error != 0) return error;
+    if (!m_edge_image) {
         m_edge_image = LoadGenericButtonImages({}, "Data\\Dialogs\\DialogEdge.STI", {}, "Data\\Dialogs\\DialogEdge.STI", {}, m_background_path, static_cast<short>(m_background_flags), 0, 0);
-        if (m_edge_image == -1) {
+        if (!m_edge_image) {
             return m_error = 3;
         }
     }
-    m_message_button = CreateTextButton({}, g_dialog_interface_font, g_dialog_font_foreground, g_dialog_font_background, m_edge_image, static_cast<short>(m_x + 9), static_cast<short>(m_y + 9), static_cast<short>(m_width - 0x12), static_cast<short>(m_height - 0x12), BUTTON_NO_TOGGLE | BUTTON_IGNORE_CLICKS, MSYS_PRIORITY_HIGHEST - 1, BUTTON_NO_CALLBACK, BUTTON_NO_CALLBACK);
+    m_message_button.ConfigureTextButton({}, *g_dialog_interface_font, g_dialog_font_foreground,
+                                        g_dialog_font_background, m_x + 9, m_y + 9,
+                                        m_width - 0x12, m_height - 0x12, nullptr, 0,
+                                        m_edge_image, REGION_PRIORITY_HIGHEST - 1);
 
-    m_confirm_image =
-        LoadButtonImage("Data\\Dialogs\\DialogConfirmation.STI", 3, 0, 1, 2, 2);
-    if (m_confirm_image != -1) {
-        m_confirm_button =
-            QuickCreateButton(m_confirm_image, 0, 0, BUTTON_NO_TOGGLE, MSYS_PRIORITY_HIGHEST,
-                              MessageDialogConfirmCallback, MessageDialogConfirmCallback);
-    }
-    m_cancel_image =
-        LoadButtonImage("Data\\Dialogs\\DialogConfirmation.STI", 7, 4, 5, 6, 6);
-    if (m_cancel_image != -1) {
-        m_cancel_button =
-            QuickCreateButton(m_cancel_image, 0, 0, BUTTON_NO_TOGGLE, MSYS_PRIORITY_HIGHEST,
-                              MessageDialogCancelCallback, MessageDialogCancelCallback);
-    }
-    if (m_confirm_button != -1 && m_cancel_button != -1) {
-        int button_width;
-        int button_y;
-        int button_x;
-
-        SetButtonUserDataPointer(m_confirm_button, this);
-        SetButtonUserDataPointer(m_cancel_button, this);
-        button_width = GetButtonWidth(m_confirm_button);
-        button_y = m_y + m_height - GetButtonHeight(m_confirm_button) - 0xf;
-        if (allow_cancel) {
-            button_x = m_x + (m_width - button_width * 3) / 2;
-        } else {
-            button_x = m_x + (m_width - button_width) / 2;
-        }
-        SetButtonPosition(m_confirm_button, button_x, button_y);
-        SetButtonPosition(m_cancel_button, m_x + m_width / 2 + GetButtonWidth(m_confirm_button) / 2,
-                          GetButtonY(m_confirm_button));
+    if (m_confirm_button.Configure("Data\\Dialogs\\DialogConfirmation.STI", 3, 0, 1, 2, 2,
+                                   MessageDialogConfirmCallback, nullptr, false, REGION_PRIORITY_HIGHEST,
+                                   W8_DIALOG_BUTTON_NO_TOOLTIP, nullptr, nullptr) &&
+        m_cancel_button.Configure("Data\\Dialogs\\DialogConfirmation.STI", 7, 4, 5, 6, 6,
+                                  MessageDialogCancelCallback, nullptr, false, REGION_PRIORITY_HIGHEST,
+                                  W8_DIALOG_BUTTON_NO_TOOLTIP, nullptr, nullptr)) {
+        m_confirm_button.m_owner = this;
+        m_cancel_button.m_owner = this;
+        const int button_width = m_confirm_button.GetWidth();
+        const int button_y = m_y + m_height - m_confirm_button.GetHeight() - 0xf;
+        const int button_x = m_x + (m_width - button_width * (allow_cancel ? 3 : 1)) / 2;
+        m_confirm_button.SetPosition(button_x, button_y);
+        m_cancel_button.SetPosition(m_x + m_width / 2 + button_width / 2, button_y);
+        m_confirm_button.SetVisible(m_show_confirm);
+        m_cancel_button.SetVisible(m_show_confirm && allow_cancel);
         return 0;
     }
     DestroyControls();
@@ -229,25 +209,23 @@ void W8MessageDialogBase::DestroyControls()
     unsigned int index;
 
     W8DialogBase::DestroyControls();
-    ReleaseDialogBorderImage(m_edge_image);
-    ReleaseDialogButtonHandle(m_message_button);
-    ReleaseDialogButtonHandle(m_confirm_button);
-    ReleaseDialogButtonHandle(m_cancel_button);
-    ReleaseDialogButtonImage(m_confirm_image);
-    ReleaseDialogButtonImage(m_cancel_image);
+    m_edge_image.reset();
+    m_message_button.Reset();
+    m_confirm_button.Reset();
+    m_cancel_button.Reset();
     m_lines.clear();
 }
 
 // FUNCTION: WIZ8 0x005d3020
-bool W8MessageDialogBase::HandleInput(const InputAtom* input)
+bool W8MessageDialogBase::HandleInput(const InputEvent* input)
 {
-    if (input->usEvent != KEY_DOWN) {
+    if (input->type != InputEventType::KeyDown) {
         return is_open;
     }
 
     if (allow_cancel) {
-        int key = toupper(input->usParam);
-        if (key == ESC) {
+        int key = toupper(input->key);
+        if (key == VK_ESCAPE) {
             accepted = false;
             is_open = false;
             return false;
@@ -265,59 +243,35 @@ bool W8MessageDialogBase::HandleInput(const InputAtom* input)
 // FUNCTION: WIZ8 0x005d3080
 bool W8MessageDialogBase::ProcessInput()
 {
-    SDL_Point mouse;
-    InputAtom input;
-
-    SGPMouseGetPos(&mouse);
-    MSYS_SGP_Mouse_Handler_Hook(MOUSE_POS, mouse.x, mouse.y, gfLeftButtonState, gfRightButtonState);
-
-    while (DequeueEvent(&input)) {
-        if (!DispatchDialogMouseInput(input.usEvent, mouse.x, mouse.y)) {
-            return HandleInput(&input);
+    BeginModalInput();
+    bool keep_open = is_open;
+    DrainModalInput([this, &keep_open](const InputEvent& input) {
+        if (DispatchRegionInput(&input)) {
+            keep_open = is_open;
+            return true;
         }
-    }
-
-    return is_open;
+        keep_open = HandleInput(&input);
+        if (!keep_open) EndModalInput();
+        return false;
+    });
+    if (!keep_open) EndModalInput();
+    return keep_open;
 }
 
 // FUNCTION: WIZ8 0x005d32c0
-void MessageDialogConfirmCallback(GUI_BUTTON* button, int reason)
+void MessageDialogConfirmCallback(W8ButtonWidget* button)
 {
-    W8MessageDialogBase* dialog = GetButtonUserDataPointer<W8MessageDialogBase>(button);
-    if (!dialog) {
-        srAssertFail("pDialog", "C:\\Projects\\Wizardry 8\\Dialog Code\\stMessageDialog.cpp", 0x267,
-                     0);
-    }
-    if (!(reason & MSYS_CALLBACK_REASON_LBUTTON_DWN) &&
-        (reason & MSYS_CALLBACK_REASON_LBUTTON_UP)) {
-        if (button->uiFlags & BUTTON_CLICKED_ON) {
-            dialog->accepted = true;
-            dialog->is_open = false;
-            button->uiFlags &= ~BUTTON_CLICKED_ON;
-            dialog->m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
-        }
-    } else if (UpdateDialogArrowState(button, reason)) {
-        dialog->m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
-    }
+    auto* dialog = static_cast<W8MessageDialogBase*>(button->m_owner);
+    dialog->accepted = true;
+    dialog->is_open = false;
+    dialog->m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
 }
 
 // FUNCTION: WIZ8 0x005d3370
-void MessageDialogCancelCallback(GUI_BUTTON* button, int reason)
+void MessageDialogCancelCallback(W8ButtonWidget* button)
 {
-    W8MessageDialogBase* dialog = GetButtonUserDataPointer<W8MessageDialogBase>(button);
-    if (!dialog) {
-        srAssertFail("pDialog", "C:\\Projects\\Wizardry 8\\Dialog Code\\stMessageDialog.cpp", 0x28c,
-                     0);
-    }
-    if (!(reason & MSYS_CALLBACK_REASON_LBUTTON_DWN) &&
-        (reason & MSYS_CALLBACK_REASON_LBUTTON_UP)) {
-        if (button->uiFlags & BUTTON_CLICKED_ON) {
-            dialog->accepted = false;
-            dialog->is_open = false;
-            button->uiFlags &= ~BUTTON_CLICKED_ON;
-            dialog->m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
-        }
-    } else if (UpdateDialogArrowState(button, reason)) {
-        dialog->m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
-    }
+    auto* dialog = static_cast<W8MessageDialogBase*>(button->m_owner);
+    dialog->accepted = false;
+    dialog->is_open = false;
+    dialog->m_dirty_flags |= W8_DIALOG_DIRTY_REDRAW;
 }

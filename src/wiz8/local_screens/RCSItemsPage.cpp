@@ -1,44 +1,39 @@
+#include <memory>
+#include <SDL3/SDL_surface.h>
+#include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_stdinc.h>
 #include <fmt/format.h>
 #include <fmt/printf.h>
+#include <optional>
+#include <string>
+#include <utility>
+#include <vector>
+
 #include "wiz8/spell_ids.h"
 #include "wiz8/local_screens/RCSItemsPage.h"
 #include "wiz8/integer_constants.h"
-
 #include "wiz8/layouts/character.h"
-#include "wiz8/engine_code/3dapi.h"
 #include "wiz8/character_skills.h"
-#include "wiz8/local_code/CharGeneration.h"
-#include "wiz8/local_code/Combat.h"
-#include "wiz8/local_code/CombatAttack.h"
-#include "wiz8/local_code/ConditionsAndEnchantments.h"
-#include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/GameplayMods.h"
-#include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/local_code/Magic.h"
-#include "wiz8/local_code/MagicEffects.h"
 #include "wiz8/local_code/party_encumbrance.h"
 #include "wiz8/local_code/PC_Item.h"
-#include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/layouts/combat_state.h"
-#include "wiz8/local_code/CombatRange.h"
 #include "wiz8/cursor.h"
 #include "wiz8/dialog_code/AssayDialog.h"
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
-#include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/dialog_code/StatInfoDialogs.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/item_tables.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/Controls.h"
-#include "wiz8/local_code/MonsterGroup.h"
+#include "wiz8/catalog_artwork.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/TextControl.h"
 #include "wiz8/local_code/Widget.h"
-#include "wiz8/notices.h"
 #include "wiz8/npc_interaction.h"
-#include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/RCSCommon.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
 #include "wiz8/local_screens/Screens.h"
@@ -46,17 +41,19 @@
 #include "wiz8/fonts.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/local_code/Targeting.h"
-#include "wiz8/utility.h"
 #include "wiz8/xstatus.h"
-
 #include "input.h"
 #include "soundman.h"
 #include "Font.h"
-#include "vsurface.h"
-#include "line.h"
-
-#include <new>
-#include "wiz8/local_screens/OptionsScreen.h"
+#include "conditions.h"
+#include "dialog_code/DialogBase.h"
+#include "equipment_slots.h"
+#include "layouts/item_instance.h"
+#include "layouts/targeting.h"
+#include "local_code/ControlsRect.h"
+#include "local_code/RangeControl.h"
+#include "local_code/TextBuffer.h"
+#include "regions.h"
 
 /* Retail Local Screens\RCSItemsPage.cpp - the items page of the camp
    review screen: page-mode toggling, the item-info/split/stat dialogs,
@@ -72,8 +69,6 @@ int giCasterCharSlot;
 // GLOBAL: WIZ8 0x0069C424
 W8ItemInstance* g_split_item_source;
 
-// GLOBAL: WIZ8 0x0069c490
-unsigned int g_camp_secondary_region_set;
 
 /* The twelve equip-slot label message ids indexed by region
    callback_id. */
@@ -151,7 +146,7 @@ void OpenItemInfoDialog(W8ItemInstance* item, W8DialogDestroyCallback destroy_ca
     dialog->SetText("");
     dialog->SetOrigin(g_info_dialog_x, g_info_dialog_y);
     dialog->m_destroy_callback = destroy_callback;
-    DisplayCampDialog(dialog);
+    DisplayCampDialog(std::unique_ptr<W8DialogBase>(dialog));
 }
 
 /* The secondary-activation callbacks the seven attribute labels and four
@@ -227,13 +222,13 @@ void OpenSecondaryAttributeInfoDialog4(void)
 // FUNCTION: WIZ8 0x005BA2B0
 void OpenAttributeInfoDialog(W8Attribute attribute)
 {
-    DisplayCampDialog(new W8AttributeInfoDialog(attribute));
+    DisplayCampDialog(std::make_unique<W8AttributeInfoDialog>(attribute));
 }
 
 // FUNCTION: WIZ8 0x005BA310
 void OpenSecondaryAttributeInfoDialog(unsigned int uiIndex)
 {
-    DisplayCampDialog(new W8SecondaryAttributeInfoDialog(uiIndex));
+    DisplayCampDialog(std::make_unique<W8SecondaryAttributeInfoDialog>(uiIndex));
 }
 
 // FUNCTION: WIZ8 0x005BA370
@@ -274,7 +269,7 @@ void OpenSplitStackDialog(W8ItemInstance* item)
         dialog->SetText("");
         dialog->SetOrigin(g_split_dialog_x, g_split_dialog_y);
         dialog->m_destroy_callback = SplitStackDialogResult;
-        DisplayCampDialog(dialog);
+        DisplayCampDialog(std::unique_ptr<W8DialogBase>(dialog));
         SetCampItemActionMode(W8_CAMP_ITEM_ACTION_NONE);
     }
 }
@@ -332,15 +327,15 @@ void ReportCastResult(int party_slot)
     result = RevealCharacterItemBindingsByProfession(giReviewCharSlot, party_slot);
     character = g_status.buffers.Char + party_slot;
     if (result == 0) {
-        SoundPlay("Data\\Sound\\Misc\\Spell Fizzle 01.wav", 0);
+        wiz8::sound::play("Data\\Sound\\Misc\\Spell Fizzle 01.wav");
         text = fmt::sprintf(g_localized_strings[0x1be], character->name, 0, 1, 0);
         ShowCampNoticeLine(text, 0, true, false);
     } else if (result == 1) {
-        SoundPlay("Data\\Sound\\Misc\\GeneralMagic.wav", 0);
+        wiz8::sound::play("Data\\Sound\\Misc\\GeneralMagic.wav");
         text = fmt::sprintf(g_localized_strings[0x1bd], character->name, 0, 1, 0);
         ShowCampNoticeLine(text, 0, true, false);
     } else if (result == 2) {
-        SoundPlay("Data\\Sound\\Misc\\GeneralMagic.wav", 0);
+        wiz8::sound::play("Data\\Sound\\Misc\\GeneralMagic.wav");
         text = fmt::sprintf(g_localized_strings[0x1bc], character->name, 0, 1, 0);
         ShowCampNoticeLine(text, 0, true, false);
     }
@@ -776,7 +771,7 @@ void ToggleCampItemFilter(W8CampItemFilterButton tab)
     }
     g_camp_screen->item_scroll = 0;
     RebuildCampItemList();
-    if (!gfKeyState[VK_CONTROL]) {
+    if (!IsKeyHeld(VK_CONTROL)) {
         g_camp_screen->item_redraw_flags |= W8_CAMP_ITEM_REDRAW_POOL;
         return;
     }
@@ -801,7 +796,7 @@ static void ShowCampItemInfo(W8ItemInstance* item)
 }
 
 // FUNCTION: WIZ8 0x005BB350
-unsigned char BackpackRegionHandler(const InputAtom* event, W8Region* region)
+unsigned char BackpackRegionHandler(const InputEvent* event, W8Region* region)
 {
     int slot;
     W8ItemInstance* item;
@@ -811,15 +806,15 @@ unsigned char BackpackRegionHandler(const InputAtom* event, W8Region* region)
     if (item->iItemNo == -1 && !g_status.item_in_cursor) {
         PushButtonSoundScheme(0, true);
     }
-    if (event->usEvent < (RIGHT_BUTTON_DOWN + 1)) {
-        if (event->usEvent == RIGHT_BUTTON_DOWN) {
+    if (IsLeftButtonEvent(event->type) || event->type == InputEventType::RightButtonDown) {
+        if (event->type == InputEventType::RightButtonDown) {
             region->flags |= W8_REGION_RIGHT_BUTTON_HELD;
             return 1;
         }
-        if (event->usEvent == LEFT_BUTTON_DOWN) {
+        if (event->type == InputEventType::LeftButtonDown) {
             region->flags |= W8_REGION_LEFT_BUTTON_HELD;
         } else {
-            if (event->usEvent != LEFT_BUTTON_UP) {
+            if (event->type != InputEventType::LeftButtonUp) {
                 return 0;
             }
             if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) == 0) {
@@ -835,14 +830,14 @@ unsigned char BackpackRegionHandler(const InputAtom* event, W8Region* region)
         DisableRegionHelpFlag(region);
         return 1;
     }
-    if (event->usEvent == RIGHT_BUTTON_UP) {
+    if (event->type == InputEventType::RightButtonUp) {
         if ((region->flags & W8_REGION_RIGHT_BUTTON_HELD) != 0 && item->iItemNo != -1 &&
             g_camp_screen->item_action != W8_CAMP_ITEM_ACTION_IDENTIFY) {
             ShowCampItemInfo(item);
         }
         return 1;
     }
-    if (event->usEvent == MOUSE_POS) {
+    if (event->type == InputEventType::MouseMove) {
         if ((region->flags & W8_REGION_MOUSE_TRANSITION_MASK) != 0) {
             if (item->iItemNo != -1 || g_status.item_in_cursor) {
                 g_camp_screen->item_redraw_flags |= W8_CAMP_ITEM_REDRAW_BACKPACK_CELL_FIRST
@@ -866,7 +861,7 @@ unsigned char BackpackRegionHandler(const InputAtom* event, W8Region* region)
 }
 
 // FUNCTION: WIZ8 0x005BB560
-unsigned char EquipSlotRegionHandler(const InputAtom* event, W8Region* region)
+unsigned char EquipSlotRegionHandler(const InputEvent* event, W8Region* region)
 {
     int slot;
     int delay;
@@ -882,17 +877,17 @@ unsigned char EquipSlotRegionHandler(const InputAtom* event, W8Region* region)
          !CanCharacterUseItem(g_review_character, g_status.item_in_hand.iItemNo))) {
         PushButtonSoundScheme(0, true);
     }
-    if (event->usEvent < (RIGHT_BUTTON_DOWN + 1)) {
-        if (event->usEvent == RIGHT_BUTTON_DOWN) {
+    if (IsLeftButtonEvent(event->type) || event->type == InputEventType::RightButtonDown) {
+        if (event->type == InputEventType::RightButtonDown) {
             region->flags |= W8_REGION_RIGHT_BUTTON_HELD;
             return 1;
         }
-        if (event->usEvent == LEFT_BUTTON_DOWN) {
+        if (event->type == InputEventType::LeftButtonDown) {
             region->flags |= W8_REGION_LEFT_BUTTON_HELD;
             DisableRegionHelpFlag(region);
             return 1;
         }
-        if (event->usEvent != LEFT_BUTTON_UP) {
+        if (event->type != InputEventType::LeftButtonUp) {
             return 0;
         }
         if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) != 0) {
@@ -917,8 +912,8 @@ unsigned char EquipSlotRegionHandler(const InputAtom* event, W8Region* region)
             return 1;
         }
     } else {
-        if (event->usEvent != RIGHT_BUTTON_UP) {
-            if (event->usEvent != MOUSE_POS) {
+        if (event->type != InputEventType::RightButtonUp) {
+            if (event->type != InputEventType::MouseMove) {
                 return 0;
             }
             if ((region->flags & W8_REGION_MOUSE_ENTER) != 0) {
@@ -963,7 +958,7 @@ unsigned char EquipSlotRegionHandler(const InputAtom* event, W8Region* region)
 }
 
 // FUNCTION: WIZ8 0x005BB900
-unsigned char ItemPoolRegionHandler(const InputAtom* event, W8Region* region)
+unsigned char ItemPoolRegionHandler(const InputEvent* event, W8Region* region)
 {
     unsigned int slot;
     unsigned int pool_index;
@@ -983,8 +978,8 @@ unsigned char ItemPoolRegionHandler(const InputAtom* event, W8Region* region)
     if (item->iItemNo == -1 && !g_status.item_in_cursor) {
         PushButtonSoundScheme(0, true);
     }
-    if (event->usEvent < 0x101) {
-        if (event->usEvent == RIGHT_BUTTON_UP) {
+    if (IsLeftButtonEvent(event->type) || event->type == InputEventType::RightButtonDown || event->type == InputEventType::RightButtonUp) {
+        if (event->type == InputEventType::RightButtonUp) {
             if ((region->flags & W8_REGION_RIGHT_BUTTON_HELD) != 0 &&
                 pool_index < g_status.party_item_count &&
                 g_camp_screen->item_action != W8_CAMP_ITEM_ACTION_IDENTIFY) {
@@ -992,13 +987,13 @@ unsigned char ItemPoolRegionHandler(const InputAtom* event, W8Region* region)
             }
             return 1;
         }
-        if (event->usEvent == LEFT_BUTTON_DOWN) {
+        if (event->type == InputEventType::LeftButtonDown) {
             region->flags |= W8_REGION_LEFT_BUTTON_HELD;
             DisableRegionHelpFlag(region);
             return 1;
         }
-        if (event->usEvent != LEFT_BUTTON_UP) {
-            if (event->usEvent != RIGHT_BUTTON_DOWN) {
+        if (event->type != InputEventType::LeftButtonUp) {
+            if (event->type != InputEventType::RightButtonDown) {
                 return 0;
             }
             region->flags |= W8_REGION_RIGHT_BUTTON_HELD;
@@ -1013,7 +1008,7 @@ unsigned char ItemPoolRegionHandler(const InputAtom* event, W8Region* region)
             return 1;
         }
     } else {
-        if (event->usEvent == MOUSE_POS) {
+        if (event->type == InputEventType::MouseMove) {
             if ((region->flags & W8_REGION_MOUSE_TRANSITION_MASK) != 0) {
                 if (item->iItemNo != -1 || g_status.item_in_cursor) {
                     g_camp_screen->item_redraw_flags |= W8_CAMP_ITEM_REDRAW_POOL_CELL_FIRST
@@ -1032,10 +1027,10 @@ unsigned char ItemPoolRegionHandler(const InputAtom* event, W8Region* region)
             }
             return 0;
         }
-        if (event->usEvent != MOUSE_WHEEL) {
+        if (event->type != InputEventType::MouseWheel) {
             return 0;
         }
-        delta = GetMouseWheelDeltaValue(event->usParam);
+        delta = event->wheel;
         count = delta;
         if (delta > 0) {
             do {
@@ -1069,14 +1064,14 @@ unsigned char ItemPoolRegionHandler(const InputAtom* event, W8Region* region)
 /* Reason 0x40/0x8 press the tab control, 0x10 releases it, and the 0x400
    enter/leave transition forwards the matching mouse events. */
 // FUNCTION: WIZ8 0x005BBBB0
-unsigned char RealmTabRegionHandler(const InputAtom* event, W8Region* region)
+unsigned char RealmTabRegionHandler(const InputEvent* event, W8Region* region)
 {
     return DispatchButtonRegionEvent(event, region,
                                      g_camp_item_filter_buttons[region->callback_id]);
 }
 
 // FUNCTION: WIZ8 0x005BBC70
-unsigned char PanelTabRegionHandler(const InputAtom* event, W8Region* region)
+unsigned char PanelTabRegionHandler(const InputEvent* event, W8Region* region)
 {
     return DispatchButtonRegionEvent(event, region, g_camp_action_buttons[region->callback_id]);
 }
@@ -1126,7 +1121,7 @@ void DrawCampItemIcons(void)
     const W8CampScreenRegion* region;
     W8ItemInstance* item;
     W8Character* character = g_review_character;
-    W8CampScreenState* state = g_camp_screen;
+    W8CampScreenState* state = g_camp_screen.get();
 
     for (index = 0; index < 8; ++index) {
         item = &character->backpack[index];
@@ -1176,8 +1171,6 @@ static void DrawCampItemLabel(W8ItemInstance* item, int left, int top, char flag
     W8TextBuffer* text;
     int width;
     int height;
-    unsigned int pitch;
-    char* buffer;
 
     name = FormatItemDisplayName(item, false);
     g_camp_screen->text_buffer = name;
@@ -1190,25 +1183,27 @@ static void DrawCampItemLabel(W8ItemInstance* item, int left, int top, char flag
     if (text != 0) {
         height = text->m_lineCount;
         width = text->m_maxLineWidth + 4;
-        height = GetFontHeight(g_font10arial) * height + 2;
+        height = g_font10arial.height() * height + 2;
         if (flag != 0) {
             bounds.right -= width;
             bounds.left -= width;
             text->SetLayoutBounds(&bounds, true, true);
         }
-        ColorFillVideoSurfaceArea(0xfffffff2, bounds.left, bounds.top, bounds.left + width,
-                                  bounds.top + height, 0x8000);
-        buffer = static_cast<char*>(LockPrimarySurface(&pitch));
-        if (buffer != 0) {
+        SDL_Surface& framebuffer = GetFrameBufferSurface();
+        const SDL_Rect fill{bounds.left, bounds.top, width, height};
+        SDL_FillSurfaceRect(&framebuffer, &fill, 0x8000);
+        if (framebuffer.pixels != nullptr) {
             // reinterpret-ok: SGP frame-buffer bytes to W8TextBuffer's byte view
-            text->RenderText(reinterpret_cast<unsigned char*>(buffer), pitch, 2, 1, true);
-            LineDraw(0, bounds.left, bounds.top, bounds.left + width, bounds.top, -0x6613, buffer);
-            LineDraw(0, bounds.left + width, bounds.top, bounds.left + width, bounds.top + height,
-                     -0x6613, buffer);
-            LineDraw(0, bounds.left + width, bounds.top + height, bounds.left, bounds.top + height,
-                     -0x6613, buffer);
-            LineDraw(0, bounds.left, bounds.top + height, bounds.left, bounds.top, -0x6613, buffer);
-            UnlockPrimarySurface();
+            text->RenderText(framebuffer, 2, 1, true);
+            const Uint16 outline = static_cast<Uint16>(-0x6613);
+            const SDL_Rect top_edge{bounds.left, bounds.top, width + 1, 1};
+            const SDL_Rect right_edge{bounds.left + width, bounds.top, 1, height + 1};
+            const SDL_Rect bottom_edge{bounds.left, bounds.top + height, width + 1, 1};
+            const SDL_Rect left_edge{bounds.left, bounds.top, 1, height + 1};
+            SDL_FillSurfaceRect(&framebuffer, &top_edge, outline);
+            SDL_FillSurfaceRect(&framebuffer, &right_edge, outline);
+            SDL_FillSurfaceRect(&framebuffer, &bottom_edge, outline);
+            SDL_FillSurfaceRect(&framebuffer, &left_edge, outline);
             delete text;
         }
     }
@@ -1223,9 +1218,9 @@ static void DrawCampItemLabel(W8ItemInstance* item, int left, int top, char flag
 class W8CampInfoLabel : public W8TextControl {
 public:
     W8CampInfoLabel(Controls* panel, unsigned int region, int left, int top, int right, int bottom,
-                    int image_object, int image_frame, int normal_sprite, int pressed_sprite,
+                    std::optional<CatalogArtwork> image_artwork, int normal_sprite, int pressed_sprite,
                     int alternate_normal_sprite, int alternate_pressed_sprite, int disabled_sprite)
-        : W8TextControl(panel, region, left, top, right, bottom, image_object, image_frame,
+        : W8TextControl(panel, region, left, top, right, bottom, std::move(image_artwork),
                         normal_sprite, pressed_sprite, alternate_normal_sprite,
                         alternate_pressed_sprite, disabled_sprite)
     {
@@ -1274,20 +1269,22 @@ int CreateCampActionPanel(void)
 {
     int index;
 
-    g_camp_action_panel = 0;
+    g_camp_action_panel.reset();
     for (index = 0; index < 2; ++index) {
         if (g_camp_action_buttons[index] != 0) {
             g_camp_action_buttons[index] = 0;
         }
     }
-    g_camp_action_panel = new Controls(0x78, 0x19c, 0xbf, 0x1b4, -1, 0, 0);
-    if (g_camp_action_panel == 0) {
+    g_camp_action_panel = std::make_unique<Controls>(0x78, 0x19c, 0xbf, 0x1b4, std::nullopt, 0);
+    if (!g_camp_action_panel) {
         return 0;
     }
     g_camp_action_buttons[0] =
-        new W8TextControl(g_camp_action_panel, 0x117, 5, 0, 0x21, 0x18, 0x11e, 0, 0, 2, 1, 2, 3);
-    g_camp_action_buttons[1] = new W8TextControl(g_camp_action_panel, 0x118, 0x26, 0, 0x42, 0x18,
-                                                 0x11e, 0, 8, 4, 9, 5, 0xb);
+        new W8TextControl(g_camp_action_panel.get(), g_camp_item_pool_regions->index(15), 5, 0, 0x21, 0x18,
+                          CatalogArtwork::Load(0x11e, 0), 0, 2, 1, 2, 3);
+    g_camp_action_buttons[1] = new W8TextControl(
+        g_camp_action_panel.get(), g_camp_item_pool_regions->index(16), 0x26, 0, 0x42, 0x18,
+        CatalogArtwork::Load(0x11e, 0), 8, 4, 9, 5, 0xb);
     index = 0;
     while (g_camp_action_buttons[index] != 0) {
         ++index;
@@ -1305,8 +1302,8 @@ int CreateCampActionPanel(void)
 // FUNCTION: WIZ8 0x005B9220
 void ReleaseCampActionPanel(void)
 {
-    DestroyControlPanel(g_camp_action_panel);
-    DestroyTextControls(g_camp_action_buttons, 2);
+    g_camp_action_panel.reset();
+    for (auto& button : g_camp_action_buttons) button = nullptr;
 }
 
 // FUNCTION: WIZ8 0x005b9270
@@ -1352,34 +1349,41 @@ int CreateItemsTabPanel(void)
 {
     int index;
 
-    g_camp_item_filter_panel = 0;
+    g_camp_item_filter_panel.reset();
     for (index = 0; index < 7; ++index) {
         if (g_camp_item_filter_buttons[index] != 0) {
             g_camp_item_filter_buttons[index] = 0;
         }
     }
-    g_camp_item_filter_panel = new Controls(0x1e5, 0xc1, 0x1fd, 0x189, -1, 0, 0);
-    if (g_camp_item_filter_panel == 0) {
+    g_camp_item_filter_panel = std::make_unique<Controls>(0x1e5, 0xc1, 0x1fd, 0x189, std::nullopt, 0);
+    if (!g_camp_item_filter_panel) {
         return 0;
     }
-    g_camp_item_filter_buttons[0] = new W8TextControl(g_camp_item_filter_panel, 0x110, 0, 0, 0x18,
-                                                      0x18, 0x11f, 0, 0, 2, 1, 4, 3);
+    g_camp_item_filter_buttons[0] = new W8TextControl(
+        g_camp_item_filter_panel.get(), g_camp_item_pool_regions->index(8), 0, 0, 0x18, 0x18,
+        CatalogArtwork::Load(0x11f, 0), 0, 2, 1, 4, 3);
     g_camp_item_filter_buttons[1] =
-        new W8TextControl(g_camp_item_filter_panel, 0x111, 0, 0x19, 0x18, 0x31, 0x11f, 0, 0xf, 0x11,
-                          0x10, 0x13, 0x12);
+        new W8TextControl(g_camp_item_filter_panel.get(), g_camp_item_pool_regions->index(9), 0, 0x19,
+                          0x18, 0x31, CatalogArtwork::Load(0x11f, 0), 0xf, 0x11, 0x10, 0x13,
+                          0x12);
     g_camp_item_filter_buttons[2] =
-        new W8TextControl(g_camp_item_filter_panel, 0x112, 0, 0x4b, 0x18, 0x63, 0x11f, 0, 0x14,
-                          0x16, 0x15, 0x18, 0x17);
-    g_camp_item_filter_buttons[3] = new W8TextControl(g_camp_item_filter_panel, 0x113, 0, 0x32,
-                                                      0x18, 0x4a, 0x11f, 0, 5, 7, 6, 9, 8);
-    g_camp_item_filter_buttons[4] = new W8TextControl(g_camp_item_filter_panel, 0x114, 0, 0x6c,
-                                                      0x18, 0x84, 0x11f, 0, 10, 0xc, 0xb, 0xe, 0xd);
+        new W8TextControl(g_camp_item_filter_panel.get(), g_camp_item_pool_regions->index(10), 0, 0x4b,
+                          0x18, 0x63, CatalogArtwork::Load(0x11f, 0), 0x14, 0x16, 0x15, 0x18,
+                          0x17);
+    g_camp_item_filter_buttons[3] = new W8TextControl(
+        g_camp_item_filter_panel.get(), g_camp_item_pool_regions->index(11), 0, 0x32, 0x18, 0x4a,
+        CatalogArtwork::Load(0x11f, 0), 5, 7, 6, 9, 8);
+    g_camp_item_filter_buttons[4] = new W8TextControl(
+        g_camp_item_filter_panel.get(), g_camp_item_pool_regions->index(12), 0, 0x6c, 0x18, 0x84,
+        CatalogArtwork::Load(0x11f, 0), 10, 0xc, 0xb, 0xe, 0xd);
     g_camp_item_filter_buttons[5] =
-        new W8TextControl(g_camp_item_filter_panel, 0x115, 0, 0x8e, 0x18, 0xa6, 0x11f, 0, 0x28,
-                          0x2a, 0x29, 0x2c, 0x2b);
+        new W8TextControl(g_camp_item_filter_panel.get(), g_camp_item_pool_regions->index(13), 0, 0x8e,
+                          0x18, 0xa6, CatalogArtwork::Load(0x11f, 0), 0x28, 0x2a, 0x29, 0x2c,
+                          0x2b);
     g_camp_item_filter_buttons[6] =
-        new W8TextControl(g_camp_item_filter_panel, 0x116, 0, 0xb0, 0x18, 0xc8, 0x11f, 0, 0x1e,
-                          0x20, 0x1f, 0x22, 0x21);
+        new W8TextControl(g_camp_item_filter_panel.get(), g_camp_item_pool_regions->index(14), 0, 0xb0,
+                          0x18, 0xc8, CatalogArtwork::Load(0x11f, 0), 0x1e, 0x20, 0x1f, 0x22,
+                          0x21);
     index = 0;
     while (g_camp_item_filter_buttons[index] != 0) {
         ++index;
@@ -1406,8 +1410,8 @@ int CreateItemsTabPanel(void)
 // FUNCTION: WIZ8 0x005B9760
 void ReleaseItemsTabPanel(void)
 {
-    DestroyControlPanel(g_camp_item_filter_panel);
-    DestroyTextControls(g_camp_item_filter_buttons, 7);
+    g_camp_item_filter_panel.reset();
+    for (auto& button : g_camp_item_filter_buttons) button = nullptr;
 }
 
 /* Item filter buttons keep their secondary state when the corresponding
@@ -1489,7 +1493,7 @@ int CreateCampSecondaryPanel(void)
     int right;
     int top;
 
-    g_camp_secondary_panel = 0;
+    g_camp_secondary_panel.reset();
     for (index = 0; index < 2; ++index) {
         if (g_camp_page_tabs[index] != 0) {
             g_camp_page_tabs[index] = 0;
@@ -1506,15 +1510,15 @@ int CreateCampSecondaryPanel(void)
             g_camp_info_labels[index] = 0;
         }
     }
-    panel = new Controls(0x13c, 7, 0x154, 0x34, 0x120, 0, 0);
-    g_camp_secondary_panel = panel;
-    if (panel == 0) {
-        return 0;
-    }
-    panel->AcquireRegionSet(&g_camp_secondary_region_set);
-    g_camp_page_tabs[0] = new W8TextControl(panel, -1, 2, 2, 0x16, 0x16, 0x121, 0, 0, 2, 1, 4, 3);
+    g_camp_secondary_panel =
+        std::make_unique<Controls>(0x13c, 7, 0x154, 0x34, CatalogArtwork::Load(0x120, 0), 0);
+    panel = g_camp_secondary_panel.get();
+    panel->CreateRegionSet();
+    g_camp_page_tabs[0] =
+        new W8TextControl(panel, -1, 2, 2, 0x16, 0x16, CatalogArtwork::Load(0x121, 0), 0, 2, 1, 4, 3);
     g_camp_page_tabs[1] =
-        new W8TextControl(panel, -1, 2, 0x17, 0x16, 0x2b, 0x121, 0, 5, 7, 6, 9, 8);
+        new W8TextControl(panel, -1, 2, 0x17, 0x16, 0x2b, CatalogArtwork::Load(0x121, 0), 5, 7,
+                          6, 9, 8);
     for (index = 0; index < 2; ++index) {
         if (g_camp_page_tabs[index] == 0) {
             return 0;
@@ -1529,21 +1533,22 @@ int CreateCampSecondaryPanel(void)
     top = 0x3a - panel->m_bounds.top;
     for (index = 0; index < 7; ++index) {
         g_camp_stat_labels[index] =
-            new W8CampInfoLabel(panel, -1, left, top, right, top + 0xc, -1, -1, -1, -1, -1, -1, -1);
+            new W8CampInfoLabel(panel, -1, left, top, right, top + 0xc, std::nullopt,
+                                -1, -1, -1, -1, -1);
         g_camp_stat_labels[index]->EnableRegionHelp(0x958);
         top += 0xe;
     }
     left = 0x144 - panel->m_bounds.left;
     right = 0x1b9 - panel->m_bounds.left;
     top = -panel->m_bounds.top;
-    g_camp_info_labels[0] = new W8CampInfoLabel(panel, -1, left, top + 0x3a, right, top + 0x46, -1,
-                                                -1, -1, -1, -1, -1, -1);
-    g_camp_info_labels[1] = new W8CampInfoLabel(panel, -1, left, top + 0x48, right, top + 0x54, -1,
-                                                -1, -1, -1, -1, -1, -1);
-    g_camp_info_labels[2] = new W8CampInfoLabel(panel, -1, left, top + 0x80, right, top + 0x8c, -1,
-                                                -1, -1, -1, -1, -1, -1);
-    g_camp_info_labels[3] = new W8CampInfoLabel(panel, -1, left, top + 0x8e, right, top + 0x9a, -1,
-                                                -1, -1, -1, -1, -1, -1);
+    g_camp_info_labels[0] = new W8CampInfoLabel(panel, -1, left, top + 0x3a, right,
+                                                top + 0x46, std::nullopt, -1, -1, -1, -1, -1);
+    g_camp_info_labels[1] = new W8CampInfoLabel(panel, -1, left, top + 0x48, right,
+                                                top + 0x54, std::nullopt, -1, -1, -1, -1, -1);
+    g_camp_info_labels[2] = new W8CampInfoLabel(panel, -1, left, top + 0x80, right,
+                                                top + 0x8c, std::nullopt, -1, -1, -1, -1, -1);
+    g_camp_info_labels[3] = new W8CampInfoLabel(panel, -1, left, top + 0x8e, right,
+                                                top + 0x9a, std::nullopt, -1, -1, -1, -1, -1);
     g_camp_stat_labels[0]->m_secondaryActivationCallback = OpenStrengthInfoDialog;
     g_camp_stat_labels[1]->m_secondaryActivationCallback = OpenIntelligenceInfoDialog;
     g_camp_stat_labels[2]->m_secondaryActivationCallback = OpenPietyInfoDialog;
@@ -1572,8 +1577,8 @@ int CreateCampSecondaryPanel(void)
 // FUNCTION: WIZ8 0x005B9EA0
 void ReleaseCampSecondaryPanel(void)
 {
-    DestroyControlPanel(g_camp_secondary_panel);
-    DestroyTextControls(g_camp_page_tabs, 2);
+    g_camp_secondary_panel.reset();
+    for (auto& tab : g_camp_page_tabs) tab = nullptr;
 }
 
 // FUNCTION: WIZ8 0x005b9ef0

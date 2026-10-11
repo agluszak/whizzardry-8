@@ -1,12 +1,15 @@
+#include <memory>
 #include <fmt/format.h>
-#include "wiz8/unicode.h"
+#include <SDL3/SDL_filesystem.h>
+#include <SDL3/SDL_log.h>
+#include <exception>
 #include <string>
+#include <optional>
+#include <vector>
+
 #include "wiz8/fonts.h"
-#include "Types.h"
-#include "mousesystem.h"
 #include "wiz8/regions.h"
 #include "wiz8/local_screens/MGSTextBox.h"
-#include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/Levels.h"
@@ -22,19 +25,15 @@
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/LoadSaveGame.h"
 #include "wiz8/music_playlist.h"
-#include "wiz8/notices.h"
 #include "wiz8/sr_api.h"
-#include "wiz8/video_object_catalog.h"
-#include "wiz8/utility.h"
-
+#include "wiz8/catalog_artwork.h"
 #include "Font.h"
 #include "wiz8/filesystem.h"
 #include "soundman.h"
-
-#include <stdlib.h>
-#include <string.h>
-#include "line.h"
 #include "wiz8/local_code/NPCManager.h"
+#include "compat/compiler.h"
+#include "compat/native.h"
+#include "layouts/levels.h"
 
 
 /* The screen's descriptor. The entry handler mallocs it, clears it and fills the
@@ -47,19 +46,20 @@ struct W8LevelLoadDescriptor {
     int parameter_2;
     bool waiting;    /* 0x0fc, gates the polling path */
     std::string name; /* 0x0fd, bounded only by the next field */
+    std::string previous_save_name;
     W8SaveScreenshot* save_payload;
     w8_ulong entered_tick;
     int caption_y;
 };
 
 // GLOBAL: WIZ8 0x0069B7C0
-int g_level_load_font;
+Font g_level_load_font;
 // GLOBAL: WIZ8 0x0069B7C4
 static int g_swap_disc_dialog_poll_count;
 // GLOBAL: WIZ8 0x0069B7C8
 W8LevelLoadDescriptor* g_load_descriptor;
 // GLOBAL: WIZ8 0x0069B7CC
-static W8MessageDialogBase* g_swap_disc_dialog;
+static std::unique_ptr<W8MessageDialogBase> g_swap_disc_dialog;
 // GLOBAL: WIZ8 0x0069B7D0
 static bool g_cd_marker_present;
 
@@ -88,9 +88,7 @@ unsigned char PleaseWaitScreenInitialize(void)
     if ([&]() { const auto status = wiz8::file_status("CD.ROM"); return status && !status->archived && status->info.type == SDL_PATHTYPE_FILE; }()) {
         g_cd_marker_present = true;
     }
-    g_level_load_font =
-        LoadFontFile("Data\\Level Load\\levelload_font.sti");
-    return 1;
+    return g_level_load_font.load("Data\\Level Load\\levelload_font.sti");
 }
 
 /* The entry handler. It builds the descriptor once and fills the tail from the
@@ -124,6 +122,7 @@ unsigned char PleaseWaitScreenEnter(void)
         case 2:
             g_load_descriptor->parameter = g_status.current_level;
             g_load_descriptor->name = g_current_screen_state.name;
+            g_load_descriptor->previous_save_name = g_current_screen_state.previous_save_name;
             g_load_descriptor->save_payload =
                 static_cast<W8SaveScreenshot*>(g_current_screen_state.parameter_3);
             break;
@@ -133,10 +132,7 @@ unsigned char PleaseWaitScreenEnter(void)
             break;
         }
     }
-    MSYS_Init();
     ResetRegions();
-    SetClippingRegionAndImageWidth(0x500, 0, 0, 0x280, 0x1e0);
-    SetFontDestBuffer(FRAME_BUFFER, 0, 0, 0x280, 0x1e0, 0);
     SetPrimarySurfaceTextureHint2Enabled(false);
     DisableCursorScene();
     g_load_descriptor->caption_y = 0;
@@ -161,14 +157,14 @@ static bool PleaseWaitScreenEnsureLevelArchive(int level)
             g_load_descriptor->parameter = level;
             g_load_descriptor->entered_tick = w8_get_ticks();
             if (!g_swap_disc_dialog) {
-                g_swap_disc_dialog = new W8MessageDialogBase;
+                g_swap_disc_dialog = std::make_unique<W8MessageDialogBase>();
                 g_swap_disc_dialog->SetBackground("Data\\Dialogs\\DialogBackground.sti", 0);
                 g_swap_disc_dialog->SetOrigin(0xf0, 0xbe);
                 g_swap_disc_dialog->SetExtent(0xa0, 100);
             }
             std::string message =
                 fmt::format("{}{:d}", g_localized_strings[0x6ee], GetLevelCdNumber(level));
-            SetDialogPrompt(g_swap_disc_dialog, message, 0, 0);
+            SetDialogPrompt(g_swap_disc_dialog.get(), message, 0, 0);
             EnableCursorScene();
             return false;
         }
@@ -184,12 +180,11 @@ static void DrawPleaseWaitScreen()
     int backdrop = static_cast<unsigned int>(g_load_descriptor->parameter) < W8_LEVEL_COUNT
                        ? g_level_backdrops[g_load_descriptor->parameter]
                        : 0xe4;
-    DrawCatalogImage(FRAME_BUFFER, backdrop, 0, 0, 0, 0, VO_BLT_SRCTRANSPARENCY, 0);
-    DrawCatalogImage(FRAME_BUFFER, 0x1de, 0, 0, 0, 0x1be, VO_BLT_SRCTRANSPARENCY, 0);
-    SetFont(g_level_load_font);
-    DrawFontText(0x6a, 0x1c7, g_load_descriptor->caption);
-    DrawCatalogImage(FRAME_BUFFER, 0x1dd, 0, g_load_descriptor->caption_y, 0, 0x185,
-                     VO_BLT_SRCTRANSPARENCY, 0);
+    CatalogArtwork::Load(backdrop, 0).draw(GetFrameBufferSurface(), 0, 0, 0);
+    CatalogArtwork::Load(0x1de, 0).draw(GetFrameBufferSurface(), 0, 0, 0x1be);
+    DrawText(GetFrameBufferSurface(), g_level_load_font, {0x6a, 0x1c7},
+             g_load_descriptor->caption);
+    CatalogArtwork::Load(0x1dd, 0).draw(GetFrameBufferSurface(), g_load_descriptor->caption_y, 0, 0x185);
     ResetTransientRenderScenes();
 }
 
@@ -208,8 +203,7 @@ void PleaseWaitScreenFrame(void)
             g_swap_disc_dialog->Draw();
             if (!g_swap_disc_dialog->ProcessInput()) {
                 if (!g_swap_disc_dialog->accepted) {
-                    delete g_swap_disc_dialog;
-                    g_swap_disc_dialog = 0;
+                    g_swap_disc_dialog.reset();
                     RequestScreenTransition();
                     return;
                 }
@@ -288,6 +282,21 @@ void PleaseWaitScreenFrame(void)
         break;
     case 2: {
         bool saved = SaveGame(g_load_descriptor->name, g_load_descriptor->save_payload);
+        // Do not destroy the previous save until the new one has been committed.
+        // An asset-only save has no writable overlay to remove and is left intact.
+        if (saved && !g_load_descriptor->previous_save_name.empty() &&
+            g_load_descriptor->previous_save_name != g_load_descriptor->name) {
+            const std::string previous_path =
+                fmt::format("Saves\\{}.{}", g_load_descriptor->previous_save_name,
+                            g_save_extension);
+            try {
+                wiz8::remove_file(previous_path);
+            } catch (const std::exception& error) {
+                SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
+                            "Saved %s but could not remove previous save %s: %s",
+                            g_load_descriptor->name.c_str(), previous_path.c_str(), error.what());
+            }
+        }
         ShowNotice(W8_FONT_PALETTE_BEIGE, saved ? g_localized_strings[0x6f4] : g_localized_strings[0x6f6]);
         if (g_load_descriptor->save_payload) {
             delete g_load_descriptor->save_payload;
@@ -310,8 +319,7 @@ void PleaseWaitScreenFrame(void)
         if (!GetWorld()) {
             srAssertFail("GetWorld()", PLEASE_WAIT_SCREEN_CPP, 332, 0);
         }
-        delete g_swap_disc_dialog;
-        g_swap_disc_dialog = 0;
+        g_swap_disc_dialog.reset();
         RequestScreenTransition();
         if (g_load_descriptor->mode == 1 && g_status.intro_shown) {
             SetIntroVideoIndex(4);
@@ -336,7 +344,6 @@ unsigned char PleaseWaitScreenLeave(int leaving)
         g_load_descriptor = 0;
     }
     NoOp();
-    MSYS_Shutdown();
     ResetRegions();
     EnableCursorScene();
     return 1;
@@ -350,14 +357,13 @@ void UpdatePleaseWaitLoadFrame(void)
 {
     w8_ulong tick;
 
-    SoundServiceStreams();
+    wiz8::sound::service();
     ServiceMusicPlaylist();
     tick = w8_get_ticks();
     if (tick - g_load_descriptor->entered_tick > 499) {
         g_load_descriptor->caption_y = (g_load_descriptor->caption_y + 1) % 0x18;
         g_load_descriptor->entered_tick = tick;
-        DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x1dd, 0, g_load_descriptor->caption_y, 0,
-                                      0x185, VO_BLT_SRCTRANSPARENCY, 0);
+        CatalogArtwork::Load(0x1dd, 0).drawAndInvalidate(GetFrameBufferSurface(), g_load_descriptor->caption_y, 0, 0x185);
         RenderFrame();
     }
 }

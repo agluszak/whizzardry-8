@@ -1,7 +1,14 @@
+#include <optional>
 #include <fmt/format.h>
-#include "wiz8/unicode.h"
+#include <memory>
+#include <string>
+#include <vector>
+#include <cstdio>
+#include <exception>
+#include <utility>
+
+#include "glm/geometric.hpp"
 #include "surrender/srBoundingBox.h"
-#include "wiz8/utility.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/engine_code/AniMesh.h"
@@ -9,14 +16,11 @@
 #include "wiz8/engine_code/stModelInstance.h"
 #include "wiz8/engine_code/stMeshModel.h"
 #include "wiz8/sr_api.h"
-#include "wiz8/virtual_file.h"
-#include <vector>
-#include <algorithm>
 #include "wiz8/filesystem.h"
-#include <math.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include "ReadMesh.h"
+#include "surrender/srModel.h"
+#include "surrender/srNode.h"
+
 /* VC6 places `float x = 0.0f` in .bss; retail keeps this slot in initialized
    .data next to g_float_one. Const storage lands in .rdata with physical
    zeros so datacmp agrees. */
@@ -79,7 +83,7 @@ W8AniMesh::W8AniMesh(const W8AniMesh& other)
 {
     meshes.reserve(other.meshes.size());
     for (const auto& source : other.meshes) {
-        auto copy = std::unique_ptr<stModelInstance>(source ? DuplicateModelInstance(source.get()) : nullptr);
+        auto copy = source ? DuplicateModelInstance(*source) : nullptr;
         if (copy) copy->setName("Ani Mesh Duplicate Instance");
         meshes.push_back(std::move(copy));
     }
@@ -121,8 +125,7 @@ float GetAniMeshFrameRadius(W8AniMesh* mesh, unsigned char frame)
     auto* instance = GetAniMeshFrame(mesh, frame);
     if (!instance || !instance->getModel())
         return g_float_zero;
-    srBoundingBox bounds;
-    instance->getModel()->getBoundingBox(bounds.minimum, bounds.maximum);
+    const auto bounds = instance->getModel()->getBounds().box;
     return static_cast<float>(glm::distance(bounds.minimum, bounds.maximum) * g_double_half);
 }
 
@@ -136,7 +139,7 @@ try
     unsigned char frame_count;
     unsigned char frame_index;
     unsigned char loaded_count;
-    srModelInstance* loaded_instance = 0;
+    std::unique_ptr<stModelInstance> loaded_instance;
     W8ReadLevelInfo info;
 
     if (handle == 0) {
@@ -170,7 +173,7 @@ try
     }
 
     if (!(handle->read(&frame_index, sizeof(frame_index)).bytes == static_cast<std::size_t>(sizeof(frame_index))) ||
-        !ReadSingleLevelMesh(&info, &loaded_instance, 0, 0, instance_name.empty() ? nullptr : instance_name.c_str(), true)) {
+        !(loaded_instance = ReadSingleLevelMesh(&info, instance_name.empty() ? nullptr : instance_name.c_str(), true))) {
         srAssertFail("fSuccess", ANI_MESH_CPP, 0x1c5, 0);
 
         if (opened) opened->close();
@@ -179,7 +182,7 @@ try
     }
 
     loaded_instance->setName("AniMeshReallyReadFromFile");
-    auto instance = std::unique_ptr<stModelInstance>(static_cast<stModelInstance*>(loaded_instance));
+    auto instance = std::move(loaded_instance);
     stMeshModel* model = static_cast<stMeshModel*>(instance->getModel());
 
     if (model->frames.size() > 1) {
@@ -199,7 +202,7 @@ try
                                 "::" + std::to_string(mesh->list_index);
             }
             if (!load_all || !(handle->read(&frame_index, sizeof(frame_index)).bytes == static_cast<std::size_t>(sizeof(frame_index))) ||
-                !ReadSingleLevelMesh(&info, &loaded_instance, 0, 0, instance_name.empty() ? nullptr : instance_name.c_str(), load_all)) {
+                !(loaded_instance = ReadSingleLevelMesh(&info, instance_name.empty() ? nullptr : instance_name.c_str(), load_all))) {
                 srAssertFail("fSuccess", ANI_MESH_CPP, 0x1f1, 0);
 
                 if (opened) opened->close();
@@ -207,14 +210,13 @@ try
                 return 0;
             }
             if (frame_index >= frame_count) {
-                delete loaded_instance;
 
                 if (opened) opened->close();
                 opened.reset();
                 return 0;
             }
             loaded_instance->setName("AniMeshReallyReadFromFile");
-            mesh->meshes[frame_index].reset(static_cast<stModelInstance*>(loaded_instance));
+            mesh->meshes[frame_index] = std::move(loaded_instance);
             ++loaded_count;
         }
     }
@@ -237,8 +239,7 @@ try
         auto* instance = GetAniMeshFrame(mesh, frame_index);
         if (!instance || !instance->getModel())
             continue;
-        srBoundingBox frame_bounds;
-        instance->getModel()->getBoundingBox(frame_bounds.minimum, frame_bounds.maximum);
+        const auto frame_bounds = instance->getModel()->getBounds().box;
         if (has_bounds)
             bounds.include(frame_bounds);
         else
@@ -267,23 +268,12 @@ try
    not been. Touching it also stamps the storage clock, so asking for bounds
    counts as a use for the memory-pressure walk. */
 // FUNCTION: WIZ8 0x004b6640
-bool GetAniMeshBounds(W8AniMesh* mesh, srVector3T<float>* minimum,
-                               srVector3T<float>* maximum)
+std::optional<srBoundingBox> GetAniMeshBounds(W8AniMesh* mesh)
 {
-    if (mesh == 0) {
-        srAssertFail("pAniMesh", ANI_MESH_CPP, 0x317, 0);
-        return 0;
-    }
-    if (!mesh->flags.radius_loaded) {
-        if (LoadAniMesh(0, mesh, true) == 0) {
-            srAssertFail("0", ANI_MESH_CPP, 0x31f, 0);
-            return 0;
-        }
-    }
-    *minimum = mesh->bounds_minimum;
-    *maximum = mesh->bounds_maximum;
+    if (!mesh || (!mesh->flags.radius_loaded && !LoadAniMesh(0, mesh, true)))
+        return std::nullopt;
     mesh->last_used = g_animesh_cache_stamp++;
-    return 1;
+    return srBoundingBox{mesh->bounds_minimum, mesh->bounds_maximum};
 }
 
 // FUNCTION: WIZ8 0x004b5880

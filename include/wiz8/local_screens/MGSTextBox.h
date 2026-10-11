@@ -1,24 +1,17 @@
+#include "Font.h"
 #pragma once
 
 #include <cstddef>
-
-#include "Types.h"
 #include <vector>
-struct W8NoticeWord;
-
-#include "wiz8/filesystem.h"
-
-class Trigger;
+#include <cstdint>
+#include <string>
+#include <string_view>
 
 #include "input.h"
-#include "wiz8/fonts.h"
-#include "wiz8/dialog_code/DialogBase.h"
-
-#include <vector>
-#include <algorithm>
+#include "wiz8/regions.h"
 
 struct W8MonsterInfo;
-struct W8Region;
+namespace wiz8 { class File; }
 
 enum W8NoticeWordState {
     W8_NOTICE_WORD_NORMAL = 0,
@@ -49,7 +42,7 @@ struct W8MessageStorageRecord {
     uint64_t clock;
     /* SaveGame snapshots the unsigned milliseconds remaining from
        TimeUntilDeadline; load rearms the countdown with this duration. */
-    UINT32 saved_remaining_ms;
+    std::uint32_t saved_remaining_ms;
     /* Continuation link count of a wrapped entry; -1 when unlinked. */
     int link;
     int length; /* UTF-8 byte length, -1 when unset */
@@ -60,10 +53,40 @@ struct W8MessageStorageRecord {
 
 extern W8MessageStorageRecord g_message_storage[4][0x15e];
 
+enum class TextBoxRegion : std::size_t {
+    ScrollUp,
+    ScrollDown,
+    ScrollThumb,
+    Body,
+    ChannelTab1,
+    ChannelTab2,
+    ChannelTab3,
+    Mute
+};
+
+// Scroll-arrow visual states stored in text_content_region / dialogue_content_region.
+enum TextBoxArrowState : int {
+    kUpArrowDisabled = 0x56,
+    kUpArrowEnabled = 0x57,
+    kUpArrowPressed = 0x58,
+    kDownArrowDisabled = 0x59,
+    kDownArrowEnabled = 0x5a,
+    kDownArrowPressed = 0x5b,
+};
+
+void InitTextBoxRegions();
+void ShutdownTextBoxRegions();
+extern ScreenRegionSet g_text_box_regions;
+void EnableDialogueTextBoxRegions();
+void DisableDialogueTextBoxRegions();
+void SetTextBoxScrollInput(bool enabled);
+void SetTextBoxChannelTabInput(bool enabled);
+void SetTextBoxMuteInput(bool enabled);
+
 /* Reset one editor status line; -1 selects the current line. */
 void ResetEditorStatusLine(short line);
 /* The font currently bound to the main text box. */
-int GetTextBoxFont(void);
+Font& GetTextBoxFont(void);
 /* Repaint dirty dialogue text-input lines and the caret. */
 void RedrawDialogueTextInput(void);
 /* Clear one text_lines slot on the level block. */
@@ -73,8 +96,8 @@ void ReleaseMessageStorage(void);
 /* The TEXT section pair - the four message-storage
    runs persisted around the game-status record. */
 unsigned char SaveTextBoxState(wiz8::File* file);
-unsigned char HandleDialogueTextInput(const InputAtom* input);
-char TextBoxHandleKey(const InputAtom* event);
+unsigned char HandleDialogueTextInput(const InputEvent* input);
+char TextBoxHandleKey(const InputEvent* event);
 int GetSelectedTextLine(int index);
 void ClearSelectedTextLine(int index);
 /* Hover and selection track one wrapped-line start per box. Set operations
@@ -149,9 +172,9 @@ int FindStoppedTextLine(void);
 void SetTextBoxRegionBounds(int left, int top, int right, int bottom);
 void ResetMessageStorage(void);
 /* Write the four message runs into the open TEXT chunk. */
-unsigned char SaveMessageStorage(wiz8::File* file);
+unsigned char SaveMessageStorage(wiz8::File& file);
 /* Rebuild the four message runs from the open TEXT chunk. */
-unsigned char LoadMessageStorage(wiz8::File* file);
+unsigned char LoadMessageStorage(wiz8::File& file);
 /* Defaults select the live mode's text box and its available line width. */
 const short W8_NOTICE_TEXT_BOX_AUTOMATIC = -1;
 const unsigned int W8_NOTICE_WRAP_AUTOMATIC = ~0U;

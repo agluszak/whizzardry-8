@@ -2,6 +2,7 @@
 
 #include "wiz8/difficulty.h"
 #include "wiz8/layouts/main_game_screen.h"
+#include "compat/compiler.h"
 
 enum W8CameraRotationMode {
     W8_CAMERA_ROTATION_SELECTED_CHARACTER = 0,
@@ -77,6 +78,6 @@ struct W8GameSettings {
 };
 #pragma pack(pop)
 
-W8_ABI_ASSERT(sizeof(W8GameSettings) == 0xa4, "W8GameSettings_must_be_0xa4");
+static_assert(sizeof(W8GameSettings) == 0xa4, "W8GameSettings_must_be_0xa4");
 
 extern W8GameSettings g_settings;

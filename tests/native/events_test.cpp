@@ -1,19 +1,25 @@
 #include <catch2/catch_test_macros.hpp>
-/* SDL -> the native input queue and main-thread clock. Capture entry points below
-   record calls for this test; they are not a native video implementation. */
-#include <SDL3/SDL.h>
-#include <algorithm>
-#include <chrono>
+#include <SDL3/SDL_events.h>
+#include <SDL3/SDL_init.h>
+#include <SDL3/SDL_keyboard.h>
+#include <SDL3/SDL_keycode.h>
+#include <SDL3/SDL_mouse.h>
+#include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_scancode.h>
+#include <SDL3/SDL_stdinc.h>
+#include <SDL3/SDL_timer.h>
+#include <SDL3/SDL_video.h>
 #include <thread>
 #include <vector>
 #include <cstdio>
+#include <cstdint>
 
 #include "wiz8/application.h"
 #include "wiz8/engine_code/GameData.h"
-#include "native/input_events.h"
 #include "input.h"
 #include "timer.h"
 #include "Video2.h"
+#include "compat/native.h"
 
 
 SDL_Window* ghWindow = nullptr;
@@ -22,11 +28,10 @@ static std::thread::id dispatch_thread;
 static std::vector<int> clock_actions;
 void PrintScreen() { ++screenshots; }
 void VideoCaptureToggle() { ++captures; }
-BOOLEAN VideoInspectorIsEnabled() { return FALSE; }
+bool VideoInspectorIsEnabled() { return false; }
 void SuspendVideoManager() { ++suspensions; }
-BOOLEAN RestoreVideoManager() { ++restorations; return TRUE; }
-BOOLEAN RestoreVideoSurfaces() { return TRUE; }
-BOOLEAN VideoResizeWindow() { ++resizes; return TRUE; }
+bool RestoreVideoManager() { ++restorations; return true; }
+bool VideoResizeWindow() { ++resizes; return true; }
 float MoveTimer(int action) { clock_actions.push_back(action); return 0; }
 static SDL_WindowID id;
 static void push(SDL_Event event) { REQUIRE(SDL_PushEvent(&event)); }
@@ -44,11 +49,12 @@ static void key(Uint32 kind, SDL_Keycode code, SDL_Keymod modifiers = SDL_KMOD_N
     event.type = kind;
     event.key.windowID = id;
     event.key.key = code;
+    event.key.scancode = SDL_GetScancodeFromKey(code, nullptr);
     event.key.mod = modifiers;
     event.key.repeat = repeat;
     push(event);
 }
-static void mouse(Uint32 kind, Uint8 button, float x, float y)
+static void mouse(Uint32 kind, Uint8 button, float x, float y, Uint8 clicks = 1)
 {
     SDL_Event event{};
     event.type = kind;
@@ -62,6 +68,7 @@ static void mouse(Uint32 kind, Uint8 button, float x, float y)
     {
         event.button.windowID = id;
         event.button.button = button;
+        event.button.clicks = clicks;
         event.button.x = x;
         event.button.y = y;
     }
@@ -83,22 +90,22 @@ static void drain_events()
     REQUIRE(std::this_thread::get_id() == dispatch_thread);
     PumpGameEvents();
 }
-static std::vector<InputAtom> input()
+static std::vector<InputEvent> input()
 {
-    std::vector<InputAtom> result;
-    InputAtom atom;
+    std::vector<InputEvent> result;
+    InputEvent atom;
     while (DequeueEvent(&atom))
         result.push_back(atom);
     return result;
 }
-static void expect(const InputAtom& atom, UINT16 kind, UINT32 parameter, UINT16 state = 0)
+static void expect(const InputEvent& atom, InputEventType kind, std::uint16_t parameter, std::uint16_t state = 0)
 {
-    REQUIRE((atom.usEvent == kind && atom.usParam == parameter && atom.usKeyState == state));
+    REQUIRE((atom.type == kind && atom.key == parameter && atom.modifiers == state));
 }
 TEST_CASE("events_test")
 {
-    gfProgramIsRunning = gfApplicationActive = TRUE;
-    gfIgnoreMessages = FALSE;
+    gfProgramIsRunning = gfApplicationActive = true;
+    gfIgnoreMessages = false;
     /* No GPU is needed to validate events and timers. */
     REQUIRE(SDL_Init(SDL_INIT_VIDEO));
     SDL_Window* window = SDL_CreateWindow("Whizzardry input test", 1280, 960, SDL_WINDOW_HIDDEN);
@@ -114,14 +121,13 @@ TEST_CASE("events_test")
     mouse(SDL_EVENT_MOUSE_MOTION, 0, 640, 480);
     drain_events();
     REQUIRE(input().empty());
-    REQUIRE((gusMouseXPos == 320 && gusMouseYPos == 240));
+    REQUIRE((GetGameMousePosition().x == 320 && GetGameMousePosition().y == 240));
 
     REQUIRE(WarpGameMouse(window, 123, 321));
-    SDL_Point position;
-    GetGameMousePosition(&position);
+    SDL_Point position = GetGameMousePosition();
     REQUIRE((position.x == 123 && position.y == 321));
     REQUIRE(WarpGameMouse(window, -10, 600));
-    GetGameMousePosition(&position);
+    position = GetGameMousePosition();
     REQUIRE((position.x == 0 && position.y == 479));
     REQUIRE(WarpGameMouse(window, 320, 240));
     drain_events();
@@ -132,11 +138,11 @@ TEST_CASE("events_test")
     key(SDL_EVENT_KEY_UP, SDLK_LSHIFT);
     drain_events();
     auto events = input();
-    REQUIRE((events.size() == 3 && gfShiftState == 0 && gfKeyState['A'] == 0));
-    expect(events[0], KEY_DOWN, 'A', SHIFT_DOWN);
-    expect(events[1], KEY_REPEAT, 'A', SHIFT_DOWN);
-    expect(events[2], KEY_UP, 'A', SHIFT_DOWN);
-    REQUIRE(events[0].uiParam == ((240u << 16) | 320u));
+    REQUIRE((events.size() == 3 && !(GetInputState().modifiers & SHIFT_DOWN) && !IsKeyHeld('A')));
+    expect(events[0], InputEventType::KeyDown, 'A', SHIFT_DOWN);
+    expect(events[1], InputEventType::KeyRepeat, 'A', SHIFT_DOWN);
+    expect(events[2], InputEventType::KeyUp, 'A', SHIFT_DOWN);
+    REQUIRE((events[0].position.x == 320 && events[0].position.y == 240));
 
     SetNativeTextInputEnabled(true);
     SDL_Event committed{};
@@ -147,8 +153,8 @@ TEST_CASE("events_test")
     drain_events();
     events = input();
     REQUIRE(events.size() == 3);
-    REQUIRE((events[0].usParam == 0x00e9 && events[1].usParam == 0x4e2d && events[2].usParam == 0x1f600));
-    for (const auto& event : events) REQUIRE((event.usEvent == KEY_DOWN && event.uiParam == NATIVE_TEXT_INPUT_FLAG));
+    REQUIRE((events[0].text == 0x00e9 && events[1].text == 0x4e2d && events[2].text == 0x1f600));
+    for (const auto& event : events) REQUIRE((event.type == InputEventType::Text && event.key == 0));
     SetNativeTextInputEnabled(false);
     REQUIRE(SDL_PushEvent(&committed));
     drain_events();
@@ -165,10 +171,30 @@ TEST_CASE("events_test")
     drain_events();
     events = input();
     REQUIRE(events.size() == 8);
-    expect(events[0], KEY_DOWN, VK_LEFT);
-    expect(events[2], KEY_DOWN, 0x61);
-    expect(events[4], KEY_DOWN, 0x6c);
-    expect(events[6], KEY_DOWN, 0x70);
+    expect(events[0], InputEventType::KeyDown, VK_LEFT);
+    expect(events[2], InputEventType::KeyDown, 0x61);
+    expect(events[4], InputEventType::KeyDown, 0x6c);
+    expect(events[6], InputEventType::KeyDown, 0x70);
+
+    SDL_Event keypad_end{};
+    keypad_end.type = SDL_EVENT_KEY_DOWN;
+    keypad_end.key.windowID = id;
+    keypad_end.key.key = SDLK_END;
+    keypad_end.key.scancode = SDL_SCANCODE_KP_1;
+    push(keypad_end);
+    keypad_end.type = SDL_EVENT_KEY_UP;
+    push(keypad_end);
+    drain_events();
+    events = input();
+    REQUIRE(events.size() == 2);
+    expect(events[0], InputEventType::KeyDown, 0x61);
+    expect(events[1], InputEventType::KeyUp, 0x61);
+    REQUIRE(TranslateCharacterToKey('-') == 0x6d);
+    REQUIRE(TranslateKeyToCharacter('1', SHIFT_DOWN) == '!');
+    REQUIRE(TranslateKeyToCharacter(0xde, SHIFT_DOWN) == '"');
+    REQUIRE(KeyFromBindingName("NUM_ENTER") == VK_NUMPAD_ENTER);
+    REQUIRE(KeyFromBindingName("q") == 'Q');
+    REQUIRE(KeyFromBindingName("QQ") == 0);
 
     key(SDL_EVENT_KEY_DOWN, SDLK_LCTRL, SDL_KMOD_LCTRL);
     key(SDL_EVENT_KEY_DOWN, SDLK_RCTRL, SDL_KMOD_CTRL);
@@ -178,9 +204,9 @@ TEST_CASE("events_test")
     key(SDL_EVENT_KEY_UP, SDLK_RCTRL);
     drain_events();
     events = input();
-    REQUIRE((events.size() == 2 && !gfCtrlState));
-    expect(events[0], KEY_DOWN, 'B', CTRL_DOWN);
-    expect(events[1], KEY_UP, 'B', CTRL_DOWN);
+    REQUIRE((events.size() == 2 && !(GetInputState().modifiers & CTRL_DOWN)));
+    expect(events[0], InputEventType::KeyDown, 'B', CTRL_DOWN);
+    expect(events[1], InputEventType::KeyUp, 'B', CTRL_DOWN);
 
     key(SDL_EVENT_KEY_UP, SDLK_PRINTSCREEN);
     key(SDL_EVENT_KEY_UP, SDLK_PRINTSCREEN, SDL_KMOD_LCTRL);
@@ -199,40 +225,76 @@ TEST_CASE("events_test")
     drain_events();
     events = input();
     REQUIRE(events.size() == 8);
-    expect(events[0], KEY_DOWN, 'A', SHIFT_DOWN);
-    REQUIRE(TranslateKeyToCharacter(events[0].usParam, events[0].usKeyState) == 'A');
-    expect(events[2], KEY_DOWN, 'B');
-    expect(events[4], KEY_DOWN, VK_BACK);
-    expect(events[6], KEY_DOWN, VK_RETURN);
+    expect(events[0], InputEventType::KeyDown, 'A', SHIFT_DOWN);
+    REQUIRE(TranslateKeyToCharacter(events[0].key, events[0].modifiers) == 'A');
+    expect(events[2], InputEventType::KeyDown, 'B');
+    expect(events[4], InputEventType::KeyDown, VK_BACK);
+    expect(events[6], InputEventType::KeyDown, VK_RETURN);
 
-    gfTrackMousePos = 1;
+    SetMouseMoveEventsEnabled(1);
     mouse(SDL_EVENT_MOUSE_MOTION, 0, 1279, 959);
     mouse(SDL_EVENT_MOUSE_BUTTON_DOWN, SDL_BUTTON_LEFT, 640, 480);
     drain_events();
     events = input();
-    REQUIRE((events.size() == 2 && gfLeftButtonState));
-    expect(events[0], MOUSE_POS, 0);
-    REQUIRE(events[0].uiParam == ((479u << 16) | 639u));
-    expect(events[1], LEFT_BUTTON_DOWN, 0);
-    guiLeftButtonRepeatTimer = w8_get_ticks() - 1;
+    REQUIRE((events.size() == 2 && IsLeftButtonHeld()));
+    expect(events[0], InputEventType::MouseMove, 0);
+    REQUIRE((events[0].position.x == 639 && events[0].position.y == 479));
+    expect(events[1], InputEventType::LeftButtonDown, 0);
+    REQUIRE(events[0].buttons == 0);
+    REQUIRE(events[1].buttons == SDL_BUTTON_LMASK);
+    REQUIRE(events[1].clicks == 1);
+    GetInputState().left_repeat_at = w8_get_ticks() - 1;
     events = input();
     REQUIRE(events.size() == 1);
-    expect(events[0], LEFT_BUTTON_REPEAT, 0);
-    REQUIRE(events[0].uiParam == ((240u << 16) | 320u));
-    guiSingleClickTimer = w8_get_ticks() - 1000;
+    expect(events[0], InputEventType::LeftButtonRepeat, 0);
+    REQUIRE(events[0].buttons == SDL_BUTTON_LMASK);
+    REQUIRE(events[0].clicks == 0);
+    REQUIRE((events[0].position.x == 320 && events[0].position.y == 240));
     mouse(SDL_EVENT_MOUSE_BUTTON_UP, SDL_BUTTON_LEFT, 640, 480);
     drain_events();
     events = input();
-    REQUIRE((events.size() == 1 && !gfLeftButtonState));
-    expect(events[0], LEFT_BUTTON_UP, 0);
+    REQUIRE((events.size() == 1 && !IsLeftButtonHeld()));
+    expect(events[0], InputEventType::LeftButtonUp, 0);
+    mouse(SDL_EVENT_MOUSE_BUTTON_DOWN, SDL_BUTTON_LEFT, 640, 480, 2);
+    mouse(SDL_EVENT_MOUSE_BUTTON_UP, SDL_BUTTON_LEFT, 640, 480, 2);
+    drain_events();
+    events = input();
+    REQUIRE(events.size() == 3);
+    expect(events[0], InputEventType::LeftButtonDown, 0);
+    expect(events[1], InputEventType::LeftButtonUp, 0);
+    expect(events[2], InputEventType::LeftButtonDoubleClick, 0);
+    REQUIRE(events[0].buttons == SDL_BUTTON_LMASK);
+    REQUIRE(events[1].buttons == 0);
+    REQUIRE(events[2].buttons == 0);
+    for (const auto& event : events) REQUIRE(event.clicks == 2);
+
+    // Closely spaced clicks are not double-clicks unless SDL identifies them.
     mouse(SDL_EVENT_MOUSE_BUTTON_DOWN, SDL_BUTTON_LEFT, 640, 480);
     mouse(SDL_EVENT_MOUSE_BUTTON_UP, SDL_BUTTON_LEFT, 640, 480);
     drain_events();
     events = input();
-    REQUIRE(events.size() == 3);
-    expect(events[0], LEFT_BUTTON_DOWN, 0);
-    expect(events[1], LEFT_BUTTON_UP, 0);
-    expect(events[2], LEFT_BUTTON_DBL_CLK, 0);
+    REQUIRE(events.size() == 2);
+    expect(events[0], InputEventType::LeftButtonDown, 0);
+    expect(events[1], InputEventType::LeftButtonUp, 0);
+
+    // Pumping ahead must not overwrite queued button states or coordinates.
+    mouse(SDL_EVENT_MOUSE_BUTTON_DOWN, SDL_BUTTON_LEFT, 40, 60);
+    mouse(SDL_EVENT_MOUSE_BUTTON_DOWN, SDL_BUTTON_RIGHT, 80, 100, 3);
+    mouse(SDL_EVENT_MOUSE_BUTTON_UP, SDL_BUTTON_LEFT, 120, 140);
+    mouse(SDL_EVENT_MOUSE_BUTTON_UP, SDL_BUTTON_RIGHT, 160, 180, 3);
+    drain_events();
+    events = input();
+    REQUIRE(events.size() == 4);
+    REQUIRE((!IsLeftButtonHeld() && !IsRightButtonHeld()));
+    REQUIRE(events[0].buttons == SDL_BUTTON_LMASK);
+    REQUIRE(events[1].buttons == (SDL_BUTTON_LMASK | SDL_BUTTON_RMASK));
+    REQUIRE(events[2].buttons == SDL_BUTTON_RMASK);
+    REQUIRE(events[3].buttons == 0);
+    REQUIRE((events[1].clicks == 3 && events[3].clicks == 3));
+    for (unsigned i = 0; i < events.size(); ++i) {
+        REQUIRE(events[i].position.x == 20 + 20 * int(i));
+        REQUIRE(events[i].position.y == 30 + 20 * int(i));
+    }
 
     wheel(0.25f);
     wheel(0.5f);
@@ -243,17 +305,17 @@ TEST_CASE("events_test")
     drain_events();
     events = input();
     REQUIRE(events.size() == 3);
-    REQUIRE(GetMouseWheelDeltaValue(events[0].usParam) == 1);
-    REQUIRE((GetMouseWheelDeltaValue(events[1].usParam) == -1 &&
-          GetMouseWheelDeltaValue(events[2].usParam) == -1));
+    REQUIRE(events[0].wheel == 1);
+    REQUIRE((events[1].wheel == -1 &&
+          events[2].wheel == -1));
 
     key(SDL_EVENT_KEY_DOWN, SDLK_C, SDL_KMOD_LALT);
     mouse(SDL_EVENT_MOUSE_BUTTON_DOWN, SDL_BUTTON_RIGHT, 640, 480);
     focus(SDL_EVENT_WINDOW_FOCUS_LOST);
     key(SDL_EVENT_KEY_DOWN, SDLK_D);
     drain_events();
-    REQUIRE((!gfKeyState['C'] && !gfKeyState['D'] && !gfAltState && !gfRightButtonState &&
-          !guiRightButtonRepeatTimer));
+    REQUIRE((!IsKeyHeld('C') && !IsKeyHeld('D') && !(GetInputState().modifiers & ALT_DOWN) && !IsRightButtonHeld() &&
+          !GetInputState().right_repeat_at));
     REQUIRE(input().size() == 2);
     focus(SDL_EVENT_WINDOW_FOCUS_GAINED);
     drain_events();
@@ -277,8 +339,8 @@ TEST_CASE("events_test")
     }
     producer.join();
     REQUIRE(events.size() == 2);
-    expect(events[0], KEY_DOWN, 'F');
-    expect(events[1], KEY_UP, 'F');
+    expect(events[0], InputEventType::KeyDown, 'F');
+    expect(events[1], InputEventType::KeyUp, 'F');
 
     uint64_t countdown = w8_get_ticks() + 100;
     REQUIRE((TimeUntilDeadline(countdown) <= 100 && TimeUntilDeadline(countdown) > 0));
@@ -311,7 +373,7 @@ TEST_CASE("events_test")
     REQUIRE(resizes == 1);
     SDL_Point point{};
     REQUIRE(WarpGameMouse(window, 320, 240));
-    GetGameMousePosition(&point);
+    point = GetGameMousePosition();
     REQUIRE((point.x == 320 && point.y == 240));
     drain_events();
     input();
@@ -320,59 +382,61 @@ TEST_CASE("events_test")
     for (unsigned batch = 0; batch < 3; ++batch)
     {
         for (unsigned i = 0; i < 257; ++i)
-            QueueEvent(KEY_DOWN, i, batch);
+            QueueEvent(InputEventType::KeyDown, {int(batch), 0}, std::uint16_t(i));
         events = input();
         REQUIRE(events.size() == 256);
         for (unsigned i = 0; i < 256; ++i)
-            REQUIRE((events[i].usParam == i && events[i].uiParam == batch));
+            REQUIRE((events[i].key == i && events[i].position.x == int(batch)));
     }
-    gfIgnoreMessages = TRUE;
+    gfIgnoreMessages = true;
     key(SDL_EVENT_KEY_DOWN, SDLK_Q);
     focus(SDL_EVENT_WINDOW_CLOSE_REQUESTED);
     drain_events();
     REQUIRE((!gfProgramIsRunning && input().empty()));
-    gfProgramIsRunning = TRUE;
+    gfProgramIsRunning = true;
     SDL_Event quit{};
     quit.type = SDL_EVENT_QUIT;
     push(quit);
     drain_events();
     REQUIRE(!gfProgramIsRunning);
-    gfIgnoreMessages = FALSE;
+    gfIgnoreMessages = false;
     for (int round = 0; round < 3; ++round) {
         REQUIRE(InitializeInputManager());
         for (unsigned i = 0; i < 256; ++i)
-            QueueEvent(KEY_DOWN, i, i + 100);
-        QueueEvent(KEY_UP, 999, 0);
+            QueueEvent(InputEventType::KeyDown, {int(i) + 100, 0}, std::uint16_t(i));
+        QueueEvent(InputEventType::KeyUp, {}, 999);
         events = input();
         REQUIRE(events.size() == 256);
         for (unsigned i = 0; i < events.size(); ++i) {
-            expect(events[i], KEY_DOWN, i);
-            REQUIRE(events[i].uiParam == i + 100);
+            expect(events[i], InputEventType::KeyDown, i);
+            REQUIRE(events[i].position.x == int(i) + 100);
         }
     }
     for (unsigned queued : {254u, 255u, 256u}) {
         REQUIRE(InitializeInputManager());
         for (unsigned i = 0; i < queued; ++i)
-            QueueEvent(KEY_DOWN, i, 0);
-        guiSingleClickTimer = w8_get_ticks();
-        gusRecordedKeyState = SHIFT_DOWN;
-        QueueEvent(LEFT_BUTTON_UP, 17, 23);
+            QueueEvent(InputEventType::KeyDown, {}, std::uint16_t(i));
+        GetInputState().modifiers = SHIFT_DOWN;
+        mouse(SDL_EVENT_MOUSE_BUTTON_UP, SDL_BUTTON_LEFT, 640, 480, 2);
+        drain_events();
         events = input();
         REQUIRE(events.size() == 256);
         for (unsigned i = 0; i < queued; ++i)
-            expect(events[i], KEY_DOWN, i);
+            expect(events[i], InputEventType::KeyDown, i);
         if (queued < 256) {
-            expect(events[queued], LEFT_BUTTON_UP, 17, SHIFT_DOWN);
-            REQUIRE(events[queued].uiParam == 23);
+            expect(events[queued], InputEventType::LeftButtonUp, 0, SHIFT_DOWN);
+            REQUIRE((events[queued].position.x == 320 && events[queued].position.y == 240));
         }
         if (queued == 254)
-            expect(events.back(), LEFT_BUTTON_DBL_CLK, 17, SHIFT_DOWN);
-        QueueEvent(KEY_UP, 999, 0);
+            expect(events.back(), InputEventType::LeftButtonDoubleClick, 0, SHIFT_DOWN);
+        GetInputState().modifiers = 0;
+        QueueEvent(InputEventType::KeyUp, {}, 999);
         events = input();
         REQUIRE(events.size() == 1);
-        expect(events[0], KEY_UP, 999);
+        expect(events[0], InputEventType::KeyUp, 999);
     }
-    KeyChange(0xffff, 0, TRUE);
+    key(SDL_EVENT_KEY_DOWN, SDLK_UNKNOWN);
+    drain_events();
     REQUIRE(input().empty());
     SetInputWindow(nullptr);
 

@@ -1,8 +1,13 @@
 #include "wiz8/level_specific_code/MartensBluff2.h"
+
+#include <glm/ext/quaternion_trigonometric.hpp>
+#include <glm/gtc/quaternion.hpp>
+#include <vector>
+#include <cmath>
+#include <string>
+
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/engine_code/World.h"
-#include <vector>
-#include <algorithm>
 #include "wiz8/cursor.h"
 #include "wiz8/engine_code/Environment.h"
 #include "wiz8/engine_code/GDProp.h"
@@ -23,21 +28,25 @@
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/GameplayTime.h"
-#include "wiz8/local_code/MagicEffects.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/location_variables.h"
-#include "wiz8/sr_api.h"
 #include "wiz8/string_database.h"
 #include "surrender/srMath.h"
 #include "random.h"
+#include "Navigator.h"
+#include "compat/compiler.h"
+#include "conditions.h"
+#include "dice.h"
+#include "glm/ext/matrix_float3x3.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include "layouts/gameplay_databases.h"
+#include "layouts/world.h"
+#include "local_code/SpellEffect.h"
 
-#include <math.h>
-
-#define MARTENSBLUFF2_CPP "C:\\Projects\\Wizardry 8\\Level Specific Code\\MartensBluff2.cpp"
 
 /* Level Specific Code\MartensBluff2.cpp (level 6).
 
@@ -114,8 +123,7 @@ void MartensBluff2Setup(void)
                     group = SpawnMonsters(0x183, 1, &position, 0, true, false, false);
                     location_id = group->MemberLocationId(0);
                     if (location_id != 0) {
-                        info = MonsterGetScriptPartByLocationIndex(MonsterGetIndexByLocationID(
-                            0x1d2, MARTENSBLUFF2_CPP, location_id, true));
+                        info = FindMonster(location_id);
                         if (info != 0 && info->p3D != 0) {
                             info->p3D->SetScript("MB_MoveRapax.msf", true);
                             SetTriggerVariableByName("RavenQuest", 3);
@@ -362,8 +370,7 @@ bool MartensBluff2PerfumeBox(Trigger* pTrigger)
         group = SpawnMonsters(0x183, 1, &position, 0, true, false, false);
         location_id = group->MemberLocationId(0);
         if (location_id != 0) {
-            info = MonsterGetScriptPartByLocationIndex(
-                MonsterGetIndexByLocationID(0x1d2, MARTENSBLUFF2_CPP, location_id, true));
+            info = FindMonster(location_id);
             if (info != 0 && info->p3D != 0) {
                 info->p3D->SetScript("MB_MoveRapax.msf", true);
                 quest_state = 3;
@@ -432,13 +439,10 @@ void MartensBluff2MonsterCrusher(int command)
     srVector3T<float> lower;
     srVector3T<float> upper;
     srVector3T<float> centre;
-    srVector3T<float> bounds_min;
-    srVector3T<float> bounds_max;
     srVector3T<float> position;
-    w8_ulong* location_ids;
+    std::vector<w8_ulong> location_ids;
     unsigned int count;
     unsigned int i;
-    unsigned int index;
     W8MonsterInfo* info;
     W8Monster* monster;
     float left;
@@ -470,8 +474,14 @@ void MartensBluff2MonsterCrusher(int command)
             g_crusher_state = command;
         }
         if (g_squisher3_prop != 0 && g_squisher4_prop != 0) {
-            g_squisher3_prop->PlayRepAnimation(&crusher_lower, &crusher_upper);
-            g_squisher4_prop->PlayRepAnimation(&lower, &upper);
+            const auto crusher_bounds = g_squisher3_prop->GetFrameBounds();
+            const auto other_bounds = g_squisher4_prop->GetFrameBounds();
+            if (!crusher_bounds || !other_bounds)
+                return;
+            crusher_lower = crusher_bounds->minimum;
+            crusher_upper = crusher_bounds->maximum;
+            lower = other_bounds->minimum;
+            upper = other_bounds->maximum;
             crusher_lower.y -= g_world_scale;
             crusher_upper.x = upper.x;
             g_crusher_excluded = 0;
@@ -537,18 +547,15 @@ void MartensBluff2MonsterCrusher(int command)
         g_crusher_state = 2;
         return;
     }
-    g_squisher3_prop->m_gd_prop->ComputeBounds(&bounds_min, &bounds_max);
-    left = bounds_max.x;
-    g_squisher4_prop->m_gd_prop->ComputeBounds(&bounds_min, &bounds_max);
-    right = bounds_min.x;
-    location_ids = 0;
-    count = g_octree->QueryLocationsInBox(&location_ids, &crusher_lower, &crusher_upper, 0);
+    left = g_squisher3_prop->m_gd_prop->computeBounds().maximum.x;
+    right = g_squisher4_prop->m_gd_prop->computeBounds().minimum.x;
+    location_ids = g_octree->locationsInBox({crusher_lower.glmValue(), crusher_upper.glmValue()}, 0);
+    count = location_ids.size();
     if (count == 0) {
         return;
     }
     for (i = 0; i < count; i++) {
-        index = MonsterGetIndexByLocationID(0x28d, MARTENSBLUFF2_CPP, location_ids[i], true);
-        info = MonsterGetScriptPartByLocationIndex(index);
+        info = FindMonster(location_ids[i]);
         if (info != 0 && info->p3D != 0 &&
             (!g_crusher_excluded_flag || info->p3D != g_crusher_excluded) &&
             info->p3D->flags != 0x200000) {

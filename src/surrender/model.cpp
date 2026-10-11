@@ -1,6 +1,5 @@
 #include "surrender/srModel.h"
-
-#include "surrender/srCore.h"
+#include "surrender/srTypeRegistry.h"
 
 // FUNCTION: SURRENDER 0x1003C520
 srModel::srModel() = default;
@@ -15,4 +14,4 @@ srModel& srModel::operator=(const srModel& other)
 }
 
 // FUNCTION: SURRENDER 0x1003C470
-srModel::~srModel() {}
+srModel::~srModel() = default;

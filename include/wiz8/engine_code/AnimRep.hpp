@@ -2,8 +2,9 @@
 #define WIZ8_ENGINE_CODE_ANIM_REP_H
 
 #include "surrender/srMath.h"
-
-#include <stddef.h>
+#include "compat/compiler.h"
+#include "glm/ext/matrix_float3x3.hpp"
+#include "glm/ext/vector_float4.hpp"
 
 /* Direction state at AnimRep+0x6e. Props record completion at either
    endpoint; GrCycle advances only the two running directions. Byte storage
@@ -66,10 +67,10 @@ public:
     virtual W8AnimRepBase* Clone();
 
     void SetLocation(const srVector3T<float>* location);
-    void GetLocation(srVector3T<float>* location) const;
-    void GetLocalLocation(srVector3T<float>* location) const;
+    srVector3T<float> GetLocation() const;
+    srVector3T<float> GetLocalLocation() const;
     void SetRotation(const glm::mat3* rotation);
-    void GetRotation(glm::mat3* rotation);
+    glm::mat3 GetRotation() const;
 
 public:
     srVector3T<float> location;
@@ -135,13 +136,6 @@ public:
     unsigned char last_frame;
     unsigned char padding_096[2];
 };
-
-W8_ABI_ASSERT(sizeof(W8ModelInstance2DRenderState) == 0x10,
-              "W8ModelInstance2DRenderState_size_must_be_0x10");
-W8_ABI_ASSERT(offsetof(W8AnimRepBase, highlight_colour) == 0x4c,
-              "W8AnimRepBase_render_state_offset");
-W8_ABI_ASSERT(sizeof(W8AnimRepBase) == 0x64, "W8AnimRepBase_size_must_be_0x64");
-W8_ABI_ASSERT(sizeof(W8AnimRep) == 0x98, "W8AnimRep_size_must_be_0x98");
 
 extern float g_lod_range_default0;
 extern float g_lod_range_default1;

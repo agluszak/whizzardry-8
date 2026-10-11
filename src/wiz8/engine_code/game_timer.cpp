@@ -1,9 +1,11 @@
+#include <cstddef>
+#include <exception>
+
+#include "surrender/srClock.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/engine_code/game_timer.h"
 #include "wiz8/engine_code/GameTimeAccumulator.h"
 #include "wiz8/float_constants.h"
-#include "wiz8/virtual_file.h"
-#include "wiz8/layouts/game_status.h"
 
 /* The game-timer unit: a small timer object over one shared, reference-counted
    clock singleton. The image names neither the unit nor the classes -
@@ -226,13 +228,13 @@ void W8GameTimer::SetProgress(float progress)
 }
 
 // FUNCTION: WIZ8 0x0043a330
-BOOLEAN W8GameTimer::Load(wiz8::File* handle)
+bool W8GameTimer::Load(wiz8::File& handle)
 try
 {
     float progress;
     // Retail performs both reads and combines their results with bitwise OR.
-    BOOLEAN loaded = (handle->read(&progress, sizeof(progress)).bytes == static_cast<std::size_t>(sizeof(progress)));
-    loaded |= (handle->read(&m_duration_scale, sizeof(m_duration_scale)).bytes == static_cast<std::size_t>(sizeof(m_duration_scale)));
+    bool loaded = (handle.read(&progress, sizeof(progress)).bytes == static_cast<std::size_t>(sizeof(progress)));
+    loaded |= (handle.read(&m_duration_scale, sizeof(m_duration_scale)).bytes == static_cast<std::size_t>(sizeof(m_duration_scale)));
     if (loaded != 0) {
         m_duration = static_cast<int>(m_duration_seconds * m_duration_scale * 10000.0f);
         m_end = m_start + m_duration;

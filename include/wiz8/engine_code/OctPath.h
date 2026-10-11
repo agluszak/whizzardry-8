@@ -1,17 +1,21 @@
+#include <optional>
 #pragma once
 
-#include "wiz8/filesystem.h"
+#include "surrender/srBoundingBox.h"
 
-#include "wiz8/navigation_flags.h"
+#include <queue>
+#include <span>
+#include "glm/ext/vector_int2.hpp"
+#include <memory>
+#include <vector>
+#include <unordered_map>
 
 #include "surrender/srMath.h"
-#include "wiz8/engine_code/BitArray.h"
-#include <queue>
-#include <vector>
-#include "wiz8/index_algorithms.h"
 #include "wiz8/geometry.h"
-
-#include <stddef.h>
+#include "compat/compiler.h"
+#include "compat/native.h"
+#include "glm/ext/vector_float2.hpp"
+#include "glm/ext/vector_uint2.hpp"
 
 class stModelInstance;
 class GDProp;
@@ -22,6 +26,7 @@ class OctPreTree;
 class W8Monster;
 struct W8LevelFile;
 struct W8LevelFileNamedPosition;
+namespace wiz8 { class File; }
 
 /* The .oct path hash array: one packed X/Z key and its height/state word.
    Build-time producers and the loader agree on an eight-byte stride. */
@@ -29,7 +34,6 @@ struct W8FilePathNode {
     unsigned int cell;
     unsigned int level_flags;
 };
-W8_ABI_ASSERT(sizeof(W8FilePathNode) == 8, "W8FilePathNode_size");
 
 /* Header preceding the conditional path tables. The writer deliberately
    writes zero to flags while the reader accepts the stored word. */
@@ -39,7 +43,6 @@ struct W8ConditionalPathHeader {
     unsigned int node_count;
     unsigned int flags;
 };
-W8_ABI_ASSERT(sizeof(W8ConditionalPathHeader) == 0x10, "W8ConditionalPathHeader_size");
 
 /* One pre-path prop record handed to LinkCollideableProps: the prop's path
    name plus the GDPreProp array OctPreTree.cpp builds for it (stride 0x48). */
@@ -52,10 +55,6 @@ struct W8PreProp {
     unsigned short first_prop_number;
     GDPreProp* pStopMeshes;
 };
-
-W8_ABI_ASSERT(sizeof(W8PreProp) == 0x48, "W8PreProp_must_be_0x48");
-W8_ABI_ASSERT(offsetof(W8PreProp, num_stop_meshes) == 0x40, "W8PreProp_num_stop_meshes_40");
-W8_ABI_ASSERT(offsetof(W8PreProp, pStopMeshes) == 0x44, "W8PreProp_pStopMeshes");
 
 struct W8NavigatorMovementState;
 
@@ -76,7 +75,7 @@ public:
        normalized velocity or a yaw-derived default direction, the right-hand
        perpendicular, and cleared force/query state. */
     void InitializeSteeringContext(W8NavigatorMovementState* movement); /* 0x004CAE50 */
-    /* Lazily fills nearby_locations/nearby_count with the location ids
+    /* Lazily fills nearby_locations with the location ids
        inside a radius-scaled box around the movement position; the cached
        result is returned on repeat calls. */
     bool QueryNearbyNavigators(); /* 0x004CAFC0 */
@@ -131,12 +130,10 @@ private:
     float radius;
     bool nearby_queried;
     bool blocked;
-    unsigned int nearby_count;
-    w8_ulong* nearby_locations;
+    std::vector<w8_ulong> nearby_locations;
     W8Monster* monster;
 };
 
-W8_ABI_ASSERT(sizeof(W8PathParameters) == 0x58, "W8PathParameters_must_be_0x58");
 struct W8NavigatorAttachment;
 
 /* OctPath.cpp's two compact graph records. Surface zero and edge zero are
@@ -178,9 +175,9 @@ struct W8PathEdge {
 };
 #pragma pack(pop)
 
-W8_ABI_ASSERT(sizeof(W8PathSurface) == 0x28, "W8PathSurface_must_be_0x28");
-W8_ABI_ASSERT(sizeof(W8PathEdge) == 0x0e, "W8PathEdge_must_be_0x0e");
-W8_ABI_ASSERT(sizeof(W8FileWaypoint) == 0x10, "W8FileWaypoint_must_be_0x10");
+static_assert(sizeof(W8PathSurface) == 0x28, "W8PathSurface_must_be_0x28");
+static_assert(sizeof(W8PathEdge) == 0x0e, "W8PathEdge_must_be_0x0e");
+static_assert(sizeof(W8FileWaypoint) == 0x10, "W8FileWaypoint_must_be_0x10");
 
 /* One named conditional-path set. FindPathHandle compares path.name and then
    walks the zero-terminated lookup run starting at lookup_index: each lookup
@@ -209,8 +206,6 @@ struct GDPropCondPaths {
     unsigned int lookup_index; /* 0x40 */
 };
 
-W8_ABI_ASSERT(sizeof(GDPropCondPaths) == 0x44, "GDPropCondPaths_must_be_0x44");
-
 /* The two-dimensional cell walk used by path-surface probing. The cell and
    step runs are modeled as triples like the sibling octree walker; only X/Z
    participate and the third slots are zeroed. Retail does not distinguish
@@ -230,12 +225,6 @@ struct W8PathGridWalk {
     int error_reset1;
 };
 
-W8_ABI_ASSERT(sizeof(W8PathGridWalk) == 0x40, "W8PathGridWalk_must_be_0x40");
-W8_ABI_ASSERT(offsetof(W8PathGridWalk, step) == 0x0c, "W8PathGridWalk_step_offset");
-W8_ABI_ASSERT(offsetof(W8PathGridWalk, minor_axis1) == 0x20, "W8PathGridWalk_second_axis_offset");
-W8_ABI_ASSERT(offsetof(W8PathGridWalk, error_delta1) == 0x34, "W8PathGridWalk_second_error_offset");
-W8_ABI_ASSERT(offsetof(W8PathGridWalk, error_reset1) == 0x3c, "W8PathGridWalk_second_reset_offset");
-
 /* One of the fixed probe volumes assembled by 0x004656A0. The outer radius
    is the navigator's collision radius; the inner bound is its distance from
    the movement search origin. The player entry leaves the inner bound
@@ -246,8 +235,6 @@ struct W8PathProbeVolume {
     float inner_radius; /* Initial distance from the search origin, not a body radius. */
     srVector3T<float> center;
 };
-
-W8_ABI_ASSERT(sizeof(W8PathProbeVolume) == 0x18, "W8PathProbeVolume_must_be_0x18");
 
 /* The fixed 0x2c search node allocated by W8PathingService's constructor.
    Scoring at 0x00464FF0 proves the flag word, base score, current distance,
@@ -290,16 +277,15 @@ struct W8PathHeapHandle {
     void DeleteRoot(W8PathSearchNode* node);
 };
 
-W8_ABI_ASSERT(sizeof(W8PathHeapEntry) == 8, "W8PathHeapEntry_must_be_8");
-
-W8_ABI_ASSERT(sizeof(W8PathSearchNode) == 0x2c, "W8PathSearchNode_must_be_0x2c");
-
 /* The pathing service the octree builds when its file carries one. Its own
    constructor at 0x004578E0 initialises through 0x238 and ReadOctFile allocates
    0x240, which is what fixes the extent; only the fields those two bodies and
    the path lookup reach are named. */
+struct PathCellCoordinates { glm::ivec2 coordinates; unsigned int key; };
+
 class W8PathingService {
 public:
+    PathCellCoordinates pathCell(const glm::vec3& position) const;
     W8PathingService(); /* 0x004578E0 */
     unsigned int FindPathHandle(const char* path_name, W8PathGridBounds* path_bounds,
                                 W8PathVerticalRange* path_range); /* 0x00457CF0 */
@@ -313,8 +299,8 @@ public:
                                       float separation);
     void LinkSurfaces(GDProp* prop); /* 0x00460020 */
     void LinkEdges(GDProp* prop);    /* 0x004600B0 */
-    void CheckConditionalWayPtStatus(unsigned short count, unsigned short* waypoints);
-    void CheckConditionalLinkStatus(unsigned short count, unsigned short* edges);
+    void CheckConditionalWayPtStatus(std::span<const unsigned short> waypoints);
+    void CheckConditionalLinkStatus(std::span<const unsigned short> edges);
     void SetConditionalPathFrame(unsigned int path_handle, unsigned short frame);
     unsigned int FindConditionalPathValue(unsigned int key, unsigned int value);
     void
@@ -353,22 +339,22 @@ public:
                                            unsigned char* probe_result);
     bool ResolvePathCell(unsigned int key, bool allow_dynamic, unsigned int* height,
                          float* direction, float* vertical, bool* dynamic);
-    unsigned short FindWaypoint(const srVector3T<float>* position, bool exhaustive);
+    unsigned short FindWaypoint(const glm::vec3& position, bool exhaustive);
     void SnapPathHeight(srVector3T<float>* position);
     void GetPathSurfaceNormal(const srVector3T<float>* position, srVector3T<float>* normal);
     void ActivateMovementTrigger(W8NavigatorMovementState* movement, bool use_path_edge);
-    void UpdatePathVisualization(const srVector3T<float>* source,
-                                 const srVector3T<float>* destination);
-    void DrawPathPosition(srVector3T<float> position, unsigned char mode);
+    void UpdatePathVisualization(const glm::vec3& source, const glm::vec3& destination);
+    void DrawPathPosition(const glm::vec3& position, unsigned char mode);
     void BuildSearchVisualization();
     stModelInstance* BuildPathVisualization();
     stModelInstance* EnsurePathVisualization();
-    void GetWaypointVisualizationColor(unsigned short waypoint, srVector3T<float>* color);
-    short CollectPathVisualization(const srVector3T<float>* position);
-    bool PreparePathVisualization(const srVector3T<float>* source,
-                                  const srVector3T<float>* direction);
+    glm::vec3 waypointVisualizationColor(unsigned short waypoint) const;
+    short CollectPathVisualization(const glm::vec3& position);
+    bool PreparePathVisualization(const glm::vec3& source, const glm::vec3& direction);
     void AddWaypoint(const srVector3T<float>* position);
     unsigned int ClassifyWaypoint(const srVector3T<float>* position);
+    bool FindNearbyPathCell(srVector3T<float>* position, bool snap_to_cell,
+                            bool require_active, unsigned int* packed_out);
     bool SnapWaypointPosition(srVector3T<float>* position, bool snap_to_cell);
     bool TestPathCellClearance(srVector3T<float>* position, float clearance, bool snap_to_cell);
     bool SnapToLowerPathCell(srVector3T<float>* position, bool allow_directional);
@@ -377,6 +363,7 @@ public:
                               bool adjust);
     void AppendScratchPath(W8NavigatorAttachment* attachment, unsigned int count);
     bool BuildAttachmentPath(W8NavigatorAttachment* attachment, unsigned int flags);
+    void ResolveLinkedNavigatorAttachment(W8NavigatorMovementState* movement, bool enabled);
     bool PrepareLinkedNavigator(W8NavigatorMovementState* movement);
     bool LinkAttachmentTarget(W8NavigatorAttachment* attachment, unsigned int flags,
                               const srVector3T<float>* target, float separation);
@@ -388,19 +375,10 @@ public:
     void BuildPathGridWalk(const glm::vec2* from, const glm::vec2* to, const glm::vec2* origin, W8PathGridWalk* walk);
     bool ProbeWaypointSegment(const srVector3T<float>* from, const srVector3T<float>* to);
     unsigned int ComputeWaypointNeighborMask(const srVector2i* cell, unsigned int path_value);
-    /* Sums the blocked-direction unit vectors among the directions `delta`
-       points toward and normalizes the result into `direction`; zero when
-       `mask` is fully open or nothing wanted is blocked. */
-    bool ComputeFreeDirection(unsigned int mask, const srVector3T<float>* delta,
-                              srVector3T<float>* direction);
-    /* Resolves the path cell under `position`, reads its neighbor mask and
-       computes the free-direction vector away from `delta`; zero when the
-       heading has no free neighbor. */
-    bool GetNeighborSlideDirection(const srVector3T<float>* position,
-                                   const srVector3T<float>* delta, srVector3T<float>* direction);
-    /* The same free-direction query against the stored waypoint neighbor mask
-       rather than a live cell lookup. */
-    bool GetObstacleDirection(const srVector3T<float>* delta, srVector3T<float>* direction);
+    // Return a blocked-neighbor slide direction from a live cell or the stored mask.
+    std::optional<glm::vec3> neighborSlideDirection(const glm::vec3& position,
+                                                   const glm::vec3& delta);
+    std::optional<glm::vec3> obstacleDirection(const glm::vec3& delta);
     /* A* from the attachment's start to its destination over the surface
        graph; returns the destination surface index, zero when unreachable. */
     unsigned short FindPath(W8NavigatorAttachment* attachment, unsigned int flags);
@@ -442,7 +420,7 @@ public:
     /* Takes the size, two loose values, the bounds block out of the octree
        header, and the level name the octree already owns. */
     void ConfigureForLevel(int size, float grid_scale, float path_clearance,
-                           const srVector3T<float>* bounds, const char* name); /* 0x00458A50 */
+                           const srBoundingBox& bounds, const char* name); /* 0x00458A50 */
     unsigned char ReadPathNodes(wiz8::File* handle);                                   /* 0x00458CE0 */
     bool WritePathNodes(wiz8::File* handle);
     unsigned char SaveWaypointSnapshot(bool force);
@@ -485,10 +463,10 @@ public:
     W8PathSurface* m_waypoints;            /* 0x48 */
     W8PathEdge* m_pEdges;                  /* 0x4c */
     W8FileWaypoint* m_pFileWayPoints;      /* 0x50 */
-    stModelInstance* m_path_visualization; /* 0x54 */
-    BitArray* m_marked_path_nodes;         /* 0x58 */
-    BitArray* m_visited_path_nodes;        /* 0x5c */
-    BitArray* m_collected_path_nodes;      /* 0x60 */
+    std::unique_ptr<stModelInstance> m_path_visualization;
+    std::vector<bool> m_marked_path_nodes;
+    std::vector<bool> m_visited_path_nodes;
+    std::vector<bool> m_collected_path_nodes;
     /* Two hash indexes the loader builds and 0x00457B10 destroys. The path
        value words are bitfields (height in the low half, state flags in the
        high bits), so 0x64 takes unsigned values; 0x74 is the visited-cell set
@@ -506,8 +484,7 @@ public:
     bool m_probe_bounded;                                   /* 0x8c */
     unsigned char m_padding_08d[3];
     unsigned int planner_location;
-    unsigned int m_path_candidate_count;
-    w8_ulong* m_path_candidates;
+    std::vector<w8_ulong> m_path_candidates;
     bool explicit_target; /* 0x9c */
     unsigned char m_padding_09d[3];
     unsigned int m_waypoint_neighbor_mask; /* 0xa0 */
@@ -568,8 +545,6 @@ public:
     unsigned char m_padding_23d[3];
 };
 
-W8_ABI_ASSERT(sizeof(W8PathingService) == 0x240, "W8PathingService_must_be_0x240");
-
 /* The 8-byte record InsertConditionalNodes hangs on the cond map under a
    (frame << 16 | preprop index + 1) key: the node's serialized flag word
    (height level + 1 in the low half, |0x02000000 when it came from the
@@ -591,8 +566,6 @@ struct W8PrePathNode {
     W8PrePathNode* next;      /* 0x0c: allocation order, same-cell runs */
 };
 
-W8_ABI_ASSERT(sizeof(W8PrePathNode) == 0x10, "W8PrePathNode_must_be_0x10");
-
 enum { W8_PREPATH_NODES_PER_CHUNK = 1000 };
 
 /* Build-only mark removed before path cells are serialized. */
@@ -609,7 +582,7 @@ public:
 
     /* Copies each named position (scaled to world units) into +0x250 and
        snaps it to the ground through `octree`. */
-    int SnapNamedPositions(W8LevelFileNamedPosition* positions, int count,
+    int SnapNamedPositions(std::span<const W8LevelFileNamedPosition> positions,
                            unsigned int min_component_percent, OctPreTree* octree);
     /* Hands out the next path-node record, allocating a new chunk when the
        current one fills. */
@@ -620,7 +593,7 @@ public:
     void PropagatePathNodeClearance(W8PrePathNode* node, unsigned int depth);
     unsigned int DeleteUnreachableAreas();
     int CreatePathNodeArray();
-    unsigned char CreateAutomapNodes(W8LevelFile* level);
+    unsigned char CreateAutomapNodes(W8LevelFile& level);
 
     W8PrePathNode** path_node_list; /* path_node_count entries */
     OctPrePathLog* path_log;
@@ -639,13 +612,6 @@ public:
        while linking; capped at 50. */
     unsigned int min_component_percent;
 };
-
-W8_ABI_ASSERT(sizeof(PrePathing) == 0x1204, "PrePathing_must_be_0x1204");
-W8_ABI_ASSERT(offsetof(PrePathing, path_node_list) == 0x240, "PrePathing_path_node_list_240");
-W8_ABI_ASSERT(offsetof(PrePathing, node_chunks) == 0x258, "PrePathing_node_chunks_258");
-W8_ABI_ASSERT(offsetof(PrePathing, chunk_index) == 0x11f8, "PrePathing_chunk_index_11f8");
-W8_ABI_ASSERT(offsetof(PrePathing, min_component_percent) == 0x1200,
-              "PrePathing_min_component_percent_1200");
 
 /* Move an integer path cell one compass step; directions outside the
    eight-value range wrap once. */

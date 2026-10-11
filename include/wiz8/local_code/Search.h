@@ -1,13 +1,14 @@
 #pragma once
 
-#include "Types.h"
 #include <vector>
-#include <algorithm>
-#include "surrender/srMath.h"
+#include <cstdint>
+
+#include "compat/compiler.h"
 
 class Trigger;
 class W8WorldCursorNode;
 struct W8WorldItem;
+template <class T> class srVector3T;
 
 /* Local Code\search.cpp. The searchable registry owns small records whose
    members name the world item or trigger participating in a search. */
@@ -30,8 +31,6 @@ struct W8Searchable {
     Trigger* trigger;
 };
 
-W8_ABI_ASSERT(sizeof(W8Searchable) == 0x0c, "W8Searchable_must_be_0x0c");
-
 /* The per-pulse iteration view over the registry. Its constructor
    seeds the cursor before the first element; CollectSearchablesInView refills
    the item list with the in-range, in-view records. */
@@ -41,8 +40,6 @@ struct W8SearchableView {
     int cursor;
     std::vector<W8Searchable*> items;
 };
-
-W8_ABI_ASSERT(sizeof(W8SearchableView) == 0x14, "W8SearchableView_must_be_0x14");
 
 extern std::vector<W8Searchable*> g_searchables;
 extern W8SearchableView g_search_view;

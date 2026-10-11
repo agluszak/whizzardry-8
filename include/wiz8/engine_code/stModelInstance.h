@@ -3,17 +3,23 @@
 #include <memory>
 #include <optional>
 #include <vector>
+
 #include "surrender/srMeshModel.h"
 #include "surrender/srModelInstance.h"
 #include "wiz8/engine_code/AnimRep.hpp"
-
-#include <stddef.h>
+#include "compat/compiler.h"
+#include "glm/ext/vector_float4.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include "surrender/srMath.h"
+#include "surrender/srModel.h"
+#include "surrender/srTypeRegistry.h"
 
 class srGERD;
 class srMaterial;
 class stMaterial;
 class srTextureIFace;
 class stTextureAnim;
+class srNode;
 
 /* Engine Code\stModelInstance.cpp. */
 // VTABLE: WIZ8 0x005ec7d0 stModelInstance
@@ -28,7 +34,7 @@ public:
         return "stModelInstance";
     }
 
-    explicit stModelInstance(srNode* parent);                 /* 0x0047EC80 */
+    explicit stModelInstance(srNode* parent, Ownership ownership = Ownership::parent);                 /* 0x0047EC80 */
     stModelInstance& operator=(const stModelInstance& other); /* 0x0047EDF0 */
 
     /* Queues opaque models ahead of their siblings and sorted-rendering
@@ -61,7 +67,7 @@ public:
     int damage_stage;
     std::vector<int> damage_stage_tables;
     int highlight_pass_mode;
-    srVector3T<float> light_scale;
+    glm::vec3 light_scale;
     bool diffuse_scale_enabled;
     bool emissive_override_enabled;
     unsigned char padding_1a2[2];
@@ -124,4 +130,3 @@ public:
     /* Lazily copied from the mesh material while the glow is enabled. */
     std::shared_ptr<stMaterial> glow_material;
 };
-

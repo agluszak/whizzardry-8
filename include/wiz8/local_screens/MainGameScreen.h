@@ -1,20 +1,40 @@
 #pragma once
 
+#include "wiz8/audio_resources.h"
+
+#include <memory>
 #include <string_view>
-class Trigger;
-class srClass;
-class stModelInstance2D;
+#include <array>
+#include <optional>
+#include "wiz8/regions.h"
 
 #include "input.h"
 #include "wiz8/dialog_code/DialogBase.h"
-#include "wiz8/layouts/item_instance.h"
-#include <vector>
-#include <algorithm>
+#include "compat/compiler.h"
+#include "layouts/targeting.h"
 
-struct W8MipeState;
-struct W8NpcQuoteEntry;
-struct W8NpcState;
-struct W8NpcScriptQuote;
+class Trigger;
+
+extern ScreenRegionSet g_main_party_controls;
+extern ScreenRegionSet g_main_screen;
+extern ScreenRegionSet g_main_dialogue;
+extern ScreenRegionSet g_main_combat_actions;
+extern ScreenRegionSet g_main_portrait_controls;
+extern ScreenRegionSet g_main_conditions;
+extern ScreenRegionSet g_main_portrait_regions;
+extern ScreenRegionSet g_main_portrait_edge_regions;
+extern ScreenRegionSet g_main_radar_regions;
+extern ScreenRegionSet g_main_formation_board_regions;
+extern ScreenRegionSet g_main_submenu_regions;
+extern ScreenRegionSet g_main_effect_regions;
+enum MainEffectRegionOffset {
+    kMonsterListRegionOffset = 24,
+    kWorldViewRegionOffset = 25
+};
+extern std::array<std::optional<RegionSetView>, 8> g_main_portrait_slot_views;
+extern std::optional<RegionSetView> g_main_portrait_edge_view;
+void EnableMainGamePortraitSlot(unsigned int slot);
+void DisableMainGamePortraitSlot(unsigned int slot);
 struct W8ScreenRect;
 
 void RequestRedrawParty(void);
@@ -32,7 +52,6 @@ extern const float g_float_half_turn_degrees;
    trigger's trap type for the disarm/spring notices. */
 extern unsigned short g_trap_name_string_ids[];
 #include "wiz8/layouts/screen_state.h"
-
 #include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_code/Widget.h"
@@ -44,17 +63,13 @@ extern unsigned short g_trap_name_string_ids[];
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/dialog_code/DialogTextArea.h"
 
-#include <cstddef>
-
 class W8MainGameScreen;
-class W8MainGameTextPanel;
 
 // VTABLE: WIZ8 0x005eeafc
 class W8MainGameTextKeyHandler : public W8Widget, public W8RangeListener {
 public:
     W8MainGameTextKeyHandler(Controls* panel, int left, int top, int right, int bottom,
-                             int line_count, const unsigned short* line_string_ids,
-                             unsigned int* region_set);
+                             int line_count, const unsigned short* line_string_ids);
     virtual void Redraw(bool full_redraw) override;
     virtual void OnMouseLeave(int event) override;
     virtual void OnMouseMove(int event) override;
@@ -73,9 +88,6 @@ public:
     int m_first_visible_line;
     W8RangeListener* m_range_listener;
 };
-W8_ABI_ASSERT(sizeof(W8MainGameTextKeyHandler) == 0xc0, "W8MainGameTextKeyHandler_size");
-
-W8_ASSERT_BASE_END(W8MainGameTextKeyHandler, W8RangeListener, m_range, 0x34);
 
 /* One text-panel cell: the catalog image it shows (or -1) and a flag that
    gates mouse handling. */
@@ -91,7 +103,6 @@ public:
     int m_image;
     bool m_input_blocked;
 };
-W8_ABI_ASSERT(sizeof(W8MainGameTextEntry) == 0xc0, "W8MainGameTextEntry_size");
 
 // VTABLE: WIZ8 0x005eeba8
 // VTABLE: WIZ8 0x005eeba0 W8TextControl::Listener
@@ -127,35 +138,30 @@ public:
        m_fDirty, consumed by Redraw. */
     bool m_target_marker_pending;
 };
-W8_ABI_ASSERT(sizeof(W8MainGameTextPanel) == 0x144, "W8MainGameTextPanel_size");
-
-W8_ASSERT_BASE_END(W8MainGameTextPanel, W8RangeListener, m_entries, 0x50);
 
 // VTABLE: WIZ8 0x005eebc0
 class W8MainGameStatusPanel : public Controls {
 public:
     W8MainGameStatusPanel();
-    virtual ~W8MainGameStatusPanel();
     virtual void Redraw() override;
     void RefreshStatusTexts();
 
-    W8TextBuffer* m_text;
-    W8TextBuffer* m_text0;
-    W8TextBuffer* m_text1;
-    W8TextBuffer* m_text2;
-    W8TextBuffer* m_text3;
-    W8TextBuffer* m_text4;
-    W8TextBuffer* m_text5;
+    std::unique_ptr<W8TextBuffer> m_text;
+    std::unique_ptr<W8TextBuffer> m_text0;
+    std::unique_ptr<W8TextBuffer> m_text1;
+    std::unique_ptr<W8TextBuffer> m_text2;
+    std::unique_ptr<W8TextBuffer> m_text3;
+    std::unique_ptr<W8TextBuffer> m_text4;
+    std::unique_ptr<W8TextBuffer> m_text5;
     int m_target;
 };
-W8_ABI_ASSERT(sizeof(W8MainGameStatusPanel) == 0x6c, "W8MainGameStatusPanel_size");
 
 /* The NPC dialogue keyword transcript. */
 // VTABLE: WIZ8 0x005ee920
 class W8NpcDialogueTextController : public Controls {
 public:
     W8NpcDialogueTextController(int panel_left, int panel_top, int panel_right, int panel_bottom,
-                                int catalog_object, int catalog_frame, int catalog_image,
+                                CatalogArtwork artwork, int background_image,
                                 int margin_image, int line_image);
     virtual void Redraw() override;
     bool HandleScrollDownCommand(bool check_only);
@@ -205,17 +211,6 @@ public:
     W8DialogTextArea text_area;
     void SelectTranscriptKeywordAtPoint(int x, int y);
 };
-W8_ABI_ASSERT(sizeof(W8NpcDialogueTextController) == 0xbc, "W8NpcDialogueTextController_size");
-W8_ABI_ASSERT(offsetof(W8NpcDialogueTextController, visible) == 0x54,
-              "W8NpcDialogueTextController_visible");
-W8_ABI_ASSERT(offsetof(W8NpcDialogueTextController, line_height) == 0x58,
-              "W8NpcDialogueTextController_line_height");
-W8_ABI_ASSERT(offsetof(W8NpcDialogueTextController, margin) == 0x5c,
-              "W8NpcDialogueTextController_margin");
-W8_ABI_ASSERT(offsetof(W8NpcDialogueTextController, scroll_height) == 0x60,
-              "W8NpcDialogueTextController_scroll_height");
-W8_ABI_ASSERT(offsetof(W8NpcDialogueTextController, text_area) == 0x64,
-              "W8NpcDialogueTextController_text_area");
 
 /* The hover/click target over the dialogue transcript. Entering selects the
    first visible entry, leaving clears the selection, and the button handlers
@@ -233,9 +228,6 @@ public:
 
     unsigned int m_flags; /* bit 0 while the primary button is held */
 };
-W8_ABI_ASSERT(sizeof(W8NpcDialogueScrollWidget) == 0x38, "W8NpcDialogueScrollWidget_size");
-W8_ABI_ASSERT(offsetof(W8NpcDialogueScrollWidget, m_flags) == 0x34,
-              "W8NpcDialogueScrollWidget_flags_34");
 
 class W8LockTumbler;
 
@@ -271,7 +263,6 @@ public:
     int m_pin_height; /* pixel offset, 0x22 at rest */
     W8LockTumblerListener* m_listener;
 };
-W8_ABI_ASSERT(sizeof(W8LockTumbler) == 0x48, "W8LockTumbler_size");
 
 /* Notified by W8LockTumblerPanel with the index of a released tumbler. */
 // VTABLE: WIZ8 0x005eeae0
@@ -302,11 +293,6 @@ public:
     W8GameTimer m_fall_timer;  /* 0.01s */
     W8LockTumblerPanelListener* m_listener;
 };
-W8_ABI_ASSERT(sizeof(W8LockTumblerPanel) == 0xec, "W8LockTumblerPanel_size");
-
-W8_ASSERT_BASE_END(W8LockTumblerPanel, W8LockTumblerListener, m_tumbler_count, 0x4c);
-W8_ABI_ASSERT(offsetof(W8LockTumblerPanel, m_tumblers) == 0x54, "W8LockTumblerPanel_tumblers");
-W8_ABI_ASSERT(offsetof(W8LockTumblerPanel, m_listener) == 0xe8, "W8LockTumblerPanel_listener");
 
 /* The lock interaction's readout column: the selected character's name plus
    the lockpick-skill, spell-power and force-chance percentages. */
@@ -315,20 +301,18 @@ class W8LockInfoPanel : public Controls {
 public:
     W8LockInfoPanel(int tumbler_count);
 
-    virtual ~W8LockInfoPanel();
     virtual void Redraw() override;
     void RefreshInfo();
 
     int m_tumbler_count;
-    W8TextBuffer* m_text0; /* character name */
-    W8TextBuffer* m_text1;
-    W8TextBuffer* m_text2; /* lockpick skill */
-    W8TextBuffer* m_text3;
-    W8TextBuffer* m_text4; /* spell power */
-    W8TextBuffer* m_text5;
-    W8TextBuffer* m_text; /* force chance */
+    std::unique_ptr<W8TextBuffer> m_text0; /* character name */
+    std::unique_ptr<W8TextBuffer> m_text1;
+    std::unique_ptr<W8TextBuffer> m_text2; /* lockpick skill */
+    std::unique_ptr<W8TextBuffer> m_text3;
+    std::unique_ptr<W8TextBuffer> m_text4; /* spell power */
+    std::unique_ptr<W8TextBuffer> m_text5;
+    std::unique_ptr<W8TextBuffer> m_text; /* force chance */
 };
-W8_ABI_ASSERT(sizeof(W8LockInfoPanel) == 0x6c, "W8LockInfoPanel_size");
 
 /* The lock-picking interaction. It answers the tumbler panel's "released
    tumbler N" callback and receives the action-panel buttons; Process() is the
@@ -339,7 +323,6 @@ class W8LockInteraction : public W8LockTumblerPanelListener, public W8TextContro
 public:
     W8LockInteraction(Trigger* trigger);
 
-    virtual ~W8LockInteraction();
     virtual void OnTumblerPicked(int index) override;
     virtual void OnPrimary(W8TextControl* control) override;
     int ReleaseOwnedTumblers(int slot);
@@ -355,9 +338,9 @@ public:
 
     Trigger* m_trigger;
     int m_tumbler_count; /* trigger->lock_state.difficulty clamped to [2,8] */
-    W8LockTumblerPanel* m_tumbler_panel;
-    W8LockInfoPanel* m_info_panel;
-    Controls* m_action_panel;
+    std::unique_ptr<W8LockTumblerPanel> m_tumbler_panel;
+    std::unique_ptr<W8LockInfoPanel> m_info_panel;
+    std::unique_ptr<Controls> m_action_panel;
     W8TextControl* m_done_button;      /* OnPrimary target, state 9 */
     W8TextControl* m_spell_button;     /* gated by spell-0x27 power */
     W8TextControl* m_force_button;     /* gated by the force chance */
@@ -370,13 +353,6 @@ public:
     int m_slot_attempts[8];            /* pick attempts per party slot */
     W8GameTimer m_timer;               /* state-8 completion delay */
 };
-W8_ABI_ASSERT(sizeof(W8LockInteraction) == 0xa4, "W8LockInteraction_size");
-W8_ASSERT_BASE_END(W8LockInteraction, W8TextControl::Listener, m_trigger, 0x4);
-W8_ABI_ASSERT(offsetof(W8LockInteraction, m_trigger) == 0x08, "W8LockInteraction_trigger");
-W8_ABI_ASSERT(offsetof(W8LockInteraction, m_tumbler_panel) == 0x10,
-              "W8LockInteraction_tumbler_panel");
-W8_ABI_ASSERT(offsetof(W8LockInteraction, m_state) == 0x34, "W8LockInteraction_state");
-W8_ABI_ASSERT(offsetof(W8LockInteraction, m_timer) == 0x80, "W8LockInteraction_timer");
 
 // VTABLE: WIZ8 0x005eebdc
 class W8MainGameTextSelectionListener {
@@ -389,7 +365,6 @@ public:
 class W8MainGameScreen final : public W8MainGameTextSelectionListener, public W8TextControl::Listener {
 public:
     W8MainGameScreen(Trigger* owner);
-    ~W8MainGameScreen();
     virtual void SelectTextEntry(int index) override;
     virtual void OnPrimary(W8TextControl* control) override;
     virtual void OnSecondary(W8TextControl*) override {}
@@ -402,9 +377,9 @@ public:
     void UseTrapItem();
 
     Trigger* m_owner;
-    W8MainGameTextPanel* m_text_panel;
-    W8MainGameStatusPanel* m_status_panel;
-    Controls* m_action_panel;
+    std::unique_ptr<W8MainGameTextPanel> m_text_panel;
+    std::unique_ptr<W8MainGameStatusPanel> m_status_panel;
+    std::unique_ptr<Controls> m_action_panel;
     int m_disarm_state;
     int m_selected_character;
     W8TextControl* m_action_controls[5];
@@ -414,14 +389,12 @@ public:
     unsigned char m_slot_attempted[8];
     int m_slot_columns[8][8];
     int m_target_difficulty;
-    int m_sound_handle;
+    wiz8::sound::Playback m_sound_handle;
     W8GameTimer m_timer;
 };
-W8_ABI_ASSERT(sizeof(W8MainGameScreen) == 0x178, "W8MainGameScreen_size");
-W8_ASSERT_BASE_END(W8MainGameScreen, W8TextControl::Listener, m_owner, 0x4);
 
 extern W8LevelRuntimeBlock* g_level_block;
-extern W8MainGameScreen* g_main_game_screen;
+extern std::unique_ptr<W8MainGameScreen> g_main_game_screen;
 
 /* Insanity (spell 0x3c) world-cursor extent rows and the per spell-power
    index into them; CastSpellFromSource scans the same extents when it
@@ -429,7 +402,6 @@ extern W8MainGameScreen* g_main_game_screen;
 extern double g_world_cursor_extent_table[18];
 extern signed char g_spell_power_extent_index[8];
 
-class W8DialogBase;
 struct W8ItemInstance;
 
 extern W8DialogBase* g_modal_owner;
@@ -449,14 +421,11 @@ void PauseMainGameWorld(void);
 void ResumeMainGameWorld(void);
 void ResetMainGameScreenState(void);
 
-struct W8NpcScriptQuote;
-struct W8NpcQuoteEntry;
-
 void RefreshTrackedPortraitOverlay(void);
 /* Which party portrait the pointer is over, if any. */
-unsigned char HitTestPartyPortrait(const InputAtom* event);
+unsigned char HitTestPartyPortrait(const InputEvent* event);
 void ClearCombatSelection(void);
-void UpdateWorldViewCursor(const InputAtom* event, W8TargetNeed target_needed);
+void UpdateWorldViewCursor(const InputEvent* event, W8TargetNeed target_needed);
 void RequestRefreshPartyState(void);
 void RefreshFlaggedMainGameState(void);
 bool IsScreenIdle(void);
@@ -533,24 +502,24 @@ inline void ClearScreenWait(void)
 }
 /* Portrait condition / enchantment orbs (help 25 / 26): hold opens the
    mode-6 hover overlay; leave and release tear it down. */
-unsigned char PortraitConditionOrbRegionEvent(const InputAtom* event, struct W8Region* region);
-unsigned char PortraitEnchantmentOrbRegionEvent(const InputAtom* event, struct W8Region* region);
+unsigned char PortraitConditionOrbRegionEvent(const InputEvent* event, struct W8Region* region);
+unsigned char PortraitEnchantmentOrbRegionEvent(const InputEvent* event, struct W8Region* region);
 /* Party portrait hit regions: select, target, open camp, and drag-hover. */
-unsigned char PortraitSelectRegionEvent(const InputAtom* event, struct W8Region* region);
+unsigned char PortraitSelectRegionEvent(const InputEvent* event, struct W8Region* region);
 /* Help 28: portrait side bar that opens Assay on the hovered weapon/item. */
-unsigned char PortraitAssaySidebarRegionEvent(const InputAtom* event, struct W8Region* region);
+unsigned char PortraitAssaySidebarRegionEvent(const InputEvent* event, struct W8Region* region);
 /* Help 24: portrait overlay hover strip; drives portrait_overlay_party_slot. */
-unsigned char PortraitOverlayHoverRegionEvent(const InputAtom* event, struct W8Region* region);
+unsigned char PortraitOverlayHoverRegionEvent(const InputEvent* event, struct W8Region* region);
 /* Region set 4: the eight combat-action hit regions beside the portraits. */
-unsigned char PartyCombatActionRegionEvent(const InputAtom* event, struct W8Region* region);
+unsigned char PartyCombatActionRegionEvent(const InputEvent* event, struct W8Region* region);
 /* Help 31: radar-map button beside the text area. */
-unsigned char RadarMapButtonRegionEvent(const InputAtom* event, struct W8Region* region);
+unsigned char RadarMapButtonRegionEvent(const InputEvent* event, struct W8Region* region);
 /* Region 23: the 3D world view. Hover refreshes the combat selection/target,
    left-up runs the targeting/item/monster dispatch, right-down opens monster
    info or the assay dialog, and the mouselook latch arms and releases here. */
-unsigned char WorldViewRegionEvent(const InputAtom* event, struct W8Region* region);
+unsigned char WorldViewRegionEvent(const InputEvent* event, struct W8Region* region);
 /* Help 36: combat monster-list hit rows beside the radar map. */
-unsigned char MonsterListRegionEvent(const InputAtom* event, struct W8Region* region);
+unsigned char MonsterListRegionEvent(const InputEvent* event, struct W8Region* region);
 void SetMainGameMode(W8MainGameMode mode);
 void SetFormationBoardVisible(bool visible);
 void ToggleMainGamePause(void);
@@ -639,8 +608,6 @@ void CreateSurpriseFade(void);
 void ReverseSurpriseFade(void);
 void DestroySurpriseFade(void);
 unsigned char UpdateSurpriseFade(void);
-void DisableMainRegionSet(void);
-void EnableMainRegionSet(void);
 unsigned char OpenUseItemSelectView(int slot);
 
 unsigned char MainGameScreenInitialize(void);
@@ -650,8 +617,8 @@ unsigned char MainGameScreenLeave(int leaving);
 void ShowMainGameNoticeLine(std::string_view text, W8DialogDestroyCallback callback, bool confirmation,
                             bool cancel);
 
-unsigned char CombatBarRegionEvent(const InputAtom* event, struct W8Region* region);
-unsigned char DialogueTranscriptRegionEvent(const InputAtom* event, struct W8Region* region);
+unsigned char CombatBarRegionEvent(const InputEvent* event, struct W8Region* region);
+unsigned char DialogueTranscriptRegionEvent(const InputEvent* event, struct W8Region* region);
 void SelectNpcBuyMode(void);
 void ConfirmNpcTradeItem(void);
 void RestockNpcTradeStock(void);

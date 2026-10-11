@@ -1,5 +1,7 @@
 #pragma once
 
+#include "glm/ext/vector_float3.hpp"
+
 #include <memory>
 #include <optional>
 #include <span>
@@ -7,8 +9,17 @@
 #include <string_view>
 #include <unordered_map>
 #include <vector>
+#include <cstddef>
+
+#include "surrender/srBoundingBox.h"
 #include "surrender/srMeshModel.h"
 #include "surrender/srTypeRegistry.h"
+#include "compat/compiler.h"
+#include "compat/native.h"
+#include "glm/ext/matrix_float4x4.hpp"
+#include "surrender/srMath.h"
+
+class srTextureIFace;
 
 /* Engine Code\stMeshModel.cpp. Compressed frame bytes retain their asset format;
    float caches and render scratch are owned independently of the base mesh. */
@@ -37,21 +48,23 @@ public:
     virtual ~stMeshModel() override;       /* 0x00470ED0 */
     stMeshModel(const stMeshModel&) = delete;
     stMeshModel& operator=(const stMeshModel&) = delete;
-    virtual int getBoundingSphere(glm::vec3& center, float& radius) override;    /* 0x00471dd0 */
-    virtual int getBoundingBox(glm::vec3& minimum, glm::vec3& maximum) override; /* 0x00471d80 */
-    virtual void getTriMesh(TriMesh& mesh) override;                 /* 0x004727e0 */
+    Bounds getBounds() override;
     /* Recomputes the union bounds over the head and its parts and pushes them
        to each mesh via srMeshModel::setBounds. */
     void CalculateLinkedBounds();                 /* 0x00471e10 */
     void RevealVerticesNear(const glm::vec3& position, float range, const glm::mat4& world);
-    virtual const TriMesh& getTriMesh() override; /* 0x00472270 */
+    virtual TriMesh getTriMesh() override; /* 0x00472270 */
     virtual void renderTriMesh(class srGERD& renderer,
                                const TriMesh& mesh) override; /* 0x00470360 */
-    /* Shared Wizardry-extended tri-mesh submit. `poly_normals` null skips
-       the software backface pass; non-null callers supply polygon normals used
-       to build the active-polygon scratch at 0x00659ce0. */
+    /* Shared Wizardry-extended tri-mesh submit. An empty `poly_normals` span skips
+       the software backface pass; other callers supply counted polygon normals used
+       to select the active polygons for this submission. */
     void RenderTriMeshWithEquations(class srGERD& renderer, const TriMesh& mesh,
-                                    const srVector3T<float>* poly_normals); /* 0x00470380 */
+                                    std::span<const glm::vec3> poly_normals); /* 0x00470380 */
+    static std::vector<w8_ulong> facingPolygons(const TriMesh& mesh,
+                                               std::span<const glm::vec3> normals,
+                                               const glm::vec3& eye, bool positive_winding,
+                                               float threshold);
 
     int FindMappedIndex(short key); /* 0x004712D0 */
     void SetMappedVertex(short vertex, short key);
@@ -62,27 +75,34 @@ public:
     int FindSkinTable(std::string_view name);
     int CreateSkinTable(std::string_view name, int base_table);
     std::shared_ptr<srTextureIFace>* GetTextureTable(int table); /* 0x00473720 */
-    /* Active-polygon index list for a texture table; writes the count through
-       `count_out`. Null draws all polygons, non-null with count zero draws none. */
-    w8_ulong* GetActivePolygons(w8_long* count_out, int table, bool flag);
+    /* No selection draws all polygons; an engaged empty span draws none.
+       The view is borrowed until its skin or automap filter is changed. */
+    PolygonSelection GetActivePolygons(int table, bool check_blanking);
     void RemoveSkinTable(int index);
     void RemoveSkinTablesForCycle(std::string_view cycle_name);
-    srVector3T<float>* GetVertexLocations(unsigned int frame, bool load, float interpolation);
-    srVector3T<float>* GetVertexNormals(unsigned int frame, bool load); /* 0x00471CA0 */
-    srVector3T<float>* GetPolygonNormals(unsigned int frame, bool load);
+    // Borrowed frame caches; interpolated positions reuse the model's lerp buffer.
+    struct FrameGeometry {
+        std::span<glm::vec3> positions;
+        std::span<glm::vec3> normals;
+        std::span<const glm::vec3> polygon_normals;
+    };
+    FrameGeometry frameGeometry(unsigned int frame, float interpolation);
+    glm::vec3* GetVertexLocations(unsigned int frame, bool load, float interpolation);
+    glm::vec3* GetVertexNormals(unsigned int frame, bool load); /* 0x00471CA0 */
+    glm::vec3* GetPolygonNormals(unsigned int frame, bool load);
     void ClearVertexLights();
-    void SetAmbientColor(const srVector3T<float>& color);
+    void SetAmbientColor(const glm::vec3& color);
     unsigned char AllocateFrameBuffers(unsigned int uiFrame, unsigned char flags); /* 0x00471720 */
-    srVector3T<float>* GetVertexLights(bool initialize, int table);                /* 0x00472100 */
-    float* GetVertexSunlight(bool initialize);                                     /* 0x004721E0 */
+    std::span<glm::vec3> GetVertexLights(bool initialize, int table);                /* 0x00472100 */
+    std::span<float> GetVertexSunlight(bool initialize);                                     /* 0x004721E0 */
     void InitializeVertexFrames(int frames); /* 0x00473B00 */
     int ReleaseDecompressedFrames();         /* 0x004739E0 */
     void FinalizeVertexFrame(int frame);
-    /* Bounds `frame`'s vertex table into `minimum`/`maximum`, decompressing a
-       scratch copy when the frame is not resident. */
-    void GetFrameBounds(int frame, glm::vec3* minimum, glm::vec3* maximum);
+    /* Return `frame`'s vertex bounds, decompressing a scratch copy when the frame
+       is not resident. Invalid frames and empty meshes return zero bounds. */
+    srBoundingBox GetFrameBounds(int frame);
     unsigned char DecompressFrame(int frame, unsigned char flags,
-                                  srVector3T<float>* destination); /* 0x00471930 */
+                                  std::span<glm::vec3> destination); /* 0x00471930 */
     void ComputeFrameNormals(int frame);                           /* 0x004729F0 */
     void ClearAutomapPolygonFilter();
     void ApplyAutomapPolygonFilter(std::span<const std::string_view> excluded_textures);
@@ -124,17 +144,6 @@ public:
     private:
         stMeshModel* first;
     };
-    unsigned int flags;
-    srVector3T<float> ambient_color;
-    int vertex_light_table;
-    /* m_pVertLights: per-vertex static lighting, zero-filled on demand; table
-       -1 selects vertex_light_table. */
-    std::vector<srVector3T<float> > vertex_lights[2];
-    /* Per-vertex sunlight intensity, filled with 1.0f on demand. */
-    std::vector<float> vertex_sunlight;
-    /* Set once both vertex lights and sunlight exist. */
-    bool vertex_lighting_ready;
-    unsigned char padding_3ce[2];
     struct Frame {
         // m_psCompVertexLoc / m_pbCompVertexNormal / m_pbCompPolyNormal:
         // three shorts per location and three signed-byte components per normal.
@@ -144,11 +153,10 @@ public:
         // m_pVertexLoc / m_pVertexNormal / m_pPolyNormal. Disengaged means
         // absent, even on a zero-vertex model. Engaged storage counts toward
         // g_decompressed_mesh_bytes and is dropped only by explicit eviction.
-        std::optional<std::vector<srVector3T<float>>> locations;
-        std::optional<std::vector<srVector3T<float>>> vertex_normals;
-        std::optional<std::vector<srVector3T<float>>> polygon_normals;
+        std::optional<std::vector<glm::vec3>> locations;
+        std::optional<std::vector<glm::vec3>> vertex_normals;
+        std::optional<std::vector<glm::vec3>> polygon_normals;
     };
-    std::vector<Frame> frames; // Empty for a static base-class mesh.
 
     struct Skin {
         int id;
@@ -159,14 +167,30 @@ public:
         std::optional<std::vector<w8_ulong>> active_polygons;
         bool blanking_checked = false;
     };
+    unsigned int flags;
+    glm::vec3 ambient_color;
+    int vertex_light_table;
+    /* m_pVertLights: per-vertex static lighting, zero-filled on demand; table
+       -1 selects vertex_light_table. */
+    std::vector<glm::vec3> vertex_lights[2];
+    /* Per-vertex sunlight intensity, filled with 1.0f on demand. */
+    std::vector<float> vertex_sunlight;
+    /* Set once both vertex lights and sunlight exist. */
+    bool vertex_lighting_ready;
+    unsigned char padding_3ce[2];
+    std::vector<Frame> frames; // Empty for a static base-class mesh.
     std::vector<Skin> skins;
     std::unordered_map<short, short> mapped_vertices; // key -> vertex
     w8_ulong last_decompress_release_tick;
     float vertex_compression_scale;
     // m_pLerpBuffer: stable interpolation scratch, outside the cache budget.
-    std::vector<srVector3T<float>> lerp_buffer;
+    std::vector<glm::vec3> lerp_buffer;
     std::optional<std::vector<w8_ulong>> automap_polygons;
     bool automap_filter_active;
+
+private:
+    void updateBakedLighting();
+    glm::vec3* frameTable(unsigned int frame, bool load, unsigned char kind);
 };
 
 
@@ -174,9 +198,6 @@ public:
 extern std::vector<stMeshModel*> g_mesh_models; /* 0x00659CB8 */
 /* Bytes currently held by decompressed per-frame float caches. */
 extern int g_decompressed_mesh_bytes; /* 0x0065A0E8 */
-/* Scratch active-polygon indices filled by software backface cull in
-   RenderTriMeshWithEquations when an equation table is supplied. */
-extern std::vector<w8_ulong> g_software_cull_active_polygons; /* 0x00659CE0 */
 
 /* True when all three components of the vector are zero. */
 int __fastcall IsZeroVector(const srVector3T<float>* vector);

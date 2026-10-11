@@ -1,12 +1,13 @@
 #include "wiz8/level_specific_code/Monastery2.h"
+
 #include "wiz8/engine_code/Prop.h"
 #include "wiz8/engine_code/Trigger.hpp"
-#include "wiz8/engine_code/World.h"
 #include "wiz8/item_spawning.h"
-#include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/sr_api.h"
 #include "soundman.h"
-#include "wiz8/local_code/ItemManager.h"
+#include "Item.h"
+#include "layouts/world.h"
+#include "surrender/srMath.h"
 
 /* Level Specific Code\Monastery2.cpp (level 9).
 
@@ -39,12 +40,12 @@ bool Monastery2BellButton(Trigger* pTrigger)
     if (prop != 0) {
         slot = prop->Rep()->FindCurrentAnimationSlot();
         if (slot == 0) {
-            SoundPlay("Data\\Sound\\Ambients\\Mon2Bell1.wav", 0);
+            wiz8::sound::play("Data\\Sound\\Ambients\\Mon2Bell1.wav");
         } else if (slot == 1) {
-            SoundPlay("Data\\Sound\\Ambients\\Mon2Bell2.wav", 0);
+            wiz8::sound::play("Data\\Sound\\Ambients\\Mon2Bell2.wav");
             return true;
         } else if (slot == 2) {
-            SoundPlay("Data\\Sound\\Ambients\\Mon2Bell3.wav", 0);
+            wiz8::sound::play("Data\\Sound\\Ambients\\Mon2Bell3.wav");
             DisableBellTrigger("bellringswitch", 0x21);
             DisableBellTrigger("bell_button", 0x24);
             return true;

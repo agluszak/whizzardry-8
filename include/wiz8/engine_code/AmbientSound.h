@@ -1,18 +1,23 @@
 #pragma once
 
-#include "wiz8/filesystem.h"
+#include <memory>
 
-struct W8World;
-
+#include "wiz8/audio_resources.h"
 #include "surrender/srMath.h"
 #include "wiz8/engine_code/game_timer.h"
+
+struct W8World;
+struct W8RandomAmbient;
+namespace wiz8 {
+class File;
+}  // namespace wiz8
 
 struct W8AmbientSoundConfig {
     char wave_name[0x80];
 };
 
-/* Engine Code\AmbientSound.cpp. The allocation and release pair establishes
-   the complete 0x12c-byte object and four members used by its lifetime. */
+/* Engine Code\AmbientSound.cpp. Offsets below describe the retail object;
+   native emitters own their audio clip and no longer have that binary layout. */
 class W8AmbientSound {
 public:
     W8AmbientSound(); /* 0x00479040 */
@@ -45,8 +50,8 @@ public:
     unsigned char in_range;      /* 0x0b8: listener currently inside radius/region */
     unsigned char looping;       /* 0x0b9: continuous loop vs random one-shot */
     unsigned char padding_0ba[2];
-    int sound_handle;      /* 0x0bc: live SGP voice id */
-    int sample_handle;     /* 0x0c0: registered SGP random sample */
+    wiz8::sound::Playback sound_handle;      // Current playback, shared during group handoff.
+    std::shared_ptr<W8RandomAmbient> random; // One-shot schedule; empty for looping sounds.
     unsigned char shared;  /* 0x0c4: shared 2D group sound; voices hand off by name */
     unsigned char bounded; /* 0x0c5: region test enabled (v2 trigger field) */
     unsigned char padding_0c6[2];
@@ -58,8 +63,6 @@ public:
     srVector3T<float> region_scale;  /* 0x0fc: per-axis region scale */
     W8GameTimer fade_timer;          /* 0x108 */
 };
-
-W8_ABI_ASSERT(sizeof(W8AmbientSound) == 0x12c, "W8AmbientSound_must_be_0x12c");
 
 /* Reverb environment id indexing g_footstep_surfaces; retail's range
    check admits 9, one past the table's last entry (the ids are byte-sized in
@@ -117,12 +120,12 @@ enum W8FootstepKind {
     W8_FOOTSTEP_KIND_SCUFF = 2,
 };
 
-/* 0x00479030: stop all random samples and the shared ambient priority group */
+/* 0x00479030: drop every random schedule and stop the ambient group */
 void StopAllAmbientSounds();
 
 void BuildFootstepPath(char* path, signed char surface, signed char material, char kind,
                        int variant);
-int PlayFootstep(signed char surface, signed char material, W8FootstepKind kind);
+wiz8::sound::Playback PlayFootstep(signed char surface, signed char material, W8FootstepKind kind);
 void UpdateAmbientSounds(W8World* world);
 void RepositionAmbientSounds(W8World* world);
 unsigned char ReadAmbientSoundListFile(char* filename);
@@ -141,8 +144,8 @@ unsigned char AddAmbientSound(W8World* world, const char* name, const W8AmbientS
                               const srVector3T<float>* region_axis,
                               const srVector3T<float>* region_scale, unsigned char shared);
 
-void SaveAmbientSoundList(wiz8::File* handle);
-void LoadAmbientSoundList(wiz8::File* handle);
+void SaveAmbientSoundList(wiz8::File& handle);
+void LoadAmbientSoundList(wiz8::File& handle);
 
 bool IsSoundEffectsMuted(void);
 unsigned char GetSoundEffectsVolume(void);

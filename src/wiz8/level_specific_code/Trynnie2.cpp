@@ -1,9 +1,11 @@
+#include <string>
+#include <vector>
+
 #include "wiz8/fonts.h"
 #include "wiz8/level_specific_code/Trynnie2.h"
 #include "wiz8/level_specific_code/Trynnie1.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/engine_code/Monster.h"
-#include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/item_spawning.h"
@@ -12,16 +14,19 @@
 #include "wiz8/layouts/item_instance.h"
 #include "wiz8/cursor.h"
 #include "wiz8/local_code/GameplayCode.h"
-#include "wiz8/local_code/ItemManager.h"
 #include "wiz8/local_code/MonsterGenerator.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_screens/MGSTextBox.h"
-#include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/string_database.h"
+#include "Item.h"
+#include "conditions.h"
+#include "surrender/srMath.h"
+#include "wiz8/npc_interaction.h"
+
+class Trigger;
 
 /* Level Specific Code\Trynnie2.cpp (level 0x1a).
 
@@ -31,7 +36,6 @@
    (GoodaVine_A/B, Give_Zulu, Meat_Maker, Meat_Box, URN_Trigger_01-04) and runs
    the Trynnie2Killed location-variable sync. */
 
-#define TRYNNIE2_CPP "C:\\Projects\\Wizardry 8\\Level Specific Code\\Trynnie2.cpp"
 
 /* Fact 0x229 records that the Trynnie2 group was wiped out; mirror it into the
    Trynnie2Killed location variable the first time this level sees it, so the
@@ -112,7 +116,6 @@ bool Trynnie2MeatBox(Trigger* pTrigger)
 {
     W8MonsterGroup* group;
     W8MonsterInfo* info;
-    unsigned int index;
     int item_id;
 
     group = FindFirstMonsterByID(0x1d4);
@@ -125,8 +128,7 @@ bool Trynnie2MeatBox(Trigger* pTrigger)
         ShowNotice(W8_FONT_PALETTE_TEXT_BOX, g_localized_strings[0x964]);
         return true;
     }
-    index = MonsterGetIndexByLocationID(0x68, TRYNNIE2_CPP, group->leader_location_id, true);
-    info = MonsterGetScriptPartByLocationIndex(index);
+    info = FindMonster(group->leader_location_id);
     if (info->highest_condition >= W8_CONDITION_ASLEEP) {
         return true;
     }

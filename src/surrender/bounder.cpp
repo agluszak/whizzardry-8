@@ -1,11 +1,16 @@
+#include <ostream>
+
+#include "glm/common.hpp"
+#include "glm/geometric.hpp"
+#include "glm/matrix.hpp"
 #include "surrender/srBoundingBox.h"
 #include "surrender/srBounder.h"
-#include "surrender/srStreamFlags.h"
-
-#include "surrender/srCore.h"
+#include "surrender/stream_scope.h"
 #include "surrender/srGERD.h"
-
-#include <ostream>
+#include "glm/ext/matrix_float4x4.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include "surrender/srNode.h"
+#include "surrender/srTypeRegistry.h"
 
 // FUNCTION: SURRENDER 0x1004a5a0
 srBounder::srBounder(srNode* parent)
@@ -32,17 +37,6 @@ void srBounder::setBoundMode(e_boundMode mode)
         updateBounds();
     }
     bound_mode = mode;
-}
-
-// FUNCTION: SURRENDER 0x1004b0e0
-void srBounder::getBounds(BoundInfo& bounds)
-{
-    if (bound_mode == BOUND_MODE_DYNAMIC) {
-        if (testNotify(NOTIFY_BOUNDS_DIRTY)) {
-            updateBounds();
-        }
-    }
-    bounds = this->bounds;
 }
 
 // FUNCTION: SURRENDER 0x1004b120
@@ -109,21 +103,15 @@ void srBounder::traverse(TraverseInfo& info)
                 return;
             }
             if (bounds.state == 1) {
-                applyWorldSpaceMatrix(*renderer);
+                const auto transform = scopedWorldSpaceMatrix(*renderer);
                 if (renderer->testBoundingSphere(bounds.center, bounds.radius) ==
                     srGERD::VISIBILITY_OUTSIDE) {
-                    renderer->matrixMode(srGERD::MATRIX_MODELVIEW);
-                    renderer->popMatrix();
                     return;
                 }
                 if (renderer->testBoundingBox(bounds.minimum, bounds.maximum) ==
                     srGERD::VISIBILITY_OUTSIDE) {
-                    renderer->matrixMode(srGERD::MATRIX_MODELVIEW);
-                    renderer->popMatrix();
                     return;
                 }
-                renderer->matrixMode(srGERD::MATRIX_MODELVIEW);
-                renderer->popMatrix();
             }
         }
         if (first_child_ != 0) {
@@ -142,7 +130,7 @@ void srBounder::updateBounds()
         bounds.radius = 0.0f;
         bounds.state = 0;
         glm::mat4 world;
-        getWorldSpaceMatrix(world);
+        world = getWorldSpaceMatrix<glm::mat4>();
         inverse_world = glm::inverse(world);
         for (srNode* child = first_child_; child != 0; child = child->getNext()) {
             getChildBoundingBox(child);
@@ -160,11 +148,9 @@ void srBounder::getChildBoundingBox(srNode* node)
 {
     node->updateBounds();
     if (bounds.state != 2) {
-        BoundInfo child_bounds;
-        node->getLocalBounds(child_bounds);
+        const auto child_bounds = node->getLocalBounds();
         if (child_bounds.state == 1) {
-            glm::mat4 world;
-            node->getWorldSpaceMatrix(world);
+            auto world = node->getWorldSpaceMatrix<glm::mat4>();
             const srBoundingBox child_box{child_bounds.minimum, child_bounds.maximum};
             const auto transformed = child_box.transformed(inverse_world * world);
             if (bounds.state == 0) {
@@ -189,8 +175,7 @@ void srBounder::getChildBoundingBox(srNode* node)
 void srBounder::dump(std::ostream& stream)
 {
     srNode::dump(stream);
-    w8_long flags = srGetStreamFlags(stream);
-    srSetStreamFlags(stream, (flags & 0xfffffe7fL) | 0x40);
+    const srDumpStreamScope formatting(stream);
     stream.width(0x20);
     stream << "  Bound mode: ";
     stream << (bound_mode == 1 ? "static\n" : "dynamic\n");
@@ -217,5 +202,4 @@ void srBounder::dump(std::ostream& stream)
         stream.width(0x20);
         stream << "  Bounding sphere radius: " << bounds.radius << '\n';
     }
-    srSetStreamFlags(stream, flags & 0x7fff);
 }

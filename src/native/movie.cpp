@@ -1,29 +1,50 @@
 /* Native Bink replacement: bounded SGP file/SLF I/O, FFmpeg decoding and
    timed RGB555 frames. Recovered IntroScreen still owns transitions/input. */
 #include "movie.h"
-#include "wiz8/filesystem.h"
-#include "wiz8/slf.h"
+
+#include <cstdint>
+#include <memory>
+#include <vector>
 #include <wiz8/filesystem.h>
-#include "compat/surfaces.h"
+#include <SDL3/SDL_surface.h>
+
 #include "native/movie_audio.h"
 #include "surrender/srGERD.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/surface2d.h"
+#include "compat/native.h"
+#include "surrender/srColorSurface.h"
+#include "surrender/srFlags.h"
+#include "surrender/srPixelConvert.h"
+
 extern "C"
 {
+#include <libavcodec/codec.h>
+#include <libavcodec/packet.h>
+#include <libavformat/avio.h>
+#include <libavutil/avutil.h>
+#include <libavutil/channel_layout.h>
+#include <libavutil/error.h>
+#include <libavutil/frame.h>
+#include <libavutil/mem.h>
+#include <libavutil/pixfmt.h>
+#include <libavutil/rational.h>
+#include <libavutil/samplefmt.h>
+
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 #include <libswresample/swresample.h>
 #include <libswscale/swscale.h>
 }
 #include <algorithm>
-#include <chrono>
-#include <cmath>
-#include <cstring>
 #include <deque>
 #include <limits>
 #include <stdexcept>
 #include <string>
+#include <cerrno>
+#include <cstdio>
+#include <new>
+#include <utility>
 
 namespace
 {
@@ -347,33 +368,29 @@ W8NativeVideo::Result W8NativeVideo::update_now()
     return update((now - state->began) / 1e6);
 }
 
-void W8NativeVideo::present(CpuSurface* target)
+void W8NativeVideo::present(SDL_Surface* target)
 {
     if (!g_gerd || !g_surface_node)
         return;
-    SurfaceLock description{};
-    description.width = target->surface->w;
-    description.height = target->surface->h;
+    const auto& description = *target;
     if (!state->presentation_surface)
     {
         state->presentation_surface = std::make_shared<srColorSurface>(srPixelConvert::SURFACE_RGB555,
-                                                         description.width, description.height);
+                                                         description.w, description.h);
         state->presentation_tiles = new stSurface2D(
-            state->presentation_surface, description.width, description.height, nullptr, 128);
+            state->presentation_surface, description.w, description.h, nullptr, 128);
         state->presentation_tiles->setAlphaTestEnabled(false);
     }
-    description = LockCpuSurface(*target);
     if (!description.pixels)
-        throw std::runtime_error("Cannot lock movie presentation surface");
-    for (int y = 0; y < description.height; ++y)
+        throw std::runtime_error("Movie presentation surface has no pixels");
+    for (int y = 0; y < description.h; ++y)
         state->presentation_surface->setPixelRowRaw(
             static_cast<unsigned char*>(description.pixels) + y * description.pitch, y, 0,
-            description.width);
+            description.w);
     // stSurface2D uploads from its source surface, not updateRectangle's ABI
     // pixel argument.
     state->presentation_tiles->updateRectangle(g_gerd, description.pixels, description.pitch, 0,
-                                               0, description.width, description.height);
-    UnlockCpuSurface(*target);
+                                               0, description.w, description.h);
     if (g_gerd->beginFrame() != srGERD::ERROR_NONE)
         throw std::runtime_error("Cannot begin movie presentation");
     g_gerd->setClearColor(0, 0, 0, 1);

@@ -1,18 +1,22 @@
+#ifndef WIZ8_VIDEO2_H
+#define WIZ8_VIDEO2_H
+
+#include <SDL3/SDL_rect.h>
+#include <cstdint>
+#include <SDL3/SDL_surface.h>
+#include <SDL3/SDL_video.h>
 #include <string_view>
 #include <memory>
+
+#include "compat/compiler.h"
+#include "compat/native.h"
+#include "glm/ext/vector_float2.hpp"
+#include "glm/ext/vector_float4.hpp"
+#include "himage.h"
 /* Modified for the Wizardry 8 reconstruction, 2026-09-10.
    Reconstructed Wizardry Video2 interface.
    Remove the artificial SGP C boundary and unused local configuration include, 2026-10-04.
    Distributed under the accompanying SFI Source Code license agreement. */
-#ifndef WIZ8_VIDEO2_H
-#define WIZ8_VIDEO2_H
-
-#include <glm/glm.hpp>
-
-#include "compat/surfaces.h"
-
-#include "Types.h"
-#include "vsurface.h"
 
 #define BUFFER_READY 0x00
 #define BUFFER_BUSY 0x01
@@ -23,53 +27,45 @@
 #define MAX_CURSOR_HEIGHT 64
 #define VIDEO_NO_CURSOR 0xFFFF
 
-struct SDL_Window;
 extern SDL_Window* ghWindow;
 
-extern BOOLEAN InitializeVideoManager(void);
+extern bool InitializeVideoManager(void);
 extern void ShutdownVideoManager(void);
 extern void ShutdownVideoScenes(void);
 extern void SuspendVideoManager(void);
-extern BOOLEAN RestoreVideoManager(void);
-extern void GetCurrentVideoSettings(UINT16* usWidth, UINT16* usHeight, UINT8* ubBitDepth);
-extern void InvalidateRegion(INT32 iLeft, INT32 iTop, INT32 iRight, INT32 iBottom, UINT32 uiFlags);
-extern CpuSurface* GetFrameBufferObject(void);
-extern PTR LockPrimarySurface(UINT32* uiPitch);
-extern void UnlockPrimarySurface(void);
-extern PTR LockMouseBuffer(UINT32* uiPitch);
-extern void UnlockMouseBuffer(void);
-extern BOOLEAN GetPrimaryRGBDistributionMasks(UINT32* RedBitMask, UINT32* GreenBitMask,
-                                              UINT32* BblueBitMask);
+extern bool RestoreVideoManager(void);
+extern void GetCurrentVideoSettings(std::uint16_t* usWidth, std::uint16_t* usHeight, std::uint8_t* ubBitDepth);
+extern void InvalidateRegion(std::int32_t iLeft, std::int32_t iTop, std::int32_t iRight, std::int32_t iBottom, std::uint32_t uiFlags);
 extern void PrintScreen(void);
 
 void VideoCaptureToggle(void);
 
 enum { INVAL_SRC_TRANS = 1, PIXEL_DEPTH = 16, SCREEN_WIDTH = 640, SCREEN_HEIGHT = 480 };
 
-BOOLEAN VideoIsFullScreen(void);
-void VideoFullScreen(BOOLEAN enabled);
-BOOLEAN VideoResizeWindow(void);
+bool VideoIsFullScreen(void);
+void VideoFullScreen(bool enabled);
+bool VideoResizeWindow(void);
 void VideoInspectorEnable(void);
-BOOLEAN VideoInspectorIsEnabled(void);
-CHAR8* VideoGetConfigFile(void);
-void VideoSetConfigFile(const CHAR8* path);
+bool VideoInspectorIsEnabled(void);
+char* VideoGetConfigFile(void);
+void VideoSetConfigFile(const char* path);
 int VideoDumpMemoryLeaks(void);
-BOOLEAN CheckCdPresent(void);
+bool CheckCdPresent(void);
 void VideoGetClientRect(SDL_Rect* rect);
+SDL_Surface& GetFrameBufferSurface();
 void VideoToolTip(std::string_view text);
-extern INT32 g_help_box_width;
-extern INT32 g_help_box_height;
-/* DisplayFastHelp in mousesystem.cpp and the product region code both access
-   these fields inline; no separate getter bodies occur at those call sites. */
-static __inline INT32 VideoGetToolTipWidth(void)
+extern std::int32_t g_help_box_width;
+extern std::int32_t g_help_box_height;
+/* Region code accesses these fields inline. */
+static __inline std::int32_t VideoGetToolTipWidth(void)
 {
     return g_help_box_width;
 }
-static __inline INT32 VideoGetToolTipHeight(void)
+static __inline std::int32_t VideoGetToolTipHeight(void)
 {
     return g_help_box_height;
 }
-void VideoPositionToolTip(INT32 x, INT32 y);
+void VideoPositionToolTip(std::int32_t x, std::int32_t y);
 void VideoRemoveToolTip(void);
 
 void SGPMouseGetPos(SDL_Point* point);
@@ -78,6 +74,7 @@ void SGPMouseGetPos(SDL_Point* point);
 bool HasScreenTransitionObjects(void); /* 0x004297D0 */
 /* 0x00422EC0: invalidate each rectangle in a run. */
 struct W8ScreenRect;
+
 void InvalidateScreenRects(W8ScreenRect* rects, unsigned int count, int flags);
 
 /* Renderer state and helpers shared by the product C++ consumers. */
@@ -100,6 +97,7 @@ class srNode;
 class srTextureIFace;
 class stModelInstance2D;
 template <class T> class srVector3T;
+
 srNode* MakePosterQuad(std::shared_ptr<srTextureIFace> texture, float width, float height,
                        bool additive);
 /* 0x00425190: build a 2D marker model instance over a texture. */
@@ -112,6 +110,7 @@ unsigned char RenderWorldToSurface(srColorSurface* target, W8ScreenRect* rect,
 void SetPickKey(void* key);
 
 struct W8ControlsRect;
+
 /* 0x00424790: build a solid-color quad sprite; width/height are pixel counts
    and `color` becomes the material's emissive vector. MGSRadarMap's blip
    templates are its observed callers. */
@@ -120,11 +119,11 @@ stModelInstance2D* CreateColoredPolygonSprite(int width, int height, const glm::
                                               bool fullscreen);
 /* 0x004253F0: the render-target sprite factory CreateSpriteFromSurface wraps; the
    radar overlay is created through it directly. */
-stModelInstance2D* CreateSpriteFromVideoSurface(int target, const W8ControlsRect* bounds,
+stModelInstance2D* CreateSpriteFromVideoSurface(SDL_Surface& surface, const W8ControlsRect* bounds,
                                                 int square, int, char overlay);
 /* 0x004255C0: wrap the sprite-surface factory - image is a video surface
    handle (or a negative target id), rect an optional source rectangle. */
-stModelInstance2D* CreateSpriteFromSurface(unsigned int image, const W8ControlsRect* rect, int mode,
+stModelInstance2D* CreateSpriteFromSurface(SDL_Surface& image, const W8ControlsRect* rect, int mode,
                                            int unused, int overlay);
 /* 0x004257D0: position a 2D node without pixel snapping. */
 void Position2DNodeUnsnapped(srNode* node, int x, int y);
@@ -155,14 +154,12 @@ srModelInstance* MakePolygonBrush(srNode* parent, std::shared_ptr<srColorSurface
                                   double height, float mapping_x, float mapping_y,
                                   float mapping_width, float mapping_height, unsigned char overlay);
 /* 0x00484A40: blit one frame of a video object into a color surface. */
-BOOLEAN BlitVideoObjectToColorSurface(UINT32 video_object, UINT16 region,
-                                      srColorSurface* destination, UINT16 x, UINT16 y);
-/* 0x00484AC0: same blit with an already-resolved HVOBJECT. */
-BOOLEAN BlitHVObjectToColorSurface(HVOBJECT object, UINT16 region, srColorSurface* destination,
-                                   int x, int y);
+bool BlitVideoObjectToColorSurface(const SpriteSheet& sprites, std::uint16_t region,
+                                      srColorSurface& destination, int x, int y);
 class stTextureAnim;
+
 /* 0x00428E90: build an stTextureAnim whose frames are VObject subimages. */
-std::shared_ptr<stTextureAnim> VideoVObjectToTextureAnim(HVOBJECT object, unsigned short start_frame,
+std::shared_ptr<stTextureAnim> VideoVObjectToTextureAnim(const SpriteSheet& sprites, unsigned short start_frame,
                                          unsigned short frame_count, bool use_argb1555);
 /* 0x00428A90: mark the primary renderer mode word dirty. */
 void SetOverlayRenderMode(void);
@@ -177,18 +174,13 @@ void EndRenderProbe(void);
 
 void WarpSystemCursor(int x, int y); /* 0x004280C0: fullscreen-safe */
 
-class srColorSurface;
 class srCamera;
-class srClass;
 class srModeler;
 class srGERD;
 class srMaterial;
-class srModelInstance;
-class srNode;
 class srScene;
 class stSurface2D;
 struct EnvironmentColour;
-template <class T> class srVector3T;
 
 extern int g_pixel_format;
 extern unsigned char g_fullscreen;
@@ -216,7 +208,6 @@ extern bool g_texture_cache_enabled;
 extern srGERD* g_gerd;
 /* Secondary renderer device preferred by the offscreen world-render path. */
 extern srGERD* g_secondary_gerd;
-extern CpuSurface* g_primary_surface;
 extern stSurface2D* g_surface_node;
 extern std::shared_ptr<srMaterial> g_blit_material;
 extern std::shared_ptr<srColorSurface> g_mouse_surface;
@@ -235,7 +226,6 @@ struct W8ViewportRect {
     int right;
     int bottom;
 };
-W8_ABI_ASSERT(sizeof(W8ViewportRect) == 16, "W8ViewportRect_size");
 extern W8ViewportRect g_viewport;
 extern int g_dirty_tile_count;
 extern int g_resident_texture_policy;
@@ -256,7 +246,11 @@ void SetWorldScaledViewport(int left, int top, int right, int bottom);
    through it. */
 void SetAutomapScaledViewport(int left, int top, int right, int bottom);
 /* Read the stored pixel viewport back out in normalized 0..1 scale. */
-void GetScaledViewportBounds(glm::vec2* left_top, glm::vec2* right_bottom);
+struct ViewportBounds {
+    glm::vec2 minimum;
+    glm::vec2 maximum;
+};
+ViewportBounds GetScaledViewportBounds();
 /* Lock the primary GERD buffer and emit one debug wireframe line. */
 void DrawBufferLine(w8_long x0, w8_long y0, w8_long x1, w8_long y1, w8_ulong* pixel);
 unsigned char InitializeRendererSceneObjects(void);
@@ -269,7 +263,7 @@ void ClearVideoDirtyBlocks(void); /* 0x00423150 */
 void RenderScene(srScene* scene, srCamera* camera, const int* viewport, bool preserve_fog);
 void RenderFrame(void);
 /* The native presentation shell also owns this opaque surface entry point. */
-CpuSurface* BeginVideoPresentation(void);
+SDL_Surface* BeginVideoPresentation(void);
 unsigned char FinishVideoPresentation(void);
 void PublishLightDirection(const EnvironmentColour* direction);
 void GetWorldColour(EnvironmentColour* colour); /* 0x00427290 */
@@ -277,9 +271,10 @@ srVector3T<float>* __fastcall SaturateColor(srVector3T<float>* color);
 void ReleaseObject(stModelInstance2D* object);
 void Initialize16BitPixelFormatMasks(void);
 unsigned char CreateWizardryWindow(void);
-unsigned char InitializePrimaryCpuSurface(void);
-void ReleasePrimaryCpuSurface(void);
+unsigned char InitializePrimarySurface(void);
+void ReleasePrimarySurface(void);
 unsigned char InitializeVideoDevice(void);
+bool SetupDisablesAudio();
 unsigned char OpenRendererWindow(void);
 void InvalidateRendererTextureCache(void);
 void AssertFailureHandler(const char* expression, const char* file, w8_long line, const char* message);

@@ -1,19 +1,26 @@
+#include "Font.h"
 #pragma once
 
-#include "wiz8/dialog_code/DialogBase.h"
-#include "wiz8/dialog_code/DialogButton.h"
-#include "wiz8/local_code/ControlsRect.h"
-#include "wiz8/local_code/TextBuffer.h"
+#include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_pixels.h>
 #include <vector>
-#include <algorithm>
+#include <array>
+#include <memory>
+#include <string>
+#include <string_view>
 
-#include "Button System.h"
+#include "wiz8/dialog_code/DialogBase.h"
+#include "wiz8/local_code/ButtonWidget.h"
+#include "wiz8/local_code/ControlsRect.h"
+#include "wiz8/dialog_code/ButtonAppearance.h"
 #include "input.h"
 #include "Types.h"
+#include "compat/compiler.h"
 
 struct W8WorldItem;
 struct W8ItemInstance;
-class Trigger;
+class W8ButtonWidget;
+class W8TextBuffer;
 
 enum W8ItemSplitMode { W8_ITEM_SPLIT_INVENTORY = 0, W8_ITEM_SPLIT_SELL = 1, W8_ITEM_SPLIT_BUY = 2 };
 
@@ -26,13 +33,13 @@ enum W8SplitDialogResult {
 /* The small numeric entry field embedded by the split dialogs. */
 class W8DialogNumericInput {
 public:
-    W8DialogNumericInput(int control_id, const W8ControlsRect* bounds, int value, int font,
-                         W8DialogBase* dialog, W8DialogButton* button);
+    W8DialogNumericInput(int control_id, const W8ControlsRect* bounds, int value, Font& font,
+                         W8DialogBase* dialog, W8ButtonWidget* button);
     void SetValue(int value);
     void SetActive(bool active);
     void SetActive(bool active, const SDL_Point* point);
     void Draw(bool force);
-    bool HandleInput(const InputAtom* input);
+    bool HandleInput(const InputEvent* input);
 
 private:
     /* Write a digit character at the caret position and re-parse
@@ -49,18 +56,17 @@ public:
     /* -1 while inactive; otherwise the count of characters to the right
        of the caret. */
     int m_caret;
-    int m_font;
+    Font* m_font;
     int m_value;
     bool m_dirty;
     bool m_active;
     /* The stack total for the split dialogs; -1 is "no maximum". */
     unsigned int m_maximum;
     W8DialogBase* m_dialog;
-    W8DialogButton* m_button;
+    W8ButtonWidget* m_button;
     /* Echoed back as the argument of m_dialog->OnNumericInputChanged. */
     int m_control_id;
 };
-W8_ABI_ASSERT(sizeof(W8DialogNumericInput) == 0x30, "W8DialogNumericInput_size");
 
 // VTABLE: WIZ8 0x005ef7c8
 class W8ListBoxDialog : public W8DialogBase {
@@ -82,50 +88,41 @@ private:
     void SetFirstVisibleLine(int line);
     void ClearLines();
     /* Keyboard handling for the visible text list. */
-    bool HandleInputEvent(const InputAtom* input);
+    bool HandleInputEvent(const InputEvent* input);
 
-    /* SGP move/click callbacks for the text area, the scroll arrow buttons and
+    /* Owner-local activation callbacks for the text area, scroll arrows and
        the confirmation buttons. */
-    static void TextAreaButtonCallback(GUI_BUTTON* button, INT32 reason);
-    static void UpButtonCallback(GUI_BUTTON* button, INT32 reason);
-    static void DownButtonCallback(GUI_BUTTON* button, INT32 reason);
-    static void OkButtonCallback(GUI_BUTTON* button, INT32 reason);
-    static void CancelButtonCallback(GUI_BUTTON* button, INT32 reason);
-    static void SliderTrackButtonCallback(GUI_BUTTON* button, INT32 reason);
+    static void TextAreaButtonCallback(W8ButtonWidget* button);
+    static void UpButtonCallback(W8ButtonWidget* button);
+    static void DownButtonCallback(W8ButtonWidget* button);
+    static void OkButtonCallback(W8ButtonWidget* button);
+    static void CancelButtonCallback(W8ButtonWidget* button);
+    static void SliderTrackButtonCallback(W8ButtonWidget* button);
 
 public:
-    /* The displayed text lines; the dialog owns and frees each one. */
-    std::vector<char*> m_lines;
+    std::vector<std::string> m_lines;
     std::vector<void (*)(int)> m_field_064;
     int m_field_074;
     float m_field_078; /* 0.05 */
     float m_field_07c; /* 0.2 */
     float m_field_080; /* 0.9 */
     float m_field_084; /* 0.75 */
-    int m_fill_colour; /* highlight fill colour */
-    int m_text_button;
-    int m_second_text_button;
-    short area_inlay;  /* DialogInlay inlay for m_area_button */
-    int m_area_button; /* scrolling text area */
-    int m_up_button;
-    int m_up_image;
-    int m_down_button;
-    int m_down_image;
-    int m_slider_button;
-    int m_slider_image;
-    short third_btn_inlay; /* DialogInlay inlay for m_third_text_button */
-    int m_third_text_button;
-    int m_ok_button;
-    int m_ok_image;
-    /* Click rectangles read by ProcessInput; nothing writes them. */
-    W8ControlsRect m_ok_rect;
-    int m_cancel_button;
-    int m_cancel_image;
-    W8ControlsRect m_cancel_rect;
+    SDL_Color m_fill_colour; /* highlight fill colour */
+    W8ButtonWidget m_text_button;
+    W8ButtonWidget m_second_text_button;
+    GenericButtonImage area_inlay;  /* DialogInlay inlay for m_area_button */
+    W8ButtonWidget m_area_button; /* scrolling text area */
+    W8ButtonWidget m_up_button;
+    W8ButtonWidget m_down_button;
+    W8ButtonWidget m_slider_button;
+    GenericButtonImage third_btn_inlay; /* DialogInlay inlay for m_third_text_button */
+    W8ButtonWidget m_third_text_button;
+    W8ButtonWidget m_ok_button;
+    W8ButtonWidget m_cancel_button;
     bool m_scrollable; /* scrolling area is scrollable */
     int m_first_visible_line;
     int m_selected_line;
-    short edge_inlay; /* DialogEdge inlay for the text buttons */
+    GenericButtonImage edge_inlay; /* DialogEdge inlay for the text buttons */
     short flags;
 };
 
@@ -161,23 +158,23 @@ private:
     /* Keyboard handling for the plus/minus buttons and the field. */
     void DecreaseAmount(int amount);
     void IncreaseAmount(int amount);
-    bool HandleInputEvent(const InputAtom* input);
+    bool HandleInputEvent(const InputEvent* input);
 
-    /* Per-button callbacks stored through W8DialogButton::Configure. */
-    static void SplitDecrementOne(W8DialogButton* button);
-    static void SplitDecrementFive(W8DialogButton* button);
-    static void SplitIncrementOne(W8DialogButton* button);
-    static void SplitIncrementFive(W8DialogButton* button);
-    static void SplitAccept(W8DialogButton* button);
-    static void SplitCancel(W8DialogButton* button);
-    static void SplitActivateField(W8DialogButton* button);
+    /* Per-button callbacks stored through W8ButtonWidget::Configure. */
+    static void SplitDecrementOne(W8ButtonWidget* button);
+    static void SplitDecrementFive(W8ButtonWidget* button);
+    static void SplitIncrementOne(W8ButtonWidget* button);
+    static void SplitIncrementFive(W8ButtonWidget* button);
+    static void SplitAccept(W8ButtonWidget* button);
+    static void SplitCancel(W8ButtonWidget* button);
+    static void SplitActivateField(W8ButtonWidget* button);
 
 private:
-    W8DialogButton* m_buttons[6];
+    std::array<std::unique_ptr<W8ButtonWidget>, 6> m_buttons;
     /* The labels named by g_split_amount_string_ids; [2] shows the
        amount still remaining. */
-    W8TextBuffer* m_text_buffers[3];
-    W8DialogNumericInput* m_split_input;
+    std::array<std::unique_ptr<W8TextBuffer>, 3> m_text_buffers;
+    std::unique_ptr<W8DialogNumericInput> m_split_input;
     /* The numeric field while the cursor or keyboard owns it. */
     W8DialogNumericInput* m_active_field;
     int m_remaining; /* total minus the field value */
@@ -185,9 +182,6 @@ private:
     int m_total;
     W8SplitDialogResult m_result; /* 1 confirms, 2 cancels */
 };
-
-W8_ABI_ASSERT(sizeof(W8ListBoxDialog) == 0xfc, "W8ListBoxDialog005CBB40_must_be_0xfc");
-W8_ABI_ASSERT(sizeof(W8SplitAmountDialog) == 0x90, "W8SplitAmountDialog_must_be_0x90");
 
 /* The trigger-owned item picker. The item group is what the trigger hands in
    and the destroy callback hands back. */
@@ -216,48 +210,46 @@ private:
     void RefreshScrollButtons();
     bool IsItemSelected(int index);
     void SetItemSelected(int index, bool selected);
-    void ToggleItem(int index, W8DialogButton* button);
-    static void ShowVisibleItemInfo(W8DialogButton* button, int row);
+    void ToggleItem(int index, W8ButtonWidget* button);
+    static void ShowVisibleItemInfo(W8ButtonWidget* button, int row);
     /* Move every flagged item to the destination: -1 copies it into the shared
        party pool, any other value gives it to that party slot's character.
        Each successful transfer unlinks the item and its flag; a failure plays
        the beep. An emptied picker closes itself. */
     void TransferSelectedItems(int destination);
     /* Handle one event the picker owns: keyboard list navigation and clicks. */
-    bool HandleInputEvent(const InputAtom* input);
+    bool HandleInputEvent(const InputEvent* input);
 
-    /* Per-button callbacks stored through W8DialogButton::Configure.
+    /* Per-button callbacks stored through W8ButtonWidget::Configure.
        CloseOwningDialog is public because AssayDialog also stores it
        on its close button. */
-    static void ToggleAllItems(W8DialogButton* button);
-    static void TakeSelectedToParty(W8DialogButton* button);
-    static void TakeSelectedToCharacter(W8DialogButton* button);
+    static void ToggleAllItems(W8ButtonWidget* button);
+    static void TakeSelectedToParty(W8ButtonWidget* button);
+    static void TakeSelectedToCharacter(W8ButtonWidget* button);
 
 public:
-    static void CloseOwningDialog(W8DialogButton* button);
+    static void CloseOwningDialog(W8ButtonWidget* button);
 
 private:
-    static void ToggleVisibleItem0(W8DialogButton* button);
-    static void ToggleVisibleItem1(W8DialogButton* button);
-    static void ToggleVisibleItem2(W8DialogButton* button);
-    static void ToggleVisibleItem3(W8DialogButton* button);
-    static void ShowVisibleItemInfo0(W8DialogButton* button);
-    static void ShowVisibleItemInfo1(W8DialogButton* button);
-    static void ShowVisibleItemInfo2(W8DialogButton* button);
-    static void ShowVisibleItemInfo3(W8DialogButton* button);
-    static void ScrollItemsUp(W8DialogButton* button);
-    static void ScrollItemsDown(W8DialogButton* button);
-    static void ScrollItemsToMouse(W8DialogButton* button);
+    static void ToggleVisibleItem0(W8ButtonWidget* button);
+    static void ToggleVisibleItem1(W8ButtonWidget* button);
+    static void ToggleVisibleItem2(W8ButtonWidget* button);
+    static void ToggleVisibleItem3(W8ButtonWidget* button);
+    static void ShowVisibleItemInfo0(W8ButtonWidget* button);
+    static void ShowVisibleItemInfo1(W8ButtonWidget* button);
+    static void ShowVisibleItemInfo2(W8ButtonWidget* button);
+    static void ShowVisibleItemInfo3(W8ButtonWidget* button);
+    static void ScrollItemsUp(W8ButtonWidget* button);
+    static void ScrollItemsDown(W8ButtonWidget* button);
+    static void ScrollItemsToMouse(W8ButtonWidget* button);
 
 public:
   std::vector<W8WorldItem*> items;
   std::vector<unsigned char> flags;
-  W8DialogButton* m_buttons[13];
+  std::array<std::unique_ptr<W8ButtonWidget>, 13> m_buttons;
   int m_first_item;
   W8WorldItem* m_item_group;
 };
-
-W8_ABI_ASSERT(sizeof(W8TriggerItemPickerDialog) == 0xb0, "W8TriggerItemPickerDialog_must_be_0xb0");
 
 /* The item-split dialog opened for stackable item stacks. The destroy
    callback reads back split_count and tests split_result. */
@@ -291,19 +283,19 @@ private:
     /* Shared refresh for the numeric-field and split-count callbacks. */
     void UpdateTotals();
     /* Numeric-field and Enter/Escape handling for ProcessInput. */
-    bool HandleInputEvent(const InputAtom* input);
+    bool HandleInputEvent(const InputEvent* input);
 
-    /* Per-button callbacks stored through W8DialogButton::Configure. */
-    static void OnSplitDecrement(W8DialogButton* button);
-    static void OnSplitIncrement(W8DialogButton* button);
-    static void OnSplitDecrementMany(W8DialogButton* button);
-    static void OnSplitIncrementMany(W8DialogButton* button);
-    static void OnAccept(W8DialogButton* button);
-    static void OnCancel(W8DialogButton* button);
-    static void OnCountFieldClick(W8DialogButton* button);
+    /* Per-button callbacks stored through W8ButtonWidget::Configure. */
+    static void OnSplitDecrement(W8ButtonWidget* button);
+    static void OnSplitIncrement(W8ButtonWidget* button);
+    static void OnSplitDecrementMany(W8ButtonWidget* button);
+    static void OnSplitIncrementMany(W8ButtonWidget* button);
+    static void OnAccept(W8ButtonWidget* button);
+    static void OnCancel(W8ButtonWidget* button);
+    static void OnCountFieldClick(W8ButtonWidget* button);
 
 public:
-    W8DialogButton* m_buttons[10]; /* minus/plus, frames, accept/cancel */
+    std::array<W8ButtonWidget, 10> m_buttons; /* minus/plus, frames, accept/cancel */
     W8TextBuffer* m_texts[14];
     W8DialogNumericInput* m_count_input;
     /* The numeric field while a click or keypress owns it. */
@@ -318,8 +310,6 @@ private:
     W8ItemInstance* m_item;
     bool m_first_draw; /* draw the item icon once */
 };
-
-W8_ABI_ASSERT(sizeof(W8SplitItemDialog) == 0xd8, "W8SplitItemDialog_must_be_0xd8");
 
 extern const W8SplitDialogResult g_amount_split_confirm_result;
 extern const W8SplitDialogResult g_item_split_confirm_result;

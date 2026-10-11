@@ -46,6 +46,52 @@ The native targets include `Wiz8Native` and statically linked SurRender and
 the SDL-backed filesystem and runtime, sharing one SDL state.
 A Vulkan-capable SDL3 GPU backend is required for graphics checks.
 
+## Include analysis
+
+Install [include-what-you-use](https://include-what-you-use.org/) built for the
+same Clang major version as the project compiler. With Homebrew:
+
+```sh
+brew install include-what-you-use
+cmake --preset linux
+./tools/run-iwyu.sh
+```
+
+The script analyzes `src/` and `tests/` using the preset's compile commands,
+excluding downloaded dependencies. It writes raw suggestions to
+`build/linux/iwyu-report.txt`; review them before applying changes.
+`tools/iwyu.imp` maps dependency implementation headers to their public entry
+points. Required formatter specializations and declarations use narrowly scoped
+`IWYU pragma: keep` comments where the analyzer suggests removing them.
+Pass a build directory and optional report path to analyze another preset.
+Set `IWYU_JOBS` to change the default four concurrent processes.
+
+Clang-tidy enforces missing and unused includes, include cycles, duplicate and
+suspicious includes, and deprecated C headers. The selected checks are errors
+in `.clang-tidy`; the native CI runs the full first-party scan with Clang 21
+after building the generated headers. To use the same analyzer locally:
+
+```sh
+CLANG_TIDY=clang-tidy-21 RUN_CLANG_TIDY=run-clang-tidy-21 ./tools/run-clang-tidy.sh
+```
+
+The runner accepts a build directory followed by `run-clang-tidy` options.
+`CLANG_TIDY_JOBS` controls concurrency; `CLANG_TIDY` and `RUN_CLANG_TIDY`
+select the executables for other installations.
+
+The normal `.clang-tidy` scan also reports a focused set of lifetime and
+memory-safety diagnostics. For a broader, non-blocking audit of C++23
+modernization opportunities, run:
+
+```sh
+CLANG_TIDY_CONFIG=.clang-tidy-modernization \
+  CLANG_TIDY=clang-tidy-21 RUN_CLANG_TIDY=run-clang-tidy-21 \
+  ./tools/run-clang-tidy.sh build/linux-tidy
+```
+
+Review suggested fixes in context; a diagnostic is not, by itself, a reason to
+preserve a decomp-era class or abstraction.
+
 ## Run
 
 Point the launcher to your installed game assets:
@@ -87,6 +133,9 @@ Run these scenarios locally without a window:
 WIZ8_ASSET_ROOT=/path/to/Wizardry8 ctest --preset linux -L runtime --output-on-failure
 ```
 
+World-render validation also uses the checked-in character; character creation and
+party-screen startup remain covered by their dedicated runtime scenarios.
+
 The save/load and combat scenarios start with the checked-in character in
 `tests/runtime/fixtures`. CTest generates a shared saved game before the menu
 load test; each scenario uses its own temporary writable user directory.
@@ -105,7 +154,7 @@ display/Vulkan driver; `native_events` uses SDL's dummy driver.
 The `linux-asan` configure/build/test presets run the same suite with AddressSanitizer
 and leak detection. CI runs both presets with the encrypted licensed-asset workflow.
 The `resource-lifecycle` runtime scenario loads a retail level, renders linked meshes
-and animated textures, evicts and recreates resident textures, quick-loads twice,
+and animated textures, evicts and recreates resident textures, quick-loads once,
 and shuts down with resources resident. Asset-independent fixtures also load serialized
 linked meshes and test interrupted initialization and destruction after `srExit()`.
 
@@ -138,6 +187,19 @@ git clang-format-21 --binary clang-format-21 main -- include src tests
 For a complete reformat of one file, run `clang-format-21 -i path/to/file.cpp`.
 CI checks formatting of changed lines only; existing files do not require a
 mass reformat.
+
+## Catch2 test cases
+
+Small, independent Catch2 test cases are registered individually with CTest.
+Use `ctest --preset linux -R 'native_save_records/'` or
+`ctest --preset linux -R 'native_owners/'` to select a subsystem;
+individual cases appear in `ctest --preset linux -N`.
+
+The save, audio and ownership tests have per-case fixtures instead of relying
+on setup from earlier test cases. Catch2 generators exercise multiple serialized
+record versions and edge values. Manual device diagnostics and intentional
+assertion-abort checks remain explicit; the asset-backed runtime scenarios
+retain their named CTest entries and save/load fixture dependencies.
 
 ## Source and format conventions
 
@@ -222,3 +284,27 @@ packed NPC/group pointer codecs retain their four-byte format fields.
 
 Third-party source licenses, including the SGP license, remain with
 their respective sources.
+
+## Duplication scans
+
+Use jscpd 5.4.1 or newer. `.jscpd.json` scans first-party source, ignores comments,
+normalizes identifiers and literals, joins gaps of up to two lines, and compares
+function structure at 0.8 similarity. Findings are review candidates; repeated
+tables and similar code with different behavior should be triaged before merging.
+
+```sh
+jscpd
+```
+
+The experimental semantic matcher runs CodeRankEmbed locally. Download its model
+once, then start with a subsystem to keep the first embedding pass bounded.
+Unchanged functions reuse cached embeddings on subsequent scans. The configuration
+uses the model's calibrated 0.6375 threshold for comparisons within one language.
+
+```sh
+jscpd --semantic-download
+jscpd --semantic src/surrender/material.cpp src/surrender/vertex_pipe.cpp
+```
+
+AI and JSON reports go to `build/jscpd`. Semantic matching is opt-in so ordinary
+scans remain fast.

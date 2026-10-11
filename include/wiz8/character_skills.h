@@ -1,11 +1,9 @@
-#include <string>
 #pragma once
 
-#include "surrender/srMath.h"
+#include <string>
 
 struct W8Character;
 struct W8SkillNoticePayload;
-struct W8MonsterInfo;
 struct W8MonsterRecord;
 
 /* Character attributes in the order used by W8Character::attributes and the

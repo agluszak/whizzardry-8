@@ -1,45 +1,64 @@
-#include "native/input_events.h"
+#include <SDL3/SDL_error.h>
+#include <SDL3/SDL_init.h>
+#include <SDL3/SDL_log.h>
+#include <SDL3/SDL_mouse.h>
+#include <SDL3/SDL_stdinc.h>
+#include <stdexcept>
+#include <cstddef>
+#include <exception>
+#include <span>
+#include <string>
+#include "wiz8/fonts.h"
+#include "wiz8/catalog_artwork.h"
+#include <string_view>
+
 #include "wiz8/application.h"
-#include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/Video2.h"
 #include "input.h"
-
-#include "compat/video.h"
 #include "Font.h"
-#include "vobject.h"
-#include "vsurface.h"
-#include "Button System.h"
-#include "mousesystem.h"
+#include "wiz8/dialog_code/ButtonAppearance.h"
 #include "soundman.h"
 #include "random.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/game_init.h"
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/engine_code/Octree.h"
-#include <stdexcept>
-#include <cstdio>
 
 namespace {
 
-void ParseArguments(std::span<const std::string_view> arguments)
+struct LaunchOptions
 {
+    bool sound = true;
+    bool inspector = false;
+    bool load_at_startup = false;
+    bool windowed = false;
+    bool bounds_checker = false;
+    bool capture = false;
+    bool no_octree = false;
+    std::string video_config;
+    std::string string_data;
+};
+
+LaunchOptions ParseArguments(std::span<const std::string_view> arguments)
+{
+    LaunchOptions options;
     for (size_t index = 0; index < arguments.size(); ++index) {
         const auto separator = arguments[index].find('=');
         const std::string option(arguments[index].substr(0, separator));
         if (SDL_strcasecmp(option.c_str(), "/NOSOUND") == 0)
-            SoundEnableSound(FALSE);
+            options.sound = false;
         else if (SDL_strcasecmp(option.c_str(), "/INSPECTOR") == 0)
-            VideoInspectorEnable();
+            options.inspector = true;
         else if (SDL_strcasecmp(option.c_str(), "/LOAD") == 0)
-            gfLoadAtStartup = TRUE;
+            options.load_at_startup = true;
         else if (SDL_strcasecmp(option.c_str(), "/WINDOW") == 0)
-            VideoFullScreen(FALSE);
+            options.windowed = true;
         else if (SDL_strcasecmp(option.c_str(), "/BC") == 0)
-            gfUsingBoundsChecker = TRUE;
+            options.bounds_checker = true;
         else if (SDL_strcasecmp(option.c_str(), "/CAPTURE") == 0)
-            gfCapturingVideo = TRUE;
+            options.capture = true;
         else if (SDL_strcasecmp(option.c_str(), "/NOOCT") == 0)
-            NoOct();
+            options.no_octree = true;
         else if (SDL_strcasecmp(option.c_str(), "/VIDEOCFG") == 0 ||
                  SDL_strcasecmp(option.c_str(), "/STRINGDATA") == 0) {
             const auto value = separator != std::string_view::npos
@@ -47,13 +66,13 @@ void ParseArguments(std::span<const std::string_view> arguments)
                 : ++index < arguments.size() ? arguments[index] : std::string_view{};
             if (value.empty())
                 throw std::invalid_argument(option + " requires a filename");
-            if (SDL_strcasecmp(option.c_str(), "/VIDEOCFG") == 0) {
-                std::string filename(value);
-                VideoSetConfigFile(filename.data());
-            } else
-                gzStringDataOverride = value;
+            if (SDL_strcasecmp(option.c_str(), "/VIDEOCFG") == 0)
+                options.video_config = value;
+            else
+                options.string_data = value;
         }
     }
+    return options;
 }
 }
 
@@ -68,28 +87,30 @@ wiz8::Application::Application(std::span<const std::string_view> arguments)
             throw std::runtime_error(failure);
         }
         sdl_initialized_ = true;
-        gfIgnoreMessages = FALSE;
-        gfLoadAtStartup = gfUsingBoundsChecker = gfCapturingVideo = FALSE;
-        gzStringDataOverride.clear();
+        gfIgnoreMessages = false;
         gzErrorMsg.clear();
-        SoundEnableSound(TRUE);
-        ParseArguments(arguments);
+        const auto options = ParseArguments(arguments);
+        gfLoadAtStartup = options.load_at_startup;
+        gfUsingBoundsChecker = options.bounds_checker;
+        gfCapturingVideo = options.capture;
+        gzStringDataOverride = options.string_data;
+        if (options.inspector) VideoInspectorEnable();
+        if (options.windowed) VideoFullScreen(false);
+        if (options.no_octree) NoOct();
+        if (!options.video_config.empty()) VideoSetConfigFile(options.video_config.c_str());
         wiz8::refresh_asset_archives();
         if (!InitializeInputManager())
             throw std::runtime_error("Input initialization failed");
         if (!InitializeVideoManager())
             throw std::runtime_error("Video initialization failed");
-        if (!InitializeVideoObjectManager() || !InitializeVideoSurfaceManager())
-            throw std::runtime_error("Video resource initialization failed");
-        if (!InitializeFontManager(CreateEnglishTransTable()))
-            throw std::runtime_error("Font initialization failed");
-        if (!InitializeSoundManager())
+        ConfigureFontRendering(CreateEnglishTransTable());
+        if (!wiz8::sound::initialize(options.sound && !SetupDisablesAudio()))
             throw std::runtime_error("Sound initialization failed");
         InitializeRandom();
         game_started_ = true;
         if (!InitializeGame(initialized_screens_))
             throw std::runtime_error("Game initialization failed");
-        gfGameInitialized = gfApplicationActive = gfProgramIsRunning = TRUE;
+        gfGameInitialized = gfApplicationActive = gfProgramIsRunning = true;
     } catch (...) {
         shutdown();
         throw;
@@ -109,7 +130,7 @@ void wiz8::Application::run()
             break;
         if (gfApplicationActive) {
             GameLoop();
-            gfSGPInputReceived = FALSE;
+            GetInputState().received = false;
         }
     }
 }
@@ -118,7 +139,7 @@ void wiz8::Application::shutdown() noexcept
 {
     if (!sdl_initialized_)
         return;
-    gfProgramIsRunning = FALSE;
+    gfProgramIsRunning = false;
     const bool complete = gfGameInitialized;
     if (complete) {
         try {
@@ -131,8 +152,8 @@ void wiz8::Application::shutdown() noexcept
             SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Leaving game: %s", failure.what());
         }
     }
-    gfGameInitialized = FALSE;
-    ShutdownSoundManager();
+    gfGameInitialized = false;
+    wiz8::sound::shutdown();
     if (game_started_) {
         try {
             ShutdownGame(initialized_screens_, complete);
@@ -140,16 +161,15 @@ void wiz8::Application::shutdown() noexcept
             SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Game shutdown: %s", failure.what());
         }
     }
-    ShutdownButtonSystem();
-    MSYS_Shutdown();
-    ShutdownFontManager();
-    ShutdownVideoSurfaceManager();
-    ShutdownVideoObjectManager();
+    ReleaseCatalogArtwork();
+    ShutdownButtonImageManager();
+    ReleaseMenuFonts();
+    ResetFontRendering();
     ShutdownVideoManager();
     wiz8::clear_asset_archives();
     SDL_ShowCursor();
     VideoDumpMemoryLeaks();
-    gfApplicationActive = FALSE;
+    gfApplicationActive = false;
     SDL_Quit();
     sdl_initialized_ = false;
 }

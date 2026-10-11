@@ -1,8 +1,9 @@
 #pragma once
 
-#include "wiz8/filesystem.h"
-
 #include "wiz8/engine_code/game_timer.h"
+#include "compat/compiler.h"
+
+namespace wiz8 { class File; }
 
 /* The 0x28-byte timer-derived helper constructed by GDCamera. Its original
    name is not exposed; the vtable address remains the stable identity. */
@@ -27,11 +28,9 @@ public:
         }
         return IsFinished();
     }
-    BOOLEAN Load(wiz8::File* handle);
-    BOOLEAN Save(wiz8::File* handle);
+    bool Load(wiz8::File& handle);
+    bool Save(wiz8::File& handle);
 
 private:
     bool m_finished; /* 0x024 */
 };
-
-W8_ABI_ASSERT(sizeof(W8IntervalGate) == 0x28, "W8IntervalGate_must_be_0x28");

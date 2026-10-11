@@ -1,17 +1,16 @@
+#include "sprite.h"
+#include "surrender/srScene.h" // IWYU pragma: keep - complete scene type for conversion to srNode.
+#include <glm/gtx/rotate_vector.hpp>
+#include <cmath>
+#include <numbers>
+#include <vector>
+
 #include "wiz8/containers.h"
 #include "wiz8/local_screens/MGSRadarMap.h"
-
-#include <math.h>
-
 #include "surrender/srMath.h"
 #include "surrender/srNode.h"
-#include "surrender/srScene.h"
 #include "wiz8/layouts/combat_state.h"
-#include "wiz8/local_code/Combat.h"
-#include "wiz8/local_code/CombatAttack.h"
 #include "wiz8/local_code/CombatRange.h"
-#include "wiz8/engine_code/GDCamera.h"
-#include "wiz8/engine_code/GrCycle.h"
 #include "wiz8/engine_code/Item.h"
 #include "wiz8/engine_code/Missile.h"
 #include "wiz8/engine_code/Monster.h"
@@ -19,22 +18,22 @@
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/engine_code/stModelInstance.h"
 #include "wiz8/float_constants.h"
-#include <glm/gtx/rotate_vector.hpp>
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/local_code/ControlsRect.h"
-#include "wiz8/local_code/FormationAndFacing.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/engine_code/Spells.h"
 #include "wiz8/local_code/Magic.h"
-#include "wiz8/local_code/MagicEffects.h"
 #include "wiz8/startup_world.h"
-#include <vector>
-#include <algorithm>
-#include "wiz8/video_object_catalog.h"
+#include "wiz8/catalog_artwork.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/engine_code/GameData.h"
+#include "AnimRep.hpp"
+#include "glm/ext/vector_float4.hpp"
+#include "layouts/gameplay_databases.h"
+#include "layouts/main_game_screen.h"
+#include "layouts/party_formation.h"
+#include "sight_state.h"
 
 /* The blip palette, six classes of three distance rings. Items
    take class 4 and missiles class 5; monsters take their disposition-mapped
@@ -132,7 +131,7 @@ void EnsureRadarMapOverlay(void)
         bounds.top = 0x166;
         bounds.right = 0x80;
         bounds.bottom = 0x1c2;
-        g_radar_backdrop = CreateSpriteFromVideoSurface(-0xe, &bounds, 0, 0, 1);
+        g_radar_backdrop = CreateSpriteFromVideoSurface(GetFrameBufferSurface(), &bounds, 0, 0, 1);
         Position2DNodeUnsnapped(g_radar_backdrop, 0x17, 0x166);
         SetModelInstance2DDisplayState(g_radar_backdrop, 4);
     }
@@ -214,57 +213,36 @@ void RefreshRadarMap(void)
     }
     ReleaseRadarMap();
 
-    unsigned int map_surface;
-    unsigned int handle;
-    if (!g_radar_zoomed) {
-        handle = GetCatalogVideoObjectHandle(0xa4, 0);
-        if (handle == 0) {
-            return;
-        }
-        MakeVSurfaceFromVObject(handle, 0, &map_surface);
-    } else {
-        handle = GetCatalogVideoObjectHandle(0xa3, 0);
-        if (handle == 0) {
-            return;
-        }
-        MakeVSurfaceFromVObject(handle, 0, &map_surface);
+    const auto map_artwork = CatalogArtwork::Load(g_radar_zoomed ? 0xa3 : 0xa4);
+    auto map_surface = RenderSpriteToImage(*map_artwork.spriteSheet(), 0);
+    if (!map_surface) return;
+    if (g_radar_zoomed) {
         for (int slot = 0; slot < 8; ++slot) {
             W8PartySlotRow* row = &g_status.buffers.XChar[slot];
             W8PartyFormationPosition* position = &g_status.formation.positions[slot];
 
             if (row->fOccupied && position->bQuadrant != -1) {
                 int cell = position->bQuadrant * 3 + position->bQuadrantSlot;
-                DrawCatalogImage(map_surface, 0xa5, 0, row->party_order_index,
-                                 g_radar_cell_offsets[cell].x, g_radar_cell_offsets[cell].y,
-                                 VO_BLT_SRCTRANSPARENCY, 0);
+                CatalogArtwork::Load(0xa5, 0).draw(*map_surface, row->party_order_index, g_radar_cell_offsets[cell].x, g_radar_cell_offsets[cell].y);
             }
         }
     }
 
-    if (g_level_block->radar_map_alternate == 0) {
-        handle = GetCatalogVideoObjectHandle(0xa1, 0);
-    } else {
-        handle = GetCatalogVideoObjectHandle(0xa2, 0);
-    }
-    if (handle == 0) {
-        return;
-    }
-    unsigned int frame_surface;
-    MakeVSurfaceFromVObject(handle, 0, &frame_surface);
-    handle = GetCatalogVideoObjectHandle(0x9b, 0);
-    if (handle == 0) {
-        return;
-    }
-    unsigned int compass_surface;
-    MakeVSurfaceFromVObject(handle, 0, &compass_surface);
+    const auto frame_artwork =
+        CatalogArtwork::Load(g_level_block->radar_map_alternate ? 0xa2 : 0xa1);
+    auto frame_surface = RenderSpriteToImage(*frame_artwork.spriteSheet(), 0);
+    if (!frame_surface) return;
+    const auto compass_artwork = CatalogArtwork::Load(0x9b);
+    auto compass_surface = RenderSpriteToImage(*compass_artwork.spriteSheet(), 0);
+    if (!compass_surface) return;
 
-    g_radar_compass = CreateSpriteFromSurface(compass_surface, 0, 1, 0, 1);
+    g_radar_compass = CreateSpriteFromSurface(*compass_surface, 0, 1, 0, 1);
     Position2DNodeUnsnapped(g_radar_compass, 0x1e, 0x167);
     SetModelInstance2DDisplayState(g_radar_compass, 4);
-    g_radar_frame = CreateSpriteFromSurface(frame_surface, 0, 1, 0, 1);
+    g_radar_frame = CreateSpriteFromSurface(*frame_surface, 0, 1, 0, 1);
     Position2DNodeUnsnapped(g_radar_frame, 0x1e, 0x167);
     SetModelInstance2DDisplayState(g_radar_frame, 4);
-    g_radar_map = CreateSpriteFromSurface(map_surface, 0, 1, 0, 1);
+    g_radar_map = CreateSpriteFromSurface(*map_surface, 0, 1, 0, 1);
     Position2DNodeUnsnapped(g_radar_map, 0x1e, 0x167);
     SetModelInstance2DDisplayState(g_radar_map, 4);
 
@@ -291,8 +269,6 @@ void UpdateRadarBlips(void)
     srVector3T<float> delta;
     srVector3T<float> center;
     srVector3T<float> party;
-    srVector3T<float> bounds_min;
-    srVector3T<float> bounds_max;
     bool detect_all;
 
     ResetRadarBlips();
@@ -306,7 +282,7 @@ void UpdateRadarBlips(void)
     if (g_radar_frame != 0) {
         RotateNodeInDegrees(g_radar_frame, g_status.party_facing);
     }
-    GetCameraPosition(&camera);
+    camera = cameraLocation();
     detect_all = PartyHasCondition(0x40);
 
     W8WorldItem* world_item = GetNextWorldItem(true);
@@ -316,11 +292,9 @@ void UpdateRadarBlips(void)
         if (item != 0) {
             W8ItemRep* rep = static_cast<W8ItemRep*>(item->m_pRep);
             if ((rep->flags & W8_ITEM_ENTITY_NO_PICKUP) == 0) {
-                rep->GetLocation(&position);
-                item->GetCachedLocalBounds(&bounds_min, &bounds_max);
-                center.Set((bounds_min.x + bounds_max.x) * g_double_half,
-                           (bounds_min.y + bounds_max.y) * g_double_half,
-                           (bounds_min.z + bounds_max.z) * g_double_half);
+                position = rep->GetLocation();
+                const auto bounds = item->GetCachedLocalBounds();
+                center = bounds.center();
                 position += center;
                 party = g_startup_world->GetPosition();
                 delta = position - party;
@@ -352,10 +326,12 @@ void UpdateRadarBlips(void)
             }
             if (!monster->IsRenderable(true) && !detect_all) {
                 if (info->party_threat.sight_state == W8_SIGHT_RECENT) {
-                    monster->GetAnimationBounds(&bounds_min, &bounds_max);
-                    center.Set((bounds_min.x + bounds_max.x) * g_double_half,
-                               (bounds_min.y + bounds_max.y) * g_double_half,
-                               (bounds_min.z + bounds_max.z) * g_double_half);
+                    const auto bounds = monster->GetAnimationBounds();
+                    if (!bounds) {
+                        info = GetNextMonsterInfo(false);
+                        continue;
+                    }
+                    center = bounds->center();
                     position = center + info->party_threat.own_position;
                     party = g_startup_world->GetPosition();
                     delta = position - party;
@@ -377,10 +353,12 @@ void UpdateRadarBlips(void)
                     }
                 }
             } else {
-                monster->GetAnimationBounds(&bounds_min, &bounds_max);
-                center.Set((bounds_min.x + bounds_max.x) * g_double_half,
-                           (bounds_min.y + bounds_max.y) * g_double_half,
-                           (bounds_min.z + bounds_max.z) * g_double_half);
+                const auto bounds = monster->GetAnimationBounds();
+                if (!bounds) {
+                    info = GetNextMonsterInfo(false);
+                    continue;
+                }
+                center = bounds->center();
                 party = monster->GetPosition();
                 position = center + party;
                 party = g_startup_world->GetPosition();
@@ -410,10 +388,12 @@ void UpdateRadarBlips(void)
     W8Missile* missile = NextMissile(true);
     while (missile != 0) {
         if (!missile->impacting) {
-            missile->GetAnimationBounds(&bounds_min, &bounds_max);
-            center.Set((bounds_min.x + bounds_max.x) * g_double_half,
-                       (bounds_min.y + bounds_max.y) * g_double_half,
-                       (bounds_min.z + bounds_max.z) * g_double_half);
+            const auto bounds = missile->GetAnimationBounds();
+            if (!bounds) {
+                missile = NextMissile(false);
+                continue;
+            }
+            center = bounds->center();
             party = missile->GetPosition();
             position = center + party;
             party = g_startup_world->GetPosition();
@@ -442,7 +422,8 @@ static unsigned char PlaceRadarBlip(srVector3T<float>* delta, int group, bool li
         ring = 1;
     }
 
-    const float angle = glm::radians(static_cast<float>(360 - g_status.party_facing));
+    const float angle = static_cast<float>(360 - g_status.party_facing) *
+                        (std::numbers::pi_v<float> / 180.0f);
     *delta = glm::rotateY(delta->glmValue(), angle);
     delta->y = 0.0f;
 

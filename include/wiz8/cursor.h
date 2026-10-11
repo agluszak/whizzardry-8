@@ -1,10 +1,12 @@
 #ifndef WIZ8_CURSOR_H
 #define WIZ8_CURSOR_H
 
-#include "Types.h"
+#include <cstdint>
+#include "glm/ext/vector_float2.hpp"
+#include "himage.h"
 #include "input.h"
 #include "wiz8/engine_code/Video2.h"
-#include "surrender/srMath.h"
+#include <memory>
 
 class srModelInstance;
 class srScene;
@@ -15,11 +17,12 @@ unsigned char InitializeMouseCursorScene(void);
 
 class srTextureIFace;
 
-BOOLEAN SetMouseCursorFromVideoObject(UINT32 video_object, UINT16 region, INT16 offset_x,
-                                      INT16 offset_y);
-void BlitToMouseCursor(UINT32 video_object, UINT16 region, UINT16 x, UINT16 y);
+bool SetMouseCursorFromVideoObject(const SpriteSheet& sprites, std::uint16_t region,
+                                   std::int16_t offset_x, std::int16_t offset_y);
+void BlitToMouseCursor(const SpriteSheet& sprites, std::uint16_t region, std::uint16_t x,
+                       std::uint16_t y);
 void RefreshMouseCursorTexture(void);
-BOOLEAN ResizeMouseCursorSurface(int width, int height);      /* 0x00427c90 */
+bool ResizeMouseCursorSurface(int width, int height);      /* 0x00427c90 */
 void SetMouseCursorHotspot(short hotspot_x, short hotspot_y); /* 0x00427f00 */
 void SetMouseCursorTexture(std::shared_ptr<srTextureIFace> texture);          /* 0x00429170 */
 void SyncSystemCursor(void);                                  /* 0x00428340 */
@@ -42,8 +45,8 @@ extern int g_cursor_hotspot_y;
 
 /* 0x00428580 and 0x004285A0: the packed atom mouse position projected into
    screen space by the current cursor hotspot. */
-int GetAtomCursorX(const InputAtom* atom);
-int GetAtomCursorY(const InputAtom* atom);
+int GetEventCursorX(const InputEvent* atom);
+int GetEventCursorY(const InputEvent* atom);
 
 void PositionMouseCursor(int x, int y, bool reset_tick);
 /* 0x00428220: milliseconds since PositionMouseCursor last stamped the move

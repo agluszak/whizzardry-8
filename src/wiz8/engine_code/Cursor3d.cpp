@@ -1,13 +1,23 @@
+#include "surrender/srTexture.h" // IWYU pragma: keep - complete texture type for shared_ptr base conversion.
+#include <glm/gtx/rotate_vector.hpp>
+#include <SDL3/SDL_rect.h>
+#include <glm/ext/quaternion_trigonometric.hpp>
+#include <glm/gtc/quaternion.hpp>
+#include <vector>
+#include <cmath>
+#include <cstdlib>
+#include <cstring>
+#include <memory>
+#include <string>
+#include <utility>
+
 #include "wiz8/containers.h"
 #include "wiz8/engine_code/Camera.h"
 #include "wiz8/engine_code/Cursor3d.h"
 #include "wiz8/world_cursor.h"
-#include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/Monster.h"
-#include <vector>
-#include <algorithm>
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/cursor.h"
@@ -25,19 +35,20 @@
 #include "wiz8/engine_code/Levels.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/float_constants.h"
-#include <glm/gtx/rotate_vector.hpp>
 #include "surrender/srNode.h"
 #include "surrender/srMaterial.h"
 #include "surrender/srShader.h"
-#include "surrender/srTexture.h"
-#include "wiz8/engine_code/3dapi.h"
-#include <math.h>
-
-#include <stdlib.h>
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/GrCycle.h"
 #include "wiz8/engine_code/materials.h"
-#include <glm/gtc/matrix_transform.hpp>
+#include "glm/ext/matrix_float3x3.hpp"
+#include "glm/ext/vector_double3.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include "glm/ext/vector_float4.hpp"
+#include "layouts/targeting.h"
+#include "layouts/world.h"
+#include "particle_modes.h"
+#include "surrender/srMath.h"
 
 #define CURSOR3D_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\Cursor3d.cpp"
 
@@ -98,8 +109,6 @@ void InitializeWorldCursor(void)
 {
     W8GrCycleLoadContext context;
     srVector3T<float> position;
-    srVector3T<float> minimum;
-    srVector3T<float> maximum;
     srVector3T<float> camera_position;
     glm::vec4 colour;
     srShader shader;
@@ -140,7 +149,7 @@ void InitializeWorldCursor(void)
             gp3DCursor->input_delta.z = 0;
             position = gp3DCursor->position;
             MonsterSetAdjustedPosition(gp3DCursor->monster, &position);
-            g_world->plsMonsters->push_back(gp3DCursor->monster);
+            g_world->plsMonsters.push_back(gp3DCursor->monster);
             UpdateCycleRepresentation(gp3DCursor->monster, g_world);
             MonsterSetActive(gp3DCursor->monster, false);
             gp3DCursor->light = CreateRangedWorldLight(g_world, "3D Cursor Light");
@@ -163,7 +172,7 @@ void InitializeWorldCursor(void)
                 gp3DCursor->particle->rotateX(-1.5707963);
                 gp3DCursor->particle->particle_size = 100.0;
                 gp3DCursor->particle->emission_interval = 300;
-                gp3DCursor->particle->acceleration.Set(0.0f, -1000.0f, 0.0f);
+                gp3DCursor->particle->acceleration = {0.0f, -1000.0f, 0.0f};
                 gp3DCursor->particle->has_acceleration = 1;
                 gp3DCursor->particle->initial_speed = 500.0f;
                 gp3DCursor->particle->speed_mode = W8_PARTICLE_SPEED_RANDOM;
@@ -181,17 +190,18 @@ void InitializeWorldCursor(void)
             }
             ApplyWorldCursorInput();
             if (gp3DCursor != 0) {
-                GetCameraPosition(&camera_position);
+                camera_position = cameraLocation();
                 if (!gp3DCursor->detached) {
                     gp3DCursor->cam_rel_offset += camera_position;
                 }
                 gp3DCursor->detached = true;
             }
             ClearCombatSelection();
-            gp3DCursor->monster->GetAnimationBounds(&minimum, &maximum);
-            gp3DCursor->probe_center.Set((maximum.x + minimum.x) * g_double_half,
-                                         (minimum.y + maximum.y) * g_double_half,
-                                         (minimum.z + maximum.z) * g_double_half);
+            const auto bounds = gp3DCursor->monster->GetAnimationBounds();
+            if (!bounds)
+                return;
+            const auto& [minimum, maximum] = *bounds;
+            gp3DCursor->probe_center = bounds->center();
             gp3DCursor->probe_offsets[0] = maximum;
             gp3DCursor->probe_offsets[1].Set(minimum.x, maximum.y, maximum.z);
             gp3DCursor->probe_offsets[2].Set(minimum.x, maximum.y, minimum.z);
@@ -201,7 +211,7 @@ void InitializeWorldCursor(void)
             gp3DCursor->probe_offsets[6] = minimum;
             gp3DCursor->probe_offsets[7].Set(maximum.x, minimum.y, minimum.z);
             UpdateWorldCursorPlacement();
-            if (g_dev_mode && (gfKeyState[VK_SHIFT] != 0 || gfKeyState[VK_CONTROL] != 0)) {
+            if (g_dev_mode && (IsKeyHeld(VK_SHIFT) || IsKeyHeld(VK_CONTROL))) {
                 g_cursor_pick_latch = true;
             }
         }
@@ -223,13 +233,13 @@ void ReleaseWorldCursor(void)
     if (cursor == 0) {
         return;
     }
-    GetCameraPosition(&camera);
+    camera = cameraLocation();
     camera.y = 0.0f;
     cursor->position.y = 0.0f;
     delta = cursor->position - camera;
     g_cursor_projection_distance = delta.Length();
 
-    wiz8::erase_first(*g_world->plsMonsters, cursor->monster);
+    wiz8::erase_first(g_world->plsMonsters, cursor->monster);
     DetachMonsterRepresentation(cursor->monster, g_world);
     DeleteMonster(cursor->monster);
     ReleaseRendererObject(cursor->particle);
@@ -267,7 +277,7 @@ void ShowWorldCursor(void)
     if (gp3DCursor != 0 && !gp3DCursor->enabled) {
         UpdateMonster(gp3DCursor->monster);
         UpdateCycleRepresentation(gp3DCursor->monster, g_world);
-        g_world->plsMonsters->push_back(gp3DCursor->monster);
+        g_world->plsMonsters.push_back(gp3DCursor->monster);
         gp3DCursor->enabled = true;
         if (gp3DCursor->particle != 0) {
             gp3DCursor->particle->SetActive(1);
@@ -292,7 +302,7 @@ void HideWorldCursor(void)
     }
     monster = cursor->monster;
     world = g_world;
-    wiz8::erase_first(*world->plsMonsters, monster);
+    wiz8::erase_first(world->plsMonsters, monster);
     DetachMonsterRepresentation(monster, world);
     cursor->enabled = false;
     if (cursor->particle != 0) {
@@ -323,9 +333,8 @@ void GetWorldCursorAnchor(srVector3T<float>* position)
 // FUNCTION: WIZ8 0x00490C60
 void ApplyWorldCursorInput(void)
 {
-    bool hit;
     glm::mat3 rotation;
-    srVector3T<double> node_location;
+    glm::dvec3 node_location;
     srVector3T<float> camera;
     srVector3T<float> delta;
     srVector3T<float> lifted;
@@ -344,7 +353,7 @@ void ApplyWorldCursorInput(void)
     gp3DCursor->input_delta.y = 0;
     gp3DCursor->input_delta.z = 0;
     if (g_dev_mode) {
-        if (gfKeyState[VK_SHIFT] == 0 && gfKeyState[VK_CONTROL] == 0) {
+        if (!IsKeyHeld(VK_SHIFT) && !IsKeyHeld(VK_CONTROL)) {
             if (g_cursor_pick_latch) {
                 g_cursor_pick_latch = false;
             }
@@ -360,22 +369,22 @@ void ApplyWorldCursorInput(void)
         if (gp3DCursor->range > g_float_zero && gp3DCursor->range < lifted.Length()) {
             delta.SetLength(gp3DCursor->range);
         }
-        g_world->dynamic_scene->getRotation(rotation);
+        rotation = g_world->dynamic_scene->getRotation<glm::mat3>();
         gp3DCursor->cam_rel_offset += delta;
         gp3DCursor->position = rotation * (gp3DCursor->cam_rel_offset).glmValue();
         node_location = g_world->dynamic_scene->getLocation();
         srVector3T<float> scene_location;
-        scene_location = glm::vec3(node_location.glmValue());
+        scene_location = glm::vec3(node_location);
         gp3DCursor->position += scene_location;
         if (gp3DCursor->track_ground) {
             if (gp3DCursor->position.y < saved_y) {
                 gp3DCursor->position.y = saved_y;
             }
-            gp3DCursor->position.y =
-                g_octree->SettleToGround(&gp3DCursor->position, &hit, 1, 500.0f);
+            gp3DCursor->position = g_octree->settleToGround(
+                gp3DCursor->position.glmValue(), true, 500).position;
         }
     } else {
-        GetCameraPosition(&camera);
+        camera = cameraLocation();
         camera.y -= g_default_world_height;
         rotation = glm::mat3(1);
         rotation *= glm::mat3_cast(glm::angleAxis(float(g_gd_camera->m_yaw), glm::vec3(0, 1, 0)));
@@ -420,7 +429,7 @@ void ApplyWorldCursorInput(void)
             gp3DCursor->dragged_info->p3D->SetPositionInternal(&gp3DCursor->position);
             g_octree->UpdateMonsterLocation(gp3DCursor->dragged_info->location_id,
                                             &gp3DCursor->position);
-            if (gfKeyState[VK_SHIFT] != 0) {
+            if (IsKeyHeld(VK_SHIFT)) {
                 MonsterForwardReferencePosition(gp3DCursor->dragged_info->p3D, 1);
             }
         }
@@ -446,7 +455,6 @@ void BindCursorMonsterToGroup(void)
     srVector3T<float> position;
     W8MonsterGroup* monster_group;
     W8MonsterInfo* monster_info;
-    unsigned int index;
 
     if (gp3DCursor->group_bind_pending && gp3DCursor->light != 0) {
         gp3DCursor->group_bind_pending = false;
@@ -461,25 +469,19 @@ void BindCursorMonsterToGroup(void)
         } else {
             position = gp3DCursor->position;
         }
-        index = GetMonsterGroupIndexByID(0x237, CURSOR3D_CPP, gp3DCursor->monster_group_id, false);
-        if (index == 0xffffffff) {
-            index = gXStatus.monster_groups.size();
-            if (index == 0) {
+        monster_group = FindMonsterGroup(gp3DCursor->monster_group_id, false);
+        if (monster_group == 0) {
+            if (gXStatus.monster_groups.empty()) {
                 return;
             }
-            index = 0;
+            monster_group = GetMonsterGroupByListIndex(0);
         }
-        monster_group = GetMonsterGroupByListIndex(index);
         gp3DCursor->monster_group_id = monster_group->group_id;
         if (monster_group != 0) {
             if (monster_group->leader_group_id != 0) {
-                index = GetMonsterGroupIndexByID(0x245, CURSOR3D_CPP,
-                                                 monster_group->leader_group_id, true);
-                monster_group = GetMonsterGroupByListIndex(index);
+                monster_group = FindMonsterGroup(monster_group->leader_group_id);
             }
-            index = MonsterGetIndexByLocationID(0x247, CURSOR3D_CPP,
-                                                monster_group->leader_location_id, true);
-            monster_info = MonsterGetScriptPartByLocationIndex(index);
+            monster_info = FindMonster(monster_group->leader_location_id);
             if (monster_info != 0 && monster_info->p3D != 0 &&
                 !monster_info->p3D->SetScript("Test.msf", true)) {
                 ApplyToMonsterGroupLeader(monster_group, &position, true);
@@ -571,7 +573,7 @@ void UpdateWorldCursor(void)
     old_position = gp3DCursor->position;
     SyncSystemCursor();
     SGPMouseGetPos(&cursor_point);
-    if (gfRightButtonState != 0) {
+    if (IsRightButtonHeld()) {
         if (!gp3DCursor->group_bind_pending && gp3DCursor->light != 0) {
             gp3DCursor->group_bind_pending = true;
             ++gp3DCursor->input_delta.z;
@@ -584,7 +586,7 @@ void UpdateWorldCursor(void)
     } else {
         BindCursorMonsterToGroup();
     }
-    if (gfRightButtonState != 0) {
+    if (IsRightButtonHeld()) {
         if (gp3DCursor->detached) {
             gp3DCursor->track_ground = false;
         }
@@ -600,9 +602,9 @@ void UpdateWorldCursor(void)
     } else {
         position.SetZero();
     }
-    if (gfLeftButtonState == 0) {
+    if (!IsLeftButtonHeld()) {
         if (gp3DCursor->left_held && gXStatus.iTargetingMode == W8_TARGET_NEED_PLACE) {
-            GetCameraPosition(&camera);
+            camera = cameraLocation();
             if (ResolveWorldCursorTarget(&resolved) != 0 &&
                 g_octree->TraceLineOfSight(&camera, &resolved, true, -3, -3, true, 0) == 0) {
                 box_min = resolved + gp3DCursor->extent_min;
@@ -614,9 +616,7 @@ void UpdateWorldCursor(void)
                     return;
                 }
             }
-            // c-style-cast-ok: SGP SoundPlay spells filenames UINT8* - the
-            // documented historical ABI boundary.
-            SoundPlay((STR) "Data\\Sound\\Misc\\ErrorBeep.wav", 0);
+            wiz8::sound::play("Data\\Sound\\Misc\\ErrorBeep.wav");
         }
         gp3DCursor->left_held = false;
     } else {
@@ -644,7 +644,6 @@ char MarchWorldCursorTarget(srVector3T<float>* target)
     srVector3T<float> dir;
     srVector3T<float> scaled;
     srVector3T<float> probe;
-    bool hit;
     double dist;
     double step;
     float lower_best = -1e+10f;
@@ -681,7 +680,9 @@ char MarchWorldCursorTarget(srVector3T<float>* target)
                 probe = gp3DCursor->probe_offsets[i];
                 probe *= g_cursor_probe_shrink_scale;
                 probe += step_pos;
-                ground = g_octree->SettleToGround(&probe, &hit, 1, 500.0f);
+                const auto ground_probe = g_octree->settleToGround(probe.glmValue(), 1, 500.0f);
+                probe = ground_probe.position;
+                ground = ground_probe.position.y;
                 if (ground <= step_pos.y) {
                     if (ground < step_pos.y) {
                         lower_count++;
@@ -732,7 +733,7 @@ void UpdateWorldCursorPlacement(void)
     srVector3T<float> camera(0.0f, 1.0f, 0.0f);
     srVector3T<float> target;
     W8WorldCursorState* cursor;
-    GetCameraPosition(&camera);
+    camera = cameraLocation();
     camera.y -= g_default_world_height;
     cursor = gp3DCursor;
     cursor->last_published = -100000000.0f;
@@ -775,9 +776,7 @@ void SetWorldCursorExtents(const srVector3T<float>* minimum, const srVector3T<fl
 int ResolveWorldCursorTarget(srVector3T<float>* position)
 {
     W8WorldCursorState* cursor = gp3DCursor;
-    srVector3T<float> probe;
     float best = g_cursor_ground_height_sentinel;
-    int i;
 
     if (cursor == 0) {
         position->SetZero();
@@ -787,36 +786,25 @@ int ResolveWorldCursorTarget(srVector3T<float>* position)
     if (cursor == 0) {
         return 1;
     }
-    if (!cursor->footprint_mode) {
-        for (i = 0; i < 4; i++) {
-            probe = *position + cursor->probe_offsets[i + 4];
-            if (best <= g_octree->SettleToGround(&probe, 0, 1, 500.0f)) {
-                best = g_octree->SettleToGround(&probe, 0, 1, 500.0f);
+    for (int corner = 0; corner < 4; ++corner) {
+        glm::vec3 offset;
+        if (!cursor->footprint_mode) {
+            offset = cursor->probe_offsets[corner + 4].glmValue();
+        } else {
+            switch (corner) {
+            case 0: offset = cursor->extent_min.glmValue(); break;
+            case 1: offset = cursor->extent_max.glmValue(); break;
+            case 2: offset = {cursor->extent_min.x, 0, cursor->extent_max.z}; break;
+            default: offset = {cursor->extent_max.x, 0, cursor->extent_min.z}; break;
             }
         }
-    } else {
-        probe = *position + cursor->extent_min;
-        if (best <= g_octree->SettleToGround(&probe, 0, 1, 500.0f)) {
-            best = g_octree->SettleToGround(&probe, 0, 1, 500.0f);
-        }
-        probe = *position + cursor->extent_max;
-        if (best <= g_octree->SettleToGround(&probe, 0, 1, 500.0f)) {
-            best = g_octree->SettleToGround(&probe, 0, 1, 500.0f);
-        }
-        probe.Set(cursor->extent_min.x + position->x, position->y,
-                  cursor->extent_max.z + position->z);
-        if (best <= g_octree->SettleToGround(&probe, 0, 1, 500.0f)) {
-            best = g_octree->SettleToGround(&probe, 0, 1, 500.0f);
-        }
-        probe.Set(cursor->extent_max.x + position->x, position->y,
-                  cursor->extent_min.z + position->z);
-        if (best <= g_octree->SettleToGround(&probe, 0, 1, 500.0f)) {
-            best = g_octree->SettleToGround(&probe, 0, 1, 500.0f);
-        }
-        if (static_cast<float>(g_monster_poster_max_distance) <= fabs(best - position->y)) {
-            position->y = best + g_float_one_thousand;
-            return 0;
-        }
+        const auto ground = g_octree->settleToGround(position->glmValue() + offset, true, 500);
+        if (best <= ground.position.y) best = ground.position.y;
+    }
+    if (cursor->footprint_mode &&
+        static_cast<float>(g_monster_poster_max_distance) <= fabs(best - position->y)) {
+        position->y = best + g_float_one_thousand;
+        return 0;
     }
     position->y = best + g_float_one_thousand;
     return 1;

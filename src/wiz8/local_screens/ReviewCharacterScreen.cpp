@@ -1,14 +1,25 @@
+#include "himage.h"
+#include <cstdint>
 #include <fmt/format.h>
 #include <fmt/printf.h>
+#include <SDL3/SDL_rect.h>
 #include <string_view>
 #include <string>
 #include <new>
+#include <array>
+#include <memory>
+#include <utility>
+#include <optional>
+
+#include "compat/compiler.h"
+#include "image.h"
+#include "local_code/TextControl.h"
+#include "sprite.h"
 #include "wiz8/spell_ids.h"
 #include "wiz8/conditions.h"
 #include "soundman.h"
 #include "wiz8/integer_constants.h"
 #include "wiz8/local_code/Magic.h"
-#include "wiz8/local_code/MagicEffects.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/local_code/character_events.h"
@@ -16,7 +27,6 @@
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
 #include "wiz8/local_screens/CharacterScreen.h"
-#include "wiz8/local_screens/MGSRadarMap.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/MGSPortraits.h"
 #include "wiz8/layouts/screen_state.h"
@@ -24,10 +34,8 @@
 #include "wiz8/fonts.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/character_skills.h"
-#include "wiz8/local_code/CharGeneration.h"
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/CombatAttack.h"
-#include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/GameplayMods.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
@@ -35,14 +43,12 @@
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/layouts/combat_state.h"
-#include "wiz8/local_code/CombatRange.h"
 #include "wiz8/cursor.h"
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/dialog_code/MessageDialogBase.h"
 #include "wiz8/dialog_code/SpellInfoDialog.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/RangeControl.h"
-#include "wiz8/local_code/PartyImport.h"
 #include "wiz8/local_code/LoadSaveGame.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/music_playlist.h"
@@ -50,11 +56,11 @@
 #include "wiz8/local_screens/PartySelectionScreen.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_screens/MainMenuScreen.h"
+#include "wiz8/local_screens/AutomapScreen.h"
 #include "wiz8/engine_code/stModelInstance.h"
 #include "surrender/srMeshModel.h"
 #include "surrender/srMaterial.h"
 #include "surrender/srShader.h"
-#include "wiz8/sound_man.h"
 #include "wiz8/regions.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/utility.h"
@@ -62,43 +68,54 @@
 #include "wiz8/character_event_queue.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/float_constants.h"
-#include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/GameplayTime.h"
 #include "wiz8/local_code/Configuration.h"
-#include "wiz8/local_screens/MainGameScreen.h"
 #include "Font.h"
-#include "english.h"
 #include "input.h"
-#include "Types.h"
-#include "mousesystem.h"
 #include "random.h"
 #include "timer.h"
-
-#include <stdlib.h>
-#include <string.h>
-#include "line.h"
 #include "wiz8/local_screens/RCSCommon.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/npc_state.h"
 #include "wiz8/local_code/NPCManager.h"
-#include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/layouts/item_instance.h"
 #include "wiz8/local_screens/RCSItemsPage.h"
-#include "wiz8/engine_code/3dapi.h"
 #include "wiz8/layouts/item_tables.h"
 #include "wiz8/item_video_object_vector.h"
-#include "wiz8/video_object_catalog.h"
-#include "vobject_blitters.h"
+#include "wiz8/catalog_artwork.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/local_code/Gameloop.h"
-#include "wiz8/local_screens/OptionsScreen.h"
+#include "compat/native.h"
+#include "dialog_code/DialogBase.h"
+#include "dice.h"
+#include "equipment_slots.h"
+#include "gameplay_modifiers.h"
+#include "glm/ext/vector_float4.hpp"
+#include "layouts/learned_spells.h"
+#include "layouts/main_game_screen.h"
+#include "layouts/targeting.h"
+#include "local_code/ControlsRect.h"
+#include "local_screens/RCSStatsPage.h"
+#include "audio_resources.h"
+
+struct W8NpcState;
 
 /* Local Screens\ReviewCharacterScreen.cpp, named by entry's
    fFoundEquipChar assertion. This is state 6, reached both from the party
    selector and from the running game. */
 
 // GLOBAL: WIZ8 0x0069c0f4
-W8CampScreenState* g_camp_screen;
+std::unique_ptr<W8CampScreenState> g_camp_screen;
+
+/* Retail freed the camp sub-objects in this order on leave. */
+W8CampScreenState::~W8CampScreenState()
+{
+    item_range.reset();
+    dialog.reset();
+    for (auto& range : spell_ranges) range.reset();
+    stats_range.reset();
+    stats_controls.reset();
+    character_info.reset();
+}
 // GLOBAL: WIZ8 0x0064cbe8
 int giReviewCharSlot = -1;
 // GLOBAL: WIZ8 0x0069c0f8
@@ -109,8 +126,6 @@ W8Character* g_camp_identifying_character; /* gpIdentifyingPC */
 W8Character* g_camp_character;
 // GLOBAL: WIZ8 0x0069c104
 bool g_camp_character_pending;
-// GLOBAL: WIZ8 0x0069c108
-unsigned int g_camp_item_region_set;
 // GLOBAL: WIZ8 0x0069c10c
 w8_ulong g_fade_tick_base;
 // GLOBAL: WIZ8 0x0069c110
@@ -124,15 +139,11 @@ stModelInstance2D* g_fade_overlay;
 // GLOBAL: WIZ8 0x0069c120
 int g_fade_out;
 // GLOBAL: WIZ8 0x0069c124
-unsigned int g_ending_sound;
+wiz8::sound::Playback g_ending_sound;
 // GLOBAL: WIZ8 0x0069c128
 bool g_ending_screen;
 // GLOBAL: WIZ8 0x0069c129
 bool g_ending_autosave;
-// GLOBAL: WIZ8 0x0069c40c
-unsigned int g_camp_spell_region_sets[6];
-// GLOBAL: WIZ8 0x0069c408
-unsigned int g_camp_character_info_region_set;
 
 void DrawCampCharacterInfo(void);
 void DrawCampBackpackItems(void);
@@ -144,7 +155,7 @@ void DeactivateCampPage(void);
 void DrawCampScreen(void);
 void DrawCampRegenStats(void);
 // GLOBAL: WIZ8 0x0069c428
-Controls* g_camp_secondary_panel;
+std::unique_ptr<Controls> g_camp_secondary_panel;
 
 /* The camp screen's three panels and their controls: the top secondary panel
    carries the page tabs, help line, attribute rows and secondary labels; the
@@ -159,13 +170,13 @@ W8HelpTextControl* g_camp_help_text;
 // GLOBAL: WIZ8 0x0069c448
 W8Widget* g_camp_stat_labels[7];
 // GLOBAL: WIZ8 0x0069c464
-Controls* g_camp_action_panel;
+std::unique_ptr<Controls> g_camp_action_panel;
 // GLOBAL: WIZ8 0x0069c468
 W8TextControl* g_camp_action_buttons[2];
 // GLOBAL: WIZ8 0x0069c470
 W8TextControl* g_camp_item_filter_buttons[7];
 // GLOBAL: WIZ8 0x0069c48c
-Controls* g_camp_item_filter_panel;
+std::unique_ptr<Controls> g_camp_item_filter_panel;
 
 /* The font-state palette index selected for each load category
    while the weight line is drawn; zero leaves the default palette in place. */
@@ -207,6 +218,118 @@ W8CampScreenRegion g_camp_screen_regions[12] = {
    formats - zero-padded cost, plain number, plain string and the realm label
    prefix. */
 
+
+// Retail set 0x29, regions 231-243
+static constexpr std::array<RegionTemplate, 13> g_camp_main_templates{{
+    {0x00000001, 0, 0, 0, 0, CampLevelUpButtonRegionEvent, 0, true, 1984},
+    {0x00000001, 0, 0, 0, 0, CampDismissButtonRegionEvent, 0, true, 2387},
+    {0x00000001, 164, 12, 254, 84, CampDismissPortraitRegionEvent, 0, true, 2368},
+    {0x00000001, 0, 0, 0, 0, CampPortraitSlotRegionEvent, 0, false, -1},
+    {0x00000001, 0, 0, 0, 0, CampPortraitSlotRegionEvent, 1, false, -1},
+    {0x00000001, 0, 0, 0, 0, CampPortraitSlotRegionEvent, 2, false, -1},
+    {0x00000001, 0, 0, 0, 0, CampPortraitSlotRegionEvent, 3, false, -1},
+    {0x00000001, 0, 0, 0, 0, CampPortraitSlotRegionEvent, 4, false, -1},
+    {0x00000001, 0, 0, 0, 0, CampPortraitSlotRegionEvent, 5, false, -1},
+    {0x00000001, 0, 0, 0, 0, CampPortraitSlotRegionEvent, 6, false, -1},
+    {0x00000001, 0, 0, 0, 0, CampPortraitSlotRegionEvent, 7, false, -1},
+    {0x00000001, 106, 96, 302, 109, CampOpenCharacterScreenRegionEvent, 0, true, 2362},
+    {0x00000001, 106, 124, 302, 133, CampProfessionHistoryRegionEvent, 0, true, 2363},
+}};
+
+// Retail set 0x2a, regions 244-263
+static constexpr std::array<RegionTemplate, 20> g_camp_inventory_templates{{
+    {0x00000001, 0, 0, 0, 0, BackpackRegionHandler, 0, true, -1},
+    {0x00000001, 0, 0, 0, 0, BackpackRegionHandler, 1, true, -1},
+    {0x00000001, 0, 0, 0, 0, BackpackRegionHandler, 2, true, -1},
+    {0x00000001, 0, 0, 0, 0, BackpackRegionHandler, 3, true, -1},
+    {0x00000001, 0, 0, 0, 0, BackpackRegionHandler, 4, true, -1},
+    {0x00000001, 0, 0, 0, 0, BackpackRegionHandler, 5, true, -1},
+    {0x00000001, 0, 0, 0, 0, BackpackRegionHandler, 6, true, -1},
+    {0x00000001, 0, 0, 0, 0, BackpackRegionHandler, 7, true, -1},
+    {0x00000001, 0, 0, 0, 0, EquipSlotRegionHandler, 0, true, -1},
+    {0x00000001, 0, 0, 0, 0, EquipSlotRegionHandler, 1, true, -1},
+    {0x00000001, 0, 0, 0, 0, EquipSlotRegionHandler, 2, true, -1},
+    {0x00000001, 0, 0, 0, 0, EquipSlotRegionHandler, 3, true, -1},
+    {0x00000001, 0, 0, 0, 0, EquipSlotRegionHandler, 4, true, -1},
+    {0x00000001, 0, 0, 0, 0, EquipSlotRegionHandler, 5, true, -1},
+    {0x00000001, 0, 0, 0, 0, EquipSlotRegionHandler, 6, true, -1},
+    {0x00000001, 0, 0, 0, 0, EquipSlotRegionHandler, 7, true, -1},
+    {0x00000001, 0, 0, 0, 0, EquipSlotRegionHandler, 8, true, -1},
+    {0x00000001, 0, 0, 0, 0, EquipSlotRegionHandler, 9, true, -1},
+    {0x00000001, 0, 0, 0, 0, EquipSlotRegionHandler, 10, true, -1},
+    {0x00000001, 0, 0, 0, 0, EquipSlotRegionHandler, 11, true, -1},
+}};
+
+// Retail set 0x2b, regions 264-280
+static constexpr std::array<RegionTemplate, 17> g_camp_item_pool_templates{{
+    {0x00000001, 0, 0, 0, 0, ItemPoolRegionHandler, 0, true, -1},
+    {0x00000001, 0, 0, 0, 0, ItemPoolRegionHandler, 1, true, -1},
+    {0x00000001, 0, 0, 0, 0, ItemPoolRegionHandler, 2, true, -1},
+    {0x00000001, 0, 0, 0, 0, ItemPoolRegionHandler, 3, true, -1},
+    {0x00000001, 0, 0, 0, 0, ItemPoolRegionHandler, 4, true, -1},
+    {0x00000001, 0, 0, 0, 0, ItemPoolRegionHandler, 5, true, -1},
+    {0x00000001, 0, 0, 0, 0, ItemPoolRegionHandler, 6, true, -1},
+    {0x00000001, 0, 0, 0, 0, ItemPoolRegionHandler, 7, true, -1},
+    {0x00000001, 0, 0, 0, 0, RealmTabRegionHandler, 0, true, 2378},
+    {0x00000001, 0, 0, 0, 0, RealmTabRegionHandler, 1, true, 2379},
+    {0x00000001, 0, 0, 0, 0, RealmTabRegionHandler, 2, true, 2380},
+    {0x00000001, 0, 0, 0, 0, RealmTabRegionHandler, 3, true, 2381},
+    {0x00000001, 0, 0, 0, 0, RealmTabRegionHandler, 4, true, 2382},
+    {0x00000001, 0, 0, 0, 0, RealmTabRegionHandler, 5, true, 2383},
+    {0x00000001, 0, 0, 0, 0, RealmTabRegionHandler, 6, true, 2384},
+    {0x00000001, 0, 0, 0, 0, PanelTabRegionHandler, 0, true, 2385},
+    {0x00000001, 0, 0, 0, 0, PanelTabRegionHandler, 1, true, 2386},
+}};
+
+// Retail set 0x2c, regions 281-286
+static constexpr std::array<RegionTemplate, 6> g_camp_spell_list_templates{{
+    {0x00000001, 0, 0, 0, 0, SpellListRegionHandler, 0, false, -1},
+    {0x00000001, 0, 0, 0, 0, SpellListRegionHandler, 1, false, -1},
+    {0x00000001, 0, 0, 0, 0, SpellListRegionHandler, 2, false, -1},
+    {0x00000001, 0, 0, 0, 0, SpellListRegionHandler, 3, false, -1},
+    {0x00000001, 0, 0, 0, 0, SpellListRegionHandler, 4, false, -1},
+    {0x00000001, 0, 0, 0, 0, SpellListRegionHandler, 5, false, -1},
+}};
+
+// Retail set 0x2d, regions 287-291
+static constexpr std::array<RegionTemplate, 5> g_camp_page_templates{{
+    {0x00000001, 0, 0, 0, 0, CampPageButtonRegionEvent, 0, true, 2364},
+    {0x00000001, 0, 0, 0, 0, CampPageButtonRegionEvent, 1, true, 2367},
+    {0x00000001, 0, 0, 0, 0, CampPageButtonRegionEvent, 2, true, 2366},
+    {0x00000001, 0, 0, 0, 0, CampPageButtonRegionEvent, 3, true, 2365},
+    {0x00000001, 0, 0, 0, 0, CampPageButtonRegionEvent, 4, true, 2368},
+}};
+
+// Retail set 0x2e, regions 292-299
+static constexpr std::array<RegionTemplate, 8> g_camp_item_action_templates{{
+    {0x00000001, 0, 0, 0, 0, CampItemActionRegionEvent, 0, true, 2369},
+    {0x00000001, 0, 0, 0, 0, CampItemActionRegionEvent, 1, true, 2370},
+    {0x00000001, 0, 0, 0, 0, CampItemActionRegionEvent, 2, true, 2371},
+    {0x00000001, 0, 0, 0, 0, CampItemActionRegionEvent, 3, true, 2372},
+    {0x00000001, 0, 0, 0, 0, CampItemActionRegionEvent, 4, true, 2373},
+    {0x00000001, 0, 0, 0, 0, CampItemActionRegionEvent, 5, true, 2374},
+    {0x00000001, 0, 0, 0, 0, CampItemActionRegionEvent, 6, true, 2375},
+    {0x00000001, 0, 0, 0, 0, CampItemActionRegionEvent, 7, true, 2376},
+}};
+
+// Retail set 0x2f, region 300
+static constexpr std::array<RegionTemplate, 1> g_camp_automap_templates{{
+    {0x00000001, 0, 0, 639, 479, AutomapBackgroundRegionEvent, 0, false, -1},
+}};
+
+// Retail set 0x30, region 301
+static constexpr std::array<RegionTemplate, 1> g_camp_overlay_templates{{
+    {0x00000001, 0, 0, 639, 479, nullptr, 0, false, -1},
+}};
+
+ScreenRegionSet g_camp_main_regions{g_camp_main_templates, 0x29};
+ScreenRegionSet g_camp_inventory_regions{g_camp_inventory_templates, 0x2a};
+ScreenRegionSet g_camp_item_pool_regions{g_camp_item_pool_templates, 0x2b};
+ScreenRegionSet g_camp_spell_list_regions{g_camp_spell_list_templates, 0x2c};
+ScreenRegionSet g_camp_page_regions{g_camp_page_templates, 0x2d};
+ScreenRegionSet g_camp_item_action_regions{g_camp_item_action_templates, 0x2e};
+ScreenRegionSet g_camp_automap_regions{g_camp_automap_templates, 0x2f};
+ScreenRegionSet g_camp_overlay_regions{g_camp_overlay_templates, 0x30};
 /* Enable or disable the six spell-realm scrollbars together. While enabling, a
    realm whose learned spells fit the eight visible rows keeps its bar off. */
 // FUNCTION: WIZ8 0x005B71C0
@@ -217,7 +340,7 @@ void SetCampSpellRangesEnabled(bool enable)
     int second;
 
     for (realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
-        spell_range = g_camp_screen->spell_ranges[realm];
+        spell_range = g_camp_screen->spell_ranges[realm].get();
         spell_range->m_range->EnableRegionSet(enable);
         if (enable) {
             second = g_review_character->skill_unlocks[0x1c + spell_range->m_realm] - 8;
@@ -241,7 +364,7 @@ void RefreshCampSpellRanges(void)
     int second;
 
     for (realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
-        spell_range = g_camp_screen->spell_ranges[realm];
+        spell_range = g_camp_screen->spell_ranges[realm].get();
         spell_range->m_range->EnableRegionSet(true);
         second = g_review_character->skill_unlocks[0x1c + spell_range->m_realm] - 8;
         if (second < 1) {
@@ -271,16 +394,14 @@ void DrawCampSpellPages(void)
     int spell_id;
     int width;
     unsigned int visible;
-    unsigned short* palette;
+    Palette16 palette;
 
-    SetFont(g_wiz_text_font_secondary);
     if ((g_camp_screen->redraw_flags & W8_CAMP_REDRAW_RESISTANCES) != 0 &&
         !gXStatus.fSpellCastMode) {
         DrawCampResistances();
     }
     if (g_camp_screen->redraw_flags == W8_CAMP_REDRAW_ALL) {
-        DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x140, 0, 2, 0, 0xa5, VO_BLT_SRCTRANSPARENCY,
-                                      0);
+        CatalogArtwork::Load(0x140, 0).drawAndInvalidate(GetFrameBufferSurface(), 2, 0, 0xa5);
     }
     for (realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
         if ((g_camp_screen->redraw_flags & (W8_CAMP_REDRAW_REALM_SPELLS_FIRST << realm)) == 0) {
@@ -289,26 +410,18 @@ void DrawCampSpellPages(void)
         left = (realm % 3) * 0xd5 + 3;
         top = (realm / 3) * 0x8c + 0xaa;
         if (character->skill_unlocks[0x1c + realm] != 0) {
-            DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x140, 0, 3, left, top,
-                                          VO_BLT_SRCTRANSPARENCY, 0);
-            SetFontObjectPalette16BPP(g_wiz_text_font_secondary,
-                                      g_font_state_palettes[W8_FONT_PALETTE_GREEN].get());
-            DrawFontText(left + 0x1b, top + 8, fmt::format("{}:", g_localized_strings[0x8c7]));
-            DrawFontText(left + 0x72, top + 8, g_localized_strings[0x8c9]);
-            SetFontObjectPalette16BPP(g_wiz_text_font_secondary, GetFontObject(g_wiz_text_font_secondary)->ownedPalette.get());
-            width = StringPixLength(fmt::format("{}: ", g_localized_strings[0x8c7]),
-                                    g_wiz_text_font_secondary);
-            DrawFontText(
-                left + 0x1b + width, top + 8,
-                fmt::format("{:3d}", character->skills[W8_SKILL_FIRE_MAGIC + realm].level));
-            width = StringCodepointPrefixPixelWidth(
-                g_wiz_text_font_secondary, 7,
-                fmt::format(
+            CatalogArtwork::Load(0x140, 0).drawAndInvalidate(GetFrameBufferSurface(), 3, left, top);
+            g_wiz_text_font_secondary.setPalette(g_font_state_palettes[W8_FONT_PALETTE_GREEN]);
+            DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {left + 0x1b, top + 8}, fmt::format("{}:", g_localized_strings[0x8c7]));
+            DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {left + 0x72, top + 8}, g_localized_strings[0x8c9]);
+            g_wiz_text_font_secondary.resetPalette();
+            width = g_wiz_text_font_secondary.textWidth(fmt::format("{}: ", g_localized_strings[0x8c7]));
+            DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {left + 0x1b + width, top + 8}, fmt::format("{:3d}", character->skills[W8_SKILL_FIRE_MAGIC + realm].level));
+            width = g_wiz_text_font_secondary.codepointPrefixWidth(fmt::format(
                     "{:d}/{:d}",
                     GetCharacterRealmSpellPoints(character, static_cast<W8SpellRealm>(realm)),
-                    character->sp_max[realm]));
-            DrawFontText(left + 0xc8 - width, top + 8,
-                         fmt::format("{:d}/{:d}",
+                    character->sp_max[realm]), 7);
+            DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {left + 0xc8 - width, top + 8}, fmt::format("{:d}/{:d}",
                                      GetCharacterRealmSpellPoints(character,
                                                                   static_cast<W8SpellRealm>(realm)),
                                      character->sp_max[realm]));
@@ -322,28 +435,25 @@ void DrawCampSpellPages(void)
                     g_camp_screen->learned_spells
                         .spell_ids_by_realm[realm]
                                            [g_camp_screen->learned_spells.scroll[realm] + row];
-                if (g_camp_screen->hover_region == static_cast<unsigned int>(realm + 0x119) &&
+                if (g_camp_screen->hover_region == g_camp_spell_list_regions->index(realm) &&
                     g_camp_screen->selected_spell_row == row) {
-                    palette = g_font_state_palettes[W8_FONT_PALETTE_YELLOW].get();
+                    palette = g_font_state_palettes[W8_FONT_PALETTE_YELLOW];
                 } else if (g_spell_records[spell_id].spell_point_cost <=
                                character->iSPLeft[realm] &&
                            SpellUsableNow(spell_id, false)) {
-                    palette = GetFontObject(g_wiz_text_font_secondary)->ownedPalette.get();
+                    palette = g_wiz_text_font_secondary.glyphs->colors;
                 } else {
-                    palette = g_font_state_palettes[W8_FONT_PALETTE_RED].get();
+                    palette = g_font_state_palettes[W8_FONT_PALETTE_RED];
                 }
-                SetFontObjectPalette16BPP(g_wiz_text_font_secondary, palette);
-                width = StringCodepointPrefixPixelWidth(
-                    g_wiz_text_font_secondary, 3,
-                    fmt::format("{:03d}", g_spell_records[spell_id].spell_point_cost));
-                DrawFontText(left + 0x1c, row_top, g_spell_records[spell_id].display_name);
-                DrawFontText(left + 0xb1 - width, row_top,
-                             fmt::format("{:3d}", g_spell_records[spell_id].spell_point_cost));
+                g_wiz_text_font_secondary.setPalette(palette);
+                width = g_wiz_text_font_secondary.codepointPrefixWidth(fmt::format("{:03d}", g_spell_records[spell_id].spell_point_cost), 3);
+                DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {left + 0x1c, row_top}, g_spell_records[spell_id].display_name);
+                DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {left + 0xb1 - width, row_top}, fmt::format("{:3d}", g_spell_records[spell_id].spell_point_cost));
                 row_top += 0xd;
             }
-            SetFontObjectPalette16BPP(g_wiz_text_font_secondary, GetFontObject(g_wiz_text_font_secondary)->ownedPalette.get());
+            g_wiz_text_font_secondary.resetPalette();
         }
-        state = g_camp_screen;
+        state = g_camp_screen.get();
         state->spell_ranges[realm]->UpdateRange(true);
     }
     for (realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
@@ -356,13 +466,9 @@ void DrawCampSpellPages(void)
         }
         animation = &g_spell_realm_animations[realm];
         if (character->sp_max[realm] != 0) {
-            DrawCatalogImageAndInvalidate(
-                FRAME_BUFFER, animation->image, 0, g_camp_screen->animation_frames[realm],
-                (realm % 3) * 213 + 5, (realm / 3) * 140 + 0xac, VO_BLT_SRCTRANSPARENCY, 0);
+            CatalogArtwork::Load(animation->image, 0).drawAndInvalidate(GetFrameBufferSurface(), g_camp_screen->animation_frames[realm], (realm % 3) * 213 + 5, (realm / 3) * 140 + 0xac);
         } else {
-            DrawCatalogImageAndInvalidate(FRAME_BUFFER, animation->image, 0,
-                                          animation->initial_frame, (realm % 3) * 213 + 5,
-                                          (realm / 3) * 140 + 0xac, VO_BLT_SRCTRANSPARENCY, 0);
+            CatalogArtwork::Load(animation->image, 0).drawAndInvalidate(GetFrameBufferSurface(), animation->initial_frame, (realm % 3) * 213 + 5, (realm / 3) * 140 + 0xac);
         }
     }
 }
@@ -381,22 +487,19 @@ void DrawCampResistances(void)
     int top;
     int width;
 
-    DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x140, 0, 0, 0x136, 0, VO_BLT_SRCTRANSPARENCY, 0);
+    CatalogArtwork::Load(0x140, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, 0x136, 0);
     text = g_localized_strings[0x8ca];
-    width = StringCodepointPrefixPixelWidth(g_wiz_text_font_secondary, text.size(), text);
-    DrawFontText((0x134 - width) / 2 + 0x144, 0x1e, text);
+    width = g_wiz_text_font_secondary.codepointPrefixWidth(text, text.size());
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {(0x134 - width) / 2 + 0x144, 0x1e}, text);
     for (index = 0; index < 6; ++index) {
         animation = &g_spell_realm_animations[index];
         left = (index & 1) * 156 + 0x144;
         top = (index >> 1) * 28 + 0x35;
-        DrawCatalogImage(FRAME_BUFFER, animation->image, 0, animation->initial_frame, left, top,
-                         VO_BLT_SRCTRANSPARENCY, 0);
+        CatalogArtwork::Load(animation->image, 0).draw(GetFrameBufferSurface(), animation->initial_frame, left, top);
         DrawCampValueBar(character->resistances[index].total, character->resistances[index].base,
                          left + 0x18, top + 4);
-        width = StringCodepointPrefixPixelWidth(
-            g_wiz_text_font_secondary, 5, fmt::format("{:d}", character->resistances[index].total));
-        DrawFontText(left + 0x93 - width, top + 3,
-                     fmt::format("{:d}", character->resistances[index].total));
+        width = g_wiz_text_font_secondary.codepointPrefixWidth(fmt::format("{:d}", character->resistances[index].total), 5);
+        DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {left + 0x93 - width, top + 3}, fmt::format("{:d}", character->resistances[index].total));
     }
 }
 
@@ -405,7 +508,7 @@ void DrawCampResistances(void)
    ones, wheel input scrolls the realm's range control, and activating a valid
    row opens its spell info dialog. */
 // FUNCTION: WIZ8 0x005B79F0
-unsigned char SpellListRegionHandler(const InputAtom* event, W8Region* region)
+unsigned char SpellListRegionHandler(const InputEvent* event, W8Region* region)
 {
     unsigned short realm;
     int row;
@@ -415,7 +518,7 @@ unsigned char SpellListRegionHandler(const InputAtom* event, W8Region* region)
 
     PushButtonSoundScheme(0, true);
     realm = region->callback_id;
-    row = (GetAtomCursorY(event) - region->y1 - 1) / 0xd;
+    row = (GetEventCursorY(event) - region->y1 - 1) / 0xd;
     visible = g_review_character->skill_unlocks[0x1c + realm] -
               g_camp_screen->learned_spells.scroll[realm];
     if (visible >= 8) {
@@ -428,15 +531,15 @@ unsigned char SpellListRegionHandler(const InputAtom* event, W8Region* region)
         g_camp_screen->selected_spell_row = row;
         g_camp_screen->redraw_flags |= W8_CAMP_REDRAW_REALM_SPELLS_FIRST << realm;
     }
-    if (event->usEvent > RIGHT_BUTTON_UP) {
-        if (event->usEvent == MOUSE_POS) {
+    if (!IsLeftButtonEvent(event->type) && event->type != InputEventType::RightButtonDown && event->type != InputEventType::RightButtonUp) {
+        if (event->type == InputEventType::MouseMove) {
             if ((region->flags & W8_REGION_MOUSE_TRANSITION_MASK) != 0) {
                 g_camp_screen->redraw_flags |= W8_CAMP_REDRAW_REALM_SPELLS_FIRST << realm;
             }
             return 0;
         }
-        if (event->usEvent == MOUSE_WHEEL) {
-            delta = GetMouseWheelDeltaValue(event->usParam);
+        if (event->type == InputEventType::MouseWheel) {
+            delta = event->wheel;
             if (delta > 0) {
                 for (count = delta; count != 0; --count) {
                     g_camp_screen->spell_ranges[realm]->m_range->Decrement();
@@ -452,7 +555,7 @@ unsigned char SpellListRegionHandler(const InputAtom* event, W8Region* region)
         }
         return 0;
     }
-    if (event->usEvent == RIGHT_BUTTON_UP) {
+    if (event->type == InputEventType::RightButtonUp) {
         if ((region->flags & W8_REGION_RIGHT_BUTTON_HELD) != 0 && row != -1) {
             OpenSpellInfoDialog(
                 g_camp_screen->learned_spells
@@ -460,12 +563,12 @@ unsigned char SpellListRegionHandler(const InputAtom* event, W8Region* region)
         }
         return 1;
     }
-    if (event->usEvent == LEFT_BUTTON_DOWN) {
+    if (event->type == InputEventType::LeftButtonDown) {
         region->flags |= W8_REGION_LEFT_BUTTON_HELD;
         return 1;
     }
-    if (event->usEvent != LEFT_BUTTON_UP) {
-        if (event->usEvent != RIGHT_BUTTON_DOWN) {
+    if (event->type != InputEventType::LeftButtonUp) {
+        if (event->type != InputEventType::RightButtonDown) {
             return 0;
         }
         region->flags |= W8_REGION_RIGHT_BUTTON_HELD;
@@ -484,9 +587,9 @@ unsigned char SpellListRegionHandler(const InputAtom* event, W8Region* region)
 // FUNCTION: WIZ8 0x005B7BB0
 void OpenSpellInfoDialog(unsigned int spell_id)
 {
-    W8SpellInfoDialog* dialog = new W8SpellInfoDialog(spell_id);
+    auto dialog = std::make_unique<W8SpellInfoDialog>(spell_id);
     dialog->SetText("");
-    DisplayCampDialog(dialog);
+    DisplayCampDialog(std::move(dialog));
 }
 
 /* The items-page redraw driver, run once per update: each pending group of
@@ -495,8 +598,7 @@ void OpenSpellInfoDialog(unsigned int spell_id)
 // FUNCTION: WIZ8 0x005b7d10
 void RedrawCampItemsPage(void)
 {
-    SetFont(g_wiz_text_font_secondary);
-    SetObjectShade(GetFontObject(g_wiz_text_font_secondary), 4);
+    g_wiz_text_font_secondary.setShade(Font::kNormalShade);
     if ((g_camp_screen->redraw_flags & W8_CAMP_REDRAW_CHARACTER_INFO) != 0) {
         DrawCampCharacterInfo();
     }
@@ -532,21 +634,20 @@ void RedrawCampItemsPage(void)
 // FUNCTION: WIZ8 0x005b7e00
 void DrawCampCharacterInfo(void)
 {
-    W8CampScreenState* state = g_camp_screen;
+    W8CampScreenState* state = g_camp_screen.get();
     W8Character* character = g_review_character;
     int index;
     int realm;
     int top;
     unsigned int filled;
     SDL_Rect clip;
-    SDL_Rect previous_clip;
 
     if (state->info_page != W8_CAMP_INFO_PAGE_ITEMS) {
         state->character_info->Invalidate(0);
         InvalidateCampPanel();
         return;
     }
-    DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x114, 0, 0, 0x136, 0, VO_BLT_SRCTRANSPARENCY, 0);
+    CatalogArtwork::Load(0x114, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, 0x136, 0);
     if (character->experience != character->experience_previous_goal) {
         if (character->experience < character->experience_goal) {
             filled = (character->experience - character->experience_previous_goal) * 0x67 /
@@ -555,12 +656,9 @@ void DrawCampCharacterInfo(void)
             filled = 0x67;
         }
         if (filled != 0) {
-            GetClippingRect(&previous_clip);
             clip = {0x1c0, 0, static_cast<int>(filled), 0x1e0};
-            SetClippingRect(&clip);
-            DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x11d, 0, 0, 0x1c0, 0x26,
-                                          VO_BLT_SRCTRANSPARENCY, 0);
-            SetClippingRect(&previous_clip);
+            ScopedClipRect clipped(GetFrameBufferSurface(), clip);
+            CatalogArtwork::Load(0x11d, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, 0x1c0, 0x26);
         }
     }
     DrawRcsText(g_localized_strings[0x91b], 0x159, 10, 0xce,
@@ -588,9 +686,7 @@ void DrawCampCharacterInfo(void)
     DrawRcsText(state->text_buffer, 0x18d, 0x48, 0x2c,
                 g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
     if (character->load_category != 0) {
-        SetFontObjectPalette16BPP(
-            g_wiz_text_font_secondary,
-            g_font_state_palettes[g_load_category_palettes[character->load_category]].get());
+        g_wiz_text_font_secondary.setPalette(g_font_state_palettes[g_load_category_palettes[character->load_category]]);
     }
     state->text_buffer = fmt::format("{:d}/{:d}", character->total_carried_weight / 10,
                                      character->carrying_capacity / 10);
@@ -600,7 +696,7 @@ void DrawCampCharacterInfo(void)
                                      character->inventory_weight / 10, g_localized_strings[0x8c1],
                                      character->party_weight_share / 10);
     g_camp_help_text->SetRegionHelp(state->text_buffer);
-    SetFontObjectPalette16BPP(g_wiz_text_font_secondary, GetFontObject(g_wiz_text_font_secondary)->ownedPalette.get());
+    g_wiz_text_font_secondary.resetPalette();
     DrawRcsText(g_localized_strings[0x921], 0x144, 0x72, 0x75,
                 g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
     top = 0x3a;
@@ -626,8 +722,7 @@ void DrawCampCharacterInfo(void)
                             g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
             frame = g_spell_realm_animations[realm].initial_frame;
         }
-        DrawCatalogImageAndInvalidate(FRAME_BUFFER, g_character_resistance_images[realm], 0, frame,
-                                      0x22d, top, VO_BLT_SRCTRANSPARENCY, 0);
+        CatalogArtwork::Load(g_character_resistance_images[realm], 0).drawAndInvalidate(GetFrameBufferSurface(), frame, 0x22d, top);
         top += 0x18;
     }
     DrawRcsText(g_localized_strings[0x922], 0x144, 0x80, 0x45,
@@ -648,7 +743,7 @@ void DrawCampCharacterInfo(void)
 // FUNCTION: WIZ8 0x005b8440
 void DrawCampBackpackItems(void)
 {
-    W8CampScreenState* state = g_camp_screen;
+    W8CampScreenState* state = g_camp_screen.get();
     W8Character* character = g_review_character;
     unsigned int slot;
     int left;
@@ -658,8 +753,7 @@ void DrawCampBackpackItems(void)
     int item_id;
 
     if ((state->item_redraw_flags & W8_CAMP_ITEM_REDRAW_BACKPACK_HEADER) != 0) {
-        DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x114, 0, 1, 0, 0xa5, VO_BLT_SRCTRANSPARENCY,
-                                      0);
+        CatalogArtwork::Load(0x114, 0).drawAndInvalidate(GetFrameBufferSurface(), 1, 0, 0xa5);
         DrawRcsBoldText(g_localized_strings[0x92b], 0xc, 0xae, 0x5d,
                         g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
     }
@@ -674,26 +768,26 @@ void DrawCampBackpackItems(void)
         InvalidateRegion(left, top, right, bottom, 0);
         item_id = character->backpack[slot].iItemNo;
         if (item_id == -1 || CanCharacterUseItem(character, item_id)) {
-            BlitCatalogSurfaceRectTo16BPP(FRAME_BUFFER, left, top, right, bottom, 0x1b6, 0, 0);
+            CatalogArtwork::Load(0x1b6, 0).drawRect(GetFrameBufferSurface(), SDL_Rect{0, 0, (right) - (left), (bottom) - (top)}, left, top);
         } else {
-            DrawCatalogImage(FRAME_BUFFER, 0x11a, 0, 0, left, top, VO_BLT_SRCTRANSPARENCY, 0);
+            CatalogArtwork::Load(0x11a, 0).draw(GetFrameBufferSurface(), 0, left, top);
         }
         if (item_id != -1) {
-            DrawCatalogImage(FRAME_BUFFER, g_item_video_objects.GetOrCreateVideoObject(item_id), 0,
-                             0, left + 1, top + 1, VO_BLT_SRCTRANSPARENCY, 0);
+            DrawSprite(GetFrameBufferSurface(), g_item_video_objects.Sprites(item_id), 0, left + 1,
+                       top + 1);
             DrawCampItemQuantity(&character->backpack[slot], left + 1, top + 0x28, 0x2c);
             if (!character->backpack[slot].identified) {
-                DrawCatalogImage(FRAME_BUFFER, 0x11b, 0, 0, left, top, VO_BLT_SRCTRANSPARENCY, 0);
+                CatalogArtwork::Load(0x11b, 0).draw(GetFrameBufferSurface(), 0, left, top);
             }
         }
         if (item_id != -1 && g_item_records[item_id].binds_on_equip != 0 &&
             character->backpack[slot].bound) {
-            DrawCatalogImage(FRAME_BUFFER, 0x115, 0, 0x32, left, top, VO_BLT_SRCTRANSPARENCY, 0);
+            CatalogArtwork::Load(0x115, 0).draw(GetFrameBufferSurface(), 0x32, left, top);
         }
-        if (state->hover_region == slot + 0xf4 &&
+        if (state->hover_region == g_camp_inventory_regions->index(slot) &&
             (item_id != -1 ||
              (g_status.item_in_cursor && state->item_action != W8_CAMP_ITEM_ACTION_MOVE))) {
-            DrawCatalogImage(FRAME_BUFFER, 0x115, 0, 0x30, left, top, VO_BLT_SRCTRANSPARENCY, 0);
+            CatalogArtwork::Load(0x115, 0).draw(GetFrameBufferSurface(), 0x30, left, top);
         }
     }
 }
@@ -703,7 +797,7 @@ void DrawCampBackpackItems(void)
 // FUNCTION: WIZ8 0x005b8690
 void DrawCampEquipmentItems(void)
 {
-    W8CampScreenState* state = g_camp_screen;
+    W8CampScreenState* state = g_camp_screen.get();
     W8Character* character = g_review_character;
     const W8CampScreenRegion* region;
     unsigned int slot;
@@ -711,12 +805,8 @@ void DrawCampEquipmentItems(void)
     int frame;
 
     if ((state->item_redraw_flags & W8_CAMP_ITEM_REDRAW_PAPER_DOLL) != 0) {
-        DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x114, 0, 2, 0x71, 0xa5, VO_BLT_SRCTRANSPARENCY,
-                                      0);
-        DrawCatalogImageAndInvalidate(
-            FRAME_BUFFER,
-            g_race_portrait_images[character->iRace * W8_RACE_GNOME + character->gender], 0, 0,
-            0xc2, 0xa5, VO_BLT_SRCTRANSPARENCY, 0);
+        CatalogArtwork::Load(0x114, 0).drawAndInvalidate(GetFrameBufferSurface(), 2, 0x71, 0xa5);
+        CatalogArtwork::Load(g_race_portrait_images[character->iRace * W8_RACE_GNOME + character->gender], 0).drawAndInvalidate(GetFrameBufferSurface(), 0, 0xc2, 0xa5);
         state->redraw_flags |= W8_CAMP_REDRAW_ACTION_PANEL;
     }
     for (slot = 0; slot < 12; ++slot) {
@@ -726,8 +816,7 @@ void DrawCampEquipmentItems(void)
         region = &g_camp_screen_regions[slot];
         InvalidateRegion(region->x, region->y, region->x + region->width,
                          region->y + region->height, 0);
-        BlitCatalogSurfaceRectTo16BPP(FRAME_BUFFER, region->x, region->y, region->x + region->width,
-                                      region->y + region->height, 0x1b6, 0, 0);
+        CatalogArtwork::Load(0x1b6, 0).drawRect(GetFrameBufferSurface(), SDL_Rect{0, 0, (region->x + region->width) - (region->x), (region->y + region->height) - (region->y)}, region->x, region->y);
         item_id = character->EquippedItem[slot].iItemNo;
         if (item_id == -1) {
             if (slot == 7 || slot == 9) {
@@ -735,20 +824,16 @@ void DrawCampEquipmentItems(void)
                     character->EquippedItem[GetPairedEquipSlot(static_cast<W8EquipSlot>(slot))]
                         .iItemNo;
                 if (paired != -1 && (g_item_records[paired].flags & W8_ITEM_FLAG_TWO_HANDED) != 0) {
-                    DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x146, 0, 0, region->x, region->y,
-                                                  VO_BLT_SRCTRANSPARENCY, 0);
+                    CatalogArtwork::Load(0x146, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, region->x, region->y);
                 }
             }
         } else {
-            DrawCatalogImageAndInvalidate(FRAME_BUFFER,
-                                          g_item_video_objects.GetOrCreateVideoObject(item_id), 0,
-                                          1, region->x, region->y, VO_BLT_SRCTRANSPARENCY, 0);
+            DrawSpriteAndInvalidate(GetFrameBufferSurface(), g_item_video_objects.Sprites(item_id),
+                                    1, region->x, region->y);
             DrawCampItemQuantity(&character->EquippedItem[slot], region->x + 2,
                                  region->y + region->height - 0xd, region->width - 4);
             if (!character->EquippedItem[slot].identified) {
-                DrawCatalogImage(FRAME_BUFFER, 0x11b, 0,
-                                 static_cast<short>(region->unidentified_frame), region->x,
-                                 region->y, VO_BLT_SRCTRANSPARENCY, 0);
+                CatalogArtwork::Load(0x11b, 0).draw(GetFrameBufferSurface(), static_cast<short>(region->unidentified_frame), region->x, region->y);
             }
         }
         switch (slot) {
@@ -771,19 +856,16 @@ void DrawCampEquipmentItems(void)
             goto no_armor_label;
         }
         state->text_buffer = fmt::format("{:d}", character->armor_class_by_location[frame]);
-        DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x11c, 0, 0, region->x + 2, region->y + 1,
-                                      VO_BLT_SRCTRANSPARENCY, 0);
+        CatalogArtwork::Load(0x11c, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, region->x + 2, region->y + 1);
         DrawRcsText(state->text_buffer, region->x + 2, region->y + 2, 0x11,
                     g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
     no_armor_label:
-        DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x115, 0, region->frame + 3, region->x - 2,
-                                      region->y - 2, VO_BLT_SRCTRANSPARENCY, 0);
+        CatalogArtwork::Load(0x115, 0).drawAndInvalidate(GetFrameBufferSurface(), region->frame + 3, region->x - 2, region->y - 2);
         if (item_id != -1 && g_item_records[item_id].binds_on_equip != 0 &&
             character->EquippedItem[slot].bound) {
-            DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x115, 0, region->frame + 2, region->x - 2,
-                                          region->y - 2, VO_BLT_SRCTRANSPARENCY, 0);
+            CatalogArtwork::Load(0x115, 0).drawAndInvalidate(GetFrameBufferSurface(), region->frame + 2, region->x - 2, region->y - 2);
         }
-        if (state->hover_region == slot + 0xfc) {
+        if (state->hover_region == g_camp_inventory_regions->index(kCampEquipmentRegionOffset + slot)) {
             if (!g_status.item_in_cursor) {
                 if (character->EquippedItem[slot].iItemNo == -1) {
                     continue;
@@ -810,8 +892,7 @@ void DrawCampEquipmentItems(void)
             }
             frame = region->frame + 1;
         }
-        DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x115, 0, frame, region->x - 2, region->y - 2,
-                                      VO_BLT_SRCTRANSPARENCY, 0);
+        CatalogArtwork::Load(0x115, 0).drawAndInvalidate(GetFrameBufferSurface(), frame, region->x - 2, region->y - 2);
     }
 }
 
@@ -820,7 +901,7 @@ void DrawCampEquipmentItems(void)
 // FUNCTION: WIZ8 0x005b8b20
 void DrawCampItemPool(void)
 {
-    W8CampScreenState* state = g_camp_screen;
+    W8CampScreenState* state = g_camp_screen.get();
     W8Character* character = g_review_character;
     unsigned int visible;
     unsigned int i;
@@ -831,10 +912,8 @@ void DrawCampItemPool(void)
     W8ItemInstance* item;
 
     if ((state->item_redraw_flags & W8_CAMP_ITEM_REDRAW_POOL_HEADER) != 0) {
-        DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x114, 0, 3, 0x1de, 0xa5,
-                                      VO_BLT_SRCTRANSPARENCY, 0);
-        DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x118, 0, 0, 0x202, 0x1a6,
-                                      VO_BLT_SRCTRANSPARENCY, 0);
+        CatalogArtwork::Load(0x114, 0).drawAndInvalidate(GetFrameBufferSurface(), 3, 0x1de, 0xa5);
+        CatalogArtwork::Load(0x118, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, 0x202, 0x1a6);
         state->redraw_flags |= W8_CAMP_REDRAW_REALM_TABS;
     }
     if (!g_status.game_started) {
@@ -865,21 +944,21 @@ void DrawCampItemPool(void)
         }
         InvalidateRegion(left, top, right, bottom, 0);
         if (!CanCharacterUseItem(character, item->iItemNo)) {
-            DrawCatalogImage(FRAME_BUFFER, 0x11a, 0, 0, left, top, VO_BLT_SRCTRANSPARENCY, 0);
+            CatalogArtwork::Load(0x11a, 0).draw(GetFrameBufferSurface(), 0, left, top);
         } else {
-            BlitCatalogSurfaceRectTo16BPP(FRAME_BUFFER, left, top, right, bottom, 0x1b6, 0, 0);
+            CatalogArtwork::Load(0x1b6, 0).drawRect(GetFrameBufferSurface(), SDL_Rect{0, 0, (right) - (left), (bottom) - (top)}, left, top);
         }
-        DrawCatalogImage(FRAME_BUFFER, g_item_video_objects.GetOrCreateVideoObject(item->iItemNo),
-                         0, 0, left + 1, top + 1, VO_BLT_SRCTRANSPARENCY, 0);
+        DrawSprite(GetFrameBufferSurface(), g_item_video_objects.Sprites(item->iItemNo), 0,
+                   left + 1, top + 1);
         DrawCampItemQuantity(item, left + 1, top + 0x28, 0x2c);
         if (!item->identified) {
-            DrawCatalogImage(FRAME_BUFFER, 0x11b, 0, 0, left, top, VO_BLT_SRCTRANSPARENCY, 0);
+            CatalogArtwork::Load(0x11b, 0).draw(GetFrameBufferSurface(), 0, left, top);
         }
         if (g_item_records[item->iItemNo].binds_on_equip != 0 && item->bound) {
-            DrawCatalogImage(FRAME_BUFFER, 0x115, 0, 0x32, left, top, VO_BLT_SRCTRANSPARENCY, 0);
+            CatalogArtwork::Load(0x115, 0).draw(GetFrameBufferSurface(), 0x32, left, top);
         }
-        if (state->hover_region == i + 0x108) {
-            DrawCatalogImage(FRAME_BUFFER, 0x115, 0, 0x30, left, top, VO_BLT_SRCTRANSPARENCY, 0);
+        if (state->hover_region == g_camp_item_pool_regions->index(i)) {
+            CatalogArtwork::Load(0x115, 0).draw(GetFrameBufferSurface(), 0x30, left, top);
         }
     }
     for (i = state->item_list_count - state->item_scroll; i < 8; ++i) {
@@ -889,11 +968,12 @@ void DrawCampItemPool(void)
         bottom = top + 0x36;
         if ((state->item_redraw_flags & (W8_CAMP_ITEM_REDRAW_POOL_CELL_FIRST << i)) != 0) {
             InvalidateRegion(left, top, right, bottom, 0);
-            BlitCatalogSurfaceRectTo16BPP(FRAME_BUFFER, left, top, right, bottom, 0x1b6, 0, 0);
-            if (state->hover_region == i + 0x108 && g_status.item_in_cursor &&
+            CatalogArtwork::Load(0x1b6, 0).drawRect(
+                GetFrameBufferSurface(), SDL_Rect{0, 0, (right) - (left), (bottom) - (top)}, left,
+                top);
+            if (state->hover_region == g_camp_item_pool_regions->index(i) && g_status.item_in_cursor &&
                 state->item_action != W8_CAMP_ITEM_ACTION_MOVE) {
-                DrawCatalogImage(FRAME_BUFFER, 0x115, 0, 0x30, left, top, VO_BLT_SRCTRANSPARENCY,
-                                 0);
+                CatalogArtwork::Load(0x115, 0).draw(GetFrameBufferSurface(), 0x30, left, top);
             }
         }
     }
@@ -905,7 +985,7 @@ void DrawCampItemPool(void)
 // FUNCTION: WIZ8 0x005b8ec0
 void DrawCampItemQuantity(W8ItemInstance* item, int left, int top, int width)
 {
-    W8CampScreenState* state = g_camp_screen;
+    W8CampScreenState* state = g_camp_screen.get();
     int height;
 
     switch (g_item_records[item->iItemNo].quantity_kind) {
@@ -918,38 +998,37 @@ void DrawCampItemQuantity(W8ItemInstance* item, int left, int top, int width)
         break;
     case W8_ITEM_QUANTITY_CHARGES:
     case W8_ITEM_QUANTITY_USES:
-        SetFontObjectPalette16BPP(g_wiz_text_font_secondary,
-                                  g_font_state_palettes[W8_FONT_PALETTE_BLUE].get());
+        g_wiz_text_font_secondary.setPalette(g_font_state_palettes[W8_FONT_PALETTE_BLUE]);
         if (!item->identified) {
             state->text_buffer = "?";
         } else {
             state->text_buffer = fmt::format("{:d}", item->uses_or_charges);
         }
-        height = GetFontHeight(g_wiz_text_font_secondary);
+        height = g_wiz_text_font_secondary.height();
         DrawRcsTextJustified(state->text_buffer, left, top, width, height,
                              g_W8TextBufferAlignMiddle | g_W8TextBufferAlignRight);
         break;
     case W8_ITEM_QUANTITY_SHOTS:
-        SetFontObjectPalette16BPP(g_wiz_text_font_secondary,
-                                  g_font_state_palettes[W8_FONT_PALETTE_YELLOW].get());
+        g_wiz_text_font_secondary.setPalette(g_font_state_palettes[W8_FONT_PALETTE_YELLOW]);
         state->text_buffer = fmt::format("{:d}", item->uses_or_charges);
-        height = GetFontHeight(g_wiz_text_font_secondary);
+        height = g_wiz_text_font_secondary.height();
         DrawRcsTextJustified(state->text_buffer, left, top, width, height,
                              g_W8TextBufferAlignMiddle | g_W8TextBufferAlignRight);
         break;
     }
-    SetFontObjectPalette16BPP(g_wiz_text_font_secondary, GetFontObject(g_wiz_text_font_secondary)->ownedPalette.get());
+    g_wiz_text_font_secondary.resetPalette();
 }
 
 // FUNCTION: WIZ8 0x005b3150
-W8CampCharacterInfo::W8CampCharacterInfo() : Controls(0x136, 0, 0x280, 0xa5, 0x122, 0, 0)
+W8CampCharacterInfo::W8CampCharacterInfo()
+    : Controls(0x136, 0, 0x280, 0xa5, CatalogArtwork::Load(0x122, 0), 0)
 {
-    AcquireRegionSet(&g_camp_character_info_region_set);
+    CreateRegionSet();
     m_combat_view = true;
-    m_stats_tab = new W8TextControl(this, -1, 8, 0x8b, 0, 0, 0x121, 0, 15, 16, 17, 19, 18);
+    m_stats_tab = new W8TextControl(this, -1, 8, 0x8b, 0, 0, CatalogArtwork::Load(0x121, 0), 15, 16, 17, 19, 18);
     m_stats_tab->m_listener = this;
     m_stats_tab->EnableRegionHelp(0x960);
-    m_combat_tab = new W8TextControl(this, -1, 8, 0x8b, 0, 0, 0x121, 0, 10, 11, 12, 14, 13);
+    m_combat_tab = new W8TextControl(this, -1, 8, 0x8b, 0, 0, CatalogArtwork::Load(0x121, 0), 10, 11, 12, 14, 13);
     m_combat_tab->m_listener = this;
     m_combat_tab->EnableRegionHelp(0x95f);
     m_values[0] = new W8HelpTextControl(this, -1, 0xa0, 0x4c, 0xc0, 0x58);
@@ -978,11 +1057,11 @@ void W8CampCharacterInfo::SetCombatView(bool enabled)
     m_values[2]->SetActive(enabled);
     m_values[3]->SetActive(enabled);
     if (enabled) {
-        m_catalogImage = 0;
+        m_backgroundImage = 0;
     } else if (g_review_character->armor_class_components[W8_AC_COMPONENT_REFLEXTION] > 0) {
-        m_catalogImage = 2;
+        m_backgroundImage = 2;
     } else {
-        m_catalogImage = 1;
+        m_backgroundImage = 1;
     }
     Invalidate(0);
 }
@@ -1003,9 +1082,9 @@ void W8CampCharacterInfo::Redraw()
     bool redraw = m_fEnabled && m_fDirty;
     if (!m_combat_view &&
         ((g_review_character->armor_class_components[W8_AC_COMPONENT_REFLEXTION] > 0 &&
-          m_catalogImage != 2) ||
+          m_backgroundImage != 2) ||
          (g_review_character->armor_class_components[W8_AC_COMPONENT_REFLEXTION] <= 0 &&
-          m_catalogImage == 2))) {
+          m_backgroundImage == 2))) {
         SetCombatView(false);
     }
     Controls::Redraw();
@@ -1169,7 +1248,7 @@ void W8CampCharacterInfo::Redraw()
 
 W8CampItemRange::W8CampItemRange()
 {
-    m_range = new W8RangeControl(0x263, 0xc1, 0x275, 0x1a1, &g_camp_item_region_set);
+    m_range = new W8RangeControl(0x263, 0xc1, 0x275, 0x1a1);
     m_range->SetEnabled(true);
     m_range->m_listener = this;
 }
@@ -1178,7 +1257,7 @@ W8CampItemRange::W8CampItemRange()
 void W8CampItemRange::OnRangeChanged(W8RangeControl*)
 {
     g_camp_screen->item_scroll = m_range->m_value << 1;
-    if (gfKeyState[VK_CONTROL]) {
+    if (IsKeyHeld(VK_CONTROL)) {
         g_camp_screen->redraw_flags |= W8_CAMP_REDRAW_ALL;
         return;
     }
@@ -1191,8 +1270,7 @@ W8CampSpellRange::W8CampSpellRange(W8SpellRealm realm)
     m_realm = realm;
     int x = (realm % 3) * 0xd5;
     int y = (realm / 3) * 0x8c;
-    m_range = new W8RangeControl(x + 0xbb, y + 0xc3, x + 0xcd, y + 0x129,
-                                 &g_camp_spell_region_sets[realm]);
+    m_range = new W8RangeControl(x + 0xbb, y + 0xc3, x + 0xcd, y + 0x129);
     m_range->m_listener = this;
     m_range->SetEnabled(true);
 }
@@ -1216,9 +1294,7 @@ void W8CampSpellRange::OnRangeChanged(W8RangeControl*)
 // FUNCTION: WIZ8 0x005a3500
 unsigned char CampScreenInitialize(void)
 {
-    g_camp_screen = 0;
-    CampScreenInitializeRegions();
-    LayoutCampSecondaryRegions();
+    g_camp_screen.reset();
     return 1;
 }
 
@@ -1232,16 +1308,18 @@ void CampScreenInitializeRegions(void)
     for (index = 0; index < 8; ++index) {
         unsigned short x = static_cast<unsigned short>((index & 1) * 0x30 + 6);
         unsigned short y = static_cast<unsigned short>((index >> 1) * 0x27 + 5);
-        SetRegionBounds(index + 0xea, x, y, x + 0x2d, y + 0x24);
+        SetRegionBounds(g_camp_main_regions->index(kCampPartyPortraitRegionOffset + index), x, y,
+                        x + 0x2d, y + 0x24);
     }
     for (index = 0; index < 8; ++index) {
         unsigned short x = static_cast<unsigned short>((index & 1) * 0x31 + 0xb);
         unsigned short y = static_cast<unsigned short>((index >> 1) * 0x39 + 0xc0);
-        SetRegionBounds(index + 0xf4, x, y, x + 0x2e, y + 0x36);
+        SetRegionBounds(g_camp_inventory_regions->index(index), x, y, x + 0x2e, y + 0x36);
     }
     for (index = 0; index < 12; ++index) {
         const W8CampScreenRegion& region = g_camp_screen_regions[index];
-        SetRegionBounds(index + 0xfc, static_cast<unsigned short>(region.x),
+        SetRegionBounds(g_camp_inventory_regions->index(kCampEquipmentRegionOffset + index),
+                        static_cast<unsigned short>(region.x),
                         static_cast<unsigned short>(region.y),
                         static_cast<unsigned short>(region.x + region.width),
                         static_cast<unsigned short>(region.y + region.height));
@@ -1249,13 +1327,14 @@ void CampScreenInitializeRegions(void)
     for (index = 0; index < 8; ++index) {
         unsigned short x = static_cast<unsigned short>((index & 1) * 0x31 + 0x200);
         unsigned short y = static_cast<unsigned short>((index >> 1) * 0x39 + 0xc0);
-        SetRegionBounds(index + 0x108, x, y, x + 0x2e, y + 0x36);
+        SetRegionBounds(g_camp_item_pool_regions->index(index), x, y, x + 0x2e, y + 0x36);
     }
 }
 
-/* The camp screen's remaining six regions, three across and two down. The
-   initializer calls this immediately after the block above; nothing else
-   reaches it, and nothing here names what the six cells hold. */
+/* The camp screen's remaining six regions, three across and two down. Camp
+   entry calls this immediately after the block above, once the region sets
+   exist; nothing else reaches it, and nothing here names what the six cells
+   hold. */
 // FUNCTION: WIZ8 0x005b7230
 void LayoutCampSecondaryRegions(void)
 {
@@ -1263,7 +1342,7 @@ void LayoutCampSecondaryRegions(void)
     for (index = 0; index < 6; ++index) {
         unsigned short x = static_cast<unsigned short>((index % 3) * 0xd5 + 0x1d);
         unsigned short y = static_cast<unsigned short>((index / 3) * 0x8c + 0xc3);
-        SetRegionBounds(index + 0x119, x, y, x + 0x99, y + 0x65);
+        SetRegionBounds(g_camp_spell_list_regions->index(index), x, y, x + 0x99, y + 0x65);
     }
 }
 
@@ -1280,24 +1359,25 @@ unsigned char CampScreenEnter(void)
     } else {
         g_camp_identifying_character = g_current_screen_state.parameter_4;
         initial_item_action = W8_CAMP_ITEM_ACTION_IDENTIFY_SPELL;
-        SoundPlay(s_general_magic_sound, 0);
+        wiz8::sound::play(s_general_magic_sound);
         SetTargetingMode(W8_TARGET_NEED_ITEM);
     }
     ClearItemDrag();
     if (!g_camp_screen) {
-        g_camp_screen = new (std::nothrow) W8CampScreenState{};
-        if (!g_camp_screen) {
-            if (IsMessageBoxActive()) {
-                CloseMessageBox();
-            }
-            BeginCombatRound();
-            RequestScreenTransition();
-            return 0;
-        }
+        g_camp_screen = std::make_unique<W8CampScreenState>();
     }
-    SetClippingRegionAndImageWidth(0x500, 0, 0, 0x280, 0x1e0);
+    CreatePartyPortraitEventRegions();
+    g_camp_main_regions.Create();
+    g_camp_inventory_regions.Create();
+    g_camp_item_pool_regions.Create();
+    g_camp_spell_list_regions.Create();
+    g_camp_page_regions.Create();
+    g_camp_item_action_regions.Create();
+    g_camp_automap_regions.Create();
+    g_camp_overlay_regions.Create();
+    CampScreenInitializeRegions();
+    LayoutCampSecondaryRegions();
     g_camp_screen->item_action = initial_item_action;
-    MSYS_Init();
     for (unsigned int filter = 0; filter < W8_CAMP_ITEM_FILTER_COUNT; ++filter) {
         g_camp_screen->item_filters[filter] = 0;
     }
@@ -1311,17 +1391,17 @@ unsigned char CampScreenEnter(void)
     CreateRcsDismissPanel();
     g_camp_screen->page = W8_CAMP_PAGE_ITEMS;
     g_camp_screen->info_page = W8_CAMP_INFO_PAGE_ITEMS;
-    g_camp_screen->item_range = new W8CampItemRange;
+    g_camp_screen->item_range = std::make_unique<W8CampItemRange>();
     for (int range_index = 0; range_index < 6; ++range_index) {
         g_camp_screen->spell_ranges[range_index] =
-            new W8CampSpellRange(static_cast<W8SpellRealm>(range_index));
+            std::make_unique<W8CampSpellRange>(static_cast<W8SpellRealm>(range_index));
     }
     g_camp_screen->effect_list.clear();
     g_camp_screen->effect_items_only = true;
     g_camp_screen->effect_filter = W8_CAMP_EFFECT_FILTER_ALL;
-    g_camp_screen->stats_range = new W8CampStatsRange;
-    g_camp_screen->stats_controls = new W8CampStatsControls;
-    g_camp_screen->character_info = new W8CampCharacterInfo;
+    g_camp_screen->stats_range = std::make_unique<W8CampStatsRange>();
+    g_camp_screen->stats_controls = std::make_unique<W8CampStatsControls>();
+    g_camp_screen->character_info = std::make_unique<W8CampCharacterInfo>();
     g_camp_screen->item_icons_drawn = false;
     ActivateCampPage();
     g_camp_screen->animation_timer = w8_get_ticks() + (50);
@@ -1386,10 +1466,9 @@ void CampScreenFrame(void)
         ProcessMessageBoxInput();
     }
     ServiceMusicPlaylist();
-    if (g_camp_screen->dialog && !ProcessDialogInput(g_camp_screen->dialog)) {
-        ClearActiveRegionIfMatches(0x138);
-        delete g_camp_screen->dialog;
-        g_camp_screen->dialog = 0;
+    if (g_camp_screen->dialog && !ProcessDialogInput(g_camp_screen->dialog.get())) {
+        ReleaseInputSinkCapture();
+        g_camp_screen->dialog.reset();
         g_camp_screen->redraw_flags |= W8_CAMP_REDRAW_ALL;
     }
     if (gXStatus.level_up_notice && g_suspended_screen_id != W8_SCREEN_CHARACTER &&
@@ -1399,10 +1478,10 @@ void CampScreenFrame(void)
     SDL_Point point;
     SGPMouseGetPos(&point);
     g_camp_screen->hover_region = UpdateRegionMousePosition(point.x, point.y);
-    InputAtom input;
+    InputEvent input;
     while (DequeueEvent(&input) == 1) {
-        if (!DispatchRegionInput(&input) && input.usEvent == KEY_DOWN) {
-            if (input.usParam == ESC) {
+        if (!DispatchRegionInput(&input) && input.type == InputEventType::KeyDown) {
+            if (input.key == VK_ESCAPE) {
                 if (g_camp_screen->item_action == W8_CAMP_ITEM_ACTION_NONE ||
                     g_camp_screen->page != W8_CAMP_PAGE_ITEMS) {
                     if (!g_camp_character_pending) {
@@ -1425,12 +1504,12 @@ void CampScreenFrame(void)
                 } else {
                     SetCampItemActionMode(W8_CAMP_ITEM_ACTION_NONE);
                 }
-            } else if (input.usParam == 'P') {
+            } else if (input.key == 'P') {
                 if (g_status.game_started) {
                     SortPartyItemPool();
                 }
-            } else if (input.usParam == 'X' && gfKeyState[VK_MENU] && !gfKeyState[VK_CONTROL] &&
-                       !gfKeyState[VK_SHIFT]) {
+            } else if (input.key == 'X' && IsKeyHeld(VK_MENU) && !IsKeyHeld(VK_CONTROL) &&
+                       !IsKeyHeld(VK_SHIFT)) {
                 ShowCampNoticeLine(g_localized_strings[0x832], OnQuitGameDialogClosed, true, true);
             }
         }
@@ -1463,30 +1542,29 @@ void CampScreenFrame(void)
 unsigned char CampScreenLeave(int)
 {
     DeactivateCampPage();
-    SetFontObjectPalette16BPP(g_smfnt_font, GetFontObject(g_smfnt_font)->ownedPalette.get());
-    SetFontObjectPalette16BPP(g_calligraphy_font, GetFontObject(g_calligraphy_font)->ownedPalette.get());
-    SetFontObjectPalette16BPP(g_calligraphy_shadow_font, GetFontObject(g_calligraphy_shadow_font)->ownedPalette.get());
-    SetFontObjectPalette16BPP(g_wiz_text_font, GetFontObject(g_wiz_text_font)->ownedPalette.get());
+    g_smfnt_font.resetPalette();
+    g_calligraphy_font.resetPalette();
+    g_calligraphy_shadow_font.resetPalette();
+    g_wiz_text_font.resetPalette();
     DestroyCampButtonPanel();
     ReleaseCampActionPanel();
     ReleaseItemsTabPanel();
     ReleaseCampSecondaryPanel();
     DestroyRcsLevelUpPanel();
     DestroyRcsDismissPanel();
-    delete g_camp_screen->item_range;
     if (g_camp_screen->dialog) {
-        ClearActiveRegionIfMatches(0x138);
-        delete g_camp_screen->dialog;
+        ReleaseInputSinkCapture();
     }
-    for (int realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
-        delete g_camp_screen->spell_ranges[realm];
-    }
-    delete g_camp_screen->stats_range;
-    delete g_camp_screen->stats_controls;
-    delete g_camp_screen->character_info;
-    delete g_camp_screen;
-    g_camp_screen = 0;
-    MSYS_Shutdown();
+    g_camp_screen.reset();
+    g_camp_overlay_regions.Destroy();
+    g_camp_skill_regions.Destroy();
+    g_camp_automap_regions.Destroy();
+    g_camp_item_action_regions.Destroy();
+    g_camp_page_regions.Destroy();
+    g_camp_spell_list_regions.Destroy();
+    g_camp_item_pool_regions.Destroy();
+    g_camp_inventory_regions.Destroy();
+    g_camp_main_regions.Destroy();
     ResetRegions();
     if (gXStatus.fCampMode) {
         gXStatus.dialogue_sync_pending = true;
@@ -1526,11 +1604,11 @@ void DismissSelectedPartyCharacter(void)
 // FUNCTION: WIZ8 0x005a42a0
 void DrawCampScreen(void)
 {
-    W8CampScreenState* state = g_camp_screen;
+    W8CampScreenState* state = g_camp_screen.get();
     unsigned int index;
 
     NoOp();
-    if (!gfKeyState[VK_CONTROL] && state->item_icons_drawn) {
+    if (!IsKeyHeld(VK_CONTROL) && state->item_icons_drawn) {
         state->redraw_flags |= W8_CAMP_REDRAW_ALL;
         state->item_icons_drawn = false;
     }
@@ -1561,8 +1639,7 @@ void DrawCampScreen(void)
             break;
         }
         RefreshCampItemActions((state->redraw_flags & W8_CAMP_REDRAW_ITEM_ACTIONS) != 0);
-        SetFont(g_calligraphy_font);
-        SetObjectShade(GetFontObject(g_calligraphy_font), 4);
+        g_calligraphy_font.setShade(Font::kNormalShade);
         state->item_redraw_flags = 0;
         state->redraw_flags = 0;
         if (IsMessageBoxActive()) {
@@ -1578,7 +1655,7 @@ void DrawCampScreen(void)
         RefreshItemsTabPanel(false);
         RefreshCampSecondaryPanel(false);
         state->item_range->m_range->Redraw();
-        if (gfKeyState[VK_CONTROL] && state->dialog == 0) {
+        if (IsKeyHeld(VK_CONTROL) && state->dialog == 0) {
             DrawCampItemIcons();
             state->item_icons_drawn = true;
         }
@@ -1608,7 +1685,7 @@ void DrawCampScreen(void)
 done:
     RedrawPortraitQuoteBubbles();
     if (state->dialog != 0) {
-        DrawDialog(state->dialog);
+        DrawDialog(state->dialog.get());
     }
     RenderFrame();
 }
@@ -1617,10 +1694,10 @@ done:
 void SyncReviewCharInputRegion(void)
 {
     if (giReviewCharSlot != -1 && g_status.buffers.XChar[giReviewCharSlot].npc_index != -1) {
-        DisableRegionInput(0xf2);
+        DisableRegionInput(g_camp_main_regions->index(kCampCharacterHeaderRegionOffset));
         return;
     }
-    EnableRegionInput(0xf2);
+    EnableRegionInput(g_camp_main_regions->index(kCampCharacterHeaderRegionOffset));
 }
 
 /* Switch the active camp page: tear the old page down, record the new index,
@@ -1640,34 +1717,34 @@ void SwitchCampPage(W8CampPage page)
 // FUNCTION: WIZ8 0x005a45b0
 void ActivateCampPage(void)
 {
-    W8CampScreenState* state = g_camp_screen;
+    W8CampScreenState* state = g_camp_screen.get();
     unsigned int index;
 
-    RegionSetEnable(0x29);
+    g_camp_main_regions.Enable();
     if (state->page != W8_CAMP_PAGE_ITEMS) {
         SetCampItemActionMode(W8_CAMP_ITEM_ACTION_NONE);
     }
     if (giReviewCharSlot == -1) {
         for (index = 0; index < 8; ++index) {
-            DisableRegionInput(index + 0xea);
+            DisableRegionInput(g_camp_main_regions->index(kCampPartyPortraitRegionOffset + index));
         }
     } else if (g_status.buffers.XChar[giReviewCharSlot].npc_index == -1) {
-        EnableRegionInput(0xf2);
+        EnableRegionInput(g_camp_main_regions->index(kCampCharacterHeaderRegionOffset));
     } else {
-        DisableRegionInput(0xf2);
+        DisableRegionInput(g_camp_main_regions->index(kCampCharacterHeaderRegionOffset));
     }
     state->header_mode = W8_CAMP_HEADER_SUMMARY;
     state->redraw_flags |= 0x7ff;
     switch (state->page) {
     case W8_CAMP_PAGE_ITEMS:
-        RegionSetEnable(0x2a);
+        g_camp_inventory_regions.Enable();
         EnableCampActionButtons();
         UpdateCampItemFilters();
         EnableCampSecondaryPanel();
         SetCampInfoPageMode(state->info_page);
         state->item_range->m_range->EnableRegionSet(true);
         if (g_status.game_started) {
-            RegionSetEnable(0x2b);
+            g_camp_item_pool_regions.Enable();
             state->item_scroll = 0;
             RebuildCampItemList();
             return;
@@ -1683,7 +1760,7 @@ void ActivateCampPage(void)
         CreateCampSkillRegions();
         return;
     case W8_CAMP_PAGE_SPELLS:
-        RegionSetEnable(0x2c);
+        g_camp_spell_list_regions.Enable();
         BuildLearnedSpellState(&state->learned_spells, g_review_character);
         RefreshCampSpellRanges();
         gXStatus.fSpellCastMode = false;
@@ -1700,19 +1777,19 @@ void ActivateCampPage(void)
 // FUNCTION: WIZ8 0x005a4770
 void DeactivateCampPage(void)
 {
-    W8CampScreenState* state = g_camp_screen;
+    W8CampScreenState* state = g_camp_screen.get();
     unsigned int index;
 
     switch (state->page) {
     case W8_CAMP_PAGE_ITEMS:
-        RegionSetDisable(0x2a);
+        g_camp_inventory_regions.Disable();
         DisableItemsRealmTabs();
         DisableCampActionButtons();
         DisableCampSecondaryPanel();
         state->character_info->SetEnabled(false);
         state->item_range->m_range->EnableRegionSet(false);
         if (g_status.game_started) {
-            RegionSetDisable(0x2b);
+            g_camp_item_pool_regions.Disable();
             return;
         }
         break;
@@ -1729,7 +1806,7 @@ void DeactivateCampPage(void)
         }
         return;
     case W8_CAMP_PAGE_SPELLS:
-        RegionSetDisable(0x2c);
+        g_camp_spell_list_regions.Disable();
         SetCampSpellRangesEnabled(false);
         break;
     default:
@@ -1744,23 +1821,22 @@ void DrawCampRegenStats(void)
 {
     unsigned int index;
 
-    SetFont(g_calligraphy_font);
-    SetObjectShade(GetFontObject(g_calligraphy_font), 4);
-    SetObjectShade(GetFontObject(g_calligraphy_font), 0);
-    DrawFontTextDirty(0x14a, 5, g_localized_strings[0x8ce]);
-    SetObjectShade(GetFontObject(g_calligraphy_font), 4);
-    DrawFontTextDirty(0x221, 5, fmt::format("{:6.3f}", g_review_character->health_regen_rate));
-    SetObjectShade(GetFontObject(g_calligraphy_font), 0);
-    DrawFontTextDirty(0x14a, 0x14, g_localized_strings[0x8cd]);
-    SetObjectShade(GetFontObject(g_calligraphy_font), 4);
-    DrawFontTextDirty(0x221, 0x14, fmt::format("{:6.3f}", g_review_character->stamina_regen_rate));
-    SetObjectShade(GetFontObject(g_calligraphy_font), 0);
-    DrawFontTextDirty(0x14a, 0x23, g_localized_strings[0x8d0]);
-    SetObjectShade(GetFontObject(g_calligraphy_font), 4);
+    g_calligraphy_font.setShade(Font::kNormalShade);
+    g_calligraphy_font.setShade(0);
+    DrawTextAndInvalidate(GetFrameBufferSurface(), g_calligraphy_font, {0x14a, 5}, g_localized_strings[0x8ce]);
+    g_calligraphy_font.setShade(Font::kNormalShade);
+    DrawTextAndInvalidate(GetFrameBufferSurface(), g_calligraphy_font, {0x221, 5}, fmt::format("{:6.3f}", g_review_character->health_regen_rate));
+    g_calligraphy_font.setShade(0);
+    DrawTextAndInvalidate(GetFrameBufferSurface(), g_calligraphy_font, {0x14a, 0x14}, g_localized_strings[0x8cd]);
+    g_calligraphy_font.setShade(Font::kNormalShade);
+    DrawTextAndInvalidate(GetFrameBufferSurface(), g_calligraphy_font, {0x221, 0x14}, fmt::format("{:6.3f}", g_review_character->stamina_regen_rate));
+    g_calligraphy_font.setShade(0);
+    DrawTextAndInvalidate(GetFrameBufferSurface(), g_calligraphy_font, {0x14a, 0x23}, g_localized_strings[0x8d0]);
+    g_calligraphy_font.setShade(Font::kNormalShade);
     for (index = 0; index < 6; ++index) {
-        DrawFontTextDirty(
-            index * 0x14 + 0x1fe, 0x23,
-            fmt::format("{:6.3f}/", g_review_character->spell_regen_rates[index * 2]));
+        DrawTextAndInvalidate(GetFrameBufferSurface(), g_calligraphy_font,
+                              {static_cast<int>(index * 0x14 + 0x1fe), 0x23},
+                              fmt::format("{:6.3f}/", g_review_character->spell_regen_rates[index * 2]));
     }
 }
 
@@ -1837,10 +1913,10 @@ void SetCampHeaderMode(W8CampHeaderMode mode)
 }
 
 // FUNCTION: WIZ8 0x005a4be0
-void DisplayCampDialog(W8DialogBase* dialog)
+void DisplayCampDialog(std::unique_ptr<W8DialogBase> dialog)
 {
-    g_camp_screen->dialog = dialog;
-    ActivateDialogRegion(0x138);
+    g_camp_screen->dialog = std::move(dialog);
+    CaptureInputSink();
 }
 
 // FUNCTION: WIZ8 0x005a4c00
@@ -1853,7 +1929,7 @@ void ShowCampNoticeLine(std::string_view text, W8DialogDestroyCallback callback,
     dialog->SetClientExtent(0xfa, 200);
     dialog->SetMessage(text, 1, 0x32, confirmation, cancel, true, true, 0, 0x15e);
     SetDialogDestroyCallback(dialog, callback);
-    DisplayCampDialog(dialog);
+    DisplayCampDialog(std::unique_ptr<W8DialogBase>(dialog));
 }
 
 /* The shared click handler for the camp item regions: a backpack slot arrives
@@ -2003,7 +2079,7 @@ void HandleCampItemClick(W8ItemInstance* item, unsigned int slot_index, W8ItemOr
     if (gated && !IsCampActionAllowed(giReviewCharSlot)) {
         return;
     }
-    if (gfKeyState[VK_SHIFT] != 0) {
+    if (IsKeyHeld(VK_SHIFT)) {
         TakeItemUnitToHand(item, slot_index, origin);
         return;
     }
@@ -2263,7 +2339,7 @@ void HandleCampItemClick(W8ItemInstance* item, unsigned int slot_index, W8ItemOr
         return;
     }
     g_camp_screen->redraw_flags |= W8_CAMP_REDRAW_ITEM_ACTIONS;
-    if (gfKeyState[VK_CONTROL]) {
+    if (IsKeyHeld(VK_CONTROL)) {
         g_camp_screen->redraw_flags |= W8_CAMP_REDRAW_ALL;
     } else {
         if (origin == W8_ITEM_ORIGIN_BACKPACK) {
@@ -2469,14 +2545,14 @@ int CommitPartySlotSpell(int party_slot, int spell_id, int power_level, W8Combat
     SetPartySlotSpell(party_slot, spell_id, power_level, target);
     FatigueCharacter(party_slot, cost, true, 0);
     if (result != 1) {
-        SoundPlay("Data\\Sound\\Misc\\Spell Fizzle 01.wav", 0);
+        wiz8::sound::play("Data\\Sound\\Misc\\Spell Fizzle 01.wav");
         return result;
     }
     if (spell_id == W8_SPELL_IDENTIFY_ITEM && target->pPCItem->identified) {
-        SoundPlay("Data\\Sound\\Misc\\Spell Learned.wav", 0);
+        wiz8::sound::play("Data\\Sound\\Misc\\Spell Learned.wav");
         return 1;
     }
-    SoundPlay(s_general_magic_sound, 0);
+    wiz8::sound::play(s_general_magic_sound);
     return 1;
 }
 
@@ -2511,12 +2587,12 @@ int CommitPartySlotItemUse(int party_slot, W8ItemInstance* item, W8CombatSlot* t
     if (result == 1) {
         used = target->pPCItem;
         if (g_item_records[used->iItemNo].spell_id == W8_SPELL_IDENTIFY_ITEM && used->identified) {
-            SoundPlay("Data\\Sound\\Misc\\Spell Learned.wav", 0);
+            wiz8::sound::play("Data\\Sound\\Misc\\Spell Learned.wav");
         } else {
-            SoundPlay(s_general_magic_sound, 0);
+            wiz8::sound::play(s_general_magic_sound);
         }
     } else {
-        SoundPlay("Data\\Sound\\Misc\\Spell Fizzle 01.wav", 0);
+        wiz8::sound::play("Data\\Sound\\Misc\\Spell Fizzle 01.wav");
     }
     return result;
 }
@@ -2536,9 +2612,8 @@ void BeginEndgameSequence(void)
         fade_code = 1;
         endgame_variant = true;
     }
-    MSYS_Init();
     ResetRegions();
-    ActivateDialogRegion(0x138);
+    CaptureInputSink();
     VideoRemoveToolTip();
     g_level_block->transition_pending = true;
     g_level_block->review_transition_active = true;
@@ -2650,11 +2725,10 @@ void BeginPartyDeath(void)
         RestoreSurpriseView();
     }
     UpdateHeldItemCursor();
-    SoundPlay("Data\\Sound\\Misc\\PartyDead.wav", 0);
+    wiz8::sound::play("Data\\Sound\\Misc\\PartyDead.wav");
     StartMusicResource("CombatLose.MPL", 0, 1);
-    MSYS_Init();
     ResetRegions();
-    ActivateDialogRegion(0x138);
+    CaptureInputSink();
     VideoRemoveToolTip();
     g_level_block->transition_pending = true;
     BeginScreenFade(1, 0, 0x7d0, DrawPartyDeathScreen, true, 0);
@@ -2668,7 +2742,7 @@ void BeginPartyDeath(void)
 // FUNCTION: WIZ8 0x005A6970
 void PumpReviewTransition(void)
 {
-    InputAtom input;
+    InputEvent input;
     bool exit_review;
 
     if (!g_level_block->review_transition_active || g_level_block->review_transition_done) {
@@ -2687,11 +2761,13 @@ void PumpReviewTransition(void)
     }
     exit_review = false;
     while (DequeueEvent(&input) == 1) {
-        switch (input.usEvent) {
-        case KEY_DOWN:
-        case LEFT_BUTTON_UP:
-        case RIGHT_BUTTON_UP:
+        switch (input.type) {
+        case InputEventType::KeyDown:
+        case InputEventType::LeftButtonUp:
+        case InputEventType::RightButtonUp:
             exit_review = true;
+            break;
+        default:
             break;
         }
     }
@@ -2709,14 +2785,13 @@ void DrawPartyDeathScreen(void)
 {
     std::string text;
 
-    DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x1df, 0, 0, 0, 0, VO_BLT_SRCTRANSPARENCY, 0);
+    CatalogArtwork::Load(0x1df, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, 0, 0);
     if (gXStatus.party_moving) {
         text = g_localized_strings[0x777];
     } else {
         text = g_localized_strings[0x778];
     }
-    SetFont(g_level_load_font);
-    DrawFontText(0x276 - StringPixLength(text, g_level_load_font), 0x1c7, text);
+    DrawText(GetFrameBufferSurface(), g_level_load_font, {0x276 - g_level_load_font.textWidth(text), 0x1c7}, text);
     SetRadarMapVisible(false);
     SetFormationBoardVisible(false);
     VideoRemoveToolTip();
@@ -2731,10 +2806,10 @@ void DrawPartyDeathScreen(void)
 // FUNCTION: WIZ8 0x005A6B20
 void EndReviewTransition(void)
 {
-    ClearActiveRegionIfMatches(0x138);
-    if (g_ending_sound != 0) {
-        SoundStop(g_ending_sound);
-        g_ending_sound = 0;
+    ReleaseInputSinkCapture();
+    if (g_ending_sound != nullptr) {
+        wiz8::sound::stop(g_ending_sound);
+        g_ending_sound = nullptr;
     }
     g_world_render_enabled = 1;
     ResetMainGameMode();
@@ -2762,7 +2837,6 @@ void ShowEndingScreen(void)
     int image;
     std::string text;
     W8ControlsRect bounds;
-    SOUNDPARMS parms;
 
     fade_to_black = 0;
     schedule_fade = true;
@@ -2795,14 +2869,14 @@ void ShowEndingScreen(void)
         sound = "";
         text.clear();
     }
-    DrawCatalogImageAndInvalidate(FRAME_BUFFER, image, 0, 0, 0, 0, VO_BLT_SRCTRANSPARENCY, 0);
+    CatalogArtwork::Load(image, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, 0, 0);
     bounds.left = 0x46;
     bounds.top = 0;
     bounds.right = 0x239;
     bounds.bottom = 0x1d0;
     {
         W8TextBuffer buffer(&bounds, text, g_options_detail_font, g_W8TextBufferAlignBottom, 4);
-        buffer.RenderToTarget(0, false, FRAME_BUFFER);
+        buffer.RenderToTarget(0, false, GetFrameBufferSurface());
     }
     SetRadarMapVisible(false);
     SetFormationBoardVisible(false);
@@ -2812,9 +2886,8 @@ void ShowEndingScreen(void)
         StartMusicResource(music, 0, 1);
     }
     if (*sound != 0) {
-        memset(&parms, 0xff, sizeof(SOUNDPARMS));
-        parms.uiVolume = g_settings.voice_volume * 0x7f / 0xff;
-        g_ending_sound = SoundPlayStreamedFile(sound, &parms);
+        g_ending_sound =
+            wiz8::sound::stream(sound, {.volume = std::uint32_t(g_settings.voice_volume * 0x7f / 0xff)});
     }
     if (schedule_fade) {
         BeginScreenFade(fade_to_black, 1, 0x4b0, 0, true, 1);

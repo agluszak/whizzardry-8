@@ -1,12 +1,17 @@
+#include "glm/ext/vector_int3.hpp"
 #ifndef WIZ8_ENGINE_CODE_OCT_PRE_TREE_H
 #define WIZ8_ENGINE_CODE_OCT_PRE_TREE_H
 
 #include "surrender/srMath.h"
+#include "surrender/srBoundingBox.h"
+#include "glm/ext/vector_float3.hpp"
+#include <span>
 #include "wiz8/geometry.h"
-
-#include <stddef.h>
+#include "compat/compiler.h"
+#include "glm/ext/vector_float2.hpp"
 
 struct W8OctBuildNode;
+struct W8GDSurface;
 
 /* One 0xe8-byte region volume from the spatial state's region array. The
    region id at +4 is consumed by the particle-region builder, and the six
@@ -29,10 +34,10 @@ struct W8OctRegionVolume {
     srVector3T<float> m_points[9];
     W8Plane m_planes[6];
 
-    bool ContainsPoint(const srVector3T<float>* point) const;
+    bool ContainsPoint(const glm::vec3& point) const;
 };
 
-/* A reusable, non-polymorphic 0x9c spatial record.  Octree.cpp constructs one
+/* Native spatial state derived from the retail 0x9c record. Octree.cpp constructs one
    at the start of its 0x29c owner, while OctBuildTree.cpp constructs the same
    value at the start of its 0xbc build tree and uses standalone copies while
    inserting surfaces.  Same-address construction proves the common value
@@ -42,28 +47,32 @@ struct W8OctRegionVolume {
 struct W8OctSpatialState {
     explicit W8OctSpatialState(const W8OctSpatialState* source = 0);
 
-    void SetChildBounds(const W8OctSpatialState* parent, int x, int y, int z)
+    srBoundingBox bounds() const { return m_bounds; }
+    void setChildBounds(const W8OctSpatialState& parent, unsigned octant, float extent)
     {
-        m_minimum.x = x * m_extent + parent->m_minimum.x;
-        m_maximum.x = m_minimum.x + m_extent;
-        m_minimum.y = y * m_extent + parent->m_minimum.y;
-        m_maximum.y = m_minimum.y + m_extent;
-        m_minimum.z = z * m_extent + parent->m_minimum.z;
-        m_maximum.z = m_minimum.z + m_extent;
+        const glm::vec3 offset(octant >> 2, (octant >> 1) & 1, octant & 1);
+        const auto minimum = parent.m_bounds.minimum + offset * extent;
+        m_bounds.minimum = minimum;
+        m_bounds.maximum = minimum + extent;
+    }
+
+    srBoundingBox regionCellBounds(w8_ulong path) const
+    {
+        const glm::vec3 cell((path >> 16) & 0xff, (path >> 8) & 0xff, path & 0xff);
+        const auto minimum = cell * m_region_grid_cell + m_bounds.minimum;
+        return {minimum, minimum + m_region_grid_cell};
     }
 
     void Reset();
-    void GetClippedBounds(srVector3T<float>* minimum, srVector3T<float>* maximum);
-    void GetWorkingBounds(srVector3T<float>* minimum, srVector3T<float>* maximum);
-    void SetWorkingBounds(const srVector3T<float>* minimum, const srVector3T<float>* maximum);
+    srBoundingBox GetClippedBounds() const;
+    srBoundingBox GetWorkingBounds() const;
+    void setWorkingBounds(const srBoundingBox& bounds);
 
     w8_ulong flags;
     float m_extent;
     float m_cell_size;
-    srVector3T<float> m_minimum;
-    srVector3T<float> m_maximum;
-    srVector3T<float> m_clipped_minimum;
-    srVector3T<float> m_clipped_maximum;
+    srBoundingBox m_bounds;
+    srBoundingBox m_clipped_bounds;
     /* Mode-2 insertions increment this once per region polygon; the build
        conversion copies it to the pre-tree and sizes m_visited_polygon_bits from it. */
     w8_ulong m_polygon_count;
@@ -95,22 +104,20 @@ struct W8OctSpatialState {
     /* Emitted submesh record bound: the build packs kind-0 then kind-1
        records beneath it. */
     w8_ulong submesh_count;
-    srVector3T<float> m_working_minimum;
-    srVector3T<float> m_working_maximum;
+    srBoundingBox m_working_bounds;
     /* The build octree root: W8OctBuildNode or the counted subclass
        when the owning build tree counts surfaces per node. */
     W8OctBuildNode* m_root;
     w8_ulong m_node_index;
     /* The working triangle's three vertices, borrowed from the inserter's
        stack for the recursion's bounds tests. */
-    const srVector3T<float>* m_triangle_vertices;
+    const glm::vec3* m_triangle_vertices;
 };
 
-unsigned char TestSpatialTriangle(const srVector3T<float>* bounds,
-                                  const srVector3T<float>* vertices,
-                                  const srVector3T<float>* plane_normal);
-bool BoundsOverlapStrict(const srVector3T<float>* first, const srVector3T<float>* second);
-bool PointInsideBoxBounds(const srVector3T<float>* bounds, const srVector3T<float>* point);
+bool triangleIntersectsBox(const srBoundingBox& box, std::span<const glm::vec3, 3> vertices,
+                           const glm::vec3& normal);
+bool SurfaceIntersectsBox(const W8GDSurface& surface, std::span<const srVector3> vertices,
+                          const srBoundingBox& box);
 
 struct W8OctRegionPolygon;
 
@@ -133,7 +140,7 @@ struct W8OctPreTreeVertex {
        vertex's face run is walked once per pass. */
     bool m_visited;
     unsigned char padding_0b;
-    srVector3T<float> position;
+    glm::vec3 position;
     /* Number of polygons referencing this vertex; SortGeometry counts and
        the region pass tracks the run bound. */
     short m_normal_count;
@@ -142,8 +149,8 @@ struct W8OctPreTreeVertex {
     /* The polygon automesh kind SplitVertices copies onto material-split
        duplicates. */
     w8_ulong m_kind;
-    srVector3T<float> m_normal;
-    srVector3T<float> m_light;
+    glm::vec3 m_normal;
+    glm::vec3 m_light;
     float* m_sun_lights;
     unsigned short face_count;
     unsigned char padding_42[2];
@@ -156,7 +163,7 @@ struct W8OctPreTreeVertex {
     glm::vec2 m_uv;
     /* Unscaled level-file position kept beside the engine-scaled
        position. */
-    srVector3T<float> m_original_position;
+    glm::vec3 m_original_position;
 };
 
 /* The shared geometry context the 0x00493120 driver builds and hands to
@@ -165,6 +172,8 @@ struct W8OctPreTreeVertex {
    the canonical material/texture group counts; +0x10/+0x14 hold an owned
    buffer the cleanup releases. */
 struct W8OctPreTreeGeometry {
+    bool splitVerticesByMaterial();
+    bool compact();
     w8_ulong vertex_count;
     W8OctPreTreeVertex* m_vertices;
     w8_ulong m_polygon_count;
@@ -204,10 +213,10 @@ struct W8OctSubmeshBuild {
     int* m_polygon_ids;
     /* Per-corner vertex indices (three per polygon); becomes the model's
        m_psrPolyVertex. */
-    srVector3i* m_poly_vertices;
+    glm::ivec3* m_poly_vertices;
     /* Per-corner deduplicated uv indices; becomes the model's
        m_psrPolyUVIndex. */
-    srVector3i* m_poly_uv_index;
+    glm::ivec3* m_poly_uv_index;
     /* The deduplicated uv pairs SplitUVMaps emits; becomes m_psrMap. */
     glm::vec2* m_uv_map;
 };
@@ -230,7 +239,7 @@ struct W8OctFileHeader {
     srVector3T<w8_ulong> m_grid_dims;
     unsigned short m_depth;
     /* Auto-region id bound; the reader sizes the region-indexed
-       m_owned_154/m_pfRegsVisited arrays from it. */
+       m_pfRegsVisited array from it. */
     unsigned short m_region_id_bound;
     /* The finished submesh record bound (the octree's +0x74), not a
        mesh-file count. */
@@ -282,7 +291,5 @@ struct W8OctFileHeader {
     unsigned char pad_c9[0x2c];
 };
 #pragma pack(pop)
-
-#include "wiz8/evidence/OctPreTree_layout.inc"
 
 #endif

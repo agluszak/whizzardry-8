@@ -1,9 +1,11 @@
+#include <cstdint>
+
 #include "soundman.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/Configuration.h"
-#include "wiz8/sound_man.h"
 #include "wiz8/sr_api.h"
 #include "timer.h"
+#include "compat/native.h"
 
 // GLOBAL: WIZ8 0x0062A458
 const char* g_button_sound_paths[4][4] = {{0, 0, 0, 0},
@@ -57,10 +59,7 @@ void PlayButtonSound(int sound_id)
         g_button_sound_cooldown = w8_get_ticks() + (200);
     }
 
-    SOUNDPARMS options;
-    memset(&options, -1, sizeof(options));
-    options.uiVolume = g_settings.sound_effects_volume >> 1;
-    SoundPlay((STR)path, &options);
+    wiz8::sound::play(path, {.volume = std::uint32_t(g_settings.sound_effects_volume >> 1)});
 }
 
 // FUNCTION: WIZ8 0x005587c0

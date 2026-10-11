@@ -1,9 +1,11 @@
 #pragma once
 
+#include "wiz8/regions.h"
 #include "wiz8/local_code/Controls.h"
 #include "wiz8/local_code/RangeControl.h"
 #include "wiz8/local_code/TextControl.h"
 #include "input.h"
+#include "compat/compiler.h"
 
 struct W8Region;
 
@@ -20,7 +22,6 @@ struct W8CampEffectEntry {
     int turns;       /* remaining turns; 9999 is permanent */
     int lines;       /* rendered height in 0xe-pixel lines */
 };
-W8_ABI_ASSERT(sizeof(W8CampEffectEntry) == 0x18, "W8CampEffectEntry_size");
 
 /* Camp stats page (page 1) and skills page (page 2) machinery. The scrollbar and
    the three toggle buttons drive the stats page's condition/equipment effect
@@ -43,11 +44,8 @@ public:
     virtual ~W8CampStatsControls();
     virtual void OnPrimary(W8TextControl* control) override;
     W8TextControl* m_buttons[3];
+    OwnedRegion m_wheel_region;
 };
-
-W8_ABI_ASSERT(sizeof(W8CampStatsRange) == 8, "W8CampStatsRange_size");
-W8_ABI_ASSERT(sizeof(W8CampStatsControls) == 0x5c, "W8CampStatsControls_size");
-W8_ASSERT_BASE_END(W8CampStatsControls, W8TextControl::Listener, m_buttons, 0x4c);
 
 /* Camp page-1 renderer - attributes, traits and the effect list trigger. */
 void DrawCampStatsPage(void);
@@ -63,8 +61,6 @@ void FilterCampEffectList(void);
    2; DisableCampSkillRegions releases them on camp leave. */
 void CreateCampSkillRegions(void);
 void DisableCampSkillRegions(void);
-unsigned char CampSkillListRegionHandler(const InputAtom* event, W8Region* region);
+unsigned char CampSkillListRegionHandler(const InputEvent* event, W8Region* region);
 
-extern unsigned int g_camp_stats_range_region_set;
-extern unsigned int g_camp_stats_controls_region_set;
-extern unsigned int g_camp_skill_regions;
+extern ScreenRegionSet g_camp_skill_regions;

@@ -1,20 +1,26 @@
+#include <cstdint>
 #include <fmt/format.h>
 #include <string>
+#include <vector>
+
 #include "wiz8/dialog_code/SpellInfoDialog.h"
+#include "image.h"
 #include "wiz8/dialog_code/DialogBase.h"
-#include "wiz8/engine_code/Video2.h"
 #include "wiz8/fonts.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_screens/CharacterScreen.h"
-#include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/engine_code/Spells.h"
-#include "wiz8/layouts/screen_state.h"
-#include "wiz8/local_screens/Screens.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/string_database.h"
-#include "wiz8/utility.h"
-#include "wiz8/video_object_catalog.h"
+#include "wiz8/catalog_artwork.h"
 #include "Font.h"
+#include "wiz8/local_code/ButtonWidget.h"
+#include "dialog_code/DialogScrollBar.h"
+#include "dialog_code/DialogTextArea.h"
+#include "dice.h"
+#include "game_timer.h"
+#include "layouts/gameplay_databases.h"
+#include "local_code/ControlsRect.h"
 
 
 // GLOBAL: WIZ8 0x0064fccc
@@ -65,13 +71,6 @@ W8SpellInfoDialog::W8SpellInfoDialog(unsigned int spell)
     SetBackground(g_spell_info_background_path, 0);
 }
 
-// FUNCTION: WIZ8 0x005dbc50
-W8SpellInfoDialog::~W8SpellInfoDialog()
-{
-    W8SpellInfoDialog::DestroyControls();
-    NoOp();
-}
-
 // FUNCTION: WIZ8 0x005dbcf0
 int W8SpellInfoDialog::CreateControls()
 {
@@ -96,13 +95,6 @@ int W8SpellInfoDialog::CreateControls()
     return 0;
 }
 
-/* Same folded body as W8MonsterInfoDialog::DestroyControls at 0x005DBDE0;
-   /OPT:NOICF emits this copy. */
-void W8SpellInfoDialog::DestroyControls()
-{
-    m_scroll_bar.DestroyControls();
-    W8DialogBase::DestroyControls();
-}
 
 // FUNCTION: WIZ8 0x005dbe00
 void W8SpellInfoDialog::Draw()
@@ -130,8 +122,7 @@ void W8SpellInfoDialog::Draw()
         animation = &g_spell_realm_animations[realm];
         m_animation_frame += steps;
         m_animation_frame %= animation->frame_count;
-        DrawCatalogImageAndInvalidate(FRAME_BUFFER, animation->image, 0, m_animation_frame,
-                                      m_x + 0xe, m_y + 0xe, VO_BLT_SRCTRANSPARENCY, 0);
+        CatalogArtwork::Load(animation->image, 0).drawAndInvalidate(GetFrameBufferSurface(), m_animation_frame, m_x + 0xe, m_y + 0xe);
     }
 }
 
@@ -289,30 +280,34 @@ bool W8SpellInfoDialog::PopulateText()
 void W8SpellInfoDialog::DrawLabels()
 {
     std::string text;
-    INT16 width;
+    std::int16_t width;
     W8SpellRuntimeRecord* record = &g_spell_records[m_spell];
 
-    SetFont(g_wiz_text_font_secondary);
-    SetFontObjectPalette16BPP(g_wiz_text_font_secondary, GetFontObject(g_wiz_text_font_secondary)->ownedPalette.get());
+    g_wiz_text_font_secondary.resetPalette();
     text = record->display_name;
-    width = StringPixLength(text, g_wiz_text_font_secondary);
-    DrawFontText(m_x + 0x25 + (0xe7 - width) / 2, m_y + 0x12, text);
+    width = g_wiz_text_font_secondary.textWidth(text);
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary,
+             {m_x + 0x25 + (0xe7 - width) / 2, m_y + 0x12}, text);
     text = g_localized_strings[0x118];
-    width = StringPixLength(text, g_wiz_text_font_secondary);
-    DrawFontText(m_x + 0x25 + (0x53 - width) / 2, m_y + 0x24, text);
+    width = g_wiz_text_font_secondary.textWidth(text);
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary,
+             {m_x + 0x25 + (0x53 - width) / 2, m_y + 0x24}, text);
     if (record->power_class == W8_SPELL_POWER_FIXED) {
         text = g_localized_strings[0x11a];
     } else {
         text = g_localized_strings[0x119];
     }
-    width = StringPixLength(text, g_wiz_text_font_secondary);
-    DrawFontText(m_x + 0x25 + (0x7b - width) / 2, m_y + 0x33, text);
+    width = g_wiz_text_font_secondary.textWidth(text);
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary,
+             {m_x + 0x25 + (0x7b - width) / 2, m_y + 0x33}, text);
     text = fmt::format("{:d}", record->spell_level);
-    width = StringPixLength(text, g_wiz_text_font_secondary);
-    DrawFontText(m_x + 0x7c + (0x16 - width) / 2, m_y + 0x24, text);
+    width = g_wiz_text_font_secondary.textWidth(text);
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary,
+             {m_x + 0x7c + (0x16 - width) / 2, m_y + 0x24}, text);
     text = fmt::format("{:d} {}", record->spell_point_cost, g_localized_strings[0x11b]);
-    width = StringPixLength(text, g_wiz_text_font_secondary);
-    DrawFontText(m_x + 0xa4 + (0x25 - width) / 2, m_y + 0x33, text);
+    width = g_wiz_text_font_secondary.textWidth(text);
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary,
+             {m_x + 0xa4 + (0x25 - width) / 2, m_y + 0x33}, text);
 }
 
 // FUNCTION: WIZ8 0x005dc6c0

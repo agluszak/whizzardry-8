@@ -1,29 +1,27 @@
 #include <utility>
-#include "wiz8/layouts/npc_state.h"
-#include "wiz8/npc_items.h"
-#include "wiz8/local_code/NPCManager.h"
-#include "wiz8/local_code/NPCScripting.h"
-#include "wiz8/local_code/Strings.h"
 #include <vector>
 #include <algorithm>
+#include <cmath>
+#include <cstring>
+
+#include "wiz8/layouts/npc_state.h"
+#include "wiz8/npc_items.h"
+#include "wiz8/local_code/NPCScripting.h"
+#include "wiz8/local_code/Strings.h"
 #include "wiz8/layouts/item_instance.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/item_tables.h"
-#include "wiz8/item_tables.h"
 #include "wiz8/local_code/GameplayCode.h"
-#include "wiz8/item_spawning.h"
 #include "wiz8/local_code/PC_Item.h"
-#include "wiz8/local_code/Strings.h"
-#include "wiz8/monster_runtime.h"
 #include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/local_code/Strings.h"
 #include "random.h"
 #include "soundman.h"
-#include <math.h>
-#include <stdlib.h>
-#include <string.h>
+#include "character_skills.h"
+#include "local_code/ConditionsAndEnchantments.h"
+#include "npc_trade_price.h"
+#include "xstatus.h"
 
 /* Original translation-unit ownership is unknown; surrounding anchors do not resolve it. */
 
@@ -52,14 +50,8 @@ static int FindNpcStockItem(W8NpcState* npc, int item_id)
 
 static unsigned char GetNpcStockQuantity(W8NpcState* npc, int item_id)
 {
-    unsigned int count = (npc->items ? npc->items->size() : 0);
-    for (unsigned int index = 0; index < count; ++index) {
-        W8NpcItemEntry* entry = (*npc->items)[index];
-        if (entry != 0 && entry->item.iItemNo == item_id) {
-            return entry->quantity;
-        }
-    }
-    return 0;
+    const int index = FindNpcStockItem(npc, item_id);
+    return index >= 0 ? (*npc->items)[index]->quantity : 0;
 }
 
 static unsigned char GetNpcConfiguredStockQuantity(W8NpcState* npc, int item_id)
@@ -526,7 +518,7 @@ unsigned char SellItemToNpc(W8NpcState* npc, W8ItemInstance* item, unsigned char
             if (!suppress_payment) {
                 AddPartyGold(amount, false);
             }
-            SoundPlay(g_sound_cash_transaction, 0);
+            wiz8::sound::play(g_sound_cash_transaction);
             if (item->stack_count == 0) {
                 item->stack_count = 1;
             }
@@ -788,7 +780,7 @@ bool CompleteNpcItemPurchase(W8NpcState* npc, int index, unsigned char quantity,
             ReplaceOrCreateItem(&stack, entry->item.iItemNo, false, true, false);
             stack.stack_count = moved;
             price = CalculateTradeStackPrice(npc, &stack, W8_TRADE_PRICE_PARTY_BUYS);
-            SoundPlay(g_sound_cash_transaction, 0);
+            wiz8::sound::play(g_sound_cash_transaction);
             if (ConsumeNpcItemQuantity(npc, index, moved) == 0) {
                 return false;
             }

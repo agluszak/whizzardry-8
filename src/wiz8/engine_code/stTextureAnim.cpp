@@ -1,12 +1,17 @@
-#include "wiz8/engine_code/ReadMesh.h"
-#include "wiz8/engine_code/stTextureAnim.h"
-#include "wiz8/engine_code/GrCycle.h"
-
-#include "wiz8/engine_code/ReadLevel.h"
-#include "wiz8/engine_code/stTextureFile.h"
-
 #include <algorithm>
-#include <stdlib.h>
+#include <cstdlib>
+#include <memory>
+#include <utility>
+
+#include "wiz8/engine_code/stTextureAnim.h"
+#include "compat/compiler.h"
+#include "surrender/srTexture.h"
+#include "surrender/srTextureIFace.h"
+#include "surrender/srTypeRegistry.h"
+#include "wiz8/engine_code/GrCycle.h"
+#include "wiz8/engine_code/stTextureFile.h"
+#include "compat/native.h"
+#include "texture_animation.h"
 
 // VTABLE: WIZ8 0x005EC9C0
 // class stTextureAnim
@@ -127,13 +132,13 @@ float stTextureAnim::getPriority()
 }
 
 // FUNCTION: WIZ8 0x00484D80
-void stTextureAnim::getDimensions(Dimensions& dimensions)
+srTextureIFace::Dimensions stTextureAnim::getDimensions()
 {
-    current().getDimensions(dimensions);
+    return current().getDimensions();
 }
 
 // FUNCTION: WIZ8 0x00484DB0
-void stTextureAnim::getMipmapData(MultiRequest& request)
+void stTextureAnim::getMipmapData(const MultiRequest& request)
 {
     current().getMipmapData(request);
 }
@@ -145,9 +150,9 @@ void stTextureAnim::getMipmapLevelPartial(PartialRequest& request)
 }
 
 // FUNCTION: WIZ8 0x00484E10
-void stTextureAnim::getTextureParms(Parameters& parameters)
+srTextureIFace::Parameters stTextureAnim::getParameters()
 {
-    current().getTextureParms(parameters);
+    return current().getParameters();
 }
 
 // FUNCTION: WIZ8 0x00484E40
@@ -164,7 +169,7 @@ void stTextureAnim::setupDefaultValues()
     srTextureIFace* texture = textures.empty() ? nullptr : textures[0].get();
 
     if (texture != 0) {
-        texture->getDimensions(texture_dimensions_);
+        texture_dimensions_ = texture->getDimensions();
         texture_flags_ &= ~2U; /* FLAG_DIRTY_DEFAULTS */
     } else {
         texture_dimensions_.width = 1;

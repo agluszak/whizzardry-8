@@ -13,7 +13,7 @@ class SR_DLL_IMPORT srMaterialIFace
 public:
     static const char* sGetClassName();
 
-    virtual void getMaterialInfo(srVertexProcessor::MaterialInfo& info) = 0;
+    virtual srVertexProcessor::MaterialInfo getMaterialInfo() = 0;
     virtual void preProcess(srVertexPipe& pipe) = 0;
     virtual void postProcess(srVertexPipe& pipe) = 0;
 };

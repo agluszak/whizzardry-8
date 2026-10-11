@@ -1,8 +1,13 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
+#include <glm/ext/quaternion_trigonometric.hpp>
+#include <glm/gtc/quaternion.hpp>
 #include <new>
-
 #include <string_view>
+#include <vector>
+#include <cmath>
+#include <cstring>
+
 #include "wiz8/compat/unaligned.h"
 #include "wiz8/engine_code/AnimRep.hpp"
 #include "wiz8/conditions.h"
@@ -13,21 +18,17 @@
 #include "wiz8/integer_constants.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/character_skills.h"
-#include "wiz8/local_code/CharGeneration.h"
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/Search.h"
 #include "wiz8/local_code/CombatAttack.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/GameplayCode.h"
-#include "wiz8/local_code/GameplayMods.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/local_code/GroupAttacks.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/MagicEffects.h"
-#include "wiz8/local_code/party_encumbrance.h"
 #include "wiz8/local_code/PC_Item.h"
-#include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/Spells.h"
@@ -36,7 +37,6 @@
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/notices.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/local_code/CombatPartyMovement.h"
@@ -57,8 +57,6 @@
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MGSPartyMovement.h"
 #include "wiz8/local_screens/MGSSpellCasting.h"
-#include <vector>
-#include <algorithm>
 #include "wiz8/engine_code/Environment.h"
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/Gameloop.h"
@@ -83,17 +81,30 @@
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_code/Noise.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
-#include "wiz8/local_screens/OptionsScreen.h"
 #include "wiz8/string_database.h"
 #include "wiz8/utility.h"
 #include "wiz8/character_event_queue.h"
-#include "wiz8/local_screens/ReviewCharacterScreen.h"
 #include "wiz8/cursor.h"
-#include <glm/gtc/matrix_transform.hpp>
-
-#include <stdarg.h>
-#include <stdio.h>
 #include "wiz8/layouts/game_status.h"
+#include "attack_modes.h"
+#include "compat/native.h"
+#include "equipment_slots.h"
+#include "gameplay_modifiers.h"
+#include "glm/ext/matrix_float3x3.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include "layouts/gameplay_databases.h"
+#include "layouts/item_instance.h"
+#include "layouts/levels.h"
+#include "layouts/main_game_screen.h"
+#include "layouts/npc_state.h"
+#include "layouts/targeting.h"
+#include "layouts/world.h"
+#include "local_code/Factions.h"
+#include "local_screens/MGSPortraitCombat.h"
+#include "message_box.h"
+#include "monster_actions.h"
+#include "sight_state.h"
+#include "surrender/srMath.h"
 
 // GLOBAL: WIZ8 0x006836a8
 W8CombatState* g_combat_state;
@@ -204,7 +215,7 @@ bool StartCombat(int surprise)
     gXStatus.fPartyMovementUi = false;
     gXStatus.fPartyMovementMode = false;
     DisablePortraitControls();
-    EnableMainRegionSet();
+    g_main_combat_actions.Enable();
     g_level_block->pick_changed = false;
     RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_0 | W8_MAIN_REDRAW_PORTRAIT_1 |
                   W8_MAIN_REDRAW_PORTRAIT_2 | W8_MAIN_REDRAW_PORTRAIT_3 |
@@ -272,7 +283,7 @@ bool StartCombat(int surprise)
         g_combat_state->combat_ui_timer =
             w8_get_ticks() + (g_settings.continuous_combat_start_delay_ms);
     }
-    SoundPlay("Data\\Sound\\Misc\\Ready Weapons.wav", 0);
+    wiz8::sound::play("Data\\Sound\\Misc\\Ready Weapons.wav");
     return true;
 }
 
@@ -627,10 +638,7 @@ void BeginCombatExecution(void)
                         fmt::sprintf(g_localized_strings[0x229],
                                      g_status.buffers.Char[party->target_in_combat.iChar].name));
                 } else if (party->target_in_combat.iType == W8_TARGET_KIND_MONSTER) {
-                    unsigned int index = MonsterGetIndexByLocationID(
-                        0x5e2, "C:\\Projects\\Wizardry 8\\Local Code\\Combat.cpp",
-                        party->target_in_combat.iMonsterID, true);
-                    W8MonsterInfo* target = MonsterGetScriptPartByLocationIndex(index);
+                    W8MonsterInfo* target = FindMonster(party->target_in_combat.iMonsterID);
                     PostCharacterNotice(slot, fmt::sprintf(g_localized_strings[0x229],
                                                            GetMonsterName(target, 0, 0)));
                 } else {
@@ -651,10 +659,7 @@ void BeginCombatExecution(void)
         }
         if (monster->action_kind == W8_MONSTER_ACTION_PROTECT) {
             if (monster->Target.iType == W8_TARGET_KIND_MONSTER) {
-                unsigned int target_index = MonsterGetIndexByLocationID(
-                    0x601, "C:\\Projects\\Wizardry 8\\Local Code\\Combat.cpp",
-                    monster->Target.iMonsterID, true);
-                W8MonsterInfo* target = MonsterGetScriptPartByLocationIndex(target_index);
+                W8MonsterInfo* target = FindMonster(monster->Target.iMonsterID);
                 PostMonsterNotice(monster, fmt::sprintf(g_localized_strings[0x229],
                                                         GetMonsterName(target, 0, 0)));
             } else if (monster->Target.iType == W8_TARGET_KIND_CHARACTER) {
@@ -1127,7 +1132,8 @@ void EndCombat(bool forced_cleanup)
     }
     ZoomRadarMapOut();
     EnablePortraitAdvanceRegions();
-    DisableMainRegionSet();
+    g_main_combat_actions.Disable();
+    g_main_combat_actions.DisableInput();
     if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME &&
         !g_level_block->review_transition_active) {
         ClearSurfaceRect(0x17, 0x34, 0x2d, 0x159);
@@ -1576,7 +1582,6 @@ bool CharacterCanSwitchTo(int party_slot, W8TargetingContext context, bool allow
 void OrientMonsterTowardTarget(W8MonsterInfo* monster_info, bool alternate)
 {
     W8MonsterInfo* target;
-    unsigned int index;
     int location_id;
     srVector3T<float> point;
 
@@ -1592,9 +1597,7 @@ void OrientMonsterTowardTarget(W8MonsterInfo* monster_info, bool alternate)
     case W8_TARGET_KIND_MONSTER:
         location_id = monster_info->Target.iMonsterID;
         if (monster_info->location_id != location_id) {
-            index = MonsterGetIndexByLocationID(
-                0x1320, "C:\\Projects\\Wizardry 8\\Local Code\\Combat.cpp", location_id, true);
-            target = MonsterGetScriptPartByLocationIndex(index);
+            target = FindMonster(location_id);
             if (IsMonsterFacingMonster(monster_info, target) == 0) {
                 MonsterAimAtMonster(monster_info->p3D, target->p3D, alternate);
                 return;
@@ -1605,9 +1608,7 @@ void OrientMonsterTowardTarget(W8MonsterInfo* monster_info, bool alternate)
         location_id =
             FindNearestVisibleGroupMonster(monster_info, monster_info->Target.iGroupID, 3);
         if (location_id != -1) {
-            index = MonsterGetIndexByLocationID(
-                0x136e, "C:\\Projects\\Wizardry 8\\Local Code\\Combat.cpp", location_id, true);
-            target = MonsterGetScriptPartByLocationIndex(index);
+            target = FindMonster(location_id);
             if (IsMonsterFacingMonster(monster_info, target) == 0) {
                 MonsterAimAtMonster(monster_info->p3D, target->p3D, alternate);
                 return;
@@ -1849,7 +1850,7 @@ void AdvanceCombatRound(void)
     if (gXStatus.hostile_monster_count != 0) {
         ShowNotice(W8_FONT_PALETTE_BEIGE,
                    fmt::sprintf(g_localized_strings[0x22b], g_combat_state->round_count));
-        SoundPlay("Data\\Sound\\Misc\\EndTurnChime.wav", 0);
+        wiz8::sound::play("Data\\Sound\\Misc\\EndTurnChime.wav");
     }
     g_combat_state->party_surprised = false;
     g_combat_state->monsters_surprised = false;
@@ -2508,10 +2509,7 @@ void ExecuteMonsterAction(W8MonsterInfo* monster_info, W8MonsterRecord* record)
                     MonsterChooseTarget(monster_info, &monster_info->Target, 0);
                     SetUpMonsterTurn(monster_info);
                     if (monster_info->Target.iType == W8_TARGET_KIND_MONSTER) {
-                        unsigned int index = MonsterGetIndexByLocationID(
-                            0xec1, "C:\\Projects\\Wizardry 8\\Local Code\\Combat.cpp",
-                            monster_info->Target.iMonsterID, true);
-                        target_info = MonsterGetScriptPartByLocationIndex(index);
+                        target_info = FindMonster(monster_info->Target.iMonsterID);
                         move_result = MonsterConfigureMovementToMonster(
                             monster_info->p3D, target_info->p3D, approach_distance, engage_distance,
                             position, sight, &move_flag);
@@ -2722,7 +2720,7 @@ void AimMonsterBreathAtTarget(W8MonsterInfo* monster_info)
     case W8_TARGET_KIND_ALL_ENEMIES:
         return;
     default:
-        GetCameraPosition(&position);
+        position = cameraLocation();
         monster_info->p3D->m_axis = position;
         monster_info->p3D->aim_set = true;
         return;
@@ -2828,7 +2826,7 @@ bool CreateCharacterBreathEffect(int party_slot)
         return false;
     }
     FaceCharacterTowardCombatTarget(party_slot, target);
-    GetCameraPosition(&camera);
+    camera = cameraLocation();
     aim = target->point - camera;
     direction = aim;
     aim.SetLength(1.0);
@@ -3000,8 +2998,7 @@ int GetConditionInterrupt(W8TargetSource* source)
             srAssertFail("pSource->iMonsterID != BAD_INDEX",
                          "C:\\Projects\\Wizardry 8\\Local Code\\Combat.cpp", 0x11a9, 0);
         }
-        monster_info = MonsterGetScriptPartByLocationIndex(MonsterGetIndexByLocationID(
-            0x11aa, "C:\\Projects\\Wizardry 8\\Local Code\\Combat.cpp", source->iMonsterID, true));
+        monster_info = FindMonster(source->iMonsterID);
         moving = monster_info->action_kind == W8_MONSTER_ACTION_ADVANCE;
         condition_turns = monster_info->uiCondition;
         can_attack =
@@ -3079,7 +3076,6 @@ int GetConditionInterrupt(W8TargetSource* source)
 void PointCameraAtCombatTarget(W8TargetSource* source, W8CombatSlot* target)
 {
     int location_id;
-    int caller_line;
     W8MonsterInfo* monster_info;
     W8MonsterGroup* group;
     srVector3T<float> position;
@@ -3105,16 +3101,13 @@ void PointCameraAtCombatTarget(W8TargetSource* source, W8CombatSlot* target)
                          "C:\\Projects\\Wizardry 8\\Local Code\\Combat.cpp", 0x13fe, 0);
         }
         location_id = target->iMonsterID;
-        caller_line = 0x1400;
     } else if (target->iType == W8_TARGET_KIND_GROUP) {
         if (target->iGroupID == -1) {
             srAssertFail("pTarget->iGroupID != -1",
                          "C:\\Projects\\Wizardry 8\\Local Code\\Combat.cpp", 0x140c, 0);
         }
-        group = GetMonsterGroupByListIndex(GetMonsterGroupIndexByID(
-            0x140d, "C:\\Projects\\Wizardry 8\\Local Code\\Combat.cpp", target->iGroupID, true));
+        group = FindMonsterGroup(target->iGroupID);
         location_id = group->leader_location_id;
-        caller_line = 0x140d;
     } else {
         if (target->iType != W8_TARGET_KIND_PLACE) {
             return;
@@ -3123,8 +3116,7 @@ void PointCameraAtCombatTarget(W8TargetSource* source, W8CombatSlot* target)
         PointCameraAtTarget(&position, false, false);
         return;
     }
-    monster_info = MonsterGetScriptPartByLocationIndex(MonsterGetIndexByLocationID(
-        caller_line, "C:\\Projects\\Wizardry 8\\Local Code\\Combat.cpp", location_id, true));
+    monster_info = FindMonster(location_id);
     PointCameraAtMonster(monster_info, false, true);
 }
 
@@ -3160,7 +3152,7 @@ void UpdateCombat(void)
             return;
         }
         if (g_combat_state->hit_sound_active) {
-            if (SoundIsPlaying(g_combat_state->hit_sound) != 0) {
+            if (wiz8::sound::is_playing(g_combat_state->hit_sound)) {
                 return;
             }
             g_combat_state->hit_sound_active = false;

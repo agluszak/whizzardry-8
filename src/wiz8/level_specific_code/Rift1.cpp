@@ -1,6 +1,7 @@
 #include "wiz8/level_specific_code/Rift1.h"
-#include <vector>
-#include <algorithm>
+
+#include <string>
+
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/fact_state.h"
@@ -8,11 +9,9 @@
 #include "wiz8/location_variables.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "surrender/srMath.h"
+#include "wiz8/npc_interaction.h"
 
-#define RIFT1_CPP "C:\\Projects\\Wizardry 8\\Level Specific Code\\Rift1.cpp"
 
 /* Level Specific Code\Rift1.cpp (level 0x15).
 
@@ -37,8 +36,7 @@ bool Rift1Sexspawn(Trigger* pTrigger)
             CreateLocationVar("AlSedexusSwapped", 1);
             monster_info = FindMonsterInfoBySpecies(0xd9);
             if (monster_info != 0) {
-                RemoveMonster(
-                    MonsterGetIndexByLocationID(0x42, RIFT1_CPP, monster_info->location_id, true),
+                RemoveMonster(monster_info,
                     true);
             }
             monster_info = FindMonsterInfoBySpecies(0x22b);

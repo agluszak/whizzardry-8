@@ -1,40 +1,23 @@
 #include <fmt/format.h>
 #include <string_view>
-#include "wiz8/containers.h"
+#include <cstring>
+#include <memory>
+#include <optional>
+#include <utility>
+#include <vector>
+
+#include "image.h"
 #include "wiz8/layouts/character.h"
-#include "wiz8/character_skills.h"
-#include "wiz8/local_code/CharGeneration.h"
-#include "wiz8/local_code/Combat.h"
-#include "wiz8/local_code/CombatAttack.h"
-#include "wiz8/local_code/GameplayCode.h"
-#include "wiz8/local_code/GameplayMods.h"
-#include "wiz8/local_code/HealthStaminaMana.h"
-#include "wiz8/local_code/Magic.h"
-#include "wiz8/local_code/MagicEffects.h"
-#include "wiz8/local_code/party_encumbrance.h"
-#include "wiz8/local_code/UtilityFunctions.h"
-#include "wiz8/engine_code/Environment.h"
-#include "wiz8/engine_code/Video2.h"
 #include "wiz8/local_code/ControlsRect.h"
 #include "input.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_code/TextControl.h"
-#include "wiz8/local_code/ControlSelection.h"
 #include "wiz8/local_screens/CharacterScreen.h"
-
-#include "wiz8/local_code/Strings.h"
-#include "wiz8/character_event_queue.h"
-#include "wiz8/local_code/character_events.h"
-#include "wiz8/regions.h"
-#include "wiz8/text_input.h"
-#include "wiz8/utility.h"
-#include "wiz8/video_object_catalog.h"
+#include "wiz8/catalog_artwork.h"
 #include "wiz8/fonts.h"
-#include "vsurface.h"
+#include "local_code/Controls.h"
 
-#include <new>
-#include <cstring>
-#include <string.h>
+struct W8CharacterCreationState;
 
 namespace {
 template<class T> T ReadStatValue(const void* address) {
@@ -73,33 +56,30 @@ W8CharacterPageEntry::W8CharacterPageEntry(Controls* owner, int x, int y, bool c
     m_y = owner->m_bounds.top + y;
     int split = m_x + (compact ? 0x6d : 0x78);
     W8ControlsRect bounds = {m_x + 5, m_y + 1, split, m_y + 0xd};
-    m_label = new W8TextBuffer(&bounds, {}, 0, 0, 4);
+    m_label = new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, 0, 4);
     m_label->SetLayoutMode(g_W8TextBufferAlignLeft);
     bounds.left = split;
     bounds.right = split + 0x17;
-    m_first_text = new W8TextBuffer(&bounds, {}, 0, 0, 4);
+    m_first_text = new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, 0, 4);
     m_first_text->SetLayoutMode(g_W8TextBufferAlignRight);
     bounds.left = split + 0x2a;
     bounds.right = split + 0x39;
-    m_second_text = new W8TextBuffer(&bounds, {}, 0, 0, 4);
+    m_second_text = new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, 0, 4);
     m_second_text->SetLayoutMode(g_W8TextBufferAlignRight);
 
     int relative_split = split - owner->m_bounds.left;
-    m_decrement = new W8TextControl(owner, 0xffffffff, relative_split + 0x1b, y + 1, 0, 0, 0x10a, 0,
-                                    0x19, 0x1b, 0x1a, 0x1d, 0x1c);
+    m_decrement = new W8TextControl(owner, 0xffffffff, relative_split + 0x1b, y + 1, 0, 0, CatalogArtwork::Load(0x10a, 0), 0x19, 0x1b, 0x1a, 0x1d, 0x1c);
     m_decrement->AddLayoutFlags(0x100);
     m_decrement->SetEnabled(false);
     m_decrement->SetActive(false);
     m_decrement->m_listener = this;
 
-    m_increment = new W8TextControl(owner, 0xffffffff, relative_split + 0x3d, y + 1, 0, 0, 0x10a, 0,
-                                    0x1e, 0x20, 0x1f, 0x22, 0x21);
+    m_increment = new W8TextControl(owner, 0xffffffff, relative_split + 0x3d, y + 1, 0, 0, CatalogArtwork::Load(0x10a, 0), 0x1e, 0x20, 0x1f, 0x22, 0x21);
     m_increment->AddLayoutFlags(0x100);
     m_increment->SetActive(false);
     m_increment->m_listener = this;
 
-    m_help = new W8TextControl(owner, 0xffffffff, x, y, relative_split, y + 0xc, -1, -1, -1, -1, -1,
-                               -1, -1);
+    m_help = new W8TextControl(owner, 0xffffffff, x, y, relative_split, y + 0xc, std::nullopt, -1, -1, -1, -1, -1);
     m_help->SetActive(false);
     m_help->m_listener = this;
 }
@@ -151,19 +131,18 @@ void W8CharacterPageEntry::Redraw()
 {
     if (m_enabled && m_dirty) {
         if (m_draw_background) {
-            DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x108, 0, 2, m_x, m_y,
-                                          VO_BLT_SRCTRANSPARENCY, 0);
+            CatalogArtwork::Load(0x108, 0).drawAndInvalidate(GetFrameBufferSurface(), 2, m_x, m_y);
         }
         m_first_text->SetText(fmt::format("{:d}", ReadStatValue<unsigned int>(m_first)), g_wiz_text_font_secondary);
         m_second_text->SetText(fmt::format("{:d}", ReadStatValue<int>(m_second)), g_wiz_text_font_secondary);
         m_first_text->FillBounds(0x8000);
         m_second_text->FillBounds(0x8000);
-        m_label->RenderToTarget(0, true, FRAME_BUFFER);
-        m_first_text->RenderToTarget(0, true, FRAME_BUFFER);
-        m_second_text->RenderToTarget(0, true, FRAME_BUFFER);
+        m_label->RenderToTarget(0, true, GetFrameBufferSurface());
+        m_first_text->RenderToTarget(0, true, GetFrameBufferSurface());
+        m_second_text->RenderToTarget(0, true, GetFrameBufferSurface());
         m_dirty = false;
     } else if (!m_draw_background && m_dirty) {
-        m_label->RenderToTarget(0, true, FRAME_BUFFER);
+        m_label->RenderToTarget(0, true, GetFrameBufferSurface());
         m_dirty = false;
     }
 }
@@ -240,8 +219,8 @@ void W8CharacterPageEntry::OnSecondary(W8TextControl* control)
 
 
 // FUNCTION: WIZ8 0x005afd90
-W8CharacterPage::W8CharacterPage(int catalog_object)
-    : Controls(0xc3, 0x2b, 0x280, 0x1c1, catalog_object, 0, 0), m_screen(0)
+W8CharacterPage::W8CharacterPage(CatalogArtwork background)
+    : Controls(0xc3, 0x2b, 0x280, 0x1c1, std::move(background), 0), m_screen(0)
 {
 }
 
@@ -249,7 +228,6 @@ W8CharacterPage::W8CharacterPage(int catalog_object)
 W8CharacterPage::~W8CharacterPage()
 {
     DestroyAllControls();
-    wiz8::remove_all_and_delete(m_entries);
 }
 
 // FUNCTION: WIZ8 0x005aff00
@@ -274,7 +252,7 @@ void W8CharacterPage::Redraw()
 void W8CharacterPage::Invalidate(const W8ControlsRect* rect)
 {
     Controls::Invalidate(rect);
-    for (W8CharacterPageEntry* entry : m_entries) {
+    for (const auto& entry : m_entries) {
         entry->MarkDirty();
     }
 }
@@ -288,7 +266,7 @@ void W8CharacterPage::Prepare()
 }
 
 // FUNCTION: WIZ8 0x005affc0
-void W8CharacterPage::AddEntry(W8CharacterPageEntry* entry) { m_entries.push_back(entry); }
+void W8CharacterPage::AddEntry(W8CharacterPageEntry* entry) { m_entries.emplace_back(entry); }
 
-void W8CharacterPage::HandleInput(InputAtom*) {}
+void W8CharacterPage::HandleInput(InputEvent*) {}
 void W8CharacterPage::Refresh() {}

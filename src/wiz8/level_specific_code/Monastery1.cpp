@@ -8,6 +8,9 @@
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/float_constants.h"
 #include "surrender/srCamera.h"
+#include "glm/ext/vector_float3.hpp"
+#include "layouts/world.h"
+#include "surrender/srMath.h"
 
 /* Level Specific Code\Monastery1.cpp (level 8).
 

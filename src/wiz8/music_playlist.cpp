@@ -1,7 +1,11 @@
 #include <fmt/format.h>
-#include "wiz8/utility.h"
-#include "wiz8/unicode.h"
-#include "wiz8/layouts/combat_state.h"
+#include <cstdint>
+#include <cstdlib>
+#include <cstring>
+#include <string>
+#include <vector>
+#include <memory>
+
 #include "wiz8/xstatus.h"
 #include "wiz8/engine_code/stScript.h"
 #include "wiz8/local_code/Configuration.h"
@@ -9,15 +13,14 @@
 #include "wiz8/regions.h"
 #include "random.h"
 #include "soundman.h"
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include "compat/native.h"
+#include "local_screens/Screens.h"
+#include "audio_resources.h"
 
 /* Original translation-unit ownership is unknown; surrounding anchors do not resolve it. */
 
 // GLOBAL: WIZ8 0x0060aae0
-int g_music_sample_handle = -1;
+wiz8::sound::Playback g_music_sample_handle = nullptr;
 // GLOBAL: WIZ8 0x0065BA74
 static stScript* g_music_playlist;
 // GLOBAL: WIZ8 0x0065BA78
@@ -43,8 +46,8 @@ int g_music_pause_chance_percent = 30;
 void SetMusicVolume(unsigned char volume)
 {
     g_settings.music_volume = volume;
-    if (g_music_sample_handle != -1) {
-        SoundSetVolume(g_music_sample_handle, volume);
+    if (g_music_sample_handle != nullptr) {
+        wiz8::sound::set_volume(g_music_sample_handle, volume);
     }
 }
 
@@ -133,7 +136,7 @@ void ServiceMusicPlaylist(void)
     if (!g_music_playlist_active) {
         return;
     }
-    if (g_music_sample_handle != -1 && SoundIsPlaying(g_music_sample_handle) != 0) {
+    if (g_music_sample_handle != nullptr && wiz8::sound::is_playing(g_music_sample_handle)) {
         return;
     }
     if (w8_get_ticks() <= g_music_playlist_tick) {
@@ -180,7 +183,7 @@ void ServiceMusicPlaylist(void)
         if (StartMusicResource(track.c_str(), g_music_fade, 1) == 0) {
             ++failures;
         }
-        if (failures > 4 || g_music_sample_handle != -1) {
+        if (failures > 4 || g_music_sample_handle != nullptr) {
             g_music_force_next = false;
             return;
         }
@@ -208,23 +211,15 @@ unsigned char StartMusicResource(const char* resource, int fade, unsigned char r
             g_music_playlist->setName("");
         }
 
-        int handle = static_cast<int>(SoundPlayStreamedFile(path, 0));
-        if (handle == -1) {
+        const bool crossfade = g_music_fade != 0;
+        auto handle = wiz8::sound::stream(path, {.volume = std::uint32_t(g_settings.music_volume),
+                                                 .group = wiz8::sound::Group::music,
+                                                 .fade_in_ms = crossfade ? 5000u : 0u});
+        if (handle == nullptr) {
             return 0;
         }
-        SoundSetMusic(handle);
-
-        if (g_music_fade != 0) {
-            if (g_music_sample_handle != -1) {
-                SoundSetFadeVolume(g_music_sample_handle, 0, 2000, 1);
-            }
-            SoundSetVolume(handle, 0);
-            SoundSetFadeVolume(handle, g_settings.music_volume, 5000, 0);
-        } else {
-            if (g_music_sample_handle != -1) {
-                SoundStop(g_music_sample_handle);
-            }
-            SoundSetVolume(handle, g_settings.music_volume);
+        if (g_music_sample_handle != nullptr) {
+            wiz8::sound::stop(g_music_sample_handle, crossfade ? 2000u : 0u);
         }
         g_music_sample_handle = handle;
         return 1;
@@ -245,14 +240,14 @@ unsigned char StartMusicResource(const char* resource, int fade, unsigned char r
         return 0;
     }
     if (replace_current != 0) {
-        if (g_music_sample_handle != -1) {
+        if (g_music_sample_handle != nullptr) {
             if (g_music_fade == 0) {
-                SoundStop(g_music_sample_handle);
+                wiz8::sound::stop(g_music_sample_handle);
             } else {
-                SoundSetFadeVolume(g_music_sample_handle, 0, 2000, 1);
+                wiz8::sound::stop(g_music_sample_handle, 2000);
             }
         }
-        g_music_sample_handle = -1;
+        g_music_sample_handle = nullptr;
     }
 
     g_music_playlist_track_count =
@@ -269,15 +264,15 @@ unsigned char StartMusicResource(const char* resource, int fade, unsigned char r
 void StopMusicPlaylist(bool fade)
 {
     if (fade) {
-        if (g_music_sample_handle != -1) {
-            SoundSetFadeVolume(g_music_sample_handle, 0, 2000, 1);
-            g_music_sample_handle = -1;
+        if (g_music_sample_handle != nullptr) {
+            wiz8::sound::stop(g_music_sample_handle, 2000);
+            g_music_sample_handle = nullptr;
             g_music_playlist_active = false;
             return;
         }
     } else {
-        SoundStopMusic();
+        wiz8::sound::stop_group(wiz8::sound::Group::music);
     }
-    g_music_sample_handle = -1;
+    g_music_sample_handle = nullptr;
     g_music_playlist_active = false;
 }

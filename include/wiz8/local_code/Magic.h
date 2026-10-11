@@ -1,19 +1,15 @@
 #ifndef WIZ8_LOCAL_CODE_MAGIC_H
 #define WIZ8_LOCAL_CODE_MAGIC_H
 
+#include <vector>
+
 #include "wiz8/character_skills.h"
-#include "wiz8/conditions.h"
 #include "wiz8/layouts/targeting.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/character.h"
 #include "surrender/srMath.h"
-#include <vector>
-#include <algorithm>
+#include "spell_ids.h"
 
-struct W8TargetSource;
-struct W8CombatSlot;
-struct W8PartySlotRow;
-struct W8Character;
 struct W8ItemInstance;
 struct W8MonsterInfo;
 class W8Missile;

@@ -1,6 +1,10 @@
 #pragma once
 
 #include "surrender/srLight.h"
+#include "compat/compiler.h"
+#include "surrender/srMath.h"
+
+class srNode;
 
 /* Monster's light: srLight plus colour-cycle/fade state. Retail never
    installs a vtable of its own: the constructor at 0x0049D500 leaves the
@@ -30,5 +34,3 @@ public:
     bool m_fade_out;                  /* 0x249 */
     unsigned char m_padding_24a[6];
 };
-
-W8_ABI_ASSERT(sizeof(MonsterLight) == 0x250, "MonsterLight_must_be_0x250");

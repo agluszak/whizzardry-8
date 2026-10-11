@@ -1,12 +1,21 @@
 #include <catch2/catch_test_macros.hpp>
-#include "surrender/srSerialization.h"
-#include "surrender/srHuffman.h"
-
+#include <SDL3/SDL_iostream.h>
+#include <SDL3/SDL_properties.h>
+#include <SDL3/SDL_stdinc.h>
 #include <array>
 #include <cstdio>
 #include <cstring>
 #include <limits>
 #include <algorithm>
+#include <bit>
+#include <exception>
+#include <stdexcept>
+
+#include "surrender/srSerialization.h"
+#include "surrender/srHuffman.h"
+#include "compat/compiler.h"
+#include "surrender/srIO.h"
+#include "surrender/srQuadWord.h"
 
 
 TEST_CASE("binary_io_test")

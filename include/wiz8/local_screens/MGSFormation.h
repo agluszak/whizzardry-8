@@ -9,13 +9,15 @@
 struct W8Region;
 struct Controls;
 class W8TextControl;
+class ScreenRegionSet;
 
-extern Controls* g_formation_panel;
+extern std::unique_ptr<Controls> g_formation_panel;
 extern W8TextControl* g_formation_cell_controls[15];
 extern W8TextControl* g_formation_cell_overlays[15];
 extern W8TextControl* g_formation_action_buttons[3];
 
 void ReleaseFormationBoard(void);
+extern ScreenRegionSet g_formation_regions;
 void DestroyFormationPanel(void);
 void CloseFormationPanel(void);
 
@@ -28,13 +30,13 @@ void UpdateFormationCompass(void);
 void CreateFormationBoardOverlay(void);
 /* Board callback: opens the formation panel on release, hit-tests the cell
    markers for tooltips, and switches board art on hover transitions. */
-unsigned char FormationBoardRegionEvent(const InputAtom* event, W8Region* region);
+unsigned char FormationBoardRegionEvent(const InputEvent* event, W8Region* region);
 /* Open the formation panel: build the controls, snapshot the live formation
    into gXStatus.edited_formation and pause the world. */
 void OpenFormationPanel(void);
 /* Region callback the fifteen formation cells share. */
-unsigned char FormationCellRegionEvent(const InputAtom* event, W8Region* region);
-unsigned char FormationActionRegionEvent(const InputAtom* event, W8Region* region);
-unsigned char FormationBackgroundRegionEvent(const InputAtom* event, W8Region* region);
+unsigned char FormationCellRegionEvent(const InputEvent* event, W8Region* region);
+unsigned char FormationActionRegionEvent(const InputEvent* event, W8Region* region);
+unsigned char FormationBackgroundRegionEvent(const InputEvent* event, W8Region* region);
 /* Highlight the cell holding one party slot and un-highlight the rest. */
 void SelectFormationSlotCell(int party_slot);

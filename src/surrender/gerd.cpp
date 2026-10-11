@@ -1,27 +1,64 @@
-#include "surrender/srMath.h"
+#include "glm/ext/vector_int3.hpp"
+#include <stdexcept>
+#include "surrender/srBoundingBox.h"
+#include "surrender/plane_math.h"
+#include "surrender/model_view_scope.h"
+#include "surrender/srBoundingSphere.h"
+#include <glm/ext/matrix_clip_space.hpp>
+#include <glm/ext/matrix_transform.hpp>
 #include <cstdlib>
 #include <algorithm>
 #include <array>
 #include <bit>
 #include <cstdint>
+#include <ostream>
+#include <optional>
+#include <memory>
+#include <vector>
+#include <cmath>
+#include <condition_variable>
+#include <cstdio>
+#include <cstring>
+#include <iterator>
+#include <list>
+#include <mutex>
+#include <span>
+#include <string>
+#include <thread>
+#include <unordered_map>
+#include <utility>
+
+#include "glm/common.hpp"
+#include "glm/geometric.hpp"
+#include "glm/matrix.hpp"
+#include "glm/vector_relational.hpp"
+#include "glm/ext/vector_uint4_sized.hpp"
+#include "glm/ext/vector_float4.hpp"
+#include "surrender/srMath.h"
+#include "surrender/srModel.h"
 #include "surrender/srGERD.h"
-
+#include "surrender/picking_math.h"
 #include "surrender/srColorSurface.h"
-
 #include "surrender/srCore.h"
 #include "surrender/srDebug.h"
 #include "surrender/srWindow.h"
 #include "surrender/srPalette.h"
-#include <ctype.h>
-#include <ostream>
-
-#include <memory>
-#include <vector>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include "surrender/srClip.h"
-#include <cassert>
+#include "compat/compiler.h"
+#include "surrender/srARGB.h"
+#include "surrender/srClock.h"
+#include "surrender/srColorSurfaceIFace.h"
+#include "surrender/srDD.h"
+#include "surrender/srFlags.h"
+#include "surrender/srPixelConvert.h"
+#include "surrender/srRendererDefs.h"
+#include "surrender/srShader.h"
+#include "surrender/srTextureIFace.h"
+#include "surrender/srTypeRegistry.h"
+#include "glm/fwd.hpp"
+
+class srModelInstance;
+class srVertexProcessor;
 
 // GLOBAL: SURRENDER 0x100A4780
 srGERD* srGERD::first;
@@ -78,8 +115,8 @@ srGERD::MatrixStack::MatrixStack() : depth(0) {}
 class srGERD::LockSurface : public srClassSupport<LockSurface, srColorSurfaceIFace, 0x3111> {
 public:
     LockSurface(srGERD* gerd, const srPixelConvert::PixelFormat& format);
-    virtual ~LockSurface() override;
     LockSurface& operator=(const LockSurface&) = default;
+    w8_long getDataSize() override { return 0; }
     // FUNCTION: SURRENDER 0x1001F780
     static const char* sGetClassName()
     {
@@ -88,8 +125,6 @@ public:
     /* Cannot construct a LockSurface without the owning GERD and pixel format. */
     virtual void getPixelColumn(w8_ulong* pixels, w8_long x, w8_long y0, w8_long y1) override;
     virtual void setPixelColumn(const w8_ulong* pixels, w8_long x, w8_long y0, w8_long y1) override;
-    virtual void* getDataPtr() override;
-    virtual w8_long getDataSize() override;
     virtual void setHLine(w8_long y, w8_long x0, w8_long x1, w8_ulong pixel) override;
     virtual void getPixelRow(w8_ulong* pixels, w8_long y, w8_long x0, w8_long x1) override;
     virtual void setPixelRow(const w8_ulong* pixels, w8_long y, w8_long x0, w8_long x1) override;
@@ -99,6 +134,8 @@ public:
                     w8_ulong bottom);
 
 private:
+    void transferPixels(void* pixels, w8_long fixed, w8_long begin, w8_long end,
+                        bool vertical, bool write, bool raw = false);
     srGERD* gerd;
     w8_ulong left;
     w8_ulong top;
@@ -191,11 +228,7 @@ srGERD::srGERD(srDD* device, const char* device_name)
     enable_flags.set(ENABLE_POSITIONAL_0, 1);
     this->device.hints[0] = static_cast<e_hintMode>(0);
     initTextureParameterMatrix();
-    this->device.driver_info.api_version = 0x128;
-    this->device.driver_info.dd_api_version = 0;
-    this->device.driver_info.debug_write = debugWrite;
-    this->device.driver_info.flags = 0;
-    getDD()->getDriverInfo(this->device.driver_info);
+    this->device.driver_info = getDD()->getDriverInfo();
     initClearColors();
     initLights();
     initMatrices();
@@ -310,7 +343,7 @@ w8_long srGERD::getDisplayMode(w8_ulong width, w8_ulong height, w8_ulong depth) 
 }
 
 // FUNCTION: SURRENDER 0x1001AAF0
-void srGERD::getStatistics(Statistics& statistics)
+srGERD::Statistics srGERD::getStatistics()
 {
     std::lock_guard access(renderers_section);
     this->statistics.input_triangles = 0;
@@ -322,19 +355,17 @@ void srGERD::getStatistics(Statistics& statistics)
         auto* entry = &owned;
         Renderer* renderer = entry->renderer.get();
         if (renderer != 0) {
-            w8_ulong renderer_stats[7];
-            renderer->getStatistics(renderer_stats);
-            this->statistics.input_triangles += renderer_stats[1];
-            this->statistics.clipped_triangles += renderer_stats[2];
-            this->statistics.input_vertices += renderer_stats[3];
-            this->statistics.triangle_chunks += renderer_stats[0];
+            const auto renderer_stats = renderer->getStatistics();
+            this->statistics.input_triangles += renderer_stats.input_triangles;
+            this->statistics.clipped_triangles += renderer_stats.clipped_triangles;
+            this->statistics.input_vertices += renderer_stats.input_vertices;
+            this->statistics.triangle_chunks += renderer_stats.triangle_chunks;
             if (renderer->sorted == 1) {
-                this->statistics.sorted_triangles += renderer_stats[6];
+                this->statistics.sorted_triangles += renderer_stats.device_vertex_indices;
             }
         }
     }
-    srDD::Statistics device{};
-    getDD()->getStatistics(device);
+    const auto device = getDD()->getStatistics();
     this->statistics.texture_transfer = device.texture_transfer;
     this->statistics.pixels_drawn = device.pixels_drawn;
     this->statistics.value_18 = device.value_10;
@@ -342,9 +373,9 @@ void srGERD::getStatistics(Statistics& statistics)
     this->statistics.device_triangles = device.triangles_received;
     this->statistics.device_vertices = device.vertices_transferred;
     this->statistics.device_vertex_indices = device.vertex_indices;
-    statistics = this->statistics;
-    statistics.elapsed =
-        srCore.getTimer()->seconds() - statistics.elapsed;
+    auto result = this->statistics;
+    result.elapsed = srCore.getTimer()->seconds() - result.elapsed;
+    return result;
 }
 
 // FUNCTION: SURRENDER 0x1001ACD0
@@ -352,12 +383,7 @@ void srGERD::resetStatistics()
 {
     statistics = {};
     getDD()->resetStatistics();
-    std::unique_lock access(renderers_section);
-    for (auto& owned : renderers) {
-        auto* entry = &owned;
-        renderers_idle.wait(access, [entry] { return entry->busy == 0; });
-        entry->renderer->resetStatistics();
-    }
+    drainRenderers(RendererDrain::statistics);
     statistics.elapsed = srCore.getTimer()->seconds();
     frame_statistics = statistics;
 }
@@ -459,9 +485,9 @@ void srGERD::setAmbientLight(const glm::vec4& light)
 }
 
 // FUNCTION: SURRENDER 0x1001C410
-void srGERD::getAmbientLight(glm::vec4& light)
+glm::vec4 srGERD::getAmbientLight() const
 {
-    light = ambient_light;
+    return ambient_light;
 }
 
 // FUNCTION: SURRENDER 0x1001C480
@@ -482,17 +508,15 @@ srGERD::e_cullMode srGERD::getCullMode() const
 }
 
 // FUNCTION: SURRENDER 0x1001C4F0
-void srGERD::getEnvironmentRange(float& minimum, float& maximum) const
+std::pair<float, float> srGERD::getEnvironmentRange() const
 {
-    minimum = environment.x;
-    maximum = environment.y;
+    return {environment.x, environment.y};
 }
 
 // FUNCTION: SURRENDER 0x1001C5A0
-void srGERD::getEnvironmentScaleFactor(float& scale, float& inverse_scale)
+std::pair<float, float> srGERD::getEnvironmentScaleFactor() const
 {
-    scale = environment.z;
-    inverse_scale = environment.w;
+    return {environment.z, environment.w};
 }
 
 // FUNCTION: SURRENDER 0x1001C8A0
@@ -525,38 +549,31 @@ void srGERD::setClearColor(const glm::vec4& color)
 // FUNCTION: SURRENDER 0x1001CB00
 void srGERD::setClearColor(float red, float green, float blue, float alpha)
 {
-    glm::vec4 color;
-    color.x = red;
-    color.y = green;
-    color.z = blue;
-    color.w = alpha;
-    setClearColor(color);
+    setClearColor(glm::vec4(red, green, blue, alpha));
 }
 
 // FUNCTION: SURRENDER 0x1001CB70
 void srGERD::setClearDepth(double depth)
 {
-    if (depth <= 0.0) {
-        clear_state.clear_values.depth = 0.0;
-        return;
+    clear_state.clear_values.depth = std::clamp(depth, 0.0, 1.0);
+}
+
+/* Both indexed and array draws consume the same pending renderer state. */
+void srGERD::prepareDrawState()
+{
+    checkViewStateChanges();
+    checkDrawStateChanges();
+    if ((vertex_arrays_dirty & DIRTY_VERTEX_ARRAY_INFO) != 0) {
+        getDD()->setVertexArrayInfo(&vertex_arrays);
+        vertex_arrays_dirty &= ~DIRTY_VERTEX_ARRAY_INFO;
     }
-    if (depth >= 1.0) {
-        clear_state.clear_values.depth = 1.0;
-        return;
-    }
-    clear_state.clear_values.depth = depth;
 }
 
 // FUNCTION: SURRENDER 0x1001CC10
 void srGERD::drawArrays(srRendererDefs::e_primitive primitive, w8_long first, w8_ulong count)
 {
     if ((enable_flags.value & 4) == 0) {
-        checkViewStateChanges();
-        checkDrawStateChanges();
-        if ((vertex_arrays_dirty & DIRTY_VERTEX_ARRAY_INFO) != 0) {
-            getDD()->setVertexArrayInfo(&vertex_arrays);
-            vertex_arrays_dirty &= ~DIRTY_VERTEX_ARRAY_INFO;
-        }
+        prepareDrawState();
         getDD()->drawArrays(primitive, first, count);
         statistics.draw_calls++;
     }
@@ -567,12 +584,7 @@ void srGERD::drawElements(srRendererDefs::e_primitive primitive, w8_ulong count,
                           srRendererDefs::e_indexType type, const void* indices)
 {
     if ((enable_flags.value & 4) == 0) {
-        checkViewStateChanges();
-        checkDrawStateChanges();
-        if ((vertex_arrays_dirty & DIRTY_VERTEX_ARRAY_INFO) != 0) {
-            getDD()->setVertexArrayInfo(&vertex_arrays);
-            vertex_arrays_dirty &= ~DIRTY_VERTEX_ARRAY_INFO;
-        }
+        prepareDrawState();
         getDD()->drawElements(primitive, count, type, indices);
         statistics.draw_calls++;
     }
@@ -864,13 +876,15 @@ void srGERD::matrixMode(e_matrixMode mode)
 }
 
 // FUNCTION: SURRENDER 0x100235B0
-void srGERD::pushMatrix()
+bool srGERD::pushMatrix()
 {
     MatrixStack& stack = state.matrix_stacks[state.matrix_mode];
     if (stack.depth < 0x20) {
         stack.stack[stack.depth] = state.matrix_current[state.matrix_mode];
         stack.depth++;
+        return true;
     }
+    return false;
 }
 
 // FUNCTION: SURRENDER 0x10023560
@@ -929,49 +943,42 @@ void srGERD::applyFrameStateChanges()
     statistics.frame_state_count++;
 }
 
+// Wait with the registry lock released, then perform the requested operation
+// on the same stable entry. Device submission and buffer resets are owner-only;
+// statistics retains its existing cross-thread wait policy.
+void srGERD::drainRenderers(RendererDrain action)
+{
+    if (action != RendererDrain::statistics && std::this_thread::get_id() != owner_thread) return;
+    std::unique_lock access(renderers_section);
+    for (auto& entry : renderers) {
+        if (action == RendererDrain::immediate && entry.renderer->sorted != 0) continue;
+        if (action == RendererDrain::sorted && entry.renderer->sorted != 1) continue;
+        renderers_idle.wait(access, [&entry] { return !entry.busy; });
+        if (action == RendererDrain::reset) entry.renderer->reset(0);
+        else if (action == RendererDrain::statistics) entry.renderer->resetStatistics();
+        else entry.renderer->submit();
+    }
+}
+
 // FUNCTION: SURRENDER 0x10019A40
 void srGERD::flushRenderers()
 {
-    if (std::this_thread::get_id() == owner_thread) {
-        flushImmediateRenderers();
-        flushSort();
-        std::unique_lock access(renderers_section);
-        for (auto& owned : renderers) {
-            auto* entry = &owned;
-            renderers_idle.wait(access, [entry] { return entry->busy == 0; });
-            entry->renderer->reset(0);
-        }
-    }
+    if (std::this_thread::get_id() != owner_thread) return;
+    flushImmediateRenderers();
+    flushSort();
+    drainRenderers(RendererDrain::reset);
 }
 
 // FUNCTION: SURRENDER 0x10019AD0
 void srGERD::flushSort()
 {
-    if (std::this_thread::get_id() == owner_thread) {
-        std::unique_lock access(renderers_section);
-        for (auto& owned : renderers) {
-            auto* entry = &owned;
-            if (entry->renderer->sorted == 1) {
-                renderers_idle.wait(access, [entry] { return entry->busy == 0; });
-                entry->renderer->submit();
-            }
-        }
-    }
+    drainRenderers(RendererDrain::sorted);
 }
 
 // FUNCTION: SURRENDER 0x10019B60
 void srGERD::flushImmediateRenderers()
 {
-    if (std::this_thread::get_id() == owner_thread) {
-        std::unique_lock access(renderers_section);
-        for (auto& owned : renderers) {
-            auto* entry = &owned;
-            if (entry->renderer->sorted == 0) {
-                renderers_idle.wait(access, [entry] { return entry->busy == 0; });
-                entry->renderer->submit();
-            }
-        }
-    }
+    drainRenderers(RendererDrain::immediate);
 }
 
 // FUNCTION: SURRENDER 0x10019BF0
@@ -1141,7 +1148,7 @@ void srGERD::flipFrame(const Rectangle* first, const Rectangle* second, w8_ulong
     }
     statistics.frames += 1;
     state_flags |= STATE_FRAME_FLIPPED;
-    getStatistics(frame_statistics);
+    frame_statistics = getStatistics();
 }
 
 // FUNCTION: SURRENDER 0x1001AAB0
@@ -1193,15 +1200,12 @@ int srGERD::isFullScreen() const
 }
 
 // FUNCTION: SURRENDER 0x1001D030
-void srGERD::getPixelFormat(srPixelConvert::PixelFormat& format) const
+std::optional<srPixelConvert::PixelFormat> srGERD::getPixelFormat() const
 {
-    if (isWindowOpen() != 0) {
-        /* Default 8888 format the device getBufferPixelFormat refines. */
-        srDD::PixelFormat device = {
-            8, 0x10, 8, 8, 8, 0, 8, 0x18, srPixelConvert::COLOR_RGB, srPixelConvert::PIXEL_SIZE_32};
-        getDD()->getBufferPixelFormat(device);
-        convertPixelFormat(format, device);
+    if (isWindowOpen() == 0) {
+        return std::nullopt;
     }
+    return convertPixelFormat(getDD()->getBufferPixelFormat());
 }
 
 // FUNCTION: SURRENDER 0x1001D100
@@ -1316,84 +1320,39 @@ void srGERD::setViewPort(w8_ulong x, w8_ulong y, w8_ulong width,
 // FUNCTION: SURRENDER 0x1001D630
 void srGERD::performPickTest(const PickInput& input)
 {
-    w8_ulong depth = this->pick.pick_depth;
-    if (depth == 0) {
-        return;
+    if (pick.pick_depth == 0) return;
+    const auto vertexIndex = [&](int vertex) -> w8_ulong {
+        if (vertex < 0 || (!input.vertices.empty() &&
+                          static_cast<std::size_t>(vertex) >= input.vertices.size()))
+            throw std::invalid_argument("Invalid picking vertex index");
+        const auto mapped = input.vertices.empty() ? static_cast<w8_ulong>(vertex) : input.vertices[vertex];
+        if (mapped >= input.positions.size())
+            throw std::invalid_argument("Invalid picking position index");
+        return mapped;
+    };
+    // Validate the whole selection before any queued pick can be changed.
+    for (const auto index : input.indices) {
+        if (index >= input.triangles.size())
+            throw std::invalid_argument("Invalid picking triangle index");
+        const auto& triangle = input.triangles[index];
+        for (const auto vertex : {triangle.x, triangle.y, triangle.z}) vertexIndex(vertex);
     }
-    pick_vertices.resize(input.vertex_count);
-    glm::vec4* vertices = pick_vertices.data();
-    for (w8_ulong index = 0; index < input.vertex_count; index++) {
-        float inv_w = 1.0f / input.positions[index].w;
-        vertices[index].w = inv_w < 0.0f ? -1.0f : 1.0f;
-        inv_w = fabs(inv_w);
-        vertices[index].x = input.positions[index].x * inv_w;
-        vertices[index].y = input.positions[index].y * inv_w;
-        vertices[index].z = input.positions[index].z * inv_w;
-    }
-    Pick* pick = this->pick.pick_stack;
-    do {
-        float pick_x = pick->position.x;
-        float pick_y = pick->position.y;
-        for (w8_ulong index = 0; index < input.triangle_count; index++) {
-            w8_ulong triangle_index = input.indices[index];
-            const srVector3i& triangle = input.triangles[triangle_index];
-            const glm::vec4* corner0 = &vertices[input.vertices[triangle.x]];
-            const glm::vec4* corner1 = &vertices[input.vertices[triangle.y]];
-            const glm::vec4* corner2 = &vertices[input.vertices[triangle.z]];
-            float v0x = corner0->x;
-            float v0y = corner0->y;
-            float v0z = corner0->z;
-            float v1x = corner1->x;
-            float v1y = corner1->y;
-            float v1z = corner1->z;
-            float v2x = corner2->x;
-            float v2y = corner2->y;
-            float v2z = corner2->z;
-            char winding = (v0y - pick_y) * (v0x - v1x) - (v0y - v1y) * (v0x - pick_x) > 0.0f;
-            if ((v1y - pick_y) * (v1x - v2x) - (v1x - pick_x) * (v1y - v2y) > 0.0f) {
-                winding++;
-            }
-            if (winding == 1) {
-                continue;
-            }
-            if ((v2y - pick_y) * (v2x - v0x) - (v2y - v0y) * (v2x - pick_x) > 0.0f) {
-                winding++;
-            }
-            if (winding != 0 && winding != 3) {
-                continue;
-            }
-            /* Positions were normalized by |1/w|; undo the mirror for
-               corners behind the eye before solving the plane. */
-            if (corner0->w == -1.0f) {
-                v0x = -v0x;
-                v0y = -v0y;
-                v0z = -v0z;
-            }
-            if (corner1->w == -1.0f) {
-                v1x = -v1x;
-                v1y = -v1y;
-                v1z = -v1z;
-            }
-            if (corner2->w == -1.0f) {
-                v2x = -v2x;
-                v2y = -v2y;
-                v2z = -v2z;
-            }
-            float a = (v1y - v0y) * (v2z - v0z) - (v1z - v0z) * (v2y - v0y);
-            float b = (v1z - v0z) * (v2x - v0x) - (v2z - v0z) * (v1x - v0x);
-            float c = (v2y - v0y) * (v1x - v0x) - (v1y - v0y) * (v2x - v0x);
-            float hit = -((a * pick_x + b * pick_y - (a * v0x + b * v0y + c * v0z)) / c);
-            if (hit >= -1.0f && hit < pick->position.z) {
-                pick->position.z = hit;
-                /* reinterpret-ok: the public pick key arrives as ulong bits
-                   naming the selected model instance. */
-                pick->selected_model = reinterpret_cast<srModelInstance*>(this->pick.pick_key);
-                pick->triangle_index = triangle_index;
+    pick_vertices.resize(input.positions.size());
+    std::ranges::transform(input.positions, pick_vertices.begin(), srPickingMath::projectedPosition);
+    for (auto& queued : std::span{pick.pick_stack}.first(pick.pick_depth)) {
+        for (const auto index : input.indices) {
+            const auto& triangle = input.triangles[index];
+            const std::array corners{pick_vertices[vertexIndex(triangle.x)],
+                                     pick_vertices[vertexIndex(triangle.y)],
+                                     pick_vertices[vertexIndex(triangle.z)]};
+            if (const auto depth = srPickingMath::triangleDepth(corners, queued.position)) {
+                queued.position.z = *depth;
+                /* reinterpret-ok: the public pick key names the selected instance. */
+                queued.selected_model = reinterpret_cast<srModelInstance*>(pick.pick_key);
+                queued.triangle_index = index;
             }
         }
-        pick++;
-        depth--;
-    } while (depth != 0);
+    }
 }
 
 // FUNCTION: SURRENDER 0x1001DAA0
@@ -1406,12 +1365,10 @@ void srGERD::pushPick(const Pick& pick)
 }
 
 // FUNCTION: SURRENDER 0x1001DAE0
-void srGERD::popPick(Pick& pick)
+std::optional<srGERD::Pick> srGERD::popPick()
 {
-    if (this->pick.pick_depth != 0) {
-        this->pick.pick_depth -= 1;
-        pick = this->pick.pick_stack[this->pick.pick_depth];
-    }
+    if (pick.pick_depth == 0) return std::nullopt;
+    return pick.pick_stack[--pick.pick_depth];
 }
 
 // FUNCTION: SURRENDER 0x1001DB10
@@ -1447,19 +1404,20 @@ srRendererDefs::e_scaleType srGERD::getModelViewScaleType()
 }
 
 // FUNCTION: SURRENDER 0x100213C0
-void srGERD::getNormalMatrix(glm::mat4& matrix)
+glm::mat4 srGERD::getNormalMatrix()
 {
     checkViewStateChanges();
-    matrix = state.normal_matrix;
+    glm::mat4 matrix = state.normal_matrix;
     if ((enable_flags.value & (1UL << ENABLE_REVERSE_NORMALS)) != 0)
         matrix = glm::mat4(-glm::mat3(matrix));
+    return matrix;
 }
 
 // FUNCTION: SURRENDER 0x100214F0
-void srGERD::getProjectClipNearMatrix(glm::mat4& matrix)
+glm::mat4 srGERD::getProjectClipNearMatrix()
 {
     checkViewStateChanges();
-    matrix = state.project_clip_near;
+    return state.project_clip_near;
 }
 
 // FUNCTION: SURRENDER 0x10022190
@@ -1486,9 +1444,9 @@ void srGERD::ortho(double left, double right, double bottom, double top, double 
 }
 
 // FUNCTION: SURRENDER 0x100223A0
-void srGERD::rotate(double angle, const srVector3T<double>& axis)
+void srGERD::rotate(double angle, const glm::vec3& axis)
 {
-    const glm::vec3 direction(axis.x, axis.y, axis.z);
+    const auto& direction = axis;
     if (glm::dot(direction, direction) == 0) {
         loadIdentity();
         return;
@@ -1498,44 +1456,32 @@ void srGERD::rotate(double angle, const srVector3T<double>& axis)
     setMatrixDirty();
 }
 
-// FUNCTION: SURRENDER 0x100226F0
-void srGERD::rotate(double angle, const srVector3T<float>& axis)
-{
-    rotate(angle, srVector3T<double>(axis.x, axis.y, axis.z));
-}
-
 // FUNCTION: SURRENDER 0x10022780
-void srGERD::scale(const srVector3T<double>& factors)
+void srGERD::scale(const glm::vec3& factors)
 {
     auto& current = state.matrix_current[state.matrix_mode];
-    current = glm::scale(current, glm::vec3(factors.x, factors.y, factors.z));
+    current = glm::scale(current, factors);
     setMatrixDirty();
 }
 
 // FUNCTION: SURRENDER 0x10022870
 void srGERD::scale(double x, double y, double z)
 {
-    scale(srVector3T<double>(x, y, z));
+    scale(glm::vec3(x, y, z));
 }
 
 // FUNCTION: SURRENDER 0x10022960
-void srGERD::translate(const srVector3T<double>& offset)
+void srGERD::translate(const glm::vec3& offset)
 {
     auto& current = state.matrix_current[state.matrix_mode];
-    current = glm::translate(current, glm::vec3(offset.x, offset.y, offset.z));
+    current = glm::translate(current, offset);
     setMatrixDirty();
-}
-
-// FUNCTION: SURRENDER 0x100229F0
-void srGERD::translate(const srVector3T<float>& offset)
-{
-    translate(srVector3T<double>(offset.x, offset.y, offset.z));
 }
 
 // FUNCTION: SURRENDER 0x10022A20
 void srGERD::translate(double x, double y, double z)
 {
-    translate(srVector3T<double>(x, y, z));
+    translate(glm::vec3(x, y, z));
 }
 
 // FUNCTION: SURRENDER 0x100231D0
@@ -1549,17 +1495,17 @@ void srGERD::loadIdentity()
 }
 
 // FUNCTION: SURRENDER 0x10023320
-void srGERD::getMatrix(e_matrixMode mode, glm::mat4& matrix)
+glm::mat4 srGERD::getMatrix(e_matrixMode mode)
 {
     checkViewStateChanges();
-    matrix = state.matrix_current[mode];
+    return state.matrix_current[mode];
 }
 
 // FUNCTION: SURRENDER 0x10023510
-void srGERD::getInverseModelViewMatrix(glm::mat4& matrix)
+glm::mat4 srGERD::getInverseModelViewMatrix()
 {
     checkViewStateChanges();
-    matrix = state.inverse_modelview;
+    return state.inverse_modelview;
 }
 
 // FUNCTION: SURRENDER 0x1001F790
@@ -1578,7 +1524,7 @@ short srGERD::accumConvert(float value) const
 void srGERD::accumAlloc()
 {
     if (getWidth() != 0 && getHeight() != 0) {
-        accum_buffer.resize(static_cast<std::size_t>(getWidth()) * getHeight());
+        accum_buffer.resize(static_cast<std::size_t>(getWidth()) * getHeight(), AccumPixel(0));
         accum_scratch.resize(getWidth());
         accumClear();
     }
@@ -1646,23 +1592,6 @@ srGERD::LockSurface::LockSurface(srGERD* gerd, const srPixelConvert::PixelFormat
     argb32 = 0;
 }
 
-// FUNCTION: SURRENDER 0x1001F610
-srGERD::LockSurface::~LockSurface()
-{
-}
-
-// FUNCTION: SURRENDER 0x1001F750
-void* srGERD::LockSurface::getDataPtr()
-{
-    return 0;
-}
-
-// FUNCTION: SURRENDER 0x1001F760
-w8_long srGERD::LockSurface::getDataSize()
-{
-    return 0;
-}
-
 // FUNCTION: SURRENDER 0x100207A0
 void srGERD::LockSurface::setHLine(w8_long y, w8_long x0, w8_long x1, w8_ulong pixel)
 {
@@ -1692,188 +1621,74 @@ void srGERD::LockSurface::setHLine(w8_long y, w8_long x0, w8_long x1, w8_ulong p
     gerd->getDD()->bufferOp(command);
 }
 
+void srGERD::LockSurface::transferPixels(void* pixels, w8_long fixed, w8_long begin,
+                                        w8_long end, bool vertical, bool write, bool raw)
+{
+    const w8_long fixedMin = vertical ? left : top;
+    const w8_long fixedMax = vertical ? right : bottom;
+    const w8_long start = vertical ? top : left;
+    const w8_long stop = vertical ? bottom : right;
+    if (fixed < fixedMin || fixed >= fixedMax)
+        return;
+    // Raw reads historically skip one byte per clipped pixel; raw writes skip
+    // a complete packed pixel. Keep that device-interface behavior here.
+    const size_t stride = raw ? (write ? pixel_format.pixel_size + 1 : 1) : sizeof(w8_ulong);
+    if (begin < start) {
+        pixels = static_cast<unsigned char*>(pixels) + size_t(start - begin) * stride;
+        begin = start;
+    }
+    end = std::min(end, stop);
+    if (begin >= end)
+        return;
+    const bool convert = !raw && !argb32;
+    const w8_long count = end - begin;
+    if (convert && write)
+        scratch.setPixelRow(static_cast<const w8_ulong*>(pixels), 0, 0, count);
+    srDD::BufferCommand command{};
+    command.opcode = (vertical ? 6 : 2) + (write ? 1 : 0);
+    command.x = vertical ? fixed : begin;
+    command.y = vertical ? begin : fixed;
+    command.count = count;
+    command.data = convert ? scratch.getDataPtr() : pixels;
+    gerd->getDD()->bufferOp(command);
+    if (convert && !write)
+        scratch.getPixelRow(static_cast<w8_ulong*>(pixels), 0, 0, count);
+}
+
 // FUNCTION: SURRENDER 0x10020990
 void srGERD::LockSurface::getPixelRow(w8_ulong* pixels, w8_long y, w8_long x0, w8_long x1)
 {
-    if (y < (w8_long)top || y >= (w8_long)bottom) {
-        return;
-    }
-    if (x0 < (w8_long)left) {
-        pixels += left - x0;
-        x0 = left;
-    }
-    if (x1 > (w8_long)right) {
-        x1 = right;
-    }
-    if (x0 >= x1) {
-        return;
-    }
-    w8_long count = x1 - x0;
-    srDD::BufferCommand command;
-    command.flags = 0;
-    command.opcode = 2;
-    command.x = x0;
-    command.y = y;
-    command.count = count;
-    if (argb32 != 0) {
-        command.data = pixels;
-        gerd->getDD()->bufferOp(command);
-        return;
-    }
-    command.data = scratch.getDataPtr();
-    gerd->getDD()->bufferOp(command);
-    scratch.getPixelRow(pixels, 0, 0, count);
+    transferPixels(pixels, y, x0, x1, false, false);
 }
 
 // FUNCTION: SURRENDER 0x10020840
 void srGERD::LockSurface::setPixelRow(const w8_ulong* pixels, w8_long y, w8_long x0, w8_long x1)
 {
-    if (y < (w8_long)top || y >= (w8_long)bottom) {
-        return;
-    }
-    if (x0 < (w8_long)left) {
-        pixels += left - x0;
-        x0 = left;
-    }
-    if (x1 > (w8_long)right) {
-        x1 = right;
-    }
-    if (x0 >= x1) {
-        return;
-    }
-    w8_long count = x1 - x0;
-    srDD::BufferCommand command;
-    command.flags = 0;
-    command.opcode = 3;
-    command.x = x0;
-    command.y = y;
-    command.count = count;
-    if (argb32 != 0) {
-        command.data = (void*)pixels;
-        gerd->getDD()->bufferOp(command);
-        return;
-    }
-    scratch.setPixelRow(pixels, 0, 0, count);
-    command.data = scratch.getDataPtr();
-    gerd->getDD()->bufferOp(command);
+    transferPixels(const_cast<w8_ulong*>(pixels), y, x0, x1, false, true);
 }
 
 // FUNCTION: SURRENDER 0x10020A70
 void srGERD::LockSurface::getPixelRowRaw(void* pixels, w8_long y, w8_long x0, w8_long x1)
 {
-    if (y < (w8_long)top || y >= (w8_long)bottom) {
-        return;
-    }
-    if (x0 < (w8_long)left) {
-        pixels = (char*)pixels + (left - x0);
-        x0 = left;
-    }
-    if (x1 > (w8_long)right) {
-        x1 = right;
-    }
-    if (x0 >= x1) {
-        return;
-    }
-    srDD::BufferCommand command;
-    command.flags = 0;
-    command.opcode = 2;
-    command.data = pixels;
-    command.x = x0;
-    command.y = y;
-    command.count = x1 - x0;
-    gerd->getDD()->bufferOp(command);
+    transferPixels(pixels, y, x0, x1, false, false, true);
 }
 
 // FUNCTION: SURRENDER 0x10020900
 void srGERD::LockSurface::setPixelRowRaw(const void* pixels, w8_long y, w8_long x0, w8_long x1)
 {
-    if (y < (w8_long)top || y >= (w8_long)bottom) {
-        return;
-    }
-    if (x0 < (w8_long)left) {
-        pixels = static_cast<const char*>(pixels) + (pixel_format.pixel_size + 1) * (left - x0);
-        x0 = left;
-    }
-    if (x1 > (w8_long)right) {
-        x1 = right;
-    }
-    if (x0 >= x1) {
-        return;
-    }
-    srDD::BufferCommand command;
-    command.flags = 0;
-    command.opcode = 3;
-    command.data = (void*)pixels;
-    command.x = x0;
-    command.y = y;
-    command.count = x1 - x0;
-    gerd->getDD()->bufferOp(command);
+    transferPixels(const_cast<void*>(pixels), y, x0, x1, false, true, true);
 }
 
 // FUNCTION: SURRENDER 0x10020BB0
 void srGERD::LockSurface::getPixelColumn(w8_ulong* pixels, w8_long x, w8_long y0, w8_long y1)
 {
-    if (x < (w8_long)left || x >= (w8_long)right) {
-        return;
-    }
-    if (y0 < (w8_long)top) {
-        pixels += top - y0;
-        y0 = top;
-    }
-    if (y1 >= (w8_long)bottom) {
-        y1 = bottom;
-    }
-    if (y0 >= y1) {
-        return;
-    }
-    w8_long count = y1 - y0;
-    srDD::BufferCommand command;
-    command.flags = 0;
-    command.opcode = 6;
-    command.x = x;
-    command.y = y0;
-    command.count = count;
-    if (argb32 != 0) {
-        command.data = pixels;
-        gerd->getDD()->bufferOp(command);
-        return;
-    }
-    command.data = scratch.getDataPtr();
-    gerd->getDD()->bufferOp(command);
-    scratch.getPixelRow(pixels, 0, 0, count);
+    transferPixels(pixels, x, y0, y1, true, false);
 }
 
 // FUNCTION: SURRENDER 0x10020AF0
 void srGERD::LockSurface::setPixelColumn(const w8_ulong* pixels, w8_long x, w8_long y0, w8_long y1)
 {
-    if (x < (w8_long)left || x >= (w8_long)right) {
-        return;
-    }
-    if (y0 < (w8_long)top) {
-        pixels += top - y0;
-        y0 = top;
-    }
-    if (y1 >= (w8_long)bottom) {
-        y1 = bottom;
-    }
-    if (y0 >= y1) {
-        return;
-    }
-    w8_long count = y1 - y0;
-    srDD::BufferCommand command;
-    command.flags = 0;
-    command.opcode = 7;
-    command.x = x;
-    command.y = y0;
-    command.count = count;
-    if (argb32 != 0) {
-        command.data = (void*)pixels;
-        gerd->getDD()->bufferOp(command);
-        return;
-    }
-    scratch.setPixelRow(pixels, 0, 0, count);
-    command.data = scratch.getDataPtr();
-    gerd->getDD()->bufferOp(command);
+    transferPixels(const_cast<w8_ulong*>(pixels), x, y0, y1, true, true);
 }
 
 // FUNCTION: SURRENDER 0x10020780
@@ -2136,23 +1951,9 @@ srGERD::e_matrixMode srGERD::getMatrixMode() const
 }
 
 // FUNCTION: SURRENDER 0x10023350
-void srGERD::getMatrix(glm::mat4& matrix)
+glm::mat4 srGERD::getMatrix()
 {
-    checkViewStateChanges();
-    matrix = state.matrix_current[state.matrix_mode];
-}
-
-// FUNCTION: SURRENDER 0x10023390
-void srGERD::getMatrix(e_matrixMode mode, glm::dmat4& matrix)
-{
-    checkViewStateChanges();
-    matrix = glm::dmat4(state.matrix_current[mode]);
-}
-
-// FUNCTION: SURRENDER 0x10023450
-void srGERD::getMatrix(glm::dmat4& matrix)
-{
-    getMatrix(state.matrix_mode, matrix);
+    return getMatrix(state.matrix_mode);
 }
 
 // FUNCTION: SURRENDER 0x10021380
@@ -2162,11 +1963,24 @@ float srGERD::getMaxModelViewScale()
     return state.max_modelview_scale;
 }
 
-// FUNCTION: SURRENDER 0x10021D20
-void srGERD::pushMultMatrix(const glm::mat4x3& matrix)
+srModelViewScope::srModelViewScope(srGERD& renderer) : renderer(&renderer)
 {
-    pushMatrix();
-    multMatrix(glm::mat4(matrix));
+    renderer.matrixMode(srGERD::MATRIX_MODELVIEW);
+    if (!renderer.pushMatrix())
+        throw std::overflow_error("Model-view matrix stack is full");
+}
+
+srModelViewScope::srModelViewScope(srModelViewScope&& other) noexcept
+    : renderer(std::exchange(other.renderer, nullptr))
+{
+}
+
+srModelViewScope::~srModelViewScope()
+{
+    if (renderer) {
+        renderer->matrixMode(srGERD::MATRIX_MODELVIEW);
+        renderer->popMatrix();
+    }
 }
 
 // FUNCTION: SURRENDER 0x10022C50
@@ -2208,12 +2022,6 @@ void srGERD::loadMatrix(const glm::mat3& matrix)
     loadMatrix(glm::mat4(matrix));
 }
 
-// FUNCTION: SURRENDER 0x10022840
-void srGERD::scale(const srVector3T<float>& factors)
-{
-    scale(srVector3T<double>((double)factors.x, (double)factors.y, (double)factors.z));
-}
-
 // FUNCTION: SURRENDER 0x100228C0
 void srGERD::scale(double factor)
 {
@@ -2223,7 +2031,7 @@ void srGERD::scale(double factor)
 // FUNCTION: SURRENDER 0x10022730
 void srGERD::rotate(double angle, double x, double y, double z)
 {
-    rotate(angle, srVector3T<double>(x, y, z));
+    rotate(angle, glm::vec3(x, y, z));
 }
 
 // FUNCTION: SURRENDER 0x10021DF0
@@ -2271,32 +2079,9 @@ void srGERD::applyClipPlaneChanges()
     state.clip_planes[3] = rows[3] - rows[1];
     state.clip_planes[4] = rows[3] + rows[2];
     state.clip_planes[5] = rows[3] - rows[2];
-    for (int i = 0; i < 6; ++i) {
-        const float length = glm::length(glm::vec3(state.clip_planes[i]));
-        if (length > 0)
-            state.clip_planes[i] /= length;
-    }
+    for (int i = 0; i < 6; ++i)
+        state.clip_planes[i] = srPlaneMath::normalized(state.clip_planes[i]);
     dirty &= ~DIRTY_CLIP_PLANES;
-}
-
-// FUNCTION: SURRENDER 0x1001D4E0
-void srGERD::getScissor(w8_ulong& x, w8_ulong& y, w8_ulong& width,
-                        w8_ulong& height) const
-{
-    x = state.scissor.left;
-    y = state.scissor.top;
-    width = state.scissor.right - state.scissor.left;
-    height = state.scissor.bottom - state.scissor.top;
-}
-
-// FUNCTION: SURRENDER 0x1001D530
-void srGERD::getViewPort(w8_ulong& x, w8_ulong& y, w8_ulong& width,
-                         w8_ulong& height) const
-{
-    x = state.view_left;
-    y = state.view_top;
-    width = state.view_right - state.view_left;
-    height = state.view_bottom - state.view_top;
 }
 
 // FUNCTION: SURRENDER 0x1001C010
@@ -2306,9 +2091,8 @@ void srGERD::pushClipPlane(const glm::vec4& plane, e_clipMode mode)
         checkClipPlaneChanges();
         checkViewStateChanges();
         w8_ulong bit = 1UL << (state.clip_plane_count + 6);
-        const float length = glm::length(glm::vec3(plane));
         state.clip_planes[state.clip_plane_count + 6] =
-            glm::transpose(state.inverse_modelview) * (length > 0 ? plane / length : plane);
+            glm::transpose(state.inverse_modelview) * srPlaneMath::normalized(plane);
         state.clip_modes[state.clip_plane_count] = static_cast<unsigned char>(mode);
         state.clip_mask |= bit;
         if (mode == 1) {
@@ -2332,9 +2116,10 @@ void srGERD::popClipPlane()
 }
 
 // FUNCTION: SURRENDER 0x1001C230
-void srGERD::getClipPlanes(ClipPlanes& planes)
+srGERD::ClipPlanes srGERD::getClipPlanes()
 {
     checkClipPlaneChanges();
+    ClipPlanes planes{};
     for (int plane = 0; plane != 6; ++plane) {
         planes.planes[plane] = state.clip_planes[plane];
     }
@@ -2347,6 +2132,7 @@ void srGERD::getClipPlanes(ClipPlanes& planes)
     }
     planes.mask = state.clip_mask;
     planes.mode1_mask = state.clip_mode1_mask;
+    return planes;
 }
 
 // FUNCTION: SURRENDER 0x1001C5C0
@@ -2431,9 +2217,9 @@ void srGERD::setFogColor(const glm::vec4& color)
 }
 
 // FUNCTION: SURRENDER 0x1001C680
-void srGERD::getFogColor(glm::vec4& color) const
+glm::vec4 srGERD::getFogColor() const
 {
-    color = fog_color;
+    return fog_color;
 }
 
 // FUNCTION: SURRENDER 0x1001C440
@@ -2485,11 +2271,10 @@ glm::vec4 srGERD::getEyeSpaceLocation(const glm::vec3& object_location)
 }
 
 // FUNCTION: SURRENDER 0x1001DDF0
-void srGERD::getEyeSpaceBounds(glm::vec3& center, float& radius, const glm::vec3& object_center,
-                               float object_radius)
+srBoundingSphere srGERD::eyeSpaceBounds(const srBoundingSphere& sphere)
 {
-    center = glm::vec3(getEyeSpaceLocation(object_center));
-    radius = object_radius * state.max_modelview_scale;
+    const auto center = glm::vec3(getEyeSpaceLocation(sphere.center));
+    return {center, sphere.radius * state.max_modelview_scale};
 }
 
 // FUNCTION: SURRENDER 0x1001B570
@@ -2756,9 +2541,7 @@ bound:
         }
         ++statistics.texture_binds;
     }
-    srTextureIFace::Parameters parameters;
-    texture->getTextureParms(parameters);
-    setTextureParameters(stage, parameters);
+    setTextureParameters(stage, texture->getParameters());
 }
 
 namespace {
@@ -2797,102 +2580,63 @@ w8_ulong nextTextureDimension(w8_ulong value)
 
 } // namespace
 
-// FUNCTION: SURRENDER 0x10018E90
-void srGERD::convertPixelFormat(srPixelConvert::PixelFormat& format,
-                                const srDD::PixelFormat& device)
+// Both native/device representations carry the same component descriptors.
+// The surface result's constructor initializes its extra FourCC field.
+template<class Destination, class Source>
+static Destination ConvertedPixelFormat(const Source& source)
 {
-    format.red_bits = device.red_bits;
-    format.green_bits = device.green_bits;
-    format.blue_bits = device.blue_bits;
-    format.alpha_bits = device.alpha_bits;
-    format.red_shift = device.red_shift;
-    format.green_shift = device.green_shift;
-    format.blue_shift = device.blue_shift;
-    format.alpha_shift = device.alpha_shift;
-    format.color_model = device.color_model;
-    format.pixel_size = device.pixel_size;
+    Destination result{};
+    result.red_bits = source.red_bits;
+    result.green_bits = source.green_bits;
+    result.blue_bits = source.blue_bits;
+    result.alpha_bits = source.alpha_bits;
+    result.red_shift = source.red_shift;
+    result.green_shift = source.green_shift;
+    result.blue_shift = source.blue_shift;
+    result.alpha_shift = source.alpha_shift;
+    result.color_model = source.color_model;
+    result.pixel_size = source.pixel_size;
+    return result;
+}
+
+// FUNCTION: SURRENDER 0x10018E90
+srPixelConvert::PixelFormat srGERD::convertPixelFormat(const srDD::PixelFormat& device)
+{
+    return ConvertedPixelFormat<srPixelConvert::PixelFormat>(device);
 }
 
 // FUNCTION: SURRENDER 0x10018EE0
-void srGERD::convertPixelFormat(srDD::PixelFormat& device,
-                                const srPixelConvert::PixelFormat& format)
+srDD::PixelFormat srGERD::convertPixelFormat(const srPixelConvert::PixelFormat& format)
 {
-    device.red_bits = format.red_bits;
-    device.green_bits = format.green_bits;
-    device.blue_bits = format.blue_bits;
-    device.alpha_bits = format.alpha_bits;
-    device.red_shift = format.red_shift;
-    device.green_shift = format.green_shift;
-    device.blue_shift = format.blue_shift;
-    device.alpha_shift = format.alpha_shift;
-    device.color_model = format.color_model;
-    device.pixel_size = format.pixel_size;
+    return ConvertedPixelFormat<srDD::PixelFormat>(format);
 }
 
 // FUNCTION: SURRENDER 0x10018F30
 void srGERD::initTextureFormats()
 {
-    srDD::PixelFormatList list{};
-    getDD()->getTextureFormats(list);
-    w8_long count = list.count;
-    device.texture_formats.resize(count);
-    if (count != 0) {
-        w8_long i;
-        for (i = 0; i < count; i++) {
-            device.texture_formats[i].fourcc = 0;
-        }
-        for (i = 0; i < count; i++) {
-            convertPixelFormat(device.texture_formats[i], list.formats[i]);
-        }
+    const auto formats = getDD()->getTextureFormats();
+    device.texture_formats.resize(formats.size());
+    for (std::size_t i = 0; i < formats.size(); ++i) {
+        device.texture_formats[i] = convertPixelFormat(formats[i]);
     }
 }
 
 // FUNCTION: SURRENDER 0x10018FE0
 void srGERD::initDisplayModeList()
 {
-    srDD::WindowInfoList list{};
-    getDD()->getWindowList(list);
-    device.display_modes.resize(list.count);
-    if (list.count != 0) {
-        for (w8_long i = 0; i < list.count; i++) {
-            device.display_modes[i].width = list.entries[i].width;
-            device.display_modes[i].height = list.entries[i].height;
-            device.display_modes[i].depth = list.entries[i].depth;
-        }
+    const auto modes = getDD()->getWindowList();
+    device.display_modes.resize(modes.size());
+    for (std::size_t i = 0; i < modes.size(); ++i) {
+        device.display_modes[i].width = modes[i].width;
+        device.display_modes[i].height = modes[i].height;
+        device.display_modes[i].depth = modes[i].depth;
     }
 }
 
 // FUNCTION: SURRENDER 0x10019080
 void srGERD::initDDInfo()
 {
-    device.info.max_back_buffer_width = 0;
-    device.info.max_back_buffer_height = 0;
-    for (auto& text : device.info.text) {
-        std::fill(std::begin(text), std::end(text), '\0');
-    }
-    device.info.flags = 0;
-    device.info.hardware_id = 1;
-    device.info.texture_min_dim = 1;
-    device.info.texture_max_aspect = 1;
-    device.info.max_texture_stages = 1;
-    device.info.renderer_batch_limit = 0x100;
-    device.info.unknown_20_ = 0x3b808081;
-    device.info.texture_ram = 0x200000;
-    device.info.unknown_0c_ = 0x10;
-    device.info.unknown_08_ = 4;
-    device.info.texture_max_dim = 0x100;
-    device.info.unknown_10_ = 1.0f;
-    device.info.unknown_14_ = 65536.0f;
-    sprintf(device.info.text[0], "Unknown");
-    sprintf(device.info.text[1], "Unknown");
-    sprintf(device.info.text[2], "Unknown");
-    sprintf(device.info.text[3], "Unknown");
-    sprintf(device.info.text[4], "Unknown");
-    sprintf(device.info.text[5], "Unknown");
-    sprintf(device.info.text[6], "Unknown");
-    sprintf(device.info.text[7], "Unknown");
-    sprintf(device.info.text[8], "Unknown");
-    getDD()->getInfo(device.info);
+    device.info = getDD()->getInfo();
     if (device.info.max_texture_stages > 2) {
         device.info.max_texture_stages = 2;
     }
@@ -3101,11 +2845,9 @@ void srGERD::dumpTextureCache(std::ostream& stream)
                    "--------------\n");
     w8_long index = 0;
     for (Texture* entry = texture_head; entry != 0; entry = entry->next) {
-        char format_name[64];
-        format_name[0] = '\0';
-        entry->pixel_format.getName(format_name);
+        const auto format_name = entry->pixel_format.getName();
         srStreamPrintf(stream, "%04d  %03dx%03d     %-11s  ", index, entry->device.width,
-                       entry->device.height, format_name);
+                       entry->device.height, format_name.c_str());
         index++;
         float kb = (entry->device.size + 0x3ff) * 0.0009765625f;
         if (kb >= 10.0f) {
@@ -3190,21 +2932,24 @@ srColorSurfaceIFace* srGERD::lockBuffer()
     if (lock_surface != 0) {
         return 0;
     }
+    const auto format = getPixelFormat();
+    if (!format) {
+        setError(ERROR_WINDOW_NOT_OPEN);
+        return nullptr;
+    }
     flush();
     if (_lockBuffer() != 0) {
         return 0;
     }
     checkViewStateChanges();
-    srPixelConvert::PixelFormat format;
-    getPixelFormat(format);
-    lock_surface = std::make_unique<LockSurface>(this, format);
+    lock_surface = std::make_unique<LockSurface>(this, *format);
     lock_surface->setScissor(state.scissor.left, state.scissor.top, state.scissor.right,
                              state.scissor.bottom);
-    if (format.color_model == srPixelConvert::COLOR_RGB &&
-        format.pixel_size == srPixelConvert::PIXEL_SIZE_32 && format.red_bits == 8 &&
-        format.green_bits == 8 && format.blue_bits == 8 && format.alpha_bits == 8 &&
-        format.red_shift == 0x10 && format.green_shift == 8 && format.blue_shift == 0 &&
-        format.alpha_shift == 0x18) {
+    if (format->color_model == srPixelConvert::COLOR_RGB &&
+        format->pixel_size == srPixelConvert::PIXEL_SIZE_32 && format->red_bits == 8 &&
+        format->green_bits == 8 && format->blue_bits == 8 && format->alpha_bits == 8 &&
+        format->red_shift == 0x10 && format->green_shift == 8 && format->blue_shift == 0 &&
+        format->alpha_shift == 0x18) {
         lock_surface->argb32 = 1;
     }
     return lock_surface.get();
@@ -3496,12 +3241,11 @@ void srGERD::evaluateTexturePixelFormat(Texture& texture,
     w8_ulong flags = dimensions.hints;
     srPixelConvert::PixelFormat format = dimensions.format;
     if ((flags & (1UL << srTextureIFace::HINT_INTENSITY)) != 0) {
-        srPixelConvert::mapPixelFormat(format.alpha_bits != 0 ? srPixelConvert::SURFACE_AL88
-                                                              : srPixelConvert::SURFACE_L8,
-                                       format);
+        format = srPixelConvert::pixelFormat(format.alpha_bits != 0 ? srPixelConvert::SURFACE_AL88
+                                                                  : srPixelConvert::SURFACE_L8);
     }
     if ((dimensions.hints & (1UL << srTextureIFace::HINT_ALPHA_ONLY)) != 0) {
-        srPixelConvert::mapPixelFormat(srPixelConvert::SURFACE_A8, format);
+        format = srPixelConvert::pixelFormat(srPixelConvert::SURFACE_A8);
     }
     flags = dimensions.hints;
     if ((flags & (1UL << srTextureIFace::HINT_NO_ALPHA)) == 0) {
@@ -3515,11 +3259,11 @@ void srGERD::evaluateTexturePixelFormat(Texture& texture,
         texture.device.flags |= 1;
     }
     texture.device.resident = (dimensions.hints >> srTextureIFace::HINT_RESIDENT) & 1;
-    convertPixelFormat(texture.device.format, format);
-    w8_ulong index = format.match(device.texture_formats.data(),
-                                 static_cast<w8_ulong>(device.texture_formats.size()));
-    texture.device.format_index = index;
-    texture.pixel_format = device.texture_formats[index];
+    texture.device.format = convertPixelFormat(format);
+    const auto index = format.match(device.texture_formats);
+    if (!index) throw std::runtime_error("device has no supported texture formats");
+    texture.device.format_index = static_cast<w8_ulong>(*index);
+    texture.pixel_format = device.texture_formats[*index];
     if (texture.pixel_format.color_model == srPixelConvert::COLOR_INDEXED) {
         texture.palette = dimensions.palette;
     } else {
@@ -3597,38 +3341,23 @@ void srGERD::allocTextureData(Texture& texture)
 // FUNCTION: SURRENDER 0x10029090
 srGERD::Texture* srGERD::createNewTexture(srTextureIFace* texture)
 {
-    srTextureIFace::Dimensions dimensions;
-    dimensions.palette = srCore.getPalette();
-    dimensions.filter = srCore.getFilter();
-    dimensions.hints = 0;
-    dimensions.compression = srTextureIFace::COMPRESSION_DEFAULT;
-    srPixelConvert::mapPixelFormat(srPixelConvert::SURFACE_ARGB4444, dimensions.format);
     Texture* result = allocTexture(texture->getTextureFrameHandle());
     result->name = texture->getName();
-    dimensions.compression = texture_state.default_compression;
-    dimensions.width = 1;
-    dimensions.height = 1;
-    dimensions.palette = 0;
-    dimensions.format = device.texture_formats.front();
-    dimensions.filter = 0;
-    dimensions.hints = 0;
-    texture->getDimensions(dimensions);
+    const auto dimensions = texture->getDimensions();
     evaluateTextureDimensions(result->device, dimensions);
     evaluateTexturePixelFormat(*result, dimensions);
     allocTextureData(*result);
-    srTextureIFace::MultiRequest request{};
+    std::array<srColorSurfaceIFace*, 12> destinations{};
     std::unique_ptr<srColorSurface> surfaces[12];
-    request.mipmap_level = (w8_long)result->device.first_level;
-    request.last_level = result->device.last_level;
+
     w8_ulong width = result->device.width;
     w8_ulong height = result->device.height;
-    w8_long level = request.mipmap_level;
-    for (; level <= (w8_long)request.last_level; ++level) {
+    for (w8_ulong level = result->device.first_level; level <= result->device.last_level; ++level) {
         surfaces[level] = std::make_unique<srColorSurface>(
             result->pixel_format, result->device.levels[level], width, height,
             (w8_ulong)(result->pixel_format.pixel_size + 1) * width);
         auto* surface = surfaces[level].get();
-        request.destinations[level] = surface;
+        destinations[level] = surface;
         if (result->palette != 0) {
             surface->setPalette(result->palette);
         }
@@ -3636,6 +3365,10 @@ srGERD::Texture* srGERD::createNewTexture(srTextureIFace* texture)
         width >>= 1;
         height >>= 1;
     }
+    const srTextureIFace::MultiRequest request{
+        result->device.first_level,
+        std::span<srColorSurfaceIFace* const>(destinations).subspan(
+            result->device.first_level, result->device.last_level - result->device.first_level + 1)};
     texture->getMipmapData(request);
 
     result->device.resident_data = 0;
@@ -3724,26 +3457,6 @@ int srGERD::isTextureResident(srTextureIFace* texture) const
     return 0;
 }
 
-// FUNCTION: SURRENDER 0x10017F70
-int srGERD::getTextureInfo(srTextureIFace* texture, TextureInfo& info)
-{
-    std::lock_guard access(state_section);
-    if (isWindowOpen() == 0) {
-        return 0;
-    }
-    w8_ulong handle = texture->getTextureFrameHandle();
-    const auto entry = texture_lookup.find(handle);
-    Texture* resident = entry == texture_lookup.end() ? nullptr : entry->second;
-    if (resident != 0) {
-        info.pixel_format = resident->pixel_format;
-        info.width = resident->device.width;
-        info.height = resident->device.height;
-        info.last_level = resident->device.last_level;
-        return 1;
-    }
-    return 0;
-}
-
 // FUNCTION: SURRENDER 0x10029600
 void srGERD::initGlobalPalette()
 {
@@ -3758,14 +3471,6 @@ void srGERD::initGlobalPalette()
     }
     /* reinterpret-ok: the DD receives the palette entries as raw dwords. */
     getDD()->setGlobalPalette(reinterpret_cast<w8_ulong*>(global_palette), 0x100);
-}
-
-// FUNCTION: SURRENDER 0x10018E40
-void srGERD::debugWrite(const char* text)
-{
-    if (text != 0 && *text != '\0') {
-        srOut << text;
-    }
 }
 
 // FUNCTION: SURRENDER 0x10018E60
@@ -3874,12 +3579,6 @@ srGERD::e_polygonMode srGERD::getPolygonMode() const
     return polygon_mode;
 }
 
-// FUNCTION: SURRENDER 0x1001C8F0
-void srGERD::getClearAccum(glm::vec4& color) const
-{
-    color = clear_state.clear_values.accum;
-}
-
 // FUNCTION: SURRENDER 0x1001C920
 void srGERD::setClearAccum(float red, float green, float blue, float alpha)
 {
@@ -3894,38 +3593,7 @@ void srGERD::setClearAccum(float red, float green, float blue, float alpha)
 // FUNCTION: SURRENDER 0x1001C960
 void srGERD::setClearAccum(const glm::vec4& color)
 {
-    clear_state.clear_values.accum = color;
-    float* clear = &clear_state.clear_values.accum.x;
-    if (clear[0] < -1.0f) {
-        clear[0] = -1.0f;
-    }
-    if (clear[1] < -1.0f) {
-        clear[1] = -1.0f;
-    }
-    if (clear[2] < -1.0f) {
-        clear[2] = -1.0f;
-    }
-    if (clear[3] < -1.0f) {
-        clear[3] = -1.0f;
-    }
-    if (1.0f < clear[0]) {
-        clear[0] = 1.0f;
-    }
-    if (1.0f < clear[1]) {
-        clear[1] = 1.0f;
-    }
-    if (1.0f < clear[2]) {
-        clear[2] = 1.0f;
-    }
-    if (1.0f < clear[3]) {
-        clear[3] = 1.0f;
-    }
-}
-
-// FUNCTION: SURRENDER 0x1001CB40
-void srGERD::getClearColor(glm::vec4& color) const
-{
-    color = clear_state.clear_values.color;
+    clear_state.clear_values.accum = glm::clamp(color, -1.0f, 1.0f);
 }
 
 // FUNCTION: SURRENDER 0x1001CBE0
@@ -3976,12 +3644,6 @@ srGERD::e_hintMode srGERD::getHint(e_hint hint) const
     return device.hints[hint];
 }
 
-// FUNCTION: SURRENDER 0x1001CFE0
-void srGERD::getGamma(srVector3T<float>& gamma) const
-{
-    gamma = display.gamma;
-}
-
 // FUNCTION: SURRENDER 0x1001D000
 srGERD::e_antiAlias srGERD::getAntiAlias() const
 {
@@ -4024,45 +3686,6 @@ srDD::e_driverID srGERD::getDriverID() const
 w8_ulong srGERD::getSwapInterval() const
 {
     return display.swap_interval;
-}
-
-// FUNCTION: SURRENDER 0x1001D210
-void srGERD::getTextureFormat(w8_ulong index, srPixelConvert::PixelFormat& format) const
-{
-    if (static_cast<w8_long>(device.texture_formats.size()) <= (w8_long)index) {
-        index = 0;
-    }
-    format = device.texture_formats[index];
-}
-
-// FUNCTION: SURRENDER 0x1001D240
-w8_ulong srGERD::getTextureFormatCount() const
-{
-    return static_cast<w8_ulong>(device.texture_formats.size());
-}
-
-// FUNCTION: SURRENDER 0x1001D250
-void srGERD::getDisplayModeInfo(w8_long index, DisplayModeInfo& info) const
-{
-    if (static_cast<w8_long>(device.display_modes.size()) <= index) {
-        index = 0;
-    }
-    info.width = device.display_modes[index].width;
-    info.height = device.display_modes[index].height;
-    info.depth = device.display_modes[index].depth;
-}
-
-// FUNCTION: SURRENDER 0x1001D290
-w8_ulong srGERD::getDisplayModeCount() const
-{
-    return static_cast<w8_ulong>(device.display_modes.size());
-}
-
-// FUNCTION: SURRENDER 0x1001D330
-void srGERD::getDepthRange(double& minimum, double& maximum) const
-{
-    minimum = state.depth_min;
-    maximum = state.depth_max;
 }
 
 // FUNCTION: SURRENDER 0x1001D360
@@ -4109,7 +3732,7 @@ void srGERD::enable(e_enable option)
 }
 
 // FUNCTION: SURRENDER 0x1001BBB0
-void srGERD::drawTriangle(const srVector3i& triangle)
+void srGERD::drawTriangle(const glm::ivec3& triangle)
 {
     drawElements(static_cast<srRendererDefs::e_primitive>(3), 3, srRendererDefs::INDEX_ULONG,
                  &triangle);
@@ -4263,37 +3886,6 @@ w8_ulong srGERD::getClassID() const
     return sGetClassID();
 }
 
-// FUNCTION: SURRENDER 0x1001FA30
-void __cdecl srGERD::accumAccum_MMX(AccumPixel* accum, const srARGB* pixels, w8_long scale, w8_long count)
-{
-    abort(); /* MMX workers are never selected natively */
-}
-
-// FUNCTION: SURRENDER 0x1001FA90
-void __cdecl srGERD::accumLoad_MMX(AccumPixel* accum, const srARGB* pixels, w8_long scale, w8_long count)
-{
-    abort(); /* MMX workers are never selected natively */
-}
-
-// FUNCTION: SURRENDER 0x1001FB70
-void __cdecl srGERD::accumReturn_MMX(srARGB* pixels, const AccumPixel* accum, w8_long scale,
-                                     w8_long count)
-{
-    abort(); /* MMX workers are never selected natively */
-}
-
-// FUNCTION: SURRENDER 0x1001FAF0
-void __cdecl srGERD::accumAdd_MMX(AccumPixel* accum, w8_long value, w8_long count)
-{
-    abort(); /* MMX workers are never selected natively */
-}
-
-// FUNCTION: SURRENDER 0x1001FB20
-void __cdecl srGERD::accumMult_MMX(AccumPixel* accum, w8_long value, w8_long count)
-{
-    abort(); /* MMX workers are never selected natively */
-}
-
 // FUNCTION: SURRENDER 0x1001FBD0
 void srGERD::accumulate(e_accum operation, float scale)
 {
@@ -4322,41 +3914,20 @@ void srGERD::accumulate(e_accum operation, float scale)
     {
         short addend = accumConvert(scale);
         switch (operation) {
-        case ACCUM_LOAD: {
-            short table[256];
-            for (w8_long i = 0; i < 256; i++) {
-                table[i] = (short)(w8_long)(i * (scale * (32767.0f / 255.0f)));
-            }
-            for (w8_long y = 0; y < height; y++) {
-                surface->getPixelRow(
-                    reinterpret_cast<w8_ulong*>(pixels), // reinterpret-ok: ARGB row buffer
-                                                         // through the dword pixel-row ABI
-                    state.scissor.top + y, state.scissor.left, state.scissor.right);
-                for (w8_long x = 0; x < width; x++) {
-                    row[x].red = row[x].red + table[pixels[x].blue];
-                    row[x].green = row[x].green + table[pixels[x].green];
-                    row[x].blue = row[x].blue + table[pixels[x].red];
-                    row[x].alpha = row[x].alpha + table[pixels[x].alpha];
-                }
-                row += getWidth();
-            }
-            break;
-        }
+        case ACCUM_LOAD:
         case ACCUM_ACCUMULATE: {
             short table[256];
-            for (w8_long i = 0; i < 256; i++) {
+            for (w8_long i = 0; i < 256; ++i)
                 table[i] = (short)(w8_long)(i * (scale * (32767.0f / 255.0f)));
-            }
-            for (w8_long y = 0; y < height; y++) {
+
+            for (w8_long y = 0; y < height; ++y) {
                 surface->getPixelRow(
-                    reinterpret_cast<w8_ulong*>(pixels), // reinterpret-ok: ARGB row buffer
-                                                         // through the dword pixel-row ABI
+                    reinterpret_cast<w8_ulong*>(pixels), // reinterpret-ok: packed ARGB row
                     state.scissor.top + y, state.scissor.left, state.scissor.right);
-                for (w8_long x = 0; x < width; x++) {
-                    row[x].red = table[pixels[x].blue];
-                    row[x].green = table[pixels[x].green];
-                    row[x].blue = table[pixels[x].red];
-                    row[x].alpha = table[pixels[x].alpha];
+                for (w8_long x = 0; x < width; ++x) {
+                    const AccumPixel value{table[pixels[x].blue], table[pixels[x].green],
+                                           table[pixels[x].red], table[pixels[x].alpha]};
+                    row[x] = operation == ACCUM_LOAD ? row[x] + value : value;
                 }
                 row += getWidth();
             }
@@ -4365,10 +3936,7 @@ void srGERD::accumulate(e_accum operation, float scale)
         case ACCUM_MULTIPLY: {
             for (w8_long y = 0; y < height; y++) {
                 for (w8_long x = 0; x < width; x++) {
-                    row[x].red = row[x].red + addend;
-                    row[x].green = row[x].green + addend;
-                    row[x].blue = row[x].blue + addend;
-                    row[x].alpha = row[x].alpha + addend;
+                    row[x] += addend;
                 }
                 row += getWidth();
             }
@@ -4377,10 +3945,8 @@ void srGERD::accumulate(e_accum operation, float scale)
         case ACCUM_ADD: {
             for (w8_long y = 0; y < height; y++) {
                 for (w8_long x = 0; x < width; x++) {
-                    row[x].red = (short)srFloatToInt(row[x].red * scale);
-                    row[x].green = (short)srFloatToInt(row[x].green * scale);
-                    row[x].blue = (short)srFloatToInt(row[x].blue * scale);
-                    row[x].alpha = (short)srFloatToInt(row[x].alpha * scale);
+                    for (unsigned channel = 0; channel < 4; ++channel)
+                        row[x][channel] = static_cast<short>(srFloatToInt(row[x][channel] * scale));
                 }
                 row += getWidth();
             }
@@ -4399,10 +3965,11 @@ void srGERD::accumulate(e_accum operation, float scale)
             }
             for (w8_long y = 0; y < height; y++) {
                 for (w8_long x = 0; x < width; x++) {
-                    pixels[x].blue = table[((unsigned short)row[x].red) >> 7];
-                    pixels[x].green = table[((unsigned short)row[x].green) >> 7];
-                    pixels[x].red = table[((unsigned short)row[x].blue) >> 7];
-                    pixels[x].alpha = table[((unsigned short)row[x].alpha) >> 7];
+                    const auto indices = glm::u16vec4(row[x]) >> static_cast<unsigned short>(7);
+                    const glm::u8vec4 color{table[indices.x], table[indices.y],
+                                            table[indices.z], table[indices.w]};
+                    // The device row interface consumes four packed BGRA bytes.
+                    std::memcpy(&pixels[x], &color, sizeof(srARGB));
                 }
                 surface->setPixelRow(
                     reinterpret_cast<const w8_ulong*>(pixels), // reinterpret-ok: ARGB row buffer
@@ -4426,10 +3993,12 @@ bool srRender::testBoundingBox(const glm::mat4& matrix, const glm::vec3& minimum
                                const glm::vec3& maximum)
 {
     std::array<glm::vec4, 8> corners;
-    for (unsigned i = 0; i < corners.size(); ++i)
-        corners[i] =
-            matrix * glm::vec4(i & 1 ? maximum.x : minimum.x, i & 2 ? maximum.y : minimum.y,
-                               i & 4 ? maximum.z : minimum.z, 1);
+    const srBoundingBox box{minimum, maximum};
+    for (unsigned i = 0; i < corners.size(); ++i) {
+        // This visibility interface enumerates x in bit 0 and z in bit 2.
+        const auto corner = ((i & 1) << 2) | (i & 2) | ((i & 4) >> 2);
+        corners[i] = matrix * glm::vec4(box.corner(corner), 1);
+    }
     std::array<SRBYTE, 8> flags;
     clipFlags(flags, corners);
     SRBYTE outside = 0x3f;

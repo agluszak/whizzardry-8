@@ -1,7 +1,10 @@
 #pragma once
 
 #include <string_view>
+
 #include "wiz8/layouts/targeting.h"
+
+struct W8MonsterRecord;
 
 /* A friendly NPC's combat-entry script notice is still owed. */
 
@@ -35,10 +38,6 @@ void RollCombatSurprise(char party_cannot_be_surprised);
    notice when one is still owed and declines while dialogue or a script event
    defers it. */
 bool StartCombat(int surprise);
-struct W8TargetSource;
-struct W8CombatSlot;
-union W8ActionDetailBlock;
-struct W8ItemInstance;
 struct W8Character;
 struct W8MonsterInfo;
 struct W8CombatCharacterRow;

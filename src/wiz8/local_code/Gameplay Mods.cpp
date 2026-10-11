@@ -1,41 +1,26 @@
+#include <cstring>
+
 #include "wiz8/local_code/GameplayMods.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/character_skills.h"
-#include "wiz8/local_code/CharGeneration.h"
-#include "wiz8/local_code/Combat.h"
-#include "wiz8/local_code/CombatAttack.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
-#include "wiz8/local_code/GameplayCode.h"
-#include "wiz8/local_code/GameplayMods.h"
-#include "wiz8/local_code/HealthStaminaMana.h"
-#include "wiz8/local_code/Magic.h"
-#include "wiz8/local_code/MagicEffects.h"
 #include "wiz8/local_code/party_encumbrance.h"
-#include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/UtilityFunctions.h"
-#include "wiz8/character_skills.h"
 #include "wiz8/layouts/combat_state.h"
-#include "wiz8/local_code/Combat.h"
-#include "wiz8/local_code/CombatAttack.h"
-#include "wiz8/local_code/CombatRange.h"
 #include "wiz8/engine_code/Environment.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/item_tables.h"
-#include "wiz8/local_code/ConditionsAndEnchantments.h"
-#include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/GameplayTime.h"
-#include "wiz8/layouts/npc_state.h"
 #include "wiz8/local_code/NPCManager.h"
-#include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/utility.h"
+#include "conditions.h"
+#include "gameplay_modifiers.h"
+#include "layouts/item_instance.h"
 
-#include <string.h>
-
-#define GAMEPLAY_MODS_CPP "C:\\Projects\\Wizardry 8\\Local Code\\Gameplay Mods.cpp"
 
 /* Clear the party modifier block, fold the party's effect slots, the combat
    effect run and each character's own equipment and condition blocks into
@@ -343,8 +328,7 @@ void RebuildConditionsAndDerivedStats(int party_slot)
 // FUNCTION: WIZ8 0x0050e8c0
 void RebuildMonsterDerivedStats(int location_id)
 {
-    W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(
-        MonsterGetIndexByLocationID(0xa6, GAMEPLAY_MODS_CPP, location_id, true));
+    W8MonsterInfo* monster_info = FindMonster(location_id);
     W8GameplayModifierBlock* modifiers = &monster_info->modifiers;
 
     memset(modifiers, 0, sizeof(W8GameplayModifierBlock));
@@ -443,9 +427,7 @@ void ApplyConditionModifiers(W8Character* character, const unsigned int* conditi
                 W8MonsterInfo* bound;
                 if (character->conditions[W8_DEPENDENCE_SWALLOWED].level_acquired ==
                         g_status.current_level &&
-                    (bound = MonsterInfoFromID(
-                         0x16b, GAMEPLAY_MODS_CPP,
-                         character->conditions[W8_DEPENDENCE_SWALLOWED].source_monster, true)) !=
+                    (bound = FindMonster(character->conditions[W8_DEPENDENCE_SWALLOWED].source_monster)) !=
                         0) {
                     W8MonsterRecord* monster = GetMonsterDataForInfo(bound);
                     target->health_regen_adjustment += -1 - (monster->effective_level >> 1);

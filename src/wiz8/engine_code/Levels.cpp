@@ -1,9 +1,20 @@
-#include "wiz8/utility.h"
-#include "wiz8/unicode.h"
+#include "glm/ext/vector_double3.hpp"
+#include "surrender/srCamera.h" // IWYU pragma: keep - complete camera type for conversion to srNode.
+#include <wiz8/asset_paths.h>
+#include <SDL3/SDL_filesystem.h>
+#include <glm/ext/quaternion_trigonometric.hpp>
+#include <glm/gtc/quaternion.hpp>
+#include <cmath>
+#include <cstdio>
+#include <cstring>
+#include <exception>
+#include <memory>
+#include <optional>
+#include <string>
+
 #include "wiz8/containers.h"
 #include "wiz8/engine_code/stModelInstance.h"
 #include "wiz8/engine_code/3dapi.h"
-
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/local_code/ItemManager.h"
@@ -12,20 +23,12 @@
 #include "wiz8/monster_generators.h"
 #include "wiz8/engine_code/Environment.h"
 #include "wiz8/engine_code/Video2.h"
-#include <cmath>
 #include "wiz8/xstatus.h"
-#include <cstdio>
-#include <cstring>
-
-#include "wiz8/layouts/combat_state.h"
 #include "wiz8/local_code/Combat.h"
-#include "surrender/srClipPlane.h"
-#include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/world_cursor.h"
 #include "wiz8/engine_code/Levels.h"
 #include "wiz8/startup_world.h"
 #include "wiz8/local_code/Search.h"
-#include "wiz8/engine_code/ReadLevel.h"
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/3d.h"
@@ -34,31 +37,32 @@
 #include "wiz8/engine_code/materials.h"
 #include "wiz8/engine_code/stMeshModel.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/LoadSaveGame.h"
 #include "wiz8/local_code/NPCManager.h"
-#include "wiz8/monster_runtime.h"
 #include "wiz8/music_playlist.h"
 #include "wiz8/local_code/SpellEffect.h"
 #include "wiz8/sr_api.h"
-#include "wiz8/local_code/Targeting.h"
-#include "surrender/srCamera.h"
-#include "surrender/srCore.h"
 #include "surrender/srNode.h"
-#include "surrender/srLight.h"
 #include "surrender/srModelInstance.h"
-#include "surrender/srScene.h"
-
 #include "wiz8/local_screens/AutomapScreen.h"
-#include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/local_code/GameplayMods.h"
 #include "wiz8/filesystem.h"
-#include <wiz8/asset_paths.h>
+#include "ReadMesh.h"
+#include "compat/native.h"
+#include "glm/ext/matrix_float3x3.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include "glm/ext/vector_float4.hpp"
+#include "layouts/levels.h"
+#include "layouts/world.h"
+#include "resource_cache.h"
+#include "surrender/srMath.h"
+#include "surrender/srMeshModel.h"
+#include "surrender/srTypeRegistry.h"
 
 #define LEVELS_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\Levels.cpp"
 
@@ -319,8 +323,7 @@ unsigned char LoadSkyWorld(int level, W8LevelInfo* info)
         return 0;
     }
 
-    srVector3T<double> position;
-    position.SetZero();
+    const glm::dvec3 position(0);
     static_cast<srNode*>(sky_world->camera)->setLocation(position);
 
     auto material = std::make_shared<stMaterial>();
@@ -552,7 +555,7 @@ unsigned char LoadLevel(int requested_level, int entrance, bool restoring_game)
 
             trigger->GetPosition(&trigger_position);
             position = trigger_position;
-            position.y = SettlePositionToGround(&trigger_position, 0) + g_default_world_height;
+            position.y = probeGround(trigger_position.glmValue()).position.y + g_default_world_height;
             if (fabs(position.y - trigger_position.y) > g_position_height_epsilon) {
                 position.y = trigger_position.y;
             }
@@ -722,7 +725,7 @@ unsigned char ReloadLevelPreservingCamera(int level, int entrance)
 
     if (entrance == -1 && level == g_status.current_level) {
         GetCameraOrientation(saved_angle, saved_pitch);
-        WorldGetCameraLocationOrZero(GetWorld(), &saved_position);
+        saved_position = cameraLocationOrZero(*GetWorld());
         restore = true;
     }
     if (g_status.current_level != -1) {

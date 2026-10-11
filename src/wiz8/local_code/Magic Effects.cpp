@@ -1,5 +1,14 @@
+#include <algorithm>
+#include <iterator>
+#include <utility>
 #include <fmt/format.h>
 #include <fmt/printf.h>
+#include <vector>
+#include <cmath>
+#include <cstdlib>
+#include <cstring>
+#include <string>
+
 #include "wiz8/conditions.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/spell_ids.h"
@@ -8,29 +17,21 @@
 #include "wiz8/integer_constants.h"
 #include "wiz8/engine_code/Spells.h"
 #include "wiz8/engine_code/World.h"
-#include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/PolyPick.h"
 #include "wiz8/engine_code/Octree.h"
-#include "wiz8/engine_code/quad.h"
 #include "wiz8/engine_code/Levels.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/local_code/Sight.h"
 #include "wiz8/layouts/combat_state.h"
-#include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/CombatAttack.h"
 #include "wiz8/local_code/CombatHostility.h"
 #include "wiz8/local_code/CombatRange.h"
 #include "wiz8/layouts/game_status.h"
-#include <vector>
-#include <algorithm>
 #include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/local_screens/MGSPortraits.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/xstatus.h"
-#include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/Gameloop.h"
-#include "wiz8/engine_code/Spells.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/MagicEffects.h"
 #include "wiz8/local_code/SpellEffect.h"
@@ -44,7 +45,6 @@
 #include "random.h"
 #include "wiz8/local_code/GameplayMods.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
-#include "wiz8/local_code/MagicEffects.h"
 #include "wiz8/local_screens/MGSSpellIcons.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_code/MonsterGroup.h"
@@ -57,20 +57,26 @@
 #include "wiz8/layouts/item_tables.h"
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/NPCScripting.h"
-#include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/startup_world.h"
 #include "wiz8/engine_code/Navigator.h"
-#include "wiz8/engine_code/Octree.h"
-#include "wiz8/engine_code/Levels.h"
-#include "wiz8/engine_code/quad.h"
-#include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/GrCycle.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/float_constants.h"
-#include "wiz8/geometry.h"
 #include "wiz8/local_code/Noise.h"
-#include "wiz8/local_code/Sight.h"
 #include "soundman.h"
+#include "compat/compiler.h"
+#include "dice.h"
+#include "layouts/character.h"
+#include "layouts/item_instance.h"
+#include "layouts/main_game_screen.h"
+#include "layouts/npc_state.h"
+#include "layouts/targeting.h"
+#include "layouts/world.h"
+#include "local_code/Factions.h"
+#include "local_code/UtilityFunctions.h"
+#include "monster_actions.h"
+#include "monster_spell_icons.h"
+#include "surrender/srMath.h"
 
 #define MAGIC_EFFECTS_CPP "C:\\Projects\\Wizardry 8\\Local Code\\Magic Effects.cpp"
 
@@ -325,8 +331,7 @@ bool MonsterResistsSpellEffect(const W8CombatSlot* target, int power)
     W8MonsterRecord* monster;
     int score;
 
-    monster_info = MonsterGetScriptPartByLocationIndex(
-        MonsterGetIndexByLocationID(0xf93, MAGIC_EFFECTS_CPP, target->iMonsterID, true));
+    monster_info = FindMonster(target->iMonsterID);
     monster = GetMonsterDataForInfo(monster_info);
     if (monster->kind == 0x14) {
         return true;
@@ -433,8 +438,7 @@ void ReduceMagnitudeByResistance(unsigned int* magnitude, W8CombatSlot* target, 
         return;
     }
     if (target->iType == W8_TARGET_KIND_MONSTER) {
-        monster_info = MonsterGetScriptPartByLocationIndex(
-            MonsterGetIndexByLocationID(0xf18, MAGIC_EFFECTS_CPP, target->iMonsterID, true));
+        monster_info = FindMonster(target->iMonsterID);
         monster = GetMonsterDataForInfo(monster_info);
         resistance = monster_info->modifiers.resistance_bonus[realm] + monster->resistances[realm];
         level = monster->effective_level;
@@ -472,8 +476,7 @@ bool TargetResistsCondition(W8CombatSlot* target, W8SpellRealm realm, unsigned i
     int chance;
 
     if (target->iType == W8_TARGET_KIND_MONSTER) {
-        monster_info = MonsterGetScriptPartByLocationIndex(
-            MonsterGetIndexByLocationID(0xec6, MAGIC_EFFECTS_CPP, target->iMonsterID, true));
+        monster_info = FindMonster(target->iMonsterID);
         monster = GetMonsterDataForInfo(monster_info);
         resistance = monster_info->modifiers.resistance_bonus[realm] + monster->resistances[realm];
         level = monster->effective_level;
@@ -557,7 +560,7 @@ char InflictConditionOnTarget(W8CombatSlot* target, W8Condition condition_id, W8
                 }
             } else {
                 monster_info =
-                    MonsterInfoFromID(0xe76, MAGIC_EFFECTS_CPP, target->iMonsterID, true);
+                    FindMonster(target->iMonsterID);
                 absorbed = monster_info->enchantments[W8_ENCHANTMENT_HASTE].turns;
                 if (absorbed > 0) {
                     remaining = magnitude - absorbed;
@@ -602,8 +605,7 @@ void AnnounceEffectResisted(W8CombatSlot* target)
         return;
     }
     if (target->iType == W8_TARGET_KIND_MONSTER) {
-        PostMonsterNotice(MonsterGetScriptPartByLocationIndex(MonsterGetIndexByLocationID(
-                              3758, MAGIC_EFFECTS_CPP, target->iMonsterID, true)),
+        PostMonsterNotice(FindMonster(target->iMonsterID),
                           g_localized_strings[0x1b3]);
         return;
     }
@@ -659,7 +661,7 @@ float HeadingTowardNearestMonster(srVector3T<float> point, W8Disposition disposi
     srVector3T<float> lower;
     srVector3T<float> upper;
     srVector3T<float> position;
-    w8_ulong* location_ids;
+    std::vector<w8_ulong> location_ids;
     double nearest_distance;
     float distance;
     float range;
@@ -680,11 +682,10 @@ float HeadingTowardNearestMonster(srVector3T<float> point, W8Disposition disposi
     upper.x += range;
     upper.y += range;
     upper.z += range;
-    location_ids = static_cast<w8_ulong*>(operator new(0x100 * sizeof(*location_ids)));
-    count = g_octree->QueryLocationsInBox(&location_ids, &lower, &upper,
-                                          static_cast<unsigned short>(exclusion));
+
+    location_ids = g_octree->locationsInBox({lower.glmValue(), upper.glmValue()}, static_cast<unsigned short>(exclusion));
+    count = location_ids.size();
     if (count == 0) {
-        operator delete(location_ids);
         return HeadingToTargetCPP(&point);
     }
     for (index = 0; index < count; ++index) {
@@ -698,7 +699,6 @@ float HeadingTowardNearestMonster(srVector3T<float> point, W8Disposition disposi
             nearest = monster;
         }
     }
-    operator delete(location_ids);
     position = nearest->GetPosition();
     return GetHeadingAngle(&point, &position);
 }
@@ -739,7 +739,7 @@ void ApplySummonElementalEffect(W8SpellEffectEntry* effect)
         return;
     }
     if (TargetSourceIsMonster(&effect->Source, 0)) {
-        target_info = MonsterInfoFromID(0x9b0, MAGIC_EFFECTS_CPP, effect->Source.iMonsterID, true);
+        target_info = FindMonster(effect->Source.iMonsterID);
         if (target_info->elemental_summon != -1) {
             return;
         }
@@ -784,33 +784,20 @@ void ApplySummonElementalEffect(W8SpellEffectEntry* effect)
     if (group == 0) {
         srAssertFail("pGroup", MAGIC_EFFECTS_CPP, 0xa0c, 0);
     }
-    summon = MonsterInfoFromID(0xa0e, MAGIC_EFFECTS_CPP, group->leader_location_id, true);
+    summon = FindMonster(group->leader_location_id);
     summon->p3D->SetAngles(
         HeadingTowardNearestMonster(effect->target.point, disposition, summon->location_id));
     SetMonsterGroupHostility(group, disposition, false);
-    if (disposition == W8_DISPOSITION_FRIENDLY) {
-        for (index = 0; index < group->member_count; ++index) {
-            member =
-                MonsterInfoFromID(0xfdb, MAGIC_EFFECTS_CPP, group->MemberLocationId(index), true);
-            if (member == 0) {
-                srAssertFail("pMonsterInfo", MAGIC_EFFECTS_CPP, 0xfdc, 0);
-            }
-            if (member->summoned == W8_MONSTER_SUMMON_NONE) {
-                member->summoned = W8_MONSTER_SUMMON_FRIENDLY;
-                SetMonsterSpellIcon(member->p3D, SPELL_ICON_SUMMONED, true);
-            }
-        }
-    } else {
-        for (index = 0; index < group->member_count; ++index) {
-            member =
-                MonsterInfoFromID(0xfdb, MAGIC_EFFECTS_CPP, group->MemberLocationId(index), true);
-            if (member == 0) {
-                srAssertFail("pMonsterInfo", MAGIC_EFFECTS_CPP, 0xfdc, 0);
-            }
-            if (member->summoned == W8_MONSTER_SUMMON_NONE) {
-                member->summoned = W8_MONSTER_SUMMON_HOSTILE;
-                SetMonsterSpellIcon(member->p3D, SPELL_ICON_SUMMONED, true);
-            }
+    const auto summoned_state = disposition == W8_DISPOSITION_FRIENDLY
+                                    ? W8_MONSTER_SUMMON_FRIENDLY : W8_MONSTER_SUMMON_HOSTILE;
+    for (index = 0; index < group->member_count; ++index) {
+        member =
+            FindMonster(group->MemberLocationId(index));
+        if (member == 0)
+            srAssertFail("pMonsterInfo", MAGIC_EFFECTS_CPP, 0xfdc, 0);
+        if (member->summoned == W8_MONSTER_SUMMON_NONE) {
+            member->summoned = summoned_state;
+            SetMonsterSpellIcon(member->p3D, SPELL_ICON_SUMMONED, true);
         }
     }
     RefreshAllSight();
@@ -1015,7 +1002,7 @@ bool ResolveAttackOnTarget(const W8TargetSource* source, W8CombatSlot* target,
         character = &g_status.buffers.Char[target->iChar];
         highest_condition = character->highest_condition;
     } else {
-        monster_info = MonsterInfoFromID(0xdc9, MAGIC_EFFECTS_CPP, target->iMonsterID, true);
+        monster_info = FindMonster(target->iMonsterID);
         monster = GetMonsterDataForInfo(monster_info);
         if (monster->instant_death_immune != 0 && condition_id == W8_CONDITION_DEAD) {
             return true;
@@ -1117,7 +1104,6 @@ void ApplyConditionToTargets(W8SpellEffectEntry* effect, W8EnchantmentSlot slot)
     W8MonsterInfo* monster_info;
     unsigned int duration;
     int character_index;
-    int location_id;
     int remaining;
     int index;
 
@@ -1143,9 +1129,7 @@ void ApplyConditionToTargets(W8SpellEffectEntry* effect, W8EnchantmentSlot slot)
         }
     }
     for (index = 0; index < static_cast<int>(effect->monster_ids.size()); ++index) {
-        location_id =
-            MonsterGetIndexByLocationID(0x5c8, MAGIC_EFFECTS_CPP, effect->monster_ids[index], true);
-        monster_info = MonsterGetScriptPartByLocationIndex(location_id);
+        monster_info = FindMonster(effect->monster_ids[index]);
         if (monster_info == 0) {
             srAssertFail("pMonsterInfo", MAGIC_EFFECTS_CPP, 0x5c9, 0);
         }
@@ -1199,10 +1183,8 @@ void ApplyRandomAfflictionToTarget(W8SpellEffectEntry* effect)
 
 static void ReportSpellDeaths(W8SpellEffectEntry* effect)
 {
-    W8SpellDamageReport* report;
-
     while (!effect->result.reports.empty()) {
-        report = effect->result.reports[0];
+        auto report = std::move(effect->result.reports.front());
         effect->result.reports.erase(effect->result.reports.begin());
         if (report != 0) {
             if (report->kind == 1) {
@@ -1218,7 +1200,6 @@ static void ReportSpellDeaths(W8SpellEffectEntry* effect)
                         "{} {}!", report->text,
                         g_localized_strings[g_condition_notices[W8_CONDITION_DEAD].singular]));
             }
-            free(report);
         }
     }
 }
@@ -1278,12 +1259,10 @@ void ReportSpellEffectResult(W8SpellEffectEntry* effect)
 }
 
 /* Resolve the queued monster target with the caller's original lookup and
-   null-result diagnostics. These are distinct from MonsterInfoFromID's policy. */
+   null-result diagnostics. These are distinct from FindMonster's policy. */
 static W8MonsterInfo* GetEffectMonsterTarget(int location_id, int lookup_line, int check_line)
 {
-    unsigned int index =
-        MonsterGetIndexByLocationID(lookup_line, MAGIC_EFFECTS_CPP, location_id, true);
-    W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(index);
+    W8MonsterInfo* monster_info = FindMonster(location_id);
     if (monster_info == 0) {
         srAssertFail("pMonsterInfo", MAGIC_EFFECTS_CPP, check_line, 0);
     }
@@ -1307,7 +1286,7 @@ unsigned int GetTargetConditionTurns(W8SpellEffectEntry* effect, W8Condition con
     }
     if (effect->target.iType == W8_TARGET_KIND_MONSTER) {
         monster_info =
-            MonsterInfoFromID(0x1280, MAGIC_EFFECTS_CPP, effect->target.iMonsterID, true);
+            FindMonster(effect->target.iMonsterID);
         if (condition == W8_CONDITION_POISONED && argument != 0) {
             *argument = monster_info->condition_argument;
         }
@@ -1346,196 +1325,109 @@ void FatigueTargets(W8SpellEffectEntry* effect)
     }
 }
 
-/* Put stamina back into the listed targets, capped at what each one is
-   missing. In quiet mode the totals are gathered and reported at the end;
-   the answer is whether every affected target is now full. */
-// FUNCTION: WIZ8 0x0054f520
-char RestoreTargetsStamina(W8SpellEffectEntry* effect)
-{
-    W8MonsterInfo* monster_info;
-    bool verbose;
-    unsigned int restored;
-    unsigned int missing;
-    unsigned int total;
-    unsigned int count;
-    int character_index;
-    int target_id;
-    bool target_is_character;
-    bool all_full;
-    int index;
+enum class RestoredResource { health, stamina };
 
-    verbose = g_settings.verbose_combat_messages != 0;
-    all_full = true;
-    total = 0;
-    count = 0;
-    for (index = 0; index < static_cast<int>(effect->target_indices.size()); ++index) {
-        character_index = effect->target_indices[index];
+static char RestoreTargetResource(W8SpellEffectEntry* effect, RestoredResource resource)
+{
+    const bool stamina = resource == RestoredResource::stamina;
+    const bool verbose = g_settings.verbose_combat_messages != 0;
+    bool all_full = true;
+    unsigned int total = 0;
+    unsigned int count = 0;
+    int target_id = 0;
+    bool target_is_character = false;
+    const auto record = [&](unsigned int restored, int id, bool character) {
+        if (!verbose) {
+            total += restored;
+            ++count;
+            target_id = id;
+            target_is_character = character;
+        }
+    };
+
+    for (int character_index : effect->target_indices) {
         if (character_index == -1) {
-            srAssertFail("iChar != -1", MAGIC_EFFECTS_CPP, 0x7e1, 0);
+            srAssertFail("iChar != -1", MAGIC_EFFECTS_CPP, stamina ? 0x7e1 : 0x75e, 0);
         }
         W8Character* character = &g_status.buffers.Char[character_index];
-        if (character->stamina != character->uiStaminaMax) {
-            restored = RollEffectMagnitude(&effect->definition);
-            if (restored != 0) {
-                missing = character->uiStaminaMax - character->stamina;
-                if (missing <= restored) {
-                    restored = missing;
-                }
-                RestoreCharacterStamina(character_index, restored, verbose);
-                if (character->stamina < character->uiStaminaMax) {
-                    all_full = false;
-                }
-                if (!verbose) {
-                    total += restored;
-                    ++count;
-                    target_is_character = true;
-                    target_id = character_index;
-                }
-            }
+        unsigned int missing = stamina ? 0 : character->uiHPMax - character->hp_current;
+        if (stamina ? character->stamina == character->uiStaminaMax : missing == 0) {
+            continue;
         }
+        unsigned int restored = RollEffectMagnitude(&effect->definition);
+        // Stamina ignores zero rolls; healing still applies and counts a zero roll.
+        if (stamina && restored == 0) {
+            continue;
+        }
+        if (stamina) missing = character->uiStaminaMax - character->stamina;
+        restored = std::min(missing, restored);
+        if (stamina) {
+            RestoreCharacterStamina(character_index, restored, verbose);
+            if (character->stamina < character->uiStaminaMax) all_full = false;
+        } else {
+            HealCharacter(character_index, restored, verbose);
+            if (character->hp_current < static_cast<unsigned int>(character->uiHPMax)) all_full = false;
+        }
+        record(restored, character_index, true);
     }
-    for (index = 0; index < static_cast<int>(effect->monster_ids.size()); ++index) {
-        monster_info = GetEffectMonsterTarget(effect->monster_ids[index], 0x800, 0x801);
-        if (monster_info->stamina != monster_info->stamina_max) {
-            restored = RollEffectMagnitude(&effect->definition);
-            if (restored != 0) {
-                missing = monster_info->stamina_max - monster_info->stamina;
-                if (missing <= restored) {
-                    restored = missing;
-                }
-                RestoreMonsterStamina(monster_info, restored, true);
-                if (static_cast<unsigned int>(monster_info->stamina) <
-                    static_cast<unsigned int>(monster_info->stamina_max)) {
-                    all_full = false;
-                }
-                if (!verbose) {
-                    total += restored;
-                    ++count;
-                    target_id = monster_info->location_id;
-                    target_is_character = false;
-                }
-            }
+    for (int id : effect->monster_ids) {
+        W8MonsterInfo* monster = GetEffectMonsterTarget(id, stamina ? 0x800 : 0x77d,
+                                                       stamina ? 0x801 : 0x77e);
+        unsigned int missing = stamina ? 0 : monster->uiHPMax - monster->hp_current;
+        if (stamina ? monster->stamina == monster->stamina_max : missing == 0) {
+            continue;
         }
+        unsigned int restored = RollEffectMagnitude(&effect->definition);
+        if (stamina && restored == 0) {
+            continue;
+        }
+        if (stamina) missing = monster->stamina_max - monster->stamina;
+        restored = std::min(missing, restored);
+        if (stamina) {
+            RestoreMonsterStamina(monster, restored, true);
+            if (static_cast<unsigned int>(monster->stamina) <
+                static_cast<unsigned int>(monster->stamina_max)) all_full = false;
+        } else {
+            HealMonster(monster, restored, verbose);
+            if (monster->hp_current < static_cast<unsigned int>(monster->uiHPMax)) all_full = false;
+        }
+        record(restored, monster->location_id, false);
     }
     if (!verbose && count != 0) {
-        effect->applied = true;
+        if (stamina) effect->applied = true;
         if (GetTextBoxMode() != 0) {
             AppendToLastTextLine(" -- ", -1);
             SetTextBoxMode(1, -1);
         }
         if (count == 1) {
-            std::string name;
-            std::string format;
-            if (!target_is_character) {
-                monster_info = MonsterInfoFromID(0x83b, MAGIC_EFFECTS_CPP, target_id, true);
-                name = GetMonsterName(monster_info, 0, 0);
-                format = g_localized_strings[0x1a2];
-            } else {
-                name = g_status.buffers.Char[target_id].name;
-                format = g_localized_strings[(total != 1) + 0x1a1];
-            }
-            AppendToLastTextLine(fmt::sprintf(format, name, total, -1), -1);
+            const std::string name = target_is_character ? g_status.buffers.Char[target_id].name
+                : GetMonsterName(FindMonster(target_id), 0, 0);
+            const int format = stamina ? (target_is_character ? (total != 1) + 0x1a1 : 0x1a2)
+                                       : (total != 1) + 0x19d;
+            AppendToLastTextLine(fmt::sprintf(g_localized_strings[format], name, total, -1), -1);
         } else {
-            AppendToLastTextLine(
-                fmt::sprintf(g_localized_strings[(total != 1) + 0x19f], count, total / count, -1),
-                -1);
+            const int format = stamina ? (total != 1) + 0x19f : (total / count != 1) + 0x19b;
+            AppendToLastTextLine(fmt::sprintf(g_localized_strings[format], count, total / count, -1), -1);
         }
         SetTextBoxMode(1, -1);
         effect->reported = true;
+        if (!stamina) effect->applied = true;
     }
     return all_full;
 }
 
-/* Heal the listed targets, capped at what each one is missing, with the same
-   quiet-mode tally and "everyone full" answer as the stamina version. */
+/* Put stamina back into the listed targets, capped at what each one is missing. */
+// FUNCTION: WIZ8 0x0054f520
+char RestoreTargetsStamina(W8SpellEffectEntry* effect)
+{
+    return RestoreTargetResource(effect, RestoredResource::stamina);
+}
+
+/* Heal the listed targets, capped at what each one is missing. */
 // FUNCTION: WIZ8 0x0054f190
 char HealTargets(W8SpellEffectEntry* effect)
 {
-    W8MonsterInfo* monster_info;
-    bool verbose;
-    unsigned int healed;
-    unsigned int missing;
-    unsigned int total;
-    unsigned int count;
-    int character_index;
-    int target_id;
-    bool target_is_character;
-    bool all_full;
-    int index;
-
-    verbose = g_settings.verbose_combat_messages != 0;
-    all_full = true;
-    count = 0;
-    total = 0;
-    for (index = 0; index < static_cast<int>(effect->target_indices.size()); ++index) {
-        character_index = effect->target_indices[index];
-        if (character_index == -1) {
-            srAssertFail("iChar != -1", MAGIC_EFFECTS_CPP, 0x75e, 0);
-        }
-        W8Character* character = &g_status.buffers.Char[character_index];
-        missing = character->uiHPMax - character->hp_current;
-        if (missing != 0) {
-            healed = RollEffectMagnitude(&effect->definition);
-            if (missing <= healed) {
-                healed = missing;
-            }
-            HealCharacter(character_index, healed, verbose);
-            if (character->hp_current < static_cast<unsigned int>(character->uiHPMax)) {
-                all_full = false;
-            }
-            if (!verbose) {
-                total += healed;
-                ++count;
-                target_is_character = true;
-                target_id = character_index;
-            }
-        }
-    }
-    for (index = 0; index < static_cast<int>(effect->monster_ids.size()); ++index) {
-        monster_info = GetEffectMonsterTarget(effect->monster_ids[index], 0x77d, 0x77e);
-        missing = monster_info->uiHPMax - monster_info->hp_current;
-        if (missing != 0) {
-            healed = RollEffectMagnitude(&effect->definition);
-            if (missing <= healed) {
-                healed = missing;
-            }
-            HealMonster(monster_info, healed, verbose);
-            if (monster_info->hp_current < static_cast<unsigned int>(monster_info->uiHPMax)) {
-                all_full = false;
-            }
-            if (!verbose) {
-                total += healed;
-                ++count;
-                target_id = monster_info->location_id;
-                target_is_character = false;
-            }
-        }
-    }
-    if (!verbose && count != 0) {
-        if (GetTextBoxMode() != 0) {
-            AppendToLastTextLine(" -- ", -1);
-            SetTextBoxMode(1, -1);
-        }
-        if (count == 1) {
-            std::string name;
-            if (!target_is_character) {
-                monster_info = MonsterInfoFromID(0x7b2, MAGIC_EFFECTS_CPP, target_id, true);
-                name = GetMonsterName(monster_info, 0, 0);
-            } else {
-                name = g_status.buffers.Char[target_id].name;
-            }
-            AppendToLastTextLine(
-                fmt::sprintf(g_localized_strings[(total != 1) + 0x19d], name, total, -1), -1);
-        } else {
-            AppendToLastTextLine(fmt::sprintf(g_localized_strings[(total / count != 1) + 0x19b],
-                                              count, total / count, -1),
-                                 -1);
-        }
-        SetTextBoxMode(1, -1);
-        effect->reported = true;
-        effect->applied = true;
-    }
-    return all_full;
+    return RestoreTargetResource(effect, RestoredResource::health);
 }
 
 /* Roll a magnitude per listed target, cut it by the target's resistance in
@@ -1672,7 +1564,7 @@ void DrainTargetsLife(W8SpellEffectEntry* effect)
     if (!TargetSourceIsCharacter(&effect->Source, 0)) {
         if (TargetSourceIsMonster(&effect->Source, 0)) {
             monster_info =
-                MonsterInfoFromID(0x738, MAGIC_EFFECTS_CPP, effect->Source.iMonsterID, true);
+                FindMonster(effect->Source.iMonsterID);
             if (monster_info == 0) {
                 srAssertFail("pMonsterInfo", MAGIC_EFFECTS_CPP, 0x739, 0);
             }
@@ -1831,9 +1723,7 @@ char TryCureConditionOnTargets(W8SpellEffectEntry* effect, W8Condition condition
                 return all_cured;
             }
             if (effect->target.iType == W8_TARGET_KIND_MONSTER) {
-                unsigned int monster_index = MonsterGetIndexByLocationID(
-                    0x597, MAGIC_EFFECTS_CPP, effect->target.iMonsterID, true);
-                monster_info = MonsterGetScriptPartByLocationIndex(monster_index);
+                monster_info = FindMonster(effect->target.iMonsterID);
                 PostMonsterNotice(
                     monster_info,
                     fmt::sprintf(g_localized_strings[0x1b1],
@@ -1851,6 +1741,54 @@ char TryCureConditionOnTargets(W8SpellEffectEntry* effect, W8Condition condition
     return all_cured;
 }
 
+/* Resolve the condition and any follow-up attack after the caller has
+   selected a character or monster. Return true only for quiet-mode totals. */
+static bool ApplyConditionAttackToTarget(W8SpellEffectEntry* effect, W8CombatSlot* target,
+                                         W8Condition condition, int argument,
+                                         unsigned int duration, bool verbose,
+                                         W8MonsterInfo* monster_info)
+{
+    const bool monster = target->iType == W8_TARGET_KIND_MONSTER;
+    const int character_index = monster ? -1 : target->iChar;
+    if (effect->kind == W8_SPELL_SLOW) {
+        const unsigned int haste_turns = monster
+            ? monster_info->enchantments[W8_ENCHANTMENT_HASTE].turns
+            : g_status.buffers.Char[character_index].enchantments[W8_ENCHANTMENT_HASTE].turns;
+        if (haste_turns != 0) {
+            const int remaining = static_cast<int>(duration) - static_cast<int>(haste_turns);
+            if (monster)
+                TickMonsterEnchantmentSlot(monster_info->location_id, W8_ENCHANTMENT_HASTE, duration);
+            else
+                TickCharacterEnchantmentSlot(character_index, W8_ENCHANTMENT_HASTE, duration);
+            return remaining > 0 &&
+                   !ResolveAttackOnTarget(&effect->Source, target, condition,
+                                          g_spell_records[effect->kind].realm,
+                                          effect->definition.power_level, argument, remaining,
+                                          verbose, verbose, 0) && !verbose;
+        }
+    }
+
+    if (ResolveAttackOnTarget(&effect->Source, target, condition,
+                              g_spell_records[effect->kind].realm,
+                              effect->definition.power_level, argument, duration,
+                              verbose, verbose, 0))
+        return false;
+
+    if (effect->kind == W8_SPELL_TERROR && !monster) {
+        ResolveAttackOnTarget(&effect->Source, target, W8_CONDITION_UNCONSCIOUS,
+                              g_spell_records[W8_SPELL_TERROR].realm,
+                              static_cast<unsigned int>(effect->definition.power_level) >> 1,
+                              argument, duration >> 1, false, verbose, 0);
+    } else if (monster &&
+               (effect->kind == W8_SPELL_TERROR || effect->kind == W8_SPELL_SONIC_BOOM)) {
+        ResolveAttackOnTarget(&effect->Source, target, condition,
+                              g_spell_records[effect->kind].realm,
+                              static_cast<unsigned int>(effect->definition.power_level) >> 1,
+                              argument, duration >> 1, false, verbose, 0);
+    }
+    return !verbose;
+}
+
 /* Attack every listed target with a condition on a chance roll each. The
    rolled duration is what the condition runs for; spell 0x1d first spends it
    against enchantment slot five, and the elemental spells 0xe and 0x1e strike
@@ -1864,7 +1802,6 @@ void InflictConditionAttack(W8SpellEffectEntry* effect, W8Condition condition, i
     W8CombatSlot target;
     bool verbose;
     unsigned int duration;
-    int remaining;
     int affected;
     int character_index;
     int index;
@@ -1883,38 +1820,9 @@ void InflictConditionAttack(W8SpellEffectEntry* effect, W8Condition condition, i
         }
         target.iType = W8_TARGET_KIND_CHARACTER;
         target.iChar = character_index;
-        if (effect->kind == W8_SPELL_SLOW &&
-            g_status.buffers.Char[character_index].enchantments[W8_ENCHANTMENT_HASTE].turns != 0) {
-            /* Retail subtracts the shield with signed JLE on the leftover. */
-            remaining = static_cast<int>(duration) -
-                        static_cast<int>(g_status.buffers.Char[character_index]
-                                             .enchantments[W8_ENCHANTMENT_HASTE]
-                                             .turns);
-            TickCharacterEnchantmentSlot(character_index, W8_ENCHANTMENT_HASTE, duration);
-            if (remaining > 0 && !ResolveAttackOnTarget(&effect->Source, &target, condition,
-                                                        g_spell_records[effect->kind].realm,
-                                                        effect->definition.power_level, argument,
-                                                        remaining, verbose, verbose, 0)) {
-                if (!verbose) {
-                    ++affected;
-                }
-            }
-        } else {
-            if (ResolveAttackOnTarget(
-                    &effect->Source, &target, condition, g_spell_records[effect->kind].realm,
-                    effect->definition.power_level, argument, duration, verbose, verbose, 0)) {
-                continue;
-            }
-            if (effect->kind == W8_SPELL_TERROR) {
-                ResolveAttackOnTarget(&effect->Source, &target, W8_CONDITION_UNCONSCIOUS,
-                                      g_spell_records[W8_SPELL_TERROR].realm,
-                                      static_cast<unsigned int>(effect->definition.power_level) >>
-                                          1,
-                                      argument, duration >> 1, false, verbose, 0);
-            }
-            if (!verbose) {
-                ++affected;
-            }
+        if (ApplyConditionAttackToTarget(effect, &target, condition, argument, duration,
+                                         verbose, nullptr)) {
+            ++affected;
         }
     }
     for (index = 0; index < static_cast<int>(effect->monster_ids.size()); ++index) {
@@ -1925,34 +1833,9 @@ void InflictConditionAttack(W8SpellEffectEntry* effect, W8Condition condition, i
         monster_info = GetEffectMonsterTarget(effect->monster_ids[index], 0x43d, 0x43e);
         target.iType = W8_TARGET_KIND_MONSTER;
         target.iMonsterID = monster_info->location_id;
-        if (effect->kind == W8_SPELL_SLOW &&
-            monster_info->enchantments[W8_ENCHANTMENT_HASTE].turns != 0) {
-            remaining = static_cast<int>(duration) -
-                        static_cast<int>(monster_info->enchantments[W8_ENCHANTMENT_HASTE].turns);
-            TickMonsterEnchantmentSlot(monster_info->location_id, W8_ENCHANTMENT_HASTE, duration);
-            if (remaining > 0 && !ResolveAttackOnTarget(&effect->Source, &target, condition,
-                                                        g_spell_records[effect->kind].realm,
-                                                        effect->definition.power_level, argument,
-                                                        remaining, verbose, verbose, 0)) {
-                if (!verbose) {
-                    ++affected;
-                }
-            }
-        } else {
-            if (ResolveAttackOnTarget(
-                    &effect->Source, &target, condition, g_spell_records[effect->kind].realm,
-                    effect->definition.power_level, argument, duration, verbose, verbose, 0)) {
-                continue;
-            }
-            if (effect->kind == W8_SPELL_TERROR || effect->kind == W8_SPELL_SONIC_BOOM) {
-                ResolveAttackOnTarget(
-                    &effect->Source, &target, condition, g_spell_records[effect->kind].realm,
-                    static_cast<unsigned int>(effect->definition.power_level) >> 1, argument,
-                    duration >> 1, false, verbose, 0);
-            }
-            if (!verbose) {
-                ++affected;
-            }
+        if (ApplyConditionAttackToTarget(effect, &target, condition, argument, duration,
+                                         verbose, monster_info)) {
+            ++affected;
         }
     }
     if (verbose || affected == 0) {
@@ -1978,7 +1861,7 @@ void InflictConditionAttack(W8SpellEffectEntry* effect, W8Condition condition, i
             AppendToLastTextLine(
                 fmt::format("{} {}", g_status.buffers.Char[character_index].name, notice), -1);
         } else if (target.iType == W8_TARGET_KIND_MONSTER) {
-            monster_info = MonsterInfoFromID(0x486, MAGIC_EFFECTS_CPP, target.iMonsterID, true);
+            monster_info = FindMonster(target.iMonsterID);
             AppendToLastTextLine(fmt::format("{} {}", GetMonsterName(monster_info, 0, 0), notice),
                                  -1);
         } else {
@@ -2042,48 +1925,33 @@ void AttackThenInflictCondition(W8SpellEffectEntry* effect, W8Condition attack_c
                                 W8Condition condition, int chance, int attack_argument,
                                 int condition_argument)
 {
-    W8MonsterInfo* monster_info;
     W8CombatSlot target;
-    unsigned int duration;
-    int source_character;
-    int character_index;
-    int index;
+    const int source_character = TargetSourceIsCharacter(&effect->Source, 0)
+                                     ? effect->Source.iChar : -1;
+    const std::size_t character_count = effect->target_indices.size();
+    const std::size_t total = character_count + effect->monster_ids.size();
 
-    if (!TargetSourceIsCharacter(&effect->Source, 0)) {
-        source_character = -1;
-    } else {
-        source_character = effect->Source.iChar;
-    }
-    for (index = 0; index < static_cast<int>(effect->target_indices.size()); ++index) {
-        if (Random(100) >= static_cast<unsigned int>(chance)) {
+    for (std::size_t index = 0; index < total; ++index) {
+        if (Random(100) >= static_cast<unsigned int>(chance))
             continue;
+
+        const unsigned int duration = RollEffectDuration(&effect->definition);
+        if (index < character_count) {
+            const int character_index = effect->target_indices[index];
+            if (character_index == -1)
+                srAssertFail("iChar != -1", MAGIC_EFFECTS_CPP, 0x4bf, 0);
+            target.iType = W8_TARGET_KIND_CHARACTER;
+            target.iChar = character_index;
+        } else {
+            W8MonsterInfo* monster = GetEffectMonsterTarget(
+                effect->monster_ids[index - character_count], 0x4d8, 0x4d9);
+            target.iType = W8_TARGET_KIND_MONSTER;
+            target.iMonsterID = monster->location_id;
         }
-        duration = RollEffectDuration(&effect->definition);
-        character_index = effect->target_indices[index];
-        if (character_index == -1) {
-            srAssertFail("iChar != -1", MAGIC_EFFECTS_CPP, 0x4bf, 0);
-        }
-        target.iType = W8_TARGET_KIND_CHARACTER;
-        target.iChar = character_index;
-        if (ResolveAttackOnTarget(
-                &effect->Source, &target, attack_condition, g_spell_records[effect->kind].realm,
-                effect->definition.power_level, attack_argument, duration, false, true, 0)) {
-            InflictConditionOnTarget(&target, condition, g_spell_records[effect->kind].realm,
-                                     effect->definition.power_level, condition_argument, duration,
-                                     source_character, 0, true);
-        }
-    }
-    for (index = 0; index < static_cast<int>(effect->monster_ids.size()); ++index) {
-        if (Random(100) >= static_cast<unsigned int>(chance)) {
-            continue;
-        }
-        duration = RollEffectDuration(&effect->definition);
-        monster_info = GetEffectMonsterTarget(effect->monster_ids[index], 0x4d8, 0x4d9);
-        target.iType = W8_TARGET_KIND_MONSTER;
-        target.iMonsterID = monster_info->location_id;
-        if (ResolveAttackOnTarget(
-                &effect->Source, &target, attack_condition, g_spell_records[effect->kind].realm,
-                effect->definition.power_level, attack_argument, duration, false, true, 0)) {
+        if (ResolveAttackOnTarget(&effect->Source, &target, attack_condition,
+                                  g_spell_records[effect->kind].realm,
+                                  effect->definition.power_level, attack_argument,
+                                  duration, false, true, 0)) {
             InflictConditionOnTarget(&target, condition, g_spell_records[effect->kind].realm,
                                      effect->definition.power_level, condition_argument, duration,
                                      source_character, 0, true);
@@ -2138,8 +2006,7 @@ void ApplyCombatEffectSlot(W8SpellEffectEntry* effect)
         for (index = 0; index < static_cast<int>(effect->monster_ids.size()); ++index) {
             monster_info = GetEffectMonsterTarget(effect->monster_ids[index], 0x342, 0x343);
             if (!monster_info->fInCombat) {
-                MonsterGroupEnterCombat(GetMonsterGroupByListIndex(GetMonsterGroupIndexByID(
-                    0x347, MAGIC_EFFECTS_CPP, monster_info->monster_group_id, true)));
+                MonsterGroupEnterCombat(FindMonsterGroup(monster_info->monster_group_id));
                 if (!monster_info->fInCombat) {
                     continue;
                 }
@@ -2209,8 +2076,7 @@ void ApplyDefenseEffectSlot(W8SpellEffectEntry* effect)
     for (index = 0; index < static_cast<int>(effect->monster_ids.size()); ++index) {
         monster_info = GetEffectMonsterTarget(effect->monster_ids[index], 0x3d8, 0x3d9);
         if (!monster_info->fInCombat) {
-            MonsterGroupEnterCombat(GetMonsterGroupByListIndex(GetMonsterGroupIndexByID(
-                0x3e0, MAGIC_EFFECTS_CPP, monster_info->monster_group_id, true)));
+            MonsterGroupEnterCombat(FindMonsterGroup(monster_info->monster_group_id));
             if (!monster_info->fInCombat) {
                 continue;
             }
@@ -2247,20 +2113,42 @@ static void ResolveAfflictionCondition(W8SpellEffectEntry* effect, W8CombatSlot*
     }
 }
 
+/* Apply a single affliction roll after the caller has identified its target. */
+static void ResolveAfflictionForTarget(W8SpellEffectEntry* effect, W8CombatSlot* target,
+                                      W8SpellRealm realm, int power_level, unsigned int duration,
+                                      bool verbose, W8MonsterInfo* monster_info)
+{
+    const unsigned int roll = Random(100);
+    if (roll < 0x32) {
+        ResolveAfflictionCondition(effect, target, realm, power_level, duration, verbose, roll);
+        return;
+    }
+
+    unsigned int magnitude = RollEffectMagnitude(&effect->definition);
+    ReduceMagnitudeByResistance(&magnitude, target, realm, power_level);
+    if (magnitude == 0) {
+        if (verbose)
+            AnnounceEffectResisted(target);
+        return;
+    }
+    W8SpellEffectResult* result = verbose ? nullptr : &effect->result;
+    if (target->iType == W8_TARGET_KIND_CHARACTER)
+        ApplyDamageToCharacter(target->iChar, magnitude, false, verbose, false, result, false);
+    else
+        ApplyDamageToMonster(monster_info, magnitude, &effect->Source, false, verbose, 0, result, false);
+}
+
 /* The affliction spells: each listed target takes either a weighted-random
    condition attack or a straight damage roll, about a coin flip each. With
    verbose reporting off the accumulated result is flushed at the end. */
 // FUNCTION: WIZ8 0x0054fa30
 void ResolveAfflictionAgainstTargets(W8SpellEffectEntry* effect)
 {
-    unsigned int magnitude;
-    unsigned int roll;
     W8SpellRealm realm;
     int power_level;
     bool verbose;
     W8CombatSlot target;
     W8MonsterInfo* monster_info;
-    W8SpellEffectResult* result;
     int index;
     int party_slot;
 
@@ -2276,55 +2164,14 @@ void ResolveAfflictionAgainstTargets(W8SpellEffectEntry* effect)
         }
         target.iType = W8_TARGET_KIND_CHARACTER;
         target.iChar = party_slot;
-        roll = Random(100);
-        if (roll < 0x32) {
-            ResolveAfflictionCondition(effect, &target, realm, power_level, duration, verbose,
-                                       roll);
-        } else {
-            bool resisted;
-            magnitude = RollEffectMagnitude(&effect->definition);
-            ReduceMagnitudeByResistance(&magnitude, &target, realm, power_level);
-            resisted = false;
-            if (magnitude == 0) {
-                if (!verbose) {
-                    continue;
-                }
-                AnnounceEffectResisted(&target);
-                resisted = true;
-            }
-            if (!resisted) {
-                result = !verbose ? &effect->result : 0;
-                ApplyDamageToCharacter(party_slot, magnitude, false, verbose, false, result, false);
-            }
-        }
+        ResolveAfflictionForTarget(effect, &target, realm, power_level, duration, verbose, nullptr);
     }
     for (index = 0; index < static_cast<int>(effect->monster_ids.size()); ++index) {
         unsigned int duration = RollEffectDuration(&effect->definition);
         monster_info = GetEffectMonsterTarget(effect->monster_ids[index], 0x907, 0x908);
         target.iType = W8_TARGET_KIND_MONSTER;
         target.iMonsterID = monster_info->location_id;
-        roll = Random(100);
-        if (roll < 0x32) {
-            ResolveAfflictionCondition(effect, &target, realm, power_level, duration, verbose,
-                                       roll);
-        } else {
-            bool resisted;
-            magnitude = RollEffectMagnitude(&effect->definition);
-            ReduceMagnitudeByResistance(&magnitude, &target, realm, power_level);
-            resisted = false;
-            if (magnitude == 0) {
-                if (!verbose) {
-                    continue;
-                }
-                AnnounceEffectResisted(&target);
-                resisted = true;
-            }
-            if (!resisted) {
-                result = !verbose ? &effect->result : 0;
-                ApplyDamageToMonster(monster_info, magnitude, &effect->Source, false, verbose, 0,
-                                     result, false);
-            }
-        }
+        ResolveAfflictionForTarget(effect, &target, realm, power_level, duration, verbose, monster_info);
     }
     if (!verbose) {
         ReportSpellEffectResult(effect);
@@ -2518,7 +2365,7 @@ void ApplyMonsterControlToNearbyMonsters(W8SpellEffectEntry* effect)
     srVector3T<float> lower;
     srVector3T<float> upper;
     srVector3T<float> eye;
-    w8_ulong* location_ids;
+    std::vector<w8_ulong> location_ids;
     unsigned int count;
     unsigned int index;
     float far_clip;
@@ -2528,10 +2375,11 @@ void ApplyMonsterControlToNearbyMonsters(W8SpellEffectEntry* effect)
     center.y += g_default_world_height * g_float_half;
     lower.Set(center.x - far_clip, center.y - far_clip, center.z - far_clip);
     upper.Set(center.x + far_clip, center.y + far_clip, center.z + far_clip);
-    location_ids = static_cast<w8_ulong*>(operator new(0x100 * sizeof(*location_ids)));
-    count = g_octree->QueryLocationsInBox(&location_ids, &lower, &upper, 0);
+
+    location_ids = g_octree->locationsInBox({lower.glmValue(), upper.glmValue()}, 0);
+    count = location_ids.size();
     for (index = 0; index < count; ++index) {
-        monster_info = MonsterInfoFromID(0xc7c, MAGIC_EFFECTS_CPP, location_ids[index], true);
+        monster_info = FindMonster(location_ids[index]);
         if (monster_info->p3D->IsDying()) {
             continue;
         }
@@ -2561,8 +2409,7 @@ void ApplyMonsterControlToNearbyMonsters(W8SpellEffectEntry* effect)
                 SetMonsterControlState(monster_info, W8_MONSTER_CONTROL_LURED);
             } else {
                 SetMonsterGroupControlState(
-                    GetMonsterGroupByListIndex(GetMonsterGroupIndexByID(
-                        0xcbb, MAGIC_EFFECTS_CPP, monster_info->monster_group_id, true)),
+                    FindMonsterGroup(monster_info->monster_group_id),
                     W8_MONSTER_CONTROL_LURED);
             }
             effect->applied = true;
@@ -2571,8 +2418,7 @@ void ApplyMonsterControlToNearbyMonsters(W8SpellEffectEntry* effect)
                 SetMonsterControlState(monster_info, W8_MONSTER_CONTROL_RESISTED);
             } else {
                 SetMonsterGroupControlState(
-                    GetMonsterGroupByListIndex(GetMonsterGroupIndexByID(
-                        0xcaf, MAGIC_EFFECTS_CPP, monster_info->monster_group_id, true)),
+                    FindMonsterGroup(monster_info->monster_group_id),
                     W8_MONSTER_CONTROL_RESISTED);
             }
         }
@@ -2644,7 +2490,7 @@ void ApplyCharmToMonsterTarget(W8SpellEffectEntry* effect)
     if (target->iMonsterID == -1) {
         srAssertFail("pQueue->Target.iMonsterID != -1", MAGIC_EFFECTS_CPP, 0xacf, 0);
     }
-    monster_info = MonsterInfoFromID(0xad1, MAGIC_EFFECTS_CPP, target->iMonsterID, true);
+    monster_info = FindMonster(target->iMonsterID);
     if (effect->Source.fBackfire) {
         monster = GetMonsterDataForInfo(monster_info);
         if (Random(100) < (monster->attribute_values[W8_MONSTER_ATTRIBUTE_SENSES] +
@@ -2698,7 +2544,7 @@ void ResolveCharmRefusal(W8SpellEffectEntry* effect)
     if (effect->target.iType != W8_TARGET_KIND_MONSTER) {
         srAssertFail("pQueue->Target.iType == TARGET_TYPE_MONSTER", MAGIC_EFFECTS_CPP, 0xaaa, 0);
     }
-    monster_info = MonsterInfoFromID(0xaac, MAGIC_EFFECTS_CPP, effect->target.iMonsterID, true);
+    monster_info = FindMonster(effect->target.iMonsterID);
     if (!effect->Source.fBackfire) {
         if (TargetResistsCondition(&effect->target, realm, effect->definition.power_level,
                                    W8_CONDITION_NONE)) {
@@ -2806,7 +2652,6 @@ void FinishSpellEffectTargets(W8SpellEffectEntry* effect)
     W8TargetSource source_copy;
     W8CombatSlot target_copy;
     int index;
-    unsigned int monster_index;
 
     character = 0;
     monster_info = 0;
@@ -2823,14 +2668,12 @@ void FinishSpellEffectTargets(W8SpellEffectEntry* effect)
             }
         }
         for (index = 0; index < static_cast<int>(effect->monster_ids.size()); ++index) {
-            monster_index = MonsterGetIndexByLocationID(0x2b1, MAGIC_EFFECTS_CPP,
-                                                        effect->monster_ids[index], false);
-            if (monster_index == 0xffffffff) {
+            info = FindMonster(effect->monster_ids[index], false);
+            if (info == nullptr) {
                 effect->monster_ids.erase(effect->monster_ids.begin() + index);
                 --index;
                 continue;
             }
-            info = MonsterGetScriptPartByLocationIndex(monster_index);
             if (info == 0) {
                 srAssertFail("pMonsterInfo", MAGIC_EFFECTS_CPP, 700, 0);
             }
@@ -2891,7 +2734,6 @@ void TickRadiusBlastEffectSlots(W8EffectSlot* effect_slots)
     W8Dice dice;
     W8MonsterInfo* monster_info;
     unsigned int amount;
-    unsigned int monster_index;
     bool verbose;
     int index;
     int remaining;
@@ -2914,9 +2756,7 @@ void TickRadiusBlastEffectSlots(W8EffectSlot* effect_slots)
                 CollectMonstersWithinRadius(&centre, &centre, found, radius + reach, 1, 0);
             }
             for (index = 0; index < static_cast<int>(found.size()); ++index) {
-                monster_index =
-                    MonsterGetIndexByLocationID(0x11a6, MAGIC_EFFECTS_CPP, found[index], true);
-                monster_info = MonsterGetScriptPartByLocationIndex(monster_index);
+                monster_info = FindMonster(found[index]);
                 if (monster_info == 0) {
                     srAssertFail("pMonsterInfo", MAGIC_EFFECTS_CPP, 0x11a7, 0);
                 }
@@ -2950,9 +2790,8 @@ void TickRadiusBlastEffectSlots(W8EffectSlot* effect_slots)
                 } else {
                     AppendToLastTextLine(g_localized_strings[0x1a5], -1);
                 }
-                index = static_cast<int>(local_result.reports.size());
-                while (0 < index) {
-                    W8SpellDamageReport* report = local_result.reports[0];
+                while (!local_result.reports.empty()) {
+                    auto report = std::move(local_result.reports.front());
                     local_result.reports.erase(local_result.reports.begin());
                     if (report != 0) {
                         if (report->kind == 1) {
@@ -2970,8 +2809,6 @@ void TickRadiusBlastEffectSlots(W8EffectSlot* effect_slots)
                                     g_localized_strings[g_condition_notices[W8_CONDITION_DEAD]
                                                             .singular]));
                         }
-                        free(report);
-                        index = static_cast<int>(local_result.reports.size());
                     }
                 }
             }
@@ -3126,7 +2963,7 @@ void TickCombatEffectSlots(W8EffectSlot* effect_slots, W8CombatSlot* target)
                 }
             } else if (target->iType == W8_TARGET_KIND_MONSTER) {
                 monster_info =
-                    MonsterInfoFromID(0x1124, MAGIC_EFFECTS_CPP, target->iMonsterID, true);
+                    FindMonster(target->iMonsterID);
                 if (rolls_damage) {
                     amount = RollDice(&dice);
                     AdjustIntegerByPercent(&amount, percent);
@@ -3205,7 +3042,6 @@ void ProcessSpellEffectTargets(W8SpellEffectEntry* effect)
     W8CameraShakeEffect* shake;
     W8WorldCameraState* camera_state;
     W8World* world;
-    SOUNDPARMS* parms;
     srVector3T<float> point;
     std::string sound_name;
     std::string path;
@@ -3513,7 +3349,7 @@ void ProcessSpellEffectTargets(W8SpellEffectEntry* effect)
         }
         camera_state = &g_status.buffers.Char[effect->Source.iChar].saved_location;
         world = GetWorld();
-        GetWorldCameraState(world, camera_state);
+        *camera_state = cameraState(*world);
         g_status.buffers.Char[effect->Source.iChar].saved_level = g_status.current_level;
         g_status.buffers.Char[effect->Source.iChar].has_saved_location = true;
         effect->applied = true;
@@ -3558,9 +3394,8 @@ void ProcessSpellEffectTargets(W8SpellEffectEntry* effect)
         shake->flags.fade_out = false;
         sound_name = g_spell_records[spell_id].sound_name;
         if (sound_name[0] != 0) {
-            parms = 0;
             path = fmt::format("Data\\Spells\\Sounds\\{}.wav", sound_name);
-            SoundPlay(path, parms);
+            wiz8::sound::play(path);
         }
         [[fallthrough]];
     case W8_SPELL_FROST:
@@ -3717,7 +3552,8 @@ void ProcessSpellEffectTargets(W8SpellEffectEntry* effect)
 static void QueueCombatDamageReports(W8SpellEffectResult* result)
 {
     auto& queued = g_combat_state->attack_report.reports;
-    queued.insert(queued.end(), result->reports.begin(), result->reports.end());
+    queued.insert(queued.end(), std::make_move_iterator(result->reports.begin()),
+                  std::make_move_iterator(result->reports.end()));
     result->reports.clear();
 }
 

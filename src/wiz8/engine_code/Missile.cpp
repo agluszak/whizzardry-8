@@ -1,75 +1,68 @@
+#include "wiz8/engine_code/emitter_cycles.h"
 #include <fmt/format.h>
-#include "wiz8/retail_text_records.h"
-#include "wiz8/unicode.h"
-#include <string>
-#include "wiz8/containers.h"
 #include <glm/gtx/rotate_vector.hpp>
+#include <glm/ext/quaternion_trigonometric.hpp>
+#include <glm/gtc/quaternion.hpp>
+#include <string>
+#include <vector>
+#include <cmath>
+#include <cstdint>
+#include <cstdio>
+#include <cstring>
+#include <exception>
+#include <memory>
+#include <utility>
+
+#include "compat/compiler.h"
+#include "layouts/targeting.h"
+#include "wiz8/retail_text_records.h"
+#include "wiz8/containers.h"
 #include "wiz8/engine_code/AnimRep.hpp"
 #include "wiz8/spell_ids.h"
 #include "wiz8/engine_code/AnimObj.h"
-
-#include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/GrObject.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/PathAI.h"
 #include "wiz8/engine_code/Prop.h"
-#include "wiz8/engine_code/quad.h"
 #include "wiz8/engine_code/Missile.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/local_code/SpellEffect.h"
 #include "wiz8/engine_code/ReadLevel.h"
 #include "wiz8/engine_code/stLight.hpp"
-#include "wiz8/engine_code/stParticle.h"
-#include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/Emitter.h"
 #include "wiz8/engine_code/game_timer.h"
 #include "wiz8/engine_code/AmbientSound.h"
 #include "wiz8/engine_code/SoundEvent.h"
-#include <vector>
-#include <algorithm>
 #include "wiz8/sr_api.h"
-#include "wiz8/engine_code/Environment.h"
-#include "wiz8/engine_code/Quality.h"
-#include "wiz8/engine_code/Video2.h"
 #include "wiz8/virtual_file.h"
 #include "wiz8/filesystem.h"
-#include "surrender/srCamera.h"
-#include "wiz8/engine_code/Spells.h"
 #include "wiz8/local_code/Magic.h"
-#include "wiz8/local_code/MagicEffects.h"
 #include "wiz8/layouts/combat_state.h"
-#include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/CombatAttack.h"
-#include "wiz8/local_code/CombatRange.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/PolyPick.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_screens/MGSTextBox.h"
-#include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/character.h"
-#include "wiz8/character_skills.h"
-#include "wiz8/local_code/CharGeneration.h"
-#include "wiz8/local_code/ConditionsAndEnchantments.h"
-#include "wiz8/local_code/HealthStaminaMana.h"
-#include "wiz8/local_code/PC_Item.h"
-#include "wiz8/local_code/UtilityFunctions.h"
-#include "wiz8/notices.h"
-#include <stdio.h>
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/utility.h"
 #include "wiz8/xstatus.h"
 #include "random.h"
 #include "wiz8/startup_world.h"
-
-#include <math.h>
-
-#include <stdlib.h>
-#include <string.h>
-#include <glm/gtc/matrix_transform.hpp>
+#include "GrCycle.h"
+#include "Navigator.h"
+#include "compat/native.h"
+#include "gameplay_modifiers.h"
+#include "glm/ext/matrix_float3x3.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include "layouts/world.h"
+#include "retail_records.h"
+#include "surrender/srClock.h"
+#include "surrender/srMath.h"
 
 #define MISSILE_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\Missile.cpp"
 
@@ -183,7 +176,6 @@ float AdvanceMissileAI(W8AIMissile* record, srVector3T<float>* out, unsigned int
     float advance;
     float pitch;
     float yaw;
-    int entity;
 
     representation = record->missile->m_pRep;
     if (steps == 0) {
@@ -191,16 +183,18 @@ float AdvanceMissileAI(W8AIMissile* record, srVector3T<float>* out, unsigned int
         return 0.0f;
     }
     advance = steps * record->speed_per_step;
-    record->missile->GetVelocity(&direction);
+    direction = record->missile->GetVelocity();
     *out = direction;
     position = record->missile->GetPosition();
     out->Set(position.x + direction.x * advance, position.y + direction.y * advance,
              position.z + direction.z * advance);
-    if (g_world->octree != 0 &&
-        (entity = g_world->octree->TraceAgainstProps(&position, out, 0, 0)) != 0) {
-        record->limit = 1.0f;
-        prop = (*g_world->collidable_props)[entity - 1];
-        prop->RunMissileTrigger(record);
+    if (g_world->octree != 0) {
+        if (const auto hit = g_world->octree->traceProps(position.glmValue(), out->glmValue(), 0, 0)) {
+            *out = hit->position;
+            record->limit = 1.0f;
+            prop = g_world->collidable_props[hit->prop_id];
+            prop->RunMissileTrigger(record);
+        }
     }
     if (record->gravity) {
         float dx;
@@ -298,8 +292,7 @@ bool W8Missile::BlocksEndingCombat()
 // FUNCTION: WIZ8 0x004A57B0
 void GetCharacterProjectilePosition(unsigned int character_index, srVector3T<float>* position)
 {
-    srVector3 camera;
-    GetCameraPosition(&camera);
+    srVector3 camera = cameraLocation();
     const glm::vec3 offset((character_index & 1) ? -75.0f : 75.0f,
                            g_character_projectile_height -
                                character_index * g_float_half * g_character_projectile_height_step,
@@ -324,12 +317,12 @@ W8Missile* NextMissile(bool restart)
 {
     W8Missile* missile = 0;
 
-    if (g_world != 0 && g_world->missiles != 0) {
+    if (g_world != 0) {
         if (restart) {
             g_missile_iterator = 0;
         }
-        if (g_missile_iterator < static_cast<int>(g_world->missiles->size())) {
-            missile = (*g_world->missiles)[g_missile_iterator];
+        if (g_missile_iterator < static_cast<int>(g_world->missiles.size())) {
+            missile = g_world->missiles[g_missile_iterator];
             ++g_missile_iterator;
         }
     }
@@ -348,9 +341,9 @@ void UpdateWorldMissiles(W8World* world)
         srAssertFail("pWorld", MISSILE_CPP, 200, 0);
     }
     int index = 0;
-    int count = static_cast<int>(world->missiles->size());
+    int count = static_cast<int>(world->missiles.size());
     while (index < count) {
-        W8Missile* missile = (*world->missiles)[index];
+        W8Missile* missile = world->missiles[index];
         if (missile != 0) {
             missile->DetachRepresentation(world);
             if (!missile->flight_done || missile->block_released == 0) {
@@ -358,7 +351,7 @@ void UpdateWorldMissiles(W8World* world)
                 missile->UpdateRepresentation(world);
                 missile->UpdateNavigation(0, false);
             } else {
-                wiz8::erase_first(*world->missiles, missile);
+                wiz8::erase_first(world->missiles, missile);
                 missile->DestroyMissile();
                 --index;
                 --count;
@@ -388,8 +381,6 @@ W8Missile* AllocateMissile(int missile_table_index)
 {
     W8GrCycleLoadContext context;
     W8Missile* missile;
-    srVector3T<float> minimum;
-    srVector3T<float> maximum;
 
     context.world = g_world;
     context.directory = "Data\\Spells\\Bitmaps";
@@ -412,10 +403,8 @@ W8Missile* AllocateMissile(int missile_table_index)
         }
     }
     missile->impacting = false;
-    g_world->missiles->push_back(missile);
-    minimum = -125.0;
-    maximum = 125.0;
-    missile->SetBounds(&minimum, &maximum);
+    g_world->missiles.push_back(missile);
+    missile->SetBounds({{-125.0f, -125.0f, -125.0f}, {125.0f, 125.0f, 125.0f}});
     missile->active = true;
     return missile;
 }
@@ -730,10 +719,7 @@ unsigned int W8MissileRep::ApplyEmitterSetting(signed char emitter)
    construction and precedes these assignments in the retail body. */
 W8MissileRep::W8MissileRep()
 {
-    emitters[0] = 0;
-    emitters[1] = 0;
-    emitter_playback_scales[0] = 15.0f;
-    emitter_playback_scales[1] = 15.0f;
+    ResetEmitterAnimations(*this);
 }
 
 /* Copy the two proven representation values, clone each animation, and deep
@@ -744,29 +730,8 @@ W8MissileRep::W8MissileRep()
 W8MissileRep::W8MissileRep(const W8MissileRep& other)
     : W8EmitterHost(other), value_0ac(other.value_0ac), value_0b0(other.value_0b0)
 {
-    int emitter;
-
-    for (emitter = 0; emitter < 2; ++emitter) {
-        if (other.emitters[emitter] == 0) {
-            emitters[emitter] = 0;
-            emitter_playback_scales[emitter] = 15.0f;
-        } else {
-            emitters[emitter] = new W8AnimObj(*other.emitters[emitter]);
-            emitter_playback_scales[emitter] = other.emitter_playback_scales[emitter];
-        }
-    }
-
-    for (emitter = 0; emitter < 2; ++emitter) {
-        int list_index;
-
-        for (list_index = 0; list_index < static_cast<int>(other.light_lists[emitter].size());
-             ++list_index) {
-            std::vector<stLight*>* source_lights = other.light_lists[emitter][list_index];
-            std::vector<stLight*>* copied_lights =
-                CloneAnimationLightList(source_lights, MISSILE_CPP, 0x184, 0x18c);
-            light_lists[emitter].push_back(copied_lights);
-        }
-    }
+    CloneEmitterAnimations(*this, other);
+    CloneEmitterLightLists(*this, other);
 }
 
 // FUNCTION: WIZ8 0x004a5d40
@@ -779,49 +744,10 @@ W8AnimRepBase* W8MissileRep::Clone()
 unsigned char W8MissileRep::ReadCycleData(W8ReadLevelInfo* info, W8Missile* missile,
                                           int cycle_index, int)
 {
-    std::vector<stLight*>* lights = new std::vector<stLight*>;
-    W8AnimObj* animation;
-    unsigned char success;
-    signed char emitter;
-
     if (info == 0 || info->hFile == 0 || missile == 0) {
         srAssertFail("pInfo && pInfo->hFile && pMissile", MISSILE_CPP, 0x1df, 0);
     }
-    animation = new W8AnimObj;
-    success = AnimObjReadFromFile(info, animation, 1, lights, 1);
-    emitter = static_cast<signed char>(animation->cycle);
-
-    if (lights->empty()) {
-        delete lights;
-        lights = 0;
-    } else {
-        missile->SetLights(lights);
-    }
-    light_lists[cycle_index].push_back(lights);
-
-    if (cycle_index != -1) {
-        emitter = static_cast<signed char>(cycle_index);
-        current_cycle = emitter;
-    }
-    emitter_playback_scales[emitter] = animation->playback_scale;
-    active = 1;
-    frame_direction = W8_ANIMATION_FORWARD;
-    timer = g_shared_timer_base->milliseconds();
-    animation_behaviour = animation->behaviour;
-    frame_method = animation->frame_method;
-    animation_playing = animation->animation_playing;
-    emitters[emitter] = animation;
-
-    if (missile->m_pRep != 0) {
-        if (SetCycleFrameLod(current_cycle, 0, 2) != 0) {
-            m_bLOD = 2;
-        } else if (SetCycleFrameLod(current_cycle, 0, 1) != 0) {
-            m_bLOD = 1;
-        } else {
-            m_bLOD = 0;
-        }
-    }
-    return success;
+    return ReadEmitterCycle(*this, info, *missile, cycle_index, missile->m_pRep != nullptr);
 }
 
 /* Retail constructs the +0x2d8 growable vector normally, then clears the
@@ -968,7 +894,7 @@ void W8Missile::DestroyMissile()
 // FUNCTION: WIZ8 0x004a4210
 void DestroyAllMissiles(W8World* world)
 {
-    wiz8::clear_and_dispose(*world->missiles, [](W8Missile* missile) {
+    wiz8::clear_and_dispose(world->missiles, [](W8Missile* missile) {
         missile->DestroyMissile();
     });
 }
@@ -1090,7 +1016,6 @@ bool W8Missile::IsCycleSupported(signed char cycle)
 void W8Missile::SetCycle(signed char cycle)
 {
     std::vector<stLight*>* lights;
-    W8AnimObj* animation;
 
     if (cycle < 0 || cycle >= 2) {
         srAssertFail("bCycle >= MISSILE_CYCLE_FIRST && bCycle <= MISSILE_CYCLE_LAST", MISSILE_CPP,
@@ -1100,21 +1025,7 @@ void W8Missile::SetCycle(signed char cycle)
     lights = m_pRep->light_lists[m_pRep->current_cycle][0];
     DetachCycleLights(lights);
 
-    m_pRep->current_cycle = cycle;
-    animation = m_pRep->emitters[cycle];
-    m_pRep->active = 1;
-    m_pRep->frame_direction = W8_ANIMATION_FORWARD;
-    if (m_pRep->SetCycleFrameLod(cycle, 0, 2) != 0) {
-        m_pRep->m_bLOD = 2;
-    } else if (m_pRep->SetCycleFrameLod(cycle, 0, 1) != 0) {
-        m_pRep->m_bLOD = 1;
-    } else {
-        m_pRep->m_bLOD = 0;
-    }
-    m_pRep->timer = g_shared_timer_base->milliseconds();
-    m_pRep->frame_method = animation->frame_method;
-    m_pRep->animation_playing = animation->animation_playing;
-    m_pRep->subcycle = 0;
+    StartEmitterCycle(*m_pRep, cycle);
 
     lights = m_pRep->light_lists[cycle][0];
     SetLights(lights);
@@ -1185,9 +1096,7 @@ void W8Missile::AnnounceCollisionTarget()
     text = fmt::format("{} ", g_localized_strings[0x1bf]);
     target_start = text.size();
     if (combat_slot.iType == W8_TARGET_KIND_MONSTER) {
-        unsigned int monster_list_index =
-            MonsterGetIndexByLocationID(0x701, MISSILE_CPP, combat_slot.iMonsterID, true);
-        W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(monster_list_index);
+        W8MonsterInfo* monster_info = FindMonster(combat_slot.iMonsterID);
         text += GetMonsterName(monster_info, 0, 0);
     } else {
         text += g_status.buffers.Char[combat_slot.iChar].name;
@@ -1214,7 +1123,7 @@ void W8Missile::EnterImpactCycle()
             representation->pending_behaviour = W8_ANIMATION_PLAY_ONCE;
             impacting = true;
             if (explode_ground) {
-                representation->location.y = SettlePositionToGround(&position, 0);
+                representation->location.y = probeGround(position.glmValue()).position.y;
             }
         }
     } else {
@@ -1261,9 +1170,7 @@ bool W8Missile::OnCollision(W8Navigator* other)
         }
         W8Monster* monster = static_cast<W8Monster*>(other);
         int location_id = monster->location_id;
-        unsigned int monster_list_index =
-            MonsterGetIndexByLocationID(0x636, MISSILE_CPP, location_id, true);
-        W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(monster_list_index);
+        W8MonsterInfo* monster_info = FindMonster(location_id);
         if (TargetSourceIsMonster(&m_Source, 0) && m_Source.iMonsterID == location_id) {
             goto miss;
         }
@@ -1292,7 +1199,7 @@ bool W8Missile::OnCollision(W8Navigator* other)
             deflect_chance = g_status.buffers.Char[combat_slot.iChar].bonus.missile_deflect_chance;
         } else {
             W8MonsterInfo* monster_info =
-                MonsterInfoFromID(0x676, MISSILE_CPP, combat_slot.iMonsterID, true);
+                FindMonster(combat_slot.iMonsterID);
             deflect_chance = monster_info->modifiers.missile_deflect_chance;
         }
         if (deflect_chance > 0 && Random(100) + 1 <= deflect_chance) {

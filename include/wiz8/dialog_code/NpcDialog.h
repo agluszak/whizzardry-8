@@ -1,12 +1,15 @@
 #pragma once
 
+#include <array>
+#include <memory>
 #include <string>
+
 #include "wiz8/dialog_code/DialogBase.h"
-#include "wiz8/dialog_code/DialogButton.h"
-#include "wiz8/local_code/ControlsRect.h"
-#include "wiz8/npc_script_file.h"
+#include "compat/compiler.h"
 
 class W8TextBuffer;
+class W8ButtonWidget;
+struct W8NpcQuoteEntry;
 
 /* The dialog receives the script entry itself. Its sub-entry array is the
    option list for kind 5; operand0 is the price for kinds 0x12/0x1e. */
@@ -25,7 +28,6 @@ public:
     W8NpcDialog(W8NpcQuoteEntry* message, int aux_data);
     virtual ~W8NpcDialog() override;
     virtual int CreateControls() override;
-    virtual void DestroyControls() override;
     virtual void Draw() override;
     virtual W8DialogKind GetDialogType() override; /* 7 */
     virtual bool ProcessInput() override;
@@ -33,10 +35,10 @@ public:
 private:
     /* Copies the pressed option's user-data index into m_selected_option and
        closes the dialog. */
-    static void OptionSelected(W8DialogButton* button);
+    static void OptionSelected(W8ButtonWidget* button);
 
-    W8TextBuffer* m_text_buffers[2];
-    W8DialogButton* m_buttons[3];
+    std::array<std::unique_ptr<W8TextBuffer>, 2> m_text_buffers;
+    std::array<std::unique_ptr<W8ButtonWidget>, 3> m_buttons;
     signed char m_selected_option;
     W8NpcQuoteEntry* m_message;
     int m_aux_data;
@@ -47,4 +49,3 @@ private:
     unsigned char unknown_079;
     std::string m_input_text; /* fills the 0x270-byte allocation */
 };
-W8_ABI_ASSERT(sizeof(W8NpcDialog) == 0x270, "W8NpcDialog_size");

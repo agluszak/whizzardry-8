@@ -1,22 +1,19 @@
+#include <memory>
+#include <SDL3/SDL_rect.h>
 #include <fmt/format.h>
-#include "wiz8/unicode.h"
 #include <string>
-#include "wiz8/fonts.h"
-#include "wiz8/local_screens/mipe.h"
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
-#include "input.h"
-
+#include <initializer_list>
 #include <vector>
 #include <algorithm>
+#include <variant>
+#include <cstring>
+#include <string_view>
+
+#include "wiz8/fonts.h"
+#include "wiz8/local_screens/mipe.h"
+#include "input.h"
 #include "wiz8/dialog_code/AssayDialog.h"
-#include "wiz8/dialog_code/NpcDialog.h"
-#include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/engine_code/3d.h"
-#include "wiz8/engine_code/3dapi.h"
 #include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/GrCycle.h"
@@ -35,7 +32,6 @@
 #include "wiz8/layouts/item_tables.h"
 #include "wiz8/local_code/CombatAttack.h"
 #include "wiz8/local_code/GameplayDatabase.h"
-#include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/local_code/ItemManager.h"
 #include "wiz8/local_code/Search.h"
 #include "wiz8/local_code/Strings.h"
@@ -48,13 +44,12 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/monster_generators.h"
 #include "wiz8/sr_api.h"
-#include "wiz8/utility.h"
 #include "wiz8/world_cursor.h"
 #include "wiz8/xstatus.h"
-#include "wiz8/local_screens/CharacterScreen.h"
-#include "wiz8/local_screens/OptionsScreen.h"
-
-#include <variant>
+#include "dice.h"
+#include "layouts/gameplay_databases.h"
+#include "layouts/main_game_screen.h"
+#include "layouts/world.h"
 
 // The editor reuses its category view for four concrete borrowed row types.
 using W8MipeCategoryEntry = std::variant<std::monostate, W8MipeMonsterEntry*, W8ItemDatabaseRecord*,
@@ -100,7 +95,7 @@ static short g_mipe_item_index;
 bool g_debug_monster_cycle;
 
 // GLOBAL: WIZ8 0x0068f100
-W8MipeState* g_mipe_state;
+std::unique_ptr<W8MipeState> g_mipe_state;
 
 // GLOBAL: WIZ8 0x0068f112
 static short g_mipe_monster_index;
@@ -115,7 +110,7 @@ static int g_mipe_table_row;
 int g_mipe_table_base;
 
 // GLOBAL: WIZ8 0x0068f124
-static std::vector<W8MipeMonsterEntry*>* g_mipe_monster_entries;
+static std::vector<W8MipeMonsterEntry> g_mipe_monster_entries;
 
 // GLOBAL: WIZ8 0x0068f12c
 static W8WorldCursorNode* g_mipe_cube;
@@ -133,6 +128,26 @@ static void ShowMipeNamedCategory(std::vector<W8MipeCategoryEntry>* list,
    state and tears the editor state down; entering it clears combat flags,
    prints the mode menu and builds the monster entry list. */
 // FUNCTION: WIZ8 0x0057d740
+static void ShowMipeMenu(std::string_view title, std::initializer_list<std::string_view> rows)
+{
+    ResetEditorStatusLine(-1);
+    ShowNotice(W8_FONT_PALETTE_PINK, title);
+    for (auto row : rows) {
+        ShowNotice(W8_FONT_PALETTE_TEXT_BOX, row);
+    }
+}
+
+static void ShowMipeMainMenu()
+{
+    ShowMipeMenu("What would you like to do?", {
+        "1) Create a monster.",
+        "2) Create an item.",
+        "3) Edit object(s).",
+        "4) Monster Generators.",
+        "5) Select object(s).",
+        "6) Handle triggers."});
+}
+
 void ToggleMipePanel(void)
 {
     if (g_mipe_active) {
@@ -155,14 +170,8 @@ void ToggleMipePanel(void)
                 SetMonsterHighlight(0, monster->location_id, false);
             }
         }
-        for (unsigned int entry_index = 0; entry_index < gXStatus.uiMonstersInDatabase; ++entry_index) {
-            delete (*g_mipe_monster_entries)[entry_index];
-        }
-        delete g_mipe_monster_entries;
-
-        g_mipe_monster_entries = 0;
-        delete g_mipe_state;
-        g_mipe_state = 0;
+        g_mipe_monster_entries.clear();
+        g_mipe_state.reset();
         SetWorldCursorNodesVisible(g_mipe_trigger_display);
         return;
     }
@@ -172,41 +181,24 @@ void ToggleMipePanel(void)
     SelectTextBox(0);
     ResetEditorStatusLine(-1);
     g_mipe_active = true;
-    ResetEditorStatusLine(-1);
-    ShowNotice(W8_FONT_PALETTE_PINK, "What would you like to do?");
-    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "1) Create a monster.");
-    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "2) Create an item.");
-    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "3) Edit object(s).");
-    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "4) Monster Generators.");
-    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "5) Select object(s).");
-    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "6) Handle triggers.");
+    ShowMipeMainMenu();
     g_mipe_mode = 0;
     InitializeWorldCursor();
     g_mipe_active = true;
     g_mipe_menu_active = false;
     g_mipe_cube = 0;
-    g_mipe_monster_entries = new std::vector<W8MipeMonsterEntry*>;
-
-    W8MonsterRecord* records = new W8MonsterRecord[gXStatus.uiMonstersInDatabase]{};
-    if (records == 0) {
-        srAssertFail("pTempMonsterDB", "C:\\Projects\\Wizardry 8\\Local Screens\\mipe.cpp", 0xea5,
-                     0);
-    }
-    LoadMonsterDatabaseRange(0, gXStatus.uiMonstersInDatabase - 1, records);
+    std::vector<W8MonsterRecord> records(gXStatus.uiMonstersInDatabase);
+    LoadMonsterDatabaseRange(0, gXStatus.uiMonstersInDatabase - 1, records.data());
+    g_mipe_monster_entries.clear();
+    g_mipe_monster_entries.reserve(records.size());
     for (unsigned int index = 0; index < gXStatus.uiMonstersInDatabase; ++index) {
-        W8MipeMonsterEntry* entry =
-            new W8MipeMonsterEntry{};
-        if (entry == 0) {
-            srAssertFail("pMonRec", "C:\\Projects\\Wizardry 8\\Local Screens\\mipe.cpp", 0xeab, 0);
-        }
-        entry->name = records[index].name0;
-        entry->kind = records[index].kind;
-        entry->selectable = records[index].deleted == 0 && records[index].editor_index == -1;
-        g_mipe_monster_entries->push_back(entry);
+        W8MipeMonsterEntry& entry = g_mipe_monster_entries.emplace_back();
+        entry.name = records[index].name0;
+        entry.kind = records[index].kind;
+        entry.selectable = records[index].deleted == 0 && records[index].editor_index == -1;
     }
-    delete[] records;
 
-    g_mipe_state = new W8MipeState{};
+    g_mipe_state = std::make_unique<W8MipeState>();
     g_mipe_state->drag_anchor.SetZero();
     g_mipe_state->monster_ids.reserve(10);
 
@@ -232,7 +224,7 @@ void ToggleMipePanel(void)
     int monster_index = 0;
     int visible = 0;
     while (monster_index < static_cast<int>(gXStatus.uiMonstersInDatabase)) {
-        W8MipeMonsterEntry* entry = (*g_mipe_monster_entries)[monster_index];
+        W8MipeMonsterEntry* entry = &g_mipe_monster_entries[monster_index];
         if (entry->kind == g_mipe_category && entry->selectable) {
             if (visible == selection) {
                 break;
@@ -293,7 +285,7 @@ static void ShowMipeMonsterStatus(void)
     std::string name;
     const char* method;
 
-    name = (*g_mipe_monster_entries)[g_mipe_monster_index]->name;
+    name = g_mipe_monster_entries[g_mipe_monster_index].name;
     ResetEditorStatusLine(-1);
     ShowNotice(W8_FONT_PALETTE_PINK, "Type # to specify how many, then ENTER,");
     ShowNotice(W8_FONT_PALETTE_PINK, "OR type C to change what monster to place.  ");
@@ -398,38 +390,35 @@ void ShowMipeChooseMenu(void)
 // FUNCTION: WIZ8 0x00577e60
 void ShowMipeEditMenu(void)
 {
-    ResetEditorStatusLine(-1);
-    ShowNotice(W8_FONT_PALETTE_PINK, "What do you want to edit?.");
-    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "1) Monster");
-    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "2) Prop");
-    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "3) Item");
-    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "4) Move object(s)");
+    ShowMipeMenu("What do you want to edit?.", {
+        "1) Monster",
+        "2) Prop",
+        "3) Item",
+        "4) Move object(s)"});
 }
 
 static void ShowMipeMonsterEditMenu()
 {
-    ResetEditorStatusLine(-1);
-    ShowNotice(W8_FONT_PALETTE_PINK, "Edit Monster");
-    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "1) Slow <<");
-    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "2) Fast >>");
-    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "3) Set Speed");
-    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "4) Assign Path");
-    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "5) Next Cycle");
-    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "6) Direction");
+    ShowMipeMenu("Edit Monster", {
+        "1) Slow <<",
+        "2) Fast >>",
+        "3) Set Speed",
+        "4) Assign Path",
+        "5) Next Cycle",
+        "6) Direction"});
 }
 
 /* Mode-0xd menu: prop field-editing choices (locks & traps, treasure table). */
 // FUNCTION: WIZ8 0x00577eb0
 void ShowMipePropMenu(void)
 {
-    ResetEditorStatusLine(-1);
-    ShowNotice(W8_FONT_PALETTE_PINK, "Choose how you want to edit prop.");
-    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "1) Locks & Traps");
-    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "2) Treasure Table");
-    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "3) .");
-    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "4) .");
-    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "5) .");
-    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "6) .");
+    ShowMipeMenu("Choose how you want to edit prop.", {
+        "1) Locks & Traps",
+        "2) Treasure Table",
+        "3) .",
+        "4) .",
+        "5) .",
+        "6) ."});
 }
 
 /* Mode-0xc menu: trigger actions plus the selected trigger's kind and the
@@ -440,12 +429,11 @@ static void ShowMipeTriggerMenu(void)
     const char* status;
     int kind;
 
-    ResetEditorStatusLine(-1);
-    ShowNotice(W8_FONT_PALETTE_PINK, "Select what you want to do.");
-    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "1) Create trigger.");
-    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "2) Delete trigger.");
-    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "3) ");
-    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "4) Select trigger.");
+    ShowMipeMenu("Select what you want to do.", {
+        "1) Create trigger.",
+        "2) Delete trigger.",
+        "3) ",
+        "4) Select trigger."});
     ShowNotice(W8_FONT_PALETTE_TEXT_BOX, !g_mipe_trigger_display
                                              ? "5) Toggle trigger display [now off]."
                                              : "5) Toggle trigger display [now on].");
@@ -671,7 +659,7 @@ static unsigned int FindMipeVisibleMonster(int visible)
     monster_index = 0;
     if (0 < static_cast<int>(gXStatus.uiMonstersInDatabase)) {
         do {
-            entry = (*g_mipe_monster_entries)[monster_index];
+            entry = &g_mipe_monster_entries[monster_index];
             if (entry->kind == g_mipe_category && entry->selectable) {
                 if (index == visible) {
                     break;
@@ -703,7 +691,7 @@ unsigned char HandleMipeMonsterCreateKey(unsigned short key)
         if (list != 0) {
             list->clear();
             for (index = 0; index < static_cast<int>(gXStatus.uiMonstersInDatabase); ++index) {
-                entry = (*g_mipe_monster_entries)[index];
+                entry = &g_mipe_monster_entries[index];
                 if (entry->kind == g_mipe_category && entry->selectable) {
                     list->push_back(entry);
                 }
@@ -875,7 +863,7 @@ static void RebuildMipeMonsterCategory(std::vector<W8MipeCategoryEntry>* list)
     if (g_mipe_category_list != 0) {
         g_mipe_category_list->clear();
         for (int index = 0; index < static_cast<int>(gXStatus.uiMonstersInDatabase); ++index) {
-            W8MipeMonsterEntry* entry = (*g_mipe_monster_entries)[index];
+            W8MipeMonsterEntry* entry = &g_mipe_monster_entries[index];
             if (entry->kind == g_mipe_category && entry->selectable) {
                 list->push_back(entry);
             }
@@ -1167,14 +1155,13 @@ void HandleMonsterDebugKey(unsigned short key)
         break;
     case 0x34:
         if (static_cast<unsigned int>(g_mipe_state->monster_ids.size()) == 1) {
-            info = MonsterGetScriptPartByLocationIndex(MonsterGetIndexByLocationID(
-                0x6e3, MIPE_CPP, g_mipe_state->SelectedMonsterLocationId(), true));
+            info = FindMonster(g_mipe_state->SelectedMonsterLocationId());
             if (info == 0 || info->p3D == 0) {
                 srAssertFail("pMonsterInfo && pMonsterInfo->p3D", MIPE_CPP, 0x6e5, 0);
             }
             monster = info->p3D;
             GetWorldCursorPosition(&position);
-            MonsterGetLocation(monster, &location);
+            location = MonsterGetLocation(monster);
             MonsterAddPathPoint(monster, &position);
             MonsterSetAnimating(monster, true);
             MonsterSetCycle(monster, 4);
@@ -1185,8 +1172,7 @@ void HandleMonsterDebugKey(unsigned short key)
         break;
     case 0x35:
         if (static_cast<unsigned int>(g_mipe_state->monster_ids.size()) == 1) {
-            info = MonsterGetScriptPartByLocationIndex(MonsterGetIndexByLocationID(
-                0x703, MIPE_CPP, g_mipe_state->SelectedMonsterLocationId(), true));
+            info = FindMonster(g_mipe_state->SelectedMonsterLocationId());
             if (info == 0) {
                 srAssertFail("pMonsterInfo", MIPE_CPP, 0x705, 0);
             }
@@ -1219,7 +1205,7 @@ void HandleMonsterDebugKey(unsigned short key)
             monster->SetSubCycle(0);
             monster->m_pRep->pending_subcycle = 0;
             world = GetWorld();
-            WorldGetCameraLocation(world, &location);
+            location = cameraLocation(*world);
             position = location;
             monster->SelectLOD(&position);
             monster->ReplacePath(0);
@@ -1343,7 +1329,7 @@ void HandleWaypointKey(unsigned short key)
         g_mipe_state->waypoints.push_back(monster);
         ShowMipeWaypointStatus();
     } else if (key == 0x58) {
-        if (g_mipe_state != 0) {
+        if (g_mipe_state) {
             unsigned int count = static_cast<unsigned int>(g_mipe_state->waypoints.size());
             if (count != 0) {
                 monster = g_mipe_state->waypoints.back();
@@ -1455,14 +1441,13 @@ void HandleMipePropEditKey(unsigned short key)
    helper name is descriptive; no original standalone spelling survives. */
 static void ShowMipeCubeMenu()
 {
-    ResetEditorStatusLine(-1);
-    ShowNotice(W8_FONT_PALETTE_PINK, "Choose an action:");
-    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "1) Create cube.");
-    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "2) Delete cube.");
-    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "3) Edit cube parameters.");
-    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "4) Move cube.");
-    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "5) Scale cube.");
-    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "6) Select cube.");
+    ShowMipeMenu("Choose an action:", {
+        "1) Create cube.",
+        "2) Delete cube.",
+        "3) Edit cube parameters.",
+        "4) Move cube.",
+        "5) Scale cube.",
+        "6) Select cube."});
 }
 
 /* The volume cube top menu: create, delete, edit parameters, move, scale and
@@ -1486,7 +1471,7 @@ int HandleCubeMenuKey(unsigned int key)
     case 0x31:
         g_mipe_cube = CreateWorldCursorCube();
         GetCameraForwardPointCopy(2500.0f, &position);
-        position.y = SettlePositionToGroundMutable(&position, 0);
+        position.y = probeGround(position.glmValue()).position.y;
         MoveWorldCursorNode(g_mipe_cube, &position);
         AttachWorldCursorNode(g_mipe_cube, true);
         SetWorldCursorNodeColorComponents(g_mipe_cube, 0.0f, 1.0f, 0.0f);
@@ -2054,7 +2039,7 @@ void EditMonsterGeneratorName(unsigned short key)
         }
     } else if ((((0x2f < key) && (key < 0x3a)) || ((0x40 < key) && (key < 0x5b))) &&
                (length < 0x1f)) {
-        if (gfKeyState[VK_SHIFT] == 0) {
+        if (!IsKeyHeld(VK_SHIFT)) {
             key += 0x20;
         }
         name[length] = static_cast<char>(key);
@@ -2285,11 +2270,11 @@ void HandleMipeItemTableKey(unsigned short key)
    only 'V'/'X' live, and the mode switch routes everything else into the
    per-mode handlers above. */
 // FUNCTION: WIZ8 0x0057c230
-unsigned char HandleMipeKey(const InputAtom* event)
+unsigned char HandleMipeKey(const InputEvent* event)
 {
     bool handled;
     unsigned short key;
-    unsigned short event_type;
+    InputEventType event_type;
     Trigger* trigger;
     W8Item* rep_item;
     int shown;
@@ -2298,9 +2283,9 @@ unsigned char HandleMipeKey(const InputAtom* event)
     if (g_mipe_state->dragging) {
         return 1;
     }
-    key = static_cast<unsigned short>(event->usParam);
+    key = static_cast<unsigned short>(event->key);
     if (key == 0x1b) {
-        if (event->usEvent == KEY_UP || event->usEvent == KEY_REPEAT) {
+        if (event->type == InputEventType::KeyUp || event->type == InputEventType::KeyRepeat) {
             g_mipe_count = 0;
             if (g_mipe_mode == 6) {
                 g_mipe_mode = 1;
@@ -2466,8 +2451,8 @@ unsigned char HandleMipeKey(const InputAtom* event)
             handled = true;
         }
     }
-    event_type = event->usEvent;
-    if (event_type == 1) {
+    event_type = event->type;
+    if (event_type == InputEventType::KeyDown) {
         switch (key) {
         case 0x25:
         case 0x26:
@@ -2525,10 +2510,10 @@ unsigned char HandleMipeKey(const InputAtom* event)
             return 1;
         }
     }
-    if (event_type != 2 && event_type != 4) {
+    if (event_type != InputEventType::KeyUp && event_type != InputEventType::KeyRepeat) {
         return handled;
     }
-    if (gfKeyState[VK_CONTROL] != 0) {
+    if (IsKeyHeld(VK_CONTROL)) {
         if (key == 0x56) {
             HideWorldCursor();
             g_mipe_mode = 0xf;
@@ -2547,14 +2532,7 @@ unsigned char HandleMipeKey(const InputAtom* event)
     case 0:
         switch (key) {
         case 0x30:
-            ResetEditorStatusLine(-1);
-            ShowNotice(W8_FONT_PALETTE_PINK, "What would you like to do?");
-            ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "1) Create a monster.");
-            ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "2) Create an item.");
-            ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "3) Edit object(s).");
-            ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "4) Monster Generators.");
-            ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "5) Select object(s).");
-            ShowNotice(W8_FONT_PALETTE_TEXT_BOX, "6) Handle triggers.");
+            ShowMipeMainMenu();
             g_mipe_mode = 0;
             return handled;
         case 0x31:
@@ -2627,7 +2605,7 @@ unsigned char HandleMipeKey(const InputAtom* event)
     case 4:
         if (key == 0x43) {
             g_mipe_choose_group = !g_mipe_choose_group;
-            if (g_mipe_state != 0) {
+            if (g_mipe_state) {
                 g_mipe_state->monster_ids.clear();
             }
             ShowMipeSelectionMenu("MOVE IT!!");
@@ -2652,7 +2630,7 @@ unsigned char HandleMipeKey(const InputAtom* event)
     case 9:
         if (key == 0x43) {
             g_mipe_choose_group = !g_mipe_choose_group;
-            if (g_mipe_state != 0) {
+            if (g_mipe_state) {
                 g_mipe_state->monster_ids.clear();
             }
             ShowMipeSelectionMenu("Choose monster or item to edit.");
@@ -2878,8 +2856,7 @@ void UpdateMipeSelection(void)
         if (location_id == -1) {
             group_id = W8_MIPE_NO_GROUP;
         } else {
-            group_id = MonsterGetScriptPartByLocationIndex(
-                           MonsterGetIndexByLocationID(0x10bb, MIPE_CPP, location_id, true))
+            group_id = FindMonster(location_id)
                            ->monster_group_id;
         }
         if (group_id == g_mipe_state->selected_group_id) {
@@ -2887,8 +2864,7 @@ void UpdateMipeSelection(void)
         }
         for (index = 0; index < static_cast<int>(g_mipe_state->monster_ids.size()); ++index) {
             int listed = g_mipe_state->monster_ids[index];
-            info = MonsterGetScriptPartByLocationIndex(
-                MonsterGetIndexByLocationID(0x10cd, MIPE_CPP, listed, true));
+            info = FindMonster(listed);
             if (info->fActive) {
                 SetMonsterHighlight(0, listed, false);
             }
@@ -2905,8 +2881,7 @@ void UpdateMipeSelection(void)
             }
         }
         if (static_cast<unsigned int>(g_mipe_state->monster_ids.size()) == 1) {
-            info = MonsterGetScriptPartByLocationIndex(
-                MonsterGetIndexByLocationID(0x10e8, MIPE_CPP, location_id, true));
+            info = FindMonster(location_id);
             if (info == 0) {
                 srAssertFail("pMonsterInfo", MIPE_CPP, 0x10ea, 0);
             }
@@ -2929,8 +2904,7 @@ void UpdateMipeSelection(void)
     }
     SetMonsterHighlight(0, location_id, true);
     g_mipe_state->monster_ids.push_back(location_id);
-    info = MonsterGetScriptPartByLocationIndex(
-        MonsterGetIndexByLocationID(0x110c, MIPE_CPP, location_id, true));
+    info = FindMonster(location_id);
     if (info == 0) {
         srAssertFail("pMonsterInfo", MIPE_CPP, 0x110e, 0);
     }
@@ -2958,9 +2932,8 @@ void DragSelectionWithCursor(void)
         g_mipe_state->trigger->SetPosition(&moved);
     } else {
         for (index = 0; index < static_cast<int>(g_mipe_state->monster_ids.size()); ++index) {
-            info = MonsterGetScriptPartByLocationIndex(MonsterGetIndexByLocationID(
-                0x114c, MIPE_CPP, g_mipe_state->monster_ids[index], true));
-            MonsterGetLocalLocation(info->p3D, &position);
+            info = FindMonster(g_mipe_state->monster_ids[index]);
+            position = MonsterGetLocalLocation(info->p3D);
             moved.Set(cursor.x - g_mipe_state->drag_anchor.x + position.x,
                       cursor.y - g_mipe_state->drag_anchor.y + position.y,
                       cursor.z - g_mipe_state->drag_anchor.z + position.z);
@@ -2976,16 +2949,16 @@ void DragSelectionWithCursor(void)
    mouse motion drags or tracks the cube. Returns whether it consumed the
    event. */
 // FUNCTION: WIZ8 0x0057e0e0
-bool MipeWorldViewEvent(int event, const SDL_Point* point)
+bool MipeWorldViewEvent(InputEventType event, const SDL_Point* point)
 {
     bool result;
 
     result = false;
-    if (g_mipe_state == 0) {
+    if (!g_mipe_state) {
         return false;
     }
-    switch (event & 0xffff) {
-    case LEFT_BUTTON_DOWN:
+    switch (event) {
+    case InputEventType::LeftButtonDown:
         if (g_mipe_mode == 4) {
             result = true;
             g_mipe_state->dragging = true;
@@ -3012,7 +2985,7 @@ bool MipeWorldViewEvent(int event, const SDL_Point* point)
             }
         }
         break;
-    case LEFT_BUTTON_UP:
+    case InputEventType::LeftButtonUp:
         if (g_mipe_mode == 4) {
             DragSelectionWithCursor();
             result = true;
@@ -3032,7 +3005,7 @@ bool MipeWorldViewEvent(int event, const SDL_Point* point)
             }
         }
         break;
-    case RIGHT_BUTTON_UP:
+    case InputEventType::RightButtonUp:
         if (g_mipe_mode == 0x11) {
             g_mipe_mode = 0xf;
             g_mipe_state->selecting = 0;
@@ -3042,7 +3015,7 @@ bool MipeWorldViewEvent(int event, const SDL_Point* point)
             ShowMipeCubeMenu();
         }
         break;
-    case MOUSE_POS:
+    case InputEventType::MouseMove:
         if (g_mipe_state->dragging) {
             if (g_mipe_mode == 4) {
                 DragSelectionWithCursor();
@@ -3059,6 +3032,8 @@ bool MipeWorldViewEvent(int event, const SDL_Point* point)
                 result = true;
             }
         }
+        break;
+    default:
         break;
     }
     return result;
@@ -3083,7 +3058,7 @@ bool AnyMonsterGeneratorMarkerWithinReach(void)
     if (g_world == 0 || g_world->camera == 0) {
         return false;
     }
-    GetCameraPosition(&camera);
+    camera = cameraLocation();
     count = GetMonsterGeneratorCount();
     if (0 <= g_last_reachable_mongen_marker && g_last_reachable_mongen_marker < count) {
         generator = GetMonsterGenerator(g_last_reachable_mongen_marker);

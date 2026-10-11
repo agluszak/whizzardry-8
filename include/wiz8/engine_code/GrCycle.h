@@ -1,22 +1,26 @@
-#include <string_view>
 #pragma once
+
+#include <optional>
+#include "surrender/srBoundingBox.h"
+#include <string_view>
 
 /* Engine Code\GrCycle.cpp owns these declarations. The two bases keep their
    original relative order: W8GrObject is
    W8GrCycle's first base and W8Navigator its second. */
 
+#include <vector>
+
 #include "surrender/srMath.h"
-#include "wiz8/engine_code/Emitter.h"
 #include "wiz8/engine_code/game_timer.h"
 #include "wiz8/engine_code/GrObject.h"
 #include "wiz8/engine_code/Navigator.h"
-#include "wiz8/geometry.h"
-#include <vector>
-#include <algorithm>
+#include "compat/compiler.h"
+#include "glm/ext/matrix_float3x3.hpp"
 
 class srModelInstance;
 struct W8World;
 struct W8ReadLevelInfo;
+class W8EmitterHost;
 
 /* Callers build this trio before loading a .mon/.mls resource. The loader
    carries world into its four-field read record and never reads the other
@@ -53,7 +57,6 @@ public:
         unsigned char reserved : 2;
         unsigned char reserved_bytes[3];
     };
-    W8_ABI_ASSERT(sizeof(Flags) == 4, "W8CameraShakeEffect_flags_size");
 
     W8CameraShakeEffect(float duration, bool preset, float intensity, float distance_cap,
                         const srVector3T<float>* position); /* 0x004ADED0 */
@@ -73,8 +76,6 @@ public:
     int subcycle;                      /* 0x44 */
     void (*completion_callback)(void); /* 0x48 */
 };
-
-W8_ABI_ASSERT(sizeof(W8CameraShakeEffect) == 0x4c, "W8CameraShakeEffect_must_be_0x4c");
 
 /* The live list every active effect is on, and the timer the first effect
    creates alongside it. Both are built lazily by the constructor. */
@@ -113,9 +114,6 @@ public:
     glm::mat3 rotation;
 };
 
-W8_ABI_ASSERT(sizeof(W8GrCycleParticleAttachment) == 0x3c,
-              "W8GrCycleParticleAttachment_must_be_0x3c");
-
 class W8GrCycle : public W8GrObject, public W8Navigator {
 public:
     W8GrCycle();
@@ -141,8 +139,7 @@ public:
     /* Registry-wide lookups answered from this cycle's identity. */
     const char* GetRegisteredName() const;     /* 0x004A8650 */
     bool IsSoleRegisteredCycleForName() const; /* 0x004A8700 */
-    virtual unsigned char GetAnimationBounds(srVector3T<float>* minimum,
-                                             srVector3T<float>* maximum);
+    virtual std::optional<srBoundingBox> GetAnimationBounds();
     virtual unsigned char GetAnimationRadius(float* radius);
     virtual void SetCycle(signed char cycle) = 0;
     virtual W8AnimObj* GetCurrentAnimation() = 0;
@@ -195,9 +192,7 @@ public:
     float frame_fraction;
 }; /* 0x1d8 */
 
-W8_ABI_ASSERT(sizeof(W8GrCycle) == 0x1d8, "W8GrCycle_size_must_be_0x1d8");
 /* Secondary vftable 0x005eceb8 places the W8Navigator subobject at +0x18. */
-W8_ASSERT_BASE_OFFSET(W8GrCycle, W8Navigator, navigation_mode, 0x18);
 
 /* 0x005EC128: hundredth-second scale shared by the monster and trigger
    durations. */

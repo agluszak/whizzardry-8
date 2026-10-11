@@ -1,12 +1,25 @@
 #include <catch2/catch_test_macros.hpp>
 #include <wiz8/filesystem.h>
-/* Real SLF/STI -> recovered SGP surfaces -> recovered stSurface2D -> SDL GPU.
+#include <SDL3/SDL_events.h>
+#include <SDL3/SDL_hints.h>
+#include <SDL3/SDL_init.h>
+#include <SDL3/SDL_stdinc.h>
+#include <SDL3/SDL_video.h>
+/* Real SLF/STI -> immutable sprites and SDL surfaces -> stSurface2D -> SDL GPU.
    Also checks a movie-owned surface and restoration of the game primary. */
 
-#include "compat/video.h"
-#include "native/input_events.h"
 #include <wiz8/asset_paths.h>
-#include "wiz8/application.h"
+#include <cstdio>
+#include <cstring>
+#include <filesystem>
+#include <vector>
+#include <cstdint>
+#include <cstdlib>
+#include <memory>
+#include <string>
+#include <system_error>
+
+#include "compat/video.h"
 #include "input.h"
 #include "surrender/srGERD.h"
 #include "surrender/srImageIO.h"
@@ -16,20 +29,21 @@
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/surface2d.h"
-#include <SDL3/SDL.h>
-#include <cstdio>
-#include <cstring>
-#include <exception>
-#include <filesystem>
+#include "wiz8/cursor.h"
+#include "image_assets.h"
+#include "sprite.h"
 #include "temporary_directory.h"
-#include <vector>
+#include "surrender/srColorSurfaceIFace.h"
+#include "surrender/srFlags.h"
+
+class srScene;
+
 void PresentMenuOverlayFrame();
 void SaveJpegScreenshot();
 extern unsigned char g_fullscreen;
 extern srScene* g_cursor_scene;
 unsigned char InitializeMouseCursorScene();
 void PositionMouseCursor(int, int, bool);
-BOOLEAN SetMouseCursorFromVideoObject(UINT32, UINT16, INT16, INT16);
 struct FixtureRoot
 {
     std::filesystem::path path;
@@ -61,7 +75,7 @@ TEST_CASE("game graphics")
         g_fullscreen = 0;
         Initialize16BitPixelFormatMasks();
         REQUIRE(CreateWizardryWindow());
-        REQUIRE(InitializePrimaryCpuSurface());
+        REQUIRE(InitializePrimarySurface());
         REQUIRE(InitializeVideoDevice());
         REQUIRE(InitializeRendererSceneObjects());
         auto targa = srImage::load("Data\\AUTOMAP\\MAP_MONSTERFRIENDLY_A.TGA");
@@ -70,27 +84,21 @@ TEST_CASE("game graphics")
         auto pipeline = srTriMeshPipeline::Get(g_gerd);
         REQUIRE(pipeline);
         pipeline->Flush();
-        REQUIRE(InitializeVideoSurfaceManager());
-        REQUIRE(InitializeVideoObjectManager());
-        VOBJECT_DESC image{};
-        image.fCreateFlags = VOBJECT_CREATE_FROMFILE;
         const char* image_path = SDL_getenv("WIZ8_GRAPHICS_IMAGE");
-        image.ImageFile = image_path ? image_path : "Data\\MAIN INTERFACE\\BOTTOM.STI";
-        UINT32 image_id;
-        REQUIRE(AddVideoObject(&image, &image_id));
-        REQUIRE(BltVideoObjectFromIndex(FRAME_BUFFER, image_id, 0, 0, 0, VO_BLT_SRCTRANSPARENCY,
-                                      nullptr));
-        UINT32 pitch;
-        auto pixels = static_cast<UINT16*>(LockPrimarySurface(&pitch));
-        std::vector<UINT16> expected(640 * 480);
+        auto image_object =
+            g_image_assets.sprites(image_path ? image_path : "Data\\MAIN INTERFACE\\BOTTOM.STI");
+        REQUIRE(image_object);
+        DrawSprite(GetFrameBufferSurface(), *image_object, 0, 0, 0);
+        const auto& framebuffer = GetFrameBufferSurface();
+        const auto pitch = framebuffer.pitch;
+        const auto* pixels = static_cast<const std::uint8_t*>(framebuffer.pixels);
+        std::vector<std::uint16_t> expected(640 * 480);
         for (int y = 0; y < 480; ++y)
-            memcpy(expected.data() + y * 640, reinterpret_cast<BYTE*>(pixels) + y * pitch, 1280);
-        UnlockPrimarySurface();
+            memcpy(expected.data() + y * 640, pixels + y * pitch, 1280);
         REQUIRE(InitializeMouseCursorScene());
-        image.ImageFile = "Data\\CURSORS\\2D-CURSORS.STI";
-        UINT32 cursor_id;
-        REQUIRE(AddVideoObject(&image, &cursor_id));
-        REQUIRE(SetMouseCursorFromVideoObject(cursor_id, 0, 0, 0));
+        auto cursor_object = g_image_assets.sprites("Data\\CURSORS\\2D-CURSORS.STI");
+        REQUIRE(cursor_object);
+        REQUIRE(SetMouseCursorFromVideoObject(*cursor_object, 0, 0, 0));
         PositionMouseCursor(480, 240, true);
         unsigned colored = 0, matched = 0, cursor_pixels = 0;
         for (int frame = 0; frame < 3; ++frame)
@@ -140,7 +148,7 @@ TEST_CASE("game graphics")
                 for (int x = 0; x < 640; ++x)
                 {
                     unsigned v = buffer->getPixel(x, y);
-                    unsigned char rgb[] = {BYTE(v >> 16), BYTE(v >> 8), BYTE(v)};
+                    unsigned char rgb[] = {std::uint8_t(v >> 16), std::uint8_t(v >> 8), std::uint8_t(v)};
                     output->write(rgb, 3);
                 }
             output->close();
@@ -174,7 +182,7 @@ TEST_CASE("game graphics")
             for (int y = 0; y < 480; ++y)
                 for (int x = 0; x < 640; ++x)
                 {
-                    UINT16 original = x < 32 && y < 24 ? movie_pixels[y * 32 + x] : 0;
+                    std::uint16_t original = x < 32 && y < 24 ? movie_pixels[y * 32 + x] : 0;
                     unsigned actual = buffer->getPixel(x, y);
                     int r = ((original >> 10) & 31) * 255 / 31,
                         g = ((original >> 5) & 31) * 255 / 31, b = (original & 31) * 255 / 31;
@@ -191,12 +199,12 @@ TEST_CASE("game graphics")
             printf("movie GPU: %u RGB555 pixels and black background match\n", movie_matches);
             REQUIRE((FinishVideoPresentation() && ghWindow == persistent_window));
         }
-        pixels = static_cast<UINT16*>(LockPrimarySurface(&pitch));
-        REQUIRE(pixels);
+        const auto& restored_framebuffer = GetFrameBufferSurface();
+        const auto* restored_pixels = static_cast<const std::uint8_t*>(restored_framebuffer.pixels);
+        REQUIRE(restored_pixels);
         for (int y = 0; y < 480; ++y)
-            REQUIRE(memcmp(reinterpret_cast<BYTE*>(pixels) + y * pitch, expected.data() + y * 640,
+            REQUIRE(memcmp(restored_pixels + y * restored_framebuffer.pitch, expected.data() + y * 640,
                          1280) == 0);
-        UnlockPrimarySurface();
         PresentMenuOverlayFrame();
 
         g_screenshot_index = 0;
@@ -205,12 +213,10 @@ TEST_CASE("game graphics")
         REQUIRE((screenshot && screenshot->getWidth() == 640 && screenshot->getHeight() == 480));
         puts("retail Targa import and game JPEG screenshot round-trip");
 
-        ShutdownVideoObjectManager();
-        ShutdownVideoSurfaceManager();
-        ShutdownVideoScenes();
+            ShutdownVideoScenes();
         SDL_Window* window = ghWindow;
         srExit();
-        ReleasePrimaryCpuSurface();
+        ReleasePrimarySurface();
         W8DestroyGameWindow(window);
 
         wiz8::clear_asset_archives();

@@ -1,23 +1,22 @@
 #pragma once
 
-#include "wiz8/filesystem.h"
 
-#include "wiz8/navigation_flags.h"
-
-struct W8MonsterInfo;
 
 /* Engine Code\Navigator.cpp owns these declarations. */
 
-#include "surrender/srMath.h"
-#include "wiz8/geometry.h"
-#include <vector>
-#include <algorithm>
+struct srBoundingBox;
 
-#include <stddef.h>
-#include <stdlib.h>
+#include <vector>
+#include <memory>
+
+#include "surrender/srMath.h"
+#include "compat/compiler.h"
+#include "compat/native.h"
+#include "glm/ext/matrix_float3x3.hpp"
 
 class srNode;
 struct W8PathAI;
+namespace wiz8 { class File; }
 
 /* W8NavigatorAttachment::flags bits with established meaning.
    - RESULT_MASK holds the last path-search result; the planners clear it before
@@ -49,9 +48,6 @@ struct W8NavigatorAttachment {
     unsigned short path_cursor;
     unsigned short position_cursor;
     unsigned short path_position_index;
-    /* 0x00456210 sets this to ten and allocates path_positions as ten
-       srVector3T<float>, so it is that array's capacity. */
-    unsigned short capacity;
     unsigned short follow_offset;
     unsigned short padding_0e;
     srVector3T<float> segment_start;
@@ -59,12 +55,11 @@ struct W8NavigatorAttachment {
     srVector3T<float> start_waypoint; /* valid while W8_NAV_ATTACHMENT_START_WAYPOINT */
     srVector3T<float> path_length_origin;
     srVector3T<float> recorded_position;
-    /* The owned vector array uses ordinary new[]/delete[]. Growth retains the promoted
-       allocation count until the final 16-bit capacity store. */
-    srVector3T<float>* path_positions;
-    /* 0x00457530 releases this one with free while +0x4c uses delete[],
-       so the two allocations do not share an owner. */
-    unsigned short* path_values;
+    struct PathEntry {
+        srVector3T<float> position{};
+        unsigned short value = 0;
+    };
+    std::vector<PathEntry> path;
     float separation;
     /* Direct segment length after initialization; MeasurePathLength later
        replaces it with the eligible route length and latches flag 0x00400000. */
@@ -77,24 +72,6 @@ struct W8NavigatorAttachment {
        straight-line distance. */
     W8NavigatorAttachment(const srVector3T<float>* from,
                           const srVector3T<float>* to); /* 0x00456280 */
-    /* Header-visible: 0x004604B0's scope exit inlines this pair of releases,
-       while its unwind funclet tail-calls the out-of-line emission the
-       linker kept at 0x004563A0. */
-    // FUNCTION: WIZ8 0x004563A0
-    ~W8NavigatorAttachment()
-    {
-        srVector3T<float>* positions = path_positions;
-        if (positions != 0) {
-            path_positions = 0;
-            delete[] positions;
-        }
-        unsigned short* values = path_values;
-        if (values != 0) {
-            path_values = 0;
-            free(values);
-        }
-    }
-
     /* Lazily sums the stored segment lengths into path_length, skipping
        entries whose preceding path value carries bit 0x2. */
     float MeasurePathLength(); /* 0x00456B00 */
@@ -108,23 +85,20 @@ struct W8NavigatorAttachment {
         recorded_position = *position;
     }
     void GrowPathStorage();
-    /* Descriptive name for route append, expanded in the path-building users.
-       Read the position after growth, retaining retail's pointer lifetime. */
+    /* Append a waypoint and its value, reserving a spare endpoint slot. */
     void AppendPathPosition(const srVector3T<float>* position, unsigned short value)
     {
-        if (static_cast<unsigned int>(capacity) <=
-            static_cast<unsigned int>(path_position_index + 1)) {
+        const auto saved_position = *position;
+        if (path.size() <= static_cast<unsigned int>(path_position_index + 1)) {
             GrowPathStorage();
         }
-        srVector3T<float>* slot = path_positions + path_position_index;
-        *slot = *position;
-        path_values[path_position_index] = value;
+        path[path_position_index] = {saved_position, value};
         ++path_position_index;
         flags &= ~W8_NAV_ATTACHMENT_PATH_LENGTH_CACHED;
     }
 
     void CopyPathFrom(const W8NavigatorAttachment* other);
-    void GetNextPosition(srVector3T<float>* position);
+    srVector3T<float> GetNextPosition() const;
     void InitializeSegment(const srVector3T<float>* source, const srVector3T<float>* destination);
     /* Step `position` forward along the recorded route by the 2-D `distance`,
        consuming waypoints the step covers; returns zero once the route's last
@@ -132,10 +106,10 @@ struct W8NavigatorAttachment {
     bool AdvanceAlongPathPositions(float distance, srVector3T<float>* position); /* 0x00456830 */
     /* Whether `position`'s plan-view distance to the hop leaving the current
        index stays under the path height interpolated along that segment. */
-    bool CheckPositionHopHeight(const srVector3T<float>* position); /* 0x00456CB0 */
+    bool checkPositionHopHeight(const glm::vec3& position) const; /* 0x00456CB0 */
     /* The two-segment form of the hop-height check used on predicted
        positions: the nearer of the current or following segment wins. */
-    bool CheckPredictedHopHeight(const srVector3T<float>* position); /* 0x00456DD0 */
+    bool checkPredictedHopHeight(const glm::vec3& position) const; /* 0x00456DD0 */
     /* Move `position` toward the route's next waypoint by up to `distance`,
        spilling into the following segment; returns nonzero once `distance`
        exceeded the remainder of the live segment. */
@@ -152,9 +126,10 @@ struct W8NavigatorAttachment {
        the final waypoint is reached. */
     bool AdvancePositionWithDirection(srVector3T<float>* position, float distance,
                                       srVector3T<float>* direction); /* 0x00457150 */
-};
 
-class W8Navigator;
+private:
+    bool withinHopHeight(const glm::vec2& point, unsigned base, bool include_next) const;
+};
 
 /* The polymorphic object the navigator owns at +0xa0. 0x00452120 deletes it
    through its own virtual slot. Recovered writes only store null
@@ -178,7 +153,7 @@ struct W8NavigatorMovementState {
     /* -1 means no resolved target. Navigation and OctPath use this as the
        location id of the tracked target; OctPath's single-candidate path
        search aliases the slot itself as its one-element candidate array
-       (LEA [movement+0x10]) — see TargetLocationAsCandidate(). */
+       (LEA [movement+0x10]); native path queries copy this ID into their owned candidate vector. */
     int target_location_id;
     float yaw;
     float target_yaw;
@@ -211,7 +186,7 @@ struct W8NavigatorMovementState {
        zero before the owner calls Reset. MeasurePathDistance copies it as
        one 36-byte object (0x0045333F). */
     glm::mat3 basis;
-    W8NavigatorAttachment* attachment;
+    std::unique_ptr<W8NavigatorAttachment> attachment;
     /* Collision/path radius, initialized to 500 by the outer navigator and
        scaled with the navigator in SetScale. */
     float collision_radius;
@@ -233,16 +208,6 @@ struct W8NavigatorMovementState {
        movement tail and invalidates target_location_id. It returns nothing, so it is a
        named member rather than an assignment operator. */
     void CopySettingsFrom(const W8NavigatorMovementState& other);
-
-    /* OctPath's single-candidate path search points its unsigned-long
-       candidate array at this slot rather than allocating a one-element
-       list (PlanMovement emits LEA [movement+0x10]); this accessor
-       keeps the int/unsigned-long reinterpretation inside the type. */
-    w8_ulong* TargetLocationAsCandidate()
-    {
-        // reinterpret-ok: candidate array aliases the one target-location slot
-        return reinterpret_cast<w8_ulong*>(&target_location_id);
-    }
 };
 
 /* 0x004572C0 allocates one with operator new(0x60) before running its
@@ -256,6 +221,8 @@ public:
     W8Navigator();                         /* 0x00451EC0 */
     W8Navigator(const W8Navigator& other); /* 0x00452220 */
     virtual ~W8Navigator();                /* 0x00452120 */
+    /* Takes ownership, releasing the previous path. Null clears it;
+       assigning the current path preserves it. GetPathAI only borrows. */
     virtual void SetPathAI(W8PathAI* path_ai);
     virtual W8PathAI* GetPathAI();
     void ResetPathAI();
@@ -270,9 +237,9 @@ public:
     }
     virtual void SetPosition(const srVector3T<float>* position); /* 0x00456020 */
 
-    /* Copy movement.velocity out - the missile homing step scales this
+    /* The missile homing step scales this snapshot of movement.velocity
        by its step count to predict the next position. */
-    void GetVelocity(srVector3T<float>* velocity); /* 0x004534F0 */
+    srVector3T<float> GetVelocity() const; /* 0x004534F0 */
     /* movement.velocity = *velocity - the launch direction step. */
     void SetVelocity(const srVector3T<float>* velocity); /* 0x00453520 */
     /* movement.target_yaw = NormalizeAngle(angle). */
@@ -375,8 +342,7 @@ public:
        both. Mode 4 keeps the existing path; the other named modes build a
        fresh animated path. Later facing logic distinguishes 2/3 from 5/6. */
     void SetNavigationMode(int mode); /* 0x00452E50 */
-    void SetBounds(const srVector3T<float>* minimum,
-                   const srVector3T<float>* maximum); /* 0x00452F10 */
+    void SetBounds(const srBoundingBox& bounds); /* 0x00452F10 */
     void SetTurnRate(float turn_rate);                /* 0x00453C90 */
 
 public:
@@ -415,11 +381,11 @@ public:
     float radius;
     /* Whether the navigator participates in world queries: cleared when the
        owner deactivates (monster despawn, cursor teardown), restored on
-       activation; ResolveTraceHit and GameData skip navigators with it zero. */
+       activation; traceSphereHit and GameData skip navigators with it zero. */
     bool active;
     unsigned char padding_089[3];
     void(__cdecl* movement_callback)(W8Navigator* navigator);
-    /* Trace-hit exclusion mask: ResolveTraceHit skips monsters whose
+    /* Trace-hit exclusion mask: traceSphereHit skips monsters whose
        (trace_mask & flags) is nonzero; configureStartupRange raises bit 0. */
     unsigned int trace_mask;
     unsigned int unknown_094;
@@ -431,7 +397,7 @@ public:
        (members_active, animation restart, rep/path reset). */
     bool reactivated;
     unsigned char padding_09e[2];
-    W8NavigatorOwned0A0* owned_object;
+    std::unique_ptr<W8NavigatorOwned0A0> owned_object;
     srVector3T<float> tracked_position;
     float tracked_distance;
     bool tracked_dirty;
@@ -447,7 +413,7 @@ public:
        owner. Copy construction constructs a fresh attachment and transfers
        selected settings; it never shares the source's path allocation. */
     W8NavigatorMovementState movement;
-    srNode* node; /* 0x18c: constructed srNode */
+    std::unique_ptr<srNode> node;
 }; /* 0x190 */
 
 void SetNavigatorLinkMode(unsigned char mode);
@@ -467,5 +433,3 @@ extern std::vector<W8Navigator*> g_navigator_group;
 extern float g_camera_sphere_radius_scale;
 extern float g_navigator_minimum_speed;
 extern float g_navigator_minimum_speed_mode23;
-
-#include "wiz8/evidence/Navigator_layout.inc"

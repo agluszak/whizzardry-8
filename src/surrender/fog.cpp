@@ -1,15 +1,19 @@
-#include "surrender/srFog.h"
 #include <algorithm>
-#include <cstring>
-#include "surrender/srStreamFlags.h"
+#include <ostream>
+#include <cstddef>
+#include <span>
+#include <utility>
 
-#include "surrender/srCore.h"
+#include "glm/geometric.hpp"
+#include "surrender/srFog.h"
+#include "surrender/channel_math.h"
+#include "surrender/stream_scope.h"
 #include "surrender/srDebug.h"
 #include "surrender/srVertexPipe.h"
-#include <ostream>
-#include "surrender/srMath.h"
-
-#include <cassert>
+#include "compat/compiler.h"
+#include "surrender/srNode.h"
+#include "surrender/srTypeRegistry.h"
+#include "surrender/srVertexProcessor.h"
 
 // FUNCTION: SURRENDER 0x1004C0E0
 void srFog::setDensity(float density)
@@ -39,24 +43,22 @@ void srFog::setRange(double start, double end)
 }
 
 // FUNCTION: SURRENDER 0x1004C170
-void srFog::getRange(double& start, double& end)
+std::pair<double, double> srFog::getRange() const
 {
-    start = fog_start;
-    end = fog_end;
+    return {fog_start, fog_end};
 }
 
 // FUNCTION: SURRENDER 0x1004B6F0
 int srFog::isActive(srVertexPipe& pipe)
 {
-    glm::vec3 center;
-    float radius;
     if ((group_mask & pipe.getExclusionMask()) != 0) {
         return 0;
     }
     if (density > 0.0f) {
-        pipe.getEyeSpaceBoundingSphere(center, radius);
-        if ((radius <= fog_start) &&
-            (glm::dot(center, center) < (fog_start - radius) * (fog_start - radius))) {
+        const auto sphere = pipe.getEyeSpaceBoundingSphere();
+        if ((sphere.radius <= fog_start) &&
+            (glm::dot(sphere.center, sphere.center) <
+             (fog_start - sphere.radius) * (fog_start - sphere.radius))) {
             return 0;
         }
         return 1;
@@ -90,68 +92,29 @@ void srFog::process(srVertexPipe& pipe)
     float scale;
     float density;
     if (pipe.isChannelAvailable(srVertexProcessor::CHANNEL_FOG)) {
-        glm::vec3 center;
-        float radius;
-        pipe.getEyeSpaceBoundingSphere(center, radius);
-        double limit = radius + fog_end;
+        const auto sphere = pipe.getEyeSpaceBoundingSphere();
+        double limit = sphere.radius + fog_end;
         w8_long count = (w8_long)pipe.getVertexCount();
-        if (glm::dot(center, center) <= limit * limit) {
+        if (glm::dot(sphere.center, sphere.center) <= limit * limit) {
             if (fog_end == fog_start) {
                 scale = 1e+08f;
             } else {
                 scale = 1.0 / (fog_end - fog_start);
             }
-            const float* distances = pipe.getEyeSpaceDist();
-            float start = fog_start;
-            if (count != 0) {
-                if (start == 0.0f) {
-                    if (values != distances) {
-                        std::copy_n(distances, count, values);
-                    }
-                } else {
-                    for (std::size_t i = 0; i < count; ++i)
-                        values[i] = (-start) + distances[i];
-                }
-                if (scale != 1.0f) {
-                    if (scale == 0.0f) {
-                        std::fill_n(values, count, 0.0f);
-                    } else {
-                        for (std::size_t i = 0; i < count; ++i)
-                            values[i] = scale * values[i];
-                    }
-                }
-                for (std::size_t i = 0; i < count; ++i)
-                    values[i] = glm::clamp(values[i], 0.0f, 1.0f);
-            }
-            density = this->density;
-            if ((count != 0) && (density != 1.0f)) {
-                if (density == 0.0f) {
-                    std::fill_n(values, count, 0.0f);
-                } else {
-                    for (std::size_t i = 0; i < count; ++i)
-                        values[i] = density * values[i];
-                }
-            }
-            pipe.applyFog(values);
+            const auto distances = pipe.getEyeSpaceDist();
+            srChannelMath::distanceRamp({values, static_cast<std::size_t>(count)}, distances,
+                                        fog_start, scale, this->density,
+                                        srChannelMath::RampDirection::increasing);
+            pipe.applyFog({values, static_cast<std::size_t>(count)});
         } else {
-            float* fog = pipe.getFog();
+            const auto fog = pipe.getFog();
             if (this->density >= 1.0f) {
-                std::fill_n(fog, count, 1.0f);
+                std::ranges::fill(fog, 1.0f);
                 return;
             }
             density = 1.0f - this->density;
-            if ((count != 0) && (density != 1.0f)) {
-                if (density == 0.0f) {
-                    std::fill_n(fog, count, 0.0f);
-                } else {
-                    for (std::size_t i = 0; i < count; ++i)
-                        fog[i] = density * fog[i];
-                }
-            }
-            if ((count != 0) && (this->density != 0.0f)) {
-                for (std::size_t i = 0; i < count; ++i)
-                    fog[i] = (this->density) + fog[i];
-            }
+            srChannelMath::scale(fog, density);
+            srChannelMath::add(fog, this->density);
         }
     }
 }
@@ -171,16 +134,14 @@ srFog::srFog(srNode* parent)
 void srFog::dump(std::ostream& stream)
 {
     srNode::dump(stream);
-    w8_long flags = srGetStreamFlags(stream);
-    srSetStreamFlags(stream, (flags & 0xfffffe7fL) | 0x40);
+    const srDumpStreamScope formatting(stream);
     stream.width(0x20);
     stream << "Density: " << density << '\n';
     stream.width(0x20);
     stream << "Fog start: " << fog_start << '\n';
     stream.width(0x20);
     stream << "Fog end: " << fog_end << '\n';
-    srSetStreamFlags(stream, flags & 0x7fff);
 }
 
 // FUNCTION: SURRENDER 0x1004C350
-srFog::~srFog() {}
+srFog::~srFog() = default;

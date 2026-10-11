@@ -1,5 +1,11 @@
 #pragma once
 
+#include <optional>
+#include <span>
+#include <cstddef>
+
+#include <string>
+
 class srPalette;
 
 class srPixelConvert {
@@ -51,9 +57,9 @@ public:
 
         PixelFormat() : fourcc(0) {}
 
-        void getName(char* const name);
+        std::string getName() const;
         int isValid() const;
-        w8_ulong match(const PixelFormat* formats, w8_ulong count) const;
+        std::optional<std::size_t> match(std::span<const PixelFormat> formats) const;
 
         int operator==(const PixelFormat& other) const
         {
@@ -77,8 +83,12 @@ public:
     typedef void(__cdecl* ConversionFunc)(const ConversionInfo& info);
 
     static e_surfaceType mapPixelFormat(const PixelFormat& format);
-    static SR_DLL_IMPORT void mapPixelFormat(e_surfaceType type, PixelFormat& format);
-    static void selectFuncs(const PixelFormat& format, ConversionFunc& write, ConversionFunc& read);
+    static SR_DLL_IMPORT PixelFormat pixelFormat(e_surfaceType type);
+    struct ConversionFunctions {
+        ConversionFunc write = nullptr;
+        ConversionFunc read = nullptr;
+    };
+    static ConversionFunctions selectFuncs(const PixelFormat& format);
 };
 
 /* Builds the conversion lookup tables (channel expansion/reduction ramps,

@@ -1,26 +1,28 @@
 #include <optional>
 #include <stdexcept>
 #include <string>
-#include "wiz8/unicode.h"
 #include <vector>
 #include <array>
+#include <cstddef>
+#include <cstdint>
+#include <exception>
+#include <memory>
+#include <span>
+#include <utility>
+
+#include "compat/compiler.h"
+#include "wiz8/unicode.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/local_screens/CreditsScreen.h"
 #include "wiz8/local_screens/Screens.h"
-
-#include "wiz8/cursor.h"
 #include "wiz8/music_playlist.h"
 #include "wiz8/regions.h"
-#include "wiz8/utility.h"
-#include "wiz8/video_object_catalog.h"
+#include "wiz8/catalog_artwork.h"
 #include "wiz8/fonts.h"
-#include "wiz8/virtual_file.h"
-
 #include "wiz8/filesystem.h"
 #include "Font.h"
 #include "input.h"
-
-#include <stdlib.h>
+#include "compat/native.h"
 
 // GLOBAL: WIZ8 0x0069C4A8
 static std::vector<W8CreditLine> g_credit_lines;
@@ -65,7 +67,6 @@ try
 
     SetViewport(0, 0, 0x280, 0x1e0);
     ResetRegions();
-    RegionSetEnable(2);
     DisableCursorScene();
     std::vector<W8CreditLine> pending;
 
@@ -99,8 +100,7 @@ try
                     }
                 }
                 if (!blank) {
-                    entry.pixel_width = StringPixLength(
-                        entry.primary, bold ? g_options_title_font : g_options_detail_font);
+                    entry.pixel_width = (bold ? g_options_title_font : g_options_detail_font).textWidth(entry.primary);
                 }
                 entry.line_height = 0x14 + (bold ? 5 : 0);
                 pending.push_back(std::move(entry));
@@ -134,15 +134,13 @@ unsigned char CreditsScreenLeave(int)
 // FUNCTION: WIZ8 0x005bc530
 void CreditsScreenFrame(void)
 {
-    SDL_Point point;
-    InputAtom input;
+    InputEvent input;
 
-    SGPMouseGetPos(&point);
-    UpdateRegionMousePosition(point.x, point.y);
+    // No clickable controls: dismiss directly on a key or mouse release.
     while (DequeueEvent(&input) == 1) {
-        if (!DispatchRegionInput(&input) && input.usEvent == KEY_DOWN) {
+        if (input.type == InputEventType::KeyDown || input.type == InputEventType::LeftButtonUp ||
+            input.type == InputEventType::RightButtonUp)
             RequestScreenTransition();
-        }
     }
 
     int steps = (w8_get_ticks() - g_credit_started_at) / 35 - g_credit_elapsed_steps;
@@ -165,18 +163,20 @@ void CreditsScreenFrame(void)
         return;
     }
 
-    DrawCatalogImage(FRAME_BUFFER, 0xe9, 0, 0, 0, 0, VO_BLT_SRCTRANSPARENCY, 0);
+    CatalogArtwork::Load(0xe9, 0).draw(GetFrameBufferSurface(), 0, 0, 0, {}, BitmapKey::Opaque);
     int y = g_credit_y;
     for (int index = g_credit_line; index < g_credit_lines.size() && y <= 0x1df; ++index) {
         const W8CreditLine* entry = &g_credit_lines[index];
         if ((entry->flags & 4) == 0) {
-            SetFont((entry->flags & 1) ? g_options_title_font : g_options_detail_font);
+            Font& font = (entry->flags & 1) ? g_options_title_font : g_options_detail_font;
             if ((entry->flags & 2) == 0) {
-                DrawFontText((0x280 - entry->pixel_width) / 2, y, entry->primary);
+                DrawText(GetFrameBufferSurface(), font,
+                         {(0x280 - entry->pixel_width) / 2, y}, entry->primary);
             } else {
-                DrawFontText(0x136 - entry->pixel_width, y, entry->primary);
+                DrawText(GetFrameBufferSurface(), font, {0x136 - entry->pixel_width, y},
+                         entry->primary);
                 if (!entry->secondary.empty()) {
-                    DrawFontText(0x14a, y, entry->secondary);
+                    DrawText(GetFrameBufferSurface(), font, {0x14a, y}, entry->secondary);
                 }
             }
         }
@@ -185,16 +185,4 @@ void CreditsScreenFrame(void)
     ResetTransientRenderScenes();
     g_credit_redraw = false;
     RenderFrame();
-}
-
-/* Full-screen credits background: left-up or right-up leaves the screen. */
-// FUNCTION: WIZ8 0x005BC7A0
-unsigned char CreditsBackgroundRegionEvent(const InputAtom* event, W8Region*)
-{
-    int us_event = event->usEvent;
-    if (us_event != LEFT_BUTTON_UP && us_event != RIGHT_BUTTON_UP) {
-        return 0;
-    }
-    RequestScreenTransition();
-    return 1;
 }

@@ -1,23 +1,24 @@
+#pragma once
+
 #include <vector>
 #include <string>
 #include <string_view>
-#pragma once
 
 #include "wiz8/dialog_code/DialogBase.h"
 #include "input.h"
-#include "Button System.h"
+#include "wiz8/local_code/ButtonWidget.h"
+#include "compat/compiler.h"
 
 // VTABLE: WIZ8 0x005ef8b0
 class W8MessageDialogBase : public W8DialogBase {
 public:
     W8MessageDialogBase();
-    virtual ~W8MessageDialogBase() override;
     virtual int CreateControls() override;
     virtual void DestroyControls() override;
     virtual void Draw() override;
     virtual W8DialogKind GetDialogType() override;
     virtual bool ProcessInput() override;
-    virtual bool HandleInput(const InputAtom* input);
+    virtual bool HandleInput(const InputEvent* input);
 
     /* Called on this object from outside the class by the Please Wait screen,
        which is what puts it here rather than under protected. */
@@ -31,8 +32,8 @@ public:
 
     unsigned int WrapMessage(std::string_view message);
 
-    friend void MessageDialogConfirmCallback(GUI_BUTTON* button, int reason);
-    friend void MessageDialogCancelCallback(GUI_BUTTON* button, int reason);
+    friend void MessageDialogConfirmCallback(W8ButtonWidget* button);
+    friend void MessageDialogCancelCallback(W8ButtonWidget* button);
 
     /* Both are read and written on this object from outside the class by the
        Please Wait screen's frame handler, which is what puts them here. */
@@ -40,13 +41,11 @@ public:
     bool is_open;  /* set, and gates the close path */
 
 protected:
-    short m_edge_image; /* 0x56 generic-button-image resource */
-    int m_message_button;
-    int m_confirm_button;
-    int m_confirm_image;
+    GenericButtonImage m_edge_image; /* 0x56 generic-button-image resource */
+    W8ButtonWidget m_message_button;
+    W8ButtonWidget m_confirm_button;
     unsigned char unknown_064[0x10];
-    int m_cancel_button;
-    int m_cancel_image;
+    W8ButtonWidget m_cancel_button;
     unsigned char unknown_07c[0x10];
     std::vector<std::string> m_lines;
     unsigned int m_line_count;
@@ -55,7 +54,5 @@ protected:
     unsigned char unknown_096[2];
 };
 
-W8_ABI_ASSERT(sizeof(W8MessageDialogBase) == 0x98, "W8MessageDialogBase_must_be_0x98");
-
-void MessageDialogConfirmCallback(GUI_BUTTON* button, int reason);
-void MessageDialogCancelCallback(GUI_BUTTON* button, int reason);
+void MessageDialogConfirmCallback(W8ButtonWidget* button);
+void MessageDialogCancelCallback(W8ButtonWidget* button);

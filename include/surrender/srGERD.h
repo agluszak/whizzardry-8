@@ -1,18 +1,28 @@
 #pragma once
 
+#include "glm/ext/vector_int3.hpp"
+
+#include "srBoundingSphere.h"
+
 #include <condition_variable>
 #include <list>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <thread>
+#include <utility>
 #include <vector>
+#include <span>
+#include "glm/ext/vector_int4_sized.hpp"
+#include "glm/ext/vector_float3.hpp"
 
 #include <unordered_map>
 #include "srTexture.h"
 #include "srTypeRegistry.h"
 #include "srVertexPipe.h"
 #include "srMath.h"
+#include "srModel.h"
 #include "srShader.h"
 #include "srFlags.h"
 
@@ -20,7 +30,6 @@
 #include "srDD.h"
 #include "srTriMeshPipeline.h"
 #include "srColorSurfaceIFace.h"
-#include <memory>
 #include "srARGB.h"
 class srColorSurface;
 class srModelInstance;
@@ -34,9 +43,9 @@ public:
     struct Pick {
         /* Normalized pick point the caller fills: x and y are the cursor's
            viewport-space coordinates, z is the fixed 1.0 far value. */
-        srVector3T<float> position;
-        srModelInstance* selected_model;
-        w8_ulong triangle_index;
+        glm::vec3 position{0, 0, 1};
+        srModelInstance* selected_model{};
+        w8_ulong triangle_index{};
     };
 
     struct ClipPlanes {
@@ -65,16 +74,16 @@ public:
     class Renderer {
     public:
         struct TriInput {
-            w8_ulong triangle_count;
             w8_ulong record_count;
             w8_ulong vertex_count;
-            const w8_ulong* indices;
-            const srVector3i* triangles;
-            const w8_ulong* vertices;
+            std::span<const w8_ulong> indices;
+            std::span<const glm::ivec3> triangles;
+            std::span<const w8_ulong> vertices;
             const srTriMeshPipeline::Pass* passes;
             int direct_vertex_indices;
             const glm::mat4* project_clip_near;
             float sort_bias;
+            w8_ulong triangleCount() const { return static_cast<w8_ulong>(indices.size()); }
         };
 
         struct Parameters {
@@ -135,7 +144,7 @@ public:
         };
         /* Write pointers alloc() returns for the reserved triangle range. */
         struct IndexWrite {
-            srVector3i* triangles;
+            glm::ivec3* triangles;
             w8_ulong* texture_set;
             w8_ulong* sort_key;
             w8_ulong* aux;
@@ -143,14 +152,14 @@ public:
         /* Accumulated primitive work. alloc() reserves count entries plus 0x40 headroom across all
            four streams; reset() always clears the count and only frees when asked. */
         struct IndexBatch {
-            std::vector<srVector3i> triangles;
+            std::vector<glm::ivec3> triangles;
             std::vector<w8_ulong> texture_set;
             std::vector<w8_ulong> sort_key;
             std::vector<w8_ulong> aux;
             w8_ulong count;
 
             IndexBatch() : count(0) {}
-            void alloc(IndexWrite& write, w8_ulong count);
+            IndexWrite alloc(w8_ulong count);
             void reset(int release);
         };
         /* Accumulated vertex streams. alloc() grows all streams and default-fills the new range
@@ -167,13 +176,13 @@ public:
             w8_long count;
 
             VertexArrays() : count(0) {}
-            void alloc(srVertexArray& arrays, w8_ulong count);
-            void bind(srVertexArray& arrays, w8_ulong base);
+            srVertexArray alloc(w8_ulong count);
+            srVertexArray bind(w8_ulong base);
             void reset(int release);
         };
 
         Renderer(const Parameters& parameters);
-        void allocVertexArray(srVertexArray& arrays, w8_ulong count);
+        srVertexArray allocVertexArray(w8_ulong count);
         /* intern the pass's {texture0,texture1,shader} key into
            texture_set, folding per-vertex texture/shader table transitions
            into the output ids. */
@@ -202,16 +211,25 @@ public:
         void drawSorted();
         /* point the draw state at texture set `index`,
            updating each of texture0/texture1/shader only on change. */
-        void bindTextureSet(w8_ulong index);
+        void bindTextureSet(w8_ulong index, bool force = false);
+        void drawTriangleRuns(std::span<const w8_ulong> order);
         /* repack the per-stage stq scratch streams and program
            the DD vertex arrays for the bound batch. */
         void programVertexArrays(srVertexArray* arrays, w8_ulong count);
         /* discard accumulated state; nonzero also releases
            the backing arrays. */
         void reset(int release_buffers);
-        /* resetStatistics zeroes statistics; getStatistics copies its seven counters out. */
+        struct Statistics {
+            w8_ulong triangle_chunks = 0;
+            w8_ulong input_triangles = 0;
+            w8_ulong clipped_triangles = 0;
+            w8_ulong input_vertices = 0;
+            w8_ulong device_calls = 0;
+            w8_ulong device_vertices = 0;
+            w8_ulong device_vertex_indices = 0;
+        };
         void resetStatistics();
-        void getStatistics(w8_ulong* statistics);
+        Statistics getStatistics() const;
 
         /* CPU scratch streams owned by the renderer. */
         std::vector<unsigned char> bytes;
@@ -219,9 +237,7 @@ public:
         /* render()'s per-corner dedup scratch (six slots per triangle). */
         std::vector<w8_ulong> remap;
         std::vector<TexCoordQ> stq[2];
-        /* submit() bumps [4] per call and accumulates the vertex count into [5] and the index-batch
-           count into [6]. */
-        w8_ulong statistics[7];
+        Statistics statistics;
         TextureSetCache texture_sets;
         IndexBatch indices;
         VertexArrays vertices;
@@ -299,27 +315,9 @@ public:
         ACCUM_RETURN = 4
     };
     enum e_depthBuffer {};
-    /* getDisplayModeInfo output triple. */
-    struct DisplayModeInfo {
-        w8_long width;
-        w8_long height;
-        w8_long depth;
-    };
-    /* getTextureInfo output: the device pixel format plus the device's
-       width/height and last mip level. */
-    struct TextureInfo {
-        srPixelConvert::PixelFormat pixel_format;
-        w8_ulong width;
-        w8_ulong height;
-        w8_ulong last_level;
-    };
-    /* accumulate()'s signed 16-bit accum-buffer pixel. */
-    struct AccumPixel {
-        short red;
-        short green;
-        short blue;
-        short alpha;
-    };
+    // Native accumulator channels retain the existing four signed 16-bit lanes.
+    using AccumPixel = glm::i16vec4;
+    static_assert(sizeof(AccumPixel) == 8);
 
     static const char* sGetClassName();
     static srRegistry::ClassNode* sGetClassNode();
@@ -418,7 +416,7 @@ public:
         /* classifyMatrix call count. */
         w8_ulong matrix_classifications;
     };
-    void getStatistics(Statistics& statistics);
+    Statistics getStatistics();
     w8_ulong getTextureCacheUsed() const;
     w8_ulong getResidentTextureMemUsed() const;
     void setClearColor(const glm::vec4& color);
@@ -441,21 +439,18 @@ public:
     void setViewPort(w8_ulong x, w8_ulong y, w8_ulong width, w8_ulong height);
     void matrixMode(e_matrixMode mode);
     e_matrixMode getMatrixMode() const;
-    void getMatrix(glm::mat4& matrix);
-    void getMatrix(glm::dmat4& matrix);
-    void getMatrix(e_matrixMode mode, glm::mat4& matrix);
-    void getMatrix(e_matrixMode mode, glm::dmat4& matrix);
-    void getEyeSpaceBounds(glm::vec3& center, float& radius, const glm::vec3& object_center,
-                           float object_radius);
+    glm::mat4 getMatrix();
+    glm::mat4 getMatrix(e_matrixMode mode);
+    srBoundingSphere eyeSpaceBounds(const srBoundingSphere& sphere);
     glm::vec4 getEyeSpaceLocation(const glm::vec3& object_location);
     void pushVertexProcessor(srVertexProcessor& processor);
     void popVertexProcessor();
-    void getInverseModelViewMatrix(glm::mat4& matrix);
-    void getClipPlanes(ClipPlanes& planes);
+    glm::mat4 getInverseModelViewMatrix();
+    ClipPlanes getClipPlanes();
     void pushClipPlane(const glm::vec4& plane, e_clipMode mode);
     void popClipPlane();
-    void getProjectClipNearMatrix(glm::mat4& matrix);
-    void getNormalMatrix(glm::mat4& matrix);
+    glm::mat4 getProjectClipNearMatrix();
+    glm::mat4 getNormalMatrix();
     srRendererDefs::e_scaleType getModelViewScaleType();
 
     float getMaxModelViewScale();
@@ -468,10 +463,10 @@ public:
     void unlockBuffer();
     w8_ulong getVertexProcessorCount() const;
     const std::vector<srVertexProcessor*>& getVertexProcessors() const;
-    void getAmbientLight(glm::vec4& light);
-    void getFogColor(glm::vec4& color) const;
-    void getEnvironmentRange(float& minimum, float& maximum) const;
-    void getEnvironmentScaleFactor(float& scale, float& inverse_scale);
+    glm::vec4 getAmbientLight() const;
+    glm::vec4 getFogColor() const;
+    std::pair<float, float> getEnvironmentRange() const;
+    std::pair<float, float> getEnvironmentScaleFactor() const;
     w8_ulong getExclusionMask() const;
     void setExclusionMask(w8_ulong mask);
     // FUNCTION: SURRENDER 0x1001BB70 SYMBOL
@@ -498,8 +493,7 @@ public:
     {
         return 0x20;
     }
-    void pushMatrix();
-    void pushMultMatrix(const glm::mat4x3& matrix);
+    bool pushMatrix();
     void popMatrix();
     void pushEnable();
     void popEnable();
@@ -507,15 +501,12 @@ public:
     void multMatrix(const glm::mat4& matrix);
     void multMatrix(const glm::dmat4& matrix);
     void perspective(double fov_y, double aspect, double near_plane, double far_plane);
-    void rotate(double angle, const srVector3T<float>& axis);
-    void rotate(double angle, const srVector3T<double>& axis);
+    void rotate(double angle, const glm::vec3& axis);
     void rotate(double angle, double x, double y, double z);
     void scale(double x, double y, double z);
-    void scale(const srVector3T<float>& factors);
-    void scale(const srVector3T<double>& factors);
+    void scale(const glm::vec3& factors);
     void scale(double factor);
-    void translate(const srVector3T<float>& offset);
-    void translate(const srVector3T<double>& offset);
+    void translate(const glm::vec3& offset);
     void translate(double x, double y, double z);
     e_visibility testBoundingSphere(const glm::vec3& center, float radius);
     e_visibility testBoundingBox(const glm::vec3& minimum, const glm::vec3& maximum);
@@ -531,10 +522,6 @@ public:
     void loadMatrix(const glm::mat4& matrix);
     void loadMatrix(const glm::dmat3& matrix);
     void loadMatrix(const glm::mat3& matrix);
-    void getScissor(w8_ulong& x, w8_ulong& y, w8_ulong& width,
-                    w8_ulong& height) const;
-    void getViewPort(w8_ulong& x, w8_ulong& y, w8_ulong& width,
-                     w8_ulong& height) const;
     void pushEnvironment();
     void popEnvironment();
     void setEnvironmentRange(float minimum, float maximum);
@@ -552,7 +539,7 @@ public:
     void drawArrays(srRendererDefs::e_primitive primitive, w8_long first, w8_ulong count);
     void drawElements(srRendererDefs::e_primitive primitive, w8_ulong count,
                       srRendererDefs::e_indexType type, const void* indices);
-    void popPick(Pick& pick);
+    std::optional<Pick> popPick();
     void pushPick(const Pick& pick);
     void toggle(e_enable option);
     void invalidateResidentTextures();
@@ -593,25 +580,17 @@ public:
     srDD::e_hardwareID getHardwareID() const;
     e_depthBuffer getDepthBufferType() const;
     w8_ulong getSwapInterval() const;
-    void getTextureFormat(w8_ulong index, srPixelConvert::PixelFormat& format) const;
-    w8_ulong getTextureFormatCount() const;
-    void getDisplayModeInfo(w8_long index, DisplayModeInfo& info) const;
-    w8_ulong getDisplayModeCount() const;
     e_hintMode getHint(e_hint hint) const;
     void setHint(e_hint hint, e_hintMode mode);
-    void getGamma(srVector3T<float>& gamma) const;
     e_antiAlias getAntiAlias() const;
     void extCommand(w8_ulong command, void* data, w8_ulong size);
     void disable(e_enable option);
     void enable(e_enable option);
     srShader getShader() const;
-    void drawTriangle(const srVector3i& triangle);
+    void drawTriangle(const glm::ivec3& triangle);
     void setDepthRange(double minimum, double maximum);
-    void getDepthRange(double& minimum, double& maximum) const;
     void setPolygonMode(e_polygonMode mode);
     e_polygonMode getPolygonMode() const;
-    void getClearColor(glm::vec4& color) const;
-    void getClearAccum(glm::vec4& color) const;
     void setClearAccum(const glm::vec4& color);
     void setClearAccum(float red, float green, float blue, float alpha);
     double getClearDepth() const;
@@ -624,7 +603,6 @@ public:
     void accumulate(e_accum operation, float scale);
     int isTextureCached(srTextureIFace* texture) const;
     int isTextureResident(srTextureIFace* texture) const;
-    int getTextureInfo(srTextureIFace* texture, TextureInfo& info);
     srTextureIFace::e_compression getTextureDefaultCompression() const;
     srTextureIFace::e_correction getTextureDefaultCorrection() const;
     srTextureIFace::e_filter getTextureDefaultMagFilter() const;
@@ -739,18 +717,16 @@ private:
     /* Pick batch view: indices selects triangles out of the caller's stream, vertices remaps each
        corner to a position index, positions is the renderer's vec4 stream base. */
     struct PickInput {
-        const w8_ulong* indices;
-        const srVector3i* triangles;
-        w8_ulong triangle_count;
-        const w8_ulong* vertices;
-        const glm::vec4* positions;
-        w8_ulong vertex_count;
+        std::span<const w8_ulong> indices;
+        std::span<const glm::ivec3> triangles;
+        // Empty means direct corner indices; otherwise this is the full vertex map.
+        std::span<const w8_ulong> vertices;
+        std::span<const glm::vec4> positions;
     };
 
     srGERD& operator=(const srGERD& other);
     srDD* getDD() const;
 
-    static void debugWrite(const char* text);
     void fenceVertexArrays();
     void dumpTextureCache(std::ostream& stream);
     void setDataPtr(srRendererDefs::e_vertexArray index, w8_long components,
@@ -786,6 +762,7 @@ private:
     void checkViewStateChanges();
     void checkClipPlaneChanges();
     void checkDrawStateChanges();
+    void prepareDrawState();
     void checkFrameStateChanges();
     void checkAllStateChanges();
     void recalcScissor();
@@ -824,23 +801,14 @@ private:
     e_error openWindowInternal(const OpenInfo& info);
     srDD::e_error _lockBuffer();
     srDD::e_error _unlockBuffer();
-    void getPixelFormat(srPixelConvert::PixelFormat& format) const;
+    std::optional<srPixelConvert::PixelFormat> getPixelFormat() const;
     void accumAlloc();
     short accumConvert(float value) const;
     void accumClear();
-    /* MMX row kernels for accumulate(). */
-    static void __cdecl accumAccum_MMX(AccumPixel* accum, const srARGB* pixels, w8_long scale,
-                                       w8_long count);
-    static void __cdecl accumLoad_MMX(AccumPixel* accum, const srARGB* pixels, w8_long scale,
-                                      w8_long count);
-    static void __cdecl accumReturn_MMX(srARGB* pixels, const AccumPixel* accum, w8_long scale,
-                                        w8_long count);
-    static void __cdecl accumAdd_MMX(AccumPixel* accum, w8_long value, w8_long count);
-    static void __cdecl accumMult_MMX(AccumPixel* accum, w8_long value, w8_long count);
-    static void convertPixelFormat(srDD::PixelFormat& device,
-                                   const srPixelConvert::PixelFormat& format);
-    static void convertPixelFormat(srPixelConvert::PixelFormat& format,
-                                   const srDD::PixelFormat& device);
+    static srDD::PixelFormat convertPixelFormat(const srPixelConvert::PixelFormat& format);
+    static srPixelConvert::PixelFormat convertPixelFormat(const srDD::PixelFormat& device);
+    enum class RendererDrain { immediate, sorted, reset, statistics };
+    void drainRenderers(RendererDrain action);
     RendererEntry* createRenderer(int sorted);
     void flushNonBusyRenderers();
     void flushSort();
@@ -1091,4 +1059,3 @@ private:
        cleared by closeWindow. */
     std::vector<glm::vec4> pick_vertices;
 };
-

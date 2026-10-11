@@ -1,9 +1,10 @@
+#include <vector>
+#include <string>
+
 #include "wiz8/spell_ids.h"
 #include "wiz8/level_specific_code/MartensBluff1.h"
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/engine_code/World.h"
-#include <vector>
-#include <algorithm>
 #include "wiz8/engine_code/IntervalGate.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/Octree.h"
@@ -21,7 +22,6 @@
 #include "wiz8/location_variables.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/string_database.h"
-#include "wiz8/sr_api.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/dice.h"
 #include "wiz8/utility.h"
@@ -29,8 +29,9 @@
 #include "surrender/srCamera.h"
 #include "soundman.h"
 #include "random.h"
+#include "glm/ext/vector_float3.hpp"
+#include "layouts/world.h"
 
-#define MARTENSBLUFF1_CPP "C:\\Projects\\Wizardry 8\\Level Specific Code\\MartensBluff1.cpp"
 
 /* Level Specific Code\MartensBluff1.cpp (level 5, Marten's Bluff).
 
@@ -100,7 +101,7 @@ void MartensBluff1Setup(void)
             if ((dial_state & 0xf0000000) == 0) {
                 particle->SetActive(0);
             } else {
-                particle->getLocation(position);
+                position = glm::vec3(particle->getLocation());
                 g_gas_sound0 = CreateAndPlaySoundNode(
                     "Data\\Sound\\Ambients\\Air_Escaping_Loop.wav", position, 0.3f, 30.0f, true);
             }
@@ -110,7 +111,7 @@ void MartensBluff1Setup(void)
             if ((dial_state & 0xf0000000) == 0) {
                 particle->SetActive(0);
             } else {
-                particle->getLocation(position);
+                position = glm::vec3(particle->getLocation());
                 g_gas_sound1 = CreateAndPlaySoundNode(
                     "Data\\Sound\\Ambients\\Air_Escaping_Loop.wav", position, 0.3f, 30.0f, true);
             }
@@ -133,7 +134,7 @@ bool MartensBluff1FHandlock(Trigger* pTrigger)
     }
     SetDice(&dice, 2, 4, 1);
     ApplyRolledHealthChangeToParty(&dice, 0, 1);
-    SoundPlay("Data\\Sound\\Ambients\\Electricity 04.wav", 0);
+    wiz8::sound::play("Data\\Sound\\Ambients\\Electricity 04.wav");
     g_trigger_feedback = true;
     return false;
 }
@@ -246,14 +247,14 @@ bool MartensBluff1JDoorController(Trigger* pTrigger)
     particle = FindParticleByName(g_world, "GasSpray-00");
     if (particle != 0) {
         particle->SetActive(1);
-        particle->getLocation(position);
+        position = glm::vec3(particle->getLocation());
         g_gas_sound0 = CreateAndPlaySoundNode("Data\\Sound\\Ambients\\Air_Escaping_Loop.wav",
                                               position, 0.3f, 30.0f, true);
     }
     particle = FindParticleByName(g_world, "GasSpray-01");
     if (particle != 0) {
         particle->SetActive(1);
-        particle->getLocation(position);
+        position = glm::vec3(particle->getLocation());
         g_gas_sound1 = CreateAndPlaySoundNode("Data\\Sound\\Ambients\\Air_Escaping_Loop.wav",
                                               position, 0.3f, 30.0f, true);
     }
@@ -307,8 +308,7 @@ bool MartensBluff1TransportSpawn(void)
     group = SpawnMonsters(0x177, 1, &position_a, 0, true, false, false);
     location_id = group->MemberLocationId(0);
     if (location_id != 0) {
-        info = MonsterGetScriptPartByLocationIndex(
-            MonsterGetIndexByLocationID(0x1fd, MARTENSBLUFF1_CPP, location_id, true));
+        info = FindMonster(location_id);
         if (info != 0 && info->p3D != 0) {
             info->p3D->SetScript("M1_Trang_trans.MSF", true);
         }
@@ -463,11 +463,7 @@ bool MartensBluff1TeleportState(int new_state)
     Trigger* pOldButtonTrigger;
     int state;
 
-    pTelTrigger = FindTriggerByName("MR109");
-    if (pTelTrigger == 0) {
-        srAssertFail("pTelTrigger", MARTENSBLUFF1_CPP, 0x2f9,
-                     "Missing trigger 'MR109'! It's not in the LVL file!");
-    }
+    pTelTrigger = FindRequiredTriggerByName("MR109");
     if (GetLocationVarIDByName("TeleporterState") == -1) {
         CreateLocationVar("TeleporterState", 0);
         return false;
@@ -482,32 +478,16 @@ bool MartensBluff1TeleportState(int new_state)
     g_teleport_running = true;
     switch (state - 1) {
     case 0:
-        pOldButtonTrigger = FindTriggerByName("ButtonGigas");
-        if (pOldButtonTrigger == 0) {
-            srAssertFail("pOldButtonTrigger", MARTENSBLUFF1_CPP, 0x30b,
-                         "Missing trigger 'ButtonGigas'! It's not in the LVL file!");
-        }
+        pOldButtonTrigger = FindRequiredTriggerByName("ButtonGigas");
         break;
     case 1:
-        pOldButtonTrigger = FindTriggerByName("ButtonTrang");
-        if (pOldButtonTrigger == 0) {
-            srAssertFail("pOldButtonTrigger", MARTENSBLUFF1_CPP, 0x310,
-                         "Missing trigger 'ButtonTrang'! It's not in the LVL file!");
-        }
+        pOldButtonTrigger = FindRequiredTriggerByName("ButtonTrang");
         break;
     case 2:
-        pOldButtonTrigger = FindTriggerByName("ButtonRift");
-        if (pOldButtonTrigger == 0) {
-            srAssertFail("pOldButtonTrigger", MARTENSBLUFF1_CPP, 0x315,
-                         "Missing trigger 'ButtonRift'! It's not in the LVL file!");
-        }
+        pOldButtonTrigger = FindRequiredTriggerByName("ButtonRift");
         break;
     case 3:
-        pOldButtonTrigger = FindTriggerByName("ButtonMaten");
-        if (pOldButtonTrigger == 0) {
-            srAssertFail("pOldButtonTrigger", MARTENSBLUFF1_CPP, 0x31a,
-                         "Missing trigger 'ButtonMaten'! It's not in the LVL file!");
-        }
+        pOldButtonTrigger = FindRequiredTriggerByName("ButtonMaten");
         break;
     default:
         goto set_state;
@@ -528,11 +508,7 @@ bool MartensBluff1WireTrigger(Trigger* pTrigger)
     Trigger* pTelTrigger;
 
     g_trigger_feedback = true;
-    pTelTrigger = FindTriggerByName("MR109");
-    if (pTelTrigger == 0) {
-        srAssertFail("pTelTrigger", MARTENSBLUFF1_CPP, 0x329,
-                     "Missing trigger 'MR109'! It's not in the LVL file!");
-    }
+    pTelTrigger = FindRequiredTriggerByName("MR109");
     if (GetLocationVarIDByName("TeleporterState") == -1) {
         CreateLocationVar("TeleporterState", 1);
     } else {
@@ -542,11 +518,7 @@ bool MartensBluff1WireTrigger(Trigger* pTrigger)
         SetTriggerVariableByName("TeleporterState", 1);
     }
     g_teleport_running = true;
-    pTelTrigger = FindTriggerByName("ButtonGigas");
-    if (pTelTrigger == 0) {
-        srAssertFail("pTelTrigger", MARTENSBLUFF1_CPP, 0x336,
-                     "Missing trigger 'ButtonGigas'! It's not in the LVL file!");
-    }
+    pTelTrigger = FindRequiredTriggerByName("ButtonGigas");
     pTelTrigger->Run(-1);
     g_teleport_running = false;
     return true;

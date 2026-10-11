@@ -1,15 +1,16 @@
 #ifndef WIZ8_ENGINE_CODE_PATH_AI_H
 #define WIZ8_ENGINE_CODE_PATH_AI_H
 
-#include "wiz8/filesystem.h"
-
-#include "wiz8/geometry.h"
 #include <memory>
 #include <vector>
-#include <algorithm>
+#include <cstdint>
+
+#include "glm/fwd.hpp"
+#include "surrender/srMath.h"
 
 class srNode;
 class W8AnimRepBase;
+namespace wiz8 { class File; }
 
 /* Runtime path data. File records are read field by field by LoadPathAI. */
 

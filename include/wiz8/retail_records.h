@@ -1,6 +1,7 @@
 #pragma once
 
 #include "wiz8/layouts/character.h"
+#include <cstdint>
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/engine_code/Missile.h"
 #include "wiz8/layouts/game_status.h"
@@ -470,8 +471,7 @@ struct Character {
        forces the field to one. */
     W8Gender gender;
     /* 0x0079: the portrait/catalog index. Looked up by gender, race and
-       profession together, drawn through
-       DrawCatalogImage(-14, ...) and RenderPartyPortrait, and reassigned from
+       profession together, drawn by RenderPartyPortrait, and reassigned from
        g_portrait_groups[].portraits[] when the portrait changes. */
     int portrait_index;
     /* 0x007d: cleared by DeriveCharacterPersonality in both of its branches and set to -1
@@ -620,7 +620,7 @@ struct Character {
     /* 0x1770: the derived modifier block the rebuild clears and folds the
        equipment, persistent and party blocks into. */
     W8GameplayModifierBlock bonus;
-    /* 0x17d7: the CamPos record GetWorldCameraState writes and recall restores.
+    /* 0x17d7: the CamPos record cameraState writes and recall restores.
        The cross-level path copies the whole 0x3c bytes onto
        W8GlobalStatus::pending_move_location. */
     W8WorldCameraState saved_location; /* 0x17d7 */
@@ -640,8 +640,16 @@ struct Character {
 };
 static_assert(std::is_trivially_copyable_v<Character>);
 static_assert(sizeof(Character) == 0x1862, "Character_must_be_0x1862");
+/* The status block's head: its version and two pointer words retail stored
+   but never used after loading. */
+struct StatusBuffers {
+    float save_version;
+    std::uint32_t characters;
+    std::uint32_t party_rows;
+};
+static_assert(sizeof(StatusBuffers) == 0x0c);
 struct GlobalStatus {
-    W8StatusBuffers buffers;
+    StatusBuffers buffers;
     bool game_started; /* 0x000c */
     /* 0x000d..0x0018: the three join counters the party-add entry advances:
        the regular-member, auxiliary and total counts. */

@@ -1,14 +1,15 @@
+#include <SDL3/SDL_pixels.h>
 #include "wiz8/regions.h"
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_screens/Screens.h"
-#include "wiz8/video_object_catalog.h"
+#include "wiz8/catalog_artwork.h"
 #include "wiz8/cursor.h"
 #include "input.h"
 #include "wiz8/engine_code/Video2.h"
-
 #include "himage.h"
-#include "vsurface.h"
 #include "wiz8/application.h"
+#include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_surface.h>
 
 /* Lifecycle record 12 is the exit screen selected by Main Menu's Exit row and
    its Escape/E/X shortcuts. Live query: 0x00591780 sits in the gap between
@@ -40,9 +41,10 @@ unsigned char ExitScreenEnter(void)
 
     ResetVideoFrameState();
     UpdateHeldItemCursor();
-    colour = Get16BPPColor(0x10101);
-    ColorFillVideoSurfaceArea(FRAME_BUFFER, 0, 0, 0x280, 0x1e0, colour);
-    DrawCatalogImage(FRAME_BUFFER, 0x1e4, 0, 0, 0, 0, VO_BLT_SRCTRANSPARENCY, 0);
+    colour = Get16BPPColor(SDL_Color{1, 1, 1, SDL_ALPHA_OPAQUE});
+    const SDL_Rect bounds{0, 0, 0x280, 0x1e0};
+    SDL_FillSurfaceRect(&GetFrameBufferSurface(), &bounds, colour);
+    CatalogArtwork::Load(0x1e4, 0).draw(GetFrameBufferSurface(), 0, 0, 0);
     ResetTransientRenderScenes();
     return 1;
 }
@@ -55,19 +57,21 @@ unsigned char ExitScreenEnter(void)
 // FUNCTION: WIZ8 0x005917e0
 void ExitScreenFrame(void)
 {
-    InputAtom input;
+    InputEvent input;
 
     RenderFrame();
     while (DequeueEvent(&input) == 1) {
         if (!DispatchRegionInput(&input)) {
-            switch (input.usEvent) {
-            case KEY_DOWN:
+            switch (input.type) {
+            case InputEventType::KeyDown:
                 gfProgramIsRunning = 0;
+                break;
+            default:
                 break;
             }
         }
     }
-    if (gfLeftButtonState == 0 && gfRightButtonState == 0) {
+    if (!IsLeftButtonHeld() && !IsRightButtonHeld()) {
         if (gfProgramIsRunning != 0) {
             return;
         }

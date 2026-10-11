@@ -1,0 +1,32 @@
+Checks: >-
+  -*,
+  bugprone-dangling-handle,
+  bugprone-sizeof-expression,
+  bugprone-undefined-memory-manipulation,
+  bugprone-unused-raii,
+  bugprone-use-after-move,
+  misc-uniqueptr-reset-release,
+  misc-include-cleaner,
+  misc-header-include-cycle,
+  readability-duplicate-include,
+  bugprone-suspicious-include,
+  modernize-deprecated-headers
+WarningsAsErrors: >-
+  bugprone-dangling-handle,
+  bugprone-sizeof-expression,
+  bugprone-undefined-memory-manipulation,
+  bugprone-unused-raii,
+  bugprone-use-after-move,
+  misc-uniqueptr-reset-release,
+  misc-include-cleaner,
+  misc-header-include-cycle,
+  readability-duplicate-include,
+  bugprone-suspicious-include,
+  modernize-deprecated-headers
+HeaderFilterRegex: '(^|/)(include|src|tests)/'
+ExcludeHeaderFilterRegex: '(^|/)(build[^/]*|vendor)/'
+SystemHeaders: false
+InheritParentConfig: false
+CheckOptions:
+  # Check project include cycles, not implementation cycles in fetched libraries.
+  misc-header-include-cycle.IgnoredFilesList: '(^|/)_deps/'

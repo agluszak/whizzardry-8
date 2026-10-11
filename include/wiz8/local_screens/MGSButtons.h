@@ -1,8 +1,11 @@
 #pragma once
 
-#include "Types.h"
-#include "wiz8/character_skills.h"
+#include <memory>
+#include <array>
 
+#include <cstdint>
+
+#include "wiz8/character_skills.h"
 #include "input.h"
 
 /* Local Screens\MGSButtons.cpp. The combat sub-menu's panel, its five text
@@ -15,16 +18,16 @@
 struct Controls;
 struct W8Region;
 class W8TextControl;
-class W8DialogButton;
+class W8ButtonWidget;
 
 /* Owned globals. */
-extern Controls* gpSubMenuPanel;
-extern W8DialogButton* g_submenu_scroll_buttons[2];
-extern W8DialogButton* g_submenu_panel_buttons[2];
-extern W8DialogButton* g_layout_arrow_buttons[6];
-extern W8DialogButton* g_combat_stance_buttons[5];
-extern W8DialogButton* g_roof_buttons[3];
-extern W8DialogButton* g_options_disk_button;
+extern std::unique_ptr<Controls> gpSubMenuPanel;
+extern std::array<W8ButtonWidget, 2> g_submenu_scroll_buttons;
+extern std::array<W8ButtonWidget, 2> g_submenu_panel_buttons;
+extern std::array<W8ButtonWidget, 6> g_layout_arrow_buttons;
+extern std::array<W8ButtonWidget, 5> g_combat_stance_buttons;
+extern std::array<W8ButtonWidget, 3> g_roof_buttons;
+extern W8ButtonWidget g_options_disk_button;
 extern short g_submenu_entry_count;
 extern uint64_t g_submenu_clock;
 extern bool g_submenu_close_pending;
@@ -32,7 +35,7 @@ extern bool g_submenu_close_pending;
    plus one, so five rows only suffice because Berserk (fighter trait 0x14) and
    Pray (priest trait 0x0b) can never be available together. */
 extern W8TextControl* g_submenu_rows[5];
-extern W8DialogButton* g_submenu_buttons[9];
+extern std::array<W8ButtonWidget, 9> g_submenu_buttons;
 /* The action-kind message indexes the caption draw maps through. */
 extern unsigned short g_action_kind_message_ids[12];
 /* Which menu the open sub-menu panel serves (W8SubMenuPage value), each row's
@@ -96,8 +99,8 @@ void UpdateSubMenuAutoClose(void);
 /* The scroll-arrow callbacks are one-argument thunks over the shared handler:
    up steps toward lower slots, down toward higher, both wrapping and skipping
    ineligible slots. */
-void SubMenuScrollArrowUp(W8DialogButton* button);
-void SubMenuScrollArrowDown(W8DialogButton* button);
+void SubMenuScrollArrowUp(W8ButtonWidget* button);
+void SubMenuScrollArrowDown(W8ButtonWidget* button);
 /* Move selected_character to the next eligible party slot (0 steps toward
    slot 0, 1 toward slot 7), wrapping, and raise the portrait redraw masks. */
 void ScrollSubMenuCharacter(char direction);
@@ -126,9 +129,9 @@ void SetSubMenuButtonTooltips(int enabled);
    banks around the surprise/camp sequence. */
 void EnableMenuButtonBanks(void);
 void DisableMenuButtonBanks(void);
-unsigned char SubMenuBackgroundRegionEvent(const InputAtom* event, W8Region* region);
+unsigned char SubMenuBackgroundRegionEvent(const InputEvent* event, W8Region* region);
 /* Region callback the five sub-menu rows share. */
-unsigned char SubMenuRowRegionEvent(const InputAtom* event, W8Region* region);
+unsigned char SubMenuRowRegionEvent(const InputEvent* event, W8Region* region);
 
 /* Enable the panel region set and one input region per live row. */
 void EnableSubMenuRegions(void);
@@ -148,37 +151,4 @@ void MapSubMenuSelection(short menu, short item);
    USABLE/UNUSABLE or the _SELECTED variant when it is already queued. */
 W8SubMenuEntryState CheckSubMenuActionUsable(int party_slot);
 
-inline int GetAttackMenuWeaponOffset(W8Skill skill)
-{
-    int base;
-    switch (skill) {
-    case W8_SKILL_MACE_FLAIL:
-        base = 3;
-        break;
-    case W8_SKILL_AXE:
-        base = 4;
-        break;
-    case W8_SKILL_POLEARM:
-        base = 7;
-        break;
-    case W8_SKILL_STAFF_WAND:
-        base = 6;
-        break;
-    case W8_SKILL_BOW:
-        base = 1;
-        break;
-    case W8_SKILL_THROWING_SLING:
-        base = 2;
-        break;
-    case W8_SKILL_MODERN_WEAPONS:
-        base = 8;
-        break;
-    case W8_SKILL_MARTIAL_ARTS:
-        base = 5;
-        break;
-    default:
-        base = 0;
-        break;
-    }
-    return base;
-}
+int GetAttackMenuWeaponOffset(W8Skill skill);

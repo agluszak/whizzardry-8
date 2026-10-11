@@ -1,8 +1,15 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
-#include "wiz8/unicode.h"
+#include <memory>
+#include <stdexcept>
 #include <string>
-#include <string>
+#include <algorithm>
+#include <array>
+#include <cstdlib>
+#include <cstring>
+#include <string_view>
+#include <vector>
+
 #include "random.h"
 #include "wiz8/conditions.h"
 #include "wiz8/fonts.h"
@@ -10,43 +17,26 @@
 #include "wiz8/integer_constants.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_code/Strings.h"
-#include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/GameplayMods.h"
-#include "wiz8/engine_code/Levels.h"
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/cursor.h"
 #include "wiz8/local_code/party_encumbrance.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/character_skills.h"
-#include "wiz8/local_code/CharGeneration.h"
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/CombatAttack.h"
-#include "wiz8/local_code/ConditionsAndEnchantments.h"
-#include "wiz8/local_code/GameplayCode.h"
-#include "wiz8/local_code/GameplayMods.h"
-#include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/local_code/Magic.h"
-#include "wiz8/local_code/MagicEffects.h"
-#include "wiz8/local_code/party_encumbrance.h"
-#include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/layouts/combat_state.h"
-#include "wiz8/local_code/Combat.h"
-#include "wiz8/local_code/CombatAttack.h"
 #include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/local_screens/MGSButtons.h"
 #include "wiz8/local_screens/MGSPortraitCombat.h"
-#include "wiz8/local_screens/MGSPortraits.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/item_tables.h"
 #include "wiz8/engine_code/Spells.h"
-#include "wiz8/local_code/Magic.h"
-#include "wiz8/local_code/MagicEffects.h"
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
-#include "wiz8/monster_runtime.h"
 #include "wiz8/notices.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/utility.h"
@@ -54,16 +44,11 @@
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/local_code/NPCManager.h"
-#include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/layouts/item_instance.h"
 #include "wiz8/item_video_object_vector.h"
-#include "wiz8/item_spawning.h"
+#include "image_assets.h"
 #include "wiz8/sr_api.h"
-#include "wiz8/video_object_catalog.h"
-#include "wiz8/sound_man.h"
 #include "wiz8/local_code/ItemManager.h"
-#include "wiz8/local_code/MonsterGroup.h"
-#include "wiz8/local_code/CombatAttack.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
@@ -71,13 +56,18 @@
 #include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MGSUseItemSelect.h"
-
-#include <stdio.h>
-#include "wiz8/character_skills.h"
-#include <stdlib.h>
-#include <string.h>
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_screens/Screens.h"
+#include "compat/native.h"
+#include "dialog_code/DialogBase.h"
+#include "dice.h"
+#include "equipment_slots.h"
+#include "layouts/levels.h"
+#include "layouts/main_game_screen.h"
+#include "layouts/targeting.h"
+#include "retail_item_payloads.h"
+#include "spell_ids.h"
+#include "xstatus.h"
 
 /* Items of equipment class four are priced and carried by the bundle rather
    than singly, so a stack of them divides its bundle value out - rounding up,
@@ -243,37 +233,30 @@ unsigned short g_generic_item_name_notice[W8_GENERIC_ITEM_NAME_COUNT] = {
 /* Shared scratch returned by the item-name formatter. */
 // GLOBAL: WIZ8 0x0068C0B4
 
-W8_ABI_ASSERT(sizeof(W8ItemVideoObjectEntry) == 8, "W8ItemVideoObjectEntry_must_be_8");
-W8_ABI_ASSERT(sizeof(W8ItemVideoObjectCache) == 0x0c, "W8ItemVideoObjectCache_must_be_0x0c");
-
 // GLOBAL: WIZ8 0x0068EC68
 W8ItemVideoObjectCache g_item_video_objects;
 
-// FUNCTION: WIZ8 0x0055cdb0
-W8ItemVideoObjectEntry::W8ItemVideoObjectEntry() : initialized(0), video_object(0) {}
-
-W8ItemVideoObjectEntry::~W8ItemVideoObjectEntry() {}
-
 // FUNCTION: WIZ8 0x0055cdc0
-void W8ItemVideoObjectCache::Initialize(int new_capacity)
+void W8ItemVideoObjectCache::Initialize(std::size_t item_count)
 {
-    capacity = new_capacity;
-    data = new W8ItemVideoObjectEntry[new_capacity];
-    loaded_count = 0;
+    Clear();
+    images_.resize(item_count);
 }
 
 // FUNCTION: WIZ8 0x0055ce40
 void W8ItemVideoObjectCache::Clear()
 {
-    if (data) {
-        delete[] data;
-        data = 0;
-    }
-    loaded_count = 0;
+    images_.clear();
+}
+
+std::size_t W8ItemVideoObjectCache::LoadedImageCount() const
+{
+    return std::count_if(images_.begin(), images_.end(),
+                         [](const auto& image) { return image != nullptr; });
 }
 
 // GLOBAL: WIZ8 0x0062a88c
-static char g_item_video_object_fallback_names[145][0x30] = {"Dagger.sti",
+static const std::array<std::string_view, 145> g_item_video_object_fallback_names = {"Dagger.sti",
                                                              "LongSword.sti",
                                                              "Bipennis.sti",
                                                              "BattleAxe.sti",
@@ -420,39 +403,27 @@ static char g_item_video_object_fallback_names[145][0x30] = {"Dagger.sti",
                                                              "rocketlauncher.sti"};
 
 // FUNCTION: WIZ8 0x0055ce80
-int W8ItemVideoObjectCache::GetOrCreateVideoObject(int item_id)
+const SpriteSheet& W8ItemVideoObjectCache::Sprites(int item_id)
 {
-    W8ItemVideoObjectEntry* entry = data + item_id;
-    const W8ItemDatabaseRecord* record = &g_item_records[item_id];
-    std::string_view name = record->video_object_name;
-    int object;
-    int frame;
+    return *SharedSprites(item_id);
+}
 
-    if (entry->initialized) {
-        return entry->video_object;
+std::shared_ptr<const SpriteSheet> W8ItemVideoObjectCache::SharedSprites(int item_id)
+{
+    auto& image = images_.at(item_id);
+    if (!image) {
+        const auto& record = g_item_records[item_id];
+        std::string_view name = record.video_object_name;
+        if (name.empty())
+            name = g_item_video_object_fallback_names.at(record.unidentified_name_index);
+        std::string path = fmt::format("Data\\Items\\{}", name);
+        if (path.find(".sti") == std::string::npos)
+            path += ".sti";
+        image = g_image_assets.sprites(path);
+        if (!image)
+            throw std::runtime_error(fmt::format("Cannot load item image {}", path));
     }
-    if (loaded_count == capacity || loaded_count == 1000) {
-        return 0;
-    }
-    object = loaded_count + 0x291;
-    frame = loaded_count + 0x1ec;
-    if (name.empty()) {
-        name = g_item_video_object_fallback_names[record->unidentified_name_index];
-    }
-    g_video_frames[object].path = fmt::format("{}\\{}", "Data\\Items", name);
-    if (g_video_frames[object].path.find(".sti") == std::string::npos) {
-        g_video_frames[object].path += ".sti";
-    }
-    g_video_frames[object].storage_kind = W8_VIDEO_STORAGE_OBJECT;
-    g_video_frames[object].loaded = false;
-    g_video_frames[object].handle = 0;
-    g_video_slots[frame].first_frame = object;
-    g_video_slots[frame].y_offset = 0;
-    EnsureCatalogFrameLoaded(frame, 0);
-    ++loaded_count;
-    entry->video_object = frame;
-    entry->initialized = true;
-    return frame;
+    return image;
 }
 
 // GLOBAL: WIZ8 0x00652da6
@@ -856,6 +827,33 @@ enum { W8_ITEM_REQUIREMENT_NONE = 0xff };
    index 9 through the spell-source path and CASTER_ITEM_8 reads index 8. */
 enum { W8_CASTER_PROFESSION_INDEX_8 = 8, W8_CASTER_PROFESSION_INDEX_9 = 9 };
 
+/* Return the first unmet item attribute or skill requirement, optionally
+   identifying the corresponding localized attribute or skill name. */
+static bool FindUnmetItemRequirement(const W8Character* character,
+                                     const W8ItemDatabaseRecord* record,
+                                     unsigned short* message_id)
+{
+    for (unsigned int index = 0; index < 2; ++index) {
+        const int stat = static_cast<signed char>(record->attribute_requirements[index].stat_id);
+        if (record->attribute_requirements[index].stat_id != W8_ITEM_REQUIREMENT_NONE &&
+            character->attributes[stat].effective < record->attribute_requirements[index].minimum) {
+            if (message_id)
+                *message_id = g_character_description_first_ids[stat];
+            return true;
+        }
+    }
+    for (unsigned int index = 0; index < 2; ++index) {
+        const int stat = static_cast<signed char>(record->skill_requirements[index].stat_id);
+        if (record->skill_requirements[index].stat_id != W8_ITEM_REQUIREMENT_NONE &&
+            character->skills[stat].level < record->skill_requirements[index].minimum) {
+            if (message_id)
+                *message_id = g_character_skill_name_ids[stat];
+            return true;
+        }
+    }
+    return false;
+}
+
 /* Whether one character is allowed to use one item at all: profession, race
    and faction have to admit them, every attribute and skill floor has to be
    met, and a spell-bearing item additionally has to be one they have not
@@ -864,7 +862,6 @@ enum { W8_CASTER_PROFESSION_INDEX_8 = 8, W8_CASTER_PROFESSION_INDEX_9 = 9 };
 bool CanCharacterUseItem(const W8Character* character, int item_id)
 {
     const W8ItemDatabaseRecord* record = &g_item_records[item_id];
-    unsigned int index;
     unsigned int spell_id;
     unsigned int minimum_caster_level;
 
@@ -879,22 +876,8 @@ bool CanCharacterUseItem(const W8Character* character, int item_id)
         return false;
     }
 
-    for (index = 0; index < 2; ++index) {
-        if (record->attribute_requirements[index].stat_id != W8_ITEM_REQUIREMENT_NONE &&
-            character
-                    ->attributes[static_cast<signed char>(
-                        record->attribute_requirements[index].stat_id)]
-                    .effective < record->attribute_requirements[index].minimum) {
-            return false;
-        }
-    }
-    for (index = 0; index < 2; ++index) {
-        if (record->skill_requirements[index].stat_id != W8_ITEM_REQUIREMENT_NONE &&
-            character->skills[static_cast<signed char>(record->skill_requirements[index].stat_id)]
-                    .level < record->skill_requirements[index].minimum) {
-            return false;
-        }
-    }
+    if (FindUnmetItemRequirement(character, record, nullptr))
+        return false;
 
     if (record->category == W8_ITEM_CATEGORY_SPELL_SOURCE) {
         spell_id = record->spell_id;
@@ -910,20 +893,12 @@ bool CanCharacterUseItem(const W8Character* character, int item_id)
         if (spell_id == W8_SPELL_NONE) {
             srAssertFail("uiSpell != SPELL_NONE", PC_ITEM_CPP, 1844, 0);
         }
-        if (record->category == W8_ITEM_CATEGORY_CASTER_ITEM_6) {
-            minimum_caster_level = GetMinimumCasterLevelForSpell(spell_id);
-            if (static_cast<unsigned int>(
-                    character->profession_levels[W8_CASTER_PROFESSION_INDEX_9]) <
-                minimum_caster_level) {
-                return false;
-            }
-        } else {
-            minimum_caster_level = GetMinimumCasterLevelForSpell(spell_id);
-            if (static_cast<unsigned int>(
-                    character->profession_levels[W8_CASTER_PROFESSION_INDEX_8]) <
-                minimum_caster_level) {
-                return false;
-            }
+        minimum_caster_level = GetMinimumCasterLevelForSpell(spell_id);
+        const int profession = record->category == W8_ITEM_CATEGORY_CASTER_ITEM_6
+                                   ? W8_CASTER_PROFESSION_INDEX_9 : W8_CASTER_PROFESSION_INDEX_8;
+        if (static_cast<unsigned int>(character->profession_levels[profession]) <
+            minimum_caster_level) {
+            return false;
         }
     }
     return true;
@@ -1223,8 +1198,7 @@ unsigned char UseItem(W8Character* character, W8ItemInstance* item, int* out_use
                     SetTargetSourceToCharacter(aimed->iChar, &target);
                 } else if (aimed->iType == W8_TARGET_KIND_MONSTER) {
                     SetTargetSourceToMonster(
-                        MonsterGetScriptPartByLocationIndex(MonsterGetIndexByLocationID(
-                            0x8fd, PC_ITEM_CPP, aimed->iMonsterID, true)),
+                        FindMonster(aimed->iMonsterID),
                         &target);
                 }
             } else {
@@ -1257,8 +1231,7 @@ unsigned char UseItem(W8Character* character, W8ItemInstance* item, int* out_use
             ShowNotice(
                 9, fmt::format("{} {} {}",
                                GetMonsterName(
-                                   MonsterGetScriptPartByLocationIndex(MonsterGetIndexByLocationID(
-                                       0x91d, PC_ITEM_CPP, target.iMonsterID, true)),
+                                   FindMonster(target.iMonsterID),
                                    0, 0),
                                g_localized_strings[g_item_use_messages[record->category * 2]],
                                GetItemDisplayName(item)));
@@ -1538,7 +1511,7 @@ bool AddItemToCharacter(W8Character* character, W8ItemInstance* item, bool equip
     if (RecalculateCarriedWeight(character)) {
         RedistributePartyEncumbrance();
     }
-    if (g_current_screen_state.id == W8_SCREEN_CAMP && g_camp_screen != 0) {
+    if (g_current_screen_state.id == W8_SCREEN_CAMP && g_camp_screen) {
         g_camp_screen->item_redraw_flags |= W8_CAMP_ITEM_REDRAW_BACKPACK_CELL_FIRST << stored_index;
     }
     if (announce) {
@@ -1737,32 +1710,12 @@ bool GiveHeldItemToCharacterOrParty(int uiChar, bool party_first)
 {
     W8ItemInstance* item = &g_status.item_in_hand;
     bool stored = party_first;
-    bool identified = false;
-    unsigned int slot;
-
     if (!g_status.item_in_cursor) {
         srAssertFail("gStatus.fItemInCursor", PC_ITEM_CPP, 376, 0);
     }
 
-    /* Every member who is up and not too badly hurt gets an attempt at the
-       item, which is what practises the skill for them; the first one who
-       learns what it is bounds the loop's answer. */
-    if (!item->identified) {
-        for (slot = 0; slot < 8; ++slot) {
-            W8Character* character = &g_status.buffers.Char[slot];
-            if (!g_status.buffers.XChar[slot].fOccupied) {
-                continue;
-            }
-            if (character->hp_current == 0 || character->highest_condition >= W8_CONDITION_INSANE) {
-                continue;
-            }
-            if (!identified) {
-                identified = TryIdentifyItemFor(character, item);
-            } else {
-                TryIdentifyItemFor(character, item);
-            }
-        }
-    }
+    if (!item->identified)
+        PartyAttemptsToIdentifyItem(item, 0);
 
     if (!g_status.game_started) {
         srAssertFail("gStatus.fGameStarted", PC_ITEM_CPP, 0x194, 0);
@@ -1958,8 +1911,8 @@ void AddPartyGold(int amount, bool announce)
     if (announce) {
         ShowNotice(8, fmt::format("{} {:d} {}.", g_localized_strings[0x15f], amount,
                                   g_localized_strings[0x160]));
-        if (!SoundFileIsPlaying(sound_path)) {
-            SoundPlay(sound_path, 0);
+        if (!wiz8::sound::is_file_playing(sound_path)) {
+            wiz8::sound::play(sound_path);
         }
     }
 }
@@ -2518,19 +2471,10 @@ bool FindCharacterItemByDatabaseKind(W8Character* character, short item_kind, W8
 // FUNCTION: WIZ8 0x005207e0
 W8RangeCategory GetItemSpellRange(const W8ItemInstance* item)
 {
-    if (item == 0) {
+    if (item == nullptr)
         return W8_RANGE_NONE;
-    }
-    if (item->iItemNo == -1) {
-        srAssertFail("pPCItem->iItemNo != -1", PC_ITEM_CPP, 4003, 0);
-    }
-    if (item->iItemNo >= static_cast<int>(gXStatus.uiItemsInDatabase)) {
-        srAssertFail("pPCItem->iItemNo < (INT32) gXStatus.uiItemsInDatabase", PC_ITEM_CPP, 4004, 0);
-    }
-    if (g_item_records[item->iItemNo].spell_id != W8_SPELL_NONE) {
-        return g_spell_records[g_item_records[item->iItemNo].spell_id].range_category;
-    }
-    return W8_RANGE_NONE;
+    const int spell_id = GetItemSpell(item);
+    return spell_id == W8_SPELL_NONE ? W8_RANGE_NONE : g_spell_records[spell_id].range_category;
 }
 
 /* One character's attempt at identifying an item. Their strength is a sixth of
@@ -3354,7 +3298,7 @@ bool AddItemToParty(W8ItemInstance* item, bool announce, bool skip_stacking)
         stored = true;
     }
 
-    if (g_current_screen_state.id == W8_SCREEN_CAMP && g_camp_screen != 0) {
+    if (g_current_screen_state.id == W8_SCREEN_CAMP && g_camp_screen) {
         g_camp_screen->item_redraw_flags |= W8_CAMP_ITEM_REDRAW_POOL;
     }
     if (announce) {
@@ -3393,32 +3337,8 @@ void UnequipUnusableItems(W8Character* character)
         unsigned short message_id = 0;
         bool unmet = false;
         W8ItemInstance destination;
-        unsigned int index;
 
-        for (index = 0; index < 2; ++index) {
-            if (record->attribute_requirements[index].stat_id != W8_ITEM_REQUIREMENT_NONE &&
-                character
-                        ->attributes[static_cast<signed char>(
-                            record->attribute_requirements[index].stat_id)]
-                        .effective < record->attribute_requirements[index].minimum) {
-                message_id = g_character_description_first_ids[static_cast<signed char>(
-                    record->attribute_requirements[index].stat_id)];
-                unmet = true;
-                break;
-            }
-        }
-        for (index = 0; !unmet && index < 2; ++index) {
-            if (record->skill_requirements[index].stat_id != W8_ITEM_REQUIREMENT_NONE &&
-                character
-                        ->skills[static_cast<signed char>(
-                            record->skill_requirements[index].stat_id)]
-                        .level < record->skill_requirements[index].minimum) {
-                message_id = g_character_skill_name_ids[static_cast<signed char>(
-                    record->skill_requirements[index].stat_id)];
-                unmet = true;
-                break;
-            }
-        }
+        unmet = FindUnmetItemRequirement(character, record, &message_id);
         if (unmet) {
             PostCharacterNotice(
                 party_slot,
@@ -3771,7 +3691,7 @@ int CastItemSpell(W8Character* character, W8ItemInstance* item, unsigned int pow
 
     if (record->sound_name.size() != 0) {
 
-        SoundPlay(fmt::format("Data\\Spells\\Sounds\\{}.wav", record->sound_name), 0);
+        wiz8::sound::play(fmt::format("Data\\Spells\\Sounds\\{}.wav", record->sound_name));
     }
 
     {

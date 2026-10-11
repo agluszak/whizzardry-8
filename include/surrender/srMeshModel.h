@@ -1,7 +1,13 @@
 #pragma once
 
+#include "glm/ext/vector_int3.hpp"
+
+#include "glm/ext/vector_float3.hpp"
+
 #include <array>
 #include <iosfwd>
+#include <optional>
+#include <span>
 #include <vector>
 
 #include "srFlags.h"
@@ -19,6 +25,7 @@
 // VTABLE: SURRENDER 0x10076D48 srMeshModel
 class srMeshModel : public srClassSupport<srMeshModel, srModel, 0x2010> {
 public:
+    using PolygonSelection = std::optional<std::span<const w8_ulong>>;
     /* Front/back table indices: dump labels materials[pass][0/1] and
        renderTriMesh uses the corresponding CONTROL_FRONT/BACK bits. */
     enum e_side : int { SIDE_FRONT = 0, SIDE_BACK = 1 };
@@ -51,12 +58,12 @@ public:
         w8_long polygon_count = 0;
         w8_long pass_count = 0;
         w8_ulong control_flags = 0;
-        srVector3i* poly_vertices = nullptr;
+        glm::ivec3* poly_vertices = nullptr;
         glm::vec4* poly_equations = nullptr;
         glm::vec2* texcoords[4][2]{};
-        srVector3T<float>* positions = nullptr;
-        srVector3T<float>* normals = nullptr;
-        srVector3T<float>* dig[4]{};
+        glm::vec3* positions = nullptr;
+        glm::vec3* normals = nullptr;
+        glm::vec3* dig[4]{};
         glm::vec4* dcg[4]{};
         glm::vec4* scg[4]{};
         std::shared_ptr<srMaterial> materials[4][2];
@@ -65,30 +72,29 @@ public:
         std::shared_ptr<srMaterialIFace>* vertex_materials[4][2]{};
         std::shared_ptr<srTextureIFace>* poly_textures[4][2]{};
         srShader* poly_shaders[4]{};
-        srVector3i* poly_uv[4]{};
+        glm::ivec3* poly_uv[4]{};
         glm::vec3 bounds_minimum{0.0f, 0.0f, 0.0f};
         glm::vec3 bounds_maximum{0.0f, 0.0f, 0.0f};
         glm::vec3 bounds_center{0.0f, 0.0f, 0.0f};
         float bounds_radius = 0.0f;
         float sort_bias = 0.0f;
-        w8_ulong* active_polygons = nullptr;
-        w8_long active_polygon_count = 0;
+        PolygonSelection active_polygons;
     };
 
     SR_DLL_IMPORT srMeshModel(w8_long polygons = 0, w8_long vertices = 0);
     srMeshModel(const srMeshModel&) = delete;
 
     SR_DLL_IMPORT void reset(w8_long polygons, w8_long vertices);
-    SR_DLL_IMPORT void scale(const srVector3T<float>& scale);
+    SR_DLL_IMPORT void scale(const glm::vec3& scale);
     void applyMatrix(const glm::mat3& matrix);
-    SR_DLL_IMPORT void relocateVertices(const srVector3T<float>& offset);
+    SR_DLL_IMPORT void relocateVertices(const glm::vec3& offset);
     void centerVertices();
     double getAverageRadius();
     double getMaxRadius();
     void scaleToAverageRadius(double radius);
     void scaleToMaxRadius(double radius);
     void flipFaces();
-    w8_long findClosestVertex(const srVector3T<float>& point);
+    w8_long findClosestVertex(const glm::vec3& point);
     srMeshModel& operator=(const srMeshModel&) = delete;
 
     // FUNCTION: SURRENDER 0x10041AF0
@@ -99,23 +105,22 @@ public:
 
     SR_DLL_IMPORT virtual void dump(std::ostream& stream) override;
     SR_DLL_IMPORT virtual void verify(srRuntimeClass::e_verify mode) override;
-    SR_DLL_IMPORT virtual int getBoundingSphere(glm::vec3& center, float& radius) override;
-    SR_DLL_IMPORT virtual int getBoundingBox(glm::vec3& minimum, glm::vec3& maximum) override;
+    Bounds getBounds() override;
+    bool isVisible(srGERD& renderer);
     SR_DLL_IMPORT virtual void render(class srGERD& renderer) override;
-    SR_DLL_IMPORT virtual void reindexPolygons(const w8_ulong* indices);
-    SR_DLL_IMPORT virtual void reindexVertices(const w8_ulong* indices);
-    SR_DLL_IMPORT virtual void getTriMesh(TriMesh& mesh);
-    SR_DLL_IMPORT virtual const TriMesh& getTriMesh();
+    SR_DLL_IMPORT virtual void reindexPolygons(std::span<const w8_ulong> indices);
+    SR_DLL_IMPORT virtual void reindexVertices(std::span<const w8_ulong> indices);
+    SR_DLL_IMPORT virtual TriMesh getTriMesh();
     SR_DLL_IMPORT virtual void renderTriMesh(class srGERD& renderer, const TriMesh& mesh);
     SR_DLL_IMPORT std::shared_ptr<srTextureIFace>* getPolyTexture(w8_long polygon, w8_long layer, int table);
-    SR_DLL_IMPORT srVector3i* getPolyVertex();
-    SR_DLL_IMPORT srVector3i* getPolyUVIndex(w8_long layer, int table);
+    SR_DLL_IMPORT glm::ivec3* getPolyVertex();
+    SR_DLL_IMPORT glm::ivec3* getPolyUVIndex(w8_long layer, int table);
     SR_DLL_IMPORT glm::vec2* getVertexTexCoords(w8_long vertex, w8_long layer, int table);
     SR_DLL_IMPORT std::shared_ptr<srMaterialIFace>* getVertexMaterial(w8_long vertex, e_side side, int table);
     SR_DLL_IMPORT w8_ulong* getVertexShadeIndex(int table);
-    SR_DLL_IMPORT srVector3T<float>* getVertexNormal();
+    SR_DLL_IMPORT glm::vec3* getVertexNormal();
     SR_DLL_IMPORT glm::vec4* getPolyEq();
-    SR_DLL_IMPORT srVector3T<float>* getVertexDIG(w8_long vertex, int table);
+    SR_DLL_IMPORT glm::vec3* getVertexDIG(w8_long vertex, int table);
     glm::vec4* getVertexSCG(w8_long vertex, int table);
     glm::vec4* getVertexDCG(w8_long vertex, int table);
     SR_DLL_IMPORT srMaterialIFace* getMaterial(w8_long polygon, e_side side) const;
@@ -181,7 +186,7 @@ public:
     void setDirtyBounds();
     void setDirtyNormals();
     SR_DLL_IMPORT w8_ulong* getActivePolygonTable(int table);
-    SR_DLL_IMPORT srVector3T<float>* getVertexLoc();
+    SR_DLL_IMPORT glm::vec3* getVertexLoc();
     /* Fills the cached AABB/sphere (bounds_minimum..bounds_radius)
        from the supplied box and center/radius. */
     SR_DLL_IMPORT void setBounds(const glm::vec3& minimum, const glm::vec3& maximum,
@@ -203,15 +208,15 @@ public:
     std::array<std::array<std::vector<std::shared_ptr<srTextureIFace>>, 2>, MAX_PASSES> poly_textures;
     std::array<std::vector<srShader>, MAX_PASSES> poly_shaders;
     std::array<std::array<std::vector<std::shared_ptr<srMaterialIFace>>, 2>, MAX_PASSES> vertex_materials;
-    std::vector<srVector3i> poly_vertices;
-    std::array<std::vector<srVector3i>, MAX_PASSES> poly_uv_indices;
+    std::vector<glm::ivec3> poly_vertices;
+    std::array<std::vector<glm::ivec3>, MAX_PASSES> poly_uv_indices;
     std::vector<glm::vec4> poly_equations;
     std::array<std::array<std::vector<glm::vec2>, 2>, MAX_PASSES> texcoords;
-    std::array<std::vector<srVector3T<float>>, MAX_PASSES> dig;
+    std::array<std::vector<glm::vec3>, MAX_PASSES> dig;
     std::array<std::vector<glm::vec4>, MAX_PASSES> dcg;
     std::array<std::vector<glm::vec4>, MAX_PASSES> scg;
-    std::vector<srVector3T<float>> vertex_locations;
-    std::vector<srVector3T<float>> vertex_normals;
+    std::vector<glm::vec3> vertex_locations;
+    std::vector<glm::vec3> vertex_normals;
     std::vector<w8_ulong> vertex_shade_indices;
     std::vector<w8_ulong> active_polygons;
     w8_long active_polygon_count = 0;
@@ -228,4 +233,3 @@ public:
     srFlags<e_flags> dirty_flags;
     srFlags<e_control> render_control;
 };
-

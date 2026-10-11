@@ -1,50 +1,116 @@
+#include <SDL3/SDL_pixels.h>
+#include <SDL3/SDL_surface.h>
+#include "image.h"
+#include <utility>
+#include <stdexcept>
+#include <limits>
+#include "wiz8/item_video_object_vector.h"
+#include "wiz8/layouts/item_tables.h"
+#include <variant>
 #include <catch2/catch_test_macros.hpp>
 #include <fmt/format.h>
 #include <fmt/printf.h>
+#include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_mouse.h>
+#include <algorithm>
+#include <array>
+#include <cstring>
+#include <cstdio>
+#include <cstdlib>
+#include <filesystem>
+#include <fstream>
+#include <ios>
+#include <memory>
+#include <optional>
+#include <string>
+#include <vector>
+#include <cstdint>
+#include <string_view>
+
 #include "wiz8/fonts.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_code/Gameloop.h"
+#include "wiz8/local_code/Controls.h"
+#include "wiz8/local_code/Configuration.h"
+#include "wiz8/local_code/Strings.h"
+#include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/xstatus.h"
-#include "wiz8/video_object_catalog.h"
+#include "wiz8/catalog_artwork.h"
+#include "image_assets.h"
+#include "wiz8/dialog_code/ButtonAppearance.h"
+#include "wiz8/local_code/ButtonWidget.h"
+#include "wiz8/dialog_code/DialogScrollBar.h"
+#include "wiz8/dialog_code/MessageDialogBase.h"
+#include "wiz8/dialog_code/DialogFactoryDialogs.h"
+#include "wiz8/dialog_code/DialogInterface.h"
+#include "wiz8/local_code/ButtonSound.h"
+#include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/utility.h"
-#include "Button System.h"
+#include "wiz8/compat/compiler.h"
+#include "wiz8/sr_api.h"
+#include "wiz8/engine_code/Video2.h"
 #include "Font.h"
 #include "input.h"
-#include "mousesystem_macros.h"
+#include "wiz8/regions.h"
 #include "imgfmt.h"
-#include "wiz8/filesystem.h"
 #include "temporary_directory.h"
+#include "scoped_asset_roots.h"
 #include "wiz8/asset_paths.h"
 #include "wiz8/text_input.h"
-#include <algorithm>
-#include <array>
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
-#include <filesystem>
-#include <fstream>
-#include <memory>
-#include <string>
-#include <vector>
+#include "Types.h"
+#include "application.h"
+#include "himage.h"
+#include "wiz8/surface_storage.h"
+#include "layouts/main_game_screen.h"
+#include "layouts/screen_state.h"
+#include "local_code/RangeControl.h"
+#include "local_screens/RCSStatsPage.h"
 
-
-extern GUI_BUTTON* gpAnchoredButton;
-extern std::array<std::unique_ptr<SGPVObject>, 40> GenericButtonGrayed, GenericButtonOffNormal, GenericButtonOffHilite;
-extern std::array<std::unique_ptr<SGPVObject>, 40> GenericButtonOnNormal, GenericButtonOnHilite, GenericButtonBackground;
-extern UINT16 GenericButtonFillColors[], GenericButtonBackgroundIndex[];
-extern INT16 GenericButtonOffsetX[], GenericButtonOffsetY[];
 
 namespace {
+std::vector<int>* scrollbar_position_sink = nullptr;
+void RecordScrollPosition(W8DialogScrollBar*, int position)
+{
+    if (scrollbar_position_sink) scrollbar_position_sink->push_back(position);
+}
+
+class ScrollPositionCapture {
+public:
+    explicit ScrollPositionCapture(std::vector<int>& positions)
+        : previous_(scrollbar_position_sink)
+    {
+        scrollbar_position_sink = &positions;
+    }
+
+    ~ScrollPositionCapture() { scrollbar_position_sink = previous_; }
+
+private:
+    std::vector<int>* previous_;
+};
+
 std::vector<int> screen_leaves;
 int screen_entries, screen_frames;
 unsigned char enter() { ++screen_entries; return 1; }
 unsigned char leave(int discard) { screen_leaves.push_back(discard); return 1; }
 void frame() { ++screen_frames; }
+
+void button_image_fixture(const std::filesystem::path& root, std::string name, unsigned count = 9,
+                          bool app_data = false, unsigned width = 1, unsigned height = 1,
+                          std::array<std::uint8_t, 5> frame_palette_indices = {},
+                          short offset_x = 0, short offset_y = 0);
+
+void initialize_test_framebuffer()
+{
+    ResetFontRendering();
+    g_pixel_format = 9;
+    Initialize16BitPixelFormatMasks();
+    REQUIRE(InitializePrimarySurface());
+}
 
 void screen_stack()
 {
@@ -103,79 +169,29 @@ void screen_stack()
     g_screen_handlers[W8_SCREEN_OPTIONS] = saved_options;
 }
 
-void surface_regions()
-{
-    VSURFACE_DESC desc{};
-    desc.fCreateFlags = VSURFACE_CREATE_DEFAULT;
-    desc.usWidth = desc.usHeight = 16;
-    desc.ubBitDepth = 16;
-    auto* surface = CreateVideoSurface(&desc);
-    REQUIRE((surface && surface->RegionList.empty()));
-    VSURFACE_REGION result{};
-    result.ubHitMask = 99;
-    REQUIRE((!GetVSurfaceRegion(surface, 0, &result) && result.ubHitMask == 99));
-    for (int index = 0; index < 80; ++index) {
-        VSURFACE_REGION region{};
-        region.Origin.x = index;
-        region.RegionCoords.w = (index + 1) - region.RegionCoords.x;
-        region.ubHitMask = static_cast<UINT8>(index);
-        surface->RegionList.push_back(region);
-    }
-    REQUIRE(GetVSurfaceRegion(surface, 79, &result));
-    REQUIRE((result.Origin.x == 79 && (result.RegionCoords.x + result.RegionCoords.w) == 80 && result.ubHitMask == 79));
-    REQUIRE(!GetVSurfaceRegion(surface, 80, &result));
-    REQUIRE(!GetVSurfaceRegion(surface, 1, nullptr));
-    auto* borrowed = CreateVideoSurfaceFromCpuSurface(surface->surface);
-    REQUIRE((borrowed && borrowed->RegionList.empty()));
-    borrowed->RegionList.push_back(result);
-    surface->RegionList.clear();
-    REQUIRE(GetVSurfaceRegion(borrowed, 0, &result));
-    REQUIRE(DeleteVideoSurface(borrowed));
-    REQUIRE((surface->surface && DeleteVideoSurface(surface)));
-}
-
 void camp_effects()
 {
-    REQUIRE(InitializeVideoObjectManager());
-    std::array<SGPPaletteEntry, 256> palette{};
-    std::array<ETRLEObject, 12> images{};
-    for (auto& image : images) { image.usWidth = 16; image.usHeight = 8; }
-    image_type image{};
-    image.ubBitDepth = 8;
-    image.fFlags = IMAGE_TRLECOMPRESSED;
-    image.pPalette = std::make_unique<SGPPaletteEntry[]>(256);
-    std::copy_n(palette.data(), palette.size(), image.pPalette.get());
-    // Each frame is eight scanlines of one transparent run of 16 then the
-    // row terminator: 0x90 0x00 repeated.
-    image.pImageData.resize(images.size() * 16);
-
-    image.pETRLEObject.resize(images.size());
-    std::copy_n(images.data(), images.size(), image.pETRLEObject.data());
-    for (std::size_t i = 0; i < images.size(); ++i) {
-        image.pETRLEObject[i].uiDataOffset = i * 16;
-        image.pETRLEObject[i].uiDataLength = 16;
-        for (unsigned row = 0; row < 8; ++row) {
-            image.pImageData[i * 16 + row * 2] = 0x90;
+    ScopedTemporaryDirectory directory{"wiz8-camp-effects"};
+    const auto assets = directory.path / "assets";
+    const auto previous_roots = w8_native::path_roots();
+    button_image_fixture(assets, "Data/Main Interface/main_scroll.sti", 12, false, 16, 8);
+    g_image_assets.clear();
+    w8_native::configure_paths({assets.string(), (directory.path / "user").string(), {}});
+    struct Restore {
+        w8_native::Roots roots;
+        ~Restore()
+        {
+            g_camp_screen.reset();
+            g_image_assets.clear();
+            w8_native::configure_paths(roots);
         }
-    }
-
-    VOBJECT_DESC desc{};
-    desc.fCreateFlags = VOBJECT_CREATE_FROMHIMAGE;
-    desc.hImage = &image;
-    UINT32 handle;
-    REQUIRE(AddVideoObject(&desc, &handle));
-    const auto saved_slot = g_video_slots[0x86];
-    const auto saved_frame = g_video_frames[0];
-    g_video_slots[0x86] = {0, 0};
-    g_video_frames[0].loaded = true;
-    g_video_frames[0].storage_kind = W8_VIDEO_STORAGE_OBJECT;
-    g_video_frames[0].handle = handle;
+    } restore{previous_roots};
     {
-        auto state = std::make_unique<W8CampScreenState>();
+        g_camp_screen = std::make_unique<W8CampScreenState>();
+        auto* state = g_camp_screen.get();
         REQUIRE((state->effect_list.empty() && state->stats_range == nullptr));
-        g_camp_screen = state.get();
-        W8CampStatsRange range;
-        state->stats_range = &range;
+        state->stats_range = std::make_unique<W8CampStatsRange>();
+        auto& range = *state->stats_range;
         state->effect_list = {
             {false, false, true, false, 0, 0, 0, 3, 10}, {false, false, false, true, 0, 1, 0, 3, 9},
             {true, false, true, false, 2, 2, 0, 9999, 3}, {false, false, true, true, 0, 3, 0, 3, 2}};
@@ -212,294 +228,796 @@ void camp_effects()
         REQUIRE((state->effect_beneficial_count == 0 && !range.m_range->m_enabled));
         g_review_character = nullptr;
     }
-    g_camp_screen = nullptr;
-    g_video_slots[0x86] = saved_slot;
-    g_video_frames[0] = saved_frame;
-    REQUIRE(ShutdownVideoObjectManager());
 }
 
-int clicks, click_reason;
-MOUSE_REGION* clicked_region;
-void region_click(MOUSE_REGION* region, INT32) { clicked_region = region; }
-void click(GUI_BUTTON*, INT32 reason) { ++clicks; click_reason = reason; }
-int nested_outer, nested_inner;
-void nested_click(GUI_BUTTON* button, INT32 reason)
+std::uint64_t next_mouse_timestamp = 1;
+InputEvent mouse_atom(InputEventType event, std::uint16_t x, std::uint16_t y, bool left = false,
+                     bool right = false, std::uint8_t click_count = 0)
 {
-    if (button->IDNum == nested_inner) {
-        RemoveButton(nested_outer);
-        return;
+    InputEvent input{};
+    input.timestamp = next_mouse_timestamp++;
+    input.type = event;
+    input.position = {x, y};
+    input.buttons = (left ? SDL_BUTTON_LMASK : 0) | (right ? SDL_BUTTON_RMASK : 0);
+    input.clicks = click_count;
+    return input;
+}
+void dispatch_mouse(InputEventType event, std::uint16_t x, std::uint16_t y, bool left = false,
+                    bool right = false, std::uint8_t click_count = 0)
+{
+    const auto input = mouse_atom(event, x, y, left, right, click_count);
+    if (event == InputEventType::MouseMove) UpdateRegionMousePosition(x, y);
+    DispatchRegionInput(&input);
+}
+
+unsigned int new_test_region_set()
+{
+    const auto set = CreateRegionSet();
+    RegionSetEnable(set);
+    return set;
+}
+
+struct RegionStateSnapshot {
+    std::vector<unsigned int> set_enabled;
+    std::vector<unsigned int> region_flags;
+    unsigned int current = g_current_region_index;
+    unsigned int captured = g_captured_region_index;
+    unsigned int hover = g_hover_region_index;
+    int help_delay = g_region_help_delay;
+    bool help_force_enabled = g_region_help_force_enabled;
+
+    RegionStateSnapshot()
+    {
+        for (const auto& set : g_region_sets) set_enabled.push_back(set.enabled);
+        for (const auto& region : g_regions) region_flags.push_back(region.flags);
     }
-    QuickButtonCallbackMButn(&ButtonList[nested_inner]->Area, reason);
-    REQUIRE(ButtonList[nested_outer].get() == button);
-    REQUIRE(button->uiFlags & BUTTON_DELETION_PENDING);
-    RemoveButton(nested_inner);
-}
-void remove_on_move(MOUSE_REGION* region, INT32 reason)
+
+    ~RegionStateSnapshot()
+    {
+        for (std::size_t index = 0; index < g_region_sets.size(); ++index) {
+            if (index < set_enabled.size()) {
+                g_region_sets[index].enabled = set_enabled[index];
+            } else {
+                g_region_sets[index].enabled = 0;
+            }
+        }
+        for (std::size_t index = 0;
+             index < region_flags.size() && index < g_regions.size(); ++index) {
+            g_regions[index].flags = region_flags[index];
+        }
+        g_current_region_index = current;
+        g_captured_region_index = captured;
+        g_hover_region_index = hover;
+        g_region_help_delay = help_delay;
+        g_region_help_force_enabled = help_force_enabled;
+    }
+};
+
+unsigned int add_test_region(unsigned int set, unsigned short id, int x1, int y1, int x2, int y2,
+                             int priority, W8RegionCallback callback)
 {
-    if (reason & MSYS_CALLBACK_REASON_GAIN_MOUSE)
-        MSYS_RemoveRegion(region);
+    const auto index = AddRegionToSet(set, priority);
+    g_regions[index].flags = W8_REGION_RECTANGLE;
+    SetRegionBounds(index, static_cast<unsigned short>(x1), static_cast<unsigned short>(y1),
+                    static_cast<unsigned short>(x2), static_cast<unsigned short>(y2));
+    SetRegionCallback(index, callback, id);
+    return index;
 }
-void remove_button_on_callback(GUI_BUTTON* button, INT32)
+
+std::vector<std::pair<int, int>> region_events;
+struct TestOwnedRegionHandler final : W8RegionHandler {
+    std::vector<std::int32_t> reasons;
+
+    int HandleRegionInput(W8Region& region, const InputEvent& input) override
+    {
+        reasons.push_back(RegionReasonForInput(region, input));
+        return 1;
+    }
+};
+
+unsigned char record_region_event(const InputEvent* event, W8Region* region)
 {
-    RemoveButton(button->IDNum);
-    REQUIRE(ButtonList[button->IDNum].get() == button);
+    region_events.emplace_back(region->callback_id, static_cast<int>(event->type));
+    return 1;
+}
+unsigned char hover_region(const InputEvent*, W8Region* region)
+{
+    if (region->flags & W8_REGION_MOUSE_LEAVE)
+        region_events.emplace_back(region->callback_id, REGION_REASON_LOST_MOUSE);
+    else if (region->flags & W8_REGION_MOUSE_ENTER)
+        region_events.emplace_back(region->callback_id, REGION_REASON_GAIN_MOUSE);
+    else
+        region_events.emplace_back(region->callback_id, REGION_REASON_MOVE);
+    return 1;
+}
+
+unsigned int nested_region_set = 0;
+unsigned int nested_region_index = 0;
+bool remove_nested_region = false;
+std::vector<InputEventType> nested_region_events;
+unsigned char nested_region_callback(const InputEvent* event, W8Region*)
+{
+    if (event->type == InputEventType::LeftButtonDown) {
+        nested_region_events.push_back(InputEventType::LeftButtonDown);
+        g_captured_region_index = nested_region_index;
+        const auto up = mouse_atom(InputEventType::LeftButtonUp, 100, 100);
+        DispatchRegionInput(&up);
+    } else if (event->type == InputEventType::LeftButtonUp) {
+        nested_region_events.push_back(InputEventType::LeftButtonUp);
+        if (remove_nested_region) {
+            remove_nested_region = false;
+            RemoveRegionFromSet(nested_region_set, nested_region_index);
+        }
+    }
+    return 1;
+}
+void region_nested_input()
+{
+    nested_region_set = new_test_region_set();
+    nested_region_index =
+        add_test_region(nested_region_set, 1, 0, 0, 40, 40, 0, nested_region_callback);
+    nested_region_events.clear();
+    remove_nested_region = true;
+    {
+        ExclusiveRegionSet scope(nested_region_set);
+        dispatch_mouse(InputEventType::LeftButtonDown, 10, 10);
+    }
+    REQUIRE((nested_region_events == std::vector<InputEventType>{InputEventType::LeftButtonDown, InputEventType::LeftButtonUp}));
+    REQUIRE(g_captured_region_index == 0);
+
+    const auto region_count = g_regions.size();
+    for (unsigned repeat = 0; repeat < 32; ++repeat) {
+        const auto index = AddRegionToSet(nested_region_set, 0);
+        REQUIRE(index == nested_region_index);
+        RemoveRegionFromSet(nested_region_set, index);
+    }
+    REQUIRE(g_regions.size() == region_count);
+}
+void nested_hover_transitions()
+{
+    const auto set = new_test_region_set();
+    add_test_region(set, 1, 0, 0, 10, 10, 0, hover_region);
+    add_test_region(set, 2, 20, 0, 30, 10, 0, hover_region);
+    region_events.clear();
+    {
+        ExclusiveRegionSet scope(set);
+        UpdateRegionMousePosition(5, 5);
+        region_events.clear();
+        UpdateRegionMousePosition(25, 5);
+    }
+    REQUIRE(region_events.size() >= 2);
+    REQUIRE((region_events[0] == std::pair<int, int>{1, REGION_REASON_LOST_MOUSE}));
+    REQUIRE((region_events[1] == std::pair<int, int>{2, REGION_REASON_GAIN_MOUSE}));
+}
+void owned_region_captures_across_frames()
+{
+    RegionStateSnapshot saved_state;
+    ResetRegions();
+    const auto set = ControlRegionSetIndex();
+    TestOwnedRegionHandler handler;
+    OwnedRegion region(set, REGION_PRIORITY_NORMAL, handler);
+    region.region().flags = W8_REGION_RECTANGLE;
+    SetRegionBounds(region.index(), 10, 10, 30, 30);
+    ExclusiveRegionSet scope(set);
+
+    dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
+    REQUIRE(g_captured_region_index == region.index());
+    UpdateRegionMousePosition(100, 100);
+    REQUIRE(g_captured_region_index == region.index());
+    dispatch_mouse(InputEventType::LeftButtonUp, 100, 100);
+
+    REQUIRE(g_captured_region_index == 0);
+    REQUIRE(std::find(handler.reasons.begin(), handler.reasons.end(),
+                      REGION_REASON_LBUTTON_DWN) != handler.reasons.end());
+    REQUIRE(std::find(handler.reasons.begin(), handler.reasons.end(),
+                      REGION_REASON_LBUTTON_UP) != handler.reasons.end());
+}
+
+void modal_scope_persists_across_frames()
+{
+    RegionStateSnapshot saved_state;
+    ResetRegions();
+    const auto set = new_test_region_set();
+    const auto region = add_test_region(set, 1, 0, 0, 20, 20, 0, hover_region);
+    region_events.clear();
+
+    std::optional<ExclusiveRegionSet> scope;
+    scope.emplace(set);
+    UpdateRegionMousePosition(5, 5);
+    UpdateRegionMousePosition(5, 5);
+
+    REQUIRE(g_hover_region_index == region);
+    REQUIRE(std::count_if(region_events.begin(), region_events.end(), [](const auto& event) {
+                return event.second == REGION_REASON_GAIN_MOUSE;
+            }) == 1);
+}
+
+void modal_scope_preserves_capture_across_frames()
+{
+    RegionStateSnapshot saved_state;
+    ResetRegions();
+    const auto button_set = ControlRegionSetIndex();
+    TestOwnedRegionHandler handler;
+    OwnedRegion region(button_set, REGION_PRIORITY_NORMAL, handler);
+    region.region().flags = W8_REGION_RECTANGLE;
+    SetRegionBounds(region.index(), 10, 10, 30, 30);
+
+    std::optional<ExclusiveRegionSet> scope;
+    scope.emplace(button_set);
+    dispatch_mouse(InputEventType::LeftButtonDown, 15, 15);
+    REQUIRE(g_captured_region_index == region.index());
+    UpdateRegionMousePosition(100, 100);
+    REQUIRE(g_captured_region_index == region.index());
+    dispatch_mouse(InputEventType::LeftButtonUp, 100, 100);
+
+    REQUIRE(std::find(handler.reasons.begin(), handler.reasons.end(),
+                      REGION_REASON_LBUTTON_UP) != handler.reasons.end());
+    REQUIRE(g_captured_region_index == 0);
+}
+
+void exclusive_scopes_destroy_out_of_order()
+{
+    RegionStateSnapshot saved_state;
+    ResetRegions();
+    const auto outer_set = new_test_region_set();
+    const auto outer_region = add_test_region(outer_set, 1, 0, 0, 10, 10, 0, record_region_event);
+    const auto inner_set = new_test_region_set();
+    const auto inner_region = add_test_region(inner_set, 2, 20, 0, 30, 10, 0, record_region_event);
+    const auto fallback_set = new_test_region_set();
+    const auto fallback_region =
+        add_test_region(fallback_set, 3, 40, 0, 50, 10, 0, record_region_event);
+
+    std::optional<ExclusiveRegionSet> outer_scope;
+    std::optional<ExclusiveRegionSet> inner_scope;
+    outer_scope.emplace(outer_set);
+    UpdateRegionMousePosition(5, 5);
+    REQUIRE(g_hover_region_index == outer_region);
+    inner_scope.emplace(inner_set);
+    outer_scope.reset();
+    UpdateRegionMousePosition(25, 5);
+    REQUIRE(g_hover_region_index == inner_region);
+    inner_scope.reset();
+    REQUIRE(g_hover_region_index == 0);
+    UpdateRegionMousePosition(45, 5);
+    REQUIRE(g_hover_region_index == fallback_region);
+}
+
+void reset_regions_preserves_hidden_buttons()
+{
+    RegionStateSnapshot saved_state;
+    ResetRegions();
+    const auto button_set = ControlRegionSetIndex();
+    TestOwnedRegionHandler handler;
+    OwnedRegion region(button_set, REGION_PRIORITY_NORMAL, handler);
+    region.region().flags = W8_REGION_RECTANGLE;
+    SetRegionBounds(region.index(), 70, 70, 90, 90);
+    const auto region_index = region.index();
+    DisableRegionInput(region_index);
+    REQUIRE((g_regions[region_index].flags & W8_REGION_INPUT_DISABLED) != 0);
+
+    ResetRegions();
+
+    REQUIRE(g_region_sets[button_set].enabled == 1);
+    REQUIRE((g_regions[region_index].flags & W8_REGION_INPUT_DISABLED) != 0);
+    UpdateRegionMousePosition(75, 75);
+    REQUIRE(g_hover_region_index != region_index);
+}
+
+void later_region_set_precedes_button_set()
+{
+    RegionStateSnapshot saved_state;
+    ResetRegions();
+    const auto button_set = ControlRegionSetIndex();
+    TestOwnedRegionHandler handler;
+    OwnedRegion control(button_set, REGION_PRIORITY_NORMAL, handler);
+    control.region().flags = W8_REGION_RECTANGLE;
+    SetRegionBounds(control.index(), 100, 100, 120, 120);
+    const auto screen_set = new_test_region_set();
+    const auto screen_region =
+        add_test_region(screen_set, 7, 100, 100, 120, 120, 0, record_region_event);
+    REQUIRE(screen_set > button_set);
+    region_events.clear();
+
+    UpdateRegionMousePosition(105, 105);
+    REQUIRE(g_hover_region_index == screen_region);
+    dispatch_mouse(InputEventType::LeftButtonDown, 105, 105);
+
+    REQUIRE(std::find(region_events.begin(), region_events.end(),
+                      std::pair<int, int>{7, static_cast<int>(InputEventType::LeftButtonDown)}) != region_events.end());
+    REQUIRE(handler.reasons.empty());
+}
+
+void owned_region_move_and_teardown()
+{
+    RegionStateSnapshot saved_state;
+    ResetRegions();
+    const auto set = new_test_region_set();
+    TestOwnedRegionHandler handler;
+    ExclusiveRegionSet scope(set);
+
+    OwnedRegion owned(set, 0, handler);
+    owned.region().flags = W8_REGION_RECTANGLE;
+    SetRegionBounds(owned.index(), 10, 10, 30, 30);
+    const auto index = owned.index();
+    UpdateRegionMousePosition(15, 15);
+    REQUIRE(g_hover_region_index == index);
+    dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
+    REQUIRE(g_captured_region_index == index);
+
+    {
+        OwnedRegion moved(std::move(owned));
+        REQUIRE_FALSE(owned);
+        owned.reset();
+        REQUIRE(g_regions[index].handler == &handler);
+        REQUIRE(g_captured_region_index == index);
+        REQUIRE(g_hover_region_index == index);
+    }
+    REQUIRE(g_regions[index].handler == nullptr);
+    REQUIRE(g_captured_region_index == 0);
+    REQUIRE(g_hover_region_index == 0);
+}
+void owned_region_set_templates_and_teardown()
+{
+    constexpr int left_button_down = static_cast<int>(InputEventType::LeftButtonDown);
+    RegionStateSnapshot saved_state;
+    ResetRegions();
+
+    constexpr std::array<RegionTemplate, 3> templates{{
+        {W8_REGION_RECTANGLE, 10, 10, 30, 30, record_region_event, 11, true, 101},
+        {W8_REGION_RECTANGLE, 40, 10, 60, 30, record_region_event, 12, false, -1},
+        {W8_REGION_RECTANGLE, 70, 10, 90, 30, record_region_event, 13, true, 103},
+    }};
+
+    const auto baseline_region_count = LiveDynamicRegionCount();
+    unsigned int released_set_index;
+    {
+        std::optional<OwnedRegionSet> regions;
+        regions.emplace(templates);
+        released_set_index = regions->set();
+        REQUIRE(regions->size() == templates.size());
+        REQUIRE(g_region_sets[regions->set()].Regions().size() == templates.size());
+
+        for (std::size_t index = 0; index < templates.size(); ++index) {
+            const auto& region = (*regions)[index];
+            const auto& entry = templates[index];
+            REQUIRE(region.flags == entry.flags);
+            REQUIRE(region.x1 == entry.x1);
+            REQUIRE(region.y1 == entry.y1);
+            REQUIRE(region.x2 == entry.x2);
+            REQUIRE(region.y2 == entry.y2);
+            REQUIRE(region.callback == entry.callback);
+            REQUIRE(region.callback_id == entry.callback_id);
+            REQUIRE(region.help_enabled == entry.help_enabled);
+            REQUIRE(region.help_text_id == entry.help_text_id);
+            REQUIRE(regions->index(index) < g_regions.size());
+        }
+
+        std::optional<ExclusiveRegionSet> scope;
+        scope.emplace(regions->set());
+        regions->Enable();
+        region_events.clear();
+        dispatch_mouse(InputEventType::LeftButtonDown, 45, 15, true);
+        REQUIRE(g_captured_region_index == regions->index(1));
+        REQUIRE(std::find(region_events.begin(), region_events.end(),
+                          std::pair<int, int>{12, left_button_down}) != region_events.end());
+        dispatch_mouse(InputEventType::LeftButtonUp, 45, 15);
+
+        regions->Disable();
+        region_events.clear();
+        dispatch_mouse(InputEventType::LeftButtonDown, 45, 15, true);
+        REQUIRE(region_events.empty());
+
+        regions->Enable();
+        UpdateRegionMousePosition(45, 15);
+        REQUIRE(g_hover_region_index == regions->index(1));
+        dispatch_mouse(InputEventType::LeftButtonDown, 45, 15, true);
+        REQUIRE(g_captured_region_index == regions->index(1));
+        regions.reset();
+        REQUIRE(g_hover_region_index == 0);
+        REQUIRE(g_captured_region_index == 0);
+        scope.reset();
+    }
+
+    REQUIRE(LiveDynamicRegionCount() == baseline_region_count);
+    {
+        OwnedRegionSet reused_set(templates);
+        REQUIRE(reused_set.set() == released_set_index);
+    }
+    REQUIRE(LiveDynamicRegionCount() == baseline_region_count);
+}
+
+void region_set_views_share_owned_regions()
+{
+    constexpr int left_button_down = static_cast<int>(InputEventType::LeftButtonDown);
+    RegionStateSnapshot saved_state;
+    ResetRegions();
+
+    constexpr std::array<RegionTemplate, 3> templates{{
+        {W8_REGION_RECTANGLE, 10, 10, 30, 30, record_region_event, 21, false, -1},
+        {W8_REGION_RECTANGLE, 40, 10, 60, 30, record_region_event, 22, false, -1},
+        {W8_REGION_RECTANGLE, 70, 10, 90, 30, record_region_event, 23, false, -1},
+    }};
+
+    const auto baseline_region_count = LiveDynamicRegionCount();
+    unsigned int released_view_set;
+    {
+        OwnedRegionSet source(templates);
+        source.Disable();
+        const auto source_index = source.index(0);
+        const auto baseline_with_source = LiveDynamicRegionCount();
+        {
+            RegionSetView view(source, 0, 2);
+            released_view_set = view.set();
+            REQUIRE(g_region_sets[view.set()].Regions().size() == 2);
+            REQUIRE(g_region_sets[view.set()].Regions()[0] == source.index(0));
+            REQUIRE(g_region_sets[view.set()].Regions()[1] == source.index(1));
+
+            view.Enable();
+            region_events.clear();
+            dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
+            REQUIRE(g_captured_region_index == source.index(0));
+            REQUIRE(std::find(region_events.begin(), region_events.end(),
+                              std::pair<int, int>{21, left_button_down}) != region_events.end());
+            dispatch_mouse(InputEventType::LeftButtonUp, 15, 15);
+
+            region_events.clear();
+            dispatch_mouse(InputEventType::LeftButtonDown, 45, 15, true);
+            REQUIRE(g_captured_region_index == source.index(1));
+            REQUIRE(std::find(region_events.begin(), region_events.end(),
+                              std::pair<int, int>{22, left_button_down}) != region_events.end());
+            dispatch_mouse(InputEventType::LeftButtonUp, 45, 15);
+
+            region_events.clear();
+            dispatch_mouse(InputEventType::LeftButtonDown, 75, 15, true);
+            REQUIRE(std::none_of(region_events.begin(), region_events.end(),
+                                 [](const auto& event) { return event.first == 23; }));
+        }
+
+        {
+            RegionSetView view(source, 1, 2);
+            REQUIRE(g_region_sets[view.set()].Regions().size() == 2);
+            REQUIRE(g_region_sets[view.set()].Regions()[0] == source.index(1));
+            REQUIRE(g_region_sets[view.set()].Regions()[1] == source.index(2));
+
+            view.Enable();
+            region_events.clear();
+            dispatch_mouse(InputEventType::LeftButtonDown, 45, 15, true);
+            REQUIRE(std::find(region_events.begin(), region_events.end(),
+                              std::pair<int, int>{22, left_button_down}) != region_events.end());
+            dispatch_mouse(InputEventType::LeftButtonUp, 45, 15);
+
+            region_events.clear();
+            dispatch_mouse(InputEventType::LeftButtonDown, 75, 15, true);
+            REQUIRE(std::find(region_events.begin(), region_events.end(),
+                              std::pair<int, int>{23, left_button_down}) != region_events.end());
+            dispatch_mouse(InputEventType::LeftButtonUp, 75, 15);
+
+            region_events.clear();
+            dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
+            REQUIRE(std::none_of(region_events.begin(), region_events.end(),
+                                 [](const auto& event) { return event.first == 21; }));
+        }
+        REQUIRE(LiveDynamicRegionCount() == baseline_with_source);
+
+        REQUIRE(source.index(0) == source_index);
+        REQUIRE(source[0].callback == record_region_event);
+        REQUIRE(source[0].callback_id == 21);
+        REQUIRE(LiveDynamicRegionCount() == baseline_with_source);
+
+        source.Enable();
+        region_events.clear();
+        dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
+        REQUIRE(std::find(region_events.begin(), region_events.end(),
+                          std::pair<int, int>{21, left_button_down}) != region_events.end());
+        dispatch_mouse(InputEventType::LeftButtonUp, 15, 15);
+
+        {
+            RegionSetView reused_view(source, 0, 2);
+            REQUIRE(reused_view.set() == released_view_set);
+        }
+        REQUIRE(LiveDynamicRegionCount() == baseline_with_source);
+    }
+
+    REQUIRE(LiveDynamicRegionCount() == baseline_region_count);
+}
+
+void screen_region_set_lifecycle()
+{
+    RegionStateSnapshot saved_state;
+    ResetRegions();
+
+    constexpr std::array<RegionTemplate, 1> templates{{
+        {W8_REGION_RECTANGLE, 10, 10, 30, 30, record_region_event, 31, false, -1},
+    }};
+
+    const auto baseline_region_count = LiveDynamicRegionCount();
+    ScreenRegionSet regions{templates};
+    regions.Enable();
+    regions.Disable();
+    regions.EnableInput();
+    regions.DisableInput();
+    REQUIRE_FALSE(regions);
+
+    regions.Create();
+    REQUIRE(regions);
+    const auto set = regions->set();
+    const auto region_index = regions->index(0);
+    REQUIRE(LiveDynamicRegionCount() == baseline_region_count + 1);
+
+    regions.Create();
+    REQUIRE(regions->set() == set);
+    REQUIRE(regions->index(0) == region_index);
+
+    regions.Disable();
+    REQUIRE_FALSE(regions->IsEnabled());
+    regions.Enable();
+    REQUIRE(regions->IsEnabled());
+    regions.Destroy();
+    REQUIRE_FALSE(regions);
+    REQUIRE(LiveDynamicRegionCount() == baseline_region_count);
+}
+
+void widget_owned_regions_release_with_widget()
+{
+    RegionStateSnapshot saved_state;
+    ResetRegions();
+    const auto baseline_region_count = LiveDynamicRegionCount();
+    const auto baseline_set_count = LiveRegionSetCount();
+    {
+        Controls panel;
+        panel.CreateRegionSet();
+        auto widget = std::make_unique<W8Widget>();
+        widget->SetPanel(panel);
+        REQUIRE(LiveDynamicRegionCount() == baseline_region_count + 1);
+        REQUIRE(LiveRegionSetCount() == baseline_set_count + 1);
+    }
+    REQUIRE(LiveDynamicRegionCount() == baseline_region_count);
+    REQUIRE(LiveRegionSetCount() == baseline_set_count);
+}
+
+void input_sink_capture_can_be_released()
+{
+    RegionStateSnapshot saved_state;
+    ResetRegions();
+    CaptureInputSink();
+    const auto sink_index = g_captured_region_index;
+    REQUIRE(sink_index != 0);
+    ReleaseInputSinkCapture();
+    REQUIRE(g_captured_region_index == 0);
+
+    // The released sink must not keep swallowing clicks at its zero-sized origin.
+    constexpr std::array<RegionTemplate, 1> origin_templates{{
+        {W8_REGION_RECTANGLE, 0, 0, 5, 5, record_region_event, 42, false, -1},
+    }};
+    OwnedRegionSet origin{origin_templates};
+    origin.Enable();
+    REQUIRE(FindRegionAtPoint(0, 0) == origin.index(0));
+
+    constexpr std::array<RegionTemplate, 1> templates{{
+        {W8_REGION_RECTANGLE, 10, 10, 30, 30, record_region_event, 41, false, -1},
+    }};
+    OwnedRegionSet other{templates};
+    other.Enable();
+    ActivateDialogRegion(other.index(0));
+    REQUIRE(g_captured_region_index == other.index(0));
+    ReleaseInputSinkCapture();
+    REQUIRE(g_captured_region_index == other.index(0));
+    ClearActiveRegionIfMatches(other.index(0));
+}
+
+void region_set_order_beats_creation_order()
+{
+    RegionStateSnapshot saved_state;
+    ResetRegions();
+    constexpr std::array<RegionTemplate, 1> templates{{
+        {W8_REGION_RECTANGLE, 10, 10, 30, 30, record_region_event, 51, false, -1},
+    }};
+
+    ScreenRegionSet later{templates, 0x20};
+    ScreenRegionSet earlier{templates, 0x10};
+    later.Create();
+    earlier.Create();
+    later.Enable();
+    earlier.Enable();
+    REQUIRE(FindRegionAtPoint(20, 20) == earlier->index(0));
+
+    // Dynamic sets rank behind every retail-ordered set.
+    earlier.Destroy();
+    auto dynamic_first = std::make_unique<OwnedRegionSet>(templates);
+    dynamic_first->Enable();
+    REQUIRE(FindRegionAtPoint(20, 20) == later->index(0));
+    later.Destroy();
+    REQUIRE(FindRegionAtPoint(20, 20) == dynamic_first->index(0));
+
+    // Dynamic sets keep creation order even when a released slot is reused.
+    OwnedRegionSet dynamic_second{templates};
+    dynamic_second.Enable();
+    REQUIRE(FindRegionAtPoint(20, 20) == dynamic_first->index(0));
+    const auto recycled_set = dynamic_first->set();
+    dynamic_first.reset();
+    OwnedRegionSet dynamic_third{templates};
+    dynamic_third.Enable();
+    REQUIRE(dynamic_third.set() == recycled_set);
+    REQUIRE(FindRegionAtPoint(20, 20) == dynamic_second.index(0));
+}
+
+void stale_exclusive_scope_blocks_reused_set_slot()
+{
+    RegionStateSnapshot saved_state;
+    ResetRegions();
+    constexpr std::array<RegionTemplate, 1> templates{{
+        {W8_REGION_RECTANGLE, 10, 10, 30, 30, record_region_event, 52, false, -1},
+    }};
+    auto modal = std::make_unique<OwnedRegionSet>(templates);
+    modal->Enable();
+    ExclusiveRegionSet scope(modal->set());
+    REQUIRE(FindRegionAtPoint(20, 20) == modal->index(0));
+
+    const auto modal_set = modal->set();
+    modal.reset();
+    OwnedRegionSet replacement{templates};
+    replacement.Enable();
+    REQUIRE(replacement.set() == modal_set);
+    REQUIRE(FindRegionAtPoint(20, 20) == 0);
 }
 
 void region_registration_and_callback_lifetimes()
 {
-    REQUIRE(MSYS_Init());
-    MOUSE_REGION first{}, latest{}, temporary{};
-    MSYS_DefineRegion(&first, 0, 0, 40, 40, MSYS_PRIORITY_NORMAL, nullptr, region_click);
-    const auto first_id = first.IDNumber;
-    for (unsigned registration = 0; registration < 65536; ++registration) {
-        MSYS_DefineRegion(&temporary, 0, 0, 40, 40, MSYS_PRIORITY_NORMAL, nullptr, region_click);
-        REQUIRE((temporary.IDNumber != 0 && temporary.IDNumber != first_id));
-        MSYS_RemoveRegion(&temporary);
+    const auto set = new_test_region_set();
+    const auto first = add_test_region(set, 1, 0, 0, 40, 40, 0, record_region_event);
+    const auto latest = add_test_region(set, 2, 0, 0, 40, 40, 0, record_region_event);
+    {
+        ExclusiveRegionSet scope(set);
+        region_events.clear();
+        dispatch_mouse(InputEventType::LeftButtonDown, 10, 10);
     }
-    MSYS_DefineRegion(&latest, 0, 0, 40, 40, MSYS_PRIORITY_NORMAL, nullptr, region_click);
-    MSYS_SGP_Mouse_Handler_Hook(LEFT_BUTTON_DOWN, 10, 10, true, false);
-    REQUIRE(clicked_region == &latest);
-    MSYS_SGP_Mouse_Handler_Hook(LEFT_BUTTON_UP, 10, 10, false, false);
-    MSYS_RemoveRegion(&latest);
-    MSYS_DefineRegion(&temporary, 0, 0, 40, 40, MSYS_PRIORITY_HIGH, remove_on_move, region_click);
-    MSYS_SGP_Mouse_Handler_Hook(MOUSE_POS, 11, 11, false, false);
-    REQUIRE(!(temporary.uiFlags & MSYS_REGION_EXISTS));
-    MSYS_SGP_Mouse_Handler_Hook(LEFT_BUTTON_DOWN, 11, 11, true, false);
-    REQUIRE(clicked_region == &first);
-    MSYS_SGP_Mouse_Handler_Hook(LEFT_BUTTON_UP, 11, 11, false, false);
-    MSYS_RemoveRegion(&first);
-
-    char label[] = "nested";
-    nested_outer = CreateTextButton(label, 0, 0, 0, -1, 0, 0, 40, 20,
-                                   BUTTON_TOGGLE, MSYS_PRIORITY_NORMAL, nullptr, nested_click);
-    nested_inner = CreateTextButton(label, 0, 0, 0, -1, 0, 20, 40, 20,
-                                   BUTTON_TOGGLE, MSYS_PRIORITY_NORMAL, nullptr, nested_click);
-    REQUIRE((nested_outer >= 0 && nested_inner >= 0));
-    QuickButtonCallbackMButn(&ButtonList[nested_outer]->Area, MSYS_CALLBACK_REASON_LBUTTON_DWN);
-    REQUIRE((!ButtonList[nested_outer] && !ButtonList[nested_inner]));
-    for (const bool disabled : {false, true}) {
-        const auto id = CreateTextButton(label, 0, 0, 0, -1, 0, 0, 40, 20,
-                                        BUTTON_TOGGLE, MSYS_PRIORITY_NORMAL,
-                                        remove_button_on_callback, remove_button_on_callback);
-        REQUIRE(id >= 0);
-        if (disabled) {
-            ButtonList[id]->uiFlags &= ~BUTTON_ENABLED;
-            ButtonList[id]->uiFlags |= BUTTON_ALLOW_DISABLED_CALLBACK;
-            QuickButtonCallbackMButn(&ButtonList[id]->Area, MSYS_CALLBACK_REASON_LBUTTON_DWN);
-        } else {
-            QuickButtonCallbackMMove(&ButtonList[id]->Area, MSYS_CALLBACK_REASON_GAIN_MOUSE);
-        }
-        REQUIRE(!ButtonList[id]);
+    REQUIRE(region_events.front().first == 1);
+    RemoveRegionFromSet(set, first);
+    region_events.clear();
+    {
+        ExclusiveRegionSet scope(set);
+        dispatch_mouse(InputEventType::LeftButtonDown, 10, 10);
     }
-    MSYS_Shutdown();
-    REQUIRE(MSYS_Init());
-    MSYS_Shutdown();
+    REQUIRE(region_events.front().first == 2);
+    RemoveRegionFromSet(set, latest);
 }
-
-void buttons_and_regions()
+void owned_regions_honor_priority()
 {
-    REQUIRE(MSYS_Init());
-    MOUSE_REGION low{}, high{};
-    MSYS_DefineRegion(&low, 0, 0, 40, 40, MSYS_PRIORITY_LOW, nullptr, region_click);
-    MSYS_DefineRegion(&high, 0, 0, 20, 20, MSYS_PRIORITY_HIGH, nullptr, region_click);
-    MSYS_SGP_Mouse_Handler_Hook(LEFT_BUTTON_DOWN, 10, 10, true, false);
-    REQUIRE(clicked_region == &high);
-    MSYS_SGP_Mouse_Handler_Hook(LEFT_BUTTON_UP, 10, 10, false, false);
-    MSYS_SGP_Mouse_Handler_Hook(LEFT_BUTTON_DOWN, 30, 30, true, false);
-    REQUIRE(clicked_region == &low);
-    MSYS_SGP_Mouse_Handler_Hook(LEFT_BUTTON_UP, 30, 30, false, false);
-    MSYS_SetRegionUserData(&low, 0, 17);
-    REQUIRE(MSYS_GetRegionUserData(&low, 0) == 17);
-    REQUIRE(MSYS_GrabMouse(&high) == MSYS_GRABBED_OK);
-    MSYS_ReleaseMouse(&high);
-    ButtonList[0] = std::make_unique<GUI_BUTTON>();
-    auto& button = *ButtonList[0];
-    button.IDNum = 0;
-    button.ClickCallback = click;
-    button.uiFlags = BUTTON_ENABLED | BUTTON_CLICK_CALLBACK;
-    QuickButtonCallbackMButn(&button.Area, MSYS_CALLBACK_REASON_LBUTTON_DWN);
-    REQUIRE((clicks == 1 && click_reason == MSYS_CALLBACK_REASON_LBUTTON_DWN));
-    button.uiFlags &= ~BUTTON_ENABLED;
-    QuickButtonCallbackMButn(&button.Area, MSYS_CALLBACK_REASON_LBUTTON_DWN);
-    REQUIRE(clicks == 1);
-    button.uiFlags |= BUTTON_ALLOW_DISABLED_CALLBACK;
-    QuickButtonCallbackMButn(&button.Area, MSYS_CALLBACK_REASON_LBUTTON_DWN);
-    REQUIRE((clicks == 2 && (click_reason & BUTTON_DISABLED_CALLBACK)));
-    button.uiFlags = BUTTON_ENABLED;
-    QuickButtonCallbackMButn(&button.Area, MSYS_CALLBACK_REASON_LBUTTON_DWN);
-    REQUIRE(button.uiFlags & BUTTON_CLICKED_ON);
-    button.uiFlags = BUTTON_ENABLED | BUTTON_CHECKBOX | BUTTON_CLICK_CALLBACK;
-    QuickButtonCallbackMButn(&button.Area, MSYS_CALLBACK_REASON_LBUTTON_DWN);
-    REQUIRE(!(button.uiFlags & BUTTON_CLICKED_ON));
-    QuickButtonCallbackMButn(&button.Area, MSYS_CALLBACK_REASON_LBUTTON_UP);
-    REQUIRE(button.uiFlags & BUTTON_CLICKED_ON);
-    REQUIRE(gpAnchoredButton == &button);
-    gpAnchoredButton = nullptr;
-    ButtonList[0] = nullptr;
-    for (unsigned repeat = 0; repeat < 32; ++repeat) {
-        char label[] = "owned button";
-        const auto id = CreateTextButton(label, 0, 0, 0, -1, 0, 0, 40, 20,
-                                         BUTTON_TOGGLE, MSYS_PRIORITY_NORMAL, nullptr, click);
-        REQUIRE(id >= 0);
-        auto* owned = ButtonList[id].get();
-        REQUIRE((owned && owned->string[0] == 'o'));
-        label[0] = 'x';
-        REQUIRE(owned->string[0] == 'o');
-        SpecifyButtonText(id, owned->string);
-        REQUIRE((ButtonList[id].get() == owned && owned->string[0] == 'o'));
-        char tooltip[] = "tooltip";
-        SetButtonFastHelpText(id, tooltip);
-        tooltip[0] = 'x';
-        REQUIRE(owned->Area.FastHelpText[0] == 't');
-        SetButtonFastHelpText(id, owned->Area.FastHelpText);
-        REQUIRE(owned->Area.FastHelpText[0] == 't');
-        SetButtonFastHelpText(id, {});
-        REQUIRE(owned->Area.FastHelpText.empty());
-        SetButtonFastHelpText(id, label);
-        SpecifyButtonText(id, {});
-        REQUIRE(owned->string.empty());
-        RemoveButton(id);
-        REQUIRE(!ButtonList[id]);
-    }
-    MSYS_RemoveRegion(&high);
-    MSYS_RemoveRegion(&low);
-    MSYS_Shutdown();
+    RegionStateSnapshot saved_state;
+    ResetRegions();
+    const auto set = ControlRegionSetIndex();
+    TestOwnedRegionHandler low_handler;
+    TestOwnedRegionHandler high_handler;
+    OwnedRegion low(set, REGION_PRIORITY_LOW, low_handler);
+    OwnedRegion high(set, REGION_PRIORITY_HIGH, high_handler);
+    low.region().flags = high.region().flags = W8_REGION_RECTANGLE;
+    SetRegionBounds(low.index(), 0, 0, 40, 40);
+    SetRegionBounds(high.index(), 0, 0, 20, 20);
+
+    ExclusiveRegionSet scope(set);
+    dispatch_mouse(InputEventType::MouseMove, 10, 10);
+    REQUIRE(g_hover_region_index == high.index());
+    dispatch_mouse(InputEventType::LeftButtonDown, 10, 10, true);
+    REQUIRE(g_captured_region_index == high.index());
+    REQUIRE(high_handler.reasons.back() == REGION_REASON_LBUTTON_DWN);
+    REQUIRE(low_handler.reasons.empty());
+    dispatch_mouse(InputEventType::LeftButtonUp, 10, 10);
+    REQUIRE(g_captured_region_index == 0);
 }
 
 void image_and_sprite_ownership()
 {
-    REQUIRE(InitializeVideoObjectManager());
-    image_type image{};
-    image.ubBitDepth = 8;
-    image.fFlags = IMAGE_TRLECOMPRESSED | IMAGE_BITMAPDATA | IMAGE_PALETTE;
-    image.pPalette = std::make_unique<SGPPaletteEntry[]>(256);
-    image.pPalette[1] = {255, 0, 0, 0};
-    image.pImageData.resize(3);
-    image.pImageData[0] = 1;
-    image.pImageData[1] = 1;
-    image.pETRLEObject.resize(1);
-    image.pETRLEObject[0] = {0, 3, 0, 0, 1, 1};
+    SpriteSheet image;
+    image.palette[1] = {255, 0, 0, 0};
+    image.colors = Create16BPPPalette(image.palette);
+    image.frames.resize(1);
+    image.frames[0].indices = {1};
+    image.frames[0].width = image.frames[0].height = 1;
 
-    VOBJECT_DESC desc{};
-    desc.fCreateFlags = VOBJECT_CREATE_FROMHIMAGE;
-    desc.hImage = &image;
-    std::array<UINT32, 64> ids{};
-    std::array<HVOBJECT, 64> views{};
-    for (unsigned i = 0; i < ids.size(); ++i) {
-        REQUIRE(AddVideoObject(&desc, &ids[i]));
-        REQUIRE(GetVideoObject(&views[i], ids[i]));
-        REQUIRE((views[i]->sprites.size() == 1 && views[i]->sprites[0].pixels.size() == 1));
-        REQUIRE(reinterpret_cast<const UINT8*>(views[i]->sprites[0].pixels.data()) !=
-              image.pImageData.data());
-        REQUIRE(views[i]->pPaletteEntry.get() != image.pPalette.get());
-        (void)CreateObjectPaletteTables(views[i], HVOBJECT_GLOW_GREEN);
-        REQUIRE((views[i]->pShades[0] && views[i]->pShades[15]));
-        REQUIRE(views[i]->pShades[4].get() == views[i]->ownedPalette.get());
-        REQUIRE(SetObjectShade(views[i], 6));
-        auto retained = views[i]->pShades[4];
-        REQUIRE(SetVideoObjectPalette(views[i], image.pPalette.get()));
-        REQUIRE((retained && views[i]->ownedPalette.get() != retained.get()));
-        REQUIRE(views[i]->pShades[4] == views[i]->ownedPalette);
-        REQUIRE(SetObjectShade(views[i], 4));
-        (void)CreateObjectPaletteTables(views[i], HVOBJECT_GLOW_RED);
-        REQUIRE(views[i]->pShadeCurrent == views[i]->pShades[4].get());
+    std::array<std::unique_ptr<SpriteSheet>, 64> objects{};
+    for (unsigned i = 0; i < objects.size(); ++i) {
+        objects[i] = std::make_unique<SpriteSheet>(image);
+        REQUIRE(objects[i]);
+        REQUIRE((objects[i]->frames.size() == 1 && objects[i]->frames[0].indices.size() == 1));
+        REQUIRE(objects[i]->frames[0].indices.data() != image.frames[0].indices.data());
+        REQUIRE(objects[i]->palette.data() != image.palette.data());
+        REQUIRE(objects[i]->colors.data() != image.colors.data());
     }
-    image.pImageData[1] = 2;
-    image.pETRLEObject[0].usWidth = 2;
-    REQUIRE((views[0]->sprites[0].pixels[0] == 1 && views[0]->sprites[0].usWidth == 1));
-    image.pETRLEObject[0].uiDataOffset = 0xffffffffu;
-    REQUIRE(!CreateVideoObject(&desc));
-    REQUIRE((image.pImageData[1] == 2 && image.pETRLEObject[0].uiDataOffset == 0xffffffffu));
+    image.frames[0].indices[0] = 2;
+    image.frames[0].width = 2;
+    REQUIRE((objects[0]->frames[0].paletteIndexAt(0, 0) == 1 &&
+             objects[0]->frames[0].width == 1));
+    const auto* owned_pixels = image.frames[0].indices.data();
+    SpriteSheet moved(std::move(image));
+    REQUIRE(moved.frames[0].indices.data() == owned_pixels);
+    REQUIRE(moved.frames[0].paletteIndexAt(0, 0) == 2);
     image = {};
-    REQUIRE((image.pImageData.empty() && !image.pPalette && image.pETRLEObject.empty()));
-    for (auto id : {ids[0], ids[31], ids[63]}) {
-        REQUIRE(DeleteVideoObjectFromIndex(id));
-        HVOBJECT missing = nullptr;
-        REQUIRE(!GetVideoObject(&missing, id));
+    REQUIRE(image.frames.empty());
+    for (unsigned index : {0u, 31u, 63u}) {
+        objects[index].reset();
     }
-    HVOBJECT surviving = nullptr;
-    REQUIRE((GetVideoObject(&surviving, ids[32]) && surviving == views[32]));
-    REQUIRE((surviving->sprites[0].pixels[0] == 1 && surviving->sprites[0].usWidth == 1));
-    UINT16 borrowed[256]{};
-    surviving->p16BPPPalette = borrowed;
-    REQUIRE(DestroyObjectPaletteTables(surviving));
-    REQUIRE((!surviving->ownedPalette && !surviving->p16BPPPalette));
-    for (const auto& shade : surviving->pShades) REQUIRE(!shade);
-    REQUIRE(ShutdownVideoObjectManager());
-    REQUIRE((InitializeVideoObjectManager() && ShutdownVideoObjectManager()));
+    auto& surviving = *objects[32];
+    REQUIRE((surviving.frames[0].paletteIndexAt(0, 0) == 1 &&
+             surviving.frames[0].width == 1));
+    std::vector<SDLSurfaceOwner> surfaces;
+    surfaces.reserve(64);
+    for (unsigned index = 0; index < 64; ++index) {
+        surfaces.push_back(CreateCpuStorage(8, 8, SDL_PIXELFORMAT_RGB565));
+        REQUIRE(surfaces.back());
+    }
+    auto& surviving_surface = *surfaces[32];
+    for (unsigned index : {0u, 31u, 63u})
+        surfaces[index].reset();
+    REQUIRE(surviving_surface.w == 8);
 
-    VSURFACE_DESC surface_desc{};
-    surface_desc.fCreateFlags = VSURFACE_CREATE_DEFAULT;
-    surface_desc.usWidth = 8;
-    surface_desc.usHeight = 8;
-    surface_desc.ubBitDepth = 16;
-    std::array<HVSURFACE, 64> surfaces{};
-    for (unsigned i = 0; i < ids.size(); ++i) {
-        REQUIRE(AddVideoSurface(&surface_desc, &ids[i]));
-        REQUIRE(GetVideoSurface(&surfaces[i], ids[i]));
-    }
-    for (auto id : {ids[0], ids[31], ids[63]}) {
-        REQUIRE(DeleteVideoSurfaceFromIndex(id));
-        HVSURFACE missing = nullptr;
-        REQUIRE(!GetVideoSurface(&missing, id));
-    }
-    HVSURFACE surface = nullptr;
-    REQUIRE((GetVideoSurface(&surface, ids[32]) && surface == surfaces[32]));
-    REQUIRE((surface->surface && surface->usWidth == 8));
-    REQUIRE(ShutdownVideoSurfaceManager());
 }
 
-void font_table_ownership()
+void font_resource_ownership()
 {
+    initialize_test_framebuffer();
     for (unsigned repeat = 0; repeat < 32; ++repeat) {
         auto translation = CreateEnglishTransTable();
         REQUIRE(translation.size() == 252);
-        REQUIRE(InitializeFontManager(translation));
+        ConfigureFontRendering(translation);
         translation[1] = '?';
         REQUIRE(GetIndex('B') == 1);
         translation = {};
         REQUIRE(GetIndex('B') == 1);
-        REQUIRE(InitializeFontManager(CreateEnglishTransTable()));
+        ConfigureFontRendering(CreateEnglishTransTable());
         REQUIRE(GetIndex('Z') == 25);
-        ShutdownFontManager();
-        ShutdownFontManager();
+        ResetFontRendering();
+        ResetFontRendering();
     }
 }
 
 void text_input_ownership()
 {
-    MSYS_Init();
+    Font font{};
     for (unsigned repeat = 0; repeat < 32; ++repeat) {
-        InitTextInputMode();
-        const auto first = AddTextInputField(0, 0, 80, 20, MSYS_PRIORITY_NORMAL,
+        InitTextInputMode(font);
+        const auto first = AddTextInputField(0, 0, 80, 20, REGION_PRIORITY_NORMAL,
                                              "alpha", 32, 0, 0);
-        const auto middle = AddTextInputField(0, 20, 80, 20, MSYS_PRIORITY_NORMAL,
+        const auto middle = AddTextInputField(0, 20, 80, 20, REGION_PRIORITY_NORMAL,
                                               "beta", 32, 0, 0);
-        const auto last = AddTextInputField(0, 40, 80, 20, MSYS_PRIORITY_NORMAL,
+        const auto last = AddTextInputField(0, 40, 80, 20, REGION_PRIORITY_NORMAL,
                                             "gamma", 32, 0, 0);
         REQUIRE((first == 0 && middle == 1 && last == 2));
         std::string text;
         text = GetTextFromField(first);
         REQUIRE((text[0] == 'a' && GetTextInputFieldByteLength(first) == 5));
+        if (repeat == 0) {
+            const auto field_region = std::find_if(
+                g_regions.begin(), g_regions.end(),
+                [](const W8Region& region) {
+                    return region.text_field != nullptr && region.y1 == 0;
+                });
+            REQUIRE(field_region != g_regions.end());
+            const auto region_index =
+                static_cast<unsigned int>(field_region - g_regions.begin());
+            ExclusiveRegionSet scope(ControlRegionSetIndex());
+            dispatch_mouse(InputEventType::LeftButtonDown, 5, 5);
+            REQUIRE(g_captured_region_index == region_index);
+            dispatch_mouse(InputEventType::LeftButtonUp, 100, 100);
+            REQUIRE(g_captured_region_index == 0);
+        }
         RemoveTextInputField(middle);
         REQUIRE(GetTextInputFieldByteLength(last) == 5);
-        InitTextInputMode();
-        REQUIRE(AddTextInputField(0, 0, 80, 20, MSYS_PRIORITY_NORMAL,
+        InitTextInputMode(font);
+        REQUIRE(AddTextInputField(0, 0, 80, 20, REGION_PRIORITY_NORMAL,
                                 "inner", 32, 0, 0) == 0);
         KillTextInputMode();
         text = GetTextFromField(first);
         REQUIRE((text[0] == 'a' && GetTextInputFieldByteLength(last) == 5));
-        REQUIRE(AddTextInputField(0, 60, 80, 20, MSYS_PRIORITY_NORMAL,
+        REQUIRE(AddTextInputField(0, 60, 80, 20, REGION_PRIORITY_NORMAL,
                                 "delta", 32, 0, 0) == 3);
         RemoveTextInputField(first);
         RemoveTextInputField(3);
         RemoveTextInputField(last);
         KillTextInputMode();
         REQUIRE(GetActiveTextInputField() == -1);
-        InitTextInputMode();
+        InitTextInputMode(font);
         KillTextInputMode();
     }
-    MSYS_Shutdown();
 }
 
 void formatted_strings()
@@ -514,8 +1032,78 @@ void formatted_strings()
     REQUIRE(std::string("100% literal") == "100% literal");
 }
 
-void button_image_fixture(const std::filesystem::path& root, std::string name, unsigned count = 9,
-                           bool app_data = false)
+void button_image_fixture(const std::filesystem::path& root, std::string name, unsigned count,
+                          bool app_data, unsigned width, unsigned height,
+                          std::array<std::uint8_t, 5> frame_palette_indices,
+                          short offset_x, short offset_y)
+{
+    REQUIRE((width > 0 && width < 128 && height > 0));
+    std::replace(name.begin(), name.end(), '\\', '/');
+    const auto path = root / name;
+    std::filesystem::create_directories(path.parent_path());
+    std::ofstream file(path, std::ios::binary);
+    const auto write = [&file](const void* data, size_t size) {
+        file.write(static_cast<const char*>(data), size);
+        REQUIRE(file.good());
+    };
+    STCIHeader header{};
+    memcpy(header.cID, STCI_ID_STRING, STCI_ID_LEN);
+    const unsigned image_size = (width + 2) * height;
+    header.uiOriginalSize = count * width * height;
+    header.uiStoredSize = count * image_size;
+    header.fFlags = STCI_INDEXED | STCI_ETRLE_COMPRESSED;
+    header.usWidth = width;
+    header.usHeight = height;
+    header.Indexed.uiNumberOfColours = 256;
+    header.Indexed.usNumberOfSubImages = count;
+    header.ubDepth = 8;
+    header.uiAppDataSize = app_data ? 4 : 0;
+    write(&header, STCI_HEADER_SIZE);
+    std::array<STCIPaletteElement, 256> palette{};
+    if (frame_palette_indices[0]) {
+        const std::array<SDL_Color, 5> colors{{
+            {255, 0, 0, SDL_ALPHA_OPAQUE},
+            {0, 255, 0, SDL_ALPHA_OPAQUE},
+            {0, 0, 255, SDL_ALPHA_OPAQUE},
+            {255, 255, 255, SDL_ALPHA_OPAQUE},
+            {255, 255, 0, SDL_ALPHA_OPAQUE},
+        }};
+        for (std::size_t index = 0; index < colors.size(); ++index) {
+            auto& entry = palette[frame_palette_indices[index]];
+            entry.ubRed = colors[index].r;
+            entry.ubGreen = colors[index].g;
+            entry.ubBlue = colors[index].b;
+        }
+    } else {
+        palette[1].ubRed = 255;
+    }
+    write(palette.data(), STCI_8BIT_PALETTE_SIZE);
+    std::vector<STCISubImage> regions(count);
+    for (unsigned index = 0; index < count; ++index) {
+        regions[index].uiDataOffset = index * image_size;
+        regions[index].uiDataLength = image_size;
+        regions[index].sOffsetX = offset_x;
+        regions[index].sOffsetY = offset_y;
+        regions[index].usWidth = width;
+        regions[index].usHeight = height;
+    }
+    write(regions.data(), regions.size() * sizeof(STCISubImage));
+    std::vector<std::uint8_t> pixels(width + 2, 1);
+    pixels.front() = width;
+    pixels.back() = 0;
+    for (unsigned index = 0; index < count; ++index) {
+        if (frame_palette_indices[0])
+            pixels[1] = frame_palette_indices[index % frame_palette_indices.size()];
+        for (unsigned row = 0; row < height; ++row)
+            write(pixels.data(), pixels.size());
+    }
+    if (app_data) {
+        const std::uint8_t bytes[]{7, 8, 9, 10};
+        write(bytes, sizeof(bytes));
+    }
+}
+
+void bitmap_image_fixture(const std::filesystem::path& root, std::string name)
 {
     std::replace(name.begin(), name.end(), '\\', '/');
     const auto path = root / name;
@@ -527,88 +1115,83 @@ void button_image_fixture(const std::filesystem::path& root, std::string name, u
     };
     STCIHeader header{};
     memcpy(header.cID, STCI_ID_STRING, STCI_ID_LEN);
-    header.uiOriginalSize = count;
-    header.uiStoredSize = count * 3;
-    header.fFlags = STCI_INDEXED | STCI_ETRLE_COMPRESSED;
-    header.usWidth = header.usHeight = 1;
+    header.uiOriginalSize = 2;
+    header.uiStoredSize = 2;
+    header.fFlags = STCI_INDEXED;
+    header.usWidth = 2;
+    header.usHeight = 1;
     header.Indexed.uiNumberOfColours = 256;
-    header.Indexed.usNumberOfSubImages = count;
     header.ubDepth = 8;
-    header.uiAppDataSize = app_data ? 4 : 0;
     write(&header, STCI_HEADER_SIZE);
     std::array<STCIPaletteElement, 256> palette{};
     palette[1].ubRed = 255;
     write(palette.data(), STCI_8BIT_PALETTE_SIZE);
-    std::vector<STCISubImage> regions(count);
-    for (unsigned index = 0; index < count; ++index) {
-        regions[index].uiDataOffset = index * 3;
-        regions[index].uiDataLength = 3;
-        regions[index].usWidth = regions[index].usHeight = 1;
-    }
-    write(regions.data(), regions.size() * sizeof(STCISubImage));
-    for (unsigned index = 0; index < count; ++index) {
-        const UINT8 pixels[]{1, 1, 0};
-        write(pixels, sizeof(pixels));
-    }
-    if (app_data) {
-        const UINT8 bytes[]{7, 8, 9, 10};
-        write(bytes, sizeof(bytes));
-    }
+    const std::uint8_t pixels[]{0, 1};
+    write(pixels, sizeof(pixels));
 }
+
+std::uint16_t surface_pixel(const SDL_Surface& surface, int x, int y)
+{
+    const auto* row = reinterpret_cast<const std::uint16_t*>(
+        static_cast<const std::uint8_t*>(surface.pixels) + y * surface.pitch);
+    return row[x];
+}
+
+class CatalogArtworkAssets {
+public:
+    CatalogArtworkAssets()
+        : previous_roots_(w8_native::path_roots())
+    {
+        const auto assets = directory_.path / "assets";
+        button_image_fixture(assets, "Data/Main Interface/main_scroll.sti", 12, false, 4, 2, {}, 2, 3);
+        bitmap_image_fixture(assets, "Data/Portraits/Large/Lhummf.sti");
+        g_image_assets.clear();
+        w8_native::configure_paths({assets.string(), (directory_.path / "user").string(), {}});
+    }
+
+    ~CatalogArtworkAssets()
+    {
+        g_image_assets.clear();
+        w8_native::configure_paths(previous_roots_);
+    }
+
+private:
+    ScopedTemporaryDirectory directory_{"wiz8-catalog-artwork"};
+    w8_native::Roots previous_roots_;
+};
 
 void generic_button_images()
 {
-    const std::filesystem::path root = make_temporary_directory("wiz8-button-images");
+    initialize_test_framebuffer();
+    RegionStateSnapshot saved_regions;
+    ResetRegions();
+    ScopedTemporaryDirectory temporary{"wiz8-button-images"};
+    const auto& root = temporary.path;
     const auto assets = root / "assets";
-    button_image_fixture(assets, DEFAULT_GENERIC_BUTTON_OFF);
-    button_image_fixture(assets, "button.sti");
+    button_image_fixture(assets, std::string(DEFAULT_GENERIC_BUTTON_OFF));
+    button_image_fixture(assets, "button.sti", 9, false, 1, 1, {1, 2, 3, 4, 5});
     button_image_fixture(assets, "short.sti", 8);
-    w8_native::configure_paths({assets.string(), (root / "user").string(), {"", "", ""}});
+    g_image_assets.clear();
+    ScopedAssetRoots scoped_roots{{assets.string(), (root / "user").string(), {"", "", ""}}};
 
     button_image_fixture(assets, "metadata.sti", 3, true);
     {
-        char filename[] = "metadata.sti";
-        std::unique_ptr<image_type> image(CreateImage(filename, IMAGE_ALLDATA));
-        REQUIRE((image && image->pImageData.size() == 9 && image->pETRLEObject.size() == 3));
-        auto* pixels = image->pImageData.data();
-        auto* palette = image->pPalette.get();
-        REQUIRE(LoadImageData(image.get(), IMAGE_APPDATA));
-        REQUIRE((image->pImageData.data() == pixels && image->pPalette.get() == palette));
-        REQUIRE((image->pAppData.size() == 4 && image->pAppData[0] == 7 && image->pAppData[3] == 10));
-        auto* app = image->pAppData.data();
-        REQUIRE(LoadImageData(image.get(), IMAGE_PALETTE));
-        REQUIRE((image->pImageData.data() == pixels && image->pAppData.data() == app));
-        REQUIRE((image->pPalette.get() != palette && image->pPalette[1].peRed == 255));
-        palette = image->pPalette.get();
-        REQUIRE(LoadImageData(image.get(), IMAGE_BITMAPDATA));
-        REQUIRE((image->pPalette.get() == palette && image->pAppData.data() == app));
-        REQUIRE((image->pImageData[1] == 1 && image->pETRLEObject.size() == 3));
-        pixels = image->pImageData.data();
-        auto* objects = image->pETRLEObject.data();
-        const auto flags = image->fFlags;
-        std::filesystem::resize_file(assets / "metadata.sti",
-            STCI_HEADER_SIZE + STCI_8BIT_PALETTE_SIZE + 3 * STCI_SUBIMAGE_SIZE + 7);
-        REQUIRE(!LoadImageData(image.get(), IMAGE_ALLDATA));
-        REQUIRE((image->pImageData.data() == pixels && image->pETRLEObject.data() == objects));
-        REQUIRE((image->pPalette.get() == palette && image->pAppData.data() == app));
-        REQUIRE((image->fFlags == flags && image->pAppData.size() == 4 && image->pImageData.size() == 9));
+        auto image = LoadImage("metadata.sti");
+        REQUIRE(image);
+        const auto* sheet = std::get_if<SpriteSheet>(&*image);
+        REQUIRE(sheet);
+        REQUIRE(sheet->frames.size() == 3);
+        REQUIRE(sheet->frames[2].paletteIndexAt(0, 0) == 1);
+        REQUIRE(sheet->palette[1].r == 255);
 
         const auto pixel_offset = STCI_HEADER_SIZE + STCI_8BIT_PALETTE_SIZE + 3 * STCI_SUBIMAGE_SIZE;
-        for (std::uintmax_t cut : {0u, STCI_HEADER_SIZE - 1u,
+        for (std::uintmax_t cut : {std::size_t{0}, STCI_HEADER_SIZE - 1u,
              STCI_HEADER_SIZE + STCI_8BIT_PALETTE_SIZE - 1u,
              pixel_offset - 1u, pixel_offset + 8u, pixel_offset + 12u}) {
             button_image_fixture(assets, "metadata.sti", 3, true);
             std::filesystem::resize_file(assets / "metadata.sti", cut);
-            REQUIRE(!LoadImageData(image.get(), IMAGE_ALLDATA));
-            REQUIRE((image->pImageData.data() == pixels && image->pETRLEObject.data() == objects));
-            REQUIRE((image->pPalette.get() == palette && image->pAppData.data() == app));
-            REQUIRE((image->fFlags == flags && image->pAppData.size() == 4 && image->pImageData[1] == 1));
+            REQUIRE(!LoadImage("metadata.sti"));
         }
-        button_image_fixture(assets, "metadata.sti", 3, true);
-        std::filesystem::resize_file(assets / "metadata.sti", pixel_offset);
-        REQUIRE(LoadImageData(image.get(), IMAGE_PALETTE));
-        REQUIRE((image->pImageData.data() == pixels && image->pAppData.data() == app));
-        REQUIRE(!LoadImageData(image.get(), IMAGE_BITMAPDATA));
     }
     std::string long_image_path;
     for (int i = 0; i < 8; ++i)
@@ -617,13 +1200,10 @@ void generic_button_images()
     REQUIRE(long_image_path.size() > 260);
     button_image_fixture(assets, long_image_path, 3);
     {
-        VOBJECT_DESC desc{};
-        desc.fCreateFlags = VOBJECT_CREATE_FROMFILE;
-        desc.ImageFile = long_image_path;
-        std::unique_ptr<SGPVObject> sprite(CreateVideoObject(&desc));
-        REQUIRE((sprite && sprite->sprites.size() == 3));
-        REQUIRE((sprite->sprites[2].usWidth == 1 && sprite->sprites[2].pixels[0] == 1));
-        REQUIRE(sprite->pPaletteEntry[1].peRed == 255);
+        auto sprite = g_image_assets.sprites(long_image_path);
+        REQUIRE((sprite && sprite->frames.size() == 3));
+        REQUIRE((sprite->frames[2].width == 1 && sprite->frames[2].paletteIndexAt(0, 0) == 1));
+        REQUIRE(sprite->palette[1].r == 255);
     }
     for (bool corrupt_length : {false, true}) {
         button_image_fixture(assets, "bad-extent.sti", 3);
@@ -637,8 +1217,7 @@ void generic_button_images()
             file.write(reinterpret_cast<const char*>(&region), STCI_SUBIMAGE_SIZE);
             REQUIRE(file.good());
         }
-        REQUIRE(!CreateImage("bad-extent.sti", IMAGE_ALLIMAGEDATA));
-        REQUIRE(CreateImage("bad-extent.sti", IMAGE_PALETTE));
+        REQUIRE(!LoadImage("bad-extent.sti"));
     }
     for (bool corrupt_app_data : {false, true}) {
         button_image_fixture(assets, "bad-size.sti", 3, true);
@@ -654,97 +1233,339 @@ void generic_button_images()
             file.write(reinterpret_cast<const char*>(&header), STCI_HEADER_SIZE);
             REQUIRE(file.good());
         }
-        REQUIRE(!CreateImage("bad-size.sti", IMAGE_ALLDATA));
-        REQUIRE(CreateImage("bad-size.sti", IMAGE_PALETTE));
+        REQUIRE(!LoadImage("bad-size.sti"));
     }
-    REQUIRE(!InitializeButtonImageManager(-1, -1, -1));
-    REQUIRE((FindFreeGenericSlot() == 0 && GenericButtonOffNormal[0] == nullptr));
-    button_image_fixture(assets, DEFAULT_GENERIC_BUTTON_ON);
-    REQUIRE(InitializeButtonImageManager(-1, -1, -1));
-    REQUIRE((FindFreeGenericSlot() == 1 && GenericButtonOnNormal[0]));
-    REQUIRE((!GenericButtonOffHilite[0] && !GenericButtonOnHilite[0]));
-    REQUIRE(UnloadGenericButtonImage(0));
-    std::string_view filename = "button.sti", missing = "missing.sti", short_image = "short.sti";
+    // Appearance instances retain their graphics independently of the loader
+    // and image manager.
+    auto graphics = ButtonGraphics::Load("button.sti", 0, 1, 2, 3, 4);
+    REQUIRE(graphics);
+    REQUIRE((graphics->MaxWidth == 1 && graphics->MaxHeight == 1));
+    std::weak_ptr<const ButtonGraphics> lifetime = graphics;
+    ButtonAppearance first_appearance;
+    ButtonAppearance second_appearance;
+    first_appearance.quick_image = second_appearance.quick_image = graphics;
+    first_appearance.bounds = {0, 0, 8, 8};
+    second_appearance.bounds = {2, 0, 8, 8};
+    // Verify blits for normal and checkbox highlights in every visual state.
+    const auto& frame_colors = graphics->object().colors;
+    auto target_owner = CreateCpuStorage(8, 8, SDL_PIXELFORMAT_RGB565);
+    REQUIRE(target_owner);
+    auto& target = *target_owner;
+    const auto old_hilights = gfRenderHilights;
+    gfRenderHilights = true;
+    for (bool checkbox : {false, true}) {
+        for (bool enabled : {false, true}) {
+            for (bool pressed : {false, true}) {
+                for (bool hover : {false, true}) {
+                    for (bool mouse_down : {false, true}) {
+                        DrawButtonAppearance(target, first_appearance,
+                                              {enabled, pressed, hover, checkbox, mouse_down});
+                        auto* pixels = static_cast<std::uint16_t*>(target.pixels);
+                        REQUIRE(pixels);
+                        const auto color = pixels[0];
+                        const bool highlight = hover && (!checkbox || mouse_down);
+                        const unsigned expected_frame = !enabled ? 0 :
+                            pressed ? (highlight ? 4 : 3) : (highlight ? 2 : 1);
+                        REQUIRE(color == frame_colors[expected_frame + 1]);
+                    }
+                }
+            }
+        }
+    }
+    gfRenderHilights = old_hilights;
+    target_owner.reset();
+    graphics.reset();
+    ShutdownButtonImageManager();
+    REQUIRE(!lifetime.expired());
+    first_appearance.quick_image.reset();
+    REQUIRE(!lifetime.expired());
+    second_appearance.quick_image.reset();
+    REQUIRE(lifetime.expired());
+
+    // Validate each of the five states, including invalid negative indices.
+    for (int bad : {-2, 9, 65536}) {
+        for (size_t state = 0; state < 5; ++state) {
+            std::array<int, 5> frames{0, 1, 2, 3, 4};
+            frames[state] = bad;
+            REQUIRE(!ButtonGraphics::Load("button.sti", frames[0], frames[1], frames[2],
+                                           frames[3], frames[4]));
+        }
+    }
+    REQUIRE(!ButtonGraphics::Load("missing.sti", 0, 1, 2, 3, 4));
+    REQUIRE(!ButtonGraphics::Load("button.sti", -1, -1, -1, -1, -1));
+    REQUIRE(ButtonGraphics::Load("button.sti", -1, 0, -1, 1, -1));
+    std::vector<ButtonImage> quick_images;
+    for (unsigned index = 0; index < 300; ++index)
+        quick_images.push_back(ButtonGraphics::Load("button.sti", 0, 1, 2, 3, 4));
+    REQUIRE(std::all_of(quick_images.begin(), quick_images.end(),
+                        [](const auto& item) { return item != nullptr; }));
+    quick_images.clear();
+    const auto widget_count = std::count_if(
+        g_regions.begin(), g_regions.end(),
+        [](const W8Region& region) { return region.widget != nullptr; });
+    {
+        auto dialog = std::make_unique<W8ButtonWidget>();
+        REQUIRE(dialog->ConfigureIcon("button.sti", 0, 1, REGION_PRIORITY_NORMAL,
+                                      W8_DIALOG_BUTTON_NO_TOOLTIP));
+        dialog->SetPosition(12, 13);
+        REQUIRE(!dialog->ConfigureIcon("missing.sti", 0, 1, REGION_PRIORITY_NORMAL,
+                                       W8_DIALOG_BUTTON_NO_TOOLTIP));
+        REQUIRE((dialog->GetX() == 12 && dialog->GetY() == 13 && dialog->GetWidth() == 1));
+        REQUIRE(std::any_of(g_regions.begin(), g_regions.end(),
+                            [&dialog](const W8Region& region) {
+                                return region.widget == dialog.get();
+                            }));
+        REQUIRE(std::count_if(g_regions.begin(), g_regions.end(),
+                              [](const W8Region& region) {
+                                  return region.widget != nullptr;
+                              }) == widget_count + 1);
+    }
+    REQUIRE(std::count_if(g_regions.begin(), g_regions.end(),
+                          [](const W8Region& region) { return region.widget != nullptr; }) ==
+            widget_count);
+    // A dialog's click callback can close it. The dispatcher must not read
+    // the released dialog while completing the click (including its sound).
+    auto closing_dialog = std::make_unique<W8ButtonWidget>();
+    REQUIRE(closing_dialog->Configure("button.sti", 0, 1, 2, 3, 4,
+        [&](W8ButtonWidget*) { closing_dialog.reset(); }, nullptr, false,
+        REGION_PRIORITY_NORMAL, W8_DIALOG_BUTTON_NO_TOOLTIP, nullptr, nullptr));
+    closing_dialog->SetPosition(12, 13);
+    PushButtonSoundScheme(0, true);
+    {
+        ExclusiveRegionSet scope(ControlRegionSetIndex());
+        dispatch_mouse(InputEventType::LeftButtonDown, 12, 13, true, false, 1);
+        dispatch_mouse(InputEventType::LeftButtonUp, 12, 13, false, false, 1);
+    }
+    REQUIRE_FALSE(closing_dialog);
+
+    REQUIRE(!InitializeButtonImageManager());
+    button_image_fixture(assets, std::string(DEFAULT_GENERIC_BUTTON_ON));
+    REQUIRE(InitializeButtonImageManager());
+    const std::string_view filename = "button.sti", missing = "missing.sti";
     const auto load = [](const std::array<std::string_view, 6>& names) {
-        return LoadGenericButtonImages(names[2], names[0], names[3], names[1], names[4], names[5], 3, 4, 5);
+        return LoadGenericButtonImages(names[2], names[0], names[3], names[1],
+                                       names[4], names[5], 3, 4, 5);
     };
     for (size_t index = 0; index < 6; ++index) {
         std::array<std::string_view, 6> names;
         names.fill(filename);
         names[index] = missing;
-        REQUIRE((load(names) == -1 && FindFreeGenericSlot() == 0));
-        REQUIRE((!GenericButtonOffNormal[0] && !GenericButtonOnNormal[0]));
+        REQUIRE(!load(names));
     }
-    REQUIRE(load({std::string_view{}, filename, {}, {}, {}, {}}) == -1);
-    REQUIRE(load({filename, {}, {}, {}, {}, {}}) == -1);
-    REQUIRE(load({short_image, filename, {}, {}, {}, {}}) == -1);
-    REQUIRE(FindFreeGenericSlot() == 0);
-    REQUIRE(load({filename, filename, filename, filename, filename, filename}) == 0);
-    REQUIRE((GenericButtonGrayed[0] && GenericButtonOffHilite[0] && GenericButtonOnHilite[0]));
-    REQUIRE((GenericButtonBackground[0] && GenericButtonBackgroundIndex[0] == 3));
-    REQUIRE((GenericButtonOffsetX[0] == 4 && GenericButtonOffsetY[0] == 5));
-    REQUIRE(GenericButtonFillColors[0] == GenericButtonOffNormal[0]->p16BPPPalette[1]);
-    REQUIRE(UnloadGenericButtonImage(0));
-    REQUIRE((!GenericButtonBackground[0] && GenericButtonOffsetX[0] == 0));
-    for (int slot = 0; slot < 40; ++slot) {
-        REQUIRE(load({filename, filename, {}, {}, {}, {}}) == slot);
-        REQUIRE((!GenericButtonGrayed[slot] && !GenericButtonBackground[slot]));
+    REQUIRE(!load({std::string_view{}, filename, {}, {}, {}, {}}));
+    REQUIRE(!load({filename, {}, {}, {}, {}, {}}));
+    REQUIRE(!load({"short.sti", filename, {}, {}, {}, {}}));
+    // Every border state needs all nine tiles, not only the off-normal state.
+    for (size_t state = 0; state < 5; ++state) {
+        std::array<std::string_view, 6> names;
+        names.fill(filename);
+        names[state] = "short.sti";
+        REQUIRE(!load(names));
     }
-    REQUIRE(load({filename, filename, {}, {}, {}, {}}) == -1);
+    REQUIRE(!LoadGenericButtonImages({}, filename, {}, filename, {}, filename, -1, 0, 0));
+    REQUIRE(!LoadGenericButtonImages({}, filename, {}, filename, {}, filename, 9, 0, 0));
+    // A zero-sized first tile would cause division by zero while drawing borders.
+    button_image_fixture(assets, "zero-tile.sti");
+    {
+        std::fstream file(assets / "zero-tile.sti", std::ios::in | std::ios::out | std::ios::binary);
+        STCISubImage frame{};
+        file.seekg(STCI_HEADER_SIZE + STCI_8BIT_PALETTE_SIZE);
+        file.read(reinterpret_cast<char*>(&frame), sizeof(frame));
+        frame.usWidth = 0;
+        file.seekp(STCI_HEADER_SIZE + STCI_8BIT_PALETTE_SIZE);
+        file.write(reinterpret_cast<const char*>(&frame), sizeof(frame));
+        REQUIRE(file.good());
+    }
+    REQUIRE(!load({filename, "zero-tile.sti", {}, {}, {}, {}}));
+    auto image = load({filename, filename, filename, filename, filename, filename});
+    REQUIRE(image);
+    REQUIRE((image->frames[2] && image->frames[3] && image->frames[4]));
+    REQUIRE((image->frames[5] && image->background_frame == 3));
+    REQUIRE((image->offset_x == 4 && image->offset_y == 5));
+    const auto background_pixel = image->frames[0]->frames[8].paletteIndexAt(0, 0);
+    REQUIRE(background_pixel);
+    REQUIRE(image->fill_color == image->frames[0]->colors[*background_pixel]);
+    auto another_owner = image;
+    image.reset();
+    REQUIRE(another_owner->frames[0]);
+    another_owner.reset();
+
+    // There is no fixed image slot limit. Lifetime is owned by the image.
+    std::vector<GenericButtonImage> images;
+    for (int index = 0; index < 45; ++index)
+        images.push_back(load({filename, filename, {}, {}, {}, {}}));
+    REQUIRE(std::all_of(images.begin(), images.end(), [](const auto& item) { return item != nullptr; }));
+    images.clear();
+
     for (unsigned repeat = 0; repeat < 32; ++repeat) {
-        REQUIRE(InitializeFontManager(CreateEnglishTransTable()));
-        REQUIRE(LoadFontFile(std::string(filename).c_str()) == 0);
-        auto* font = GetFontObject(0);
-        REQUIRE((font && font->ownedPalette && font->sprites.size() == 9));
-        UINT16 borrowed[256]{};
-        REQUIRE(SetFontObjectPalette16BPP(0, borrowed) == borrowed);
-        REQUIRE(GetFontObjectPalette16BPP(0) == borrowed);
-        REQUIRE(GetFontObject(0) == font);
-        ShutdownFontManager();
-        ShutdownFontManager();
+        ConfigureFontRendering(CreateEnglishTransTable());
+        Font primary;
+        REQUIRE(primary.load(filename));
+        auto& font = primary.glyphs;
+        REQUIRE((font->frames.size() == 9));
+        Palette16 colours{};
+        colours[1] = 0x1234;
+        primary.setPalette(colours);
+        colours[1] = 0;
+        REQUIRE(primary.palette()[1] == 0x1234);
+        REQUIRE(primary.createShades(FONT_GLOW_GREEN));
+        REQUIRE(primary.setShade(15));
+        REQUIRE(primary.currentPalette()[1] != primary.palette()[1]);
+        REQUIRE(primary.setShade(Font::kNormalShade));
+        REQUIRE(primary.currentPalette()[1] == 0x1234);
+        Font secondary;
+        REQUIRE(secondary.load(filename));
+        REQUIRE(secondary.createShades(FONT_GLOW_RED));
+        REQUIRE(secondary.shades[0] != primary.shades[0]);
+        primary.clear();
+        ResetFontRendering();
     }
-    REQUIRE((InitializeFontManager(std::vector<UINT16>{'?', 0x00e9, 0x4e2d, 'e', 0x0301, 'a', 'b', ' ', 'c'})));
-    REQUIRE(LoadFontFile(std::string(filename).c_str()) == 0);
-    REQUIRE(StringPixLength("é", 0) > 0);
-    REQUIRE(StringCodepointPrefixPixelWidth(0, 1, "é中") == StringPixLength("é", 0));
-    REQUIRE(StringCodepointPrefixPixelWidth(0, 2, "é中") == StringPixLength("é中", 0));
+    // Font lifetime is independent of rendering setup and has no slot limit.
+    std::vector<Font> many_fonts;
+    for (unsigned index = 0; index < 32; ++index) {
+        many_fonts.emplace_back();
+        REQUIRE(many_fonts.back().load(filename));
+    }
+    ResetFontRendering();
+    REQUIRE(many_fonts.back().height() > 0);
+    many_fonts.clear();
+    // Failed loads retain resources; moves preserve their ownership.
+    // Font's move operations explicitly leave the source empty, so checking its
+    // moved-from state is part of the contract rather than an accidental use.
+    {
+        Font source, moved;
+        REQUIRE(source.height() == 0);
+        REQUIRE(source.textWidth("empty") == 0);
+        REQUIRE(source.load(filename));
+        const auto height = source.height();
+        REQUIRE_FALSE(source.load("missing-font.sti"));
+        REQUIRE(source.height() == height);
+        Font temporary(std::move(source));
+        REQUIRE(temporary.height() == height);
+        REQUIRE(source.height() == 0); // NOLINT(bugprone-use-after-move)
+        moved = std::move(temporary);
+        REQUIRE(moved.height() == height);
+        REQUIRE(temporary.height() == 0); // NOLINT(bugprone-use-after-move)
+        REQUIRE(moved.load(filename));
+        source = std::move(moved);
+        REQUIRE(source.height() == height);
+        REQUIRE(moved.height() == 0); // NOLINT(bugprone-use-after-move)
+    }
+    ConfigureFontRendering(std::vector<std::uint16_t>{'?', 0x00e9, 0x4e2d, 'e', 0x0301, 'a', 'b', ' ', 'c'});
+    Font primary;
+    REQUIRE(primary.load(filename));
+    REQUIRE(primary.textWidth("é") > 0);
+    REQUIRE(primary.codepointPrefixWidth("é中", 1) == primary.textWidth("é"));
+    REQUIRE(primary.codepointPrefixWidth("é中", 2) == primary.textWidth("é中"));
     // Render borrowed substrings without depending on a trailing NUL or
     // accidentally consuming the next glyph in the backing string.
-    SetFont(0);
-    FontDestRegion = {0, 0, 64, 32};
-    std::vector<UINT16> expected_pixels(64 * 32), view_pixels(64 * 32);
-    DrawFontTextToBuffer(reinterpret_cast<UINT8*>(expected_pixels.data()), 64 * 2, 0, 0, 0, "é");
+    auto expected_surface = CreateCpuStorage(64, 32, SDL_PIXELFORMAT_RGB565);
+    auto view_surface = CreateCpuStorage(64, 32, SDL_PIXELFORMAT_RGB565);
+    REQUIRE(expected_surface);
+    REQUIRE(view_surface);
+    REQUIRE(SDL_FillSurfaceRect(expected_surface.get(), nullptr, 0));
+    REQUIRE(SDL_FillSurfaceRect(view_surface.get(), nullptr, 0));
+    DrawText(*expected_surface, primary, {0, 0}, "é");
     const std::string backing = "é中";
-    DrawFontTextToBuffer(reinterpret_cast<UINT8*>(view_pixels.data()), 64 * 2, 0, 0, 0,
-                         std::string_view(backing).substr(0, 2));
+    DrawText(*view_surface, primary, {0, 0}, std::string_view(backing).substr(0, 2));
+    const auto surface_pixels = [](const SDL_Surface& surface) {
+        std::vector<std::uint16_t> pixels(static_cast<std::size_t>(surface.w * surface.h));
+        const auto* bytes = static_cast<const std::uint8_t*>(surface.pixels);
+        for (int y = 0; y < surface.h; ++y) {
+            const auto* row = reinterpret_cast<const std::uint16_t*>(bytes + y * surface.pitch);
+            std::copy_n(row, surface.w, pixels.begin() + y * surface.w);
+        }
+        return pixels;
+    };
+    auto expected_pixels = surface_pixels(*expected_surface);
+    auto view_pixels = surface_pixels(*view_surface);
     REQUIRE(view_pixels == expected_pixels);
     REQUIRE(
         std::any_of(view_pixels.begin(), view_pixels.end(), [](auto pixel) { return pixel != 0; }));
+    auto clipped_surface = CreateCpuStorage(64, 32, SDL_PIXELFORMAT_RGB565);
+    REQUIRE(clipped_surface);
+    REQUIRE(SDL_FillSurfaceRect(clipped_surface.get(), nullptr, 0));
+    const auto first_drawn = std::find_if(
+        expected_pixels.begin(), expected_pixels.end(), [](auto pixel) { return pixel != 0; });
+    REQUIRE(first_drawn != expected_pixels.end());
+    const int first_drawn_x = static_cast<int>(first_drawn - expected_pixels.begin()) % 64;
+    const SDL_Rect text_clip{first_drawn_x + 1, 0, 64 - first_drawn_x - 1, 32};
+    {
+        ScopedClipRect clipping(*clipped_surface, text_clip);
+        DrawText(*clipped_surface, primary, {0, 0}, "é");
+    }
+    const auto clipped_pixels = surface_pixels(*clipped_surface);
+    REQUIRE(clipped_pixels[first_drawn - expected_pixels.begin()] == 0);
+    for (int y = 0; y < 32; ++y) {
+        for (int x = text_clip.x; x < 64; ++x) {
+            REQUIRE(clipped_pixels[static_cast<std::size_t>(y * 64 + x)] ==
+                    expected_pixels[static_cast<std::size_t>(y * 64 + x)]);
+        }
+    }
+
+    auto wrapped_surface = CreateCpuStorage(64, 32, SDL_PIXELFORMAT_RGB565);
+    REQUIRE(wrapped_surface);
+    REQUIRE(primary.height() < 32);
+    REQUIRE(SDL_FillSurfaceRect(wrapped_surface.get(), nullptr, 0));
+    const int glyph_width = primary.textWidth("é");
+    const SDL_Rect wrap_clip{0, 0, glyph_width, 32};
+    {
+        ScopedClipRect clipping(*wrapped_surface, wrap_clip);
+        DrawText(*wrapped_surface, primary, {0, 0}, "éé", {.wrap = true});
+    }
+    const auto wrapped_pixels = surface_pixels(*wrapped_surface);
+    REQUIRE(std::any_of(wrapped_pixels.begin() + primary.height() * 64, wrapped_pixels.end(),
+                        [](auto pixel) { return pixel != 0; }));
+
+    auto mono_surface = CreateCpuStorage(64, 32, SDL_PIXELFORMAT_RGB565);
+    REQUIRE(mono_surface);
+    REQUIRE(SDL_FillSurfaceRect(mono_surface.get(), nullptr, 0));
+    DrawText(*mono_surface, primary, {0, 0}, "é",
+             {.mono = true, .colors = {.foreground = 0xf81f, .background = 0, .shadow = 0x07e0}});
+    const auto mono_pixels = surface_pixels(*mono_surface);
+    REQUIRE(std::find(mono_pixels.begin(), mono_pixels.end(), 0xf81f) != mono_pixels.end());
+
+    initialize_test_framebuffer();
+    ConfigureFontRendering(CreateEnglishTransTable());
+    const int dirty_before = g_dirty_tile_count;
+    const SDL_Point invalidation_at{16, 16};
+    const int invalidated_width = primary.textWidth("A");
+    const int invalidated_height = primary.height();
+    REQUIRE(invalidated_width > 0);
+    REQUIRE(invalidated_height > 0);
+    const int expected_dirty_tiles =
+        ((invalidation_at.x + invalidated_width + 7) / 8 - invalidation_at.x / 8) *
+        ((invalidation_at.y + invalidated_height + 7) / 8 - invalidation_at.y / 8);
+    DrawTextAndInvalidate(GetFrameBufferSurface(), primary, invalidation_at, "A");
+    REQUIRE(g_dirty_tile_count - dirty_before == expected_dirty_tiles);
+
     // Explicit-buffer rendering must use its font argument, even when the
     // current surface font has a different palette.
-    REQUIRE(LoadFontFile(std::string(filename).c_str()) == 1);
-    auto* alternate = GetFontObjectPalette16BPP(1);
-    std::fill(alternate, alternate + 256, UINT16{0x1234});
-    std::fill(expected_pixels.begin(), expected_pixels.end(), 0);
-    std::fill(view_pixels.begin(), view_pixels.end(), 0);
-    SetFont(1);
-    DrawFontTextToBuffer(reinterpret_cast<UINT8*>(expected_pixels.data()), 128, 1, 0, 0, "é中");
-    SetFont(0);
-    DrawFontTextToBuffer(reinterpret_cast<UINT8*>(view_pixels.data()), 128, 1, 0, 0, "é中");
+    Font secondary;
+    REQUIRE(secondary.load(filename));
+    Palette16 alternate;
+    alternate.fill(0x1234);
+    secondary.setPalette(alternate);
+    REQUIRE(SDL_FillSurfaceRect(expected_surface.get(), nullptr, 0));
+    REQUIRE(SDL_FillSurfaceRect(view_surface.get(), nullptr, 0));
+    DrawText(*expected_surface, secondary, {0, 0}, "é中");
+    DrawText(*view_surface, secondary, {0, 0}, "é中");
+    expected_pixels = surface_pixels(*expected_surface);
+    view_pixels = surface_pixels(*view_surface);
     REQUIRE(view_pixels == expected_pixels);
     // Rebuilding word ranges preserves UTF-8 byte boundaries and discards
     // old hover state, including when a line becomes empty.
     auto level = std::make_unique<W8LevelRuntimeBlock>();
     auto* previous_level = g_level_block;
     g_level_block = level.get();
-    level->text_box_font = 0;
+    level->text_box_font = &primary;
     W8MessageStorageRecord words{};
     words.text = "  é 中  ";
     words.RebuildEntries();
     REQUIRE(words.entries.size() == 2);
     REQUIRE((words.entries[0].start == 2 && words.entries[0].end == 3));
     REQUIRE((words.entries[1].start == 5 && words.entries[1].end == 7));
-    REQUIRE(words.entries[1].x_start == StringPixLength("  é ", 0));
+    REQUIRE(words.entries[1].x_start == primary.textWidth("  é "));
     words.entries[0].keyword = W8_NOTICE_WORD_SELECTED;
     words.text = "中";
     words.RebuildEntries();
@@ -753,36 +1574,34 @@ void generic_button_images()
     words.RebuildEntries();
     REQUIRE(words.entries.empty());
     g_level_block = previous_level;
-    g_font12point1 = 0;
-    MSYS_Init();
-    InitTextInputMode();
-    const auto field = AddTextInputField(0, 0, 80, 20, MSYS_PRIORITY_NORMAL, "", 1000, 0x0f, 0);
+    REQUIRE(g_font12point1.load(filename));
+    InitTextInputMode(g_font12point1);
+    const auto field = AddTextInputField(0, 0, 80, 20, REGION_PRIORITY_NORMAL, "", 1000, 0x0f, 0);
     SetActiveField(field);
     const std::string clusters = "é👩‍👩‍👧‍👦中";
     SetInputFieldText(field, clusters);
     SetTextInputCursor(clusters.size());
-    InputAtom backspace{};
-    backspace.usEvent = KEY_DOWN;
-    backspace.usParam = 8;
+    InputEvent backspace{};
+    backspace.type = InputEventType::KeyDown;
+    backspace.key = 8;
     REQUIRE(HandleTextInput(&backspace));
     REQUIRE(GetTextFromField(field) == "é👩‍👩‍👧‍👦");
     REQUIRE(HandleTextInput(&backspace));
     REQUIRE(GetTextFromField(field) == "é");
     REQUIRE(HandleTextInput(&backspace));
     REQUIRE(GetTextFromField(field).empty());
-    InputAtom committed{};
-    committed.usEvent = KEY_DOWN;
-    committed.usParam = 0x4e2d;
-    committed.uiParam = NATIVE_TEXT_INPUT_FLAG;
+    InputEvent committed{};
+    committed.type = InputEventType::Text;
+    committed.text = 0x4e2d;
     REQUIRE(HandleTextInput(&committed));
     REQUIRE(GetTextFromField(field) == "中");
-    committed.usParam = 0x1f600;
+    committed.text = 0x1f600;
     REQUIRE(HandleTextInput(&committed));
     REQUIRE(GetTextFromField(field) == "中😀");
     SetInputFieldText(field, "");
     const std::array<char32_t, 7> family = {0x1f469, 0x200d, 0x1f469, 0x200d, 0x1f467, 0x200d, 0x1f466};
     for (const auto scalar : family) {
-        committed.usParam = scalar;
+        committed.text = scalar;
         REQUIRE(HandleTextInput(&committed));
     }
     REQUIRE(GetTextFromField(field) == "👩‍👩‍👧‍👦");
@@ -797,39 +1616,667 @@ void generic_button_images()
     REQUIRE(HandleTextInput(&backspace));
     REQUIRE((GetTextInputByteCursor() == 297 && GetTextFromField(field).size() == 297));
     KillTextInputMode();
-    MSYS_Shutdown();
-    ShutdownFontManager();
+    ResetFontRendering();
+    g_font12point1.clear();
     ShutdownButtonImageManager();
-    REQUIRE((FindFreeGenericSlot() == 0 && !GenericButtonOnNormal[39]));
 
-    std::filesystem::remove_all(root);
+    g_image_assets.clear();
 }
 }
 
-TEST_CASE("owners")
+TEST_CASE("Screen stack ownership", "[owner]")
 {
     screen_stack();
-    surface_regions();
+}
+
+TEST_CASE("Camp effect ownership", "[owner]")
+{
     camp_effects();
-    buttons_and_regions();
+}
+
+TEST_CASE("Owned control region priority", "[owner]")
+{
+    owned_regions_honor_priority();
+}
+
+TEST_CASE("Callback reentrancy and region teardown", "[owner]")
+{
     region_registration_and_callback_lifetimes();
+    region_nested_input();
+    nested_hover_transitions();
+    owned_region_captures_across_frames();
+    owned_region_move_and_teardown();
+    modal_scope_persists_across_frames();
+    modal_scope_preserves_capture_across_frames();
+    exclusive_scopes_destroy_out_of_order();
+    reset_regions_preserves_hidden_buttons();
+    later_region_set_precedes_button_set();
+}
+
+TEST_CASE("Sprite ownership", "[owner]")
+{
     image_and_sprite_ownership();
-    font_table_ownership();
+}
+
+TEST_CASE("Font resource ownership", "[owner]")
+{
+    font_resource_ownership();
+}
+
+TEST_CASE("Font measurements skip glyphs outside the sprite sheet", "[font][owner]")
+{
+    initialize_test_framebuffer();
+    ScopedTemporaryDirectory directory{"wiz8-font-glyph-range"};
+    const auto assets = directory.path / "assets";
+    const auto previous_roots = w8_native::path_roots();
+    button_image_fixture(assets, "font.sti", 1, false, 1, 1);
+    g_image_assets.clear();
+    w8_native::configure_paths({assets.string(), (directory.path / "user").string(), {}});
+    struct Restore {
+        w8_native::Roots roots;
+        ~Restore()
+        {
+            ResetFontRendering();
+            g_image_assets.clear();
+            w8_native::configure_paths(roots);
+        }
+    } restore{previous_roots};
+
+    ConfigureFontRendering(CreateEnglishTransTable());
+    Font font;
+    REQUIRE(font.load("font.sti"));
+    REQUIRE(font.glyphs->frames.size() == 1);
+    REQUIRE(GetIndex(U'é') >= static_cast<std::int16_t>(font.glyphs->frames.size()));
+    REQUIRE(font.textWidth("é") == 0);
+    REQUIRE(font.prefixWidth("é", 2) == 0);
+    W8ControlsRect tooltip_bounds{0, 0, 250, 250};
+    W8TextBuffer tooltip(&tooltip_bounds, "é", font,
+                         g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft, 4);
+    REQUIRE(tooltip.m_maxLineWidth == 0);
+    REQUIRE(tooltip.m_lineCount == 1);
+}
+
+TEST_CASE("Text input ownership", "[owner]")
+{
     text_input_ownership();
+}
+
+TEST_CASE("Formatting contracts", "[owner]")
+{
     formatted_strings();
+}
+
+TEST_CASE("Generic button image ownership", "[owner]")
+{
     generic_button_images();
+}
+
+TEST_CASE("Dialog controls own interaction without legacy GUI buttons", "[owner]")
+{
+    RegionStateSnapshot saved_state;
+    ResetRegions();
+    ExclusiveRegionSet button_scope(ControlRegionSetIndex());
+    struct TooltipStateSnapshot {
+        bool tooltips_enabled = g_settings.tooltips_enabled;
+        std::vector<std::string> localized_strings = std::move(g_localized_strings);
+        ~TooltipStateSnapshot()
+        {
+            g_settings.tooltips_enabled = tooltips_enabled;
+            g_localized_strings = std::move(localized_strings);
+        }
+    } tooltip_state;
+    g_settings.tooltips_enabled = true;
+    g_localized_strings.emplace_back("Button tooltip");
+    Font font{};
+    PushButtonSoundScheme(0, true);
+    int activations = 0;
+    {
+        W8ButtonWidget button;
+        REQUIRE(button.ConfigureTextButton("button", font, 0, 0, 10, 10, 40, 20,
+            [&](W8ButtonWidget* control) {
+                REQUIRE(control->GetUserData() == 42);
+                ++activations;
+            }, 42));
+        button.SetTooltipIndex(0);
+        button.SetTooltipEnabled(true);
+        auto region = std::find_if(g_regions.begin(), g_regions.end(),
+                                   [&button](const W8Region& item) {
+                                       return item.widget == &button;
+                                   });
+        REQUIRE(region != g_regions.end());
+        REQUIRE(region->help_enabled);
+        REQUIRE(region->help_text == "Button tooltip");
+        button.SetTooltipEnabled(false);
+        REQUIRE_FALSE(region->help_enabled);
+        REQUIRE(region->help_text.empty());
+        GetInputState().left_button = false;
+        GetInputState().mouse = {400, 400};
+        dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true, false, 1);
+        REQUIRE((button.IsPressed() && activations == 0));
+        REQUIRE((button.GetMousePosition().x == 15 && button.GetMousePosition().y == 15));
+        dispatch_mouse(InputEventType::LeftButtonUp, 15, 15, false, false, 1);
+        REQUIRE(!button.IsPressed());
+        REQUIRE(activations == 1);
+        dispatch_mouse(InputEventType::LeftButtonUp, 15, 15);
+        REQUIRE(activations == 1);
+        dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
+        dispatch_mouse(InputEventType::MouseMove, 80, 80, true);
+        dispatch_mouse(InputEventType::LeftButtonUp, 15, 15);
+        REQUIRE((!button.IsPressed() && activations == 1));
+        dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
+        button.SetEnabled(false);
+        button.SetEnabled(true);
+        dispatch_mouse(InputEventType::LeftButtonUp, 15, 15);
+        REQUIRE((!button.IsPressed() && activations == 1));
+        dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
+        button.SetVisible(false);
+        button.SetVisible(true);
+        dispatch_mouse(InputEventType::LeftButtonUp, 15, 15);
+        REQUIRE(activations == 1);
+        REQUIRE(button.IsConfigured());
+        button.Resize(60, 30);
+        button.SetPosition(20, 20);
+        REQUIRE((button.GetBounds().w == 60 && button.GetBounds().h == 30));
+        dispatch_mouse(InputEventType::LeftButtonDown, 75, 45, true);
+        REQUIRE(button.IsLeftButtonHeld());
+        dispatch_mouse(InputEventType::LeftButtonUp, 75, 45);
+        REQUIRE(!button.IsLeftButtonHeld());
+        REQUIRE(activations == 2);
+        button.SetPosition(10, 10);
+        button.Resize(40, 20);
+        button.m_repeat_enabled = true;
+        dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
+        dispatch_mouse(InputEventType::LeftButtonRepeat, 15, 15, true);
+        dispatch_mouse(InputEventType::LeftButtonRepeat, 15, 15, true);
+        REQUIRE(activations == 4);
+        dispatch_mouse(InputEventType::LeftButtonUp, 15, 15);
+        REQUIRE((!button.IsPressed() && activations == 4));
+        button.m_repeat_enabled = false;
+        button.m_activation = DialogButtonActivation::Press;
+        dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
+        REQUIRE(activations == 5);
+        dispatch_mouse(InputEventType::LeftButtonUp, 15, 15);
+        REQUIRE(activations == 5);
+        button.Reset();
+        REQUIRE((!button.IsEnabled() && !button.IsPressed() && button.GetWidth() == 0));
+        dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
+        dispatch_mouse(InputEventType::LeftButtonUp, 15, 15);
+        REQUIRE(activations == 5);
+    }
+
+    auto closing = std::make_unique<W8ButtonWidget>();
+    closing->ConfigureTextButton("close", font, 0, 0, 10, 10, 40, 20,
+        [&](W8ButtonWidget*) { closing.reset(); }, 0);
+    dispatch_mouse(InputEventType::LeftButtonDown, 15, 15, true);
+    dispatch_mouse(InputEventType::LeftButtonUp, 15, 15);
+    REQUIRE(!closing);
+}
+
+TEST_CASE("Modal confirmations and scrollbars dispatch through their native owners", "[owner]")
+{
+    initialize_test_framebuffer();
+    RegionStateSnapshot saved_state;
+    ResetRegions();
+    ExclusiveRegionSet button_scope(ControlRegionSetIndex());
+    ScopedTemporaryDirectory temporary{"wiz8-modal-controls"};
+    const auto& root = temporary.path;
+    const auto assets = root / "assets";
+    for (const auto* image : {"DialogBorder.STI", "DialogEdge.STI", "DialogConfirmation.STI"})
+        button_image_fixture(assets / "Data" / "Dialogs", image);
+    for (const auto* image : {"DialogInlay.STI", "DialogUpArrow.STI", "DialogDownArrow.STI",
+                              "DialogSlideBar.STI", "DialogBackground_dark.STI"})
+        button_image_fixture(assets / "Data" / "Dialogs", image);
+    button_image_fixture(assets, "font.sti", 128, false, 1, 10);
+    button_image_fixture(assets, "background.sti");
+    button_image_fixture(assets, "arrows.sti", 12, false, 2, 3);
+    button_image_fixture(assets, "track.sti", 1, false, 5, 100);
+    g_image_assets.clear();
+    ScopedAssetRoots scoped_roots{{assets.string(), (root / "user").string(), {"", "", ""}}};
+    PushButtonSoundScheme(0, true);
+    std::vector<int> positions;
+    ScrollPositionCapture position_capture(positions);
+    {
+        W8DialogScrollBar bar;
+        const W8DialogScrollBar::Resources resources{
+            "arrows.sti", "track.sti", 0, RecordScrollPosition};
+        REQUIRE(bar.CreateControls(&resources));
+        bar.SetLayout(100, 20, 20, 5, 10, 30);
+        GetInputState().mouse.y = 400;
+        dispatch_mouse(InputEventType::LeftButtonDown, 101, 116, true);
+        dispatch_mouse(InputEventType::LeftButtonUp, 101, 116);
+        REQUIRE(positions == std::vector<int>{17});
+        dispatch_mouse(InputEventType::LeftButtonDown, 101, 21, true);
+        dispatch_mouse(InputEventType::LeftButtonRepeat, 101, 21, true);
+        dispatch_mouse(InputEventType::LeftButtonUp, 101, 21);
+        REQUIRE(positions == std::vector<int>{17, 16, 15});
+        bar.SetLayout(100, 20, 1, 0, 10, 30);
+        dispatch_mouse(InputEventType::LeftButtonDown, 101, 21, true);
+        dispatch_mouse(InputEventType::LeftButtonUp, 101, 21);
+        REQUIRE(positions.size() == 3);
+        bar.SetLayout(100, 20, 20, 5, 10, 30);
+        dispatch_mouse(InputEventType::LeftButtonDown, 101, 118, true);
+        dispatch_mouse(InputEventType::LeftButtonUp, 101, 118);
+        REQUIRE(positions.back() == 6);
+    }
+
+    Font font{};
+    auto* old_font = std::exchange(g_dialog_interface_font, &font);
+    class MessageDialog final : public W8MessageDialogBase {
+    public:
+        using W8MessageDialogBase::m_confirm_button;
+        using W8MessageDialogBase::m_cancel_button;
+    };
+    for (const bool accept : {false, true}) {
+        MessageDialog dialog;
+        dialog.SetOrigin(10, 10);
+        dialog.SetExtent(100, 80);
+        dialog.SetBackground("background.sti", 0);
+        dialog.SetMessage("", 0, 0, true, true, false, false, 100, 80);
+        REQUIRE(dialog.CreateControls() == 0);
+        auto& control = accept ? dialog.m_confirm_button : dialog.m_cancel_button;
+        dispatch_mouse(InputEventType::LeftButtonDown, control.GetX(), control.GetY(), true);
+        REQUIRE(dialog.is_open);
+        dispatch_mouse(InputEventType::LeftButtonUp, control.GetX(), control.GetY());
+        REQUIRE(!dialog.is_open);
+        REQUIRE(dialog.accepted == accept);
+    }
+
+    REQUIRE(font.load("font.sti"));
+    {
+        W8ListBoxDialog list;
+        list.SetOrigin(10, 10);
+        list.SetExtent(100, 80);
+        list.SetBackground("background.sti", 0);
+        for (int index = 0; index < 20; ++index) list.m_lines.emplace_back("X");
+        REQUIRE(list.CreateControls() == 0);
+        list.Draw();
+        GetInputState().mouse.y = 400;
+        dispatch_mouse(InputEventType::LeftButtonDown, list.m_area_button.GetX() + 3,
+                       list.m_area_button.GetY() + 21, true);
+        dispatch_mouse(InputEventType::LeftButtonUp, list.m_area_button.GetX() + 3,
+                       list.m_area_button.GetY() + 21);
+        REQUIRE(list.m_selected_line == 2);
+        dispatch_mouse(InputEventType::LeftButtonDown, list.m_down_button.GetX(), list.m_down_button.GetY(), true);
+        dispatch_mouse(InputEventType::LeftButtonRepeat, list.m_down_button.GetX(), list.m_down_button.GetY(), true);
+        dispatch_mouse(InputEventType::LeftButtonUp, list.m_down_button.GetX(), list.m_down_button.GetY());
+        REQUIRE(list.m_selected_line == 4);
+        dispatch_mouse(InputEventType::LeftButtonDown, list.m_third_text_button.GetX() + 1,
+                       list.m_third_text_button.GetY() + 30, true);
+        REQUIRE(list.m_selected_line == 15);
+        dispatch_mouse(InputEventType::LeftButtonRepeat, list.m_third_text_button.GetX() + 1,
+                       list.m_third_text_button.GetY() + 20, true);
+        dispatch_mouse(InputEventType::LeftButtonUp, list.m_third_text_button.GetX() + 1,
+                       list.m_third_text_button.GetY() + 20);
+        REQUIRE(list.m_selected_line == 10);
+    }
+    {
+        W8ListBoxDialog short_list;
+        short_list.SetOrigin(10, 10);
+        short_list.SetExtent(100, 80);
+        short_list.SetBackground("background.sti", 0);
+        short_list.m_lines.emplace_back("X");
+        REQUIRE(short_list.CreateControls() == 0);
+        short_list.Draw();
+        REQUIRE_FALSE(short_list.m_scrollable);
+        for (const auto* button : {&short_list.m_up_button, &short_list.m_down_button,
+                                   &short_list.m_slider_button,
+                                   &short_list.m_third_text_button}) {
+            const auto region = std::find_if(
+                g_regions.begin(), g_regions.end(),
+                [button](const W8Region& item) { return item.widget == button; });
+            REQUIRE(region != g_regions.end());
+            REQUIRE((region->flags & W8_REGION_INPUT_DISABLED) != 0);
+            REQUIRE_FALSE(button->m_dirty);
+        }
+    }
+    g_dialog_interface_font = old_font;
+    g_image_assets.clear();
+}
+
+namespace {
+int message_box_callback_count = 0;
+void message_box_callback()
+{
+    ++message_box_callback_count;
+}
+}
+
+TEST_CASE("Message box owns its buttons and isolates modal input", "[owner]")
+{
+    initialize_test_framebuffer();
+    RegionStateSnapshot saved_state;
+    ResetRegions();
+    ScopedTemporaryDirectory directory{"wiz8-message-box"};
+    const auto assets = directory.path / "assets";
+    const auto previous_roots = w8_native::path_roots();
+    button_image_fixture(assets / "Data" / "Message Box", "GENBUTN.STI");
+    button_image_fixture(assets / "Data" / "Message Box", "GENBUTN2.STI");
+    button_image_fixture(assets / "Data" / "Message Box", "GENBUTN3.STI");
+    button_image_fixture(assets / "Data" / "Message Box", "GENBUTN4.STI");
+    button_image_fixture(assets / "Data" / "Message Box", "Ok.sti", 5, false, 40, 20);
+    button_image_fixture(assets / "Data" / "Message Box", "Cancel.sti", 5, false, 40, 20);
+    button_image_fixture(assets / "Data" / "Dialogs", "DialogBackground.STI");
+    g_image_assets.clear();
+    w8_native::configure_paths({assets.string(), (directory.path / "user").string(), {}});
+    struct Restore {
+        w8_native::Roots roots;
+        ~Restore()
+        {
+            if (IsMessageBoxActive()) {
+                CloseMessageBox();
+                RenderMessageBox();
+                RenderMessageBox();
+            }
+            ShutdownButtonImageManager();
+            g_image_assets.clear();
+            w8_native::configure_paths(roots);
+        }
+    } restore{previous_roots};
+
+    REQUIRE(InitializeButtonImageManager());
+    TestOwnedRegionHandler screen_handler;
+    const auto screen_set = new_test_region_set();
+    OwnedRegion underlying(screen_set, REGION_PRIORITY_NORMAL, screen_handler);
+    underlying.region().flags = W8_REGION_RECTANGLE;
+    SetRegionBounds(underlying.index(), 275, 256, 315, 276);
+    const auto baseline_regions = LiveDynamicRegionCount();
+
+    Font font{};
+    PushButtonSoundScheme(0, true);
+    for (const bool accepted : {true, false}) {
+        message_box_callback_count = 0;
+        REQUIRE(CreateMessageBox("", font, 0, true, true, message_box_callback));
+        REQUIRE(IsMessageBoxActive());
+        REQUIRE(LiveDynamicRegionCount() > baseline_regions);
+
+        const auto x = accepted ? 280 : 340;
+        dispatch_mouse(InputEventType::LeftButtonDown, x, 260, true);
+        dispatch_mouse(InputEventType::LeftButtonUp, x, 260);
+        REQUIRE(screen_handler.reasons.empty());
+
+        RenderMessageBox();
+        RenderMessageBox();
+        REQUIRE_FALSE(IsMessageBoxActive());
+        REQUIRE(message_box_callback_count == (accepted ? 1 : 0));
+        REQUIRE(LiveDynamicRegionCount() == baseline_regions);
+    }
+}
+
+TEST_CASE("Owned regions use SDL click counts", "[owner]")
+{
+    RegionStateSnapshot saved_state;
+    ResetRegions();
+    const auto set = ControlRegionSetIndex();
+    TestOwnedRegionHandler handler;
+    OwnedRegion region(set, REGION_PRIORITY_NORMAL, handler);
+    region.region().flags = W8_REGION_RECTANGLE;
+    SetRegionBounds(region.index(), 0, 0, 40, 40);
+    ExclusiveRegionSet scope(set);
+    for (const std::uint8_t click_count : {0, 1, 2, 3, 4}) {
+        const auto down = mouse_atom(InputEventType::LeftButtonDown, 10, 10, true, false, click_count);
+        DispatchRegionInput(&down);
+        const auto reason = handler.reasons.back();
+        REQUIRE((reason & REGION_REASON_LBUTTON_DWN) != 0);
+        REQUIRE(((reason & REGION_REASON_LBUTTON_DOUBLECLICK) != 0) == (click_count >= 2));
+        const auto up = mouse_atom(InputEventType::LeftButtonUp, 10, 10);
+        DispatchRegionInput(&up);
+    }
+}
+
+TEST_CASE("Owned region sets copy templates and release dynamic slots", "[owner]")
+{
+    owned_region_set_templates_and_teardown();
+}
+
+TEST_CASE("Region set views share owned regions", "[owner]")
+{
+    region_set_views_share_owned_regions();
+}
+
+TEST_CASE("Screen region sets follow their screen lifecycle", "[owner]")
+{
+    screen_region_set_lifecycle();
+}
+
+TEST_CASE("Widget-owned regions release with their widget", "[owner]")
+{
+    widget_owned_regions_release_with_widget();
+}
+
+TEST_CASE("Input sink capture releases only its own capture", "[owner]")
+{
+    input_sink_capture_can_be_released();
+}
+
+TEST_CASE("Region set hit-test order follows declared order, not creation", "[owner]")
+{
+    region_set_order_beats_creation_order();
+}
+
+TEST_CASE("A stale exclusive scope hides a reused set slot", "[owner]")
+{
+    stale_exclusive_scope_blocks_reused_set_slot();
 }
 
 TEST_CASE("assert-plain", "[.death]")
 {
-    SetVideoObjectPalette(nullptr, nullptr);
-    FAIL("SetVideoObjectPalette did not abort");
+    Assert(false);
+    FAIL("Assert did not abort");
+}
+
+namespace {
+void assertion_message_handler(const char* expression, const char*, w8_long, const char*)
+{
+    std::fprintf(stderr, "Assertion failed: %s\n", expression);
+    std::abort();
+}
 }
 
 TEST_CASE("assert-message", "[.death]")
 {
-    MOUSE_REGION region{};
-    region.UserData[0] = MAX_BUTTONS;
-    QuickButtonCallbackMButn(&region, MSYS_CALLBACK_REASON_LBUTTON_DWN);
-    FAIL("QuickButtonCallbackMButn did not abort");
+    srAssertSetFunc(assertion_message_handler);
+    SetRegionBounds(static_cast<unsigned int>(g_regions.size()), 0, 0, 1, 1);
+    FAIL("SetRegionBounds did not abort");
+}
+
+TEST_CASE("Image assets share normalized paths and retain resources across clearing", "[owner][image]")
+{
+    initialize_test_framebuffer();
+    ScopedTemporaryDirectory directory{"wiz8-image-assets"};
+    const auto assets = directory.path / "assets";
+    const auto previous_roots = w8_native::path_roots();
+    button_image_fixture(assets, "Data/Items/X.sti", 1);
+    button_image_fixture(assets, "Data/Items/late.sti", 1);
+
+    const auto bitmap_path = assets / "Data" / "Items" / "screen.pcx";
+    std::filesystem::create_directories(bitmap_path.parent_path());
+    std::vector<std::uint8_t> pcx(128);
+    pcx[0] = 10;
+    pcx[1] = 5;
+    pcx[2] = 1;
+    pcx[3] = 8;
+    pcx[65] = 1;
+    pcx[66] = 1;
+    pcx.push_back(1);
+    pcx.push_back(12);
+    pcx.resize(pcx.size() + 256 * 3);
+    {
+        std::ofstream file(bitmap_path, std::ios::binary);
+        file.write(reinterpret_cast<const char*>(pcx.data()),
+                   static_cast<std::streamsize>(pcx.size()));
+        REQUIRE(file.good());
+    }
+
+    g_image_assets.clear();
+    w8_native::configure_paths({assets.string(), (directory.path / "user").string(), {}});
+    struct Restore {
+        w8_native::Roots roots;
+        ~Restore()
+        {
+            g_image_assets.clear();
+            w8_native::configure_paths(roots);
+        }
+    } restore{previous_roots};
+
+    const auto original = g_image_assets.sprites("Data\\Items\\X.sti");
+    REQUIRE(original);
+    REQUIRE(g_image_assets.sprites("data/items/x.STI") == original);
+    REQUIRE_FALSE(g_image_assets.bitmap("Data/Items/X.sti"));
+    REQUIRE(g_image_assets.sprites("Data/Items/X.sti") == original);
+    REQUIRE_FALSE(g_image_assets.sprites("Data/Items/missing.sti"));
+    button_image_fixture(assets, "Data/Items/missing.sti", 1);
+    const auto retried = g_image_assets.sprites("Data/Items/missing.sti");
+    REQUIRE(retried);
+
+    const auto bitmap = g_image_assets.bitmap("Data\\Items\\screen.pcx");
+    REQUIRE(bitmap);
+    REQUIRE(g_image_assets.bitmap("data/items/screen.PCX") == bitmap);
+    REQUIRE_FALSE(g_image_assets.sprites("Data/Items/screen.pcx"));
+
+    g_image_assets.clear();
+    const auto reloaded = g_image_assets.sprites("Data/Items/X.sti");
+    const auto bitmap_reloaded = g_image_assets.bitmap("Data/Items/screen.pcx");
+    REQUIRE(reloaded);
+    REQUIRE(bitmap_reloaded);
+    REQUIRE(reloaded != original);
+    REQUIRE(bitmap_reloaded != bitmap);
+    REQUIRE(original->frames.size() == 1);
+    REQUIRE(bitmap->w == 1);
+}
+
+TEST_CASE("CatalogArtwork renders sprite storage", "[owner][image][catalog]")
+{
+    initialize_test_framebuffer();
+    CatalogArtworkAssets assets;
+
+    auto& framebuffer = GetFrameBufferSurface();
+    const auto sprites = CatalogArtwork::Load(0x86);
+    REQUIRE(sprites.spriteSheet());
+    REQUIRE_FALSE(sprites.bitmap());
+    REQUIRE((sprites.size(0).x == 4 && sprites.size(0).y == 2));
+    REQUIRE((sprites.position(0).x == 2 && sprites.position(0).y == 3));
+    REQUIRE(SDL_FillSurfaceRect(&framebuffer, nullptr, 0x07e0));
+    sprites.draw(framebuffer, 0, 10, 10);
+    REQUIRE(surface_pixel(framebuffer, 12, 13) == sprites.spriteSheet()->colors[1]);
+    const int sprite_dirty_before = g_dirty_tile_count;
+    sprites.drawAndInvalidate(framebuffer, 0, 20, 20);
+    REQUIRE(g_dirty_tile_count > sprite_dirty_before);
+    const int explicit_dirty_before = g_dirty_tile_count;
+    sprites.invalidate(0, 30, 30, 2);
+    REQUIRE(g_dirty_tile_count > explicit_dirty_before);
+    REQUIRE_THROWS_AS(sprites.drawRect(framebuffer, {0, 0, 1, 1}, 40, 40),
+                      std::logic_error);
+}
+
+TEST_CASE("CatalogArtwork renders bitmap storage with mirror key semantics", "[owner][image][catalog]")
+{
+    initialize_test_framebuffer();
+    CatalogArtworkAssets assets;
+    auto& framebuffer = GetFrameBufferSurface();
+    const auto bitmap = CatalogArtwork::Load(0x11);
+    REQUIRE_FALSE(bitmap.spriteSheet());
+    REQUIRE(bitmap.bitmap());
+    REQUIRE((bitmap.size(0).x == 2 && bitmap.size(0).y == 1));
+    REQUIRE((bitmap.position(0).x == 0 && bitmap.position(0).y == 0));
+    const auto red = Get16BPPColor({255, 0, 0, 255});
+    REQUIRE(SDL_FillSurfaceRect(&framebuffer, nullptr, 0x07e0));
+    bitmap.draw(framebuffer, 0, 50, 50);
+    REQUIRE(surface_pixel(framebuffer, 50, 50) == 0x07e0);
+    REQUIRE(surface_pixel(framebuffer, 51, 50) == red);
+    const int bitmap_dirty_before = g_dirty_tile_count;
+    bitmap.drawAndInvalidate(framebuffer, 0, 60, 60);
+    REQUIRE(g_dirty_tile_count > bitmap_dirty_before);
+
+    REQUIRE(SDL_FillSurfaceRect(&framebuffer, nullptr, 0x07e0));
+    bitmap.draw(framebuffer, 0, 70, 70, {.mirror = true});
+    REQUIRE(surface_pixel(framebuffer, 70, 70) == red);
+    REQUIRE(surface_pixel(framebuffer, 71, 70) == 0);
+    bitmap.drawRect(framebuffer, {0, 0, 1, 1}, 80, 80);
+    REQUIRE(surface_pixel(framebuffer, 80, 80) == 0);
+}
+
+TEST_CASE("Controls draw optional CatalogArtwork backgrounds", "[owner][catalog]")
+{
+    initialize_test_framebuffer();
+    CatalogArtworkAssets assets;
+    auto& framebuffer = GetFrameBufferSurface();
+    const auto sprites = CatalogArtwork::Load(0x86);
+    REQUIRE(SDL_FillSurfaceRect(&framebuffer, nullptr, 0x07e0));
+    Controls with_background(100, 100, 140, 120, sprites, 0);
+    with_background.m_fEnabled = true;
+    with_background.m_fDirty = true;
+    with_background.Redraw();
+    REQUIRE(surface_pixel(framebuffer, 102, 103) == sprites.spriteSheet()->colors[1]);
+    Controls without_background(150, 100, 190, 120, std::nullopt, 0);
+    without_background.m_fEnabled = true;
+    without_background.m_fDirty = true;
+    without_background.Redraw();
+    REQUIRE(surface_pixel(framebuffer, 152, 103) == 0x07e0);
+}
+
+TEST_CASE("Item image cache owns shared sprite sheets", "[owner][catalog]")
+{
+    ScopedTemporaryDirectory directory{"wiz8-item-cache"};
+    const auto assets = directory.path / "assets";
+    const auto previous_roots = w8_native::path_roots();
+    button_image_fixture(assets, "Data/Items/icon.sti", 1);
+    std::vector<W8ItemDatabaseRecord> records(1005);
+    for (auto& record : records)
+        record.video_object_name = "icon.sti";
+    struct Restore {
+        W8ItemDatabaseRecord* records;
+        w8_native::Roots roots;
+        ~Restore()
+        {
+            g_item_video_objects.Clear();
+            g_image_assets.clear();
+            g_item_records = records;
+            w8_native::configure_paths(roots);
+        }
+    } restore{g_item_records, previous_roots};
+
+    g_image_assets.clear();
+    w8_native::configure_paths({assets.string(), (directory.path / "user").string(), {}});
+    g_item_records = records.data();
+    g_item_video_objects.Initialize(records.size());
+    REQUIRE_THROWS_AS(g_item_video_objects.Sprites(-1), std::out_of_range);
+    REQUIRE_THROWS_AS(g_item_video_objects.Sprites(records.size()), std::out_of_range);
+    records[0].video_object_name = "missing.sti";
+    REQUIRE_THROWS_AS(g_item_video_objects.Sprites(0), std::runtime_error);
+    REQUIRE(g_item_video_objects.LoadedImageCount() == 0);
+    records[0].video_object_name.clear();
+    records[0].unidentified_name_index = 145;
+    REQUIRE_THROWS_AS(g_item_video_objects.Sprites(0), std::out_of_range);
+    records[0].video_object_name = "icon.sti";
+    records[0].unidentified_name_index = 0;
+
+    for (std::size_t index = 0; index < records.size(); ++index) {
+        auto& sprites = g_item_video_objects.Sprites(index);
+        REQUIRE(sprites.frames.size() == 1);
+        REQUIRE(&g_item_video_objects.Sprites(index) == &sprites);
+    }
+    REQUIRE(g_item_video_objects.LoadedImageCount() == records.size());
+    REQUIRE(&g_item_video_objects.Sprites(0) == &g_item_video_objects.Sprites(1));
+    auto held = g_image_assets.sprites("Data\\Items\\icon.sti");
+    REQUIRE(held);
+    g_image_assets.clear();
+    REQUIRE(held->frames.size() == 1);
+    REQUIRE(&g_item_video_objects.Sprites(0) == held.get());
+    REQUIRE_THROWS_AS(CatalogArtwork::Load(-1, 0), std::out_of_range);
+    REQUIRE_THROWS_AS(CatalogArtwork::Load(0, -1), std::out_of_range);
+    REQUIRE_THROWS_AS(CatalogArtwork::Load(0x86, std::numeric_limits<int>::max()),
+                      std::out_of_range);
+
+    g_item_video_objects.Initialize(records.size());
+    REQUIRE(g_item_video_objects.LoadedImageCount() == 0);
+    g_image_assets.clear();
+    g_item_video_objects.Clear();
+    g_item_video_objects.Initialize(records.size());
+    auto& reloaded = g_item_video_objects.Sprites(1004);
+    REQUIRE(&reloaded != held.get());
+    REQUIRE(g_item_video_objects.LoadedImageCount() == 1);
+    g_item_video_objects.Clear();
+    g_item_video_objects.Clear();
+    REQUIRE(g_item_video_objects.LoadedImageCount() == 0);
+    REQUIRE_THROWS_AS(g_item_video_objects.Sprites(0), std::out_of_range);
 }

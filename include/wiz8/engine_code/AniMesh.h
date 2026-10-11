@@ -1,14 +1,18 @@
 #pragma once
 
+#include <optional>
+#include "surrender/srBoundingBox.h"
 #include <memory>
 #include <string>
 #include <vector>
-#include "wiz8/filesystem.h"
-#include "surrender/srMath.h"
+
+#include "glm/ext/vector_float3.hpp"
 
 class stModelInstance;
 struct W8ReadLevelInfo;
 struct W8World;
+namespace wiz8 { class File; }
+template <class T> class srVector3T;
 
 struct W8AniMesh {
     W8AniMesh();
@@ -50,8 +54,7 @@ void InitializeAniMeshCache(int primary_limit, int secondary_limit);
 void FreeAniMeshCache(void);
 
 float GetAniMeshFrameRadius(W8AniMesh* mesh, unsigned char frame);
-bool GetAniMeshBounds(W8AniMesh* mesh, srVector3T<float>* minimum,
-                               srVector3T<float>* maximum);
+std::optional<srBoundingBox> GetAniMeshBounds(W8AniMesh* mesh);
 bool LoadAniMesh(wiz8::File* file, W8AniMesh* mesh, bool load_all);
 bool LoadAniMeshFromInfo(W8ReadLevelInfo* info, W8AniMesh* mesh, bool load_all);
 bool UnloadAniMesh(W8AniMesh* mesh, bool force);

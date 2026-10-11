@@ -1,6 +1,9 @@
+#pragma once
+
+#include <SDL3/SDL_surface.h>
 #include <string>
 #include <string_view>
-#pragma once
+#include "Font.h"
 
 #include "wiz8/local_code/ControlsRect.h"
 
@@ -13,14 +16,13 @@ extern const unsigned int g_W8TextBufferAlignMiddle;
 extern const unsigned int g_W8TextBufferAlignTop;
 extern const unsigned int g_W8TextBufferAlignBottom;
 extern const unsigned int g_W8TextBufferNoWrap;
-extern char g_W8LineBreakCharacters[];
 
 // VTABLE: WIZ8 0x005ed5b8
 class W8TextBuffer {
 public:
     friend class W8DialogTextArea;
     W8TextBuffer();
-    W8TextBuffer(const W8ControlsRect* bounds, std::string_view text, int font,
+    W8TextBuffer(const W8ControlsRect* bounds, std::string_view text, Font& font,
                  unsigned int layout_mode, int render_mode);
     std::string_view GetText() const { return m_text; }
     unsigned int GetLineHeight();
@@ -28,22 +30,21 @@ public:
     int GetVerticalPosition();
     void SetLineHeight(unsigned int height);
     void FillBounds(int colour);
-    void RenderText(unsigned char* buffer, unsigned int pitch, int x_offset, int y_offset,
-                    bool force);
-    void RenderToTarget(int offset, bool force, unsigned int target);
+    void RenderText(SDL_Surface& target, int x_offset, int y_offset, bool force);
+    void RenderToTarget(int offset, bool force, SDL_Surface& target);
     void UpdateLayout();
     void SetLayoutMode(unsigned int layout_mode);
-    void SetText(std::string_view text, int font);
+    void SetText(std::string_view text, Font& font);
     void SetLayoutBounds(const W8ControlsRect* bounds, bool copy_pending, bool update_layout);
 
-    void RenderString(std::string_view text, int font, bool force, unsigned int target)
+    void RenderString(std::string_view text, Font& font, bool force, SDL_Surface& target)
     {
         SetText(text, font);
         RenderToTarget(0, force, target);
     }
 
-    void RenderString(const W8ControlsRect* bounds, std::string_view text, int font, bool force,
-                      unsigned int target)
+    void RenderString(const W8ControlsRect* bounds, std::string_view text, Font& font, bool force,
+                      SDL_Surface& target)
     {
         SetLayoutBounds(bounds, true, true);
         RenderString(text, font, force, target);
@@ -86,7 +87,7 @@ protected:
     W8ControlsRect m_layoutBounds;  /* current absolute layout bounds */
     W8ControlsRect m_pendingBounds; /* mirrored pending bounds */
     int m_field_24;                 /* the constructor steps over this one */
-    int m_font;                     /* font used for uncached line height */
+    Font* m_font;                     /* font used for uncached line height */
 public:
     /* The tooltip builder in Video2.cpp reads the finished layout directly. */
     int m_lineCount;

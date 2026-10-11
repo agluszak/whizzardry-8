@@ -1,6 +1,8 @@
 #include <fmt/printf.h>
-#include "wiz8/utility.h"
 #include <string>
+#include <cstring>
+#include <vector>
+
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/gameplay_databases.h"
@@ -8,14 +10,7 @@
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/sr_api.h"
-#include "wiz8/layouts/game_status.h"
-#include "wiz8/local_code/Strings.h"
-#include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/filesystem.h"
-
-#include <stdio.h>
-#include <string.h>
-#include <stdio.h>
 
 /* Local Code\Factions.cpp. The unit is named by the two assertions this body
    embeds, and the 0..20 domain they bound is the same one the contiguous
@@ -317,22 +312,22 @@ void AdjustFactionDisposition(signed char faction, char delta)
 /* Write both faction tables into the open FATA chunk: the 21x21 relation
    matrix, then the 21 runtime disposition records. */
 // FUNCTION: WIZ8 0x00536030
-void SaveFactionState(wiz8::File* file)
+void SaveFactionState(wiz8::File& file)
 {
-    file->write(g_faction_relations, sizeof(g_faction_relations));
-    file->write(g_factions, sizeof(g_factions));
+    file.write(g_faction_relations, sizeof(g_faction_relations));
+    file.write(g_factions, sizeof(g_factions));
 }
 
 /* Read the relation matrix and runtime disposition records back from the open
    FATA chunk, then re-arm the brotherhood's fixed score. */
 // FUNCTION: WIZ8 0x00536070
-void LoadFactionState(wiz8::File* file)
+void LoadFactionState(wiz8::File& file)
 {
     unsigned char relations[W8_FACTION_COUNT][W8_FACTION_COUNT];
     W8FactionRuntimeRecord factions[W8_FACTION_COUNT];
 
-    file->read_exact(relations, sizeof(relations));
-    file->read_exact(factions, sizeof(factions));
+    file.read_exact(relations, sizeof(relations));
+    file.read_exact(factions, sizeof(factions));
     memcpy(g_faction_relations, relations, sizeof(relations));
     memcpy(g_factions, factions, sizeof(factions));
     g_factions[W8_FACTION_PARTY].disposition_score = 100;

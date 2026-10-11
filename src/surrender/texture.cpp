@@ -1,10 +1,19 @@
-#include "surrender/srTexture.h"
+#include "surrender/stream_scope.h"
+#include <cstddef>
+#include <ostream>
+#include <memory>
+#include <string>
 
+#include "surrender/srTexture.h"
 #include "surrender/srCore.h"
+#include "surrender/srDebug.h"
 #include "surrender/srGERD.h"
 #include "surrender/srPixelConvert.h"
-
-#include <ostream>
+#include "compat/compiler.h"
+#include "surrender/srColorSurfaceIFace.h"
+#include "surrender/srFilter.h"
+#include "surrender/srTextureIFace.h"
+#include "surrender/srTypeRegistry.h"
 
 // GLOBAL: SURRENDER 0x100A4A20
 // Lazy e_flag names, "GENERATESURFACE_FAILURE,DIRTY_DEFAULTS"
@@ -13,45 +22,6 @@ static const char* s_flag_names3;
 // GLOBAL: SURRENDER 0x100A4A1C
 // srTexture::_frameHandle
 w8_ulong srTexture::_frameHandle;
-
-/* Same comma-separated bit-name walker srNode::dump uses; each TU keeps its
-   own copy. */
-static void dumpFlags(std::ostream& stream, w8_ulong flags, const char* names)
-{
-    if (flags == 0) {
-        stream << "[NONE]";
-        return;
-    }
-    stream << '[';
-    bool first = true;
-    for (w8_ulong bit = 0; bit < 0x20; ++bit) {
-        if ((flags & (1 << bit)) != 0) {
-            if (first) {
-                first = false;
-            } else {
-                stream << ',';
-            }
-            if (names == 0 || *names == 0) {
-                stream << bit;
-            } else {
-                while (*names != 0 && *names != ',') {
-                    stream << *names++;
-                }
-                if (*names == ',') {
-                    ++names;
-                }
-            }
-        } else if (names != 0) {
-            while (*names != 0 && *names != ',') {
-                ++names;
-            }
-            if (*names == ',') {
-                ++names;
-            }
-        }
-    }
-    stream << ']';
-}
 
 // FUNCTION: SURRENDER 0x1005EDE0
 const char* srTexture::sGetClassName()
@@ -70,7 +40,7 @@ srTexture::srTexture()
     texture_dimensions_.filter = srCore.getFilter();
     texture_dimensions_.hints = 0;
     texture_dimensions_.compression = srTextureIFace::COMPRESSION_DEFAULT;
-    srPixelConvert::mapPixelFormat(srPixelConvert::SURFACE_ARGB4444, texture_dimensions_.format);
+    texture_dimensions_.format = srPixelConvert::pixelFormat(srPixelConvert::SURFACE_ARGB4444);
     texture_flags_ = 0;
     if (s_flag_names3 == 0) {
         s_flag_names3 = "GENERATESURFACE_FAILURE,DIRTY_DEFAULTS";
@@ -82,7 +52,7 @@ srTexture::srTexture()
 }
 
 // FUNCTION: SURRENDER 0x1005E570
-srTexture::~srTexture() {}
+srTexture::~srTexture() = default;
 
 // FUNCTION: SURRENDER 0x1005E390
 srTexture& srTexture::operator=(const srTexture& other)
@@ -99,12 +69,27 @@ srTexture& srTexture::operator=(const srTexture& other)
     return *this;
 }
 
+static const char* filterName(srTexture::e_filter filter)
+{
+    switch (filter) {
+    case srTexture::FILTER_NONE:
+        return "NONE";
+    case srTexture::FILTER_FASTEST:
+        return "FASTEST";
+    case srTexture::FILTER_GOOD:
+        return "GOOD";
+    case srTexture::FILTER_BEST:
+        return "BEST";
+    default:
+        return "DEFAULT";
+    }
+}
+
 // FUNCTION: SURRENDER 0x1005E690
 void srTexture::dump(std::ostream& stream)
 {
     srClass::dump(stream);
-    std::ios::fmtflags flags = stream.flags();
-    stream.setf(std::ios::left, std::ios::adjustfield);
+    const srDumpStreamScope formatting(stream);
     stream.width(0x20);
     stream << "  Filter: " << getFilter()->getName() << '\n';
     const char* name;
@@ -133,43 +118,11 @@ void srTexture::dump(std::ostream& stream)
     stream << name << '\n';
     stream.width(0x20);
     stream << "  Mag. filter: ";
-    switch (mag_filter) {
-    case FILTER_NONE:
-        name = "NONE";
-        break;
-    case FILTER_FASTEST:
-        name = "FASTEST";
-        break;
-    case FILTER_GOOD:
-        name = "GOOD";
-        break;
-    case FILTER_BEST:
-        name = "BEST";
-        break;
-    default:
-        name = "DEFAULT";
-        break;
-    }
+    name = filterName(mag_filter);
     stream << name << '\n';
     stream.width(0x20);
     stream << "  Min. filter: ";
-    switch (min_filter) {
-    case FILTER_NONE:
-        name = "NONE";
-        break;
-    case FILTER_FASTEST:
-        name = "FASTEST";
-        break;
-    case FILTER_GOOD:
-        name = "GOOD";
-        break;
-    case FILTER_BEST:
-        name = "BEST";
-        break;
-    default:
-        name = "DEFAULT";
-        break;
-    }
+    name = filterName(min_filter);
     stream << name << '\n';
     stream.width(0x20);
     stream << "  Mipmap: ";
@@ -212,9 +165,8 @@ void srTexture::dump(std::ostream& stream)
     stream << getPriority() << '\n';
     stream.width(0x20);
     stream << "  Flags: ";
-    dumpFlags(stream, texture_flags_, s_flag_names3);
+    srDumpFlags(stream, texture_flags_, s_flag_names3);
     stream << '\n';
-    stream.flags(static_cast<std::ios::fmtflags>(flags & 0x7fff));
 }
 
 // FUNCTION: SURRENDER 0x1005EEF0
@@ -245,7 +197,7 @@ void srTexture::setupDefaultValuesFromSurface(srColorSurfaceIFace* surface)
     if (surface != 0) {
         texture_dimensions_.width = surface->getWidth();
         texture_dimensions_.height = surface->getHeight();
-        surface->getPixelFormat(texture_dimensions_.format);
+        texture_dimensions_.format = surface->getPixelFormat();
         texture_dimensions_.palette = surface->getPalette();
     } else {
         texture_dimensions_.width = 1;
@@ -421,25 +373,24 @@ w8_ulong srTexture::getTextureFrameHandle()
 }
 
 // FUNCTION: SURRENDER 0x1005EE00
-void srTexture::getDimensions(Dimensions& dimensions)
+srTextureIFace::Dimensions srTexture::getDimensions()
 {
     if ((texture_flags_ & (1 << FLAG_DIRTY_DEFAULTS)) != 0) {
         setupDefaultValues();
     }
-    dimensions = texture_dimensions_;
+    return texture_dimensions_;
 }
 
 // FUNCTION: SURRENDER 0x1005EE90
-void srTexture::getMipmapData(MultiRequest& request) {}
+void srTexture::getMipmapData(const MultiRequest& request) {}
 
 // FUNCTION: SURRENDER 0x1005EEA0
 void srTexture::getMipmapLevelPartial(PartialRequest& request) {}
 
 // FUNCTION: SURRENDER 0x1005EEB0
-void srTexture::getTextureParms(Parameters& parameters)
+srTextureIFace::Parameters srTexture::getParameters()
 {
-    parameters.packed_state = packed_state;
-    parameters.mipmap_bias = mipmap_bias;
+    return {packed_state, mipmap_bias};
 }
 
 srTextureIFace::~srTextureIFace()
@@ -451,4 +402,15 @@ srTextureIFace::~srTextureIFace()
 const char* srTextureIFace::getTextureName()
 {
     return getName().c_str();
+}
+
+void srTexture::copyMipmapChain(srColorSurfaceIFace& source, const MultiRequest& request)
+{
+    if (request.destinations.empty()) return;
+    if (auto* first = request.destinations.front()) first->copy(source);
+    for (std::size_t level = 1; level < request.destinations.size(); ++level) {
+        auto* destination = request.destinations[level];
+        auto* previous = request.destinations[level - 1];
+        if (destination && previous) destination->copy(*previous);
+    }
 }

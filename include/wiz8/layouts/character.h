@@ -156,8 +156,7 @@ struct W8Character {
        forces the field to one. */
     W8Gender gender;
     /* Retail offset 0x0079: the portrait/catalog index. Looked up by gender, race and
-       profession together, drawn through
-       DrawCatalogImage(-14, ...) and RenderPartyPortrait, and reassigned from
+       profession together, drawn by RenderPartyPortrait, and reassigned from
        g_portrait_groups[].portraits[] when the portrait changes. */
     int portrait_index;
     /* Retail offset 0x007d: cleared by DeriveCharacterPersonality in both of its branches and set to -1
@@ -306,7 +305,7 @@ struct W8Character {
     /* Retail offset 0x1770: the derived modifier block the rebuild clears and folds the
        equipment, persistent and party blocks into. */
     W8GameplayModifierBlock bonus;
-    /* Retail offset 0x17d7: the CamPos record GetWorldCameraState writes and recall restores.
+    /* Retail offset 0x17d7: the CamPos record cameraState writes and recall restores.
        The cross-level path copies the whole 0x3c bytes onto
        W8GlobalStatus::pending_move_location. */
     W8WorldCameraState saved_location; /* Retail offset 0x17d7 */

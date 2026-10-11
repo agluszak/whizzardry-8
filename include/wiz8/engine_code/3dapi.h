@@ -1,15 +1,13 @@
 #pragma once
 
-#include "wiz8/camera_motion.h"
+#include "compat/compiler.h"
+
+template <class T> class srVector3T;
 
 void SetRendererReady(void);
 
-#include "surrender/srMath.h"
-
 class srCamera;
-
 struct W8World;
-class srScene;
 
 extern bool g_renderer_ready;
 extern bool g_world_cleanup_flag;

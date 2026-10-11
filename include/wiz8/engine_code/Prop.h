@@ -1,14 +1,14 @@
 #pragma once
 
-#include "wiz8/filesystem.h"
+#include <optional>
+#include "surrender/srBoundingBox.h"
+#include <vector>
 
 #include "wiz8/engine_code/AnimRep.hpp"
 #include "wiz8/engine_code/GrObject.h"
-#include "wiz8/engine_code/game_timer.h"
-#include <vector>
-#include <algorithm>
-
 #include "surrender/srMath.h"
+#include "compat/compiler.h"
+#include "glm/fwd.hpp"
 
 class GDProp;
 struct W8AnimObj;
@@ -19,6 +19,8 @@ class stModelInstance;
 class Trigger;
 class W8Prop;
 struct W8AIMissile;
+class W8GameTimer;
+namespace wiz8 { class File; }
 
 extern bool g_animated_prop_present;
 
@@ -74,8 +76,6 @@ public:
     unsigned char padding_0c2[2];
 }; /* 0xc4 */
 
-W8_ABI_ASSERT(sizeof(W8PropRepresentation) == 0xc4, "W8PropRepresentation_must_be_0xc4");
-
 /* Engine Code\Prop.cpp.  Prop::Prop() calls W8GrObject::W8GrObject and
    allocates operator new(0x90), which proves both the base and the extent.
    m_pRep and m_pTimer are the assertion-backed names; the representation is
@@ -116,15 +116,14 @@ public:
     /* Restore the rep's persisted animation state: five saved bytes plus one
        discarded byte, clamped to the loaded animation's frame count, with
        path values re-synced while a running animation is active. */
-    bool LoadAnimationState(wiz8::File* hFile);        /* 0x0044DBD0 */
+    bool LoadAnimationState(wiz8::File& hFile);        /* 0x0044DBD0 */
     int BuildOrRefreshPathingRepresentation(); /* 0x0044DEA0 */
-    /* When the animation advanced exactly one frame this writes the current
-       position minus the home position into `out`; otherwise `out` is zeroed.
-       `point` is accepted but never read. */
-    char GetDelta(srVector3T<float>* out, const srVector3T<float>* point); /* 0x0044E130 */
+    /* Current minus previous position when the animation advances exactly
+       one frame; otherwise zero. */
+    srVector3T<float> GetDelta(); /* 0x0044E130 */
     /* The prop's position for external queries: animation_position while its
        animation runs, else the rep node's location. */
-    void GetPosition(srVector3T<float>* out); /* 0x0044E2C0 */
+    srVector3T<float> GetPosition() const; /* 0x0044E2C0 */
     /* Mirror of GetPosition: stores `position` in animation_position while the
        animation runs, else moves the rep node through SetLocation. */
     void SetPosition(srVector3T<float>* position); /* 0x0044E310 */
@@ -139,7 +138,7 @@ public:
     unsigned char GetActivationState();
     srModelInstance* ToggleRepAnimation(int argument);
     srModelInstance* ToggleRepAnimationDefault();
-    unsigned char PlayRepAnimation(srVector3T<float>* minimum, srVector3T<float>* maximum);
+    std::optional<srBoundingBox> GetFrameBounds();
     void SetAnimationDirection(W8AnimationDirection direction);
     void SetRepresentationActive(unsigned char active, bool update_animation);
     bool CanBeUsedFrom(int path_x, int path_z, bool notify);
@@ -152,12 +151,12 @@ public:
     Trigger* GetTrigger();
     bool IsTriggerInView(srVector3T<float>* position);
     Trigger* GetGDPropOwnerTrigger();
-    void GetCenterPosition(srVector3T<float>* position);
+    std::optional<srVector3T<float>> GetCenterPosition();
     /* Whether the renderer's currently selected model instance is dispatched
        by this prop's animation - the prop half of ResolvePickedProp's test.
        `world` is accepted but never read. */
     bool IsPickedProp(W8World* world); /* 0x0044D680 */
-    void GetBounds(srVector3T<float>* minimum, srVector3T<float>* maximum);
+    std::optional<srBoundingBox> GetBounds();
     void CollectModelInstances(std::vector<stModelInstance*>& instances);
     /* Run trigger when its action is one of the missile-impact kinds
        (0x3a..0x3c); the record hands Run the missile's table index. */
@@ -177,8 +176,6 @@ public:
     glm::mat3 previous_animation_rotation; /* 0x48 */
     glm::mat3 animation_rotation;          /* 0x6c */
 }; /* 0x90 */
-
-W8_ABI_ASSERT(sizeof(W8Prop) == 0x90, "W8Prop_must_be_0x90");
 
 W8Prop* FindPropByName(W8World* world, const char* name);
 bool CreateAndLoadProp(W8ReadLevelInfo* info, W8Prop** prop);

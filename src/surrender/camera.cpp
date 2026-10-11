@@ -1,11 +1,26 @@
-#include "surrender/srCamera.h"
-#include "surrender/srStreamFlags.h"
-
-#include "surrender/srCore.h"
-#include "surrender/srGERD.h"
-
+#include "surrender/srDebug.h"
+#include <glm/gtc/matrix_access.hpp>
 #include <ostream>
 #include <algorithm>
+#include <cmath>
+#include <utility>
+#include <optional>
+#include <span>
+
+#include "glm/common.hpp"
+#include "glm/matrix.hpp"
+#include "glm/vector_relational.hpp"
+#include "surrender/srCamera.h"
+#include "surrender/stream_scope.h"
+#include "surrender/srGERD.h"
+#include "glm/ext/matrix_double3x3.hpp"
+#include "glm/ext/matrix_double4x4.hpp"
+#include "glm/ext/vector_double2.hpp"
+#include "glm/ext/vector_double3.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include "surrender/srFlags.h"
+#include "surrender/srNode.h"
+#include "surrender/srTypeRegistry.h"
 
 /* Flag-name table; never assigned, so dump prints numeric bit indices. */
 static const char* flag_names;
@@ -48,7 +63,7 @@ void srCamera::setProjectionType(e_project projection)
 void srCamera::processPush(srGERD* renderer)
 {
     glm::dmat4 world;
-    getWorldSpaceMatrix(world);
+    world = getWorldSpaceMatrix<glm::dmat4>();
 
     /* The view transform reverses the inverse world matrix's Z row. */
     glm::dmat4 view;
@@ -62,13 +77,9 @@ void srCamera::processPush(srGERD* renderer)
     renderer->pushMatrix();
     renderer->loadIdentity();
 
-    double near_plane;
-    double far_plane;
-    getClipRange(near_plane, far_plane);
+    const auto [near_plane, far_plane] = getClipRange();
 
-    Rect rectangle;
-    double distance;
-    getViewPlane(rectangle, distance);
+    auto [rectangle, distance] = getViewPlane();
     double scale = near_plane / distance;
     rectangle.left *= scale;
     rectangle.right *= scale;
@@ -122,12 +133,10 @@ srCamera::srCamera(srNode* parent)
 }
 
 // FUNCTION: SURRENDER 0x100485A0
-void srCamera::getNormalizedViewPlane(Rect& rectangle) const
+srCamera::Rect srCamera::getNormalizedViewPlane() const
 {
-    rectangle.left = view_plane.left / view_plane_distance;
-    rectangle.bottom = view_plane.bottom / view_plane_distance;
-    rectangle.right = view_plane.right / view_plane_distance;
-    rectangle.top = view_plane.top / view_plane_distance;
+    return {view_plane.left / view_plane_distance, view_plane.bottom / view_plane_distance,
+            view_plane.right / view_plane_distance, view_plane.top / view_plane_distance};
 }
 
 // FUNCTION: SURRENDER 0x100485F0
@@ -141,13 +150,9 @@ void srCamera::normalizeViewPlane()
 }
 
 // FUNCTION: SURRENDER 0x10048650
-void srCamera::getViewPlane(Rect& rectangle, double& distance) const
+srCamera::ViewPlane srCamera::getViewPlane() const
 {
-    rectangle.left = view_plane.left;
-    rectangle.bottom = view_plane.bottom;
-    rectangle.right = view_plane.right;
-    rectangle.top = view_plane.top;
-    distance = view_plane_distance;
+    return {view_plane, view_plane_distance};
 }
 
 // FUNCTION: SURRENDER 0x100486C0
@@ -165,17 +170,15 @@ void srCamera::setEnvironmentScale(float near_scale, float far_scale)
 }
 
 // FUNCTION: SURRENDER 0x10048700
-void srCamera::getEnvironmentRange(float& near_range, float& far_range) const
+std::pair<float, float> srCamera::getEnvironmentRange() const
 {
-    near_range = environment_near;
-    far_range = environment_far;
+    return {environment_near, environment_far};
 }
 
 // FUNCTION: SURRENDER 0x10048720
-void srCamera::getEnvironmentScale(float& near_scale, float& far_scale) const
+std::pair<float, float> srCamera::getEnvironmentScale() const
 {
-    near_scale = environment_near_scale;
-    far_scale = environment_far_scale;
+    return {environment_near_scale, environment_far_scale};
 }
 
 // FUNCTION: SURRENDER 0x10048740
@@ -197,10 +200,9 @@ void srCamera::setClipRange(double near_plane, double far_plane)
 }
 
 // FUNCTION: SURRENDER 0x100487F0
-void srCamera::getClipRange(double& near_plane, double& far_plane) const
+std::pair<double, double> srCamera::getClipRange() const
 {
-    near_plane = near_clip;
-    far_plane = far_clip;
+    return {near_clip, far_clip};
 }
 
 // FUNCTION: SURRENDER 0x10048820
@@ -306,104 +308,61 @@ void srCamera::flipHorizontal()
 void srCamera::dump(std::ostream& stream)
 {
     srNode::dump(stream);
-    w8_long flags = srGetStreamFlags(stream);
-    srSetStreamFlags(stream, (flags & 0xfffffe7fL) | 0x40);
+    const srDumpStreamScope formatting(stream);
     stream.width(0x20);
     stream << "Control flags: ";
-    if (this->flags.value == 0) {
-        stream << "[NONE]";
-    } else {
-        stream << '[';
-        int first = 1;
-        const char* names = flag_names;
-        for (w8_ulong bit = 0; bit < 0x20; ++bit) {
-            if ((this->flags.value & (1UL << bit)) != 0) {
-                if (first == 0) {
-                    stream << ',';
-                } else {
-                    first = 0;
-                }
-                if (names == 0 || *names == '\0') {
-                    stream << bit;
-                } else {
-                    while (*names != '\0' && *names != ',') {
-                        stream << *names;
-                        ++names;
-                    }
-                    if (*names == ',') {
-                        ++names;
-                    }
-                }
-            } else if (names != 0) {
-                while (*names != '\0' && *names != ',') {
-                    ++names;
-                }
-                if (*names == ',') {
-                    ++names;
-                }
-            }
-        }
-        stream << ']';
-    }
+    srDumpFlags(stream, this->flags.value, flag_names);
     stream << '\n';
     stream.width(0x20);
     stream << "  Viewplane: " << view_plane << '\n';
     stream.width(0x20);
     stream << "  Viewplane distance: " << view_plane_distance << '\n';
     stream.width(0x20);
-    double near_plane;
-    double far_plane;
-    getClipRange(near_plane, far_plane);
+    const auto [near_plane, far_plane] = getClipRange();
     stream << "  Object space Clip Range (near,far): " << near_plane << ',' << far_plane << '\n';
     stream.width(0x20);
-    float near_range;
-    float far_range;
-    getEnvironmentRange(near_range, far_range);
+    const auto [near_range, far_range] = getEnvironmentRange();
     stream << "  Environment Range (near,far): " << near_range << ',' << far_range << '\n';
-    float near_scale;
-    float far_scale;
-    getEnvironmentScale(near_scale, far_scale);
+    const auto [near_scale, far_scale] = getEnvironmentScale();
     stream << "  Environment Scale (near,far): " << near_scale << ',' << far_scale << '\n';
-    srSetStreamFlags(stream, flags & 0x7fff);
 }
 
 // FUNCTION: SURRENDER 0x10048E30
-srCamera::e_projectionResult srCamera::project(srVector3T<float>& output,
-                                               const srVector3T<double>& input)
+srCamera::Projection srCamera::project(const glm::dvec3& input)
 {
-    glm::dmat3 rotation;
-    getWorldSpaceRotation(rotation);
-    const auto point = glm::transpose(rotation) * (input.glmValue() - getWorldSpaceLocation());
+    const auto rotation = getWorldSpaceRotation<glm::dmat3>();
+    const auto point = glm::transpose(rotation) * (input - getWorldSpaceLocation());
     if (point.z < std::min(near_clip, far_clip) || point.z > std::max(near_clip, far_clip) ||
-        point.z == 0) {
-        output.SetZero();
-        return PROJECTION_RESULT_OUTSIDE_CLIP_RANGE;
-    }
+        point.z == 0)
+        return {glm::vec3(0), PROJECTION_RESULT_OUTSIDE_CLIP_RANGE};
     const glm::dvec2 start(view_plane.left, view_plane.top);
     const glm::dvec2 end(view_plane.right, view_plane.bottom);
     const auto uv = (glm::dvec2(point) * (view_plane_distance / point.z) - start) / (end - start);
-    output = glm::vec3(uv, point.z);
-    return glm::all(glm::greaterThanEqual(uv, glm::dvec2(0))) &&
-                   glm::all(glm::lessThanEqual(uv, glm::dvec2(1)))
-               ? PROJECTION_RESULT_ACCEPTED
-               : PROJECTION_RESULT_OUTSIDE_VIEW;
+    const bool inside = glm::all(glm::greaterThanEqual(uv, glm::dvec2(0))) &&
+                        glm::all(glm::lessThanEqual(uv, glm::dvec2(1)));
+    return {glm::vec3(uv, point.z), inside ? PROJECTION_RESULT_ACCEPTED : PROJECTION_RESULT_OUTSIDE_VIEW};
+}
+
+bool srCamera::projectsAny(std::span<const glm::vec3> points)
+{
+    return std::any_of(points.begin(), points.end(), [&](const glm::vec3& point) {
+        return project(glm::dvec3(point)).result == PROJECTION_RESULT_ACCEPTED;
+    });
 }
 
 // FUNCTION: SURRENDER 0x100490B0
-int srCamera::unproject(srVector3T<float>& output, const srVector3T<double>& input)
+std::optional<glm::vec3> srCamera::unproject(const glm::dvec3& input)
 {
-    output.SetZero();
     const glm::dvec2 uv(input.x, input.y);
     if (input.z < std::min(near_clip, far_clip) || input.z > std::max(near_clip, far_clip) ||
         !glm::all(glm::greaterThanEqual(uv, glm::dvec2(0))) ||
         !glm::all(glm::lessThanEqual(uv, glm::dvec2(1))))
-        return 0;
+        return std::nullopt;
 
     const glm::dvec2 start(view_plane.left, view_plane.top);
     const glm::dvec2 end(view_plane.right, view_plane.bottom);
     const glm::dvec3 point(glm::mix(start, end, uv) * (input.z / view_plane_distance), input.z);
     glm::dmat3 rotation;
-    getWorldSpaceRotation(rotation);
-    output = glm::vec3(rotation * point + getWorldSpaceLocation());
-    return 1;
+    rotation = getWorldSpaceRotation<glm::dmat3>();
+    return glm::vec3(rotation * point + getWorldSpaceLocation());
 }

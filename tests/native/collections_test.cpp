@@ -1,86 +1,235 @@
 #include <catch2/catch_test_macros.hpp>
-#include "wiz8/containers.h"
+#include <algorithm>
+#include <array>
+#include <cstddef>
+#include <filesystem>
+#include <fstream>
+#include <ios>
+#include <iterator> // IWYU pragma: keep - public header for std::istreambuf_iterator.
+#include <functional>
+#include <stdexcept>
+#include <utility>
+#include <vector>
+#include <memory>
+#include <span>
+#include <unordered_map>
+
 #include "wiz8/xstatus.h"
 #include "wiz8/local_code/Controls.h"
+#include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/Sight.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/layouts/item_tables.h"
 #include "wiz8/npc_items.h"
-#include <algorithm>
-#include "wiz8/asset_paths.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/local_screens/JournalScreen.h"
 #include "wiz8/local_screens/MGSKeyboard.h"
 #include "temporary_directory.h"
-
-#include <array>
-#include <cstdio>
-#include <filesystem>
-#include <fstream>
-#include <iterator>
-#include <vector>
+#include "scoped_asset_roots.h"
+#include "fact_state.h"
+#include "input.h"
+#include "layouts/item_instance.h"
+#include "layouts/npc_state.h"
+#include "local_code/Widget.h"
+#include "mgs_commands.h"
+#include "regions.h"
+#include "sight_state.h"
 
 
 struct Entry : W8Widget {
-    Controls& owner;
     std::vector<int>& destroyed;
-    bool& unlinked;
     int id;
     Entry* erase_also;
-    Entry(Controls& owner, std::vector<int>& destroyed, bool& unlinked, int id,
-          Entry* erase_also = nullptr)
-        : owner(owner), destroyed(destroyed), unlinked(unlinked), id(id), erase_also(erase_also)
-    {
-    }
+    Entry(Controls& owner, std::vector<int>& destroyed, int id, Entry* erase_also = nullptr)
+        : W8Widget(&owner, -1u, 0, 0, 0, 0), destroyed(destroyed), id(id), erase_also(erase_also) {}
     ~Entry() override
     {
-        unlinked = unlinked && std::ranges::find(owner.m_controls, this) == owner.m_controls.end();
         destroyed.push_back(id);
         if (erase_also) {
-            owner.RemoveControl(erase_also);
-            delete erase_also;
+            auto sibling = erase_also->m_pPanel->TakeControl(erase_also);
         }
     }
 };
 
 static bool ownershipAndCallbacks()
 {
-    Controls owner;
     std::vector<int> destroyed;
-    bool unlinked = true;
-    auto* first = new Entry(owner, destroyed, unlinked, 1);
-    auto* second = new Entry(owner, destroyed, unlinked, 2);
-    auto* third = new Entry(owner, destroyed, unlinked, 3, second);
-    owner.m_controls = {first, second, third};
-    // Exercise the real UI owner's teardown, including a destructor that
-    // removes and destroys its neighbor from the same collection.
+    Controls owner;
+    new Entry(owner, destroyed, 1);
+    auto* second = new Entry(owner, destroyed, 2);
+    new Entry(owner, destroyed, 3, second);
     owner.DestroyAllControls();
-    REQUIRE((owner.m_controls.empty() && unlinked));
+    REQUIRE(owner.ControlCount() == 0);
     REQUIRE((destroyed == std::vector<int>{3, 2, 1}));
 
-    auto* borrowed = new Entry(owner, destroyed, unlinked, 4);
-    owner.m_controls = {borrowed, nullptr, borrowed};
-    owner.RemoveControl(borrowed);
-    REQUIRE((owner.m_controls == std::vector<W8Widget*>{nullptr, borrowed}));
-    REQUIRE(destroyed.size() == 3); // unlinking removes only the first borrowed pointer
-    owner.RemoveControl(borrowed);
-    owner.m_controls.clear();
-    delete borrowed;
-    REQUIRE((unlinked && destroyed.back() == 4));
-
-    // Ordered destruction also unlinks first and tolerates a destructor deleting
-    // the next entry. A detached snapshot would double-delete that entry.
-    destroyed.clear();
-    second = new Entry(owner, destroyed, unlinked, 2);
-    first = new Entry(owner, destroyed, unlinked, 1, second);
-    third = new Entry(owner, destroyed, unlinked, 3);
-    owner.m_controls = {first, second, third};
-    wiz8::remove_all_and_delete_in_order(owner.m_controls);
-    REQUIRE((owner.m_controls.empty() && unlinked));
-    REQUIRE((destroyed == std::vector<int>{1, 2, 3}));
+    auto* child = new Entry(owner, destroyed, 4);
+    auto detached = owner.TakeControl(child);
+    REQUIRE(detached.get() == child);
+    REQUIRE(child->m_pPanel == nullptr);
+    REQUIRE(owner.ControlCount() == 0);
+    REQUIRE(destroyed.size() == 3);
+    Controls destination;
+    destination.AdoptControl(std::move(detached));
+    REQUIRE(!detached);
+    REQUIRE(destination.ControlAt(0) == child);
+    REQUIRE(child->m_pPanel == &destination);
+    destination.DestroyAllControls();
+    REQUIRE(destroyed.back() == 4);
+    {
+        Controls automatic_owner;
+        new Entry(automatic_owner, destroyed, 5);
+        new Entry(automatic_owner, destroyed, 6);
+    }
+    REQUIRE((destroyed == std::vector<int>{3, 2, 1, 4, 6, 5}));
     return true;
+}
+
+// Exercise real region bindings rather than manually filling a panel vector.
+struct RecordingWidget : W8Widget {
+    std::vector<int>& events;
+    int id;
+    std::function<void()> on_event;
+    RecordingWidget(Controls& owner, std::vector<int>& events, int id, unsigned region = -1u)
+        : W8Widget(&owner, region, 0, 0, 20, 20), events(events), id(id) {}
+    void OnLeftButtonDown(int) override { Fire(); }
+    void OnLeftButtonUp(int) override { Fire(); }
+    void OnRightButtonDown(int) override { Fire(); }
+    void OnRightButtonUp(int) override { Fire(); }
+    void OnMouseEnter(int) override { Fire(); }
+    void OnMouseLeave(int) override { Fire(); }
+    void Fire()
+    {
+        events.push_back(id);
+        auto action = on_event;
+        if (action) action(); // May delete this object.
+    }
+};
+
+TEST_CASE("widget_region_lifetimes")
+{
+    // Destroy every set this case creates instead of shrinking the global
+    // tables: the scan order and free lists still refer to those slots.
+    struct DestroyCreatedSets {
+        unsigned set_count = g_region_sets.size();
+        ~DestroyCreatedSets()
+        {
+            for (unsigned set = g_region_sets.size(); set-- > set_count;) DestroyRegionSet(set);
+        }
+    } cleanup;
+    std::vector<int> events;
+    auto first_panel = std::make_unique<Controls>();
+    first_panel->CreateRegionSet();
+    auto* first = new RecordingWidget(*first_panel, events, 1);
+    auto* second = new RecordingWidget(*first_panel, events, 2);
+    auto* third = new RecordingWidget(*first_panel, events, 3);
+    auto third_region = third->m_region;
+    delete first;
+    REQUIRE(first_panel->ControlCount() == 2);
+    InputEvent event{};
+    event.type = InputEventType::LeftButtonDown;
+    REQUIRE(DispatchControlRegionEvent(&event, &g_regions[third_region]) == 1);
+    REQUIRE(events.back() == 3);
+
+    Controls second_panel;
+    second_panel.CreateRegionSet();
+    third->SetPanel(second_panel);
+    third->SetPanel(second_panel);
+    REQUIRE(second_panel.ControlCount() == 1);
+    third_region = third->m_region; // Reparenting moved the region into second_panel's set.
+    REQUIRE(std::ranges::contains(g_region_sets[second_panel.RegionSet()].Regions(),
+                                  unsigned(third_region)));
+    REQUIRE(first_panel->ControlCount() == 1);
+    const auto second_region = second->m_region;
+    auto detached_second = first_panel->TakeControl(second);
+    REQUIRE(second->m_pPanel == nullptr);
+    REQUIRE(g_regions[second_region].widget == nullptr);
+    first_panel.reset();
+    detached_second.reset(); // Detached widgets do not retain a dead panel pointer.
+    REQUIRE(DispatchControlRegionEvent(&event, &g_regions[third_region]) == 1);
+    REQUIRE(events.back() == 3);
+
+    // A failed derived constructor must remove the base-class registration.
+    struct FailingWidget : W8Widget {
+        explicit FailingWidget(Controls& owner) : W8Widget(&owner, -1u, 0, 0, 10, 10)
+        { throw std::runtime_error("incomplete widget"); }
+    };
+    Controls failing_panel;
+    failing_panel.CreateRegionSet();
+    const auto live_before_failure = LiveDynamicRegionCount();
+    REQUIRE_THROWS_AS(new FailingWidget(failing_panel), std::runtime_error);
+    REQUIRE(failing_panel.ControlCount() == 0);
+    REQUIRE(g_region_sets[failing_panel.RegionSet()].Regions().empty());
+    REQUIRE(LiveDynamicRegionCount() == live_before_failure);
+
+    // An old widget may outlive a rebuilt panel reusing the same region slots.
+    Controls rebuilt_panel;
+    rebuilt_panel.CreateRegionSet();
+    auto* old = new RecordingWidget(rebuilt_panel, events, 4);
+    const auto reused_region = old->m_region;
+    rebuilt_panel.CreateRegionSet();
+    auto* replacement = new RecordingWidget(rebuilt_panel, events, 5);
+    REQUIRE(replacement->m_region == reused_region);
+    replacement->SetActive(true);
+    delete old;
+    REQUIRE(g_regions[reused_region].widget == replacement);
+    REQUIRE(!(g_regions[reused_region].flags & W8_REGION_INPUT_DISABLED));
+    REQUIRE(DispatchControlRegionEvent(&event, &g_regions[reused_region]) == 1);
+    REQUIRE(events.back() == 5);
+
+    // Post-callback latch writes must not corrupt a replacement's state.
+    for (auto reason : {InputEventType::LeftButtonDown, InputEventType::LeftButtonUp, InputEventType::RightButtonDown, InputEventType::RightButtonUp}) {
+        auto* victim = replacement;
+        victim->on_event = [&, victim] {
+            delete victim;
+            rebuilt_panel.CreateRegionSet();
+            replacement = new RecordingWidget(rebuilt_panel, events, 6);
+            g_regions[reused_region].flags = W8_REGION_RECTANGLE;
+        };
+        event.type = reason;
+        g_regions[reused_region].flags |= W8_REGION_LEFT_BUTTON_HELD | W8_REGION_RIGHT_BUTTON_HELD;
+        REQUIRE(DispatchControlRegionEvent(&event, &g_regions[reused_region]) == 1);
+        REQUIRE(g_regions[reused_region].flags == W8_REGION_RECTANGLE);
+    }
+    // Destroying a captured/hovered widget also releases those global views.
+    g_captured_region_index = g_current_region_index = g_hover_region_index = reused_region;
+    delete replacement;
+    REQUIRE((g_captured_region_index == 0 && g_current_region_index == 0 && g_hover_region_index == 0));
+    REQUIRE(rebuilt_panel.ControlCount() == 0);
+    REQUIRE(DispatchControlRegionEvent(&event, &g_regions[reused_region]) == 0);
+
+    Controls hover_panel;
+    hover_panel.CreateRegionSet();
+    auto* outgoing = new RecordingWidget(hover_panel, events, 7);
+    auto* incoming = new RecordingWidget(hover_panel, events, 8);
+    incoming->SetBounds(40, 0, 60, 20);
+    hover_panel.SetEnabled(true);
+    hover_panel.EnableRegionSet(true);
+    PushButtonSoundScheme(0, true);
+    const auto outgoing_region = outgoing->m_region;
+    REQUIRE(UpdateRegionMousePosition(5, 5) == static_cast<unsigned>(outgoing_region));
+    outgoing->on_event = [&] { delete incoming; incoming = nullptr; };
+    PushButtonSoundScheme(0, true);
+    REQUIRE(UpdateRegionMousePosition(45, 5) == 0);
+    REQUIRE(incoming == nullptr);
+    REQUIRE(events.back() == 7); // No enter dispatched to the deleted destination.
+
+    // A leave callback can rebuild its own region. Cleanup belongs to the
+    // old binding and must leave the replacement's transition flags alone.
+    outgoing->on_event = [&] {
+        delete outgoing;
+        hover_panel.CreateRegionSet();
+        outgoing = new RecordingWidget(hover_panel, events, 9);
+        outgoing->SetActive(true);
+        g_regions[outgoing_region].flags |= W8_REGION_MOUSE_ENTER;
+    };
+    g_hover_region_index = g_current_region_index = outgoing_region;
+    REQUIRE(UpdateRegionMousePosition(100, 100) == 0);
+    REQUIRE(g_regions[outgoing_region].widget == outgoing);
+    REQUIRE(g_regions[outgoing_region].flags & W8_REGION_MOUSE_ENTER);
+    REQUIRE(g_hover_region_index == 0);
+    hover_panel.EnableRegionSet(false);
 }
 
 static std::vector<int> masterCalls;
@@ -187,7 +336,8 @@ static bool npcStockOrdering()
 
 static bool keyboardBindingReplacement()
 {
-    const auto root = wiz8::path_from_utf8(make_temporary_directory("wiz8-keyboard"));
+    ScopedTemporaryDirectory temporary{"wiz8-keyboard"};
+    const auto& root = temporary.path;
     const auto path = root / "bindings.bin";
     const std::array<MGSKeyBinding, 3> bindings{{
         {'A', 0, 1, W8_MGS_COMMAND_CANCEL},
@@ -204,7 +354,7 @@ static bool keyboardBindingReplacement()
     REQUIRE(keyboard.GetBinding(0) == nullptr);
     {
         auto file = wiz8::open_host_file(path);
-        REQUIRE(keyboard.Load(file.get(), true));
+        REQUIRE(keyboard.Load(*file, true));
     }
     // A duplicate command replaces its record and moves to the end of the
     // ordered bindings. The command index must refer to that replacement.
@@ -213,27 +363,27 @@ static bool keyboardBindingReplacement()
     REQUIRE((keyboard.GetBinding(0)->key == 'B' && keyboard.GetBinding(1)->key == 'C'));
     REQUIRE(keyboard.GetBinding(-1) == nullptr);
     REQUIRE(keyboard.GetBinding(2) == keyboard.GetBinding(0));
-    gfKeyState['A'] = true;
+    GetInputState().keys['A'] = true;
     REQUIRE(!keyboard.IsCommandPressed(W8_MGS_COMMAND_CANCEL));
-    gfKeyState['A'] = false;
-    gfKeyState['C'] = true;
+    GetInputState().keys['A'] = false;
+    GetInputState().keys['C'] = true;
     REQUIRE(keyboard.IsCommandPressed(W8_MGS_COMMAND_CANCEL));
-    gfKeyState['C'] = false;
+    GetInputState().keys['C'] = false;
     keyboard.Clear();
     REQUIRE(keyboard.GetBinding(0) == nullptr);
     REQUIRE(!keyboard.IsCommandPressed(W8_MGS_COMMAND_CANCEL));
-    std::filesystem::remove_all(root);
     return true;
 }
 
 static bool journalSerialization()
 {
-    const auto root = wiz8::path_from_utf8(make_temporary_directory("wiz8-collections"));
+    ScopedTemporaryDirectory temporary{"wiz8-collections"};
+    const auto& root = temporary.path;
     const auto assets = root / "assets", user = root / "user";
     std::filesystem::create_directories(assets);
     std::filesystem::create_directories(user);
-    w8_native::configure_paths(
-        {wiz8::path_to_utf8(assets), wiz8::path_to_utf8(user), {"", "", ""}});
+    ScopedAssetRoots roots{{wiz8::path_to_utf8(assets), wiz8::path_to_utf8(user),
+                            {"", "", ""}}};
     const auto input_path = root / "journal.bin", output_path = root / "journal-copy.bin";
     const int format = 1, count = 3;
     const std::array<W8JournalEntry, count> expected{{{1, static_cast<W8FactId>(10), 0},
@@ -248,7 +398,7 @@ static bool journalSerialization()
     }
     {
         auto file = wiz8::open_host_file(input_path);
-        LoadJournalEntries(file.get());
+        LoadJournalEntries(*file);
     }
     REQUIRE(g_fact_journal_entries.size() == count);
     for (int i = 0; i < count; ++i) {
@@ -258,7 +408,7 @@ static bool journalSerialization()
     }
     {
         auto file = wiz8::open_host_file(output_path, wiz8::OpenMode::replace);
-        SaveFactJournal(file.get());
+        SaveFactJournal(*file);
     }
     std::ifstream input(input_path, std::ios::binary), output(output_path, std::ios::binary);
     const std::vector<char> original{std::istreambuf_iterator<char>(input),
@@ -275,10 +425,9 @@ static bool journalSerialization()
     }
     {
         auto file = wiz8::open_host_file(input_path);
-        LoadJournalEntries(file.get());
+        LoadJournalEntries(*file);
     }
     REQUIRE(g_fact_journal_entries.empty());
-    std::filesystem::remove_all(root);
     return true;
 }
 
@@ -321,4 +470,85 @@ TEST_CASE("collections_test")
     REQUIRE(keyboardBindingReplacement());
     REQUIRE(journalSerialization());
     REQUIRE(visibilityRecordLifetime());
+}
+
+TEST_CASE("region_storage_grows_without_aliasing_sets")
+{
+    std::vector<unsigned int> created_sets;
+    struct ReleaseSets {
+        std::vector<unsigned int>& sets;
+        ~ReleaseSets()
+        {
+            for (auto it = sets.rbegin(); it != sets.rend(); ++it) DestroyRegionSet(*it);
+        }
+    } release{created_sets};
+    const auto first = created_sets.emplace_back(CreateRegionSet());
+    const auto second = created_sets.emplace_back(CreateRegionSet());
+    const auto a = AddRegionToSet(first);
+    const auto b = AddRegionToSet(second);
+    const auto c = AddRegionToSet(first);
+    REQUIRE(a != b);
+    REQUIRE(b != c);
+    REQUIRE(a != c);
+    REQUIRE(g_region_sets[first].Regions().size() == 2);
+    REQUIRE(g_region_sets[second].Regions().size() == 1);
+    DisableRegionSetInput(first);
+    REQUIRE(g_regions[a].flags & W8_REGION_INPUT_DISABLED);
+    REQUIRE(g_regions[c].flags & W8_REGION_INPUT_DISABLED);
+    REQUIRE(!(g_regions[b].flags & W8_REGION_INPUT_DISABLED));
+    EnableRegionSetInput(first);
+    REQUIRE(!(g_regions[c].flags & W8_REGION_INPUT_DISABLED));
+    ResetRegionSet(first);
+    REQUIRE(g_region_sets[first].Regions().empty());
+    REQUIRE(AddRegionToSet(first) == a);
+    REQUIRE(AddRegionToSet(first) == c);
+
+    auto* region = &g_regions[a];
+    auto* set = &g_region_sets[first];
+    for (int i = 0; i < 1600; ++i) AddRegionToSet(first);
+    for (int i = 0; i < 320; ++i) created_sets.push_back(CreateRegionSet());
+    REQUIRE(&g_regions[a] == region);
+    REQUIRE(&g_region_sets[first] == set);
+    REQUIRE(g_regions.size() > 1500);
+    REQUIRE(g_region_sets.size() > 300);
+    REQUIRE(g_region_sets[second].Regions()[0] == b);
+}
+
+TEST_CASE("SDL region rectangles keep inclusive edges and circle hit tests")
+{
+    const auto size = g_regions.size();
+    struct RestoreCatalog {
+        size_t size;
+        ~RestoreCatalog() { g_regions.resize(size); }
+    } restore{size};
+    auto& region = g_regions.emplace_back();
+    region.flags = W8_REGION_RECTANGLE;
+    region.x1 = 10;
+    region.y1 = 20;
+    region.x2 = 30;
+    region.y2 = 40;
+    for (unsigned short x : {10, 20, 30})
+        for (unsigned short y : {20, 30, 40}) REQUIRE(RegionContainsPoint(size, x, y));
+    REQUIRE_FALSE(RegionContainsPoint(size, 9, 30));
+    REQUIRE_FALSE(RegionContainsPoint(size, 31, 30));
+    REQUIRE_FALSE(RegionContainsPoint(size, 20, 19));
+    REQUIRE_FALSE(RegionContainsPoint(size, 20, 41));
+    region.x2 = region.x1;
+    region.y2 = region.y1;
+    REQUIRE(RegionContainsPoint(size, 10, 20));
+    REQUIRE_FALSE(RegionContainsPoint(size, 11, 20));
+    region.x2 = 9;
+    REQUIRE_FALSE(RegionContainsPoint(size, 10, 20));
+    region.x1 = region.y1 = 32767;
+    region.x2 = region.y2 = 32767;
+    REQUIRE(RegionContainsPoint(size, 32767, 32767));
+    REQUIRE_FALSE(RegionContainsPoint(size, 0, 0));
+    region.x1 = region.y1 = -1;
+    region.x2 = region.y2 = -1;
+    REQUIRE_FALSE(RegionContainsPoint(size, 65535, 65535));
+    region.flags = W8_REGION_CIRCLE;
+    region.x1 = region.y1 = 20;
+    region.x2 = 5;
+    REQUIRE(RegionContainsPoint(size, 23, 24));
+    REQUIRE_FALSE(RegionContainsPoint(size, 24, 24));
 }

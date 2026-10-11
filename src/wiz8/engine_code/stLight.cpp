@@ -1,3 +1,13 @@
+#include <cmath>
+#include <cstdlib>
+#include <cstring>
+#include <string>
+#include <vector>
+
+#include "compat/compiler.h"
+#include "glm/common.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include "surrender/srNode.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/AmbientSound.h"
@@ -8,18 +18,11 @@
 #include "wiz8/engine_code/Prop.h"
 #include "wiz8/engine_code/materials.h"
 #include "wiz8/engine_code/GrCycle.h"
-#include "wiz8/engine_code/stModelInstance.h"
 #include "wiz8/engine_code/World.h"
-#include "wiz8/geometry.h"
 #include "surrender/srModelInstance.h"
 #include "surrender/srMeshModel.h"
-#include "surrender/srCore.h"
-
 #include "wiz8/filesystem.h"
-
-#include <new>
-#include <stdlib.h>
-#include <string.h>
+#include "compat/native.h"
 
 /* The previous 00497af0-004adb20 range spanned eight units that carry their
    own assertion-backed intervals -
@@ -34,8 +37,8 @@
 // GLOBAL: WIZ8 0x0060bfdc
 unsigned int g_light_update_flags = 1;
 
-/* rand() normalization to a 0..1 flicker probability; only Update
-   uses it. */
+/* Normalizes a retail 15-bit rand() roll to a 0..1 flicker probability;
+   only Update uses it. */
 // GLOBAL: WIZ8 0x005ec1e4
 const float g_light_flicker_random_unit_scale = 3.0518509447574615e-05f;
 
@@ -112,32 +115,11 @@ stLight& stLight::operator=(const stLight& other)
 // FUNCTION: WIZ8 0x0049C7A0
 void stLight::traverse(srNode::TraverseInfo& info)
 {
-    if (next_sibling_ != 0) {
-        next_sibling_->traverse(info);
-    }
-
-    if (!testFlag(FLAG_TERMINATE)) {
-        if (testFlag(FLAG_DISABLE) || fabs(intensity) <= g_double_one_ten_thousandth ||
-            (g_light_update_flags & 1) == 0) {
-            if (first_child_ != 0) {
-                first_child_->traverse(info);
-            }
-        } else if (m_definition != 0) {
-            if (!testFlag(FLAG_GLOBAL)) {
-                info.entries.push_back({this, 1});
-            } else {
-                info.nodes.push_back(this);
-            }
-
-            if (first_child_ != 0) {
-                first_child_->traverse(info);
-            }
-
-            if (!testFlag(FLAG_GLOBAL)) {
-                info.entries.push_back({this, 2});
-            }
-        }
-    }
+    traverseEffect(info, [&] {
+        if (fabs(intensity) <= g_double_one_ten_thousandth || (g_light_update_flags & 1) == 0)
+            return EffectTraversal::childrenOnly;
+        return m_definition ? EffectTraversal::active : EffectTraversal::skipSubtree;
+    });
 }
 
 // FUNCTION: WIZ8 0x0049C8D0
@@ -306,7 +288,7 @@ void stLight::Update()
                 SetModelAnimatedTextureFrame(instance, 1);
             }
         } else {
-            int roll = rand();
+            int roll = rand() & 0x7fff;
             if (roll * g_light_flicker_random_unit_scale < definition->flicker_chance) {
                 if (testFlag(FLAG_DISABLE) == 0) {
                     setFlag(FLAG_DISABLE);
@@ -378,13 +360,13 @@ void stLight::Reset()
 /* Serialize the trigger-toggled lights of the loaded worlds: a version byte and
    count followed by each light's 0x80-byte name and its enable flag. */
 // FUNCTION: WIZ8 0x0049D120
-void SaveLightStates(wiz8::File* handle)
+void SaveLightStates(wiz8::File& handle)
 {
     char name[0x80] = {0};
     memcpy(name, &g_empty_ambient_name, sizeof(g_empty_ambient_name));
     unsigned char version = 1;
 
-    handle->write(&version, sizeof(version));
+    handle.write(&version, sizeof(version));
 
     std::vector<stLight*> marked;
     ForEachWorldNode<stLight>([&](stLight* light) {
@@ -393,13 +375,13 @@ void SaveLightStates(wiz8::File* handle)
         }
     });
     int count = static_cast<int>(marked.size());
-    handle->write(&count, sizeof(count));
+    handle.write(&count, sizeof(count));
 
     for (stLight* light : marked) {
         strcpy(name, light->getName().c_str());
-        handle->write(name, sizeof(name));
+        handle.write(name, sizeof(name));
         unsigned char enabled = light->testFlag(srNode::FLAG_DISABLE) == 0;
-        handle->write(&enabled, sizeof(enabled));
+        handle.write(&enabled, sizeof(enabled));
     }
 }
 
@@ -407,20 +389,20 @@ void SaveLightStates(wiz8::File* handle)
    followed by each light's 0x80-byte name and its enable flag, applied to the
    light found by name in the loaded worlds. */
 // FUNCTION: WIZ8 0x0049D390
-void LoadLightStates(wiz8::File* handle)
+void LoadLightStates(wiz8::File& handle)
 {
     char name[0x80] = {0};
     memcpy(name, &g_empty_ambient_name, sizeof(g_empty_ambient_name));
     unsigned char version;
     int count = 0;
 
-    handle->read_exact(&version, sizeof(version));
-    handle->read_exact(&count, sizeof(count));
+    handle.read_exact(&version, sizeof(version));
+    handle.read_exact(&count, sizeof(count));
 
     for (int index = 0; index < count; ++index) {
         unsigned char enabled;
-        handle->read_exact(name, sizeof(name));
-        handle->read_exact(&enabled, sizeof(enabled));
+        handle.read_exact(name, sizeof(name));
+        handle.read_exact(&enabled, sizeof(enabled));
 
         stLight* light = FindWorldNode<stLight>(name);
         if (light != 0) {
@@ -438,7 +420,7 @@ void LoadLightStates(wiz8::File* handle)
 
 /* Test a point against the six inward-facing planes of one region volume. */
 // FUNCTION: WIZ8 0x0049e460
-bool W8OctRegionVolume::ContainsPoint(const srVector3T<float>* point) const
+bool W8OctRegionVolume::ContainsPoint(const glm::vec3& point) const
 {
     return PointInsideFrustum(point, m_planes);
 }

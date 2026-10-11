@@ -1,65 +1,25 @@
-#include <fmt/format.h>
-#include "wiz8/unicode.h"
-#include "wiz8/retail_text_records.h"
-#include "wiz8/containers.h"
-#include "wiz8/layouts/screen_state.h"
-#include "wiz8/local_screens/Screens.h"
-#include "wiz8/engine_code/Environment.h"
-#include "wiz8/local_screens/MGSTextBox.h"
-#include "wiz8/engine_code/Quality.h"
-#include "wiz8/engine_code/Video2.h"
-#include "wiz8/local_code/PC_Item.h"
-#include "wiz8/local_code/Strings.h"
-#include "wiz8/engine_code/game_timer.h"
-#include "wiz8/layouts/game_status.h"
-#include "wiz8/local_code/Configuration.h"
-#include "wiz8/local_code/GameplayDatabase.h"
-#include "wiz8/local_code/FormationAndFacing.h"
-#include "wiz8/local_screens/OptionsScreen.h"
-#include "wiz8/local_screens/JournalScreen.h"
-#include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/local_code/Factions.h"
-#include "wiz8/layouts/npc_state.h"
-#include "wiz8/local_code/NPCManager.h"
-#include "wiz8/local_code/NPCScripting.h"
 #include <vector>
-#include <algorithm>
-#include "wiz8/layouts/item_instance.h"
-#include "wiz8/layouts/gameplay_databases.h"
-#include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/character_event_queue.h"
-#include "wiz8/xstatus.h"
-#include "wiz8/layouts/character.h"
-#include "wiz8/character_skills.h"
-#include "wiz8/local_code/CharGeneration.h"
-#include "wiz8/local_code/Combat.h"
-#include "wiz8/local_code/CombatAttack.h"
-#include "wiz8/local_code/ConditionsAndEnchantments.h"
-#include "wiz8/local_code/GameplayCode.h"
-#include "wiz8/local_code/GameplayMods.h"
-#include "wiz8/local_code/HealthStaminaMana.h"
-#include "wiz8/local_code/Magic.h"
-#include "wiz8/local_code/MagicEffects.h"
-#include "wiz8/local_code/party_encumbrance.h"
-#include "wiz8/local_code/UtilityFunctions.h"
-#include "wiz8/layouts/combat_state.h"
-#include "wiz8/local_code/CombatRange.h"
-#include "wiz8/item_tables.h"
-#include "wiz8/item_spawning.h"
-#include "wiz8/local_code/Targeting.h"
-#include "wiz8/utility.h"
-#include "wiz8/sr_api.h"
-#include "wiz8/virtual_file.h"
-#include "wiz8/filesystem.h"
-#include "random.h"
-#include "wiz8/local_code/character_events.h"
-#include <string.h>
-#include <stdlib.h>
 #include <algorithm>
 #include <array>
 #include <iterator>
 #include <memory>
-#include <vector>
+#include <cstdint>
+#include <cstdlib>
+#include <exception>
+#include <string>
+#include <utility>
+
+#include "wiz8/retail_text_records.h"
+#include "wiz8/containers.h"
+#include "wiz8/layouts/game_status.h"
+#include "wiz8/local_code/GameplayDatabase.h"
+#include "wiz8/layouts/gameplay_databases.h"
+#include "wiz8/xstatus.h"
+#include "wiz8/local_code/UtilityFunctions.h"
+#include "wiz8/sr_api.h"
+#include "wiz8/filesystem.h"
+#include "layouts/item_tables.h"
+#include "retail_records.h"
 
 /* 0x0054B300 resets one of eight slots. */
 /* The gStatus object owned by GameplayDatabase.cpp. */
@@ -106,12 +66,7 @@ try
 {
     auto handle = wiz8::open_file("Data\\Databases\\Items.DBS", wiz8::OpenMode::read);
     unsigned int count;
-    handle->read_exact(&count, sizeof(count));
-    if (count > (handle->size() - handle->tell()) / std::int64_t(wiz8::retail::kItemDatabaseRecordBytes)) {
-        return false;
-    }
-    auto records = count ? std::make_unique<W8ItemDatabaseRecord[]>(count) : nullptr;
-    for (unsigned i = 0; i < count; ++i) wiz8::retail::read_exact(*handle, records[i]);
+    auto records = wiz8::retail::read_database<W8ItemDatabaseRecord>(*handle, count);
     item_records = std::move(records);
     g_item_records = item_records.get();
     gXStatus.uiItemsInDatabase = count;

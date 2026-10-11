@@ -1,12 +1,16 @@
 #pragma once
 
-#include "wiz8/filesystem.h"
+#include <memory>
+#include <vector>
+#include <unordered_map>
 
 #include "input.h"
 #include "wiz8/mgs_commands.h"
-#include "surrender/srMath.h"
-#include <vector>
-#include <unordered_map>
+#include "compat/compiler.h"
+
+class srVector2i;
+class ScreenRegionSet;
+namespace wiz8 { class File; }
 
 #pragma pack(push, 1)
 struct MGSKeyBinding {
@@ -18,29 +22,27 @@ struct MGSKeyBinding {
 };
 #pragma pack(pop)
 
-W8_ABI_ASSERT(sizeof(MGSKeyBinding) == 0x0a, "MGSKeyBinding_size");
+static_assert(sizeof(MGSKeyBinding) == 0x0a, "MGSKeyBinding_size");
 
 // VTABLE: WIZ8 0x005ee8f0
 class MGSKeyboard {
 public:
-    virtual ~MGSKeyboard();
+    virtual ~MGSKeyboard() = default;
 
     int FindBinding(W8MGSCommand command) const;
-    /* Match a live InputAtom against the binding table; returns command or -1. */
-    W8MGSCommand FindCommandForEvent(const InputAtom* event) const;
+    /* Match a live InputEvent against the binding table; returns command or -1. */
+    W8MGSCommand FindCommandForEvent(const InputEvent* event) const;
     MGSKeyBinding* GetBinding(int index) const;
     bool IsCommandPressed(W8MGSCommand command) const;
     void Clear();
-    unsigned char Load(wiz8::File* handle, bool clear);
-    unsigned char Save(wiz8::File* handle) const;
+    unsigned char Load(wiz8::File& handle, bool clear);
+    unsigned char Save(wiz8::File& handle) const;
     unsigned char LoadDefaults(const char* path);
 
 private:
-  std::vector<MGSKeyBinding*> m_bindings;
+  std::vector<std::unique_ptr<MGSKeyBinding>> m_bindings;
   std::unordered_map<unsigned int, MGSKeyBinding*> m_command_index;
 };
-
-W8_ABI_ASSERT(sizeof(MGSKeyboard) == 0x24, "MGSKeyboard_size");
 
 extern MGSKeyboard* g_mgs_keyboard;
 
@@ -53,13 +55,14 @@ class W8TextControl;
    selection the availability refresh drives. */
 /* Each keyboard-menu row's (W8SubMenuPage, entry) selection. */
 extern short g_keyboard_menu_items[12];
-extern Controls* g_keyboard_menu_panel;
+extern std::unique_ptr<Controls> g_keyboard_menu_panel;
 extern short g_keyboard_menu_pages[12];
 extern W8TextControl* g_keyboard_menu_rows[13];
 /* The (x, y) of the twelve menu rows and the trailing close row. */
 extern srVector2i g_keyboard_row_positions[13];
 
 void ResetMGSKeyboardBindings();
+extern ScreenRegionSet g_keyboard_menu_regions;
 
 /* Discard every queued input atom (screen-entry stale-input flush). */
 void DrainInputEventQueue(void);
@@ -81,14 +84,14 @@ void AssignKeyboardMenuCallback(short menu, short item, W8TextControl* row);
 /* Invalidate (when asked) then redraw the menu panel. */
 void RedrawKeyboardMenuPanel(bool invalidate);
 /* Region callback the thirteen keyboard-menu rows share. */
-unsigned char KeyboardMenuRowRegionEvent(const InputAtom* event, W8Region* region);
+unsigned char KeyboardMenuRowRegionEvent(const InputEvent* event, W8Region* region);
 /* Region callback for the keyboard-menu background: right-up closes the menu. */
-unsigned char KeyboardMenuBackgroundRegionEvent(const InputAtom* event, W8Region* region);
+unsigned char KeyboardMenuBackgroundRegionEvent(const InputEvent* event, W8Region* region);
 /* Dispatch a bound MGS command number through the keyboard system. */
 void DispatchMGSCommand(W8MGSCommand command);
 /* Route one non-mouse input atom to text entry, dialogue, the trap text box,
    the MIPE editor, the record-mode console or a bound MGS command. */
-unsigned char HandleMainGameInputEvent(const InputAtom* input);
+unsigned char HandleMainGameInputEvent(const InputEvent* input);
 /* Poll the camera/movement command bindings and set the world-render flags. */
 void HandleManualCameraHotkeys(void);
 void ApplyCameraMotionHotkeys(void);

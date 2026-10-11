@@ -1,10 +1,11 @@
 #include "wiz8/level_specific_code/Ascension.h"
-#include "wiz8/level_specific_code/MasterFunctionList.h"
+
 #include <vector>
-#include <algorithm>
+#include <string>
+
+#include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/engine_code/IntervalGate.h"
 #include "wiz8/engine_code/Monster.h"
-#include "wiz8/engine_code/Prop.h"
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/fact_state.h"
@@ -15,13 +16,18 @@
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/local_code/PC_Item.h"
-#include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/location_variables.h"
 #include "wiz8/message_box.h"
 #include "wiz8/xstatus.h"
 #include "soundman.h"
 #include "surrender/srCamera.h"
+#include "glm/ext/vector_float3.hpp"
+#include "layouts/npc_state.h"
+#include "layouts/world.h"
+#include "local_code/Factions.h"
+#include "surrender/srMath.h"
+#include "wiz8/npc_interaction.h"
 
 /* Level Specific Code\Ascension.cpp.
 
@@ -33,7 +39,6 @@
    the Ascension Peak level. 0x004E0560 and 0x004E05A0 are registered under
    case 0x24, the Footsteps level, which is part of the Ascension Peak block. */
 
-#define ASCENSION_CPP "C:\\Projects\\Wizardry 8\\Level Specific Code\\Ascension.cpp"
 
 // GLOBAL: WIZ8 0x0068356C
 static W8IntervalGate* g_avalanche_gate;
@@ -82,8 +87,7 @@ unsigned char AscensionPeakInit(void)
             if (FindEntityByName("NP_Rapax04", &position, 0, 0)) {
                 SpawnMonsters(0xf, 4, &position, 1, true, false, false);
             }
-            info = MonsterGetScriptPartByLocationIndex(
-                MonsterGetIndexByLocationID(0x17f, ASCENSION_CPP, group->leader_location_id, true));
+            info = FindMonster(group->leader_location_id);
             info->p3D->SetScript("proximitylandslide.msf", true);
             SpawnAscensionAmbush();
             CreateLocationVar("AP_AtLeast2of3Items", 1);
@@ -437,8 +441,7 @@ void RemoveAletheides(void)
     if (npc != 0) {
         info = GetNpcMonsterInfo(npc);
         if (info != 0) {
-            RemoveMonster(
-                MonsterGetIndexByLocationID(0x2cd, ASCENSION_CPP, info->location_id, true), true);
+            RemoveMonster(info, true);
             return;
         }
     }
@@ -446,8 +449,7 @@ void RemoveAletheides(void)
     if (npc != 0) {
         info = GetNpcMonsterInfo(npc);
         if (info != 0) {
-            RemoveMonster(
-                MonsterGetIndexByLocationID(0x2da, ASCENSION_CPP, info->location_id, true), true);
+            RemoveMonster(info, true);
             return;
         }
     }
@@ -455,8 +457,7 @@ void RemoveAletheides(void)
     if (npc != 0) {
         info = GetNpcMonsterInfo(npc);
         if (info != 0) {
-            RemoveMonster(
-                MonsterGetIndexByLocationID(0x2e7, ASCENSION_CPP, info->location_id, true), true);
+            RemoveMonster(info, true);
         }
     }
 }
@@ -465,6 +466,6 @@ void RemoveAletheides(void)
 // FUNCTION: WIZ8 0x004E04F0
 bool AscensionShaker(Trigger* pTrigger)
 {
-    SoundPlay("Data\\Sound\\Ambients\\Rumble 01.wav", 0);
+    wiz8::sound::play("Data\\Sound\\Ambients\\Rumble 01.wav");
     return true;
 }

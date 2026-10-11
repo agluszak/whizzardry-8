@@ -1,11 +1,16 @@
-#include "wiz8/engine_code/Video2.h"
-#include "wiz8/engine_code/ReadMesh.h"
-#include "wiz8/engine_code/stTextureFile.h"
+#include <cstring>
+#include <exception>
+#include <memory>
+#include <ostream>
+#include <string>
 
+#include "wiz8/engine_code/stTextureFile.h"
+#include "compat/compiler.h"
+#include "compat/native.h"
+#include "surrender/srTexture.h"
 #include "wiz8/filesystem.h"
 #include "surrender/srImageIO.h"
-
-#include <cstring>
+#include "surrender/srColorSurfaceIFace.h"
 
 std::unique_ptr<srColorSurface> __stdcall LoadSurface(wiz8::File* handle, w8_long*)
 {
@@ -151,33 +156,12 @@ void stTextureFile::loadSurface()
 }
 
 // FUNCTION: WIZ8 0x0047CA50
-void stTextureFile::getMipmapData(MultiRequest& request)
+void stTextureFile::getMipmapData(const MultiRequest& request)
 {
-    if (surface == 0) {
-        loadSurface();
-    }
-    if (surface == 0) {
-        return;
-    }
-
-    /* 0x0047CA85 and 0x0047CAAB compare the level against last_level
-       unsigned, and last_level is already unsigned in the request record. */
-    w8_ulong level = static_cast<w8_ulong>(request.mipmap_level);
-    if (request.destinations[level] != 0) {
-        request.destinations[level]->copy(*surface);
-    }
-    for (++level; level <= request.last_level; ++level) {
-        if (request.destinations[level] != 0 && request.destinations[level - 1] != 0) {
-            request.destinations[level]->copy(*request.destinations[level - 1]);
-        }
-    }
-
-    /* Retail tests the flag with TEST byte ptr [+0x54],0x1 even though the
-       constructor stores the field dword-wide: the authored predicate is a
-       bit test, not a zero compare. */
-    if ((cached & 1) == 0) {
-        releaseSurface();
-    }
+    if (!surface) loadSurface();
+    if (!surface) return;
+    copyMipmapChain(*surface, request);
+    if ((cached & 1) == 0) releaseSurface();
 }
 
 void stTextureFile::getMipmapLevelPartial(PartialRequest&) {}

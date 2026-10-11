@@ -1,6 +1,12 @@
+#include "himage.h"
+#include "image.h"
+#include <memory>
 #include <fmt/format.h>
+#include <SDL3/SDL_rect.h>
 #include <string_view>
 #include <string>
+#include <vector>
+
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/local_code/Targeting.h"
@@ -12,9 +18,7 @@
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/local_screens/JournalScreen.h"
-#include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/local_screens/Screens.h"
-
 #include "wiz8/cursor.h"
 #include "wiz8/engine_code/Levels.h"
 #include "wiz8/fonts.h"
@@ -24,24 +28,15 @@
 #include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_screens/MGSTextBox.h"
-#include "wiz8/notices.h"
 #include "wiz8/regions.h"
-#include "wiz8/utility.h"
-#include "wiz8/video_object_catalog.h"
-#include <vector>
-#include <algorithm>
-
+#include "wiz8/catalog_artwork.h"
 #include "Font.h"
 #include "soundman.h"
 #include "wiz8/filesystem.h"
-
 #include "input.h"
-#include "Types.h"
-#include "mousesystem.h"
-
-#include <new>
-#include <stdlib.h>
-#include "wiz8/local_screens/OptionsScreen.h"
+#include "difficulty.h"
+#include "local_code/Controls.h"
+#include "message_box.h"
 
 // GLOBAL: WIZ8 0x0064df38
 int g_journal_page = -1;
@@ -60,15 +55,13 @@ char g_journal_alternate_page[] = "1 / 1";
 // GLOBAL: WIZ8 0x0064df3c
 int g_journal_page_count = -1;
 // GLOBAL: WIZ8 0x0069C4CC
-int g_journal_font = -1;
+Font g_journal_font;
 // GLOBAL: WIZ8 0x0069C4D0
-std::unique_ptr<UINT16[]> g_journal_font_palette;
+Palette16 g_journal_font_palette;
 // GLOBAL: WIZ8 0x0069C4D4
-W8JournalPanel* g_journal_panel;
+static std::unique_ptr<W8JournalPanel> g_journal_panel;
 // GLOBAL: WIZ8 0x0069C4E4
 std::vector<W8JournalEntry> g_journal_entries;
-// GLOBAL: WIZ8 0x0069C4DC
-unsigned int g_journal_region_set;
 // GLOBAL: WIZ8 0x0068de40
 std::vector<W8JournalEntry> g_fact_journal_entries;
 
@@ -128,37 +121,37 @@ void RecordFactChangeForJournal(W8FactId fact_id)
     }
     int range = GetTextBoxScrollRange();
     ShowNotice(W8_FONT_PALETTE_BLUE, g_localized_strings[0x74a], 2, range);
-    SoundPlay("Data\\Sound\\Misc\\Journal Entry.wav", 0);
+    wiz8::sound::play("Data\\Sound\\Misc\\Journal Entry.wav");
 }
 
 /* Write the JRNL format dword, entry count, then each 0x0c-byte entry. */
 // FUNCTION: WIZ8 0x00558A90
-void SaveFactJournal(wiz8::File* file)
+void SaveFactJournal(wiz8::File& file)
 {
     int format = 1;
     int count;
 
     count = static_cast<int>(g_fact_journal_entries.size());
-    file->write(&format, 4);
-    file->write(&count, 4);
+    file.write(&format, 4);
+    file.write(&count, 4);
     for (const auto& entry : g_fact_journal_entries) {
-        file->write(&entry, sizeof(entry));
+        file.write(&entry, sizeof(entry));
     }
 }
 
 /* Resize the live journal entries before reading the JRNL records. */
 // FUNCTION: WIZ8 0x00558B20
-void LoadJournalEntries(wiz8::File* file)
+void LoadJournalEntries(wiz8::File& file)
 {
     int format;
     int count;
 
     InitializeFactJournal();
-    file->read_exact(&format, 4);
-    file->read_exact(&count, 4);
+    file.read_exact(&format, 4);
+    file.read_exact(&count, 4);
     g_fact_journal_entries.resize(count);
     for (auto& entry : g_fact_journal_entries) {
-        file->read_exact(&entry, sizeof(entry));
+        file.read_exact(&entry, sizeof(entry));
     }
 }
 
@@ -179,19 +172,19 @@ void DrawJournalLine(std::string_view text, int column, int y, int palette, bool
     if (!centered) {
         x = 5;
     } else {
-        x = (right - StringPixLength(text, g_journal_font)) / 2;
+        x = (right - g_journal_font.textWidth(text)) / 2;
         if (x < 0) {
             x = 0;
         }
     }
-    SetFont(g_journal_font);
-    SetFontDestBuffer(FRAME_BUFFER, left, y, left + right, y + 0x1e, 0);
     if (palette == 0) {
-        SetFontObjectPalette16BPP(g_journal_font, GetFontObject(g_journal_font)->ownedPalette.get());
+        g_journal_font.resetPalette();
     } else if (palette == 1) {
-        SetFontObjectPalette16BPP(g_journal_font, g_journal_font_palette.get());
+        g_journal_font.setPalette(g_journal_font_palette);
     }
-    DrawFontText(left + x, y, text);
+    SDL_Rect clip{left, y, right, 0x1e};
+    ScopedClipRect clipping(GetFrameBufferSurface(), clip);
+    DrawText(GetFrameBufferSurface(), g_journal_font, {left + x, y}, text);
 }
 
 // FUNCTION: WIZ8 0x005bd860
@@ -211,7 +204,7 @@ void W8JournalPanel::Refresh()
         std::string page_text;
         page_text = fmt::format("{:d} / {:d}", g_journal_page + 1, page_count);
         m_page_text->SetText(page_text, g_options_detail_font);
-        DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x1b8, 0, 0, 0, 0, VO_BLT_SRCTRANSPARENCY, 0);
+        CatalogArtwork::Load(0x1b8, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, 0, 0);
         DrawJournalLine(g_localized_strings[0x6db], 0, 0x19, 0, true);
         DrawJournalLine(g_localized_strings[0x6dc], 1, 0x19, 0, true);
 
@@ -246,7 +239,7 @@ void W8JournalPanel::Refresh()
         m_next->SetEnabled(false);
         m_previous->SetEnabled(false);
         m_page_text->SetText(g_journal_alternate_page, g_options_detail_font);
-        DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x1b8, 0, 0, 0, 0, VO_BLT_SRCTRANSPARENCY, 0);
+        CatalogArtwork::Load(0x1b8, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, 0, 0);
         DrawJournalLine(g_localized_strings[0x6de], 0, 0x19, 0, true);
         DrawJournalLine(g_localized_strings[0x6df], 1, 0x19, 0, true);
 
@@ -284,34 +277,36 @@ void W8JournalPanel::Refresh()
 // class W8JournalPanel
 
 // FUNCTION: WIZ8 0x005bd530
-W8JournalPanel::W8JournalPanel(unsigned int* region_set)
-    : Controls(0x66, 0x1bb, 0, 0, 0xf3, 0, 0), m_next(0), m_previous(0), m_close(0), m_mode(0),
+W8JournalPanel::W8JournalPanel()
+    : Controls(0x66, 0x1bb, 0, 0, CatalogArtwork::Load(0xf3, 0), 0), m_next(0), m_previous(0), m_close(0), m_mode(0),
       m_page_text(0), m_alternate_mode(0)
 {
     short width;
     short height;
 
-    AcquireRegionSet(region_set);
-    GetCatalogImageSize(0xf3, 0, 0, &width, &height);
+    CreateRegionSet();
+    const SDL_Point _catalog_size_4 = CatalogArtwork::Load(0xf3, 0).size(0);
+        width = _catalog_size_4.x;
+        height = _catalog_size_4.y;;
     m_bounds.right = m_bounds.left + static_cast<unsigned short>(width);
     m_bounds.bottom = m_bounds.top + static_cast<unsigned short>(height);
 
-    m_previous = new W8TextControl(this, 0xffffffff, 3, 3, 0, 0, 0xf4, 0, 0, 2, 1, -1, 3);
+    m_previous = new W8TextControl(this, 0xffffffff, 3, 3, 0, 0, CatalogArtwork::Load(0xf4, 0), 0, 2, 1, -1, 3);
     m_previous->m_listener = this;
 
-    m_next = new W8TextControl(this, 0xffffffff, 0x11f, 3, 0, 0, 0xf4, 0, 4, 6, 5, -1, 7);
+    m_next = new W8TextControl(this, 0xffffffff, 0x11f, 3, 0, 0, CatalogArtwork::Load(0xf4, 0), 4, 6, 5, -1, 7);
     m_next->m_listener = this;
 
     W8ControlsRect bounds = {m_bounds.left, m_bounds.top, m_bounds.right, m_bounds.bottom};
     m_page_text = new W8TextBuffer(&bounds, "", g_options_detail_font,
                                    g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
 
-    m_mode = new W8TextControl(this, 0xffffffff, 0x1b0, -2, 0, 0, 0x1bb, 0, 0, 2, 1, 2, 3);
+    m_mode = new W8TextControl(this, 0xffffffff, 0x1b0, -2, 0, 0, CatalogArtwork::Load(0x1bb, 0), 0, 2, 1, 2, 3);
     m_mode->AddLayoutFlags(g_W8TextControlLayoutToggle);
     m_mode->m_listener = this;
 
     m_close =
-        new W8TextControl(this, 0xffffffff, 0x1ea, -2, 0, 0, 0x106, 0, 0x10, -1, 0x11, 0x12, 0x13);
+        new W8TextControl(this, 0xffffffff, 0x1ea, -2, 0, 0, CatalogArtwork::Load(0x106, 0), 0x10, -1, 0x11, 0x12, 0x13);
     m_close->m_listener = this;
     m_close->EnableRegionHelp(0x6ed);
     SetEnabled(true);
@@ -335,7 +330,7 @@ void W8JournalPanel::Redraw()
 {
     if (m_fEnabled && (m_fDirty || m_fLayoutDirty)) {
         Controls::Redraw();
-        m_page_text->RenderToTarget(0, true, FRAME_BUFFER);
+        m_page_text->RenderToTarget(0, true, GetFrameBufferSurface());
     }
 }
 
@@ -381,19 +376,17 @@ void W8JournalPanel::OnPrimary(W8TextControl* control)
 // FUNCTION: WIZ8 0x005bddd0
 unsigned char JournalScreenInitialize(void)
 {
-    g_journal_font = LoadFontFile("Data\\Journal\\journal_font.sti");
-    if (g_journal_font < 0)
+    if (!g_journal_font.load("Data\\Journal\\journal_font.sti"))
         return 0;
-    g_journal_font_palette = CopyCatalogImagePalette16BPP(0x1b9, 0);
-    return bool(g_journal_font_palette);
+    g_journal_font_palette = CatalogArtwork::Load(0x1b9).spriteSheet()->colors;
+    return 1;
 }
 
 // FUNCTION: WIZ8 0x005bde10
 unsigned char JournalScreenFinalize(void)
 {
-    if (g_journal_font >= 0)
-        SetFontObjectPalette16BPP(g_journal_font, GetFontObject(g_journal_font)->ownedPalette.get());
-    g_journal_font_palette.reset();
+    g_journal_font.clear();
+    g_journal_font_palette = {};
     return 1;
 }
 
@@ -404,10 +397,9 @@ unsigned char JournalScreenEnter(void)
 
     SetViewport(0, 0, 0x280, 0x1e0);
     SetPrimarySurfaceTextureHint2Enabled(false);
-    MSYS_Init();
     ResetRegions();
     UpdateHeldItemCursor();
-    g_journal_panel = new W8JournalPanel(&g_journal_region_set);
+    g_journal_panel = std::make_unique<W8JournalPanel>();
 
     switch (g_settings.difficulty) {
     case W8_DIFFICULTY_NOVICE:
@@ -431,17 +423,15 @@ unsigned char JournalScreenEnter(void)
         }
     }
     g_journal_panel->Refresh();
-    DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x1b7, 0, 1, 0, 0x1b4, VO_BLT_SRCTRANSPARENCY, 0);
+    CatalogArtwork::Load(0x1b7, 0).drawAndInvalidate(GetFrameBufferSurface(), 1, 0, 0x1b4);
     return 1;
 }
 
 // FUNCTION: WIZ8 0x005be0b0
 unsigned char JournalScreenLeave(int)
 {
-    MSYS_Shutdown();
     ResetRegions();
-    delete g_journal_panel;
-    g_journal_panel = 0;
+    g_journal_panel.reset();
     g_journal_entries.clear();
     if (gXStatus.fCampMode) {
         SyncDialogueNpcState();
@@ -453,18 +443,18 @@ unsigned char JournalScreenLeave(int)
 void JournalScreenFrame(void)
 {
     SDL_Point point;
-    InputAtom input;
+    InputEvent input;
 
     SGPMouseGetPos(&point);
     UpdateRegionMousePosition(point.x, point.y);
     while (DequeueEvent(&input) == 1) {
-        if (!DispatchRegionInput(&input) && input.usEvent == KEY_DOWN) {
-            if (input.usParam == VK_ESCAPE) {
+        if (!DispatchRegionInput(&input) && input.type == InputEventType::KeyDown) {
+            if (input.key == VK_ESCAPE) {
                 RequestScreenTransition();
-            } else if (input.usParam == VK_LEFT && g_journal_page > 0) {
+            } else if (input.key == VK_LEFT && g_journal_page > 0) {
                 --g_journal_page;
                 g_journal_panel->Refresh();
-            } else if (input.usParam == VK_RIGHT &&
+            } else if (input.key == VK_RIGHT &&
                        g_journal_page < (static_cast<int>(g_journal_entries.size()) - 1) / 12) {
                 ++g_journal_page;
                 g_journal_panel->Refresh();

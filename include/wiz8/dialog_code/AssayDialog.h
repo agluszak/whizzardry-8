@@ -1,14 +1,16 @@
 #pragma once
 
+#include <array>
+
 #include "wiz8/dialog_code/DialogBase.h"
-#include "wiz8/dialog_code/DialogButton.h"
 #include "wiz8/dialog_code/DialogScrollBar.h"
 #include "wiz8/dialog_code/DialogTextArea.h"
-#include "wiz8/layouts/item_instance.h"
-#include "wiz8/local_code/ConditionsAndEnchantments.h"
-#include "wiz8/local_code/TextBuffer.h"
+#include "compat/compiler.h"
 
 struct W8Character;
+class W8ButtonWidget;
+class W8TextBuffer;
+struct W8ItemInstance;
 
 enum { W8_ASSAY_BUTTON_COUNT = 0x25, W8_ASSAY_TEXT_BUFFER_COUNT = 5 };
 
@@ -32,12 +34,13 @@ private:
     bool CreateTextBuffers();
     void SetProfessionIconsVisible(bool show);
     void SetRaceIconsVisible(bool show);
+    void ShowTab(bool professions);
     void ShowPrimaryTab();
     void ShowSecondaryTab();
-    static void PrimaryTabCallback(W8DialogButton* button);
-    static void SecondaryTabCallback(W8DialogButton* button);
+    static void PrimaryTabCallback(W8ButtonWidget* button);
+    static void SecondaryTabCallback(W8ButtonWidget* button);
 
-    W8DialogButton* m_buttons[W8_ASSAY_BUTTON_COUNT];
+    std::array<W8ButtonWidget, W8_ASSAY_BUTTON_COUNT> m_buttons;
     W8TextBuffer* m_text_buffers[W8_ASSAY_TEXT_BUFFER_COUNT];
     W8DialogScrollBar m_scroll_bar;
     W8ItemInstance* m_item;
@@ -45,5 +48,4 @@ private:
     W8DialogTextArea m_text_area;
     W8Character* m_character;
 };
-W8_ABI_ASSERT(sizeof(W8AssayDialog) == 0x1ac, "W8AssayDialog_size");
 extern unsigned short g_equip_class_name_ids[32];

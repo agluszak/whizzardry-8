@@ -23,6 +23,16 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
+# Precompile stable headers by default. Unity grouping remains opt-in for local
+# builds because single-file edits otherwise rebuild whole compilation batches.
+option(WIZ8_PRECOMPILE_HEADERS "Precompile stable C++ dependencies" ON)
+option(WIZ8_UNITY_BUILD "Compile game and renderer sources in batches" OFF)
+option(WIZ8_SURRENDER_UNITY_BUILD "Unity-build SurRender independently of the game" OFF)
+set(WIZ8_UNITY_BATCH_SIZE 4 CACHE STRING "Sources per unity compilation batch")
+if(WIZ8_UNITY_BUILD AND NOT WIZ8_UNITY_BATCH_SIZE MATCHES "^[1-9][0-9]*$")
+    message(FATAL_ERROR "WIZ8_UNITY_BATCH_SIZE must be a positive integer")
+endif()
+
 # First-party warning baseline.
 if(CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
     add_compile_options(/W4)
@@ -80,6 +90,11 @@ target_include_directories(wiz8_filesystem PUBLIC "${PROJECT_SOURCE_DIR}/include
 target_link_libraries(wiz8_filesystem PUBLIC SDL3::SDL3 Threads::Threads fmt::fmt utf8cpp utf8proc)
 target_compile_features(wiz8_filesystem PUBLIC cxx_std_23)
 include(CTest)
+if(WIZ8_UNITY_BUILD AND BUILD_TESTING)
+    message(FATAL_ERROR
+        "Unity build requires BUILD_TESTING=OFF: focused tests provide overlapping "
+        "symbols that rely on normal object-file archive boundaries")
+endif()
 if(BUILD_TESTING)
     target_compile_definitions(wiz8_filesystem PRIVATE WIZ8_FILE_FAULTS)
     target_include_directories(wiz8_filesystem PRIVATE "${PROJECT_SOURCE_DIR}/tests/native")
@@ -90,6 +105,7 @@ if(BUILD_TESTING)
         GIT_TAG 8b08d4d79514f45f7e4ce2a607ac9c94e920d1bb # v3.15.3
         GIT_SHALLOW FALSE)
     FetchContent_MakeAvailable(Catch2)
+    include("${catch2_SOURCE_DIR}/extras/Catch.cmake")
     add_subdirectory(tests/portable)
 endif()
 find_package(ZLIB REQUIRED)
@@ -130,13 +146,14 @@ target_include_directories(wiz8_native_settings INTERFACE
 )
 target_link_libraries(wiz8_native_settings INTERFACE glm::glm-header-only Threads::Threads ${CMAKE_DL_LIBS})
 
-# Remaining narrow CRT spelling helpers; Unicode lives at format boundaries.
+# Shared platform helpers and the SDL CPU surface backend used by SGP and SurRender.
 add_library(wiz8_compat STATIC
     src/compat/native_helpers.cpp
+    src/native/surface_storage.cpp
 )
 target_compile_options(wiz8_compat PRIVATE ${WIZ8_COMPAT_OPTIONS})
 target_include_directories(wiz8_compat PRIVATE "${PROJECT_SOURCE_DIR}/include/wiz8" "${PROJECT_SOURCE_DIR}/include")
-target_link_libraries(wiz8_compat PUBLIC wiz8_filesystem)
+target_link_libraries(wiz8_compat PUBLIC wiz8_filesystem SDL3::SDL3)
 if(UNIX AND NOT APPLE)
     target_link_options(wiz8_compat PRIVATE -Wl,--no-undefined)
 endif()

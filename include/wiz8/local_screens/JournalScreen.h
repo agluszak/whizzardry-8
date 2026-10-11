@@ -1,20 +1,19 @@
 #pragma once
 
-#include "wiz8/filesystem.h"
-
 extern char g_default_level[];
-#include "wiz8/fact_state.h"
-#include "wiz8/layouts/screen_state.h"
 #include <vector>
-#include <algorithm>
 
-#include "wiz8/local_code/TextBuffer.h"
+#include "wiz8/fact_state.h"
 #include "wiz8/local_code/TextControl.h"
 #include "wiz8/local_code/Controls.h"
+#include "compat/compiler.h"
+
+class W8TextBuffer;
+namespace wiz8 { class File; }
 
 class W8JournalPanel : public Controls, public W8TextControl::Listener {
 public:
-    explicit W8JournalPanel(unsigned int* region_set);
+    W8JournalPanel();
     virtual ~W8JournalPanel();
     virtual void Redraw() override;
     virtual void OnPrimary(W8TextControl* control) override;
@@ -28,8 +27,6 @@ public:
     unsigned char m_alternate_mode;
     unsigned char m_pad_065[3];
 };
-
-W8_ASSERT_BASE_END(W8JournalPanel, W8TextControl::Listener, m_next, 0x4c);
 
 struct W8JournalEntry {
     int level;
@@ -48,11 +45,11 @@ void InitializeFactJournal(void);
 void RecordFactChangeForJournal(W8FactId fact_id);
 /* Write the entry count, a format dword and each journal entry
    into the open JRNL chunk. */
-void SaveFactJournal(wiz8::File* file);
+void SaveFactJournal(wiz8::File& file);
 unsigned char JournalScreenInitialize(void);
 unsigned char JournalScreenEnter(void);
 void JournalScreenFrame(void);
 unsigned char JournalScreenLeave(int leaving);
 unsigned char JournalScreenFinalize(void);
 /* Load the fact journal vector from the JRNL section. */
-void LoadJournalEntries(wiz8::File* file);
+void LoadJournalEntries(wiz8::File& file);

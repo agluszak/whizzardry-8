@@ -24,19 +24,17 @@ unsigned char ForwardLoadWorld(W8World* world, char* level_file_name, const char
                                const char* asset_folder, bool use_octree);
 void ForwardDestroyWorld(W8World* world);
 void SetCurrentWorld(W8World* world);
-void ConstructWorldCollections(W8World* world);
-void DestroyWorldCollections(W8World* world);
 void DestroyWorld(W8World* world);
 void DetachAllWorldItems(void);
 void UpdateWorlds(void);
 void UpdateWorldMeshAfterLoad(void);
 void UpdateWorld(W8World* world);
-void GetWorldCameraState(W8World* world, W8WorldCameraState* state);
+W8WorldCameraState cameraState(const W8World& world);
 void SetWorldCameraState(W8World* world, W8World* source_world, W8WorldCameraState* state);
 void RestoreWorldCameraState(W8World* world, W8World* source_world, W8WorldCameraState* state);
-void WorldGetCameraRotation(W8World* world, glm::mat3* rotation);
-void WorldGetCameraLocation(W8World* world, srVector3T<float>* location);
-void WorldGetCameraLocationOrZero(W8World* world, srVector3T<float>* location);
+glm::mat3 cameraRotation(const W8World& world);
+glm::vec3 cameraLocation(const W8World& world);
+glm::vec3 cameraLocationOrZero(const W8World& world);
 void SetWorldScenePosition(W8World* world, const srVector3T<float>* position);
 stParticle* FindParticleByName(W8World* world, const char* name);
 bool FindEntityByName(const char* name, srVector3T<float>* position, float* angle,
@@ -45,8 +43,6 @@ unsigned char AdjustWorldCollisionPosition(float radius, srVector3T<float>* posi
                                            bool check_items, bool check_monsters);
 unsigned char FindNearbyFreePosition(float radius, srVector3T<float>* position, bool check_items,
                                      bool check_monsters);
-
-W8_ABI_ASSERT(sizeof(W8World) == 0xdc, "W8World_must_be_0xdc");
 
 void SetSecondaryWorld(W8World* world);
 
@@ -67,9 +63,9 @@ template <class T> void ForEachWorldNode(const std::function<void(T*)>& visit)
 
 /* APST chunk: serialize every world prop's animation state. The record is a
    fixed 64-byte name plus the six rep bytes LoadAnimationState reads. */
-void SaveWorldProps(W8World* world, wiz8::File* handle);
+void SaveWorldProps(W8World* world, wiz8::File& handle);
 /* APST chunk: restore saved prop animation state. The 0xDEADD00D signature
    selects the name-keyed format; older saves carry a bare count plus the
    object's id key. Unmatched records are consumed by a scratch prop. */
-void LoadWorldProps(W8World* world, wiz8::File* handle);
+void LoadWorldProps(W8World* world, wiz8::File& handle);
 void UpdateCameraPathStateByName(W8World* world, const char* name, int active);

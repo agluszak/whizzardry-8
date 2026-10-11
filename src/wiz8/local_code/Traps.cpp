@@ -1,5 +1,12 @@
 #include <fmt/format.h>
-#include "wiz8/unicode.h"
+#include <vector>
+#include <cctype>
+#include <cstdint>
+#include <cstring>
+#include <exception>
+#include <memory>
+#include <string>
+
 #include "wiz8/fonts.h"
 #include "wiz8/local_code/Traps.h"
 #include "wiz8/integer_constants.h"
@@ -12,30 +19,25 @@
 #include "wiz8/engine_code/Spells.h"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/Levels.h"
-#include "wiz8/engine_code/3dapi.h"
 #include "input.h"
 #include "wiz8/startup_world.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/character.h"
-#include "wiz8/layouts/combat_state.h"
 #include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/local_screens/MGSTextBox.h"
-#include <vector>
-#include <algorithm>
 #include "wiz8/utility.h"
-#include "wiz8/float_constants.h"
 #include "wiz8/string_database.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/filesystem.h"
 #include "random.h"
-#include <ctype.h>
-#include <stdio.h>
-#include <string.h>
+#include "compat/native.h"
+#include "layouts/gameplay_databases.h"
+#include "layouts/targeting.h"
+#include "layouts/world.h"
+#include "surrender/srMath.h"
 
 #define TRAPS_CPP "C:\\Projects\\Wizardry 8\\Local Code\\Traps.cpp"
 
@@ -88,21 +90,20 @@ void WriteRecordModeEntry(void)
     file = [&]() { try { return wiz8::open_file(s_data_notes_txt, wiz8::OpenMode::replace); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
     if (file != 0) {
         file->seek(-static_cast<std::int64_t>(0), wiz8::SeekOrigin::end);
-        GetWorldCameraState(GetWorld(), &state);
+        state = cameraState(*GetWorld());
+        // GetCameraOrientation zeroes every angle-record slot after the first.
         line =
             fmt::format("{:f} {:f} {:f}\n", state.position.x, state.position.y, state.position.z);
         file->write(line.data(), line.size());
         line = fmt::format(
             "{:f} {:f} {:f} {:f} {:f} {:d}\n", state.pitch[0], state.pitch[1], state.pitch[2],
             state.pitch[3],
-            state.pitch[4], // reinterpret-ok: raw low byte of the angle record's trailing slot
-            *reinterpret_cast<unsigned int*>(&state.pitch[5]) & 0xff);
+            state.pitch[4], 0);
         file->write(line.data(), line.size());
         line = fmt::format(
             "{:f} {:f} {:f} {:f} {:f} {:d}\n", state.yaw[0], state.yaw[1], state.yaw[2],
             state.yaw[3],
-            state.yaw[4], // reinterpret-ok: raw low byte of the angle record's trailing slot
-            *reinterpret_cast<unsigned int*>(&state.yaw[5]) & 0xff);
+            state.yaw[4], 0);
         file->write(line.data(), line.size());
         if (GetLevelLocationCode(g_status.current_level, location_code) == 0) {
             strcpy(location_code, s_record_mode_default_location);
@@ -170,16 +171,16 @@ bool IsRecordModeActive(void)
    g_record_mode_line. Returns 1 on ENTER (the caller then runs the
    apply callback), -1 on ESC, 0 otherwise. */
 // FUNCTION: WIZ8 0x005E3610
-char HandleRecordModeKey(const InputAtom* input, void (*prompt)(void))
+char HandleRecordModeKey(const InputEvent* input, void (*prompt)(void))
 {
     char character;
     std::string text;
 
-    if (gfKeyState[VK_CONTROL] != 0) {
+    if (IsKeyHeld(VK_CONTROL)) {
         return 0;
     }
-    character = static_cast<char>(toupper(input->usParam));
-    if (input->usEvent != KEY_UP) {
+    character = static_cast<char>(toupper(input->key));
+    if (input->type != InputEventType::KeyUp) {
         return 0;
     }
     if (character == 8) {
@@ -201,7 +202,7 @@ char HandleRecordModeKey(const InputAtom* input, void (*prompt)(void))
         return -1;
     } else {
         text = &character;
-        if (gfKeyState[VK_SHIFT] == 0 && gfKeyState[0x14] == 0 && text[0] >= 'A' && text[0] <= 'Z') {
+        if (!IsKeyHeld(VK_SHIFT) && !IsKeyHeld(0x14) && text[0] >= 'A' && text[0] <= 'Z') {
             text[0] += 0x20;
         }
         g_record_mode_line[g_record_mode_length] = text[0];
@@ -324,8 +325,6 @@ void ResolveSprungTrap(Trigger* trigger)
     std::string text;
     srVector3T<float> point;
     srVector3T<float> camera;
-    srVector3T<float> minimum;
-    srVector3T<float> maximum;
 
     devices = trigger->lock_state.difficulty;
     ClampInteger(&devices, 1, 7);
@@ -352,11 +351,12 @@ void ResolveSprungTrap(Trigger* trigger)
     if (prop == 0) {
         GetCameraForwardPoint(1000.0f, &point);
     } else {
-        prop->PlayRepAnimation(&minimum, &maximum);
-        point.Set((minimum.x + maximum.x) * g_double_half, (minimum.y + maximum.y) * g_double_half,
-                  (minimum.z + maximum.z) * g_double_half);
+        const auto center = prop->GetCenterPosition();
+        if (!center)
+            return;
+        point = *center;
     }
-    GetCameraPosition(&camera);
+    camera = cameraLocation();
     g_octree->TraceLineOfSight(&camera, &point, true, -3, -3, true, 0);
     DischargeTrapSpell(point, g_table2[type + 11], power, count);
 }

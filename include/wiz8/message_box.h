@@ -1,13 +1,11 @@
-#include <string>
 #pragma once
 
-#include <stddef.h>
+#include <string>
+#include <variant>
 
 struct W8NpcState;
-struct W8NpcQuoteEntry;
-struct W8ItemInstance;
 
-/* Heap payloads shared by the NPC message queue and the quote-bubble owner.
+/* Notice payloads carried by queued portrait messages and the quote bubble.
    The experience appender at 0x004eef10 allocates 8 bytes; the skill appenders
    at 0x00553f10/0x005542e0 allocate 0x11 bytes with count/slot/skill columns. */
 struct W8ExperienceNoticePayload {
@@ -22,31 +20,25 @@ struct W8SkillNoticePayload {
 };
 
 
-/* The tagged dword payloads carried at W8MessageBoxLine::payload and
-   ::extra. Which member is live is selected by the line's `type` (or by the
-   quote-bubble notice kind the payload is handed to). Text is owned separately by the line; empty payloads carry zero. */
-// union-ok: W8MessageBoxLine::type selects the live member; producers store one member per kind and consumers delete the owned one, so the variants share storage with mutually exclusive lifecycles.
-union W8MessageBoxPayload {
-    /* FINISH_ACTION and RESET_LEVEL_STATE use argument as their flag. */
-
-    W8ItemInstance* item;                  /* payload: REMOVE_SCRIPT_ITEM */
-    int argument;                          /* payload: QueueNpcMessageLine tag */
-    W8SkillNoticePayload* skill_notices;   /* extra: SKILL_NOTICES; delete */
-    W8ExperienceNoticePayload* experience; /* extra: PORTRAIT_EXTRA; delete */
-    int* level_up_slot;                    /* extra: LEVEL_UP party slot; delete */
+struct W8LevelUpNotice {
+    int party_slot;
 };
 
+/* Work a portrait bubble owes on dismissal; empty for plain text bubbles. */
+using W8QuoteNotice =
+    std::variant<std::monostate, W8ExperienceNoticePayload, W8SkillNoticePayload, W8LevelUpNotice>;
+
 /* Queued NPC message kinds dispatched by ProcessMessageBoxQueue at 0x00526E90.
-   W8_NPC_MSG_QUOTE lines are built by QueueNpcScriptLine; the command kinds are
-   built by QueueNpcMessageLine/AddMessageBoxLine, and QUOTE_ENTRY continuations
-   are built inline by the dispatcher itself. Kinds 0x11 and 0x3b have no
+   W8_NPC_MSG_QUOTE lines are built by QueueNpcScriptLine, command kinds by
+   QueueNpcMessageLine, portrait text kinds by AddTextMessageBoxLine and
+   QUOTE_ENTRY continuations by QueueNpcQuoteEntry. Kinds 0x11 and 0x3b have no
    dispatch case; 0x3b is still queued and acts as a queue spacer. */
 enum W8NpcMessageKind {
     W8_NPC_MSG_QUOTE = 0,                /* run script quote `quote_index` */
     W8_NPC_MSG_CLOSE_DIALOGUE = 1,       /* close dialogue; set g_npc_dialogue_closed */
-    W8_NPC_MSG_QUOTE_ENTRY = 2,          /* quote_entry + continuation_quote */
+    W8_NPC_MSG_QUOTE_ENTRY = 2,          /* W8NpcQueuedEntry */
     W8_NPC_MSG_REOPEN_TRANSCRIPT = 3,    /* CloseNpcDialogueLayout + transcript layout */
-    W8_NPC_MSG_REMOVE_SCRIPT_ITEM = 4,   /* item: W8ItemInstance* to unscript */
+    W8_NPC_MSG_REMOVE_SCRIPT_ITEM = 4,   /* no native producer */
     W8_NPC_MSG_CLOSE_RESUME_NPC = 5,     /* close dialogue; ResumeNpc(npc, 1) */
     W8_NPC_MSG_FOCUS_NPC = 6,            /* argument: npc kind to switch dialogue to */
     W8_NPC_MSG_GROUP_ACTION = 7,         /* argument: NPC party slot to dismiss */
@@ -111,36 +103,41 @@ enum W8NpcMessageKind {
     W8_NPC_MSG_ENDGAME_SCREEN = 0x42,       /* BeginScreenFade + NpcScriptEndgameScreen */
 };
 
-/* Queue record consumed by ProcessMessageBoxQueue. Field usage is per `type`:
-   QUOTE lines use quote_index/mark_pending/suppress_entries; QUOTE_ENTRY
-   continuations use quote_entry/continuation_quote; command kinds carry either
-   an owned UTF-8 string in `text` or a tagged int/pointer payload. `quote_entry` is only live for QUOTE_ENTRY and is always a
-   W8NpcQuoteEntry*. */
-struct W8MessageBoxLine {
-    std::string text;
-    int quote_index;   /* Historical offset 0x00: QUOTE script quote; -1 otherwise */
-    bool mark_pending; /* Historical offset 0x04: QUOTE records quote_index pending */
-    /* Historical offset 0x08: QUOTE_ENTRY only; producers always store a W8NpcQuoteEntry*. */
-    W8NpcQuoteEntry* quote_entry;
-    W8NpcMessageKind type; /* Historical offset 0x0c */
-    /* Historical offset 0x10: per-kind payload sharing one dword; `text`, `item` and `argument`
-       are the proven members. */
-    W8MessageBoxPayload payload;
-    int continuation_quote; /* Historical offset 0x14: QUOTE_ENTRY's owning quote index */
-    bool suppress_entries;  /* Historical offset 0x18: QUOTE skips the quote-entry scan */
-    /* Historical offset 0x1c: ownership is selected by `type`. SKILL_NOTICES hands a
-       W8SkillNoticePayload* to the dispatcher or portrait bubble; LEVEL_UP
-       hands an int party-slot pointer to the bubble. PORTRAIT_EXTRA hands a
-       W8ExperienceNoticePayload* to the bubble. The bubble consumes and
-       deletes each payload on dismissal; the immediate skill-notice path
-       deletes its payload itself. */
-    W8MessageBoxPayload extra;
-    W8NpcState* npc; /* Historical offset 0x20: speaking NPC, copied from g_npc_scripting.npc */
+/* W8_NPC_MSG_QUOTE: run `quote_index` of the queuing NPC's script. */
+struct W8NpcQueuedQuote {
+    int quote_index;
+    bool mark_pending;     /* record quote_index as pending */
+    bool suppress_entries; /* skip the price-check and pending-quote entry scans */
 };
 
+/* W8_NPC_MSG_QUOTE_ENTRY: deferred quote entry. It is addressed by index into
+   the queuing NPC's script and resolved at dispatch, so a script reload can
+   only make it drop out, never dangle. */
+struct W8NpcQueuedEntry {
+    int quote_index;
+    int entry_index;
+    int continuation_quote;
+};
 
-void AddMessageBoxLine(W8NpcMessageKind kind, W8MessageBoxPayload payload,
-                       W8MessageBoxPayload extra);
+/* Command kinds and their integer argument. */
+struct W8NpcQueuedCommand {
+    W8NpcMessageKind kind;
+    int argument;
+};
+
+/* Portrait text kinds and the notice their bubble posts on dismissal. */
+struct W8NpcQueuedNotice {
+    W8NpcMessageKind kind;
+    std::string text;
+    W8QuoteNotice notice;
+};
+
+/* Queue record consumed by ProcessMessageBoxQueue. */
+struct W8MessageBoxLine {
+    int npc_kind; /* record kind of the speaking NPC, or -1; resolved when the line runs */
+    std::variant<W8NpcQueuedQuote, W8NpcQueuedEntry, W8NpcQueuedCommand, W8NpcQueuedNotice> action;
+};
+
+W8NpcMessageKind GetMessageBoxLineKind(const W8MessageBoxLine& line);
 bool IsMessageBoxLineQueueEmpty(void);
-
-void AddTextMessageBoxLine(W8NpcMessageKind kind, std::string text, W8MessageBoxPayload extra);
+void AddTextMessageBoxLine(W8NpcMessageKind kind, std::string text, W8QuoteNotice notice = {});

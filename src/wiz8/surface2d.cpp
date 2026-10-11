@@ -1,9 +1,18 @@
 #include <memory>
-#include "wiz8/surface2d.h"
+#include <glm/ext/vector_float3.hpp>
 
-#include "surrender/srCore.h"
+#include "wiz8/surface2d.h"
+#include "compat/compiler.h"
 #include "surrender/srGERD.h"
+#include "surrender/srNode.h"
+#include "surrender/srTexture.h"
+#include "surrender/srTypeRegistry.h"
 #include "wiz8/float_constants.h"
+#include "surrender/srFlags.h"
+#include "surrender/srMath.h"
+#include "surrender/srRendererDefs.h"
+#include "surrender/srShader.h"
+#include "surrender/srTextureIFace.h"
 
 stTexture2D::stTexture2D()
     : srClassSupport<stTexture2D, srTexture, 0x1000f>(), left(0), top(0), right(128),
@@ -30,9 +39,10 @@ w8_ulong stTexture2D::getTextureFrameHandle()
 }
 
 // FUNCTION: WIZ8 0x0047E710
-void stTexture2D::getMipmapData(MultiRequest& request)
+void stTexture2D::getMipmapData(const MultiRequest& request)
 {
-    request.destinations[request.mipmap_level]->blit(0, 0, *surface, left, top, right, bottom);
+    if (request.destinations.empty() || !request.destinations.front()) return;
+    request.destinations.front()->blit(0, 0, *surface, left, top, right, bottom);
 }
 
 // FUNCTION: WIZ8 0x0047E740
@@ -53,7 +63,7 @@ void stTexture2D::invalidate()
 void stTexture2D::setupDefaultValues()
 {
     if (surface) {
-        surface->getPixelFormat(texture_dimensions_.format);
+        texture_dimensions_.format = surface->getPixelFormat();
         texture_dimensions_.palette = 0;
     }
     texture_flags_ &= ~(1UL << FLAG_DIRTY_DEFAULTS);
@@ -130,7 +140,7 @@ void stSurface2D::DrawTiles(srGERD* renderer)
     int column;
     int index = 0;
 
-    getLocation(location);
+    location = glm::vec3(getLocation());
     renderer->matrixMode(srGERD::MATRIX_PROJECTION);
     renderer->pushMatrix();
     renderer->loadIdentity();

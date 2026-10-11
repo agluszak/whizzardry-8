@@ -1,13 +1,13 @@
 #pragma once
 
-#include "Types.h"
+#include <cstdint>
+
 #include "wiz8/layouts/character.h"
-#include "wiz8/character_event_queue.h"
 #include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/local_code/MonsterManager.h"
-
 #include "input.h"
+#include "compat/compiler.h"
 
 class W8DialogNumericInput;
 class W8TextBuffer;
@@ -30,7 +30,7 @@ public:
 
 private:
     bool CreateQuoteText();
-    bool HandleInputEvent(const InputAtom* input);
+    bool HandleInputEvent(const InputEvent* input);
 
     bool m_voice_started;
     W8TextBuffer* m_quote_text;
@@ -48,6 +48,3 @@ private:
     bool m_portrait_clock_started;
     uint64_t m_portrait_clock;
 };
-
-W8_ABI_ASSERT(sizeof(W8CharacterSummaryDialog) == 0x1b00,
-              "W8CharacterSummaryDialog_must_be_0x1b00");

@@ -1,9 +1,17 @@
-#include <string_view>
-#include <string>
 #pragma once
 
+#include <memory>
+#include <optional>
+#include <string>
+#include <string_view>
+
+#include "compat/compiler.h"
+#include "local_code/ControlsRect.h"
 #include "wiz8/local_code/Widget.h"
 #include "wiz8/local_code/TextBuffer.h"
+#include "wiz8/catalog_artwork.h"
+
+struct SpriteSheet;
 
 /* Shared declaration owner; implementation remains in Local Code\Controls.cpp. */
 
@@ -37,27 +45,12 @@ public:
 
     W8TextControl();
     W8TextControl(Controls* panel, unsigned int region, int left, int top, int right, int bottom,
-                  int image_object, int image_frame, int normal_sprite, int pressed_sprite,
+                  std::optional<CatalogArtwork> image_artwork, int normal_sprite, int pressed_sprite,
                   int alternate_normal_sprite, int alternate_pressed_sprite, int disabled_sprite);
 
-    void SetImage(int object, int frame = 0)
-    {
-        m_imageObject = object;
-        m_measured_w = -1;
-        m_measured_h = -1;
-        m_imageFrame = frame;
-        m_normalSprite = 0;
-        m_pressedSprite = 0;
-    }
-    void ClearImage()
-    {
-        m_imageObject = -1;
-        m_measured_w = -1;
-        m_measured_h = -1;
-        m_imageFrame = -1;
-        m_normalSprite = -1;
-        m_pressedSprite = -1;
-    }
+    void SetImage(CatalogArtwork artwork);
+    void SetItemImage(int item_id);
+    void ClearImage();
 
     bool MeasureText();
     void GetTextOrigin(int* px, int* py);
@@ -90,9 +83,8 @@ public:
     unsigned int m_stateFlags;   /* paired state masks */
     unsigned int m_layoutFlags;  /* layout and input behavior masks */
     bool m_alternateTextEnabled; /* alternate text-selection flag */
-    unsigned char pad_3d[3];
-    int m_imageObject;
-    int m_imageFrame;
+    std::shared_ptr<const SpriteSheet> m_imageSprites;
+    int m_imageYOffset;
     int m_normalSprite;
     int m_pressedSprite;
     int m_alternatePressedSprite;
@@ -113,7 +105,6 @@ protected:
     void NotifyPrimaryActivation();
     void NotifySecondaryActivation();
 };
-W8_ABI_ASSERT(sizeof(W8TextControl) == 0xb8, "W8TextControl_size");
 
 // VTABLE: WIZ8 0x005ed758
 class W8HelpTextControl : public W8TextControl {
@@ -132,7 +123,6 @@ public:
 protected:
     std::string m_regionHelp;
 };
-W8_ABI_ASSERT(sizeof(W8HelpTextControl) == 0x248, "W8HelpTextControl_size");
 
 /* Separate panel-owned arrays retain their slots until each control has been
    destroyed. Panel storage and region sets are released by the caller. */

@@ -1,4 +1,7 @@
 #include "wiz8/level_specific_code/MtGigas2.h"
+
+#include <vector>
+#include "wiz8/level_specific_code/MtGigasOuter.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/location_variables.h"
 #include "wiz8/engine_code/Trigger.hpp"
@@ -13,15 +16,19 @@
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
-#include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/utility.h"
 #include "wiz8/dice.h"
-#include "wiz8/sr_api.h"
 #include "surrender/srCamera.h"
 #include "soundman.h"
+#include "glm/ext/vector_float3.hpp"
+#include "layouts/world.h"
+#include "surrender/srMath.h"
+
+struct W8ItemInstance;
+struct W8NpcState;
 
 /* Level Specific Code\MtGigas2.cpp (level 0x0d).
 
@@ -109,7 +116,7 @@ bool MtGigas2Train(Trigger* pTrigger)
         return false;
     }
     if (item_id == 0x269 || item_id == 0x26c) {
-        SoundPlay("Data\\Sound\\Ambients\\Electricity 01.wav", 0);
+        wiz8::sound::play("Data\\Sound\\Ambients\\Electricity 01.wav");
         if (value == -1) {
             SetTriggerVariableByName("WirePanel", 0);
             return true;
@@ -220,7 +227,7 @@ static void MtGigas2WireShock(void)
     }
     SetDice(&dice, 2, 4, 1);
     ApplyRolledHealthChangeToParty(&dice, 0, 1);
-    SoundPlay("Data\\Sound\\Ambients\\Electricity 04.wav", 0);
+    wiz8::sound::play("Data\\Sound\\Ambients\\Electricity 04.wav");
 }
 
 /* Activation callback on _VOC_EWAXXLIFT3: queues the lift NPC notice with
@@ -231,13 +238,7 @@ bool MtGigas2Lift3(Trigger* pTrigger)
     if (gXStatus.fNpcDialogueMode) {
         return false;
     }
-    W8NpcState* npc = GetNpcStateByKind(0x5c);
-    W8ItemInstance* item = 0;
-
-    if (g_status.item_in_cursor) {
-        item = &g_status.item_in_hand;
-    }
-    QueueNpcScriptNotice(npc, item, -1, false, 0);
+    QueueNpcHeldItemNotice(0x5c);
     g_trigger_feedback = true;
     return false;
 }
@@ -250,13 +251,27 @@ bool MtGigas2TopDoor1(Trigger* pTrigger)
     if (gXStatus.fNpcDialogueMode) {
         return false;
     }
-    W8NpcState* npc = GetNpcStateByKind(0x5f);
-    W8ItemInstance* item = 0;
+    QueueNpcHeldItemNotice(0x5f);
+    g_trigger_feedback = true;
+    return false;
+}
 
-    if (g_status.item_in_cursor) {
-        item = &g_status.item_in_hand;
+static bool ActivateMtGigasOfficer(int door_bit, const char* door_name, int npc_kind)
+{
+    if (gXStatus.fNpcDialogueMode) {
+        return false;
     }
-    QueueNpcScriptNotice(npc, item, -1, false, 0);
+    int doors = 0;
+    if (GetLocationVarIDByName("ObstacleDoors") != -1) {
+        doors = GetLocationVarValueByName("ObstacleDoors");
+    }
+    if ((doors & door_bit) != 0) {
+        Trigger* door = FindTriggerByName(door_name);
+        door->Run(-1);
+        SetTriggerVariableByName("ObstacleDoors", doors - door_bit);
+        return false;
+    }
+    QueueNpcHeldItemNotice(npc_kind);
     g_trigger_feedback = true;
     return false;
 }
@@ -267,32 +282,7 @@ bool MtGigas2TopDoor1(Trigger* pTrigger)
 // FUNCTION: WIZ8 0x004DB6D0
 bool MtGigas2Officer1(Trigger* pTrigger)
 {
-    int doors;
-    W8NpcState* npc;
-    W8ItemInstance* item;
-
-    if (gXStatus.fNpcDialogueMode) {
-        return false;
-    }
-    doors = 0;
-    if (GetLocationVarIDByName("ObstacleDoors") != -1) {
-        doors = GetLocationVarValueByName("ObstacleDoors");
-    }
-    if ((doors & 1) != 0) {
-        Trigger* door = FindTriggerByName("Door19");
-        door->Run(-1);
-        doors--;
-        SetTriggerVariableByName("ObstacleDoors", doors);
-        return false;
-    }
-    npc = GetNpcStateByKind(0x7c);
-    item = 0;
-    if (g_status.item_in_cursor) {
-        item = &g_status.item_in_hand;
-    }
-    QueueNpcScriptNotice(npc, item, -1, false, 0);
-    g_trigger_feedback = true;
-    return false;
+    return ActivateMtGigasOfficer(1, "Door19", 0x7c);
 }
 
 /* Activation callback on _VOC_EWAXXOFFICER2: while ObstacleDoors bit 1 is
@@ -301,32 +291,7 @@ bool MtGigas2Officer1(Trigger* pTrigger)
 // FUNCTION: WIZ8 0x004DB770
 bool MtGigas2Officer2(Trigger* pTrigger)
 {
-    int doors;
-    W8NpcState* npc;
-    W8ItemInstance* item;
-
-    if (gXStatus.fNpcDialogueMode) {
-        return false;
-    }
-    doors = 0;
-    if (GetLocationVarIDByName("ObstacleDoors") != -1) {
-        doors = GetLocationVarValueByName("ObstacleDoors");
-    }
-    if ((doors & 2) != 0) {
-        Trigger* door = FindTriggerByName("Door18");
-        door->Run(-1);
-        doors -= 2;
-        SetTriggerVariableByName("ObstacleDoors", doors);
-        return false;
-    }
-    npc = GetNpcStateByKind(0x7d);
-    item = 0;
-    if (g_status.item_in_cursor) {
-        item = &g_status.item_in_hand;
-    }
-    QueueNpcScriptNotice(npc, item, -1, false, 0);
-    g_trigger_feedback = true;
-    return false;
+    return ActivateMtGigasOfficer(2, "Door18", 0x7d);
 }
 
 /* Activation callback on triggerPlaneLaserAlarm/01: once per level (fact
@@ -358,18 +323,10 @@ static void MtGigas2UmpaniAlarm(int command)
 {
     srVector3T<float> position;
 
-    g_remove_current_master_function = false;
+    if (PrepareUmpaniAlarmCommand(command, "UmpaniAlarm", g_mt_gigas_alarm_gate)) {
+        return;
+    }
     if (command != 0) {
-        if (GetLocationVarIDByName("UmpaniAlarm") == -1) {
-            CreateLocationVar("UmpaniAlarm", 0x1e);
-        }
-        if (command == -1) {
-            SetTriggerVariableByName(
-                "UmpaniAlarm", g_mt_gigas_alarm_gate != 0
-                                   ? static_cast<int>(g_mt_gigas_alarm_gate->GetElapsedSeconds())
-                                   : 0);
-            return;
-        }
         if (g_mt_gigas_alarm_gate != 0 || g_mt_gigas_alarm_sound != 0) {
             return;
         }
@@ -402,7 +359,7 @@ static void MtGigas2UmpaniAlarm(int command)
 // FUNCTION: WIZ8 0x004DBA70
 bool MtGigas2WiringMalfunction(Trigger* pTrigger)
 {
-    SoundPlay("Data\\Sound\\Ambients\\Electricity 04.wav", 0);
+    wiz8::sound::play("Data\\Sound\\Ambients\\Electricity 04.wav");
     return true;
 }
 
@@ -410,6 +367,6 @@ bool MtGigas2WiringMalfunction(Trigger* pTrigger)
 // FUNCTION: WIZ8 0x004DBA90
 bool MtGigas2AccessHatch(Trigger* pTrigger)
 {
-    SoundPlay("Data\\Sound\\Ambients\\Sign Falling Statue.wav", 0);
+    wiz8::sound::play("Data\\Sound\\Ambients\\Sign Falling Statue.wav");
     return true;
 }

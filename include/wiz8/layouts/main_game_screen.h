@@ -1,8 +1,8 @@
+#include "Font.h"
 #include <string>
 #include <vector>
 #pragma once
 
-#include "Types.h"
 #include "wiz8/camera_motion.h"
 
 #include "wiz8/geometry.h"
@@ -18,7 +18,7 @@ class stModelInstance2D;
    object is an stTextureAnim; size and hotspot are the unsigned shorts
    ApplyCurrentCursor feeds to the mouse-cursor surface helpers. */
 struct W8MainGameResourceSlot {
-    int image_id;             /* Historical offset 0x00: GetCatalogVideoObjectHandle / YOffset key */
+    int image_id;             /* Historical offset 0x00: catalog image / YOffset key */
     std::shared_ptr<stTextureAnim> object;    /* Historical offset 0x04: loaded cursor anim */
     unsigned int frame_count; /* Historical offset 0x08: frames appended into the anim */
     unsigned short size_x;    /* Historical offset 0x0c */
@@ -237,8 +237,8 @@ struct W8LevelRuntimeBlock {
     int move_percent;
     int move_percent_shown;
     unsigned char unknown_2e4[4];
-    int text_box_font;       /* Historical offset 0x2e8: g_wiz_text_font_secondary while the main text box is live */
-    unsigned short* palette; /* Historical offset 0x2ec */
+    Font* text_box_font;       /* Historical offset 0x2e8: g_wiz_text_font_secondary while the main text box is live */
+    Palette16 palette; /* Historical offset 0x2ec */
     W8ActionKind selection_kind;
     int pending_action; /* Historical offset 0x2f4 */
     bool selection_settled;

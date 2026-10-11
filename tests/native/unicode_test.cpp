@@ -1,18 +1,20 @@
 #include <catch2/catch_test_macros.hpp>
-#include "wiz8/unicode.h"
-#include "wiz8/retail_text_records.h"
-#include "wiz8/filesystem.h"
-#include "wiz8/local_code/Strings.h"
-#include "wiz8/string_database.h"
-#include "wiz8/local_code/LoadSaveGame.h"
-#include "temporary_directory.h"
 #include <array>
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
 #include <clocale>
 #include <string>
 #include <cwchar>
+#include <algorithm>
+#include <cstddef>
+#include <iterator>
+#include <span>
+
+#include "wiz8/unicode.h"
+#include "wiz8/retail_text_records.h"
+#include "Missile.h"
+#include "attack_modes.h"
+#include "layouts/character.h"
+#include "layouts/gameplay_databases.h"
+#include "retail_records.h"
 
 
 static_assert(wiz8::retail::kMonsterRecordBytes == 0x297);
@@ -144,11 +146,17 @@ static void record_contracts()
     REQUIRE(std::equal(npc_bytes.begin() + 0xe4, npc_bytes.begin() + 0x128, npc_edited.begin() + 0xe4));
 }
 
-TEST_CASE("unicode_test")
+TEST_CASE("UTF-8 and host Unicode conversion", "[unicode]")
 {
-
     conversion_contracts();
+}
+
+TEST_CASE("Unicode retail records", "[unicode][serialization]")
+{
     record_contracts();
+}
+
+TEST_CASE("Unicode missile records", "[unicode][serialization]")
+{
     missile_record_contracts();
-    std::puts("ok");
 }

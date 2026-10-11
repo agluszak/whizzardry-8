@@ -3,7 +3,7 @@
 #ifndef __RANDOM_
 #define __RANDOM_
 
-#include "Types.h"
+#include <cstdint>
 #include <stdlib.h>
 #include <time.h>
 
@@ -12,10 +12,10 @@ extern "C" {
 #endif
 
 extern void InitializeRandom(void);
-extern UINT32 Random(UINT32 uiRange);
+extern std::uint32_t Random(std::uint32_t uiRange);
 
 //Chance( 74 ) returns TRUE 74% of the time.  If uiChance >= 100, then it will always return TRUE.
-extern BOOLEAN Chance(UINT32 uiChance);
+extern bool Chance(std::uint32_t uiChance);
 
 //Wizardry can use it too, but I'm saving them a K in the meantime...
 //If Wizardry wants it, then removing the #ifdef JA2 will make it work.
@@ -23,14 +23,14 @@ extern BOOLEAN Chance(UINT32 uiChance);
 #ifdef PRERANDOM_GENERATOR
 //Returns a pregenerated random number.
 //Used to deter Ian's tactic of shoot, miss, restore saved game :)
-extern UINT32 PreRandom(UINT32 uiRange);
-extern BOOLEAN PreChance(UINT32 uiChance);
+extern std::uint32_t PreRandom(std::uint32_t uiRange);
+extern bool PreChance(std::uint32_t uiChance);
 
 //IMPORTANT:  Changing this define will invalidate the JA2 save.  If this
 //						is necessary, please ifdef your own value.
 #define MAX_PREGENERATED_NUMS 256
-extern UINT32 guiPreRandomIndex;
-extern UINT32 guiPreRandomNums[MAX_PREGENERATED_NUMS];
+extern std::uint32_t guiPreRandomIndex;
+extern std::uint32_t guiPreRandomNums[MAX_PREGENERATED_NUMS];
 #endif
 
 #ifdef __cplusplus

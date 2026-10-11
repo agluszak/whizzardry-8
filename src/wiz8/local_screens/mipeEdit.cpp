@@ -1,9 +1,8 @@
 #include <fmt/format.h>
-#include <math.h>
-#include <stdlib.h>
-#include <string.h>
+#include <cmath>
+#include <string>
+#include <string_view>
 
-#include "wiz8/engine_code/3dapi.h"
 #include "wiz8/engine_code/Prop.h"
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/float_constants.h"
@@ -65,7 +64,7 @@ void CommitMipeEditFields(W8TriggerActionData* data, signed char bVarSet);
    g_mipe_table_base; the selected row gets palette 6, the rest 15. */
 #define MIPE_REDRAW_EDIT_FIELDS()                                                                  \
     do {                                                                                           \
-        W8MipeState* state_ = g_mipe_state;                                                        \
+        W8MipeState* state_ = g_mipe_state.get();                                                        \
         char shown_ =                                                                              \
             static_cast<char>(state_->edit_field_count - static_cast<char>(g_mipe_table_base));    \
         char row_;                                                                                 \
@@ -86,7 +85,7 @@ void CommitMipeEditFields(W8TriggerActionData* data, signed char bVarSet);
 // FUNCTION: WIZ8 0x005c3880
 void HandleMipeEditPropKey(unsigned short key)
 {
-    W8MipeState* state = g_mipe_state;
+    W8MipeState* state = g_mipe_state.get();
     W8MipeEditField* fields = state->edit_fields;
     W8MipeEditField* field;
     Trigger* trigger;
@@ -105,7 +104,7 @@ void HandleMipeEditPropKey(unsigned short key)
         state->edit_selection != -1) {
         field = &fields[static_cast<int>(state->edit_selection)];
         if (field->type == 6) {
-            if (key != 0x20 && gfKeyState[VK_SHIFT] == 0 && (key < 0x30 || key > 0x39)) {
+            if (key != 0x20 && !IsKeyHeld(VK_SHIFT) && (key < 0x30 || key > 0x39)) {
                 key += 0x20;
             }
             field->text.push_back(static_cast<char>(key));

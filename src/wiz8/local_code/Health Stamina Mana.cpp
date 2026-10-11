@@ -1,5 +1,11 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
+#include <vector>
+#include <memory>
+#include <utility>
+#include <cstdlib>
+#include <string>
+
 #include "wiz8/engine_code/AnimRep.hpp"
 #include "wiz8/monster_cycles.h"
 #include "wiz8/conditions.h"
@@ -14,18 +20,11 @@
 #include "wiz8/xstatus.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/character_skills.h"
-#include "wiz8/local_code/CharGeneration.h"
 #include "wiz8/local_code/Combat.h"
-#include "wiz8/local_code/CombatAttack.h"
 #include "wiz8/local_code/GameplayCode.h"
-#include "wiz8/local_code/GameplayMods.h"
 #include "wiz8/local_code/Magic.h"
-#include "wiz8/local_code/MagicEffects.h"
-#include "wiz8/local_code/party_encumbrance.h"
-#include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/layouts/combat_state.h"
-#include "wiz8/local_code/CombatRange.h"
 #include "wiz8/layouts/item_tables.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/local_code/Strings.h"
@@ -34,49 +33,25 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/local_code/NPCManager.h"
-#include "wiz8/local_code/NPCScripting.h"
-#include "wiz8/npc_script_file.h"
 #include "wiz8/layouts/item_instance.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/local_code/SpellEffect.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/utility.h"
-#include "wiz8/sound_man.h"
 #include "random.h"
 #include "wiz8/local_code/character_events.h"
-#include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/local_screens/MGSTextBox.h"
-
-#include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/engine_code/Monster.h"
-#include "wiz8/music_playlist.h"
-#include <vector>
-#include <algorithm>
-#include "wiz8/local_screens/CharacterScreen.h"
-#include "wiz8/string_database.h"
-#include "wiz8/local_code/Configuration.h"
-#include "wiz8/layouts/screen_state.h"
-#include "wiz8/local_code/Gameloop.h"
-#include "wiz8/npc_interaction.h"
 #include "wiz8/local_screens/MGSPortraits.h"
-#include "wiz8/dialog_code/PortraitQuote.h"
-#include "wiz8/local_screens/ReviewCharacterScreen.h"
-#include "wiz8/notices.h"
-#include "wiz8/regions.h"
-#include "wiz8/engine_code/Trigger.hpp"
-#include "wiz8/engine_code/Environment.h"
-#include "wiz8/local_screens/mipe.h"
-#include "wiz8/engine_code/Video2.h"
-#include "wiz8/application.h"
-#include "wiz8/bink_video.h"
-#include "wiz8/mouth_gap.h"
-#include "wiz8/filesystem.h"
-
-#include <stdio.h>
-#include <stdlib.h>
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/local_screens/OptionsScreen.h"
+#include "attack_modes.h"
+#include "compat/native.h"
+#include "dice.h"
+#include "layouts/targeting.h"
+#include "local_code/Factions.h"
+#include "monster_actions.h"
+#include "surrender/srMath.h"
 
 /* Local Code\Health Stamina Mana.cpp, named by the assertions these bodies
    embed. The party sweeps in here all share one shape: walk the eight party
@@ -163,14 +138,10 @@ unsigned int ApplyDamageToCharacter(int party_slot, unsigned int amount, bool qu
         }
     } else {
         if (result_stats != 0) {
-            W8SpellDamageReport* report =
-                static_cast<W8SpellDamageReport*>(malloc(sizeof(W8SpellDamageReport)));
-            if (report != 0) {
-                memset(report, 0, sizeof(W8SpellDamageReport));
-                report->kind = 1;
-                report->value = party_slot;
-                result_stats->reports.push_back(report);
-            }
+            auto report = std::make_unique<W8SpellDamageReport>();
+            report->kind = 1;
+            report->value = party_slot;
+            result_stats->reports.push_back(std::move(report));
         }
         SetCharacterCondition(party_slot, W8_CONDITION_DEAD, W8_CONDITION_INDEFINITE, 0, 0,
                               result_stats == 0);
@@ -338,7 +309,7 @@ void DamageMonstersInRadius(const srVector3T<float>& center, float radius, const
     for (index = 0; index < gXStatus.monsters.size(); ++index) {
         monster_info = MonsterGetScriptPartByLocationIndex(index);
         if (monster_info->fActive) {
-            MonsterGetLocation(monster_info->p3D, &location);
+            location = MonsterGetLocation(monster_info->p3D);
             offset = srVector3T<float>(center.x - location.x, center.y - location.y,
                                        center.z - location.z);
             if (offset.Length() <= radius) {
@@ -362,7 +333,6 @@ unsigned int ApplyDamageToMonster(W8MonsterInfo* monster_info, unsigned int amou
     unsigned int absorbed;
     unsigned int applied;
     unsigned int category;
-    W8SpellDamageReport* report;
 
     if (monster_info->hp_current == 0) {
         return 0;
@@ -423,13 +393,10 @@ unsigned int ApplyDamageToMonster(W8MonsterInfo* monster_info, unsigned int amou
         } else {
             monster_info->hp_current = 0;
             if (result_stats != 0) {
-                report = static_cast<W8SpellDamageReport*>(malloc(sizeof(W8SpellDamageReport)));
-                if (report != 0) {
-                    memset(report, 0, sizeof(W8SpellDamageReport));
-                    report->kind = 3;
-                    report->text = GetMonsterName(monster_info, 0, 0);
-                    result_stats->reports.push_back(report);
-                }
+                auto death_report = std::make_unique<W8SpellDamageReport>();
+                death_report->kind = 3;
+                death_report->text = GetMonsterName(monster_info, 0, 0);
+                result_stats->reports.push_back(std::move(death_report));
             }
             MonsterStartsDying(monster_info, result_stats == 0);
         }
@@ -933,7 +900,7 @@ void MonsterReactsToBeingStruck(W8MonsterInfo* monster_info, W8TargetSource* att
                 TickMonsterCondition(monster_info->location_id, W8_CONDITION_TURNCOAT, 1);
             }
         } else if (MonsterHostility(
-                       MonsterInfoFromID(1570, HEALTH_STAMINA_MANA_CPP, attacker->iMonsterID, true),
+                       FindMonster(attacker->iMonsterID),
                        monster_info) == W8_DISPOSITION_FRIENDLY) {
             TickMonsterCondition(monster_info->location_id, W8_CONDITION_TURNCOAT, 1);
         }
@@ -1173,7 +1140,7 @@ void CharacterDies(int party_slot)
         RecordCharacterDeath(party_slot);
     }
     QueuePartyDeathReaction(party_slot);
-    SoundPlay("Data\\Sound\\Misc\\CharacterDead.wav", 0);
+    wiz8::sound::play("Data\\Sound\\Misc\\CharacterDead.wav");
 
     if (gXStatus.fCombatMode) {
         if (g_combat_state->iActionChar == party_slot) {
@@ -1443,9 +1410,7 @@ void ApplyQueuedFatigue(W8CombatSlot* op, unsigned int amount, int)
         return;
     }
     if (op->iType == W8_TARGET_KIND_MONSTER) {
-        unsigned int location_index =
-            MonsterGetIndexByLocationID(0x771, HEALTH_STAMINA_MANA_CPP, op->iMonsterID, true);
-        W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(location_index);
+        W8MonsterInfo* monster_info = FindMonster(op->iMonsterID);
         FatigueMonster(monster_info, amount, 0);
     }
 }

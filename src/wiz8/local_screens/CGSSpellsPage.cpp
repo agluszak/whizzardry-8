@@ -1,31 +1,29 @@
 #include <fmt/format.h>
+#include <SDL3/SDL_rect.h>
 #include <string>
+#include <array>
+#include <vector>
+
 #include "wiz8/character_skills.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/local_code/Widget.h"
 #include "wiz8/local_code/RangeControl.h"
 #include "wiz8/local_screens/CharacterScreen.h"
-#include "wiz8/local_screens/ReviewCharacterScreen.h"
-#include "wiz8/local_screens/MainGameScreen.h"
-
-#include "wiz8/cursor.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/Strings.h"
-#include "wiz8/local_code/Magic.h"
-#include "wiz8/local_code/MagicEffects.h"
-#include "wiz8/layouts/screen_state.h"
 #include "wiz8/fonts.h"
 #include "wiz8/sr_api.h"
-#include "wiz8/utility.h"
-#include "wiz8/video_object_catalog.h"
+#include "wiz8/catalog_artwork.h"
 #include "Font.h"
+#include "Video2.h"
+#include "game_timer.h"
+#include "layouts/character.h"
+#include "local_code/CharGeneration.h"
+#include "local_code/Controls.h"
+#include "local_code/ControlsRect.h"
+#include "local_code/HealthStaminaMana.h"
+#include "local_code/TextBuffer.h"
 
-#include <new>
-
-// GLOBAL: WIZ8 0x0069c534
-static unsigned int g_character_spells_region_set;
-// GLOBAL: WIZ8 0x0069c538
-static unsigned int g_character_spell_list_region_sets[6];
 
 // GLOBAL: WIZ8 0x00648c90
 W8SpellRealmAnimation g_spell_realm_animations[6] = {{486, 22, 3}, {487, 18, 8},  {488, 14, 8},
@@ -37,8 +35,7 @@ W8SpellRealmAnimation g_spell_realm_animations[6] = {{486, 22, 3}, {487, 18, 8},
 // VTABLE: WIZ8 0x005ef610 W8RangeListener
 class W8CharacterSpellList : public W8Widget, public W8RangeListener {
 public:
-    W8CharacterSpellList(Controls* owner, int x, int y, W8CharacterSpellEntry* entries,
-                         unsigned int* region_set);
+    W8CharacterSpellList(Controls* owner, int x, int y, W8CharacterSpellEntry* entries);
     virtual ~W8CharacterSpellList() override;
     virtual void Redraw(bool force) override;
     virtual void OnMouseEnter(int event) override;
@@ -63,18 +60,15 @@ public:
     int m_hovered_entry;
     int m_scroll_offset;
     W8CharacterSpellListListener* m_listener;
-    unsigned int* m_region_set;
     int m_x;
     int m_y;
 };
-W8_ABI_ASSERT(sizeof(W8CharacterSpellList) == 0x60, "W8CharacterSpellList_size");
-W8_ASSERT_BASE_END(W8CharacterSpellList, W8RangeListener, m_range, 0x34);
 
 W8CharacterSpellList::W8CharacterSpellList(Controls* owner, int x, int y,
-                                           W8CharacterSpellEntry* entries, unsigned int* region_set)
+                                           W8CharacterSpellEntry* entries)
     : W8Widget(owner, 0xffffffff, x + 0x1a, y + 0x19, x + 0xb4, y + 0x79), m_range(0),
       m_entries(entries), m_hovered_entry(-1), m_scroll_offset(0), m_listener(0),
-      m_region_set(region_set), m_x(x), m_y(y)
+      m_x(x), m_y(y)
 {
 }
 
@@ -91,7 +85,7 @@ void W8CharacterSpellList::SetEntryCount(int count)
         m_range = new W8RangeControl(m_pPanel->m_bounds.left + m_x + 0xb8,
                                      m_pPanel->m_bounds.top + m_y + 0x1a,
                                      m_pPanel->m_bounds.left + m_x + 0xca,
-                                     m_pPanel->m_bounds.top + m_y + 0x78, m_region_set);
+                                     m_pPanel->m_bounds.top + m_y + 0x78);
         m_range->m_listener = this;
     }
     m_range->Invalidate(0);
@@ -114,31 +108,30 @@ void W8CharacterSpellList::Redraw(bool force)
         int right = m_right + m_pPanel->m_bounds.left;
         int bottom = m_bottom + m_pPanel->m_bounds.top;
         InvalidateRegion(left, top, right, bottom, 0);
-        BlitCatalogSurfaceRectTo16BPP(FRAME_BUFFER, left, top, right, bottom, 0x1b6, 0, 0);
+        CatalogArtwork::Load(0x1b6, 0).drawRect(GetFrameBufferSurface(), SDL_Rect{0, 0, (right) - (left), (bottom) - (top)}, left, top);
         int y = top + 1;
-        SetFont(g_wiz_text_font_secondary);
-        SetFontObjectPalette16BPP(g_wiz_text_font_secondary, GetFontObject(g_wiz_text_font_secondary)->ownedPalette.get());
-        SetObjectShade(GetFontObject(g_wiz_text_font_secondary), 4);
+        g_wiz_text_font_secondary.resetPalette();
+        g_wiz_text_font_secondary.setShade(Font::kNormalShade);
         for (int index = m_first_entry + m_scroll_offset;
              index < m_first_entry + m_scroll_offset + 7; ++index) {
             if (index >= m_first_entry + m_entry_count)
                 break;
             if (!m_entries[index].fSelectable) {
-                SetObjectShade(GetFontObject(g_wiz_text_font_secondary), 6);
+                g_wiz_text_font_secondary.setShade(6);
             } else if (m_entries[index].selected) {
-                SetFontObjectPalette16BPP(g_wiz_text_font_secondary,
-                                          g_font_state_palettes[W8_FONT_PALETTE_BLUE].get());
+                g_wiz_text_font_secondary.setPalette(g_font_state_palettes[W8_FONT_PALETTE_BLUE]);
             } else if (index == m_hovered_entry) {
-                SetFontObjectPalette16BPP(g_wiz_text_font_secondary,
-                                          g_font_state_palettes[W8_FONT_PALETTE_YELLOW].get());
+                g_wiz_text_font_secondary.setPalette(g_font_state_palettes[W8_FONT_PALETTE_YELLOW]);
             }
-            DrawFontText(left + 2, y, g_spell_records[m_entries[index].spell].display_name);
+            DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {left + 2, y},
+                     g_spell_records[m_entries[index].spell].display_name);
             std::string cost;
             cost = fmt::format("{:d}", g_spell_records[m_entries[index].spell].spell_point_cost);
-            DrawFontText(right - StringPixLength(cost, g_wiz_text_font_secondary) - 2, y, cost);
+            DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary,
+                     {right - g_wiz_text_font_secondary.textWidth(cost) - 2, y}, cost);
             y += 13;
-            SetFontObjectPalette16BPP(g_wiz_text_font_secondary, GetFontObject(g_wiz_text_font_secondary)->ownedPalette.get());
-            SetObjectShade(GetFontObject(g_wiz_text_font_secondary), 4);
+            g_wiz_text_font_secondary.resetPalette();
+            g_wiz_text_font_secondary.setShade(Font::kNormalShade);
         }
         m_range->Invalidate(0);
         m_dirty = false;
@@ -241,11 +234,11 @@ void W8CharacterSpellsPage::SetCharacter(W8Character* character,
                                          W8CharacterCreationState* creation_state, int mode)
 {
     W8CharacterPage::SetCharacter(character, creation_state, mode);
-    AcquireRegionSet(&g_character_spells_region_set);
+    CreateRegionSet();
     for (int realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
         m_realms[realm] =
             new W8CharacterSpellList(this, (realm % 2) * 215 + 13, (realm / 2) * 130 + 8,
-                                     m_SpellData, &g_character_spell_list_region_sets[realm]);
+                                     m_SpellData);
         m_realms[realm]->m_listener = this;
     }
 }
@@ -306,13 +299,13 @@ void W8CharacterSpellsPage::Redraw()
         bounds.bottom = 0x173;
         text.RenderString(&bounds,
                           g_localized_strings[m_creation_state->spell_points_total == 0 ? 0xeb : 0xea],
-                          g_wiz_text_font_secondary, true, FRAME_BUFFER);
+                          g_wiz_text_font_secondary, true, GetFrameBufferSurface());
 
         bounds.top = 0x173;
         bounds.bottom = 0x18a;
         bounds.right = 0x8f;
         text.RenderString(&bounds, g_localized_strings[0xf4], g_wiz_text_font_secondary, true,
-                          FRAME_BUFFER);
+                          GetFrameBufferSurface());
         m_prepared = false;
     }
 
@@ -321,11 +314,11 @@ void W8CharacterSpellsPage::Redraw()
         bounds.top = 0x173;
         bounds.right = 0xbf;
         bounds.bottom = 0x18a;
-        DrawCatalogImage(FRAME_BUFFER, 0x107, 0, 5, 0x8f, 0x173, VO_BLT_SRCTRANSPARENCY, 0);
+        CatalogArtwork::Load(0x107, 0).draw(GetFrameBufferSurface(), 5, 0x8f, 0x173);
         text.SetLayoutBounds(&bounds, true, true);
         text.RenderString(fmt::format("{:d}/{:d}", m_creation_state->spell_points_remaining,
                                       m_creation_state->spell_points_total),
-                          g_options_detail_font, true, FRAME_BUFFER);
+                          g_options_detail_font, true, GetFrameBufferSurface());
         m_dirty = false;
     }
 
@@ -342,12 +335,12 @@ void W8CharacterSpellsPage::Redraw()
             text.SetLayoutBounds(&bounds, true, true);
             text.SetFontStateIndex(1);
             text.RenderString(fmt::format("{}:", g_localized_strings[0xf2]),
-                              g_wiz_text_font_secondary, false, FRAME_BUFFER);
+                              g_wiz_text_font_secondary, false, GetFrameBufferSurface());
             text.SetFontStateIndex(-1);
             text.SetLayoutMode(g_W8TextBufferAlignRight | g_W8TextBufferAlignMiddle);
             text.RenderString(
                 fmt::format("{:d}", m_character->skills[W8_SKILL_FIRE_MAGIC + realm].points),
-                g_wiz_text_font_secondary, false, FRAME_BUFFER);
+                g_wiz_text_font_secondary, false, GetFrameBufferSurface());
 
             text.SetLayoutMode(g_W8TextBufferAlignLeft | g_W8TextBufferAlignMiddle);
             bounds.left += 0x58;
@@ -355,14 +348,14 @@ void W8CharacterSpellsPage::Redraw()
             text.SetLayoutBounds(&bounds, true, true);
             text.SetFontStateIndex(1);
             text.RenderString(fmt::format("{}:", g_localized_strings[0xf3]),
-                              g_wiz_text_font_secondary, false, FRAME_BUFFER);
+                              g_wiz_text_font_secondary, false, GetFrameBufferSurface());
             text.SetFontStateIndex(-1);
             text.SetLayoutMode(g_W8TextBufferAlignRight | g_W8TextBufferAlignMiddle);
             text.RenderString(fmt::format("{:d}/{:d}",
                                           GetCharacterRealmSpellPoints(
                                               m_character, static_cast<W8SpellRealm>(realm)),
                                           m_character->sp_max[realm]),
-                              g_wiz_text_font_secondary, false, FRAME_BUFFER);
+                              g_wiz_text_font_secondary, false, GetFrameBufferSurface());
         }
     }
 
@@ -375,10 +368,7 @@ void W8CharacterSpellsPage::Redraw()
                     (m_animation_frames[realm] + elapsed) % animation.frame_count;
             }
             if (!m_screen->HasDialog() || realm < 2) {
-                DrawCatalogImageAndInvalidate(
-                    FRAME_BUFFER, animation.image, 0, m_animation_frames[realm],
-                    m_bounds.left + 0x0f + (realm % 2) * 0xd7,
-                    m_bounds.top + 0x0a + (realm / 2) * 0x82, VO_BLT_SRCTRANSPARENCY, 0);
+                CatalogArtwork::Load(animation.image, 0).drawAndInvalidate(GetFrameBufferSurface(), m_animation_frames[realm], m_bounds.left + 0x0f + (realm % 2) * 0xd7, m_bounds.top + 0x0a + (realm / 2) * 0x82);
             }
         }
     }

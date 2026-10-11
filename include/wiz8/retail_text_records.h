@@ -6,10 +6,45 @@
 #include "wiz8/chunk.h"
 #include <cstring>
 #include <stdexcept>
+#include <limits>
+#include <memory>
 
 namespace wiz8::retail {
 enum class Encoding { utf8, utf16 };
 template<class T> struct Record;
+
+/* A disk pointer slot is a 32-bit presence word: writers store whether the
+   live pointer is set, readers never trust it and leave the pointer null.
+   Loaders that need the presence word read it from the disk image. */
+template<class T> void pointer_slot(T* const& live, std::span<std::byte> bytes)
+{
+    const std::uint32_t present = live != nullptr;
+    std::memcpy(bytes.data(), &present, sizeof(present));
+}
+template<class T> void pointer_slot(T*& live, std::span<const std::byte>) { live = nullptr; }
+
+/* A nested record with its own codec. */
+template<class Runtime, class Bytes, class Value, class Text>
+void nested(Runtime& runtime, Bytes bytes, Value value, Text text)
+{
+    Record<std::remove_const_t<Runtime>>::fields(runtime, bytes, value, text);
+}
+
+template<> struct Record<W8CombatSlot> {
+    using Disk = CombatTarget;
+    template<class Runtime, class Bytes, class Value, class Text>
+    static void fields(Runtime& runtime, Bytes bytes, Value value, Text) {
+        value(&runtime.iType, bytes.subspan(offsetof(Disk, iType), 4));
+        value(&runtime.iChar, bytes.subspan(offsetof(Disk, iChar), 4));
+        value(&runtime.iMonsterID, bytes.subspan(offsetof(Disk, iMonsterID), 4));
+        value(&runtime.iGroupID, bytes.subspan(offsetof(Disk, iGroupID), 4));
+        value(&runtime.point, bytes.subspan(offsetof(Disk, point), sizeof(Disk::point)));
+        // The item marker is a saved address; loaders rebuild the item.
+        if constexpr (std::is_const_v<Runtime>)
+            std::fill_n(bytes.begin() + offsetof(Disk, item_marker), 4, std::byte{});
+        else runtime.pPCItem = nullptr;
+    }
+};
 template<> struct Record<W8PartySlotRow> {
     using Disk = PartySlot;
     template<class Runtime, class Bytes, class Value, class Text>
@@ -49,16 +84,7 @@ template<> struct Record<W8PartySlotRow> {
         detail(runtime.action_detail1, bytes.subspan(offsetof(Disk, action_detail1), 8), runtime.action == W8_ACTION_USE_ITEM);
         detail(runtime.spell_detail, bytes.subspan(offsetof(Disk, spell_detail), 8), false);
         detail(runtime.item_detail, bytes.subspan(offsetof(Disk, item_detail), 8), true);
-        auto target = [&](auto& live, auto field) {
-            value(&live.iType, field.subspan(0, 4));
-            value(&live.iChar, field.subspan(4, 4));
-            value(&live.iMonsterID, field.subspan(8, 4));
-            value(&live.iGroupID, field.subspan(12, 4));
-            value(&live.point, field.subspan(16, 12));
-            if constexpr (std::is_const_v<Runtime>)
-                std::fill(field.begin() + 28, field.end(), std::byte{});
-            else live.pPCItem = nullptr;
-        };
+        auto target = [&](auto& live, auto field) { nested(live, field, value, nullptr); };
         target(runtime.target_out_of_combat, bytes.subspan(offsetof(Disk, target_out_of_combat), sizeof(CombatTarget)));
         target(runtime.target_in_combat, bytes.subspan(offsetof(Disk, target_in_combat), sizeof(CombatTarget)));
         target(runtime.spell_target, bytes.subspan(offsetof(Disk, spell_target), sizeof(CombatTarget)));
@@ -202,7 +228,7 @@ template<> struct Record<W8NpcDatabaseRecord> {
         value(&runtime.no_item_stock, bytes.subspan(offsetof(Disk, no_item_stock), sizeof(Disk::no_item_stock)));
         text(runtime.display_name, bytes.subspan(offsetof(Disk, display_name), sizeof(Disk::display_name)), Encoding::utf8);
         Record<W8NpcCharacterTemplate>::fields(runtime.character, bytes.subspan(offsetof(Disk, character), sizeof(Disk::character)), value, text);
-        value(&runtime.item_stock_rules, bytes.subspan(offsetof(Disk, item_stock_rules), sizeof(Disk::item_stock_rules)));
+        pointer_slot(runtime.item_stock_rules, bytes.subspan(offsetof(Disk, item_stock_rules), sizeof(Disk::item_stock_rules)));
         value(&runtime.buy_price_factor, bytes.subspan(offsetof(Disk, buy_price_factor), sizeof(Disk::buy_price_factor)));
         value(&runtime.sell_price_factor, bytes.subspan(offsetof(Disk, sell_price_factor), sizeof(Disk::sell_price_factor)));
         value(&runtime.trade_item_class_mask, bytes.subspan(offsetof(Disk, trade_item_class_mask), sizeof(Disk::trade_item_class_mask)));
@@ -405,7 +431,9 @@ template<> struct Record<W8GlobalStatus> {
     template<class R, class B, class Value, class Text>
     static void fields(R& runtime, B bytes, Value value, Text text)
     {
-        value(&runtime.buffers, bytes.subspan(offsetof(Disk, buffers), sizeof(Disk::buffers)));
+        value(&runtime.buffers.save_version, bytes.subspan(offsetof(Disk, buffers.save_version), sizeof(Disk::buffers.save_version)));
+        pointer_slot(runtime.buffers.Char, bytes.subspan(offsetof(Disk, buffers.characters), 4));
+        pointer_slot(runtime.buffers.XChar, bytes.subspan(offsetof(Disk, buffers.party_rows), 4));
         value(&runtime.game_started, bytes.subspan(offsetof(Disk, game_started), sizeof(Disk::game_started)));
         value(&runtime.regular_member_count, bytes.subspan(offsetof(Disk, regular_member_count), sizeof(Disk::regular_member_count)));
         value(&runtime.auxiliary_member_count, bytes.subspan(offsetof(Disk, auxiliary_member_count), sizeof(Disk::auxiliary_member_count)));
@@ -549,6 +577,23 @@ template<class T> void read_exact(File& file, T& runtime,
     file.read_exact(image.data(), bytes);
     decode<T>(std::span(image).first(bytes), runtime);
 }
+// Read a count-prefixed table without publishing partially decoded records.
+template<class T> std::unique_ptr<T[]> read_database(File& file, unsigned int& count,
+    std::size_t maximum = std::numeric_limits<unsigned int>::max())
+{
+    file.read_exact(&count, sizeof(count));
+    const auto remaining = file.size() - file.tell();
+    if (count > maximum || remaining < 0 ||
+        count > static_cast<std::uint64_t>(remaining) / sizeof(typename Record<T>::Disk)) {
+        throw std::runtime_error("Invalid retail database record count");
+    }
+    auto records = count ? std::make_unique<T[]>(count) : nullptr;
+    for (unsigned int i = 0; i < count; ++i) {
+        read_exact(file, records[i]);
+    }
+    return records;
+}
+
 template<class T> ReadResult read(File& file, T& runtime)
 {
     std::array<std::byte, sizeof(typename Record<T>::Disk)> image{};
@@ -561,17 +606,56 @@ template<class T> void write(File& file, const T& runtime)
     auto image = encode(runtime);
     file.write(image.data(), image.size());
 }
-template<class T> bool read(W8Chunk& chunk, T& runtime, std::size_t bytes = sizeof(typename Record<T>::Disk))
+// Chunk-bounded record transfer: a record never reads past its chunk.
+template<class T> void read_exact(W8Chunk& chunk, T& runtime,
+                                  std::size_t bytes = sizeof(typename Record<T>::Disk))
 {
-    if (bytes > sizeof(typename Record<T>::Disk)) return false;
+    if (bytes > sizeof(typename Record<T>::Disk))
+        throw std::runtime_error("Oversized retail record");
     std::array<std::byte, sizeof(typename Record<T>::Disk)> image{};
-    if (!chunk.Read(image.data(), bytes, nullptr)) return false;
+    chunk.ReadBytes(image.data(), bytes);
     decode<T>(std::span(image).first(bytes), runtime);
-    return true;
 }
-template<class T> bool write(W8Chunk& chunk, const T& runtime)
+template<class T> void write(W8Chunk& chunk, const T& runtime)
 {
     auto image = encode(runtime);
-    return chunk.Write(image.data(), image.size(), nullptr);
+    chunk.WriteBytes(image.data(), image.size());
+}
+/* Read a record's disk image whole, for loaders that inspect its presence
+   words before decoding it. */
+template<class T> typename Record<T>::Disk read_image(File& file)
+{
+    typename Record<T>::Disk image{};
+    file.read_exact(&image, sizeof(image));
+    return image;
+}
+template<class T> void decode_image(const typename Record<T>::Disk& image, T& runtime)
+{
+    decode<T>(std::as_bytes(std::span(&image, 1)), runtime);
+}
+// Size-prefixed records: a four-byte length, then that many bytes of the
+// record. Older writers may store a prefix of today's layout.
+template<class T> void write_sized(File& file, const T& runtime)
+{
+    auto image = encode(runtime);
+    const auto size = static_cast<std::uint32_t>(image.size());
+    file.write(&size, sizeof(size));
+    file.write(image.data(), image.size());
+}
+template<class T> void read_sized(File& file, T& runtime)
+{
+    std::uint32_t size;
+    file.read_exact(&size, sizeof(size));
+    read_exact(file, runtime, size);
+}
+template<class T> void write_sized(W8Chunk& chunk, const T& runtime)
+{
+    auto image = encode(runtime);
+    chunk.WriteValue(static_cast<std::uint32_t>(image.size()));
+    chunk.WriteBytes(image.data(), image.size());
+}
+template<class T> void read_sized(W8Chunk& chunk, T& runtime)
+{
+    read_exact(chunk, runtime, chunk.ReadValue<std::uint32_t>());
 }
 } // namespace wiz8::retail

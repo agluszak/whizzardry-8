@@ -1,8 +1,3 @@
-#include "surrender/srMath.h"
-
-#include "surrender/srPalette.h"
-#include "surrender/srStreamFlags.h"
-
 #include <algorithm>
 #include <array>
 #include <cstdlib>
@@ -10,9 +5,14 @@
 #include <ostream>
 #include <vector>
 
+#include "surrender/srMath.h"
+#include "surrender/srPalette.h"
+#include "surrender/stream_scope.h"
 #include "surrender/srColorSurfaceIFace.h"
-#include "surrender/srCore.h"
 #include "surrender/srImageIO.h"
+#include "compat/compiler.h"
+#include "surrender/srARGB.h"
+#include "surrender/srTypeRegistry.h"
 
 /* Squared channel distance scaled by the luma weights 299/587/114; the biased
    pointers index by (channel - reference) so negative differences work. */
@@ -427,13 +427,11 @@ srPalette& srPalette::operator=(const srPalette& other)
 void srPalette::dump(std::ostream& stream)
 {
     srClass::dump(stream);
-    std::ios::fmtflags flags = stream.flags();
-    stream.setf(std::ios::left, std::ios::adjustfield);
+    const srDumpStreamScope formatting(stream);
     stream.width(0x20);
     stream << "  Colors: " << color_count << '\n';
     stream.width(0x20);
     stream << "  Dataptr: " << static_cast<void*>(colors.data()) << '\n';
-    stream.flags(static_cast<std::ios::fmtflags>(flags & 0x7fff));
 }
 
 // FUNCTION: SURRENDER 0x10004850
@@ -754,8 +752,7 @@ void srPalette::Sampler::addSurface(srColorSurfaceIFace& surface, w8_long weight
 // FUNCTION: SURRENDER 0x10006010
 void srPalette::Sampler::dump(std::ostream& stream)
 {
-    w8_long flags = srGetStreamFlags(stream);
-    srSetStreamFlags(stream, (flags & ~0x180L) | 0x40);
+    const srDumpStreamScope formatting(stream);
     stream << "Sampling frequency:       " << sample_factor << '\n';
     stream << "Sampling bit depth:       " << sample_bits << '\n';
     stream << "Distinct colors:          " << color_count << '\n';
@@ -767,7 +764,6 @@ void srPalette::Sampler::dump(std::ostream& stream)
     }
     stream << "Sampler memory usage:     " << (capacity * 0xc + 0x20530) * 0.0009765625 << " kB"
            << '\n';
-    srSetStreamFlags(stream, flags & 0x7fff);
 }
 
 // FUNCTION: SURRENDER 0x10006190

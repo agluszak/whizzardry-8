@@ -1,8 +1,14 @@
-#include <string>
-#include <string_view>
+#include "Font.h"
 #pragma once
 
-#include "wiz8/local_code/Widget.h"
+#include <SDL3/SDL_rect.h>
+#include <optional>
+#include <string>
+#include <string_view>
+
+#include "wiz8/dialog_code/ButtonAppearance.h"
+#include "wiz8/local_code/ButtonWidget.h"
+#include "wiz8/regions.h"
 
 enum W8DialogKind {
     W8_DIALOG_BASIC = 0,
@@ -17,16 +23,16 @@ enum W8DialogKind {
 enum { W8_DIALOG_DIRTY_REDRAW = 1u };
 
 class W8DialogBase;
-class W8DialogButton;
+class W8ButtonWidget;
 class W8DialogTextArea;
+
 typedef void (*W8DialogDestroyCallback)(W8DialogBase* dialog);
 void SetDialogDestroyCallback(W8DialogBase* dialog, W8DialogDestroyCallback callback);
 /* Shared close-button callback used by the monster and spell info dialogs. */
-void DialogCloseButtonCallback(W8DialogButton* button);
+void DialogCloseButtonCallback(W8ButtonWidget* button);
 
-/* The modal dialog shell. It uses SGP Button System resources rather than
-   Controls panels; concrete dialogs contain their own button/text/scroll
-   helpers. */
+/* Modal controls own their regions and state; only visual resources and
+   rendering uses the shared dialog button appearance module. */
 // VTABLE: WIZ8 0x005efaf8
 class W8DialogBase {
 public:
@@ -46,28 +52,45 @@ public:
     virtual void OnRightButtonUp();
     virtual void OnMouseWheel(int delta);
 
+    template <class HandleInput>
+    static void DrainModalInput(HandleInput&& handle_input)
+    {
+        InputEvent input;
+
+        const auto mouse = GetRegionMousePosition();
+        UpdateRegionMousePosition(mouse.x, mouse.y);
+        while (DequeueEvent(&input) == 1) {
+            if (!handle_input(input)) break;
+        }
+    }
+
     friend void SetDialogDestroyCallback(W8DialogBase* dialog, W8DialogDestroyCallback callback);
     friend class W8DialogNumericInput;
+    template <class Dialog, class Field>
+    friend void ProcessNumericDialogInputEvents(Dialog* dialog, Field*& active_field,
+                                                bool (Dialog::*handle_event)(const InputEvent*));
 
 public:
     /* Main Game raises the redraw bit when promoting its pending dialog. */
     unsigned int m_dirty_flags;
 
 protected:
-    void CreateCloseButton(W8DialogButton& button, int left, int top);
+    void BeginModalInput();
+    void EndModalInput();
+    void CreateCloseButton(W8ButtonWidget& button, int left, int top);
     void ScrollTextArea(W8DialogTextArea& area, int first_visible_line, int left, int top,
                         int width, int height);
 
     int m_error;
-    int m_resource;
+    W8ButtonWidget m_resource;
     std::string m_text;
-    int m_font;
+    Font* m_font;
     unsigned char m_foreground;
     unsigned char m_background;
     unsigned char padding_01a[2];
-    char* m_background_path;
+    std::string m_background_path;
     int m_background_flags;
-    short m_border;
+    GenericButtonImage m_border;
     unsigned char padding_026[2];
     int m_x;
     int m_y;
@@ -94,6 +117,7 @@ protected:
     int m_field_4c;
     bool m_right_button_down;
     unsigned char padding_051[3];
+    std::optional<ExclusiveRegionSet> m_input_scope;
 };
 
 

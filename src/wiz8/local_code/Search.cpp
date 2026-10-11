@@ -1,13 +1,12 @@
+#include <cstdint>
 #include <fmt/format.h>
-#include "wiz8/unicode.h"
 #include <string>
+#include <vector>
+
 #include "wiz8/containers.h"
 #include "wiz8/fonts.h"
 #include "wiz8/local_code/Search.h"
 #include "wiz8/integer_constants.h"
-
-#include <stdio.h>
-
 #include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/engine_code/Camera.h"
@@ -18,8 +17,6 @@
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/Prop.h"
 #include "wiz8/engine_code/Trigger.hpp"
-#include "wiz8/engine_code/World.h"
-#include "wiz8/engine_code/quad.h"
 #include "wiz8/engine_code/stCube.h"
 #include "wiz8/engine_code/PolyPick.h"
 #include "wiz8/float_constants.h"
@@ -28,13 +25,10 @@
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
-#include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_screens/MGSTextBox.h"
-#include "wiz8/local_screens/ReviewCharacterScreen.h"
-#include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/notices.h"
 #include "wiz8/string_database.h"
 #include "wiz8/utility.h"
@@ -42,6 +36,11 @@
 #include "wiz8/sr_api.h"
 #include "random.h"
 #include "timer.h"
+#include "compat/native.h"
+#include "conditions.h"
+#include "gameplay_modifiers.h"
+#include "layouts/item_instance.h"
+#include "surrender/srMath.h"
 
 /* Local Code\search.cpp. The assertion in RegisterSearchableTrigger at source
    line 337 establishes the original translation unit. */
@@ -95,8 +94,7 @@ void W8Searchable::Reveal()
 W8SearchableView* CollectSearchablesInView(void)
 {
     int total = static_cast<int>(g_searchables.size());
-    srVector3T<float> camera;
-    GetCameraPosition(&camera);
+    srVector3T<float> camera = cameraLocation();
     g_search_view.items.clear();
     g_search_view.cursor = -1;
     for (int index = 0; index < total; ++index) {
@@ -173,7 +171,7 @@ void W8Searchable::GetPosition(srVector3T<float>* position)
     position->SetZero();
     if (world_item != 0) {
         if (world_item->p3D != 0) {
-            world_item->p3D->GetSearchPosition(position);
+            *position = world_item->p3D->GetSearchPosition();
             return;
         }
         position->Set(world_item->position.x, world_item->position.y + g_octree_cell_scale,
@@ -189,12 +187,8 @@ void W8Searchable::GetPosition(srVector3T<float>* position)
     if (trigger != 0) {
         W8Prop* prop = trigger->GetProp();
         if (prop != 0) {
-            srVector3T<float> minimum;
-            srVector3T<float> maximum;
-            prop->PlayRepAnimation(&minimum, &maximum);
-            position->Set((minimum.x + maximum.x) * g_double_half,
-                          (minimum.y + maximum.y) * g_double_half,
-                          (minimum.z + maximum.z) * g_double_half);
+            if (const auto center = prop->GetCenterPosition())
+                *position = *center;
         }
     }
 }
@@ -369,8 +363,7 @@ int W8Searchable::PickBestSearcher()
         }
     }
     float range = best_score * g_search_radius * g_movement_speed_step;
-    srVector3T<float> camera;
-    GetCameraPosition(&camera);
+    srVector3T<float> camera = cameraLocation();
     srVector3T<float> position;
     GetPosition(&position);
     srVector3T<float> delta = camera - position;

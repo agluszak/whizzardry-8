@@ -1,4 +1,5 @@
 #include "wiz8/level_specific_code/SeaCaves.h"
+
 #include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
@@ -6,8 +7,10 @@
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "surrender/srMath.h"
+#include "monster_cycles.h"
 
-#define SEACAVES_CPP "C:\\Projects\\Wizardry 8\\Level Specific Code\\SeaCaves.cpp"
+struct W8NpcState;
+
 
 /* Level Specific Code\SeaCaves.cpp (level 0x16).
 
@@ -100,8 +103,7 @@ bool SeaCavesDoorTomb(Trigger* pTrigger)
     if (MonsterQuery(monster_info->p3D, W8_MONSTER_QUERY_CYCLE) != W8_MONSTER_CYCLE_BIRTH) {
         return true;
     }
-    group = GetMonsterGroupByListIndex(
-        GetMonsterGroupIndexByID(0x4b, SEACAVES_CPP, monster_info->monster_group_id, true));
+    group = FindMonsterGroup(monster_info->monster_group_id);
     if (group != 0) {
         GiveBirthToMonster(group);
     }

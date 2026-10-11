@@ -1,18 +1,17 @@
+#include "glm/ext/vector_double3.hpp"
+
 #include "wiz8/direction_angles.h"
-
 #include "wiz8/engine_code/PolyPick.h"
-
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/Item.h"
 #include "wiz8/engine_code/Monster.h"
-#include "wiz8/engine_code/World.h"
 #include "wiz8/float_constants.h"
-
 #include "surrender/srCamera.h"
 #include "surrender/srBoundingBox.h"
-
-#include <float.h>
-#include <math.h>
+#include "AnimRep.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include "layouts/world.h"
+#include "surrender/srMath.h"
 
 /* 0x005ED1E8: the negative quarter turn the axis-aligned heading case returns. */
 // GLOBAL: WIZ8 0x005ed1e8
@@ -37,16 +36,14 @@ float GetElevationAngle(const srVector3T<float>* source, const srVector3T<float>
 // FUNCTION: WIZ8 0x004BE520
 float ElevationToTargetCPP(const srVector3T<float>* target)
 {
-    srVector3 position;
-    GetCameraPosition(&position);
+    srVector3 position = cameraLocation();
     return GetElevationAngle(target, &position);
 }
 
 // FUNCTION: WIZ8 0x004BE5C0
 float GetCameraFacingYaw(const srVector3T<float>* position)
 {
-    srVector3 camera;
-    GetCameraPosition(&camera);
+    srVector3 camera = cameraLocation();
     return GetHeadingAngle(position, &camera);
 }
 
@@ -73,16 +70,15 @@ float DistanceBetweenPoints(const srVector3T<float>* first, const srVector3T<flo
 // FUNCTION: WIZ8 0x004BE710
 float MonsterDistanceToCamera(W8World* world, W8Monster* monster)
 {
-    srVector3T<float> minimum;
-    srVector3T<float> maximum;
-    if (!monster->GetAnimationBounds(&minimum, &maximum)) {
+    const auto bounds = monster->GetAnimationBounds();
+    if (!bounds) {
         return -1.0f;
     }
     srVector3T<double> camera = world->camera->getLocation();
     srVector3T<float> camera_location;
     camera_location = glm::vec3(camera.glmValue());
     srVector3T<float> center = monster->m_pRep->location;
-    center.z += (maximum.z - minimum.z) * 0.5f;
+    center.z += (bounds->maximum.z - bounds->minimum.z) * 0.5f;
     return (camera_location - center).Length();
 }
 
@@ -92,16 +88,12 @@ float MonsterDistanceToCamera(W8World* world, W8Monster* monster)
 // FUNCTION: WIZ8 0x004BE7C0
 float ItemDistanceToCamera(W8World* world, W8Item* item)
 {
-    srVector3T<float> lower;
-    srVector3T<float> upper;
-    if (!item->GetCachedLocalBounds(&lower, &upper)) {
-        return -1.0f;
-    }
+    const auto bounds = item->GetCachedLocalBounds();
     srVector3T<double> camera = world->camera->getLocation();
     srVector3T<float> camera_location;
     camera_location = glm::vec3(camera.glmValue());
     srVector3T<float> center = item->m_pRep->location;
-    center.z += (upper.z - lower.z) * 0.5f;
+    center.z += (bounds.maximum.z - bounds.minimum.z) * 0.5f;
     return (camera_location - center).Length();
 }
 
@@ -115,11 +107,8 @@ bool PointInsideBounds(const srVector3T<float>* point, const srVector3T<float>* 
 /* Project one world point through the active world's camera and report
    whether it stays in front of it. */
 // FUNCTION: WIZ8 0x004BE940
-unsigned char ProjectPointThroughCamera(const srVector3T<float>* position)
+bool projectsToCamera(const glm::vec3& position)
 {
-    srVector3T<float> projected;
-    srVector3T<double> input(static_cast<double>(position->x), static_cast<double>(position->y),
-                             static_cast<double>(position->z));
-
-    return g_world->camera->project(projected, input) == srCamera::PROJECTION_RESULT_ACCEPTED;
+    return g_world->camera->project(glm::dvec3(position)).result ==
+           srCamera::PROJECTION_RESULT_ACCEPTED;
 }

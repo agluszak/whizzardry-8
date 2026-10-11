@@ -5,6 +5,7 @@
 #include "srPixelConvert.h"
 #include "srRendererDefs.h"
 #include "srShader.h"
+#include <span>
 
 class srARGB;
 class srDD;
@@ -99,15 +100,8 @@ public:
         w8_long y;
         w8_long count;
     };
-    /* getDriverInfo block: the caller writes the requested API version, a capability flag and a
-       debug callback; the device reports its DD API version, driver id, name and API version
-       string. */
+    /* Device identity returned by getDriverInfo. */
     struct DriverInfo {
-        DriverInfo() : flags(0) {}
-
-        w8_ulong api_version;
-        w8_ulong flags;
-        void (*debug_write)(const char* text);
         w8_ulong dd_api_version;
         w8_ulong driver_id;
         char name[64];
@@ -116,25 +110,23 @@ public:
     /* getInfo output record. The nine trailing strings are the device identity fields. */
     struct Info {
         enum { PIXEL_TEXTURE_STATISTICS = 0x10u, RELEASE_SURFACE_AFTER_BIND = 0x20u };
-        Info() : flags(0) {}
-
         /* openWindowInternal rejects back-buffer dimensions above these
            maximums. */
         w8_ulong max_back_buffer_width;
         w8_ulong max_back_buffer_height;
-        /* initDDInfo defaults: 4. */
+        /* SDL GPU defaults: 4. */
         w8_ulong unknown_08_;
-        /* initDDInfo defaults: 0x10. */
+        /* SDL GPU defaults: 0x10. */
         w8_ulong unknown_0c_;
-        /* initDDInfo defaults: 1.0f / 65536.0f. */
+        /* SDL GPU defaults: 1.0f / 65536.0f. */
         float unknown_10_;
         float unknown_14_;
         /* changeTexture tests bit 5; getDepthBufferType reads bit 3. */
         w8_ulong flags;
-        /* initDDInfo defaults: 0x100; createRenderer passes it to each
+        /* SDL GPU defaults: 0x100; createRenderer passes it to each
            Renderer as its batch limit. */
         w8_ulong renderer_batch_limit;
-        /* initDDInfo defaults: 0x3b808081 / 0x200000. */
+        /* SDL GPU defaults: 0x3b808081. */
         w8_ulong unknown_20_;
         /* Device texture RAM in bytes; dumpTextureCache prints it in kB and
            treats 0 as "infinite" (no residency percentage). */
@@ -144,7 +136,7 @@ public:
         w8_ulong texture_min_dim;
         w8_ulong texture_max_dim;
         w8_ulong texture_max_aspect;
-        /* initDDInfo defaults: 1. getHardwareID result; e_hardwareID is an
+        /* SDL GPU defaults: 1. getHardwareID result; e_hardwareID is an
            empty enum and cannot be the field type. */
         w8_ulong hardware_id;
         /* Device identity strings in getter order: device name, vendor,
@@ -166,21 +158,11 @@ public:
         w8_ulong vertices_transferred;
         w8_ulong value_24;
     };
-    /* getTextureFormats / getWindowList fill {pointer, count} out-records;
-       GERD copies the pointed arrays into its own storage. */
-    struct PixelFormatList {
-        PixelFormat* formats;
-        w8_long count;
-    };
     /* getDisplayMode matches {width, height, depth} triples. */
     struct WindowInfo {
         w8_ulong width;
         w8_ulong height;
         w8_ulong depth;
-    };
-    struct WindowInfoList {
-        WindowInfo* entries;
-        w8_long count;
     };
     /* srGERD::openWindowInternal forwards the requested backbuffer size and
        display-mode index; the device reports the back-buffer count in the
@@ -251,10 +233,10 @@ public:
     enum e_hardwareID {};
 
     virtual ~srDD() = 0;
-    virtual void getInfo(Info& info) = 0;
-    virtual void getWindowList(WindowInfoList& list) = 0;
-    virtual void getTextureFormats(PixelFormatList& list) = 0;
-    virtual void getStatistics(Statistics& stats) = 0;
+    virtual Info getInfo() = 0;
+    virtual std::span<const WindowInfo> getWindowList() = 0;
+    virtual std::span<const PixelFormat> getTextureFormats() = 0;
+    virtual Statistics getStatistics() = 0;
     virtual void resetStatistics() = 0;
     virtual void extCommand(w8_ulong command, void* data, w8_ulong size) = 0;
     virtual int isBusy() = 0;
@@ -283,9 +265,9 @@ public:
     virtual void deletePalette(Palette& palette) = 0;
     virtual e_error createContext(w8_ulong_ptr window) = 0;
     virtual void deleteContext() = 0;
-    virtual void getDriverInfo(DriverInfo& info) = 0;
+    virtual DriverInfo getDriverInfo() = 0;
     virtual void fence() = 0;
-    virtual void getBufferPixelFormat(PixelFormat& format) = 0;
+    virtual PixelFormat getBufferPixelFormat() = 0;
     virtual void preBindTexture(w8_ulong stage, Texture& texture) = 0;
     virtual void setPolygonMode(e_polygonMode mode) = 0;
     virtual void setCullMode(e_cullMode mode) = 0;

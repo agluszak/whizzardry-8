@@ -1,10 +1,13 @@
-#include "surrender/srEnvironmentMapper.h"
 
+#include "glm/geometric.hpp"
+#include "surrender/srEnvironmentMapper.h"
 #include "surrender/srCore.h"
 #include "surrender/srVertexPipe.h"
-#include <math.h>
-
-#include "surrender/srMath.h"
+#include "compat/compiler.h"
+#include "glm/ext/vector_float2.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include "surrender/srStatisticsManager.h"
+#include "surrender/srVertexProcessor.h"
 
 // FUNCTION: SURRENDER 0x100352e0
 int srEnvironmentMapper::isActive(srVertexPipe&)
@@ -16,15 +19,8 @@ int srEnvironmentMapper::isActive(srVertexPipe&)
 void srEnvironmentMapper::process(srVertexPipe& pipe)
 {
     w8_ulong count = pipe.vertex_count;
-    srVertexPipe::Scratch* scratch = &pipe.scratch;
-    if ((scratch->flags & srVertexPipe::Scratch::READY_EYE_DIRECTION) == 0) {
-        pipe.setupEyeSpaceDirAndDist();
-    }
-    const glm::vec3* directions = scratch->dir + pipe.sub_batch_offset;
-    if ((scratch->flags & srVertexPipe::Scratch::READY_EYE_NORMALS) == 0) {
-        pipe.setupEyeSpaceNormal();
-    }
-    const glm::vec3* normals = scratch->normals + pipe.sub_batch_offset;
+    const auto directions = pipe.getEyeSpaceDir();
+    const auto normals = pipe.getEyeSpaceNormal();
     glm::vec2* st = pipe.vertex_array->st0 + pipe.batch_base + pipe.sub_batch_offset;
     srCore.getStatisticsManager()->statistics.texture_coordinate_operations += count;
     pipe.lazy_setup_mask |= 1 << srVertexProcessor::CHANNEL_ST0;

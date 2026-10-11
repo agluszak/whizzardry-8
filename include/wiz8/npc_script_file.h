@@ -1,10 +1,10 @@
-#include "wiz8/filesystem.h"
 #ifndef WIZ8_NPC_SCRIPT_FILE_H
 #define WIZ8_NPC_SCRIPT_FILE_H
 
-#include "compat/ptr32.h"
-#include <stddef.h>
+namespace wiz8 { class File; }
+
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -99,7 +99,7 @@ struct W8NpcScriptFile {
 };
 
 void ReleaseNpcScriptFile(W8NpcScriptFile* file);
-unsigned char ReadNpcScriptQuote(wiz8::File* handle, W8NpcScriptQuote* quote);
+std::optional<W8NpcScriptQuote> ReadNpcScriptQuote(wiz8::File* handle);
 W8NpcScriptFile* LoadNpcScriptFile(std::string_view path);
 
 #endif

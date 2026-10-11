@@ -1,13 +1,14 @@
 #include <fmt/format.h>
-#include "wiz8/unicode.h"
 #include <string>
-#include <stdarg.h>
+#include <cstdarg>
+#include <cstdlib>
+#include <vector>
+
 #include "wiz8/integer_constants.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/level_specific_code/Arnika.h"
 #include "wiz8/level_specific_code/Monastery1.h"
 #include "wiz8/level_specific_code/Monastery2.h"
-#include "wiz8/level_specific_code/Trynnie1.h"
 #include "wiz8/level_specific_code/Trynnie2.h"
 #include "wiz8/level_specific_code/Swamp.h"
 #include "wiz8/level_specific_code/SeaCaves.h"
@@ -31,7 +32,6 @@
 #include "wiz8/engine_code/stCube.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/stSound3D.h"
-#include "wiz8/engine_code/Navigator.h"
 #include "wiz8/engine_code/Levels.h"
 #include "wiz8/layouts/world.h"
 #include "wiz8/layouts/game_status.h"
@@ -41,8 +41,6 @@
 #include "wiz8/sr_api.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/layouts/screen_state.h"
-#include "wiz8/local_screens/Screens.h"
-#include "wiz8/local_screens/MGSSpellCasting.h"
 #include "wiz8/local_screens/mipe.h"
 #include "wiz8/local_code/CombatHostility.h"
 #include "wiz8/local_code/MonsterGroup.h"
@@ -55,10 +53,11 @@
 #include "wiz8/character_skills.h"
 #include "wiz8/string_database.h"
 #include "wiz8/float_constants.h"
-#include "wiz8/utility.h"
-
-#include <stdio.h>
-#include <stdlib.h>
+#include "gameplay_modifiers.h"
+#include "glm/ext/vector_double3.hpp"
+#include "item_spawning.h"
+#include "layouts/gameplay_databases.h"
+#include "surrender/srMath.h"
 
 
 /* The world-cursor node the party is standing in, tracked across the
@@ -117,7 +116,7 @@ W8MonsterGroup* SpawnMonsters(int monster_id, int count, srVector3T<float>* posi
     srVector3T<float> position_copy;
 
     if (settle) {
-        position->y = SettlePositionToGround(position, 0);
+        position->y = probeGround(position->glmValue()).position.y;
     }
     position_copy = *position;
     group = CreateGroup(monster_id, count, &position_copy, a, b, settle);
@@ -144,7 +143,7 @@ stSound3D* CreateAndPlaySoundNode(const char* sound_name, srVector3T<float> posi
 
     stSound3D* sound = new stSound3D(sound_name, 0);
     if (sound != 0) {
-        srVector3T<double> sound_position;
+        glm::dvec3 sound_position;
         sound_position = glm::dvec3(position.glmValue());
         sound->setLocation(sound_position);
         sound->volume = static_cast<int>(volume * g_sound_node_full_volume);
@@ -229,11 +228,11 @@ unsigned char DispatchWorldCursorNodeCommand(W8MonsterInfo* info, int command, .
         return handled;
     }
     if (info == 0) {
-        GetCameraPosition(&position);
+        position = cameraLocation();
     } else {
         position = info->p3D->GetPosition();
     }
-    position.y = SettlePositionToGround(&position, 0) + g_float_one_hundred_twenty_five;
+    position.y = probeGround(position.glmValue()).position.y + g_float_one_hundred_twenty_five;
     node = FindWorldCursorNodeAtPoint(0, &position);
     if (command == 4) {
         context = va_arg(arguments, int);
@@ -325,10 +324,10 @@ command_check:
     }
     if (type == 0) {
         result = true;
-        GetWorldCursorNodeUserdata(node, &shown, 0);
+        shown = static_cast<char*>(node->pUserdata);
         if (shown == 0) {
             SetWorldCursorNodeUserdataSize(node, 1);
-            GetWorldCursorNodeUserdata(node, &shown, 0);
+            shown = static_cast<char*>(node->pUserdata);
         }
         if (*shown != 0) {
             return 0;
@@ -565,10 +564,10 @@ static unsigned char WorldCursorNodePartyVoice(int command, W8WorldCursorNode* n
 
     event_type = GetWorldCursorNodeParameter(node, 0);
     if (command == 1) {
-        GetWorldCursorNodeUserdata(node, &shown, 0);
+        shown = static_cast<char*>(node->pUserdata);
         if (shown == 0) {
             SetWorldCursorNodeUserdataSize(node, 1);
-            GetWorldCursorNodeUserdata(node, &shown, 0);
+            shown = static_cast<char*>(node->pUserdata);
         }
         if (*shown == 0) {
             *shown = 1;
@@ -702,11 +701,7 @@ void InitializeLevelMasterFunctions(int level)
                          "Missing trigger 'Elevator-02'! It's not in the LVL file!");
         BindLevelTrigger("LazerScanner", ArnikaLazerScanner, 0xd8,
                          "Missing trigger 'LazerScanner'! It's not in the LVL file!");
-        pTrigger = FindTriggerByName("ScannerDoor");
-        if (pTrigger == 0) {
-            srAssertFail("pTrigger", MASTER_FUNCTION_CPP, 0xdc,
-                         "Missing trigger 'ScannerDoor'! It's not in the LVL file!");
-        }
+        pTrigger = FindRequiredTriggerByName("ScannerDoor");
         pTrigger->m_lData1 = 0;
         pTrigger->activation_callback = ArnikaScannerDoor;
         ArnikaLevelSetup();
@@ -964,54 +959,19 @@ void InitializeLevelMasterFunctions(int level)
                          "Missing trigger 'oil_pool'! It's not in the LVL file!");
         BindLevelTrigger("onelid", SwampOnelid, 0x2ea,
                          "Missing trigger 'onelid'! It's not in the LVL file!");
-        pTrigger = FindTriggerByName("fire_trig_plane01");
-        if (pTrigger == 0) {
-            srAssertFail("pTrigger", MASTER_FUNCTION_CPP, 0x5ee,
-                         fmt::format("Missing trigger '{}'! It's not in the LVL file!",
-                                     "fire_trig_plane01"));
-        }
+        pTrigger = FindRequiredTriggerByName("fire_trig_plane01");
         pTrigger->activation_callback = SwampFirePlane;
-        pTrigger = FindTriggerByName("fire_trig_plane02");
-        if (pTrigger == 0) {
-            srAssertFail("pTrigger", MASTER_FUNCTION_CPP, 0x5ee,
-                         fmt::format("Missing trigger '{}'! It's not in the LVL file!",
-                                     "fire_trig_plane02"));
-        }
+        pTrigger = FindRequiredTriggerByName("fire_trig_plane02");
         pTrigger->activation_callback = SwampFirePlane;
-        pTrigger = FindTriggerByName("fire_trig_plane03");
-        if (pTrigger == 0) {
-            srAssertFail("pTrigger", MASTER_FUNCTION_CPP, 0x5ee,
-                         fmt::format("Missing trigger '{}'! It's not in the LVL file!",
-                                     "fire_trig_plane03"));
-        }
+        pTrigger = FindRequiredTriggerByName("fire_trig_plane03");
         pTrigger->activation_callback = SwampFirePlane;
-        pTrigger = FindTriggerByName("fire_trig_plane04");
-        if (pTrigger == 0) {
-            srAssertFail("pTrigger", MASTER_FUNCTION_CPP, 0x5ee,
-                         fmt::format("Missing trigger '{}'! It's not in the LVL file!",
-                                     "fire_trig_plane04"));
-        }
+        pTrigger = FindRequiredTriggerByName("fire_trig_plane04");
         pTrigger->activation_callback = SwampFirePlane;
-        pTrigger = FindTriggerByName("fire_trig_plane05");
-        if (pTrigger == 0) {
-            srAssertFail("pTrigger", MASTER_FUNCTION_CPP, 0x5ee,
-                         fmt::format("Missing trigger '{}'! It's not in the LVL file!",
-                                     "fire_trig_plane05"));
-        }
+        pTrigger = FindRequiredTriggerByName("fire_trig_plane05");
         pTrigger->activation_callback = SwampFirePlane;
-        pTrigger = FindTriggerByName("fire_trig_plane06");
-        if (pTrigger == 0) {
-            srAssertFail("pTrigger", MASTER_FUNCTION_CPP, 0x5ee,
-                         fmt::format("Missing trigger '{}'! It's not in the LVL file!",
-                                     "fire_trig_plane06"));
-        }
+        pTrigger = FindRequiredTriggerByName("fire_trig_plane06");
         pTrigger->activation_callback = SwampFirePlane;
-        pTrigger = FindTriggerByName("fire_trig_plane07");
-        if (pTrigger == 0) {
-            srAssertFail("pTrigger", MASTER_FUNCTION_CPP, 0x5ee,
-                         fmt::format("Missing trigger '{}'! It's not in the LVL file!",
-                                     "fire_trig_plane07"));
-        }
+        pTrigger = FindRequiredTriggerByName("fire_trig_plane07");
         pTrigger->activation_callback = SwampFirePlane;
         return;
     case 0x19:

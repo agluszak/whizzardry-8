@@ -1,8 +1,17 @@
-#include "surrender/srTypeRegistry.h"
-#include "surrender/srDebug.h"
-
+#include <ios>
+#include "surrender/stream_scope.h"
 #include <ostream>
 #include <utility>
+#include <memory>
+#include <mutex>
+#include <string>
+#include <unordered_map>
+#include <vector>
+
+#include "surrender/srTypeRegistry.h"
+#include "surrender/srDebug.h"
+#include "compat/compiler.h"
+#include "surrender/srCore.h"
 
 #define SRRUNTIMECLASS_CPP "srRuntimeClass.cpp"
 
@@ -54,8 +63,7 @@ void srRuntimeClass::setName(std::string name)
 // FUNCTION: SURRENDER 0x10011AB0
 void srRuntimeClass::dump(std::ostream& stream)
 {
-    std::ios::fmtflags flags = stream.flags();
-    stream.setf(std::ios::left, std::ios::adjustfield);
+    const srDumpStreamScope formatting(stream);
     stream.width(0x20);
     // c-style-cast-ok: the id prints as a pointer.
     stream << "Class Id: 0x" << std::hex << getClassID() << std::dec << '\n';
@@ -65,7 +73,6 @@ void srRuntimeClass::dump(std::ostream& stream)
     stream << "Instance name: " << getName() << '\n';
     stream.width(0x20);
     stream << "Memory address: " << this << '\n';
-    stream.flags(flags);
 }
 
 // FUNCTION: SURRENDER 0x10011C50

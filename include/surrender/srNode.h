@@ -1,11 +1,15 @@
 #pragma once
 
 #include <atomic>
+#include "glm/ext/vector_double3.hpp"
+#include <type_traits>
 #include <mutex>
+#include <memory>
 #include <string>
 #include <string_view>
 #include <vector>
 #include "srFlags.h"
+#include "model_view_scope.h"
 #include "srMath.h"
 #include "srTypeRegistry.h"
 
@@ -63,7 +67,8 @@ public:
 
     enum e_notify { NOTIFY_BOUNDS_DIRTY = 0, NOTIFY_TRANSFORM_DIRTY = 1 };
 
-    SR_DLL_IMPORT srNode(srNode* parent = 0);
+    enum class Ownership { parent, independent };
+    SR_DLL_IMPORT srNode(srNode* parent = nullptr, Ownership ownership = Ownership::parent);
     /* Copies the transform under the default parent; links are not copied. */
     srNode(const srNode& other) : srNode(nullptr)
     {
@@ -80,8 +85,29 @@ public:
 public:
     virtual SR_DLL_IMPORT void traverse(TraverseInfo& info);
     virtual SR_DLL_IMPORT void process(const ProcessInfo& info, e_processType type);
-    virtual SR_DLL_IMPORT void getLocalBounds(BoundInfo& bounds);
+    virtual SR_DLL_IMPORT BoundInfo getLocalBounds();
     virtual SR_DLL_IMPORT void updateBounds();
+
+protected:
+    enum class EffectTraversal { active, childrenOnly, skipSubtree };
+    void traverseEffect(TraverseInfo& info);
+
+    template<class Activity>
+    void traverseEffect(TraverseInfo& info, Activity activity)
+    {
+        if (next_sibling_) next_sibling_->traverse(info);
+        if (testFlag(FLAG_TERMINATE)) return;
+        // Evaluate activity after siblings, and preserve disabled-node descent.
+        const auto mode = testFlag(FLAG_DISABLE) ? EffectTraversal::childrenOnly : activity();
+        if (mode == EffectTraversal::skipSubtree) return;
+        if (mode == EffectTraversal::active) {
+            if (testFlag(FLAG_GLOBAL)) info.nodes.push_back(this);
+            else info.entries.push_back({this, PROCESS_PUSH});
+        }
+        if (first_child_) first_child_->traverse(info);
+        if (mode == EffectTraversal::active && !testFlag(FLAG_GLOBAL))
+            info.entries.push_back({this, PROCESS_POP});
+    }
 
 protected:
     virtual SR_DLL_IMPORT int processSignal(w8_ulong signal, void* value);
@@ -113,70 +139,89 @@ public:
     static SR_DLL_IMPORT void lockSceneGraph();
     static SR_DLL_IMPORT void unlockSceneGraph();
 
-    SR_DLL_IMPORT void applyWorldSpaceMatrix(class srGERD& renderer);
+    [[nodiscard]] SR_DLL_IMPORT srModelViewScope scopedWorldSpaceMatrix(class srGERD& renderer) const;
     SR_DLL_IMPORT double getDistance(const srNode& node) const;
     SR_DLL_IMPORT glm::dvec3 getLocation() const;
-    SR_DLL_IMPORT void getLocation(srVector3T<float>& location) const;
-    // FUNCTION: SURRENDER 0x10053DD0 SYMBOL
-    // RECOMP: ?getLocation@srNode@@QBEXAAV?$srVector3T@N@@@Z
-    void getLocation(srVector3T<double>& location) const
-    {
-        location = this->location;
-    }
     SR_DLL_IMPORT double getLocationX() const;
     SR_DLL_IMPORT double getLocationY() const;
     SR_DLL_IMPORT double getLocationZ() const;
-    SR_DLL_IMPORT void getRotation(glm::mat3& rotation) const;
-    SR_DLL_IMPORT void getRotation(glm::dmat3& rotation) const;
+    template<class Matrix = glm::dmat3>
+    Matrix getRotation() const { return Matrix(rotation); }
     SR_DLL_IMPORT glm::dvec3 getScale() const;
-    SR_DLL_IMPORT void getWorldSpaceCoordinates(glm::mat3& rotation, glm::vec3& location,
-                                                glm::vec3& scale) const;
-    SR_DLL_IMPORT void getWorldSpaceCoordinates(glm::dmat3& rotation, glm::dvec3& location,
-                                                glm::dvec3& scale) const;
+
+    template<class Scalar>
+    struct Coordinates {
+        glm::mat<3, 3, Scalar> rotation;
+        glm::vec<3, Scalar> location;
+        glm::vec<3, Scalar> scale;
+    };
+
+    template<class Scalar = double>
+    Coordinates<Scalar> getWorldSpaceCoordinates() const
+    {
+        return {getWorldSpaceRotation<glm::mat<3, 3, Scalar>>(),
+                glm::vec<3, Scalar>(getWorldSpaceLocation()),
+                glm::vec<3, Scalar>(getWorldSpaceScale())};
+    }
     SR_DLL_IMPORT glm::dvec3 getWorldSpaceDOF() const;
     SR_DLL_IMPORT glm::dvec3 getWorldSpaceLocation() const;
-    SR_DLL_IMPORT void getWorldSpaceMatrix(glm::mat4& matrix) const;
-    SR_DLL_IMPORT void getWorldSpaceMatrix(glm::dmat4& matrix) const;
-    SR_DLL_IMPORT void getWorldSpaceMatrix(glm::mat4x3& matrix) const;
-    SR_DLL_IMPORT void getWorldSpaceMatrix(glm::dmat4x3& matrix) const;
-    SR_DLL_IMPORT void getWorldSpaceRotation(glm::mat3& rotation) const;
-    SR_DLL_IMPORT void getWorldSpaceRotation(glm::dmat3& rotation) const;
+    template<class Matrix = glm::dmat4>
+    Matrix getWorldSpaceMatrix() const
+    {
+        checkTransformation();
+        if constexpr (std::is_same_v<typename Matrix::value_type, float>)
+            return Matrix(world_transform1);
+        else
+            return Matrix(world_transform0);
+    }
+
+    template<class Matrix = glm::dmat3>
+    Matrix getWorldSpaceRotation() const
+    {
+        const auto world = getWorldSpaceMatrix<glm::mat<4, 3, typename Matrix::value_type>>();
+        Matrix result(world);
+        for (int column = 0; column < 3; ++column)
+            result[column] = normalizedOrZero(result[column]);
+        return result;
+    }
     SR_DLL_IMPORT glm::dvec3 getWorldSpaceScale() const;
-    SR_DLL_IMPORT void move(const srVector3T<double>& offset);
+    SR_DLL_IMPORT void move(const glm::dvec3& offset);
     SR_DLL_IMPORT void moveBackward(double distance);
     SR_DLL_IMPORT void moveDown(double distance);
     SR_DLL_IMPORT void moveForward(double distance);
     SR_DLL_IMPORT void moveLeft(double distance);
     SR_DLL_IMPORT void moveRight(double distance);
     SR_DLL_IMPORT void moveUp(double distance);
-    SR_DLL_IMPORT void offsetLocation(const srVector3T<double>& offset);
+    SR_DLL_IMPORT void offsetLocation(const glm::dvec3& offset);
     SR_DLL_IMPORT void offsetLocation(double x, double y, double z);
-    SR_DLL_IMPORT void pitchAt(const srVector3T<double>& target, double amount);
+    SR_DLL_IMPORT void pitchAt(const glm::dvec3& target, double amount);
     SR_DLL_IMPORT void pitchAt(const srNode* target, double amount);
-    SR_DLL_IMPORT void rollAt(const srVector3T<double>& target, double amount);
+    SR_DLL_IMPORT void rollAt(const glm::dvec3& target, double amount);
     SR_DLL_IMPORT void rollAt(const srNode* target, double amount);
     SR_DLL_IMPORT void rollUp(double amount);
     SR_DLL_IMPORT void rotate(const glm::dmat3& rotation);
-    SR_DLL_IMPORT void rotate(double angle, const srVector3T<double>& axis);
+    SR_DLL_IMPORT void rotate(double angle, const glm::dvec3& axis);
     SR_DLL_IMPORT void rotateX(double angle);
     SR_DLL_IMPORT void rotateY(double angle);
     SR_DLL_IMPORT void rotateZ(double angle);
+    // Reparenting changes scene membership and preserves the ownership mode.
+    // Independently owned nodes remain borrowed until adoptChild transfers them.
     SR_DLL_IMPORT int setParent(srNode* parent, int preserve_world_transform);
-    SR_DLL_IMPORT void setLocation(const srVector3T<double>& location);
+    SR_DLL_IMPORT void setLocation(const glm::dvec3& location);
     SR_DLL_IMPORT void setLocation(double x, double y, double z);
     SR_DLL_IMPORT void setLocationX(double x);
     SR_DLL_IMPORT void setLocationY(double y);
     SR_DLL_IMPORT void setLocationZ(double z);
     SR_DLL_IMPORT void setRotation(const glm::mat3& rotation);
     SR_DLL_IMPORT void setRotation(const glm::dmat3& rotation);
-    SR_DLL_IMPORT void setRotation(const srVector3T<double>& first,
-                                   const srVector3T<double>& second, double amount);
-    SR_DLL_IMPORT void setRotation(const srVector3T<double>& direction, double amount);
-    SR_DLL_IMPORT void setRotation(double amount, const srVector3T<double>& direction);
+    SR_DLL_IMPORT void setRotation(const glm::dvec3& first,
+                                   const glm::dvec3& second, double amount);
+    SR_DLL_IMPORT void setRotation(const glm::dvec3& direction, double amount);
+    SR_DLL_IMPORT void setRotation(double amount, const glm::dvec3& direction);
     SR_DLL_IMPORT void setRotation(double x, double y, double z);
-    SR_DLL_IMPORT void setScale(const srVector3T<double>& scale);
+    SR_DLL_IMPORT void setScale(const glm::dvec3& scale);
     SR_DLL_IMPORT void setScale(double scale);
-    SR_DLL_IMPORT void setWorldSpaceLocation(const srVector3T<double>& location);
+    SR_DLL_IMPORT void setWorldSpaceLocation(const glm::dvec3& location);
     SR_DLL_IMPORT void setWorldSpaceMatrix(const glm::dmat4& matrix);
     SR_DLL_IMPORT void setWorldSpaceRotation(const glm::dmat3& rotation);
     SR_DLL_IMPORT void setFlag(e_flag flag);
@@ -186,10 +231,26 @@ public:
     SR_DLL_IMPORT void notifyParents(const srFlags<e_notify>& notifications);
     SR_DLL_IMPORT void signal(w8_ulong signal, void* value);
     SR_DLL_IMPORT int testFlag(e_flag flag) const;
-    SR_DLL_IMPORT void yawAt(const srVector3T<double>& target, double amount);
+    SR_DLL_IMPORT void yawAt(const glm::dvec3& target, double amount);
     SR_DLL_IMPORT void yawAt(const srNode* target, double amount);
 
+    // Remove scene ownership without the legacy nullptr-to-global-root fallback.
+    void detach();
+
+    // Transfer an independently owned node into this owning scene subtree.
+    template<class T> T* adoptChild(std::unique_ptr<T> child, int preserve_world_transform = 0)
+    {
+        std::lock_guard access(sceneGraphCSect);
+        if (!child || !child->setParent(this, preserve_world_transform)) return nullptr;
+        static_cast<srNode*>(child.get())->parent_owns_ = true;
+        return child.release();
+    }
+
 private:
+    bool parent_owns_ = true;
+    void moveAlongAxis(unsigned axis, double distance);
+    void setLocationComponent(unsigned component, double value);
+    void turnWorldSpaceAxisToward(unsigned axis, const glm::dvec3& direction, double amount);
     SR_DLL_IMPORT void checkTransformation() const;
     SR_DLL_IMPORT srNode* findChildByNameAndTypeInternal(std::string_view name, w8_ulong class_id);
     SR_DLL_IMPORT srNode* findChildInternal(std::string_view name);
@@ -220,4 +281,3 @@ public:
     srNode* parent_;           /* 0x130 */
     srNode* first_child_;      /* 0x134 */
 };
-

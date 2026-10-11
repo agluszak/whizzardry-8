@@ -1,9 +1,25 @@
+#include "glm/ext/vector_double3.hpp"
+#include <array>
+#include "surrender/srBoundingBox.h"
+#include <optional>
 #include <fmt/format.h>
 #include <glm/gtc/quaternion.hpp>
+#include <glm/ext/quaternion_common.hpp>
+#include <glm/ext/quaternion_geometric.hpp>
+#include <vector>
+#include <algorithm>
+#include <cmath>
+#include <cstdlib>
+#include <cstring>
+#include <exception>
+#include <memory>
+#include <string>
+
+#include "compat/compiler.h"
+#include "glm/fwd.hpp"
 #include "wiz8/engine_code/AnimRep.hpp"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/engine_code/GDProp.h"
-#include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/GrObject.h"
 #include "wiz8/engine_code/Prop.h"
 #include "wiz8/float_constants.h"
@@ -12,11 +28,6 @@
 #include "wiz8/sr_api.h"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/Navigator.h"
-#include <vector>
-#include <algorithm>
-
-#include <string.h>
-
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/AniMesh.h"
 #include "wiz8/engine_code/Missile.h"
@@ -25,24 +36,18 @@
 #include "wiz8/engine_code/stModelInstance.h"
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/engine_code/stMeshModel.h"
-#include "wiz8/utility.h"
-#include "wiz8/virtual_file.h"
 #include "wiz8/xstatus.h"
 #include "surrender/srCamera.h"
 #include "surrender/srModelInstance.h"
 #include "surrender/srNode.h"
-
 #include "wiz8/filesystem.h"
-
-
-#include <math.h>
-#include <new>
-#include <stdlib.h>
 #include "wiz8/engine_code/GameData.h"
-#include "wiz8/geometry.h"
 #include "wiz8/local_code/Configuration.h"
-#include "wiz8/local_screens/MainGameScreen.h"
 #include "random.h"
+#include "application.h"
+#include "compat/native.h"
+#include "layouts/world.h"
+#include "surrender/srModel.h"
 
 /* Reset before the world Prop update; set when a Prop whose animation
    behaviour is 1 rebuilds its pathing geometry.  GameData keeps the world
@@ -122,11 +127,11 @@ void UpdateWorldProps(W8World* world)
     unsigned int count;
     int index;
 
-    if (world == 0 || world->plsProps == 0) {
-        srAssertFail("pWorld && pWorld->plsProps",
+    if (world == 0) {
+        srAssertFail("pWorld",
                      "C:\\Projects\\Wizardry 8\\Engine Code\\Prop.cpp", 0x969, 0);
     }
-    count = (world->plsProps ? world->plsProps->size() : 0);
+    count = world->plsProps.size();
     for (index = 0; index < static_cast<int>(count); ++index) {
         W8Prop* prop = GetWorldProp(world, index);
         Trigger* trigger;
@@ -155,7 +160,7 @@ W8Prop* FindPropByName(W8World* world, const char* name)
     int index;
 
     if (world != 0 && name != 0) {
-        unsigned int count = (world->plsProps ? world->plsProps->size() : 0);
+        unsigned int count = world->plsProps.size();
 
         for (index = 0; index < static_cast<int>(count); ++index) {
             W8Prop* prop = GetWorldProp(world, index);
@@ -168,13 +173,12 @@ W8Prop* FindPropByName(W8World* world, const char* name)
 }
 
 // FUNCTION: WIZ8 0x0044e2c0
-void W8Prop::GetPosition(srVector3T<float>* out)
+srVector3T<float> W8Prop::GetPosition() const
 {
     if (AnimationIsRunning(Rep()->animation) == 1) {
-        *out = animation_position;
-        return;
+        return animation_position;
     }
-    m_pRep->GetLocation(out);
+    return m_pRep->GetLocation();
 }
 
 // FUNCTION: WIZ8 0x0044e270
@@ -248,13 +252,11 @@ void W8Prop::SetActivationState(unsigned char value)
 }
 
 // FUNCTION: WIZ8 0x0044d5f0
-void W8Prop::GetCenterPosition(srVector3T<float>* position)
+std::optional<srVector3T<float>> W8Prop::GetCenterPosition()
 {
-    srVector3T<float> first;
-    srVector3T<float> second;
-
-    AnimObjGetBounds(Rep()->animation, 2, Rep()->subcycle, &first, &second);
-    *position = (first + second) * 0.5;
+    return GetFrameBounds().transform([](const auto& bounds) {
+        return srVector3T<float>(bounds.center());
+    });
 }
 
 // GLOBAL: WIZ8 0x00659A60
@@ -317,8 +319,8 @@ bool ResolvePickedProp(W8World* world)
     }
 
     valid = true;
-    GetCameraPosition(&camera_position);
-    prop_count = (world->plsProps ? world->plsProps->size() : 0);
+    camera_position = cameraLocation();
+    prop_count = world->plsProps.size();
     for (prop_index = 0; prop_index < static_cast<int>(prop_count); ++prop_index) {
         W8Prop* prop;
         W8PropRepresentation* representation;
@@ -368,17 +370,12 @@ bool ResolvePickedProp(W8World* world)
                   trigger->m_pActionData->type == W8_TRIGGER_PAYLOAD_DOOR &&
                   !static_cast<W8DoorTriggerActionData*>(trigger->m_pActionData)->open)) &&
                 representation->active != 0) {
-                srVector3T<float> minimum;
-                srVector3T<float> maximum;
-                float distance;
-
-                AnimObjGetBounds(representation->animation, 2, representation->subcycle, &minimum,
-                                 &maximum);
-                distance = ((((minimum + maximum) * 0.5 - camera_position))).Length();
-                if (trigger->range_minimum <= distance) {
-                    g_selected_prop_index = prop_index;
-                    if (distance <= trigger->range_maximum) {
-                        continue;
+                if (const auto bounds = prop->GetFrameBounds()) {
+                    const float distance = (srVector3T<float>(bounds->center()) - camera_position).Length();
+                    if (trigger->range_minimum <= distance) {
+                        g_selected_prop_index = prop_index;
+                        if (distance <= trigger->range_maximum)
+                            continue;
                     }
                 }
             }
@@ -514,10 +511,9 @@ srModelInstance* W8Prop::ToggleRepAnimationDefault()
 
 /* Resolve the bounds of the prop's current animation frame. */
 // FUNCTION: WIZ8 0x0044d5c0
-unsigned char W8Prop::PlayRepAnimation(srVector3T<float>* minimum, srVector3T<float>* maximum)
+std::optional<srBoundingBox> W8Prop::GetFrameBounds()
 {
-    AnimObjGetBounds(Rep()->animation, 2, Rep()->subcycle, minimum, maximum);
-    return 1;
+    return AnimObjGetBounds(Rep()->animation, 2, Rep()->subcycle);
 }
 
 /* Set the running direction or completed endpoint state of the animation. */
@@ -664,7 +660,7 @@ void W8Prop::ApplyAnimationPaths(W8World* world)
                 srVector3T<float> location;
 
                 PathAIApply(path, mesh);
-                static_cast<srNode*>(mesh)->getLocation(location);
+                location = glm::vec3(static_cast<srNode*>(mesh)->getLocation());
                 previous_animation_position = animation_position;
                 animation_position = location;
             }
@@ -839,21 +835,17 @@ char W8Prop::NextAnimationValue()
     return rep->last_frame;
 }
 
-/* When the next animation step moves the rep exactly one frame, write the
-   delta between the current and previous positions into `out` and return the
-   elapsed frame count; otherwise `out` is zeroed.  `point` is accepted but
-   never read. */
+/* A single-frame step moves by the difference between the position snapshots;
+   discontinuous animation changes contribute no motion. */
 // FUNCTION: WIZ8 0x0044e130
-char W8Prop::GetDelta(srVector3T<float>* out, const srVector3T<float>* point)
+srVector3T<float> W8Prop::GetDelta()
 {
     unsigned char next = static_cast<unsigned char>(NextAnimationValue());
 
     if (abs(next - Rep()->subcycle) == 1) {
-        *out = animation_position - previous_animation_position;
-        return Rep()->frame_steps;
+        return animation_position - previous_animation_position;
     }
-    out->SetZero();
-    return 0;
+    return {0, 0, 0};
 }
 
 /* Whether the prop can be used from where the caller is. Retail clears the
@@ -942,7 +934,7 @@ void W8Prop::ApplyAnimationFrame()
             PathAISetValue(
                 path, static_cast<float>(static_cast<W8PropRepresentation*>(m_pRep)->subcycle));
             PathAIApply(path, mesh);
-            static_cast<srNode*>(mesh)->getLocation(location);
+            location = glm::vec3(static_cast<srNode*>(mesh)->getLocation());
             animation_position = location;
             previous_animation_position = location;
         }
@@ -969,7 +961,6 @@ void W8Prop::AttachAnimationInstances(W8World* world)
     stMeshModel* mesh;
     W8PathAI* path;
     srNode* node;
-    srVector3T<float> zero;
     srVector3T<float> position;
     srVector3T<float> current;
     srVector3T<float> next_pos;
@@ -977,8 +968,8 @@ void W8Prop::AttachAnimationInstances(W8World* world)
     srVector3T<float> next_scale;
     srVector3T<float> scale_vector;
     srVector3T<float> rep_position;
-    srVector3T<double> location;
-    srVector3T<double> scale_location;
+    glm::dvec3 location;
+    glm::dvec3 scale_location;
     glm::mat3 rotation;
     glm::mat3 next;
     glm::mat3 rep_rotation;
@@ -992,7 +983,6 @@ void W8Prop::AttachAnimationInstances(W8World* world)
     }
     if (AnimationIsRunning(Rep()->animation) == 1) {
         has_scales = false;
-        zero.SetZero();
         count = static_cast<int>(AnimObjListCount(Rep()->animation, 2));
         for (index = 0; index < count; ++index) {
             instance = static_cast<stModelInstance*>(
@@ -1002,7 +992,7 @@ void W8Prop::AttachAnimationInstances(W8World* world)
             }
             instance->clearFlag(srNode::FLAG_DISABLE);
             instance->setParent(world->dynamic_scene, 1);
-            instance->light_scale = zero;
+            instance->light_scale = glm::vec3(0);
             if (g_settings.smooth_world_animations != 0) {
                 instance->frame_interpolation = anim_frame_fraction;
             } else {
@@ -1022,7 +1012,7 @@ void W8Prop::AttachAnimationInstances(W8World* world)
             }
             rotation = path->rotations[Rep()->subcycle];
             next = path->rotations[next_frame];
-            instance->getRotation(previous_animation_rotation);
+            previous_animation_rotation = instance->getRotation<glm::mat3>();
             if (!(rotation == next)) {
                 const auto first_rotation = glm::dquat(glm::quat_cast(rotation));
                 auto next_rotation = glm::dquat(glm::quat_cast(next));
@@ -1080,7 +1070,7 @@ void W8Prop::AttachAnimationInstances(W8World* world)
         }
         instance->clearFlag(srNode::FLAG_DISABLE);
         instance->setParent(world->dynamic_scene, 1);
-        instance->light_scale.SetZero();
+        instance->light_scale = glm::vec3(0);
         if (g_settings.smooth_world_animations != 0) {
             instance->frame_interpolation = anim_frame_fraction;
         } else {
@@ -1093,8 +1083,8 @@ void W8Prop::AttachAnimationInstances(W8World* world)
         if (Rep()->animation->path != 0) {
             PathAIApply(Rep()->animation->path.get(), instance);
         } else {
-            Rep()->GetLocation(&rep_position);
-            Rep()->GetRotation(&rep_rotation);
+            rep_position = Rep()->GetLocation();
+            rep_rotation = Rep()->GetRotation();
             node = instance->first_child_;
             if (node == 0) {
                 location = glm::dvec3(rep_position.glmValue());
@@ -1166,7 +1156,7 @@ void W8Prop::DetachAnimationInstances(W8World* world)
    The read chain's success is reported even though the restore runs either
    way. */
 // FUNCTION: WIZ8 0x0044dbd0
-bool W8Prop::LoadAnimationState(wiz8::File* hFile)
+bool W8Prop::LoadAnimationState(wiz8::File& hFile)
 try
 {
     unsigned char unused;
@@ -1176,12 +1166,12 @@ try
     bool success;
     W8PathAI* path;
 
-    success = (hFile->read(&Rep()->subcycle, 1).bytes == static_cast<std::size_t>(1)) != 0 &&
-              (hFile->read(&Rep()->first_frame, 1).bytes == static_cast<std::size_t>(1)) != 0 &&
-              (hFile->read(&Rep()->last_frame, 1).bytes == static_cast<std::size_t>(1)) != 0 &&
-              (hFile->read(&Rep()->frame_direction, 1).bytes == static_cast<std::size_t>(1)) != 0 &&
-              (hFile->read(&Rep()->animation_playing, 1).bytes == static_cast<std::size_t>(1)) != 0 &&
-              (hFile->read(&unused, 1).bytes == static_cast<std::size_t>(1)) != 0;
+    success = (hFile.read(&Rep()->subcycle, 1).bytes == static_cast<std::size_t>(1)) != 0 &&
+              (hFile.read(&Rep()->first_frame, 1).bytes == static_cast<std::size_t>(1)) != 0 &&
+              (hFile.read(&Rep()->last_frame, 1).bytes == static_cast<std::size_t>(1)) != 0 &&
+              (hFile.read(&Rep()->frame_direction, 1).bytes == static_cast<std::size_t>(1)) != 0 &&
+              (hFile.read(&Rep()->animation_playing, 1).bytes == static_cast<std::size_t>(1)) != 0 &&
+              (hFile.read(&unused, 1).bytes == static_cast<std::size_t>(1)) != 0;
     if (Rep()->animation != 0) {
         total = static_cast<int>(AnimObjValue(Rep()->animation, 2));
         if (Rep()->last_frame >= total) {
@@ -1213,41 +1203,20 @@ try
    The rep's current frame is saved, the bounds for frame zero seed the merge,
    and each remaining frame expands the result before the frame is restored. */
 // FUNCTION: WIZ8 0x0044dd60
-void W8Prop::GetBounds(srVector3T<float>* minimum, srVector3T<float>* maximum)
+std::optional<srBoundingBox> W8Prop::GetBounds()
 {
-    srVector3T<float> local_minimum;
-    srVector3T<float> local_maximum;
-    unsigned char saved_frame;
-    int frame;
-    int total;
-
-    total = static_cast<int>(AnimObjValue(Rep()->animation, 2));
-    saved_frame = Rep()->subcycle;
-    Rep()->subcycle = 0;
-    AnimObjGetBounds(Rep()->animation, 2, Rep()->subcycle, minimum, maximum);
-    for (frame = 1; frame < total; ++frame) {
-        Rep()->subcycle = static_cast<unsigned char>(frame);
-        AnimObjGetBounds(Rep()->animation, 2, Rep()->subcycle, &local_minimum, &local_maximum);
-        if (local_minimum.x < minimum->x) {
-            minimum->x = local_minimum.x;
-        }
-        if (local_minimum.y < minimum->y) {
-            minimum->y = local_minimum.y;
-        }
-        if (local_minimum.z < minimum->z) {
-            minimum->z = local_minimum.z;
-        }
-        if (local_maximum.x > maximum->x) {
-            maximum->x = local_maximum.x;
-        }
-        if (local_maximum.y > maximum->y) {
-            maximum->y = local_maximum.y;
-        }
-        if (local_maximum.z > maximum->z) {
-            maximum->z = local_maximum.z;
-        }
+    auto* animation = Rep()->animation;
+    auto bounds = AnimObjGetBounds(animation, 2, 0);
+    if (!bounds)
+        return std::nullopt;
+    const auto total = AnimObjValue(animation, 2);
+    for (unsigned int frame = 1; frame < total; ++frame) {
+        const auto frame_bounds = AnimObjGetBounds(animation, 2, frame);
+        if (!frame_bounds)
+            return std::nullopt;
+        bounds->include(*frame_bounds);
     }
-    Rep()->subcycle = saved_frame;
+    return bounds;
 }
 
 /* Build or refresh the pathing representation for a collidable Prop.  Retail
@@ -1335,53 +1304,19 @@ bool W8Prop::TriggerRequiresItem()
 // FUNCTION: WIZ8 0x0044e3a0
 bool W8Prop::IsTriggerInView(srVector3T<float>* position)
 {
-    Trigger* trigger = this->trigger;
-    srVector3T<float> minimum;
-    srVector3T<float> maximum;
-    srVector3T<float> center;
-    srVector3T<float> projected;
-    float distance;
-
-    if (trigger != 0 && (trigger->flags & W8_TRIGGER_ENABLED) != 0 &&
-        ((trigger->flags & W8_TRIGGER_ONCE) == 0 || (trigger->flags & W8_TRIGGER_FIRED) == 0)) {
-        AnimObjGetBounds(Rep()->animation, 2, Rep()->subcycle, &minimum, &maximum);
-        center.Set((minimum.x + maximum.x) * g_double_half, (minimum.y + maximum.y) * g_double_half,
-                   (minimum.z + maximum.z) * g_double_half);
-        distance = (center - *position).Length();
-        if (distance < trigger->range_maximum && trigger->range_minimum <= distance) {
-            {
-                srVector3T<double> input(static_cast<double>(center.x),
-                                         static_cast<double>(center.y),
-                                         static_cast<double>(center.z));
-
-                if (g_world->camera->project(projected, input) ==
-                    srCamera::PROJECTION_RESULT_ACCEPTED) {
-                    return true;
-                }
-            }
-            {
-                srVector3T<double> input(static_cast<double>(minimum.x),
-                                         static_cast<double>(minimum.y),
-                                         static_cast<double>(minimum.z));
-
-                if (g_world->camera->project(projected, input) ==
-                    srCamera::PROJECTION_RESULT_ACCEPTED) {
-                    return true;
-                }
-            }
-            {
-                srVector3T<double> input(static_cast<double>(maximum.x),
-                                         static_cast<double>(maximum.y),
-                                         static_cast<double>(maximum.z));
-
-                if (g_world->camera->project(projected, input) ==
-                    srCamera::PROJECTION_RESULT_ACCEPTED) {
-                    return true;
-                }
-            }
-        }
-    }
-    return false;
+    const auto* trigger = this->trigger;
+    if (!trigger || (trigger->flags & W8_TRIGGER_ENABLED) == 0 ||
+        ((trigger->flags & W8_TRIGGER_ONCE) != 0 && (trigger->flags & W8_TRIGGER_FIRED) != 0))
+        return false;
+    const auto bounds = GetFrameBounds();
+    if (!bounds)
+        return false;
+    const srVector3T<float> center(bounds->center());
+    const float distance = (center - *position).Length();
+    if (!(distance < trigger->range_maximum && trigger->range_minimum <= distance))
+        return false;
+    const std::array points{bounds->center(), bounds->minimum, bounds->maximum};
+    return g_world->camera->projectsAny(points);
 }
 
 // FUNCTION: WIZ8 0x0044bf50
@@ -1593,9 +1528,7 @@ try
             }
             if (option_byte != 0) {
                 srNode* child;
-                srVector3T<float> axis;
-
-                axis.Set(0.0f, 1.0f, 0.0f);
+                const glm::vec3 axis(0, 1, 0);
                 instance->setAlignment(1);
                 instance->setAlignAxis(axis);
                 child = instance->first_child_;
@@ -1636,29 +1569,22 @@ try
         W8AniMesh* mesh = AnimObjEntry(animation, 2, 0);
         unsigned char value_count = AniMeshValue(mesh);
         stModelInstance* frame = GetAniMeshFrame(mesh, 0);
-        glm::vec3 minimum;
-        glm::vec3 maximum;
         unsigned int frame_i;
 
         if (frame == 0) {
             srAssertFail("psrMesh", PROP_CPP, 0x182, 0);
         }
-        frame->getModel()->getBoundingBox(minimum, maximum);
+        auto box = frame->getModel()->getBounds().box;
         for (frame_i = 0; frame_i < value_count; ++frame_i) {
-            glm::vec3 frame_min;
-            glm::vec3 frame_max;
-
             frame = GetAniMeshFrame(mesh, frame_i);
             if (frame == 0) {
                 srAssertFail("psrMesh", PROP_CPP, 0x192, 0);
             }
-            frame->getModel()->getBoundingBox(frame_min, frame_max);
-            minimum = glm::min(minimum, frame_min);
-            maximum = glm::max(maximum, frame_max);
+            box.include(frame->getModel()->getBounds().box);
         }
-        bounds_min = minimum;
-        bounds_max = maximum;
-        const auto size = maximum - minimum;
+        bounds_min = box.minimum;
+        bounds_max = box.maximum;
+        const auto size = box.maximum - box.minimum;
         bounds_extent = std::max({size.x, size.y, size.z}) * g_float_half;
     }
 
@@ -1805,7 +1731,7 @@ void W8Prop::CollectModelInstances(std::vector<stModelInstance*>& instances)
    flags and the active byte). The per-prop byte writes only run while the
    previous writes succeed. */
 // FUNCTION: WIZ8 0x0044e830
-void SaveWorldProps(W8World* world, wiz8::File* handle)
+void SaveWorldProps(W8World* world, wiz8::File& handle)
 {
     int index;
     int count;
@@ -1816,20 +1742,20 @@ void SaveWorldProps(W8World* world, wiz8::File* handle)
 
     signature = 0xDEADD00D;
     version = 1;
-    handle->write(&signature, 4);
-    handle->write(&version, 4);
-    count = static_cast<int>((world->plsProps ? world->plsProps->size() : 0));
-    handle->write(&count, 4);
+    handle.write(&signature, 4);
+    handle.write(&version, 4);
+    count = static_cast<int>(world->plsProps.size());
+    handle.write(&count, 4);
     for (index = 0; index < count; ++index) {
         prop = GetWorldProp(world, index);
         strcpy(name, prop->m_name);
-        handle->write(name, 0x40);
-        if ((handle->write(&prop->Rep()->subcycle, 1), true) != 0 &&
-            (handle->write(&prop->Rep()->first_frame, 1), true) != 0 &&
-            (handle->write(&prop->Rep()->last_frame, 1), true) != 0 &&
-            (handle->write(&prop->Rep()->frame_direction, 1), true) != 0 &&
-            (handle->write(&prop->Rep()->animation_playing, 1), true) != 0) {
-            handle->write(&prop->Rep()->active, 1);
+        handle.write(name, 0x40);
+        if ((handle.write(&prop->Rep()->subcycle, 1), true) != 0 &&
+            (handle.write(&prop->Rep()->first_frame, 1), true) != 0 &&
+            (handle.write(&prop->Rep()->last_frame, 1), true) != 0 &&
+            (handle.write(&prop->Rep()->frame_direction, 1), true) != 0 &&
+            (handle.write(&prop->Rep()->animation_playing, 1), true) != 0) {
+            handle.write(&prop->Rep()->active, 1);
         }
     }
 }
@@ -1839,7 +1765,7 @@ void SaveWorldProps(W8World* world, wiz8::File* handle)
    Records whose prop cannot be found are consumed by a scratch prop so the
    stream stays aligned. */
 // FUNCTION: WIZ8 0x0044e9a0
-void LoadWorldProps(W8World* world, wiz8::File* handle)
+void LoadWorldProps(W8World* world, wiz8::File& handle)
 {
     int index;
     int count;
@@ -1851,13 +1777,13 @@ void LoadWorldProps(W8World* world, wiz8::File* handle)
     W8Prop* prop;
     W8Prop* entry;
 
-    handle->read_exact(&signature, 4);
+    handle.read_exact(&signature, 4);
     if (signature != 0xDEADD00D) {
         count = signature;
         for (index = 0; index < count; ++index) {
-            handle->read_exact(&key, 4);
+            handle.read_exact(&key, 4);
             prop = 0;
-            entries = static_cast<int>((world->plsProps ? world->plsProps->size() : 0));
+            entries = static_cast<int>(world->plsProps.size());
             for (int entry_index = 0; entry_index < entries; ++entry_index) {
                 entry = GetWorldProp(world, entry_index);
                 if (entry->id == key) {
@@ -1874,10 +1800,10 @@ void LoadWorldProps(W8World* world, wiz8::File* handle)
             }
         }
     } else {
-        handle->read_exact(&version, 4);
-        handle->read_exact(&count, 4);
+        handle.read_exact(&version, 4);
+        handle.read_exact(&count, 4);
         for (index = 0; index < count; ++index) {
-            handle->read_exact(name, 0x40);
+            handle.read_exact(name, 0x40);
             prop = FindPropByName(g_world, name);
             if (prop != 0) {
                 prop->LoadAnimationState(handle);

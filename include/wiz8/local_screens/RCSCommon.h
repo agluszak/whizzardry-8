@@ -1,14 +1,16 @@
-#include <string_view>
 #pragma once
 
-#include <stddef.h>
+#include <memory>
+#include <SDL3/SDL_rect.h>
+#include <string_view>
 
-#include "wiz8/regions.h"
-#include "wiz8/video_object_catalog.h"
-#include "vobject_blitters.h"
+#include "image.h"
+#include "wiz8/catalog_artwork.h"
+#include "input.h"
 
 struct Controls;
 class W8TextControl;
+struct W8Region;
 
 /* Button order differs from W8CampItemAction's byte values. */
 enum W8CampItemActionButton {
@@ -40,32 +42,26 @@ inline void DrawCampValueBar(unsigned int value, unsigned int base, int left, in
         extra = value - base;
         missing = 0;
     }
-    SDL_Rect saved_clip;
-    GetClippingRect(&saved_clip);
     SDL_Rect clip;
     clip.y = 0;
     clip.h = 0x1e0;
     if (filled != 0) {
         clip.x = left;
         clip.w = filled;
-        SetClippingRect(&clip);
-        DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x143, 0, 0, left, top, VO_BLT_SRCTRANSPARENCY,
-                                      0);
+        ScopedClipRect clipped(GetFrameBufferSurface(), clip);
+        CatalogArtwork::Load(0x143, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, left, top);
     }
     if (extra != 0) {
         clip.x = left + filled;
         clip.w = extra;
-        SetClippingRect(&clip);
-        DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x143, 0, 1, left, top, VO_BLT_SRCTRANSPARENCY,
-                                      0);
+        ScopedClipRect clipped(GetFrameBufferSurface(), clip);
+        CatalogArtwork::Load(0x143, 0).drawAndInvalidate(GetFrameBufferSurface(), 1, left, top);
     } else if (missing != 0) {
         clip.x = left + filled;
         clip.w = missing;
-        SetClippingRect(&clip);
-        DrawCatalogImageAndInvalidate(FRAME_BUFFER, 0x143, 0, 2, left, top, VO_BLT_SRCTRANSPARENCY,
-                                      0);
+        ScopedClipRect clipped(GetFrameBufferSurface(), clip);
+        CatalogArtwork::Load(0x143, 0).drawAndInvalidate(GetFrameBufferSurface(), 2, left, top);
     }
-    SetClippingRect(&saved_clip);
 }
 
 void DrawCampHeader(void);
@@ -83,8 +79,8 @@ void TryGiveHeldItemToCampPortrait(int slot);
 void RedrawRcsLevelUpPanel(void);
 void RedrawRcsDismissPanel(void);
 
-extern Controls* g_level_up_panel;
-extern Controls* g_dismiss_panel;
+extern std::unique_ptr<Controls> g_level_up_panel;
+extern std::unique_ptr<Controls> g_dismiss_panel;
 extern W8TextControl* g_level_up_button;
 extern W8TextControl* g_dismiss_button;
 /* Five bottom page buttons created with the item-action strip by
@@ -93,16 +89,16 @@ extern W8TextControl* g_camp_page_buttons[5];
 extern W8TextControl* g_item_action_controls[W8_CAMP_ACTION_BUTTON_COUNT];
 /* The bottom Controls panel CreateCampButtonPanel parents
    the page and item-action strips to. */
-extern Controls* g_item_actions_panel;
+extern std::unique_ptr<Controls> g_item_actions_panel;
 
-unsigned char CampDismissPortraitRegionEvent(const InputAtom* event, W8Region* region);
-unsigned char CampPortraitSlotRegionEvent(const InputAtom* event, W8Region* region);
-unsigned char CampOpenCharacterScreenRegionEvent(const InputAtom* event, W8Region* region);
-unsigned char CampProfessionHistoryRegionEvent(const InputAtom* event, W8Region* region);
-unsigned char CampPageButtonRegionEvent(const InputAtom* event, W8Region* region);
-unsigned char CampItemActionRegionEvent(const InputAtom* event, W8Region* region);
-unsigned char CampLevelUpButtonRegionEvent(const InputAtom* event, W8Region* region);
-unsigned char CampDismissButtonRegionEvent(const InputAtom* event, W8Region* region);
+unsigned char CampDismissPortraitRegionEvent(const InputEvent* event, W8Region* region);
+unsigned char CampPortraitSlotRegionEvent(const InputEvent* event, W8Region* region);
+unsigned char CampOpenCharacterScreenRegionEvent(const InputEvent* event, W8Region* region);
+unsigned char CampProfessionHistoryRegionEvent(const InputEvent* event, W8Region* region);
+unsigned char CampPageButtonRegionEvent(const InputEvent* event, W8Region* region);
+unsigned char CampItemActionRegionEvent(const InputEvent* event, W8Region* region);
+unsigned char CampLevelUpButtonRegionEvent(const InputEvent* event, W8Region* region);
+unsigned char CampDismissButtonRegionEvent(const InputEvent* event, W8Region* region);
 
 void CreateRcsLevelUpPanel(void);
 void DestroyRcsLevelUpPanel(void);

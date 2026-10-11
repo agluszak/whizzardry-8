@@ -1,40 +1,40 @@
 #include <catch2/catch_test_macros.hpp>
-/* Native soundman -> SDL3_mixer, with deterministic offline mixing. */
-#include "native/audio_test.h"
-#include "wiz8/slf.h"
-#include "wiz8/local_code/CombatSound.h"
+#include <ios>
 #include <wiz8/native_audio.h>
-#include "native/movie_audio.h"
 #include <wiz8/filesystem.h>
-#include <wiz8/asset_paths.h>
-#include "soundman.h"
+#include <SDL3/SDL_iostream.h>
+#include <SDL3/SDL_properties.h>
+#include <SDL3/SDL_stdinc.h>
+#include <SDL3/SDL_timer.h>
+#include <SDL3_mixer/SDL_mixer.h>
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
-#include "temporary_directory.h"
 #include <vector>
+#include <cstdint>
+#include <exception>
+#include <memory>
+#include <string>
+#include <string_view>
+#include <utility>
+
+/* Native sound service -> SDL3_mixer, with deterministic offline mixing. */
+#include "native/audio_test.h"
+#include "wiz8/slf.h"
+#include "wiz8/local_code/CombatSound.h"
+#include "wiz8/character_event_queue.h"
+#include "native/movie_audio.h"
+#include "soundman.h"
+#include "temporary_directory.h"
+#include "scoped_asset_roots.h"
+#include "catch2/catch_message.hpp"
+#include "wiz8/audio_resources.h"
+#include <glm/ext/vector_float3.hpp>
+
 static unsigned callbacks = 0;
-static void ended(void* data)
-{
-    ++callbacks;
-    ++*static_cast<unsigned*>(data);
-}
-struct RestartOnEnd
-{
-    char* path;
-    SOUNDPARMS options;
-    UINT32 restarted = SOUND_ERROR;
-    unsigned calls = 0;
-    static void callback(void* data)
-    {
-        auto& restart = *static_cast<RestartOnEnd*>(data);
-        ++restart.calls;
-        restart.restarted = SoundPlay(restart.path, &restart.options);
-    }
-};
 static void word(std::vector<unsigned char>& data, unsigned value, int bytes)
 {
     for (int i = 0; i < bytes; ++i)
@@ -100,64 +100,92 @@ static bool near(double value, double expected, double tolerance = 0.02)
     return std::abs(value - expected) <= tolerance * std::max(1.0, std::abs(expected));
 }
 
-static void exercise_audio(bool output_device)
-{
-    const auto temporary = make_temporary_directory("wiz8-audio");
-    auto asset = std::filesystem::path(temporary) / "assets",
-         user = std::filesystem::path(temporary) / "user";
-    std::filesystem::create_directories(asset);
-    std::filesystem::create_directories(user);
-    w8_native::configure_paths({asset.string(), user.string(), {}});
-    std::filesystem::copy_file(WIZ8_AUDIO_TEST_MP3, asset / "fallback.mp3");
-    auto wave = wav();
-    write(asset / "tone.wav", wave);
-    write(asset / "stereo.wav", wav(true));
-    write(asset / "bad.wav", {'n', 'o', 't', 'a', 'w', 'a', 'v'});
-    std::filesystem::create_directories(asset / "Data");
-    wiz8::SlfHeader header{};
-    strcpy(header.sLibName, "Data.slf");
-    strcpy(header.sPathToLibrary, "Data\\");
-    header.iEntries = header.iUsed = 2;
-    header.iVersion = 0x200;
-    wiz8::SlfEntry entries[2]{};
-    strcpy(entries[0].sFileName, "Packed.wav");
-    entries[0].uiOffset = sizeof(header);
-    entries[0].uiLength = wave.size();
-    strcpy(entries[1].sFileName, "Truncated.wav");
-    entries[1].uiOffset = sizeof(header);
-    entries[1].uiLength = 16;
-    std::vector<unsigned char> archive(reinterpret_cast<unsigned char*>(&header),
-                                       reinterpret_cast<unsigned char*>(&header) + sizeof(header));
-    archive.insert(archive.end(), wave.begin(), wave.end());
-    archive.insert(archive.end(), reinterpret_cast<unsigned char*>(entries),
-                   reinterpret_cast<unsigned char*>(entries) + sizeof(entries));
-    write(asset / "Data" / "DATA.SLF", archive);
 
-    wiz8::mount_slf("Data\\Data.slf");
+struct AudioFixture
+{
+    ScopedTemporaryDirectory directory{"wiz8-audio"};
+    std::filesystem::path temporary = directory.path;
+    std::filesystem::path asset = temporary / "assets";
+    std::filesystem::path user = temporary / "user";
+    std::vector<unsigned char> wave = wav();
+    ScopedAssetRoots asset_roots;
+
+    AudioFixture()
     {
-        char packed[] = "data\\PACKED.WAV";
-        auto entry = [&]() { try { return wiz8::open_file(packed, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
-        REQUIRE(entry);
-        auto first = wiz8::open_file(packed), second = wiz8::open_file(packed);
-        entry.reset();
-        REQUIRE((first && second && first->tell() == 0 && second->tell() == 0));
-        auto loose = wiz8::open_file("C:\\TONE.wav");
-        unsigned char bytes[64]{};
-        REQUIRE(first->read(bytes, sizeof(bytes)).bytes == sizeof(bytes));
-        REQUIRE(std::memcmp(bytes, wave.data(), sizeof(bytes)) == 0);
-        REQUIRE((second->tell() == 0 && loose->tell() == 0));
-        REQUIRE(second->read(bytes, 32).bytes == 32);
-        REQUIRE(std::memcmp(bytes, wave.data(), 32) == 0);
-        first.reset();
-        REQUIRE(second->seek(wave.size() - 32, wiz8::SeekOrigin::begin) ==
-              int64_t(wave.size() - 32));
-        REQUIRE(second->read(bytes, 32).bytes == 32);
-        REQUIRE(std::memcmp(bytes, wave.data() + wave.size() - 32, 32) == 0);
-        REQUIRE(loose->read(bytes, sizeof(bytes)).bytes == sizeof(bytes));
-        REQUIRE(std::memcmp(bytes, wave.data(), sizeof(bytes)) == 0);
+        callbacks = 0;
+        std::filesystem::create_directories(asset);
+        std::filesystem::create_directories(user);
+        asset_roots.configure({asset.string(), user.string(), {}});
+        std::filesystem::copy_file(WIZ8_AUDIO_TEST_MP3, asset / "fallback.mp3");
+        write(asset / "tone.wav", wave);
+        write(asset / "stereo.wav", wav(true));
+        write(asset / "bad.wav", {'n', 'o', 't', 'a', 'w', 'a', 'v'});
+        std::filesystem::create_directories(asset / "Data");
+        wiz8::SlfHeader header{};
+        strcpy(header.sLibName, "Data.slf");
+        strcpy(header.sPathToLibrary, "Data\\");
+        header.iEntries = header.iUsed = 2;
+        header.iVersion = 0x200;
+        wiz8::SlfEntry entries[2]{};
+        strcpy(entries[0].sFileName, "Packed.wav");
+        entries[0].uiOffset = sizeof(header);
+        entries[0].uiLength = wave.size();
+        strcpy(entries[1].sFileName, "Truncated.wav");
+        entries[1].uiOffset = sizeof(header);
+        entries[1].uiLength = 16;
+        std::vector<unsigned char> archive(reinterpret_cast<unsigned char*>(&header),
+                                           reinterpret_cast<unsigned char*>(&header) + sizeof(header));
+        archive.insert(archive.end(), wave.begin(), wave.end());
+        archive.insert(archive.end(), reinterpret_cast<unsigned char*>(entries),
+                       reinterpret_cast<unsigned char*>(entries) + sizeof(entries));
+        write(asset / "Data" / "DATA.SLF", archive);
+
+        wiz8::mount_slf("Data\\Data.slf");
     }
-    w8_native::audio_offline_for_test(true);
-    REQUIRE(InitializeSoundManager());
+
+    void checkArchiveStreams()
+    {
+        {
+            char packed[] = "data\\PACKED.WAV";
+            auto entry = [&]() { try { return wiz8::open_file(packed, wiz8::OpenMode::read); } catch (const std::exception&) { return std::unique_ptr<wiz8::File>{}; } }();
+            REQUIRE(entry);
+            auto first = wiz8::open_file(packed), second = wiz8::open_file(packed);
+            entry.reset();
+            REQUIRE((first && second && first->tell() == 0 && second->tell() == 0));
+            auto loose = wiz8::open_file("C:\\TONE.wav");
+            unsigned char bytes[64]{};
+            REQUIRE(first->read(bytes, sizeof(bytes)).bytes == sizeof(bytes));
+            REQUIRE(std::memcmp(bytes, wave.data(), sizeof(bytes)) == 0);
+            REQUIRE((second->tell() == 0 && loose->tell() == 0));
+            REQUIRE(second->read(bytes, 32).bytes == 32);
+            REQUIRE(std::memcmp(bytes, wave.data(), 32) == 0);
+            first.reset();
+            REQUIRE(second->seek(wave.size() - 32, wiz8::SeekOrigin::begin) ==
+                  int64_t(wave.size() - 32));
+            REQUIRE(second->read(bytes, 32).bytes == 32);
+            REQUIRE(std::memcmp(bytes, wave.data() + wave.size() - 32, 32) == 0);
+            REQUIRE(loose->read(bytes, sizeof(bytes)).bytes == sizeof(bytes));
+            REQUIRE(std::memcmp(bytes, wave.data(), sizeof(bytes)) == 0);
+        }
+    }
+
+    void startOfflineAudio()
+    {
+        w8_native::audio_offline_for_test(true);
+        REQUIRE(wiz8::sound::initialize(true));
+    }
+
+    ~AudioFixture()
+    {
+        wiz8::sound::shutdown();
+        wiz8::clear_asset_archives();
+    }
+};
+
+TEST_CASE_METHOD(AudioFixture, "Audio archives, tracks and combat sounds", "[audio][streams]")
+{
+    checkArchiveStreams();
+    startOfflineAudio();
     // Variant selection accepts a bounded, read-only name and does not append
     // into its backing storage or consume the characters beyond the view.
     const auto combat = asset / "Data" / "Sound" / "Combat";
@@ -211,275 +239,207 @@ static void exercise_audio(bool output_device)
         REQUIRE(MIX_TrackPlaying(looping.get()));
         REQUIRE(energy(samples, 0) + energy(samples, 1) > 10);
     }
-    SOUNDPARMS options;
-    memset(&options, 0xff, sizeof(options));
+
+}
+
+TEST_CASE_METHOD(AudioFixture, "Audio playback, spatialization and movie lifetime", "[audio][mixer]")
+{
+    using wiz8::sound::Group;
+    using wiz8::sound::PlayOptions;
+    startOfflineAudio();
     unsigned callback_data = 0;
-    options.uiVolume = 127;
-    options.uiPan = 0;
-    options.uiLoop = 1;
-    options.uiPriority = 10;
-    options.EOSCallback = ended;
-    options.pCallbackData = &callback_data;
-    char path[] = "TONE.WAV";
-    auto sound = SoundPlay(path, &options);
-    REQUIRE((sound != SOUND_ERROR && SoundIsPlaying(sound)));
-    REQUIRE(SoundFileIsPlaying(path));
-    UINT32 total, current;
-    REQUIRE(SoundGetMilliSecondPosition(sound, &total, &current));
-    REQUIRE(total == 100);
+    const auto count_end = [&] { ++callbacks; ++callback_data; };
+    const std::string_view path = "TONE.WAV";
+    auto sound = wiz8::sound::play(path, {.volume = 127, .on_finished = count_end});
+    REQUIRE((sound != nullptr && wiz8::sound::is_playing(sound)));
+    REQUIRE(wiz8::sound::is_file_playing(path));
+    auto position = wiz8::sound::playback_time(sound);
+    REQUIRE(position.has_value());
+    REQUIRE(position->total_ms == 100);
     auto samples = mix(2048);
-    REQUIRE((energy(samples, 0) > 10 && energy(samples, 1) < 0.001));
-    REQUIRE(SoundGetMilliSecondPosition(sound, &total, &current));
-    REQUIRE((current > 0 && current <= 100));
-    REQUIRE(SoundGetVolume(sound) == 127);
-    REQUIRE(SoundSetVolume(sound, 64));
-    REQUIRE(SoundGetVolume(sound) == 64);
+    REQUIRE((energy(samples, 0) > 10 && energy(samples, 1) > 10));
+    position = wiz8::sound::playback_time(sound);
+    REQUIRE(position.has_value());
+    REQUIRE((position->current_ms > 0 && position->current_ms <= 100));
+    REQUIRE(wiz8::sound::volume(sound) == 127u);
+    REQUIRE(wiz8::sound::set_volume(sound, 64));
+    REQUIRE(wiz8::sound::volume(sound) == 64u);
     mix(8192);
-    REQUIRE(!SoundIsPlaying(sound));
-    SoundServiceStreams();
+    REQUIRE(!wiz8::sound::is_playing(sound));
+    wiz8::sound::service();
     REQUIRE((callbacks == 1 && callback_data == 1));
-    SoundServiceStreams();
+    REQUIRE(!wiz8::sound::volume(sound));
+    wiz8::sound::service();
     REQUIRE(callbacks == 1);
-    /* The all-ones callback sentinel must not become a callable LP64 address. */
-    memset(&options, 0xff, sizeof(options));
-    options.uiLoop = 2;
-    sound = SoundPlay(path, &options);
-    REQUIRE(sound != SOUND_ERROR);
+    sound = wiz8::sound::play(path, {.loops = 2});
+    REQUIRE(sound != nullptr);
     mix(6000);
-    REQUIRE(SoundIsPlaying(sound));
+    REQUIRE(wiz8::sound::is_playing(sound));
     mix(6000);
-    SoundServiceStreams();
-    REQUIRE(!SoundIsPlaying(sound));
-    options.uiLoop = 0;
-    options.uiVolume = 127;
-    sound = SoundPlayStreamedFile(path, &options);
-    REQUIRE(sound != SOUND_ERROR);
+    wiz8::sound::service();
+    REQUIRE(!wiz8::sound::is_playing(sound));
+    sound = wiz8::sound::stream(path, {.volume = 127, .loops = 0, .group = Group::music});
+    REQUIRE(sound != nullptr);
     mix(12000);
-    REQUIRE(SoundIsPlaying(sound));
-    SoundSetMusic(sound);
-    REQUIRE(SoundStopMusic());
-    REQUIRE(!SoundIsPlaying(sound));
-    sound = SoundPlay(path, &options);
-    REQUIRE(sound != SOUND_ERROR);
-    REQUIRE(SoundSetFadeVolume(sound, 0, 0, TRUE));
-    for (int i = 0; i < 130; ++i)
-        SoundServiceStreams();
-    REQUIRE(!SoundIsPlaying(sound));
-    options.uiLoop = 0;
-    options.uiPriority = 42;
-    auto first = SoundPlay(path, &options), second = SoundPlayStreamedFile(path, &options);
-    REQUIRE((first != SOUND_ERROR && second != SOUND_ERROR));
-    REQUIRE(SoundStopGroup(42));
-    REQUIRE((!SoundIsPlaying(first) && !SoundIsPlaying(second)));
-    SOUND3DPARMS spatial;
-    memset(&spatial, 0xff, sizeof(spatial));
-    memset(&spatial.Pos, 0, sizeof(spatial.Pos));
-    spatial.Pos.flZ = -3;
-    spatial.Pos.flFaceZ = -1;
-    spatial.Pos.flUpY = 1;
-    spatial.uiVolume = 127;
-    spatial.uiLoop = 1;
-    sound = Sound3DPlay(path, &spatial);
-    REQUIRE((sound != SOUND_ERROR && SoundIsPlaying(sound)));
+    REQUIRE(wiz8::sound::is_playing(sound));
+    REQUIRE(wiz8::sound::stop_group(Group::music));
+    REQUIRE(!wiz8::sound::is_playing(sound));
+    // A fading stop keeps the playback audible until the mixer completes the fade.
+    sound = wiz8::sound::play(path, {.volume = 127, .loops = 0});
+    REQUIRE(sound != nullptr);
+    REQUIRE(wiz8::sound::stop(sound, 20));
+    REQUIRE(wiz8::sound::is_playing(sound));
+    mix(4096);
+    wiz8::sound::service();
+    REQUIRE(!wiz8::sound::is_playing(sound));
+    REQUIRE(!wiz8::sound::stop(sound, 20));
+    auto first = wiz8::sound::play(path, {.loops = 0, .group = Group::ambient});
+    auto second = wiz8::sound::stream(path, {.loops = 0, .group = Group::ambient});
+    auto effect = wiz8::sound::play(path, {.loops = 0});
+    REQUIRE((first != nullptr && second != nullptr && effect != nullptr));
+    REQUIRE(wiz8::sound::stop_group(Group::ambient));
+    REQUIRE((!wiz8::sound::is_playing(first) && !wiz8::sound::is_playing(second)));
+    REQUIRE(wiz8::sound::is_playing(effect));
+    REQUIRE(wiz8::sound::stop(effect));
+    sound = wiz8::sound::play(path, {.volume = 127, .position = glm::vec3(0, 0, -3)});
+    REQUIRE((sound != nullptr && wiz8::sound::is_playing(sound)));
     samples = mix(1024);
     REQUIRE(energy(samples, 0) + energy(samples, 1) > 1);
-    Sound3DSetPosition(sound, 1, 0, -3);
-    Sound3DSetDirection(sound, 0, 0, -1, 0, 1, 0);
-    REQUIRE(SoundStop(sound));
-    REQUIRE(SoundEmptyCache());
-    char packed[] = "Data\\Packed.wav";
-    memset(&options, 0xff, sizeof(options));
-    options.uiLoop = 1;
-    sound = SoundPlayStreamedFile(packed, &options);
-    REQUIRE(sound != SOUND_ERROR);
-    REQUIRE((SoundGetMilliSecondPosition(sound, &total, &current) && total == 100));
+    wiz8::sound::set_position(sound, glm::vec3(1, 0, -3));
+    REQUIRE(wiz8::sound::stop(sound));
+    wiz8::sound::release_cache();
+    const std::string_view packed = "Data\\Packed.wav";
+    sound = wiz8::sound::stream(packed);
+    REQUIRE(sound != nullptr);
+    position = wiz8::sound::playback_time(sound);
+    REQUIRE((position.has_value() && position->total_ms == 100));
     samples = mix(8192);
     REQUIRE(energy(samples, 0) + energy(samples, 1) > 10);
-    SoundServiceStreams();
-    REQUIRE(!SoundIsPlaying(sound));
-    options.uiLoop = 0;
-    options.uiPriority = 123;
-    for (int i = 0; i < 32; ++i)
-        REQUIRE(SoundPlay(path, &options) != SOUND_ERROR);
-    REQUIRE(SoundPlay(path, &options) == SOUND_ERROR);
-    REQUIRE(SoundStopGroup(123));
-    RANDOMPARMS random;
-    memset(&random, 0xff, sizeof(random));
-    random.uiTimeMin = random.uiTimeMax = 0;
-    auto random_id = SoundPlayRandom(path, &random);
-    REQUIRE(random_id != SOUND_ERROR);
-    REQUIRE(SoundRandomShouldPlay(random_id));
-    REQUIRE(SoundStartRandom(random_id) != SOUND_ERROR);
-    REQUIRE(!SoundRandomShouldPlay(random_id));
-    mix(8192);
-    SoundServiceStreams();
-    REQUIRE(SoundRandomShouldPlay(random_id));
-    /* The recovered function clears flags but always returns FALSE. */
-    REQUIRE(!SoundStopAllRandom());
-    REQUIRE(!SoundRandomShouldPlay(random_id));
-    REQUIRE(SoundEmptyCache());
-    memset(&options, 0xff, sizeof(options));
-    options.uiLoop = 0;
-    sound = SoundPlay(path, &options);
-    REQUIRE(sound != SOUND_ERROR);
-    SoundSetMusic(sound);
-    REQUIRE(SoundEmptyCache());
+    wiz8::sound::service();
+    REQUIRE(!wiz8::sound::is_playing(sound));
+    for (int i = 0; i < 64; ++i)
+        REQUIRE(wiz8::sound::play(path, {.loops = 0, .group = Group::ambient}) != nullptr);
+    REQUIRE(wiz8::sound::stop_group(Group::ambient));
+    sound = wiz8::sound::play(path, {.loops = 0, .group = Group::music});
+    REQUIRE(sound != nullptr);
+    wiz8::sound::release_cache();
     samples = mix(12000);
-    REQUIRE(SoundIsPlaying(sound));
+    REQUIRE(wiz8::sound::is_playing(sound));
     REQUIRE(energy(samples, 0) + energy(samples, 1) > 10);
-    REQUIRE(SoundStopMusic());
+    REQUIRE(wiz8::sound::stop_group(Group::music));
     // Old backend: 2048 frames at full gain = 137.670993 per ear; front = 1/4 power.
     const double baseline = 137.670993;
-    spatial.uiLoop = 0;
-    spatial.Pos.flZ = 0;
     for (auto x : {-3.0f, 0.0f, 3.0f})
     {
-        spatial.Pos.flX = x;
-        sound = Sound3DPlay(path, &spatial);
-        REQUIRE(sound != SOUND_ERROR);
+        sound = wiz8::sound::play(path, {.volume = 127, .loops = 0, .position = glm::vec3(x, 0, 0)});
+        REQUIRE(sound != nullptr);
         samples = mix(2048);
         const auto left = energy(samples, 0), right = energy(samples, 1);
+        CAPTURE(x, left, right);
         REQUIRE(near(left, baseline * (x > 0 ? 0.04 : 1)));
         REQUIRE(near(right, baseline * (x < 0 ? 0.04 : 1)));
-        REQUIRE(SoundStop(sound));
+        REQUIRE(wiz8::sound::stop(sound));
     }
-    spatial.Pos.flX = 0;
-    spatial.Pos.flFalloffMin = 1;
-    spatial.Pos.flFalloffMax = 10;
+    // Callers apply distance falloff; the service only pans.
     for (auto distance : {1.0f, 100.0f})
     {
-        spatial.Pos.flZ = -distance;
-        sound = Sound3DPlay(path, &spatial);
-        REQUIRE(sound != SOUND_ERROR);
+        sound = wiz8::sound::play(path, {.volume = 127, .loops = 0, .position = glm::vec3(0, 0, -distance)});
+        REQUIRE(sound != nullptr);
         samples = mix(2048);
         REQUIRE(near(energy(samples, 0), baseline * 0.25));
         REQUIRE(near(energy(samples, 1), baseline * 0.25));
-        REQUIRE(SoundStop(sound));
+        REQUIRE(wiz8::sound::stop(sound));
     }
-    spatial.Pos.flX = 3; spatial.Pos.flZ = 0;
-    Sound3DSetListenerOrientation(0, 0, 1, 0, 1, 0);
-    sound = Sound3DPlay(path, &spatial);
-    REQUIRE(sound != SOUND_ERROR);
-    samples = mix(2048);
-    REQUIRE((near(energy(samples, 0), baseline) && near(energy(samples, 1), baseline * 0.04)));
-    Sound3DSetListenerOrientation(0, 0, -1, 0, 1, 0);
-    samples = mix(2048);
-    REQUIRE(energy(samples, 1) > energy(samples, 0) * 20);
-    Sound3DSetListener(6, 0, 0);
+    sound = wiz8::sound::play(path, {.volume = 127, .loops = 0, .position = glm::vec3(3, 0, 0)});
+    REQUIRE(sound != nullptr);
+    mix(1024);
+    wiz8::sound::set_position(sound, glm::vec3(-3, 0, 0));
     samples = mix(2048);
     REQUIRE(energy(samples, 0) > energy(samples, 1) * 20);
-    REQUIRE(SoundStop(sound));
-    Sound3DSetListener(0, 0, 0);
-    // Velocity was normally zero at game callers; retain OpenAL-style doppler for nonzero inputs.
-    spatial.Pos.flVelX = -100;
-    spatial.uiLoop = 1;
-    sound = Sound3DPlay(path, &spatial);
-    REQUIRE(sound != SOUND_ERROR);
-    samples = mix(2048);
-    REQUIRE((crossings(samples, 1) >= 27 && crossings(samples, 1) <= 30));
-    REQUIRE(SoundStop(sound));
-    spatial.Pos.flVelX = 0;
-    Sound3DSetListenerVelocity(100, 0, 0);
-    sound = Sound3DPlay(path, &spatial);
-    REQUIRE(sound != SOUND_ERROR);
-    samples = mix(2048);
-    REQUIRE((crossings(samples, 1) >= 25 && crossings(samples, 1) <= 28));
-    REQUIRE(SoundStop(sound));
-    Sound3DSetListenerVelocity(0, 0, 0);
-
-    memset(&options, 0xff, sizeof(options));
-    options.uiLoop = 1;
-    options.uiVolume = 127;
-    sound = SoundPlay(path, &options);
-    REQUIRE(sound != SOUND_ERROR);
+    REQUIRE(wiz8::sound::stop(sound));
+    sound = wiz8::sound::play(path, {.volume = 127});
+    REQUIRE(sound != nullptr);
     samples = mix(2048);
     REQUIRE((near(energy(samples, 0), baseline) && near(energy(samples, 1), baseline)));
-    REQUIRE(SoundStop(sound));
-    options.uiVolume = 64;
-    sound = SoundPlay(path, &options);
-    REQUIRE(sound != SOUND_ERROR);
+    REQUIRE(wiz8::sound::stop(sound));
+    sound = wiz8::sound::play(path, {.volume = 64});
+    REQUIRE(sound != nullptr);
     samples = mix(2048);
     REQUIRE(near(energy(samples, 0), baseline * std::pow(64.0 / 127, 2)));
-    REQUIRE(SoundStop(sound));
-    options.uiVolume = 127;
-    options.uiSpeed = 88200;
-    sound = SoundPlay(path, &options);
-    REQUIRE(sound != SOUND_ERROR);
+    REQUIRE(wiz8::sound::stop(sound));
+    wiz8::sound::set_default_volume(64);
+    sound = wiz8::sound::play(path);
+    REQUIRE(wiz8::sound::volume(sound) == 64u);
+    REQUIRE(wiz8::sound::stop(sound));
+    wiz8::sound::set_default_volume(127);
+    sound = wiz8::sound::play(path, {.volume = 127, .fade_in_ms = 1000});
+    REQUIRE(sound != nullptr);
+    samples = mix(2048);
+    REQUIRE(energy(samples, 0) < baseline * 0.05);
+    REQUIRE(wiz8::sound::stop(sound));
+    sound = wiz8::sound::play(path, {.volume = 127, .rate = 88200});
+    REQUIRE(sound != nullptr);
     samples = mix(2048);
     REQUIRE((crossings(samples) >= 40 && crossings(samples) <= 42));
     mix(1024);
-    REQUIRE(!SoundIsPlaying(sound));
-    SoundServiceStreams();
-    options.uiSpeed = 22050;
-    sound = SoundPlayStreamedFile(path, &options);
-    REQUIRE(sound != SOUND_ERROR);
+    REQUIRE(!wiz8::sound::is_playing(sound));
+    wiz8::sound::service();
+    sound = wiz8::sound::stream(path, {.volume = 127, .rate = 22050});
+    REQUIRE(sound != nullptr);
     samples = mix(2048);
     REQUIRE((crossings(samples) >= 10 && crossings(samples) <= 11));
     mix(4000);
-    REQUIRE(SoundIsPlaying(sound));
+    REQUIRE(wiz8::sound::is_playing(sound));
     mix(4000);
-    REQUIRE(!SoundIsPlaying(sound));
-    SoundServiceStreams();
-    options.uiSpeed = SOUND_ERROR;
-    options.uiLoop = 2;
-    sound = SoundPlayStreamedFile(packed, &options);
-    REQUIRE(sound != SOUND_ERROR);
+    REQUIRE(!wiz8::sound::is_playing(sound));
+    wiz8::sound::service();
+    sound = wiz8::sound::stream(packed, {.volume = 127, .loops = 2});
+    REQUIRE(sound != nullptr);
     mix(6000);
-    REQUIRE(SoundIsPlaying(sound));
+    REQUIRE(wiz8::sound::is_playing(sound));
     mix(6000);
-    SoundServiceStreams();
-    REQUIRE(!SoundIsPlaying(sound));
-    char stereo[] = "stereo.wav";
-    options.uiLoop = 1;
-    sound = SoundPlay(stereo, &options);
-    REQUIRE(sound != SOUND_ERROR);
+    wiz8::sound::service();
+    REQUIRE(!wiz8::sound::is_playing(sound));
+    const std::string_view stereo = "stereo.wav";
+    sound = wiz8::sound::play(stereo, {.volume = 127});
+    REQUIRE(sound != nullptr);
     samples = mix(2048);
     REQUIRE(near(energy(samples, 1) / energy(samples, 0), 0.25));
-    REQUIRE(SoundStop(sound));
-    options.uiPan = 127;
-    sound = SoundPlay(stereo, &options);
-    REQUIRE(sound != SOUND_ERROR);
-    samples = mix(2048);
-    REQUIRE((energy(samples, 0) < 0.001 && near(energy(samples, 1), baseline * 0.25)));
-    REQUIRE(SoundStop(sound));
-    char fallback[] = "fallback.wav";
-    options.uiPan = 64;
-    sound = SoundPlay(fallback, &options);
-    REQUIRE(sound != SOUND_ERROR);
+    REQUIRE(wiz8::sound::stop(sound));
+    const std::string_view fallback = "fallback.wav";
+    sound = wiz8::sound::play(fallback, {.volume = 127});
+    REQUIRE(sound != nullptr);
     samples = mix(8192);
     REQUIRE(energy(samples, 0) + energy(samples, 1) > 1);
-    SoundServiceStreams();
-    REQUIRE(!SoundIsPlaying(sound));
-    char bad[] = "bad.wav", truncated[] = "Data\\Truncated.wav";
-    REQUIRE(SoundPlay(bad, &options) == SOUND_ERROR);
-    REQUIRE(SoundPlayStreamedFile(bad, &options) == SOUND_ERROR);
-    REQUIRE(SoundPlay(truncated, &options) == SOUND_ERROR);
-    REQUIRE(SoundPlayStreamedFile(truncated, &options) == SOUND_ERROR);
-    REQUIRE(SoundPlay({}, &options) == SOUND_ERROR);
-    REQUIRE(SoundPlayStreamedFile({}, &options) == SOUND_ERROR);
-    REQUIRE(!SoundRandomShouldPlay(NO_SAMPLE));
-    REQUIRE(SoundStartRandom(NO_SAMPLE) == SOUND_ERROR);
-    sound = SoundPlayStreamedFile(fallback, &options);
-    REQUIRE(sound != SOUND_ERROR);
+    wiz8::sound::service();
+    REQUIRE(!wiz8::sound::is_playing(sound));
+    for (const std::string_view rejected : {"bad.wav", "Data\\Truncated.wav", ""})
+    {
+        REQUIRE(wiz8::sound::play(rejected) == nullptr);
+        REQUIRE(wiz8::sound::stream(rejected) == nullptr);
+        REQUIRE(wiz8::sound::load(rejected) == nullptr);
+    }
+    REQUIRE(wiz8::sound::play(wiz8::sound::Clip{}) == nullptr);
+    sound = wiz8::sound::stream(fallback, {.volume = 127});
+    REQUIRE(sound != nullptr);
     samples = mix(8192);
     REQUIRE(energy(samples, 0) + energy(samples, 1) > 1);
-    SoundServiceStreams();
-    REQUIRE(!SoundIsPlaying(sound));
-    RestartOnEnd restart{path, options};
-    restart.options.EOSCallback = nullptr;
-    options.EOSCallback = RestartOnEnd::callback;
-    options.pCallbackData = &restart;
-    sound = SoundPlay(path, &options);
-    REQUIRE(sound != SOUND_ERROR);
+    wiz8::sound::service();
+    REQUIRE(!wiz8::sound::is_playing(sound));
+    unsigned restarts = 0;
+    wiz8::sound::Playback restarted;
+    sound = wiz8::sound::play(path, {.volume = 127, .on_finished = [&] {
+        ++restarts;
+        restarted = wiz8::sound::play(path, {.volume = 127});
+    }});
+    REQUIRE(sound != nullptr);
     mix(8192);
-    SoundServiceStreams();
-    REQUIRE((restart.calls == 1 && restart.restarted != SOUND_ERROR && SoundIsPlaying(restart.restarted)));
-    SoundServiceStreams();
-    REQUIRE(restart.calls == 1);
-    REQUIRE(SoundStop(restart.restarted));
-    options.EOSCallback = nullptr;
-
-    REQUIRE(SoundEmptyCache());
+    wiz8::sound::service();
+    REQUIRE((restarts == 1 && restarted != nullptr && wiz8::sound::is_playing(restarted)));
+    wiz8::sound::service();
+    REQUIRE(restarts == 1);
+    REQUIRE(wiz8::sound::stop(restarted));
+    wiz8::sound::release_cache();
     {
         REQUIRE(w8_native::movie_audio_available());
         w8_native::MovieAudio movie(44100, 1);
@@ -499,8 +459,8 @@ static void exercise_audio(bool output_device)
         REQUIRE(movie.drained());
         // No second mixer when soundman is reset while a movie is still alive.
         const auto* sharedMixer = w8_native::audio_mixer();
-        ShutdownSoundManager();
-        REQUIRE(InitializeSoundManager());
+        wiz8::sound::shutdown();
+        REQUIRE(wiz8::sound::initialize(true));
         REQUIRE(sharedMixer == w8_native::audio_mixer());
     }
     {
@@ -529,42 +489,220 @@ static void exercise_audio(bool output_device)
     samples = mix(8192);
     REQUIRE(energy(samples, 0) + energy(samples, 1) == 0);
     unsigned before_shutdown = callbacks;
-    options.EOSCallback = ended;
-    options.pCallbackData = &callback_data;
-    REQUIRE(SoundPlay(path, &options) != SOUND_ERROR);
-    ShutdownSoundManager();
+    REQUIRE(wiz8::sound::play(path, {.volume = 127, .on_finished = count_end}) != nullptr);
+    wiz8::sound::shutdown();
     REQUIRE(callbacks == before_shutdown);
-    ShutdownSoundManager();
-    REQUIRE(InitializeSoundManager());
-    ShutdownSoundManager();
-    if (output_device)
-    {
-        w8_native::audio_offline_for_test(false);
-        REQUIRE(InitializeSoundManager());
-        REQUIRE(w8_native::audio_mixer());
-        memset(&options, 0xff, sizeof(options));
-        options.uiLoop = 1;
-        sound = SoundPlay(path, &options);
-        REQUIRE(sound != SOUND_ERROR);
-        SDL_Delay(250);
-        SoundServiceStreams();
-        REQUIRE(!SoundIsPlaying(sound));
-        ShutdownSoundManager();
-        puts("ok: native output device opened and completed playback");
+    wiz8::sound::shutdown();
+    REQUIRE(wiz8::sound::initialize(true));
+    wiz8::sound::shutdown();
+
+}
+
+TEST_CASE_METHOD(AudioFixture, "Audio output device", "[.manual][audio]")
+{
+    w8_native::audio_offline_for_test(false);
+    REQUIRE(wiz8::sound::initialize(true));
+    REQUIRE(w8_native::audio_mixer());
+    const auto sound = wiz8::sound::play("TONE.WAV");
+    REQUIRE(sound != nullptr);
+    SDL_Delay(250);
+    wiz8::sound::service();
+    REQUIRE(!wiz8::sound::is_playing(sound));
+    wiz8::sound::shutdown();
+    puts("ok: native output device opened and completed playback");
+}
+
+TEST_CASE_METHOD(AudioFixture, "Audio clips outlive cache entries without slot reuse", "[audio][ownership]")
+{
+    startOfflineAudio();
+    std::vector<wiz8::sound::Clip> clips;
+    for (unsigned i = 0; i < 140; ++i) {
+        auto name = "clip" + std::to_string(i) + ".wav";
+        write(asset / name, wave);
+        auto clip = wiz8::sound::load(name);
+        REQUIRE(clip);
+        REQUIRE(wiz8::sound::load(name) == clip);
+        clips.push_back(std::move(clip));
     }
-    wiz8::clear_asset_archives();
-
-    std::filesystem::remove_all(temporary);
-    puts("ok: native audio samples, streams, loops, pans, fades, callbacks, spatialization and "
-         "lifetime");
+    std::weak_ptr<wiz8::sound::AudioClip> retained = clips.front();
+    wiz8::sound::release_cache();
+    REQUIRE_FALSE(retained.expired());
+    clips.clear();
+    REQUIRE(retained.expired());
+    auto clip = wiz8::sound::load("tone.wav");
+    REQUIRE(clip);
+    wiz8::sound::release_cache();
+    // A retained emitter can still play its clip after the cache releases it.
+    const auto sound = wiz8::sound::play(clip, {.group = wiz8::sound::Group::ambient});
+    REQUIRE(sound != nullptr);
+    retained = clip;
+    clip.reset();
+    REQUIRE_FALSE(retained.expired());
+    REQUIRE(wiz8::sound::stop(sound));
+    REQUIRE(retained.expired());
 }
 
-TEST_CASE("audio")
+TEST_CASE_METHOD(AudioFixture, "Owned clips retain the mixer across sound shutdown", "[audio][ownership]")
 {
-    exercise_audio(false);
+    startOfflineAudio();
+    auto clip = wiz8::sound::load("tone.wav");
+    REQUIRE(clip);
+    std::weak_ptr<wiz8::sound::AudioClip> lifetime = clip;
+    wiz8::sound::shutdown();
+    REQUIRE_FALSE(lifetime.expired());
+    REQUIRE(wiz8::sound::initialize(true));
+    clip.reset();
+    REQUIRE(lifetime.expired());
 }
 
-TEST_CASE("audio-device", "[.manual]")
+TEST_CASE_METHOD(AudioFixture, "Playback references never alias replacement tracks", "[audio][ownership]")
 {
-    exercise_audio(true);
+    startOfflineAudio();
+    auto first = wiz8::sound::play("tone.wav", {.loops = 0});
+    REQUIRE(first);
+    REQUIRE(wiz8::sound::stop(first));
+    auto second = wiz8::sound::play("tone.wav", {.loops = 0});
+    REQUIRE(second);
+    REQUIRE(first != second);
+    REQUIRE_FALSE(wiz8::sound::stop(first));
+    REQUIRE_FALSE(wiz8::sound::set_volume(first, 0));
+    REQUIRE(wiz8::sound::volume(second) == 127u);
+    REQUIRE(wiz8::sound::is_playing(second));
+    wiz8::sound::shutdown();
+    REQUIRE_FALSE(wiz8::sound::is_playing(second));
+    REQUIRE(wiz8::sound::initialize(true));
+    auto third = wiz8::sound::play("tone.wav", {.loops = 0});
+    REQUIRE(third);
+    REQUIRE_FALSE(wiz8::sound::stop(second));
+    REQUIRE(wiz8::sound::is_playing(third));
+}
+
+TEST_CASE_METHOD(AudioFixture, "Mixer service owns discarded playback until completion", "[audio][ownership]")
+{
+    startOfflineAudio();
+    std::weak_ptr<wiz8::sound::AudioPlayback> lifetime;
+    {
+        auto playback = wiz8::sound::play("tone.wav");
+        REQUIRE(playback);
+        lifetime = playback;
+    }
+    REQUIRE_FALSE(lifetime.expired());
+    const auto samples = mix(8192);
+    REQUIRE(energy(samples, 0) + energy(samples, 1) > 10);
+    wiz8::sound::service();
+    REQUIRE(lifetime.expired());
+}
+
+TEST_CASE_METHOD(AudioFixture, "Playback completion permits stop and shutdown reentry", "[audio][ownership]")
+{
+    startOfflineAudio();
+    wiz8::sound::Playback other;
+    unsigned calls = 0;
+    auto first = wiz8::sound::play("tone.wav", {.on_finished = [&] {
+        ++calls;
+        wiz8::sound::stop(other);
+        wiz8::sound::shutdown();
+    }});
+    REQUIRE(first);
+    other = wiz8::sound::stream("tone.wav", {.loops = 0});
+    REQUIRE(other);
+    mix(8192);
+    wiz8::sound::service();
+    REQUIRE(calls == 1);
+    REQUIRE_FALSE(wiz8::sound::is_playing(first));
+    REQUIRE_FALSE(wiz8::sound::is_playing(other));
+    wiz8::sound::service();
+    REQUIRE(calls == 1);
+}
+
+TEST_CASE_METHOD(AudioFixture, "Mixer tags stop only the original group before reentrant callbacks", "[audio][ownership]")
+{
+    using wiz8::sound::Group;
+    startOfflineAudio();
+    wiz8::sound::Playback replacement;
+    unsigned calls = 0;
+    auto first = wiz8::sound::play("tone.wav", {.loops = 0, .group = Group::ambient, .on_finished = [&] {
+        ++calls;
+        replacement = wiz8::sound::stream("tone.wav", {.loops = 0, .group = Group::ambient});
+    }});
+    REQUIRE(first);
+    auto second = wiz8::sound::stream("tone.wav", {.loops = 0, .group = Group::ambient});
+    REQUIRE(second);
+    auto unrelated = wiz8::sound::play("tone.wav", {.loops = 0});
+    REQUIRE(unrelated);
+    auto music = wiz8::sound::play("tone.wav", {.loops = 0, .group = Group::music});
+    REQUIRE(music);
+    REQUIRE(wiz8::sound::stop_group(Group::ambient));
+    REQUIRE(calls == 1);
+    REQUIRE_FALSE(wiz8::sound::is_playing(first));
+    REQUIRE_FALSE(wiz8::sound::is_playing(second));
+    REQUIRE(wiz8::sound::is_playing(replacement));
+    REQUIRE(wiz8::sound::is_playing(unrelated));
+    REQUIRE(wiz8::sound::is_playing(music));
+    wiz8::sound::release_cache();
+    REQUIRE_FALSE(wiz8::sound::is_playing(replacement));
+    REQUIRE_FALSE(wiz8::sound::is_playing(unrelated));
+    REQUIRE(wiz8::sound::is_playing(music));
+    REQUIRE(wiz8::sound::stop_group(Group::music));
+    REQUIRE_FALSE(wiz8::sound::stop_group(Group::music));
+    REQUIRE(calls == 1);
+}
+
+TEST_CASE_METHOD(AudioFixture, "Stopping completed playback drains its deferred callback", "[audio][ownership]")
+{
+    startOfflineAudio();
+    auto callback_data = std::make_unique<unsigned>(0);
+    auto sound = wiz8::sound::stream("tone.wav", {.on_finished = [data = callback_data.get()] {
+        ++callbacks;
+        ++*data;
+    }});
+    REQUIRE(sound);
+    mix(8192);
+    REQUIRE_FALSE(wiz8::sound::is_playing(sound));
+    REQUIRE(*callback_data == 0);
+    REQUIRE_FALSE(wiz8::sound::stop(sound));
+    REQUIRE(*callback_data == 1);
+    callback_data.reset();
+    REQUIRE_FALSE(wiz8::sound::stop(sound));
+    wiz8::sound::service();
+    wiz8::sound::release_cache();
+    REQUIRE(callbacks == 1);
+}
+
+TEST_CASE_METHOD(AudioFixture, "Character event destruction cancels its own deferred voice callback", "[audio][ownership]")
+{
+    startOfflineAudio();
+    auto event = std::make_unique<W8CharacterEvent>(nullptr, 0, 0, 0, 127);
+    unsigned calls = 0;
+    bool completed = false;
+    event->voice_playback = wiz8::sound::stream("tone.wav", {.on_finished = [&, entry = event.get()] {
+        ++calls;
+        completed = entry->sound_end_handled;
+    }});
+    REQUIRE(event->voice_playback);
+    mix(8192);
+    REQUIRE_FALSE(wiz8::sound::is_playing(event->voice_playback));
+    REQUIRE(calls == 0);
+    event.reset();
+    REQUIRE(calls == 1);
+    REQUIRE(completed);
+    wiz8::sound::service();
+    wiz8::sound::release_cache();
+    REQUIRE(calls == 1);
+}
+
+TEST_CASE_METHOD(AudioFixture, "Mixer completion defers game callbacks until service or next play", "[audio][ownership]")
+{
+    startOfflineAudio();
+    unsigned calls = 0;
+    auto first = wiz8::sound::stream("tone.wav", {.on_finished = [&] { ++calls; }});
+    REQUIRE(first);
+    mix(8192);
+    REQUIRE_FALSE(wiz8::sound::is_playing(first));
+    REQUIRE(calls == 0);
+    auto next = wiz8::sound::play("tone.wav");
+    REQUIRE(next);
+    REQUIRE(calls == 1);
+    wiz8::sound::service();
+    REQUIRE(calls == 1);
 }

@@ -1,8 +1,18 @@
 #ifndef WIZ8_ENGINE_CODE_OCT_BUILD_TREE_H
 #define WIZ8_ENGINE_CODE_OCT_BUILD_TREE_H
 
+#include <optional>
+
+#include <deque>
+#include <vector>
+#include "glm/ext/vector_float3.hpp"
+#include "surrender/srBoundingBox.h"
+
 #include "wiz8/engine_code/OctPreTree.h"
-#include "wiz8/geometry.h"
+#include "compat/compiler.h"
+
+struct W8GDSurface;
+template <class T> class srVector3T;
 
 struct W8OctBuildLink {
     void* surface; /* region polygons and GD surfaces share the build links */
@@ -11,23 +21,13 @@ struct W8OctBuildLink {
 
 class OctPreTree;
 
-struct W8OctBuildLinkLists {
-    W8OctBuildLinkLists();
-    W8OctBuildLink* GetNewLink(void* surface);
-
-    unsigned short m_usCurrent;
-    unsigned short unknown_02;
-    W8OctBuildLink* m_apLinkLists[100];
-    unsigned short m_ausLinkCounts[100];
-};
-
 struct W8OctBuildNode {
     W8OctBuildNode();
     ~W8OctBuildNode();
 
     unsigned char RearrangeNodePolys(short current_depth, short target_depth);
-    int CollectLinkedSurfaces(short current_depth, short target_depth, short mode);
-    int CollectSurfaceArray(short mode);
+    std::vector<void*> linkedSurfaces(short current_depth, short target_depth, short mode) const;
+    std::vector<void*> storedSurfaces(short mode) const;
     w8_ulong ConvertToOctPreTree(unsigned short depth, OctPreTree* tree);
 
     union {
@@ -57,34 +57,22 @@ struct W8CountedOctBuildNode : W8OctBuildNode {
    the vtables emitted near this TU belong to vector/template material, not to
    this type. */
 struct W8OctBuildTree {
-    W8OctBuildTree(float leaf_size, srVector3T<float>* minimum, srVector3T<float>* maximum,
+    W8OctBuildTree(float leaf_size, std::optional<srBoundingBox> bounds,
                    unsigned short item_limit, short extent_mode);
     ~W8OctBuildTree();
 
     unsigned char InsertSurface(W8GDSurface* surface, w8_ulong mode);
     unsigned char InsertSurfaceRecursive(W8OctSpatialState* working, W8GDSurface* surface,
-                                         srVector3T<float>* plane_point, w8_ulong mode);
-    int CollectObjectsAlongSegment(W8GDSurface*** results, const srVector3T<float>* origin,
-                                   const srVector3T<float>* delta, float half_angle, float extent,
-                                   unsigned short kind);
+                                         const glm::vec3& planeNormal, w8_ulong mode);
+    std::vector<W8GDSurface*> queryAlongSegment(const glm::vec3& origin,
+                                               const glm::vec3& delta, float extent,
+                                               unsigned short kind);
     /* Append `payload` to the node's `kind` link list, growing the tail and
        raising the leaf counter plus the tree's deepest-list watermark. */
     void AppendLink(W8OctBuildNode* node, void* payload, short kind);
-    /* Recursive box descent for the segment collect: classify the state's box
-       against `bounds` (six floats: min then max), then collect the leaf,
-       descend the octants, or skip the node entirely. */
-    int CollectRecursive(W8OctSpatialState* state, const srVector3T<float>* bounds, short kind);
-    /* Leaf collector: walks the per-kind link lists and appends qualifying
-       surfaces to the shared scratch array, deduplicating by pointer or by
-       the 0x2000 flag mark. */
-    int CollectLeaf(W8OctBuildNode* node, short depth, short kind);
-    /* Box-vs-bounds classification: 2 when the box sits fully inside bounds,
-       1 on a partial overlap, 0 when disjoint. `leaf` early-outs the corner
-       scan at the bottom octree level. */
-    int ClassifyBoxBounds(const srVector3T<float>* box, const srVector3T<float>* bounds, bool leaf);
-
     W8OctSpatialState spatial;
-    W8OctBuildLinkLists* link_lists;
+    /* Deque appends preserve the addresses stored in node link chains. */
+    std::deque<W8OctBuildLink> links;
     w8_ulong leaf_polygon_count;
     w8_ulong gd_surface_count;
     w8_ulong leaf_count;
@@ -94,15 +82,15 @@ struct W8OctBuildTree {
     bool use_owned_nodes;
     unsigned char unknown_b5[3];
     w8_ulong deepest_link_list;
+
+private:
+    struct SurfaceCollector;
+    void collectRecursive(const W8OctSpatialState& state, const srBoundingBox& bounds,
+                          short kind, SurfaceCollector& collector) const;
+    void collectLeaf(W8OctBuildNode* node, short depth, short kind,
+                     SurfaceCollector& collector) const;
 };
 
-W8_ABI_ASSERT(sizeof(W8OctBuildLink) == 8, "W8OctBuildLink_must_be_8");
-W8_ABI_ASSERT(sizeof(W8OctBuildLinkLists) == 0x25c, "W8OctBuildLinkLists_must_be_0x25c");
-W8_ABI_ASSERT(sizeof(W8OctBuildNode) == 0x30, "W8OctBuildNode00446330_must_be_0x30");
-W8_ABI_ASSERT(sizeof(W8CountedOctBuildNode) == 0x30, "W8CountedOctBuildNode004AF760_must_be_0x30");
-W8_ABI_ASSERT(sizeof(W8OctBuildTree) == 0xbc, "W8OctBuildTree_must_be_0xbc");
-
 extern const float g_octree_cell_extent_scale;
-extern W8GDSurface** g_oct_build_scratch;
 
 #endif

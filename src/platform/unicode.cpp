@@ -1,9 +1,16 @@
 #include "wiz8/unicode.h"
-#include <algorithm>
-#include <utf8.h>
+#include "utf8/checked.h"
+
+#include <cstddef>
+#include <span>
+#include <string>
+#include <string_view>
 #include <utf8proc.h>
+#include <algorithm>
 #include <cstring>
 #include <stdexcept>
+#include <cstdint>
+#include <iterator>
 
 namespace wiz8::text {
 char32_t next(std::string_view text, std::size_t& offset)
@@ -134,3 +141,44 @@ void to_utf16le(std::string_view text, std::span<std::byte> bytes)
     }
 }
 } // namespace wiz8::text
+
+// FUNCTION: WIZ8 0x00402800
+bool IsUppercaseCharacter(std::uint32_t character)
+{
+    return utf8proc_category(character) == UTF8PROC_CATEGORY_LU;
+}
+
+// FUNCTION: WIZ8 0x00402820
+bool IsLowercaseCharacter(std::uint32_t character)
+{
+    const auto category = utf8proc_category(character); return category == UTF8PROC_CATEGORY_LL || category == UTF8PROC_CATEGORY_LO || category == UTF8PROC_CATEGORY_LT || category == UTF8PROC_CATEGORY_LM || category == UTF8PROC_CATEGORY_MN || category == UTF8PROC_CATEGORY_MC || category == UTF8PROC_CATEGORY_ME;
+}
+
+// FUNCTION: WIZ8 0x00402840
+bool IsPunctuationCharacter(std::uint32_t character)
+{
+    const auto category = utf8proc_category(character); return (category >= UTF8PROC_CATEGORY_PC && category <= UTF8PROC_CATEGORY_SO) || category == UTF8PROC_CATEGORY_CF;
+}
+
+// FUNCTION: WIZ8 0x00402880
+int ToUppercaseCharacter(int character)
+{
+    return utf8proc_toupper(character);
+}
+
+// FUNCTION: WIZ8 0x004028A0
+int ToLowercaseCharacter(int character)
+{
+    return utf8proc_tolower(character);
+}
+
+// FUNCTION: WIZ8 0x00402920
+int CompareTextIgnoreAsciiCase(std::string_view first, std::string_view second)
+{
+    auto lower = [](unsigned char c) { return c >= 'A' && c <= 'Z' ? c + ('a' - 'A') : c; };
+    for (std::size_t i = 0; i < std::min(first.size(), second.size()); ++i) {
+        const int difference = lower(first[i]) - lower(second[i]);
+        if (difference) return difference;
+    }
+    return (first.size() > second.size()) - (first.size() < second.size());
+}

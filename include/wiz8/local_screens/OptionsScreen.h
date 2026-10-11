@@ -1,25 +1,28 @@
+#pragma once
+
 #include <string_view>
 #include <string>
-#pragma once
+
+#include <memory>
+#include <vector>
 
 #include "wiz8/engine_code/Quality.h"
 #include "wiz8/mgs_commands.h"
-#include "wiz8/layouts/screen_state.h"
-
-#include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_code/TextControl.h"
 #include "wiz8/local_code/ControlSelection.h"
 #include "wiz8/local_code/RangeControl.h"
 #include "wiz8/dialog_code/NotificationDialog.h"
 #include "wiz8/local_code/Controls.h"
 #include "wiz8/local_code/ControlsRect.h"
-#include "wiz8/local_code/LoadSaveGame.h"
-#include <vector>
-#include <algorithm>
 #include "wiz8/text_input.h"
+#include "compat/compiler.h"
+#include "input.h"
 
 class W8OptionsPanel;
 class W8OptionsSaveRow;
+class W8MessageDialogBase;
+class W8TextBuffer;
+struct W8SaveSlot;
 
 // VTABLE: WIZ8 0x005eef68
 class W8OptionsTextEditor {
@@ -36,7 +39,6 @@ public:
     Listener* m_listener;
 };
 
-
 class W8OptionsKeyCapture {
 public:
     virtual unsigned char OnKey(unsigned short key, unsigned short modifiers) = 0;
@@ -52,7 +54,8 @@ public:
 class W8OptionsSaveRow : public W8TextControl {
 public:
     W8OptionsSaveRow(Controls* owner, int top, unsigned char save_mode);
-    void SetSave(W8SaveSlot* save);
+    void SetSave(W8SaveSlot& save);
+    void ClearSave();
     virtual void Redraw(bool full_redraw) override;
     virtual void OnLeftButtonUp(int event) override;
     virtual void OnLeftButtonDoubleClick(int event) override;
@@ -63,7 +66,6 @@ public:
     W8SaveSlot* m_save;
     W8OptionsSaveRowListener* m_save_listener;
 };
-
 
 /* The settings transfer routines at 005A6E20/005A72F0/005A7320 share this
    receiver. The trailing direction flag is part of the record, not a global.
@@ -119,9 +121,8 @@ public:
     unsigned char m_hide_navigation;
     bool m_active; /* set once the set's panels are built */
     int m_current;
-    std::vector<W8OptionsPanel*> m_panels;
+    std::vector<std::unique_ptr<W8OptionsPanel>> m_panels;
 };
-
 
 /* Widgets bound to an option value; their input handlers store through the
    value pointer. */
@@ -151,12 +152,11 @@ public:
     int* m_value;
 };
 
-
 /* Common base of the concrete option panels. */
 // VTABLE: WIZ8 0x005eefa8
 class W8OptionsPanel : public Controls {
 public:
-    W8OptionsPanel(int region_index);
+    W8OptionsPanel();
     virtual ~W8OptionsPanel();
     virtual void Redraw() override;
     virtual void Populate() = 0;
@@ -170,10 +170,9 @@ public:
     int m_current;
     int m_content_top;
     int unknown_054;
-    std::vector<W8TextBuffer*> m_text_buffers;
-    std::vector<W8OptionsSelection*> m_option_selections;
+    std::vector<std::unique_ptr<W8TextBuffer>> m_text_buffers;
+    std::vector<std::unique_ptr<W8OptionsSelection>> m_option_selections;
 };
-
 
 // VTABLE: WIZ8 0x005ef174
 class W8OptionsGamePanel : public W8OptionsPanel {
@@ -260,7 +259,6 @@ public:
     W8MGSCommand m_secondary_binding;
 };
 
-
 // VTABLE: WIZ8 0x005ef034 W8OptionsPanel
 // VTABLE: WIZ8 0x005ef02c W8TextControl::Listener
 // VTABLE: WIZ8 0x005ef028 W8ControlSelectionListener
@@ -320,7 +318,7 @@ public:
     virtual void OnSelectionChanged(W8ControlSelection* selection, int selected) override;
     void DeleteSelectedSave();
     void LoadSelectedSave();
-    void SaveSelectedSave();
+    void SaveSelectedSave(std::string_view previous_name = {});
     int m_panel;
     std::vector<W8OptionsSaveRow*> m_rows;
     W8ControlSelection m_selection;
@@ -329,12 +327,6 @@ public:
     std::string m_previous_name;
     int m_editing_row;
 };
-
-W8_ASSERT_BASE_END(W8OptionsInterfacePanel, W8TextControl::Listener, m_tooltip_delay, 0x7c);
-W8_ASSERT_BASE_END(W8OptionsAudioPanel, W8TextControl::Listener, m_sliders, 0x7c);
-W8_ASSERT_BASE_TAIL(W8OptionsGraphicsPanel, W8HorizontalRangeThumbListener, 0x78);
-W8_ASSERT_BASE_END(W8OptionsKeyboardPanel, W8DialogCloseListener, m_panel, 0x84);
-W8_ASSERT_BASE_END(W8OptionsSaveLoadPanel, W8ControlSelectionListener, m_panel, 0x88);
 
 /* One row of the main options menu table: the menu item id, two optional
    child text controls (left == -1 when absent), the button bounds, and the
@@ -365,14 +357,12 @@ public:
     int m_item_id;
 };
 
-W8_ASSERT_BASE_END(W8OptionsMenuButton, W8TextControl::Listener, m_item_id, 0xb8);
-
 /* The options menu: its rows and the panel set they select. */
 // VTABLE: WIZ8 0x005eefec Controls
 // VTABLE: WIZ8 0x005eefe4 W8TextControl::Listener
 class W8OptionsMenuSet : public Controls, public W8TextControl::Listener {
 public:
-    W8OptionsMenuSet(unsigned int* shared_region_set);
+    W8OptionsMenuSet();
     virtual ~W8OptionsMenuSet();
     virtual void Redraw() override;
     virtual void OnPrimary(W8TextControl* control) override;
@@ -380,12 +370,10 @@ public:
     W8OptionsPanelSet* m_pMenuSet; /* OptionsScreen.cpp:1481 */
     W8TextControl* m_next;
     W8TextControl* m_previous;
-    W8TextBuffer* m_page_text;
+    std::unique_ptr<W8TextBuffer> m_page_text;
 
     void UpdateMenuSet();
 };
-
-W8_ASSERT_BASE_END(W8OptionsMenuSet, W8TextControl::Listener, m_pMenuSet, 0x4c);
 
 // VTABLE: WIZ8 0x005ef008 W8ControlSelectionListener
 // VTABLE: WIZ8 0x005ef000 W8TextControl::Listener
@@ -398,7 +386,7 @@ public:
     ~W8OptionsScreen();
     void SelectPanel(int selected, bool notify);
     void CreateControls();
-    unsigned char ProcessInput(const InputAtom* input);
+    unsigned char ProcessInput(const InputEvent* input);
     void Redraw();
     void ShowNotification(W8DialogCloseListener* listener, bool allow_cancel, int message,
                           int value);
@@ -408,31 +396,27 @@ public:
     virtual void OnSecondary(W8TextControl*) override {}
     virtual void OnDialogClosed(bool accepted, int value) override;
 
-    std::vector<W8SaveSlot*> m_save_slots;
+    std::vector<std::unique_ptr<W8SaveSlot>> m_save_slots;
     bool m_redraw_pending;
     bool m_modal_closing;
     unsigned char padding_01e[2];
     int m_selected_panel;
-    Controls* m_controls;
-    W8OptionsMenuSet* m_menu_set;
-    W8ControlSelection* m_menu_selection;
+    std::unique_ptr<Controls> m_controls;
+    std::unique_ptr<W8OptionsMenuSet> m_menu_set;
+    std::unique_ptr<W8ControlSelection> m_menu_selection;
     unsigned char unknown_030[8];
-    W8OptionsPanelSet* m_panel[8];
+    std::unique_ptr<W8OptionsPanelSet> m_panel[8];
     W8MessageDialogBase* m_active_modal; /* frame/leave own and clear it */
     W8OptionsTextEditor* m_text_editor;
     W8OptionsKeyCapture* m_key_capture;
 };
 
-W8_ASSERT_BASE_END(W8OptionsScreen, W8DialogCloseListener, m_save_slots, 0x8);
-
-extern W8OptionsScreen* g_options_screen;
+extern std::unique_ptr<W8OptionsScreen> g_options_screen;
 extern std::string g_options_last_save_name;
 
 void SetLastSaveName(std::string_view target);
 std::string_view GetLastSaveName(void);
 
-unsigned char OptionsScreenInitialize(void);
 unsigned char OptionsScreenEnter(void);
 void OptionsScreenFrame(void);
 unsigned char OptionsScreenLeave(int leaving);
-unsigned char OptionsScreenFinalize(void);

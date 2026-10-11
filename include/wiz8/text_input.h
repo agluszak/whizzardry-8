@@ -3,12 +3,12 @@
 #include <string_view>
 
 #include "input.h"
-#include "mousesystem.h"
 #include <stddef.h>
 
 struct TEXTINPUTNODE;
+struct Font;
 
-void InitTextInputMode(void);
+void InitTextInputMode(Font& font);
 void InitTextInputModeWithScheme(int mode);
 void KillTextInputMode(void);
 char AddTextInputField(int left, int top, int width, int height, int priority, std::string_view text,
@@ -23,14 +23,14 @@ std::string GetTextFromField(unsigned char field);
 void ClearActiveField(void);
 void SelectNextField(void);
 bool EditingText(void); /* 0x005D5A00 */
-unsigned int HandleTextInput(const InputAtom* input);
+unsigned int HandleTextInput(const InputEvent* input);
 void RenderActiveTextField(void);
 void RenderAllTextFields(void);
 
 int GetTextInputCursor(void); /* 0x0055EF80: mouse cursor image */
 std::size_t GetTextInputByteCursor(void);
-void MouseMovedInTextRegionCallback(MOUSE_REGION* region, int reason);
-void MouseClickedInTextRegionCallback(MOUSE_REGION* region, int reason);
+void MouseMovedInTextRegionCallback(TEXTINPUTNODE* field, int reason);
+void MouseClickedInTextRegionCallback(TEXTINPUTNODE* field, int reason);
 void SetTextInputScheme(char mode);
 std::size_t CalculateCursorPos(int width, std::size_t cursor, std::string_view text, int* cursor_width,
                                 size_t* visible_count);

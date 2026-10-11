@@ -1,12 +1,12 @@
+#include <SDL3/SDL_platform.h>
 #include <memory>
 #include <iostream>
-
 #include <thread>
-
-#include <SDL3/SDL_platform.h>
+#include <string>
+#include <string_view>
 
 #include "surrender/srCore.h"
-#include "surrender/srStreamFlags.h"
+#include "surrender/stream_scope.h"
 #include "surrender/srColorSurface.h"
 #include "surrender/srDebug.h"
 #include "surrender/srFilter.h"
@@ -18,6 +18,13 @@
 #include "surrender/srTextureMap.h"
 #include "surrender/srTriMeshPipeline.h"
 #include "surrender/srTypeRegistry.h"
+#include "compat/compiler.h"
+#include "compat/native.h"
+#include "surrender/srClock.h"
+#include "surrender/srColorSurfaceIFace.h"
+#include "surrender/srNode.h"
+#include "surrender/srStatisticsManager.h"
+#include "surrender/srTexture.h"
 
 // FUNCTION: SURRENDER 0x10014FE0
 void __cdecl _srLibraryInit(void)
@@ -205,8 +212,7 @@ void srCore::reset()
 // FUNCTION: SURRENDER 0x10015CF0
 void srCore::dump(std::ostream& stream)
 {
-    w8_long flags = srGetStreamFlags(stream);
-    srSetStreamFlags(stream, (flags & ~0x180L) | 0x40);
+    const srDumpStreamScope formatting(stream);
     stream << '\n' << getCopyright() << '\n';
     stream.width(0x18);
     stream << "Build time: " << getBuildTime() << '\n';
@@ -221,7 +227,6 @@ void srCore::dump(std::ostream& stream)
     stream << "  Logical CPUs: " << std::thread::hardware_concurrency() << '\n';
     stream.width(0x18);
     stream << "  Multi-thread:  " << srBoolToString(multi_thread) << '\n';
-    srSetStreamFlags(stream, flags & 0x7fff);
 }
 
 // GLOBAL: SURRENDER 0x100A4778

@@ -7,4 +7,5 @@ add_test(NAME portable_default_roots COMMAND portable_filesystem_test default-ro
 
 add_executable(portable_file_time_test file_time_test.cpp)
 target_link_libraries(portable_file_time_test PRIVATE wiz8_filesystem)
-add_test(NAME portable_file_time COMMAND portable_file_time_test)
+catch_discover_tests(portable_file_time_test
+    TEST_PREFIX "portable_file_time/")

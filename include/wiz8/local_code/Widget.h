@@ -1,6 +1,7 @@
 #pragma once
 
 #include "wiz8/local_code/ControlsRect.h"
+#include "wiz8/regions.h"
 
 /* Shared declaration owner; implementation remains in Local Code\Controls.cpp. */
 
@@ -22,7 +23,11 @@ public:
     }
     W8Widget(Controls* owner, unsigned int region, int left, int top, int right, int bottom);
 
-    void SetPanel(Controls* panel);
+    W8Widget(const W8Widget&) = delete;
+    W8Widget& operator=(const W8Widget&) = delete;
+
+    // Transfer a panel-owned child; detach with Controls::TakeControl instead.
+    void SetPanel(Controls& panel);
     void SetRegion(unsigned int region);
     void Invalidate(bool immediate);
     void SetActive(bool active);
@@ -52,6 +57,8 @@ public:
     virtual void ActivateSecondary(int) {}
 
 protected:
+    bool OwnsRegion() const;
+    void ReleaseRegion();
     void UpdateRegionBounds(int left, int top, int right, int bottom);
 
 public:
@@ -75,5 +82,5 @@ public:
     W8ControlCallback m_secondaryActivationCallback;
     W8ControlCallback m_rightButtonDownCallback;
     W8ControlCallback m_leftDoubleClickCallback;
+    OwnedRegion m_owned_region;
 };
-W8_ABI_ASSERT(sizeof(W8Widget) == 0x34, "W8Widget_size");

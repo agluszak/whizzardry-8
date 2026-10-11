@@ -1,31 +1,31 @@
+#include "glm/ext/vector_double3.hpp"
 #include <fmt/format.h>
-#include "wiz8/unicode.h"
 #include <string>
-#include "surrender/srBoundingBox.h"
 #include <array>
+#include <cmath>
+#include <vector>
+#include <SDL3/SDL_pixels.h>
+#include <SDL3/SDL_surface.h>
+#include <cstdlib>
+#include <cstring>
+#include <memory>
+#include <utility>
+
+#include "compat/compiler.h"
+#include "wiz8/surface_storage.h"
+#include "wiz8/unicode.h"
+#include "surrender/srBoundingBox.h"
 #include "wiz8/containers.h"
 #include "surrender/srMath.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/world_cursor.h"
-#include "wiz8/engine_code/World.h"
-#include "wiz8/engine_code/Monster.h"
-#include "wiz8/engine_code/GDCamera.h"
-#include <vector>
-#include <algorithm>
-#include "wiz8/engine_code/Environment.h"
 #include "wiz8/engine_code/Video2.h"
-#include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/local_screens/mipe.h"
-#include "wiz8/engine_code/stParticle.h"
 #include "wiz8/engine_code/stCube.h"
 #include "wiz8/engine_code/stMeshModel.h"
 #include "wiz8/engine_code/stModelInstance.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/fonts.h"
-#include "wiz8/local_code/Controls.h"
 #include "wiz8/sr_api.h"
-#include "wiz8/utility.h"
-#include "wiz8/geometry.h"
 #include "surrender/srNode.h"
 #include "surrender/srCamera.h"
 #include "surrender/srModeler.h"
@@ -35,16 +35,16 @@
 #include "surrender/srPixelConvert.h"
 #include "surrender/srFilter.h"
 #include "Font.h"
-
-#include <math.h>
-#include <new>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include "wiz8/engine_code/GameData.h"
-#include "wiz8/engine_code/PolyPick.h"
-#include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/filesystem.h"
+#include "glm/ext/vector_float2.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include "glm/ext/vector_float4.hpp"
+#include "layouts/world.h"
+#include "surrender/srColorSurfaceIFace.h"
+#include "surrender/srMeshModel.h"
+#include "surrender/srShader.h"
+#include "surrender/srTextureIFace.h"
 
 #define ST_CUBE_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\stCube.cpp"
 
@@ -54,7 +54,7 @@
 unsigned char W8WorldCursorNode::GetLocation(srVector3T<float>* position)
 {
     if (node != 0) {
-        node->getLocation(*position);
+        *position = glm::vec3(node->getLocation());
         return 1;
     }
     return 0;
@@ -207,7 +207,7 @@ void MoveWorldCursorNode(W8WorldCursorNode* entry, srVector3T<float>* position)
         srAssertFail("pCube", ST_CUBE_CPP, 0x10b, 0);
     }
     if (entry->node != 0) {
-        entry->node->setLocation(srVector3T<double>(static_cast<double>(location.x),
+        entry->node->setLocation(glm::dvec3(static_cast<double>(location.x),
                                                     static_cast<double>(location.y),
                                                     static_cast<double>(location.z)));
     }
@@ -243,26 +243,28 @@ void DrawWorldCursorNodeLabel(W8WorldCursorNode* entry)
         if (data == 0) {
             srAssertFail("pBuffer", ST_CUBE_CPP, 0x130, 0);
         }
-        SaveFontSettings();
-        SetFontDestBuffer(FontDestBuffer, 0, 0, surface->getWidth(), surface->getHeight(),
-                          static_cast<unsigned char>(FontDestWrap));
-        SetFont(g_smfnt_font);
-        SetFontObjectPalette16BPP(g_smfnt_font, GetFontObject(g_smfnt_font)->ownedPalette.get());
-        for (int index = 0; index < 3; ++index) {
-            std::string text;
-            text = fmt::format("{:d}", entry->parameters[index]);
-            DrawFontTextToBuffer(data, surface->getPitch(), g_smfnt_font, 0,
-                                 GetFontHeight(g_smfnt_font) * index, text);
+        {
+            g_smfnt_font.resetPalette();
+            SDLSurfaceOwner text_surface{
+                SDL_CreateSurfaceFrom(surface->getWidth(), surface->getHeight(),
+                                      SDL_PIXELFORMAT_RGB565, data, surface->getPitch()),
+                SDL_DestroySurface};
+            if (text_surface) {
+                for (int index = 0; index < 3; ++index) {
+                    std::string text;
+                    text = fmt::format("{:d}", entry->parameters[index]);
+                    DrawText(*text_surface, g_smfnt_font, {0, g_smfnt_font.height() * index}, text);
+                }
+            }
+            texture->invalidate();
         }
-        texture->invalidate();
-        RestoreFontSettings();
     }
 }
 
 // FUNCTION: WIZ8 0x0048de40
 void ScaleWorldCursorNodeX(W8WorldCursorNode* entry, double scale)
 {
-    srVector3T<float> factors(static_cast<float>(scale), 1.0f, 1.0f);
+    glm::vec3 factors(static_cast<float>(scale), 1.0f, 1.0f);
     if (entry != 0) {
         stMeshModel* model =
             static_cast<stMeshModel*>(static_cast<stModelInstance*>(entry->node)->getModel());
@@ -275,7 +277,7 @@ void ScaleWorldCursorNodeX(W8WorldCursorNode* entry, double scale)
 // FUNCTION: WIZ8 0x0048de90
 void ScaleWorldCursorNodeY(W8WorldCursorNode* entry, double scale)
 {
-    srVector3T<float> factors(1.0f, static_cast<float>(scale), 1.0f);
+    glm::vec3 factors(1.0f, static_cast<float>(scale), 1.0f);
     if (entry != 0) {
         stMeshModel* model =
             static_cast<stMeshModel*>(static_cast<stModelInstance*>(entry->node)->getModel());
@@ -288,7 +290,7 @@ void ScaleWorldCursorNodeY(W8WorldCursorNode* entry, double scale)
 // FUNCTION: WIZ8 0x0048dee0
 void ScaleWorldCursorNodeZ(W8WorldCursorNode* entry, double scale)
 {
-    srVector3T<float> factors(1.0f, 1.0f, static_cast<float>(scale));
+    glm::vec3 factors(1.0f, 1.0f, static_cast<float>(scale));
     if (entry != 0) {
         stMeshModel* model =
             static_cast<stMeshModel*>(static_cast<stModelInstance*>(entry->node)->getModel());
@@ -319,24 +321,19 @@ void DrawWorldBox(W8World* world, srVector3T<float> minimum, srVector3T<float> m
     corners[6].Set(maximum.x, maximum.y, maximum.z);
     corners[7].Set(maximum.x, maximum.y, minimum.z);
 
-    glm::vec2 viewport_minimum;
-    glm::vec2 viewport_maximum;
-    GetScaledViewportBounds(&viewport_minimum, &viewport_maximum);
-    float viewport_width = viewport_maximum.x - viewport_minimum.x;
-    float viewport_height = viewport_maximum.y - viewport_minimum.y;
+    const auto viewport = GetScaledViewportBounds();
+    float viewport_width = viewport.maximum.x - viewport.minimum.x;
+    float viewport_height = viewport.maximum.y - viewport.minimum.y;
 
     w8_long screen[8][2];
     for (int index = 0; index < 8; ++index) {
-        srVector3T<float> projected;
-        srVector3T<double> position(corners[index].x, corners[index].y, corners[index].z);
-        if (world->camera->project(projected, position) ==
-            static_cast<srCamera::e_projectionResult>(-1)) {
-            return;
-        }
+        const auto projection = world->camera->project(glm::dvec3(corners[index].glmValue()));
+        if (projection.result == srCamera::PROJECTION_RESULT_OUTSIDE_CLIP_RANGE) return;
+        const auto projected = projection.position;
         screen[index][0] =
-            static_cast<w8_long>((projected.x * viewport_width + viewport_minimum.x) * 640.0f);
+            static_cast<w8_long>((projected.x * viewport_width + viewport.minimum.x) * 640.0f);
         screen[index][1] =
-            static_cast<w8_long>((projected.y * viewport_height + viewport_minimum.y) * 480.0f);
+            static_cast<w8_long>((projected.y * viewport_height + viewport.minimum.y) * 480.0f);
         if (screen[index][0] < 0 || screen[index][0] > 640 || screen[index][1] < 0 ||
             screen[index][1] > 480) {
             return;
@@ -396,11 +393,10 @@ W8WorldCursorNode* FindNearestWorldCursorNode(int x, int y)
     for (int index = 0; index < count; ++index) {
         W8WorldCursorNode* entry = g_world_cursor_nodes[index];
         if (entry != 0 && entry->node != 0 && entry->node == GetPickedModelInstance()) {
-            srVector3T<double> camera;
-            g_world->camera->getLocation(camera);
-            srVector3T<double> node;
-            entry->node->getLocation(node);
-            float distance = static_cast<float>((node - camera).Length());
+            const auto camera = g_world->camera->getLocation();
+            const auto node = entry->node->getLocation();
+            float distance = static_cast<float>(
+                std::hypot(node.x - camera.x, node.y - camera.y, node.z - camera.z));
             if (distance < nearest) {
                 nearest = distance;
                 result = entry;
@@ -433,20 +429,20 @@ void SetWorldCursorNodeColorComponents(W8WorldCursorNode* entry, float red, floa
 }
 
 // FUNCTION: WIZ8 0x0048e470
-unsigned int LoadWorldCursorNodeStates(wiz8::File* handle)
+unsigned int LoadWorldCursorNodeStates(wiz8::File& handle)
 {
     int version;
     unsigned int count;
     unsigned int index;
     bool success = true;
 
-    if (!(handle->read(&version, 4).bytes == static_cast<std::size_t>(4))) {
+    if (!(handle.read(&version, 4).bytes == static_cast<std::size_t>(4))) {
         return 0;
     }
     if (version == 0x21122112) {
         version = 1;
     }
-    if (!(handle->read(&count, 4).bytes == static_cast<std::size_t>(4))) {
+    if (!(handle.read(&count, 4).bytes == static_cast<std::size_t>(4))) {
         return 0;
     }
 
@@ -460,7 +456,7 @@ unsigned int LoadWorldCursorNodeStates(wiz8::File* handle)
             char name[0x20];
             int cube_index;
 
-            handle->read_exact(name, sizeof(name));
+            handle.read_exact(name, sizeof(name));
             for (cube_index = 0; cube_index < static_cast<int>(g_world_cursor_nodes.size());
                  ++cube_index) {
                 W8WorldCursorNode* candidate = g_world_cursor_nodes[cube_index];
@@ -475,7 +471,7 @@ unsigned int LoadWorldCursorNodeStates(wiz8::File* handle)
             }
         }
 
-        if (success && (handle->read(&cube->userdata_size, 4).bytes == static_cast<std::size_t>(4))) {
+        if (success && (handle.read(&cube->userdata_size, 4).bytes == static_cast<std::size_t>(4))) {
             success = true;
         } else {
             success = false;
@@ -486,7 +482,7 @@ unsigned int LoadWorldCursorNodeStates(wiz8::File* handle)
                 srAssertFail("pCube->pUserdata", ST_CUBE_CPP, 0x3c8, 0);
             }
             memset(cube->pUserdata, 0, cube->userdata_size);
-            if (success && (handle->read(cube->pUserdata, cube->userdata_size).bytes == static_cast<std::size_t>(cube->userdata_size))) {
+            if (success && (handle.read(cube->pUserdata, cube->userdata_size).bytes == static_cast<std::size_t>(cube->userdata_size))) {
                 success = true;
             } else {
                 success = false;
@@ -505,7 +501,7 @@ unsigned int LoadWorldCursorNodeStates(wiz8::File* handle)
 }
 
 // FUNCTION: WIZ8 0x0048e6d0
-unsigned char SaveWorldCursorNodeStates(wiz8::File* handle)
+unsigned char SaveWorldCursorNodeStates(wiz8::File& handle)
 {
     bool ok = true;
     int version = 2;
@@ -513,44 +509,44 @@ unsigned char SaveWorldCursorNodeStates(wiz8::File* handle)
     unsigned int index;
     W8WorldCursorNode* node;
 
-    if (!(handle->write(&version, 4), true)) {
+    if (!(handle.write(&version, 4), true)) {
         return 0;
     }
     count = static_cast<int>(g_world_cursor_nodes.size());
-    if (!(handle->write(&count, 4), true)) {
+    if (!(handle.write(&count, 4), true)) {
         return 0;
     }
     for (index = 0; index < count && ok; ++index) {
         node = g_world_cursor_nodes[index];
-        ok = (handle->write(node->name, sizeof(node->name)), true) &&
-             (handle->write(&node->userdata_size, 4), true);
+        ok = (handle.write(node->name, sizeof(node->name)), true) &&
+             (handle.write(&node->userdata_size, 4), true);
         if (node->userdata_size != 0) {
-            ok = ok && (handle->write(node->pUserdata, node->userdata_size), true);
+            ok = ok && (handle.write(node->pUserdata, node->userdata_size), true);
         }
     }
     return ok;
 }
 
 // FUNCTION: WIZ8 0x0048e7b0
-unsigned int LoadWorldCursorNodes(wiz8::File* handle)
+unsigned int LoadWorldCursorNodes(wiz8::File& handle)
 {
     int version;
     unsigned int count;
     unsigned int index;
     bool success = true;
 
-    if (!(handle->read(&version, 4).bytes == static_cast<std::size_t>(4))) {
+    if (!(handle.read(&version, 4).bytes == static_cast<std::size_t>(4))) {
         return 0;
     }
     if (static_cast<unsigned int>(version) == 0xdeadd00d) {
         version = 1;
     }
     if (version > 2) {
-        handle->read_exact(&gXStatus.mipe_cube_serial, 4);
+        handle.read_exact(&gXStatus.mipe_cube_serial, 4);
     } else {
         gXStatus.mipe_cube_serial = 100;
     }
-    if (!(handle->read(&count, 4).bytes == static_cast<std::size_t>(4))) {
+    if (!(handle.read(&count, 4).bytes == static_cast<std::size_t>(4))) {
         return 0;
     }
 
@@ -562,7 +558,7 @@ unsigned int LoadWorldCursorNodes(wiz8::File* handle)
         int component;
 
         if (version >= 2) {
-            handle->read_exact(cube->name, 0x20);
+            handle.read_exact(cube->name, 0x20);
             if (cube->name[0] == 0) {
                 wiz8::text::write_utf8_field(fmt::format("Cube{:03d}", gXStatus.mipe_cube_serial++),
                                              cube->name);
@@ -571,28 +567,28 @@ unsigned int LoadWorldCursorNodes(wiz8::File* handle)
             wiz8::text::write_utf8_field(fmt::format("Cube{:d}", index), cube->name);
         }
         for (component = 0; component < 3; ++component) {
-            if (success && (handle->read(&cube->parameters[component], 4).bytes == static_cast<std::size_t>(4))) {
+            if (success && (handle.read(&cube->parameters[component], 4).bytes == static_cast<std::size_t>(4))) {
                 success = true;
             } else {
                 success = false;
             }
         }
         for (component = 0; component < 3; ++component) {
-            if (success && (handle->read(&(&minimum.x)[component], 4).bytes == static_cast<std::size_t>(4))) {
+            if (success && (handle.read(&(&minimum.x)[component], 4).bytes == static_cast<std::size_t>(4))) {
                 success = true;
             } else {
                 success = false;
             }
         }
         for (component = 0; component < 3; ++component) {
-            if (success && (handle->read(&(&maximum.x)[component], 4).bytes == static_cast<std::size_t>(4))) {
+            if (success && (handle.read(&(&maximum.x)[component], 4).bytes == static_cast<std::size_t>(4))) {
                 success = true;
             } else {
                 success = false;
             }
         }
 
-        srVector3T<float> scale((maximum.x - minimum.x) * static_cast<float>(g_world_cursor_scale),
+        glm::vec3 scale((maximum.x - minimum.x) * static_cast<float>(g_world_cursor_scale),
                                 (maximum.y - minimum.y) * static_cast<float>(g_world_cursor_scale),
                                 (maximum.z - minimum.z) * static_cast<float>(g_world_cursor_scale));
         if (cube != 0) {
@@ -606,7 +602,7 @@ unsigned int LoadWorldCursorNodes(wiz8::File* handle)
         }
 
         for (component = 0; component < 3; ++component) {
-            if (success && (handle->read(&(&location.x)[component], 4).bytes == static_cast<std::size_t>(4))) {
+            if (success && (handle.read(&(&location.x)[component], 4).bytes == static_cast<std::size_t>(4))) {
                 success = true;
             } else {
                 success = false;
@@ -616,12 +612,12 @@ unsigned int LoadWorldCursorNodes(wiz8::File* handle)
             srAssertFail("pCube", ST_CUBE_CPP, 0x10b, 0);
         }
         if (cube->node != 0) {
-            srVector3T<double> node_location(static_cast<double>(location.x),
+            glm::dvec3 node_location(static_cast<double>(location.x),
                                              static_cast<double>(location.y),
                                              static_cast<double>(location.z));
             cube->node->setLocation(node_location);
         }
-        if (success && (handle->read(&cube->value_08, 4).bytes == static_cast<std::size_t>(4))) {
+        if (success && (handle.read(&cube->value_08, 4).bytes == static_cast<std::size_t>(4))) {
             success = true;
         } else {
             success = false;
@@ -632,7 +628,7 @@ unsigned int LoadWorldCursorNodes(wiz8::File* handle)
 }
 
 // FUNCTION: WIZ8 0x0048ead0
-unsigned char SaveWorldCursorNodes(wiz8::File* handle)
+unsigned char SaveWorldCursorNodes(wiz8::File& handle)
 {
     bool ok = true;
     int version = 3;
@@ -641,32 +637,31 @@ unsigned char SaveWorldCursorNodes(wiz8::File* handle)
     int component;
     srVector3T<float> location;
     W8WorldCursorNode* node;
-    srNode::BoundInfo bounds;
 
-    if (!(handle->write(&version, 4), true)) {
+    if (!(handle.write(&version, 4), true)) {
         return 0;
     }
-    handle->write(&gXStatus.mipe_cube_serial, 4);
+    handle.write(&gXStatus.mipe_cube_serial, 4);
     count = static_cast<int>(g_world_cursor_nodes.size());
-    if (!(handle->write(&count, 4), true)) {
+    if (!(handle.write(&count, 4), true)) {
         return 0;
     }
     for (index = 0; index < count && ok; ++index) {
         node = g_world_cursor_nodes[index];
-        handle->write(node->name, sizeof(node->name));
+        handle.write(node->name, sizeof(node->name));
         for (component = 0; component < 3 && ok; ++component) {
-            ok = (handle->write(&node->parameters[component], 4), true);
+            ok = (handle.write(&node->parameters[component], 4), true);
         }
-        node->node->getLocalBounds(bounds);
+        const auto bounds = node->node->getLocalBounds();
         location = glm::vec3(node->node->getLocation());
-        ok = ok && (handle->write(&bounds.minimum.x, 4), true) &&
-             (handle->write(&bounds.minimum.y, 4), true) &&
-             (handle->write(&bounds.minimum.z, 4), true) &&
-             (handle->write(&bounds.maximum.x, 4), true) &&
-             (handle->write(&bounds.maximum.y, 4), true) &&
-             (handle->write(&bounds.maximum.z, 4), true) && (handle->write(&location.x, 4), true) &&
-             (handle->write(&location.y, 4), true) && (handle->write(&location.z, 4), true) &&
-             (handle->write(&node->value_08, 4), true);
+        ok = ok && (handle.write(&bounds.minimum.x, 4), true) &&
+             (handle.write(&bounds.minimum.y, 4), true) &&
+             (handle.write(&bounds.minimum.z, 4), true) &&
+             (handle.write(&bounds.maximum.x, 4), true) &&
+             (handle.write(&bounds.maximum.y, 4), true) &&
+             (handle.write(&bounds.maximum.z, 4), true) && (handle.write(&location.x, 4), true) &&
+             (handle.write(&location.y, 4), true) && (handle.write(&location.z, 4), true) &&
+             (handle.write(&node->value_08, 4), true);
     }
     return ok;
 }
@@ -742,8 +737,7 @@ W8WorldCursorNode* FindWorldCursorNodeAtPoint(W8WorldCursorNode* after, srVector
     while (index < count) {
         W8WorldCursorNode* entry = g_world_cursor_nodes[index];
         if (entry->node != 0) {
-            srNode::BoundInfo bounds;
-            entry->node->getLocalBounds(bounds);
+            const auto bounds = entry->node->getLocalBounds();
             const auto location = glm::vec3(entry->node->getLocation());
             const srBoundingBox box{bounds.minimum + location, bounds.maximum + location};
             if (box.contains(point->glmValue())) {
@@ -753,28 +747,6 @@ W8WorldCursorNode* FindWorldCursorNodeAtPoint(W8WorldCursorNode* after, srVector
         ++index;
     }
     return 0;
-}
-
-/* Copy the node's userdata pointer and size into the caller's slots; either
-   out pointer may be null. */
-// FUNCTION: WIZ8 0x0048EF00
-void GetWorldCursorNodeUserdata(W8WorldCursorNode* entry, char** buffer, int* size)
-{
-    if (entry != 0) {
-        if (buffer != 0) {
-            *buffer = static_cast<char*>(entry->pUserdata);
-        }
-        if (size != 0) {
-            *size = entry->userdata_size;
-        }
-    } else {
-        if (buffer != 0) {
-            *buffer = 0;
-        }
-        if (size != 0) {
-            *size = 0;
-        }
-    }
 }
 
 /* Allocate the node's userdata scratch, or release it when `size` is zero.
@@ -811,7 +783,7 @@ bool SelectWorldCursorNode(void)
         srVector3T<float> camera_position;
         srVector3T<double> camera_location;
 
-        GetCameraPosition(&camera_position);
+        camera_position = cameraLocation();
         camera_location = glm::dvec3(camera_position.glmValue());
         int selected = g_cursor_node_index;
         if (static_cast<std::size_t>(selected) < g_world_cursor_nodes.size()) {

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "wiz8/engine_code/game_timer.h"
+#include "compat/compiler.h"
 
 /* Address-qualified W8GameTimer specialization constructed beside the
    canonical GDCamera owner in GameData.cpp. */
@@ -27,8 +28,6 @@ private:
     /* 0x30: running total of the scaled deltas. */
     float m_elapsed;
 };
-
-W8_ABI_ASSERT(sizeof(W8GameTimeAccumulator) == 0x34, "W8GameTimeAccumulator_must_be_0x34");
 
 extern W8GameTimeAccumulator* g_game_time_accumulator;
 

@@ -1,13 +1,16 @@
+#include <memory>
 #include <fmt/format.h>
 #include <fmt/printf.h>
+#include <optional>
+#include <string>
+#include <vector>
+
 #include "wiz8/local_screens/MGSSpellIcons.h"
-#include "wiz8/sr_api.h"
-#include "wiz8/utility.h"
+#include "input.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/combat_state.h"
-#include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/screen_state.h"
@@ -19,6 +22,9 @@
 #include "wiz8/regions.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/engine_code/3dapi.h"
+#include "gameplay_modifiers.h"
+#include "layouts/main_game_screen.h"
+#include "wiz8/catalog_artwork.h"
 
 // GLOBAL: WIZ8 0x0069c260
 static unsigned int g_effect_icon_help_duration;
@@ -27,6 +33,7 @@ static unsigned int g_effect_icon_help_duration;
 unsigned int g_spell_icon_count;
 /* Child spell-icon text controls under g_spell_icon_strip. */
 // GLOBAL: WIZ8 0x0069C264
+static constexpr unsigned int kPartyEffectIconCount = 9;
 static W8TextControl* g_spell_icon_rows[12];
 /* Right-side combat-effect icon rows under g_combat_effect_right_panel. */
 // GLOBAL: WIZ8 0x0069C294
@@ -34,13 +41,13 @@ static W8TextControl* g_combat_effect_right_rows[6];
 // GLOBAL: WIZ8 0x0069C2AC
 unsigned int g_combat_effect_right_count;
 // GLOBAL: WIZ8 0x0069C2B0
-Controls* g_spell_icon_strip;
+std::unique_ptr<Controls> g_spell_icon_strip;
 // GLOBAL: WIZ8 0x0069C2B4
 unsigned int g_combat_effect_left_count;
 // GLOBAL: WIZ8 0x0069C2B8
-Controls* g_combat_effect_right_panel;
+std::unique_ptr<Controls> g_combat_effect_right_panel;
 // GLOBAL: WIZ8 0x0069C2BC
-Controls* g_combat_effect_left_panel;
+std::unique_ptr<Controls> g_combat_effect_left_panel;
 /* Left-side combat-effect icon rows under g_combat_effect_left_panel. */
 // GLOBAL: WIZ8 0x0069C2C0
 static W8TextControl* g_combat_effect_left_rows[9];
@@ -52,24 +59,24 @@ static void RebuildCombatEffectHudRows(void);
 // FUNCTION: WIZ8 0x005AE9D0
 unsigned char CreateSpellIconHudControls(void)
 {
-    g_spell_icon_strip = 0;
-    g_combat_effect_left_panel = 0;
-    g_combat_effect_right_panel = 0;
+    g_spell_icon_strip.reset();
+    g_combat_effect_left_panel.reset();
+    g_combat_effect_right_panel.reset();
 
-    g_spell_icon_strip = new Controls(0x19d, 0, 0x280, 0x12, -1, 0, 0);
-    if (g_spell_icon_strip == 0) {
+    g_spell_icon_strip = std::make_unique<Controls>(0x19d, 0, 0x280, 0x12, std::nullopt, 0);
+    if (!g_spell_icon_strip) {
         return 0;
     }
 
     g_spell_icon_count = 0;
-    g_combat_effect_left_panel = new Controls(0x81, 0x14, 0x13d, 0x28, -1, 0, 0);
-    if (g_combat_effect_left_panel == 0) {
+    g_combat_effect_left_panel = std::make_unique<Controls>(0x81, 0x14, 0x13d, 0x28, std::nullopt, 0);
+    if (!g_combat_effect_left_panel) {
         return 0;
     }
 
     g_combat_effect_left_count = 0;
-    g_combat_effect_right_panel = new Controls(0x182, 0x14, 0x1ff, 0x28, -1, 0, 0);
-    if (g_combat_effect_right_panel == 0) {
+    g_combat_effect_right_panel = std::make_unique<Controls>(0x182, 0x14, 0x1ff, 0x28, std::nullopt, 0);
+    if (!g_combat_effect_right_panel) {
         return 0;
     }
 
@@ -78,14 +85,12 @@ unsigned char CreateSpellIconHudControls(void)
 }
 
 /* Strip rows are detached before destruction. Destruction can change the
-   live panel/count, so each iteration reads them again; slots stay dangling. */
-static void DestroyEffectIconRows(Controls*& panel, W8TextControl** rows, const unsigned int& count)
+   live panel/count, so each iteration reads them again and clears the observer slot. */
+static void DestroyEffectIconRows(const std::unique_ptr<Controls>& panel, W8TextControl** rows, const unsigned int& count)
 {
     for (unsigned int index = 0; index < count; ++index) {
-        panel->RemoveControl(rows[index]);
-        if (rows[index] != 0) {
-            delete rows[index];
-        }
+        auto row = panel->TakeControl(rows[index]);
+        rows[index] = nullptr;
     }
 }
 
@@ -93,8 +98,14 @@ static void ClearSpellIconHudRows()
 {
     unsigned int index;
     DestroyEffectIconRows(g_spell_icon_strip, g_spell_icon_rows, g_spell_icon_count);
-    for (index = 0; index < 0xc; ++index) {
-        DisableRegionInput(0xd5 - index);
+    /* Retail swept twelve catalog slots downward from the last party icon,
+       running three past the strip into the neighbouring set. The screen now
+       owns exactly the nine party-icon regions, and the sweep must skip the
+       leave path that has already destroyed them. */
+    if (g_main_effect_regions) {
+        for (index = 0; index < kPartyEffectIconCount; ++index) {
+            DisableRegionInput(g_main_effect_regions->index(kPartyEffectIconCount - 1 - index));
+        }
     }
     g_spell_icon_count = 0;
 }
@@ -103,17 +114,11 @@ static void ClearSpellIconHudRows()
 void DestroySpellIconHudControls(void)
 {
     ClearSpellIconHudRows();
-    if (g_spell_icon_strip != 0) {
-        delete g_spell_icon_strip;
-    }
+    g_spell_icon_strip.reset();
 
     DestroyCombatEffectHudRows();
-    if (g_combat_effect_left_panel != 0) {
-        delete g_combat_effect_left_panel;
-    }
-    if (g_combat_effect_right_panel != 0) {
-        delete g_combat_effect_right_panel;
-    }
+    g_combat_effect_left_panel.reset();
+    g_combat_effect_right_panel.reset();
 }
 
 /* Drop the live spell-icon rows and rebuild them from the current party spell
@@ -151,11 +156,12 @@ void RebuildSpellIconHudRows(void)
             if (icon == -1) {
                 ReportAssertion("iSpellIcon != BAD_INDEX", MGSSPELLICONS_CPP, 0x108);
             }
-            control = new W8TextControl(g_spell_icon_strip, 0xd5 - g_spell_icon_count, left, 0,
-                                        right, 0x12, icon, 0, 0, -1, -1, -1, -1);
+            control = new W8TextControl(g_spell_icon_strip.get(), g_main_effect_regions->index(8 - g_spell_icon_count),
+                                        left, 0, right, 0x12, CatalogArtwork::Load(icon, 0), 0, -1,
+                                        -1, -1, -1);
             g_spell_icon_rows[g_spell_icon_count] = control;
             control->Invalidate(false);
-            EnableRegionInput(0xd5 - g_spell_icon_count);
+            EnableRegionInput(g_main_effect_regions->index(8 - g_spell_icon_count));
             ++g_spell_icon_count;
             right = left - 1;
             left -= 0x13;
@@ -214,11 +220,13 @@ static void RebuildCombatEffectHudRows(void)
                 ReportAssertion("iSpellIcon != BAD_INDEX", MGSSPELLICONS_CPP, 0x228);
             }
             control =
-                new W8TextControl(g_combat_effect_left_panel, g_combat_effect_left_count + 0xd6,
-                                  left, 0, right, 0x14, icon, 0, 0, -1, -1, -1, -1);
+                new W8TextControl(g_combat_effect_left_panel.get(),
+                                  g_main_effect_regions->index(9 + g_combat_effect_left_count), left,
+                                  0, right, 0x14, CatalogArtwork::Load(icon, 0), 0, -1, -1, -1,
+                                  -1);
             g_combat_effect_left_rows[g_combat_effect_left_count] = control;
             control->Invalidate(false);
-            EnableRegionInput(g_combat_effect_left_count + 0xd6);
+            EnableRegionInput(g_main_effect_regions->index(9 + g_combat_effect_left_count));
             ++g_combat_effect_left_count;
             left = right + 1;
             right += 0x15;
@@ -236,11 +244,13 @@ static void RebuildCombatEffectHudRows(void)
                 ReportAssertion("iSpellIcon != BAD_INDEX", MGSSPELLICONS_CPP, 0x25e);
             }
             control =
-                new W8TextControl(g_combat_effect_right_panel, 0xe4 - g_combat_effect_right_count,
-                                  left, 0, right, 0x14, icon, 0, 0, -1, -1, -1, -1);
+                new W8TextControl(
+                    g_combat_effect_right_panel.get(),
+                    g_main_effect_regions->index(23 - g_combat_effect_right_count), left, 0, right,
+                    0x14, CatalogArtwork::Load(icon, 0), 0, -1, -1, -1, -1);
             g_combat_effect_right_rows[g_combat_effect_right_count] = control;
             control->Invalidate(false);
-            EnableRegionInput(0xe4 - g_combat_effect_right_count);
+            EnableRegionInput(g_main_effect_regions->index(23 - g_combat_effect_right_count));
             ++g_combat_effect_right_count;
             right = left - 1;
             left -= 0x15;
@@ -254,15 +264,19 @@ void DestroyCombatEffectHudRows(void)
 
     DestroyEffectIconRows(g_combat_effect_left_panel, g_combat_effect_left_rows,
                           g_combat_effect_left_count);
-    for (index = 0; index < 9; ++index) {
-        DisableRegionInput(index + 0xd6);
+    if (g_main_effect_regions) {
+        for (index = 0; index < 9; ++index) {
+            DisableRegionInput(g_main_effect_regions->index(9 + index));
+        }
     }
     g_combat_effect_left_count = 0;
 
     DestroyEffectIconRows(g_combat_effect_right_panel, g_combat_effect_right_rows,
                           g_combat_effect_right_count);
-    for (index = 0; index < 6; ++index) {
-        DisableRegionInput(0xe4 - index);
+    if (g_main_effect_regions) {
+        for (index = 0; index < 6; ++index) {
+            DisableRegionInput(g_main_effect_regions->index(23 - index));
+        }
     }
     g_combat_effect_right_count = 0;
 }
@@ -316,12 +330,12 @@ static unsigned int FindActiveEffectSlotIndex(const W8EffectSlot* slots, unsigne
 
 /* All three effect strips use the same active-slot hover policy. The caller
    retains the combat guard and sound setup before supplying its current slots. */
-static unsigned char DispatchEffectIconRegionEvent(const InputAtom* event, W8Region* region,
+static unsigned char DispatchEffectIconRegionEvent(const InputEvent* event, W8Region* region,
                                                    const W8EffectSlot* slots, unsigned int count,
                                                    void (*show_help)(int))
 {
     unsigned int slot_index = FindActiveEffectSlotIndex(slots, count, region->callback_id);
-    if (slot_index != count && event->usEvent == MOUSE_POS) {
+    if (slot_index != count && event->type == InputEventType::MouseMove) {
         if ((region->flags & W8_REGION_MOUSE_LEAVE) != 0) {
             return 1;
         }
@@ -338,7 +352,7 @@ static unsigned char DispatchEffectIconRegionEvent(const InputAtom* event, W8Reg
 }
 
 // FUNCTION: WIZ8 0x005AEEA0
-unsigned char PartyEffectIconRegionEvent(const InputAtom* event, W8Region* region)
+unsigned char PartyEffectIconRegionEvent(const InputEvent* event, W8Region* region)
 {
     PushButtonSoundScheme(0, true);
     return DispatchEffectIconRegionEvent(event, region, g_status.effect_slots, 12,
@@ -363,7 +377,7 @@ void ShowCombatRightEffectIconHelp(int slot_index)
    effect slot and refresh help on enter. */
 
 // FUNCTION: WIZ8 0x005AF530
-unsigned char CombatLeftEffectIconRegionEvent(const InputAtom* event, W8Region* region)
+unsigned char CombatLeftEffectIconRegionEvent(const InputEvent* event, W8Region* region)
 {
     if (!gXStatus.fCombatMode) {
         return 0;
@@ -376,7 +390,7 @@ unsigned char CombatLeftEffectIconRegionEvent(const InputAtom* event, W8Region* 
 /* Right combat-effect strip (six slots at g_combat_state->effect_slots0). */
 
 // FUNCTION: WIZ8 0x005AF5E0
-unsigned char CombatRightEffectIconRegionEvent(const InputAtom* event, W8Region* region)
+unsigned char CombatRightEffectIconRegionEvent(const InputEvent* event, W8Region* region)
 {
     if (!gXStatus.fCombatMode) {
         return 0;

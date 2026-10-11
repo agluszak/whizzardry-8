@@ -1,6 +1,11 @@
 #pragma once
 
 #include "srNode.h"
+#include <utility>
+#include <optional>
+#include <span>
+#include "glm/ext/vector_float3.hpp"
+#include "glm/ext/vector_double3.hpp"
 
 class srGERD;
 
@@ -21,11 +26,21 @@ public:
         PROJECTION_RESULT_OUTSIDE_CLIP_RANGE = 2
     };
 
+    struct Projection {
+        glm::vec3 position;
+        e_projectionResult result;
+    };
+
     struct Rect {
         double left;
         double bottom;
         double right;
         double top;
+    };
+
+    struct ViewPlane {
+        Rect rectangle;
+        double distance;
     };
 
     srCamera(srNode* parent = 0);
@@ -37,14 +52,15 @@ public:
     void flipVertical();
     double getAspectRatio() const;
     void setClipRange(double near_plane, double far_plane);
-    void getClipRange(double& near_plane, double& far_plane) const;
-    void getEnvironmentRange(float& near_range, float& far_range) const;
-    void getEnvironmentScale(float& near_scale, float& far_scale) const;
+    std::pair<double, double> getClipRange() const;
+    std::pair<float, float> getEnvironmentRange() const;
+    std::pair<float, float> getEnvironmentScale() const;
     double getHorizontalFOV() const;
-    void getNormalizedViewPlane(Rect& rectangle) const;
+    Rect getNormalizedViewPlane() const;
     e_project getProjectionType() const;
     double getVerticalFOV() const;
-    e_projectionResult project(srVector3T<float>& output, const srVector3T<double>& input);
+    Projection project(const glm::dvec3& input);
+    bool projectsAny(std::span<const glm::vec3> points);
     void setProjectionType(e_project projection);
     void normalizeViewPlane();
     // FUNCTION: SURRENDER 0x10048020
@@ -57,9 +73,9 @@ public:
     void setFOV(double field_of_view, double aspect_ratio);
     void setViewPlane(const Rect& rectangle, double distance);
     void setViewPlane(double width, double height);
-    void getViewPlane(Rect& rectangle, double& distance) const;
+    ViewPlane getViewPlane() const;
     void setEnvironmentRange(float near_range, float far_range);
-    int unproject(srVector3T<float>& output, const srVector3T<double>& input);
+    std::optional<glm::vec3> unproject(const glm::dvec3& input);
 
 protected:
     void processPop(srGERD* renderer);

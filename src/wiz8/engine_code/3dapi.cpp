@@ -1,5 +1,15 @@
-#include "wiz8/utility.h"
-#include "wiz8/unicode.h"
+#include "glm/geometric.hpp"
+#include <cstdlib>
+#include <cstddef>
+#include <cstdio>
+#include <cstring>
+#include <vector>
+#include <cmath>
+#include <exception>
+#include <memory>
+#include <string>
+
+#include "compat/compiler.h"
 #include "wiz8/containers.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/3dapi.h"
@@ -12,15 +22,9 @@
 #include "wiz8/local_code/MonsterGenerator.h"
 #include "wiz8/engine_code/Environment.h"
 #include "wiz8/engine_code/Video2.h"
-#include <cstdlib>
-#include <cstdio>
-#include <cstring>
-
 #include "wiz8/engine_code/Level.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/local_code/NPCManager.h"
-#include <vector>
-#include <algorithm>
 #include "wiz8/engine_code/Camera.h"
 #include "wiz8/engine_code/Item.h"
 #include "wiz8/engine_code/GDCamera.h"
@@ -37,33 +41,35 @@
 #include "wiz8/engine_code/ReadLevel.h"
 #include "wiz8/engine_code/SpellVisual.h"
 #include "wiz8/engine_code/Spells.h"
-#include "wiz8/engine_code/quad.h"
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/UpdateMesh.h"
 #include "wiz8/engine_code/stLight.hpp"
-#include "wiz8/engine_code/stModelInstance.h"
 #include "wiz8/engine_code/stParticle.h"
 #include "wiz8/engine_code/Levels.h"
 #include "wiz8/engine_code/Navigator.h"
 #include "wiz8/startup_world.h"
 #include "wiz8/local_code/SpellEffect.h"
 #include "wiz8/layouts/combat_state.h"
-#include "wiz8/local_code/CombatAttack.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/sr_api.h"
-#include "wiz8/virtual_file.h"
 #include "wiz8/world_cursor.h"
-#include "surrender/srColorSurface.h"
-#include "surrender/srMaterial.h"
-#include "surrender/srMeshModel.h"
 #include "surrender/srNode.h"
 #include "surrender/srCamera.h"
 #include "surrender/srScene.h"
-
 #include "wiz8/filesystem.h"
 #include "input.h"
-#include "soundman.h"
+#include "camera_motion.h"
+#include "compat/native.h"
+#include "environment_colour.h"
+#include "glm/ext/matrix_float3x3.hpp"
+#include "glm/ext/vector_double3.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include "layouts/world.h"
+#include "named_position.h"
+#include "surrender/srMath.h"
+
+class srModelInstance;
 
 #define THREE_D_API_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\3dapi.cpp"
 
@@ -75,8 +81,6 @@ static int g_game_data_runtime_pending = 1;
 
 // GLOBAL: WIZ8 0x005ec240
 const double g_automap_refresh_distance_squared = 250000.0;
-
-class W8AmbientSound;
 
 // GLOBAL: WIZ8 0x00659757
 bool g_world_cleanup_flag;
@@ -95,81 +99,6 @@ float g_mesh_view_half_angle_degrees = 60.0f;
 /* Retail flag 0x10 sets this latch; no reader survives in the shipped image. */
 // GLOBAL: WIZ8 0x00609c8c
 bool g_world_update_requested = true;
-
-// FUNCTION: WIZ8 0x00450B10
-void ConstructWorldCollections(W8World* world)
-{
-    world->plsMonsters = new std::vector<W8Monster*>;
-    world->plsItems = new std::vector<W8Item*>;
-    world->plsProps = new std::vector<W8Prop*>;
-    world->plsCameras = new std::vector<W8CameraPath*>;
-    world->plsAmbientSounds = new std::vector<W8AmbientSound*>;
-    world->lights_to_update = new std::vector<stLight*>;
-    world->collidable_props = new std::vector<W8Prop*>;
-    world->monster_generators = new std::vector<MonGen*>;
-    world->spell_visuals = new std::vector<W8SpellVisual*>;
-    world->missiles = new std::vector<W8Missile*>;
-    world->triggers = new std::vector<Trigger*>;
-    world->particles = new std::vector<stParticle*>;
-    world->named_positions = new std::vector<W8NamedPosition*>;
-
-    if (world->plsMonsters == 0) {
-        srAssertFail("pWorld->plsMonsters", THREE_D_API_CPP, 0x57e,
-                     "Out of memory creating plsMonsters.");
-    }
-    if (world->plsItems == 0) {
-        srAssertFail("pWorld->plsItems", THREE_D_API_CPP, 0x57f,
-                     "Out of memory creating plsItems.");
-    }
-    if (world->plsProps == 0) {
-        srAssertFail("pWorld->plsProps", THREE_D_API_CPP, 0x580,
-                     "Out of memory creating plsProps.");
-    }
-    if (world->plsCameras == 0) {
-        srAssertFail("pWorld->plsCameras", THREE_D_API_CPP, 0x581,
-                     "Out of memory creating plsCameras.");
-    }
-    if (world->plsAmbientSounds == 0) {
-        srAssertFail("pWorld->plsAmbientSounds", THREE_D_API_CPP, 0x582,
-                     "Out of memory creating plsAmbientSounds.");
-    }
-    if (world->lights_to_update == 0) {
-        srAssertFail("pWorld->plsLightsToUpdate", THREE_D_API_CPP, 0x583,
-                     "Out of memory creating plsLightsToUpdate.");
-    }
-    if (world->collidable_props == 0) {
-        srAssertFail("pWorld->plsCollidableProps", THREE_D_API_CPP, 0x584,
-                     "Out of memory creating plsCollidableProps.");
-    }
-    if (world->monster_generators == 0) {
-        srAssertFail("pWorld->plsMonsterGenerators", THREE_D_API_CPP, 0x585,
-                     "Out of memory creating plsMonsterGenerators.");
-    }
-    if (world->lights_to_update == 0) {
-        srAssertFail("pWorld->plsLightsToUpdate", THREE_D_API_CPP, 0x586,
-                     "Out of memory creating plsLightsToUpdate.");
-    }
-    if (world->collidable_props == 0) {
-        srAssertFail("pWorld->plsCollidableProps", THREE_D_API_CPP, 0x587,
-                     "Out of memory creating plsCollidableProps.");
-    }
-    if (world->missiles == 0) {
-        srAssertFail("pWorld->plsMissiles", THREE_D_API_CPP, 0x588,
-                     "Out of memory creating plsMissiles.");
-    }
-    if (world->triggers == 0) {
-        srAssertFail("pWorld->plsTriggers", THREE_D_API_CPP, 0x589,
-                     "Out of memory creating plsTriggers.");
-    }
-    if (world->particles == 0) {
-        srAssertFail("pWorld->plsParticles", THREE_D_API_CPP, 0x58a,
-                     "Out of memory creating plsParticles.");
-    }
-    if (world->named_positions == 0) {
-        srAssertFail("pWorld->plsNamedPositions", THREE_D_API_CPP, 0x58b,
-                     "Out of memory creating plsNamedPositions.");
-    }
-}
 
 /* Load the renderer-facing half of one level. The subordinate OCT, game-data,
    and ReadLevel parsers remain their original owners; this routine establishes
@@ -240,19 +169,10 @@ unsigned char LoadWorld(W8World* world, char* level_file_name, const char* level
     world->camera_light->setGroupMask(2);
     ConfigureWorldLight(world->camera_light, 4000.0f);
 
-    if (world->octree == 0 || world->octree->GetMeshCount() == 0) {
-        world->psrMeshes = 0;
-    } else {
-        w8_ulong mesh_count = world->octree->GetMeshCount();
-        world->psrMeshes =
-            static_cast<srModelInstance**>(malloc((mesh_count + 1) * sizeof(srModelInstance*)));
-        if (world->psrMeshes == 0) {
-            srAssertFail("pWorld->psrMeshes", THREE_D_API_CPP, 0x1be,
-                         "LoadWorld: Couldn't allocate psrMeshes.");
-        }
-        for (w8_ulong index = 0; index <= mesh_count; ++index) {
-            world->psrMeshes[index] = 0;
-        }
+    world->psrMeshes.clear();
+    if (world->octree != nullptr && world->octree->GetMeshCount() != 0) {
+        world->psrMeshes.resize(static_cast<std::size_t>(world->octree->GetMeshCount()) + 1,
+                                nullptr);
         strcpy(level_path, pvl_path);
     }
 
@@ -286,45 +206,35 @@ unsigned char LoadWorld(W8World* world, char* level_file_name, const char* level
 // FUNCTION: WIZ8 0x0044F1C0
 W8World* CreateWorld()
 {
-    W8World* world = new W8World{};
+    auto world = std::make_unique<W8World>();
     world->environment_colour.SetZero();
 
-    world->static_scene = new srScene(static_cast<srNode*>(0));
-    if (world->static_scene == 0) {
-        delete world;
-        return 0;
-    }
-    world->static_scene->setName("Sir-Tech Scene Static Scene");
+    // The scene owns its children. Keep both allocations scoped until setup
+    // succeeds, including failures while allocating nodes or assigning names.
+    auto scene = std::make_unique<srScene>(nullptr);
+    world->static_scene = scene.get();
+    scene->setName("Sir-Tech Scene Static Scene");
 
-    world->level = new stLevel(world->static_scene);
-    if (world->level == 0) {
-        delete world->static_scene;
-        delete world;
-        return 0;
-    }
+    world->level = new stLevel(scene.get());
     world->level->setName("Sir-Tech Level");
     world->level->m_render_exclusion_mask = 1;
 
-    world->dynamic_scene = new srNode(world->static_scene);
-    if (world->dynamic_scene == 0) {
-        delete world->static_scene;
-        delete world->level;
-        delete world;
-        return 0;
-    }
+    world->dynamic_scene = new srNode(scene.get());
     world->dynamic_scene->setName("Sir-Tech Dynamic Scene");
-    SetSceneAmbientLightWhite(world->static_scene);
-    ConstructWorldCollections(world);
+    SetSceneAmbientLightWhite(scene.get());
     world->environment_range_end = 1.0f;
     world->environment_range_blue = 1.0f;
     world->environment_range_start = 0.75f;
-    return world;
+
+    // The existing DestroyWorld boundary takes over after successful setup.
+    scene.release();
+    return world.release();
 }
 
 // FUNCTION: WIZ8 0x0044F400
 void UpdateWorlds(void)
 {
-    g_navigator_vertical_enabled = !(gfKeyState[VK_CONTROL] != 0 && g_combat_state != 0 &&
+    g_navigator_vertical_enabled = !(IsKeyHeld(VK_CONTROL) && g_combat_state != 0 &&
                                      (g_combat_state->round_active || gXStatus.fPartyMovementMode));
 
     {
@@ -449,91 +359,41 @@ void SetCameraSwayMode(srCamera* camera, int mode)
             radians);
 }
 
-// FUNCTION: WIZ8 0x004507A0
-void DestroyWorldCollections(W8World* world)
+/* Entity teardown still has gameplay/rendering side effects. Keep its order
+   explicit while the collection storage itself is owned by W8World. */
+static void DestroyWorldEntities(W8World* world)
 {
-    if (world == 0) {
-        return;
-    }
-
-    if (world->monster_generators) {
-        wiz8::remove_all_and_delete_in_order(*world->monster_generators);
-    }
-
-    if (world->plsMonsters != 0) {
-        wiz8::remove_all_and_delete_in_order(*world->plsMonsters);
-        delete world->plsMonsters;
-
-        world->plsMonsters = 0;
-    }
+    wiz8::remove_all_and_delete_in_order(world->monster_generators);
+    wiz8::remove_all_and_delete_in_order(world->plsMonsters);
     if (g_world_cleanup_flag)
         RenderFrame();
-    if (world->plsItems != 0) {
-        wiz8::remove_all_and_delete_in_order(*world->plsItems);
-        delete world->plsItems;
-
-        world->plsItems = 0;
-    }
+    wiz8::remove_all_and_delete_in_order(world->plsItems);
     if (g_world_cleanup_flag)
         RenderFrame();
-    if (world->plsProps != 0) {
-        wiz8::remove_all_and_delete_in_order(*world->plsProps);
-        delete world->plsProps;
-
-        world->plsProps = 0;
-    }
+    wiz8::remove_all_and_delete_in_order(world->plsProps);
     if (g_world_cleanup_flag)
         RenderFrame();
 
     DestroyAllWorldTriggers(world);
-    if (world->triggers != 0) {
-        delete world->triggers;
-        world->triggers = 0;
-    }
     if (g_world_cleanup_flag)
         RenderFrame();
 
-    if (world->plsCameras != 0) {
-        wiz8::clear_and_dispose(*world->plsCameras, [](W8CameraPath* entry) {
-            delete entry->path;
-            free(entry);
-        });
-        delete world->plsCameras;
-
-        world->plsCameras = 0;
-    }
+    world->plsCameras.clear();
 
     StopAllAmbientSounds();
-    if (world->plsAmbientSounds != 0) {
-        wiz8::clear_and_dispose(*world->plsAmbientSounds, DestroyAmbientSound);
-        delete world->plsAmbientSounds;
-
-        world->plsAmbientSounds = 0;
-    }
+    wiz8::clear_and_dispose(world->plsAmbientSounds, DestroyAmbientSound);
     if (g_world_cleanup_flag)
         RenderFrame();
 
-    if (world->particles != 0) {
-        wiz8::remove_all_and_delete_in_order(*world->particles);
-    }
-    if (world->named_positions != 0) {
-        wiz8::remove_all_and_delete_in_order(*world->named_positions);
-    }
-
+    wiz8::remove_all_and_delete_in_order(world->particles);
+    world->named_positions.clear();
     DestroyAllMissiles(world);
     DestroyAllSpellVisuals(world);
     DestroyWorldLights(world);
     world->transient_lights.clear();
     world->nodes_to_disable.clear();
-
-    delete world->lights_to_update;
-    delete world->collidable_props;
-    wiz8::remove_all_and_delete(*world->monster_generators);
-    delete world->monster_generators;
-    delete world->spell_visuals;
-    delete world->missiles;
-    delete world->particles;
-    delete world->named_positions;
+    world->lights_to_update.clear();
+    world->collidable_props.clear();
 }
 
 // FUNCTION: WIZ8 0x0044FAF0
@@ -542,10 +402,7 @@ void DestroyWorld(W8World* world)
     if (world == 0) {
         srAssertFail("pWorld", THREE_D_API_CPP, 0x1ff, 0);
     }
-    if (world->psrMeshes != 0) {
-        free(world->psrMeshes);
-        world->psrMeshes = 0;
-    }
+    world->psrMeshes.clear();
     if (world->update_mesh_source != 0) {
         world->update_mesh_source = 0;
     }
@@ -560,7 +417,7 @@ void DestroyWorld(W8World* world)
     world->quads.reset();
     if (g_world_cleanup_flag)
         RenderFrame();
-    DestroyWorldCollections(world);
+    DestroyWorldEntities(world);
     if (g_world_cleanup_flag)
         RenderFrame();
     if (IsWorldCursorVisible())
@@ -578,29 +435,21 @@ void DestroyWorld(W8World* world)
 // FUNCTION: WIZ8 0x0044FC20
 void UpdateWorldCameraAndPaths(W8World* world, unsigned int flags)
 {
-    static srVector3T<float> s_last_automap_refresh_position;
-    static glm::mat3 s_saved_camera_rotation;
-    srVector3T<float> camera_position;
+    static glm::vec3 s_last_automap_refresh_position(0);
+    static glm::mat3 s_saved_camera_rotation(1);
+    glm::vec3 camera_position;
     srVector3T<float> navigator_position;
-    srVector3T<float> delta;
-    srVector3T<double> render_position;
-    glm::mat3 rotation;
+    glm::dvec3 render_position;
     glm::mat3 path_rotation;
-    glm::mat3 motion_saved;
     W8CameraPath* camera_path;
     W8PathAI* path;
-    char sound_environment;
-    char sound_environment_secondary;
     float yaw;
     float pitch;
     int camera_count;
     int index;
-    float dx;
-    float dy;
-    float dz;
 
     RefreshDirtyAutomap();
-    GetCameraPosition(&camera_position);
+    camera_position = cameraLocation();
     if (g_game_data_runtime_pending != 0 && world->game_data != 0) {
         UpdateGameDataRuntime();
         g_game_data_runtime_pending = 0;
@@ -610,44 +459,40 @@ void UpdateWorldCameraAndPaths(W8World* world, unsigned int flags)
             *g_level_flags &= ~W8_LEVEL_FLAG_MOVED_THIS_UPDATE;
         }
         if (world->game_data != 0 && (flags & W8_CAMERA_MOTION_SKIP) == 0) {
-            world->camera->getRotation(rotation);
-            world->game_data->ApplyCameraMotionFlags(flags, &rotation, &motion_saved);
-            world->camera->setRotation(rotation);
-            s_saved_camera_rotation = rotation;
+            const auto orientation = world->game_data->cameraRotation(
+                flags, world->camera->getRotation<glm::mat3>());
+            world->camera->setRotation(orientation.rotation);
+            s_saved_camera_rotation = orientation.rotation;
             yaw = GetCameraYawInDegrees();
             pitch = GetCameraPitchInDegrees();
             g_startup_world->SetAngles(yaw);
             g_startup_world->SetPitch(pitch);
-            if (world->game_data->ApplyCameraMotion(flags, &camera_position, &delta,
-                                                    &motion_saved) != 0) {
-                camera_position += delta;
+            const auto motion = world->game_data->cameraMotion(
+                flags, camera_position, orientation.movement_basis);
+            if (motion.moved) {
+                camera_position += motion.displacement;
                 navigator_position.Set(camera_position.x,
                                        camera_position.y - g_default_world_height,
                                        camera_position.z);
                 if (world->camera_light != 0) {
-                    render_position = glm::dvec3(camera_position.glmValue());
+                    render_position = glm::dvec3(camera_position);
                     static_cast<srNode*>(world->camera_light)->setLocation(render_position);
                 }
-                render_position = glm::dvec3(camera_position.glmValue());
+                render_position = glm::dvec3(camera_position);
                 static_cast<srNode*>(world->camera)->setLocation(render_position);
                 g_startup_world->SetPositionInternal(&navigator_position);
-                dx = camera_position.x - s_last_automap_refresh_position.x;
-                dy = camera_position.y - s_last_automap_refresh_position.y;
-                dz = camera_position.z - s_last_automap_refresh_position.z;
-                if (dx * dx + dy * dy + dz * dz > g_automap_refresh_distance_squared) {
+                const auto refresh_offset = camera_position - s_last_automap_refresh_position;
+                if (glm::dot(refresh_offset, refresh_offset) > g_automap_refresh_distance_squared) {
                     s_last_automap_refresh_position = camera_position;
                     camera_position.y -= g_default_world_height;
-                    if (AutomapHasCellAt(&camera_position)) {
+                    const srVector3T<float> automap_position = camera_position;
+                    if (AutomapHasCellAt(&automap_position)) {
                         SetWorldMeshVertexLightTable(g_world, 1);
                         UpdateAutomapBounds();
                         SetWorldMeshVertexLightTable(g_world, 0);
                     }
                 }
                 DispatchWorldCursorNodeCommand(0, 0, 0);
-                GetLevelSoundEnvironment(&sound_environment, &sound_environment_secondary);
-                if (sound_environment >= 0) {
-                    Sound3DSetEnvironment(sound_environment);
-                }
             }
         } else {
             world->camera->setRotation(s_saved_camera_rotation);
@@ -656,12 +501,12 @@ void UpdateWorldCameraAndPaths(W8World* world, unsigned int flags)
         world->camera->setRotation(s_saved_camera_rotation);
     }
     SetCameraSwayMode(world->camera, 0);
-    camera_count = static_cast<int>((world->plsCameras ? world->plsCameras->size() : 0));
-    if (world->plsCameras != 0 && camera_count != 0) {
+    camera_count = static_cast<int>(world->plsCameras.size());
+    if (camera_count != 0) {
         for (index = 0; index < camera_count; ++index) {
             camera_path = GetWorldCameraPath(world, index);
             if (camera_path != 0 && camera_path->active) {
-                path = camera_path->path;
+                path = camera_path->path.get();
                 PathAITick(path, 1);
                 PathAIApply(path, world->camera);
                 {
@@ -670,7 +515,7 @@ void UpdateWorldCameraAndPaths(W8World* world, unsigned int flags)
                     party_point = glm::vec3(location.glmValue());
                     PlacePartyAtPoint(&party_point);
                 }
-                world->camera->getRotation(path_rotation);
+                path_rotation = world->camera->getRotation<glm::mat3>();
                 if (g_secondary_world != 0 && g_secondary_world->camera != 0) {
                     g_secondary_world->camera->setRotation(path_rotation);
                 }
@@ -699,11 +544,11 @@ void MarkRendererReady(void)
 // FUNCTION: WIZ8 0x00451080
 stParticle* FindParticleByName(W8World* world, const char* name)
 {
-    if (world != 0 && world->particles != 0) {
-        int count = static_cast<int>(world->particles->size());
+    if (world != 0) {
+        int count = static_cast<int>(world->particles.size());
 
         for (int index = 0; index < count; ++index) {
-            stParticle* particle = (*world->particles)[index];
+            stParticle* particle = world->particles[index];
 
             if (_stricmp(particle->getName().c_str(), name) == 0) {
                 return particle;
@@ -724,16 +569,9 @@ void ForwardDestroyWorld(W8World* world)
    caller preserves this value across a level reload, so a world without a
    camera contributes the zero position. */
 // FUNCTION: WIZ8 0x00451160
-void WorldGetCameraLocationOrZero(W8World* world, srVector3T<float>* location)
+glm::vec3 cameraLocationOrZero(const W8World& world)
 {
-    if (!world) {
-        srAssertFail("pWorld", THREE_D_API_CPP, 1014, 0);
-    }
-    if (world->camera != 0) {
-        WorldGetCameraLocation(world, location);
-        return;
-    }
-    location->SetZero();
+    return world.camera ? cameraLocation(world) : glm::vec3(0);
 }
 
 /* Set the view position after loading or traversing a portal. The camera light
@@ -743,7 +581,7 @@ void WorldGetCameraLocationOrZero(W8World* world, srVector3T<float>* location)
 void SetWorldScenePosition(W8World* world, const srVector3T<float>* location)
 {
     srVector3T<float> position;
-    srVector3T<double> render_position;
+    glm::dvec3 render_position;
 
     if (!world) {
         srAssertFail("pWorld", THREE_D_API_CPP, 1043, 0);
@@ -796,15 +634,12 @@ void ReportAssertion(const char* expression, const char* source_path, w8_long li
    3dapi.cpp:976 names its camera member pWorld->psrCamera, which is what puts
    the camera at 0x44 rather than anywhere else. */
 // FUNCTION: WIZ8 0x004503c0
-void WorldGetCameraRotation(W8World* world, glm::mat3* rotation)
+glm::mat3 cameraRotation(const W8World& world)
 {
-    if (!world) {
-        srAssertFail("pWorld", THREE_D_API_CPP, 0x3cf, 0);
-    }
-    if (!world->camera) {
+    if (!world.camera) {
         srAssertFail("pWorld->psrCamera", THREE_D_API_CPP, 0x3d0, 0);
     }
-    world->camera->getRotation(*rotation);
+    return world.camera->getRotation<glm::mat3>();
 }
 
 /* Moves the camera and its camera light together. Only the camera's move
@@ -812,7 +647,7 @@ void WorldGetCameraRotation(W8World* world, glm::mat3* rotation)
 // FUNCTION: WIZ8 0x00450420
 void WorldSetCameraLocation(W8World* world, const srVector3T<float>* location)
 {
-    srVector3T<double> position;
+    glm::dvec3 position;
 
     if (!world) {
         srAssertFail("pWorld", THREE_D_API_CPP, 0x422, 0);
@@ -835,7 +670,7 @@ void WorldSetCameraLocation(W8World* world, const srVector3T<float>* location)
 void SetWorldCameraState(W8World* world, W8World* source_world, W8WorldCameraState* state)
 {
     srVector3T<float> location;
-    srVector3T<double> position;
+    glm::dvec3 position;
     glm::mat3 rotation;
 
     if (!world) {
@@ -854,7 +689,7 @@ void SetWorldCameraState(W8World* world, W8World* source_world, W8WorldCameraSta
             position = glm::dvec3(location.glmValue());
             ((srNode*)world->camera_light)->setLocation(position);
         }
-        world->camera->getRotation(rotation);
+        rotation = world->camera->getRotation<glm::mat3>();
         SetCameraOrientation(state->yaw, state->pitch, &rotation);
         world->camera->setRotation(rotation);
     }
@@ -862,7 +697,7 @@ void SetWorldCameraState(W8World* world, W8World* source_world, W8WorldCameraSta
         if (state == 0) {
             srAssertFail("CamPos", THREE_D_API_CPP, 0x44e, 0);
         }
-        world->camera->getRotation(rotation);
+        rotation = world->camera->getRotation<glm::mat3>();
         SetCameraOrientation(state->yaw, state->pitch, &rotation);
         world->camera->setRotation(rotation);
     }
@@ -873,15 +708,13 @@ void SetWorldCameraState(W8World* world, W8World* source_world, W8WorldCameraSta
 // FUNCTION: WIZ8 0x00450610
 void RestoreWorldCameraState(W8World* world, W8World* source_world, W8WorldCameraState* state)
 {
-    srVector3T<double> camera_location;
     srVector3T<float> navigator_position;
 
     if (world == 0) {
         srAssertFail("pWorld", THREE_D_API_CPP, 0x46b, 0);
     }
     SetWorldCameraState(world, source_world, state);
-    world->camera->getLocation(camera_location);
-    navigator_position = glm::vec3(camera_location.glmValue());
+    navigator_position = glm::vec3(world->camera->getLocation());
     g_startup_world->SetAngles(GetCameraYawInDegrees());
     g_startup_world->SetPitch(GetCameraPitchInDegrees());
     navigator_position.y -= g_default_world_height;
@@ -889,33 +722,22 @@ void RestoreWorldCameraState(W8World* world, W8World* source_world, W8WorldCamer
 }
 
 /* Snapshot the world's camera location and the live yaw/pitch into a CamPos
-   record. A null world is a no-op; a world without a camera zeros the point. */
+   record. A world without a camera contributes the zero position. */
 // FUNCTION: WIZ8 0x004506C0
-void GetWorldCameraState(W8World* world, W8WorldCameraState* state)
+W8WorldCameraState cameraState(const W8World& world)
 {
-    if (world != 0) {
-        if (state == 0) {
-            srAssertFail("CamPos", THREE_D_API_CPP, 0x488, 0);
-        }
-        if (world->camera != 0) {
-            state->position.x = static_cast<float>(world->camera->getLocationX());
-            state->position.y = static_cast<float>(world->camera->getLocationY());
-            state->position.z = static_cast<float>(world->camera->getLocationZ());
-        } else {
-            state->position.SetZero();
-        }
-        GetCameraOrientation(state->yaw, state->pitch);
-    }
+    W8WorldCameraState state{};
+    state.position = cameraLocationOrZero(world);
+    GetCameraOrientation(state.yaw, state.pitch);
+    return state;
 }
 
 /* Read the camera node's double-precision renderer position back into the
    world's float position type. */
 // FUNCTION: WIZ8 0x00450750
-void WorldGetCameraLocation(W8World* world, srVector3T<float>* location)
+glm::vec3 cameraLocation(const W8World& world)
 {
-    location->x = static_cast<float>(world->camera->getLocationX());
-    location->y = static_cast<float>(world->camera->getLocationY());
-    location->z = static_cast<float>(world->camera->getLocationZ());
+    return glm::vec3(world.camera->getLocation());
 }
 
 /* The second world, read straight out of the global with no guard. Its type is
@@ -1005,13 +827,13 @@ bool FindEntityByName(const char* name, srVector3T<float>* position, float* angl
         return false;
     }
     if (_stricmp("PARTY", name) == 0) {
-        GetCameraPosition(position);
+        *position = cameraLocation();
         return true;
     }
 
-    int count = static_cast<int>(g_world->named_positions->size());
+    int count = static_cast<int>(g_world->named_positions.size());
     for (int index = 0; index < count; ++index) {
-        W8NamedPosition* entry = (*g_world->named_positions)[index];
+        const W8NamedPosition* entry = &g_world->named_positions[index];
         if (_stricmp(name, entry->name) == 0) {
             *position = entry->position;
             if (angle != 0) {
@@ -1070,9 +892,8 @@ unsigned char AdjustWorldCollisionPosition(float radius, srVector3T<float>* posi
             W8Item* owner = item->p3D;
             if (owner != 0) {
                 srVector3T<float> center;
-                float other_radius;
-                owner->GetSearchPosition(&center);
-                owner->GetBoundsRadius(&other_radius);
+                center = owner->GetSearchPosition();
+                const auto other_radius = owner->GetBoundsRadius();
                 srVector3T<float> delta = center - *position;
                 if (delta.Length() < other_radius + radius) {
                     return 0;
@@ -1087,12 +908,10 @@ unsigned char AdjustWorldCollisionPosition(float radius, srVector3T<float>* posi
         while (info != 0) {
             W8Monster* monster = info->p3D;
             if (monster != 0) {
-                srVector3T<float> center;
+                const auto center = monster->GetAnimationCenter();
                 float other_radius;
-                monster->GetAnimationCenter(&center);
-                monster->GetAnimationRadius(&other_radius);
-                srVector3T<float> delta = center - *position;
-                if (delta.Length() < other_radius + radius) {
+                if (center && monster->GetAnimationRadius(&other_radius) &&
+                    (*center - *position).Length() < other_radius + radius) {
                     return 0;
                 }
             }

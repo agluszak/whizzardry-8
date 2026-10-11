@@ -1,6 +1,7 @@
 #ifndef WIZ8_UTILITY_H
 #define WIZ8_UTILITY_H
 
+#include <SDL3/SDL_rect.h>
 #include <string>
 #include <string_view>
 
@@ -34,7 +35,7 @@ int CompareSignedDescending(const void* first, const void* second);
 std::string FormatUnsignedIntegerWithCommas(unsigned int value);
 char* TitleCaseString(char* string);
 float ShortestAngleDistance(float first, float second);
-void UnionScreenRects(const W8ScreenRect* first, const W8ScreenRect* second, W8ScreenRect* result);
+W8ScreenRect UnionScreenRects(const W8ScreenRect& first, const W8ScreenRect& second);
 bool ScreenPointInRect(const W8ScreenRect* rect, const SDL_Point* point);
 void AdjustByteByPercent(unsigned char* value, unsigned int percent);
 void AdjustIntegerByPercent(unsigned int* value, unsigned int percent);

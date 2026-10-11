@@ -1,9 +1,11 @@
 #pragma once
 
+#include <optional>
+
 #include "wiz8/layouts/targeting.h"
 
 void SetPendingMoveKind(W8ActionKind kind);
-unsigned char GetPartyHasteSteps(unsigned int* out_steps);
+std::optional<unsigned int> GetPartyHasteSteps();
 void CompletePartyMovementTurns(void);
 void BeginFreeTurnPhase(void);
 void BeginPartyMovement(void);

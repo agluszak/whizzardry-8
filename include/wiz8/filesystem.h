@@ -2,8 +2,7 @@
 
 #include <SDL3/SDL_filesystem.h>
 #include <SDL3/SDL_iostream.h>
-#include "wiz8/file_time.h"
-
+#include <SDL3/SDL_stdinc.h>
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
@@ -12,6 +11,8 @@
 #include <string>
 #include <string_view>
 #include <vector>
+
+#include "wiz8/file_time.h"
 
 namespace wiz8
 {
@@ -58,6 +59,9 @@ public:
     // Borrowed SDL stream; shares this File's cursor and lifetime. Do not close it.
     // Archive entries expose a bounded, read-only SDL stream.
     SDL_IOStream* io() const;
+    // Transfers the SDL stream and its close responsibility to the caller.
+    // The File becomes closed; this also transfers the bounded SLF entry backend.
+    SDL_IOStream* release_io() noexcept;
 
     ReadResult read(void* data, std::size_t bytes);
     void read_exact(void* data, std::size_t bytes);
@@ -148,6 +152,7 @@ public:
     void commit();
 private:
     struct Impl;
+
     std::unique_ptr<Impl> impl_;
 };
 
