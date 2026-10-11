@@ -68,7 +68,7 @@ void SetFontForeground(UINT8 ubForeground);
 void SetFontBackground(UINT8 ubBackground);
 void SetFontShadow(UINT8 ubBackground);
 
-void SetRGBFontShadow(UINT32 uiRed, UINT32 uiGreen, UINT32 uiBlue);
+void SetRGBFontShadow(SDL_Color color);
 
 void DrawFontText(INT32 x, INT32 y, std::string_view text);
 void DrawFontTextDirty(INT32 x, INT32 y, std::string_view text);
