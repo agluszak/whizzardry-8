@@ -74,7 +74,6 @@ OctPreTree::OctPreTree() : W8Octree(0, 0)
     deepest_link_list = 0;
     m_region_cell = 0.0f;
     path_node_extent = 0;
-    automesh_cells = 0;
     pre_pathing = 0;
     props = new std::vector<GDProp*>;
     g_oct_pre_tree = this;
@@ -85,10 +84,6 @@ OctPreTree::OctPreTree() : W8Octree(0, 0)
 // FUNCTION: WIZ8 0x00467ab0
 OctPreTree::~OctPreTree()
 {
-    if (automesh_cells != 0) {
-        delete automesh_cells;
-        automesh_cells = 0;
-    }
     if (pre_pathing != 0) {
         delete pre_pathing;
         pre_pathing = 0;
@@ -974,14 +969,14 @@ w8_ulong OctPreTree::AllocateSubMesh(W8OctSubmeshBuild* records)
             record->m_polygon_count = found;
         }
         unsigned short key = static_cast<unsigned short>(index);
-        std::unordered_multimap<unsigned short, w8_ulong>* cells = automesh_cells;
-        auto slot = cells->equal_range(key).first;
-        while (slot != cells->end()) {
+        auto& cells = automesh_cells;
+        auto slot = cells.equal_range(key).first;
+        while (slot != cells.end()) {
             w8_ulong cell = slot->second;
             if (!m_spatial.regionCellBounds(cell).overlaps({minimum, maximum})) {
                 ReportBuildStatus(7, "AutoMesh has no vertices inside region.");
             }
-            slot = NextIndexValue(*cells, key, slot);
+            slot = NextIndexValue(cells, key, slot);
         }
     }
     return m_spatial.submesh_count;
@@ -1026,17 +1021,14 @@ void OctPreTree::VerifyAutoMeshes(W8OctPreTreeGeometry* geometry, W8OctSubmeshBu
 {
     for (w8_ulong mesh = 1; mesh < m_meshCount; ++mesh) {
         unsigned short key = static_cast<unsigned short>(mesh);
-        auto slot = automesh_cells->equal_range(key).first;
-        while (slot != automesh_cells->end()) {
+        auto slot = automesh_cells.equal_range(key).first;
+        while (slot != automesh_cells.end()) {
             unsigned int cell[4];
             w8_ulong packed = slot->second;
             cell[0] = packed >> 0x18;
             cell[1] = packed >> 0x10 & 0xff;
             cell[2] = packed >> 8 & 0xff;
             cell[3] = packed & 0xff;
-            float cell_x = cell[1] * m_spatial.m_region_grid_cell + m_spatial.m_bounds.minimum.x;
-            float cell_y = cell[2] * m_spatial.m_region_grid_cell + m_spatial.m_bounds.minimum.y;
-            float cell_z = cell[3] * m_spatial.m_region_grid_cell + m_spatial.m_bounds.minimum.z;
             int node = DescendByMask(cell);
             if (node != 0) {
                 if (m_branches[node].region != key) {
@@ -1044,8 +1036,6 @@ void OctPreTree::VerifyAutoMeshes(W8OctPreTreeGeometry* geometry, W8OctSubmeshBu
                 }
                 srBoundingBox bounds{glm::vec3(g_float_one_million, 1e+06f, 1e+06f),
                                      glm::vec3(-1e+06f)};
-                const auto& minimum = bounds.minimum;
-                const auto& maximum = bounds.maximum;
                 for (w8_ulong link = mesh; link != 0; link = records[link].m_next_link) {
                     W8OctSubmeshBuild* record = records + link;
                     for (w8_ulong i = 0; i < record->vertex_count; ++i) {
@@ -1054,13 +1044,11 @@ void OctPreTree::VerifyAutoMeshes(W8OctPreTreeGeometry* geometry, W8OctSubmeshBu
                         bounds.include(position->glmValue());
                     }
                 }
-                if (cell_x + m_spatial.m_region_grid_cell < minimum.x || maximum.x < cell_x ||
-                    cell_y + m_spatial.m_region_grid_cell < minimum.y || maximum.y < cell_y ||
-                    cell_z + m_spatial.m_region_grid_cell < minimum.z || maximum.z < cell_z) {
+                if (!m_spatial.regionCellBounds(packed).overlaps(bounds)) {
                     ReportBuildStatus(7, "AutoMesh has no vertices inside region.");
                 }
             }
-            slot = NextIndexValue(*automesh_cells, key, slot);
+            slot = NextIndexValue(automesh_cells, key, slot);
         }
     }
 }

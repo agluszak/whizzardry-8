@@ -543,7 +543,7 @@ public:
 
     /* Automesh index -> packed cell (z | y<<8 | x<<16 | mask<<24) map the
        verify passes walk to bound-check each automesh's vertices. */
-    std::unordered_multimap<unsigned short, w8_ulong>* automesh_cells;
+    std::unordered_multimap<unsigned short, w8_ulong> automesh_cells;
     PrePathing* pre_pathing;
     /* The path-node scratch block BuildPathLists/PathNodeObstructed fill:
        created-node count, then the runs of registered prop ids the node

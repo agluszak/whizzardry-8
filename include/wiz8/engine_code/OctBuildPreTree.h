@@ -140,11 +140,10 @@ struct OctBuildPreTree : W8OctBuildTree {
     unsigned short selected_depth;
     unsigned short padding_c2;
     w8_ulong level_counts[10];
-    w8_ulong* m_pulRegPaths;
-    w8_ulong region_path_count;
+    std::vector<w8_ulong> region_paths;
     bool mesh_linking;
     unsigned char padding_f5[3];
-    srVector3T<float>* m_psrvRegCenters;
+    std::vector<glm::vec3> region_centers;
     /* Region remap table indexed by old region id; RemapNodeRegions frees it
        after rewriting every leaf's region list through it. */
     unsigned short* region_remap;
@@ -152,10 +151,7 @@ struct OctBuildPreTree : W8OctBuildTree {
     OctreeMeshLinks mesh_prop_links;
     w8_ulong particle_count;
     w8_ulong prop_count;
-    std::unordered_multimap<unsigned short, w8_ulong>* region_path_map;
-    /* Allocated next to region_path_map but never read, inserted into, or
-       freed in recovered code - dead table kept for layout fidelity. */
-    std::unordered_multimap<unsigned int, short>* positional;
+    std::unordered_multimap<unsigned short, w8_ulong> region_path_map;
     OctRegionObjectLinks particle_regions;
     OctRegionObjectLinks prop_regions;
     W8OctPreTreeGeometry* game_data;

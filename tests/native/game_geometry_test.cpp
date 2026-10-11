@@ -2071,3 +2071,35 @@ TEST_CASE("Conditional prop channels grow independently and path cells return co
     REQUIRE(negative.coordinates == glm::ivec2(-2, -1));
     REQUIRE(negative.key == static_cast<unsigned>(-1) * 0x10000u + static_cast<unsigned>(-2));
 }
+
+TEST_CASE("Region merging rekeys every member and weights GLM centers by cell population", "[geometry][octree]")
+{
+    OctBuildPreTree tree(1, std::nullopt, 16, 8, 0);
+    tree.spatial.m_root = new W8OctBuildNode;
+    auto* first = tree.spatial.m_root->children[0] = new W8OctBuildNode;
+    auto* second = tree.spatial.m_root->children[1] = new W8OctBuildNode;
+    auto* neighbor = tree.spatial.m_root->children[4] = new W8OctBuildNode;
+    first->region = second->region = 1;
+    neighbor->region = 2;
+    first->leaf_kind = second->leaf_kind = 2;
+    neighbor->leaf_kind = 3;
+    tree.spatial.m_region_grid_cell = 10;
+    tree.region_centers = {{0, 0, 0}, {0, 3, -6}, {6, 9, 0}};
+    tree.region_path_map.emplace(1, 0x01000000u);
+    tree.region_path_map.emplace(1, 0x01000001u);
+    tree.region_path_map.emplace(2, 0x01010000u);
+    const int cell[] = {0x01000000, 1, 0, 0};
+    REQUIRE(tree.MergeRegion(first, cell));
+    REQUIRE(first->region == 2);
+    REQUIRE(second->region == 2);
+    REQUIRE(first->leaf_kind == 5);
+    REQUIRE(second->leaf_kind == 5);
+    REQUIRE(neighbor->leaf_kind == 5);
+    REQUIRE(tree.region_path_map.count(1) == 0);
+    REQUIRE(tree.region_path_map.count(2) == 3);
+    REQUIRE(tree.region_centers[2] == glm::vec3(2, 5, -4));
+    REQUIRE_FALSE(tree.MergeRegion(first, cell));
+    OctBuildPreTree independent(1, std::nullopt, 16, 8, 0);
+    REQUIRE(independent.region_path_map.empty());
+    REQUIRE(independent.region_centers.empty());
+}
