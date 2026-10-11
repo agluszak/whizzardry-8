@@ -781,7 +781,12 @@ unsigned char OctBuildPreTree::AssignPolygonRegions(W8OctPreTreeGeometry* geomet
         for (int corner = 0; corner != 3; ++corner) {
             W8OctPreTreeVertex* vertex =
                 &geometry->m_vertices[poly->vertices[corner]->m_vertex_index];
-            geometry->CheckArrayLength(&vertex->face_indices, vertex->face_count, 5);
+            if (vertex->face_count == 65535 ||
+                (vertex->face_count % 5 == 0 &&
+                 !geometry->CheckArrayLength(&vertex->face_indices, vertex->face_count, 5))) {
+                ReportBuildStatus(7, "AssignPolygonRegions: Face run too long or allocation failed.\n");
+                return 0;
+            }
             vertex->face_indices[vertex->face_count] = polygon;
             ++vertex->face_count;
         }

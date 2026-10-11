@@ -41,19 +41,6 @@ UINT16 gfCtrlState; // TRUE = Pressed, FALSE = Not Pressed
 
 // These data structure are used to track the mouse while polling
 
-// GLOBAL: WIZ8 0x006f04f4
-BOOLEAN gfTrackDblClick;
-// GLOBAL: WIZ8 0x006f04e4
-UINT32 guiDoubleClkDelay; // Current delay in milliseconds for a delay
-// GLOBAL: WIZ8 0x006f0504
-uint64_t guiSingleClickTimer;
-UINT32 guiRecordedWParam;
-UINT32 guiRecordedLParam;
-// GLOBAL: WIZ8 0x006f0514
-UINT16 gusRecordedKeyState;
-// GLOBAL: WIZ8 0x006f04e9
-BOOLEAN gfRecordedLeftButtonUp;
-
 // GLOBAL: WIZ8 0x006f0518
 uint64_t guiLeftButtonRepeatTimer;
 // GLOBAL: WIZ8 0x006f04f0
@@ -94,11 +81,6 @@ BOOLEAN InitializeInputManager(void)
     gfShiftState = FALSE;
     gfAltState = FALSE;
     gfCtrlState = FALSE;
-    // Initialize variables pertaining to DOUBLE CLIK stuff
-    gfTrackDblClick = TRUE;
-    guiDoubleClkDelay = DBL_CLK_TIME;
-    guiSingleClickTimer = 0;
-    gfRecordedLeftButtonUp = FALSE;
     // Initialize variables pertaining to the button states
     gfLeftButtonState = FALSE;
     gfRightButtonState = FALSE;
@@ -128,14 +110,6 @@ void QueueEvent(UINT16 ubInputEvent, UINT32 usParam, UINT32 uiParam)
         break;
     case LEFT_BUTTON_UP:
         guiLeftButtonRepeatTimer = 0;
-        if ((uiTimer - guiSingleClickTimer) < DBL_CLK_TIME) {
-            guiSingleClickTimer = 0;
-            gEventQueue.push({uiTimer, gusRecordedKeyState, LEFT_BUTTON_UP, usParam, uiParam});
-            if (gEventQueue.size() < max_input_events)
-                gEventQueue.push({uiTimer, gusRecordedKeyState, LEFT_BUTTON_DBL_CLK, usParam, uiParam});
-            return;
-        }
-        guiSingleClickTimer = uiTimer;
         break;
     case RIGHT_BUTTON_UP:
         guiRightButtonRepeatTimer = 0;

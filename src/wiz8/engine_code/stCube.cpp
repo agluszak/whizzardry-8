@@ -752,28 +752,6 @@ W8WorldCursorNode* FindWorldCursorNodeAtPoint(W8WorldCursorNode* after, srVector
     return 0;
 }
 
-/* Copy the node's userdata pointer and size into the caller's slots; either
-   out pointer may be null. */
-// FUNCTION: WIZ8 0x0048EF00
-void GetWorldCursorNodeUserdata(W8WorldCursorNode* entry, char** buffer, int* size)
-{
-    if (entry != 0) {
-        if (buffer != 0) {
-            *buffer = static_cast<char*>(entry->pUserdata);
-        }
-        if (size != 0) {
-            *size = entry->userdata_size;
-        }
-    } else {
-        if (buffer != 0) {
-            *buffer = 0;
-        }
-        if (size != 0) {
-            *size = 0;
-        }
-    }
-}
-
 /* Allocate the node's userdata scratch, or release it when `size` is zero.
    Retail overwrites an existing allocation without freeing it first. */
 // FUNCTION: WIZ8 0x0048EF40

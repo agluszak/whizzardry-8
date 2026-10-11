@@ -19,7 +19,6 @@
 #include "surrender/srMath.h"
 #include "compat/compiler.h"
 #include "glm/ext/matrix_float3x3.hpp"
-#include "glm/ext/matrix_float4x4.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
 #include "surrender/srIlluminator.h"
@@ -194,8 +193,7 @@ void srLight::process(const ProcessInfo& info, e_processType type)
         return;
     }
     applyWorldSpaceMatrix(*renderer);
-    glm::mat4 model_view;
-    renderer->getMatrix(model_view);
+    const auto model_view = renderer->getMatrix();
     derived_flags = 0;
     derived_flags = srLight::DERIVED_ACTIVE;
     channel_mask = 0;
@@ -220,8 +218,7 @@ void srLight::process(const ProcessInfo& info, e_processType type)
     } else {
         if ((enable_flags & (1UL << srLight::ENABLE_SPOT)) != 0 && spot_angle > 0.0f &&
             spot_exponent != 0.0f) {
-            glm::mat4 inverse;
-            renderer->getInverseModelViewMatrix(inverse);
+            const auto inverse = renderer->getInverseModelViewMatrix();
             derived_flags |= srLight::DERIVED_SPOT;
             spot_cutoff = (float)cos(spot_angle);
             spot_direction_eye =

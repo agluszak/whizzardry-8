@@ -708,10 +708,9 @@ void srVertexPipe::setupST(w8_ulong index)
 }
 
 // FUNCTION: SURRENDER 0x1002C480
-void srVertexPipe::getEyeSpaceBoundingSphere(glm::vec3& center, float& radius) const
+srVertexPipe::BoundingSphere srVertexPipe::getEyeSpaceBoundingSphere() const
 {
-    center = input->eye_center;
-    radius = input->eye_radius;
+    return {input->eye_center, input->eye_radius};
 }
 
 // FUNCTION: SURRENDER 0x1002C4C0

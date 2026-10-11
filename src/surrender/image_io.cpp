@@ -121,8 +121,7 @@ OutputFormat outputFormat(const char* path)
 void saveImage(OutputFormat output, SDL_IOStream* io, srColorSurfaceIFace& source, int quality)
 {
     if (!srCore.isInitialized()) throw std::runtime_error("Image I/O requires SurRender initialization");
-    srPixelConvert::PixelFormat format;
-    source.getPixelFormat(format);
+    const auto& format = source.getPixelFormat();
     if (!source.getWidth() || !source.getHeight() || source.getWidth() > 65535 ||
         source.getHeight() > 65535 ||
         source.getPitch() <= 0 || Uint64(source.getPitch()) <
@@ -219,7 +218,7 @@ bool describe(srColorSurfaceIFace::SurfaceDesc& description, const char* path, S
     std::unique_ptr<srColorSurfaceIFace> surface;
     try { surface = load(path, stream); } catch (...) {}
     if (surface) {
-        surface->getSurfaceDesc(description);
+        description = surface->getSurfaceDesc();
     }
     return SDL_SeekIO(stream, position, SDL_IO_SEEK_SET) == position && surface != nullptr;
 }
@@ -233,7 +232,7 @@ bool describe(srColorSurfaceIFace::SurfaceDesc& description, const char* path, w
 void describe(srColorSurfaceIFace::SurfaceDesc& description, const char* path)
 {
     auto surface = load(path);
-    surface->getSurfaceDesc(description);
+    description = surface->getSurfaceDesc();
 }
 
 // FUNCTION: SURRENDER 0x1002DCD0

@@ -759,13 +759,9 @@ void WorldSetFarClip(W8World* world, float distance)
 // FUNCTION: WIZ8 0x0046e440
 double WorldGetFarClip(W8World* world)
 {
-    double near_plane = 0;
-    double far_plane = 0;
-
-    if (world != 0 && world->camera != 0) {
-        world->camera->getClipRange(near_plane, far_plane);
-    }
-    return far_plane;
+    if (world != nullptr && world->camera != nullptr)
+        return world->camera->getClipRange().second;
+    return 0;
 }
 
 // FUNCTION: WIZ8 0x0046E5A0

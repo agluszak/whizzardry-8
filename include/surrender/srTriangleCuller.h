@@ -42,10 +42,14 @@ public:
                                           const glm::vec4& plane, w8_ulong shift,
                                           w8_ulong count, int first);
 
-    /* Sphere-vs-plane-mask test over the active clip planes. depth becomes the 0..1 penetration
-       fraction when the sphere crosses a side plane. */
-    static SR_DLL_IMPORT w8_ulong getClipMask(const glm::vec3& center, float radius,
-                                              const glm::vec4* planes, w8_ulong mask, float& depth);
+    struct ClipMask {
+        w8_ulong mask;
+        float depth;
+    };
+    /* Sphere-vs-plane-mask test over active clip planes, including the
+       0..1 penetration fraction across side planes. */
+    static SR_DLL_IMPORT ClipMask getClipMask(const glm::vec3& center, float radius,
+                                              const glm::vec4* planes, w8_ulong mask);
     /* Builds the active-vertex table: marks the vertices referenced by the
        surviving triangle indices, collects their indices into avt, then
        rewrites vertex_scratch as the vertex->avt inverse remap. Returns the
@@ -57,14 +61,15 @@ public:
     static SR_DLL_IMPORT int cull(Output& output, const Input& input);
 
 private:
-    /* Chunks vertices by 0x100, runs setClipFlags per plane/bit pair, and
-       ANDs the per-vertex masks. shared_out ORs each plane's any-outside
-       result. Returns 0 when every vertex shares an outside bit (fully
-       clipped). */
-    static int setClipFlagsObjectSpace(w8_ulong* clip_flags, const srVector3T<float>* vertices,
-                                       const glm::vec4* planes,
-                                       const w8_ulong* plane_bits, w8_ulong plane_count,
-                                       w8_ulong vertex_count, w8_ulong& shared_out);
+    struct ClipFlagsResult {
+        bool visible;
+        bool clipped;
+    };
+    /* Build per-vertex plane masks and return both the full-rejection result
+       and whether any vertices lie outside an active plane. */
+    static ClipFlagsResult setClipFlagsObjectSpace(
+        w8_ulong* clip_flags, const srVector3T<float>* vertices, const glm::vec4* planes,
+        const w8_ulong* plane_bits, w8_ulong plane_count, w8_ulong vertex_count);
     static w8_ulong cullNoClip(w8_ulong* indices, const glm::vec4* projected,
                                const glm::vec4& constant, w8_ulong count);
     static w8_ulong cullNoClipAPT(w8_ulong* indices, const w8_ulong* active,

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "srNode.h"
+#include <utility>
 
 class srGERD;
 
@@ -28,6 +29,11 @@ public:
         double top;
     };
 
+    struct ViewPlane {
+        Rect rectangle;
+        double distance;
+    };
+
     srCamera(srNode* parent = 0);
 
     virtual void dump(std::ostream& stream) override;
@@ -37,11 +43,11 @@ public:
     void flipVertical();
     double getAspectRatio() const;
     void setClipRange(double near_plane, double far_plane);
-    void getClipRange(double& near_plane, double& far_plane) const;
-    void getEnvironmentRange(float& near_range, float& far_range) const;
-    void getEnvironmentScale(float& near_scale, float& far_scale) const;
+    std::pair<double, double> getClipRange() const;
+    std::pair<float, float> getEnvironmentRange() const;
+    std::pair<float, float> getEnvironmentScale() const;
     double getHorizontalFOV() const;
-    void getNormalizedViewPlane(Rect& rectangle) const;
+    Rect getNormalizedViewPlane() const;
     e_project getProjectionType() const;
     double getVerticalFOV() const;
     e_projectionResult project(srVector3T<float>& output, const srVector3T<double>& input);
@@ -57,7 +63,7 @@ public:
     void setFOV(double field_of_view, double aspect_ratio);
     void setViewPlane(const Rect& rectangle, double distance);
     void setViewPlane(double width, double height);
-    void getViewPlane(Rect& rectangle, double& distance) const;
+    ViewPlane getViewPlane() const;
     void setEnvironmentRange(float near_range, float far_range);
     int unproject(srVector3T<float>& output, const srVector3T<double>& input);
 

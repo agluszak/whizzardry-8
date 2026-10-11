@@ -18,6 +18,7 @@
 #include <utility>
 
 #include "surrender_test_fixture.h"
+#include "compat/compiler.h"
 #include "surrender/srIO.h"
 /* Actual SDL_image decoding and byte-exact transfer. gray.jpg/cmyk.jpg are
    synthetic 3x2, quality-100 JPEGs with samples 20 + 9*i. */
@@ -43,9 +44,11 @@ static void checkFormat(const srColorSurfaceIFace& surface, srPixelConvert::e_su
 {
     srPixelConvert::PixelFormat expected;
     srPixelConvert::mapPixelFormat(type, expected);
-    srPixelConvert::PixelFormat actual;
-    surface.getPixelFormat(actual);
-    REQUIRE(actual == expected);
+    REQUIRE(surface.getPixelFormat() == expected);
+    const auto description = surface.getSurfaceDesc();
+    REQUIRE(description.pixel_format == expected);
+    REQUIRE(description.width == static_cast<w8_ulong>(surface.getWidth()));
+    REQUIRE(description.height == static_cast<w8_ulong>(surface.getHeight()));
 }
 static OwnedSurface loadJpeg(const Bytes& data)
 {

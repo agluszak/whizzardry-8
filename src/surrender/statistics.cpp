@@ -13,11 +13,12 @@ void srStatisticsManager::reset()
 }
 
 // FUNCTION: SURRENDER 0x10014920
-void srStatisticsManager::getStatistics(Statistics& statistics) const
+srStatisticsManager::Statistics srStatisticsManager::getStatistics() const
 {
-    double now = srCore.getTimer()->seconds();
-    statistics = this->statistics;
-    statistics.elapsed_time = now - statistics.elapsed_time;
+    const double now = srCore.getTimer()->seconds();
+    Statistics result = statistics;
+    result.elapsed_time = now - result.elapsed_time;
+    return result;
 }
 
 // FUNCTION: SURRENDER 0x10014950

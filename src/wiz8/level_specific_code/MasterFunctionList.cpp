@@ -325,10 +325,10 @@ command_check:
     }
     if (type == 0) {
         result = true;
-        GetWorldCursorNodeUserdata(node, &shown, 0);
+        shown = static_cast<char*>(node->pUserdata);
         if (shown == 0) {
             SetWorldCursorNodeUserdataSize(node, 1);
-            GetWorldCursorNodeUserdata(node, &shown, 0);
+            shown = static_cast<char*>(node->pUserdata);
         }
         if (*shown != 0) {
             return 0;
@@ -565,10 +565,10 @@ static unsigned char WorldCursorNodePartyVoice(int command, W8WorldCursorNode* n
 
     event_type = GetWorldCursorNodeParameter(node, 0);
     if (command == 1) {
-        GetWorldCursorNodeUserdata(node, &shown, 0);
+        shown = static_cast<char*>(node->pUserdata);
         if (shown == 0) {
             SetWorldCursorNodeUserdataSize(node, 1);
-            GetWorldCursorNodeUserdata(node, &shown, 0);
+            shown = static_cast<char*>(node->pUserdata);
         }
         if (*shown == 0) {
             *shown = 1;

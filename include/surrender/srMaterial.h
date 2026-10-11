@@ -47,16 +47,12 @@ public:
     void disable(e_oper operation);
     void enable(e_oper operation);
     glm::vec4 getAmbient() const;
-    void getAmbient(glm::vec4& ambient) const;
     glm::vec4 getDiffuse() const;
-    void getDiffuse(glm::vec4& diffuse) const;
     glm::vec4 getEmissive() const;
-    void getEmissive(glm::vec4& emissive) const;
     srVertexProcessor* getMapper() const;
     float getOpacity() const;
     float getShininess() const;
     glm::vec4 getSpecular() const;
-    void getSpecular(glm::vec4& specular) const;
     float getTranslucency() const;
     int isEnabled(e_oper operation) const;
     // FUNCTION: SURRENDER 0x10034930 SYMBOL

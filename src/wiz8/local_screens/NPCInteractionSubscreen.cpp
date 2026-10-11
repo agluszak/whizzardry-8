@@ -3907,8 +3907,6 @@ unsigned char HandleNpcDialogueItem(W8ItemInstance* item)
     W8MessageDialogBase* dialog;
     std::string message;
     bool result;
-    unsigned char flag;
-    int fact_result;
 
     result = true;
     if (g_npc_interaction_state->trade_gold != 0 && item == 0) {
@@ -3927,8 +3925,8 @@ unsigned char HandleNpcDialogueItem(W8ItemInstance* item)
     if (GetNpcDispositionBand(g_npc_interaction_state->dialogue_npc) == W8_NPC_BAND_FRIENDLY ||
         g_npc_interaction_state->dialogue_npc->record->voice_script != 0) {
         if (item != 0) {
-            fact_result = FindNpcScriptItemQuote(item->iItemNo, 0, &flag);
-            if (fact_result == -1) {
+            const auto match = FindNpcScriptItemQuote(item->iItemNo);
+            if (!match) {
                 if (g_npc_interaction_state->dialogue_npc->record->voice_script != 0) {
                     return 1;
                 }
@@ -3943,9 +3941,9 @@ unsigned char HandleNpcDialogueItem(W8ItemInstance* item)
                 }
                 QueueNpcScriptLine(0x11, false, false, false);
             } else {
-                QueueNpcScriptLine(fact_result, false, false, false);
+                QueueNpcScriptLine(match->quote_index, false, false, false);
                 result = false;
-                if (flag != 0) {
+                if (match->consumes_item) {
                     RemoveNpcScriptItem(item, 0, -1);
                     return result;
                 }
@@ -3964,8 +3962,8 @@ unsigned char HandleNpcDialogueItem(W8ItemInstance* item)
                 QueueNpcScriptLine(7, false, false, false);
                 return 1;
             }
-            fact_result = FindNpcScriptItemQuote(item->iItemNo, 0, &flag);
-            if (fact_result == -1) {
+            const auto match = FindNpcScriptItemQuote(item->iItemNo);
+            if (!match) {
                 ApplyNpcInteraction(g_npc_interaction_state->dialogue_npc, 3,
                                     g_npc_interaction_state->dialogue_speaker, item, 0);
                 QueueNpcScriptLine(GetNpcDispositionBand(g_npc_interaction_state->dialogue_npc) ==
@@ -3974,7 +3972,7 @@ unsigned char HandleNpcDialogueItem(W8ItemInstance* item)
                                        : 7,
                                    false, false, false);
             } else {
-                QueueNpcScriptLine(fact_result, false, false, false);
+                QueueNpcScriptLine(match->quote_index, false, false, false);
                 result = false;
             }
             RemoveNpcScriptItem(item, 0, -1);

@@ -41,29 +41,27 @@ int srTriangleCuller::setClipFlags(w8_ulong* clip_flags, float* distances,
 }
 
 // FUNCTION: SURRENDER 0x10029DE0
-int srTriangleCuller::setClipFlagsObjectSpace(w8_ulong* clip_flags, const srVector3* vertices,
-                                              const glm::vec4* planes,
-                                              const w8_ulong* plane_bits,
-                                              w8_ulong plane_count, w8_ulong vertex_count,
-                                              w8_ulong& shared_out)
+srTriangleCuller::ClipFlagsResult srTriangleCuller::setClipFlagsObjectSpace(
+    w8_ulong* clip_flags, const srVector3* vertices, const glm::vec4* planes,
+    const w8_ulong* plane_bits, w8_ulong plane_count, w8_ulong vertex_count)
 {
     std::array<float, 256> distances;
     w8_ulong shared = 0xffffffff;
-    shared_out = 0;
+    bool clipped = false;
     for (w8_ulong base = 0; base < vertex_count; base += distances.size()) {
         const auto count = std::min(w8_ulong(distances.size()), vertex_count - base);
         for (w8_ulong plane = 0; plane < plane_count; ++plane)
-            shared_out |= setClipFlags(clip_flags + base, distances.data(), vertices + base,
-                                       planes[plane], plane_bits[plane], count, plane == 0);
+            clipped |= setClipFlags(clip_flags + base, distances.data(), vertices + base,
+                                     planes[plane], plane_bits[plane], count, plane == 0) != 0;
         for (w8_ulong i = 0; i < count; ++i)
             shared &= clip_flags[base + i];
     }
-    return shared == 0;
+    return {shared == 0, clipped};
 }
 
 // FUNCTION: SURRENDER 0x10029FC0
-w8_ulong srTriangleCuller::getClipMask(const glm::vec3& center, float radius,
-                                       const glm::vec4* planes, w8_ulong mask, float& depth)
+srTriangleCuller::ClipMask srTriangleCuller::getClipMask(const glm::vec3& center, float radius,
+                                                         const glm::vec4* planes, w8_ulong mask)
 {
     w8_ulong clip = 0;
     float visible = 1;
@@ -83,8 +81,7 @@ w8_ulong srTriangleCuller::getClipMask(const glm::vec3& center, float radius,
             visible *= std::clamp(fraction, 0.0f, 1.0f);
         }
     }
-    depth = 1 - visible;
-    return clip;
+    return {clip, 1 - visible};
 }
 
 // FUNCTION: SURRENDER 0x1002A260
@@ -195,11 +192,11 @@ int srTriangleCuller::cull(Output& output, const Input& input)
                     planes[count] = transformClipPlane(input.clip_planes[i], plane_matrix);
                     bits[count++] = i;
                 }
-            w8_ulong outside = 0;
-            if (!setClipFlagsObjectSpace(clip_flags, input.vertices, planes.data(), bits.data(),
-                                         count, input.vertex_count, outside))
+            const auto flags = setClipFlagsObjectSpace(
+                clip_flags, input.vertices, planes.data(), bits.data(), count, input.vertex_count);
+            if (!flags.visible)
                 return false;
-            clipped = outside != 0;
+            clipped = flags.clipped;
         }
         if (input.cull_mode == 2) {
             if (clipped)

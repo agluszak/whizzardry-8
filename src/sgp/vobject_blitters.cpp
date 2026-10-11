@@ -403,39 +403,25 @@ BOOLEAN BltSpriteTo16BPPBuffer(UINT16* pBuffer, UINT32 uiDestPitchBYTES,
 BOOLEAN Blt16BPPBufferPixelateRectWithColor(UINT16* pBuffer, UINT32 uiDestPitchBYTES, SDL_Rect* area,
                                             UINT8 Pattern[8][8], UINT16 usColor)
 {
-    INT32 width, height;
-    UINT16* DestPtr;
-    INT32 iLeft, iTop, iRight, iBottom;
-
-    // Assertions
     Assert(pBuffer != nullptr);
     Assert(Pattern != nullptr);
 
-    iLeft = std::max(ClippingRect.x, area->x);
-    iTop = std::max(ClippingRect.y, area->y);
-    iRight = std::min((ClippingRect.x + ClippingRect.w) - 1, (area->x + area->w));
-    iBottom = std::min((ClippingRect.y + ClippingRect.h) - 1, (area->y + area->h));
+    // These old SGP rectangles store inclusive endpoint deltas, not SDL sizes.
+    const SDL_Rect requested{area->x, area->y, area->w + 1, area->h + 1};
+    SDL_Rect visible;
+    if (!SDL_GetRectIntersection(&requested, &ClippingRect, &visible))
+        return FALSE;
 
-    DestPtr = (pBuffer + (iTop * (uiDestPitchBYTES / 2)) + iLeft);
-    width = iRight - iLeft + 1;
-    height = iBottom - iTop + 1;
-
-    CHECKF(width >= 1);
-    CHECKF(height >= 1);
-
-    UINT8* dest = reinterpret_cast<UINT8*>(DestPtr);
-    for (INT32 y = 0; y < height; ++y) {
-        for (INT32 x = 0; x < width; ++x) {
-            // The first column of each row uses pattern[0][0]. After that
-            // EBX includes the row bits, as in the original instruction loop.
-            if (x == 0 ? Pattern[0][0] : Pattern[y & 7][x & 7]) {
+    auto* dest = reinterpret_cast<UINT8*>(pBuffer) + visible.y * uiDestPitchBYTES + visible.x * 2;
+    for (int y = 0; y < visible.h; ++y) {
+        for (int x = 0; x < visible.w; ++x) {
+            // The first column of every row uses pattern[0][0].
+            if (x == 0 ? Pattern[0][0] : Pattern[y & 7][x & 7])
                 NativeWriteWord(dest + x * 2, usColor);
-            }
         }
         dest += uiDestPitchBYTES;
     }
-
-    return (TRUE);
+    return TRUE;
 }
 
 //Uses black hatch color
@@ -449,90 +435,43 @@ BOOLEAN Blt16BPPBufferHatchRect(UINT16* pBuffer, UINT32 uiDestPitchBYTES, SDL_Re
     return Blt16BPPBufferPixelateRectWithColor(pBuffer, uiDestPitchBYTES, area, Pattern, 0);
 }
 // FUNCTION: WIZ8 0x004120b0
-BOOLEAN BltIsClipped(SGPVObject& hSrcVObject, INT32 iX, INT32 iY, UINT16 usIndex, SDL_Rect* clipregion)
+BOOLEAN BltIsClipped(SGPVObject& object, INT32 x, INT32 y, UINT16 index, SDL_Rect* clipregion)
 {
-    UINT32 usHeight, usWidth;
-    const SpriteFrame* pTrav;
-    INT32 iTempX, iTempY;
-    INT32 ClipX1, ClipY1, ClipX2, ClipY2;
+    const SpriteFrame& frame = object.sprites[index];
+    if (frame.usWidth == 0 || frame.usHeight == 0)
+        return FALSE;
 
-    // Assertions
-
-    // Get Offsets from Index into structure
-    pTrav = &hSrcVObject.sprites[usIndex];
-    usHeight = (UINT32)pTrav->usHeight;
-    usWidth = (UINT32)pTrav->usWidth;
-
-    // Add to start position of dest buffer
-    iTempX = iX + pTrav->sOffsetX;
-    iTempY = iY + pTrav->sOffsetY;
-
+    const SDL_Rect sprite{x + frame.sOffsetX, y + frame.sOffsetY,
+                          frame.usWidth, frame.usHeight};
     const SDL_Rect& clip = clipregion ? *clipregion : ClippingRect;
-    ClipX1 = clip.x;
-    ClipY1 = clip.y;
-    ClipX2 = clip.x + clip.w;
-    ClipY2 = clip.y + clip.h;
-
-    // Calculate rows hanging off each side of the screen
-    if (std::min(ClipX1 - std::min(ClipX1, iTempX), (INT32)usWidth))
-        return (TRUE);
-
-    if (std::min(std::max(ClipX2, (iTempX + (INT32)usWidth)) - ClipX2, (INT32)usWidth))
-        return (TRUE);
-
-    if (std::min(ClipY1 - std::min(ClipY1, iTempY), (INT32)usHeight))
-        return (TRUE);
-
-    if (std::min(std::max(ClipY2, (iTempY + (INT32)usHeight)) - ClipY2, (INT32)usHeight))
-        return (TRUE);
-
-    return (FALSE);
+    SDL_Rect visible;
+    return !SDL_GetRectIntersection(&sprite, &clip, &visible) ||
+           !SDL_RectsEqual(&sprite, &visible);
 }
 // FUNCTION: WIZ8 0x004124a0
 /* Keep the legacy inclusive rectangle and palette transforms in one place. */
 static BOOLEAN Blt16BPPBufferShadowRectWithTable(UINT16* pBuffer, UINT32 uiDestPitchBYTES,
                                                  SDL_Rect* area, const UINT16* table)
 {
-    INT32 width, height;
-    UINT16* DestPtr;
-
-    // Assertions
     Assert(pBuffer != nullptr);
 
-    // Clipping
-    if (area->x < ClippingRect.x) {
-        area->w += area->x - ClippingRect.x;
-        area->x = ClippingRect.x;
-    }
-    if (area->y < ClippingRect.y) {
-        area->h += area->y - ClippingRect.y;
-        area->y = ClippingRect.y;
-    }
-    if ((area->x + area->w) >= (ClippingRect.x + ClippingRect.w))
-        area->w = ((ClippingRect.x + ClippingRect.w) - 1) - area->x;
-    if ((area->y + area->h) >= (ClippingRect.y + ClippingRect.h))
-        area->h = ((ClippingRect.y + ClippingRect.h) - 1) - area->y;
-    //CHECKF(area->x >= ClippingRect.x );
-    //CHECKF(area->y >= ClippingRect.y );
-    //CHECKF((area->x + area->w) <= (ClippingRect.x + ClippingRect.w) );
-    //CHECKF((area->y + area->h) <= (ClippingRect.y + ClippingRect.h) );
+    // Preserve the legacy inclusive endpoint deltas, including mutation of
+    // the caller's rectangle after clipping.
+    const SDL_Rect requested{area->x, area->y, area->w + 1, area->h + 1};
+    SDL_Rect visible;
+    if (!SDL_GetRectIntersection(&requested, &ClippingRect, &visible))
+        return FALSE;
+    *area = {visible.x, visible.y, visible.w - 1, visible.h - 1};
 
-    DestPtr = (pBuffer + (area->y * (uiDestPitchBYTES / 2)) + area->x);
-    width = area->w + 1;
-    height = area->h + 1;
-
-    CHECKF(width >= 1);
-    CHECKF(height >= 1);
-
-    UINT8* dest = reinterpret_cast<UINT8*>(DestPtr);
-    for (INT32 y = 0; y < height; ++y) {
-        for (INT32 x = 0; x < width; ++x) {
-            NativeWriteWord(dest + x * 2, table[NativeReadWord(dest + x * 2)]);
+    auto* dest = reinterpret_cast<UINT8*>(pBuffer) + visible.y * uiDestPitchBYTES + visible.x * 2;
+    for (int y = 0; y < visible.h; ++y) {
+        for (int x = 0; x < visible.w; ++x) {
+            UINT8* pixel = dest + x * 2;
+            NativeWriteWord(pixel, table[NativeReadWord(pixel)]);
         }
         dest += uiDestPitchBYTES;
     }
-
-    return (TRUE);
+    return TRUE;
 }
 
 BOOLEAN Blt16BPPBufferShadowRect(UINT16* pBuffer, UINT32 uiDestPitchBYTES, SDL_Rect* area)
