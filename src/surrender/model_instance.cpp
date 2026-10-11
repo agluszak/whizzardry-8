@@ -90,8 +90,7 @@ void srModelInstance::process(const ProcessInfo& info, e_processType type)
     } else {
         renderer->matrixMode(srGERD::MATRIX_MODELVIEW);
         renderer->pushMatrix();
-        glm::mat4 matrix;
-        renderer->getMatrix(srGERD::MATRIX_MODELVIEW, matrix);
+        const auto matrix = renderer->getMatrix(srGERD::MATRIX_MODELVIEW);
         const glm::vec4 position = matrix * glm::vec4(glm::vec3(getWorldSpaceLocation()), 1);
         const auto world_scale = glm::vec3(getWorldSpaceScale());
         glm::vec3 scale(glm::length(glm::vec3(matrix[0])), glm::length(glm::vec3(matrix[1])),
