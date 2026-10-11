@@ -156,7 +156,7 @@ void InitTextInputMode(Font& font)
     SetNativeTextInputEnabled(false);
     pColors->fBevelling = false;
     pColors->fUseDisabledAutoShade = true;
-    pColors->usCursorColor = Get16BPPColor(0x0a0a0a);
+    pColors->usCursorColor = Get16BPPColor(SDL_Color{10, 10, 10, SDL_ALPHA_OPAQUE});
     gubVisibleStart = 0;
 }
 
@@ -173,35 +173,35 @@ void SetTextInputScheme(char mode)
 {
     if (mode == 0) {
         pColors->usFont = &g_font12point1;
-        pColors->usTextFieldColor = Get16BPPColor(0x00c8c8);
-        pColors->usInactiveTextFieldColor = Get16BPPColor(0xffffff);
-        pColors->usDarkerColor = Get16BPPColor(0x513d18);
-        pColors->usBrighterColor = Get16BPPColor(0x878a88);
+        pColors->usTextFieldColor = Get16BPPColor(SDL_Color{200, 200, 0, SDL_ALPHA_OPAQUE});
+        pColors->usInactiveTextFieldColor = Get16BPPColor(SDL_Color{255, 255, 255, SDL_ALPHA_OPAQUE});
+        pColors->usDarkerColor = Get16BPPColor(SDL_Color{24, 61, 81, SDL_ALPHA_OPAQUE});
+        pColors->usBrighterColor = Get16BPPColor(SDL_Color{136, 138, 135, SDL_ALPHA_OPAQUE});
         pColors->fBevelling = true;
         pColors->ubForeColor = 0x8d;
         pColors->ubShadowColor = 0;
         pColors->ubHiForeColor = 0xd0;
     } else if (mode == 1) {
         pColors->usFont = &g_wiz_text_mono_font;
-        pColors->usTextFieldColor = Get16BPPColor(0x632a1e);
-        pColors->usInactiveTextFieldColor = Get16BPPColor(0xffffff);
-        pColors->usInactiveTextFieldColor = Get16BPPColor(0x0a0a0a);
-        pColors->usDarkerColor = Get16BPPColor(0);
-        pColors->usBrighterColor = Get16BPPColor(0);
+        pColors->usTextFieldColor = Get16BPPColor(SDL_Color{30, 42, 99, SDL_ALPHA_OPAQUE});
+        pColors->usInactiveTextFieldColor = Get16BPPColor(SDL_Color{255, 255, 255, SDL_ALPHA_OPAQUE});
+        pColors->usInactiveTextFieldColor = Get16BPPColor(SDL_Color{10, 10, 10, SDL_ALPHA_OPAQUE});
+        pColors->usDarkerColor = Get16BPPColor(SDL_Color{0, 0, 0, SDL_ALPHA_OPAQUE});
+        pColors->usBrighterColor = Get16BPPColor(SDL_Color{0, 0, 0, SDL_ALPHA_OPAQUE});
         pColors->fBevelling = true;
         pColors->ubForeColor = 4;
         pColors->ubShadowColor = 5;
         pColors->ubHiForeColor = 4;
         pColors->ubHiShadowColor = 5;
         pColors->ubHiBackColor = 3;
-        pColors->usCursorColor = Get16BPPColor(0xffffff);
+        pColors->usCursorColor = Get16BPPColor(SDL_Color{255, 255, 255, SDL_ALPHA_OPAQUE});
         return;
     } else if (mode == 2) {
         pColors->usFont = &g_wiz_text_mono_font;
-        pColors->usTextFieldColor = Get16BPPColor(0xffffff);
-        pColors->usInactiveTextFieldColor = Get16BPPColor(0xffffff);
-        pColors->usDarkerColor = Get16BPPColor(0);
-        pColors->usBrighterColor = Get16BPPColor(0);
+        pColors->usTextFieldColor = Get16BPPColor(SDL_Color{255, 255, 255, SDL_ALPHA_OPAQUE});
+        pColors->usInactiveTextFieldColor = Get16BPPColor(SDL_Color{255, 255, 255, SDL_ALPHA_OPAQUE});
+        pColors->usDarkerColor = Get16BPPColor(SDL_Color{0, 0, 0, SDL_ALPHA_OPAQUE});
+        pColors->usBrighterColor = Get16BPPColor(SDL_Color{0, 0, 0, SDL_ALPHA_OPAQUE});
         pColors->fBevelling = true;
         pColors->ubForeColor = 0x8d;
         pColors->ubShadowColor = 0;
@@ -211,7 +211,7 @@ void SetTextInputScheme(char mode)
     }
     pColors->ubHiShadowColor = 0xcd;
     pColors->ubHiBackColor = 0xcd;
-    pColors->usCursorColor = Get16BPPColor(0x0a0a0a);
+    pColors->usCursorColor = Get16BPPColor(SDL_Color{10, 10, 10, SDL_ALPHA_OPAQUE});
 }
 
 // FUNCTION: WIZ8 0x005D3800
