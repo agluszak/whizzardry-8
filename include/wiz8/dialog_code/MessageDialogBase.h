@@ -54,7 +54,5 @@ protected:
     unsigned char unknown_096[2];
 };
 
-W8_ABI_ASSERT(sizeof(W8MessageDialogBase) == 0x98, "W8MessageDialogBase_must_be_0x98");
-
 void MessageDialogConfirmCallback(W8DialogButton* button);
 void MessageDialogCancelCallback(W8DialogButton* button);

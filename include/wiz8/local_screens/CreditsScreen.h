@@ -14,7 +14,6 @@ struct W8CreditLine {
     std::string primary;
     std::string secondary;
 };
-W8_ABI_ASSERT(sizeof(W8CreditLine) == 0x14, "W8CreditLine_size");
 
 std::optional<std::string> ReadRetailTextLine(wiz8::File* handle);
 unsigned char CreditsScreenEnter(void);

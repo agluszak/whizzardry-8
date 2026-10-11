@@ -631,8 +631,7 @@ unsigned char W8GameData::ProbeMonstersAlongMotion(srVector3T<float>* direction,
         if (objects[index] == 0) {
             return hit;
         }
-        monster_list_index = MonsterGetIndexByLocationID(
-            0x3a6, "C:\\Projects\\Wizardry 8\\Engine Code\\GameData.cpp", objects[index], true);
+        monster_list_index = MonsterGetIndexByLocationID(objects[index]);
         monster_info = MonsterGetScriptPartByLocationIndex(monster_list_index);
         if (monster_info != 0 && monster_info->p3D != 0 && monster_info->p3D->active) {
             monster = monster_info->p3D;

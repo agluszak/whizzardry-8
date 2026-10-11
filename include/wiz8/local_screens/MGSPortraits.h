@@ -45,11 +45,6 @@ public:
     int m_image_object;
     int m_ui_slot; /* party slot the button tracks */
 };
-W8_ABI_ASSERT(sizeof(W8ConditionButton) == 0xc4, "W8ConditionButton_size");
-W8_ABI_ASSERT(offsetof(W8ConditionButton, m_condition) == 0xb8, "W8ConditionButton_condition_b8");
-W8_ABI_ASSERT(offsetof(W8ConditionButton, m_image_object) == 0xbc,
-              "W8ConditionButton_image_object_bc");
-W8_ABI_ASSERT(offsetof(W8ConditionButton, m_ui_slot) == 0xc0, "W8ConditionButton_ui_slot_c0");
 
 void ReleasePortraitControls(void);
 void ReleaseConditionButtons(void);

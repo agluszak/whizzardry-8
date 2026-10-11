@@ -945,16 +945,14 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
             if (projectsToCamera(probe.glmValue()) == 0 &&
                 !g_octree->HasLineOfSight(&camera, &probe, true)) {
                 srVector3T<float> notify_position = last_seen;
-                unsigned int group_index = GetMonsterGroupIndexByID(
-                    0x4d2, GAMEPLAYTIME_CPP, monster_info->monster_group_id, true);
+                unsigned int group_index = GetMonsterGroupIndexByID(monster_info->monster_group_id);
                 W8MonsterGroup* group = GetMonsterGroupByListIndex(group_index);
 
                 MoveMonsterGroupToPosition(group, &notify_position, monster->GetYaw(), false, false,
                                            false, false);
                 for (int index = 0; index < 4; ++index) {
                     if (group->allied_group_ids[index] != 0) {
-                        group_index = GetMonsterGroupIndexByID(
-                            0x4d9, GAMEPLAYTIME_CPP, group->allied_group_ids[index], true);
+                        group_index = GetMonsterGroupIndexByID(group->allied_group_ids[index]);
                         group = GetMonsterGroupByListIndex(group_index);
                         MoveMonsterGroupToPosition(group, &notify_position, monster->GetYaw(),
                                                    false, false, false, false);
@@ -1011,8 +1009,7 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
                             if (projectsToCamera(probe.glmValue()) == 0 &&
                                 !g_octree->HasLineOfSight(&camera, &probe, true)) {
                                 srVector3T<float> notify_position = next_position;
-                                unsigned int group_index = GetMonsterGroupIndexByID(
-                                    0x50f, GAMEPLAYTIME_CPP, monster_info->monster_group_id, true);
+                                unsigned int group_index = GetMonsterGroupIndexByID(monster_info->monster_group_id);
                                 W8MonsterGroup* group = GetMonsterGroupByListIndex(group_index);
 
                                 MoveMonsterGroupToPosition(group, &notify_position,
@@ -1020,9 +1017,7 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
                                                            false);
                                 for (int index = 0; index < 4; ++index) {
                                     if (group->allied_group_ids[index] != 0) {
-                                        group_index = GetMonsterGroupIndexByID(
-                                            0x516, GAMEPLAYTIME_CPP, group->allied_group_ids[index],
-                                            true);
+                                        group_index = GetMonsterGroupIndexByID(group->allied_group_ids[index]);
                                         group = GetMonsterGroupByListIndex(group_index);
                                         MoveMonsterGroupToPosition(group, &notify_position,
                                                                    monster->GetYaw(), false, false,
@@ -1064,17 +1059,14 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
                         }
                         {
                             srVector3T<float> notify_position = monster->formation;
-                            unsigned int group_index = GetMonsterGroupIndexByID(
-                                0x53b, GAMEPLAYTIME_CPP, monster_info->monster_group_id, true);
+                            unsigned int group_index = GetMonsterGroupIndexByID(monster_info->monster_group_id);
                             W8MonsterGroup* group = GetMonsterGroupByListIndex(group_index);
 
                             MoveMonsterGroupToPosition(group, &notify_position, monster->GetYaw(),
                                                        false, false, false, false);
                             for (int index = 0; index < 4; ++index) {
                                 if (group->allied_group_ids[index] != 0) {
-                                    group_index = GetMonsterGroupIndexByID(
-                                        0x542, GAMEPLAYTIME_CPP, group->allied_group_ids[index],
-                                        true);
+                                    group_index = GetMonsterGroupIndexByID(group->allied_group_ids[index]);
                                     group = GetMonsterGroupByListIndex(group_index);
                                     MoveMonsterGroupToPosition(group, &notify_position,
                                                                monster->GetYaw(), false, false,

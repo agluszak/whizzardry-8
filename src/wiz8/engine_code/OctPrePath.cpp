@@ -16,7 +16,6 @@
 #include "wiz8/float_constants.h"
 #include "wiz8/local_screens/AutomapScreen.h"
 #include "wiz8/sr_api.h"
-#include "compat/compiler.h"
 #include "geometry.h"
 #include "index_algorithms.h"
 #include "navigation_flags.h"
@@ -46,8 +45,6 @@ public:
     char** m_pPathStrings;
     char** m_pLinkStrings;
 };
-
-W8_ABI_ASSERT(sizeof(OctPrePathLog) == 0x20, "OctPrePathLog_must_be_0x20");
 
 // FUNCTION: WIZ8 0x004CCE00
 OctPrePathLog::OctPrePathLog(float scale, const W8BoundingBox* bounds)

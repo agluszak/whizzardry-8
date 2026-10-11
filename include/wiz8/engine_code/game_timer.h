@@ -75,7 +75,3 @@ public:
     float m_duration_seconds;  /* 0x1c */
     float m_duration_scale;    /* 0x20 */
 };
-
-
-W8_ABI_ASSERT(sizeof(W8GameTimer::Flags) == 2, "W8GameTimer_flags_size");
-W8_ABI_ASSERT(sizeof(W8GameTimer) == 0x24, "W8GameTimer_must_be_0x24");

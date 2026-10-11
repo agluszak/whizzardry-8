@@ -52,5 +52,3 @@ private:
     W8DialogButton m_track_button;
     void (*m_on_scroll)(W8DialogScrollBar* scroll_bar, int first_visible_entry);
 };
-W8_ABI_ASSERT(sizeof(W8DialogScrollBar::Resources) == 0x10, "W8DialogScrollBar_Resources_size");
-W8_ABI_ASSERT(sizeof(W8DialogScrollBar) == 0x4c, "W8DialogScrollBar_size");

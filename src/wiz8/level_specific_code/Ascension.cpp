@@ -27,6 +27,7 @@
 #include "layouts/world.h"
 #include "local_code/Factions.h"
 #include "surrender/srMath.h"
+#include "wiz8/npc_interaction.h"
 
 /* Level Specific Code\Ascension.cpp.
 
@@ -38,7 +39,6 @@
    the Ascension Peak level. 0x004E0560 and 0x004E05A0 are registered under
    case 0x24, the Footsteps level, which is part of the Ascension Peak block. */
 
-#define ASCENSION_CPP "C:\\Projects\\Wizardry 8\\Level Specific Code\\Ascension.cpp"
 
 // GLOBAL: WIZ8 0x0068356C
 static W8IntervalGate* g_avalanche_gate;
@@ -88,7 +88,7 @@ unsigned char AscensionPeakInit(void)
                 SpawnMonsters(0xf, 4, &position, 1, true, false, false);
             }
             info = MonsterGetScriptPartByLocationIndex(
-                MonsterGetIndexByLocationID(0x17f, ASCENSION_CPP, group->leader_location_id, true));
+                MonsterGetIndexByLocationID(group->leader_location_id));
             info->p3D->SetScript("proximitylandslide.msf", true);
             SpawnAscensionAmbush();
             CreateLocationVar("AP_AtLeast2of3Items", 1);
@@ -443,7 +443,7 @@ void RemoveAletheides(void)
         info = GetNpcMonsterInfo(npc);
         if (info != 0) {
             RemoveMonster(
-                MonsterGetIndexByLocationID(0x2cd, ASCENSION_CPP, info->location_id, true), true);
+                MonsterGetIndexByLocationID(info->location_id), true);
             return;
         }
     }
@@ -452,7 +452,7 @@ void RemoveAletheides(void)
         info = GetNpcMonsterInfo(npc);
         if (info != 0) {
             RemoveMonster(
-                MonsterGetIndexByLocationID(0x2da, ASCENSION_CPP, info->location_id, true), true);
+                MonsterGetIndexByLocationID(info->location_id), true);
             return;
         }
     }
@@ -461,7 +461,7 @@ void RemoveAletheides(void)
         info = GetNpcMonsterInfo(npc);
         if (info != 0) {
             RemoveMonster(
-                MonsterGetIndexByLocationID(0x2e7, ASCENSION_CPP, info->location_id, true), true);
+                MonsterGetIndexByLocationID(info->location_id), true);
         }
     }
 }

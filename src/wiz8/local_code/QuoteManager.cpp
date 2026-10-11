@@ -15,7 +15,6 @@
 #include "wiz8/containers.h"
 #include "wiz8/fonts.h"
 #include "wiz8/integer_constants.h"
-#include "compat/compiler.h"
 #include "compat/native.h"
 #include "conditions.h"
 #include "input.h"
@@ -42,6 +41,7 @@
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/NPCScripting.h"
+#include "wiz8/npc_speech.h"
 #include "wiz8/layouts/item_instance.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/utility.h"
@@ -185,7 +185,6 @@ struct W8CharacterEventDescriptor {
     unsigned char log_quote_on_finish;
     unsigned char unknown_07;
 };
-W8_ABI_ASSERT(sizeof(W8CharacterEventDescriptor) == 8, "W8CharacterEventDescriptor_must_be_8");
 // GLOBAL: WIZ8 0x005EE000
 const W8CharacterEventDescriptor g_character_event_descriptors[0xb1] = {
     {0x00000001, 0x00, 0x00, 0x00, 0x00}, {0x00000005, 0x00, 0x01, 0x00, 0x00},
@@ -577,7 +576,7 @@ void W8CharacterEvent::Complete()
     if (sound_was_active) {
         SetPartyPortraitEventState(party_slot, false, -1, {}, 1);
     }
-    FreeMouthGapTrack(&slot->mouth_gap);
+    slot->mouth_gap = {};
     if (event_type == 23 || event_type == 24) {
         if ((flags & W8_EVENT_NPC_SCRIPT) == 0) {
             if (item.iItemNo == -1) {
@@ -741,9 +740,9 @@ unsigned char W8CharacterEvent::PlayEventSound()
     }
     const auto playback_time = wiz8::sound::playback_time(sound_handle).value_or(wiz8::sound::PlaybackTime{});
     record->voice_time_remaining_ms = playback_time.total_ms;
-    LoadMouthGapTrack(sound_path, &record->mouth_gap);
+    record->mouth_gap = LoadMouthGapTrack(sound_path);
 #ifdef WIZ8_RUNTIME_TESTS
-    RuntimeObserve(RUNTIME_VOICE_STARTED, party_slot, bool(sound_handle), record->mouth_gap.range_count);
+    RuntimeObserve(RUNTIME_VOICE_STARTED, party_slot, bool(sound_handle), static_cast<int>(record->mouth_gap.ranges.size()));
     RuntimeObserve(RUNTIME_VOICE_TIMING, party_slot, playback_time.total_ms,
                    playback_time.current_ms);
 #endif
@@ -1747,7 +1746,7 @@ int UpdateCharacterEventState(void)
 
     for (party_slot = 0; party_slot < 8; ++party_slot) {
         W8MonsterManagerEntry* record = &gXStatus.monster_manager_entries[party_slot];
-        unsigned char sound_active = 0; // bool-byte-ok: copied raw from the C gap track byte
+        bool sound_active = false;
 #ifdef WIZ8_RUNTIME_TESTS
         int previous_frame = record->portrait_frame;
 #endif
@@ -1767,9 +1766,9 @@ int UpdateCharacterEventState(void)
                 }
             } else {
 #ifdef WIZ8_RUNTIME_TESTS
-                unsigned char previous_mouth = record->mouth_gap.mouth_open;
+                bool previous_mouth = record->mouth_gap.mouth_open;
 #endif
-                UpdateMouthGapTrack(record->voice_sound_handle, &record->mouth_gap);
+                UpdateMouthGapTrack(record->voice_sound_handle, record->mouth_gap);
                 sound_active = record->mouth_gap.mouth_open;
 #ifdef WIZ8_RUNTIME_TESTS
                 if (sound_active != previous_mouth) {

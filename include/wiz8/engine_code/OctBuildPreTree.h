@@ -66,8 +66,6 @@ struct W8OctRegionPolygon {
     bool containsPoint(const srBoundingBox& bounds) const;
 };
 
-W8_ABI_ASSERT(sizeof(W8OctRegionPolygon) == 0x74, "W8OctRegionPolygon_must_be_0x74");
-
 extern int g_build_node_instances;
 
 struct OctRegionObjectLinks {
@@ -157,8 +155,6 @@ struct OctBuildPreTree : W8OctBuildTree {
     w8_ulong unknown_138;
     w8_ulong unknown_13c;
 };
-
-W8_ABI_ASSERT(sizeof(OctBuildPreTree) == 0x140, "OctBuildPreTree_must_be_0x140");
 
 int GetBuildNodeInstanceCount(void);
 

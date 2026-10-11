@@ -352,7 +352,7 @@ void CloseSpellCastingView(void)
             OpenTrapInteraction(0);
         }
         if (interact_id != W8_DIALOGUE_LAYOUT_UNSET && !IsScreenTransitionPending()) {
-            monster_index = MonsterGetIndexByLocationID(0x1cf, SPELLCASTING_CPP, location_id, true);
+            monster_index = MonsterGetIndexByLocationID(location_id);
             npc = FindNpcBindingForMonster(monster_index);
             BeginNpcDialogue(npc, 0, -1, 0, 1);
             SwitchNpcDialogueLayout(interact_id);

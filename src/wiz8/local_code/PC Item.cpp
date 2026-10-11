@@ -1198,8 +1198,7 @@ unsigned char UseItem(W8Character* character, W8ItemInstance* item, int* out_use
                     SetTargetSourceToCharacter(aimed->iChar, &target);
                 } else if (aimed->iType == W8_TARGET_KIND_MONSTER) {
                     SetTargetSourceToMonster(
-                        MonsterGetScriptPartByLocationIndex(MonsterGetIndexByLocationID(
-                            0x8fd, PC_ITEM_CPP, aimed->iMonsterID, true)),
+                        MonsterGetScriptPartByLocationIndex(MonsterGetIndexByLocationID(aimed->iMonsterID)),
                         &target);
                 }
             } else {
@@ -1232,8 +1231,7 @@ unsigned char UseItem(W8Character* character, W8ItemInstance* item, int* out_use
             ShowNotice(
                 9, fmt::format("{} {} {}",
                                GetMonsterName(
-                                   MonsterGetScriptPartByLocationIndex(MonsterGetIndexByLocationID(
-                                       0x91d, PC_ITEM_CPP, target.iMonsterID, true)),
+                                   MonsterGetScriptPartByLocationIndex(MonsterGetIndexByLocationID(target.iMonsterID)),
                                    0, 0),
                                g_localized_strings[g_item_use_messages[record->category * 2]],
                                GetItemDisplayName(item)));

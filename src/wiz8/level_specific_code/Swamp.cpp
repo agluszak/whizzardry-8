@@ -30,7 +30,6 @@
 
 struct W8NpcState;
 
-#define SWAMP_CPP "C:\\Projects\\Wizardry 8\\Level Specific Code\\Swamp.cpp"
 
 // GLOBAL: WIZ8 0x006834e4
 static W8Monster* g_swamp_spawned_monster;
@@ -131,7 +130,7 @@ static bool SwampGasFireSpawn(Trigger* pTrigger)
     index = group->MemberLocationId(0);
     if (index != 0) {
         monster_info = MonsterGetScriptPartByLocationIndex(
-            MonsterGetIndexByLocationID(0x8f, SWAMP_CPP, index, true));
+            MonsterGetIndexByLocationID(index));
         if (monster_info != 0) {
             g_swamp_spawned_monster = monster_info->p3D;
             monster_info->p3D->m_pRep->instance_scale = 1.0f;
@@ -145,7 +144,7 @@ static bool SwampGasFireSpawn(Trigger* pTrigger)
             g_master_functions.push_back(SwampGasFireItemDrop);
         }
     }
-    npc = FindNpcBindingForMonster(MonsterGetIndexByLocationID(0xa3, SWAMP_CPP, index, true));
+    npc = FindNpcBindingForMonster(MonsterGetIndexByLocationID(index));
     QueueNpcScriptNotice(npc, 0, -1, false, 0);
     return true;
 }

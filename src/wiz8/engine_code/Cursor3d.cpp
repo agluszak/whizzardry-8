@@ -470,7 +470,7 @@ void BindCursorMonsterToGroup(void)
         } else {
             position = gp3DCursor->position;
         }
-        index = GetMonsterGroupIndexByID(0x237, CURSOR3D_CPP, gp3DCursor->monster_group_id, false);
+        index = GetMonsterGroupIndexByID(gp3DCursor->monster_group_id, false);
         if (index == 0xffffffff) {
             index = gXStatus.monster_groups.size();
             if (index == 0) {
@@ -482,12 +482,10 @@ void BindCursorMonsterToGroup(void)
         gp3DCursor->monster_group_id = monster_group->group_id;
         if (monster_group != 0) {
             if (monster_group->leader_group_id != 0) {
-                index = GetMonsterGroupIndexByID(0x245, CURSOR3D_CPP,
-                                                 monster_group->leader_group_id, true);
+                index = GetMonsterGroupIndexByID(monster_group->leader_group_id);
                 monster_group = GetMonsterGroupByListIndex(index);
             }
-            index = MonsterGetIndexByLocationID(0x247, CURSOR3D_CPP,
-                                                monster_group->leader_location_id, true);
+            index = MonsterGetIndexByLocationID(monster_group->leader_location_id);
             monster_info = MonsterGetScriptPartByLocationIndex(index);
             if (monster_info != 0 && monster_info->p3D != 0 &&
                 !monster_info->p3D->SetScript("Test.msf", true)) {

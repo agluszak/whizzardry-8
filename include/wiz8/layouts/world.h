@@ -47,8 +47,8 @@ struct W8WorldCameraState {
     W8CameraAngleRecord yaw;
 };
 #pragma pack(pop)
-W8_ABI_ASSERT(sizeof(W8WorldCameraState) == 0x3c, "W8WorldCameraState_size");
-W8_ABI_ASSERT(alignof(W8WorldCameraState) == 1, "W8WorldCameraState_alignment");
+static_assert(sizeof(W8WorldCameraState) == 0x3c, "W8WorldCameraState_size");
+static_assert(alignof(W8WorldCameraState) == 1, "W8WorldCameraState_alignment");
 
 /* Runtime world, not a retail disk record. Collection storage belongs to the
    world. Cameras own their paths; raw entity pointers still follow the ordered

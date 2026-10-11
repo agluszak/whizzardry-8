@@ -16,7 +16,6 @@
 #include "wiz8/catalog_artwork.h"
 #include "Font.h"
 #include "Video2.h"
-#include "compat/compiler.h"
 #include "game_timer.h"
 #include "layouts/character.h"
 #include "local_code/CharGeneration.h"
@@ -70,8 +69,6 @@ public:
     int m_x;
     int m_y;
 };
-W8_ABI_ASSERT(sizeof(W8CharacterSpellList) == 0x60, "W8CharacterSpellList_size");
-W8_ASSERT_BASE_END(W8CharacterSpellList, W8RangeListener, m_range, 0x34);
 
 W8CharacterSpellList::W8CharacterSpellList(Controls* owner, int x, int y,
                                            W8CharacterSpellEntry* entries, unsigned int* region_set)

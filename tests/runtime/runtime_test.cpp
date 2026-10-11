@@ -87,6 +87,14 @@
 #include "wiz8/local_screens/OptionsScreen.h"
 #include "wiz8/local_screens/AutomapScreen.h"
 #include "wiz8/dialog_code/DialogButton.h"
+#include "wiz8/fact_state.h"
+#include "wiz8/layouts/npc_state.h"
+#include "wiz8/local_code/NPCManager.h"
+#include "wiz8/local_code/NPCScripting.h"
+#include "wiz8/local_screens/NPCInteractionSubscreen.h"
+#include "wiz8/message_box.h"
+#include "wiz8/npc_interaction.h"
+#include "wiz8/text_input.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/local_code/TextControl.h"
 #include "wiz8/local_code/Controls.h"
@@ -1147,6 +1155,138 @@ void LoadGameScenario(const fs::path& fixture)
     std::printf("load-game: loaded the fixture after %lu frames\n", game.frames());
 }
 
+/* --- NPC dialogue ---------------------------------------------------------- */
+
+/* The conversation waits for the player: nothing spoken, queued or asked. */
+bool DialogueAwaitingPlayer()
+{
+    return gXStatus.fNpcDialogueMode && !IsNpcScriptSessionActive() &&
+           IsMessageBoxLineQueueEmpty() && g_npc_scripting.reply == W8NpcReplyState::none &&
+           g_modal_owner == nullptr;
+}
+
+/* A voiced line ends only when its stream drains, which the offscreen run
+   does not wait for; skip each one with Escape, as the player can. */
+void WaitDialogue(Game& game, const char* step, const std::function<bool()>& ready)
+{
+    game.wait(step, [&] {
+        if (ready())
+            return true;
+        if (g_npc_scripting.speech.voice_playing && g_modal_owner == nullptr)
+            game.key(SDLK_ESCAPE);
+        return false;
+    });
+}
+
+void StartConversation(Game& game, const char* step, W8NpcState* npc)
+{
+    REQUIRE(!gXStatus.fNpcDialogueMode);
+    ForwardNpcScriptNotice(npc, nullptr, -1, false);
+    WaitDialogue(game, step, [&] {
+        return g_npc_interaction_state->dialogue_npc == npc && DialogueAwaitingPlayer();
+    });
+}
+
+/* Types a keyword into the transcript's input field and submits it. */
+void Ask(Game& game, std::string_view keyword)
+{
+    REQUIRE(DialogueAwaitingPlayer());
+    game.key(SDLK_RETURN);
+    REQUIRE(EditingText());
+    for (char letter : keyword)
+        game.key(static_cast<SDL_Keycode>(letter));
+    REQUIRE(GetTextFromField(0) == keyword);
+    game.key(SDLK_RETURN);
+}
+
+std::vector<unsigned> HandlerRegions()
+{
+    std::vector<unsigned> regions;
+    for (unsigned region = 1; region < g_regions.size(); ++region)
+        if (RegionLive(region) && g_regions[region].handler)
+            regions.push_back(region);
+    return regions;
+}
+
+/* Clicks the reply dialog's first button (the first option, or "yes"): of
+   the regions the dialog added to those live in `before`, its buttons sit
+   above the dialog body; take the leftmost. */
+void ChooseFirstReply(Game& game, const char* step, const std::vector<unsigned>& before)
+{
+    WaitDialogue(game, step, [] { return g_modal_owner != nullptr; });
+    int first = -1;
+    for (unsigned region : HandlerRegions())
+        if (std::ranges::find(before, region) == before.end() &&
+            (first < 0 || g_regions[region].priority > g_regions[first].priority ||
+             (g_regions[region].priority == g_regions[first].priority &&
+              g_regions[region].x1 < g_regions[first].x1)))
+            first = int(region);
+    game.click(step, first);
+    game.wait(step, [] { return g_modal_owner == nullptr; });
+}
+
+/* Buys one paid answer: the price prompt, "yes", the gold and the fact. */
+void BuyAnswer(Game& game, const char* step, W8FactId fact)
+{
+    const auto before = HandlerRegions();
+    WaitDialogue(game, step, [] {
+        return g_modal_owner != nullptr && g_npc_scripting.price_check.has_value();
+    });
+    const unsigned gold = g_status.party_gold;
+    const int price = g_npc_scripting.price_check->price;
+    CAPTURE(step, gold, price);
+    REQUIRE((price > 0 && unsigned(price) <= gold));
+    REQUIRE(GetFact(fact) == 0);
+    ChooseFirstReply(game, step, before);
+    WaitDialogue(game, step, DialogueAwaitingPlayer);
+    REQUIRE(g_status.party_gold == gold - unsigned(price));
+    REQUIRE(GetFact(fact) != 0);
+}
+
+/* Escape asks for the farewell; once it has been said, Escape dismisses it. */
+void SayFarewell(Game& game, const char* step)
+{
+    REQUIRE(DialogueAwaitingPlayer());
+    game.key(SDLK_ESCAPE);
+    game.wait(step, [&] {
+        if (!gXStatus.fNpcDialogueMode)
+            return true;
+        if (IsNpcScriptSessionActive())
+            game.key(SDLK_ESCAPE);
+        return false;
+    });
+    WaitMainGame(game, step);
+    REQUIRE(IsMessageBoxLineQueueEmpty());
+}
+
+/* A conversation with Burz, the merchant beside the starting area: the
+   messenger keyword defers a yes/no option list behind its question, both
+   paid answers charge the party, and the farewell ends the session so a
+   second visit starts afresh. */
+void NpcDialogueScenario()
+{
+    Game game(false);
+    StartPremadeGame(game);
+    Settle(game, "settle");
+    W8NpcState* burz = FindNpcStateByName("Burz");
+    REQUIRE(burz);
+    g_status.party_gold = 200;
+
+    StartConversation(game, "greeting", burz);
+    const auto before = HandlerRegions();
+    Ask(game, "messenger");
+    ChooseFirstReply(game, "messenger-options", before);
+    BuyAnswer(game, "messenger-price", W8_FACT_QUEST_BURZ_MARTEN_TRYNTON);
+    Ask(game, "ship");
+    BuyAnswer(game, "ship-price", W8_FACT_QUEST_BURZ_REPORT_SHIP);
+    SayFarewell(game, "farewell");
+    Walk(game, "walk-after-farewell", 2.0f);
+
+    StartConversation(game, "second-greeting", burz);
+    SayFarewell(game, "second-farewell");
+    std::printf("npc-dialogue: two visits after %lu frames\n", game.frames());
+}
+
 /* Combat through its key bindings: enter, run a defended round, kill a
    monster, leave. */
 void CombatScenario()
@@ -1190,7 +1330,7 @@ void CombatScenario()
     ApplyDamageToMonster(monster, monster->hp_current, &attacker, false, 1, 0, nullptr, false);
     // Resolve by ID after death/cleanup rather than relying on a retained pointer.
     const unsigned dead_index =
-        MonsterGetIndexByLocationID(__LINE__, __FILE__, monster_id, false);
+        MonsterGetIndexByLocationID(monster_id, false);
     REQUIRE(dead_index != 0xffffffffu);
     const W8MonsterInfo* dead = MonsterGetScriptPartByLocationIndex(dead_index);
     REQUIRE((dead && !dead->fActive && dead->hp_current == 0 &&
@@ -1275,6 +1415,13 @@ TEST_CASE("combat", "[runtime]")
 TEST_CASE("inventory-chest", "[runtime]")
 {
     RunScenario([&] { InventoryChestScenario(); });
+}
+
+TEST_CASE("npc-dialogue", "[runtime]")
+{
+    RequireAssets();
+    NpcDialogueScenario();
+    CheckGameErrors();
 }
 
 TEST_CASE("load-game", "[runtime]")

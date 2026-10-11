@@ -631,7 +631,6 @@ void HighlightTextBoxRange(unsigned char color, std::size_t start, std::size_t s
 // FUNCTION: WIZ8 0x005905F0
 void AppendToLastTextLine(std::string_view text, short text_box)
 {
-    size_t length = text.size();
     if (g_current_screen_state.id != W8_SCREEN_MAIN_GAME &&
         g_current_screen_state.id != W8_SCREEN_CAMP) {
         return;
@@ -1420,13 +1419,6 @@ void SetTextBoxMode(unsigned char mode, int value)
 
 /* Draw clickable notice-word overlays for one painted line. */
 static void DrawNoticeWordOverlays(W8MessageStorageRecord* line, int x, int y);
-
-static void DrawMessageLineText(const W8MessageStorageRecord* line, int x, int y)
-{
-    auto text = std::string_view(line->text);
-    if (line->length >= 0) text = text.substr(0, wiz8::text::byte_prefix(text, line->length));
-    DrawTextAndInvalidate(GetFrameBufferSurface(), *g_level_block->text_box_font, {x, y}, text);
-}
 
 /* Paint one message-storage line at (x, y). hovered_line / selected_line
    select alternate palettes for the editor slot highlights; skip_invalidate

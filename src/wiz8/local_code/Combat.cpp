@@ -638,9 +638,7 @@ void BeginCombatExecution(void)
                         fmt::sprintf(g_localized_strings[0x229],
                                      g_status.buffers.Char[party->target_in_combat.iChar].name));
                 } else if (party->target_in_combat.iType == W8_TARGET_KIND_MONSTER) {
-                    unsigned int index = MonsterGetIndexByLocationID(
-                        0x5e2, "C:\\Projects\\Wizardry 8\\Local Code\\Combat.cpp",
-                        party->target_in_combat.iMonsterID, true);
+                    unsigned int index = MonsterGetIndexByLocationID(party->target_in_combat.iMonsterID);
                     W8MonsterInfo* target = MonsterGetScriptPartByLocationIndex(index);
                     PostCharacterNotice(slot, fmt::sprintf(g_localized_strings[0x229],
                                                            GetMonsterName(target, 0, 0)));
@@ -662,9 +660,7 @@ void BeginCombatExecution(void)
         }
         if (monster->action_kind == W8_MONSTER_ACTION_PROTECT) {
             if (monster->Target.iType == W8_TARGET_KIND_MONSTER) {
-                unsigned int target_index = MonsterGetIndexByLocationID(
-                    0x601, "C:\\Projects\\Wizardry 8\\Local Code\\Combat.cpp",
-                    monster->Target.iMonsterID, true);
+                unsigned int target_index = MonsterGetIndexByLocationID(monster->Target.iMonsterID);
                 W8MonsterInfo* target = MonsterGetScriptPartByLocationIndex(target_index);
                 PostMonsterNotice(monster, fmt::sprintf(g_localized_strings[0x229],
                                                         GetMonsterName(target, 0, 0)));
@@ -1603,8 +1599,7 @@ void OrientMonsterTowardTarget(W8MonsterInfo* monster_info, bool alternate)
     case W8_TARGET_KIND_MONSTER:
         location_id = monster_info->Target.iMonsterID;
         if (monster_info->location_id != location_id) {
-            index = MonsterGetIndexByLocationID(
-                0x1320, "C:\\Projects\\Wizardry 8\\Local Code\\Combat.cpp", location_id, true);
+            index = MonsterGetIndexByLocationID(location_id);
             target = MonsterGetScriptPartByLocationIndex(index);
             if (IsMonsterFacingMonster(monster_info, target) == 0) {
                 MonsterAimAtMonster(monster_info->p3D, target->p3D, alternate);
@@ -1616,8 +1611,7 @@ void OrientMonsterTowardTarget(W8MonsterInfo* monster_info, bool alternate)
         location_id =
             FindNearestVisibleGroupMonster(monster_info, monster_info->Target.iGroupID, 3);
         if (location_id != -1) {
-            index = MonsterGetIndexByLocationID(
-                0x136e, "C:\\Projects\\Wizardry 8\\Local Code\\Combat.cpp", location_id, true);
+            index = MonsterGetIndexByLocationID(location_id);
             target = MonsterGetScriptPartByLocationIndex(index);
             if (IsMonsterFacingMonster(monster_info, target) == 0) {
                 MonsterAimAtMonster(monster_info->p3D, target->p3D, alternate);
@@ -2519,9 +2513,7 @@ void ExecuteMonsterAction(W8MonsterInfo* monster_info, W8MonsterRecord* record)
                     MonsterChooseTarget(monster_info, &monster_info->Target, 0);
                     SetUpMonsterTurn(monster_info);
                     if (monster_info->Target.iType == W8_TARGET_KIND_MONSTER) {
-                        unsigned int index = MonsterGetIndexByLocationID(
-                            0xec1, "C:\\Projects\\Wizardry 8\\Local Code\\Combat.cpp",
-                            monster_info->Target.iMonsterID, true);
+                        unsigned int index = MonsterGetIndexByLocationID(monster_info->Target.iMonsterID);
                         target_info = MonsterGetScriptPartByLocationIndex(index);
                         move_result = MonsterConfigureMovementToMonster(
                             monster_info->p3D, target_info->p3D, approach_distance, engage_distance,
@@ -3011,8 +3003,7 @@ int GetConditionInterrupt(W8TargetSource* source)
             srAssertFail("pSource->iMonsterID != BAD_INDEX",
                          "C:\\Projects\\Wizardry 8\\Local Code\\Combat.cpp", 0x11a9, 0);
         }
-        monster_info = MonsterGetScriptPartByLocationIndex(MonsterGetIndexByLocationID(
-            0x11aa, "C:\\Projects\\Wizardry 8\\Local Code\\Combat.cpp", source->iMonsterID, true));
+        monster_info = MonsterGetScriptPartByLocationIndex(MonsterGetIndexByLocationID(source->iMonsterID));
         moving = monster_info->action_kind == W8_MONSTER_ACTION_ADVANCE;
         condition_turns = monster_info->uiCondition;
         can_attack =
@@ -3090,7 +3081,6 @@ int GetConditionInterrupt(W8TargetSource* source)
 void PointCameraAtCombatTarget(W8TargetSource* source, W8CombatSlot* target)
 {
     int location_id;
-    int caller_line;
     W8MonsterInfo* monster_info;
     W8MonsterGroup* group;
     srVector3T<float> position;
@@ -3116,16 +3106,13 @@ void PointCameraAtCombatTarget(W8TargetSource* source, W8CombatSlot* target)
                          "C:\\Projects\\Wizardry 8\\Local Code\\Combat.cpp", 0x13fe, 0);
         }
         location_id = target->iMonsterID;
-        caller_line = 0x1400;
     } else if (target->iType == W8_TARGET_KIND_GROUP) {
         if (target->iGroupID == -1) {
             srAssertFail("pTarget->iGroupID != -1",
                          "C:\\Projects\\Wizardry 8\\Local Code\\Combat.cpp", 0x140c, 0);
         }
-        group = GetMonsterGroupByListIndex(GetMonsterGroupIndexByID(
-            0x140d, "C:\\Projects\\Wizardry 8\\Local Code\\Combat.cpp", target->iGroupID, true));
+        group = GetMonsterGroupByListIndex(GetMonsterGroupIndexByID(target->iGroupID));
         location_id = group->leader_location_id;
-        caller_line = 0x140d;
     } else {
         if (target->iType != W8_TARGET_KIND_PLACE) {
             return;
@@ -3134,8 +3121,7 @@ void PointCameraAtCombatTarget(W8TargetSource* source, W8CombatSlot* target)
         PointCameraAtTarget(&position, false, false);
         return;
     }
-    monster_info = MonsterGetScriptPartByLocationIndex(MonsterGetIndexByLocationID(
-        caller_line, "C:\\Projects\\Wizardry 8\\Local Code\\Combat.cpp", location_id, true));
+    monster_info = MonsterGetScriptPartByLocationIndex(MonsterGetIndexByLocationID(location_id));
     PointCameraAtMonster(monster_info, false, true);
 }
 

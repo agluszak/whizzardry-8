@@ -46,7 +46,6 @@ struct W8RenderQuality {
     unsigned char unknown_30[4];
 };
 
-W8_ABI_ASSERT(sizeof(W8RenderQuality) == 0x34, "W8RenderQuality_size");
 extern W8RenderQuality* g_render_options;
 
 void InitializeRenderQuality(void);

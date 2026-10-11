@@ -806,8 +806,6 @@ public:
     bool reverse;
 };
 
-W8_ABI_ASSERT(sizeof(W8TriggerShakeEvent) == 0x44, "W8TriggerShakeEvent_must_be_0x44");
-
 // VTABLE: WIZ8 0x005ec140
 // class W8TriggerShakeEvent
 /* Retail ICF folds this class's deleting destructor onto W8TriggerEvent's
@@ -1031,8 +1029,7 @@ bool Trigger::HasActorWithinRadius(float radius, bool include_party)
             if (location_id == 0) {
                 break;
             }
-            unsigned int monster_index = MonsterGetIndexByLocationID(
-                0x1246, "C:\\Projects\\Wizardry 8\\Engine Code\\Trigger.cpp", location_id, true);
+            unsigned int monster_index = MonsterGetIndexByLocationID(location_id);
             W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(monster_index);
             if (monster_info != 0 && monster_info->p3D != 0) {
                 srVector3T<float> monster_position = monster_info->p3D->GetPosition();
@@ -3042,8 +3039,7 @@ void Trigger::Run(int source)
             group = gXStatus.monster_groups[index];
             if (group->monster_id == monster_id) {
                 int location_id = group->MemberLocationId(0);
-                unsigned int monster_index = MonsterGetIndexByLocationID(
-                    0x7aa, "C:\\Projects\\Wizardry 8\\Engine Code\\Trigger.cpp", location_id, true);
+                unsigned int monster_index = MonsterGetIndexByLocationID(location_id);
 
                 monster_info = MonsterGetScriptPartByLocationIndex(monster_index);
                 break;

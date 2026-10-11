@@ -9,7 +9,6 @@
 #include <memory>
 #include <vector>
 
-#include "compat/compiler.h"
 #include "wiz8/conditions.h"
 #include "wiz8/local_screens/RCSStatsPage.h"
 #include "wiz8/local_screens/RCSCommon.h"
@@ -96,7 +95,6 @@ struct W8PortraitGroup {
     int count;
     int portraits[14];
 };
-W8_ABI_ASSERT(sizeof(W8PortraitGroup) == 0x3c, "W8PortraitGroup_size");
 // GLOBAL: WIZ8 0x00648950
 static W8PortraitGroup g_portrait_groups[12] = {
     {14, {0, 1, 2, 3, 76, 4, 5, 6, 7, 8, 9, 77, 10, 11}},

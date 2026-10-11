@@ -907,7 +907,7 @@ void MonsterReactsToBeingStruck(W8MonsterInfo* monster_info, W8TargetSource* att
                 TickMonsterCondition(monster_info->location_id, W8_CONDITION_TURNCOAT, 1);
             }
         } else if (MonsterHostility(
-                       MonsterInfoFromID(1570, HEALTH_STAMINA_MANA_CPP, attacker->iMonsterID, true),
+                       MonsterInfoFromID(attacker->iMonsterID),
                        monster_info) == W8_DISPOSITION_FRIENDLY) {
             TickMonsterCondition(monster_info->location_id, W8_CONDITION_TURNCOAT, 1);
         }
@@ -1418,7 +1418,7 @@ void ApplyQueuedFatigue(W8CombatSlot* op, unsigned int amount, int)
     }
     if (op->iType == W8_TARGET_KIND_MONSTER) {
         unsigned int location_index =
-            MonsterGetIndexByLocationID(0x771, HEALTH_STAMINA_MANA_CPP, op->iMonsterID, true);
+            MonsterGetIndexByLocationID(op->iMonsterID);
         W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(location_index);
         FatigueMonster(monster_info, amount, 0);
     }

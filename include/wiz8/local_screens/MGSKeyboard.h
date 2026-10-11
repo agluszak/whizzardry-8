@@ -21,7 +21,7 @@ struct MGSKeyBinding {
 };
 #pragma pack(pop)
 
-W8_ABI_ASSERT(sizeof(MGSKeyBinding) == 0x0a, "MGSKeyBinding_size");
+static_assert(sizeof(MGSKeyBinding) == 0x0a, "MGSKeyBinding_size");
 
 // VTABLE: WIZ8 0x005ee8f0
 class MGSKeyboard {
@@ -42,8 +42,6 @@ private:
   std::vector<std::unique_ptr<MGSKeyBinding>> m_bindings;
   std::unordered_map<unsigned int, MGSKeyBinding*> m_command_index;
 };
-
-W8_ABI_ASSERT(sizeof(MGSKeyboard) == 0x24, "MGSKeyboard_size");
 
 extern MGSKeyboard* g_mgs_keyboard;
 

@@ -76,8 +76,6 @@ public:
     unsigned char padding_0c2[2];
 }; /* 0xc4 */
 
-W8_ABI_ASSERT(sizeof(W8PropRepresentation) == 0xc4, "W8PropRepresentation_must_be_0xc4");
-
 /* Engine Code\Prop.cpp.  Prop::Prop() calls W8GrObject::W8GrObject and
    allocates operator new(0x90), which proves both the base and the extent.
    m_pRep and m_pTimer are the assertion-backed names; the representation is
@@ -178,8 +176,6 @@ public:
     glm::mat3 previous_animation_rotation; /* 0x48 */
     glm::mat3 animation_rotation;          /* 0x6c */
 }; /* 0x90 */
-
-W8_ABI_ASSERT(sizeof(W8Prop) == 0x90, "W8Prop_must_be_0x90");
 
 W8Prop* FindPropByName(W8World* world, const char* name);
 bool CreateAndLoadProp(W8ReadLevelInfo* info, W8Prop** prop);

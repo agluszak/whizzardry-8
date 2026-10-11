@@ -67,7 +67,6 @@ public:
     /* Echoed back as the argument of m_dialog->OnNumericInputChanged. */
     int m_control_id;
 };
-W8_ABI_ASSERT(sizeof(W8DialogNumericInput) == 0x30, "W8DialogNumericInput_size");
 
 // VTABLE: WIZ8 0x005ef7c8
 class W8ListBoxDialog : public W8DialogBase {
@@ -184,9 +183,6 @@ private:
     W8SplitDialogResult m_result; /* 1 confirms, 2 cancels */
 };
 
-W8_ABI_ASSERT(sizeof(W8ListBoxDialog) == 0xfc, "W8ListBoxDialog005CBB40_must_be_0xfc");
-W8_ABI_ASSERT(sizeof(W8SplitAmountDialog) == 0x90, "W8SplitAmountDialog_must_be_0x90");
-
 /* The trigger-owned item picker. The item group is what the trigger hands in
    and the destroy callback hands back. */
 // VTABLE: WIZ8 0x005ef810
@@ -255,8 +251,6 @@ public:
   W8WorldItem* m_item_group;
 };
 
-W8_ABI_ASSERT(sizeof(W8TriggerItemPickerDialog) == 0xb0, "W8TriggerItemPickerDialog_must_be_0xb0");
-
 /* The item-split dialog opened for stackable item stacks. The destroy
    callback reads back split_count and tests split_result. */
 // VTABLE: WIZ8 0x005efb78
@@ -316,8 +310,6 @@ private:
     W8ItemInstance* m_item;
     bool m_first_draw; /* draw the item icon once */
 };
-
-W8_ABI_ASSERT(sizeof(W8SplitItemDialog) == 0xd8, "W8SplitItemDialog_must_be_0xd8");
 
 extern const W8SplitDialogResult g_amount_split_confirm_result;
 extern const W8SplitDialogResult g_item_split_confirm_result;

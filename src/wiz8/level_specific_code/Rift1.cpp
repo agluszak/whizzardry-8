@@ -9,10 +9,9 @@
 #include "wiz8/location_variables.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "surrender/srMath.h"
+#include "wiz8/npc_interaction.h"
 
-#define RIFT1_CPP "C:\\Projects\\Wizardry 8\\Level Specific Code\\Rift1.cpp"
 
 /* Level Specific Code\Rift1.cpp (level 0x15).
 
@@ -38,7 +37,7 @@ bool Rift1Sexspawn(Trigger* pTrigger)
             monster_info = FindMonsterInfoBySpecies(0xd9);
             if (monster_info != 0) {
                 RemoveMonster(
-                    MonsterGetIndexByLocationID(0x42, RIFT1_CPP, monster_info->location_id, true),
+                    MonsterGetIndexByLocationID(monster_info->location_id),
                     true);
             }
             monster_info = FindMonsterInfoBySpecies(0x22b);

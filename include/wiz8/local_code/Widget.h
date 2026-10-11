@@ -82,4 +82,3 @@ public:
     W8ControlCallback m_rightButtonDownCallback;
     W8ControlCallback m_leftDoubleClickCallback;
 };
-W8_ABI_ASSERT(sizeof(W8Widget) == 0x34, "W8Widget_size");
