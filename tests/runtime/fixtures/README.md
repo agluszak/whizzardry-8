@@ -11,9 +11,13 @@ Keep this file fixed so the runtime scenarios also exercise loading a
 previously written character. It was produced by the native port and is
 not an independent retail compatibility reference.
 
-`runtime_save-fixture` starts a new game with this character, walks a few
-steps and quick-saves through the key binding. CTest writes `Fixture.SAV`
-and its expected position, level and experience to the build directory's
-`tests/runtime-fixtures`, then supplies that directory to `runtime_load-game`.
-The generated save tests the current writer and menu loader together; it
-does not prove compatibility with historical retail saves.
+`runtime_quick-save` starts a new game with this character, walks a few
+steps and quick-saves through the key binding. It copies the real save into
+`Fixture.SAV`, along with its expected position, level, experience and HP,
+in the build directory's `tests/runtime-fixtures`. It then walks away,
+changes character fields and checks that quick-load restores them.
+
+CTest runs `runtime_quick-save` as the fixture setup before
+`runtime_load-game`, which loads that same file through the menu in a fresh
+game process. The generated save tests the current writer and menu loader
+together; it does not prove compatibility with historical retail saves.

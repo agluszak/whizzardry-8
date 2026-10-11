@@ -135,11 +135,8 @@ ButtonImage ButtonGraphics::Load(std::string_view filename, INT32 grayed, INT32 
                                       [](int frame) { return frame == BUTTON_NO_IMAGE; }))
         return {};
 
-    VOBJECT_DESC desc{};
-    desc.fCreateFlags = VOBJECT_CREATE_FROMFILE;
-    desc.ImageFile = filename;
     auto image = std::make_shared<ButtonGraphics>();
-    image->ownedObject = CreateVideoObject(desc);
+    image->ownedObject = LoadVideoObject(filename);
     if (!image->ownedObject)
         return {};
 
@@ -149,7 +146,7 @@ ButtonImage ButtonGraphics::Load(std::string_view filename, INT32 grayed, INT32 
             continue;
         if (index < 0 || static_cast<size_t>(index) >= image->object().sprites.size()) {
             SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Invalid button frame %d in %s",
-                         index, desc.ImageFile.c_str());
+                         index, std::string(filename).c_str());
             return {};
         }
         const auto& frame = image->object().sprites[index];
@@ -190,11 +187,8 @@ GenericButtonImage LoadGenericGraphics(const std::array<std::string_view, 6>& fi
     auto image = std::make_shared<GenericButtonImages>();
     for (size_t index = 0; index < filenames.size(); ++index) {
         if (filenames[index].empty()) continue;
-        VOBJECT_DESC desc{};
-        desc.fCreateFlags = VOBJECT_CREATE_FROMFILE;
-        desc.ImageFile = filenames[index];
         auto& object = image->frames[index];
-        object = CreateVideoObject(desc);
+        object = LoadVideoObject(filenames[index]);
         const bool valid = object && (index == 5
             ? background_frame >= 0 && static_cast<size_t>(background_frame) < object->sprites.size()
             : object->sprites.size() >= 9 && object->sprites[0].usWidth > 0 &&
@@ -205,7 +199,7 @@ GenericButtonImage LoadGenericGraphics(const std::array<std::string_view, 6>& fi
                 continue;
             }
             SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Invalid generic button graphics: %s",
-                         desc.ImageFile.c_str());
+                         std::string(filenames[index]).c_str());
             return {};
         }
     }
