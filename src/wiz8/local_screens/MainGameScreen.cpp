@@ -418,7 +418,7 @@ int OpenLockInteraction(Trigger* trigger)
     g_lock_interaction->m_info_panel->RefreshInfo();
     g_lock_interaction->m_action_panel->Invalidate(0);
     skill = GetPartySlotLocksTrapsLevel(g_status.selected_character);
-    panel = g_lock_interaction->m_tumbler_panel;
+    panel = g_lock_interaction->m_tumbler_panel.get();
     for (i = 0; i < panel->m_tumbler_count; ++i) {
         panel->m_tumblers[i]->SetEnabled(skill > -1);
     }
@@ -751,44 +751,32 @@ W8LockInfoPanel::W8LockInfoPanel(int tumbler_count)
     bounds.top = m_bounds.top + 7;
     bounds.right = m_bounds.left + 0xb4;
     bounds.bottom = m_bounds.top + 0x11;
-    m_text0 = new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, g_W8TextBufferAlignCenter, 4);
+    m_text0.reset(new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, g_W8TextBufferAlignCenter, 4));
     bounds.top += 0xe;
     bounds.bottom += 0xe;
-    m_text1 = new W8TextBuffer(&bounds, g_localized_strings[0x7a9], g_wiz_text_font_secondary,
+    m_text1 = std::make_unique<W8TextBuffer>(&bounds, g_localized_strings[0x7a9], g_wiz_text_font_secondary,
                                g_W8TextBufferAlignLeft, 4);
     bounds.top += 0xe;
     bounds.bottom += 0xe;
-    m_text3 = new W8TextBuffer(&bounds, g_localized_strings[0x7aa], g_wiz_text_font_secondary,
+    m_text3 = std::make_unique<W8TextBuffer>(&bounds, g_localized_strings[0x7aa], g_wiz_text_font_secondary,
                                g_W8TextBufferAlignLeft, 4);
     bounds.top += 0xe;
     bounds.bottom += 0xe;
-    m_text5 = new W8TextBuffer(&bounds, g_localized_strings[0x7ab], g_wiz_text_font_secondary,
+    m_text5 = std::make_unique<W8TextBuffer>(&bounds, g_localized_strings[0x7ab], g_wiz_text_font_secondary,
                                g_W8TextBufferAlignLeft, 4);
     bounds.left = m_bounds.left + 0x98;
     bounds.top = m_bounds.top + 0x15;
     bounds.right = m_bounds.left + 0xb5;
     bounds.bottom = m_bounds.top + 0x1f;
-    m_text2 = new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, g_W8TextBufferAlignCenter, 4);
+    m_text2.reset(new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, g_W8TextBufferAlignCenter, 4));
     bounds.top += 0xe;
     bounds.bottom += 0xe;
-    m_text4 = new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, g_W8TextBufferAlignCenter, 4);
+    m_text4.reset(new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, g_W8TextBufferAlignCenter, 4));
     bounds.top += 0xe;
     bounds.bottom += 0xe;
-    m_text = new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, g_W8TextBufferAlignCenter, 4);
+    m_text.reset(new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, g_W8TextBufferAlignCenter, 4));
     SetEnabled(true);
     Invalidate(0);
-}
-
-// FUNCTION: WIZ8 0x00585E20
-W8LockInfoPanel::~W8LockInfoPanel()
-{
-    delete m_text0;
-    delete m_text1;
-    delete m_text2;
-    delete m_text3;
-    delete m_text4;
-    delete m_text5;
-    delete m_text;
 }
 
 // FUNCTION: WIZ8 0x00585ED0
@@ -877,23 +865,22 @@ W8LockInteraction::W8LockInteraction(Trigger* trigger) : m_timer()
     } else if (m_tumbler_count > 8) {
         m_tumbler_count = 8;
     }
-    m_tumbler_panel =
-        new W8LockTumblerPanel(m_tumbler_count, trigger->lock_state.device_state.pins);
+    m_tumbler_panel = std::make_unique<W8LockTumblerPanel>(m_tumbler_count, trigger->lock_state.device_state.pins);
     m_tumbler_panel->m_listener = this;
-    m_info_panel = new W8LockInfoPanel(m_tumbler_count);
-    m_action_panel = new Controls(0x1e7, 0x166, 0, 0, CatalogArtwork::Load(0x1af, 0), 2);
+    m_info_panel = std::make_unique<W8LockInfoPanel>(m_tumbler_count);
+    m_action_panel = std::make_unique<Controls>(0x1e7, 0x166, 0, 0, CatalogArtwork::Load(0x1af, 0), 2);
     m_action_panel->CreateRegionSet();
     m_spell_button =
-        new W8TextControl(m_action_panel, 0xffffffff, 6, 6, 0, 0, CatalogArtwork::Load(0x1b0, 0), 8, 10, 9, 10, 0xb);
+        new W8TextControl(m_action_panel.get(), 0xffffffff, 6, 6, 0, 0, CatalogArtwork::Load(0x1b0, 0), 8, 10, 9, 10, 0xb);
     m_spell_button->m_listener = this;
     m_force_button =
-        new W8TextControl(m_action_panel, 0xffffffff, 0x24, 6, 0, 0, CatalogArtwork::Load(0x1b0, 0), 0, 2, 1, 2, 3);
+        new W8TextControl(m_action_panel.get(), 0xffffffff, 0x24, 6, 0, 0, CatalogArtwork::Load(0x1b0, 0), 0, 2, 1, 2, 3);
     m_force_button->m_listener = this;
     m_cancel_button =
-        new W8TextControl(m_action_panel, 0xffffffff, 6, 0x24, 0, 0, CatalogArtwork::Load(0x1b0, 0), 4, 6, 5, 6, 7);
+        new W8TextControl(m_action_panel.get(), 0xffffffff, 6, 0x24, 0, 0, CatalogArtwork::Load(0x1b0, 0), 4, 6, 5, 6, 7);
     m_cancel_button->m_listener = this;
     m_done_button =
-        new W8TextControl(m_action_panel, 0xffffffff, 0x44, 6, 0, 0, CatalogArtwork::Load(0x8e, 0), 4, 6, 5, 6, 7);
+        new W8TextControl(m_action_panel.get(), 0xffffffff, 0x44, 6, 0, 0, CatalogArtwork::Load(0x8e, 0), 4, 6, 5, 6, 7);
     m_done_button->m_listener = this;
     m_spell_button->EnableRegionHelp(0x7cb);
     m_force_button->EnableRegionHelp(0x7cd);
@@ -928,15 +915,6 @@ W8LockInteraction::W8LockInteraction(Trigger* trigger) : m_timer()
     m_force_button->SetEnabled(static_cast<int>(figure) > -1);
     m_info_panel->RefreshInfo();
     m_action_panel->Invalidate(0);
-}
-
-// FUNCTION: WIZ8 0x005866A0
-W8LockInteraction::~W8LockInteraction()
-{
-    delete m_tumbler_panel;
-    delete m_info_panel;
-    m_action_panel->EnableRegionSet(false);
-    delete m_action_panel;
 }
 
 int W8LockInteraction::ReleaseOwnedTumblers(int slot)
@@ -1271,7 +1249,7 @@ void W8LockInteraction::ApplyKnockKnock(int level, int /*flag*/, char backfire)
     for (i = 0; i < pins; ++i) {
         if (Random(1000) < chance) {
             pin = order[i];
-            panel = m_tumbler_panel;
+            panel = m_tumbler_panel.get();
             if (backfire == 0) {
                 if (m_tumbler_owner[pin] == -1) {
                     tumbler = panel->m_tumblers[pin];
@@ -1746,45 +1724,33 @@ W8MainGameStatusPanel::W8MainGameStatusPanel()
     bounds.top = m_bounds.top + 7;
     bounds.right = m_bounds.left + 0xb4;
     bounds.bottom = m_bounds.top + 0x11;
-    m_text = new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, g_W8TextBufferAlignCenter, 4);
+    m_text.reset(new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, g_W8TextBufferAlignCenter, 4));
     bounds.top += 0xe;
     bounds.bottom += 0xe;
-    m_text0 = new W8TextBuffer(&bounds, g_localized_strings[0x7a9], g_wiz_text_font_secondary,
+    m_text0 = std::make_unique<W8TextBuffer>(&bounds, g_localized_strings[0x7a9], g_wiz_text_font_secondary,
                                g_W8TextBufferAlignLeft, 4);
     bounds.top += 0xe;
     bounds.bottom += 0xe;
-    m_text2 = new W8TextBuffer(&bounds, g_localized_strings[0x7aa], g_wiz_text_font_secondary,
+    m_text2 = std::make_unique<W8TextBuffer>(&bounds, g_localized_strings[0x7aa], g_wiz_text_font_secondary,
                                g_W8TextBufferAlignLeft, 4);
     bounds.top += 0xe;
     bounds.bottom += 0xe;
-    m_text4 = new W8TextBuffer(&bounds, g_localized_strings[0x7b0], g_wiz_text_font_secondary,
+    m_text4 = std::make_unique<W8TextBuffer>(&bounds, g_localized_strings[0x7b0], g_wiz_text_font_secondary,
                                g_W8TextBufferAlignLeft, 4);
     bounds.left = m_bounds.left + 0x98;
     bounds.top = m_bounds.top + 0x15;
     bounds.right = m_bounds.left + 0xb5;
     bounds.bottom = m_bounds.top + 0x1f;
-    m_text1 = new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, g_W8TextBufferAlignCenter, 4);
+    m_text1.reset(new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, g_W8TextBufferAlignCenter, 4));
     bounds.top += 0xe;
     bounds.bottom += 0xe;
-    m_text3 = new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, g_W8TextBufferAlignCenter, 4);
+    m_text3.reset(new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, g_W8TextBufferAlignCenter, 4));
     bounds.top += 0xe;
     bounds.bottom += 0xe;
-    m_text5 = new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, g_W8TextBufferAlignCenter, 4);
+    m_text5.reset(new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, g_W8TextBufferAlignCenter, 4));
     m_target = 0;
     SetEnabled(true);
     Invalidate(0);
-}
-
-// FUNCTION: WIZ8 0x00588db0
-W8MainGameStatusPanel::~W8MainGameStatusPanel()
-{
-    delete m_text;
-    delete m_text0;
-    delete m_text1;
-    delete m_text2;
-    delete m_text3;
-    delete m_text4;
-    delete m_text5;
 }
 
 // FUNCTION: WIZ8 0x00588e60
@@ -1879,24 +1845,24 @@ W8MainGameScreen::W8MainGameScreen(Trigger* owner)
 {
     m_device_id = owner->lock_state.device_id;
     m_difficulty = owner->lock_state.difficulty;
-    m_text_panel = new W8MainGameTextPanel();
+    m_text_panel = std::make_unique<W8MainGameTextPanel>();
     m_text_panel->m_screen = this;
-    m_status_panel = new W8MainGameStatusPanel();
-    m_action_panel = new Controls(0x1e7, 0x166, 0, 0, CatalogArtwork::Load(0x1b1, 0), 2);
+    m_status_panel = std::make_unique<W8MainGameStatusPanel>();
+    m_action_panel = std::make_unique<Controls>(0x1e7, 0x166, 0, 0, CatalogArtwork::Load(0x1b1, 0), 2);
     m_action_panel->CreateRegionSet();
     m_action_controls[1] =
-        new W8TextControl(m_action_panel, 0xffffffff, 6, 6, 0, 0, CatalogArtwork::Load(0x1b0, 0), 8, 10, 9, 10, 0xb);
+        new W8TextControl(m_action_panel.get(), 0xffffffff, 6, 6, 0, 0, CatalogArtwork::Load(0x1b0, 0), 8, 10, 9, 10, 0xb);
     m_action_controls[1]->m_listener = this;
     m_action_controls[2] =
-        new W8TextControl(m_action_panel, 0xffffffff, 0x24, 6, 0, 0, CatalogArtwork::Load(0x1b0, 0), 0, 2, 1, 2, 3);
+        new W8TextControl(m_action_panel.get(), 0xffffffff, 0x24, 6, 0, 0, CatalogArtwork::Load(0x1b0, 0), 0, 2, 1, 2, 3);
     m_action_controls[2]->m_listener = this;
     m_action_controls[3] =
-        new W8TextControl(m_action_panel, 0xffffffff, 6, 0x24, 0, 0, CatalogArtwork::Load(0x1b0, 0), 4, 6, 5, 6, 7);
+        new W8TextControl(m_action_panel.get(), 0xffffffff, 6, 0x24, 0, 0, CatalogArtwork::Load(0x1b0, 0), 4, 6, 5, 6, 7);
     m_action_controls[3]->m_listener = this;
-    m_action_controls[4] = new W8TextControl(m_action_panel, 0xffffffff, 0x24, 0x24, 0, 0, CatalogArtwork::Load(0x1b0, 0), 0xc, 0xe, 0xd, 0xe, 0xf);
+    m_action_controls[4] = new W8TextControl(m_action_panel.get(), 0xffffffff, 0x24, 0x24, 0, 0, CatalogArtwork::Load(0x1b0, 0), 0xc, 0xe, 0xd, 0xe, 0xf);
     m_action_controls[4]->m_listener = this;
     m_action_controls[0] =
-        new W8TextControl(m_action_panel, 0xffffffff, 0x44, 6, 0, 0, CatalogArtwork::Load(0x8e, 0), 4, 6, 5, 6, 7);
+        new W8TextControl(m_action_panel.get(), 0xffffffff, 0x44, 6, 0, 0, CatalogArtwork::Load(0x8e, 0), 4, 6, 5, 6, 7);
     m_action_controls[0]->m_listener = this;
     m_action_controls[1]->EnableRegionHelp(0x7ce);
     m_action_controls[2]->EnableRegionHelp(0x7cf);
@@ -1910,15 +1876,6 @@ W8MainGameScreen::W8MainGameScreen(Trigger* owner)
         m_slot_attempted[i] = 0;
     }
     RefreshActionPanel();
-}
-
-// FUNCTION: WIZ8 0x005894b0
-W8MainGameScreen::~W8MainGameScreen()
-{
-    delete m_text_panel;
-    delete m_status_panel;
-    m_action_panel->EnableRegionSet(false);
-    delete m_action_panel;
 }
 
 // FUNCTION: WIZ8 0x00589550
@@ -2063,7 +2020,7 @@ void W8MainGameScreen::Update()
         return;
     }
 
-    panel = m_text_panel;
+    panel = m_text_panel.get();
     if (panel->m_target_changed) {
         elapsed = static_cast<int>(panel->m_timer1.GetProgress());
         if (elapsed != 0) {
@@ -2072,7 +2029,7 @@ void W8MainGameScreen::Update()
         }
     }
 
-    panel = m_text_panel;
+    panel = m_text_panel.get();
     if (panel->m_progress_display) {
         progress = panel->m_timer0.GetProgress();
         if (progress < panel->m_progress_duration) {
@@ -2108,7 +2065,7 @@ void W8MainGameScreen::Update()
         m_disarm_state = 3;
         return;
     case 3:
-        panel = m_text_panel;
+        panel = m_text_panel.get();
         panel->EnableRegionSet(false);
         panel->m_key_handler->m_range.EnableRegionSet(false);
         m_action_panel->EnableRegionSet(false);
@@ -2204,7 +2161,7 @@ void W8MainGameScreen::RefreshActionPanel()
 // FUNCTION: WIZ8 0x0058a030
 void W8MainGameScreen::EnablePanelRegionSets(bool enable)
 {
-    W8MainGameTextPanel* panel = m_text_panel;
+    W8MainGameTextPanel* panel = m_text_panel.get();
 
     panel->EnableRegionSet(enable);
     panel->m_key_handler->m_range.EnableRegionSet(enable);
@@ -2261,7 +2218,7 @@ static void BeginTrapTargetAction()
     W8MainGameTextPanel* panel;
     screen = g_main_game_screen.get();
     gXStatus.fTrapInteractMode = false;
-    panel = screen->m_text_panel;
+    panel = screen->m_text_panel.get();
     panel->EnableRegionSet(false);
     panel->m_key_handler->m_range.EnableRegionSet(false);
     screen->m_action_panel->EnableRegionSet(false);
@@ -2364,7 +2321,7 @@ int OpenTrapInteraction(Trigger* trigger)
     RequestRedraw(W8_MAIN_REDRAW_SUBMENU_BUTTONS);
     if (gXStatus.fTrapInteract) {
         screen = g_main_game_screen.get();
-        panel = screen->m_text_panel;
+        panel = screen->m_text_panel.get();
         panel->EnableRegionSet(true);
         panel->m_key_handler->m_range.EnableRegionSet(true);
         screen->m_action_panel->EnableRegionSet(true);
@@ -2418,7 +2375,7 @@ void EndTrapInteractMode(char suspend)
 {
     gXStatus.fTrapInteractMode = false;
     if (suspend != 0) {
-        W8MainGameTextPanel* panel = g_main_game_screen->m_text_panel;
+        W8MainGameTextPanel* panel = g_main_game_screen->m_text_panel.get();
         W8MainGameScreen* screen = g_main_game_screen.get();
         panel->EnableRegionSet(false);
         panel->m_key_handler->m_range.EnableRegionSet(false);
@@ -6312,7 +6269,7 @@ unsigned char WorldViewRegionEvent(const InputEvent* event, W8Region* region)
         }
         SetWorldCursorRange(CalcRangeDistanceFromParty(
             GetCharActionRange(g_status.selected_character, 0, W8_TARGETING_CONTEXT_CURRENT)));
-        if (gpSCSV != 0 && GetActionSpellLikeId(g_status.selected_character,
+        if (gpSCSV && GetActionSpellLikeId(g_status.selected_character,
                                                 W8_TARGETING_CONTEXT_CURRENT) == 0x3c) {
             signed char extent_index;
             srVector3T<float> minimum;

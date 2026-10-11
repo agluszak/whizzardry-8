@@ -1,3 +1,5 @@
+#include <memory>
+#include <algorithm>
 #include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>
@@ -75,7 +77,7 @@ static int g_spell_realm_help_string_ids[6] = {0x27, 0x28, 0x29, 0x2a, 0x2b, 0x2
 
 
 // GLOBAL: WIZ8 0x0069BF3C
-W8SpellCastingView* gpSCSV;
+std::unique_ptr<W8SpellCastingView> gpSCSV;
 
 // Retail set 0x19, regions 139-155.
 static constexpr std::array<RegionTemplate, 17> g_spell_casting_region_templates{{
@@ -101,7 +103,7 @@ ScreenRegionSet g_spell_casting_regions{g_spell_casting_region_templates, 0x19};
 
 int GetSpellCastingPowerIndex(void)
 {
-    if (gpSCSV == 0) {
+    if (!gpSCSV) {
         return -1;
     }
     return gpSCSV->iSpellPower;
@@ -146,11 +148,11 @@ static void CreateSpellCastingViewControls(void)
     Controls* panel;
     unsigned int index;
 
-    gpSCSV->panels[0] = new Controls(0x17, 0x166, 0xe5, 0x1c2, CatalogArtwork::Load(400, 0), 0);
-    gpSCSV->panels[1] = new Controls(0xe6, 0x166, 0x1a3, 0x1c2, CatalogArtwork::Load(400, 0), 1);
-    gpSCSV->panels[2] = new Controls(0x1a4, 0x166, 0x268, 0x1c2, CatalogArtwork::Load(400, 0), 2);
+    gpSCSV->panels[0] = std::make_unique<Controls>(0x17, 0x166, 0xe5, 0x1c2, CatalogArtwork::Load(400, 0), 0);
+    gpSCSV->panels[1] = std::make_unique<Controls>(0xe6, 0x166, 0x1a3, 0x1c2, CatalogArtwork::Load(400, 0), 1);
+    gpSCSV->panels[2] = std::make_unique<Controls>(0x1a4, 0x166, 0x268, 0x1c2, CatalogArtwork::Load(400, 0), 2);
 
-    panel = gpSCSV->panels[0];
+    panel = gpSCSV->panels[0].get();
     gpSCSV->realm_buttons[0] =
         new W8TextControl(panel, g_spell_casting_regions->index(0), 0x1e, 0xd, 0x69, 0x23,
                           CatalogArtwork::Load(0x191, 0), 0, 3, 1, 3, 2);
@@ -196,7 +198,7 @@ static void CreateSpellCastingViewControls(void)
     gpSCSV->realm_icons[4] = new W8TextControl(panel, -1, 0x55, 0x3b, 0x67, 0x4d, CatalogArtwork::Load(0x197, 0), g_spell_realm_animations[4].initial_frame, -1, -1, -1, g_spell_realm_animations[4].frame_count);
     gpSCSV->realm_icons[5] = new W8TextControl(panel, -1, 0x73, 0x3b, 0x85, 0x4d, CatalogArtwork::Load(0x198, 0), g_spell_realm_animations[5].initial_frame, -1, -1, -1, g_spell_realm_animations[5].frame_count);
 
-    panel = gpSCSV->panels[2];
+    panel = gpSCSV->panels[2].get();
     gpSCSV->power_controls[0] =
         new W8TextControl(panel, g_spell_casting_regions->index(6), 0x38, 2, 0x47, 0x11,
                           CatalogArtwork::Load(0x192, 0), 0, 2, 1, 4, 3);
@@ -276,32 +278,12 @@ static void CreateSpellCastingViewControls(void)
 // FUNCTION: WIZ8 0x0059F060
 void ReleaseSpellCastingViewControls(void)
 {
-    int index;
-
-    for (index = 0; index < 3; ++index) {
-        if (gpSCSV->panels[index] != 0) {
-            delete gpSCSV->panels[index];
-        }
+    for (auto& panel : gpSCSV->panels) {
+        panel.reset();
     }
-    for (index = 0; index < W8_SPELL_REALM_COUNT; ++index) {
-        if (gpSCSV->realm_buttons[index] != 0) {
-            delete gpSCSV->realm_buttons[index];
-        }
-        if (gpSCSV->realm_icons[index] != 0) {
-            delete gpSCSV->realm_icons[index];
-        }
-    }
-    for (index = 0; index < W8_SPELL_POWER_PIP_COUNT; ++index) {
-        if (gpSCSV->power_controls[index] != 0) {
-            delete gpSCSV->power_controls[index];
-        }
-    }
-    if (gpSCSV->power_controls[W8_SPELL_NAME_CONTROL] != 0) {
-        delete gpSCSV->power_controls[W8_SPELL_NAME_CONTROL];
-    }
-    if (gpSCSV->power_controls[W8_SPELL_CANCEL_CONTROL] != 0) {
-        delete gpSCSV->power_controls[W8_SPELL_CANCEL_CONTROL];
-    }
+    std::ranges::fill(gpSCSV->realm_buttons, nullptr);
+    std::ranges::fill(gpSCSV->realm_icons, nullptr);
+    std::ranges::fill(gpSCSV->power_controls, nullptr);
 }
 
 /* Opens the spell-casting view for one party slot: allocates and clears the
@@ -315,12 +297,8 @@ unsigned char OpenSpellCastingView(int party_slot)
     if (!IsPartySlotEligible(party_slot)) {
         return 0;
     }
-    if (gpSCSV == 0) {
-        gpSCSV = static_cast<W8SpellCastingView*>(malloc(sizeof(W8SpellCastingView)));
-        if (gpSCSV == 0) {
-            return 0;
-        }
-        memset(gpSCSV, 0, sizeof(W8SpellCastingView));
+    if (!gpSCSV) {
+        gpSCSV = std::make_unique<W8SpellCastingView>();
     }
     UpdateScreenOverlays(0);
     gXStatus.fSpellCastMode = true;
@@ -384,8 +362,7 @@ void CloseSpellCastingView(void)
         RequestRedraw(W8_MAIN_REDRAW_SUBMENU_BUTTONS);
         location_id = gpSCSV->location_id;
         interact_id = gpSCSV->interact_id;
-        free(gpSCSV);
-        gpSCSV = 0;
+        gpSCSV.reset();
         ResumeMainGameWorld();
         if (IsWorldCursorVisible()) {
             ToggleWorldCursor();
@@ -812,13 +789,13 @@ void SetSpellCastingPanelsActive(bool active)
 
     text_pending = false;
     for (index = 0; index < 3; ++index) {
-        Controls* panel = gpSCSV->panels[index];
+        Controls* panel = gpSCSV->panels[index].get();
         if (panel->m_fEnabled) {
             if (active) {
                 panel->Invalidate(0);
             }
             if (index == 1) {
-                Controls* description = gpSCSV->panels[1];
+                Controls* description = gpSCSV->panels[1].get();
                 text_pending = description->m_fEnabled &&
                                (description->m_fDirty || description->m_fLayoutDirty);
             }
@@ -1071,7 +1048,7 @@ static void PreviewSpellPowerPipHover(int power_level)
             (power_level == -1 || (gpSCSV->power_controls[power_level]->m_active &&
                                    gpSCSV->power_controls[power_level]->m_enabled))) {
             spell_name = gpSCSV->power_controls[W8_SPELL_NAME_CONTROL];
-            panel = gpSCSV->panels[2];
+            panel = gpSCSV->panels[2].get();
             const int left = spell_name->m_left + panel->m_bounds.left;
             const int top = spell_name->m_top + panel->m_bounds.top;
             const SDL_Rect bounds{left, top, spell_name->m_right - spell_name->m_left,

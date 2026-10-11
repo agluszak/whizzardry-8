@@ -370,7 +370,7 @@ public:
     W8OptionsPanelSet* m_pMenuSet; /* OptionsScreen.cpp:1481 */
     W8TextControl* m_next;
     W8TextControl* m_previous;
-    W8TextBuffer* m_page_text;
+    std::unique_ptr<W8TextBuffer> m_page_text;
 
     void UpdateMenuSet();
 };
@@ -401,11 +401,11 @@ public:
     bool m_modal_closing;
     unsigned char padding_01e[2];
     int m_selected_panel;
-    Controls* m_controls;
-    W8OptionsMenuSet* m_menu_set;
-    W8ControlSelection* m_menu_selection;
+    std::unique_ptr<Controls> m_controls;
+    std::unique_ptr<W8OptionsMenuSet> m_menu_set;
+    std::unique_ptr<W8ControlSelection> m_menu_selection;
     unsigned char unknown_030[8];
-    W8OptionsPanelSet* m_panel[8];
+    std::unique_ptr<W8OptionsPanelSet> m_panel[8];
     W8MessageDialogBase* m_active_modal; /* frame/leave own and clear it */
     W8OptionsTextEditor* m_text_editor;
     W8OptionsKeyCapture* m_key_capture;

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <SDL3/SDL_rect.h>
+#include <memory>
 #include <string>
 
 #include <vector>
@@ -71,7 +72,7 @@ struct W8MipeState {
 
 
 extern bool g_debug_monster_cycle;
-extern W8MipeState* g_mipe_state;
+extern std::unique_ptr<W8MipeState> g_mipe_state;
 extern int g_mipe_mode;
 extern int g_mipe_count;
 /* First visible table row; shared by mipe.cpp's table view and mipeEdit.cpp's

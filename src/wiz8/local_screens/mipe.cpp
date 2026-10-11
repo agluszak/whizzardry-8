@@ -1,3 +1,4 @@
+#include <memory>
 #include <SDL3/SDL_rect.h>
 #include <fmt/format.h>
 #include <string>
@@ -94,7 +95,7 @@ static short g_mipe_item_index;
 bool g_debug_monster_cycle;
 
 // GLOBAL: WIZ8 0x0068f100
-W8MipeState* g_mipe_state;
+std::unique_ptr<W8MipeState> g_mipe_state;
 
 // GLOBAL: WIZ8 0x0068f112
 static short g_mipe_monster_index;
@@ -109,7 +110,7 @@ static int g_mipe_table_row;
 int g_mipe_table_base;
 
 // GLOBAL: WIZ8 0x0068f124
-static std::vector<W8MipeMonsterEntry*>* g_mipe_monster_entries;
+static std::vector<W8MipeMonsterEntry> g_mipe_monster_entries;
 
 // GLOBAL: WIZ8 0x0068f12c
 static W8WorldCursorNode* g_mipe_cube;
@@ -169,14 +170,8 @@ void ToggleMipePanel(void)
                 SetMonsterHighlight(0, monster->location_id, false);
             }
         }
-        for (unsigned int entry_index = 0; entry_index < gXStatus.uiMonstersInDatabase; ++entry_index) {
-            delete (*g_mipe_monster_entries)[entry_index];
-        }
-        delete g_mipe_monster_entries;
-
-        g_mipe_monster_entries = 0;
-        delete g_mipe_state;
-        g_mipe_state = 0;
+        g_mipe_monster_entries.clear();
+        g_mipe_state.reset();
         SetWorldCursorNodesVisible(g_mipe_trigger_display);
         return;
     }
@@ -192,28 +187,18 @@ void ToggleMipePanel(void)
     g_mipe_active = true;
     g_mipe_menu_active = false;
     g_mipe_cube = 0;
-    g_mipe_monster_entries = new std::vector<W8MipeMonsterEntry*>;
-
-    W8MonsterRecord* records = new W8MonsterRecord[gXStatus.uiMonstersInDatabase]{};
-    if (records == 0) {
-        srAssertFail("pTempMonsterDB", "C:\\Projects\\Wizardry 8\\Local Screens\\mipe.cpp", 0xea5,
-                     0);
-    }
-    LoadMonsterDatabaseRange(0, gXStatus.uiMonstersInDatabase - 1, records);
+    std::vector<W8MonsterRecord> records(gXStatus.uiMonstersInDatabase);
+    LoadMonsterDatabaseRange(0, gXStatus.uiMonstersInDatabase - 1, records.data());
+    g_mipe_monster_entries.clear();
+    g_mipe_monster_entries.reserve(records.size());
     for (unsigned int index = 0; index < gXStatus.uiMonstersInDatabase; ++index) {
-        W8MipeMonsterEntry* entry =
-            new W8MipeMonsterEntry{};
-        if (entry == 0) {
-            srAssertFail("pMonRec", "C:\\Projects\\Wizardry 8\\Local Screens\\mipe.cpp", 0xeab, 0);
-        }
-        entry->name = records[index].name0;
-        entry->kind = records[index].kind;
-        entry->selectable = records[index].deleted == 0 && records[index].editor_index == -1;
-        g_mipe_monster_entries->push_back(entry);
+        W8MipeMonsterEntry& entry = g_mipe_monster_entries.emplace_back();
+        entry.name = records[index].name0;
+        entry.kind = records[index].kind;
+        entry.selectable = records[index].deleted == 0 && records[index].editor_index == -1;
     }
-    delete[] records;
 
-    g_mipe_state = new W8MipeState{};
+    g_mipe_state = std::make_unique<W8MipeState>();
     g_mipe_state->drag_anchor.SetZero();
     g_mipe_state->monster_ids.reserve(10);
 
@@ -239,7 +224,7 @@ void ToggleMipePanel(void)
     int monster_index = 0;
     int visible = 0;
     while (monster_index < static_cast<int>(gXStatus.uiMonstersInDatabase)) {
-        W8MipeMonsterEntry* entry = (*g_mipe_monster_entries)[monster_index];
+        W8MipeMonsterEntry* entry = &g_mipe_monster_entries[monster_index];
         if (entry->kind == g_mipe_category && entry->selectable) {
             if (visible == selection) {
                 break;
@@ -300,7 +285,7 @@ static void ShowMipeMonsterStatus(void)
     std::string name;
     const char* method;
 
-    name = (*g_mipe_monster_entries)[g_mipe_monster_index]->name;
+    name = g_mipe_monster_entries[g_mipe_monster_index].name;
     ResetEditorStatusLine(-1);
     ShowNotice(W8_FONT_PALETTE_PINK, "Type # to specify how many, then ENTER,");
     ShowNotice(W8_FONT_PALETTE_PINK, "OR type C to change what monster to place.  ");
@@ -674,7 +659,7 @@ static unsigned int FindMipeVisibleMonster(int visible)
     monster_index = 0;
     if (0 < static_cast<int>(gXStatus.uiMonstersInDatabase)) {
         do {
-            entry = (*g_mipe_monster_entries)[monster_index];
+            entry = &g_mipe_monster_entries[monster_index];
             if (entry->kind == g_mipe_category && entry->selectable) {
                 if (index == visible) {
                     break;
@@ -706,7 +691,7 @@ unsigned char HandleMipeMonsterCreateKey(unsigned short key)
         if (list != 0) {
             list->clear();
             for (index = 0; index < static_cast<int>(gXStatus.uiMonstersInDatabase); ++index) {
-                entry = (*g_mipe_monster_entries)[index];
+                entry = &g_mipe_monster_entries[index];
                 if (entry->kind == g_mipe_category && entry->selectable) {
                     list->push_back(entry);
                 }
@@ -878,7 +863,7 @@ static void RebuildMipeMonsterCategory(std::vector<W8MipeCategoryEntry>* list)
     if (g_mipe_category_list != 0) {
         g_mipe_category_list->clear();
         for (int index = 0; index < static_cast<int>(gXStatus.uiMonstersInDatabase); ++index) {
-            W8MipeMonsterEntry* entry = (*g_mipe_monster_entries)[index];
+            W8MipeMonsterEntry* entry = &g_mipe_monster_entries[index];
             if (entry->kind == g_mipe_category && entry->selectable) {
                 list->push_back(entry);
             }
@@ -1344,7 +1329,7 @@ void HandleWaypointKey(unsigned short key)
         g_mipe_state->waypoints.push_back(monster);
         ShowMipeWaypointStatus();
     } else if (key == 0x58) {
-        if (g_mipe_state != 0) {
+        if (g_mipe_state) {
             unsigned int count = static_cast<unsigned int>(g_mipe_state->waypoints.size());
             if (count != 0) {
                 monster = g_mipe_state->waypoints.back();
@@ -2620,7 +2605,7 @@ unsigned char HandleMipeKey(const InputEvent* event)
     case 4:
         if (key == 0x43) {
             g_mipe_choose_group = !g_mipe_choose_group;
-            if (g_mipe_state != 0) {
+            if (g_mipe_state) {
                 g_mipe_state->monster_ids.clear();
             }
             ShowMipeSelectionMenu("MOVE IT!!");
@@ -2645,7 +2630,7 @@ unsigned char HandleMipeKey(const InputEvent* event)
     case 9:
         if (key == 0x43) {
             g_mipe_choose_group = !g_mipe_choose_group;
-            if (g_mipe_state != 0) {
+            if (g_mipe_state) {
                 g_mipe_state->monster_ids.clear();
             }
             ShowMipeSelectionMenu("Choose monster or item to edit.");
@@ -2973,7 +2958,7 @@ bool MipeWorldViewEvent(InputEventType event, const SDL_Point* point)
     bool result;
 
     result = false;
-    if (g_mipe_state == 0) {
+    if (!g_mipe_state) {
         return false;
     }
     switch (event) {

@@ -1250,8 +1250,7 @@ void W8OptionsUnavailablePanel::Populate()
 
 // FUNCTION: WIZ8 0x005a9090
 W8OptionsScreen::W8OptionsScreen()
-    : m_redraw_pending(1), m_modal_closing(0), m_selected_panel(-1), m_controls(0), m_menu_set(0),
-      m_menu_selection(0), m_active_modal(0), m_text_editor(0), m_key_capture(0)
+    : m_redraw_pending(1), m_modal_closing(0), m_selected_panel(-1), m_active_modal(0), m_text_editor(0), m_key_capture(0)
 {
     for (int index = 0; index < 8; ++index) {
         m_panel[index] = 0;
@@ -1266,12 +1265,12 @@ W8OptionsScreen::W8OptionsScreen()
 // FUNCTION: WIZ8 0x005a98b0
 void W8OptionsScreen::CreateControls()
 {
-    m_controls = new Controls();
-    m_menu_selection = new W8ControlSelection();
+    m_controls = std::make_unique<Controls>();
+    m_menu_selection = std::make_unique<W8ControlSelection>();
     m_controls->CreateRegionSet();
     for (int index = 0; index < 8; ++index) {
         W8OptionsMenuButton* button =
-            new W8OptionsMenuButton(m_controls, &g_options_menu_rows[index]);
+            new W8OptionsMenuButton(m_controls.get(), &g_options_menu_rows[index]);
         if (index == 7) {
             button->m_primaryActivationCallback = RequestScreenTransition;
         } else if (index == 6) {
@@ -1289,7 +1288,7 @@ void W8OptionsScreen::CreateControls()
     m_controls->SetEnabled(true);
     m_controls->EnableRegionSet(true);
     m_controls->Invalidate(0);
-    m_menu_set = new W8OptionsMenuSet();
+    m_menu_set = std::make_unique<W8OptionsMenuSet>();
     m_menu_set->SetEnabled(true);
     m_menu_set->EnableRegionSet(true);
 }
@@ -1297,14 +1296,7 @@ void W8OptionsScreen::CreateControls()
 // FUNCTION: WIZ8 0x005a9200
 W8OptionsScreen::~W8OptionsScreen()
 {
-    int index;
     SelectPanel(-1, true);
-    delete m_controls;
-    delete m_menu_set;
-    delete m_menu_selection;
-    for (index = 0; index < 8; ++index) {
-        delete m_panel[index];
-    }
 }
 
 // FUNCTION: WIZ8 0x005a93c0
@@ -1315,15 +1307,15 @@ void W8OptionsScreen::SelectPanel(int selected, bool notify)
     }
     FinishOptionsTextEdit(this, 1);
     if (m_selected_panel != -1) {
-        W8OptionsPanelSet* previous = m_panel[m_selected_panel];
+        W8OptionsPanelSet* previous = m_panel[m_selected_panel].get();
         previous->m_panels[previous->m_current]->SetActive(false);
         previous->m_active = false;
     }
     m_selected_panel = selected;
     if (selected != -1) {
-        if (m_panel[selected] == 0) {
-            m_panel[selected] = new W8OptionsPanelSet();
-            W8OptionsPanelSet* created = m_panel[m_selected_panel];
+        if (!m_panel[selected]) {
+            m_panel[selected] = std::make_unique<W8OptionsPanelSet>();
+            W8OptionsPanelSet* created = m_panel[m_selected_panel].get();
             for (int index = g_options_panel_ranges[m_selected_panel].first;
                  index <= g_options_panel_ranges[m_selected_panel].last; ++index) {
                 W8OptionsPanel* panel = CreateOptionsPanel(index, &created->m_compact_layout,
@@ -1332,13 +1324,13 @@ void W8OptionsScreen::SelectPanel(int selected, bool notify)
                 created->m_panels.emplace_back(panel);
             }
         }
-        W8OptionsPanelSet* current = m_panel[m_selected_panel];
+        W8OptionsPanelSet* current = m_panel[m_selected_panel].get();
         if (!current->m_active) {
             current->m_current = 0;
         }
         current->m_panels[current->m_current]->SetActive(true);
         current->m_active = true;
-        m_menu_set->m_pMenuSet = m_panel[m_selected_panel];
+        m_menu_set->m_pMenuSet = m_panel[m_selected_panel].get();
         m_menu_set->UpdateMenuSet();
         if (m_selected_panel == 4) {
             m_panel[4]->m_page_count = (static_cast<int>(m_save_slots.size()) - 2) / 5 + 1;
@@ -1413,7 +1405,7 @@ void W8OptionsScreen::Redraw()
         m_redraw_pending = false;
     }
     if (m_selected_panel != -1) {
-        W8OptionsPanelSet* panel_set = m_panel[m_selected_panel];
+        W8OptionsPanelSet* panel_set = m_panel[m_selected_panel].get();
         if (panel_set->m_active) {
             panel_set->m_panels[panel_set->m_current]->Redraw();
         }
@@ -1776,7 +1768,7 @@ W8OptionsMenuSet::W8OptionsMenuSet()
     m_next = new W8TextControl(this, 0xffffffff, 0x11f, 3, 0, 0, CatalogArtwork::Load(0xf4, 0), 4, 6, 5, -1, 7);
     m_next->m_listener = this;
 
-    m_page_text = new W8TextBuffer(&m_bounds, "", g_options_detail_font,
+    m_page_text = std::make_unique<W8TextBuffer>(&m_bounds, "", g_options_detail_font,
                                    g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle, 4);
 }
 
@@ -1786,7 +1778,6 @@ W8OptionsMenuSet::W8OptionsMenuSet()
 W8OptionsMenuSet::~W8OptionsMenuSet()
 {
     DestroyAllControls();
-    delete m_page_text;
 }
 
 // FUNCTION: WIZ8 0x005a8440
@@ -2011,7 +2002,7 @@ void OptionsScreenFrame()
             screen->m_redraw_pending = true;
             screen->m_controls->Invalidate(0);
             if (screen->m_selected_panel != -1) {
-                W8OptionsPanelSet* panel_set = screen->m_panel[screen->m_selected_panel];
+                W8OptionsPanelSet* panel_set = screen->m_panel[screen->m_selected_panel].get();
                 if (panel_set->m_active) {
                     panel_set->m_panels[panel_set->m_current]->Invalidate(0);
                 }
