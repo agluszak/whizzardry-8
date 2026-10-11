@@ -331,13 +331,11 @@ w8_ulong srModeler::addTriangle(const Triangle& triangle)
 }
 
 // FUNCTION: SURRENDER 0x1003A330
-int srModeler::getTriangle(w8_ulong index, Triangle& triangle)
+std::optional<srModeler::Triangle> srModeler::getTriangle(w8_ulong index) const
 {
-    if (triangle_count <= index) {
-        return 0;
-    }
-    triangle = triangles[index];
-    return 1;
+    if (triangle_count <= index)
+        return std::nullopt;
+    return triangles[index];
 }
 
 // FUNCTION: SURRENDER 0x1003B0B0
