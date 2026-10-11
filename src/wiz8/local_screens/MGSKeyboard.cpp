@@ -1119,6 +1119,8 @@ unsigned char KeyboardMenuRowRegionEvent(const InputEvent* event, W8Region* regi
         name = FormatItemDisplayName(item, false);
         SetRegionHelpText(fmt::format("{}: {}", g_localized_strings[0x5d], name));
         return 1;
+    default:
+        break;
     }
     return 0;
 }
