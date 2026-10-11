@@ -12,12 +12,12 @@ void StripNpcKeywordPunctuation(std::string& text);
 #include <list>
 #include <vector>
 #include <algorithm>
-#include "surrender/srMath.h"
 
 
 struct W8NpcState;
 struct W8NpcScriptFile;
 struct W8NpcQuoteEntry;
+struct W8NpcScriptQuote;
 struct W8ItemInstance;
 struct W8Character;
 struct W8MonsterGroup;
@@ -40,9 +40,24 @@ struct W8NpcDialogueSession {
     bool quote_active;
 };
 
+/* Whether the conversation waits on the player: a queued options, keyword or
+   price-check entry is pending, or its reply dialog is open. */
+enum class W8NpcReplyState : unsigned char { none, pending, dialog_open };
+
+/* An open price-check dialog: accepting spends price and runs quote_index,
+   telling it to npc as a fact unless the entry was an always-price-check. */
+struct W8NpcPriceCheck {
+    W8NpcState* npc;
+    int quote_index;
+    int price;
+    bool tells_fact;
+};
+
 struct W8NpcScriptingState {
     W8NpcDialogueSession session;
     std::optional<W8NpcDialogueSession> suspended_session;
+    W8NpcReplyState reply;
+    std::optional<W8NpcPriceCheck> price_check;
     /* The quote's voice sound actually started; gates wiz8::sound::stop and the
        mouth-gap cleanup in FinishNpcVoicePlayback. */
     bool voice_playing;
@@ -72,6 +87,13 @@ extern bool g_message_queue_idle;
 void TryFinishNpcVoicePlayback(bool force);
 int FindNpcScriptQuoteByKeyword(std::string_view keyword, short* entry_index, short* sub_entry_index);
 void RunNpcScriptLine(int script_line, bool force_npc_voice);
+/* Resolve the player's answer to the pending reply and clear it. */
+void AnswerNpcReply(std::string_view text);
+/* Speak one subquote of the current quote (NPC Scripting.cpp). */
+void SpeakNpcSubquote(W8NpcScriptQuote* quote, unsigned char subquote_index, bool notice_only,
+                      bool force_npc_voice);
+/* Add a keyword a quote entry of `kind` teaches to the dialogue keyword lists. */
+void ApplyScriptedDialogueKeyword(int kind, const char* text);
 void ProcessMessageBoxQueue(void);
 /* Execute a queued quote entry's deferred effect; the
    continuation quote is handed to the modal-dialog kinds (5/0x13 force -1). */

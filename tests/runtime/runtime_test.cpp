@@ -1161,7 +1161,7 @@ void LoadGameScenario(const fs::path& fixture)
 bool DialogueAwaitingPlayer()
 {
     return gXStatus.fNpcDialogueMode && !IsNpcScriptSessionActive() &&
-           IsMessageBoxLineQueueEmpty() && g_npc_interaction_state->script_busy == 0 &&
+           IsMessageBoxLineQueueEmpty() && g_npc_scripting.reply == W8NpcReplyState::none &&
            g_modal_owner == nullptr;
 }
 
@@ -1230,10 +1230,10 @@ void BuyAnswer(Game& game, const char* step, W8FactId fact)
 {
     const auto before = HandlerRegions();
     WaitDialogue(game, step, [] {
-        return g_modal_owner != nullptr && g_npc_interaction_state->price_check_pending;
+        return g_modal_owner != nullptr && g_npc_scripting.price_check.has_value();
     });
     const unsigned gold = g_status.party_gold;
-    const int price = g_npc_interaction_state->pending_price;
+    const int price = g_npc_scripting.price_check->price;
     CAPTURE(step, gold, price);
     REQUIRE((price > 0 && unsigned(price) <= gold));
     REQUIRE(GetFact(fact) == 0);

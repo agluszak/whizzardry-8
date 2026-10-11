@@ -51,6 +51,7 @@
 #include "message_box.h"
 #include "surrender/srMath.h"
 #include "xstatus.h"
+#include "wiz8/npc_interaction.h"
 
 #define NPC_SCRIPTING_FACTS_CPP "C:\\Projects\\Wizardry 8\\Local Code\\NPC Scripting Facts.cpp"
 

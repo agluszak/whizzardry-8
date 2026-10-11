@@ -78,6 +78,7 @@
 #include "message_box.h"
 #include "retail_records.h"
 #include "surrender/srMath.h"
+#include "wiz8/npc_interaction.h"
 
 #define NPC_MANAGER_CPP "C:\\Projects\\Wizardry 8\\Local Code\\NPC Manager.cpp"
 

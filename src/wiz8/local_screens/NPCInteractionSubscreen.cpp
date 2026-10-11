@@ -552,9 +552,8 @@ unsigned char OpenNpcDialoguePanel(W8NpcState* npc, W8ItemInstance* item, bool f
     state->value_000 = 0;
     state->where_is_query = false;
     state->held_item_pending = false;
-    state->script_busy = 0;
-    state->price_check_pending = false;
-    state->price_check_skip_fact = false;
+    g_npc_scripting.reply = W8NpcReplyState::none;
+    g_npc_scripting.price_check.reset();
     state->dialogue_hidden = 0;
     state->modal_dialog_open = false;
     state->farewell_queued = false;
@@ -3220,13 +3219,6 @@ void RequestNpcCharacterService(void)
     OpenUseItemSelectView(g_status.selected_character);
 }
 
-/* Route the player's reply text while a modal answer is pending. With no
-   price offer outstanding the text resolves through the current quote's
-   keyword tables and queues the matching line; during a 0x12/0x1e price check
-   the affirmative string spends pending_price (or runs line 0x14 when the
-   party cannot pay), tells the offered fact unless opcode 0x1e suppressed it,
-   and a refusal runs the pending fact's kind-0x17 decline entries. A nonzero
-   echo posts the reply text back as a notice. */
 /* Pick the index-th activatable item on the dialogue character: the twelve
    equipment slots first, then the eight backpack slots. The hit refreshes the
    dialogue_text_16c preview image and its stack-count text. */
@@ -3299,43 +3291,20 @@ W8ItemInstance* GetNpcTradeSlotItem(int index)
     return 0;
 }
 
+/* Hand the player's reply to the dialogue while one is pending (AnswerNpcReply
+   resolves it); a nonzero echo posts the reply text back as a notice. */
 // FUNCTION: WIZ8 0x00574250
 void HandleNpcDialogueReply(std::string_view text, bool echo)
 {
     std::string notice;
-    int line;
 
-    if (g_npc_interaction_state->script_busy != 0) {
-        if (!g_npc_interaction_state->price_check_pending) {
-            line = FindNpcReplyQuote(text);
-            if (line != -1) {
-                QueueNpcScriptLine(line, false, false, false);
-            }
-        } else {
-            if (CompareTextIgnoreAsciiCase(text, g_localized_strings[0x7df]) == 0) {
-                if (static_cast<unsigned int>(g_npc_interaction_state->pending_price) >
-                    g_status.party_gold) {
-                    RunNpcScriptLine(0x14, false);
-                    g_npc_interaction_state->price_check_pending = false;
-                } else {
-                    SpendPartyGold(g_npc_interaction_state->pending_price);
-                    if (!g_npc_interaction_state->price_check_skip_fact) {
-                        TellNpcFact(g_npc_interaction_state->dialogue_npc,
-                                    g_npc_interaction_state->pending_fact);
-                    }
-                    RunNpcScriptLine(g_npc_interaction_state->pending_fact, false);
-                    g_npc_interaction_state->price_check_pending = false;
-                }
-            } else {
-                RunNpcQuoteDeclineActions(g_npc_interaction_state->pending_fact);
-                g_npc_interaction_state->price_check_pending = false;
-            }
-        }
-        if (echo) {
-            notice = fmt::format("{}...", text);
-            ShowNotice(W8_FONT_PALETTE_BRONZE, notice, 3, GetTextBoxScrollRange());
-        }
-        g_npc_interaction_state->script_busy = 0;
+    if (g_npc_scripting.reply == W8NpcReplyState::none) {
+        return;
+    }
+    AnswerNpcReply(text);
+    if (echo) {
+        notice = fmt::format("{}...", text);
+        ShowNotice(W8_FONT_PALETTE_BRONZE, notice, 3, GetTextBoxScrollRange());
     }
 }
 
@@ -3382,10 +3351,10 @@ void HandleNpcDialogueInput(void)
     field_text = GetTextFromField(0);
     ClearActiveField();
     StripNpcKeywordPunctuation(field_text);
-    if (field_text.size() == 0 && g_npc_interaction_state->script_busy == 0) {
+    if (field_text.size() == 0 && g_npc_scripting.reply == W8NpcReplyState::none) {
         return;
     }
-    if (g_npc_interaction_state->script_busy != 0) {
+    if (g_npc_scripting.reply != W8NpcReplyState::none) {
         HandleNpcDialogueReply(field_text, true);
         return;
     }
@@ -3413,14 +3382,14 @@ void HandleNpcDialogueInput(void)
         } else {
             buf = fmt::sprintf(g_localized_strings[0x76a], field_text);
         }
-        quote = FindNpcScriptQuoteByKeyword(buf, 0, 0);
+        quote = FindNpcScriptQuoteByKeyword(TranslateDialogueKeyword(buf), 0, 0);
         if (quote != -1) {
             plain_text = false;
             quote_id = quote;
         }
     } else {
         buf = field_text;
-        quote = FindNpcScriptQuoteByKeyword(buf, 0, 0);
+        quote = FindNpcScriptQuoteByKeyword(TranslateDialogueKeyword(buf), 0, 0);
         if (quote != -1) {
             quote_id = quote;
         }
@@ -3470,7 +3439,7 @@ void HandleNpcDialogueInput(void)
                 break;
             }
             buf = fmt::format("{} {}", word, word2);
-            quote = FindNpcScriptQuoteByKeyword(buf, 0, 0);
+            quote = FindNpcScriptQuoteByKeyword(TranslateDialogueKeyword(buf), 0, 0);
             if (quote != -1) {
                 quote_id = quote;
                 break;
@@ -3485,7 +3454,7 @@ void HandleNpcDialogueInput(void)
         cursor = field_text;
         while (!cursor.empty()) {
             has_word = ReadNextWord(cursor, word);
-            if (has_word && FindNpcScriptQuoteByKeyword(word, 0, 0) != -1) {
+            if (has_word && FindNpcScriptQuoteByKeyword(TranslateDialogueKeyword(word), 0, 0) != -1) {
                 ++matches;
             }
         }
@@ -3500,7 +3469,7 @@ void HandleNpcDialogueInput(void)
                 if (!has_word) {
                     break;
                 }
-                quote = FindNpcScriptQuoteByKeyword(word, 0, 0);
+                quote = FindNpcScriptQuoteByKeyword(TranslateDialogueKeyword(word), 0, 0);
                 if (quote == -1) {
                     continue;
                 }
@@ -3588,7 +3557,7 @@ void HandleNpcDialogueKeyEvent(const InputEvent* event)
             ClearActiveField();
             return;
         }
-        if (g_npc_interaction_state->script_busy != 0 || !IsMessageBoxLineQueueEmpty()) {
+        if (g_npc_scripting.reply != W8NpcReplyState::none || !IsMessageBoxLineQueueEmpty()) {
             return;
         }
         switch (g_npc_interaction_state->dialogue_layout) {
@@ -4105,30 +4074,24 @@ void OpenNpcDialog(W8NpcQuoteEntry* request, int aux_data)
     dialog->SetText("");
     dialog->m_destroy_callback = OnNpcDialogClosed;
     OpenModal(dialog);
-    g_npc_interaction_state->script_busy = 1;
+    g_npc_scripting.reply = W8NpcReplyState::dialog_open;
     if (request->kind == W8_NPC_ENTRY_PRICE_CHECK ||
         request->kind == W8_NPC_ENTRY_ALWAYS_PRICE_CHECK) {
-        g_npc_interaction_state->pending_fact = aux_data;
-        g_npc_interaction_state->price_check_pending = true;
-        g_npc_interaction_state->pending_price = request->operand0;
+        int price = request->operand0;
         monster_info = GetNpcMonsterInfo(g_npc_interaction_state->dialogue_npc);
         if (monster_info != 0) {
-            g_npc_interaction_state->pending_price -= static_cast<int>(
-                monster_info->charm_strength * 0.01f * g_npc_interaction_state->pending_price);
+            price -= static_cast<int>(monster_info->charm_strength * 0.01f * price);
         }
-        g_npc_interaction_state->pending_price -=
-            GetBestPartySkillLevel(W8_SKILL_COMMUNICATION, 0) *
-            g_npc_interaction_state->pending_price / 500;
-        if (g_npc_interaction_state->pending_price < 1) {
-            g_npc_interaction_state->pending_price = 1;
+        price -= GetBestPartySkillLevel(W8_SKILL_COMMUNICATION, 0) * price / 500;
+        if (price < 1) {
+            price = 1;
         }
-        if (g_npc_interaction_state->pending_price > 0x1e) {
-            g_npc_interaction_state->pending_price =
-                (g_npc_interaction_state->pending_price * 10 + 9) / 10;
+        if (price > 0x1e) {
+            price = (price * 10 + 9) / 10;
         }
-        if (request->kind == W8_NPC_ENTRY_ALWAYS_PRICE_CHECK) {
-            g_npc_interaction_state->price_check_skip_fact = true;
-        }
+        g_npc_scripting.price_check =
+            W8NpcPriceCheck{g_npc_interaction_state->dialogue_npc, aux_data, price,
+                            request->kind != W8_NPC_ENTRY_ALWAYS_PRICE_CHECK};
     }
     SetTargetCursor(W8_CURSOR_NONE);
 }
@@ -4510,7 +4473,7 @@ void OnNpcDialogClosed(W8DialogBase* dialog)
             HandleNpcDialogueInput();
         }
     }
-    g_npc_interaction_state->script_busy = 0;
+    g_npc_scripting.reply = W8NpcReplyState::none;
 }
 
 /* The camp-side mirror of SwitchNpcDialogueLayout: camp mode is raised, the current

@@ -10,6 +10,7 @@
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/TextBuffer.h"
+#include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/text_input.h"
 #include "wiz8/regions.h"
@@ -128,7 +129,7 @@ int W8NpcDialog::CreateControls()
                                           static_cast<short>(m_x + x + m_text_width + 10),
                                           static_cast<short>(m_y + 0x1e), m_text_width, 0x14,
                                           OptionSelected, 1);
-        line = fmt::sprintf(g_localized_strings[0x7e5], g_npc_interaction_state->pending_price);
+        line = fmt::sprintf(g_localized_strings[0x7e5], g_npc_scripting.price_check->price);
         bounds.left = m_x + 10;
         bounds.top = m_y + 10;
         bounds.right = m_x + m_width - 10;

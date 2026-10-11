@@ -20,11 +20,11 @@
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_screens/MGSTextBox.h"
-#include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/string_database.h"
 #include "Item.h"
 #include "conditions.h"
 #include "surrender/srMath.h"
+#include "wiz8/npc_interaction.h"
 
 class Trigger;
 

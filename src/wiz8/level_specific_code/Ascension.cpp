@@ -27,6 +27,7 @@
 #include "layouts/world.h"
 #include "local_code/Factions.h"
 #include "surrender/srMath.h"
+#include "wiz8/npc_interaction.h"
 
 /* Level Specific Code\Ascension.cpp.
 

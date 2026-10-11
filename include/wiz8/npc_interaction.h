@@ -8,6 +8,9 @@
    reads. */
 
 bool IsNpcScriptSessionActive(void);
+/* Raise / drop the world-cursor gate around a scripted world action. */
+void BeginScriptedWorldAction(void);
+void ClearMainGameTargetState(void);
 bool ShouldDeferCharacterEventForNpcScript(bool require_group_entry);
 /* 0x005294C0: format the bound NPC's quote for one event type into the wide
    output. */

@@ -28,6 +28,7 @@
 #include "soundman.h"
 #include "layouts/item_instance.h"
 #include "monster_actions.h"
+#include "wiz8/npc_interaction.h"
 
 struct W8NpcState;
 

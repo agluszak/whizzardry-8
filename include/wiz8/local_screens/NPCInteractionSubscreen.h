@@ -190,21 +190,6 @@ struct W8NpcInteractionState {
     /* pending_item came in through the cursor item; dialogue close returns it
        to the hand and the consume path drains its stack. */
     bool held_item_pending;
-    signed char script_busy; /* -1 awaiting a reply, 1 while a reply dialog is open */
-    /* The aux_data argument the NPC-dialog dispatch stashes when the
-       request is a 0x12/0x1e price check; the reply handler runs it as the
-       accepted script line, tells it as a fact, or runs its kind-0x17 decline
-       entries. */
-    int pending_fact;
-    /* A kind-0x12/0x1e price-check modal is awaiting its yes/no reply; the
-       reply handler matches the accepted string against pending_price. */
-    bool price_check_pending;
-    /* The request was kind 0x1e, so the accept path skips the TellNpcFact
-       call 0x12 makes. */
-    bool price_check_skip_fact;
-    /* The haggled price the NPC dialogue's price-check popup displays and the
-       submit path acts on. */
-    int pending_price;
     std::optional<QuoteBubble> quote_bubble;
     short quote_x;
     short quote_y;
@@ -298,7 +283,6 @@ void DrawNpcQuoteBubble(void);
 void LookAtDialogueNpc(void);
 void BeginNpcDialogueInternal(W8NpcState* npc, W8ItemInstance* item, int quote, unsigned char flags,
                               unsigned char force);
-void BeginScriptedWorldAction(void);
 void CloseNpcDialogueLayout(void);
 void OpenNpcDialogueTranscriptLayout(void);
 void DispatchPendingNpcScriptNotice(void);
@@ -308,7 +292,6 @@ bool IsNpcDialogueTextBoxActive(void);
 unsigned char SetNpcDialoguePanelVisible(unsigned char value);
 bool ProcessPendingEvent(void);
 void SyncDialogueNpcStateAndMarkPending(void);
-void ClearMainGameTargetState(void);
 /* A script notice is staged in g_pending_notice */
 extern bool g_pending_notice_queued;
 void SyncNpcServiceButtons(int party_slot);

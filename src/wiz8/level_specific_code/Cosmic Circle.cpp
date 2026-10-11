@@ -12,6 +12,7 @@
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/sr_api.h"
 #include "surrender/srMath.h"
+#include "wiz8/npc_interaction.h"
 
 struct W8NpcState;
 

@@ -24,6 +24,7 @@
 #include "layouts/world.h"
 #include "message_box.h"
 #include "surrender/srMath.h"
+#include "wiz8/npc_interaction.h"
 
 struct W8NpcState;
 
