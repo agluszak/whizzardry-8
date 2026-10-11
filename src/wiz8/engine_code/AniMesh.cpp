@@ -19,7 +19,6 @@
 #include "ReadMesh.h"
 #include "surrender/srMath.h"
 #include "surrender/srModel.h"
-#include "surrender/srModelInstance.h"
 #include "surrender/srNode.h"
 
 /* VC6 places `float x = 0.0f` in .bss; retail keeps this slot in initialized
