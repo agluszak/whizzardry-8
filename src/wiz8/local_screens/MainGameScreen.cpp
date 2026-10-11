@@ -333,7 +333,7 @@ static char s_lock_forcing_success[] = "Data\\Sound\\Misc\\Lock_Forcing_Successf
 // GLOBAL: WIZ8 0x0068F2B4
 static int g_lock_phase;
 // GLOBAL: WIZ8 0x0068F2C0
-static W8LockInteraction* g_lock_interaction;
+static std::unique_ptr<W8LockInteraction> g_lock_interaction;
 /* The selected slot's effective power with spell 0x27. */
 int GetKnockKnockSpellPower(int slot);
 void CancelMouselook()
@@ -409,7 +409,7 @@ int OpenLockInteraction(Trigger* trigger)
     if (!gXStatus.fLockInteract) {
         QueueInteractionNotice(g_lock_notice_event);
         wiz8::sound::play(s_lock_open_fail);
-        g_lock_interaction = new W8LockInteraction(trigger);
+        g_lock_interaction = std::make_unique<W8LockInteraction>(trigger);
         gXStatus.fLockInteract = false;
         return 1;
     }
@@ -466,16 +466,13 @@ void RedrawLockInteractionPanels(void)
 // FUNCTION: WIZ8 0x005879A0
 void EndLockInteractMode(char suspend)
 {
-    W8LockInteraction* interaction = g_lock_interaction;
+    W8LockInteraction* interaction = g_lock_interaction.get();
     gXStatus.fLockInteractMode = false;
     if (suspend != 0) {
         interaction->EnablePanels(0);
         gXStatus.fLockInteract = true;
     } else {
-        if (g_lock_interaction != 0) {
-            delete g_lock_interaction;
-        }
-        g_lock_interaction = 0;
+        g_lock_interaction.reset();
         ClearLevelMovementStopped();
     }
     SelectTextBox(0);
@@ -510,7 +507,7 @@ static unsigned int CanSelectedCharacterCastKnockKnock(W8Character* character)
 // FUNCTION: WIZ8 0x00587A30
 void RefreshLockInteractionControls(void)
 {
-    W8LockInteraction* interaction = g_lock_interaction;
+    W8LockInteraction* interaction = g_lock_interaction.get();
     W8Character* character;
     int level;
     unsigned int figure;
@@ -547,7 +544,7 @@ void RefreshLockInteractionControls(void)
 // FUNCTION: WIZ8 0x00587C20
 void EnableLockInteractionPanels(void)
 {
-    if (g_lock_interaction != 0) {
+    if (g_lock_interaction) {
         g_lock_interaction->EnablePanels(1);
     }
 }
@@ -558,7 +555,7 @@ void EnableLockInteractionPanels(void)
 // FUNCTION: WIZ8 0x00587C50
 void InvalidateLockInteractionPanels(void)
 {
-    W8LockInteraction* interaction = g_lock_interaction;
+    W8LockInteraction* interaction = g_lock_interaction.get();
 
     interaction->m_tumbler_panel->Invalidate(0);
     interaction->m_info_panel->RefreshInfo();
@@ -2218,7 +2215,7 @@ void W8MainGameScreen::EnablePanelRegionSets(bool enable)
 // FUNCTION: WIZ8 0x0058A880
 void EnableTrapInteractionPanelRegions(void)
 {
-    if (g_main_game_screen != 0) {
+    if (g_main_game_screen) {
         g_main_game_screen->EnablePanelRegionSets(true);
     }
 }
@@ -2262,7 +2259,7 @@ static void BeginTrapTargetAction()
 {
     W8MainGameScreen* screen;
     W8MainGameTextPanel* panel;
-    screen = g_main_game_screen;
+    screen = g_main_game_screen.get();
     gXStatus.fTrapInteractMode = false;
     panel = screen->m_text_panel;
     panel->EnableRegionSet(false);
@@ -2366,7 +2363,7 @@ int OpenTrapInteraction(Trigger* trigger)
     RequestRedrawCombatBar();
     RequestRedraw(W8_MAIN_REDRAW_SUBMENU_BUTTONS);
     if (gXStatus.fTrapInteract) {
-        screen = g_main_game_screen;
+        screen = g_main_game_screen.get();
         panel = screen->m_text_panel;
         panel->EnableRegionSet(true);
         panel->m_key_handler->m_range.EnableRegionSet(true);
@@ -2381,7 +2378,7 @@ int OpenTrapInteraction(Trigger* trigger)
     if (trigger->lock_state.device_id == -1) {
         SelectTrapType(trigger);
     }
-    g_main_game_screen = new W8MainGameScreen(trigger);
+    g_main_game_screen = std::make_unique<W8MainGameScreen>(trigger);
     if (trigger->lock_state.last_interaction_clock == -1 ||
         0x3840 < static_cast<unsigned int>(g_status.world_clock -
                                            trigger->lock_state.last_interaction_clock)) {
@@ -2422,16 +2419,13 @@ void EndTrapInteractMode(char suspend)
     gXStatus.fTrapInteractMode = false;
     if (suspend != 0) {
         W8MainGameTextPanel* panel = g_main_game_screen->m_text_panel;
-        W8MainGameScreen* screen = g_main_game_screen;
+        W8MainGameScreen* screen = g_main_game_screen.get();
         panel->EnableRegionSet(false);
         panel->m_key_handler->m_range.EnableRegionSet(false);
         screen->m_action_panel->EnableRegionSet(false);
         gXStatus.fTrapInteract = true;
     } else {
-        if (g_main_game_screen != 0) {
-            delete g_main_game_screen;
-        }
-        g_main_game_screen = 0;
+        g_main_game_screen.reset();
         ClearLevelMovementStopped();
     }
     SelectTextBox(0);

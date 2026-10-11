@@ -74,7 +74,7 @@ W8ScreenStateHandlers g_screen_handlers[W8_SCREEN_COUNT] = {
      ScreenLifecycleSuccess},
     {MainGameScreenInitialize, MainGameScreenEnter, MainGameScreenFrame, MainGameScreenLeave,
      ScreenLifecycleSuccess},
-    {AutomapScreenInitialize, AutomapScreenEnter, AutomapScreenFrame, AutomapScreenLeave,
+    {ScreenLifecycleSuccess, AutomapScreenEnter, AutomapScreenFrame, AutomapScreenLeave,
      AutomapScreenFinalize},
     {ScreenLifecycleSuccess, CreditsScreenEnter, CreditsScreenFrame, CreditsScreenLeave,
      ScreenLifecycleSuccess},

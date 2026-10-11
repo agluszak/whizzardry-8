@@ -70,7 +70,7 @@ static bool g_options_first_frame;
 // GLOBAL: WIZ8 0x0069c138
 W8OptionsValues g_options_values;
 // GLOBAL: WIZ8 0x0069c254
-W8OptionsScreen* g_options_screen;
+std::unique_ptr<W8OptionsScreen> g_options_screen;
 // GLOBAL: WIZ8 0x0069c1cc
 std::string g_options_last_save_name;
 
@@ -317,7 +317,7 @@ static void FinishOptionsTextEdit(W8OptionsScreen* screen, unsigned char cancell
 // FUNCTION: WIZ8 0x005aab30
 void W8OptionsSaveLoadPanel::SetCurrent(int current)
 {
-    FinishOptionsTextEdit(g_options_screen, 1);
+    FinishOptionsTextEdit(g_options_screen.get(), 1);
     m_current = current;
     Invalidate(0);
 
@@ -358,7 +358,7 @@ void W8OptionsSaveLoadPanel::OnPrimary(W8TextControl* control)
     }
 
     W8OptionsTextEditor* editor = g_options_screen->m_text_editor;
-    FinishOptionsTextEdit(g_options_screen, 0);
+    FinishOptionsTextEdit(g_options_screen.get(), 0);
     if (editor == 0 && m_current == 0 && m_selection.m_selectedIndex == 0) {
         SaveSelectedSave();
     } else {
@@ -468,7 +468,7 @@ void W8OptionsSaveLoadPanel::OnActivateSave(W8OptionsSaveRow*)
 // FUNCTION: WIZ8 0x005ab250
 void W8OptionsSaveLoadPanel::OnSelectionChanged(W8ControlSelection*, int)
 {
-    FinishOptionsTextEdit(g_options_screen, 1);
+    FinishOptionsTextEdit(g_options_screen.get(), 1);
     if (m_panel == 12 && m_current == 0 && m_selection.m_selectedIndex == 0) {
         OnEditSaveName(m_rows[0]);
     }
@@ -1928,11 +1928,7 @@ unsigned char OptionsScreenLeave(int)
 {
     g_options_values.applying = 1;
     g_options_values.TransferSettings();
-    W8OptionsScreen* screen = g_options_screen;
-    if (screen != 0) {
-        delete screen;
-    }
-    g_options_screen = 0;
+    g_options_screen.reset();
     NoOp();
     ResetRegions();
     return 1;
@@ -1953,7 +1949,7 @@ unsigned char OptionsScreenEnter()
     g_wiz_text_font_secondary.resetPalette();
     g_options_values.applying = 0;
     g_options_values.TransferSettings();
-    g_options_screen = new W8OptionsScreen();
+    g_options_screen = std::make_unique<W8OptionsScreen>();
     g_options_screen->CreateControls();
 
     if (g_current_screen_state.mode == 1) {
@@ -1999,10 +1995,10 @@ void OptionsScreenFrame()
     ServiceMusicPlaylist();
     SGPMouseGetPos(&point);
 
-    W8OptionsScreen* screen = g_options_screen;
+    W8OptionsScreen* screen = g_options_screen.get();
     if (screen->m_text_editor != 0) {
         UpdateRegionMousePosition(point.x, point.y);
-        screen = g_options_screen;
+        screen = g_options_screen.get();
     }
 
     W8MessageDialogBase** active_modal = &screen->m_active_modal;

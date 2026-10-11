@@ -1,5 +1,6 @@
 #include "himage.h"
 #include "image.h"
+#include <memory>
 #include <fmt/format.h>
 #include <SDL3/SDL_rect.h>
 #include <string_view>
@@ -58,7 +59,7 @@ Font g_journal_font;
 // GLOBAL: WIZ8 0x0069C4D0
 Palette16 g_journal_font_palette;
 // GLOBAL: WIZ8 0x0069C4D4
-W8JournalPanel* g_journal_panel;
+static std::unique_ptr<W8JournalPanel> g_journal_panel;
 // GLOBAL: WIZ8 0x0069C4E4
 std::vector<W8JournalEntry> g_journal_entries;
 // GLOBAL: WIZ8 0x0068de40
@@ -398,7 +399,7 @@ unsigned char JournalScreenEnter(void)
     SetPrimarySurfaceTextureHint2Enabled(false);
     ResetRegions();
     UpdateHeldItemCursor();
-    g_journal_panel = new W8JournalPanel();
+    g_journal_panel = std::make_unique<W8JournalPanel>();
 
     switch (g_settings.difficulty) {
     case W8_DIFFICULTY_NOVICE:
@@ -430,8 +431,7 @@ unsigned char JournalScreenEnter(void)
 unsigned char JournalScreenLeave(int)
 {
     ResetRegions();
-    delete g_journal_panel;
-    g_journal_panel = 0;
+    g_journal_panel.reset();
     g_journal_entries.clear();
     if (gXStatus.fCampMode) {
         SyncDialogueNpcState();

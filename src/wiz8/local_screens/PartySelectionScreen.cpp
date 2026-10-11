@@ -80,7 +80,7 @@ struct W8PartySelectionCharacterCollection {
 };
 
 // GLOBAL: WIZ8 0x0069C4EC
-W8PartySelectionCharacterCollection* g_party_selection_character_collection;
+static std::unique_ptr<W8PartySelectionCharacterCollection> g_party_selection_character_collection;
 
 
 
@@ -588,7 +588,7 @@ public:
 };
 
 // GLOBAL: WIZ8 0x0069C4E8
-W8PartySelectionController* g_party_selection_controller;
+static std::unique_ptr<W8PartySelectionController> g_party_selection_controller;
 
 // FUNCTION: WIZ8 0x005C33C0
 void RefreshPartySelectionPortrait(unsigned int party_slot)
@@ -1188,7 +1188,7 @@ void W8PartySelectionOptionPanel::SetOptionPanelMode(W8PartyCreationPage page)
     text->SetLineHeight(0x16);
     m_entries.emplace_back(text);
 
-    W8PartySelectionController* controller = g_party_selection_controller;
+    W8PartySelectionController* controller = g_party_selection_controller.get();
     if (controller->m_input_handler) {
         return;
     }
@@ -1636,7 +1636,7 @@ void W8PartySelectionController::OnPrimary(W8TextControl* control)
         return;
     }
 
-    W8PartySelectionCharacterCollection* collection = g_party_selection_character_collection;
+    W8PartySelectionCharacterCollection* collection = g_party_selection_character_collection.get();
     for (int index = 0; index < static_cast<int>(collection->characters.size()); ++index) {
         W8Character* previous = collection->GetCharacter(index);
         if (!previous->fInParty) {
@@ -1782,7 +1782,7 @@ void W8PartySelectionController::ApplyPartySelectionConfirmation(W8PartyConfirma
         return;
     }
 
-    W8PartySelectionCharacterCollection* collection = g_party_selection_character_collection;
+    W8PartySelectionCharacterCollection* collection = g_party_selection_character_collection.get();
     switch (m_confirmation_action) {
     case W8_PARTY_CONFIRM_DELETE_CHARACTER: {
         int selected = m_character_panel->m_selected_row;
@@ -1852,7 +1852,7 @@ void W8PartySelectionController::ApplyPartySelectionConfirmation(W8PartyConfirma
 void W8PartySelectionController::LoadImportedPartyFile(int selection)
 {
     ResetForNewGame();
-    W8PartySelectionCharacterCollection* collection = g_party_selection_character_collection;
+    W8PartySelectionCharacterCollection* collection = g_party_selection_character_collection.get();
     if (selection >= 0 && selection < static_cast<int>(collection->names.size())) {
         std::string path;
         path = fmt::format("{}\\{}", "Saves\\Import", collection->names[selection]);
@@ -1892,7 +1892,7 @@ void W8PartySelectionController::TogglePartyMemberSelection()
         return;
     }
 
-    W8PartySelectionCharacterCollection* collection = g_party_selection_character_collection;
+    W8PartySelectionCharacterCollection* collection = g_party_selection_character_collection.get();
     W8Character* character = collection->GetCharacter(selected);
     if (!character->fInParty) {
         int slot = AddCharacterToParty(character, -1);
@@ -1954,15 +1954,15 @@ unsigned char PartySelectionScreenEnter(void)
     g_wiz_text_font_secondary.resetPalette();
     g_wiz_text_bold_font.resetPalette();
 
-    W8PartySelectionCharacterCollection* collection = g_party_selection_character_collection;
+    W8PartySelectionCharacterCollection* collection = g_party_selection_character_collection.get();
     if (!collection) {
         ResetForNewGame();
-        collection = new W8PartySelectionCharacterCollection;
-        g_party_selection_character_collection = collection;
+        g_party_selection_character_collection = std::make_unique<W8PartySelectionCharacterCollection>();
+        collection = g_party_selection_character_collection.get();
 
         collection->ReloadCharacters();
 
-        g_party_selection_controller = new W8PartySelectionController;
+        g_party_selection_controller = std::make_unique<W8PartySelectionController>();
         g_party_selection_controller->Setup();
     } else {
         if (g_previous_screen_id == W8_SCREEN_CHARACTER &&
@@ -1983,16 +1983,8 @@ unsigned char PartySelectionScreenEnter(void)
 unsigned char PartySelectionScreenLeave(int leaving)
 {
     if (leaving) {
-        W8PartySelectionCharacterCollection* collection = g_party_selection_character_collection;
-        if (collection) {
-            delete collection;
-        }
-        W8PartySelectionController* controller = g_party_selection_controller;
-        g_party_selection_character_collection = 0;
-        if (controller) {
-            delete controller;
-        }
-        g_party_selection_controller = 0;
+        g_party_selection_character_collection.reset();
+        g_party_selection_controller.reset();
     }
     NoOp();
     ResetRegions();
@@ -2013,7 +2005,7 @@ void PartySelectionScreenFrame(void)
         RequestExitScreen();
     }
     SGPMouseGetPos(&point);
-    W8PartySelectionController* controller = g_party_selection_controller;
+    W8PartySelectionController* controller = g_party_selection_controller.get();
     if (controller->m_dialog) {
         controller->m_dialog->ProcessInput();
         if (!controller->m_dialog->is_open) {

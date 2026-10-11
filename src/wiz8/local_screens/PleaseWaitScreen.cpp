@@ -1,3 +1,4 @@
+#include <memory>
 #include <fmt/format.h>
 #include <SDL3/SDL_filesystem.h>
 #include <SDL3/SDL_log.h>
@@ -58,7 +59,7 @@ static int g_swap_disc_dialog_poll_count;
 // GLOBAL: WIZ8 0x0069B7C8
 W8LevelLoadDescriptor* g_load_descriptor;
 // GLOBAL: WIZ8 0x0069B7CC
-static W8MessageDialogBase* g_swap_disc_dialog;
+static std::unique_ptr<W8MessageDialogBase> g_swap_disc_dialog;
 // GLOBAL: WIZ8 0x0069B7D0
 static bool g_cd_marker_present;
 
@@ -156,14 +157,14 @@ static bool PleaseWaitScreenEnsureLevelArchive(int level)
             g_load_descriptor->parameter = level;
             g_load_descriptor->entered_tick = w8_get_ticks();
             if (!g_swap_disc_dialog) {
-                g_swap_disc_dialog = new W8MessageDialogBase;
+                g_swap_disc_dialog = std::make_unique<W8MessageDialogBase>();
                 g_swap_disc_dialog->SetBackground("Data\\Dialogs\\DialogBackground.sti", 0);
                 g_swap_disc_dialog->SetOrigin(0xf0, 0xbe);
                 g_swap_disc_dialog->SetExtent(0xa0, 100);
             }
             std::string message =
                 fmt::format("{}{:d}", g_localized_strings[0x6ee], GetLevelCdNumber(level));
-            SetDialogPrompt(g_swap_disc_dialog, message, 0, 0);
+            SetDialogPrompt(g_swap_disc_dialog.get(), message, 0, 0);
             EnableCursorScene();
             return false;
         }
@@ -202,8 +203,7 @@ void PleaseWaitScreenFrame(void)
             g_swap_disc_dialog->Draw();
             if (!g_swap_disc_dialog->ProcessInput()) {
                 if (!g_swap_disc_dialog->accepted) {
-                    delete g_swap_disc_dialog;
-                    g_swap_disc_dialog = 0;
+                    g_swap_disc_dialog.reset();
                     RequestScreenTransition();
                     return;
                 }
@@ -319,8 +319,7 @@ void PleaseWaitScreenFrame(void)
         if (!GetWorld()) {
             srAssertFail("GetWorld()", PLEASE_WAIT_SCREEN_CPP, 332, 0);
         }
-        delete g_swap_disc_dialog;
-        g_swap_disc_dialog = 0;
+        g_swap_disc_dialog.reset();
         RequestScreenTransition();
         if (g_load_descriptor->mode == 1 && g_status.intro_shown) {
             SetIntroVideoIndex(4);

@@ -2,6 +2,7 @@
 
 #include "wiz8/audio_resources.h"
 
+#include <memory>
 #include <string_view>
 #include <array>
 #include <optional>
@@ -397,7 +398,7 @@ public:
 };
 
 extern W8LevelRuntimeBlock* g_level_block;
-extern W8MainGameScreen* g_main_game_screen;
+extern std::unique_ptr<W8MainGameScreen> g_main_game_screen;
 
 /* Insanity (spell 0x3c) world-cursor extent rows and the per spell-power
    index into them; CastSpellFromSource scans the same extents when it
