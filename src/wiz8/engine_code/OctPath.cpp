@@ -1032,7 +1032,7 @@ bool W8PathingService::TestAttachmentHopDoor(W8NavigatorAttachment* attachment)
             int count = candidates.size();
             if (count > 0) {
                 if (count == 1) {
-                    W8Prop* prop = (*g_world->collidable_props)[candidates[0]];
+                    W8Prop* prop = g_world->collidable_props[candidates[0]];
                     selected = prop->GetGDPropOwnerTrigger();
                     if (selected == 0) {
                         return false;
@@ -1041,7 +1041,7 @@ bool W8PathingService::TestAttachmentHopDoor(W8NavigatorAttachment* attachment)
                     double nearest_distance = 1e32;
                     srVector3T<float> center = (upper - lower) * g_double_half + lower;
                     for (int index = 0; index < count; ++index) {
-                        W8Prop* prop = (*g_world->collidable_props)[candidates[index]];
+                        W8Prop* prop = g_world->collidable_props[candidates[index]];
                         Trigger* trigger = prop->GetGDPropOwnerTrigger();
                         if (trigger != 0) {
                             srVector3T<float> position;
@@ -1938,7 +1938,7 @@ int W8PathingService::ProcessSearchNodeProps(unsigned short node_index, bool fir
     const auto candidates = g_octree->queryObjects({lower.glmValue(), upper.glmValue()}, W8_OCTREE_KIND_PROP, -1);
     unsigned int count = candidates.size();
     for (unsigned int index = 0; index < count; ++index) {
-        W8Prop* prop = (*g_world->collidable_props)[candidates[index]];
+        W8Prop* prop = g_world->collidable_props[candidates[index]];
         prop->CanBeUsedFrom(node->cell_x, node->cell_z, true);
         if (first_only) {
             return candidates[index];
@@ -3175,9 +3175,7 @@ W8PathingService::~W8PathingService()
     if (m_pFileWayPoints != 0) {
         free(m_pFileWayPoints);
     }
-    if (m_path_visualization != 0) {
-        delete m_path_visualization;
-    }
+    m_path_visualization.reset();
     delete m_pPathValues;
     delete m_pVisitedCells;
     delete path_heap;
@@ -4491,7 +4489,7 @@ void W8PathingService::ActivateMovementTrigger(W8NavigatorMovementState* movemen
 
     Trigger* selected = 0;
     if (count == 1) {
-        W8Prop* prop = (*g_world->collidable_props)[candidates[0]];
+        W8Prop* prop = g_world->collidable_props[candidates[0]];
         Trigger* trigger = prop->GetGDPropOwnerTrigger();
         if (prop->GetActivationState() == 0 || trigger == 0 ||
             (trigger->flags & W8_TRIGGER_ENABLED) == 0) {
@@ -4504,7 +4502,7 @@ void W8PathingService::ActivateMovementTrigger(W8NavigatorMovementState* movemen
         double nearest_distance = 1e32;
 
         for (int index = 0; index < count; ++index) {
-            W8Prop* prop = (*g_world->collidable_props)[candidates[index]];
+            W8Prop* prop = g_world->collidable_props[candidates[index]];
             Trigger* trigger = prop->GetGDPropOwnerTrigger();
             if (prop->GetActivationState() != 0 && trigger != 0 &&
                 (trigger->flags & W8_TRIGGER_ENABLED) != 0) {
@@ -4537,7 +4535,7 @@ void W8PathingService::UpdatePathVisualization(const srVector3T<float>* source,
                                                const srVector3T<float>* destination)
 {
     W8World* world = GetWorld();
-    srNode* node = m_path_visualization;
+    srNode* node = m_path_visualization.get();
 
     if (m_waypoint_editing) {
         srVector3T<float> adjusted = *source;
@@ -4552,8 +4550,8 @@ void W8PathingService::UpdatePathVisualization(const srVector3T<float>* source,
                 return;
             }
 
-            m_path_visualization = BuildPathVisualization();
-            node = m_path_visualization;
+            BuildPathVisualization();
+            node = m_path_visualization.get();
             if (node != 0) {
                 node->setParent(world->static_scene, 1);
                 node->clearFlag(srNode::FLAG_DISABLE);
@@ -4563,7 +4561,7 @@ void W8PathingService::UpdatePathVisualization(const srVector3T<float>* source,
             return;
         }
 
-        node = m_path_visualization;
+        node = m_path_visualization.get();
         if (node != 0) {
             node->setFlag(srNode::FLAG_DISABLE);
             node->setFlag(srNode::FLAG_TERMINATE);
@@ -4573,7 +4571,7 @@ void W8PathingService::UpdatePathVisualization(const srVector3T<float>* source,
 
     if (!draw_waypoints && !search_visualization) {
         DrawPathPosition(*source, 0);
-        node = m_path_visualization;
+        node = m_path_visualization.get();
         if (node != 0) {
             node->setFlag(srNode::FLAG_DISABLE);
             node->setFlag(srNode::FLAG_TERMINATE);
@@ -4584,7 +4582,7 @@ void W8PathingService::UpdatePathVisualization(const srVector3T<float>* source,
     if (search_visualization) {
         if (m_path_visualization == 0) {
             EnsurePathVisualization();
-            node = m_path_visualization;
+            node = m_path_visualization.get();
             node->setParent(world->static_scene, 1);
             node->setFlag(srNode::FLAG_TERMINATE);
             if (m_path_visualization == 0) {
@@ -4758,7 +4756,7 @@ stModelInstance* W8PathingService::BuildPathVisualization()
     model->setActivePolygonCount(active_count);
     model->setDirtyAll();
     model->flags &= ~W8_MESH_VERTEX_LIGHTING_DIRTY;
-    return m_path_visualization;
+    return m_path_visualization.get();
 }
 
 /* Rebuild the editor's bounded grid search when the cursor enters a new path
@@ -5069,15 +5067,17 @@ stModelInstance* W8PathingService::EnsurePathVisualization()
         colors[index].Set(0.0, 0.0, 1.0);
     }
 
-    m_path_visualization = CreateModelInstance(model);
-    if (m_path_visualization == 0) {
+    auto instance = CreateModelInstance(model);
+    if (!instance) {
         srAssertFail("m_path_visualization", OCTPATH_CPP, 0x1226,
                      "CreateWayPointMesh -- Could not create pstModelInstance.\n");
     }
-    m_path_visualization->setName("WayPoint Mesh");
-    m_path_visualization->setExclusionMask(3);
-    m_path_visualization->setFlag(srNode::FLAG_TERMINATE);
-    return m_path_visualization;
+    instance->setName("WayPoint Mesh");
+    instance->setExclusionMask(3);
+    instance->setFlag(srNode::FLAG_TERMINATE);
+    instance->setParent(GetWorld()->static_scene, 0);
+    m_path_visualization = std::move(instance);
+    return m_path_visualization.get();
 }
 
 /* Collect nearby waypoint surfaces and mark the subset directly visible from

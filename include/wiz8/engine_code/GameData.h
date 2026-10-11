@@ -231,7 +231,7 @@ struct W8GameData {
        it. */
     void ProcessCrossedSurface(W8GDSurface* surface); /* 0x0041C770 */
     /* Builds the octree trace mesh and answers its model instance. */
-    stModelInstance* CreateTraceModel(); /* 0x0041c930 */
+    std::unique_ptr<stModelInstance> CreateTraceModel(); /* 0x0041c930 */
     /* 0x0041F330: apply world-render camera-motion flags into `rotation` and
        mirror the result into `saved`. Retail call sites pass the owning
        W8GameData in ECX even though the body reads only globals. */

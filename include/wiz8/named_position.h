@@ -13,8 +13,6 @@ struct W8NamedPosition {
 
     char name[0x80];
     srVector3T<float> position;
-    float angle; /* 0x8c */
+    float angle;
     srVector3T<float> direction;
 };
-
-W8_ABI_ASSERT(sizeof(W8NamedPosition) == 0x9c, "W8NamedPosition_must_be_0x9c");

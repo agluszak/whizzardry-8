@@ -1,24 +1,23 @@
 #ifndef WIZ8_ENGINE_CODE_CAMERA_H
 #define WIZ8_ENGINE_CODE_CAMERA_H
 
-#include "compat/compiler.h"
+#include <memory>
 
 struct W8World;
 struct W8PathAI;
 struct W8MonsterInfo;
 template <class T> class srVector3T;
 
-/* One entry of a W8World camera-path list (the W8PList at W8World+0x0c).
-   The name occupies offset zero - callers _stricmp the record pointer
-   directly; the flag and the path engine pointer are what
-   UpdateCameraPathState toggles. */
+/* Runtime camera entry. The world owns the entry, which owns its path data;
+   the level file's fixed-width camera record is decoded separately. */
 struct W8CameraPath {
-    char name0[0x14];
-    bool active;
-    unsigned char padding_15[3];
-    W8PathAI* path;
+    W8CameraPath();
+    ~W8CameraPath();
+
+    char name0[0x14]{};
+    bool active{};
+    std::unique_ptr<W8PathAI> path;
 };
-W8_ABI_ASSERT(sizeof(W8CameraPath) == 0x1c, "W8CameraPath_must_be_0x1c");
 
 /* Engine Code\Camera.cpp. The TU's only anchor; turns a camera path on and
    off for the world and dispatches the per-path end actions. */

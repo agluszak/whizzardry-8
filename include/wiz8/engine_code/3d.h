@@ -27,7 +27,7 @@ void AddMonsterToWorld(W8World*, W8Monster* monster);
 void AddItemToWorld(W8World*, W8Item* item);
 void RemoveItemFromWorld(W8World*, W8Item* item);
 void SetModelInstanceChainExclusionMask(srModelInstance* node, int value);
-stModelInstance* DuplicateModelInstance(stModelInstance* instance);
+std::unique_ptr<stModelInstance> DuplicateModelInstance(const stModelInstance& instance);
 void UpdateWorldMonsters(W8World* world);
 void WorldUpdateProps(W8World* world);
 int WorldGetPropCount(W8World*);             /* 0x0046E600 */
@@ -35,7 +35,8 @@ W8Prop* WorldGetPropAt(W8World*, int index); /* 0x0046E620 */
 void SetWorldSceneMeshShaderLowBits(W8World* owner, int argument);
 void SetWorldSceneMeshShaderBit3(W8World* owner, int argument);
 void FinalizeStaticScene(srScene* scene);
-stModelInstance* CreateModelInstance(std::shared_ptr<stMeshModel> model);
+// Factories return detached instances. Scene ownership requires explicit adoption.
+std::unique_ptr<stModelInstance> CreateModelInstance(std::shared_ptr<stMeshModel> model);
 
 unsigned char FinalizeWorldScenes(srNode* node, srNode* dynamic_scene);
 /* Mark an instance lit and bake dynamic-scene lights once (render_flags bit 1). */

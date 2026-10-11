@@ -25,19 +25,17 @@
 namespace {
 struct TestWorld {
     W8World world{};
-    std::vector<Trigger*> triggers;
-    std::vector<stParticle*> particles;
+    std::vector<Trigger*>& triggers = world.triggers;
+    std::vector<stParticle*>& particles = world.particles;
 
     TestWorld()
     {
         world.static_scene = new srScene(static_cast<srNode*>(0));
         world.dynamic_scene = new srNode(world.static_scene);
-        world.triggers = &triggers;
-        world.particles = &particles;
     }
     ~TestWorld()
     {
-        for (Trigger* trigger : triggers) delete trigger;
+        DestroyAllWorldTriggers(&world);
         for (stParticle* particle : particles) delete particle;
         delete world.static_scene;
     }
@@ -47,6 +45,7 @@ Trigger* AddTrigger(TestWorld& world, const char* name)
 {
     auto* trigger = new Trigger;
     std::strcpy(trigger->name, name);
+    trigger->m_pWorld = &world.world;
     world.triggers.push_back(trigger);
     return trigger;
 }
@@ -68,6 +67,13 @@ bool triggers()
     level.triggers.erase(level.triggers.begin() + 1);
     delete newest;
     REQUIRE((FindTriggerByName("DOOR") == first));
+    // Destructors unregister themselves; ordered draining must tolerate this.
+    DestroyAllWorldTriggers(&level.world);
+    REQUIRE(level.world.triggers.empty());
+    REQUIRE(FindTriggerByName("DOOR") == nullptr);
+    REQUIRE(FindTriggerByName("SKYDOOR") == in_sky);
+    Trigger* replacement = AddTrigger(level, "DOOR");
+    REQUIRE(FindTriggerByName("DOOR") == replacement);
     SetCurrentWorld(0);
     SetSecondaryWorld(0);
     return true;
@@ -153,6 +159,17 @@ TEST_CASE("world_lookup_test")
     REQUIRE(srInit());
     const std::filesystem::path directory = make_temporary_directory("wiz8-world-lookup");
     const bool passed = triggers() && nodes(directory);
+    // Empty worlds need no collection initialization and can be torn down
+    // without ever loading a level or publishing them as the active world.
+    for (int iteration = 0; iteration < 3; ++iteration) {
+        auto* world = CreateWorld();
+        REQUIRE(world->level != nullptr);
+        REQUIRE(world->dynamic_scene->getParent() == world->static_scene);
+        REQUIRE(GetWorldProp(world, 0) == nullptr);
+        REQUIRE(GetWorldCameraPath(world, -1) == nullptr);
+        REQUIRE(GetWorldAmbientSound(world, 0) == nullptr);
+        DestroyWorld(world);
+    }
     std::filesystem::remove_all(directory);
     srExit();
     REQUIRE(passed);
