@@ -801,7 +801,7 @@ W8TriggerEvent::W8TriggerEvent()
 }
 
 // FUNCTION: WIZ8 0x004409a0
-W8TriggerEvent::~W8TriggerEvent() {}
+W8TriggerEvent::~W8TriggerEvent() = default;
 
 class W8TriggerShakeEvent : public W8TriggerEvent {
 public:
@@ -1270,7 +1270,7 @@ void SetTriggerVariableByName(const char* name, int value)
 W8TriggerActionData::W8TriggerActionData() : type(W8_TRIGGER_PAYLOAD_NONE) {}
 
 // FUNCTION: WIZ8 0x00445ee0
-W8TriggerActionData::~W8TriggerActionData() {}
+W8TriggerActionData::~W8TriggerActionData() = default;
 
 /* Type 5 installs 0x005EC148 after constructing the common base. Its deleting
    destructor folds with the type-10 wrapper at 0x00445EC0: both call the
