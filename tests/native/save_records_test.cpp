@@ -1,3 +1,4 @@
+#include "wiz8/geometry.h"
 #include "wiz8/engine_code/stModelInstance.h" // IWYU pragma: keep - complete model type for unique_ptr destruction.
 #include <catch2/catch_test_macros.hpp>
 #include <SDL3/SDL_filesystem.h>

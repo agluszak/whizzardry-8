@@ -1,3 +1,4 @@
+#include "glm/geometric.hpp"
 #include "glm/vector_relational.hpp"
 #include <fmt/format.h>
 #include <algorithm>
