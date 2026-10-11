@@ -33,8 +33,7 @@
 
 // FUNCTION: WIZ8 0x005d25b0
 W8MessageDialogBase::W8MessageDialogBase()
-    : accepted(false), is_open(true), m_edge_image(), m_message_button(), m_confirm_button(),
-      m_confirm_image(), m_cancel_button(), m_cancel_image(), m_line_count(0)
+    : accepted(false), is_open(true), m_line_count(0), m_show_confirm(false), allow_cancel(false)
 {
 }
 
