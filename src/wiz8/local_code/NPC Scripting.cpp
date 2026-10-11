@@ -866,7 +866,7 @@ static void ProcessMessageBoxQueue(void)
 
     auto current = g_npc_scripting.message_lines.begin();
     W8MessageBoxLine& line = *current;
-    npc = line.npc;
+    npc = line.npc_kind != -1 ? GetNpcStateByKind(line.npc_kind) : 0;
     if (auto* quote_line = std::get_if<W8NpcQueuedQuote>(&line.action)) {
         if (npc != 0 && npc != g_npc_scripting.session.npc) {
             BeginNpcScriptDialogue(npc, 1);
