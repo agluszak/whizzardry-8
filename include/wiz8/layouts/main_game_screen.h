@@ -3,7 +3,6 @@
 #include <vector>
 #pragma once
 
-#include "Types.h"
 #include "wiz8/camera_motion.h"
 
 #include "wiz8/geometry.h"

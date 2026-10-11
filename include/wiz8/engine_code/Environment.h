@@ -12,7 +12,6 @@ unsigned char GetEnvironmentFlag(void); /* 0x00482A10 */
 
 #include <vector>
 
-#include "Types.h"
 #include "surrender/srVertexProcessor.h"
 #include "compat/compiler.h"
 
@@ -58,8 +57,8 @@ class stLight;
 
 void AddEnvironmentLight(stLight* light);
 
-BOOLEAN ReadLightColourTable(wiz8::File* hFile);
-BOOLEAN ReadEnvironmentColourTable(wiz8::File* hFile);
+bool ReadLightColourTable(wiz8::File* hFile);
+bool ReadEnvironmentColourTable(wiz8::File* hFile);
 void BuildEnvironmentColourRamp(void);
 void BuildLightColourRamp(void);
 void UpdateEnvironmentLight(void);

@@ -41,7 +41,6 @@
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/GrCycle.h"
 #include "wiz8/engine_code/materials.h"
-#include "Types.h"
 #include "compat/ptr32.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_double3.hpp"
@@ -627,7 +626,7 @@ void UpdateWorldCursor(void)
             }
             // c-style-cast-ok: SGP SoundPlay spells filenames UINT8* - the
             // documented historical ABI boundary.
-            SoundPlay((STR) "Data\\Sound\\Misc\\ErrorBeep.wav", 0);
+            SoundPlay((char*) "Data\\Sound\\Misc\\ErrorBeep.wav", 0);
         }
         gp3DCursor->left_held = false;
     } else {

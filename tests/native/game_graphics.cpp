@@ -32,7 +32,6 @@
 #include "wiz8/surface2d.h"
 #include "wiz8/cursor.h"
 #include "temporary_directory.h"
-#include "Types.h"
 #include "surrender/srColorSurfaceIFace.h"
 #include "surrender/srFlags.h"
 #include "vobject.h"
@@ -93,8 +92,8 @@ TEST_CASE("game graphics")
                                       nullptr));
         const auto& framebuffer = *GetFrameBufferSurface().cpu().surface;
         const auto pitch = framebuffer.pitch;
-        const auto* pixels = static_cast<const BYTE*>(framebuffer.pixels);
-        std::vector<UINT16> expected(640 * 480);
+        const auto* pixels = static_cast<const std::uint8_t*>(framebuffer.pixels);
+        std::vector<std::uint16_t> expected(640 * 480);
         for (int y = 0; y < 480; ++y)
             memcpy(expected.data() + y * 640, pixels + y * pitch, 1280);
         REQUIRE(InitializeMouseCursorScene());
@@ -150,7 +149,7 @@ TEST_CASE("game graphics")
                 for (int x = 0; x < 640; ++x)
                 {
                     unsigned v = buffer->getPixel(x, y);
-                    unsigned char rgb[] = {BYTE(v >> 16), BYTE(v >> 8), BYTE(v)};
+                    unsigned char rgb[] = {std::uint8_t(v >> 16), std::uint8_t(v >> 8), std::uint8_t(v)};
                     output->write(rgb, 3);
                 }
             output->close();
@@ -184,7 +183,7 @@ TEST_CASE("game graphics")
             for (int y = 0; y < 480; ++y)
                 for (int x = 0; x < 640; ++x)
                 {
-                    UINT16 original = x < 32 && y < 24 ? movie_pixels[y * 32 + x] : 0;
+                    std::uint16_t original = x < 32 && y < 24 ? movie_pixels[y * 32 + x] : 0;
                     unsigned actual = buffer->getPixel(x, y);
                     int r = ((original >> 10) & 31) * 255 / 31,
                         g = ((original >> 5) & 31) * 255 / 31, b = (original & 31) * 255 / 31;
@@ -202,7 +201,7 @@ TEST_CASE("game graphics")
             REQUIRE((FinishVideoPresentation() && ghWindow == persistent_window));
         }
         const auto& restored_framebuffer = *GetFrameBufferSurface().cpu().surface;
-        const auto* restored_pixels = static_cast<const BYTE*>(restored_framebuffer.pixels);
+        const auto* restored_pixels = static_cast<const std::uint8_t*>(restored_framebuffer.pixels);
         REQUIRE(restored_pixels);
         for (int y = 0; y < 480; ++y)
             REQUIRE(memcmp(restored_pixels + y * restored_framebuffer.pitch, expected.data() + y * 640,

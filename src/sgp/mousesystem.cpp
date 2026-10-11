@@ -29,14 +29,14 @@ namespace {
 // Registrations themselves belong to each control's region.
 struct MouseState {
     // GLOBAL: WIZ8 0x00650e80
-    INT16 x = 0;
+    std::int16_t x = 0;
     // GLOBAL: WIZ8 0x00650e82
-    INT16 y = 0;
+    std::int16_t y = 0;
     // GLOBAL: WIZ8 0x00650e84
-    INT16 buttons = 0;
+    std::int16_t buttons = 0;
     // GLOBAL: WIZ8 0x00650e86
-    INT16 action = MSYS_NO_ACTION;
-    UINT8 clicks = 0;
+    std::int16_t action = MSYS_NO_ACTION;
+    std::uint8_t clicks = 0;
     // GLOBAL: WIZ8 0x00650e88
     bool initialized = false;
     // GLOBAL: WIZ8 0x00650e8c
@@ -48,7 +48,7 @@ struct MouseState {
     // GLOBAL: WIZ8 0x00650e9c
     MOUSE_REGION* current = nullptr;
     // GLOBAL: WIZ8 0x005ff7c8
-    INT16 help_delay = 600;
+    std::int16_t help_delay = 600;
     // GLOBAL: WIZ8 0x005ff7ca
     bool show_help = true;
     // GLOBAL: WIZ8 0x00650ea0
@@ -63,7 +63,7 @@ MOUSE_REGION* _MOUSE_REGION::first = nullptr;
 //	MSYS_Init
 //	Initialize the mouse system.
 // FUNCTION: WIZ8 0x0040b290
-INT32 MSYS_Init(void)
+std::int32_t MSYS_Init(void)
 {
 
     MSYS_Shutdown();
@@ -98,8 +98,8 @@ namespace {
 struct MouseDispatch {
     MOUSE_REGION* current = nullptr;
     MOUSE_REGION* previous;
-    INT16 action, x, y, buttons;
-    UINT8 clicks;
+    std::int16_t action, x, y, buttons;
+    std::uint8_t clicks;
     MouseDispatch* parent;
     unsigned long long generation;
     static MouseDispatch* active;
@@ -214,7 +214,7 @@ void RefreshMouseRegions()
     SGPMouseGetPos(&point);
     InputAtom input{};
     input.usEvent = MOUSE_POS;
-    input.uiParam = static_cast<UINT32>(point.x) | (static_cast<UINT32>(point.y) << 16);
+    input.uiParam = static_cast<std::uint32_t>(point.x) | (static_cast<std::uint32_t>(point.y) << 16);
     input.mouseButtons = (gfLeftButtonState ? SDL_BUTTON_LMASK : 0) |
                          (gfRightButtonState ? SDL_BUTTON_RMASK : 0);
     DispatchMouseEvent(input);
@@ -242,14 +242,14 @@ void _MOUSE_REGION::unlink()
 void MSYS_UpdateMouseRegion(void)
 {
     MouseDispatch event;
-    INT32 found;
-    UINT32 ButtonReason;
-    found = FALSE;
+    std::int32_t found;
+    std::uint32_t ButtonReason;
+    found = false;
 
     // Check previous region!
     if (mouse.grabbed) {
         event.current = mouse.grabbed;
-        found = TRUE;
+        found = true;
     }
     if (!found) {
         event.current = nullptr;
@@ -455,8 +455,8 @@ void MSYS_UpdateMouseRegion(void)
 
 // Configure the region owned by an interactive control.
 // FUNCTION: WIZ8 0x0040be10
-void _MOUSE_REGION::configure(UINT16 tlx, UINT16 tly, UINT16 brx, UINT16 bry,
-                               INT8 priority, MOUSE_CALLBACK movecallback,
+void _MOUSE_REGION::configure(std::uint16_t tlx, std::uint16_t tly, std::uint16_t brx, std::uint16_t bry,
+                               std::int8_t priority, MOUSE_CALLBACK movecallback,
                                MOUSE_CALLBACK buttoncallback)
 {
     reset();
@@ -568,7 +568,7 @@ void MSYS_DisableRegion(MOUSE_REGION* region)
 //	MSYS_SetRegionUserData
 //	Sets one of the four user data entries in a mouse region
 // FUNCTION: WIZ8 0x0040bf80
-void MSYS_SetRegionUserData(MOUSE_REGION* region, INT32 index, INT32 userdata)
+void MSYS_SetRegionUserData(MOUSE_REGION* region, std::int32_t index, std::int32_t userdata)
 {
     if (index < 0 || index > 3) return;
     region->UserData[index] = userdata;
@@ -577,7 +577,7 @@ void MSYS_SetRegionUserData(MOUSE_REGION* region, INT32 index, INT32 userdata)
 //	MSYS_GetRegionUserData
 //	Retrieves one of the four user data entries in a mouse region
 // FUNCTION: WIZ8 0x0040bfa0
-INT32 MSYS_GetRegionUserData(MOUSE_REGION* region, INT32 index)
+std::int32_t MSYS_GetRegionUserData(MOUSE_REGION* region, std::int32_t index)
 {
     if (index < 0 || index > 3) return 0;
     return (region->UserData[index]);
@@ -587,7 +587,7 @@ INT32 MSYS_GetRegionUserData(MOUSE_REGION* region, INT32 index)
 //	Assigns all mouse activity to a region, effectively blocking any other region from having
 //	control.
 // FUNCTION: WIZ8 0x0040bfc0
-INT32 MSYS_GrabMouse(MOUSE_REGION* region)
+std::int32_t MSYS_GrabMouse(MOUSE_REGION* region)
 {
     if (!region || !(region->uiFlags & MSYS_REGION_EXISTS))
         return (MSYS_REGION_NOT_IN_LIST);
@@ -645,7 +645,7 @@ void SetRegionFastHelpText(MOUSE_REGION* region, std::string_view szText)
 
 void DisplayFastHelp(MOUSE_REGION* region)
 {
-    INT32 iX, iY, iW, iH;
+    std::int32_t iX, iY, iW, iH;
 
     if (region->uiFlags & MSYS_FASTHELP) {
         VideoToolTip(region->FastHelpText);
@@ -653,7 +653,7 @@ void DisplayFastHelp(MOUSE_REGION* region)
         iW = VideoGetToolTipWidth();
         iH = VideoGetToolTipHeight();
 
-        iX = (INT32)region->RegionTopLeftX + 10;
+        iX = (std::int32_t)region->RegionTopLeftX + 10;
 
         if (iX < 0)
             iX = 0;
@@ -661,7 +661,7 @@ void DisplayFastHelp(MOUSE_REGION* region)
         if ((iX + iW) >= SCREEN_WIDTH)
             iX = (SCREEN_WIDTH - iW - 4);
 
-        iY = (INT32)region->RegionTopLeftY - (iH * 3 / 4);
+        iY = (std::int32_t)region->RegionTopLeftY - (iH * 3 / 4);
         if (iY < 0)
             iY = 0;
 
@@ -702,7 +702,7 @@ void RenderFastHelp()
                 if (mouse.current->uiFlags & MSYS_MOUSE_IN_AREA &&
                     !mouse.current->ButtonState) // & (MSYS_LEFT_BUTTON|MSYS_RIGHT_BUTTON)) )
                 {
-                    mouse.current->FastHelpTimer -= (INT16)std::max(iTimeDifferential, int64_t(0));
+                    mouse.current->FastHelpTimer -= (std::int16_t)std::max(iTimeDifferential, int64_t(0));
 
                     if (mouse.current->FastHelpTimer < 0) {
                         mouse.current->FastHelpTimer = 0;
@@ -716,7 +716,7 @@ void RenderFastHelp()
 // new stuff to allow mouse callbacks when help text finishes displaying
 
 // FUNCTION: WIZ8 0x0040c1f0
-void SetFastHelpDelay(INT16 sFastHelpDelay)
+void SetFastHelpDelay(std::int16_t sFastHelpDelay)
 {
     mouse.help_delay = sFastHelpDelay;
 }

@@ -7,7 +7,6 @@
 #include "wiz8/string_database.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/retail_text_records.h"
-#include "Types.h"
 #include "catch2/catch_message.hpp"
 #include "compat/ptr32.h"
 #include "conditions.h"
@@ -903,7 +902,7 @@ static void save_file_contracts(const std::filesystem::path& user)
     write(fallback, 7u);
     fallback.close();
     REQUIRE(FindStartupQuickSave() == "Quick");
-    UINT32 count = 0;
+    std::uint32_t count = 0;
 
     char riff[] = "Saves\\Riff.SAV";
     W8Chunk chunks;

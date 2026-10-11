@@ -4,7 +4,6 @@ unsigned char InitializeMenuFonts(void);
 void ReleaseMenuFonts();
 
 #include "Font.h"
-#include "Types.h"
 
 /* Game-specific bitmap font roles and owned notice palettes. */
 extern Font ghTinyMonoFont;

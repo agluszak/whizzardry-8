@@ -1,4 +1,5 @@
 #include "Font.h"
+#include <cstdint>
 #include <string_view>
 #include <functional>
 #pragma once
@@ -17,7 +18,7 @@ class W8DialogButton;
 using W8DialogButtonCallback = std::function<void(W8DialogButton*)>;
 enum class DialogButtonActivation { Press, Release };
 
-void DialogButtonCallback(MOUSE_REGION* region, INT32 reason);
+void DialogButtonCallback(MOUSE_REGION* region, std::int32_t reason);
 
 // VTABLE: WIZ8 0x005efa98
 class W8DialogButton {
@@ -83,7 +84,7 @@ public:
        enabled, push its text onto the mouse region. */
     void SetTooltipIndex(int tooltip_index);
 
-    friend void DialogButtonCallback(MOUSE_REGION* region, INT32 reason);
+    friend void DialogButtonCallback(MOUSE_REGION* region, std::int32_t reason);
 
 private:
     ButtonAppearance m_appearance;
@@ -93,7 +94,7 @@ private:
     SDL_MouseButtonFlags m_repeated_buttons = 0;
     int m_user_data = 0;
     void ConfigureRegion(short priority);
-    void HandleMouseEvent(INT32 reason);
+    void HandleMouseEvent(std::int32_t reason);
     int m_tooltip_index; /* g_localized_strings index, or -1 */
     W8DialogButtonCallback m_left_callback;
     W8DialogButtonCallback m_right_callback;

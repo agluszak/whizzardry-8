@@ -1,7 +1,7 @@
 #ifndef WIZ8_CURSOR_H
 #define WIZ8_CURSOR_H
 
-#include "Types.h"
+#include <cstdint>
 #include "input.h"
 #include "wiz8/engine_code/Video2.h"
 #include "surrender/srMath.h"
@@ -15,11 +15,11 @@ unsigned char InitializeMouseCursorScene(void);
 
 class srTextureIFace;
 
-BOOLEAN SetMouseCursorFromVideoObject(SGPVObject& video_object, UINT16 region, INT16 offset_x,
-                                      INT16 offset_y);
-void BlitToMouseCursor(SGPVObject& video_object, UINT16 region, UINT16 x, UINT16 y);
+bool SetMouseCursorFromVideoObject(SGPVObject& video_object, std::uint16_t region, std::int16_t offset_x,
+                                      std::int16_t offset_y);
+void BlitToMouseCursor(SGPVObject& video_object, std::uint16_t region, std::uint16_t x, std::uint16_t y);
 void RefreshMouseCursorTexture(void);
-BOOLEAN ResizeMouseCursorSurface(int width, int height);      /* 0x00427c90 */
+bool ResizeMouseCursorSurface(int width, int height);      /* 0x00427c90 */
 void SetMouseCursorHotspot(short hotspot_x, short hotspot_y); /* 0x00427f00 */
 void SetMouseCursorTexture(std::shared_ptr<srTextureIFace> texture);          /* 0x00429170 */
 void SyncSystemCursor(void);                                  /* 0x00428340 */

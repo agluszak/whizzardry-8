@@ -18,7 +18,6 @@
 #include "input.h"
 #include "timer.h"
 #include "Video2.h"
-#include "Types.h"
 #include "compat/native.h"
 
 
@@ -28,10 +27,10 @@ static std::thread::id dispatch_thread;
 static std::vector<int> clock_actions;
 void PrintScreen() { ++screenshots; }
 void VideoCaptureToggle() { ++captures; }
-BOOLEAN VideoInspectorIsEnabled() { return FALSE; }
+bool VideoInspectorIsEnabled() { return false; }
 void SuspendVideoManager() { ++suspensions; }
-BOOLEAN RestoreVideoManager() { ++restorations; return TRUE; }
-BOOLEAN VideoResizeWindow() { ++resizes; return TRUE; }
+bool RestoreVideoManager() { ++restorations; return true; }
+bool VideoResizeWindow() { ++resizes; return true; }
 float MoveTimer(int action) { clock_actions.push_back(action); return 0; }
 static SDL_WindowID id;
 static void push(SDL_Event event) { REQUIRE(SDL_PushEvent(&event)); }
@@ -97,14 +96,14 @@ static std::vector<InputAtom> input()
         result.push_back(atom);
     return result;
 }
-static void expect(const InputAtom& atom, UINT16 kind, UINT32 parameter, UINT16 state = 0)
+static void expect(const InputAtom& atom, std::uint16_t kind, std::uint32_t parameter, std::uint16_t state = 0)
 {
     REQUIRE((atom.usEvent == kind && atom.usParam == parameter && atom.usKeyState == state));
 }
 TEST_CASE("events_test")
 {
-    gfProgramIsRunning = gfApplicationActive = TRUE;
-    gfIgnoreMessages = FALSE;
+    gfProgramIsRunning = gfApplicationActive = true;
+    gfIgnoreMessages = false;
     /* No GPU is needed to validate events and timers. */
     REQUIRE(SDL_Init(SDL_INIT_VIDEO));
     SDL_Window* window = SDL_CreateWindow("Whizzardry input test", 1280, 960, SDL_WINDOW_HIDDEN);
@@ -368,18 +367,18 @@ TEST_CASE("events_test")
         for (unsigned i = 0; i < 256; ++i)
             REQUIRE((events[i].usParam == i && events[i].uiParam == batch));
     }
-    gfIgnoreMessages = TRUE;
+    gfIgnoreMessages = true;
     key(SDL_EVENT_KEY_DOWN, SDLK_Q);
     focus(SDL_EVENT_WINDOW_CLOSE_REQUESTED);
     drain_events();
     REQUIRE((!gfProgramIsRunning && input().empty()));
-    gfProgramIsRunning = TRUE;
+    gfProgramIsRunning = true;
     SDL_Event quit{};
     quit.type = SDL_EVENT_QUIT;
     push(quit);
     drain_events();
     REQUIRE(!gfProgramIsRunning);
-    gfIgnoreMessages = FALSE;
+    gfIgnoreMessages = false;
     for (int round = 0; round < 3; ++round) {
         REQUIRE(InitializeInputManager());
         for (unsigned i = 0; i < 256; ++i)
@@ -415,7 +414,7 @@ TEST_CASE("events_test")
         REQUIRE(events.size() == 1);
         expect(events[0], KEY_UP, 999);
     }
-    KeyChange(0xffff, 0, TRUE);
+    KeyChange(0xffff, 0, true);
     REQUIRE(input().empty());
     SetInputWindow(nullptr);
 

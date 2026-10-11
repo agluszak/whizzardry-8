@@ -69,7 +69,6 @@
 #include "surrender/srMath.h"
 #include "wiz8/local_code/character_events.h"
 #include "Item.h"
-#include "Types.h"
 #include "compat/ptr32.h"
 #include "dice.h"
 #include "float_constants.h"
@@ -1072,7 +1071,7 @@ bool Trigger::PlayActionSound(const char* sound_name, int volume)
             SOUNDPARMS options;
             memset(&options, -1, sizeof(options));
             options.uiVolume = (g_settings.sound_effects_volume * volume) / 0x7f;
-            SoundPlay((STR)sound_name, &options);
+            SoundPlay((char*)sound_name, &options);
             return false;
         }
         const auto center = m_pProp->GetCenterPosition();

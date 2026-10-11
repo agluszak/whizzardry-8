@@ -2,6 +2,7 @@
 #define WIZ8_VIDEO2_H
 
 #include <SDL3/SDL_rect.h>
+#include <cstdint>
 #include <SDL3/SDL_video.h>
 #include <string_view>
 #include <memory>
@@ -31,43 +32,43 @@ struct CpuSurface; // IWYU pragma: keep - pointer declarations in this API.
 
 extern SDL_Window* ghWindow;
 
-extern BOOLEAN InitializeVideoManager(void);
+extern bool InitializeVideoManager(void);
 extern void ShutdownVideoManager(void);
 extern void ShutdownVideoScenes(void);
 extern void SuspendVideoManager(void);
-extern BOOLEAN RestoreVideoManager(void);
-extern void GetCurrentVideoSettings(UINT16* usWidth, UINT16* usHeight, UINT8* ubBitDepth);
-extern void InvalidateRegion(INT32 iLeft, INT32 iTop, INT32 iRight, INT32 iBottom, UINT32 uiFlags);
+extern bool RestoreVideoManager(void);
+extern void GetCurrentVideoSettings(std::uint16_t* usWidth, std::uint16_t* usHeight, std::uint8_t* ubBitDepth);
+extern void InvalidateRegion(std::int32_t iLeft, std::int32_t iTop, std::int32_t iRight, std::int32_t iBottom, std::uint32_t uiFlags);
 extern void PrintScreen(void);
 
 void VideoCaptureToggle(void);
 
 enum { INVAL_SRC_TRANS = 1, PIXEL_DEPTH = 16, SCREEN_WIDTH = 640, SCREEN_HEIGHT = 480 };
 
-BOOLEAN VideoIsFullScreen(void);
-void VideoFullScreen(BOOLEAN enabled);
-BOOLEAN VideoResizeWindow(void);
+bool VideoIsFullScreen(void);
+void VideoFullScreen(bool enabled);
+bool VideoResizeWindow(void);
 void VideoInspectorEnable(void);
-BOOLEAN VideoInspectorIsEnabled(void);
-CHAR8* VideoGetConfigFile(void);
-void VideoSetConfigFile(const CHAR8* path);
+bool VideoInspectorIsEnabled(void);
+char* VideoGetConfigFile(void);
+void VideoSetConfigFile(const char* path);
 int VideoDumpMemoryLeaks(void);
-BOOLEAN CheckCdPresent(void);
+bool CheckCdPresent(void);
 void VideoGetClientRect(SDL_Rect* rect);
 void VideoToolTip(std::string_view text);
-extern INT32 g_help_box_width;
-extern INT32 g_help_box_height;
+extern std::int32_t g_help_box_width;
+extern std::int32_t g_help_box_height;
 /* DisplayFastHelp in mousesystem.cpp and the product region code both access
    these fields inline; no separate getter bodies occur at those call sites. */
-static __inline INT32 VideoGetToolTipWidth(void)
+static __inline std::int32_t VideoGetToolTipWidth(void)
 {
     return g_help_box_width;
 }
-static __inline INT32 VideoGetToolTipHeight(void)
+static __inline std::int32_t VideoGetToolTipHeight(void)
 {
     return g_help_box_height;
 }
-void VideoPositionToolTip(INT32 x, INT32 y);
+void VideoPositionToolTip(std::int32_t x, std::int32_t y);
 void VideoRemoveToolTip(void);
 
 void SGPMouseGetPos(SDL_Point* point);
@@ -156,7 +157,7 @@ srModelInstance* MakePolygonBrush(srNode* parent, std::shared_ptr<srColorSurface
                                   double height, float mapping_x, float mapping_y,
                                   float mapping_width, float mapping_height, unsigned char overlay);
 /* 0x00484A40: blit one frame of a video object into a color surface. */
-BOOLEAN BlitVideoObjectToColorSurface(SGPVObject& video_object, UINT16 region,
+bool BlitVideoObjectToColorSurface(SGPVObject& video_object, std::uint16_t region,
                                       srColorSurface& destination, int x, int y);
 class stTextureAnim;
 
