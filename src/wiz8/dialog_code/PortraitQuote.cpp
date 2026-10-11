@@ -1,3 +1,4 @@
+#include <SDL3/SDL_pixels.h>
 #include <memory>
 #include <SDL3/SDL_rect.h>
 #include <string_view>
@@ -11,6 +12,7 @@
 #include "himage.h"
 #include "vobject.h"
 #include "vobject_blitters.h"
+#include "wiz8/compat/surfaces.h"
 #include "vsurface.h"
 #include "wiz8/dialog_code/PortraitQuote.h"
 #include "wiz8/engine_code/Video2.h"
