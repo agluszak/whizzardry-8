@@ -192,7 +192,7 @@ float AdvanceMissileAI(W8AIMissile* record, srVector3T<float>* out, unsigned int
     if (g_world->octree != 0 &&
         (entity = g_world->octree->TraceAgainstProps(&position, out, 0, 0)) != 0) {
         record->limit = 1.0f;
-        prop = (*g_world->collidable_props)[entity - 1];
+        prop = g_world->collidable_props[entity - 1];
         prop->RunMissileTrigger(record);
     }
     if (record->gravity) {
@@ -316,12 +316,12 @@ W8Missile* NextMissile(bool restart)
 {
     W8Missile* missile = 0;
 
-    if (g_world != 0 && g_world->missiles != 0) {
+    if (g_world != 0) {
         if (restart) {
             g_missile_iterator = 0;
         }
-        if (g_missile_iterator < static_cast<int>(g_world->missiles->size())) {
-            missile = (*g_world->missiles)[g_missile_iterator];
+        if (g_missile_iterator < static_cast<int>(g_world->missiles.size())) {
+            missile = g_world->missiles[g_missile_iterator];
             ++g_missile_iterator;
         }
     }
@@ -340,9 +340,9 @@ void UpdateWorldMissiles(W8World* world)
         srAssertFail("pWorld", MISSILE_CPP, 200, 0);
     }
     int index = 0;
-    int count = static_cast<int>(world->missiles->size());
+    int count = static_cast<int>(world->missiles.size());
     while (index < count) {
-        W8Missile* missile = (*world->missiles)[index];
+        W8Missile* missile = world->missiles[index];
         if (missile != 0) {
             missile->DetachRepresentation(world);
             if (!missile->flight_done || missile->block_released == 0) {
@@ -350,7 +350,7 @@ void UpdateWorldMissiles(W8World* world)
                 missile->UpdateRepresentation(world);
                 missile->UpdateNavigation(0, false);
             } else {
-                wiz8::erase_first(*world->missiles, missile);
+                wiz8::erase_first(world->missiles, missile);
                 missile->DestroyMissile();
                 --index;
                 --count;
@@ -404,7 +404,7 @@ W8Missile* AllocateMissile(int missile_table_index)
         }
     }
     missile->impacting = false;
-    g_world->missiles->push_back(missile);
+    g_world->missiles.push_back(missile);
     minimum = -125.0;
     maximum = 125.0;
     missile->SetBounds(&minimum, &maximum);
@@ -897,7 +897,7 @@ void W8Missile::DestroyMissile()
 // FUNCTION: WIZ8 0x004a4210
 void DestroyAllMissiles(W8World* world)
 {
-    wiz8::clear_and_dispose(*world->missiles, [](W8Missile* missile) {
+    wiz8::clear_and_dispose(world->missiles, [](W8Missile* missile) {
         missile->DestroyMissile();
     });
 }

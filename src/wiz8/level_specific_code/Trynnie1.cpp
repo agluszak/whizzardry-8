@@ -143,8 +143,8 @@ void KillTrynnieGroups(void)
         srAssertFail("iNewTable!=(-1)", TRYNNIE1_CPP, 0x69,
                      "Can't find monster table 'Dead Trynnies'");
     }
-    for (index = 0; index < static_cast<int>(g_world->monster_generators->size()); ++index) {
-        generator = (*g_world->monster_generators)[index];
+    for (index = 0; index < static_cast<int>(g_world->monster_generators.size()); ++index) {
+        generator = g_world->monster_generators[index];
         if (generator->encounter_table_index == iOldTable) {
             generator->SetEncounterTable(iNewTable);
         }

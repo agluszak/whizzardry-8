@@ -115,7 +115,7 @@ TEST_CASE("world graphics")
         }
         REQUIRE(g_current_screen_state.id == W8_SCREEN_MAIN_GAME);
         auto world = GetWorld();
-        REQUIRE((world && world->octree && world->camera && world->level && world->psrMeshes));
+        REQUIRE((world && world->octree && world->camera && world->level && !world->psrMeshes.empty()));
         W8WorldCameraState state{};
         state = cameraState(*world);
         fprintf(stderr, "world: camera (%g %g %g) yaw %g pitch %g\n", state.position.x,

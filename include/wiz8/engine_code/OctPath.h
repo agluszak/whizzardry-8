@@ -1,6 +1,7 @@
 #pragma once
 
 #include <queue>
+#include <memory>
 #include <vector>
 #include <unordered_map>
 
@@ -486,7 +487,7 @@ public:
     W8PathSurface* m_waypoints;            /* 0x48 */
     W8PathEdge* m_pEdges;                  /* 0x4c */
     W8FileWaypoint* m_pFileWayPoints;      /* 0x50 */
-    stModelInstance* m_path_visualization; /* 0x54 */
+    std::unique_ptr<stModelInstance> m_path_visualization;
     std::vector<bool> m_marked_path_nodes;
     std::vector<bool> m_visited_path_nodes;
     std::vector<bool> m_collected_path_nodes;
