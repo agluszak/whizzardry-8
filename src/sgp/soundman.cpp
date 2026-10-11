@@ -10,7 +10,6 @@
 #include <SDL3_mixer/SDL_mixer.h>
 #include <algorithm>
 #include <atomic>
-#include <cmath>
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -296,7 +295,8 @@ SoundPlayback play(std::string_view path, PlayOptions options)
         return stream_resolved(filename, std::move(options));
     auto clip = load_resolved(filename);
     if (!clip) {
-        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "sound: failed loading %s", filename.c_str());
+        // Retail calls name a few clips missing from the shipped data (beep2.wav).
+        SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "sound: failed loading %s", filename.c_str());
         return {};
     }
     return play(clip, std::move(options));
@@ -347,13 +347,15 @@ bool is_file_playing(std::string_view path)
 // FUNCTION: WIZ8 0x00408f70
 bool stop(const SoundPlayback& playback, std::uint32_t fade_out_ms)
 {
-    if (!is_playing(playback)) return false;
-    if (fade_out_ms == 0) {
-        finish(playback);
-        return true;
+    const bool was_playing = is_playing(playback);
+    if (was_playing && fade_out_ms != 0) {
+        auto* track = playback->track.get();
+        return MIX_StopTrack(track, MIX_TrackMSToFrames(track, fade_out_ms));
     }
-    auto* track = playback->track.get();
-    return MIX_StopTrack(track, MIX_TrackMSToFrames(track, fade_out_ms));
+    // A stopped track can still own a deferred callback. Drain it before the
+    // caller releases its callback data, even after natural EOF.
+    finish(playback);
+    return was_playing;
 }
 
 // FUNCTION: WIZ8 0x00409020

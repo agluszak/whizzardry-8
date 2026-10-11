@@ -1,5 +1,4 @@
 #include <cstdint>
-#include <cstring>
 
 #include "soundman.h"
 #include "wiz8/local_code/ButtonSound.h"

@@ -5,7 +5,6 @@
 #include <memory>
 #include <string>
 #include <vector>
-#include <cstring>
 #include <utility>
 
 #include "surrender/srMath.h"

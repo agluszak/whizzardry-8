@@ -48,16 +48,17 @@ struct W8MonsterManagerEntry {
     W8PortraitQuoteState quote;
     unsigned char unknown_025[0x4c];
     W8CharacterEvent* active_character_event;
-    int previous_portrait_frame;
+    // These are the frames last painted, not the preceding animation states.
+    int rendered_portrait_frame;
     int portrait_frame;
     uint64_t portrait_frame_clock;
     unsigned int voice_time_remaining_ms;
-    int previous_portrait_pose;
+    int rendered_portrait_pose;
     int portrait_pose;
     int target_portrait_pose;
     uint64_t portrait_pose_clock;
     uint64_t portrait_idle_clock;
-    bool portrait_pose_animation_active;
+    bool portrait_blink_closing;
     bool portrait_pose_dirty;
     bool portrait_frame_dirty;
     /* The floating damage-number splat animation. Posting a hit opens it with

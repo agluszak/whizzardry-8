@@ -2635,7 +2635,7 @@ unsigned char CopySurfaceWithBorder(srColorSurface* surface, const W8ControlsRec
         !SDL_SetSurfaceBlendMode(destination_view.get(), SDL_BLENDMODE_NONE)) {
         return 0;
     }
-    const auto copy = [&](int source_x, int source_y, int destination_x, int destination_y,
+    const auto copy = [&](int destination_x, int destination_y, int source_x, int source_y,
                           int copy_width, int copy_height) {
         SDL_Rect source_rect{source_x, source_y, copy_width, copy_height};
         SDL_Rect destination_rect{destination_x, destination_y, copy_width, copy_height};
@@ -2760,11 +2760,8 @@ void VideoToolTip(std::string_view text)
     g_help_box_height = g_font10arial.height() * buffer->m_lineCount + 2;
     surface->fill(0);
     void* data = surface->getDataPtr();
-    unsigned char colour[4];
-    for (int y = 0; y < g_help_box_height; ++y) {
-        PackColourBytes(colour, 1.0, 0.0, 0.0, 0.0);
-        surface->setHLine(0, y, g_help_box_width, *(w8_ulong*)colour);
-    }
+    for (int y = 0; y < g_help_box_height; ++y)
+        surface->setHLine(y, 0, g_help_box_width, 0xff000000u);
     SDLSurfaceOwner text_surface{
         SDL_CreateSurfaceFrom(surface->getWidth(), surface->getHeight(), SDL_PIXELFORMAT_RGB565,
                               data, surface->getPitch()),
@@ -2774,11 +2771,8 @@ void VideoToolTip(std::string_view text)
     w8_ulong border_colour;
     PackColourToLong(&border_colour, 1.0, 0.93, 0.6, 0.33);
     surface->setHLine(0, 0, g_help_box_width, border_colour);
-    PackColourToLong(&border_colour, 1.0, 0.93, 0.6, 0.33);
-    surface->setHLine(0, g_help_box_height - 1, g_help_box_width, border_colour);
-    PackColourToLong(&border_colour, 1.0, 0.93, 0.6, 0.33);
+    surface->setHLine(g_help_box_height - 1, 0, g_help_box_width, border_colour);
     surface->setVLine(0, 0, g_help_box_height, border_colour);
-    PackColourToLong(&border_colour, 1.0, 0.93, 0.6, 0.33);
     surface->setVLine(g_help_box_width - 1, 0, g_help_box_height, border_colour);
 
     W8ControlsRect rect;

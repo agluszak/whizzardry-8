@@ -26,6 +26,7 @@
 #include "native/audio_test.h"
 #include "wiz8/slf.h"
 #include "wiz8/local_code/CombatSound.h"
+#include "wiz8/character_event_queue.h"
 #include "native/movie_audio.h"
 #include "soundman.h"
 #include "temporary_directory.h"
@@ -643,6 +644,49 @@ TEST_CASE_METHOD(AudioFixture, "Mixer tags stop only the original group before r
     REQUIRE(wiz8::sound::is_playing(music));
     REQUIRE(wiz8::sound::stop_group(Group::music));
     REQUIRE_FALSE(wiz8::sound::stop_group(Group::music));
+    REQUIRE(calls == 1);
+}
+
+TEST_CASE_METHOD(AudioFixture, "Stopping completed playback drains its deferred callback", "[audio][ownership]")
+{
+    startOfflineAudio();
+    auto callback_data = std::make_unique<unsigned>(0);
+    auto sound = wiz8::sound::stream("tone.wav", {.on_finished = [data = callback_data.get()] {
+        ++callbacks;
+        ++*data;
+    }});
+    REQUIRE(sound);
+    mix(8192);
+    REQUIRE_FALSE(wiz8::sound::is_playing(sound));
+    REQUIRE(*callback_data == 0);
+    REQUIRE_FALSE(wiz8::sound::stop(sound));
+    REQUIRE(*callback_data == 1);
+    callback_data.reset();
+    REQUIRE_FALSE(wiz8::sound::stop(sound));
+    wiz8::sound::service();
+    wiz8::sound::release_cache();
+    REQUIRE(callbacks == 1);
+}
+
+TEST_CASE_METHOD(AudioFixture, "Character event destruction cancels its own deferred voice callback", "[audio][ownership]")
+{
+    startOfflineAudio();
+    auto event = std::make_unique<W8CharacterEvent>(nullptr, 0, 0, 0, 127);
+    unsigned calls = 0;
+    bool completed = false;
+    event->voice_playback = wiz8::sound::stream("tone.wav", {.on_finished = [&, entry = event.get()] {
+        ++calls;
+        completed = entry->sound_end_handled;
+    }});
+    REQUIRE(event->voice_playback);
+    mix(8192);
+    REQUIRE_FALSE(wiz8::sound::is_playing(event->voice_playback));
+    REQUIRE(calls == 0);
+    event.reset();
+    REQUIRE(calls == 1);
+    REQUIRE(completed);
+    wiz8::sound::service();
+    wiz8::sound::release_cache();
     REQUIRE(calls == 1);
 }
 
