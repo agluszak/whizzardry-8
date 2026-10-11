@@ -3,6 +3,6 @@ execute_process(COMMAND "${PROGRAM}" "assert-${MODE}"
 if(result STREQUAL "0" OR result MATCHES "timeout")
     message(FATAL_ERROR "Assertion did not fail promptly: ${result}\n${output}\n${error}")
 endif()
-if(NOT error MATCHES "Assertion failed:|Attempting to CreateTextButton with invalid position")
+if(NOT error MATCHES "Assertion failed:|uiRegionIndex < guiRegionCount")
     message(FATAL_ERROR "Missing assertion diagnostic: ${result}\n${output}\n${error}")
 endif()
