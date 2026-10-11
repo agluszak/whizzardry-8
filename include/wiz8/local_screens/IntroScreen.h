@@ -1,9 +1,11 @@
 #pragma once
 
 #include "input.h"
+#include "compat/compiler.h"
 
 class W8BinkVideo;
 struct W8Region;
+
 extern W8BinkVideo* gpVideo;
 
 void ContinueAfterDarkEndingVideo(void);

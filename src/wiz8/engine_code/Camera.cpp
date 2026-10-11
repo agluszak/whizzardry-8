@@ -1,7 +1,7 @@
 #include "wiz8/engine_code/Camera.h"
 
 #include <vector>
-#include <algorithm>
+
 #include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/engine_code/GameData.h"
@@ -14,15 +14,19 @@
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCScripting.h"
-#include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
-#include "wiz8/music_playlist.h"
 #include "surrender/srCamera.h"
-#include "wiz8/layouts/npc_state.h"
 #include "wiz8/local_code/NPCManager.h"
-#include "wiz8/startup_world.h"
+#include "Navigator.h"
+#include "compat/native.h"
+#include "compat/ptr32.h"
+#include "glm/ext/matrix_float3x3.hpp"
+#include "layouts/targeting.h"
+#include "layouts/world.h"
+#include "message_box.h"
+#include "surrender/srMath.h"
 
-#include <string.h>
+struct W8NpcState;
 
 /* Retail Engine Code\Camera.cpp. The TU's single anchored function is
    0x0048F2F0 below; the only other evidence is the path string and it owns no

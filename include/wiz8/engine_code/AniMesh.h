@@ -3,12 +3,14 @@
 #include <memory>
 #include <string>
 #include <vector>
-#include "wiz8/filesystem.h"
-#include "surrender/srMath.h"
+
+#include "glm/ext/vector_float3.hpp"
 
 class stModelInstance;
 struct W8ReadLevelInfo;
 struct W8World;
+namespace wiz8 { class File; }
+template <class T> class srVector3T;
 
 struct W8AniMesh {
     W8AniMesh();

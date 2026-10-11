@@ -4,7 +4,6 @@ extern bool g_npc_dialogue_closed;
 extern bool g_sea_caves_slope_override_enabled;
 
 #include <vector>
-#include <algorithm>
 
 struct W8MonsterInfo;
 struct W8MonsterGroup;

@@ -2,10 +2,15 @@
 #include <fmt/printf.h>
 #include <string_view>
 #include <string>
+#include <array>
+#include <memory>
+#include <vector>
+
+#include "input.h"
+#include "vobject.h"
 #include "wiz8/spell_ids.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/integer_constants.h"
-
 #include "wiz8/local_screens/RCSCommon.h"
 #include "wiz8/local_screens/MGSFormation.h"
 #include "wiz8/local_screens/MGSPortraits.h"
@@ -19,18 +24,11 @@
 #include "wiz8/local_code/Controls.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/character_skills.h"
-#include "wiz8/local_code/CharGeneration.h"
-#include "wiz8/local_code/Combat.h"
-#include "wiz8/local_code/CombatAttack.h"
-#include "wiz8/local_code/GameplayMods.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/local_code/Magic.h"
-#include "wiz8/local_code/MagicEffects.h"
-#include "wiz8/local_code/party_encumbrance.h"
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/Targeting.h"
-#include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/targeting.h"
@@ -47,9 +45,7 @@
 #include "wiz8/npc_interaction.h"
 #include "wiz8/regions.h"
 #include "wiz8/engine_code/Video2.h"
-#include "wiz8/engine_code/stModelInstance.h"
 #include "wiz8/sr_api.h"
-#include "wiz8/utility.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/item_tables.h"
@@ -57,6 +53,12 @@
 #include "wiz8/learned_spells.h"
 #include "Font.h"
 #include "vsurface.h"
+#include "conditions.h"
+#include "dialog_code/DialogBase.h"
+#include "equipment_slots.h"
+#include "layouts/gameplay_databases.h"
+#include "layouts/item_instance.h"
+#include "layouts/main_game_screen.h"
 
 // GLOBAL: WIZ8 0x0069c3c4
 Controls* g_level_up_panel;

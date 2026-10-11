@@ -1,6 +1,7 @@
 #pragma once
 
 #include "wiz8/dialog_code/MessageDialogBase.h"
+#include "compat/compiler.h"
 
 struct W8DialogCloseListener {
     virtual void OnDialogClosed(bool accepted, int value) = 0;

@@ -5,15 +5,16 @@
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/local_code/Combat.h"
-#include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
-#include <vector>
-#include <algorithm>
 #include "wiz8/sr_api.h"
+#include "compat/ptr32.h"
+#include "surrender/srMath.h"
+
+struct W8NpcState;
 
 #define COSMIC_CIRCLE_CPP "C:\\Projects\\Wizardry 8\\Level Specific Code\\Cosmic Circle.cpp"
 

@@ -1,8 +1,30 @@
-#include <sstream>
 #include <fmt/format.h>
 #include <fmt/printf.h>
-#include "wiz8/unicode.h"
+#include <memory>
+#include <wiz8/filesystem.h>
+#include <SDL3/SDL_filesystem.h>
+#include <SDL3/SDL_stdinc.h>
+#include <sstream>
 #include <string_view>
+#include <algorithm>
+#include <cstdio>
+#include <cstring>
+#include <cmath>
+#include <array>
+#include <cctype>
+#include <cstdlib>
+#include <exception>
+#include <iterator>
+#include <optional>
+#include <string>
+#include <unordered_map>
+#include <utility>
+#include <vector>
+
+#include "compat/compiler.h"
+#include "glm/geometric.hpp"
+#include "surrender/srTypeRegistry.h"
+#include "wiz8/unicode.h"
 #include "surrender/srCore.h"
 #include "surrender/srGERD.h"
 #include "surrender/srMaterial.h"
@@ -13,8 +35,6 @@
 #include "wiz8/engine_code/materials.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/packed_bits.h"
-
-#include <algorithm>
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/GDFileIO.h"
@@ -22,34 +42,32 @@
 #include "wiz8/engine_code/OctBuildPreTree.h"
 #include "wiz8/engine_code/OctPreTree.h"
 #include "wiz8/engine_code/Octree.h"
-#include "wiz8/engine_code/ReadLevel.h"
 #include "wiz8/engine_code/ReadMesh.h"
 #include "wiz8/index_algorithms.h"
 #include "wiz8/engine_code/stTextureAnim.h"
 #include "wiz8/engine_code/stTextureFile.h"
 #include "wiz8/resource_cache.h"
 #include "wiz8/float_constants.h"
-#include "wiz8/engine_code/Environment.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/environment_colour.h"
 #include "wiz8/fonts.h"
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/PleaseWaitScreen.h"
-#include "wiz8/sr_api.h"
-#include "wiz8/utility.h"
 #include "wiz8/virtual_file.h"
-
 #include "Font.h"
 #include "input.h"
 #include "wiz8/application.h"
 #include "wiz8/local_code/Gameloop.h"
-
-#include <cstdio>
-#include <cstring>
-#include <cmath>
-#include <new>
-#include <wiz8/filesystem.h>
+#include "OctBuildTree.h"
+#include "OctMeshModel.h"
+#include "compat/native.h"
+#include "geometry.h"
+#include "glm/ext/vector_float2.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include "glm/ext/vector_float4.hpp"
+#include "surrender/srTexture.h"
+#include "surrender/srTextureIFace.h"
 
 #define MATERIALS_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\materials.cpp"
 

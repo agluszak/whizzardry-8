@@ -3,7 +3,9 @@
 
 #include <memory>
 #include <vector>
+
 #include "surrender/srMath.h"
+#include "glm/ext/matrix_float3x3.hpp"
 
 struct W8AniMesh;
 struct W8PathAI;

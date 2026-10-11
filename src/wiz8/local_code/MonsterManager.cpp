@@ -1,27 +1,30 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
 #include <string>
+#include <vector>
+#include <algorithm>
+#include <cctype>
+#include <cmath>
+#include <cstdlib>
+#include <cstring>
+
+#include "conditions.h"
 #include "wiz8/containers.h"
 #include "wiz8/engine_code/AnimRep.hpp"
 #include "timer.h"
 #include "wiz8/monster_cycles.h"
 #include "wiz8/fonts.h"
-#include <stdio.h>
 #include "wiz8/integer_constants.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/GameplayMods.h"
 #include "wiz8/local_code/Sight.h"
 #include "wiz8/engine_code/Quality.h"
-#include "wiz8/engine_code/Video2.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/xstatus.h"
-#include <vector>
-#include <algorithm>
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/local_code/Combat.h"
-#include "wiz8/local_code/CombatAttack.h"
 #include "wiz8/local_code/CombatRange.h"
 #include "wiz8/local_code/MonsterAI.h"
 #include "wiz8/local_code/MonsterManager.h"
@@ -32,7 +35,6 @@
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/local_code/NPCManager.h"
-#include "wiz8/local_screens/MGSButtons.h"
 #include "wiz8/local_screens/MGSPortraitCombat.h"
 #include "wiz8/engine_code/OctBuildPreTree.h"
 #include "wiz8/regions.h"
@@ -40,12 +42,9 @@
 #include "wiz8/local_code/FormationAndFacing.h"
 #include "wiz8/engine_code/Spells.h"
 #include "wiz8/local_code/Configuration.h"
-#include "wiz8/local_screens/AutomapScreen.h"
-#include "wiz8/local_screens/mipe.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/monster_runtime.h"
 #include "wiz8/engine_code/Missile.h"
 #include "wiz8/notices.h"
@@ -56,8 +55,6 @@
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/character_skills.h"
-#include "wiz8/local_code/NPCManager.h"
-#include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/sr_api.h"
 #include "random.h"
@@ -65,11 +62,20 @@
 #include "wiz8/engine_code/PolyPick.h"
 #include "wiz8/local_code/ItemManager.h"
 #include "wiz8/local_screens/MGSTextBox.h"
-#include <math.h>
-#include <new>
-#include <stdlib.h>
-#include <string.h>
 #include "wiz8/local_code/ThingEditorShared.h"
+#include "GrCycle.h"
+#include "Navigator.h"
+#include "dice.h"
+#include "gameplay_modifiers.h"
+#include "layouts/character.h"
+#include "layouts/levels.h"
+#include "layouts/main_game_screen.h"
+#include "local_code/HealthStaminaMana.h"
+#include "local_code/MagicEffects.h"
+#include "monster_actions.h"
+#include "navigation_flags.h"
+#include "sight_state.h"
+
 // GLOBAL: WIZ8 0x005ed4f0
 const float g_monster_record_float_scale = 20.0f;
 // GLOBAL: WIZ8 0x00683698

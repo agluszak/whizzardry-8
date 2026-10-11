@@ -2,8 +2,7 @@
 
 #include <SDL3/SDL_filesystem.h>
 #include <SDL3/SDL_iostream.h>
-#include "wiz8/file_time.h"
-
+#include <SDL3/SDL_stdinc.h>
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
@@ -12,6 +11,8 @@
 #include <string>
 #include <string_view>
 #include <vector>
+
+#include "wiz8/file_time.h"
 
 namespace wiz8
 {
@@ -148,6 +149,7 @@ public:
     void commit();
 private:
     struct Impl;
+
     std::unique_ptr<Impl> impl_;
 };
 

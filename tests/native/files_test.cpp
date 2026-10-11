@@ -1,28 +1,38 @@
 #include <catch2/catch_test_macros.hpp>
-/* Asset, SLF and save contracts through native production streams. */
-#include "wiz8/slf.h"
+#include <csignal>
+#include <ios>
 #include <wiz8/asset_paths.h>
 #include <wiz8/filesystem.h>
 #include <wiz8/file_time.h>
 #include <SDL3/SDL_stdinc.h>
+#include <SDL3/SDL_filesystem.h>
+#include <SDL3/SDL_iostream.h>
+#include <cstdio>
+#include <cstring>
+#include <filesystem>
+#include <fstream>
+#include <memory>
+#include <string>
+#include <vector>
+#include <algorithm>
+#include <cstdint>
+#include <exception>
+#include <iterator>
+#include <optional>
+#include <string_view>
+#include <system_error>
+#include <utility>
+
+/* Asset, SLF and save contracts through native production streams. */
+#include "wiz8/slf.h"
 #include "surrender/srSystem.h"
 #include "surrender/srIO.h"
 #include "wiz8/chunk.h"
 #include "temporary_directory.h"
 
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
-#include <filesystem>
-#include <fstream>
-#include <memory>
-#include <set>
-#include <string>
-#include <vector>
-
 #if defined(__unix__) || defined(__APPLE__)
-#include <csignal>
 #include <sys/resource.h>
+#include <signal.h> // NOLINT(modernize-deprecated-headers) - POSIX SIGXFSZ.
 #endif
 
 namespace fs = std::filesystem;

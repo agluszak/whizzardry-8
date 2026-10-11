@@ -1,12 +1,17 @@
-#include "surrender/srSystem.h"
-
 #include <wiz8/asset_paths.h>
-#include "wiz8/filesystem.h"
-
+#include <SDL3/SDL_filesystem.h>
+#include <SDL3/SDL_stdinc.h>
 #include <string>
 #include <memory>
-#include <stdlib.h>
-#include <string.h>
+#include <cstring>
+#include <exception>
+#include <filesystem>
+#include <optional>
+#include <vector>
+
+#include "surrender/srSystem.h"
+#include "wiz8/filesystem.h"
+#include "compat/compiler.h"
 
 w8_long srSystem::scanFiles(std::vector<std::string>& files, const char* path)
 {

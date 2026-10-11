@@ -1,8 +1,8 @@
-#include <string>
-#include <string_view>
 #pragma once
 
-#include "wiz8/local_code/Widget.h"
+#include <string>
+#include <string_view>
+
 #include "Button System.h"
 
 enum W8DialogKind {
@@ -20,6 +20,7 @@ enum { W8_DIALOG_DIRTY_REDRAW = 1u };
 class W8DialogBase;
 class W8DialogButton;
 class W8DialogTextArea;
+
 typedef void (*W8DialogDestroyCallback)(W8DialogBase* dialog);
 void SetDialogDestroyCallback(W8DialogBase* dialog, W8DialogDestroyCallback callback);
 /* Shared close-button callback used by the monster and spell info dialogs. */

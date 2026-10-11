@@ -1,6 +1,7 @@
 #pragma once
 
 #include "wiz8/engine_code/game_timer.h"
+#include "compat/compiler.h"
 
 /* Address-qualified W8GameTimer specialization constructed beside the
    canonical GDCamera owner in GameData.cpp. */

@@ -1,6 +1,7 @@
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
    Distributed under the accompanying SFI Source Code license agreement. */
 #include "english.h"
+#include "Types.h"
 
 /* Virtual key to character: unmodified keys, then Shift keys. */
 // GLOBAL: WIZ8 0x005ffc3c

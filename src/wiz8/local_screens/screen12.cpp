@@ -5,10 +5,10 @@
 #include "wiz8/cursor.h"
 #include "input.h"
 #include "wiz8/engine_code/Video2.h"
-
 #include "himage.h"
 #include "vsurface.h"
 #include "wiz8/application.h"
+#include "vobject.h"
 
 /* Lifecycle record 12 is the exit screen selected by Main Menu's Exit row and
    its Escape/E/X shortcuts. Live query: 0x00591780 sits in the gap between

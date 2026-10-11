@@ -6,16 +6,15 @@
 #include <string>
 #include <vector>
 
-#include "wiz8/filesystem.h"
-
-#include "wiz8/camera_motion.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/Levels.h"
 #include "wiz8/engine_code/Navigator.h"
-
-#include "Types.h"
 #include "wiz8/engine_code/IntervalGate.h"
+#include "compat/compiler.h"
+#include "glm/ext/matrix_float3x3.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include "surrender/srMath.h"
 
 namespace wiz8 { class File; }
 
@@ -46,7 +45,6 @@ float MoveTimer(int action);
 void ResetLevelMovement(float movement_limit, bool reset, bool fast_move); /* 0x0041EEE0 */
 
 #include "wiz8/geometry.h"
-#include "wiz8/layouts/world.h"
 
 /* The current level-data record at 0x00652DAC — a 0xf4-byte allocation whose
    first 0xac bytes mix flag, counter and camera-vector state. GameData.cpp
@@ -359,8 +357,6 @@ extern bool g_level_data_teardown_flag;
 /* Read by the level-data reset and written by the GameData constructor in
    GDFileIO.cpp. */
 extern W8EnvironRecord* g_environ;
-
-#include "wiz8/engine_code/GDFileIO.h"
 
 void ResetInactiveLevelDataVectors(void);
 void UpdateSharedGameDataObject();

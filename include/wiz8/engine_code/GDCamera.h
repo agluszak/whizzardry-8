@@ -1,10 +1,15 @@
-#include "surrender/srMath.h"
 #pragma once
 
-#include "wiz8/geometry.h"
-#include "wiz8/float_constants.h"
-#include "wiz8/engine_code/World.h"
 #include <glm/gtx/euler_angles.hpp>
+#include <glm/glm.hpp>
+#include <cmath>
+
+#include "wiz8/engine_code/World.h"
+#include "compat/compiler.h"
+#include "glm/ext/matrix_float3x3.hpp"
+#include "glm/ext/vector_float3.hpp"
+
+template <class T> class srVector3T;
 
 /* Orientation limits shared by the inline setters and GDCamera.cpp. */
 extern const float g_camera_angle_period0;

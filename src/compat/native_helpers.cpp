@@ -1,6 +1,10 @@
+#include <chrono>
+#include <cctype>
+#include <cstdint>
+#include <cstring>
+
 #include "wiz8/compat/native.h"
 #include "wiz8/runtime_test_hooks.h"
-#include <chrono>
 
 extern "C" {
 

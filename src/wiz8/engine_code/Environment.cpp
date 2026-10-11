@@ -1,13 +1,19 @@
-#include "wiz8/filesystem.h"
+#include <glm/ext/quaternion_trigonometric.hpp>
+#include <glm/gtc/quaternion.hpp>
 #include <cstring>
-#include <math.h>
-#include "wiz8/engine_code/Environment.h"
+#include <cmath>
+#include <exception>
+#include <memory>
+#include <vector>
 
+#include "Types.h"
+#include "compat/compiler.h"
+#include "surrender/srVertexProcessor.h"
+#include "wiz8/filesystem.h"
+#include "wiz8/engine_code/Environment.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/Prop.h"
 #include "wiz8/engine_code/stLight.hpp"
-#include "wiz8/engine_code/World.h"
-#include "wiz8/engine_code/game_timer.h"
 #include "wiz8/engine_code/stTextureAnim.h"
 #include "wiz8/engine_code/materials.h"
 #include "wiz8/float_constants.h"
@@ -15,19 +21,24 @@
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/sr_api.h"
-#include "wiz8/virtual_file.h"
-#include "surrender/srCore.h"
 #include "surrender/srFog.h"
-#include "surrender/srMaterial.h"
 #include "surrender/srVertexPipe.h"
 #include "surrender/srNode.h"
 #include "surrender/srCamera.h"
 #include "surrender/srScene.h"
-#include "surrender/srTypeRegistry.h"
 #include "wiz8/local_code/GameplayTime.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/engine_code/Monster.h"
-#include <glm/gtc/matrix_transform.hpp>
+#include "AnimRep.hpp"
+#include "compat/native.h"
+#include "environment_colour.h"
+#include "glm/ext/matrix_float3x3.hpp"
+#include "glm/ext/vector_float2.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include "layouts/world.h"
+#include "resource_cache.h"
+#include "surrender/srMath.h"
+#include "texture_animation.h"
 
 #define ENVIRONMENT_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\Environment.cpp"
 

@@ -1,14 +1,21 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
+#include <SDL3/SDL_rect.h>
 #include <string_view>
 #include <string>
 #include <new>
+#include <array>
+#include <cstring>
+#include <memory>
+#include <optional>
+
+#include "compat/compiler.h"
+#include "local_code/TextControl.h"
 #include "wiz8/spell_ids.h"
 #include "wiz8/conditions.h"
 #include "soundman.h"
 #include "wiz8/integer_constants.h"
 #include "wiz8/local_code/Magic.h"
-#include "wiz8/local_code/MagicEffects.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/local_code/character_events.h"
@@ -16,7 +23,6 @@
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
 #include "wiz8/local_screens/CharacterScreen.h"
-#include "wiz8/local_screens/MGSRadarMap.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/MGSPortraits.h"
 #include "wiz8/layouts/screen_state.h"
@@ -24,10 +30,8 @@
 #include "wiz8/fonts.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/character_skills.h"
-#include "wiz8/local_code/CharGeneration.h"
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/CombatAttack.h"
-#include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/GameplayMods.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
@@ -35,14 +39,12 @@
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/layouts/combat_state.h"
-#include "wiz8/local_code/CombatRange.h"
 #include "wiz8/cursor.h"
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/dialog_code/MessageDialogBase.h"
 #include "wiz8/dialog_code/SpellInfoDialog.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/RangeControl.h"
-#include "wiz8/local_code/PartyImport.h"
 #include "wiz8/local_code/LoadSaveGame.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/music_playlist.h"
@@ -54,7 +56,6 @@
 #include "surrender/srMeshModel.h"
 #include "surrender/srMaterial.h"
 #include "surrender/srShader.h"
-#include "wiz8/sound_man.h"
 #include "wiz8/regions.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/utility.h"
@@ -62,36 +63,43 @@
 #include "wiz8/character_event_queue.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/float_constants.h"
-#include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/GameplayTime.h"
 #include "wiz8/local_code/Configuration.h"
-#include "wiz8/local_screens/MainGameScreen.h"
 #include "Font.h"
 #include "english.h"
 #include "input.h"
-#include "Types.h"
 #include "mousesystem.h"
 #include "random.h"
 #include "timer.h"
-
-#include <stdlib.h>
-#include <string.h>
 #include "line.h"
 #include "wiz8/local_screens/RCSCommon.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/npc_state.h"
 #include "wiz8/local_code/NPCManager.h"
-#include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/layouts/item_instance.h"
 #include "wiz8/local_screens/RCSItemsPage.h"
-#include "wiz8/engine_code/3dapi.h"
 #include "wiz8/layouts/item_tables.h"
 #include "wiz8/item_video_object_vector.h"
 #include "wiz8/video_object_catalog.h"
 #include "vobject_blitters.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/local_code/Gameloop.h"
-#include "wiz8/local_screens/OptionsScreen.h"
+#include "compat/native.h"
+#include "compat/ptr32.h"
+#include "dialog_code/DialogBase.h"
+#include "dice.h"
+#include "equipment_slots.h"
+#include "gameplay_modifiers.h"
+#include "glm/ext/vector_float4.hpp"
+#include "layouts/learned_spells.h"
+#include "layouts/main_game_screen.h"
+#include "layouts/targeting.h"
+#include "local_code/ControlsRect.h"
+#include "local_screens/RCSStatsPage.h"
+#include "vobject.h"
+#include "vsurface.h"
+#include "audio_resources.h"
+
+struct W8NpcState;
 
 /* Local Screens\ReviewCharacterScreen.cpp, named by entry's
    fFoundEquipChar assertion. This is state 6, reached both from the party

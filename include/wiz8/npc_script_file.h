@@ -1,9 +1,8 @@
-#include "wiz8/filesystem.h"
 #ifndef WIZ8_NPC_SCRIPT_FILE_H
 #define WIZ8_NPC_SCRIPT_FILE_H
 
-#include "compat/ptr32.h"
-#include <stddef.h>
+namespace wiz8 { class File; }
+
 #include <cstdint>
 #include <string>
 #include <string_view>

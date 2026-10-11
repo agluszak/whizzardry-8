@@ -1,29 +1,51 @@
 /* Native Bink replacement: bounded SGP file/SLF I/O, FFmpeg decoding and
    timed RGB555 frames. Recovered IntroScreen still owns transitions/input. */
 #include "movie.h"
-#include "wiz8/filesystem.h"
-#include "wiz8/slf.h"
+
+#include <cstdint>
+#include <memory>
+#include <vector>
 #include <wiz8/filesystem.h>
+#include <SDL3/SDL_surface.h>
+
 #include "compat/surfaces.h"
 #include "native/movie_audio.h"
 #include "surrender/srGERD.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/surface2d.h"
+#include "compat/native.h"
+#include "surrender/srColorSurface.h"
+#include "surrender/srFlags.h"
+#include "surrender/srPixelConvert.h"
+
 extern "C"
 {
+#include <libavcodec/codec.h>
+#include <libavcodec/packet.h>
+#include <libavformat/avio.h>
+#include <libavutil/avutil.h>
+#include <libavutil/channel_layout.h>
+#include <libavutil/error.h>
+#include <libavutil/frame.h>
+#include <libavutil/mem.h>
+#include <libavutil/pixfmt.h>
+#include <libavutil/rational.h>
+#include <libavutil/samplefmt.h>
+
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 #include <libswresample/swresample.h>
 #include <libswscale/swscale.h>
 }
 #include <algorithm>
-#include <chrono>
-#include <cmath>
-#include <cstring>
 #include <deque>
 #include <limits>
 #include <stdexcept>
 #include <string>
+#include <cerrno>
+#include <cstdio>
+#include <new>
+#include <utility>
 
 namespace
 {

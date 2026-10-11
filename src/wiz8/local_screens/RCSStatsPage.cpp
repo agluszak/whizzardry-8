@@ -1,29 +1,30 @@
-#include <algorithm>
 #include <fmt/format.h>
+#include <SDL3/SDL_rect.h>
+#include <algorithm>
 #include <string>
-#include "wiz8/conditions.h"
+#include <array>
+#include <cstring>
+#include <memory>
+#include <vector>
 
+#include "compat/compiler.h"
+#include "wiz8/conditions.h"
 #include "wiz8/local_screens/RCSStatsPage.h"
 #include "wiz8/local_screens/RCSCommon.h"
 #include "wiz8/integer_constants.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
 #include "wiz8/local_screens/CharacterScreen.h"
-#include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/local_screens/OptionsScreen.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/item_instance.h"
 #include "wiz8/layouts/item_tables.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/screen_state.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/character_event_queue.h"
-#include "wiz8/local_code/character_events.h"
 #include "wiz8/cursor.h"
 #include "wiz8/fonts.h"
 #include "wiz8/regions.h"
 #include "wiz8/text_input.h"
-#include "wiz8/utility.h"
 #include "wiz8/video_object_catalog.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/local_code/ButtonSound.h"
@@ -35,16 +36,17 @@
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_code/TextControl.h"
-#include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/dialog_code/StatInfoDialogs.h"
-#include "wiz8/dialog_code/SpellInfoDialog.h"
-
 #include "Font.h"
 #include "input.h"
 #include "vobject_blitters.h"
-
-#include <new>
-#include <string.h>
+#include "game_timer.h"
+#include "local_code/CombatAttack.h"
+#include "local_code/Controls.h"
+#include "local_code/RangeControl.h"
+#include "surrender/srMath.h"
+#include "vobject.h"
+#include "vsurface.h"
 
 /* 0x0069C514/0x0069C518: the stats page's text origin, initialized by the
    page renderer before every full redraw. */

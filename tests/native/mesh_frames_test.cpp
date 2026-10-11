@@ -1,20 +1,31 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/catch_approx.hpp>
+#include <algorithm>
+#include <array>
+#include <memory>
+#include <string>
+#include <string_view>
+#include <type_traits>
+#include <optional>
+#include <span>
+#include <unordered_map>
+#include <utility>
+#include <vector>
+
 #include "surrender_test_fixture.h"
 #include "wiz8/engine_code/stMeshModel.h"
 #include "wiz8/engine_code/ReadMesh.h"
 #include "wiz8/engine_code/materials.h"
 #include "surrender/srModelInstance.h"
-#include "wiz8/sr_api.h"
+#include "compat/compiler.h"
+#include "glm/ext/vector_float3.hpp"
+#include "surrender/srMath.h"
+#include "surrender/srMeshModel.h"
+#include "surrender/srShader.h"
+#include "surrender/srTexture.h"
+#include "surrender/srTextureIFace.h"
 
-#include <algorithm>
-#include <array>
-#include <cmath>
-#include <cstdio>
-#include <memory>
-#include <string>
-#include <string_view>
-#include <type_traits>
+class srModel;
 
 
 static_assert(!std::is_copy_constructible_v<stMeshModel>);
@@ -403,4 +414,3 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Mesh skins and automap", "[mesh][ownersh
     REQUIRE(g_mesh_models.empty());
     REQUIRE(g_decompressed_mesh_bytes == 0);
 }
-

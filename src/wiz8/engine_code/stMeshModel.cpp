@@ -1,27 +1,38 @@
-#include "surrender/srBoundingBox.h"
+#include <cstddef>
 #include <algorithm>
 #include <cctype>
 #include <memory>
+#include <optional>
+#include <span>
+#include <string>
+#include <string_view>
 #include <utility>
-#include <stdexcept>
+#include <vector>
 
+#include "compat/compiler.h"
+#include "compat/native.h"
+#include "glm/common.hpp"
+#include "glm/ext/matrix_float4x4.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include "glm/geometric.hpp"
+#include "surrender/srBoundingBox.h"
 #include "wiz8/engine_code/stMeshModel.h"
-
+#include "surrender/srMeshModel.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/sr_api.h"
-#include "surrender/srCore.h"
 #include "surrender/srGERD.h"
 #include "surrender/srMaterial.h"
-#include "surrender/srTriangleCuller.h"
-
 #include "surrender/srTriMeshPipeline.h"
 #include "surrender/srTypeRegistry.h"
 #include "wiz8/engine_code/Octree.h"
-#include <math.h>
-#include <string.h>
-
 #include "surrender/srMath.h"
-#include <cassert>
+#include "glm/ext/vector_float4.hpp"
+#include "surrender/srFlags.h"
+#include "surrender/srShader.h"
+#include "surrender/srTextureIFace.h"
+#include "surrender/srVertexPipe.h"
+
+class srMaterialIFace;
 
 extern srVector3T<float> g_environment_offset;
 extern float g_monster_light_scale;

@@ -1,17 +1,27 @@
-#include "wiz8/compat/unaligned.h"
-#include "wiz8/engine_code/3d.h"
-#include "wiz8/engine_code/ReadMesh.h"
-
+#include <glm/ext/quaternion_trigonometric.hpp>
+#include <glm/gtc/quaternion.hpp>
 #include <algorithm>
 #include <array>
 #include <map>
 #include <numeric>
 #include <stdexcept>
+#include <memory>
+#include <vector>
+#include <cmath>
+#include <cstdint>
+#include <cstring>
+#include <exception>
+#include <functional>
+#include <string>
+#include <utility>
+
+#include "compat/compiler.h"
+#include "glm/fwd.hpp"
+#include "wiz8/engine_code/3d.h"
+#include "wiz8/engine_code/ReadMesh.h"
 #include "wiz8/engine_code/ReadLevel.h"
-#include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/LevelFile.h"
 #include "wiz8/engine_code/OctMeshModel.h"
-#include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/materials.h"
 #include "wiz8/engine_code/stMeshModel.h"
 #include "wiz8/engine_code/stModelInstance.h"
@@ -19,26 +29,15 @@
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_screens/PleaseWaitScreen.h"
-#include "wiz8/virtual_file.h"
 #include "wiz8/containers.h"
 #include "wiz8/filesystem.h"
+#include "resource_cache.h"
+#include "surrender/srMath.h"
+#include "surrender/srMeshModel.h"
+#include "surrender/srShader.h"
 
-#include "surrender/srCore.h"
-#include "surrender/srNode.h"
-#include <algorithm>
-#include <ranges>
-#include <span>
-#include <tuple>
-#include <stdlib.h>
-
-#include <math.h>
-#include <memory>
-#include <vector>
-#include <stdexcept>
-#include <cmath>
-#include <string.h>
-#include <stdio.h>
-#include <glm/gtc/matrix_transform.hpp>
+class srMaterialIFace;
+class srTextureIFace;
 
 static int operator==(const srShader& left, const srShader& right)
 {

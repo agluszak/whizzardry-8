@@ -1,8 +1,7 @@
-#include "wiz8/audio_resources.h"
 #ifndef WIZ8_MUSIC_PLAYLIST_H
 #define WIZ8_MUSIC_PLAYLIST_H
 
-#include "wiz8/local_screens/Screens.h"
+#include "wiz8/audio_resources.h"
 
 extern SoundPlayback g_music_sample_handle;
 extern bool g_music_playlist_active;

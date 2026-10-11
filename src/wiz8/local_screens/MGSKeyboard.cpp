@@ -1,15 +1,18 @@
 #include <fmt/format.h>
-#include "wiz8/unicode.h"
+#include <memory>
 #include <utility>
+#include <cstring>
+#include <exception>
+#include <optional>
+#include <string>
+
 #include "wiz8/fonts.h"
-#include <stdio.h>
 #include "wiz8/local_screens/MGSKeyboard.h"
 #include "input.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/cursor.h"
 #include "wiz8/engine_code/Cursor3d.h"
 #include "wiz8/engine_code/GameData.h"
-#include "wiz8/engine_code/3dapi.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
@@ -32,7 +35,6 @@
 #include "wiz8/local_code/TextControl.h"
 #include "wiz8/local_code/Traps.h"
 #include "wiz8/local_code/character_events.h"
-#include "wiz8/local_screens/CreditsScreen.h"
 #include "wiz8/local_screens/MGSButtons.h"
 #include "wiz8/local_screens/MGSPortraitCombat.h"
 #include "wiz8/local_screens/MGSFormation.h"
@@ -48,18 +50,21 @@
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/regions.h"
-#include "wiz8/sr_api.h"
 #include "wiz8/text_input.h"
-#include "wiz8/utility.h"
 #include "wiz8/version.h"
-#include "wiz8/virtual_file.h"
 #include "wiz8/world_cursor.h"
 #include "wiz8/xstatus.h"
-
 #include "wiz8/filesystem.h"
-#include "input.h"
+#include "camera_motion.h"
+#include "layouts/main_game_screen.h"
+#include "layouts/npc_dialogue.h"
+#include "layouts/screen_state.h"
+#include "layouts/targeting.h"
+#include "local_code/ControlsRect.h"
+#include "mgs_commands.h"
+#include "surrender/srMath.h"
 
-#include <string.h>
+struct W8ItemInstance;
 
 /* Local Screens\MGSKeyboard.cpp owns the binding vector, its command-keyed
    lookup and the singleton ResetMGSKeyboardBindings installs.

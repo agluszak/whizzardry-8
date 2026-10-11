@@ -1,5 +1,18 @@
 #include <catch2/catch_test_macros.hpp>
-#include "wiz8/containers.h"
+#include <array>
+#include <cstddef>
+#include <filesystem>
+#include <fstream>
+#include <ios>
+#include <iterator> // IWYU pragma: keep - public header for std::istreambuf_iterator.
+#include <functional>
+#include <stdexcept>
+#include <utility>
+#include <vector>
+#include <memory>
+#include <span>
+#include <unordered_map>
+
 #include "wiz8/xstatus.h"
 #include "wiz8/local_code/Controls.h"
 #include "wiz8/local_code/ButtonSound.h"
@@ -9,21 +22,20 @@
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/layouts/item_tables.h"
 #include "wiz8/npc_items.h"
-#include <algorithm>
 #include "wiz8/asset_paths.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/local_screens/JournalScreen.h"
 #include "wiz8/local_screens/MGSKeyboard.h"
 #include "temporary_directory.h"
-
-#include <array>
-#include <cstdio>
-#include <filesystem>
-#include <fstream>
-#include <iterator>
-#include <functional>
-#include <stdexcept>
-#include <vector>
+#include "compat/ptr32.h"
+#include "fact_state.h"
+#include "input.h"
+#include "layouts/item_instance.h"
+#include "layouts/npc_state.h"
+#include "local_code/Widget.h"
+#include "mgs_commands.h"
+#include "regions.h"
+#include "sight_state.h"
 
 
 struct Entry : W8Widget {

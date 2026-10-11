@@ -1,22 +1,24 @@
-#include <string_view>
 #pragma once
+
+#include <string_view>
 
 /* Engine Code\GrCycle.cpp owns these declarations. The two bases keep their
    original relative order: W8GrObject is
    W8GrCycle's first base and W8Navigator its second. */
 
+#include <vector>
+
 #include "surrender/srMath.h"
-#include "wiz8/engine_code/Emitter.h"
 #include "wiz8/engine_code/game_timer.h"
 #include "wiz8/engine_code/GrObject.h"
 #include "wiz8/engine_code/Navigator.h"
-#include "wiz8/geometry.h"
-#include <vector>
-#include <algorithm>
+#include "compat/compiler.h"
+#include "glm/ext/matrix_float3x3.hpp"
 
 class srModelInstance;
 struct W8World;
 struct W8ReadLevelInfo;
+class W8EmitterHost;
 
 /* Callers build this trio before loading a .mon/.mls resource. The loader
    carries world into its four-field read record and never reads the other

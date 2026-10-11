@@ -1,44 +1,33 @@
 #include <string_view>
-#include "wiz8/compat/unaligned.h"
+#include <cstring>
+#include <exception>
+#include <memory>
+#include <string>
+
 #include "wiz8/conditions.h"
 #include "wiz8/local_code/PartyImport.h"
 #include "wiz8/local_code/GameplayInit.h"
 #include "wiz8/learned_spells.h"
-
 #include "wiz8/layouts/character.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/local_code/CharGeneration.h"
-#include "wiz8/local_code/Combat.h"
-#include "wiz8/local_code/CombatAttack.h"
-#include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/GameplayCode.h"
-#include "wiz8/local_code/GameplayInit.h"
 #include "wiz8/local_code/GameplayMods.h"
-#include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/local_code/Magic.h"
-#include "wiz8/local_code/MagicEffects.h"
 #include "wiz8/local_code/party_encumbrance.h"
 #include "wiz8/local_code/PC_Item.h"
-#include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/dialog_code/ProfRaceInfoDialog.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/item_tables.h"
-#include "wiz8/local_code/CharGeneration.h"
-#include "wiz8/local_code/Combat.h"
-#include "wiz8/local_code/GameplayCode.h"
-#include "wiz8/local_code/GameplayInit.h"
-#include "wiz8/local_code/GameplayMods.h"
-#include "wiz8/local_code/PC_Item.h"
-#include "wiz8/local_code/Magic.h"
-#include "wiz8/local_code/MagicEffects.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/utility.h"
 #include "wiz8/xstatus.h"
-
 #include "random.h"
 #include "wiz8/filesystem.h"
-
-#include <string.h>
+#include "equipment_slots.h"
+#include "layouts/game_status.h"
+#include "layouts/item_instance.h"
+#include "layouts/learned_spells.h"
 
 /* Retail Local Code\Party Import.cpp: converts imported Wizardry 7
    characters into the Wizardry 8 layout. */

@@ -1,10 +1,13 @@
 #pragma once
 
-#include "wiz8/local_code/ControlsRect.h"
 #include <memory>
 #include <vector>
-#include <algorithm>
+#include <string>
+#include <string_view>
+
+#include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/dialog_code/DialogTextEntry.h"
+#include "compat/compiler.h"
 
 extern const unsigned int g_W8DialogTextAreaNoWrap;
 extern const unsigned int g_W8DialogTextAreaPointSelection;

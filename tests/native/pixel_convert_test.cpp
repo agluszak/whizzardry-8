@@ -1,13 +1,16 @@
 #include <catch2/catch_test_macros.hpp>
+#include <SDL3/SDL_surface.h>
+#include <SDL3/SDL_pixels.h>
+#include <cstdio>
+#include <cstring>
+#include <vector>
+#include <cstdint>
+
 #include "surrender/srPixelConvert.h"
 #include "surrender/srColorSurface.h"
 #include "wiz8/sr_api.h"
-#include <SDL3/SDL_surface.h>
-#include <algorithm>
-#include <cstdio>
-#include <cstring>
-#include <stdexcept>
-#include <vector>
+#include "compat/compiler.h"
+#include "surrender/srFilter.h"
 
 void initPixelTables();
 void writeRGB24(const srPixelConvert::ConversionInfo&);

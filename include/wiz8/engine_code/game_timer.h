@@ -1,10 +1,11 @@
 #pragma once
 
-#include "wiz8/filesystem.h"
-
 #include "Types.h"
 #include "wiz8/layouts/game_status.h"
 #include "surrender/srClock.h"
+#include "compat/compiler.h"
+
+namespace wiz8 { class File; }
 
 extern int g_shared_timer_pause_base;
 extern int g_shared_timer_pause_time;

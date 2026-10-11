@@ -1,18 +1,16 @@
+
 #include "wiz8/direction_angles.h"
-
 #include "wiz8/engine_code/PolyPick.h"
-
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/Item.h"
 #include "wiz8/engine_code/Monster.h"
-#include "wiz8/engine_code/World.h"
 #include "wiz8/float_constants.h"
-
 #include "surrender/srCamera.h"
 #include "surrender/srBoundingBox.h"
-
-#include <float.h>
-#include <math.h>
+#include "AnimRep.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include "layouts/world.h"
+#include "surrender/srMath.h"
 
 /* 0x005ED1E8: the negative quarter turn the axis-aligned heading case returns. */
 // GLOBAL: WIZ8 0x005ed1e8

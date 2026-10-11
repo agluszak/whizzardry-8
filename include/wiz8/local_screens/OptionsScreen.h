@@ -1,26 +1,28 @@
+#pragma once
+
 #include <string_view>
 #include <string>
-#pragma once
+
+#include <memory>
+#include <vector>
 
 #include "wiz8/engine_code/Quality.h"
 #include "wiz8/mgs_commands.h"
-#include "wiz8/layouts/screen_state.h"
-
-#include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_code/TextControl.h"
 #include "wiz8/local_code/ControlSelection.h"
 #include "wiz8/local_code/RangeControl.h"
 #include "wiz8/dialog_code/NotificationDialog.h"
 #include "wiz8/local_code/Controls.h"
 #include "wiz8/local_code/ControlsRect.h"
-#include "wiz8/local_code/LoadSaveGame.h"
-#include <memory>
-#include <vector>
-#include <algorithm>
 #include "wiz8/text_input.h"
+#include "compat/compiler.h"
+#include "input.h"
 
 class W8OptionsPanel;
 class W8OptionsSaveRow;
+class W8MessageDialogBase;
+class W8TextBuffer;
+struct W8SaveSlot;
 
 // VTABLE: WIZ8 0x005eef68
 class W8OptionsTextEditor {

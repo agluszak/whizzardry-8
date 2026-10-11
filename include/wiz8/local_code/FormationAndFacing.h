@@ -1,11 +1,11 @@
 #pragma once
 
 #include "surrender/srMath.h"
-#include "wiz8/layouts/party_formation.h"
 
 struct W8MonsterInfo;
 struct W8CombatSlot;
 struct W8PartySlotRow;
+struct W8PartyFormationState;
 
 unsigned int TurnPartyTo(unsigned int degrees);
 void TurnPartyToImmediate(unsigned int degrees, char snap);

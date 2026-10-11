@@ -1,4 +1,16 @@
 #include <catch2/catch_test_macros.hpp>
+#include <glm/ext/matrix_transform.hpp>
+#include <array>
+#include <cmath>
+#include <limits>
+#include <numbers>
+#include <random>
+#include <type_traits>
+#include <cstdlib>
+
+#include "glm/geometric.hpp"
+#include "glm/matrix.hpp"
+#include <glm/mat3x3.hpp> // IWYU pragma: keep - public generic-matrix entry point.
 #include "surrender/srClipPlane.h"
 #include "surrender/srCamera.h"
 #include "surrender/srCore.h"
@@ -6,19 +18,11 @@
 #include "surrender/srLight.h"
 #include "surrender/srModelInstance.h"
 #include "surrender/srScene.h"
-#include "surrender/srTriMeshPipeline.h"
 #include "surrender/srTriangleCuller.h"
 #include "surrender/srVertexPipe.h"
-#include <algorithm>
-
-#include <array>
-#include <cmath>
-#include <cstdio>
-#include <limits>
-#include <numbers>
-#include <random>
-#include <type_traits>
-#include <glm/gtc/matrix_transform.hpp>
+#include "surrender/srMath.h"
+#include "surrender/srNode.h"
+#include "glm/fwd.hpp"
 
 
 template <class T>
@@ -44,7 +48,8 @@ template <class T> static bool rotations()
         for (double angle : angles) {
             Node node;
             node.setRotation(angle, srVector3T<double>(axis));
-            glm::mat<3, 3, T> actual;
+            // Include-cleaner attributes this public template to GLM's private qualifier.hpp.
+            glm::mat<3, 3, T> actual; // NOLINT(misc-include-cleaner)
             node.getRotation(actual);
             // Independent Rodrigues reference checks angle sign and matrix orientation.
             const long double components[] = {axis.x, axis.y, axis.z};

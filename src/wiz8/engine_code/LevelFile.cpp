@@ -1,6 +1,17 @@
 #include <fmt/format.h>
-#include "wiz8/unicode.h"
-#include "wiz8/utility.h"
+#include <memory>
+#include <stdexcept>
+#include <climits>
+#include <cmath>
+#include <utility>
+#include <cstdint>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <exception>
+#include <new>
+
+#include "Types.h"
 #include "wiz8/engine_code/stLight.hpp"
 #include "wiz8/engine_code/LevelFile.h"
 #include "wiz8/engine_code/ReadMesh.h"
@@ -8,17 +19,8 @@
 #include "wiz8/sr_api.h"
 #include "wiz8/local_screens/AutomapScreen.h"
 #include "wiz8/float_constants.h"
-
 #include "wiz8/filesystem.h"
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <memory>
-#include <stdexcept>
-#include <climits>
-#include <cmath>
-#include <utility>
-#include <string.h>
+#include "materials.h"
 
 #define LEVELFILE_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\LevelFile.cpp"
 

@@ -3,17 +3,22 @@
 #include <memory>
 #include <optional>
 #include <vector>
+
 #include "surrender/srMeshModel.h"
 #include "surrender/srModelInstance.h"
 #include "wiz8/engine_code/AnimRep.hpp"
-
-#include <stddef.h>
+#include "compat/compiler.h"
+#include "glm/ext/vector_float4.hpp"
+#include "surrender/srMath.h"
+#include "surrender/srModel.h"
+#include "surrender/srTypeRegistry.h"
 
 class srGERD;
 class srMaterial;
 class stMaterial;
 class srTextureIFace;
 class stTextureAnim;
+class srNode;
 
 /* Engine Code\stModelInstance.cpp. */
 // VTABLE: WIZ8 0x005ec7d0 stModelInstance
@@ -124,4 +129,3 @@ public:
     /* Lazily copied from the mesh material while the glow is enabled. */
     std::shared_ptr<stMaterial> glow_material;
 };
-

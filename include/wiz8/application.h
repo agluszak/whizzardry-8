@@ -4,8 +4,6 @@
 
 #include "Types.h"
 #include <span>
-#include <string>
-#include <string_view>
 
 extern "C" {
 extern BOOLEAN gfProgramIsRunning;

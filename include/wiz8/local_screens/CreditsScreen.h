@@ -1,13 +1,12 @@
-#include <optional>
-#include <string>
 #pragma once
 
-#include "wiz8/filesystem.h"
-#include "wiz8/layouts/screen_state.h"
+#include <optional>
+#include <string>
 
 #include "input.h"
-#include <vector>
-#include <algorithm>
+#include "compat/compiler.h"
+
+namespace wiz8 { class File; }
 
 struct W8CreditLine {
     unsigned int flags;

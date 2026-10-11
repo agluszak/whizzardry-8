@@ -2,24 +2,18 @@
 #define WIZ8_ENGINE_CODE_GDPROP_H
 
 #include <vector>
-struct W8WorldItem;
 
-#include <algorithm>
 #include "wiz8/engine_code/OctPath.h"
-#include "wiz8/geometry.h"
-
-#include <stddef.h>
+#include "compat/compiler.h"
+#include "surrender/srMath.h"
 
 class srModelInstance;
-class W8Prop;
 class Trigger;
 struct W8WorldItem;
-class W8Octree;
-class OctPreTree;
-struct W8GameData;
 struct W8LevelFileAnimObj;
 struct W8LevelFileMesh;
 struct W8LevelFileScaledPathNode;
+struct W8GDSurface;
 
 /* Engine Code\GDProp.cpp. Prop.cpp allocates 0x58 bytes for this object,
    constructs it at 0x004B6E00, and owns it at Prop+0x38. Assertions in the

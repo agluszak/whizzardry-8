@@ -1,21 +1,22 @@
 #include <fmt/format.h>
 #include <string>
+#include <array>
+#include <memory>
+#include <vector>
+
 #include "random.h"
 #include "wiz8/spell_ids.h"
 #include "wiz8/local_screens/MGSPortraits.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
-#include "wiz8/local_screens/PartySelectionScreen.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/Gameloop.h"
-#include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/TextControl.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/Combat.h"
-#include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/layouts/combat_state.h"
@@ -34,7 +35,6 @@
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/engine_code/Video2.h"
-#include "wiz8/utility.h"
 #include "Font.h"
 #include "himage.h"
 #include "input.h"
@@ -42,6 +42,17 @@
 #include "timer.h"
 #include "vobject.h"
 #include "vsurface.h"
+#include "compat/native.h"
+#include "conditions.h"
+#include "equipment_slots.h"
+#include "layouts/gameplay_databases.h"
+#include "layouts/item_instance.h"
+#include "layouts/main_game_screen.h"
+#include "layouts/npc_dialogue.h"
+#include "layouts/targeting.h"
+#include "local_code/ControlsRect.h"
+#include "local_code/MonsterManager.h"
+#include "soundman.h"
 
 static void DrawDamageSplatOverlay(unsigned int party_slot);
 void DrawPortraitEffectIcon(unsigned int party_slot);

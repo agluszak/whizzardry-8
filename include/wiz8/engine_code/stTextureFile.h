@@ -1,11 +1,15 @@
 #pragma once
 
-#include "wiz8/filesystem.h"
+#include <iosfwd>
+#include <memory>
 
 #include "surrender/srColorSurface.h"
 #include "surrender/srTexture.h"
+#include "compat/compiler.h"
+#include "compat/native.h"
+#include "surrender/srTypeRegistry.h"
 
-class stTextureFile;
+namespace wiz8 { class File; }
 
 std::unique_ptr<srColorSurface> __stdcall LoadSurface(wiz8::File* handle, w8_long*);
 
@@ -73,4 +77,3 @@ private:
     w8_ulong frame_handle;
     bool has_alpha;
 };
-

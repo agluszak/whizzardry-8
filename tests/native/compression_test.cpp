@@ -1,13 +1,17 @@
 #include <catch2/catch_test_macros.hpp>
-#include "himage.h"
-
+#include <zlib.h>
+#include <SDL3/SDL_rect.h>
+#include <zconf.h>
 #include <algorithm>
 #include <array>
 #include <cstdio>
 #include <cstring>
-#include <stdexcept>
 #include <vector>
-#include <zlib.h>
+#include <memory>
+#include <span>
+
+#include "himage.h"
+#include "Types.h"
 
 
 TEST_CASE("compression_test")

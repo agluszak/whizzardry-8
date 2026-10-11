@@ -1,5 +1,13 @@
+#ifndef __BUTTON_SYSTEM_H
+#define __BUTTON_SYSTEM_H
+
+#include <SDL3/SDL_rect.h>
 #include <string>
 #include <string_view>
+#include <array>
+#include <cstddef>
+
+#include "Types.h"
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
    Distributed under the accompanying SFI Source Code license agreement. */
 //*****************************************************************************************************
@@ -8,13 +16,11 @@
 //	by Kris Morness (originally created by Bret Rowden)
 //*****************************************************************************************************
 
-#ifndef __BUTTON_SYSTEM_H
-#define __BUTTON_SYSTEM_H
+
+#include <memory>
 
 #include "vobject.h"
 #include "mousesystem.h"
-#include "soundman.h"
-#include <memory>
 
 
 // Moved here from Button System.c by DB 99/01/07
@@ -89,6 +95,7 @@ enum //for use with SpecifyDisabledButtonStyle
 // GUI_BUTTON structure definitions.
 struct ButtonGraphics;
 struct GenericButtonImages;
+
 using ButtonImage = std::shared_ptr<const ButtonGraphics>;
 using GenericButtonImage = std::shared_ptr<GenericButtonImages>;
 

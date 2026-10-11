@@ -1,4 +1,7 @@
 #include "wiz8/level_specific_code/MtGigas2.h"
+
+#include <vector>
+
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/location_variables.h"
 #include "wiz8/engine_code/Trigger.hpp"
@@ -13,15 +16,20 @@
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
-#include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/utility.h"
 #include "wiz8/dice.h"
-#include "wiz8/sr_api.h"
 #include "surrender/srCamera.h"
 #include "soundman.h"
+#include "compat/ptr32.h"
+#include "glm/ext/vector_float3.hpp"
+#include "layouts/world.h"
+#include "surrender/srMath.h"
+
+struct W8ItemInstance;
+struct W8NpcState;
 
 /* Level Specific Code\MtGigas2.cpp (level 0x0d).
 

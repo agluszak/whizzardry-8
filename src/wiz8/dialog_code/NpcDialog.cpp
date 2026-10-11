@@ -1,7 +1,10 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
-#include "wiz8/utility.h"
+#include <SDL3/SDL_rect.h>
+#include <memory>
 #include <string>
+#include <vector>
+
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "vsurface.h"
 #include "wiz8/dialog_code/NpcDialog.h"
@@ -10,14 +13,16 @@
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/TextBuffer.h"
-#include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
-#include "wiz8/local_screens/OptionsScreen.h"
 #include "wiz8/text_input.h"
-
 #include "input.h"
 #include "mousesystem_macros.h"
 #include "Font.h"
+#include "Types.h"
+#include "dialog_code/DialogBase.h"
+#include "dialog_code/DialogButton.h"
+#include "local_code/ControlsRect.h"
+#include "npc_script_file.h"
 
 
 /* Dialog Code\NpcDialog.cpp. The NPC dialogue popup; see the header for the

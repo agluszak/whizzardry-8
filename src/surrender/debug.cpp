@@ -1,13 +1,16 @@
-#include "surrender/srDebug.h"
-
+#include <SDL3/SDL_messagebox.h>
 #include <ostream>
-#include <stdarg.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <SDL3/SDL.h>
+#include <cstdarg>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <streambuf>
+#include <string>
 
+#include "surrender/srDebug.h"
 #include "surrender/srCore.h"
+#include "compat/compiler.h"
+#include "compat/native.h"
 
 // GLOBAL: SURRENDER 0x100A0280
 static srAssertHandler srAssertFunc = 0;

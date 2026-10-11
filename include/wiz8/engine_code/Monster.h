@@ -1,24 +1,31 @@
-#include "wiz8/audio_resources.h"
-#include <string_view>
 #ifndef WIZ8_ENGINE_CODE_MONSTER_H
 #define WIZ8_ENGINE_CODE_MONSTER_H
 
-#include <vector>
-struct W8MonsterSpellIcon;
+#include "wiz8/audio_resources.h"
 
+#include <string_view>
+#include <cstdint>
+
+#include "compat/compiler.h"
+#include "compat/native.h"
+#include "glm/fwd.hpp"
+
+class srNode;
+struct W8AIRecord;
+struct W8PathAI;
+struct W8World;
+
+#include <vector>
 #include <memory>
-#include "wiz8/monster_spell_icons.h"
-#include "wiz8/monster_actions.h"
-#include <stddef.h>
 #include <string>
 
+#include "wiz8/monster_spell_icons.h"
+#include "wiz8/monster_actions.h"
 #include "surrender/srMath.h"
-#include "surrender/srTypeRegistry.h"
 #include "wiz8/engine_code/Emitter.h"
 #include "wiz8/engine_code/game_timer.h"
-#include "wiz8/geometry.h"
 #include "wiz8/engine_code/GrCycle.h"
-#include "wiz8/local_code/MonsterGroup.h"
+#include "wiz8/monster_cycles.h"
 
 struct W8AnimObj;
 struct W8ReadLevelInfo;
@@ -30,10 +37,6 @@ class stScript;
 class stSound3D;
 class Trigger;
 class W8Monster;
-
-struct W8MonsterRep;
-
-#include "wiz8/monster_cycles.h"
 
 enum W8MonsterFlag {
     W8_MONSTER_KEEP_FRAME_DIRECTION = 0x1,

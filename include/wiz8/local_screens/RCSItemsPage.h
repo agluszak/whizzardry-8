@@ -1,15 +1,12 @@
 #pragma once
 
 #include "wiz8/character_skills.h"
-
 #include "wiz8/dialog_code/DialogBase.h"
-#include "wiz8/integer_constants.h"
-#include "wiz8/layouts/item_instance.h"
-#include "wiz8/local_code/ConditionsAndEnchantments.h"
-#include "wiz8/regions.h"
+#include "input.h"
 
 struct W8Character;
-struct W8CombatSlot;
+struct W8ItemInstance;
+struct W8Region;
 
 /* The UI orders Other before Accessory, and places the two non-group filters last. */
 enum W8CampItemFilterButton {

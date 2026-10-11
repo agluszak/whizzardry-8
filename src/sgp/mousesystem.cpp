@@ -9,17 +9,19 @@
 //	Written by Bret Rowdon, Jan 30 '97
 //  Re-Written by Kris Morness, since...
 
-#include "Types.h"
-#include <stdio.h>
-#include <memory.h>
 #include <algorithm>
+#include <string_view>
 #include <vector>
+#include <cstdint>
+#include <cstdio>
+
+#include "Types.h"
 #include "input.h"
-#include "timer.h"
-#include "line.h"
 #include "Video2.h"
+#include "compat/native.h"
+#include "mousesystem_macros.h"
+
 #define BASE_REGION_FLAGS MSYS_REGION_ENABLED
-#include "english.h"
 // Include mouse system defs and macros
 #include "mousesystem.h"
 #include "Button System.h"

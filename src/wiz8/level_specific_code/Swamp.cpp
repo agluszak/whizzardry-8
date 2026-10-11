@@ -1,9 +1,9 @@
+#include <vector>
+
 #include "wiz8/spell_ids.h"
 #include "wiz8/level_specific_code/Swamp.h"
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/engine_code/World.h"
-#include <vector>
-#include <algorithm>
 #include "wiz8/cursor.h"
 #include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/GameData.h"
@@ -13,15 +13,23 @@
 #include "wiz8/item_spawning.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
-#include "wiz8/local_code/ItemManager.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/PC_Item.h"
-#include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "surrender/srCamera.h"
+#include "Item.h"
+#include "Navigator.h"
+#include "compat/ptr32.h"
+#include "glm/ext/vector_float3.hpp"
+#include "layouts/item_instance.h"
+#include "layouts/world.h"
+#include "monster_actions.h"
+#include "surrender/srMath.h"
+
+struct W8NpcState;
 
 #define SWAMP_CPP "C:\\Projects\\Wizardry 8\\Level Specific Code\\Swamp.cpp"
 

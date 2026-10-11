@@ -1,8 +1,12 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
 #include <string_view>
-#include "wiz8/unicode.h"
 #include <string>
+#include <vector>
+#include <cmath>
+#include <cstdlib>
+#include <cstring>
+
 #include "wiz8/compat/unaligned.h"
 #include "wiz8/engine_code/AnimRep.hpp"
 #include "wiz8/monster_cycles.h"
@@ -13,10 +17,7 @@
 #include "wiz8/local_code/MonsterAI.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/layouts/character.h"
-#include "wiz8/local_code/CharGeneration.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
-#include "wiz8/local_code/GameplayMods.h"
-#include "wiz8/local_code/party_encumbrance.h"
 #include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/layouts/item_tables.h"
@@ -36,10 +37,8 @@
 #include "wiz8/local_code/CombatSound.h"
 #include "wiz8/local_code/FormationAndFacing.h"
 #include "wiz8/local_screens/MGSTextBox.h"
-#include "wiz8/local_screens/ReviewCharacterScreen.h"
 #include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/engine_code/Missile.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/Camera.h"
@@ -47,29 +46,35 @@
 #include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/PolyPick.h"
-#include "wiz8/engine_code/quad.h"
 #include "wiz8/layouts/gameplay_databases.h"
-#include <vector>
-#include <algorithm>
 #include "wiz8/engine_code/stCube.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/MagicEffects.h"
-#include "wiz8/notices.h"
 #include "wiz8/utility.h"
 #include "wiz8/xstatus.h"
 #include "soundman.h"
 #include "wiz8/local_code/character_events.h"
-#include <math.h>
-
-#include <string.h>
 #include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/regions.h"
-#include "wiz8/local_screens/OptionsScreen.h"
+#include "Navigator.h"
+#include "attack_modes.h"
+#include "compat/ptr32.h"
+#include "dice.h"
+#include "equipment_slots.h"
+#include "gameplay_modifiers.h"
+#include "layouts/item_instance.h"
+#include "layouts/npc_state.h"
+#include "layouts/targeting.h"
+#include "local_code/Factions.h"
+#include "local_code/SpellEffect.h"
+#include "monster_actions.h"
+#include "spell_ids.h"
+#include "surrender/srMath.h"
 
 #define COMBAT_ATTACK_CPP "C:\\Projects\\Wizardry 8\\Local Code\\Combat Attack.cpp"
 

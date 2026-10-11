@@ -1,7 +1,6 @@
 #pragma once
 
 #include "input.h"
-#include "surrender/srMath.h"
 
 class Trigger;
 

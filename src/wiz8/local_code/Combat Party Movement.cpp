@@ -1,16 +1,15 @@
+#include <vector>
+
 #include "random.h"
 #include "wiz8/fonts.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/local_code/Sight.h"
 #include "wiz8/local_screens/MGSPartyMovement.h"
-#include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/notices.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/local_code/Combat.h"
-#include "wiz8/local_code/CombatAttack.h"
 #include "wiz8/local_code/CombatPartyMovement.h"
 #include "wiz8/local_code/FormationAndFacing.h"
 #include "wiz8/local_code/Configuration.h"
@@ -19,11 +18,17 @@
 #include "wiz8/utility.h"
 #include "wiz8/local_code/MonsterAI.h"
 #include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/local_screens/MGSSpellCasting.h"
 #include "wiz8/local_screens/MGSTextBox.h"
-#include <vector>
-#include <algorithm>
 #include "timer.h"
+#include "compat/native.h"
+#include "compat/ptr32.h"
+#include "conditions.h"
+#include "layouts/character.h"
+#include "layouts/game_status.h"
+#include "layouts/main_game_screen.h"
+#include "layouts/targeting.h"
+#include "local_code/Targeting.h"
+#include "soundman.h"
 
 #define COMBAT_MOVEMENT_CPP "C:\\Projects\\Wizardry 8\\Local Code\\Combat Party Movement.cpp"
 

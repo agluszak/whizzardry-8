@@ -1,6 +1,10 @@
 #pragma once
 
 #include "surrender/srLight.h"
+#include "compat/compiler.h"
+#include "surrender/srMath.h"
+
+class srNode;
 
 /* Monster's light: srLight plus colour-cycle/fade state. Retail never
    installs a vtable of its own: the constructor at 0x0049D500 leaves the

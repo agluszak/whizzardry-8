@@ -1,11 +1,20 @@
+#include <cstddef>
+#include <deque>
 #include <fmt/format.h>
 #include <algorithm>
+#include <SDL3/SDL_rect.h>
 #include <string_view>
+#include <string>
+#include <vector>
+
 #include "wiz8/regions.h"
+#include "Video2.h"
+#include "compat/native.h"
 #ifdef WIZ8_RUNTIME_TESTS
+#include <string.h>
+
 #include "runtime_instrumentation.h"
 #include "wiz8/local_code/Gameloop.h"
-#include <string.h>
 #endif
 #include "wiz8/local_screens/AutomapScreen.h"
 #include "wiz8/local_screens/CreditsScreen.h"
@@ -24,18 +33,13 @@
 #include "wiz8/local_screens/RCSItemsPage.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
 #include "wiz8/cursor.h"
-#include "wiz8/layouts/screen_state.h"
-#include "wiz8/local_screens/Screens.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/character_events.h"
-#include "wiz8/utility.h"
 #include "wiz8/sr_api.h"
 #include "input.h"
 #include "timer.h"
-
-#include <new>
 #include "wiz8/local_screens/IntroScreen.h"
 
 enum { W8_SCREEN_WIDTH = 640, W8_SCREEN_HEIGHT = 480, W8_HELP_MARGIN = 2 };

@@ -1,15 +1,51 @@
+#include "wiz8/engine_code/stModelInstance.h" // IWYU pragma: keep - complete model type for unique_ptr destruction.
 #include <catch2/catch_test_macros.hpp>
+#include <SDL3/SDL_filesystem.h>
+
 #include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/string_database.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/retail_text_records.h"
+#include "Types.h"
+#include "catch2/catch_message.hpp"
+#include "compat/ptr32.h"
+#include "conditions.h"
+#include "glm/ext/matrix_float3x3.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include "layouts/encounter_tables.h"
+#include "layouts/gameplay_databases.h"
+#include "layouts/item_tables.h"
+#include "layouts/targeting.h"
+#include "layouts/world.h"
+#include "retail_records.h"
+#include "surrender/srMath.h"
+#include "unicode.h"
 /* Exercise recovered NPCT loading with retail addresses and native handles as
    on-disk presence markers. No installed game data or display is required. */
 
+#include <ios>
 #include <wiz8/asset_paths.h>
 #include <wiz8/filesystem.h>
 #include <wiz8/file_time.h>
+#include <cstring>
+#include <filesystem>
+#include <fstream>
+#include <chrono>
+#include <algorithm>
+#include <array>
+#include <cstddef>
+#include <cstdint>
+#include <exception>
+#include <iterator>
+#include <memory>
+#include <optional>
+#include <span>
+#include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
+
 #include "wiz8/chunk.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/GameData.h"
@@ -28,7 +64,6 @@
 #include "wiz8/engine_code/PathAI.h"
 #include "wiz8/engine_code/AnimObj.h"
 #include "wiz8/engine_code/AniMesh.h"
-#include "wiz8/engine_code/stModelInstance.h"
 #include "wiz8/engine_code/ReadLevel.h"
 #include "wiz8/engine_code/GrObject.h"
 #include "wiz8/engine_code/SoundEvent.h"
@@ -36,13 +71,6 @@
 #include "wiz8/monster_generators.h"
 #include "wiz8/spell_ids.h"
 #include "wiz8/xstatus.h"
-
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
-#include <filesystem>
-#include <fstream>
-#include <chrono>
 #include "temporary_directory.h"
 #include "file_faults.h"
 

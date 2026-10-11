@@ -1,6 +1,9 @@
-#include "surrender/srTriangulator.h"
-
 #include <algorithm>
+#include <vector>
+
+#include "surrender/srTriangulator.h"
+#include "glm/ext/vector_float2.hpp"
+#include "glm/ext/vector_int3.hpp"
 
 // FUNCTION: SURRENDER 0x1003bea0
 srTriangulator::srTriangulator(glm::vec2* points, int count)

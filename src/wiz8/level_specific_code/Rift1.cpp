@@ -1,6 +1,7 @@
 #include "wiz8/level_specific_code/Rift1.h"
-#include <vector>
-#include <algorithm>
+
+#include <string>
+
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/fact_state.h"
@@ -8,7 +9,6 @@
 #include "wiz8/location_variables.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "surrender/srMath.h"
 

@@ -1,40 +1,22 @@
 #include <fmt/format.h>
 #include <string_view>
-#include "wiz8/containers.h"
+#include <cstring>
+#include <memory>
+#include <vector>
+
 #include "wiz8/layouts/character.h"
-#include "wiz8/character_skills.h"
-#include "wiz8/local_code/CharGeneration.h"
-#include "wiz8/local_code/Combat.h"
-#include "wiz8/local_code/CombatAttack.h"
-#include "wiz8/local_code/GameplayCode.h"
-#include "wiz8/local_code/GameplayMods.h"
-#include "wiz8/local_code/HealthStaminaMana.h"
-#include "wiz8/local_code/Magic.h"
-#include "wiz8/local_code/MagicEffects.h"
-#include "wiz8/local_code/party_encumbrance.h"
-#include "wiz8/local_code/UtilityFunctions.h"
-#include "wiz8/engine_code/Environment.h"
-#include "wiz8/engine_code/Video2.h"
 #include "wiz8/local_code/ControlsRect.h"
 #include "input.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_code/TextControl.h"
-#include "wiz8/local_code/ControlSelection.h"
 #include "wiz8/local_screens/CharacterScreen.h"
-
-#include "wiz8/local_code/Strings.h"
-#include "wiz8/character_event_queue.h"
-#include "wiz8/local_code/character_events.h"
-#include "wiz8/regions.h"
-#include "wiz8/text_input.h"
-#include "wiz8/utility.h"
 #include "wiz8/video_object_catalog.h"
 #include "wiz8/fonts.h"
 #include "vsurface.h"
+#include "local_code/Controls.h"
+#include "vobject.h"
 
-#include <new>
-#include <cstring>
-#include <string.h>
+struct W8CharacterCreationState;
 
 namespace {
 template<class T> T ReadStatValue(const void* address) {

@@ -3,18 +3,20 @@
 #include <memory>
 #include <vector>
 
-#include "wiz8/filesystem.h"
-
 #include "wiz8/engine_code/particle_modes.h"
-
 #include "surrender/srMaterialIFace.h"
-#include "surrender/srScene.h"
 #include "surrender/srShader.h"
 #include "surrender/srTextureIFace.h"
+#include "compat/compiler.h"
+#include "glm/ext/matrix_float4x4.hpp"
+#include "glm/ext/vector_float2.hpp"
+#include "surrender/srMath.h"
+#include "surrender/srNode.h"
+#include "surrender/srTypeRegistry.h"
 
 class W8MonsterShakeCallback;
 class srGERD;
-class stTextureAnim;
+namespace wiz8 { class File; }
 
 class stParticle : public srClassSupport<stParticle, srNode, 0x10009> {
 public:

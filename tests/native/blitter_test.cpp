@@ -1,15 +1,24 @@
 #include <catch2/catch_test_macros.hpp>
 #include <wiz8/filesystem.h>
+#include <SDL3/SDL_rect.h>
 #include <sstream>
+#include <algorithm>
+#include <cstdint>
+#include <cstdio>
+#include <memory>
+#include <span>
+#include <string>
+#include <vector>
+
 // The same inputs run against the legacy assembly and the native C++ paths.
 // --capture emits per-case hashes of every destination byte, the return value
 // and the caller's rectangle (some legacy blitters modify it).
 #include "Types.h"
 #include "vobject_blitters.h"
-#include <stdint.h>
-#include <algorithm>
-#include <stdio.h>
-#include <string.h>
+#include "himage.h"
+#include "shading.h"
+#include "vobject.h"
+#include "vsurface.h"
 
 BOOLEAN Blt16BPPBufferShadowRectAlternateTable(UINT16*, UINT32, SDL_Rect*);
 

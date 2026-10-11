@@ -14,6 +14,7 @@ struct W8WorldItem;
 #include <algorithm>
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/item_instance.h"
+#include "wiz8/layouts/party_formation.h"
 #include "wiz8/layouts/targeting.h"
 #include "wiz8/local_code/FormationAndFacing.h"
 #include "wiz8/local_code/MonsterManager.h"

@@ -1,14 +1,26 @@
+#include <glm/ext/matrix_transform.hpp>
+#include <glm/ext/quaternion_trigonometric.hpp>
+#include <glm/gtc/matrix_access.hpp>
+#include <glm/gtc/quaternion.hpp>
+#include <ostream>
+#include <atomic>
+#include <cmath>
+#include <mutex>
+#include <string>
+#include <string_view>
+
+#include "glm/geometric.hpp"
+#include "glm/matrix.hpp"
 #include "surrender/srNode.h"
 #include "surrender/srStreamFlags.h"
 #include "surrender/srCore.h"
-
 #include "surrender/srDebug.h"
 #include "surrender/srGERD.h"
-#include <math.h>
-
-#include <ostream>
-#include <string.h>
-#include <glm/gtc/matrix_transform.hpp>
+#include "compat/compiler.h"
+#include "surrender/srFlags.h"
+#include "surrender/srMath.h"
+#include "surrender/srTypeRegistry.h"
+#include "glm/fwd.hpp"
 
 // GLOBAL: SURRENDER 0x100A49E0
 std::recursive_mutex srNode::sceneGraphCSect;

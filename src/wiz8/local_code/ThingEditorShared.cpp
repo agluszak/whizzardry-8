@@ -2,7 +2,7 @@
 
 #include "wiz8/local_code/ThingEditorShared.h"
 
-#include <math.h>
+#include <cmath>
 
 /* Scale total surviving hostile experience to the level used by the combat
    difficulty evaluator. The signed byte clamp is visible in retail. */

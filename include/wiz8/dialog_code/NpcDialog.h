@@ -3,12 +3,13 @@
 #include <array>
 #include <memory>
 #include <string>
+
 #include "wiz8/dialog_code/DialogBase.h"
-#include "wiz8/dialog_code/DialogButton.h"
-#include "wiz8/local_code/ControlsRect.h"
-#include "wiz8/npc_script_file.h"
+#include "compat/compiler.h"
 
 class W8TextBuffer;
+class W8DialogButton;
+struct W8NpcQuoteEntry;
 
 /* The dialog receives the script entry itself. Its sub-entry array is the
    option list for kind 5; operand0 is the price for kinds 0x12/0x1e. */

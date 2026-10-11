@@ -1,22 +1,21 @@
-#include <vector>
-#include <string_view>
-#include <optional>
-#include <string>
 #pragma once
 
-#include "wiz8/filesystem.h"
+#include <vector>
+#include <string_view>
+#include <string>
 
 void SyncNpcDialogueTranscriptScrollButtons();
 
 #include "input.h"
-#include <vector>
-#include <algorithm>
 #include "wiz8/layouts/item_instance.h"
 #include "wiz8/layouts/main_game_screen.h"
 #include "wiz8/layouts/npc_dialogue.h"
 #include "wiz8/message_box.h"
 #include "wiz8/local_code/Controls.h"
 #include "wiz8/xstatus.h"
+#include "compat/compiler.h"
+
+namespace wiz8 { class File; }
 
 /* Usability filters and the exclusive equipment categories in the trade UI.
    The category bits use the same positions as W8ItemEquipSlotGroup. */
@@ -31,17 +30,12 @@ enum W8NpcTradeFilter {
 };
 
 class W8DialogBase;
-class W8NpcDialogueScrollWidget;
-class W8NpcDialogueTextController;
-class W8TextControl;
 class W8Widget;
 struct W8ControlsRect;
-struct W8ExperienceNoticePayload;
 struct W8NpcQuoteEntry;
 struct W8NpcScriptQuote;
 struct W8NpcState;
 struct W8Region;
-struct W8SkillNoticePayload;
 
 /* The panel hosting the six option buttons. SetEnabled keeps them inactive
    unless the main-text-box dialogue layout is up, and Redraw substitutes

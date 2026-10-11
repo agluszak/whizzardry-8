@@ -1,12 +1,10 @@
-/* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
-   Distributed under the accompanying SFI Source Code license agreement. */
 #ifndef _SHADING_H_
 #define _SHADING_H_
 
-#include "himage.h"   // For SGPPaletteEntry
-#include "vobject.h"  // For HVOBJECT_SHADE_TABLES
-#include "vsurface.h" // For
+/* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
+   Distributed under the accompanying SFI Source Code license agreement. */
 
+#include "Types.h"
 #ifdef __cplusplus
 extern "C" {
 #endif

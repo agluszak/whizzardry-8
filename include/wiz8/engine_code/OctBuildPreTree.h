@@ -1,13 +1,18 @@
 #ifndef WIZ8_ENGINE_CODE_OCT_BUILD_PRE_TREE_H
 #define WIZ8_ENGINE_CODE_OCT_BUILD_PRE_TREE_H
 
+#include <unordered_map>
+
 #include "wiz8/engine_code/OctBuildTree.h"
 #include "wiz8/engine_code/ReadMesh.h"
-#include "wiz8/index_algorithms.h"
 #include "wiz8/geometry.h"
+#include "compat/compiler.h"
+#include "surrender/srMath.h"
 
 struct W8LevelFileParticleSystem;
 struct W8LevelFileProp;
+class OctPreTree;
+struct W8OctSpatialState;
 
 extern const float g_float_three;
 

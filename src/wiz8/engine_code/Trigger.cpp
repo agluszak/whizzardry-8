@@ -1,6 +1,21 @@
 #include <fmt/format.h>
-#include "wiz8/unicode.h"
+#include <glm/ext/quaternion_trigonometric.hpp>
+#include <glm/gtc/matrix_access.hpp>
+#include <glm/gtc/quaternion.hpp>
 #include <string>
+#include <vector>
+#include <algorithm>
+#include <ranges>
+#include <cmath>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <exception>
+
+#include "compat/compiler.h"
+#include "compat/native.h"
+#include "glm/geometric.hpp"
+#include "glm/matrix.hpp"
 #include "wiz8/containers.h"
 #include "wiz8/spell_ids.h"
 #include "wiz8/fonts.h"
@@ -12,16 +27,11 @@
 #include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/engine_code/Spells.h"
 #include "wiz8/local_code/Magic.h"
-#include "wiz8/local_code/MagicEffects.h"
 #include "wiz8/engine_code/Environment.h"
 #include "wiz8/engine_code/GrCycle.h"
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/engine_code/Levels.h"
 #include "wiz8/local_code/Configuration.h"
-#include "wiz8/sound_man.h"
-#include <vector>
-#include <algorithm>
-#include <ranges>
 #include "wiz8/location_variables.h"
 #include "wiz8/string_database.h"
 #include "wiz8/local_code/Strings.h"
@@ -37,7 +47,6 @@
 #include "wiz8/engine_code/stLight.hpp"
 #include "wiz8/engine_code/stParticle.h"
 #include "wiz8/engine_code/stSound3D.h"
-#include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/AnimObj.h"
 #include "wiz8/engine_code/PathAI.h"
@@ -48,26 +57,32 @@
 #include "wiz8/item_tables.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/MonsterGroup.h"
-#include "wiz8/local_code/LoadSaveGame.h"
 #include "wiz8/local_code/Search.h"
-#include "wiz8/monster_runtime.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/utility.h"
-#include "wiz8/virtual_file.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/save_game.h"
 #include "random.h"
 #include "wiz8/filesystem.h"
 #include "surrender/srCamera.h"
-#include "surrender/srCore.h"
 #include "surrender/srMath.h"
-#include "surrender/srScene.h"
 #include "wiz8/local_code/character_events.h"
+#include "Item.h"
+#include "Types.h"
+#include "compat/ptr32.h"
+#include "dice.h"
+#include "float_constants.h"
+#include "game_timer.h"
+#include "glm/ext/matrix_float3x3.hpp"
+#include "glm/ext/vector_double3.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include "layouts/item_instance.h"
+#include "layouts/item_tables.h"
+#include "layouts/world.h"
+#include "surrender/srClock.h"
+#include "surrender/srNode.h"
 
-#include <math.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+class W8DialogBase;
 
 // GLOBAL: WIZ8 0x006599B8
 static std::vector<W8TriggerEvent*> g_timed_events;

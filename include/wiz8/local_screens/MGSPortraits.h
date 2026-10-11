@@ -4,10 +4,10 @@
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/targeting.h"
 #include "wiz8/local_code/TextControl.h"
-
-#include <cstddef>
+#include "compat/compiler.h"
 
 struct W8Region;
+struct Controls;
 
 extern char s_general_magic_sound[];
 

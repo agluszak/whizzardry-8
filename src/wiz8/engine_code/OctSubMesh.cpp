@@ -1,24 +1,30 @@
-#include "wiz8/filesystem.h"
-#include "wiz8/binary_reader.h"
 #include <algorithm>
 #include <cstdlib>
 #include <stdexcept>
 #include <vector>
+#include <memory>
+#include <cstdint>
+#include <utility>
 
+#include "wiz8/filesystem.h"
+#include "wiz8/binary_reader.h"
 #include "wiz8/engine_code/OctMeshModel.h"
 #include "wiz8/engine_code/Octree.h"
-
-#include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/materials.h"
 #include "wiz8/engine_code/stMeshModel.h"
 #include "wiz8/sr_api.h"
-#include "wiz8/utility.h"
-#include "wiz8/virtual_file.h"
-#include "surrender/srMaterial.h"
-#include <memory>
-#include "surrender/srTexture.h"
+#include "application.h"
+#include "compat/compiler.h"
+#include "glm/ext/vector_float2.hpp"
+#include "glm/ext/vector_float4.hpp"
+#include "surrender/srMaterialIFace.h"
+#include "surrender/srMeshModel.h"
+#include "surrender/srShader.h"
+#include "surrender/srTypeRegistry.h"
 
-#include <stdlib.h>
+class srTextureIFace;
+struct srVector3i;
+template <class T> class srVector3T;
 
 /* Engine Code\OctSubMesh.cpp. Read at 0x0049E9A0 asserts this unit
    (lines 0x1ad and 0x1d2); the constructor and destructor immediately before

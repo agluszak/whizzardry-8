@@ -4,6 +4,7 @@
 #include "wiz8/dialog_code/DialogButton.h"
 #include "wiz8/dialog_code/DialogScrollBar.h"
 #include "wiz8/dialog_code/DialogTextArea.h"
+#include "compat/compiler.h"
 
 /* The monster information dialog for one monster location id. */
 // VTABLE: WIZ8 0x005ef910

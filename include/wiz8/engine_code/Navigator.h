@@ -1,24 +1,21 @@
 #pragma once
 
-#include "wiz8/filesystem.h"
 
-#include "wiz8/navigation_flags.h"
 
-struct W8MonsterInfo;
 
 /* Engine Code\Navigator.cpp owns these declarations. */
 
-#include "surrender/srMath.h"
-#include "wiz8/geometry.h"
 #include <vector>
 #include <memory>
-#include <algorithm>
 
-#include <stddef.h>
-#include <stdlib.h>
+#include "surrender/srMath.h"
+#include "compat/compiler.h"
+#include "compat/native.h"
+#include "glm/ext/matrix_float3x3.hpp"
 
 class srNode;
 struct W8PathAI;
+namespace wiz8 { class File; }
 
 /* W8NavigatorAttachment::flags bits with established meaning.
    - RESULT_MASK holds the last path-search result; the planners clear it before
@@ -129,8 +126,6 @@ struct W8NavigatorAttachment {
     bool AdvancePositionWithDirection(srVector3T<float>* position, float distance,
                                       srVector3T<float>* direction); /* 0x00457150 */
 };
-
-class W8Navigator;
 
 /* The polymorphic object the navigator owns at +0xa0. 0x00452120 deletes it
    through its own virtual slot. Recovered writes only store null

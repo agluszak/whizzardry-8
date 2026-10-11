@@ -1,14 +1,17 @@
 #include <fmt/format.h>
+#include <SDL3/SDL_rect.h>
+#include <memory>
+#include <string>
+#include <vector>
+
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/video_object_catalog.h"
-#include "wiz8/utility.h"
-
-#include <stdlib.h>
-#include <string.h>
 #include "vobject.h"
 #include "vobject_blitters.h"
 #include "vsurface.h"
+#include "Types.h"
+#include "compat/compiler.h"
 
 W8_ABI_ASSERT(sizeof(W8VideoObjectSlot) == 8, "W8VideoObjectSlot_size_must_be_8");
 

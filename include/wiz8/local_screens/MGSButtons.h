@@ -1,8 +1,8 @@
 #pragma once
 
-#include "Types.h"
-#include "wiz8/character_skills.h"
+#include <cstdint>
 
+#include "wiz8/character_skills.h"
 #include "input.h"
 
 /* Local Screens\MGSButtons.cpp. The combat sub-menu's panel, its five text

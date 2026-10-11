@@ -1,9 +1,16 @@
 #include <string_view>
-#include "wiz8/containers.h"
-#include "wiz8/sr_api.h"
 #include <array>
 #include <algorithm>
 #include <limits>
+#include <cstddef>
+#include <cstdint>
+#include <exception>
+#include <memory>
+#include <stdexcept>
+#include <utility>
+#include <vector>
+
+#include "wiz8/sr_api.h"
 #include "wiz8/chunk.h"
 #include "wiz8/filesystem.h"
 

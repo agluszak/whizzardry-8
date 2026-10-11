@@ -1,15 +1,14 @@
 #include <fmt/format.h>
 #include <string>
+#include <cstdlib>
+#include <cstring>
+#include <vector>
+
+#include "input.h"
 #include "wiz8/spell_ids.h"
 #include "wiz8/local_screens/MGSSpellCasting.h"
 #include "wiz8/integer_constants.h"
-
-#include <stdlib.h>
-#include <string.h>
-
 #include "timer.h"
-#include "wiz8/character_event_queue.h"
-#include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/dialog_code/SpellInfoDialog.h"
 #include "wiz8/engine_code/Cursor3d.h"
@@ -29,7 +28,6 @@
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
-#include "wiz8/local_code/PartyImport.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/TextBuffer.h"
@@ -38,11 +36,8 @@
 #include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
-#include "wiz8/local_screens/MGSButtons.h"
 #include "wiz8/local_screens/MGSPortraitCombat.h"
 #include "wiz8/local_screens/MGSTextBox.h"
-#include "wiz8/local_screens/OptionsScreen.h"
-#include "wiz8/local_screens/RCSItemsPage.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/regions.h"
@@ -52,9 +47,16 @@
 #include "wiz8/cursor.h"
 #include "wiz8/local_screens/MGSUseItemSelect.h"
 #include "wiz8/xstatus.h"
-
 #include "himage.h"
 #include "vsurface.h"
+#include "character_skills.h"
+#include "compat/native.h"
+#include "layouts/main_game_screen.h"
+#include "layouts/npc_dialogue.h"
+#include "local_code/ControlsRect.h"
+#include "local_code/HealthStaminaMana.h"
+
+struct W8NpcState;
 
 #define SPELLCASTING_CPP "C:\\Projects\\Wizardry 8\\Local Screens\\MGSSpellCasting.cpp"
 

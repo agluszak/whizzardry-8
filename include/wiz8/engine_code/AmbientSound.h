@@ -1,13 +1,13 @@
 #pragma once
 
 #include "wiz8/audio_resources.h"
-
-#include "wiz8/filesystem.h"
-
-struct W8World;
-
 #include "surrender/srMath.h"
 #include "wiz8/engine_code/game_timer.h"
+
+struct W8World;
+namespace wiz8 {
+class File;
+}  // namespace wiz8
 
 struct W8AmbientSoundConfig {
     char wave_name[0x80];

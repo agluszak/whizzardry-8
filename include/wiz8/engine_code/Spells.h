@@ -1,15 +1,16 @@
-#include <string_view>
 #pragma once
 
+#include <string_view>
+
 #include "wiz8/monster_spell_icons.h"
-#include "surrender/srMath.h"
 #include "wiz8/engine_code/SpellVisual.h"
 #include "wiz8/layouts/gameplay_databases.h"
+#include "glm/ext/matrix_float3x3.hpp"
 
 class W8Monster;
-struct W8Item;
 struct W8GrCycleLoadContext;
 struct W8World;
+template <class T> class srVector3T;
 
 /* Walks every registered stSound3D each audio update: releases finished
    auto-release nodes and re-aims/re-volumes playing voices relative to the

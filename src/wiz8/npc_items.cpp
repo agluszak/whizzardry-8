@@ -1,29 +1,28 @@
 #include <utility>
-#include "wiz8/layouts/npc_state.h"
-#include "wiz8/npc_items.h"
-#include "wiz8/local_code/NPCManager.h"
-#include "wiz8/local_code/NPCScripting.h"
-#include "wiz8/local_code/Strings.h"
 #include <vector>
 #include <algorithm>
+#include <cmath>
+#include <cstring>
+
+#include "wiz8/layouts/npc_state.h"
+#include "wiz8/npc_items.h"
+#include "wiz8/local_code/NPCScripting.h"
+#include "wiz8/local_code/Strings.h"
 #include "wiz8/layouts/item_instance.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/item_tables.h"
-#include "wiz8/item_tables.h"
 #include "wiz8/local_code/GameplayCode.h"
-#include "wiz8/item_spawning.h"
 #include "wiz8/local_code/PC_Item.h"
-#include "wiz8/local_code/Strings.h"
-#include "wiz8/monster_runtime.h"
 #include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/local_code/Strings.h"
 #include "random.h"
 #include "soundman.h"
-#include <math.h>
-#include <stdlib.h>
-#include <string.h>
+#include "character_skills.h"
+#include "compat/ptr32.h"
+#include "local_code/ConditionsAndEnchantments.h"
+#include "npc_trade_price.h"
+#include "xstatus.h"
 
 /* Original translation-unit ownership is unknown; surrounding anchors do not resolve it. */
 

@@ -1,3 +1,11 @@
+#include <memory>
+#include <vector>
+#include <algorithm>
+#include <cmath>
+#include <cstddef>
+#include <exception>
+
+#include "glm/geometric.hpp"
 #include "wiz8/containers.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/engine_code/Navigator.h"
@@ -9,25 +17,20 @@
 #include "wiz8/xstatus.h"
 #include "wiz8/float_constants.h"
 #include "surrender/srNode.h"
-#include <vector>
-#include <algorithm>
 #include "wiz8/engine_code/GameTimeAccumulator.h"
 #include "wiz8/engine_code/PathAI.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/OctPath.h"
 #include "wiz8/engine_code/Monster.h"
-#include "wiz8/engine_code/quad.h"
-#include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/utility.h"
-#include "wiz8/sr_api.h"
-#include <stdlib.h>
-#include <string.h>
-#include <math.h>
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/PolyPick.h"
+#include "compat/ptr32.h"
+#include "glm/ext/vector_double3.hpp"
+#include "glm/ext/vector_float2.hpp"
 
 // STRING: WIZ8 0x006081fc
 #define NAVIGATOR_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\Navigator.cpp"

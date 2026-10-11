@@ -1,14 +1,17 @@
-#include <string_view>
 #pragma once
 
-#include <stddef.h>
+#include <SDL3/SDL_rect.h>
+#include <string_view>
 
-#include "wiz8/regions.h"
 #include "wiz8/video_object_catalog.h"
 #include "vobject_blitters.h"
+#include "input.h"
+#include "vobject.h"
+#include "vsurface.h"
 
 struct Controls;
 class W8TextControl;
+struct W8Region;
 
 /* Button order differs from W8CampItemAction's byte values. */
 enum W8CampItemActionButton {

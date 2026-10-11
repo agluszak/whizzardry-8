@@ -1,4 +1,5 @@
 #include "wiz8/level_specific_code/SeaCaves.h"
+
 #include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
@@ -6,6 +7,9 @@
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "surrender/srMath.h"
+#include "monster_cycles.h"
+
+struct W8NpcState;
 
 #define SEACAVES_CPP "C:\\Projects\\Wizardry 8\\Level Specific Code\\SeaCaves.cpp"
 

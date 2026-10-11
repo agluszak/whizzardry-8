@@ -1,12 +1,14 @@
 #include <fmt/format.h>
-#include "wiz8/unicode.h"
-#include "wiz8/engine_code/Item.h"
 #include <glm/gtx/euler_angles.hpp>
+#include <cstdio>
+#include <cstring>
+#include <exception>
+#include <memory>
+#include <string>
 
-#include <math.h>
-#include <stdio.h>
-#include <string.h>
-
+#include "wiz8/engine_code/Item.h"
+#include "glm/ext/vector_float3.hpp"
+#include "glm/geometric.hpp"
 #include "wiz8/filesystem.h"
 #include "random.h"
 #include "wiz8/application.h"
@@ -14,16 +16,23 @@
 #include "surrender/srCamera.h"
 #include "surrender/srNode.h"
 #include "wiz8/engine_code/3d.h"
-#include "wiz8/engine_code/3dapi.h"
 #include "wiz8/engine_code/ReadLevel.h"
 #include "wiz8/engine_code/ReadMesh.h"
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/engine_code/Video2.h"
-#include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/stModelInstance.h"
 #include "wiz8/sr_api.h"
 #include "wiz8/utility.h"
 #include "timer.h"
+#include "AnimRep.hpp"
+#include "GrObject.h"
+#include "compat/native.h"
+#include "glm/ext/matrix_float3x3.hpp"
+#include "glm/ext/vector_double3.hpp"
+#include "layouts/world.h"
+#include "surrender/srMath.h"
+#include "surrender/srModel.h"
+#include "surrender/srModelInstance.h"
 
 #define ITEM_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\Item.cpp"
 

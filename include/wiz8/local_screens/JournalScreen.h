@@ -1,16 +1,15 @@
 #pragma once
 
-#include "wiz8/filesystem.h"
-
 extern char g_default_level[];
-#include "wiz8/fact_state.h"
-#include "wiz8/layouts/screen_state.h"
 #include <vector>
-#include <algorithm>
 
-#include "wiz8/local_code/TextBuffer.h"
+#include "wiz8/fact_state.h"
 #include "wiz8/local_code/TextControl.h"
 #include "wiz8/local_code/Controls.h"
+#include "compat/compiler.h"
+
+class W8TextBuffer;
+namespace wiz8 { class File; }
 
 class W8JournalPanel : public Controls, public W8TextControl::Listener {
 public:

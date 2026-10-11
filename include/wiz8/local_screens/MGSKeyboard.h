@@ -1,13 +1,15 @@
 #pragma once
 
-#include "wiz8/filesystem.h"
-
-#include "input.h"
-#include "wiz8/mgs_commands.h"
-#include "surrender/srMath.h"
 #include <memory>
 #include <vector>
 #include <unordered_map>
+
+#include "input.h"
+#include "wiz8/mgs_commands.h"
+#include "compat/compiler.h"
+
+class srVector2i;
+namespace wiz8 { class File; }
 
 #pragma pack(push, 1)
 struct MGSKeyBinding {

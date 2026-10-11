@@ -1,9 +1,19 @@
-#include "wiz8/utility.h"
-#include "wiz8/unicode.h"
+#include "surrender/srCamera.h" // IWYU pragma: keep - complete camera type for conversion to srNode.
+#include <wiz8/asset_paths.h>
+#include <SDL3/SDL_filesystem.h>
+#include <glm/ext/quaternion_trigonometric.hpp>
+#include <glm/gtc/quaternion.hpp>
+#include <cmath>
+#include <cstdio>
+#include <cstring>
+#include <exception>
+#include <memory>
+#include <optional>
+#include <string>
+
 #include "wiz8/containers.h"
 #include "wiz8/engine_code/stModelInstance.h"
 #include "wiz8/engine_code/3dapi.h"
-
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/local_code/ItemManager.h"
@@ -12,20 +22,12 @@
 #include "wiz8/monster_generators.h"
 #include "wiz8/engine_code/Environment.h"
 #include "wiz8/engine_code/Video2.h"
-#include <cmath>
 #include "wiz8/xstatus.h"
-#include <cstdio>
-#include <cstring>
-
-#include "wiz8/layouts/combat_state.h"
 #include "wiz8/local_code/Combat.h"
-#include "surrender/srClipPlane.h"
-#include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/world_cursor.h"
 #include "wiz8/engine_code/Levels.h"
 #include "wiz8/startup_world.h"
 #include "wiz8/local_code/Search.h"
-#include "wiz8/engine_code/ReadLevel.h"
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/3d.h"
@@ -34,31 +36,32 @@
 #include "wiz8/engine_code/materials.h"
 #include "wiz8/engine_code/stMeshModel.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/LoadSaveGame.h"
 #include "wiz8/local_code/NPCManager.h"
-#include "wiz8/monster_runtime.h"
 #include "wiz8/music_playlist.h"
 #include "wiz8/local_code/SpellEffect.h"
 #include "wiz8/sr_api.h"
-#include "wiz8/local_code/Targeting.h"
-#include "surrender/srCamera.h"
-#include "surrender/srCore.h"
 #include "surrender/srNode.h"
-#include "surrender/srLight.h"
 #include "surrender/srModelInstance.h"
-#include "surrender/srScene.h"
-
 #include "wiz8/local_screens/AutomapScreen.h"
-#include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/local_code/GameplayMods.h"
 #include "wiz8/filesystem.h"
-#include <wiz8/asset_paths.h>
+#include "ReadMesh.h"
+#include "compat/native.h"
+#include "glm/ext/matrix_float3x3.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include "glm/ext/vector_float4.hpp"
+#include "layouts/levels.h"
+#include "layouts/world.h"
+#include "resource_cache.h"
+#include "surrender/srMath.h"
+#include "surrender/srMeshModel.h"
+#include "surrender/srTypeRegistry.h"
 
 #define LEVELS_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\Levels.cpp"
 

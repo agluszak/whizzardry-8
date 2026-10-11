@@ -1,26 +1,25 @@
-#include "wiz8/direction_angles.h"
+#include <cmath>
+#include <cstdlib>
 #include <glm/gtx/rotate_vector.hpp>
-#include "wiz8/engine_code/World.h"
+#include <algorithm>
+#include <string>
+
+#include "glm/common.hpp"
+#include "glm/geometric.hpp"
+#include "wiz8/direction_angles.h"
 #include "wiz8/xstatus.h"
 #include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/Levels.h"
-#include "wiz8/startup_world.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/engine_code/quad.h"
 #include "surrender/srCamera.h"
-
-#include "surrender/srNode.h"
-#include "surrender/srScene.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/IntervalGate.h"
-#include "wiz8/engine_code/PolyPick.h"
 #include "wiz8/float_constants.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/utility.h"
-#include <math.h>
-
-#include <float.h>
-#include <glm/gtc/matrix_transform.hpp>
+#include "glm/ext/vector_double3.hpp"
+#include "layouts/main_game_screen.h"
+#include "surrender/srMath.h"
 
 // GLOBAL: WIZ8 0x005ec300
 extern const double g_camera_view_factor0 = 0.005555555555555556;

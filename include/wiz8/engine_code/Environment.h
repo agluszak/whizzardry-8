@@ -1,8 +1,7 @@
 #pragma once
 
 #include <memory>
-
-#include "wiz8/filesystem.h"
+#include <cstdint>
 
 /* Reads g_environment_lighting_mode: 2 while the day/night cycle
    runs, 1 while a lighting transition is in progress, 0 once a transition has
@@ -11,13 +10,18 @@
 int GetEnvironmentValue(void);
 unsigned char GetEnvironmentFlag(void); /* 0x00482A10 */
 
+#include <vector>
+
 #include "Types.h"
 #include "surrender/srVertexProcessor.h"
-#include "wiz8/layouts/world.h"
-#include <vector>
-#include <algorithm>
+#include "compat/compiler.h"
 
 class stTextureAnim;
+class W8Prop;
+namespace wiz8 { class File; }
+struct EnvironmentColour;
+struct W8World;
+template <class T> class srVector3T;
 
 /* Environment.cpp. The vertex processor that scrolls the first texture
    coordinate set of the sky's AnimatedCloudMaterial by a fixed per-frame
@@ -51,6 +55,7 @@ extern EnvironmentColour g_environment_colours0[256];
 extern EnvironmentColour g_environment_colours1[256];
 
 class stLight;
+
 void AddEnvironmentLight(stLight* light);
 
 BOOLEAN ReadLightColourTable(wiz8::File* hFile);

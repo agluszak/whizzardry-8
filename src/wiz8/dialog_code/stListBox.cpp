@@ -1,11 +1,17 @@
+#include <SDL3/SDL_rect.h>
+#include <vector>
+
 #include "wiz8/dialog_code/DialogButton.h"
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
 #include "wiz8/dialog_code/ButtonUserData.h"
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/sr_api.h"
-#include "wiz8/utility.h"
 #include "Font.h"
 #include "mousesystem.h"
+#include "Button System.h"
+#include "Types.h"
+#include "Video2.h"
+#include "dialog_code/DialogBase.h"
 
 /* Retail Dialog Code\stListBox.cpp - the SGP button callbacks that give
    W8ListBoxDialog its scrolling text-list behaviour. The list state lives on

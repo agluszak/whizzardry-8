@@ -1,13 +1,25 @@
-#include "surrender/srMath.h"
 #include <algorithm>
 #include <array>
 #include <numeric>
 #include <vector>
-#include "surrender/srGERD.h"
-
-#include "surrender/srClip.h"
-
 #include <cassert>
+#include <cstddef>
+#include <memory>
+#include <span>
+#include <unordered_map>
+
+#include "surrender/srMath.h"
+#include "surrender/srGERD.h"
+#include "surrender/srClip.h"
+#include "compat/compiler.h"
+#include "glm/ext/vector_float2.hpp"
+#include "glm/ext/vector_float4.hpp"
+#include "surrender/srDD.h"
+#include "surrender/srFlags.h"
+#include "surrender/srRendererDefs.h"
+#include "surrender/srShader.h"
+#include "surrender/srTriMeshPipeline.h"
+#include "surrender/srVertexProcessor.h"
 
 /* drawSorted's {order, sort_key} pair record. */
 struct SortPair {

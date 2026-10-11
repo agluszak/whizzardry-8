@@ -7,8 +7,17 @@
 #include <string_view>
 #include <unordered_map>
 #include <vector>
+#include <cstddef>
+
 #include "surrender/srMeshModel.h"
 #include "surrender/srTypeRegistry.h"
+#include "compat/compiler.h"
+#include "compat/native.h"
+#include "glm/ext/matrix_float4x4.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include "surrender/srMath.h"
+
+class srTextureIFace;
 
 /* Engine Code\stMeshModel.cpp. Compressed frame bytes retain their asset format;
    float caches and render scratch are owned independently of the base mesh. */

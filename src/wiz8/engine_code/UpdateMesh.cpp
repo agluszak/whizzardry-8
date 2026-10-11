@@ -1,18 +1,21 @@
-#include "wiz8/engine_code/World.h"
+#include <glm/ext/quaternion_trigonometric.hpp>
+#include <glm/gtc/quaternion.hpp>
+#include <vector>
+#include <memory>
+
 #include "wiz8/engine_code/UpdateMesh.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/quad.h"
 #include "wiz8/engine_code/3dapi.h"
-#include <vector>
-#include <algorithm>
 #include "wiz8/sr_api.h"
-#include <math.h>
-
 #include "surrender/srMeshModel.h"
-
 #include "surrender/srModelInstance.h"
 #include "surrender/srCamera.h"
-#include <glm/gtc/matrix_transform.hpp>
+#include "compat/compiler.h"
+#include "glm/ext/matrix_float3x3.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include "layouts/world.h"
+#include "surrender/srMath.h"
 
 /* Convert the mesh view half-angle from degrees to radians. */
 // GLOBAL: WIZ8 0x005ED168
