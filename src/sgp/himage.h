@@ -5,6 +5,7 @@
    Distributed under the accompanying SFI Source Code license agreement. */
 
 #include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_pixels.h>
 #include <memory>
 #include <array>
 #include <optional>
@@ -36,15 +37,6 @@
 #define IMAGE_APPDATA 0x0010
 #define IMAGE_ALLIMAGEDATA 0x000C
 #define IMAGE_ALLDATA 0x001C
-
-// Palette structure, mimics that of Win32
-typedef struct tagSGPPaletteEntry {
-    UINT8 peRed;
-    UINT8 peGreen;
-    UINT8 peBlue;
-    UINT8 peFlags;
-
-} SGPPaletteEntry;
 
 #define AUX_FULL_TILE 0x01
 #define AUX_ANIMATED_TILE 0x02
@@ -79,7 +71,7 @@ typedef struct tagETRLEObject {
     UINT16 usWidth;
 } ETRLEObject;
 
-using Palette8 = std::array<SGPPaletteEntry, 256>;
+using Palette8 = std::array<SDL_Color, 256>;
 using Palette16 = std::array<UINT16, 256>;
 
 // Image header structure
@@ -96,10 +88,6 @@ typedef struct {
     std::vector<ETRLEObject> pETRLEObject;
 
 } image_type, *HIMAGE;
-
-#define SGPGetRValue(rgb) ((BYTE)(rgb))
-#define SGPGetBValue(rgb) ((BYTE)((rgb) >> 16))
-#define SGPGetGValue(rgb) ((BYTE)(((UINT16)(rgb)) >> 8))
 
 // *****************************************************************************
 //
@@ -128,13 +116,11 @@ bool CopyImageToBuffer(const image_type& image, UINT32 buffer_type, std::span<UI
 Palette16 Create16BPPPaletteShaded(const Palette8& pPalette, UINT32 rscale, UINT32 gscale,
                                  UINT32 bscale, BOOLEAN mono);
 Palette16 Create16BPPPalette(const Palette8& pPalette);
+UINT16 Get16BPPColor(SDL_Color color);
 UINT16 Get16BPPColor(UINT32 RGBValue);
 extern UINT16 gusAlphaMask;
 extern UINT16 gusRedMask;
 extern UINT16 gusGreenMask;
 extern UINT16 gusBlueMask;
-extern INT16 gusRedShift;
-extern INT16 gusBlueShift;
-extern INT16 gusGreenShift;
 
 #endif
