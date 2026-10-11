@@ -26,16 +26,11 @@
 #define VS_BLT_USECOLORKEY 0x000000002
 #define VS_BLT_USEDESTCOLORKEY 0x000000200
 #define VS_BLT_FAST 0x000000004
-#define VS_BLT_SRCSUBRECT 0x000000040
 #define VS_BLT_MIRROR_Y 0x000001000
 
 //
 // Effects structure for specialized blitting
 //
-
-struct blt_vs_fx {
-    SDL_Rect SrcRect;
-};
 
 struct SGPVSurface {
     UINT16 usHeight;  // Height of Video Surface
@@ -89,7 +84,7 @@ void SetVideoSurfaceTransparencyColor(SGPVSurface& surface, COLORVAL color);
 
 BOOLEAN BltVideoSurfaceToVideoSurface(SGPVSurface& hDestVSurface, SGPVSurface& hSrcVSurface,
                                       INT32 iDestX, INT32 iDestY, INT32 fBltFlags,
-                                      blt_vs_fx* pBltFx);
+                                      const SDL_Rect* sourceRect = nullptr);
 
 BOOLEAN ShadowVideoSurfaceRect(SGPVSurface& uiDestVSurface, INT32 X1, INT32 Y1, INT32 X2, INT32 Y2);
 // If the Dest Rect and the source rect are not the same size, the source surface will be either

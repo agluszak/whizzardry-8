@@ -204,10 +204,8 @@ void videoSurfaceClipping()
                 seed(dest, 17);
                 const SDL_Rect sample{1, 1, 6, 5}, mapping{x, y, 6, 5};
                 const auto expected = reference(dest, mapping, source, sample);
-                blt_vs_fx effects{};
-                effects.SrcRect = sample;
                 REQUIRE((BltVideoSurfaceToVideoSurface(*destView, *sourceView,
-                                                    x, y, VS_BLT_SRCSUBRECT, &effects) ||
+                                                    x, y, 0, &sample) ||
                       x >= 8 || y >= 7));
                 REQUIRE(pixels(dest) == expected);
             }

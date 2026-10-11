@@ -178,15 +178,14 @@ void SetVideoSurfaceTransparencyColor(SGPVSurface& surface, COLORVAL color)
 // FUNCTION: WIZ8 0x00403b10
 BOOLEAN BltVideoSurfaceToVideoSurface(SGPVSurface& hDestVSurface, SGPVSurface& hSrcVSurface,
                                       INT32 iDestX, INT32 iDestY, INT32 fBltFlags,
-                                      blt_vs_fx* pBltFx)
+                                      const SDL_Rect* sourceRect)
 {
     SDL_Rect SrcRect;
     UINT16 *pDestSurface16, *pSrcSurface16;
     UINT32 uiSrcPitch, uiDestPitch;
 
-    if (fBltFlags & VS_BLT_SRCSUBRECT) {
-        CHECKF(pBltFx != nullptr);
-        SrcRect = pBltFx->SrcRect;
+    if (sourceRect) {
+        SrcRect = *sourceRect;
     } else {
         CHECKF(hDestVSurface.usHeight >= hSrcVSurface.usHeight);
         CHECKF(hDestVSurface.usWidth >= hSrcVSurface.usWidth);
