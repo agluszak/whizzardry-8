@@ -658,9 +658,7 @@ unsigned char OpenNpcDialoguePanel(W8NpcState* npc, W8ItemInstance* item, bool f
     CreateNpcDialogueControls();
     SetRegionBounds(g_npc_dialogue_options_panel_regions->index(8), 0x17, 0x166, 0x269, 0x1c2);
     g_level_block->text_box_visible = false;
-    if (g_dialogue_text_box_region_view) {
-        g_dialogue_text_box_region_view->Enable();
-    }
+    EnableDialogueTextBoxRegions();
     SetTextBoxScrollInput(true);
     g_level_block->action_panel_visible = 1;
     gXStatus.fCampMode = false;
@@ -1070,9 +1068,7 @@ void ServiceNpcDialogue(void)
     field_text = GetTextFromField(0);
     if (g_npc_interaction_state->pending_layout != W8_DIALOGUE_LAYOUT_NONE) {
         g_level_block->text_box_visible = false;
-        if (g_dialogue_text_box_region_view) {
-            g_dialogue_text_box_region_view->Enable();
-        }
+        EnableDialogueTextBoxRegions();
         SetTextBoxScrollInput(true);
         g_level_block->action_panel_visible = 1;
         W8NpcDialogueLayout layout = g_npc_interaction_state->pending_layout;
@@ -1200,9 +1196,7 @@ void EndNpcDialogueSession(bool skip_exit_actions)
     }
     gXStatus.fNpcDialogueMode = false;
     g_level_block->action_panel_visible = 0;
-    if (g_dialogue_text_box_region_view) {
-        g_dialogue_text_box_region_view->Disable();
-    }
+    DisableDialogueTextBoxRegions();
     SetTextBoxScrollInput(false);
     CloseActiveNpcDialogueLayout();
     g_npc_dialogue_options_panel_regions.Disable();
@@ -4494,9 +4488,7 @@ void SetNpcDialogueHidden(char value)
         }
         g_npc_dialogue_transcript_panel_regions.Enable();
         g_npc_dialogue_options_panel_regions.Enable();
-        if (g_dialogue_text_box_region_view) {
-            g_dialogue_text_box_region_view->Enable();
-        }
+        EnableDialogueTextBoxRegions();
         SetTextBoxScrollInput(true);
         g_level_block->action_panel_visible = 1;
         g_npc_interaction_state->dialogue_panels[2]->SetEnabled(true);

@@ -4,7 +4,6 @@
 #include <cstddef>
 #include <vector>
 #include <cstdint>
-#include <optional>
 #include <string>
 #include <string_view>
 
@@ -65,10 +64,21 @@ enum class TextBoxRegion : std::size_t {
     Mute
 };
 
+// Scroll-arrow visual states stored in text_content_region / dialogue_content_region.
+enum TextBoxArrowState : int {
+    kUpArrowDisabled = 0x56,
+    kUpArrowEnabled = 0x57,
+    kUpArrowPressed = 0x58,
+    kDownArrowDisabled = 0x59,
+    kDownArrowEnabled = 0x5a,
+    kDownArrowPressed = 0x5b,
+};
+
 void InitTextBoxRegions();
 void ShutdownTextBoxRegions();
 extern ScreenRegionSet g_text_box_regions;
-extern std::optional<RegionSetView> g_dialogue_text_box_region_view;
+void EnableDialogueTextBoxRegions();
+void DisableDialogueTextBoxRegions();
 void SetTextBoxScrollInput(bool enabled);
 void SetTextBoxChannelTabInput(bool enabled);
 void SetTextBoxMuteInput(bool enabled);
