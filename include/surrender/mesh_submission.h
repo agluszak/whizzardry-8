@@ -38,10 +38,7 @@ class PickScope {
 public:
     PickScope(srGERD& renderer, bool suppress) : renderer(renderer)
     {
-        if (suppress && !renderer.isPickStackEmpty()) {
-            pick.emplace();
-            renderer.popPick(*pick);
-        }
+        if (suppress) pick = renderer.popPick();
     }
     ~PickScope() { if (pick) renderer.pushPick(*pick); }
     PickScope(const PickScope&) = delete;

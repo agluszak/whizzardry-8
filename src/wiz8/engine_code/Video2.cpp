@@ -920,7 +920,7 @@ void RenderFrame(void)
             g_gerd->setPickKey(0);
             g_gerd->pushPick(pick);
             RenderScene(g_world->static_scene, g_world->camera, &g_viewport.left, true);
-            g_gerd->popPick(pick);
+            pick = *g_gerd->popPick();
             SetPickedModelInstance(pick.selected_model);
             ResolvePickedProp(g_world);
         }

@@ -1,5 +1,6 @@
 #include <optional>
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstring>
 #include <memory>
@@ -18,6 +19,7 @@
 #include "glm/vector_relational.hpp"
 #include "surrender/srMath.h"
 #include "surrender/segment_math.h"
+#include "surrender/triangle_projection.h"
 #include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/OctMeshModel.h"
@@ -574,7 +576,6 @@ W8GDSurface* W8GameData::ProbePropsAlongMotion(srVector3T<float>* direction,
     int surface_index;
     int hit_prop_id;
     bool direction_zero;
-    float hit_distance;
     float slope;
     float along_length;
     float residual_length;
@@ -626,11 +627,13 @@ W8GDSurface* W8GameData::ProbePropsAlongMotion(srVector3T<float>* direction,
                 if (direction_zero) {
                     test_direction = surface->plane.normal;
                 }
-                if (surface->TestSegment(&probe, &test_direction, &hit_distance,
-                                         gd_prop->m_pVertices)) {
-                    if (hit_distance < *nearest_distance) {
-                        *nearest_distance = hit_distance;
-                        hit_point = probe;
+                if (const auto contact = surface->segmentContact(probe.glmValue(),
+                        test_direction.glmValue(), indexedTriangle(
+                            {gd_prop->m_pVertices, static_cast<std::size_t>(gd_prop->m_vertex_count)},
+                            surface->vertex_indices))) {
+                    if (contact->distance < *nearest_distance) {
+                        *nearest_distance = contact->distance;
+                        hit_point = contact->point;
                         *scratch = prop_delta;
                         nearest_surface = surface;
                         hit_prop_id = objects[index];
@@ -793,7 +796,6 @@ unsigned char W8GameData::AdvanceEnvironmentMotion()
     int index;
     int crossed_count;
     float nearest_distance;
-    float hit_distance;
     float motion_length;
     float scale;
     srVector3T<float> scratch;
@@ -942,12 +944,12 @@ unsigned char W8GameData::AdvanceEnvironmentMotion()
                         surface = &m_pSurfaces[octree_hits[index]];
                     }
                     surface->hit_plane = 0;
-                    if ((surface->flags & W8_GD_SURFACE_CROSSING_MASK) == 0 &&
-                        surface->TestSegment(&probe_position, &motion_delta, &hit_distance,
-                                             m_pVertices.data())) {
-                        if (hit_distance < nearest_distance) {
-                            nearest_distance = hit_distance;
-                            hit_position = probe_position;
+                    if ((surface->flags & W8_GD_SURFACE_CROSSING_MASK) != 0) continue;
+                    if (const auto contact = surface->segmentContact(probe_position.glmValue(),
+                            motion_delta.glmValue(), indexedTriangle(m_pVertices, surface->vertex_indices))) {
+                        if (contact->distance < nearest_distance) {
+                            nearest_distance = contact->distance;
+                            hit_position = contact->point;
                             nearest_surface = surface;
                         }
                         probe_position = camera_position;
@@ -1010,8 +1012,8 @@ unsigned char W8GameData::AdvanceEnvironmentMotion()
                 for (index = 0; index < hit_count; ++index) {
                     surface = &m_pSurfaces[octree_hits[index]];
                     if ((surface->flags & W8_GD_SURFACE_CROSSING_MASK) != 0 &&
-                        surface->TestSegment(&probe_position, &motion_delta, &hit_distance,
-                                             m_pVertices.data())) {
+                        surface->segmentContact(probe_position.glmValue(), motion_delta.glmValue(),
+                            indexedTriangle(m_pVertices, surface->vertex_indices))) {
                         if (0 < crossed_count) {
                             for (int swap = 0; swap < crossed_count; ++swap) {
                                 W8GDSurface* prior = collisions[swap];
@@ -1343,26 +1345,17 @@ std::unique_ptr<stModelInstance> W8GameData::CreateTraceModel()
     for (int index = 0; index < SurfacesCount(); ++index) {
         W8GDSurface* surface = m_pSurfaces.data() + index;
         poly_textures[index] = g_oct_mesh_default.texture;
-        if ((surface->flags & W8_GD_SURFACE_WALKABLE) != 0) {
-            selected[vertex] = true;
-            selected[vertex + 1] = true;
-            selected[vertex + 2] = true;
+        const std::array corners{&poly_vertices[index].x, &poly_vertices[index].y,
+                                  &poly_vertices[index].z};
+        for (unsigned corner = 0; corner < corners.size(); ++corner) {
+            const auto destination = vertex + corner;
+            if ((surface->flags & W8_GD_SURFACE_WALKABLE) != 0) selected[destination] = true;
+            texcoords[destination] = glm::vec2(0);
+            vertex_materials[destination] = g_oct_mesh_default.material;
+            *corners[corner] = destination;
+            shade_indices[destination] = destination;
+            vertex_locs[destination] = m_pVertices[surface->vertex_indices[corner]].glmValue();
         }
-        texcoords[vertex] = glm::vec2(0);
-        vertex_materials[vertex] = g_oct_mesh_default.material;
-        poly_vertices[index].x = vertex;
-        shade_indices[vertex] = vertex;
-        vertex_locs[vertex] = m_pVertices[surface->vertex_indices[0]].glmValue();
-        texcoords[vertex + 1] = glm::vec2(0);
-        vertex_materials[vertex + 1] = g_oct_mesh_default.material;
-        poly_vertices[index].y = vertex + 1;
-        shade_indices[vertex + 1] = vertex + 1;
-        vertex_locs[vertex + 1] = m_pVertices[surface->vertex_indices[1]].glmValue();
-        texcoords[vertex + 2] = glm::vec2(0);
-        vertex_materials[vertex + 2] = g_oct_mesh_default.material;
-        poly_vertices[index].z = vertex + 2;
-        shade_indices[vertex + 2] = vertex + 2;
-        vertex_locs[vertex + 2] = m_pVertices[surface->vertex_indices[2]].glmValue();
         vertex += 3;
     }
     mesh->setShader(g_oct_mesh_default.render_flags, 0);
@@ -1419,47 +1412,43 @@ const float g_collision_contact_normal_threshold = -0.5f;
 const double g_collision_centroid_scale = 0.33333298563957214;
 
 /* Clip the motion segment against this surface's plane and triangle. On a hit
-   `from` advances to the contact point, `hit_distance` returns the travelled
-   length and distance takes the surface's updated limit. Ordinary surfaces
+   the returned contact carries the point and travelled length; distance
+   takes the surface's updated limit. Ordinary surfaces
    gate on the contact band below distance; flag-0x1080 surfaces (special)
-   instead test whether the segment crossed the plane, and lift `from` by the
+   instead test whether the segment crossed the plane, and lift the probe by the
    level-flag-8 camera offset. */
 // FUNCTION: WIZ8 0x0041CF90
-bool W8GDSurface::TestSegment(srVector3T<float>* from, const srVector3T<float>* direction,
-                              float* hit_distance, srVector3T<float>* vertices)
+std::optional<PlaneContact> W8GDSurface::segmentContact(const glm::vec3& from,
+    const glm::vec3& direction, std::span<const glm::vec3, 3> vertices)
 {
     unsigned int flags = this->flags;
     bool special = false;
-    bool crossed = false;
-    bool inside = false;
     if ((flags & W8_GD_SURFACE_INACTIVE_MASK) != 0) {
-        return false;
+        return std::nullopt;
     }
-    srVector3T<float> point = *from;
+    auto point = from;
     if ((flags & W8_GD_SURFACE_CROSSING_MASK) != 0) {
         special = true;
         if ((g_level_data->flags & W8_LEVEL_FLAG_NO_SOUND_ENVIRONMENT) != 0) {
             point.y += g_collision_height_lift;
         }
     }
-    srVector3T<float> unit_dir = *direction;
-    unit_dir.Normalize();
-    srVector3T<float> normal;
-    normal = plane.normal;
-    float segment_length = direction->Length();
+    const auto unit_dir = normalizedOrZero(direction);
+    const auto normal = plane.normal.glmValue();
+    const float segment_length = glm::length(direction);
     if (segment_length < g_float_one_ten_thousandth) {
         if (!special) {
             g_environment_motion_active = special;
-            return false;
+            return std::nullopt;
         }
-    } else if (!special && normal.x * unit_dir.x + unit_dir.y * normal.y + unit_dir.z * normal.z >=
+    } else if (!special && glm::dot(normal, unit_dir) >=
                                g_float_zero) {
-        return false;
+        return std::nullopt;
     }
-    srVector3T<float> end = point + *direction;
+    const auto end = point + direction;
     float dist_start = SignedPlaneDistance(plane, point);
     if (!special && dist_start < g_float_zero) {
-        return false;
+        return std::nullopt;
     }
     float limit = contact_margin;
     if ((flags & W8_GD_SURFACE_WALKABLE) == 0 && !special) {
@@ -1469,48 +1458,29 @@ bool W8GDSurface::TestSegment(srVector3T<float>* from, const srVector3T<float>* 
     if (special) {
         if (dist_end * dist_start > g_camera_snap_epsilon) {
             if (contact_margin < g_float_one || dist_end < g_float_zero) {
-                return false;
+                return std::nullopt;
             }
             if (dist_end >= limit + g_float_ten && dist_start >= limit + g_float_ten) {
-                return false;
+                return std::nullopt;
             }
         }
     } else {
         if (limit + g_float_ten <= dist_end) {
-            return false;
+            return std::nullopt;
         }
         if (dist_start - dist_end < g_camera_transition_epsilon) {
-            return false;
+            return std::nullopt;
         }
     }
     int axis = flags & W8_GD_SURFACE_AXIS_MASK;
-    short comp_u = (axis + 1) % 3;
-    short comp_v = (axis + 2) % 3;
-    const auto start_proj = point.glmValue() - normal.glmValue() * dist_start;
-    const auto end_proj = end.glmValue() - normal.glmValue() * dist_end;
-    const glm::vec3 verts[] = {vertices[vertex_indices[0]].glmValue(),
-                               vertices[vertex_indices[1]].glmValue(),
-                               vertices[vertex_indices[2]].glmValue()};
-    for (short edge = 0; edge < 3; ++edge) {
-        if (crossed) {
-            break;
-        }
-        short next = (edge + 1) % 3;
-        if (SegmentCrossesEdge(start_proj, end_proj, verts[edge], verts[next], axis)) {
-            crossed = true;
-        }
-        float edge_low = verts[edge][comp_v];
-        float edge_high = verts[next][comp_v];
-        if ((edge_low <= end_proj[comp_v] && end_proj[comp_v] < edge_high) ||
-            (edge_high <= end_proj[comp_v] && end_proj[comp_v] < edge_low)) {
-            float crossing = (verts[next][comp_u] - verts[edge][comp_u]) *
-                                 (end_proj[comp_v] - edge_low) / (edge_high - edge_low) +
-                             verts[edge][comp_u];
-            if (crossing > end_proj[comp_u]) {
-                inside = !inside;
-            }
-        }
-    }
+    const auto start_proj = point - normal * dist_start;
+    const auto end_proj = end - normal * dist_end;
+    bool crossed = false;
+    for (unsigned edge = 0; edge < vertices.size() && !crossed; ++edge)
+        crossed = SegmentCrossesEdge(start_proj, end_proj, vertices[edge],
+                                     vertices[(edge + 1) % vertices.size()], axis);
+    const bool inside = !crossed && srTriangleProjection::contains(vertices, axis, end_proj,
+        srTriangleProjection::Boundary::collision);
     float t_span = dist_start - dist_end;
     float fraction;
     if (t_span < g_float_one) {
@@ -1522,44 +1492,40 @@ bool W8GDSurface::TestSegment(srVector3T<float>* from, const srVector3T<float>* 
         fraction = g_collision_fraction_floor;
     }
     if (fraction > g_float_one) {
-        return false;
+        return std::nullopt;
     }
     float hit;
     if (!crossed && !inside) {
         if (special) {
-            return false;
+            return std::nullopt;
         }
-        srVector3T<float> chosen;
+        glm::vec3 chosen;
         if (dist_start / t_span <= g_float_one) {
             chosen = point;
         } else {
             chosen = end;
         }
-        if (!ClampHitToEdge(&chosen, vertices, &limit)) {
-            return false;
-        }
+        const auto edge_limit = edgeContactLimit(chosen, vertices, limit);
+        if (!edge_limit) return std::nullopt;
+        limit = *edge_limit;
         fraction = (dist_start - limit) / t_span;
         if (fraction >= g_float_one) {
-            return false;
+            return std::nullopt;
         }
         if (fraction < g_collision_fraction_floor) {
             fraction = g_collision_fraction_floor;
         }
         hit = fraction * segment_length;
         if (segment_length - hit < g_camera_transition_epsilon) {
-            return false;
+            return std::nullopt;
         }
-        *hit_distance = hit;
         distance = limit;
-        *from = point + unit_dir * hit;
-        return true;
+        return PlaneContact{point + unit_dir * hit, hit};
     }
     hit = fraction * segment_length;
-    *hit_distance = hit;
     if (!special) {
         distance = limit;
-        *from = point + unit_dir * hit;
-        return true;
+        return PlaneContact{point + unit_dir * hit, hit};
     }
     distance = hit;
     if (dist_start <= g_float_zero) {
@@ -1567,8 +1533,7 @@ bool W8GDSurface::TestSegment(srVector3T<float>* from, const srVector3T<float>* 
     } else {
         distance = fabsf(hit);
     }
-    *hit_distance = fabsf(*hit_distance);
-    return true;
+    return PlaneContact{from, fabsf(hit)};
 }
 
 /* 2D segment-vs-edge test in the plane perpendicular to `axis`: the projected
@@ -1578,12 +1543,10 @@ bool W8GDSurface::TestSegment(srVector3T<float>* from, const srVector3T<float>* 
 bool SegmentCrossesEdge(const glm::vec3& seg_start, const glm::vec3& seg_end,
                         const glm::vec3& edge_a, const glm::vec3& edge_b, unsigned int axis)
 {
-    const unsigned u = (axis + 1) % 3;
-    const unsigned v = (axis + 2) % 3;
-    const auto start = glm::vec2(seg_start[u], seg_start[v]);
-    const auto end = glm::vec2(seg_end[u], seg_end[v]);
-    const auto first = glm::vec2(edge_a[u], edge_a[v]);
-    const auto second = glm::vec2(edge_b[u], edge_b[v]);
+    const auto start = srTriangleProjection::coordinates(seg_start, axis);
+    const auto end = srTriangleProjection::coordinates(seg_end, axis);
+    const auto first = srTriangleProjection::coordinates(edge_a, axis);
+    const auto second = srTriangleProjection::coordinates(edge_b, axis);
     if (glm::any(glm::greaterThan(glm::min(start, end), glm::max(first, second))) ||
         glm::any(glm::greaterThan(glm::min(first, second), glm::max(start, end))))
         return false;
@@ -1606,33 +1569,33 @@ bool SegmentCrossesEdge(const glm::vec3& seg_start, const glm::vec3& seg_end,
    to the remaining in-plane travel before the nearest edge; fails when no
    edge improves it. */
 // FUNCTION: WIZ8 0x0041D9D0
-bool W8GDSurface::ClampHitToEdge(const srVector3T<float>* point, const srVector3T<float>* vertices,
-                                 float* limit)
+std::optional<float> W8GDSurface::edgeContactLimit(const glm::vec3& point,
+    std::span<const glm::vec3, 3> vertices, float limit) const
 {
     float nearest_dist = 10000000.0f;
     short nearest_edge = 0;
     for (short edge = 0; edge < 3; ++edge) {
-        const float dist = srSegmentMath::project(point->glmValue(),
-            vertices[vertex_indices[edge]].glmValue(),
-            vertices[vertex_indices[(edge + 1) % 3]].glmValue()).distance;
+        const float dist = srSegmentMath::project(point,
+            vertices[edge],
+            vertices[(edge + 1) % 3]).distance;
         if (dist < nearest_dist) {
             nearest_edge = edge;
             nearest_dist = dist;
         }
     }
-    if (nearest_dist > *limit) {
-        return false;
+    if (nearest_dist > limit) {
+        return std::nullopt;
     }
-    float offset = -(SignedPlaneDistance(plane, *point));
-    srVector3 projected = *point + plane.normal * offset;
+    float offset = -(SignedPlaneDistance(plane, point));
+    const auto projected = point + plane.normal.glmValue() * offset;
     float edge_dist =
-        srSegmentMath::project(projected.glmValue(),
-            vertices[vertex_indices[nearest_edge]].glmValue(),
-            vertices[vertex_indices[(nearest_edge + 1) % 3]].glmValue()).distance;
+        srSegmentMath::project(projected,
+            vertices[nearest_edge],
+            vertices[(nearest_edge + 1) % 3]).distance;
     if ((flags & W8_GD_SURFACE_WALKABLE) != 0) {
-        float threshold = *limit * g_float_half;
+        float threshold = limit * g_float_half;
         if (threshold < offset) {
-            return false;
+            return std::nullopt;
         }
     }
     if ((flags & W8_GD_SURFACE_WALKABLE) == 0) {
@@ -1640,16 +1603,15 @@ bool W8GDSurface::ClampHitToEdge(const srVector3T<float>* point, const srVector3
             edge_dist *= g_navigator_linked_radius_scale;
         }
     } else {
-        float scaled = *limit * g_navigator_mode3_scale;
+        float scaled = limit * g_navigator_mode3_scale;
         if (scaled < edge_dist) {
             edge_dist = (edge_dist - scaled) * g_float_six + scaled;
         }
     }
-    if (edge_dist < *limit) {
-        *limit = sqrtf(*limit * *limit - edge_dist * edge_dist);
-        return true;
+    if (edge_dist < limit) {
+        return sqrtf(limit * limit - edge_dist * edge_dist);
     }
-    return false;
+    return std::nullopt;
 }
 
 /* Collision response for a hit surface: `origin` advances to `hit_point` and

@@ -1,7 +1,6 @@
 #pragma once
 
 #include "srIlluminator.h"
-#include <span>
 
 // VTABLE: SURRENDER 0x100770F8 srVertexProcessor
 // class srClassSupport<srLight, srIlluminator, 4640>
@@ -14,9 +13,6 @@
 class SR_DLL_IMPORT srLight
     : public srClassSupport<srLight, srIlluminator, 0x1220> {
 public:
-    static void specularPower(std::span<float> destination, std::span<const float> source,
-                              float exponent);
-
     enum e_preset { PRESET_DIRECTIONAL = 0, PRESET_POINT = 1, PRESET_SPOT = 2 };
 
     enum e_enable {

@@ -442,8 +442,10 @@ void srVertexPipe::setupEyeSpaceDirAndDist()
 {
     for (std::size_t i = 0; i < batch_count; ++i) {
         const auto v = glm::vec3(eye_space_locations[batch_base + i]);
-        scratch.dist[i] = glm::length(v);
-        scratch.dir[i] = v / scratch.dist[i];
+        const auto sample = srLightingMath::directionAndDistance(
+            v, srLightingMath::ZeroLengthDirection::divide);
+        scratch.dist[i] = sample.distance;
+        scratch.dir[i] = sample.direction;
     }
     scratch.flags |= srVertexPipe::Scratch::READY_EYE_DIRECTION;
     scratch.flags |= srVertexPipe::Scratch::READY_EYE_DISTANCE;

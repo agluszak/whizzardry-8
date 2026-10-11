@@ -1,6 +1,8 @@
 #pragma once
 
 #include <cassert>
+#include <algorithm>
+#include <cmath>
 #include <cstddef>
 #include <span>
 #include "glm/common.hpp"
@@ -9,6 +11,30 @@
 #include "glm/ext/vector_float4.hpp"
 
 namespace srLightingMath {
+enum class ZeroLengthDirection { preserve, divide };
+struct DirectionDistance {
+    glm::vec3 direction;
+    float distance;
+};
+
+inline DirectionDistance directionAndDistance(const glm::vec3& vector,
+    ZeroLengthDirection zero = ZeroLengthDirection::preserve)
+{
+    const float distance = glm::length(vector);
+    return {distance == 0 && zero == ZeroLengthDirection::preserve ? vector : vector / distance,
+            distance};
+}
+
+// Keep the native light exponent ceiling; standard power retains faint values
+// and supports sub-unit exponents without indexing a recovered approximation table.
+inline void power(std::span<float> destination, std::span<const float> source, float exponent)
+{
+    assert(source.size() >= destination.size());
+    exponent = std::min(exponent, 127.0f);
+    std::transform(source.begin(), source.begin() + destination.size(), destination.begin(),
+                   [exponent](float value) { return std::pow(value, exponent); });
+}
+
 enum class DotRange { nonnegative, unit };
 
 // One direction broadcasts a directional light; otherwise use one per normal.

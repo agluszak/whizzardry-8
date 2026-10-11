@@ -1,4 +1,6 @@
 #include "glm/matrix.hpp"
+#include "surrender/plane_math.h"
+#include "surrender/triangle_projection.h"
 #include "wiz8/ground_shadow.h"
 #include "wiz8/layouts/world.h"
 #include "wiz8/engine_code/Camera.h"
@@ -2465,9 +2467,9 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Failed instance materials restore pickin
     REQUIRE(g_material_diffuse_scale == diffuse);
     REQUIRE(g_material_emissive_override == emissive);
     REQUIRE_FALSE(renderer.isPickStackEmpty());
-    srGERD::Pick pick;
-    renderer.popPick(pick);
-    REQUIRE(pick.triangle_index == 7);
+    const auto pick = renderer.popPick();
+    REQUIRE(pick);
+    REQUIRE(pick->triangle_index == 7);
 }
 
 TEST_CASE_METHOD(SurRenderTestFixture, "Bounds rejection restores transforms before returning or traversing children", "[geometry][rendering]")
@@ -2768,4 +2770,105 @@ TEST_CASE("Octree build cleanup frees shared runs and retains the reserved recor
     REQUIRE(geometry.vertex_count == 0); REQUIRE(geometry.m_polygon_count == 0);
     REQUIRE_FALSE(geometry.m_vertices); REQUIRE_FALSE(geometry.m_polygons);
     geometry.Release();
+}
+
+TEST_CASE_METHOD(SurRenderTestFixture, "octree camera snapshots use native basis columns and plane coefficients", "[geometry]")
+{
+    srCamera camera;
+    camera.setLocation(glm::dvec3(3, -7, 11));
+    const auto rotation = glm::mat3(glm::rotate(glm::mat4(1), .6f, glm::vec3(0, 1, 0)));
+    camera.setRotation(rotation);
+    camera.setFOV(1.2, 1.5);
+    W8OctreeView view;
+    view.far_clip = 123;
+    view.captureCamera(camera);
+    REQUIRE(view.camera_location == glm::vec3(3, -7, 11));
+    REQUIRE(view.rotation_column0 == rotation[0]);
+    REQUIRE(view.rotation_column1 == rotation[1]);
+    REQUIRE(view.camera_dof == glm::vec3(camera.getWorldSpaceDOF()));
+    REQUIRE(view.horizontal_fov == static_cast<float>(camera.getHorizontalFOV()));
+    REQUIRE(view.vertical_fov == static_cast<float>(camera.getVerticalFOV()));
+    REQUIRE(view.horizontal_fov_cosine == static_cast<float>(std::cos(view.horizontal_fov)));
+    REQUIRE(view.far_clip == 123);
+
+    const srBoundingBox bounds{{-1, -1, -1}, {1, 1, 1}};
+    std::array<glm::vec3, 8> corners;
+    for (unsigned i = 0; i < corners.size(); ++i) corners[i] = bounds.corner(i);
+    const auto points = sortedFrustumCorners(corners);
+    const auto packed = BuildFrustumPlanes(points);
+    for (unsigned i = 0; i < packed.size(); ++i)
+        view.frustum_planes[i] = {packed[i].normal.glmValue(), packed[i].w};
+    REQUIRE(srPlaneMath::containsSphere(view.frustum_planes, glm::vec3(0), 0));
+    REQUIRE(srPlaneMath::containsSphere(view.frustum_planes, glm::vec3(2, 0, 0), 1));
+    REQUIRE_FALSE(srPlaneMath::containsSphere(view.frustum_planes, glm::vec3(2, 0, 0), .99f));
+    REQUIRE(SphereInsideFrustum({2, 0, 0}, 1, packed));
+
+    view = {};
+    REQUIRE(view.camera_location == glm::vec3(0));
+    REQUIRE(view.frustum_planes[5] == glm::vec4(0));
+}
+
+TEST_CASE("Projected triangle queries retain visibility and collision boundary rules", "[geometry]")
+{
+    using srTriangleProjection::Boundary;
+    for (unsigned axis = 0; axis < 3; ++axis) {
+        const auto point = [axis](float u, float v) {
+            glm::vec3 result(0);
+            result[axis] = 123;
+            result[(axis + 1) % 3] = u;
+            result[(axis + 2) % 3] = v;
+            return result;
+        };
+        const std::array triangle{point(0, 0), point(2, 0), point(0, 2)};
+        REQUIRE(srTriangleProjection::contains(triangle, axis, point(.5f, .5f), Boundary::visibility));
+        REQUIRE(srTriangleProjection::contains(triangle, axis, point(.5f, .5f), Boundary::collision));
+        REQUIRE_FALSE(srTriangleProjection::contains(triangle, axis, point(.5f, 0), Boundary::visibility));
+        REQUIRE(srTriangleProjection::contains(triangle, axis, point(.5f, 0), Boundary::collision));
+        REQUIRE(srTriangleProjection::contains(triangle, axis, point(1, 1), Boundary::visibility));
+        REQUIRE_FALSE(srTriangleProjection::contains(triangle, axis, point(1, 1), Boundary::collision));
+        REQUIRE_FALSE(srTriangleProjection::contains(triangle, axis, point(3, 3), Boundary::collision));
+    }
+}
+
+TEST_CASE("Surface contacts return positions distances and edge limits without output parameters", "[geometry]")
+{
+    const std::array<glm::vec3, 3> triangle{{{0, 0, 0}, {0, 2, 0}, {0, 0, 2}}};
+    W8GDSurface surface{};
+    surface.plane = {glm::vec3(1, 0, 0), 0};
+    surface.contact_margin = 150; // Wall slope adjustment leaves a zero plane limit.
+    const glm::vec3 from(3, .5f, .5f);
+    const auto hit = surface.segmentContact(from, {-5, 0, 0}, triangle);
+    REQUIRE(hit);
+    REQUIRE(glm::length(hit->point - glm::vec3(0, .5f, .5f)) < 1e-6f);
+    REQUIRE(std::abs(hit->distance - 3) < 1e-6f);
+    REQUIRE(surface.distance == 0);
+    surface.distance = 9;
+    REQUIRE_FALSE(surface.segmentContact({3, 4, 4}, {-5, 0, 0}, triangle));
+    REQUIRE(surface.distance == 9);
+    surface.flags = W8_GD_SURFACE_WALKABLE;
+    const auto limit = surface.edgeContactLimit({0, .5f, -.2f}, triangle, 1);
+    REQUIRE(limit);
+    REQUIRE(std::abs(*limit - std::sqrt(.96f)) < 1e-6f);
+    REQUIRE_FALSE(surface.edgeContactLimit({0, 4, 4}, triangle, 1));
+
+    W8LevelDataRecord level{};
+    const struct RestoreLevel {
+        W8LevelDataRecord* previous;
+        ~RestoreLevel() { g_level_data = previous; }
+    } restore{g_level_data};
+    g_level_data = &level;
+    surface.flags = W8_GD_SURFACE_CROSSING;
+    surface.contact_margin = 0;
+    const auto crossing = surface.segmentContact(from, {-5, 0, 0}, triangle);
+    REQUIRE(crossing);
+    REQUIRE(crossing->point == from);
+    REQUIRE(std::abs(crossing->distance - 3) < 1e-6f);
+    REQUIRE(surface.distance > 0);
+    const glm::vec3 reverse_from(-2, .5f, .5f);
+    const auto reverse = surface.segmentContact(reverse_from, {5, 0, 0}, triangle);
+    REQUIRE(reverse);
+    REQUIRE(reverse->point == reverse_from);
+    // Reverse crossings retain the full segment when the signed span is below one.
+    REQUIRE(std::abs(reverse->distance - 5) < 1e-6f);
+    REQUIRE(surface.distance < 0);
 }

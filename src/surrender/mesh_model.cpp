@@ -1387,12 +1387,11 @@ void srTriMeshPipeline::FlushSlots()
                 vertex_pipe->process(pipe_input);
 
                 srGERD::Renderer::TriInput render_input;
-                render_input.triangle_count = culler_output.triangleCount();
                 render_input.record_count = slot_count;
                 render_input.vertex_count = culler_output.vertexCount();
-                render_input.indices = culler_output.indices.data();
-                render_input.triangles = triangles;
-                render_input.vertices = culler_output.vertex_remap.data();
+                render_input.indices = culler_output.indices;
+                render_input.triangles = {triangles, triangle_count};
+                render_input.vertices = culler_output.vertex_remap;
                 render_input.passes = &passes[0];
                 render_input.direct_vertex_indices = false;
                 render_input.project_clip_near = &project_clip_near;

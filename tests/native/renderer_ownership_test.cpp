@@ -1,4 +1,5 @@
 #include <stdexcept>
+#include <algorithm>
 #include "surrender/srTextureIFace.h"
 #include "surrender/srPixelConvert.h"
 #include "surrender/srColorSurface.h"
@@ -787,12 +788,11 @@ bool rendererCornerRemapping()
             passes[0].poly_uv = poly_uv.data();
             passes[0].texcoords = texcoords.data();
             srGERD::Renderer::TriInput input{};
-            input.triangle_count = 1;
             input.record_count = 2;
             input.vertex_count = 3;
-            input.indices = indices.data();
-            input.vertices = vertices.data();
-            input.triangles = triangles.data();
+            input.indices = indices;
+            input.vertices = vertices;
+            input.triangles = triangles;
             input.passes = passes.data();
             renderer.expandTriangles(input, sorted);
             const auto& result = renderer.indices.triangles[0];
@@ -1039,4 +1039,70 @@ TEST_CASE("Counted mipmap chains copy adjacent levels and preserve file cache po
     PreparedFile missing_first(source(), 0);
     missing_first.getMipmapData(request);
     REQUIRE(missing_first.isSurfaceLoaded());
+}
+
+TEST_CASE("Picking honors counted selections, direct indices, nearest depth and atomic validation")
+{
+    SurRenderTestFixture runtime;
+    srGERD renderer(srCreateSDLGPUDevice(), "counted picking");
+    srModelInstance selected;
+    renderer.setPickKey(reinterpret_cast<w8_ulong_ptr>(&selected));
+    REQUIRE_FALSE(renderer.popPick());
+    const std::array<glm::vec4, 3> positions{{{-1, -1, .4f, 1}, {1, -1, .4f, 1}, {0, 1, .4f, 1}}};
+    const std::array<srVector3i, 2> triangles{{{0, 0, 0}, {1, 2, 0}}};
+    const std::array<w8_ulong, 1> indices{1};
+    const std::array<w8_ulong, 3> remap{2, 0, 1};
+    srGERD::Renderer batch({&renderer, 0, 256, 1});
+    const glm::mat4 projection(1);
+    const srTriMeshPipeline::Pass pass{};
+    srGERD::Renderer::TriInput input{};
+    input.indices = indices;
+    input.triangles = triangles;
+    input.vertices = remap;
+    input.vertex_count = positions.size();
+    input.record_count = 1;
+    input.passes = &pass;
+    input.project_clip_near = &projection;
+    const auto performPick = [&] {
+        batch.reset(0);
+        batch.allocVertexArray(input.vertex_count);
+        std::copy_n(positions.begin(), input.vertex_count,
+                    batch.vertices.positions.begin() + batch.first_vertex);
+        batch.render(input);
+    };
+    renderer.pushPick({{0, 0, 1}, nullptr, 0});
+    renderer.pushPick({{2, 0, 1}, nullptr, 0});
+    performPick();
+    const auto outside = renderer.popPick();
+    REQUIRE(outside->selected_model == nullptr);
+    REQUIRE(outside->position.z == 1);
+    const auto hit = renderer.popPick();
+    REQUIRE(hit->selected_model == &selected);
+    REQUIRE(hit->triangle_index == 1);
+    REQUIRE(std::abs(hit->position.z - .4f) < 1e-6f);
+
+    input.vertices = {};
+    input.direct_vertex_indices = true;
+    renderer.pushPick({{0, 0, .3f}, nullptr, 9});
+    performPick();
+    const auto nearer = renderer.popPick();
+    REQUIRE(nearer->position.z == .3f);
+    REQUIRE(nearer->triangle_index == 9);
+    renderer.pushPick({{0, 0, 1}, nullptr, 0});
+    performPick();
+    REQUIRE(renderer.popPick()->selected_model == &selected);
+
+    const std::array<w8_ulong, 2> invalid_selection{1, 2};
+    input.indices = invalid_selection;
+    renderer.pushPick({{0, 0, 1}, nullptr, 9});
+    REQUIRE_THROWS_AS(performPick(), std::invalid_argument);
+    const auto unchanged = renderer.popPick();
+    REQUIRE(unchanged->position.z == 1);
+    REQUIRE(unchanged->triangle_index == 9);
+    input.indices = indices;
+    input.vertex_count = 2;
+    renderer.pushPick({{0, 0, 1}, nullptr, 9});
+    REQUIRE_THROWS_AS(performPick(), std::invalid_argument);
+    REQUIRE(renderer.popPick()->triangle_index == 9);
+    REQUIRE_FALSE(renderer.popPick());
 }
