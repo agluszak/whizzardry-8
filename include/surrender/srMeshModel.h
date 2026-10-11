@@ -101,12 +101,12 @@ public:
 
     SR_DLL_IMPORT virtual void dump(std::ostream& stream) override;
     SR_DLL_IMPORT virtual void verify(srRuntimeClass::e_verify mode) override;
-    SR_DLL_IMPORT virtual BoundingSphere getBoundingSphere() override;
-    SR_DLL_IMPORT virtual srBoundingBox getBoundingBox() override;
+    Bounds getBounds() override;
+    bool isVisible(srGERD& renderer);
     SR_DLL_IMPORT virtual void render(class srGERD& renderer) override;
     SR_DLL_IMPORT virtual void reindexPolygons(const w8_ulong* indices);
     SR_DLL_IMPORT virtual void reindexVertices(const w8_ulong* indices);
-    SR_DLL_IMPORT virtual const TriMesh& getTriMesh();
+    SR_DLL_IMPORT virtual TriMesh getTriMesh();
     SR_DLL_IMPORT virtual void renderTriMesh(class srGERD& renderer, const TriMesh& mesh);
     SR_DLL_IMPORT std::shared_ptr<srTextureIFace>* getPolyTexture(w8_long polygon, w8_long layer, int table);
     SR_DLL_IMPORT srVector3i* getPolyVertex();

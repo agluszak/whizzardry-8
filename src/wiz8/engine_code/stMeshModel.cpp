@@ -1,3 +1,4 @@
+#include "surrender/srModel.h"
 #include <cstddef>
 #include <algorithm>
 #include <cctype>
@@ -73,23 +74,14 @@ stMeshModel::~stMeshModel()
     std::erase(g_mesh_models, this);
 }
 
-// FUNCTION: WIZ8 0x00471dd0
-srModel::BoundingSphere stMeshModel::getBoundingSphere()
+srModel::Bounds stMeshModel::getBounds()
 {
-    if ((dirty_flags.value & 1) != 0) {
+    if ((dirty_flags.value & (1UL << DIRTY_BOUNDS)) != 0) {
         CalculateLinkedBounds();
     }
-    return {bounds_center, bounds_radius};
+    return {{bounds_minimum, bounds_maximum}, {bounds_center, bounds_radius}};
 }
 
-// FUNCTION: WIZ8 0x00471d80
-srBoundingBox stMeshModel::getBoundingBox()
-{
-    if ((dirty_flags.value & 1) != 0) {
-        CalculateLinkedBounds();
-    }
-    return {bounds_minimum, bounds_maximum};
-}
 
 /* Recompute the model's union bounds: clear this mesh's cached box,
    accumulate every frame's bounds from the head and all parts, then
@@ -111,7 +103,7 @@ void stMeshModel::CalculateLinkedBounds()
             if (model->flags & W8_MESH_HAS_FRAME_STORAGE)
                 frame_box = model->GetFrameBounds(frame);
             else
-                frame_box = model->srMeshModel::getBoundingBox();
+                frame_box = model->srMeshModel::getBounds().box;
             if (has_vertices)
                 box.include(frame_box);
             else
@@ -163,7 +155,7 @@ srBoundingBox stMeshModel::GetFrameBounds(int frame)
 /* Apply pending vertex DIG lighting when flags bit 1 is set, then return
    the SurRender TriMesh cache. */
 // FUNCTION: WIZ8 0x00472270
-const srMeshModel::TriMesh& stMeshModel::getTriMesh()
+srMeshModel::TriMesh stMeshModel::getTriMesh()
 {
     float light_scale = g_monster_light_scale;
     srVector3T<float>* dig;

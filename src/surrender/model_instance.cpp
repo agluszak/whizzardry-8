@@ -72,9 +72,8 @@ srNode::BoundInfo srModelInstance::getLocalBounds()
     if (model == nullptr) {
         return {glm::vec3(0), glm::vec3(0), glm::vec3(0), 0.0f, 0};
     }
-    const auto box = model->getBoundingBox();
-    const auto sphere = model->getBoundingSphere();
-    return {box.minimum, box.maximum, sphere.center, sphere.radius, 1};
+    const auto bounds = model->getBounds();
+    return {bounds.box.minimum, bounds.box.maximum, bounds.sphere.center, bounds.sphere.radius, 1};
 }
 
 void srModelInstance::applyRenderTransform(srGERD& renderer) const

@@ -59,7 +59,6 @@
 #include "monster_actions.h"
 #include "named_position.h"
 #include "particle_modes.h"
-#include "surrender/srFlags.h"
 #include "surrender/srMath.h"
 #include "surrender/srMeshModel.h"
 #include "surrender/srModelInstance.h"
@@ -116,18 +115,7 @@ void stLevel::process(const ProcessInfo& info, e_processType)
             continue;
         }
 
-        if ((model->render_control.value & 0x20) == 0) {
-            const auto [center, radius] = model->getBoundingSphere();
-            if (renderer.testBoundingSphere(center, radius) == srGERD::VISIBILITY_OUTSIDE) {
-                continue;
-            }
-        }
-        if ((model->render_control.value & 0x10) == 0 && model->vertex_location_count >= 8) {
-            const auto [minimum, maximum] = model->getBoundingBox();
-            if (renderer.testBoundingBox(minimum, maximum) == srGERD::VISIBILITY_OUTSIDE) {
-                continue;
-            }
-        }
+        if (!model->isVisible(renderer)) continue;
 
         srNode* linked_child = child;
         while (model != 0) {
@@ -144,7 +132,8 @@ void stLevel::process(const ProcessInfo& info, e_processType)
                 model->SetAmbientColor(ambient_color);
             }
 
-            auto mesh = model->getTriMesh();
+            srMeshModel::TriMesh mesh;
+            mesh = model->getTriMesh();
             if (g_render_untextured) {
                 mesh.shaders[0].value &= 0xffff7fff;
                 mesh.poly_shaders[0] = 0;
@@ -1155,7 +1144,7 @@ try
 
     if (use_octree) {
         srMeshModel* model = static_cast<srMeshModel*>(world->update_mesh_source->getModel());
-        const auto [minimum, maximum] = model->getBoundingBox();
+        const auto [minimum, maximum] = model->getBounds().box;
         world->quads = BuildWorldQuad(world->update_mesh_source, minimum, maximum);
     }
     RefreshEnvironment();

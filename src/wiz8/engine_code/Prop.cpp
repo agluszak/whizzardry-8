@@ -1571,21 +1571,22 @@ try
         W8AniMesh* mesh = AnimObjEntry(animation, 2, 0);
         unsigned char value_count = AniMeshValue(mesh);
         stModelInstance* frame = GetAniMeshFrame(mesh, 0);
+        unsigned int frame_i;
 
         if (frame == 0) {
             srAssertFail("psrMesh", PROP_CPP, 0x182, 0);
         }
-        auto bounds = frame->getModel()->getBoundingBox();
-        for (unsigned int frame_i = 0; frame_i < value_count; ++frame_i) {
+        auto box = frame->getModel()->getBounds().box;
+        for (frame_i = 0; frame_i < value_count; ++frame_i) {
             frame = GetAniMeshFrame(mesh, frame_i);
             if (frame == 0) {
                 srAssertFail("psrMesh", PROP_CPP, 0x192, 0);
             }
-            bounds.include(frame->getModel()->getBoundingBox());
+            box.include(frame->getModel()->getBounds().box);
         }
-        bounds_min = bounds.minimum;
-        bounds_max = bounds.maximum;
-        const auto size = bounds.maximum - bounds.minimum;
+        bounds_min = box.minimum;
+        bounds_max = box.maximum;
+        const auto size = box.maximum - box.minimum;
         bounds_extent = std::max({size.x, size.y, size.z}) * g_float_half;
     }
 

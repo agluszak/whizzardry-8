@@ -1,5 +1,7 @@
 #pragma once
 
+#include "srBoundingSphere.h"
+
 #include <span>
 #include <vector>
 
@@ -64,11 +66,7 @@ public:
     SR_DLL_IMPORT const float* getDepthCue();
     SR_DLL_IMPORT glm::vec4* getDiffuse();
     SR_DLL_IMPORT w8_ulong getExclusionMask() const;
-    struct BoundingSphere {
-        glm::vec3 center;
-        float radius;
-    };
-    SR_DLL_IMPORT BoundingSphere getEyeSpaceBoundingSphere() const;
+    SR_DLL_IMPORT srBoundingSphere getEyeSpaceBoundingSphere() const;
     SR_DLL_IMPORT const glm::vec3* getEyeSpaceDir();
     SR_DLL_IMPORT const float* getEyeSpaceDist();
     SR_DLL_IMPORT const glm::vec4* getEyeSpaceLocation();

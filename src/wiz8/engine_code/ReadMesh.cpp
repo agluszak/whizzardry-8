@@ -643,7 +643,7 @@ try
     }
 
     if (first_model != 0) {
-        first_model->getBoundingBox();
+        first_model->getBounds();
     }
     if (first_model != 0) {
         first_model->setName(name ? name : "");
@@ -727,7 +727,7 @@ try
         }
         meshes[mesh_index] = model;
         model->setDirty(srMeshModel::DIRTY_BOUNDS);
-        model->getBoundingBox();
+        model->getBounds();
     }
 
     info->hFile->read_exact(&terminator, sizeof(terminator));

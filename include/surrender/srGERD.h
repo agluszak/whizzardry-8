@@ -1,5 +1,7 @@
 #pragma once
 
+#include "srBoundingSphere.h"
+
 #include <condition_variable>
 #include <list>
 #include <memory>
@@ -435,8 +437,7 @@ public:
     e_matrixMode getMatrixMode() const;
     glm::mat4 getMatrix();
     glm::mat4 getMatrix(e_matrixMode mode);
-    srModel::BoundingSphere getEyeSpaceBounds(const glm::vec3& object_center,
-                                             float object_radius);
+    srBoundingSphere eyeSpaceBounds(const srBoundingSphere& sphere);
     glm::vec4 getEyeSpaceLocation(const glm::vec3& object_location);
     void pushVertexProcessor(srVertexProcessor& processor);
     void popVertexProcessor();

@@ -47,13 +47,12 @@ public:
     virtual ~stMeshModel() override;       /* 0x00470ED0 */
     stMeshModel(const stMeshModel&) = delete;
     stMeshModel& operator=(const stMeshModel&) = delete;
-    virtual BoundingSphere getBoundingSphere() override;    /* 0x00471dd0 */
-    virtual srBoundingBox getBoundingBox() override; /* 0x00471d80 */
+    Bounds getBounds() override;
     /* Recomputes the union bounds over the head and its parts and pushes them
        to each mesh via srMeshModel::setBounds. */
     void CalculateLinkedBounds();                 /* 0x00471e10 */
     void RevealVerticesNear(const glm::vec3& position, float range, const glm::mat4& world);
-    virtual const TriMesh& getTriMesh() override; /* 0x00472270 */
+    virtual TriMesh getTriMesh() override; /* 0x00472270 */
     virtual void renderTriMesh(class srGERD& renderer,
                                const TriMesh& mesh) override; /* 0x00470360 */
     /* Shared Wizardry-extended tri-mesh submit. `poly_normals` null skips

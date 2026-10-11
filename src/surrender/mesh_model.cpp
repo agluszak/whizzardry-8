@@ -543,7 +543,7 @@ w8_long srMeshModel::findClosestVertex(const srVector3T<float>& position)
 }
 
 // FUNCTION: SURRENDER 0x1003DC70
-const srMeshModel::TriMesh& srMeshModel::getTriMesh()
+srMeshModel::TriMesh srMeshModel::getTriMesh()
 {
     if ((dirty_flags.value & (1UL << DIRTY_TRI_MESH)) != 0) {
         updateTriMesh();
@@ -582,15 +582,17 @@ void srMeshModel::updateTriMesh()
         tri_mesh.dcg[pass] = getVertexDCG(pass, 0);
         tri_mesh.scg[pass] = getVertexSCG(pass, 0);
     }
-    if ((tri_mesh.control_flags & (1UL << srMeshModel::CONTROL_SKIP_AUTO_BOX)) == 0) {
-        const auto box = getBoundingBox();
-        tri_mesh.bounds_minimum = box.minimum;
-        tri_mesh.bounds_maximum = box.maximum;
-    }
-    if ((tri_mesh.control_flags & (1UL << srMeshModel::CONTROL_SKIP_AUTO_SPHERE)) == 0) {
-        const auto sphere = getBoundingSphere();
-        tri_mesh.bounds_center = sphere.center;
-        tri_mesh.bounds_radius = sphere.radius;
+    constexpr auto manual_bounds = (1UL << CONTROL_SKIP_AUTO_BOX) | (1UL << CONTROL_SKIP_AUTO_SPHERE);
+    if ((tri_mesh.control_flags & manual_bounds) != manual_bounds) {
+        const auto bounds = getBounds();
+        if ((tri_mesh.control_flags & (1UL << CONTROL_SKIP_AUTO_BOX)) == 0) {
+            tri_mesh.bounds_minimum = bounds.box.minimum;
+            tri_mesh.bounds_maximum = bounds.box.maximum;
+        }
+        if ((tri_mesh.control_flags & (1UL << CONTROL_SKIP_AUTO_SPHERE)) == 0) {
+            tri_mesh.bounds_center = bounds.sphere.center;
+            tri_mesh.bounds_radius = bounds.sphere.radius;
+        }
     }
     tri_mesh.active_polygons.reset();
     if (const auto* active = getActivePolygonTable(0)) {
@@ -611,22 +613,12 @@ void srMeshModel::setBounds(const glm::vec3& minimum, const glm::vec3& maximum,
     setDirty(DIRTY_TRI_MESH);
 }
 
-// FUNCTION: SURRENDER 0x1003FE40
-srBoundingBox srMeshModel::getBoundingBox()
+srModel::Bounds srMeshModel::getBounds()
 {
     if ((dirty_flags.value & (1UL << DIRTY_BOUNDS)) != 0) {
         calculateBounds();
     }
-    return {bounds_minimum, bounds_maximum};
-}
-
-// FUNCTION: SURRENDER 0x1003FE90
-srModel::BoundingSphere srMeshModel::getBoundingSphere()
-{
-    if ((dirty_flags.value & (1UL << DIRTY_BOUNDS)) != 0) {
-        calculateBounds();
-    }
-    return {bounds_center, bounds_radius};
+    return {{bounds_minimum, bounds_maximum}, {bounds_center, bounds_radius}};
 }
 
 static glm::vec4* GetVertexColorTable(srMeshModel& mesh,
@@ -651,22 +643,27 @@ glm::vec4* srMeshModel::getVertexDCG(w8_long vertex, int table)
     return GetVertexColorTable(*this, dcg, vertex, table);
 }
 
+bool srMeshModel::isVisible(srGERD& renderer)
+{
+    const bool test_sphere = (render_control.value & (1UL << CONTROL_SKIP_AUTO_SPHERE)) == 0;
+    const bool test_box = (render_control.value & (1UL << CONTROL_SKIP_AUTO_BOX)) == 0 &&
+                          vertex_location_count >= 8;
+    if (!test_sphere && !test_box)
+        return true;
+    const auto bounds = getBounds();
+    if (test_sphere && renderer.testBoundingSphere(bounds.sphere.center, bounds.sphere.radius) ==
+                           srGERD::VISIBILITY_OUTSIDE)
+        return false;
+    if (test_box && renderer.testBoundingBox(bounds.box.minimum, bounds.box.maximum) ==
+                        srGERD::VISIBILITY_OUTSIDE)
+        return false;
+    return true;
+}
+
 // FUNCTION: SURRENDER 0x1003CEA0
 void srMeshModel::render(srGERD& renderer)
 {
-    if ((render_control.value & (1UL << CONTROL_SKIP_AUTO_SPHERE)) == 0) {
-        const auto [center, radius] = getBoundingSphere();
-        if (renderer.testBoundingSphere(center, radius) == srGERD::VISIBILITY_OUTSIDE) {
-            return;
-        }
-    }
-    if ((render_control.value & (1UL << CONTROL_SKIP_AUTO_BOX)) == 0 &&
-        vertex_location_count >= 8) {
-        const auto [minimum, maximum] = getBoundingBox();
-        if (renderer.testBoundingBox(minimum, maximum) == srGERD::VISIBILITY_OUTSIDE) {
-            return;
-        }
-    }
+    if (!isVisible(renderer)) return;
     renderTriMesh(renderer, getTriMesh());
 }
 
@@ -792,7 +789,7 @@ void srMeshModel::verify(srRuntimeClass::e_verify mode)
     w8_long v;
 
     srClass::verify(mode);
-    auto t = getTriMesh();
+    const auto t = getTriMesh();
     if (t.vertex_count <= 0) {
         srAssertFail("t.vnum > 0", "D:\\srsdk1x\\sources\\corelib\\srMeshModel.cpp", 0x5cf, 0);
     }
@@ -961,13 +958,13 @@ void srMeshModel::dump(std::ostream& stream)
     stream.width(0x20);
     stream << "  Passes: " << pass_count << '\n';
     stream.width(0x20);
-    const auto [minimum, maximum] = getBoundingBox();
+    const auto [minimum, maximum] = getBounds().box;
     stream << "  Bounding box min: ";
     stream << '{' << minimum.x << ',' << minimum.y << ',' << minimum.z << '}' << '\n';
     stream.width(0x20);
     stream << "  Bounding box max: ";
     stream << '{' << maximum.x << ',' << maximum.y << ',' << maximum.z << '}' << '\n';
-    const auto [center, radius] = getBoundingSphere();
+    const auto [center, radius] = getBounds().sphere;
     stream.width(0x20);
     stream << "  Bounding sphere origin: ";
     stream << '{' << center.x << ',' << center.y << ',' << center.z << '}' << '\n';
@@ -1301,7 +1298,7 @@ void srTriMeshPipeline::FlushSlots()
         bounds_radius = glm::distance(bounds_center, bounds_minimum) * 1.001f;
     }
 
-    const auto eye_bounds = this->renderer->getEyeSpaceBounds(bounds_center, bounds_radius);
+    const auto eye_bounds = renderer->eyeSpaceBounds({bounds_center, bounds_radius});
     const auto model_view = this->renderer->getMatrix(srGERD::MATRIX_MODELVIEW);
     const auto inverse_model_view = this->renderer->getInverseModelViewMatrix();
     const auto clip_planes = this->renderer->getClipPlanes();

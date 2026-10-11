@@ -26,7 +26,6 @@
 #include "AnimRep.hpp"
 #include "compat/native.h"
 #include "glm/ext/vector_float3.hpp"
-#include "surrender/srFlags.h"
 #include "surrender/srShader.h"
 #include "surrender/srTextureIFace.h"
 
@@ -242,13 +241,12 @@ void stModelInstance2D::SetModel(std::shared_ptr<srModel> model)
 // FUNCTION: WIZ8 0x00480920
 void stModelInstance2D::process(const ProcessInfo& info, e_processType)
 {
-    srMeshModel::TriMesh mesh;
     srGERD* renderer = info.renderer;
 
     applyRenderTransform(*renderer);
 
     srMeshModel* model = static_cast<srMeshModel*>(getModel());
-    mesh = model->getTriMesh();
+    auto mesh = model->getTriMesh();
 
     if (render_state.glow_enabled) {
         if (glow_material == 0) {
@@ -405,17 +403,8 @@ void stModelInstance::RenderMeshes(srGERD& renderer)
     stMeshModel* model = static_cast<stMeshModel*>(getModel());
     stMeshModel* first_model = model;
 
-    const auto [center, radius] = model->getBoundingSphere();
-    if (((model->render_control.value & 0x20) == 0) &&
-        (renderer.testBoundingSphere(center, radius) == srGERD::VISIBILITY_OUTSIDE)) {
-        return;
-    }
-    if (((model->render_control.value & 0x10) == 0) && (model->vertex_location_count >= 8)) {
-        const auto [minimum, maximum] = model->getBoundingBox();
-        if (renderer.testBoundingBox(minimum, maximum) == srGERD::VISIBILITY_OUTSIDE) {
-            return;
-        }
-    }
+    const auto bounds = model->getBounds();
+    if (!model->isVisible(renderer)) return;
 
     // c-style-cast-ok: the pick key is an opaque void* token
     SetPickKey((render_flags & RENDER_NO_PICK) != 0 ? (void*)0 : (void*)this);
@@ -583,7 +572,7 @@ void stModelInstance::RenderMeshes(srGERD& renderer)
 
                     double factor = g_double_one / getScale().y * g_double_fifteen_and_five_eighths;
                     float expand = static_cast<float>(
-                        (radius * getScale().y * g_double_one_thousandth + g_double_one) * factor);
+                        (bounds.sphere.radius * getScale().y * g_double_one_thousandth + g_double_one) * factor);
                     srVector3T<float> offsets;
                     offsets = expand;
 

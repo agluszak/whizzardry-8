@@ -1,3 +1,4 @@
+#include "surrender/srBoundingSphere.h"
 #include <glm/ext/matrix_clip_space.hpp>
 #include <glm/ext/matrix_transform.hpp>
 #include <cstdlib>
@@ -2315,11 +2316,10 @@ glm::vec4 srGERD::getEyeSpaceLocation(const glm::vec3& object_location)
 }
 
 // FUNCTION: SURRENDER 0x1001DDF0
-srModel::BoundingSphere srGERD::getEyeSpaceBounds(const glm::vec3& object_center,
-                                                 float object_radius)
+srBoundingSphere srGERD::eyeSpaceBounds(const srBoundingSphere& sphere)
 {
-    const auto center = glm::vec3(getEyeSpaceLocation(object_center));
-    return {center, object_radius * state.max_modelview_scale};
+    const auto center = glm::vec3(getEyeSpaceLocation(sphere.center));
+    return {center, sphere.radius * state.max_modelview_scale};
 }
 
 // FUNCTION: SURRENDER 0x1001B570

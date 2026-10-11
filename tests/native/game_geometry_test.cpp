@@ -270,7 +270,10 @@ static void linked_mesh_bounds()
     linked->getVertexLoc()[1] = srVector3(8, 9, 10);
     mesh.AddPart(std::unique_ptr<stMeshModel>(linked));
     mesh.AddPart(std::make_unique<stMeshModel>(0, 0));
-    linked->CalculateLinkedBounds();
+    const auto linked_bounds = linked->getBounds();
+    REQUIRE(linked_bounds.box.minimum == glm::vec3(2, 3, 4));
+    REQUIRE(linked_bounds.box.maximum == glm::vec3(8, 9, 10));
+    REQUIRE(linked_bounds.sphere.center == glm::vec3(5, 6, 7));
     for (auto* member = &mesh; member; member = member->Next()) {
         REQUIRE(member->bounds_minimum == srVector3(2, 3, 4));
         REQUIRE(member->bounds_maximum == srVector3(8, 9, 10));
@@ -533,6 +536,37 @@ static void renderer_bounds()
             position[axis] = sign * 2;
             REQUIRE((renderer.testBoundingSphere(position, 0.1f) == srGERD::VISIBILITY_OUTSIDE));
         }
+    srMeshModel empty;
+    const auto empty_bounds = empty.getBounds();
+    REQUIRE(empty_bounds.box.minimum == glm::vec3(0));
+    REQUIRE(empty_bounds.box.maximum == glm::vec3(0));
+    REQUIRE(empty_bounds.sphere.center == glm::vec3(0));
+    REQUIRE(empty_bounds.sphere.radius == 0);
+
+    srMeshModel mesh(0, 8);
+    mesh.setBounds({2, 2, 2}, {3, 3, 3}, {0, 0, 0}, 0.1f);
+    mesh.render_control.value = 0;
+    REQUIRE_FALSE(mesh.isVisible(renderer)); // Visible sphere, rejected box.
+    mesh.enable(srMeshModel::CONTROL_SKIP_AUTO_BOX);
+    REQUIRE(mesh.isVisible(renderer));
+    mesh.setBounds({-0.5f, -0.5f, -0.5f}, {0.5f, 0.5f, 0.5f}, {3, 0, 0}, 0.1f);
+    mesh.render_control.value = 0;
+    REQUIRE_FALSE(mesh.isVisible(renderer)); // Rejected sphere, visible box.
+    mesh.enable(srMeshModel::CONTROL_SKIP_AUTO_SPHERE);
+    REQUIRE(mesh.isVisible(renderer));
+    mesh.setBounds({2, 2, 2}, {3, 3, 3}, {3, 0, 0}, 0.1f);
+    mesh.enable(srMeshModel::CONTROL_SKIP_AUTO_BOX);
+    REQUIRE(mesh.isVisible(renderer));
+    mesh.disable(srMeshModel::CONTROL_SKIP_AUTO_BOX);
+    mesh.vertex_location_count = 7;
+    REQUIRE(mesh.isVisible(renderer)); // Small meshes bypass box culling.
+
+    renderer.loadMatrix(glm::scale(glm::translate(glm::mat4(1), glm::vec3(1, 2, 3)),
+                                    glm::vec3(-2, 3, 4)));
+    const auto sphere = renderer.eyeSpaceBounds({{2, 3, 4}, 2});
+    REQUIRE(sphere.center == glm::vec3(-3, 11, 19));
+    REQUIRE(sphere.radius == 8);
+    renderer.loadIdentity();
     renderer.pushClipPlane({1, 0, 0, 0}, srGERD::CLIPMODE_POSITIONAL_0);
     REQUIRE((renderer.testBoundingSphere({-0.5f, 0, 0}, 0.1f) == srGERD::VISIBILITY_OUTSIDE));
     REQUIRE((renderer.testBoundingSphere({0.5f, 0, 0}, 0.1f) != srGERD::VISIBILITY_OUTSIDE));

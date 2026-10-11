@@ -408,7 +408,7 @@ int W8Octree::CollectModelsNearPoint(std::vector<stModelInstance*>& out,
     const auto intersects = [&](srModelInstance* instance) {
         if (!instance || !instance->getModel())
             return false;
-        const auto bounds = instance->getModel()->getBoundingBox();
+        const auto bounds = instance->getModel()->getBounds().box;
         const auto world = instance->getWorldSpaceMatrix<glm::mat4>();
         return bounds.transformed(world).intersectsSphere(center, radius);
     };
@@ -1566,7 +1566,7 @@ int W8Octree::CountBadRegionMeshLinks(W8OctSpatialState* spatial)
                     static_cast<stModelInstance*>(g_world->psrMeshes[m_pSubmeshes[link].mesh]);
                 if (mesh != 0) {
                     if (auto* model = mesh->getModel()) {
-                        const auto bounds = model->getBoundingBox();
+                        const auto bounds = model->getBounds().box;
                         const auto world = mesh->getWorldSpaceMatrix<glm::mat4>();
                         const srBoundingBox cell{spatial->m_minimum.glmValue(),
                                                  spatial->m_maximum.glmValue()};
