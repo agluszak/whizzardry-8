@@ -5,6 +5,7 @@
 #include <cmath>
 #include <utility>
 #include <cstdint>
+#include <cstddef>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -967,6 +968,145 @@ BOOLEAN WriteAnimLightFile(wiz8::File* hFile, W8LevelFileAnimLight* pLight)
     return TRUE;
 }
 
+template<bool reading>
+struct LevelRecordIO {
+    wiz8::File* file;
+    void field(void* value, std::size_t size)
+    {
+        if constexpr (reading) file->read_exact(value, size);
+        else file->write(value, size);
+    }
+    template<std::size_t size>
+    bool text(char (&value)[size])
+    {
+        field(value, size);
+        if constexpr (reading) return std::memchr(value, '\0', size) != nullptr;
+        return true;
+    }
+};
+
+template<bool reading>
+static bool TransferSwitchTrigger(wiz8::File* hFile, W8LevelFileSwitch* pSwitch)
+{
+    LevelRecordIO<reading> io{hFile};
+    io.field(&pSwitch->version, 1);
+    io.field(&pSwitch->cycle_bounce, 4);
+    io.field(&pSwitch->state_count, 4);
+    io.field(&pSwitch->animate_states, 4);
+    io.field(&pSwitch->range, 4);
+    io.field(&pSwitch->action, 4);
+    io.field(&pSwitch->value, 4);
+    io.field(&pSwitch->animate_action, 4);
+    io.field(&pSwitch->packed_flags, 1);
+    io.field(&pSwitch->enabled, 1);
+    if (!io.text(pSwitch->name)) return false;
+    if (!io.text(pSwitch->recipients)) return false;
+    io.field(pSwitch->sound, sizeof(pSwitch->sound));
+    if constexpr (reading) {
+        ReportBuildStatus(5, fmt::format("Switch Trigger: {}, recipients: {}\n", pSwitch->name,
+                                      pSwitch->recipients));
+    }
+    if (pSwitch->version > 1) {
+        io.field(&pSwitch->minimum_range, 4);
+        if (!io.text(pSwitch->surface_id)) return false;
+        if constexpr (reading) {
+            ReportBuildStatus(5, fmt::format("Switch Trigger name: {}\n", pSwitch->surface_id));
+        }
+    }
+    if (pSwitch->version > 2) {
+        io.field(&pSwitch->has_door_trigger, 1);
+        if (pSwitch->has_door_trigger != 0) {
+            io.field(&pSwitch->door.kind, 1);
+            if (pSwitch->door.kind == 1) {
+                bool transferred;
+                if constexpr (reading) transferred = ReadDoorTriggerFile(hFile, &pSwitch->door);
+                else transferred = WriteDoorTriggerFile(hFile, &pSwitch->door);
+                if (!transferred) return false;
+            }
+        }
+    }
+    if (pSwitch->version > 3) {
+        io.field(&pSwitch->action_value, 4);
+    }
+    return true;
+}
+
+template<bool reading>
+static bool TransferInvisibleTrigger(wiz8::File* hFile, W8LevelFileInvisible* pInvis)
+{
+    LevelRecordIO<reading> io{hFile};
+    io.field(&pInvis->version, 1);
+    io.field(&pInvis->range, 4);
+    io.field(&pInvis->position, sizeof(pInvis->position));
+    io.field(&pInvis->action, 4);
+    io.field(&pInvis->searchable, 4);
+    io.field(&pInvis->fire_linked, 1);
+    io.field(&pInvis->enabled, 1);
+    if (!io.text(pInvis->name)) return false;
+    if (!io.text(pInvis->recipients)) return false;
+    if constexpr (reading) {
+        ReportBuildStatus(5, fmt::format("Invisible Trigger: {}, recipients: {}\n", pInvis->name,
+                                      pInvis->recipients));
+    }
+    if (pInvis->version > 1) {
+        io.field(&pInvis->plane_flag, 1);
+        if constexpr (reading) AllocateLevelRecords(pInvis->pPlane);
+
+        io.field(pInvis->pPlane, sizeof(W8LevelFilePlane));
+    }
+    if (pInvis->version > 2) {
+        io.field(&pInvis->angle, 4);
+        io.field(&pInvis->direction, sizeof(pInvis->direction));
+        io.field(&pInvis->unused, 1);
+        io.field(pInvis->action_string, sizeof(pInvis->action_string));
+    }
+    if (pInvis->version > 3) {
+        io.field(&pInvis->flag, 1);
+        io.field(&pInvis->action_value, 4);
+    }
+    return true;
+}
+
+template<bool reading>
+static bool TransferSoundTrigger(wiz8::File* hFile, W8LevelFileSound* pSound)
+{
+    LevelRecordIO<reading> io{hFile};
+    io.field(&pSound->version, 1);
+    io.field(&pSound->volume_min, 4);
+    io.field(&pSound->volume_max, 4);
+    io.field(&pSound->speed_min, 4);
+    io.field(&pSound->speed_max, 4);
+    io.field(&pSound->time_min, 4);
+    io.field(&pSound->time_max, 4);
+    io.field(&pSound->unbounded, 4);
+    io.field(&pSound->radius, 4);
+    io.field(&pSound->position, sizeof(pSound->position));
+    io.field(&pSound->region_u, sizeof(pSound->region_u));
+    io.field(&pSound->region_v, sizeof(pSound->region_v));
+    io.field(pSound->wave, sizeof(pSound->wave));
+    if (pSound->version > 1) {
+        io.field(&pSound->has_position, 1);
+        io.field(&pSound->looping, 1);
+    }
+    if (pSound->version > 2) {
+        io.field(&pSound->region_center, sizeof(pSound->region_center));
+        io.field(&pSound->region_angle, 4);
+        io.field(&pSound->region_min, sizeof(pSound->region_min));
+        io.field(&pSound->region_max, sizeof(pSound->region_max));
+    }
+    if (pSound->version > 3) {
+        io.field(pSound->name, sizeof(pSound->name));
+        if constexpr (reading) {
+            ReportBuildStatus(5, fmt::format("Sound Trigger: {}\n", pSound->name));
+        }
+    }
+    if (pSound->version > 4) {
+        io.field(&pSound->shared, 1);
+    }
+    return true;
+}
+
+
 // FUNCTION: WIZ8 0x004D1C10
 BOOLEAN ReadTriggerFile(wiz8::File* hFile, W8LevelFileTrigger* pTrigger)
 try {
@@ -987,45 +1127,7 @@ try {
         }
 
         pTrigger->pData = pSwitch;
-        hFile->read_exact(&pSwitch->version, 1);
-        hFile->read_exact(&pSwitch->cycle_bounce, 4);
-        hFile->read_exact(&pSwitch->state_count, 4);
-        hFile->read_exact(&pSwitch->animate_states, 4);
-        hFile->read_exact(&pSwitch->range, 4);
-        hFile->read_exact(&pSwitch->action, 4);
-        hFile->read_exact(&pSwitch->value, 4);
-        hFile->read_exact(&pSwitch->animate_action, 4);
-        hFile->read_exact(&pSwitch->packed_flags, 1);
-        hFile->read_exact(&pSwitch->enabled, 1);
-        hFile->read_exact(pSwitch->name, sizeof(pSwitch->name));
-        if (!memchr(pSwitch->name, '\0', sizeof(pSwitch->name)))
-            return FALSE;
-        hFile->read_exact(pSwitch->recipients, sizeof(pSwitch->recipients));
-        if (!memchr(pSwitch->recipients, '\0', sizeof(pSwitch->recipients)))
-            return FALSE;
-        hFile->read_exact(pSwitch->sound, sizeof(pSwitch->sound));
-        ReportBuildStatus(5, fmt::format("Switch Trigger: {}, recipients: {}\n", pSwitch->name,
-                                          pSwitch->recipients));
-        if (pSwitch->version > 1) {
-            hFile->read_exact(&pSwitch->minimum_range, 4);
-            hFile->read_exact(pSwitch->surface_id, sizeof(pSwitch->surface_id));
-            if (!memchr(pSwitch->surface_id, '\0', sizeof(pSwitch->surface_id)))
-                return FALSE;
-            ReportBuildStatus(5, fmt::format("Switch Trigger name: {}\n", pSwitch->surface_id));
-        }
-        if (pSwitch->version > 2) {
-            hFile->read_exact(&pSwitch->has_door_trigger, 1);
-            if (pSwitch->has_door_trigger != 0) {
-                hFile->read_exact(&pSwitch->door.kind, 1);
-                if (pSwitch->door.kind == 1) {
-                    if (!ReadDoorTriggerFile(hFile, &pSwitch->door))
-                        return FALSE;
-                }
-            }
-        }
-        if (pSwitch->version > 3) {
-            hFile->read_exact(&pSwitch->action_value, 4);
-        }
+        if (!TransferSwitchTrigger<true>(hFile, pSwitch)) return FALSE;
         pTrigger->pData = pSwitch;
         if (g_level_file) {
             if (g_level_file->num_switch_triggers >= 1000)
@@ -1044,37 +1146,7 @@ try {
         }
 
         pTrigger->pData = pInvis;
-        hFile->read_exact(&pInvis->version, 1);
-        hFile->read_exact(&pInvis->range, 4);
-        hFile->read_exact(&pInvis->position, sizeof(pInvis->position));
-        hFile->read_exact(&pInvis->action, 4);
-        hFile->read_exact(&pInvis->searchable, 4);
-        hFile->read_exact(&pInvis->fire_linked, 1);
-        hFile->read_exact(&pInvis->enabled, 1);
-        hFile->read_exact(pInvis->name, sizeof(pInvis->name));
-        if (!memchr(pInvis->name, '\0', sizeof(pInvis->name)))
-            return FALSE;
-        hFile->read_exact(pInvis->recipients, sizeof(pInvis->recipients));
-        if (!memchr(pInvis->recipients, '\0', sizeof(pInvis->recipients)))
-            return FALSE;
-        ReportBuildStatus(5, fmt::format("Invisible Trigger: {}, recipients: {}\n", pInvis->name,
-                                          pInvis->recipients));
-        if (pInvis->version > 1) {
-            hFile->read_exact(&pInvis->plane_flag, 1);
-            AllocateLevelRecords(pInvis->pPlane);
-
-            hFile->read_exact(pInvis->pPlane, sizeof(W8LevelFilePlane));
-        }
-        if (pInvis->version > 2) {
-            hFile->read_exact(&pInvis->angle, 4);
-            hFile->read_exact(&pInvis->direction, sizeof(pInvis->direction));
-            hFile->read_exact(&pInvis->unused, 1);
-            hFile->read_exact(pInvis->action_string, sizeof(pInvis->action_string));
-        }
-        if (pInvis->version > 3) {
-            hFile->read_exact(&pInvis->flag, 1);
-            hFile->read_exact(&pInvis->action_value, 4);
-        }
+        if (!TransferInvisibleTrigger<true>(hFile, pInvis)) return FALSE;
         if (pInvis->version > 4) {
             hFile->read_exact(&pInvis->has_legacy_geometry, 1);
             if (pInvis->has_legacy_geometry != 0) {
@@ -1119,36 +1191,7 @@ try {
         }
 
         pTrigger->pData = pSound;
-        hFile->read_exact(&pSound->version, 1);
-        hFile->read_exact(&pSound->volume_min, 4);
-        hFile->read_exact(&pSound->volume_max, 4);
-        hFile->read_exact(&pSound->speed_min, 4);
-        hFile->read_exact(&pSound->speed_max, 4);
-        hFile->read_exact(&pSound->time_min, 4);
-        hFile->read_exact(&pSound->time_max, 4);
-        hFile->read_exact(&pSound->unbounded, 4);
-        hFile->read_exact(&pSound->radius, 4);
-        hFile->read_exact(&pSound->position, sizeof(pSound->position));
-        hFile->read_exact(&pSound->region_u, sizeof(pSound->region_u));
-        hFile->read_exact(&pSound->region_v, sizeof(pSound->region_v));
-        hFile->read_exact(pSound->wave, sizeof(pSound->wave));
-        if (pSound->version > 1) {
-            hFile->read_exact(&pSound->has_position, 1);
-            hFile->read_exact(&pSound->looping, 1);
-        }
-        if (pSound->version > 2) {
-            hFile->read_exact(&pSound->region_center, sizeof(pSound->region_center));
-            hFile->read_exact(&pSound->region_angle, 4);
-            hFile->read_exact(&pSound->region_min, sizeof(pSound->region_min));
-            hFile->read_exact(&pSound->region_max, sizeof(pSound->region_max));
-        }
-        if (pSound->version > 3) {
-            hFile->read_exact(pSound->name, sizeof(pSound->name));
-            ReportBuildStatus(5, fmt::format("Sound Trigger: {}\n", pSound->name));
-        }
-        if (pSound->version > 4) {
-            hFile->read_exact(&pSound->shared, 1);
-        }
+        if (!TransferSoundTrigger<true>(hFile, pSound)) return FALSE;
         pTrigger->pData = pSound;
         registries.commit();
         static_cast<void>(owner.release());
@@ -1183,36 +1226,7 @@ BOOLEAN WriteTriggerFile(wiz8::File* hFile, W8LevelFileTrigger* pTrigger)
         if (pSwitch == 0) {
             throw std::bad_alloc();
         }
-        hFile->write(&pSwitch->version, 1);
-        hFile->write(&pSwitch->cycle_bounce, 4);
-        hFile->write(&pSwitch->state_count, 4);
-        hFile->write(&pSwitch->animate_states, 4);
-        hFile->write(&pSwitch->range, 4);
-        hFile->write(&pSwitch->action, 4);
-        hFile->write(&pSwitch->value, 4);
-        hFile->write(&pSwitch->animate_action, 4);
-        hFile->write(&pSwitch->packed_flags, 1);
-        hFile->write(&pSwitch->enabled, 1);
-        hFile->write(pSwitch->name, sizeof(pSwitch->name));
-        hFile->write(pSwitch->recipients, sizeof(pSwitch->recipients));
-        hFile->write(pSwitch->sound, sizeof(pSwitch->sound));
-        if (pSwitch->version > 1) {
-            hFile->write(&pSwitch->minimum_range, 4);
-            hFile->write(pSwitch->surface_id, sizeof(pSwitch->surface_id));
-        }
-        if (pSwitch->version > 2) {
-            hFile->write(&pSwitch->has_door_trigger, 1);
-            if (pSwitch->has_door_trigger != 0) {
-                hFile->write(&pSwitch->door.kind, 1);
-                if (pSwitch->door.kind == 1) {
-                    if (!WriteDoorTriggerFile(hFile, &pSwitch->door))
-                        return FALSE;
-                }
-            }
-        }
-        if (pSwitch->version > 3) {
-            hFile->write(&pSwitch->action_value, 4);
-        }
+        if (!TransferSwitchTrigger<false>(hFile, pSwitch)) return FALSE;
 
         return TRUE;
     }
@@ -1221,29 +1235,7 @@ BOOLEAN WriteTriggerFile(wiz8::File* hFile, W8LevelFileTrigger* pTrigger)
         if (pInvis == 0) {
             throw std::bad_alloc();
         }
-        hFile->write(&pInvis->version, 1);
-        hFile->write(&pInvis->range, 4);
-        hFile->write(&pInvis->position, sizeof(pInvis->position));
-        hFile->write(&pInvis->action, 4);
-        hFile->write(&pInvis->searchable, 4);
-        hFile->write(&pInvis->fire_linked, 1);
-        hFile->write(&pInvis->enabled, 1);
-        hFile->write(pInvis->name, sizeof(pInvis->name));
-        hFile->write(pInvis->recipients, sizeof(pInvis->recipients));
-        if (pInvis->version > 1) {
-            hFile->write(&pInvis->plane_flag, 1);
-            hFile->write(pInvis->pPlane, sizeof(W8LevelFilePlane));
-        }
-        if (pInvis->version > 2) {
-            hFile->write(&pInvis->angle, 4);
-            hFile->write(&pInvis->direction, sizeof(pInvis->direction));
-            hFile->write(&pInvis->unused, 1);
-            hFile->write(pInvis->action_string, sizeof(pInvis->action_string));
-        }
-        if (pInvis->version > 3) {
-            hFile->write(&pInvis->flag, 1);
-            hFile->write(&pInvis->action_value, 4);
-        }
+        if (!TransferInvisibleTrigger<false>(hFile, pInvis)) return FALSE;
         if (pInvis->version > 4) {
             hFile->write(&pInvis->has_legacy_geometry, 1);
             if (pInvis->has_legacy_geometry != 0) {
@@ -1266,35 +1258,7 @@ BOOLEAN WriteTriggerFile(wiz8::File* hFile, W8LevelFileTrigger* pTrigger)
         if (pSound == 0) {
             throw std::bad_alloc();
         }
-        hFile->write(&pSound->version, 1);
-        hFile->write(&pSound->volume_min, 4);
-        hFile->write(&pSound->volume_max, 4);
-        hFile->write(&pSound->speed_min, 4);
-        hFile->write(&pSound->speed_max, 4);
-        hFile->write(&pSound->time_min, 4);
-        hFile->write(&pSound->time_max, 4);
-        hFile->write(&pSound->unbounded, 4);
-        hFile->write(&pSound->radius, 4);
-        hFile->write(&pSound->position, sizeof(pSound->position));
-        hFile->write(&pSound->region_u, sizeof(pSound->region_u));
-        hFile->write(&pSound->region_v, sizeof(pSound->region_v));
-        hFile->write(pSound->wave, sizeof(pSound->wave));
-        if (pSound->version > 1) {
-            hFile->write(&pSound->has_position, 1);
-            hFile->write(&pSound->looping, 1);
-        }
-        if (pSound->version > 2) {
-            hFile->write(&pSound->region_center, sizeof(pSound->region_center));
-            hFile->write(&pSound->region_angle, 4);
-            hFile->write(&pSound->region_min, sizeof(pSound->region_min));
-            hFile->write(&pSound->region_max, sizeof(pSound->region_max));
-        }
-        if (pSound->version > 3) {
-            hFile->write(pSound->name, sizeof(pSound->name));
-        }
-        if (pSound->version > 4) {
-            hFile->write(&pSound->shared, 1);
-        }
+        if (!TransferSoundTrigger<false>(hFile, pSound)) return FALSE;
 
         return TRUE;
     }
@@ -1305,26 +1269,13 @@ BOOLEAN WriteTriggerFile(wiz8::File* hFile, W8LevelFileTrigger* pTrigger)
     }
 }
 
-template<bool reading>
-struct LevelRecordIO {
-    wiz8::File* file;
-    void field(void* value, std::size_t size)
-    {
-        if constexpr (reading) file->read_exact(value, size);
-        else file->write(value, size);
-    }
-};
-
 // One field layout owns both directions; read-only validation stays at each field boundary.
 template<bool reading>
 static bool TransferSuperTriggerHeader(wiz8::File* hFile, W8LevelFileSuperTrigger* pSuper)
 {
     LevelRecordIO<reading> io{hFile};
     io.field(&pSuper->version, 1);
-    io.field(pSuper->name, sizeof(pSuper->name));
-    if constexpr (reading) {
-        if (!memchr(pSuper->name, '\0', sizeof(pSuper->name))) return false;
-    }
+    if (!io.text(pSuper->name)) return false;
     io.field(&pSuper->flags, 1);
     io.field(&pSuper->active, 1);
     io.field(&pSuper->kind, 1);
@@ -1335,10 +1286,7 @@ static bool TransferSuperTriggerHeader(wiz8::File* hFile, W8LevelFileSuperTrigge
     io.field(&pSuper->trigger, 4);
     io.field(&pSuper->trigger_on, 4);
     io.field(&pSuper->trigger_off, 4);
-    io.field(pSuper->recipients, sizeof(pSuper->recipients));
-    if constexpr (reading) {
-        if (!memchr(pSuper->recipients, '\0', sizeof(pSuper->recipients))) return false;
-    }
+    if (!io.text(pSuper->recipients)) return false;
     io.field(&pSuper->ataxia_or_cure, 1);
     io.field(pSuper->ps_events, sizeof(pSuper->ps_events));
     io.field(&pSuper->allow_save, 1);
@@ -1531,6 +1479,18 @@ BOOLEAN WriteSuperTriggerFile(wiz8::File* hFile, W8LevelFileTrigger* pTrigger)
     return TRUE;
 }
 
+template<bool reading>
+static void TransferDoorTrigger(wiz8::File* hFile, W8LevelFileDoor* pDoor)
+{
+    LevelRecordIO<reading> io{hFile};
+    io.field(&pDoor->version, 1);
+    io.field(pDoor->flags, sizeof(pDoor->flags));
+    io.field(&pDoor->item, 2);
+    io.field(&pDoor->has_position, 1);
+    io.field(&pDoor->position, sizeof(pDoor->position));
+    io.field(pDoor->linked_trigger, sizeof(pDoor->linked_trigger));
+}
+
 // FUNCTION: WIZ8 0x004D3540
 BOOLEAN ReadDoorTriggerFile(wiz8::File* hFile, W8LevelFileDoorRef* pDoor)
 try {
@@ -1543,20 +1503,7 @@ try {
         return 0;
     }
     pDoor->door = pDoorRec;
-    hFile->read_exact(&pDoorRec->version, 1);
-    hFile->read_exact(&pDoorRec->flags[0], 1);
-    hFile->read_exact(&pDoorRec->flags[1], 1);
-    hFile->read_exact(&pDoorRec->flags[2], 1);
-    hFile->read_exact(&pDoorRec->flags[3], 1);
-    hFile->read_exact(&pDoorRec->flags[4], 1);
-    hFile->read_exact(&pDoorRec->flags[5], 1);
-    hFile->read_exact(&pDoorRec->flags[6], 1);
-    hFile->read_exact(&pDoorRec->flags[7], 1);
-    hFile->read_exact(&pDoorRec->flags[8], 1);
-    hFile->read_exact(&pDoorRec->item, 2);
-    hFile->read_exact(&pDoorRec->has_position, 1);
-    hFile->read_exact(&pDoorRec->position, sizeof(pDoorRec->position));
-    hFile->read_exact(pDoorRec->linked_trigger, 0x80);
+    TransferDoorTrigger<true>(hFile, pDoorRec);
     pDoor->door = pDoorRec;
     static_cast<void>(owner.release());
     return TRUE;
@@ -1574,20 +1521,7 @@ BOOLEAN WriteDoorTriggerFile(wiz8::File* hFile, W8LevelFileDoorRef* pDoor)
     if (pDoorRec == 0) {
         return 0;
     }
-    hFile->write(&pDoorRec->version, 1);
-    hFile->write(&pDoorRec->flags[0], 1);
-    hFile->write(&pDoorRec->flags[1], 1);
-    hFile->write(&pDoorRec->flags[2], 1);
-    hFile->write(&pDoorRec->flags[3], 1);
-    hFile->write(&pDoorRec->flags[4], 1);
-    hFile->write(&pDoorRec->flags[5], 1);
-    hFile->write(&pDoorRec->flags[6], 1);
-    hFile->write(&pDoorRec->flags[7], 1);
-    hFile->write(&pDoorRec->flags[8], 1);
-    hFile->write(&pDoorRec->item, 2);
-    hFile->write(&pDoorRec->has_position, 1);
-    hFile->write(&pDoorRec->position, sizeof(pDoorRec->position));
-    hFile->write(pDoorRec->linked_trigger, 0x80);
+    TransferDoorTrigger<false>(hFile, pDoorRec);
 
     return TRUE;
 }
