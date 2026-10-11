@@ -110,7 +110,7 @@ bool InitializeItemManagerState()
 }
 
 // FUNCTION: WIZ8 0x004f8130
-bool ItemHasFlags(W8WorldItem* item, unsigned int mask)
+bool ItemHasFlags(const W8WorldItem* item, unsigned int mask)
 {
     if (item == 0) {
         srAssertFail("pItemInfo", ITEM_MANAGER_CPP, 998, 0);

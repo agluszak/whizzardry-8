@@ -52,7 +52,7 @@ unsigned char SettleWorldItem(W8WorldItem* item);
 W8WorldItem* SpawnItem(int item_id, const srVector3T<float>* position, int entity_flags,
                        bool add_to_world);
 
-bool ItemHasFlags(W8WorldItem* item, unsigned int mask);
+bool ItemHasFlags(const W8WorldItem* item, unsigned int mask);
 void SetItemFlags(W8WorldItem* item, unsigned int mask, bool enabled);
 void SetItemAndEntityFlags(W8WorldItem* item, unsigned int mask, bool enabled);
 int ItemInfoGetNumInGroup(W8WorldItem* item);

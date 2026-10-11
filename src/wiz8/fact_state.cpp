@@ -38,12 +38,12 @@ void PostNewGameLoad(void)
 /* Reads the fact array back, then re-applies the consequences that do not
    survive a save. */
 // FUNCTION: WIZ8 0x005064a0
-void LoadFactState(wiz8::File* save_handle)
+void LoadFactState(wiz8::File& save_handle)
 {
     W8NpcState* npc;
     unsigned char values[sizeof(g_fact_values)];
 
-    save_handle->read_exact(values, sizeof(values));
+    save_handle.read_exact(values, sizeof(values));
     memcpy(g_fact_values, values, sizeof(values));
     if (GetFact(W8_FACT_RFS81_HAS_BEEN_FIXED)) {
         npc = GetNpcStateByKind(0x20);

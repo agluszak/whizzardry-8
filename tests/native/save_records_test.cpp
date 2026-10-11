@@ -281,7 +281,7 @@ static void unicode_file_contracts()
     line.highlight_start = 3; // two UTF-16 units
     line.highlight_stop = 6; // three UTF-16 units
     file = wiz8::open_file("Saves/text.bin", wiz8::OpenMode::replace);
-    REQUIRE(SaveMessageStorage(file.get()));
+    REQUIRE(SaveMessageStorage(*file));
     file->close();
     ReleaseMessageStorage();
     g_status.buffers.save_version = 9.0f;
@@ -293,7 +293,7 @@ static void unicode_file_contracts()
     for (std::size_t i = 8 + 0x18; i < 8 + 0x1c; ++i)
         REQUIRE(header[i] == std::byte{});
     file->seek(0, wiz8::SeekOrigin::begin);
-    REQUIRE(LoadMessageStorage(file.get()));
+    REQUIRE(LoadMessageStorage(*file));
     REQUIRE(std::string(g_message_storage[0][0].text) == message);
     REQUIRE(g_message_storage[0][0].entries.empty());
     REQUIRE(g_message_storage[0][0].length == 6);
@@ -313,7 +313,7 @@ static void transcript_contracts()
     state.dialogue_category_filter = 3;
     state.transcript_sorted = true;
     auto file = wiz8::open_file("Saves/transcript.bin", wiz8::OpenMode::replace);
-    REQUIRE(SaveNpcDialogueTranscript(file.get()));
+    REQUIRE(SaveNpcDialogueTranscript(*file));
     file->close();
     file = wiz8::open_file("Saves/transcript.bin");
     std::array<std::byte, 20> bytes{};
@@ -323,7 +323,7 @@ static void transcript_contracts()
     REQUIRE((bytes[9] == std::byte{0xe9} && bytes[10] == std::byte{0}));
     REQUIRE((bytes[13] == std::byte{0x3d} && bytes[14] == std::byte{0xd8}));
     file->seek(0, wiz8::SeekOrigin::begin);
-    REQUIRE(LoadNpcDialogueTranscript(file.get()));
+    REQUIRE(LoadNpcDialogueTranscript(*file));
     REQUIRE(state.dialogue_transcript.size() == 1);
     REQUIRE(state.dialogue_transcript[0]->text == "é中😀");
     REQUIRE(state.dialogue_transcript[0]->category == 2);
@@ -1144,10 +1144,9 @@ TEST_CASE_METHOD(SaveFixture, "NPC state versions and failure recovery", "[save]
         }
         write(out, 0xdecafbadU);
         out.close();
-        W8Chunk chunk;
-        chunk.m_hFile = wiz8::open_host_file(path);
-        REQUIRE(chunk.m_hFile != 0);
-        LoadNpcStates(&chunk);
+        auto file = wiz8::open_host_file(path);
+        REQUIRE(file);
+        LoadNpcStates(*file);
         REQUIRE(static_cast<int>(g_npc_states.size()) == 3);
         for (unsigned int i = 0; i < 3; ++i)
         {
@@ -1165,28 +1164,28 @@ TEST_CASE_METHOD(SaveFixture, "NPC state versions and failure recovery", "[save]
             }
         }
         unsigned int trailer;
-        REQUIRE((chunk.Read(&trailer, sizeof(trailer), 0) && trailer == 0xdecafbadU));
-        chunk.m_hFile.reset();
-        chunk.m_hFile = 0;
+        file->read_exact(&trailer, sizeof(trailer));
+        REQUIRE(trailer == 0xdecafbadU);
+        file.reset();
         // A filesystem failure at any NPC read preserves the previous object graph.
-        chunk.m_hFile = wiz8::open_host_file(path);
+        file = wiz8::open_host_file(path);
         std::size_t operations;
-        { FileFaults trace; LoadNpcStates(&chunk); operations = trace.operations; }
+        { FileFaults trace; LoadNpcStates(*file); operations = trace.operations; }
         const auto stable_states = g_npc_states;
         auto* stable_npc = stable_states[0];
         for (std::size_t operation = 1; operation <= operations; ++operation) {
             CAPTURE(version, operation);
-            chunk.m_hFile = wiz8::open_host_file(path);
+            file = wiz8::open_host_file(path);
             bool rejected = false;
-            { FileFaults fault(operation); try { LoadNpcStates(&chunk); } catch (const std::exception&) { rejected = true; } REQUIRE(fault.fired); }
+            { FileFaults fault(operation); try { LoadNpcStates(*file); } catch (const std::exception&) { rejected = true; } REQUIRE(fault.fired); }
             REQUIRE((rejected && g_npc_states == stable_states && g_npc_states[0] == stable_npc));
             REQUIRE(stable_npc->character->name[0] == L'A');
         }
         // Round-trip the supported NPCT version through its actual writer.
-        chunk.m_hFile = wiz8::open_host_file(root / "roundtrip.npct", wiz8::OpenMode::replace);
-        REQUIRE(SaveNpcStates(&chunk)); chunk.m_hFile->close();
-        chunk.m_hFile = wiz8::open_host_file(root / "roundtrip.npct");
-        LoadNpcStates(&chunk);
+        file = wiz8::open_host_file(root / "roundtrip.npct", wiz8::OpenMode::replace);
+        REQUIRE(SaveNpcStates(*file)); file->close();
+        file = wiz8::open_host_file(root / "roundtrip.npct");
+        LoadNpcStates(*file);
         REQUIRE(g_npc_states.size() == 3);
         for (int index = 0; index < 3; ++index) {
             auto* npc = g_npc_states[index];
@@ -1194,7 +1193,7 @@ TEST_CASE_METHOD(SaveFixture, "NPC state versions and failure recovery", "[save]
             if (index < 2) REQUIRE((npc->character && npc->character->name[0] == L'A' + index));
             else REQUIRE(!npc->character);
         }
-        chunk.m_hFile.reset();
+        file.reset();
         const auto previous = g_npc_states;
         auto* previous_npc = previous[0];
         for (int malformed = 0; malformed < 4; ++malformed) {
@@ -1207,14 +1206,14 @@ TEST_CASE_METHOD(SaveFixture, "NPC state versions and failure recovery", "[save]
             if (malformed != 2) write(bad, disk);
             if (malformed == 3) write(bad, UINT32_MAX); // Missing stock entries.
             bad.close();
-            chunk.m_hFile = wiz8::open_host_file(path);
+            file = wiz8::open_host_file(path);
             bool rejected = false;
-            try { LoadNpcStates(&chunk); }
+            try { LoadNpcStates(*file); }
             catch (const std::exception&) { rejected = true; }
             REQUIRE((rejected && g_npc_states == previous));
             REQUIRE(g_npc_states[0] == previous_npc);
             REQUIRE(previous_npc->character->name[0] == L'A');
-            chunk.m_hFile.reset();
+            file.reset();
         }
         REQUIRE((!GetNpcState(-1) && !GetNpcState(3)));
         ReleaseNpcBinding(3); // one past the end is not a live binding

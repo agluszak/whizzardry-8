@@ -1377,15 +1377,14 @@ bool OctBuildPreTree::assignPointToVolumes(const glm::vec3& point, short object,
    regions lead the compact list, followed by one null-terminated list per
    region; the lookup table stores each region's offset into that list. */
 // FUNCTION: WIZ8 0x004b3820
-unsigned char OctBuildPreTree::BuildParticleRegions(const W8LevelFileParticleSystem* particles,
-                                                    int particle_count)
+unsigned char OctBuildPreTree::BuildParticleRegions(std::span<const W8LevelFileParticleSystem> particles)
 {
-    this->particle_count = particle_count;
+    particle_count = static_cast<int>(particles.size());
     particle_regions.clear();
     int particle_number = 0;
 
-    for (int particle_index = 0; particle_index < particle_count; ++particle_index) {
-        const W8LevelParticleRecord& particle = particles[particle_index].particle;
+    for (const auto& system : particles) {
+        const W8LevelParticleRecord& particle = system.particle;
         char name[64];
         strcpy(name, particle.name);
         _strupr(name);
@@ -1437,21 +1436,21 @@ unsigned char OctBuildPreTree::BuildParticleRegions(const W8LevelFileParticleSys
    table owned by this builder. The final call appends the second bank and
    returns the compact lookup/list pair before clearing temporary membership. */
 // FUNCTION: WIZ8 0x004b3f90
-unsigned char OctBuildPreTree::BuildGeometryRegions(const W8LevelFileProp* records,
-                                                    int record_count, int base_index, bool finalize)
+unsigned char OctBuildPreTree::BuildGeometryRegions(std::span<const W8LevelFileProp> records,
+                                                    int base_index, bool finalize)
 {
     if (!finalize) {
         prop_regions.clear();
     }
 
+    const int record_count = static_cast<int>(records.size());
     for (int record_index = 0; record_index < record_count; ++record_index) {
         const W8LevelFileProp& record = records[record_index];
         short value = static_cast<short>(base_index + 1 + record_index);
         bool mapped = false;
 
         srBoundingBox aggregate{glm::vec3(1000000.0f), glm::vec3(-1000000.0f)};
-        for (unsigned char index = 0; index < record.anim_obj.num_bound_box; ++index) {
-            const auto& stored = record.anim_obj.pBoundBox[index];
+        for (const auto& stored : record.anim_obj.bounds) {
             const srBoundingBox bounds{stored.minimum.glmValue() * g_world_scale,
                                        stored.maximum.glmValue() * g_world_scale};
             aggregate.include(bounds);

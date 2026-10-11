@@ -73,7 +73,7 @@ public:
     bool HasSupportedItems();
     /* Rebuilds m_pVertices/m_pGDSurfaces for the given animation frame of the
        level prop's transforms. */
-    void ApplyAnimFrame(unsigned short frame, W8LevelFileAnimObj* anim);
+    void ApplyAnimFrame(unsigned short frame, const W8LevelFileAnimObj& anim);
     /* Rebuild the cached vertex and path bounds and return the complete box. */
     srBoundingBox computeBounds();
     /* Box-vs-bound test used by the pre-tree path obstruction pass. */

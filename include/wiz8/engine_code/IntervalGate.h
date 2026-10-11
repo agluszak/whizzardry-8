@@ -28,8 +28,8 @@ public:
         }
         return IsFinished();
     }
-    bool Load(wiz8::File* handle);
-    bool Save(wiz8::File* handle);
+    bool Load(wiz8::File& handle);
+    bool Save(wiz8::File& handle);
 
 private:
     bool m_finished; /* 0x024 */

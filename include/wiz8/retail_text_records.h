@@ -580,17 +580,44 @@ template<class T> void write(File& file, const T& runtime)
     auto image = encode(runtime);
     file.write(image.data(), image.size());
 }
-template<class T> bool read(W8Chunk& chunk, T& runtime, std::size_t bytes = sizeof(typename Record<T>::Disk))
+// Chunk-bounded record transfer: a record never reads past its chunk.
+template<class T> void read_exact(W8Chunk& chunk, T& runtime,
+                                  std::size_t bytes = sizeof(typename Record<T>::Disk))
 {
-    if (bytes > sizeof(typename Record<T>::Disk)) return false;
+    if (bytes > sizeof(typename Record<T>::Disk))
+        throw std::runtime_error("Oversized retail record");
     std::array<std::byte, sizeof(typename Record<T>::Disk)> image{};
-    if (!chunk.Read(image.data(), bytes, nullptr)) return false;
+    chunk.ReadBytes(image.data(), bytes);
     decode<T>(std::span(image).first(bytes), runtime);
-    return true;
 }
-template<class T> bool write(W8Chunk& chunk, const T& runtime)
+template<class T> void write(W8Chunk& chunk, const T& runtime)
 {
     auto image = encode(runtime);
-    return chunk.Write(image.data(), image.size(), nullptr);
+    chunk.WriteBytes(image.data(), image.size());
+}
+// Size-prefixed records: a four-byte length, then that many bytes of the
+// record. Older writers may store a prefix of today's layout.
+template<class T> void write_sized(File& file, const T& runtime)
+{
+    auto image = encode(runtime);
+    const auto size = static_cast<std::uint32_t>(image.size());
+    file.write(&size, sizeof(size));
+    file.write(image.data(), image.size());
+}
+template<class T> void read_sized(File& file, T& runtime)
+{
+    std::uint32_t size;
+    file.read_exact(&size, sizeof(size));
+    read_exact(file, runtime, size);
+}
+template<class T> void write_sized(W8Chunk& chunk, const T& runtime)
+{
+    auto image = encode(runtime);
+    chunk.WriteValue(static_cast<std::uint32_t>(image.size()));
+    chunk.WriteBytes(image.data(), image.size());
+}
+template<class T> void read_sized(W8Chunk& chunk, T& runtime)
+{
+    read_exact(chunk, runtime, chunk.ReadValue<std::uint32_t>());
 }
 } // namespace wiz8::retail

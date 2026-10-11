@@ -634,7 +634,7 @@ void DestroyMonsterGenerators(void)
    random-encounter budget is always clamped to the current level after loading,
    and the culling span is finally reset from that level's database row. */
 // FUNCTION: WIZ8 0x0048c110
-unsigned char MonGen::LoadAll(wiz8::File* save_handle)
+unsigned char MonGen::LoadAll(wiz8::File& save_handle)
 try
 {
     W8LevelDatabaseRecord* level;
@@ -644,24 +644,24 @@ try
     int index;
 
     DestroyMonsterGenerators();
-    save_handle->read_exact(&version, 4);
+    save_handle.read_exact(&version, 4);
     if (version > 4) {
-        save_handle->read_exact(&gXStatus.saved_encounter_budget, 4);
+        save_handle.read_exact(&gXStatus.saved_encounter_budget, 4);
     } else {
         gXStatus.saved_encounter_budget = 100;
     }
-    save_handle->read_exact(&g_random_encounter_budget, 4);
+    save_handle.read_exact(&g_random_encounter_budget, 4);
     if (version > 1) {
-        save_handle->read_exact(&g_encounter_culling_time_seconds, 4);
+        save_handle.read_exact(&g_encounter_culling_time_seconds, 4);
     }
     if (version > 2) {
-        save_handle->read_exact(&g_generator_save_flag, 1);
-        save_handle->read_exact(&g_generator_interval_min, 2);
-        save_handle->read_exact(&g_generator_default_interval, 2);
-        save_handle->read_exact(&g_generator_interval_max, 2);
+        save_handle.read_exact(&g_generator_save_flag, 1);
+        save_handle.read_exact(&g_generator_interval_min, 2);
+        save_handle.read_exact(&g_generator_default_interval, 2);
+        save_handle.read_exact(&g_generator_interval_max, 2);
     }
 
-    success = (save_handle->read(&count, 4).bytes == static_cast<std::size_t>(4));
+    success = (save_handle.read(&count, 4).bytes == static_cast<std::size_t>(4));
     for (index = 0; index < count && success != 0; ++index) {
         MonGen* generator = new MonGen;
         if (generator == 0) {
@@ -683,7 +683,7 @@ try
    world. A record whose name no longer exists is still consumed completely: a
    temporary interval gate reads and discards the saved timer payload. */
 // FUNCTION: WIZ8 0x0048c470
-void LoadMonsterGenerators(wiz8::File* handle)
+void LoadMonsterGenerators(wiz8::File& handle)
 {
     char name[32];
     MonGen* generator;
@@ -694,13 +694,13 @@ void LoadMonsterGenerators(wiz8::File* handle)
     int index;
     int search;
 
-    handle->read_exact(&version, 4);
-    handle->read_exact(&g_generator_save_flag, 1);
-    handle->read_exact(&count, 4);
+    handle.read_exact(&version, 4);
+    handle.read_exact(&g_generator_save_flag, 1);
+    handle.read_exact(&count, 4);
     for (index = 0; index < count; ++index) {
-        handle->read_exact(name, sizeof(name));
-        handle->read_exact(&generation_enabled, 1);
-        handle->read_exact(&flags, 4);
+        handle.read_exact(name, sizeof(name));
+        handle.read_exact(&generation_enabled, 1);
+        handle.read_exact(&flags, 4);
 
         generator = 0;
         for (search = 0; search < static_cast<int>(g_world->monster_generators.size()); ++search) {
@@ -720,10 +720,10 @@ void LoadMonsterGenerators(wiz8::File* handle)
                 generator->m_pTimer->Load(handle);
                 generator->m_pTimer->Arm();
             } else {
-                W8IntervalGate* timer = new W8IntervalGate;
-                timer->m_flags.one_shot = false;
-                timer->Load(handle);
-                delete timer;
+                // A saved timer without a generator is read and discarded.
+                W8IntervalGate timer;
+                timer.m_flags.one_shot = false;
+                timer.Load(handle);
             }
         }
     }
@@ -794,7 +794,7 @@ void UnloadEncounterTables(void)
    then a shared flag byte, then the count, and then each generator as its name,
    its trailing flag, its own flag word and whatever 0x0043A770 appends. */
 // FUNCTION: WIZ8 0x0048c3b0
-void SaveMonsterGenerators(wiz8::File* handle)
+void SaveMonsterGenerators(wiz8::File& handle)
 {
     MonGen* generator;
     int count;
@@ -803,14 +803,14 @@ void SaveMonsterGenerators(wiz8::File* handle)
 
     version = 3;
     count = static_cast<int>(g_world->monster_generators.size());
-    handle->write(&version, 4);
-    handle->write(&g_generator_save_flag, 1);
-    handle->write(&count, 4);
+    handle.write(&version, 4);
+    handle.write(&g_generator_save_flag, 1);
+    handle.write(&count, 4);
     for (index = 0; index < count; ++index) {
         generator = g_world->monster_generators[index];
-        handle->write(generator->name, 0x20);
-        handle->write(&generator->generation_enabled, 1);
-        handle->write(&generator->flags, 4);
+        handle.write(generator->name, 0x20);
+        handle.write(&generator->generation_enabled, 1);
+        handle.write(&generator->flags, 4);
         generator->m_pTimer->Save(handle);
     }
 }
@@ -820,21 +820,21 @@ void SaveMonsterGenerators(wiz8::File* handle)
    +0x18. The leading byte is written uninitialised - a one-byte local the
    original never assigns. Preserved as found. */
 // FUNCTION: WIZ8 0x0048b520
-void MonGen::Save(wiz8::File* handle)
+void MonGen::Save(wiz8::File& handle)
 {
     unsigned char version = 3;
 
-    handle->write(&version, 1);
-    handle->write(name, 0x20);
-    handle->write(&generation_enabled, 1);
-    handle->write(&flags, 4);
-    handle->write(&custom_spawn_chance, 1);
-    handle->write(&custom_interval_seconds, 2);
-    handle->write(&unknown_08, 2);
-    handle->write(&spawn_position.x, 4);
-    handle->write(&spawn_position.y, 4);
-    handle->write(&spawn_position.z, 4);
-    handle->write(&encounter_table_index, 4);
+    handle.write(&version, 1);
+    handle.write(name, 0x20);
+    handle.write(&generation_enabled, 1);
+    handle.write(&flags, 4);
+    handle.write(&custom_spawn_chance, 1);
+    handle.write(&custom_interval_seconds, 2);
+    handle.write(&unknown_08, 2);
+    handle.write(&spawn_position.x, 4);
+    handle.write(&spawn_position.y, 4);
+    handle.write(&spawn_position.z, 4);
+    handle.write(&encounter_table_index, 4);
     m_pTimer->Save(handle);
 }
 
@@ -845,23 +845,23 @@ void MonGen::Save(wiz8::File* handle)
    record is reported bad; the timer is rearmed either way, and the armed bit is
    always cleared on the way out so a loaded generator starts disarmed. */
 // FUNCTION: WIZ8 0x0048b5e0
-unsigned char MonGen::Load(wiz8::File* handle)
+unsigned char MonGen::Load(wiz8::File& handle)
 try
 {
     unsigned char version;
     unsigned char ok;
     bool loaded;
 
-    ok = (handle->read(&version, 1).bytes == static_cast<std::size_t>(1));
+    ok = (handle.read(&version, 1).bytes == static_cast<std::size_t>(1));
     if (static_cast<signed char>(version) >= 3) {
-        ok = ok && (handle->read(name, 0x20).bytes == static_cast<std::size_t>(0x20));
-        ok = ok && (handle->read(&generation_enabled, 1).bytes == static_cast<std::size_t>(1));
+        ok = ok && (handle.read(name, 0x20).bytes == static_cast<std::size_t>(0x20));
+        ok = ok && (handle.read(&generation_enabled, 1).bytes == static_cast<std::size_t>(1));
     }
     loaded =
-        ok && (handle->read(&flags, 4).bytes == static_cast<std::size_t>(4)) && (handle->read(&custom_spawn_chance, 1).bytes == static_cast<std::size_t>(1)) &&
-        (handle->read(&custom_interval_seconds, 2).bytes == static_cast<std::size_t>(2)) && (handle->read(&unknown_08, 2).bytes == static_cast<std::size_t>(2)) &&
-        (handle->read(&spawn_position.x, 4).bytes == static_cast<std::size_t>(4)) && (handle->read(&spawn_position.y, 4).bytes == static_cast<std::size_t>(4)) &&
-        (handle->read(&spawn_position.z, 4).bytes == static_cast<std::size_t>(4)) && (handle->read(&encounter_table_index, 4).bytes == static_cast<std::size_t>(4));
+        ok && (handle.read(&flags, 4).bytes == static_cast<std::size_t>(4)) && (handle.read(&custom_spawn_chance, 1).bytes == static_cast<std::size_t>(1)) &&
+        (handle.read(&custom_interval_seconds, 2).bytes == static_cast<std::size_t>(2)) && (handle.read(&unknown_08, 2).bytes == static_cast<std::size_t>(2)) &&
+        (handle.read(&spawn_position.x, 4).bytes == static_cast<std::size_t>(4)) && (handle.read(&spawn_position.y, 4).bytes == static_cast<std::size_t>(4)) &&
+        (handle.read(&spawn_position.z, 4).bytes == static_cast<std::size_t>(4)) && (handle.read(&encounter_table_index, 4).bytes == static_cast<std::size_t>(4));
     Reset();
     if (static_cast<signed char>(version) > 1) {
         m_pTimer->Load(handle);
@@ -962,7 +962,7 @@ void MonGen::SetActive(unsigned char active, W8Item* node)
    budget and culling span, the shared flag byte, three shared interval words,
    and then the count followed by that many generator records. */
 // FUNCTION: WIZ8 0x0048c020
-void SaveEncounterState(wiz8::File* handle)
+void SaveEncounterState(wiz8::File& handle)
 {
     int count;
     int version;
@@ -970,17 +970,17 @@ void SaveEncounterState(wiz8::File* handle)
 
     count = static_cast<int>(g_world->monster_generators.size());
     version = 5;
-    handle->write(&version, 4);
-    handle->write(&gXStatus.saved_encounter_budget, 4);
-    handle->write(&g_random_encounter_budget, 4);
-    handle->write(&g_encounter_culling_time_seconds, 4);
-    handle->write(&g_generator_save_flag, 1);
-    handle->write(&g_generator_interval_min, 2);
-    handle->write(&g_generator_default_interval, 2);
-    handle->write(&g_generator_interval_max, 2);
-    handle->write(&count, 4);
+    handle.write(&version, 4);
+    handle.write(&gXStatus.saved_encounter_budget, 4);
+    handle.write(&g_random_encounter_budget, 4);
+    handle.write(&g_encounter_culling_time_seconds, 4);
+    handle.write(&g_generator_save_flag, 1);
+    handle.write(&g_generator_interval_min, 2);
+    handle.write(&g_generator_default_interval, 2);
+    handle.write(&g_generator_interval_max, 2);
+    handle.write(&count, 4);
     for (index = 0; index < count; ++index) {
-        (g_world->monster_generators[index])->Save(handle);
+        g_world->monster_generators[index]->Save(handle);
     }
 }
 

@@ -18,6 +18,10 @@ W8GameSettings g_settings;
 static char g_config_file_name[8] = "Wiz8";
 // GLOBAL: WIZ8 0x0061e18c
 static char g_config_file_extension[] = "CFG";
+constexpr unsigned int W8_CHUNK_SETTINGS = W8ChunkId("CNFG");
+constexpr unsigned int W8_CHUNK_RENDER_OPTIONS = W8ChunkId("QLTY");
+constexpr unsigned int W8_CHUNK_KEY_BINDINGS = W8ChunkId("KEYM");
+
 // FUNCTION: WIZ8 0x0054b810
 void LoadGameConfiguration(void)
 {
@@ -29,23 +33,18 @@ void LoadGameConfiguration(void)
     path = fmt::format("{}.{}", g_config_file_name, g_config_file_extension);
     ResetMGSKeyboardBindings();
     if (file.OpenRead(path)) {
-        int count = file.ChunkCount();
-        for (int index = 0; index < count; ++index) {
-            file.OpenChunk(0, 0);
-            unsigned int id = file.CurrentChunkId();
-            if (id == 0x47464e43) {
+        file.ForEachChunk([&](unsigned int id) {
+            if (id == W8_CHUNK_SETTINGS) {
                 if (file.CurrentChunkExtent() == sizeof(g_settings)) {
-                    file.Read(&g_settings, sizeof(g_settings), 0);
+                    file.ReadValue(g_settings);
                     loaded = true;
                 }
-            } else if (id == 0x4d59454b) {
-                g_mgs_keyboard->Load(file.m_hFile.get(), false);
-            } else if (id == 0x59544c51) {
-                LoadRenderOptions(file.m_hFile.get());
+            } else if (id == W8_CHUNK_KEY_BINDINGS) {
+                g_mgs_keyboard->Load(file.Stream(), false);
+            } else if (id == W8_CHUNK_RENDER_OPTIONS) {
+                LoadRenderOptions(file.Stream());
             }
-            file.SkipCurrentChunk();
-            file.ReleaseCurrentChunk();
-        }
+        });
         file.Close();
     }
     if (loaded) {
@@ -82,15 +81,9 @@ try
     if (!file.OpenWrite(path)) {
         return false;
     }
-    file.OpenChunk(0x47464e43, 0);
-    file.Write(&g_settings, sizeof(g_settings), 0);
-    file.ReleaseCurrentChunk();
-    file.OpenChunk(0x59544c51, 0);
-    SaveRenderOptions(file.m_hFile.get());
-    file.ReleaseCurrentChunk();
-    file.OpenChunk(0x4d59454b, 0);
-    g_mgs_keyboard->Save(file.m_hFile.get());
-    file.ReleaseCurrentChunk();
+    file.WriteChunk(W8_CHUNK_SETTINGS, [&] { file.WriteValue(g_settings); });
+    file.WriteChunk(W8_CHUNK_RENDER_OPTIONS, [&] { SaveRenderOptions(file.Stream()); });
+    file.WriteChunk(W8_CHUNK_KEY_BINDINGS, [&] { g_mgs_keyboard->Save(file.Stream()); });
     file.Close();
     return true;
 }

@@ -136,5 +136,5 @@ private:
     void AllocateParticles(unsigned int count);
 };
 
-void SaveParticleStates(wiz8::File* handle);
-void LoadParticleStates(wiz8::File* handle);
+void SaveParticleStates(wiz8::File& handle);
+void LoadParticleStates(wiz8::File& handle);

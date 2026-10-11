@@ -369,7 +369,7 @@ int GetTextBoxScrollRange(void)
    wide string. The record's first word is the string count including its
    terminator; its +0x18 pointer word is unused. */
 // FUNCTION: WIZ8 0x0058FB50
-unsigned char SaveMessageStorage(wiz8::File* file)
+unsigned char SaveMessageStorage(wiz8::File& file)
 {
     W8MessageStorageDiskRecord disk_record;
     W8MessageStorageRecord* live_record;
@@ -377,9 +377,9 @@ unsigned char SaveMessageStorage(wiz8::File* file)
     unsigned int region;
     unsigned int index;
 
-    file->write(&format, 4);
+    file.write(&format, 4);
     for (region = 0; region < 4; ++region) {
-        file->write(&g_status.text_box_lines_used[region], 4);
+        file.write(&g_status.text_box_lines_used[region], 4);
         for (index = 0; index < g_status.text_box_lines_used[region]; ++index) {
             live_record = &g_message_storage[region][index];
             disk_record.character_count =
@@ -402,11 +402,11 @@ unsigned char SaveMessageStorage(wiz8::File* file)
             disk_record.serialized_entries_18_bits = 0;
             memcpy(disk_record.trailing_bytes, live_record->unknown_1c,
                    sizeof(disk_record.trailing_bytes));
-            file->write(&disk_record, sizeof(disk_record));
+            file.write(&disk_record, sizeof(disk_record));
             if (disk_record.character_count) {
                 std::vector<std::byte> bytes(static_cast<std::size_t>(disk_record.character_count) * 2);
                 wiz8::text::to_utf16le(live_record->text, bytes);
-                file->write(bytes.data(), bytes.size());
+                file.write(bytes.data(), bytes.size());
             }
         }
     }
@@ -420,7 +420,7 @@ unsigned char SaveMessageStorage(wiz8::File* file)
    link-height constant never wrote a fourth region, so its count is forced to
    zero without consuming a count slot. */
 // FUNCTION: WIZ8 0x0058FC30
-unsigned char LoadMessageStorage(wiz8::File* file)
+unsigned char LoadMessageStorage(wiz8::File& file)
 try
 {
     W8MessageStorageDiskRecord disk_record;
@@ -430,16 +430,16 @@ try
     unsigned int index;
 
     ReleaseMessageStorage();
-    file->read_exact(&format, 4);
+    file.read_exact(&format, 4);
     for (region = 0; region < 4; ++region) {
         if (g_status.buffers.save_version < g_prepath_link_height && region == 3) {
             g_status.text_box_lines_used[3] = 0;
         } else {
-            file->read_exact(&g_status.text_box_lines_used[region], 4);
+            file.read_exact(&g_status.text_box_lines_used[region], 4);
         }
         if (g_status.text_box_lines_used[region] > 0x15e) return 0;
         for (index = 0; index < g_status.text_box_lines_used[region]; ++index) {
-            file->read_exact(&disk_record, sizeof(disk_record));
+            file.read_exact(&disk_record, sizeof(disk_record));
             live_record = &g_message_storage[region][index];
             live_record->font_palette = disk_record.font_palette;
             live_record->highlight_color = disk_record.highlight_color;
@@ -453,7 +453,7 @@ try
                    sizeof(live_record->unknown_1c));
             if (disk_record.character_count > 100000) return 0;
             std::vector<std::byte> bytes(static_cast<std::size_t>(disk_record.character_count) * 2);
-            file->read_exact(bytes.data(), bytes.size());
+            file.read_exact(bytes.data(), bytes.size());
             auto decoded = wiz8::text::from_utf16le(bytes);
             auto byte_offset = [&](std::size_t units) {
                 std::size_t offset = 0, count = 0;

@@ -87,10 +87,9 @@ struct OctBuildPreTree : W8OctBuildTree {
     OctPreTree* BuildOctPreTree();
     unsigned short BuildRegions();
     bool assignPointToVolumes(const glm::vec3& point, short object, OctRegionObjectLinks& links);
-    unsigned char BuildParticleRegions(const W8LevelFileParticleSystem* particles,
-                                       int particle_count);
-    unsigned char BuildGeometryRegions(const W8LevelFileProp* records, int record_count,
-                                       int base_index, bool finalize);
+    unsigned char BuildParticleRegions(std::span<const W8LevelFileParticleSystem> particles);
+    unsigned char BuildGeometryRegions(std::span<const W8LevelFileProp> records, int base_index,
+                                       bool finalize);
 
     void AssignInitialRegions(const W8OctSpatialState* spatial);
     using RegionGeometry = std::variant<glm::vec3, srBoundingBox>;

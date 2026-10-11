@@ -50,8 +50,8 @@ void RefreshDirtyAutomap(void);
 bool AutomapHasCellAt(const srVector3T<float>* position);
 
 void ResetAutomapView(void);
-bool SaveAutomapNotes(wiz8::File* handle);
-bool LoadAutomapNotes(wiz8::File* handle);
+bool SaveAutomapNotes(wiz8::File& handle);
+bool LoadAutomapNotes(wiz8::File& handle);
 unsigned char GetAutomapPositionUnderCursor(srVector3T<float>* position);
 void SetAutomapToolCursor(int tool);
 W8AutomapNote* FindAutomapNoteUnderCursor(void);

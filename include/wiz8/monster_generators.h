@@ -41,10 +41,10 @@ void RemoveMonsterGenerator(MonGen* generator);        /* 0x0048BEB0 */
 W8EncounterTableRuntime* GetEncounterTable(int index); /* 0x0048AD00 */
 int FindEncounterTableByName(const char* name);        /* 0x0048CCA0 */
 
-void SaveEncounterState(wiz8::File* handle);
-void SaveMonsterGenerators(wiz8::File* handle);
+void SaveEncounterState(wiz8::File& handle);
+void SaveMonsterGenerators(wiz8::File& handle);
 void DestroyMonsterGenerators(void);
-void LoadMonsterGenerators(wiz8::File* handle); /* 0x0048C470 */
+void LoadMonsterGenerators(wiz8::File& handle); /* 0x0048C470 */
 void RunMonsterGenerators(void);
 void DespawnAllActiveMonsterGroups(void);
 void ResetMonsterGeneratorTimers(void);

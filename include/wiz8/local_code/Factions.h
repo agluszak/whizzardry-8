@@ -89,6 +89,6 @@ void RecordFactionOffense(signed char faction, unsigned int victim_location_inde
    when the band moved, and post the worsened/improved notice. */
 void AdjustFactionDisposition(signed char faction, char delta);
 /* FATA section save and load. */
-void SaveFactionState(wiz8::File* file);
-void LoadFactionState(wiz8::File* file);
+void SaveFactionState(wiz8::File& file);
+void LoadFactionState(wiz8::File& file);
 #endif

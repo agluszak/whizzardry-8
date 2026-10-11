@@ -2083,8 +2083,8 @@ TEST_CASE("Conditional path prop links share matching while retaining blocker fl
     OctPreTree tree;
     std::array<GDPreProp, 2> meshes;
     W8LevelFileAnimObj empty{};
-    meshes[0].ApplyAnimFrame(7, &empty);
-    meshes[1].ApplyAnimFrame(8, &empty);
+    meshes[0].ApplyAnimFrame(7, empty);
+    meshes[1].ApplyAnimFrame(8, empty);
     std::array<W8PreProp, 2> props{};
     props[1].first_prop_number = 20;
     props[1].num_stop_meshes = meshes.size();
@@ -2424,29 +2424,28 @@ TEST_CASE("Surface compilation keeps stable walkable runs and drops welded degen
 
 TEST_CASE("Animated prop affine geometry uses scaled paths and rotated native bounds", "[geometry]")
 {
-    std::array<srVector3, 3> positions{{{0, 0, 0}, {0, 0, 2}, {2, 0, 0}}};
     W8SerializedMeshFace face{};
     for (int corner = 0; corner < 3; ++corner) face.vertices[corner] = corner;
     W8LevelFileFrame frame{};
     frame.mesh.num_vertices = 3;
     frame.mesh.num_faces = 1;
-    frame.mesh.pstVertices = positions.data();
-    frame.mesh.pstFaces = &face;
+    frame.mesh.vertices = {{0, 0, 0}, {0, 0, 2}, {2, 0, 0}};
+    frame.mesh.faces = {face};
     W8LevelFileScaledPathNode node{};
     node.path.position.Set(1, -2, 3);
     node.path.axis.Set(0, 2, 0);
     node.path.angle = 1.5707963267948966f;
     node.scale.Set(2, 3, 4);
     W8LevelFileTransform transform{};
-    transform.LODMesh.pFrames = &frame;
+    transform.num_frames = 1;
+    transform.frames.push_back(std::move(frame));
     transform.pathAI.scaled = 2;
-    transform.pathAI.path_count = 1;
-    transform.pathAI.pScaledPaths = &node;
+    transform.pathAI.scaled_paths = {node};
     W8LevelFileAnimObj animation{};
-    animation.num_transforms = 1;
-    animation.pTransforms = &transform;
+    animation.path_lists = 1;
+    animation.transforms.push_back(std::move(transform));
     GDProp prop;
-    prop.ApplyAnimFrame(0, &animation);
+    prop.ApplyAnimFrame(0, animation);
     const auto bounds = prop.computeBounds();
     REQUIRE(glm::length(bounds.minimum - glm::vec3(500, -1000, -500)) < 0.01f);
     REQUIRE(glm::length(bounds.maximum - glm::vec3(4500, -1000, 1500)) < 0.01f);

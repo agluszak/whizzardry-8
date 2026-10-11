@@ -141,9 +141,9 @@ int FindStoppedTextLine(void);
 void SetTextBoxRegionBounds(int left, int top, int right, int bottom);
 void ResetMessageStorage(void);
 /* Write the four message runs into the open TEXT chunk. */
-unsigned char SaveMessageStorage(wiz8::File* file);
+unsigned char SaveMessageStorage(wiz8::File& file);
 /* Rebuild the four message runs from the open TEXT chunk. */
-unsigned char LoadMessageStorage(wiz8::File* file);
+unsigned char LoadMessageStorage(wiz8::File& file);
 /* Defaults select the live mode's text box and its available line width. */
 const short W8_NOTICE_TEXT_BOX_AUTOMATIC = -1;
 const unsigned int W8_NOTICE_WRAP_AUTOMATIC = ~0U;

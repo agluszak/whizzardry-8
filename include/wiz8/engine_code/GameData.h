@@ -308,7 +308,7 @@ struct W8GameData {
     int FindPointerByName(const char* name); /* 0x004482A0 */
     /* Registers one invisible-plane record; the OctBuild driver feeds it the
        level file's plane table. */
-    void AddLevelPlane(W8LevelFilePlane* plane); /* 0x004485F0 */
+    void AddLevelPlane(const W8LevelFilePlane& plane); /* 0x004485F0 */
     /* Copies the linked record's 0x1b0-byte payload into a scratch entry and
        forwards to the 0x00448C60 helper. Retail call sites pass record + 1
        (the payload), the +0x1b3 float, the +0x1b7 scalar and a pointer to the

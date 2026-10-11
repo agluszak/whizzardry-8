@@ -160,7 +160,7 @@ void MGSKeyboard::Clear()
 }
 
 // FUNCTION: WIZ8 0x0055d590
-unsigned char MGSKeyboard::Load(wiz8::File* handle, bool clear)
+unsigned char MGSKeyboard::Load(wiz8::File& handle, bool clear)
 try
 {
     int count;
@@ -168,10 +168,10 @@ try
     if (clear) {
         Clear();
     }
-    handle->read_exact(&count, sizeof(count));
+    handle.read_exact(&count, sizeof(count));
     for (int index = 0; index < count; ++index) {
         auto binding = std::make_unique<MGSKeyBinding>();
-        handle->read_exact(binding.get(), sizeof(*binding));
+        handle.read_exact(binding.get(), sizeof(*binding));
 
         int old_index = FindBinding(binding->command);
         if (old_index != -1) {
@@ -188,12 +188,12 @@ try
 catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x0055d7a0
-unsigned char MGSKeyboard::Save(wiz8::File* handle) const
+unsigned char MGSKeyboard::Save(wiz8::File& handle) const
 {
     int count = static_cast<int>(m_bindings.size());
-    handle->write(&count, sizeof(count));
+    handle.write(&count, sizeof(count));
     for (int index = 0; index < count; ++index) {
-        handle->write(m_bindings[index].get(), sizeof(MGSKeyBinding));
+        handle.write(m_bindings[index].get(), sizeof(MGSKeyBinding));
     }
     return 1;
 }

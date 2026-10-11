@@ -3711,16 +3711,16 @@ void ClearNpcDialogueTranscript(void)
 }
 
 // FUNCTION: WIZ8 0x005750D0
-unsigned char LoadNpcDialogueTranscript(wiz8::File* file)
+unsigned char LoadNpcDialogueTranscript(wiz8::File& file)
 try
 {
-    auto read = [&](auto& value) { return file->read(&value, sizeof(value)).bytes == sizeof(value); };
+    auto read = [&](auto& value) { return file.read(&value, sizeof(value)).bytes == sizeof(value); };
     unsigned char version;
     int record_count;
-    file->read_exact(&version, sizeof(version));
-    file->read_exact(&record_count, sizeof(record_count));
+    file.read_exact(&version, sizeof(version));
+    file.read_exact(&record_count, sizeof(record_count));
     if (version < 1 || version > 2 || record_count < 0 ||
-        record_count > (file->size() - file->tell() - (version > 1 ? 2 : 0)) / 7) {
+        record_count > (file.size() - file.tell() - (version > 1 ? 2 : 0)) / 7) {
         return 0;
     }
     using RecordOwner = std::unique_ptr<W8DialogueTranscriptRecord>;
@@ -3728,22 +3728,22 @@ try
     pending.reserve(record_count);
     for (int index = 0; index < record_count; ++index) {
         int text_length;
-        file->read_exact(&text_length, sizeof(text_length));
+        file.read_exact(&text_length, sizeof(text_length));
         if (text_length < 0 || text_length >= 100) return 0;
         auto record = std::make_unique<W8DialogueTranscriptRecord>();
         std::vector<std::byte> bytes((std::size_t(text_length) + 1) * 2);
-        file->read_exact(bytes.data(), bytes.size());
+        file.read_exact(bytes.data(), bytes.size());
         record->text = wiz8::text::from_utf16le(bytes);
         if (bytes[bytes.size()-1] != std::byte{} || bytes[bytes.size()-2] != std::byte{} ||
             wiz8::text::to_utf16(record->text).size() != std::size_t(text_length)) return false;
-        file->read_exact(&record->category, sizeof(record->category));
+        file.read_exact(&record->category, sizeof(record->category));
         pending.push_back(std::move(record));
     }
     signed char category_filter = g_npc_interaction_state->dialogue_category_filter;
     unsigned char sorted = g_npc_interaction_state->transcript_sorted;
     if (version > 1) {
-        file->read_exact(&category_filter, sizeof(category_filter));
-        file->read_exact(&sorted, sizeof(sorted));
+        file.read_exact(&category_filter, sizeof(category_filter));
+        file.read_exact(&sorted, sizeof(sorted));
         if (category_filter < W8_DIALOGUE_CATEGORY_ALL || category_filter > W8_DIALOGUE_CATEGORY_MISC ||
             sorted > 1) return 0;
     }
@@ -3761,26 +3761,26 @@ try
 catch (const std::exception&) { return false; }
 
 // FUNCTION: WIZ8 0x00575290
-unsigned char SaveNpcDialogueTranscript(wiz8::File* file)
+unsigned char SaveNpcDialogueTranscript(wiz8::File& file)
 try
 {
     const unsigned char version = 2;
     const int record_count = static_cast<int>(g_npc_interaction_state->dialogue_transcript.size());
-    file->write(&version, sizeof(version));
-    file->write(&record_count, sizeof(record_count));
+    file.write(&version, sizeof(version));
+    file.write(&record_count, sizeof(record_count));
     for (int index = 0; index < record_count; ++index) {
         W8DialogueTranscriptRecord* record = g_npc_interaction_state->dialogue_transcript[index];
         const int text_length = wiz8::text::to_utf16(record->text).size();
         if (text_length >= 100) return false;
         std::vector<std::byte> bytes((std::size_t(text_length) + 1) * 2);
         wiz8::text::to_utf16le(record->text, bytes);
-        file->write(&text_length, sizeof(text_length));
-        file->write(bytes.data(), bytes.size());
-        file->write(&record->category, sizeof(record->category));
+        file.write(&text_length, sizeof(text_length));
+        file.write(bytes.data(), bytes.size());
+        file.write(&record->category, sizeof(record->category));
     }
-    file->write(&g_npc_interaction_state->dialogue_category_filter, 1);
+    file.write(&g_npc_interaction_state->dialogue_category_filter, 1);
     const unsigned char sorted = g_npc_interaction_state->transcript_sorted;
-    file->write(&sorted, sizeof(sorted));
+    file.write(&sorted, sizeof(sorted));
     return 1;
 }
 catch (const std::exception&) { return false; }

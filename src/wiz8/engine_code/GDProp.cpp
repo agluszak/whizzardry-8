@@ -393,28 +393,21 @@ GDPreProp::GDPreProp()
    conditional frame number; the counts accumulated for allocation are then
    reset so each transform's fill re-counts the appended geometry. */
 // FUNCTION: WIZ8 0x004b7c00
-void GDProp::ApplyAnimFrame(unsigned short frame, W8LevelFileAnimObj* anim)
+void GDProp::ApplyAnimFrame(unsigned short frame, const W8LevelFileAnimObj& anim)
 {
-    signed char index;
-
-    for (index = 0; index < anim->num_transforms; ++index) {
-        W8LevelFileTransform* transform = &anim->pTransforms[index];
-        if (frame >= transform->pathAI.path_count) {
-            frame = transform->pathAI.path_count - 1;
-        }
-    }
+    frame = anim.ClampFrame(frame);
     m_prop_number = frame;
 
-    for (index = 0; index < anim->num_transforms; ++index) {
-        W8LevelFileMesh* mesh = &anim->pTransforms[index].LODMesh.pFrames->mesh;
-        if ((mesh->flags & W8_LEVEL_MESH_LOD_VERTICES) != 0) {
+    for (const auto& transform : anim.transforms) {
+        const auto& mesh = transform.frames.front().mesh;
+        if (mesh.HasLods()) {
             srAssertFail("FALSE", "C:\\Projects\\Wizardry 8\\Engine Code\\GDProp.cpp", 0x355,
                          "Transform prop made collideable!!!");
-            m_surface_count += mesh->num_lods * mesh->num_faces;
-            m_vertex_count += mesh->num_lods * mesh->num_vertices;
+            m_surface_count += mesh.LodCount() * mesh.num_faces;
+            m_vertex_count += mesh.LodCount() * mesh.num_vertices;
         } else {
-            m_surface_count += mesh->num_faces;
-            m_vertex_count += mesh->num_vertices;
+            m_surface_count += mesh.num_faces;
+            m_vertex_count += mesh.num_vertices;
         }
     }
 
@@ -428,27 +421,17 @@ void GDProp::ApplyAnimFrame(unsigned short frame, W8LevelFileAnimObj* anim)
     m_vertex_count = 0;
     m_surface_count = 0;
 
-    for (index = 0; index < anim->num_transforms; ++index) {
-        W8LevelFileTransform* transform = &anim->pTransforms[index];
-        W8LevelFileScaledPathNode node;
-        if (transform->pathAI.scaled == 2) {
-            node = transform->pathAI.pScaledPaths[frame];
-        } else {
-            node.path = transform->pathAI.pPaths[frame];
-            node.scale.x = node.scale.y = node.scale.z = 1.0f;
-        }
-        appendMeshGeometry(node, transform->LODMesh.pFrames->mesh);
-    }
+    for (const auto& transform : anim.transforms)
+        appendMeshGeometry(transform.pathAI.Node(frame), transform.frames.front().mesh);
 }
 
-/* Retail selects the face representation with the short-LOD bit. */
 void GDProp::AppendMeshFaces(const W8LevelFileMesh& mesh, int vertex_base)
 {
     for (int face = 0; face < mesh.num_faces; ++face) {
         auto& surface = m_pGDSurfaces[m_surface_count++];
         for (unsigned corner = 0; corner < 3; ++corner)
-            surface.vertex_indices[corner] = vertex_base + ((mesh.flags & W8_LEVEL_MESH_SHORT_LOD_VERTICES)
-                ? mesh.pstCompFaces[face].vertex_indices[corner] : mesh.pstFaces[face].vertices[corner]);
+            surface.vertex_indices[corner] = vertex_base + (mesh.HasCompressedFaces()
+                ? mesh.compressed_faces[face].vertex_indices[corner] : mesh.faces[face].vertices[corner]);
     }
 }
 
@@ -484,16 +467,16 @@ void GDProp::appendMeshGeometry(const W8LevelFileScaledPathNode& node, const W8L
 
     const bool has_lods = (mesh.flags & W8_LEVEL_MESH_LOD_VERTICES) != 0;
     const bool compressed = has_lods && (mesh.flags & W8_LEVEL_MESH_SHORT_LOD_VERTICES) != 0;
-    const int frame_count = has_lods ? mesh.num_lods : 1;
+    const int frame_count = has_lods ? mesh.LodCount() : 1;
     for (int frame = 0; frame < frame_count; ++frame) {
         const int vertex_base = m_vertex_count;
         surfaceGeometry::transformPositions({m_pVertices + vertex_base, static_cast<std::size_t>(mesh.num_vertices)},
             matrix, [&](std::size_t vertex) {
                 if (compressed) {
-                    const auto* packed = mesh.lod_shorts[frame] + vertex * 3;
+                    const auto* packed = &mesh.lod_shorts[frame][vertex * 3];
                     return glm::vec3(packed[0], packed[1], packed[2]);
                 }
-                const auto* vertices = has_lods ? mesh.lods[frame] : mesh.pstVertices;
+                const auto& vertices = has_lods ? mesh.lods[frame] : mesh.vertices;
                 return vertices[vertex].glmValue();
             });
         m_vertex_count += mesh.num_vertices;

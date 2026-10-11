@@ -1156,7 +1156,7 @@ void W8Prop::DetachAnimationInstances(W8World* world)
    The read chain's success is reported even though the restore runs either
    way. */
 // FUNCTION: WIZ8 0x0044dbd0
-bool W8Prop::LoadAnimationState(wiz8::File* hFile)
+bool W8Prop::LoadAnimationState(wiz8::File& hFile)
 try
 {
     unsigned char unused;
@@ -1166,12 +1166,12 @@ try
     bool success;
     W8PathAI* path;
 
-    success = (hFile->read(&Rep()->subcycle, 1).bytes == static_cast<std::size_t>(1)) != 0 &&
-              (hFile->read(&Rep()->first_frame, 1).bytes == static_cast<std::size_t>(1)) != 0 &&
-              (hFile->read(&Rep()->last_frame, 1).bytes == static_cast<std::size_t>(1)) != 0 &&
-              (hFile->read(&Rep()->frame_direction, 1).bytes == static_cast<std::size_t>(1)) != 0 &&
-              (hFile->read(&Rep()->animation_playing, 1).bytes == static_cast<std::size_t>(1)) != 0 &&
-              (hFile->read(&unused, 1).bytes == static_cast<std::size_t>(1)) != 0;
+    success = (hFile.read(&Rep()->subcycle, 1).bytes == static_cast<std::size_t>(1)) != 0 &&
+              (hFile.read(&Rep()->first_frame, 1).bytes == static_cast<std::size_t>(1)) != 0 &&
+              (hFile.read(&Rep()->last_frame, 1).bytes == static_cast<std::size_t>(1)) != 0 &&
+              (hFile.read(&Rep()->frame_direction, 1).bytes == static_cast<std::size_t>(1)) != 0 &&
+              (hFile.read(&Rep()->animation_playing, 1).bytes == static_cast<std::size_t>(1)) != 0 &&
+              (hFile.read(&unused, 1).bytes == static_cast<std::size_t>(1)) != 0;
     if (Rep()->animation != 0) {
         total = static_cast<int>(AnimObjValue(Rep()->animation, 2));
         if (Rep()->last_frame >= total) {
@@ -1731,7 +1731,7 @@ void W8Prop::CollectModelInstances(std::vector<stModelInstance*>& instances)
    flags and the active byte). The per-prop byte writes only run while the
    previous writes succeed. */
 // FUNCTION: WIZ8 0x0044e830
-void SaveWorldProps(W8World* world, wiz8::File* handle)
+void SaveWorldProps(W8World* world, wiz8::File& handle)
 {
     int index;
     int count;
@@ -1742,20 +1742,20 @@ void SaveWorldProps(W8World* world, wiz8::File* handle)
 
     signature = 0xDEADD00D;
     version = 1;
-    handle->write(&signature, 4);
-    handle->write(&version, 4);
+    handle.write(&signature, 4);
+    handle.write(&version, 4);
     count = static_cast<int>(world->plsProps.size());
-    handle->write(&count, 4);
+    handle.write(&count, 4);
     for (index = 0; index < count; ++index) {
         prop = GetWorldProp(world, index);
         strcpy(name, prop->m_name);
-        handle->write(name, 0x40);
-        if ((handle->write(&prop->Rep()->subcycle, 1), true) != 0 &&
-            (handle->write(&prop->Rep()->first_frame, 1), true) != 0 &&
-            (handle->write(&prop->Rep()->last_frame, 1), true) != 0 &&
-            (handle->write(&prop->Rep()->frame_direction, 1), true) != 0 &&
-            (handle->write(&prop->Rep()->animation_playing, 1), true) != 0) {
-            handle->write(&prop->Rep()->active, 1);
+        handle.write(name, 0x40);
+        if ((handle.write(&prop->Rep()->subcycle, 1), true) != 0 &&
+            (handle.write(&prop->Rep()->first_frame, 1), true) != 0 &&
+            (handle.write(&prop->Rep()->last_frame, 1), true) != 0 &&
+            (handle.write(&prop->Rep()->frame_direction, 1), true) != 0 &&
+            (handle.write(&prop->Rep()->animation_playing, 1), true) != 0) {
+            handle.write(&prop->Rep()->active, 1);
         }
     }
 }
@@ -1765,7 +1765,7 @@ void SaveWorldProps(W8World* world, wiz8::File* handle)
    Records whose prop cannot be found are consumed by a scratch prop so the
    stream stays aligned. */
 // FUNCTION: WIZ8 0x0044e9a0
-void LoadWorldProps(W8World* world, wiz8::File* handle)
+void LoadWorldProps(W8World* world, wiz8::File& handle)
 {
     int index;
     int count;
@@ -1777,11 +1777,11 @@ void LoadWorldProps(W8World* world, wiz8::File* handle)
     W8Prop* prop;
     W8Prop* entry;
 
-    handle->read_exact(&signature, 4);
+    handle.read_exact(&signature, 4);
     if (signature != 0xDEADD00D) {
         count = signature;
         for (index = 0; index < count; ++index) {
-            handle->read_exact(&key, 4);
+            handle.read_exact(&key, 4);
             prop = 0;
             entries = static_cast<int>(world->plsProps.size());
             for (int entry_index = 0; entry_index < entries; ++entry_index) {
@@ -1800,10 +1800,10 @@ void LoadWorldProps(W8World* world, wiz8::File* handle)
             }
         }
     } else {
-        handle->read_exact(&version, 4);
-        handle->read_exact(&count, 4);
+        handle.read_exact(&version, 4);
+        handle.read_exact(&count, 4);
         for (index = 0; index < count; ++index) {
-            handle->read_exact(name, 0x40);
+            handle.read_exact(name, 0x40);
             prop = FindPropByName(g_world, name);
             if (prop != 0) {
                 prop->LoadAnimationState(handle);

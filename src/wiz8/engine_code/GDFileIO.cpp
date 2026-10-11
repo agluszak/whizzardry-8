@@ -358,10 +358,10 @@ void W8GameData::AddTriggerPlane(const srVector3T<float>* trigger_vertices, Trig
 /* Registers a level-file plane's two triangles (vertices 0,1,2 and 2,3,0) as
    a trigger-surface pair under the auto-numbered trigger index. */
 // FUNCTION: WIZ8 0x004485F0
-void W8GameData::AddLevelPlane(W8LevelFilePlane* plane)
+void W8GameData::AddLevelPlane(const W8LevelFilePlane& plane)
 {
     int index;
-    const srVector3T<float>* vertices = plane->vertices;
+    const srVector3T<float>* vertices = plane.vertices;
 
     if (TrigSurfacesCount() >= 500) {
         srAssertFail("(TrigSurfacesCount() < MAX_TRIG_SURFACES)",

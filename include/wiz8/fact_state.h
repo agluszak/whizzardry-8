@@ -830,9 +830,9 @@ void HandleFactChange(W8FactId fact_id, unsigned char value);
    Scripting Facts.cpp, driven by MonsterManager's death switch. */
 void HandleScriptedNpcDeath(unsigned int monster_list_index); /* 0x00508D70 */
 void SetFact(W8FactId fact_id, unsigned char value, bool suppress_side_effects);
-void SaveFactState(wiz8::File* save_handle);
+void SaveFactState(wiz8::File& save_handle);
 void InitializeFactState(void);
-void LoadFactState(wiz8::File* save_handle);
+void LoadFactState(wiz8::File& save_handle);
 void SetFactNotificationsSuppressed(bool suppressed);
 
 void PostNewGameLoad(void);

@@ -141,8 +141,8 @@ unsigned char AddAmbientSound(W8World* world, const char* name, const W8AmbientS
                               const srVector3T<float>* region_axis,
                               const srVector3T<float>* region_scale, unsigned char shared);
 
-void SaveAmbientSoundList(wiz8::File* handle);
-void LoadAmbientSoundList(wiz8::File* handle);
+void SaveAmbientSoundList(wiz8::File& handle);
+void LoadAmbientSoundList(wiz8::File& handle);
 
 bool IsSoundEffectsMuted(void);
 unsigned char GetSoundEffectsVolume(void);
