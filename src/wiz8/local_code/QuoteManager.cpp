@@ -1043,9 +1043,8 @@ void SetPartyPortraitEventState(unsigned int party_slot, bool active, unsigned i
             if (g_first_remapped_event <= event_type) {
                 mapped_event = g_normal_event_count - g_first_remapped_event + event_type;
             }
-            if (g_character_event_descriptors[mapped_event].defer_outside_main_game != 0) {
-                use_modal_gate = true;
-            } else if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME) {
+            if (g_character_event_descriptors[mapped_event].defer_outside_main_game != 0 ||
+                g_current_screen_state.id == W8_SCREEN_MAIN_GAME) {
                 use_modal_gate = true;
             } else {
                 layout_quote = true;
