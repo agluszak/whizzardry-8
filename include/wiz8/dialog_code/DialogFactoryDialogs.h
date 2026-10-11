@@ -2,6 +2,7 @@
 #pragma once
 
 #include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_pixels.h>
 #include <vector>
 #include <string_view>
 
@@ -104,7 +105,7 @@ public:
     float m_field_07c; /* 0.2 */
     float m_field_080; /* 0.9 */
     float m_field_084; /* 0.75 */
-    int m_fill_colour; /* highlight fill colour */
+    SDL_Color m_fill_colour; /* highlight fill colour */
     GUIButton m_text_button;
     GUIButton m_second_text_button;
     GenericButtonImage area_inlay;  /* DialogInlay inlay for m_area_button */
