@@ -138,11 +138,11 @@ std::unique_ptr<SGPVSurface> CreateVideoSurface(const VSURFACE_DESC& VSurfaceDes
         bits = image->ubBitDepth;
     }
     CHECKN(width && height && (bits == 8 || bits == 16));
-    UINT32 red = 0, green = 0, blue = 0;
-    if (bits == 16)
-        CHECKN(GetPrimaryRGBDistributionMasks(&red, &green, &blue));
+    const auto* format = bits == 16 ? SDL_GetPixelFormatDetails(g_sgp_pixel_format) : nullptr;
+    CHECKN(bits != 16 || format);
     auto result = std::make_unique<SGPVSurface>();
-    result->ownedSurface = CreateCpuSurface(width, height, bits, red, green, blue);
+    result->ownedSurface = CreateCpuSurface(width, height, bits,
+        format ? format->Rmask : 0, format ? format->Gmask : 0, format ? format->Bmask : 0);
     result->usWidth = width;
     result->usHeight = height;
     result->ubBitDepth = bits;
