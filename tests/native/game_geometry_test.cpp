@@ -23,6 +23,7 @@
 #include "surrender/srTriangleCuller.h"
 #include "surrender/srDD_SDLGPU.h"
 #include "wiz8/engine_code/3d.h"
+#include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/stLight.hpp"
 #include "wiz8/engine_code/stMeshModel.h"
 #include "wiz8/engine_code/stModelInstance.h"
@@ -96,6 +97,40 @@ static void planes_and_segments()
     REQUIRE(!SegmentCrossesEdge(start, end, beyond, away, 1));
     REQUIRE(SegmentCrossesEdge(on_line, on_line, start, end, 1));
     REQUIRE(!SegmentCrossesEdge(parallel_a, parallel_a, start, end, 1));
+
+    // The spatial and planar callers share endpoint clamping but measure
+    // different dimensions. Exercise before, within and beyond the segment.
+    const srVector3 segment_from(0, 0, 0), segment_to(4, 0, 0);
+    const glm::vec2 planar_from(0, 0), planar_to(4, 0);
+    for (float x : {-2.f, 2.f, 6.f}) {
+        for (bool clamp_point : {false, true}) {
+            srVector3 point(x, 3, 4);
+            glm::vec2 planar(x, 3);
+            float fraction = -1, planar_fraction = -1;
+            const float distance = PointToSegmentDistance(&point, &segment_from, &segment_to,
+                                                          clamp_point, &fraction);
+            const float planar_distance = PointToSegmentDistance2D(&planar, &planar_from,
+                &planar_to, clamp_point, &planar_fraction);
+            REQUIRE(std::abs(distance - (x == 2 ? 5.f : std::sqrt(29.f))) < 1e-5f);
+            REQUIRE(std::abs(planar_distance - (x == 2 ? 3.f : std::sqrt(13.f))) < 1e-5f);
+            const float expected_fraction = x < 0 ? 0 : x > 4 ? 1 : .5f;
+            REQUIRE(fraction == expected_fraction);
+            REQUIRE(planar_fraction == expected_fraction);
+            REQUIRE(point == (clamp_point ? srVector3(expected_fraction * 4, 0, 0)
+                                           : srVector3(x, 3, 4)));
+            REQUIRE(planar == (clamp_point ? glm::vec2(expected_fraction * 4, 0)
+                                          : glm::vec2(x, 3)));
+        }
+    }
+    srVector3 degenerate_point(0, 3, 4);
+    glm::vec2 degenerate_planar(0, 3);
+    float fraction = -1;
+    REQUIRE(PointToSegmentDistance(&degenerate_point, &segment_from, &segment_from,
+                                   true, &fraction) == 5);
+    REQUIRE((degenerate_point == segment_from && fraction == 0));
+    REQUIRE(PointToSegmentDistance2D(&degenerate_planar, &planar_from, &planar_from,
+                                     true, &fraction) == 3);
+    REQUIRE((degenerate_planar == planar_from && fraction == 0));
 
     W8EnvironRecord environment;
     environment.scale = 2;

@@ -1207,42 +1207,16 @@ unsigned char OctBuildPreTree::MergeAdjacentRegion(W8OctBuildNode* node, unsigne
     cell[2] = (path >> 8) & 0xff;
     cell[3] = path & 0xff;
 
-    if (cell[1] != 0) {
-        --cell[1];
-        if (MergeRegion(node, cell) != 0) {
-            return 1;
+    for (int axis = 1; axis <= 3; ++axis) {
+        if (cell[axis] != 0) {
+            --cell[axis];
+            if (MergeRegion(node, cell) != 0) return 1;
+            ++cell[axis];
         }
-        ++cell[1];
-    }
-    ++cell[1];
-    if ((cell[1] & (1 << (spatial.m_leaf_level + 1))) == 0 && MergeRegion(node, cell) != 0) {
-        return 1;
-    }
-    --cell[1];
-
-    if (cell[2] != 0) {
-        --cell[2];
-        if (MergeRegion(node, cell) != 0) {
-            return 1;
-        }
-        ++cell[2];
-    }
-    ++cell[2];
-    if ((cell[2] & (1 << (spatial.m_leaf_level + 1))) == 0 && MergeRegion(node, cell) != 0) {
-        return 1;
-    }
-    --cell[2];
-
-    if (cell[3] != 0) {
-        --cell[3];
-        if (MergeRegion(node, cell) != 0) {
-            return 1;
-        }
-        ++cell[3];
-    }
-    ++cell[3];
-    if ((cell[3] & (1 << (spatial.m_leaf_level + 1))) == 0 && MergeRegion(node, cell) != 0) {
-        return 1;
+        ++cell[axis];
+        if ((cell[axis] & (1 << (spatial.m_leaf_level + 1))) == 0 &&
+            MergeRegion(node, cell) != 0) return 1;
+        if (axis != 3) --cell[axis];
     }
     return 0;
 }
@@ -1468,37 +1442,27 @@ void OctBuildPreTree::ValidatePolygonRegions()
             continue;
         }
 
-        float relative_x = polygon.position.x - spatial.m_minimum.x;
-        int x = static_cast<int>(relative_x / spatial.m_region_grid_cell);
-        short x_count = 1;
-        if (g_region_boundary_tolerance < x * spatial.m_region_grid_cell - relative_x) {
-            --x;
-            x_count = 2;
-        }
-
-        float relative_y = polygon.position.y - spatial.m_minimum.y;
-        int y = static_cast<int>(relative_y / spatial.m_region_grid_cell);
-        short y_count = 1;
-        if (g_region_boundary_tolerance < y * spatial.m_region_grid_cell - relative_y) {
-            --y;
-            y_count = 2;
-        }
-
-        float relative_z = polygon.position.z - spatial.m_minimum.z;
-        int z = static_cast<int>(relative_z / spatial.m_region_grid_cell);
-        short z_count = 1;
-        if (g_region_boundary_tolerance < z * spatial.m_region_grid_cell - relative_z) {
-            --z;
-            z_count = 2;
+        const float position[] = {polygon.position.x, polygon.position.y, polygon.position.z};
+        const float minimum[] = {spatial.m_minimum.x, spatial.m_minimum.y, spatial.m_minimum.z};
+        int cell[3];
+        short count[3];
+        for (int axis = 0; axis < 3; ++axis) {
+            const float relative = position[axis] - minimum[axis];
+            cell[axis] = static_cast<int>(relative / spatial.m_region_grid_cell);
+            count[axis] = 1;
+            if (g_region_boundary_tolerance < cell[axis] * spatial.m_region_grid_cell - relative) {
+                --cell[axis];
+                count[axis] = 2;
+            }
         }
 
         bool found = false;
-        for (int x_offset = 0; x_offset < x_count; ++x_offset) {
-            for (int y_offset = 0; y_offset < y_count; ++y_offset) {
-                for (int z_offset = 0; z_offset < z_count; ++z_offset) {
+        for (int x_offset = 0; x_offset < count[0]; ++x_offset) {
+            for (int y_offset = 0; y_offset < count[1]; ++y_offset) {
+                for (int z_offset = 0; z_offset < count[2]; ++z_offset) {
                     w8_ulong path =
                         active_levels +
-                        (((x + x_offset) * 0x100 + (y + y_offset)) * 0x100 + (z + z_offset));
+                        (((cell[0] + x_offset) * 0x100 + (cell[1] + y_offset)) * 0x100 + (cell[2] + z_offset));
                     W8OctBuildNode* node = FindNode(path);
                     if (node->region == polygon.region) {
                         found = true;

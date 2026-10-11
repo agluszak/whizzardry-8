@@ -30,6 +30,7 @@
 #include "glm/geometric.hpp"
 #include "glm/vector_relational.hpp"
 #include "surrender/srBoundingBox.h"
+#include "surrender/segment_math.h"
 #include "wiz8/application.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/compat/unaligned.h"
@@ -4201,82 +4202,19 @@ catch (const std::exception&) { return false; }
 float PointToSegmentDistance(srVector3T<float>* point, const srVector3T<float>* from,
                              const srVector3T<float>* to, bool clamp_point, float* out_t)
 {
-    srVector3T<float> direction = *to - *from;
-    srVector3T<float> offset = *point - *from;
-    srVector3T<float> remaining = offset;
-    float t = glm::dot(offset.glmValue(), direction.glmValue()) / direction.LengthSquared();
-    if (g_double_zero < t) {
-        if (t <= g_double_one) {
-            remaining -= direction * t;
-        } else {
-            remaining = *point - *to;
-        }
-    }
-    if (clamp_point) {
-        if (g_double_zero <= t) {
-            if (g_double_one < t) {
-                *point = *to;
-            } else {
-                *point = *from + direction * t;
-            }
-        } else {
-            *point = *from;
-        }
-    }
-    if (out_t != 0) {
-        if (g_double_zero <= t) {
-            if (t <= g_double_one) {
-                *out_t = t;
-            } else {
-                *out_t = 1.0f;
-            }
-        } else {
-            *out_t = 0.0f;
-        }
-    }
-    return remaining.Length();
+    const auto projection = srSegmentMath::project(point->glmValue(), from->glmValue(), to->glmValue());
+    if (clamp_point) *point = projection.point;
+    if (out_t != nullptr) *out_t = projection.fraction;
+    return projection.distance;
 }
 
 // FUNCTION: WIZ8 0x00437760
 float PointToSegmentDistance2D(glm::vec2* point, const glm::vec2* from, const glm::vec2* to, bool clamp_point, float* out_t)
 {
-    float dx = to->x - from->x;
-    float dy = to->y - from->y;
-    float offset_x = point->x - from->x;
-    float offset_y = point->y - from->y;
-    float t = (offset_x * dx + offset_y * dy) / (dx * dx + dy * dy);
-    if (static_cast<float>(g_double_zero) < t) {
-        if (t <= static_cast<float>(g_double_one)) {
-            offset_x = offset_x - dx * t;
-            offset_y = offset_y - dy * t;
-        } else {
-            offset_x = point->x - to->x;
-            offset_y = point->y - to->y;
-        }
-    }
-    if (clamp_point) {
-        if (static_cast<float>(g_double_zero) <= t) {
-            if (static_cast<float>(g_double_one) < t) {
-                *point = *to;
-            } else {
-                (*point) = glm::vec2(dx * t + from->x, dy * t + from->y);
-            }
-        } else {
-            *point = *from;
-        }
-    }
-    if (out_t != 0) {
-        if (static_cast<float>(g_double_zero) <= t) {
-            if (t <= static_cast<float>(g_double_one)) {
-                *out_t = t;
-            } else {
-                *out_t = 1.0f;
-            }
-        } else {
-            *out_t = 0.0f;
-        }
-    }
-    return static_cast<float>(sqrt(offset_x * offset_x + offset_y * offset_y));
+    const auto projection = srSegmentMath::project(*point, *from, *to);
+    if (clamp_point) *point = projection.point;
+    if (out_t != nullptr) *out_t = projection.fraction;
+    return projection.distance;
 }
 
 /* Grow `minimum`/`maximum` to include `point`, returning whether any bound
