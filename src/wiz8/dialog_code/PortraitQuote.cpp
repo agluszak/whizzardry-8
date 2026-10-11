@@ -555,11 +555,11 @@ int LayoutPortraitQuoteBubble(int quote_handle, unsigned char background_index,
         *out_height = static_cast<unsigned short>(height);
         rect = {0, 0, width_px, height_px};
         if (bubble.flags & QUOTE_BUBBLE_FLAT_BACKGROUND) {
-            SetVideoSurfaceTransparencyColor(*bubble.surface, 0xffff);
             const auto& destination_storage = *bubble.surface->cpu().surface;
             pitch = destination_storage.pitch;
             pixels = static_cast<UINT16*>(destination_storage.pixels);
             fill = Get16BPPColor(0xffff);
+            bubble.surface->cpu().sourceKey = SurfaceColorKey{fill, fill};
             count = static_cast<unsigned short>(height * max_width);
             for (x = 0; x < count; ++x) {
                 pixels[x] = fill;
