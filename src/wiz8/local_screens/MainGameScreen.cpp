@@ -8022,9 +8022,9 @@ static bool g_surprise_fade_in;
 // GLOBAL: WIZ8 0x0068edf0
 static std::shared_ptr<srColorSurfaceIFace> g_surprise_snapshot_surface;
 // GLOBAL: WIZ8 0x0068edf4
-static stSurface2D* g_surprise_snapshot_overlay;
+static std::unique_ptr<stSurface2D> g_surprise_snapshot_overlay;
 // GLOBAL: WIZ8 0x0068edf8
-static stModelInstance2D* g_surprise_fade_node;
+static std::unique_ptr<stModelInstance2D> g_surprise_fade_node;
 
 void ResetMainGameMode(void)
 {
@@ -8053,8 +8053,8 @@ void CreateSurpriseFade(void)
 
     SetFullscreenSceneLast(0);
     color = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
-    g_surprise_fade_node = CreateColoredPolygonSprite(0x280, 0x1e0, &color, true);
-    Position2DNodeUnsnapped(g_surprise_fade_node, 0, 0);
+    g_surprise_fade_node.reset(CreateColoredPolygonSprite(0x280, 0x1e0, &color, true));
+    Position2DNodeUnsnapped(g_surprise_fade_node.get(), 0, 0);
     shader = static_cast<srMeshModel*>(g_surprise_fade_node->getModel())->getShader(0);
     shader.value = (shader.value & ~0x6040) | 0xa0;
     static_cast<srMeshModel*>(g_surprise_fade_node->getModel())->setShader(shader, 0);
@@ -8089,9 +8089,9 @@ void ReverseSurpriseFade(void)
 
 void DestroySurpriseFade(void)
 {
-    ReleaseRendererObject(g_surprise_snapshot_overlay);
+    g_surprise_snapshot_overlay.reset();
     g_surprise_snapshot_surface.reset();
-    ReleaseRendererObject(g_surprise_fade_node);
+    g_surprise_fade_node.reset();
     SetFullscreenSceneLast(1);
     g_world_render_enabled = 1;
 }
@@ -8132,14 +8132,13 @@ unsigned char UpdateSurpriseFade(void)
             auto surface = std::make_shared<srColorSurface>(srPixelConvert::SURFACE_ARGB1555,
                                                              pixels, 0x280, 0x1e0, pitch);
             g_surprise_snapshot_surface = surface;
-            g_surprise_snapshot_overlay = new stSurface2D(g_surprise_snapshot_surface, 0x280, 0x1e0,
-                                                          g_scene_fullscreen, 0x80);
+            g_surprise_snapshot_overlay = std::make_unique<stSurface2D>(
+                g_surprise_snapshot_surface, 0x280, 0x1e0, g_scene_fullscreen, 0x80);
             g_surprise_snapshot_overlay->updateRectangle(g_gerd, pixels, pitch, 0, 0, 0x280, 0x1e0);
             g_world_render_enabled = 0;
             g_surprise_fade_tick_base = w8_get_ticks();
         } else {
-            delete g_surprise_snapshot_overlay;
-            g_surprise_snapshot_overlay = 0;
+            g_surprise_snapshot_overlay.reset();
             g_surprise_snapshot_surface.reset();
             g_world_render_enabled = 1;
         }
@@ -8150,8 +8149,7 @@ unsigned char UpdateSurpriseFade(void)
             g_surprise_fade_node->setFlag(srNode::FLAG_DISABLE);
             return done;
         }
-        delete g_surprise_fade_node;
-        g_surprise_fade_node = 0;
+        g_surprise_fade_node.reset();
         SetFullscreenSceneLast(1);
     }
     return done;
