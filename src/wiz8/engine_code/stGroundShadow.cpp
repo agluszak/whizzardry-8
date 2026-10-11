@@ -1,5 +1,5 @@
 #include <glm/gtc/matrix_access.hpp>
-#include <glm/vec3.hpp>
+#include <glm/ext/vector_float3.hpp>
 #include <cmath>
 #include <memory>
 #include <string>
