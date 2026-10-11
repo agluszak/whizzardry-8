@@ -2397,7 +2397,7 @@ unsigned char HandleMipeKey(const InputEvent* event)
                                         g_mipe_mode = 0xf;
                                         ShowMipeCubeMenu();
                                         g_mipe_state->selecting = 0;
-                                    } else if (g_mipe_mode == 0x18) {
+                                    } else if (g_mipe_mode == 0x18 || g_mipe_mode == 0x1a) {
                                         g_mipe_mode = 0x15;
                                         ShowWorldCursor();
                                         ShowMonsterGeneratorStatus();
@@ -2405,10 +2405,6 @@ unsigned char HandleMipeKey(const InputEvent* event)
                                         g_mipe_mode = 0x16;
                                         ShowWorldCursor();
                                         ShowMonsterGeneratorEditor();
-                                    } else if (g_mipe_mode == 0x1a) {
-                                        g_mipe_mode = 0x15;
-                                        ShowWorldCursor();
-                                        ShowMonsterGeneratorStatus();
                                     } else if (g_mipe_mode == 0x1b) {
                                         g_mipe_mode = 0xd;
                                         ShowMipePropMenu();
