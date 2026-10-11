@@ -3,7 +3,7 @@
 #include <vector>
 
 #include "surrender/srScene.h"
-#include "surrender/srStreamFlags.h"
+#include "surrender/stream_scope.h"
 #include "surrender/srCamera.h"
 #include "surrender/srCore.h"
 #include "surrender/srGERD.h"
@@ -137,8 +137,7 @@ void srScene::resetStatistics()
 void srScene::dump(std::ostream& stream)
 {
     srNode::dump(stream);
-    w8_long flags = srGetStreamFlags(stream);
-    srSetStreamFlags(stream, (flags & 0xfffffe7fL) | 0x40);
+    const srDumpStreamScope formatting(stream);
     stream.width(0x20);
     stream << "  Ambient light: ";
     stream << '{' << ambient_light.x << ',' << ambient_light.y << ',' << ambient_light.z << '}'
@@ -155,7 +154,6 @@ void srScene::dump(std::ostream& stream)
     stream << "  Global calls/sec: " << statistics.node_calls / statistics.elapsed << '\n';
     stream.width(0x20);
     stream << "  Process calls/sec: " << statistics.process_calls / statistics.elapsed << '\n';
-    srSetStreamFlags(stream, flags & 0x7fff);
 }
 
 // FUNCTION: SURRENDER 0x10056B50

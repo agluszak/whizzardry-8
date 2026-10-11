@@ -1,3 +1,11 @@
+#include "surrender/bounding_radius.h"
+#include "surrender/stream_scope.h"
+#include "surrender/srDebug.h"
+#include "glm/ext/vector_double3.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include <sstream>
+#include <stdexcept>
+#include <ios>
 #include "surrender/channel_math.h"
 #include "surrender/lighting_math.h"
 #include <catch2/catch_test_macros.hpp>
@@ -161,4 +169,39 @@ TEST_CASE("Lighting kernels share bounded ramps and preserve normal-dot clamp po
     srLightingMath::accumulateLight(std::span<glm::vec3>(rgb), glm::vec3(4), weights, attenuation);
     REQUIRE(rgb[0] == glm::vec3(1.5f));
     REQUIRE(rgb[1] == glm::vec3(6));
+}
+
+TEST_CASE("Bounds radii preserve scalar precision and caller-selected centers")
+{
+    const std::array<glm::vec3, 2> points{glm::vec3(-3, 4, 0), glm::vec3(0, 0, 0)};
+    REQUIRE(boundingRadius(points, glm::vec3(0)) == 5);
+    REQUIRE(boundingRadius(points, glm::vec3(-3, 0, 0)) == 4);
+    REQUIRE(boundingRadius(std::span<const glm::vec3>{}, glm::vec3(12)) == 0);
+    const std::array<glm::vec3, 1> large{glm::vec3(1e20f, 0, 0)};
+    REQUIRE(std::isfinite(boundingRadius(large, glm::dvec3(0))));
+    REQUIRE(boundingRadius(large, glm::dvec3(0)) == double(large[0].x));
+}
+
+TEST_CASE("Renderer dump formatting restores native flags on failed output")
+{
+    std::ostringstream stream;
+    stream.setf(std::ios_base::right, std::ios_base::adjustfield);
+    stream.setf(std::ios_base::hex, std::ios_base::basefield);
+    stream.setf(std::ios_base::showbase);
+    const auto original = stream.flags();
+    REQUIRE_THROWS_AS(([&] {
+        const srDumpStreamScope outer(stream);
+        REQUIRE((stream.flags() & std::ios_base::adjustfield) == std::ios_base::left);
+        const auto inner_flags = stream.flags();
+        { const srDumpStreamScope inner(stream); }
+        REQUIRE(stream.flags() == inner_flags);
+        throw std::runtime_error("failed diagnostic output");
+    }()), std::runtime_error);
+    REQUIRE(stream.flags() == original);
+    stream.setf(std::ios_base::dec, std::ios_base::basefield);
+    stream.unsetf(std::ios_base::showbase);
+    srDumpFlags(stream, 0, nullptr);
+    srDumpFlags(stream, 0b101, "first,unused,last");
+    srDumpFlags(stream, 8, nullptr);
+    REQUIRE(stream.str() == "[NONE][first,last][3]");
 }

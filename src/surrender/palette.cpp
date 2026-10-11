@@ -8,7 +8,7 @@
 
 #include "surrender/srMath.h"
 #include "surrender/srPalette.h"
-#include "surrender/srStreamFlags.h"
+#include "surrender/stream_scope.h"
 #include "surrender/srColorSurfaceIFace.h"
 #include "surrender/srImageIO.h"
 #include "compat/compiler.h"
@@ -755,8 +755,7 @@ void srPalette::Sampler::addSurface(srColorSurfaceIFace& surface, w8_long weight
 // FUNCTION: SURRENDER 0x10006010
 void srPalette::Sampler::dump(std::ostream& stream)
 {
-    w8_long flags = srGetStreamFlags(stream);
-    srSetStreamFlags(stream, (flags & ~0x180L) | 0x40);
+    const srDumpStreamScope formatting(stream);
     stream << "Sampling frequency:       " << sample_factor << '\n';
     stream << "Sampling bit depth:       " << sample_bits << '\n';
     stream << "Distinct colors:          " << color_count << '\n';
@@ -768,7 +767,6 @@ void srPalette::Sampler::dump(std::ostream& stream)
     }
     stream << "Sampler memory usage:     " << (capacity * 0xc + 0x20530) * 0.0009765625 << " kB"
            << '\n';
-    srSetStreamFlags(stream, flags & 0x7fff);
 }
 
 // FUNCTION: SURRENDER 0x10006190

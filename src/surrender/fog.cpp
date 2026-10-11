@@ -7,7 +7,7 @@
 #include "glm/geometric.hpp"
 #include "surrender/srFog.h"
 #include "surrender/channel_math.h"
-#include "surrender/srStreamFlags.h"
+#include "surrender/stream_scope.h"
 #include "surrender/srDebug.h"
 #include "surrender/srVertexPipe.h"
 #include "compat/compiler.h"
@@ -134,15 +134,13 @@ srFog::srFog(srNode* parent)
 void srFog::dump(std::ostream& stream)
 {
     srNode::dump(stream);
-    w8_long flags = srGetStreamFlags(stream);
-    srSetStreamFlags(stream, (flags & 0xfffffe7fL) | 0x40);
+    const srDumpStreamScope formatting(stream);
     stream.width(0x20);
     stream << "Density: " << density << '\n';
     stream.width(0x20);
     stream << "Fog start: " << fog_start << '\n';
     stream.width(0x20);
     stream << "Fog end: " << fog_end << '\n';
-    srSetStreamFlags(stream, flags & 0x7fff);
 }
 
 // FUNCTION: SURRENDER 0x1004C350

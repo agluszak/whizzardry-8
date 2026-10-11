@@ -12,7 +12,7 @@
 #include "glm/geometric.hpp"
 #include "glm/matrix.hpp"
 #include "surrender/srLight.h"
-#include "surrender/srStreamFlags.h"
+#include "surrender/stream_scope.h"
 #include "surrender/srCore.h"
 #include "surrender/srDebug.h"
 #include "surrender/srGERD.h"
@@ -133,8 +133,7 @@ static const char* const s_light_flag_names = 0;
 void srLight::dump(std::ostream& stream)
 {
     srNode::dump(stream);
-    w8_long flags = srGetStreamFlags(stream);
-    srSetStreamFlags(stream, (flags & 0xfffffe7fL) | 0x40);
+    const srDumpStreamScope formatting(stream);
     stream.width(0x20);
     stream << "  Control flags: ";
     srDumpFlags(stream, enable_flags, s_light_flag_names);
@@ -175,7 +174,6 @@ void srLight::dump(std::ostream& stream)
     } else {
         stream << "No attenuation" << '\n';
     }
-    srSetStreamFlags(stream, flags & 0x7fff);
 }
 
 // FUNCTION: SURRENDER 0x1004D650

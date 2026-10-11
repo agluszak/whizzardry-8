@@ -3,7 +3,7 @@
 #include <ostream>
 
 #include "surrender/srMaterial.h"
-#include "surrender/srStreamFlags.h"
+#include "surrender/stream_scope.h"
 #include "surrender/srCore.h"
 #include "surrender/srDebug.h"
 #include "compat/compiler.h"
@@ -236,11 +236,8 @@ void srMaterial::reset()
 // FUNCTION: SURRENDER 0x10033FC0
 void srMaterial::dump(std::ostream& stream)
 {
-    w8_long flags;
-
     srClass::dump(stream);
-    flags = srGetStreamFlags(stream);
-    srSetStreamFlags(stream, (flags & 0xfffffe7fL) | 0x40);
+    const srDumpStreamScope formatting(stream);
     stream.width(0x20);
     stream << "  Ambient: " << '{' << parms.ambient.x << ',' << parms.ambient.y << ','
            << parms.ambient.z << ',' << parms.ambient.w << '}' << '\n';
@@ -265,7 +262,6 @@ void srMaterial::dump(std::ostream& stream)
     stream << "  Texture mapper: " << mapper << '\n';
     stream.width(0x20);
     stream << "  Dirty: " << srBoolToString(dirty) << '\n';
-    srSetStreamFlags(stream, flags & 0x7fff);
 }
 
 // FUNCTION: SURRENDER 0x100343B0
