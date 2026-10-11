@@ -374,12 +374,12 @@ w8_ulong srTexture::getTextureFrameHandle()
 }
 
 // FUNCTION: SURRENDER 0x1005EE00
-void srTexture::getDimensions(Dimensions& dimensions)
+srTextureIFace::Dimensions srTexture::getDimensions()
 {
     if ((texture_flags_ & (1 << FLAG_DIRTY_DEFAULTS)) != 0) {
         setupDefaultValues();
     }
-    dimensions = texture_dimensions_;
+    return texture_dimensions_;
 }
 
 // FUNCTION: SURRENDER 0x1005EE90
@@ -389,10 +389,9 @@ void srTexture::getMipmapData(MultiRequest& request) {}
 void srTexture::getMipmapLevelPartial(PartialRequest& request) {}
 
 // FUNCTION: SURRENDER 0x1005EEB0
-void srTexture::getTextureParms(Parameters& parameters)
+srTextureIFace::Parameters srTexture::getParameters()
 {
-    parameters.packed_state = packed_state;
-    parameters.mipmap_bias = mipmap_bias;
+    return {packed_state, mipmap_bias};
 }
 
 srTextureIFace::~srTextureIFace()
