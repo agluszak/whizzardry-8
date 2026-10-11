@@ -175,9 +175,9 @@ std::optional<W8NpcScriptItemQuote> FindNpcScriptItemQuote(int item_id)
     int quote_index;
 
     for (quote_index = 0;
-         quote_index < static_cast<int>(g_npc_scripting.npc->script_file->quote_count);
+         quote_index < static_cast<int>(g_npc_scripting.session.npc->script_file->quote_count);
          ++quote_index) {
-        W8NpcScriptQuote* quote = g_npc_scripting.npc->script_file->quotes.data() + quote_index;
+        W8NpcScriptQuote* quote = g_npc_scripting.session.npc->script_file->quotes.data() + quote_index;
         for (entry_index = 0; entry_index < static_cast<int>(quote->entry_count); ++entry_index) {
             W8NpcQuoteEntry* entry = quote->entries.data() + entry_index;
             if ((entry->kind == W8_NPC_ENTRY_ITEM_REQUEST ||
@@ -323,19 +323,6 @@ void StripNpcKeywordPunctuation(std::string& text)
     std::erase_if(text, [](char c) { return std::string_view("!?@#$,.\":").find(c) != std::string_view::npos; });
 }
 
-// GLOBAL: WIZ8 0x0068c3c4
-static int g_staged_value0;
-// GLOBAL: WIZ8 0x0068c3c8
-static int g_staged_value1;
-// GLOBAL: WIZ8 0x0068c3ce
-static short g_staged_short;
-// GLOBAL: WIZ8 0x0068c3d0
-static unsigned char g_staged_flag; // bool-byte-ok: stages the raw quote_active byte
-// GLOBAL: WIZ8 0x0068c3d8
-static W8NpcScriptFile* g_staged_value2;
-// GLOBAL: WIZ8 0x0068c3dc
-static W8NpcState* g_staged_npc;
-
 /* Alternates between the two string-list ids SpeakNpcSubquote substitutes for
    an "EMPTY"/"BLANK" quote on the closing quotes it allows. */
 // GLOBAL: WIZ8 0x0068C4FC
@@ -412,7 +399,7 @@ void UpdateNpcDialogueVoiceAndCursor(void)
         if (g_npc_scripting.message_duration_ms < tick_count - g_npc_scripting.message_started_at) {
             FinishNpcVoicePlayback(true);
         }
-    } else if (g_npc_scripting.quote_active != 0) {
+    } else if (g_npc_scripting.session.quote_active) {
         if (!g_npc_scripting.voice_playing) {
             tick_count = w8_get_ticks();
             if (g_npc_scripting.message_duration_ms <
@@ -420,9 +407,9 @@ void UpdateNpcDialogueVoiceAndCursor(void)
                 FinishNpcVoicePlayback(true);
             }
         }
-        if (g_npc_scripting.voice_playing && !g_npc_scripting.npc->is_grouped) {
+        if (g_npc_scripting.voice_playing && !g_npc_scripting.session.npc->is_grouped) {
             UpdateMouthGapTrack(g_npc_scripting.voice_handle, &g_npc_scripting.gap_track);
-            monster = GetNpcMonster(g_npc_scripting.npc);
+            monster = GetNpcMonster(g_npc_scripting.session.npc);
             if (monster != 0) {
                 monster->mouth_open = g_npc_scripting.gap_track.mouth_open;
             }
@@ -434,7 +421,7 @@ void UpdateNpcDialogueVoiceAndCursor(void)
             SetTargetCursor(1);
             return;
         }
-        if (g_npc_scripting.quote_active == 0) {
+        if (!g_npc_scripting.session.quote_active) {
             if (static_cast<int>(g_npc_scripting.message_lines.size()) < 1) {
                 if (gXStatus.iCurrentCursor != W8_CURSOR_TEXT_INPUT) {
                     SetTargetCursor(W8_CURSOR_NONE);
@@ -490,11 +477,11 @@ void ProcessNpcScriptingFrame(void)
         g_npc_scripting.sedexus_capture_pending = false;
         g_npc_scripting.sedexus_release_pending = false;
     }
-    if (!g_npc_scripting.scripted_scene_active && g_npc_scripting.quote_active == 0 &&
+    if (!g_npc_scripting.scripted_scene_active && !g_npc_scripting.session.quote_active &&
         !g_npc_scripting.portrait_message_active) {
         if (g_npc_interaction_state->script_busy < 1) {
             ProcessMessageBoxQueue();
-            if (g_npc_scripting.quote_active != 0) {
+            if (g_npc_scripting.session.quote_active) {
                 return;
             }
             if (g_npc_scripting.portrait_message_active) {
@@ -502,14 +489,9 @@ void ProcessNpcScriptingFrame(void)
             }
         }
         if (g_npc_scripting.message_lines.empty()) {
-            if (g_npc_scripting.restore_staged_session) {
-                g_npc_scripting.staging_restore.staged_short = g_staged_short;
-                g_npc_scripting.quote_active = g_staged_flag;
-                g_npc_scripting.staging_restore.finished_quote_index = g_staged_value1;
-                g_npc_scripting.script_file = g_staged_value2;
-                g_npc_scripting.npc = g_staged_npc;
-                g_npc_scripting.staging_restore.current_quote_index = g_staged_value0;
-                g_npc_scripting.restore_staged_session = false;
+            if (g_npc_scripting.suspended_session) {
+                g_npc_scripting.session = *g_npc_scripting.suspended_session;
+                g_npc_scripting.suspended_session.reset();
             }
             if (gXStatus.fNpcDialogueMode && g_status.world_cursor_gate == 0 &&
                 !gXStatus.scripted_scene && g_npc_interaction_state->script_busy == 0 &&
@@ -530,22 +512,15 @@ void ProcessNpcScriptingFrame(void)
 void BeginNpcScriptDialogue(W8NpcState* npc, unsigned char preserve_state)
 {
     if (preserve_state != 0) {
-        g_npc_scripting.restore_staged_session = true;
-        g_staged_short = g_npc_scripting.staging_restore.staged_short;
-        g_staged_flag = g_npc_scripting.quote_active;
-        g_staged_value1 = g_npc_scripting.staging_restore.finished_quote_index;
-        g_staged_value2 = g_npc_scripting.script_file;
-        g_staged_npc = g_npc_scripting.npc;
-        g_staged_value0 = g_npc_scripting.staging_restore.current_quote_index;
+        g_npc_scripting.suspended_session = g_npc_scripting.session;
     }
     if (!npc->has_monster) {
         BindNpcToMonster(npc->name_style, false, -1);
     }
-    g_npc_scripting.staging_restore.staged_short = 0;
-    g_npc_scripting.quote_active = 0;
-    g_npc_scripting.staging_restore.finished_quote_index = -1;
-    g_npc_scripting.npc = npc;
-    g_npc_scripting.script_file = npc->script_file;
+    g_npc_scripting.session.quote_active = false;
+    g_npc_scripting.session.finished_quote_index = -1;
+    g_npc_scripting.session.npc = npc;
+    g_npc_scripting.session.script_file = npc->script_file;
 }
 
 /* Completion callback armed on the NPC voice. A natural stream end finishes
@@ -556,7 +531,7 @@ static void NpcVoiceEosCallback()
 {
     if (!g_npc_scripting.stopping_voice_playback) {
         FinishNpcVoicePlayback(false);
-        g_npc_scripting.quote_active = 1;
+        g_npc_scripting.session.quote_active = true;
         g_npc_scripting.message_started_at = w8_get_ticks();
         g_npc_scripting.message_duration_ms = 700;
     }
@@ -635,15 +610,15 @@ static void SpeakNpcSubquote(W8NpcScriptQuote* quote, unsigned char subquote_ind
         return;
     }
 
-    npc_name = g_npc_scripting.npc->record->source_name;
-    if (g_npc_scripting.npc->is_grouped && !force_npc_voice) {
+    npc_name = g_npc_scripting.session.npc->record->source_name;
+    if (g_npc_scripting.session.npc->is_grouped && !force_npc_voice) {
         voice_dir = "PCs";
     } else {
         voice_dir = "NPCs";
     }
-    voice_stem = FormatNpcVoiceSoundPath(g_npc_scripting.npc);
+    voice_stem = FormatNpcVoiceSoundPath(g_npc_scripting.session.npc);
     voice_path = fmt::format("Data\\Sound\\{}\\{}\\{}_{:03d}", voice_dir, voice_stem, voice_stem,
-                             g_npc_scripting.staging_restore.current_quote_index);
+                             g_npc_scripting.session.current_quote_index);
     if (subquote_index > 0) {
         length = voice_path.size();
         voice_path.push_back(static_cast<char>(subquote_index + 'a' - 1));
@@ -651,11 +626,11 @@ static void SpeakNpcSubquote(W8NpcScriptQuote* quote, unsigned char subquote_ind
     voice_path += ".wav";
     if (quote->subquotes.empty()) {
         display_text = fmt::format(" Missing quote #{:d} for {}.",
-                                   g_npc_scripting.staging_restore.current_quote_index,
-                                   g_npc_scripting.npc->record->source_name);
+                                   g_npc_scripting.session.current_quote_index,
+                                   g_npc_scripting.session.npc->record->source_name);
         plain_text = fmt::format(" Missing quote #{:d} for {}.",
-                                 g_npc_scripting.staging_restore.current_quote_index,
-                                 g_npc_scripting.npc->record->source_name);
+                                 g_npc_scripting.session.current_quote_index,
+                                 g_npc_scripting.session.npc->record->source_name);
     } else {
         display_text = fmt::format(" \"{}\"", quote->subquotes[subquote_index]);
         plain_text = quote->subquotes[subquote_index];
@@ -666,13 +641,13 @@ static void SpeakNpcSubquote(W8NpcScriptQuote* quote, unsigned char subquote_ind
     if (!notice_only) {
         if (CompareTextIgnoreAsciiCase(plain_text, "EMPTY") == 0 ||
             CompareTextIgnoreAsciiCase(plain_text, "BLANK") == 0) {
-            quote_index = g_npc_scripting.staging_restore.current_quote_index;
+            quote_index = g_npc_scripting.session.current_quote_index;
             if (quote_index != 0x67 && quote_index != 0x68 && quote_index != 0x69) {
                 return;
             }
             plain_text =
                 fmt::sprintf(g_localized_strings[s_empty_quote_text_ids[g_empty_quote_text_index]],
-                             g_npc_scripting.npc->record->source_name);
+                             g_npc_scripting.session.npc->record->source_name);
             ++g_empty_quote_text_index;
             if (g_empty_quote_text_index == 2) {
                 g_empty_quote_text_index = 0;
@@ -690,20 +665,20 @@ static void SpeakNpcSubquote(W8NpcScriptQuote* quote, unsigned char subquote_ind
             return;
         }
         if (CompareTextIgnoreAsciiCase(plain_text, "SOUND") != 0 &&
-            !g_npc_scripting.npc->is_grouped) {
-            if (!gXStatus.fNpcDialogueMode && g_npc_scripting.npc->record->voice_script == 0) {
+            !g_npc_scripting.session.npc->is_grouped) {
+            if (!gXStatus.fNpcDialogueMode && g_npc_scripting.session.npc->record->voice_script == 0) {
                 prefixed_text =
-                    fmt::format("{}: {}", g_npc_scripting.npc->record->source_name, display_text);
+                    fmt::format("{}: {}", g_npc_scripting.session.npc->record->source_name, display_text);
                 display_text = prefixed_text;
             }
             SetNpcQuoteBubbleVisible(true, display_text, 0,
-                                     g_npc_scripting.staging_restore.current_quote_index, -1, {},
-                                     g_npc_scripting.npc->partner_index);
+                                     g_npc_scripting.session.current_quote_index, -1, {},
+                                     g_npc_scripting.session.npc->partner_index);
         }
         g_npc_scripting.voice_handle =
             wiz8::sound::play(voice_path, {.volume = std::uint32_t(g_settings.voice_volume * 70 / 100),
                                            .on_finished = NpcVoiceEosCallback});
-        monster = GetNpcMonster(g_npc_scripting.npc);
+        monster = GetNpcMonster(g_npc_scripting.session.npc);
         if (monster != 0) {
             monster->StartTalking(true);
         }
@@ -712,20 +687,20 @@ static void SpeakNpcSubquote(W8NpcScriptQuote* quote, unsigned char subquote_ind
             g_npc_scripting.voice_playing = false;
             g_npc_scripting.message_duration_ms = wiz8::text::grapheme_count(display_text) * 60 + 2000;
             g_npc_scripting.message_started_at = w8_get_ticks();
-            entry = GetNpcGroupEntry(g_npc_scripting.npc);
+            entry = GetNpcGroupEntry(g_npc_scripting.session.npc);
             if (entry != 0) {
-                SetPartyPortraitEventState(g_npc_scripting.npc->group_index, true,
-                                           g_npc_scripting.staging_restore.current_quote_index,
+                SetPartyPortraitEventState(g_npc_scripting.session.npc->group_index, true,
+                                           g_npc_scripting.session.current_quote_index,
                                            display_text, 1);
                 entry->voice_sound_handle = nullptr;
                 entry->voice_time_remaining_ms = g_npc_scripting.message_duration_ms;
             }
         } else {
             g_npc_scripting.voice_playing = true;
-            entry = GetNpcGroupEntry(g_npc_scripting.npc);
+            entry = GetNpcGroupEntry(g_npc_scripting.session.npc);
             if (entry != 0) {
-                SetPartyPortraitEventState(g_npc_scripting.npc->group_index, true,
-                                           g_npc_scripting.staging_restore.current_quote_index,
+                SetPartyPortraitEventState(g_npc_scripting.session.npc->group_index, true,
+                                           g_npc_scripting.session.current_quote_index,
                                            display_text, 1);
                 entry->voice_sound_handle = g_npc_scripting.voice_handle;
                 const auto playback_time =
@@ -734,19 +709,19 @@ static void SpeakNpcSubquote(W8NpcScriptQuote* quote, unsigned char subquote_ind
                 entry->voice_time_remaining_ms = playback_time.total_ms;
                 LoadMouthGapTrack(
                     voice_path,
-                    &gXStatus.monster_manager_entries[g_npc_scripting.npc->group_index].mouth_gap);
-                g_status.buffers.XChar[g_npc_scripting.npc->group_index].pending_event_type =
-                    g_npc_scripting.staging_restore.current_quote_index;
-                entry->pending_event_type = g_npc_scripting.staging_restore.current_quote_index;
-                g_npc_interaction_state->last_notice_npc_kind = g_npc_scripting.npc->partner_index;
+                    &gXStatus.monster_manager_entries[g_npc_scripting.session.npc->group_index].mouth_gap);
+                g_status.buffers.XChar[g_npc_scripting.session.npc->group_index].pending_event_type =
+                    g_npc_scripting.session.current_quote_index;
+                entry->pending_event_type = g_npc_scripting.session.current_quote_index;
+                g_npc_interaction_state->last_notice_npc_kind = g_npc_scripting.session.npc->partner_index;
             } else {
                 LoadMouthGapTrack(voice_path, &g_npc_scripting.gap_track);
             }
         }
-        g_npc_scripting.quote_active = 1;
+        g_npc_scripting.session.quote_active = true;
         return;
     }
-    prefixed_text = fmt::format("{}: {}", g_npc_scripting.npc->record->source_name, display_text);
+    prefixed_text = fmt::format("{}: {}", g_npc_scripting.session.npc->record->source_name, display_text);
     display_text = prefixed_text;
     ShowNotice(W8_FONT_PALETTE_TEXT_BOX, display_text, 0, GetTextBoxScrollRange());
 }
@@ -757,11 +732,11 @@ void FinishNpcVoicePlayback(bool resume_script)
     if (g_npc_scripting.portrait_message_active) {
         g_npc_scripting.portrait_message_active = false;
         SetNpcQuoteBubbleVisible(false, {}, 0, -1, -1);
-        g_npc_scripting.staging_restore.finished_quote_index =
-            g_npc_scripting.staging_restore.current_quote_index;
+        g_npc_scripting.session.finished_quote_index =
+            g_npc_scripting.session.current_quote_index;
         return;
     }
-    if (g_npc_scripting.quote_active != 0) {
+    if (g_npc_scripting.session.quote_active) {
         if (g_npc_scripting.voice_playing) {
             g_npc_scripting.voice_playing = false;
             if (g_npc_scripting.voice_handle != nullptr) {
@@ -771,28 +746,28 @@ void FinishNpcVoicePlayback(bool resume_script)
             }
             FreeMouthGapTrack(&g_npc_scripting.gap_track);
         }
-        W8Monster* monster = GetNpcMonster(g_npc_scripting.npc);
+        W8Monster* monster = GetNpcMonster(g_npc_scripting.session.npc);
         if (monster != 0) {
             monster->StopTalking();
         }
-        W8MonsterManagerEntry* entry = GetNpcGroupEntry(g_npc_scripting.npc);
+        W8MonsterManagerEntry* entry = GetNpcGroupEntry(g_npc_scripting.session.npc);
         if (entry != 0) {
             if (entry->active_character_event == 0) {
-                SetPartyPortraitEventState(g_npc_scripting.npc->group_index, false, -1, {}, 1);
+                SetPartyPortraitEventState(g_npc_scripting.session.npc->group_index, false, -1, {}, 1);
             } else {
                 gXStatus.character_event_queue->CompleteActiveEvent(entry->active_character_event);
             }
         }
-        g_npc_scripting.quote_active = 0;
+        g_npc_scripting.session.quote_active = false;
         g_npc_scripting.voice_handle = nullptr;
-        g_npc_scripting.staging_restore.finished_quote_index =
-            g_npc_scripting.staging_restore.current_quote_index;
+        g_npc_scripting.session.finished_quote_index =
+            g_npc_scripting.session.current_quote_index;
         if (g_npc_interaction_state->script_busy == 0 && resume_script) {
-            if (g_npc_scripting.npc != 0 && g_npc_scripting.npc->script_file != 0 &&
-                g_npc_scripting.staging_restore.current_quote_index <
-                    g_npc_scripting.npc->script_file->quote_count) {
-                W8NpcScriptQuote* quotes = g_npc_scripting.npc->script_file->quotes.data();
-                SetNpcQuoteBubbleVisible(false, {}, &quotes[g_npc_scripting.staging_restore.current_quote_index], g_npc_scripting.staging_restore.current_quote_index, -1);
+            if (g_npc_scripting.session.npc != 0 && g_npc_scripting.session.npc->script_file != 0 &&
+                g_npc_scripting.session.current_quote_index <
+                    g_npc_scripting.session.npc->script_file->quote_count) {
+                W8NpcScriptQuote* quotes = g_npc_scripting.session.npc->script_file->quotes.data();
+                SetNpcQuoteBubbleVisible(false, {}, &quotes[g_npc_scripting.session.current_quote_index], g_npc_scripting.session.current_quote_index, -1);
                 return;
             }
             SetNpcQuoteBubbleVisible(false, {}, 0, -1, -1);
@@ -817,7 +792,7 @@ void TryFinishNpcVoicePlayback(bool force)
 // FUNCTION: WIZ8 0x00525DD0
 bool IsNpcScriptSessionActive(void)
 {
-    return g_npc_scripting.quote_active != 0 || g_npc_scripting.portrait_message_active;
+    return g_npc_scripting.session.quote_active || g_npc_scripting.portrait_message_active;
 }
 
 /* Consume a world-view click while an NPC quote/portrait session is up: finish
@@ -829,14 +804,14 @@ bool ShouldDeferCharacterEventForNpcScript(bool require_group_entry)
     if (g_npc_scripting.scripted_scene_active) {
         return false;
     }
-    if (g_npc_scripting.quote_active == 0 && !g_npc_scripting.portrait_message_active &&
+    if (!g_npc_scripting.session.quote_active && !g_npc_scripting.portrait_message_active &&
         g_npc_scripting.message_lines.empty()) {
         return false;
     }
-    if (g_npc_scripting.npc == 0) {
+    if (g_npc_scripting.session.npc == 0) {
         return false;
     }
-    if (GetNpcGroupEntry(g_npc_scripting.npc) != 0 && !require_group_entry) {
+    if (GetNpcGroupEntry(g_npc_scripting.session.npc) != 0 && !require_group_entry) {
         return false;
     }
     return true;
@@ -866,7 +841,7 @@ int FindNpcScriptQuoteByKeyword(std::string_view keyword, short* entry_index, sh
     int item_index;
     int sub_index;
 
-    script = g_npc_scripting.npc->script_file;
+    script = g_npc_scripting.session.npc->script_file;
     translated = TranslateDialogueKeyword(keyword);
     for (quote_index = 0; quote_index < script->quote_count; quote_index++) {
         quote = &script->quotes[quote_index];
@@ -909,18 +884,18 @@ void RunNpcScriptLine(int script_line, bool force_npc_voice)
     int entry_index;
     bool finished;
 
-    g_npc_scripting.staging_restore.current_quote_index = script_line;
-    if (script_line != g_npc_scripting.staging_restore.finished_quote_index) {
-        g_npc_scripting.staging_restore.subquote_index = 0;
+    g_npc_scripting.session.current_quote_index = script_line;
+    if (script_line != g_npc_scripting.session.finished_quote_index) {
+        g_npc_scripting.session.subquote_index = 0;
     }
-    if (script_line < g_npc_scripting.npc->script_file->quote_count) {
-        quote = &g_npc_scripting.npc->script_file->quotes[script_line];
-        if (g_npc_scripting.staging_restore.subquote_index == quote->subquote_count) {
-            g_npc_scripting.staging_restore.subquote_index = 0;
+    if (script_line < g_npc_scripting.session.npc->script_file->quote_count) {
+        quote = &g_npc_scripting.session.npc->script_file->quotes[script_line];
+        if (g_npc_scripting.session.subquote_index == quote->subquote_count) {
+            g_npc_scripting.session.subquote_index = 0;
         }
         response = -1;
         finished = false;
-        if (g_npc_scripting.staging_restore.subquote_index == quote->subquote_count - 1 &&
+        if (g_npc_scripting.session.subquote_index == quote->subquote_count - 1 &&
             quote->entry_count != 0) {
             for (entry_index = 0; entry_index < quote->entry_count; entry_index++) {
                 entry = &quote->entries[entry_index];
@@ -974,7 +949,7 @@ void RunNpcScriptLine(int script_line, bool force_npc_voice)
                     QueueNpcQuoteEntry(script_line, entry_index, 0, false);
                     break;
                 case W8_NPC_ENTRY_MONSTER_SCRIPT_LABEL:
-                    monster = GetNpcMonster(g_npc_scripting.npc);
+                    monster = GetNpcMonster(g_npc_scripting.session.npc);
                     if (monster != 0 && entry->operand2 != 4 &&
                         !monster->SetScriptLabel(entry->sub_entries[0].text.c_str())) {
                         std::string script_error;
@@ -984,10 +959,10 @@ void RunNpcScriptLine(int script_line, bool force_npc_voice)
                     }
                     break;
                 case W8_NPC_ENTRY_NPC_WORLD_ACTION:
-                    if (g_npc_scripting.staging_restore.current_quote_index <
+                    if (g_npc_scripting.session.current_quote_index <
                             g_world_action_quote_min ||
                         g_world_action_quote_max <
-                            g_npc_scripting.staging_restore.current_quote_index) {
+                            g_npc_scripting.session.current_quote_index) {
                         std::string action_name;
                         BeginScriptedWorldAction();
                         action_name = entry->sub_entries[0].text.c_str() + 4;
@@ -1012,13 +987,13 @@ void RunNpcScriptLine(int script_line, bool force_npc_voice)
                     finished = true;
                     break;
                 case W8_NPC_ENTRY_SELF_GROUP_ACTION:
-                    if (g_npc_scripting.staging_restore.current_quote_index <
+                    if (g_npc_scripting.session.current_quote_index <
                             g_world_action_quote_min ||
                         g_world_action_quote_max <
-                            g_npc_scripting.staging_restore.current_quote_index) {
+                            g_npc_scripting.session.current_quote_index) {
                         BeginScriptedWorldAction();
                         QueueNpcMessageLine(W8_NPC_MSG_GROUP_ACTION,
-                                            static_cast<int>(g_npc_scripting.npc->group_index));
+                                            static_cast<int>(g_npc_scripting.session.npc->group_index));
                     }
                     break;
                 case W8_NPC_ENTRY_NPC_INTERACTION: {
@@ -1084,14 +1059,14 @@ void RunNpcScriptLine(int script_line, bool force_npc_voice)
         if (response >= 0) {
             QueueNpcScriptLine(response, false, false, false);
         }
-        SpeakNpcSubquote(quote, g_npc_scripting.staging_restore.subquote_index, false,
+        SpeakNpcSubquote(quote, g_npc_scripting.session.subquote_index, false,
                          force_npc_voice);
-        g_npc_scripting.staging_restore.subquote_index++;
-        if (g_npc_scripting.staging_restore.current_quote_index == 0) {
-            g_npc_scripting.npc->greeting_pending = false;
+        g_npc_scripting.session.subquote_index++;
+        if (g_npc_scripting.session.current_quote_index == 0) {
+            g_npc_scripting.session.npc->greeting_pending = false;
         }
-        if (g_npc_scripting.staging_restore.subquote_index < quote->subquote_count) {
-            QueueNpcScriptLine(g_npc_scripting.staging_restore.current_quote_index, false, true,
+        if (g_npc_scripting.session.subquote_index < quote->subquote_count) {
+            QueueNpcScriptLine(g_npc_scripting.session.current_quote_index, false, true,
                                true);
         }
     }
@@ -1117,7 +1092,7 @@ void ProcessNpcQuoteEntry(W8NpcQuoteEntry* entry, int continuation_quote)
             target = FindNpcStateByName(action_name);
             if (target != 0) {
                 if (target->name_style == W8_NPC_VI_DOMINA && entry->operand0 == 0) {
-                    g_npc_scripting.staging_restore.subquote_index = 0;
+                    g_npc_scripting.session.subquote_index = 0;
                 }
                 if (!target->is_grouped) {
                     SelectNpcDialogueSpeaker(target, 0);
@@ -1175,7 +1150,7 @@ void ProcessNpcQuoteEntry(W8NpcQuoteEntry* entry, int continuation_quote)
             AddItemToPartyOrDrop(&item, false);
             DisplayNpcQuote(notice_text, true);
         }
-        ClearNpcItemId(g_npc_scripting.npc, entry->operand0);
+        ClearNpcItemId(g_npc_scripting.session.npc, entry->operand0);
         if (g_npc_interaction_state->dialogue_layout == W8_DIALOGUE_LAYOUT_MAIN_TEXT_BOX) {
             RebuildNpcTradeItemList(false);
         }
@@ -1185,7 +1160,7 @@ void ProcessNpcQuoteEntry(W8NpcQuoteEntry* entry, int continuation_quote)
         break;
     case W8_NPC_ENTRY_GIVE_GOLD:
         notice_text = fmt::sprintf(g_localized_strings[0x7e9],
-                                   g_npc_scripting.npc->record->source_name, entry->operand0);
+                                   g_npc_scripting.session.npc->record->source_name, entry->operand0);
         AddPartyGold(entry->operand0, false);
         DisplayNpcQuote(notice_text, true);
         break;
@@ -1193,8 +1168,8 @@ void ProcessNpcQuoteEntry(W8NpcQuoteEntry* entry, int continuation_quote)
         AwardPartyExperience(entry->operand0, 0);
         break;
     }
-    if (g_npc_scripting.npc->character != 0 && g_npc_scripting.npc->group_index != -1) {
-        g_status.buffers.XChar[g_npc_scripting.npc->group_index].pending_event_type = 0;
+    if (g_npc_scripting.session.npc->character != 0 && g_npc_scripting.session.npc->group_index != -1) {
+        g_status.buffers.XChar[g_npc_scripting.session.npc->group_index].pending_event_type = 0;
     }
 }
 
@@ -1259,12 +1234,12 @@ void ProcessMessageBoxQueue(void)
     W8MessageBoxLine& line = *current;
     npc = line.npc;
     if (auto* quote_line = std::get_if<W8NpcQueuedQuote>(&line.action)) {
-        if (npc != 0 && npc != g_npc_scripting.npc) {
+        if (npc != 0 && npc != g_npc_scripting.session.npc) {
             BeginNpcScriptDialogue(npc, 1);
         }
         if (g_message_queue_idle) {
             g_message_queue_idle = false;
-            if (g_npc_scripting.npc->record->voice_script == 0) {
+            if (g_npc_scripting.session.npc->record->voice_script == 0) {
                 for (const W8MessageBoxLine& queued_line : g_npc_scripting.message_lines) {
                     const auto* queued = std::get_if<W8NpcQueuedQuote>(&queued_line.action);
                     if (queued == 0 || queued->suppress_entries ||
@@ -1273,9 +1248,9 @@ void ProcessMessageBoxQueue(void)
                             g_npc_scripting.pending_script_values.end()) {
                         continue;
                     }
-                    if (g_npc_scripting.npc->record->merchant == 0 && queued->quote_index != 0x76) {
+                    if (g_npc_scripting.session.npc->record->merchant == 0 && queued->quote_index != 0x76) {
                         const W8NpcScriptQuote& quote =
-                            g_npc_scripting.npc->script_file->quotes[queued->quote_index];
+                            g_npc_scripting.session.npc->script_file->quotes[queued->quote_index];
                         if (std::ranges::none_of(quote.entries, [](const W8NpcQuoteEntry& entry) {
                                 return entry.kind == 0x1d;
                             })) {
@@ -1293,14 +1268,14 @@ void ProcessMessageBoxQueue(void)
             g_npc_scripting.pending_script_values.push_back(quote_index);
         }
 
-        W8NpcScriptFile* script = g_npc_scripting.npc->script_file;
+        W8NpcScriptFile* script = g_npc_scripting.session.npc->script_file;
         if (script != 0 && !quote_line->suppress_entries && quote_index < script->quote_count) {
             W8NpcScriptQuote* quote = &script->quotes[quote_index];
             for (index = 0; index < quote->entry_count; ++index) {
                 W8NpcQuoteEntryKind kind = quote->entries[index].kind;
                 if ((kind == W8_NPC_ENTRY_PRICE_CHECK || kind == W8_NPC_ENTRY_ALWAYS_PRICE_CHECK) &&
                     (kind == W8_NPC_ENTRY_ALWAYS_PRICE_CHECK ||
-                     !NpcKnowsFact(g_npc_scripting.npc, static_cast<W8FactId>(quote_index)))) {
+                     !NpcKnowsFact(g_npc_scripting.session.npc, static_cast<W8FactId>(quote_index)))) {
                     RunNpcScriptLine(0x12, false);
                     g_npc_interaction_state->script_busy = -1;
                     QueueNpcQuoteEntry(quote_index, index, quote_index, true);
@@ -1407,7 +1382,7 @@ void ProcessMessageBoxQueue(void)
         break;
     case W8_NPC_MSG_JOURNAL_QUOTE:
         ShowNpcScriptNoticeBubble(g_localized_strings[0x74a]);
-        g_npc_scripting.quote_active = 1;
+        g_npc_scripting.session.quote_active = true;
         wiz8::sound::play("Data\\Sound\\Misc\\Journal Entry.wav");
         break;
     case W8_NPC_MSG_PORTRAIT_STRING: {
@@ -1635,7 +1610,7 @@ void ProcessMessageBoxQueue(void)
     }
     case W8_NPC_MSG_REMOVE_SELF: {
         EndNpcDialogueSession(false);
-        W8Monster* monster = GetNpcMonster(g_npc_scripting.npc);
+        W8Monster* monster = GetNpcMonster(g_npc_scripting.session.npc);
         if (monster != 0) {
             monster->BeginFadeOutAndRemove(W8_MONSTER_REMOVAL_NONE);
         }
@@ -1970,19 +1945,19 @@ W8NpcMessageKind GetMessageBoxLineKind(const W8MessageBoxLine& line)
 void QueueNpcScriptLine(int quote, bool mark_pending, bool prepend, bool suppress_entries)
 {
     QueueMessageBoxLine(
-        {g_npc_scripting.npc, W8NpcQueuedQuote{quote, mark_pending, suppress_entries}}, prepend);
+        {g_npc_scripting.session.npc, W8NpcQueuedQuote{quote, mark_pending, suppress_entries}}, prepend);
 }
 
 // FUNCTION: WIZ8 0x005289B0
 void QueueNpcMessageLine(W8NpcMessageKind kind, int argument)
 {
-    QueueMessageBoxLine({g_npc_scripting.npc, W8NpcQueuedCommand{kind, argument}}, false);
+    QueueMessageBoxLine({g_npc_scripting.session.npc, W8NpcQueuedCommand{kind, argument}}, false);
 }
 
 void AddTextMessageBoxLine(W8NpcMessageKind kind, std::string text, W8QuoteNotice notice)
 {
     QueueMessageBoxLine(
-        {g_npc_scripting.npc, W8NpcQueuedNotice{kind, std::move(text), std::move(notice)}}, false);
+        {g_npc_scripting.session.npc, W8NpcQueuedNotice{kind, std::move(text), std::move(notice)}}, false);
 }
 
 /* Resolve the player's reply text to the script line it selects. The current
@@ -2001,8 +1976,8 @@ int FindNpcReplyQuote(std::string_view text)
     int index;
     int sub;
 
-    quote_index = g_npc_scripting.staging_restore.current_quote_index;
-    quote = g_npc_scripting.npc->script_file->quotes.data() + quote_index;
+    quote_index = g_npc_scripting.session.current_quote_index;
+    quote = g_npc_scripting.session.npc->script_file->quotes.data() + quote_index;
     for (index = 0; index < quote->entry_count; ++index) {
         entry = &quote->entries[index];
         if (entry->kind == W8_NPC_ENTRY_OPTIONS || entry->kind == W8_NPC_ENTRY_KEYWORD_INPUT) {
@@ -2066,10 +2041,10 @@ void RestoreCurrentNpcQuoteBubble(void)
 {
     W8NpcScriptFile* script_file;
 
-    if (g_npc_scripting.npc != 0 && (script_file = g_npc_scripting.npc->script_file) != 0 &&
-        g_npc_scripting.staging_restore.current_quote_index <
+    if (g_npc_scripting.session.npc != 0 && (script_file = g_npc_scripting.session.npc->script_file) != 0 &&
+        g_npc_scripting.session.current_quote_index <
             static_cast<int>(script_file->quote_count)) {
-        SetNpcQuoteBubbleVisible(false, {}, script_file->quotes.data() + g_npc_scripting.staging_restore.current_quote_index, g_npc_scripting.staging_restore.current_quote_index, 0xffffffff);
+        SetNpcQuoteBubbleVisible(false, {}, script_file->quotes.data() + g_npc_scripting.session.current_quote_index, g_npc_scripting.session.current_quote_index, 0xffffffff);
         return;
     }
     SetNpcQuoteBubbleVisible(false, {}, 0, -1, 0xffffffff);
@@ -2081,7 +2056,7 @@ void RestoreCurrentNpcQuoteBubble(void)
 void QueueNpcQuoteEntry(int quote_index, int entry_index, int continuation_quote, bool prepend)
 {
     QueueMessageBoxLine(
-        {g_npc_scripting.npc, W8NpcQueuedEntry{quote_index, entry_index, continuation_quote}},
+        {g_npc_scripting.session.npc, W8NpcQueuedEntry{quote_index, entry_index, continuation_quote}},
         prepend);
 }
 
@@ -2099,7 +2074,7 @@ void DisplayNpcQuote(std::string_view text, bool play_sound)
     std::string sound_path;
 
     ShowNpcScriptNoticeBubble(text);
-    g_npc_scripting.quote_active = 1;
+    g_npc_scripting.session.quote_active = true;
     if (play_sound) {
         sound_path = "Data\\Sound\\misc\\startgame.wav";
         wiz8::sound::play(sound_path);
@@ -2114,7 +2089,7 @@ void RunNpcQuoteDeclineActions(int quote_index)
     W8NpcScriptQuote* quote;
     int index;
 
-    quote = g_npc_scripting.npc->script_file->quotes.data() + quote_index;
+    quote = g_npc_scripting.session.npc->script_file->quotes.data() + quote_index;
     for (index = 0; index < quote->entry_count; ++index) {
         if (quote->entries[index].kind == W8_NPC_ENTRY_DECLINE_QUOTE) {
             RunNpcScriptLine(quote->entries[index].operand0, false);

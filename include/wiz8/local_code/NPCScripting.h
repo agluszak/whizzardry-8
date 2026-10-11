@@ -14,7 +14,6 @@ void StripNpcKeywordPunctuation(std::string& text);
 #include <algorithm>
 #include "surrender/srMath.h"
 
-#include <stddef.h>
 
 struct W8NpcState;
 struct W8NpcScriptFile;
@@ -26,30 +25,27 @@ struct W8WorldItem;
 class W8Monster;
 class W8DialogBase;
 
-struct W8NpcDialogueStagingRestore {
+/* The conversation being spoken: its speaker, script and position. Starting
+   a nested conversation can suspend it; it resumes once the queue drains. */
+struct W8NpcDialogueSession {
+    W8NpcState* npc;
+    W8NpcScriptFile* script_file;
     int current_quote_index;
     int finished_quote_index;
-    /* Which subquote of the staged quote is next; reset when a new quote
+    /* Which subquote of the current quote is next; reset when a new quote
        is staged or the cursor runs past subquote_count. */
     unsigned char subquote_index;
-    unsigned char unused;
-    short staged_short;
-};
-
-W8_ABI_ASSERT(sizeof(W8NpcDialogueStagingRestore) == 12, "W8NpcDialogueStagingRestore_must_be_12");
-
-struct W8NpcScriptingState {
-    unsigned char unknown_00[0x64];
-    W8NpcDialogueStagingRestore staging_restore;
     /* A quote is being presented - voice is playing or the text/EOS
        hold is counting down. Cleared by FinishNpcVoicePlayback. */
-    unsigned char quote_active; // bool-byte-ok: staged-byte copy stays unnormalized
+    bool quote_active;
+};
+
+struct W8NpcScriptingState {
+    W8NpcDialogueSession session;
+    std::optional<W8NpcDialogueSession> suspended_session;
     /* The quote's voice sound actually started; gates wiz8::sound::stop and the
        mouth-gap cleanup in FinishNpcVoicePlayback. */
     bool voice_playing;
-    unsigned char unknown_72[6];
-    W8NpcScriptFile* script_file;
-    W8NpcState* npc;
     wiz8::sound::Playback voice_handle;
     unsigned int message_duration_ms;
     uint64_t message_started_at;
@@ -60,7 +56,6 @@ struct W8NpcScriptingState {
     /* Latched by CancelNpcDialogue; the response loop checks it at
        entries_done and abandons the pending response. */
     bool dialogue_cancelled;
-    bool restore_staged_session;
     bool portrait_message_active;
     bool scripted_scene_active;
     bool sedexus_release_pending;
@@ -68,47 +63,6 @@ struct W8NpcScriptingState {
     bool sedexus_capture_active;
     bool stopping_voice_playback;
 };
-
-W8_ABI_ASSERT(offsetof(W8NpcScriptingState, staging_restore) == 0x64,
-              "W8NpcScriptingState_staging_restore_offset");
-W8_ABI_ASSERT(offsetof(W8NpcScriptingState, unknown_00) == 0x00,
-              "W8NpcScriptingState_unknown_00_offset");
-W8_ABI_ASSERT(offsetof(W8NpcScriptingState, unknown_72) == 0x72,
-              "W8NpcScriptingState_unknown_72_offset");
-W8_ABI_ASSERT(offsetof(W8NpcScriptingState, quote_active) == 0x70,
-              "W8NpcScriptingState_quote_active_offset");
-W8_ABI_ASSERT(offsetof(W8NpcScriptingState, voice_playing) == 0x71,
-              "W8NpcScriptingState_voice_playing_offset");
-W8_ABI_ASSERT(offsetof(W8NpcScriptingState, script_file) == 0x78,
-              "W8NpcScriptingState_script_file_offset");
-W8_ABI_ASSERT(offsetof(W8NpcScriptingState, npc) == 0x7c, "W8NpcScriptingState_npc_offset");
-W8_ABI_ASSERT(offsetof(W8NpcScriptingState, voice_handle) == 0x80,
-              "W8NpcScriptingState_voice_handle_offset");
-W8_ABI_ASSERT(offsetof(W8NpcScriptingState, message_duration_ms) == 0x84,
-              "W8NpcScriptingState_message_duration_ms_offset");
-W8_ABI_ASSERT(offsetof(W8NpcScriptingState, message_started_at) == 0x88,
-              "W8NpcScriptingState_message_started_at_offset");
-W8_ABI_ASSERT(offsetof(W8NpcScriptingState, gap_track) == 0xac,
-              "W8NpcScriptingState_gap_track_offset");
-W8_ABI_ASSERT(offsetof(W8NpcScriptingState, last_tick) == 0xc0,
-              "W8NpcScriptingState_last_tick_offset");
-W8_ABI_ASSERT(offsetof(W8NpcScriptingState, dialogue_cancelled) == 0xc4,
-              "W8NpcScriptingState_dialogue_cancelled_offset");
-W8_ABI_ASSERT(offsetof(W8NpcScriptingState, restore_staged_session) == 0xc5,
-              "W8NpcScriptingState_restore_staged_session_offset");
-W8_ABI_ASSERT(offsetof(W8NpcScriptingState, portrait_message_active) == 0xc6,
-              "W8NpcScriptingState_portrait_message_active_offset");
-W8_ABI_ASSERT(offsetof(W8NpcScriptingState, scripted_scene_active) == 0xc7,
-              "W8NpcScriptingState_scripted_scene_active_offset");
-W8_ABI_ASSERT(offsetof(W8NpcScriptingState, sedexus_release_pending) == 0xc8,
-              "W8NpcScriptingState_sedexus_release_pending_offset");
-W8_ABI_ASSERT(offsetof(W8NpcScriptingState, sedexus_capture_pending) == 0xc9,
-              "W8NpcScriptingState_sedexus_capture_pending_offset");
-W8_ABI_ASSERT(offsetof(W8NpcScriptingState, sedexus_capture_active) == 0xca,
-              "W8NpcScriptingState_sedexus_capture_active_offset");
-W8_ABI_ASSERT(offsetof(W8NpcScriptingState, stopping_voice_playback) == 0xcb,
-              "W8NpcScriptingState_stopping_voice_playback_offset");
-W8_ABI_ASSERT(sizeof(W8NpcScriptingState) == 0xcc, "W8NpcScriptingState_size");
 
 extern W8NpcScriptingState g_npc_scripting;
 extern bool g_message_queue_idle;
