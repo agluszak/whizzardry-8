@@ -723,7 +723,7 @@ void CloseUseItemSelection(void)
 
 /* Scroll up/down buttons for the use-item list (catalog callback_ids 0 and 1). */
 // FUNCTION: WIZ8 0x0059D970
-unsigned char UseItemSelectScrollRegionEvent(const InputAtom* event, W8Region* region)
+unsigned char UseItemSelectScrollRegionEvent(const InputEvent* event, W8Region* region)
 {
     return DispatchButtonRegionEvent(event, region,
                                      g_use_item_select_scroll_buttons[region->callback_id]);
@@ -731,14 +731,14 @@ unsigned char UseItemSelectScrollRegionEvent(const InputAtom* event, W8Region* r
 
 /* Use-item select action/icon controls (catalog callback_ids 0, 3, 8). */
 // FUNCTION: WIZ8 0x0059DA30
-unsigned char UseItemSelectControlRegionEvent(const InputAtom* event, W8Region* region)
+unsigned char UseItemSelectControlRegionEvent(const InputEvent* event, W8Region* region)
 {
-    switch (event->usEvent) {
-    case RIGHT_BUTTON_DOWN:
+    switch (event->type) {
+    case InputEventType::RightButtonDown:
         g_use_item_select_controls[region->callback_id]->OnRightButtonDown(0);
         region->flags |= W8_REGION_RIGHT_BUTTON_HELD;
         return 1;
-    case RIGHT_BUTTON_UP:
+    case InputEventType::RightButtonUp:
         if ((region->flags & W8_REGION_RIGHT_BUTTON_HELD) != 0) {
             g_use_item_select_controls[region->callback_id]->OnRightButtonUp(0);
             region->flags &= ~W8_REGION_RIGHT_BUTTON_HELD;
@@ -756,15 +756,15 @@ unsigned char UseItemSelectControlRegionEvent(const InputAtom* event, W8Region* 
    keeps g_use_item_cursor_x/y as the last cursor point and tracks the hovered
    row into g_use_item_hover_row. */
 // FUNCTION: WIZ8 0x0059DB40
-unsigned char UseItemSelectTextBoxRegionEvent(const InputAtom* event, W8Region* region)
+unsigned char UseItemSelectTextBoxRegionEvent(const InputEvent* event, W8Region* region)
 {
     unsigned short y;
     int row;
     int slot;
-    int us_event = event->usEvent;
+    const InputEventType us_event = event->type;
 
     switch (us_event) {
-    case LEFT_BUTTON_UP:
+    case InputEventType::LeftButtonUp:
         if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) == 0) {
             return 1;
         }
@@ -775,30 +775,30 @@ unsigned char UseItemSelectTextBoxRegionEvent(const InputAtom* event, W8Region* 
         }
         SelectUseItemLine(slot);
         return 1;
-    case LEFT_BUTTON_DOWN:
+    case InputEventType::LeftButtonDown:
         region->flags |= W8_REGION_LEFT_BUTTON_HELD;
         return 1;
-    case RIGHT_BUTTON_DOWN:
+    case InputEventType::RightButtonDown:
         region->flags |= W8_REGION_RIGHT_BUTTON_HELD;
         return 1;
-    case MOUSE_POS:
+    case InputEventType::MouseMove:
         if ((region->flags & W8_REGION_MOUSE_LEAVE) != 0) {
             ClearHoveredTextLine(2);
             g_use_item_hover_row = -1;
             return 1;
         }
         if ((region->flags & W8_REGION_MOUSE_ENTER) != 0) {
-            g_use_item_cursor_x = static_cast<unsigned short>(event->uiParam);
-            g_use_item_cursor_y = static_cast<unsigned short>(event->uiParam >> 16);
+            g_use_item_cursor_x = event->position.x;
+            g_use_item_cursor_y = event->position.y;
             return 1;
         }
-        if (static_cast<unsigned short>(event->uiParam) == g_use_item_cursor_x &&
-            static_cast<int>(event->uiParam >> 16) == g_use_item_cursor_y) {
+        if (event->position.x == g_use_item_cursor_x &&
+            event->position.y == g_use_item_cursor_y) {
             return 1;
         }
-        g_use_item_cursor_x = static_cast<unsigned short>(event->uiParam);
-        g_use_item_cursor_y = static_cast<unsigned short>(event->uiParam >> 16);
-        y = static_cast<unsigned short>(event->uiParam >> 16);
+        g_use_item_cursor_x = event->position.x;
+        g_use_item_cursor_y = event->position.y;
+        y = event->position.y;
         if (g_level_block->text_box_top <= y && y <= g_level_block->text_box_bottom) {
             row = (y - g_level_block->text_box_top) / 0xb;
             if (row != g_use_item_hover_row) {
@@ -807,12 +807,12 @@ unsigned char UseItemSelectTextBoxRegionEvent(const InputAtom* event, W8Region* 
             g_use_item_hover_row = row;
         }
         return 1;
-    case RIGHT_BUTTON_UP:
+    case InputEventType::RightButtonUp:
         if ((region->flags & W8_REGION_RIGHT_BUTTON_HELD) == 0) {
             return 1;
         }
         region->flags &= ~W8_REGION_RIGHT_BUTTON_HELD;
-        y = static_cast<unsigned short>(event->uiParam >> 16);
+        y = event->position.y;
         if (y < g_level_block->text_box_top || g_level_block->text_box_bottom < y) {
             return 1;
         }
@@ -822,6 +822,8 @@ unsigned char UseItemSelectTextBoxRegionEvent(const InputAtom* event, W8Region* 
             OpenUseItemAssayDialog(g_use_item_list[g_level_block->text_lines[2] + row]);
         }
         return 1;
+    default:
+        break;
     }
     return 0;
 }

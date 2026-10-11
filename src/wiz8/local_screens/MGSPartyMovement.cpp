@@ -276,7 +276,7 @@ void InvalidatePartyMovementPanel(void)
 }
 
 // FUNCTION: WIZ8 0x005A1DE0
-unsigned char FreeTurnButtonRegionEvent(const InputAtom* event, W8Region* region)
+unsigned char FreeTurnButtonRegionEvent(const InputEvent* event, W8Region* region)
 {
     if (!gXStatus.fPartyMovementUi) {
         return 0;

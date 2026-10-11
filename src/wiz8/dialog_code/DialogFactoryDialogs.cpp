@@ -27,7 +27,6 @@
 #include "wiz8/video_object_catalog.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "Font.h"
-#include "english.h"
 #include "himage.h"
 #include "input.h"
 #include "soundman.h"
@@ -138,22 +137,22 @@ void W8ListBoxDialog::SetCurrentLine(int line)
 }
 
 // FUNCTION: WIZ8 0x005CD2B0
-bool W8ListBoxDialog::HandleInputEvent(const InputAtom* input)
+bool W8ListBoxDialog::HandleInputEvent(const InputEvent* input)
 {
-    if (input->usEvent != KEY_DOWN && input->usEvent != KEY_REPEAT) {
+    if (input->type != InputEventType::KeyDown && input->type != InputEventType::KeyRepeat) {
         return m_keep_open;
     }
 
-    if (gfKeyState[VK_UP] != 0) {
+    if (IsKeyHeld(VK_UP)) {
         if (m_selected_line > 0) {
             SetCurrentLine(m_selected_line - 1);
         }
-    } else if (gfKeyState[VK_DOWN] != 0 && m_selected_line < static_cast<int>(m_lines.size())) {
+    } else if (IsKeyHeld(VK_DOWN) && m_selected_line < static_cast<int>(m_lines.size())) {
         SetCurrentLine(m_selected_line + 1);
     }
 
-    switch (toupper(input->usParam)) {
-    case ESC:
+    switch (toupper(input->key)) {
+    case VK_ESCAPE:
         m_selected_line = -1;
         m_keep_open = false;
         return false;
@@ -402,10 +401,10 @@ void W8ListBoxDialog::Draw()
 bool W8ListBoxDialog::ProcessInput()
 {
     BeginModalInput();
-    DrainModalInput([this](const InputAtom& input) {
+    DrainModalInput([this](const InputEvent& input) {
         if (DispatchRegionInput(&input)) return m_keep_open;
-        if (input.usEvent == MOUSE_WHEEL) {
-            SetCurrentLine(m_selected_line - GetMouseWheelDeltaValue(input.usParam));
+        if (input.type == InputEventType::MouseWheel) {
+            SetCurrentLine(m_selected_line - input.wheel);
         } else {
             HandleInputEvent(&input);
         }
@@ -683,12 +682,12 @@ void W8SplitAmountDialog::IncreaseAmount(int amount)
 }
 
 // FUNCTION: WIZ8 0x005da180
-bool W8SplitAmountDialog::HandleInputEvent(const InputAtom* input)
+bool W8SplitAmountDialog::HandleInputEvent(const InputEvent* input)
 {
     if (m_split_input && m_split_input->m_active && m_split_input->HandleInput(input))
         return true;
-    if (input->usEvent == KEY_DOWN || input->usEvent == KEY_REPEAT) {
-        int key = toupper(input->usParam);
+    if (input->type == InputEventType::KeyDown || input->type == InputEventType::KeyRepeat) {
+        int key = toupper(input->key);
         if (key == 0x1b) {
             m_keep_open = false;
         } else if (key == 0x2b) {
@@ -1168,20 +1167,20 @@ void W8TriggerItemPickerDialog::ScrollItemsToMouse(W8DialogButton* button)
 
 /* Keyboard list navigation. The up/down keys move the first visible row, the
    paging keys jump, the digit keys toggle one of the four visible flags and
-   ESC closes the picker. */
+   VK_ESCAPE closes the picker. */
 // FUNCTION: WIZ8 0x005cec20
-bool W8TriggerItemPickerDialog::HandleInputEvent(const InputAtom* input)
+bool W8TriggerItemPickerDialog::HandleInputEvent(const InputEvent* input)
 {
-    if (input->usEvent == KEY_DOWN || input->usEvent == KEY_REPEAT) {
-        if (gfKeyState[VK_UP] == 0) {
-            if (gfKeyState[VK_DOWN] != 0) {
+    if (input->type == InputEventType::KeyDown || input->type == InputEventType::KeyRepeat) {
+        if (!IsKeyHeld(VK_UP)) {
+            if (IsKeyHeld(VK_DOWN)) {
                 SetFirstVisible(m_first_item + 1);
             }
         } else {
             SetFirstVisible(m_first_item - 1);
         }
-        switch (toupper(input->usParam)) {
-        case ESC:
+        switch (toupper(input->key)) {
+        case VK_ESCAPE:
             m_keep_open = false;
             return false;
         case VK_PRIOR: {
@@ -1210,7 +1209,7 @@ bool W8TriggerItemPickerDialog::HandleInputEvent(const InputAtom* input)
         case '2':
         case '3':
         case '4': {
-            int index = m_first_item + input->usParam - '1';
+            int index = m_first_item + input->key - '1';
             if (index < static_cast<int>(items.size())) {
                 SetItemSelected(index, !IsItemSelected(index));
             }
@@ -1310,15 +1309,15 @@ int W8TriggerItemPickerDialog::AddItem(W8WorldItem* item)
 bool W8TriggerItemPickerDialog::ProcessInput()
 {
     BeginModalInput();
-    DrainModalInput([this](const InputAtom& input) {
-        if ((input.usEvent == LEFT_BUTTON_DOWN || input.usEvent == RIGHT_BUTTON_DOWN) &&
+    DrainModalInput([this](const InputEvent& input) {
+        if ((input.type == InputEventType::LeftButtonDown || input.type == InputEventType::RightButtonDown) &&
             ProcessPendingEvent()) {
             return true;
         }
         if (HitTestPartyPortrait(&input) != 0) return true;
         if (DispatchRegionInput(&input)) return m_keep_open;
-        if (input.usEvent == MOUSE_WHEEL) {
-            SetFirstVisible(m_first_item - GetMouseWheelDeltaValue(input.usParam));
+        if (input.type == InputEventType::MouseWheel) {
+            SetFirstVisible(m_first_item - input.wheel);
         } else {
             HandleInputEvent(&input);
         }

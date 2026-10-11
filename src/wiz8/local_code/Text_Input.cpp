@@ -11,7 +11,6 @@
 #include <string_view>
 #include <utility>
 
-#include "native/input_events.h"
 #include "utf8/checked.h"
 #include "wiz8/unicode.h"
 #include "wiz8/cursor.h"
@@ -80,27 +79,29 @@ W8Region& TextFieldRegion(const TEXTINPUTNODE* field)
     return g_regions[index];
 }
 
-unsigned char TextFieldRegionEvent(const InputAtom* event, W8Region* region)
+unsigned char TextFieldRegionEvent(const InputEvent* event, W8Region* region)
 {
     auto* field = region->text_field;
     if (!field) return 0;
-    g_text_field_input_x = GETXPOS(event);
-    g_text_field_input_buttons = event->mouseButtons;
-    switch (event->usEvent) {
-    case MOUSE_POS: {
+    g_text_field_input_x = event->position.x;
+    g_text_field_input_buttons = event->buttons;
+    switch (event->type) {
+    case InputEventType::MouseMove: {
         MouseMovedInTextRegionCallback(field, RegionReasonForInput(*region, *event));
         return 1;
     }
-    case LEFT_BUTTON_DOWN:
+    case InputEventType::LeftButtonDown:
         g_captured_region_index = field->region_index;
         MouseClickedInTextRegionCallback(field, RegionReasonForInput(*region, *event));
         return 1;
-    case LEFT_BUTTON_UP:
+    case InputEventType::LeftButtonUp:
         if (g_captured_region_index == field->region_index) g_captured_region_index = 0;
         MouseClickedInTextRegionCallback(field, RegionReasonForInput(*region, *event));
         return 1;
-    case LEFT_BUTTON_DBL_CLK:
+    case InputEventType::LeftButtonDoubleClick:
         return 1;
+    default:
+        break;
     }
     return 0;
 }
@@ -537,27 +538,27 @@ static void DeleteHighlightedText(std::size_t first, std::size_t last)
 }
 
 // FUNCTION: WIZ8 0x005D3F50
-unsigned int HandleTextInput(const InputAtom* input)
+unsigned int HandleTextInput(const InputEvent* input)
 {
-    const bool committed = (input->uiParam & NATIVE_TEXT_INPUT_FLAG) != 0;
-    const char32_t committed_character = input->usParam;
-    InputAtom normalized = *input;
-    if (committed) { normalized.usParam = 0; normalized.usKeyState = 0; input = &normalized; }
+    const bool committed = input->type == InputEventType::Text;
+    const char32_t committed_character = input->text;
+    InputEvent normalized = *input;
+    if (committed) { normalized.type = InputEventType::KeyDown; normalized.key = 0; normalized.modifiers = 0; input = &normalized; }
 
     if (!gfTextInputMode || !gfEditingText || gpActive == 0 ||
-        (input->usEvent != KEY_DOWN && input->usEvent != KEY_REPEAT) ||
-        input->usParam == VK_ESCAPE || input->usParam == VK_RETURN || input->usParam == VK_TAB ||
-        (input->usKeyState & ALT_DOWN) != 0 ||
-        ((input->usKeyState & CTRL_DOWN) != 0 && input->usParam != VK_DELETE &&
-         input->usParam != VK_RIGHT && input->usParam != VK_LEFT) ||
-        (input->usParam > 0x6f && input->usParam < 0x7c)) {
+        (input->type != InputEventType::KeyDown && input->type != InputEventType::KeyRepeat) ||
+        input->key == VK_ESCAPE || input->key == VK_RETURN || input->key == VK_TAB ||
+        (input->modifiers & ALT_DOWN) != 0 ||
+        ((input->modifiers & CTRL_DOWN) != 0 && input->key != VK_DELETE &&
+         input->key != VK_RIGHT && input->key != VK_LEFT) ||
+        (input->key > 0x6f && input->key < 0x7c)) {
         return 0;
     }
 
     std::size_t selection_end = gubEndHilite;
-    switch (input->usParam) {
+    switch (input->key) {
     case 0x25: /* Left */
-        if ((input->usKeyState & SHIFT_DOWN) != 0) {
+        if ((input->modifiers & SHIFT_DOWN) != 0) {
             if (!gfHiliteMode) {
                 gfHiliteMode = true;
                 gubStartHilite = gubCursorPos;
@@ -588,7 +589,7 @@ unsigned int HandleTextInput(const InputAtom* input)
         return 1;
 
     case 0x27: /* Right */
-        if ((input->usKeyState & SHIFT_DOWN) != 0) {
+        if ((input->modifiers & SHIFT_DOWN) != 0) {
             if (!gfHiliteMode) {
                 gfHiliteMode = true;
                 gubStartHilite = gubCursorPos;
@@ -623,7 +624,7 @@ unsigned int HandleTextInput(const InputAtom* input)
         return 1;
 
     case 0x23: /* End */
-        if ((input->usKeyState & SHIFT_DOWN) != 0) {
+        if ((input->modifiers & SHIFT_DOWN) != 0) {
             if (!gfHiliteMode) {
                 gfHiliteMode = true;
                 gubStartHilite = gubCursorPos;
@@ -640,7 +641,7 @@ unsigned int HandleTextInput(const InputAtom* input)
         return 1;
 
     case 0x24: /* Home */
-        if ((input->usKeyState & SHIFT_DOWN) != 0) {
+        if ((input->modifiers & SHIFT_DOWN) != 0) {
             if (!gfHiliteMode) {
                 gfHiliteMode = true;
                 gubStartHilite = gubCursorPos;
@@ -657,7 +658,7 @@ unsigned int HandleTextInput(const InputAtom* input)
         return 1;
 
     case 0x2e: /* Delete */
-        if ((input->usKeyState & CTRL_DOWN) != 0) {
+        if ((input->modifiers & CTRL_DOWN) != 0) {
             gpActive->szString.clear();
 
             gubCursorPos = 0;
@@ -707,7 +708,7 @@ unsigned int HandleTextInput(const InputAtom* input)
 
     default: {
         char32_t character = committed ? committed_character :
-            TranslateKeyToCharacter(static_cast<unsigned short>(input->usParam), input->usKeyState);
+            TranslateKeyToCharacter(static_cast<unsigned short>(input->key), input->modifiers);
         if (!committed && NativeTextInputEnabled()) return 1;
         if (character == 0)
             return 1;
@@ -1053,8 +1054,8 @@ void RenderActiveTextField(void)
     if (field == 0 || field->fUserField)
         return;
 
-    if (gfLeftButtonState != 0) {
-        if (static_cast<int>(gusMouseXPos) < TextFieldRegion(field).x1) {
+    if (IsLeftButtonHeld()) {
+        if (GetGameMousePosition().x < TextFieldRegion(field).x1) {
             if (gubCursorPos != 0) {
                 gubCursorPos = wiz8::text::previous_grapheme(gpActive->szString, gubCursorPos);
                 gubParkingPos = CalculateCursorPos(
@@ -1063,7 +1064,7 @@ void RenderActiveTextField(void)
             }
             if (gfHiliteMode)
                 gubStartHilite = gubVisibleStart;
-        } else if (TextFieldRegion(field).x2 < static_cast<int>(gusMouseXPos)) {
+        } else if (TextFieldRegion(field).x2 < GetGameMousePosition().x) {
             if (gubCursorPos < field->szString.size()) {
                 { std::size_t next = gubCursorPos;
                 next = wiz8::text::next_grapheme(gpActive->szString, next);
@@ -1119,7 +1120,7 @@ void RenderActiveTextField(void)
             index = end;
         }
 
-        if (gfEditingText && !field->fUserField && gfLeftButtonState == 0 &&
+        if (gfEditingText && !field->fUserField && !IsLeftButtonHeld() &&
             w8_get_ticks() % 1000 < 500) {
             int left = TextFieldRegion(field).x1 + gsCursorX;
             int top = TextFieldRegion(field).y1 + vertical_offset;

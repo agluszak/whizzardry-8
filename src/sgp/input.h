@@ -1,140 +1,132 @@
 #ifndef __INPUT_
 #define __INPUT_
 
-#include <string_view>
-#include <cstdint>
-#include <SDL3/SDL_mouse.h>
-/* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
+/* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07, 2026-10-11.
    Distributed under the accompanying SFI Source Code license agreement. */
 
-#include "Types.h"
+#include <array>
+#include <bitset>
+#include <cstdint>
+#include <string_view>
+#include <SDL3/SDL_events.h>
+#include <SDL3/SDL_mouse.h>
+#include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_video.h>
 
-#define SCAN_CODE_MASK 0xff0000
-#define EXT_CODE_MASK 0x01000000
-#define TRANSITION_MASK 0x80000000
+/* The SDL3 input pipeline: SDL events update one InputState and queue typed
+   InputEvents in the game's 640x480 design space. */
 
-#define KEY_DOWN 0x0001
-inline constexpr std::uint32_t NATIVE_TEXT_INPUT_FLAG = 0x80000000u;
-#define KEY_UP 0x0002
-#define KEY_REPEAT 0x0004
-#define LEFT_BUTTON_DOWN 0x0008
-#define LEFT_BUTTON_UP 0x0010
-#define LEFT_BUTTON_DBL_CLK 0x0020
-#define LEFT_BUTTON_REPEAT 0x0040
-#define RIGHT_BUTTON_DOWN 0x0080
-#define RIGHT_BUTTON_UP 0x0100
-#define RIGHT_BUTTON_REPEAT 0x0200
-#define MOUSE_POS 0x0400
-#define MOUSE_WHEEL 0x0800
+/* Modifier bits. Key bindings store these values in save files. */
+inline constexpr std::uint16_t SHIFT_DOWN = 0x01;
+inline constexpr std::uint16_t CTRL_DOWN = 0x02;
+inline constexpr std::uint16_t ALT_DOWN = 0x04;
 
-#define SHIFT_DOWN 0x01
-#define CTRL_DOWN 0x02
-#define ALT_DOWN 0x04
+/* Virtual-key codes: the game's keyboard vocabulary. Key bindings store these
+   values in save files and MGSKeyboard.ini names them. */
+inline constexpr std::uint16_t VK_BACK = 0x08;
+inline constexpr std::uint16_t VK_TAB = 0x09;
+inline constexpr std::uint16_t VK_RETURN = 0x0D;
+inline constexpr std::uint16_t VK_SHIFT = 0x10;
+inline constexpr std::uint16_t VK_CONTROL = 0x11;
+inline constexpr std::uint16_t VK_MENU = 0x12;
+inline constexpr std::uint16_t VK_PAUSE = 0x13;
+inline constexpr std::uint16_t VK_CAPITAL = 0x14;
+inline constexpr std::uint16_t VK_ESCAPE = 0x1B;
+inline constexpr std::uint16_t VK_SPACE = 0x20;
+inline constexpr std::uint16_t VK_PRIOR = 0x21;
+inline constexpr std::uint16_t VK_NEXT = 0x22;
+inline constexpr std::uint16_t VK_END = 0x23;
+inline constexpr std::uint16_t VK_HOME = 0x24;
+inline constexpr std::uint16_t VK_LEFT = 0x25;
+inline constexpr std::uint16_t VK_UP = 0x26;
+inline constexpr std::uint16_t VK_RIGHT = 0x27;
+inline constexpr std::uint16_t VK_DOWN = 0x28;
+inline constexpr std::uint16_t VK_SNAPSHOT = 0x2C;
+inline constexpr std::uint16_t VK_INSERT = 0x2D;
+inline constexpr std::uint16_t VK_DELETE = 0x2E;
+inline constexpr std::uint16_t VK_NUMPAD0 = 0x60;
+inline constexpr std::uint16_t VK_NUMPAD_ENTER = 0x6C;
+inline constexpr std::uint16_t VK_F1 = 0x70;
+inline constexpr std::uint16_t VK_F12 = 0x7B;
 
-#define BUTTON_REPEAT_TIMEOUT 250
-#define BUTTON_REPEAT_TIME 50
-
-/* Virtual-key codes: the game's keyboard vocabulary. The native input layer
-   translates SDL key events into these values. */
-#define VK_BACK 0x08
-#define VK_TAB 0x09
-#define VK_RETURN 0x0D
-#define VK_SHIFT 0x10
-#define VK_CONTROL 0x11
-#define VK_MENU 0x12
-#define VK_ESCAPE 0x1B
-#define VK_SPACE 0x20
-#define VK_PRIOR 0x21
-#define VK_NEXT 0x22
-#define VK_END 0x23
-#define VK_HOME 0x24
-#define VK_LEFT 0x25
-#define VK_UP 0x26
-#define VK_RIGHT 0x27
-#define VK_DOWN 0x28
-#define VK_INSERT 0x2D
-#define VK_DELETE 0x2E
-
-struct InputAtom {
-    uint64_t uiTimeStamp;
-    std::uint16_t usKeyState;
-    std::uint16_t usEvent;
-    std::uint32_t usParam;
-    std::uint32_t uiParam;
-    SDL_MouseButtonFlags mouseButtons = 0;
-    std::uint8_t clicks = 0;
-
+enum class InputEventType : std::uint8_t {
+    KeyDown,
+    KeyUp,
+    KeyRepeat,
+    LeftButtonDown,
+    LeftButtonUp,
+    LeftButtonDoubleClick,
+    LeftButtonRepeat,
+    RightButtonDown,
+    RightButtonUp,
+    RightButtonRepeat,
+    MouseMove,
+    MouseWheel,
+    Text,
 };
 
-#define LOWORD(value) ((uint16_t)((uintptr_t)(value) & 0xffffu))
-#define HIWORD(value) ((uint16_t)(((uintptr_t)(value) >> 16) & 0xffffu))
+struct InputEvent {
+    InputEventType type = InputEventType::MouseMove;
+    std::uint64_t timestamp = 0;
+    std::uint16_t modifiers = 0;
+    std::uint16_t key = 0;
+    char32_t text = 0;
+    SDL_Point position{};
+    int wheel = 0;
+    SDL_MouseButtonFlags buttons = 0;
+    std::uint8_t clicks = 0;
 
-//Mouse pos extracting macros from InputAtom
-#define GETYPOS(a) HIWORD(((a)->uiParam))
-#define GETXPOS(a) LOWORD(((a)->uiParam))
+    bool IsKeyPress() const { return type == InputEventType::KeyDown || type == InputEventType::KeyRepeat; }
+};
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+struct InputState {
+    std::bitset<256> keys;
+    std::uint16_t modifiers = 0;
+    SDL_Point mouse{320, 240};
+    bool left_button = false;
+    bool right_button = false;
+    std::uint64_t left_repeat_at = 0;
+    std::uint64_t right_repeat_at = 0;
+    bool mouse_move_events = false;
+    bool received = false;
+};
 
-extern std::uint16_t gfShiftState;
-extern std::uint16_t gfCtrlState;
-extern std::uint16_t gfAltState;
-extern bool gfTrackMousePos;
-extern uint64_t guiLeftButtonRepeatTimer;
-extern uint64_t guiRightButtonRepeatTimer;
+InputState& GetInputState();
 
-void KeyChange(std::uint32_t key, std::uint32_t flags, std::uint8_t pressed);
-std::uint16_t TranslateKeyToCharacter(std::uint16_t key, std::uint8_t modifiers);
+bool InitializeInputManager();
+void SetInputWindow(SDL_Window* window);
+void HandleInputEvent(const SDL_Event& event);
+void QueueEvent(InputEventType type, SDL_Point position, std::uint16_t key = 0);
+bool DequeueEvent(InputEvent* event);
+
+inline bool IsKeyHeld(std::uint16_t key) { return key < 256 && GetInputState().keys[key]; }
+inline bool IsLeftButtonHeld() { return GetInputState().left_button; }
+inline bool IsRightButtonHeld() { return GetInputState().right_button; }
+inline SDL_Point GetGameMousePosition() { return GetInputState().mouse; }
+inline void SetMouseMoveEventsEnabled(bool enabled) { GetInputState().mouse_move_events = enabled; }
+
+bool WarpGameMouse(SDL_Window* window, int x, int y);
+void FreeMouseCursor();
+
+void SetNativeTextInputEnabled(bool enabled);
+bool NativeTextInputEnabled();
+
+/* Key bindings: retail key names, and the US-layout key/character table. */
+std::uint16_t KeyFromBindingName(std::string_view name);
+std::uint16_t TranslateKeyToCharacter(std::uint16_t key, std::uint16_t modifiers);
 std::uint16_t TranslateCharacterToKey(std::uint16_t character);
-bool IsUppercaseCharacter(std::uint32_t character);
-bool IsLowercaseCharacter(std::uint32_t character);
-bool IsPunctuationCharacter(std::uint32_t character);
-std::int32_t ToUppercaseCharacter(std::int32_t character);
-std::int32_t ToLowercaseCharacter(std::int32_t character);
-std::int32_t CompareTextIgnoreAsciiCase(std::string_view first, std::string_view second);
 
-extern bool InitializeInputManager(void);
-extern bool DequeueEvent(InputAtom* Event);
-extern void QueueEvent(std::uint16_t ubInputEvent, std::uint32_t usParam, std::uint32_t uiParam, std::uint8_t clicks = 0);
-
-extern void KeyDown(std::uint32_t usParam, std::uint32_t uiParam);
-extern void KeyUp(std::uint32_t usParam, std::uint32_t uiParam);
-
-extern void FreeMouseCursor(void);
-
-std::int16_t GetMouseWheelDeltaValue(std::uint32_t wParam);
-
-extern bool gfKeyState[256]; // TRUE = Pressed, FALSE = Not Pressed
-
-extern std::uint16_t gusMouseXPos;        // X position of the mouse on screen
-extern std::uint16_t gusMouseYPos;        // y position of the mouse on screen
-extern bool gfLeftButtonState;  // TRUE = Pressed, FALSE = Not Pressed
-extern bool gfRightButtonState; // TRUE = Pressed, FALSE = Not Pressed
-
-extern bool gfSGPInputReceived;
-
-#define _KeyDown(a) gfKeyState[(a)]
-#define _LeftButtonDown gfLeftButtonState
-#define _RightButtonDown gfRightButtonState
-#define _MouseXPos gusMouseXPos
-#define _MouseYPos gusMouseYPos
-
-// NOTE: this may not be the absolute most-latest current mouse co-ordinates, use GetCursorPos for that
-#define _gusMouseInside(x1, y1, x2, y2)                                                            \
-    ((gusMouseXPos >= x1) && (gusMouseXPos <= x2) && (gusMouseYPos >= y1) && (gusMouseYPos <= y2))
-
-#define _EvType(a) ((InputAtom*)(a))->usEvent
-#define _EvTimeStamp(a) ((InputAtom*)(a))->uiTimeStamp
-#define _EvKey(a) ((InputAtom*)(a))->usParam
-#define _EvMouseX(a) (std::uint16_t)(((InputAtom*)(a))->uiParam & 0x0000ffff)
-#define _EvMouseY(a) (std::uint16_t)((((InputAtom*)(a))->uiParam & 0xffff0000) >> 16)
-#define _EvShiftDown(a) (((InputAtom*)(a))->usKeyState & SHIFT_DOWN)
-#define _EvCtrlDown(a) (((InputAtom*)(a))->usKeyState & CTRL_DOWN)
-#define _EvAltDown(a) (((InputAtom*)(a))->usKeyState & ALT_DOWN)
-
-#ifdef __cplusplus
+/* Key presses and committed text: the events a text field consumes. */
+inline bool IsTypingEvent(const InputEvent& event)
+{
+    return event.type == InputEventType::KeyDown || event.type == InputEventType::KeyRepeat ||
+           event.type == InputEventType::Text;
 }
-#endif
+
+inline char32_t TypedCharacter(const InputEvent& event)
+{
+    return event.type == InputEventType::Text ? event.text
+                                              : TranslateKeyToCharacter(event.key, event.modifiers);
+}
 
 #endif

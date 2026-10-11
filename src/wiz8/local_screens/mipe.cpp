@@ -2056,7 +2056,7 @@ void EditMonsterGeneratorName(unsigned short key)
         }
     } else if ((((0x2f < key) && (key < 0x3a)) || ((0x40 < key) && (key < 0x5b))) &&
                (length < 0x1f)) {
-        if (gfKeyState[VK_SHIFT] == 0) {
+        if (!IsKeyHeld(VK_SHIFT)) {
             key += 0x20;
         }
         name[length] = static_cast<char>(key);
@@ -2287,11 +2287,11 @@ void HandleMipeItemTableKey(unsigned short key)
    only 'V'/'X' live, and the mode switch routes everything else into the
    per-mode handlers above. */
 // FUNCTION: WIZ8 0x0057c230
-unsigned char HandleMipeKey(const InputAtom* event)
+unsigned char HandleMipeKey(const InputEvent* event)
 {
     bool handled;
     unsigned short key;
-    unsigned short event_type;
+    InputEventType event_type;
     Trigger* trigger;
     W8Item* rep_item;
     int shown;
@@ -2300,9 +2300,9 @@ unsigned char HandleMipeKey(const InputAtom* event)
     if (g_mipe_state->dragging) {
         return 1;
     }
-    key = static_cast<unsigned short>(event->usParam);
+    key = static_cast<unsigned short>(event->key);
     if (key == 0x1b) {
-        if (event->usEvent == KEY_UP || event->usEvent == KEY_REPEAT) {
+        if (event->type == InputEventType::KeyUp || event->type == InputEventType::KeyRepeat) {
             g_mipe_count = 0;
             if (g_mipe_mode == 6) {
                 g_mipe_mode = 1;
@@ -2468,8 +2468,8 @@ unsigned char HandleMipeKey(const InputAtom* event)
             handled = true;
         }
     }
-    event_type = event->usEvent;
-    if (event_type == 1) {
+    event_type = event->type;
+    if (event_type == InputEventType::KeyDown) {
         switch (key) {
         case 0x25:
         case 0x26:
@@ -2527,10 +2527,10 @@ unsigned char HandleMipeKey(const InputAtom* event)
             return 1;
         }
     }
-    if (event_type != 2 && event_type != 4) {
+    if (event_type != InputEventType::KeyUp && event_type != InputEventType::KeyRepeat) {
         return handled;
     }
-    if (gfKeyState[VK_CONTROL] != 0) {
+    if (IsKeyHeld(VK_CONTROL)) {
         if (key == 0x56) {
             HideWorldCursor();
             g_mipe_mode = 0xf;
@@ -2971,7 +2971,7 @@ void DragSelectionWithCursor(void)
    mouse motion drags or tracks the cube. Returns whether it consumed the
    event. */
 // FUNCTION: WIZ8 0x0057e0e0
-bool MipeWorldViewEvent(int event, const SDL_Point* point)
+bool MipeWorldViewEvent(InputEventType event, const SDL_Point* point)
 {
     bool result;
 
@@ -2979,8 +2979,8 @@ bool MipeWorldViewEvent(int event, const SDL_Point* point)
     if (g_mipe_state == 0) {
         return false;
     }
-    switch (event & 0xffff) {
-    case LEFT_BUTTON_DOWN:
+    switch (event) {
+    case InputEventType::LeftButtonDown:
         if (g_mipe_mode == 4) {
             result = true;
             g_mipe_state->dragging = true;
@@ -3007,7 +3007,7 @@ bool MipeWorldViewEvent(int event, const SDL_Point* point)
             }
         }
         break;
-    case LEFT_BUTTON_UP:
+    case InputEventType::LeftButtonUp:
         if (g_mipe_mode == 4) {
             DragSelectionWithCursor();
             result = true;
@@ -3027,7 +3027,7 @@ bool MipeWorldViewEvent(int event, const SDL_Point* point)
             }
         }
         break;
-    case RIGHT_BUTTON_UP:
+    case InputEventType::RightButtonUp:
         if (g_mipe_mode == 0x11) {
             g_mipe_mode = 0xf;
             g_mipe_state->selecting = 0;
@@ -3037,7 +3037,7 @@ bool MipeWorldViewEvent(int event, const SDL_Point* point)
             ShowMipeCubeMenu();
         }
         break;
-    case MOUSE_POS:
+    case InputEventType::MouseMove:
         if (g_mipe_state->dragging) {
             if (g_mipe_mode == 4) {
                 DragSelectionWithCursor();
@@ -3054,6 +3054,8 @@ bool MipeWorldViewEvent(int event, const SDL_Point* point)
                 result = true;
             }
         }
+        break;
+    default:
         break;
     }
     return result;

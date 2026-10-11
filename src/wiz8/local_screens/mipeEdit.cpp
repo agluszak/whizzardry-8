@@ -104,7 +104,7 @@ void HandleMipeEditPropKey(unsigned short key)
         state->edit_selection != -1) {
         field = &fields[static_cast<int>(state->edit_selection)];
         if (field->type == 6) {
-            if (key != 0x20 && gfKeyState[VK_SHIFT] == 0 && (key < 0x30 || key > 0x39)) {
+            if (key != 0x20 && !IsKeyHeld(VK_SHIFT) && (key < 0x30 || key > 0x39)) {
                 key += 0x20;
             }
             field->text.push_back(static_cast<char>(key));

@@ -882,22 +882,22 @@ void DisableMenuButtonBanks(void)
 }
 
 // FUNCTION: WIZ8 0x00598CD0
-unsigned char SubMenuBackgroundRegionEvent(const InputAtom* event, W8Region* region)
+unsigned char SubMenuBackgroundRegionEvent(const InputEvent* event, W8Region* region)
 {
-    unsigned short us_event;
+    InputEventType us_event;
 
     if (g_level_block->combat_end_notification == -1) {
         return 0;
     }
-    us_event = event->usEvent;
-    if (us_event == RIGHT_BUTTON_DOWN) {
+    us_event = event->type;
+    if (us_event == InputEventType::RightButtonDown) {
         return 1;
     }
-    if (us_event == RIGHT_BUTTON_UP) {
+    if (us_event == InputEventType::RightButtonUp) {
         DestroySubMenuControls();
         return 1;
     }
-    if (us_event != MOUSE_POS) {
+    if (us_event != InputEventType::MouseMove) {
         return 0;
     }
     if ((region->flags & W8_REGION_MOUSE_LEAVE) != 0) {
@@ -907,7 +907,7 @@ unsigned char SubMenuBackgroundRegionEvent(const InputAtom* event, W8Region* reg
 }
 
 // FUNCTION: WIZ8 0x00598DB0
-unsigned char SubMenuRowRegionEvent(const InputAtom* event, W8Region* region)
+unsigned char SubMenuRowRegionEvent(const InputEvent* event, W8Region* region)
 {
     W8PartySlotRow* party_row;
     W8ItemInstance* item;
@@ -918,21 +918,21 @@ unsigned char SubMenuRowRegionEvent(const InputAtom* event, W8Region* region)
         return 0;
     }
     RequestRedraw(W8_MAIN_REDRAW_FRAME);
-    switch (event->usEvent) {
-    case RIGHT_BUTTON_DOWN:
+    switch (event->type) {
+    case InputEventType::RightButtonDown:
         g_submenu_rows[region->callback_id]->OnRightButtonDown(0);
         region->flags |= W8_REGION_RIGHT_BUTTON_HELD;
         return 1;
-    case LEFT_BUTTON_DOWN:
-    case LEFT_BUTTON_UP:
+    case InputEventType::LeftButtonDown:
+    case InputEventType::LeftButtonUp:
         return DispatchButtonRegionEvent(event, region, g_submenu_rows[region->callback_id]);
-    case RIGHT_BUTTON_UP:
+    case InputEventType::RightButtonUp:
         g_submenu_rows[region->callback_id]->OnRightButtonUp(0);
         if ((region->flags & W8_REGION_RIGHT_BUTTON_HELD) != 0) {
             region->flags &= ~W8_REGION_RIGHT_BUTTON_HELD;
         }
         return 1;
-    case MOUSE_POS:
+    case InputEventType::MouseMove:
         if ((region->flags & W8_REGION_MOUSE_LEAVE) != 0) {
             g_submenu_rows[region->callback_id]->OnMouseLeave(0);
             return 1;
@@ -955,6 +955,8 @@ unsigned char SubMenuRowRegionEvent(const InputAtom* event, W8Region* region)
         }
         g_submenu_rows[region->callback_id]->OnMouseEnter(0);
         return 1;
+    default:
+        break;
     }
     return 0;
 }

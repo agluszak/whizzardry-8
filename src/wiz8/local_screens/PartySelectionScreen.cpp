@@ -452,7 +452,7 @@ public:
         RemoveTextInputField(0);
         KillTextInputMode();
     }
-    unsigned char HandleInput(const InputAtom* input);
+    unsigned char HandleInput(const InputEvent* input);
 
     W8PartySelectionDecisionListener* m_listener;
 };
@@ -1131,17 +1131,16 @@ void W8PartySelectionOptionPanel::Redraw()
    filename characters retail excludes, and report both edit-state and final
    Escape/Return decisions to the controller's decision-listener subobject. */
 // FUNCTION: WIZ8 0x005c0e50
-unsigned char W8PartySelectionInputHandler::HandleInput(const InputAtom* input)
+unsigned char W8PartySelectionInputHandler::HandleInput(const InputEvent* input)
 {
-    if (input->usEvent != KEY_DOWN && input->usEvent != KEY_REPEAT) {
+    if (!IsTypingEvent(*input)) {
         return 0;
     }
 
-    if (input->usParam != VK_ESCAPE) {
-        if (input->usParam != VK_RETURN) {
-            unsigned short character = TranslateKeyToCharacter(
-                static_cast<unsigned short>(input->usParam), input->usKeyState);
-            if (character != 0 && strchr("\\/:*?\"<>|", static_cast<unsigned char>(character))) {
+    if (input->key != VK_ESCAPE) {
+        if (input->key != VK_RETURN) {
+            const char32_t character = TypedCharacter(*input);
+            if (character != 0 && character < 0x80 && strchr("\\/:*?\"<>|", int(character))) {
                 return 1;
             }
             HandleTextInput(input);
@@ -1157,7 +1156,7 @@ unsigned char W8PartySelectionInputHandler::HandleInput(const InputAtom* input)
 
     SetTargetCursor(W8_CURSOR_NONE);
     if (m_listener) {
-        m_listener->OnDecision(this, input->usParam == VK_ESCAPE);
+        m_listener->OnDecision(this, input->key == VK_ESCAPE);
     }
     return 1;
 }
@@ -2060,7 +2059,7 @@ unsigned char PartySelectionScreenLeave(int leaving)
 // FUNCTION: WIZ8 0x005c3120
 void PartySelectionScreenFrame(void)
 {
-    InputAtom input;
+    InputEvent input;
     SDL_Point point;
 
     if (g_dev_mode) {
@@ -2086,8 +2085,8 @@ void PartySelectionScreenFrame(void)
     while (DequeueEvent(&input) == 1) {
         if (!DispatchRegionInput(&input) &&
             (!controller->m_input_handler || !controller->m_input_handler->HandleInput(&input)) &&
-            (input.usEvent == KEY_DOWN || input.usEvent == KEY_REPEAT)) {
-            switch (input.usParam) {
+            (input.type == InputEventType::KeyDown || input.type == InputEventType::KeyRepeat)) {
+            switch (input.key) {
             case VK_RETURN:
                 controller->TogglePartyMemberSelection();
                 break;

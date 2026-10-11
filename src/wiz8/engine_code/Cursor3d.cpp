@@ -211,7 +211,7 @@ void InitializeWorldCursor(void)
             gp3DCursor->probe_offsets[6] = minimum;
             gp3DCursor->probe_offsets[7].Set(maximum.x, minimum.y, minimum.z);
             UpdateWorldCursorPlacement();
-            if (g_dev_mode && (gfKeyState[VK_SHIFT] != 0 || gfKeyState[VK_CONTROL] != 0)) {
+            if (g_dev_mode && (IsKeyHeld(VK_SHIFT) || IsKeyHeld(VK_CONTROL))) {
                 g_cursor_pick_latch = true;
             }
         }
@@ -353,7 +353,7 @@ void ApplyWorldCursorInput(void)
     gp3DCursor->input_delta.y = 0;
     gp3DCursor->input_delta.z = 0;
     if (g_dev_mode) {
-        if (gfKeyState[VK_SHIFT] == 0 && gfKeyState[VK_CONTROL] == 0) {
+        if (!IsKeyHeld(VK_SHIFT) && !IsKeyHeld(VK_CONTROL)) {
             if (g_cursor_pick_latch) {
                 g_cursor_pick_latch = false;
             }
@@ -429,7 +429,7 @@ void ApplyWorldCursorInput(void)
             gp3DCursor->dragged_info->p3D->SetPositionInternal(&gp3DCursor->position);
             g_octree->UpdateMonsterLocation(gp3DCursor->dragged_info->location_id,
                                             &gp3DCursor->position);
-            if (gfKeyState[VK_SHIFT] != 0) {
+            if (IsKeyHeld(VK_SHIFT)) {
                 MonsterForwardReferencePosition(gp3DCursor->dragged_info->p3D, 1);
             }
         }
@@ -580,7 +580,7 @@ void UpdateWorldCursor(void)
     old_position = gp3DCursor->position;
     SyncSystemCursor();
     SGPMouseGetPos(&cursor_point);
-    if (gfRightButtonState != 0) {
+    if (IsRightButtonHeld()) {
         if (!gp3DCursor->group_bind_pending && gp3DCursor->light != 0) {
             gp3DCursor->group_bind_pending = true;
             ++gp3DCursor->input_delta.z;
@@ -593,7 +593,7 @@ void UpdateWorldCursor(void)
     } else {
         BindCursorMonsterToGroup();
     }
-    if (gfRightButtonState != 0) {
+    if (IsRightButtonHeld()) {
         if (gp3DCursor->detached) {
             gp3DCursor->track_ground = false;
         }
@@ -609,7 +609,7 @@ void UpdateWorldCursor(void)
     } else {
         position.SetZero();
     }
-    if (gfLeftButtonState == 0) {
+    if (!IsLeftButtonHeld()) {
         if (gp3DCursor->left_held && gXStatus.iTargetingMode == W8_TARGET_NEED_PLACE) {
             camera = cameraLocation();
             if (ResolveWorldCursorTarget(&resolved) != 0 &&

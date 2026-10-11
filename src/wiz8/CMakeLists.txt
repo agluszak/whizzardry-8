@@ -4,7 +4,6 @@ add_library(WIZ8_GAME_CORE STATIC
     ../sgp/image.cpp
     ../sgp/sprite.cpp
     ../sgp/input.cpp
-    ../sgp/native/input_events.cpp
     ../sgp/soundman.cpp
     ../sgp/native/audio.cpp
     ../sgp/native/video.cpp
@@ -15,7 +14,6 @@ add_library(WIZ8_GAME_CORE STATIC
     ../sgp/image_assets.cpp
     ../sgp/shading.cpp
     ../sgp/Random.cpp
-    ../sgp/English.cpp
     "local_code/PC Item.cpp"
     local_code/FormationAndFacing.cpp
     local_code/ThingEditorShared.cpp

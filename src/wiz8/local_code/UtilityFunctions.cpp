@@ -648,18 +648,18 @@ void ProcessMessageBoxInput(void)
 {
     if (!g_message_box || g_message_box->state != 2) return;
 
-    W8DialogBase::DrainModalInput([](const InputAtom& input) {
-        switch (input.usEvent) {
-        case LEFT_BUTTON_DOWN:
-        case LEFT_BUTTON_UP:
-        case LEFT_BUTTON_REPEAT:
-        case RIGHT_BUTTON_DOWN:
-        case RIGHT_BUTTON_UP:
-        case RIGHT_BUTTON_REPEAT:
+    W8DialogBase::DrainModalInput([](const InputEvent& input) {
+        switch (input.type) {
+        case InputEventType::LeftButtonDown:
+        case InputEventType::LeftButtonUp:
+        case InputEventType::LeftButtonRepeat:
+        case InputEventType::RightButtonDown:
+        case InputEventType::RightButtonUp:
+        case InputEventType::RightButtonRepeat:
             DispatchRegionInput(&input);
             break;
-        case KEY_DOWN:
-            switch (toupper(input.usParam)) {
+        case InputEventType::KeyDown:
+            switch (toupper(input.key)) {
             case '\r':
             case ' ':
             case 'Y':
@@ -672,6 +672,8 @@ void ProcessMessageBoxInput(void)
                 g_message_box->state = 1;
                 break;
             }
+            break;
+        default:
             break;
         }
         return true;

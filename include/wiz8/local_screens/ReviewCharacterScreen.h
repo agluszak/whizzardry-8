@@ -279,7 +279,7 @@ void SetCampSpellRangesEnabled(bool enable);
 void RefreshCampSpellRanges(void);
 void DrawCampSpellPages(void);
 void DrawCampResistances(void);
-unsigned char SpellListRegionHandler(const InputAtom* event, W8Region* region);
+unsigned char SpellListRegionHandler(const InputEvent* event, W8Region* region);
 void OpenSpellInfoDialog(unsigned int spell_id);
 void SyncReviewCharInputRegion(void);
 bool IsEquippableItemClass(W8ItemInstance* item);

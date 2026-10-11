@@ -443,18 +443,18 @@ unsigned char JournalScreenLeave(int)
 void JournalScreenFrame(void)
 {
     SDL_Point point;
-    InputAtom input;
+    InputEvent input;
 
     SGPMouseGetPos(&point);
     UpdateRegionMousePosition(point.x, point.y);
     while (DequeueEvent(&input) == 1) {
-        if (!DispatchRegionInput(&input) && input.usEvent == KEY_DOWN) {
-            if (input.usParam == VK_ESCAPE) {
+        if (!DispatchRegionInput(&input) && input.type == InputEventType::KeyDown) {
+            if (input.key == VK_ESCAPE) {
                 RequestScreenTransition();
-            } else if (input.usParam == VK_LEFT && g_journal_page > 0) {
+            } else if (input.key == VK_LEFT && g_journal_page > 0) {
                 --g_journal_page;
                 g_journal_panel->Refresh();
-            } else if (input.usParam == VK_RIGHT &&
+            } else if (input.key == VK_RIGHT &&
                        g_journal_page < (static_cast<int>(g_journal_entries.size()) - 1) / 12) {
                 ++g_journal_page;
                 g_journal_panel->Refresh();

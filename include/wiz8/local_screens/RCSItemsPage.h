@@ -67,11 +67,11 @@ void ToggleCampUsabilityFilter(void);
 void ToggleCampUnidentifiedItemFilter(void);
 void SortCampItemPool(void);
 void ToggleCampItemFilter(W8CampItemFilterButton tab);
-unsigned char BackpackRegionHandler(const InputAtom* event, W8Region* region);
-unsigned char EquipSlotRegionHandler(const InputAtom* event, W8Region* region);
-unsigned char ItemPoolRegionHandler(const InputAtom* event, W8Region* region);
-unsigned char RealmTabRegionHandler(const InputAtom* event, W8Region* region);
-unsigned char PanelTabRegionHandler(const InputAtom* event, W8Region* region);
+unsigned char BackpackRegionHandler(const InputEvent* event, W8Region* region);
+unsigned char EquipSlotRegionHandler(const InputEvent* event, W8Region* region);
+unsigned char ItemPoolRegionHandler(const InputEvent* event, W8Region* region);
+unsigned char RealmTabRegionHandler(const InputEvent* event, W8Region* region);
+unsigned char PanelTabRegionHandler(const InputEvent* event, W8Region* region);
 void SetItemTooltip(W8ItemInstance* item, W8Region* region);
 void DrawCampItemIcons(void);
 

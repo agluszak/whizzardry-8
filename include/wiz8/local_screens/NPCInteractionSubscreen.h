@@ -355,7 +355,7 @@ extern bool g_pending_notice_queued;
 void SyncNpcServiceButtons(int party_slot);
 /* Forward mouse events to W8NpcInteractionState control slots indexed by
    callback_id in dialogue_controls (id 0x27 is ignored). */
-unsigned char MainScreenControlRegionEvent(const InputAtom* event, struct W8Region* region);
+unsigned char MainScreenControlRegionEvent(const InputEvent* event, struct W8Region* region);
 void SwitchNpcDialogueLayout(W8NpcDialogueLayout layout);
 void BeginNpcDialogue(W8NpcState* npc, W8ItemInstance* item, int quote, unsigned char flags,
                       unsigned char force);
@@ -418,11 +418,11 @@ unsigned char IsNpcDialogueCursorActive(void);
 /* Forward a portrait pick into an active NPC dialogue. */
 void TryNpcDialoguePickpocket(int party_slot);
 std::string ShortenTextToWidth(std::string_view text, unsigned int width, Font& font);
-unsigned char NpcQuoteBubbleRegionEvent(const InputAtom* event, W8Region* region);
+unsigned char NpcQuoteBubbleRegionEvent(const InputEvent* event, W8Region* region);
 void SetDialogueFieldKeyword(std::string keyword, bool append);
 void ActivateNpcDialoguePanels(bool active);
 bool HasNpcDialogueDirtyPanels(void);
-unsigned char NpcDialogueTextBoxRegionEvent(const InputAtom* event, W8Region* region);
+unsigned char NpcDialogueTextBoxRegionEvent(const InputEvent* event, W8Region* region);
 void NpcDialogueTextBoxWheelAt(short x, unsigned short y, bool flag);
 /* True when an NPC quote/portrait session is active: finish voice playback and
    report that the click was consumed. */
@@ -481,7 +481,7 @@ W8ItemInstance* ResolveNpcTradeRow(int index, bool, char, char);
 bool NpcTradeItemAllowed(W8ItemInstance* item);
 void EnableNpcTradeFilterButtons(void);
 W8ItemInstance* GetNpcTradeSlotItem(int index);
-void HandleNpcDialogueKeyEvent(const InputAtom* event);
+void HandleNpcDialogueKeyEvent(const InputEvent* event);
 unsigned char LoadNpcDialogueTranscript(wiz8::File& file);
 unsigned char SaveNpcDialogueTranscript(wiz8::File& file);
 void HandleNpcDialogueItemChoice(void);

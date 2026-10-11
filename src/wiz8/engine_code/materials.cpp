@@ -1669,7 +1669,7 @@ void W8Octree::OctBuildOptions(char* stem)
     char spare_state[8];
     char edit_buffer[20];
     char edit_char[8];
-    InputAtom atom;
+    InputEvent atom;
     int edit_mode;
     int line;
     int index;
@@ -1758,18 +1758,18 @@ void W8Octree::OctBuildOptions(char* stem)
             if (!gfProgramIsRunning) {
                 goto accepted;
             }
-            if (atom.usEvent != KEY_DOWN) {
+            if (atom.type != InputEventType::KeyDown) {
                 continue;
             }
-            if (atom.usParam == VK_ESCAPE) {
+            if (atom.key == VK_ESCAPE) {
                 ShutdownWithErrorBox("Cancelled--Program exiting.\n");
                 goto accepted;
             }
-            if (atom.usParam == VK_RETURN) {
+            if (atom.key == VK_RETURN) {
                 break;
             }
             if (edit_mode == 0) {
-                switch (toupper(atom.usParam)) {
+                switch (toupper(atom.key)) {
                 case 0x41:
                     edit_mode = 3;
                     break;
@@ -1830,7 +1830,7 @@ void W8Octree::OctBuildOptions(char* stem)
                     break;
                 }
             } else {
-                char key = static_cast<char>(toupper(atom.usParam));
+                char key = static_cast<char>(toupper(atom.key));
                 if ((key < '0' || '9' < key) && key != '.') {
                     if (key == '\b') {
                         edit_buffer[strlen(edit_buffer) - 1] = '\0';

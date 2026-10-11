@@ -1,3 +1,4 @@
+#include "wiz8/unicode.h"
 #include "surrender/srBoundingBox.h"
 #include <fmt/format.h>
 #include <glm/gtx/rotate_vector.hpp>
@@ -49,7 +50,6 @@
 #include "AnimRep.hpp"
 #include "Monster.h"
 #include "compat/native.h"
-#include "input.h"
 #include "layouts/gameplay_databases.h"
 #include "layouts/item_instance.h"
 #include "layouts/item_tables.h"

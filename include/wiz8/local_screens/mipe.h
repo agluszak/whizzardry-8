@@ -89,7 +89,7 @@ void ShowMonsterGeneratorStatus(void);
 /* The MIPE input dispatcher fed from the main game input loop: routes key
    events through the mode state machine and returns nonzero when the event
    was consumed. */
-unsigned char HandleMipeKey(const InputAtom* event);
+unsigned char HandleMipeKey(const InputEvent* event);
 void ShowMonsterGeneratorEditor(void);
 
 void ToggleMipePanel(void);
@@ -98,7 +98,7 @@ void ToggleMipePanel(void);
 void UpdateMipeSelection(void);
 void DragSelectionWithCursor(void);
 /* MIPE's world-view input dispatch: cube drag, cube pick, action menu. */
-bool MipeWorldViewEvent(int event, const SDL_Point* point);
+bool MipeWorldViewEvent(InputEventType event, const SDL_Point* point);
 
 /* Any armed monster-generator marker within reach of the camera; sticky
    index resumes the scan at the last hit. Used with AnyWorldItemVisible to

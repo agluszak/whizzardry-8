@@ -252,10 +252,10 @@ bool W8DialogButton::Configure(const char* image_path, int gray_frame, int off_n
 }
 
 // FUNCTION: WIZ8 0x005db620
-int W8DialogButton::HandleRegionInput(W8Region& region, const InputAtom& input)
+int W8DialogButton::HandleRegionInput(W8Region& region, const InputEvent& input)
 {
     const auto reason = RegionReasonForInput(region, input);
-    if (reason == REGION_REASON_NONE) return input.usEvent == LEFT_BUTTON_DBL_CLK;
+    if (reason == REGION_REASON_NONE) return input.type == InputEventType::LeftButtonDoubleClick;
     HandleMouseEvent(reason);
     return 1;
 }

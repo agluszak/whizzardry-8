@@ -748,23 +748,23 @@ unsigned char CharacterScreenLeave(int leaving)
 void CharacterScreenFrame(void)
 {
     SDL_Point point;
-    InputAtom input;
+    InputEvent input;
     SGPMouseGetPos(&point);
     g_character_screen->UpdateDialog();
     UpdateRegionMousePosition(point.x, point.y);
     while (DequeueEvent(&input) == 1) {
         W8CharacterScreen* screen = g_character_screen;
         screen->m_pages[screen->m_page_index]->HandleInput(&input);
-        if (!DispatchRegionInput(&input) && input.usEvent == KEY_DOWN) {
-            if (input.usParam == VK_RETURN || input.usParam == VK_RIGHT || input.usParam == 0x4e) {
+        if (!DispatchRegionInput(&input) && input.type == InputEventType::KeyDown) {
+            if (input.key == VK_RETURN || input.key == VK_RIGHT || input.key == 0x4e) {
                 screen->AdvancePage(true);
-            } else if (input.usParam == VK_ESCAPE) {
+            } else if (input.key == VK_ESCAPE) {
                 if (screen->m_mode == 1 && !screen->m_exit->m_enabled) {
                     RequestScreenTransition();
                 } else {
                     screen->ShowMessage(g_localized_strings[0xd3], 1, 2);
                 }
-            } else if ((input.usParam == VK_LEFT || input.usParam == 0x42) &&
+            } else if ((input.key == VK_LEFT || input.key == 0x42) &&
                        screen->m_page_index != 3) {
                 int index = screen->m_page_index - 1;
                 while (index >= 0 && !screen->m_page_enabled[index])

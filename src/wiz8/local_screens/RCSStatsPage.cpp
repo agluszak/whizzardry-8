@@ -64,7 +64,7 @@ static int g_camp_skill_hover_row;
 // GLOBAL: WIZ8 0x0069c528
 unsigned int g_camp_skill_regions;
 
-static unsigned char CampStatsMouseWheel(const InputAtom* event, W8Region*);
+static unsigned char CampStatsMouseWheel(const InputEvent* event, W8Region*);
 void DrawCampEffectList(void);
 void DrawCampEffectEntry(W8CampEffectEntry* entry, int* line_out);
 
@@ -697,13 +697,13 @@ void DrawCampEffectEntry(W8CampEffectEntry* entry, int* line_out)
 /* Wheel input over the stats page's effect-list region steps the
    scrollbar. */
 // FUNCTION: WIZ8 0x005c5c60
-static unsigned char CampStatsMouseWheel(const InputAtom* event, W8Region*)
+static unsigned char CampStatsMouseWheel(const InputEvent* event, W8Region*)
 {
     PushButtonSoundScheme(0, true);
-    if (event->usEvent != MOUSE_WHEEL) {
+    if (event->type != InputEventType::MouseWheel) {
         return 0;
     }
-    g_camp_screen->stats_range->m_range->AdjustValue(GetMouseWheelDeltaValue(event->usParam));
+    g_camp_screen->stats_range->m_range->AdjustValue(event->wheel);
     return 1;
 }
 
@@ -880,9 +880,9 @@ void DrawCampSkillsPage(void)
    dialog's second argument is raised when the character's level is the best
    among the occupied party slots. */
 // FUNCTION: WIZ8 0x005c6230
-unsigned char CampSkillListRegionHandler(const InputAtom* event, W8Region* region)
+unsigned char CampSkillListRegionHandler(const InputEvent* event, W8Region* region)
 {
-    int row = (GetAtomCursorY(event) - region->y1 - 1) / 0xe;
+    int row = (GetEventCursorY(event) - region->y1 - 1) / 0xe;
     int skill = -1;
     int occurrence = 0;
     for (int index = 0; index < 0x29; ++index) {
@@ -897,10 +897,10 @@ unsigned char CampSkillListRegionHandler(const InputAtom* event, W8Region* regio
         }
     }
     PushButtonSoundScheme(0, true);
-    if (event->usEvent == RIGHT_BUTTON_DOWN) {
+    if (event->type == InputEventType::RightButtonDown) {
         region->flags |= W8_REGION_RIGHT_BUTTON_HELD;
-    } else if (event->usEvent != RIGHT_BUTTON_UP) {
-        if (event->usEvent != MOUSE_POS) {
+    } else if (event->type != InputEventType::RightButtonUp) {
+        if (event->type != InputEventType::MouseMove) {
             return 0;
         }
         if ((region->flags & W8_REGION_MOUSE_ENTER) != 0 || row != g_camp_skill_hover_row) {
@@ -1051,20 +1051,19 @@ void W8CharacterPersonalityPage::GetNavigationState(bool* next_enabled, bool* ex
 }
 
 // FUNCTION: WIZ8 0x005c6a60
-void W8CharacterPersonalityPage::HandleInput(InputAtom* input)
+void W8CharacterPersonalityPage::HandleInput(InputEvent* input)
 {
     if (m_screen->HasDialog())
         return;
-    if (input->usEvent != KEY_DOWN && input->usEvent != KEY_REPEAT) {
+    if (!IsTypingEvent(*input)) {
         return;
     }
 
-    unsigned short character =
-        TranslateKeyToCharacter(static_cast<unsigned short>(input->usParam), input->usKeyState);
-    if (character != 0 && strchr("\\/:*?\"<>|", static_cast<unsigned char>(character)) != 0) {
+    const char32_t character = TypedCharacter(*input);
+    if (character != 0 && character < 0x80 && strchr("\\/:*?\"<>|", int(character)) != 0) {
         return;
     }
-    if (input->usParam == VK_TAB) {
+    if (input->key == VK_TAB) {
         SelectNextField();
         return;
     }

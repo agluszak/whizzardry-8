@@ -441,9 +441,9 @@ void ResetMainGameScreenState(void);
 
 void RefreshTrackedPortraitOverlay(void);
 /* Which party portrait the pointer is over, if any. */
-unsigned char HitTestPartyPortrait(const InputAtom* event);
+unsigned char HitTestPartyPortrait(const InputEvent* event);
 void ClearCombatSelection(void);
-void UpdateWorldViewCursor(const InputAtom* event, W8TargetNeed target_needed);
+void UpdateWorldViewCursor(const InputEvent* event, W8TargetNeed target_needed);
 void RequestRefreshPartyState(void);
 void RefreshFlaggedMainGameState(void);
 bool IsScreenIdle(void);
@@ -520,24 +520,24 @@ inline void ClearScreenWait(void)
 }
 /* Portrait condition / enchantment orbs (help 25 / 26): hold opens the
    mode-6 hover overlay; leave and release tear it down. */
-unsigned char PortraitConditionOrbRegionEvent(const InputAtom* event, struct W8Region* region);
-unsigned char PortraitEnchantmentOrbRegionEvent(const InputAtom* event, struct W8Region* region);
+unsigned char PortraitConditionOrbRegionEvent(const InputEvent* event, struct W8Region* region);
+unsigned char PortraitEnchantmentOrbRegionEvent(const InputEvent* event, struct W8Region* region);
 /* Party portrait hit regions: select, target, open camp, and drag-hover. */
-unsigned char PortraitSelectRegionEvent(const InputAtom* event, struct W8Region* region);
+unsigned char PortraitSelectRegionEvent(const InputEvent* event, struct W8Region* region);
 /* Help 28: portrait side bar that opens Assay on the hovered weapon/item. */
-unsigned char PortraitAssaySidebarRegionEvent(const InputAtom* event, struct W8Region* region);
+unsigned char PortraitAssaySidebarRegionEvent(const InputEvent* event, struct W8Region* region);
 /* Help 24: portrait overlay hover strip; drives portrait_overlay_party_slot. */
-unsigned char PortraitOverlayHoverRegionEvent(const InputAtom* event, struct W8Region* region);
+unsigned char PortraitOverlayHoverRegionEvent(const InputEvent* event, struct W8Region* region);
 /* Region set 4: the eight combat-action hit regions beside the portraits. */
-unsigned char PartyCombatActionRegionEvent(const InputAtom* event, struct W8Region* region);
+unsigned char PartyCombatActionRegionEvent(const InputEvent* event, struct W8Region* region);
 /* Help 31: radar-map button beside the text area. */
-unsigned char RadarMapButtonRegionEvent(const InputAtom* event, struct W8Region* region);
+unsigned char RadarMapButtonRegionEvent(const InputEvent* event, struct W8Region* region);
 /* Region 23: the 3D world view. Hover refreshes the combat selection/target,
    left-up runs the targeting/item/monster dispatch, right-down opens monster
    info or the assay dialog, and the mouselook latch arms and releases here. */
-unsigned char WorldViewRegionEvent(const InputAtom* event, struct W8Region* region);
+unsigned char WorldViewRegionEvent(const InputEvent* event, struct W8Region* region);
 /* Help 36: combat monster-list hit rows beside the radar map. */
-unsigned char MonsterListRegionEvent(const InputAtom* event, struct W8Region* region);
+unsigned char MonsterListRegionEvent(const InputEvent* event, struct W8Region* region);
 void SetMainGameMode(W8MainGameMode mode);
 void SetFormationBoardVisible(bool visible);
 void ToggleMainGamePause(void);
@@ -637,8 +637,8 @@ unsigned char MainGameScreenLeave(int leaving);
 void ShowMainGameNoticeLine(std::string_view text, W8DialogDestroyCallback callback, bool confirmation,
                             bool cancel);
 
-unsigned char CombatBarRegionEvent(const InputAtom* event, struct W8Region* region);
-unsigned char DialogueTranscriptRegionEvent(const InputAtom* event, struct W8Region* region);
+unsigned char CombatBarRegionEvent(const InputEvent* event, struct W8Region* region);
+unsigned char DialogueTranscriptRegionEvent(const InputEvent* event, struct W8Region* region);
 void SelectNpcBuyMode(void);
 void ConfirmNpcTradeItem(void);
 void RestockNpcTradeStock(void);

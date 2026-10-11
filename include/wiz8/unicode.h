@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 #include <span>
 #include <string>
 #include <string_view>
@@ -24,3 +25,10 @@ std::size_t next_grapheme(std::string_view text, std::size_t byte_offset);
 std::size_t previous_grapheme(std::string_view text, std::size_t byte_offset);
 std::size_t grapheme_count(std::string_view text);
 } // namespace wiz8::text
+
+bool IsUppercaseCharacter(std::uint32_t character);
+bool IsLowercaseCharacter(std::uint32_t character);
+bool IsPunctuationCharacter(std::uint32_t character);
+std::int32_t ToUppercaseCharacter(std::int32_t character);
+std::int32_t ToLowercaseCharacter(std::int32_t character);
+std::int32_t CompareTextIgnoreAsciiCase(std::string_view first, std::string_view second);

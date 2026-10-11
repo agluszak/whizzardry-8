@@ -12,7 +12,6 @@
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/xstatus.h"
 #include "input.h"
-#include "english.h"
 #include "character_event_queue.h"
 #include "compat/native.h"
 #include "dialog_code/DialogBase.h"
@@ -145,7 +144,7 @@ void W8CharacterSummaryDialog::OnNumericInputChanged(int value)
 }
 
 // FUNCTION: WIZ8 0x005e0880
-bool W8CharacterSummaryDialog::HandleInputEvent(const InputAtom* input)
+bool W8CharacterSummaryDialog::HandleInputEvent(const InputEvent* input)
 {
     W8DialogNumericInput* inputs[] = {m_numeric_input};
     for (int index = 0; index < 1; ++index) {
@@ -156,12 +155,12 @@ bool W8CharacterSummaryDialog::HandleInputEvent(const InputAtom* input)
             break;
         }
     }
-    if (input->usEvent == KEY_DOWN || input->usEvent == KEY_REPEAT) {
-        switch (toupper(input->usParam)) {
-        case BACKSPACE:
-        case ENTER:
-        case ESC:
-        case SPACE:
+    if (input->type == InputEventType::KeyDown || input->type == InputEventType::KeyRepeat) {
+        switch (toupper(input->key)) {
+        case VK_BACK:
+        case VK_RETURN:
+        case VK_ESCAPE:
+        case VK_SPACE:
             m_keep_open = false;
             break;
         }
@@ -180,9 +179,9 @@ bool W8CharacterSummaryDialog::ProcessInput()
                             g_character_event_full_volume);
     }
     bool keep_open = m_keep_open;
-    DrainModalInput([this, &keep_open](const InputAtom& input) {
-        if (input.usEvent == LEFT_BUTTON_DOWN || input.usEvent == LEFT_BUTTON_REPEAT ||
-            input.usEvent == RIGHT_BUTTON_DOWN) {
+    DrainModalInput([this, &keep_open](const InputEvent& input) {
+        if (input.type == InputEventType::LeftButtonDown || input.type == InputEventType::LeftButtonRepeat ||
+            input.type == InputEventType::RightButtonDown) {
             m_keep_open = false;
         }
         if (!DispatchRegionInput(&input)) {

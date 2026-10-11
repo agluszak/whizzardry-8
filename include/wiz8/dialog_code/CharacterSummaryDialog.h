@@ -30,7 +30,7 @@ public:
 
 private:
     bool CreateQuoteText();
-    bool HandleInputEvent(const InputAtom* input);
+    bool HandleInputEvent(const InputEvent* input);
 
     bool m_voice_started;
     W8TextBuffer* m_quote_text;

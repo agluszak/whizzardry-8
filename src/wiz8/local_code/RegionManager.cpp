@@ -62,7 +62,7 @@ std::deque<W8RegionSet> g_region_sets = {
    folded this body into ScreenLifecycleSuccess, which compiles to the same
    bytes. */
 // bool-byte-ok: W8RegionCallback result
-static unsigned char ConsumeRegionInput(const InputAtom*, W8Region*)
+static unsigned char ConsumeRegionInput(const InputEvent*, W8Region*)
 {
     return 1;
 }
@@ -525,12 +525,12 @@ struct DispatchPoint {
     unsigned short y;
 };
 
-DispatchPoint ToDispatchPoint(const InputAtom& event)
+DispatchPoint ToDispatchPoint(const InputEvent& event)
 {
     return {
-        static_cast<unsigned short>(static_cast<unsigned short>(event.uiParam) +
+        static_cast<unsigned short>(event.position.x +
                                     g_cursor_hotspot_x),
-        static_cast<unsigned short>(static_cast<unsigned short>(event.uiParam >> 16) +
+        static_cast<unsigned short>(event.position.y +
                                     g_cursor_hotspot_y)};
 }
 
@@ -556,28 +556,30 @@ void SetRegionHelpDelay(int delay_ms)
     g_region_help_delay = delay_ms;
 }
 
-std::int32_t RegionReasonForInput(const W8Region& region, const InputAtom& input)
+std::int32_t RegionReasonForInput(const W8Region& region, const InputEvent& input)
 {
-    switch (input.usEvent) {
-    case MOUSE_POS:
+    switch (input.type) {
+    case InputEventType::MouseMove:
         if (region.flags & W8_REGION_MOUSE_LEAVE) return REGION_REASON_LOST_MOUSE;
         if (region.flags & W8_REGION_MOUSE_ENTER) return REGION_REASON_GAIN_MOUSE;
         return REGION_REASON_MOVE;
-    case LEFT_BUTTON_DOWN:
+    case InputEventType::LeftButtonDown:
         return REGION_REASON_LBUTTON_DWN |
                (input.clicks >= 2 ? REGION_REASON_LBUTTON_DOUBLECLICK : 0);
-    case LEFT_BUTTON_UP:
+    case InputEventType::LeftButtonUp:
         return REGION_REASON_LBUTTON_UP;
-    case LEFT_BUTTON_DBL_CLK:
+    case InputEventType::LeftButtonDoubleClick:
         return REGION_REASON_NONE;
-    case LEFT_BUTTON_REPEAT:
+    case InputEventType::LeftButtonRepeat:
         return REGION_REASON_LBUTTON_REPEAT;
-    case RIGHT_BUTTON_DOWN:
+    case InputEventType::RightButtonDown:
         return REGION_REASON_RBUTTON_DWN;
-    case RIGHT_BUTTON_UP:
+    case InputEventType::RightButtonUp:
         return REGION_REASON_RBUTTON_UP;
-    case RIGHT_BUTTON_REPEAT:
+    case InputEventType::RightButtonRepeat:
         return REGION_REASON_RBUTTON_REPEAT;
+    default:
+        break;
     }
     return REGION_REASON_NONE;
 }
@@ -647,7 +649,7 @@ struct RegionDispatchResult {
 };
 
 // Region storage is stable, but a callback may destroy/rebind its widget.
-RegionDispatchResult DispatchRegionEvent(W8Region& region, const InputAtom& event)
+RegionDispatchResult DispatchRegionEvent(W8Region& region, const InputEvent& event)
 {
     const auto generation = region.binding_generation;
     unsigned char handled = 0;
@@ -661,12 +663,12 @@ RegionDispatchResult DispatchRegionEvent(W8Region& region, const InputAtom& even
     return {handled, region.binding_generation == generation};
 }
 
-bool DispatchUnchangedRegion(W8Region& region, const InputAtom& event)
+bool DispatchUnchangedRegion(W8Region& region, const InputEvent& event)
 {
     return DispatchRegionEvent(region, event).binding_unchanged;
 }
 
-bool LeaveRegion(W8Region& region, const InputAtom& event)
+bool LeaveRegion(W8Region& region, const InputEvent& event)
 {
     region.flags = (region.flags & ~W8_REGION_MOUSE_STATE_MASK) | W8_REGION_MOUSE_LEAVE;
     if (!DispatchUnchangedRegion(region, event)) return false;
@@ -711,12 +713,11 @@ ExclusiveRegionSet::ExclusiveRegionSet(unsigned int set) : set_(set)
     if (saved_hover_.index != 0 && saved_hover_.index < g_regions.size()) {
         SDL_Point mouse;
         SGPMouseGetPos(&mouse);
-        InputAtom event{};
-        event.uiTimeStamp = w8_get_ticks();
-        event.usKeyState = gfAltState | gfCtrlState | gfShiftState;
-        event.usEvent = MOUSE_POS;
-        event.uiParam = (static_cast<unsigned int>(mouse.y) << 16) |
-                        static_cast<unsigned short>(mouse.x);
+        InputEvent event{};
+        event.timestamp = w8_get_ticks();
+        event.modifiers = GetInputState().modifiers;
+        event.type = InputEventType::MouseMove;
+        event.position = mouse;
         LeaveRegion(g_regions[saved_hover_.index], event);
     }
     const auto clear_mouse_state = [](unsigned int index) {
@@ -802,14 +803,13 @@ ExclusiveRegionSet::~ExclusiveRegionSet()
 unsigned int UpdateRegionMousePosition(int x, int y)
 {
     g_region_mouse_position = {x, y};
-    InputAtom event{};
+    InputEvent event{};
     unsigned int region_index;
 
-    event.uiTimeStamp = w8_get_ticks();
-    event.usKeyState = gfAltState | gfCtrlState | gfShiftState;
-    event.usEvent = MOUSE_POS;
-    event.uiParam = (static_cast<unsigned int>(static_cast<unsigned short>(y)) << 16) |
-                    static_cast<unsigned short>(x);
+    event.timestamp = w8_get_ticks();
+    event.modifiers = GetInputState().modifiers;
+    event.type = InputEventType::MouseMove;
+    event.position = {x, y};
 
     if (g_captured_region_index != 0 &&
         RegionAllowedByExclusiveSet(g_captured_region_index)) {
@@ -898,13 +898,13 @@ SDL_Point GetRegionMousePosition()
 // FUNCTION: WIZ8 0x004f16f0
 unsigned int FindRegionAtPoint(unsigned short x, unsigned short y)
 {
-    InputAtom event;
+    InputEvent event;
     unsigned int region_index;
 
-    event.uiTimeStamp = w8_get_ticks();
-    event.usKeyState = gfAltState | gfCtrlState | gfShiftState;
-    event.usEvent = MOUSE_POS;
-    event.uiParam = (static_cast<unsigned int>(y) << 16) | x;
+    event.timestamp = w8_get_ticks();
+    event.modifiers = GetInputState().modifiers;
+    event.type = InputEventType::MouseMove;
+    event.position = {x, y};
 
     if (g_captured_region_index != 0 &&
         RegionAllowedByExclusiveSet(g_captured_region_index)) {
@@ -938,18 +938,18 @@ unsigned int FindRegionAtPoint(unsigned short x, unsigned short y)
    0x004F1C4C and 0x004F1D34 for the current and captured regions); each runs
    the callback, plays the optional sound and returns the callback result. */
 // FUNCTION: WIZ8 0x004f1910
-unsigned char DispatchRegionInput(const InputAtom* event)
+unsigned char DispatchRegionInput(const InputEvent* event)
 {
     unsigned int region_index = 0;
     int sound_id = -1;
-    g_region_mouse_position = {static_cast<short>(event->uiParam),
-                               static_cast<short>(event->uiParam >> 16)};
+    g_region_mouse_position = {event->position.x,
+                               event->position.y};
     const auto point = ToDispatchPoint(*event);
 #ifdef WIZ8_RUNTIME_TESTS
-    if (event->usEvent == MOUSE_POS || event->usEvent == LEFT_BUTTON_DOWN ||
-        event->usEvent == LEFT_BUTTON_UP || event->usEvent == RIGHT_BUTTON_DOWN ||
-        event->usEvent == RIGHT_BUTTON_UP) {
-        RuntimeObserve(RUNTIME_MOUSE_DISPATCH, event->usEvent,
+    if (event->type == InputEventType::MouseMove || event->type == InputEventType::LeftButtonDown ||
+        event->type == InputEventType::LeftButtonUp || event->type == InputEventType::RightButtonDown ||
+        event->type == InputEventType::RightButtonUp) {
+        RuntimeObserve(RUNTIME_MOUSE_DISPATCH, event->type,
                        static_cast<w8_ulong>(point.x) | (static_cast<w8_ulong>(point.y) << 16),
                        g_current_screen_state.id);
     }
@@ -958,7 +958,7 @@ unsigned char DispatchRegionInput(const InputAtom* event)
     W8Region* region = FindDispatchRegion(point, region_index);
     if (!region) return 0;
     if (region->help_enabled && (g_settings.tooltips_enabled || g_region_help_force_enabled) &&
-        event->usEvent != MOUSE_POS) {
+        event->type != InputEventType::MouseMove) {
         if ((region->flags & W8_REGION_HELP_SHOWN) != 0) {
             VideoRemoveToolTip();
             region->flags &= ~W8_REGION_HELP_SHOWN;
@@ -968,24 +968,26 @@ unsigned char DispatchRegionInput(const InputAtom* event)
         }
     }
 
-    switch (event->usEvent) {
-    case LEFT_BUTTON_DOWN:
-    case RIGHT_BUTTON_DOWN:
-        region->CaptureButtonDown(event->usEvent);
+    switch (event->type) {
+    case InputEventType::LeftButtonDown:
+    case InputEventType::RightButtonDown:
+        region->CaptureButtonDown(event->type);
         g_captured_region_index = region_index;
         g_current_region_index = region_index;
         g_hover_region_index = region_index;
         sound_id = 2;
         break;
-    case LEFT_BUTTON_UP:
+    case InputEventType::LeftButtonUp:
         if ((region->flags & W8_REGION_LEFT_BUTTON_HELD) != 0) {
             sound_id = 3;
         }
         break;
-    case RIGHT_BUTTON_UP:
+    case InputEventType::RightButtonUp:
         if ((region->flags & W8_REGION_RIGHT_BUTTON_HELD) != 0) {
             sound_id = 3;
         }
+        break;
+    default:
         break;
     }
 
@@ -997,10 +999,10 @@ unsigned char DispatchRegionInput(const InputAtom* event)
     const auto generation = region->binding_generation;
     const auto dispatch = DispatchRegionEvent(*region, *event);
     if (region->binding_generation == generation) {
-        if (event->usEvent == LEFT_BUTTON_UP) {
+        if (event->type == InputEventType::LeftButtonUp) {
             region->flags &= ~W8_REGION_LEFT_BUTTON_HELD;
             if (g_captured_region_index == region_index) g_captured_region_index = 0;
-        } else if (event->usEvent == RIGHT_BUTTON_UP) {
+        } else if (event->type == InputEventType::RightButtonUp) {
             region->flags &= ~W8_REGION_RIGHT_BUTTON_HELD;
             if (g_captured_region_index == region_index) g_captured_region_index = 0;
         }
@@ -1086,10 +1088,10 @@ void ActivateDialogRegion(unsigned int region_index)
     }
 
     if (g_hover_region_index != 0) {
-        InputAtom event;
-        event.uiTimeStamp = w8_get_ticks();
-        event.usKeyState = gfAltState | gfCtrlState | gfShiftState;
-        event.usEvent = MOUSE_POS;
+        InputEvent event;
+        event.timestamp = w8_get_ticks();
+        event.modifiers = GetInputState().modifiers;
+        event.type = InputEventType::MouseMove;
 
         W8Region* previous = &g_regions[g_hover_region_index];
         if (!LeaveRegion(*previous, event)) return;
@@ -1467,14 +1469,13 @@ void SetRegionHelp(unsigned int region_index, bool enabled, int help_text_id)
 void ClearHotRegion(void)
 {
     SDL_Point mouse;
-    InputAtom event;
+    InputEvent event;
 
     SGPMouseGetPos(&mouse);
-    event.uiTimeStamp = w8_get_ticks();
-    event.usKeyState = gfAltState | gfCtrlState | gfShiftState;
-    event.usEvent = MOUSE_POS;
-    event.uiParam =
-        (static_cast<unsigned int>(mouse.y) << 16) | (static_cast<unsigned int>(mouse.x) & 0xffff);
+    event.timestamp = w8_get_ticks();
+    event.modifiers = GetInputState().modifiers;
+    event.type = InputEventType::MouseMove;
+    event.position = mouse;
 
     if (g_current_region_index != 0) {
         W8Region* region = &g_regions[g_current_region_index];

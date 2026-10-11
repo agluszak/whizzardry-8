@@ -1253,12 +1253,12 @@ void W8Octree::BuildRegionLinks(bool rebuild_all)
                     break;
                 }
                 if (received_events) {
-                    InputAtom input;
-                    if (DequeueEvent(&input) != 0 && input.usEvent == KEY_DOWN) {
-                        if (input.usParam == VK_RETURN) {
+                    InputEvent input;
+                    if (DequeueEvent(&input) != 0 && input.type == InputEventType::KeyDown) {
+                        if (input.key == VK_RETURN) {
                             x_index += 2;
                             z_index = 0;
-                        } else if (input.usParam == VK_ESCAPE) {
+                        } else if (input.key == VK_ESCAPE) {
                             aborted = true;
                             if (g_build_level_links) {
                                 g_build_level_links = false;

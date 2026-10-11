@@ -81,7 +81,7 @@ public:
     virtual void Deactivate() = 0;
     virtual void Accept() = 0;
     virtual void GetNavigationState(bool* next_enabled, bool* exit_enabled) = 0;
-    virtual void HandleInput(InputAtom* input);
+    virtual void HandleInput(InputEvent* input);
     virtual void Refresh();
     virtual void Prepare();
     std::vector<std::unique_ptr<W8CharacterPageEntry>> m_entries;
@@ -187,7 +187,7 @@ public:
     virtual void Deactivate() override;
     virtual void Accept() override;
     virtual void GetNavigationState(bool*, bool*) override;
-    virtual void HandleInput(InputAtom*) override;
+    virtual void HandleInput(InputEvent*) override;
     virtual void Refresh() override;
     virtual void Prepare() override;
     virtual void OnRowValueChanged(W8CharacterStatsRow* row, int value) override;
@@ -290,7 +290,7 @@ public:
     virtual void Deactivate() override;
     virtual void Accept() override;
     virtual void GetNavigationState(bool*, bool*) override;
-    virtual void HandleInput(InputAtom*) override;
+    virtual void HandleInput(InputEvent*) override;
     virtual void Refresh() override;
     virtual void OnSelectionChanged(W8ControlSelection*, int) override;
     virtual void OnPrimary(W8TextControl*) override;

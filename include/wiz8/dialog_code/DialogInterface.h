@@ -15,14 +15,14 @@
    callbacks; keyboard handling stays with the concrete dialog. */
 template <class Dialog, class Field>
 void ProcessNumericDialogInputEvents(Dialog* dialog, Field*& active_field,
-                                     bool (Dialog::*handle_event)(const InputAtom*))
+                                     bool (Dialog::*handle_event)(const InputEvent*))
 {
     dialog->BeginModalInput();
-    W8DialogBase::DrainModalInput([&](const InputAtom& input) {
-        if (input.usEvent == LEFT_BUTTON_UP && active_field != 0) {
+    W8DialogBase::DrainModalInput([&](const InputEvent& input) {
+        if (input.type == InputEventType::LeftButtonUp && active_field != 0) {
             active_field->SetActive(false);
         }
-        if (input.usEvent == LEFT_BUTTON_REPEAT || input.usEvent == RIGHT_BUTTON_REPEAT) {
+        if (input.type == InputEventType::LeftButtonRepeat || input.type == InputEventType::RightButtonRepeat) {
             DispatchRegionInput(&input);
         } else if (!DispatchRegionInput(&input)) {
             (dialog->*handle_event)(&input);
