@@ -1638,29 +1638,21 @@ try
         W8AniMesh* mesh = AnimObjEntry(animation, 2, 0);
         unsigned char value_count = AniMeshValue(mesh);
         stModelInstance* frame = GetAniMeshFrame(mesh, 0);
-        glm::vec3 minimum;
-        glm::vec3 maximum;
-        unsigned int frame_i;
 
         if (frame == 0) {
             srAssertFail("psrMesh", PROP_CPP, 0x182, 0);
         }
-        frame->getModel()->getBoundingBox(minimum, maximum);
-        for (frame_i = 0; frame_i < value_count; ++frame_i) {
-            glm::vec3 frame_min;
-            glm::vec3 frame_max;
-
+        auto bounds = frame->getModel()->getBoundingBox();
+        for (unsigned int frame_i = 0; frame_i < value_count; ++frame_i) {
             frame = GetAniMeshFrame(mesh, frame_i);
             if (frame == 0) {
                 srAssertFail("psrMesh", PROP_CPP, 0x192, 0);
             }
-            frame->getModel()->getBoundingBox(frame_min, frame_max);
-            minimum = glm::min(minimum, frame_min);
-            maximum = glm::max(maximum, frame_max);
+            bounds.include(frame->getModel()->getBoundingBox());
         }
-        bounds_min = minimum;
-        bounds_max = maximum;
-        const auto size = maximum - minimum;
+        bounds_min = bounds.minimum;
+        bounds_max = bounds.maximum;
+        const auto size = bounds.maximum - bounds.minimum;
         bounds_extent = std::max({size.x, size.y, size.z}) * g_float_half;
     }
 

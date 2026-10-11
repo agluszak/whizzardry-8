@@ -88,11 +88,13 @@ bool recursiveSceneGraph()
 
 class TestMaterial : public srMaterialIFace {
 public:
-    void getMaterialInfo(srVertexProcessor::MaterialInfo& info) override
+    srVertexProcessor::MaterialInfo getMaterialInfo() override
     {
+        srVertexProcessor::MaterialInfo info{};
         info.diffuse = info.ambient = info.specular = info.emissive = glm::vec4(0.0f);
         info.translucency = info.shininess = info.value_38 = info.fog_scale = 0.0f;
         info.disabled_channels = 0xffffffff;
+        return info;
     }
     void preProcess(srVertexPipe&) override {}
     void postProcess(srVertexPipe&) override {}
@@ -238,10 +240,11 @@ public:
 class CoverageMaterial : public TestMaterial {
 public:
     float scale = 1;
-    void getMaterialInfo(srVertexProcessor::MaterialInfo& info) override
+    srVertexProcessor::MaterialInfo getMaterialInfo() override
     {
-        TestMaterial::getMaterialInfo(info);
+        auto info = TestMaterial::getMaterialInfo();
         info.diffuse.w = info.fog_scale = scale;
+        return info;
     }
 };
 
@@ -323,11 +326,12 @@ bool coverageFinalization()
 
 class ProfileMaterial : public TestMaterial {
 public:
-    void getMaterialInfo(srVertexProcessor::MaterialInfo& info) override
+    srVertexProcessor::MaterialInfo getMaterialInfo() override
     {
-        TestMaterial::getMaterialInfo(info);
+        auto info = TestMaterial::getMaterialInfo();
         info.disabled_channels = 0;
         info.fog_scale = 1;
+        return info;
     }
 };
 
@@ -498,9 +502,8 @@ bool rendererOwnership()
     srGERD gerd(srCreateSDLGPUDevice(), "ownership fixture");
     auto* renderer = gerd.lockRenderer(); // nested flush/create locks
     gerd.unlockRenderer(renderer, 1);
-    w8_ulong statistics[7];
-    renderer->getStatistics(statistics);
-    REQUIRE(statistics[4] == 1);
+    auto statistics = renderer->getStatistics();
+    REQUIRE(statistics.device_calls == 1);
 
     for (int mode = 0; mode < 4; ++mode) {
         std::promise<srGERD::Renderer*> acquired;
@@ -523,8 +526,8 @@ bool rendererOwnership()
         else { gerd.flushRenderers(); }
         worker.join();
         REQUIRE(borrowed == renderer);
-        renderer->getStatistics(statistics);
-        REQUIRE(statistics[4] == (mode == 0 ? 2u : mode == 1 ? 3u : mode == 2 ? 0u : 1u));
+        statistics = renderer->getStatistics();
+        REQUIRE(statistics.device_calls == (mode == 0 ? 2u : mode == 1 ? 3u : mode == 2 ? 0u : 1u));
         if (mode == 2) {
             // Reuse the CPU renderer as a sorted renderer without opening a
             // window, to exercise flushSort's worker-release wait as well.

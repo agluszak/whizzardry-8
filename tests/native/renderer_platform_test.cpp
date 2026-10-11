@@ -1,6 +1,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include <chrono>
 #include <cstdio>
+#include <string_view>
 #include <thread>
 
 #include "surrender/srClock.h"
@@ -23,11 +24,47 @@ TEST_CASE("renderer platform")
         REQUIRE((srInit() && srCore.isInitialized()));
         {
             srGERD gerd(srCreateSDLGPUDevice(), "SDLGPU");
+            const auto info = gerd.getDD()->getInfo();
+            REQUIRE(info.max_back_buffer_width == 8192);
+            REQUIRE(info.max_back_buffer_height == 8192);
+            REQUIRE(info.renderer_batch_limit == 0x100);
+            REQUIRE(info.hardware_id == 1);
+            REQUIRE(info.flags == 0);
+            REQUIRE(info.unknown_08_ == 4);
+            REQUIRE(info.unknown_0c_ == 0x10);
+            REQUIRE(info.unknown_10_ == 1);
+            REQUIRE(info.unknown_14_ == 65536);
+            REQUIRE(info.unknown_20_ == 0x3b808081);
+            REQUIRE(info.texture_ram == 0);
+            REQUIRE(info.max_texture_stages == 2);
+            REQUIRE(info.texture_min_dim == 1);
+            REQUIRE(info.texture_max_dim == 4096);
+            REQUIRE(info.texture_max_aspect == 4096);
+            REQUIRE(std::string_view(info.text[0]) == "SDL GPU");
+            REQUIRE(std::string_view(info.text[4]) == "Unknown");
+            const auto driver = gerd.getDD()->getDriverInfo();
+            REQUIRE(driver.dd_api_version == SR_DD_MIN_API_VERSION);
+            REQUIRE(driver.driver_id == 0);
+            REQUIRE(std::string_view(driver.name) == "SDLGPU");
+            REQUIRE(std::string_view(driver.api_name) == "SDL GPU");
+            REQUIRE(gerd.getDD()->getWindowList().empty());
+            const auto formats = gerd.getDD()->getTextureFormats();
+            REQUIRE(formats.size() == 1);
+            REQUIRE(formats[0].red_bits == 8);
+            REQUIRE(formats[0].alpha_shift == 24);
+            REQUIRE(gerd.getDD()->getTextureFormats().data() == formats.data());
+            REQUIRE(gerd.getDD()->getBufferPixelFormat().red_shift == 16);
+            const auto device_stats = gerd.getDD()->getStatistics();
+            REQUIRE(device_stats.texture_transfer == 0);
+            REQUIRE(device_stats.pixels_drawn == 0);
+            REQUIRE(device_stats.triangles_received == 0);
+            REQUIRE(device_stats.vertices_transferred == 0);
+            REQUIRE(device_stats.vertex_indices == 0);
+            REQUIRE_FALSE(gerd.getPixelFormat().has_value());
             auto* renderer = gerd.lockRenderer();
             gerd.unlockRenderer(renderer, 1);
-            w8_ulong statistics[7];
-            renderer->getStatistics(statistics);
-            REQUIRE(statistics[4] == 1);
+            auto statistics = renderer->getStatistics();
+            REQUIRE(statistics.device_calls == 1);
 
             bool reused = false;
             std::jthread worker([&] {
@@ -39,15 +76,37 @@ TEST_CASE("renderer platform")
             });
             worker.join();
             REQUIRE(reused);
-            renderer->getStatistics(statistics);
-            REQUIRE(statistics[4] == 1);
+            statistics = renderer->getStatistics();
+            REQUIRE(statistics.device_calls == 1);
 
             gerd.flushImmediateRenderers();
-            renderer->getStatistics(statistics);
-            REQUIRE(statistics[4] == 2);
+            statistics = renderer->getStatistics();
+            REQUIRE(statistics.device_calls == 2);
             gerd.flushRenderers();
-            renderer->getStatistics(statistics);
-            REQUIRE(statistics[4] == 3);
+            statistics = renderer->getStatistics();
+            REQUIRE(statistics.device_calls == 3);
+            const auto snapshot = renderer->getStatistics();
+            renderer->statistics.triangle_chunks = 5;
+            renderer->statistics.input_triangles = 7;
+            renderer->statistics.clipped_triangles = 2;
+            renderer->statistics.input_vertices = 9;
+            renderer->statistics.device_vertices = 11;
+            renderer->statistics.device_vertex_indices = 13;
+            renderer->sorted = 1;
+            const auto combined = gerd.getStatistics();
+            REQUIRE(combined.triangle_chunks == 5);
+            REQUIRE(combined.input_triangles == 7);
+            REQUIRE(combined.clipped_triangles == 2);
+            REQUIRE(combined.input_vertices == 9);
+            REQUIRE(combined.sorted_triangles == 13);
+            REQUIRE(snapshot.triangle_chunks == 0);
+            REQUIRE(snapshot.device_calls == 3);
+            renderer->resetStatistics();
+            REQUIRE(renderer->getStatistics().device_calls == 0);
+            REQUIRE(renderer->getStatistics().device_vertex_indices == 0);
+            REQUIRE(gerd.getStatistics().input_triangles == 0);
+            REQUIRE(gerd.getStatistics().sorted_triangles == 0);
+            REQUIRE(combined.input_triangles == 7);
         }
         REQUIRE(srGERD::getFirst() == nullptr);
         REQUIRE((srExit() && !srCore.isInitialized()));

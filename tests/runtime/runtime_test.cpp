@@ -713,14 +713,12 @@ void WorldRenderScenario()
     // The same scene and UI with only the world pass switched off is the control.
     REQUIRE((g_world_render_enabled && !g_world_blacked_out));
     RenderFrame();
-    srGERD::Statistics with_world{};
-    g_gerd->getStatistics(with_world);
+    const auto with_world = g_gerd->getStatistics();
     const unsigned polygons = world->level->m_submitted_polygons;
     const auto visible = game.read_frame();
     g_world_render_enabled = 0;
     RenderFrame();
-    srGERD::Statistics without_world{};
-    g_gerd->getStatistics(without_world);
+    const auto without_world = g_gerd->getStatistics();
     const auto control = game.read_frame();
     g_world_render_enabled = 1;
 

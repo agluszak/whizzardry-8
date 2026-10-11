@@ -76,25 +76,21 @@ stMeshModel::~stMeshModel()
 }
 
 // FUNCTION: WIZ8 0x00471dd0
-int stMeshModel::getBoundingSphere(glm::vec3& center, float& radius)
+srModel::BoundingSphere stMeshModel::getBoundingSphere()
 {
     if ((dirty_flags.value & 1) != 0) {
         CalculateLinkedBounds();
     }
-    center = bounds_center;
-    radius = bounds_radius;
-    return 1;
+    return {bounds_center, bounds_radius};
 }
 
 // FUNCTION: WIZ8 0x00471d80
-int stMeshModel::getBoundingBox(glm::vec3& minimum, glm::vec3& maximum)
+srBoundingBox stMeshModel::getBoundingBox()
 {
     if ((dirty_flags.value & 1) != 0) {
         CalculateLinkedBounds();
     }
-    minimum = bounds_minimum;
-    maximum = bounds_maximum;
-    return 1;
+    return {bounds_minimum, bounds_maximum};
 }
 
 /* Recompute the model's union bounds: clear this mesh's cached box,
@@ -117,7 +113,7 @@ void stMeshModel::CalculateLinkedBounds()
             if (model->flags & W8_MESH_HAS_FRAME_STORAGE)
                 frame_box = model->GetFrameBounds(frame);
             else
-                model->srMeshModel::getBoundingBox(frame_box.minimum, frame_box.maximum);
+                frame_box = model->srMeshModel::getBoundingBox();
             if (has_vertices)
                 box.include(frame_box);
             else
@@ -310,12 +306,6 @@ const srMeshModel::TriMesh& stMeshModel::getTriMesh()
         flags &= ~static_cast<unsigned int>(W8_MESH_VERTEX_LIGHTING_DIRTY);
     }
     return srMeshModel::getTriMesh();
-}
-
-// FUNCTION: WIZ8 0x004727e0
-void stMeshModel::getTriMesh(TriMesh& mesh)
-{
-    mesh = getTriMesh();
 }
 
 /* Thin vtable wrapper: submit with no external poly-equation table. */

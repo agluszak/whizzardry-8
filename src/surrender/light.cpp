@@ -677,25 +677,11 @@ void srLight::setNearAttenuationRange(double start, double end)
     near_end = end;
 }
 
-// FUNCTION: SURRENDER 0x1004EA00
-void srLight::getNearAttenuationRange(double& start, double& end) const
-{
-    start = near_start;
-    end = near_end;
-}
-
 // FUNCTION: SURRENDER 0x1004EA30
 void srLight::setFarAttenuationRange(double start, double end)
 {
     far_start = start;
     far_end = end;
-}
-
-// FUNCTION: SURRENDER 0x1004E9D0
-void srLight::getFarAttenuationRange(double& start, double& end) const
-{
-    start = far_start;
-    end = far_end;
 }
 
 // FUNCTION: SURRENDER 0x1004EA90

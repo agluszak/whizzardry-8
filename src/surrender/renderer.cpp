@@ -226,15 +226,13 @@ static w8_ulong firstMismatchSorted(const w8_ulong* values, w8_ulong value,
 // FUNCTION: SURRENDER 0x10024200
 void srGERD::Renderer::resetStatistics()
 {
-    std::fill_n(statistics, 7, 0);
+    statistics = {};
 }
 
 // FUNCTION: SURRENDER 0x10024260
-void srGERD::Renderer::getStatistics(w8_ulong* statistics)
+srGERD::Renderer::Statistics srGERD::Renderer::getStatistics() const
 {
-    for (int i = 0; i < 7; i++) {
-        statistics[i] = this->statistics[i];
-    }
+    return statistics;
 }
 
 // FUNCTION: SURRENDER 0x10024280
@@ -350,7 +348,7 @@ srGERD::Renderer::Renderer(const Parameters& parameters)
 {
     clip_state = 0;
     first_vertex = -1;
-    std::fill_n(statistics, 7, 0);
+    statistics = {};
     texture0 = 0;
     texture1 = 0;
     shader = srShader();
@@ -839,9 +837,9 @@ void srGERD::Renderer::programVertexArrays(srVertexArray* arrays, w8_ulong count
 void srGERD::Renderer::submit()
 {
     w8_ulong vertex_count = vertices.count;
-    statistics[4] += 1;
-    statistics[5] += vertex_count;
-    statistics[6] += indices.count;
+    statistics.device_calls += 1;
+    statistics.device_vertices += vertex_count;
+    statistics.device_vertex_indices += indices.count;
     if (gerd != 0 && vertex_count != 0 && indices.count != 0) {
         e_matrixMode saved_mode = gerd->getMatrixMode();
         gerd->matrixMode(MATRIX_PROJECTION);
@@ -924,9 +922,9 @@ void srGERD::Renderer::render(const TriInput& input)
         first_vertex = -1;
         return;
     }
-    statistics[0] += 1;
-    statistics[1] += input.triangle_count * input.record_count;
-    statistics[3] += input.vertex_count * input.record_count;
+    statistics.triangle_chunks += 1;
+    statistics.input_triangles += input.triangle_count * input.record_count;
+    statistics.input_vertices += input.vertex_count * input.record_count;
     bytes.resize(input.vertex_count);
     unsigned char* flags = bytes.data();
     transformVertices(input, flags);

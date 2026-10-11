@@ -171,8 +171,7 @@ unsigned char BakeInstanceVertexLighting(stModelInstance* instance, srNode* ligh
                 vertex_materials ? static_cast<srMaterial*>(vertex_materials[i].get()) : nullptr;
             material_colors[i] = material ? glm::vec3(material->parms.diffuse) : base_color;
         }
-        glm::vec3 minimum, maximum;
-        mesh->getBoundingBox(minimum, maximum);
+        const auto [minimum, maximum] = mesh->getBoundingBox();
         const auto box = srBoundingBox{minimum, maximum}.transformed(world);
         for (auto* node = lights; node; node = walk_chain ? node->next_sibling_ : nullptr) {
             const auto* light = sr_cast<stLight>(node);

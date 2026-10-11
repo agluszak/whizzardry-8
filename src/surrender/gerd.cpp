@@ -218,11 +218,7 @@ srGERD::srGERD(srDD* device, const char* device_name)
     enable_flags.set(ENABLE_POSITIONAL_0, 1);
     this->device.hints[0] = static_cast<e_hintMode>(0);
     initTextureParameterMatrix();
-    this->device.driver_info.api_version = 0x128;
-    this->device.driver_info.dd_api_version = 0;
-    this->device.driver_info.debug_write = debugWrite;
-    this->device.driver_info.flags = 0;
-    getDD()->getDriverInfo(this->device.driver_info);
+    this->device.driver_info = getDD()->getDriverInfo();
     initClearColors();
     initLights();
     initMatrices();
@@ -337,7 +333,7 @@ w8_long srGERD::getDisplayMode(w8_ulong width, w8_ulong height, w8_ulong depth) 
 }
 
 // FUNCTION: SURRENDER 0x1001AAF0
-void srGERD::getStatistics(Statistics& statistics)
+srGERD::Statistics srGERD::getStatistics()
 {
     std::lock_guard access(renderers_section);
     this->statistics.input_triangles = 0;
@@ -349,19 +345,17 @@ void srGERD::getStatistics(Statistics& statistics)
         auto* entry = &owned;
         Renderer* renderer = entry->renderer.get();
         if (renderer != 0) {
-            w8_ulong renderer_stats[7];
-            renderer->getStatistics(renderer_stats);
-            this->statistics.input_triangles += renderer_stats[1];
-            this->statistics.clipped_triangles += renderer_stats[2];
-            this->statistics.input_vertices += renderer_stats[3];
-            this->statistics.triangle_chunks += renderer_stats[0];
+            const auto renderer_stats = renderer->getStatistics();
+            this->statistics.input_triangles += renderer_stats.input_triangles;
+            this->statistics.clipped_triangles += renderer_stats.clipped_triangles;
+            this->statistics.input_vertices += renderer_stats.input_vertices;
+            this->statistics.triangle_chunks += renderer_stats.triangle_chunks;
             if (renderer->sorted == 1) {
-                this->statistics.sorted_triangles += renderer_stats[6];
+                this->statistics.sorted_triangles += renderer_stats.device_vertex_indices;
             }
         }
     }
-    srDD::Statistics device{};
-    getDD()->getStatistics(device);
+    const auto device = getDD()->getStatistics();
     this->statistics.texture_transfer = device.texture_transfer;
     this->statistics.pixels_drawn = device.pixels_drawn;
     this->statistics.value_18 = device.value_10;
@@ -369,9 +363,9 @@ void srGERD::getStatistics(Statistics& statistics)
     this->statistics.device_triangles = device.triangles_received;
     this->statistics.device_vertices = device.vertices_transferred;
     this->statistics.device_vertex_indices = device.vertex_indices;
-    statistics = this->statistics;
-    statistics.elapsed =
-        srCore.getTimer()->seconds() - statistics.elapsed;
+    auto result = this->statistics;
+    result.elapsed = srCore.getTimer()->seconds() - result.elapsed;
+    return result;
 }
 
 // FUNCTION: SURRENDER 0x1001ACD0
@@ -1154,7 +1148,7 @@ void srGERD::flipFrame(const Rectangle* first, const Rectangle* second, w8_ulong
     }
     statistics.frames += 1;
     state_flags |= STATE_FRAME_FLIPPED;
-    getStatistics(frame_statistics);
+    frame_statistics = getStatistics();
 }
 
 // FUNCTION: SURRENDER 0x1001AAB0
@@ -1206,15 +1200,14 @@ int srGERD::isFullScreen() const
 }
 
 // FUNCTION: SURRENDER 0x1001D030
-void srGERD::getPixelFormat(srPixelConvert::PixelFormat& format) const
+std::optional<srPixelConvert::PixelFormat> srGERD::getPixelFormat() const
 {
-    if (isWindowOpen() != 0) {
-        /* Default 8888 format the device getBufferPixelFormat refines. */
-        srDD::PixelFormat device = {
-            8, 0x10, 8, 8, 8, 0, 8, 0x18, srPixelConvert::COLOR_RGB, srPixelConvert::PIXEL_SIZE_32};
-        getDD()->getBufferPixelFormat(device);
-        convertPixelFormat(format, device);
+    if (isWindowOpen() == 0) {
+        return std::nullopt;
     }
+    srPixelConvert::PixelFormat format;
+    convertPixelFormat(format, getDD()->getBufferPixelFormat());
+    return format;
 }
 
 // FUNCTION: SURRENDER 0x1001D100
@@ -2701,67 +2694,30 @@ void srGERD::convertPixelFormat(srDD::PixelFormat& device,
 // FUNCTION: SURRENDER 0x10018F30
 void srGERD::initTextureFormats()
 {
-    srDD::PixelFormatList list{};
-    getDD()->getTextureFormats(list);
-    w8_long count = list.count;
-    device.texture_formats.resize(count);
-    if (count != 0) {
-        w8_long i;
-        for (i = 0; i < count; i++) {
-            device.texture_formats[i].fourcc = 0;
-        }
-        for (i = 0; i < count; i++) {
-            convertPixelFormat(device.texture_formats[i], list.formats[i]);
-        }
+    const auto formats = getDD()->getTextureFormats();
+    device.texture_formats.resize(formats.size());
+    for (std::size_t i = 0; i < formats.size(); ++i) {
+        device.texture_formats[i].fourcc = 0;
+        convertPixelFormat(device.texture_formats[i], formats[i]);
     }
 }
 
 // FUNCTION: SURRENDER 0x10018FE0
 void srGERD::initDisplayModeList()
 {
-    srDD::WindowInfoList list{};
-    getDD()->getWindowList(list);
-    device.display_modes.resize(list.count);
-    if (list.count != 0) {
-        for (w8_long i = 0; i < list.count; i++) {
-            device.display_modes[i].width = list.entries[i].width;
-            device.display_modes[i].height = list.entries[i].height;
-            device.display_modes[i].depth = list.entries[i].depth;
-        }
+    const auto modes = getDD()->getWindowList();
+    device.display_modes.resize(modes.size());
+    for (std::size_t i = 0; i < modes.size(); ++i) {
+        device.display_modes[i].width = modes[i].width;
+        device.display_modes[i].height = modes[i].height;
+        device.display_modes[i].depth = modes[i].depth;
     }
 }
 
 // FUNCTION: SURRENDER 0x10019080
 void srGERD::initDDInfo()
 {
-    device.info.max_back_buffer_width = 0;
-    device.info.max_back_buffer_height = 0;
-    for (auto& text : device.info.text) {
-        std::fill(std::begin(text), std::end(text), '\0');
-    }
-    device.info.flags = 0;
-    device.info.hardware_id = 1;
-    device.info.texture_min_dim = 1;
-    device.info.texture_max_aspect = 1;
-    device.info.max_texture_stages = 1;
-    device.info.renderer_batch_limit = 0x100;
-    device.info.unknown_20_ = 0x3b808081;
-    device.info.texture_ram = 0x200000;
-    device.info.unknown_0c_ = 0x10;
-    device.info.unknown_08_ = 4;
-    device.info.texture_max_dim = 0x100;
-    device.info.unknown_10_ = 1.0f;
-    device.info.unknown_14_ = 65536.0f;
-    sprintf(device.info.text[0], "Unknown");
-    sprintf(device.info.text[1], "Unknown");
-    sprintf(device.info.text[2], "Unknown");
-    sprintf(device.info.text[3], "Unknown");
-    sprintf(device.info.text[4], "Unknown");
-    sprintf(device.info.text[5], "Unknown");
-    sprintf(device.info.text[6], "Unknown");
-    sprintf(device.info.text[7], "Unknown");
-    sprintf(device.info.text[8], "Unknown");
-    getDD()->getInfo(device.info);
+    device.info = getDD()->getInfo();
     if (device.info.max_texture_stages > 2) {
         device.info.max_texture_stages = 2;
     }
@@ -3062,16 +3018,18 @@ srColorSurfaceIFace* srGERD::lockBuffer()
         return 0;
     }
     checkViewStateChanges();
-    srPixelConvert::PixelFormat format;
-    getPixelFormat(format);
-    lock_surface = std::make_unique<LockSurface>(this, format);
+    const auto format = getPixelFormat();
+    if (!format) {
+        return nullptr;
+    }
+    lock_surface = std::make_unique<LockSurface>(this, *format);
     lock_surface->setScissor(state.scissor.left, state.scissor.top, state.scissor.right,
                              state.scissor.bottom);
-    if (format.color_model == srPixelConvert::COLOR_RGB &&
-        format.pixel_size == srPixelConvert::PIXEL_SIZE_32 && format.red_bits == 8 &&
-        format.green_bits == 8 && format.blue_bits == 8 && format.alpha_bits == 8 &&
-        format.red_shift == 0x10 && format.green_shift == 8 && format.blue_shift == 0 &&
-        format.alpha_shift == 0x18) {
+    if (format->color_model == srPixelConvert::COLOR_RGB &&
+        format->pixel_size == srPixelConvert::PIXEL_SIZE_32 && format->red_bits == 8 &&
+        format->green_bits == 8 && format->blue_bits == 8 && format->alpha_bits == 8 &&
+        format->red_shift == 0x10 && format->green_shift == 8 && format->blue_shift == 0 &&
+        format->alpha_shift == 0x18) {
         lock_surface->argb32 = 1;
     }
     return lock_surface.get();
@@ -3592,14 +3550,6 @@ void srGERD::initGlobalPalette()
     }
     /* reinterpret-ok: the DD receives the palette entries as raw dwords. */
     getDD()->setGlobalPalette(reinterpret_cast<w8_ulong*>(global_palette), 0x100);
-}
-
-// FUNCTION: SURRENDER 0x10018E40
-void srGERD::debugWrite(const char* text)
-{
-    if (text != 0 && *text != '\0') {
-        srOut << text;
-    }
 }
 
 // FUNCTION: SURRENDER 0x10018E60

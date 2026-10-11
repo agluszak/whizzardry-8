@@ -542,12 +542,6 @@ w8_long srMeshModel::findClosestVertex(const srVector3T<float>& position)
     return closest;
 }
 
-// FUNCTION: SURRENDER 0x1003DAC0
-void srMeshModel::getTriMesh(TriMesh& mesh)
-{
-    mesh = getTriMesh();
-}
-
 // FUNCTION: SURRENDER 0x1003DC70
 const srMeshModel::TriMesh& srMeshModel::getTriMesh()
 {
@@ -589,10 +583,14 @@ void srMeshModel::updateTriMesh()
         tri_mesh.scg[pass] = getVertexSCG(pass, 0);
     }
     if ((tri_mesh.control_flags & (1UL << srMeshModel::CONTROL_SKIP_AUTO_BOX)) == 0) {
-        getBoundingBox(tri_mesh.bounds_minimum, tri_mesh.bounds_maximum);
+        const auto box = getBoundingBox();
+        tri_mesh.bounds_minimum = box.minimum;
+        tri_mesh.bounds_maximum = box.maximum;
     }
     if ((tri_mesh.control_flags & (1UL << srMeshModel::CONTROL_SKIP_AUTO_SPHERE)) == 0) {
-        getBoundingSphere(tri_mesh.bounds_center, tri_mesh.bounds_radius);
+        const auto sphere = getBoundingSphere();
+        tri_mesh.bounds_center = sphere.center;
+        tri_mesh.bounds_radius = sphere.radius;
     }
     tri_mesh.active_polygons = getActivePolygonTable(0);
     tri_mesh.active_polygon_count = active_polygon_count;
@@ -612,25 +610,21 @@ void srMeshModel::setBounds(const glm::vec3& minimum, const glm::vec3& maximum,
 }
 
 // FUNCTION: SURRENDER 0x1003FE40
-int srMeshModel::getBoundingBox(glm::vec3& minimum, glm::vec3& maximum)
+srBoundingBox srMeshModel::getBoundingBox()
 {
     if ((dirty_flags.value & (1UL << DIRTY_BOUNDS)) != 0) {
         calculateBounds();
     }
-    minimum = bounds_minimum;
-    maximum = bounds_maximum;
-    return 1;
+    return {bounds_minimum, bounds_maximum};
 }
 
 // FUNCTION: SURRENDER 0x1003FE90
-int srMeshModel::getBoundingSphere(glm::vec3& center, float& radius)
+srModel::BoundingSphere srMeshModel::getBoundingSphere()
 {
     if ((dirty_flags.value & (1UL << DIRTY_BOUNDS)) != 0) {
         calculateBounds();
     }
-    center = bounds_center;
-    radius = bounds_radius;
-    return 1;
+    return {bounds_center, bounds_radius};
 }
 
 static glm::vec4* GetVertexColorTable(srMeshModel& mesh,
@@ -659,18 +653,14 @@ glm::vec4* srMeshModel::getVertexDCG(w8_long vertex, int table)
 void srMeshModel::render(srGERD& renderer)
 {
     if ((render_control.value & (1UL << CONTROL_SKIP_AUTO_SPHERE)) == 0) {
-        glm::vec3 center;
-        float radius;
-        getBoundingSphere(center, radius);
+        const auto [center, radius] = getBoundingSphere();
         if (renderer.testBoundingSphere(center, radius) == srGERD::VISIBILITY_OUTSIDE) {
             return;
         }
     }
     if ((render_control.value & (1UL << CONTROL_SKIP_AUTO_BOX)) == 0 &&
         vertex_location_count >= 8) {
-        glm::vec3 minimum;
-        glm::vec3 maximum;
-        getBoundingBox(minimum, maximum);
+        const auto [minimum, maximum] = getBoundingBox();
         if (renderer.testBoundingBox(minimum, maximum) == srGERD::VISIBILITY_OUTSIDE) {
             return;
         }
@@ -800,8 +790,7 @@ void srMeshModel::verify(srRuntimeClass::e_verify mode)
     w8_long v;
 
     srClass::verify(mode);
-    TriMesh t;
-    getTriMesh(t);
+    auto t = getTriMesh();
     if (t.vertex_count <= 0) {
         srAssertFail("t.vnum > 0", "D:\\srsdk1x\\sources\\corelib\\srMeshModel.cpp", 0x5cf, 0);
     }
@@ -969,17 +958,13 @@ void srMeshModel::dump(std::ostream& stream)
     stream.width(0x20);
     stream << "  Passes: " << pass_count << '\n';
     stream.width(0x20);
-    glm::vec3 minimum;
-    glm::vec3 maximum;
-    getBoundingBox(minimum, maximum);
+    const auto [minimum, maximum] = getBoundingBox();
     stream << "  Bounding box min: ";
     stream << '{' << minimum.x << ',' << minimum.y << ',' << minimum.z << '}' << '\n';
     stream.width(0x20);
     stream << "  Bounding box max: ";
     stream << '{' << maximum.x << ',' << maximum.y << ',' << maximum.z << '}' << '\n';
-    glm::vec3 center;
-    float radius;
-    getBoundingSphere(center, radius);
+    const auto [center, radius] = getBoundingSphere();
     stream.width(0x20);
     stream << "  Bounding sphere origin: ";
     stream << '{' << center.x << ',' << center.y << ',' << center.z << '}' << '\n';

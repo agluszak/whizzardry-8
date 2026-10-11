@@ -26,6 +26,10 @@
 #include "wiz8/engine_code/stLight.hpp"
 #include "wiz8/engine_code/stMeshModel.h"
 #include "wiz8/engine_code/stModelInstance.h"
+#include "wiz8/engine_code/materials.h"
+#include "surrender/srNode.h"
+#include "surrender/srModel.h"
+#include "surrender/srModelInstance.h"
 #include "wiz8/direction_angles.h"
 #include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/GameData.h"
@@ -552,6 +556,91 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Cameras and throwing", "[geometry]")
 TEST_CASE_METHOD(SurRenderTestFixture, "Linked mesh bounds", "[geometry]")
 {
     linked_mesh_bounds();
+}
+
+TEST_CASE_METHOD(SurRenderTestFixture, "Model bounds are independent values", "[geometry]")
+{
+    auto mesh = std::make_shared<srMeshModel>(0, 2);
+    mesh->getVertexLoc()[0] = srVector3(-4, -3, -2);
+    mesh->getVertexLoc()[1] = srVector3(2, 3, 4);
+    srModel& model = *mesh;
+    auto box = model.getBoundingBox();
+    const auto sphere = model.getBoundingSphere();
+    REQUIRE(box.minimum == glm::vec3(-4, -3, -2));
+    REQUIRE(box.maximum == glm::vec3(2, 3, 4));
+    REQUIRE(sphere.center == glm::vec3(-1, 0, 1));
+    REQUIRE(std::abs(sphere.radius - std::sqrt(27.0f)) < 1e-5f);
+    box.minimum = glm::vec3(99);
+    REQUIRE(model.getBoundingBox().minimum == glm::vec3(-4, -3, -2));
+
+    srModelInstance instance;
+    instance.setModel(mesh);
+    srNode& node = instance;
+    const auto local = node.getLocalBounds();
+    REQUIRE(local.state == 1);
+    REQUIRE(local.minimum == model.getBoundingBox().minimum);
+    REQUIRE(local.maximum == model.getBoundingBox().maximum);
+    REQUIRE(local.center == sphere.center);
+    REQUIRE(local.radius == sphere.radius);
+
+    auto draw = mesh->getTriMesh();
+    draw.bounds_radius = 99;
+    REQUIRE(mesh->getTriMesh().bounds_radius == sphere.radius);
+    mesh->getVertexLoc()[1] = srVector3(4, 5, 6);
+    mesh->setDirtyAll();
+    REQUIRE(model.getBoundingBox().maximum == glm::vec3(4, 5, 6));
+    REQUIRE(node.getLocalBounds().maximum == glm::vec3(4, 5, 6));
+
+    srNode empty;
+    REQUIRE(empty.getLocalBounds().state == 0);
+    empty.setFlag(srNode::FLAG_GLOBAL);
+    const auto global = empty.getLocalBounds();
+    REQUIRE(global.state == 2);
+    REQUIRE(global.minimum == glm::vec3(0));
+    REQUIRE(global.maximum == glm::vec3(0));
+    REQUIRE(global.center == glm::vec3(0));
+    REQUIRE(global.radius == 0);
+    instance.setModel(nullptr);
+    instance.setFlag(srNode::FLAG_GLOBAL);
+    const auto missing = node.getLocalBounds();
+    REQUIRE(missing.state == 0);
+    REQUIRE(missing.minimum == glm::vec3(0));
+    REQUIRE(missing.maximum == glm::vec3(0));
+    REQUIRE(missing.center == glm::vec3(0));
+    REQUIRE(missing.radius == 0);
+
+    stMeshModel linked(0, 1);
+    linked.getVertexLoc()[0] = srVector3(-2, -4, -6);
+    auto part = std::make_unique<stMeshModel>(0, 1);
+    part->getVertexLoc()[0] = srVector3(2, 4, 6);
+    linked.AddPart(std::move(part));
+    srModel& linked_model = linked;
+    REQUIRE(linked_model.getBoundingBox().minimum == glm::vec3(-2, -4, -6));
+    REQUIRE(linked_model.getBoundingBox().maximum == glm::vec3(2, 4, 6));
+    REQUIRE(linked_model.getBoundingSphere().center == glm::vec3(0));
+    REQUIRE(std::abs(linked_model.getBoundingSphere().radius - std::sqrt(56.0f)) < 1e-5f);
+}
+
+TEST_CASE_METHOD(SurRenderTestFixture, "Material query overrides do not mutate the cache", "[geometry]")
+{
+    stMaterial material;
+    material.setDiffuse(glm::vec4(.2f, .3f, .4f, .8f));
+    material.setEmissive(glm::vec4(.1f, .2f, .3f, 1));
+    const auto original = material.getMaterialInfo();
+    g_material_diffuse_scale_enabled = true;
+    g_material_diffuse_scale = .5f;
+    g_material_emissive_override_enabled = true;
+    g_material_emissive_override = .75f;
+    const auto overridden = material.getMaterialInfo();
+    g_material_diffuse_scale_enabled = false;
+    g_material_emissive_override_enabled = false;
+    REQUIRE(overridden.diffuse == glm::vec4(.2f, .3f, .4f, .4f));
+    REQUIRE(overridden.emissive == glm::vec4(.75f, .75f, .75f, 1));
+    REQUIRE(material.getMaterialInfo().diffuse == original.diffuse);
+    REQUIRE(material.getMaterialInfo().emissive == original.emissive);
+    material.setDiffuse(glm::vec4(.5f));
+    REQUIRE(material.getMaterialInfo().diffuse == glm::vec4(.5f));
+    REQUIRE(original.diffuse == glm::vec4(.2f, .3f, .4f, .8f));
 }
 
 TEST_CASE_METHOD(SurRenderTestFixture, "Baked lighting", "[geometry]")

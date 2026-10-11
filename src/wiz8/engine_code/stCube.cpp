@@ -638,7 +638,6 @@ unsigned char SaveWorldCursorNodes(wiz8::File* handle)
     int component;
     srVector3T<float> location;
     W8WorldCursorNode* node;
-    srNode::BoundInfo bounds;
 
     if (!(handle->write(&version, 4), true)) {
         return 0;
@@ -654,7 +653,7 @@ unsigned char SaveWorldCursorNodes(wiz8::File* handle)
         for (component = 0; component < 3 && ok; ++component) {
             ok = (handle->write(&node->parameters[component], 4), true);
         }
-        node->node->getLocalBounds(bounds);
+        const auto bounds = node->node->getLocalBounds();
         location = glm::vec3(node->node->getLocation());
         ok = ok && (handle->write(&bounds.minimum.x, 4), true) &&
              (handle->write(&bounds.minimum.y, 4), true) &&
@@ -739,8 +738,7 @@ W8WorldCursorNode* FindWorldCursorNodeAtPoint(W8WorldCursorNode* after, srVector
     while (index < count) {
         W8WorldCursorNode* entry = g_world_cursor_nodes[index];
         if (entry->node != 0) {
-            srNode::BoundInfo bounds;
-            entry->node->getLocalBounds(bounds);
+            const auto bounds = entry->node->getLocalBounds();
             const auto location = glm::vec3(entry->node->getLocation());
             const srBoundingBox box{bounds.minimum + location, bounds.maximum + location};
             if (box.contains(point->glmValue())) {

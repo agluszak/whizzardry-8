@@ -4,6 +4,7 @@
 #include <list>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <thread>
 #include <utility>
@@ -209,9 +210,17 @@ public:
         /* discard accumulated state; nonzero also releases
            the backing arrays. */
         void reset(int release_buffers);
-        /* resetStatistics zeroes statistics; getStatistics copies its seven counters out. */
+        struct Statistics {
+            w8_ulong triangle_chunks = 0;
+            w8_ulong input_triangles = 0;
+            w8_ulong clipped_triangles = 0;
+            w8_ulong input_vertices = 0;
+            w8_ulong device_calls = 0;
+            w8_ulong device_vertices = 0;
+            w8_ulong device_vertex_indices = 0;
+        };
         void resetStatistics();
-        void getStatistics(w8_ulong* statistics);
+        Statistics getStatistics() const;
 
         /* CPU scratch streams owned by the renderer. */
         std::vector<unsigned char> bytes;
@@ -219,9 +228,7 @@ public:
         /* render()'s per-corner dedup scratch (six slots per triangle). */
         std::vector<w8_ulong> remap;
         std::vector<TexCoordQ> stq[2];
-        /* submit() bumps [4] per call and accumulates the vertex count into [5] and the index-batch
-           count into [6]. */
-        w8_ulong statistics[7];
+        Statistics statistics;
         TextureSetCache texture_sets;
         IndexBatch indices;
         VertexArrays vertices;
@@ -404,7 +411,7 @@ public:
         /* classifyMatrix call count. */
         w8_ulong matrix_classifications;
     };
-    void getStatistics(Statistics& statistics);
+    Statistics getStatistics();
     w8_ulong getTextureCacheUsed() const;
     w8_ulong getResidentTextureMemUsed() const;
     void setClearColor(const glm::vec4& color);
@@ -725,7 +732,6 @@ private:
     srGERD& operator=(const srGERD& other);
     srDD* getDD() const;
 
-    static void debugWrite(const char* text);
     void fenceVertexArrays();
     void dumpTextureCache(std::ostream& stream);
     void setDataPtr(srRendererDefs::e_vertexArray index, w8_long components,
@@ -800,7 +806,7 @@ private:
     e_error openWindowInternal(const OpenInfo& info);
     srDD::e_error _lockBuffer();
     srDD::e_error _unlockBuffer();
-    void getPixelFormat(srPixelConvert::PixelFormat& format) const;
+    std::optional<srPixelConvert::PixelFormat> getPixelFormat() const;
     void accumAlloc();
     short accumConvert(float value) const;
     void accumClear();
@@ -1067,4 +1073,3 @@ private:
        cleared by closeWindow. */
     std::vector<glm::vec4> pick_vertices;
 };
-

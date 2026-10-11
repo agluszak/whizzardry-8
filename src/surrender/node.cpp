@@ -141,17 +141,10 @@ void srNode::updateBounds()
 }
 
 // FUNCTION: SURRENDER 0x10050510
-void srNode::getLocalBounds(BoundInfo& bounds)
+srNode::BoundInfo srNode::getLocalBounds()
 {
-    bounds.minimum = glm::vec3(0);
-    bounds.maximum = glm::vec3(0);
-    bounds.center = glm::vec3(0);
-    bounds.radius = 0.0f;
-    if (testFlag(FLAG_GLOBAL) != 0) {
-        bounds.state = 2;
-        return;
-    }
-    bounds.state = 0;
+    return {glm::vec3(0), glm::vec3(0), glm::vec3(0), 0.0f,
+            testFlag(FLAG_GLOBAL) != 0 ? 2 : 0};
 }
 
 // FUNCTION: SURRENDER 0x100505E0
