@@ -7,6 +7,7 @@
 #include <vector>
 #include <exception>
 #include <memory>
+#include <iterator>
 #include <string>
 #include <utility>
 
@@ -765,53 +766,54 @@ try
 }
 
 // FUNCTION: WIZ8 0x004BC850
-unsigned char ReadWorldCameras(W8ReadLevelInfo* pInfo, W8World* pWorld)
+unsigned char ReadWorldCameras(W8ReadLevelInfo* info, W8World* world)
 try
 {
+    if (!info || !info->hFile || !world) {
+        return false;
+    }
+    auto* file = info->hFile;
     int count;
-    int index;
-    int positional_0;
-    int positional_1;
-    unsigned char has_scale;
-    float scale;
-    unsigned char success;
-    W8CameraPath* entry;
-
-    if (pInfo == 0 || (pInfo->hFile == 0 | pWorld == 0)) {
-        return 0;
+    file->read_exact(&count, sizeof(count));
+    if (count < 0 || count >= 100000) {
+        return false;
     }
-    success = (pInfo->hFile->read(&count, sizeof(count)).bytes == static_cast<std::size_t>(sizeof(count)));
-    if (!success || count >= 100000) {
-        return 0;
-    }
-    if (count == 0) {
-        return 1;
-    }
-
-    for (index = 0; index < count; ++index) {
-        entry = static_cast<W8CameraPath*>(malloc(sizeof(W8CameraPath)));
-        if (entry == 0) {
-            return 0;
+    std::vector<std::unique_ptr<W8CameraPath>> pending;
+    for (int index = 0; index < count; ++index) {
+        auto entry = std::make_unique<W8CameraPath>();
+        int positional_0, positional_1;
+        unsigned char has_scale;
+        float scale = 15.0f;
+        file->read_exact(&positional_0, sizeof(positional_0));
+        file->read_exact(&positional_1, sizeof(positional_1));
+        file->read_exact(&has_scale, sizeof(has_scale));
+        file->read_exact(entry->name0, sizeof(entry->name0));
+        if (memchr(entry->name0, '\0', sizeof(entry->name0)) == nullptr) {
+            return false;
         }
-        memset(entry, 0, sizeof(W8CameraPath));
-        (pInfo->hFile->read(&positional_0, sizeof(positional_0)).bytes == static_cast<std::size_t>(sizeof(positional_0)));
-        (pInfo->hFile->read(&positional_1, sizeof(positional_1)).bytes == static_cast<std::size_t>(sizeof(positional_1)));
-        (pInfo->hFile->read(&has_scale, sizeof(has_scale)).bytes == static_cast<std::size_t>(sizeof(has_scale)));
-        (pInfo->hFile->read(entry->name0, sizeof(entry->name0)).bytes == static_cast<std::size_t>(sizeof(entry->name0)));
         if (has_scale > 0) {
-            (pInfo->hFile->read(&scale, sizeof(scale)).bytes == static_cast<std::size_t>(sizeof(scale)));
-        } else {
-            scale = 15.0f;
+            file->read_exact(&scale, sizeof(scale));
         }
 
-        entry->path = 0;
-        success = success && LoadPathAI(&entry->path, pInfo->hFile);
-        PathAIEnableTimedMode(entry->path);
-        pWorld->plsCameras.push_back(entry);
+        // LoadPathAI publishes only on success. Adopt its result immediately;
+        // empty paths are invalid for cameras, which always use a live path.
+        W8PathAI* path = nullptr;
+        if (!LoadPathAI(&path, file)) {
+            return false;
+        }
+        entry->path.reset(path);
+        if (!entry->path) {
+            return false;
+        }
+        PathAIEnableTimedMode(entry->path.get());
         entry->path->entry_index = index;
         entry->path->speed = scale;
+        pending.push_back(std::move(entry));
     }
-    return 1;
+    world->plsCameras.insert(world->plsCameras.end(),
+                             std::make_move_iterator(pending.begin()),
+                             std::make_move_iterator(pending.end()));
+    return true;
 } catch (const std::exception&) {
     return false;
 }

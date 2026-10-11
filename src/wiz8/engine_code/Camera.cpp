@@ -28,6 +28,9 @@
 
 struct W8NpcState;
 
+W8CameraPath::W8CameraPath() = default;
+W8CameraPath::~W8CameraPath() = default;
+
 /* Retail Engine Code\Camera.cpp. The TU's single anchored function is
    0x0048F2F0 below; the only other evidence is the path string and it owns no
    globals beyond the saved-environment flag. Nothing in GameData.cpp or
@@ -73,8 +76,8 @@ void UpdateCameraPathState(W8World* world, W8CameraPath* path, int active)
     if (!path->active && active != 0) {
         g_camera_path_active = true;
         path->active = true;
-        PathAISetValue(path->path, 0.0f);
-        PathAIResetTick(path->path);
+        PathAISetValue(path->path.get(), 0.0f);
+        PathAIResetTick(path->path.get());
         path->path->distance_travelled = 0.0f;
         path->path->upright = 1;
         g_saved_environment_flag = SetEnvironmentLoadFlag(0);

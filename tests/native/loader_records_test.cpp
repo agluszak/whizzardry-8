@@ -25,6 +25,8 @@
 #include "wiz8/engine_code/LevelFile.h"
 #include "wiz8/engine_code/ReadMesh.h"
 #include "wiz8/engine_code/ReadLevel.h"
+#include "wiz8/engine_code/Camera.h"
+#include "wiz8/engine_code/PathAI.h"
 #include "wiz8/layouts/world.h"
 #include "wiz8/engine_code/OctPath.h"
 #include "wiz8/engine_code/Octree.h"
@@ -823,6 +825,104 @@ TEST_CASE_METHOD(LoaderFixture, "Named positions commit only complete sections",
         store("positions.bin", empty);
         auto file = wiz8::open_file("positions.bin");
         REQUIRE(ReadNamedPositions(file.get(), world.named_positions) == (count == 0));
+        unchanged();
+    }
+}
+
+TEST_CASE_METHOD(LoaderFixture, "World camera paths commit only complete tables", "[loader][records]")
+{
+    std::string bytes;
+    append(bytes, std::int32_t{2});
+    for (std::uint8_t scaled : {0, 1}) {
+        append(bytes, std::int32_t{10});
+        append(bytes, std::int32_t{20});
+        append(bytes, scaled);
+        std::array<char, 20> name{};
+        std::strcpy(name.data(), scaled ? "SCALED" : "DEFAULT");
+        append(bytes, name);
+        if (scaled) append(bytes, 7.5f);
+        append(bytes, std::uint8_t{0}); // Path record version.
+        append(bytes, std::uint8_t{1}); // Path data version, without per-node scales.
+        append(bytes, 0.f);
+        append(bytes, std::uint32_t{0});
+        append(bytes, std::int32_t{2});
+        for (float x : {0.f, 1.f}) {
+            for (float value : {x, 0.f, 0.f, 0.f, 0.f, 1.f, 0.f}) append(bytes, value);
+        }
+    }
+    W8World world{};
+    world.plsCameras.push_back(std::make_unique<W8CameraPath>());
+    auto* existing = GetWorldCameraPath(&world, 0);
+    std::strcpy(existing->name0, "EXISTING");
+    auto unchanged = [&] {
+        REQUIRE(world.plsCameras.size() == 1);
+        REQUIRE(GetWorldCameraPath(&world, 0) == existing);
+        REQUIRE(std::string(existing->name0) == "EXISTING");
+    };
+    auto read = [&](wiz8::File* file) {
+        W8ReadLevelInfo info{&world, file, nullptr, nullptr};
+        return ReadWorldCameras(&info, &world);
+    };
+    // Every truncation must also release entries and path nodes already decoded.
+    for (std::size_t end = 0; end < bytes.size(); ++end) {
+        store("cameras.bin", bytes.substr(0, end));
+        auto file = wiz8::open_file("cameras.bin");
+        REQUIRE_FALSE(read(file.get()));
+        unchanged();
+    }
+    store("cameras.bin", bytes);
+    std::size_t operations;
+    {
+        auto file = wiz8::open_file("cameras.bin");
+        FileFaults trace;
+        REQUIRE(read(file.get()));
+        operations = trace.operations;
+    }
+    REQUIRE(world.plsCameras.size() == 3);
+    REQUIRE(GetWorldCameraPath(&world, 0) == existing);
+    auto* first = GetWorldCameraPath(&world, 1);
+    auto* second = GetWorldCameraPath(&world, 2);
+    REQUIRE_FALSE(first->active);
+    REQUIRE(first->path->timed);
+    REQUIRE(first->path->animated);
+    REQUIRE(first->path->entry_index == 0);
+    REQUIRE(second->path->entry_index == 1);
+    REQUIRE(first->path->speed == 15.f);
+    REQUIRE(second->path->speed == 7.5f);
+    REQUIRE(first->path->nodes.size() == 2);
+    REQUIRE(first->path->nodes[1].x == 500.f);
+    world.plsCameras.resize(1);
+    for (std::size_t operation = 1; operation <= operations; ++operation) {
+        auto file = wiz8::open_file("cameras.bin");
+        FileFaults fault(operation);
+        REQUIRE_FALSE(read(file.get()));
+        REQUIRE(fault.fired);
+        unchanged();
+    }
+    // The first path count starts after the camera header and path preamble.
+    constexpr std::size_t path_count_offset = 4 + 4 + 4 + 1 + 20 + 1 + 1 + 4 + 4;
+    auto invalid = bytes;
+    invalid.replace(path_count_offset, 4, 4, '\0');
+    store("cameras.bin", invalid);
+    {
+        auto file = wiz8::open_file("cameras.bin");
+        REQUIRE_FALSE(read(file.get())); // An empty path must never be dereferenced.
+        unchanged();
+    }
+    invalid = bytes;
+    invalid.replace(4 + 4 + 4 + 1, 20, 20, 'x');
+    store("cameras.bin", invalid);
+    {
+        auto file = wiz8::open_file("cameras.bin");
+        REQUIRE_FALSE(read(file.get()));
+        unchanged();
+    }
+    for (std::int32_t count : {-1, 0, 100000}) {
+        std::string empty;
+        append(empty, count);
+        store("cameras.bin", empty);
+        auto file = wiz8::open_file("cameras.bin");
+        REQUIRE(static_cast<bool>(read(file.get())) == (count == 0));
         unchanged();
     }
 }

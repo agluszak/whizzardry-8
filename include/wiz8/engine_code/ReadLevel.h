@@ -22,3 +22,6 @@ unsigned char ReadWorldParticles(W8ReadLevelInfo* info, srNode* scene,
 
 // Append a complete named-position section; failure leaves the destination unchanged.
 bool ReadNamedPositions(wiz8::File* file, std::vector<W8NamedPosition>& positions);
+
+// Camera entries and paths are committed together after the full table loads.
+unsigned char ReadWorldCameras(W8ReadLevelInfo* info, W8World* world);

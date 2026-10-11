@@ -387,10 +387,7 @@ static void DestroyWorldEntities(W8World* world)
     if (g_world_cleanup_flag)
         RenderFrame();
 
-    wiz8::clear_and_dispose(world->plsCameras, [](W8CameraPath* entry) {
-        delete entry->path;
-        free(entry);
-    });
+    world->plsCameras.clear();
 
     StopAllAmbientSounds();
     wiz8::clear_and_dispose(world->plsAmbientSounds, DestroyAmbientSound);
@@ -533,7 +530,7 @@ void UpdateWorldCameraAndPaths(W8World* world, unsigned int flags)
         for (index = 0; index < camera_count; ++index) {
             camera_path = GetWorldCameraPath(world, index);
             if (camera_path != 0 && camera_path->active) {
-                path = camera_path->path;
+                path = camera_path->path.get();
                 PathAITick(path, 1);
                 PathAIApply(path, world->camera);
                 {

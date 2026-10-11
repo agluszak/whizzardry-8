@@ -6,7 +6,6 @@
 
 #include <vector>
 class W8AmbientSound;
-struct W8CameraPath;
 struct W8Item;
 class W8Monster;
 class W8Prop;
@@ -17,6 +16,7 @@ class stLight;
 #include "wiz8/environment_colour.h"
 #include <algorithm>
 #include "wiz8/named_position.h"
+#include "wiz8/engine_code/Camera.h"
 #include "wiz8/engine_code/quad.h"
 
 class srCamera;
@@ -31,7 +31,6 @@ struct MonGen;
 class stLight;
 class W8Prop;
 class W8AmbientSound;
-struct W8CameraPath;
 class Trigger;
 class stParticle;
 struct W8PathAI;
@@ -52,14 +51,15 @@ W8_ABI_ASSERT(sizeof(W8WorldCameraState) == 0x3c, "W8WorldCameraState_size");
 W8_ABI_ASSERT(alignof(W8WorldCameraState) == 1, "W8WorldCameraState_alignment");
 
 /* Runtime world, not a retail disk record. Collection storage belongs to the
-   world; raw entity pointers still follow the ordered DestroyWorld teardown.
+   world. Cameras own their paths; raw entity pointers still follow the ordered
+   DestroyWorld teardown.
    lights_to_update and collidable_props are non-owning indexes. Named positions
    are owned values: lookups copy their data and never retain element addresses. */
 struct W8World {
     std::vector<W8Monster*> plsMonsters;
     std::vector<W8Item*> plsItems;
     std::vector<W8Prop*> plsProps;
-    std::vector<W8CameraPath*> plsCameras;
+    std::vector<std::unique_ptr<W8CameraPath>> plsCameras;
     std::vector<W8AmbientSound*> plsAmbientSounds;
     float environment_range_start;
     float environment_range_end;
@@ -120,7 +120,7 @@ inline W8CameraPath* GetWorldCameraPath(W8World* world, int index)
         std::cmp_greater_equal(index, world->plsCameras.size())) {
         return nullptr;
     }
-    return world->plsCameras[index];
+    return world->plsCameras[index].get();
 }
 
 inline W8AmbientSound* GetWorldAmbientSound(W8World* world, int index)
