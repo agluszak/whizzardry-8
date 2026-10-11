@@ -335,7 +335,7 @@ void QueueNpcMessageLine(W8NpcMessageKind kind, int argument)
 void AddTextMessageBoxLine(W8NpcMessageKind kind, std::string text, W8QuoteNotice notice)
 {
     QueueMessageBoxLine(
-        {SessionNpcKind(), W8NpcQueuedNotice{kind, std::move(text), std::move(notice)}}, false);
+        {SessionNpcKind(), W8NpcQueuedNotice{kind, std::move(text), notice}}, false);
 }
 
 /* Resolve the player's reply text to the script line it selects. The current
